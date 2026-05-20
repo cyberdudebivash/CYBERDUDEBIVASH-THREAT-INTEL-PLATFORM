@@ -1,0 +1,928 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Payment Gateway &mdash; CYBERDUDEBIVASH SENTINEL APEX</title>
+<meta name="description" content="Secure payment gateway for SENTINEL APEX threat intelligence platform. Pay via UPI (GPay/PhonePe/Paytm/BHIM/AmazonPay), Bank NEFT, PayPal, or Crypto. GSTIN: 21ARKPN8270G1ZP">
+<meta name="robots" content="noindex, nofollow">
+<link rel="icon" type="image/x-icon" href="/favicon.ico">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<style>
+:root {
+  --bg: #050c18; --bg2: #090f1e; --bg3: #0d1525;
+  --border: #162030; --accent: #00ffc6; --accent2: #7c3aed; --accent3: #f59e0b;
+  --text: #e2e8f0; --muted: #64748b;
+  --green: #10b981; --red: #ef4444; --yellow: #f59e0b;
+  --card: #0b1422; --card2: #0f1a2e; --blue: #3b82f6;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', system-ui, sans-serif; min-height: 100vh; }
+
+.live-ticker { background: linear-gradient(90deg, #0a0019, #0d0030, #0a0019); border-bottom: 1px solid rgba(124,58,237,0.3); padding: 8px 0; overflow: hidden; }
+.ticker-inner { display: flex; gap: 40px; white-space: nowrap; animation: ticker 40s linear infinite; }
+@keyframes ticker { 0%{transform:translateX(0)} 100%{transform:translateX(-50%)} }
+.ticker-item { font-size: 11px; font-weight: 600; letter-spacing: 0.5px; color: rgba(0,255,198,0.7); }
+.ticker-item strong { color: var(--accent); }
+.ticker-dot { color: var(--accent2); }
+
+.urgency-bar { background: linear-gradient(90deg, #1a0050, #0a1a3a, #1a0050); background-size: 200%; animation: urgency-shift 4s linear infinite; text-align: center; padding: 9px 16px; font-size: 12px; font-weight: 700; color: var(--accent); letter-spacing: 0.5px; border-bottom: 1px solid rgba(0,255,198,0.1); }
+@keyframes urgency-shift { 0%{background-position:0%} 100%{background-position:200%} }
+.urgency-bar span { color: var(--yellow); }
+
+nav { display: flex; align-items: center; justify-content: space-between; padding: 14px 40px; background: rgba(5,12,24,0.97); border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 200; backdrop-filter: blur(16px); }
+.nav-logo { font-family: monospace; font-weight: 900; font-size: 13px; color: var(--accent); letter-spacing: 2px; text-decoration: none; }
+.nav-links { display: flex; gap: 20px; align-items: center; }
+.nav-links a { color: var(--muted); text-decoration: none; font-size: 12px; transition: color 0.15s; }
+.nav-links a:hover { color: var(--accent); }
+.nav-cta { background: var(--accent) !important; color: #000 !important; padding: 7px 16px; border-radius: 6px; font-weight: 800 !important; font-size: 11px !important; letter-spacing: 1px; }
+
+.hero { background: radial-gradient(ellipse 1200px 600px at 50% -100px, rgba(0,255,198,0.06) 0%, transparent 60%), linear-gradient(180deg, #050c18 0%, #090f1e 100%); padding: 60px 24px 50px; text-align: center; border-bottom: 1px solid var(--border); position: relative; overflow: hidden; }
+.hero-badge { display: inline-flex; align-items: center; gap: 8px; background: rgba(0,255,198,0.08); border: 1px solid rgba(0,255,198,0.25); border-radius: 20px; padding: 6px 18px; font-size: 11px; color: var(--accent); letter-spacing: 1.5px; font-family: monospace; margin-bottom: 24px; }
+.hero-badge::before { content: ''; width: 7px; height: 7px; border-radius: 50%; background: var(--accent); animation: pulse 1.5s ease-in-out infinite; }
+@keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.5;transform:scale(1.3)} }
+.hero h1 { font-size: clamp(30px,5vw,52px); font-weight: 900; line-height: 1.1; margin-bottom: 16px; }
+.hero h1 span { color: var(--accent); }
+.hero-sub { font-size: 15px; color: var(--muted); max-width: 620px; margin: 0 auto 28px; line-height: 1.7; }
+.hero-stats { display: flex; gap: 32px; justify-content: center; flex-wrap: wrap; }
+.hero-stat-val { font-size: 22px; font-weight: 900; color: var(--accent); font-family: monospace; }
+.hero-stat-label { font-size: 10px; color: var(--muted); letter-spacing: 1px; text-transform: uppercase; margin-top: 2px; }
+
+.main { max-width: 1200px; margin: 0 auto; padding: 48px 24px; }
+.section-heading { font-size: 11px; font-weight: 700; letter-spacing: 2px; color: var(--muted); text-transform: uppercase; margin-bottom: 20px; padding-left: 12px; border-left: 3px solid var(--accent); }
+
+.trust-strip { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; margin-bottom: 48px; }
+.trust-chip { display: flex; align-items: center; gap: 7px; background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 9px 14px; font-size: 12px; color: var(--muted); transition: border-color 0.2s; }
+.trust-chip:hover { border-color: rgba(0,255,198,0.2); }
+.trust-chip .icon { color: var(--green); }
+
+/* PLANS */
+.billing-toggle { display: flex; align-items: center; gap: 12px; margin-bottom: 24px; justify-content: center; }
+.toggle-label { font-size: 13px; color: var(--muted); }
+.toggle-label.active { color: var(--text); font-weight: 700; }
+.toggle-btn { width: 52px; height: 28px; background: var(--border); border-radius: 14px; cursor: pointer; position: relative; transition: background 0.2s; border: none; outline: none; }
+.toggle-btn.annual { background: var(--accent2); }
+.toggle-btn::after { content: ''; position: absolute; width: 22px; height: 22px; background: #fff; border-radius: 50%; top: 3px; left: 3px; transition: left 0.2s; }
+.toggle-btn.annual::after { left: 27px; }
+.save-badge { background: var(--green); color: #fff; font-size: 10px; font-weight: 800; padding: 2px 9px; border-radius: 10px; letter-spacing: 0.5px; }
+.plan-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 14px; margin-bottom: 48px; }
+.plan-tile { background: var(--card); border: 2px solid var(--border); border-radius: 14px; padding: 22px; cursor: pointer; transition: all 0.15s; position: relative; }
+.plan-tile:hover { border-color: rgba(0,255,198,0.3); transform: translateY(-2px); }
+.plan-tile.selected { border-color: var(--accent); background: rgba(0,255,198,0.03); }
+.plan-tile.featured { border-color: rgba(0,255,198,0.35); }
+.plan-tile .badge { position: absolute; top: -10px; left: 50%; transform: translateX(-50%); background: var(--accent); color: #000; font-size: 10px; font-weight: 800; padding: 3px 12px; border-radius: 10px; white-space: nowrap; letter-spacing: 1px; }
+.plan-name { font-size: 10px; font-weight: 700; color: var(--muted); letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 10px; font-family: monospace; }
+.plan-usd { font-size: 40px; font-weight: 900; color: var(--text); line-height: 1; }
+.plan-usd sup { font-size: 18px; vertical-align: top; margin-top: 8px; font-weight: 700; }
+.plan-period { font-size: 12px; color: var(--muted); margin-left: 3px; }
+.plan-inr { font-size: 13px; color: var(--green); margin-top: 4px; font-weight: 600; }
+.plan-inr-annual { font-size: 12px; color: var(--yellow); margin-top: 2px; font-weight: 600; display: none; }
+.plan-features { margin-top: 16px; list-style: none; }
+.plan-features li { font-size: 12px; color: var(--muted); margin-bottom: 6px; display: flex; align-items: flex-start; gap: 6px; line-height: 1.4; }
+.plan-features li::before { content: '\2713'; color: var(--accent); flex-shrink: 0; font-size: 11px; }
+.plan-cta { display: block; width: 100%; padding: 10px; text-align: center; border-radius: 8px; font-weight: 700; font-size: 13px; text-decoration: none; margin-top: 16px; transition: all 0.15s; cursor: pointer; border: none; }
+.plan-cta.primary { background: var(--accent); color: #000; }
+.plan-cta.primary:hover { opacity: 0.85; }
+.plan-cta.secondary { border: 1px solid var(--border); color: var(--text); background: transparent; }
+.plan-cta.secondary:hover { border-color: var(--accent); color: var(--accent); }
+
+/* PAYMENT HUB */
+.payment-hub { background: linear-gradient(145deg, #050c18 0%, #090f1e 100%); border: 2px solid rgba(0,255,198,0.15); border-radius: 20px; padding: 32px; margin-bottom: 48px; position: relative; overflow: hidden; }
+.payment-hub::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; background: linear-gradient(90deg, var(--accent), var(--accent2), #f59e0b, var(--blue), var(--accent)); background-size: 300%; animation: hub-shine 5s linear infinite; }
+@keyframes hub-shine { 0%{background-position:0%} 100%{background-position:300%} }
+.hub-header { display: flex; align-items: center; gap: 14px; margin-bottom: 28px; flex-wrap: wrap; }
+.hub-icon { width: 48px; height: 48px; background: rgba(0,255,198,0.1); border: 1px solid rgba(0,255,198,0.2); border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 22px; }
+.hub-title { font-size: 22px; font-weight: 900; color: var(--text); }
+.hub-sub { font-size: 13px; color: var(--muted); margin-top: 3px; }
+.hub-badges { display: flex; gap: 8px; flex-wrap: wrap; margin-left: auto; }
+.hub-badge { font-size: 10px; font-weight: 700; padding: 4px 10px; border-radius: 20px; letter-spacing: 0.8px; }
+.hb-green { background: rgba(16,185,129,0.1); border: 1px solid rgba(16,185,129,0.3); color: #34d399; }
+.hb-purple { background: rgba(124,58,237,0.1); border: 1px solid rgba(124,58,237,0.3); color: #c4b5fd; }
+.hb-yellow { background: rgba(245,158,11,0.1); border: 1px solid rgba(245,158,11,0.3); color: #fcd34d; }
+
+.pay-tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 24px; }
+.pay-tab { display: flex; flex-direction: column; align-items: center; gap: 4px; background: var(--bg3); border: 2px solid var(--border); border-radius: 12px; padding: 12px 20px; cursor: pointer; transition: all 0.15s; min-width: 90px; }
+.pay-tab:hover { border-color: rgba(0,255,198,0.3); }
+.pay-tab.active { border-color: var(--accent); background: rgba(0,255,198,0.05); }
+.pay-tab-icon { font-size: 22px; }
+.pay-tab-label { font-size: 11px; font-weight: 700; color: var(--muted); letter-spacing: 0.5px; }
+.pay-tab.active .pay-tab-label { color: var(--accent); }
+.pay-tab-badge { font-size: 9px; font-weight: 700; padding: 1px 6px; border-radius: 6px; background: rgba(0,255,198,0.15); color: var(--accent); letter-spacing: 0.5px; }
+
+.pay-panel { display: none; animation: fadeIn 0.2s ease; }
+.pay-panel.active { display: block; }
+@keyframes fadeIn { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:translateY(0)} }
+
+/* UPI */
+.upi-panel-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+@media(max-width:700px){ .upi-panel-grid { grid-template-columns: 1fr; } }
+.upi-apps-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 16px; }
+.upi-app-btn { background: var(--bg3); border: 1px solid var(--border); border-radius: 10px; padding: 10px 8px; cursor: pointer; transition: all 0.15s; text-align: center; font-size: 11px; font-weight: 600; color: var(--muted); }
+.upi-app-btn:hover, .upi-app-btn.active { border-color: var(--accent); background: rgba(0,255,198,0.05); color: var(--accent); }
+.upi-app-icon { font-size: 20px; display: block; margin-bottom: 4px; }
+.upi-amount-display { background: linear-gradient(135deg, rgba(16,185,129,0.08), rgba(16,185,129,0.04)); border: 1px solid rgba(16,185,129,0.2); border-radius: 10px; padding: 12px 16px; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; }
+.upi-amount-inr { font-size: 30px; font-weight: 900; color: var(--green); font-family: monospace; }
+.upi-id-display { background: var(--bg3); border: 1px solid var(--border); border-radius: 10px; padding: 12px 16px; margin-bottom: 12px; }
+.upi-id-label { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px; }
+.upi-id-value { font-family: monospace; font-size: 15px; color: var(--accent); font-weight: 700; }
+.copy-row { display: flex; gap: 8px; align-items: center; margin-bottom: 16px; }
+.upi-id-copy { flex: 1; font-family: monospace; background: var(--bg3); border: 1px solid var(--border); color: var(--accent); padding: 8px 12px; border-radius: 8px; font-size: 13px; font-weight: 600; }
+.copy-btn { background: transparent; border: 1px solid var(--border); color: var(--muted); padding: 8px 14px; border-radius: 8px; font-size: 11px; cursor: pointer; white-space: nowrap; transition: all 0.15s; }
+.copy-btn:hover { border-color: var(--accent); color: var(--accent); }
+.copy-btn.copied { border-color: var(--green); color: var(--green); }
+.qr-box { text-align: center; background: var(--bg3); border: 1px solid var(--border); border-radius: 12px; padding: 20px; }
+.qr-title { font-size: 11px; font-weight: 700; color: var(--muted); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 14px; }
+.upi-steps { list-style: none; counter-reset: step; }
+.upi-steps li { counter-increment: step; display: flex; gap: 10px; margin-bottom: 8px; font-size: 13px; color: var(--muted); align-items: flex-start; }
+.upi-steps li::before { content: counter(step); background: var(--accent2); color: #fff; font-size: 10px; font-weight: 700; width: 20px; height: 20px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 1px; }
+
+/* NEFT */
+.neft-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 16px; }
+@media(max-width:500px){ .neft-grid { grid-template-columns: 1fr; } }
+.neft-field { background: var(--bg3); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; }
+.neft-label { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 5px; }
+.neft-value { font-family: monospace; font-size: 14px; color: var(--accent); font-weight: 700; word-break: break-all; }
+.neft-copy { margin-top: 8px; }
+.neft-warning { background: rgba(245,158,11,0.08); border: 1px solid rgba(245,158,11,0.25); border-radius: 10px; padding: 12px 16px; font-size: 12px; color: var(--yellow); margin-bottom: 16px; line-height: 1.6; }
+
+/* PAYPAL */
+.paypal-hero { background: linear-gradient(135deg, #001c40, #00316e); border: 2px solid rgba(0,156,222,0.3); border-radius: 14px; padding: 28px; text-align: center; margin-bottom: 16px; }
+.pp-logo { font-size: 30px; font-weight: 900; color: #fff; margin-bottom: 12px; }
+.paypal-email { font-family: monospace; font-size: 16px; color: #ffc439; font-weight: 700; margin: 12px 0 6px; }
+.paypal-link-btn { display: inline-flex; align-items: center; gap: 8px; background: #ffc439; color: #000; font-weight: 800; padding: 12px 28px; border-radius: 10px; text-decoration: none; font-size: 14px; margin-top: 14px; transition: all 0.15s; }
+.paypal-link-btn:hover { background: #e6af33; transform: translateY(-1px); }
+.paypal-note { font-size: 12px; color: var(--muted); margin-top: 16px; background: rgba(255,196,57,0.05); border: 1px solid rgba(255,196,57,0.15); border-radius: 8px; padding: 10px 14px; line-height: 1.6; }
+
+/* CRYPTO */
+.crypto-chain-tabs { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
+.chain-tab { border: 1px solid var(--border); border-radius: 8px; padding: 7px 14px; cursor: pointer; background: var(--bg3); font-size: 12px; font-weight: 700; color: var(--muted); transition: all 0.15s; display: flex; align-items: center; gap: 6px; }
+.chain-tab:hover { border-color: rgba(0,255,198,0.3); }
+.chain-tab.active { border-color: var(--accent); color: var(--accent); background: rgba(0,255,198,0.05); }
+.chain-panel { display: none; }
+.chain-panel.active { display: block; animation: fadeIn 0.2s ease; }
+.crypto-addr-card { background: var(--bg3); border: 1px solid var(--border); border-radius: 12px; padding: 18px; margin-bottom: 12px; }
+.crypto-addr-header { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+.crypto-coin-icon { width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 16px; font-weight: 900; }
+.bnb-icon { background: rgba(240,185,11,0.15); color: #f0b90b; }
+.usdt-icon { background: rgba(38,161,123,0.15); color: #26a17b; }
+.eth-icon { background: rgba(98,126,234,0.15); color: #627eea; }
+.crypto-coin-name { font-size: 14px; font-weight: 800; color: var(--text); }
+.crypto-network-label { font-size: 11px; color: var(--muted); }
+.crypto-addr { font-family: monospace; font-size: 12px; color: var(--accent); word-break: break-all; font-weight: 600; background: var(--bg2); padding: 10px 14px; border-radius: 8px; margin-bottom: 8px; border: 1px solid var(--border); }
+.crypto-warning { background: rgba(239,68,68,0.07); border: 1px solid rgba(239,68,68,0.2); border-radius: 8px; padding: 10px 14px; font-size: 12px; color: #fca5a5; margin-top: 10px; line-height: 1.6; }
+.crypto-qr-section { text-align: center; background: var(--bg3); border: 1px solid var(--border); border-radius: 12px; padding: 20px; margin-top: 16px; }
+
+/* TRACKER */
+.tracker-section { background: linear-gradient(135deg, rgba(124,58,237,0.08), rgba(0,255,198,0.04)); border: 1px solid rgba(124,58,237,0.25); border-radius: 16px; padding: 28px; margin-bottom: 48px; }
+.tracker-title { font-size: 18px; font-weight: 800; color: var(--text); margin-bottom: 6px; }
+.tracker-subtitle { font-size: 13px; color: var(--muted); margin-bottom: 24px; line-height: 1.6; }
+.tracker-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px; }
+@media(max-width:600px){ .tracker-grid { grid-template-columns: 1fr; } }
+.form-label { display: block; font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 6px; }
+.form-input, .form-select { width: 100%; background: var(--bg3); border: 1px solid var(--border); color: var(--text); padding: 11px 14px; border-radius: 8px; font-size: 14px; outline: none; transition: border-color 0.15s; }
+.form-input:focus, .form-select:focus { border-color: var(--accent); }
+.form-select option { background: var(--bg3); }
+.submit-btn { background: linear-gradient(135deg, var(--accent2), var(--accent)); color: #fff; border: none; border-radius: 10px; padding: 14px 32px; font-size: 15px; font-weight: 800; cursor: pointer; transition: all 0.15s; }
+.submit-btn:hover { transform: translateY(-1px); box-shadow: 0 8px 25px rgba(0,255,198,0.15); }
+.submit-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+.confirmation-success { display: none; background: rgba(16,185,129,0.08); border: 1px solid rgba(16,185,129,0.3); border-radius: 10px; padding: 16px; margin-top: 16px; }
+.confirmation-success.show { display: block; animation: fadeIn 0.3s ease; }
+.cs-title { font-size: 15px; font-weight: 800; color: var(--green); margin-bottom: 6px; }
+.cs-msg { font-size: 13px; color: var(--muted); line-height: 1.6; }
+
+/* REFERRAL */
+.referral-section { background: linear-gradient(135deg, rgba(245,158,11,0.06), rgba(249,115,22,0.04)); border: 1px solid rgba(245,158,11,0.2); border-radius: 16px; padding: 28px; margin-bottom: 48px; }
+.referral-title { font-size: 18px; font-weight: 800; color: var(--text); margin-bottom: 6px; }
+.referral-sub { font-size: 13px; color: var(--muted); margin-bottom: 20px; line-height: 1.6; }
+.referral-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-bottom: 20px; }
+.referral-card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 18px; text-align: center; }
+.referral-card-title { font-size: 13px; font-weight: 800; color: var(--text); margin-bottom: 4px; }
+.referral-earn { font-size: 20px; font-weight: 900; color: var(--yellow); margin: 4px 0; }
+.referral-card-desc { font-size: 12px; color: var(--muted); line-height: 1.5; }
+.referral-input-group { display: flex; gap: 10px; }
+.referral-input { flex: 1; background: var(--bg3); border: 1px solid var(--border); color: var(--text); padding: 11px 14px; border-radius: 8px; font-size: 14px; outline: none; }
+.referral-input:focus { border-color: var(--yellow); }
+.referral-btn { background: var(--yellow); color: #000; border: none; border-radius: 8px; padding: 11px 20px; font-size: 13px; font-weight: 800; cursor: pointer; }
+.referral-btn:hover { background: #e6973a; }
+
+/* COMPARE */
+.compare-table-wrap { overflow-x: auto; margin-bottom: 48px; }
+.compare-table { width: 100%; border-collapse: separate; border-spacing: 0; background: var(--card); border: 1px solid var(--border); border-radius: 14px; overflow: hidden; }
+.compare-table th { padding: 14px 18px; font-size: 10px; font-family: monospace; letter-spacing: 1.5px; font-weight: 700; color: var(--muted); text-transform: uppercase; background: var(--bg3); border-bottom: 1px solid var(--border); }
+.compare-table th.acc { color: var(--accent); }
+.compare-table td { padding: 12px 18px; font-size: 13px; text-align: center; border-bottom: 1px solid var(--border); }
+.compare-table td:first-child { text-align: left; color: var(--text); }
+.compare-table tr:last-child td { border-bottom: none; }
+.tick { color: var(--green); font-weight: 700; }
+.cross { color: var(--muted); }
+
+/* ENTERPRISE CTA */
+.enterprise-cta { background: linear-gradient(135deg, rgba(124,58,237,0.12), rgba(0,255,198,0.04)); border: 1px solid rgba(124,58,237,0.3); border-radius: 18px; padding: 44px; text-align: center; margin-bottom: 48px; }
+.enterprise-cta h2 { font-size: 28px; font-weight: 900; margin-bottom: 12px; }
+.enterprise-cta h2 span { color: var(--accent); }
+.enterprise-cta p { color: var(--muted); font-size: 15px; max-width: 520px; margin: 0 auto 28px; line-height: 1.7; }
+.cta-buttons { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+.btn-primary { background: var(--accent); color: #000; padding: 13px 28px; border-radius: 10px; font-weight: 800; text-decoration: none; font-size: 14px; transition: all 0.15s; }
+.btn-primary:hover { opacity: 0.85; transform: translateY(-1px); }
+.btn-secondary { border: 1px solid var(--border); color: var(--text); padding: 13px 28px; border-radius: 10px; font-weight: 600; text-decoration: none; font-size: 14px; transition: all 0.15s; }
+.btn-secondary:hover { border-color: var(--accent); color: var(--accent); }
+.btn-wa { background: rgba(37,211,102,0.12); border: 1px solid rgba(37,211,102,0.3); color: #4ade80; padding: 13px 28px; border-radius: 10px; font-weight: 600; text-decoration: none; font-size: 14px; }
+.btn-wa:hover { background: rgba(37,211,102,0.2); }
+
+footer { border-top: 1px solid var(--border); padding: 32px 40px; text-align: center; font-size: 12px; color: var(--muted); }
+footer a { color: var(--accent); text-decoration: none; }
+
+.toast { position: fixed; bottom: 24px; right: 24px; background: var(--card2); border: 1px solid rgba(0,255,198,0.3); border-radius: 10px; padding: 14px 20px; font-size: 13px; color: var(--text); z-index: 9999; transform: translateY(100px); opacity: 0; transition: all 0.3s; display: flex; align-items: center; gap: 10px; max-width: 320px; }
+.toast.show { transform: translateY(0); opacity: 1; }
+
+@media(max-width:768px){ nav { padding: 12px 20px; } .nav-links { display: none; } .main { padding: 32px 16px; } .payment-hub { padding: 20px; } }
+</style>
+</head>
+<body>
+
+<!-- LIVE TICKER -->
+<div class="live-ticker">
+  <div class="ticker-inner">
+    <span class="ticker-item">&#128308; LIVE <strong>APT-29</strong> campaign detected &mdash; targeting EU financial sector</span>
+    <span class="ticker-dot">&nbsp;&#9679;&nbsp;</span>
+    <span class="ticker-item">&#9888; CVE-2026-CRITICAL EPSS=0.94 &mdash; patching recommended within 24h</span>
+    <span class="ticker-dot">&nbsp;&#9679;&nbsp;</span>
+    <span class="ticker-item"><strong>SENTINEL APEX</strong> processes 50,000+ threat indicators daily</span>
+    <span class="ticker-dot">&nbsp;&#9679;&nbsp;</span>
+    <span class="ticker-item">&#128178; Payments: UPI instant &bull; NEFT 4hrs &bull; Crypto 30min &bull; PayPal 2hrs</span>
+    <span class="ticker-dot">&nbsp;&#9679;&nbsp;</span>
+    <span class="ticker-item">&#128200; 2,847 enterprise SOCs trust SENTINEL APEX globally</span>
+    <span class="ticker-dot">&nbsp;&#9679;&nbsp;</span>
+    <span class="ticker-item">&#128308; LIVE <strong>APT-29</strong> campaign detected &mdash; targeting EU financial sector</span>
+    <span class="ticker-dot">&nbsp;&#9679;&nbsp;</span>
+    <span class="ticker-item">&#9888; CVE-2026-CRITICAL EPSS=0.94 &mdash; patching recommended within 24h</span>
+    <span class="ticker-dot">&nbsp;&#9679;&nbsp;</span>
+    <span class="ticker-item"><strong>SENTINEL APEX</strong> processes 50,000+ threat indicators daily</span>
+    <span class="ticker-dot">&nbsp;&#9679;&nbsp;</span>
+    <span class="ticker-item">&#128178; Payments: UPI instant &bull; NEFT 4hrs &bull; Crypto 30min &bull; PayPal 2hrs</span>
+    <span class="ticker-dot">&nbsp;&#9679;&nbsp;</span>
+    <span class="ticker-item">&#128200; 2,847 enterprise SOCs trust SENTINEL APEX globally</span>
+    <span class="ticker-dot">&nbsp;&#9679;&nbsp;</span>
+  </div>
+</div>
+
+<!-- URGENCY BAR -->
+<div class="urgency-bar">
+  &#9889; LIMITED OFFER: <span id="urgency-timer">05:00</span> remaining &mdash; PRO plan at $49/mo &bull; Next increase: $69/mo &bull; Lock in your rate NOW
+</div>
+
+<nav>
+  <a href="/" class="nav-logo">SENTINEL APEX</a>
+  <div class="nav-links">
+    <a href="/">Dashboard</a>
+    <a href="/pricing.html">Pricing</a>
+    <a href="/store.html">Store</a>
+    <a href="/get-api-key.html">API</a>
+    <a href="/contact-enterprise.html">Enterprise</a>
+    <a href="/upgrade.html" class="nav-cta">UPGRADE NOW</a>
+  </div>
+</nav>
+
+<div class="hero">
+  <div class="hero-badge">&#128178; GLOBAL PAYMENT GATEWAY &mdash; SENTINEL APEX v150.0.0</div>
+  <h1>Secure <span>Payment</span> Hub</h1>
+  <p class="hero-sub">Pay with any method &mdash; UPI, Bank NEFT, PayPal, or Crypto (BNB / USDT / ETH). API key delivered within 2 hours. GST invoice available. GSTIN: 21ARKPN8270G1ZP</p>
+  <div class="hero-stats">
+    <div class="hero-stat"><div class="hero-stat-val">&lt;2HR</div><div class="hero-stat-label">API Key Delivery</div></div>
+    <div class="hero-stat"><div class="hero-stat-val">256-BIT</div><div class="hero-stat-label">SSL Encrypted</div></div>
+    <div class="hero-stat"><div class="hero-stat-val">7-DAY</div><div class="hero-stat-label">Money Back</div></div>
+    <div class="hero-stat"><div class="hero-stat-val">GST</div><div class="hero-stat-label">Invoice Included</div></div>
+  </div>
+</div>
+
+<div class="main">
+
+  <div class="trust-strip">
+    <div class="trust-chip"><span class="icon">&#10003;</span>GSTIN: 21ARKPN8270G1ZP</div>
+    <div class="trust-chip"><span class="icon">&#10003;</span>7-Day Money-Back</div>
+    <div class="trust-chip"><span class="icon">&#10003;</span>API Key in 2 Hours</div>
+    <div class="trust-chip"><span class="icon">&#10003;</span>No Auto-Renewal</div>
+    <div class="trust-chip"><span class="icon">&#10003;</span>Enterprise SLA Available</div>
+    <div class="trust-chip"><span class="icon">&#10003;</span>STIX 2.1 Compliant</div>
+    <div class="trust-chip"><span class="icon">&#10003;</span>MITRE ATT&amp;CK v15</div>
+    <div class="trust-chip"><span class="icon">&#10003;</span>Axis Bank Verified</div>
+  </div>
+
+  <!-- PLANS -->
+  <div class="section-heading">CHOOSE YOUR PLAN</div>
+  <div class="billing-toggle">
+    <span class="toggle-label active" id="lbl-monthly">Monthly</span>
+    <button class="toggle-btn" id="billing-toggle-btn" onclick="toggleBilling()"></button>
+    <span class="toggle-label" id="lbl-annual">Annual</span>
+    <span class="save-badge">SAVE 17%</span>
+  </div>
+  <div class="plan-grid">
+    <div class="plan-tile" data-plan="free" onclick="selectPlan(this)">
+      <div class="plan-name">Free Tier</div>
+      <div><span class="plan-usd"><sup>$</sup>0</span></div>
+      <div class="plan-inr">Free forever</div>
+      <ul class="plan-features">
+        <li>60 requests/minute</li>
+        <li>Latest 20 threat reports</li>
+        <li>IOC count (arrays locked)</li>
+        <li>MITRE ATT&amp;CK mapping</li>
+        <li>2 API keys</li>
+      </ul>
+      <button class="plan-cta secondary" onclick="window.location='/upgrade.html?plan=free'">Get Free Access</button>
+    </div>
+    <div class="plan-tile featured selected" data-plan="pro" onclick="selectPlan(this)">
+      <div class="badge">MOST POPULAR</div>
+      <div class="plan-name">PRO Defense</div>
+      <div><span class="plan-usd"><sup>$</sup>49</span><span class="plan-period">/mo</span></div>
+      <div class="plan-inr">&#x20B9;4,100 INR/month</div>
+      <div class="plan-inr-annual" id="pro-annual-price">&#x20B9;41,000 INR/year &mdash; save &#x20B9;8,200</div>
+      <ul class="plan-features">
+        <li>500 requests/minute</li>
+        <li>Full IOC arrays unlocked</li>
+        <li>STIX 2.1 bundles export</li>
+        <li>Full APEX AI kill chain</li>
+        <li>Critical/High threat alerts</li>
+        <li>10 API keys</li>
+      </ul>
+      <button class="plan-cta primary" onclick="scrollToPay()">&#9889; Pay for PRO</button>
+    </div>
+    <div class="plan-tile" data-plan="enterprise" onclick="selectPlan(this)">
+      <div class="plan-name">Enterprise SOC</div>
+      <div><span class="plan-usd"><sup>$</sup>499</span><span class="plan-period">/mo</span></div>
+      <div class="plan-inr">&#x20B9;41,600 INR/month</div>
+      <div class="plan-inr-annual" id="ent-annual-price">&#x20B9;4,15,000 INR/year</div>
+      <ul class="plan-features">
+        <li>2,000 requests/minute</li>
+        <li>Everything in PRO</li>
+        <li>SIEM push: Splunk / Sentinel</li>
+        <li>QRadar LEEF / Webhook</li>
+        <li>50 API keys + tenant isolation</li>
+        <li>Dedicated analyst + SLA</li>
+      </ul>
+      <button class="plan-cta secondary" onclick="scrollToPay()">Pay for Enterprise</button>
+    </div>
+    <div class="plan-tile" data-plan="mssp" onclick="selectPlan(this)">
+      <div class="plan-name">MSSP / White-Label</div>
+      <div><span class="plan-usd"><sup>$</sup>1,999</span><span class="plan-period">/mo</span></div>
+      <div class="plan-inr">&#x20B9;1,66,600 INR/month</div>
+      <ul class="plan-features">
+        <li>Multi-tenant architecture</li>
+        <li>White-label branding</li>
+        <li>Unlimited API keys</li>
+        <li>Custom SLA &amp; NDA</li>
+        <li>Dedicated analyst team</li>
+      </ul>
+      <button class="plan-cta secondary" onclick="window.location='/contact-enterprise.html'">Contact for MSSP</button>
+    </div>
+  </div>
+
+  <!-- PAYMENT HUB -->
+  <div id="payment-hub" class="payment-hub">
+    <div class="hub-header">
+      <div class="hub-icon">&#128178;</div>
+      <div>
+        <div class="hub-title">Direct Payment Gateway</div>
+        <div class="hub-sub">All payments go directly to CYBERDUDEBIVASH Pvt. Ltd. GSTIN: 21ARKPN8270G1ZP</div>
+      </div>
+      <div class="hub-badges">
+        <span class="hub-badge hb-green">SSL SECURE</span>
+        <span class="hub-badge hb-purple">GST INVOICE</span>
+        <span class="hub-badge hb-yellow">INSTANT UPI</span>
+      </div>
+    </div>
+
+    <div class="pay-tabs">
+      <div class="pay-tab active" onclick="switchPayTab('upi',this)">
+        <span class="pay-tab-icon">&#127470;&#127475;</span>
+        <span class="pay-tab-label">UPI</span>
+        <span class="pay-tab-badge">INSTANT</span>
+      </div>
+      <div class="pay-tab" onclick="switchPayTab('neft',this)">
+        <span class="pay-tab-icon">&#127981;</span>
+        <span class="pay-tab-label">NEFT/IMPS</span>
+        <span class="pay-tab-badge">4 HRS</span>
+      </div>
+      <div class="pay-tab" onclick="switchPayTab('paypal',this)">
+        <span class="pay-tab-icon">P</span>
+        <span class="pay-tab-label">PayPal</span>
+        <span class="pay-tab-badge">GLOBAL</span>
+      </div>
+      <div class="pay-tab" onclick="switchPayTab('crypto',this)">
+        <span class="pay-tab-icon">&#8383;</span>
+        <span class="pay-tab-label">Crypto</span>
+        <span class="pay-tab-badge">WEB3</span>
+      </div>
+    </div>
+
+    <!-- UPI PANEL -->
+    <div class="pay-panel active" id="panel-upi">
+      <div class="upi-panel-grid">
+        <div>
+          <div style="font-size:11px;font-weight:700;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:12px;">SELECT UPI APP</div>
+          <div class="upi-apps-grid">
+            <div class="upi-app-btn active" onclick="selectUpiApp('iambivash.bn-5@okaxis','GPay',this)"><span class="upi-app-icon">&#128241;</span>GPay</div>
+            <div class="upi-app-btn" onclick="selectUpiApp('iambivash.bn-5@okaxis','PhonePe',this)"><span class="upi-app-icon">&#128242;</span>PhonePe</div>
+            <div class="upi-app-btn" onclick="selectUpiApp('iambivash.bn-5@okaxis','Paytm',this)"><span class="upi-app-icon">&#128200;</span>Paytm</div>
+            <div class="upi-app-btn" onclick="selectUpiApp('iambivash.bn-5@okaxis','BHIM',this)"><span class="upi-app-icon">&#127470;&#127475;</span>BHIM</div>
+            <div class="upi-app-btn" onclick="selectUpiApp('iambivash.bn-5@okaxis','Amazon',this)"><span class="upi-app-icon">&#128722;</span>Amazon</div>
+            <div class="upi-app-btn" onclick="selectUpiApp('6302177246@axisbank','Axis',this)"><span class="upi-app-icon">&#127981;</span>Axis</div>
+          </div>
+          <div class="upi-amount-display">
+            <div>
+              <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;">Amount Due</div>
+              <div class="upi-amount-inr" id="upi-inr-amount">&#x20B9;4,100</div>
+            </div>
+            <div style="text-align:right;">
+              <div style="font-size:16px;font-weight:900;color:var(--yellow);" id="upi-usd-amount">$49</div>
+              <div style="font-size:11px;color:var(--muted);">USD approx.</div>
+            </div>
+          </div>
+          <div class="upi-id-display">
+            <div class="upi-id-label">Active UPI ID</div>
+            <div class="upi-id-value" id="active-upi-id">iambivash.bn-5@okaxis</div>
+          </div>
+          <div class="copy-row">
+            <input type="text" class="upi-id-copy" id="upi-id-copy" value="iambivash.bn-5@okaxis" readonly>
+            <button class="copy-btn" onclick="copyField('upi-id-copy',this)">Copy</button>
+          </div>
+          <div style="font-size:11px;font-weight:700;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:10px;">How to Pay</div>
+          <ol class="upi-steps">
+            <li>Open <strong id="upi-app-name" style="color:var(--accent)">GPay</strong> on your phone</li>
+            <li>Tap &ldquo;Send Money&rdquo; / &ldquo;Pay&rdquo; / &ldquo;Scan QR&rdquo;</li>
+            <li>Send <strong id="upi-step-amount" style="color:var(--green)">&#x20B9;4,100</strong> to <strong style="color:var(--accent)" id="upi-step-id">iambivash.bn-5@okaxis</strong></li>
+            <li>Add remark: <strong>SENTINEL APEX PRO &mdash; [your email]</strong></li>
+            <li>Fill the Payment Tracker below with your UTR number</li>
+          </ol>
+        </div>
+        <div class="qr-box">
+          <div class="qr-title">Scan to Pay &mdash; Amount Auto-Filled</div>
+          <div id="upi-qr-canvas" style="display:inline-block;border:3px solid var(--accent);border-radius:10px;background:#fff;padding:8px;"></div>
+          <div style="font-size:11px;color:var(--muted);margin-top:10px;" id="qr-app-label">GPay &middot; PhonePe &middot; Paytm &middot; BHIM &middot; AmazonPay</div>
+          <div style="margin-top:14px;">
+            <a id="upi-deep-link" href="upi://pay?pa=iambivash.bn-5@okaxis&pn=CYBERDUDEBIVASH&am=4100&cu=INR&tn=SENTINEL+APEX+PRO"
+               style="display:inline-block;background:var(--accent);color:#000;font-weight:800;padding:9px 22px;border-radius:8px;font-size:13px;text-decoration:none;">
+              &#128241; Open in UPI App
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- NEFT PANEL -->
+    <div class="pay-panel" id="panel-neft">
+      <div class="neft-warning">
+        <strong>&#9888; Include payment reference in remarks:</strong> Add your email address and plan name (e.g. &ldquo;PRO&rdquo;) so we can match your payment and activate your API key quickly.
+      </div>
+      <div class="neft-grid">
+        <div class="neft-field"><div class="neft-label">Account Name</div><div class="neft-value">BIVASHA KUMAR NAYAK</div><div class="neft-copy"><button class="copy-btn" onclick="copyText('BIVASHA KUMAR NAYAK',this)">Copy</button></div></div>
+        <div class="neft-field"><div class="neft-label">Bank</div><div class="neft-value">Axis Bank</div></div>
+        <div class="neft-field"><div class="neft-label">Account Number</div><div class="neft-value">915010024617260</div><div class="neft-copy"><button class="copy-btn" onclick="copyText('915010024617260',this)">Copy</button></div></div>
+        <div class="neft-field"><div class="neft-label">IFSC Code</div><div class="neft-value">UTIB0000052</div><div class="neft-copy"><button class="copy-btn" onclick="copyText('UTIB0000052',this)">Copy</button></div></div>
+        <div class="neft-field"><div class="neft-label">Account Type</div><div class="neft-value">Savings</div></div>
+        <div class="neft-field"><div class="neft-label">MICR</div><div class="neft-value">500211002</div></div>
+        <div class="neft-field" style="grid-column:span 2;"><div class="neft-label">Amount (PRO Monthly)</div><div class="neft-value" style="color:var(--green);">&#x20B9;4,100 INR</div></div>
+      </div>
+      <div style="font-size:12px;color:var(--muted);background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:14px 16px;line-height:1.7;">
+        <strong style="color:var(--text);display:block;margin-bottom:6px;">Processing Times</strong>
+        NEFT: 2&ndash;4 hours &bull; IMPS: Instant &bull; RTGS: Same day &bull; Banking hours: 9AM&ndash;6PM IST, Mon&ndash;Sat.<br>
+        After transfer, submit your UTR in the Payment Tracker below for faster activation.
+      </div>
+    </div>
+
+    <!-- PAYPAL PANEL -->
+    <div class="pay-panel" id="panel-paypal">
+      <div class="paypal-hero">
+        <div class="pp-logo" style="color:#009cde;">Pay<span style="color:#012169;background:#fff;padding:2px 6px;border-radius:4px;margin-left:2px;">Pal</span></div>
+        <div style="font-size:13px;color:rgba(255,255,255,0.5);margin-bottom:8px;">Send payment to:</div>
+        <div class="paypal-email">iambivash.bn@gmail.com</div>
+        <div style="font-size:12px;color:rgba(255,255,255,0.4);">or visit <a href="https://paypal.me/cyberdudebivash" target="_blank" rel="noopener" style="color:#ffc439;">paypal.me/cyberdudebivash</a></div>
+        <a href="https://paypal.me/cyberdudebivash/49" target="_blank" rel="noopener" class="paypal-link-btn">
+          &#128179; Pay $49 via PayPal.me &rarr;
+        </a>
+        <div style="display:flex;gap:14px;justify-content:center;flex-wrap:wrap;margin-top:14px;">
+          <a href="https://paypal.me/cyberdudebivash/49" target="_blank" rel="noopener" style="font-size:11px;color:rgba(255,255,255,0.4);">PRO $49</a>
+          <span style="color:rgba(255,255,255,0.2);">|</span>
+          <a href="https://paypal.me/cyberdudebivash/499" target="_blank" rel="noopener" style="font-size:11px;color:rgba(255,255,255,0.4);">Enterprise $499</a>
+          <span style="color:rgba(255,255,255,0.2);">|</span>
+          <a href="https://paypal.me/cyberdudebivash/1999" target="_blank" rel="noopener" style="font-size:11px;color:rgba(255,255,255,0.4);">MSSP $1,999</a>
+        </div>
+      </div>
+      <div class="paypal-note">
+        &#128161; <strong>PayPal Instructions:</strong><br>
+        1. Click &ldquo;Pay via PayPal.me&rdquo; or send to <strong>iambivash.bn@gmail.com</strong><br>
+        2. Set note: <strong>SENTINEL APEX PRO &mdash; [your email]</strong><br>
+        3. Submit Transaction ID in the Payment Tracker below &mdash; API key delivered within 2 hours.
+      </div>
+    </div>
+
+    <!-- CRYPTO PANEL -->
+    <div class="pay-panel" id="panel-crypto">
+      <div class="crypto-chain-tabs">
+        <div class="chain-tab active" onclick="switchChain('bnb',this)"><span style="color:#f0b90b;">&#9679;</span> BNB (BSC)</div>
+        <div class="chain-tab" onclick="switchChain('usdt-bsc',this)"><span style="color:#26a17b;">&#9679;</span> USDT BEP-20</div>
+        <div class="chain-tab" onclick="switchChain('eth',this)"><span style="color:#627eea;">&#9679;</span> ETH (ERC-20)</div>
+        <div class="chain-tab" onclick="switchChain('usdt-erc',this)"><span style="color:#26a17b;">&#9679;</span> USDT ERC-20</div>
+      </div>
+
+      <div class="chain-panel active" id="chain-bnb">
+        <div class="crypto-addr-card">
+          <div class="crypto-addr-header">
+            <div class="crypto-coin-icon bnb-icon">B</div>
+            <div><div class="crypto-coin-name">BNB (Binance Smart Chain)</div><div class="crypto-network-label">BEP-20 &bull; BSC Network</div></div>
+          </div>
+          <div class="crypto-addr">0xa824c20158a4bfe2f3d8e80351b1906bd0ac0796</div>
+          <button class="copy-btn" onclick="copyText('0xa824c20158a4bfe2f3d8e80351b1906bd0ac0796',this)">Copy BNB Address</button>
+        </div>
+        <div class="crypto-warning"><strong>&#9888; BSC NETWORK ONLY:</strong> Only send BNB or BEP-20 tokens on the Binance Smart Chain. Wrong network = permanent loss.</div>
+      </div>
+
+      <div class="chain-panel" id="chain-usdt-bsc">
+        <div class="crypto-addr-card">
+          <div class="crypto-addr-header">
+            <div class="crypto-coin-icon usdt-icon">T</div>
+            <div><div class="crypto-coin-name">USDT Tether (BEP-20)</div><div class="crypto-network-label">BEP-20 &bull; BSC Network</div></div>
+          </div>
+          <div class="crypto-addr">0xa824c20158a4bfe2f3d8e80351b1906bd0ac0796</div>
+          <button class="copy-btn" onclick="copyText('0xa824c20158a4bfe2f3d8e80351b1906bd0ac0796',this)">Copy USDT Address</button>
+        </div>
+        <div class="crypto-warning"><strong>&#9888; BEP-20 ONLY:</strong> Send USDT on BSC (BEP-20). Amount: $49 for PRO &bull; $499 for Enterprise.</div>
+      </div>
+
+      <div class="chain-panel" id="chain-eth">
+        <div class="crypto-addr-card">
+          <div class="crypto-addr-header">
+            <div class="crypto-coin-icon eth-icon">E</div>
+            <div><div class="crypto-coin-name">ETH (Ethereum Mainnet)</div><div class="crypto-network-label">ERC-20 &bull; Ethereum Mainnet</div></div>
+          </div>
+          <div class="crypto-addr">0xa824c20158a4bfe2f3d8e80351b1906bd0ac0796</div>
+          <button class="copy-btn" onclick="copyText('0xa824c20158a4bfe2f3d8e80351b1906bd0ac0796',this)">Copy ETH Address</button>
+        </div>
+        <div class="crypto-warning"><strong>&#9888; ETHEREUM MAINNET ONLY:</strong> Send on Ethereum mainnet only. Submit TxHash in Payment Tracker below.</div>
+      </div>
+
+      <div class="chain-panel" id="chain-usdt-erc">
+        <div class="crypto-addr-card">
+          <div class="crypto-addr-header">
+            <div class="crypto-coin-icon usdt-icon">T</div>
+            <div><div class="crypto-coin-name">USDT Tether (ERC-20)</div><div class="crypto-network-label">ERC-20 &bull; Ethereum Mainnet</div></div>
+          </div>
+          <div class="crypto-addr">0xa824c20158a4bfe2f3d8e80351b1906bd0ac0796</div>
+          <button class="copy-btn" onclick="copyText('0xa824c20158a4bfe2f3d8e80351b1906bd0ac0796',this)">Copy USDT ERC-20 Address</button>
+        </div>
+        <div class="crypto-warning"><strong>&#9888; ERC-20 ONLY:</strong> Send USDT on Ethereum mainnet (ERC-20). Amount: $49 for PRO &bull; $499 for Enterprise.</div>
+      </div>
+
+      <div class="crypto-qr-section">
+        <div style="font-size:11px;font-weight:700;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:14px;">Wallet QR &mdash; BNB / USDT / ETH</div>
+        <div id="crypto-qr-canvas" style="display:inline-block;border:3px solid var(--accent2);border-radius:10px;background:#fff;padding:8px;"></div>
+        <div style="font-size:11px;color:var(--muted);margin-top:10px;">Scan with Trust Wallet, MetaMask, Binance App, or any Web3 wallet</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PAYMENT TRACKER -->
+  <div class="tracker-section">
+    <div class="tracker-title">&#128203; Payment Confirmation Tracker</div>
+    <div class="tracker-subtitle">Submitted a payment? Fill this form and we will activate your API key within 2 hours. All payment methods supported &mdash; UPI UTR, NEFT reference, PayPal Transaction ID, or Crypto TxHash.</div>
+    <div class="tracker-grid">
+      <div><label class="form-label">Full Name *</label><input type="text" class="form-input" id="pct-name" placeholder="Your full name / company"></div>
+      <div><label class="form-label">Email Address *</label><input type="email" class="form-input" id="pct-email" placeholder="you@company.com"></div>
+      <div>
+        <label class="form-label">Plan Selected *</label>
+        <select class="form-select" id="pct-plan">
+          <option value="pro">PRO Defense &mdash; $49/mo</option>
+          <option value="enterprise">Enterprise SOC &mdash; $499/mo</option>
+          <option value="mssp">MSSP / White-Label &mdash; $1,999/mo</option>
+        </select>
+      </div>
+      <div>
+        <label class="form-label">Payment Method *</label>
+        <select class="form-select" id="pct-method">
+          <option value="upi">UPI (GPay/PhonePe/Paytm/BHIM/AmazonPay)</option>
+          <option value="neft">Bank NEFT / IMPS / RTGS</option>
+          <option value="paypal">PayPal</option>
+          <option value="crypto-bnb">Crypto &mdash; BNB (BSC)</option>
+          <option value="crypto-usdt-bsc">Crypto &mdash; USDT (BEP-20)</option>
+          <option value="crypto-eth">Crypto &mdash; ETH (ERC-20)</option>
+          <option value="crypto-usdt-erc">Crypto &mdash; USDT (ERC-20)</option>
+        </select>
+      </div>
+      <div><label class="form-label">UTR / Transaction ID / TxHash *</label><input type="text" class="form-input" id="pct-utr" placeholder="Payment reference number"></div>
+      <div><label class="form-label">Amount Paid *</label><input type="text" class="form-input" id="pct-amount" placeholder="e.g. 4100 INR or $49 USD or 49 USDT"></div>
+    </div>
+    <button class="submit-btn" id="pct-submit" onclick="submitPaymentTracker()">&#9889; Submit &amp; Activate API Key</button>
+    <div class="confirmation-success" id="pct-success">
+      <div class="cs-title">&#10003; Payment Submitted Successfully!</div>
+      <div class="cs-msg">Your API key will be delivered to <strong id="pct-confirm-email"></strong> within 2 hours.<br>Urgent? <a href="https://wa.me/918179881447" target="_blank" style="color:var(--accent);">WhatsApp +91 8179881447</a> or <a href="mailto:bivash@cyberdudebivash.com" style="color:var(--accent);">bivash@cyberdudebivash.com</a></div>
+    </div>
+    <div style="margin-top:14px;font-size:12px;color:var(--muted);">Urgent? <a href="https://wa.me/918179881447?text=Hi+Bivash+I+have+paid+for+SENTINEL+APEX+please+activate+my+key" target="_blank" style="color:#4ade80;">WhatsApp +91 8179881447</a> with payment screenshot for instant activation.</div>
+  </div>
+
+  <!-- REFERRAL PROGRAM -->
+  <div class="referral-section">
+    <div class="referral-title">&#127381; Affiliate &amp; Referral Program</div>
+    <div class="referral-sub">Earn recurring commissions by referring cybersecurity teams, SOCs, and enterprises to SENTINEL APEX. Commission paid monthly via UPI or Crypto.</div>
+    <div class="referral-cards">
+      <div class="referral-card"><div class="referral-card-title">PRO Referral</div><div class="referral-earn">20% = $9.80/mo</div><div class="referral-card-desc">Per active referral, recurring monthly</div></div>
+      <div class="referral-card"><div class="referral-card-title">Enterprise Referral</div><div class="referral-earn">15% = $74.85/mo</div><div class="referral-card-desc">Per enterprise client referred</div></div>
+      <div class="referral-card"><div class="referral-card-title">MSSP Referral</div><div class="referral-earn">10% = $199.90/mo</div><div class="referral-card-desc">Per MSSP / White-Label referral</div></div>
+      <div class="referral-card"><div class="referral-card-title">Partner Agency</div><div class="referral-earn">25% recurring</div><div class="referral-card-desc">Certified security agencies &amp; VARs</div></div>
+    </div>
+    <div class="referral-input-group">
+      <input type="email" class="referral-input" id="referral-email" placeholder="Enter your email to get your referral link">
+      <button class="referral-btn" onclick="getAffiliateLink()">Get Referral Link</button>
+    </div>
+    <div id="referral-result" style="display:none;margin-top:12px;background:var(--bg3);border:1px solid rgba(245,158,11,0.3);border-radius:8px;padding:12px 16px;font-size:13px;">
+      Your link: <strong id="referral-link" style="color:var(--yellow);font-family:monospace;"></strong>
+      <button class="copy-btn" id="referral-copy-btn" style="margin-left:10px;" onclick="copyReferralLink()">Copy</button>
+    </div>
+    <div style="margin-top:14px;font-size:12px;color:var(--muted);">Email <a href="mailto:bivash@cyberdudebivash.com" style="color:var(--accent);">bivash@cyberdudebivash.com</a> with subject &ldquo;AFFILIATE PROGRAM&rdquo; to enroll officially.</div>
+  </div>
+
+  <!-- COMPARE TABLE -->
+  <div class="section-heading">PLAN COMPARISON</div>
+  <div class="compare-table-wrap">
+    <table class="compare-table">
+      <thead>
+        <tr>
+          <th style="text-align:left;">Feature</th>
+          <th>Free</th>
+          <th class="acc">PRO $49</th>
+          <th>Enterprise $499</th>
+          <th>MSSP $1,999</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td>Threat reports</td><td>Latest 20</td><td class="tick">Unlimited</td><td class="tick">Unlimited</td><td class="tick">Unlimited</td></tr>
+        <tr><td>API requests/min</td><td>60</td><td class="tick">500</td><td class="tick">2,000</td><td class="tick">Unlimited</td></tr>
+        <tr><td>Full IOC arrays</td><td class="cross">&#10005;</td><td class="tick">&#10003;</td><td class="tick">&#10003;</td><td class="tick">&#10003;</td></tr>
+        <tr><td>STIX 2.1 export</td><td class="cross">&#10005;</td><td class="tick">&#10003;</td><td class="tick">&#10003;</td><td class="tick">&#10003;</td></tr>
+        <tr><td>APEX AI full analysis</td><td class="cross">&#10005;</td><td class="tick">&#10003;</td><td class="tick">&#10003;</td><td class="tick">&#10003;</td></tr>
+        <tr><td>SIEM push integration</td><td class="cross">&#10005;</td><td class="cross">&#10005;</td><td class="tick">Splunk/Sentinel/QRadar</td><td class="tick">&#10003;</td></tr>
+        <tr><td>API keys</td><td>2</td><td class="tick">10</td><td class="tick">50</td><td class="tick">Unlimited</td></tr>
+        <tr><td>SLA guarantee</td><td class="cross">&#10005;</td><td class="cross">&#10005;</td><td class="tick">99.9% uptime</td><td class="tick">Custom</td></tr>
+        <tr><td>Dedicated analyst</td><td class="cross">&#10005;</td><td class="cross">&#10005;</td><td class="tick">&#10003;</td><td class="tick">Team</td></tr>
+        <tr><td>White-label / Multi-tenant</td><td class="cross">&#10005;</td><td class="cross">&#10005;</td><td class="cross">&#10005;</td><td class="tick">&#10003;</td></tr>
+        <tr><td>Annual discount</td><td>N/A</td><td class="tick">17% off</td><td class="tick">17% off</td><td class="tick">Custom</td></tr>
+        <tr><td>GST Invoice</td><td>N/A</td><td class="tick">On request</td><td class="tick">Included</td><td class="tick">Included</td></tr>
+        <tr><td>Affiliate commission</td><td class="cross">&#10005;</td><td class="tick">20%</td><td class="tick">15%</td><td class="tick">10%</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ENTERPRISE CTA -->
+  <div class="enterprise-cta">
+    <h2>Need a <span>Custom Package</span>?</h2>
+    <p>Enterprise contracts, white-label deployments, custom SLA, on-prem deployment, and dedicated analyst support available for global organizations.</p>
+    <div class="cta-buttons">
+      <a href="/upgrade.html?plan=enterprise" class="btn-primary">&#9889; Start Enterprise</a>
+      <a href="/contact-enterprise.html" class="btn-secondary">&#128293; Enterprise Inquiry</a>
+      <a href="https://wa.me/918179881447?text=Hi%20Bivash%2C%20I%20want%20an%20enterprise%20package%20for%20SENTINEL%20APEX" target="_blank" rel="noopener" class="btn-wa">&#128242; WhatsApp: +91 8179881447</a>
+    </div>
+  </div>
+
+</div>
+
+<footer>
+  <p style="margin-bottom:8px;">
+    CYBERDUDEBIVASH PRIVATE LIMITED &middot; 29, Korai-Sukinda-Ramchandrapur Rd, Jajpur Road, Odisha 755019, India<br>
+    GSTIN: 21ARKPN8270G1ZP &nbsp;&middot;&nbsp; <a href="mailto:bivash@cyberdudebivash.com">bivash@cyberdudebivash.com</a> &nbsp;&middot;&nbsp; <a href="https://wa.me/918179881447">+91 8179881447</a>
+  </p>
+  <p>
+    <a href="/">Dashboard</a> &middot; <a href="/pricing.html">Pricing</a> &middot; <a href="/store.html">Store</a> &middot; <a href="/get-api-key.html">API Docs</a> &middot; <a href="/contact-enterprise.html">Enterprise</a> &middot; <a href="/upgrade.html">Upgrade</a>
+  </p>
+  <p style="margin-top:12px;">&#169; 2026 CYBERDUDEBIVASH PRIVATE LIMITED. All rights reserved.</p>
+</footer>
+
+<div class="toast" id="toast"><span id="toast-icon">&#10003;</span><span id="toast-msg">Copied!</span></div>
+
+<script>
+var PLANS = {
+  free:       { monthly_inr: 0,      annual_inr: 0,       monthly_usd: 0,    annual_usd: 0 },
+  pro:        { monthly_inr: 4100,   annual_inr: 41000,   monthly_usd: 49,   annual_usd: 490 },
+  enterprise: { monthly_inr: 41600,  annual_inr: 415000,  monthly_usd: 499,  annual_usd: 4990 },
+  mssp:       { monthly_inr: 166600, annual_inr: 1665000, monthly_usd: 1999, annual_usd: 19990 }
+};
+var selectedPlan = 'pro';
+var isAnnual = false;
+var currentUpiId = 'iambivash.bn-5@okaxis';
+var toastTimer = null;
+
+function fmtInr(n) {
+  if (!n) return 'Free';
+  return '\u20b9' + n.toLocaleString('en-IN');
+}
+
+function toggleBilling() {
+  isAnnual = !isAnnual;
+  var btn = document.getElementById('billing-toggle-btn');
+  if (isAnnual) {
+    btn.classList.add('annual');
+    document.getElementById('lbl-monthly').classList.remove('active');
+    document.getElementById('lbl-annual').classList.add('active');
+    document.querySelectorAll('.plan-inr').forEach(function(e){ e.style.display='none'; });
+    document.querySelectorAll('.plan-inr-annual').forEach(function(e){ e.style.display='block'; });
+  } else {
+    btn.classList.remove('annual');
+    document.getElementById('lbl-monthly').classList.add('active');
+    document.getElementById('lbl-annual').classList.remove('active');
+    document.querySelectorAll('.plan-inr').forEach(function(e){ e.style.display='block'; });
+    document.querySelectorAll('.plan-inr-annual').forEach(function(e){ e.style.display='none'; });
+  }
+  updateAmounts();
+}
+
+function selectPlan(tile) {
+  document.querySelectorAll('.plan-tile').forEach(function(t){ t.classList.remove('selected'); });
+  tile.classList.add('selected');
+  selectedPlan = tile.getAttribute('data-plan') || 'pro';
+  updateAmounts();
+}
+
+function updateAmounts() {
+  var plan = PLANS[selectedPlan] || PLANS.pro;
+  var inr = isAnnual ? plan.annual_inr : plan.monthly_inr;
+  var usd = isAnnual ? plan.annual_usd : plan.monthly_usd;
+  var el = document.getElementById('upi-inr-amount');
+  if (el) el.textContent = fmtInr(inr);
+  var el2 = document.getElementById('upi-usd-amount');
+  if (el2) el2.textContent = '$' + usd;
+  var sa = document.getElementById('upi-step-amount');
+  if (sa) sa.innerHTML = fmtInr(inr);
+  generateUpiQR();
+  updateUpiDeepLink();
+}
+
+function selectUpiApp(upiId, appName, btn) {
+  document.querySelectorAll('.upi-app-btn').forEach(function(b){ b.classList.remove('active'); });
+  btn.classList.add('active');
+  currentUpiId = upiId;
+  var el = document.getElementById('active-upi-id'); if (el) el.textContent = upiId;
+  var cp = document.getElementById('upi-id-copy'); if (cp) cp.value = upiId;
+  var an = document.getElementById('upi-app-name'); if (an) an.textContent = appName;
+  var si = document.getElementById('upi-step-id'); if (si) si.textContent = upiId;
+  generateUpiQR();
+  updateUpiDeepLink();
+}
+
+function generateUpiQR() {
+  var container = document.getElementById('upi-qr-canvas');
+  if (!container) return;
+  container.innerHTML = '';
+  var plan = PLANS[selectedPlan] || PLANS.pro;
+  var inr = isAnnual ? plan.annual_inr : plan.monthly_inr;
+  if (!inr) { container.innerHTML = '<div style="width:200px;height:200px;display:flex;align-items:center;justify-content:center;color:#64748b;font-size:12px;">Free plan</div>'; return; }
+  var tn = 'SENTINEL APEX ' + selectedPlan.toUpperCase();
+  var upiData = 'upi://pay?pa=' + currentUpiId + '&pn=CYBERDUDEBIVASH&am=' + inr + '&cu=INR&tn=' + encodeURIComponent(tn);
+  if (typeof QRCode !== 'undefined') {
+    try {
+      new QRCode(container, { text: upiData, width: 200, height: 200, colorDark: '#000000', colorLight: '#ffffff', correctLevel: QRCode.CorrectLevel.M });
+    } catch(e) { container.innerHTML = '<img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=' + encodeURIComponent(upiData) + '" width="200" height="200" alt="UPI QR" style="border-radius:8px;">'; }
+  } else {
+    container.innerHTML = '<img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=' + encodeURIComponent(upiData) + '" width="200" height="200" alt="UPI QR" style="border-radius:8px;">';
+  }
+}
+
+function updateUpiDeepLink() {
+  var plan = PLANS[selectedPlan] || PLANS.pro;
+  var inr = isAnnual ? plan.annual_inr : plan.monthly_inr;
+  var tn = 'SENTINEL APEX ' + selectedPlan.toUpperCase();
+  var href = 'upi://pay?pa=' + currentUpiId + '&pn=CYBERDUDEBIVASH&am=' + inr + '&cu=INR&tn=' + encodeURIComponent(tn);
+  var link = document.getElementById('upi-deep-link');
+  if (link) link.href = href;
+}
+
+function generateCryptoQR() {
+  var container = document.getElementById('crypto-qr-canvas');
+  if (!container || container.innerHTML.trim()) return;
+  var addr = '0xa824c20158a4bfe2f3d8e80351b1906bd0ac0796';
+  if (typeof QRCode !== 'undefined') {
+    try { new QRCode(container, { text: addr, width: 200, height: 200, colorDark: '#000000', colorLight: '#ffffff', correctLevel: QRCode.CorrectLevel.M }); }
+    catch(e) { container.innerHTML = '<img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=' + encodeURIComponent(addr) + '" width="200" height="200" alt="Crypto QR" style="border-radius:8px;">'; }
+  } else {
+    container.innerHTML = '<img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=' + encodeURIComponent(addr) + '" width="200" height="200" alt="Crypto QR" style="border-radius:8px;">';
+  }
+}
+
+function switchPayTab(tab, el) {
+  document.querySelectorAll('.pay-tab').forEach(function(t){ t.classList.remove('active'); });
+  el.classList.add('active');
+  document.querySelectorAll('.pay-panel').forEach(function(p){ p.classList.remove('active'); });
+  var panel = document.getElementById('panel-' + tab);
+  if (panel) panel.classList.add('active');
+  if (tab === 'crypto') setTimeout(generateCryptoQR, 80);
+}
+
+function switchChain(chain, el) {
+  document.querySelectorAll('.chain-tab').forEach(function(t){ t.classList.remove('active'); });
+  el.classList.add('active');
+  document.querySelectorAll('.chain-panel').forEach(function(p){ p.classList.remove('active'); });
+  var panel = document.getElementById('chain-' + chain);
+  if (panel) panel.classList.add('active');
+}
+
+function scrollToPay() {
+  var hub = document.getElementById('payment-hub');
+  if (hub) hub.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function copyText(text, btn) {
+  var doCopy = function() {
+    if (btn) { var orig = btn.textContent; btn.textContent = 'Copied!'; btn.classList.add('copied'); setTimeout(function(){ btn.textContent = orig; btn.classList.remove('copied'); }, 2000); }
+    showToast('Copied to clipboard!');
+  };
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(doCopy).catch(function(){ fallbackCopy(text, doCopy); });
+  } else { fallbackCopy(text, doCopy); }
+}
+function fallbackCopy(text, cb) {
+  var ta = document.createElement('textarea');
+  ta.value = text; ta.style.cssText = 'position:fixed;opacity:0;top:0;left:0;';
+  document.body.appendChild(ta); ta.select();
+  try { document.execCommand('copy'); cb(); } catch(e){}
+  document.body.removeChild(ta);
+}
+function copyField(id, btn) {
+  var el = document.getElementById(id);
+  if (el) copyText(el.value, btn);
+}
+function showToast(msg, icon) {
+  var t = document.getElementById('toast');
+  document.getElementById('toast-msg').textContent = msg;
+  document.getElementById('toast-icon').textContent = icon || '✓';
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(function(){ t.classList.remove('show'); }, 2500);
+}
+
+function startUrgencyTimer() {
+  var stored = parseInt(sessionStorage.getItem('apex_urgency') || '0');
+  var now = Math.floor(Date.now() / 1000);
+  if (!stored || stored <= now) { stored = now + 300; sessionStorage.setItem('apex_urgency', stored); }
+  function tick() {
+    var rem = Math.max(0, stored - Math.floor(Date.now() / 1000));
+    var el = document.getElementById('urgency-timer');
+    if (el) { var m = Math.floor(rem/60); var s = rem%60; el.textContent = (m<10?'0':'')+m+':'+(s<10?'0':'')+s; }
+    if (rem > 0) setTimeout(tick, 1000);
+  }
+  tick();
+}
+
+function submitPaymentTracker() {
+  var name   = (document.getElementById('pct-name')||{}).value||'';
+  var email  = (document.getElementById('pct-email')||{}).value||'';
+  var plan   = (document.getElementById('pct-plan')||{}).value||'';
+  var method = (document.getElementById('pct-method')||{}).value||'';
+  var utr    = (document.getElementById('pct-utr')||{}).value||'';
+  var amount = (document.getElementById('pct-amount')||{}).value||'';
+  if (!name.trim()||!email.trim()||!utr.trim()) { showToast('Fill all required fields', '⚠'); return; }
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { showToast('Enter a valid email', '⚠'); return; }
+  var btn = document.getElementById('pct-submit');
+  if (btn) { btn.disabled = true; btn.textContent = 'Submitting...'; }
+  var fd = new FormData();
+  fd.append('name',name); fd.append('email',email); fd.append('plan',plan);
+  fd.append('payment_method',method); fd.append('utr',utr); fd.append('amount',amount);
+  fd.append('_subject','SENTINEL APEX Payment: '+plan.toUpperCase()+' - '+name);
+  fetch('https://formspree.io/f/xpzgkqly', { method:'POST', body:fd, headers:{'Accept':'application/json'} })
+    .then(function(r) {
+      if (r.ok) {
+        var suc = document.getElementById('pct-success');
+        var ce = document.getElementById('pct-confirm-email');
+        if (ce) ce.textContent = email;
+        if (suc) suc.classList.add('show');
+        showToast('Payment submitted! API key incoming.', '✓');
+        if (btn) btn.textContent = '✓ Submitted!';
+      } else { fallbackEmail(name,email,plan,method,utr,amount,btn); }
+    }).catch(function(){ fallbackEmail(name,email,plan,method,utr,amount,btn); });
+}
+
+function fallbackEmail(name,email,plan,method,utr,amount,btn) {
+  var body = 'Name: '+name+'\nEmail: '+email+'\nPlan: '+plan+'\nMethod: '+method+'\nUTR: '+utr+'\nAmount: '+amount;
+  window.location.href = 'mailto:bivash@cyberdudebivash.com?subject=SENTINEL+APEX+Payment+-'+encodeURIComponent(plan.toUpperCase()+'-'+name)+'&body='+encodeURIComponent(body);
+  if (btn) { btn.disabled = false; btn.textContent = '颉 Submit & Activate API Key'; }
+}
+
+function getAffiliateLink() {
+  var email = (document.getElementById('referral-email')||{}).value||'';
+  if (!email||!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { showToast('Enter a valid email', '⚠'); return; }
+  var code = btoa(email).replace(/[^A-Z0-9]/gi,'').substring(0,8).toUpperCase();
+  var link = 'https://intel.cyberdudebivash.com/?ref='+code;
+  var rl = document.getElementById('referral-link');
+  var rr = document.getElementById('referral-result');
+  if (rl) rl.textContent = link;
+  if (rr) rr.style.display = 'block';
+  showToast('Referral link generated!', '✓');
+}
+function copyReferralLink() {
+  var link = (document.getElementById('referral-link')||{}).textContent||'';
+  copyText(link, document.getElementById('referral-copy-btn'));
+}
+
+window.addEventListener('DOMContentLoaded', function() {
+  startUrgencyTimer();
+  generateUpiQR();
+});
+</script>
+</body>
+</html>
