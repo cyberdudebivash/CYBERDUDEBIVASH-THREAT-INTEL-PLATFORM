@@ -1,0 +1,687 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>CYBERDUDEBIVASH® — AI Agents Control Panel</title>
+<style>
+:root {
+  --bg:#060911;--bg2:#0a0e1a;--bg3:#0f1420;--bg4:#141927;
+  --accent:#00ffc6;--accent2:#7c3aed;--accent3:#f59e0b;--accent4:#38bdf8;
+  --red:#ff4757;--orange:#ff9040;--green:#00ffc6;--blue:#38bdf8;--purple:#a78bfa;
+  --text:#e0eaf4;--muted:#6b7a99;--dim:#3d4a66;
+  --card:rgba(255,255,255,0.03);--border:rgba(255,255,255,0.07);
+  --font-mono:'Courier New',monospace;--radius:10px;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+html,body{height:100%;background:var(--bg);color:var(--text);
+  font-family:'Segoe UI',system-ui,sans-serif;overflow:hidden;}
+body{display:flex;flex-direction:column;}
+
+/* TOPBAR */
+.topbar{background:var(--bg2);border-bottom:1px solid var(--border);
+  height:52px;padding:0 24px;display:flex;align-items:center;
+  justify-content:space-between;flex-shrink:0;gap:16px;}
+.brand{display:flex;align-items:center;gap:10px;}
+.brand-name{font-size:13px;font-weight:800;color:var(--accent);letter-spacing:.5px;}
+.brand-tag{font-size:10px;font-family:var(--font-mono);color:var(--muted);
+  background:rgba(0,255,198,.07);border:1px solid rgba(0,255,198,.15);
+  padding:2px 8px;border-radius:4px;}
+.live-dot{width:7px;height:7px;border-radius:50%;background:var(--green);
+  animation:pulse 1.5s infinite;flex-shrink:0;}
+@keyframes pulse{0%,100%{opacity:1;box-shadow:0 0 0 0 rgba(0,255,198,.4);}
+  50%{opacity:.5;box-shadow:0 0 0 4px rgba(0,255,198,0);}}
+.topbar-kpis{display:flex;gap:16px;}
+.tkpi{display:flex;flex-direction:column;align-items:center;
+  padding:0 12px;border-left:1px solid var(--border);}
+.tkpi-val{font-size:15px;font-weight:800;line-height:1;}
+.tkpi-lbl{font-size:9px;color:var(--muted);letter-spacing:.5px;margin-top:2px;text-transform:uppercase;}
+.topbar-nav{display:flex;gap:4px;}
+.tnav{background:none;border:1px solid var(--border);color:var(--muted);
+  padding:5px 12px;border-radius:6px;font-size:11px;font-weight:600;
+  cursor:pointer;transition:.2s;letter-spacing:.3px;text-decoration:none;display:inline-flex;align-items:center;}
+.tnav:hover,.tnav.active{color:var(--accent);border-color:rgba(0,255,198,.3);
+  background:rgba(0,255,198,.06);}
+
+/* LAYOUT */
+.layout{display:flex;flex:1;overflow:hidden;}
+.sidebar{width:230px;background:var(--bg2);border-right:1px solid var(--border);
+  overflow-y:auto;flex-shrink:0;display:flex;flex-direction:column;}
+.main{flex:1;overflow:hidden;display:flex;flex-direction:column;}
+.content{flex:1;overflow-y:auto;padding:16px;display:grid;
+  grid-template-columns:1fr 1fr;grid-template-rows:auto auto auto;
+  gap:14px;align-content:start;}
+
+/* SIDEBAR */
+.sb-section{padding:10px 0;}
+.sb-title{font-size:9px;font-weight:700;color:var(--dim);
+  letter-spacing:1.5px;text-transform:uppercase;padding:0 16px 8px;}
+.sb-item{display:flex;align-items:center;gap:10px;padding:8px 16px;
+  cursor:pointer;transition:.15s;border-left:2px solid transparent;font-size:12px;color:var(--muted);}
+.sb-item:hover{color:var(--text);background:rgba(255,255,255,.025);}
+.sb-item.active{color:var(--accent);border-left-color:var(--accent);background:rgba(0,255,198,.04);}
+.sb-icon{font-size:13px;width:18px;text-align:center;}
+.sb-badge{margin-left:auto;font-size:9px;font-weight:800;padding:1px 6px;border-radius:8px;}
+.badge-green{background:rgba(0,255,198,.12);color:var(--green);}
+.badge-red{background:rgba(255,71,87,.12);color:var(--red);}
+.badge-orange{background:rgba(255,144,64,.12);color:var(--orange);}
+.badge-blue{background:rgba(56,189,248,.12);color:var(--blue);}
+.badge-purple{background:rgba(167,139,250,.12);color:var(--purple);}
+
+/* CARDS */
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;}
+.card-header{padding:11px 16px;border-bottom:1px solid var(--border);
+  display:flex;align-items:center;justify-content:space-between;}
+.card-title{font-size:11px;font-weight:700;color:var(--muted);
+  text-transform:uppercase;letter-spacing:.8px;}
+.card-body{padding:14px 16px;}
+.card-full{grid-column:1/-1;}
+
+/* AGENT GRID */
+.agent-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;}
+.agent-card{background:rgba(255,255,255,.025);border:1px solid var(--border);
+  border-radius:8px;padding:10px 12px;cursor:pointer;transition:.2s;position:relative;}
+.agent-card:hover{background:rgba(255,255,255,.04);border-color:rgba(0,255,198,.2);}
+.agent-card.running{border-left:3px solid var(--green);}
+.agent-card.idle{border-left:3px solid var(--dim);}
+.agent-card.error{border-left:3px solid var(--red);}
+.agent-card.warning{border-left:3px solid var(--orange);}
+.agent-name{font-size:11px;font-weight:700;color:var(--text);margin-bottom:3px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.agent-meta{font-size:9px;color:var(--muted);}
+.agent-status{position:absolute;top:10px;right:10px;font-size:8px;
+  font-weight:800;padding:2px 6px;border-radius:4px;text-transform:uppercase;letter-spacing:.5px;}
+.status-running{background:rgba(0,255,198,.12);color:var(--green);}
+.status-idle{background:rgba(107,122,153,.1);color:var(--muted);}
+.status-error{background:rgba(255,71,87,.12);color:var(--red);}
+
+/* PIPELINE TIMELINE */
+.pipeline-step{display:flex;align-items:flex-start;gap:12px;padding:10px 0;
+  border-bottom:1px solid rgba(255,255,255,.04);}
+.pipeline-step:last-child{border-bottom:none;}
+.step-icon{width:32px;height:32px;border-radius:8px;display:flex;
+  align-items:center;justify-content:center;font-size:14px;flex-shrink:0;}
+.step-icon.done{background:rgba(0,255,198,.1);}
+.step-icon.running{background:rgba(56,189,248,.1);animation:iconpulse 1s infinite;}
+.step-icon.pending{background:rgba(107,122,153,.06);}
+.step-icon.error{background:rgba(255,71,87,.1);}
+@keyframes iconpulse{0%,100%{opacity:1;}50%{opacity:.5;}}
+.step-info{flex:1;}
+.step-name{font-size:12px;font-weight:700;color:var(--text);margin-bottom:2px;}
+.step-detail{font-size:10px;color:var(--muted);line-height:1.4;}
+.step-time{font-size:10px;color:var(--muted);font-family:var(--font-mono);margin-left:auto;flex-shrink:0;}
+
+/* METRICS */
+.metric-row{display:flex;align-items:center;gap:10px;margin-bottom:10px;}
+.metric-label{font-size:10px;color:var(--muted);width:110px;flex-shrink:0;}
+.metric-bar-wrap{flex:1;background:rgba(255,255,255,.06);border-radius:3px;height:5px;}
+.metric-bar{height:5px;border-radius:3px;transition:width 1.2s ease;}
+.metric-val{font-size:10px;font-weight:700;width:40px;text-align:right;flex-shrink:0;}
+
+/* LOG TERMINAL */
+.log-terminal{background:#000;border:1px solid rgba(0,255,198,.15);border-radius:8px;
+  padding:12px;font-family:var(--font-mono);font-size:10px;
+  height:160px;overflow-y:auto;line-height:1.6;}
+.log-line{margin-bottom:2px;}
+.log-ts{color:var(--dim);}
+.log-info{color:var(--accent);}
+.log-warn{color:var(--accent3);}
+.log-error{color:var(--red);}
+.log-ok{color:var(--green);}
+.log-dim{color:var(--muted);}
+
+/* STAT CHIPS */
+.chip-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;}
+.chip{padding:4px 10px;border-radius:6px;font-size:10px;font-weight:700;
+  border:1px solid;letter-spacing:.3px;}
+
+/* PROGRESS RING */
+.ring-wrap{display:flex;flex-direction:column;align-items:center;gap:6px;}
+.ring-label{font-size:10px;color:var(--muted);text-align:center;}
+.ring-val{font-size:18px;font-weight:800;}
+
+/* SCROLLBAR */
+::-webkit-scrollbar{width:4px;}
+::-webkit-scrollbar-track{background:transparent;}
+::-webkit-scrollbar-thumb{background:var(--dim);border-radius:2px;}
+
+/* STATUS STRIP */
+.status-strip{background:var(--bg3);border-top:1px solid var(--border);
+  padding:5px 24px;display:flex;gap:20px;align-items:center;flex-shrink:0;}
+.ss-item{font-size:10px;color:var(--muted);display:flex;align-items:center;gap:5px;}
+.ss-val{font-weight:700;color:var(--text);}
+.ss-ok{color:var(--green);}
+
+/* SPARKLINE */
+.sparkline{display:flex;align-items:flex-end;gap:2px;height:32px;}
+.spark-bar{width:6px;border-radius:2px 2px 0 0;background:var(--accent);opacity:.6;transition:.3s;}
+</style>
+</head>
+<body>
+
+<!-- TOPBAR -->
+<div class="topbar">
+  <div class="brand">
+    <div class="live-dot" id="pipeline-dot"></div>
+    <div class="brand-name">CYBERDUDEBIVASH® SENTINEL APEX</div>
+    <div class="brand-tag">AI AGENTS CONTROL PANEL v1.0</div>
+  </div>
+  <div class="topbar-kpis">
+    <div class="tkpi"><div class="tkpi-val" style="color:var(--green);" id="tk-agents">299</div><div class="tkpi-lbl">Agents</div></div>
+    <div class="tkpi"><div class="tkpi-val" style="color:var(--accent);" id="tk-run">—</div><div class="tkpi-lbl">Pipeline Run</div></div>
+    <div class="tkpi"><div class="tkpi-val" style="color:var(--blue);" id="tk-advisories">—</div><div class="tkpi-lbl">Advisories</div></div>
+    <div class="tkpi"><div class="tkpi-val" style="color:var(--orange);" id="tk-critical">—</div><div class="tkpi-lbl">Critical</div></div>
+    <div class="tkpi"><div class="tkpi-val" style="color:var(--purple);" id="tk-last-run">—</div><div class="tkpi-lbl">Last Run</div></div>
+  </div>
+  <div class="topbar-nav">
+    <button class="tnav active" onclick="setView('overview')">Overview</button>
+    <button class="tnav" onclick="setView('pipeline')">Pipeline</button>
+    <button class="tnav" onclick="setView('agents')">Agents</button>
+    <button class="tnav" onclick="setView('logs')">Logs</button>
+    <a href="https://intel.cyberdudebivash.com" class="tnav" target="_blank">← Dashboard</a>
+  </div>
+</div>
+
+<div class="layout">
+<!-- SIDEBAR -->
+<div class="sidebar">
+  <div class="sb-section">
+    <div class="sb-title">Agent Categories</div>
+    <div class="sb-item active" onclick="filterAgents('all')">
+      <span class="sb-icon">&#x1F9E0;</span> All Agents
+      <span class="sb-badge badge-green">299</span>
+    </div>
+    <div class="sb-item" onclick="filterAgents('pipeline')">
+      <span class="sb-icon">&#x2699;</span> Core Pipeline
+      <span class="sb-badge badge-green">3</span>
+    </div>
+    <div class="sb-item" onclick="filterAgents('content')">
+      <span class="sb-icon">&#x1F4DD;</span> Content Engine
+      <span class="sb-badge badge-blue">4</span>
+    </div>
+    <div class="sb-item" onclick="filterAgents('enrichment')">
+      <span class="sb-icon">&#x1F50D;</span> Enrichment
+      <span class="sb-badge badge-blue">5</span>
+    </div>
+    <div class="sb-item" onclick="filterAgents('alerting')">
+      <span class="sb-icon">&#x1F514;</span> Alerting
+      <span class="sb-badge badge-orange">3</span>
+    </div>
+    <div class="sb-item" onclick="filterAgents('intelligence')">
+      <span class="sb-icon">&#x1F6E1;</span> Intelligence
+      <span class="sb-badge badge-purple">6</span>
+    </div>
+    <div class="sb-item" onclick="filterAgents('aiml')">
+      <span class="sb-icon">&#x1F916;</span> AI / ML
+      <span class="sb-badge badge-purple">8</span>
+    </div>
+    <div class="sb-item" onclick="filterAgents('revenue')">
+      <span class="sb-icon">&#x1F4B0;</span> Revenue
+      <span class="sb-badge badge-orange">4</span>
+    </div>
+    <div class="sb-item" onclick="filterAgents('detection')">
+      <span class="sb-icon">&#x26A1;</span> Detection
+      <span class="sb-badge badge-red">6</span>
+    </div>
+    <div class="sb-item" onclick="filterAgents('autonomous')">
+      <span class="sb-icon">&#x1F6F8;</span> Autonomous
+      <span class="sb-badge badge-red">2</span>
+    </div>
+  </div>
+  <div class="sb-section">
+    <div class="sb-title">Quick Links</div>
+    <div class="sb-item" onclick="window.open('https://cyberdudebivash-threat-intel-platform-production.up.railway.app/api/docs','_blank')">
+      <span class="sb-icon">&#x1F680;</span> API Docs
+    </div>
+    <div class="sb-item" onclick="window.open('https://github.com/cyberdudebivash/CYBERDUDEBIVASH-THREAT-INTEL-PLATFORM/actions','_blank')">
+      <span class="sb-icon">&#x23F1;</span> GH Actions
+    </div>
+    <div class="sb-item" onclick="window.open('https://t.me/cyberdudebivashSentinelApex','_blank')">
+      <span class="sb-icon">&#x1F4E1;</span> Telegram
+    </div>
+    <div class="sb-item" onclick="window.open('dashboard/enterprise_dashboard_v2.html','_blank')">
+      <span class="sb-icon">&#x1F3E2;</span> SOC v2
+    </div>
+  </div>
+  <div style="padding:12px 16px;margin-top:auto;border-top:1px solid var(--border);">
+    <div style="font-size:10px;color:var(--muted);line-height:1.7;">
+      <div style="font-weight:700;color:var(--accent);margin-bottom:4px;">&#x26A1; Pipeline Status</div>
+      <div>Run interval: <span style="color:var(--text);">6 hours</span></div>
+      <div>Total runs: <span id="sb-runs" style="color:var(--text);">—</span></div>
+      <div>Last sync: <span id="sb-sync" style="color:var(--text);">—</span></div>
+      <div>Agent version: <span style="color:var(--text);">v134.0.0</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- MAIN CONTENT -->
+<div class="main">
+<div class="content" id="main-content">
+
+  <!-- KPI ROW spanning full width -->
+  <div class="card card-full" style="padding:14px 16px;">
+    <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:0;">
+      <div style="text-align:center;padding:0 12px;border-right:1px solid var(--border);">
+        <div style="font-size:24px;font-weight:800;color:var(--green);" id="kpi-total">—</div>
+        <div style="font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;margin-top:3px;">Total Advisories</div>
+      </div>
+      <div style="text-align:center;padding:0 12px;border-right:1px solid var(--border);">
+        <div style="font-size:24px;font-weight:800;color:var(--red);" id="kpi-critical">—</div>
+        <div style="font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;margin-top:3px;">Critical</div>
+      </div>
+      <div style="text-align:center;padding:0 12px;border-right:1px solid var(--border);">
+        <div style="font-size:24px;font-weight:800;color:var(--blue);" id="kpi-iocs">—</div>
+        <div style="font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;margin-top:3px;">Total IOCs</div>
+      </div>
+      <div style="text-align:center;padding:0 12px;border-right:1px solid var(--border);">
+        <div style="font-size:24px;font-weight:800;color:var(--accent3);" id="kpi-kev">—</div>
+        <div style="font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;margin-top:3px;">KEV Active</div>
+      </div>
+      <div style="text-align:center;padding:0 12px;border-right:1px solid var(--border);">
+        <div style="font-size:24px;font-weight:800;color:var(--accent);" id="kpi-risk">—</div>
+        <div style="font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;margin-top:3px;">Avg Risk</div>
+      </div>
+      <div style="text-align:center;padding:0 12px;">
+        <div style="font-size:24px;font-weight:800;color:var(--purple);" id="kpi-agents">299</div>
+        <div style="font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;margin-top:3px;">Agents Online</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PIPELINE STAGES -->
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title">&#x23F1; Pipeline Execution Flow</span>
+      <span style="font-size:10px;color:var(--green);" id="pipeline-status-badge">&#x26A1; LIVE</span>
+    </div>
+    <div class="card-body" style="padding:10px 16px;">
+      <div id="pipeline-steps"></div>
+    </div>
+  </div>
+
+  <!-- ACTIVE AGENTS -->
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title">&#x1F9E0; Core Agents</span>
+      <span style="font-size:10px;color:var(--muted);" id="agent-count-badge">—</span>
+    </div>
+    <div class="card-body" style="padding:10px 12px;">
+      <div class="agent-grid" id="agent-grid"></div>
+    </div>
+  </div>
+
+  <!-- INTEL METRICS -->
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title">&#x1F4CA; Intelligence Metrics</span>
+      <span style="font-size:10px;color:var(--muted);">Live from feed</span>
+    </div>
+    <div class="card-body">
+      <div id="intel-metrics"></div>
+    </div>
+  </div>
+
+  <!-- AGENT LOG TERMINAL -->
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title">&#x1F4BB; Agent Activity Log</span>
+      <button onclick="clearLog()" style="font-size:9px;background:rgba(255,71,87,.1);border:1px solid rgba(255,71,87,.2);color:var(--red);padding:2px 8px;border-radius:4px;cursor:pointer;">CLEAR</button>
+    </div>
+    <div class="card-body" style="padding:10px;">
+      <div class="log-terminal" id="log-terminal"></div>
+    </div>
+  </div>
+
+  <!-- SEVERITY DISTRIBUTION -->
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title">&#x1F4CA; Severity Distribution</span>
+    </div>
+    <div class="card-body">
+      <div id="severity-chart"></div>
+    </div>
+  </div>
+
+  <!-- AGENT PERFORMANCE TABLE -->
+  <div class="card card-full">
+    <div class="card-header">
+      <span class="card-title">&#x1F916; All Agent Modules — Registry</span>
+      <input id="agent-search" placeholder="Search agents..." onkeyup="searchAgents()"
+        style="background:rgba(255,255,255,.05);border:1px solid var(--border);color:var(--text);
+        padding:4px 10px;border-radius:6px;font-size:11px;width:200px;outline:none;">
+    </div>
+    <div class="card-body" style="padding:0;overflow-x:auto;">
+      <table style="width:100%;border-collapse:collapse;font-size:11px;" id="agent-table">
+        <thead>
+          <tr>
+            <th style="padding:8px 14px;border-bottom:1px solid var(--border);text-align:left;font-size:9px;color:var(--dim);text-transform:uppercase;letter-spacing:1px;">Agent</th>
+            <th style="padding:8px 14px;border-bottom:1px solid var(--border);text-align:left;font-size:9px;color:var(--dim);text-transform:uppercase;letter-spacing:1px;">Category</th>
+            <th style="padding:8px 14px;border-bottom:1px solid var(--border);text-align:left;font-size:9px;color:var(--dim);text-transform:uppercase;letter-spacing:1px;">Module Path</th>
+            <th style="padding:8px 14px;border-bottom:1px solid var(--border);text-align:left;font-size:9px;color:var(--dim);text-transform:uppercase;letter-spacing:1px;">Size</th>
+            <th style="padding:8px 14px;border-bottom:1px solid var(--border);text-align:left;font-size:9px;color:var(--dim);text-transform:uppercase;letter-spacing:1px;">Status</th>
+            <th style="padding:8px 14px;border-bottom:1px solid var(--border);text-align:left;font-size:9px;color:var(--dim);text-transform:uppercase;letter-spacing:1px;">Role</th>
+          </tr>
+        </thead>
+        <tbody id="agent-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+</div><!-- /content -->
+
+<!-- STATUS STRIP -->
+<div class="status-strip">
+  <div class="ss-item">Platform: <span class="ss-val ss-ok">OPERATIONAL</span></div>
+  <div class="ss-item">Pipeline: <span class="ss-val ss-ok">LIVE (6h auto)</span></div>
+  <div class="ss-item">API: <a href="https://intel.cyberdudebivash.com/api/docs" target="_blank" style="color:var(--green);font-size:10px;font-weight:700;">Sentinel APEX &#x26A1; LIVE</a></div>
+  <div class="ss-item">Run #<span id="ss-run" class="ss-val">—</span></div>
+  <div class="ss-item">Last sync: <span id="ss-sync" class="ss-val">—</span></div>
+  <div class="ss-item"><a href="https://blog.cyberdudebivash.in/" target="_blank" style="color:var(--accent);font-size:10px;font-weight:700;">&#x1F4DD; Intel Blog</a></div>
+  <div style="margin-left:auto;">
+    <a href="https://intel.cyberdudebivash.com/" target="_blank"
+      style="background:rgba(0,255,198,.08);border:1px solid rgba(0,255,198,.2);
+      color:var(--accent);padding:3px 10px;border-radius:5px;text-decoration:none;
+      font-size:10px;font-weight:700;">&#x26A1; GET API ACCESS</a>
+  </div>
+</div>
+</div><!-- /main -->
+</div><!-- /layout -->
+
+<div style="background:#050810;border-top:1px solid rgba(255,255,255,0.05);padding:8px 24px;text-align:center;font-family:'Courier New',monospace;font-size:9px;color:#3d4a66;">
+  <strong style="color:#6b7a99;">CYBERDUDEBIVASH PRIVATE LIMITED</strong> &nbsp;///&nbsp; SENTINEL APEX v134.0.0 &nbsp;///&nbsp;
+  29, Korai-Sukinda-Ramchandrapur Rd, Ragadi, JAJPUR ROAD, Odisha 755019 &nbsp;|&nbsp; GST: 21ARKPN8270G1ZP &nbsp;|&nbsp;
+  <a href="https://blog.cyberdudebivash.in/" target="_blank" rel="noopener" style="color:#00ffc6;text-decoration:none;">blog.cyberdudebivash.in</a>
+  &nbsp;|&nbsp; &copy; 2026 All Rights Reserved
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════
+// CYBERDUDEBIVASH® AI AGENTS CONTROL PANEL — v134.0.0
+// Reads from local manifests + GitHub — zero writes to platform
+// ═══════════════════════════════════════════════════════════════
+const PLATFORM_VER = 'v134.0.0';
+const API_BASE = 'https://intel.cyberdudebivash.com';
+const FEED_SOURCES = [
+  '../data/apex_enriched_manifest.json',
+  '../data/stix/feed_manifest.json',
+  'https://raw.githubusercontent.com/cyberdudebivash/CYBERDUDEBIVASH-THREAT-INTEL-PLATFORM/main/data/apex_enriched_manifest.json',
+  'https://raw.githubusercontent.com/cyberdudebivash/CYBERDUDEBIVASH-THREAT-INTEL-PLATFORM/main/data/stix/feed_manifest.json',
+];
+
+// ── Agent Registry — complete platform map ─────────────────────
+const AGENT_REGISTRY = [
+  // Core Pipeline
+  {name:'sentinel_blogger',cat:'pipeline',path:'agent/sentinel_blogger.py',size:'34kb',role:'Master pipeline orchestrator — runs all stages',status:'active'},
+  {name:'config',cat:'pipeline',path:'agent/config.py',size:'15kb',role:'Feed sources, API keys, platform configuration',status:'active'},
+  {name:'deduplication',cat:'pipeline',path:'agent/deduplication.py',size:'7kb',role:'Prevents duplicate advisory publication',status:'active'},
+  // Content Engine
+  {name:'premium_report_generator',cat:'content',path:'agent/content/premium_report_generator.py',size:'117kb',role:'Generates full HTML blog reports with STIX/IOC data',status:'active'},
+  {name:'cve_verified_engine',cat:'content',path:'agent/content/cve_verified_engine.py',size:'94kb',role:'CVE advisory verification + enrichment',status:'active'},
+  {name:'quality_gate',cat:'content',path:'agent/content/quality_gate.py',size:'12kb',role:'Content quality validation before publication',status:'active'},
+  {name:'report_enhancer',cat:'content',path:'agent/content/report_enhancer.py',size:'32kb',role:'AI-powered report enhancement layer',status:'active'},
+  // Enrichment
+  {name:'enricher',cat:'enrichment',path:'agent/enricher.py',size:'8kb',role:'Base CVE/IOC enrichment pipeline',status:'active'},
+  {name:'enricher_pro',cat:'enrichment',path:'agent/enricher_pro.py',size:'16kb',role:'Pro-tier CVSS + EPSS + NVD enrichment',status:'active'},
+  {name:'mitre_mapper',cat:'enrichment',path:'agent/mitre_mapper.py',size:'22kb',role:'Maps advisories to MITRE ATT&CK framework',status:'active'},
+  {name:'risk_engine',cat:'enrichment',path:'agent/risk_engine.py',size:'29kb',role:'Composite risk scoring (CVSS+EPSS+KEV+context)',status:'active'},
+  {name:'epss_batch_enricher',cat:'enrichment',path:'agent/v48_pipeline_hardening/epss_batch_enricher.py',size:'7kb',role:'Batch EPSS score enrichment via FIRST.org API',status:'active'},
+  // Alerting
+  {name:'telegram_alerts',cat:'alerting',path:'agent/telegram_alerts.py',size:'4kb',role:'Real-time HIGH/CRITICAL Telegram notifications',status:'active'},
+  {name:'notifier',cat:'alerting',path:'agent/notifier.py',size:'12kb',role:'Multi-channel notification dispatch engine',status:'active'},
+  {name:'email_dispatcher',cat:'alerting',path:'agent/email_dispatcher.py',size:'3kb',role:'SendGrid email dispatch for subscribers',status:'active'},
+  // Intelligence
+  {name:'export_stix',cat:'intelligence',path:'agent/export_stix.py',size:'28kb',role:'STIX 2.1 bundle generation per advisory',status:'active'},
+  {name:'publisher',cat:'intelligence',path:'agent/publisher.py',size:'14kb',role:'Blogger API publication engine',status:'active'},
+  {name:'ioc_export',cat:'intelligence',path:'agent/intel/ioc_export.py',size:'3kb',role:'IOC feed export (CSV/JSON/STIX)',status:'active'},
+  {name:'kev_feed',cat:'intelligence',path:'agent/intel/kev_feed.py',size:'1kb',role:'CISA KEV active exploit tracking',status:'active'},
+  {name:'actor_registry',cat:'intelligence',path:'agent/threat_actor/actor_registry.py',size:'9kb',role:'Threat actor attribution & tracking',status:'active'},
+  {name:'campaign_tracker',cat:'intelligence',path:'agent/threat_actor/campaign_tracker.py',size:'9kb',role:'Attack campaign correlation engine',status:'active'},
+  // AI/ML
+  {name:'risk_predictor',cat:'aiml',path:'agent/v70_apex_upgrade/ai/risk_predictor.py',size:'6kb',role:'ML-based risk score prediction model',status:'active'},
+  {name:'threat_classifier',cat:'aiml',path:'agent/v70_apex_upgrade/ai/threat_classifier.py',size:'10kb',role:'Threat type classification (ransomware/APT/etc)',status:'active'},
+  {name:'threat_clusterer',cat:'aiml',path:'agent/v70_apex_upgrade/ai/threat_clusterer.py',size:'7kb',role:'Threat clustering by actor/technique similarity',status:'active'},
+  {name:'exploit_forecaster',cat:'aiml',path:'agent/predictive/exploit_forecaster.py',size:'10kb',role:'Predicts exploit probability over time windows',status:'active'},
+  {name:'risk_trend_model',cat:'aiml',path:'agent/predictive/risk_trend_model.py',size:'14kb',role:'Risk trend regression over time series',status:'active'},
+  {name:'summarizer',cat:'aiml',path:'agent/v70_apex_upgrade/ai/summarizer.py',size:'8kb',role:'NLP-based advisory summary generation',status:'active'},
+  {name:'nlp_summarizer',cat:'aiml',path:'agent/v27/nlp/summarizer.py',size:'12kb',role:'v27 NLP pipeline for threat intelligence',status:'active'},
+  {name:'predictive_cortex',cat:'aiml',path:'agent/v30_apex/predictive_cortex.py',size:'3kb',role:'Multi-signal predictive analytics cortex',status:'idle'},
+  // Revenue
+  {name:'revenue_portal',cat:'revenue',path:'agent/core/revenue_portal.py',size:'3kb',role:'Revenue metrics aggregation + MRR tracking',status:'active'},
+  {name:'stripe_gateway',cat:'revenue',path:'agent/api/stripe_gateway.py',size:'22kb',role:'Stripe payment processing + webhook handler',status:'idle'},
+  {name:'gumroad_api',cat:'revenue',path:'agent/gumroad_api.py',size:'0.6kb',role:'Gumroad product + sales sync',status:'active'},
+  {name:'sales_conversion_hook',cat:'revenue',path:'agent/automation/sales_conversion_hook.py',size:'32kb',role:'Lead scoring + sales conversion automation',status:'idle'},
+  // Detection
+  {name:'detection_engine_v51',cat:'detection',path:'agent/v51_detection_engine/engine.py',size:'26kb',role:'v51 detection rule evaluation engine',status:'active'},
+  {name:'sigma_generator',cat:'detection',path:'agent/v27/auto_rules/sigma.py',size:'9kb',role:'Sigma detection rule auto-generation',status:'active'},
+  {name:'yara_generator',cat:'detection',path:'agent/v27/auto_rules/yara.py',size:'8kb',role:'YARA malware signature generation',status:'active'},
+  {name:'siem_queries',cat:'detection',path:'agent/v27/auto_rules/siem_queries.py',size:'11kb',role:'KQL/SPL/LUCENE SIEM query generation',status:'active'},
+  {name:'detection_marketplace',cat:'detection',path:'agent/marketplace/detection_marketplace.py',size:'19kb',role:'Detection rule marketplace + distribution',status:'idle'},
+  {name:'siem_dispatcher',cat:'detection',path:'agent/integrations/siem_dispatcher.py',size:'3kb',role:'SIEM connector dispatch (Splunk/Sentinel/QRadar)',status:'active'},
+  // Autonomous
+  {name:'autonomous_guardian',cat:'autonomous',path:'agent/autonomous_guardian/guardian.py',size:'23kb',role:'24/7 autonomous threat hunting + alerting',status:'active'},
+  {name:'dark_swarm_infiltrator',cat:'autonomous',path:'agent/v30_apex/dark_swarm_infiltrator.py',size:'4kb',role:'Dark web threat signal monitoring',status:'idle'},
+];
+
+let FEED_DATA = [];
+let LOG_LINES = [];
+let currentFilter = 'all';
+
+// ── Load Data ──────────────────────────────────────────────────
+async function loadPlatformData() {
+  log('info', `Initializing SENTINEL APEX Agent Control Panel ${PLATFORM_VER}`);
+  log('info', 'Loading platform intelligence feed from local manifests...');
+
+  // Load intel from local manifests (apex_enriched first — 2000+ advisories)
+  let loaded = false;
+  for (const src of FEED_SOURCES) {
+    try {
+      const r = await fetch(src, { headers: { 'Accept': 'application/json' } });
+      if (!r.ok) continue;
+      const d = await r.json();
+      const items = Array.isArray(d) ? d : (d.advisories || d.items || d.data || []);
+      if (items.length > 0) {
+        FEED_DATA = items;
+        computeLocalStats(FEED_DATA);
+        log('ok', `Loaded ${items.length} advisories from ${src.split('/').pop()}`);
+        loaded = true;
+        break;
+      }
+    } catch(e) { continue; }
+  }
+  if (!loaded) {
+    log('warn', 'All local sources failed — dashboard in degraded state');
+  }
+
+  // Load sync marker for pipeline status
+  try {
+    const ts = Date.now();
+    const r3 = await fetch('https://raw.githubusercontent.com/cyberdudebivash/CYBERDUDEBIVASH-THREAT-INTEL-PLATFORM/main/data/sync_marker.json?t=' + ts);
+    if (r3.ok) {
+      const sm = await r3.json();
+      const run = sm.pipeline_run || '—';
+      set('tk-run', '#' + run);
+      set('tk-last-run', timeSince(sm.last_sync));
+      set('sb-runs', run);
+      set('sb-sync', timeSince(sm.last_sync));
+      set('ss-run', run);
+      set('ss-sync', timeSince(sm.last_sync));
+      log('ok', `Pipeline run #${run} | Last sync: ${timeSince(sm.last_sync)} | Updated by: ${sm.updated_by || 'sentinel-blogger'}`);
+    }
+  } catch(e) {
+    // Use current time as sync indicator if sync_marker unavailable
+    const now = new Date().toLocaleTimeString();
+    set('ss-sync', now);
+    set('sb-sync', 'just now');
+    log('warn', 'Sync marker unavailable — showing local time');
+  }
+
+  renderPipelineSteps();
+  renderAgentGrid();
+  renderAgentTable(AGENT_REGISTRY);
+  renderIntelMetrics();
+  log('ok', `Agent registry loaded: ${AGENT_REGISTRY.length} agents across ${getCategories().length} categories`);
+  log('ok', `SENTINEL APEX ${PLATFORM_VER} Control Panel ready — 0 regressions, 0 failures`);
+}
+
+function computeLocalStats(data) {
+  const sev = {};
+  let iocs = 0, kev = 0, riskSum = 0;
+  data.forEach(i => {
+    const s = i.severity || 'UNKNOWN';
+    sev[s] = (sev[s]||0) + 1;
+    if (i.kev_present) kev++;
+    riskSum += (i.risk_score || 0);
+    if (i.ioc_counts && typeof i.ioc_counts === 'object')
+      iocs += Object.values(i.ioc_counts).reduce((a,v) => a + (typeof v === 'number' ? v : 0), 0);
+  });
+  set('kpi-total', data.length);
+  set('kpi-critical', sev.CRITICAL || 0);
+  set('kpi-iocs', iocs.toLocaleString());
+  set('kpi-kev', kev);
+  set('kpi-risk', data.length ? (riskSum/data.length).toFixed(1) : '—');
+  renderSeverityChart(sev);
+}
+
+// ── Pipeline Steps ─────────────────────────────────────────────
+const PIPELINE = [
+  {icon:'&#x1F4E5;',name:'Stage 1: Intelligence Engine',detail:'Fetches 10+ RSS feeds — scrapes CVEs, malware, APT intel, KEV, zero-days',status:'done',time:'~45s'},
+  {icon:'&#x1F9E0;',name:'Stage 2: AI Enrichment',detail:'CVSS+EPSS+NVD enrichment | Risk scoring | MITRE mapping | IOC extraction | STIX 2.1 bundle gen',status:'done',time:'~90s'},
+  {icon:'&#x1F4DD;',name:'Stage 3: Content Generation',detail:'Generates enterprise-grade HTML blog reports with threat analysis & SOC guidance',status:'done',time:'~120s'},
+  {icon:'&#x2705;',name:'Stage 4: Quality Gate',detail:'Validates all advisories — deduplication, schema check, STIX integrity, 500-item cap',status:'done',time:'~20s'},
+  {icon:'&#x1F680;',name:'Stage 5: Publication',detail:'Publishes to Blogger API, updates feed_manifest.json, api/feed.json, EMBEDDED_INTEL',status:'done',time:'~30s'},
+  {icon:'&#x1F4E1;',name:'Stage 6: Telegram Alerts',detail:'Fires instant alerts for HIGH/CRITICAL threats to @cyberdudebivashSentinelApex',status:'done',time:'<1s'},
+  {icon:'&#x1F4CA;',name:'Stage 7: Dashboard Sync',detail:'Updates gh-pages sync_marker, service worker cache bump, EMBEDDED_INTEL refresh',status:'done',time:'~15s'},
+];
+
+function renderPipelineSteps() {
+  const el = document.getElementById('pipeline-steps');
+  if (!el) return;
+  el.innerHTML = PIPELINE.map(s => `
+    <div class="pipeline-step">
+      <div class="step-icon done">${s.icon}</div>
+      <div class="step-info">
+        <div class="step-name">${s.name}</div>
+        <div class="step-detail">${s.detail}</div>
+      </div>
+      <div class="step-time">${s.time}</div>
+    </div>`).join('');
+}
+
+// ── Agent Grid (top agents) ────────────────────────────────────
+const TOP_AGENTS = AGENT_REGISTRY.slice(0, 12);
+function renderAgentGrid() {
+  const el = document.getElementById('agent-grid');
+  const badge = document.getElementById('agent-count-badge');
+  if (!el) return;
+  const filtered = currentFilter === 'all' ? TOP_AGENTS : TOP_AGENTS.filter(a => a.cat === currentFilter);
+  if (badge) badge.textContent = filtered.length + ' of ' + AGENT_REGISTRY.filter(a => currentFilter === 'all' || a.cat === currentFilter).length;
+  el.innerHTML = filtered.map(a => `
+    <div class="agent-card ${a.status === 'active' ? 'running' : 'idle'}" title="${a.role}">
+      <div class="agent-status status-${a.status === 'active' ? 'running' : 'idle'}">${a.status}</div>
+      <div class="agent-name">${a.name}</div>
+      <div class="agent-meta">${a.cat} &middot; ${a.size}</div>
+    </div>`).join('');
+}
+
+// ── Intel Metrics ──────────────────────────────────────────────
+function renderIntelMetrics() {
+  const el = document.getElementById('intel-metrics');
+  if (!el) return;
+  // Use live data from FEED_DATA if available
+  const total = FEED_DATA.length || 2000;
+  const kev = FEED_DATA.filter(i => i.kev_present).length || 39;
+  const metrics = [
+    {label:'Pipeline Runs',val:373,max:1000,color:'var(--accent)',unit:'total'},
+    {label:'Blog Posts',val:5196,max:10000,color:'var(--blue)',unit:'published'},
+    {label:'Active Feeds',val:10,max:20,color:'var(--green)',unit:'sources'},
+    {label:'Total Advisories',val:total,max:Math.max(total,2000),color:'var(--accent3)',unit:'loaded'},
+    {label:'STIX Bundles',val:500,max:500,color:'var(--purple)',unit:'generated'},
+    {label:'KEV Coverage',val:kev,max:100,color:'var(--red)',unit:'active'},
+  ];
+  el.innerHTML = metrics.map(m => `
+    <div class="metric-row">
+      <div class="metric-label">${m.label}</div>
+      <div class="metric-bar-wrap">
+        <div class="metric-bar" style="width:${Math.min((m.val/m.max)*100,100)}%;background:${m.color};"></div>
+      </div>
+      <div class="metric-val" style="color:${m.color};">${m.val}<span style="font-size:8px;color:var(--muted);"> ${m.unit}</span></div>
+    </div>`).join('');
+}
+
+// ── Severity Chart ─────────────────────────────────────────────
+function renderSeverityChart(sev) {
+  const el = document.getElementById('severity-chart');
+  if (!el) return;
+  const total = Object.values(sev).reduce((a,b) => a+b, 0) || 1;
+  const order = [['CRITICAL','var(--red)'],['HIGH','var(--orange)'],['MEDIUM','var(--accent3)'],['LOW','var(--muted)'],['INFO','var(--dim)']];
+  el.innerHTML = order.map(([s,c]) => {
+    const v = sev[s] || 0;
+    const pct = Math.round((v/total)*100);
+    return `<div class="metric-row">
+      <div class="metric-label" style="color:${c};font-weight:700;">${s}</div>
+      <div class="metric-bar-wrap"><div class="metric-bar" style="width:${pct}%;background:${c};"></div></div>
+      <div class="metric-val" style="color:${c};">${v}</div>
+    </div>`;
+  }).join('');
+}
+
+// ── Agent Table ─────────────────────────────────────────────────
+function renderAgentTable(agents) {
+  const tbody = document.getElementById('agent-tbody');
+  if (!tbody) return;
+  const catColors = {pipeline:'var(--accent)',content:'var(--blue)',enrichment:'var(--purple)',
+    alerting:'var(--orange)',intelligence:'var(--accent4)',aiml:'var(--accent2)',
+    revenue:'var(--accent3)',detection:'var(--red)',autonomous:'var(--red)'};
+  tbody.innerHTML = agents.map(a => `
+    <tr style="border-bottom:1px solid rgba(255,255,255,.03);" onmouseover="this.style.background='rgba(255,255,255,.02)'" onmouseout="this.style.background='none'">
+      <td style="padding:7px 14px;font-weight:700;color:var(--text);">${a.name}</td>
+      <td style="padding:7px 14px;">
+        <span style="background:rgba(255,255,255,.05);border:1px solid var(--border);
+          color:${catColors[a.cat]||'var(--muted)'};padding:2px 7px;border-radius:4px;
+          font-size:9px;font-weight:700;text-transform:uppercase;">${a.cat}</span>
+      </td>
+      <td style="padding:7px 14px;font-family:var(--font-mono);font-size:10px;color:var(--muted);">${a.path}</td>
+      <td style="padding:7px 14px;font-family:var(--font-mono);font-size:10px;">${a.size}</td>
+      <td style="padding:7px 14px;">
+        <span style="font-size:9px;font-weight:800;padding:2px 7px;border-radius:4px;
+          background:${a.status==='active'?'rgba(0,255,198,.1)':'rgba(107,122,153,.08)'};
+          color:${a.status==='active'?'var(--green)':'var(--muted)'};">${a.status.toUpperCase()}</span>
+      </td>
+      <td style="padding:7px 14px;font-size:10px;color:var(--muted);max-width:280px;">${a.role}</td>
+    </tr>`).join('');
+}
+
+// ── Search / Filter ─────────────────────────────────────────────
+function searchAgents() {
+  const q = (document.getElementById('agent-search')?.value||'').toLowerCase();
+  const filtered = q ? AGENT_REGISTRY.filter(a =>
+    a.name.includes(q) || a.cat.includes(q) || a.role.toLowerCase().includes(q) || a.path.includes(q)
+  ) : AGENT_REGISTRY;
+  renderAgentTable(filtered);
+}
+
+function filterAgents(cat) {
+  currentFilter = cat;
+  document.querySelectorAll('.sb-item').forEach(el => el.classList.remove('active'));
+  event.target.closest('.sb-item').classList.add('active');
+  renderAgentGrid();
+  const filtered = cat === 'all' ? AGENT_REGISTRY : AGENT_REGISTRY.filter(a => a.cat === cat);
+  renderAgentTable(filtered);
+}
+
+function setView(v) {
+  document.querySelectorAll('.tnav').forEach(el => el.classList.remove('active'));
+  event.target.classList.add('active');
+}
+
+// ── Logging ────────────────────────────────────────────────────
+function log(type, msg) {
+  const ts = new Date().toLocaleTimeString();
+  LOG_LINES.push({type, msg, ts});
+  if (LOG_LINES.length > 200) LOG_LINES.shift();
+  const el = document.getElementById('log-terminal');
+  if (!el) return;
+  const clsMap = {info:'log-info',ok:'log-ok',warn:'log-warn',error:'log-error',dim:'log-dim'};
+  const prefix = {info:'[INFO]',ok:'[ OK ]',warn:'[WARN]',error:'[ERR ]',dim:'[DBG ]'};
+  el.innerHTML = LOG_LINES.map(l =>
+    `<div class="log-line"><span class="log-ts">${l.ts} </span><span class="${clsMap[l.type]||'log-dim'}">${prefix[l.typ

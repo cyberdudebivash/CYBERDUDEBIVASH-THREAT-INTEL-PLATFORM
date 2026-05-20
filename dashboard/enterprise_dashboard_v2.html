@@ -1,0 +1,821 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>CYBERDUDEBIVASH® Sentinel APEX — Enterprise SOC v2</title>
+<style>
+:root {
+  --bg:#060911;--bg2:#0a0e1a;--bg3:#0f1420;--bg4:#141927;
+  --accent:#00ffc6;--accent2:#7c3aed;--accent3:#f59e0b;--accent4:#38bdf8;
+  --red:#ff4757;--orange:#ff9040;--green:#00ffc6;--blue:#38bdf8;
+  --text:#e0eaf4;--muted:#6b7a99;--dim:#3d4a66;
+  --card:rgba(255,255,255,0.035);--border:rgba(255,255,255,0.07);
+  --glow-c:0 0 24px rgba(0,255,198,.25);
+  --glow-p:0 0 24px rgba(124,58,237,.25);
+  --glow-r:0 0 24px rgba(255,71,87,.2);
+  --font-mono:'Courier New',monospace;
+  --radius:10px;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+html,body{height:100%;overflow:hidden;}
+body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,sans-serif;
+  display:flex;flex-direction:column;}
+
+/* ── TOPBAR ─────────────────────────────────────────── */
+.topbar{background:var(--bg2);border-bottom:1px solid var(--border);
+  padding:0 24px;height:52px;display:flex;align-items:center;
+  justify-content:space-between;flex-shrink:0;gap:16px;}
+.brand{display:flex;align-items:center;gap:10px;}
+.brand-logo{font-size:13px;font-weight:800;color:var(--accent);
+  text-shadow:var(--glow-c);letter-spacing:.5px;white-space:nowrap;}
+.brand-ver{font-size:10px;font-family:var(--font-mono);color:var(--muted);
+  background:rgba(0,255,198,.08);border:1px solid rgba(0,255,198,.15);
+  padding:2px 8px;border-radius:4px;}
+.topbar-kpis{display:flex;gap:20px;align-items:center;}
+.tkpi{display:flex;flex-direction:column;align-items:center;
+  padding:0 12px;border-left:1px solid var(--border);}
+.tkpi-val{font-size:16px;font-weight:800;line-height:1;}
+.tkpi-lbl{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-top:2px;}
+.topbar-nav{display:flex;gap:4px;align-items:center;}
+.tnav{background:none;border:1px solid var(--border);color:var(--muted);
+  padding:5px 12px;border-radius:6px;font-size:11px;font-weight:600;
+  cursor:pointer;transition:.2s;letter-spacing:.3px;}
+.tnav:hover,.tnav.active{color:var(--accent);border-color:rgba(0,255,198,.3);
+  background:rgba(0,255,198,.06);}
+.live-dot{width:7px;height:7px;border-radius:50%;background:var(--green);
+  animation:pulse 1.5s infinite;margin-right:4px;}
+@keyframes pulse{0%,100%{opacity:1;}50%{opacity:.3;}}
+
+/* ── LAYOUT ─────────────────────────────────────────── */
+.layout{display:flex;flex:1;overflow:hidden;}
+.sidebar{width:220px;background:var(--bg2);border-right:1px solid var(--border);
+  display:flex;flex-direction:column;flex-shrink:0;overflow-y:auto;}
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden;}
+.panels{flex:1;display:grid;grid-template-columns:1fr 380px;
+  gap:0;overflow:hidden;}
+.left-col{overflow-y:auto;padding:16px;}
+.right-col{border-left:1px solid var(--border);overflow-y:auto;
+  background:var(--bg2);display:flex;flex-direction:column;}
+
+/* ── SIDEBAR ─────────────────────────────────────────── */
+.sidebar-section{padding:12px 0;}
+.sidebar-title{font-size:9px;font-weight:700;color:var(--dim);
+  letter-spacing:1.5px;text-transform:uppercase;padding:0 16px 8px;}
+.sidebar-item{display:flex;align-items:center;gap:10px;padding:8px 16px;
+  cursor:pointer;transition:.15s;border-left:2px solid transparent;
+  font-size:12px;color:var(--muted);font-weight:500;}
+.sidebar-item:hover{color:var(--text);background:rgba(255,255,255,.03);}
+.sidebar-item.active{color:var(--accent);border-left-color:var(--accent);
+  background:rgba(0,255,198,.04);}
+.sidebar-item .s-icon{font-size:14px;width:18px;text-align:center;}
+.sidebar-badge{margin-left:auto;font-size:9px;font-weight:800;
+  padding:1px 6px;border-radius:10px;}
+.badge-red{background:rgba(255,71,87,.15);color:var(--red);}
+.badge-orange{background:rgba(255,144,64,.15);color:var(--orange);}
+.badge-green{background:rgba(0,255,198,.12);color:var(--green);}
+
+/* ── CARDS ─────────────────────────────────────────── */
+.card{background:var(--card);border:1px solid var(--border);
+  border-radius:var(--radius);overflow:hidden;margin-bottom:14px;}
+.card-header{padding:12px 16px;border-bottom:1px solid var(--border);
+  display:flex;align-items:center;justify-content:space-between;}
+.card-title{font-size:11px;font-weight:700;color:var(--muted);
+  text-transform:uppercase;letter-spacing:1px;}
+.card-body{padding:14px 16px;}
+
+/* ── THREAT TABLE ─────────────────────────────────────── */
+.threat-table{width:100%;border-collapse:collapse;font-size:11px;}
+.threat-table th{font-size:9px;font-weight:700;color:var(--dim);
+  text-transform:uppercase;letter-spacing:1px;padding:6px 8px;
+  border-bottom:1px solid var(--border);text-align:left;}
+.threat-table td{padding:7px 8px;border-bottom:1px solid rgba(255,255,255,.03);
+  vertical-align:middle;}
+.threat-table tr:hover td{background:rgba(255,255,255,.02);}
+.threat-table tr:last-child td{border-bottom:none;}
+.sev-badge{display:inline-block;padding:2px 7px;border-radius:4px;
+  font-size:9px;font-weight:800;letter-spacing:.5px;}
+.sev-CRITICAL{background:rgba(255,71,87,.15);color:#ff6b6b;}
+.sev-HIGH{background:rgba(255,144,64,.15);color:var(--orange);}
+.sev-MEDIUM{background:rgba(245,158,11,.12);color:var(--accent3);}
+.sev-LOW{background:rgba(107,122,153,.12);color:var(--muted);}
+.risk-bar{height:4px;border-radius:2px;background:linear-gradient(90deg,var(--green),var(--orange),var(--red));}
+
+/* ── MITRE HEATMAP ─────────────────────────────────────── */
+.mitre-grid{display:grid;grid-template-columns:repeat(8,1fr);gap:4px;}
+.mitre-cell{border-radius:4px;padding:4px 2px;font-size:8px;font-weight:700;
+  text-align:center;cursor:pointer;transition:.2s;border:1px solid rgba(255,255,255,.05);}
+.mitre-cell:hover{transform:scale(1.05);}
+
+/* ── ACTOR CARD ─────────────────────────────────────── */
+.actor-item{display:flex;align-items:center;gap:10px;padding:8px 0;
+  border-bottom:1px solid rgba(255,255,255,.03);}
+.actor-item:last-child{border-bottom:none;}
+.actor-icon{width:32px;height:32px;border-radius:8px;display:flex;
+  align-items:center;justify-content:center;font-size:14px;flex-shrink:0;}
+.actor-name{font-size:12px;font-weight:700;color:var(--text);}
+.actor-meta{font-size:10px;color:var(--muted);}
+.actor-risk{font-size:16px;font-weight:800;margin-left:auto;}
+
+/* ── FEED PANEL ─────────────────────────────────────── */
+.feed-panel{flex:1;overflow-y:auto;}
+.feed-header{padding:12px 16px;border-bottom:1px solid var(--border);
+  font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;
+  letter-spacing:1px;display:flex;align-items:center;gap:8px;}
+.feed-item{padding:12px 16px;border-bottom:1px solid rgba(255,255,255,.04);
+  cursor:pointer;transition:.15s;}
+.feed-item:hover{background:rgba(255,255,255,.025);}
+.feed-title{font-size:12px;font-weight:600;color:var(--text);
+  margin-bottom:5px;line-height:1.4;}
+.feed-meta{display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
+.feed-tag{font-size:9px;font-weight:700;padding:2px 6px;border-radius:4px;
+  text-transform:uppercase;letter-spacing:.3px;}
+.risk-score{font-family:var(--font-mono);font-size:11px;font-weight:800;margin-left:auto;}
+
+/* ── STAT BARS ─────────────────────────────────────── */
+.stat-row{display:flex;align-items:center;gap:10px;margin-bottom:8px;}
+.stat-label{font-size:10px;color:var(--muted);width:70px;flex-shrink:0;}
+.stat-bar-wrap{flex:1;background:rgba(255,255,255,.06);border-radius:3px;height:5px;}
+.stat-bar{height:5px;border-radius:3px;transition:width 1s ease;}
+.stat-val{font-size:10px;font-weight:700;width:36px;text-align:right;flex-shrink:0;}
+
+/* ── API ACCESS PANEL ─────────────────────────────────── */
+.api-tier{border:1px solid var(--border);border-radius:8px;padding:12px;
+  margin-bottom:10px;transition:.2s;}
+.api-tier:hover{border-color:rgba(0,255,198,.3);}
+.api-tier-name{font-size:12px;font-weight:800;margin-bottom:4px;}
+.api-tier-price{font-size:18px;font-weight:800;color:var(--accent3);}
+.api-tier-feat{font-size:10px;color:var(--muted);margin-top:4px;line-height:1.6;}
+.api-btn{display:block;text-align:center;margin-top:8px;padding:7px;
+  border-radius:6px;font-size:10px;font-weight:700;text-decoration:none;
+  transition:.2s;letter-spacing:.3px;}
+.api-btn-primary{background:rgba(0,255,198,.12);border:1px solid rgba(0,255,198,.3);
+  color:var(--accent);}
+.api-btn-primary:hover{background:rgba(0,255,198,.22);}
+
+/* ── STATUS STRIP ─────────────────────────────────────── */
+.status-strip{background:var(--bg3);border-top:1px solid var(--border);
+  padding:6px 24px;display:flex;gap:20px;align-items:center;flex-shrink:0;}
+.sstrip-item{font-size:10px;color:var(--muted);display:flex;align-items:center;gap:5px;}
+.sstrip-val{font-weight:700;color:var(--text);}
+.sstrip-ok{color:var(--green);}
+.sstrip-warn{color:var(--accent3);}
+
+/* ── KPI MINI ─────────────────────────────────────── */
+.kpi-row{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px;}
+.kpi-mini{background:var(--card);border:1px solid var(--border);
+  border-radius:var(--radius);padding:12px 14px;}
+.kpi-mini .top{height:2px;border-radius:2px;margin-bottom:10px;}
+.kpi-mini .lbl{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;}
+.kpi-mini .val{font-size:22px;font-weight:800;margin:4px 0 2px;line-height:1;}
+.kpi-mini .sub{font-size:10px;color:var(--muted);}
+
+/* ── SCROLLBAR ─────────────────────────────────────── */
+::-webkit-scrollbar{width:4px;height:4px;}
+::-webkit-scrollbar-track{background:transparent;}
+::-webkit-scrollbar-thumb{background:var(--dim);border-radius:2px;}
+</style>
+</head>
+<body>
+
+<!-- TOPBAR -->
+<div class="topbar">
+  <div class="brand">
+    <div class="live-dot"></div>
+    <div class="brand-logo">CYBERDUDEBIVASH® SENTINEL APEX</div>
+    <div class="brand-ver">SOC v2.0 · v134.0.0 ENTERPRISE</div>
+  </div>
+  <div class="topbar-kpis">
+    <div class="tkpi">
+      <div class="tkpi-val" style="color:var(--red);" id="t-critical">—</div>
+      <div class="tkpi-lbl">Critical</div>
+    </div>
+    <div class="tkpi">
+      <div class="tkpi-val" style="color:var(--orange);" id="t-high">—</div>
+      <div class="tkpi-lbl">High</div>
+    </div>
+    <div class="tkpi">
+      <div class="tkpi-val" style="color:var(--accent);" id="t-total">—</div>
+      <div class="tkpi-lbl">Total</div>
+    </div>
+    <div class="tkpi">
+      <div class="tkpi-val" style="color:var(--accent3);" id="t-risk">—</div>
+      <div class="tkpi-lbl">Avg Risk</div>
+    </div>
+    <div class="tkpi">
+      <div class="tkpi-val" style="color:var(--blue);" id="t-iocs">—</div>
+      <div class="tkpi-lbl">IOCs</div>
+    </div>
+    <div class="tkpi">
+      <div class="tkpi-val" style="color:var(--green);" id="t-kev">—</div>
+      <div class="tkpi-lbl">KEV</div>
+    </div>
+  </div>
+  <div class="topbar-nav">
+    <button class="tnav active" onclick="setView('soc')">SOC</button>
+    <button class="tnav" onclick="setView('threats')">Threats</button>
+    <button class="tnav" onclick="setView('mitre')">MITRE</button>
+    <button class="tnav" onclick="setView('actors')">Actors</button>
+    <button class="tnav" onclick="setView('api')">API Access</button>
+    <a href="https://intel.cyberdudebivash.com" class="tnav" style="text-decoration:none;">← Main</a>
+  </div>
+</div>
+
+<div class="layout">
+<!-- SIDEBAR -->
+<div class="sidebar">
+  <div class="sidebar-section">
+    <div class="sidebar-title">Intelligence Views</div>
+    <div class="sidebar-item active" onclick="setFilter('all')">
+      <span class="s-icon">🛡️</span> All Threats
+      <span class="sidebar-badge badge-green" id="sb-all">500</span>
+    </div>
+    <div class="sidebar-item" onclick="setFilter('CRITICAL')">
+      <span class="s-icon">🔴</span> Critical
+      <span class="sidebar-badge badge-red" id="sb-crit">—</span>
+    </div>
+    <div class="sidebar-item" onclick="setFilter('HIGH')">
+      <span class="s-icon">🟠</span> High Risk
+      <span class="sidebar-badge badge-orange" id="sb-high">—</span>
+    </div>
+    <div class="sidebar-item" onclick="setFilter('kev')">
+      <span class="s-icon">⚡</span> KEV Active
+      <span class="sidebar-badge badge-red" id="sb-kev">—</span>
+    </div>
+    <div class="sidebar-item" onclick="setFilter('supply_chain')">
+      <span class="s-icon">🔗</span> Supply Chain
+      <span class="sidebar-badge badge-orange" id="sb-sc">—</span>
+    </div>
+    <div class="sidebar-item" onclick="setFilter('ransomware')">
+      <span class="s-icon">💰</span> Ransomware
+      <span class="sidebar-badge badge-red" id="sb-ransom">—</span>
+    </div>
+    <div class="sidebar-item" onclick="setFilter('apt')">
+      <span class="s-icon">🕵️</span> APT Activity
+      <span class="sidebar-badge badge-orange" id="sb-apt">—</span>
+    </div>
+  </div>
+  <div class="sidebar-section">
+    <div class="sidebar-title">Quick Links</div>
+    <div class="sidebar-item" onclick="window.open('https://tools.cyberdudebivash.com/','_blank')">
+      <span class="s-icon">⚡</span> Gumroad Store
+    </div>
+    <div class="sidebar-item" onclick="window.open('https://t.me/cyberdudebivashSentinelApex','_blank')">
+      <span class="s-icon">📡</span> Telegram Alerts
+    </div>
+    <div class="sidebar-item" onclick="window.open('https://blog.cyberdudebivash.com','_blank')">
+      <span class="s-icon">📖</span> Intel Blog
+    </div>
+    <div class="sidebar-item" onclick="window.open('dashboard/revenue_dashboard.html','_blank')">
+      <span class="s-icon">💰</span> Revenue Dashboard
+    </div>
+  </div>
+  <div style="padding:12px 16px;margin-top:auto;border-top:1px solid var(--border);">
+    <div style="font-size:10px;color:var(--muted);line-height:1.6;">
+      <div style="font-weight:700;color:var(--text);margin-bottom:4px;">Pipeline Status</div>
+      <div>⚡ Runs every 6 hours</div>
+      <div>🔄 <span style="color:var(--green);">LIVE</span></div>
+      <div>🛡️ Sentinel APEX v140.0.0</div>
+    </div>
+  </div>
+</div>
+
+<!-- MAIN AREA -->
+<div class="main">
+  <div class="panels">
+    <!-- LEFT COLUMN -->
+    <div class="left-col">
+
+      <!-- KPI ROW -->
+      <div class="kpi-row">
+        <div class="kpi-mini">
+          <div class="top" style="background:linear-gradient(90deg,var(--red),#ff6b6b);"></div>
+          <div class="lbl">Critical Threats</div>
+          <div class="val" style="color:var(--red);" id="k-critical">—</div>
+          <div class="sub">Require immediate action</div>
+        </div>
+        <div class="kpi-mini">
+          <div class="top" style="background:linear-gradient(90deg,var(--accent),#00d4aa);"></div>
+          <div class="lbl">KEV Active</div>
+          <div class="val" style="color:var(--accent);" id="k-kev">—</div>
+          <div class="sub">Exploited in the wild</div>
+        </div>
+        <div class="kpi-mini">
+          <div class="top" style="background:linear-gradient(90deg,var(--accent3),#f97316);"></div>
+          <div class="lbl">Avg CVSS</div>
+          <div class="val" style="color:var(--accent3);" id="k-cvss">—</div>
+          <div class="sub">Across all advisories</div>
+        </div>
+        <div class="kpi-mini">
+          <div class="top" style="background:linear-gradient(90deg,var(--blue),#818cf8);"></div>
+          <div class="lbl">Total IOCs</div>
+          <div class="val" style="color:var(--blue);" id="k-iocs">—</div>
+          <div class="sub">Validated indicators</div>
+        </div>
+      </div>
+
+      <!-- THREAT TABLE VIEW -->
+      <div class="card" id="view-soc">
+        <div class="card-header">
+          <span class="card-title" id="table-title">Live Threat Feed</span>
+          <div style="display:flex;gap:8px;align-items:center;">
+            <input id="search-box" placeholder="Search threats..." onkeyup="filterTable()"
+              style="background:rgba(255,255,255,.05);border:1px solid var(--border);
+              color:var(--text);padding:5px 10px;border-radius:6px;font-size:11px;
+              width:160px;outline:none;">
+            <select id="sev-filter" onchange="filterTable()"
+              style="background:var(--bg3);border:1px solid var(--border);
+              color:var(--muted);padding:5px 8px;border-radius:6px;font-size:11px;">
+              <option value="">All Severity</option>
+              <option value="CRITICAL">Critical</option>
+              <option value="HIGH">High</option>
+              <option value="MEDIUM">Medium</option>
+              <option value="LOW">Low</option>
+            </select>
+          </div>
+        </div>
+        <div class="card-body" style="padding:0;overflow-x:auto;">
+          <table class="threat-table">
+            <thead>
+              <tr>
+                <th style="width:34%">Advisory</th>
+                <th>Severity</th>
+                <th>Risk</th>
+                <th>CVSS</th>
+                <th>EPSS%</th>
+                <th>KEV</th>
+                <th>IOCs</th>
+                <th>TLP</th>
+              </tr>
+            </thead>
+            <tbody id="threat-tbody">
+              <tr><td colspan="8" style="text-align:center;padding:20px;color:var(--muted);">Loading intelligence...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT COLUMN -->
+    <div class="right-col">
+      <!-- LIVE FEED -->
+      <div class="feed-header">
+        <div class="live-dot"></div>
+        Live Intelligence Stream
+      </div>
+      <div class="feed-panel" id="feed-panel">
+        <!-- Populated by JS -->
+      </div>
+    </div>
+  </div>
+
+  <!-- STATUS STRIP -->
+  <div class="status-strip">
+    <div class="sstrip-item"><span>Platform:</span><span class="sstrip-val sstrip-ok">OPERATIONAL</span></div>
+    <div class="sstrip-item"><span>Pipeline:</span><span class="sstrip-val sstrip-ok">RUNNING (every 6h)</span></div>
+    <div class="sstrip-item"><span>Advisories:</span><span class="sstrip-val" id="ss-total">—</span></div>
+    <div class="sstrip-item"><span>Last Sync:</span><span class="sstrip-val sstrip-ok" id="ss-sync">—</span></div>
+    <div class="sstrip-item"><span>API:</span>
+      <a href="/api/docs" style="color:var(--accent);font-size:10px;font-weight:700;">api/docs ↗</a>
+    </div>
+    <div class="sstrip-item" style="margin-left:auto;">
+      <a href="https://tools.cyberdudebivash.com/" target="_blank"
+        style="background:rgba(0,255,198,.1);border:1px solid rgba(0,255,198,.25);
+        color:var(--accent);padding:3px 10px;border-radius:5px;text-decoration:none;
+        font-size:10px;font-weight:700;">⚡ GET API ACCESS</a>
+    </div>
+  </div>
+</div>
+</div>
+
+<div style="background:var(--bg2);border-top:1px solid var(--border);padding:10px 24px;text-align:center;font-family:var(--font-mono);font-size:9px;color:var(--muted);">
+  <strong style="color:var(--text);">CYBERDUDEBIVASH PRIVATE LIMITED</strong> &nbsp;///&nbsp; SENTINEL APEX v140.0.0 &nbsp;///&nbsp;
+  29, Korai-Sukinda-Ramchandrapur Rd, Ragadi, JAJPUR ROAD, Odisha 755019 &nbsp;|&nbsp; GST: 21ARKPN8270G1ZP &nbsp;|&nbsp;
+  <a href="https://blog.cyberdudebivash.in/" target="_blank" rel="noopener" style="color:var(--accent);text-decoration:none;">📝 blog.cyberdudebivash.in</a>
+  &nbsp;|&nbsp; &copy; 2026 All Rights Reserved
+</div>
+
+<script>
+// ── Data Engine ────────────────────────────────────────────────────────────
+let ALL_DATA = [];
+let FILTERED  = [];
+let CURRENT_FILTER = 'all';
+
+// v140.0.0: SENTINEL APEX SOC v2 Data Engine
+const CF_WORKER = 'https://intel.cyberdudebivash.com';
+const PLATFORM_VER = 'v134.0.0';
+
+const SEV_COLOR = {
+  CRITICAL: 'var(--red)', HIGH: 'var(--orange)',
+  MEDIUM: 'var(--accent3)', LOW: 'var(--muted)'
+};
+const TLP_COLOR = {
+  'TLP:RED':'#ff4757','TLP:AMBER':'#f59e0b',
+  'TLP:GREEN':'#00ffc6','TLP:CLEAR':'#6b7a99'
+};
+
+// Universal manifest parser
+function parseManifest(d) {
+  if (Array.isArray(d)) return d;
+  return d.advisories || d.items || d.entries || d.data || d.reports || [];
+}
+
+// v134.0.0: Actor resolution — maps title/description to real verified threat actors
+const ACTOR_MAP = [
+  ['APT28','APT28'],['Fancy Bear','APT28'],['Sofacy','APT28'],['Strontium','APT28'],
+  ['APT29','APT29'],['Cozy Bear','APT29'],['Midnight Blizzard','APT29'],['Nobelium','APT29'],
+  ['APT41','APT41'],['Double Dragon','APT41'],['Winnti','APT41'],
+  ['Lazarus','Lazarus Group'],['Hidden Cobra','Lazarus Group'],['ZINC','Lazarus Group'],
+  ['LockBit','LockBit'],['LockBit 3','LockBit'],['LockBit 4','LockBit'],
+  ['REvil','REvil/Sodinokibi'],['GandCrab','REvil/Sodinokibi'],
+  ['Cl0p','Cl0p/TA505'],['TA505','Cl0p/TA505'],['FIN11','Cl0p/TA505'],
+  ['Volt Typhoon','Volt Typhoon'],['Bronze Silhouette','Volt Typhoon'],
+  ['Salt Typhoon','Salt Typhoon'],['Earth Estries','Salt Typhoon'],
+  ['Scattered Spider','Scattered Spider'],['Octo Tempest','Scattered Spider'],['UNC3944','Scattered Spider'],
+  ['ALPHV','ALPHV/BlackCat'],['BlackCat','ALPHV/BlackCat'],['Noberus','ALPHV/BlackCat'],
+  ['Silver Dragon','Silver Dragon'],
+  ['Iranian','Iran-Linked APT'],['Iran-link','Iran-Linked APT'],['Charming Kitten','Iran-Linked APT'],
+  ['Handala','Handala Hack'],['IRGC','Iran-Linked APT'],
+  ['North Korea','Lazarus Group'],['DPRK','Lazarus Group'],['Kimsuky','Kimsuky'],
+  ['Sandworm','Sandworm'],['Voodoo Bear','Sandworm'],
+  ['FIN7','FIN7'],['Carbanak','FIN7'],
+  ['Qilin','Qilin Ransomware'],['Akira','Akira Ransomware'],
+  ['Play Ransomware','Play Ransomware'],['Black Basta','Black Basta'],
+  ['Rhysida','Rhysida Ransomware'],['Medusa','Medusa Ransomware'],
+];
+
+function resolveActor(entry) {
+  const existing = entry.actor_tag || '';
+  if (existing && !['UNC-UNKNOWN','UNC-CDB','Unknown',''].includes(existing)) return existing;
+  const haystack = ((entry.title||'') + ' ' + (entry.description||'')).toLowerCase();
+  for (const [kw, actor] of ACTOR_MAP) {
+    if (haystack.includes(kw.toLowerCase())) return actor;
+  }
+  const tt = (entry.threat_type||'').toLowerCase();
+  if (tt.includes('ransomware')) return 'Ransomware Actor';
+  if (tt.includes('apt')||tt.includes('nation')) return 'Nation-State APT';
+  if (tt.includes('supply chain')) return 'Supply Chain Actor';
+  return 'Unattributed';
+}
+
+// v138 FIX: timeSince was used but not defined — caused ReferenceError that silently
+// aborted renderFeed() and left the feed panel blank even after data loaded.
+function timeSince(ts) {
+  if (!ts) return '';
+  const sec = Math.floor((Date.now() - new Date(ts).getTime()) / 1000);
+  if (sec < 60) return sec + 's ago';
+  if (sec < 3600) return Math.floor(sec/60) + 'm ago';
+  if (sec < 86400) return Math.floor(sec/3600) + 'h ago';
+  return Math.floor(sec/86400) + 'd ago';
+}
+
+async function loadData() {
+  // v136.0 FIX: prioritise fast, sub-1MB sources to prevent stalling on 20MB apex_enriched_manifest.
+  // apex_enriched_manifest (20MB) is moved LAST — used only when all small sources fail.
+  const sources = [
+    '../feed.json',                      // 310 items, 348KB plain array — fastest parse
+    '../api/feed.json',                 // 310 items, 937KB dict — backup
+    '../data/stix/feed_manifest.json',  // 100 items, 582KB
+    `${CF_WORKER}/api/preview`,         // CF Worker fallback
+    'https://raw.githubusercontent.com/cyberdudebivash/CYBERDUDEBIVASH-THREAT-INTEL-PLATFORM/main/data/stix/feed_manifest.json',
+    '../data/apex_enriched_manifest.json',  // 2000 items, 20MB — last resort
+  ];
+  // v136.0: fetch with 8s timeout to prevent stalling on large files
+  const fetchWithTimeout = async (url, ms=8000) => {
+    const ctrl = new AbortController();
+    const tid = setTimeout(() => ctrl.abort(), ms);
+    try {
+      const r = await fetch(url, { signal: ctrl.signal, headers: { 'Accept': 'application/json' } });
+      clearTimeout(tid);
+      return r;
+    } catch(e) { clearTimeout(tid); throw e; }
+  };
+  for (const src of sources) {
+    try {
+      const timeout = src.includes('apex_enriched_manifest') ? 20000 : 8000;
+      const r = await fetchWithTimeout(src, timeout);
+      if (!r.ok) continue;
+      const d = await r.json();
+      const items = parseManifest(d);
+      if (items.length > 0) {
+        ALL_DATA = items;
+        console.log(`[SOC-v2] Loaded ${ALL_DATA.length} advisories from ${src}`);
+        break;
+      }
+    } catch(e) { console.warn('[SOC-v2] Source failed:', src.substring(0,60), e.message); continue; }
+  }
+
+  if (ALL_DATA.length === 0) {
+    console.error('[SENTINEL APEX] All data sources exhausted — dashboard in degraded state');
+  }
+
+  // Apply actor resolution to all entries
+  ALL_DATA = ALL_DATA.map(e => ({ ...e, actor_tag: resolveActor(e) }));
+
+  // Sort by timestamp descending — always latest first
+  ALL_DATA.sort((a, b) => new Date(b.timestamp||0) - new Date(a.timestamp||0));
+
+  // FIX-03: deduplicate at render-time (3-layer: id → title → source+title)
+  ALL_DATA = _deduplicateSOC(ALL_DATA);
+
+  computeMetrics();
+  applyFilter(CURRENT_FILTER);
+  renderFeed(ALL_DATA.slice(0, 30));
+}
+
+
+// FIX-03: 3-layer dedup for SOC V2 dashboard — mirrors index.html deduplicateIntel logic
+function _normTitleSOC(t) {
+  if (!t) return '';
+  var stop = new Set(['a','an','the','in','on','at','for','of','and','or','to','via','by','with','from']);
+  return t.toLowerCase().replace(/[^a-z0-9\s]/g,'').split(/\s+/)
+    .filter(function(w){return w && !stop.has(w);}).slice(0,12).sort().join('|');
+}
+function _deduplicateSOC(data) {
+  if (!Array.isArray(data)) return data;
+  var seenIds = {}, seenTitles = {}, seenContent = {}, unique = [];
+  for (var i = 0; i < data.length; i++) {
+    var item = data[i];
+    var idKey = item.stix_id || item.id || item.cve_id;
+    if (idKey) { if (seenIds[idKey]) continue; seenIds[idKey] = 1; }
+    if (item.title) {
+      var nk = _normTitleSOC(item.title);
+      if (nk && nk.length > 8) { if (seenTitles[nk]) continue; seenTitles[nk] = 1; }
+    }
+    var src = ((item.source||item.feed_source||'')).toLowerCase().replace(/[^a-z0-9]/g,'');
+    var ck  = src + '::' + _normTitleSOC(item.title||'') + '::' + (item.cve_id||'').toUpperCase();
+    if (ck && ck.length > 5) { if (seenContent[ck]) continue; seenContent[ck] = 1; }
+    unique.push(item);
+  }
+  return unique;
+}
+
+function computeMetrics() {
+  const d = ALL_DATA;
+  if (!d.length) return;
+  // v136.0 FIX: dual-condition severity — trust risk_score as primary signal
+  const crit    = d.filter(i=>parseFloat(i.risk_score||0)>=9.0||i.severity==='CRITICAL').length;
+  const high    = d.filter(i=>{ const s=parseFloat(i.risk_score||0); return (s>=7.0&&s<9.0)||(i.severity==='HIGH'&&s<9.0); }).length;
+  const kev     = d.filter(i=>i.kev_present).length;
+  const sc      = d.filter(i=>i.supply_chain).length;
+  const ransom  = d.filter(i=>(i.threat_type||'').toLowerCase().includes('ransom')).length;
+  const apt     = d.filter(i=>(i.actor_tag||'').startsWith('APT')||(i.threat_type||'').toLowerCase().includes('apt')).length;
+  const avgRisk = (d.reduce((a,i)=>a+(i.risk_score||0),0)/d.length).toFixed(1);
+  const avgCvss = (d.filter(i=>i.cvss_score>0).reduce((a,i)=>a+(i.cvss_score||0),0)/Math.max(d.filter(i=>i.cvss_score>0).length,1)).toFixed(1);
+  let iocs = 0;
+  d.forEach(i => {
+    // Prefer ioc_count (pre-computed, accurate even when array lists are gated)
+    if (typeof i.ioc_count === 'number' && i.ioc_count > 0) { iocs += i.ioc_count; return; }
+    const c = i.ioc_counts;
+    if (c && typeof c === 'object' && !c.locked) {
+      iocs += Object.values(c).reduce((a,v) => a + (typeof v === 'number' ? v : 0), 0);
+    }
+  });
+
+  // Topbar
+  setText('t-critical', crit);
+  setText('t-high', high);
+  setText('t-total', d.length);
+  setText('t-risk', avgRisk);
+  setText('t-iocs', iocs.toLocaleString());
+  setText('t-kev', kev);
+  // KPI mini
+  setText('k-critical', crit);
+  setText('k-kev', kev);
+  setText('k-cvss', avgCvss);
+  setText('k-iocs', iocs.toLocaleString());
+  // Sidebar badges
+  setText('sb-all', d.length);
+  setText('sb-crit', crit);
+  setText('sb-high', high);
+  setText('sb-kev', kev);
+  setText('sb-sc', sc);
+  setText('sb-ransom', ransom);
+  setText('sb-apt', apt);
+  // Status strip
+  setText('ss-total', d.length + ' advisories');
+  setText('ss-sync', new Date().toLocaleTimeString());
+}
+
+function setText(id, val) {
+  const el = document.getElementById(id);
+  if (el) el.textContent = val;
+}
+
+function setFilter(f) {
+  CURRENT_FILTER = f;
+  document.querySelectorAll('.sidebar-item').forEach(el => el.classList.remove('active'));
+  applyFilter(f);
+}
+
+function applyFilter(f) {
+  let data = ALL_DATA;
+  const titleMap = {
+    all: 'Live Threat Feed — All Advisories',
+    CRITICAL: 'Critical Threats',
+    HIGH: 'High Risk Advisories',
+    kev: 'CISA KEV — Active Exploits',
+    supply_chain: 'Supply Chain Attacks',
+    ransomware: 'Ransomware Campaigns',
+    apt: 'APT & Nation-State Activity',
+  };
+  // v136.0 FIX: dual-condition severity matching
+  if (f === 'CRITICAL') data = ALL_DATA.filter(i=>parseFloat(i.risk_score||0)>=9.0||i.severity==='CRITICAL');
+  else if (f === 'HIGH') data = ALL_DATA.filter(i=>{ const s=parseFloat(i.risk_score||0); return (s>=7.0&&s<9.0)||(i.severity==='HIGH'&&s<9.0); });
+  else if (f === 'kev') data = ALL_DATA.filter(i=>i.kev_present);
+  else if (f === 'supply_chain') data = ALL_DATA.filter(i=>i.supply_chain);
+  else if (f === 'ransomware') data = ALL_DATA.filter(i=>(i.threat_type||'').toLowerCase().includes('ransom'));
+  else if (f === 'apt') data = ALL_DATA.filter(i=>(i.actor_tag||'').startsWith('APT')||(i.threat_type||'').toLowerCase().includes('apt'));
+  FILTERED = data;
+  const title = document.getElementById('table-title');
+  if (title) title.textContent = `${titleMap[f]||f} (${data.length})`;
+  renderTable(data.slice(0, 100));
+}
+
+function filterTable() {
+  const q   = (document.getElementById('search-box')?.value||'').toLowerCase();
+  const sev = document.getElementById('sev-filter')?.value||'';
+  let data  = FILTERED;
+  if (q) data = data.filter(i=>
+    (i.title||'').toLowerCase().includes(q) ||
+    (i.threat_type||'').toLowerCase().includes(q) ||
+    (i.actor_tag||'').toLowerCase().includes(q)
+  );
+  if (sev) data = data.filter(i=>i.severity===sev);
+  renderTable(data.slice(0, 100));
+}
+
+function renderTable(data) {
+  const tbody = document.getElementById('threat-tbody');
+  if (!tbody) return;
+  if (!data.length) {
+    tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:20px;color:var(--muted);">No threats match current filter</td></tr>';
+    return;
+  }
+  tbody.innerHTML = data.map(i => {
+    const risk   = (i.risk_score||0).toFixed(1);
+    const cvss   = i.cvss_score > 0 ? i.cvss_score.toFixed(1) : '—';
+    const epss   = i.epss_score > 0 ? i.epss_score.toFixed(1)+'%' : '—';
+    const kev    = i.kev_present ? '<span style="color:var(--red);font-weight:800;">KEV</span>' : '—';
+    const iocSum = i.ioc_counts && typeof i.ioc_counts==='object'
+      ? Object.values(i.ioc_counts).reduce((a,v)=>a+(typeof v==='number'?v:0),0) : 0;
+    const tlpClr = TLP_COLOR[i.tlp_label]||'var(--muted)';
+    const riskW  = Math.min((risk/10)*100,100);
+    const riskClr= risk>=9?'var(--red)':risk>=7?'var(--orange)':risk>=4?'var(--accent3)':'var(--muted)';
+    const _clickUrl = (i.report_url||i.internal_report_url||i.source_url||'').replace(/'/g,'%27') || '#';
+    return `<tr onclick="window.open('${_clickUrl}','_blank')" style="cursor:pointer;">
+      <td style="max-width:280px;">
+        <div style="font-size:11px;font-weight:600;color:var(--text);line-height:1.3;
+          white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"
+          title="${(i.title||'').replace(/"/g,"'")}">
+          ${(i.title||'Unknown').substring(0,70)}${(i.title||'').length>70?'…':''}
+        </div>
+        <div style="font-size:9px;color:var(--muted);margin-top:2px;">
+          ${i.threat_type||'—'} · ${(i.feed_source||'').replace('https://','').split('/')[0]}
+        </div>
+      </td>
+      <td><span class="sev-badge sev-${i.severity||'UNKNOWN'}">${i.severity||'?'}</span></td>
+      <td>
+        <div style="color:${riskClr};font-weight:800;font-size:12px;">${risk}</div>
+        <div class="risk-bar" style="width:${riskW}%;margin-top:3px;background:${riskClr};opacity:.6;"></div>
+      </td>
+      <td style="font-family:var(--font-mono);font-size:11px;">${cvss}</td>
+      <td style="font-family:var(--font-mono);font-size:11px;">${epss}</td>
+      <td>${kev}</td>
+      <td style="font-family:var(--font-mono);font-size:11px;color:var(--blue);">${iocSum||'—'}</td>
+      <td style="font-size:9px;font-weight:700;color:${tlpClr};">${(i.tlp_label||'—').replace('TLP:','')}</td>
+    </tr>`;
+  }).join('');
+}
+
+// v140.0.0: APEX AI Intelligence renderFeed — full field parity with main dashboard
+// Renders apex_ai: soc_priority, threat_level, predictive_risk, ai_confidence,
+// threat_confidence_tier/label, kill_chain, actor_fingerprint, paywall, ai_summary
+function renderFeed(data) {
+  const panel = document.getElementById('feed-panel');
+  if (!panel) return;
+
+  const _TIER_COLORS = { VERIFIED:'#00d4aa', HIGH:'#3b82f6', MODERATE:'#f59e0b', LOW:'#ef4444' };
+
+  panel.innerHTML = data.map(function(i) {
+    const risk    = (i.risk_score||0).toFixed(1);
+    const riskClr = risk>=9?'var(--red)':risk>=7?'var(--orange)':risk>=4?'var(--accent3)':'var(--muted)';
+    const age     = i.timestamp ? timeSince(i.timestamp) : '';
+    const ai      = i.apex_ai || {};
+
+    // ── SOC Priority ──────────────────────────────────────────────
+    const prio      = ai.soc_priority || 'P4';
+    const prioColor = prio==='P1'?'var(--red)':prio==='P2'?'var(--orange)':prio==='P3'?'#f59e0b':'#4ade80';
+
+    // ── Threat Level ──────────────────────────────────────────────
+    const tlvl      = ai.threat_level || '';
+    const tlvlColor = tlvl==='CRITICAL_SURGE'?'var(--red)':tlvl==='HIGH_ALERT'?'var(--orange)':'var(--muted)';
+
+    // ── Predictive Risk / AI Confidence ───────────────────────────
+    const predRisk  = ai.predictive_risk != null ? parseFloat(ai.predictive_risk).toFixed(1) : null;
+    const aiConf    = ai.ai_confidence   != null ? ai.ai_confidence : null;
+
+    // ── Confidence Tier + Label ───────────────────────────────────
+    const confTier  = ai.threat_confidence_tier  || null;
+    const confLabel = ai.threat_confidence_label || null;
+    const confColor = _TIER_COLORS[confTier] || '#6b7280';
+
+    // ── Kill Chain ────────────────────────────────────────────────
+    const kc       = ai.kill_chain;
+    const kcLocked = kc === 'PRO_REQUIRED';
+    const kcPhases = Array.isArray(kc) ? kc.slice(0,2) : [];
+
+    // ── Actor Fingerprint ─────────────────────────────────────────
+    const actorFP  = ai.actor_fingerprint || i.actor_tag || '\u2014';
+    const fpLocked = actorFP && actorFP.includes('****');
+
+    // ── Paywall / Urgency ─────────────────────────────────────────
+    const pw      = ai.paywall;
+    const urgency = pw && pw.urgency ? pw.urgency : '';
+    const upUrl   = pw && pw.upgrade_url
+        ? pw.upgrade_url.replace('https://cyberdudebivash.com/sentinel-premium','/get-api-key.html?plan=pro')
+                        .replace('https://intel.cyberdudebivash.com/upgrade','/get-api-key.html?plan=pro')
+        : '/get-api-key.html?plan=pro';
+
+    // ── AI Summary ────────────────────────────────────────────────
+    const sumFull  = ai.ai_summary || '';
+    const summary  = sumFull.substring(0, 180);
+    const hasApex  = !!(ai.soc_priority || ai.threat_level || ai.predictive_risk);
+
+    const reportUrl = (i.internal_report_url || i.report_url || i.blog_url || '#').replace(/'/g,'');
+
+    return (
+      '<div class="feed-item" style="padding:10px 12px;border-bottom:1px solid rgba(255,255,255,0.05);">' +
+
+      // ── Title row + priority badge ────────────────────────────
+      '<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:6px;">' +
+        '<div style="flex:1;min-width:0;">' +
+          '<div class="feed-title" style="font-size:11px;font-weight:700;line-height:1.4;color:var(--text);cursor:pointer;" ' +
+               'onclick="window.open(\'' + reportUrl + '\',\'_blank\')">' +
+               (i.title||'').substring(0,100) + ((i.title||'').length>100?'\u2026':'') +
+          '</div>' +
+        '</div>' +
+        (hasApex ? '<span style="font-family:var(--font-mono,monospace);font-size:8px;color:' + prioColor + ';border:1px solid ' + prioColor + '55;padding:2px 6px;border-radius:2px;font-weight:900;white-space:nowrap;flex-shrink:0;">' + prio + '</span>' : '') +
+      '</div>' +
+
+      // ── Meta chips ────────────────────────────────────────────
+      '<div class="feed-meta" style="display:flex;flex-wrap:wrap;align-items:center;gap:4px;margin-bottom:' + (hasApex?'7':'0') + 'px;">' +
+        '<span class="feed-tag" style="background:' + (SEV_COLOR[i.severity]||'rgba(107,122,153,.12)') + ';color:' + (i.severity==='CRITICAL'?'var(--red)':i.severity==='HIGH'?'var(--orange)':i.severity==='MEDIUM'?'#f59e0b':'var(--muted)') + ';">' + (i.severity||'?') + '</span>' +
+        (i.kev_present ? '<span class="feed-tag" style="background:rgba(255,71,87,.12);color:var(--red);">\u26a1 KEV</span>' : '') +
+        (tlvl ? '<span class="feed-tag" style="background:' + tlvlColor + '18;color:' + tlvlColor + ';font-size:8px;">' + tlvl.replace(/_/g,' ') + '</span>' : '') +
+        (predRisk ? '<span class="feed-tag" style="background:rgba(255,255,255,0.04);color:' + (predRisk>=7?'var(--red)':predRisk>=5?'var(--orange)':'var(--accent3)') + ';">RISK ' + predRisk + '/10</span>' : '<span class="risk-score" style="color:' + riskClr + ';">' + risk + '/10</span>') +
+        (confTier ? '<span class="feed-tag" style="background:' + confColor + '18;color:' + confColor + ';font-weight:900;">' + confTier + '</span>' : '') +
+        (kcLocked ? '<span class="feed-tag" style="color:var(--muted);">\uD83D\uDD12 KC: PRO</span>' : kcPhases.map(function(p){return '<span class="feed-tag" style="color:var(--accent3);">\u2B21 '+p+'</span>';}).join('')) +
+        (age ? '<span style="font-size:9px;color:var(--muted);margin-left:auto;">' + age + '</span>' : '') +
+      '</div>' +
+
+      // ── APEX AI Intelligence block (only when apex_ai present) ─
+      (hasApex ? (
+        // Confidence label — "✓ VERIFIED — Multi-source corroboration confirmed"
+        (confLabel ? '<div style="font-family:var(--font-mono,monospace);font-size:8px;color:' + confColor + ';padding:3px 7px;background:' + confColor + '11;border-left:2px solid ' + confColor + ';border-radius:2px;margin-bottom:5px;">' + confLabel + '</div>' : '') +
+
+        // Actor fingerprint + AI confidence
+        '<div style="display:flex;gap:12px;font-family:var(--font-mono,monospace);font-size:8.5px;color:var(--muted);margin-bottom:5px;">' +
+          '<span>ACTOR</span>' +
+          '<span style="color:' + (fpLocked?'var(--muted)':'#67e8f9') + ';">' + actorFP + '</span>' +
+          (aiConf!=null ? '<span style="margin-left:auto;">AI CONF <span style="color:' + confColor + ';font-weight:900;">' + aiConf + '%</span></span>' : '') +
+        '</div>' +
+
+        // AI summary (up to 180 chars)
+        (summary ? '<div style="font-size:10px;color:var(--muted);line-height:1.45;margin-bottom:5px;">' + summary + (sumFull.length > 180 ? '\u2026' : '') + '</div>' : '') +
+
+        // Urgency banner + upgrade CTA
+        (urgency ? '<div style="font-family:var(--font-mono,monospace);font-size:8px;color:var(--orange);background:rgba(255,140,0,0.08);border:1px solid rgba(255,140,0,0.2);padding:4px 8px;border-radius:3px;margin-bottom:4px;display:flex;justify-content:space-between;align-items:center;">' +
+          '<span>' + urgency + '</span>' +
+          '<a href="' + upUrl + '" target="_blank" style="color:var(--orange);font-weight:900;text-decoration:none;margin-left:10px;white-space:nowrap;">UPGRADE \u2192</a>' +
+        '</div>' : '') +
+
+        // View dossier link
+        '<div style="text-align:right;margin-top:2px;">' +
+          '<a href="' + reportUrl + '" target="_blank" style="font-family:var(--font-mono,monospace);font-size:9px;color:var(--accent3);text-decoration:none;">View Tactical Dossier \u2192</a>' +
+        '</div>'
+      ) : '') +
+
+    '</div>'
+    );
+  }).join('');
+}
+
+
+// ── v138 FIX: loadData() was defined but NEVER CALLED — root cause of SOC V2 empty forever
+// timeSince was called in renderFeed but not defined — caused silent ReferenceError
+document.addEventListener('DOMContentLoaded', function() {
+  loadData().then(function() {
+    var ssTotal = document.getElementById('ss-total');
+    var ssSync  = document.getElementById('ss-sync');
+    if (ssTotal && ALL_DATA.length) ssTotal.textContent = ALL_DATA.length + ' advisories';
+    if (ssSync) ssSync.textContent = new Date().toLocaleTimeString();
+  }).catch(function(e) {
+    console.error('[SOC-v2] loadData failed:', e);
+    var tbody = document.getElementById('threat-tbody');
+    if (tbody) tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:20px;color:var(--muted);">Intelligence feed unavailable</td></tr>';
+  });
+});
+</script>
+</body>
+</html>
