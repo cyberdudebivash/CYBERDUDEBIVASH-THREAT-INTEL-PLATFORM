@@ -5904,10 +5904,10 @@
         <script>
         (function eiccEngine(){
             'use strict';
-            var MANIFEST_URLS = [
-                '/latest.json',
-                '/feed.json',
-                '/feed_manifest.json'
+            var EICC_DATA_URLS = [
+                'api/v1/intel/latest.json',
+                'api/feed.json',
+                'https://raw.githubusercontent.com/cyberdudebivash/CYBERDUDEBIVASH-THREAT-INTEL-PLATFORM/main/api/feed.json'
             ];
             var AI_TRACKER_URL = '/api/ai/tracker.json';
 
@@ -6056,8 +6056,8 @@
                 // Fetch live feed data
                 var tried = 0;
                 function tryManifest(i){
-                    if(i >= MANIFEST_URLS.length) return;
-                    fetch(MANIFEST_URLS[i]+'?_='+Date.now())
+                    if(i >= EICC_DATA_URLS.length) return;
+                    fetch(EICC_DATA_URLS[i]+'?_='+Date.now())
                     .then(function(r){ return r.json(); })
                     .then(function(data){
                         var items = data.items || data.advisories || data.data || [];
