@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 scripts/dist_artifact_verifier.py
-CYBERDUDEBIVASH(R) SENTINEL APEX v156.0 -- Pre-Deploy Dist Artifact Verifier
+CYBERDUDEBIVASH(R) SENTINEL APEX v158.0.2 -- Pre-Deploy Dist Artifact Verifier
 ================================================================================
 Pre-deployment gate: verifies dist/ integrity against deployment_manifest.json.
 
@@ -10,14 +10,18 @@ MANDATE:
   This is the last line of defense before customer-facing URLs are served.
 
 VERIFICATION CHECKS:
-  1. dist/deployment_manifest.json exists and is parseable
-  2. Every file listed in manifest exists in dist/
-  3. SHA-256 checksums match for all report HTML files
-  4. No zero-byte report files
-  5. Report count >= minimum threshold (adjusted for REPORT_RETENTION_DAYS mode)
-  6. All report_url paths from feed files exist in dist/
-  7. dist/ does NOT contain .github/ or scripts/ (artifact purity check)
-  8. .nojekyll present (prevents Jekyll processing)
+  1.  dist/deployment_manifest.json exists and is parseable
+  2.  Every file listed in manifest exists in dist/
+  3.  SHA-256 checksums match for all report HTML files
+  4.  No zero-byte report files
+  5.  Report count >= minimum threshold (adjusted for REPORT_RETENTION_DAYS mode)
+  6.  All report_url paths from feed files exist in dist/
+  7.  dist/ does NOT contain .github/ or scripts/ (artifact purity check)
+  8.  .nojekyll present (prevents Jekyll processing)
+  9.  dist/index.html present (dashboard root accessible)
+  10. dist/deployment_manifest.json present
+  11. dist/service-worker.js present (v158.0.2 -- PWA cache governance)
+  12. dist/version.json present (v158.0.2 -- version API governance)
 
 REPORT_RETENTION_DAYS AWARENESS (v156.0):
   When REPORT_RETENTION_DAYS > 0 (HOT-tier only deployment), dist/ will contain
@@ -231,6 +235,28 @@ def run_checks(manifest: Dict, retention_days: int = 0) -> Tuple[int, int]:
     else:
         fail("dist/deployment_manifest.json MISSING")
 
+    # CHECK 11: service-worker.js present (v158.0.2 -- PWA governance)
+    # ROOT CAUSE: service-worker.js was not in build_dist_artifact.py include_singles,
+    # causing HTTP 404 on /service-worker.js. PWA offline caching and cache
+    # invalidation governance broken for all users. Fixed in build_dist_artifact.py
+    # v158.0.2. This gate ensures the fix is permanent and regresses immediately
+    # if service-worker.js is ever dropped from the build again.
+    if (DIST_DIR / "service-worker.js").exists():
+        ok("dist/service-worker.js present -- PWA cache governance active")
+    else:
+        fail("dist/service-worker.js MISSING -- PWA broken, HTTP 404 on /service-worker.js")
+        fail("  Fix: ensure service-worker.js is in include_singles in build_dist_artifact.py")
+
+    # CHECK 12: version.json present (v158.0.2 -- version API governance)
+    # ROOT CAUSE: version.json was not in include_singles, causing HTTP 404
+    # on /version.json. Canary E probe and external version checks all fail.
+    # This gate ensures version.json is always present in every deployment.
+    if (DIST_DIR / "version.json").exists():
+        ok("dist/version.json present -- version API governance active")
+    else:
+        fail("dist/version.json MISSING -- version endpoint HTTP 404, Canary E failing")
+        fail("  Fix: ensure version.json is in include_singles in build_dist_artifact.py")
+
     return passes, fails
 
 
@@ -269,7 +295,7 @@ def main() -> int:
              manifest.get("report_count", 0),
              manifest.get("pipeline_run_id", "?"))
 
-    # ── Run all checks ────────────────────────────────────────────────────────
+    # ── Run all checks ─────────────────────────────────────────────────────────────────────────────
     log.info("")
     log.info("Running artifact verification checks...")
     passes, fails = run_checks(manifest, retention_days=retention_days)

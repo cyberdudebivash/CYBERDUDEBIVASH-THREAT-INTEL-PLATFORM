@@ -406,10 +406,20 @@ def main() -> int:
     log.info("  Copied %d root-level HTML pages → dist/", html_count)
 
     # ── 4. Copy individual include files ────────────────────────────────────
+    # v158.0.2 FIX: Added service-worker.js and version.json.
+    #   ROOT CAUSE: Both files existed at repo root but were absent from
+    #   include_singles, so they were never copied to dist/.
+    #   IMPACT: service-worker.js 404 → PWA cache governance broken.
+    #           version.json 404 → Canary E version check failing.
+    #   Both smoke tests and canary probes detected the 404s correctly.
+    #   Fix: add both to include_singles so they are copied to dist/ on every
+    #   pipeline run. Non-destructive — existing build logic unchanged.
     include_singles = [
         "feed.json", "feed_manifest.json", "latest.json", "manifest.json",
         "_headers", ".nojekyll", "CNAME", "robots.txt",
         "sitemap.xml", "favicon.ico", "favicon.png",
+        "service-worker.js",   # v158.0.2: PWA cache governance (was 404)
+        "version.json",        # v158.0.2: platform version API (was 404)
     ]
     for fname in include_singles:
         src = REPO_ROOT / fname
