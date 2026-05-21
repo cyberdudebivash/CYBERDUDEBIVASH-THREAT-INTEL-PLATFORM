@@ -123,33 +123,45 @@ def _validate_one(entry: Dict[str, Any], idx: int) -> List[str]:
     """
     Validate a single advisory entry. Returns a list of failure messages.
     Empty list means PASS.
+
+    v152.2.0 IMMUTABLE GUARD — Root cause of Run #1269 false-positive FATAL:
+    Previously RULE 1 returned early (failing) whenever report_url /
+    internal_report_url were absent from the manifest entry. This produced
+    false-positive failures for:
+      (a) data/stix/feed_manifest.json entries — STIX bundle index records
+          that never carry report_url fields by design.
+      (b) "god mode" reports skipped by report_generator — physical HTML files
+          exist on disk (74-81 KB) but the URL was not written back to the
+          manifest entry because the generator skipped regeneration.
+
+    Fix: call _resolve_report_path() FIRST. It falls back to deriving the path
+    from intel_id + processed_at/timestamp when no URL field exists. RULE 1
+    fails ONLY if (a) no URL in manifest AND (b) no id-derived path resolves.
+    RULE 3 (file-existence check) then catches genuinely missing reports.
     """
     failures: List[str] = []
     intel_id = (entry.get("id") or entry.get("stix_id") or f"entry[{idx}]").strip()
 
-    # RULE 1 + 2: must have an internal report URL
-    report_url = (entry.get("internal_report_url") or entry.get("report_url") or "").strip()
-    if not report_url:
-        failures.append(
-            f"[{intel_id}] RULE 1 FAIL: no report_url or internal_report_url"
-        )
-        return failures  # can't check file without a path
-
-    if report_url.startswith("http") and "cyberdudebivash" not in report_url:
-        failures.append(
-            f"[{intel_id}] RULE 2 FAIL: report_url is external URL: {report_url!r}"
-        )
-        return failures
-
-    # Resolve filesystem path (via internal_report_url / derived path)
+    # Resolve best available path: explicit URL first, then id-derived fallback
     _url, fs_path = _resolve_report_path(entry)
+    explicit_url = (entry.get("internal_report_url") or entry.get("report_url") or "").strip()
+
+    # RULE 1: must resolve a report path (explicit URL in manifest OR id-derived)
     if not fs_path:
         failures.append(
-            f"[{intel_id}] RULE 1 FAIL: cannot derive filesystem path from report_url={report_url!r}"
+            f"[{intel_id}] RULE 1 FAIL: no report_url, internal_report_url, "
+            f"or derivable id — cannot locate report file"
         )
         return failures
 
-    # RULE 3: file must exist (internal path)
+    # RULE 2: if an explicit URL is present, it must not be a foreign external URL
+    if explicit_url and explicit_url.startswith("http") and "cyberdudebivash" not in explicit_url:
+        failures.append(
+            f"[{intel_id}] RULE 2 FAIL: report_url is external URL: {explicit_url!r}"
+        )
+        return failures
+
+    # RULE 3: physical HTML file must exist on disk at resolved path
     if not os.path.exists(fs_path):
         failures.append(
             f"[{intel_id}] RULE 3 FAIL: report file NOT FOUND: {fs_path}"
@@ -157,10 +169,8 @@ def _validate_one(entry: Dict[str, Any], idx: int) -> List[str]:
         return failures  # no point checking size/content
 
     # RULE 3b (v154.0 P0 HARDENING): PUBLIC report_url path MUST ALSO exist.
-    # validate_reports.py previously only checked internal_report_url (which may
-    # point to an old/different path). If report_url diverges from
-    # internal_report_url and the public path is missing, the dashboard CTA
-    # links to a 404.  This rule catches that exact schema drift.
+    # If report_url diverges from internal_report_url and the public path is
+    # missing, the dashboard CTA links to a 404.
     _public_ru = (entry.get("report_url") or "").strip()
     if _public_ru and not _public_ru.startswith("http") and _public_ru.startswith("/reports/"):
         _public_fs = _public_ru.lstrip("/").replace("/", os.sep)
@@ -175,7 +185,8 @@ def _validate_one(entry: Dict[str, Any], idx: int) -> List[str]:
     size = os.path.getsize(fs_path)
     if size < MIN_FILE_BYTES:
         failures.append(
-            f"[{intel_id}] RULE 4 FAIL: report file too small ({size} bytes < {MIN_FILE_BYTES}): {fs_path}"
+            f"[{intel_id}] RULE 4 FAIL: report file too small "
+            f"({size} bytes < {MIN_FILE_BYTES}): {fs_path}"
         )
 
     # RULE 5: file must start with valid HTML
