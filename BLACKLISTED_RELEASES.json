@@ -1,0 +1,94 @@
+{
+  "_schema": "SENTINEL-APEX-BLACKLIST-v1.0",
+  "_description": "PERMANENTLY BLACKLISTED COMMITS AND RELEASES — CYBERDUDEBIVASH® SENTINEL APEX",
+  "_governance": "Any commit or descendant in this list MUST HARD FAIL production promotion. This list is immutable and append-only.",
+  "_generated_at": "2026-05-21T17:39:00Z",
+
+  "blacklisted_commits": [
+    {
+      "commit": "139fb839a2",
+      "short": "139fb83",
+      "classification": "P1_REGRESSION_ORIGIN",
+      "date": "2026-05-21T14:33:51+05:30",
+      "author": "CYBERDUDEBIVASH",
+      "message": "fix(ci): resolve deploy-worker and tracker-v148 CI failures",
+      "regression_introduced": "PIPELINE_VERSION downgraded from 158.0.2 to 152.0.0",
+      "impact": "Triggered cascade of emergency patches that introduced PIPELINE_ZERO_OUTPUT gate, causing stale dashboard, skipped deploy stages, shortened runtimes",
+      "files_mutated": [
+        ".github/workflows/sentinel-blogger.yml",
+        "data/health/sla_status.json",
+        "PAYMENT-GATEWAY.html"
+      ],
+      "ban_reason": "Origin of the regression chain. PIPELINE_VERSION rollback destabilized production."
+    },
+    {
+      "commit": "bf5a2a1a38",
+      "classification": "P1_REGRESSION_DESCENDANT",
+      "date": "2026-05-21",
+      "message": "fix(p0): v152.1.0 anti-stale deployment — PIPELINE_ZERO_OUTPUT gate",
+      "regression_introduced": "Added PIPELINE_ZERO_OUTPUT gate that skips Stage 3.5, 3.6, 5 when STIX_NEW_BUNDLES=0",
+      "impact": "Caused stale GitHub Pages deployment — Stage 5 silently skipped on most scheduled runs",
+      "ban_reason": "PIPELINE_ZERO_OUTPUT gate architectural flaw — skips mandatory deployment stages"
+    },
+    {
+      "commit": "5d8613fd36",
+      "classification": "P1_REGRESSION_DESCENDANT",
+      "date": "2026-05-21",
+      "message": "fix(p0): v152.2.0 dual-manifest freshness gate — Stage 2.5",
+      "regression_introduced": "Added PIPELINE_ZERO_OUTPUT condition on Stage 3.3 (Report Validation)",
+      "impact": "Report validation silently skipped when no new STIX bundles",
+      "ban_reason": "Extends harmful PIPELINE_ZERO_OUTPUT pattern"
+    },
+    {
+      "commit": "a865fe3758",
+      "classification": "P1_REGRESSION_DESCENDANT",
+      "date": "2026-05-21",
+      "message": "fix(p0): v152.2.0 Stage 3.3 — PIPELINE_ZERO_OUTPUT guard",
+      "regression_introduced": "Further extended PIPELINE_ZERO_OUTPUT stage-skipping pattern",
+      "ban_reason": "Compounded harmful Zero-Output gate architecture"
+    }
+  ],
+
+  "blacklisted_patterns": [
+    {
+      "pattern": "PIPELINE_VERSION downgrade",
+      "description": "Any commit that lowers PIPELINE_VERSION from its current value",
+      "detection": "grep PIPELINE_VERSION sentinel-blogger.yml | compare with baseline 158.0.2",
+      "action": "HARD BLOCK — reject without review"
+    },
+    {
+      "pattern": "PIPELINE_ZERO_OUTPUT gate introduction",
+      "description": "Any commit adding conditional skip on Stage 3.5, 3.6, or Stage 5",
+      "detection": "grep 'if: env.PIPELINE_ZERO_OUTPUT' sentinel-blogger.yml",
+      "action": "HARD BLOCK — architecturally forbidden per PRODUCTION_BASELINE_LOCK.json rule_2"
+    },
+    {
+      "pattern": "Stage 5 conditional skip",
+      "description": "Any commit adding 'if:' condition to the GitHub Pages deploy stage",
+      "detection": "Check Stage 5 in sentinel-blogger.yml for conditional execution",
+      "action": "HARD BLOCK — Stage 5 MUST run on all scheduled executions"
+    },
+    {
+      "pattern": "Runtime collapse",
+      "description": "Any commit that results in pipeline runtime below 20 minutes",
+      "detection": "Monitor GitHub Actions runtime. Alert if < 20 min.",
+      "action": "INVESTIGATE immediately — indicates skipped enrichment stages"
+    }
+  ],
+
+  "safe_commits_post_baseline": [
+    {
+      "commit": "e6087115c7",
+      "classification": "SAFE_APPROVED",
+      "message": "fix(p0): v155.0 Stage 3.4.5 — stix_id governance engine",
+      "approved_reason": "Non-destructive stix_id backfill fix. Validator only. No workflow mutations. Forensically verified."
+    }
+  ],
+
+  "enforcement": {
+    "pre_deploy_check": "scripts/runtime_integrity_engine.py --check-blacklist",
+    "hard_fail_on_blacklisted_ancestor": true,
+    "hard_fail_on_pipeline_version_below": "158.0.2",
+    "hard_fail_on_stage5_conditional": true
+  }
+}

@@ -1,0 +1,51 @@
+{
+  "_schema": "SENTINEL-APEX-GOLDEN-BASELINE-v1.0",
+  "_description": "GOLDEN PRODUCTION BASELINE SNAPSHOT — e565930 architecture restored",
+  "_generated_at": "2026-05-21T12:30:23Z",
+  "_governance": "Future deployments MUST mathematically prove no regression vs this snapshot.",
+  "baseline": {
+    "commit": "e565930",
+    "pipeline_version": "158.0.2",
+    "workflow_run": "sentinel-blogger #1265",
+    "runtime_seconds": 2188,
+    "runtime_human": "36m 28s",
+    "status": "SUCCESS"
+  },
+  "artifact_signatures": {
+    "sentinel_blogger_yml": "330784b2c1cd97d2ffddf85c9c5703220c86f46dd5bed169a22f212a597da3b8",
+    "validate_manifest_schema_py": "aacbeeb36660bd4bcb4e5823b1117c5aed5b83013676b11940d84e053fd013e9",
+    "run_pipeline_py": "2bfaabb7e62af8a385457d63edc0ed9d20981a1d8254ffd3855bca159668337a",
+    "production_baseline_lock": "dd9684665b6b45973cd854980973005e66229dc637fc3310d17aabedfff031c1",
+    "blacklisted_releases": "17eb15c1ebfd887f1e1e404e1a44fd10c6101e2cf913419d3cc460f6d886ed41"
+  },
+  "intelligence_metrics": {
+    "api_feed_item_count": 0,
+    "feed_manifest_count": 497,
+    "stix_id_coverage_pct": 100.0,
+    "apex_ai_coverage_pct": 100.0,
+    "schema_validation": "PASS",
+    "validator_version": "v155.0"
+  },
+  "governance_rules": {
+    "min_advisory_count": 20,
+    "min_runtime_seconds": 1200,
+    "required_pipeline_version": "158.0.2",
+    "banned_patterns": [
+      "PIPELINE_ZERO_OUTPUT",
+      "if: env.PIPELINE_ZERO_OUTPUT"
+    ],
+    "mandatory_stages": [
+      "stage_3_apex_ai",
+      "stage_3_2_html_reports",
+      "stage_5_gh_pages"
+    ]
+  },
+  "regression_test_anchors": {
+    "test_1": "PIPELINE_VERSION in sentinel-blogger.yml >= 158.0.2",
+    "test_2": "No PIPELINE_ZERO_OUTPUT pattern in workflow",
+    "test_3": "Stage 5 (GitHub Pages) has no conditional if: clause",
+    "test_4": "api/feed.json — all items have stix_id field",
+    "test_5": "Advisory count >= 20 items",
+    "test_6": "Schema validation passes without backfill required (idempotent)"
+  }
+}

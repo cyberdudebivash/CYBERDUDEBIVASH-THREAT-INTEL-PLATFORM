@@ -1,0 +1,89 @@
+{
+  "_schema": "SENTINEL-APEX-BASELINE-LOCK-v1.0",
+  "_description": "IMMUTABLE PRODUCTION BASELINE LOCK — CYBERDUDEBIVASH® SENTINEL APEX",
+  "_governance": "DO NOT MODIFY without Principal Production Recovery Commander sign-off. This file is the authoritative source of truth for production deployment governance.",
+  "_generated_at": "2026-05-21T17:39:00Z",
+  "_generated_by": "CLAUDE MYTHOS vOMEGA-RECOVERY — Forensic Recovery Session",
+
+  "baseline": {
+    "commit": "e565930",
+    "workflow_run": "sentinel-blogger #1265",
+    "workflow_run_id": "26212751609",
+    "workflow_run_url": "https://github.com/cyberdudebivash/CYBERDUDEBIVASH-THREAT-INTEL-PLATFORM/actions/runs/26212751609/job/77127422197",
+    "status": "SUCCESS",
+    "verified_at": "2026-05-21",
+    "verified_by": "forensic_diff_analysis"
+  },
+
+  "approved_pipeline": {
+    "pipeline_version": "158.0.2",
+    "workflow_file": ".github/workflows/sentinel-blogger.yml",
+    "runtime_bounds_minutes": {
+      "minimum": 25,
+      "expected_healthy": 36,
+      "maximum_warning": 45,
+      "degraded_threshold": 20,
+      "comment": "Runs under 20 min indicate skipped enrichment stages. Healthy full-pipeline runs are 36-37 min."
+    },
+    "advisory_count_bounds": {
+      "minimum_healthy": 50,
+      "expected": 100,
+      "collapse_threshold": 20,
+      "comment": "Advisory count below 20 indicates dedup collapse or ingestion failure"
+    },
+    "stix_bundle_requirements": {
+      "deploy_regardless_of_new_bundles": true,
+      "comment": "e565930 baseline deploys on every run. Zero-output gate MUST NOT block scheduled deployments."
+    }
+  },
+
+  "approved_schema_contracts": {
+    "stable_contract_version": "stable-v1.0-apex",
+    "required_critical_fields": ["stix_id", "title", "risk_score"],
+    "validator_version": "v155.0",
+    "validator_script": "scripts/validate_manifest_schema.py",
+    "stix_id_governance": "derived deterministically from id field — intel--XXXXXXXX → stix_id"
+  },
+
+  "approved_stages": {
+    "stage_1": "Intel Ingestion + Dedup",
+    "stage_2": "Manifest Stabilisation",
+    "stage_2_5": "Intel Freshness Gate (v152.2.0 dual-manifest)",
+    "stage_3": "APEX AI Enrichment (PERMANENT — NEVER SKIP)",
+    "stage_3_1": "APEX AI Sync",
+    "stage_3_2": "HTML Report Generation (PERMANENT — NEVER SKIP)",
+    "stage_3_3": "Report Validation Gate (HARD FAIL)",
+    "stage_3_4": "Manifest Sanity Guard (HARD FAIL)",
+    "stage_3_4_5": "Schema Validation v155.0 (HARD FAIL pre-R2)",
+    "stage_3_5": "Upload Intel to Cloudflare R2 (MANDATORY)",
+    "stage_3_6": "R2 Upload Integrity Verifier (HARD FAIL)",
+    "stage_5": "Deploy to GitHub Pages (MANDATORY — never skip on scheduled runs)"
+  },
+
+  "deployment_gates": {
+    "hard_fail_conditions": [
+      "stix_id missing from any api/feed.json item",
+      "manifest empty (0 items)",
+      "report validation failure",
+      "R2 upload integrity failure",
+      "schema validation failure",
+      "manifest count below minimum_healthy"
+    ],
+    "PIPELINE_ZERO_OUTPUT_gate": {
+      "status": "REMOVED",
+      "reason": "This gate caused stale dashboard by skipping Stage 5 (GitHub Pages) when STIX_NEW_BUNDLES=0. e565930 baseline always deploys on scheduled runs. Gate was architecturally harmful.",
+      "blacklisted_in_commits": ["bf5a2a1a38", "5d8613fd36", "a865fe3758"]
+    }
+  },
+
+  "immutable_rules": {
+    "rule_1": "PIPELINE_VERSION must remain 158.0.2 or higher. Downgrading is PERMANENTLY BANNED.",
+    "rule_2": "Stage 5 (GitHub Pages deploy) MUST run on every scheduled CI execution. Conditional skipping is BANNED.",
+    "rule_3": "Stage 3 (APEX AI Enrichment) is PERMANENT and MUST NEVER be skipped.",
+    "rule_4": "Stage 3.2 (HTML Report Generation) is PERMANENT and MUST NEVER be skipped.",
+    "rule_5": "validate_manifest_schema.py MUST run with --backfill --api-only at Stage 3.4.5.",
+    "rule_6": "stix_id MUST be present in all api/feed.json items before deployment promotion.",
+    "rule_7": "Any commit shortening pipeline runtime below 20 min MUST be investigated before promotion.",
+    "rule_8": "FORCE_FULL_SYNC bypass MUST remain available for emergency full-regeneration dispatches."
+  }
+}
