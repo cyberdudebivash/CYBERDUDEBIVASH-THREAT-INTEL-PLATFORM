@@ -453,5 +453,292 @@ class DetectionEngine:
 
         return yara
 
+    # ──────────────────────────────────────────────────────────────────────────
+    # OMEGA-P3: Detection Supremacy Layer — KQL, SPL, EQL, Suricata, Snort
+    # ──────────────────────────────────────────────────────────────────────────
+
+    def generate_kql_rule(self, title: str, iocs: Dict) -> str:
+        """Microsoft Sentinel / Defender XDR — KQL hunting query."""
+        date_str  = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%MZ')
+        ips       = iocs.get('ipv4', [])[:8]
+        domains   = iocs.get('domain', [])[:8]
+        hashes    = (iocs.get('sha256', []) + iocs.get('md5', []))[:6]
+        cves      = iocs.get('cve', [])[:4]
+        safe_title = re.sub(r'[^a-zA-Z0-9 _-]', '', title)[:80]
+
+        ioc_list  = ips + domains + hashes
+        ioc_dyn   = ('dynamic(["' + '","'.join(ioc_list) + '"])') if ioc_list else 'dynamic([])'
+        cve_dyn   = ('dynamic(["' + '","'.join(cves) + '"])') if cves else 'dynamic([])'
+
+        return (
+            f"// CyberDudeBivash SENTINEL APEX — KQL Detection Pack\n"
+            f"// Advisory : {safe_title}\n"
+            f"// Generated: {date_str}\n"
+            f"// Platform : Microsoft Sentinel / Defender XDR (30d retro-hunt)\n\n"
+            f"let lookback  = 30d;\n"
+            f"let apex_iocs = {ioc_dyn};\n"
+            f"let apex_cves = {cve_dyn};\n\n"
+            f"// 1. Network IOC hits\n"
+            f"DeviceNetworkEvents\n"
+            f"| where Timestamp > ago(lookback)\n"
+            f"| where RemoteUrl has_any (apex_iocs) or RemoteIP has_any (apex_iocs)\n"
+            f"| project Timestamp, DeviceName, RemoteUrl, RemoteIP, InitiatingProcessFileName\n"
+            f"| order by Timestamp desc;\n\n"
+            f"// 2. Suspicious process execution\n"
+            f"DeviceProcessEvents\n"
+            f"| where Timestamp > ago(lookback)\n"
+            f"| where ProcessCommandLine has_any (\"invoke-expression\",\"downloadstring\","
+            f"\"bypass\",\"encodedcommand\",\"bitsadmin\",\"certutil -decode\")\n"
+            f"| summarize count() by DeviceName, FileName, ProcessCommandLine, bin(Timestamp,1h)\n"
+            f"| where count_ > 2 | order by count_ desc;\n\n"
+            f"// 3. Hash correlation\n"
+            f"DeviceFileEvents\n"
+            f"| where Timestamp > ago(lookback)\n"
+            f"| where SHA256 has_any (apex_iocs) or MD5 has_any (apex_iocs)\n"
+            f"| project Timestamp, DeviceName, FileName, FolderPath, SHA256, MD5;\n\n"
+            f"// 4. Authentication anomaly\n"
+            f"SigninLogs\n"
+            f"| where TimeGenerated > ago(lookback)\n"
+            f"| where ResultType != 0 and IPAddress has_any (apex_iocs)\n"
+            f"| project TimeGenerated, UserPrincipalName, IPAddress, Location, ResultDescription;\n\n"
+            f"// 5. CVE exposure in TVM\n"
+            f"DeviceTvmSoftwareVulnerabilities\n"
+            f"| where Timestamp > ago(lookback)\n"
+            f"| where CveId has_any (apex_cves)\n"
+            f"| summarize Devices=dcount(DeviceId) by CveId, SoftwareName, VulnerabilitySeverityLevel;\n"
+        )
+
+    def generate_spl_rule(self, title: str, iocs: Dict) -> str:
+        """Splunk Enterprise Security — SPL correlation search."""
+        date_str   = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%MZ')
+        ips        = iocs.get('ipv4', [])[:8]
+        domains    = iocs.get('domain', [])[:8]
+        hashes     = (iocs.get('sha256', []) + iocs.get('md5', []))[:6]
+        cves       = iocs.get('cve', [])[:4]
+        all_iocs   = ips + domains + hashes + cves
+        safe_title = re.sub(r'[^a-zA-Z0-9 _-]', '', title)[:80]
+
+        ioc_search  = " OR ".join('"' + v + '"' for v in all_iocs) if all_iocs else '"APEX_NO_IOC"'
+        hash_search = " OR ".join('"' + h + '"' for h in hashes) if hashes else '"NO_HASH"'
+        # Pre-escape regex pattern outside f-string (no backslash in f-expr)
+        ioc_re = ("|".join(v.replace(".", "\\.") for v in all_iocs))[:200] if all_iocs else "APEX"
+
+        lines = [
+            f'| comment "CyberDudeBivash SENTINEL APEX SPL Pack — {safe_title}"',
+            f'| comment "Generated: {date_str}"',
+            "",
+            f"index=* (sourcetype=zeek* OR sourcetype=suricata* OR sourcetype=proxy*)",
+            f"    ({ioc_search})",
+            f'| eval ioc_hit=if(match(_raw,"{ioc_re}"),"IOC_HIT","NONE")',
+            f"| stats count by src_ip, dest_ip, dest_port, ioc_hit, sourcetype, _time",
+            f'| where ioc_hit="IOC_HIT"',
+            f'| eval risk_score=case(sourcetype="suricata",95,sourcetype="zeek",85,1==1,70)',
+            f"| sort - risk_score, _time",
+            "",
+            f"index=* sourcetype=wineventlog (EventCode=4688 OR EventCode=4624 OR EventCode=4720)",
+            f'    (CommandLine="*invoke-expression*" OR CommandLine="*downloadstring*"',
+            f'     OR CommandLine="*bypass*" OR CommandLine="*certutil*-decode*")',
+            f"| stats count by host, user, CommandLine, EventCode, bin(_time,1h)",
+            f"| where count > 2",
+            "",
+            f"index=* (sourcetype=crowdstrike* OR sourcetype=carbonblack* OR sourcetype=defender*)",
+            f"    ({hash_search})",
+            f"| stats count by host, filename, file_hash, _time | sort - _time",
+        ]
+        return "\n".join(lines)
+
+    def generate_eql_rule(self, title: str, iocs: Dict) -> str:
+        """Elastic EQL — Event Query Language sequences."""
+        date_str   = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%MZ')
+        ips        = iocs.get('ipv4', [])[:6]
+        domains    = iocs.get('domain', [])[:6]
+        hashes     = (iocs.get('sha256', []) + iocs.get('md5', []))[:4]
+        safe_title = re.sub(r'[^a-zA-Z0-9 _-]', '', title)[:80]
+
+        dest_filter = ('destination.ip : ("' + '","'.join(ips) + '")') if ips else 'destination.ip : *'
+        dom_filter  = ('dns.question.name : ("' + '","'.join(domains) + '")') if domains else 'dns.question.name : *'
+        hash_filter = ('process.hash.sha256 : ("' + '","'.join(hashes) + '")') if hashes else None
+
+        lines = [
+            f"// CyberDudeBivash SENTINEL APEX — EQL Detection Pack",
+            f"// Advisory : {safe_title}",
+            f"// Generated: {date_str}",
+            f"// Platform : Elastic Security / Kibana SIEM",
+            "",
+            "// 1. Suspicious LOTL process → network sequence",
+            "sequence by host.name with maxspan=5m",
+            "  [process where event.type == \"start\"",
+            "   and process.name : (\"powershell.exe\",\"cmd.exe\",\"wscript.exe\",\"mshta.exe\",\"certutil.exe\")",
+            "   and process.command_line : (\"*invoke-expression*\",\"*downloadstring*\",\"*bypass*\",\"*bitsadmin*\")]",
+            f"  [network where event.type == \"connection\" and {dest_filter}]",
+            "",
+            "// 2. Network IOC hit",
+            f"network where event.type in (\"connection\",\"dns\") and ({dest_filter} or {dom_filter})",
+            "",
+            "// 3. Credential dumping sequence",
+            "sequence by host.name with maxspan=2m",
+            "  [process where event.type == \"start\"",
+            "   and process.name : (\"lsass.exe\",\"procdump.exe\",\"mimikatz*\",\"wce.exe\")]",
+            "  [file where event.type == \"creation\" and file.extension : (\"dmp\",\"dump\",\"bin\")]",
+            "",
+            "// 4. Persistence — Registry run key modification",
+            "registry where event.type in (\"creation\",\"change\")",
+            "and registry.path : (\"HKLM\\\\Software\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\Run*\",",
+            "                    \"HKCU\\\\Software\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\Run*\")",
+            "and not process.name : (\"msiexec.exe\",\"setup.exe\",\"installer.exe\")",
+        ]
+        if hash_filter:
+            lines += [
+                "",
+                "// 5. Known malware hash execution",
+                f"process where event.type == \"start\" and ({hash_filter})",
+            ]
+        return "\n".join(lines)
+
+    def generate_suricata_rule(self, title: str, iocs: Dict) -> str:
+        """Suricata IDS/IPS — production NSM rules."""
+        safe_title = re.sub(r'[^a-zA-Z0-9 _-]', '', title)[:80]
+        date_str   = datetime.now(timezone.utc).strftime('%Y-%m-%d')
+        ips        = iocs.get('ipv4', [])[:5]
+        domains    = iocs.get('domain', [])[:5]
+        cves       = iocs.get('cve', [])[:2]
+        sid_base   = abs(hash(title)) % 8000000 + 1000000
+
+        rules = []
+        for i, ip in enumerate(ips):
+            rules.append(
+                f'alert tcp $HOME_NET any -> {ip} any '
+                f'(msg:"CDB-APEX C2 Beacon — {safe_title}"; '
+                f'flow:established,to_server; '
+                f'threshold:type both,track by_src,count 3,seconds 120; '
+                f'classtype:trojan-activity; '
+                f'reference:url,intel.cyberdudebivash.com; '
+                f'sid:{sid_base + i}; rev:1;)'
+            )
+        for i, dom in enumerate(domains):
+            rules.append(
+                f'alert dns $HOME_NET any -> any 53 '
+                f'(msg:"CDB-APEX DNS — {safe_title} [{dom}]"; '
+                f'dns.query; content:"{dom}"; nocase; '
+                f'classtype:trojan-activity; '
+                f'reference:url,intel.cyberdudebivash.com; '
+                f'sid:{sid_base + 100 + i}; rev:1;)'
+            )
+        rules.append(
+            f'alert http $HOME_NET any -> $EXTERNAL_NET any '
+            f'(msg:"CDB-APEX HTTP Suspicious — {safe_title}"; '
+            f'flow:established,to_server; http.method; content:"POST"; '
+            f'http.uri; pcre:"/(\\.php|\\.aspx|gate\\.php|panel\\.php)/i"; '
+            f'threshold:type both,track by_src,count 5,seconds 300; '
+            f'classtype:trojan-activity; '
+            f'sid:{sid_base + 200}; rev:1;)'
+        )
+        for i, cve in enumerate(cves):
+            rules.append(
+                f'alert http any any -> $HTTP_SERVERS any '
+                f'(msg:"CDB-APEX Exploit — {cve} — {safe_title}"; '
+                f'flow:established,to_server; '
+                f'http.uri; pcre:"/(%27|UNION|SELECT|exec\\(|eval\\()/i"; '
+                f'classtype:web-application-attack; '
+                f'reference:cve,{cve.replace("CVE-","")}; '
+                f'sid:{sid_base + 300 + i}; rev:1;)'
+            )
+        if not rules:
+            rules.append(
+                f'alert tcp $HOME_NET any -> $EXTERNAL_NET any '
+                f'(msg:"CDB-APEX Behavioral — {safe_title}"; '
+                f'flow:established,to_server; '
+                f'threshold:type threshold,track by_src,count 20,seconds 60; '
+                f'classtype:policy-violation; sid:{sid_base + 999}; rev:1;)'
+            )
+        header = (
+            f"# CyberDudeBivash SENTINEL APEX — Suricata Rule Pack\n"
+            f"# Advisory : {safe_title}\n"
+            f"# Generated: {date_str}\n"
+            f"# Deploy   : /etc/suricata/rules/cdb-apex.rules\n\n"
+        )
+        return header + "\n".join(rules)
+
+    def generate_snort_rule(self, title: str, iocs: Dict) -> str:
+        """Snort 3 — IDS/IPS rules."""
+        safe_title = re.sub(r'[^a-zA-Z0-9 _-]', '', title)[:80]
+        date_str   = datetime.now(timezone.utc).strftime('%Y-%m-%d')
+        ips        = iocs.get('ipv4', [])[:4]
+        domains    = iocs.get('domain', [])[:4]
+        sid_base   = abs(hash(title + "snort")) % 7000000 + 2000000
+
+        rules = []
+        for i, ip in enumerate(ips):
+            rules.append(
+                f'alert tcp $HOME_NET any -> {ip} any '
+                f'(msg:"CDB-APEX C2 [{safe_title}]"; '
+                f'flow:established,to_server; classtype:trojan-activity; '
+                f'priority:1; sid:{sid_base + i}; rev:1;)'
+            )
+        for i, dom in enumerate(domains):
+            rules.append(
+                f'alert udp $HOME_NET any -> any 53 '
+                f'(msg:"CDB-APEX DNS [{dom}]"; '
+                f'content:"{dom}"; nocase; classtype:trojan-activity; '
+                f'priority:2; sid:{sid_base + 50 + i}; rev:1;)'
+            )
+        if not rules:
+            rules.append(
+                f'alert tcp $HOME_NET any -> $EXTERNAL_NET $HTTP_PORTS '
+                f'(msg:"CDB-APEX Behavioral [{safe_title}]"; '
+                f'flow:established,to_server; classtype:policy-violation; '
+                f'priority:3; sid:{sid_base + 999}; rev:1;)'
+            )
+        return (
+            f"# CyberDudeBivash SENTINEL APEX — Snort 3 Rules\n"
+            f"# Advisory: {safe_title}  |  Generated: {date_str}\n\n"
+            + "\n".join(rules)
+        )
+
+    def generate_defender_query(self, title: str, iocs: Dict) -> str:
+        """Microsoft Defender XDR — Advanced Hunting KQL."""
+        date_str  = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%MZ')
+        ips       = iocs.get('ipv4', [])[:6]
+        domains   = iocs.get('domain', [])[:6]
+        hashes    = (iocs.get('sha256', []) + iocs.get('md5', []))[:4]
+        cves      = iocs.get('cve', [])[:4]
+        safe_title = re.sub(r'[^a-zA-Z0-9 _-]', '', title)[:80]
+
+        ioc_list  = ips + domains + hashes
+        ioc_dyn   = ('dynamic(["' + '","'.join(ioc_list) + '"])') if ioc_list else 'dynamic([])'
+        cve_dyn   = ('dynamic(["' + '","'.join(cves) + '"])') if cves else 'dynamic([])'
+
+        return (
+            f"// CyberDudeBivash SENTINEL APEX — Defender XDR Advanced Hunting\n"
+            f"// Advisory : {safe_title}\n"
+            f"// Generated: {date_str}\n\n"
+            f"let lookback  = 30d;\n"
+            f"let apex_iocs = {ioc_dyn};\n"
+            f"let apex_cves = {cve_dyn};\n\n"
+            f"// TVM CVE Exposure\n"
+            f"DeviceTvmSoftwareVulnerabilities\n"
+            f"| where Timestamp > ago(lookback)\n"
+            f"| where CveId has_any (apex_cves)\n"
+            f"| summarize Devices=dcount(DeviceId), DeviceList=make_set(DeviceName,20)\n"
+            f"    by CveId, SoftwareName, SoftwareVersion, VulnerabilitySeverityLevel\n"
+            f"| order by VulnerabilitySeverityLevel asc;\n\n"
+            f"// Email IOC hits\n"
+            f"EmailEvents\n"
+            f"| where Timestamp > ago(lookback)\n"
+            f"| where SenderIPv4 has_any (apex_iocs) or SenderFromDomain has_any (apex_iocs)\n"
+            f"| project Timestamp, SenderIPv4, SenderFromDomain, RecipientEmailAddress,\n"
+            f"          Subject, DeliveryAction, ThreatTypes;\n\n"
+            f"// Cloud app anomaly\n"
+            f"CloudAppEvents\n"
+            f"| where Timestamp > ago(lookback)\n"
+            f"| where IPAddress has_any (apex_iocs)\n"
+            f"| project Timestamp, AccountDisplayName, IPAddress, ActionType, Application;\n\n"
+            f"// Risky identity sign-ins\n"
+            f"IdentityLogonEvents\n"
+            f"| where Timestamp > ago(lookback)\n"
+            f"| where IPAddress has_any (apex_iocs)\n"
+            f"| project Timestamp, AccountName, IPAddress, Location, Protocol, FailureReason;\n"
+        )
+
 
 detection_engine = DetectionEngine()
