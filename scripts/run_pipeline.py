@@ -99,7 +99,7 @@ log = logging.getLogger("sentinel.pipeline")
 # ---------------------------------------------------------------------------
 REPO_ROOT = Path(__file__).resolve().parent.parent
 PIPELINE_VERSION = os.environ.get("PIPELINE_VERSION", "142.0.0")
-MIN_FRESHNESS_ENTRIES = 10   # absolute hard-fail threshold
+MIN_FRESHNESS_ENTRIES = 50   # v152.1.0: raised from 10→50 (anti-stale deployment guard)
 MIN_ENGINE_ENTRIES = 50      # engine manifest minimum before --force-rebuild
 MAX_STIX_BUNDLES = 500       # cap on persisted STIX bundle files
 
@@ -3224,7 +3224,6 @@ def main() -> None:
     log.info("=" * 70)
     log.info("SENTINEL APEX PIPELINE COMPLETE — elapsed %.1fs", t_elapsed)
     log.info("=" * 70)
-
 
 if __name__ == "__main__":
     main()

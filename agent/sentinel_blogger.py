@@ -358,6 +358,36 @@ def main():
 
     _run_start = time.monotonic()
 
+    # -----------------------------------------------------------------------
+    # FORCE_FULL_SYNC BYPASS (v152.1.0 — P0 REGRESSION FIX)
+    # When FORCE_FULL_SYNC=true, purge ALL dedup persistence so the engine
+    # treats every feed item as new and performs a complete regeneration.
+    # This is the ONLY authorised way to bypass cross-run dedup.
+    # Triggered via workflow_dispatch force_full_sync=true.
+    # -----------------------------------------------------------------------
+    _FORCE_FULL_SYNC = os.environ.get("FORCE_FULL_SYNC", "").strip().lower() == "true"
+    if _FORCE_FULL_SYNC:
+        logger.info("[FORCE_FULL_SYNC] *** FORCE FULL SYNC REQUESTED — purging all dedup persistence ***")
+        _dedup_files_to_purge = [
+            os.path.join("data", "cache", "intel_index.json"),
+            os.path.join("data", "cache", "source_state.json"),
+            os.path.join("data", "cache", "intel_fingerprint.json"),
+            os.path.join("data", "cache", "dedup_state.json"),
+            os.path.join("data", "pipeline_stall_state.json"),
+        ]
+        for _dp in _dedup_files_to_purge:
+            try:
+                if os.path.exists(_dp):
+                    os.remove(_dp)
+                    logger.info("[FORCE_FULL_SYNC] Purged: %s", _dp)
+                else:
+                    logger.debug("[FORCE_FULL_SYNC] Not found (ok): %s", _dp)
+            except Exception as _purge_err:
+                logger.warning("[FORCE_FULL_SYNC] Could not purge %s: %s", _dp, _purge_err)
+        logger.info("[FORCE_FULL_SYNC] Dedup persistence cleared. Full regeneration will proceed.")
+    else:
+        logger.info("[FORCE_FULL_SYNC] Normal run — dedup persistence active.")
+
     if _TELEMETRY_OK and _telemetry:
         _telemetry.start_timer("total_run")
         logger.info("[STATS] Telemetry: ENABLED")
@@ -1558,7 +1588,7 @@ def process_entry(entry: Dict, feed_source: str = "EXTERNAL") -> bool:
             published_at=_source_published_at,
         )
         dedup_engine.mark_processed(headline, entry.get("link", ""))
-        logger.info(f"  [OK] STIX bundle written → R2 pipeline | {severity} | Risk={risk_score:.1f}")
+        logger.info(f"  [OK] STIX bundle written \u2192 R2 pipeline | {severity} | Risk={risk_score:.1f}")
         return True
     except Exception as stix_err:
         logger.error(f"  [FAIL] STIX bundle write failed: {stix_err}")
@@ -1572,6 +1602,6 @@ def process_entry(entry: Dict, feed_source: str = "EXTERNAL") -> bool:
 def _enrich_cve_metadata(cve_id: str):
     """
     Fetch EPSS, CVSS base score, and KEV status for a CVE.
-    Returns (epss_score, cvss_score, kev_present, nvd_url) — all non-critical.
+    Returns (epss_score, cvss_score, kev_present, nvd_url) -- all non-critical.
     """
     cve_up

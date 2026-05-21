@@ -229,11 +229,38 @@ class IntelDedupEngine:
     # ---- I/O -----------------------------------------------------------
 
     def load(self) -> "IntelDedupEngine":
-        """Load index from disk. Auto-rebuild if missing or corrupt."""
+        """Load index from disk. Auto-rebuild if missing or corrupt.
+
+        v152.1.0 SCHEMA VALIDATION FIX:
+        Validates that dict sections (source_urls, stix_ids, content_hashes,
+        title_hashes) are actual dicts after loading. Old schema versions or
+        corrupt writes can store these as lists, causing:
+          TypeError: list indices must be integers or slices, not str
+        in is_duplicate() / mark_seen(). This silently disabled the entire
+        persistent dedup layer (dedup-L0) every run, allowing cross-run
+        duplicates and stale advisory re-publication.
+        """
         if INDEX_PATH.exists():
             try:
                 raw = json.loads(INDEX_PATH.read_text(encoding="utf-8"))
                 if raw.get("schema_version") and "source_urls" in raw:
+                    # v152.1.0: Validate and heal section types before assigning.
+                    # If any dict section is a list (old/corrupt schema), reset it
+                    # to an empty dict rather than letting a TypeError kill dedup-L0.
+                    _dict_sections = ("source_urls", "stix_ids", "content_hashes", "title_hashes")
+                    _healed = False
+                    for _sec in _dict_sections:
+                        if _sec in raw and not isinstance(raw[_sec], dict):
+                            log.warning(
+                                "[DEDUP] intel_index.json section '%s' is %s (expected dict) — "
+                                "resetting to empty dict. This fixed the dedup-L0 TypeError.",
+                                _sec, type(raw[_sec]).__name__
+                            )
+                            raw[_sec] = {}
+                            _healed = True
+                    if _healed:
+                        raw["last_updated"] = _utc_now()
+                        self._dirty = True  # force re-save with healed schema
                     self._index = raw
                     log.info("[DEDUP] Loaded intel_index: %d seen items, last_updated=%s",
                              raw.get("total_seen", 0), raw.get("last_updated", "?"))
@@ -768,25 +795,13 @@ if __name__ == "__main__":
     parser.add_argument("--stats", action="store_true",
                         help="Print current index stats")
     parser.add_argument("--validate-manifest", action="store_true",
-                        help="Check data/feed_manifest.json for duplicates")
-    args = parser.parse_args()
-
-    engine = IntelDedupEngine().load()
-
-    if args.build_index:
-        log.info("Force-rebuilding index from all sources...")
-        engine._index = {
-            **IntelDedupEngine._EMPTY_INDEX,
-            "created_at": _utc_now(),
-            "last_updated": _utc_now(),
-        }
-        engine._rebuild_from_sources()
-        engine.save()
-        print(f"Index rebuilt. Stats: {engine.get_stats()}")
+                        help="Check data/feed_manifest.json for duplicate entries")
 
     if args.stats:
+        engine = IntelDedupEngine()
+        engine.load()
         stats = engine.get_stats()
-        print(f"\nIntel Index Stats:")
+        print(f"\nIntelDedupEngine index stats:")
         print(f"  source_urls:    {stats['source_urls']}")
         print(f"  stix_ids:       {stats['stix_ids']}")
         print(f"  content_hashes: {stats['content_hashes']}")
