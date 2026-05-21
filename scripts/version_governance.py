@@ -61,7 +61,7 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 def read_authority():
     path = REPO_ROOT / "VERSION"
     ver = path.read_text(encoding="utf-8").strip()
-    if not re.fullmatch(r"\d+\.\d+\.\d+", ver):
+    if not re.fullmatch(r"\d+\.\d+(?:\.\d+)?", ver):
         log.error("VERSION file contains invalid semver: %r", ver)
         sys.exit(1)
     return ver
@@ -84,7 +84,7 @@ REGEX_TARGETS = [
     # workers/intel-gateway/src/index.js -- GATEWAY_VERSION
     (
         "workers/intel-gateway/src/index.js",
-        r'(GATEWAY_VERSION:\s*")[0-9]+\.[0-9]+\.[0-9]+"',
+        r'(GATEWAY_VERSION:\s*")[0-9]+\.[0-9]+(?:\.[0-9]+)?"',
         r'\g<1>{VER}"',
     ),
     # workers/intel-gateway/src/index.js -- X-Powered-By major version
@@ -96,25 +96,25 @@ REGEX_TARGETS = [
     # scripts/ai_brain_publisher.py -- VERSION constant
     (
         "scripts/ai_brain_publisher.py",
-        r'(VERSION\s*=\s*")[0-9]+\.[0-9]+\.[0-9]+"',
+        r'(VERSION\s*=\s*")[0-9]+\.[0-9]+(?:\.[0-9]+)?"',
         r'\g<1>{VER}"',
     ),
     # scripts/r2_upload.py -- PIPELINE_VERSION default
     (
         "scripts/r2_upload.py",
-        r'(PIPELINE_VERSION\s*=\s*os\.environ\.get\("PIPELINE_VERSION",\s*")[0-9]+\.[0-9]+\.[0-9]+"',
+        r'(PIPELINE_VERSION\s*=\s*os\.environ\.get\("PIPELINE_VERSION",\s*")[0-9]+\.[0-9]+(?:\.[0-9]+)?"',
         r'\g<1>{VER}"',
     ),
     # .github/workflows/sentinel-blogger.yml -- PIPELINE_VERSION env var (v148.0 governance)
     (
         ".github/workflows/sentinel-blogger.yml",
-        r'(  PIPELINE_VERSION:\s*")[0-9]+\.[0-9]+\.[0-9]+"',
+        r'(  PIPELINE_VERSION:\s*")[0-9]+\.[0-9]+(?:\.[0-9]+)?"',
         r'\g<1>{VER}"',
     ),
     # .github/workflows/generate-and-sync.yml -- PIPELINE_VERSION env var (v148.0 governance)
     (
         ".github/workflows/generate-and-sync.yml",
-        r'(  PIPELINE_VERSION:\s*")[0-9]+\.[0-9]+\.[0-9]+"',
+        r'(  PIPELINE_VERSION:\s*")[0-9]+\.[0-9]+(?:\.[0-9]+)?"',
         r'\g<1>{VER}"',
     ),
     # -------------------------------------------------------------------------
@@ -123,13 +123,13 @@ REGEX_TARGETS = [
     # api-docs.html -- <title> version string
     (
         "api-docs.html",
-        r'(CYBERDUDEBIVASH&reg; SENTINEL APEX )v[0-9]+\.[0-9]+\.[0-9]+(<\/span>|(?=\.))',
+        r'(CYBERDUDEBIVASH&reg; SENTINEL APEX )v[0-9]+\.[0-9]+(?:\.[0-9]+)?(<\/span>|(?=\.))',
         r'\g<1>v{VER}\g<2>',
     ),
     # api-docs.html -- brand navbar version
     (
         "api-docs.html",
-        r'(SENTINEL APEX <span>)v[0-9]+\.[0-9]+\.[0-9]+(</span>)',
+        r'(SENTINEL APEX <span>)v[0-9]+\.[0-9]+(?:\.[0-9]+)?(</span>)',
         r'\g<1>v{VER}\g<2>',
     ),
     # api-docs.html -- health example advisory_count (governance: keep in sync with live count)
@@ -143,20 +143,50 @@ REGEX_TARGETS = [
     # ai-threat-tracker.html -- version string (if present)
     (
         "ai-threat-tracker.html",
-        r'(SENTINEL APEX )v[0-9]+\.[0-9]+\.[0-9]+',
+        r'(SENTINEL APEX )v[0-9]+\.[0-9]+(?:\.[0-9]+)?',
         r'\g<1>v{VER}',
     ),
-    # observability.html -- SENTINEL APEX version string
+    # observability.html -- SENTINEL APEX version string (inline: e.g. "SENTINEL APEX v158.5")
     (
         "observability.html",
-        r'(SENTINEL APEX )v[0-9]+\.[0-9]+\.[0-9]+',
+        r'(SENTINEL APEX )v[0-9]+\.[0-9]+(?:\.[0-9]+)?',
         r'\g<1>v{VER}',
     ),
-    # trust-center.html -- SENTINEL APEX version string
+    # observability.html -- brand navbar <span> tag (e.g. "SENTINEL APEX <span>v148.0.0</span>")
+    (
+        "observability.html",
+        r'(SENTINEL APEX <span>)v[0-9]+\.[0-9]+(?:\.[0-9]+)?(</span>)',
+        r'\g<1>v{VER}\g<2>',
+    ),
+    # observability.html -- JS fallback version string (e.g. data.version||'v148.0.0')
+    (
+        "observability.html",
+        r"(\|\|')v[0-9]+\.[0-9]+(?:\.[0-9]+)?(')",
+        r"\g<1>v{VER}\g<2>",
+    ),
+    # observability.html -- Observability Engine init log line (Engine v148.0.0 style)
+    (
+        "observability.html",
+        r'(Observability Engine )v[0-9]+\.[0-9]+(?:\.[0-9]+)?',
+        r'\g<1>v{VER}',
+    ),
+    # observability.html -- JS comment header (Dashboard v148.0.0 style)
+    (
+        "observability.html",
+        r'(Observability Dashboard )v[0-9]+\.[0-9]+(?:\.[0-9]+)?',
+        r'\g<1>v{VER}',
+    ),
+    # trust-center.html -- SENTINEL APEX version string (inline)
     (
         "trust-center.html",
-        r'(SENTINEL APEX )v[0-9]+\.[0-9]+\.[0-9]+',
+        r'(SENTINEL APEX )v[0-9]+\.[0-9]+(?:\.[0-9]+)?',
         r'\g<1>v{VER}',
+    ),
+    # trust-center.html -- brand navbar <span> tag (e.g. "SENTINEL APEX <span>v148.0.0</span>")
+    (
+        "trust-center.html",
+        r'(SENTINEL APEX <span>)v[0-9]+\.[0-9]+(?:\.[0-9]+)?(</span>)',
+        r'\g<1>v{VER}\g<2>',
     ),
     # data/health/sla_status.json -- version field (governance: keep current)
     # Handled by update_version_json below.
@@ -167,7 +197,7 @@ HTML_TITLE_TARGETS = [
     # (relative_path, old_title_pattern, new_title_template)
     (
         "api-docs.html",
-        r'(<title>API Documentation &mdash; CYBERDUDEBIVASH&reg; SENTINEL APEX )v[0-9]+\.[0-9]+\.[0-9]+(</title>)',
+        r'(<title>API Documentation &mdash; CYBERDUDEBIVASH&reg; SENTINEL APEX )v[0-9]+\.[0-9]+(?:\.[0-9]+)?(</title>)',
         r'\g<1>v{VER}\g<2>',
     ),
 ]
@@ -186,7 +216,7 @@ def check_or_apply_regex(rel_path, pattern, template, ver, apply):
         return True, "N/A", "pattern not found -- skip"
 
     current = m.group(0)
-    ver_m = re.search(r"\d+\.\d+\.\d+", current)
+    ver_m = re.search(r"\d+\.\d+(?:\.\d+)?", current)
     found_ver = ver_m.group(0) if ver_m else current
 
     new_text = re.sub(pattern, replacement, text)
