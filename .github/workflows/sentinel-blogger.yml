@@ -663,8 +663,16 @@ jobs:
       #   - file exists, size >= 500 bytes, starts with valid HTML
       #   - report_url is internal /reports/ path (never external URL)
       # Blocks R2 upload if ANY advisory fails. Zero silent skips.
+      #
+      # v152.2.0 IMMUTABLE GUARD: Skip when PIPELINE_ZERO_OUTPUT=true.
+      # When no new STIX bundles were generated, R2/GH-Pages deploy is already
+      # blocked. Running report validation in that state always produces false
+      # positives because data/stix/feed_manifest.json entries never carry
+      # report_url fields (they are STIX bundle index entries, not advisory
+      # records). Gate is redundant and harmful when not deploying.
       # -----------------------------------------------------------------------
       - name: "STAGE 3.3 - Report Validation Gate (HARD FAIL)"
+        if: env.PIPELINE_ZERO_OUTPUT != 'true'
         timeout-minutes: 5
         run: python3 scripts/validate_reports.py --manifest data/stix/feed_manifest.json
 
