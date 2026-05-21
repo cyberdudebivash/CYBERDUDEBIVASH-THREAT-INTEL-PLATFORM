@@ -346,13 +346,74 @@ class PremiumReportGenerator:
         actor_data: Optional[Dict] = None,
         sigma_rule: str = "",
         yara_rule: str = "",
+        kql_rule: str = "",
+        spl_rule: str = "",
+        eql_rule: str = "",
+        suricata_rule: str = "",
+        snort_rule: str = "",
+        defender_query: str = "",
         fetched_article: Optional[Dict] = None,
         impact_metrics: Optional[Dict] = None,
+        ioc_graph_intel: Optional[Dict] = None,
+        executive_intel: Optional[Dict] = None,
+        campaign_graph_intel: Optional[Dict] = None,
     ) -> str:
         """
         Generate a premium 2500+ word threat intelligence report
         following the CYBERDUDEBIVASH 16-SECTION TEMPLATE.
         """
+        # ── Campaign Memory Graph Intelligence Block ──────────────────────────
+        if campaign_graph_intel and campaign_graph_intel.get("status") == "ENRICHED":
+            _cn  = campaign_graph_intel.get("graph_nodes", 0)
+            _ce  = campaign_graph_intel.get("graph_edges", 0)
+            _ca  = campaign_graph_intel.get("total_advisories", 0)
+            _top = campaign_graph_intel.get("top_active_campaigns", [])[:3]
+            _sec = campaign_graph_intel.get("sector_heatmap", {})
+            _infra = campaign_graph_intel.get("infrastructure_clusters", [])[:2]
+
+            _camp_items = ""
+            for camp in _top:
+                _cn_name = camp.get("campaign_id", "Unknown")[:40]
+                _cn_adv  = camp.get("advisory_count", 0)
+                _cn_ttps = camp.get("ttp_count", 0)
+                _cn_last = camp.get("last_seen", "")[:10]
+                _cg_li_color = COLORS.get("text", "#e0e0e0")
+                _camp_items += (
+                    f"<li style='color:{_cg_li_color};margin:4px 0;font-size:12px;'>"
+                    f"<b>{_cn_name}</b> — {_cn_adv} advisories · {_cn_ttps} TTPs · last seen {_cn_last}</li>"
+                )
+
+            _cg_color = COLORS.get("accent", "#00d4ff")
+            _cg_white = COLORS.get("white", "#ffffff")
+            _cg_text  = COLORS.get("text", "#e0e0e0")
+            _cg_card  = COLORS.get("card_bg", "#1a1a2e")
+
+            _sec_items = ""
+            for sec, cnt in list(_sec.items())[:5]:
+                _sec_items += (
+                    f"<span style='display:inline-block;background:{_cg_card};"
+                    f"border:1px solid {_cg_color};border-radius:4px;"
+                    f"padding:2px 8px;margin:2px;font-size:11px;color:{_cg_text};'>"
+                    f"{sec}: {cnt}</span>"
+                )
+
+            cg_block = (
+                f'<div style="background:{_cg_card};border:1px solid {_cg_color}33;'
+                f'border-radius:8px;padding:16px;margin:16px 0;">'
+                f'<h4 style="color:{_cg_color};font-size:13px;margin:0 0 10px;letter-spacing:1px;">'
+                f'&#9881; CAMPAIGN MEMORY GRAPH INTELLIGENCE</h4>'
+                f'<p style="color:{_cg_text};font-size:12px;margin:0 0 8px;">'
+                f'Graph corpus: <b style="color:{_cg_white};">{_cn} nodes</b> · '
+                f'<b style="color:{_cg_white};">{_ce} edges</b> · '
+                f'<b style="color:{_cg_white};">{_ca} advisories</b> ingested</p>'
+                + (f'<p style="color:{_cg_white};font-size:12px;margin:6px 0 4px;"><b>Top Active Campaigns:</b></p>'
+                   f'<ul style="margin:0 0 8px 16px;padding:0;">{_camp_items}</ul>' if _camp_items else '')
+                + (f'<p style="color:{_cg_white};font-size:12px;margin:6px 0 4px;"><b>Sector Targeting:</b></p>'
+                   f'<div style="margin:0 0 8px;">{_sec_items}</div>' if _sec_items else '')
+                + f'</div>'
+            )
+            sections_html.append(cg_block)
+
         # ======================================================================
         # CVE ROUTING GATE (v44.0)
         # When CVE IDs are detected in the input, route to the CVE-Verified
@@ -521,6 +582,7 @@ class PremiumReportGenerator:
         <p style="{s['p']}">
             {self._generate_strategic_impact(headline, threat_type, severity, article_text)}
         </p>
+        {self._build_executive_intelligence_panel(executive_intel, ioc_graph_intel, s)}
 """)
 
         # ===============================================================
@@ -658,26 +720,45 @@ class PremiumReportGenerator:
         sections.append(f"""
         <h2 style="{s['h2']}">6. DETECTION ENGINEERING (SOC READY)</h2>
 
-        <h3 style="{s['h3']}">6.1 Sigma Rules</h3>
-        <p style="{s['p']}">The following Sigma rule provides SIEM-agnostic detection capability for this
-            campaign. Deploy to Microsoft Sentinel, Splunk, Elastic, or any Sigma-compatible platform.</p>
+        <h3 style="{s['h3']}">6.1 Sigma Rules — Universal SIEM</h3>
+        <p style="{s['p']}">SIEM-agnostic detection. Deploy to Microsoft Sentinel, Splunk ES,
+            Elastic SIEM, QRadar, or Chronicle via sigma-cli.</p>
         <pre style="{s['pre']}">{sigma_rule if sigma_rule else 'No IOC-specific Sigma rule generated.'}</pre>
 
-        <h3 style="{s['h3']}">6.2 YARA Rules</h3>
-        <p style="{s['p']}">Deploy this YARA rule for memory and disk forensics scanning across
-            endpoints. Compatible with YARA-enabled EDR solutions and standalone YARA scanning.</p>
+        <h3 style="{s['h3']}">6.2 YARA Rules — Memory &amp; File Forensics</h3>
+        <p style="{s['p']}">Deploy via CrowdStrike Custom IOAs, Carbon Black, Velociraptor, or
+            standalone YARA scanning across endpoints and sandbox pipelines.</p>
         <pre style="{s['pre']}">{yara_rule if yara_rule else 'No IOC-specific YARA rule generated.'}</pre>
 
-        <h3 style="{s['h3']}">6.3 SIEM Queries</h3>
-        <p style="{s['p']}"><b>Microsoft Sentinel (KQL):</b></p>
-        <pre style="{s['pre']}">{self._generate_kql_query(iocs, headline)}</pre>
-        <p style="{s['p']}"><b>Splunk SPL:</b></p>
-        <pre style="{s['pre']}">{self._generate_splunk_query(iocs, headline)}</pre>
+        <h3 style="{s['h3']}">6.3 Microsoft Sentinel / Defender XDR — KQL</h3>
+        <p style="{s['p']}">Production KQL hunting pack covering network events, process execution,
+            hash correlation, authentication anomalies, and CVE exposure (30-day retro-hunt).</p>
+        <pre style="{s['pre']}">{kql_rule if kql_rule else self._generate_kql_query(iocs, headline)}</pre>
 
-        <h3 style="{s['h3']}">6.4 Network Detection</h3>
-        <p style="{s['p']}">Monitor network traffic for connections to identified infrastructure.
-            Implement the following Suricata/Snort compatible rule for network-level detection:</p>
-        <pre style="{s['pre']}">{self._generate_suricata_rule(iocs, headline)}</pre>
+        <h3 style="{s['h3']}">6.4 Splunk Enterprise Security — SPL</h3>
+        <p style="{s['p']}">ES correlation search covering Zeek, Suricata, WinEventLog, proxy,
+            and firewall sourcetypes with risk scoring and IOC retro-hunt.</p>
+        <pre style="{s['pre']}">{spl_rule if spl_rule else self._generate_splunk_query(iocs, headline)}</pre>
+
+        <h3 style="{s['h3']}">6.5 Elastic EQL — Event Query Language</h3>
+        <p style="{s['p']}">Elastic Security EQL sequences covering LOTL process chains,
+            network IOC hits, credential dumping, persistence, and malware hash execution.</p>
+        <pre style="{s['pre']}">{eql_rule if eql_rule else '# No EQL rule generated — upgrade detection engine.'}</pre>
+
+        <h3 style="{s['h3']}">6.6 Suricata IDS/IPS — NSM Rules</h3>
+        <p style="{s['p']}">Production Suricata rules for C2 beaconing, DNS exfiltration,
+            HTTP exploit delivery, and CVE-specific web application attacks.</p>
+        <pre style="{s['pre']}">{suricata_rule if suricata_rule else self._generate_suricata_rule(iocs, headline)}</pre>
+
+        <h3 style="{s['h3']}">6.7 Snort 3 — IDS/IPS Rules</h3>
+        <p style="{s['p']}">Snort 3-compatible rules for inline blocking at network perimeter
+            and IDS alerting. Test with <code>snort -T -c snort.conf</code> before deployment.</p>
+        <pre style="{s['pre']}">{snort_rule if snort_rule else '# No Snort rule generated.'}</pre>
+
+        <h3 style="{s['h3']}">6.8 Microsoft Defender XDR — Advanced Hunting</h3>
+        <p style="{s['p']}">Defender-specific Advanced Hunting queries covering TVM vulnerability
+            exposure, email-borne indicators, cloud app anomalies, and risky identity sign-ins.</p>
+        <pre style="{s['pre']}">{defender_query if defender_query else '# No Defender XDR query generated.'}</pre>
 """)
 
         # ===============================================================
@@ -1022,6 +1103,184 @@ class PremiumReportGenerator:
         }
         base = impacts.get(severity, impacts["MEDIUM"])
         return f"""{base} Organizations in the {', '.join(threat_type.get('sectors', ['Enterprise'])[:3])} sectors face heightened exposure due to the nature of this threat. Regulatory implications under frameworks including GDPR, HIPAA, PCI-DSS, and sector-specific mandates should be evaluated by compliance teams."""
+
+    def _build_executive_intelligence_panel(
+        self,
+        executive_intel: Optional[Dict],
+        ioc_graph_intel: Optional[Dict],
+        s: Dict,
+    ) -> str:
+        """
+        OMEGA-P2: CISO / Board Intelligence Brief panel.
+        Renders decision-grade intelligence from APEX executive_intel
+        and IOC graph clustering data. Zero-regression: returns '' if no data.
+        """
+        if not executive_intel and not ioc_graph_intel:
+            return ""
+
+        sections_html = []
+
+        # ── APEX Executive Decision Block ─────────────────────────────────────
+        if executive_intel:
+            apex_intel  = executive_intel.get("apex_intelligence", {})
+            risk_expl   = apex_intel.get("risk_explained", {}) if apex_intel else {}
+            ai_insight  = apex_intel.get("ai_insight", {}) if apex_intel else {}
+            attribution = apex_intel.get("attribution", {}) if apex_intel else {}
+
+            risk_level  = executive_intel.get("threat_level",   "UNKNOWN")
+            priority    = executive_intel.get("priority",        "P4")
+            ai_summary  = executive_intel.get("ai_summary",      "") or ai_insight.get("attack_narrative", "")
+            rec_action  = executive_intel.get("recommended_action", "") or risk_expl.get("risk_summary", "")
+            risk_factors = executive_intel.get("risk_factors", [])
+            biz_impact  = risk_expl.get("business_impact_summary", "")
+            decision_st = risk_expl.get("decision_statement", "")
+            imm_actions = risk_expl.get("immediate_actions", [])
+            actor_str   = str(attribution.get("actor", "")) if attribution else ""
+            attr_conf   = attribution.get("confidence", "") if attribution else ""
+
+            _rl_color_map = {
+                "CRITICAL": "#ff3b30", "HIGH": "#ff6b35",
+                "MEDIUM": "#ffa500",   "LOW": "#34c759",
+            }
+            rl_color = _rl_color_map.get(risk_level, COLORS.get("accent", "#00d4ff"))
+            pri_color = "#ff3b30" if priority in ("P1", "P2") else "#ffa500"
+
+            # Build immediate actions HTML
+            actions_html = ""
+            if imm_actions:
+                actions_html = "".join(
+                    f'<li style="color:{COLORS.get("text","#e0e0e0")};margin:4px 0;font-size:12px;">{a}</li>'
+                    for a in imm_actions[:5]
+                )
+                actions_html = f'<ol style="margin:8px 0 0 18px;padding:0;">{actions_html}</ol>'
+
+            # Risk factors
+            factors_html = ""
+            if risk_factors:
+                factors_html = "".join(
+                    f'<span style="display:inline-block;background:{COLORS.get("card_bg","#1a1a2e")};'
+                    f'border:1px solid {COLORS.get("accent","#00d4ff")};border-radius:4px;'
+                    f'padding:3px 8px;margin:3px;font-size:11px;color:{COLORS.get("text","#e0e0e0")};">{f}</span>'
+                    for f in risk_factors[:6] if f
+                )
+
+            # Pre-compute conditional HTML — avoids backslash-in-f-string (PEP 701 / Python <3.12)
+            _w = COLORS.get("white", "#ffffff")
+            _t = COLORS.get("text", "#e0e0e0")
+            _decision_h = (
+                f"<p style='color:{_t};font-size:13px;margin:0 0 12px;"
+                f"border-left:3px solid {rl_color};padding-left:10px;font-style:italic;'>"
+                f"{decision_st}</p>"
+            ) if decision_st else ""
+            _summary_h = (
+                f"<p style='color:{_t};font-size:13px;margin:0 0 12px;'>{ai_summary[:400]}</p>"
+            ) if ai_summary else ""
+            _biz_h = (
+                f"<p style='color:{_t};font-size:13px;margin:0 0 10px;'>"
+                f"<b style='color:{_w}'>Business Impact:</b> {biz_impact[:300]}</p>"
+            ) if biz_impact else ""
+            _rec_h = (
+                f"<p style='color:{_t};font-size:13px;margin:0 0 10px;'>"
+                f"<b style='color:{_w}'>Recommended Action:</b> {rec_action[:250]}</p>"
+            ) if rec_action else ""
+            _factors_h = (
+                f"<div style='margin:10px 0;'>"
+                f"<b style='color:{_w};font-size:12px;'>Risk Signals:</b>{factors_html}</div>"
+            ) if factors_html else ""
+            _actions_h = (
+                f"<div style='margin:10px 0;'>"
+                f"<b style='color:{_w};font-size:12px;'>Immediate Actions (0-24h):</b>{actions_html}</div>"
+            ) if actions_html else ""
+            _attr_h = (
+                f"<p style='color:{_t};font-size:11px;margin:10px 0 0;opacity:0.7;'>"
+                f"Attribution: {actor_str} ({attr_conf} confidence)</p>"
+            ) if actor_str else ""
+
+            exec_block = (
+                f'<div style="background:linear-gradient(135deg,#0d0d1a 0%,#1a0a0a 100%);'
+                f'border:1px solid {rl_color};border-radius:8px;padding:20px;margin:20px 0;">'
+                f'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">'
+                f'<h3 style="color:{_w};font-size:15px;margin:0;letter-spacing:1px;">'
+                f'&#127737; CISO / BOARD INTELLIGENCE BRIEF</h3>'
+                f'<div>'
+                f'<span style="background:{rl_color};color:#fff;padding:4px 12px;border-radius:4px;'
+                f'font-size:12px;font-weight:700;margin-right:8px;">{risk_level}</span>'
+                f'<span style="background:{pri_color};color:#fff;padding:4px 10px;border-radius:4px;'
+                f'font-size:12px;font-weight:700;">{priority}</span>'
+                f'</div></div>'
+                f'{_decision_h}{_summary_h}{_biz_h}{_rec_h}{_factors_h}{_actions_h}{_attr_h}'
+                f'</div>'
+            )
+            sections_html.append(exec_block)
+
+        # ── IOC Graph Intelligence Block ──────────────────────────────────────
+        if ioc_graph_intel and ioc_graph_intel.get("status") not in ("ENRICHMENT_FAILED", None):
+            total_iocs   = ioc_graph_intel.get("total_enriched", 0)
+            malicious    = ioc_graph_intel.get("malicious_count", 0)
+            suspicious   = ioc_graph_intel.get("suspicious_count", 0)
+            risk_delta   = ioc_graph_intel.get("risk_delta", 0.0)
+            verdict      = ioc_graph_intel.get("analyst_verdict", "")
+            high_value   = ioc_graph_intel.get("high_value_iocs", [])
+            clustering   = ioc_graph_intel.get("infrastructure_clustering", {})
+            enriched     = ioc_graph_intel.get("enriched_ioc_details", {})
+
+            # High-value IOC badges
+            hv_html = ""
+            if high_value:
+                badges = "".join(
+                    f'<span style="display:inline-block;background:#1a0a0a;'
+                    f'border:1px solid #ff6b35;border-radius:4px;padding:2px 7px;'
+                    f'margin:2px;font-size:11px;color:#ff6b35;font-family:monospace;">'
+                    f'{str(ioc)[:60]}</span>'
+                    for ioc in high_value[:8]
+                )
+                hv_html = f'<div style="margin:8px 0;">{badges}</div>'
+
+            # Infrastructure cluster
+            cluster_html = ""
+            if clustering:
+                dom_asn     = clustering.get("dominant_asn", "")
+                dom_country = clustering.get("dominant_country", "")
+                cluster_sz  = clustering.get("cluster_size", 0)
+                if dom_asn or dom_country:
+                    cluster_html = (
+                        f'<p style="color:{COLORS.get("text","#e0e0e0")};font-size:12px;margin:8px 0;">'
+                        f'<b style="color:{COLORS.get("white","#ffffff")};">Infrastructure Cluster:</b> '
+                        f'{cluster_sz} IOC(s) — ASN: {dom_asn or "varied"} | '
+                        f'Country: {dom_country or "varied"}</p>'
+                    )
+
+            mal_color = "#ff3b30" if malicious > 0 else "#34c759"
+            sus_color = "#ffa500" if suspicious > 0 else "#34c759"
+
+            ioc_block = f"""
+<div style="background:linear-gradient(135deg,#0a0d1a 0%,#0a1a0d 100%);
+     border:1px solid {COLORS.get('accent','#00d4ff')};border-radius:8px;padding:20px;margin:16px 0;">
+  <h3 style="color:{COLORS.get('white','#ffffff')};font-size:14px;margin:0 0 12px;letter-spacing:1px;">
+    &#128200; IOC GRAPH INTELLIGENCE — REPUTATION &amp; DECAY ANALYSIS
+  </h3>
+  <div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:12px;">
+    <div style="background:{COLORS.get('card_bg','#1a1a2e')};border-radius:6px;padding:10px 16px;text-align:center;min-width:80px;">
+      <div style="font-size:22px;font-weight:700;color:{COLORS.get('accent','#00d4ff')};">{total_iocs}</div>
+      <div style="font-size:10px;color:{COLORS.get('text','#e0e0e0')};margin-top:2px;">ANALYZED</div>
+    </div>
+    <div style="background:{COLORS.get('card_bg','#1a1a2e')};border-radius:6px;padding:10px 16px;text-align:center;min-width:80px;">
+      <div style="font-size:22px;font-weight:700;color:{mal_color};">{malicious}</div>
+      <div style="font-size:10px;color:{COLORS.get('text','#e0e0e0')};margin-top:2px;">MALICIOUS</div>
+    </div>
+    <div style="background:{COLORS.get('card_bg','#1a1a2e')};border-radius:6px;padding:10px 16px;text-align:center;min-width:80px;">
+      <div style="font-size:22px;font-weight:700;color:{sus_color};">{suspicious}</div>
+      <div style="font-size:10px;color:{COLORS.get('text','#e0e0e0')};margin-top:2px;">SUSPICIOUS</div>
+    </div>
+    {"<div style='background:" + COLORS.get('card_bg','#1a1a2e') + ";border-radius:6px;padding:10px 16px;text-align:center;min-width:80px;'><div style='font-size:22px;font-weight:700;color:#ff6b35;'>+" + f'{risk_delta:.1f}' + "</div><div style='font-size:10px;color:" + COLORS.get('text','#e0e0e0') + ";margin-top:2px;'>RISK DELTA</div></div>" if risk_delta > 0 else ""}
+  </div>
+  {"<p style='color:" + COLORS.get('text','#e0e0e0') + ";font-size:13px;margin:8px 0;'>" + verdict + "</p>" if verdict else ""}
+  {"<div><b style='color:" + COLORS.get('white','#ffffff') + ";font-size:12px;'>High-Value IOCs:</b>" + hv_html + "</div>" if hv_html else ""}
+  {cluster_html}
+</div>"""
+            sections_html.append(ioc_block)
+
+        return "\n".join(sections_html)
 
     def _generate_campaign_background(self, headline, text, paragraphs, threat_type):
         s = self._build_styles()
@@ -1829,12 +2088,10 @@ alert http any any -> any any (msg:"CDB-Sentinel Suspicious User-Agent"; \\
             "STIX 2.1", "Sigma Rules", "YARA Rules",
             "CyberDudeBivash", "Sentinel APEX",
         ]
-        # Add headline-specific keywords
         words = headline.split()
         for w in words:
             if len(w) > 4 and w.isalpha():
                 base.append(w)
-
         return ' * '.join(base[:20])
 
     def _confidence_label(self, conf):
