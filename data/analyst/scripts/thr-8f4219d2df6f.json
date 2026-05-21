@@ -1,0 +1,10 @@
+{
+  "threat_id": "thr-8f4219d2df6f",
+  "title": "CVE-2026-5293: The \u8a3a\u65ad\u30b8\u30a7\u30cd\u30ec\u30fc\u30bf\u4f5c\u6210\u30d7\u30e9\u30b0\u30a4\u30f3 (Diagnosis Generator) plugin for WordPress is",
+  "scripts": [
+    {
+      "type": "hardening_bash",
+      "content": "#!/bin/bash\n# CDB APEX v37.0 - Emergency Hardening Script\n# Threat: CVE-2026-5293: The \u8a3a\u65ad\u30b8\u30a7\u30cd\u30ec\u30fc\u30bf\u4f5c\u6210\u30d7\u30e9\u30b0\u30a4\u30f3 (Diagnosis Generator) plu\n# Generated: 2026-05-21T18:22:47.863423+00:00\n\necho \"[*] Updating system packages...\"\napt-get update && apt-get upgrade -y 2>/dev/null || yum update -y 2>/dev/null\n\necho \"[*] Enabling firewall...\"\nufw enable 2>/dev/null || firewall-cmd --set-default-zone=drop 2>/dev/null\n\necho \"[*] Disabling unnecessary services...\"\nsystemctl disable --now telnet.socket 2>/dev/null\nsystemctl disable --now rsh.socket 2>/dev/null\n\necho \"[*] Setting secure SSH configuration...\"\nsed -i 's/#PermitRootLogin yes/PermitRootLogin no/' /etc/ssh/sshd_config\nsed -i 's/#PasswordAuthentication yes/PasswordAuthentication no/' /etc/ssh/sshd_config\nsystemctl restart sshd\n\necho \"[+] Hardening complete for threat: thr-8f4219d2df6f\"\n"
+    }
+  ]
+}
