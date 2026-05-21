@@ -93,7 +93,7 @@ permissions:
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-  PIPELINE_VERSION: "158.0.1"
+  PIPELINE_VERSION: "158.0.2"
   PYTHONIOENCODING: "utf-8"
   PYTHONUTF8: "1"
 
@@ -1085,7 +1085,7 @@ jobs:
         run: python3 scripts/pre_deploy_gate.py
 
       # -----------------------------------------------------------------------
-      # STAGE 5.4.6 - BUILD DETERMINISTIC DIST ARTIFACT (v156.0 HARD FAIL)
+      # STAGE 5.4.6 - BUILD DETERMINISTIC DIST ARTIFACT (v158.0.2 HARD FAIL)
       # Builds dist/ as a clean, minimal, checksum-validated deployment artifact.
       #
       # ARCHITECTURE FIX (v155.0 P0):
@@ -1099,33 +1099,40 @@ jobs:
       #           - Verifier gate validates dist/ BEFORE deployment
       #           - Report count and URL paths verified deterministically
       #
+      # v158.0.2 FIX: Added service-worker.js + version.json to include_singles.
+      #   Both files existed at repo root but were absent from the copy list,
+      #   causing persistent HTTP 404 on /service-worker.js and /version.json.
+      #   PWA cache governance was broken. Canary E probe was failing every run.
+      #
       # HARD FAIL: blocks deployment if any report_url path is missing from dist/
       # -----------------------------------------------------------------------
-      - name: "STAGE 5.4.6 - Build Deterministic Dist Artifact (v156.0 HARD FAIL)"
+      - name: "STAGE 5.4.6 - Build Deterministic Dist Artifact (v158.0.2 HARD FAIL)"
         timeout-minutes: 10
         env:
           REPORT_RETENTION_DAYS: ${{ vars.REPORT_RETENTION_DAYS || '90' }}
         run: python3 scripts/build_dist_artifact.py
 
       # -----------------------------------------------------------------------
-      # STAGE 5.4.7 - DIST ARTIFACT VERIFIER (v155.0 HARD FAIL)
+      # STAGE 5.4.7 - DIST ARTIFACT VERIFIER (v158.0.2 HARD FAIL)
       # Pre-deployment gate: verifies dist/ integrity against deployment_manifest.json.
-      # 10-check battery:
-      #   1. Manifest schema valid
-      #   2. All manifest files exist in dist/
-      #   3. SHA-256 checksum spot-check on sample of report HTMLs
-      #   4. No zero-byte report files
-      #   5. Report count >= minimum (10)
-      #   6. All report_url feed paths present in dist/
-      #   7. Artifact purity (no .github/, scripts/, data/ in dist/)
-      #   8. .nojekyll present
-      #   9. index.html present
-      #  10. deployment_manifest.json present
+      # 12-check battery:
+      #   1.  Manifest schema valid
+      #   2.  All manifest files exist in dist/
+      #   3.  SHA-256 checksum spot-check on sample of report HTMLs
+      #   4.  No zero-byte report files
+      #   5.  Report count >= minimum (10)
+      #   6.  All report_url feed paths present in dist/
+      #   7.  Artifact purity (no .github/, scripts/, data/ in dist/)
+      #   8.  .nojekyll present
+      #   9.  index.html present
+      #  10.  deployment_manifest.json present
+      #  11.  service-worker.js present (v158.0.2 -- PWA governance)
+      #  12.  version.json present (v158.0.2 -- version API governance)
       #
       # HARD FAIL: blocks deployment if ANY check fails.
       # Pages deployment MUST NOT proceed with a corrupt/incomplete artifact.
       # -----------------------------------------------------------------------
-      - name: "STAGE 5.4.7 - Dist Artifact Verifier (v156.0 HARD FAIL)"
+      - name: "STAGE 5.4.7 - Dist Artifact Verifier (v158.0.2 HARD FAIL)"
         timeout-minutes: 5
         env:
           REPORT_RETENTION_DAYS: ${{ vars.REPORT_RETENTION_DAYS || '90' }}
