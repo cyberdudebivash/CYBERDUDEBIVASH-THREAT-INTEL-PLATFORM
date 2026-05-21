@@ -1422,6 +1422,92 @@ jobs:
         continue-on-error: true
 
       # -----------------------------------------------------------------------
+      # STAGE 5.8.5 - ENTERPRISE INTELLIGENCE ENGINE INTEGRATION AUDIT (v1.0)
+      # Verifies all 7 enterprise intelligence engines are importable and
+      # runs the EII self-test + manifest quality gate audit.
+      # Non-blocking: intelligence failures are logged, not pipeline-blocking.
+      # The per-report quality gate runs inline via STEP 7g in process_entry().
+      # -----------------------------------------------------------------------
+      - name: "STAGE 5.8.5 - Enterprise Intelligence Integration Audit (v1.0)"
+        timeout-minutes: 5
+        if: always()
+        run: |
+          echo "=== STAGE 5.8.5: Enterprise Intelligence Engine Integration Audit ==="
+          cd $GITHUB_WORKSPACE
+
+          # Step 1: Verify all 7 engines are importable
+          python3 -c "
+          import sys, os
+          sys.path.insert(0, 'scripts')
+          engines = [
+              'anti_hallucination_engine',
+              'apex_risk_scoring_engine',
+              'apex_confidence_engine',
+              'apex_ioc_intelligence_pipeline',
+              'apex_mitre_attack_engine',
+              'apex_narrative_engine',
+              'apex_intelligence_quality_gates',
+              'enterprise_intelligence_integrator',
+          ]
+          passed = 0
+          failed = 0
+          for eng in engines:
+              try:
+                  __import__(eng)
+                  print(f'  [OK] {eng}')
+                  passed += 1
+              except Exception as e:
+                  print(f'  [FAIL] {eng}: {e}')
+                  failed += 1
+          print(f'Engine audit: {passed} importable / {failed} failed')
+          if failed > 0:
+              print('WARNING: Some engines failed import — check scripts/ directory')
+          sys.exit(0)  # Non-blocking
+          " 2>&1 || true
+
+          # Step 2: Run EII self-test (synthetic item through all 7 engines)
+          python3 scripts/enterprise_intelligence_integrator.py --test 2>&1 | head -40 || true
+
+          # Step 3: Run quality gate audit against live manifest (advisory only)
+          python3 -c "
+          import sys, os, json
+          from pathlib import Path
+          sys.path.insert(0, 'scripts')
+          manifest_path = Path('data/stix/feed_manifest.json')
+          if not manifest_path.exists():
+              print('Manifest not found — skipping quality gate audit')
+              sys.exit(0)
+          try:
+              from apex_intelligence_quality_gates import QualityGateSystem
+              with open(manifest_path, encoding='utf-8') as f:
+                  data = json.load(f)
+              items = data if isinstance(data, list) else data.get('entries', [])
+              if not items:
+                  print('No entries in manifest — skipping')
+                  sys.exit(0)
+              # Audit last 10 entries only (performance)
+              sample = items[-10:]
+              qgs = QualityGateSystem()
+              batch = qgs.evaluate_batch(sample)
+              print(f'Quality gate audit: {len(sample)} entries sampled')
+              print(f'  Publishable: {batch[\"publishable\"]} / {batch[\"total\"]}')
+              print(f'  Blocked:     {batch[\"blocked\"]}')
+              if batch.get('blocked_ids'):
+                  print(f'  Blocked IDs: {batch[\"blocked_ids\"]}')
+              # Write audit telemetry
+              out_path = Path('data/telemetry/intelligence_quality_audit.json')
+              out_path.parent.mkdir(parents=True, exist_ok=True)
+              out_path.write_text(json.dumps(batch, indent=2, default=str), encoding='utf-8')
+              print(f'  Telemetry written: {out_path}')
+          except Exception as e:
+              print(f'Quality gate audit failed (non-critical): {e}')
+          sys.exit(0)  # Always non-blocking
+          " 2>&1 || true
+
+          echo "=== STAGE 5.8.5 COMPLETE ==="
+        continue-on-error: true
+
+      # -----------------------------------------------------------------------
       # STAGE 5.9 - ENTERPRISE CI TELEMETRY (v146.0 -- ALWAYS RUNS)
       # Writes data/telemetry/ci_run_latest.json. Non-blocking.
       - name: "STAGE 5.9 - Enterprise CI Telemetry"
