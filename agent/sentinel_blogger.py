@@ -1602,6 +1602,92 @@ def process_entry(entry: Dict, feed_source: str = "EXTERNAL") -> bool:
 def _enrich_cve_metadata(cve_id: str):
     """
     Fetch EPSS, CVSS base score, and KEV status for a CVE.
-    Returns (epss_score, cvss_score, kev_present, nvd_url) -- all non-critical.
+    Returns (epss_score, cvss_score, kev_present, nvd_url) — all non-critical.
     """
-    cve_up
+    cve_upper  = cve_id.upper().strip()
+    epss_score = None
+    cvss_score = None
+    kev_present = False
+    nvd_url    = f"https://nvd.nist.gov/vuln/detail/{cve_upper}"
+
+    # EPSS lookup
+    try:
+        url = f"https://api.first.org/data/v1/epss?cve={cve_upper}"
+        req = urllib.request.Request(url, headers={"User-Agent": "CDB-Sentinel/111.0"})
+        with urllib.request.urlopen(req, timeout=6) as resp:
+            data = json.loads(resp.read())
+        if data.get("data"):
+            epss_score = round(float(data["data"][0].get("epss", 0)) * 100, 2)
+    except Exception:
+        pass
+
+    # NVD CVSS lookup
+    try:
+        nvd_key = os.getenv("NVD_API_KEY", "")
+        headers = {"User-Agent": "CDB-Sentinel/111.0"}
+        if nvd_key:
+            headers["apiKey"] = nvd_key
+        url = f"https://services.nvd.nist.gov/rest/json/cves/2.0?cveId={cve_upper}"
+        req = urllib.request.Request(url, headers=headers)
+        with urllib.request.urlopen(req, timeout=8) as resp:
+            data = json.loads(resp.read())
+        vuln    = data.get("vulnerabilities", [{}])[0].get("cve", {})
+        metrics = vuln.get("metrics", {})
+        for key in ("cvssMetricV31", "cvssMetricV30", "cvssMetricV2"):
+            if key in metrics and metrics[key]:
+                cvss_score = metrics[key][0].get("cvssData", {}).get("baseScore")
+                if cvss_score:
+                    break
+    except Exception:
+        pass
+
+    # CISA KEV check (via VANGUARD or local cache)
+    try:
+        from agent.v48_pipeline_hardening.kev_checker import check_kev
+        kev_present = check_kev(cve_upper)
+    except Exception:
+        pass
+
+    return epss_score, cvss_score, kev_present, nvd_url
+
+
+# ==============================================================================
+# SMART LABEL GENERATION
+# ==============================================================================
+
+def _generate_smart_labels(
+    headline: str, severity: str, tlp: Dict,
+    feed_source: str, iocs: Dict
+) -> List[str]:
+    """Generate contextual taxonomy labels for STIX bundle tagging."""
+    labels = ["Threat Intelligence", "CyberDudeBivash", severity,
+              tlp.get("label", "TLP:CLEAR"), "Sentinel APEX"]
+    text = headline.lower()
+    threat_map = {
+        "ransomware":   "Ransomware",       "malware":        "Malware Analysis",
+        "phishing":     "Phishing",         "cve":            "Vulnerability",
+        "exploit":      "Exploit",          "apt":            "APT",
+        "supply chain": "Supply Chain",     "zero-day":       "Zero-Day",
+        "0-day":        "Zero-Day",         "data breach":    "Data Breach",
+        "ddos":         "DDoS",             "botnet":         "Botnet",
+        "nation state": "Nation-State",     "critical infra": "Critical Infrastructure",
+    }
+    for keyword, label in threat_map.items():
+        if keyword in text and label not in labels:
+            labels.append(label)
+
+    # IOC-type labels
+    if isinstance(iocs, dict):
+        for ioc_type, ioc_list in iocs.items():
+            if ioc_list and f"IOC:{ioc_type.upper()}" not in labels:
+                labels.append(f"IOC:{ioc_type.upper()}")
+
+    # Feed source label
+    if feed_source and feed_source not in labels:
+        labels.append(feed_source)
+
+    return list(dict.fromkeys(labels))  # deduplicate, preserve order
+
+
+if __name__ == "__main__":
+    count = main()
