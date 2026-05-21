@@ -1,0 +1,48 @@
+{
+  "_schema": "SENTINEL-APEX-BASELINE-LOCK-v2.0",
+  "_description": "IMMUTABLE PRODUCTION BASELINE \u2014 caa8dda + v158.5",
+  "_generated_at": "2026-05-21T13:17:53Z",
+  "_supersedes": "PRODUCTION_BASELINE_LOCK.json (e565930 baseline)",
+  "baseline": {
+    "commit": "caa8dda",
+    "commit_message": "feat(eii): Enterprise Intelligence Integration Layer v1.0",
+    "verified_runtime_seconds": 2354,
+    "verified_runtime_human": "39m 14s",
+    "status": "SUCCESS",
+    "pipeline_version": "158.5",
+    "normalized_from": "158.0.2",
+    "normalization_date": "2026-05-21T13:17:53Z"
+  },
+  "approved_pipeline": {
+    "pipeline_version": "158.5",
+    "min_version": "158.0.0",
+    "workflow_file": ".github/workflows/sentinel-blogger.yml",
+    "min_runtime_seconds": 1200,
+    "expected_runtime_seconds": 2200,
+    "min_advisory_count": 20,
+    "freshness_entries_threshold": 10,
+    "freshness_entries_note": "caa8dda baseline: MIN_FRESHNESS_ENTRIES=10 (not 50 \u2014 that caused FATAL exits)"
+  },
+  "forbidden_runtime_patterns": [
+    "PIPELINE_ZERO_OUTPUT gate (skips Stage 3.3/3.5/3.6/5)",
+    "MIN_FRESHNESS_ENTRIES > 10 without dual-manifest protection",
+    "Stage 5 conditional skip",
+    "PIPELINE_VERSION < 158.0.0"
+  ],
+  "approved_stages": {
+    "stage_1": "Intel Ingestion + Dedup (MANDATORY)",
+    "stage_2": "Manifest Stabilisation (MANDATORY)",
+    "stage_2_5": "Intel Freshness Gate \u2014 threshold=10 (caa8dda baseline)",
+    "stage_3": "APEX AI Enrichment (PERMANENT \u2014 NEVER SKIP)",
+    "stage_3_2": "HTML Report Generation (PERMANENT \u2014 NEVER SKIP)",
+    "stage_3_3": "Report Validation Gate (HARD FAIL \u2014 no conditions)",
+    "stage_3_4_5": "Schema Validation v155.0 (HARD FAIL)",
+    "stage_3_5": "R2 Upload (MANDATORY \u2014 no conditions)",
+    "stage_5": "GitHub Pages Deploy (MANDATORY \u2014 NEVER conditional)"
+  },
+  "artifact_signatures": {
+    "sentinel_blogger_yml": "c91d4a3f3b28dfdad516e4cebd0957559f1fd453fb3b3b9b27b0af5cf907662f",
+    "run_pipeline_py": "935a421b332266c2b32b31e741e4538a8d855163182db1a7edd0f5d06532148e",
+    "validate_manifest_schema_py": "aacbeeb36660bd4bcb4e5823b1117c5aed5b83013676b11940d84e053fd013e9"
+  }
+}

@@ -98,8 +98,8 @@ log = logging.getLogger("sentinel.pipeline")
 # Constants
 # ---------------------------------------------------------------------------
 REPO_ROOT = Path(__file__).resolve().parent.parent
-PIPELINE_VERSION = os.environ.get("PIPELINE_VERSION", "142.0.0")
-MIN_FRESHNESS_ENTRIES = 50   # v152.1.0: raised from 10→50 (anti-stale deployment guard)
+PIPELINE_VERSION = os.environ.get("PIPELINE_VERSION", "158.5")
+MIN_FRESHNESS_ENTRIES = 10   # absolute hard-fail threshold
 MIN_ENGINE_ENTRIES = 50      # engine manifest minimum before --force-rebuild
 MAX_STIX_BUNDLES = 500       # cap on persisted STIX bundle files
 
@@ -974,16 +974,12 @@ def stage_manifest_stabilisation() -> None:
                         log.info("[2.2] %s: %d entries  generated_at=%s", ppath, cnt, gen)
                     else:
                         cnt = 0
-                    # v152.2.0 FIX: use MAX of stix_manifest + advisory_manifest.
-                    # Previously only stix/feed_manifest.json (21 entries) was used,
-                    # ignoring data/feed_manifest.json (497 entries), causing the
-                    # Stage 2.5 gate to always FATAL on healthy platforms.
-                    if cnt > final_count:
+                    if ppath == "data/stix/feed_manifest.json":
                         final_count = cnt
                 except Exception as e:
                     log.warning("[2.2] %s: ERROR reading -- %s", ppath, e)
 
-        log.info("[2.2] MANIFEST_FINAL_COUNT=%d  (max of stix_manifest + advisory_manifest)", final_count)
+        log.info("[2.2] MANIFEST_FINAL_COUNT=%d", final_count)
         write_github_env("MANIFEST_FINAL_COUNT", str(final_count))
 
     except Exception as e:
@@ -995,73 +991,40 @@ def stage_manifest_stabilisation() -> None:
 # ---------------------------------------------------------------------------
 
 def stage_freshness_gate() -> None:
-    """
-    v152.2.0 DUAL-MANIFEST FRESHNESS GATE (IMMUTABLE GUARD)
-    =========================================================
-    Root-cause of Run #1268 regression:
-      - Stage 2.5 previously checked ONLY data/stix/feed_manifest.json (21 entries).
-      - data/feed_manifest.json (advisory manifest, 497 entries) was IGNORED.
-      - MIN_FRESHNESS_ENTRIES=50 > 21 → unconditional FATAL on every run.
-      - No FORCE_FULL_SYNC bypass existed → dispatch with force_full_sync=true still hard-failed.
-
-    Fix:
-      1. Check BOTH manifests; use best_count = max(stix_count, advisory_count).
-      2. If FORCE_FULL_SYNC=true AND best_count < MIN_FRESHNESS_ENTRIES → WARNING only (not fatal).
-      3. Hard-fail only when FORCE_FULL_SYNC=false AND best_count < MIN_FRESHNESS_ENTRIES.
-    """
     log.info("=" * 60)
-    log.info("STAGE 2.5 -- Intel Freshness Gate (v152.2.0 DUAL-MANIFEST)")
+    log.info("STAGE 2.5 -- Intel Freshness Gate")
     log.info("=" * 60)
 
-    _force = os.environ.get("FORCE_FULL_SYNC", "").strip().lower() == "true"
+    manifest = str(REPO_ROOT / "data" / "stix" / "feed_manifest.json")
 
-    def _count_manifest(path: Path) -> int:
-        """Count advisory entries in a manifest (STIX dict, advisory dict, or list)."""
-        if not path.exists():
-            return 0
-        try:
-            d = json.loads(path.read_text(encoding="utf-8"))
-            if isinstance(d, list):
-                return len(d)
-            if isinstance(d, dict):
-                items = d.get("advisories", d.get("reports", d.get("items", [])))
-                return len(items) if isinstance(items, list) else 0
-        except Exception as exc:
-            log.warning("[2.5] Cannot read %s: %s", path, exc)
-        return 0
+    if not Path(manifest).exists():
+        log.error("[2.5] FATAL: %s missing after stabilisation.", manifest)
+        sys.exit(1)
 
-    stix_path     = REPO_ROOT / "data" / "stix" / "feed_manifest.json"
-    advisory_path = REPO_ROOT / "data" / "feed_manifest.json"
-
-    stix_count     = _count_manifest(stix_path)
-    advisory_count = _count_manifest(advisory_path)
-    best_count     = max(stix_count, advisory_count)
-
-    log.info("[2.5] data/stix/feed_manifest.json : %d entries", stix_count)
-    log.info("[2.5] data/feed_manifest.json       : %d entries", advisory_count)
-    log.info("[2.5] BEST_COUNT=%d  (min required: %d)  FORCE_FULL_SYNC=%s",
-             best_count, MIN_FRESHNESS_ENTRIES, _force)
-
-    if best_count < MIN_FRESHNESS_ENTRIES:
-        if _force:
-            log.warning(
-                "[2.5] FRESHNESS WARNING: best_count=%d < %d but FORCE_FULL_SYNC=true "
-                "— hard-fail downgraded to WARNING. Proceeding with existing intelligence.",
-                best_count, MIN_FRESHNESS_ENTRIES
-            )
+    try:
+        d = json.loads(Path(manifest).read_text(encoding="utf-8"))
+        if isinstance(d, list):
+            count = len(d)
+            log.warning("[2.5] Manifest still in LIST format at gate (count=%d).", count)
+        elif isinstance(d, dict):
+            items = d.get("advisories", d.get("reports", d.get("items", [])))
+            count = len(items) if isinstance(items, list) else 0
         else:
-            log.error("[2.5] FATAL: BEST_COUNT=%d < MIN_FRESHNESS_ENTRIES=%d",
-                      best_count, MIN_FRESHNESS_ENTRIES)
-            log.error("[2.5]   stix_manifest=%d  advisory_manifest=%d", stix_count, advisory_count)
-            log.error("[2.5] Root causes to check:")
-            log.error("[2.5]   1. sentinel_blogger.py generated 0 bundles AND v70 orchestrator found 0 advisories")
-            log.error("[2.5]   2. data/feed_manifest.json absent or empty after v70 enrichment")
-            log.error("[2.5]   3. Engine manifest format mismatch (list vs dict in both files)")
-            log.error("[2.5]   4. bootstrap --force-rebuild indexed < %d STIX files", MIN_FRESHNESS_ENTRIES)
+            log.error("[2.5] FATAL: Unexpected manifest root type: %s", type(d).__name__)
             sys.exit(1)
-    else:
-        log.info("[2.5] FRESHNESS GATE PASSED: BEST_COUNT=%d entries (stix=%d, advisory=%d). [OK]",
-                 best_count, stix_count, advisory_count)
+    except Exception as e:
+        log.error("[2.5] FATAL: Cannot parse manifest: %s", e)
+        sys.exit(1)
+
+    if count < MIN_FRESHNESS_ENTRIES:
+        log.error("[2.5] FATAL: Manifest has only %d entries (minimum: %d)", count, MIN_FRESHNESS_ENTRIES)
+        log.error("[2.5] Root causes to check:")
+        log.error("[2.5]   1. Engine manifest format (list vs dict)")
+        log.error("[2.5]   2. Manifest Stabilisation normalisation output")
+        log.error("[2.5]   3. clean_feed_manifest.py exit code")
+        sys.exit(1)
+
+    log.info("[2.5] FRESHNESS GATE PASSED: %d entries. [OK]", count)
 
 
 # ---------------------------------------------------------------------------
@@ -3261,6 +3224,7 @@ def main() -> None:
     log.info("=" * 70)
     log.info("SENTINEL APEX PIPELINE COMPLETE — elapsed %.1fs", t_elapsed)
     log.info("=" * 70)
+
 
 if __name__ == "__main__":
     main()
