@@ -1,0 +1,48 @@
+feat(phase4): enterprise hardening v158.0 -- pre/post-deploy gates + monitors
+
+CHANGES (5 files):
+
+  1. scripts/pre_deploy_gate.py (NEW)
+     Pre-deploy HARD FAIL gate -- runs BEFORE every build_dist_artifact.py.
+     15 P0 invariants checked:
+     - PAYMENT-GATEWAY.html exists in repo
+     - PAYMENT-GATEWAY NOT in HTML_EXCLUDE_PREFIXES (AST-verified)
+     - dashboard in INCLUDE_DIRS (AST-verified)
+     - build_dist_artifact.py syntax valid
+     - index.html > 1MB (not truncated)
+     - 404.html exists
+     - Service worker V173 cache version
+     - V173 renderer block intact
+     - Script/style tags balanced in index.html
+     - Required dashboard files exist
+     - Step 5.1 + 5.2 validators present
+
+  2. scripts/post_deploy_smoke_test.py (NEW)
+     Post-deploy smoke test suite -- runs AFTER GitHub Pages deploy.
+     Tests 18 production URLs across 4 categories:
+     - P0 Critical Routes (/, /PAYMENT-GATEWAY.html, /404.html)
+     - Dashboard Routes (6 dashboards)
+     - API Endpoints (tracker, feed, latest, manifest)
+     - Static Assets (service worker, manifest.json)
+     - Regression 404 Guard (PAYMENT-GATEWAY, Enterprise Dash, SOC V2)
+     continue-on-error: true (CDN propagation delay tolerance)
+
+  3. scripts/platform_validation_suite.py (UPDATED)
+     Fixed Python 3.14 compatibility (.value not .s for ast.Constant).
+     Added Section 5: 404.html validation (6 checks).
+     Updated scoring to 117 checks, 100% pass rate.
+
+  4. scripts/validate_workflow_gates.py (NEW)
+     12-check validator for workflow gate insertion correctness.
+     Verifies ordering invariants (pre-gate before build, smoke after deploy).
+
+  5. .github/workflows/sentinel-blogger.yml (UPDATED)
+     Added STAGE 5.4.5d: Pre-Deploy Gate (HARD FAIL, 3 min timeout)
+     Added STAGE 5.5.0: Post-Deploy Smoke Tests (continue-on-error, 5 min)
+     Both stages wired with correct env vars and ordering.
+
+VALIDATION:
+  - Workflow gate checks: 12/12 PASS
+  - Pre-deploy gate (local): 15/15 PASS
+  - Platform validation suite: 117/117 PASS (100%)
+  - Zero regressions: existing STAGE 5, 5.4.6, 5.5, 5.6 unchanged

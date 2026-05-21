@@ -1,0 +1,25 @@
+fix(p0): remove PAYMENT-GATEWAY from HTML_EXCLUDE_PREFIXES v158.0
+
+FORENSIC ROOT CAUSE:
+  PAYMENT-GATEWAY.html exists in repo root (928 lines, production-ready).
+  It was erroneously placed in HTML_EXCLUDE_PREFIXES in build_dist_artifact.py,
+  causing the build pipeline to EXCLUDE it from dist/ on every deployment.
+  Result: intel.cyberdudebivash.com/PAYMENT-GATEWAY.html returns 404.
+
+BUSINESS IMPACT:
+  P0 CRITICAL - payment gateway 404 breaks: monetization, subscriptions,
+  upgrades, enterprise onboarding, customer conversion, revenue generation.
+
+FIX (2 changes, zero regressions):
+  1. Removed PAYMENT-GATEWAY from HTML_EXCLUDE_PREFIXES set.
+     PAYMENT-GATEWAY.html is a PUBLIC production page - must be in dist/.
+     All other internal-only exclusions (GODMODE, ENTERPRISE-CUSTOMER, etc.)
+     remain unchanged.
+  2. Added Step 5.2 HARD FAIL validator: build fails if PAYMENT-GATEWAY.html
+     is absent from dist/ after build - permanent regression guard.
+
+REGRESSION CHECK:
+  - dashboard/ INCLUDE_DIRS fix (v157.0): still present, no change
+  - Step 5.1 NAV_DASHBOARD_ROUTES validator: still present, no change
+  - All other HTML_EXCLUDE_PREFIXES entries: unchanged
+  - Syntax verified: ast.parse() passes, all assertions pass
