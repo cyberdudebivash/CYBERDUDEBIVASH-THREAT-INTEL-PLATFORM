@@ -1413,6 +1413,29 @@ jobs:
           " 2>/dev/null || true
           fi
 
+
+      # -----------------------------------------------------------------------
+      # STAGE 5.8.4 - GLOBAL RELEASE ORCHESTRATION ENGINE (v158.0.3 -- NON-BLOCKING)
+      # Runs the 8-domain governance gate suite:
+      #   1. Release Identity Governance   — SSOT version sync
+      #   2. Release Manifest Validation   — all critical files present
+      #   3. Artifact Synchronization      — dist/ integrity (HARD FAIL in CI)
+      #   4. Deployment Convergence        — confidence score assessment
+      #   5. Rollback Governance           — git history + lock state
+      #   6. Concurrency Governance        — serial deploy verification
+      #   7. Cache Propagation             — service-worker version alignment
+      #   8. Synchronization Validation    — frontend/API/manifest consistency
+      # Writes: data/telemetry/global_release_governance.json
+      # Hard-fails only when dist/ artifacts missing in CI context.
+      - name: "STAGE 5.8.4 - Global Release Orchestration Engine (v158.0.3)"
+        timeout-minutes: 5
+        if: always()
+        env:
+          CI: "true"
+        run: |
+          python3 scripts/global_release_orchestrator.py
+        continue-on-error: true
+
       # -----------------------------------------------------------------------
       # STAGE 5.9 - ENTERPRISE CI TELEMETRY (v146.0 -- ALWAYS RUNS)
       # Writes data/telemetry/ci_run_latest.json. Non-blocking.
