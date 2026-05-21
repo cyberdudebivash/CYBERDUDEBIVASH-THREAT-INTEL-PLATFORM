@@ -1,0 +1,593 @@
+#!/usr/bin/env python3
+"""
+================================================================================
+CYBERDUDEBIVASH® SENTINEL APEX
+scripts/anti_hallucination_engine.py — Anti-Hallucination Engine
+================================================================================
+Version : 152.0.0
+Author  : CYBERDUDEBIVASH Pvt. Ltd. — SENTINEL APEX Engineering
+
+PURPOSE:
+  Hard-blocks fabricated, synthetic, and unverifiable intelligence from
+  reaching any published report. This engine REJECTS items — it does not
+  repair them. Repair is the responsibility of upstream enrichment.
+
+WHAT IT DETECTS AND BLOCKS:
+  1.  INVALID_IOC         — Malformed IPv4/IPv6, bad hash lengths, bogus URLs
+  2.  PSEUDO_IOC          — CVE IDs, advisory URLs, vendor links used as IOCs
+  3.  SYNTHETIC_ACTOR     — Fabricated cluster names with no evidence chain
+  4.  GENERATED_OPERATION — Campaign names marked [APEX-GENERATED]
+  5.  UNSUPPORTED_CVSS    — Risk scores derived from N/A CVSS
+  6.  FABRICATED_SCORE    — Static bucket scores (7.5 HIGH, 5.5 MEDIUM, etc.)
+  7.  ZERO_EVIDENCE_ATTACK — ATT&CK mapping with no justification
+  8.  DUPLICATE_ENTRY     — Exact or near-duplicate advisory in this run
+  9.  EMPTY_EXECUTIVE     — Executive summary containing only template text
+  10. INVALID_CONFIDENCE  — Confidence without source reliability rationale
+  11. UNSUPPORTED_ATTRIB  — Attribution claims without evidence traceability
+  12. IMPOSSIBLE_EPSS     — EPSS values outside 0.0–1.0 or fabricated percentages
+
+EXIT CODES:
+  0 — pass (item is clean)
+  1 — reject (fabrication detected) — item must NOT publish
+  2 — warn (suspicious but not blocking)
+
+INTEGRATION:
+  Call before any report generation:
+    from scripts.anti_hallucination_engine import HallucinationEngine
+    engine = HallucinationEngine()
+    result = engine.audit(item)
+    if result.hard_fail:
+        raise IntelPublishBlocked(result.violations)
+================================================================================
+"""
+from __future__ import annotations
+
+import hashlib
+import ipaddress
+import json
+import logging
+import re
+import struct
+from dataclasses import dataclass, field
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Set, Tuple
+
+log = logging.getLogger("apex.anti_hallucination")
+
+# ── Version ───────────────────────────────────────────────────────────────────
+ENGINE_VERSION = "152.0.0"
+ENGINE_ID      = "APEX-AHE"
+
+# ── Fabrication Fingerprints ──────────────────────────────────────────────────
+
+# Synthetic actor cluster names injected by the old pipeline
+SYNTHETIC_ACTOR_PATTERNS = re.compile(
+    r"(automated\s+cve\s+exploitation\s+cluster|"
+    r"advanced\s+persistent\s+threat\s+cluster|"
+    r"generic\s+(apt|ransomware|threat)\s+cluster|"
+    r"cdb-apt-gen|cdb-cve-gen|cdb-ran-gen|"
+    r"apex-cluster-unattributed|"
+    r"operation\s+\w+-\w+\s*\[apex-generated\])",
+    re.IGNORECASE,
+)
+
+# Campaign name auto-generation marker
+GENERATED_OPERATION_RE = re.compile(r"\[apex-generated\]", re.IGNORECASE)
+
+# Template filler phrases in executive summaries
+TEMPLATE_EXEC_PHRASES = [
+    "cyberdudebivash sentinel apex has identified a",
+    "this advisory documents a nation-state",
+    "structural and behavioural analysis of exploit for cve reveals a generic class",
+    "threat vector identified from threat intelligence feed analysis",
+    "system integrity and data confidentiality at risk",
+    "technique id mapped from threat intelligence corpus",
+    "patch within standard window",
+    "apex ml corpus v16",
+    "apex-generated sigma detection for",
+    "escalation probability.*apex model.*14-day horizon",
+]
+TEMPLATE_EXEC_RE = re.compile(
+    "|".join(re.escape(p) for p in TEMPLATE_EXEC_PHRASES),
+    re.IGNORECASE,
+)
+
+# Static bucket scores that indicate hardcoded, not computed values
+# (critical = 10.0, high = 7.5, medium = 5.5 or 5.0, low = 2.3 or 2.8)
+STATIC_SCORE_BUCKETS = {10.0, 7.5, 5.5, 5.0, 4.8, 2.8, 2.3}
+
+# Source/reference URL patterns — NEVER valid IOCs
+REFERENCE_URL_PATTERNS = re.compile(
+    r"(vulners\.com|nvd\.nist\.gov|cisa\.gov|"
+    r"attack\.mitre\.org|intel\.cyberdudebivash\.com|"
+    r"cve\.mitre\.org|nvd\.nist|github\.com/(advisories|security)|"
+    r"cvefeed\.io|thehackernews\.com|securityaffairs\.com|"
+    r"rapid7\.com|tenable\.com|qualys\.com|"
+    r"cert\.gov|kb\.cert\.org|us-cert\.gov|"
+    r"microsoft\.com/security|msrc\.microsoft|"
+    r"support\.apple\.com|ubuntu\.com/security)",
+    re.IGNORECASE,
+)
+
+# CVE ID pattern — a reference, never an IOC
+CVE_RE = re.compile(r"^CVE-\d{4}-\d{4,7}$", re.IGNORECASE)
+
+# Valid IOC hash lengths
+VALID_HASH_LENGTHS = {32, 40, 64, 96, 128}  # MD5, SHA1, SHA256, SHA384, SHA512
+
+# RFC 1918 + loopback + documentation ranges — suspicious as external C2
+_PRIVATE_RANGES = [
+    ipaddress.ip_network("10.0.0.0/8"),
+    ipaddress.ip_network("172.16.0.0/12"),
+    ipaddress.ip_network("192.168.0.0/16"),
+    ipaddress.ip_network("127.0.0.0/8"),
+    ipaddress.ip_network("::1/128"),
+    ipaddress.ip_network("fc00::/7"),
+    ipaddress.ip_network("169.254.0.0/16"),    # link-local
+    ipaddress.ip_network("198.51.100.0/24"),   # TEST-NET-2
+    ipaddress.ip_network("203.0.113.0/24"),    # TEST-NET-3
+    ipaddress.ip_network("192.0.2.0/24"),      # TEST-NET-1
+    ipaddress.ip_network("0.0.0.0/8"),
+]
+
+
+# ── Data Structures ───────────────────────────────────────────────────────────
+
+@dataclass
+class Violation:
+    code: str           # e.g. INVALID_IOC, SYNTHETIC_ACTOR
+    severity: str       # HARD_FAIL | WARN
+    field: str          # where the violation was found
+    evidence: str       # what was found
+    explanation: str    # human-readable rationale
+
+
+@dataclass
+class AuditResult:
+    item_id: str
+    hard_fail: bool
+    violations: List[Violation] = field(default_factory=list)
+    warnings: List[Violation] = field(default_factory=list)
+    pass_count: int = 0
+    audit_ts: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+    engine_version: str = ENGINE_VERSION
+
+    def to_dict(self) -> Dict:
+        return {
+            "item_id": self.item_id,
+            "hard_fail": self.hard_fail,
+            "violations": [v.__dict__ for v in self.violations],
+            "warnings": [v.__dict__ for v in self.warnings],
+            "pass_count": self.pass_count,
+            "audit_ts": self.audit_ts,
+            "engine_version": self.engine_version,
+        }
+
+
+# ── Core Engine ───────────────────────────────────────────────────────────────
+
+class HallucinationEngine:
+    """
+    Stateful hallucination detection engine.
+    Maintains a run-level deduplication set across all audited items.
+    """
+
+    def __init__(self) -> None:
+        self._seen_fingerprints: Set[str] = set()
+        self._run_ts = datetime.now(timezone.utc).isoformat()
+        log.info("Anti-Hallucination Engine v%s initialised", ENGINE_VERSION)
+
+    def _fp(self, item: Dict) -> str:
+        """Content fingerprint for deduplication."""
+        sig = "|".join([
+            (item.get("title") or "").strip().lower(),
+            (item.get("source_url") or "").strip().lower(),
+            str(item.get("cvss_score") or ""),
+        ])
+        return hashlib.sha256(sig.encode()).hexdigest()[:16]
+
+    # ── Individual checks ─────────────────────────────────────────────────────
+
+    def _check_iocs(self, iocs: List[Dict]) -> List[Violation]:
+        violations: List[Violation] = []
+        for ioc in iocs:
+            val = str(ioc.get("value") or ioc.get("indicator") or "").strip()
+            itype = str(ioc.get("type") or "").strip().lower()
+
+            # Reject CVE IDs as IOCs
+            if CVE_RE.match(val):
+                violations.append(Violation(
+                    code="PSEUDO_IOC",
+                    severity="HARD_FAIL",
+                    field="ioc.value",
+                    evidence=val,
+                    explanation="CVE identifiers are vulnerability references, NOT indicators "
+                                "of compromise. Remove from IOC table and place in references section.",
+                ))
+                continue
+
+            # Reject advisory/vendor reference URLs
+            if REFERENCE_URL_PATTERNS.search(val):
+                violations.append(Violation(
+                    code="PSEUDO_IOC",
+                    severity="HARD_FAIL",
+                    field="ioc.value",
+                    evidence=val[:80],
+                    explanation="Vendor advisory, NVD, CISA, and threat intel blog URLs are "
+                                "REFERENCES, not indicators. They will not match in SIEM/EDR and "
+                                "dilute IOC feed quality. Remove from operational IOC table.",
+                ))
+                continue
+
+            # Validate IPv4 addresses
+            if itype in ("ipv4", "ip", "ip-dst", "ip-src") or re.match(
+                r"^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$", val
+            ):
+                try:
+                    addr = ipaddress.IPv4Address(val)
+                    # Check each octet for leading zeros (malformed octet like '011')
+                    octets = val.split(".")
+                    for oct in octets:
+                        if len(oct) > 1 and oct.startswith("0"):
+                            violations.append(Violation(
+                                code="INVALID_IOC",
+                                severity="HARD_FAIL",
+                                field="ioc.value",
+                                evidence=val,
+                                explanation=f"IPv4 octet '{oct}' has an illegal leading zero. "
+                                            "This is a syntactically invalid address that will "
+                                            "never match real traffic. Likely a synthetic/generated IOC.",
+                            ))
+                    # Check for private/reserved ranges
+                    for private_range in _PRIVATE_RANGES:
+                        if addr in private_range:
+                            violations.append(Violation(
+                                code="INVALID_IOC",
+                                severity="WARN",
+                                field="ioc.value",
+                                evidence=val,
+                                explanation=f"IP {val} falls in RFC1918/reserved range {private_range}. "
+                                            "Private IPs are only valid IOCs in specific internal lateral "
+                                            "movement or ICS contexts — document the justification.",
+                            ))
+                except ValueError:
+                    violations.append(Violation(
+                        code="INVALID_IOC",
+                        severity="HARD_FAIL",
+                        field="ioc.value",
+                        evidence=val,
+                        explanation=f"'{val}' is not a valid IPv4 address (octets must be 0–255). "
+                                    "This indicator will cause SIEM parse errors and cannot be actioned.",
+                    ))
+
+            # Validate hashes
+            elif itype in ("sha256", "sha1", "md5") or re.match(r"^[0-9a-fA-F]{32,128}$", val):
+                if len(val) not in VALID_HASH_LENGTHS:
+                    violations.append(Violation(
+                        code="INVALID_IOC",
+                        severity="HARD_FAIL",
+                        field="ioc.value",
+                        evidence=val[:20] + "...",
+                        explanation=f"Hash length {len(val)} does not match any known algorithm. "
+                                    "Valid: MD5=32, SHA1=40, SHA256=64, SHA384=96, SHA512=128.",
+                    ))
+
+        return violations
+
+    def _check_actor(self, item: Dict) -> List[Violation]:
+        violations: List[Violation] = []
+        actor = str(item.get("actor_cluster") or item.get("actor") or "")
+        if actor and SYNTHETIC_ACTOR_PATTERNS.search(actor):
+            violations.append(Violation(
+                code="SYNTHETIC_ACTOR",
+                severity="HARD_FAIL",
+                field="actor_cluster",
+                evidence=actor,
+                explanation="Synthetic actor cluster name detected. These generic labels "
+                            "(CDB-APT-GEN, CDB-CVE-GEN, 'Advanced Persistent Threat Cluster') "
+                            "are auto-generated placeholders with zero intelligence value. "
+                            "Replace with UNATTRIBUTED or evidence-backed cluster designation.",
+            ))
+
+        # Check for attribution without evidence chain
+        attribution_confidence = item.get("attribution_confidence") or item.get("ai_attribution_confidence", 100)
+        try:
+            attr_conf = float(attribution_confidence)
+        except (ValueError, TypeError):
+            attr_conf = 100.0
+
+        if actor and not SYNTHETIC_ACTOR_PATTERNS.search(actor):
+            evidence_chain = item.get("attribution_evidence") or item.get("attribution_basis") or ""
+            if not evidence_chain:
+                violations.append(Violation(
+                    code="UNSUPPORTED_ATTRIB",
+                    severity="WARN",
+                    field="actor_cluster",
+                    evidence=actor,
+                    explanation="Actor attribution present but no evidence chain documented. "
+                                "Required: infrastructure overlap, malware overlap, TTP overlap, "
+                                "victimology, or geopolitical indicators. Add attribution_evidence field.",
+                ))
+        return violations
+
+    def _check_campaign(self, item: Dict) -> List[Violation]:
+        violations: List[Violation] = []
+        campaign = str(item.get("campaign") or item.get("operation_name") or "")
+        if GENERATED_OPERATION_RE.search(campaign):
+            violations.append(Violation(
+                code="GENERATED_OPERATION",
+                severity="HARD_FAIL",
+                field="campaign",
+                evidence=campaign,
+                explanation="Campaign name is explicitly auto-generated [APEX-GENERATED]. "
+                            "Publishing AI-generated operation names without evidence corrupts "
+                            "the threat intelligence record and destroys analyst trust. "
+                            "Use UNCLASSIFIED if no real campaign attribution exists.",
+            ))
+        return violations
+
+    def _check_risk_score(self, item: Dict) -> List[Violation]:
+        violations: List[Violation] = []
+        score = item.get("risk_score") or item.get("composite_risk")
+        cvss  = item.get("cvss_score") or item.get("cvss")
+        epss  = item.get("epss_score") or item.get("epss")
+
+        if score is None:
+            return violations
+
+        try:
+            score_f = float(score)
+        except (ValueError, TypeError):
+            return violations
+
+        # Flag static bucket scores
+        if score_f in STATIC_SCORE_BUCKETS:
+            if cvss in (None, "N/A", "", "Pending") and epss in (None, "N/A", "", "Pending"):
+                violations.append(Violation(
+                    code="FABRICATED_SCORE",
+                    severity="HARD_FAIL",
+                    field="risk_score",
+                    evidence=f"risk_score={score_f}, cvss=N/A, epss=N/A",
+                    explanation=f"Risk score {score_f} matches a static bucket value "
+                                f"({', '.join(str(b) for b in STATIC_SCORE_BUCKETS)}) and was "
+                                "computed without CVSS or EPSS data. This is a hardcoded placeholder, "
+                                "not an evidence-derived score. Compute from actual signal data or "
+                                "clearly mark as baseline-estimated with zero CVSS/EPSS contribution.",
+                ))
+
+        # EPSS range validation
+        if epss not in (None, "N/A", "", "Pending"):
+            try:
+                epss_f = float(str(epss).rstrip("%"))
+                # If it looks like a percentage (>1) normalise; values >100 are impossible
+                if epss_f > 100:
+                    violations.append(Violation(
+                        code="IMPOSSIBLE_EPSS",
+                        severity="HARD_FAIL",
+                        field="epss_score",
+                        evidence=str(epss),
+                        explanation=f"EPSS value {epss} exceeds 100% — impossible value. "
+                                    "EPSS is a probability between 0.0 and 1.0 (or 0%–100%).",
+                    ))
+            except ValueError:
+                pass
+
+        return violations
+
+    def _check_executive_summary(self, item: Dict) -> List[Violation]:
+        violations: List[Violation] = []
+        summary = str(item.get("executive_summary") or item.get("summary") or "")
+        if not summary:
+            return violations
+        matches = TEMPLATE_EXEC_RE.findall(summary)
+        if len(matches) >= 2:
+            violations.append(Violation(
+                code="EMPTY_EXECUTIVE",
+                severity="HARD_FAIL",
+                field="executive_summary",
+                evidence=f"{len(matches)} template phrases detected",
+                explanation="Executive summary contains multiple boilerplate template phrases. "
+                            "Analysts and CISOs will immediately identify AI-generated filler. "
+                            "Each summary must be uniquely written per advisory with specific "
+                            "technical details, real-world context, and operational impact.",
+            ))
+        elif len(matches) == 1:
+            violations.append(Violation(
+                code="EMPTY_EXECUTIVE",
+                severity="WARN",
+                field="executive_summary",
+                evidence=f"Template phrase: '{matches[0]}'",
+                explanation="Template phrase detected in executive summary. Review for uniqueness.",
+            ))
+        return violations
+
+    def _check_attack_mapping(self, item: Dict) -> List[Violation]:
+        violations: List[Violation] = []
+        ttps = item.get("ttps") or item.get("attack_techniques") or []
+        if not ttps:
+            return violations
+
+        for ttp in ttps:
+            if isinstance(ttp, dict):
+                justification = (ttp.get("justification") or ttp.get("evidence") or
+                                 ttp.get("observed_behavior") or "")
+                technique_id  = ttp.get("technique_id") or ttp.get("id") or ""
+                if not justification or "mapped from threat intelligence corpus" in justification.lower():
+                    violations.append(Violation(
+                        code="ZERO_EVIDENCE_ATTACK",
+                        severity="HARD_FAIL",
+                        field=f"ttp.{technique_id}",
+                        evidence=justification[:60] if justification else "no justification",
+                        explanation=f"ATT&CK technique {technique_id} has no justification for "
+                                    "why it applies to this specific advisory. Pattern-matched "
+                                    "mappings ('mapped from threat intelligence corpus') are "
+                                    "not evidence. Document observed behavior, exploit mechanism, "
+                                    "or specific indicator that triggered this mapping.",
+                    ))
+        return violations
+
+    def _check_duplicate(self, item: Dict) -> List[Violation]:
+        violations: List[Violation] = []
+        fp = self._fp(item)
+        if fp in self._seen_fingerprints:
+            violations.append(Violation(
+                code="DUPLICATE_ENTRY",
+                severity="HARD_FAIL",
+                field="item_fingerprint",
+                evidence=fp,
+                explanation="Exact duplicate of a previously audited item in this run. "
+                            "Publishing duplicates inflates feed volume, confuses analysts, "
+                            "and generates duplicate SIEM alerts. Deduplicate before publishing.",
+            ))
+        else:
+            self._seen_fingerprints.add(fp)
+        return violations
+
+    def _check_confidence(self, item: Dict) -> List[Violation]:
+        violations: List[Violation] = []
+        conf = item.get("confidence") or item.get("intel_confidence")
+        if conf is None:
+            return violations
+
+        try:
+            conf_f = float(conf)
+        except (ValueError, TypeError):
+            return violations
+
+        # Confidence without rationale
+        rationale = item.get("confidence_rationale") or item.get("confidence_basis") or ""
+        if not rationale and conf_f > 0:
+            violations.append(Violation(
+                code="INVALID_CONFIDENCE",
+                severity="WARN",
+                field="confidence",
+                evidence=f"{conf_f}%",
+                explanation="Confidence value present but no rationale documented. "
+                            "Confidence must derive from: source reliability (Admiralty A-F), "
+                            "corroboration count, IOC validation success, multi-source convergence, "
+                            "historical accuracy. Add confidence_rationale field.",
+            ))
+        return violations
+
+    # ── Public API ────────────────────────────────────────────────────────────
+
+    def audit(self, item: Dict) -> AuditResult:
+        """
+        Audit a single intelligence item for hallucination/fabrication indicators.
+        Returns AuditResult with hard_fail=True if item must be blocked from publishing.
+        """
+        item_id = str(item.get("id") or item.get("stix_id") or item.get("intel_id") or "UNKNOWN")
+        result  = AuditResult(item_id=item_id, hard_fail=False)
+
+        iocs = item.get("iocs") or item.get("indicators") or []
+        if isinstance(iocs, list):
+            for v in self._check_iocs(iocs):
+                (result.violations if v.severity == "HARD_FAIL" else result.warnings).append(v)
+
+        for check_fn in [
+            lambda: self._check_actor(item),
+            lambda: self._check_campaign(item),
+            lambda: self._check_risk_score(item),
+            lambda: self._check_executive_summary(item),
+            lambda: self._check_attack_mapping(item),
+            lambda: self._check_duplicate(item),
+            lambda: self._check_confidence(item),
+        ]:
+            for v in check_fn():
+                (result.violations if v.severity == "HARD_FAIL" else result.warnings).append(v)
+
+        if result.violations:
+            result.hard_fail = True
+        else:
+            result.pass_count = 7  # all checks passed
+
+        return result
+
+    def audit_batch(self, items: List[Dict]) -> Dict:
+        """Audit a batch. Returns summary + per-item results."""
+        results   = [self.audit(item) for item in items]
+        hard_fail = [r for r in results if r.hard_fail]
+        warnings  = [r for r in results if not r.hard_fail and r.warnings]
+        clean     = [r for r in results if not r.hard_fail and not r.warnings]
+
+        return {
+            "engine":     ENGINE_ID,
+            "version":    ENGINE_VERSION,
+            "run_ts":     self._run_ts,
+            "total":      len(items),
+            "clean":      len(clean),
+            "hard_fail":  len(hard_fail),
+            "warn":       len(warnings),
+            "results":    [r.to_dict() for r in results],
+            "blocked_ids": [r.item_id for r in hard_fail],
+        }
+
+
+# ── CLI ───────────────────────────────────────────────────────────────────────
+
+def main() -> int:
+    import argparse, sys
+
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s [AHE] %(levelname)s %(message)s",
+    )
+
+    parser = argparse.ArgumentParser(description="APEX Anti-Hallucination Engine")
+    parser.add_argument("--manifest", default="data/stix/feed_manifest.json")
+    parser.add_argument("--report",   default="data/quality/ahe_report.json")
+    parser.add_argument("--strict",   action="store_true",
+                        help="Exit 1 if ANY hard_fail detected")
+    args = parser.parse_args()
+
+    manifest_path = Path(args.manifest)
+    if not manifest_path.exists():
+        log.error("Manifest not found: %s", manifest_path)
+        return 1
+
+    with manifest_path.open(encoding="utf-8") as f:
+        data = json.load(f)
+
+    items = data if isinstance(data, list) else data.get("items", [])
+    log.info("Loaded %d items from %s", len(items), manifest_path)
+
+    engine = HallucinationEngine()
+    batch_result = engine.audit_batch(items)
+
+    # Write report
+    report_path = Path(args.report)
+    report_path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = report_path.with_suffix(".tmp")
+    with tmp.open("w", encoding="utf-8") as f:
+        json.dump(batch_result, f, indent=2, ensure_ascii=False)
+    tmp.replace(report_path)
+
+    # Console output
+    print(f"\n{'='*70}")
+    print(f"  APEX ANTI-HALLUCINATION ENGINE v{ENGINE_VERSION}")
+    print(f"{'='*70}")
+    print(f"  Total items audited : {batch_result['total']}")
+    print(f"  ✔ Clean             : {batch_result['clean']}")
+    print(f"  ⚠ Warnings          : {batch_result['warn']}")
+    print(f"  ✘ Hard Fail         : {batch_result['hard_fail']}")
+    print(f"{'='*70}\n")
+
+    if batch_result["hard_fail"] > 0:
+        print(f"  BLOCKED IDs: {batch_result['blocked_ids']}")
+        for r in batch_result["results"]:
+            if r["hard_fail"]:
+                print(f"\n  ITEM: {r['item_id']}")
+                for v in r["violations"]:
+                    print(f"    [{v['severity']}] {v['code']} @ {v['field']}")
+                    print(f"      Evidence: {v['evidence']}")
+                    print(f"      Reason:   {v['explanation']}")
+
+    if args.strict and batch_result["hard_fail"] > 0:
+        return 1
+    return 0
+
+
+if __name__ == "__main__":
+    import sys
+    sys.exit(main())

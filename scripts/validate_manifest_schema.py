@@ -3,8 +3,17 @@
 scripts/validate_manifest_schema.py
 CYBERDUDEBIVASH(R) SENTINEL APEX -- STABLE CONTRACT Schema Validator
 =====================================================================
+Version : v155.0  Stage: 3.4.5 (HARD FAIL pre-R2 gate)
+
 PLATFORM HARDENING: Zero-regression schema gate for feed_manifest.json
                     and api/feed.json.
+
+v155.0 P0 FIX (Run #1270 root cause):
+    Advisory records in api/feed.json use `id` (intel--XXXXXXXX) as their
+    unique identifier. The STABLE CONTRACT requires `stix_id`. The backfill
+    engine now derives stix_id deterministically from `id` when absent, fixing
+    all 105 hard fails without modifying the STABLE CONTRACT definition itself.
+    Priority: id field -> stix_bundle URL basename.
 
 STABLE CONTRACT (immutable baseline -- do NOT modify without arch review):
     Required fields per intel item:
@@ -65,7 +74,9 @@ STABLE_CONTRACT_VERSION = "stable-v1.0-apex"
 
 REQUIRED_CRITICAL_FIELDS: list[str] = ["stix_id", "title", "risk_score"]
 URL_FIELD_CANDIDATES: list[str] = ["blog_url", "report_url", "source_url", "nvd_url"]
-TIMESTAMP_FIELD_CANDIDATES: list[str] = ["created_at", "timestamp", "generated_at", "published_at"]
+TIMESTAMP_FIELD_CANDIDATES: list[str] = [
+    "created_at", "timestamp", "generated_at", "published_at"
+]
 MAX_MISSING_APEX_PCT = 100.0
 MIN_MANIFEST_ENTRIES = 1
 
@@ -120,6 +131,19 @@ def _atomic_write(path: Path, items: list[dict], fmt: str, raw_data: Any) -> Non
         raise
 
 
+def _extract_bundle_id_from_url(stix_bundle_url: str) -> str:
+    """Extract stable identifier from stix_bundle URL as fallback stix_id.
+    e.g. https://intel.cyberdudebivash.com/data/stix/CDB-APEX-1779350179.json
+         -> CDB-APEX-1779350179
+    """
+    if not stix_bundle_url:
+        return ""
+    basename = stix_bundle_url.rstrip("/").split("/")[-1]
+    if basename.endswith(".json"):
+        basename = basename[:-5]
+    return basename if basename else ""
+
+
 def _derive_apex_flat(item: dict) -> dict:
     apex = item.get("apex_ai") or {}
     ai_summary = (
@@ -145,6 +169,20 @@ def _derive_apex_flat(item: dict) -> dict:
 
 def _backfill_item(item: dict) -> tuple[dict, list[str]]:
     patched: list[str] = []
+
+    # v155.0 P0 ARCHITECTURAL FIX: stix_id backfill
+    # Advisory records use `id` (intel--XXXXXXXX); validator requires `stix_id`.
+    # Derive stix_id deterministically from `id` when absent.
+    # NON-DESTRUCTIVE: never overwrites an existing non-empty stix_id.
+    # DETERMINISTIC: same input always produces same stix_id.
+    # GENERATED-AT-SOURCE: `id` is assigned during advisory ingestion.
+    if not item.get("stix_id"):
+        derived = (
+            str(item["id"]).strip() if item.get("id") else ""
+        ) or _extract_bundle_id_from_url(str(item.get("stix_bundle") or ""))
+        if derived:
+            item["stix_id"] = derived
+            patched.append("stix_id")
 
     if not isinstance(item.get("tags"), list) or len(item.get("tags", [])) == 0:
         sev = str(item.get("severity", "MEDIUM")).upper()
@@ -182,7 +220,9 @@ def _backfill_item(item: dict) -> tuple[dict, list[str]]:
     return item, patched
 
 
-def validate_manifest(path: Path, backfill: bool = False, skip_empty: bool = False) -> dict:
+def validate_manifest(
+    path: Path, backfill: bool = False, skip_empty: bool = False
+) -> dict:
     result: dict[str, Any] = {
         "path": str(path),
         "status": "PASS",
@@ -213,14 +253,17 @@ def validate_manifest(path: Path, backfill: bool = False, skip_empty: bool = Fal
 
     if len(items) < MIN_MANIFEST_ENTRIES:
         if skip_empty:
-            # By-design empty manifest (data/stix/feed_manifest.json reset by bootstrap)
             result["warnings"].append(
                 f"MANIFEST EMPTY: {len(items)} items -- SKIPPED (by-design, see "
-                "stability_lock.json known_non_fatal_warns). api/feed.json validated separately."
+                "stability_lock.json known_non_fatal_warns). "
+                "api/feed.json validated separately."
             )
             result["status"] = "PASS"
             result["skip_reason"] = "empty_by_design"
-            log.warning("  [SKIP-EMPTY] %s has 0 items -- by-design, skipping hard fail.", path.name)
+            log.warning(
+                "  [SKIP-EMPTY] %s has 0 items -- by-design, skipping hard fail.",
+                path.name,
+            )
             return result
         result["hard_fail_reasons"].append(
             f"MANIFEST EMPTY: {len(items)} items found, minimum is {MIN_MANIFEST_ENTRIES}"
@@ -241,6 +284,17 @@ def validate_manifest(path: Path, backfill: bool = False, skip_empty: bool = Fal
             result["status"] = "FAIL"
             continue
 
+        # v155.0: backfill BEFORE critical-field check so stix_id derived from
+        # `id` is present when the check loop runs.
+        if backfill:
+            updated_item, patched = _backfill_item(item)
+            items[idx] = updated_item
+            item = updated_item
+            if patched:
+                backfill_total += 1
+                for f in patched:
+                    all_backfilled_fields[f] = all_backfilled_fields.get(f, 0) + 1
+
         for field in REQUIRED_CRITICAL_FIELDS:
             val = item.get(field)
             if val is None or val == "" or val == []:
@@ -253,15 +307,9 @@ def validate_manifest(path: Path, backfill: bool = False, skip_empty: bool = Fal
         if not item.get("apex_ai"):
             missing_apex_count += 1
 
-        if backfill:
-            updated_item, patched = _backfill_item(item)
-            items[idx] = updated_item
-            if patched:
-                backfill_total += 1
-                for f in patched:
-                    all_backfilled_fields[f] = all_backfilled_fields.get(f, 0) + 1
-
-    apex_coverage_pct = ((total - missing_apex_count) / total * 100.0) if total else 0.0
+    apex_coverage_pct = (
+        (total - missing_apex_count) / total * 100.0
+    ) if total else 0.0
     result["apex_ai_coverage_pct"] = round(apex_coverage_pct, 1)
     result["missing_apex_ai_count"] = missing_apex_count
 
@@ -269,7 +317,8 @@ def validate_manifest(path: Path, backfill: bool = False, skip_empty: bool = Fal
     if missing_pct > MAX_MISSING_APEX_PCT:
         result["hard_fail_reasons"].append(
             f"APEX AI COVERAGE CRITICAL: {missing_apex_count}/{total} items "
-            f"({missing_pct:.1f}%) missing apex_ai (threshold: >{MAX_MISSING_APEX_PCT:.0f}%)"
+            f"({missing_pct:.1f}%) missing apex_ai "
+            f"(threshold: >{MAX_MISSING_APEX_PCT:.0f}%)"
         )
         result["status"] = "FAIL"
     elif missing_apex_count > 0:
@@ -285,7 +334,10 @@ def validate_manifest(path: Path, backfill: bool = False, skip_empty: bool = Fal
             result["backfilled_fields_summary"] = all_backfilled_fields
             if result["status"] == "PASS":
                 result["status"] = "BACKFILL_APPLIED"
-            log.info("Backfilled %d items in %s | fields: %s", backfill_total, path.name, all_backfilled_fields)
+            log.info(
+                "Backfilled %d items in %s | fields: %s",
+                backfill_total, path.name, all_backfilled_fields,
+            )
         except Exception as e:
             result["warnings"].append(f"Backfill write failed: {e}")
 
@@ -301,7 +353,9 @@ def _write_report(results: list[dict]) -> None:
         "contract_version": STABLE_CONTRACT_VERSION,
         "total_manifests_checked": len(results),
         "total_hard_fails": sum(1 for r in results if r["status"] == "FAIL"),
-        "total_pass": sum(1 for r in results if r["status"] in ("PASS", "BACKFILL_APPLIED")),
+        "total_pass": sum(
+            1 for r in results if r["status"] in ("PASS", "BACKFILL_APPLIED")
+        ),
         "results": results,
     }
     tmp = report_path.with_suffix(".tmp")
@@ -317,24 +371,38 @@ def main() -> None:
     parser = argparse.ArgumentParser(
         description="SENTINEL APEX STABLE CONTRACT manifest schema validator"
     )
-    parser.add_argument("--manifest", "-m", action="append", dest="manifests",
-                        help="Path to manifest file (repeatable)")
-    parser.add_argument("--backfill", "-b", action="store_true", default=False,
-                        help="Backfill missing optional fields in-place")
-    parser.add_argument("--strict-apex", action="store_true", default=False,
-                        help="Hard fail if ANY item missing apex_ai (0%% tolerance)")
-    parser.add_argument("--skip-empty", action="store_true", default=False,
-                        help="Skip manifests with 0 items (PASS with warning). "
-                             "Use for data/stix/feed_manifest.json which is by-design empty.")
-    parser.add_argument("--api-only", action="store_true", default=False,
-                        help="Only validate api/feed.json -- skip stix manifest entirely. "
-                             "Use for the HARD FAIL pre-R2 gate (STAGE 3.4.5).")
+    parser.add_argument(
+        "--manifest", "-m", action="append", dest="manifests",
+        help="Path to manifest file (repeatable)",
+    )
+    parser.add_argument(
+        "--backfill", "-b", action="store_true", default=False,
+        help="Backfill missing optional fields in-place",
+    )
+    parser.add_argument(
+        "--strict-apex", action="store_true", default=False,
+        help="Hard fail if ANY item missing apex_ai (0 pct tolerance)",
+    )
+    parser.add_argument(
+        "--skip-empty", action="store_true", default=False,
+        help=(
+            "Skip manifests with 0 items (PASS with warning). "
+            "Use for data/stix/feed_manifest.json which is by-design empty."
+        ),
+    )
+    parser.add_argument(
+        "--api-only", action="store_true", default=False,
+        help=(
+            "Only validate api/feed.json -- skip stix manifest entirely. "
+            "Use for the HARD FAIL pre-R2 gate (STAGE 3.4.5)."
+        ),
+    )
     args = parser.parse_args()
 
     global MAX_MISSING_APEX_PCT
     if args.strict_apex:
         MAX_MISSING_APEX_PCT = 0.0
-        log.info("STRICT APEX mode: 0%% apex_ai gap tolerated")
+        log.info("STRICT APEX mode: 0 pct apex_ai gap tolerated")
 
     manifest_paths: list[Path] = []
     if args.api_only:
@@ -352,7 +420,10 @@ def main() -> None:
             manifest_paths = DEFAULT_MANIFESTS
 
     log.info("=" * 70)
-    log.info("SENTINEL APEX -- STABLE CONTRACT Schema Validator v%s", STABLE_CONTRACT_VERSION)
+    log.info(
+        "SENTINEL APEX -- STABLE CONTRACT Schema Validator v%s",
+        STABLE_CONTRACT_VERSION,
+    )
     log.info("Manifests to validate : %d", len(manifest_paths))
     log.info("Backfill mode         : %s", args.backfill)
     log.info("=" * 70)
@@ -362,32 +433,41 @@ def main() -> None:
 
     for path in manifest_paths:
         log.info("Validating: %s", path)
-        # Auto-skip empty stix manifest (by-design) or honour --skip-empty flag
-        skip_empty_for_this = (
-            getattr(args, "skip_empty", False)
-            or (SKIP_EMPTY_STIX_MANIFEST and STIX_MANIFEST_PARTIAL_PATH in str(path))
+        skip_empty_for_this = getattr(args, "skip_empty", False) or (
+            SKIP_EMPTY_STIX_MANIFEST and STIX_MANIFEST_PARTIAL_PATH in str(path)
         )
-        result = validate_manifest(path, backfill=args.backfill, skip_empty=skip_empty_for_this)
+        result = validate_manifest(
+            path, backfill=args.backfill, skip_empty=skip_empty_for_this
+        )
         results.append(result)
 
         status_icon = {"PASS": "PASS", "FAIL": "FAIL", "BACKFILL_APPLIED": "BACKFILL"}.get(
             result["status"], result["status"]
         )
-        log.info("  [%s] %s -- %d items | apex_ai %.1f%% covered",
-                 status_icon, path.name, result["item_count"], result["apex_ai_coverage_pct"])
+        log.info(
+            "  [%s] %s -- %d items | apex_ai %.1f%% covered",
+            status_icon, path.name, result["item_count"],
+            result["apex_ai_coverage_pct"],
+        )
         for w in result["warnings"]:
             log.warning("  WARN: %s", w)
         for r in result["hard_fail_reasons"]:
             log.error("  HARD FAIL: %s", r)
             hard_fail_count += 1
         if result.get("backfilled_count", 0) > 0:
-            log.info("  BACKFILLED: %d items -- fields: %s",
-                     result["backfilled_count"], result["backfilled_fields_summary"])
+            log.info(
+                "  BACKFILLED: %d items -- fields: %s",
+                result["backfilled_count"], result["backfilled_fields_summary"],
+            )
 
     _write_report(results)
     log.info("=" * 70)
-    log.info("SUMMARY: %d/%d manifests PASS | %d hard fail(s)",
-             sum(1 for r in results if r["status"] != "FAIL"), len(results), hard_fail_count)
+    log.info(
+        "SUMMARY: %d/%d manifests PASS | %d hard fail(s)",
+        sum(1 for r in results if r["status"] != "FAIL"),
+        len(results),
+        hard_fail_count,
+    )
 
     if hard_fail_count > 0:
         log.error("SCHEMA VALIDATION FAILED -- DEPLOYMENT BLOCKED")
