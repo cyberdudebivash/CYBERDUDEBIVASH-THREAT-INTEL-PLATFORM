@@ -67,8 +67,6 @@ on:
     paths:
       - 'scripts/**.py'
       - 'agent/**.py'
-      - '.github/workflows/sentinel-blogger.yml'
-      - '.github/workflows/generate-and-sync.yml'
       - 'index.html'
   schedule:
     - cron: '0 */4 * * *'
@@ -469,6 +467,36 @@ jobs:
         run: python3 scripts/run_pipeline.py
 
       # -----------------------------------------------------------------------
+      # STAGE 1-3b: ZERO-OUTPUT DEPLOYMENT GATE (v152.1.0 -- ANTI-STALE GUARD)
+      # Sets PIPELINE_ZERO_OUTPUT=true when the intel engine produced 0 new
+      # STIX bundles AND FORCE_FULL_SYNC is not explicitly requested.
+      # When true, Stage 3.5 (R2 Upload) and Stage 5 (GH Pages) are SKIPPED,
+      # preventing stale cached advisories from being re-deployed as "new" intel.
+      #
+      # MANDATORY ARCHITECTURE RULE:
+      #   A pipeline that generates ZERO new intelligence MUST NOT deploy.
+      #   Deploying 0-output runs overwrites valid cached state with stale data.
+      #
+      # FORCE_FULL_SYNC bypass: workflow_dispatch with force_full_sync=true
+      #   explicitly requests a full regeneration — PIPELINE_ZERO_OUTPUT stays
+      #   false so the full deploy path executes.
+      # -----------------------------------------------------------------------
+      - name: "STAGE 1-3b - Zero-Output Deployment Gate (v152.1.0 ANTI-STALE)"
+        id: zero_output_gate
+        run: |
+          NEW_BUNDLES="${STIX_NEW_BUNDLES:-0}"
+          FORCE="${FORCE_FULL_SYNC:-false}"
+          echo "[ZERO-OUTPUT-GATE] STIX_NEW_BUNDLES=${NEW_BUNDLES} | FORCE_FULL_SYNC=${FORCE}"
+          if [ "${NEW_BUNDLES}" = "0" ] && [ "${FORCE}" != "true" ]; then
+            echo "PIPELINE_ZERO_OUTPUT=true" >> $GITHUB_ENV
+            echo "::warning::PIPELINE_ZERO_OUTPUT=true — 0 new STIX bundles generated. R2 upload and GH Pages deploy SKIPPED to prevent stale intelligence deployment."
+            echo "[ZERO-OUTPUT-GATE] VERDICT: SKIP DEPLOY — no new intelligence this run."
+          else
+            echo "PIPELINE_ZERO_OUTPUT=false" >> $GITHUB_ENV
+            echo "[ZERO-OUTPUT-GATE] VERDICT: PROCEED — ${NEW_BUNDLES} new bundle(s) or FORCE_FULL_SYNC active."
+          fi
+
+      # -----------------------------------------------------------------------
       # STAGE 3.1: APEX AI ENRICHMENT ENGINE (PERMANENT -- DO NOT REMOVE)
       # Injects apex_ai, updates apex, and adds ioc_paywall into ALL items in
       # api/feed.json immediately after run_pipeline generates it.
@@ -687,6 +715,7 @@ jobs:
       # R2 is NEVER overwritten with corrupt/small manifests.
       # -----------------------------------------------------------------------
       - name: "STAGE 3.5 - Upload Intel to Cloudflare R2 (MANDATORY)"
+        if: env.PIPELINE_ZERO_OUTPUT != 'true'
         timeout-minutes: 12
         env:
           CF_R2_REPORTS_KEY_ID:     ${{ secrets.CF_R2_REPORTS_KEY_ID }}
@@ -702,6 +731,7 @@ jobs:
       # Prevents silent data loss between R2 upload and cache invalidation.
       # -----------------------------------------------------------------------
       - name: "STAGE 3.6 - R2 Upload Integrity Verifier (HARD FAIL)"
+        if: env.PIPELINE_ZERO_OUTPUT != 'true'
         timeout-minutes: 5
         run: python3 scripts/r2_upload_verifier.py
 
@@ -1145,6 +1175,7 @@ jobs:
       #   are not present in dist/ (belt-and-suspenders for historical directories).
       # -----------------------------------------------------------------------
       - name: "STAGE 5 - Deploy to GitHub Pages"
+        if: env.PIPELINE_ZERO_OUTPUT != 'true'
         timeout-minutes: 15
         uses: JamesIves/github-pages-deploy-action@v4.7.4   # v4.7.4 — native Node 24 (upgraded from v4.7.3, June-2-2026 deadline)
         with:
