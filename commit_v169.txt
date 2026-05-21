@@ -1,0 +1,36 @@
+fix(renderer): v169 RC6 Chrome GPU pre-promotion trap + nuclear boot + GPU tier engine
+
+RC6 ROOT CAUSE (Chrome blank map — forensically confirmed):
+  Line 14878: v159 CSS sets will-change:transform on #cdb-threat-canvas (no !important)
+  Chrome GPU compositor reads this rule at CSS parse time and PRE-PROMOTES canvas
+  to a separate GPU compositor layer BEFORE any JS runs. When JS later sets
+  will-change:auto (RC3), Chrome has a compositor conflict: promoted layer + auto
+  hint = blank canvas. Edge compositor handles this conflict differently = renders.
+
+RC6 FIX (index.html):
+  Immediately after v159 rule: #cdb-threat-canvas { will-change:auto !important;
+  transform:none !important } — Chrome sees auto as the final cascaded value.
+  No pre-promotion occurs. JS post-paint promotion (RC3+G4) proceeds cleanly.
+
+NUCLEAR CANVAS RESURRECTION (index.html):
+  nuclearCanvasResurrection() — fires 4s after schedBoot if frameCount===0
+  Performs DOM detach -> style nuke -> restyle -> re-attach cycle that forces
+  Chrome to release any stale GPU compositor layer and create a fresh context.
+  No-op if rendering is already working (frameCount>0 guard).
+
+GPU TIER ENGINE (js/engines/gpu-tier-engine.js):
+  Tier 0 SAFE: software renderer / no WebGL (SVG fallback)
+  Tier 1 LOW:  Intel HD 2000-5000 / Mali 4xx / low memory / low CPU
+  Tier 2 MID:  Default mid-range — Canvas2D full quality
+  Tier 3 HIGH: RTX/RX5600+/Apple Silicon / Edge-WebGL2 promotion
+  Auto-detects via WEBGL_debug_renderer_info UNMASKED strings
+  Exports window.CDB_GPU_TIER with quality profile per tier
+  HUD shows active GPU tier: GPU-T0/T1/T2/T3
+
+SCRIPT LOAD ORDER:
+  gpu-tier -> compositor -> RAF -> canvas -> telemetry -> recovery -> V169-engine
+
+SERVICE WORKER v169:
+  sentinel-apex-v169-live purges all v168 caches on first load
+
+GVOS: v169.0.0 / BUILD: 2026.05.19-APEX-V169

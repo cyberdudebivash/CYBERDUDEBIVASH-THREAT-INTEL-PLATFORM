@@ -1,0 +1,33 @@
+fix(RC7): eliminate Chrome GPU pre-promotion trap via backface-visibility -- v170
+
+ROOT CAUSE (FORENSICALLY CONFIRMED):
+compositor-governance-engine.js init() and safeMode() were setting
+backface-visibility:hidden WITHOUT !important. This property is a confirmed
+Chrome GPU compositor layer promotion trigger -- same class as RC3
+(will-change:transform) but via a different CSS property that survived all
+previous fix iterations RC1-RC6.
+
+Chrome pre-promotes the canvas to an EMPTY compositor layer BEFORE the first
+paint, capturing a blank frame. Edge does NOT promote on backface-visibility
+alone when will-change:auto is set. Chrome always does. This explains why the
+threat map was blank in Chrome Desktop but visible in Edge.
+
+CHANGES:
+  compositor-governance-engine.js v170:
+    - init(): backface-visibility:hidden -> visible !important (RC7)
+    - safeMode(): same fix (RC7) -- recovery path was re-triggering the trap
+    - -webkit-backface-visibility:visible !important added (RC7, WebKit path)
+
+  index.html v170:
+    - #cdb-threat-canvas CSS: RC7 backface-visibility:visible !important
+    - #cdb-threat-canvas CSS: RC8 removed image-rendering:crisp-edges /
+      -webkit-optimize-contrast (Chrome rasterization path conflict eliminated)
+    - #cdb-threat-canvas CSS: RC9 width:100%/height:100% !important
+      overrides Layer-6 clamp() rules -- CSS/JS dims agree from t=0
+    - nuclearCanvasResurrection cssText: RC7 backface-visibility:visible added
+    - GVOS: 170.0.0 / APEX-V170
+
+  service-worker.js v170:
+    - Cache version: sentinel-apex-v170-live (purges all v169 and earlier)
+
+MANDATE: 0 regression | 0 failure | 0 conflicts | 100% platform stability

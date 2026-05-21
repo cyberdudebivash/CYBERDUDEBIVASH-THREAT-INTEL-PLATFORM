@@ -1,0 +1,23 @@
+feat(renderer): v168 Enterprise Render Governance System
+
+GOVERNANCE ENGINES (js/engines/ - in INCLUDE_DIRS - deployed to dist/):
+  compositor-governance-engine.js v168 - two-phase GPU promotion (RC3 hardened)
+  renderer-governance-engine.js v168 - RAF ownership registry (RC1 hardened)
+  canvas-lifecycle-engine.js v168 - DPR-governed resize (RC2 hardened)
+  telemetry-engine.js v168 - FPS + stall detection
+  renderer-recovery-engine.js v168 - blank-frame + context-loss recovery
+
+V168 WIRING (index.html - graceful degradation on all hooks):
+  G1: CDB_TELEMETRY.frame + CDB_RECOVERY.reportFrame per render frame
+  G2: CDB_RAF.request governs tick - intruder RAF blocked by token registry
+  G3: CDB_COMPOSITOR.init + CDB_RAF.acquire + CDB_CANVAS.claim at boot
+  G4: CDB_COMPOSITOR.promote replaces inline GPU promotion (post-paint RAF)
+  G5: CDB_RECOVERY.attach - self-healing blank-frame triggers renderer reboot
+  Script load order: compositor->RAF->canvas->telemetry->recovery->V168-engine
+
+SERVICE WORKER v168:
+  sentinel-apex-v168-live purges all v167 caches on first load
+  /js/engines/ added to no-store - governance engines always network-fresh
+
+RC1-RC5 (v167) preserved. Governance layer hardens each fix deterministically.
+GVOS: v168.0.0 / BUILD: 2026.05.19-APEX-V168

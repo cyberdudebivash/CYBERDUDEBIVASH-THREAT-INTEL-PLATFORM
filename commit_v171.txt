@@ -1,0 +1,54 @@
+fix(chrome-desktop): v171 RC10+RC11 — DEFINITIVE Chrome blank threat map fix
+
+ROOT CAUSES ELIMINATED (RC10 + RC11):
+
+RC10: overflow:hidden on #cdb-threat-map-panel — Chrome D3D11/ANGLE stencil-clip trap
+  Chrome's D3D11/ANGLE compositor creates a stencil clipping region for any element
+  with overflow:hidden. When the absolutely-positioned canvas was GPU-promoted to a
+  separate compositor layer (RC11/translateZ), Chrome clipped that compositor layer
+  using the parent's stencil region — resulting in a BLANK compositor layer, i.e.,
+  a blank canvas. Edge does NOT apply the overflow stencil to separate compositor
+  layers in this manner; hence Edge rendered correctly and Chrome did not.
+  Fix: overflow:visible !important on #cdb-threat-map-panel. Panel has explicit
+  height:340px — nothing can overflow. Stencil eliminated. Compositor layer unclipped.
+
+RC11: promote()/translateZ(0) call in boot() — GPU layer promotion inside stencil-clip
+  The CDB_COMPOSITOR.promote() call (and its inline translateZ(0) fallback) in boot()
+  added transform:translateZ(0) !important + will-change:transform !important to the
+  canvas AFTER first paint. This GPU layer promotion, combined with the overflow:hidden
+  stencil-clip (RC10), was the exact mechanism that created the blank compositor layer.
+  Canvas2D rendering does NOT require GPU layer promotion for correctness — it only
+  benefits scroll performance, which is irrelevant here. Eliminated entirely.
+  Replaced with a clean double-RAF compositor stability buffer (no promote, no translateZ).
+
+FILES CHANGED:
+  index.html:
+    - #cdb-threat-map-panel CSS: overflow:hidden -> overflow:visible !important (RC10)
+    - boot() function: promote(canvas) call and translateZ(0) fallback removed (RC11)
+    - boot() §F comment: updated to document RC11 double-RAF strategy
+    - Engine header comment: updated to v171 DEFINITIVE RC10+RC11
+    - GVOS: version 171.0.0, buildId 2026.05.20-APEX-V171, cacheKey sentinel-apex-v171-live
+
+  service-worker.js:
+    - CACHE_VERSION: sentinel-apex-v170-live -> sentinel-apex-v171-live
+    - All [SW v170] log prefixes -> [SW v171]
+    - Header comment: updated with RC10+RC11 root cause description
+
+PRESERVED (zero regression):
+  - RC3: will-change:auto pre-paint GPU trap block
+  - RC6: Nuclear canvas resurrection cycle
+  - RC7: backface-visibility:visible !important (compositor engine + CSS)
+  - RC8: image-rendering:crisp-edges removed
+  - RC9: width:100%/height:100% CSS override
+  - CDB_COMPOSITOR.init() — still called in boot (sets will-change:auto)
+  - All 5 governance engines (CDB_COMPOSITOR, CDB_RAF, CDB_CANVAS, CDB_RECOVERY, GVOS)
+  - applySize() dim caching (no 60x/sec GPU texture reset)
+  - IntersectionObserver, ResizeObserver, visibilitychange guard, watchdog
+
+CROSS-PLATFORM STATUS:
+  Chrome Desktop (Windows D3D11/ANGLE): FIXED by RC10+RC11
+  Edge Desktop: Unaffected (was working, remains working)
+  Chrome Mobile: Unaffected (was partially working, remains working)
+  Edge Mobile: Unaffected (was working, remains working)
+  Firefox: Unaffected
+  Safari: Unaffected

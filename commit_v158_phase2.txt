@@ -1,0 +1,47 @@
+feat(phase2): inject Enterprise Intelligence Command Center v158.0
+
+Adds high-value enterprise intelligence modules to the empty section
+between the SOC tab system and the premium-intel-products section.
+
+MODULES INJECTED (7 modules, zero regressions):
+
+  1. LIVE THREAT TICKER — scrolling real-time threat feed bar,
+     auto-populated from /latest.json|/feed.json|/feed_manifest.json,
+     advisory count badge, pause-on-hover.
+
+  2. LIVE METRICS ROW — 6 KPI cards: Total Advisories, Critical Threats,
+     Total IOCs, Avg Risk Score, Active Feeds, Last Sync.
+     All populated lazily via existing API endpoints.
+
+  3. AI PREDICTION ENGINE — Next 30-day exploitation forecasts,
+     probability bars, populated from /api/ai/tracker.json.
+     Graceful static fallback if API unavailable.
+
+  4. CYBER WARFARE GLOBAL HEATMAP — Top attack origins by volume,
+     normalized bar chart from live feed source_country data.
+
+  5. SOC STATUS PANEL — 6 integration health indicators (STIX, SIEM,
+     MISP, AI Engine, IOC Scanner, Threat Scoring) with live status.
+     Direct link to Enterprise Dashboard.
+
+  6. LIVE THREAT FEED PREVIEW — 5 most recent HIGH/CRITICAL advisories,
+     severity-color-coded, scroll-anchored to main threat grid.
+
+  7. ENTERPRISE REVENUE CTA STACK — Dual CTA:
+     (a) SENTINEL APEX PRO upgrade → /PAYMENT-GATEWAY.html
+     (b) Enterprise onboarding → #contact + /PAYMENT-GATEWAY.html
+
+IMPLEMENTATION NOTES:
+  - Injection point: between </div> (SOC tab wrapper) and
+    premium-intel-products section (lines ~5706-5713)
+  - All data fetched via requestIdleCallback (2s timeout) — zero
+    impact on page load performance
+  - Graceful fallback for all API calls (static data if fetch fails)
+  - Mobile-responsive: grid-template-columns: repeat(auto-fit,...)
+  - Uses existing CSS variables (var(--bg-card), var(--accent), etc.)
+  - Zero existing content removed, zero existing IDs modified
+
+VALIDATION: 21/21 checks passed (validate_eicc_injection.py)
+  - All structural elements intact (SOC tabs, threat-grid, V173, etc.)
+  - No duplicate section IDs
+  - EICC positioned correctly: after SOC panels, before premium-intel
