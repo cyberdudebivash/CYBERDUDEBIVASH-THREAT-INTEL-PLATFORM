@@ -1,0 +1,52 @@
+{
+  "_schema": "SENTINEL-APEX-BLACKLISTED-COMMITS-v2.0",
+  "_description": "Permanently blacklisted commits \u2014 production promotion HARD BLOCKED",
+  "_generated_at": "2026-05-21T13:17:53Z",
+  "policy": "Any commit or pattern in this list MUST hard-fail production promotion. Append-only.",
+  "blacklisted_commits": [
+    {
+      "commit": "139fb839a2",
+      "short": "139fb83",
+      "classification": "P1_REGRESSION_ORIGIN",
+      "regression": "PIPELINE_VERSION downgrade 158.0.2 \u2192 152.0.0",
+      "cascading_damage": "Triggered entire P0 patch series that introduced PIPELINE_ZERO_OUTPUT"
+    },
+    {
+      "commit": "bf5a2a1a38",
+      "classification": "P1_REGRESSION",
+      "regression": "PIPELINE_ZERO_OUTPUT gate \u2014 skips Stage 3.5/3.6/5 when STIX_NEW_BUNDLES=0"
+    },
+    {
+      "commit": "5d8613fd36",
+      "classification": "P1_REGRESSION",
+      "regression": "MIN_FRESHNESS_ENTRIES raised 10\u219250 causing Stage 2.5 FATAL on CI bootstrap"
+    },
+    {
+      "commit": "a865fe3758",
+      "classification": "P1_REGRESSION",
+      "regression": "PIPELINE_ZERO_OUTPUT extended to Stage 3.3 (Report Validation conditional skip)"
+    }
+  ],
+  "blacklisted_patterns": [
+    "PIPELINE_VERSION < 158.0.0 in sentinel-blogger.yml",
+    "PIPELINE_ZERO_OUTPUT gate in sentinel-blogger.yml",
+    "if: env.PIPELINE_ZERO_OUTPUT in sentinel-blogger.yml",
+    "MIN_FRESHNESS_ENTRIES > 10 without FORCE_FULL_SYNC bypass",
+    "Stage 5 GitHub Pages with conditional if: clause"
+  ],
+  "safe_approved_commits": [
+    {
+      "commit": "caa8dda",
+      "reason": "TRUE GOOD BASELINE \u2014 39m14s, v158.0.2, full pipeline"
+    },
+    {
+      "commit": "e565930",
+      "reason": "GOOD BASELINE \u2014 36m28s, v158.0.2, full pipeline"
+    },
+    {
+      "commit": "e6087115c7",
+      "reason": "stix_id governance fix v155.0 \u2014 non-destructive validator only"
+    }
+  ],
+  "enforcement_script": "scripts/runtime_integrity_engine.py"
+}
