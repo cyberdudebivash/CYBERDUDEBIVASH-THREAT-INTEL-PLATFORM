@@ -354,32 +354,17 @@ jobs:
           echo "[OK] All critical scripts present"
 
       # -----------------------------------------------------------------------
-      # STAGE 0.06b: PYTHON SYNTAX GUARD (v142.4)
-      # Hard-fail the pipeline before ANY execution if any script has a syntax
-      # error. Prevents the recurring pattern where a bad commit breaks the
-      # pipeline silently mid-run after expensive API calls complete.
-      # This is the CI enforcement of the local py_compile contract.
+      # STAGE 0.06b: PYTHON GOVERNANCE IMMUNITY ENGINE (v152.0.0)
+      # Forensic-grade syntax + encoding guardian. Hard-fails the pipeline
+      # before ANY execution if any script has: syntax errors, BOM, CRLF,
+      # smart-quotes, invisible chars, Unicode corruption, or truncation.
+      # Outputs: exact filename, line number, traceback, and code snippet
+      # for every violation found.
+      # DO NOT disable, bypass, or weaken this stage.
       # -----------------------------------------------------------------------
-      - name: "STAGE 0.06b - Python Syntax Guard (py_compile all scripts)"
+      - name: "STAGE 0.06b - Python Governance Immunity Engine (forensic syntax + encoding guard)"
         timeout-minutes: 5
-        run: |
-          echo "Running py_compile on all scripts/*.py ..."
-          ERRORS=0
-          for f in scripts/*.py; do
-            python3 -m py_compile "$f" 2>/tmp/py_err_$$.txt
-            if [ $? -ne 0 ]; then
-              echo "SYNTAX ERROR: $f"
-              cat /tmp/py_err_$$.txt
-              ERRORS=$((ERRORS+1))
-            fi
-            rm -f /tmp/py_err_$$.txt
-          done
-          echo "Checked scripts/*.py a' syntax errors: $ERRORS"
-          if [ $ERRORS -gt 0 ]; then
-            echo "ABORTING: Fix all syntax errors before pipeline can run"
-            exit 1
-          fi
-          echo "SYNTAX GUARD: ALL PASS"
+        run: python3 scripts/python_governance_immunity_engine.py
 
       # -----------------------------------------------------------------------
       # STAGE 0.0: ENCODING GUARD -- MUST RUN BEFORE EVERYTHING
