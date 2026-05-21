@@ -1301,6 +1301,72 @@ def process_entry(entry: Dict, feed_source: str = "EXTERNAL") -> bool:
         risk_reason = f"score={risk_score:.1f}"
         logger.debug(f"risk_reason generation failed (non-critical): {_rr_e}")
 
+    # -- STEP 7g: Enterprise Intelligence Integration Layer (v1.0) -----------
+    # Wires all 7 enterprise engines: AHE → RSE → DCE → IIP → MAE → NE → QGS
+    # ZERO-REGRESSION: any engine failure preserves original values unchanged.
+    # Hard block is issued ONLY for AHE violations (fake/fabricated intelligence).
+    _ei_result = None
+    try:
+        import sys as _sys_eii
+        _scripts_dir_eii = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "scripts"
+        )
+        if _scripts_dir_eii not in _sys_eii.path:
+            _sys_eii.path.insert(0, _scripts_dir_eii)
+
+        from enterprise_intelligence_integrator import integrate_intelligence as _eii_fn
+        _ei_result = _eii_fn(
+            headline          = headline,
+            enriched_content  = enriched_content,
+            source_url        = source_url,
+            extracted_iocs    = extracted_iocs,
+            risk_score        = risk_score,
+            confidence        = confidence,
+            severity          = severity,
+            mitre_data        = mitre_data,
+            actor_data        = actor_data,
+            cvss_score        = cvss_score,
+            epss_score        = epss_score,
+            kev_present       = kev_present,
+            tlp_label         = tlp.get("label", "TLP:CLEAR"),
+        )
+
+        # Hard block: AHE detected fabricated intelligence
+        if _ei_result.hard_block:
+            logger.warning(
+                "  [EII-BLOCK] HARD REJECT '%s': %s",
+                headline[:60], _ei_result.hard_block_reason[:200],
+            )
+            dedup_engine.mark_processed(headline, entry.get("link", ""))
+            return False
+
+        # Surgical replacement: upgrade pipeline values with validated outputs
+        extracted_iocs   = _ei_result.cleaned_iocs_dict
+        ioc_counts       = enricher.get_ioc_counts(extracted_iocs)
+        risk_score       = _ei_result.risk_score
+        confidence       = _ei_result.confidence
+        severity         = risk_engine.get_severity_label(risk_score)
+        mitre_data       = _ei_result.mitre_data
+        enriched_content = _ei_result.enriched_content
+
+        logger.info(
+            "  [EII] Applied: risk=%.2f conf=%.1f iocs=%d techniques=%d "
+            "quality=%d/%d/%d publishable=%s",
+            risk_score, confidence,
+            sum(len(v) for v in extracted_iocs.values() if isinstance(v, list)),
+            len(mitre_data),
+            _ei_result.quality_passed,
+            _ei_result.quality_failed,
+            _ei_result.quality_warned,
+            _ei_result.publishable,
+        )
+
+    except Exception as _eii_outer_e:
+        logger.debug(
+            "  [EII] Integration layer unavailable (non-fatal) — "
+            "continuing with original values: %s", _eii_outer_e
+        )
+
     # -- STEP 8: Premium report generation -----------------------------------
     logger.info("  -> Generating PREMIUM 16-section report...")
     try:
@@ -1338,15 +1404,20 @@ def process_entry(entry: Dict, feed_source: str = "EXTERNAL") -> bool:
     # v134.0: No Blogger. No queue. STIX written unconditionally.
     # =========================================================================
     try:
+        # v1.0 EII: Merge enterprise enrichment into STIX metadata
+        _stix_metadata = {
+            "blog_url":   "",
+            "source_url": source_url,
+            "risk_reason": risk_reason,   # v143.0: defensible score explanation
+        }
+        if _ei_result and _ei_result.enterprise_enrichment:
+            _stix_metadata["enterprise_enrichment"] = _ei_result.enterprise_enrichment
+
         stix_exporter.create_bundle(
             title=headline,
             iocs=extracted_iocs,
             risk_score=risk_score,
-            metadata={
-                "blog_url": "",
-                "source_url": source_url,
-                "risk_reason": risk_reason,          # v143.0: defensible score explanation
-            },
+            metadata=_stix_metadata,
             confidence=confidence,
             severity=severity,
             tlp_label=tlp.get("label", "TLP:CLEAR"),
@@ -1466,5 +1537,3 @@ def _generate_smart_labels(
 
 if __name__ == "__main__":
     count = main()
-    # Exit 0 always -- pipeline continues even if 0 new entries (dedup is valid)
-    sys.exit(0)
