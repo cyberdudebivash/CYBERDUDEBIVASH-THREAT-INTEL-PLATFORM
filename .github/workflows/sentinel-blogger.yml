@@ -646,7 +646,7 @@ jobs:
       # NON-BLOCKING: exit 1 logs error but does not abort pipeline.
       # Enrichment is consumed by report generator (STAGE 3.2) and API manifests.
       # -----------------------------------------------------------------------
-      - name: "STAGE 3.1.7 - Enterprise Scoring Engine (v152.0 — 10-dimension apex_score)"
+      - name: "STAGE 3.1.7 - Enterprise Scoring Engine (v160.0 — 10-dimension apex_score)"
         timeout-minutes: 5
         run: |
           set +e
@@ -669,7 +669,7 @@ jobs:
       # Adds ioc_type, classification, apex_validated, pseudo_ioc_count fields.
       # NON-BLOCKING: exit 1 logs error but does not abort pipeline.
       # -----------------------------------------------------------------------
-      - name: "STAGE 3.1.8 - IOC Quality Hardener (v152.0 — strip pseudo-IOCs, recalibrate confidence)"
+      - name: "STAGE 3.1.8 - IOC Quality Hardener (v160.0 — strip pseudo-IOCs, recalibrate confidence)"
         timeout-minutes: 5
         run: |
           set +e
@@ -878,7 +878,7 @@ jobs:
       # HARD FAIL: if api/feed.json is missing or empty (no data to serve).
       # ZERO HTML MUTATION: index.html read-only -- pipeline never touches it.
       # -----------------------------------------------------------------------
-      - name: "STAGE 3.93 - Generate Immutable API Manifests (v150.0 API-first)"
+      - name: "STAGE 3.93 - Generate Immutable API Manifests (v160.0 API-first)"
         timeout-minutes: 5
         run: python3 scripts/generate_api_manifests.py
 
@@ -914,7 +914,7 @@ jobs:
       # Guards against: synthetic CVE flood, entropy collapse, feed diversity loss,
       #   KEV enrichment gaps, manifest mutation, advisory authenticity failures.
       # -----------------------------------------------------------------------
-      - name: "STAGE 3.93.15 - P0 Intelligence Integrity Gate (v158.5)"
+      - name: "STAGE 3.93.15 - P0 Intelligence Integrity Gate (v160.0)"
         timeout-minutes: 3
         run: |
           set +e
@@ -1050,7 +1050,7 @@ jobs:
       # R2 upload is performed inside the script via wrangler (non-blocking).
       # Subscribers: cyberdudebivash.gumroad.com/l/sentinel-apex-daily-brief
       # -----------------------------------------------------------------------
-      - name: "STAGE 3.93.2 - Daily Brief Generator (v148.0.0)"
+      - name: "STAGE 3.93.2 - Daily Brief Generator (v160.0)"
         timeout-minutes: 4
         run: |
           set +e
@@ -1119,7 +1119,7 @@ jobs:
       # HARD FAIL: if any dashboard invariant is violated.
       # Final dashboard integrity checkpoint before git commit.
       # -----------------------------------------------------------------------
-      - name: "STAGE 3.94 - Stability Lock Confirmation (v150.0 Immutable)"
+      - name: "STAGE 3.94 - Stability Lock Confirmation (v160.0 Immutable)"
         timeout-minutes: 5
         run: python3 scripts/apex_stability_lock.py
 
@@ -1142,7 +1142,7 @@ jobs:
       # GitHub Pages deploy. Confirms index.html was NOT mutated (EMBEDDED_INTEL=[]).
       # Non-blocking (exits 0 always) -- reporting/alerting only.
       # -----------------------------------------------------------------------
-      - name: "STAGE 5.1 - Post-deploy API Manifest Verifier (v150.0)"
+      - name: "STAGE 5.1 - Post-deploy API Manifest Verifier (v160.0)"
         timeout-minutes: 5
         if: always()
         run: python3 scripts/validate_api_manifests.py || true
@@ -1273,7 +1273,7 @@ jobs:
       #   - Required dashboard files present
       #   - Both deployment validators present (5.1, 5.2)
       # -----------------------------------------------------------------------
-      - name: "STAGE 5.4.5d - Pre-Deploy Gate v158.0 (HARD FAIL)"
+      - name: "STAGE 5.4.5d - Pre-Deploy Gate v160.0 (HARD FAIL)"
         timeout-minutes: 3
         run: python3 scripts/pre_deploy_gate.py
 
@@ -1314,7 +1314,7 @@ jobs:
       #
       # HARD FAIL: blocks deployment if any report_url path is missing from dist/
       # -----------------------------------------------------------------------
-      - name: "STAGE 5.4.6 - Build Deterministic Dist Artifact (v158.0.2 HARD FAIL)"
+      - name: "STAGE 5.4.6 - Build Deterministic Dist Artifact (v160.0 HARD FAIL)"
         timeout-minutes: 10
         env:
           REPORT_RETENTION_DAYS: ${{ vars.REPORT_RETENTION_DAYS || '90' }}
@@ -1340,7 +1340,7 @@ jobs:
       # HARD FAIL: blocks deployment if ANY check fails.
       # Pages deployment MUST NOT proceed with a corrupt/incomplete artifact.
       # -----------------------------------------------------------------------
-      - name: "STAGE 5.4.7 - Dist Artifact Verifier (v158.0.2 HARD FAIL)"
+      - name: "STAGE 5.4.7 - Dist Artifact Verifier (v160.0 HARD FAIL)"
         timeout-minutes: 5
         env:
           REPORT_RETENTION_DAYS: ${{ vars.REPORT_RETENTION_DAYS || '90' }}
@@ -1391,7 +1391,7 @@ jobs:
       #   /dashboard/enterprise_dashboard.html, /dashboard/enterprise_dashboard_v2.html,
       #   /api/ai/tracker.json, /feed.json, /latest.json, /service-worker.js
       # -----------------------------------------------------------------------
-      - name: "STAGE 5.5.0 - Post-Deploy Smoke Tests v158.0"
+      - name: "STAGE 5.5.0 - Post-Deploy Smoke Tests v160.0"
         timeout-minutes: 5
         continue-on-error: true
         env:
@@ -1503,7 +1503,7 @@ jobs:
       # These files are consumed by sales deck generation and API endpoints.
       # Non-blocking: exit 1 logs warning but does not abort deployment.
       # -----------------------------------------------------------------------
-      - name: "STAGE 5.8.05 - Enterprise Monetization Framework (v158.5)"
+      - name: "STAGE 5.8.05 - Enterprise Monetization Framework (v160.0)"
         timeout-minutes: 3
         run: |
           set +e
@@ -1690,7 +1690,7 @@ jobs:
       #   8. Synchronization Validation    — frontend/API/manifest consistency
       # Writes: data/telemetry/global_release_governance.json
       # Hard-fails only when dist/ artifacts missing in CI context.
-      - name: "STAGE 5.8.4 - Global Release Orchestration Engine (v158.0.3)"
+      - name: "STAGE 5.8.4 - Global Release Orchestration Engine (v160.0)"
         timeout-minutes: 5
         if: always()
         env:
