@@ -370,4 +370,52 @@ def main() -> int:
     log.info("  Items enriched  : %d", enriched_count)
     log.info("  Skipped (no data): %d", skipped_count)
 
-   
+    if DRY_RUN:
+        log.info("[DRY RUN] Would write %d enriched items — skipping write", enriched_count)
+        return 0
+
+    if enriched_count == 0:
+        log.info("No enrichments applied — feed unchanged")
+        return 0
+
+    # Atomic write (write to .tmp then rename)
+    tmp_path = FEED_PATH.with_suffix(".tmp_enrich")
+    try:
+        out_data = items if isinstance(feed_data, list) else {**feed_data, "items": items}
+        tmp_path.write_text(json.dumps(out_data, ensure_ascii=False, indent=2), encoding="utf-8")
+        tmp_path.replace(FEED_PATH)
+        log.info("Feed written: %s (%d items)", FEED_PATH, len(items))
+    except Exception as exc:
+        log.error("Write failed: %s", exc)
+        tmp_path.unlink(missing_ok=True)
+        return 1
+
+    # Write enrichment report for pipeline observability
+    REPORT_PATH.parent.mkdir(parents=True, exist_ok=True)
+    report = {
+        "generated_at":    datetime.now(timezone.utc).isoformat(),
+        "script":          "enrich_cvss_epss_batch.py",
+        "version":         "148.1.0",
+        "feed_total_items": len(items),
+        "cve_items_found": len(needs_enrich),
+        "cvss_enriched":   cvss_count,
+        "epss_enriched":   epss_count,
+        "total_enriched":  enriched_count,
+        "skipped":         skipped_count,
+        "nvd_key_used":    bool(NVD_API_KEY),
+        "dry_run":         DRY_RUN,
+    }
+    try:
+        REPORT_PATH.write_text(json.dumps(report, indent=2, ensure_ascii=False), encoding="utf-8")
+        log.info("Enrichment report: %s", REPORT_PATH)
+    except Exception:
+        pass  # non-fatal
+
+    log.info("=" * 60)
+    log.info("CVSS/EPSS enrichment complete — %d items updated", enriched_count)
+    log.info("=" * 60)
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

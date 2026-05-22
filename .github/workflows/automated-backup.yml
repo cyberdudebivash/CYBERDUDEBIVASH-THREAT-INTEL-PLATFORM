@@ -91,7 +91,7 @@ jobs:
           AWS_ACCESS_KEY_ID:           ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY:       ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           AWS_DEFAULT_REGION:          ${{ vars.AWS_DEFAULT_REGION || 'us-east-1' }}
-          PLATFORM_VERSION:            ${{ vars.PLATFORM_VERSION || '152.0.0' }}
+          PLATFORM_VERSION:            ${{ vars.PLATFORM_VERSION || '160.0' }}
         run: |
           python -m agent.backup.backup_engine --full | tee backup-manifest.json
           STATUS=$(python3 -c "import json; d=json.load(open('backup-manifest.json')); print(d.get('status','unknown'))")
@@ -150,7 +150,7 @@ jobs:
           CDB_BACKUP_LOCAL_PATH:       "data/backups"
           AWS_ACCESS_KEY_ID:           ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY:       ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          PLATFORM_VERSION:            ${{ vars.PLATFORM_VERSION || '152.0.0' }}
+          PLATFORM_VERSION:            ${{ vars.PLATFORM_VERSION || '160.0' }}
         run: |
           python -m agent.backup.backup_engine --incremental | tee backup-manifest.json
           STATUS=$(python3 -c "import json; d=json.load(open('backup-manifest.json')); print(d.get('status','unknown'))")
