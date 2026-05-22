@@ -132,6 +132,64 @@ TACTIC_COVERAGE_WARN = 0.20
 TECH_COVERAGE_PASS   = 0.10
 TECH_COVERAGE_WARN   = 0.05
 
+# v160.0 -- Reverse lookup maps: human-readable names -> IDs
+# The feed stores technique/tactic names (not IDs) in mitre_tactics.
+# These maps enable full ATT&CK coverage detection from name-based feeds.
+TECH_NAME_TO_ID: Dict[str, str] = {
+    name.lower().strip(): tid
+    for tid, (_, name) in PRIORITY_TECHNIQUES.items()
+}
+TACTIC_NAME_TO_ID: Dict[str, str] = {
+    name.lower().strip(): tid
+    for tid, name in TACTICS.items()
+}
+# Extra common aliases the feed may use
+_EXTRA_NAME_ALIASES: Dict[str, str] = {
+    "data encrypted for impact":             "T1486",
+    "exfiltration over c2 channel":          "T1041",
+    "steal web session cookie":              "T1539",
+    "exploitation for client execution":     "T1203",
+    "exploitation for privilege escalation": "T1068",
+    "abuse elevation control mechanism":     "T1548",
+    "impair defenses":                       "T1562",
+    "indicator removal":                     "T1070",
+    "ingress tool transfer":                 "T1105",
+    "lateral tool transfer":                 "T1570",
+    "obfuscated files or information":       "T1027",
+    "os credential dumping":                 "T1003",
+    "application layer protocol":            "T1071",
+    "archive collected data":                "T1560",
+    "brute force":                           "T1110",
+    "command and scripting interpreter":     "T1059",
+    "create account":                        "T1136",
+    "data from local system":                "T1005",
+    "encrypted channel":                     "T1573",
+    "exploit public-facing application":     "T1190",
+    "external remote services":              "T1133",
+    "gather victim host information":        "T1592",
+    "inhibit system recovery":               "T1490",
+    "network denial of service":             "T1498",
+    "obtain capabilities":                   "T1588",
+    "phishing":                              "T1566",
+    "process discovery":                     "T1057",
+    "process injection":                     "T1055",
+    "protocol tunneling":                    "T1572",
+    "remote services":                       "T1021",
+    "reconnaissance":                        "T1595",
+    "active scanning":                       "T1595",
+    "scheduled task/job":                    "T1053",
+    "service stop":                          "T1489",
+    "stage capabilities":                    "T1608",
+    "supply chain compromise":               "T1195",
+    "system information discovery":          "T1082",
+    "account discovery":                     "T1087",
+    "valid accounts":                        "T1078",
+    "boot or logon autostart execution":     "T1547",
+    "create or modify system process":       "T1543",
+    "adversary-in-the-middle":               "T1557",
+}
+TECH_NAME_TO_ID.update(_EXTRA_NAME_ALIASES)
+
 
 def now_iso() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -154,11 +212,51 @@ def atomic_write(path: pathlib.Path, data: str) -> None:
         raise
 
 
+def _resolve_entry(entry: Any) -> str:
+    """v160.0: Resolve a single mitre_tactics/mitre_techniques entry to a T-ID.
+    Accepts: T-ID strings (T1xxx), TA-ID strings (TA0xxx), dicts with technique_id/id,
+    OR human-readable technique/tactic names (looked up via reverse maps).
+    Returns the T-ID string or '' if unresolvable.
+    """
+    if isinstance(entry, dict):
+        raw_id = entry.get("technique_id") or entry.get("id") or entry.get("name") or ""
+    else:
+        raw_id = str(entry)
+
+    tid = raw_id.strip().upper()
+
+    # Direct T-ID match (T1xxx, T1xxx.yyy)
+    if tid.startswith("T") and not tid.startswith("TA") and len(tid) >= 5:
+        return tid.split(".")[0]
+
+    # TA-ID: look up any technique in that tactic (maps to first priority tech in tactic)
+    if tid.startswith("TA") and len(tid) >= 6:
+        for tech_id, (tac_id, _) in PRIORITY_TECHNIQUES.items():
+            if tac_id == tid:
+                return tech_id  # register coverage for first matched technique
+
+    # Human-readable name lookup (v160.0 -- handles name-based feeds)
+    name_key = raw_id.strip().lower()
+    if name_key in TECH_NAME_TO_ID:
+        return TECH_NAME_TO_ID[name_key]
+
+    # Try tactic name -> register coverage for matching techniques
+    if name_key in TACTIC_NAME_TO_ID:
+        tac_id = TACTIC_NAME_TO_ID[name_key]
+        for tech_id, (t_tac, _) in PRIORITY_TECHNIQUES.items():
+            if t_tac == tac_id:
+                return tech_id  # register coverage for first matched technique
+
+    return ""
+
+
 def extract_techniques(item: Dict[str, Any]) -> List[str]:
-    """Extract all MITRE technique IDs from an item."""
+    """Extract all MITRE technique IDs from an item.
+    v160.0: Supports T-IDs, TA-IDs, and human-readable names from name-based feeds.
+    """
     techs: Set[str] = set()
 
-    # mitre_tactics field (array of technique IDs or objects)
+    # mitre_tactics field (array of technique IDs, TA-IDs, or human-readable names)
     raw = item.get("mitre_tactics") or item.get("ttps") or []
     if isinstance(raw, str):
         try:
@@ -166,20 +264,30 @@ def extract_techniques(item: Dict[str, Any]) -> List[str]:
         except Exception:
             raw = [raw]
     if isinstance(raw, list):
-        for t in raw:
-            tid = (t if isinstance(t, str) else t.get("technique_id") or t.get("id") or "")
-            tid = tid.strip().upper()
-            if tid.startswith("T") and len(tid) >= 5:
-                techs.add(tid.split(".")[0])  # normalise to base technique
+        for entry in raw:
+            resolved = _resolve_entry(entry)
+            if resolved:
+                techs.add(resolved)
 
-    # mitre_techniques
+    # mitre_techniques field (same resolution logic)
     raw2 = item.get("mitre_techniques") or []
     if isinstance(raw2, list):
-        for t in raw2:
-            tid = (t if isinstance(t, str) else t.get("technique_id") or t.get("id") or "")
-            tid = str(tid).strip().upper()
-            if tid.startswith("T") and len(tid) >= 5:
-                techs.add(tid.split(".")[0])
+        for entry in raw2:
+            resolved = _resolve_entry(entry)
+            if resolved:
+                techs.add(resolved)
+
+    # kill_chain_phase field (single string or list, often a tactic name)
+    kcp = item.get("kill_chain_phase") or item.get("kill_chain") or ""
+    if isinstance(kcp, str) and kcp:
+        resolved = _resolve_entry(kcp)
+        if resolved:
+            techs.add(resolved)
+    elif isinstance(kcp, list):
+        for entry in kcp:
+            resolved = _resolve_entry(entry)
+            if resolved:
+                techs.add(resolved)
 
     return list(techs)
 
