@@ -1,6 +1,206 @@
 {
-  "sigma_rules": [],
-  "yara_rules": [],
-  "snort_rules": [],
-  "stats": {}
+  "sigma_rules": [
+    {
+      "title": "CDB Sentinel APEX - CVE20269255__Tool_Execution_Without_Authorization_via_Piped",
+      "id": "sigma--617941a24959",
+      "status": "experimental",
+      "description": "Detects activity related to CVE-2026-9255 - Tool Execution Without Authorization via Piped Stdin in Kiro CLI",
+      "references": [
+        "https://intel.cyberdudebivash.com"
+      ],
+      "author": "CyberDudeBivash GOC - Sentinel APEX v39.0",
+      "date": "2026/05/22",
+      "tags": [
+        "cve.cve-2026-9255"
+      ],
+      "logsource": {
+        "category": "process_creation",
+        "product": "windows"
+      },
+      "detection": {
+        "selection": {
+          "CommandLine|contains": [
+            "suspicious"
+          ]
+        },
+        "condition": "selection"
+      },
+      "level": "medium",
+      "falsepositives": [
+        "Legitimate administrative activity"
+      ]
+    },
+    {
+      "title": "CDB Sentinel APEX - CVE20269251__Devolutions_Server_Missing_Authorization_Vulner",
+      "id": "sigma--6e8c82ed03fd",
+      "status": "experimental",
+      "description": "Detects activity related to CVE-2026-9251 - Devolutions Server Missing Authorization Vulnerability",
+      "references": [
+        "https://intel.cyberdudebivash.com"
+      ],
+      "author": "CyberDudeBivash GOC - Sentinel APEX v39.0",
+      "date": "2026/05/22",
+      "tags": [
+        "cve.cve-2026-9251"
+      ],
+      "logsource": {
+        "category": "process_creation",
+        "product": "windows"
+      },
+      "detection": {
+        "selection": {
+          "CommandLine|contains": [
+            "suspicious"
+          ]
+        },
+        "condition": "selection"
+      },
+      "level": "medium",
+      "falsepositives": [
+        "Legitimate administrative activity"
+      ]
+    }
+  ],
+  "yara_rules": [
+    {
+      "rule_name": "CDB_May_2026_Patch_Tuesday_30_Critical_Vulne",
+      "rule_text": "rule CDB_May_2026_Patch_Tuesday_30_Critical_Vulne {\n    meta:\n        author = \"CyberDudeBivash GOC - Sentinel APEX v39.0\"\n        description = \"Detection for May 2026 Patch Tuesday: 30 Critical Vulnerabilities Among 130 CVEs\"\n        severity = \"high\"\n        date = \"2026-05-22\"\n    strings:\n                $actor = \"UNC-CDB-INGEST\" ascii wide nocase\n    condition:\n        any of them\n}"
+    },
+    {
+      "rule_name": "CDB_Ubiquiti_Patches_Critical_UniFi_OS_Vulne",
+      "rule_text": "rule CDB_Ubiquiti_Patches_Critical_UniFi_OS_Vulne {\n    meta:\n        author = \"CyberDudeBivash GOC - Sentinel APEX v39.0\"\n        description = \"Detection for Ubiquiti Patches Critical UniFi OS Vulnerabilities Allowing Remote Privilege Esc\"\n        severity = \"high\"\n        date = \"2026-05-22\"\n    strings:\n                $actor = \"UNC-CDB-INGEST\" ascii wide nocase\n        $kw0 = \"UniFi\" ascii wide nocase\n    condition:\n        any of them\n}"
+    },
+    {
+      "rule_name": "CDB_First_VPN_Dismantled_in_Global_Takedown_",
+      "rule_text": "rule CDB_First_VPN_Dismantled_in_Global_Takedown_ {\n    meta:\n        author = \"CyberDudeBivash GOC - Sentinel APEX v39.0\"\n        description = \"Detection for First VPN Dismantled in Global Takedown Over Use by 25 Ransomware Groups\"\n        severity = \"high\"\n        date = \"2026-05-22\"\n    strings:\n                $actor = \"UNC-CDB-INGEST\" ascii wide nocase\n    condition:\n        any of them\n}"
+    },
+    {
+      "rule_name": "CDB_aiosend_Deserialization_of_request_body_",
+      "rule_text": "rule CDB_aiosend_Deserialization_of_request_body_ {\n    meta:\n        author = \"CyberDudeBivash GOC - Sentinel APEX v39.0\"\n        description = \"Detection for aiosend: Deserialization of request body before signature verification (Pre-auth\"\n        severity = \"high\"\n        date = \"2026-05-22\"\n    strings:\n                $actor = \"UNC-CDB-INGEST\" ascii wide nocase\n    condition:\n        any of them\n}"
+    },
+    {
+      "rule_name": "CDB_LiteSpeed_cPanel_Plugin_0Day_Exploited_i",
+      "rule_text": "rule CDB_LiteSpeed_cPanel_Plugin_0Day_Exploited_i {\n    meta:\n        author = \"CyberDudeBivash GOC - Sentinel APEX v39.0\"\n        description = \"Detection for LiteSpeed cPanel Plugin 0-Day Exploited in the wild to Gain Server Root Access\"\n        severity = \"high\"\n        date = \"2026-05-22\"\n    strings:\n                $actor = \"UNC-CDB-INGEST\" ascii wide nocase\n        $kw0 = \"LiteSpeed\" ascii wide nocase\n    condition:\n        any of them\n}"
+    },
+    {
+      "rule_name": "CDB_CVE20269255__Tool_Execution_Without_Auth",
+      "rule_text": "rule CDB_CVE20269255__Tool_Execution_Without_Auth {\n    meta:\n        author = \"CyberDudeBivash GOC - Sentinel APEX v39.0\"\n        description = \"Detection for CVE-2026-9255 - Tool Execution Without Authorization via Piped Stdin in Kiro CLI\"\n        severity = \"high\"\n        date = \"2026-05-22\"\n    strings:\n                $cve0 = \"CVE-2026-9255\" ascii wide nocase\n        $actor = \"UNC-CDB-INGEST\" ascii wide nocase\n    condition:\n        any of them\n}"
+    },
+    {
+      "rule_name": "CDB_CISA_adds_Langflow_Origin_Validation_Fla",
+      "rule_text": "rule CDB_CISA_adds_Langflow_Origin_Validation_Fla {\n    meta:\n        author = \"CyberDudeBivash GOC - Sentinel APEX v39.0\"\n        description = \"Detection for CISA adds Langflow Origin Validation Flaw to Known Exploited Vulnerabilities Cat\"\n        severity = \"high\"\n        date = \"2026-05-22\"\n    strings:\n                $actor = \"UNC-CDB-INGEST\" ascii wide nocase\n    condition:\n        any of them\n}"
+    },
+    {
+      "rule_name": "CDB_CISA_Warns_of_Microsoft_Defender_0Day_Vu",
+      "rule_text": "rule CDB_CISA_Warns_of_Microsoft_Defender_0Day_Vu {\n    meta:\n        author = \"CyberDudeBivash GOC - Sentinel APEX v39.0\"\n        description = \"Detection for CISA Warns of Microsoft Defender 0-Day Vulnerabilities Exploited in Attacks\"\n        severity = \"high\"\n        date = \"2026-05-22\"\n    strings:\n                $actor = \"UNC-CDB-INGEST\" ascii wide nocase\n    condition:\n        any of them\n}"
+    },
+    {
+      "rule_name": "CDB_RANSOMWARE_Unknown_Gitis",
+      "rule_text": "rule CDB_RANSOMWARE_Unknown_Gitis {\n    meta:\n        author = \"CyberDudeBivash GOC - Sentinel APEX v39.0\"\n        description = \"Detection for [RANSOMWARE] Unknown: Gitis\"\n        severity = \"high\"\n        date = \"2026-05-22\"\n    strings:\n                $actor = \"UNC-CDB-INGEST\" ascii wide nocase\n    condition:\n        any of them\n}"
+    },
+    {
+      "rule_name": "CDB_YesWiki_Unauthenticated_SQL_Injection",
+      "rule_text": "rule CDB_YesWiki_Unauthenticated_SQL_Injection {\n    meta:\n        author = \"CyberDudeBivash GOC - Sentinel APEX v39.0\"\n        description = \"Detection for YesWiki: Unauthenticated SQL Injection\"\n        severity = \"critical\"\n        date = \"2026-05-22\"\n    strings:\n                $actor = \"UNC-CDB-INGEST\" ascii wide nocase\n        $kw0 = \"YesWiki\" ascii wide nocase\n    condition:\n        any of them\n}"
+    },
+    {
+      "rule_name": "CDB_CVE20269251__Devolutions_Server_Missing_",
+      "rule_text": "rule CDB_CVE20269251__Devolutions_Server_Missing_ {\n    meta:\n        author = \"CyberDudeBivash GOC - Sentinel APEX v39.0\"\n        description = \"Detection for CVE-2026-9251 - Devolutions Server Missing Authorization Vulnerability\"\n        severity = \"high\"\n        date = \"2026-05-22\"\n    strings:\n                $cve0 = \"CVE-2026-9251\" ascii wide nocase\n        $actor = \"UNC-CDB-INGEST\" ascii wide nocase\n    condition:\n        any of them\n}"
+    },
+    {
+      "rule_name": "CDB_RANSOMWARE_Unknown_BMJ_Paperpack",
+      "rule_text": "rule CDB_RANSOMWARE_Unknown_BMJ_Paperpack {\n    meta:\n        author = \"CyberDudeBivash GOC - Sentinel APEX v39.0\"\n        description = \"Detection for [RANSOMWARE] Unknown: BMJ Paperpack\"\n        severity = \"high\"\n        date = \"2026-05-22\"\n    strings:\n                $actor = \"UNC-CDB-INGEST\" ascii wide nocase\n    condition:\n        any of them\n}"
+    },
+    {
+      "rule_name": "CDB_RANSOMWARE_Unknown_Semgrep",
+      "rule_text": "rule CDB_RANSOMWARE_Unknown_Semgrep {\n    meta:\n        author = \"CyberDudeBivash GOC - Sentinel APEX v39.0\"\n        description = \"Detection for [RANSOMWARE] Unknown: Semgrep\"\n        severity = \"high\"\n        date = \"2026-05-22\"\n    strings:\n                $actor = \"UNC-CDB-INGEST\" ascii wide nocase\n    condition:\n        any of them\n}"
+    },
+    {
+      "rule_name": "CDB_RANSOMWARE_Unknown_Cablematic_Dos_Mil_SL",
+      "rule_text": "rule CDB_RANSOMWARE_Unknown_Cablematic_Dos_Mil_SL {\n    meta:\n        author = \"CyberDudeBivash GOC - Sentinel APEX v39.0\"\n        description = \"Detection for [RANSOMWARE] Unknown: Cablematic Dos Mil SLU\"\n        severity = \"high\"\n        date = \"2026-05-22\"\n    strings:\n                $actor = \"UNC-CDB-INGEST\" ascii wide nocase\n    condition:\n        any of them\n}"
+    },
+    {
+      "rule_name": "CDB_RANSOMWARE_Unknown_Karlin_Foods",
+      "rule_text": "rule CDB_RANSOMWARE_Unknown_Karlin_Foods {\n    meta:\n        author = \"CyberDudeBivash GOC - Sentinel APEX v39.0\"\n        description = \"Detection for [RANSOMWARE] Unknown: Karlin Foods\"\n        severity = \"high\"\n        date = \"2026-05-22\"\n    strings:\n                $actor = \"UNC-CDB-INGEST\" ascii wide nocase\n    condition:\n        any of them\n}"
+    },
+    {
+      "rule_name": "CDB_The_Good_the_Bad_and_the_Ugly_in_Cyberse",
+      "rule_text": "rule CDB_The_Good_the_Bad_and_the_Ugly_in_Cyberse {\n    meta:\n        author = \"CyberDudeBivash GOC - Sentinel APEX v39.0\"\n        description = \"Detection for The Good, the Bad and the Ugly in Cybersecurity \u2013 Week 21\"\n        severity = \"high\"\n        date = \"2026-05-22\"\n    strings:\n                $actor = \"UNC-CDB-INGEST\" ascii wide nocase\n    condition:\n        any of them\n}"
+    },
+    {
+      "rule_name": "CDB_Why_CISA_Accepting_KEV_Nominations_Is_So",
+      "rule_text": "rule CDB_Why_CISA_Accepting_KEV_Nominations_Is_So {\n    meta:\n        author = \"CyberDudeBivash GOC - Sentinel APEX v39.0\"\n        description = \"Detection for Why CISA Accepting KEV Nominations Is So Important\"\n        severity = \"high\"\n        date = \"2026-05-22\"\n    strings:\n                $actor = \"UNC-CDB-INGEST\" ascii wide nocase\n    condition:\n        any of them\n}"
+    },
+    {
+      "rule_name": "CDB_RANSOMWARE_Unknown_tkgmgovtr",
+      "rule_text": "rule CDB_RANSOMWARE_Unknown_tkgmgovtr {\n    meta:\n        author = \"CyberDudeBivash GOC - Sentinel APEX v39.0\"\n        description = \"Detection for [RANSOMWARE] Unknown: tkgm.gov.tr\"\n        severity = \"high\"\n        date = \"2026-05-22\"\n    strings:\n                $actor = \"UNC-CDB-INGEST\" ascii wide nocase\n    condition:\n        any of them\n}"
+    },
+    {
+      "rule_name": "CDB_Operation_Dragon_Whistle_Uses_Malicious_",
+      "rule_text": "rule CDB_Operation_Dragon_Whistle_Uses_Malicious_ {\n    meta:\n        author = \"CyberDudeBivash GOC - Sentinel APEX v39.0\"\n        description = \"Detection for Operation Dragon Whistle Uses Malicious LNK Files to Target Changzhou University\"\n        severity = \"high\"\n        date = \"2026-05-22\"\n    strings:\n                $actor = \"UNC-CDB-INGEST\" ascii wide nocase\n    condition:\n        any of them\n}"
+    },
+    {
+      "rule_name": "CDB_RANSOMWARE_Unknown_minsacommx",
+      "rule_text": "rule CDB_RANSOMWARE_Unknown_minsacommx {\n    meta:\n        author = \"CyberDudeBivash GOC - Sentinel APEX v39.0\"\n        description = \"Detection for [RANSOMWARE] Unknown: minsa.com.mx\"\n        severity = \"high\"\n        date = \"2026-05-22\"\n    strings:\n                $actor = \"UNC-CDB-INGEST\" ascii wide nocase\n    condition:\n        any of them\n}"
+    },
+    {
+      "rule_name": "CDB_20_per_zeroday_is_already_the_WordPress_",
+      "rule_text": "rule CDB_20_per_zeroday_is_already_the_WordPress_ {\n    meta:\n        author = \"CyberDudeBivash GOC - Sentinel APEX v39.0\"\n        description = \"Detection for $20 per zero-day is already the WordPress plugin reality\"\n        severity = \"high\"\n        date = \"2026-05-22\"\n    strings:\n                $actor = \"UNC-CDB-INGEST\" ascii wide nocase\n        $kw0 = \"WordPress\" ascii wide nocase\n    condition:\n        any of them\n}"
+    },
+    {
+      "rule_name": "CDB_RANSOMWARE_Unknown_Buffalo_Niagara_Conve",
+      "rule_text": "rule CDB_RANSOMWARE_Unknown_Buffalo_Niagara_Conve {\n    meta:\n        author = \"CyberDudeBivash GOC - Sentinel APEX v39.0\"\n        description = \"Detection for [RANSOMWARE] Unknown: Buffalo Niagara Convention Center\"\n        severity = \"high\"\n        date = \"2026-05-22\"\n    strings:\n                $actor = \"UNC-CDB-INGEST\" ascii wide nocase\n    condition:\n        any of them\n}"
+    },
+    {
+      "rule_name": "CDB_RANSOMWARE_Unknown_Function_Enterprises",
+      "rule_text": "rule CDB_RANSOMWARE_Unknown_Function_Enterprises {\n    meta:\n        author = \"CyberDudeBivash GOC - Sentinel APEX v39.0\"\n        description = \"Detection for [RANSOMWARE] Unknown: Function Enterprises\"\n        severity = \"high\"\n        date = \"2026-05-22\"\n    strings:\n                $actor = \"UNC-CDB-INGEST\" ascii wide nocase\n    condition:\n        any of them\n}"
+    },
+    {
+      "rule_name": "CDB_RANSOMWARE_Unknown_threadinnovations",
+      "rule_text": "rule CDB_RANSOMWARE_Unknown_threadinnovations {\n    meta:\n        author = \"CyberDudeBivash GOC - Sentinel APEX v39.0\"\n        description = \"Detection for [RANSOMWARE] Unknown: threadinnovations\"\n        severity = \"high\"\n        date = \"2026-05-22\"\n    strings:\n                $actor = \"UNC-CDB-INGEST\" ascii wide nocase\n    condition:\n        any of them\n}"
+    },
+    {
+      "rule_name": "CDB_Update_Chrome_now__Critical_bugs_could_l",
+      "rule_text": "rule CDB_Update_Chrome_now__Critical_bugs_could_l {\n    meta:\n        author = \"CyberDudeBivash GOC - Sentinel APEX v39.0\"\n        description = \"Detection for Update Chrome now:  Critical bugs could let attackers run code\"\n        severity = \"high\"\n        date = \"2026-05-22\"\n    strings:\n                $actor = \"UNC-CDB-INGEST\" ascii wide nocase\n    condition:\n        any of them\n}"
+    },
+    {
+      "rule_name": "CDB_CISA_Adds_One_Known_Exploited_Vulnerabil",
+      "rule_text": "rule CDB_CISA_Adds_One_Known_Exploited_Vulnerabil {\n    meta:\n        author = \"CyberDudeBivash GOC - Sentinel APEX v39.0\"\n        description = \"Detection for CISA Adds One Known Exploited Vulnerability to Catalog\"\n        severity = \"high\"\n        date = \"2026-05-22\"\n    strings:\n                $actor = \"UNC-CDB-INGEST\" ascii wide nocase\n    condition:\n        any of them\n}"
+    },
+    {
+      "rule_name": "CDB_Making_Vulnerable_Drivers_Exploitable_Wi",
+      "rule_text": "rule CDB_Making_Vulnerable_Drivers_Exploitable_Wi {\n    meta:\n        author = \"CyberDudeBivash GOC - Sentinel APEX v39.0\"\n        description = \"Detection for Making Vulnerable Drivers Exploitable Without Hardware - The BYOVD Perspective\"\n        severity = \"high\"\n        date = \"2026-05-22\"\n    strings:\n                $actor = \"UNC-CDB-INGEST\" ascii wide nocase\n    condition:\n        any of them\n}"
+    },
+    {
+      "rule_name": "CDB_RANSOMWARE_Unknown_Le_Pain_Quotidien_US",
+      "rule_text": "rule CDB_RANSOMWARE_Unknown_Le_Pain_Quotidien_US {\n    meta:\n        author = \"CyberDudeBivash GOC - Sentinel APEX v39.0\"\n        description = \"Detection for [RANSOMWARE] Unknown: Le Pain Quotidien US\"\n        severity = \"high\"\n        date = \"2026-05-22\"\n    strings:\n                $actor = \"UNC-CDB-INGEST\" ascii wide nocase\n    condition:\n        any of them\n}"
+    },
+    {
+      "rule_name": "CDB_Exploit_for_Code_Injection_in_Iptime_N10",
+      "rule_text": "rule CDB_Exploit_for_Code_Injection_in_Iptime_N10 {\n    meta:\n        author = \"CyberDudeBivash GOC - Sentinel APEX v39.0\"\n        description = \"Detection for Exploit for Code Injection in Iptime N104S-R1_Firmware exploit\"\n        severity = \"high\"\n        date = \"2026-05-22\"\n    strings:\n                $actor = \"UNC-CDB-INGEST\" ascii wide nocase\n    condition:\n        any of them\n}"
+    },
+    {
+      "rule_name": "CDB_GitLab_190_adds_AI_workflows_secrets_man",
+      "rule_text": "rule CDB_GitLab_190_adds_AI_workflows_secrets_man {\n    meta:\n        author = \"CyberDudeBivash GOC - Sentinel APEX v39.0\"\n        description = \"Detection for GitLab 19.0 adds AI workflows, secrets management, and self-hosted model support\"\n        severity = \"high\"\n        date = \"2026-05-22\"\n    strings:\n                $actor = \"UNC-CDB-INGEST\" ascii wide nocase\n        $kw0 = \"GitLab\" ascii wide nocase\n    condition:\n        any of them\n}"
+    }
+  ],
+  "snort_rules": [
+    {
+      "rule_name": "CVE20269255__Tool_Execution_Without_Authorization_via_Piped",
+      "rule_text": "alert tcp $HOME_NET any -> $EXTERNAL_NET any (msg:\"CDB SENTINEL APEX: CVE-2026-9255 - Tool Execution Without Authorization via Pip\"; content:\"CVE-2026-9255\"; nocase; sid:8892104; rev:1; classtype:trojan-activity; reference:url,intel.cyberdudebivash.com;)",
+      "sid": 8892104
+    },
+    {
+      "rule_name": "CVE20269251__Devolutions_Server_Missing_Authorization_Vulner",
+      "rule_text": "alert tcp $HOME_NET any -> $EXTERNAL_NET any (msg:\"CDB SENTINEL APEX: CVE-2026-9251 - Devolutions Server Missing Authorization Vul\"; content:\"CVE-2026-9251\"; nocase; sid:2486396; rev:1; classtype:trojan-activity; reference:url,intel.cyberdudebivash.com;)",
+      "sid": 2486396
+    }
+  ],
+  "stats": {
+    "total_rules": 34,
+    "sigma_count": 2,
+    "yara_count": 30,
+    "snort_count": 2,
+    "coverage_techniques": 0,
+    "generated_at": "2026-05-22T20:14:00.279940+00:00"
+  }
 }
