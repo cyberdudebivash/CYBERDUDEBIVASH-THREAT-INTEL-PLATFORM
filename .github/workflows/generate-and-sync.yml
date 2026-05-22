@@ -237,6 +237,56 @@ jobs:
           echo "[OK] Output directories ready"
 
       # ─────────────────────────────────────────────────────────────────────
+      # STAGE 4.1 — CISA KEV FEED MARKER (v160.0 — non-blocking)
+      # Marks any feed items matching the live CISA KEV catalog as CRITICAL.
+      # Runs before AI tracker generation so tracker inherits KEV enrichment.
+      # ─────────────────────────────────────────────────────────────────────
+      - name: "STAGE 4.1 — CISA KEV Feed Marker (v160.0)"
+        timeout-minutes: 5
+        continue-on-error: true
+        run: |
+          set +e
+          if [ -f "api/feed.json" ]; then
+            FEED_PATH="api/feed.json" python3 scripts/kev_feed_marker.py
+            KEV_EXIT=$?
+            if [ -f "data/health/kev_marker_report.json" ]; then
+              KEV_MARKED=$(jq -r '.items_marked // "0"' data/health/kev_marker_report.json 2>/dev/null || echo "0")
+              KEV_SIZE=$(jq -r '.kev_catalog_size // "0"' data/health/kev_marker_report.json 2>/dev/null || echo "0")
+              echo "[KEV-MARKER] CatalogSize=$KEV_SIZE | NewlyMarked=$KEV_MARKED"
+            fi
+          else
+            echo "[KEV-MARKER] api/feed.json not present — skipping (non-fatal)"
+          fi
+          set -e
+          echo "STAGE 4.1: CISA KEV Feed Marker complete"
+
+      # ─────────────────────────────────────────────────────────────────────
+      # STAGE 4.2 — INTELLIGENCE QUALITY HARDENER (v160.0 — non-blocking)
+      # Fixes actor attribution, clamps invalid scores, improves generic titles,
+      # flags synthetic CVEs, adds IOC type hints, derives TLP levels.
+      # Runs before AI tracker generation so tracker reflects hardened data.
+      # ─────────────────────────────────────────────────────────────────────
+      - name: "STAGE 4.2 — Intelligence Quality Hardener (v160.0)"
+        timeout-minutes: 5
+        continue-on-error: true
+        run: |
+          set +e
+          if [ -f "api/feed.json" ]; then
+            FEED_PATH="api/feed.json" python3 scripts/intelligence_quality_hardener.py
+            IQH_EXIT=$?
+            if [ -f "data/health/intelligence_quality_hardener_report.json" ]; then
+              IQH_STATUS=$(jq -r '.status // "UNKNOWN"' data/health/intelligence_quality_hardener_report.json 2>/dev/null || echo "UNKNOWN")
+              IQH_SYNTHETIC=$(jq -r '.synthetic_flagged // "?"' data/health/intelligence_quality_hardener_report.json 2>/dev/null || echo "?")
+              IQH_ACTORS=$(jq -r '.actors_upgraded // "?"' data/health/intelligence_quality_hardener_report.json 2>/dev/null || echo "?")
+              echo "[INTEL-QUALITY] Status=$IQH_STATUS | Synthetic=$IQH_SYNTHETIC | Actors=$IQH_ACTORS"
+            fi
+          else
+            echo "[INTEL-QUALITY] api/feed.json not present — skipping (non-fatal)"
+          fi
+          set -e
+          echo "STAGE 4.2: Intelligence Quality Hardener complete"
+
+      # ─────────────────────────────────────────────────────────────────────
       # STAGE 5 — AI TRACKER GENERATION (Phase 1+2+3: explainability + health + exec)
       # ─────────────────────────────────────────────────────────────────────
       - name: "STAGE 5 — Generate AI Tracker (Engine Alpha + Beta + Gamma)"
@@ -577,68 +627,4 @@ jobs:
             }
             git stash pop --quiet 2>/dev/null || true
             if git push origin main; then
-              echo "[OK] Push successful (attempt ${ATTEMPT}/5)"
-              PUSH_OK=1
-              break
-            fi
-            echo "::warning::Push attempt ${ATTEMPT}/5 failed — retrying in $((ATTEMPT * 10))s"
-            sleep $((ATTEMPT * 10))
-          done
-          if [ "$PUSH_OK" -eq 0 ]; then
-            echo "::warning::All push attempts deferred — will sync on next scheduled run"
-          fi
-
-      # ─────────────────────────────────────────────────────────────────────
-      # STAGE 9.5 — R2 UPLOAD: AI Tracker files → Cloudflare R2
-      # v148.1.0 FIX: AI tracker files were committed to GitHub only.
-      # The Cloudflare Worker reads exclusively from R2 (private bucket).
-      # Without this step the Worker had no ai/tracker.json, ai/health.json,
-      # or ai/executive-brief.json in R2, causing ai-threat-tracker.html to
-      # show empty/stalled dashboard (handleAI fell back to ai_index.json).
-      # ─────────────────────────────────────────────────────────────────────
-      - name: "STAGE 9.5 — Upload AI Tracker outputs to Cloudflare R2"
-        if: env.DRY_RUN != 'true'
-        env:
-          CF_ACCOUNT_ID:          ${{ secrets.CF_ACCOUNT_ID }}
-          AWS_ACCESS_KEY_ID:      ${{ secrets.CF_R2_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY:  ${{ secrets.CF_R2_SECRET_ACCESS_KEY }}
-          WORKER_ADMIN_SECRET:    ${{ secrets.WORKER_ADMIN_SECRET }}
-        run: |
-          set -euo pipefail
-          ENDPOINT="https://${CF_ACCOUNT_ID}.r2.cloudflarestorage.com"
-          BUCKET="sentinel-apex-data"
-
-          echo "[R2] Installing AWS CLI..."
-          pip install awscli --quiet --break-system-packages 2>/dev/null || pip install awscli --quiet
-
-          echo "[R2] Uploading AI Tracker files to R2..."
-          UPLOADED=0
-          for FILE in \
-            api/ai/tracker.json \
-            api/ai/health.json \
-            api/ai/executive-brief.json \
-            api/ai/monetization.json; do
-            if [ -f "$FILE" ]; then
-              R2_KEY="ai/$(basename $FILE)"
-              aws s3 cp "$FILE" "s3://${BUCKET}/${R2_KEY}" \
-                --endpoint-url "$ENDPOINT" \
-                --content-type "application/json" \
-                --cache-control "max-age=300, s-maxage=300" \
-                --quiet
-              echo "[R2] Uploaded: $FILE → ${R2_KEY}"
-              UPLOADED=$((UPLOADED + 1))
-            else
-              echo "[R2] SKIP (not found): $FILE"
-            fi
-          done
-          echo "[R2] Upload complete — ${UPLOADED} file(s) synced to R2"
-
-          # Bust KV cache so Worker serves fresh AI data immediately
-          echo "[R2] Busting Worker KV cache for AI endpoints..."
-          for KV_KEY in "ai:tracker" "ai:health" "ai:exec-brief" "ai:monetize"; do
-            HTTP=$(curl -s -o /dev/null -w "%{http_code}" \
-              -X POST "https://intel.cyberdudebivash.com/api/admin/cache/bust?key=${KV_KEY}" \
-              -H "X-Admin-Secret: ${WORKER_ADMIN_SECRET}" || echo "000")
-            echo "[KV] Busted ${KV_KEY} → HTTP ${HTTP}"
-          done
-          echo "[R2] Stage 9.5 complete — AI Tracker live on Worker"
+              echo "

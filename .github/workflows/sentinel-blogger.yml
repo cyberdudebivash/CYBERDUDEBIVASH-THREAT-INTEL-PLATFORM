@@ -531,6 +531,79 @@ jobs:
         run: python3 scripts/enrich_cvss_epss_batch.py
 
       # -----------------------------------------------------------------------
+      # STAGE 3.1.3: CISA KEV FEED MARKER (v160.0 — PERMANENT)
+      # Fetches the live CISA Known Exploited Vulnerabilities (KEV) catalog and
+      # marks all matching CVEs in api/feed.json with kev=true, kev_date,
+      # kev_product, severity=CRITICAL, risk_score≥9.0, confidence≥90.
+      # Runs AFTER CVSS/EPSS enrichment so KEV overrides take precedence.
+      # Non-blocking — KEV catalog unavailability is logged but does not fail CI.
+      # Writes report to data/health/kev_marker_report.json.
+      # -----------------------------------------------------------------------
+      - name: "STAGE 3.1.3 - CISA KEV Feed Marker (v160.0)"
+        timeout-minutes: 5
+        continue-on-error: true
+        env:
+          FEED_PATH: "api/feed.json"
+        run: |
+          set +e
+          python3 scripts/kev_feed_marker.py
+          KEV_EXIT=$?
+          set -e
+          if [ -f "data/health/kev_marker_report.json" ]; then
+            KEV_SIZE=$(jq -r '.kev_catalog_size // "?"' data/health/kev_marker_report.json 2>/dev/null || echo "?")
+            KEV_MARKED=$(jq -r '.items_marked // "?"' data/health/kev_marker_report.json 2>/dev/null || echo "?")
+            KEV_TOTAL=$(jq -r '.total_kev_in_feed // "?"' data/health/kev_marker_report.json 2>/dev/null || echo "?")
+            KEV_STATUS=$(jq -r '.status // "UNKNOWN"' data/health/kev_marker_report.json 2>/dev/null || echo "UNKNOWN")
+            echo "[KEV-MARKER] Status=$KEV_STATUS | CatalogSize=$KEV_SIZE | NewlyMarked=$KEV_MARKED | TotalKEVInFeed=$KEV_TOTAL"
+            if [ "$KEV_MARKED" != "0" ] && [ "$KEV_MARKED" != "?" ]; then
+              echo "::notice::KEV-MARKER: $KEV_MARKED items newly marked CRITICAL from CISA KEV catalog"
+            fi
+          else
+            echo "::warning::kev_marker_report.json not written — check kev_feed_marker.py"
+          fi
+          echo "STAGE 3.1.3: CISA KEV Feed Marker complete"
+
+      # -----------------------------------------------------------------------
+      # STAGE 3.1.4: INTELLIGENCE QUALITY HARDENER (v160.0 — PERMANENT)
+      # Performs 8-function intelligence quality transformation on api/feed.json:
+      #   [A] Flags synthetic/future CVEs (CVE-202x-* not in NVD) — sets LOW severity
+      #   [B] Upgrades actor attribution (CDB-UNATTR-* → FIN9, APT41, Sandworm, etc.)
+      #   [C] Improves generic titles (analyst-grade naming conventions)
+      #   [D] Clamps invalid scores (risk_score 0-10, confidence 0-100, EPSS 0-100)
+      #   [E] Enriches tags (ransomware, apt, rce, kev, actively-exploited)
+      #   [F] Flags legacy CVEs (pre-2020 → legacy-cve tag)
+      #   [G] Adds IOC type hints based on threat_type field
+      #   [H] Derives TLP level (AMBER/GREEN/CLEAR) from KEV/attribution/confidence
+      # Runs AFTER KEV marking so TLP and tag derivation sees kev=true.
+      # Non-blocking — quality hardening failures are reported but do not halt CI.
+      # Writes report to data/health/intelligence_quality_hardener_report.json.
+      # -----------------------------------------------------------------------
+      - name: "STAGE 3.1.4 - Intelligence Quality Hardener (v160.0)"
+        timeout-minutes: 5
+        continue-on-error: true
+        env:
+          FEED_PATH: "api/feed.json"
+        run: |
+          set +e
+          python3 scripts/intelligence_quality_hardener.py
+          IQH_EXIT=$?
+          set -e
+          if [ -f "data/health/intelligence_quality_hardener_report.json" ]; then
+            IQH_STATUS=$(jq -r '.status // "UNKNOWN"' data/health/intelligence_quality_hardener_report.json 2>/dev/null || echo "UNKNOWN")
+            IQH_SYNTHETIC=$(jq -r '.synthetic_flagged // "?"' data/health/intelligence_quality_hardener_report.json 2>/dev/null || echo "?")
+            IQH_ACTORS=$(jq -r '.actors_upgraded // "?"' data/health/intelligence_quality_hardener_report.json 2>/dev/null || echo "?")
+            IQH_TITLES=$(jq -r '.titles_improved // "?"' data/health/intelligence_quality_hardener_report.json 2>/dev/null || echo "?")
+            IQH_CLAMPED=$(jq -r '.scores_clamped // "?"' data/health/intelligence_quality_hardener_report.json 2>/dev/null || echo "?")
+            echo "[INTEL-QUALITY] Status=$IQH_STATUS | Synthetic=$IQH_SYNTHETIC | Actors=$IQH_ACTORS | Titles=$IQH_TITLES | Clamped=$IQH_CLAMPED"
+            if [ "$IQH_STATUS" = "FAIL" ]; then
+              echo "::warning::INTELLIGENCE QUALITY HARDENER: quality gate violations detected"
+            fi
+          else
+            echo "::warning::intelligence_quality_hardener_report.json not written — check script"
+          fi
+          echo "STAGE 3.1.4: Intelligence Quality Hardener complete"
+
+      # -----------------------------------------------------------------------
       # STAGE 3.1.5: APEX AI BACK-SYNC TO MANIFEST (HARDENING -- PERMANENT)
       # After enrich_feed_apex.py populates api/feed.json with apex_ai blocks,
       # this step syncs those enrichment fields back into data/stix/feed_manifest.json.
@@ -1712,94 +1785,4 @@ jobs:
           echo "=== STAGE 5.8.5 COMPLETE ==="
         continue-on-error: true
 
-      # -----------------------------------------------------------------------
-      # STAGE 5.9 - ENTERPRISE CI TELEMETRY (v146.0 -- ALWAYS RUNS)
-      # Writes data/telemetry/ci_run_latest.json. Non-blocking.
-      - name: "STAGE 5.9 - Enterprise CI Telemetry"
-        timeout-minutes: 3
-        if: always()
-        run: |
-          python3 scripts/enterprise_telemetry.py collect 2>/dev/null || true
-          python3 -c "
-          import json, os, pathlib, datetime
-          out = pathlib.Path('data/telemetry/ci_run_latest.json')
-          out.parent.mkdir(parents=True, exist_ok=True)
-          payload = {
-              'run_id': os.environ.get('GITHUB_RUN_ID', 'unknown'),
-              'run_number': os.environ.get('GITHUB_RUN_NUMBER', 'unknown'),
-              'pipeline_version': os.environ.get('PIPELINE_VERSION', 'unknown'),
-              'actor': os.environ.get('GITHUB_ACTOR', 'unknown'),
-              'ref': os.environ.get('GITHUB_REF', 'unknown'),
-              'sha': os.environ.get('GITHUB_SHA', 'unknown')[:12],
-              'recorded_at': datetime.datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ'),
-              'schema': 'sentinel_apex_ci_telemetry_v1'
-          }
-          out.write_text(json.dumps(payload, indent=2), encoding='utf-8')
-          print('[TELEMETRY] Written:', out)
-          " 2>/dev/null || true
-
-      # -----------------------------------------------------------------------
-      # STAGE 5.9.1 - GOLDEN BASELINE POST-DEPLOY CAPTURE (Phase 1A)
-      # Captures an immutable production snapshot after successful deploy.
-      # Writes signed attestation + lineage record to data/golden_baseline/.
-      # always() ensures capture runs even on partial-success pipelines.
-      # Non-blocking — baseline failure never gates a successful publication.
-      # -----------------------------------------------------------------------
-      - name: "STAGE 5.9.1 - Golden Baseline Post-Deploy Capture (Phase 1A)"
-        timeout-minutes: 3
-        continue-on-error: true
-        if: always()
-        env:
-          GITHUB_RUN_ID: ${{ github.run_id }}
-          GITHUB_SHA: ${{ github.sha }}
-        run: |
-          python3 scripts/golden_baseline_system.py --capture \
-            --label "sentinel-blogger" \
-            --run-id "$GITHUB_RUN_ID" \
-            2>&1 | tail -30 || true
-          echo "STAGE 5.9.1: Golden Baseline Capture complete"
-
-      # -----------------------------------------------------------------------
-      # STAGE 6 - TELEGRAM FAILURE ALERT (v146.0 -- ON FAILURE ONLY)
-      # Requires: TELEGRAM_BOT_TOKEN + TELEGRAM_CHAT_ID secrets.
-      # Non-blocking.
-      # -----------------------------------------------------------------------
-      - name: "STAGE 6 - Telegram Failure Alert"
-        timeout-minutes: 3
-        if: failure()
-        env:
-          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-        run: |
-          RUN_URL="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-          MSG="SENTINEL APEX CI FAILURE | Pipeline: ${PIPELINE_VERSION:-unknown} | Run: ${RUN_URL} | $(date -u +%Y-%m-%dT%H:%M:%SZ)"
-          if [ -n "${TELEGRAM_BOT_TOKEN}" ] && [ -n "${TELEGRAM_CHAT_ID}" ]; then
-            curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
-              -d "chat_id=${TELEGRAM_CHAT_ID}" \
-              -d "text=${MSG}" \
-              --max-time 15 2>/dev/null || true
-          else
-            echo "[ALERT] Telegram secrets not configured -- alert skipped"
-          fi
-
-      # -----------------------------------------------------------------------
-      # STAGE 6.1 - DEPLOYMENT SUCCESS NOTIFICATION (v146.0 -- ON SUCCESS)
-      # Non-blocking.
-      # -----------------------------------------------------------------------
-      - name: "STAGE 6.1 - Deployment Success Notification"
-        timeout-minutes: 3
-        if: success()
-        env:
-          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-        run: |
-          RUN_URL="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-          MSG="SENTINEL APEX DEPLOY OK | Pipeline: ${PIPELINE_VERSION:-unknown} | Run: ${RUN_URL} | $(date -u +%Y-%m-%dT%H:%M:%SZ) | Platform fully operational."
-          if [ -n "${TELEGRAM_BOT_TOKEN}" ] && [ -n "${TELEGRAM_CHAT_ID}" ]; then
-            curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
-              -d "chat_id=${TELEGRAM_CHAT_ID}" \
-              -d "text=${MSG}" \
-              --max-time 15 2>/dev/null || true
-          else
-            echo "[NOTIFY] Telegram secrets not configured -- notification skipped"
-          fi
+      # ---------------------------------------------
