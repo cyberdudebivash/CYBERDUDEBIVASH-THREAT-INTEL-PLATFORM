@@ -1095,6 +1095,21 @@ jobs:
         run: python3 scripts/pre_deploy_gate.py
 
       # -----------------------------------------------------------------------
+      # STAGE 5.4.5e - GOLDEN BASELINE PRE-DEPLOY VALIDATE (Phase 1A)
+      # Validates live runtime state against the last captured golden baseline.
+      # Detects regressions in fingerprints, governance grade, advisory count,
+      # and source diversity BEFORE artifacts are built and deployed.
+      # Non-blocking — WARN on deviation, never blocks the deploy hard gate.
+      # -----------------------------------------------------------------------
+      - name: "STAGE 5.4.5e - Golden Baseline Pre-Deploy Validate (Phase 1A)"
+        timeout-minutes: 3
+        continue-on-error: true
+        run: |
+          python3 scripts/golden_baseline_system.py --validate \
+            2>&1 | tail -30 || true
+          echo "STAGE 5.4.5e: Golden Baseline validation complete"
+
+      # -----------------------------------------------------------------------
       # STAGE 5.4.6 - BUILD DETERMINISTIC DIST ARTIFACT (v158.0.2 HARD FAIL)
       # Builds dist/ as a clean, minimal, checksum-validated deployment artifact.
       #
@@ -1586,6 +1601,27 @@ jobs:
           out.write_text(json.dumps(payload, indent=2), encoding='utf-8')
           print('[TELEMETRY] Written:', out)
           " 2>/dev/null || true
+
+      # -----------------------------------------------------------------------
+      # STAGE 5.9.1 - GOLDEN BASELINE POST-DEPLOY CAPTURE (Phase 1A)
+      # Captures an immutable production snapshot after successful deploy.
+      # Writes signed attestation + lineage record to data/golden_baseline/.
+      # always() ensures capture runs even on partial-success pipelines.
+      # Non-blocking — baseline failure never gates a successful publication.
+      # -----------------------------------------------------------------------
+      - name: "STAGE 5.9.1 - Golden Baseline Post-Deploy Capture (Phase 1A)"
+        timeout-minutes: 3
+        continue-on-error: true
+        if: always()
+        env:
+          GITHUB_RUN_ID: ${{ github.run_id }}
+          GITHUB_SHA: ${{ github.sha }}
+        run: |
+          python3 scripts/golden_baseline_system.py --capture \
+            --label "sentinel-blogger" \
+            --run-id "$GITHUB_RUN_ID" \
+            2>&1 | tail -30 || true
+          echo "STAGE 5.9.1: Golden Baseline Capture complete"
 
       # -----------------------------------------------------------------------
       # STAGE 6 - TELEGRAM FAILURE ALERT (v146.0 -- ON FAILURE ONLY)
