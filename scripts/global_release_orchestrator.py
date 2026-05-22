@@ -185,7 +185,8 @@ CRITICAL_FILES: List[Tuple[str, bool]] = [
     # (relative_path, hard_fail_if_missing)
     ("index.html",                                   True),
     ("api/feed.json",                                True),
-    ("api/latest.json",                              True),
+    # api/latest.json: checked via check_latest_json() below — supports dual path
+    # (api/latest.json OR api/v1/intel/latest.json) to prevent false HARD_FAIL
     ("version.json",                                 True),
     ("service-worker.js",                            True),
     ("config/platform_version.json",                 True),
@@ -198,10 +199,47 @@ CRITICAL_FILES: List[Tuple[str, bool]] = [
     (".github/workflows/sentinel-blogger.yml",       True),
 ]
 
+# Dual-path candidates for api/latest.json — checked in order, first hit wins
+LATEST_JSON_CANDIDATES: List[str] = [
+    "api/latest.json",
+    "api/v1/intel/latest.json",
+]
+
+
+def resolve_latest_json() -> Optional[Path]:
+    """Resolve api/latest.json with fallback to api/v1/intel/latest.json.
+
+    Returns the resolved Path if found (non-empty), else None.
+    This prevents false HARD_FAILs when the platform uses v1 intel endpoint
+    as its latest feed instead of a root-level api/latest.json.
+    """
+    for candidate in LATEST_JSON_CANDIDATES:
+        path = BASE_DIR / candidate
+        if path.exists() and path.stat().st_size > 0:
+            return path
+    return None
+
 
 def check_manifest(ssot: Dict) -> None:
     """Validate all critical files exist, are non-empty, and are parseable."""
     print("\n[DOMAIN 2] RELEASE MANIFEST VALIDATION")
+
+    # Check api/latest.json with dual-path fallback (not in CRITICAL_FILES loop)
+    latest_resolved = resolve_latest_json()
+    if latest_resolved:
+        size = latest_resolved.stat().st_size
+        try:
+            json.loads(latest_resolved.read_text(encoding="utf-8"))
+            record("MANIFEST", "parseable:api/latest.json",
+                   "PASS", f"{size:,} bytes — JSON valid (resolved: {latest_resolved.relative_to(BASE_DIR)})")
+        except Exception as e:
+            record("MANIFEST", "parseable:api/latest.json",
+                   "FAIL", f"JSON parse error: {e}", hard=True)
+    else:
+        record("MANIFEST", "present:api/latest.json",
+               "FAIL",
+               f"api/latest.json and api/v1/intel/latest.json both missing or empty",
+               hard=True)
 
     for rel_path, is_hard in CRITICAL_FILES:
         path = BASE_DIR / rel_path
@@ -248,6 +286,9 @@ def check_artifact_sync(ssot: Dict) -> None:
     Severity escalation:
       CI=true (GitHub Actions): HARD_FAIL when build artifacts missing post-build.
       Local / outside CI: WARN only (build stage not yet run).
+
+    v160.1.1: STAGE 5.8.3b now creates dist/ before this runs in CI.
+    If dist/ is still absent, this is a genuine build failure — HARD_FAIL is correct.
     """
     print("\n[DOMAIN 3] ARTIFACT SYNCHRONIZATION VALIDATION")
 
@@ -257,7 +298,9 @@ def check_artifact_sync(ssot: Dict) -> None:
     if not dist_dir.exists():
         if in_ci:
             record("ARTIFACT_SYNC", "dist_present",
-                   "FAIL", "dist/ absent in CI — build stage may have failed", hard=True)
+                   "FAIL",
+                   "dist/ absent in CI — STAGE 5.8.3b builder failed or was skipped",
+                   hard=True)
         else:
             record("ARTIFACT_SYNC", "dist_present",
                    "WARN", "dist/ not found — expected only after CI build stage")
@@ -517,21 +560,23 @@ def check_synchronization(ssot: Dict) -> None:
         record("SYNC", "feed_present", "FAIL",
                "api/feed.json MISSING — critical API surface absent", hard=True)
 
-    # api/latest.json — check it has items
-    latest_path = BASE_DIR / "api" / "latest.json"
-    if latest_path.exists():
+    # api/latest.json — dual-path check (api/latest.json OR api/v1/intel/latest.json)
+    latest_resolved = resolve_latest_json()
+    if latest_resolved:
         try:
-            latest = json.loads(latest_path.read_text(encoding="utf-8"))
+            latest = json.loads(latest_resolved.read_text(encoding="utf-8"))
             latest_items = latest if isinstance(latest, list) else latest.get("items", latest.get("advisories", []))
             lcount = len(latest_items)
             record("SYNC", "latest_non_empty",
                    "PASS" if lcount > 0 else "WARN",
-                   f"api/latest.json has {lcount} items")
+                   f"api/latest.json has {lcount} items (source: {latest_resolved.relative_to(BASE_DIR)})")
         except Exception as e:
-            record("SYNC", "latest_parseable", "WARN", f"api/latest.json parse error: {e}")
+            record("SYNC", "latest_parseable", "WARN",
+                   f"api/latest.json parse error ({latest_resolved.relative_to(BASE_DIR)}): {e}")
     else:
         record("SYNC", "latest_present", "FAIL",
-               "api/latest.json MISSING", hard=True)
+               "api/latest.json MISSING — not found at api/latest.json or api/v1/intel/latest.json",
+               hard=True)
 
     # Observability telemetry sync report
     sync_report = BASE_DIR / "data" / "telemetry" / "sync_report.json"
