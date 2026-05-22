@@ -93,7 +93,7 @@ permissions:
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-  PIPELINE_VERSION: "158.5"
+  PIPELINE_VERSION: "160.0"
   PYTHONIOENCODING: "utf-8"
   PYTHONUTF8: "1"
 
@@ -590,7 +590,7 @@ jobs:
           set -e
           if [ -f "data/health/intelligence_quality_hardener_report.json" ]; then
             IQH_STATUS=$(jq -r '.status // "UNKNOWN"' data/health/intelligence_quality_hardener_report.json 2>/dev/null || echo "UNKNOWN")
-            IQH_SYNTHETIC=$(jq -r '.synthetic_flagged // "?"' data/health/intelligence_quality_hardener_report.json 2>/dev/null || echo "?")
+            IQH_SYNTHETIC=$(jq -r '.synthetic_cve_flagged // "?"' data/health/intelligence_quality_hardener_report.json 2>/dev/null || echo "?")
             IQH_ACTORS=$(jq -r '.actors_upgraded // "?"' data/health/intelligence_quality_hardener_report.json 2>/dev/null || echo "?")
             IQH_TITLES=$(jq -r '.titles_improved // "?"' data/health/intelligence_quality_hardener_report.json 2>/dev/null || echo "?")
             IQH_CLAMPED=$(jq -r '.scores_clamped // "?"' data/health/intelligence_quality_hardener_report.json 2>/dev/null || echo "?")

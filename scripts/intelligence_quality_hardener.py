@@ -418,12 +418,17 @@ def main() -> int:
 
     # Write report
     REPORT_PATH.parent.mkdir(parents=True, exist_ok=True)
+    # Derive status: WARN if >30% items are synthetic; PASS otherwise
+    synthetic_ratio = stats["synthetic_cve_flagged"] / max(stats["total"], 1)
+    report_status = "WARN" if synthetic_ratio > 0.30 else "PASS"
     report = {
-        "generated_at": datetime.now(timezone.utc).isoformat(),
-        "script":       "intelligence_quality_hardener.py",
-        "version":      "160.0",
+        "generated_at":         datetime.now(timezone.utc).isoformat(),
+        "script":               "intelligence_quality_hardener.py",
+        "version":              "160.0",
+        "status":               report_status,
+        "items_processed":      stats["total"],
         **stats,
-        "dry_run":      DRY_RUN,
+        "dry_run":              DRY_RUN,
     }
     REPORT_PATH.write_text(json.dumps(report, indent=2, ensure_ascii=False), encoding="utf-8")
     log.info("Report: %s", REPORT_PATH)
