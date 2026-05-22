@@ -378,6 +378,36 @@ jobs:
           echo "STAGE 6.87: Runtime stability check complete"
 
       # ─────────────────────────────────────────────────────────────────────
+      # STAGE 6.88 — SOURCE DIVERSITY ENFORCER (Phase 1C Enterprise Hardening)
+      # Runs after runtime stability check — when the freshly generated feed
+      # is in its final committed state. Scores source dominance, Shannon
+      # entropy, synthetic marker density, and flood injection patterns.
+      # Writes signed report to data/health/source_diversity.json.
+      # Non-blocking — surfaces violations as CI annotations for observability.
+      # ─────────────────────────────────────────────────────────────────────
+      - name: "STAGE 6.88 — Source Diversity Enforcer (Phase 1C)"
+        timeout-minutes: 3
+        continue-on-error: true
+        run: |
+          set +e
+          python3 scripts/source_diversity_enforcer.py --report
+          SDE_EXIT=$?
+          set -e
+          if [ -f "data/health/source_diversity.json" ]; then
+            STATUS=$(jq -r '.status // "UNKNOWN"' data/health/source_diversity.json 2>/dev/null || echo "UNKNOWN")
+            TOP_SRC=$(jq -r '.top_source // "?"' data/health/source_diversity.json 2>/dev/null || echo "?")
+            TOP_PCT=$(jq -r '.top_source_pct // "?"' data/health/source_diversity.json 2>/dev/null || echo "?")
+            ENT=$(jq -r '.entropy_bits // "?"' data/health/source_diversity.json 2>/dev/null || echo "?")
+            echo "[SOURCE-DIVERSITY] Status=$STATUS | Top=$TOP_SRC ($TOP_PCT%) | Entropy=${ENT}bits"
+            if [ "$STATUS" = "FAIL" ]; then
+              echo "::warning::SOURCE DIVERSITY P0 VIOLATION — $TOP_SRC at $TOP_PCT% exceeds 30% golden invariant"
+            fi
+          else
+            echo "::warning::source_diversity.json not written — check enforcer"
+          fi
+          echo "STAGE 6.88: Source Diversity Enforcer complete"
+
+      # ─────────────────────────────────────────────────────────────────────
       # STAGE 6.9 — GOLDEN BASELINE CAPTURE (Phase 1A Enterprise Hardening)
       # Captures an immutable production snapshot after every successful
       # generate-and-sync run. Writes signed lineage record and deployment
