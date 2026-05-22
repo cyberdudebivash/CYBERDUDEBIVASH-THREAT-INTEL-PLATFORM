@@ -857,6 +857,44 @@ jobs:
           fi
 
       # -----------------------------------------------------------------------
+      # STAGE 3.93.16: SOURCE DIVERSITY ENFORCER (Phase 1C -- NON-BLOCKING WARN)
+      # Enforces source diversity governance against the live feed manifest.
+      # Detects single-source dominance (golden invariant: max 30%), Shannon
+      # entropy collapse, synthetic marker contamination, and flood injection.
+      # Non-blocking (continue-on-error) — violations surface as CI annotations
+      # and are written to data/health/source_diversity.json for observability.
+      # Hard-gate mode activates once feed diversification targets are met.
+      # Guards against: cvefeed.io P0 dominance (50.9%), CDB-REBUILT flooding,
+      #   entropy collapse, synthetic advisory contamination >5%.
+      # -----------------------------------------------------------------------
+      - name: "STAGE 3.93.16 - Source Diversity Enforcer (Phase 1C)"
+        timeout-minutes: 3
+        continue-on-error: true
+        run: |
+          set +e
+          python3 scripts/source_diversity_enforcer.py --report
+          SDE_EXIT=$?
+          set -e
+          if [ -f "data/health/source_diversity.json" ]; then
+            STATUS=$(jq -r '.status // "UNKNOWN"' data/health/source_diversity.json 2>/dev/null || echo "UNKNOWN")
+            TOP_SRC=$(jq -r '.top_source // "?"' data/health/source_diversity.json 2>/dev/null || echo "?")
+            TOP_PCT=$(jq -r '.top_source_pct // "?"' data/health/source_diversity.json 2>/dev/null || echo "?")
+            ENT=$(jq -r '.entropy_bits // "?"' data/health/source_diversity.json 2>/dev/null || echo "?")
+            UNIQ=$(jq -r '.unique_sources // "?"' data/health/source_diversity.json 2>/dev/null || echo "?")
+            SYN=$(jq -r '.synthetic_count // "?"' data/health/source_diversity.json 2>/dev/null || echo "?")
+            echo "[SOURCE-DIVERSITY] Status=$STATUS | TopSrc=$TOP_SRC ($TOP_PCT%) | Entropy=${ENT}bits | UniqueSrcs=$UNIQ | Synthetic=$SYN"
+            if [ "$STATUS" = "FAIL" ]; then
+              echo "::warning::SOURCE DIVERSITY GOVERNANCE VIOLATION — Status=$STATUS | Top=$TOP_SRC ($TOP_PCT%) exceeds 30% golden invariant. Feed diversification required."
+            elif [ "$STATUS" = "WARN" ]; then
+              echo "::warning::Source diversity degraded — Status=$STATUS | Top=$TOP_SRC ($TOP_PCT%) | Entropy=${ENT}bits. Review source_diversity.json."
+            else
+              echo "[PASS] Source diversity governance satisfied — Status=$STATUS"
+            fi
+          else
+            echo "::warning::source_diversity.json not written — check source_diversity_enforcer.py execution"
+          fi
+
+      # -----------------------------------------------------------------------
       # STAGE 3.93.2: DAILY BRIEF GENERATOR (v148.0.0 -- NON-BLOCKING)
       # Generates daily executive PDF threat brief using ReportLab.
       # Reads api/v1/intel/ai_summary.json + api/feed.json (must run after 3.93.1).
