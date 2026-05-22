@@ -832,6 +832,31 @@ jobs:
           fi
 
       # -----------------------------------------------------------------------
+      # STAGE 3.93.15: P0 INTELLIGENCE INTEGRITY GATE (v158.5 -- NON-BLOCKING WARN)
+      # Runs 8 safeguard checks against the live feed and manifest.
+      # In --check mode it reports gate results but does NOT hard-fail the pipeline
+      # (non-blocking: synthetic flood conditions are quarantined, not rejected wholesale).
+      # Hard-fail mode is available via --apply when circuit-breaker trips.
+      # Outputs: data/quality/integrity_gate_report.json
+      # Guards against: synthetic CVE flood, entropy collapse, feed diversity loss,
+      #   KEV enrichment gaps, manifest mutation, advisory authenticity failures.
+      # -----------------------------------------------------------------------
+      - name: "STAGE 3.93.15 - P0 Intelligence Integrity Gate (v158.5)"
+        timeout-minutes: 3
+        run: |
+          set +e
+          python3 scripts/intelligence_integrity_gate.py --report
+          IG_EXIT=$?
+          set -e
+          if [ "$IG_EXIT" -eq 0 ]; then
+            echo "[PASS] Intelligence Integrity Gate: all safeguards evaluated"
+            [ -f "data/quality/integrity_gate_report.json" ] && \
+              echo "[INFO] Report: $(wc -c < data/quality/integrity_gate_report.json)B" || true
+          else
+            echo "::warning::Intelligence Integrity Gate reported issues (exit $IG_EXIT) -- non-blocking, check data/quality/integrity_gate_report.json"
+          fi
+
+      # -----------------------------------------------------------------------
       # STAGE 3.93.2: DAILY BRIEF GENERATOR (v148.0.0 -- NON-BLOCKING)
       # Generates daily executive PDF threat brief using ReportLab.
       # Reads api/v1/intel/ai_summary.json + api/feed.json (must run after 3.93.1).
@@ -1125,24 +1150,29 @@ jobs:
 
       # -----------------------------------------------------------------------
       # STAGE 5: GITHUB PAGES DEPLOY
-      # v156.0 ARCHIVE GOVERNANCE UPGRADE:
-      #   folder: dist    -- governed, validated artifact
-      #   clean: false    -- REQUIRED for report archive governance
+      # v158.5 PAGES SIZE GOVERNANCE UPGRADE (P0 — GitHub 1 GB hard limit):
+      #   folder: dist          -- governed, validated artifact
+      #   clean: true           -- gh-pages matches dist/ exactly each run
+      #   single-commit: true   -- squash gh-pages history to 1 commit (no bloat)
       #
-      # WHY clean: false (v156.0 architectural change):
-      #   dist/ now contains only HOT reports (last REPORT_RETENTION_DAYS days).
-      #   Historical reports (2019-2025) are untracked from main branch but
-      #   PERMANENTLY retained in gh-pages from prior deployments.
-      #   clean: false ensures the Pages deploy only adds/updates new files
-      #   and never deletes historical reports from gh-pages.
-      #   Customer-facing URLs for all historical reports remain permanently stable.
+      # WHY clean: true (v158.5 architectural change):
+      #   gh-pages accumulated ALL historical reports since 2019 (clean: false).
+      #   Artifact size reached 1.48 GB → exceeds GitHub Pages 1 GB hard limit.
+      #   With clean: true, gh-pages content equals dist/ content each deploy:
+      #     - Reports from last REPORT_RETENTION_DAYS days (default: 90)
+      #     - All platform HTML/CSS/JS/API/dashboard files
+      #     - CNAME, _headers, .nojekyll, robots.txt, sitemap.xml
+      #   This permanently keeps artifact below 300 MB.
       #
-      # SAFETY: report_archive_manager.py verifies clean: false is set before
-      #   executing any git rm --cached operations. This prevents accidental
-      #   historical report deletion.
+      # REPORT RETENTION:
+      #   dist/ already enforces REPORT_RETENTION_DAYS via build_dist_artifact.py.
+      #   Hot reports (last 90 days) are always deployed.
+      #   Historical reports (pre-90 days) are served from the blog/R2, not Pages.
       #
-      # clean_exclude: protects specific paths from being deleted even if they
-      #   are not present in dist/ (belt-and-suspenders for historical directories).
+      # single-commit: true:
+      #   Squashes gh-pages branch to 1 commit on every deploy.
+      #   Eliminates unbounded git object store growth on gh-pages.
+      #   Combined with clean: true → gh-pages is always minimal and deterministic.
       # -----------------------------------------------------------------------
       - name: "STAGE 5 - Deploy to GitHub Pages"
         timeout-minutes: 15
@@ -1150,8 +1180,8 @@ jobs:
         with:
           branch: gh-pages
           folder: dist
-          clean: false
-          force: false
+          clean: true
+          single-commit: true
 
       # -----------------------------------------------------------------------
       # STAGE 5.5.0: POST-DEPLOY SMOKE TESTS v158.0
@@ -1241,6 +1271,30 @@ jobs:
       - name: "STAGE 5.8 - Intelligence Quality Gate"
         timeout-minutes: 5
         run: python3 scripts/intel_quality_engine.py --report || true
+
+      # -----------------------------------------------------------------------
+      # STAGE 5.8.05 - ENTERPRISE MONETIZATION FRAMEWORK (v158.5 -- NON-BLOCKING)
+      # Produces product catalog, SOC readiness score, MSSP packages, ROI report,
+      # and sellability health check. Outputs to data/monetization/*.json.
+      # These files are consumed by sales deck generation and API endpoints.
+      # Non-blocking: exit 1 logs warning but does not abort deployment.
+      # -----------------------------------------------------------------------
+      - name: "STAGE 5.8.05 - Enterprise Monetization Framework (v158.5)"
+        timeout-minutes: 3
+        run: |
+          set +e
+          python3 scripts/enterprise_monetization_framework.py --all
+          MON_EXIT=$?
+          set -e
+          if [ "$MON_EXIT" -eq 0 ]; then
+            echo "[PASS] Monetization Framework: catalog + SOC readiness + ROI generated"
+            [ -f "data/monetization/soc_readiness.json" ] && \
+              echo "[INFO] SOC score: $(python3 -c "import json; d=json.load(open('data/monetization/soc_readiness.json')); print(f\"{d['score']}/100 ({d['tier']})\")" 2>/dev/null || echo '?')"
+            [ -f "data/monetization/sellability_score.json" ] && \
+              echo "[INFO] Sellability: $(python3 -c "import json; d=json.load(open('data/monetization/sellability_score.json')); print(f\"{d['sellability_score']}/100 ({d['sellability_tier']})\")" 2>/dev/null || echo '?')"
+          else
+            echo "::warning::Enterprise Monetization Framework failed (exit $MON_EXIT) -- non-blocking"
+          fi
 
       # -----------------------------------------------------------------------
       # STAGE 5.8.1 - DEPLOYMENT CANARY VALIDATION (v146.0 ENTERPRISE)

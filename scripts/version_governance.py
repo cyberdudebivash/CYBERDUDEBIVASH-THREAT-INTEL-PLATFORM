@@ -105,6 +105,12 @@ REGEX_TARGETS = [
         r'(PIPELINE_VERSION\s*=\s*os\.environ\.get\("PIPELINE_VERSION",\s*")[0-9]+\.[0-9]+(?:\.[0-9]+)?"',
         r'\g<1>{VER}"',
     ),
+    # workers/intel-gateway/wrangler.toml -- GATEWAY_VERSION (both [vars] and [env.production.vars])
+    (
+        "workers/intel-gateway/wrangler.toml",
+        r'(GATEWAY_VERSION\s*=\s*")[0-9]+\.[0-9]+(?:\.[0-9]+)?"',
+        r'\g<1>{VER}"',
+    ),
     # .github/workflows/sentinel-blogger.yml -- PIPELINE_VERSION env var (v148.0 governance)
     (
         ".github/workflows/sentinel-blogger.yml",
