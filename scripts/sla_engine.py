@@ -41,7 +41,7 @@ HEALTH_DIR = REPO_ROOT / "data" / "health"
 HEALTH_DIR.mkdir(parents=True, exist_ok=True)
 
 WORKER_BASE = "https://intel.cyberdudebivash.com"
-PLATFORM_VERSION = "143.0.0"
+PLATFORM_VERSION = "160.0.0"  # v160.0 -- synced with SSOT config/version.json
 
 SLA_TIERS = {
     "platinum": {
@@ -164,25 +164,42 @@ def calculate_rollback_frequency(history: list) -> int:
 
 
 def run_api_probes() -> dict:
-    """Probe all critical API endpoints."""
-    endpoints = {
-        "health": f"{WORKER_BASE}/api/health",
+    """Probe all critical API endpoints.
+
+    v160.0 -- Endpoints are split into PUBLIC (counted toward availability SLA)
+    and AUTH_PROTECTED (probed for observability but NOT counted toward availability,
+    since 401/403 responses are EXPECTED without a JWT token and do not represent
+    a production outage).
+    """
+    # PUBLIC endpoints -- counted toward availability SLA
+    public_endpoints = {
+        "health":      f"{WORKER_BASE}/api/health",
         "latest_json": f"{WORKER_BASE}/api/v1/intel/latest.json",
-        "top10_json": f"{WORKER_BASE}/api/v1/intel/top10.json",
-        "apex_json": f"{WORKER_BASE}/api/v1/intel/apex.json",
-        "feed_json": f"{WORKER_BASE}/api/feed.json",
+        "top10_json":  f"{WORKER_BASE}/api/v1/intel/top10.json",
+        "feed_json":   f"{WORKER_BASE}/api/feed.json",
     }
+    # AUTH-PROTECTED endpoints -- probed for observability only (401/403 = expected)
+    auth_endpoints = {
+        "apex_json":   f"{WORKER_BASE}/api/v1/intel/apex.json",
+    }
+
     results = {}
     latencies = []
-    for name, url in endpoints.items():
+
+    for name, url in {**public_endpoints, **auth_endpoints}.items():
         r = probe_endpoint(url)
+        # Mark auth-protected endpoints so downstream callers can distinguish
+        r["auth_protected"] = name in auth_endpoints
         results[name] = r
-        if r["ok"]:
+        # Only count public endpoint latencies toward p95
+        if r["ok"] and name in public_endpoints:
             latencies.append(r["latency_ms"])
 
-    all_ok = all(r["ok"] for r in results.values())
+    # Availability is calculated from PUBLIC endpoints only
+    public_results = [r for k, r in results.items() if k in public_endpoints]
+    all_ok = all(r["ok"] for r in public_results)
     availability_pct = round(
-        (sum(1 for r in results.values() if r["ok"]) / len(results)) * 100, 1
+        (sum(1 for r in public_results if r["ok"]) / max(len(public_results), 1)) * 100, 1
     )
     p95_latency = 0
     if latencies:
