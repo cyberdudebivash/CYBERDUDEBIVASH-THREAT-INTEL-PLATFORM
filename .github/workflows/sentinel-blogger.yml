@@ -1280,6 +1280,32 @@ jobs:
       # -----------------------------------------------------------------------
 
       # -----------------------------------------------------------------------
+      # STAGE 5.7.1 - MANIFEST INTEGRITY GATE (Phase 1B — NON-BLOCKING)
+      # Validates feed manifest freshness, stale reuse, advisory uniqueness,
+      # and field-level mutation. Writes signed proof to data/health/.
+      # Non-blocking: manifest integrity failure is observable but never gates deploy.
+      # -----------------------------------------------------------------------
+      - name: "STAGE 5.7.1 - Manifest Integrity Gate (Phase 1B)"
+        timeout-minutes: 3
+        continue-on-error: true
+        run: |
+          python3 scripts/manifest_integrity_system.py --check 2>&1 | tail -20 || true
+          echo "STAGE 5.7.1: Manifest integrity gate complete"
+
+      # -----------------------------------------------------------------------
+      # STAGE 5.7.2 - RUNTIME STABILITY ENGINE (Phase 1B — NON-BLOCKING)
+      # Validates STIX count, output existence proof, orchestration integrity,
+      # and latency anomaly. Writes signed stability report to data/health/.
+      # Non-blocking: stability degradation is observable but never gates deploy.
+      # -----------------------------------------------------------------------
+      - name: "STAGE 5.7.2 - Runtime Stability Engine (Phase 1B)"
+        timeout-minutes: 3
+        continue-on-error: true
+        run: |
+          python3 scripts/runtime_stability_engine.py --check 2>&1 | tail -20 || true
+          echo "STAGE 5.7.2: Runtime stability check complete"
+
+      # -----------------------------------------------------------------------
       # STAGE 5.8 - INTELLIGENCE QUALITY GATE (v146.0 ENTERPRISE)
       # Runs full intelligence quality report. Non-blocking.
       # -----------------------------------------------------------------------
