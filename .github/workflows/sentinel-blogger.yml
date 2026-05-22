@@ -1289,9 +1289,9 @@ jobs:
           if [ "$MON_EXIT" -eq 0 ]; then
             echo "[PASS] Monetization Framework: catalog + SOC readiness + ROI generated"
             [ -f "data/monetization/soc_readiness.json" ] && \
-              echo "[INFO] SOC score: $(python3 -c "import json; d=json.load(open('data/monetization/soc_readiness.json')); print(f\"{d['score']}/100 ({d['tier']})\")" 2>/dev/null || echo '?')"
+              echo "[INFO] SOC score: $(jq -r '"\(.score)/100 (\(.tier))"' data/monetization/soc_readiness.json 2>/dev/null || echo '?')"
             [ -f "data/monetization/sellability_score.json" ] && \
-              echo "[INFO] Sellability: $(python3 -c "import json; d=json.load(open('data/monetization/sellability_score.json')); print(f\"{d['sellability_score']}/100 ({d['sellability_tier']})\")" 2>/dev/null || echo '?')"
+              echo "[INFO] Sellability: $(jq -r '"\(.sellability_score)/100 (\(.sellability_tier))"' data/monetization/sellability_score.json 2>/dev/null || echo '?')"
           else
             echo "::warning::Enterprise Monetization Framework failed (exit $MON_EXIT) -- non-blocking"
           fi

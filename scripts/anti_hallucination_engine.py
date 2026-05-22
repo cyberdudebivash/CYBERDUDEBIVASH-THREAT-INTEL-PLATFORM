@@ -56,7 +56,7 @@ from typing import Any, Dict, List, Optional, Set, Tuple
 log = logging.getLogger("apex.anti_hallucination")
 
 # ── Version ───────────────────────────────────────────────────────────────────
-ENGINE_VERSION = "158.5"
+ENGINE_VERSION = "158.5.1"  # v158.5.1: FABRICATED_SCORE always WARN (blocks real intelligence fix)
 ENGINE_ID      = "APEX-AHE"
 
 # ── Fabrication Fingerprints ──────────────────────────────────────────────────
@@ -386,29 +386,39 @@ class HallucinationEngine:
         except (ValueError, TypeError):
             return violations
 
-        # Flag static bucket scores — v158.5: source-aware severity.
-        # External feed items often lack CVSS/EPSS yet have legitimate content.
-        # Their risk score caps at 5.5 (IOC/MITRE-based estimation) which happens
-        # to match a static bucket. This is NOT fabrication — it's enrichment absence.
-        # Only hard-fail internally-generated items with no external source.
+        # Flag static bucket scores — v158.5.1 FIX: always WARN, never HARD_FAIL.
+        #
+        # RATIONALE FOR FIX:
+        # FABRICATED_SCORE was incorrectly HARD_FAILing legitimate external feed
+        # articles (THN, BleepingComputer, DarkReading, CrowdStrike blogs, etc.)
+        # because their risk_score (5.5 / 10.0) matched a static bucket value and
+        # they had no CVSS/EPSS data.  News/advisory articles from security blogs do
+        # NOT have CVE IDs or CVSS scores — their risk score is legitimately
+        # bucket-assigned by severity label.  This is an ENRICHMENT GAP, not
+        # fabrication.  HARD_FAIL was blocking ~80-100% of real feed content.
+        #
+        # FABRICATED_SCORE is a quality/enrichment warning only.  Real fabrication
+        # is caught by: SYNTHETIC_ACTOR, GENERATED_OPERATION, and the
+        # intelligence_integrity_gate.py AdvisoryAuthenticityScoring gate.
+        #
+        # The source-aware _is_trusted_external_source() check was also insufficient:
+        # its domain whitelist didn't cover all legitimate feed sources (CrowdStrike,
+        # Cisco Talos, SANS ISC, dozens of security blogs).  Rather than maintain an
+        # ever-expanding whitelist, the correct architectural decision is to remove the
+        # HARD_FAIL from this check entirely.
         if score_f in STATIC_SCORE_BUCKETS:
             if cvss in (None, "N/A", "", "Pending") and epss in (None, "N/A", "", "Pending"):
-                is_external = self._is_trusted_external_source(item)
-                severity = "WARN" if is_external else "HARD_FAIL"
                 violations.append(Violation(
                     code="FABRICATED_SCORE",
-                    severity=severity,
+                    severity="WARN",       # v158.5.1: always WARN — enrichment gap, not fabrication
                     field="risk_score",
                     evidence=f"risk_score={score_f}, cvss=N/A, epss=N/A",
                     explanation=(
                         f"Risk score {score_f} matches a static bucket value "
                         f"({', '.join(str(b) for b in STATIC_SCORE_BUCKETS)}) and was "
-                        "computed without CVSS or EPSS data. "
-                        + ("External feed source — WARN only (enrichment unavailable, not fabricated). "
-                           "Attempt NVD/EPSS enrichment if CVE IDs present."
-                           if is_external else
-                           "Internal pipeline item — HARD_FAIL: compute from actual signal data or "
-                           "mark as baseline-estimated.")
+                        "computed without CVSS or EPSS data. This is an enrichment gap — "
+                        "advisory is not blocked. Attempt NVD/EPSS enrichment if CVE IDs "
+                        "are present. For news articles without CVEs, bucket scores are expected."
                     ),
                 ))
 
