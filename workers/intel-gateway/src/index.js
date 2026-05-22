@@ -1964,17 +1964,20 @@ async function handleFeedJson(request, env, rid) {
   }
 
   try {
-    // SOURCE 1: R2 (authoritative -- same data as /api/preview but full array)
+    // SOURCE 1: R2 api/feed.json (plain array -- authoritative pipeline output, v160.0 fix)
+    // ROOT CAUSE FIX: Previously read intel/feed_manifest.json (STIX format) which
+    // normaliseManifestData() reduced to ~54 items via validateAndNormalizeItem filtering.
+    // api/feed.json (plain array, 71+ items) is now uploaded by STAGE 3.93.6 and is the
+    // authoritative source -- no schema transformation loss.
     if (env?.INTEL_R2) {
       try {
-        const obj = await env.INTEL_R2.get("intel/feed_manifest.json");
+        const obj = await env.INTEL_R2.get("api/feed.json");
         if (obj) {
-          const raw  = await obj.json();
-          const norm = normaliseManifestData(raw);
-          if (norm?.reports?.length > 0) {
-            const items = deduplicateFeedItems(norm.reports);
-            slog("INFO", "FEED-JSON", `Served ${items.length} items from R2`, { rid });
-            await recordAnalytics(env, null, "feed_json_r2", "anon", 200).catch(() => {});
+          const raw = await obj.json();
+          if (Array.isArray(raw) && raw.length > 0) {
+            const items = deduplicateFeedItems(raw);
+            slog("INFO", "FEED-JSON", `Served ${items.length} items from R2 api/feed.json`, { rid });
+            await recordAnalytics(env, null, "feed_json_r2_direct", "anon", 200).catch(() => {});
             return new Response(JSON.stringify(items), {
               status: 200,
               headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
@@ -1982,7 +1985,26 @@ async function handleFeedJson(request, env, rid) {
           }
         }
       } catch (e) {
-        slog("WARN", "FEED-JSON", "R2 read failed, falling to KV", { error: e.message, rid });
+        slog("WARN", "FEED-JSON", "R2 api/feed.json read failed, falling to manifest", { error: e.message, rid });
+      }
+      // SOURCE 1b: R2 intel/feed_manifest.json (STIX manifest -- legacy fallback)
+      try {
+        const obj = await env.INTEL_R2.get("intel/feed_manifest.json");
+        if (obj) {
+          const raw  = await obj.json();
+          const norm = normaliseManifestData(raw);
+          if (norm?.reports?.length > 0) {
+            const items = deduplicateFeedItems(norm.reports);
+            slog("INFO", "FEED-JSON", `Served ${items.length} items from R2 manifest (fallback)`, { rid });
+            await recordAnalytics(env, null, "feed_json_r2_manifest", "anon", 200).catch(() => {});
+            return new Response(JSON.stringify(items), {
+              status: 200,
+              headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
+            });
+          }
+        }
+      } catch (e) {
+        slog("WARN", "FEED-JSON", "R2 manifest read failed, falling to KV", { error: e.message, rid });
       }
     }
 

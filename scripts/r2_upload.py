@@ -289,7 +289,15 @@ def main() -> None:
     # r2Key = pathname.slice(1), e.g. "api/v1/intel/latest.json".
     # Uploading here guarantees Worker hits R2 (primary, ~1ms) instead of
     # GitHub raw fallback (~150-300ms, rate-limited).
+    #
+    # v160.0 FIX: api/feed.json is now EXPLICITLY uploaded to R2.
+    # ROOT CAUSE: handleFeedJson in the Worker reads intel/feed_manifest.json
+    # (STIX format -- only ~54 items survive normaliseManifestData filtering)
+    # while api/feed.json has ALL pipeline items (71+ items, plain array).
+    # Uploading api/feed.json as R2 key "api/feed.json" lets the Worker serve
+    # the full authoritative feed without schema-loss normalisation.
     intel_v1_manifests = [
+        ("api/feed.json",                 "api/feed.json"),                # v160.0 CRITICAL FIX
         ("api/v1/intel/latest.json",      "api/v1/intel/latest.json"),
         ("api/v1/intel/top10.json",       "api/v1/intel/top10.json"),
         ("api/v1/intel/apex.json",        "api/v1/intel/apex.json"),

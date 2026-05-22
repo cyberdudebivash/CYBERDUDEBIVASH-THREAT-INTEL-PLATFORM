@@ -1079,6 +1079,27 @@ jobs:
         run: python3 scripts/validate_api_manifests.py
 
       # -----------------------------------------------------------------------
+      # STAGE 3.93.6: R2 POST-STAGE-3.93 MANIFEST RESYNC (v160.0 CRITICAL FIX)
+      # ROOT CAUSE FIX: STAGE 3.5 (r2_upload.py) runs BEFORE STAGE 3.93 generates
+      # the final api/feed.json, api/v1/intel/latest.json, and top10.json.
+      # This means R2 holds PRE-generation stale manifests (25 items) while
+      # GitHub Pages serves the final post-generation versions (71+ items).
+      # The Cloudflare Worker reads from R2 for ALL endpoints -- dashboard shows
+      # stale intel because R2 was never updated with the final data.
+      #
+      # THIS STAGE: Re-uploads ONLY the post-3.93 final API manifests so R2
+      # is always in sync with the final pipeline output before Git commit.
+      # Non-fatal: exit 0 guaranteed -- pipeline continues even if R2 is slow.
+      # -----------------------------------------------------------------------
+      - name: "STAGE 3.93.6 - R2 Re-sync Final API Manifests (v160.0 CRITICAL FIX)"
+        timeout-minutes: 5
+        env:
+          CF_ACCOUNT_ID:       ${{ secrets.CF_ACCOUNT_ID }}
+          AWS_ACCESS_KEY_ID:   ${{ secrets.CF_R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.CF_R2_SECRET_ACCESS_KEY }}
+        run: python3 scripts/r2_resync_manifests.py
+
+      # -----------------------------------------------------------------------
       # STAGE 3.93.7: GLOBAL VERSION GOVERNANCE (v147.0 -- HARD FAIL)
       # Reads VERSION as the single authoritative semver and propagates it to
       # every component that carries a version string:
