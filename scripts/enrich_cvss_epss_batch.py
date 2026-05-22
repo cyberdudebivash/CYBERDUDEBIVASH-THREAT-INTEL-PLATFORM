@@ -194,7 +194,9 @@ def fetch_epss_batch(cve_ids: List[str]) -> Dict[str, float]:
                 score = entry.get("epss")
                 if cid and score is not None:
                     # FIRST.org returns 0-1 fraction; convert to 0-100 percentage
-                    results[cid] = round(float(score) * 100, 4)
+                    # v160.0 CLAMP: guard against any upstream anomaly producing >100
+                    raw_pct = round(float(score) * 100, 4)
+                    results[cid] = min(max(raw_pct, 0.0), 100.0)
         log.info("EPSS batch %d-%d: %d scores fetched", i, i + len(chunk), len(results))
         if i + chunk_size < len(cve_ids):
             time.sleep(0.5)  # polite pause between chunks
@@ -235,6 +237,28 @@ def main() -> int:
         return 0
 
     log.info("Loaded feed: %d items", len(items))
+
+    # ── Pass 0: Feed-wide EPSS corruption repair (v160.0) ────────────────────
+    # Repair any pre-v160 EPSS values that exceed 100 (double-multiplication bug)
+    epss_repaired = 0
+    for item in items:
+        existing = item.get("epss_score")
+        if existing is not None:
+            try:
+                val = float(existing)
+                if val > 100.0:
+                    item["epss_score"] = round(val / 100.0, 4)  # undo double multiply
+                    log.warning("EPSS global-repair: %.2f → %.4f (title: %s)",
+                                val, item["epss_score"], str(item.get("title", ""))[:60])
+                    epss_repaired += 1
+                elif val < 0.0:
+                    item["epss_score"] = 0.0
+                    epss_repaired += 1
+            except (TypeError, ValueError):
+                item["epss_score"] = None
+                epss_repaired += 1
+    if epss_repaired:
+        log.info("EPSS corruption repair: fixed %d item(s)", epss_repaired)
 
     # ── Pass 1: Identify CVE items needing enrichment ─────────────────────────
     needs_enrich: List[Tuple[int, str]] = []   # (index, cve_id)
@@ -313,9 +337,20 @@ def main() -> int:
             cvss_count += 1
 
         # Apply EPSS
+        # v160.0 CORRUPTION-REPAIR: clamp any existing stored EPSS that exceeded 100
+        # (caused by double-multiplication bug in pre-v160 enrichers)
+        existing_epss = item.get("epss_score")
+        if existing_epss is not None:
+            clamped = min(max(float(existing_epss), 0.0), 100.0)
+            if abs(clamped - float(existing_epss)) > 0.001:
+                log.warning("EPSS corruption repaired for %s: %.2f → %.2f",
+                            cve_id, float(existing_epss), clamped)
+                item["epss_score"] = clamped
+                changed = True
+
         epss_pct = epss_map.get(cve_id)
         if epss_pct is not None and item.get("epss_score") is None:
-            item["epss_score"] = epss_pct
+            item["epss_score"] = min(max(epss_pct, 0.0), 100.0)
             changed    = True
             epss_count += 1
 
@@ -335,52 +370,4 @@ def main() -> int:
     log.info("  Items enriched  : %d", enriched_count)
     log.info("  Skipped (no data): %d", skipped_count)
 
-    if DRY_RUN:
-        log.info("[DRY RUN] Would write %d enriched items — skipping write", enriched_count)
-        return 0
-
-    if enriched_count == 0:
-        log.info("No enrichments applied — feed unchanged")
-        return 0
-
-    # Atomic write (write to .tmp then rename)
-    tmp_path = FEED_PATH.with_suffix(".tmp_enrich")
-    try:
-        out_data = items if isinstance(feed_data, list) else {**feed_data, "items": items}
-        tmp_path.write_text(json.dumps(out_data, ensure_ascii=False, indent=2), encoding="utf-8")
-        tmp_path.replace(FEED_PATH)
-        log.info("Feed written: %s (%d items)", FEED_PATH, len(items))
-    except Exception as exc:
-        log.error("Write failed: %s", exc)
-        tmp_path.unlink(missing_ok=True)
-        return 1
-
-    # Write enrichment report for pipeline observability
-    REPORT_PATH.parent.mkdir(parents=True, exist_ok=True)
-    report = {
-        "generated_at":    datetime.now(timezone.utc).isoformat(),
-        "script":          "enrich_cvss_epss_batch.py",
-        "version":         "148.1.0",
-        "feed_total_items": len(items),
-        "cve_items_found": len(needs_enrich),
-        "cvss_enriched":   cvss_count,
-        "epss_enriched":   epss_count,
-        "total_enriched":  enriched_count,
-        "skipped":         skipped_count,
-        "nvd_key_used":    bool(NVD_API_KEY),
-        "dry_run":         DRY_RUN,
-    }
-    try:
-        REPORT_PATH.write_text(json.dumps(report, indent=2, ensure_ascii=False), encoding="utf-8")
-        log.info("Enrichment report: %s", REPORT_PATH)
-    except Exception:
-        pass  # non-fatal
-
-    log.info("=" * 60)
-    log.info("CVSS/EPSS enrichment complete — %d items updated", enriched_count)
-    log.info("=" * 60)
-    return 0
-
-
-if __name__ == "__main__":
-    sys.exit(main())
+   
