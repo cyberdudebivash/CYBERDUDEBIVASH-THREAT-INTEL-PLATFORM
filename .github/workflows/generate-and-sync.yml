@@ -88,7 +88,7 @@ permissions:
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-  PIPELINE_VERSION: "158.5"
+  PIPELINE_VERSION: "160.0"
   PYTHONIOENCODING: "utf-8"
   PYTHONUTF8: "1"
   AI_TRACKER_SCHEMA: "sentinel-apex-ai-tracker-v2"
@@ -276,7 +276,7 @@ jobs:
             IQH_EXIT=$?
             if [ -f "data/health/intelligence_quality_hardener_report.json" ]; then
               IQH_STATUS=$(jq -r '.status // "UNKNOWN"' data/health/intelligence_quality_hardener_report.json 2>/dev/null || echo "UNKNOWN")
-              IQH_SYNTHETIC=$(jq -r '.synthetic_flagged // "?"' data/health/intelligence_quality_hardener_report.json 2>/dev/null || echo "?")
+              IQH_SYNTHETIC=$(jq -r '.synthetic_cve_flagged // "?"' data/health/intelligence_quality_hardener_report.json 2>/dev/null || echo "?")
               IQH_ACTORS=$(jq -r '.actors_upgraded // "?"' data/health/intelligence_quality_hardener_report.json 2>/dev/null || echo "?")
               echo "[INTEL-QUALITY] Status=$IQH_STATUS | Synthetic=$IQH_SYNTHETIC | Actors=$IQH_ACTORS"
             fi
@@ -464,7 +464,7 @@ jobs:
       #         CVSS coverage, confidence uniformity.
       # Non-blocking — violations emit CI warnings + write health report.
       # ─────────────────────────────────────────────────────────────────────
-      - name: "STAGE 6.89 — Feed Health Gate (v159.0)"
+      - name: "STAGE 6.89 — Feed Health Gate (v160.0)"
         timeout-minutes: 3
         continue-on-error: true
         run: |
@@ -489,7 +489,7 @@ jobs:
       # cross-run reuse via persistent registry, flags stale CVE reuse.
       # Non-blocking — writes data/health/advisory_immutability.json.
       # ─────────────────────────────────────────────────────────────────────
-      - name: "STAGE 6.895 — Advisory Immutability Engine (v159.0)"
+      - name: "STAGE 6.895 — Advisory Immutability Engine (v160.0)"
         timeout-minutes: 3
         continue-on-error: true
         run: |
