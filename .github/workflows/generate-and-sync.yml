@@ -408,6 +408,54 @@ jobs:
           echo "STAGE 6.88: Source Diversity Enforcer complete"
 
       # ─────────────────────────────────────────────────────────────────────
+      # STAGE 6.89 — FEED HEALTH GATE (v159.0 Enterprise Hardening)
+      # Validates feed quality after enrichment but before baseline capture.
+      # Checks: uniform risk-score ratio, stale CVE ratio, synthetic actor ratio,
+      #         CVSS coverage, confidence uniformity.
+      # Non-blocking — violations emit CI warnings + write health report.
+      # ─────────────────────────────────────────────────────────────────────
+      - name: "STAGE 6.89 — Feed Health Gate (v159.0)"
+        timeout-minutes: 3
+        continue-on-error: true
+        run: |
+          set +e
+          python3 scripts/feed_health_gate.py --feed api/feed.json --report
+          FHG_EXIT=$?
+          set -e
+          if [ -f "data/health/feed_health_gate.json" ]; then
+            FHG_STATUS=$(jq -r '.status // "UNKNOWN"' data/health/feed_health_gate.json 2>/dev/null || echo "UNKNOWN")
+            FHG_FAILS=$(jq -r '.hard_fails | join(",")' data/health/feed_health_gate.json 2>/dev/null || echo "?")
+            FHG_TOTAL=$(jq -r '.total_items // "?"' data/health/feed_health_gate.json 2>/dev/null || echo "?")
+            echo "[FEED-HEALTH] Status=$FHG_STATUS | Items=$FHG_TOTAL | Fails=$FHG_FAILS"
+            if [ "$FHG_STATUS" = "FAIL" ]; then
+              echo "::warning::FEED HEALTH GATE FAIL — $FHG_FAILS. Feed quality degraded."
+            fi
+          fi
+          echo "STAGE 6.89: Feed Health Gate complete"
+
+      # ─────────────────────────────────────────────────────────────────────
+      # STAGE 6.895 — ADVISORY IMMUTABILITY ENGINE (v159.0 Enterprise Hardening)
+      # Fingerprints all advisories, detects intra-feed duplicates, tracks
+      # cross-run reuse via persistent registry, flags stale CVE reuse.
+      # Non-blocking — writes data/health/advisory_immutability.json.
+      # ─────────────────────────────────────────────────────────────────────
+      - name: "STAGE 6.895 — Advisory Immutability Engine (v159.0)"
+        timeout-minutes: 3
+        continue-on-error: true
+        run: |
+          set +e
+          python3 scripts/advisory_immutability_engine.py --feed api/feed.json --report --update-registry
+          AIE_EXIT=$?
+          set -e
+          if [ -f "data/health/advisory_immutability.json" ]; then
+            AIE_COLL=$(jq -r '.intra_collisions // "?"' data/health/advisory_immutability.json 2>/dev/null || echo "?")
+            AIE_STALE=$(jq -r '.stale_cve_count // "?"' data/health/advisory_immutability.json 2>/dev/null || echo "?")
+            AIE_SYN=$(jq -r '.synthetic_count // "?"' data/health/advisory_immutability.json 2>/dev/null || echo "?")
+            echo "[IMMUTABILITY] Collisions=$AIE_COLL | Stale=$AIE_STALE | Synthetic=$AIE_SYN"
+          fi
+          echo "STAGE 6.895: Advisory Immutability Engine complete"
+
+      # ─────────────────────────────────────────────────────────────────────
       # STAGE 6.9 — GOLDEN BASELINE CAPTURE (Phase 1A Enterprise Hardening)
       # Captures an immutable production snapshot after every successful
       # generate-and-sync run. Writes signed lineage record and deployment
@@ -490,107 +538,4 @@ jobs:
         run: |
           git config user.name  "CYBERDUDEBIVASH"
           git config user.email "bivash@cyberdudebivash.com"
-          git remote set-url origin "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}"
-
-          # Clean any stale lock/rebase state
-          git rebase --abort 2>/dev/null || true
-          git merge  --abort 2>/dev/null || true
-          rm -rf .git/rebase-merge .git/rebase-apply 2>/dev/null || true
-
-          # Stage AI outputs ONLY (never feed_manifest.json — manifest destruction risk)
-          git add api/ai/tracker.json 2>/dev/null || true
-          git add api/ai/health.json 2>/dev/null || true
-          git add api/ai/executive-brief.json 2>/dev/null || true
-          git add api/ai/monetization.json 2>/dev/null || true
-          git add data/ai-telemetry/ 2>/dev/null || true
-
-          # Check if anything changed
-          if git diff --staged --quiet; then
-            echo "[INFO] No AI output changes detected — skipping commit (feed unchanged)"
-            exit 0
-          fi
-
-          # Build deterministic commit message (run ID + schema version)
-          # v149 FIX T12: replaced old-style inline Python one-liner (RULE 1 violation) with jq (ubuntu-latest)
-          FEED_ITEMS=$(jq -r '.feed_item_count // 0' api/ai/tracker.json 2>/dev/null || echo "N/A")
-          GRI=$(jq -r '.global_risk_index.gri_score // "N/A"' api/ai/tracker.json 2>/dev/null || echo "N/A")
-          COMMIT_MSG="AI Tracker v${PIPELINE_VERSION}: run #${GITHUB_RUN_NUMBER} | items=${FEED_ITEMS} | GRI=${GRI} | $(date -u +'%Y-%m-%dT%H:%MZ') [skip ci]"
-          git commit -m "$COMMIT_MSG"
-          echo "[INFO] Commit: $COMMIT_MSG"
-
-          # Stash-safe 5-attempt push retry (exponential backoff)
-          PUSH_OK=0
-          for ATTEMPT in 1 2 3 4 5; do
-            git stash --include-untracked --quiet 2>/dev/null || true
-            git fetch origin main --quiet 2>/dev/null || true
-            git rebase origin/main --quiet 2>/dev/null || {
-              git rebase --abort 2>/dev/null || true
-              git merge origin/main -X ours --no-edit --quiet 2>/dev/null || true
-            }
-            git stash pop --quiet 2>/dev/null || true
-            if git push origin main; then
-              echo "[OK] Push successful (attempt ${ATTEMPT}/5)"
-              PUSH_OK=1
-              break
-            fi
-            echo "::warning::Push attempt ${ATTEMPT}/5 failed — retrying in $((ATTEMPT * 10))s"
-            sleep $((ATTEMPT * 10))
-          done
-          if [ "$PUSH_OK" -eq 0 ]; then
-            echo "::warning::All push attempts deferred — will sync on next scheduled run"
-          fi
-
-      # ─────────────────────────────────────────────────────────────────────
-      # STAGE 9.5 — R2 UPLOAD: AI Tracker files → Cloudflare R2
-      # v148.1.0 FIX: AI tracker files were committed to GitHub only.
-      # The Cloudflare Worker reads exclusively from R2 (private bucket).
-      # Without this step the Worker had no ai/tracker.json, ai/health.json,
-      # or ai/executive-brief.json in R2, causing ai-threat-tracker.html to
-      # show empty/stalled dashboard (handleAI fell back to ai_index.json).
-      # ─────────────────────────────────────────────────────────────────────
-      - name: "STAGE 9.5 — Upload AI Tracker outputs to Cloudflare R2"
-        if: env.DRY_RUN != 'true'
-        env:
-          CF_ACCOUNT_ID:          ${{ secrets.CF_ACCOUNT_ID }}
-          AWS_ACCESS_KEY_ID:      ${{ secrets.CF_R2_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY:  ${{ secrets.CF_R2_SECRET_ACCESS_KEY }}
-          WORKER_ADMIN_SECRET:    ${{ secrets.WORKER_ADMIN_SECRET }}
-        run: |
-          set -euo pipefail
-          ENDPOINT="https://${CF_ACCOUNT_ID}.r2.cloudflarestorage.com"
-          BUCKET="sentinel-apex-data"
-
-          echo "[R2] Installing AWS CLI..."
-          pip install awscli --quiet --break-system-packages 2>/dev/null || pip install awscli --quiet
-
-          echo "[R2] Uploading AI Tracker files to R2..."
-          UPLOADED=0
-          for FILE in \
-            api/ai/tracker.json \
-            api/ai/health.json \
-            api/ai/executive-brief.json \
-            api/ai/monetization.json; do
-            if [ -f "$FILE" ]; then
-              R2_KEY="ai/$(basename $FILE)"
-              aws s3 cp "$FILE" "s3://${BUCKET}/${R2_KEY}" \
-                --endpoint-url "$ENDPOINT" \
-                --content-type "application/json" \
-                --cache-control "max-age=300, s-maxage=300" \
-                --quiet
-              echo "[R2] Uploaded: $FILE → ${R2_KEY}"
-              UPLOADED=$((UPLOADED + 1))
-            else
-              echo "[R2] SKIP (not found): $FILE"
-            fi
-          done
-          echo "[R2] Upload complete — ${UPLOADED} file(s) synced to R2"
-
-          # Bust KV cache so Worker serves fresh AI data immediately
-          echo "[R2] Busting Worker KV cache for AI endpoints..."
-          for KV_KEY in "ai:tracker" "ai:health" "ai:exec-brief" "ai:monetize"; do
-            HTTP=$(curl -s -o /dev/null -w "%{http_code}" \
-              -X POST "https://intel.cyberdudebivash.com/api/admin/cache/bust?key=${KV_KEY}" \
-              -H "X-Admin-Secret: ${WORKER_ADMIN_SECRET}" || echo "000")
-            echo "[KV] Busted ${KV_KEY} → HTTP ${HTTP}"
-          done
-          echo "[R2] Stage 9.5 complete — AI Tracker live on Worker"
+          git remote set-url 
