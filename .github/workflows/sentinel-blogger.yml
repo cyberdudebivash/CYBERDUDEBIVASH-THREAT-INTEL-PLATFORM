@@ -895,6 +895,76 @@ jobs:
           fi
 
       # -----------------------------------------------------------------------
+      # STAGE 3.93.17: FEED HEALTH GATE (v159.0 -- NON-BLOCKING WARN)
+      # Runs 5 feed-health checks against api/feed.json:
+      #   1. Uniform risk-score ratio    (FAIL >40% same exact score)
+      #   2. Stale CVE ratio             (FAIL >30% pre-2024 CVEs without EPSS)
+      #   3. Synthetic actor ratio       (FAIL >15% CDB-UNATTR-CVE + no CVSS/EPSS)
+      #   4. CVSS coverage floor         (WARN <20% CVE items have real cvss_score)
+      #   5. Confidence uniformity       (WARN >60% share same confidence)
+      # Non-blocking: violations surface as CI annotations + data/health/feed_health_gate.json
+      # Root cause targeted: P0 uniform 7.5 HIGH scoring, synthetic flood, zero CVSS.
+      # -----------------------------------------------------------------------
+      - name: "STAGE 3.93.17 - Feed Health Gate (v159.0)"
+        timeout-minutes: 3
+        continue-on-error: true
+        run: |
+          set +e
+          python3 scripts/feed_health_gate.py --feed api/feed.json --report
+          FHG_EXIT=$?
+          set -e
+          if [ -f "data/health/feed_health_gate.json" ]; then
+            FHG_STATUS=$(jq -r '.status // "UNKNOWN"' data/health/feed_health_gate.json 2>/dev/null || echo "UNKNOWN")
+            FHG_FAILS=$(jq -r '.hard_fails | join(",")' data/health/feed_health_gate.json 2>/dev/null || echo "?")
+            FHG_WARNS=$(jq -r '.warnings | join(",")' data/health/feed_health_gate.json 2>/dev/null || echo "?")
+            FHG_TOTAL=$(jq -r '.total_items // "?"' data/health/feed_health_gate.json 2>/dev/null || echo "?")
+            echo "[FEED-HEALTH] Status=$FHG_STATUS | Items=$FHG_TOTAL | Fails=$FHG_FAILS | Warns=$FHG_WARNS"
+            if [ "$FHG_STATUS" = "FAIL" ]; then
+              echo "::warning::FEED HEALTH GATE FAIL — $FHG_FAILS. Feed has governance violations that degrade intelligence quality."
+            elif [ "$FHG_STATUS" = "WARN" ]; then
+              echo "::warning::Feed health degraded — $FHG_WARNS. Review feed_health_gate.json for details."
+            else
+              echo "[PASS] Feed health gate satisfied — Status=$FHG_STATUS"
+            fi
+          else
+            echo "::warning::feed_health_gate.json not written — check feed_health_gate.py execution"
+          fi
+
+      # -----------------------------------------------------------------------
+      # STAGE 3.93.18: ADVISORY IMMUTABILITY ENGINE (v159.0 -- NON-BLOCKING)
+      # Deterministic fingerprinting + stale-reuse detection for all advisories.
+      #   - Fingerprints each advisory (SHA-256 of source_url + CVE IDs)
+      #   - Detects intra-feed fingerprint collisions (same CVE/source duplicated)
+      #   - Tracks registry of known fingerprints across runs
+      #   - Detects stale advisory reuse (CVE-NNNN-XXXX seen >= 3 times)
+      #   - Deduplicates feed in-place (--dedup flag)
+      # Non-blocking: writes data/health/advisory_immutability.json for observability.
+      # Hard-gate mode (--check) activates once reuse baseline is established.
+      # -----------------------------------------------------------------------
+      - name: "STAGE 3.93.18 - Advisory Immutability Engine (v159.0)"
+        timeout-minutes: 3
+        continue-on-error: true
+        run: |
+          set +e
+          python3 scripts/advisory_immutability_engine.py --feed api/feed.json --report --update-registry
+          AIE_EXIT=$?
+          set -e
+          if [ -f "data/health/advisory_immutability.json" ]; then
+            AIE_STATUS=$(jq -r 'if .intra_collisions > 0 or .reuse_violation_count > 0 then "FAIL" else "PASS" end' data/health/advisory_immutability.json 2>/dev/null || echo "UNKNOWN")
+            AIE_TOTAL=$(jq -r '.total_items // "?"' data/health/advisory_immutability.json 2>/dev/null || echo "?")
+            AIE_COLL=$(jq -r '.intra_collisions // "?"' data/health/advisory_immutability.json 2>/dev/null || echo "?")
+            AIE_STALE=$(jq -r '.stale_cve_count // "?"' data/health/advisory_immutability.json 2>/dev/null || echo "?")
+            AIE_SYN=$(jq -r '.synthetic_count // "?"' data/health/advisory_immutability.json 2>/dev/null || echo "?")
+            AIE_REUSE=$(jq -r '.reuse_violation_count // "?"' data/health/advisory_immutability.json 2>/dev/null || echo "?")
+            echo "[IMMUTABILITY] Status=$AIE_STATUS | Items=$AIE_TOTAL | Collisions=$AIE_COLL | Stale=$AIE_STALE | Synthetic=$AIE_SYN | Reuse=$AIE_REUSE"
+            if [ "$AIE_STATUS" = "FAIL" ]; then
+              echo "::warning::ADVISORY IMMUTABILITY VIOLATION — Collisions=$AIE_COLL Reuse=$AIE_REUSE. Advisory deduplication required."
+            fi
+          else
+            echo "::warning::advisory_immutability.json not written — check advisory_immutability_engine.py execution"
+          fi
+
+      # -----------------------------------------------------------------------
       # STAGE 3.93.2: DAILY BRIEF GENERATOR (v148.0.0 -- NON-BLOCKING)
       # Generates daily executive PDF threat brief using ReportLab.
       # Reads api/v1/intel/ai_summary.json + api/feed.json (must run after 3.93.1).
@@ -1580,154 +1650,4 @@ jobs:
               'apex_mitre_attack_engine',
               'apex_narrative_engine',
               'apex_intelligence_quality_gates',
-              'enterprise_intelligence_integrator',
-          ]
-          passed = 0
-          failed = 0
-          for eng in engines:
-              try:
-                  __import__(eng)
-                  print(f'  [OK] {eng}')
-                  passed += 1
-              except Exception as e:
-                  print(f'  [FAIL] {eng}: {e}')
-                  failed += 1
-          print(f'Engine audit: {passed} importable / {failed} failed')
-          if failed > 0:
-              print('WARNING: Some engines failed import — check scripts/ directory')
-          sys.exit(0)  # Non-blocking
-          " 2>&1 || true
-
-          # Step 2: Run EII self-test (synthetic item through all 7 engines)
-          python3 scripts/enterprise_intelligence_integrator.py --test 2>&1 | head -40 || true
-
-          # Step 3: Run quality gate audit against live manifest (advisory only)
-          python3 -c "
-          import sys, os, json
-          from pathlib import Path
-          sys.path.insert(0, 'scripts')
-          manifest_path = Path('data/stix/feed_manifest.json')
-          if not manifest_path.exists():
-              print('Manifest not found — skipping quality gate audit')
-              sys.exit(0)
-          try:
-              from apex_intelligence_quality_gates import QualityGateSystem
-              with open(manifest_path, encoding='utf-8') as f:
-                  data = json.load(f)
-              items = data if isinstance(data, list) else data.get('entries', [])
-              if not items:
-                  print('No entries in manifest — skipping')
-                  sys.exit(0)
-              # Audit last 10 entries only (performance)
-              sample = items[-10:]
-              qgs = QualityGateSystem()
-              batch = qgs.evaluate_batch(sample)
-              print(f'Quality gate audit: {len(sample)} entries sampled')
-              print(f'  Publishable: {batch[\"publishable\"]} / {batch[\"total\"]}')
-              print(f'  Blocked:     {batch[\"blocked\"]}')
-              if batch.get('blocked_ids'):
-                  print(f'  Blocked IDs: {batch[\"blocked_ids\"]}')
-              # Write audit telemetry
-              out_path = Path('data/telemetry/intelligence_quality_audit.json')
-              out_path.parent.mkdir(parents=True, exist_ok=True)
-              out_path.write_text(json.dumps(batch, indent=2, default=str), encoding='utf-8')
-              print(f'  Telemetry written: {out_path}')
-          except Exception as e:
-              print(f'Quality gate audit failed (non-critical): {e}')
-          sys.exit(0)  # Always non-blocking
-          " 2>&1 || true
-
-          echo "=== STAGE 5.8.5 COMPLETE ==="
-        continue-on-error: true
-
-      # -----------------------------------------------------------------------
-      # STAGE 5.9 - ENTERPRISE CI TELEMETRY (v146.0 -- ALWAYS RUNS)
-      # Writes data/telemetry/ci_run_latest.json. Non-blocking.
-      - name: "STAGE 5.9 - Enterprise CI Telemetry"
-        timeout-minutes: 3
-        if: always()
-        run: |
-          python3 scripts/enterprise_telemetry.py collect 2>/dev/null || true
-          python3 -c "
-          import json, os, pathlib, datetime
-          out = pathlib.Path('data/telemetry/ci_run_latest.json')
-          out.parent.mkdir(parents=True, exist_ok=True)
-          payload = {
-              'run_id': os.environ.get('GITHUB_RUN_ID', 'unknown'),
-              'run_number': os.environ.get('GITHUB_RUN_NUMBER', 'unknown'),
-              'pipeline_version': os.environ.get('PIPELINE_VERSION', 'unknown'),
-              'actor': os.environ.get('GITHUB_ACTOR', 'unknown'),
-              'ref': os.environ.get('GITHUB_REF', 'unknown'),
-              'sha': os.environ.get('GITHUB_SHA', 'unknown')[:12],
-              'recorded_at': datetime.datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ'),
-              'schema': 'sentinel_apex_ci_telemetry_v1'
-          }
-          out.write_text(json.dumps(payload, indent=2), encoding='utf-8')
-          print('[TELEMETRY] Written:', out)
-          " 2>/dev/null || true
-
-      # -----------------------------------------------------------------------
-      # STAGE 5.9.1 - GOLDEN BASELINE POST-DEPLOY CAPTURE (Phase 1A)
-      # Captures an immutable production snapshot after successful deploy.
-      # Writes signed attestation + lineage record to data/golden_baseline/.
-      # always() ensures capture runs even on partial-success pipelines.
-      # Non-blocking — baseline failure never gates a successful publication.
-      # -----------------------------------------------------------------------
-      - name: "STAGE 5.9.1 - Golden Baseline Post-Deploy Capture (Phase 1A)"
-        timeout-minutes: 3
-        continue-on-error: true
-        if: always()
-        env:
-          GITHUB_RUN_ID: ${{ github.run_id }}
-          GITHUB_SHA: ${{ github.sha }}
-        run: |
-          python3 scripts/golden_baseline_system.py --capture \
-            --label "sentinel-blogger" \
-            --run-id "$GITHUB_RUN_ID" \
-            2>&1 | tail -30 || true
-          echo "STAGE 5.9.1: Golden Baseline Capture complete"
-
-      # -----------------------------------------------------------------------
-      # STAGE 6 - TELEGRAM FAILURE ALERT (v146.0 -- ON FAILURE ONLY)
-      # Requires: TELEGRAM_BOT_TOKEN + TELEGRAM_CHAT_ID secrets.
-      # Non-blocking.
-      # -----------------------------------------------------------------------
-      - name: "STAGE 6 - Telegram Failure Alert"
-        timeout-minutes: 3
-        if: failure()
-        env:
-          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-        run: |
-          RUN_URL="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-          MSG="SENTINEL APEX CI FAILURE | Pipeline: ${PIPELINE_VERSION:-unknown} | Run: ${RUN_URL} | $(date -u +%Y-%m-%dT%H:%M:%SZ)"
-          if [ -n "${TELEGRAM_BOT_TOKEN}" ] && [ -n "${TELEGRAM_CHAT_ID}" ]; then
-            curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
-              -d "chat_id=${TELEGRAM_CHAT_ID}" \
-              -d "text=${MSG}" \
-              --max-time 15 2>/dev/null || true
-          else
-            echo "[ALERT] Telegram secrets not configured -- alert skipped"
-          fi
-
-      # -----------------------------------------------------------------------
-      # STAGE 6.1 - DEPLOYMENT SUCCESS NOTIFICATION (v146.0 -- ON SUCCESS)
-      # Non-blocking.
-      # -----------------------------------------------------------------------
-      - name: "STAGE 6.1 - Deployment Success Notification"
-        timeout-minutes: 3
-        if: success()
-        env:
-          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-        run: |
-          RUN_URL="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-          MSG="SENTINEL APEX DEPLOY OK | Pipeline: ${PIPELINE_VERSION:-unknown} | Run: ${RUN_URL} | $(date -u +%Y-%m-%dT%H:%M:%SZ) | Platform fully operational."
-          if [ -n "${TELEGRAM_BOT_TOKEN}" ] && [ -n "${TELEGRAM_CHAT_ID}" ]; then
-            curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
-              -d "chat_id=${TELEGRAM_CHAT_ID}" \
-              -d "text=${MSG}" \
-              --max-time 15 2>/dev/null || true
-          else
-            echo "[NOTIFY] Telegram secrets not configured -- notification skipped"
-          fi
+   

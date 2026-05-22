@@ -2428,14 +2428,61 @@ def stage_sync_root_feed_json() -> None:
                         )
                         # PHASE 5 FIX: recover soc_priority from STIX extension
                         _soc_priority_stix = _stix_ext.get("soc_priority", "")
-                        risk_score = 7.5 if cve_ids else 6.5
+                        # P0-FIX v159.0: Extract real scoring signals from STIX extensions.
+                        # PREVIOUS BUG: hardcoded risk_score=7.5/6.5 and confidence=60.0 for
+                        # ALL reconstructed entries, making the dashboard show uniform HIGH at
+                        # exactly 7.5 for every CVE advisory — a governance P0 violation.
+                        # FIX: read predictive_score + campaign_confidence from x-cdb-apex-1,
+                        # read x_cdb_epss_score from the vulnerability STIX object.
+                        # These values are written by sentinel_blogger.py at bundle creation time.
+                        _predictive_score  = _stix_ext.get("predictive_score")
+                        _campaign_conf     = _stix_ext.get("campaign_confidence")
+                        _threat_level      = _stix_ext.get("threat_level", "")
+                        _epss_stix         = vuln.get("x_cdb_epss_score") if vuln else None
+                        # Risk score: prefer STIX predictive_score -> EPSS-derived -> CVE flag
+                        if _predictive_score is not None:
+                            risk_score = round(float(_predictive_score), 2)
+                        elif _epss_stix is not None:
+                            # EPSS fraction (0-1): scale to 4.0-9.5 range for CVE advisories
+                            risk_score = round(min(9.5, 4.0 + float(_epss_stix) * 50.0), 2)
+                        elif cve_ids:
+                            risk_score = 5.5   # unknown CVE, no EPSS signal
+                        else:
+                            risk_score = 4.0   # non-CVE advisory, no signal
+                        # Severity from risk_score — 4-tier CVSS-aligned
+                        if risk_score >= 9.0:
+                            _severity = "CRITICAL"
+                        elif risk_score >= 7.0:
+                            _severity = "HIGH"
+                        elif risk_score >= 4.0:
+                            _severity = "MEDIUM"
+                        else:
+                            _severity = "LOW"
+                        # Prefer STIX threat_level override for explicit classifications
+                        if _threat_level.upper() in ("CRITICAL", "HIGH", "MEDIUM", "LOW"):
+                            _severity = _threat_level.upper()
+                        # Confidence: prefer campaign_confidence -> EPSS-based -> fallback
+                        if _campaign_conf is not None:
+                            _confidence = round(float(_campaign_conf) * 10.0, 1)  # 0-10 -> 0-100
+                            _confidence = max(20.0, min(95.0, _confidence))
+                        elif _epss_stix is not None:
+                            _confidence = round(min(85.0, 30.0 + float(_epss_stix) * 500.0), 1)
+                        elif cve_ids:
+                            _confidence = 45.0
+                        else:
+                            _confidence = 30.0
+                        # Deterministic advisory fingerprint from bundle stem + CVE IDs (v159.0)
+                        _bundle_stem = sf.stem.split("-")[-1]
+                        _cve_slug = "_".join(sorted(cve_ids))[:40] if cve_ids else ""
+                        _advisory_id = f"intel--{_bundle_stem}" + (f"_{_cve_slug}" if _cve_slug else "")
                         intel_obj = {
-                            "id":             f"intel--{sf.stem.split('-')[-1]}",
+                            "id":             _advisory_id,
                             "title":          raw_title,
                             "description":    desc[:500] if desc else raw_title,
-                            "severity":       "HIGH" if risk_score >= 7 else "MEDIUM",
+                            "severity":       _severity,
                             "risk_score":     risk_score,
-                            "confidence":     60.0,
+                            "confidence":     _confidence,
+                            "epss_score":     round(float(_epss_stix) * 100.0, 4) if _epss_stix is not None else None,
                             "timestamp":      ts,
                             "processed_at":   ts,
                             "published_at":   _published_at_final,   # PHASE 5 FIX
@@ -2446,9 +2493,12 @@ def stage_sync_root_feed_json() -> None:
                             "tags":           ttps[:5],
                             "mitre_tactics":  ttps[:5],
                             "source":         "SENTINEL-APEX",
-                            "threat_type":    "General",
+                            "source_url":     _stix_ext.get("x_cdb_source_url", ""),
+                            "threat_type":    _stix_ext.get("threat_category", "General"),
                             "stix_bundle":    f"https://intel.cyberdudebivash.com/data/stix/{sf.name}",
                             "validation_status": "valid",
+                            "_score_source":  "stix_predictive" if _predictive_score is not None
+                                              else ("stix_epss" if _epss_stix is not None else "fallback"),
                         }
                         if _soc_priority_stix:
                             intel_obj["apex_ai"] = {"soc_priority": _soc_priority_stix}

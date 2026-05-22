@@ -76,10 +76,28 @@ log = logging.getLogger("enrich_cvss_epss")
 _CVE_RE = re.compile(r"\bCVE-\d{4}-\d{4,}\b", re.IGNORECASE)
 
 def extract_cve_id(item: Dict) -> Optional[str]:
-    """Extract the first CVE ID from title, source_url, or id fields."""
+    """Extract the first CVE ID from title, source_url, id, or cve list fields.
+
+    P0-FIX v159.0: also checks the 'cve' list field (set by run_pipeline.py
+    STIX reconstruction path as intel_obj['cve'] = cve_ids). Without this fix
+    all STIX-reconstructed CVE items were invisible to the enricher because
+    their CVE IDs lived in the list field, not in title/id/source_url.
+    """
+    # Check scalar string fields first
     for field in ("title", "id", "stix_id", "source_url", "blog_url"):
         val = item.get(field) or ""
         m = _CVE_RE.search(str(val))
+        if m:
+            return m.group(0).upper()
+    # Check the 'cve' list field (STIX reconstruction path)
+    cve_list = item.get("cve") or []
+    if isinstance(cve_list, list):
+        for cve_val in cve_list:
+            m = _CVE_RE.search(str(cve_val))
+            if m:
+                return m.group(0).upper()
+    elif isinstance(cve_list, str):
+        m = _CVE_RE.search(cve_list)
         if m:
             return m.group(0).upper()
     return None
@@ -275,13 +293,22 @@ def main() -> int:
         if cvss_score and existing_cvss == 0.0:
             item["cvss_score"]   = cvss_score
             item["cvss_vector"]  = cvss_vec or item.get("cvss_vector")
-            # Re-derive severity from CVSS if currently generic
-            existing_sev = (item.get("severity") or "").upper()
+            # Re-derive severity from CVSS (authoritative — overrides synthetic fallbacks)
             derived_sev  = cvss_to_severity(cvss_score)
-            if existing_sev in ("", "NONE", "UNKNOWN") or (
-                existing_sev == "LOW" and derived_sev in ("MEDIUM", "HIGH", "CRITICAL")
-            ):
-                item["severity"] = derived_sev
+            item["severity"] = derived_sev
+            # P0-FIX v159.0: also update risk_score when _score_source is fallback.
+            # run_pipeline.py STIX reconstruction used hardcoded 7.5/6.5 for all CVEs.
+            # Now that we have real NVD CVSS data, overwrite the synthetic fallback value.
+            _score_src = item.get("_score_source", "")
+            existing_risk = float(item.get("risk_score") or 0)
+            _is_synthetic_fallback = (
+                _score_src == "fallback"
+                or existing_risk in (7.5, 6.5)   # exact hardcoded fallback values
+                or existing_risk == 0.0
+            )
+            if _is_synthetic_fallback:
+                item["risk_score"]    = cvss_score
+                item["_score_source"] = "nvd_cvss"
             changed    = True
             cvss_count += 1
 
