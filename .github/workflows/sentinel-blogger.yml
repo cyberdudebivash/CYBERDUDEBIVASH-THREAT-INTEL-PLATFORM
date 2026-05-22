@@ -604,6 +604,21 @@ jobs:
           echo "STAGE 3.1.4: Intelligence Quality Hardener complete"
 
       # -----------------------------------------------------------------------
+      # STAGE 3.1.4b: EVIDENCE SCORE ENFORCER (v160.0 -- PERMANENT INFLATION FIX)
+      # Eliminates confidence inflation: items claiming risk=10 (CRITICAL) must
+      # have corroborating evidence (CVE/KEV/CVSS/EPSS/IOC).
+      # Tier-0 (no evidence): max risk_score=5.5. Tier-4 (KEV+exploit+EPSS>=50%): 10.0.
+      # ROOT CAUSE FIX: Previously not in pipeline, so governance engine saw
+      # inflated scores and flagged hard_violations -> Grade=D.
+      # Non-fatal: pipeline continues even if enforcer errors.
+      # -----------------------------------------------------------------------
+      - name: "STAGE 3.1.4b - Evidence Score Enforcer (v160.0 -- inflation elimination)"
+        timeout-minutes: 3
+        run: |
+          python3 scripts/evidence_score_enforcer.py || true
+          echo "STAGE 3.1.4b: Evidence Score Enforcer complete"
+
+      # -----------------------------------------------------------------------
       # STAGE 3.1.5: APEX AI BACK-SYNC TO MANIFEST (HARDENING -- PERMANENT)
       # After enrich_feed_apex.py populates api/feed.json with apex_ai blocks,
       # this step syncs those enrichment fields back into data/stix/feed_manifest.json.
