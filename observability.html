@@ -153,7 +153,7 @@ footer{text-align:center;padding:32px;color:var(--muted);font-size:12px;border-t
   <!-- AI ENGINE HEALTH -->
   <div class="section-header"><div class="line"></div><h2>AI Engine Health</h2><div class="line"></div></div>
   <div class="grid grid-3">
-    <div class="card"><div class="card-label">IOC Engine</div><div class="card-value ok" id="ai-ioc">v5.0</div><div class="card-sub">IOC extraction &amp; dedup active</div></div>
+    <div class="card"><div class="card-label">IOC Engine</div><div class="card-value ok" id="ai-ioc">v158.5</div><div class="card-sub">IOC extraction &amp; dedup active</div></div>
     <div class="card"><div class="card-label">AI Brain</div><div class="card-value ok" id="ai-brain">v3.0</div><div class="card-sub">Campaigns &bull; Anomalies &bull; Predictions</div></div>
     <div class="card"><div class="card-label">STIX Engine</div><div class="card-value ok" id="ai-stix">v2.1</div><div class="card-sub">STIX 2.1 bundle generation</div></div>
     <div class="card"><div class="card-label">CVSS / EPSS</div><div class="card-value ok" id="ai-cvss">ACTIVE</div><div class="card-sub">NVD v2.0 + FIRST.org EPSS</div></div>
@@ -292,7 +292,7 @@ function renderTelemetry(health) {
   const rows = [
     {comp:'API Gateway',     s:'ok',  ver:health?.gateway||health?.version||'—',  detail:`Platform: ${health?.platform||'SENTINEL APEX'}`},
     {comp:'Platform Version',s:'ok',  ver:health?.version||'—',                   detail:`Manifest: ${pl.manifest_version||health?.version||'—'}`},
-    {comp:'IOC Engine',      s:'ok',  ver:pl.ioc_engine||'v5.0',                  detail:'IOC extraction, dedup, fingerprinting'},
+    {comp:'IOC Engine',      s:'ok',  ver:pl.ioc_engine||'v158.5',                detail:'IOC extraction, dedup, fingerprinting'},
     {comp:'AI Brain Engine', s:'ok',  ver:pl.ai_engine||'v3.0',                   detail:'Campaigns, Anomalies, Predictions'},
     {comp:'STIX Exporter',   s:'ok',  ver:pl.stix_version||'2.1',                 detail:'STIX 2.1 bundle export'},
     {comp:'Feed Dedup',      s:pl.dedup_active?'ok':'warn', ver:'—',              detail:pl.dedup_active?'Active':'Inactive'},
@@ -398,7 +398,7 @@ async function refreshAll() {
   setVal('sla-p95', `${ms}ms`, ms<200?'ok':ms<500?'warn':'error');
   setVal('sla-kv',  checks.kv_rate_limit==='ok'?'OK':(checks.kv_rate_limit||'—').toUpperCase(),
     checks.kv_rate_limit==='ok'?'ok':'warn');
-  setVal('ai-ioc',  fmt(pl.ioc_engine,'v5.0'), 'ok');
+  setVal('ai-ioc',  fmt(pl.ioc_engine,'v158.5'), 'ok');
   setVal('ai-brain',fmt(pl.ai_engine,'v3.0'),  'ok');
   setVal('ai-stix', fmt(pl.stix_version,'2.1'),'ok');
 
