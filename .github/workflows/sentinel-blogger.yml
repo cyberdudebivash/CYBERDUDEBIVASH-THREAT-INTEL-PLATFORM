@@ -1173,6 +1173,27 @@ jobs:
           python3 scripts/safe_git_commit.py
 
       # -----------------------------------------------------------------------
+      # STAGE 4.1: FINAL R2 FULL SYNC (v160.0 -- POST-GIT-PUSH COMPLETE FEED)
+      # ROOT CAUSE FIX: STAGE 3.93.6 runs at step ~53 and uploads 51 items to R2.
+      # Steps 54-87 (after 3.93.6) add ~20 more items to api/feed.json before
+      # STAGE 4 commits the final 71-item version to GitHub. R2 never gets those
+      # 20 extra items -- Worker serves stale 51-item feed indefinitely.
+      #
+      # THIS STAGE: Runs AFTER STAGE 4 Git Sync (post-commit, post-push) and
+      # re-uploads the final committed versions of all API manifests to R2.
+      # R2 now receives the same 71-item feed that GitHub Pages serves.
+      # Non-fatal: || true ensures pipeline continues even if R2 is unreachable.
+      # -----------------------------------------------------------------------
+      - name: "STAGE 4.1 - Final R2 Full Sync (v160.0 -- post-git-push complete feed)"
+        timeout-minutes: 5
+        if: always()
+        env:
+          CF_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.CF_R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.CF_R2_SECRET_ACCESS_KEY }}
+        run: python3 scripts/r2_resync_manifests.py || true
+
+      # -----------------------------------------------------------------------
       # STAGE 5.1: POST-DEPLOY API MANIFEST VERIFIER (v150.0 -- INFORMATIONAL)
       # Verifies api/v1/intel/*.json bundles are committed and populated after
       # GitHub Pages deploy. Confirms index.html was NOT mutated (EMBEDDED_INTEL=[]).
