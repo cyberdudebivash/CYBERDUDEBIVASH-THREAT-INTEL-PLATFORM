@@ -354,6 +354,26 @@ jobs:
           echo "STAGE 6.8: Version governance gate PASSED — no drift detected"
 
       # ─────────────────────────────────────────────────────────────────────
+      # STAGE 6.9 — GOLDEN BASELINE CAPTURE (Phase 1A Enterprise Hardening)
+      # Captures an immutable production snapshot after every successful
+      # generate-and-sync run. Writes signed lineage record and deployment
+      # attestation to data/golden_baseline/. Non-blocking (continue-on-error)
+      # so a baseline failure never blocks a successful intelligence publish.
+      # ─────────────────────────────────────────────────────────────────────
+      - name: "STAGE 6.9 — Golden Baseline Capture (Phase 1A)"
+        timeout-minutes: 3
+        continue-on-error: true
+        env:
+          GITHUB_RUN_ID: ${{ github.run_id }}
+          GITHUB_SHA: ${{ github.sha }}
+        run: |
+          python3 scripts/golden_baseline_system.py --capture \
+            --label "generate-and-sync" \
+            --run-id "$GITHUB_RUN_ID" \
+            2>&1 | tail -30 || true
+          echo "STAGE 6.9: Golden Baseline Capture complete"
+
+      # ─────────────────────────────────────────────────────────────────────
       # STAGE 7 — PIPELINE OBSERVABILITY TELEMETRY (Phase 6)
       # ─────────────────────────────────────────────────────────────────────
       # v148.0 FIX: Moved from inline python3 -c block (RULE 1 violation) to
