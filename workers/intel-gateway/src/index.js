@@ -122,12 +122,12 @@ function injectVersionHeaders(response, config) {
   headers.set("X-SENTINEL-Version", config.GATEWAY_VERSION);
   headers.set("X-SENTINEL-Platform", "SENTINEL-APEX");
   headers.set("X-SENTINEL-Codename", "GOD-MODE");
-  headers.set("X-Powered-By", "CYBERDUDEBIVASH-SENTINEL-APEX-v158");
+  headers.set("X-Powered-By", "CYBERDUDEBIVASH-SENTINEL-APEX-v160");
   return new Response(response.body, { status: response.status, headers });
 }
 
 const CONFIG = {
-  GATEWAY_VERSION:   "158.5",    // v158.5 ENTERPRISE-GRADE  -  AHE fix, integrity gate, monetization framework
+  GATEWAY_VERSION:   "160.0",    // v158.5 ENTERPRISE-GRADE  -  AHE fix, integrity gate, monetization framework
   GATEWAY_NAME:      "SENTINEL-APEX",
   BYPASS_FEED_CACHE: false,
   // P0 FIX v134.0: Reduced cache TTLs to ensure dashboard reflects fresh R2 data
