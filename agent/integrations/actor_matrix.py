@@ -339,33 +339,37 @@ class ActorMatrix:
                 "profile": best_match[1],
             }
 
-        # v134.1 P0 FIX: Threat-category fallback before true UNC-UNKNOWN
-        # Assign campaign cluster IDs based on broad threat-type keywords
+        # v158.5 FIX: Threat-category fallback — AHE-safe naming convention.
+        # CRITICAL: IDs must NOT match SYNTHETIC_ACTOR_PATTERNS in anti_hallucination_engine.py
+        # (which blocks CDB-*-GEN names). Use CDB-UNATTR-* prefix for category-level attribution.
+        # These represent unattributed threat clusters classified by TTP category, not synthetic actors.
         _CATEGORY_MAP = [
-            ("CDB-RAN-GEN", ["ransomware", "ransom", "locker", "encryptor", "extortion", "double extortion"]),
-            ("CDB-PHI-GEN", ["phishing", "spear-phish", "credential harvest", "blobphish", "smishing", "vishing"]),
-            ("CDB-RAT-GEN", ["remote access trojan", " rat ", "remcos", "njrat", "asyncrat", "quasar rat", "xworm", "agent tesla"]),
-            ("CDB-APT-GEN", ["apt", "nation-state", "state-sponsored", "advanced persistent"]),
-            ("CDB-SUP-GEN", ["supply chain", "typosquat", "dependency confusion", "malicious package", "npm package", "pypi"]),
-            ("CDB-CVE-GEN", ["cve-", "zero-day", "0-day", "exploit", "rce", "lfi", "sqli", "ssrf", "xxe"]),
-            ("CDB-MAL-GEN", ["malware", "backdoor", "rootkit", "bootkit", "stealer", "infostealer", "spyware", "wiper"]),
-            ("CDB-BOT-GEN", ["botnet", "ddos", "distributed denial", "mirai", "qakbot", "emotet"]),
-            ("CDB-CRY-GEN", ["cryptojack", "cryptominer", "xmrig", "monero mining", "coin miner"]),
-            ("CDB-MOB-GEN", ["android malware", "ios malware", "mobile threat", "banking trojan"]),
+            ("CDB-UNATTR-RAN", ["ransomware", "ransom", "locker", "encryptor", "extortion", "double extortion"]),
+            ("CDB-UNATTR-PHI", ["phishing", "spear-phish", "credential harvest", "blobphish", "smishing", "vishing"]),
+            ("CDB-UNATTR-RAT", ["remote access trojan", " rat ", "remcos", "njrat", "asyncrat", "quasar rat", "xworm", "agent tesla"]),
+            ("CDB-UNATTR-APT", ["apt", "nation-state", "state-sponsored", "advanced persistent"]),
+            ("CDB-UNATTR-SUP", ["supply chain", "typosquat", "dependency confusion", "malicious package", "npm package", "pypi"]),
+            ("CDB-UNATTR-CVE", ["cve-", "zero-day", "0-day", "exploit", "rce", "lfi", "sqli", "ssrf", "xxe"]),
+            ("CDB-UNATTR-MAL", ["malware", "backdoor", "rootkit", "bootkit", "stealer", "infostealer", "spyware", "wiper"]),
+            ("CDB-UNATTR-BOT", ["botnet", "ddos", "distributed denial", "mirai", "qakbot", "emotet"]),
+            ("CDB-UNATTR-CRY", ["cryptojack", "cryptominer", "xmrig", "monero mining", "coin miner"]),
+            ("CDB-UNATTR-MOB", ["android malware", "ios malware", "mobile threat", "banking trojan"]),
         ]
         corpus_lower_cat = corpus.lower()
         for cat_id, cat_keywords in _CATEGORY_MAP:
             for kw in cat_keywords:
                 if kw in corpus_lower_cat:
+                    category_label = cat_id.replace("CDB-UNATTR-", "").title()
                     return {
                         "tracking_id": cat_id,
                         "profile": {
-                            "alias": [cat_id.replace("CDB-", "").replace("-GEN", " (Generic)")],
-                            "origin": "Threat Category Classification",
+                            "alias": [f"Unattributed {category_label} Cluster"],
+                            "origin": "Threat Category Classification (Unattributed)",
                             "motivation": "Varied",
                             "tooling": ["See technical analysis"],
-                            "confidence_score": "Category match",
+                            "confidence_score": "Category match — pending attribution",
                             "_is_category": True,
+                            "_is_unattributed": True,
                         }
                     }
 

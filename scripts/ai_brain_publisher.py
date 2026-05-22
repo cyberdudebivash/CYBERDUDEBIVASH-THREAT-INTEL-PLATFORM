@@ -72,7 +72,7 @@ INTEL_DIR     = REPO_ROOT / "data" / "intelligence"
 API_OUT_DIR   = REPO_ROOT / "api" / "v1" / "intel"
 OUTPUT_PATH   = API_OUT_DIR / "ai_summary.json"
 
-VERSION = "152.0.0"
+VERSION = "158.5"
 
 # Campaign clustering params
 MAX_CAMPAIGNS   = 12
@@ -89,6 +89,49 @@ SECTOR_PRIMARY_VECTOR = {
     "Manufacturing"           : "Supply Chain Compromise",
     "Critical Infrastructure" : "ICS/SCADA Exploit",
 }
+
+
+# v158.5 — CDB-UNATTR-* display name map (matches actor_matrix.py rename)
+_UNATTR_DISPLAY = {
+    "CDB-UNATTR-RAN": "Unattributed Ransomware Cluster",
+    "CDB-UNATTR-PHI": "Unattributed Phishing Cluster",
+    "CDB-UNATTR-RAT": "Unattributed RAT / Remote-Access Cluster",
+    "CDB-UNATTR-APT": "Unattributed APT / Nation-State Cluster",
+    "CDB-UNATTR-SUP": "Unattributed Supply-Chain Cluster",
+    "CDB-UNATTR-CVE": "Unattributed CVE / Exploit Cluster",
+    "CDB-UNATTR-MAL": "Unattributed Malware Cluster",
+    "CDB-UNATTR-BOT": "Unattributed Botnet / DDoS Cluster",
+    "CDB-UNATTR-CRY": "Unattributed Cryptojacking Cluster",
+    "CDB-UNATTR-MOB": "Unattributed Mobile Threat Cluster",
+}
+
+
+def _actor_display_name(actor: str) -> str:
+    """Return a human-readable display name for an actor tag.
+
+    Handles CDB-UNATTR-* (v158.5 canonical labels), legacy CDB-*-GEN labels
+    (backward compat), known threat groups, and raw actor strings.
+    """
+    # Exact match in canonical unattr map
+    if actor in _UNATTR_DISPLAY:
+        return _UNATTR_DISPLAY[actor]
+
+    # Legacy CDB-*-GEN labels (pre-v158.5 backward compat — should not appear after rename)
+    if actor.startswith("CDB-") and actor.endswith("-GEN"):
+        category = actor[4:-4].title()
+        return f"Unattributed {category} Cluster"
+
+    # Generic CDB- prefix cleanup
+    if actor.startswith("CDB-"):
+        cleaned = actor[4:].replace("-", " ").title()
+        return cleaned
+
+    # UNATTRIBUTED / unknown
+    if actor in ("UNATTRIBUTED", "UNKNOWN", "N/A"):
+        return "Unattributed Threat Actor"
+
+    # Pass-through: real named threat groups, APT designations, etc.
+    return actor.replace("-", " ").replace("_", " ").title()
 
 
 def now_iso() -> str:
@@ -146,7 +189,7 @@ def build_campaigns(feed: List[Dict]) -> List[Dict]:
         if actor not in actor_map:
             actor_map[actor] = {
                 "actor"        : actor,
-                "display_name" : actor.replace("CDB-", "").replace("-GEN", " (Generic)").replace("-", " "),
+                "display_name" : _actor_display_name(actor),
                 "count"        : 0,
                 "severity"     : "LOW",
                 "max_risk"     : 0.0,
@@ -311,36 +354,84 @@ def build_forecasts(forecasts_data: Optional[Dict]) -> List[Dict]:
 
 
 def build_apex_summary(apex_data: Optional[Dict], feed: List[Dict]) -> str:
-    """Generate a deterministic AI executive summary."""
+    """Generate enterprise-grade AI executive summary (v158.5 — SOC/MSSP quality).
+
+    Produces a structured, actionable threat summary consumable by:
+    - SOC Tier 1/2/3 analysts (triage context)
+    - MSSP threat briefings (client-facing intelligence)
+    - Executive risk dashboards (board-level decision support)
+    """
+    import re as _re
+
+    # If upstream apex_forecast_latest.json has a real summary, freshen its count
     if apex_data and apex_data.get("ai_executive_summary"):
         base = apex_data["ai_executive_summary"]
-        # Freshen the advisory count in the summary
         count = len(feed)
-        if "analyzing 2" in base or "analyzing 0" in base:
-            import re
-            base = re.sub(r"analyzing \d+ recent", f"analyzing {count} recent", base)
+        base = _re.sub(r"analyzing \d+ recent", f"analyzing {count} recent", base)
+        # Update advisory count numerals in the text
+        base = _re.sub(r"\b\d+ intelligence advisories?\b", f"{count} intelligence advisories", base)
         return base
 
-    # Fallback: derive from live feed stats
+    # --- Enterprise-grade derived summary from live feed stats ---
     count = len(feed)
+    if count == 0:
+        return "SENTINEL APEX: No advisories in current feed window. Pipeline active — awaiting next ingestion cycle."
+
     sev_dist: Counter = Counter(
         (i.get("severity") or "MEDIUM").upper() for i in feed
     )
     actor_dist: Counter = Counter(
         (i.get("actor_tag") or "UNKNOWN") for i in feed
     )
-    top_actor = actor_dist.most_common(1)[0][0] if actor_dist else "UNKNOWN"
+    sector_dist: Counter = Counter(
+        (i.get("sector") or "").strip() for i in feed if i.get("sector")
+    )
+    kev_count = sum(1 for i in feed if i.get("kev_enriched") or i.get("in_cisa_kev"))
+    ioc_count = sum(len(i.get("iocs") or []) for i in feed)
     critical = sev_dist.get("CRITICAL", 0)
     high = sev_dist.get("HIGH", 0)
+    medium = sev_dist.get("MEDIUM", 0)
 
-    return (
-        f"SENTINEL APEX analyzed {count} intelligence advisories. "
-        f"{critical} CRITICAL-severity and {high} HIGH-severity threats detected. "
-        f"Most active threat actor cluster: {top_actor}. "
-        f"Isolation Forest anomaly detection active. "
-        f"GradientBoosting sector forecasts computed for {MAX_FORECASTS} industry verticals. "
-        f"Real-time campaign clustering enabled."
+    # Top actor (exclude generic/unattributed for executive summary)
+    named_actors = [
+        (a, c) for a, c in actor_dist.most_common(5)
+        if not a.startswith("CDB-UNATTR") and a not in ("UNATTRIBUTED", "UNKNOWN", "N/A", "")
+    ]
+    top_actor_str = named_actors[0][0] if named_actors else "no attributed threat group"
+    top_actor_count = named_actors[0][1] if named_actors else 0
+
+    top_sector = sector_dist.most_common(1)[0][0] if sector_dist else "cross-sector"
+
+    # Threat posture assessment
+    if critical >= 5 or kev_count >= 3:
+        posture = "ELEVATED — immediate SOC triage recommended"
+    elif critical >= 2 or high >= 10:
+        posture = "HIGH — accelerated investigation warranted"
+    elif high >= 5:
+        posture = "MODERATE-HIGH — prioritized review advised"
+    else:
+        posture = "MODERATE — routine monitoring continues"
+
+    parts = [
+        f"SENTINEL APEX v{VERSION} — Executive Intelligence Summary.",
+        f"Current threat window: {count} verified advisories ingested and enriched.",
+        f"Severity profile: {critical} CRITICAL | {high} HIGH | {medium} MEDIUM.",
+    ]
+    if kev_count > 0:
+        parts.append(f"CISA KEV confirmed: {kev_count} advisories map to actively exploited vulnerabilities — immediate patching priority.")
+    if ioc_count > 0:
+        parts.append(f"IOC corpus: {ioc_count} extracted indicators ready for SIEM/EDR ingestion.")
+    if top_actor_count > 0:
+        parts.append(f"Most active threat cluster: {top_actor_str} ({top_actor_count} advisories).")
+    if top_sector:
+        parts.append(f"Highest-impact target sector: {top_sector}.")
+    parts.append(
+        f"ML engines active: Isolation Forest anomaly detection, "
+        f"GradientBoosting 30-day sector forecasts, DBSCAN actor clustering."
     )
+    parts.append(f"Threat posture: {posture}.")
+
+    return " ".join(parts)
 
 
 def main() -> int:
