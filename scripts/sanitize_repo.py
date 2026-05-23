@@ -135,16 +135,14 @@ MANIFEST_FALLBACKS: Dict[str, Any] = {
     "api/feed.json": [],
 }
 
-# ── Protected files: parse errors are LOGGED + auto-heal attempted but NEVER regenerated ──
-# These are SSOT / governance files whose content is irreplaceable.
-# If they are corrupted beyond auto-heal, the pipeline logs CRITICAL and preserves the file
-# as-is (or attempts truncation repair only) rather than wiping it to a minimal stub.
-# v160.0: Added config/platform_version.json after recurring REGENERATE → STAGE 5.8.4 HARD_FAIL
+# ── SKIP_REGENERATE: SSOT files that must NEVER be regenerated to stubs ───────
+# If these files fail JSON parse, log CRITICAL and leave them intact.
+# Manual intervention required — do NOT overwrite with minimal fallback stubs.
 SKIP_REGENERATE: set = {
-    "config/platform_version.json",        # SSOT — wipe = global version loss
-    "config/stability_lock.json",          # baseline stability contract
-    "data/governance/governance_report.json",  # enterprise governance audit trail
-    "data/telemetry/global_release_governance.json",  # release governance telemetry
+    "config/platform_version.json",
+    "config/stability_lock.json",
+    "data/governance/governance_report.json",
+    "data/telemetry/global_release_governance.json",
 }
 
 # SECURITY_HUB_KV log path
@@ -393,7 +391,6 @@ def process_json_file(
                 "WARNING",
             ))
         else:
-            # ── Protected SSOT files: log CRITICAL but DO NOT regenerate ──
             if rel in SKIP_REGENERATE:
                 events.append(SanitizeEvent(
                     rel, "PROTECTED_PARSE_ERROR",
@@ -405,16 +402,16 @@ def process_json_file(
             else:
                 # ── Regenerate minimal valid structure ──
                 fallback = get_fallback_structure(rel)
-                healed_text = json.dumps(fallback, indent=2, ensure_ascii=False)
-                obj = fallback
-                text = healed_text
-                clean_bytes = healed_text.encode("utf-8")
-                modified = True
-                events.append(SanitizeEvent(
-                    rel, "REGENERATED",
-                    f"File was unrecoverable JSON — regenerated with minimal valid structure",
-                    "CRITICAL",
-                ))
+            healed_text = json.dumps(fallback, indent=2, ensure_ascii=False)
+            obj = fallback
+            text = healed_text
+            clean_bytes = healed_text.encode("utf-8")
+            modified = True
+            events.append(SanitizeEvent(
+                rel, "REGENERATED",
+                f"File was unrecoverable JSON — regenerated with minimal valid structure",
+                "CRITICAL",
+            ))
 
     # ── Audit structure for semantic P0 issues ──
     if obj is not None:
@@ -539,4 +536,42 @@ def main() -> None:
     print("=" * 72)
     print(f"Scan complete in {elapsed:.2f}s")
     print(f"  Files scanned     : {len(files)}")
-    print(f"  Files modified    : {modified_co
+    print(f"  Files modified    : {modified_count}")
+    print(f"  Healed (minor)    : {healed_count}")
+    print(f"  Regenerated       : {regenerated_count}")
+    print(f"  Errors encountered: {error_count}")
+    print(f"  Mode              : {'DRY-RUN' if args.dry_run else 'APPLIED'}")
+    print("=" * 72)
+
+    if not args.dry_run and all_events:
+        write_security_hub_kv(all_events, HUB_LOG)
+        print(f"[SECURITY_HUB_KV] {len(all_events)} events written to {HUB_LOG}")
+
+    if args.json_output:
+        import json as _json
+        summary = {
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "files_scanned": len(files),
+            "files_modified": modified_count,
+            "healed": healed_count,
+            "regenerated": regenerated_count,
+            "errors": error_count,
+            "events": [ev.to_dict() for ev in all_events],
+        }
+        print(_json.dumps(summary, indent=2, default=str, ensure_ascii=False))
+
+    # P0 GUARANTEE: This script MUST exit 0 regardless of what it found.
+    # It is a pre-flight sanitizer -- it MUST NOT kill the pipeline.
+    sys.exit(0)
+
+
+if __name__ == "__main__":
+    try:
+        main()
+    except Exception as e:
+        import traceback
+        logger.critical(
+            "[P0-GUARD] sanitize_repo.py crashed unexpectedly -- "
+            "exiting 0 to preserve pipeline: %s", e
+        )
+        sys.exit(0)

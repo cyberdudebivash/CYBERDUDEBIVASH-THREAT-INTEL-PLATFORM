@@ -1,7 +1,7 @@
 # =============================================================================
-# CYBERDUDEBIVASH(R) SENTINEL APEX v160.0 - SOVEREIGN INTELLIGENCE PIPELINE
-# Version    : v160.1.2 (GOD MODE PRODUCTION HARDENING RELEASE)
-# Rebuilt    : 2026-05-23 - v160.1.2 GOD MODE HARDENING:
+# CYBERDUDEBIVASH(R) SENTINEL APEX v148.0.0 - SOVEREIGN INTELLIGENCE PIPELINE
+# Version    : v156.3.0 (GOD MODE PRODUCTION HARDENING RELEASE)
+# Rebuilt    : 2026-05-16 - v156.3.0 GOD MODE HARDENING:
 #              RULE 1:  Zero inline Python in YAML (all here-doc blocks removed)
 #              RULE 2:  All logic in dedicated scripts/ only
 #              RULE 3:  encoding_guard.py runs FIRST on every execution
@@ -905,7 +905,7 @@ jobs:
       # Eliminates "No intel data" / "No anomaly data" / "No prediction data" states.
       # NON-BLOCKING: exit 1 logs error but does not abort pipeline.
       # -----------------------------------------------------------------------
-      - name: "STAGE 3.93.1 - AI Brain Publisher (v160.0)"
+      - name: "STAGE 3.93.1 - AI Brain Publisher (v146.0)"
         timeout-minutes: 3
         run: |
           set +e
@@ -1029,7 +1029,7 @@ jobs:
       # Non-blocking: writes data/health/advisory_immutability.json for observability.
       # Hard-gate mode (--check) activates once reuse baseline is established.
       # -----------------------------------------------------------------------
-      - name: "STAGE 3.93.18 - Advisory Immutability Engine (v160.0)"
+      - name: "STAGE 3.93.18 - Advisory Immutability Engine (v159.0)"
         timeout-minutes: 3
         continue-on-error: true
         run: |
@@ -1228,7 +1228,7 @@ jobs:
       # recovery race condition) wiped 159 HTML reports from the working tree.
       # This gate MUST block deployment when any report_url is broken.
       # -----------------------------------------------------------------------
-      - name: "STAGE 5.4.1 - Report existence validator (v160.0 HARD FAIL)"
+      - name: "STAGE 5.4.1 - Report existence validator (v154.0 HARD FAIL)"
         timeout-minutes: 3
         run: python3 scripts/report_existence_validator.py
 
@@ -1264,7 +1264,7 @@ jobs:
       #   ARCHIVE_DRY_RUN        -- "1" forces dry-run (default: "1" for safety)
       #   ARCHIVE_MIN_REPORTS    -- minimum hot reports to retain (default: 500)
       # -----------------------------------------------------------------------
-      - name: "STAGE 5.4.5b - Report Archive Governance (v160.0 — NON-BLOCKING)"
+      - name: "STAGE 5.4.5b - Report Archive Governance (v156.0 — NON-BLOCKING)"
         timeout-minutes: 10
         env:
           REPORT_RETENTION_DAYS: ${{ vars.REPORT_RETENTION_DAYS || '90' }}
@@ -1301,7 +1301,7 @@ jobs:
       #
       # MANDATORY: This stage must run before STAGE 5.4.6.
       # -----------------------------------------------------------------------
-      - name: "STAGE 5.4.5c - Pre-dist Runner Disk Cleanup (v160.0 P0 MANDATORY)"
+      - name: "STAGE 5.4.5c - Pre-dist Runner Disk Cleanup (v156.0 P0 MANDATORY)"
         timeout-minutes: 5
         env:
           STIX_MAX_BUNDLES: "50"
@@ -1591,7 +1591,7 @@ jobs:
       # Retained as a lightweight pre-convergence spot check.
       # Non-blocking in v156.0 — full convergence governance is in STAGE 5.8.1c.
       # -----------------------------------------------------------------------
-      - name: "STAGE 5.8.1b - Report URL Canary (v160.0 — Pre-Convergence Spot Check)"
+      - name: "STAGE 5.8.1b - Report URL Canary (v155.0 — Pre-Convergence Spot Check)"
         timeout-minutes: 10
         env:
           CANARY_WAIT_SECS: "60"
@@ -1636,7 +1636,7 @@ jobs:
       #
       # Outputs: deployment_confidence_score.json
       # -----------------------------------------------------------------------
-      - name: "STAGE 5.8.1c - Deployment Convergence Engine (v160.0 Enterprise Grade)"
+      - name: "STAGE 5.8.1c - Deployment Convergence Engine (v156.0 Enterprise Grade)"
         timeout-minutes: 30
         env:
           PAGES_BASE_URL: "https://intel.cyberdudebivash.com"
@@ -1777,14 +1777,14 @@ jobs:
           echo ""
           echo "[API-PREP] Checking api/latest.json..."
           if [ -f "api/latest.json" ]; then
-            ITEMS=$(jq 'if type=="array" then length else ((.items // []) | length) end' api/latest.json 2>/dev/null || echo "?")
+            ITEMS=$(python3 -c "import json; d=json.load(open('api/latest.json')); items=d if isinstance(d,list) else d.get('items',[]); print(len(items))" 2>/dev/null || echo "?")
             echo "[API-PREP] api/latest.json exists — $ITEMS items"
           else
             echo "[API-PREP] api/latest.json missing — searching for source..."
             # Try v1 intel endpoint first (primary source)
             if [ -f "api/v1/intel/latest.json" ]; then
               cp -f api/v1/intel/latest.json api/latest.json
-              ITEMS=$(jq 'if type=="array" then length else ((.items // []) | length) end' api/latest.json 2>/dev/null || echo "?")
+              ITEMS=$(python3 -c "import json; d=json.load(open('api/latest.json')); items=d if isinstance(d,list) else d.get('items',[]); print(len(items))" 2>/dev/null || echo "?")
               echo "[API-PREP] api/latest.json created from api/v1/intel/latest.json ($ITEMS items)"
             elif [ -f "api/feed.json" ]; then
               # Fallback: slice top 10 from feed.json as latest
@@ -1830,11 +1830,7 @@ jobs:
         continue-on-error: true
 
       # -----------------------------------------------------------------------
-      # STAGE 5.8.4b - GOVERNANCE TELEMETRY PERSISTENCE (v160.0 -- NON-BLOCKING)
-      # Persists global_release_governance.json to git so each run's release
-      # governance state is permanently auditable in version history.
-      # Non-blocking: commit errors never block deployment.
-      # -----------------------------------------------------------------------
+
       - name: "STAGE 5.8.4b - Governance Telemetry Persistence (v160.0)"
         timeout-minutes: 3
         if: always()
@@ -1855,7 +1851,6 @@ jobs:
             echo "[GOVERNANCE] $GOVERNANCE_FILE not found -- orchestrator may have skipped"
           fi
 
-      # -----------------------------------------------------------------------
       # STAGE 5.8.5 - ENTERPRISE INTELLIGENCE ENGINE INTEGRATION AUDIT (v1.0)
       # Verifies all 7 enterprise intelligence engines are importable and
       # runs the EII self-test + manifest quality gate audit.
@@ -1907,4 +1902,38 @@ jobs:
           import sys, os, json
           from pathlib import Path
           sys.path.insert(0, 'scripts')
-          manifest_path = Path('data/stix/feed_ma
+          manifest_path = Path('data/stix/feed_manifest.json')
+          if not manifest_path.exists():
+              print('Manifest not found — skipping quality gate audit')
+              sys.exit(0)
+          try:
+              from apex_intelligence_quality_gates import QualityGateSystem
+              with open(manifest_path, encoding='utf-8') as f:
+                  data = json.load(f)
+              items = data if isinstance(data, list) else data.get('entries', [])
+              if not items:
+                  print('No entries in manifest — skipping')
+                  sys.exit(0)
+              # Audit last 10 entries only (performance)
+              sample = items[-10:]
+              qgs = QualityGateSystem()
+              batch = qgs.evaluate_batch(sample)
+              print(f'Quality gate audit: {len(sample)} entries sampled')
+              print(f'  Publishable: {batch[\"publishable\"]} / {batch[\"total\"]}')
+              print(f'  Blocked:     {batch[\"blocked\"]}')
+              if batch.get('blocked_ids'):
+                  print(f'  Blocked IDs: {batch[\"blocked_ids\"]}')
+              # Write audit telemetry
+              out_path = Path('data/telemetry/intelligence_quality_audit.json')
+              out_path.parent.mkdir(parents=True, exist_ok=True)
+              out_path.write_text(json.dumps(batch, indent=2, default=str), encoding='utf-8')
+              print(f'  Telemetry written: {out_path}')
+          except Exception as e:
+              print(f'Quality gate audit failed (non-critical): {e}')
+          sys.exit(0)  # Always non-blocking
+          " 2>&1 || true
+
+          echo "=== STAGE 5.8.5 COMPLETE ==="
+        continue-on-error: true
+
+      # ---------------------------------------------

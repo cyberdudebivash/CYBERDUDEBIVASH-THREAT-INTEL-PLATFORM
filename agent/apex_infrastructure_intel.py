@@ -359,7 +359,7 @@ def generate_infrastructure_intelligence(item: Dict[str, Any]) -> str:
         # Infrastructure reuse assessment
         reuse_html = _generate_reuse_assessment(infra_results, actor, cluster_h)
 
-        # v160.0 FIX: extract conditional to variable (f-string backslash restriction <3.12)
+        # v160.0 FIX: extract to variable — f-string backslash restriction in Python <3.12
         tor_overlap_html = (
             "<strong style='color:var(--crit)'>YES - TOR infrastructure detected</strong>"
             if tor_overlap else "No TOR overlap at analysis time"
@@ -547,4 +547,7 @@ def generate_infrastructure_graph_data(item: Dict[str, Any]) -> Dict[str, Any]:
                 "strength": r["infra_score"] / 10,
             })
 
-        return {"nodes": nodes, "edges": edges, "cluster_count": len(infra_resul
+        return {"nodes": nodes, "edges": edges, "cluster_count": len(infra_results)}
+    except Exception as exc:
+        _log.error("generate_infrastructure_graph_data failed: %s", exc)
+        return {"nodes": [], "edges": [], "cluster_count": 0}
