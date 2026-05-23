@@ -142,12 +142,28 @@ def stix_bundle_to_entry(bundle_path: Path) -> dict | None:
     if primary is None:
         primary = objects[0]
 
-    title = (
-        primary.get("name")
-        or primary.get("title")
-        or bundle.get("name")
-        or bundle_path.stem
-    ).strip()
+    # v160.1 P0 FIX: For intrusion-set objects the advisory headline lives in
+    # 'description', NOT 'name'. The 'name' field is the campaign codename
+    # (e.g. "CDB-UNATTR-CVE Campaign") which is shared across many bundles.
+    # Using 'name' as title caused dedup-by-title to collapse all bundles of the
+    # same campaign type into a single manifest entry (61 bundles → 8 entries),
+    # triggering STAGE 2.5 FATAL (minimum 10). Fix: use 'description' for
+    # intrusion-set primary objects; use 'name' for report/indicator as before.
+    primary_type = primary.get("type") if primary else ""
+    if primary_type == "intrusion-set":
+        title = (
+            primary.get("description")
+            or primary.get("name")
+            or bundle.get("name")
+            or bundle_path.stem
+        ).strip()
+    else:
+        title = (
+            primary.get("name")
+            or primary.get("title")
+            or bundle.get("name")
+            or bundle_path.stem
+        ).strip()
     if not title or is_brand(title):
         return None
 
@@ -398,30 +414,4 @@ def ensure_minimum_manifest() -> None:
     log(f"Initialised empty manifest at {MANIFEST_PATH}")
 
 
-def main(argv=None):
-    parser = argparse.ArgumentParser(description=f"SENTINEL APEX bootstrap {PLATFORM_VERSION}")
-    parser.add_argument("--force-rebuild", action="store_true",
-                        help="Force full rebuild of feed_manifest.json from live STIX bundles.")
-    args = parser.parse_args(argv)
-
-    try:
-        ensure_dirs()
-        log("Directories ensured.")
-
-        if args.force_rebuild:
-            count = rebuild_manifest(force=True)
-            if count == 0:
-                log("WARNING: rebuild produced zero entries - manifest preserved or empty.")
-        else:
-            ensure_minimum_manifest()
-
-        log("Bootstrap OK.")
-        return 0
-    except Exception as e:
-        log(f"ERROR (non-fatal, exit 0 per self-healing contract): {e!r}")
-        return 0
-
-
-if __name__ == "__main__":
-    import sys
-    sys.exit(main())
+def main(ar
