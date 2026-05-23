@@ -1,0 +1,11 @@
+fix(v161.0): Repair YAML syntax error in Stage 5.9.3 and 5.9.4
+
+ROOT CAUSE: python3 -c "..." with unindented Python code at column 0
+inside a YAML run: | literal block terminates the block prematurely,
+causing YAML parse error on line 1993.
+
+FIX: Stage 5.9.3 now calls python3 scripts/ioc_quality_hardener.py directly.
+     Stage 5.9.4 now calls python3 scripts/validate_enterprise_pages.py.
+
+VALIDATION: yaml.safe_load() confirms YAML VALID — no syntax errors.
+All 4 enterprise stages (5.9.1-5.9.4) confirmed present and parseable.
