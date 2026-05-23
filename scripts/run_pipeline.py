@@ -919,6 +919,92 @@ def stage_v70_orchestrator() -> None:
 # Stage 2.2 -- Manifest Stabilisation
 # ---------------------------------------------------------------------------
 
+
+def _backfill_report_urls_from_disk(manifest_path: Path) -> None:
+    """
+    v160.6 Stage 2.2b: Backfill report_url and internal_report_url for manifest
+    entries that have empty URL fields but matching HTML reports committed in
+    the reports/ directory on disk.
+
+    Pattern: reports/{YYYY}/{MM}/intel--{hex_id}.html
+    CDN URL:  https://intel.cyberdudebivash.com/reports/{YYYY}/{MM}/intel--{hex_id}.html
+
+    This is an idempotent one-pass operation:
+    - Only updates entries where report_url is empty/missing
+    - Derives path from entry['id'] by scanning reports/ directory
+    - Never overwrites existing non-empty report_url values
+    - Non-fatal: all errors are logged and pipeline continues
+
+    Root cause addressed: confirmed forensic finding that all 497 entries in
+    data/feed_manifest.json had report_url="" despite 44,484 HTML files on disk.
+    """
+    CDN_BASE = "https://intel.cyberdudebivash.com"
+    try:
+        raw = json.loads(manifest_path.read_text(encoding="utf-8"))
+        if isinstance(raw, list):
+            items = raw
+            is_list_fmt = True
+        elif isinstance(raw, dict):
+            items = raw.get("advisories", raw.get("items", raw.get("entries", [])))
+            is_list_fmt = False
+        else:
+            log.warning("[2.2b] Unexpected manifest format: %s", type(raw).__name__)
+            return
+
+        reports_dir = REPO_ROOT / "reports"
+        if not reports_dir.exists():
+            log.info("[2.2b] reports/ dir not found — skipping backfill.")
+            return
+
+        # Build fast lookup: intel_id -> relative path (prefer most recent mtime)
+        id_to_path: dict = {}
+        for html_file in reports_dir.rglob("intel--*.html"):
+            intel_id = html_file.stem
+            if intel_id not in id_to_path:
+                id_to_path[intel_id] = html_file
+            else:
+                # Keep most recently modified file
+                if html_file.stat().st_mtime > id_to_path[intel_id].stat().st_mtime:
+                    id_to_path[intel_id] = html_file
+        log.info("[2.2b] reports/ index built: %d intel-- HTML files found.", len(id_to_path))
+
+        backfilled = 0
+        for entry in items:
+            if not isinstance(entry, dict):
+                continue
+            entry_id = (entry.get("id") or entry.get("stix_id") or "").strip()
+            if not entry_id.startswith("intel--"):
+                continue
+            existing_ru = (entry.get("report_url") or "").strip()
+            if existing_ru:  # Never overwrite existing non-empty URL
+                continue
+            html_file = id_to_path.get(entry_id)
+            if html_file:
+                rel_path = html_file.relative_to(REPO_ROOT).as_posix()
+                entry["report_url"] = CDN_BASE + "/" + rel_path
+                entry["internal_report_url"] = "/" + rel_path
+                backfilled += 1
+
+        if backfilled > 0:
+            # Write back atomically
+            if is_list_fmt:
+                payload = items
+            else:
+                raw["advisories"] = items
+                payload = raw
+            tmp_path = str(manifest_path) + ".backfill.tmp"
+            with open(tmp_path, "w", encoding="utf-8") as fh:
+                json.dump(payload, fh, indent=2, ensure_ascii=False, default=str)
+            os.replace(tmp_path, str(manifest_path))
+            log.info("[2.2b] Backfilled report_url for %d/%d manifest entries from reports/ dir.",
+                     backfilled, len(items))
+        else:
+            log.info("[2.2b] report_url backfill: all entries already have URLs or no matching files.")
+
+    except Exception as e:
+        log.warning("[2.2b] report_url backfill failed (non-fatal): %s", e)
+
+
 def stage_manifest_stabilisation() -> None:
     log.info("=" * 60)
     log.info("STAGE 2.2 -- Manifest Stabilisation")
@@ -1033,6 +1119,11 @@ def stage_manifest_stabilisation() -> None:
 
         log.info("[2.2] MANIFEST_FINAL_COUNT=%d", final_count)
         write_github_env("MANIFEST_FINAL_COUNT", str(final_count))
+
+        # Stage 2.2b: Backfill report_url from filesystem for entries with empty URLs
+        # v160.6 FIX: 497 manifest entries confirmed to have report_url="" despite
+        # 44,484 HTML files existing in reports/. This bridges that structural gap.
+        _backfill_report_urls_from_disk(manifest_path)
 
     except Exception as e:
         log.warning("[2.2] Manifest stabilisation failed (non-fatal): %s", e)
