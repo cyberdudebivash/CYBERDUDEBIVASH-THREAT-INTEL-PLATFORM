@@ -1967,4 +1967,60 @@ jobs:
           echo "=== STAGE 5.8.5 COMPLETE ==="
         continue-on-error: true
 
+      # =====================================================================
+      # STAGE 5.9 — v161.0 ENTERPRISE TRANSFORMATION STAGES
+      # All stages: continue-on-error: true (non-blocking, zero regression)
+      # =====================================================================
+
+      - name: "Stage 5.9.1 — Manifest URL Repair (P1-004)"
+        run: |
+          echo "=== STAGE 5.9.1: Manifest URL Backfill ==="
+          python3 scripts/manifest_repair.py             --manifest data/feed_manifest.json 2>&1 || true
+          echo "=== STAGE 5.9.1 COMPLETE ==="
+        continue-on-error: true
+
+      - name: "Stage 5.9.2 — OpenAPI Spec Generation (P2-001)"
+        run: |
+          echo "=== STAGE 5.9.2: OpenAPI 3.0 Spec ==="
+          python3 scripts/openapi_generator.py 2>&1 || true
+          echo "=== STAGE 5.9.2 COMPLETE ==="
+        continue-on-error: true
+
+      - name: "Stage 5.9.3 — EPSS + CVSS Quality Gate (P0-004 / P1-006)"
+        run: |
+          echo "=== STAGE 5.9.3: EPSS Sanity + NVD CVSS Backfill ==="
+          python3 -c "
+import sys, json
+from pathlib import Path
+sys.path.insert(0, 'scripts')
+from ioc_quality_hardener import apply_ioc_hardening
+result = apply_ioc_hardening()
+print(json.dumps({k: v for k, v in result.items() if not isinstance(v, dict)}, indent=2))
+epss_fixed = result.get('epss_anomalies_corrected', 0)
+cvss_backfilled = result.get('cvss_backfilled', 0)
+print(f'  EPSS anomalies corrected: {epss_fixed}')
+print(f'  CVSS scores backfilled:   {cvss_backfilled}')
+" 2>&1 || true
+          echo "=== STAGE 5.9.3 COMPLETE ==="
+        continue-on-error: true
+
+      - name: "Stage 5.9.4 — Enterprise Page Validation (P1-005 / P2-002)"
+        run: |
+          echo "=== STAGE 5.9.4: Enterprise Page Presence Check ==="
+          python3 -c "
+from pathlib import Path
+pages = ['sla.html', 'pricing.html', 'terms.html', 'api-docs.html', 'docs/index.html', '.well-known/security.txt']
+missing = [p for p in pages if not Path(p).exists()]
+for p in pages:
+    status = 'OK' if Path(p).exists() else 'MISSING'
+    print(f'  [{status}] {p}')
+if missing:
+    print(f'WARNING: {len(missing)} enterprise pages missing')
+else:
+    print('ALL ENTERPRISE PAGES PRESENT')
+" 2>&1 || true
+          echo "=== STAGE 5.9.4 COMPLETE ==="
+        continue-on-error: true
+
+      # ---------------------------------------------
       # ---------------------------------------------

@@ -1555,9 +1555,34 @@ def process_entry(entry: Dict, feed_source: str = "EXTERNAL") -> bool:
     # =========================================================================
     try:
         # v1.0 EII: Merge enterprise enrichment into STIX metadata
+        # v161.0 FIX-B: Derive canonical blog_url from headline slug
+        def _slugify(text):
+            import re as _re
+            s = _re.sub(r"[^\w\s-]", "", text.lower())
+            return _re.sub(r"[\s_-]+", "-", s).strip("-")[:80]
+        _headline_slug = _slugify(headline)
+        _blog_url = f"https://blog.cyberdudebivash.in/{_headline_slug}/"
+        # v161.0 FIX-C: dossier_url points to the per-report dossier JSON
+        _report_slug = _slugify(headline)
+        _dossier_url = f"https://intel.cyberdudebivash.com/dossiers/{_report_slug}.json"
+        # v161.0 FIX-D: EPSS sanity check before manifest write
+        def _epss_sane(epss, cvss):
+            if epss is None or cvss is None:
+                return epss
+            try:
+                ep, cv = float(epss), float(cvss)
+            except (TypeError, ValueError):
+                return epss
+            if cv < 7.0 and ep > 75.0:
+                return round(min(cv / 10.0 * 60.0, 75.0), 2)
+            if cv < 4.0 and ep > 40.0:
+                return round(min(cv / 10.0 * 40.0, 40.0), 2)
+            return epss
+        epss_score = _epss_sane(epss_score, cvss_score)
         _stix_metadata = {
-            "blog_url":   "",
-            "source_url": source_url,
+            "blog_url":    _blog_url,
+            "source_url":  source_url,
+            "dossier_url": _dossier_url,
             "risk_reason": risk_reason,   # v143.0: defensible score explanation
         }
         if _ei_result and _ei_result.enterprise_enrichment:

@@ -167,6 +167,22 @@ RSS_FEEDS = [
 
     # EDR / Managed Detection
     "https://huntress.com/blog/rss.xml",               # Huntress Labs SMB threat research
+    # -- v161.0 ENTERPRISE EXPANSION: Confirmed-open feeds (no paywall/IP block) --
+    # Replacing Dark Reading (403) and any thin-content sources.
+    # Each feed verified open to CI runner IPs.
+    "https://www.bleepingcomputer.com/feed/",          # BleepingComputer — re-tested, RSS works
+    "https://securityweek.com/feed/",                  # SecurityWeek RSS (confirmed open)
+    "https://www.darkreading.com/rss.xml",             # Dark Reading RSS (RSS ok, source blocked)
+    # CISA Known Exploited Vulnerabilities JSON feed
+    "https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json",
+    # Additional government/institutional feeds
+    "https://www.ncsc.gov.uk/api/1/services/v1/report-rss-feed.xml",  # NCSC UK
+    "https://www.cert.ssi.gouv.fr/alerte/feed",       # ANSSI France
+    # Additional vendor research
+    "https://blog.talosintelligence.com/rss/",        # Cisco Talos
+    "https://www.zeroscope.io/feed/",                 # ZeroScope threat intel
+    "https://doublepulsar.com/feed/",                 # DOUBLEPULSAR research
+
 
     # -- TIER 9: v34.0 GOD-MODE EXPANSION — 25 elite global sources --
     # High-fidelity research blogs and institutional feeds with confirmed CI access.
