@@ -1,0 +1,43 @@
+title: CDB SENTINEL APEX - Phishing Sender Detection [eef55f783fab]
+id: cdb-phish-eef55f783fab
+status: production
+description: Detects emails from known malicious senders
+author: CyberDudeBivash SENTINEL APEX v51
+date: 2026-05-23
+tags:
+    - attack.initial_access
+    - attack.t1566
+logsource:
+    category: email
+    product: any
+detection:
+    selection:
+        SenderAddress:
+            - 'CybersecurityReports@nsa.gov'
+            - 'EnergySRMA@hq.doe.gov'
+            - 'PSIRT@rockwellautomation.com'
+            - 'contact@cisa.dhs.gov'
+            - 'Morian-bot@helper.zulipchat.com'
+            - 'intelreports@kaspersky.com'
+            - 'report@cisa.gov'
+            - 'ivan_feigl@rapid7.com'
+            - 'goony@nothink.org'
+            - 'victim.user@company.com'
+            - 'victim.user@organization.com'
+            - 'itsupport@UCICasociacion.onmicrosoft.com'
+            - 'ncscinfoleg@ncsc.gov.uk'
+            - 'support@simple-help.com'
+            - 'DC3.DCISE@us.af.mil'
+            - 'DC3.Information@us.af.mil'
+            - 'DIB_Defense@cyber.nsa.gov'
+            - 'MediaRelations@nsa.gov'
+            - 'cert-fr@ssi.gouv.fr'
+            - 'cert.incident@nukib.gov.cz'
+            - 'contact@cyber.gc.ca'
+            - 'cyber.int@skw.gov.pl'
+    condition: selection
+level: high
+falsepositives:
+    - Spoofed sender addresses
+references:
+    - https://intel.cyberdudebivash.com
