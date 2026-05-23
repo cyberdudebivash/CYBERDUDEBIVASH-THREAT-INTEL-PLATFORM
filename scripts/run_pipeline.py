@@ -98,17 +98,51 @@ log = logging.getLogger("sentinel.pipeline")
 # Constants
 # ---------------------------------------------------------------------------
 REPO_ROOT = Path(__file__).resolve().parent.parent
-PIPELINE_VERSION = os.environ.get("PIPELINE_VERSION", "158.5")
+PIPELINE_VERSION = os.environ.get("PIPELINE_VERSION", "160.0")
 MIN_FRESHNESS_ENTRIES = 10   # absolute hard-fail threshold
-# v160.1 P0 FIX: MIN_ENGINE_ENTRIES lowered 50 → 10 (= MIN_FRESHNESS_ENTRIES).
+# v160.1 P0 FIX: MIN_ENGINE_ENTRIES lowered 50 -> 10 (= MIN_FRESHNESS_ENTRIES).
 # With DEDUP active, the enricher only writes NEW items per run. On high-overlap
-# days (463 of 497 items already seen) only 13 new items are written — this is
+# days (463 of 497 items already seen) only 13 new items are written -- this is
 # correct, expected behavior, NOT a manifest failure. Triggering force-rebuild
 # at 13 < 50 and then reading only 8 entries (the bootstrap title-dedup bug,
 # fixed in bootstrap_critical_files.py v160.1) caused STAGE 2.5 HARD FAIL.
 # Threshold now equals the freshness gate floor: any count >= 10 is valid.
 MIN_ENGINE_ENTRIES = 10      # engine manifest minimum before --force-rebuild (= MIN_FRESHNESS_ENTRIES)
 MAX_STIX_BUNDLES = 500       # cap on persisted STIX bundle files
+
+# ---------------------------------------------------------------------------
+# v160.0 ANTI-STALE INTEL CONSTANTS
+# ---------------------------------------------------------------------------
+# Maximum age (days) for an advisory to be admitted to the dashboard.
+# Advisories older than this are quarantined and not surfaced.
+ANTI_STALE_MAX_AGE_DAYS = int(os.environ.get("ANTI_STALE_MAX_AGE_DAYS", "30"))
+
+# Synthetic title patterns -- these are internal bootstrap placeholders that
+# must NEVER reach the live dashboard. Any title matching these patterns is
+# quarantined and removed from the manifest before output generation.
+SYNTHETIC_TITLE_PATTERNS = [
+    r"^CDB-UNATTR-CVE\s+Campaign$",          # bare bootstrap stub title
+    r"^CDB-UNATTR-",                          # any un-attributed CDB bootstrap
+    r"^PLACEHOLDER",                          # explicit placeholder
+    r"^TEST[-_\s]",                           # test entries
+    r"^SYNTHETIC[-_\s]",                      # explicitly synthetic
+    r"^DUMMY[-_\s]",                          # dummy data
+    r"^N/A$",                                 # null title
+    r"^\s*$",                                 # empty/whitespace title
+    r"^CVE-\d{4}-\d{4,7}$",                  # bare CVE ID with no description
+]
+
+# Trusted intel sources -- only these source names are accepted without
+# additional scrutiny. Entries from unknown sources are flagged with a
+# warning but are NOT hard-rejected (allows new feed ingestion).
+TRUSTED_INTEL_SOURCES = {
+    "Rapid7", "Vulners", "CVE Feed", "CyberSecurity News",
+    "CISA KEV", "NVD", "Exploit-DB", "AlienVault OTX",
+    "Recorded Future", "ThreatFox", "MISP", "Mandiant",
+    "CrowdStrike", "Palo Alto Unit 42", "Secureworks",
+    "Tenable", "Qualys", "NIST", "GitHub Advisory",
+    "PacketStorm", "Full Disclosure", "BugTraq",
+}
 
 GITHUB_ENV = os.environ.get("GITHUB_ENV", "/dev/null")
 
@@ -1043,6 +1077,218 @@ def stage_freshness_gate() -> None:
         sys.exit(1)
 
     log.info("[2.5] FRESHNESS GATE PASSED: %d entries. [OK]", count)
+
+
+# ---------------------------------------------------------------------------
+# Stage 2.6 -- Anti-Stale Intel Hardening (v160.0 PERMANENT PRODUCTION GUARD)
+# ---------------------------------------------------------------------------
+
+def stage_anti_stale_hardening() -> None:
+    """
+    v160.0 ANTI-STALE INTEL HARDENING STAGE
+    =========================================
+    Permanently eliminates stalled, synthetic, and fake intel from reaching
+    the live dashboard. Runs AFTER freshness gate, BEFORE schema validation.
+
+    Four protection layers:
+      1. ADVISORY AGE GATE        -- quarantine entries older than ANTI_STALE_MAX_AGE_DAYS
+      2. SYNTHETIC TITLE DETECTOR -- block bootstrap placeholder titles (CDB-UNATTR-CVE, etc.)
+      3. SOURCE AUTHENTICITY      -- flag unknown/untrusted sources (warn, not hard-fail)
+      4. TITLE DEDUP ENFORCER     -- eliminate entries with duplicate (normalized) titles
+
+    Output: writes a cleaned manifest atomically. Logs every rejection with
+    reason code for full audit trail. Non-fatal on unexpected errors --
+    the pipeline continues with whatever valid entries remain.
+    """
+    import re as _re
+
+    log.info("=" * 60)
+    log.info("STAGE 2.6 -- Anti-Stale Intel Hardening (v160.0 PRODUCTION GUARD)")
+    log.info("=" * 60)
+
+    manifest_path = REPO_ROOT / "data" / "stix" / "feed_manifest.json"
+    if not manifest_path.exists():
+        log.warning("[2.6] Manifest not found -- anti-stale stage skipped (non-fatal).")
+        return
+
+    try:
+        d = json.loads(manifest_path.read_text(encoding="utf-8"))
+        if isinstance(d, list):
+            items = d
+            envelope = None
+        elif isinstance(d, dict):
+            items = d.get("advisories") or d.get("reports") or d.get("items") or []
+            envelope = d
+        else:
+            log.warning("[2.6] Unexpected manifest type %s -- skipping.", type(d).__name__)
+            return
+
+        original_count = len(items)
+        if original_count == 0:
+            log.warning("[2.6] Empty manifest -- anti-stale stage skipped.")
+            return
+
+        now_utc = datetime.now(timezone.utc)
+        cutoff_days = ANTI_STALE_MAX_AGE_DAYS
+        cutoff_dt = None
+        try:
+            from datetime import timedelta
+            cutoff_dt = now_utc - timedelta(days=cutoff_days)
+        except Exception:
+            pass
+
+        # Compile synthetic patterns once
+        compiled_patterns = []
+        for pat in SYNTHETIC_TITLE_PATTERNS:
+            try:
+                compiled_patterns.append(_re.compile(pat, _re.IGNORECASE))
+            except Exception as _pe:
+                log.warning("[2.6] Bad synthetic pattern '%s': %s", pat, _pe)
+
+        stale_age_count = 0
+        synthetic_count = 0
+        unknown_source_count = 0
+        dedup_title_count = 0
+        quarantine_log = []
+        seen_titles_normalized = set()
+        clean_items = []
+
+        for item in items:
+            item_id = str(item.get("id", item.get("stix_id", "?")))[:40]
+            title = str(item.get("title", "")).strip()
+            source = str(item.get("source", "")).strip()
+
+            # --- Layer 1: Advisory Age Gate ---
+            if cutoff_dt is not None:
+                pub_raw = item.get("published_at") or item.get("published") or ""
+                if isinstance(pub_raw, str) and pub_raw and pub_raw not in ("true", "false"):
+                    try:
+                        # Normalize ISO-8601 with or without timezone
+                        ts = pub_raw.replace("Z", "+00:00")
+                        pub_dt = datetime.fromisoformat(ts)
+                        if pub_dt.tzinfo is None:
+                            from datetime import timezone as _tz
+                            pub_dt = pub_dt.replace(tzinfo=_tz.utc)
+                        if pub_dt < cutoff_dt:
+                            age_days = (now_utc - pub_dt).days
+                            quarantine_log.append(
+                                f"[AGE] id={item_id} age={age_days}d title={title[:60]}"
+                            )
+                            stale_age_count += 1
+                            continue  # quarantine
+                    except Exception:
+                        pass  # unparseable date -- allow through, schema stage handles it
+
+            # --- Layer 2: Synthetic Title Detector ---
+            is_synthetic = False
+            for cp in compiled_patterns:
+                if cp.search(title):
+                    is_synthetic = True
+                    quarantine_log.append(
+                        f"[SYNTH] id={item_id} pattern='{cp.pattern}' title={title[:80]}"
+                    )
+                    synthetic_count += 1
+                    break
+            if is_synthetic:
+                continue  # quarantine
+
+            # --- Layer 3: Source Authenticity Validator ---
+            if source and source not in TRUSTED_INTEL_SOURCES:
+                # Soft-warn: new/unknown sources are allowed but logged for review
+                log.warning(
+                    "[2.6] Unknown source '%s' on id=%s -- allowing through (review feed config)",
+                    source, item_id
+                )
+                unknown_source_count += 1
+                # NOT quarantined -- just flagged
+
+            # --- Layer 4: Title Dedup Enforcer ---
+            # Normalize title for dedup: lowercase, collapse whitespace, strip punctuation extremes
+            normalized = _re.sub(r"\s+", " ", title.lower()).strip(" -_.")
+            if normalized and normalized in seen_titles_normalized:
+                quarantine_log.append(
+                    f"[DEDUP] id={item_id} title={title[:80]}"
+                )
+                dedup_title_count += 1
+                continue  # quarantine duplicate
+            if normalized:
+                seen_titles_normalized.add(normalized)
+
+            clean_items.append(item)
+
+        # Emit quarantine log
+        total_quarantined = stale_age_count + synthetic_count + dedup_title_count
+        if quarantine_log:
+            log.warning(
+                "[2.6] QUARANTINE REPORT: %d entries removed "
+                "(stale_age=%d synthetic=%d dedup=%d unknown_source=%d)",
+                total_quarantined, stale_age_count, synthetic_count,
+                dedup_title_count, unknown_source_count,
+            )
+            for entry in quarantine_log[:50]:  # cap log output
+                log.warning("[2.6]   QUARANTINED: %s", entry)
+            if len(quarantine_log) > 50:
+                log.warning("[2.6]   ... and %d more (see full audit in pipeline metrics)", len(quarantine_log) - 50)
+
+        # Write cleaned manifest atomically
+        if envelope and isinstance(envelope, dict):
+            envelope["advisories"] = clean_items
+            envelope["entry_count"] = len(clean_items)
+            envelope["total_reports"] = len(clean_items)
+            envelope["anti_stale_applied_at"] = datetime.now(timezone.utc).isoformat()
+            envelope["anti_stale_quarantined"] = total_quarantined
+            payload = envelope
+        else:
+            payload = {
+                "version":                  "v160.0",
+                "schema_version":           "v160.0",
+                "platform":                 "SENTINEL-APEX",
+                "generated_at":             datetime.now(timezone.utc).isoformat(),
+                "anti_stale_applied_at":    datetime.now(timezone.utc).isoformat(),
+                "anti_stale_quarantined":   total_quarantined,
+                "entry_count":              len(clean_items),
+                "total_reports":            len(clean_items),
+                "sort_order":               "timestamp DESC, risk_score DESC",
+                "advisories":               clean_items,
+            }
+
+        # Atomic write with lock
+        try:
+            if _SAFE_IO_AVAILABLE:
+                atomic_json_write(manifest_path, payload, locked=True)
+            else:
+                tmp = manifest_path.with_suffix(".tmp_antistale")
+                tmp.write_text(json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8")
+                os.replace(str(tmp), str(manifest_path))
+        except Exception as we:
+            log.error("[2.6] Failed to write cleaned manifest: %s", we)
+            raise
+
+        # Fail-safe: ensure we still have enough entries after quarantine
+        remaining = len(clean_items)
+        if remaining < MIN_FRESHNESS_ENTRIES:
+            log.error(
+                "[2.6] FATAL: After anti-stale quarantine only %d entries remain "
+                "(minimum: %d). Quarantined %d. Check feed freshness and source config.",
+                remaining, MIN_FRESHNESS_ENTRIES, total_quarantined,
+            )
+            log.error("[2.6] Root causes to check:")
+            log.error("[2.6]   1. All feeds returning stale data (> %d days old)", cutoff_days)
+            log.error("[2.6]   2. Feed ingestion pipeline not running on schedule")
+            log.error("[2.6]   3. ANTI_STALE_MAX_AGE_DAYS too restrictive (currently: %d)", cutoff_days)
+            sys.exit(1)
+
+        log.info(
+            "[2.6] ANTI-STALE HARDENING COMPLETE: %d/%d entries passed "
+            "(quarantined=%d: stale=%d synthetic=%d dedup=%d). [OK]",
+            remaining, original_count, total_quarantined,
+            stale_age_count, synthetic_count, dedup_title_count,
+        )
+
+    except SystemExit:
+        raise
+    except Exception as e:
+        log.error("[2.6] Anti-stale hardening failed (non-fatal): %s", e)
 
 
 # ---------------------------------------------------------------------------
@@ -2938,6 +3184,7 @@ def main() -> None:
         "intel_engine",
         "manifest_stabilisation",
         "freshness_gate",
+        "anti_stale_hardening",
         "schema_validation",
         "dedup_enrich",
         "html_reports",
@@ -3043,6 +3290,8 @@ def main() -> None:
     _stage_done("manifest_stabilisation")
     stage_freshness_gate()               # HARD FAIL if < MIN entries
     _stage_done("freshness_gate")
+    stage_anti_stale_hardening()         # v160.0: quarantine stale/synthetic/fake intel
+    _stage_done("anti_stale_hardening")
     stage_schema_validation()            # HARD FAIL if schema invalid
     _stage_done("schema_validation")
     stage_manifest_cleanup()
