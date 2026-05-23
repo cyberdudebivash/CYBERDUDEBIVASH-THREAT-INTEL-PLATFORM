@@ -1496,6 +1496,24 @@ def generate_reports_from_manifest(
                         "[GODMODE-QUALITY] %s (%s KB) — god mode size, pipeline skip",
                         intel_id, size_kb
                     )
+                # v160.6 FIX: preserve deployed CDN report_url in manifest entry.
+                # When a report is godmode-skipped, the convergence engine needs a
+                # valid HTTPS probe URL. Without this, all fallbacks yield 0 URLs
+                # and Phase 3 produces false DEPLOYMENT_FAILED (Score 32.5/100).
+                # Derive canonical CDN URL from the confirmed-existing public path.
+                _existing_ru = (entry.get("report_url") or "").strip()
+                if not _existing_ru.startswith("https://intel.cyberdudebivash"):
+                    try:
+                        _rel = public_expected.relative_to(REPO_ROOT).as_posix()
+                        _cdn = "https://intel.cyberdudebivash.com/" + _rel
+                        entry["report_url"] = _cdn
+                        entry["internal_report_url"] = "/" + _rel
+                        logger.info(
+                            "[GODMODE-URL-PRESERVED] %s → report_url=%s",
+                            intel_id, _cdn
+                        )
+                    except Exception as _ue:
+                        logger.debug("[GODMODE-URL-PRESERVE-WARN] %s: %s", intel_id, _ue)
                 results["skipped"] += 1
                 continue
             elif (is_protected_id or is_godmode_size) and not public_path_ok:

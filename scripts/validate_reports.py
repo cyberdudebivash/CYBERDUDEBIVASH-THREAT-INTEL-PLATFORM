@@ -73,7 +73,24 @@ def _load_manifest(manifest_path: Path) -> List[Dict[str, Any]]:
         logger.error("MANIFEST JSON PARSE ERROR: %s -- %s", manifest_path, exc)
         sys.exit(1)
 
-    advisories = data.get("advisories", data.get("entries", []))
+    # v160.6 FIX: handle both raw LIST format (written by sentinel_blogger engine)
+    # and DICT format (normalised by run_pipeline Stage 2.2). Previously this
+    # called data.get() unconditionally, crashing with AttributeError: 'list'
+    # object has no attribute 'get' — confirmed in 3 consecutive CI runs (#1322,
+    # run_alt1, run_alt2) at this exact line.
+    if isinstance(data, list):
+        advisories = data
+    elif isinstance(data, dict):
+        advisories = data.get(
+            "advisories",
+            data.get("entries", data.get("items", data.get("reports", [])))
+        )
+    else:
+        logger.error(
+            "MANIFEST root is neither list nor dict in %s -- got %s",
+            manifest_path, type(data).__name__
+        )
+        sys.exit(1)
     if not isinstance(advisories, list):
         logger.error("MANIFEST 'advisories' key is not a list in %s", manifest_path)
         sys.exit(1)
