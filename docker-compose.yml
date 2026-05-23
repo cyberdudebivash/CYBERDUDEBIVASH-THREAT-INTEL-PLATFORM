@@ -1,6 +1,6 @@
 version: "3.9"
 
-# CYBERDUDEBIVASH® SENTINEL APEX — Development Docker Compose
+# CYBERDUDEBIVASH(R) SENTINEL APEX  -  Development Docker Compose
 # Local development: all services, hot-reload, debug ports exposed
 #
 # Usage:
@@ -14,7 +14,7 @@ version: "3.9"
 
 name: sentinel-apex-dev
 
-# ── Shared Networks ───────────────────────────────────────────────────────────
+# -- Shared Networks -----------------------------------------------------------
 networks:
   sentinel-internal:
     driver: bridge
@@ -22,17 +22,17 @@ networks:
       config:
         - subnet: 172.28.0.0/16
 
-# ── Volumes ───────────────────────────────────────────────────────────────────
+# -- Volumes -------------------------------------------------------------------
 volumes:
   redis-data:
   prometheus-data:
   grafana-data:
   loki-data:
 
-# ── Services ──────────────────────────────────────────────────────────────────
+# -- Services ------------------------------------------------------------------
 services:
 
-  # ── Redis (rate limiting + caching + pub/sub) ──────────────────────────────
+  # -- Redis (rate limiting + caching + pub/sub) ------------------------------
   redis:
     image: redis:7.2-alpine
     container_name: cdb-redis-dev
@@ -55,7 +55,7 @@ services:
       timeout: 3s
       retries: 3
 
-  # ── SENTINEL APEX API ─────────────────────────────────────────────────────
+  # -- SENTINEL APEX API -----------------------------------------------------
   api:
     build:
       context: .
@@ -76,15 +76,15 @@ services:
       REDIS_URL:           redis://redis:6379/0
       # Auth
       CDB_JWT_SECRET:      dev-jwt-secret-change-in-production
-      # CORS — allow all origins in dev
+      # CORS  -  allow all origins in dev
       CDB_CORS_ALLOW_ALL:  "true"
-      # Feature flags — enable for dev testing
+      # Feature flags  -  enable for dev testing
       CDB_METRICS_ENABLED:          "true"
       CDB_AUDIT_ENABLED:            "true"
       CDB_TRACING_ENABLED:          "false"
       CDB_STRUCTURED_LOGGING:       "true"
       CDB_LOG_LEVEL:                DEBUG
-      # Backup — disabled in dev
+      # Backup  -  disabled in dev
       CDB_BACKUP_ENABLED:           "false"
     volumes:
       - ./data:/app/data
@@ -99,7 +99,7 @@ services:
       start_period: 20s
       retries: 3
 
-  # ── Prometheus ────────────────────────────────────────────────────────────
+  # -- Prometheus ------------------------------------------------------------
   prometheus:
     image: prom/prometheus:v2.51.0
     container_name: cdb-prometheus-dev
@@ -121,7 +121,7 @@ services:
     networks:
       - sentinel-internal
 
-  # ── Grafana ───────────────────────────────────────────────────────────────
+  # -- Grafana ---------------------------------------------------------------
   grafana:
     image: grafana/grafana:10.4.0
     container_name: cdb-grafana-dev
@@ -142,7 +142,7 @@ services:
     networks:
       - sentinel-internal
 
-  # ── Loki (log aggregation) ────────────────────────────────────────────────
+  # -- Loki (log aggregation) ------------------------------------------------
   loki:
     image: grafana/loki:2.9.5
     container_name: cdb-loki-dev
@@ -155,7 +155,7 @@ services:
     networks:
       - sentinel-internal
 
-  # ── Alertmanager ─────────────────────────────────────────────────────────
+  # -- Alertmanager ---------------------------------------------------------
   alertmanager:
     image: prom/alertmanager:v0.27.0
     container_name: cdb-alertmanager-dev
