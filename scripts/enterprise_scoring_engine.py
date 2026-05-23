@@ -850,7 +850,8 @@ def apply_enterprise_scoring(manifest_path: Path = MANIFEST_PATH) -> dict:
         return {"error": "manifest_not_found", "scored": 0}
 
     data = json.loads(manifest_path.read_text(encoding="utf-8"))
-    items = data.get("advisories") or data.get("reports") or data.get("items") or []
+    # fix(v160.7): feed_manifest.json may be a raw JSON list (written by agent.sentinel_blogger)
+    items = data if isinstance(data, list) else (data.get("advisories") or data.get("reports") or data.get("items") or [])
     total = len(items)
     log.info("Loaded %d advisories", total)
 

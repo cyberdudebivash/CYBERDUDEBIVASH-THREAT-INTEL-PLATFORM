@@ -399,7 +399,8 @@ def apply_ioc_hardening(manifest_path: Path = MANIFEST_PATH) -> dict:
         return {"error": "manifest_not_found", "processed": 0}
 
     data = json.loads(manifest_path.read_text(encoding="utf-8"))
-    items = data.get("advisories") or data.get("reports") or data.get("items") or []
+    items = data if isinstance(data, list) else (
+        data.get("advisories") or data.get("reports") or data.get("items") or [])
     total = len(items)
     log.info("Loaded %d advisories", total)
 

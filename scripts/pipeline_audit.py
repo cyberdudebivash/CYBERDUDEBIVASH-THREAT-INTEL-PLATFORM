@@ -120,7 +120,7 @@ def check_manifest(findings: list, stats: dict) -> None:
                          "detail": f"Manifest JSON parse error: {e}"})
         return
 
-    items = data.get("advisories", data if isinstance(data, list) else [])
+    items = data if isinstance(data, list) else data.get("advisories", [])
     stats["manifest_entries"] = len(items)
 
     ioc_mismatch = []
@@ -274,7 +274,7 @@ def check_report_manifest_consistency(findings: list, stats: dict) -> None:
     except Exception:
         return
 
-    items = data.get("advisories", data if isinstance(data, list) else [])
+    items = data if isinstance(data, list) else data.get("advisories", [])
     missing_files = []
     checked = 0
 
