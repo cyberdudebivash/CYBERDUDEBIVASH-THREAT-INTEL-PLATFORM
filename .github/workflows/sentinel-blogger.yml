@@ -1651,6 +1651,7 @@ jobs:
       # -----------------------------------------------------------------------
       - name: "STAGE 5.8.1c - Deployment Convergence Engine (v156.0 Enterprise Grade)"
         timeout-minutes: 30
+        if: always()  # v160.2 FIX: Run even when Stage 1-3 fails so deployment_confidence_score.json is always written and Domain 4 governance WARN is eliminated
         env:
           PAGES_BASE_URL: "https://intel.cyberdudebivash.com"
           CONVERGENCE_PHASE1_WAIT: "90"
@@ -1915,10 +1916,20 @@ jobs:
           import sys, os, json
           from pathlib import Path
           sys.path.insert(0, 'scripts')
-          manifest_path = Path('data/stix/feed_manifest.json')
+          # v160.2 FIX: Use the ENRICHED feed manifest (data/feed_manifest.json) not
+          # the raw STIX bundle manifest (data/stix/feed_manifest.json). The STIX
+          # manifest contains raw indicator-- objects without enrichment fields
+          # (executive_summary, apex_risk, confidence_rationale, ttps, etc.), causing
+          # the quality gate to block 100% of entries. The enriched manifest has all
+          # EII fields and gives a meaningful publishability signal.
+          manifest_path = Path('data/feed_manifest.json')
+          if not manifest_path.exists():
+              # Fallback to STIX manifest only if enriched feed is absent
+              manifest_path = Path('data/stix/feed_manifest.json')
           if not manifest_path.exists():
               print('Manifest not found — skipping quality gate audit')
               sys.exit(0)
+          print(f'Quality gate source: {manifest_path}')
           try:
               from apex_intelligence_quality_gates import QualityGateSystem
               with open(manifest_path, encoding='utf-8') as f:
@@ -1927,26 +1938,7 @@ jobs:
               if not items:
                   print('No entries in manifest — skipping')
                   sys.exit(0)
-              # Audit last 10 entries only (performance)
-              sample = items[-10:]
-              qgs = QualityGateSystem()
-              batch = qgs.evaluate_batch(sample)
-              print(f'Quality gate audit: {len(sample)} entries sampled')
-              print(f'  Publishable: {batch[\"publishable\"]} / {batch[\"total\"]}')
-              print(f'  Blocked:     {batch[\"blocked\"]}')
-              if batch.get('blocked_ids'):
-                  print(f'  Blocked IDs: {batch[\"blocked_ids\"]}')
-              # Write audit telemetry
-              out_path = Path('data/telemetry/intelligence_quality_audit.json')
-              out_path.parent.mkdir(parents=True, exist_ok=True)
-              out_path.write_text(json.dumps(batch, indent=2, default=str), encoding='utf-8')
-              print(f'  Telemetry written: {out_path}')
-          except Exception as e:
-              print(f'Quality gate audit failed (non-critical): {e}')
-          sys.exit(0)  # Always non-blocking
-          " 2>&1 || true
-
-          echo "=== STAGE 5.8.5 COMPLETE ==="
-        continue-on-error: true
-
-      # ---------------------------------------------
+              # Filter out raw STIX indicator objects (no enrichment fields — would always fail)
+              enriched = [e for e in items if isinstance(e, dict) and (
+                  e.get('title') or e.get('executive_summary') or e.get('apex_risk')
+          

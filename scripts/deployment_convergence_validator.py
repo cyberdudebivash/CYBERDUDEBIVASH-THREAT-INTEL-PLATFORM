@@ -14,11 +14,11 @@ ROOT CAUSE ADDRESSED:
   convergence before declaring success or failure.
 
 ARCHITECTURE: 5-PHASE CONVERGENCE PROTOCOL
-  Phase 1 — Pages Push Detection:     detect gh-pages push completion
-  Phase 2 — CDN Propagation Wait:     stabilization window with readiness probing
-  Phase 3 — Incremental Retry:        exponential backoff with jitter, multi-endpoint
-  Phase 4 — Convergence Confirmation: 3 consecutive clean passes required
-  Phase 5 — Historical Report Audit:  verify historical reports remain accessible
+  Phase 1  -  Pages Push Detection:     detect gh-pages push completion
+  Phase 2  -  CDN Propagation Wait:     stabilization window with readiness probing
+  Phase 3  -  Incremental Retry:        exponential backoff with jitter, multi-endpoint
+  Phase 4  -  Convergence Confirmation: 3 consecutive clean passes required
+  Phase 5  -  Historical Report Audit:  verify historical reports remain accessible
 
 CONVERGENCE SIGNALS:
   - HTTP 200 on latest report URLs
@@ -35,9 +35,9 @@ CONFIDENCE SCORING:
   Score  < 60  = DEPLOYMENT_FAILED (hard fail)
 
 EXIT CODES:
-  0 = Convergence confirmed — deployment is customer-safe
-  1 = Hard failure — deployment failed to converge after all retries
-  2 = Partial convergence — degraded state, investigation required
+  0 = Convergence confirmed  -  deployment is customer-safe
+  1 = Hard failure  -  deployment failed to converge after all retries
+  2 = Partial convergence  -  degraded state, investigation required
 
 ENVIRONMENT VARIABLES:
   PAGES_BASE_URL            Base URL (default: https://intel.cyberdudebivash.com)
@@ -55,7 +55,7 @@ ENVIRONMENT VARIABLES:
   HISTORICAL_PROBE_COUNT    Historical report URLs to verify (default: 5)
 
 (c) 2026 CyberDudeBivash Pvt. Ltd. All Rights Reserved.
-CLASSIFICATION: INTERNAL ENGINEERING — CONFIDENTIAL
+CLASSIFICATION: INTERNAL ENGINEERING  -  CONFIDENTIAL
 """
 from __future__ import annotations
 
@@ -171,17 +171,17 @@ def _http_probe(url: str, timeout: int = HTTP_TIMEOUT) -> ProbeResult:
             )
     except urllib.error.HTTPError as exc:
         elapsed = (time.monotonic() - t0) * 1000
-        # 401 = auth-gated Cloudflare Worker endpoint — CDN IS live and responding.
+        # 401 = auth-gated Cloudflare Worker endpoint  -  CDN IS live and responding.
         # A 401 is proof-of-delivery: the request reached the Worker and was processed.
         # Counting 401 as a CDN failure causes the convergence engine to permanently
         # block on auth-gated endpoints like api/feed.json. Classify as CDN-DELIVERED.
         if exc.code == 401:
-            log.info("  🔒 [AUTH-GATED] %s — HTTP 401 (CDN-DELIVERED, auth required)", url)
+            log.info("  🔒 [AUTH-GATED] %s  -  HTTP 401 (CDN-DELIVERED, auth required)", url)
             return ProbeResult(
                 url=url,
                 status_code=401,
                 latency_ms=round(elapsed, 1),
-                success=True,    # CDN delivered — Worker is live
+                success=True,    # CDN delivered  -  Worker is live
                 is_transient=False,
                 etag=None,
                 error=None,
@@ -217,10 +217,10 @@ def _probe_batch(urls: List[str], label: str = "") -> Tuple[List[ProbeResult], i
         results.append(r)
         if r.success:
             ok += 1
-            log.info("  ✅ [%s] %s — HTTP %d (%.0fms)", label, url, r.status_code, r.latency_ms)
+            log.info("  ✅ [%s] %s  -  HTTP %d (%.0fms)", label, url, r.status_code, r.latency_ms)
         else:
             fail += 1
-            log.warning("  ❌ [%s] %s — %s (transient=%s)", label, url, r.error or r.status_code, r.is_transient)
+            log.warning("  ❌ [%s] %s  -  %s (transient=%s)", label, url, r.error or r.status_code, r.is_transient)
     return results, ok, fail
 
 
@@ -256,26 +256,26 @@ def _extract_report_urls(feed: List[dict], manifest: dict) -> Tuple[List[str], L
     Extract latest and historical report URLs for convergence probing.
 
     SOURCE PRIORITY (v156.1 fix):
-      1. PRIMARY  — deployment_manifest.json["files"] filtered for reports/*.html
+      1. PRIMARY   -  deployment_manifest.json["files"] filtered for reports/*.html
          These are the ONLY files guaranteed to exist in dist/ and therefore on the
          CDN. When REPORT_RETENTION_DAYS > 0 the dist/ artifact contains only HOT-tier
          reports. Using feed.json as the source in that mode produces stale/archived
          URLs that are not in dist/ → permanent 404s → convergence never achieved.
-      2. FALLBACK — feed.json report_url fields (used only when manifest has no files,
+      2. FALLBACK  -  feed.json report_url fields (used only when manifest has no files,
          e.g. first-boot or manifest generation failure).
 
     Returns (latest_urls, historical_urls):
-      latest    — most-recent MAX_REPORT_PROBES reports (newest filenames = last alpha)
-      historical — oldest HIST_PROBE_COUNT reports (guard against accidental deletion)
+      latest     -  most-recent MAX_REPORT_PROBES reports (newest filenames = last alpha)
+      historical  -  oldest HIST_PROBE_COUNT reports (guard against accidental deletion)
     """
     urls: List[str] = []
 
-    # ── PRIMARY: manifest["files"] — guaranteed to exist in dist/ ────────────
+    # ── PRIMARY: manifest["files"]  -  guaranteed to exist in dist/ ────────────
     manifest_files = manifest.get("files", {})
     if manifest_files:
         # Collect all reports/*.html entries and sort alphabetically.
         # Report filenames are date-prefixed (YYYY-MM-DD_...) so alpha sort
-        # places oldest first, newest last — ideal for latest/historical split.
+        # places oldest first, newest last  -  ideal for latest/historical split.
         report_paths = sorted(
             k for k in manifest_files
             if k.startswith("reports/") and k.endswith(".html")
@@ -291,7 +291,7 @@ def _extract_report_urls(feed: List[dict], manifest: dict) -> Tuple[List[str], L
     # ── FALLBACK: feed.json report_url fields ─────────────────────────────────
     if not urls:
         log.warning(
-            "Manifest 'files' has no reports/ entries — falling back to feed.json. "
+            "Manifest 'files' has no reports/ entries  -  falling back to feed.json. "
             "NOTE: under REPORT_RETENTION_DAYS>0 this may produce stale 404 URLs."
         )
         for item in feed:
@@ -313,7 +313,7 @@ def _extract_report_urls(feed: List[dict], manifest: dict) -> Tuple[List[str], L
         return [], []
 
     # latest  = newest MAX_REPORT_PROBES reports (last entries after alpha sort)
-    # historical = oldest HIST_PROBE_COUNT reports (first entries — continuity guard)
+    # historical = oldest HIST_PROBE_COUNT reports (first entries  -  continuity guard)
     if len(deduped) > MAX_REPORT_PROBES:
         latest     = deduped[-MAX_REPORT_PROBES:]
         historical = deduped[:HIST_PROBE_COUNT]
@@ -367,7 +367,7 @@ def phase1_pages_push_detection() -> PhaseResult:
     Probes the homepage and feed endpoint to detect push completion.
     """
     log.info("=" * 70)
-    log.info("PHASE 1 — PAGES PUSH DETECTION + INITIAL STABILIZATION WAIT")
+    log.info("PHASE 1  -  PAGES PUSH DETECTION + INITIAL STABILIZATION WAIT")
     log.info("=" * 70)
     t0 = time.monotonic()
 
@@ -379,7 +379,7 @@ def phase1_pages_push_detection() -> PhaseResult:
     log.info("Probing platform endpoints to detect gh-pages push completion...")
     results, ok, fail = _probe_batch(endpoints, "Phase1")
 
-    # Allow partial pass on Phase 1 — CDN may not be propagated yet
+    # Allow partial pass on Phase 1  -  CDN may not be propagated yet
     push_detected = ok >= 1
 
     if push_detected:
@@ -397,7 +397,7 @@ def phase1_pages_push_detection() -> PhaseResult:
     return PhaseResult(
         phase=1,
         name="Pages Push Detection",
-        success=True,   # Phase 1 always passes — it's a stabilization gate
+        success=True,   # Phase 1 always passes  -  it's a stabilization gate
         probes=results,
         duration_s=round(duration, 1),
         message=f"Push detected={push_detected}. Stabilization window complete.",
@@ -411,7 +411,7 @@ def phase2_cdn_readiness_probe(feed: List[dict], manifest: dict) -> PhaseResult:
     Returns success when CDN is serving fresh content.
     """
     log.info("=" * 70)
-    log.info("PHASE 2 — CDN PROPAGATION READINESS PROBE")
+    log.info("PHASE 2  -  CDN PROPAGATION READINESS PROBE")
     log.info("=" * 70)
     t0 = time.monotonic()
 
@@ -469,7 +469,7 @@ def phase3_incremental_retry(feed: List[dict], manifest: dict) -> PhaseResult:
     Distinguishes transient failures (CDN lag) from permanent failures (404).
     """
     log.info("=" * 70)
-    log.info("PHASE 3 — INCREMENTAL RETRY WITH TRANSIENT/PERMANENT DISCRIMINATION")
+    log.info("PHASE 3  -  INCREMENTAL RETRY WITH TRANSIENT/PERMANENT DISCRIMINATION")
     log.info("=" * 70)
     t0 = time.monotonic()
 
@@ -513,7 +513,7 @@ def phase3_incremental_retry(feed: List[dict], manifest: dict) -> PhaseResult:
         if permanent_fails and attempt >= 3:
             log.error("Phase 3: %d PERMANENT failures detected (non-transient 404s):", len(permanent_fails))
             for r in permanent_fails:
-                log.error("  PERMANENT FAIL: %s — %s", r.url, r.error)
+                log.error("  PERMANENT FAIL: %s  -  %s", r.url, r.error)
 
         wait = _backoff_wait(attempt)
         log.info("Phase 3: Waiting %.1fs before next retry round...", wait)
@@ -532,18 +532,18 @@ def phase3_incremental_retry(feed: List[dict], manifest: dict) -> PhaseResult:
         probes=all_results,
         duration_s=round(duration, 1),
         message=f"{confirmed}/{total} report URLs confirmed ({success_rate:.0%}). "
-                f"{'PASS' if phase_success else 'FAIL — below 90% threshold'}",
+                f"{'PASS' if phase_success else 'FAIL  -  below 90% threshold'}",
     )
 
 
 def phase4_convergence_confirmation(feed: List[dict], manifest: dict) -> PhaseResult:
     """
-    Phase 4: Convergence confirmation — requires CONFIRM_RUNS consecutive
+    Phase 4: Convergence confirmation  -  requires CONFIRM_RUNS consecutive
     clean validation passes with a 30s gap between passes.
     Eliminates flapping caused by CDN partial-propagation state.
     """
     log.info("=" * 70)
-    log.info("PHASE 4 — CONVERGENCE CONFIRMATION (%d consecutive clean passes required)", CONFIRM_RUNS)
+    log.info("PHASE 4  -  CONVERGENCE CONFIRMATION (%d consecutive clean passes required)", CONFIRM_RUNS)
     log.info("=" * 70)
     t0 = time.monotonic()
 
@@ -571,7 +571,7 @@ def phase4_convergence_confirmation(feed: List[dict], manifest: dict) -> PhaseRe
             log.info("Phase 4: Clean pass %d/%d confirmed (%.0f%% success rate) ✅", consecutive_clean, CONFIRM_RUNS, success_rate * 100)
         else:
             consecutive_clean = 0
-            log.warning("Phase 4: Clean streak reset — only %.0f%% success rate.", success_rate * 100)
+            log.warning("Phase 4: Clean streak reset  -  only %.0f%% success rate.", success_rate * 100)
 
         if consecutive_clean < CONFIRM_RUNS:
             log.info("Phase 4: Waiting %ds before next confirmation pass...", PASS_INTERVAL)
@@ -586,7 +586,7 @@ def phase4_convergence_confirmation(feed: List[dict], manifest: dict) -> PhaseRe
         success=convergence_confirmed,
         probes=all_results,
         duration_s=round(duration, 1),
-        message=f"{'Convergence CONFIRMED' if convergence_confirmed else 'Convergence NOT confirmed'} — "
+        message=f"{'Convergence CONFIRMED' if convergence_confirmed else 'Convergence NOT confirmed'}  -  "
                 f"{consecutive_clean}/{CONFIRM_RUNS} consecutive clean passes.",
     )
 
@@ -598,34 +598,34 @@ def phase5_historical_report_audit(feed: List[dict], manifest: dict) -> PhaseRes
     Guards against Pages deployments that accidentally delete older reports.
     """
     log.info("=" * 70)
-    log.info("PHASE 5 — HISTORICAL REPORT CONTINUITY AUDIT")
+    log.info("PHASE 5  -  HISTORICAL REPORT CONTINUITY AUDIT")
     log.info("=" * 70)
     t0 = time.monotonic()
 
     _, historical_urls = _extract_report_urls(feed, manifest)
 
     if not historical_urls:
-        # No historical reports to check — skip with warning
+        # No historical reports to check  -  skip with warning
         log.warning("Phase 5: No historical report URLs available to audit. Skipping.")
         duration = time.monotonic() - t0
         return PhaseResult(
             phase=5, name="Historical Report Audit",
             success=True,  # soft pass when no historical data available
             probes=[], duration_s=round(duration, 1),
-            message="No historical URLs available — audit skipped (soft pass).",
+            message="No historical URLs available  -  audit skipped (soft pass).",
         )
 
     log.info("Phase 5: Probing %d historical report URLs...", len(historical_urls))
     results, ok, fail = _probe_batch(historical_urls, "Phase5-Historical")
 
     success_rate = ok / len(historical_urls) if historical_urls else 1.0
-    phase_success = success_rate >= 0.8   # 80% threshold — some historical loss is alert, not hard-fail
+    phase_success = success_rate >= 0.8   # 80% threshold  -  some historical loss is alert, not hard-fail
 
     duration = time.monotonic() - t0
     if not phase_success:
-        log.error("Phase 5: HISTORICAL CONTINUITY BREACH — %d/%d historical reports inaccessible!", fail, len(historical_urls))
+        log.error("Phase 5: HISTORICAL CONTINUITY BREACH  -  %d/%d historical reports inaccessible!", fail, len(historical_urls))
     else:
-        log.info("Phase 5: Historical continuity OK — %d/%d accessible (%.0f%%)", ok, len(historical_urls), success_rate * 100)
+        log.info("Phase 5: Historical continuity OK  -  %d/%d accessible (%.0f%%)", ok, len(historical_urls), success_rate * 100)
 
     return PhaseResult(
         phase=5,
@@ -658,7 +658,7 @@ def _compute_confidence_score(phases: List[PhaseResult], feed: List[dict], manif
 
     phase_map = {p.phase: p for p in phases}
 
-    # Signal 1: CDN readiness (Phase 2) — 20 pts
+    # Signal 1: CDN readiness (Phase 2)  -  20 pts
     p2 = phase_map.get(2)
     if p2 and p2.success:
         score += 20.0
@@ -675,7 +675,7 @@ def _compute_confidence_score(phases: List[PhaseResult], feed: List[dict], manif
     else:
         signals["cdn_readiness"] = {"score": 0, "status": "NOT_RUN", "message": "Phase 2 not executed"}
 
-    # Signal 2: Report URL validation (Phase 3) — 35 pts
+    # Signal 2: Report URL validation (Phase 3)  -  35 pts
     p3 = phase_map.get(3)
     if p3 and p3.success:
         score += 35.0
@@ -688,7 +688,7 @@ def _compute_confidence_score(phases: List[PhaseResult], feed: List[dict], manif
     else:
         signals["report_url_validation"] = {"score": 0, "status": "FAIL", "message": p3.message if p3 else "Phase 3 not run"}
 
-    # Signal 3: Convergence confirmation (Phase 4) — 30 pts
+    # Signal 3: Convergence confirmation (Phase 4)  -  30 pts
     p4 = phase_map.get(4)
     if p4 and p4.success:
         score += 30.0
@@ -701,7 +701,7 @@ def _compute_confidence_score(phases: List[PhaseResult], feed: List[dict], manif
     else:
         signals["convergence_confirmation"] = {"score": 0, "status": "FAIL", "message": p4.message if p4 else "Phase 4 not run"}
 
-    # Signal 4: Historical continuity (Phase 5) — 10 pts
+    # Signal 4: Historical continuity (Phase 5)  -  10 pts
     p5 = phase_map.get(5)
     if p5 and p5.success:
         score += 10.0
@@ -712,7 +712,7 @@ def _compute_confidence_score(phases: List[PhaseResult], feed: List[dict], manif
         signals["historical_continuity"] = {"score": 5, "status": "NOT_RUN", "message": "Phase 5 not run (soft pass)"}
         score += 5.0
 
-    # Signal 5: Data availability — 5 pts
+    # Signal 5: Data availability  -  5 pts
     feed_ok = len(feed) > 0
     manifest_ok = bool(manifest)
     data_score = (2.5 if feed_ok else 0) + (2.5 if manifest_ok else 0)
@@ -795,7 +795,7 @@ def run_convergence_protocol() -> int:
     version = _get_platform_version()
 
     log.info("╔══════════════════════════════════════════════════════════════════════╗")
-    log.info("║   SENTINEL APEX — DEPLOYMENT CONVERGENCE ENGINE v156.0              ║")
+    log.info("║   SENTINEL APEX  -  DEPLOYMENT CONVERGENCE ENGINE v156.0              ║")
     log.info("║   EVENTUAL-CONSISTENCY-AWARE · ENTERPRISE-GRADE · P0-SAFE           ║")
     log.info("╚══════════════════════════════════════════════════════════════════════╝")
     log.info("Platform version : %s", version)
@@ -819,10 +819,10 @@ def run_convergence_protocol() -> int:
     p2 = phase2_cdn_readiness_probe(feed, manifest)
     phases.append(p2)
 
-    # If Phase 2 failed, we still continue — CDN may still be propagating
+    # If Phase 2 failed, we still continue  -  CDN may still be propagating
     # but we attempt Phase 3 with extended retry
     if not p2.success:
-        log.warning("Phase 2 CDN readiness not confirmed — extending Phase 3 retry budget...")
+        log.warning("Phase 2 CDN readiness not confirmed  -  extending Phase 3 retry budget...")
 
     # ── Phase 3 ──────────────────────────────────────────────────────────
     p3 = phase3_incremental_retry(feed, manifest)
@@ -832,11 +832,11 @@ def run_convergence_protocol() -> int:
     if p3.success:
         p4 = phase4_convergence_confirmation(feed, manifest)
     else:
-        log.warning("Phase 3 failed — skipping Phase 4 convergence confirmation.")
+        log.warning("Phase 3 failed  -  skipping Phase 4 convergence confirmation.")
         p4 = PhaseResult(
             phase=4, name="Convergence Confirmation",
             success=False, probes=[], duration_s=0,
-            message="Skipped — Phase 3 did not pass.",
+            message="Skipped  -  Phase 3 did not pass.",
         )
     phases.append(p4)
 
@@ -896,11 +896,11 @@ def run_convergence_protocol() -> int:
     log.info("╚══════════════════════════════════════════════════════════════════════╝")
 
     if exit_code == 0:
-        log.info("🟢 DEPLOYMENT CONVERGENCE CONFIRMED — Platform is customer-safe.")
+        log.info("🟢 DEPLOYMENT CONVERGENCE CONFIRMED  -  Platform is customer-safe.")
     elif exit_code == 2:
-        log.warning("🟡 DEPLOYMENT DEGRADED — Investigate signals. Platform partially available.")
+        log.warning("🟡 DEPLOYMENT DEGRADED  -  Investigate signals. Platform partially available.")
     else:
-        log.error("🔴 DEPLOYMENT CONVERGENCE FAILED — P0 escalation required.")
+        log.error("🔴 DEPLOYMENT CONVERGENCE FAILED  -  P0 escalation required.")
 
     return exit_code
 
@@ -910,4 +910,37 @@ def run_convergence_protocol() -> int:
 # ---------------------------------------------------------------------------
 
 if __name__ == "__main__":
-    sys.exit(run_convergence_protocol())
+    # v160.2 P1 FIX: Guarantee deployment_confidence_score.json is ALWAYS written
+    # even if run_convergence_protocol() raises an unhandled exception.
+    # Without this, any crash before _write_confidence_report() leaves the file
+    # absent, causing STAGE 5.8.4 governance Domain 4 to WARN every failed run.
+    try:
+        sys.exit(run_convergence_protocol())
+    except Exception as _fatal:
+        log.error("Convergence protocol crashed: %s", _fatal)
+        _fallback = {
+            "generated_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "platform_version": "unknown",
+            "base_url": os.environ.get("PAGES_BASE_URL", ""),
+            "confidence_score": 0,
+            "classification": "DEPLOYMENT_FAILED",
+            "convergence_achieved": False,
+            "total_duration_s": 0,
+            "retry_rounds": 0,
+            "exit_code": 1,
+            "signals": {},
+            "phases": [],
+            "error": str(_fatal),
+            "thresholds": {
+                "stable_threshold": CONFIDENCE_STABLE,
+                "fail_threshold": CONFIDENCE_FAIL,
+            },
+        }
+        try:
+            CONFIDENCE_OUT.write_text(
+                json.dumps(_fallback, indent=2), encoding="utf-8"
+            )
+            log.info("Fallback confidence report written: %s", CONFIDENCE_OUT)
+        except Exception as _write_err:
+            log.error("Failed to write fallback report: %s", _write_err)
+        sys.exit(1)
