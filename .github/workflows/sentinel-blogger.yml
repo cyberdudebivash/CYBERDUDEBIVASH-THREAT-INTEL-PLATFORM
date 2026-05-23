@@ -1515,6 +1515,7 @@ jobs:
       # validate_monetization.py runs.  Idempotent -- safe to run every deploy.
       # -----------------------------------------------------------------------
       - name: "STAGE 5.7-PRE - HTML Encoding Auto-Fix (pre-flight)"
+        if: always()  # v161.1: must run even when upstream stages fail/cancel
         timeout-minutes: 5
         run: python3 scripts/fix_all_html_encoding.py
 
@@ -1525,8 +1526,10 @@ jobs:
       # wrong crypto wallet, missing NEFT details, broken payment links,
       # mojibake in ANY HTML file (18-file sweep).
       # Ensures 100% payment + encoding integrity on every deploy.
+      # v161.1: if:always() -- MONETIZATION GATE MUST NEVER BE SKIPPED.
       # -----------------------------------------------------------------------
       - name: "STAGE 5.7 - Monetization Integrity Gate (HARD FAIL)"
+        if: always()  # v161.1: monetization integrity must run on EVERY pipeline execution
         timeout-minutes: 5
         run: python3 scripts/validate_monetization.py
 
