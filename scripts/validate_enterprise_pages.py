@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 """
-CYBERDUDEBIVASH® SENTINEL APEX — Enterprise Page Presence Validator
-v161.1 — Stage 5.9.4 — pricing.html CTA gate fix (Stage 5.7 unblock)
+CYBERDUDEBIVASH(R) SENTINEL APEX -- Enterprise Page Presence Validator
+v161.2 -- Stage 5.9.4 -- pricing.html CTA gate fix + truncation fix
 
 Validates that all required enterprise trust and monetization pages exist.
 Non-blocking: always exits 0.
@@ -29,16 +30,16 @@ for rel_path, description in REQUIRED_PAGES:
     full = REPO / rel_path
     if full.exists():
         size = full.stat().st_size
-        print(f"  [OK]      {rel_path} ({size:,} bytes) — {description}")
+        print(f"  [OK]      {rel_path} ({size:,} bytes) -- {description}")
         ok += 1
     else:
-        print(f"  [MISSING] {rel_path} — {description}")
+        print(f"  [MISSING] {rel_path} -- {description}")
         missing += 1
 
 print(f"\nEnterprise page audit: {ok} present / {missing} missing")
 if missing == 0:
-    print("ALL ENTERPRISE ASSETS VERIFIED — platform is commercially equipped")
+    print("ALL ENTERPRISE ASSETS VERIFIED -- platform is commercially equipped")
 else:
-    print(f"WARNING: {missing} asset(s) missing — check deployment")
+    print(f"WARNING: {missing} asset(s) missing -- check deployment")
 
 sys.exit(0)  # Non-blocking
