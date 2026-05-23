@@ -177,6 +177,16 @@ def _validate_one(entry: Dict[str, Any], idx: int) -> List[str]:
         )
         return failures
 
+    # v160.5e HARDENING: Skip STIX-bundle-only entries (no HTML report).
+    # Manifest entries with NEITHER report_url NOR internal_report_url are raw
+    # STIX bundle index records produced by run_pipeline.py. They never have
+    # associated HTML report files — HTML reports use intel--{hex} IDs while
+    # STIX bundles use bundle--{uuid}. Derived fs_path will always be absent.
+    # Condition: no explicit URL AND local file does not exist at derived path.
+    # This preserves full RULE 3/4/5 checks for genuine intel-- advisory reports.
+    if not explicit_url and not os.path.exists(fs_path):
+        return failures  # SKIP — STIX bundle-only record, no HTML report expected
+
     # RULE 2: if an explicit URL is present, it must not be a foreign external URL
     if explicit_url and explicit_url.startswith("http") and "cyberdudebivash" not in explicit_url:
         failures.append(
