@@ -1777,14 +1777,14 @@ jobs:
           echo ""
           echo "[API-PREP] Checking api/latest.json..."
           if [ -f "api/latest.json" ]; then
-            ITEMS=$(python3 -c "import json; d=json.load(open('api/latest.json')); items=d if isinstance(d,list) else d.get('items',[]); print(len(items))" 2>/dev/null || echo "?")
+            ITEMS=$(jq 'if type=="array" then length else (.items // [] | length) end' api/latest.json 2>/dev/null || echo "?")
             echo "[API-PREP] api/latest.json exists — $ITEMS items"
           else
             echo "[API-PREP] api/latest.json missing — searching for source..."
             # Try v1 intel endpoint first (primary source)
             if [ -f "api/v1/intel/latest.json" ]; then
               cp -f api/v1/intel/latest.json api/latest.json
-              ITEMS=$(python3 -c "import json; d=json.load(open('api/latest.json')); items=d if isinstance(d,list) else d.get('items',[]); print(len(items))" 2>/dev/null || echo "?")
+              ITEMS=$(jq 'if type=="array" then length else (.items // [] | length) end' api/latest.json 2>/dev/null || echo "?")
               echo "[API-PREP] api/latest.json created from api/v1/intel/latest.json ($ITEMS items)"
             elif [ -f "api/feed.json" ]; then
               # Fallback: slice top 10 from feed.json as latest
@@ -1838,8 +1838,8 @@ jobs:
         run: |
           GOVERNANCE_FILE="data/telemetry/global_release_governance.json"
           if [ -f "$GOVERNANCE_FILE" ]; then
-            GRADE=$(python3 -c "import json; d=json.load(open('$GOVERNANCE_FILE')); print(d.get('overall_grade','?'))" 2>/dev/null || echo "?")
-            BLOCKED=$(python3 -c "import json; d=json.load(open('$GOVERNANCE_FILE')); print(d.get('release_blocked',False))" 2>/dev/null || echo "?")
+            GRADE=$(jq -r '.overall_grade // "?"' "$GOVERNANCE_FILE" 2>/dev/null || echo "?")
+            BLOCKED=$(jq -r '.release_blocked // "false"' "$GOVERNANCE_FILE" 2>/dev/null || echo "false")
             echo "[GOVERNANCE] Grade=$GRADE | RELEASE_BLOCKED=$BLOCKED"
             git add "$GOVERNANCE_FILE" 2>/dev/null || true
             git diff --cached --quiet "$GOVERNANCE_FILE" 2>/dev/null || \
