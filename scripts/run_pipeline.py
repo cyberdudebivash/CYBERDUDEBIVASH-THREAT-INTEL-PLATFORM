@@ -3263,4 +3263,36 @@ def main() -> None:
         log.warning("[p8-heal] Backup skipped (non-fatal): %s", _p8_e)
 
     # Phase 9: Final Validation Report
-   
+    try:
+        import importlib.util as _p9_ilu
+        _p9_spec = _p9_ilu.spec_from_file_location(
+            "regression_immunity",
+            REPO_ROOT / "scripts" / "regression_immunity.py",
+        )
+        _p9_mod = _p9_ilu.module_from_spec(_p9_spec)
+        _p9_spec.loader.exec_module(_p9_mod)
+        _p9_pass, _p9_fail = _p9_mod.run_checks(str(REPO_ROOT))
+        if _p9_fail:
+            log.warning("[p9-immunity] %d regression check(s) FAILED: %s", len(_p9_fail), _p9_fail[:3])
+        else:
+            log.info("[p9-immunity] PASS — all %d regression immunity checks passed", len(_p9_pass))
+    except Exception as _p9_e:
+        log.warning("[p9-immunity] Skipped (non-fatal): %s", _p9_e)
+
+    # ── Stage Registry Completion Check ──────────────────────────────────────
+    _missing_stages = [s for s in _STAGE_REGISTRY if s not in _completed_stages]
+    if _missing_stages:
+        log.warning("[stage-registry] %d stage(s) did not complete: %s",
+                    len(_missing_stages), _missing_stages)
+    else:
+        log.info("[stage-registry] All %d registered stages completed successfully",
+                 len(_STAGE_REGISTRY))
+
+    t_elapsed = time.monotonic() - t_total
+    log.info("=" * 70)
+    log.info("SENTINEL APEX PIPELINE COMPLETE — elapsed %.1fs", t_elapsed)
+    log.info("=" * 70)
+
+
+if __name__ == "__main__":
+    main()
