@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-SENTINEL APEX v160.0 — Feed Health Gate
+SENTINEL APEX v159.0 — Feed Health Gate
 ========================================
 P0 governance gate that blocks deployment of a synthetic, stale, or uniform
 feed. Runs as a CI validation step BEFORE the deploy stage.
@@ -286,5 +286,33 @@ def run_gate(feed_path: Path, strict: bool = False) -> Dict[str, Any]:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="SENTINEL APEX Feed Health Gate v159.0")
-    parser.add_argument("--feed",   default=str(DEFAULT_FEED), help="Path to
+    parser = argparse.ArgumentParser(description="SENTINEL APEX Feed Health Gate v160.0")
+    parser.add_argument("--feed",   default=str(DEFAULT_FEED), help="Path to feed JSON")
+    parser.add_argument("--strict", action="store_true",       help="Escalate WARN to FAIL")
+    parser.add_argument("--report", action="store_true",       help="Always exit 0 (observability mode)")
+    args = parser.parse_args()
+
+    feed_path = Path(args.feed)
+    report    = run_gate(feed_path, strict=args.strict)
+
+    # Write report
+    REPORT_PATH.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        REPORT_PATH.write_text(json.dumps(report, indent=2, ensure_ascii=False), encoding="utf-8")
+        log.info("Health gate report: %s", REPORT_PATH)
+    except Exception as exc:
+        log.warning("Could not write report: %s", exc)
+
+    status = report.get("status", "ERROR")
+    log.info("=" * 60)
+    log.info("FEED HEALTH GATE — %s  (hard_fails=%s, warnings=%s)",
+             status, report.get("hard_fails"), report.get("warnings"))
+    log.info("=" * 60)
+
+    if args.report:
+        return 0
+    return 1 if status == "FAIL" else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
