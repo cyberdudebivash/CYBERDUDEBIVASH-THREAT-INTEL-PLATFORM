@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 scripts/sanitize_repo.py
-CYBERDUDEBIVASH(R) SENTINEL APEX v134.0.0 — Production JSON Sanitizer & Self-Healing Engine
+CYBERDUDEBIVASH(R) SENTINEL APEX v160.0.0 — Production JSON Sanitizer & Self-Healing Engine
 ============================================================================================
 Runs as the FIRST step in sentinel-blogger.yml and deploy-worker.yml (after checkout,
 before ANY Python or validation step).
@@ -478,7 +478,7 @@ def write_security_hub_kv(events: List[SanitizeEvent], log_path: pathlib.Path) -
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="SENTINEL APEX — JSON Sanitizer & Self-Healing Engine v134.0.0"
+        description="SENTINEL APEX — JSON Sanitizer & Self-Healing Engine v160.0.0"
     )
     parser.add_argument("--dry-run", action="store_true", help="Report only, no writes")
     parser.add_argument("--json", dest="json_output", action="store_true",
@@ -491,7 +491,7 @@ def main() -> None:
     t_start = time.monotonic()
 
     print("=" * 72)
-    print("SENTINEL APEX — JSON Sanitizer & Self-Healing Engine v134.0.0")
+    print("SENTINEL APEX — JSON Sanitizer & Self-Healing Engine v160.0.0")
     print(f"Root   : {root}")
     print(f"Mode   : {'DRY-RUN (no writes)' if args.dry_run else 'FIX (auto-heal enabled)'}")
     print("=" * 72)
