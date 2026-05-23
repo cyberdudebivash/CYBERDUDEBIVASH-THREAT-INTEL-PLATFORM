@@ -1,6 +1,6 @@
 version: "3.9"
 
-# CYBERDUDEBIVASH® SENTINEL APEX — Production Docker Compose Override
+# CYBERDUDEBIVASH(R) SENTINEL APEX  -  Production Docker Compose Override
 # Extends docker-compose.yml with production hardening.
 #
 # Usage:
@@ -23,7 +23,7 @@ volumes:
 
 services:
 
-  # ── Redis (production config) ─────────────────────────────────────────────
+  # -- Redis (production config) ---------------------------------------------
   redis:
     image: redis:7.2-alpine
     container_name: cdb-redis
@@ -40,7 +40,7 @@ services:
         --protected-mode yes
     environment:
       REDIS_PASSWORD: ${REDIS_PASSWORD}
-    # No external port exposure in production — internal network only
+    # No external port exposure in production  -  internal network only
     expose:
       - "6379"
     networks:
@@ -56,7 +56,7 @@ services:
       timeout: 3s
       retries: 5
 
-  # ── SENTINEL APEX API (production hardening) ──────────────────────────────
+  # -- SENTINEL APEX API (production hardening) ------------------------------
   api:
     image: ${DOCKER_IMAGE:-cyberdudebivash/sentinel-apex:latest}
     container_name: cdb-api
@@ -72,11 +72,11 @@ services:
       PLATFORM_VERSION:    ${PLATFORM_VERSION:-152.0.0}
       # Redis (use AUTH password)
       REDIS_URL:           redis://:${REDIS_PASSWORD}@redis:6379/0
-      # JWT — RS256 keys from secrets
+      # JWT  -  RS256 keys from secrets
       CDB_JWT_PRIVATE_KEY: ${CDB_JWT_PRIVATE_KEY}
       CDB_JWT_PUBLIC_KEY:  ${CDB_JWT_PUBLIC_KEY}
       CDB_JWT_SECRET:      ${CDB_JWT_SECRET}   # HS256 fallback during migration
-      # CORS — explicit allowlist
+      # CORS  -  explicit allowlist
       CDB_CORS_ALLOWED_ORIGINS: ${CDB_CORS_ALLOWED_ORIGINS:-https://cyberdudebivash.com,https://api.cyberdudebivash.com}
       CDB_CORS_ALLOW_ALL:       "false"
       # Stripe
@@ -142,7 +142,7 @@ services:
       start_period: 30s
       retries: 3
 
-  # ── Prometheus (production — external access disabled) ────────────────────
+  # -- Prometheus (production  -  external access disabled) --------------------
   prometheus:
     image: prom/prometheus:v2.51.0
     container_name: cdb-prometheus
@@ -154,7 +154,7 @@ services:
       - "--web.enable-lifecycle"
       - "--web.listen-address=0.0.0.0:9090"
     expose:
-      - "9090"   # Internal only — access via Grafana
+      - "9090"   # Internal only  -  access via Grafana
     volumes:
       - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - ./monitoring/prometheus/alert_rules.yml:/etc/prometheus/rules/alert_rules.yml:ro
@@ -167,7 +167,7 @@ services:
           memory: 512m
           cpus: "0.5"
 
-  # ── Grafana (production) ──────────────────────────────────────────────────
+  # -- Grafana (production) --------------------------------------------------
   grafana:
     image: grafana/grafana:10.4.0
     container_name: cdb-grafana
@@ -193,7 +193,7 @@ services:
         limits:
           memory: 256m
 
-  # ── Loki (production) ─────────────────────────────────────────────────────
+  # -- Loki (production) -----------------------------------------------------
   loki:
     image: grafana/loki:2.9.5
     container_name: cdb-loki

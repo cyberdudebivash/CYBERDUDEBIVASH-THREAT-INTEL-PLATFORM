@@ -1,10 +1,10 @@
 # monitoring/prometheus/alert_rules.yml
-# CYBERDUDEBIVASH® SENTINEL APEX — Production Alert Rules
+# CYBERDUDEBIVASH(R) SENTINEL APEX  -  Production Alert Rules
 # Loaded by Prometheus: rule_files: [/etc/prometheus/rules/*.yml]
 
 groups:
 
-  # ── API Health ──────────────────────────────────────────────────────────────
+  # -- API Health --------------------------------------------------------------
   - name: cdb_api_health
     interval: 30s
     rules:
@@ -47,7 +47,7 @@ groups:
           summary: "SENTINEL APEX API is DOWN"
           description: "Prometheus cannot scrape the /metrics endpoint. API may be completely unavailable."
 
-  # ── Rate Limiting ───────────────────────────────────────────────────────────
+  # -- Rate Limiting -----------------------------------------------------------
   - name: cdb_rate_limits
     rules:
 
@@ -62,7 +62,7 @@ groups:
           summary: "Rate limit hits > 50/min for tier {{ $labels.tier }}"
           description: "Possible abuse or misconfigured client. Tier: {{ $labels.tier }}, rate: {{ $value }}/min."
 
-  # ── Intelligence Pipeline ───────────────────────────────────────────────────
+  # -- Intelligence Pipeline ---------------------------------------------------
   - name: cdb_intel_pipeline
     rules:
 
@@ -88,7 +88,7 @@ groups:
           summary: "Intelligence pipeline run FAILED"
           description: "Pipeline {{ $labels.pipeline }} recorded a failure in the last 30 minutes."
 
-  # ── Business / Billing ──────────────────────────────────────────────────────
+  # -- Business / Billing ------------------------------------------------------
   - name: cdb_billing
     rules:
 
@@ -103,7 +103,7 @@ groups:
           summary: "Stripe webhook processing failures detected"
           description: "Event type {{ $labels.event_type }} is failing. Check Stripe dashboard and webhook logs."
 
-  # ── Platform Health ─────────────────────────────────────────────────────────
+  # -- Platform Health ---------------------------------------------------------
   - name: cdb_platform_health
     rules:
 
