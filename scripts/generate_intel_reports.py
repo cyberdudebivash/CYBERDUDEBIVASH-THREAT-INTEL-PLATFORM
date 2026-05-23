@@ -194,16 +194,16 @@ def _safe_enforce_schema(item: dict) -> dict:
 
 # ─── Version loader (reads from config/version.json  -  single source of truth) ───
 def _load_platform_version() -> str:
-    """Load version from config/version.json. Falls back to hardcoded if missing."""
+    """Load version from config/version.json. Falls back to v160.0.0 hardcoded if missing/truncated/invalid."""
     try:
         vf = REPO_ROOT / "config" / "version.json"
         if vf.exists():
             import json as _json
             data = _json.loads(vf.read_text(encoding="utf-8"))
-            return "v" + data.get("platform", data.get("version", "134.0.0"))
+            return "v" + data.get("platform", data.get("version", "160.0.0"))
     except Exception:
         pass
-    return "v134.0.0"
+    return "v160.0.0"  # P0 MANDATE: fallback is always v160.0.0 (never v134)
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Configuration
@@ -2363,8 +2363,4 @@ def main(argv=None) -> int:
         log("FATAL: --fail-on-zero set and written=0 -- no reports generated", "error")
         return 1
 
-    return 1 if errors > 0 else 0
-
-
-if __name__ == "__main__":
-    sys.exit(main())
+ 

@@ -39,7 +39,7 @@ Environment variables consumed (set at job level in workflow):
   TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID -- optional: alerts
   SKIP_AI            -- "true" to skip AI enrichment
   FORCE_FULL_SYNC    -- "true" to force full sync
-  PIPELINE_VERSION   -- version string (default: 134.0.0)
+  PIPELINE_VERSION   -- version string (default: 160.0.0)
   PYTHONPATH         -- set to github.workspace by workflow
 
 (c) 2026 CyberDudeBivash Pvt. Ltd. All Rights Reserved. CONFIDENTIAL.
@@ -812,7 +812,7 @@ def stage_pre_v70_manifest_sync() -> None:
         # Write v70-schema-compliant manifest
         gen_at = raw.get("generated_at", utc_now()) if isinstance(raw, dict) else utc_now()
         payload = {
-            "version":        raw.get("version", "v134.0") if isinstance(raw, dict) else "v134.0",
+            "version":        raw.get("version", "v160.0") if isinstance(raw, dict) else "v160.0",  # P0 MANDATE: fallback v160.0
             "schema_version": "v70.0",
             "platform":       "SENTINEL-APEX",
             "generated_at":   gen_at,
@@ -962,13 +962,13 @@ def stage_manifest_stabilisation() -> None:
             if manifest_fmt == "list":
                 log.info("[2.2] Normalising LIST -> DICT envelope (%d entries)...", engine_count)
                 payload = {
-                    "version":           "v134.0",
+                    "version":           "v160.0",  # P0 MANDATE: fallback v160.0
                     "platform":          "SENTINEL-APEX",
                     "generated_at":      utc_now(),
                     "normalised_at":     utc_now(),
                     "total_reports":     engine_count,
                     "entry_count":       engine_count,
-                    "schema_version":    "v134.0",
+                    "schema_version":    "v160.0",  # P0 MANDATE: fallback v160.0
                     "sort_order":        "timestamp DESC, risk_score DESC",
                     "source_of_truth":   "agent.sentinel_blogger (normalised by pipeline)",
                     "advisories":        engine_items,
@@ -2045,8 +2045,8 @@ def stage_dedup_and_enrich() -> None:
             payload = envelope
         else:
             payload = {
-                "version":       "v134.0",
-                "schema_version": "v134.0",
+                "version":       "v160.0",  # P0 MANDATE: fallback v160.0
+                "schema_version": "v160.0",  # P0 MANDATE: fallback v160.0
                 "platform":      "SENTINEL-APEX",
                 "generated_at":  utc_now(),
                 "deduped_at":    utc_now(),
@@ -2345,8 +2345,8 @@ def stage_pipeline_consistency_check() -> None:
                 payload = envelope
             else:
                 payload = {
-                    "version":       "v134.0",
-                    "schema_version": "v134.0",
+                    "version":       "v160.0",  # P0 MANDATE: fallback v160.0
+                    "schema_version": "v160.0",  # P0 MANDATE: fallback v160.0
                     "platform":      "SENTINEL-APEX",
                     "generated_at":  utc_now(),
                     "consistency_checked_at": utc_now(),
@@ -3536,12 +3536,3 @@ def main() -> None:
     else:
         log.info("[stage-registry] All %d registered stages completed successfully",
                  len(_STAGE_REGISTRY))
-
-    t_elapsed = time.monotonic() - t_total
-    log.info("=" * 70)
-    log.info("SENTINEL APEX PIPELINE COMPLETE — elapsed %.1fs", t_elapsed)
-    log.info("=" * 70)
-
-
-if __name__ == "__main__":
-    main()
