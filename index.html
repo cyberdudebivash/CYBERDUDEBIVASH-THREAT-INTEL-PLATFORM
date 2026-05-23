@@ -11124,7 +11124,7 @@ function getThreatPriorityScore(item) {
     }
 
     if (item.epss_score) {
-        score += item.epss_score * 100;
+        score += item.epss_score;
     }
 
     if (item.severity === "CRITICAL") score += 40;
@@ -12210,8 +12210,8 @@ function renderTopThreats(data) {
                     if (cvss) summary += ' with a CVSS base score of ' + cvss + '/10';
                     summary += '. ';
                     if (kev) summary += 'CRITICAL: This vulnerability is listed in CISA\'s Known Exploited Vulnerabilities catalog, confirming active exploitation in the wild. Immediate patching is required. ';
-                    if (epss && epss > 0.5) summary += 'The EPSS probability of exploitation within 30 days is ' + (epss * 100).toFixed(1) + '%, indicating elevated threat. ';
-                    else if (epss) summary += 'EPSS exploitation probability: ' + (epss * 100).toFixed(1) + '%. ';
+                    if (epss && epss > 50) summary += 'The EPSS probability of exploitation within 30 days is ' + epss.toFixed(1) + '%, indicating elevated threat. ';
+                    else if (epss) summary += 'EPSS exploitation probability: ' + epss.toFixed(1) + '%. ';
                 } else {
                     summary = 'This intelligence advisory covers: "' + title.substring(0, 80) + '". ';
                     summary += 'The CDB GOC Risk Engine has assessed this threat at ' + risk.toFixed(1) + '/10 (' + severity + '). ';
@@ -12229,7 +12229,7 @@ function renderTopThreats(data) {
                 else if (cvss >= 4) riskAssess += 'Medium severity. Conditional exploitation.\n';
                 else if (cvss) riskAssess += 'Low severity. Limited exploitation potential.\n';
                 if (kev) riskAssess += '⚡ CISA KEV ACTIVE: Confirmed exploitation in the wild. This is not theoretical.\n';
-                if (epss) riskAssess += 'EPSS 30-day exploitation probability: ' + (epss * 100).toFixed(1) + '%.\n';
+                if (epss) riskAssess += 'EPSS 30-day exploitation probability: ' + epss.toFixed(1) + '%.\n';
 
                 // ── Attack Vector Analysis ──
                 var attackVec = '';
@@ -12286,7 +12286,7 @@ function renderTopThreats(data) {
                 // ── Likelihood ──
                 var likelihood = '';
                 if (kev) likelihood = 'CONFIRMED EXPLOITATION \u2014 Active exploitation verified by CISA. Likelihood: CERTAIN.';
-                else if (epss && epss > 0.5) likelihood = 'HIGH \u2014 EPSS indicates ' + (epss*100).toFixed(1) + '% probability of exploitation within 30 days.';
+                else if (epss && epss > 50) likelihood = 'HIGH \u2014 EPSS indicates ' + epss.toFixed(1) + '% probability of exploitation within 30 days.';
                 else if (risk >= 8) likelihood = 'HIGH \u2014 Elevated risk score and threat characteristics suggest imminent exploitation potential.';
                 else if (risk >= 5) likelihood = 'MODERATE \u2014 Conditional exploitation based on target environment and exposure.';
                 else likelihood = 'LOW \u2014 Limited exploitation potential under typical configurations.';
@@ -12461,7 +12461,7 @@ function renderTopThreats(data) {
             // Quick fact row
             html += '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:4px;">';
             if (item.cvss_score != null) html += '<span style="font-family:var(--font-mono);font-size:10px;color:var(--text-muted);">CVSS ' + parseFloat(item.cvss_score).toFixed(1) + '</span>';
-            if (item.epss_score != null) html += '<span style="font-family:var(--font-mono);font-size:10px;color:var(--text-muted);">EPSS ' + (parseFloat(item.epss_score)*100).toFixed(1) + '%</span>';
+            if (item.epss_score != null) html += '<span style="font-family:var(--font-mono);font-size:10px;color:var(--text-muted);">EPSS ' + parseFloat(item.epss_score).toFixed(1) + '%</span>';
             if (ai.tte_days != null) html += '<span style="font-family:var(--font-mono);font-size:10px;color:#ffd600;">TTE: ' + ai.tte_days + 'd</span>';
             if (ai.campaign_id) html += '<span style="font-family:var(--font-mono);font-size:9px;color:#a78bfa;border:1px solid rgba(167,139,250,0.3);padding:1px 6px;border-radius:3px;">' + ai.campaign_id + '</span>';
             html += '</div>';
@@ -12684,7 +12684,7 @@ function renderTopThreats(data) {
             html += '<div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:10px;">';
             if (a.cves.length) html += '<span style="font-family:var(--font-mono);font-size:10px;background:rgba(59,130,246,0.1);color:var(--blue);padding:2px 8px;border-radius:3px;">' + a.cves[0] + '</span>';
             if (a.cvss !== null) html += '<span style="font-family:var(--font-mono);font-size:10px;color:var(--text-muted);">CVSS ' + a.cvss + '</span>';
-            if (a.epss !== null) html += '<span style="font-family:var(--font-mono);font-size:10px;color:var(--text-muted);">EPSS ' + (a.epss*100).toFixed(1) + '%</span>';
+            if (a.epss !== null) html += '<span style="font-family:var(--font-mono);font-size:10px;color:var(--text-muted);">EPSS ' + a.epss.toFixed(1) + '%</span>';
             if (a.kev) html += '<span style="font-family:var(--font-mono);font-size:10px;background:rgba(220,38,38,0.12);color:#ff6b6b;padding:2px 8px;border-radius:3px;font-weight:700;">⚡ CISA KEV</span>';
             if (a.totalIOCs > 0) html += '<span style="font-family:var(--font-mono);font-size:10px;color:var(--accent);">' + a.totalIOCs + ' IOCs</span>';
             if (a.source) html += '<span style="font-family:var(--font-mono);font-size:10px;color:var(--text-muted);margin-left:auto;">SRC: ' + a.source.substring(0,30) + '</span>';
