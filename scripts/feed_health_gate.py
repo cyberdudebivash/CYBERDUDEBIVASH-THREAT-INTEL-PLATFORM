@@ -194,16 +194,39 @@ def check_synthetic_ratio(items: List[Dict]) -> Tuple[str, float, str]:
     return "PASS", ratio, detail
 
 def check_cvss_coverage(items: List[Dict]) -> Tuple[str, float, str]:
-    """Warn if CVSS coverage on CVE items is below floor."""
+    """Warn if CVSS coverage on CVE items is below floor.
+
+    v160.0 FIX: Exempt recent CVEs (year >= RECENT_CVE_YEAR_FLOOR) from the
+    CVSS coverage check. NVD ingestion lag for 2025+ CVEs can be weeks to months —
+    these are legitimate intelligence items without NVD CVSS records yet, not
+    enrichment failures. Only older CVEs (pre-2025) should be expected to have CVSS.
+    """
     cve_items = [i for i in items if _is_cve_item(i)]
     if not cve_items:
         return "PASS", 1.0, "no CVE items"
 
-    with_cvss = sum(1 for i in cve_items if _has_real_cvss(i))
-    ratio = with_cvss / len(cve_items)
+    # Split: recent CVEs exempt from CVSS requirement; older CVEs must have CVSS
+    eligible_items = []
+    recent_exempt = 0
+    for i in cve_items:
+        cve_yr = _cve_year(i)
+        pub_yr = _published_year(i)
+        year = cve_yr or pub_yr
+        if year and year >= RECENT_CVE_YEAR_FLOOR:
+            recent_exempt += 1
+        else:
+            eligible_items.append(i)
+
+    if not eligible_items:
+        exempt_note = f"all {len(cve_items)} CVE items are recent (>={RECENT_CVE_YEAR_FLOOR}) — NVD enrichment lag expected"
+        return "PASS", 1.0, exempt_note
+
+    with_cvss = sum(1 for i in eligible_items if _has_real_cvss(i))
+    ratio = with_cvss / len(eligible_items)
+    exempt_suffix = f"; {recent_exempt} recent CVE(s) (>={RECENT_CVE_YEAR_FLOOR}) exempt from CVSS floor" if recent_exempt else ""
     detail = (
-        f"{with_cvss}/{len(cve_items)} CVE items have real CVSS scores "
-        f"({ratio:.1%}) — warn floor {WARN_CVSS_COVERAGE:.0%}"
+        f"{with_cvss}/{len(eligible_items)} eligible CVE items have real CVSS scores "
+        f"({ratio:.1%}) — warn floor {WARN_CVSS_COVERAGE:.0%}{exempt_suffix}"
     )
     if ratio < WARN_CVSS_COVERAGE:
         return "WARN", ratio, detail
