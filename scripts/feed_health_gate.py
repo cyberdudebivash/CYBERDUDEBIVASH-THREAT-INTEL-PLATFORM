@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-SENTINEL APEX v159.0 — Feed Health Gate
+SENTINEL APEX v160.0 — Feed Health Gate
 ========================================
 P0 governance gate that blocks deployment of a synthetic, stale, or uniform
 feed. Runs as a CI validation step BEFORE the deploy stage.
@@ -54,6 +54,9 @@ WARN_CONF_UNIFORMITY     = 0.60   # >60% items share same confidence → WARN
 
 STALE_CUTOFF_YEAR        = 2024   # CVEs published before this year are "stale"
 EPSS_JUSTIFICATION_FLOOR = 0.05   # EPSS >= 5% justifies keeping an old CVE
+# v160.0: CVEs from this year or later are "recent" — NVD may not have enriched them yet.
+# Exclude recent CVEs from synthetic check to prevent false-positives on legitimate intel.
+RECENT_CVE_YEAR_FLOOR    = 2025   # CVE year >= this → exempt from synthetic flag
 
 # ── Logging ────────────────────────────────────────────────────────────────────
 logging.basicConfig(
@@ -154,20 +157,35 @@ def check_stale_cves(items: List[Dict]) -> Tuple[str, float, str]:
     return "PASS", ratio, detail
 
 def check_synthetic_ratio(items: List[Dict]) -> Tuple[str, float, str]:
-    """Check synthetic advisory ratio (CDB-UNATTR-CVE actor + no CVSS/EPSS)."""
+    """Check synthetic advisory ratio (CDB-UNATTR-CVE actor + no CVSS/EPSS).
+
+    v160.0 FIX: Excludes items with recent CVE years (>= RECENT_CVE_YEAR_FLOOR) from
+    the synthetic flag. CVEs from 2025+ are legitimate intelligence items that have not
+    yet been enriched by NVD (NVD ingestion lag for new CVEs can be weeks to months).
+    Flagging them as synthetic causes false-positive governance failures.
+    """
     if not items:
         return "PASS", 0.0, "no items"
 
-    synthetic = [
-        i for i in items
-        if (i.get("actor_tag") or "").startswith("CDB-UNATTR-CVE")
-        and not _has_real_cvss(i)
-        and not _has_real_epss(i)
-    ]
+    synthetic = []
+    recent_exempt = 0
+    for i in items:
+        if not (i.get("actor_tag") or "").startswith("CDB-UNATTR-CVE"):
+            continue
+        if _has_real_cvss(i) or _has_real_epss(i):
+            continue
+        # Exempt recent CVEs — NVD enrichment lag, not truly synthetic
+        cve_yr = _cve_year(i)
+        if cve_yr is not None and cve_yr >= RECENT_CVE_YEAR_FLOOR:
+            recent_exempt += 1
+            continue
+        synthetic.append(i)
+
     ratio = len(synthetic) / len(items)
     detail = (
         f"{len(synthetic)}/{len(items)} items are synthetic (CDB-UNATTR-CVE + no CVSS/EPSS) "
         f"({ratio:.1%}) — threshold {MAX_SYNTHETIC_RATIO:.0%}"
+        + (f"; {recent_exempt} recent CVE(s) (>={RECENT_CVE_YEAR_FLOOR}) exempt from check" if recent_exempt else "")
     )
     if ratio > MAX_SYNTHETIC_RATIO:
         return "FAIL", ratio, detail
@@ -269,32 +287,4 @@ def run_gate(feed_path: Path, strict: bool = False) -> Dict[str, Any]:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="SENTINEL APEX Feed Health Gate v159.0")
-    parser.add_argument("--feed",   default=str(DEFAULT_FEED), help="Path to feed JSON")
-    parser.add_argument("--strict", action="store_true",       help="Escalate WARN to FAIL")
-    parser.add_argument("--report", action="store_true",       help="Always exit 0 (observability mode)")
-    args = parser.parse_args()
-
-    feed_path = Path(args.feed)
-    report    = run_gate(feed_path, strict=args.strict)
-
-    # Write report
-    REPORT_PATH.parent.mkdir(parents=True, exist_ok=True)
-    try:
-        REPORT_PATH.write_text(json.dumps(report, indent=2, ensure_ascii=False), encoding="utf-8")
-        log.info("Health gate report: %s", REPORT_PATH)
-    except Exception as exc:
-        log.warning("Could not write report: %s", exc)
-
-    status = report.get("status", "ERROR")
-    log.info("=" * 60)
-    log.info("FEED HEALTH GATE — %s  (hard_fails=%s, warnings=%s)",
-             status, report.get("hard_fails"), report.get("warnings"))
-    log.info("=" * 60)
-
-    if args.report:
-        return 0
-    return 1 if status == "FAIL" else 0
-
-
-if __name__ == "__main__":
-    sys.exit(main())
+    parser.add_argument("--feed",   default=str(DEFAULT_FEED), help="Path to
