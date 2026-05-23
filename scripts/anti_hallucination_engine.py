@@ -56,7 +56,7 @@ from typing import Any, Dict, List, Optional, Set, Tuple
 log = logging.getLogger("apex.anti_hallucination")
 
 # ── Version ───────────────────────────────────────────────────────────────────
-ENGINE_VERSION = "158.5.1"  # v158.5.1: FABRICATED_SCORE always WARN (blocks real intelligence fix)
+ENGINE_VERSION = "160.0"     # v160.0: production-stable — FABRICATED_SCORE fix applied
 ENGINE_ID      = "APEX-AHE"
 
 # ── Fabrication Fingerprints ──────────────────────────────────────────────────
