@@ -3627,3 +3627,10 @@ def main() -> None:
     else:
         log.info("[stage-registry] All %d registered stages completed successfully",
                  len(_STAGE_REGISTRY))
+
+
+# ---------------------------------------------------------------------------
+# Entry point — MANDATORY: this block was absent causing 0s silent exit
+# ---------------------------------------------------------------------------
+if __name__ == "__main__":
+    main()
