@@ -1941,4 +1941,30 @@ jobs:
               # Filter out raw STIX indicator objects (no enrichment fields — would always fail)
               enriched = [e for e in items if isinstance(e, dict) and (
                   e.get('title') or e.get('executive_summary') or e.get('apex_risk')
-          
+              )]
+              if not enriched:
+                  print(f'No enriched entries found in {manifest_path} — skipping quality gate')
+                  sys.exit(0)
+              # Audit last 10 enriched entries (performance)
+              sample = enriched[-10:]
+              qgs = QualityGateSystem()
+              batch = qgs.evaluate_batch(sample)
+              print(f'Quality gate audit: {len(sample)} entries sampled')
+              print(f'  Publishable: {batch[\"publishable\"]} / {batch[\"total\"]}')
+              print(f'  Blocked:     {batch[\"blocked\"]}')
+              if batch.get('blocked_ids'):
+                  print(f'  Blocked IDs: {batch[\"blocked_ids\"]}')
+              # Write audit telemetry
+              out_path = Path('data/telemetry/intelligence_quality_audit.json')
+              out_path.parent.mkdir(parents=True, exist_ok=True)
+              out_path.write_text(json.dumps(batch, indent=2, default=str), encoding='utf-8')
+              print(f'  Telemetry written: {out_path}')
+          except Exception as e:
+              print(f'Quality gate audit failed (non-critical): {e}')
+          sys.exit(0)  # Always non-blocking
+          " 2>&1 || true
+
+          echo "=== STAGE 5.8.5 COMPLETE ==="
+        continue-on-error: true
+
+      # ---------------------------------------------

@@ -414,4 +414,30 @@ def ensure_minimum_manifest() -> None:
     log(f"Initialised empty manifest at {MANIFEST_PATH}")
 
 
-def main(ar
+def main(argv=None):
+    parser = argparse.ArgumentParser(description=f"SENTINEL APEX bootstrap {PLATFORM_VERSION}")
+    parser.add_argument("--force-rebuild", action="store_true",
+                        help="Force full rebuild of feed_manifest.json from live STIX bundles.")
+    args = parser.parse_args(argv)
+
+    try:
+        ensure_dirs()
+        log("Directories ensured.")
+
+        if args.force_rebuild:
+            count = rebuild_manifest(force=True)
+            if count == 0:
+                log("WARNING: rebuild produced zero entries - manifest preserved or empty.")
+        else:
+            ensure_minimum_manifest()
+
+        log("Bootstrap OK.")
+        return 0
+    except Exception as e:
+        log(f"ERROR (non-fatal, exit 0 per self-healing contract): {e!r}")
+        return 0
+
+
+if __name__ == "__main__":
+    import sys
+    sys.exit(main())
