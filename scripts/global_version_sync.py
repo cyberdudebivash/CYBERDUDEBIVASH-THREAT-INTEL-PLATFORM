@@ -305,6 +305,81 @@ def sync_api_health_json(ssot: dict, dry_run: bool) -> dict:
 
 
 # =============================================================================
+# SYNC TARGET: api/version.json  (v160.0 — client-facing API version endpoint)
+# =============================================================================
+
+def sync_api_version_json(ssot: dict, dry_run: bool) -> dict:
+    """
+    Sync api/version.json to match SSOT platform version.
+    This file is served at /api/version.json and consumed by frontend clients
+    and external integrations. It must always match config/platform_version.json.
+    """
+    target = os.path.join(REPO_ROOT, "api", "version.json")
+    platform = ssot.get("platform", {})
+    ci = ssot.get("ci", {})
+    platform_ver = platform.get("version", "UNKNOWN")
+    pipeline_ver = ci.get("pipeline_version", platform_ver)
+
+    import datetime as _dt
+    expected = {
+        "version": platform_ver,
+        "platform": "SENTINEL-APEX",
+        "release": f"v{platform_ver}",
+        "pipeline_version": pipeline_ver,
+        "updated_at": _dt.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "build": f"ENTERPRISE-GRADE-{_dt.datetime.utcnow().strftime('%Y%m%d')}",
+        "stability": "stable",
+        "codename": platform.get("codename", "ENTERPRISE-GRADE"),
+        "api_version": "v1",
+        "stix_version": "2.1",
+        "gateway": f"SENTINEL-APEX/{platform_ver}",
+    }
+
+    current = None
+    drift = False
+
+    os.makedirs(os.path.dirname(target), exist_ok=True)
+
+    if os.path.isfile(target):
+        try:
+            with open(target, "r", encoding="utf-8") as fh:
+                current = json.load(fh)
+            for key in ("version", "release", "pipeline_version", "gateway"):
+                if current.get(key) != expected.get(key):
+                    drift = True
+                    break
+        except Exception:
+            drift = True
+    else:
+        drift = True
+
+    result = {
+        "target": "api/version.json",
+        "expected_version": expected["version"],
+        "found_version": current.get("version") if current else None,
+        "drift": drift,
+        "action": "skipped",
+    }
+
+    if drift:
+        log_warn(f"api/version.json drift detected: found={result['found_version']} expected={platform_ver}")
+        if not dry_run:
+            with open(target, "w", encoding="utf-8") as fh:
+                json.dump(expected, fh, indent=2)
+                fh.write("\n")
+            log_ok(f"api/version.json updated → {platform_ver}")
+            result["action"] = "updated"
+        else:
+            log_dry(f"Would update api/version.json → {platform_ver}")
+            result["action"] = "would_update"
+    else:
+        log_ok(f"api/version.json clean: {platform_ver}")
+        result["action"] = "clean"
+
+    return result
+
+
+# =============================================================================
 # DRIFT DETECTOR: index.html PLATFORM_VERSION
 # =============================================================================
 
@@ -480,6 +555,12 @@ def main() -> int:
     # --- Sync api/ai/health.json ---
     log_info("Syncing: api/ai/health.json")
     r = sync_api_health_json(ssot, dry_run=(dry_run or check_only))
+    sync_results.append(r)
+    print()
+
+    # --- Sync api/version.json (v160.0+ client-facing endpoint) ---
+    log_info("Syncing: api/version.json")
+    r = sync_api_version_json(ssot, dry_run=(dry_run or check_only))
     sync_results.append(r)
     print()
 

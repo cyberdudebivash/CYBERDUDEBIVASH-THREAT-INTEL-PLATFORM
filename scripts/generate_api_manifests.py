@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """
-SENTINEL APEX v150.0 — IMMUTABLE API MANIFEST GENERATOR
+SENTINEL APEX v160.0 — IMMUTABLE API MANIFEST GENERATOR
 =========================================================
 STAGE 3.93 (REPLACEMENT) — IMMUTABLE API BUNDLE GENERATION
 
-ARCHITECTURE (v150.0 — IMMUTABLE API-FIRST):
+ARCHITECTURE (v160.0 — IMMUTABLE API-FIRST):
   OLD (BROKEN): inject_embedded_intel.py mutated index.html at deploy time
   NEW (STABLE): generate_api_manifests.py generates versioned JSON bundles
                 Frontend fetches from /api/v1/intel/*.json at runtime
@@ -41,7 +41,7 @@ import traceback
 FEED_PATH    = 'api/feed.json'
 OUT_DIR      = 'api/v1/intel'
 SCRIPT_NAME  = 'generate_api_manifests.py'
-VERSION      = 'v150.0'
+VERSION      = 'v160.0'
 TOP10_COUNT  = 10
 SCHEMA_VER   = '1.0'
 

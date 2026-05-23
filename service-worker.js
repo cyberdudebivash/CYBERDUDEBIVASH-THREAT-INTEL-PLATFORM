@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════════════════════
-// CYBERDUDEBIVASH SENTINEL APEX — Service Worker v172.0
+// CYBERDUDEBIVASH SENTINEL APEX — Service Worker v173.0 (pipeline v160.0)
 // CDB-RENDERER-ENGINE-V171 — Enterprise Render Governance System
 // v172 RC12 FIX (CHROME THREAT MAP BLANK CANVAS — DEFINITIVE FINAL):
 //   Root cause: overflow:hidden on #cdb-threat-map-panel created a Chrome
@@ -19,7 +19,9 @@
 // ═══════════════════════════════════════════════════════════════════════════
 
 // ── GVOS: Single source of truth for cache version ──
-const CACHE_VERSION = 'sentinel-apex-v173-live';   // ← GVOS: bumped for v173 RC13 Immutable Viewport Governance
+// v160.0 FIX: CACHE_VERSION now embeds pipeline version (160.0) so STAGE 5.8.4
+// sw_pipeline_ver_present check passes. Format: sentinel-apex-v{SW_MINOR}-p{PIPELINE}-live
+const CACHE_VERSION = 'sentinel-apex-v173-p160.0-live';   // ← GVOS: v173 RC13 + pipeline v160.0
 const CACHE_NAME    = CACHE_VERSION;
 
 // Assets to cache for offline use (non-HTML only)

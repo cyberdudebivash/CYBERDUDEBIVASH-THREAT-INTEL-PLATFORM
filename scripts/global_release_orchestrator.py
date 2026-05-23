@@ -600,20 +600,31 @@ def check_synchronization(ssot: Dict) -> None:
 
 def produce_governance_report(ssot: Dict) -> None:
     """Write machine-readable governance report to disk for downstream consumers."""
+    # v160.0 FIX: compute governance_state first so overall_grade can derive from it.
+    # STAGE 5.8.4b reads .overall_grade and .release_blocked via jq — both must exist.
+    governance_state = (
+        "RELEASE_BLOCKED"  if HARD_FAIL_COUNT > 0 else
+        "RELEASE_DEGRADED" if WARN_COUNT > 3    else
+        "RELEASE_CLEAN"
+    )
+    _grade_map = {
+        "RELEASE_CLEAN":    "A",
+        "RELEASE_DEGRADED": "B",
+        "RELEASE_BLOCKED":  "F",
+    }
+    overall_grade = _grade_map.get(governance_state, "C")
     report = {
-        "schema":          "sentinel-apex-release-orchestration-v1",
-        "generated_at":    _now_iso(),
-        "platform_ver":    ssot.get("platform", {}).get("version", "UNKNOWN"),
-        "pipeline_ver":    ssot.get("ci", {}).get("pipeline_version", "UNKNOWN"),
-        "pass_count":      PASS_COUNT,
-        "warn_count":      WARN_COUNT,
-        "hard_fail_count": HARD_FAIL_COUNT,
-        "governance_state": (
-            "RELEASE_BLOCKED" if HARD_FAIL_COUNT > 0 else
-            "RELEASE_DEGRADED" if WARN_COUNT > 3 else
-            "RELEASE_CLEAN"
-        ),
-        "results": RESULTS,
+        "schema":           "sentinel-apex-release-orchestration-v1",
+        "generated_at":     _now_iso(),
+        "platform_ver":     ssot.get("platform", {}).get("version", "UNKNOWN"),
+        "pipeline_ver":     ssot.get("ci", {}).get("pipeline_version", "UNKNOWN"),
+        "pass_count":       PASS_COUNT,
+        "warn_count":       WARN_COUNT,
+        "hard_fail_count":  HARD_FAIL_COUNT,
+        "governance_state": governance_state,
+        "overall_grade":    overall_grade,
+        "release_blocked":  HARD_FAIL_COUNT > 0,
+        "results":          RESULTS,
     }
 
     out_dir = BASE_DIR / "data" / "telemetry"
