@@ -116,6 +116,23 @@ def _resolve_report_path(entry: Dict[str, Any]) -> Tuple[str, str]:
     # Convert URL path to filesystem path
     # /reports/2026/04/intel--abc.html -> reports/2026/04/intel--abc.html
     fs_path = url.lstrip("/").replace("/", os.sep)
+
+    # v160.5 HARDENING: current-run date fallback.
+    # report_generator.py writes to TODAY's year/month when no explicit URL is
+    # set; but processed_at in the manifest may carry an older date — so the
+    # derived path points to a stale month that does not exist on the runner.
+    # Before returning that stale path, check whether the report actually lives
+    # in the current run's year/month.  Only fires when NO explicit URL field
+    # exists AND the derived path is absent from disk.
+    explicit_url = (entry.get("internal_report_url") or entry.get("report_url") or "").strip()
+    if intel_id and not explicit_url and not os.path.exists(fs_path):
+        import datetime as _dt
+        _now = _dt.datetime.now(_dt.timezone.utc)
+        alt_url = f"/reports/{_now.year}/{_now.month:02d}/{intel_id}.html"
+        alt_fs  = alt_url.lstrip("/").replace("/", os.sep)
+        if os.path.exists(alt_fs):
+            return alt_url, alt_fs  # report is here — stale processed_at was misleading
+
     return url, fs_path
 
 
