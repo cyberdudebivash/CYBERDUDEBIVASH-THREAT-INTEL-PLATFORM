@@ -2,7 +2,7 @@
 """
 CYBERDUDEBIVASH® SENTINEL APEX — God Mode Report Generator
 ===========================================================
-Version : v145.0
+Version : v161.x
 Purpose : Generate 20-section enterprise-grade HTML Tactical Dossiers for every
           intel advisory. God Mode template engine with:
             - MITRE ATT&CK v15 technique lookup (ID → name + tactic)
@@ -65,7 +65,7 @@ _SEV_COLOR = {
 }
 
 # ─────────────────────────────────────────────────────────────────────────────
-# GOD MODE QUALITY GATE CONSTANTS (v145.0)
+# GOD MODE QUALITY GATE CONSTANTS (v161.x)
 # God mode reports must exceed these thresholds.
 # Pipeline-generated placeholder reports (< threshold) are flagged in logs.
 # Protected report IDs that must never be overwritten by the pipeline:
@@ -1178,7 +1178,7 @@ def _build_html(
         + mr("Confidence Score",    f'<span style="color:var(--accent);">{confidence:.0f}%</span>')
         + mr("TLP Classification",  _esc(tlp))
         + mr("Vulnerability Class", _esc(vuln_label))
-        + mr("Platform Version",    "SENTINEL APEX v145.0")
+        + mr("Platform Version",    "SENTINEL APEX v161.x")
         + mr("Tags",                tags_line)
         + '</div>'
     ))
@@ -1562,7 +1562,7 @@ def main() -> int:
     import argparse
 
     parser = argparse.ArgumentParser(
-        description="SENTINEL APEX God Mode Report Generator v145.0"
+        description="SENTINEL APEX God Mode Report Generator v161.x"
     )
     parser.add_argument("--manifest",      default="data/stix/feed_manifest.json")
     parser.add_argument("--reports-base",  default="reports")
@@ -1600,7 +1600,7 @@ def main() -> int:
         skip_existing=not args.force,
     )
     print(f"\n{'='*64}")
-    print(f"  SENTINEL APEX God Mode Report Generator v145.0")
+    print(f"  SENTINEL APEX God Mode Report Generator v161.x")
     print(f"  success={results['success']}  skipped={results['skipped']}  failed={results['failed']}")
     if results["errors"]:
         print(f"  Errors ({len(results['errors'])}):")
