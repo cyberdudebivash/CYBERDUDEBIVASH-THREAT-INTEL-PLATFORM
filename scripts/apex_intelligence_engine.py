@@ -1187,6 +1187,15 @@ def enrich_item(item: Dict, flags: Dict) -> Dict:
     except Exception as e:
         log.warning(f"[M7-COMPLIANCE] item={_item_id(item)[:12]} error: {e}")
 
+    # ── GATE-12 top-level promotion (v161.1) ─────────────────────────────────
+    # Quality gates require tlp and processed_ts at the TOP LEVEL of each item.
+    # The TLP value lives inside compliance_block.tlp_classification — promote it.
+    # processed_ts is required for temporal freshness gate evaluation.
+    enriched["tlp"] = (
+        enriched.get("compliance_block") or {}
+    ).get("tlp_classification", "TLP:AMBER")
+    enriched["processed_ts"] = NOW_ISO
+
     enriched["_apex_enriched"]    = True
     enriched["_apex_version"]     = ENGINE_VERSION
     enriched["_apex_enriched_at"] = NOW_ISO
