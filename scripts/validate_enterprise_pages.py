@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 CYBERDUDEBIVASH(R) SENTINEL APEX -- Enterprise Page Presence Validator
-v161.2 -- Stage 5.9.4 -- pricing.html CTA gate fix + truncation fix
+v161.3 -- Stage 5.9.4 -- Added MSSP/Partner/Demo/Global/Compliance pages (v161.x)
 
 Validates that all required enterprise trust and monetization pages exist.
 Non-blocking: always exits 0.
@@ -13,14 +13,22 @@ import sys
 REPO = Path(__file__).parent.parent
 
 REQUIRED_PAGES = [
-    ("sla.html",                   "SLA commitment page (P1-005)"),
-    ("pricing.html",               "Commercial pricing tiers (P2-002)"),
-    ("terms.html",                 "Terms of Service (P1-005)"),
-    ("api-docs.html",              "API reference documentation (P2-001)"),
-    ("docs/index.html",            "Enterprise documentation hub (P2-005)"),
-    (".well-known/security.txt",   "Responsible disclosure policy (P1-005)"),
-    ("scripts/manifest_repair.py", "Manifest URL repair engine (P1-004)"),
-    ("scripts/openapi_generator.py", "OpenAPI spec generator (P2-001)"),
+    # Core commercial/trust pages
+    ("sla.html",                        "SLA commitment page (P1-005)"),
+    ("pricing.html",                    "Commercial pricing tiers (P2-002)"),
+    ("terms.html",                      "Terms of Service (P1-005)"),
+    ("api-docs.html",                   "API reference documentation (P2-001)"),
+    ("docs/index.html",                 "Enterprise documentation hub (P2-005)"),
+    (".well-known/security.txt",        "Responsible disclosure policy (P1-005)"),
+    # Business development & go-to-market pages (v161.x)
+    ("mssp.html",                       "MSSP Partner Program page (B1-001)"),
+    ("partner.html",                    "Global Partner & Reseller Program (B1-002)"),
+    ("demo.html",                       "Live Demo Booking page (B1-003)"),
+    ("global-deployment.html",          "International Deployment Guide (B1-004)"),
+    ("compliance.html",                 "Compliance & Certifications page (B1-005)"),
+    # Pipeline infrastructure
+    ("scripts/manifest_repair.py",      "Manifest URL repair engine (P1-004)"),
+    ("scripts/openapi_generator.py",    "OpenAPI spec generator (P2-001)"),
     ("scripts/cloudflare_api_gateway.js", "Cloudflare API gateway (P0-003)"),
 ]
 
