@@ -482,6 +482,24 @@ jobs:
         run: python3 scripts/enrich_feed_apex.py
 
       # -----------------------------------------------------------------------
+      # STAGE 3.1.0b: QUALITY FIELD BACKFILL (v161.1 — PERMANENT, NON-BLOCKING)
+      # Promotes raw feed fields to quality-gate-passable top-level fields in
+      # data/feed_manifest.json so Stage 5.8.5 reports meaningful publishability.
+      #   raw.risk_level  → tlp          (TLP:RED/AMBER/GREEN/CLEAR)
+      #   raw.published   → processed_ts (ISO 8601 timestamp)
+      #   raw.ai_summary  → executive_summary (for GATE-06 entropy check)
+      # Idempotent: fields already present are NEVER overwritten.
+      # Root-cause fix for persistent "Publishable 0/497" in Stage 5.8.5.
+      # -----------------------------------------------------------------------
+      - name: "STAGE 3.1.0b - Quality Field Backfill (v161.1 — tlp/processed_ts/exec_summary)"
+        timeout-minutes: 3
+        continue-on-error: true
+        run: |
+          python3 scripts/apex_quality_field_backfill.py 2>&1 && \
+            echo "[PASS] Quality field backfill complete" || \
+            echo "::warning::Quality field backfill failed — Stage 5.8.5 may show reduced publishability"
+
+      # -----------------------------------------------------------------------
       # STAGE 3.1.1: v149 P4 — SIEM + ENTERPRISE WEBHOOK DELIVERY (PERMANENT)
       # Delivers enriched threat intel (post apex_ai injection) to configured
       # enterprise SIEM endpoints:
