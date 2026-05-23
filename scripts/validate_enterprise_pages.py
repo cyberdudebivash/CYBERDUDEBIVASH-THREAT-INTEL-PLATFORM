@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 CYBERDUDEBIVASH® SENTINEL APEX — Enterprise Page Presence Validator
-v161.0 — Stage 5.9.4
+v161.1 — Stage 5.9.4 — pricing.html CTA gate fix (Stage 5.7 unblock)
 
 Validates that all required enterprise trust and monetization pages exist.
 Non-blocking: always exits 0.
