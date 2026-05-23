@@ -1,0 +1,187 @@
+#!/usr/bin/env python3
+"""
+================================================================================
+CYBERDUDEBIVASH® SENTINEL APEX
+scripts/openapi_generator.py — OpenAPI 3.0 Specification Generator
+================================================================================
+Version : 161.0.0
+Generates: data/openapi.json (deployed to /api/openapi.json on GitHub Pages)
+================================================================================
+"""
+from __future__ import annotations
+import json
+from pathlib import Path
+from datetime import datetime, timezone
+
+REPO   = Path(__file__).parent.parent
+OUTPUT = REPO / "data" / "openapi.json"
+
+SPEC = {
+    "openapi": "3.0.3",
+    "info": {
+        "title": "CYBERDUDEBIVASH® SENTINEL APEX — Threat Intelligence API",
+        "version": "1.0.0",
+        "description": (
+            "Enterprise Threat Intelligence API providing real-time CVE advisories, "
+            "STIX 2.1 bundles, analyst dossiers, IOC lookups, and TAXII 2.1 feeds. "
+            "MITRE ATT&CK v16 mapped. Enterprise SLA available."
+        ),
+        "contact": {
+            "name": "CYBERDUDEBIVASH® API Support",
+            "email": "iambivash.bn@gmail.com",
+            "url": "https://intel.cyberdudebivash.com"
+        },
+        "license": {"name": "CC BY-NC 4.0", "url": "https://creativecommons.org/licenses/by-nc/4.0/"},
+        "x-logo": {"url": "https://intel.cyberdudebivash.com/favicon.ico"},
+    },
+    "servers": [
+        {"url": "https://intel.cyberdudebivash.com/api", "description": "Production"},
+    ],
+    "security": [{"ApiKeyAuth": []}],
+    "components": {
+        "securitySchemes": {
+            "ApiKeyAuth": {
+                "type": "apiKey",
+                "in": "header",
+                "name": "X-API-Key",
+                "description": "API key for authentication. Obtain at https://intel.cyberdudebivash.com/pricing.html"
+            }
+        },
+        "schemas": {
+            "Advisory": {
+                "type": "object",
+                "properties": {
+                    "id": {"type": "string", "example": "advisory-20260523-001"},
+                    "title": {"type": "string"},
+                    "severity": {"type": "string", "enum": ["CRITICAL","HIGH","MEDIUM","LOW","INFO"]},
+                    "risk_score": {"type": "number", "format": "float", "minimum": 0, "maximum": 10},
+                    "cvss_score": {"type": "number", "format": "float"},
+                    "epss_score": {"type": "number", "format": "float", "description": "EPSS probability % (0-100)"},
+                    "cve_ids": {"type": "array", "items": {"type": "string"}},
+                    "threat_actor": {"type": "string"},
+                    "published_at": {"type": "string", "format": "date-time"},
+                    "source_url": {"type": "string", "format": "uri"},
+                    "blog_url": {"type": "string", "format": "uri"},
+                    "report_url": {"type": "string", "format": "uri"},
+                    "dossier_url": {"type": "string", "format": "uri"},
+                    "mitre_techniques": {"type": "array", "items": {"type": "string"}},
+                    "ioc_count": {"type": "integer"},
+                    "tlp": {"type": "string", "enum": ["TLP:CLEAR","TLP:GREEN","TLP:AMBER","TLP:RED"]},
+                }
+            },
+            "Dossier": {
+                "type": "object",
+                "properties": {
+                    "advisory_id": {"type": "string"},
+                    "intelligence_tier": {"type": "string"},
+                    "executive_summary": {"type": "string"},
+                    "threat_actor_profile": {"type": "object"},
+                    "ttp_analysis": {"type": "array", "items": {"type": "object"}},
+                    "detection_guidance": {"type": "object"},
+                    "recommended_actions": {"type": "array", "items": {"type": "string"}},
+                }
+            },
+            "Error": {
+                "type": "object",
+                "properties": {
+                    "error": {"type": "string"},
+                    "message": {"type": "string"},
+                    "code": {"type": "integer"}
+                }
+            }
+        }
+    },
+    "paths": {
+        "/health": {
+            "get": {
+                "summary": "API health check (unauthenticated)",
+                "operationId": "getHealth",
+                "security": [],
+                "tags": ["System"],
+                "responses": {"200": {"description": "API is operational"}}
+            }
+        },
+        "/feed": {
+            "get": {
+                "summary": "Get latest threat intelligence feed",
+                "operationId": "getFeed",
+                "tags": ["Intelligence"],
+                "parameters": [
+                    {"name": "limit", "in": "query", "schema": {"type": "integer", "default": 20, "maximum": 100}},
+                    {"name": "severity", "in": "query", "schema": {"type": "string", "enum": ["CRITICAL","HIGH","MEDIUM","LOW"]}},
+                    {"name": "since", "in": "query", "schema": {"type": "string", "format": "date-time"}},
+                    {"name": "actor", "in": "query", "schema": {"type": "string"}},
+                ],
+                "responses": {
+                    "200": {"description": "Advisory feed", "content": {"application/json": {"schema": {"type": "array", "items": {"$ref": "#/components/schemas/Advisory"}}}}},
+                    "401": {"description": "Unauthorized", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}},
+                    "429": {"description": "Rate limit exceeded"}
+                }
+            }
+        },
+        "/advisory/{id}": {
+            "get": {
+                "summary": "Get advisory by ID",
+                "operationId": "getAdvisory",
+                "tags": ["Intelligence"],
+                "parameters": [{"name": "id", "in": "path", "required": True, "schema": {"type": "string"}}],
+                "responses": {
+                    "200": {"description": "Advisory detail", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Advisory"}}}},
+                    "404": {"description": "Not found"}
+                }
+            }
+        },
+        "/stix/bundle": {
+            "get": {
+                "summary": "Download full STIX 2.1 bundle",
+                "operationId": "getStixBundle",
+                "tags": ["STIX/TAXII"],
+                "responses": {"200": {"description": "STIX 2.1 bundle JSON"}}
+            }
+        },
+        "/dossier/{id}": {
+            "get": {
+                "summary": "Get analyst dossier for advisory (Professional+)",
+                "operationId": "getDossier",
+                "tags": ["Dossier"],
+                "parameters": [{"name": "id", "in": "path", "required": True, "schema": {"type": "string"}}],
+                "responses": {
+                    "200": {"description": "Analyst dossier", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Dossier"}}}},
+                    "403": {"description": "Professional tier or above required"}
+                }
+            }
+        },
+        "/iocs": {
+            "get": {
+                "summary": "Search IOC database",
+                "operationId": "searchIOCs",
+                "tags": ["IOC"],
+                "parameters": [
+                    {"name": "q", "in": "query", "required": True, "schema": {"type": "string"}, "description": "IP, domain, hash, or CVE ID"},
+                    {"name": "type", "in": "query", "schema": {"type": "string", "enum": ["ip","domain","hash","cve","url"]}}
+                ],
+                "responses": {"200": {"description": "IOC search results"}}
+            }
+        }
+    },
+    "tags": [
+        {"name": "Intelligence", "description": "Threat intelligence feed and advisory endpoints"},
+        {"name": "STIX/TAXII", "description": "STIX 2.1 and TAXII 2.1 machine-readable feeds"},
+        {"name": "Dossier", "description": "Analyst dossier reports (Professional tier+)"},
+        {"name": "IOC", "description": "IOC lookup and search"},
+        {"name": "System", "description": "Health and metadata endpoints"},
+    ],
+    "x-generated-at": datetime.now(timezone.utc).isoformat(),
+    "x-generator": "CYBERDUDEBIVASH® SENTINEL APEX openapi_generator v161.0",
+}
+
+def generate():
+    OUTPUT.parent.mkdir(parents=True, exist_ok=True)
+    OUTPUT.write_text(json.dumps(SPEC, indent=2, ensure_ascii=False), encoding="utf-8")
+    print(f"[OK] OpenAPI spec written to {OUTPUT}")
+    print(f"     Paths: {len(SPEC['paths'])}")
+    print(f"     Schemas: {len(SPEC['components']['schemas'])}")
+    return SPEC
+
+if __name__ == "__main__":
+    generate()

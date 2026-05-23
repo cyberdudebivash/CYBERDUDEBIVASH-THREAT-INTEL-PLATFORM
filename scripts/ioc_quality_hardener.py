@@ -382,6 +382,68 @@ def _atomic_write(path: Path, obj: Any, indent: int = 2) -> None:
 # PIPELINE ENTRY POINT
 # ─────────────────────────────────────────────────────────────────────────────
 
+
+# ─────────────────────────────────────────────────────────────────────────────
+# v161.0 P0-004 FIX: EPSS Anomaly Sanity Check
+# Evidence: CVE-2026-5194 EPSS=100% with CVSS=5.5 MEDIUM — impossible combo
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _epss_sanity_check(epss, cvss):
+    """Cap EPSS if implausibly high for given CVSS severity. Returns corrected float."""
+    if epss is None:
+        return epss
+    try:
+        epss = float(epss)
+        cvss = float(cvss) if cvss is not None else None
+    except (TypeError, ValueError):
+        return epss
+    if cvss is None:
+        return epss
+    # MEDIUM severity (4.0-6.9) cannot statistically sustain EPSS > 75%
+    if cvss < 7.0 and epss > 75.0:
+        corrected = round(min(cvss / 10.0 * 60.0, 75.0), 2)
+        log.warning("EPSS anomaly corrected: %.2f -> %.2f (CVSS=%.1f MEDIUM)", epss, corrected, cvss)
+        return corrected
+    # LOW severity (< 4.0) cannot sustain EPSS > 40%
+    if cvss < 4.0 and epss > 40.0:
+        corrected = round(min(cvss / 10.0 * 40.0, 40.0), 2)
+        log.warning("EPSS anomaly corrected: %.2f -> %.2f (CVSS=%.1f LOW)", epss, corrected, cvss)
+        return corrected
+    return epss
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# v161.0 P1-006 FIX: NVD REST API v2 CVSS Backfill
+# Evidence: ~56% of advisories lack CVSS — 2026 CVEs not in NVD yet handled
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _backfill_nvd_cvss(cve_id: str):
+    """
+    Query NVD REST API v2 for CVSS score.
+    Rate limit: 1 req/6s without API key (respected via sleep).
+    Returns (score: float|None, source: str).
+    """
+    import urllib.request
+    try:
+        url = f"https://services.nvd.nist.gov/rest/json/cves/2.0?cveId={cve_id.upper()}"
+        req = urllib.request.Request(url, headers={"User-Agent": "CDB-SENTINEL-APEX/161.0"})
+        with urllib.request.urlopen(req, timeout=8) as resp:
+            data = __import__("json").loads(resp.read())
+        vulns = data.get("vulnerabilities", [])
+        if not vulns:
+            return None, "NVD_NOT_FOUND"
+        metrics = vulns[0].get("cve", {}).get("metrics", {})
+        for key in ("cvssMetricV31", "cvssMetricV30", "cvssMetricV2"):
+            entries = metrics.get(key, [])
+            if entries:
+                score = entries[0].get("cvssData", {}).get("baseScore")
+                if score is not None:
+                    return float(score), "NVD_REST_v2"
+        return None, "NVD_NO_METRIC"
+    except Exception as e:
+        log.debug("NVD CVSS backfill failed for %s: %s", cve_id, e)
+        return None, "NVD_ERROR"
+
 def apply_ioc_hardening(manifest_path: Path = MANIFEST_PATH) -> dict:
     """
     Apply IOC hardening to all advisories in the manifest.
@@ -440,6 +502,36 @@ def apply_ioc_hardening(manifest_path: Path = MANIFEST_PATH) -> dict:
         for ioc_type, count in stats["types"].items():
             global_stats["ioc_type_distribution"][ioc_type] = \
                 global_stats["ioc_type_distribution"].get(ioc_type, 0) + count
+
+        # v161.0 FIX: EPSS sanity check on each item
+        _epss_raw  = item.get("epss_score") or item.get("epss")
+        _cvss_raw  = item.get("cvss_score") or item.get("cvss")
+        _epss_fixed = _epss_sanity_check(_epss_raw, _cvss_raw)
+        if _epss_fixed != _epss_raw and _epss_raw is not None:
+            if "epss_score" in item:
+                item["epss_score"] = _epss_fixed
+            if "epss" in item:
+                item["epss"] = _epss_fixed
+            global_stats.setdefault("epss_anomalies_corrected", 0)
+            global_stats["epss_anomalies_corrected"] += 1
+
+        # v161.0 FIX: NVD CVSS backfill for items missing CVSS
+        _cvss_val = item.get("cvss_score") or item.get("cvss")
+        if not _cvss_val:
+            _cve_ids = item.get("cve_ids") or item.get("cves") or []
+            if isinstance(_cve_ids, str):
+                _cve_ids = [_cve_ids]
+            if _cve_ids:
+                import time as _time
+                _nvd_score, _nvd_src = _backfill_nvd_cvss(_cve_ids[0])
+                _time.sleep(6)  # NVD rate limit: 5 req/30s without API key
+                if _nvd_score is not None:
+                    item["cvss_score"] = _nvd_score
+                    item["cvss"] = _nvd_score
+                    item["cvss_source"] = _nvd_src
+                    global_stats.setdefault("cvss_backfilled", 0)
+                    global_stats["cvss_backfilled"] += 1
+                    log.info("CVSS backfilled for %s: %.1f (%s)", _cve_ids[0], _nvd_score, _nvd_src)
 
         updated_items.append(item)
 
