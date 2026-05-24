@@ -303,6 +303,12 @@ def main() -> None:
         ("api/v1/intel/apex.json",        "api/v1/intel/apex.json"),
         ("api/v1/intel/manifest.json",    "api/v1/intel/manifest.json"),
         ("api/v1/intel/ai_summary.json",  "api/v1/intel/ai_summary.json"),  # AI Cyber Brain endpoint (v147.0)
+        # v161.3: Reports index files -- public (dashboard REPORTS tab via Worker)
+        # Written by build_reports_index.py (Stage 3.3.7). Must be in R2 so the
+        # Worker can serve them without auth to the public dashboard.
+        ("api/reports/latest.json",       "api/reports/latest.json"),    # top-50 for dashboard REPORTS tab
+        ("api/reports/index.json",        "api/reports/index.json"),     # full 500-entry index
+        ("api/reports/stats.json",        "api/reports/stats.json"),     # severity breakdown + totals
     ]
     uploaded_manifests = 0
     for src, dst_key in intel_v1_manifests:
