@@ -2481,7 +2481,7 @@ def main(argv=None) -> int:
         log("FATAL: --fail-on-zero set and written=0 -- no reports generated", "error")
         return 1
 
-    return written
+    return 0  # success; written count is not an exit code
 
 
 if __name__ == "__main__":
