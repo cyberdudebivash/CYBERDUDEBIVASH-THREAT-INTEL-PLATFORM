@@ -2804,7 +2804,11 @@ def stage_sync_root_feed_json() -> None:
                         _epss_stix         = vuln.get("x_cdb_epss_score") if vuln else None
                         # Risk score: prefer STIX predictive_score -> EPSS-derived -> CVE flag
                         if _predictive_score is not None:
-                            risk_score = round(float(_predictive_score), 2)
+                            _pred_raw = float(_predictive_score)
+                            # v161.3 P0-FIX: apex_intel_engine stores composite_score as 0-1
+                            # fraction but severity thresholds are 0-10 scale.
+                            # Detect and normalise: values <= 1.0 are fractions; multiply by 10.
+                            risk_score = round(_pred_raw * 10.0 if _pred_raw <= 1.0 else _pred_raw, 2)
                         elif _epss_stix is not None:
                             # EPSS stored as percentage (0-100): convert to fraction for scaling
                             # v161.0 P0-FIX: was incorrectly using raw pct as fraction → 9.5 for all

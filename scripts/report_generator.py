@@ -952,13 +952,21 @@ def _build_html(
         "ssrf":            "Server-Side Request Forgery allows attackers to induce the server to make HTTP requests to internal infrastructure, cloud metadata endpoints (169.254.169.254), or internal services not intended to be publicly reachable.",
         "generic":         "This vulnerability affects the confidentiality, integrity, or availability of the target system. Successful exploitation may allow unauthorized access, data disclosure, or denial of service depending on deployment configuration.",
     }
-    av = cvss_comp.get("AV", "Network") if cvss_comp else "Network"
-    ac = cvss_comp.get("AC", "Low") if cvss_comp else "Low"
-    pr = cvss_comp.get("PR", "None") if cvss_comp else "None"
-    ui = cvss_comp.get("UI", "None") if cvss_comp else "None"
+    # v161.3 P1-FIX: Never show hardcoded "Network/Low/None" defaults for CVEs
+    # without NVD CVSS data. Show "Pending NVD" instead of fabricated values.
+    _has_real_cvss = cvss_comp is not None and cvss_score is not None
+    _nvd_pending   = not _has_real_cvss
+    av = cvss_comp.get("AV", "N/A") if _has_real_cvss else "Pending NVD Confirmation"
+    ac = cvss_comp.get("AC", "N/A") if _has_real_cvss else "Pending NVD Confirmation"
+    pr = cvss_comp.get("PR", "N/A") if _has_real_cvss else "Pending NVD Confirmation"
+    ui = cvss_comp.get("UI", "N/A") if _has_real_cvss else "Pending NVD Confirmation"
     s04 = sec("04", "Threat Context & Attack Surface", (
         f'<p class="body-text">{_esc(ctx_map.get(vuln_class, ctx_map["generic"]))}</p>'
-        '<div class="meta-grid" style="margin-top:16px;">'
+        + ('<p class="body-text" style="color:#f59e0b;font-size:12px;margin-top:8px;">&#9888; '
+           'CVSS vector components pending NVD confirmation. Values will be updated when '
+           'NVD publishes the official CVSS 3.1 record for this CVE.</p>'
+           if _nvd_pending else "")
+        + '<div class="meta-grid" style="margin-top:16px;">'
         + mr("Attack Vector",        _esc(av))
         + mr("Attack Complexity",    _esc(ac))
         + mr("Privileges Required",  _esc(pr))
@@ -1197,7 +1205,7 @@ def _build_html(
         + mr("Confidence Score",    f'<span style="color:var(--accent);">{confidence:.0f}%</span>')
         + mr("TLP Classification",  _esc(tlp))
         + mr("Vulnerability Class", _esc(vuln_label))
-        + mr("Platform Version",    "SENTINEL APEX v161.x")
+        + mr("Platform Version",    "SENTINEL APEX v161.3")
         + mr("Tags",                tags_line)
         + '</div>'
     ))
@@ -1581,7 +1589,7 @@ def main() -> int:
     import argparse
 
     parser = argparse.ArgumentParser(
-        description="SENTINEL APEX God Mode Report Generator v161.x"
+        description="SENTINEL APEX God Mode Report Generator v161.3"
     )
     parser.add_argument("--manifest",      default="data/stix/feed_manifest.json")
     parser.add_argument("--reports-base",  default="reports")
@@ -1619,7 +1627,7 @@ def main() -> int:
         skip_existing=not args.force,
     )
     print(f"\n{'='*64}")
-    print(f"  SENTINEL APEX God Mode Report Generator v161.x")
+    print(f"  SENTINEL APEX God Mode Report Generator v161.3")
     print(f"  success={results['success']}  skipped={results['skipped']}  failed={results['failed']}")
     if results["errors"]:
         print(f"  Errors ({len(results['errors'])}):")

@@ -716,6 +716,52 @@ jobs:
           fi
 
       # -----------------------------------------------------------------------
+      # STAGE 3.1.9 - REAL OSINT IOC ENRICHMENT (v161.3 P0-001 FIX)
+      # Integrates verified threat IOCs from public OSINT sources:
+      #   - URLhaus (malicious URL feed — no auth required)
+      #   - ThreatFox (IOC feed by CVE/threat type — public API)
+      #   - MalwareBazaar (file hash feeds — public API)
+      #   - AlienVault OTX (CVE pulse indicators — OTX_API_KEY env var)
+      # Replaces blog-URL pseudo-IOCs with real operational IOC data.
+      # NON-BLOCKING: exit != 0 logs warning but does not abort pipeline.
+      # -----------------------------------------------------------------------
+      - name: "STAGE 3.1.9 - Real OSINT IOC Enrichment (real_osint_ioc_enricher v161.3)"
+        timeout-minutes: 8
+        env:
+          OTX_API_KEY: ${{ secrets.OTX_API_KEY }}
+          THREATFOX_API_KEY: ${{ secrets.THREATFOX_API_KEY }}
+        run: |
+          set +e
+          python3 scripts/real_osint_ioc_enricher.py
+          IOC_REAL_EXIT=$?
+          set -e
+          if [ "$IOC_REAL_EXIT" -eq 0 ]; then
+            echo "[PASS] OSINT IOC Enrichment: real IOCs (IPs/hashes/domains) injected into manifest"
+          else
+            echo "::warning::real_osint_ioc_enricher.py exited ${IOC_REAL_EXIT} — non-fatal, pipeline continues"
+          fi
+
+      # -----------------------------------------------------------------------
+      # STAGE 3.1.10 - MITRE ATT&CK ACTOR ATTRIBUTION (v161.3 P3-001 FIX)
+      # Maps internal CDB actor codes (CDB-RU-01, CDB-FIN-07 etc.) to
+      # authoritative MITRE ATT&CK Group IDs (G0034, G0046 etc.) with full
+      # Mandiant / CrowdStrike / CISA cross-references.
+      # NON-BLOCKING: exit != 0 logs warning but does not abort pipeline.
+      # -----------------------------------------------------------------------
+      - name: "STAGE 3.1.10 - MITRE ATT&CK Actor Attribution (actor_mitre_mapping v161.3)"
+        timeout-minutes: 3
+        run: |
+          set +e
+          python3 scripts/actor_mitre_mapping.py
+          ACTOR_EXIT=$?
+          set -e
+          if [ "$ACTOR_EXIT" -eq 0 ]; then
+            echo "[PASS] Actor attribution: CDB codes mapped to MITRE ATT&CK group IDs"
+          else
+            echo "::warning::actor_mitre_mapping.py exited ${ACTOR_EXIT} — non-fatal, pipeline continues"
+          fi
+
+      # -----------------------------------------------------------------------
       # STAGE 3.2: REPORT GENERATOR -- INTERNAL DOSSIER HARDENING (v134.0)
       # Generates HTML Tactical Dossier for every advisory in the manifest.
       # Skips entries that already have an up-to-date report (idempotent).
