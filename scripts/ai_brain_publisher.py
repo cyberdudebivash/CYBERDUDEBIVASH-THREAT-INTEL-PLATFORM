@@ -72,7 +72,7 @@ INTEL_DIR     = REPO_ROOT / "data" / "intelligence"
 API_OUT_DIR   = REPO_ROOT / "api" / "v1" / "intel"
 OUTPUT_PATH   = API_OUT_DIR / "ai_summary.json"
 
-VERSION = "160.0"
+VERSION = "161.3"
 
 # Campaign clustering params
 MAX_CAMPAIGNS   = 12
