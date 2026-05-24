@@ -225,8 +225,26 @@ def main() -> int:
         # Enrich from api/feed.json by id match
         feed_item = feed_map.get(report_id, {})
 
-        severity   = str(feed_item.get("severity") or "UNKNOWN").upper()
+        severity   = str(feed_item.get("severity") or "").upper().strip()
         risk_score = feed_item.get("risk_score")
+
+        # v161.3: Derive severity from risk/cvss score when absent or UNKNOWN
+        # Ensures reports index shows accurate severity even when NVD enrichment
+        # hasn't run yet or didn't return data for this CVE.
+        if not severity or severity == "UNKNOWN":
+            _rs = 0.0
+            try:
+                _rs = float(
+                    feed_item.get("cvss_score") or
+                    feed_item.get("risk_score") or 0
+                )
+            except (TypeError, ValueError):
+                _rs = 0.0
+            if _rs >= 9.0:   severity = "CRITICAL"
+            elif _rs >= 7.0: severity = "HIGH"
+            elif _rs >= 4.0: severity = "MEDIUM"
+            elif _rs > 0.0:  severity = "LOW"
+            else:            severity = "UNKNOWN"
         title      = str(feed_item.get("title") or report_id)
         cve_list   = feed_item.get("cve") or []
         if not isinstance(cve_list, list):
