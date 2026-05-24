@@ -2342,8 +2342,8 @@ def stage_pipeline_consistency_check() -> None:
 
                 justified_10 = (
                     kev                                                         # CISA KEV confirmed
-                    or (cvss >= 9.0 and (ioc_cnt > 0 or epss >= 0.5))          # CVSS critical + IOC/EPSS
-                    or epss >= 0.7                                              # 70%+ exploitation probability
+                    or (cvss >= 9.0 and (ioc_cnt > 0 or epss >= 50.0))         # CVSS critical + IOC/EPSS≥50%
+                    or epss >= 70.0                                             # 70%+ exploitation probability
                     or (ioc_conf >= 80.0 and ioc_cnt >= 5 and _has_active_keyword)  # HC cluster + active
                 )
 
@@ -2798,8 +2798,10 @@ def stage_sync_root_feed_json() -> None:
                         if _predictive_score is not None:
                             risk_score = round(float(_predictive_score), 2)
                         elif _epss_stix is not None:
-                            # EPSS fraction (0-1): scale to 4.0-9.5 range for CVE advisories
-                            risk_score = round(min(9.5, 4.0 + float(_epss_stix) * 50.0), 2)
+                            # EPSS stored as percentage (0-100): convert to fraction for scaling
+                            # v161.0 P0-FIX: was incorrectly using raw pct as fraction → 9.5 for all
+                            _epss_frac = float(_epss_stix) / 100.0
+                            risk_score = round(min(9.5, 4.0 + _epss_frac * 50.0), 2)
                         elif cve_ids:
                             risk_score = 5.5   # unknown CVE, no EPSS signal
                         else:
@@ -2821,7 +2823,9 @@ def stage_sync_root_feed_json() -> None:
                             _confidence = round(float(_campaign_conf) * 10.0, 1)  # 0-10 -> 0-100
                             _confidence = max(20.0, min(95.0, _confidence))
                         elif _epss_stix is not None:
-                            _confidence = round(min(85.0, 30.0 + float(_epss_stix) * 500.0), 1)
+                            # v161.0 P0-FIX: EPSS is percentage (0-100), convert to fraction first
+                            _epss_frac = float(_epss_stix) / 100.0
+                            _confidence = round(min(85.0, 30.0 + _epss_frac * 500.0), 1)
                         elif cve_ids:
                             _confidence = 45.0
                         else:
@@ -2837,7 +2841,9 @@ def stage_sync_root_feed_json() -> None:
                             "severity":       _severity,
                             "risk_score":     risk_score,
                             "confidence":     _confidence,
-                            "epss_score":     round(float(_epss_stix) * 100.0, 4) if _epss_stix is not None else None,
+                            # v161.0 P0-FIX: x_cdb_epss_score is stored as percentage (0-100).
+                            # Previous code multiplied by 100 again → 3355 instead of 33.55.
+                            "epss_score":     round(float(_epss_stix), 4) if _epss_stix is not None else None,
                             "timestamp":      ts,
                             "processed_at":   ts,
                             "published_at":   _published_at_final,   # PHASE 5 FIX
