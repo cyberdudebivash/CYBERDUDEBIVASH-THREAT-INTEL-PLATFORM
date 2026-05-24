@@ -233,9 +233,19 @@ def check_or_apply_regex(rel_path, pattern, template, ver, apply):
         return False, found_ver, "drift: %s -> %s" % (found_ver, ver)
 
     try:
-        path.write_text(new_text, encoding="utf-8")
+        # v161.3: ATOMIC WRITE — write to .tmp then os.replace to prevent truncation
+        # of large files (e.g. index.js 5521 lines) on partial write failure.
+        import os as _os
+        tmp = path.with_suffix(path.suffix + ".vgov_tmp")
+        tmp.write_text(new_text, encoding="utf-8")
+        _os.replace(tmp, path)
         return True, found_ver, "updated"
     except Exception as e:
+        try:
+            if tmp.exists():
+                tmp.unlink()
+        except Exception:
+            pass
         return False, found_ver, "write error: %s" % e
 
 
