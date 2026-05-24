@@ -847,17 +847,36 @@ def _build_html(
         return f'<ul class="pb-list">{li}</ul>'
 
     # ── 01 Executive Summary ───────────────────────────────────────────────
+    # v161.x: NVD PRELIMINARY disclosure banner
+    nvd_status = str(entry.get("nvd_status") or "").upper()
+    nvd_disclosure = str(entry.get("nvd_disclosure") or "")
+    _nvd_banner = ""
+    if nvd_status == "PRELIMINARY":
+        _nvd_banner = (
+            '<div style="background:rgba(249,115,22,0.12);border:1px solid rgba(249,115,22,0.4);'
+            'border-radius:4px;padding:12px 16px;margin-bottom:16px;display:flex;'
+            'align-items:flex-start;gap:12px;">'
+            '<span style="font-size:18px;flex-shrink:0;">⚠️</span>'
+            '<div>'
+            '<div style="font-family:var(--font-mono);font-size:10px;font-weight:700;'
+            'color:#f97316;letter-spacing:2px;margin-bottom:4px;">NVD STATUS: PRELIMINARY — UNCONFIRMED</div>'
+            f'<div style="font-size:12px;color:var(--text-muted);line-height:1.6;">{_esc(nvd_disclosure or "This CVE ID was not found in the NIST NVD database at time of enrichment. Intelligence is preliminary and unverified. CVSS severity is analyst-estimated.")}</div>'
+            '</div></div>'
+        )
+
     src_a = (
         f'<a href="{_esc(source_url)}" target="_blank" rel="noopener" class="src-link">'
         f'Source Article &#8599;</a>'
         if source_url else ""
     )
     s01 = sec("01", "Executive Summary", (
-        f'<p class="body-text">{_esc(description)}</p>'
+        _nvd_banner
+        + f'<p class="body-text">{_esc(description)}</p>'
         '<div class="meta-grid" style="margin-top:18px;">'
         + mr("CVE / Advisory ID", f'<span class="mono">{_esc(cve_id)}</span>')
         + mr("Severity", f'<span class="badge sev-{severity.lower()}">{_esc(severity)}</span>')
         + mr("Risk Score", f'<span style="color:{sev_color};font-weight:700;font-family:var(--font-mono);">{risk_score:.1f} / 10</span>')
+        + mr("NVD Status", f'<span class="mono" style="color:{"#f97316" if nvd_status == "PRELIMINARY" else "#00d4aa" if nvd_status == "CONFIRMED" else "#6b7280"};font-weight:700;">{nvd_status or "UNKNOWN"}</span>')
         + mr("Vulnerability Class", _esc(vuln_label))
         + mr("Threat Actor", f'<span class="mono">{_esc(actor_tag)}</span>')
         + mr("TLP Classification", f'<span class="badge badge-tlp">{_esc(tlp)}</span>')
@@ -1590,6 +1609,28 @@ def main() -> int:
         ok, result = generate_report(entry, None, args.reports_base)
         if ok:
             print(f"OK  God mode report: {result}")
+            return 0
+        print(f"ERR {result}", file=sys.stderr)
+        return 1
+
+    results = generate_reports_from_manifest(
+        manifest_path=args.manifest,
+        reports_base=args.reports_base,
+        skip_existing=not args.force,
+    )
+    print(f"\n{'='*64}")
+    print(f"  SENTINEL APEX God Mode Report Generator v161.x")
+    print(f"  success={results['success']}  skipped={results['skipped']}  failed={results['failed']}")
+    if results["errors"]:
+        print(f"  Errors ({len(results['errors'])}):")
+        for e in results["errors"][:20]:
+            print(f"    - {e}")
+    print(f"{'='*64}\n")
+    return 1 if results["failed"] > 0 else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
             return 0
         print(f"ERR {result}", file=sys.stderr)
         return 1

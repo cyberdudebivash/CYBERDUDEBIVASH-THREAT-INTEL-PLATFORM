@@ -1126,6 +1126,74 @@ class STIXExporter:
         except Exception:
             pass  # never block manifest write on sanitizer import error
 
+        # v161.x P0-FIX: Timestamped backup before every manifest read.
+        # When JSON parse fails, restore from most-recent backup instead of
+        # silently returning [] — which previously wiped ALL manifest entries.
+        _manifest_backup_dir = os.path.join(
+            os.path.dirname(self.manifest_path), ".manifest_backups"
+        )
+        os.makedirs(_manifest_backup_dir, exist_ok=True)
+
+        def _make_manifest_backup() -> None:
+            """Write a timestamped copy of the manifest before we overwrite it."""
+            if not os.path.exists(self.manifest_path):
+                return
+            try:
+                from datetime import datetime as _dt
+                _ts = _dt.utcnow().strftime("%Y%m%dT%H%M%SZ")
+                _bak = os.path.join(_manifest_backup_dir, f"feed_manifest_{_ts}.json")
+                import shutil as _shutil
+                _shutil.copy2(self.manifest_path, _bak)
+                # Rotate: keep only the 10 most-recent backups
+                _baks = sorted(
+                    [f for f in os.listdir(_manifest_backup_dir) if f.startswith("feed_manifest_")],
+                    reverse=True,
+                )
+                for _old in _baks[10:]:
+                    try:
+                        os.remove(os.path.join(_manifest_backup_dir, _old))
+                    except Exception:
+                        pass
+            except Exception:
+                pass  # never block on backup error
+
+        def _restore_manifest_from_backup() -> list:
+            """Return entries from the most-recent valid backup, or []."""
+            try:
+                _baks = sorted(
+                    [f for f in os.listdir(_manifest_backup_dir) if f.startswith("feed_manifest_")],
+                    reverse=True,
+                )
+                for _bak_name in _baks:
+                    _bak_path = os.path.join(_manifest_backup_dir, _bak_name)
+                    try:
+                        with open(_bak_path, 'r', encoding='utf-8') as _bf:
+                            _bdata = json.load(_bf)
+                        if isinstance(_bdata, list) and _bdata:
+                            logger.warning(
+                                f"[MANIFEST-SELFHEAL] Restored {len(_bdata)} entries "
+                                f"from backup: {_bak_name}"
+                            )
+                            return _bdata
+                        if isinstance(_bdata, dict):
+                            for _key in ("advisories", "entries", "reports", "items"):
+                                _v = _bdata.get(_key)
+                                if isinstance(_v, list) and _v:
+                                    logger.warning(
+                                        f"[MANIFEST-SELFHEAL] Restored {len(_v)} entries "
+                                        f"from backup (key={_key}): {_bak_name}"
+                                    )
+                                    return _v
+                    except Exception:
+                        continue  # try older backup
+            except Exception:
+                pass
+            logger.error("[MANIFEST-SELFHEAL] No valid backup found — starting with empty manifest")
+            return []
+
+        # Take backup BEFORE reading (protects against concurrent corruption)
+        _make_manifest_backup()
+
         manifest_entries = []
         if os.path.exists(self.manifest_path):
             try:
@@ -1143,8 +1211,13 @@ class STIXExporter:
                         if isinstance(_v, list):
                             manifest_entries = _v
                             break
-            except Exception:
-                manifest_entries = []
+            except Exception as _manifest_exc:
+                # v161.x: DO NOT silently reset to [] — restore from backup instead.
+                logger.error(
+                    f"[MANIFEST] JSON parse failed ({_manifest_exc}). "
+                    f"Attempting self-heal from backup..."
+                )
+                manifest_entries = _restore_manifest_from_backup()
 
         # Brand/identity filter — block company identity objects from intel feed
         _BRAND_KEYWORDS = [
