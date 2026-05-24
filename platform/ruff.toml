@@ -1,0 +1,37 @@
+# SENTINEL APEX — Ruff linting configuration
+# Production-grade Python code quality enforcement
+
+target-version = "py311"
+line-length = 120
+
+[lint]
+select = [
+  "E",    # pycodestyle errors
+  "W",    # pycodestyle warnings
+  "F",    # pyflakes
+  "I",    # isort
+  "B",    # flake8-bugbear
+  "C4",   # flake8-comprehensions
+  "UP",   # pyupgrade
+]
+ignore = [
+  "E501",   # line too long — handled separately
+  "F401",   # unused imports — services import for future use
+  "F811",   # redefinition of unused name — FastAPI pattern
+  "UP007",  # Use X | Y union — compatibility
+  "UP006",  # Use type instead of Type — compatibility
+  "UP035",  # typing imports — compatibility
+  "B008",   # do not perform function calls in default argument — FastAPI pattern (Depends)
+  "B904",   # within an except clause, raise from
+  "C408",   # unnecessary dict call
+  "E402",   # module level import not at top — structlog pattern
+]
+
+[lint.isort]
+known-first-party = ["sentinel"]
+force-sort-within-sections = true
+
+[lint.per-file-ignores]
+"**/main.py" = ["F401", "E402"]
+"**/router.py" = ["F401", "B008"]
+"**/auth.py" = ["F401", "E402"]
