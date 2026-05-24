@@ -1,0 +1,19 @@
+v161.3: Fix esbuild HARD GATE -- Permission denied in CI
+
+ROOT CAUSE:
+  npm install --save-dev esbuild@latest fails in CI (Node.js v22.22.3)
+  Error hidden by: 2>&1 | tail -3
+  Result: binary installed without execute permissions
+  Effect: sh: 1: esbuild: Permission denied -> exit 127 -> GATE FAILS
+
+FIX:
+  Replace local --save-dev install with: npm install -g esbuild
+  Global install sets correct permissions on the binary
+  Run esbuild directly (not via npx) after global install
+  Added explicit npm install exit code check (no more hidden errors)
+
+EVIDENCE FROM CI LOGS (run 26369043882):
+  npm error
+  npm error Node.js v22.22.3
+  sh: 1: esbuild: Permission denied
+  Process completed with exit code 127.
