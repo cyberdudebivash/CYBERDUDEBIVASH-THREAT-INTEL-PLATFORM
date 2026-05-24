@@ -122,7 +122,7 @@ function injectVersionHeaders(response, config) {
   headers.set("X-SENTINEL-Version", config.GATEWAY_VERSION);
   headers.set("X-SENTINEL-Platform", "SENTINEL-APEX");
   headers.set("X-SENTINEL-Codename", "GOD-MODE");
-  headers.set("X-Powered-By", "CYBERDUDEBIVASH-SENTINEL-APEX-v161");
+  headers.set("X-Powered-By", "CYBERDUDEBIVASH-SENTINEL-APEX-v161.3");
   return new Response(response.body, { status: response.status, headers });
 }
 
@@ -4849,7 +4849,7 @@ async function servePublicIntelManifestRaw(pathname, env, rid) {
 // R2 keys written by r2_upload.py after build_reports_index.py (Stage 3.3.7).
 // =============================================================================
 async function serveReportsIndexFile(r2Key, env, rid) {
-  // Source 1: Cloudflare R2 (primary — fast, uploaded by pipeline)
+  // Source 1: Cloudflare R2 (primary -- fast, uploaded by pipeline)
   try {
     if (env?.INTEL_R2) {
       const obj = await env.INTEL_R2.get(r2Key);
@@ -4870,7 +4870,7 @@ async function serveReportsIndexFile(r2Key, env, rid) {
   } catch (e) {
     slog("WARN", "REPORTS_IDX", `R2 miss for ${r2Key}: ${e.message}`, { rid });
   }
-  // Source 2: GitHub raw gh-pages branch (fallback — always available after CI deployment)
+  // Source 2: GitHub raw gh-pages branch (fallback -- always available after CI deployment)
   try {
     const ghUrl = `https://raw.githubusercontent.com/${CONFIG.GITHUB_REPO}/gh-pages/${r2Key}`;
     const ghHeaders = { "User-Agent": `${CONFIG.GATEWAY_NAME}/${CONFIG.GATEWAY_VERSION}` };
@@ -4892,7 +4892,7 @@ async function serveReportsIndexFile(r2Key, env, rid) {
   } catch (e) {
     slog("WARN", "REPORTS_IDX", `GitHub raw miss for ${r2Key}: ${e.message}`, { rid });
   }
-  // All sources exhausted — pipeline may still be building
+  // All sources exhausted -- pipeline may still be building
   return jsonResponse({
     error:      "reports_index_unavailable",
     message:    "Reports index is temporarily unavailable. Pipeline may still be generating it.",
@@ -4996,7 +4996,7 @@ export default {
     if (pathname === "/api/auth/revoke"   && method === "POST") return withSec(handleRevokeToken(request, env, rid));
     //  v161.3: Password-based auth routes (/api/auth/* prefix for dashboard compatibility)
     //  Dashboard AUTH_ENDPOINT = 'https://intel.cyberdudebivash.com/api/auth'
-    //  calls /api/auth/login and /api/auth/register — wire to existing KV-backed handlers
+    //  calls /api/auth/login and /api/auth/register -- wire to existing KV-backed handlers
     if (pathname === "/api/auth/login"    && method === "POST") return withSec(handleUserLogin(request, env, rid));
     if (pathname === "/api/auth/register" && method === "POST") return withSec(handleUserSignup(request, env, rid));
     //  v134.0.0: User auth endpoints (no API key required)
@@ -5503,4 +5503,19 @@ export default {
           const _kvIdx = {
             reports,
             total_reports: reports.length,
-            genera
+            generated_at:  new Date().toISOString(),
+          };
+          await env.SECURITY_HUB_KV.put(
+            "idx:reports",
+            JSON.stringify(_kvIdx),
+            { expirationTtl: 1800 }  // 30 min TTL -- refreshed by every cron tick
+          ).catch(() => {});
+          slog("INFO", "CRON", "KV report index refreshed", { rid, count: reports.length });
+        }
+
+      } catch (e) {
+        await trackError(env, "CRON", "Scheduled handler failed", { error: e.message, rid });
+      }
+    })());
+  },
+};

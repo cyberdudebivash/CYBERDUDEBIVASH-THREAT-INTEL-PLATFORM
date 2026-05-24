@@ -1,0 +1,13 @@
+v161.3: Restore index.js (5521 lines, pure ASCII) + atomic write fix in version_governance.py
+
+FIXES: deploy-worker HARD GATE - TRUNCATED_EOF - Worker JS Integrity Gate failure
+FIXES: AI Tracker STAGE 3.2 - Encoding Guard - DIRTY index.js truncation
+
+Root cause: version_governance.py --apply used path.write_text() (non-atomic) on 5521-line file
+causing truncation to 5506 lines ending mid-word at 'genera'
+
+Fix 1: Restored index.js from commit 24db3709c0 (full 5521 lines, ending with '};')
+Fix 2: Replaced 4 em-dashes (U+2014) with ASCII '--' at lines 4852, 4873, 4895, 4999
+Fix 3: version_governance.py now uses tmp->os.replace atomic pattern for all regex file writes
+
+Result: index.js is 5521 lines, 0 non-ASCII chars, ends with '};' - all integrity gates pass
