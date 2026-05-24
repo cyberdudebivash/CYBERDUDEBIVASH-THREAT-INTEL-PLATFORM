@@ -1631,25 +1631,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     sys.exit(main())
-            return 0
-        print(f"ERR {result}", file=sys.stderr)
-        return 1
-
-    results = generate_reports_from_manifest(
-        manifest_path=args.manifest,
-        reports_base=args.reports_base,
-        skip_existing=not args.force,
-    )
-    print(f"\n{'='*64}")
-    print(f"  SENTINEL APEX God Mode Report Generator v161.x")
-    print(f"  success={results['success']}  skipped={results['skipped']}  failed={results['failed']}")
-    if results["errors"]:
-        print(f"  Errors ({len(results['errors'])}):")
-        for e in results["errors"][:20]:
-            print(f"    - {e}")
-    print(f"{'='*64}\n")
-    return 1 if results["failed"] > 0 else 0
-
-
-if __name__ == "__main__":
-    sys.exit(main())
