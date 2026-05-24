@@ -4713,18 +4713,28 @@ async function serveAdvisoryPDF(pathname, env, rid) {
       const obj = await env.INTEL_R2.get(r2Key);
       if (obj) {
         const pdfBytes = await obj.arrayBuffer();
-        slog('INFO', 'ADVISORY_PDF', `PDF served from R2: ${advisoryId}`, { rid });
-        return new Response(pdfBytes, {
-          status: 200,
-          headers: {
-            'Content-Type':                'application/pdf',
-            'Content-Disposition':         `inline; filename="${advisoryId}.pdf"`,
-            'Cache-Control':               'public, max-age=3600, stale-while-revalidate=300',
-            'Access-Control-Allow-Origin': '*',
-            'X-Gateway':                   `${CONFIG.GATEWAY_NAME}/${CONFIG.GATEWAY_VERSION}`,
-            'X-PDF-Source':                'r2',
-          },
-        });
+        // v161.4 FIX: Validate magic bytes — reject HTML-as-PDF files.
+        // Old pipeline produced HTML files with .pdf extension; the Worker
+        // must not serve those as PDFs or Chrome will show "Failed to load".
+        const magic = new Uint8Array(pdfBytes.slice(0, 4));
+        const isPDF = (magic[0] === 0x25 && magic[1] === 0x50 && magic[2] === 0x44 && magic[3] === 0x46); // %PDF
+        if (!isPDF) {
+          slog('WARN', 'ADVISORY_PDF', `R2 object for ${advisoryId} is not a real PDF (magic: ${Array.from(magic).map(b=>b.toString(16)).join('')}) — falling through to GitHub`, { rid });
+          // Fall through to GitHub fallback — don't serve HTML as PDF
+        } else {
+          slog('INFO', 'ADVISORY_PDF', `PDF served from R2: ${advisoryId}`, { rid });
+          return new Response(pdfBytes, {
+            status: 200,
+            headers: {
+              'Content-Type':                'application/pdf',
+              'Content-Disposition':         `inline; filename="${advisoryId}.pdf"`,
+              'Cache-Control':               'public, max-age=3600, stale-while-revalidate=300',
+              'Access-Control-Allow-Origin': '*',
+              'X-Gateway':                   `${CONFIG.GATEWAY_NAME}/${CONFIG.GATEWAY_VERSION}`,
+              'X-PDF-Source':                'r2',
+            },
+          });
+        }
       }
     } catch (e) {
       slog('WARN', 'ADVISORY_PDF', `R2 miss for ${advisoryId}: ${e.message}`, { rid });
