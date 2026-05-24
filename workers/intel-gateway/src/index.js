@@ -122,7 +122,7 @@ function injectVersionHeaders(response, config) {
   headers.set("X-SENTINEL-Version", config.GATEWAY_VERSION);
   headers.set("X-SENTINEL-Platform", "SENTINEL-APEX");
   headers.set("X-SENTINEL-Codename", "GOD-MODE");
-  headers.set("X-Powered-By", "CYBERDUDEBIVASH-SENTINEL-APEX-v160");
+  headers.set("X-Powered-By", "CYBERDUDEBIVASH-SENTINEL-APEX-v161");
   return new Response(response.body, { status: response.status, headers });
 }
 
@@ -5503,19 +5503,4 @@ export default {
           const _kvIdx = {
             reports,
             total_reports: reports.length,
-            generated_at:  new Date().toISOString(),
-          };
-          await env.SECURITY_HUB_KV.put(
-            "idx:reports",
-            JSON.stringify(_kvIdx),
-            { expirationTtl: 1800 }  // 30 min TTL -- refreshed by every cron tick
-          ).catch(() => {});
-          slog("INFO", "CRON", "KV report index refreshed", { rid, count: reports.length });
-        }
-
-      } catch (e) {
-        await trackError(env, "CRON", "Scheduled handler failed", { error: e.message, rid });
-      }
-    })());
-  },
-};
+            genera
