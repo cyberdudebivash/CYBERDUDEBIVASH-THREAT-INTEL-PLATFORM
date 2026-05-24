@@ -1416,9 +1416,82 @@ def build_report_sections(item: dict) -> str:
         + "</div>"
     ))
 
-    # ── S5: Technical Analysis  -  APEX Intelligence Upgrade v148.1 ─────────
+    # -- S5: Technical Analysis  -  APEX Intelligence Upgrade v148.1 ---------
+    # v161.1: Enrich item for better vuln class detection.
+    # 67% of feed items had bare CVE titles (e.g. "CVE-2026-9347") with no
+    # class keywords, causing _detect_vuln_class() to return "generic" for all
+    # of them -> identical _DEFAULT_NARRATIVE boilerplate for every advisory.
+    # Fix: fold tags + threat_type text into description so existing regex
+    # patterns in _VULN_CLASS_MAP fire correctly, producing unique per-class
+    # analysis for SSRF, RCE, SQLi, buffer overflow, command injection, etc.
+    # Priority-ordered tag-to-vuln-class expansion table.
+    # Most specific vuln class keywords FIRST so that e.g. SQLi beats
+    # the generic "Exploit Public-Facing Application" -> RCE mapping.
+    # Only the FIRST match (highest priority) is used per item.
+    _PRIORITY_TAG_MAP = [
+        ("sql injection",                  "SQL injection SQLi database injection"),
+        ("sqli",                           "SQL injection SQLi"),
+        ("xss",                            "XSS cross-site scripting script injection"),
+        ("cross-site scripting",           "XSS cross-site scripting"),
+        ("ssrf",                           "SSRF server-side request forgery"),
+        ("csrf",                           "cross-site request forgery CSRF"),
+        ("path traversal",                 "path traversal directory traversal LFI RFI"),
+        ("directory traversal",            "path traversal directory traversal"),
+        ("lfi",                            "path traversal LFI local file include"),
+        ("auth bypass",                    "auth bypass authentication bypass unauthenticated"),
+        ("authentication bypass",          "auth bypass authentication bypass unauthenticated"),
+        ("privilege escalation",           "privilege escalation privilege elevation"),
+        ("deserialization",                "deserialization object injection"),
+        ("buffer overflow",                "buffer overflow memory corruption heap stack"),
+        ("heap overflow",                  "buffer overflow heap overflow memory corruption"),
+        ("stack overflow",                 "buffer overflow stack overflow memory corruption"),
+        ("use-after-free",                 "use-after-free UAF memory corruption"),
+        ("memory corruption",              "memory corruption buffer overflow"),
+        ("os command injection",           "os command injection command injection RCE"),
+        ("command injection",              "command injection os command injection RCE"),
+        ("denial of service",              "DoS denial of service OOM exhaustion"),
+        ("ransomware",                     "ransomware encrypt files ransom"),
+        ("infostealer",                    "infostealer credential stealer"),
+        ("phishing",                       "phishing credential harvest spear phish"),
+        ("zero day",                       "zero-day 0day unpatch"),
+        ("zero-day",                       "zero-day 0day unpatch"),
+        ("apt",                            "APT threat actor state sponsor nation state"),
+        ("supply chain compromise",        "supply chain compromise"),
+        # Generic tags last -- only used when nothing more specific found
+        ("remote code execution",          "remote code execution RCE arbitrary code"),
+        ("rce",                            "remote code execution RCE arbitrary code"),
+        ("command and scripting interpreter", "remote code execution RCE arbitrary code"),
+        ("exploit public-facing application", "remote code execution RCE exploit"),
+    ]
+
+    def _enrich_item_for_analysis(_item):
+        """Build enriched copy of item with tags/threat_type folded into
+        description for better vuln class detection.
+        Priority order: specific (SQLi/XSS/SSRF) beats generic (RCE/Exploit).
+        Only the FIRST (highest-priority) match is appended to avoid
+        generic tags overriding specific vulnerability classifications."""
+        _orig_desc = str(_item.get("description") or "")
+        # Collect all signal strings (tags + threat_type) lowercased
+        _signals = [str(_t).lower() for _t in (_item.get("tags") or [])]
+        _tt = str(_item.get("threat_type") or "").strip().lower()
+        if _tt:
+            _signals.append(_tt)
+        # Find the first (most specific) matching expansion
+        _expansion = ""
+        for _kw, _exp in _PRIORITY_TAG_MAP:
+            if any(_kw in _sig for _sig in _signals):
+                _expansion = _exp
+                break
+        if not _expansion:
+            return _item
+        _copy = dict(_item)
+        _copy["description"] = (_orig_desc + " " + _expansion).strip()
+        return _copy
+
+    _analysis_item = _enrich_item_for_analysis(item)
+
     if _APEX_UPGRADE_AVAILABLE:
-        _s5_body = _apex_technical_narrative(item)
+        _s5_body = _apex_technical_narrative(_analysis_item)
     else:
         delivery = item.get("delivery_vector") or "Multi-stage; refer to IOC section for observed infrastructure."
         priv_req = item.get("privilege_required") or "unprivileged user"
@@ -2407,3 +2480,10 @@ def main(argv=None) -> int:
     if args.fail_on_zero and written == 0:
         log("FATAL: --fail-on-zero set and written=0 -- no reports generated", "error")
         return 1
+
+    return written
+
+
+if __name__ == "__main__":
+    import sys as _main_sys
+    _main_sys.exit(main() or 0)

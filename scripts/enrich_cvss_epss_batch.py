@@ -128,7 +128,7 @@ def _nvd_throttle() -> None:
 # ── CVSS Parser ────────────────────────────────────────────────────────────────
 def _parse_cvss(nvd_item: Dict) -> Tuple[Optional[float], Optional[str]]:
     """
-    Extract CVSS v3.1 (preferred) → v3.0 → v2.0 base score + vector.
+    Extract CVSS v3.1 (preferred) -> v3.0 -> v2.0 base score + vector.
     Returns (score, vector_string) or (None, None) if not available.
     """
     metrics = (nvd_item.get("cve") or {}).get("metrics") or {}
@@ -169,7 +169,7 @@ def fetch_nvd_cvss(cve_id: str) -> Tuple[Optional[float], Optional[str]]:
         return None, None
     nvd_item = data["vulnerabilities"][0]
     score, vec = _parse_cvss(nvd_item)
-    log.debug("NVD %s → CVSS %.1f  %s", cve_id, score or 0, vec or "")
+    log.debug("NVD %s -> CVSS %.1f  %s", cve_id, score or 0, vec or "")
     return score, vec
 
 # ── EPSS Batch Fetch ───────────────────────────────────────────────────────────
@@ -248,7 +248,7 @@ def main() -> int:
                 val = float(existing)
                 if val > 100.0:
                     item["epss_score"] = round(val / 100.0, 4)  # undo double multiply
-                    log.warning("EPSS global-repair: %.2f → %.4f (title: %s)",
+                    log.warning("EPSS global-repair: %.2f -> %.4f (title: %s)",
                                 val, item["epss_score"], str(item.get("title", ""))[:60])
                     epss_repaired += 1
                 elif val < 0.0:
@@ -300,12 +300,12 @@ def main() -> int:
         score, vec = fetch_nvd_cvss(cve_id)
         cvss_map[cve_id] = (score, vec)
         if score:
-            log.info("[%d/%d] %s → CVSS %.1f", i + 1, len(cvss_needed), cve_id, score)
+            log.info("[%d/%d] %s -> CVSS %.1f", i + 1, len(cvss_needed), cve_id, score)
         else:
             # v161.x: record CVEs absent from NVD — will be tagged PRELIMINARY
             nvd_not_found.add(cve_id)
             log.warning(
-                "[%d/%d] %s → NOT IN NVD — will be tagged nvd_status=PRELIMINARY",
+                "[%d/%d] %s -> NOT IN NVD — will be tagged nvd_status=PRELIMINARY",
                 i + 1, len(cvss_needed), cve_id
             )
 
@@ -372,7 +372,7 @@ def main() -> int:
         if existing_epss is not None:
             clamped = min(max(float(existing_epss), 0.0), 100.0)
             if abs(clamped - float(existing_epss)) > 0.001:
-                log.warning("EPSS corruption repaired for %s: %.2f → %.2f",
+                log.warning("EPSS corruption repaired for %s: %.2f -> %.2f",
                             cve_id, float(existing_epss), clamped)
                 item["epss_score"] = clamped
                 changed = True
@@ -390,15 +390,83 @@ def main() -> int:
         else:
             skipped_count += 1
 
-    # ── Pass 5: Write back ─────────────────────────────────────────────────────
-    log.info("─" * 60)
+    # ── Pass 4.5: Populate source_url for ALL CVE items missing it ───────────
+    # P3-004 FIX v161.x: source_url was empty for all 46 feed items.
+    # Every CVE advisory must link to an authoritative source so analysts
+    # can verify the claim. Use NVD URL for confirmed CVEs, MITRE for preliminary.
+    source_url_count = 0
+    for item in items:
+        if item.get("source_url"):
+            continue  # already has a source URL — preserve it
+        item_cve = extract_cve_id(item)
+        if not item_cve:
+            continue
+        nvd_confirmed = (
+            item.get("nvd_status") == "CONFIRMED"
+            or float(item.get("cvss_score") or 0) > 0
+        )
+        if nvd_confirmed:
+            item["source_url"] = f"https://nvd.nist.gov/vuln/detail/{item_cve}"
+        else:
+            # PRELIMINARY or unverified — link to MITRE CVE record
+            item["source_url"] = f"https://cve.mitre.org/cgi-bin/cvename.cgi?name={item_cve}"
+        source_url_count += 1
+
+    if source_url_count:
+        log.info("Pass 4.5: source_url populated for %d CVE items", source_url_count)
+
+    # ── Pass 4.6: Populate blog_url for all items missing it ──────────────────
+    # P3-004 FIX v161.x: blog_url was empty for all 46 feed items.
+    # Point to the platform's own advisory page so analysts can view the full report.
+    PLATFORM_BASE = "https://intel.cyberdudebivash.com"
+    blog_url_count = 0
+    for item in items:
+        if item.get("blog_url"):
+            continue
+        item_id = str(item.get("id") or item.get("stix_id") or "").strip()
+        if item_id:
+            item["blog_url"] = f"{PLATFORM_BASE}/reports/{item_id}/"
+            blog_url_count += 1
+
+    if blog_url_count:
+        log.info("Pass 4.6: blog_url populated for %d items", blog_url_count)
+
+    # ── Pass 4.7: Align severity label with risk_score for ALL items ──────────
+    # P1-003 FIX v161.x: items with risk_score=5.5 were labeled LOW instead of MEDIUM.
+    # Apply CVSS severity banding to all items regardless of enrichment state.
+    sev_aligned = 0
+    for item in items:
+        risk = 0.0
+        try:
+            risk = float(item.get("risk_score") or item.get("cvss_score") or 0)
+        except (TypeError, ValueError):
+            continue
+        if risk <= 0:
+            continue
+        correct_sev = cvss_to_severity(risk)
+        current_sev = (item.get("severity") or "").upper().strip()
+        if current_sev and current_sev != correct_sev:
+            log.debug("Severity aligned: %s -> %s (risk=%.1f, id=%s)",
+                      current_sev, correct_sev, risk, item.get("id", "")[:20])
+            item["severity"] = correct_sev
+            sev_aligned += 1
+
+    if sev_aligned:
+        log.info("Pass 4.7: severity realigned for %d items (label<->score mismatch fixed)",
+                 sev_aligned)
+
+    # -- Pass 5: Write back ------------------------------------------------------
+    log.info("-" * 60)
     log.info("Enrichment summary:")
     log.info("  Items processed   : %d", len(needs_enrich))
     log.info("  CVSS updated      : %d (NVD CONFIRMED)", cvss_count)
     log.info("  EPSS updated      : %d", epss_count)
-    log.info("  PRELIMINARY tagged: %d (not in NVD — disclosed)", preliminary_count)
+    log.info("  PRELIMINARY tagged: %d (not in NVD -- disclosed)", preliminary_count)
     log.info("  Items enriched    : %d", enriched_count)
     log.info("  Skipped (no data) : %d", skipped_count)
+    log.info("  source_url filled : %d", source_url_count)
+    log.info("  blog_url filled   : %d", blog_url_count)
+    log.info("  Severity aligned  : %d", sev_aligned)
     if preliminary_count:
         log.warning(
             "NVD-PRELIMINARY GATE: %d CVE(s) not confirmed in NVD. "
@@ -411,7 +479,8 @@ def main() -> int:
         log.info("[DRY RUN] Would write %d enriched items -- skipping write", enriched_count)
         return 0
 
-    if enriched_count == 0:
+    total_changes = enriched_count + source_url_count + blog_url_count + sev_aligned
+    if total_changes == 0:
         log.info("No enrichments applied -- feed unchanged")
         return 0
 
@@ -432,13 +501,16 @@ def main() -> int:
     report = {
         "generated_at":      datetime.now(timezone.utc).isoformat(),
         "script":            "enrich_cvss_epss_batch.py",
-        "version":           "161.0",
+        "version":           "161.1",
         "feed_total_items":  len(items),
         "cve_items_found":   len(needs_enrich),
         "cvss_enriched":     cvss_count,
         "epss_enriched":     epss_count,
         "preliminary_tagged": preliminary_count,
         "total_enriched":    enriched_count,
+        "source_url_filled": source_url_count,
+        "blog_url_filled":   blog_url_count,
+        "severity_aligned":  sev_aligned,
         "skipped":           skipped_count,
         "nvd_key_used":      bool(NVD_API_KEY),
         "dry_run":           DRY_RUN,
