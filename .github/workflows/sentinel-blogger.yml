@@ -757,6 +757,63 @@ jobs:
         run: python3 scripts/update_validation_status.py || true
 
       # -----------------------------------------------------------------------
+      # STAGE 3.3.6: SYNC REPORT URLS TO API FEED (P0 PERMANENT MANDATE v161.2)
+      # ROOT CAUSE FIX: report_generator.py writes report_url to feed_manifest.json
+      # but api/feed.json (the live dashboard/API feed) NEVER gets report_url,
+      # causing every dashboard card to show "NO DOSSIER" instead of live links.
+      # This stage:
+      #   1. Reads report_url from data/stix/feed_manifest.json (post-Stage 3.2)
+      #   2. Matches items by id and syncs report_url into api/feed.json
+      #   3. Fallback: scans reports/ directory for matching HTML files by id+ts
+      #   4. Atomic write -- api/feed.json is never left in partial state
+      # Non-blocking (continue-on-error) -- pipeline proceeds even if sync fails.
+      # MUST RUN: after Stage 3.2 (reports generated) + before Stage 3.4.5 (schema gate).
+      # -----------------------------------------------------------------------
+      - name: "STAGE 3.3.6 - Sync report_url: feed_manifest -> api/feed.json (P0 mandate)"
+        timeout-minutes: 3
+        continue-on-error: true
+        run: |
+          set +e
+          python3 scripts/sync_report_urls.py
+          SYNC_EXIT=$?
+          set -e
+          if [ "$SYNC_EXIT" -eq 0 ]; then
+            WITH_URL=$(jq '[.[] | select(.report_url != null and .report_url != "")] | length' api/feed.json 2>/dev/null || echo "?")
+            TOTAL=$(jq 'length' api/feed.json 2>/dev/null || echo "?")
+            echo "[SYNC-REPORT-URLS] PASS: $WITH_URL/$TOTAL items in api/feed.json now have report_url"
+          else
+            echo "::warning::sync_report_urls.py exited $SYNC_EXIT -- report_url sync failed (pipeline continues)"
+          fi
+
+      # -----------------------------------------------------------------------
+      # STAGE 3.3.7: BUILD REPORTS INDEX API ENDPOINT (P0 PERMANENT MANDATE v161.2)
+      # Creates api/reports/index.json -- machine-readable index of ALL generated
+      # intel reports, powering the dashboard Reports panel and the public API.
+      # Outputs:
+      #   api/reports/index.json   -- full index, newest-first (up to 500)
+      #   api/reports/latest.json  -- top 50 for dashboard quick-load
+      #   api/reports/stats.json   -- total counts, severity breakdown, monthly
+      # Cross-references api/feed.json for title, severity, cve, risk_score, tlp.
+      # Non-blocking (continue-on-error) -- empty index never breaks deployment.
+      # -----------------------------------------------------------------------
+      - name: "STAGE 3.3.7 - Build Reports Index API Endpoint (P0 mandate)"
+        timeout-minutes: 5
+        continue-on-error: true
+        run: |
+          set +e
+          python3 scripts/build_reports_index.py
+          IDX_EXIT=$?
+          set -e
+          if [ "$IDX_EXIT" -eq 0 ]; then
+            TOTAL=$(jq '.total_reports // 0' api/reports/index.json 2>/dev/null || echo "?")
+            LISTED=$(jq '.reports_listed // 0' api/reports/index.json 2>/dev/null || echo "?")
+            echo "[REPORTS-INDEX] PASS: $TOTAL total reports on disk, $LISTED indexed"
+            echo "[REPORTS-INDEX] Endpoints: api/reports/index.json | api/reports/latest.json | api/reports/stats.json"
+          else
+            echo "::warning::build_reports_index.py exited $IDX_EXIT -- reports index not built (pipeline continues)"
+          fi
+
+      # -----------------------------------------------------------------------
       # STAGE 3.4: MANIFEST SANITY GUARD (v142.0.0)
       # Validates manifest AFTER quality engine runs:
       #   - HARD FAIL on structural corruption (tuple pattern)

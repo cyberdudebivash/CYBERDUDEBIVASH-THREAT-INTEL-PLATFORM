@@ -5660,7 +5660,238 @@
             <button class="cdb-tab-btn" onclick="cdbSwitchTab('campaigns', this)">CAMPAIGNS</button>
             <button class="cdb-tab-btn" onclick="cdbSwitchTab('actors', this)">ACTORS</button>
             <button class="cdb-tab-btn" onclick="cdbSwitchTab('soc', this)">SOC VIEW</button>
+            <button class="cdb-tab-btn" onclick="cdbSwitchTab('reports', this)" id="cdb-tab-reports-btn" title="All Generated Intel Reports">REPORTS<span class="cdb-tab-count" id="cdb-tab-reports-count" style="background:var(--accent);color:var(--bg)">0</span></button>
         </div>
+
+        
+        <!-- cdb-panel-reports inserted by patch_dashboard_reports -->
+        <!-- ═══════════════════════════════════════════════════════════════════
+             P0 PERMANENT MANDATE: LIVE INTEL REPORTS PANEL
+             Fetches api/reports/latest.json (built by build_reports_index.py)
+             and renders links to ALL generated intel reports with metadata.
+             ═══════════════════════════════════════════════════════════════════ -->
+        <div class="cdb-tab-panel" id="cdb-panel-reports" style="display:none;">
+          <div id="cdb-reports-panel-inner" style="padding:0 0 24px 0;">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;flex-wrap:wrap;gap:10px;">
+              <div>
+                <p style="font-family:var(--font-mono);font-size:9px;letter-spacing:4px;color:var(--accent);text-transform:uppercase;margin:0 0 4px 0;">&#9741; INTEL REPORTS ARCHIVE</p>
+                <p style="font-family:var(--font-mono);font-size:11px;color:var(--text-muted);margin:0;" id="cdb-reports-subtitle">Loading generated intel reports...</p>
+              </div>
+              <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                <a href="/api/reports/index.json" target="_blank" style="font-family:var(--font-mono);font-size:9px;color:var(--accent);border:1px solid var(--accent);padding:4px 10px;border-radius:3px;text-decoration:none;letter-spacing:1px;">&#8659; FULL INDEX JSON</a>
+                <a href="/api/reports/stats.json" target="_blank" style="font-family:var(--font-mono);font-size:9px;color:var(--text-muted);border:1px solid rgba(255,255,255,0.1);padding:4px 10px;border-radius:3px;text-decoration:none;letter-spacing:1px;">STATS</a>
+              </div>
+            </div>
+
+            <!-- Stats row -->
+            <div id="cdb-reports-stats-row" style="display:flex;gap:12px;margin-bottom:18px;flex-wrap:wrap;"></div>
+
+            <!-- Filter bar -->
+            <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;align-items:center;">
+              <span style="font-family:var(--font-mono);font-size:9px;color:var(--text-muted);letter-spacing:2px;">FILTER:</span>
+              <button onclick="cdbReportsFilter('ALL')" id="cdb-rfil-all" class="cdb-rfil-btn cdb-rfil-active" style="font-family:var(--font-mono);font-size:9px;padding:3px 8px;border-radius:3px;border:1px solid var(--accent);background:var(--accent);color:var(--bg);cursor:pointer;letter-spacing:1px;">ALL</button>
+              <button onclick="cdbReportsFilter('CRITICAL')" id="cdb-rfil-crit" class="cdb-rfil-btn" style="font-family:var(--font-mono);font-size:9px;padding:3px 8px;border-radius:3px;border:1px solid rgba(220,38,38,0.5);background:none;color:var(--sev-critical,#dc2626);cursor:pointer;letter-spacing:1px;">CRITICAL</button>
+              <button onclick="cdbReportsFilter('HIGH')" id="cdb-rfil-high" class="cdb-rfil-btn" style="font-family:var(--font-mono);font-size:9px;padding:3px 8px;border-radius:3px;border:1px solid rgba(249,115,22,0.5);background:none;color:var(--sev-high,#f97316);cursor:pointer;letter-spacing:1px;">HIGH</button>
+              <button onclick="cdbReportsFilter('MEDIUM')" id="cdb-rfil-med" class="cdb-rfil-btn" style="font-family:var(--font-mono);font-size:9px;padding:3px 8px;border-radius:3px;border:1px solid rgba(234,179,8,0.5);background:none;color:#eab308;cursor:pointer;letter-spacing:1px;">MEDIUM</button>
+              <button onclick="cdbReportsFilter('LOW')" id="cdb-rfil-low" class="cdb-rfil-btn" style="font-family:var(--font-mono);font-size:9px;padding:3px 8px;border-radius:3px;border:1px solid rgba(100,116,139,0.5);background:none;color:var(--text-muted);cursor:pointer;letter-spacing:1px;">LOW</button>
+            </div>
+
+            <!-- Reports grid -->
+            <div id="cdb-reports-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:10px;"></div>
+            <div id="cdb-reports-loading" style="text-align:center;padding:40px;font-family:var(--font-mono);font-size:11px;color:var(--text-muted);">
+              &#9741; Loading intel reports...
+            </div>
+            <div id="cdb-reports-error" style="display:none;text-align:center;padding:40px;font-family:var(--font-mono);font-size:11px;color:#dc2626;">
+              &#9888; Could not load reports index. <a href="/api/reports/index.json" style="color:var(--accent);">Try direct link</a>
+            </div>
+            <div id="cdb-reports-view-all" style="display:none;text-align:center;margin-top:14px;">
+              <a href="/api/reports/index.json" target="_blank" style="font-family:var(--font-mono);font-size:9px;color:var(--accent);letter-spacing:2px;text-decoration:none;border:1px solid var(--accent);padding:6px 16px;border-radius:3px;">VIEW FULL INDEX (JSON) &#x2192;</a>
+            </div>
+          </div>
+        </div>
+
+        <script>
+        // ═══════════════════════════════════════════════════════════════════
+        // P0 REPORTS PANEL — CYBERDUDEBIVASH SENTINEL APEX v161.2
+        // Fetches api/reports/latest.json and renders live intel report cards.
+        // ═══════════════════════════════════════════════════════════════════
+        (function() {
+          var _cdbReportsData = null;
+          var _cdbReportsFilter = 'ALL';
+          var _cdbReportsLoaded = false;
+
+          var SEV_COLORS = {
+            CRITICAL: '#dc2626', HIGH: '#f97316',
+            MEDIUM: '#eab308', LOW: '#64748b', UNKNOWN: '#64748b'
+          };
+          var SEV_BG = {
+            CRITICAL: 'rgba(220,38,38,0.12)', HIGH: 'rgba(249,115,22,0.10)',
+            MEDIUM: 'rgba(234,179,8,0.10)', LOW: 'rgba(100,116,139,0.08)', UNKNOWN: 'rgba(100,116,139,0.08)'
+          };
+
+          function _esc(s) {
+            if (!s) return '';
+            return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+          }
+
+          function _fmtTs(ts) {
+            if (!ts) return '';
+            try {
+              var d = new Date(ts);
+              return d.toLocaleDateString('en-GB', {day:'2-digit',month:'short',year:'numeric'}) +
+                     ' ' + d.toLocaleTimeString('en-GB', {hour:'2-digit',minute:'2-digit'}) + ' UTC';
+            } catch(e) { return ts; }
+          }
+
+          function _renderStats(data) {
+            var row = document.getElementById('cdb-reports-stats-row');
+            if (!row) return;
+            var stats = [
+              {label:'TOTAL REPORTS', val: data.total_reports || 0, accent: true},
+              {label:'THIS INDEX',    val: data.reports_listed || 0},
+              {label:'PLATFORM',      val: (data.platform || 'SENTINEL APEX').replace('CYBERDUDEBIVASH ','')},
+            ];
+            row.innerHTML = stats.map(function(s) {
+              return '<div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.07);border-radius:4px;padding:8px 14px;min-width:120px;">' +
+                '<div style="font-family:var(--font-mono);font-size:18px;font-weight:700;color:' + (s.accent ? 'var(--accent)' : 'var(--text)') + ';">' + _esc(String(s.val)) + '</div>' +
+                '<div style="font-family:var(--font-mono);font-size:8px;letter-spacing:2px;color:var(--text-muted);margin-top:2px;">' + _esc(s.label) + '</div>' +
+              '</div>';
+            }).join('');
+          }
+
+          function _renderCard(r) {
+            var sev = (r.severity || 'UNKNOWN').toUpperCase();
+            var col = SEV_COLORS[sev] || SEV_COLORS.UNKNOWN;
+            var bg  = SEV_BG[sev]  || SEV_BG.UNKNOWN;
+            var cveStr = Array.isArray(r.cve) && r.cve.length ? r.cve.slice(0,3).join(', ') + (r.cve.length > 3 ? ' +' + (r.cve.length-3) : '') : '';
+            var kev = r.kev_present ? '<span style="font-family:var(--font-mono);font-size:8px;padding:1px 5px;background:rgba(220,38,38,0.2);color:#dc2626;border:1px solid rgba(220,38,38,0.4);border-radius:2px;letter-spacing:1px;">KEV</span>' : '';
+            var epss = r.epss_score != null ? '<span style="font-family:var(--font-mono);font-size:8px;color:var(--text-muted);">EPSS ' + (r.epss_score * 100).toFixed(1) + '%</span>' : '';
+            var title = r.title || r.id || 'Intel Report';
+            var risk  = r.risk_score != null ? r.risk_score.toFixed(1) : '–';
+            var ts    = _fmtTs(r.timestamp);
+            var url   = r.url || r.path || '#';
+            return '<div class="cdb-report-card" data-severity="' + sev + '" style="background:' + bg + ';border:1px solid ' + col + '22;border-left:3px solid ' + col + ';border-radius:6px;padding:12px 14px;transition:box-shadow 0.2s;" onmouseover="this.style.boxShadow='0 0 16px ' + col + '33'" onmouseout="this.style.boxShadow='none'">' +
+              '<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:8px;">' +
+                '<div style="display:flex;gap:5px;flex-wrap:wrap;align-items:center;">' +
+                  '<span style="font-family:var(--font-mono);font-size:8px;font-weight:700;padding:2px 6px;border-radius:3px;background:' + col + ';color:#fff;letter-spacing:1px;">' + _esc(sev) + '</span>' +
+                  kev + epss +
+                '</div>' +
+                '<span style="font-family:var(--font-mono);font-size:9px;color:var(--accent);font-weight:700;">' + _esc(risk) + '/10</span>' +
+              '</div>' +
+              '<div style="font-family:var(--font-mono);font-size:11px;font-weight:600;color:var(--text);margin-bottom:5px;word-break:break-all;line-height:1.4;">' + _esc(title) + '</div>' +
+              (cveStr ? '<div style="font-family:var(--font-mono);font-size:9px;color:var(--text-muted);margin-bottom:5px;">' + _esc(cveStr) + '</div>' : '') +
+              (ts ? '<div style="font-family:var(--font-mono);font-size:8px;color:var(--text-muted);margin-bottom:8px;">' + _esc(ts) + '</div>' : '') +
+              '<a href="' + _esc(url) + '" target="_blank" rel="noopener" style="display:inline-block;font-family:var(--font-mono);font-size:9px;color:var(--accent);text-decoration:none;border:1px solid var(--accent);padding:4px 10px;border-radius:3px;letter-spacing:1px;transition:all 0.2s;" onmouseover="this.style.background='var(--accent)';this.style.color='var(--bg)'" onmouseout="this.style.background='transparent';this.style.color='var(--accent)'">OPEN REPORT &#x2192;</a>' +
+            '</div>';
+          }
+
+          function _renderGrid(filter) {
+            var grid = document.getElementById('cdb-reports-grid');
+            if (!grid || !_cdbReportsData) return;
+            var reports = _cdbReportsData.reports || [];
+            if (filter && filter !== 'ALL') {
+              reports = reports.filter(function(r) { return (r.severity||'UNKNOWN').toUpperCase() === filter; });
+            }
+            if (reports.length === 0) {
+              grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:40px;font-family:var(--font-mono);font-size:11px;color:var(--text-muted);">No reports match filter.</div>';
+            } else {
+              grid.innerHTML = reports.map(_renderCard).join('');
+            }
+            var viewAll = document.getElementById('cdb-reports-view-all');
+            if (viewAll && _cdbReportsData.total_reports > (_cdbReportsData.reports_listed || 0)) {
+              viewAll.style.display = 'block';
+            }
+          }
+
+          window.cdbReportsFilter = function(sev) {
+            _cdbReportsFilter = sev;
+            // Update button states
+            ['ALL','CRITICAL','HIGH','MEDIUM','LOW'].forEach(function(s) {
+              var btn = document.getElementById('cdb-rfil-' + s.toLowerCase().replace('critical','crit').replace('medium','med'));
+              if (!btn) return;
+              if (s === sev) {
+                btn.style.background = s === 'ALL' ? 'var(--accent)' : SEV_COLORS[s] || 'var(--accent)';
+                btn.style.color = s === 'ALL' ? 'var(--bg)' : '#fff';
+              } else {
+                btn.style.background = 'transparent';
+                btn.style.color = SEV_COLORS[s] || 'var(--text-muted)';
+              }
+            });
+            _renderGrid(sev);
+          };
+
+          function _loadReports() {
+            if (_cdbReportsLoaded) return;
+            _cdbReportsLoaded = true;
+            var loading = document.getElementById('cdb-reports-loading');
+            var errorEl = document.getElementById('cdb-reports-error');
+            var subtitle = document.getElementById('cdb-reports-subtitle');
+            var btn = document.getElementById('cdb-tab-reports-btn');
+
+            fetch('/api/reports/latest.json?_t=' + Date.now())
+              .then(function(r) {
+                if (!r.ok) throw new Error('HTTP ' + r.status);
+                return r.json();
+              })
+              .then(function(data) {
+                _cdbReportsData = data;
+                if (loading) loading.style.display = 'none';
+                if (subtitle) {
+                  subtitle.textContent = (data.total_reports || 0).toLocaleString() + ' intel reports generated — showing latest ' + (data.reports_listed || 0);
+                }
+                // Update tab count
+                var countEl = document.getElementById('cdb-tab-reports-count');
+                if (countEl) countEl.textContent = data.total_reports || 0;
+                if (btn) btn.title = (data.total_reports || 0) + ' total reports';
+                _renderStats(data);
+                _renderGrid('ALL');
+              })
+              .catch(function(err) {
+                if (loading) loading.style.display = 'none';
+                if (errorEl) errorEl.style.display = 'block';
+                if (subtitle) subtitle.textContent = 'Reports index unavailable — reports are still accessible via direct links';
+                console.warn('[CDB-REPORTS] Failed to load reports index:', err);
+                // Fallback: try full index
+                fetch('/api/reports/index.json?_t=' + Date.now())
+                  .then(function(r2) { return r2.ok ? r2.json() : Promise.reject('index also 404'); })
+                  .then(function(d2) {
+                    _cdbReportsData = d2;
+                    if (errorEl) errorEl.style.display = 'none';
+                    if (loading) loading.style.display = 'none';
+                    if (subtitle) subtitle.textContent = (d2.total_reports || 0).toLocaleString() + ' intel reports (full index)';
+                    var countEl = document.getElementById('cdb-tab-reports-count');
+                    if (countEl) countEl.textContent = d2.total_reports || 0;
+                    _renderStats(d2);
+                    _renderGrid('ALL');
+                  })
+                  .catch(function() {});
+              });
+          }
+
+          // Hook into the existing cdbSwitchTab: load on first click of REPORTS tab
+          var _origSwitch = window.cdbSwitchTab;
+          window.cdbSwitchTab = function(tab, btn) {
+            if (_origSwitch) _origSwitch(tab, btn);
+            if (tab === 'reports') {
+              var panel = document.getElementById('cdb-panel-reports');
+              if (panel) panel.style.display = 'block';
+              _loadReports();
+            }
+          };
+
+          // Also pre-load stats for the tab count on page load
+          setTimeout(function() {
+            fetch('/api/reports/stats.json?_t=' + Date.now())
+              .then(function(r) { return r.ok ? r.json() : Promise.reject(); })
+              .then(function(s) {
+                var el = document.getElementById('cdb-tab-reports-count');
+                if (el) el.textContent = s.total_reports || 0;
+              })
+              .catch(function() {});
+          }, 2000);
+
+        })();
+        </script>
 
         <!-- LIVE TAB (default &mdash; wraps existing threat-grid) -->
         <div class="cdb-tab-panel active" id="cdb-panel-live">
