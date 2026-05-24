@@ -238,11 +238,22 @@ jobs:
           echo "Catches: duplicate keys, bad imports, bundling errors."
           echo "Deploy is BLOCKED unless esbuild exits 0."
           echo ""
-          cd ${WORKER_DIR}
-          npm install --save-dev esbuild@latest 2>&1 | tail -3
 
+          # Install esbuild globally to avoid local node_modules permission issues
+          # (local --save-dev install can leave binary without execute permissions in CI)
+          echo "--- Installing esbuild globally (stable v0.25.x) ---"
+          npm install -g esbuild 2>&1
+          NPM_EXIT=$?
+          if [ "$NPM_EXIT" -ne 0 ]; then
+            echo "FATAL: npm install -g esbuild failed (exit $NPM_EXIT)"
+            exit 1
+          fi
+          esbuild --version
+          echo ""
+
+          cd ${WORKER_DIR}
           echo "--- Bundle attempt ---"
-          npx esbuild src/index.js \
+          esbuild src/index.js \
             --bundle \
             --platform=browser \
             --target=es2022 \
