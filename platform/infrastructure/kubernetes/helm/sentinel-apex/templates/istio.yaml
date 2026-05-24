@@ -1,0 +1,200 @@
+{{- if .Values.istio.enabled -}}
+---
+# ============================================================
+# Istio — PeerAuthentication (mTLS STRICT for entire namespace)
+# ============================================================
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: sentinel-apex-mtls
+  labels:
+    {{- include "sentinel-apex.labels" . | nindent 4 }}
+spec:
+  mtls:
+    mode: {{ .Values.istio.mtls.mode }}
+---
+# ============================================================
+# Istio — AuthorizationPolicy: Deny all by default
+# ============================================================
+{{- if .Values.istio.authorizationPolicies.enabled }}
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: deny-all
+spec:
+  {}  # Empty spec = deny all (no rules = no traffic allowed)
+---
+# ============================================================
+# Istio — Allow API Gateway to receive external traffic
+# ============================================================
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: allow-api-gateway
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: api-gateway
+  rules:
+    - from:
+        - source:
+            namespaces: ["ingress-nginx", "istio-system"]
+    - from:
+        - source:
+            principals: ["cluster.local/ns/istio-system/sa/istio-ingressgateway-service-account"]
+---
+# ============================================================
+# Istio — Allow Intel Core from API Gateway + SOC Automation
+# ============================================================
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: allow-intel-core
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: intel-core
+  rules:
+    - from:
+        - source:
+            principals:
+              - "cluster.local/ns/{{ .Release.Namespace }}/sa/{{ include "sentinel-apex.fullname" . }}-api-gateway"
+              - "cluster.local/ns/{{ .Release.Namespace }}/sa/{{ include "sentinel-apex.fullname" . }}-soc-automation"
+---
+# ============================================================
+# Istio — Allow AI Engine from API Gateway + Intel Core
+# ============================================================
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: allow-ai-engine
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: ai-engine
+  rules:
+    - from:
+        - source:
+            principals:
+              - "cluster.local/ns/{{ .Release.Namespace }}/sa/{{ include "sentinel-apex.fullname" . }}-api-gateway"
+              - "cluster.local/ns/{{ .Release.Namespace }}/sa/{{ include "sentinel-apex.fullname" . }}-intel-core"
+              - "cluster.local/ns/{{ .Release.Namespace }}/sa/{{ include "sentinel-apex.fullname" . }}-soc-automation"
+{{- end }}
+---
+# ============================================================
+# Istio — DestinationRules (circuit breaking + load balancing)
+# ============================================================
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: api-gateway
+spec:
+  host: api-gateway
+  trafficPolicy:
+    loadBalancer:
+      simple: LEAST_CONN
+    connectionPool:
+      tcp:
+        maxConnections: 1000
+      http:
+        h2UpgradePolicy: UPGRADE
+        http1MaxPendingRequests: 100
+        http2MaxRequests: 1000
+    outlierDetection:
+      consecutive5xxErrors: 5
+      interval: 30s
+      baseEjectionTime: 30s
+      maxEjectionPercent: 50
+---
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: intel-core
+spec:
+  host: intel-core
+  trafficPolicy:
+    loadBalancer:
+      simple: ROUND_ROBIN
+    connectionPool:
+      tcp:
+        maxConnections: 500
+      http:
+        http2MaxRequests: 500
+    outlierDetection:
+      consecutive5xxErrors: 3
+      interval: 60s
+      baseEjectionTime: 60s
+---
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: ai-engine
+spec:
+  host: ai-engine
+  trafficPolicy:
+    loadBalancer:
+      simple: LEAST_CONN
+    connectionPool:
+      tcp:
+        maxConnections: 200
+      http:
+        http2MaxRequests: 200
+    outlierDetection:
+      consecutive5xxErrors: 3
+      interval: 120s
+      baseEjectionTime: 120s
+---
+# ============================================================
+# Istio — VirtualService for retry + timeout policies
+# ============================================================
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: api-gateway
+spec:
+  hosts:
+    - api-gateway
+  http:
+    - timeout: 30s
+      retries:
+        attempts: 3
+        perTryTimeout: 10s
+        retryOn: gateway-error,connect-failure,retriable-4xx
+      route:
+        - destination:
+            host: api-gateway
+---
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: intel-core
+spec:
+  hosts:
+    - intel-core
+  http:
+    - timeout: 60s
+      retries:
+        attempts: 2
+        perTryTimeout: 30s
+        retryOn: gateway-error,connect-failure
+      route:
+        - destination:
+            host: intel-core
+---
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: ai-engine
+spec:
+  hosts:
+    - ai-engine
+  http:
+    - timeout: 120s  # AI inference can be slow
+      retries:
+        attempts: 1
+        perTryTimeout: 120s
+        retryOn: gateway-error,connect-failure
+      route:
+        - destination:
+            host: ai-engine
+{{- end }}

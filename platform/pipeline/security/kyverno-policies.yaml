@@ -1,0 +1,80 @@
+# SENTINEL APEX — Kyverno Kubernetes Security Policies
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: sentinel-apex-security-baseline
+  annotations:
+    policies.kyverno.io/title: SENTINEL APEX Security Baseline
+    policies.kyverno.io/description: Enforces security baseline for all SENTINEL APEX pods
+spec:
+  validationFailureAction: Enforce
+  background: true
+  rules:
+    # Require non-root containers
+    - name: require-non-root
+      match:
+        any:
+          - resources: { kinds: [Pod], namespaces: [sentinel-apex] }
+      validate:
+        message: "Containers must run as non-root"
+        pattern:
+          spec:
+            securityContext:
+              runAsNonRoot: true
+            containers:
+              - securityContext:
+                  runAsNonRoot: true
+                  allowPrivilegeEscalation: false
+
+    # Require read-only root filesystem
+    - name: require-readonly-rootfs
+      match:
+        any:
+          - resources: { kinds: [Pod], namespaces: [sentinel-apex] }
+      validate:
+        message: "Root filesystem must be read-only"
+        pattern:
+          spec:
+            containers:
+              - securityContext:
+                  readOnlyRootFilesystem: true
+
+    # Disallow privileged containers
+    - name: disallow-privileged
+      match:
+        any:
+          - resources: { kinds: [Pod], namespaces: [sentinel-apex] }
+      validate:
+        message: "Privileged containers are not allowed"
+        pattern:
+          spec:
+            containers:
+              - =(securityContext):
+                  =(privileged): false
+
+    # Require resource limits
+    - name: require-resource-limits
+      match:
+        any:
+          - resources: { kinds: [Pod], namespaces: [sentinel-apex] }
+      validate:
+        message: "Resource limits are required"
+        pattern:
+          spec:
+            containers:
+              - resources:
+                  limits:
+                    memory: "?*"
+                    cpu: "?*"
+
+    # Require Sentinel image from trusted registry
+    - name: require-trusted-registry
+      match:
+        any:
+          - resources: { kinds: [Pod], namespaces: [sentinel-apex] }
+      validate:
+        message: "Images must come from ghcr.io/cyberdudebivash"
+        pattern:
+          spec:
+            containers:
+              - image: "ghcr.io/cyberdudebivash/*"

@@ -1,0 +1,192 @@
+{{- if .Values.networkPolicies.enabled -}}
+---
+# ============================================================
+# Default Deny All — Zero Trust Network Policy
+# ============================================================
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-all
+  labels:
+    {{- include "sentinel-apex.labels" . | nindent 4 }}
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+    - Egress
+---
+# ============================================================
+# Allow DNS egress from all pods
+# ============================================================
+{{- if .Values.networkPolicies.allowDNS }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-dns-egress
+spec:
+  podSelector: {}
+  policyTypes:
+    - Egress
+  egress:
+    - ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+{{- end }}
+---
+# ============================================================
+# API Gateway — allow ingress from ingress-nginx + Istio
+# ============================================================
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-api-gateway-ingress
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/component: api-gateway
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: ingress-nginx
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: istio-system
+    - from:
+        - podSelector: {}  # within namespace (Istio sidecar)
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/component: intel-core
+      ports:
+        - port: 8001
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/component: ai-engine
+      ports:
+        - port: 8002
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/component: soc-automation
+      ports:
+        - port: 8003
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/component: billing-engine
+      ports:
+        - port: 8006
+    # Redis
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: redis
+      ports:
+        - port: 6379
+    # Istio telemetry
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: istio-system
+---
+# ============================================================
+# Intel Core — network policy
+# ============================================================
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-intel-core
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/component: intel-core
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/component: api-gateway
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/component: soc-automation
+  egress:
+    # PostgreSQL
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: postgresql
+      ports:
+        - port: 5432
+    # Qdrant
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: qdrant
+      ports:
+        - port: 6333
+        - port: 6334
+    # Neo4j
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: neo4j
+      ports:
+        - port: 7687
+        - port: 7474
+    # Kafka
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: kafka
+      ports:
+        - port: 9092
+    # External enrichment (VirusTotal, AbuseIPDB, NVD — via egress gateway)
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: istio-system
+---
+# ============================================================
+# Frontend — network policy
+# ============================================================
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-frontend
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/component: frontend
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: ingress-nginx
+  egress:
+    # API Gateway
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/component: api-gateway
+      ports:
+        - port: 8000
+    # External (NextAuth, CDN)
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: istio-system
+{{- end }}

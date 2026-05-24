@@ -1,0 +1,57 @@
+# SENTINEL APEX — Prometheus Production Config
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    cluster: sentinel-apex-prod
+    region: us-east-1
+
+rule_files:
+  - /etc/prometheus/rules/*.yml
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: [alertmanager:9093]
+
+scrape_configs:
+  - job_name: prometheus
+    static_configs:
+      - targets: [localhost:9090]
+
+  - job_name: sentinel-services
+    scrape_interval: 10s
+    metrics_path: /metrics
+    static_configs:
+      - targets:
+          - api-gateway:8000
+          - intel-core:8000
+          - ai-engine:8000
+          - billing-engine:8000
+          - soc-automation:8000
+          - agentshield:8000
+          - surfacewatch:8000
+          - exec-risk:8000
+          - intel-exchange:8000
+        labels:
+          env: production
+
+  - job_name: redis
+    static_configs:
+      - targets: [redis-exporter:9121]
+
+  - job_name: postgres
+    static_configs:
+      - targets: [postgres-exporter:9187]
+
+  - job_name: kafka
+    static_configs:
+      - targets: [kafka-exporter:9308]
+
+  - job_name: kubernetes
+    kubernetes_sd_configs:
+      - role: pod
+    relabel_configs:
+      - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
+        action: keep
+        regex: "true"

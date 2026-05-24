@@ -1,0 +1,180 @@
+# SENTINEL APEX — Production Docker Compose (for local dev / staging)
+version: "3.9"
+
+x-service-defaults: &defaults
+  restart: unless-stopped
+  networks: [apex-net]
+  logging:
+    driver: "json-file"
+    options: { max-size: "50m", max-file: "5" }
+
+services:
+  # ── API Gateway ──────────────────────────────────────────
+  api-gateway:
+    <<: *defaults
+    build: { context: ../../services/api-gateway, dockerfile: Dockerfile }
+    image: ghcr.io/cyberdudebivash/sentinel-apex/api-gateway:latest
+    ports: ["8080:8000"]
+    environment:
+      - REDIS_URL=redis://redis:6379
+      - KEYCLOAK_URL=http://keycloak:8080
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
+    depends_on: [redis, keycloak]
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.api.rule=Host(`intel.cyberdudebivash.com`) && PathPrefix(`/api`)"
+      - "traefik.http.routers.api.tls=true"
+
+  # ── Intel Core ───────────────────────────────────────────
+  intel-core:
+    <<: *defaults
+    build: { context: ../../services/intel-core, dockerfile: Dockerfile }
+    image: ghcr.io/cyberdudebivash/sentinel-apex/intel-core:latest
+    environment:
+      - QDRANT_URL=http://qdrant:6333
+      - NEO4J_URI=bolt://neo4j:7687
+      - KAFKA_BROKERS=kafka:9092
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
+    depends_on: [qdrant, kafka]
+
+  # ── AI Engine ────────────────────────────────────────────
+  ai-engine:
+    <<: *defaults
+    build: { context: ../../services/ai-engine, dockerfile: Dockerfile }
+    image: ghcr.io/cyberdudebivash/sentinel-apex/ai-engine:latest
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - QDRANT_URL=http://qdrant:6333
+    deploy:
+      resources:
+        reservations:
+          devices: [{ capabilities: [gpu], driver: nvidia, count: 1 }]
+
+  # ── Billing Engine ────────────────────────────────────────
+  billing-engine:
+    <<: *defaults
+    build: { context: ../../services/billing-engine, dockerfile: Dockerfile }
+    image: ghcr.io/cyberdudebivash/sentinel-apex/billing-engine:latest
+    environment:
+      - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY}
+      - STRIPE_WEBHOOK_SECRET=${STRIPE_WEBHOOK_SECRET}
+      - DATABASE_URL=postgresql+asyncpg://apex:${DB_PASS}@postgres:5432/apex_billing
+
+  # ── SOC Automation ───────────────────────────────────────
+  soc-automation:
+    <<: *defaults
+    build: { context: ../../services/soc-automation, dockerfile: Dockerfile }
+    image: ghcr.io/cyberdudebivash/sentinel-apex/soc-automation:latest
+    environment:
+      - KAFKA_BROKERS=kafka:9092
+      - DATABASE_URL=postgresql+asyncpg://apex:${DB_PASS}@postgres:5432/apex_soc
+
+  # ── AgentShield ──────────────────────────────────────────
+  agentshield:
+    <<: *defaults
+    build: { context: ../../services/agentshield, dockerfile: Dockerfile }
+    image: ghcr.io/cyberdudebivash/sentinel-apex/agentshield:latest
+
+  # ── SurfaceWatch ─────────────────────────────────────────
+  surfacewatch:
+    <<: *defaults
+    build: { context: ../../services/surfacewatch, dockerfile: Dockerfile }
+    image: ghcr.io/cyberdudebivash/sentinel-apex/surfacewatch:latest
+
+  # ── Executive Risk ───────────────────────────────────────
+  exec-risk:
+    <<: *defaults
+    build: { context: ../../services/exec-risk, dockerfile: Dockerfile }
+    image: ghcr.io/cyberdudebivash/sentinel-apex/exec-risk:latest
+
+  # ── Intel Exchange ───────────────────────────────────────
+  intel-exchange:
+    <<: *defaults
+    build: { context: ../../services/intel-exchange, dockerfile: Dockerfile }
+    image: ghcr.io/cyberdudebivash/sentinel-apex/intel-exchange:latest
+
+  # ── Frontend ─────────────────────────────────────────────
+  frontend:
+    <<: *defaults
+    build: { context: ../../frontend, dockerfile: Dockerfile }
+    image: ghcr.io/cyberdudebivash/sentinel-apex/dashboard:latest
+    ports: ["3000:3000"]
+
+  # ── Infrastructure ───────────────────────────────────────
+  redis:
+    <<: *defaults
+    image: redis:7.2-alpine
+    command: redis-server --requirepass ${REDIS_PASS} --maxmemory 2gb --maxmemory-policy allkeys-lru
+    volumes: [redis-data:/data]
+
+  postgres:
+    <<: *defaults
+    image: timescale/timescaledb:latest-pg16
+    environment:
+      POSTGRES_USER: apex
+      POSTGRES_PASSWORD: ${DB_PASS}
+      POSTGRES_DB: apex
+    volumes: [postgres-data:/var/lib/postgresql/data]
+
+  qdrant:
+    <<: *defaults
+    image: qdrant/qdrant:v1.10.0
+    volumes: [qdrant-data:/qdrant/storage]
+
+  kafka:
+    <<: *defaults
+    image: confluentinc/cp-kafka:7.6.1
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_CONTROLLER_QUORUM_VOTERS: "1@kafka:9093"
+      KAFKA_LOG_DIRS: /tmp/kraft-combined-logs
+      CLUSTER_ID: ${KAFKA_CLUSTER_ID}
+
+  keycloak:
+    <<: *defaults
+    image: quay.io/keycloak/keycloak:24.0
+    command: start-dev
+    environment:
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://postgres:5432/keycloak
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_PASS}
+
+  # ── Observability ─────────────────────────────────────────
+  otel-collector:
+    <<: *defaults
+    image: otel/opentelemetry-collector-contrib:0.102.0
+    volumes: ["./otel-collector.yaml:/etc/otel/config.yaml"]
+    command: ["--config=/etc/otel/config.yaml"]
+
+  prometheus:
+    <<: *defaults
+    image: prom/prometheus:v2.52.0
+    volumes: ["./prometheus.yml:/etc/prometheus/prometheus.yml", prometheus-data:/prometheus]
+
+  grafana:
+    <<: *defaults
+    image: grafana/grafana:11.0.0
+    ports: ["3001:3000"]
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASS}
+      GF_FEATURE_TOGGLES_ENABLE: traceToMetrics,correlations
+    volumes: [grafana-data:/var/lib/grafana]
+
+  loki:
+    <<: *defaults
+    image: grafana/loki:3.0.0
+    volumes: [loki-data:/loki]
+
+volumes:
+  redis-data: postgres-data: qdrant-data: prometheus-data: grafana-data: loki-data:
+
+networks:
+  apex-net:
+    driver: bridge
+    ipam:
+      config: [{ subnet: "172.20.0.0/16" }]
