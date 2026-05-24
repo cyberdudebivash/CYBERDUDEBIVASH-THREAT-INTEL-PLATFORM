@@ -31,20 +31,20 @@ from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 from prometheus_fastapi_instrumentator import Instrumentator
 
 from .config import IntelConfig
-from .enrichment.ioc_enricher import IOCEnricher
 from .enrichment.ai_enricher import AIEnricher
 from .enrichment.cvss_enricher import CVSSEnricher
+from .enrichment.ioc_enricher import IOCEnricher
 from .enrichment.kev_enricher import KEVEnricher
+from .intelligence.actor_attribution import ActorAttribution
+from .intelligence.scorer import APEXScorer
+from .intelligence.sigma_generator import SigmaGenerator
+from .intelligence.stix_builder import STIXBuilder
+from .intelligence.yara_generator import YARAGenerator
+from .routes import build_routes
+from .storage.neo4j import Neo4jGraph
 from .storage.postgres import PostgresStore
 from .storage.qdrant import QdrantStore
-from .storage.neo4j import Neo4jGraph
 from .streaming.kafka import KafkaProducer
-from .intelligence.scorer import APEXScorer
-from .intelligence.stix_builder import STIXBuilder
-from .intelligence.sigma_generator import SigmaGenerator
-from .intelligence.yara_generator import YARAGenerator
-from .intelligence.actor_attribution import ActorAttribution
-from .routes import build_routes
 from .telemetry import setup_telemetry
 
 log = structlog.get_logger("sentinel.intel_core")

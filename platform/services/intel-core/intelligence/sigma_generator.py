@@ -24,8 +24,8 @@ import uuid
 from datetime import datetime, timezone
 from typing import Optional
 
-import yaml
 import structlog
+import yaml
 
 log = structlog.get_logger("sentinel.sigma_gen")
 
