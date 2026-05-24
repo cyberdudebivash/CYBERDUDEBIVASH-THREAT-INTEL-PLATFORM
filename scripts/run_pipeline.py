@@ -1250,7 +1250,15 @@ def stage_anti_stale_hardening() -> None:
             source = str(item.get("source", "")).strip()
 
             # --- Layer 1: Advisory Age Gate ---
-            if cutoff_dt is not None:
+            # v161.3: KEV items and CRITICAL severity items are ALWAYS current
+            # (actively exploited / actively dangerous) -- exempt from age gate.
+            _is_kev_item = (
+                str(item.get("threat_type", "")).upper() == "KEV"
+                or bool(item.get("kev_present"))
+                or str(item.get("severity", "")).upper() == "CRITICAL"
+                or "kev" in (item.get("tags") or [])
+            )
+            if cutoff_dt is not None and not _is_kev_item:
                 pub_raw = item.get("published_at") or item.get("published") or ""
                 if isinstance(pub_raw, str) and pub_raw and pub_raw not in ("true", "false"):
                     try:

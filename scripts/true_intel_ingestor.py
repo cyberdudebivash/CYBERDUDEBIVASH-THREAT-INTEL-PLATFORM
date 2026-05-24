@@ -370,6 +370,15 @@ def ingest_cisa_kev(feed_state: FeedState) -> List[Dict]:
         )
         # Use stable URL per CVE
         item["source_url"] = f"https://nvd.nist.gov/vuln/detail/{cve_id}" if cve_id else item["source_url"]
+        # v161.3 P0 FIX: KEV items are ALWAYS current (actively exploited).
+        # Override timestamp to processed_at (now) so ANTI_STALE_MAX_AGE_DAYS
+        # filter does NOT quarantine them based on their old KEV dateAdded value.
+        # published_at retains the authoritative CISA dateAdded for audit trail.
+        item["timestamp"]    = item["processed_at"]
+        item["kev_present"]  = True
+        item["kev_date"]     = date_str
+        item["kev_product"]  = f"{vendor} {product}".strip()
+        item["tlp"]          = "TLP:RED"   # KEV = actively exploited = highest urgency
         items.append(item)
 
         if item_ts and (newest_ts is None or item_ts > newest_ts):
