@@ -286,6 +286,60 @@ jobs:
           set -e
           echo "STAGE 4.2: Intelligence Quality Hardener complete"
 
+
+      # ─────────────────────────────────────────────────────────────────────
+      # STAGE 4.3 -- REAL OSINT IOC ENRICHMENT (v161.x P0-001 fix)
+      # Extracts real IOCs from AlienVault OTX, URLhaus, MalwareBazaar,
+      # Abuse.ch, and ThreatFox per advisory CVE/title. Adds verified
+      # ioc_list, ioc_count, ioc_types, ioc_confidence fields to feed.
+      # Non-blocking (continue-on-error) -- pipeline continues if keys absent.
+      # RULE 1: Zero inline Python -- all logic in real_osint_ioc_enricher.py
+      # ─────────────────────────────────────────────────────────────────────
+      - name: "STAGE 4.3 -- Real OSINT IOC Enrichment (OTX + URLhaus + MalwareBazaar)"
+        timeout-minutes: 8
+        continue-on-error: true
+        env:
+          OTX_API_KEY:           ${{ secrets.OTX_API_KEY }}
+          URLHAUS_API_KEY:       ${{ secrets.URLHAUS_API_KEY }}
+          MALWAREBAZAAR_API_KEY: ${{ secrets.MALWAREBAZAAR_API_KEY }}
+          THREATFOX_API_KEY:     ${{ secrets.THREATFOX_API_KEY }}
+          FEED_PATH:             "api/feed.json"
+          MAX_ADVISORIES:        "50"
+        run: |
+          set +e
+          STEP_START=$(date +%s%3N)
+          echo "::group::Real OSINT IOC Enricher (v161.x)"
+
+          if [ ! -f "api/feed.json" ]; then
+            echo "[IOC-ENRICH] api/feed.json not present -- skipping (non-fatal)"
+            echo "::endgroup::"
+            exit 0
+          fi
+
+          # Count pre-enrichment IOCs (jq -- RULE 1: zero inline Python)
+          PRE_IOC=$(jq '[.[] | (.ioc_count // 0)] | add // 0' api/feed.json 2>/dev/null || echo 0)
+          echo "[IOC-ENRICH] Pre-enrichment total IOCs: ${PRE_IOC}"
+
+          python3 scripts/real_osint_ioc_enricher.py
+          IOC_EXIT=$?
+
+          # Count post-enrichment IOCs (jq -- RULE 1: zero inline Python)
+          POST_IOC=$(jq '[.[] | (.ioc_count // 0)] | add // 0' api/feed.json 2>/dev/null || echo 0)
+
+          STEP_END=$(date +%s%3N)
+          echo "STEP_TIMING_IOC_ENRICH_MS=$((STEP_END - STEP_START))" >> "$GITHUB_ENV"
+          echo "[IOC-ENRICH] Post-enrichment: ${POST_IOC} IOCs | delta: $((POST_IOC - PRE_IOC)) | exit=${IOC_EXIT}"
+
+          if [ "$IOC_EXIT" -eq 0 ]; then
+            echo "[IOC-ENRICH] Real OSINT IOC enrichment complete"
+          else
+            echo "::warning::real_osint_ioc_enricher.py exited ${IOC_EXIT} -- non-fatal, pipeline continues"
+            echo "[IOC-ENRICH] Check OTX_API_KEY / URLHAUS_API_KEY secrets in repo settings"
+          fi
+          echo "::endgroup::"
+          set -e
+          exit 0
+
       # ─────────────────────────────────────────────────────────────────────
       # STAGE 5 — AI TRACKER GENERATION (Phase 1+2+3: explainability + health + exec)
       # ─────────────────────────────────────────────────────────────────────

@@ -293,19 +293,28 @@ def main() -> int:
     ) == 0.0]
 
     log.info("Fetching CVSS from NVD for %d CVEs...", len(cvss_needed))
+    # v161.x P0-FIX: Track NVD existence per CVE — enables PRELIMINARY tagging below.
+    nvd_not_found: set = set()  # CVE IDs that returned no data from NVD
+
     for i, cve_id in enumerate(cvss_needed):
         score, vec = fetch_nvd_cvss(cve_id)
         cvss_map[cve_id] = (score, vec)
         if score:
             log.info("[%d/%d] %s → CVSS %.1f", i + 1, len(cvss_needed), cve_id, score)
         else:
-            log.info("[%d/%d] %s → CVSS not in NVD yet", i + 1, len(cvss_needed), cve_id)
+            # v161.x: record CVEs absent from NVD — will be tagged PRELIMINARY
+            nvd_not_found.add(cve_id)
+            log.warning(
+                "[%d/%d] %s → NOT IN NVD — will be tagged nvd_status=PRELIMINARY",
+                i + 1, len(cvss_needed), cve_id
+            )
 
     # ── Pass 4: Apply enrichments to feed items ───────────────────────────────
     enriched_count  = 0
     cvss_count      = 0
     epss_count      = 0
     skipped_count   = 0
+    preliminary_count = 0
 
     for idx, cve_id in needs_enrich:
         item          = items[idx]
@@ -333,8 +342,28 @@ def main() -> int:
             if _is_synthetic_fallback:
                 item["risk_score"]    = cvss_score
                 item["_score_source"] = "nvd_cvss"
+            # v161.x: Mark NVD-confirmed status
+            item["nvd_status"]   = "CONFIRMED"
+            item["nvd_checked_at"] = datetime.now(timezone.utc).isoformat()
             changed    = True
             cvss_count += 1
+
+        # v161.x P0-FIX: If NVD has no record for this CVE, tag it PRELIMINARY.
+        # This prevents publishing unverified CVEs as confirmed intelligence.
+        # PRELIMINARY advisories are still published but with clear disclosure.
+        elif cve_id in nvd_not_found and item.get("nvd_status") not in ("CONFIRMED",):
+            _current_nvd_status = item.get("nvd_status", "UNVERIFIED")
+            if _current_nvd_status not in ("CONFIRMED", "PRELIMINARY"):
+                item["nvd_status"] = "PRELIMINARY"
+                item["nvd_checked_at"] = datetime.now(timezone.utc).isoformat()
+                item["nvd_disclosure"] = (
+                    "This CVE ID was not found in the NIST NVD database at time of "
+                    "enrichment. Intelligence is preliminary and unverified by NVD. "
+                    "CVSS score and severity are analyst-estimated until NVD confirmation."
+                )
+                changed = True
+                preliminary_count += 1
+                log.info("  PRELIMINARY tag applied: %s", cve_id)
 
         # Apply EPSS
         # v160.0 CORRUPTION-REPAIR: clamp any existing stored EPSS that exceeded 100
@@ -364,18 +393,26 @@ def main() -> int:
     # ── Pass 5: Write back ─────────────────────────────────────────────────────
     log.info("─" * 60)
     log.info("Enrichment summary:")
-    log.info("  Items processed : %d", len(needs_enrich))
-    log.info("  CVSS updated    : %d", cvss_count)
-    log.info("  EPSS updated    : %d", epss_count)
-    log.info("  Items enriched  : %d", enriched_count)
-    log.info("  Skipped (no data): %d", skipped_count)
+    log.info("  Items processed   : %d", len(needs_enrich))
+    log.info("  CVSS updated      : %d (NVD CONFIRMED)", cvss_count)
+    log.info("  EPSS updated      : %d", epss_count)
+    log.info("  PRELIMINARY tagged: %d (not in NVD — disclosed)", preliminary_count)
+    log.info("  Items enriched    : %d", enriched_count)
+    log.info("  Skipped (no data) : %d", skipped_count)
+    if preliminary_count:
+        log.warning(
+            "NVD-PRELIMINARY GATE: %d CVE(s) not confirmed in NVD. "
+            "Tagged nvd_status=PRELIMINARY + nvd_disclosure field. "
+            "Review before claiming NVD-validated intelligence.",
+            preliminary_count
+        )
 
     if DRY_RUN:
-        log.info("[DRY RUN] Would write %d enriched items — skipping write", enriched_count)
+        log.info("[DRY RUN] Would write %d enriched items -- skipping write", enriched_count)
         return 0
 
     if enriched_count == 0:
-        log.info("No enrichments applied — feed unchanged")
+        log.info("No enrichments applied -- feed unchanged")
         return 0
 
     # Atomic write (write to .tmp then rename)
@@ -393,17 +430,18 @@ def main() -> int:
     # Write enrichment report for pipeline observability
     REPORT_PATH.parent.mkdir(parents=True, exist_ok=True)
     report = {
-        "generated_at":    datetime.now(timezone.utc).isoformat(),
-        "script":          "enrich_cvss_epss_batch.py",
-        "version":         "148.1.0",
-        "feed_total_items": len(items),
-        "cve_items_found": len(needs_enrich),
-        "cvss_enriched":   cvss_count,
-        "epss_enriched":   epss_count,
-        "total_enriched":  enriched_count,
-        "skipped":         skipped_count,
-        "nvd_key_used":    bool(NVD_API_KEY),
-        "dry_run":         DRY_RUN,
+        "generated_at":      datetime.now(timezone.utc).isoformat(),
+        "script":            "enrich_cvss_epss_batch.py",
+        "version":           "161.0",
+        "feed_total_items":  len(items),
+        "cve_items_found":   len(needs_enrich),
+        "cvss_enriched":     cvss_count,
+        "epss_enriched":     epss_count,
+        "preliminary_tagged": preliminary_count,
+        "total_enriched":    enriched_count,
+        "skipped":           skipped_count,
+        "nvd_key_used":      bool(NVD_API_KEY),
+        "dry_run":           DRY_RUN,
     }
     try:
         REPORT_PATH.write_text(json.dumps(report, indent=2, ensure_ascii=False), encoding="utf-8")
@@ -412,7 +450,7 @@ def main() -> int:
         pass  # non-fatal
 
     log.info("=" * 60)
-    log.info("CVSS/EPSS enrichment complete — %d items updated", enriched_count)
+    log.info("CVSS/EPSS enrichment complete -- %d items updated", enriched_count)
     log.info("=" * 60)
     return 0
 
