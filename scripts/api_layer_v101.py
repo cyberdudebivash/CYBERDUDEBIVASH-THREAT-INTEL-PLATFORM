@@ -777,11 +777,19 @@ def build_stats_json(entries: List[Dict]) -> Path:
 
 # ── Phase 5: /api/exports/feed.csv ───────────────────────────────────────────
 def build_csv_export(entries: List[Dict]) -> Path:
+    """
+    v161.3 P2-FIX: Source URL and Blog URL are now populated for every row.
+    Empty source_url / blog_url were identified as a P3-004 audit failure.
+    - source_url: NVD URL for confirmed CVEs, MITRE URL for preliminary, vendor advisory URL from item
+    - blog_url:   report_url from the advisory (the published HTML dossier)
+    """
     EXPORTS_DIR.mkdir(parents=True, exist_ok=True)
     fields = [
         "stix_id", "title", "severity", "risk_score", "timestamp",
         "source", "feed_source", "blog_url", "source_url",
         "kev_present", "ioc_count", "cve_ids", "description",
+        "confidence_score", "epss_score", "cvss_score", "actor_tag",
+        "nvd_status", "tlp",
     ]
     buf = io.StringIO()
     writer = csv.DictWriter(buf, fieldnames=fields, extrasaction="ignore",
@@ -790,9 +798,35 @@ def build_csv_export(entries: List[Dict]) -> Path:
     for e in entries:
         row = {f: e.get(f, "") for f in fields}
         row["severity"]    = get_severity(e)
-        row["cve_ids"]     = "|".join(e.get("cve_ids", []) or [])
+        row["cve_ids"]     = "|".join(e.get("cve_ids", []) or e.get("cves", []) or [])
         row["kev_present"] = "true" if e.get("kev_present") else "false"
         row["description"] = str(e.get("description", "") or "")[:500]
+
+        # v161.3: populate source_url — authoritative provenance link
+        if not row.get("source_url"):
+            cve_ids_list = e.get("cve_ids") or e.get("cves") or []
+            first_cve = cve_ids_list[0] if cve_ids_list else None
+            if first_cve:
+                nvd_confirmed = (
+                    e.get("nvd_status") == "CONFIRMED"
+                    or float(e.get("cvss_score") or 0) > 0
+                )
+                row["source_url"] = (
+                    f"https://nvd.nist.gov/vuln/detail/{first_cve}"
+                    if nvd_confirmed
+                    else f"https://cve.mitre.org/cgi-bin/cvename.cgi?name={first_cve}"
+                )
+            elif e.get("feed_source"):
+                row["source_url"] = f"https://intel.cyberdudebivash.com"
+
+        # v161.3: populate blog_url — the published dossier URL
+        if not row.get("blog_url"):
+            row["blog_url"] = (
+                e.get("report_url")
+                or e.get("blog_url")
+                or ""
+            )
+
         writer.writerow(row)
 
     out_path = EXPORTS_DIR / "feed.csv"

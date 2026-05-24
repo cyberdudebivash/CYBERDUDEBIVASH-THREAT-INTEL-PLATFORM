@@ -193,10 +193,17 @@ def fetch_epss_batch(cve_ids: List[str]) -> Dict[str, float]:
                 cid   = (entry.get("cve") or "").upper()
                 score = entry.get("epss")
                 if cid and score is not None:
-                    # FIRST.org returns 0-1 fraction; convert to 0-100 percentage
-                    # v160.0 CLAMP: guard against any upstream anomaly producing >100
-                    raw_pct = round(float(score) * 100, 4)
-                    results[cid] = min(max(raw_pct, 0.0), 100.0)
+                    # v161.3 P0-FIX: FIRST.org returns 0-1 fraction.
+                    # Store as 0-1 decimal — NEVER multiply to percentage.
+                    # All downstream consumers must treat epss_score as 0-1 fraction.
+                    # Hard gate: reject any value > 1.0 at write time.
+                    raw_frac = float(score)
+                    if raw_frac > 1.0:
+                        # Upstream anomaly — clamp back to 0-1
+                        raw_frac = min(raw_frac / 100.0, 1.0)
+                        log.warning("EPSS ingestion anomaly corrected: %.4f -> %.4f (%s)",
+                                    float(score), raw_frac, cid)
+                    results[cid] = round(max(0.0, min(1.0, raw_frac)), 6)
         log.info("EPSS batch %d-%d: %d scores fetched", i, i + len(chunk), len(results))
         if i + chunk_size < len(cve_ids):
             time.sleep(0.5)  # polite pause between chunks
@@ -238,27 +245,31 @@ def main() -> int:
 
     log.info("Loaded feed: %d items", len(items))
 
-    # ── Pass 0: Feed-wide EPSS corruption repair (v160.0) ────────────────────
-    # Repair any pre-v160 EPSS values that exceed 100 (double-multiplication bug)
+    # ── Pass 0: Feed-wide EPSS normalization (v161.3) ─────────────────────────
+    # v161.3: canonical storage is 0-1 decimal fraction (not 0-100 percentage).
+    # Migrate any legacy items stored as 0-100 to 0-1. Hard gate: reject > 1.0.
     epss_repaired = 0
     for item in items:
         existing = item.get("epss_score")
         if existing is not None:
             try:
                 val = float(existing)
-                if val > 100.0:
-                    item["epss_score"] = round(val / 100.0, 4)  # undo double multiply
-                    log.warning("EPSS global-repair: %.2f -> %.4f (title: %s)",
+                if val > 1.0:
+                    # Legacy 0-100 storage or double-multiply bug — convert to 0-1
+                    repaired = round(val / 100.0, 6)
+                    item["epss_score"] = min(repaired, 1.0)
+                    log.warning("EPSS normalize: %.4f -> %.6f (title: %s)",
                                 val, item["epss_score"], str(item.get("title", ""))[:60])
                     epss_repaired += 1
                 elif val < 0.0:
                     item["epss_score"] = 0.0
                     epss_repaired += 1
+                # else: already in 0-1 range — leave as-is
             except (TypeError, ValueError):
                 item["epss_score"] = None
                 epss_repaired += 1
     if epss_repaired:
-        log.info("EPSS corruption repair: fixed %d item(s)", epss_repaired)
+        log.info("EPSS normalization: corrected %d item(s) to 0-1 decimal scale", epss_repaired)
 
     # ── Pass 1: Identify CVE items needing enrichment ─────────────────────────
     needs_enrich: List[Tuple[int, str]] = []   # (index, cve_id)
@@ -365,21 +376,24 @@ def main() -> int:
                 preliminary_count += 1
                 log.info("  PRELIMINARY tag applied: %s", cve_id)
 
-        # Apply EPSS
-        # v160.0 CORRUPTION-REPAIR: clamp any existing stored EPSS that exceeded 100
-        # (caused by double-multiplication bug in pre-v160 enrichers)
+        # Apply EPSS — v161.3: canonical storage is 0-1 decimal fraction
         existing_epss = item.get("epss_score")
         if existing_epss is not None:
-            clamped = min(max(float(existing_epss), 0.0), 100.0)
-            if abs(clamped - float(existing_epss)) > 0.001:
-                log.warning("EPSS corruption repaired for %s: %.2f -> %.2f",
-                            cve_id, float(existing_epss), clamped)
-                item["epss_score"] = clamped
-                changed = True
+            try:
+                _ev = float(existing_epss)
+                # Migrate any legacy 0-100 % value to 0-1 fraction
+                if _ev > 1.0:
+                    _ev = min(_ev / 100.0, 1.0)
+                    log.warning("EPSS pass-4 migrate: %s -> %.6f", existing_epss, _ev)
+                    item["epss_score"] = round(_ev, 6)
+                    changed = True
+            except (TypeError, ValueError):
+                item["epss_score"] = None
 
-        epss_pct = epss_map.get(cve_id)
-        if epss_pct is not None and item.get("epss_score") is None:
-            item["epss_score"] = min(max(epss_pct, 0.0), 100.0)
+        epss_frac = epss_map.get(cve_id)
+        if epss_frac is not None and item.get("epss_score") is None:
+            # epss_map now stores 0-1 fractions (fixed in fetch_epss_batch above)
+            item["epss_score"] = round(min(max(epss_frac, 0.0), 1.0), 6)
             changed    = True
             epss_count += 1
 

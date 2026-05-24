@@ -893,7 +893,16 @@ def _load_manifest() -> List[Dict]:
 
 
 def _save_manifest(entries: List[Dict]) -> None:
+    """
+    v161.3: Atomic write with timestamped backup and integrity verification.
+    Write flow: encode → write tmp → verify → backup previous → os.replace
+    If ANY step fails, the original manifest is never touched.
+    Keeps last 5 timestamped backups for recovery.
+    """
     MANIFEST_PATH.parent.mkdir(parents=True, exist_ok=True)
+    backup_dir = MANIFEST_PATH.parent / "manifest_backups"
+    backup_dir.mkdir(parents=True, exist_ok=True)
+
     # Sort by published_at desc, falling back to processed_at
     def _sort_key(e: Dict) -> str:
         return str(e.get("published_at") or e.get("timestamp") or e.get("processed_at") or "")
@@ -901,13 +910,60 @@ def _save_manifest(entries: List[Dict]) -> None:
     entries_sorted = sorted(entries, key=_sort_key, reverse=True)
     trimmed = entries_sorted[:MANIFEST_MAX_ENTRIES]
 
+    if not trimmed:
+        log.error("[MANIFEST] Refusing to save empty manifest — would corrupt platform state")
+        return
+
+    # Step 1: Encode to JSON in memory (catches serialization errors before touching disk)
+    try:
+        payload = json.dumps(trimmed, indent=2, ensure_ascii=False)
+    except Exception as e:
+        log.error("[MANIFEST] JSON serialisation failed — manifest NOT saved: %s", e)
+        return
+
+    # Step 2: Write to temp file
     tmp = MANIFEST_PATH.with_suffix(".tmp")
     try:
-        tmp.write_text(json.dumps(trimmed, indent=2, ensure_ascii=False), encoding="utf-8")
-        os.replace(tmp, MANIFEST_PATH)
-        log.info("[MANIFEST] Saved: %d entries", len(trimmed))
+        tmp.write_text(payload, encoding="utf-8")
     except Exception as e:
-        log.error("[MANIFEST] Save failed: %s", e)
+        log.error("[MANIFEST] Temp write failed: %s", e)
+        tmp.unlink(missing_ok=True)
+        return
+
+    # Step 3: Verify temp file integrity (re-parse JSON and count items)
+    try:
+        verify_data = json.loads(tmp.read_text(encoding="utf-8"))
+        if not isinstance(verify_data, list) or len(verify_data) == 0:
+            raise ValueError(f"Integrity check: expected non-empty list, got {type(verify_data)}")
+        if len(verify_data) != len(trimmed):
+            raise ValueError(f"Integrity check: wrote {len(trimmed)} items but verified {len(verify_data)}")
+    except Exception as e:
+        log.error("[MANIFEST] Integrity verification failed — manifest NOT updated: %s", e)
+        tmp.unlink(missing_ok=True)
+        return
+
+    # Step 4: Back up current manifest before replacing (timestamped snapshot)
+    if MANIFEST_PATH.exists():
+        try:
+            ts_str = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+            backup_path = backup_dir / f"feed_manifest_{ts_str}.json"
+            import shutil
+            shutil.copy2(str(MANIFEST_PATH), str(backup_path))
+            log.info("[MANIFEST] Backup created: %s", backup_path.name)
+            # Prune backups — keep only latest 5
+            all_backups = sorted(backup_dir.glob("feed_manifest_*.json"))
+            for old in all_backups[:-5]:
+                old.unlink(missing_ok=True)
+        except Exception as e:
+            log.warning("[MANIFEST] Backup failed (non-fatal): %s", e)
+
+    # Step 5: Atomic replace
+    try:
+        os.replace(tmp, MANIFEST_PATH)
+        log.info("[MANIFEST] Saved atomically: %d entries -> %s", len(trimmed), MANIFEST_PATH.name)
+    except Exception as e:
+        log.error("[MANIFEST] Atomic replace failed: %s", e)
+        tmp.unlink(missing_ok=True)
 
 
 # ═══════════════════════════════════════════════════════════════════════════
