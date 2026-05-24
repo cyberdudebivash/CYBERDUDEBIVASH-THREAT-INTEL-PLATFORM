@@ -127,7 +127,7 @@ function injectVersionHeaders(response, config) {
 }
 
 const CONFIG = {
-  GATEWAY_VERSION:   "160.0",    // v158.5 ENTERPRISE-GRADE  -  AHE fix, integrity gate, monetization framework
+  GATEWAY_VERSION:   "161.3",    // v161.3 PRODUCTION-GRADE  -  /api/auth/login + /api/auth/register routes, auth modal fix
   GATEWAY_NAME:      "SENTINEL-APEX",
   BYPASS_FEED_CACHE: false,
   // P0 FIX v134.0: Reduced cache TTLs to ensure dashboard reflects fresh R2 data
@@ -4994,6 +4994,11 @@ export default {
     if (pathname === "/api/auth/validate")                      return withSec(handleValidateToken(request, env, rid));
     if (pathname === "/api/auth/refresh"  && method === "POST") return withSec(handleRefreshToken(request, env, rid));
     if (pathname === "/api/auth/revoke"   && method === "POST") return withSec(handleRevokeToken(request, env, rid));
+    //  v161.3: Password-based auth routes (/api/auth/* prefix for dashboard compatibility)
+    //  Dashboard AUTH_ENDPOINT = 'https://intel.cyberdudebivash.com/api/auth'
+    //  calls /api/auth/login and /api/auth/register — wire to existing KV-backed handlers
+    if (pathname === "/api/auth/login"    && method === "POST") return withSec(handleUserLogin(request, env, rid));
+    if (pathname === "/api/auth/register" && method === "POST") return withSec(handleUserSignup(request, env, rid));
     //  v134.0.0: User auth endpoints (no API key required)
     if (pathname === "/auth/signup"       && method === "POST") return withSec(handleUserSignup(request, env, rid));
     if (pathname === "/auth/login"        && method === "POST") return withSec(handleUserLogin(request, env, rid));
