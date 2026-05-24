@@ -19,14 +19,14 @@ import hmac
 import time
 import uuid
 from contextlib import asynccontextmanager
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from enum import Enum
 from typing import Any, Optional
 
 import stripe
 import structlog
-from fastapi import FastAPI, HTTPException, Header, Request, Response, BackgroundTasks
+from fastapi import BackgroundTasks, FastAPI, Header, HTTPException, Request, Response
 from fastapi.responses import JSONResponse
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 from prometheus_fastapi_instrumentator import Instrumentator

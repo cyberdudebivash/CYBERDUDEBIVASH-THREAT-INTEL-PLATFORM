@@ -21,7 +21,7 @@ from enum import Enum
 from typing import Any, Optional
 
 import structlog
-from fastapi import FastAPI, HTTPException, Depends, Header
+from fastapi import Depends, FastAPI, Header, HTTPException
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 from prometheus_fastapi_instrumentator import Instrumentator
 from pydantic import BaseModel, Field

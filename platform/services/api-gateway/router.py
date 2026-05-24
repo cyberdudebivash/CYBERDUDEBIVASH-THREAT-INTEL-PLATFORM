@@ -5,14 +5,20 @@ All intelligence endpoints, proxied to downstream microservices.
 """
 from __future__ import annotations
 
+from typing import Any, List, Optional
+
 from fastapi import APIRouter, Depends, Path, Query, Request, Response
 from pydantic import BaseModel
-from typing import Optional, List, Any
 
 from .auth import (
-    CurrentUser, TenantTier,
-    get_current_user, RequireProPlus, RequireEnterprise, RequireGovernment,
+    CurrentUser,
+    RequireEnterprise,
+    RequireGovernment,
+    RequireProPlus,
+    TenantTier,
+    get_current_user,
 )
+
 
 # ---------------------------------------------------------------------------
 # Response Models
