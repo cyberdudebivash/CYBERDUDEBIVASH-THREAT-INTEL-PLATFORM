@@ -782,6 +782,19 @@ jobs:
         run: python3 scripts/fix_report_encoding.py || true
 
       # -----------------------------------------------------------------------
+      # STAGE 3.2.6: ADVISORY PDF GENERATOR (v161.3 P0-FIX)
+      # Generates a branded ReportLab PDF for every advisory in the manifest.
+      # Output: reports/pdf/{id}.pdf  (uploaded to sentinel-apex-data R2 in 3.5)
+      # Updates pdf_url + pdf_available fields in feed_manifest.json.
+      # Non-blocking: exits 0 on partial failures -- pipeline never stalls.
+      # -----------------------------------------------------------------------
+      - name: "STAGE 3.2.6 - Advisory PDF Generator (generate_advisory_pdfs v161.3)"
+        timeout-minutes: 10
+        run: |
+          pip install reportlab --quiet --break-system-packages || true
+          cd scripts && python3 generate_advisory_pdfs.py || true
+
+      # -----------------------------------------------------------------------
       # STAGE 3.3: REPORT VALIDATION GATE (P0 -- HARD FAIL)
       # Verifies every advisory has a physical HTML file on disk:
       #   - file exists, size >= 500 bytes, starts with valid HTML
