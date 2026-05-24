@@ -1,0 +1,68 @@
+# SENTINEL APEX — OpenTelemetry Collector Production Config
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+  prometheus:
+    config:
+      scrape_configs:
+        - job_name: sentinel-apex
+          scrape_interval: 15s
+          static_configs:
+            - targets:
+                - api-gateway:8000
+                - intel-core:8000
+                - ai-engine:8000
+                - billing-engine:8000
+                - soc-automation:8000
+                - agentshield:8000
+                - surfacewatch:8000
+                - exec-risk:8000
+                - intel-exchange:8000
+
+processors:
+  batch:
+    timeout: 5s
+    send_batch_size: 1000
+  memory_limiter:
+    limit_mib: 512
+    spike_limit_mib: 128
+  resourcedetection:
+    detectors: [env, system, docker]
+  attributes:
+    actions:
+      - key: deployment.environment
+        value: production
+        action: upsert
+      - key: service.namespace
+        value: sentinel-apex
+        action: upsert
+
+exporters:
+  otlp/tempo:
+    endpoint: tempo:4317
+    tls: { insecure: true }
+  prometheusremotewrite:
+    endpoint: http://prometheus:9090/api/v1/write
+  loki:
+    endpoint: http://loki:3100/loki/api/v1/push
+  logging:
+    verbosity: normal
+
+service:
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, batch, resourcedetection, attributes]
+      exporters: [otlp/tempo]
+    metrics:
+      receivers: [otlp, prometheus]
+      processors: [memory_limiter, batch, resourcedetection]
+      exporters: [prometheusremotewrite]
+    logs:
+      receivers: [otlp]
+      processors: [memory_limiter, batch]
+      exporters: [loki]

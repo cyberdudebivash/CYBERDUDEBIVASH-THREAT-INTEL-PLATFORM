@@ -1,0 +1,47 @@
+{
+  "name": "@sentinel-apex/platform",
+  "version": "2.0.0",
+  "private": true,
+  "description": "CYBERDUDEBIVASH® SENTINEL APEX — AI-Native Cyber Intelligence Infrastructure Platform",
+  "workspaces": [
+    "services/*",
+    "shared/*",
+    "frontend"
+  ],
+  "scripts": {
+    "dev": "turbo run dev --parallel",
+    "build": "turbo run build",
+    "test": "turbo run test",
+    "lint": "turbo run lint",
+    "type-check": "turbo run type-check",
+    "docker:build": "docker-compose -f infrastructure/docker/docker-compose.yml build",
+    "docker:up": "docker-compose -f infrastructure/docker/docker-compose.yml up -d",
+    "docker:down": "docker-compose -f infrastructure/docker/docker-compose.yml down",
+    "k8s:apply": "kubectl apply -k infrastructure/kubernetes/kustomize/overlays/production",
+    "k8s:diff": "kubectl diff -k infrastructure/kubernetes/kustomize/overlays/production",
+    "helm:install": "bash pipeline/ci-cd/scripts/helm-install.sh",
+    "tf:init": "cd infrastructure/terraform && terraform init",
+    "tf:plan": "cd infrastructure/terraform && terraform plan",
+    "tf:apply": "cd infrastructure/terraform && terraform apply",
+    "generate:api-docs": "node pipeline/ci-cd/scripts/generate-api-docs.js",
+    "security:scan": "bash pipeline/security/scripts/full-scan.sh"
+  },
+  "devDependencies": {
+    "turbo": "^1.13.0",
+    "typescript": "^5.4.0",
+    "@types/node": "^20.12.0",
+    "eslint": "^8.57.0",
+    "prettier": "^3.2.5",
+    "husky": "^9.0.11",
+    "lint-staged": "^15.2.2",
+    "@commitlint/cli": "^19.2.1",
+    "@commitlint/config-conventional": "^19.1.0"
+  },
+  "engines": {
+    "node": ">=20.0.0",
+    "pnpm": ">=9.0.0"
+  },
+  "packageManager": "pnpm@9.1.0",
+  "author": "CYBERDUDEBIVASH® — Principal AI Cybersecurity Sovereign Architect",
+  "license": "UNLICENSED"
+}

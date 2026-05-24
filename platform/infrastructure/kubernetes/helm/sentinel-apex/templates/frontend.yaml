@@ -1,0 +1,198 @@
+{{- if .Values.frontend.enabled -}}
+---
+# ============================================================
+# Frontend — Deployment
+# ============================================================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "sentinel-apex.fullname" . }}-frontend
+  labels:
+    {{- include "sentinel-apex.labels" . | nindent 4 }}
+    app.kubernetes.io/component: frontend
+spec:
+  replicas: {{ .Values.frontend.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "sentinel-apex.selectorLabels" (dict "component" "frontend" "root" .) | nindent 6 }}
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 2
+      maxUnavailable: 0
+  template:
+    metadata:
+      labels:
+        {{- include "sentinel-apex.selectorLabels" (dict "component" "frontend" "root" .) | nindent 8 }}
+        sidecar.istio.io/inject: "true"
+    spec:
+      serviceAccountName: {{ include "sentinel-apex.fullname" . }}-frontend
+      securityContext:
+        {{- include "sentinel-apex.securityContext" . | nindent 8 }}
+      imagePullSecrets:
+        {{- toYaml .Values.global.imagePullSecrets | nindent 8 }}
+      affinity:
+        {{- include "sentinel-apex.affinity" (dict "component" "frontend") | nindent 8 }}
+      terminationGracePeriodSeconds: 30
+      containers:
+        - name: frontend
+          image: {{ include "sentinel-apex.image" (dict "image" .Values.frontend.image "root" .) }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: false  # Next.js needs write access to .next
+            runAsNonRoot: true
+            runAsUser: 1001
+            capabilities:
+              drop: ["ALL"]
+          ports:
+            - name: http
+              containerPort: {{ .Values.frontend.service.port }}
+              protocol: TCP
+          env:
+            - name: PORT
+              value: {{ .Values.frontend.service.port | quote }}
+            - name: NODE_ENV
+              value: "production"
+            - name: NEXT_PUBLIC_API_URL
+              value: "https://api.{{ .Values.global.domain }}"
+            - name: NEXT_PUBLIC_DOMAIN
+              value: "https://{{ .Values.global.domain }}"
+            - name: NEXT_PUBLIC_WS_URL
+              value: "wss://api.{{ .Values.global.domain }}/ws"
+            - name: NEXTAUTH_URL
+              value: "https://{{ .Values.global.domain }}"
+            - name: NEXTAUTH_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: sentinel-apex-secrets
+                  key: nextauth-secret
+          livenessProbe:
+            httpGet:
+              path: /api/health
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /api/health
+              port: http
+            initialDelaySeconds: 15
+            periodSeconds: 5
+            failureThreshold: 3
+          resources:
+            {{- toYaml .Values.frontend.resources | nindent 12 }}
+          volumeMounts:
+            - name: nextjs-cache
+              mountPath: /app/.next/cache
+      volumes:
+        - name: nextjs-cache
+          emptyDir:
+            sizeLimit: "2Gi"
+---
+# ============================================================
+# Frontend — Service
+# ============================================================
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend
+  labels:
+    {{- include "sentinel-apex.labels" . | nindent 4 }}
+    app.kubernetes.io/component: frontend
+spec:
+  type: ClusterIP
+  ports:
+    - name: http
+      port: {{ .Values.frontend.service.port }}
+      targetPort: http
+  selector:
+    {{- include "sentinel-apex.selectorLabels" (dict "component" "frontend" "root" .) | nindent 4 }}
+---
+# ============================================================
+# Frontend — HPA
+# ============================================================
+{{- if .Values.frontend.autoscaling.enabled }}
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ include "sentinel-apex.fullname" . }}-frontend
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ include "sentinel-apex.fullname" . }}-frontend
+  minReplicas: {{ .Values.frontend.autoscaling.minReplicas }}
+  maxReplicas: {{ .Values.frontend.autoscaling.maxReplicas }}
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 300
+    scaleUp:
+      stabilizationWindowSeconds: 60
+{{- end }}
+---
+# ============================================================
+# Frontend — PodDisruptionBudget
+# ============================================================
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "sentinel-apex.fullname" . }}-frontend
+spec:
+  minAvailable: 2
+  selector:
+    matchLabels:
+      {{- include "sentinel-apex.selectorLabels" (dict "component" "frontend" "root" .) | nindent 6 }}
+---
+# ============================================================
+# Frontend — Ingress
+# ============================================================
+{{- if .Values.frontend.ingress.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "sentinel-apex.fullname" . }}-frontend
+  labels:
+    {{- include "sentinel-apex.labels" . | nindent 4 }}
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/enable-cors: "true"
+    nginx.ingress.kubernetes.io/proxy-body-size: "50m"
+spec:
+  {{- if .Values.frontend.ingress.tls }}
+  tls:
+    {{- toYaml .Values.frontend.ingress.tls | nindent 4 }}
+  {{- end }}
+  rules:
+    {{- range .Values.frontend.ingress.hosts }}
+    - host: {{ .host | default (printf "intel.%s" $.Values.global.domain) | quote }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: frontend
+                port:
+                  name: http
+    {{- end }}
+{{- end }}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ include "sentinel-apex.fullname" . }}-frontend
+  labels:
+    {{- include "sentinel-apex.labels" . | nindent 4 }}
+automountServiceAccountToken: false
+{{- end }}

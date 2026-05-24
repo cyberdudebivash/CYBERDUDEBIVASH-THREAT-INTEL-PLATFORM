@@ -1,0 +1,71 @@
+---
+# ============================================================
+# Sentinel APEX — Global ConfigMap
+# ============================================================
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: sentinel-apex-config
+  labels:
+    {{- include "sentinel-apex.labels" . | nindent 4 }}
+data:
+  ENVIRONMENT: {{ .Values.global.environment | quote }}
+  DOMAIN: {{ .Values.global.domain | quote }}
+  API_URL: "https://api.{{ .Values.global.domain }}"
+  AUTH_URL: "https://auth.{{ .Values.global.domain }}"
+  MONITORING_URL: "https://monitoring.{{ .Values.global.domain }}"
+  LOG_LEVEL: {{ if eq .Values.global.environment "production" }}"info"{{ else }}"debug"{{ end }}
+  OTEL_SERVICE_NAMESPACE: "sentinel-apex"
+  OTEL_RESOURCE_ATTRIBUTES: "deployment.environment={{ .Values.global.environment }},service.namespace=sentinel-apex"
+---
+# ============================================================
+# OPA Policies ConfigMap
+# ============================================================
+{{- if .Values.opa.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: sentinel-opa-policies
+  labels:
+    {{- include "sentinel-apex.labels" . | nindent 4 }}
+data:
+  authz.rego: |
+    package sentinel.authz
+
+    import future.keywords.if
+    import future.keywords.in
+
+    # Default deny
+    default allow := false
+
+    # Allow if user has required permission for the resource
+    allow if {
+        token := input.token
+        resource := input.resource
+        action := input.action
+
+        # Decode JWT claims (verified by API gateway before OPA check)
+        claims := token.claims
+
+        # Check role-based permissions
+        user_permissions := data.permissions[claims.role]
+        required_permission := concat(":", [resource, action])
+        required_permission in user_permissions
+    }
+
+    # Allow if tenant tier has the required feature
+    allow if {
+        claims := input.token.claims
+        feature := input.feature
+
+        tier_features := data.tier_features[claims.tier]
+        feature in tier_features
+    }
+
+    # Rate limit check
+    rate_limit_ok if {
+        tier := input.token.claims.tier
+        limits := data.rate_limits[tier]
+        input.request_count <= limits.per_minute
+    }
+{{- end }}

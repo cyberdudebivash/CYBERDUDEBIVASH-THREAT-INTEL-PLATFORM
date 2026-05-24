@@ -1,0 +1,183 @@
+{{- if .Values.aiEngine.enabled -}}
+---
+# ============================================================
+# AI Engine — Deployment
+# ============================================================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "sentinel-apex.fullname" . }}-ai-engine
+  labels:
+    {{- include "sentinel-apex.labels" . | nindent 4 }}
+    app.kubernetes.io/component: ai-engine
+spec:
+  replicas: {{ .Values.aiEngine.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "sentinel-apex.selectorLabels" (dict "component" "ai-engine" "root" .) | nindent 6 }}
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  template:
+    metadata:
+      labels:
+        {{- include "sentinel-apex.selectorLabels" (dict "component" "ai-engine" "root" .) | nindent 8 }}
+        sidecar.istio.io/inject: "true"
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9090"
+        prometheus.io/path: "/metrics"
+    spec:
+      serviceAccountName: {{ include "sentinel-apex.serviceAccountName" (dict "component" "ai-engine" "root" .) }}
+      securityContext:
+        {{- include "sentinel-apex.securityContext" . | nindent 8 }}
+      imagePullSecrets:
+        {{- toYaml .Values.global.imagePullSecrets | nindent 8 }}
+      {{- if .Values.aiEngine.nodeSelector }}
+      nodeSelector:
+        {{- toYaml .Values.aiEngine.nodeSelector | nindent 8 }}
+      {{- end }}
+      {{- if .Values.aiEngine.tolerations }}
+      tolerations:
+        {{- toYaml .Values.aiEngine.tolerations | nindent 8 }}
+      {{- end }}
+      affinity:
+        {{- include "sentinel-apex.affinity" (dict "component" "ai-engine") | nindent 8 }}
+      terminationGracePeriodSeconds: 120
+      containers:
+        - name: ai-engine
+          image: {{ include "sentinel-apex.image" (dict "image" .Values.aiEngine.image "root" .) }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          securityContext:
+            {{- include "sentinel-apex.containerSecurityContext" . | nindent 12 }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.aiEngine.service.port }}
+              protocol: TCP
+            - name: metrics
+              containerPort: 9090
+              protocol: TCP
+          env:
+            - name: SERVICE_PORT
+              value: {{ .Values.aiEngine.service.port | quote }}
+            - name: ENVIRONMENT
+              value: {{ .Values.global.environment | quote }}
+            - name: OPENAI_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: sentinel-apex-secrets
+                  key: openai-key
+            - name: ANTHROPIC_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: sentinel-apex-secrets
+                  key: anthropic-key
+            - name: QDRANT_URL
+              value: "http://qdrant:6333"
+            - name: KAFKA_BROKERS
+              value: "kafka:9092"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 60
+            periodSeconds: 20
+            timeoutSeconds: 10
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 45
+            periodSeconds: 15
+            timeoutSeconds: 10
+            failureThreshold: 3
+          resources:
+            {{- toYaml .Values.aiEngine.resources | nindent 12 }}
+          volumeMounts:
+            - name: model-cache
+              mountPath: /app/models
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: model-cache
+          emptyDir:
+            sizeLimit: "10Gi"
+        - name: tmp
+          emptyDir: {}
+---
+# ============================================================
+# AI Engine — Service
+# ============================================================
+apiVersion: v1
+kind: Service
+metadata:
+  name: ai-engine
+  labels:
+    {{- include "sentinel-apex.labels" . | nindent 4 }}
+    app.kubernetes.io/component: ai-engine
+spec:
+  type: ClusterIP
+  ports:
+    - name: http
+      port: {{ .Values.aiEngine.service.port }}
+      targetPort: http
+      protocol: TCP
+  selector:
+    {{- include "sentinel-apex.selectorLabels" (dict "component" "ai-engine" "root" .) | nindent 4 }}
+---
+# ============================================================
+# AI Engine — HPA
+# ============================================================
+{{- if .Values.aiEngine.autoscaling.enabled }}
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ include "sentinel-apex.fullname" . }}-ai-engine
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ include "sentinel-apex.fullname" . }}-ai-engine
+  minReplicas: {{ .Values.aiEngine.autoscaling.minReplicas }}
+  maxReplicas: {{ .Values.aiEngine.autoscaling.maxReplicas }}
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: {{ .Values.aiEngine.autoscaling.targetCPUUtilizationPercentage }}
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 600  # GPU nodes: slow scale-down
+    scaleUp:
+      stabilizationWindowSeconds: 120
+{{- end }}
+---
+# ============================================================
+# AI Engine — PodDisruptionBudget
+# ============================================================
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "sentinel-apex.fullname" . }}-ai-engine
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      {{- include "sentinel-apex.selectorLabels" (dict "component" "ai-engine" "root" .) | nindent 6 }}
+---
+# ============================================================
+# AI Engine — ServiceAccount
+# ============================================================
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ include "sentinel-apex.serviceAccountName" (dict "component" "ai-engine" "root" .) }}
+  labels:
+    {{- include "sentinel-apex.labels" . | nindent 4 }}
+automountServiceAccountToken: false
+{{- end }}

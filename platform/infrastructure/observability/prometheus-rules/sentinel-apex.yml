@@ -1,0 +1,46 @@
+groups:
+  - name: sentinel-apex-critical
+    interval: 30s
+    rules:
+      - alert: ServiceDown
+        expr: up{job="sentinel-services"} == 0
+        for: 1m
+        labels: { severity: critical, team: platform }
+        annotations:
+          summary: "SENTINEL APEX service {{ $labels.instance }} is DOWN"
+          runbook_url: "https://runbooks.cyberdudebivash.com/service-down"
+
+      - alert: HighErrorRate
+        expr: rate(http_requests_total{status=~"5.."}[5m]) / rate(http_requests_total[5m]) > 0.05
+        for: 2m
+        labels: { severity: high, team: platform }
+        annotations:
+          summary: "High error rate on {{ $labels.job }}: {{ $value | humanizePercentage }}"
+
+      - alert: APIGatewayHighLatency
+        expr: histogram_quantile(0.99, rate(http_request_duration_seconds_bucket{job="api-gateway"}[5m])) > 2
+        for: 5m
+        labels: { severity: high, team: platform }
+        annotations:
+          summary: "API Gateway p99 latency > 2s: {{ $value }}s"
+
+      - alert: CriticalAlertStorm
+        expr: sentinel_soc_alerts_total{severity="critical"} > 10
+        for: 0m
+        labels: { severity: critical, team: soc }
+        annotations:
+          summary: "Critical alert storm: {{ $value }} active critical alerts"
+
+      - alert: BillingEngineDown
+        expr: up{instance="billing-engine:8000"} == 0
+        for: 30s
+        labels: { severity: critical, team: platform }
+        annotations:
+          summary: "BILLING ENGINE IS DOWN — revenue impact"
+
+      - alert: AgentShieldHighBlockRate
+        expr: rate(agentshield_blocked_actions_total[5m]) > 10
+        for: 1m
+        labels: { severity: high, team: security }
+        annotations:
+          summary: "AgentShield blocking > 10 actions/min — possible attack"
