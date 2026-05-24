@@ -22,7 +22,7 @@ from enum import Enum
 from typing import Any, Optional
 
 import structlog
-from fastapi import FastAPI, HTTPException, BackgroundTasks
+from fastapi import BackgroundTasks, FastAPI, HTTPException
 from fastapi.responses import JSONResponse
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 from prometheus_fastapi_instrumentator import Instrumentator
@@ -210,14 +210,17 @@ def _ai_fp_probability(alert: Alert) -> float:
     return round(0.35, 3)
 
 def _ai_recommend_action(alert: Alert) -> str:
-    if alert.severity == "critical": return "IMMEDIATE: Isolate affected host and engage IR team"
-    if alert.severity == "high": return "URGENT: Run automated playbook and notify SOC lead"
-    if alert.severity == "medium": return "INVESTIGATE: Review logs and check for lateral movement"
+    if alert.severity == "critical":
+        return "IMMEDIATE: Isolate affected host and engage IR team"
+    if alert.severity == "high":
+        return "URGENT: Run automated playbook and notify SOC lead"
+    if alert.severity == "medium":
+        return "INVESTIGATE: Review logs and check for lateral movement"
     return "MONITOR: Track and correlate with existing detections"
 
 def _generate_hunt_queries(hypothesis: str, sources: list) -> list[dict]:
     return [
-        {"type": "KQL", "query": f"search * | where Description contains 'suspicious' | limit 100"},
+        {"type": "KQL", "query": "search * | where Description contains 'suspicious' | limit 100"},
         {"type": "YARA", "query": "rule hunt_generic { strings: $s = /suspicious/ condition: $s }"},
         {"type": "SPL", "query": "index=* | search suspicious | stats count by host"},
     ]

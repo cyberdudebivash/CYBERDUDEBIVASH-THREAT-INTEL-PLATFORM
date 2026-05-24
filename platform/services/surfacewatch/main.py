@@ -127,7 +127,7 @@ async def monitor_credentials(domain: str):
             severity=LeakSeverity.CRITICAL, breach_date="2026-01", verified=True,
         ),
     ]
-    return {"domain": domain, "total_leaks": len(leaks), "leaks": [l.model_dump() for l in leaks]}
+    return {"domain": domain, "total_leaks": len(leaks), "leaks": [leak.model_dump() for leak in leaks]}
 
 @app.post("/surface/scan")
 async def scan_attack_surface(domain: str):
