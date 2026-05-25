@@ -5771,12 +5771,8 @@ export default {
     if (pathname === "/api/leads/trial" && method === "POST")
       return handleTrialIssuance(request, env, rid);
 
-    // v143.0.0: SLA Status -- public endpoint (no auth required)
-    if (pathname === "/api/sla/status" && method === "GET")
-      return new Response(JSON.stringify(await (async () => {
-        const r = await handleSLAStatus(request, env, rid);
-        return r.json ? await r.json() : {};
-      })()), { status: 200, headers: { "Content-Type": "application/json", "X-Sentinel-Version": "143.0.0" }});
+    // /api/sla/status is PUBLIC -- handled in public section before auth gate (v162.8)
+    // v143.0.0 handler removed: dead code -- public route at ~L5473 fires first.
 
     // v143.0.0: Dark Web Monitor (Pro+ required)
     if (pathname === "/api/dark-web/scan")
@@ -5804,10 +5800,12 @@ export default {
     if (pathname.startsWith("/api/alerts/unsubscribe/") && method === "DELETE")
       return withRL(await handleAlertUnsubscribe(request, env, auth, rid));
 
-    // v143.0.0: SLA Monitor -- report/incidents/certificate (Enterprise required)
-    if (pathname === "/api/sla/status"            && method === "GET")  return handleSLAStatus(request, env, rid);
+    // v143.0.0 / v162.9: SLA Monitor -- Enterprise-tier auth-gated endpoints
+    // NOTE: /api/sla/status is PUBLIC and handled before auth gate at ~L5473.
+    //       The duplicate entry here has been removed (v162.9 dead-code cleanup).
     if (pathname === "/api/sla/report"            && method === "GET")  return withRL(await handleSLAReport(request, env, auth, rid));
     if (pathname === "/api/sla/incidents"         && method === "GET")  return withRL(await handleSLAIncidents(request, env, auth, rid));
+    if (pathname === "/api/sla/ping"              && method === "GET")  return withSec(handleSLAPing(request, env, rid));
     if (pathname === "/api/sla/certificate"       && method === "GET")  return withRL(await handleSLACertificate(request, env, auth, rid));
 
     // v152.0: Enterprise Intelligence API  -  TAXII 2.1 / MISP / Sigma / YARA /
