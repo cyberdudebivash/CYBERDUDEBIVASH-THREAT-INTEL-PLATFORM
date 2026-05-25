@@ -1,4 +1,4 @@
-# SENTINEL APEX — Production Docker Compose (for local dev / staging)
+# SENTINEL APEX  -  Production Docker Compose (for local dev / staging)
 version: "3.9"
 
 x-service-defaults: &defaults
@@ -9,7 +9,7 @@ x-service-defaults: &defaults
     options: { max-size: "50m", max-file: "5" }
 
 services:
-  # ── API Gateway ──────────────────────────────────────────
+  # -- API Gateway ------------------------------------------
   api-gateway:
     <<: *defaults
     build: { context: ../../services/api-gateway, dockerfile: Dockerfile }
@@ -25,7 +25,7 @@ services:
       - "traefik.http.routers.api.rule=Host(`intel.cyberdudebivash.com`) && PathPrefix(`/api`)"
       - "traefik.http.routers.api.tls=true"
 
-  # ── Intel Core ───────────────────────────────────────────
+  # -- Intel Core -------------------------------------------
   intel-core:
     <<: *defaults
     build: { context: ../../services/intel-core, dockerfile: Dockerfile }
@@ -37,7 +37,7 @@ services:
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
     depends_on: [qdrant, kafka]
 
-  # ── AI Engine ────────────────────────────────────────────
+  # -- AI Engine --------------------------------------------
   ai-engine:
     <<: *defaults
     build: { context: ../../services/ai-engine, dockerfile: Dockerfile }
@@ -51,7 +51,7 @@ services:
         reservations:
           devices: [{ capabilities: [gpu], driver: nvidia, count: 1 }]
 
-  # ── Billing Engine ────────────────────────────────────────
+  # -- Billing Engine ----------------------------------------
   billing-engine:
     <<: *defaults
     build: { context: ../../services/billing-engine, dockerfile: Dockerfile }
@@ -61,7 +61,7 @@ services:
       - STRIPE_WEBHOOK_SECRET=${STRIPE_WEBHOOK_SECRET}
       - DATABASE_URL=postgresql+asyncpg://apex:${DB_PASS}@postgres:5432/apex_billing
 
-  # ── SOC Automation ───────────────────────────────────────
+  # -- SOC Automation ---------------------------------------
   soc-automation:
     <<: *defaults
     build: { context: ../../services/soc-automation, dockerfile: Dockerfile }
@@ -70,38 +70,38 @@ services:
       - KAFKA_BROKERS=kafka:9092
       - DATABASE_URL=postgresql+asyncpg://apex:${DB_PASS}@postgres:5432/apex_soc
 
-  # ── AgentShield ──────────────────────────────────────────
+  # -- AgentShield ------------------------------------------
   agentshield:
     <<: *defaults
     build: { context: ../../services/agentshield, dockerfile: Dockerfile }
     image: ghcr.io/cyberdudebivash/sentinel-apex/agentshield:latest
 
-  # ── SurfaceWatch ─────────────────────────────────────────
+  # -- SurfaceWatch -----------------------------------------
   surfacewatch:
     <<: *defaults
     build: { context: ../../services/surfacewatch, dockerfile: Dockerfile }
     image: ghcr.io/cyberdudebivash/sentinel-apex/surfacewatch:latest
 
-  # ── Executive Risk ───────────────────────────────────────
+  # -- Executive Risk ---------------------------------------
   exec-risk:
     <<: *defaults
     build: { context: ../../services/exec-risk, dockerfile: Dockerfile }
     image: ghcr.io/cyberdudebivash/sentinel-apex/exec-risk:latest
 
-  # ── Intel Exchange ───────────────────────────────────────
+  # -- Intel Exchange ---------------------------------------
   intel-exchange:
     <<: *defaults
     build: { context: ../../services/intel-exchange, dockerfile: Dockerfile }
     image: ghcr.io/cyberdudebivash/sentinel-apex/intel-exchange:latest
 
-  # ── Frontend ─────────────────────────────────────────────
+  # -- Frontend ---------------------------------------------
   frontend:
     <<: *defaults
     build: { context: ../../frontend, dockerfile: Dockerfile }
     image: ghcr.io/cyberdudebivash/sentinel-apex/dashboard:latest
     ports: ["3000:3000"]
 
-  # ── Infrastructure ───────────────────────────────────────
+  # -- Infrastructure ---------------------------------------
   redis:
     <<: *defaults
     image: redis:7.2-alpine
@@ -144,7 +144,7 @@ services:
       KEYCLOAK_ADMIN: admin
       KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_PASS}
 
-  # ── Observability ─────────────────────────────────────────
+  # -- Observability -----------------------------------------
   otel-collector:
     <<: *defaults
     image: otel/opentelemetry-collector-contrib:0.102.0
