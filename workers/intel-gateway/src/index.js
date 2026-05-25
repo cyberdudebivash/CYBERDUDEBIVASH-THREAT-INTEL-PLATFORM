@@ -4909,6 +4909,78 @@ async function handleVersionJson(request, env, rid) {
   });
 }
 
+// =============================================================================
+// v162.8: handleOnboarding -- PUBLIC customer onboarding quick-start endpoint
+// GET /api/onboarding
+// Returns: step-by-step onboarding guide, API base URL, auth flow, tier info,
+//          upgrade URL, docs URL. Used by sales, CRM, and onboarding email flows.
+// =============================================================================
+async function handleOnboarding(request, env, rid) {
+  return jsonResponse({
+    status:       "ok",
+    request_id:   rid,
+    platform:     "CYBERDUDEBIVASH® SENTINEL APEX v161.3",
+    tagline:      "AI-Powered Global Threat Intelligence — Enterprise CTI API",
+    onboarding: {
+      step_1: {
+        title:       "Create Your Account",
+        description: "Sign up for a free account to get your API key instantly.",
+        action:      "POST /api/auth/register",
+        payload:     { email: "you@company.com", password: "secure_password" },
+        result:      "Returns JWT token + free-tier API key",
+      },
+      step_2: {
+        title:       "Authenticate",
+        description: "Use your API key or JWT to authenticate all requests.",
+        action:      "Add header: Authorization: Bearer <your_api_key_or_jwt>",
+        note:        "Free tier: 100 API calls/day. Upgrade for more.",
+      },
+      step_3: {
+        title:       "Fetch Live Threat Intelligence",
+        description: "Access real-time CTI feed — IOCs, CVEs, APT actors, KEV tracking.",
+        endpoints: [
+          { method: "GET", path: "/api/preview",            auth: "none",  desc: "Free 10-item preview feed" },
+          { method: "GET", path: "/api/feed.json",          auth: "none",  desc: "Full advisory list" },
+          { method: "GET", path: "/api/reports/latest.json",auth: "none",  desc: "Latest 20 intel reports" },
+          { method: "GET", path: "/api/v1/intel/latest.json",auth:"none",  desc: "V1 intel format" },
+          { method: "GET", path: "/api/advisories",         auth: "none",  desc: "Advisory alias (TLP-CLEAR)" },
+          { method: "GET", path: "/api/cves",               auth: "bearer",desc: "CVE deep-dive with CVSS+EPSS+KEV" },
+          { method: "GET", path: "/api/actors",             auth: "bearer",desc: "Threat actor profiles" },
+          { method: "GET", path: "/api/search?q=ransomware",auth: "bearer",desc: "Full-text IOC search" },
+        ],
+      },
+      step_4: {
+        title:       "Export & Integrate",
+        description: "Integrate SENTINEL APEX into your SIEM, SOAR, or security platform.",
+        endpoints: [
+          { method: "GET", path: "/api/stix/:id",           auth: "bearer",desc: "STIX 2.1 bundle (Pro+)" },
+          { method: "GET", path: "/api/taxii/",             auth: "bearer",desc: "TAXII 2.1 discovery" },
+          { method: "GET", path: "/api/export/csv",         auth: "bearer",desc: "Bulk IOC CSV (Pro+)" },
+          { method: "GET", path: "/api/export/misp",        auth: "bearer",desc: "MISP 2.4 export (Enterprise)" },
+          { method: "GET", path: "/api/sigma/bulk",         auth: "bearer",desc: "Sigma detection rules" },
+          { method: "GET", path: "/api/siem/splunk",        auth: "bearer",desc: "Splunk HEC NDJSON" },
+          { method: "GET", path: "/api/siem/sentinel",      auth: "bearer",desc: "Microsoft Sentinel CSV" },
+        ],
+      },
+      step_5: {
+        title:       "Upgrade for Full Power",
+        description: "Unlock unlimited advisories, AI analyst, SIEM integration, SLA certificate.",
+        upgrade_url: "https://intel.cyberdudebivash.com/upgrade.html",
+        tiers_url:   "https://intel.cyberdudebivash.com/api/subscription/tiers",
+        pricing_url: "https://intel.cyberdudebivash.com/api/pricing",
+      },
+    },
+    api_base:      "https://intel.cyberdudebivash.com/api",
+    docs_url:      "https://intel.cyberdudebivash.com/api-docs.html",
+    health_url:    "https://intel.cyberdudebivash.com/api/health",
+    status_url:    "https://intel.cyberdudebivash.com/api/sla/status",
+    register_url:  "https://intel.cyberdudebivash.com/upgrade.html",
+    support_email: "iambivash.bn@gmail.com",
+    gstin:         "21ARKPN8270G1ZP",
+    timestamp:     new Date().toISOString(),
+  });
+}
+
 // -----------------------------------------------------------------------------
 // =============================================================================
 // v162.6 P0-FIX: serveHtmlIntelReport -- defense-in-depth handler for HTML reports
@@ -5396,6 +5468,11 @@ export default {
     if (pathname === "/api/pricing"            && method === "GET") return withSec(handlePricing(request, env, rid));
     // v162.7: /version.json -- static version file served from R2 or inline fallback
     if (pathname === "/version.json" && method === "GET") return withSec(handleVersionJson(request, env, rid));
+    // v162.8: /api/sla/status -- PUBLIC (no auth) -- uptime + SLA health for status pages + customers
+    // CRITICAL: must be in public section BEFORE the auth gate at resolveAuth() below
+    if (pathname === "/api/sla/status" && method === "GET") return withSec(handleSLAStatus(request, env, rid));
+    // v162.8: /api/onboarding -- PUBLIC customer onboarding info + quick-start guide
+    if (pathname === "/api/onboarding" && method === "GET") return withSec(handleOnboarding(request, env, rid));
     // v161.3: Reports index files -- public (dashboard REPORTS tab, no auth required)
     // These 3 files are generated by build_reports_index.py (Stage 3.3.7) and
     // uploaded to R2 by r2_upload.py. The GitHub raw gh-pages branch is the fallback.
@@ -5774,6 +5851,8 @@ export default {
         "GET  /api/subscription/tiers  (public -- subscription tier matrix)",
         "GET  /api/pricing             (public -- pricing SSOT endpoint)",
         "GET  /version.json            (public -- platform version file)",
+        "GET  /api/sla/status          (public -- uptime + SLA health, no auth required)",
+        "GET  /api/onboarding          (public -- customer quick-start guide + API map)",
         "GET  /api/ai                   (public -- AI index + MITRE heatmap)",
         "GET  /api/ai/heatmap           (public)",
         //  Auth endpoints 
