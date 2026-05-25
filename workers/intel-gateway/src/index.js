@@ -4687,6 +4687,93 @@ async function servePublicIntelManifest(pathname, env, rid) {
 // R2 -> KV cache -> GitHub raw fallback chain.
 // -----------------------------------------------------------------------------
 // =============================================================================
+// v162.6 P0-FIX: serveHtmlIntelReport -- defense-in-depth handler for HTML reports
+// Route: GET /reports/{year}/{month}/intel--{hash}.html
+// Primary:  R2 INTEL_R2 bucket key = "reports/{year}/{month}/intel--{hash}.html"
+// Fallback: GitHub raw gh-pages branch (canonical source for static HTML reports)
+// No auth required -- HTML intel reports are public TLP-CLEAR assets.
+// NOTE: Worker Routes in Cloudflare Dashboard intercept only /api/* so GitHub Pages
+//       normally handles /reports/*. This function is DEFENSE-IN-DEPTH: if Worker
+//       Routes are ever broadened OR the Worker is invoked via subrequest, it will
+//       serve the report correctly rather than returning a JSON 404.
+// =============================================================================
+async function serveHtmlIntelReport(pathname, env, rid) {
+  // Validate path pattern: /reports/YYYY/MM/intel--{hex}.html
+  const htmlMatch = pathname.match(/^\/reports\/(\d{4})\/(\d{2})\/(intel--[a-f0-9]{10,64})\.html$/i);
+  if (!htmlMatch) {
+    return jsonResponse({
+      error: 'invalid_report_path',
+      message: 'Report path format invalid. Expected: /reports/YYYY/MM/intel--{id}.html',
+      request_id: rid,
+    }, 400);
+  }
+
+  const r2Key = pathname.slice(1); // strip leading slash
+
+  // Primary: INTEL_R2 bucket
+  if (env?.INTEL_R2) {
+    try {
+      const r2Obj = await env.INTEL_R2.get(r2Key);
+      if (r2Obj) {
+        slog('INFO', 'REPORT-HTML', `R2 HIT: ${r2Key}`, { rid });
+        return new Response(r2Obj.body, {
+          status: 200,
+          headers: {
+            'Content-Type': 'text/html; charset=utf-8',
+            'Cache-Control': 'public, max-age=3600, stale-while-revalidate=86400',
+            'X-Intel-Classification': 'TLP-CLEAR',
+            'X-Sentinel-Version': CONFIG.GATEWAY_VERSION,
+            'X-Source': 'r2',
+            'X-Request-Id': rid,
+          },
+        });
+      }
+      slog('INFO', 'REPORT-HTML', `R2 MISS: ${r2Key} — falling back to gh-pages`, { rid });
+    } catch (e) {
+      slog('WARN', 'REPORT-HTML', `R2 error: ${e.message}`, { rid, r2Key });
+    }
+  }
+
+  // Fallback: GitHub raw gh-pages branch (canonical static source)
+  const ghUrl = `https://raw.githubusercontent.com/${CONFIG.GITHUB_REPO}/gh-pages${pathname}`;
+  try {
+    const resp = await fetch(ghUrl, {
+      cf: { cacheEverything: true, cacheTtl: 3600 },
+      headers: { 'User-Agent': 'sentinel-apex-gateway/162.6' },
+    });
+    if (resp.ok) {
+      const html = await resp.text();
+      slog('INFO', 'REPORT-HTML', `gh-pages HIT: ${pathname}`, { rid });
+      return new Response(html, {
+        status: 200,
+        headers: {
+          'Content-Type': 'text/html; charset=utf-8',
+          'Cache-Control': 'public, max-age=3600, stale-while-revalidate=86400',
+          'X-Intel-Classification': 'TLP-CLEAR',
+          'X-Sentinel-Version': CONFIG.GATEWAY_VERSION,
+          'X-Source': 'gh-pages',
+          'X-Request-Id': rid,
+        },
+      });
+    }
+    slog('WARN', 'REPORT-HTML', `gh-pages MISS: HTTP ${resp.status} for ${pathname}`, { rid });
+  } catch (e) {
+    slog('WARN', 'REPORT-HTML', `gh-pages fetch error: ${e.message}`, { rid, pathname });
+  }
+
+  // Both sources missed — return structured 404
+  return jsonResponse({
+    error: 'report_not_found',
+    message: `Intelligence report '${pathname}' is not available. Reports are generated every 4 hours via the sentinel-blogger pipeline.`,
+    report_path: pathname,
+    request_id: rid,
+    hint: 'If this report was recently generated, allow up to 10 minutes for cache propagation.',
+    platform_url: 'https://intel.cyberdudebivash.com',
+  }, 404);
+}
+
+// -----------------------------------------------------------------------------
+// =============================================================================
 // v161.3: serveAdvisoryPDF -- serve per-advisory PDF from R2 INTEL_R2 binding
 // Route: GET /reports/pdf/{advisory_id}.pdf
 // R2 key: reports/pdf/{advisory_id}.pdf  (written by generate_advisory_pdfs.py,
@@ -5176,6 +5263,16 @@ export default {
       }
       // Free-tier manifests: served publicly but field-masked (25 items, core fields only)
       return withSec(servePublicIntelManifest(pathname, env, rid));
+    }
+
+    // v162.6 P0-FIX: HTML Intel Reports -- defense-in-depth handler
+    // GET /reports/{year}/{month}/intel--{hash}.html
+    // Primary source: INTEL_R2 bucket; fallback: gh-pages raw.githubusercontent.com
+    // No auth required -- public TLP-CLEAR intel assets.
+    // NOTE: Cloudflare Worker Routes normally only intercept /api/* so GitHub Pages
+    //       handles these. This handler is defense-in-depth for future route expansions.
+    if (pathname.match(/^\/reports\/\d{4}\/\d{2}\/intel--[a-f0-9]{10,64}\.html$/i) && method === 'GET') {
+      return withSec(await serveHtmlIntelReport(pathname, env, rid));
     }
 
     // v161.3 P0-FIX: Advisory PDFs -- public, no auth required
