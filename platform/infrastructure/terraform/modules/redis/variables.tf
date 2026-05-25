@@ -1,1 +1,18 @@
-# Variables for redis module
+variable "cluster_id" { type = string; default = "" }
+variable "description" { type = string; default = "" }
+variable "engine_version" { type = string; default = "7.2" }
+variable "node_type" { type = string; default = "cache.t3.medium" }
+variable "num_cache_clusters" { type = number; default = 1 }
+variable "automatic_failover_enabled" { type = bool; default = true }
+variable "multi_az_enabled" { type = bool; default = false }
+variable "subnet_group_name" { type = string; default = "" }
+variable "security_group_ids" { type = list(string); default = [] }
+variable "at_rest_encryption_enabled" { type = bool; default = true }
+variable "transit_encryption_enabled" { type = bool; default = true }
+variable "auth_token_enabled" { type = bool; default = false }
+variable "snapshot_retention_limit" { type = number; default = 7 }
+variable "snapshot_window" { type = string; default = "05:00-06:00" }
+variable "cluster_mode_enabled" { type = bool; default = false }
+variable "num_node_groups" { type = number; default = 1 }
+variable "replicas_per_node_group" { type = number; default = 1 }
+variable "tags" { type = map(string); default = {} }
