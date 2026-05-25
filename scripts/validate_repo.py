@@ -51,6 +51,14 @@ YAML_PARSE_SKIP_DIRS = SKIP_DIRS | {
     "threat",        # generated threat-intel YAML/HTML
     "reports",       # generated HTML report artifacts
     "stix",          # STIX bundle files
+    # v162.7 P0-FIX: Helm chart directories use Go template syntax ({{ }}) inside
+    # .yaml files which is NOT valid YAML — PyYAML cannot parse them.
+    # Helm templates are validated by 'helm lint' in the Helm pipeline step, not here.
+    "helm",          # Helm chart Go templates ({{ {{ - if ... }}) in .yaml files
+    "templates",     # Helm chart templates subdir (platform/infrastructure/.../templates/)
+    "chart",         # Helm chart metadata directory
+    "charts",        # Helm subchart dependencies
+    "tmpcharts",     # Helm temp chart staging dir (created by helm dep update)
 }
 
 CRITICAL_JSON_FILES = [
@@ -172,6 +180,22 @@ def check_yaml() -> CheckResult:
                     # Empty file -- skip, not an error
                     continue
                 text = raw.decode("utf-8", errors="replace")
+                # v162.7 P0-FIX: Skip Helm/Go template files.
+                # Helm chart templates embed Go template directives ({{, {{-, {{/*})
+                # inside .yaml files. These are Go templates processed by the Helm
+                # engine, NOT pure YAML. PyYAML cannot parse them -- false positives.
+                # Detection: first non-whitespace content starts with {{ or file
+                # contains Go template block markers at the line start.
+                stripped = text.lstrip()
+                if (stripped.startswith("{{") or
+                        "{{- if" in text[:500] or
+                        "{{/* " in text[:500] or
+                        "{{- define" in text[:500] or
+                        "{{- range" in text[:500] or
+                        "{{ include" in text[:500]):
+                    rel = p.relative_to(REPO_ROOT)
+                    log.debug("[yaml_valid] SKIP Go/Helm template (not YAML): %s", rel)
+                    continue
                 # safe_load_all() handles single-doc AND multi-doc (---) YAML.
                 # We drain the generator to validate every document in the stream.
                 docs = list(yaml.safe_load_all(text))
