@@ -127,7 +127,7 @@ function injectVersionHeaders(response, config) {
 }
 
 const CONFIG = {
-  GATEWAY_VERSION:   "162.7",    // v162.7 PRODUCTION-GRADE  -  apex_v2 + advisories + subscription/tiers + pricing + version.json routes
+  GATEWAY_VERSION:   "161.3",    // PLATFORM version -- governed by VERSION file + version_governance.py. DO NOT change manually. CI pipeline version is SEPARATE (config/platform_version.json ci.pipeline_version)
   GATEWAY_NAME:      "SENTINEL-APEX",
   BYPASS_FEED_CACHE: false,
   // P0 FIX v134.0: Reduced cache TTLs to ensure dashboard reflects fresh R2 data
