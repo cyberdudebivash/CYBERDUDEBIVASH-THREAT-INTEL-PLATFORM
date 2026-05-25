@@ -127,7 +127,7 @@ function injectVersionHeaders(response, config) {
 }
 
 const CONFIG = {
-  GATEWAY_VERSION:   "161.3",    // v161.3 PRODUCTION-GRADE  -  /api/auth/login + /api/auth/register routes, auth modal fix
+  GATEWAY_VERSION:   "162.7",    // v162.7 PRODUCTION-GRADE  -  apex_v2 + advisories + subscription/tiers + pricing + version.json routes
   GATEWAY_NAME:      "SENTINEL-APEX",
   BYPASS_FEED_CACHE: false,
   // P0 FIX v134.0: Reduced cache TTLs to ensure dashboard reflects fresh R2 data
@@ -4685,6 +4685,230 @@ async function servePublicIntelManifest(pathname, env, rid) {
 // -----------------------------------------------------------------------------
 // SHARED RAW MANIFEST FETCHER (v148.0.0)
 // R2 -> KV cache -> GitHub raw fallback chain.
+// =============================================================================
+// v162.7 MISSING ROUTES: apex_v2 + advisories + subscription + pricing + version
+// =============================================================================
+
+// GET /api/apex_v2/priority.json  -- Priority-tier advisories (CVSS ≥7 or KEV)
+// GET /api/apex_v2/critical.json  -- Critical-only advisories (CVSS ≥9 or ransomware)
+// Called by dashboard _fetchLiveIntel() as primary source before falling back to /api/feed.json
+async function handleApexV2(request, env, rid, severity) {
+  const isCritical = severity === "critical";
+  const cacheKey   = isCritical ? "apex_v2:critical" : "apex_v2:priority";
+  const r2Key      = isCritical ? "api/apex_v2/critical.json" : "api/apex_v2/priority.json";
+
+  // 1. Try R2 (pipeline-generated)
+  try {
+    if (env?.R2_BUCKET) {
+      const obj = await env.R2_BUCKET.get(r2Key);
+      if (obj) {
+        const body = await obj.text();
+        return new Response(body, {
+          headers: {
+            "Content-Type":  "application/json",
+            "Cache-Control": "public, max-age=120, stale-while-revalidate=60",
+            "X-Source":      "r2",
+            "X-Request-Id":  rid,
+          },
+        });
+      }
+    }
+  } catch (_r2e) { /* fall through */ }
+
+  // 2. Try KV cache
+  try {
+    if (env?.SECURITY_HUB_KV) {
+      const cached = await env.SECURITY_HUB_KV.get(cacheKey);
+      if (cached) {
+        return new Response(cached, {
+          headers: {
+            "Content-Type":  "application/json",
+            "Cache-Control": "public, max-age=120",
+            "X-Source":      "kv",
+            "X-Request-Id":  rid,
+          },
+        });
+      }
+    }
+  } catch (_kve) { /* fall through */ }
+
+  // 3. Derive from feed manifest (runtime filter)
+  try {
+    let items = [];
+    const feedR2 = await env?.R2_BUCKET?.get("api/feed.json").catch(() => null);
+    if (feedR2) {
+      const raw = JSON.parse(await feedR2.text());
+      items = Array.isArray(raw) ? raw : (raw.advisories || raw.reports || raw.items || []);
+    }
+    if (!items.length && env?.SECURITY_HUB_KV) {
+      const idx = await env.SECURITY_HUB_KV.get("idx:reports").catch(() => null);
+      if (idx) {
+        const parsed = JSON.parse(idx);
+        items = parsed.reports || [];
+      }
+    }
+    // Filter by severity
+    const filtered = items.filter(item => {
+      const cvss   = parseFloat(item.cvss_score || item.cvss || item.base_score || 0);
+      const sev    = (item.severity || item.risk_level || "").toLowerCase();
+      const isKev  = item.kev === true || item.in_kev === true || item.cisa_kev === true;
+      if (isCritical) return cvss >= 9.0 || sev === "critical" || (isKev && cvss >= 7.0);
+      return cvss >= 7.0 || sev === "high" || sev === "critical" || isKev;
+    }).slice(0, isCritical ? 50 : 100);
+
+    const body = JSON.stringify(filtered);
+    // Cache in KV for 2 min
+    if (env?.SECURITY_HUB_KV && filtered.length) {
+      await env.SECURITY_HUB_KV.put(cacheKey, body, { expirationTtl: 120 }).catch(() => {});
+    }
+    return new Response(body, {
+      headers: {
+        "Content-Type":  "application/json",
+        "Cache-Control": "public, max-age=60, stale-while-revalidate=120",
+        "X-Source":      "derived",
+        "X-Request-Id":  rid,
+        "X-Count":       String(filtered.length),
+      },
+    });
+  } catch (e) {
+    return jsonResponse({ error: "apex_v2_unavailable", message: e.message, request_id: rid }, 503);
+  }
+}
+
+// GET /api/advisories  -- Public advisory alias (maps to preview feed, TLP-CLEAR)
+// GET /api/v1/advisories -- Authenticated full advisory list
+async function handleAdvisoriesPublic(request, env, rid) {
+  // Delegate to preview handler which already handles R2 → KV → GH fallback
+  return handlePreview(request, env, rid);
+}
+
+// GET /api/subscription/tiers  -- Subscription tier matrix (public, used by pricing pages)
+async function handleSubscriptionTiers(request, env, rid) {
+  const tiers = {
+    free: {
+      label:           "FREE",
+      price_usd:       0,
+      price_inr:       0,
+      api_calls_day:   100,
+      feed_limit:      10,
+      stix:            false,
+      ai:              false,
+      ioc_visible:     false,
+      alerts:          false,
+      siem:            false,
+      soar:            false,
+      support:         "community",
+      features: ["10 threat advisories/day", "Basic CTI feed", "API preview access"],
+    },
+    pro: {
+      label:           "PRO / SOC",
+      price_usd:       49,
+      price_inr:       4100,
+      price_usd_annual: 490,
+      price_inr_annual: 41000,
+      api_calls_day:   5000,
+      api_calls_hour:  2000,
+      feed_limit:      167,
+      stix:            true,
+      ai:              "partial",
+      ioc_visible:     true,
+      alerts:          true,
+      siem:            false,
+      soar:            false,
+      support:         "email",
+      features: ["167 advisories/day", "Full IOC access", "STIX 2.1 export", "AI threat scoring", "Alert engine", "CVE/KEV/EPSS data"],
+    },
+    enterprise: {
+      label:           "ENTERPRISE SOC",
+      price_usd:       499,
+      price_inr:       41600,
+      price_usd_annual: 4790,
+      price_inr_annual: 415000,
+      api_calls_day:   -1,
+      api_calls_hour:  -1,
+      feed_limit:      -1,
+      stix:            true,
+      ai:              "full",
+      ioc_visible:     true,
+      alerts:          true,
+      siem:            true,
+      soar:            true,
+      support:         "24x7-sla",
+      features: ["Unlimited advisories", "SIEM/SOAR integration", "TAXII 2.1", "MISP export", "Sigma/YARA bulk", "Full AI analyst", "SLA certificate", "GSTIN invoicing"],
+    },
+    mssp: {
+      label:           "MSSP / SOVEREIGN",
+      price_usd:       1999,
+      price_inr:       166600,
+      price_usd_annual: 19190,
+      price_inr_annual: 1600000,
+      api_calls_day:   -1,
+      api_calls_hour:  -1,
+      feed_limit:      -1,
+      stix:            true,
+      ai:              "full",
+      ioc_visible:     true,
+      alerts:          true,
+      siem:            true,
+      soar:            true,
+      white_label:     true,
+      sovereign_mode:  true,
+      sla_minutes:     15,
+      support:         "dedicated-csm",
+      features: ["Everything in Enterprise", "White-label deployment", "Multi-tenant MSSP portal", "15-min SLA", "Dedicated CSM", "Custom threat intel feeds"],
+    },
+  };
+  return jsonResponse({
+    status:      "ok",
+    request_id:  rid,
+    tiers,
+    currency:    { primary: "INR", secondary: "USD" },
+    payment:     { upi: "iambivash.bn@okaxis", paypal: "iambivash.bn@gmail.com", methods: ["UPI", "PayPal", "NEFT", "Crypto"] },
+    upgrade_url: "https://intel.cyberdudebivash.com/upgrade.html",
+    timestamp:   new Date().toISOString(),
+  });
+}
+
+// GET /api/pricing  -- Pricing summary (public, canonical monetization endpoint)
+async function handlePricing(request, env, rid) {
+  return jsonResponse({
+    status:     "ok",
+    request_id: rid,
+    platform:   "SENTINEL APEX v161.3",
+    pricing: {
+      free:       { monthly_usd: 0,    monthly_inr: 0,       annual_usd: 0,     annual_inr: 0 },
+      pro:        { monthly_usd: 49,   monthly_inr: 4100,    annual_usd: 490,   annual_inr: 41000 },
+      enterprise: { monthly_usd: 499,  monthly_inr: 41600,   annual_usd: 4790,  annual_inr: 415000 },
+      mssp:       { monthly_usd: 1999, monthly_inr: 166600,  annual_usd: 19190, annual_inr: 1600000 },
+    },
+    gstin:       "21ARKPN8270G1ZP",
+    upgrade_url: "https://intel.cyberdudebivash.com/upgrade.html",
+    timestamp:   new Date().toISOString(),
+  });
+}
+
+// GET /version.json  -- Platform version file (served from R2 or static)
+async function handleVersionJson(request, env, rid) {
+  try {
+    if (env?.R2_BUCKET) {
+      const obj = await env.R2_BUCKET.get("version.json");
+      if (obj) {
+        return new Response(await obj.text(), {
+          headers: { "Content-Type": "application/json", "Cache-Control": "public, max-age=300", "X-Request-Id": rid },
+        });
+      }
+    }
+  } catch (_e) { /* fall through */ }
+  // Static fallback
+  return jsonResponse({
+    version:    "161.3",
+    platform:   "SENTINEL APEX",
+    pipeline:   "162.7",
+    timestamp:  new Date().toISOString(),
+    request_id: rid,
+  });
+}
+
 // -----------------------------------------------------------------------------
 // =============================================================================
 // v162.6 P0-FIX: serveHtmlIntelReport -- defense-in-depth handler for HTML reports
@@ -5162,6 +5386,16 @@ export default {
     if (pathname.startsWith("/api/keys/validate"))     return withSec(handleValidateKey(request, env, rid));
     // v134.0.0: Live dashboard metrics -- public, no auth required
     if (pathname === "/api/platform/stats" && method === "GET") return withSec(handlePlatformStats(request, env, rid));
+    // v162.7: apex_v2 -- dashboard live intel bridge (priority + critical feeds)
+    if (pathname === "/api/apex_v2/priority.json" && method === "GET") return withSec(handleApexV2(request, env, rid, "priority"));
+    if (pathname === "/api/apex_v2/critical.json" && method === "GET") return withSec(handleApexV2(request, env, rid, "critical"));
+    // v162.7: advisories alias -- public CTI feed (TLP-CLEAR, maps to preview)
+    if (pathname === "/api/advisories" && method === "GET") return withSec(handleAdvisoriesPublic(request, env, rid));
+    // v162.7: subscription tiers + pricing -- monetization SSOT (public)
+    if (pathname === "/api/subscription/tiers" && method === "GET") return withSec(handleSubscriptionTiers(request, env, rid));
+    if (pathname === "/api/pricing"            && method === "GET") return withSec(handlePricing(request, env, rid));
+    // v162.7: /version.json -- static version file served from R2 or inline fallback
+    if (pathname === "/version.json" && method === "GET") return withSec(handleVersionJson(request, env, rid));
     // v161.3: Reports index files -- public (dashboard REPORTS tab, no auth required)
     // These 3 files are generated by build_reports_index.py (Stage 3.3.7) and
     // uploaded to R2 by r2_upload.py. The GitHub raw gh-pages branch is the fallback.
@@ -5534,6 +5768,12 @@ export default {
         "GET  /api/version              (public)",
         "GET  /api/keys/validate        (public)",
         "GET  /api/platform/stats       (public -- live dashboard metrics)",
+        "GET  /api/apex_v2/priority.json (public -- priority advisories CVSS≥7/KEV)",
+        "GET  /api/apex_v2/critical.json (public -- critical advisories CVSS≥9)",
+        "GET  /api/advisories           (public -- advisory feed alias, TLP-CLEAR)",
+        "GET  /api/subscription/tiers  (public -- subscription tier matrix)",
+        "GET  /api/pricing             (public -- pricing SSOT endpoint)",
+        "GET  /version.json            (public -- platform version file)",
         "GET  /api/ai                   (public -- AI index + MITRE heatmap)",
         "GET  /api/ai/heatmap           (public)",
         //  Auth endpoints 
