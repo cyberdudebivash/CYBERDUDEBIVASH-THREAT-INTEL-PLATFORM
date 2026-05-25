@@ -4985,14 +4985,14 @@ async function handleOnboarding(request, env, rid) {
 // v163.0: handleOpenAPI -- PUBLIC machine-readable OpenAPI 3.1.0 specification
 // GET /api/openapi
 // Returns the full SENTINEL APEX API specification as an OpenAPI 3.1.0 document.
-// No auth required — enables developer tools, SDK auto-generation, and Swagger UI.
+// No auth required  -  enables developer tools, SDK auto-generation, and Swagger UI.
 // =============================================================================
 function handleOpenAPI(request, env, rid) {
   const BASE = "https://intel.cyberdudebivash.com";
   const spec = {
     openapi: "3.1.0",
     info: {
-      title:       "CYBERDUDEBIVASH® SENTINEL APEX — Threat Intelligence API",
+      title:       "CYBERDUDEBIVASH(R) SENTINEL APEX  -  Threat Intelligence API",
       description: "AI-powered global cyber threat intelligence platform. " +
                    "Real-time CVE feeds, STIX 2.1 bundles, MITRE ATT&CK mapping, " +
                    "actor attribution, KEV tracking, and EPSS scoring.",
@@ -5006,7 +5006,7 @@ function handleOpenAPI(request, env, rid) {
       "x-platform":  "SENTINEL-APEX",
       "x-generated":  new Date().toISOString(),
     },
-    servers: [{ url: BASE, description: "Production — Cloudflare Edge" }],
+    servers: [{ url: BASE, description: "Production  -  Cloudflare Edge" }],
     security: [{ ApiKeyAuth: [] }, { BearerAuth: [] }],
     tags: [
       { name: "Feed",     description: "Threat intelligence feed endpoints" },
@@ -5051,7 +5051,7 @@ function handleOpenAPI(request, env, rid) {
       "/api/apex_v2/priority.json": {
         get: {
           tags: ["Feed"],
-          summary: "Apex V2 priority feed (risk ≥ 4.0)",
+          summary: "Apex V2 priority feed (risk ? 4.0)",
           description: "High-priority advisories pre-filtered for dashboards and alerting. No auth required.",
           security: [],
           responses: { 200: { description: "Priority advisory array" } },
@@ -5060,7 +5060,7 @@ function handleOpenAPI(request, env, rid) {
       "/api/apex_v2/critical.json": {
         get: {
           tags: ["Feed"],
-          summary: "Apex V2 critical feed (risk ≥ 7.0)",
+          summary: "Apex V2 critical feed (risk ? 7.0)",
           description: "Critical-severity advisories for SOC triage. No auth required.",
           security: [],
           responses: { 200: { description: "Critical advisory array" } },
