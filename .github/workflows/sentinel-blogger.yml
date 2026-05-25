@@ -937,6 +937,23 @@ jobs:
         run: python3 scripts/risk_score_differentiator.py
 
       # -----------------------------------------------------------------------
+      # STAGE 3.4.10: THREAT GRAPH ENGINE (v164.0)
+      # Builds IOC/TTP/actor/advisory relationship graph from full advisory corpus.
+      # Input:  data/feed_manifest.json (497+ advisories) + api/feed.json (enriched)
+      # Output: api/graph/nodes.json   -- graph nodes (advisory, CVE, TTP, actor)
+      #         api/graph/edges.json   -- directed edges (CONTAINS_IOC, MAPS_TTP, etc.)
+      #         api/graph/stats.json   -- graph statistics + top-connected nodes
+      #         api/graph/pivot/*.json -- pivot indexes (by_actor, by_ttp, by_cve)
+      # These artifacts are uploaded to R2 by Stage 3.5 and served by the Worker
+      # via /api/graph/nodes, /api/graph/edges, /api/graph/pivot endpoints.
+      # continue-on-error: true -- graph is additive value, not pipeline-blocking.
+      # -----------------------------------------------------------------------
+      - name: "STAGE 3.4.10 - Threat Graph Engine (v164.0)"
+        timeout-minutes: 5
+        continue-on-error: true
+        run: python3 scripts/threat_graph_engine.py
+
+      # -----------------------------------------------------------------------
       # STAGE 3.5: R2 UPLOAD -- MANDATORY, NO CONTINUE-ON-ERROR
       # Uploads feed_manifest, enriched manifests, HTML reports, AI data,
       # and sync metadata to Cloudflare R2.

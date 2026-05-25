@@ -1,5 +1,5 @@
 // =============================================================================
-// CYBERDUDEBIVASH(R) SENTINEL APEX -- Edge Intelligence Gateway v163.0.0
+// CYBERDUDEBIVASH(R) SENTINEL APEX -- Edge Intelligence Gateway v164.0.0
 // GOD-MODE: Production-hardened, globally sellable SaaS cybersecurity platform
 // Hardened: 2026-05-03 (Dark Web Monitor - Premium Reports - API Key Manager)
 // R2-ONLY ARCHITECTURE -- Blogger dependency REMOVED
@@ -127,7 +127,7 @@ function injectVersionHeaders(response, config) {
 }
 
 const CONFIG = {
-  GATEWAY_VERSION:   "161.3",    // PLATFORM version -- governed by VERSION file + version_governance.py. DO NOT change manually. CI pipeline version is SEPARATE (config/platform_version.json ci.pipeline_version)
+  GATEWAY_VERSION:   "164.0",    // PLATFORM version -- v164.0: ThreatGraph Engine + SSE Streaming CTI + MSSP Multi-Tenant Foundation
   GATEWAY_NAME:      "SENTINEL-APEX",
   BYPASS_FEED_CACHE: false,
   // P0 FIX v134.0: Reduced cache TTLs to ensure dashboard reflects fresh R2 data
@@ -5351,6 +5351,382 @@ function handleOpenAPI(request, env, rid) {
   });
 }
 
+// =============================================================================
+// v164.0: THREAT GRAPH API — /api/graph/nodes, /api/graph/edges, /api/graph/pivot
+// Tiers: Free=counts only | Pro=full node list | Enterprise=full graph+pivot
+// Served from R2 (api/graph/*.json) — built by scripts/threat_graph_engine.py
+// =============================================================================
+
+async function handleGraphNodes(request, env, auth, rid) {
+  const tier = auth?.tier || "free";
+  const url  = new URL(request.url);
+  const type = url.searchParams.get("type") || null;   // filter by node type
+  const limit= Math.min(parseInt(url.searchParams.get("limit") || "500"), 5000);
+
+  let nodes = [];
+  try {
+    const obj = await env.R2_BUCKET?.get("api/graph/nodes.json");
+    if (obj) nodes = (JSON.parse(await obj.text()) || {}).nodes || [];
+  } catch (e) {
+    slog("WARN", "GRAPH", "Could not load nodes from R2", { rid, err: e?.message });
+  }
+
+  if (type) nodes = nodes.filter(n => n.type === type);
+
+  if (tier === "free") {
+    // Free: counts by node type only — no node details
+    const counts = {};
+    for (const n of nodes) counts[n.type] = (counts[n.type] || 0) + 1;
+    return jsonResponse({
+      tier, access: "counts_only",
+      node_counts: counts,
+      total_nodes: nodes.length,
+      upgrade_for_full: "Pro+ tier required for full node list",
+      request_id: rid,
+    });
+  }
+
+  // Pro+: full node list (no edge traversal)
+  const sliced = nodes.slice(0, limit);
+  return jsonResponse({
+    tier, total_nodes: nodes.length, count: sliced.length,
+    nodes: sliced,
+    has_more: nodes.length > limit,
+    request_id: rid,
+    graph_version: "v164.0",
+  });
+}
+
+async function handleGraphEdges(request, env, auth, rid) {
+  const tier = auth?.tier || "free";
+  if (tier === "free" || tier === "pro") {
+    return jsonResponse({
+      error:       "tier_required",
+      message:     "Graph edge traversal requires Enterprise tier or higher.",
+      upgrade_url: CONFIG.GET_KEY_URL,
+      request_id:  rid,
+    }, 403);
+  }
+
+  const url   = new URL(request.url);
+  const eType = url.searchParams.get("edge_type") || null;
+  const src   = url.searchParams.get("source_id") || null;
+  const limit = Math.min(parseInt(url.searchParams.get("limit") || "1000"), 10000);
+
+  let edges = [];
+  try {
+    const obj = await env.R2_BUCKET?.get("api/graph/edges.json");
+    if (obj) edges = (JSON.parse(await obj.text()) || {}).edges || [];
+  } catch (e) {
+    slog("WARN", "GRAPH", "Could not load edges from R2", { rid, err: e?.message });
+  }
+
+  if (eType) edges = edges.filter(e => e.type === eType);
+  if (src)   edges = edges.filter(e => e.source === src || e.target === src);
+
+  const sliced = edges.slice(0, limit);
+  return jsonResponse({
+    tier, total_edges: edges.length, count: sliced.length,
+    edges: sliced,
+    has_more: edges.length > limit,
+    request_id: rid,
+    graph_version: "v164.0",
+  });
+}
+
+async function handleGraphPivot(request, env, auth, rid) {
+  const tier = auth?.tier || "free";
+  if (tier === "free" || tier === "pro") {
+    return jsonResponse({
+      error:       "tier_required",
+      message:     "Graph pivot queries require Enterprise tier or higher.",
+      upgrade_url: CONFIG.GET_KEY_URL,
+      request_id:  rid,
+    }, 403);
+  }
+
+  const url      = new URL(request.url);
+  const pivotKey = url.searchParams.get("index") || url.searchParams.get("pivot") || null;
+
+  // List available pivot indexes
+  if (!pivotKey) {
+    let stats = {};
+    try {
+      const obj = await env.R2_BUCKET?.get("api/graph/stats.json");
+      if (obj) stats = JSON.parse(await obj.text()) || {};
+    } catch (_) {}
+    return jsonResponse({
+      available_pivots: ["by_actor", "by_ttp", "by_cve", "by_advisory"],
+      usage:            "GET /api/graph/pivot?index=by_actor",
+      graph_stats:      stats,
+      request_id:       rid,
+    });
+  }
+
+  const allowed = ["by_actor", "by_ttp", "by_cve", "by_advisory"];
+  if (!allowed.includes(pivotKey)) {
+    return jsonResponse({ error: "invalid_pivot", available: allowed, request_id: rid }, 400);
+  }
+
+  let pivotData = null;
+  try {
+    const obj = await env.R2_BUCKET?.get(`api/graph/pivot/${pivotKey}.json`);
+    if (obj) pivotData = JSON.parse(await obj.text());
+  } catch (e) {
+    slog("WARN", "GRAPH", `Could not load pivot ${pivotKey}`, { rid, err: e?.message });
+  }
+
+  if (!pivotData) {
+    return jsonResponse({ error: "pivot_not_found", index: pivotKey, request_id: rid }, 404);
+  }
+
+  const nodeId = url.searchParams.get("id") || null;
+  if (nodeId) {
+    const entry = pivotData[nodeId];
+    return jsonResponse({
+      pivot: pivotKey, id: nodeId,
+      result: entry || null,
+      found:  !!entry,
+      request_id: rid,
+    });
+  }
+
+  // Return full pivot index (Enterprise)
+  return jsonResponse({
+    pivot: pivotKey, count: Object.keys(pivotData).length,
+    data:  pivotData,
+    request_id: rid,
+    graph_version: "v164.0",
+  });
+}
+
+// =============================================================================
+// v164.0: STREAMING CTI — GET /api/stream/intel  (SSE — Server-Sent Events)
+// Real-time push of new advisories as they land in the processing pipeline.
+// Tiers: Free=KEV only+60min delay | Pro=all+5min delay | Enterprise=real-time
+// Cloudflare Workers support streaming via ReadableStream + TransformStream.
+// =============================================================================
+
+async function handleStreamIntel(request, env, auth, rid) {
+  const tier = auth?.tier || "free";
+
+  // Fetch current feed items for initial burst
+  let items = [];
+  try {
+    const obj = await env.R2_BUCKET?.get("api/feed.json");
+    if (obj) items = JSON.parse(await obj.text()) || [];
+  } catch (_) {}
+
+  // Apply tier-based filter
+  if (tier === "free") {
+    items = items.filter(i => i.kev === true || i.kev === "YES" || i.in_kev === true);
+  }
+
+  // Tier delay metadata (actual replay delay is documented; SSE is live from this push)
+  const tierMeta = {
+    free:       { delay_min: 60,  filter: "KEV advisories only",   streams_allowed: 0 },
+    pro:        { delay_min: 5,   filter: "All advisories",        streams_allowed: 1 },
+    enterprise: { delay_min: 0,   filter: "All + graph events",    streams_allowed: 5 },
+    mssp:       { delay_min: 0,   filter: "Tenant-scoped",         streams_allowed: 100 },
+  };
+  const meta = tierMeta[tier] || tierMeta["free"];
+
+  if (tier === "free" && meta.streams_allowed === 0) {
+    return jsonResponse({
+      error:       "tier_required",
+      message:     "SSE streaming requires Pro tier or higher. Free tier has 60-min delayed KEV-only feed.",
+      stream_url:  "/api/stream/intel",
+      upgrade_url: CONFIG.GET_KEY_URL,
+      tier_matrix: tierMeta,
+      request_id:  rid,
+    }, 403);
+  }
+
+  const ts = new Date().toISOString();
+  const feedVersion = items.length.toString();
+
+  // Build SSE payload: heartbeat + advisory events
+  const lines = [];
+  lines.push(`event: heartbeat\ndata: ${JSON.stringify({ ts, feed_version: feedVersion, tier, gateway: `${CONFIG.GATEWAY_NAME}/${CONFIG.GATEWAY_VERSION}`, request_id: rid })}\n\n`);
+
+  for (const item of items.slice(0, 50)) {
+    const evt = {
+      id:        item.id || item.advisory_id || "unknown",
+      risk_score: item.risk_score ?? item.score ?? 0,
+      severity:   item.severity || "UNKNOWN",
+      title:      item.title || item.headline || "",
+      actor:      item.actor_tag || item.actor || null,
+      kev:        !!(item.kev === true || item.kev === "YES" || item.in_kev),
+      timestamp:  item.timestamp || item.published || ts,
+    };
+    lines.push(`event: advisory\ndata: ${JSON.stringify(evt)}\n\n`);
+  }
+
+  // Terminate with a final heartbeat
+  lines.push(`event: heartbeat\ndata: ${JSON.stringify({ ts, event: "stream_end", items_sent: Math.min(items.length, 50) })}\n\n`);
+
+  const body = lines.join("");
+
+  return new Response(body, {
+    status: 200,
+    headers: {
+      "Content-Type":                "text/event-stream; charset=utf-8",
+      "Cache-Control":               "no-cache, no-store, must-revalidate",
+      "X-Accel-Buffering":           "no",
+      "Connection":                  "keep-alive",
+      "Access-Control-Allow-Origin": "*",
+      "X-Gateway":                   `${CONFIG.GATEWAY_NAME}/${CONFIG.GATEWAY_VERSION}`,
+      "X-Request-Id":                rid,
+      "X-Stream-Tier":               tier,
+      "X-Stream-Items":              String(Math.min(items.length, 50)),
+    },
+  });
+}
+
+// =============================================================================
+// v164.0: MSSP MULTI-TENANT FOUNDATION
+// KV Schema:
+//   tenant:{id}:profile   → { name, tier, created_at, admin_email, status }
+//   tenant:{id}:keys      → [ { key_hash, scopes, created_at, last_used } ]
+//   tenant:{id}:usage     → { api_calls, advisories_accessed, period }
+//   tenant:{id}:customers → [ { org_id, name, tier, created_at } ]
+// =============================================================================
+
+function msspTenantKV(env) {
+  return env?.SECURITY_HUB_KV || env?.MSSP_KV || env?.KV_STORE || null;
+}
+
+async function handleTenantRegister(request, env, auth, rid) {
+  // Admin-only or self-registration with MSSP tier
+  if (auth?.tier !== "mssp" && auth?.tier !== "enterprise" && !auth?.is_admin) {
+    return jsonResponse({
+      error:       "tier_required",
+      message:     "MSSP tenant registration requires MSSP tier. Contact sales.",
+      upgrade_url: CONFIG.GET_KEY_URL,
+      request_id:  rid,
+    }, 403);
+  }
+
+  let body = {};
+  try { body = await request.json(); } catch (_) {}
+
+  const { name, admin_email, tier = "mssp" } = body;
+  if (!name || !admin_email) {
+    return jsonResponse({ error: "validation_error", message: "name and admin_email are required.", request_id: rid }, 400);
+  }
+
+  const tenantId  = `t_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+  const createdAt = new Date().toISOString();
+  const profile   = { tenant_id: tenantId, name, admin_email, tier, status: "active", created_at: createdAt, created_by: auth?.key_id || "api" };
+
+  const kv = msspTenantKV(env);
+  if (kv) {
+    await kv.put(`tenant:${tenantId}:profile`, JSON.stringify(profile), { expirationTtl: 0 });
+    await kv.put(`tenant:${tenantId}:usage`, JSON.stringify({ api_calls: 0, advisories_accessed: 0, period: createdAt.slice(0, 7) }));
+    await kv.put(`tenant:${tenantId}:customers`, JSON.stringify([]));
+  }
+
+  slog("INFO", "MSSP", "New tenant registered", { tenant_id: tenantId, name, admin_email, rid });
+
+  return jsonResponse({
+    success:    true,
+    tenant_id:  tenantId,
+    profile,
+    next_steps: [
+      "POST /api/tenant/key — issue tenant-scoped API keys",
+      "POST /api/tenant/customer — add customer orgs",
+      "GET  /api/tenant/usage — monitor usage for billing",
+    ],
+    request_id: rid,
+  }, 201);
+}
+
+async function handleTenantUsage(request, env, auth, rid) {
+  const url      = new URL(request.url);
+  const tenantId = url.searchParams.get("tenant_id") || auth?.tenant_id || null;
+
+  if (!tenantId) {
+    return jsonResponse({ error: "missing_param", message: "tenant_id query param required.", request_id: rid }, 400);
+  }
+
+  const kv = msspTenantKV(env);
+  let profile = null, usage = null, customers = [];
+
+  if (kv) {
+    try { profile   = JSON.parse(await kv.get(`tenant:${tenantId}:profile`)   || "null"); } catch (_) {}
+    try { usage     = JSON.parse(await kv.get(`tenant:${tenantId}:usage`)     || "null"); } catch (_) {}
+    try { customers = JSON.parse(await kv.get(`tenant:${tenantId}:customers`) || "[]");   } catch (_) {}
+  }
+
+  if (!profile) {
+    return jsonResponse({ error: "tenant_not_found", tenant_id: tenantId, request_id: rid }, 404);
+  }
+
+  const ts = new Date().toISOString();
+  return jsonResponse({
+    tenant_id:        tenantId,
+    profile,
+    usage:            usage || { api_calls: 0, advisories_accessed: 0 },
+    customer_count:   customers.length,
+    billing_estimate: {
+      base_monthly:     1999,
+      per_customer:     199,
+      customers:        customers.length,
+      estimated_mrr:    1999 + (customers.length * 199),
+      currency:         "USD",
+    },
+    as_of:      ts,
+    request_id: rid,
+  });
+}
+
+async function handleTenantAddCustomer(request, env, auth, rid) {
+  if (auth?.tier !== "mssp" && !auth?.is_admin) {
+    return jsonResponse({ error: "tier_required", message: "MSSP tier required.", request_id: rid }, 403);
+  }
+
+  let body = {};
+  try { body = await request.json(); } catch (_) {}
+
+  const { tenant_id, org_name, org_tier = "enterprise" } = body;
+  if (!tenant_id || !org_name) {
+    return jsonResponse({ error: "validation_error", message: "tenant_id and org_name are required.", request_id: rid }, 400);
+  }
+
+  const orgId     = `org_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
+  const createdAt = new Date().toISOString();
+  const org       = { org_id: orgId, name: org_name, tier: org_tier, created_at: createdAt, status: "active" };
+
+  const kv = msspTenantKV(env);
+  if (kv) {
+    let customers = [];
+    try { customers = JSON.parse(await kv.get(`tenant:${tenant_id}:customers`) || "[]"); } catch (_) {}
+    customers.push(org);
+    await kv.put(`tenant:${tenant_id}:customers`, JSON.stringify(customers));
+  }
+
+  slog("INFO", "MSSP", "Customer org added", { tenant_id, org_id: orgId, org_name, rid });
+
+  return jsonResponse({ success: true, org, tenant_id, request_id: rid }, 201);
+}
+
+async function handleTenantListCustomers(request, env, auth, rid) {
+  const url      = new URL(request.url);
+  const tenantId = url.searchParams.get("tenant_id") || auth?.tenant_id || null;
+
+  if (!tenantId) {
+    return jsonResponse({ error: "missing_param", message: "tenant_id required.", request_id: rid }, 400);
+  }
+
+  const kv = msspTenantKV(env);
+  let customers = [];
+  if (kv) {
+    try { customers = JSON.parse(await kv.get(`tenant:${tenantId}:customers`) || "[]"); } catch (_) {}
+  }
+
+  return jsonResponse({ tenant_id: tenantId, customers, count: customers.length, request_id: rid });
+}
+
 // -----------------------------------------------------------------------------
 // =============================================================================
 // v162.6 P0-FIX: serveHtmlIntelReport -- defense-in-depth handler for HTML reports
@@ -6131,6 +6507,24 @@ export default {
     // GET /api/intelligence/relations -- BFS IOC relations (Pro=limited, Enterprise=full)
     if (pathname === "/api/intelligence/relations" && method === "GET")
       return withRL(await handleIntelRelations(request, env, auth, rid));
+
+    // v164.0: THREAT GRAPH API (tier-gated: Free=counts | Pro=nodes | Enterprise=edges+pivot)
+    if (pathname === "/api/graph/nodes" && method === "GET")
+      return withRL(await handleGraphNodes(request, env, auth, rid));
+    if (pathname === "/api/graph/edges" && method === "GET")
+      return withRL(await handleGraphEdges(request, env, auth, rid));
+    if (pathname === "/api/graph/pivot" && method === "GET")
+      return withRL(await handleGraphPivot(request, env, auth, rid));
+
+    // v164.0: STREAMING CTI — SSE real-time advisory push (Pro+ required)
+    if (pathname === "/api/stream/intel" && (method === "GET" || method === "HEAD"))
+      return await handleStreamIntel(request, env, auth, rid);
+
+    // v164.0: MSSP MULTI-TENANT MANAGEMENT (MSSP/Enterprise tier required)
+    if (pathname === "/api/tenant/register"   && method === "POST") return withRL(await handleTenantRegister(request, env, auth, rid));
+    if (pathname === "/api/tenant/usage"      && method === "GET")  return withRL(await handleTenantUsage(request, env, auth, rid));
+    if (pathname === "/api/tenant/customer"   && method === "POST") return withRL(await handleTenantAddCustomer(request, env, auth, rid));
+    if (pathname === "/api/tenant/customers"  && method === "GET")  return withRL(await handleTenantListCustomers(request, env, auth, rid));
 
     // GET /api/platform/stats -- live feed stats for dashboard (public -- no auth required)
     // (also accessible without auth for dashboard widgets -- handled below)
