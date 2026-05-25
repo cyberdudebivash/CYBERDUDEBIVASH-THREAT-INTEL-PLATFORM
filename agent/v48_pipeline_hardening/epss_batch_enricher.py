@@ -86,6 +86,10 @@ class EPSSBatchEnricher:
                 cve = entry.get("cve", "").upper()
                 epss = entry.get("epss")
                 if cve and epss is not None:
+                    # STORAGE CONVENTION: EPSS API returns 0.0–1.0 decimal.
+                    # Platform stores and displays as percentage (0.0–100.0).
+                    # All threshold comparisons (enricher.py, scoring_engine.py)
+                    # use the 0–100 scale. Do NOT change this multiplier.
                     results[cve] = round(float(epss) * 100, 2)
         except Exception as e:
             logger.warning(f"EPSS batch failed: {e}")

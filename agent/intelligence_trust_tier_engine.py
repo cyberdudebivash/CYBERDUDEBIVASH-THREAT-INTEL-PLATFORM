@@ -242,7 +242,12 @@ class IntelligenceTrustTierEngine:
             # Proxy: KEV-listed = externally corroborated. EPSS > 50% = widely tracked.
             kev   = str(advisory.get("kev", "")).upper() in ("YES", "TRUE", "1")
             epss  = advisory.get("epss")
-            epss_f = float(str(epss).strip("%")) / 100.0 if epss and str(epss).replace(".", "").replace("%", "").isdigit() else 0.0
+            # FIX: epss_score stored as 0–100 percent — normalise to 0.0–1.0 for math
+            try:
+                _epss_raw = float(str(epss).strip("%"))
+                epss_f = _epss_raw / 100.0 if _epss_raw > 1.0 else _epss_raw
+            except (TypeError, ValueError):
+                epss_f = 0.0
             corr_score = (KEV_TRUST_BOOST if kev else 0.0) + min(5.0, epss_f * 10)
             corr_score = min(10.0, corr_score)
             evidence["D5_corroboration"] = {

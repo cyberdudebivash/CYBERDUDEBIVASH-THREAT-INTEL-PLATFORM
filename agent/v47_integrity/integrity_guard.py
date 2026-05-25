@@ -112,6 +112,7 @@ class EPSSBatchEnricher:
                 cve = entry.get("cve", "").upper()
                 epss = entry.get("epss")
                 if cve and epss is not None:
+                    # STORAGE CONVENTION: API returns 0.0–1.0 decimal; stored as 0.0–100.0 percent
                     results[cve] = round(float(epss) * 100, 2)
         except Exception as e:
             logger.warning(f"EPSS batch fetch failed: {e}")
