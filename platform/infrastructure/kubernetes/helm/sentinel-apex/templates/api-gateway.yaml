@@ -1,7 +1,7 @@
 {{- if .Values.apiGateway.enabled -}}
 ---
 # ============================================================
-# API Gateway — Deployment
+# API Gateway  -  Deployment
 # ============================================================
 apiVersion: apps/v1
 kind: Deployment
@@ -119,7 +119,7 @@ spec:
             sizeLimit: "1Gi"
 ---
 # ============================================================
-# API Gateway — Service
+# API Gateway  -  Service
 # ============================================================
 apiVersion: v1
 kind: Service
@@ -139,7 +139,7 @@ spec:
     {{- include "sentinel-apex.selectorLabels" (dict "component" "api-gateway" "root" .) | nindent 4 }}
 ---
 # ============================================================
-# API Gateway — HPA
+# API Gateway  -  HPA
 # ============================================================
 {{- if .Values.apiGateway.autoscaling.enabled }}
 apiVersion: autoscaling/v2
@@ -184,7 +184,7 @@ spec:
 {{- end }}
 ---
 # ============================================================
-# API Gateway — PodDisruptionBudget
+# API Gateway  -  PodDisruptionBudget
 # ============================================================
 apiVersion: policy/v1
 kind: PodDisruptionBudget
@@ -197,7 +197,7 @@ spec:
       {{- include "sentinel-apex.selectorLabels" (dict "component" "api-gateway" "root" .) | nindent 6 }}
 ---
 # ============================================================
-# API Gateway — Ingress
+# API Gateway  -  Ingress
 # ============================================================
 {{- if .Values.apiGateway.ingress.enabled }}
 apiVersion: networking.k8s.io/v1
@@ -231,7 +231,7 @@ spec:
 {{- end }}
 ---
 # ============================================================
-# API Gateway — ServiceAccount
+# API Gateway  -  ServiceAccount
 # ============================================================
 apiVersion: v1
 kind: ServiceAccount

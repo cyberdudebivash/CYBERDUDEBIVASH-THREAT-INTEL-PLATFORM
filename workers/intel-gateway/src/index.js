@@ -4728,7 +4728,7 @@ async function serveHtmlIntelReport(pathname, env, rid) {
           },
         });
       }
-      slog('INFO', 'REPORT-HTML', `R2 MISS: ${r2Key} — falling back to gh-pages`, { rid });
+      slog('INFO', 'REPORT-HTML', `R2 MISS: ${r2Key}  -  falling back to gh-pages`, { rid });
     } catch (e) {
       slog('WARN', 'REPORT-HTML', `R2 error: ${e.message}`, { rid, r2Key });
     }
@@ -4761,7 +4761,7 @@ async function serveHtmlIntelReport(pathname, env, rid) {
     slog('WARN', 'REPORT-HTML', `gh-pages fetch error: ${e.message}`, { rid, pathname });
   }
 
-  // Both sources missed — return structured 404
+  // Both sources missed  -  return structured 404
   return jsonResponse({
     error: 'report_not_found',
     message: `Intelligence report '${pathname}' is not available. Reports are generated every 4 hours via the sentinel-blogger pipeline.`,
