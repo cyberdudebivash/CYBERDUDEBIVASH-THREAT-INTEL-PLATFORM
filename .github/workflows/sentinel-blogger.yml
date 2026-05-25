@@ -907,6 +907,19 @@ jobs:
         timeout-minutes: 5
         run: python3 scripts/validate_manifest_schema.py --backfill --api-only
 
+
+      # -----------------------------------------------------------------------
+      # STAGE 3.4.8: APEX V2 INTELLIGENCE BUILDER (v162.8)
+      # Generates api/apex_v2/priority.json + api/apex_v2/critical.json
+      # from the enriched feed manifest BEFORE R2 upload so Worker serves
+      # real filtered threat data (not empty [] fallback).
+      # continue-on-error: true -- non-fatal; Worker falls back gracefully.
+      # -----------------------------------------------------------------------
+      - name: "STAGE 3.4.8 - Build Apex V2 Priority + Critical Feeds (v162.8)"
+        timeout-minutes: 3
+        continue-on-error: true
+        run: python3 scripts/build_apex_v2.py
+
       # -----------------------------------------------------------------------
       # STAGE 3.5: R2 UPLOAD -- MANDATORY, NO CONTINUE-ON-ERROR
       # Uploads feed_manifest, enriched manifests, HTML reports, AI data,
