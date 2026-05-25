@@ -310,7 +310,10 @@ def build_enriched_content(entry: Dict, fetched_article: Optional[Dict]) -> str:
 from datetime import datetime, timezone as _tz
 
 CVE_MAX_AGE_YEARS  = 2
-CVE_EPSS_EXCEPTION = 0.7
+# FIX: EPSS stored as percent 0–100 (×100 at fetch). Previous value 0.7
+# treated it as 0–1 decimal, so 'epss >= 0.7' was always True for any CVE
+# with EPSS > 0.7%, permanently bypassing temporal filtering.
+CVE_EPSS_EXCEPTION = 70.0
 
 
 def is_temporally_relevant(entry: dict) -> bool:
@@ -1634,6 +1637,12 @@ def _enrich_cve_metadata(cve_id: str):
     cvss_score = None
     kev_present = False
     nvd_url    = f"https://nvd.nist.gov/vuln/detail/{cve_upper}"
+
+    # KEV/EPSS GUARD: reject malformed CVE IDs before any API call.
+    # Prevents non-CVE items (tool names, MITRE tags) from being flagged KEV.
+    if not re.match(r'^CVE-\d{4}-\d{4,7}$', cve_upper):
+        logger.warning(f"_enrich_cve_metadata: invalid CVE format '{cve_upper}' — skipping")
+        return None, None, False, f"https://nvd.nist.gov/vuln/search/results?query={cve_upper}"
 
     # EPSS lookup
     try:
