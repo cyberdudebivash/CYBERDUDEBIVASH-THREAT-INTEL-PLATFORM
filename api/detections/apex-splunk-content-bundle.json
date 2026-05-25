@@ -1,0 +1,661 @@
+{
+  "author": "CYBERDUDEBIVASH SENTINEL APEX",
+  "date": "2026-05-25",
+  "description": "CYBERDUDEBIVASH SENTINEL APEX detection content bundle v162.0.0",
+  "id": "b1ab70a4e253",
+  "version": 1,
+  "searches": [
+    {
+      "name": "APEX - CVE-2026-9465 Tiandy Easy7 Integrated Management Platform GetDBDataEx.jsp sql in",
+      "id": "a29b72b1",
+      "type": "detection",
+      "datamodel": [
+        "Endpoint",
+        "Network_Traffic"
+      ],
+      "description": "APEX detection for advisory intel--7451f493ec173808c4bd26c0. ATT&CK: T1190, T1059, T1190.001",
+      "search": "| comment \"Splunk Rule: CVE-2026-9465 Tiandy Easy7 Integrated Management Platform Ge | intel--7451f493ec173808c4bd26c0\"\nindex=web sourcetype=access_combined earliest=-30d latest=now\n(\"<indicator>\")\n| eval hunt_id=\"intel--7451f493ec173808c4bd26c0\" | eval severity=\"high\"\n| stats count AS hits, min(_time) AS first, max(_time) AS last,\n    dc(host) AS hosts BY CommandLine, host, sourcetype\n| where hits > 0 | sort - hits",
+      "how_to_implement": "Enable relevant Windows Event Logs and Sysmon. Configure APEX SIEM webhook for automated ingestion.",
+      "known_false_positives": "Security scanning tools, administrative scripts in privileged contexts.",
+      "references": [
+        "https://intel.cyberdudebivash.com/reports/intel--7451f493ec173808c4bd26c0"
+      ],
+      "tags": {
+        "analytic_story": [
+          "APEX Intelligence",
+          "CYBERDUDEBIVASH Detections"
+        ],
+        "asset_type": "Endpoint",
+        "confidence": 75,
+        "impact": 80,
+        "message": "APEX alert: CVE-2026-9465 Tiandy Easy7 Integrated Management Platform GetDBDataEx.jsp sql in on $dest$",
+        "mitre_attack_id": [
+          "T1190",
+          "T1059",
+          "T1190.001"
+        ],
+        "observable": [
+          {
+            "name": "dest",
+            "type": "Hostname",
+            "role": [
+              "Victim"
+            ]
+          },
+          {
+            "name": "user",
+            "type": "User",
+            "role": [
+              "Victim"
+            ]
+          }
+        ],
+        "product": [
+          "CYBERDUDEBIVASH SENTINEL APEX"
+        ],
+        "required_fields": [
+          "_time",
+          "process_name",
+          "CommandLine",
+          "dest",
+          "user"
+        ],
+        "risk_score": 72,
+        "security_domain": "endpoint",
+        "severity": "high"
+      }
+    },
+    {
+      "name": "APEX - CVE-2026-9058 - Improper Certificate Verification in Szafir SDK",
+      "id": "381e1db0",
+      "type": "detection",
+      "datamodel": [
+        "Endpoint",
+        "Network_Traffic"
+      ],
+      "description": "APEX detection for advisory intel--ff1ab1a1c16f82371ba751f6. ATT&CK: T1190, T1059, T1078",
+      "search": "| comment \"Splunk Rule: CVE-2026-9058 - Improper Certificate Verification in Szafir  | intel--ff1ab1a1c16f82371ba751f6\"\nindex=network sourcetype=stream:tcp earliest=-30d latest=now\n(\"<indicator>\")\n| eval hunt_id=\"intel--ff1ab1a1c16f82371ba751f6\" | eval severity=\"medium\"\n| stats count AS hits, min(_time) AS first, max(_time) AS last,\n    dc(host) AS hosts BY CommandLine, host, sourcetype\n| where hits > 0 | sort - hits",
+      "how_to_implement": "Enable relevant Windows Event Logs and Sysmon. Configure APEX SIEM webhook for automated ingestion.",
+      "known_false_positives": "Security scanning tools, administrative scripts in privileged contexts.",
+      "references": [
+        "https://intel.cyberdudebivash.com/reports/intel--ff1ab1a1c16f82371ba751f6"
+      ],
+      "tags": {
+        "analytic_story": [
+          "APEX Intelligence",
+          "CYBERDUDEBIVASH Detections"
+        ],
+        "asset_type": "Endpoint",
+        "confidence": 75,
+        "impact": 80,
+        "message": "APEX alert: CVE-2026-9058 - Improper Certificate Verification in Szafir SDK on $dest$",
+        "mitre_attack_id": [
+          "T1190",
+          "T1059",
+          "T1078"
+        ],
+        "observable": [
+          {
+            "name": "dest",
+            "type": "Hostname",
+            "role": [
+              "Victim"
+            ]
+          },
+          {
+            "name": "user",
+            "type": "User",
+            "role": [
+              "Victim"
+            ]
+          }
+        ],
+        "product": [
+          "CYBERDUDEBIVASH SENTINEL APEX"
+        ],
+        "required_fields": [
+          "_time",
+          "process_name",
+          "CommandLine",
+          "dest",
+          "user"
+        ],
+        "risk_score": 72,
+        "security_domain": "endpoint",
+        "severity": "high"
+      }
+    },
+    {
+      "name": "APEX - Netherlands Seizes 800 Servers, Arrests 2 for Aiding Cyberattacks",
+      "id": "3fd86bf1",
+      "type": "detection",
+      "datamodel": [
+        "Endpoint",
+        "Network_Traffic"
+      ],
+      "description": "APEX detection for advisory intel--a74d0267735c6b96861ddf94. ATT&CK: T1190, T1059",
+      "search": "| comment \"Splunk Rule: Netherlands Seizes 800 Servers, Arrests 2 for Aiding Cyberat | intel--a74d0267735c6b96861ddf94\"\nindex=network sourcetype=stream:tcp earliest=-30d latest=now\n(\"<indicator>\")\n| eval hunt_id=\"intel--a74d0267735c6b96861ddf94\" | eval severity=\"medium\"\n| stats count AS hits, min(_time) AS first, max(_time) AS last,\n    dc(host) AS hosts BY CommandLine, host, sourcetype\n| where hits > 0 | sort - hits",
+      "how_to_implement": "Enable relevant Windows Event Logs and Sysmon. Configure APEX SIEM webhook for automated ingestion.",
+      "known_false_positives": "Security scanning tools, administrative scripts in privileged contexts.",
+      "references": [
+        "https://intel.cyberdudebivash.com/reports/intel--a74d0267735c6b96861ddf94"
+      ],
+      "tags": {
+        "analytic_story": [
+          "APEX Intelligence",
+          "CYBERDUDEBIVASH Detections"
+        ],
+        "asset_type": "Endpoint",
+        "confidence": 75,
+        "impact": 80,
+        "message": "APEX alert: Netherlands Seizes 800 Servers, Arrests 2 for Aiding Cyberattacks on $dest$",
+        "mitre_attack_id": [
+          "T1190",
+          "T1059"
+        ],
+        "observable": [
+          {
+            "name": "dest",
+            "type": "Hostname",
+            "role": [
+              "Victim"
+            ]
+          },
+          {
+            "name": "user",
+            "type": "User",
+            "role": [
+              "Victim"
+            ]
+          }
+        ],
+        "product": [
+          "CYBERDUDEBIVASH SENTINEL APEX"
+        ],
+        "required_fields": [
+          "_time",
+          "process_name",
+          "CommandLine",
+          "dest",
+          "user"
+        ],
+        "risk_score": 72,
+        "security_domain": "endpoint",
+        "severity": "high"
+      }
+    },
+    {
+      "name": "APEX - CVE-2026-9461 - Edimax EW-7438RPn formRadius stack-based overflow",
+      "id": "cacbf967",
+      "type": "detection",
+      "datamodel": [
+        "Endpoint",
+        "Network_Traffic"
+      ],
+      "description": "APEX detection for advisory intel--8436ef84a26f5d14e01feaa4. ATT&CK: T1190, T1059",
+      "search": "| comment \"Splunk Rule: CVE-2026-9461 - Edimax EW-7438RPn formRadius stack-based ove | intel--8436ef84a26f5d14e01feaa4\"\nindex=network sourcetype=stream:tcp earliest=-30d latest=now\n(\"<indicator>\")\n| eval hunt_id=\"intel--8436ef84a26f5d14e01feaa4\" | eval severity=\"medium\"\n| stats count AS hits, min(_time) AS first, max(_time) AS last,\n    dc(host) AS hosts BY CommandLine, host, sourcetype\n| where hits > 0 | sort - hits",
+      "how_to_implement": "Enable relevant Windows Event Logs and Sysmon. Configure APEX SIEM webhook for automated ingestion.",
+      "known_false_positives": "Security scanning tools, administrative scripts in privileged contexts.",
+      "references": [
+        "https://intel.cyberdudebivash.com/reports/intel--8436ef84a26f5d14e01feaa4"
+      ],
+      "tags": {
+        "analytic_story": [
+          "APEX Intelligence",
+          "CYBERDUDEBIVASH Detections"
+        ],
+        "asset_type": "Endpoint",
+        "confidence": 75,
+        "impact": 80,
+        "message": "APEX alert: CVE-2026-9461 - Edimax EW-7438RPn formRadius stack-based overflow on $dest$",
+        "mitre_attack_id": [
+          "T1190",
+          "T1059"
+        ],
+        "observable": [
+          {
+            "name": "dest",
+            "type": "Hostname",
+            "role": [
+              "Victim"
+            ]
+          },
+          {
+            "name": "user",
+            "type": "User",
+            "role": [
+              "Victim"
+            ]
+          }
+        ],
+        "product": [
+          "CYBERDUDEBIVASH SENTINEL APEX"
+        ],
+        "required_fields": [
+          "_time",
+          "process_name",
+          "CommandLine",
+          "dest",
+          "user"
+        ],
+        "risk_score": 72,
+        "security_domain": "endpoint",
+        "severity": "high"
+      }
+    },
+    {
+      "name": "APEX - Kazuar Malware Evolves Into Modular Espionage Ecosystem for Secret Blizzard Oper",
+      "id": "bd985be5",
+      "type": "detection",
+      "datamodel": [
+        "Endpoint",
+        "Network_Traffic"
+      ],
+      "description": "APEX detection for advisory intel--0480eaa264dc898151449221. ATT&CK: T1203, T1071",
+      "search": "| comment \"Splunk Rule: Kazuar Malware Evolves Into Modular Espionage Ecosystem for  | intel--0480eaa264dc898151449221\"\nindex=network sourcetype=stream:tcp earliest=-30d latest=now\n(\"<indicator>\")\n| eval hunt_id=\"intel--0480eaa264dc898151449221\" | eval severity=\"medium\"\n| stats count AS hits, min(_time) AS first, max(_time) AS last,\n    dc(host) AS hosts BY CommandLine, host, sourcetype\n| where hits > 0 | sort - hits",
+      "how_to_implement": "Enable relevant Windows Event Logs and Sysmon. Configure APEX SIEM webhook for automated ingestion.",
+      "known_false_positives": "Security scanning tools, administrative scripts in privileged contexts.",
+      "references": [
+        "https://intel.cyberdudebivash.com/reports/intel--0480eaa264dc898151449221"
+      ],
+      "tags": {
+        "analytic_story": [
+          "APEX Intelligence",
+          "CYBERDUDEBIVASH Detections"
+        ],
+        "asset_type": "Endpoint",
+        "confidence": 75,
+        "impact": 80,
+        "message": "APEX alert: Kazuar Malware Evolves Into Modular Espionage Ecosystem for Secret Blizzard Oper on $dest$",
+        "mitre_attack_id": [
+          "T1203",
+          "T1071"
+        ],
+        "observable": [
+          {
+            "name": "dest",
+            "type": "Hostname",
+            "role": [
+              "Victim"
+            ]
+          },
+          {
+            "name": "user",
+            "type": "User",
+            "role": [
+              "Victim"
+            ]
+          }
+        ],
+        "product": [
+          "CYBERDUDEBIVASH SENTINEL APEX"
+        ],
+        "required_fields": [
+          "_time",
+          "process_name",
+          "CommandLine",
+          "dest",
+          "user"
+        ],
+        "risk_score": 72,
+        "security_domain": "endpoint",
+        "severity": "high"
+      }
+    },
+    {
+      "name": "APEX - CVE-2026-9460 - Edimax EW-7438RPn formAccept stack-based overflow",
+      "id": "6de69a96",
+      "type": "detection",
+      "datamodel": [
+        "Endpoint",
+        "Network_Traffic"
+      ],
+      "description": "APEX detection for advisory intel--7b8717436cb504e96ade43bc. ATT&CK: T1190, T1059",
+      "search": "| comment \"Splunk Rule: CVE-2026-9460 - Edimax EW-7438RPn formAccept stack-based ove | intel--7b8717436cb504e96ade43bc\"\nindex=network sourcetype=stream:tcp earliest=-30d latest=now\n(\"<indicator>\")\n| eval hunt_id=\"intel--7b8717436cb504e96ade43bc\" | eval severity=\"medium\"\n| stats count AS hits, min(_time) AS first, max(_time) AS last,\n    dc(host) AS hosts BY CommandLine, host, sourcetype\n| where hits > 0 | sort - hits",
+      "how_to_implement": "Enable relevant Windows Event Logs and Sysmon. Configure APEX SIEM webhook for automated ingestion.",
+      "known_false_positives": "Security scanning tools, administrative scripts in privileged contexts.",
+      "references": [
+        "https://intel.cyberdudebivash.com/reports/intel--7b8717436cb504e96ade43bc"
+      ],
+      "tags": {
+        "analytic_story": [
+          "APEX Intelligence",
+          "CYBERDUDEBIVASH Detections"
+        ],
+        "asset_type": "Endpoint",
+        "confidence": 75,
+        "impact": 80,
+        "message": "APEX alert: CVE-2026-9460 - Edimax EW-7438RPn formAccept stack-based overflow on $dest$",
+        "mitre_attack_id": [
+          "T1190",
+          "T1059"
+        ],
+        "observable": [
+          {
+            "name": "dest",
+            "type": "Hostname",
+            "role": [
+              "Victim"
+            ]
+          },
+          {
+            "name": "user",
+            "type": "User",
+            "role": [
+              "Victim"
+            ]
+          }
+        ],
+        "product": [
+          "CYBERDUDEBIVASH SENTINEL APEX"
+        ],
+        "required_fields": [
+          "_time",
+          "process_name",
+          "CommandLine",
+          "dest",
+          "user"
+        ],
+        "risk_score": 72,
+        "security_domain": "endpoint",
+        "severity": "high"
+      }
+    },
+    {
+      "name": "APEX - CVE-2026-9459 - Edimax EW-7438RPn formConnectionSetting stack-based overflow",
+      "id": "4bab0e8c",
+      "type": "detection",
+      "datamodel": [
+        "Endpoint",
+        "Network_Traffic"
+      ],
+      "description": "APEX detection for advisory intel--ff51162f3a8787497d6030f6. ATT&CK: T1190, T1059",
+      "search": "| comment \"Splunk Rule: CVE-2026-9459 - Edimax EW-7438RPn formConnectionSetting stac | intel--ff51162f3a8787497d6030f6\"\nindex=network sourcetype=stream:tcp earliest=-30d latest=now\n(\"<indicator>\")\n| eval hunt_id=\"intel--ff51162f3a8787497d6030f6\" | eval severity=\"medium\"\n| stats count AS hits, min(_time) AS first, max(_time) AS last,\n    dc(host) AS hosts BY CommandLine, host, sourcetype\n| where hits > 0 | sort - hits",
+      "how_to_implement": "Enable relevant Windows Event Logs and Sysmon. Configure APEX SIEM webhook for automated ingestion.",
+      "known_false_positives": "Security scanning tools, administrative scripts in privileged contexts.",
+      "references": [
+        "https://intel.cyberdudebivash.com/reports/intel--ff51162f3a8787497d6030f6"
+      ],
+      "tags": {
+        "analytic_story": [
+          "APEX Intelligence",
+          "CYBERDUDEBIVASH Detections"
+        ],
+        "asset_type": "Endpoint",
+        "confidence": 75,
+        "impact": 80,
+        "message": "APEX alert: CVE-2026-9459 - Edimax EW-7438RPn formConnectionSetting stack-based overflow on $dest$",
+        "mitre_attack_id": [
+          "T1190",
+          "T1059"
+        ],
+        "observable": [
+          {
+            "name": "dest",
+            "type": "Hostname",
+            "role": [
+              "Victim"
+            ]
+          },
+          {
+            "name": "user",
+            "type": "User",
+            "role": [
+              "Victim"
+            ]
+          }
+        ],
+        "product": [
+          "CYBERDUDEBIVASH SENTINEL APEX"
+        ],
+        "required_fields": [
+          "_time",
+          "process_name",
+          "CommandLine",
+          "dest",
+          "user"
+        ],
+        "risk_score": 72,
+        "security_domain": "endpoint",
+        "severity": "high"
+      }
+    },
+    {
+      "name": "APEX - CVE-2026-9458 - Totolink A8000RU Web Management cstecgi.cgi setWanCfg os command",
+      "id": "eae0b455",
+      "type": "detection",
+      "datamodel": [
+        "Endpoint",
+        "Network_Traffic"
+      ],
+      "description": "APEX detection for advisory intel--1e933a57a0897562d3f5ac01. ATT&CK: T1190, T1059",
+      "search": "| comment \"Splunk Rule: CVE-2026-9458 - Totolink A8000RU Web Management cstecgi.cgi  | intel--1e933a57a0897562d3f5ac01\"\nindex=web sourcetype=access_combined earliest=-30d latest=now\n(\"<indicator>\")\n| eval hunt_id=\"intel--1e933a57a0897562d3f5ac01\" | eval severity=\"critical\"\n| stats count AS hits, min(_time) AS first, max(_time) AS last,\n    dc(host) AS hosts BY CommandLine, host, sourcetype\n| where hits > 0 | sort - hits",
+      "how_to_implement": "Enable relevant Windows Event Logs and Sysmon. Configure APEX SIEM webhook for automated ingestion.",
+      "known_false_positives": "Security scanning tools, administrative scripts in privileged contexts.",
+      "references": [
+        "https://intel.cyberdudebivash.com/reports/intel--1e933a57a0897562d3f5ac01"
+      ],
+      "tags": {
+        "analytic_story": [
+          "APEX Intelligence",
+          "CYBERDUDEBIVASH Detections"
+        ],
+        "asset_type": "Endpoint",
+        "confidence": 75,
+        "impact": 80,
+        "message": "APEX alert: CVE-2026-9458 - Totolink A8000RU Web Management cstecgi.cgi setWanCfg os command on $dest$",
+        "mitre_attack_id": [
+          "T1190",
+          "T1059"
+        ],
+        "observable": [
+          {
+            "name": "dest",
+            "type": "Hostname",
+            "role": [
+              "Victim"
+            ]
+          },
+          {
+            "name": "user",
+            "type": "User",
+            "role": [
+              "Victim"
+            ]
+          }
+        ],
+        "product": [
+          "CYBERDUDEBIVASH SENTINEL APEX"
+        ],
+        "required_fields": [
+          "_time",
+          "process_name",
+          "CommandLine",
+          "dest",
+          "user"
+        ],
+        "risk_score": 72,
+        "security_domain": "endpoint",
+        "severity": "medium"
+      }
+    },
+    {
+      "name": "APEX - CVE-2026-9457 - Totolink A8000RU Web Management cstecgi.cgi UploadFirmwareFile o",
+      "id": "85ab2870",
+      "type": "detection",
+      "datamodel": [
+        "Endpoint",
+        "Network_Traffic"
+      ],
+      "description": "APEX detection for advisory intel--70dc4c482d03c866f394dc32. ATT&CK: T1190, T1059",
+      "search": "| comment \"Splunk Rule: CVE-2026-9457 - Totolink A8000RU Web Management cstecgi.cgi  | intel--70dc4c482d03c866f394dc32\"\nindex=web sourcetype=access_combined earliest=-30d latest=now\n(\"<indicator>\")\n| eval hunt_id=\"intel--70dc4c482d03c866f394dc32\" | eval severity=\"critical\"\n| stats count AS hits, min(_time) AS first, max(_time) AS last,\n    dc(host) AS hosts BY CommandLine, host, sourcetype\n| where hits > 0 | sort - hits",
+      "how_to_implement": "Enable relevant Windows Event Logs and Sysmon. Configure APEX SIEM webhook for automated ingestion.",
+      "known_false_positives": "Security scanning tools, administrative scripts in privileged contexts.",
+      "references": [
+        "https://intel.cyberdudebivash.com/reports/intel--70dc4c482d03c866f394dc32"
+      ],
+      "tags": {
+        "analytic_story": [
+          "APEX Intelligence",
+          "CYBERDUDEBIVASH Detections"
+        ],
+        "asset_type": "Endpoint",
+        "confidence": 75,
+        "impact": 80,
+        "message": "APEX alert: CVE-2026-9457 - Totolink A8000RU Web Management cstecgi.cgi UploadFirmwareFile o on $dest$",
+        "mitre_attack_id": [
+          "T1190",
+          "T1059"
+        ],
+        "observable": [
+          {
+            "name": "dest",
+            "type": "Hostname",
+            "role": [
+              "Victim"
+            ]
+          },
+          {
+            "name": "user",
+            "type": "User",
+            "role": [
+              "Victim"
+            ]
+          }
+        ],
+        "product": [
+          "CYBERDUDEBIVASH SENTINEL APEX"
+        ],
+        "required_fields": [
+          "_time",
+          "process_name",
+          "CommandLine",
+          "dest",
+          "user"
+        ],
+        "risk_score": 72,
+        "security_domain": "endpoint",
+        "severity": "medium"
+      }
+    },
+    {
+      "name": "APEX - CVE-2026-7766 - Path Traversal in Kenik cameras",
+      "id": "dc060647",
+      "type": "detection",
+      "datamodel": [
+        "Endpoint",
+        "Network_Traffic"
+      ],
+      "description": "APEX detection for advisory intel--27e3b060487d8bd84b86b7ac. ATT&CK: T1190, T1059, T1083",
+      "search": "| comment \"Splunk Rule: CVE-2026-7766 - Path Traversal in Kenik cameras | intel--27e3b060487d8bd84b86b7ac\"\nindex=web sourcetype=access_combined earliest=-30d latest=now\n(\"<indicator>\")\n| eval hunt_id=\"intel--27e3b060487d8bd84b86b7ac\" | eval severity=\"high\"\n| stats count AS hits, min(_time) AS first, max(_time) AS last,\n    dc(host) AS hosts BY CommandLine, host, sourcetype\n| where hits > 0 | sort - hits",
+      "how_to_implement": "Enable relevant Windows Event Logs and Sysmon. Configure APEX SIEM webhook for automated ingestion.",
+      "known_false_positives": "Security scanning tools, administrative scripts in privileged contexts.",
+      "references": [
+        "https://intel.cyberdudebivash.com/reports/intel--27e3b060487d8bd84b86b7ac"
+      ],
+      "tags": {
+        "analytic_story": [
+          "APEX Intelligence",
+          "CYBERDUDEBIVASH Detections"
+        ],
+        "asset_type": "Endpoint",
+        "confidence": 75,
+        "impact": 80,
+        "message": "APEX alert: CVE-2026-7766 - Path Traversal in Kenik cameras on $dest$",
+        "mitre_attack_id": [
+          "T1190",
+          "T1059",
+          "T1083"
+        ],
+        "observable": [
+          {
+            "name": "dest",
+            "type": "Hostname",
+            "role": [
+              "Victim"
+            ]
+          },
+          {
+            "name": "user",
+            "type": "User",
+            "role": [
+              "Victim"
+            ]
+          }
+        ],
+        "product": [
+          "CYBERDUDEBIVASH SENTINEL APEX"
+        ],
+        "required_fields": [
+          "_time",
+          "process_name",
+          "CommandLine",
+          "dest",
+          "user"
+        ],
+        "risk_score": 72,
+        "security_domain": "endpoint",
+        "severity": "high"
+      }
+    },
+    {
+      "name": "APEX - CVE-2026-9453 - FoundDream miniclawd SkillsLoader skills-loader.ts which command",
+      "id": "42c221bc",
+      "type": "detection",
+      "datamodel": [
+        "Endpoint",
+        "Network_Traffic"
+      ],
+      "description": "APEX detection for advisory intel--11f3d939c15d69eba10ccb5a. ATT&CK: T1190, T1059",
+      "search": "| comment \"Splunk Rule: CVE-2026-9453 - FoundDream miniclawd SkillsLoader skills-loa | intel--11f3d939c15d69eba10ccb5a\"\nindex=web sourcetype=access_combined earliest=-30d latest=now\n(\"<indicator>\")\n| eval hunt_id=\"intel--11f3d939c15d69eba10ccb5a\" | eval severity=\"critical\"\n| stats count AS hits, min(_time) AS first, max(_time) AS last,\n    dc(host) AS hosts BY CommandLine, host, sourcetype\n| where hits > 0 | sort - hits",
+      "how_to_implement": "Enable relevant Windows Event Logs and Sysmon. Configure APEX SIEM webhook for automated ingestion.",
+      "known_false_positives": "Security scanning tools, administrative scripts in privileged contexts.",
+      "references": [
+        "https://intel.cyberdudebivash.com/reports/intel--11f3d939c15d69eba10ccb5a"
+      ],
+      "tags": {
+        "analytic_story": [
+          "APEX Intelligence",
+          "CYBERDUDEBIVASH Detections"
+        ],
+        "asset_type": "Endpoint",
+        "confidence": 75,
+        "impact": 80,
+        "message": "APEX alert: CVE-2026-9453 - FoundDream miniclawd SkillsLoader skills-loader.ts which command on $dest$",
+        "mitre_attack_id": [
+          "T1190",
+          "T1059"
+        ],
+        "observable": [
+          {
+            "name": "dest",
+            "type": "Hostname",
+            "role": [
+              "Victim"
+            ]
+          },
+          {
+            "name": "user",
+            "type": "User",
+            "role": [
+              "Victim"
+            ]
+          }
+        ],
+        "product": [
+          "CYBERDUDEBIVASH SENTINEL APEX"
+        ],
+        "required_fields": [
+          "_time",
+          "process_name",
+          "CommandLine",
+          "dest",
+          "user"
+        ],
+        "risk_score": 72,
+        "security_domain": "endpoint",
+        "severity": "medium"
+      }
+    }
+  ]
+}
