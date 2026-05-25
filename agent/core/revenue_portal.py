@@ -54,8 +54,9 @@ class SovereignRevenueDashboard:
             # Flag "Money Gaps": High exploit risk but low market visibility
             demand_matrix.append({
                 "cve_id": item.get("id"),
-                "market_demand_pct": f"{epss * 100:.2f}%",
-                "priority_level": "SOVEREIGN" if epss > 0.8 else "STABLE",
+                # FIX: epss_score stored as 0–100 percent — do NOT ×100 again
+                "market_demand_pct": f"{epss:.2f}%",
+                "priority_level": "SOVEREIGN" if epss > 80.0 else "STABLE",
                 "remediation_status": "READY" if item.get("kev_present") else "AUDIT_REQUIRED"
             })
 

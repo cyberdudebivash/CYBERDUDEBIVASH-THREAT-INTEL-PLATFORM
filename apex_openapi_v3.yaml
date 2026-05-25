@@ -1,0 +1,1073 @@
+openapi: "3.1.0"
+info:
+  title: "CYBERDUDEBIVASH SENTINEL APEX — Threat Intelligence API"
+  description: |
+    ## SENTINEL APEX Intelligence API v2.0
+
+    Production-grade threat intelligence REST API delivering:
+    - Real-time CVE and threat advisory feeds
+    - STIX 2.1 bundles
+    - MITRE ATT&CK mapped indicators
+    - Sigma / YARA / KQL detection rule packs
+    - SIEM webhook push (Enterprise / MSSP)
+    - AI-driven threat predictions (Pro+)
+
+    ### Tier Access Model
+    | Tier    | Rate Limit   | Price    | Key Features |
+    |---------|-------------|----------|-------------|
+    | Free    | 60 req/min  | $0       | Feed preview, ATT&CK mapping |
+    | Pro     | 500 req/min | $49/mo   | Full IOCs, STIX 2.1, Sigma, YARA |
+    | Enterprise | 2000 req/min | $499/mo | SIEM push, multi-tenant, SLA |
+    | MSSP    | 5000 req/min | $1999/mo | White-label, tenant management API |
+
+    ### Authentication
+    All endpoints require JWT Bearer token.
+    Obtain via `POST /auth/login`.
+
+    ### Base URL
+    `https://intel.cyberdudebivash.com`
+
+  version: "2.0.0"
+  contact:
+    name: "CYBERDUDEBIVASH Enterprise Support"
+    email: "bivash@cyberdudebivash.com"
+    url: "https://intel.cyberdudebivash.com"
+  license:
+    name: "Commercial — All Rights Reserved"
+    url: "https://cyberdudebivash.in/terms"
+
+servers:
+  - url: "https://intel.cyberdudebivash.com"
+    description: "Production"
+  - url: "https://staging-intel.cyberdudebivash.com"
+    description: "Staging / Integration Testing"
+
+tags:
+  - name: "Authentication"
+    description: "JWT token management"
+  - name: "Feed"
+    description: "Threat intelligence advisory feed"
+  - name: "Intelligence"
+    description: "Individual advisory detail and enrichment"
+  - name: "IOC"
+    description: "Indicators of Compromise"
+  - name: "STIX"
+    description: "STIX 2.1 bundle export (Pro+)"
+  - name: "Detection"
+    description: "Sigma, YARA, KQL, SPL rule packs (Pro+)"
+  - name: "Prediction"
+    description: "AI threat prediction engine (Pro+)"
+  - name: "SIEM"
+    description: "SIEM webhook push configuration (Enterprise+)"
+  - name: "Tenants"
+    description: "Multi-tenant management (MSSP)"
+  - name: "Billing"
+    description: "Usage metering and subscription management"
+
+# ============================================================
+# SECURITY SCHEMES
+# ============================================================
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: "JWT obtained from POST /auth/login. 30-day lifetime."
+    ApiKeyHeader:
+      type: apiKey
+      in: header
+      name: X-APEX-API-Key
+      description: "API key as alternative to JWT for server-to-server integrations."
+
+  schemas:
+
+    # -------------------------------------------------------
+    # Auth
+    # -------------------------------------------------------
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+          example: "analyst@org.com"
+        password:
+          type: string
+          format: password
+          minLength: 8
+
+    TokenResponse:
+      type: object
+      properties:
+        access_token:
+          type: string
+          description: "JWT. Valid for 30 days."
+        token_type:
+          type: string
+          default: "bearer"
+        expires_in:
+          type: integer
+          description: "Seconds until expiry"
+          example: 2592000
+        tier:
+          type: string
+          enum: [free, pro, enterprise, mssp]
+        rate_limit_per_minute:
+          type: integer
+          example: 500
+
+    # -------------------------------------------------------
+    # Core Intel object
+    # -------------------------------------------------------
+    IntelSummary:
+      type: object
+      description: "Lightweight advisory summary (Free tier)"
+      required: [id, title, severity, risk_score, threat_type, published_at, stix_id]
+      properties:
+        id:
+          type: string
+          example: "intel--31b5f76f8ff66eac3d08e9eb"
+        title:
+          type: string
+          example: "CISA Warns of Drupal Core SQL Injection Vulnerability Exploited in Attacks"
+        severity:
+          type: string
+          enum: [CRITICAL, HIGH, MEDIUM, LOW, INFO]
+        risk_score:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 10
+          example: 3.16
+        threat_type:
+          type: string
+          enum: [Vulnerability, Malware, APT, Supply Chain, Threat Intel, Ransomware, Phishing]
+        published_at:
+          type: string
+          format: date-time
+        stix_id:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+          description: "MITRE ATT&CK technique IDs"
+          example: ["T1190", "T1059", "T1548"]
+        ioc_count:
+          type: integer
+          description: "Total validated IOC count (arrays gated by tier)"
+        cve_ids:
+          type: array
+          items:
+            type: string
+            pattern: "^CVE-\\d{4}-\\d{4,7}$"
+        kev_confirmed:
+          type: boolean
+          description: "True only if this CVE is confirmed in CISA KEV catalog"
+        epss_score:
+          type: number
+          format: float
+          minimum: 0.0
+          maximum: 1.0
+          description: "EPSS probability as 0.0–1.0 decimal. Display as percentage by multiplying ×100."
+          example: 0.6349
+        source:
+          type: string
+          example: "CyberSecurity News"
+        _tier:
+          type: string
+          enum: [free, pro, enterprise, mssp]
+
+    IntelDetail:
+      allOf:
+        - $ref: '#/components/schemas/IntelSummary'
+        - type: object
+          description: "Full advisory with IOCs, TTPs, detection pack (Pro+)"
+          properties:
+            tlp:
+              type: string
+              enum: [TLP:WHITE, TLP:GREEN, TLP:AMBER, TLP:RED]
+            cvss_score:
+              type: number
+              format: float
+              nullable: true
+            cvss_vector:
+              type: string
+              nullable: true
+            executive_summary:
+              type: string
+            technical_analysis:
+              type: string
+            iocs:
+              type: array
+              items:
+                $ref: '#/components/schemas/IOCEntry'
+              description: "Validated IOCs — Pro+ tier only"
+            ttps:
+              type: array
+              items:
+                $ref: '#/components/schemas/TTPEntry'
+            kill_chain:
+              type: array
+              items:
+                $ref: '#/components/schemas/KillChainPhase'
+            actor_profile:
+              $ref: '#/components/schemas/ActorProfile'
+              nullable: true
+            campaign_intel:
+              $ref: '#/components/schemas/CampaignIntel'
+              nullable: true
+            detection_pack:
+              $ref: '#/components/schemas/DetectionPack'
+              nullable: true
+            financial_impact:
+              $ref: '#/components/schemas/FinancialImpact'
+            ai_insight:
+              $ref: '#/components/schemas/AIInsight'
+              nullable: true
+            regulatory_impact:
+              type: array
+              items:
+                $ref: '#/components/schemas/RegulatoryImpact'
+
+    # -------------------------------------------------------
+    # IOC Entry — strictly typed and validated
+    # -------------------------------------------------------
+    IOCEntry:
+      type: object
+      required: [type, value, confidence]
+      properties:
+        type:
+          type: string
+          enum: [ip, domain, url, md5, sha1, sha256, sha512, email, registry, cve]
+          description: |
+            IOC classification. Note: 'cve' entries are metadata, not network indicators.
+            'domain' entries are validated threat-actor infrastructure — NOT news source domains.
+        value:
+          type: string
+          description: "Canonical indicator value. Domains are refanged. IPs exclude RFC1918."
+          example: "45.153.204.118"
+        confidence:
+          type: integer
+          minimum: 0
+          maximum: 100
+          description: "Confidence in this indicator (0=noise, 100=confirmed)"
+        context:
+          type: string
+          description: "Human-readable context for this IOC"
+          example: "C2 server observed in Drupal exploitation campaign"
+        source:
+          type: string
+          description: "Intelligence source for this specific indicator"
+        soc_action:
+          type: string
+          enum: [block, monitor, hunt, enrich]
+          description: "Recommended SOC action"
+        stix_indicator:
+          type: object
+          description: "STIX 2.1 indicator object (Pro+ only)"
+
+    # -------------------------------------------------------
+    # TTP Entry
+    # -------------------------------------------------------
+    TTPEntry:
+      type: object
+      properties:
+        technique_id:
+          type: string
+          pattern: "^T\\d{4}(\\.\\d{3})?$"
+          example: "T1190"
+        technique_name:
+          type: string
+          example: "Exploit Public-Facing Application"
+        tactic:
+          type: string
+          example: "Initial Access"
+        confidence:
+          type: string
+          enum: [LOW, MEDIUM, HIGH]
+        evidence:
+          type: string
+
+    # -------------------------------------------------------
+    # Detection Pack
+    # -------------------------------------------------------
+    DetectionPack:
+      type: object
+      description: "Production-grade detection rules (Pro+ only)"
+      properties:
+        sigma_rule:
+          type: string
+          description: "Sigma rule YAML — syntactically validated, ATT&CK tagged"
+        yara_rule:
+          type: string
+          description: "YARA rule — IOC strings are threat-actor infrastructure only (not news URLs)"
+        kql_hunt:
+          type: string
+          description: "Microsoft Sentinel / Defender XDR KQL retro-hunt query"
+        spl_search:
+          type: string
+          description: "Splunk ES correlation search"
+        eql_query:
+          type: string
+          nullable: true
+          description: "Elastic EQL query (Enterprise+)"
+        navigator_layer:
+          type: string
+          nullable: true
+          description: "MITRE ATT&CK Navigator JSON layer (Enterprise+)"
+        rule_quality_score:
+          type: integer
+          minimum: 0
+          maximum: 100
+          description: "Internal quality score: 100=production-validated, <70=experimental"
+
+    # -------------------------------------------------------
+    # AI Insight
+    # -------------------------------------------------------
+    AIInsight:
+      type: object
+      properties:
+        predictive_risk_14d:
+          type: number
+          format: float
+          description: "Predicted risk score in 14 days"
+        escalation_forecast:
+          type: string
+          enum: [IMMINENT, HIGH, MEDIUM, LOW]
+        confidence:
+          type: number
+          format: float
+          minimum: 0.0
+          maximum: 1.0
+        sector_risk_forecast:
+          type: array
+          items:
+            type: object
+            properties:
+              sector:
+                type: string
+              risk_level:
+                type: string
+                enum: [CRITICAL, HIGH, MEDIUM, LOW]
+        model_version:
+          type: string
+          example: "SENTINEL-AI v2"
+
+    # -------------------------------------------------------
+    # Financial Impact
+    # -------------------------------------------------------
+    FinancialImpact:
+      type: object
+      properties:
+        loss_range_optimistic:
+          type: integer
+          description: "USD — rapid detection, full recovery"
+        loss_range_likely:
+          type: integer
+          description: "USD — partial breach, regulatory notification"
+        loss_range_severe:
+          type: integer
+          description: "USD — full compromise, regulatory fines"
+        methodology:
+          type: string
+          example: "FAIR ISO/IEC 27005 · NIST SP 800-30 · IBM CODB 2025"
+
+    # -------------------------------------------------------
+    # Actor Profile
+    # -------------------------------------------------------
+    ActorProfile:
+      type: object
+      properties:
+        tracking_id:
+          type: string
+          example: "CDB-UNATTR-SQL_INJE"
+        name:
+          type: string
+        actor_type:
+          type: string
+        sophistication:
+          type: string
+          enum: [LOW, LOW_MEDIUM, MEDIUM, HIGH, NATION_STATE]
+        motivation:
+          type: string
+        targeting_profile:
+          type: string
+        attribution_confidence:
+          type: integer
+          minimum: 0
+          maximum: 100
+
+    CampaignIntel:
+      type: object
+      properties:
+        operation_name:
+          type: string
+        ttp_count:
+          type: integer
+        ioc_density:
+          type: integer
+        escalation_probability_14d:
+          type: number
+          format: float
+          minimum: 0.0
+          maximum: 1.0
+
+    KillChainPhase:
+      type: object
+      properties:
+        phase:
+          type: integer
+          minimum: 1
+          maximum: 7
+        name:
+          type: string
+        description:
+          type: string
+
+    RegulatoryImpact:
+      type: object
+      properties:
+        framework:
+          type: string
+          example: "GDPR"
+        applies:
+          type: boolean
+        notification_window:
+          type: string
+          example: "72 hours to supervisory authority"
+        max_penalty:
+          type: string
+          example: "Up to €20M or 4% global turnover"
+
+    # -------------------------------------------------------
+    # Feed response wrappers
+    # -------------------------------------------------------
+    FeedResponse:
+      type: object
+      properties:
+        schema_version:
+          type: string
+          example: "2.0"
+        generated_at:
+          type: string
+          format: date-time
+        count:
+          type: integer
+        total_available:
+          type: integer
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/IntelSummary'
+        _tier:
+          type: string
+          enum: [free, pro, enterprise, mssp]
+        _next_page:
+          type: string
+          nullable: true
+
+    STIXBundleResponse:
+      type: object
+      properties:
+        type:
+          type: string
+          default: "bundle"
+        id:
+          type: string
+        spec_version:
+          type: string
+          default: "2.1"
+        objects:
+          type: array
+          items:
+            type: object
+
+    # -------------------------------------------------------
+    # Error
+    # -------------------------------------------------------
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+        message:
+          type: string
+        status_code:
+          type: integer
+        upgrade_url:
+          type: string
+          nullable: true
+          description: "Set when error is due to tier restriction"
+
+    # -------------------------------------------------------
+    # Webhook
+    # -------------------------------------------------------
+    WebhookConfig:
+      type: object
+      required: [url, events]
+      properties:
+        id:
+          type: string
+          readOnly: true
+        url:
+          type: string
+          format: uri
+          example: "https://yoursiem.org/webhook/apex"
+        events:
+          type: array
+          items:
+            type: string
+            enum: [advisory.critical, advisory.high, advisory.medium, advisory.any, kev.confirmed, cve.new]
+        secret:
+          type: string
+          description: "HMAC-SHA256 signing secret for payload verification"
+          writeOnly: true
+        format:
+          type: string
+          enum: [json, stix21, splunk_hec, sentinel_cef, qradar_leef, syslog_cef]
+          default: "json"
+        enabled:
+          type: boolean
+          default: true
+        filter_severity:
+          type: array
+          items:
+            type: string
+            enum: [CRITICAL, HIGH, MEDIUM, LOW]
+
+    # -------------------------------------------------------
+    # Usage / Billing
+    # -------------------------------------------------------
+    UsageMetrics:
+      type: object
+      properties:
+        period_start:
+          type: string
+          format: date
+        period_end:
+          type: string
+          format: date
+        api_calls:
+          type: integer
+        stix_exports:
+          type: integer
+        detection_downloads:
+          type: integer
+        webhooks_delivered:
+          type: integer
+        tier:
+          type: string
+        quota_remaining:
+          type: integer
+          nullable: true
+
+security:
+  - BearerAuth: []
+  - ApiKeyHeader: []
+
+# ============================================================
+# PATHS
+# ============================================================
+paths:
+
+  # Auth
+  /auth/login:
+    post:
+      tags: [Authentication]
+      summary: "Obtain JWT token"
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        "200":
+          description: "Authentication successful"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenResponse'
+        "401":
+          description: "Invalid credentials"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /auth/refresh:
+    post:
+      tags: [Authentication]
+      summary: "Refresh JWT token"
+      responses:
+        "200":
+          description: "New token issued"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenResponse'
+
+  # Feed
+  /api/feed:
+    get:
+      tags: [Feed]
+      summary: "Latest threat intelligence feed"
+      description: |
+        Returns the latest threat advisories. Free tier returns last 20.
+        Pro+ returns paginated full feed with IOC arrays populated.
+      parameters:
+        - name: severity
+          in: query
+          schema:
+            type: string
+            enum: [critical, high, medium, low, all]
+          example: "high"
+        - name: threat_type
+          in: query
+          schema:
+            type: string
+            enum: [Vulnerability, Malware, APT, Supply Chain, Ransomware]
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+        - name: from_date
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: kev_only
+          in: query
+          schema:
+            type: boolean
+          description: "Filter to CISA KEV confirmed entries only"
+        - name: min_epss
+          in: query
+          schema:
+            type: number
+            format: float
+            minimum: 0.0
+            maximum: 1.0
+          description: "Minimum EPSS score (0.0–1.0). Example: 0.5 for 50%+"
+      responses:
+        "200":
+          description: "Feed response"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FeedResponse'
+        "429":
+          description: "Rate limit exceeded"
+          headers:
+            X-RateLimit-Limit:
+              schema:
+                type: integer
+            X-RateLimit-Remaining:
+              schema:
+                type: integer
+            X-RateLimit-Reset:
+              schema:
+                type: integer
+
+  /api/intel/{id}:
+    get:
+      tags: [Intelligence]
+      summary: "Full advisory detail"
+      description: |
+        Returns full 20-section tactical dossier. IOC arrays, detection pack,
+        and AI insight gated by tier.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          example: "intel--31b5f76f8ff66eac3d08e9eb"
+      responses:
+        "200":
+          description: "Advisory detail"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IntelDetail'
+        "403":
+          description: "Tier restriction"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: "TIER_RESTRICTION"
+                message: "Full IOC arrays require Pro subscription"
+                status_code: 403
+                upgrade_url: "/upgrade?plan=pro"
+        "404":
+          description: "Advisory not found"
+
+  # IOCs
+  /api/iocs:
+    get:
+      tags: [IOC]
+      summary: "Bulk IOC export (Pro+)"
+      description: |
+        Export validated IOCs across all advisories. Returns only real threat
+        indicators (IPs, domains, hashes) — never source URLs or JavaScript properties.
+      parameters:
+        - name: type
+          in: query
+          schema:
+            type: string
+            enum: [ip, domain, url, md5, sha1, sha256, all]
+          default: "all"
+        - name: from_date
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: format
+          in: query
+          schema:
+            type: string
+            enum: [json, csv, stix21, misp]
+          default: "json"
+        - name: min_confidence
+          in: query
+          schema:
+            type: integer
+            minimum: 0
+            maximum: 100
+          default: 50
+      responses:
+        "200":
+          description: "IOC list"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  count:
+                    type: integer
+                  iocs:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/IOCEntry'
+
+  /api/iocs/lookup:
+    get:
+      tags: [IOC]
+      summary: "Look up a single indicator"
+      parameters:
+        - name: value
+          in: query
+          required: true
+          schema:
+            type: string
+          description: "IP, domain, hash, or CVE ID to look up"
+      responses:
+        "200":
+          description: "Lookup result"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  matched:
+                    type: boolean
+                  ioc:
+                    $ref: '#/components/schemas/IOCEntry'
+                    nullable: true
+                  advisories:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/IntelSummary'
+
+  # STIX
+  /api/stix/bundle:
+    get:
+      tags: [STIX]
+      summary: "Export STIX 2.1 bundle (Pro+)"
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            maximum: 500
+            default: 50
+        - name: from_date
+          in: query
+          schema:
+            type: string
+            format: date-time
+      responses:
+        "200":
+          description: "STIX 2.1 bundle"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/STIXBundleResponse'
+
+  /api/stix/{id}:
+    get:
+      tags: [STIX]
+      summary: "STIX bundle for single advisory (Pro+)"
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: "STIX 2.1 bundle for this advisory"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/STIXBundleResponse'
+
+  # Detection rules
+  /api/detection/sigma:
+    get:
+      tags: [Detection]
+      summary: "Sigma rule pack export (Pro+)"
+      parameters:
+        - name: intel_id
+          in: query
+          schema:
+            type: string
+        - name: vuln_class
+          in: query
+          schema:
+            type: string
+            enum: [sqli, rce, supply_chain, cmd_inject, xss, generic]
+      responses:
+        "200":
+          description: "Sigma rules YAML"
+          content:
+            text/plain:
+              schema:
+                type: string
+            application/json:
+              schema:
+                type: object
+                properties:
+                  rules:
+                    type: array
+                    items:
+                      type: string
+
+  /api/detection/yara:
+    get:
+      tags: [Detection]
+      summary: "YARA rule pack export (Pro+)"
+      responses:
+        "200":
+          description: "YARA rules"
+          content:
+            text/plain:
+              schema:
+                type: string
+
+  /api/detection/kql:
+    get:
+      tags: [Detection]
+      summary: "KQL hunt queries — Sentinel / Defender XDR (Pro+)"
+      responses:
+        "200":
+          description: "KQL queries"
+          content:
+            text/plain:
+              schema:
+                type: string
+
+  # Predictions
+  /api/predict:
+    get:
+      tags: [Prediction]
+      summary: "AI threat prediction forecast (Pro+)"
+      description: |
+        ML-powered 30-day threat forecasting using Gradient Boosting,
+        Isolation Forest, and DBSCAN clustering.
+      parameters:
+        - name: sector
+          in: query
+          schema:
+            type: string
+          example: "financial_services"
+        - name: horizon_days
+          in: query
+          schema:
+            type: integer
+            minimum: 7
+            maximum: 90
+            default: 30
+      responses:
+        "200":
+          description: "Prediction response"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AIInsight'
+
+  # SIEM Webhooks (Enterprise+)
+  /api/webhooks:
+    get:
+      tags: [SIEM]
+      summary: "List webhook configurations (Enterprise+)"
+      responses:
+        "200":
+          description: "Webhook configs"
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/WebhookConfig'
+    post:
+      tags: [SIEM]
+      summary: "Create webhook subscription (Enterprise+)"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WebhookConfig'
+      responses:
+        "201":
+          description: "Webhook created"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WebhookConfig'
+
+  /api/webhooks/{id}:
+    put:
+      tags: [SIEM]
+      summary: "Update webhook (Enterprise+)"
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WebhookConfig'
+      responses:
+        "200":
+          description: "Webhook updated"
+    delete:
+      tags: [SIEM]
+      summary: "Delete webhook (Enterprise+)"
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: "Deleted"
+
+  # Billing / Usage
+  /api/usage:
+    get:
+      tags: [Billing]
+      summary: "API usage metrics for current period"
+      responses:
+        "200":
+          description: "Usage metrics"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UsageMetrics'
+
+  # Tenant Management (MSSP)
+  /api/tenants:
+    get:
+      tags: [Tenants]
+      summary: "List managed tenants (MSSP only)"
+      responses:
+        "200":
+          description: "Tenant list"
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id:
+                      type: string
+                    name:
+                      type: string
+                    tier:
+                      type: string
+                    api_keys:
+                      type: integer
+                    created_at:
+                      type: string
+                      format: date-time
+    post:
+      tags: [Tenants]
+      summary: "Provision new tenant (MSSP only)"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, tier]
+              properties:
+                name:
+                  type: string
+                tier:
+                  type: string
+                  enum: [pro, enterprise]
+                white_label:
+                  type: boolean
+                  default: false
+      responses:
+        "201":
+          description: "Tenant created"
+
+  /api/health:
+    get:
+      tags: [Feed]
+      summary: "Platform health check"
+      security: []
+      responses:
+        "200":
+          description: "Platform status"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "healthy"
+                  version:
+                    type: string
+                    example: "v2.0.0"
+                  uptime_seconds:
+                    type: integer
+                  feeds_active:
+                    type: integer
+                  last_sync:
+                    type: string
+                    format: date-time

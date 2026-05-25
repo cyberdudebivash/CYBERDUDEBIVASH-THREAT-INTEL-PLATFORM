@@ -501,7 +501,7 @@ class D7_HistoricalSimilarityScorer:
         rationale = (
             f"Historical Similarity: {len(matches)} high-risk pattern match(es) "
             f"({', '.join(matches[:3])}{'...' if len(matches) > 3 else ''}). "
-            f"CVSS {cvss}, EPSS {round(epss * 100, 1)}%. "
+            f"CVSS {cvss}, EPSS {round(epss, 1)}%. "  # FIX: epss already 0–100 percent
             f"Score: {weighted:.1f}/{DIM_WEIGHTS['D7_historical_sim']:.0f} pts."
         )
 

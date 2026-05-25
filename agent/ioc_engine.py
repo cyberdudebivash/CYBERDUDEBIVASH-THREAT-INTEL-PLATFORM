@@ -119,7 +119,9 @@ _DOMAIN_BLOCKLIST = frozenset({
     "virustotal.com", "shodan.io", "censys.io",
     "w3.org", "schema.org", "openssl.org",
     "x.com", "twitter.com", "facebook.com", "linkedin.com",
-    "cyberdudebivash.com",  # own brand domain - not a threat IOC
+    # Own infrastructure — never a threat IOC
+    "cyberdudebivash.com", "cyberdudebivash.in", "intel.cyberdudebivash.com",
+    "blog.cyberdudebivash.in", "cyberbivash.blogspot.com",
     # ── Threat intel SOURCE domains (news feeds / vendor blogs) ──────────────
     # These are intelligence PUBLISHERS — never C2 infrastructure.
     # Extracting them as IOCs pollutes feeds with false positives.
@@ -141,7 +143,22 @@ _DOMAIN_BLOCKLIST = frozenset({
     "otx.alienvault.com", "alienvault.com",
     "microsoft.com", "msrc.microsoft.com", "security.googleblog.com",
     "blog.google", "research.google",
+    "cybersecuritynews.com", "hackread.com", "securityonline.info",
+    "gbhackers.com", "govinfosecurity.com",
 })
+
+# ── MITRE ATT&CK tag and JS property pseudo-domain filter ────────────────────
+# STIX/JSON feeds embed MITRE T-codes (attack.execution, attack.discovery) and
+# JavaScript property names (document.cookie, tools.installer) in tag fields.
+# The domain regex matches these as fake domain IOCs — this pattern rejects them.
+_MITRE_TAG_PREFIX_RE = re.compile(
+    r'^(?:attack|defense|exfiltration|impact|initial_access|lateral_movement'
+    r'|collection|command_and_control|credential_access|discovery|execution'
+    r'|persistence|privilege_escalation|reconnaissance|resource_development'
+    r'|document|tools|window|navigator|location|history|screen|console)\.'
+    r'[a-zA-Z_]',
+    re.IGNORECASE
+)
 
 # Domain TLD-only patterns to reject (single word .tld is not a domain)
 _DOMAIN_MIN_LABELS = 2
@@ -364,6 +381,10 @@ def _extract_domains(text: str, exclude_from_urls: Optional[List[str]] = None) -
             continue
         # Reject domains that look like version numbers (e.g. 1.2.3.4.5)
         if re.match(r"^[\d.]+$", dom_lower):
+            continue
+        # Reject MITRE ATT&CK tags and JS properties misidentified as domains
+        # e.g. attack.execution, document.cookie, tools.installer
+        if _MITRE_TAG_PREFIX_RE.match(dom_lower):
             continue
         result.append(dom_lower)
     return sorted(result)
