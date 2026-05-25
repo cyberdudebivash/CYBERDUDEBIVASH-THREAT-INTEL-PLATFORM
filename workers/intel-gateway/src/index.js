@@ -1,5 +1,5 @@
 // =============================================================================
-// CYBERDUDEBIVASH(R) SENTINEL APEX -- Edge Intelligence Gateway v143.0.0
+// CYBERDUDEBIVASH(R) SENTINEL APEX -- Edge Intelligence Gateway v163.0.0
 // GOD-MODE: Production-hardened, globally sellable SaaS cybersecurity platform
 // Hardened: 2026-05-03 (Dark Web Monitor - Premium Reports - API Key Manager)
 // R2-ONLY ARCHITECTURE -- Blogger dependency REMOVED
@@ -4981,6 +4981,376 @@ async function handleOnboarding(request, env, rid) {
   });
 }
 
+// =============================================================================
+// v163.0: handleOpenAPI -- PUBLIC machine-readable OpenAPI 3.1.0 specification
+// GET /api/openapi
+// Returns the full SENTINEL APEX API specification as an OpenAPI 3.1.0 document.
+// No auth required — enables developer tools, SDK auto-generation, and Swagger UI.
+// =============================================================================
+function handleOpenAPI(request, env, rid) {
+  const BASE = "https://intel.cyberdudebivash.com";
+  const spec = {
+    openapi: "3.1.0",
+    info: {
+      title:       "CYBERDUDEBIVASH® SENTINEL APEX — Threat Intelligence API",
+      description: "AI-powered global cyber threat intelligence platform. " +
+                   "Real-time CVE feeds, STIX 2.1 bundles, MITRE ATT&CK mapping, " +
+                   "actor attribution, KEV tracking, and EPSS scoring.",
+      version:     CONFIG.GATEWAY_VERSION,
+      contact: {
+        name:  "CYBERDUDEBIVASH Support",
+        email: "iambivash.bn@gmail.com",
+        url:   "https://intel.cyberdudebivash.com/api-docs.html",
+      },
+      license: { name: "Proprietary", url: BASE + "/terms.html" },
+      "x-platform":  "SENTINEL-APEX",
+      "x-generated":  new Date().toISOString(),
+    },
+    servers: [{ url: BASE, description: "Production — Cloudflare Edge" }],
+    security: [{ ApiKeyAuth: [] }, { BearerAuth: [] }],
+    tags: [
+      { name: "Feed",     description: "Threat intelligence feed endpoints" },
+      { name: "Health",   description: "Platform health, SLA, and version" },
+      { name: "Reports",  description: "Individual intel report endpoints" },
+      { name: "Auth",     description: "Authentication and API key management" },
+      { name: "STIX",     description: "STIX 2.1 bundle endpoints" },
+      { name: "Search",   description: "Feed search and correlation" },
+      { name: "AI",       description: "AI-powered threat intelligence" },
+      { name: "Billing",  description: "Subscription, pricing, and tiers" },
+      { name: "Public",   description: "Unauthenticated endpoints" },
+    ],
+    paths: {
+      "/api/feed.json": {
+        get: {
+          tags: ["Feed"],
+          summary: "Production threat intelligence feed",
+          description: "Returns the enriched SENTINEL APEX threat feed (STIX-annotated, risk-scored, TLP-filtered).",
+          security: [],
+          responses: {
+            200: {
+              description: "Array of threat advisories",
+              content: { "application/json": { schema: { type: "array", items: { "$ref": "#/components/schemas/Advisory" } } } },
+            },
+          },
+        },
+      },
+      "/api/preview": {
+        get: {
+          tags: ["Feed"],
+          summary: "TLP:CLEAR public preview feed",
+          description: "Returns TLP:CLEAR advisories. No auth required for free tier; auth required for full access.",
+          parameters: [
+            { name: "limit", in: "query", schema: { type: "integer", default: 10, maximum: 100 } },
+            { name: "min_risk", in: "query", schema: { type: "number", default: 0 } },
+          ],
+          responses: {
+            200: { description: "Preview feed response" },
+          },
+        },
+      },
+      "/api/apex_v2/priority.json": {
+        get: {
+          tags: ["Feed"],
+          summary: "Apex V2 priority feed (risk ≥ 4.0)",
+          description: "High-priority advisories pre-filtered for dashboards and alerting. No auth required.",
+          security: [],
+          responses: { 200: { description: "Priority advisory array" } },
+        },
+      },
+      "/api/apex_v2/critical.json": {
+        get: {
+          tags: ["Feed"],
+          summary: "Apex V2 critical feed (risk ≥ 7.0)",
+          description: "Critical-severity advisories for SOC triage. No auth required.",
+          security: [],
+          responses: { 200: { description: "Critical advisory array" } },
+        },
+      },
+      "/api/advisories": {
+        get: {
+          tags: ["Feed"],
+          summary: "Public CTI advisory list (TLP:CLEAR)",
+          description: "Alias of /api/preview filtered to TLP:CLEAR entries. No auth required.",
+          security: [],
+          responses: { 200: { description: "Advisory list" } },
+        },
+      },
+      "/api/health": {
+        get: {
+          tags: ["Health"],
+          summary: "Platform health check",
+          description: "Returns feed count, R2 connectivity, KV latency, and pipeline sync status.",
+          security: [],
+          responses: {
+            200: { description: "Health OK" },
+            503: { description: "Degraded / partial outage" },
+          },
+        },
+      },
+      "/api/sla/status": {
+        get: {
+          tags: ["Health"],
+          summary: "SLA and uptime status",
+          description: "Public SLA status page data including uptime, last sync, and incident history.",
+          security: [],
+          responses: { 200: { description: "SLA status payload" } },
+        },
+      },
+      "/api/version": {
+        get: {
+          tags: ["Health"],
+          summary: "Gateway version",
+          description: "Returns the current SENTINEL APEX gateway version string.",
+          security: [],
+          responses: { 200: { description: "Version info" } },
+        },
+      },
+      "/api/onboarding": {
+        get: {
+          tags: ["Public"],
+          summary: "Customer onboarding quick-start",
+          description: "Step-by-step integration guide, auth flow, endpoint reference, and tier info.",
+          security: [],
+          responses: { 200: { description: "Onboarding guide" } },
+        },
+      },
+      "/api/openapi": {
+        get: {
+          tags: ["Public"],
+          summary: "This OpenAPI specification",
+          description: "Machine-readable OpenAPI 3.1.0 document for SENTINEL APEX.",
+          security: [],
+          responses: { 200: { description: "OpenAPI 3.1.0 spec" } },
+        },
+      },
+      "/api/platform/stats": {
+        get: {
+          tags: ["Public"],
+          summary: "Live platform statistics",
+          description: "Real-time advisory counts, ingestion rate, top actors, and scoring distribution.",
+          security: [],
+          responses: { 200: { description: "Stats payload" } },
+        },
+      },
+      "/api/subscription/tiers": {
+        get: {
+          tags: ["Billing"],
+          summary: "Subscription tier definitions",
+          description: "Returns Free, Pro, Enterprise, MSSP tier features and rate limits.",
+          security: [],
+          responses: { 200: { description: "Tier definitions" } },
+        },
+      },
+      "/api/pricing": {
+        get: {
+          tags: ["Billing"],
+          summary: "Pricing page data",
+          description: "Current pricing in USD and INR for all subscription tiers.",
+          security: [],
+          responses: { 200: { description: "Pricing payload" } },
+        },
+      },
+      "/api/auth/register": {
+        post: {
+          tags: ["Auth"],
+          summary: "Register a new account",
+          description: "Creates a new user account. Returns an auth token.",
+          security: [],
+          requestBody: {
+            required: true,
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  required: ["email", "password"],
+                  properties: {
+                    email:    { type: "string", format: "email" },
+                    password: { type: "string", minLength: 8 },
+                  },
+                },
+              },
+            },
+          },
+          responses: {
+            201: { description: "Account created; token returned" },
+            409: { description: "Email already registered" },
+          },
+        },
+      },
+      "/api/auth/login": {
+        post: {
+          tags: ["Auth"],
+          summary: "Authenticate and obtain token",
+          security: [],
+          requestBody: {
+            required: true,
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  required: ["email", "password"],
+                  properties: {
+                    email:    { type: "string" },
+                    password: { type: "string" },
+                  },
+                },
+              },
+            },
+          },
+          responses: {
+            200: { description: "Bearer token returned" },
+            401: { description: "Invalid credentials" },
+          },
+        },
+      },
+      "/api/keys": {
+        get:  { tags: ["Auth"], summary: "List API keys",   description: "Returns all API keys for the authenticated user." },
+        post: { tags: ["Auth"], summary: "Create API key",  description: "Generates a new scoped API key for the authenticated user." },
+      },
+      "/api/keys/{keyId}": {
+        delete: {
+          tags: ["Auth"],
+          summary: "Revoke an API key",
+          parameters: [{ name: "keyId", in: "path", required: true, schema: { type: "string" } }],
+          responses: { 200: { description: "Key revoked" }, 404: { description: "Key not found" } },
+        },
+      },
+      "/api/search": {
+        get: {
+          tags: ["Search"],
+          summary: "Search threat advisories",
+          description: "Full-text and structured search across the advisory corpus.",
+          parameters: [
+            { name: "q",        in: "query", schema: { type: "string" } },
+            { name: "actor",    in: "query", schema: { type: "string" } },
+            { name: "cve",      in: "query", schema: { type: "string" } },
+            { name: "min_risk", in: "query", schema: { type: "number" } },
+            { name: "tlp",      in: "query", schema: { type: "string", enum: ["TLP:CLEAR","TLP:GREEN","TLP:AMBER","TLP:RED"] } },
+          ],
+          responses: { 200: { description: "Search results" } },
+        },
+      },
+      "/api/actors": {
+        get: {
+          tags: ["Search"],
+          summary: "Threat actor profiles",
+          responses: { 200: { description: "Actor list" } },
+        },
+      },
+      "/api/cves": {
+        get: {
+          tags: ["Search"],
+          summary: "CVE index",
+          description: "All tracked CVEs with CVSS, EPSS, and KEV status.",
+          responses: { 200: { description: "CVE index" } },
+        },
+      },
+      "/api/stix/{id}": {
+        get: {
+          tags: ["STIX"],
+          summary: "STIX 2.1 bundle for an advisory",
+          parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
+          responses: {
+            200: { description: "STIX 2.1 bundle (Pro/Enterprise)" },
+            402: { description: "Upgrade required" },
+          },
+        },
+      },
+      "/api/ai/predict": {
+        get: {
+          tags: ["AI"],
+          summary: "Predictive risk delta",
+          description: "AI-predicted risk trajectory and threat momentum scores.",
+          responses: { 200: { description: "Prediction payload" } },
+        },
+      },
+      "/api/ai/campaigns": {
+        get: {
+          tags: ["AI"],
+          summary: "Campaign cluster detection",
+          responses: { 200: { description: "Campaign clusters" } },
+        },
+      },
+      "/api/ai/anomalies": {
+        get: {
+          tags: ["AI"],
+          summary: "Anomaly detection",
+          responses: { 200: { description: "Anomaly report" } },
+        },
+      },
+      "/api/reports/{year}/{month}/{id}": {
+        get: {
+          tags: ["Reports"],
+          summary: "Individual threat intel report",
+          parameters: [
+            { name: "year",  in: "path", required: true, schema: { type: "string" } },
+            { name: "month", in: "path", required: true, schema: { type: "string" } },
+            { name: "id",    in: "path", required: true, schema: { type: "string" } },
+          ],
+          responses: {
+            200: { description: "Report JSON payload" },
+            404: { description: "Report not found" },
+          },
+        },
+      },
+    },
+    components: {
+      securitySchemes: {
+        ApiKeyAuth: {
+          type: "apiKey",
+          in:   "header",
+          name: "X-API-Key",
+          description: "API key obtained from /api/keys. Include in all authenticated requests.",
+        },
+        BearerAuth: {
+          type:         "http",
+          scheme:       "bearer",
+          bearerFormat: "JWT",
+          description:  "JWT token obtained from /api/auth/login.",
+        },
+      },
+      schemas: {
+        Advisory: {
+          type: "object",
+          properties: {
+            id:               { type: "string", description: "Unique advisory ID (intel--{hex})" },
+            title:            { type: "string" },
+            risk_score:       { type: "number", minimum: 0, maximum: 10 },
+            severity:         { type: "string", enum: ["LOW","MEDIUM","HIGH","CRITICAL"] },
+            tlp:              { type: "string", enum: ["TLP:CLEAR","TLP:GREEN","TLP:AMBER","TLP:RED"] },
+            confidence:       { type: "number" },
+            actor_tag:        { type: "string" },
+            cvss_score:       { type: ["number","null"] },
+            epss_score:       { type: ["number","null"] },
+            kev_present:      { type: "boolean" },
+            report_url:       { type: "string", format: "uri" },
+            source_url:       { type: "string", format: "uri" },
+            processed_at:     { type: "string", format: "date-time" },
+            tags:             { type: "array", items: { type: "string" } },
+            mitre_tactics:    { type: "array", items: { type: "object" } },
+            ioc_count:        { type: "integer" },
+            ioc_counts:       { type: "object" },
+            stix_bundle_url:  { type: "string", format: "uri" },
+          },
+        },
+      },
+    },
+    "x-gateway":    `${CONFIG.GATEWAY_NAME}/${CONFIG.GATEWAY_VERSION}`,
+    "x-request-id": rid,
+  };
+
+  const body = JSON.stringify(spec, null, 2);
+  return new Response(body, {
+    status: 200,
+    headers: {
+      "Content-Type":  "application/json; charset=utf-8",
+      "Cache-Control": "public, max-age=300",
+      "X-Gateway":     `${CONFIG.GATEWAY_NAME}/${CONFIG.GATEWAY_VERSION}`,
+      "Access-Control-Allow-Origin": "*",
+    },
+  });
+}
+
 // -----------------------------------------------------------------------------
 // =============================================================================
 // v162.6 P0-FIX: serveHtmlIntelReport -- defense-in-depth handler for HTML reports
@@ -5473,6 +5843,8 @@ export default {
     if (pathname === "/api/sla/status" && method === "GET") return withSec(handleSLAStatus(request, env, rid));
     // v162.8: /api/onboarding -- PUBLIC customer onboarding info + quick-start guide
     if (pathname === "/api/onboarding" && method === "GET") return withSec(handleOnboarding(request, env, rid));
+    // v163.0: /api/openapi -- PUBLIC machine-readable OpenAPI 3.1.0 spec (no auth, CDN-cacheable)
+    if (pathname === "/api/openapi" && (method === "GET" || method === "HEAD")) return withSec(handleOpenAPI(request, env, rid));
     // v161.3: Reports index files -- public (dashboard REPORTS tab, no auth required)
     // These 3 files are generated by build_reports_index.py (Stage 3.3.7) and
     // uploaded to R2 by r2_upload.py. The GitHub raw gh-pages branch is the fallback.

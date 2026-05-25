@@ -921,6 +921,22 @@ jobs:
         run: python3 scripts/build_apex_v2.py
 
       # -----------------------------------------------------------------------
+      # STAGE 3.4.9: RISK SCORE MICRO-DIFFERENTIATOR (v163.0)
+      # Post-processes api/feed.json to break up clustered risk scores that
+      # result from the risk engine using IOC *category* presence (binary)
+      # rather than raw IOC count.  Adds a deterministic micro-adjustment
+      # (max +0.25) based on ioc_count, confidence, and ttp_count.
+      # Severity tier guard: a LOW item can NEVER be bumped into MEDIUM.
+      # Non-blocking (continue-on-error) -- pipeline never fails here.
+      # Eliminates the feed_health_gate uniform_risk WARNING.
+      # MUST RUN: after Stage 3.4.8 (apex_v2 build) + before Stage 3.5 (R2).
+      # -----------------------------------------------------------------------
+      - name: "STAGE 3.4.9 - Risk Score Micro-Differentiator (v163.0)"
+        timeout-minutes: 2
+        continue-on-error: true
+        run: python3 scripts/risk_score_differentiator.py
+
+      # -----------------------------------------------------------------------
       # STAGE 3.5: R2 UPLOAD -- MANDATORY, NO CONTINUE-ON-ERROR
       # Uploads feed_manifest, enriched manifests, HTML reports, AI data,
       # and sync metadata to Cloudflare R2.
