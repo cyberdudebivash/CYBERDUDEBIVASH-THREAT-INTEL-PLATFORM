@@ -4689,8 +4689,8 @@ async function servePublicIntelManifest(pathname, env, rid) {
 // v162.7 MISSING ROUTES: apex_v2 + advisories + subscription + pricing + version
 // =============================================================================
 
-// GET /api/apex_v2/priority.json  -- Priority-tier advisories (CVSS ≥7 or KEV)
-// GET /api/apex_v2/critical.json  -- Critical-only advisories (CVSS ≥9 or ransomware)
+// GET /api/apex_v2/priority.json  -- Priority-tier advisories (CVSS ?7 or KEV)
+// GET /api/apex_v2/critical.json  -- Critical-only advisories (CVSS ?9 or ransomware)
 // Called by dashboard _fetchLiveIntel() as primary source before falling back to /api/feed.json
 async function handleApexV2(request, env, rid, severity) {
   const isCritical = severity === "critical";
@@ -4778,7 +4778,7 @@ async function handleApexV2(request, env, rid, severity) {
 // GET /api/advisories  -- Public advisory alias (maps to preview feed, TLP-CLEAR)
 // GET /api/v1/advisories -- Authenticated full advisory list
 async function handleAdvisoriesPublic(request, env, rid) {
-  // Delegate to preview handler which already handles R2 → KV → GH fallback
+  // Delegate to preview handler which already handles R2 -> KV -> GH fallback
   return handlePreview(request, env, rid);
 }
 
@@ -4919,8 +4919,8 @@ async function handleOnboarding(request, env, rid) {
   return jsonResponse({
     status:       "ok",
     request_id:   rid,
-    platform:     "CYBERDUDEBIVASH® SENTINEL APEX v161.3",
-    tagline:      "AI-Powered Global Threat Intelligence — Enterprise CTI API",
+    platform:     "CYBERDUDEBIVASH(R) SENTINEL APEX v161.3",
+    tagline:      "AI-Powered Global Threat Intelligence  -  Enterprise CTI API",
     onboarding: {
       step_1: {
         title:       "Create Your Account",
@@ -4937,7 +4937,7 @@ async function handleOnboarding(request, env, rid) {
       },
       step_3: {
         title:       "Fetch Live Threat Intelligence",
-        description: "Access real-time CTI feed — IOCs, CVEs, APT actors, KEV tracking.",
+        description: "Access real-time CTI feed  -  IOCs, CVEs, APT actors, KEV tracking.",
         endpoints: [
           { method: "GET", path: "/api/preview",            auth: "none",  desc: "Free 10-item preview feed" },
           { method: "GET", path: "/api/feed.json",          auth: "none",  desc: "Full advisory list" },
@@ -5843,8 +5843,8 @@ export default {
         "GET  /api/version              (public)",
         "GET  /api/keys/validate        (public)",
         "GET  /api/platform/stats       (public -- live dashboard metrics)",
-        "GET  /api/apex_v2/priority.json (public -- priority advisories CVSS≥7/KEV)",
-        "GET  /api/apex_v2/critical.json (public -- critical advisories CVSS≥9)",
+        "GET  /api/apex_v2/priority.json (public -- priority advisories CVSS?7/KEV)",
+        "GET  /api/apex_v2/critical.json (public -- critical advisories CVSS?9)",
         "GET  /api/advisories           (public -- advisory feed alias, TLP-CLEAR)",
         "GET  /api/subscription/tiers  (public -- subscription tier matrix)",
         "GET  /api/pricing             (public -- pricing SSOT endpoint)",
