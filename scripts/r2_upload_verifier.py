@@ -90,7 +90,7 @@ SYNC_META_PATHS = [
 ]
 
 MIN_FEED_BYTES     = 1_024          # Absolute minimum: 1 KB
-MIN_ADVISORY_COUNT = 10             # Hard floor on advisory count in R2
+MIN_ADVISORY_COUNT = 5              # Hard floor on advisory count in R2 (lowered from 10: dedup means legitimate runs can produce 5-9 net-new advisories)
 REQUEST_TIMEOUT    = 20             # seconds per HTTP check
 MAX_RETRIES        = 3              # retry transient S3/network errors
 RETRY_DELAY        = 4              # seconds between retries
