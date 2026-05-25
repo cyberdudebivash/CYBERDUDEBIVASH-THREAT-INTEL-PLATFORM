@@ -1,6 +1,6 @@
 # ============================================================================
 # CYBERDUDEBIVASH® SENTINEL APEX — Production Dockerfile
-# v47.0 ENTERPRISE HARDENING (additive over v11.0)
+# v47.1 CI DISK-SAFE BUILD (additive over v47.0)
 #
 # Changes (zero regression):
 #   - Multi-stage build: builder → runtime (removes build toolchain from image)
@@ -10,6 +10,19 @@
 #   - Deterministic pip install with --no-cache-dir --user
 #   - Data/export dirs created before USER switch
 #   - CMD switched to uvicorn (production ASGI) — CMD preserved as env override
+#
+# v47.1 FIX — CI/SBOM disk-space fix:
+#   torch==2.2.0 (PyPI) pulls ~3GB of NVIDIA CUDA libs (nvidia-cublas-cu12,
+#   libcublaslt.so.12, etc.) that exhaust GitHub Actions runner disk during
+#   Docker image export. Root cause: pip auto-resolves CUDA extras for torch
+#   on linux/amd64 even when no GPU is present.
+#
+#   ARG CPU_ONLY (default: false):
+#     false → production build — full torch with GPU/CUDA support (unchanged)
+#     true  → CI/SBOM build  — torch CPU-only wheel (~200MB vs ~3GB), no CUDA
+#
+#   CI workflow passes --build-arg CPU_ONLY=true. Production k8s/compose
+#   builds pass nothing (default=false) — zero regression to production.
 #
 # Rollback: git revert this file — original CMD ["python", "-m", "agent.sentinel_blogger"]
 #   available via SENTINEL_MODE=blogger env var override.
@@ -28,11 +41,34 @@ RUN apt-get update -qq && apt-get install -y --no-install-recommends \
     gcc \
     && rm -rf /var/lib/apt/lists/*
 
+# CPU_ONLY=true  → CI/SBOM builds: torch CPU-only (~200MB, no CUDA libs)
+# CPU_ONLY=false → Production builds: full torch with GPU support (default)
+# NOTE: ARG must be declared AFTER FROM to be in scope for RUN.
+ARG CPU_ONLY=false
+
 COPY requirements.txt .
 
-# Install to user site-packages (copied to runtime image)
+# Install to user site-packages (copied to runtime image).
+# When CPU_ONLY=true: sed replaces "torch==2.2.0" with "torch==2.2.0+cpu"
+# in a temp copy of requirements.txt, then installs from the PyTorch CPU
+# wheel index as the primary index (all other packages fall back to PyPI
+# via --extra-index-url). This eliminates the ~3GB NVIDIA CUDA dependency
+# chain that otherwise causes "no space left on device" in CI runners.
 RUN pip install --no-cache-dir --user --upgrade pip \
- && pip install --no-cache-dir --user -r requirements.txt
+ && if [ "$CPU_ONLY" = "true" ]; then \
+      echo "[BUILD] CPU_ONLY=true: installing torch CPU-only wheel (no CUDA)"; \
+      sed 's|^torch==|torch==2.2.0+cpu  # CPU_ONLY override: was torch==|' \
+          requirements.txt \
+        | sed 's|^torch==2\.2\.0+cpu  # CPU_ONLY override.*|torch==2.2.0+cpu|' \
+        > /tmp/req-cpu.txt; \
+      pip install --no-cache-dir --user \
+          --index-url https://download.pytorch.org/whl/cpu \
+          --extra-index-url https://pypi.org/simple \
+          -r /tmp/req-cpu.txt; \
+    else \
+      echo "[BUILD] CPU_ONLY=false: installing full requirements (GPU/CUDA enabled)"; \
+      pip install --no-cache-dir --user -r requirements.txt; \
+    fi
 
 
 # ── Stage 2: Production Runtime ───────────────────────────────────────────────
