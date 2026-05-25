@@ -341,6 +341,46 @@ jobs:
           exit 0
 
       # ─────────────────────────────────────────────────────────────────────
+      # STAGE 3.1.11 — DETECTION ENGINEERING CORE (v162.0)
+      # Full 10-stage detection pipeline: validate, suppress FPs, normalize multi-SIEM,
+      # generate retro-hunt packs, map telemetry deps, benchmark quality, analyze gaps,
+      # and package enterprise deployment bundles.
+      # Outputs: api/detections/*.json + data/audit/detection_*.json
+      # Non-blocking (continue-on-error) — zero-failure architecture.
+      # ─────────────────────────────────────────────────────────────────────
+      - name: "STAGE 3.1.11 - Detection Engineering Core (v162.0)"
+        timeout-minutes: 15
+        continue-on-error: true
+        env:
+          FEED_PATH: "api/feed.json"
+        run: |
+          set +e
+          STEP_START=$(date +%s%3N)
+          echo "::group::Detection Engineering Core (v162.0)"
+          echo "[DET-ENG] Starting Detection Engineering Core..."
+          echo "[DET-ENG] Feed: ${FEED_PATH}"
+
+          python3 scripts/stage_3_1_11_detection_engineering_core.py
+          DET_EXIT=$?
+
+          STEP_END=$(date +%s%3N)
+          echo "STEP_TIMING_DET_ENG_MS=$((STEP_END - STEP_START))" >> "$GITHUB_ENV"
+          echo "[DET-ENG] Detection Engineering Core: $((STEP_END - STEP_START))ms | exit=${DET_EXIT}"
+
+          if [ "$DET_EXIT" -ne 0 ]; then
+            echo "::warning::Detection Engineering Core exited ${DET_EXIT} -- non-fatal, pipeline continues"
+            echo "[DET-ENG] Check scripts/stage_3_1_11_detection_engineering_core.py for errors"
+          else
+            echo "[DET-ENG] Detection Engineering Core completed successfully"
+            DET_COUNT=$(python3 -c "import os,json; d='api/detections'; print(len([f for f in os.listdir(d) if f.endswith('.json') and f != 'detection-index.json']))" 2>/dev/null || echo "N/A")
+            echo "[DET-ENG] Detection packs generated: ${DET_COUNT}"
+          fi
+
+          echo "::endgroup::"
+          set -e
+          exit 0
+
+      # ─────────────────────────────────────────────────────────────────────
       # STAGE 5 — AI TRACKER GENERATION (Phase 1+2+3: explainability + health + exec)
       # ─────────────────────────────────────────────────────────────────────
       - name: "STAGE 5 — Generate AI Tracker (Engine Alpha + Beta + Gamma)"

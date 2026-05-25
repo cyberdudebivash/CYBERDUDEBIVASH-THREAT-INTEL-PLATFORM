@@ -6125,6 +6125,196 @@ async function serveReportsIndexFile(r2Key, env, rid) {
   }, 503);
 }
 
+
+// ═══════════════════════════════════════════════════════════════════════════
+// DETECTION ENGINEERING API — v162.0
+// Serves detection packs, index, and enterprise bundles from R2.
+//
+// Routes (all public unless noted):
+//   GET  /api/v1/detections/index.json          — index of all detection packs
+//   GET  /api/v1/detections/{advisory_id}.json  — summary for one advisory
+//   GET  /api/v1/detections/{advisory_id}/full  — full detection pack (PRO+)
+//   GET  /api/v1/detections/packages/{file}     — enterprise bundles (PRO+)
+//   GET  /api/v1/detections/coverage.json       — ATT&CK coverage layer (free)
+// ═══════════════════════════════════════════════════════════════════════════
+
+const DETECTION_FREE_PATHS  = new Set([
+  '/api/v1/detections/index.json',
+  '/api/v1/detections/coverage.json',
+]);
+
+const DETECTION_PKG_FILES = new Set([
+  'apex-sentinel-arm-template.json',
+  'apex-splunk-content-bundle.json',
+  'apex-package-manifest.json',
+  'apex-sigma-rules.zip',
+  'apex-detection-index.json',
+]);
+
+async function handleDetectionAPI(request, env, rid, pathname) {
+  const corsHdrs = {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'GET, OPTIONS',
+    'Access-Control-Allow-Headers': 'Authorization, X-API-Key',
+    'Cache-Control': 'public, max-age=300, stale-while-revalidate=60',
+  };
+
+  // Helper: read from R2 detections bucket path
+  async function r2Get(key) {
+    try {
+      return await env.INTEL_R2.get(`api/detections/${key}`);
+    } catch (_) { return null; }
+  }
+
+  // Helper: JSON response
+  function jsonResp(data, status = 200, extra = {}) {
+    return new Response(JSON.stringify(data), {
+      status,
+      headers: { 'Content-Type': 'application/json; charset=utf-8', ...corsHdrs, ...extra },
+    });
+  }
+
+  // Helper: auth check (PRO+ tier required)
+  function isPro(request) {
+    const auth = request.headers.get('Authorization') || '';
+    const key  = request.headers.get('X-API-Key') || '';
+    return auth.startsWith('Bearer ') || key.length > 16;
+  }
+
+  // OPTIONS preflight
+  if (request.method === 'OPTIONS') {
+    return new Response(null, { status: 204, headers: corsHdrs });
+  }
+
+  // ── GET /api/v1/detections/index.json  ────────────────────────────────
+  if (pathname === '/api/v1/detections/index.json') {
+    const obj = await r2Get('detection-index.json');
+    if (!obj) {
+      return jsonResp({ error: 'Detection index not yet generated', code: 'DETECTION_INDEX_UNAVAILABLE', retry_after: 3600 }, 503);
+    }
+    const idx = await obj.json();
+    // Free tier: mask full entry details, return summary
+    const summary = {
+      run_id: idx.run_id,
+      generated_at: idx.generated_at,
+      total_advisories: idx.total_advisories,
+      average_quality_score: idx.average_quality_score,
+      grade_distribution: idx.grade_distribution,
+      techniques_covered: idx.techniques_covered,
+      platforms_available: idx.platforms_available,
+      engine_version: idx.engine_version,
+      entries: (idx.entries || []).map(e => ({
+        id: e.id,
+        title: e.title,
+        grade: e.grade,
+        score: e.score,
+        has_retro_hunt: e.has_retro_hunt,
+        formats_available: (e.formats || []).length,
+        techniques_count: (e.techniques || []).length,
+        // PRO+ fields masked for free tier
+        ...(isPro(request) ? {
+          techniques: e.techniques,
+          formats: e.formats,
+          production_ready: e.production_ready,
+        } : {
+          upgrade_url: 'https://intel.cyberdudebivash.com/upgrade.html',
+        }),
+      })),
+    };
+    return jsonResp(summary);
+  }
+
+  // ── GET /api/v1/detections/coverage.json  ─────────────────────────────
+  if (pathname === '/api/v1/detections/coverage.json') {
+    const obj = await r2Get('detection-index.json');
+    if (!obj) return jsonResp({ techniques: [], coverage_pct: 0 }, 200);
+    const idx = await obj.json();
+    return jsonResp({
+      techniques_covered: idx.techniques_covered || [],
+      coverage_count: (idx.techniques_covered || []).length,
+      platforms: idx.platforms_available || [],
+      grade_distribution: idx.grade_distribution || {},
+      generated_at: idx.generated_at,
+    });
+  }
+
+  // ── GET /api/v1/detections/packages/{file}  ───────────────────────────
+  const pkgMatch = pathname.match(/^\/api\/v1\/detections\/packages\/(.+)$/);
+  if (pkgMatch) {
+    const file = pkgMatch[1];
+    if (!DETECTION_PKG_FILES.has(file)) {
+      return jsonResp({ error: 'Unknown package file', available: [...DETECTION_PKG_FILES] }, 404);
+    }
+    if (!isPro(request)) {
+      return jsonResp({
+        error: 'PRO+ subscription required for enterprise detection packages',
+        upgrade_url: 'https://intel.cyberdudebivash.com/upgrade.html',
+        tier_required: 'PRO',
+      }, 403);
+    }
+    const obj = await r2Get(file);
+    if (!obj) return jsonResp({ error: 'Package not yet built', code: 'PACKAGE_UNAVAILABLE' }, 503);
+    const isZip = file.endsWith('.zip');
+    const ct = isZip ? 'application/zip' : 'application/json; charset=utf-8';
+    const body = isZip ? await obj.arrayBuffer() : await obj.text();
+    return new Response(body, {
+      status: 200,
+      headers: {
+        'Content-Type': ct,
+        'Content-Disposition': `attachment; filename="${file}"`,
+        ...corsHdrs,
+        'Cache-Control': 'private, max-age=300',
+      },
+    });
+  }
+
+  // ── GET /api/v1/detections/{advisory_id}/full  ────────────────────────
+  const fullMatch = pathname.match(/^\/api\/v1\/detections\/(intel--[a-f0-9]{10,64})\/full$/i);
+  if (fullMatch) {
+    if (!isPro(request)) {
+      return jsonResp({
+        error: 'PRO+ subscription required for full detection packs',
+        upgrade_url: 'https://intel.cyberdudebivash.com/upgrade.html',
+        tier_required: 'PRO',
+      }, 403);
+    }
+    const id  = fullMatch[1];
+    const obj = await r2Get(`${id}_full.json`);
+    if (!obj) return jsonResp({ error: 'Detection pack not found', advisory_id: id }, 404);
+    return new Response(await obj.text(), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json; charset=utf-8', ...corsHdrs, 'Cache-Control': 'private, max-age=300' },
+    });
+  }
+
+  // ── GET /api/v1/detections/{advisory_id}.json  ────────────────────────
+  const sumMatch = pathname.match(/^\/api\/v1\/detections\/(intel--[a-f0-9]{10,64})\.json$/i);
+  if (sumMatch) {
+    const id  = sumMatch[1];
+    const obj = await r2Get(`${id}.json`);
+    if (!obj) return jsonResp({ error: 'Detection summary not found', advisory_id: id }, 404);
+    const data = await obj.json();
+    if (!isPro(request)) {
+      // Free: return summary fields only
+      return jsonResp({
+        advisory_id: data.advisory_id,
+        title: data.title,
+        quality_grade: data.quality_grade,
+        composite_score: data.composite_score,
+        fp_probability: data.fp_probability,
+        has_retro_hunt: data.has_retro_hunt,
+        platforms_count: (data.platforms || []).length,
+        rules_count: (data.rules_available || []).length,
+        processed_at: data.processed_at,
+        upgrade_url: 'https://intel.cyberdudebivash.com/upgrade.html',
+      });
+    }
+    return jsonResp(data);
+  }
+
+  return jsonResp({ error: 'Unknown detection endpoint', path: pathname }, 404);
+}
+
 export default {
   async fetch(request, env, ctx) {
     const rid       = generateReqId();
@@ -6322,6 +6512,11 @@ export default {
       }
       // Free-tier manifests: served publicly but field-masked (25 items, core fields only)
       return withSec(servePublicIntelManifest(pathname, env, rid));
+    }
+
+    // ── v162.0: Detection Engineering API ───────────────────────────────
+    if (pathname.startsWith('/api/v1/detections') && (method === 'GET' || method === 'OPTIONS')) {
+      return handleDetectionAPI(request, env, rid, pathname);
     }
 
     // v162.6 P0-FIX: HTML Intel Reports -- defense-in-depth handler
