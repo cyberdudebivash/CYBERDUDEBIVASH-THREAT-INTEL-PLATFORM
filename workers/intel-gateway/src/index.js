@@ -1,5 +1,5 @@
 // =============================================================================
-// CYBERDUDEBIVASH(R) SENTINEL APEX -- Edge Intelligence Gateway v164.0.0
+// CYBERDUDEBIVASH(R) SENTINEL APEX -- Edge Intelligence Gateway v161.3 (features: v164.0)
 // GOD-MODE: Production-hardened, globally sellable SaaS cybersecurity platform
 // Hardened: 2026-05-03 (Dark Web Monitor - Premium Reports - API Key Manager)
 // R2-ONLY ARCHITECTURE -- Blogger dependency REMOVED
@@ -127,7 +127,7 @@ function injectVersionHeaders(response, config) {
 }
 
 const CONFIG = {
-  GATEWAY_VERSION:   "164.0",    // PLATFORM version -- v164.0: ThreatGraph Engine + SSE Streaming CTI + MSSP Multi-Tenant Foundation
+  GATEWAY_VERSION:   "161.3",    // PLATFORM version -- governed by VERSION file + version_governance.py. DO NOT change manually. CI injects from SSOT.
   GATEWAY_NAME:      "SENTINEL-APEX",
   BYPASS_FEED_CACHE: false,
   // P0 FIX v134.0: Reduced cache TTLs to ensure dashboard reflects fresh R2 data
