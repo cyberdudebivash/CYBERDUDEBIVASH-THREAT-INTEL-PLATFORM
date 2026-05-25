@@ -5352,9 +5352,9 @@ function handleOpenAPI(request, env, rid) {
 }
 
 // =============================================================================
-// v164.0: THREAT GRAPH API — /api/graph/nodes, /api/graph/edges, /api/graph/pivot
+// v164.0: THREAT GRAPH API  -  /api/graph/nodes, /api/graph/edges, /api/graph/pivot
 // Tiers: Free=counts only | Pro=full node list | Enterprise=full graph+pivot
-// Served from R2 (api/graph/*.json) — built by scripts/threat_graph_engine.py
+// Served from R2 (api/graph/*.json)  -  built by scripts/threat_graph_engine.py
 // =============================================================================
 
 async function handleGraphNodes(request, env, auth, rid) {
@@ -5374,7 +5374,7 @@ async function handleGraphNodes(request, env, auth, rid) {
   if (type) nodes = nodes.filter(n => n.type === type);
 
   if (tier === "free") {
-    // Free: counts by node type only — no node details
+    // Free: counts by node type only  -  no node details
     const counts = {};
     for (const n of nodes) counts[n.type] = (counts[n.type] || 0) + 1;
     return jsonResponse({
@@ -5501,7 +5501,7 @@ async function handleGraphPivot(request, env, auth, rid) {
 }
 
 // =============================================================================
-// v164.0: STREAMING CTI — GET /api/stream/intel  (SSE — Server-Sent Events)
+// v164.0: STREAMING CTI  -  GET /api/stream/intel  (SSE  -  Server-Sent Events)
 // Real-time push of new advisories as they land in the processing pipeline.
 // Tiers: Free=KEV only+60min delay | Pro=all+5min delay | Enterprise=real-time
 // Cloudflare Workers support streaming via ReadableStream + TransformStream.
@@ -5586,10 +5586,10 @@ async function handleStreamIntel(request, env, auth, rid) {
 // =============================================================================
 // v164.0: MSSP MULTI-TENANT FOUNDATION
 // KV Schema:
-//   tenant:{id}:profile   → { name, tier, created_at, admin_email, status }
-//   tenant:{id}:keys      → [ { key_hash, scopes, created_at, last_used } ]
-//   tenant:{id}:usage     → { api_calls, advisories_accessed, period }
-//   tenant:{id}:customers → [ { org_id, name, tier, created_at } ]
+//   tenant:{id}:profile   -> { name, tier, created_at, admin_email, status }
+//   tenant:{id}:keys      -> [ { key_hash, scopes, created_at, last_used } ]
+//   tenant:{id}:usage     -> { api_calls, advisories_accessed, period }
+//   tenant:{id}:customers -> [ { org_id, name, tier, created_at } ]
 // =============================================================================
 
 function msspTenantKV(env) {
@@ -5633,9 +5633,9 @@ async function handleTenantRegister(request, env, auth, rid) {
     tenant_id:  tenantId,
     profile,
     next_steps: [
-      "POST /api/tenant/key — issue tenant-scoped API keys",
-      "POST /api/tenant/customer — add customer orgs",
-      "GET  /api/tenant/usage — monitor usage for billing",
+      "POST /api/tenant/key  -  issue tenant-scoped API keys",
+      "POST /api/tenant/customer  -  add customer orgs",
+      "GET  /api/tenant/usage  -  monitor usage for billing",
     ],
     request_id: rid,
   }, 201);
@@ -6516,7 +6516,7 @@ export default {
     if (pathname === "/api/graph/pivot" && method === "GET")
       return withRL(await handleGraphPivot(request, env, auth, rid));
 
-    // v164.0: STREAMING CTI — SSE real-time advisory push (Pro+ required)
+    // v164.0: STREAMING CTI  -  SSE real-time advisory push (Pro+ required)
     if (pathname === "/api/stream/intel" && (method === "GET" || method === "HEAD"))
       return await handleStreamIntel(request, env, auth, rid);
 
