@@ -1,1 +1,13 @@
-# Variables for networking module
+variable "name" { type = string; default = "" }
+variable "vpc_cidr" { type = string; default = "10.0.0.0/16" }
+variable "availability_zones" { type = list(string); default = [] }
+variable "private_subnet_cidrs" { type = list(string); default = [] }
+variable "public_subnet_cidrs" { type = list(string); default = [] }
+variable "database_subnet_cidrs" { type = list(string); default = [] }
+variable "enable_nat_gateway" { type = bool; default = true }
+variable "single_nat_gateway" { type = bool; default = false }
+variable "enable_dns_hostnames" { type = bool; default = true }
+variable "enable_vpn_gateway" { type = bool; default = false }
+variable "private_subnet_tags" { type = map(string); default = {} }
+variable "public_subnet_tags" { type = map(string); default = {} }
+variable "tags" { type = map(string); default = {} }

@@ -1,1 +1,24 @@
-# Variables for rds module
+variable "identifier" { type = string; default = "" }
+variable "engine" { type = string; default = "postgres" }
+variable "engine_version" { type = string; default = "16.2" }
+variable "instance_class" { type = string; default = "db.t3.medium" }
+variable "allocated_storage" { type = number; default = 100 }
+variable "max_allocated_storage" { type = number; default = 1000 }
+variable "storage_encrypted" { type = bool; default = true }
+variable "storage_type" { type = string; default = "gp3" }
+variable "db_name" { type = string; default = "" }
+variable "username" { type = string; default = "" }
+variable "multi_az" { type = bool; default = true }
+variable "db_subnet_group_name" { type = string; default = "" }
+variable "vpc_security_group_ids" { type = list(string); default = [] }
+variable "backup_retention_period" { type = number; default = 7 }
+variable "backup_window" { type = string; default = "03:00-04:00" }
+variable "maintenance_window" { type = string; default = "sun:04:00-sun:05:00" }
+variable "replica_count" { type = number; default = 0 }
+variable "performance_insights_enabled" { type = bool; default = false }
+variable "performance_insights_retention_period" { type = number; default = 7 }
+variable "monitoring_interval" { type = number; default = 0 }
+variable "deletion_protection" { type = bool; default = true }
+variable "parameter_group_family" { type = string; default = "postgres16" }
+variable "parameters" { type = any; default = [] }
+variable "tags" { type = map(string); default = {} }
