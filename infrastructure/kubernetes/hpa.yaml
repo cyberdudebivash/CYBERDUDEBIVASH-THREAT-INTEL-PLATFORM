@@ -1,20 +1,20 @@
 # =============================================================================
-# CYBERDUDEBIVASH® SENTINEL APEX — Kubernetes Horizontal Pod Autoscaler
+# CYBERDUDEBIVASH(R) SENTINEL APEX  -  Kubernetes Horizontal Pod Autoscaler
 # infrastructure/kubernetes/hpa.yaml
 # Version: 162.0.0
 #
 # Architecture:
-#   - API tier: FastAPI workers, scale 2→50 pods on CPU + RPS
-#   - Worker tier: Intelligence pipeline, scale 1→20 on queue depth
-#   - WebSocket tier: Real-time SOC feed, scale 2→30 on connection count
-#   - MSSP tier: Tenant-isolated workers, scale 1→10 per tenant pool
+#   - API tier: FastAPI workers, scale 2->50 pods on CPU + RPS
+#   - Worker tier: Intelligence pipeline, scale 1->20 on queue depth
+#   - WebSocket tier: Real-time SOC feed, scale 2->30 on connection count
+#   - MSSP tier: Tenant-isolated workers, scale 1->10 per tenant pool
 #
 # Metrics: Prometheus + KEDA (Kubernetes Event-Driven Autoscaling)
 # SLA: P99 latency < 200ms at 10,000 concurrent API users
 # =============================================================================
 
 ---
-# ── SENTINEL APEX API — Primary HPA ─────────────────────────────────────────
+# -- SENTINEL APEX API  -  Primary HPA -----------------------------------------
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
@@ -74,7 +74,7 @@ spec:
       selectPolicy: Min
 
 ---
-# ── INTELLIGENCE PIPELINE WORKER — KEDA ScaledObject ────────────────────────
+# -- INTELLIGENCE PIPELINE WORKER  -  KEDA ScaledObject ------------------------
 apiVersion: keda.sh/v1alpha1
 kind: ScaledObject
 metadata:
@@ -109,7 +109,7 @@ spec:
         query: avg(sentinel_pipeline_lag_seconds{worker_type="intel"})
 
 ---
-# ── REAL-TIME SOC WEBSOCKET TIER ─────────────────────────────────────────────
+# -- REAL-TIME SOC WEBSOCKET TIER ---------------------------------------------
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
@@ -150,7 +150,7 @@ spec:
       stabilizationWindowSeconds: 600  # Slow scale-down (sticky connections)
 
 ---
-# ── MSSP TENANT WORKER POOL ──────────────────────────────────────────────────
+# -- MSSP TENANT WORKER POOL --------------------------------------------------
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
@@ -181,7 +181,7 @@ spec:
       stabilizationWindowSeconds: 600
 
 ---
-# ── VERTICAL POD AUTOSCALER — API Tier ───────────────────────────────────────
+# -- VERTICAL POD AUTOSCALER  -  API Tier ---------------------------------------
 apiVersion: autoscaling.k8s.io/v1
 kind: VerticalPodAutoscaler
 metadata:
@@ -206,7 +206,7 @@ spec:
         controlledResources: ["cpu", "memory"]
 
 ---
-# ── POD DISRUPTION BUDGET — API Tier ─────────────────────────────────────────
+# -- POD DISRUPTION BUDGET  -  API Tier -----------------------------------------
 apiVersion: policy/v1
 kind: PodDisruptionBudget
 metadata:
@@ -220,7 +220,7 @@ spec:
       tier: api
 
 ---
-# ── POD DISRUPTION BUDGET — WebSocket Tier ───────────────────────────────────
+# -- POD DISRUPTION BUDGET  -  WebSocket Tier -----------------------------------
 apiVersion: policy/v1
 kind: PodDisruptionBudget
 metadata:

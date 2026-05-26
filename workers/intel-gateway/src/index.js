@@ -6126,17 +6126,17 @@ async function serveReportsIndexFile(r2Key, env, rid) {
 }
 
 
-// ═══════════════════════════════════════════════════════════════════════════
-// DETECTION ENGINEERING API — v162.0
+// ===========================================================================
+// DETECTION ENGINEERING API  -  v162.0
 // Serves detection packs, index, and enterprise bundles from R2.
 //
 // Routes (all public unless noted):
-//   GET  /api/v1/detections/index.json          — index of all detection packs
-//   GET  /api/v1/detections/{advisory_id}.json  — summary for one advisory
-//   GET  /api/v1/detections/{advisory_id}/full  — full detection pack (PRO+)
-//   GET  /api/v1/detections/packages/{file}     — enterprise bundles (PRO+)
-//   GET  /api/v1/detections/coverage.json       — ATT&CK coverage layer (free)
-// ═══════════════════════════════════════════════════════════════════════════
+//   GET  /api/v1/detections/index.json           -  index of all detection packs
+//   GET  /api/v1/detections/{advisory_id}.json   -  summary for one advisory
+//   GET  /api/v1/detections/{advisory_id}/full   -  full detection pack (PRO+)
+//   GET  /api/v1/detections/packages/{file}      -  enterprise bundles (PRO+)
+//   GET  /api/v1/detections/coverage.json        -  ATT&CK coverage layer (free)
+// ===========================================================================
 
 const DETECTION_FREE_PATHS  = new Set([
   '/api/v1/detections/index.json',
@@ -6186,7 +6186,7 @@ async function handleDetectionAPI(request, env, rid, pathname) {
     return new Response(null, { status: 204, headers: corsHdrs });
   }
 
-  // ── GET /api/v1/detections/index.json  ────────────────────────────────
+  // -- GET /api/v1/detections/index.json  --------------------------------
   if (pathname === '/api/v1/detections/index.json') {
     const obj = await r2Get('detection-index.json');
     if (!obj) {
@@ -6224,7 +6224,7 @@ async function handleDetectionAPI(request, env, rid, pathname) {
     return jsonResp(summary);
   }
 
-  // ── GET /api/v1/detections/coverage.json  ─────────────────────────────
+  // -- GET /api/v1/detections/coverage.json  -----------------------------
   if (pathname === '/api/v1/detections/coverage.json') {
     const obj = await r2Get('detection-index.json');
     if (!obj) return jsonResp({ techniques: [], coverage_pct: 0 }, 200);
@@ -6238,7 +6238,7 @@ async function handleDetectionAPI(request, env, rid, pathname) {
     });
   }
 
-  // ── GET /api/v1/detections/packages/{file}  ───────────────────────────
+  // -- GET /api/v1/detections/packages/{file}  ---------------------------
   const pkgMatch = pathname.match(/^\/api\/v1\/detections\/packages\/(.+)$/);
   if (pkgMatch) {
     const file = pkgMatch[1];
@@ -6268,7 +6268,7 @@ async function handleDetectionAPI(request, env, rid, pathname) {
     });
   }
 
-  // ── GET /api/v1/detections/{advisory_id}/full  ────────────────────────
+  // -- GET /api/v1/detections/{advisory_id}/full  ------------------------
   const fullMatch = pathname.match(/^\/api\/v1\/detections\/(intel--[a-f0-9]{10,64})\/full$/i);
   if (fullMatch) {
     if (!isPro(request)) {
@@ -6287,7 +6287,7 @@ async function handleDetectionAPI(request, env, rid, pathname) {
     });
   }
 
-  // ── GET /api/v1/detections/{advisory_id}.json  ────────────────────────
+  // -- GET /api/v1/detections/{advisory_id}.json  ------------------------
   const sumMatch = pathname.match(/^\/api\/v1\/detections\/(intel--[a-f0-9]{10,64})\.json$/i);
   if (sumMatch) {
     const id  = sumMatch[1];
@@ -6514,7 +6514,7 @@ export default {
       return withSec(servePublicIntelManifest(pathname, env, rid));
     }
 
-    // ── v162.0: Detection Engineering API ───────────────────────────────
+    // -- v162.0: Detection Engineering API -------------------------------
     if (pathname.startsWith('/api/v1/detections') && (method === 'GET' || method === 'OPTIONS')) {
       return handleDetectionAPI(request, env, rid, pathname);
     }

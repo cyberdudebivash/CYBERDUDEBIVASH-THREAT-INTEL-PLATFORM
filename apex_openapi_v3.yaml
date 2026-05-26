@@ -1,6 +1,6 @@
 openapi: "3.1.0"
 info:
-  title: "CYBERDUDEBIVASH SENTINEL APEX — Threat Intelligence API"
+  title: "CYBERDUDEBIVASH SENTINEL APEX  -  Threat Intelligence API"
   description: |
     ## SENTINEL APEX Intelligence API v2.0
 
@@ -33,7 +33,7 @@ info:
     email: "bivash@cyberdudebivash.com"
     url: "https://intel.cyberdudebivash.com"
   license:
-    name: "Commercial — All Rights Reserved"
+    name: "Commercial  -  All Rights Reserved"
     url: "https://cyberdudebivash.in/terms"
 
 servers:
@@ -171,7 +171,7 @@ components:
           format: float
           minimum: 0.0
           maximum: 1.0
-          description: "EPSS probability as 0.0–1.0 decimal. Display as percentage by multiplying ×100."
+          description: "EPSS probability as 0.0-1.0 decimal. Display as percentage by multiplying x100."
           example: 0.6349
         source:
           type: string
@@ -204,7 +204,7 @@ components:
               type: array
               items:
                 $ref: '#/components/schemas/IOCEntry'
-              description: "Validated IOCs — Pro+ tier only"
+              description: "Validated IOCs  -  Pro+ tier only"
             ttps:
               type: array
               items:
@@ -233,7 +233,7 @@ components:
                 $ref: '#/components/schemas/RegulatoryImpact'
 
     # -------------------------------------------------------
-    # IOC Entry — strictly typed and validated
+    # IOC Entry  -  strictly typed and validated
     # -------------------------------------------------------
     IOCEntry:
       type: object
@@ -244,7 +244,7 @@ components:
           enum: [ip, domain, url, md5, sha1, sha256, sha512, email, registry, cve]
           description: |
             IOC classification. Note: 'cve' entries are metadata, not network indicators.
-            'domain' entries are validated threat-actor infrastructure — NOT news source domains.
+            'domain' entries are validated threat-actor infrastructure  -  NOT news source domains.
         value:
           type: string
           description: "Canonical indicator value. Domains are refanged. IPs exclude RFC1918."
@@ -300,10 +300,10 @@ components:
       properties:
         sigma_rule:
           type: string
-          description: "Sigma rule YAML — syntactically validated, ATT&CK tagged"
+          description: "Sigma rule YAML  -  syntactically validated, ATT&CK tagged"
         yara_rule:
           type: string
-          description: "YARA rule — IOC strings are threat-actor infrastructure only (not news URLs)"
+          description: "YARA rule  -  IOC strings are threat-actor infrastructure only (not news URLs)"
         kql_hunt:
           type: string
           description: "Microsoft Sentinel / Defender XDR KQL retro-hunt query"
@@ -364,16 +364,16 @@ components:
       properties:
         loss_range_optimistic:
           type: integer
-          description: "USD — rapid detection, full recovery"
+          description: "USD  -  rapid detection, full recovery"
         loss_range_likely:
           type: integer
-          description: "USD — partial breach, regulatory notification"
+          description: "USD  -  partial breach, regulatory notification"
         loss_range_severe:
           type: integer
-          description: "USD — full compromise, regulatory fines"
+          description: "USD  -  full compromise, regulatory fines"
         methodology:
           type: string
-          example: "FAIR ISO/IEC 27005 · NIST SP 800-30 · IBM CODB 2025"
+          example: "FAIR ISO/IEC 27005 * NIST SP 800-30 * IBM CODB 2025"
 
     # -------------------------------------------------------
     # Actor Profile
@@ -440,7 +440,7 @@ components:
           example: "72 hours to supervisory authority"
         max_penalty:
           type: string
-          example: "Up to €20M or 4% global turnover"
+          example: "Up to 20M or 4% global turnover"
 
     # -------------------------------------------------------
     # Feed response wrappers
@@ -660,7 +660,7 @@ paths:
             format: float
             minimum: 0.0
             maximum: 1.0
-          description: "Minimum EPSS score (0.0–1.0). Example: 0.5 for 50%+"
+          description: "Minimum EPSS score (0.0-1.0). Example: 0.5 for 50%+"
       responses:
         "200":
           description: "Feed response"
@@ -723,7 +723,7 @@ paths:
       summary: "Bulk IOC export (Pro+)"
       description: |
         Export validated IOCs across all advisories. Returns only real threat
-        indicators (IPs, domains, hashes) — never source URLs or JavaScript properties.
+        indicators (IPs, domains, hashes)  -  never source URLs or JavaScript properties.
       parameters:
         - name: type
           in: query
@@ -882,7 +882,7 @@ paths:
   /api/detection/kql:
     get:
       tags: [Detection]
-      summary: "KQL hunt queries — Sentinel / Defender XDR (Pro+)"
+      summary: "KQL hunt queries  -  Sentinel / Defender XDR (Pro+)"
       responses:
         "200":
           description: "KQL queries"
