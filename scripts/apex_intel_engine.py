@@ -796,7 +796,8 @@ class DataIntegrityValidator:
 
         # Severity must be one of known values
         severity = entry.get("severity", "")
-        if severity not in ("CRITICAL", "HIGH", "MEDIUM", "LOW", "INFO", ""):
+        # FIX v161.4: INFO removed — validate_repo V5 rejects it as a threat severity.
+        if severity not in ("CRITICAL", "HIGH", "MEDIUM", "LOW", ""):
             errors.append(f"invalid_severity:{severity}")
 
         # TLP must be valid

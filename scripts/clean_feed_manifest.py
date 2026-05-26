@@ -57,7 +57,8 @@ BANNED_URL_HOSTS = (
     "cyberdudebivash-news.blogspot.com",
     "blogger.googleusercontent.com",
 )
-SEVERITY_VALID = {"CRITICAL", "HIGH", "MEDIUM", "LOW", "INFO"}
+# NOTE: "INFO" excluded — validate_repo.py V5 rejects it as a threat severity.
+SEVERITY_VALID = {"CRITICAL", "HIGH", "MEDIUM", "LOW"}
 REQUIRED_FIELDS = ("id", "title", "timestamp", "risk_score", "severity",
                    "report_url", "source_url", "tlp", "tags")
 
@@ -96,11 +97,11 @@ def derive_report_url(intel_id: str, timestamp: str) -> str:
 
 
 def derive_severity(risk_score: float) -> str:
+    # FIX v161.4: INFO removed — validate_repo V5 rejects it. Low-risk items get LOW.
     if   risk_score >= 9.0: return "CRITICAL"
     elif risk_score >= 7.0: return "HIGH"
     elif risk_score >= 4.5: return "MEDIUM"
-    elif risk_score >= 1.5: return "LOW"
-    else:                   return "INFO"
+    else:                   return "LOW"
 
 
 def normalise_entry(item: dict) -> dict | None:
@@ -137,6 +138,12 @@ def normalise_entry(item: dict) -> dict | None:
     if sev not in SEVERITY_VALID:
         sev = derive_severity(rs)
     out["severity"] = sev
+
+    # -- published (ISO-8601 string — validate_repo V1 hard gate) --
+    # FIX v161.4: boolean published is a V1 violation. Restore to ISO-8601.
+    pub = out.get("published")
+    if isinstance(pub, bool) or not isinstance(pub, str) or not pub.strip():
+        out["published"] = timestamp  # use already-resolved ISO-8601 timestamp
 
     # -- id (auto-gen if missing) --
     intel_id = out.get("id") or out.get("stix_id") or ""
