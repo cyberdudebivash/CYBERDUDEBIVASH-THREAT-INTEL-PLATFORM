@@ -1519,7 +1519,11 @@ jobs:
       - name: "STAGE 5.4.5b - Report Archive Governance (v156.0 — NON-BLOCKING)"
         timeout-minutes: 10
         env:
-          REPORT_RETENTION_DAYS: ${{ vars.REPORT_RETENTION_DAYS || '90' }}
+          # v161.5 DISK FIX: default reduced 90->30 days. At ~512 reports/day,
+          # 30-day retention = ~15,360 reports (~2.3 GB). 90-day = ~45,925 (~7 GB).
+          # This cuts the dual-copy peak (reports/ + dist/) from 14 GB to 4.6 GB.
+          # Override via GitHub Repository Variable: Settings -> Variables -> REPORT_RETENTION_DAYS
+          REPORT_RETENTION_DAYS: ${{ vars.REPORT_RETENTION_DAYS || '30' }}
           ARCHIVE_DRY_RUN: ${{ vars.ARCHIVE_DRY_RUN || '0' }}
           ARCHIVE_MIN_REPORTS: ${{ vars.ARCHIVE_MIN_REPORTS || '500' }}
         run: |
@@ -1661,8 +1665,33 @@ jobs:
         if: ${{ !cancelled() }}
         timeout-minutes: 10
         env:
-          REPORT_RETENTION_DAYS: ${{ vars.REPORT_RETENTION_DAYS || '90' }}
+          REPORT_RETENTION_DAYS: ${{ vars.REPORT_RETENTION_DAYS || '30' }}
         run: python3 scripts/build_dist_artifact.py
+
+      # -----------------------------------------------------------------------
+      # STAGE 5.4.6b - POST-DIST REPORTS CLEANUP (v161.5 P0 DISK GOVERNANCE)
+      # reports/ has already been committed to git in Stage 4 (safe_git_commit.py).
+      # It is no longer needed on disk — dist/ is the deployment artifact.
+      # Deleting reports/ immediately after the dist build recovers ~2-7 GB,
+      # ensuring the GitHub Pages upload action has sufficient headroom.
+      # This permanently prevents dual-copy disk exhaustion on any runner size.
+      # -----------------------------------------------------------------------
+      - name: "STAGE 5.4.6b - Post-dist reports/ cleanup (v161.5 P0 DISK GOV)"
+        if: ${{ !cancelled() }}
+        timeout-minutes: 2
+        run: |
+          BEFORE=$(df / --output=avail | tail -1 | awk '{printf "%.2f", $1/1024/1024}')
+          echo "Disk before reports/ cleanup: ${BEFORE} GB free"
+          if [ -d "reports" ]; then
+            REPORT_COUNT=$(find reports -name "*.html" | wc -l)
+            echo "Removing reports/ from runner disk (${REPORT_COUNT} HTML files — already committed to git)"
+            rm -rf reports/
+            echo "reports/ removed from runner disk"
+          else
+            echo "reports/ not present — nothing to clean"
+          fi
+          AFTER=$(df / --output=avail | tail -1 | awk '{printf "%.2f", $1/1024/1024}')
+          echo "Disk after reports/ cleanup: ${AFTER} GB free"
 
       # -----------------------------------------------------------------------
       # STAGE 5.4.7 - DIST ARTIFACT VERIFIER (v158.0.2 HARD FAIL)
@@ -1690,7 +1719,7 @@ jobs:
         if: ${{ !cancelled() && steps.build-dist.conclusion == 'success' }}
         timeout-minutes: 5
         env:
-          REPORT_RETENTION_DAYS: ${{ vars.REPORT_RETENTION_DAYS || '90' }}
+          REPORT_RETENTION_DAYS: ${{ vars.REPORT_RETENTION_DAYS || '30' }}
         run: python3 scripts/dist_artifact_verifier.py
 
       # -----------------------------------------------------------------------

@@ -140,11 +140,17 @@ HTML_EXCLUDE_PREFIXES = {
 
 # ─────────────────────────────────────────────────────────────────
 # REPORT RETENTION GOVERNANCE (v156.0)
-# REPORT_RETENTION_DAYS=0  → copy ALL reports (default, backward compat)
+# REPORT_RETENTION_DAYS=0  → copy ALL reports (unlimited — avoid in production)
 # REPORT_RETENTION_DAYS=N  → copy only reports from the last N days
 #   Classification uses path structure: reports/YYYY/MM/<file>.html
+#
+# v161.5 DISK FIX: Default changed 0 -> 30.
+# At 512 reports/day, 30 days = ~15,360 reports (~2.3 GB).
+# 0 (ALL) = 81,132 reports (~7 GB) — causes disk exhaustion on ubuntu-latest.
+# Historical reports remain accessible on gh-pages (clean:false preserves them).
+# Override via env var REPORT_RETENTION_DAYS or GitHub Repository Variable.
 # ─────────────────────────────────────────────────────────────────
-REPORT_RETENTION_DAYS = int(os.environ.get("REPORT_RETENTION_DAYS", "0"))
+REPORT_RETENTION_DAYS = int(os.environ.get("REPORT_RETENTION_DAYS", "30"))
 
 
 def _is_report_dir_in_window(year: int, month: int, cutoff: datetime) -> bool:
@@ -569,15 +575,19 @@ def main() -> int:
         "status":               "success",
         "dist_files":           manifest["total_files"],
         "dist_reports":         dist_reports,
-        "report_url_checked":   len(report_urls),
-        "report_url_missing":   0,
-        "retention_days":       retention_days,
-        "generated_at":         manifest["generated_at"],
-        "run_id":               run_id,
-        "pipeline_version":     pipeline_version,
-    }, indent=2), encoding="utf-8")
-
+        "report_url_checked": len(report_urls),
+        "elapsed_s":            round(elapsed, 1),
+        "retention_days":       REPORT_RETENTION_DAYS,
+        "timestamp":            datetime.now(timezone.utc).isoformat(),
+        "manifest_path":        str(manifest_path),
+    }, indent=2))
+    log.info("Build summary written: %s", summary_path)
     return 0
+
+
+def main() -> int:
+    """Entry point."""
+    return build_dist()
 
 
 if __name__ == "__main__":
