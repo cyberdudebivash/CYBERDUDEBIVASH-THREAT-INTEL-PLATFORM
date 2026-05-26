@@ -1,9 +1,9 @@
 version: "3.9"
 # =============================================================================
-# CYBERDUDEBIVASH® SENTINEL APEX — ClickHouse Cluster
+# CYBERDUDEBIVASH(R) SENTINEL APEX  -  ClickHouse Cluster
 # infrastructure/clickhouse/docker-compose.clickhouse.yml
 #
-# Architecture: 2-shard × 3-replica (6 nodes) + ZooKeeper 3-node quorum
+# Architecture: 2-shard x 3-replica (6 nodes) + ZooKeeper 3-node quorum
 # Capacity: 50M events/day @ sustained ingest, <10ms p99 query latency
 # Storage: 500GB per node (SSD preferred), TTL tiering to cold storage
 #
@@ -35,7 +35,7 @@ x-zookeeper-common: &zookeeper-common
 
 services:
 
-  # ── ZooKeeper Quorum (3 nodes) ──────────────────────────────────────────────
+  # -- ZooKeeper Quorum (3 nodes) ----------------------------------------------
   zookeeper-1:
     <<: *zookeeper-common
     hostname: zookeeper-1
@@ -69,7 +69,7 @@ services:
       - zk3-logs:/datalog
     networks: [sentinel-telemetry]
 
-  # ── ClickHouse Shard 1 — Replica 1 (Primary) ───────────────────────────────
+  # -- ClickHouse Shard 1  -  Replica 1 (Primary) -------------------------------
   clickhouse-s1r1:
     <<: *clickhouse-common
     hostname: clickhouse-s1r1
@@ -93,7 +93,7 @@ services:
       sentinel.shard: "1"
       sentinel.replica: "1"
 
-  # ── ClickHouse Shard 1 — Replica 2 ─────────────────────────────────────────
+  # -- ClickHouse Shard 1  -  Replica 2 -----------------------------------------
   clickhouse-s1r2:
     <<: *clickhouse-common
     hostname: clickhouse-s1r2
@@ -113,7 +113,7 @@ services:
       sentinel.shard: "1"
       sentinel.replica: "2"
 
-  # ── ClickHouse Shard 2 — Replica 1 (Primary) ───────────────────────────────
+  # -- ClickHouse Shard 2  -  Replica 1 (Primary) -------------------------------
   clickhouse-s2r1:
     <<: *clickhouse-common
     hostname: clickhouse-s2r1
@@ -136,7 +136,7 @@ services:
       sentinel.shard: "2"
       sentinel.replica: "1"
 
-  # ── ClickHouse Shard 2 — Replica 2 ─────────────────────────────────────────
+  # -- ClickHouse Shard 2  -  Replica 2 -----------------------------------------
   clickhouse-s2r2:
     <<: *clickhouse-common
     hostname: clickhouse-s2r2
@@ -156,13 +156,13 @@ services:
       sentinel.shard: "2"
       sentinel.replica: "2"
 
-  # ── ClickHouse Keeper (alternative to ZK — production recommendation) ───────
+  # -- ClickHouse Keeper (alternative to ZK  -  production recommendation) -------
   # Uncomment and replace ZK if using ClickHouse 23.3+
   # ch-keeper-1:
   #   image: clickhouse/clickhouse-keeper:24.3-alpine
   #   ...
 
-  # ── Grafana Telemetry Dashboard ─────────────────────────────────────────────
+  # -- Grafana Telemetry Dashboard ---------------------------------------------
   grafana:
     image: grafana/grafana:10.4-ubuntu
     restart: unless-stopped
@@ -181,7 +181,7 @@ services:
     labels:
       sentinel.role: "telemetry-dashboard"
 
-  # ── Vector (Log/Event Router → ClickHouse) ──────────────────────────────────
+  # -- Vector (Log/Event Router -> ClickHouse) ----------------------------------
   vector:
     image: timberio/vector:0.38.0-alpine
     restart: unless-stopped
