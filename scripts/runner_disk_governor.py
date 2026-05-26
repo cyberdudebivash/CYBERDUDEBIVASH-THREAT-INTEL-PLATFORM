@@ -80,9 +80,14 @@ log = logging.getLogger("sentinel.disk_governor")
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
 # ── Disk thresholds (GB) ──────────────────────────────────────────────────────
-THRESHOLD_CRITICAL_GB = 4    # HARD FAIL — pipeline must stop
-THRESHOLD_LOW_GB      = 6    # WARNING + emergency reclaim
-THRESHOLD_SAFE_GB     = 8    # WARNING annotation only
+# v161.4 P0 FIX: Raised thresholds after OS-level disk sovereignty step now
+# frees 15-20 GB at job start. dist/ build needs ~7 GB headroom minimum.
+# CRITICAL raised 4->10 GB: if somehow < 10 GB free before dist, HARD FAIL early.
+# LOW raised 6->12 GB: trigger aggressive reclaim at 12 GB (not 6).
+# SAFE raised 8->15 GB: annotation threshold at 15 GB post-OS-cleanup.
+THRESHOLD_CRITICAL_GB = 10   # HARD FAIL — pipeline must stop (raised from 4 GB)
+THRESHOLD_LOW_GB      = 12   # WARNING + emergency reclaim (raised from 6 GB)
+THRESHOLD_SAFE_GB     = 15   # WARNING annotation only (raised from 8 GB)
 
 # ── STIX governance ───────────────────────────────────────────────────────────
 STIX_DIR              = REPO_ROOT / "data" / "stix"
@@ -468,14 +473,15 @@ def main() -> int:
 
     if args.preflight:
         return mode_preflight()
-    if args.predist:
+    elif args.predist:
         return mode_predist()
-    if args.status:
+    elif args.status:
         return mode_status()
-    if args.monitor is not None:
+    elif args.monitor is not None:
         return mode_monitor(args.monitor)
-    parser.print_help()
-    return 1
+    else:
+        parser.print_help()
+        return 1
 
 
 if __name__ == "__main__":

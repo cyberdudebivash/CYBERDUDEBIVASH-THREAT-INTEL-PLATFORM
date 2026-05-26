@@ -143,6 +143,72 @@ jobs:
     steps:
 
       # -----------------------------------------------------------------------
+      # STAGE 0: RUNNER DISK SOVEREIGNTY (v161.4 P0 — PERMANENT FIX)
+      # ROOT CAUSE (run #1384): Runner starts at 4.39 GB free (94.3% used).
+      # dist/ build copies 81k reports (~7 GB) but only ~7.37 GB was available
+      # before that stage -> 0 GB left -> GitHub Actions agent IOException crash.
+      #
+      # FIX: Remove pre-installed OS tools not needed by this pipeline BEFORE
+      # checkout. This frees 15-20 GB permanently on every ubuntu-latest runner:
+      #   Android SDK  : ~10 GB
+      #   .NET runtime : ~2.5 GB
+      #   Haskell/GHC  : ~5 GB
+      #   CodeQL tools : ~1.5 GB
+      #   Swift        : ~2 GB
+      #   TOTAL        : ~20+ GB freed before any pipeline work begins
+      #
+      # This runs BEFORE checkout so the freed space is available for the full
+      # pipeline including the 81k-file dist/ build and GitHub Pages upload.
+      # -----------------------------------------------------------------------
+      - name: "STAGE 0: Free Runner Disk Space (v161.4 P0 PERMANENT FIX)"
+        timeout-minutes: 5
+        run: |
+          echo "======================================================================"
+          echo "  SENTINEL APEX — RUNNER DISK SOVEREIGNTY v161.4"
+          echo "======================================================================"
+          df -h /
+          echo ""
+          echo "Removing unused OS pre-installed tools..."
+
+          # Remove Android SDK (~10 GB)
+          sudo rm -rf /usr/local/lib/android 2>/dev/null || true
+
+          # Remove .NET runtime (~2.5 GB)
+          sudo rm -rf /usr/share/dotnet 2>/dev/null || true
+
+          # Remove Haskell / GHC (~5 GB)
+          sudo rm -rf /usr/local/.ghcup 2>/dev/null || true
+          sudo rm -rf /opt/ghc 2>/dev/null || true
+
+          # Remove Swift (~2 GB)
+          sudo rm -rf /usr/share/swift 2>/dev/null || true
+
+          # Remove CodeQL tools (~1.5 GB)
+          sudo rm -rf /opt/hostedtoolcache/CodeQL 2>/dev/null || true
+
+          # Remove Mono (~1 GB)
+          sudo rm -rf /usr/share/mono 2>/dev/null || true
+
+          # Remove Go toolchain (pipeline uses Python only)
+          sudo rm -rf /usr/local/go 2>/dev/null || true
+
+          # Remove Julia
+          sudo rm -rf /usr/local/julia* 2>/dev/null || true
+
+          # Remove unnecessary man pages / docs
+          sudo rm -rf /usr/share/man /usr/share/doc 2>/dev/null || true
+
+          # Purge apt cache
+          sudo apt-get clean -qq 2>/dev/null || true
+
+          echo ""
+          echo "Disk after OS cleanup:"
+          df -h /
+          FREE_GB=$(df / --output=avail | tail -1 | awk '{print $1/1024/1024}')
+          echo "Free: ${FREE_GB} GB"
+          echo "======================================================================"
+
+      # -----------------------------------------------------------------------
       # STAGE 0: CHECKOUT
       # v156.0 PERFORMANCE GOVERNANCE — SHALLOW CLONE (fetch-depth: 1)
       #
