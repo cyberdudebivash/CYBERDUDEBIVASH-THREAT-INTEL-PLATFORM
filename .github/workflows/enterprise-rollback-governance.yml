@@ -41,6 +41,7 @@ permissions:
   deployments: write
 
 env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
   PYTHON_VERSION: "3.11"
 
 jobs:
@@ -75,7 +76,7 @@ jobs:
       current_sha: ${{ steps.capture.outputs.current_sha }}
       rollback_tag: ${{ steps.capture.outputs.rollback_tag }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6.0.2
         with:
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
@@ -107,7 +108,7 @@ jobs:
     outputs:
       target_sha: ${{ steps.validate.outputs.target_sha }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6.0.2
         with:
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
@@ -173,7 +174,7 @@ jobs:
     runs-on: ubuntu-latest
     environment: production
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6.0.2
         with:
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
@@ -219,7 +220,7 @@ jobs:
     if: github.event.inputs.skip_canary != 'true'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6.0.2
 
       - uses: actions/setup-python@v5
         with:
