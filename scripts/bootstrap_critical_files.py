@@ -69,7 +69,8 @@ BANNED_URL_HOSTS = (
     "blogger.googleusercontent.com",
 )
 
-SEVERITY_VALID = {"CRITICAL", "HIGH", "MEDIUM", "LOW", "INFO"}
+# NOTE: "INFO" excluded — validate_repo.py V5 rejects it as a threat severity.
+SEVERITY_VALID = {"CRITICAL", "HIGH", "MEDIUM", "LOW"}
 
 
 def log(msg: str) -> None:
@@ -192,7 +193,7 @@ def stix_bundle_to_entry(bundle_path: Path) -> dict | None:
         elif risk_score >= 7.0: severity = "HIGH"
         elif risk_score >= 4.5: severity = "MEDIUM"
         elif risk_score >= 1.5: severity = "LOW"
-        else:                   severity = "INFO"
+        else:                   severity = "LOW"   # FIX v161.4: INFO rejected by validate_repo V5
 
     source_url = ""
     refs = primary.get("external_references") or []
@@ -258,7 +259,7 @@ def stix_bundle_to_entry(bundle_path: Path) -> dict | None:
         "stix_version":      "2.1",
         "schema_version":    PLATFORM_VERSION,
         "status":            "active",
-        "published":         True,
+        "published":         timestamp,  # FIX v161.4: ISO-8601 string (validate_repo V1 — must NOT be bool)
         "generated_at":      utc_now_iso(),
     }
     return entry

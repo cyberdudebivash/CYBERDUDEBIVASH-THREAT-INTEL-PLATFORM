@@ -2107,22 +2107,33 @@ def stage_dedup_and_enrich() -> None:
         items, trust_enriched = apply_source_trust_enrichment(items)
         log.info("[3.2] Source trust enriched: %d/%d items got source_trust_score", trust_enriched, len(items))
 
-        # Step 2.6: v148.0.0 'published' boolean guard
-        # Ensure every item has a boolean 'published' field (schema pre-write guard).
-        # Missing or non-bool 'published' is a silent bug that breaks API filters.
+        # Step 2.6: v161.4 FIXED 'is_published' boolean flag
+        # CRITICAL FIX: 'published' is an ISO-8601 datetime string (P0 mandate — validate_repo V1).
+        # The old guard overwrote ISO-8601 strings with bool(True), causing Stage 5.5 HARD FAIL.
+        # Use 'is_published' (boolean flag) instead of clobbering the 'published' date field.
         pub_fixed = 0
         for item in items:
-            raw_pub = item.get("published")
-            if not isinstance(raw_pub, bool):
-                # Coerce: treat truthy strings ("true","yes","1") as True, else True by default
-                # (items reaching this stage have passed freshness gate, so they ARE published)
+            if "is_published" not in item:
+                raw_pub = item.get("published")
                 if isinstance(raw_pub, str) and raw_pub.lower() in ("false", "0", "no", ""):
-                    item["published"] = False
+                    item["is_published"] = False
                 else:
-                    item["published"] = True
+                    item["is_published"] = True
                 pub_fixed += 1
+            # SAFETY NET: if 'published' was previously corrupted to bool, restore ISO-8601
+            if isinstance(item.get("published"), bool):
+                restored = (
+                    item.get("published_at") or item.get("timestamp")
+                    or item.get("created") or item.get("modified")
+                )
+                if restored and isinstance(restored, str):
+                    item["published"] = restored
+                else:
+                    from datetime import datetime, timezone as _tz
+                    item["published"] = datetime.now(_tz.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+                log.warning("[3.2] Restored boolean 'published' to ISO-8601 on item %s", item.get("id", "?"))
         if pub_fixed:
-            log.info("[3.2] 'published' boolean fixed on %d items", pub_fixed)
+            log.info("[3.2] 'is_published' flag set on %d items (ISO-8601 'published' preserved)", pub_fixed)
 
         # Step 3: Schema validation (lenient mode -- fix + keep)
         validator = SchemaValidator(strict=False)
@@ -3217,6 +3228,17 @@ def stage_sync_root_feed_json() -> None:
         except Exception:
             _MX_MANIFEST = 5000
         _manifest_write_items = _manifest_write_items[:_MX_MANIFEST]
+
+        # v161.4 DEFENSE-IN-DEPTH: enforce_schema_list() before canonical write-back.
+        # Final schema gate — ensures no boolean 'published' or invalid severity (e.g. INFO)
+        # can survive into feed_manifest.json regardless of what upstream stages produced.
+        if _SAFE_IO_AVAILABLE:
+            try:
+                _manifest_write_items = enforce_schema_list(_manifest_write_items)
+                log.info("[3.9] enforce_schema_list() applied before canonical write")
+            except Exception as _esf_e:
+                log.warning("[3.9] enforce_schema_list() failed (non-fatal): %s", _esf_e)
+
         _manifest_envelope = {
             "version":        PIPELINE_VERSION,
             "platform":       "SENTINEL-APEX",
