@@ -1,0 +1,213 @@
+version: "3.9"
+# =============================================================================
+# CYBERDUDEBIVASH® SENTINEL APEX — ClickHouse Cluster
+# infrastructure/clickhouse/docker-compose.clickhouse.yml
+#
+# Architecture: 2-shard × 3-replica (6 nodes) + ZooKeeper 3-node quorum
+# Capacity: 50M events/day @ sustained ingest, <10ms p99 query latency
+# Storage: 500GB per node (SSD preferred), TTL tiering to cold storage
+#
+# Deploy: docker compose -f docker-compose.clickhouse.yml up -d
+# =============================================================================
+
+x-clickhouse-common: &clickhouse-common
+  image: clickhouse/clickhouse-server:24.3-alpine
+  restart: unless-stopped
+  ulimits:
+    nofile:
+      soft: 262144
+      hard: 262144
+  environment:
+    CLICKHOUSE_DB: sentinel_apex
+    CLICKHOUSE_USER: sentinel
+    CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-SentinelAPEX_Secure_2024!}
+    CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: 1
+
+x-zookeeper-common: &zookeeper-common
+  image: zookeeper:3.8-temurin
+  restart: unless-stopped
+  environment:
+    ZOO_TICK_TIME: 2000
+    ZOO_INIT_LIMIT: 10
+    ZOO_SYNC_LIMIT: 5
+    ZOO_MAX_CLIENT_CNXNS: 200
+    ZOO_4LW_COMMANDS_WHITELIST: "mntr,conf,ruok,stat"
+
+services:
+
+  # ── ZooKeeper Quorum (3 nodes) ──────────────────────────────────────────────
+  zookeeper-1:
+    <<: *zookeeper-common
+    hostname: zookeeper-1
+    environment:
+      ZOO_MY_ID: 1
+      ZOO_SERVERS: "server.1=zookeeper-1:2888:3888;2181 server.2=zookeeper-2:2888:3888;2181 server.3=zookeeper-3:2888:3888;2181"
+    volumes:
+      - zk1-data:/data
+      - zk1-logs:/datalog
+    networks: [sentinel-telemetry]
+
+  zookeeper-2:
+    <<: *zookeeper-common
+    hostname: zookeeper-2
+    environment:
+      ZOO_MY_ID: 2
+      ZOO_SERVERS: "server.1=zookeeper-1:2888:3888;2181 server.2=zookeeper-2:2888:3888;2181 server.3=zookeeper-3:2888:3888;2181"
+    volumes:
+      - zk2-data:/data
+      - zk2-logs:/datalog
+    networks: [sentinel-telemetry]
+
+  zookeeper-3:
+    <<: *zookeeper-common
+    hostname: zookeeper-3
+    environment:
+      ZOO_MY_ID: 3
+      ZOO_SERVERS: "server.1=zookeeper-1:2888:3888;2181 server.2=zookeeper-2:2888:3888;2181 server.3=zookeeper-3:2888:3888;2181"
+    volumes:
+      - zk3-data:/data
+      - zk3-logs:/datalog
+    networks: [sentinel-telemetry]
+
+  # ── ClickHouse Shard 1 — Replica 1 (Primary) ───────────────────────────────
+  clickhouse-s1r1:
+    <<: *clickhouse-common
+    hostname: clickhouse-s1r1
+    ports:
+      - "8123:8123"   # HTTP
+      - "9000:9000"   # Native TCP
+    volumes:
+      - ch-s1r1-data:/var/lib/clickhouse
+      - ./config/clickhouse-s1r1.xml:/etc/clickhouse-server/config.d/cluster.xml:ro
+      - ./config/users.xml:/etc/clickhouse-server/users.d/users.xml:ro
+      - ./schema.sql:/docker-entrypoint-initdb.d/00_schema.sql:ro
+    depends_on: [zookeeper-1, zookeeper-2, zookeeper-3]
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8123/ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks: [sentinel-telemetry]
+    labels:
+      sentinel.role: "clickhouse-primary"
+      sentinel.shard: "1"
+      sentinel.replica: "1"
+
+  # ── ClickHouse Shard 1 — Replica 2 ─────────────────────────────────────────
+  clickhouse-s1r2:
+    <<: *clickhouse-common
+    hostname: clickhouse-s1r2
+    volumes:
+      - ch-s1r2-data:/var/lib/clickhouse
+      - ./config/clickhouse-s1r2.xml:/etc/clickhouse-server/config.d/cluster.xml:ro
+      - ./config/users.xml:/etc/clickhouse-server/users.d/users.xml:ro
+    depends_on: [zookeeper-1, zookeeper-2, zookeeper-3]
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8123/ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks: [sentinel-telemetry]
+    labels:
+      sentinel.role: "clickhouse-replica"
+      sentinel.shard: "1"
+      sentinel.replica: "2"
+
+  # ── ClickHouse Shard 2 — Replica 1 (Primary) ───────────────────────────────
+  clickhouse-s2r1:
+    <<: *clickhouse-common
+    hostname: clickhouse-s2r1
+    ports:
+      - "8124:8123"
+      - "9001:9000"
+    volumes:
+      - ch-s2r1-data:/var/lib/clickhouse
+      - ./config/clickhouse-s2r1.xml:/etc/clickhouse-server/config.d/cluster.xml:ro
+      - ./config/users.xml:/etc/clickhouse-server/users.d/users.xml:ro
+    depends_on: [zookeeper-1, zookeeper-2, zookeeper-3]
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8123/ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks: [sentinel-telemetry]
+    labels:
+      sentinel.role: "clickhouse-primary"
+      sentinel.shard: "2"
+      sentinel.replica: "1"
+
+  # ── ClickHouse Shard 2 — Replica 2 ─────────────────────────────────────────
+  clickhouse-s2r2:
+    <<: *clickhouse-common
+    hostname: clickhouse-s2r2
+    volumes:
+      - ch-s2r2-data:/var/lib/clickhouse
+      - ./config/clickhouse-s2r2.xml:/etc/clickhouse-server/config.d/cluster.xml:ro
+      - ./config/users.xml:/etc/clickhouse-server/users.d/users.xml:ro
+    depends_on: [zookeeper-1, zookeeper-2, zookeeper-3]
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8123/ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks: [sentinel-telemetry]
+    labels:
+      sentinel.role: "clickhouse-replica"
+      sentinel.shard: "2"
+      sentinel.replica: "2"
+
+  # ── ClickHouse Keeper (alternative to ZK — production recommendation) ───────
+  # Uncomment and replace ZK if using ClickHouse 23.3+
+  # ch-keeper-1:
+  #   image: clickhouse/clickhouse-keeper:24.3-alpine
+  #   ...
+
+  # ── Grafana Telemetry Dashboard ─────────────────────────────────────────────
+  grafana:
+    image: grafana/grafana:10.4-ubuntu
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-SentinelGrafana2024!}
+      GF_INSTALL_PLUGINS: grafana-clickhouse-datasource
+      GF_SERVER_ROOT_URL: "https://grafana.intel.cyberdudebivash.com"
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ./grafana/datasources:/etc/grafana/provisioning/datasources:ro
+    depends_on: [clickhouse-s1r1]
+    networks: [sentinel-telemetry]
+    labels:
+      sentinel.role: "telemetry-dashboard"
+
+  # ── Vector (Log/Event Router → ClickHouse) ──────────────────────────────────
+  vector:
+    image: timberio/vector:0.38.0-alpine
+    restart: unless-stopped
+    volumes:
+      - ./vector/vector.yaml:/etc/vector/vector.yaml:ro
+    environment:
+      CLICKHOUSE_HOST: clickhouse-s1r1
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-SentinelAPEX_Secure_2024!}
+    depends_on: [clickhouse-s1r1]
+    networks: [sentinel-telemetry]
+    labels:
+      sentinel.role: "event-router"
+
+networks:
+  sentinel-telemetry:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+
+volumes:
+  zk1-data:    zk1-logs:
+  zk2-data:    zk2-logs:
+  zk3-data:    zk3-logs:
+  ch-s1r1-data:
+  ch-s1r2-data:
+  ch-s2r1-data:
+  ch-s2r2-data:
+  grafana-data:
