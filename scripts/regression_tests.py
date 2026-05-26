@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 scripts/regression_tests.py
-CYBERDUDEBIVASH(R) SENTINEL APEX v141.7.0 -- Permanent Anti-Regression Test Suite
+CYBERDUDEBIVASH(R) SENTINEL APEX v143.3 -- Permanent Anti-Regression Test Suite
 ==================================================================================
 PHASE 11: Regression guard for the production pipeline.
 
