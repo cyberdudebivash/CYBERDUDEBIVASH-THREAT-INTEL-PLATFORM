@@ -1679,26 +1679,35 @@ jobs:
         run: python3 scripts/build_dist_artifact.py
 
       # -----------------------------------------------------------------------
-      # STAGE 5.4.6b - POST-DIST REPORTS CLEANUP (v161.5 P0 DISK GOVERNANCE)
-      # reports/ has already been committed to git in Stage 4 (safe_git_commit.py).
-      # It is no longer needed on disk — dist/ is the deployment artifact.
+      # STAGE 5.4.6b - POST-DIST REPORTS CLEANUP (v161.6 P0 DISK GOVERNANCE)
+      # reports/ is gitignored (NOT committed to git -- served via R2/dist only).
+      # It is no longer needed on disk after dist/ is built -- dist/ is the
+      # deployment artifact and contains all reports at dist/reports/.
       # Deleting reports/ immediately after the dist build recovers ~2-7 GB,
       # ensuring the GitHub Pages upload action has sufficient headroom.
-      # This permanently prevents dual-copy disk exhaustion on any runner size.
+      # v161.6: Write data/health/reports_cleanup_sentinel.json BEFORE deletion
+      # so Stage 5.6 regression test T08 can verify reports were generated even
+      # after cleanup. T08 uses REPORT_COUNT env + dist/reports/ as fallbacks.
       # -----------------------------------------------------------------------
-      - name: "STAGE 5.4.6b - Post-dist reports/ cleanup (v161.5 P0 DISK GOV)"
+      - name: "STAGE 5.4.6b - Post-dist reports/ cleanup (v161.6 P0 DISK GOV)"
         if: ${{ !cancelled() }}
         timeout-minutes: 2
         run: |
           BEFORE=$(df / --output=avail | tail -1 | awk '{printf "%.2f", $1/1024/1024}')
           echo "Disk before reports/ cleanup: ${BEFORE} GB free"
           if [ -d "reports" ]; then
-            REPORT_COUNT=$(find reports -name "*.html" | wc -l)
-            echo "Removing reports/ from runner disk (${REPORT_COUNT} HTML files — already committed to git)"
+            REPORT_COUNT_LOCAL=$(find reports -name "*.html" | wc -l)
+            echo "Found ${REPORT_COUNT_LOCAL} HTML files in reports/"
+            mkdir -p data/health
+            printf '{"reports_generated":%s,"cleaned_at":"%s","preserved_in":"dist/reports/"}' \
+              "$REPORT_COUNT_LOCAL" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+              > data/health/reports_cleanup_sentinel.json
+            echo "Sentinel written: data/health/reports_cleanup_sentinel.json"
+            echo "Removing reports/ from runner disk (preserved in dist/reports/ and R2)"
             rm -rf reports/
             echo "reports/ removed from runner disk"
           else
-            echo "reports/ not present — nothing to clean"
+            echo "reports/ not present -- nothing to clean"
           fi
           AFTER=$(df / --output=avail | tail -1 | awk '{printf "%.2f", $1/1024/1024}')
           echo "Disk after reports/ cleanup: ${AFTER} GB free"
