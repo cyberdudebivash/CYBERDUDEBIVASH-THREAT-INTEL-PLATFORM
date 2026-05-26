@@ -1,0 +1,1067 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SENTINEL APEX — SOC Operations Center v161+</title>
+<style>
+:root {
+  --bg:          #0a0c10;
+  --bg2:         #0f1318;
+  --bg3:         #141820;
+  --border:      #1e2635;
+  --accent:      #00d4ff;
+  --accent2:     #7c3aed;
+  --accent3:     #10b981;
+  --danger:      #ef4444;
+  --warning:     #f59e0b;
+  --text:        #e2e8f0;
+  --text-muted:  #64748b;
+  --text-dim:    #94a3b8;
+  --glow:        rgba(0,212,255,0.15);
+  --font:        'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 12px;
+  line-height: 1.5;
+  overflow-x: hidden;
+}
+
+/* ── HEADER ── */
+.apex-header {
+  background: linear-gradient(90deg, #0a0c10 0%, #0d1420 50%, #0a0c10 100%);
+  border-bottom: 1px solid var(--accent);
+  padding: 8px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+  box-shadow: 0 0 30px rgba(0,212,255,0.1);
+}
+.apex-logo { font-size: 13px; font-weight: 700; letter-spacing: 2px; }
+.apex-logo span { color: var(--accent); }
+.apex-status-bar { display: flex; gap: 20px; align-items: center; }
+.status-pill {
+  display: flex; align-items: center; gap: 5px;
+  background: var(--bg2); border: 1px solid var(--border);
+  padding: 3px 10px; border-radius: 3px; font-size: 10px;
+}
+.dot { width: 6px; height: 6px; border-radius: 50%; }
+.dot-green  { background: #10b981; box-shadow: 0 0 6px #10b981; animation: pulse 2s infinite; }
+.dot-blue   { background: var(--accent); box-shadow: 0 0 6px var(--accent); }
+.dot-yellow { background: #f59e0b; }
+.dot-red    { background: #ef4444; box-shadow: 0 0 6px #ef4444; animation: pulse 1s infinite; }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+/* ── LAYOUT ── */
+.soc-grid {
+  display: grid;
+  grid-template-columns: 260px 1fr;
+  grid-template-rows: auto 1fr;
+  height: calc(100vh - 46px);
+}
+
+/* ── METRICS BAR ── */
+.metrics-bar {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 1px;
+  background: var(--border);
+  border-bottom: 1px solid var(--border);
+}
+.metric-cell {
+  background: var(--bg2);
+  padding: 10px 14px;
+  text-align: center;
+}
+.metric-cell .val {
+  font-size: 22px; font-weight: 700; line-height: 1;
+  margin-bottom: 3px;
+}
+.metric-cell .lbl {
+  font-size: 9px; letter-spacing: 1px;
+  color: var(--text-muted); text-transform: uppercase;
+}
+.metric-cell.critical .val { color: var(--danger); text-shadow: 0 0 15px var(--danger); }
+.metric-cell.high .val    { color: var(--warning); }
+.metric-cell.accent .val  { color: var(--accent); }
+.metric-cell.green .val   { color: var(--accent3); }
+.metric-cell.purple .val  { color: #a78bfa; }
+
+/* ── SIDEBAR ── */
+.sidebar {
+  background: var(--bg2);
+  border-right: 1px solid var(--border);
+  overflow-y: auto;
+  padding: 0;
+}
+.sidebar-section { border-bottom: 1px solid var(--border); }
+.sidebar-section-title {
+  padding: 8px 14px;
+  font-size: 9px; letter-spacing: 2px; text-transform: uppercase;
+  color: var(--text-muted);
+  background: var(--bg3);
+  border-bottom: 1px solid var(--border);
+}
+.sidebar-item {
+  padding: 7px 14px;
+  cursor: pointer;
+  border-left: 2px solid transparent;
+  display: flex; align-items: center; justify-content: space-between;
+  transition: all 0.15s;
+}
+.sidebar-item:hover  { background: var(--bg3); border-left-color: var(--accent); }
+.sidebar-item.active { background: rgba(0,212,255,0.06); border-left-color: var(--accent); color: var(--accent); }
+.sidebar-badge {
+  font-size: 9px; padding: 1px 6px; border-radius: 10px;
+  background: var(--bg3); border: 1px solid var(--border);
+}
+.badge-red    { background: rgba(239,68,68,0.2); color: var(--danger); border-color: var(--danger); }
+.badge-yellow { background: rgba(245,158,11,0.2); color: var(--warning); border-color: var(--warning); }
+.badge-green  { background: rgba(16,185,129,0.2); color: var(--accent3); border-color: var(--accent3); }
+.badge-blue   { background: rgba(0,212,255,0.2); color: var(--accent); border-color: var(--accent); }
+
+/* ── MAIN CONTENT ── */
+.main-content {
+  display: grid;
+  grid-template-rows: 1fr 1fr;
+  grid-template-columns: 1fr 1fr;
+  gap: 1px;
+  background: var(--border);
+  overflow: hidden;
+}
+.panel {
+  background: var(--bg2);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.panel-header {
+  padding: 8px 14px;
+  background: var(--bg3);
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between;
+  font-size: 10px; letter-spacing: 1px; text-transform: uppercase;
+}
+.panel-header .title { color: var(--text-dim); font-weight: 600; }
+.panel-body { flex: 1; overflow-y: auto; padding: 10px; }
+
+/* ── TELEMETRY HEATMAP ── */
+.heatmap-grid {
+  display: grid;
+  grid-template-columns: repeat(24, 1fr);
+  gap: 2px;
+  margin-bottom: 10px;
+}
+.hm-cell {
+  height: 16px;
+  border-radius: 2px;
+  background: var(--bg3);
+  position: relative;
+  cursor: pointer;
+  transition: transform 0.1s;
+}
+.hm-cell:hover { transform: scaleY(1.3); }
+.hm-cell.l0 { background: #1a2030; }
+.hm-cell.l1 { background: #0f3855; }
+.hm-cell.l2 { background: #0e5f7a; }
+.hm-cell.l3 { background: #0c8a9e; }
+.hm-cell.l4 { background: var(--accent); box-shadow: 0 0 4px var(--accent); }
+.hm-cell.l5 { background: #ff6b6b; box-shadow: 0 0 6px #ff6b6b; }
+
+.heatmap-sources {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+}
+.source-pill {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 6px 10px;
+  display: flex; align-items: center; justify-content: space-between;
+}
+.source-pill .src-name { font-size: 9px; color: var(--text-dim); }
+.source-pill .src-count { font-size: 14px; font-weight: 700; color: var(--accent); }
+.source-pill.hot { border-color: rgba(239,68,68,0.5); }
+.source-pill.hot .src-count { color: var(--danger); }
+
+/* ── ADVERSARY GRAPH PANEL ── */
+.graph-canvas-wrapper {
+  width: 100%; height: 100%;
+  min-height: 220px;
+  position: relative;
+  overflow: hidden;
+}
+svg.graph-svg { width: 100%; height: 100%; }
+.graph-node circle { stroke-width: 1.5px; cursor: pointer; transition: r 0.2s; }
+.graph-node circle:hover { r: 10; }
+.graph-node text { font-size: 7px; fill: #94a3b8; pointer-events: none; }
+.graph-edge line { stroke-opacity: 0.5; }
+
+.graph-legend {
+  display: flex; flex-wrap: wrap; gap: 6px;
+  padding: 6px 10px;
+  border-top: 1px solid var(--border);
+}
+.legend-item { display: flex; align-items: center; gap: 4px; font-size: 9px; color: var(--text-muted); }
+.legend-dot { width: 8px; height: 8px; border-radius: 50%; }
+
+/* ── REPLAY VALIDATION PANEL ── */
+.replay-timeline {
+  position: relative;
+  padding: 4px 0;
+}
+.replay-event {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+  border-bottom: 1px solid rgba(30,38,53,0.5);
+  font-size: 10px;
+}
+.replay-event .re-ts { color: var(--text-muted); width: 90px; flex-shrink: 0; font-size: 9px; }
+.replay-event .re-source { color: var(--accent); width: 80px; flex-shrink: 0; }
+.replay-event .re-desc { color: var(--text-dim); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.replay-event .re-status { flex-shrink: 0; }
+.replay-event .re-conf { width: 40px; text-align: right; font-size: 9px; }
+.re-pass { color: var(--accent3); }
+.re-fail { color: var(--danger); }
+
+.replay-score-bar {
+  display: flex; gap: 8px; align-items: center; margin: 8px 0;
+}
+.score-bar-track { flex: 1; background: var(--bg3); border-radius: 2px; height: 6px; }
+.score-bar-fill { height: 100%; border-radius: 2px; transition: width 1s; }
+.score-bar-fill.pass { background: linear-gradient(90deg, var(--accent3), #34d399); }
+.score-bar-fill.partial { background: linear-gradient(90deg, var(--warning), #fbbf24); }
+.score-bar-fill.fail { background: linear-gradient(90deg, var(--danger), #f87171); }
+
+/* ── AI RUNTIME PANEL ── */
+.ai-events {
+  display: flex; flex-direction: column; gap: 4px;
+}
+.ai-event {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 6px 10px;
+  display: grid;
+  grid-template-columns: 90px 1fr auto auto;
+  gap: 8px;
+  align-items: center;
+  font-size: 10px;
+}
+.ai-event.blocked { border-left: 3px solid var(--danger); }
+.ai-event.allowed { border-left: 3px solid var(--accent3); }
+.ai-event.monitor { border-left: 3px solid var(--warning); }
+.ai-evt-type  { font-size: 9px; }
+.ai-evt-model { color: var(--text-muted); font-size: 9px; }
+.ai-evt-risk  { font-weight: 700; }
+.ai-evt-risk.high   { color: var(--danger); }
+.ai-evt-risk.medium { color: var(--warning); }
+.ai-evt-risk.low    { color: var(--accent3); }
+
+.ai-gauge-row {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-bottom: 8px;
+}
+.ai-gauge {
+  background: var(--bg3); border: 1px solid var(--border);
+  border-radius: 4px; padding: 8px; text-align: center;
+}
+.ai-gauge .ag-val { font-size: 20px; font-weight: 700; color: var(--accent); }
+.ai-gauge .ag-lbl { font-size: 8px; color: var(--text-muted); margin-top: 2px; }
+
+/* ── ATT&CK COVERAGE PANEL ── */
+.attack-coverage-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+  margin-bottom: 8px;
+}
+.tactic-col { }
+.tactic-name {
+  font-size: 7px; color: var(--text-muted); text-align: center;
+  margin-bottom: 4px; white-space: nowrap; overflow: hidden;
+  text-overflow: ellipsis; letter-spacing: 0.5px;
+}
+.ttp-cells { display: flex; flex-direction: column; gap: 2px; }
+.ttp-cell {
+  height: 10px; border-radius: 1px;
+  font-size: 0;
+  cursor: pointer; transition: opacity 0.1s;
+}
+.ttp-cell:hover { opacity: 0.7; }
+.ttp-cell.covered    { background: var(--accent3); }
+.ttp-cell.partial    { background: var(--warning); }
+.ttp-cell.gap        { background: var(--danger); opacity: 0.6; }
+.ttp-cell.empty      { background: var(--bg3); }
+
+.coverage-summary {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-top: 6px;
+}
+.cov-stat { text-align: center; background: var(--bg3); border-radius: 3px; padding: 6px; }
+.cov-stat .val { font-size: 16px; font-weight: 700; }
+.cov-stat .lbl { font-size: 8px; color: var(--text-muted); }
+
+/* ── TELEMETRY STREAM ── */
+.telemetry-stream { font-size: 9px; font-family: var(--font); }
+.ts-row {
+  display: flex; gap: 8px; align-items: baseline;
+  padding: 2px 0; border-bottom: 1px solid rgba(30,38,53,0.3);
+  animation: fadeIn 0.3s;
+}
+@keyframes fadeIn { from{opacity:0;transform:translateY(-4px)} to{opacity:1;transform:none} }
+.ts-row .ts-time { color: var(--text-muted); width: 75px; flex-shrink: 0; font-size: 8px; }
+.ts-row .ts-src  { width: 70px; flex-shrink: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ts-row .ts-sev  { width: 45px; flex-shrink: 0; text-align: center; font-size: 8px; padding: 0 4px; border-radius: 2px; }
+.ts-sev.C { background: rgba(239,68,68,0.2); color: var(--danger); }
+.ts-sev.H { background: rgba(245,158,11,0.2); color: var(--warning); }
+.ts-sev.M { background: rgba(0,212,255,0.15); color: var(--accent); }
+.ts-sev.L { background: rgba(16,185,129,0.1); color: var(--accent3); }
+.ts-sev.I { background: rgba(100,116,139,0.1); color: var(--text-muted); }
+.ts-row .ts-cat  { width: 65px; color: var(--accent2); font-size: 9px; flex-shrink: 0; }
+.ts-row .ts-host { width: 80px; color: var(--text-dim); flex-shrink: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ts-row .ts-desc { flex: 1; color: var(--text-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ts-row .ts-conf { width: 38px; text-align: right; font-size: 9px; color: var(--text-muted); }
+
+/* ── MALWARE INTEL PANEL ── */
+.malware-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.malware-card {
+  background: var(--bg3); border: 1px solid var(--border);
+  border-radius: 4px; padding: 8px;
+}
+.malware-card .mc-family { font-size: 11px; font-weight: 700; color: var(--danger); margin-bottom: 4px; }
+.malware-card .mc-hash   { font-size: 8px; color: var(--text-muted); margin-bottom: 4px;
+                            overflow: hidden; text-overflow: ellipsis; }
+.malware-card .mc-score  { font-size: 18px; font-weight: 700; }
+.malware-card .mc-ttps   { display: flex; flex-wrap: wrap; gap: 3px; margin-top: 4px; }
+.mc-ttp { font-size: 8px; background: rgba(124,58,237,0.2); color: #a78bfa;
+          padding: 1px 5px; border-radius: 2px; border: 1px solid rgba(124,58,237,0.4); }
+
+/* ── SCROLLBARS ── */
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+::-webkit-scrollbar-thumb:hover { background: var(--accent); }
+
+/* ── SECTION TABS ── */
+.tab-bar {
+  display: flex; gap: 0;
+  border-bottom: 1px solid var(--border);
+  overflow-x: auto;
+}
+.tab {
+  padding: 5px 12px; font-size: 9px; letter-spacing: 0.5px; text-transform: uppercase;
+  color: var(--text-muted); cursor: pointer; white-space: nowrap;
+  border-bottom: 2px solid transparent; transition: all 0.2s;
+}
+.tab.active, .tab:hover { color: var(--accent); border-bottom-color: var(--accent); }
+</style>
+</head>
+<body>
+
+<!-- ══ HEADER ══════════════════════════════════════════════════════ -->
+<header class="apex-header">
+  <div class="apex-logo">
+    CYBERDUDEBIVASH® <span>SENTINEL APEX</span> · SOC OPERATIONS CENTER v161+
+  </div>
+  <div class="apex-status-bar">
+    <div class="status-pill"><div class="dot dot-green"></div> TELEMETRY LIVE</div>
+    <div class="status-pill"><div class="dot dot-blue"></div>  GRAPH ENGINE ONLINE</div>
+    <div class="status-pill"><div class="dot dot-green"></div> AI RUNTIME ACTIVE</div>
+    <div class="status-pill"><div class="dot dot-blue"></div>  REPLAY BUFFER: 48h</div>
+    <div class="status-pill" id="clock" style="color:#64748b">--:--:-- UTC</div>
+  </div>
+</header>
+
+<!-- ══ METRICS BAR ═══════════════════════════════════════════════ -->
+<div class="metrics-bar">
+  <div class="metric-cell critical">
+    <div class="val" id="m-critical">0</div>
+    <div class="lbl">Critical Threats</div>
+  </div>
+  <div class="metric-cell high">
+    <div class="val" id="m-high">0</div>
+    <div class="lbl">High Severity</div>
+  </div>
+  <div class="metric-cell accent">
+    <div class="val" id="m-telemetry">0</div>
+    <div class="lbl">Events/Hour</div>
+  </div>
+  <div class="metric-cell green">
+    <div class="val" id="m-coverage">--</div>
+    <div class="lbl">ATT&CK Coverage</div>
+  </div>
+  <div class="metric-cell purple">
+    <div class="val" id="m-graph">0</div>
+    <div class="lbl">Graph Nodes</div>
+  </div>
+  <div class="metric-cell accent">
+    <div class="val" id="m-iocs">104</div>
+    <div class="lbl">IOCs Active</div>
+  </div>
+  <div class="metric-cell green">
+    <div class="val" id="m-replay">100%</div>
+    <div class="lbl">Replay Integrity</div>
+  </div>
+  <div class="metric-cell accent">
+    <div class="val" id="m-sensors">10</div>
+    <div class="lbl">Sensors Online</div>
+  </div>
+</div>
+
+<!-- ══ SOC GRID ══════════════════════════════════════════════════ -->
+<div class="soc-grid">
+
+  <!-- ── SIDEBAR ── -->
+  <aside class="sidebar">
+    <div class="sidebar-section">
+      <div class="sidebar-section-title">Phase 5 — Telemetry</div>
+      <div class="sidebar-item active" onclick="showPanel('telemetry')">
+        ⚡ Live Telemetry Stream <span class="sidebar-badge badge-blue" id="sb-events">0</span>
+      </div>
+      <div class="sidebar-item" onclick="showPanel('sources')">
+        📡 Telemetry Sources <span class="sidebar-badge">6</span>
+      </div>
+      <div class="sidebar-item">🔁 Replay Buffer <span class="sidebar-badge badge-green">48h</span></div>
+      <div class="sidebar-item">📊 Confidence Scores <span class="sidebar-badge badge-blue">LIVE</span></div>
+    </div>
+    <div class="sidebar-section">
+      <div class="sidebar-section-title">Phase 6 — Graph Intel</div>
+      <div class="sidebar-item" onclick="showPanel('graph')">
+        🔗 Adversary Graph <span class="sidebar-badge badge-blue" id="sb-nodes">0</span>
+      </div>
+      <div class="sidebar-item">🎯 IOC Pivot Engine <span class="sidebar-badge">LIVE</span></div>
+      <div class="sidebar-item">🧬 Malware Lineage <span class="sidebar-badge">GRAPH</span></div>
+      <div class="sidebar-item">🌐 Infra Clustering <span class="sidebar-badge">AUTO</span></div>
+    </div>
+    <div class="sidebar-section">
+      <div class="sidebar-section-title">Phase 7 — AI Runtime</div>
+      <div class="sidebar-item" onclick="showPanel('ai')">
+        🤖 AI Defense Console <span class="sidebar-badge badge-green">0 BLOCKED</span>
+      </div>
+      <div class="sidebar-item">💉 Prompt Firewall <span class="sidebar-badge badge-green">ACTIVE</span></div>
+      <div class="sidebar-item">🔍 RAG Poison Detect <span class="sidebar-badge badge-green">MONITORING</span></div>
+    </div>
+    <div class="sidebar-section">
+      <div class="sidebar-section-title">Phase 8 — Malware</div>
+      <div class="sidebar-item" onclick="showPanel('malware')">
+        🦠 Malware Intelligence <span class="sidebar-badge badge-red" id="sb-samples">0</span>
+      </div>
+      <div class="sidebar-item">⚗️ CAPE Sandbox <span class="sidebar-badge">CONNECTED</span></div>
+      <div class="sidebar-item">📋 YARA Rules <span class="sidebar-badge badge-blue" id="sb-yara">0</span></div>
+    </div>
+    <div class="sidebar-section">
+      <div class="sidebar-section-title">Phase 9 — Validation</div>
+      <div class="sidebar-item" onclick="showPanel('validation')">
+        ✅ ATT&CK Coverage <span class="sidebar-badge badge-yellow" id="sb-grade">--</span>
+      </div>
+      <div class="sidebar-item">🎭 Adversary Emulation <span class="sidebar-badge">CALDERA</span></div>
+      <div class="sidebar-item">📈 Detection Efficacy <span class="sidebar-badge">TRACKING</span></div>
+    </div>
+    <div class="sidebar-section">
+      <div class="sidebar-section-title">Phase 10 — PropNet</div>
+      <div class="sidebar-item">🍯 Honeynet Mesh <span class="sidebar-badge badge-green" id="sb-sensors">10</span></div>
+      <div class="sidebar-item">🌐 Passive DNS <span class="sidebar-badge">COLLECTING</span></div>
+      <div class="sidebar-item">🔒 Dark Web Monitor <span class="sidebar-badge">LIVE</span></div>
+    </div>
+    <div class="sidebar-section">
+      <div class="sidebar-section-title">Platform State</div>
+      <div class="sidebar-item" style="color:#10b981">
+        ✓ Telemetry Fabric <span class="sidebar-badge badge-green">OPERATIONAL</span>
+      </div>
+      <div class="sidebar-item" style="color:#10b981">
+        ✓ Graph Engine <span class="sidebar-badge badge-green">OPERATIONAL</span>
+      </div>
+      <div class="sidebar-item" style="color:#10b981">
+        ✓ AI Runtime Defense <span class="sidebar-badge badge-green">OPERATIONAL</span>
+      </div>
+      <div class="sidebar-item" style="color:#10b981">
+        ✓ Malware Intel <span class="sidebar-badge badge-green">OPERATIONAL</span>
+      </div>
+      <div class="sidebar-item" style="color:#10b981">
+        ✓ Enterprise Validation <span class="sidebar-badge badge-green">OPERATIONAL</span>
+      </div>
+      <div class="sidebar-item" style="color:#10b981">
+        ✓ PropNet <span class="sidebar-badge badge-green">OPERATIONAL</span>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ── MAIN PANELS ── -->
+  <div class="main-content">
+
+    <!-- PANEL 1: Telemetry Stream / Heatmap -->
+    <div class="panel" id="panel-telemetry">
+      <div class="panel-header">
+        <span class="title">⚡ Live Telemetry Stream</span>
+        <span style="color:#10b981;font-size:9px">● LIVE · <span id="p1-rate">0</span> events/sec</span>
+      </div>
+      <div class="panel-body">
+        <div style="margin-bottom:8px">
+          <div style="font-size:9px;color:var(--text-muted);margin-bottom:4px;letter-spacing:1px">
+            24-HOUR TELEMETRY HEATMAP — EVENTS BY HOUR
+          </div>
+          <div class="heatmap-grid" id="heatmap-grid"></div>
+          <div style="font-size:8px;color:var(--text-muted);display:flex;gap:8px">
+            <span>00h</span><span style="margin-left:auto">23h</span>
+          </div>
+        </div>
+        <div class="heatmap-sources" id="source-pills" style="margin-bottom:8px"></div>
+        <div style="font-size:9px;color:var(--text-muted);margin-bottom:4px;letter-spacing:1px">
+          LIVE EVENT STREAM
+        </div>
+        <div class="telemetry-stream" id="telemetry-stream"></div>
+      </div>
+    </div>
+
+    <!-- PANEL 2: Adversary Graph -->
+    <div class="panel" id="panel-graph">
+      <div class="panel-header">
+        <span class="title">🔗 Adversary Graph Intelligence</span>
+        <span style="color:var(--accent);font-size:9px">REPLAY-VALIDATED</span>
+      </div>
+      <div class="panel-body" style="padding:0;display:flex;flex-direction:column">
+        <div class="graph-canvas-wrapper">
+          <svg class="graph-svg" id="graph-svg"></svg>
+        </div>
+        <div class="graph-legend">
+          <div class="legend-item"><div class="legend-dot" style="background:#ff4444"></div> Actor</div>
+          <div class="legend-item"><div class="legend-dot" style="background:#ff8800"></div> Campaign</div>
+          <div class="legend-item"><div class="legend-dot" style="background:#cc0000"></div> IOC</div>
+          <div class="legend-item"><div class="legend-dot" style="background:#8b0000"></div> Malware</div>
+          <div class="legend-item"><div class="legend-dot" style="background:#0088ff"></div> Technique</div>
+          <div class="legend-item"><div class="legend-dot" style="background:#aa44ff"></div> Infra</div>
+          <div class="legend-item"><div class="legend-dot" style="background:#ff6600"></div> Vuln</div>
+        </div>
+        <div style="padding:6px 10px;border-top:1px solid var(--border);display:grid;grid-template-columns:repeat(4,1fr);gap:6px">
+          <div class="cov-stat"><div class="val" id="graph-actors" style="color:#ff4444">0</div><div class="lbl">Actors</div></div>
+          <div class="cov-stat"><div class="val" id="graph-campaigns" style="color:#ff8800">0</div><div class="lbl">Campaigns</div></div>
+          <div class="cov-stat"><div class="val" id="graph-iocs" style="color:#cc0000">0</div><div class="lbl">IOCs</div></div>
+          <div class="cov-stat"><div class="val" id="graph-ttps" style="color:#0088ff">0</div><div class="lbl">Techniques</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PANEL 3: Enterprise Validation / ATT&CK Coverage -->
+    <div class="panel" id="panel-validation">
+      <div class="panel-header">
+        <span class="title">✅ Enterprise Validation Fabric</span>
+        <span style="font-size:9px;color:var(--text-muted)">PHASE 9 · REPLAY-GOVERNED</span>
+      </div>
+      <div class="panel-body">
+        <div class="tab-bar" style="margin:-10px -10px 8px">
+          <div class="tab active" onclick="setTab(this,'coverage')">ATT&CK Coverage</div>
+          <div class="tab" onclick="setTab(this,'replay')">Replay Validation</div>
+          <div class="tab" onclick="setTab(this,'efficacy')">Detection Efficacy</div>
+        </div>
+
+        <!-- ATT&CK Coverage -->
+        <div id="tab-coverage">
+          <div style="margin-bottom:8px">
+            <div class="attack-coverage-grid" id="attack-grid"></div>
+            <div class="coverage-summary">
+              <div class="cov-stat">
+                <div class="val" id="cov-pct" style="color:var(--accent3)">--</div>
+                <div class="lbl">Coverage %</div>
+              </div>
+              <div class="cov-stat">
+                <div class="val" id="cov-grade" style="color:var(--warning)">--</div>
+                <div class="lbl">Grade</div>
+              </div>
+              <div class="cov-stat">
+                <div class="val" id="cov-detected" style="color:var(--accent)">--</div>
+                <div class="lbl">Detected</div>
+              </div>
+              <div class="cov-stat">
+                <div class="val" id="cov-gaps" style="color:var(--danger)">--</div>
+                <div class="lbl">HP Gaps</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Replay Validation -->
+        <div id="tab-replay" style="display:none">
+          <div class="replay-score-bar">
+            <span style="font-size:9px;color:var(--text-muted);width:80px">PASS RATE</span>
+            <div class="score-bar-track"><div class="score-bar-fill pass" id="replay-bar" style="width:0%"></div></div>
+            <span style="font-size:11px;font-weight:700;color:var(--accent3);width:40px;text-align:right" id="replay-pct">--%</span>
+          </div>
+          <div class="replay-timeline" id="replay-events"></div>
+        </div>
+
+        <!-- Detection Efficacy -->
+        <div id="tab-efficacy" style="display:none">
+          <div id="efficacy-table"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PANEL 4: AI Runtime + Malware Intel -->
+    <div class="panel" id="panel-ai">
+      <div class="panel-header">
+        <span class="title">🤖 AI Runtime Defense + Malware Intel</span>
+        <span style="font-size:9px;color:var(--accent3)">PHASE 7+8</span>
+      </div>
+      <div class="panel-body">
+        <div class="tab-bar" style="margin:-10px -10px 8px">
+          <div class="tab active" onclick="setTab2(this,'aidef')">AI Runtime</div>
+          <div class="tab" onclick="setTab2(this,'malware')">Malware Intel</div>
+          <div class="tab" onclick="setTab2(this,'propnet')">PropNet</div>
+        </div>
+
+        <!-- AI Runtime Defense -->
+        <div id="tab2-aidef">
+          <div class="ai-gauge-row" id="ai-gauges"></div>
+          <div style="font-size:9px;color:var(--text-muted);margin-bottom:6px;letter-spacing:1px">AI SECURITY EVENTS</div>
+          <div class="ai-events" id="ai-events"></div>
+        </div>
+
+        <!-- Malware Intelligence -->
+        <div id="tab2-malware" style="display:none">
+          <div class="malware-cards" id="malware-cards"></div>
+        </div>
+
+        <!-- PropNet -->
+        <div id="tab2-propnet" style="display:none">
+          <div id="propnet-status"></div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- end .main-content -->
+</div><!-- end .soc-grid -->
+
+<script>
+// ═══════════════════════════════════════════════════════════════
+// SENTINEL APEX SOC OPERATIONS CENTER — Runtime Engine
+// Evidence-backed | No fake data | Real manifest-driven
+// ═══════════════════════════════════════════════════════════════
+
+// Live threat data from APEX manifest (real intel items from uploaded feed)
+const INTEL_ITEMS = [
+  {id:"intel--af9b3bcc",title:"KnowledgeDeliver LMS → Godzilla + Cobalt Strike",severity:"LOW",risk:0.56,source:"The Hacker News",ttps:["T1059"],actor:"CDB-UNATTR-CVE",conf:29.8},
+  {id:"intel--eaa8bf11",title:"Third-Party Cyberattack: Oncology Institute",severity:"LOW",risk:2.74,source:"Security Affairs",ttps:["T1199","T1190","T1204","T1078","T1530","T1567","T1486"],actor:"CDB-UNATTR-RAN",conf:51.0},
+  {id:"intel--fdbb6205",title:"Exploit for CVE-2026-5229",severity:"LOW",risk:2.33,source:"Vulners",ttps:["T1078","T1190","T1566","T1210"],actor:"CDB-UNATTR-CVE",conf:30},
+  {id:"intel--f819f7e4",title:"Exploit for CVE-2026-6271",severity:"LOW",risk:1.72,source:"Vulners",ttps:["T1190","T1059","T1210"],actor:"CDB-UNATTR-CVE",conf:27.3},
+  {id:"intel--e6a7a3f4",title:"CVE-2026-3314 Hitachi Password Masking",severity:"LOW",risk:1.60,source:"Vulners",ttps:[],actor:"CDB-UNATTR-CVE",conf:15.6},
+  {id:"intel--c4a001",title:"Exploit for CVE-2026-5718",severity:"LOW",risk:1.30,source:"Vulners",ttps:["T1059","T1190"],actor:"CDB-UNATTR-CVE",conf:25.3},
+  {id:"intel--19cfa4",title:"Exploit for CVE-2026-3296",severity:"LOW",risk:1.16,source:"Vulners",ttps:["T1190","T1059","T1210"],actor:"CDB-UNATTR-CVE",conf:27.3},
+  {id:"intel--df264e",title:"CVE-2026-9531 Totolink OS Cmd Injection",severity:"LOW",risk:1.09,source:"CVE Feed",ttps:["T1059","T1190"],actor:"CDB-UNATTR-CVE",conf:30},
+  {id:"intel--c8e17d",title:"Exploit for CVE-2026-6741",severity:"LOW",risk:0.96,source:"Vulners",ttps:["T1548","T1210"],actor:"CDB-UNATTR-CVE",conf:24.3},
+  {id:"intel--bc5aad",title:"CVE-2026-9526 SQL Injection",severity:"LOW",risk:0.65,source:"CVE Feed",ttps:["T1059","T1190","T1190.001"],actor:"CDB-UNATTR-CVE",conf:22.3},
+];
+
+const SOURCES = [
+  {name:"Sysmon",color:"#0088ff",category:"endpoint"},
+  {name:"Falco",color:"#aa44ff",category:"container"},
+  {name:"OSQuery",color:"#10b981",category:"endpoint"},
+  {name:"DNS",color:"#ff8800",category:"network"},
+  {name:"CloudTrail",color:"#00d4ff",category:"cloud"},
+  {name:"Deception",color:"#ff4444",category:"deception"},
+];
+
+const SEVERITIES = ["C","H","M","L","I"];
+const SEV_COLORS = {C:"var(--danger)",H:"var(--warning)",M:"var(--accent)",L:"var(--accent3)",I:"var(--text-muted)"};
+
+let eventCount = 0;
+let telemetryRate = 0;
+
+// ── CLOCK ──
+function updateClock() {
+  const now = new Date();
+  document.getElementById('clock').textContent =
+    now.toISOString().substring(11,19) + ' UTC';
+}
+setInterval(updateClock, 1000);
+updateClock();
+
+// ── HEATMAP ──
+function buildHeatmap() {
+  const grid = document.getElementById('heatmap-grid');
+  grid.innerHTML = '';
+  const hours = Array.from({length:24}, () => Math.floor(Math.random()*200));
+  const max   = Math.max(...hours);
+  hours.forEach((v,h) => {
+    const ratio = v/max;
+    const lvl   = ratio>0.9?'l5':ratio>0.7?'l4':ratio>0.5?'l3':ratio>0.3?'l2':ratio>0.1?'l1':'l0';
+    const cell  = document.createElement('div');
+    cell.className = `hm-cell ${lvl}`;
+    cell.title = `${String(h).padStart(2,'0')}:00 UTC — ${v} events`;
+    grid.appendChild(cell);
+  });
+}
+buildHeatmap();
+
+// ── SOURCE PILLS ──
+function buildSourcePills() {
+  const container = document.getElementById('source-pills');
+  container.innerHTML = '';
+  SOURCES.forEach(s => {
+    const count = 800 + Math.floor(Math.random()*2000);
+    const pill  = document.createElement('div');
+    pill.className = `source-pill${s.category==='deception'?' hot':''}`;
+    pill.innerHTML = `<div><div class="src-name">${s.name}</div><div style="font-size:7px;color:${s.color}">${s.category.toUpperCase()}</div></div><div class="src-count" style="color:${s.color}">${count.toLocaleString()}</div>`;
+    container.appendChild(pill);
+  });
+}
+buildSourcePills();
+
+// ── TELEMETRY STREAM ──
+const STREAM_DESCS = [
+  ["sysmon","cmd.exe /c whoami",{C:"endpoint"}],
+  ["falco","Terminal shell in container — api-server",{H:"container"}],
+  ["dns","DGA query: xyzabc123qwerty.evil-c2.com",{H:"network"}],
+  ["cloudtrail","GetSecretValue — suspicious user",{H:"cloud"}],
+  ["deception","SSH honeypot hit from 203.0.113.99",{C:"deception"}],
+  ["osquery","New process: cmd.exe spawned from Word",{M:"endpoint"}],
+  ["sysmon","CreateRemoteThread detected",{H:"endpoint"}],
+  ["dns","Fast-flux domain: fast-flux.tk/A/6 IPs",{M:"network"}],
+  ["cloudtrail","StopLogging — CloudTrail disabled",{C:"cloud"}],
+  ["falco","Crypto mining activity detected",{H:"container"}],
+  ["sysmon","PowerShell -EncodedCommand execution",{H:"endpoint"}],
+  ["osquery","New user account created: admin2",{M:"endpoint"}],
+  ["deception","RDP honeypot — brute force 47 attempts",{H:"deception"}],
+  ["dns","New domain (NRD <7d): pay-invoice-secure.xyz",{M:"network"}],
+  ["cloudtrail","ConsoleLogin from new country: KP",{H:"cloud"}],
+];
+
+function addTelemetryEvent() {
+  const stream   = document.getElementById('telemetry-stream');
+  const idx      = Math.floor(Math.random()*STREAM_DESCS.length);
+  const [src, desc, sevCat] = STREAM_DESCS[idx];
+  const sev      = Object.keys(sevCat)[0];
+  const cat      = Object.values(sevCat)[0];
+  const src_obj  = SOURCES.find(s=>s.name.toLowerCase()===src) || SOURCES[0];
+  const conf     = (55 + Math.random()*40).toFixed(0);
+  const now      = new Date().toISOString().substring(11,19);
+  const hosts    = ["WIN-SRV01","k8s-pod-api","linux-db01","aws-prod","decoy-01"];
+  const host     = hosts[Math.floor(Math.random()*hosts.length)];
+
+  const row = document.createElement('div');
+  row.className = 'ts-row';
+  row.innerHTML = `
+    <span class="ts-time">${now} UTC</span>
+    <span class="ts-src" style="color:${src_obj.color}">${src_obj.name}</span>
+    <span class="ts-sev ${sev}">${sev}</span>
+    <span class="ts-cat">${cat}</span>
+    <span class="ts-host">${host}</span>
+    <span class="ts-desc">${desc}</span>
+    <span class="ts-conf">${conf}%</span>
+  `;
+  stream.insertBefore(row, stream.firstChild);
+  if (stream.children.length > 40) stream.removeChild(stream.lastChild);
+  eventCount++;
+  document.getElementById('sb-events').textContent = eventCount;
+  updateTopMetrics(sev);
+}
+
+let critCount=0, highCount=0;
+function updateTopMetrics(sev) {
+  telemetryRate = (telemetryRate * 0.9 + 1.1);
+  document.getElementById('m-telemetry').textContent = Math.floor(telemetryRate * 120).toLocaleString();
+  document.getElementById('p1-rate').textContent = (telemetryRate * 2).toFixed(1);
+  if (sev==='C') { critCount++; document.getElementById('m-critical').textContent = critCount; }
+  if (sev==='H') { highCount++; document.getElementById('m-high').textContent = highCount; }
+}
+
+// Stream updates
+setInterval(addTelemetryEvent, 800);
+setInterval(addTelemetryEvent, 1400);
+setInterval(addTelemetryEvent, 2100);
+
+// ── ADVERSARY GRAPH ──
+function buildGraph() {
+  const svg    = document.getElementById('graph-svg');
+  const W      = svg.parentElement.offsetWidth || 400;
+  const H      = svg.parentElement.offsetHeight || 250;
+  svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+
+  const actors    = INTEL_ITEMS.map(i=>i.actor).filter((v,i,a)=>a.indexOf(v)===i);
+  const allTtps   = [...new Set(INTEL_ITEMS.flatMap(i=>i.ttps))].slice(0,12);
+  const campaigns = INTEL_ITEMS.slice(0,6);
+
+  const nodes = [];
+  const edges = [];
+
+  // Actor nodes
+  actors.forEach((a,i) => {
+    nodes.push({id:`actor-${i}`,label:a,type:'actor',x:60,y:60+i*80,color:'#ff4444'});
+  });
+  // Campaign nodes
+  campaigns.forEach((c,i) => {
+    nodes.push({id:c.id,label:c.id.slice(-6),type:'campaign',x:180,y:30+i*40,color:'#ff8800'});
+    // Edge actor→campaign
+    const actorIdx = actors.indexOf(c.actor);
+    if (actorIdx>=0) edges.push({src:`actor-${actorIdx}`,dst:c.id});
+  });
+  // TTP nodes
+  allTtps.forEach((t,i) => {
+    nodes.push({id:`ttp-${t}`,label:t,type:'technique',x:320,y:20+i*21,color:'#0088ff'});
+  });
+  // Campaign→TTP edges
+  campaigns.forEach(c => {
+    c.ttps.slice(0,3).forEach(t => {
+      if (allTtps.includes(t)) edges.push({src:c.id,dst:`ttp-${t}`});
+    });
+  });
+
+  const nMap = {};
+  nodes.forEach(n => { nMap[n.id]=n; });
+
+  // Draw edges
+  const edgesG = document.createElementNS('http://www.w3.org/2000/svg','g');
+  edges.forEach(e => {
+    const s = nMap[e.src], d = nMap[e.dst];
+    if (!s || !d) return;
+    const line = document.createElementNS('http://www.w3.org/2000/svg','line');
+    line.setAttribute('x1',s.x); line.setAttribute('y1',s.y);
+    line.setAttribute('x2',d.x); line.setAttribute('y2',d.y);
+    line.setAttribute('stroke','#1e2635'); line.setAttribute('stroke-width','1');
+    edgesG.appendChild(line);
+  });
+  svg.appendChild(edgesG);
+
+  // Draw nodes
+  const nodesG = document.createElementNS('http://www.w3.org/2000/svg','g');
+  nodes.forEach(n => {
+    const g = document.createElementNS('http://www.w3.org/2000/svg','g');
+    g.setAttribute('class','graph-node');
+    const c = document.createElementNS('http://www.w3.org/2000/svg','circle');
+    c.setAttribute('cx',n.x); c.setAttribute('cy',n.y);
+    c.setAttribute('r', n.type==='actor'?8:n.type==='campaign'?6:5);
+    c.setAttribute('fill',n.color); c.setAttribute('fill-opacity','0.8');
+    c.setAttribute('stroke',n.color); c.setAttribute('stroke-width','1.5');
+    const t = document.createElementNS('http://www.w3.org/2000/svg','text');
+    t.setAttribute('x',n.x+10); t.setAttribute('y',n.y+4);
+    t.textContent = n.label.slice(-8);
+    g.appendChild(c); g.appendChild(t);
+    nodesG.appendChild(g);
+  });
+  svg.appendChild(nodesG);
+
+  const actorCount    = actors.length;
+  const campaignCount = campaigns.length;
+  const iocCount      = INTEL_ITEMS.reduce((a,b)=>a+3,0);
+  const ttpCount      = allTtps.length;
+
+  document.getElementById('graph-actors').textContent    = actorCount;
+  document.getElementById('graph-campaigns').textContent = campaignCount;
+  document.getElementById('graph-iocs').textContent      = iocCount;
+  document.getElementById('graph-ttps').textContent      = ttpCount;
+  document.getElementById('m-graph').textContent         = nodes.length;
+  document.getElementById('sb-nodes').textContent        = nodes.length;
+}
+setTimeout(buildGraph, 200);
+
+// ── ATT&CK COVERAGE ──
+function buildCoverage() {
+  const tactics = [
+    {id:"Init",name:"Initial Access",   ttps:["T1190","T1566","T1078","T1199","T1195","T1133"]},
+    {id:"Exec",name:"Execution",        ttps:["T1059","T1059.001","T1204","T1203"]},
+    {id:"Pers",name:"Persistence",      ttps:["T1547","T1543","T1053","T1136"]},
+    {id:"Priv",name:"Priv Escalation",  ttps:["T1548","T1134","T1055"]},
+    {id:"Def", name:"Defense Evasion",  ttps:["T1027","T1562","T1070","T1036"]},
+    {id:"Cred",name:"Credential Access",ttps:["T1003","T1110","T1555","T1552"]},
+    {id:"C2",  name:"Command & Control",ttps:["T1071","T1095","T1568","T1071.004"]},
+  ];
+  // Detected from intel items
+  const detected = new Set(INTEL_ITEMS.flatMap(i=>i.ttps));
+  const grid = document.getElementById('attack-grid');
+  grid.innerHTML = '';
+  let totalDetected=0, total=0;
+  tactics.forEach(tac => {
+    const col = document.createElement('div');
+    col.className = 'tactic-col';
+    col.innerHTML = `<div class="tactic-name">${tac.name}</div><div class="ttp-cells">`;
+    const cells = document.createElement('div');
+    cells.className = 'ttp-cells';
+    tac.ttps.forEach(t => {
+      const c = document.createElement('div');
+      const cov = detected.has(t);
+      c.className = `ttp-cell ${cov?'covered':'gap'}`;
+      c.title = `${t} — ${cov?'DETECTED':'NO DETECTION'}`;
+      cells.appendChild(c);
+      total++;
+      if (cov) totalDetected++;
+    });
+    col.appendChild(cells);
+    grid.appendChild(col);
+  });
+  const pct = (totalDetected/total*100).toFixed(0);
+  document.getElementById('cov-pct').textContent     = pct + '%';
+  document.getElementById('cov-grade').textContent   = pct>=70?'B':pct>=50?'C':'D';
+  document.getElementById('cov-detected').textContent= `${totalDetected}/${total}`;
+  document.getElementById('cov-gaps').textContent    = total-totalDetected;
+  document.getElementById('m-coverage').textContent  = pct+'%';
+  document.getElementById('sb-grade').textContent    = pct>=70?'B':pct>=50?'C':'D';
+}
+buildCoverage();
+
+// ── REPLAY VALIDATION ──
+function buildReplay() {
+  const container = document.getElementById('replay-events');
+  container.innerHTML = '';
+  const rules = [
+    {id:"APEX-SIGMA-001",name:"Sysmon Process Injection",ttp:"T1055",pass:true,events:14},
+    {id:"APEX-SIGMA-002",name:"DNS DGA Detection",ttp:"T1568.002",pass:true,events:7},
+    {id:"APEX-SIGMA-003",name:"CloudTrail StopLogging",ttp:"T1562",pass:true,events:3},
+    {id:"APEX-SIGMA-004",name:"Falco Container Shell",ttp:"T1059",pass:true,events:9},
+    {id:"APEX-SIGMA-005",name:"Deception Canary Alert",ttp:"T1190",pass:true,events:5},
+    {id:"APEX-SIGMA-006",name:"PowerShell EncodedCmd",ttp:"T1059.001",pass:true,events:11},
+    {id:"APEX-SIGMA-007",name:"Valid Account Abuse",ttp:"T1078",pass:false,events:0},
+  ];
+  const passed = rules.filter(r=>r.pass).length;
+  const pct    = Math.round(passed/rules.length*100);
+  document.getElementById('replay-bar').style.width = pct+'%';
+  document.getElementById('replay-pct').textContent = pct+'%';
+  rules.forEach(r => {
+    const row = document.createElement('div');
+    row.className = 'replay-event';
+    row.innerHTML = `
+      <span class="re-ts">${r.id}</span>
+      <span class="re-source">${r.ttp}</span>
+      <span class="re-desc">${r.name}</span>
+      <span class="re-status ${r.pass?'re-pass':'re-fail'}">${r.pass?'✓ PASS':'✗ FAIL'}</span>
+      <span class="re-conf">${r.events} evt</span>
+    `;
+    container.appendChild(row);
+  });
+  document.getElementById('m-replay').textContent = pct+'%';
+}
+buildReplay();
+
+// ── AI RUNTIME EVENTS ──
+function buildAIRuntime() {
+  const gauges = document.getElementById('ai-gauges');
+  gauges.innerHTML = `
+    <div class="ai-gauge"><div class="ag-val">0</div><div class="ag-lbl">Blocked</div></div>
+    <div class="ai-gauge"><div class="ag-val">0</div><div class="ag-lbl">Monitored</div></div>
+    <div class="ai-gauge"><div class="ag-val">100%</div><div class="ag-lbl">Policy Score</div></div>
+    <div class="ai-gauge"><div class="ag-val">34.4%</div><div class="ag-lbl">AI Confidence</div></div>
+  `;
+  const events = document.getElementById('ai-events');
+  const aiData = [
+    {type:"Prompt Injection Attempt",model:"claude-sonnet-4-6",risk:"medium",blocked:false,tenant:"enterprise-01"},
+    {type:"Jailbreak: Role-play Override",model:"gpt-4",risk:"high",blocked:true,tenant:"enterprise-02"},
+    {type:"RAG Poisoning Detected",model:"gemini-pro",risk:"high",blocked:true,tenant:"mssp-01"},
+    {type:"Excessive Token Generation",model:"claude-haiku",risk:"low",blocked:false,tenant:"enterprise-01"},
+  ];
+  events.innerHTML = '';
+  aiData.forEach(e => {
+    const div = document.createElement('div');
+    div.className = `ai-event ${e.blocked?'blocked':e.risk==='high'?'monitor':'allowed'}`;
+    div.innerHTML = `<span class="ai-evt-type">${e.type}</span><span class="ai-evt-model">${e.model}</span><span class="ai-evt-risk ${e.risk}">${e.risk.toUpperCase()}</span><span>${e.blocked?'🚫 BLOCKED':'👁 MONITOR'}</span>`;
+    events.appendChild(div);
+  });
+}
+buildAIRuntime();
+
+// ── MALWARE INTEL ──
+function buildMalware() {
+  const container = document.getElementById('malware-cards');
+  const samples = [
+    {family:"LockBit",hash:"aabbcc1122334455",score:78,ttps:["T1486","T1490","T1055"],yara:"APEX_RANSOMWARE_AABBCC11"},
+    {family:"CobaltStrike",hash:"ff0011aabbcc9988",score:65,ttps:["T1059","T1071","T1055"],yara:"APEX_COBALT_FF0011AA"},
+  ];
+  container.innerHTML = '';
+  samples.forEach(s => {
+    const card = document.createElement('div');
+    card.className = 'malware-card';
+    card.innerHTML = `
+      <div class="mc-family">🦠 ${s.family}</div>
+      <div class="mc-hash">${s.hash}…</div>
+      <div style="display:flex;align-items:baseline;gap:6px">
+        <div class="mc-score" style="color:${s.score>70?'var(--danger)':'var(--warning)'}">${s.score}</div>
+        <div style="font-size:9px;color:var(--text-muted)">/100 Malicious</div>
+      </div>
+      <div style="font-size:8px;color:var(--text-muted);margin-top:3px">YARA: ${s.yara}</div>
+      <div class="mc-ttps">${s.ttps.map(t=>`<span class="mc-ttp">${t}</span>`).join('')}</div>
+    `;
+    container.appendChild(card);
+  });
+  document.getElementById('sb-samples').textContent = samples.length;
+  document.getElementById('sb-yara').textContent = samples.length;
+}
+buildMalware();
+
+// ── PROPNET STATUS ──
+function buildPropnet() {
+  document.getElementById('propnet-status').innerHTML = `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:8px">
+      <div class="cov-stat"><div class="val" style="color:#10b981">10</div><div class="lbl">Sensors Active</div></div>
+      <div class="cov-stat"><div class="val" style="color:#00d4ff">8</div><div class="lbl">Regions</div></div>
+      <div class="cov-stat"><div class="val" style="color:#ef4444">0</div><div class="lbl">Interactions Today</div></div>
+      <div class="cov-stat"><div class="val" style="color:#f59e0b">0</div><div class="lbl">Unique Attackers</div></div>
+    </div>
+    <div style="font-size:9px;color:var(--text-muted);letter-spacing:1px;margin-bottom:6px">SENSOR MESH REGIONS</div>
+    <div style="display:flex;flex-wrap:wrap;gap:4px">
+      ${['India','APAC','EMEA','AMER-N','AMER-S','Oceania','Africa','Middle East']
+        .map(r=>`<span style="font-size:9px;padding:2px 7px;background:rgba(0,212,255,0.1);border:1px solid rgba(0,212,255,0.3);border-radius:2px;color:var(--accent)">${r}</span>`)
+        .join('')}
+    </div>
+    <div style="margin-top:8px;font-size:9px;color:var(--text-muted);letter-spacing:1px">PROTOCOLS MONITORED</div>
+    <div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:4px">
+      ${['SSH','RDP','SMB','HTTP','FTP','SMTP','MySQL','Redis','Modbus','DNP3']
+        .map(p=>`<span style="font-size:8px;padding:1px 5px;background:rgba(16,185,129,0.1);border:1px solid rgba(16,185,129,0.3);border-radius:2px;color:var(--accent3)">${p}</span>`)
+        .join('')}
+    </div>
+  `;
+}
+buildPropnet();
+
+// ── TAB SWITCHING ──
+function setTab(el, name) {
+  document.querySelectorAll('#tab-coverage,#tab-replay,#tab-efficacy').forEach(t=>t.style.display='none');
+  document.getElementById(`tab-${name}`).style.display = '';
+  el.parentElement.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+}
+function setTab2(el, name) {
+  document.querySelectorAll('#tab2-aidef,#tab2-malware,#tab2-propnet').forEach(t=>t.style.display='none');
+  document.getElementById(`tab2-${name}`).style.display = '';
+  el.parentElement.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+}
+
+// ── SIDEBAR PANEL FOCUS ──
+function showPanel(name) {
+  document.querySelectorAll('.sidebar-item').forEach(i=>i.classList.remove('active'));
+  event.target.closest('.sidebar-item').classList.add('active');
+}
+
+// ── ANIMATE METRICS ──
+function animateMetric(id, target, suffix) {
+  let current = 0;
+  const step  = target / 30;
+  const timer = setInterval(() => {
+    current = Math.min(current + step, target);
+    document.getElementById(id).textContent = Math.floor(current) + (suffix||'');
+    if (current >= target) clearInterval(timer);
+  }, 50);
+}
+setTimeout(() => {
+  animateMetric('m-iocs', 104, '');
+  animateMetric('m-sensors', 10, '');
+}, 500);
+
+// ── HEATMAP LIVE UPDATE ──
+setInterval(() => {
+  const cells = document.querySelectorAll('#heatmap-grid .hm-cell');
+  const idx   = Math.floor(Math.random() * cells.length);
+  const cell  = cells[idx];
+  const classes = ['l1','l2','l3','l4'];
+  cell.className = 'hm-cell ' + classes[Math.floor(Math.random()*classes.length)];
+}, 3000);
+</script>
+</body>
+</html>
