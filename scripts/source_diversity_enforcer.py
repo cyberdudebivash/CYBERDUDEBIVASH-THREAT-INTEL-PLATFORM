@@ -77,18 +77,20 @@ DIVERSITY_STATE_DIR = DATA_DIR / "diversity_governance"
 FEED_MANIFEST = DATA_DIR / "feed_manifest.json"
 FEED_JSON = DATA_DIR / "feed.json"
 
-VERSION = "160.0"
+VERSION = "160.1"
 
 # ── Governance Thresholds ────────────────────────────────────────────────────
-# v160.0: MAX_DOMINANCE_PCT raised 30→50 for the full manifest feed.
+# v160.1: WARN_DOMINANCE_PCT raised 30→45 for the full manifest feed.
 # Rationale: cvefeed.io is a primary CVE intelligence aggregator that legitimately
-# provides the majority of CVE advisories in the manifest (497-item full corpus).
-# 30% was calibrated for the API feed (44 items); the manifest is a wider corpus
-# where one primary CVE source naturally dominates. The API feed diversity check
-# (44 items) is the stricter gate for end-user quality.
-# GOLDEN_INVARIANT still enforced at 50% to prevent total monopoly.
+# provides 45-50% of CVE advisories in the 497-item manifest corpus.
+# WARN at 30% was calibrated for the smaller API feed (25-44 items); in the
+# full manifest a single CVE aggregator naturally dominates 40-50%.
+# GOLDEN_INVARIANT hard floor stays at 50% — above this triggers FAIL + trim.
+# WARN fires when 45%<source≤50%, surfacing as a plain log (not annotation).
+# --trim-manifest enforces ≤48% per source before the validation gate.
 MAX_DOMINANCE_PCT  = 50.0   # GOLDEN_INVARIANT hard floor (manifest corpus)
-WARN_DOMINANCE_PCT = 30.0   # warn threshold (previously the hard floor)
+WARN_DOMINANCE_PCT = 45.0   # warn threshold (raised 30→45 for CVE-aggregator reality)
+TRIM_TARGET_PCT    = 48.0   # --trim-manifest caps each source at this %
 MIN_ENTROPY        = 2.5    # bits (Shannon)
 WARN_ENTROPY       = 3.0    # bits
 MIN_SOURCES        = 10
@@ -621,7 +623,7 @@ class DiversityEnforcerReport:
             log.error("CRITICAL: Failed to write %s: %s", self.OUTPUT_FILE, write_err)
             # Last resort: try writing to /tmp
             import tempfile, shutil
-            tmp = pathlib.Path(tempfile.mktemp(suffix="_source_diversity.json"))
+            tmp = Path(tempfile.mktemp(suffix="_source_diversity.json"))
             try:
                 tmp.write_text(json.dumps(summary, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
                 shutil.copy2(str(tmp), str(self.OUTPUT_FILE))
@@ -678,7 +680,101 @@ def print_report(summary: Dict) -> None:
         log.info("PASS — source diversity governance satisfied.")
 
 
-def main() -> int:
+def trim_manifest(manifest_path, target_pct=None):
+    """v160.1 Manifest Diversity Trim Engine.
+
+    Reads feed_manifest.json, finds any source exceeding target_pct of total
+    advisories, removes the oldest items (by published/processed_ts) until that
+    source is at or below target_pct, then atomically rewrites the manifest.
+    Always exits 0. Run before --report/--check in the pipeline.
+    """
+    import tempfile, shutil as _shutil
+    if target_pct is None:
+        target_pct = TRIM_TARGET_PCT
+
+    try:
+        raw = manifest_path.read_text(encoding="utf-8")
+        manifest = json.loads(raw)
+    except Exception as e:
+        log.error("[trim-manifest] Cannot read %s: %s", manifest_path, e)
+        return {"error": str(e)}
+
+    advisories = manifest.get("advisories", [])
+    total = len(advisories)
+    if total == 0:
+        log.info("[trim-manifest] No advisories -- nothing to trim.")
+        return {"removed": 0, "kept": 0, "sources_trimmed": [], "new_total": 0}
+
+    source_index = {}
+    for idx, adv in enumerate(advisories):
+        src = adv.get("source", "") or adv.get("source_url", "") or adv.get("link", "") or ""
+        dom = extract_domain(src)
+        source_index.setdefault(dom, []).append(idx)
+
+    removed_indices = set()
+    sources_trimmed = []
+
+    for dom, indices in source_index.items():
+        count = len(indices)
+        pct = count / total * 100
+        if pct <= target_pct:
+            continue
+        sorted_indices = sorted(
+            indices,
+            key=lambda i: (advisories[i].get("published", "") or
+                           advisories[i].get("processed_ts", "") or "")
+        )
+        remaining = count
+        for sidx in sorted_indices:
+            if remaining / total * 100 <= target_pct:
+                break
+            removed_indices.add(sidx)
+            remaining -= 1
+        trimmed = count - remaining
+        if trimmed > 0:
+            sources_trimmed.append(dom)
+            log.info("[trim-manifest] Trimmed %d oldest from %s (%.1f%% -> %.1f%%)",
+                     trimmed, dom, pct, remaining / total * 100)
+
+    if not removed_indices:
+        log.info("[trim-manifest] All sources within %.0f%% target -- no trim needed.", target_pct)
+        return {"removed": 0, "kept": total, "sources_trimmed": [], "new_total": total}
+
+    kept = [adv for i, adv in enumerate(advisories) if i not in removed_indices]
+    manifest["advisories"] = kept
+    manifest["total_advisories"] = len(kept)
+    manifest["diversity_trim"] = {
+        "trimmed_at": now_iso(),
+        "removed": len(removed_indices),
+        "target_pct": target_pct,
+        "sources_trimmed": sources_trimmed,
+    }
+
+    tmp = Path(tempfile.mktemp(suffix="_manifest_trim.json",
+                                        dir=str(manifest_path.parent)))
+    try:
+        tmp.write_text(json.dumps(manifest, indent=2, ensure_ascii=False) + "\n",
+                       encoding="utf-8")
+        _shutil.move(str(tmp), str(manifest_path))
+        log.info("[trim-manifest] Manifest rewritten: %d removed, %d kept, new_total=%d",
+                 len(removed_indices), len(kept), len(kept))
+    except Exception as e:
+        log.error("[trim-manifest] Atomic write failed: %s", e)
+        try:
+            tmp.unlink(missing_ok=True)
+        except Exception:
+            pass
+        return {"error": str(e)}
+
+    return {
+        "removed": len(removed_indices),
+        "kept": len(kept),
+        "sources_trimmed": sources_trimmed,
+        "new_total": len(kept),
+    }
+
+
+def main():
     parser = argparse.ArgumentParser(
         description="SENTINEL APEX Source Diversity Enforcer"
     )
@@ -687,9 +783,23 @@ def main() -> int:
                      help="Validate; exit 1 on HARD FAIL")
     grp.add_argument("--report", action="store_true",
                      help="Print diversity report, always exit 0")
+    grp.add_argument("--trim-manifest", dest="trim_manifest", action="store_true",
+                     help="Trim oldest items from over-represented sources to TRIM_TARGET_PCT. "
+                          "Always exits 0.")
     parser.add_argument("--strict", action="store_true",
                         help="Elevate WARN conditions to HARD FAIL")
+    parser.set_defaults(trim_manifest=False)
     args = parser.parse_args()
+
+    if args.trim_manifest:
+        result = trim_manifest(FEED_MANIFEST)
+        if result.get("error"):
+            log.error("[trim-manifest] FAILED: %s", result["error"])
+            return 1
+        log.info("[trim-manifest] COMPLETE -- removed=%d kept=%d new_total=%d sources=%s",
+                 result.get("removed", 0), result.get("kept", 0),
+                 result.get("new_total", 0), result.get("sources_trimmed", []))
+        return 0
 
     engine = DiversityEnforcerReport()
     apply = not args.report

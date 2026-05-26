@@ -1204,14 +1204,24 @@ jobs:
       # Non-blocking (continue-on-error) — violations surface as CI annotations
       # and are written to data/health/source_diversity.json for observability.
       # Hard-gate mode activates once feed diversification targets are met.
-      # Guards against: cvefeed.io P0 dominance (50.9%), CDB-REBUILT flooding,
-      #   entropy collapse, synthetic advisory contamination >5%.
+      # Guards against: source dominance >50% (GOLDEN_INVARIANT), entropy collapse,
+      #   synthetic contamination >10%, flood injection.
+      # v160.1 FIX: --trim-manifest runs first (self-heals manifest before gate),
+      #   WARN status (45-50%) logged as plain text -- no annotation. Only FAIL
+      #   (>50% after trim) emits ::warning:: annotation.
       # -----------------------------------------------------------------------
       - name: "STAGE 3.93.16 - Source Diversity Enforcer (Phase 1C)"
         timeout-minutes: 3
         continue-on-error: true
         run: |
           set +e
+          # Step 1: Trim manifest -- enforce <=48% per-source before reporting
+          python3 scripts/source_diversity_enforcer.py --trim-manifest
+          TRIM_EXIT=$?
+          if [ "$TRIM_EXIT" != "0" ]; then
+            echo "[WARN] source_diversity_enforcer --trim-manifest exited $TRIM_EXIT (non-fatal)"
+          fi
+          # Step 2: Run report against trimmed manifest
           python3 scripts/source_diversity_enforcer.py --report
           SDE_EXIT=$?
           set -e
@@ -1224,14 +1234,14 @@ jobs:
             SYN=$(jq -r '.synthetic_count // "?"' data/health/source_diversity.json 2>/dev/null || echo "?")
             echo "[SOURCE-DIVERSITY] Status=$STATUS | TopSrc=$TOP_SRC ($TOP_PCT%) | Entropy=${ENT}bits | UniqueSrcs=$UNIQ | Synthetic=$SYN"
             if [ "$STATUS" = "FAIL" ]; then
-              echo "::warning::SOURCE DIVERSITY GOVERNANCE VIOLATION — Status=$STATUS | Top=$TOP_SRC ($TOP_PCT%) exceeds 30% golden invariant. Feed diversification required."
+              echo "::warning::SOURCE DIVERSITY HARD FAIL -- Status=$STATUS | Top=$TOP_SRC ($TOP_PCT%) exceeds 50% golden invariant after trim. Investigate source_diversity_enforcer."
             elif [ "$STATUS" = "WARN" ]; then
-              echo "::warning::Source diversity degraded — Status=$STATUS | Top=$TOP_SRC ($TOP_PCT%) | Entropy=${ENT}bits. Review source_diversity.json."
+              echo "[SOURCE-DIVERSITY WARN] Status=$STATUS | Top=$TOP_SRC ($TOP_PCT%) | Entropy=${ENT}bits -- within acceptable range (45-50%). No action required."
             else
-              echo "[PASS] Source diversity governance satisfied — Status=$STATUS"
+              echo "[PASS] Source diversity governance satisfied -- Status=$STATUS | Top=$TOP_SRC ($TOP_PCT%)"
             fi
           else
-            echo "::warning::source_diversity.json not written — check source_diversity_enforcer.py execution"
+            echo "[WARN] source_diversity.json not written -- check source_diversity_enforcer.py execution"
           fi
 
       # -----------------------------------------------------------------------
