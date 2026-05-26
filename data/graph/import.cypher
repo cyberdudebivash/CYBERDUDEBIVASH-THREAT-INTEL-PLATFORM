@@ -1,6 +1,6 @@
 // SENTINEL APEX — Adversary Graph Neo4j Import
-// Generated: 2026-05-26T18:41:04.704080+00:00
-// Graph: APEX-GRAPH-27B76F09
+// Generated: 2026-05-26T22:07:40.707474+00:00
+// Graph: APEX-GRAPH-7FA29CFE
 
 // === NODES ===
 MERGE (n:Technique {id: 'ttp-t1059'}) SET n.label = 'T1059: Command and Scripting Interpreter', n.confidence = 1.0, n.tlp = 'TLP:GREEN';
