@@ -585,10 +585,5 @@ def main() -> int:
     return 0
 
 
-def main() -> int:
-    """Entry point."""
-    return build_dist()
-
-
 if __name__ == "__main__":
     sys.exit(main())
