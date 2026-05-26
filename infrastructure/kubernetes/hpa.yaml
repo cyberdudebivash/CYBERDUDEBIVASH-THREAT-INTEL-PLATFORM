@@ -1,0 +1,234 @@
+# =============================================================================
+# CYBERDUDEBIVASH® SENTINEL APEX — Kubernetes Horizontal Pod Autoscaler
+# infrastructure/kubernetes/hpa.yaml
+# Version: 162.0.0
+#
+# Architecture:
+#   - API tier: FastAPI workers, scale 2→50 pods on CPU + RPS
+#   - Worker tier: Intelligence pipeline, scale 1→20 on queue depth
+#   - WebSocket tier: Real-time SOC feed, scale 2→30 on connection count
+#   - MSSP tier: Tenant-isolated workers, scale 1→10 per tenant pool
+#
+# Metrics: Prometheus + KEDA (Kubernetes Event-Driven Autoscaling)
+# SLA: P99 latency < 200ms at 10,000 concurrent API users
+# =============================================================================
+
+---
+# ── SENTINEL APEX API — Primary HPA ─────────────────────────────────────────
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: sentinel-apex-api
+  namespace: sentinel-apex
+  labels:
+    app: sentinel-apex
+    tier: api
+    version: "162.0"
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: sentinel-apex-api
+  minReplicas: 2
+  maxReplicas: 50
+  metrics:
+    # CPU utilization target: scale up at 60% CPU
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 60
+    # Memory target: scale up at 70% memory
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: 70
+    # Custom metric: requests per second per pod
+    - type: Pods
+      pods:
+        metric:
+          name: http_requests_per_second
+        target:
+          type: AverageValue
+          averageValue: "500"
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 60
+      policies:
+        - type: Pods
+          value: 4
+          periodSeconds: 60
+        - type: Percent
+          value: 100
+          periodSeconds: 60
+      selectPolicy: Max
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies:
+        - type: Pods
+          value: 2
+          periodSeconds: 120
+      selectPolicy: Min
+
+---
+# ── INTELLIGENCE PIPELINE WORKER — KEDA ScaledObject ────────────────────────
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: sentinel-intel-worker
+  namespace: sentinel-apex
+  labels:
+    app: sentinel-apex
+    tier: worker
+spec:
+  scaleTargetRef:
+    name: sentinel-intel-worker
+  minReplicaCount: 1
+  maxReplicaCount: 20
+  cooldownPeriod: 300
+  pollingInterval: 30
+  triggers:
+    # Scale on Redis queue depth
+    - type: redis
+      metadata:
+        address: redis-cluster:6379
+        listName: intel_pipeline_queue
+        listLength: "5"          # Scale up when queue depth > 5 items/replica
+        activationListLength: "1"
+      authenticationRef:
+        name: redis-auth
+    # Also scale on Prometheus metric (pipeline lag)
+    - type: prometheus
+      metadata:
+        serverAddress: http://prometheus:9090
+        metricName: sentinel_pipeline_lag_seconds
+        threshold: "30"
+        query: avg(sentinel_pipeline_lag_seconds{worker_type="intel"})
+
+---
+# ── REAL-TIME SOC WEBSOCKET TIER ─────────────────────────────────────────────
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: sentinel-websocket
+  namespace: sentinel-apex
+  labels:
+    app: sentinel-apex
+    tier: websocket
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: sentinel-websocket
+  minReplicas: 2
+  maxReplicas: 30
+  metrics:
+    - type: Pods
+      pods:
+        metric:
+          name: websocket_connections_per_pod
+        target:
+          type: AverageValue
+          averageValue: "200"    # Scale when >200 connections/pod
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 65
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 30   # Fast scale-up for real-time
+      policies:
+        - type: Pods
+          value: 3
+          periodSeconds: 30
+    scaleDown:
+      stabilizationWindowSeconds: 600  # Slow scale-down (sticky connections)
+
+---
+# ── MSSP TENANT WORKER POOL ──────────────────────────────────────────────────
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: sentinel-mssp-worker
+  namespace: sentinel-apex
+  labels:
+    app: sentinel-apex
+    tier: mssp
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: sentinel-mssp-worker
+  minReplicas: 1
+  maxReplicas: 10
+  metrics:
+    - type: Pods
+      pods:
+        metric:
+          name: mssp_tenant_queue_depth
+        target:
+          type: AverageValue
+          averageValue: "10"
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 120
+    scaleDown:
+      stabilizationWindowSeconds: 600
+
+---
+# ── VERTICAL POD AUTOSCALER — API Tier ───────────────────────────────────────
+apiVersion: autoscaling.k8s.io/v1
+kind: VerticalPodAutoscaler
+metadata:
+  name: sentinel-apex-api-vpa
+  namespace: sentinel-apex
+spec:
+  targetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: sentinel-apex-api
+  updatePolicy:
+    updateMode: "Auto"
+  resourcePolicy:
+    containerPolicies:
+      - containerName: api
+        minAllowed:
+          cpu: 100m
+          memory: 256Mi
+        maxAllowed:
+          cpu: 4000m
+          memory: 4Gi
+        controlledResources: ["cpu", "memory"]
+
+---
+# ── POD DISRUPTION BUDGET — API Tier ─────────────────────────────────────────
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: sentinel-api-pdb
+  namespace: sentinel-apex
+spec:
+  minAvailable: 2
+  selector:
+    matchLabels:
+      app: sentinel-apex
+      tier: api
+
+---
+# ── POD DISRUPTION BUDGET — WebSocket Tier ───────────────────────────────────
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: sentinel-websocket-pdb
+  namespace: sentinel-apex
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: sentinel-apex
+      tier: websocket
