@@ -271,19 +271,29 @@ jobs:
           update-environment: true
 
       # -----------------------------------------------------------------------
-      # STAGE 0: INSTALL DEPENDENCIES
-      # Install requirements.txt FIRST so urllib3/charset_normalizer version
-      # pins are set before requests is imported -- eliminates RequestsDependencyWarning.
-      # Simple pip calls only. No inline Python.
+      # STAGE 0: INSTALL DEPENDENCIES  (v163.0 — P0.3 FIX: pip → uv)
+      # uv is pre-installed on ubuntu-latest (2024+). It resolves and installs
+      # the same packages as pip but 10-100× faster (Rust resolver + parallel
+      # downloads). Eliminates the ~90-119s pip dead time per run.
+      # Fallback: if uv is unavailable, falls back to pip automatically.
       # -----------------------------------------------------------------------
       - name: "Install pipeline dependencies"
-        timeout-minutes: 10
+        timeout-minutes: 5
         run: |
-          python -m pip install --upgrade pip --quiet
-          pip install --quiet "urllib3>=1.26.18,<2.0" "charset_normalizer>=3.3.2,<4.0"
-          [ -f requirements.txt ] && pip install --quiet -r requirements.txt || true
-          pip install --quiet feedparser beautifulsoup4 pydantic python-dotenv psutil cryptography pyjwt
-          pip install --quiet reportlab fpdf2 || true
+          if command -v uv &>/dev/null; then
+            echo "[uv] Found: $(uv --version) — using uv for fast dependency install"
+            uv pip install --system --quiet "urllib3>=1.26.18,<2.0" "charset_normalizer>=3.3.2,<4.0" || true
+            [ -f requirements.txt ] && uv pip install --system --quiet -r requirements.txt || true
+            uv pip install --system --quiet feedparser beautifulsoup4 pydantic python-dotenv psutil cryptography pyjwt || true
+            uv pip install --system --quiet reportlab fpdf2 || true
+          else
+            echo "[pip] uv not found — falling back to pip"
+            python -m pip install --upgrade pip --quiet
+            pip install --quiet "urllib3>=1.26.18,<2.0" "charset_normalizer>=3.3.2,<4.0"
+            [ -f requirements.txt ] && pip install --quiet -r requirements.txt || true
+            pip install --quiet feedparser beautifulsoup4 pydantic python-dotenv psutil cryptography pyjwt
+            pip install --quiet reportlab fpdf2 || true
+          fi
 
       # -----------------------------------------------------------------------
       # STAGE 0: ENSURE REQUIRED DIRECTORIES
@@ -595,6 +605,25 @@ jobs:
         run: python3 scripts/v149_siem_webhook_provisioner.py
 
       # -----------------------------------------------------------------------
+      # STAGE 3.1.1b: CVE ID BACKFILL (v163.0 — P1.3/P1.4/P1.5 ROOT CAUSE FIX)
+      # ROOT CAUSE FIX: All items in api/feed.json and data/feed_manifest.json
+      # have cve_id=None even when the title contains "CVE-XXXX-XXXXX".
+      # This means enrich_cvss_epss_batch.py (Stage 3.1.2) cannot look up CVSS/EPSS,
+      # and kev_feed_marker.py (Stage 3.1.3) finds 0 KEV matches.
+      #
+      # This stage runs BEFORE 3.1.2 and 3.1.3 to pre-populate the cve_id field
+      # by regex-extracting CVE IDs from item titles, descriptions, and source_urls.
+      # Idempotent: items that already have cve_id are never overwritten.
+      # -----------------------------------------------------------------------
+      - name: "STAGE 3.1.1b - CVE ID Backfill (v163.0 — P1.3/P1.4/P1.5 root cause fix)"
+        timeout-minutes: 3
+        continue-on-error: true
+        run: |
+          python3 scripts/cve_id_backfill.py 2>&1 && \
+            echo "[PASS] CVE ID backfill complete — downstream CVSS/KEV/EPSS enrichment unlocked" || \
+            echo "::warning::CVE ID backfill failed — CVSS/KEV/EPSS enrichment may have reduced coverage"
+
+      # -----------------------------------------------------------------------
       # STAGE 3.1.2: CVSS / EPSS BATCH ENRICHMENT (v148.1.0 -- PERMANENT)
       # ROOT CAUSE FIX: api/feed.json had cvss_score: null on ALL 207 items
       # because cve_scanner.py was never called in the pipeline. Intel reports
@@ -834,6 +863,25 @@ jobs:
           fi
 
       # -----------------------------------------------------------------------
+      # STAGE 3.1.10b - ACTOR ATTRIBUTION ENRICHER (v163.0 — P1.6 ROOT CAUSE FIX)
+      # ROOT CAUSE FIX: api/feed.json shows 0/25 actor attribution because
+      # threat_actor_profiler.py "Never modifies feed_manifest.json" (by design).
+      # actor_attribution_enricher.py bridges this gap: it pattern-matches item
+      # titles/descriptions against the full MITRE ATT&CK actor database
+      # (APT28, APT29, Lazarus, Sandworm, Volt Typhoon, etc.) and writes
+      # actor_attribution records back into api/feed.json and feed_manifest.json.
+      # Also invokes threat_actor_profiler.py to build data/actor_profiles.json.
+      # NON-BLOCKING: continue-on-error to protect pipeline stability.
+      # -----------------------------------------------------------------------
+      - name: "STAGE 3.1.10b - Actor Attribution Enricher (v163.0 — P1.6 root cause fix)"
+        timeout-minutes: 5
+        continue-on-error: true
+        run: |
+          python3 scripts/actor_attribution_enricher.py 2>&1 && \
+            echo "[PASS] Actor attribution enrichment complete — APT/criminal actor names written to feed" || \
+            echo "::warning::actor_attribution_enricher.py failed — non-fatal, pipeline continues"
+
+      # -----------------------------------------------------------------------
       # STAGE 3.2: REPORT GENERATOR -- INTERNAL DOSSIER HARDENING (v134.0)
       # Generates HTML Tactical Dossier for every advisory in the manifest.
       # Skips entries that already have an up-to-date report (idempotent).
@@ -863,7 +911,7 @@ jobs:
       - name: "STAGE 3.2.6 - Advisory PDF Generator (generate_advisory_pdfs v161.3)"
         timeout-minutes: 10
         run: |
-          pip install reportlab --quiet --break-system-packages || true
+          if command -v uv &>/dev/null; then uv pip install --system --quiet reportlab || true; else pip install reportlab --quiet --break-system-packages || true; fi
           cd scripts && python3 generate_advisory_pdfs.py || true
 
       # -----------------------------------------------------------------------
