@@ -1,0 +1,1310 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CYBERDUDEBIVASH® SENTINEL APEX — AI Security Operations Hub</title>
+<style>
+  :root {
+    --bg: #060810; --bg2: #0a0d14; --bg3: #0e1220; --bg4: #121828;
+    --border: #1a2540; --border2: #243558;
+    --blue: #1e90ff; --cyan: #00d4ff; --green: #00e676; --lime: #76ff03;
+    --yellow: #ffd740; --orange: #ff9800; --red: #ff4444; --pink: #ff4081;
+    --purple: #bb86fc; --teal: #00bcd4; --gold: #ffc107; --magenta: #e040fb;
+    --text: #e2e8f0; --text2: #7a8ba8; --muted: #3a4a66;
+    --mono: 'Courier New', monospace;
+    --ai-glow: 0 0 20px rgba(187, 134, 252, 0.25);
+    --red-glow: 0 0 12px rgba(255, 68, 68, 0.3);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+
+  /* NAV */
+  .nav { height: 52px; background: var(--bg2); border-bottom: 1px solid var(--border); display: flex; align-items: center; padding: 0 24px; gap: 0; position: sticky; top: 0; z-index: 100; }
+  .nav-brand { font-size: 13px; font-weight: 800; color: #fff; margin-right: 32px; letter-spacing: 0.3px; white-space: nowrap; }
+  .nav-brand .apex { color: var(--purple); }
+  .nav-tabs { display: flex; gap: 0; }
+  .nav-tab { padding: 0 16px; height: 52px; display: flex; align-items: center; font-size: 12px; font-weight: 600; color: var(--text2); cursor: pointer; border-bottom: 2px solid transparent; transition: all 0.15s; letter-spacing: 0.3px; }
+  .nav-tab:hover { color: var(--text); background: rgba(255,255,255,0.03); }
+  .nav-tab.active { color: var(--purple); border-bottom-color: var(--purple); }
+  .nav-right { margin-left: auto; display: flex; gap: 10px; align-items: center; }
+  .threat-level { display: flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 700; color: var(--red); background: rgba(255,68,68,0.1); border: 1px solid rgba(255,68,68,0.3); padding: 4px 10px; border-radius: 4px; }
+  .pulse-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--red); animation: pulse 1.2s infinite; }
+  @keyframes pulse { 0%,100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.4; transform: scale(0.7); } }
+  .nav-btn { padding: 6px 14px; border-radius: 5px; border: none; font-size: 11px; font-weight: 700; cursor: pointer; letter-spacing: 0.3px; }
+  .nav-btn.primary { background: var(--purple); color: #fff; }
+  .nav-btn.danger { background: rgba(255,68,68,0.15); color: var(--red); border: 1px solid rgba(255,68,68,0.3); }
+
+  /* LAYOUT */
+  .layout { display: grid; grid-template-columns: 220px 1fr; height: calc(100vh - 52px); overflow: hidden; }
+  .sidebar { background: var(--bg2); border-right: 1px solid var(--border); overflow-y: auto; padding: 16px 0; }
+  .main { overflow-y: auto; }
+
+  /* SIDEBAR */
+  .sidebar-section { padding: 6px 16px 4px; font-size: 10px; font-weight: 800; color: var(--muted); letter-spacing: 1.2px; text-transform: uppercase; margin-top: 8px; }
+  .sidebar-item { display: flex; align-items: center; gap: 10px; padding: 8px 16px; font-size: 12px; color: var(--text2); cursor: pointer; transition: all 0.15s; border-left: 2px solid transparent; }
+  .sidebar-item:hover { background: rgba(255,255,255,0.04); color: var(--text); }
+  .sidebar-item.active { color: var(--purple); background: rgba(187,134,252,0.08); border-left-color: var(--purple); }
+  .sidebar-item .icon { font-size: 14px; width: 18px; text-align: center; }
+  .sidebar-badge { margin-left: auto; font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 10px; }
+  .badge-red { background: rgba(255,68,68,0.2); color: var(--red); }
+  .badge-orange { background: rgba(255,152,0,0.2); color: var(--orange); }
+  .badge-yellow { background: rgba(255,215,64,0.15); color: var(--yellow); }
+  .badge-green { background: rgba(0,230,118,0.15); color: var(--green); }
+  .badge-purple { background: rgba(187,134,252,0.15); color: var(--purple); }
+
+  /* AI RUNTIME STATUS BAR */
+  .runtime-status { background: var(--bg3); border-bottom: 1px solid var(--border); padding: 10px 24px; display: flex; gap: 24px; align-items: center; overflow-x: auto; }
+  .rt-stat { display: flex; align-items: center; gap: 8px; white-space: nowrap; }
+  .rt-label { font-size: 10px; color: var(--text2); font-weight: 600; letter-spacing: 0.5px; }
+  .rt-value { font-size: 13px; font-weight: 800; font-family: var(--mono); }
+  .rt-divider { width: 1px; height: 28px; background: var(--border); }
+  .rt-status-chip { display: flex; align-items: center; gap: 5px; font-size: 10px; font-weight: 700; padding: 3px 9px; border-radius: 20px; }
+  .chip-green { background: rgba(0,230,118,0.12); color: var(--green); border: 1px solid rgba(0,230,118,0.2); }
+  .chip-red { background: rgba(255,68,68,0.12); color: var(--red); border: 1px solid rgba(255,68,68,0.25); }
+  .chip-orange { background: rgba(255,152,0,0.12); color: var(--orange); border: 1px solid rgba(255,152,0,0.25); }
+  .chip-purple { background: rgba(187,134,252,0.12); color: var(--purple); border: 1px solid rgba(187,134,252,0.2); }
+
+  /* CONTENT PAGES */
+  .page { display: none; padding: 24px; }
+  .page.active { display: block; }
+
+  /* CARDS */
+  .card { background: var(--bg3); border: 1px solid var(--border); border-radius: 8px; padding: 20px; }
+  .card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+  .card-title { font-size: 13px; font-weight: 700; color: var(--text); letter-spacing: 0.3px; }
+  .card-subtitle { font-size: 11px; color: var(--text2); margin-top: 2px; }
+
+  /* KPI GRID */
+  .kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px; }
+  .kpi-card { background: var(--bg3); border: 1px solid var(--border); border-radius: 8px; padding: 16px 20px; position: relative; overflow: hidden; }
+  .kpi-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px; }
+  .kpi-card.red::before { background: linear-gradient(90deg, var(--red), transparent); }
+  .kpi-card.orange::before { background: linear-gradient(90deg, var(--orange), transparent); }
+  .kpi-card.purple::before { background: linear-gradient(90deg, var(--purple), transparent); }
+  .kpi-card.cyan::before { background: linear-gradient(90deg, var(--cyan), transparent); }
+  .kpi-card.green::before { background: linear-gradient(90deg, var(--green), transparent); }
+  .kpi-label { font-size: 10px; font-weight: 700; color: var(--text2); letter-spacing: 0.8px; text-transform: uppercase; }
+  .kpi-value { font-size: 28px; font-weight: 900; font-family: var(--mono); margin: 6px 0 4px; line-height: 1; }
+  .kpi-delta { font-size: 11px; font-weight: 600; }
+  .delta-up { color: var(--red); }
+  .delta-down { color: var(--green); }
+  .kpi-sub { font-size: 10px; color: var(--text2); margin-top: 4px; }
+
+  /* GRID LAYOUTS */
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
+  .grid-65-35 { display: grid; grid-template-columns: 65fr 35fr; gap: 16px; }
+
+  /* TABLE */
+  .data-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  .data-table th { text-align: left; padding: 8px 12px; font-size: 10px; font-weight: 700; color: var(--text2); letter-spacing: 0.8px; text-transform: uppercase; border-bottom: 1px solid var(--border); }
+  .data-table td { padding: 9px 12px; border-bottom: 1px solid rgba(26,37,64,0.5); vertical-align: middle; }
+  .data-table tr:last-child td { border-bottom: none; }
+  .data-table tr:hover td { background: rgba(255,255,255,0.02); }
+
+  /* SEVERITY CHIPS */
+  .sev { font-size: 10px; font-weight: 800; padding: 2px 7px; border-radius: 3px; letter-spacing: 0.5px; }
+  .sev-critical { background: rgba(255,68,68,0.2); color: var(--red); border: 1px solid rgba(255,68,68,0.35); }
+  .sev-high { background: rgba(255,152,0,0.2); color: var(--orange); border: 1px solid rgba(255,152,0,0.35); }
+  .sev-medium { background: rgba(255,215,64,0.15); color: var(--yellow); border: 1px solid rgba(255,215,64,0.3); }
+  .sev-low { background: rgba(0,230,118,0.12); color: var(--green); border: 1px solid rgba(0,230,118,0.2); }
+  .sev-info { background: rgba(0,212,255,0.12); color: var(--cyan); border: 1px solid rgba(0,212,255,0.2); }
+
+  /* TOKEN HEATMAP */
+  .heatmap-grid { display: grid; grid-template-columns: repeat(24, 1fr); gap: 2px; margin-top: 12px; }
+  .heatmap-cell { height: 20px; border-radius: 2px; transition: all 0.2s; cursor: pointer; }
+  .heatmap-cell:hover { transform: scaleY(1.3); }
+  .heat-0 { background: var(--bg4); }
+  .heat-1 { background: rgba(187,134,252,0.2); }
+  .heat-2 { background: rgba(187,134,252,0.4); }
+  .heat-3 { background: rgba(255,152,0,0.5); }
+  .heat-4 { background: rgba(255,68,68,0.6); }
+  .heat-5 { background: var(--red); }
+
+  /* INFERENCE TIMELINE */
+  .inference-stream { display: flex; flex-direction: column; gap: 4px; max-height: 320px; overflow-y: auto; }
+  .inf-event { display: flex; gap: 10px; align-items: flex-start; padding: 8px 10px; border-radius: 5px; border: 1px solid var(--border); background: var(--bg4); font-size: 11px; }
+  .inf-event.critical { border-left: 3px solid var(--red); background: rgba(255,68,68,0.05); }
+  .inf-event.high { border-left: 3px solid var(--orange); background: rgba(255,152,0,0.04); }
+  .inf-event.medium { border-left: 3px solid var(--yellow); }
+  .inf-event.info { border-left: 3px solid var(--cyan); }
+  .inf-time { font-family: var(--mono); color: var(--text2); white-space: nowrap; }
+  .inf-type { font-weight: 700; white-space: nowrap; }
+  .inf-msg { color: var(--text); flex: 1; line-height: 1.5; }
+  .inf-model { font-family: var(--mono); font-size: 10px; color: var(--purple); margin-left: auto; white-space: nowrap; }
+
+  /* PROMPT FIREWALL */
+  .firewall-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 16px; }
+  .fw-stat { background: var(--bg4); border: 1px solid var(--border); border-radius: 6px; padding: 12px 16px; text-align: center; }
+  .fw-stat-value { font-size: 22px; font-weight: 900; font-family: var(--mono); }
+  .fw-stat-label { font-size: 10px; color: var(--text2); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 4px; }
+
+  /* PROGRESS BARS */
+  .progress-bar { height: 6px; background: var(--bg4); border-radius: 3px; overflow: hidden; }
+  .progress-fill { height: 100%; border-radius: 3px; transition: width 0.5s ease; }
+
+  /* ATTACK PATTERN MATRIX */
+  .attack-matrix { display: grid; grid-template-columns: repeat(6, 1fr); gap: 3px; }
+  .matrix-cell { aspect-ratio: 1; border-radius: 3px; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; transition: all 0.15s; font-size: 9px; text-align: center; padding: 4px; border: 1px solid transparent; }
+  .matrix-cell:hover { border-color: var(--purple); transform: scale(1.05); }
+  .matrix-cell .count { font-size: 14px; font-weight: 900; font-family: var(--mono); }
+  .matrix-cell .tactic { color: var(--text2); font-size: 8px; margin-top: 2px; }
+  .mc-active { background: rgba(255,68,68,0.2); }
+  .mc-medium { background: rgba(255,152,0,0.15); }
+  .mc-low { background: rgba(187,134,252,0.1); }
+  .mc-none { background: var(--bg4); }
+
+  /* SESSION TRACE */
+  .session-trace { display: flex; flex-direction: column; gap: 0; }
+  .trace-row { display: flex; gap: 0; border-bottom: 1px solid rgba(26,37,64,0.5); }
+  .trace-row:last-child { border-bottom: none; }
+  .trace-col { padding: 8px 12px; font-size: 11px; }
+  .trace-timeline { display: flex; flex-direction: column; gap: 1px; }
+  .trace-event { height: 16px; display: flex; align-items: center; gap: 6px; font-size: 10px; }
+  .trace-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+
+  /* GOVERNANCE BOARD */
+  .gov-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .gov-item { background: var(--bg4); border: 1px solid var(--border); border-radius: 6px; padding: 14px 16px; }
+  .gov-title { font-size: 11px; font-weight: 700; margin-bottom: 10px; display: flex; align-items: center; gap: 8px; }
+  .gov-score { font-size: 24px; font-weight: 900; font-family: var(--mono); }
+  .gov-bar-row { display: flex; align-items: center; gap: 10px; margin: 6px 0; font-size: 11px; }
+  .gov-bar-label { width: 130px; color: var(--text2); flex-shrink: 0; }
+  .gov-bar-track { flex: 1; height: 5px; background: var(--bg3); border-radius: 3px; }
+  .gov-bar-fill { height: 100%; border-radius: 3px; }
+  .gov-bar-val { width: 35px; text-align: right; font-family: var(--mono); font-size: 10px; font-weight: 700; }
+
+  /* TABS */
+  .tab-group { display: flex; gap: 0; border-bottom: 1px solid var(--border); margin-bottom: 16px; }
+  .tab-btn { padding: 8px 16px; font-size: 12px; font-weight: 600; color: var(--text2); cursor: pointer; border-bottom: 2px solid transparent; transition: all 0.15s; }
+  .tab-btn:hover { color: var(--text); }
+  .tab-btn.active { color: var(--purple); border-bottom-color: var(--purple); }
+  .tab-content { display: none; }
+  .tab-content.active { display: block; }
+
+  /* SCROLLBAR */
+  ::-webkit-scrollbar { width: 4px; height: 4px; }
+  ::-webkit-scrollbar-track { background: var(--bg2); }
+  ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+
+  /* ANOMALY GRAPH */
+  .anomaly-chart { position: relative; height: 120px; background: var(--bg4); border-radius: 6px; overflow: hidden; border: 1px solid var(--border); margin-top: 8px; }
+  .anomaly-chart svg { width: 100%; height: 100%; }
+
+  /* SECTION TITLE */
+  .section-title { font-size: 11px; font-weight: 800; color: var(--text2); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 8px; }
+
+  /* STATUS INDICATOR */
+  .status-led { display: inline-flex; align-items: center; gap: 5px; font-size: 10px; font-weight: 700; }
+  .led { width: 7px; height: 7px; border-radius: 50%; }
+  .led-green { background: var(--green); box-shadow: 0 0 6px var(--green); }
+  .led-red { background: var(--red); box-shadow: 0 0 6px var(--red); animation: pulse 1.2s infinite; }
+  .led-orange { background: var(--orange); box-shadow: 0 0 6px var(--orange); }
+  .led-grey { background: var(--muted); }
+
+  /* ABUSE GRAPH */
+  .abuse-nodes { display: flex; flex-wrap: wrap; gap: 8px; padding: 16px; }
+  .abuse-node { display: flex; flex-direction: column; align-items: center; gap: 4px; cursor: pointer; }
+  .node-circle { width: 44px; height: 44px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 18px; border: 2px solid; transition: all 0.2s; }
+  .node-circle:hover { transform: scale(1.1); }
+  .node-label { font-size: 9px; color: var(--text2); text-align: center; max-width: 60px; }
+  .node-count { font-size: 10px; font-weight: 700; font-family: var(--mono); }
+  .node-red { background: rgba(255,68,68,0.15); border-color: rgba(255,68,68,0.4); color: var(--red); }
+  .node-orange { background: rgba(255,152,0,0.12); border-color: rgba(255,152,0,0.35); color: var(--orange); }
+  .node-purple { background: rgba(187,134,252,0.12); border-color: rgba(187,134,252,0.35); color: var(--purple); }
+  .node-cyan { background: rgba(0,212,255,0.1); border-color: rgba(0,212,255,0.3); color: var(--cyan); }
+  .node-yellow { background: rgba(255,215,64,0.1); border-color: rgba(255,215,64,0.3); color: var(--yellow); }
+  .node-green { background: rgba(0,230,118,0.1); border-color: rgba(0,230,118,0.3); color: var(--green); }
+
+  /* TIMELINE DOTS */
+  .timeline { position: relative; padding-left: 24px; }
+  .timeline::before { content: ''; position: absolute; left: 8px; top: 4px; bottom: 4px; width: 1px; background: var(--border); }
+  .tl-item { position: relative; margin-bottom: 16px; }
+  .tl-dot { position: absolute; left: -20px; top: 3px; width: 10px; height: 10px; border-radius: 50%; border: 2px solid; }
+  .tl-time { font-size: 10px; font-family: var(--mono); color: var(--text2); }
+  .tl-event { font-size: 12px; font-weight: 600; color: var(--text); margin: 2px 0; }
+  .tl-detail { font-size: 11px; color: var(--text2); line-height: 1.4; }
+
+  /* MISC */
+  .mono { font-family: var(--mono); }
+  .tag { display: inline-block; font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 3px; margin: 1px; }
+  .tag-purple { background: rgba(187,134,252,0.15); color: var(--purple); }
+  .tag-red { background: rgba(255,68,68,0.15); color: var(--red); }
+  .tag-cyan { background: rgba(0,212,255,0.12); color: var(--cyan); }
+  .tag-orange { background: rgba(255,152,0,0.12); color: var(--orange); }
+  .mb-16 { margin-bottom: 16px; }
+  .mb-8 { margin-bottom: 8px; }
+  .flex-between { display: flex; align-items: center; justify-content: space-between; }
+  .text-muted { color: var(--text2); font-size: 11px; }
+  .text-mono { font-family: var(--mono); }
+  .fw-bold { font-weight: 700; }
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav class="nav">
+  <div class="nav-brand">CYBERDUDEBIVASH® <span class="apex">AI SECURITY OPS HUB</span></div>
+  <div class="nav-tabs">
+    <div class="nav-tab active" onclick="showPage('overview')">Overview</div>
+    <div class="nav-tab" onclick="showPage('inference')">Inference Monitor</div>
+    <div class="nav-tab" onclick="showPage('firewall')">Prompt Firewall</div>
+    <div class="nav-tab" onclick="showPage('abuse')">Abuse Graph</div>
+    <div class="nav-tab" onclick="showPage('sessions')">Session Tracing</div>
+    <div class="nav-tab" onclick="showPage('governance')">AI Governance</div>
+    <div class="nav-tab" onclick="showPage('replay')">Attack Replay</div>
+  </div>
+  <div class="nav-right">
+    <div class="threat-level"><span class="pulse-dot"></span>THREAT ACTIVE</div>
+    <button class="nav-btn danger" onclick="triggerIsolation()">🛡 Isolate Model</button>
+    <button class="nav-btn primary">↑ Upgrade to Enterprise</button>
+  </div>
+</nav>
+
+<!-- RUNTIME STATUS BAR -->
+<div class="runtime-status">
+  <div class="rt-stat">
+    <span class="rt-label">LLM RUNTIME</span>
+    <div class="rt-status-chip chip-green"><span class="pulse-dot" style="background:var(--green)"></span>OPERATIONAL</div>
+  </div>
+  <div class="rt-divider"></div>
+  <div class="rt-stat">
+    <span class="rt-label">INFERENCE/S</span>
+    <span class="rt-value" style="color:var(--cyan)" id="inf-rate">847</span>
+  </div>
+  <div class="rt-divider"></div>
+  <div class="rt-stat">
+    <span class="rt-label">TOKENS/MIN</span>
+    <span class="rt-value" style="color:var(--purple)" id="tok-rate">2.4M</span>
+  </div>
+  <div class="rt-divider"></div>
+  <div class="rt-stat">
+    <span class="rt-label">BLOCKED PROMPTS</span>
+    <span class="rt-value" style="color:var(--red)" id="blocked-count">1,247</span>
+  </div>
+  <div class="rt-divider"></div>
+  <div class="rt-stat">
+    <span class="rt-label">ANOMALY SCORE</span>
+    <span class="rt-value" style="color:var(--orange)">78.4</span>
+  </div>
+  <div class="rt-divider"></div>
+  <div class="rt-stat">
+    <span class="rt-label">ACTIVE SESSIONS</span>
+    <span class="rt-value" style="color:var(--text)">3,821</span>
+  </div>
+  <div class="rt-divider"></div>
+  <div class="rt-stat">
+    <span class="rt-label">PROMPT INJECTIONS</span>
+    <span class="rt-value" style="color:var(--red)">23</span>
+  </div>
+  <div class="rt-divider"></div>
+  <div class="rt-stat">
+    <span class="rt-label">GOVERNANCE</span>
+    <div class="rt-status-chip chip-orange">2 VIOLATIONS</div>
+  </div>
+  <div class="rt-divider"></div>
+  <div class="rt-stat">
+    <span class="rt-label">FIREWALL STATUS</span>
+    <div class="rt-status-chip chip-green"><span class="pulse-dot" style="background:var(--green)"></span>ACTIVE</div>
+  </div>
+</div>
+
+<div class="layout">
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sidebar-section">AI Runtime</div>
+    <div class="sidebar-item active" onclick="showPage('overview')">
+      <span class="icon">⚡</span>Overview
+      <span class="sidebar-badge badge-red">3 CRIT</span>
+    </div>
+    <div class="sidebar-item" onclick="showPage('inference')">
+      <span class="icon">🧠</span>Inference Monitor
+      <span class="sidebar-badge badge-orange">847/s</span>
+    </div>
+    <div class="sidebar-item" onclick="showPage('firewall')">
+      <span class="icon">🔥</span>Prompt Firewall
+      <span class="sidebar-badge badge-red">1.2K</span>
+    </div>
+    <div class="sidebar-section">Threat Detection</div>
+    <div class="sidebar-item" onclick="showPage('abuse')">
+      <span class="icon">🕸</span>Abuse Graph
+      <span class="sidebar-badge badge-orange">8 nodes</span>
+    </div>
+    <div class="sidebar-item" onclick="showPage('sessions')">
+      <span class="icon">🔍</span>Session Tracing
+      <span class="sidebar-badge badge-yellow">12 flagged</span>
+    </div>
+    <div class="sidebar-item" onclick="showPage('replay')">
+      <span class="icon">▶</span>Attack Replay
+      <span class="sidebar-badge badge-purple">5 saved</span>
+    </div>
+    <div class="sidebar-section">Governance</div>
+    <div class="sidebar-item" onclick="showPage('governance')">
+      <span class="icon">⚖</span>AI Governance
+      <span class="sidebar-badge badge-orange">2 violtn</span>
+    </div>
+    <div class="sidebar-item">
+      <span class="icon">📋</span>Policy Engine
+      <span class="sidebar-badge badge-green">✓</span>
+    </div>
+    <div class="sidebar-item">
+      <span class="icon">🔐</span>Access Control
+    </div>
+    <div class="sidebar-section">Analytics</div>
+    <div class="sidebar-item">
+      <span class="icon">📊</span>Token Analytics
+    </div>
+    <div class="sidebar-item">
+      <span class="icon">📈</span>Model Performance
+    </div>
+    <div class="sidebar-item">
+      <span class="icon">🌐</span>API Usage
+    </div>
+    <div class="sidebar-section">Integrations</div>
+    <div class="sidebar-item">
+      <span class="icon">🔗</span>SIEM Export
+      <span class="sidebar-badge badge-green">✓</span>
+    </div>
+    <div class="sidebar-item">
+      <span class="icon">📡</span>Webhook Alerts
+    </div>
+    <div class="sidebar-item">
+      <span class="icon">☁</span>Cloud Connectors
+    </div>
+  </aside>
+
+  <!-- MAIN CONTENT -->
+  <main class="main">
+
+    <!-- ===== OVERVIEW PAGE ===== -->
+    <div class="page active" id="page-overview">
+      <div class="kpi-grid">
+        <div class="kpi-card red">
+          <div class="kpi-label">Prompt Injections (24h)</div>
+          <div class="kpi-value" style="color:var(--red)">23</div>
+          <div class="kpi-delta delta-up">↑ 214% vs yesterday</div>
+          <div class="kpi-sub">8 bypassed firewall</div>
+        </div>
+        <div class="kpi-card orange">
+          <div class="kpi-label">Token Anomaly Events</div>
+          <div class="kpi-value" style="color:var(--orange)">1,847</div>
+          <div class="kpi-delta delta-up">↑ 67% spike at 03:14 UTC</div>
+          <div class="kpi-sub">3 models affected</div>
+        </div>
+        <div class="kpi-card purple">
+          <div class="kpi-label">AI Sessions Traced</div>
+          <div class="kpi-value" style="color:var(--purple)">3,821</div>
+          <div class="kpi-delta" style="color:var(--text2)">12 flagged for review</div>
+          <div class="kpi-sub">2 terminated forcibly</div>
+        </div>
+        <div class="kpi-card cyan">
+          <div class="kpi-label">Governance Violations</div>
+          <div class="kpi-value" style="color:var(--yellow)">2</div>
+          <div class="kpi-delta delta-up">↑ NEW — Policy P-004</div>
+          <div class="kpi-sub">Pending CISO review</div>
+        </div>
+      </div>
+
+      <div class="grid-65-35 mb-16">
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <div class="card-title">AI Attack Timeline — Last 24h</div>
+              <div class="card-subtitle">Real-time inference anomaly stream</div>
+            </div>
+            <div class="rt-status-chip chip-red"><span class="pulse-dot"></span>LIVE</div>
+          </div>
+          <div class="inference-stream" id="attack-timeline">
+            <div class="inf-event critical">
+              <span class="inf-time">03:47:22</span>
+              <span class="sev sev-critical">CRITICAL</span>
+              <span class="inf-msg">Prompt injection bypass — system prompt extraction via adversarial suffix. Payload length: 8,192 tokens. Firewall evasion confirmed.</span>
+              <span class="inf-model">gpt-4-turbo</span>
+            </div>
+            <div class="inf-event critical">
+              <span class="inf-time">03:22:08</span>
+              <span class="sev sev-critical">CRITICAL</span>
+              <span class="inf-msg">Jailbreak via role-play escalation — DAN-variant. 14 attempts in 180s. IP: 45.142.212.18 [TOR exit node]. Session terminated.</span>
+              <span class="inf-model">claude-3-opus</span>
+            </div>
+            <div class="inf-event high">
+              <span class="inf-time">02:55:41</span>
+              <span class="sev sev-high">HIGH</span>
+              <span class="inf-msg">Token flooding attack — 94K tokens in single request. Cost amplification attempt. Quota exceeded by 1,847%. Request denied.</span>
+              <span class="inf-model">gemini-pro</span>
+            </div>
+            <div class="inf-event high">
+              <span class="inf-time">02:31:17</span>
+              <span class="sev sev-high">HIGH</span>
+              <span class="inf-msg">Model inversion attempt — systematic probing for training data memorization. 847 structured queries from single API key.</span>
+              <span class="inf-model">gpt-4-turbo</span>
+            </div>
+            <div class="inf-event medium">
+              <span class="inf-time">01:48:55</span>
+              <span class="sev sev-medium">MEDIUM</span>
+              <span class="inf-msg">Inference timing side-channel: unusual response latency variance detected. Possible extraction attempt via timing oracle.</span>
+              <span class="inf-model">llama-3.1-70b</span>
+            </div>
+            <div class="inf-event medium">
+              <span class="inf-time">01:19:02</span>
+              <span class="sev sev-medium">MEDIUM</span>
+              <span class="inf-msg">SSRF via LLM tool call — model instructed to fetch internal endpoint 169.254.169.254 (AWS metadata). Blocked by guardrails.</span>
+              <span class="inf-model">claude-3-opus</span>
+            </div>
+            <div class="inf-event info">
+              <span class="inf-time">00:44:38</span>
+              <span class="sev sev-info">INFO</span>
+              <span class="inf-msg">Anomalous session: 2,400 inference requests in 60min from single session. Automated pipeline detected. Rate limit applied.</span>
+              <span class="inf-model">gpt-3.5-turbo</span>
+            </div>
+            <div class="inf-event info">
+              <span class="inf-time">23:58:14</span>
+              <span class="sev sev-info">INFO</span>
+              <span class="inf-msg">Governance policy P-009 triggered: output contained PII pattern (email regex match). Content filtered pre-delivery.</span>
+              <span class="inf-model">mistral-7b</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <div class="card-title">AI Attack Pattern Matrix</div>
+              <div class="card-subtitle">MITRE ATLAS coverage</div>
+            </div>
+          </div>
+          <div class="attack-matrix">
+            <div class="matrix-cell mc-active" title="Prompt Injection">
+              <div class="count" style="color:var(--red)">23</div>
+              <div class="tactic">Prompt Inject</div>
+            </div>
+            <div class="matrix-cell mc-active" title="Jailbreak">
+              <div class="count" style="color:var(--red)">14</div>
+              <div class="tactic">Jailbreak</div>
+            </div>
+            <div class="matrix-cell mc-medium" title="Data Extraction">
+              <div class="count" style="color:var(--orange)">7</div>
+              <div class="tactic">Data Extract</div>
+            </div>
+            <div class="matrix-cell mc-medium" title="Model Inversion">
+              <div class="count" style="color:var(--orange)">4</div>
+              <div class="tactic">Model Inversion</div>
+            </div>
+            <div class="matrix-cell mc-medium" title="Token Flooding">
+              <div class="count" style="color:var(--orange)">3</div>
+              <div class="tactic">Token Flood</div>
+            </div>
+            <div class="matrix-cell mc-low" title="SSRF via LLM">
+              <div class="count" style="color:var(--purple)">2</div>
+              <div class="tactic">SSRF</div>
+            </div>
+            <div class="matrix-cell mc-low" title="Timing Oracle">
+              <div class="count" style="color:var(--purple)">2</div>
+              <div class="tactic">Timing Oracle</div>
+            </div>
+            <div class="matrix-cell mc-low" title="Supply Chain">
+              <div class="count" style="color:var(--purple)">1</div>
+              <div class="tactic">Supply Chain</div>
+            </div>
+            <div class="matrix-cell mc-low" title="Membership Inference">
+              <div class="count" style="color:var(--purple)">1</div>
+              <div class="tactic">Memb. Infer.</div>
+            </div>
+            <div class="matrix-cell mc-none">
+              <div class="count" style="color:var(--muted)">0</div>
+              <div class="tactic">Backdoor</div>
+            </div>
+            <div class="matrix-cell mc-none">
+              <div class="count" style="color:var(--muted)">0</div>
+              <div class="tactic">Data Poison</div>
+            </div>
+            <div class="matrix-cell mc-none">
+              <div class="count" style="color:var(--muted)">0</div>
+              <div class="tactic">Evasion</div>
+            </div>
+          </div>
+          <div style="margin-top:16px">
+            <div class="section-title">Model Exposure Risk</div>
+            <div class="gov-bar-row">
+              <span class="gov-bar-label" style="color:var(--text)">gpt-4-turbo</span>
+              <div class="gov-bar-track"><div class="gov-bar-fill" style="width:87%;background:var(--red)"></div></div>
+              <span class="gov-bar-val" style="color:var(--red)">87%</span>
+            </div>
+            <div class="gov-bar-row">
+              <span class="gov-bar-label" style="color:var(--text)">claude-3-opus</span>
+              <div class="gov-bar-track"><div class="gov-bar-fill" style="width:72%;background:var(--orange)"></div></div>
+              <span class="gov-bar-val" style="color:var(--orange)">72%</span>
+            </div>
+            <div class="gov-bar-row">
+              <span class="gov-bar-label" style="color:var(--text)">gemini-pro</span>
+              <div class="gov-bar-track"><div class="gov-bar-fill" style="width:54%;background:var(--yellow)"></div></div>
+              <span class="gov-bar-val" style="color:var(--yellow)">54%</span>
+            </div>
+            <div class="gov-bar-row">
+              <span class="gov-bar-label" style="color:var(--text)">llama-3.1-70b</span>
+              <div class="gov-bar-track"><div class="gov-bar-fill" style="width:38%;background:var(--cyan)"></div></div>
+              <span class="gov-bar-val" style="color:var(--cyan)">38%</span>
+            </div>
+            <div class="gov-bar-row">
+              <span class="gov-bar-label" style="color:var(--text)">mistral-7b</span>
+              <div class="gov-bar-track"><div class="gov-bar-fill" style="width:22%;background:var(--green)"></div></div>
+              <span class="gov-bar-val" style="color:var(--green)">22%</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="grid-3">
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">Token Anomaly Heatmap (24h)</div>
+          </div>
+          <div style="font-size:10px;color:var(--text2);margin-bottom:4px">00:00 → 23:59 UTC — Hourly token spikes</div>
+          <div class="heatmap-grid" id="token-heatmap"></div>
+          <div style="display:flex;gap:8px;margin-top:10px;align-items:center">
+            <span style="font-size:9px;color:var(--text2)">LOW</span>
+            <div style="width:12px;height:12px;border-radius:2px;background:rgba(187,134,252,0.2)"></div>
+            <div style="width:12px;height:12px;border-radius:2px;background:rgba(187,134,252,0.4)"></div>
+            <div style="width:12px;height:12px;border-radius:2px;background:rgba(255,152,0,0.5)"></div>
+            <div style="width:12px;height:12px;border-radius:2px;background:rgba(255,68,68,0.6)"></div>
+            <div style="width:12px;height:12px;border-radius:2px;background:var(--red)"></div>
+            <span style="font-size:9px;color:var(--text2)">CRITICAL</span>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">Firewall Block Categories</div>
+          </div>
+          <div class="firewall-stats">
+            <div class="fw-stat">
+              <div class="fw-stat-value" style="color:var(--red)">487</div>
+              <div class="fw-stat-label">Injection</div>
+            </div>
+            <div class="fw-stat">
+              <div class="fw-stat-value" style="color:var(--orange)">312</div>
+              <div class="fw-stat-label">Jailbreak</div>
+            </div>
+            <div class="fw-stat">
+              <div class="fw-stat-value" style="color:var(--yellow)">248</div>
+              <div class="fw-stat-label">NSFW</div>
+            </div>
+            <div class="fw-stat">
+              <div class="fw-stat-value" style="color:var(--purple)">142</div>
+              <div class="fw-stat-label">PII Leak</div>
+            </div>
+            <div class="fw-stat">
+              <div class="fw-stat-value" style="color:var(--cyan)">38</div>
+              <div class="fw-stat-label">Exfil</div>
+            </div>
+            <div class="fw-stat">
+              <div class="fw-stat-value" style="color:var(--text2)">20</div>
+              <div class="fw-stat-label">Other</div>
+            </div>
+          </div>
+          <div style="font-size:11px;color:var(--text2);border-top:1px solid var(--border);padding-top:10px">
+            Total blocked: <span class="mono" style="color:var(--red);font-weight:700">1,247</span>
+            &nbsp;|&nbsp; Block rate: <span class="mono" style="color:var(--orange);font-weight:700">14.7%</span>
+            &nbsp;|&nbsp; FP rate: <span class="mono" style="color:var(--green);font-weight:700">0.8%</span>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">AI Runtime Health</div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:12px">
+            <div>
+              <div class="flex-between mb-8">
+                <span class="text-muted">Inference Latency (P99)</span>
+                <span class="mono" style="font-size:12px;font-weight:700;color:var(--cyan)">847ms</span>
+              </div>
+              <div class="progress-bar"><div class="progress-fill" style="width:62%;background:var(--cyan)"></div></div>
+            </div>
+            <div>
+              <div class="flex-between mb-8">
+                <span class="text-muted">Model GPU Utilization</span>
+                <span class="mono" style="font-size:12px;font-weight:700;color:var(--orange)">78%</span>
+              </div>
+              <div class="progress-bar"><div class="progress-fill" style="width:78%;background:var(--orange)"></div></div>
+            </div>
+            <div>
+              <div class="flex-between mb-8">
+                <span class="text-muted">Context Window Usage (avg)</span>
+                <span class="mono" style="font-size:12px;font-weight:700;color:var(--purple)">34%</span>
+              </div>
+              <div class="progress-bar"><div class="progress-fill" style="width:34%;background:var(--purple)"></div></div>
+            </div>
+            <div>
+              <div class="flex-between mb-8">
+                <span class="text-muted">Firewall Overhead</span>
+                <span class="mono" style="font-size:12px;font-weight:700;color:var(--green)">12ms</span>
+              </div>
+              <div class="progress-bar"><div class="progress-fill" style="width:8%;background:var(--green)"></div></div>
+            </div>
+            <div>
+              <div class="flex-between mb-8">
+                <span class="text-muted">Safety Score (RLHF)</span>
+                <span class="mono" style="font-size:12px;font-weight:700;color:var(--green)">96.2%</span>
+              </div>
+              <div class="progress-bar"><div class="progress-fill" style="width:96%;background:var(--green)"></div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== INFERENCE MONITOR PAGE ===== -->
+    <div class="page" id="page-inference">
+      <div class="section-title">🧠 Live Inference Monitoring</div>
+      <div class="kpi-grid">
+        <div class="kpi-card cyan">
+          <div class="kpi-label">Current Inference Rate</div>
+          <div class="kpi-value" style="color:var(--cyan)" id="inf-kpi">847/s</div>
+          <div class="kpi-sub">Peak: 2,341/s at 03:14 UTC</div>
+        </div>
+        <div class="kpi-card purple">
+          <div class="kpi-label">Total Tokens Today</div>
+          <div class="kpi-value" style="color:var(--purple)">3.4B</div>
+          <div class="kpi-sub">vs 2.1B yesterday</div>
+        </div>
+        <div class="kpi-card orange">
+          <div class="kpi-label">P99 Latency</div>
+          <div class="kpi-value" style="color:var(--orange)">847ms</div>
+          <div class="kpi-sub">SLA threshold: 2,000ms</div>
+        </div>
+        <div class="kpi-card red">
+          <div class="kpi-label">Anomalous Inferences</div>
+          <div class="kpi-value" style="color:var(--red)">1,847</div>
+          <div class="kpi-sub">0.054% of total traffic</div>
+        </div>
+      </div>
+
+      <div class="grid-2 mb-16">
+        <div class="card">
+          <div class="card-title mb-16">Inference Rate by Model (Real-time)</div>
+          <table class="data-table">
+            <thead>
+              <tr><th>Model</th><th>Req/s</th><th>Tokens/s</th><th>P50 Lat</th><th>P99 Lat</th><th>Error%</th><th>Status</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="mono" style="color:var(--purple)">gpt-4-turbo</td>
+                <td class="mono" style="color:var(--cyan)">312</td>
+                <td class="mono">847K</td>
+                <td class="mono">421ms</td>
+                <td class="mono" style="color:var(--orange)">1,247ms</td>
+                <td class="mono" style="color:var(--orange)">2.1%</td>
+                <td><div class="rt-status-chip chip-orange">DEGRADED</div></td>
+              </tr>
+              <tr>
+                <td class="mono" style="color:var(--purple)">claude-3-opus</td>
+                <td class="mono" style="color:var(--cyan)">218</td>
+                <td class="mono">542K</td>
+                <td class="mono">387ms</td>
+                <td class="mono" style="color:var(--green)">789ms</td>
+                <td class="mono" style="color:var(--green)">0.3%</td>
+                <td><div class="rt-status-chip chip-green">HEALTHY</div></td>
+              </tr>
+              <tr>
+                <td class="mono" style="color:var(--purple)">gemini-pro</td>
+                <td class="mono" style="color:var(--cyan)">184</td>
+                <td class="mono">421K</td>
+                <td class="mono">512ms</td>
+                <td class="mono" style="color:var(--yellow)">987ms</td>
+                <td class="mono" style="color:var(--green)">0.7%</td>
+                <td><div class="rt-status-chip chip-green">HEALTHY</div></td>
+              </tr>
+              <tr>
+                <td class="mono" style="color:var(--purple)">llama-3.1-70b</td>
+                <td class="mono" style="color:var(--cyan)">87</td>
+                <td class="mono">218K</td>
+                <td class="mono">624ms</td>
+                <td class="mono" style="color:var(--green)">1,124ms</td>
+                <td class="mono" style="color:var(--green)">0.4%</td>
+                <td><div class="rt-status-chip chip-green">HEALTHY</div></td>
+              </tr>
+              <tr>
+                <td class="mono" style="color:var(--purple)">mistral-7b</td>
+                <td class="mono" style="color:var(--cyan)">46</td>
+                <td class="mono">89K</td>
+                <td class="mono">287ms</td>
+                <td class="mono" style="color:var(--green)">512ms</td>
+                <td class="mono" style="color:var(--green)">0.1%</td>
+                <td><div class="rt-status-chip chip-green">HEALTHY</div></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="card">
+          <div class="card-title mb-16">Token Anomaly Detection — 24h Window</div>
+          <div style="font-size:11px;color:var(--text2);margin-bottom:12px">Detected 1,847 anomalous inference events across 5 model endpoints. Spike at 03:14 UTC correlated with gpt-4-turbo token flooding campaign.</div>
+          <div class="inference-stream" style="max-height:260px">
+            <div class="inf-event critical">
+              <span class="inf-time">03:14:07</span>
+              <span class="sev sev-critical">SPIKE</span>
+              <span class="inf-msg">Token flood: 94,847 tokens in single request. 1,847% over quota. Request chain from single API key: sk-...f4a2</span>
+              <span class="inf-model">gpt-4-turbo</span>
+            </div>
+            <div class="inf-event high">
+              <span class="inf-time">03:08:22</span>
+              <span class="sev sev-high">ANOMALY</span>
+              <span class="inf-msg">Unusual token distribution: 99.7% of tokens in system prompt position. Suspected prompt stuffing for context window saturation.</span>
+              <span class="inf-model">claude-3-opus</span>
+            </div>
+            <div class="inf-event medium">
+              <span class="inf-time">01:47:55</span>
+              <span class="sev sev-medium">PROBE</span>
+              <span class="inf-msg">Systematic short-context probing: 847 requests with 1-token completions. Training data extraction pattern detected.</span>
+              <span class="inf-model">gpt-4-turbo</span>
+            </div>
+            <div class="inf-event medium">
+              <span class="inf-time">00:22:11</span>
+              <span class="sev sev-medium">ANOMALY</span>
+              <span class="inf-msg">Context recycling attack: same prefix across 412 requests, incrementally varying suffix. Model output correlation analysis.</span>
+              <span class="inf-model">gemini-pro</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== PROMPT FIREWALL PAGE ===== -->
+    <div class="page" id="page-firewall">
+      <div class="section-title">🔥 Prompt Firewall Analytics</div>
+      <div class="kpi-grid">
+        <div class="kpi-card red">
+          <div class="kpi-label">Total Blocked Today</div>
+          <div class="kpi-value" style="color:var(--red)">1,247</div>
+          <div class="kpi-delta delta-up">↑ 34% vs 7d avg</div>
+        </div>
+        <div class="kpi-card orange">
+          <div class="kpi-label">Block Rate</div>
+          <div class="kpi-value" style="color:var(--orange)">14.7%</div>
+          <div class="kpi-sub">of all inference requests</div>
+        </div>
+        <div class="kpi-card green">
+          <div class="kpi-label">False Positive Rate</div>
+          <div class="kpi-value" style="color:var(--green)">0.8%</div>
+          <div class="kpi-delta delta-down">↓ 0.2% improvement</div>
+        </div>
+        <div class="kpi-card cyan">
+          <div class="kpi-label">Avg Firewall Latency</div>
+          <div class="kpi-value" style="color:var(--cyan)">12ms</div>
+          <div class="kpi-sub">P99: 47ms</div>
+        </div>
+      </div>
+
+      <div class="grid-65-35">
+        <div class="card">
+          <div class="card-title mb-16">Recent Blocked Prompts — Classified</div>
+          <table class="data-table">
+            <thead>
+              <tr><th>Time</th><th>Category</th><th>Severity</th><th>Model</th><th>Confidence</th><th>Action</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="mono text-muted">03:47:22</td>
+                <td><span class="tag tag-red">PROMPT INJECTION</span></td>
+                <td><span class="sev sev-critical">CRITICAL</span></td>
+                <td class="mono" style="color:var(--purple)">gpt-4-turbo</td>
+                <td class="mono" style="color:var(--green)">99.7%</td>
+                <td><span class="rt-status-chip chip-red">BLOCKED</span></td>
+              </tr>
+              <tr>
+                <td class="mono text-muted">03:22:08</td>
+                <td><span class="tag tag-orange">JAILBREAK</span></td>
+                <td><span class="sev sev-critical">CRITICAL</span></td>
+                <td class="mono" style="color:var(--purple)">claude-3-opus</td>
+                <td class="mono" style="color:var(--green)">98.2%</td>
+                <td><span class="rt-status-chip chip-red">BLOCKED</span></td>
+              </tr>
+              <tr>
+                <td class="mono text-muted">02:18:47</td>
+                <td><span class="tag tag-purple">PII EXTRACTION</span></td>
+                <td><span class="sev sev-high">HIGH</span></td>
+                <td class="mono" style="color:var(--purple)">gemini-pro</td>
+                <td class="mono" style="color:var(--yellow)">94.1%</td>
+                <td><span class="rt-status-chip chip-red">BLOCKED</span></td>
+              </tr>
+              <tr>
+                <td class="mono text-muted">01:54:12</td>
+                <td><span class="tag tag-cyan">NSFW CONTENT</span></td>
+                <td><span class="sev sev-high">HIGH</span></td>
+                <td class="mono" style="color:var(--purple)">llama-3.1-70b</td>
+                <td class="mono" style="color:var(--yellow)">91.8%</td>
+                <td><span class="rt-status-chip chip-red">BLOCKED</span></td>
+              </tr>
+              <tr>
+                <td class="mono text-muted">01:33:09</td>
+                <td><span class="tag tag-red">DATA EXFIL</span></td>
+                <td><span class="sev sev-medium">MEDIUM</span></td>
+                <td class="mono" style="color:var(--purple)">gpt-4-turbo</td>
+                <td class="mono" style="color:var(--orange)">87.4%</td>
+                <td><span class="rt-status-chip chip-orange">QUARANTINE</span></td>
+              </tr>
+              <tr>
+                <td class="mono text-muted">00:47:38</td>
+                <td><span class="tag tag-purple">SYSTEM PROBE</span></td>
+                <td><span class="sev sev-medium">MEDIUM</span></td>
+                <td class="mono" style="color:var(--purple)">mistral-7b</td>
+                <td class="mono" style="color:var(--orange)">82.7%</td>
+                <td><span class="rt-status-chip chip-orange">FLAGGED</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="card">
+          <div class="card-title mb-16">Firewall Policy Engine</div>
+          <div style="display:flex;flex-direction:column;gap:10px">
+            <div style="background:var(--bg4);border:1px solid var(--border);border-radius:6px;padding:12px">
+              <div class="flex-between mb-8">
+                <span style="font-size:11px;font-weight:700;color:var(--green)">P-001: Prompt Injection Detection</span>
+                <div class="rt-status-chip chip-green">ACTIVE</div>
+              </div>
+              <div style="font-size:10px;color:var(--text2)">Regex + semantic classifier. Threshold: 0.85. Blocks all injection patterns including indirect and multi-step.</div>
+            </div>
+            <div style="background:var(--bg4);border:1px solid var(--border);border-radius:6px;padding:12px">
+              <div class="flex-between mb-8">
+                <span style="font-size:11px;font-weight:700;color:var(--green)">P-002: Jailbreak Prevention</span>
+                <div class="rt-status-chip chip-green">ACTIVE</div>
+              </div>
+              <div style="font-size:10px;color:var(--text2)">DAN/AIM/STAN variant detection. Adversarial suffix detection. 847 known patterns. Auto-updated hourly.</div>
+            </div>
+            <div style="background:var(--bg4);border:1px solid var(--border);border-radius:6px;padding:12px">
+              <div class="flex-between mb-8">
+                <span style="font-size:11px;font-weight:700;color:var(--green)">P-003: PII Guard</span>
+                <div class="rt-status-chip chip-green">ACTIVE</div>
+              </div>
+              <div style="font-size:10px;color:var(--text2)">Presidio-backed PII detection. Blocks prompts requesting SSN, credit card, medical record extraction.</div>
+            </div>
+            <div style="background:var(--bg4);border:1px solid rgba(255,152,0,0.3);border-radius:6px;padding:12px">
+              <div class="flex-between mb-8">
+                <span style="font-size:11px;font-weight:700;color:var(--orange)">P-004: Output Sanitization</span>
+                <div class="rt-status-chip chip-orange">REVIEW</div>
+              </div>
+              <div style="font-size:10px;color:var(--text2)">Governance violation detected. Policy requires CISO review before re-activation. 2 violations today.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== ABUSE GRAPH PAGE ===== -->
+    <div class="page" id="page-abuse">
+      <div class="section-title">🕸 AI Abuse Graph — Threat Actor Attribution</div>
+      <div class="grid-65-35">
+        <div class="card">
+          <div class="card-title mb-16">Active Abuse Clusters — Real-time Attribution</div>
+          <div class="abuse-nodes">
+            <div class="abuse-node">
+              <div class="node-circle node-red">💀</div>
+              <div class="node-label">TOR Cluster #1</div>
+              <div class="node-count" style="color:var(--red)">487 events</div>
+            </div>
+            <div class="abuse-node">
+              <div class="node-circle node-orange">🤖</div>
+              <div class="node-label">Bot Farm VPS</div>
+              <div class="node-count" style="color:var(--orange)">312 events</div>
+            </div>
+            <div class="abuse-node">
+              <div class="node-circle node-purple">🔑</div>
+              <div class="node-label">Stolen API Keys</div>
+              <div class="node-count" style="color:var(--purple)">248 events</div>
+            </div>
+            <div class="abuse-node">
+              <div class="node-circle node-cyan">🌐</div>
+              <div class="node-label">Residential Proxy</div>
+              <div class="node-count" style="color:var(--cyan)">142 events</div>
+            </div>
+            <div class="abuse-node">
+              <div class="node-circle node-yellow">⚡</div>
+              <div class="node-label">Scraping Script</div>
+              <div class="node-count" style="color:var(--yellow)">98 events</div>
+            </div>
+            <div class="abuse-node">
+              <div class="node-circle node-red">💉</div>
+              <div class="node-label">Injection Chain</div>
+              <div class="node-count" style="color:var(--red)">76 events</div>
+            </div>
+            <div class="abuse-node">
+              <div class="node-circle node-green">🎭</div>
+              <div class="node-label">Social Eng. AI</div>
+              <div class="node-count" style="color:var(--green)">54 events</div>
+            </div>
+            <div class="abuse-node">
+              <div class="node-circle node-purple">🧬</div>
+              <div class="node-label">Model Clone Attempt</div>
+              <div class="node-count" style="color:var(--purple)">23 events</div>
+            </div>
+          </div>
+          <div class="card" style="margin-top:16px;background:var(--bg4)">
+            <div class="card-title mb-16">Attributed Threat Actors</div>
+            <table class="data-table">
+              <thead>
+                <tr><th>Actor ID</th><th>Origin</th><th>Technique</th><th>Events</th><th>First Seen</th><th>Status</th></tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td class="mono" style="color:var(--red)">TH-2847-APT</td>
+                  <td class="mono text-muted">CN</td>
+                  <td><span class="tag tag-red">Prompt Injection</span></td>
+                  <td class="mono" style="color:var(--red)">487</td>
+                  <td class="mono text-muted">2026-05-24</td>
+                  <td><span class="rt-status-chip chip-red">ACTIVE</span></td>
+                </tr>
+                <tr>
+                  <td class="mono" style="color:var(--orange)">BOT-VPS-442</td>
+                  <td class="mono text-muted">RU</td>
+                  <td><span class="tag tag-orange">Token Flooding</span></td>
+                  <td class="mono" style="color:var(--orange)">312</td>
+                  <td class="mono text-muted">2026-05-25</td>
+                  <td><span class="rt-status-chip chip-red">ACTIVE</span></td>
+                </tr>
+                <tr>
+                  <td class="mono" style="color:var(--yellow)">CRED-THIEF-081</td>
+                  <td class="mono text-muted">NG</td>
+                  <td><span class="tag tag-purple">API Key Abuse</span></td>
+                  <td class="mono" style="color:var(--yellow)">248</td>
+                  <td class="mono text-muted">2026-05-26</td>
+                  <td><span class="rt-status-chip chip-orange">MONITORING</span></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-title mb-16">Abuse Timeline</div>
+          <div class="timeline">
+            <div class="tl-item">
+              <div class="tl-dot" style="background:var(--red);border-color:var(--red)"></div>
+              <div class="tl-time">03:47 UTC — CRITICAL</div>
+              <div class="tl-event">System prompt extraction bypass</div>
+              <div class="tl-detail">Actor TH-2847-APT successfully bypassed P-001 policy using novel adversarial suffix. Session terminated. API key revoked.</div>
+            </div>
+            <div class="tl-item">
+              <div class="tl-dot" style="background:var(--orange);border-color:var(--orange)"></div>
+              <div class="tl-time">03:22 UTC — HIGH</div>
+              <div class="tl-event">DAN-variant jailbreak campaign</div>
+              <div class="tl-detail">14 attempts in 3 minutes from TOR exit node 45.142.212.18. All blocked. Fingerprint added to threat graph.</div>
+            </div>
+            <div class="tl-item">
+              <div class="tl-dot" style="background:var(--yellow);border-color:var(--yellow)"></div>
+              <div class="tl-time">02:55 UTC — HIGH</div>
+              <div class="tl-event">Token flooding — cost amplification</div>
+              <div class="tl-detail">BOT-VPS-442: 94K token request chain. Estimated cost amplification: $847. Quota enforcement triggered.</div>
+            </div>
+            <div class="tl-item">
+              <div class="tl-dot" style="background:var(--purple);border-color:var(--purple)"></div>
+              <div class="tl-time">01:33 UTC — MEDIUM</div>
+              <div class="tl-event">API key credential stuffing</div>
+              <div class="tl-detail">CRED-THIEF-081: 248 API keys tested over 90min from residential proxy pool. 3 valid keys discovered. All revoked.</div>
+            </div>
+            <div class="tl-item">
+              <div class="tl-dot" style="background:var(--cyan);border-color:var(--cyan)"></div>
+              <div class="tl-time">00:14 UTC — INFO</div>
+              <div class="tl-event">Model enumeration scan</div>
+              <div class="tl-detail">Systematic probing of model capabilities via structured prompts. Attribution: automated scanner. Rate limited.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== SESSION TRACING PAGE ===== -->
+    <div class="page" id="page-sessions">
+      <div class="section-title">🔍 AI Session Tracing — Full Audit Trail</div>
+      <div class="kpi-grid">
+        <div class="kpi-card purple">
+          <div class="kpi-label">Active Sessions</div>
+          <div class="kpi-value" style="color:var(--purple)">3,821</div>
+          <div class="kpi-sub">across 5 model endpoints</div>
+        </div>
+        <div class="kpi-card orange">
+          <div class="kpi-label">Flagged Sessions</div>
+          <div class="kpi-value" style="color:var(--orange)">12</div>
+          <div class="kpi-sub">requiring analyst review</div>
+        </div>
+        <div class="kpi-card red">
+          <div class="kpi-label">Terminated Sessions</div>
+          <div class="kpi-value" style="color:var(--red)">2</div>
+          <div class="kpi-sub">forced isolation today</div>
+        </div>
+        <div class="kpi-card cyan">
+          <div class="kpi-label">Avg Session Length</div>
+          <div class="kpi-value" style="color:var(--cyan)">4.2m</div>
+          <div class="kpi-sub">Longest: 2h 14m (flagged)</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title mb-16">Session Trace Log — Flagged Sessions</div>
+        <table class="data-table">
+          <thead>
+            <tr><th>Session ID</th><th>User/Key</th><th>Model</th><th>Duration</th><th>Requests</th><th>Tokens</th><th>Risk Score</th><th>Flags</th><th>Action</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="mono" style="color:var(--red)">SES-847291</td>
+              <td class="mono text-muted">sk-...f4a2</td>
+              <td class="mono" style="color:var(--purple)">gpt-4-turbo</td>
+              <td class="mono">2h 14m</td>
+              <td class="mono" style="color:var(--red)">8,421</td>
+              <td class="mono" style="color:var(--red)">94.8M</td>
+              <td><span style="color:var(--red);font-weight:700;font-family:var(--mono)">98.4</span></td>
+              <td><span class="tag tag-red">FLOOD</span><span class="tag tag-orange">INJECT</span></td>
+              <td><button class="nav-btn danger" style="font-size:10px;padding:4px 8px">Terminate</button></td>
+            </tr>
+            <tr>
+              <td class="mono" style="color:var(--orange)">SES-447182</td>
+              <td class="mono text-muted">sk-...3b7e</td>
+              <td class="mono" style="color:var(--purple)">claude-3-opus</td>
+              <td class="mono">47m</td>
+              <td class="mono" style="color:var(--orange)">1,247</td>
+              <td class="mono" style="color:var(--orange)">8.4M</td>
+              <td><span style="color:var(--orange);font-weight:700;font-family:var(--mono)">74.2</span></td>
+              <td><span class="tag tag-orange">JAILBREAK</span></td>
+              <td><button class="nav-btn" style="font-size:10px;padding:4px 8px;background:rgba(187,134,252,0.15);color:var(--purple);border:1px solid rgba(187,134,252,0.3)">Trace</button></td>
+            </tr>
+            <tr>
+              <td class="mono" style="color:var(--yellow)">SES-221847</td>
+              <td class="mono text-muted">sk-...9d1a</td>
+              <td class="mono" style="color:var(--purple)">gemini-pro</td>
+              <td class="mono">28m</td>
+              <td class="mono" style="color:var(--yellow)">847</td>
+              <td class="mono">2.1M</td>
+              <td><span style="color:var(--yellow);font-weight:700;font-family:var(--mono)">61.8</span></td>
+              <td><span class="tag tag-purple">PII PROBE</span></td>
+              <td><button class="nav-btn" style="font-size:10px;padding:4px 8px;background:rgba(187,134,252,0.15);color:var(--purple);border:1px solid rgba(187,134,252,0.3)">Trace</button></td>
+            </tr>
+            <tr>
+              <td class="mono" style="color:var(--cyan)">SES-112048</td>
+              <td class="mono text-muted">sk-...7f2c</td>
+              <td class="mono" style="color:var(--purple)">llama-3.1-70b</td>
+              <td class="mono">12m</td>
+              <td class="mono">312</td>
+              <td class="mono">847K</td>
+              <td><span style="color:var(--cyan);font-weight:700;font-family:var(--mono)">44.7</span></td>
+              <td><span class="tag tag-cyan">SCRAPING</span></td>
+              <td><button class="nav-btn" style="font-size:10px;padding:4px 8px;background:rgba(187,134,252,0.15);color:var(--purple);border:1px solid rgba(187,134,252,0.3)">Trace</button></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ===== GOVERNANCE PAGE ===== -->
+    <div class="page" id="page-governance">
+      <div class="section-title">⚖ AI Governance Dashboard</div>
+      <div class="kpi-grid">
+        <div class="kpi-card green">
+          <div class="kpi-label">Governance Score</div>
+          <div class="kpi-value" style="color:var(--green)">84/100</div>
+          <div class="kpi-sub">Target: 95+/100</div>
+        </div>
+        <div class="kpi-card orange">
+          <div class="kpi-label">Active Violations</div>
+          <div class="kpi-value" style="color:var(--orange)">2</div>
+          <div class="kpi-sub">Policy P-004</div>
+        </div>
+        <div class="kpi-card purple">
+          <div class="kpi-label">Policies Active</div>
+          <div class="kpi-value" style="color:var(--purple)">18/20</div>
+          <div class="kpi-sub">2 under review</div>
+        </div>
+        <div class="kpi-card cyan">
+          <div class="kpi-label">Compliance Frameworks</div>
+          <div class="kpi-value" style="color:var(--cyan)">4</div>
+          <div class="kpi-sub">EU AI Act, NIST AI RMF, ISO 42001, SOC2</div>
+        </div>
+      </div>
+
+      <div class="gov-grid mb-16">
+        <div class="gov-item">
+          <div class="gov-title">🇪🇺 EU AI Act Compliance</div>
+          <div class="gov-score" style="color:var(--green)">91%</div>
+          <div class="gov-bar-row"><span class="gov-bar-label">Risk Classification</span><div class="gov-bar-track"><div class="gov-bar-fill" style="width:100%;background:var(--green)"></div></div><span class="gov-bar-val" style="color:var(--green)">100%</span></div>
+          <div class="gov-bar-row"><span class="gov-bar-label">Human Oversight</span><div class="gov-bar-track"><div class="gov-bar-fill" style="width:87%;background:var(--green)"></div></div><span class="gov-bar-val" style="color:var(--green)">87%</span></div>
+          <div class="gov-bar-row"><span class="gov-bar-label">Transparency</span><div class="gov-bar-track"><div class="gov-bar-fill" style="width:94%;background:var(--green)"></div></div><span class="gov-bar-val" style="color:var(--green)">94%</span></div>
+          <div class="gov-bar-row"><span class="gov-bar-label">Data Governance</span><div class="gov-bar-track"><div class="gov-bar-fill" style="width:78%;background:var(--cyan)"></div></div><span class="gov-bar-val" style="color:var(--cyan)">78%</span></div>
+          <div class="gov-bar-row"><span class="gov-bar-label">Incident Logging</span><div class="gov-bar-track"><div class="gov-bar-fill" style="width:96%;background:var(--green)"></div></div><span class="gov-bar-val" style="color:var(--green)">96%</span></div>
+        </div>
+        <div class="gov-item">
+          <div class="gov-title">🏛 NIST AI RMF</div>
+          <div class="gov-score" style="color:var(--cyan)">88%</div>
+          <div class="gov-bar-row"><span class="gov-bar-label">Govern</span><div class="gov-bar-track"><div class="gov-bar-fill" style="width:92%;background:var(--green)"></div></div><span class="gov-bar-val" style="color:var(--green)">92%</span></div>
+          <div class="gov-bar-row"><span class="gov-bar-label">Map</span><div class="gov-bar-track"><div class="gov-bar-fill" style="width:88%;background:var(--green)"></div></div><span class="gov-bar-val" style="color:var(--green)">88%</span></div>
+          <div class="gov-bar-row"><span class="gov-bar-label">Measure</span><div class="gov-bar-track"><div class="gov-bar-fill" style="width:84%;background:var(--cyan)"></div></div><span class="gov-bar-val" style="color:var(--cyan)">84%</span></div>
+          <div class="gov-bar-row"><span class="gov-bar-label">Manage</span><div class="gov-bar-track"><div class="gov-bar-fill" style="width:87%;background:var(--cyan)"></div></div><span class="gov-bar-val" style="color:var(--cyan)">87%</span></div>
+        </div>
+        <div class="gov-item">
+          <div class="gov-title">📋 ISO/IEC 42001 AI Management</div>
+          <div class="gov-score" style="color:var(--yellow)">79%</div>
+          <div class="gov-bar-row"><span class="gov-bar-label">Context of Org</span><div class="gov-bar-track"><div class="gov-bar-fill" style="width:90%;background:var(--green)"></div></div><span class="gov-bar-val" style="color:var(--green)">90%</span></div>
+          <div class="gov-bar-row"><span class="gov-bar-label">Risk Assessment</span><div class="gov-bar-track"><div class="gov-bar-fill" style="width:82%;background:var(--cyan)"></div></div><span class="gov-bar-val" style="color:var(--cyan)">82%</span></div>
+          <div class="gov-bar-row"><span class="gov-bar-label">Objectives</span><div class="gov-bar-track"><div class="gov-bar-fill" style="width:75%;background:var(--yellow)"></div></div><span class="gov-bar-val" style="color:var(--yellow)">75%</span></div>
+          <div class="gov-bar-row"><span class="gov-bar-label">Monitoring</span><div class="gov-bar-track"><div class="gov-bar-fill" style="width:70%;background:var(--yellow)"></div></div><span class="gov-bar-val" style="color:var(--yellow)">70%</span></div>
+        </div>
+        <div class="gov-item">
+          <div class="gov-title">🔒 SOC 2 Type II Readiness</div>
+          <div class="gov-score" style="color:var(--green)">93%</div>
+          <div class="gov-bar-row"><span class="gov-bar-label">Security</span><div class="gov-bar-track"><div class="gov-bar-fill" style="width:96%;background:var(--green)"></div></div><span class="gov-bar-val" style="color:var(--green)">96%</span></div>
+          <div class="gov-bar-row"><span class="gov-bar-label">Availability</span><div class="gov-bar-track"><div class="gov-bar-fill" style="width:94%;background:var(--green)"></div></div><span class="gov-bar-val" style="color:var(--green)">94%</span></div>
+          <div class="gov-bar-row"><span class="gov-bar-label">Confidentiality</span><div class="gov-bar-track"><div class="gov-bar-fill" style="width:91%;background:var(--green)"></div></div><span class="gov-bar-val" style="color:var(--green)">91%</span></div>
+          <div class="gov-bar-row"><span class="gov-bar-label">Processing Integrity</span><div class="gov-bar-track"><div class="gov-bar-fill" style="width:88%;background:var(--cyan)"></div></div><span class="gov-bar-val" style="color:var(--cyan)">88%</span></div>
+          <div class="gov-bar-row"><span class="gov-bar-label">Privacy</span><div class="gov-bar-track"><div class="gov-bar-fill" style="width:97%;background:var(--green)"></div></div><span class="gov-bar-val" style="color:var(--green)">97%</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== ATTACK REPLAY PAGE ===== -->
+    <div class="page" id="page-replay">
+      <div class="section-title">▶ AI Attack Replay Engine</div>
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-title mb-16">Saved Attack Replays</div>
+          <div style="display:flex;flex-direction:column;gap:10px">
+            <div style="background:var(--bg4);border:1px solid var(--border);border:1px solid rgba(255,68,68,0.25);border-radius:6px;padding:14px">
+              <div class="flex-between mb-8">
+                <div>
+                  <div style="font-size:12px;font-weight:700;color:var(--red)">REPLAY-001: Adversarial Suffix Injection</div>
+                  <div style="font-size:10px;color:var(--text2);margin-top:2px">Captured 03:47 UTC — gpt-4-turbo bypass</div>
+                </div>
+                <span class="sev sev-critical">CRITICAL</span>
+              </div>
+              <div style="font-size:11px;color:var(--text2);margin-bottom:10px">47-step attack chain. Bypassed 3 firewall layers using gradient-optimized adversarial suffix. System prompt fully extracted.</div>
+              <div style="display:flex;gap:8px">
+                <button class="nav-btn primary" style="font-size:10px;padding:5px 12px">▶ Replay</button>
+                <button class="nav-btn" style="font-size:10px;padding:5px 12px;background:rgba(0,212,255,0.1);color:var(--cyan);border:1px solid rgba(0,212,255,0.25)">📊 Analyze</button>
+                <button class="nav-btn" style="font-size:10px;padding:5px 12px;background:rgba(0,230,118,0.1);color:var(--green);border:1px solid rgba(0,230,118,0.2)">🛡 Add Rule</button>
+              </div>
+            </div>
+            <div style="background:var(--bg4);border:1px solid rgba(255,152,0,0.2);border-radius:6px;padding:14px">
+              <div class="flex-between mb-8">
+                <div>
+                  <div style="font-size:12px;font-weight:700;color:var(--orange)">REPLAY-002: DAN Jailbreak Chain</div>
+                  <div style="font-size:10px;color:var(--text2);margin-top:2px">Captured 03:22 UTC — claude-3-opus</div>
+                </div>
+                <span class="sev sev-critical">CRITICAL</span>
+              </div>
+              <div style="font-size:11px;color:var(--text2);margin-bottom:10px">14-step progressive role-play escalation. Novel DAN variant not in signature database. Classified as zero-day jailbreak.</div>
+              <div style="display:flex;gap:8px">
+                <button class="nav-btn primary" style="font-size:10px;padding:5px 12px">▶ Replay</button>
+                <button class="nav-btn" style="font-size:10px;padding:5px 12px;background:rgba(0,212,255,0.1);color:var(--cyan);border:1px solid rgba(0,212,255,0.25)">📊 Analyze</button>
+                <button class="nav-btn" style="font-size:10px;padding:5px 12px;background:rgba(0,230,118,0.1);color:var(--green);border:1px solid rgba(0,230,118,0.2)">🛡 Add Rule</button>
+              </div>
+            </div>
+            <div style="background:var(--bg4);border:1px solid var(--border);border-radius:6px;padding:14px">
+              <div class="flex-between mb-8">
+                <div>
+                  <div style="font-size:12px;font-weight:700;color:var(--yellow)">REPLAY-003: Token Flood Cost Amplification</div>
+                  <div style="font-size:10px;color:var(--text2);margin-top:2px">Captured 02:55 UTC — gemini-pro</div>
+                </div>
+                <span class="sev sev-high">HIGH</span>
+              </div>
+              <div style="font-size:11px;color:var(--text2);margin-bottom:10px">Cost amplification via recursive token expansion. 94K tokens from 12-token seed prompt. Economic DoS pattern.</div>
+              <div style="display:flex;gap:8px">
+                <button class="nav-btn primary" style="font-size:10px;padding:5px 12px">▶ Replay</button>
+                <button class="nav-btn" style="font-size:10px;padding:5px 12px;background:rgba(0,212,255,0.1);color:var(--cyan);border:1px solid rgba(0,212,255,0.25)">📊 Analyze</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title mb-16">Replay Execution Engine</div>
+          <div style="background:var(--bg4);border:1px solid var(--border);border-radius:6px;padding:16px;font-family:var(--mono);font-size:11px;color:var(--green);line-height:1.8">
+            <div style="color:var(--text2)"># SENTINEL APEX AI Attack Replay Engine v3.1</div>
+            <div style="color:var(--text2)"># Status: READY — sandbox isolated</div>
+            <div>&nbsp;</div>
+            <div style="color:var(--cyan)">$ replay --id REPLAY-001 --sandbox --analyze</div>
+            <div style="color:var(--text2)">[2026-05-27 03:47:22] Loading attack chain...</div>
+            <div>[2026-05-27 03:47:22] Steps loaded: <span style="color:var(--purple)">47</span></div>
+            <div>[2026-05-27 03:47:23] Sandbox model: <span style="color:var(--purple)">gpt-4-turbo-sandbox</span></div>
+            <div>[2026-05-27 03:47:23] Firewall: <span style="color:var(--orange)">BYPASSED (replaying)</span></div>
+            <div style="color:var(--text2)">&nbsp;</div>
+            <div>[STEP 01] Initial benign prompt → PASS</div>
+            <div>[STEP 07] Role escalation inserted → PASS</div>
+            <div>[STEP 14] Adversarial suffix v1 → BLOCKED</div>
+            <div>[STEP 19] Suffix mutation #3 → BLOCKED</div>
+            <div>[STEP 31] Gradient-optimized suffix → <span style="color:var(--red)">BYPASS ⚠</span></div>
+            <div>[STEP 47] System prompt extracted → <span style="color:var(--red)">SUCCESS ⚠</span></div>
+            <div>&nbsp;</div>
+            <div style="color:var(--yellow)">Bypass vector: adversarial suffix @ token 2,847</div>
+            <div style="color:var(--cyan)">Rule recommendation: gradient-resistant suffix filter</div>
+            <div>Coverage gap: 1 pattern → <span style="color:var(--green)">RULE GENERATED</span></div>
+          </div>
+          <div style="margin-top:12px;padding:12px;background:rgba(0,230,118,0.08);border:1px solid rgba(0,230,118,0.2);border-radius:6px">
+            <div style="font-size:11px;font-weight:700;color:var(--green);margin-bottom:6px">✓ Replay Result: Firewall Rule Generated</div>
+            <div style="font-size:10px;color:var(--text2)">RULE-2026-AI-847: Block gradient-optimized adversarial suffixes ≥2,800 tokens. Confidence: 98.4%. Added to P-001 policy. Retroactive scan: 0 additional incidents found.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<script>
+// Navigation
+function showPage(id) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.sidebar-item').forEach(s => s.classList.remove('active'));
+  const page = document.getElementById('page-' + id);
+  if (page) page.classList.add('active');
+  // Activate correct nav tab
+  document.querySelectorAll('.nav-tab').forEach(t => {
+    if (t.getAttribute('onclick') && t.getAttribute('onclick').includes(id)) t.classList.add('active');
+  });
+  document.querySelectorAll('.sidebar-item').forEach(s => {
+    if (s.getAttribute('onclick') && s.getAttribute('onclick').includes(id)) s.classList.add('active');
+  });
+}
+
+// Token heatmap generation
+function generateHeatmap() {
+  const grid = document.getElementById('token-heatmap');
+  if (!grid) return;
+  // Pattern: spike at hour 3, 14 (03:14 = index ~3)
+  const pattern = [1,1,0,5,4,3,1,1,2,1,0,1,1,2,1,3,2,1,0,1,2,1,1,0];
+  pattern.forEach((v, i) => {
+    const cell = document.createElement('div');
+    cell.className = `heatmap-cell heat-${v}`;
+    cell.title = `Hour ${String(i).padStart(2,'0')}:00 UTC — Level ${v}`;
+    grid.appendChild(cell);
+  });
+}
+
+// Live metric animations
+function animateMetrics() {
+  const infRate = document.getElementById('inf-rate');
+  const tokRate = document.getElementById('tok-rate');
+  if (infRate) {
+    const base = 847;
+    const jitter = Math.floor(Math.random() * 40 - 20);
+    infRate.textContent = (base + jitter).toLocaleString();
+  }
+  if (tokRate) {
+    const vals = ['2.3M','2.4M','2.5M','2.4M','2.6M'];
+    tokRate.textContent = vals[Math.floor(Math.random() * vals.length)];
+  }
+}
+
+function triggerIsolation() {
+  alert('⚠ MODEL ISOLATION INITIATED\n\nSelecting model for isolation...\nThis action requires CISO authorization.\n\nContact: ciso@cyberdudebivash.in');
+}
+
+// Init
+document.addEventListener('DOMContentLoaded', () => {
+  generateHeatmap();
+  setInterval(animateMetrics, 3000);
+});
+generateHeatmap();
+setInterval(animateMetrics, 3000);
+</script>
+</body>
+</html>
