@@ -1,0 +1,868 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CYBERDUDEBIVASH® SENTINEL APEX — Developer API Portal</title>
+<style>
+  :root {
+    --bg: #080a0f; --bg2: #0d1117; --bg3: #111620; --bg4: #161d2c;
+    --border: #1e2d45; --border2: #2a3f5f;
+    --blue: #1e90ff; --cyan: #00d4ff; --green: #00e676;
+    --yellow: #ffd740; --orange: #ff9800; --red: #ff4444;
+    --purple: #bb86fc; --teal: #00bcd4; --gold: #ffc107;
+    --text: #e2e8f0; --text2: #8b9ab5; --muted: #4a5568;
+    --mono: 'Courier New', monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); }
+
+  /* NAV */
+  .nav { height: 56px; background: var(--bg2); border-bottom: 1px solid var(--border); display: flex; align-items: center; padding: 0 32px; gap: 0; position: sticky; top: 0; z-index: 50; }
+  .nav-brand { font-size: 16px; font-weight: 800; color: #fff; margin-right: 40px; }
+  .nav-brand span { color: var(--cyan); }
+  .nav-link { padding: 6px 14px; font-size: 13px; color: var(--text2); cursor: pointer; border-bottom: 2px solid transparent; transition: all 0.2s; }
+  .nav-link:hover { color: var(--text); }
+  .nav-link.active { color: var(--blue); border-bottom-color: var(--blue); }
+  .nav-right { margin-left: auto; display: flex; gap: 10px; align-items: center; }
+  .api-key-badge { font-family: var(--mono); font-size: 11px; background: var(--bg3); border: 1px solid var(--border); padding: 5px 12px; border-radius: 6px; color: var(--green); }
+  .nav-btn { padding: 7px 16px; border-radius: 6px; border: none; font-size: 12px; font-weight: 700; cursor: pointer; }
+  .nav-btn.primary { background: var(--blue); color: #fff; }
+  .nav-btn.outline { background: transparent; border: 1px solid var(--border); color: var(--text2); }
+  .nav-btn.outline:hover { border-color: var(--blue); color: var(--blue); }
+
+  /* HERO */
+  .hero { background: linear-gradient(135deg, #080a0f 0%, #0d1420 60%, #0a1525 100%); padding: 60px 32px; border-bottom: 1px solid var(--border); }
+  .hero-badge { display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 11px; font-weight: 700; letter-spacing: 1px; background: rgba(30,144,255,0.1); border: 1px solid rgba(30,144,255,0.3); color: var(--blue); margin-bottom: 16px; }
+  .hero h1 { font-size: 36px; font-weight: 900; color: #fff; line-height: 1.2; margin-bottom: 12px; }
+  .hero h1 span { color: var(--cyan); }
+  .hero p { font-size: 15px; color: var(--text2); max-width: 600px; line-height: 1.6; margin-bottom: 28px; }
+  .hero-actions { display: flex; gap: 12px; flex-wrap: wrap; }
+  .hero-btn { padding: 12px 24px; border-radius: 8px; font-size: 13px; font-weight: 700; cursor: pointer; border: none; transition: all 0.2s; }
+  .hero-btn.primary { background: var(--blue); color: #fff; }
+  .hero-btn.primary:hover { background: #1a7fe0; }
+  .hero-btn.outline { background: transparent; border: 1px solid var(--border2); color: var(--text); }
+  .hero-btn.outline:hover { border-color: var(--cyan); color: var(--cyan); }
+
+  /* STATS ROW */
+  .stats-row { display: flex; gap: 0; border-bottom: 1px solid var(--border); }
+  .stat-item { flex: 1; padding: 20px 32px; border-right: 1px solid var(--border); }
+  .stat-item:last-child { border-right: none; }
+  .stat-num { font-size: 28px; font-weight: 800; color: #fff; }
+  .stat-label { font-size: 11px; color: var(--text2); margin-top: 4px; text-transform: uppercase; letter-spacing: 1px; }
+
+  /* CONTENT */
+  .content { display: grid; grid-template-columns: 240px 1fr; min-height: calc(100vh - 56px - 200px); }
+  .sidebar { background: var(--bg2); border-right: 1px solid var(--border); padding: 24px 0; position: sticky; top: 56px; height: calc(100vh - 56px); overflow-y: auto; }
+  .sb-section { margin-bottom: 24px; }
+  .sb-label { font-size: 10px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: var(--muted); padding: 0 16px; margin-bottom: 6px; }
+  .sb-item { padding: 8px 16px; font-size: 13px; color: var(--text2); cursor: pointer; border-left: 2px solid transparent; transition: all 0.15s; }
+  .sb-item:hover { color: var(--text); background: rgba(255,255,255,0.03); }
+  .sb-item.active { color: var(--blue); border-left-color: var(--blue); background: rgba(30,144,255,0.06); }
+  .sb-item .badge { float: right; font-size: 9px; font-weight: 700; padding: 1px 6px; border-radius: 4px; background: rgba(30,144,255,0.15); color: var(--blue); }
+
+  .doc-content { padding: 32px; max-width: 960px; }
+
+  /* DOC SECTIONS */
+  .doc-pane { display: none; }
+  .doc-pane.active { display: block; }
+
+  .doc-h1 { font-size: 26px; font-weight: 800; color: #fff; margin-bottom: 8px; }
+  .doc-h2 { font-size: 18px; font-weight: 700; color: #fff; margin: 28px 0 12px; }
+  .doc-h3 { font-size: 14px; font-weight: 700; color: var(--text); margin: 20px 0 8px; }
+  .doc-p { font-size: 13px; color: var(--text2); line-height: 1.7; margin-bottom: 16px; }
+  .doc-badge { display: inline-block; padding: 3px 8px; border-radius: 4px; font-size: 11px; font-weight: 700; margin-right: 6px; }
+  .method-get { background: rgba(0,230,118,0.15); color: var(--green); }
+  .method-post { background: rgba(30,144,255,0.15); color: var(--blue); }
+  .method-del { background: rgba(255,68,68,0.15); color: var(--red); }
+  .method-put { background: rgba(255,152,0,0.15); color: var(--orange); }
+
+  /* CODE BLOCK */
+  .code-block { background: #0d1117; border: 1px solid var(--border); border-radius: 8px; margin: 12px 0 20px; overflow: hidden; }
+  .code-header { display: flex; align-items: center; justify-content: space-between; padding: 10px 16px; background: var(--bg3); border-bottom: 1px solid var(--border); }
+  .code-lang { font-size: 11px; color: var(--text2); font-weight: 700; text-transform: uppercase; }
+  .code-copy { font-size: 11px; color: var(--text2); cursor: pointer; padding: 3px 8px; border-radius: 4px; border: 1px solid var(--border); background: transparent; }
+  .code-copy:hover { color: var(--cyan); border-color: var(--cyan); }
+  pre { padding: 16px; overflow-x: auto; font-size: 12px; line-height: 1.6; font-family: var(--mono); color: #cdd6f4; }
+  .kw { color: #89b4fa; }
+  .str { color: #a6e3a1; }
+  .cmt { color: #6c7086; }
+  .num { color: #fab387; }
+  .func { color: #89dceb; }
+  .var { color: #cba6f7; }
+
+  /* ENDPOINT CARD */
+  .endpoint-card { background: var(--bg3); border: 1px solid var(--border); border-radius: 8px; margin-bottom: 16px; overflow: hidden; }
+  .endpoint-header { display: flex; align-items: center; gap: 12px; padding: 14px 16px; cursor: pointer; }
+  .endpoint-path { font-family: var(--mono); font-size: 13px; color: var(--text); font-weight: 600; }
+  .endpoint-desc { font-size: 11px; color: var(--text2); margin-left: auto; }
+  .endpoint-body { padding: 16px; border-top: 1px solid var(--border); display: none; }
+  .endpoint-body.open { display: block; }
+  .param-table { width: 100%; border-collapse: collapse; font-size: 12px; margin-bottom: 12px; }
+  .param-table th { text-align: left; padding: 6px 10px; background: var(--bg2); color: var(--muted); font-size: 10px; text-transform: uppercase; letter-spacing: 1px; border-bottom: 1px solid var(--border); }
+  .param-table td { padding: 8px 10px; border-bottom: 1px solid var(--border); }
+  .param-name { font-family: var(--mono); color: var(--cyan); }
+  .param-type { color: var(--purple); }
+  .param-req { color: var(--red); font-weight: 700; font-size: 10px; }
+  .param-opt { color: var(--muted); font-size: 10px; }
+
+  /* QUOTA / PLAN TABLE */
+  .plan-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin: 20px 0; }
+  .plan-card { background: var(--bg3); border: 1px solid var(--border); border-radius: 10px; padding: 20px; position: relative; overflow: hidden; }
+  .plan-card.featured { border-color: var(--blue); }
+  .plan-card.featured::before { content: 'MOST POPULAR'; position: absolute; top: 12px; right: -20px; background: var(--blue); color: #fff; font-size: 9px; font-weight: 700; padding: 3px 30px; transform: rotate(45deg); letter-spacing: 1px; }
+  .plan-name { font-size: 14px; font-weight: 800; color: #fff; margin-bottom: 4px; }
+  .plan-price { font-size: 28px; font-weight: 900; color: var(--cyan); }
+  .plan-price span { font-size: 13px; color: var(--text2); }
+  .plan-feat { font-size: 11px; color: var(--text2); padding: 5px 0; border-bottom: 1px solid var(--border); }
+  .plan-feat:last-child { border-bottom: none; }
+  .plan-feat.yes::before { content: '✓ '; color: var(--green); }
+  .plan-feat.no { color: var(--muted); }
+  .plan-feat.no::before { content: '✗ '; color: var(--muted); }
+  .plan-btn { display: block; width: 100%; margin-top: 16px; padding: 9px; border-radius: 6px; font-size: 12px; font-weight: 700; cursor: pointer; border: 1px solid var(--blue); background: rgba(30,144,255,0.1); color: var(--blue); text-align: center; }
+  .plan-btn:hover { background: var(--blue); color: #fff; }
+
+  /* WEBHOOK */
+  .webhook-card { background: var(--bg3); border: 1px solid var(--border); border-radius: 8px; padding: 16px; margin-bottom: 12px; }
+  .webhook-event { font-family: var(--mono); font-size: 12px; color: var(--cyan); font-weight: 700; }
+  .webhook-desc { font-size: 12px; color: var(--text2); margin: 4px 0 8px; }
+
+  /* OBSERVABILITY */
+  .obs-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin: 16px 0; }
+  .obs-card { background: var(--bg3); border: 1px solid var(--border); border-radius: 8px; padding: 14px; }
+  .obs-metric { font-size: 22px; font-weight: 800; color: #fff; }
+  .obs-label { font-size: 10px; color: var(--text2); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px; }
+
+  /* SDK CARDS */
+  .sdk-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin: 16px 0; }
+  .sdk-card { background: var(--bg3); border: 1px solid var(--border); border-radius: 8px; padding: 16px; }
+  .sdk-icon { font-size: 28px; margin-bottom: 8px; }
+  .sdk-name { font-size: 14px; font-weight: 700; color: #fff; }
+  .sdk-ver { font-size: 11px; color: var(--green); margin-top: 2px; font-family: var(--mono); }
+  .sdk-install { font-family: var(--mono); font-size: 11px; background: var(--bg2); border: 1px solid var(--border); padding: 6px 10px; border-radius: 4px; color: var(--cyan); margin: 8px 0; }
+  .sdk-link { font-size: 11px; color: var(--blue); cursor: pointer; text-decoration: underline; }
+
+  /* SCROLLBAR */
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  /* RESPONSIVE */
+  @media(max-width:900px) {
+    .content { grid-template-columns: 1fr; }
+    .sidebar { display: none; }
+    .plan-grid { grid-template-columns: 1fr; }
+    .sdk-grid { grid-template-columns: 1fr 1fr; }
+    .obs-grid { grid-template-columns: 1fr 1fr; }
+    .stats-row { flex-wrap: wrap; }
+    .stat-item { min-width: 50%; }
+  }
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <div class="nav-brand">SENTINEL<span>APEX</span> API</div>
+  <div class="nav-link active" onclick="navTo(this,'overview')">Overview</div>
+  <div class="nav-link" onclick="navTo(this,'endpoints')">Endpoints</div>
+  <div class="nav-link" onclick="navTo(this,'sdks')">SDKs</div>
+  <div class="nav-link" onclick="navTo(this,'webhooks')">Webhooks</div>
+  <div class="nav-link" onclick="navTo(this,'quotas')">Plans & Quotas</div>
+  <div class="nav-link" onclick="navTo(this,'observability')">Observability</div>
+  <div class="nav-right">
+    <span class="api-key-badge">sk-cdb-••••••••7f3a</span>
+    <button class="nav-btn outline">Playground</button>
+    <button class="nav-btn primary">Get API Key</button>
+  </div>
+</nav>
+
+<div class="hero">
+  <div class="hero-badge">v3.0 — Enterprise API Economy</div>
+  <h1>Build on <span>Sentinel APEX</span> Intelligence</h1>
+  <p>Production-grade threat intelligence APIs powering SOC automation, SIEM enrichment, SOAR playbooks, and custom security tooling. 99.9% SLA — enterprise-ready from day one.</p>
+  <div class="hero-actions">
+    <button class="hero-btn primary" onclick="navTo(null,'endpoints')">Explore Endpoints →</button>
+    <button class="hero-btn outline" onclick="navTo(null,'sdks')">Download SDK</button>
+    <button class="hero-btn outline" onclick="navTo(null,'quotas')">View Plans</button>
+  </div>
+</div>
+
+<div class="stats-row">
+  <div class="stat-item"><div class="stat-num">99.94%</div><div class="stat-label">API Uptime (30d)</div></div>
+  <div class="stat-item"><div class="stat-num">42ms</div><div class="stat-label">Avg Response Time</div></div>
+  <div class="stat-item"><div class="stat-num">2.1M</div><div class="stat-label">API Calls This Month</div></div>
+  <div class="stat-item"><div class="stat-num">38</div><div class="stat-label">Endpoints Available</div></div>
+  <div class="stat-item"><div class="stat-num">14</div><div class="stat-label">Webhook Event Types</div></div>
+  <div class="stat-item"><div class="stat-num">3</div><div class="stat-label">Official SDKs</div></div>
+</div>
+
+<div class="content">
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sb-section">
+      <div class="sb-label">Getting Started</div>
+      <div class="sb-item active" onclick="goDoc(this,'overview')">Introduction</div>
+      <div class="sb-item" onclick="goDoc(this,'auth')">Authentication</div>
+      <div class="sb-item" onclick="goDoc(this,'rate-limits')">Rate Limits</div>
+      <div class="sb-item" onclick="goDoc(this,'errors')">Error Handling</div>
+    </div>
+    <div class="sb-section">
+      <div class="sb-label">Intelligence APIs</div>
+      <div class="sb-item" onclick="goDoc(this,'endpoints')">All Endpoints <span class="badge">38</span></div>
+      <div class="sb-item" onclick="goDoc(this,'ep-advisory')">Advisory Feed</div>
+      <div class="sb-item" onclick="goDoc(this,'ep-ioc')">IOC Lookup</div>
+      <div class="sb-item" onclick="goDoc(this,'ep-risk')">Risk Scoring</div>
+      <div class="sb-item" onclick="goDoc(this,'ep-attck')">ATT&amp;CK Mapping</div>
+      <div class="sb-item" onclick="goDoc(this,'ep-telemetry')">Telemetry Ingest</div>
+      <div class="sb-item" onclick="goDoc(this,'ep-graph')">Graph Intelligence</div>
+    </div>
+    <div class="sb-section">
+      <div class="sb-label">SDK &amp; Tools</div>
+      <div class="sb-item" onclick="goDoc(this,'sdks')">Official SDKs</div>
+      <div class="sb-item" onclick="goDoc(this,'webhooks')">Webhook Events</div>
+      <div class="sb-item" onclick="goDoc(this,'stix')">STIX 2.1 Export</div>
+    </div>
+    <div class="sb-section">
+      <div class="sb-label">Platform</div>
+      <div class="sb-item" onclick="goDoc(this,'quotas')">Plans &amp; Quotas</div>
+      <div class="sb-item" onclick="goDoc(this,'observability')">API Observability</div>
+      <div class="sb-item" onclick="goDoc(this,'changelog')">Changelog</div>
+    </div>
+  </aside>
+
+  <!-- DOC CONTENT -->
+  <div class="doc-content">
+
+    <!-- OVERVIEW -->
+    <div class="doc-pane active" id="doc-overview">
+      <div class="doc-h1">Sentinel APEX API Documentation</div>
+      <p class="doc-p">The Sentinel APEX API is a RESTful threat intelligence platform API with STIX 2.1 native output, real-time IOC lookups, advisory feeds, risk scoring, ATT&CK mapping, and proprietary telemetry ingest. All responses are JSON. Base URL: <code style="color:var(--cyan);font-family:var(--mono)">https://intel.cyberdudebivash.com/api/v3</code></p>
+
+      <div class="doc-h2">Quick Start</div>
+      <div class="code-block">
+        <div class="code-header"><span class="code-lang">bash</span><button class="code-copy" onclick="copyCode(this)">Copy</button></div>
+        <pre><span class="cmt"># Get your first advisory in 30 seconds</span>
+<span class="func">curl</span> -X GET \
+  <span class="str">"https://intel.cyberdudebivash.com/api/v3/advisories?severity=high&limit=5"</span> \
+  -H <span class="str">"Authorization: Bearer sk-cdb-YOUR_API_KEY"</span> \
+  -H <span class="str">"Accept: application/json"</span>
+
+<span class="cmt"># Response: STIX 2.1 advisory bundle with risk scores, IOCs, ATT&CK TTPs</span></pre>
+      </div>
+
+      <div class="doc-h2">Core Concepts</div>
+      <div class="doc-p">Every advisory returned by the API is enriched with our proprietary scoring pipeline: evidence-gated density calibration (Tier 0–3), telemetry-weighted confidence with provenance lineage, KEV promotion, and MITRE ATT&CK v16 technique mapping. Our <strong style="color:var(--text)">anti-synthetic confidence rule</strong> ensures no advisory claims >25% confidence without sufficient telemetry evidence.</div>
+
+      <div class="doc-h2">Authentication</div>
+      <div class="code-block">
+        <div class="code-header"><span class="code-lang">Python</span><button class="code-copy" onclick="copyCode(this)">Copy</button></div>
+        <pre><span class="kw">import</span> sentinel_apex
+
+<span class="var">client</span> = sentinel_apex.<span class="func">Client</span>(api_key=<span class="str">"sk-cdb-YOUR_API_KEY"</span>)
+
+<span class="cmt"># All API calls automatically include auth headers</span>
+<span class="var">advisories</span> = client.advisories.<span class="func">list</span>(severity=<span class="str">"high"</span>, limit=<span class="num">10</span>)
+<span class="kw">for</span> adv <span class="kw">in</span> advisories:
+    <span class="func">print</span>(adv.cve_id, adv.risk_score, adv.confidence_pct)</pre>
+      </div>
+
+      <div class="doc-h2">API Versioning</div>
+      <div class="doc-p">The current stable version is <code style="color:var(--cyan);font-family:var(--mono)">v3</code>. Previous versions <code style="color:var(--text2);font-family:var(--mono)">v1</code> and <code style="color:var(--text2);font-family:var(--mono)">v2</code> are deprecated and will be sunset 2026-09-01. Include the version in all URLs: <code style="color:var(--cyan);font-family:var(--mono)">/api/v3/</code></div>
+    </div>
+
+    <!-- AUTH -->
+    <div class="doc-pane" id="doc-auth">
+      <div class="doc-h1">Authentication</div>
+      <p class="doc-p">All API requests require a Bearer token in the <code style="font-family:var(--mono);color:var(--cyan)">Authorization</code> header. API keys are scoped per tenant, never cross-tenant accessible, and rotate every 90 days by default.</p>
+
+      <div class="doc-h2">API Key Types</div>
+      <div class="endpoint-card">
+        <div class="endpoint-header" style="cursor:default">
+          <span class="doc-badge method-get">READ</span>
+          <span class="endpoint-path">Intelligence Read Key</span>
+          <span class="endpoint-desc">Prefix: sk-cdb-r- | Grants advisory, IOC, risk score reads</span>
+        </div>
+      </div>
+      <div class="endpoint-card">
+        <div class="endpoint-header" style="cursor:default">
+          <span class="doc-badge method-post">INGEST</span>
+          <span class="endpoint-path">Telemetry Ingest Key</span>
+          <span class="endpoint-desc">Prefix: sk-cdb-i- | Grants telemetry submission endpoints only</span>
+        </div>
+      </div>
+      <div class="endpoint-card">
+        <div class="endpoint-header" style="cursor:default">
+          <span class="doc-badge" style="background:rgba(187,134,252,0.15);color:var(--purple)">ADMIN</span>
+          <span class="endpoint-path">Admin Key</span>
+          <span class="endpoint-desc">Prefix: sk-cdb-a- | Full platform control. MSSP-only.</span>
+        </div>
+      </div>
+
+      <div class="doc-h2">Key Rotation</div>
+      <div class="code-block">
+        <div class="code-header"><span class="code-lang">bash</span><button class="code-copy" onclick="copyCode(this)">Copy</button></div>
+        <pre><span class="cmt"># Rotate API key (generates new key, old key active for 24h grace period)</span>
+<span class="func">curl</span> -X POST https://intel.cyberdudebivash.com/api/v3/auth/rotate \
+  -H <span class="str">"Authorization: Bearer sk-cdb-YOUR_KEY"</span> \
+  -d <span class="str">'{"grace_period_hours": 24}'</span></pre>
+      </div>
+    </div>
+
+    <!-- ENDPOINTS -->
+    <div class="doc-pane" id="doc-endpoints">
+      <div class="doc-h1">API Endpoints</div>
+      <p class="doc-p">38 endpoints across 6 domains. All return JSON. STIX 2.1 output available via <code style="font-family:var(--mono);color:var(--cyan)">Accept: application/stix+json</code> header.</p>
+
+      <div class="doc-h2">Advisory Intelligence</div>
+      <div id="endpointList"></div>
+    </div>
+
+    <!-- IOC LOOKUP -->
+    <div class="doc-pane" id="doc-ep-ioc">
+      <div class="doc-h1">IOC Lookup API</div>
+      <p class="doc-p">Real-time IOC reputation and context lookups. Returns proprietary telemetry-enriched verdicts, behavioral IOC context, graph attribution, and TLP classification.</p>
+
+      <div class="doc-h2">Single IOC Lookup</div>
+      <div class="code-block">
+        <div class="code-header"><span class="code-lang">Python</span><button class="code-copy" onclick="copyCode(this)">Copy</button></div>
+        <pre><span class="kw">from</span> sentinel_apex <span class="kw">import</span> Client
+
+<span class="var">client</span> = Client(api_key=<span class="str">"sk-cdb-YOUR_KEY"</span>)
+
+<span class="cmt"># Lookup by type: ip, domain, url, hash_sha256, hash_md5, email</span>
+<span class="var">result</span> = client.ioc.<span class="func">lookup</span>(
+    value=<span class="str">"185.220.101.34"</span>,
+    ioc_type=<span class="str">"ip"</span>,
+    include_graph=<span class="kw">True</span>,
+    include_telemetry=<span class="kw">True</span>
+)
+<span class="func">print</span>(result.verdict)        <span class="cmt"># "MALICIOUS"</span>
+<span class="func">print</span>(result.confidence_pct) <span class="cmt"># 74.2</span>
+<span class="func">print</span>(result.tlp)            <span class="cmt"># "WHITE"</span>
+<span class="func">print</span>(result.actor_cluster)  <span class="cmt"># "Lazarus-Infra-Cluster-7"</span>
+<span class="func">print</span>(result.telemetry_hits) <span class="cmt"># 14</span></pre>
+      </div>
+
+      <div class="doc-h2">Bulk IOC Lookup (up to 500/request)</div>
+      <div class="code-block">
+        <div class="code-header"><span class="code-lang">JavaScript</span><button class="code-copy" onclick="copyCode(this)">Copy</button></div>
+        <pre><span class="kw">const</span> { SentinelApex } = <span class="func">require</span>(<span class="str">'@cyberdudebivash/sentinel-apex'</span>);
+<span class="kw">const</span> <span class="var">client</span> = <span class="kw">new</span> <span class="func">SentinelApex</span>({ apiKey: <span class="str">'sk-cdb-YOUR_KEY'</span> });
+
+<span class="kw">const</span> <span class="var">results</span> = <span class="kw">await</span> client.ioc.<span class="func">bulkLookup</span>([
+  { value: <span class="str">'185.220.101.34'</span>, type: <span class="str">'ip'</span> },
+  { value: <span class="str">'malware-c2.example.com'</span>, type: <span class="str">'domain'</span> },
+  { value: <span class="str">'a3f4b9c1d2e5f6789012345678901234'</span>, type: <span class="str">'hash_md5'</span> },
+]);
+
+results.<span class="func">forEach</span>(r => <span class="var">console</span>.<span class="func">log</span>(r.value, r.verdict, r.risk_score));</pre>
+      </div>
+    </div>
+
+    <!-- RISK SCORING -->
+    <div class="doc-pane" id="doc-ep-risk">
+      <div class="doc-h1">Risk Scoring API</div>
+      <p class="doc-p">Telemetry-weighted risk scoring with exploitation multipliers, KEV promotion, EPSS integration, and severity-aware narrative scaling. Scores range 0–10.</p>
+
+      <div class="doc-h2">Score an Advisory</div>
+      <div class="code-block">
+        <div class="code-header"><span class="code-lang">Python</span><button class="code-copy" onclick="copyCode(this)">Copy</button></div>
+        <pre><span class="var">score</span> = client.risk.<span class="func">score_advisory</span>(
+    cve_id=<span class="str">"CVE-2026-6565"</span>,
+    include_exploitability=<span class="kw">True</span>,
+    include_business_impact=<span class="kw">True</span>,
+    sector=<span class="str">"financial_services"</span>
+)
+<span class="func">print</span>(score.base_score)         <span class="cmt"># 4.2</span>
+<span class="func">print</span>(score.exploitability_mult) <span class="cmt"># 1.0 (no active exploit)</span>
+<span class="func">print</span>(score.final_score)        <span class="cmt"># 4.2</span>
+<span class="func">print</span>(score.narrative_tier)     <span class="cmt"># "LOW" (4 sections, 80 words)</span>
+<span class="func">print</span>(score.kev_promoted)       <span class="cmt"># False</span>
+<span class="func">print</span>(score.confidence_pct)     <span class="cmt"># 18.4 (anti-synthetic capped)</span>
+<span class="func">print</span>(score.suppressed_language) <span class="cmt"># ["board_language","financial_projections"]</span></pre>
+      </div>
+    </div>
+
+    <!-- TELEMETRY INGEST -->
+    <div class="doc-pane" id="doc-ep-telemetry">
+      <div class="doc-h1">Telemetry Ingest API</div>
+      <p class="doc-p">Submit proprietary telemetry — honeynet observations, deception triggers, behavioral IOCs, infrastructure fingerprints — to enrich the global threat graph and improve your confidence scores.</p>
+
+      <div class="doc-h2">Submit Telemetry Event</div>
+      <div class="code-block">
+        <div class="code-header"><span class="code-lang">Python</span><button class="code-copy" onclick="copyCode(this)">Copy</button></div>
+        <pre><span class="var">response</span> = client.telemetry.<span class="func">ingest</span>(events=[
+    {
+        <span class="str">"event_type"</span>: <span class="str">"honeynet_observation"</span>,
+        <span class="str">"source_ip"</span>: <span class="str">"185.220.101.34"</span>,
+        <span class="str">"target_port"</span>: <span class="num">22</span>,
+        <span class="str">"protocol"</span>: <span class="str">"SSH"</span>,
+        <span class="str">"payload_fingerprint"</span>: <span class="str">"a3f4b9c1..."</span>,
+        <span class="str">"ttp"</span>: <span class="str">"T1110.001"</span>,
+        <span class="str">"honeynet_region"</span>: <span class="str">"us-east-1"</span>,
+        <span class="str">"confidence"</span>: <span class="num">0.94</span>,
+        <span class="str">"tlp"</span>: <span class="str">"WHITE"</span>
+    }
+])
+<span class="func">print</span>(response.accepted)   <span class="cmt"># 1</span>
+<span class="func">print</span>(response.rejected)   <span class="cmt"># 0</span>
+<span class="func">print</span>(response.ioc_generated) <span class="cmt"># True (behavioral IOC auto-created)</span></pre>
+      </div>
+    </div>
+
+    <!-- GRAPH -->
+    <div class="doc-pane" id="doc-ep-graph">
+      <div class="doc-h1">Graph Intelligence API</div>
+      <p class="doc-p">Query the proprietary actor graph — clusters, relationships, infrastructure overlaps, campaign attribution, and behavioral fingerprints.</p>
+
+      <div class="doc-h2">Actor Cluster Query</div>
+      <div class="code-block">
+        <div class="code-header"><span class="code-lang">Python</span><button class="code-copy" onclick="copyCode(this)">Copy</button></div>
+        <pre><span class="var">cluster</span> = client.graph.<span class="func">get_actor_cluster</span>(
+    ioc=<span class="str">"185.220.101.34"</span>,
+    depth=<span class="num">2</span>,
+    include_infrastructure=<span class="kw">True</span>
+)
+<span class="func">print</span>(cluster.cluster_id)      <span class="cmt"># "cluster-0x4f2a"</span>
+<span class="func">print</span>(cluster.node_count)      <span class="cmt"># 42</span>
+<span class="func">print</span>(cluster.attribution_basis) <span class="cmt"># ["infra_overlap","ttp_similarity","cert_reuse"]</span>
+<span class="func">print</span>(cluster.victim_sectors)  <span class="cmt"># ["financial","government"]</span>
+<span class="func">print</span>(cluster.geographic_nexus) <span class="cmt"># "North Korea"</span>
+<span class="func">print</span>(cluster.confidence_pct)  <span class="cmt"># 68.5</span></pre>
+      </div>
+    </div>
+
+    <!-- SDKs -->
+    <div class="doc-pane" id="doc-sdks">
+      <div class="doc-h1">Official SDKs</div>
+      <p class="doc-p">Production-grade SDKs with automatic retry, rate limiting, streaming support, and STIX 2.1 deserialization.</p>
+
+      <div class="sdk-grid">
+        <div class="sdk-card">
+          <div class="sdk-icon">🐍</div>
+          <div class="sdk-name">Python SDK</div>
+          <div class="sdk-ver">v3.2.1 — stable</div>
+          <div class="sdk-install">pip install sentinel-apex</div>
+          <div class="doc-p" style="font-size:11px;">Supports asyncio, streaming advisories, STIX object models, type-safe responses via dataclasses.</div>
+          <div class="sdk-link" onclick="goDoc(null,'ep-ioc')">→ Python Examples</div>
+        </div>
+        <div class="sdk-card">
+          <div class="sdk-icon">🟨</div>
+          <div class="sdk-name">JavaScript / TypeScript SDK</div>
+          <div class="sdk-ver">v3.1.0 — stable</div>
+          <div class="sdk-install">npm install @cyberdudebivash/sentinel-apex</div>
+          <div class="doc-p" style="font-size:11px;">Full TypeScript types, browser + Node.js compatible, Promise-based with optional streaming via EventSource.</div>
+          <div class="sdk-link">→ JS/TS Examples</div>
+        </div>
+        <div class="sdk-card">
+          <div class="sdk-icon">🦀</div>
+          <div class="sdk-name">Go SDK</div>
+          <div class="sdk-ver">v3.0.2 — stable</div>
+          <div class="sdk-install">go get github.com/cyberdudebivash/sentinel-apex-go</div>
+          <div class="doc-p" style="font-size:11px;">Idiomatic Go, context-aware, connection pooling, goroutine-safe. Ideal for high-throughput SOAR integrations.</div>
+          <div class="sdk-link">→ Go Examples</div>
+        </div>
+      </div>
+
+      <div class="doc-h2">Python SDK — Full Example</div>
+      <div class="code-block">
+        <div class="code-header"><span class="code-lang">Python</span><button class="code-copy" onclick="copyCode(this)">Copy</button></div>
+        <pre><span class="kw">from</span> sentinel_apex <span class="kw">import</span> Client, AdvisoryFilter, IOCBatch
+<span class="kw">import</span> asyncio
+
+<span class="var">client</span> = Client(
+    api_key=<span class="str">"sk-cdb-YOUR_KEY"</span>,
+    base_url=<span class="str">"https://intel.cyberdudebivash.com/api/v3"</span>,
+    timeout=<span class="num">30</span>,
+    retries=<span class="num">3</span>,
+    retry_backoff=<span class="num">1.5</span>
+)
+
+<span class="cmt"># Stream advisories in real-time</span>
+<span class="kw">async def</span> <span class="func">stream_intel</span>():
+    <span class="kw">async for</span> advisory <span class="kw">in</span> client.advisories.<span class="func">stream</span>(
+        filter=AdvisoryFilter(severity=[<span class="str">"high"</span>, <span class="str">"critical"</span>], kev_only=<span class="kw">True</span>)
+    ):
+        <span class="func">print</span>(f<span class="str">"{advisory.cve_id}: {advisory.risk_score:.1f}/10 [{advisory.confidence_pct:.0f}% conf]"</span>)
+        <span class="kw">if</span> advisory.iocs:
+            <span class="var">ioc_results</span> = <span class="kw">await</span> client.ioc.<span class="func">bulk_lookup_async</span>(advisory.iocs)
+            <span class="kw">for</span> ioc <span class="kw">in</span> ioc_results:
+                <span class="func">print</span>(f<span class="str">"  IOC: {ioc.value} → {ioc.verdict} ({ioc.confidence_pct:.0f}%)"</span>)
+
+asyncio.<span class="func">run</span>(<span class="func">stream_intel</span>())</pre>
+      </div>
+    </div>
+
+    <!-- WEBHOOKS -->
+    <div class="doc-pane" id="doc-webhooks">
+      <div class="doc-h1">Webhook Event System</div>
+      <p class="doc-p">Subscribe to 14 real-time event types. Events are delivered as signed JSON payloads via HTTPS POST. Retry logic: exponential backoff, 72-hour window, delivery guarantee 99.5%.</p>
+
+      <div class="doc-h2">Event Catalog</div>
+      <div id="webhookList"></div>
+
+      <div class="doc-h2">Webhook Signature Verification</div>
+      <div class="code-block">
+        <div class="code-header"><span class="code-lang">Python</span><button class="code-copy" onclick="copyCode(this)">Copy</button></div>
+        <pre><span class="kw">import</span> hmac, hashlib
+
+<span class="kw">def</span> <span class="func">verify_webhook</span>(payload_bytes, signature_header, secret):
+    <span class="var">expected</span> = hmac.<span class="func">new</span>(secret.encode(), payload_bytes, hashlib.sha256).<span class="func">hexdigest</span>()
+    <span class="kw">return</span> hmac.<span class="func">compare_digest</span>(f<span class="str">"sha256={expected}"</span>, signature_header)
+
+<span class="cmt"># In your webhook handler (Flask example):</span>
+<span class="kw">from</span> flask <span class="kw">import</span> request, abort
+<span class="kw">@app.route</span>(<span class="str">'/webhook'</span>, methods=[<span class="str">'POST'</span>])
+<span class="kw">def</span> <span class="func">handle_webhook</span>():
+    sig = request.headers.<span class="func">get</span>(<span class="str">'X-CDB-Signature'</span>)
+    <span class="kw">if not</span> <span class="func">verify_webhook</span>(request.data, sig, WEBHOOK_SECRET):
+        <span class="func">abort</span>(<span class="num">401</span>)
+    event = request.<span class="func">get_json</span>()
+    <span class="func">process_event</span>(event)
+    <span class="kw">return</span> <span class="str">''</span>, <span class="num">200</span></pre>
+      </div>
+    </div>
+
+    <!-- PLANS & QUOTAS -->
+    <div class="doc-pane" id="doc-quotas">
+      <div class="doc-h1">Plans &amp; API Quotas</div>
+      <p class="doc-p">Choose a plan that matches your operational scale. All plans include anti-synthetic confidence scoring, STIX 2.1 output, and webhook delivery.</p>
+
+      <div class="plan-grid">
+        <div class="plan-card">
+          <div class="plan-name">Starter</div>
+          <div class="plan-price">$49<span>/month</span></div>
+          <div style="margin:14px 0">
+            <div class="plan-feat yes">500 API calls/day</div>
+            <div class="plan-feat yes">Advisory feed (last 30d)</div>
+            <div class="plan-feat yes">IOC lookup (IP/domain)</div>
+            <div class="plan-feat yes">Basic risk scoring</div>
+            <div class="plan-feat no">Telemetry ingest</div>
+            <div class="plan-feat no">Graph intelligence</div>
+            <div class="plan-feat no">Webhooks</div>
+            <div class="plan-feat no">STIX 2.1 export</div>
+          </div>
+          <button class="plan-btn">Get Started</button>
+        </div>
+        <div class="plan-card featured">
+          <div class="plan-name">Professional</div>
+          <div class="plan-price">$499<span>/month</span></div>
+          <div style="margin:14px 0">
+            <div class="plan-feat yes">5,000 API calls/day</div>
+            <div class="plan-feat yes">Full advisory archive</div>
+            <div class="plan-feat yes">All IOC types + bulk</div>
+            <div class="plan-feat yes">Full risk + narrative</div>
+            <div class="plan-feat yes">Telemetry ingest (10K eps)</div>
+            <div class="plan-feat yes">Graph intelligence</div>
+            <div class="plan-feat yes">Webhooks (all 14 events)</div>
+            <div class="plan-feat yes">STIX 2.1 export</div>
+          </div>
+          <button class="plan-btn">Start Trial</button>
+        </div>
+        <div class="plan-card">
+          <div class="plan-name">Enterprise</div>
+          <div class="plan-price">$1,999<span>/month</span></div>
+          <div style="margin:14px 0">
+            <div class="plan-feat yes">Unlimited API calls</div>
+            <div class="plan-feat yes">Dedicated API gateway</div>
+            <div class="plan-feat yes">All Professional features</div>
+            <div class="plan-feat yes">Private graph namespace</div>
+            <div class="plan-feat yes">Telemetry ingest (50K eps)</div>
+            <div class="plan-feat yes">Custom webhook filters</div>
+            <div class="plan-feat yes">SLA 99.9% guaranteed</div>
+            <div class="plan-feat yes">MSSP white-label</div>
+          </div>
+          <button class="plan-btn">Contact Sales</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- OBSERVABILITY -->
+    <div class="doc-pane" id="doc-observability">
+      <div class="doc-h1">API Observability</div>
+      <p class="doc-p">Real-time metrics on your API consumption, latency distribution, error rates, quota usage, and webhook delivery health.</p>
+
+      <div class="obs-grid">
+        <div class="obs-card">
+          <div class="obs-label">Calls Today</div>
+          <div class="obs-metric" style="color:var(--cyan)">84,291</div>
+          <div style="font-size:11px;color:var(--text2);margin-top:4px">Quota: Unlimited (Enterprise)</div>
+        </div>
+        <div class="obs-card">
+          <div class="obs-label">P50 Latency</div>
+          <div class="obs-metric" style="color:var(--green)">38ms</div>
+          <div style="font-size:11px;color:var(--text2);margin-top:4px">P99: 142ms</div>
+        </div>
+        <div class="obs-card">
+          <div class="obs-label">Error Rate</div>
+          <div class="obs-metric" style="color:var(--green)">0.06%</div>
+          <div style="font-size:11px;color:var(--text2);margin-top:4px">4xx: 0.04% | 5xx: 0.02%</div>
+        </div>
+        <div class="obs-card">
+          <div class="obs-label">Webhook Delivery</div>
+          <div class="obs-metric" style="color:var(--green)">99.7%</div>
+          <div style="font-size:11px;color:var(--text2);margin-top:4px">14 failed, retrying</div>
+        </div>
+        <div class="obs-card">
+          <div class="obs-label">IOC Cache Hit</div>
+          <div class="obs-metric" style="color:var(--blue)">91%</div>
+          <div style="font-size:11px;color:var(--text2);margin-top:4px">Avg lookup: 8ms (cached)</div>
+        </div>
+        <div class="obs-card">
+          <div class="obs-label">Telemetry Ingest</div>
+          <div class="obs-metric" style="color:var(--purple)">12.4K</div>
+          <div style="font-size:11px;color:var(--text2);margin-top:4px">Events/hr — 24.8% of quota</div>
+        </div>
+      </div>
+
+      <div class="doc-h2">Endpoint Performance Breakdown</div>
+      <div class="code-block">
+        <div class="code-header"><span class="code-lang">bash</span><button class="code-copy" onclick="copyCode(this)">Copy</button></div>
+        <pre><span class="cmt"># Query your API metrics programmatically</span>
+<span class="func">curl</span> https://intel.cyberdudebivash.com/api/v3/observability/metrics \
+  -H <span class="str">"Authorization: Bearer sk-cdb-YOUR_KEY"</span> \
+  -G \
+  --data-urlencode <span class="str">"window=24h"</span> \
+  --data-urlencode <span class="str">"group_by=endpoint"</span>
+
+<span class="cmt"># Returns: {endpoint, calls, p50_ms, p99_ms, errors, quota_pct}</span></pre>
+      </div>
+    </div>
+
+    <!-- CHANGELOG -->
+    <div class="doc-pane" id="doc-changelog">
+      <div class="doc-h1">API Changelog</div>
+      <div class="doc-h2">v3.0 — 2026-05-01</div>
+      <div class="doc-p">Major release: Intelligence density calibration (Tier 0–3), anti-synthetic confidence rule, KEV promotion API, telemetry ingest endpoints, graph intelligence API, STIX 2.1 native output, webhook system expansion to 14 event types, Go SDK GA.</div>
+      <div class="doc-h2">v2.4 — 2026-01-15</div>
+      <div class="doc-p">Added: Bulk IOC lookup (500/request), ATT&CK v16 mapping, EPSS score integration, narrative scaler API. Deprecated: v1 endpoints (EOL 2026-09-01).</div>
+      <div class="doc-h2">v2.0 — 2025-08-01</div>
+      <div class="doc-p">Initial Python + JS SDK release, confidence engine v2, IOC quality scoring, rate limiting improvements.</div>
+    </div>
+
+    <!-- STIX -->
+    <div class="doc-pane" id="doc-stix">
+      <div class="doc-h1">STIX 2.1 Export</div>
+      <p class="doc-p">All advisory and IOC data is available in STIX 2.1 format. Use the <code style="font-family:var(--mono);color:var(--cyan)">Accept: application/stix+json</code> header or the <code style="font-family:var(--mono);color:var(--cyan)">format=stix</code> query parameter.</p>
+
+      <div class="code-block">
+        <div class="code-header"><span class="code-lang">bash</span><button class="code-copy" onclick="copyCode(this)">Copy</button></div>
+        <pre><span class="func">curl</span> https://intel.cyberdudebivash.com/api/v3/advisories/CVE-2026-6565 \
+  -H <span class="str">"Authorization: Bearer sk-cdb-YOUR_KEY"</span> \
+  -H <span class="str">"Accept: application/stix+json"</span>
+
+<span class="cmt"># Returns STIX Bundle with:
+# - vulnerability object (CVE ID, CVSS, EPSS)
+# - indicator objects (IOCs with pattern expressions)
+# - attack-pattern objects (ATT&CK techniques)
+# - relationship objects (linking indicators → attack-patterns)</span></pre>
+      </div>
+    </div>
+
+    <!-- RATE LIMITS -->
+    <div class="doc-pane" id="doc-rate-limits">
+      <div class="doc-h1">Rate Limits</div>
+      <p class="doc-p">Rate limits are enforced per API key using a sliding window algorithm. Headers returned on every response:</p>
+      <div class="code-block">
+        <div class="code-header"><span class="code-lang">HTTP Headers</span><button class="code-copy" onclick="copyCode(this)">Copy</button></div>
+        <pre>X-RateLimit-Limit: 5000
+X-RateLimit-Remaining: 4847
+X-RateLimit-Reset: 1716825600
+X-RateLimit-Window: 86400
+Retry-After: 0  <span class="cmt">(only on 429)</span></pre>
+      </div>
+    </div>
+
+    <!-- ERRORS -->
+    <div class="doc-pane" id="doc-errors">
+      <div class="doc-h1">Error Handling</div>
+      <div class="endpoint-card" style="margin-bottom:8px"><div class="endpoint-header" style="cursor:default"><span class="doc-badge method-post" style="background:rgba(0,230,118,0.15);color:var(--green)">200</span> <span>Success</span></div></div>
+      <div class="endpoint-card" style="margin-bottom:8px"><div class="endpoint-header" style="cursor:default"><span class="doc-badge" style="background:rgba(255,215,64,0.15);color:var(--yellow)">400</span> <span>Bad Request — Invalid parameters. Check <code style="font-family:var(--mono)">error.details</code></span></div></div>
+      <div class="endpoint-card" style="margin-bottom:8px"><div class="endpoint-header" style="cursor:default"><span class="doc-badge" style="background:rgba(255,152,0,0.15);color:var(--orange)">401</span> <span>Unauthorized — Invalid or expired API key</span></div></div>
+      <div class="endpoint-card" style="margin-bottom:8px"><div class="endpoint-header" style="cursor:default"><span class="doc-badge" style="background:rgba(255,68,68,0.15);color:var(--red)">429</span> <span>Rate Limited — Respect <code style="font-family:var(--mono)">Retry-After</code> header</span></div></div>
+      <div class="endpoint-card" style="margin-bottom:8px"><div class="endpoint-header" style="cursor:default"><span class="doc-badge" style="background:rgba(255,68,68,0.15);color:var(--red)">500</span> <span>Internal Error — Logged. Contact support@cyberdudebivash.com</span></div></div>
+    </div>
+
+    <!-- ATT&CK -->
+    <div class="doc-pane" id="doc-ep-attck">
+      <div class="doc-h1">ATT&CK Mapping API</div>
+      <p class="doc-p">MITRE ATT&CK v16 technique extraction, tactic classification, navigator layer generation, and technique frequency analysis from proprietary telemetry.</p>
+      <div class="code-block">
+        <div class="code-header"><span class="code-lang">Python</span><button class="code-copy" onclick="copyCode(this)">Copy</button></div>
+        <pre><span class="var">mapping</span> = client.attck.<span class="func">get_techniques</span>(cve_id=<span class="str">"CVE-2026-6565"</span>)
+<span class="func">print</span>(mapping.techniques)   <span class="cmt"># ["T1059.003", "T1486", "T1071.001"]</span>
+<span class="func">print</span>(mapping.tactics)      <span class="cmt"># ["execution", "impact", "c2"]</span>
+
+<span class="cmt"># Generate ATT&CK Navigator layer</span>
+<span class="var">layer</span> = client.attck.<span class="func">generate_layer</span>(
+    techniques=mapping.techniques,
+    name=<span class="str">"CVE-2026-6565 Coverage"</span>
+)
+<span class="kw">with</span> <span class="func">open</span>(<span class="str">"layer.json"</span>, <span class="str">"w"</span>) <span class="kw">as</span> f:
+    f.<span class="func">write</span>(layer.json)</pre>
+      </div>
+    </div>
+
+    <!-- ADVISORY -->
+    <div class="doc-pane" id="doc-ep-advisory">
+      <div class="doc-h1">Advisory Feed API</div>
+      <p class="doc-p">Paginated intelligence advisory feed with filtering, sorting, and real-time streaming.</p>
+
+      <div class="endpoint-card">
+        <div class="endpoint-header" onclick="toggleEndpoint(this)">
+          <span class="doc-badge method-get">GET</span>
+          <span class="endpoint-path">/advisories</span>
+          <span class="endpoint-desc">List advisories with filters</span>
+        </div>
+        <div class="endpoint-body">
+          <table class="param-table">
+            <thead><tr><th>Parameter</th><th>Type</th><th>Required</th><th>Description</th></tr></thead>
+            <tbody>
+              <tr><td class="param-name">severity</td><td class="param-type">string[]</td><td class="param-opt">optional</td><td>Filter: critical, high, medium, low</td></tr>
+              <tr><td class="param-name">kev_only</td><td class="param-type">boolean</td><td class="param-opt">optional</td><td>Return only CISA KEV advisories</td></tr>
+              <tr><td class="param-name">min_confidence</td><td class="param-type">float</td><td class="param-opt">optional</td><td>Minimum confidence % (0-100)</td></tr>
+              <tr><td class="param-name">tlp</td><td class="param-type">string</td><td class="param-opt">optional</td><td>WHITE, GREEN, AMBER, RED</td></tr>
+              <tr><td class="param-name">limit</td><td class="param-type">integer</td><td class="param-opt">optional</td><td>Max results (default: 20, max: 200)</td></tr>
+              <tr><td class="param-name">cursor</td><td class="param-type">string</td><td class="param-opt">optional</td><td>Pagination cursor from previous response</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="endpoint-card">
+        <div class="endpoint-header" onclick="toggleEndpoint(this)">
+          <span class="doc-badge method-get">GET</span>
+          <span class="endpoint-path">/advisories/{cve_id}</span>
+          <span class="endpoint-desc">Get single advisory with full dossier</span>
+        </div>
+        <div class="endpoint-body">
+          <table class="param-table">
+            <thead><tr><th>Parameter</th><th>Type</th><th>Required</th><th>Description</th></tr></thead>
+            <tbody>
+              <tr><td class="param-name">cve_id</td><td class="param-type">string</td><td class="param-req">required</td><td>CVE identifier, e.g. CVE-2026-6565</td></tr>
+              <tr><td class="param-name">include_provenance</td><td class="param-type">boolean</td><td class="param-opt">optional</td><td>Include confidence signal provenance graph</td></tr>
+              <tr><td class="param-name">include_iocs</td><td class="param-type">boolean</td><td class="param-opt">optional</td><td>Include associated IOC list</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- end doc-content -->
+</div><!-- end content -->
+
+<script>
+const ENDPOINTS = [
+  { method:'GET', path:'/advisories', desc:'List advisories with filters' },
+  { method:'GET', path:'/advisories/{cve_id}', desc:'Single advisory with full dossier' },
+  { method:'GET', path:'/advisories/stream', desc:'Server-sent events stream' },
+  { method:'GET', path:'/advisories/kev', desc:'CISA KEV-only feed' },
+  { method:'GET', path:'/ioc/lookup', desc:'Single IOC reputation lookup' },
+  { method:'POST', path:'/ioc/bulk', desc:'Bulk IOC lookup (up to 500)' },
+  { method:'GET', path:'/ioc/{value}/graph', desc:'IOC actor graph context' },
+  { method:'GET', path:'/risk/score/{cve_id}', desc:'Telemetry-weighted risk score' },
+  { method:'POST', path:'/risk/score/batch', desc:'Batch risk scoring' },
+  { method:'GET', path:'/attck/techniques/{cve_id}', desc:'ATT&CK technique mapping' },
+  { method:'GET', path:'/attck/layer', desc:'Navigator layer generation' },
+  { method:'POST', path:'/telemetry/ingest', desc:'Submit telemetry events' },
+  { method:'GET', path:'/telemetry/status', desc:'Ingest pipeline status' },
+  { method:'GET', path:'/graph/actor/{cluster_id}', desc:'Actor cluster details' },
+  { method:'GET', path:'/graph/search', desc:'Graph node search' },
+  { method:'GET', path:'/graph/relationships', desc:'Relationship query' },
+  { method:'GET', path:'/stix/bundle/{cve_id}', desc:'STIX 2.1 bundle export' },
+  { method:'GET', path:'/stix/indicators', desc:'All IOCs as STIX indicators' },
+  { method:'GET', path:'/webhooks', desc:'List webhook subscriptions' },
+  { method:'POST', path:'/webhooks', desc:'Create webhook subscription' },
+  { method:'DELETE', path:'/webhooks/{id}', desc:'Delete webhook subscription' },
+  { method:'GET', path:'/observability/metrics', desc:'API consumption metrics' },
+  { method:'GET', path:'/observability/latency', desc:'Latency percentiles' },
+  { method:'GET', path:'/auth/keys', desc:'List API keys' },
+  { method:'POST', path:'/auth/rotate', desc:'Rotate API key' },
+];
+
+const WEBHOOK_EVENTS = [
+  { event:'advisory.created', desc:'New advisory published to the feed' },
+  { event:'advisory.updated', desc:'Existing advisory risk score or TTPs updated' },
+  { event:'advisory.kev_promoted', desc:'Advisory added to CISA KEV catalog' },
+  { event:'ioc.new_malicious', desc:'New high-confidence malicious IOC observed' },
+  { event:'ioc.verdict_changed', desc:'IOC verdict changed (e.g., benign → malicious)' },
+  { event:'telemetry.honeynet_hit', desc:'Honeynet sensor triggered by observed IP/payload' },
+  { event:'telemetry.deception_triggered', desc:'Deception trap activated by actor' },
+  { event:'actor.cluster_new', desc:'New actor cluster formed in graph' },
+  { event:'actor.cluster_updated', desc:'Existing cluster merged or expanded' },
+  { event:'quota.warning', desc:'API quota at 75% or 90% utilization' },
+  { event:'quota.exceeded', desc:'API quota exceeded — calls being throttled' },
+  { event:'feed.source_degraded', desc:'Feed source latency >5s or returning errors' },
+  { event:'auth.key_rotated', desc:'API key rotated successfully' },
+  { event:'graph.campaign_detected', desc:'Multi-tenant campaign pattern detected' },
+];
+
+const methodColor = {
+  GET:'method-get', POST:'method-post', DELETE:'method-del', PUT:'method-put'
+};
+
+function renderEndpoints() {
+  const el = document.getElementById('endpointList');
+  if(!el) return;
+  el.innerHTML = ENDPOINTS.map(ep => `
+    <div class="endpoint-card">
+      <div class="endpoint-header" onclick="toggleEndpoint(this)">
+        <span class="doc-badge ${methodColor[ep.method]||'method-get'}">${ep.method}</span>
+        <span class="endpoint-path">${ep.path}</span>
+        <span class="endpoint-desc">${ep.desc}</span>
+      </div>
+    </div>`).join('');
+}
+
+function renderWebhooks() {
+  const el = document.getElementById('webhookList');
+  if(!el) return;
+  el.innerHTML = WEBHOOK_EVENTS.map(ev => `
+    <div class="webhook-card">
+      <div class="webhook-event">${ev.event}</div>
+      <div class="webhook-desc">${ev.desc}</div>
+    </div>`).join('');
+}
+
+function toggleEndpoint(header) {
+  const body = header.nextElementSibling;
+  if(!body) return;
+  body.classList.toggle('open');
+}
+
+function navTo(el, target) {
+  if(el) {
+    document.querySelectorAll('.nav-link').forEach(n=>n.classList.remove('active'));
+    el.classList.add('active');
+  }
+  goDoc(null, target);
+  // Sync sidebar
+  document.querySelectorAll('.sb-item').forEach(i=>{
+    i.classList.toggle('active', i.textContent.trim().toLowerCase().includes(target));
+  });
+}
+
+function goDoc(el, id) {
+  document.querySelectorAll('.doc-pane').forEach(p=>p.classList.remove('active'));
+  const pane = document.getElementById('doc-'+id);
+  if(pane) {
+    pane.classList.add('active');
+    if(id==='endpoints') renderEndpoints();
+    if(id==='webhooks') renderWebhooks();
+  }
+  if(el) {
+    document.querySelectorAll('.sb-item').forEach(i=>i.classList.remove('active'));
+    el.classList.add('active');
+  }
+}
+
+function copyCode(btn) {
+  const pre = btn.closest('.code-block').querySelector('pre');
+  navigator.clipboard.writeText(pre.textContent).then(()=>{
+    btn.textContent = '✓ Copied';
+    setTimeout(()=>btn.textContent='Copy',2000);
+  });
+}
+</script>
+</body>
+</html>
