@@ -363,10 +363,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     sys.exit(main())
-ctor_profiler.py failed: %s — non-fatal", exc)
-
-    return 0
-
-
-if __name__ == "__main__":
-    sys.exit(main())

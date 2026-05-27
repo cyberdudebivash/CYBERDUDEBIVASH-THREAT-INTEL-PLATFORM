@@ -234,11 +234,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     sys.exit(main())
-l now have cve_id "
-                 "available for all backfilled items.")
-
-    return 0
-
-
-if __name__ == "__main__":
-    sys.exit(main())
