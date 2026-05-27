@@ -1,0 +1,1784 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CYBERDUDEBIVASH® SENTINEL APEX — MSSP Operations Console</title>
+<style>
+  :root {
+    --bg-primary: #080a0f;
+    --bg-secondary: #0d1117;
+    --bg-card: #111620;
+    --bg-panel: #161d2c;
+    --bg-hover: #1a2236;
+    --border: #1e2d45;
+    --border-bright: #2a3f5f;
+    --accent-blue: #1e90ff;
+    --accent-cyan: #00d4ff;
+    --accent-green: #00e676;
+    --accent-yellow: #ffd740;
+    --accent-orange: #ff9800;
+    --accent-red: #ff4444;
+    --accent-purple: #bb86fc;
+    --accent-teal: #00bcd4;
+    --accent-gold: #ffc107;
+    --text-primary: #e2e8f0;
+    --text-secondary: #8b9ab5;
+    --text-muted: #4a5568;
+    --text-bright: #ffffff;
+    --critical: #ff4444;
+    --high: #ff9800;
+    --medium: #ffd740;
+    --low: #00e676;
+    --info: #00d4ff;
+    --font-mono: 'Courier New', monospace;
+    --radius: 6px;
+    --radius-lg: 10px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ── TOP HEADER BAR ── */
+  .header {
+    height: 52px;
+    background: var(--bg-secondary);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 20px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  .header-brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .brand-icon {
+    width: 28px; height: 28px;
+    background: linear-gradient(135deg, #1e90ff, #00d4ff);
+    border-radius: 6px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px; font-weight: 900;
+    color: #000;
+  }
+  .brand-text { font-size: 13px; font-weight: 700; color: var(--text-bright); }
+  .brand-sub { font-size: 10px; color: var(--text-secondary); letter-spacing: 1.5px; text-transform: uppercase; }
+
+  .header-center {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .env-badge {
+    padding: 3px 10px;
+    border-radius: 20px;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+  .env-mssp { background: rgba(187,134,252,0.15); color: var(--accent-purple); border: 1px solid rgba(187,134,252,0.3); }
+  .env-live { background: rgba(0,230,118,0.1); color: var(--accent-green); border: 1px solid rgba(0,230,118,0.3); animation: pulse-live 2s infinite; }
+  @keyframes pulse-live {
+    0%,100% { opacity:1; } 50% { opacity:0.6; }
+  }
+
+  .header-actions { display: flex; align-items: center; gap: 10px; }
+  .avatar {
+    width: 30px; height: 30px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px; font-weight: 700; cursor: pointer;
+  }
+  .avatar-mssp { background: linear-gradient(135deg, #bb86fc, #7c4dff); color: #fff; }
+  .header-btn {
+    padding: 5px 12px; border-radius: var(--radius); border: 1px solid var(--border);
+    background: transparent; color: var(--text-secondary); font-size: 11px; cursor: pointer;
+    transition: all 0.2s;
+  }
+  .header-btn:hover { border-color: var(--accent-blue); color: var(--text-primary); }
+  .header-btn.primary { background: var(--accent-blue); border-color: var(--accent-blue); color: #fff; }
+
+  /* ── MAIN LAYOUT ── */
+  .layout {
+    display: grid;
+    grid-template-columns: 240px 1fr 300px;
+    height: calc(100vh - 52px);
+  }
+
+  /* ── LEFT SIDEBAR ── */
+  .sidebar {
+    background: var(--bg-secondary);
+    border-right: 1px solid var(--border);
+    overflow-y: auto;
+    padding: 16px 0;
+  }
+  .sidebar-section { margin-bottom: 24px; }
+  .sidebar-label {
+    font-size: 10px; font-weight: 700; letter-spacing: 1.5px;
+    text-transform: uppercase; color: var(--text-muted);
+    padding: 0 16px; margin-bottom: 6px;
+  }
+  .sidebar-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 8px 16px; cursor: pointer; font-size: 13px;
+    color: var(--text-secondary); transition: all 0.15s;
+    border-left: 2px solid transparent;
+  }
+  .sidebar-item:hover { background: var(--bg-hover); color: var(--text-primary); }
+  .sidebar-item.active {
+    background: rgba(30,144,255,0.08);
+    color: var(--accent-blue);
+    border-left-color: var(--accent-blue);
+  }
+  .sidebar-item .icon { width: 16px; text-align: center; font-size: 14px; }
+  .sidebar-badge {
+    margin-left: auto; padding: 2px 7px;
+    border-radius: 10px; font-size: 10px; font-weight: 700;
+    background: rgba(255,68,68,0.15); color: var(--accent-red);
+  }
+  .sidebar-badge.blue { background: rgba(30,144,255,0.15); color: var(--accent-blue); }
+  .sidebar-badge.green { background: rgba(0,230,118,0.12); color: var(--accent-green); }
+  .sidebar-badge.purple { background: rgba(187,134,252,0.15); color: var(--accent-purple); }
+
+  /* Tenant switcher */
+  .tenant-switcher {
+    margin: 0 12px 16px;
+    padding: 10px 12px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    cursor: pointer;
+  }
+  .tenant-switcher-label { font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; }
+  .tenant-switcher-name { font-size: 13px; font-weight: 600; color: var(--text-primary); margin-top: 2px; }
+  .tenant-switcher-sub { font-size: 11px; color: var(--accent-purple); margin-top: 1px; }
+  .tenant-switcher-arrow { float: right; margin-top: -22px; color: var(--text-muted); }
+
+  /* ── MAIN CONTENT ── */
+  .main { overflow-y: auto; background: var(--bg-primary); }
+
+  .section-header {
+    padding: 20px 24px 0;
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 20px;
+  }
+  .section-title { font-size: 18px; font-weight: 700; color: var(--text-bright); }
+  .section-sub { font-size: 12px; color: var(--text-secondary); margin-top: 2px; }
+  .section-actions { display: flex; gap: 8px; }
+
+  /* ── TABS ── */
+  .tabs {
+    display: flex; gap: 0;
+    padding: 0 24px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 24px;
+  }
+  .tab {
+    padding: 10px 16px; cursor: pointer;
+    font-size: 12px; font-weight: 600;
+    color: var(--text-secondary); border-bottom: 2px solid transparent;
+    transition: all 0.2s; white-space: nowrap;
+  }
+  .tab:hover { color: var(--text-primary); }
+  .tab.active { color: var(--accent-blue); border-bottom-color: var(--accent-blue); }
+
+  /* ── METRICS ROW ── */
+  .metrics-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 14px;
+    padding: 0 24px 24px;
+  }
+  .metric-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 16px;
+    position: relative;
+    overflow: hidden;
+  }
+  .metric-card::before {
+    content: '';
+    position: absolute; top: 0; left: 0; right: 0; height: 2px;
+  }
+  .metric-card.blue::before { background: var(--accent-blue); }
+  .metric-card.green::before { background: var(--accent-green); }
+  .metric-card.purple::before { background: var(--accent-purple); }
+  .metric-card.orange::before { background: var(--accent-orange); }
+  .metric-card.cyan::before { background: var(--accent-cyan); }
+  .metric-card.gold::before { background: var(--accent-gold); }
+
+  .metric-label { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); margin-bottom: 8px; }
+  .metric-value { font-size: 28px; font-weight: 800; color: var(--text-bright); line-height: 1; }
+  .metric-sub { font-size: 11px; color: var(--text-secondary); margin-top: 6px; }
+  .metric-delta { font-size: 11px; font-weight: 600; margin-top: 4px; }
+  .metric-delta.up { color: var(--accent-green); }
+  .metric-delta.dn { color: var(--accent-red); }
+
+  /* ── TABLE ── */
+  .table-wrap {
+    padding: 0 24px 24px;
+  }
+  .table-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+  }
+  .table-header {
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .table-title { font-size: 13px; font-weight: 700; color: var(--text-primary); }
+  .search-input {
+    padding: 6px 12px; border-radius: var(--radius);
+    border: 1px solid var(--border); background: var(--bg-secondary);
+    color: var(--text-primary); font-size: 12px; width: 200px;
+  }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  thead th {
+    padding: 10px 14px; text-align: left;
+    background: var(--bg-secondary);
+    color: var(--text-muted); font-size: 10px;
+    text-transform: uppercase; letter-spacing: 1px;
+    border-bottom: 1px solid var(--border);
+  }
+  tbody tr {
+    border-bottom: 1px solid var(--border);
+    transition: background 0.15s;
+  }
+  tbody tr:last-child { border-bottom: none; }
+  tbody tr:hover { background: var(--bg-hover); }
+  td { padding: 12px 14px; }
+
+  /* ── STATUS BADGES ── */
+  .badge {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 2px 8px; border-radius: 4px;
+    font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;
+  }
+  .badge-dot { width: 5px; height: 5px; border-radius: 50%; }
+
+  .badge.active { background: rgba(0,230,118,0.12); color: var(--accent-green); }
+  .badge.active .badge-dot { background: var(--accent-green); }
+  .badge.trial { background: rgba(255,215,64,0.12); color: var(--accent-yellow); }
+  .badge.trial .badge-dot { background: var(--accent-yellow); }
+  .badge.suspended { background: rgba(255,68,68,0.12); color: var(--accent-red); }
+  .badge.suspended .badge-dot { background: var(--accent-red); }
+  .badge.onboarding { background: rgba(0,212,255,0.1); color: var(--accent-cyan); }
+  .badge.onboarding .badge-dot { background: var(--accent-cyan); }
+
+  .tier-badge {
+    padding: 2px 8px; border-radius: 4px;
+    font-size: 10px; font-weight: 700; text-transform: uppercase;
+  }
+  .tier-enterprise { background: rgba(187,134,252,0.15); color: var(--accent-purple); }
+  .tier-professional { background: rgba(30,144,255,0.12); color: var(--accent-blue); }
+  .tier-starter { background: rgba(0,188,212,0.12); color: var(--accent-teal); }
+  .tier-mssp { background: rgba(255,193,7,0.12); color: var(--accent-gold); }
+
+  /* ── TENANT DETAIL PANEL ── */
+  .right-panel {
+    background: var(--bg-secondary);
+    border-left: 1px solid var(--border);
+    overflow-y: auto;
+  }
+  .panel-section {
+    padding: 16px;
+    border-bottom: 1px solid var(--border);
+  }
+  .panel-title {
+    font-size: 11px; text-transform: uppercase; letter-spacing: 1px;
+    color: var(--text-muted); margin-bottom: 12px; font-weight: 700;
+  }
+  .panel-stat {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 6px 0; font-size: 12px;
+  }
+  .panel-stat-label { color: var(--text-secondary); }
+  .panel-stat-value { font-weight: 700; color: var(--text-primary); font-family: var(--font-mono); }
+  .panel-stat-value.green { color: var(--accent-green); }
+  .panel-stat-value.yellow { color: var(--accent-yellow); }
+  .panel-stat-value.red { color: var(--accent-red); }
+  .panel-stat-value.blue { color: var(--accent-blue); }
+  .panel-stat-value.purple { color: var(--accent-purple); }
+
+  /* ── RBAC TABLE ── */
+  .rbac-grid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 12px;
+    padding: 0 24px 24px;
+  }
+  .rbac-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 16px;
+  }
+  .rbac-title { font-size: 13px; font-weight: 700; color: var(--text-primary); margin-bottom: 12px; }
+  .rbac-row {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 7px 10px; border-radius: var(--radius);
+    background: var(--bg-secondary);
+    margin-bottom: 6px; font-size: 12px;
+  }
+  .rbac-role { font-weight: 600; color: var(--text-primary); }
+  .perm-tag {
+    display: inline-block; padding: 1px 6px;
+    border-radius: 3px; font-size: 10px; font-weight: 700;
+    margin: 1px; text-transform: uppercase;
+  }
+  .perm-full { background: rgba(0,230,118,0.15); color: var(--accent-green); }
+  .perm-read { background: rgba(0,212,255,0.12); color: var(--accent-cyan); }
+  .perm-write { background: rgba(30,144,255,0.12); color: var(--accent-blue); }
+  .perm-none { background: rgba(74,85,104,0.3); color: var(--text-muted); }
+
+  /* ── BILLING SECTION ── */
+  .billing-grid {
+    display: grid; grid-template-columns: 2fr 1fr; gap: 14px;
+    padding: 0 24px 24px;
+  }
+  .billing-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+  }
+  .billing-header {
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .revenue-bar {
+    height: 8px; background: var(--bg-secondary);
+    border-radius: 4px; overflow: hidden; margin: 4px 0 2px;
+  }
+  .revenue-fill {
+    height: 100%; border-radius: 4px;
+    background: linear-gradient(90deg, var(--accent-blue), var(--accent-cyan));
+  }
+  .invoice-row {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 10px 18px; border-bottom: 1px solid var(--border);
+    font-size: 12px;
+  }
+  .invoice-row:last-child { border-bottom: none; }
+  .invoice-amount { font-weight: 700; color: var(--text-primary); }
+  .invoice-status { font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 4px; }
+  .inv-paid { background: rgba(0,230,118,0.12); color: var(--accent-green); }
+  .inv-pending { background: rgba(255,215,64,0.12); color: var(--accent-yellow); }
+  .inv-overdue { background: rgba(255,68,68,0.12); color: var(--accent-red); }
+
+  /* ── QUOTA GOVERNANCE ── */
+  .quota-grid {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px;
+    padding: 0 24px 24px;
+  }
+  .quota-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 14px;
+  }
+  .quota-label { font-size: 11px; color: var(--text-secondary); margin-bottom: 8px; }
+  .quota-numbers { display: flex; justify-content: space-between; font-size: 11px; color: var(--text-muted); margin-bottom: 6px; }
+  .quota-bar { height: 6px; background: var(--bg-secondary); border-radius: 3px; overflow: hidden; }
+  .quota-fill { height: 100%; border-radius: 3px; transition: width 0.5s; }
+  .quota-fill.safe { background: var(--accent-green); }
+  .quota-fill.warn { background: var(--accent-yellow); }
+  .quota-fill.danger { background: var(--accent-red); }
+
+  /* ── ANALYST ASSIGNMENT ── */
+  .analyst-grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 12px; padding: 0 24px 24px;
+  }
+  .analyst-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 14px;
+    display: flex; gap: 12px; align-items: flex-start;
+  }
+  .analyst-av {
+    width: 36px; height: 36px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px; font-weight: 700; flex-shrink: 0;
+  }
+  .analyst-name { font-size: 13px; font-weight: 600; color: var(--text-primary); }
+  .analyst-role { font-size: 11px; color: var(--text-secondary); margin-top: 1px; }
+  .analyst-tenants { font-size: 11px; color: var(--accent-blue); margin-top: 4px; }
+  .analyst-load { font-size: 10px; color: var(--text-muted); margin-top: 2px; }
+  .analyst-online { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 4px; }
+  .online-yes { background: var(--accent-green); }
+  .online-idle { background: var(--accent-yellow); }
+  .online-no { background: var(--text-muted); }
+
+  /* ── FEDERATION STATUS ── */
+  .fed-grid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 12px;
+    padding: 0 24px 24px;
+  }
+  .fed-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 16px;
+  }
+  .fed-title { font-size: 13px; font-weight: 700; color: var(--text-primary); margin-bottom: 12px; }
+  .fed-item {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 8px 10px; border-radius: var(--radius);
+    background: var(--bg-secondary); margin-bottom: 6px; font-size: 12px;
+  }
+  .fed-item-name { color: var(--text-primary); font-weight: 600; }
+  .fed-item-sub { font-size: 10px; color: var(--text-muted); margin-top: 1px; }
+  .fed-status { font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 4px; }
+  .fed-ok { background: rgba(0,230,118,0.12); color: var(--accent-green); }
+  .fed-warn { background: rgba(255,215,64,0.12); color: var(--accent-yellow); }
+  .fed-error { background: rgba(255,68,68,0.12); color: var(--accent-red); }
+
+  /* ── TELEMETRY GOVERNANCE ── */
+  .telemetry-policy {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 12px; padding: 0 24px 24px;
+  }
+  .policy-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 14px;
+  }
+  .policy-title { font-size: 12px; font-weight: 700; color: var(--text-primary); margin-bottom: 10px; }
+  .policy-row { display: flex; justify-content: space-between; align-items: center; padding: 5px 0; font-size: 11px; border-bottom: 1px solid var(--border); }
+  .policy-row:last-child { border-bottom: none; }
+  .policy-key { color: var(--text-secondary); }
+  .policy-val { font-family: var(--font-mono); color: var(--text-primary); font-weight: 600; }
+  .toggle { width: 32px; height: 16px; border-radius: 8px; position: relative; cursor: pointer; }
+  .toggle.on { background: var(--accent-green); }
+  .toggle.off { background: var(--text-muted); }
+  .toggle::after {
+    content: ''; position: absolute;
+    width: 12px; height: 12px; border-radius: 50%;
+    background: #fff; top: 2px; transition: left 0.2s;
+  }
+  .toggle.on::after { left: 18px; }
+  .toggle.off::after { left: 2px; }
+
+  /* ── DEPLOYMENT PACK ── */
+  .deploy-grid {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px;
+    padding: 0 24px 24px;
+  }
+  .deploy-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 14px;
+  }
+  .deploy-title { font-size: 12px; font-weight: 700; color: var(--text-primary); margin-bottom: 8px; }
+  .deploy-desc { font-size: 11px; color: var(--text-secondary); margin-bottom: 10px; line-height: 1.5; }
+  .deploy-btn {
+    display: block; width: 100%; padding: 7px;
+    border-radius: var(--radius); border: 1px solid var(--accent-blue);
+    background: rgba(30,144,255,0.08); color: var(--accent-blue);
+    font-size: 11px; font-weight: 700; cursor: pointer; text-align: center;
+    transition: all 0.2s;
+  }
+  .deploy-btn:hover { background: var(--accent-blue); color: #fff; }
+  .deploy-tag {
+    display: inline-block; padding: 2px 6px; border-radius: 4px;
+    font-size: 10px; font-weight: 700; margin: 1px;
+    background: var(--bg-secondary); color: var(--text-secondary);
+  }
+
+  /* ── PROGRESS RINGS ── */
+  .ring-wrap { display: flex; gap: 16px; flex-wrap: wrap; padding: 0 24px 24px; }
+  .ring-stat {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 14px 20px;
+    display: flex; align-items: center; gap: 14px;
+    min-width: 200px;
+  }
+  .ring-text { font-size: 11px; color: var(--text-secondary); }
+  .ring-value { font-size: 20px; font-weight: 800; color: var(--text-bright); margin-top: 2px; }
+
+  /* ── ACTION BTN ── */
+  .action-btn {
+    padding: 7px 14px; border-radius: var(--radius);
+    font-size: 11px; font-weight: 700; cursor: pointer;
+    transition: all 0.2s; border: 1px solid;
+  }
+  .btn-primary { background: var(--accent-blue); border-color: var(--accent-blue); color: #fff; }
+  .btn-primary:hover { background: #1a7fe0; }
+  .btn-outline { background: transparent; border-color: var(--border); color: var(--text-secondary); }
+  .btn-outline:hover { border-color: var(--accent-blue); color: var(--accent-blue); }
+  .btn-danger { background: rgba(255,68,68,0.1); border-color: var(--accent-red); color: var(--accent-red); }
+  .btn-green { background: rgba(0,230,118,0.1); border-color: var(--accent-green); color: var(--accent-green); }
+  .btn-purple { background: rgba(187,134,252,0.1); border-color: var(--accent-purple); color: var(--accent-purple); }
+
+  /* ── CONTENT PANE ── */
+  .content-pane { display: none; }
+  .content-pane.active { display: block; }
+
+  /* ── SCROLLBAR ── */
+  ::-webkit-scrollbar { width: 5px; height: 5px; }
+  ::-webkit-scrollbar-track { background: var(--bg-primary); }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--border-bright); }
+
+  /* ── RESPONSIVE ── */
+  @media (max-width: 1100px) {
+    .layout { grid-template-columns: 200px 1fr; }
+    .right-panel { display: none; }
+    .billing-grid { grid-template-columns: 1fr; }
+    .rbac-grid { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 768px) {
+    .layout { grid-template-columns: 1fr; }
+    .sidebar { display: none; }
+    .metrics-grid { grid-template-columns: repeat(2,1fr); }
+    .quota-grid { grid-template-columns: 1fr; }
+    .deploy-grid { grid-template-columns: 1fr; }
+    .fed-grid { grid-template-columns: 1fr; }
+  }
+
+  /* ── NOTIFICATION DOT ── */
+  .notif-dot {
+    display: inline-block; width: 7px; height: 7px;
+    border-radius: 50%; background: var(--accent-red);
+    margin-left: 4px; vertical-align: middle;
+  }
+
+  /* ── CUSTOMER ISOLATION INDICATOR ── */
+  .isolation-bar {
+    height: 3px; border-radius: 2px; margin-bottom: 10px;
+    background: linear-gradient(90deg, var(--accent-green) 0%, var(--accent-cyan) 60%, var(--accent-blue) 100%);
+  }
+
+  .kpi-row {
+    display: flex; gap: 8px; flex-wrap: wrap;
+    padding: 0 24px 16px;
+  }
+  .kpi-chip {
+    padding: 5px 12px; border-radius: 20px;
+    font-size: 11px; font-weight: 700;
+    background: var(--bg-card); border: 1px solid var(--border);
+    color: var(--text-secondary);
+  }
+  .kpi-chip.ok { border-color: rgba(0,230,118,0.4); color: var(--accent-green); }
+  .kpi-chip.warn { border-color: rgba(255,215,64,0.4); color: var(--accent-yellow); }
+  .kpi-chip.info { border-color: rgba(30,144,255,0.4); color: var(--accent-blue); }
+
+  .section-divider {
+    font-size: 11px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 1.5px; color: var(--text-muted);
+    padding: 0 24px 12px;
+  }
+</style>
+</head>
+<body>
+
+<!-- ══════════════ HEADER ══════════════ -->
+<header class="header">
+  <div class="header-brand">
+    <div class="brand-icon">S</div>
+    <div>
+      <div class="brand-text">SENTINEL APEX</div>
+      <div class="brand-sub">MSSP Operations Console</div>
+    </div>
+  </div>
+  <div class="header-center">
+    <span class="env-badge env-mssp">MSSP TIER</span>
+    <span class="env-badge env-live">● LIVE</span>
+  </div>
+  <div class="header-actions">
+    <button class="header-btn" onclick="showModal('provision')">+ Provision Tenant</button>
+    <button class="header-btn primary">Export Report</button>
+    <div class="avatar avatar-mssp" title="MSSP Admin">MA</div>
+  </div>
+</header>
+
+<!-- ══════════════ LAYOUT ══════════════ -->
+<div class="layout">
+
+  <!-- LEFT SIDEBAR -->
+  <nav class="sidebar">
+    <div class="tenant-switcher" onclick="toggleTenantPicker()">
+      <div class="tenant-switcher-label">MSSP Scope</div>
+      <div class="tenant-switcher-name">All Tenants</div>
+      <div class="tenant-switcher-sub">42 Active Customers</div>
+      <div class="tenant-switcher-arrow">▾</div>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="sidebar-label">MSSP Console</div>
+      <div class="sidebar-item active" onclick="setNav(this,'overview')">
+        <span class="icon">⬛</span> Overview
+      </div>
+      <div class="sidebar-item" onclick="setNav(this,'tenants')">
+        <span class="icon">🏢</span> Tenant Registry
+        <span class="sidebar-badge blue">42</span>
+      </div>
+      <div class="sidebar-item" onclick="setNav(this,'analysts')">
+        <span class="icon">👤</span> Analyst Roster
+        <span class="sidebar-badge green">12</span>
+      </div>
+      <div class="sidebar-item" onclick="setNav(this,'rbac')">
+        <span class="icon">🔐</span> RBAC Hierarchy
+      </div>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="sidebar-label">Operations</div>
+      <div class="sidebar-item" onclick="setNav(this,'federation')">
+        <span class="icon">🔗</span> SOC Federation
+        <span class="sidebar-badge">2</span>
+      </div>
+      <div class="sidebar-item" onclick="setNav(this,'telemetry')">
+        <span class="icon">📡</span> Telemetry Governance
+      </div>
+      <div class="sidebar-item" onclick="setNav(this,'deployment')">
+        <span class="icon">📦</span> Deployment Packs
+        <span class="sidebar-badge purple">8</span>
+      </div>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="sidebar-label">Revenue</div>
+      <div class="sidebar-item" onclick="setNav(this,'billing')">
+        <span class="icon">💰</span> Billing Governance
+        <span class="sidebar-badge">1</span>
+      </div>
+      <div class="sidebar-item" onclick="setNav(this,'quotas')">
+        <span class="icon">📊</span> Quota Management
+      </div>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="sidebar-label">Intelligence</div>
+      <div class="sidebar-item" onclick="setNav(this,'soc-alerts')">
+        <span class="icon">🔔</span> Cross-Tenant Alerts
+        <span class="sidebar-badge">7</span>
+      </div>
+      <div class="sidebar-item" onclick="setNav(this,'intel-sharing')">
+        <span class="icon">🌐</span> Intel Sharing Layer
+      </div>
+    </div>
+  </nav>
+
+  <!-- MAIN CONTENT -->
+  <main class="main" id="mainContent">
+
+    <!-- ════════ OVERVIEW PANE ════════ -->
+    <div class="content-pane active" id="pane-overview">
+      <div class="section-header">
+        <div>
+          <div class="section-title">MSSP Command Center</div>
+          <div class="section-sub">Real-time view across all federated tenants — 2026-05-27 UTC</div>
+        </div>
+        <div class="section-actions">
+          <button class="action-btn btn-outline">⟳ Refresh</button>
+          <button class="action-btn btn-primary">Fleet Health Report</button>
+        </div>
+      </div>
+
+      <!-- KPI chips -->
+      <div class="kpi-row">
+        <span class="kpi-chip ok">✓ SLA 98.7% Compliant</span>
+        <span class="kpi-chip ok">✓ 0 Critical Breaches</span>
+        <span class="kpi-chip warn">⚠ 3 Tenants Near Quota</span>
+        <span class="kpi-chip warn">⚠ 1 Invoice Overdue</span>
+        <span class="kpi-chip info">ℹ 2 Tenants Onboarding</span>
+        <span class="kpi-chip info">ℹ 12 Analysts Online</span>
+      </div>
+
+      <!-- Metrics -->
+      <div class="metrics-grid">
+        <div class="metric-card blue">
+          <div class="metric-label">Active Tenants</div>
+          <div class="metric-value">42</div>
+          <div class="metric-sub">Enterprise: 8 | Pro: 24 | Starter: 10</div>
+          <div class="metric-delta up">▲ +3 this month</div>
+        </div>
+        <div class="metric-card green">
+          <div class="metric-label">Monthly ARR</div>
+          <div class="metric-value">$84K</div>
+          <div class="metric-sub">Target: $120K | Growth: 23%</div>
+          <div class="metric-delta up">▲ +$7,200 MoM</div>
+        </div>
+        <div class="metric-card purple">
+          <div class="metric-label">Analysts Deployed</div>
+          <div class="metric-value">12</div>
+          <div class="metric-sub">Avg load: 3.5 tenants/analyst</div>
+          <div class="metric-delta up">▲ 2 available slots</div>
+        </div>
+        <div class="metric-card orange">
+          <div class="metric-label">Open Incidents</div>
+          <div class="metric-value">31</div>
+          <div class="metric-sub">Critical: 0 | High: 4 | Med: 27</div>
+          <div class="metric-delta dn">▼ -8 vs yesterday</div>
+        </div>
+        <div class="metric-card cyan">
+          <div class="metric-label">Avg MTTD</div>
+          <div class="metric-value">4.2h</div>
+          <div class="metric-sub">SLA target: 6h | Best: 1.1h</div>
+          <div class="metric-delta up">▲ 12% improvement</div>
+        </div>
+        <div class="metric-card gold">
+          <div class="metric-label">Intel Reports</div>
+          <div class="metric-value">1,847</div>
+          <div class="metric-sub">Cross-tenant shared: 312</div>
+          <div class="metric-delta up">▲ +94 this week</div>
+        </div>
+      </div>
+
+      <!-- Fleet health -->
+      <div class="section-divider">Fleet Health — Top Tenants</div>
+      <div class="table-wrap">
+        <div class="table-card">
+          <div class="table-header">
+            <span class="table-title">Tenant Performance Overview</span>
+            <input class="search-input" placeholder="Search tenants…" oninput="filterTable(this)">
+          </div>
+          <table id="tenantTable">
+            <thead>
+              <tr>
+                <th>Tenant</th><th>Tier</th><th>Status</th><th>Analysts</th>
+                <th>Open Incidents</th><th>API Calls/day</th><th>ARR</th><th>SLA</th><th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="tenantBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ════════ TENANTS PANE ════════ -->
+    <div class="content-pane" id="pane-tenants">
+      <div class="section-header">
+        <div>
+          <div class="section-title">Tenant Registry</div>
+          <div class="section-sub">Isolated customer environments with full data segregation</div>
+        </div>
+        <div class="section-actions">
+          <button class="action-btn btn-purple">Import CSV</button>
+          <button class="action-btn btn-primary" onclick="showModal('provision')">+ Provision Tenant</button>
+        </div>
+      </div>
+
+      <div class="isolation-bar" style="margin: 0 24px 20px;"></div>
+
+      <div class="kpi-row">
+        <span class="kpi-chip ok">✓ Network Isolation: VLAN-per-tenant</span>
+        <span class="kpi-chip ok">✓ Data Encryption: AES-256 at rest</span>
+        <span class="kpi-chip ok">✓ API Key Rotation: 90-day enforce</span>
+        <span class="kpi-chip info">ℹ TLS 1.3 mutual auth on all endpoints</span>
+      </div>
+
+      <div class="metrics-grid" style="padding-top:0;">
+        <div class="metric-card blue">
+          <div class="metric-label">Enterprise</div>
+          <div class="metric-value">8</div>
+          <div class="metric-sub">Dedicated infra + SLA</div>
+        </div>
+        <div class="metric-card green">
+          <div class="metric-label">Professional</div>
+          <div class="metric-value">24</div>
+          <div class="metric-sub">Shared with isolation</div>
+        </div>
+        <div class="metric-card cyan">
+          <div class="metric-label">Starter</div>
+          <div class="metric-value">10</div>
+          <div class="metric-sub">Standard tier</div>
+        </div>
+        <div class="metric-card orange">
+          <div class="metric-label">Trial</div>
+          <div class="metric-value">4</div>
+          <div class="metric-sub">14-day evaluation</div>
+        </div>
+      </div>
+
+      <div class="table-wrap">
+        <div class="table-card">
+          <div class="table-header">
+            <span class="table-title">All Tenants</span>
+            <div style="display:flex;gap:8px;">
+              <select style="padding:5px 10px;border-radius:4px;border:1px solid var(--border);background:var(--bg-secondary);color:var(--text-primary);font-size:11px;">
+                <option>All Tiers</option>
+                <option>Enterprise</option>
+                <option>Professional</option>
+                <option>Starter</option>
+              </select>
+              <input class="search-input" placeholder="Search…" style="width:160px;">
+            </div>
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th>Tenant ID</th><th>Organization</th><th>Tier</th><th>Region</th>
+                <th>Status</th><th>Isolation Mode</th><th>Created</th><th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="tenantFullBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ════════ ANALYSTS PANE ════════ -->
+    <div class="content-pane" id="pane-analysts">
+      <div class="section-header">
+        <div>
+          <div class="section-title">Analyst Roster</div>
+          <div class="section-sub">Deployment assignments, workload management, certification tracking</div>
+        </div>
+        <div class="section-actions">
+          <button class="action-btn btn-outline">Rebalance Load</button>
+          <button class="action-btn btn-primary">+ Add Analyst</button>
+        </div>
+      </div>
+
+      <div class="metrics-grid">
+        <div class="metric-card green">
+          <div class="metric-label">Online Now</div>
+          <div class="metric-value">9</div>
+          <div class="metric-sub">of 12 total analysts</div>
+        </div>
+        <div class="metric-card blue">
+          <div class="metric-label">Avg Tenant Load</div>
+          <div class="metric-value">3.5</div>
+          <div class="metric-sub">tenants per analyst</div>
+        </div>
+        <div class="metric-card orange">
+          <div class="metric-label">Overloaded</div>
+          <div class="metric-value">2</div>
+          <div class="metric-sub">analysts at capacity</div>
+        </div>
+        <div class="metric-card purple">
+          <div class="metric-label">Available Slots</div>
+          <div class="metric-value">8</div>
+          <div class="metric-sub">for new tenant assignment</div>
+        </div>
+      </div>
+
+      <div class="analyst-grid" id="analystGrid"></div>
+    </div>
+
+    <!-- ════════ RBAC PANE ════════ -->
+    <div class="content-pane" id="pane-rbac">
+      <div class="section-header">
+        <div>
+          <div class="section-title">RBAC Hierarchy</div>
+          <div class="section-sub">Role-based access control across MSSP and tenant boundaries</div>
+        </div>
+        <div class="section-actions">
+          <button class="action-btn btn-primary">+ Create Role</button>
+        </div>
+      </div>
+
+      <div class="rbac-grid">
+        <div class="rbac-card">
+          <div class="rbac-title">⚙️ MSSP Platform Roles</div>
+          <div id="mssp-roles"></div>
+        </div>
+        <div class="rbac-card">
+          <div class="rbac-title">🏢 Tenant-Scoped Roles</div>
+          <div id="tenant-roles"></div>
+        </div>
+        <div class="rbac-card">
+          <div class="rbac-title">🔐 Permission Matrix — Intelligence Access</div>
+          <div id="perm-matrix-intel"></div>
+        </div>
+        <div class="rbac-card">
+          <div class="rbac-title">🛡️ Permission Matrix — Administration</div>
+          <div id="perm-matrix-admin"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ════════ FEDERATION PANE ════════ -->
+    <div class="content-pane" id="pane-federation">
+      <div class="section-header">
+        <div>
+          <div class="section-title">SOC Federation Layer</div>
+          <div class="section-sub">Cross-tenant telemetry sharing, STIX feed bridges, ISAC integrations</div>
+        </div>
+        <div class="section-actions">
+          <button class="action-btn btn-green">+ Add Federation</button>
+        </div>
+      </div>
+
+      <div class="metrics-grid">
+        <div class="metric-card green">
+          <div class="metric-label">Active Federations</div>
+          <div class="metric-value">6</div>
+          <div class="metric-sub">STIX TAXII, MISP, ISACs</div>
+        </div>
+        <div class="metric-card orange">
+          <div class="metric-label">Degraded</div>
+          <div class="metric-value">2</div>
+          <div class="metric-sub">latency >500ms</div>
+        </div>
+        <div class="metric-card blue">
+          <div class="metric-label">Cross-tenant Signals</div>
+          <div class="metric-value">4,271</div>
+          <div class="metric-sub">shared this week</div>
+        </div>
+        <div class="metric-card purple">
+          <div class="metric-label">Feed Bridges</div>
+          <div class="metric-value">14</div>
+          <div class="metric-sub">ISAC + threat sharing</div>
+        </div>
+      </div>
+
+      <div class="fed-grid" id="fedGrid"></div>
+    </div>
+
+    <!-- ════════ TELEMETRY GOVERNANCE PANE ════════ -->
+    <div class="content-pane" id="pane-telemetry">
+      <div class="section-header">
+        <div>
+          <div class="section-title">Telemetry Governance</div>
+          <div class="section-sub">Org-level data retention, classification, flow control, and privacy policies</div>
+        </div>
+        <div class="section-actions">
+          <button class="action-btn btn-outline">Audit Log</button>
+          <button class="action-btn btn-primary">Deploy Policy</button>
+        </div>
+      </div>
+
+      <div class="telemetry-policy" id="telemetryPolicies"></div>
+    </div>
+
+    <!-- ════════ DEPLOYMENT PACKS PANE ════════ -->
+    <div class="content-pane" id="pane-deployment">
+      <div class="section-header">
+        <div>
+          <div class="section-title">Customer Deployment Packs</div>
+          <div class="section-sub">Standardized onboarding bundles — API keys, playbooks, integration guides, SIEM connectors</div>
+        </div>
+        <div class="section-actions">
+          <button class="action-btn btn-primary">+ Build Custom Pack</button>
+        </div>
+      </div>
+
+      <div class="deploy-grid" id="deployPacks"></div>
+    </div>
+
+    <!-- ════════ BILLING PANE ════════ -->
+    <div class="content-pane" id="pane-billing">
+      <div class="section-header">
+        <div>
+          <div class="section-title">Billing Governance</div>
+          <div class="section-sub">Revenue tracking, invoice management, subscription lifecycle, usage metering</div>
+        </div>
+        <div class="section-actions">
+          <button class="action-btn btn-outline">Export CSV</button>
+          <button class="action-btn btn-primary">Generate Invoice</button>
+        </div>
+      </div>
+
+      <div class="metrics-grid">
+        <div class="metric-card green">
+          <div class="metric-label">MRR</div>
+          <div class="metric-value">$7,020</div>
+          <div class="metric-sub">Monthly Recurring Revenue</div>
+          <div class="metric-delta up">▲ +$600 this month</div>
+        </div>
+        <div class="metric-card blue">
+          <div class="metric-label">ARR</div>
+          <div class="metric-value">$84.2K</div>
+          <div class="metric-sub">Annual Recurring Revenue</div>
+          <div class="metric-delta up">▲ Target: $120K</div>
+        </div>
+        <div class="metric-card orange">
+          <div class="metric-label">Outstanding</div>
+          <div class="metric-value">$3,499</div>
+          <div class="metric-sub">1 overdue, 3 pending</div>
+        </div>
+        <div class="metric-card purple">
+          <div class="metric-label">Churn Rate</div>
+          <div class="metric-value">1.4%</div>
+          <div class="metric-sub">Monthly churn</div>
+          <div class="metric-delta up">▲ Below 3% target</div>
+        </div>
+      </div>
+
+      <div class="billing-grid">
+        <div class="billing-card">
+          <div class="billing-header">
+            <span class="table-title">Revenue by Tier</span>
+            <span class="badge active"><span class="badge-dot"></span>Live</span>
+          </div>
+          <div style="padding:16px;" id="revenueTierChart"></div>
+        </div>
+        <div class="billing-card">
+          <div class="billing-header">
+            <span class="table-title">Recent Invoices</span>
+            <button class="action-btn btn-outline" style="font-size:10px;padding:3px 8px;">All Invoices</button>
+          </div>
+          <div id="invoiceList"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ════════ QUOTAS PANE ════════ -->
+    <div class="content-pane" id="pane-quotas">
+      <div class="section-header">
+        <div>
+          <div class="section-title">Quota Management</div>
+          <div class="section-sub">Per-tenant API quotas, storage limits, analyst seat governance</div>
+        </div>
+        <div class="section-actions">
+          <button class="action-btn btn-primary">Adjust Quotas</button>
+        </div>
+      </div>
+
+      <div class="kpi-row">
+        <span class="kpi-chip warn">⚠ 3 Tenants >85% API quota</span>
+        <span class="kpi-chip ok">✓ Storage within limits</span>
+        <span class="kpi-chip ok">✓ Analyst seats balanced</span>
+      </div>
+
+      <div class="quota-grid" id="quotaGrid"></div>
+    </div>
+
+    <!-- ════════ SOC ALERTS PANE ════════ -->
+    <div class="content-pane" id="pane-soc-alerts">
+      <div class="section-header">
+        <div>
+          <div class="section-title">Cross-Tenant Intelligence Alerts</div>
+          <div class="section-sub">Correlated threats observed across multiple tenants — federated SOC view</div>
+        </div>
+        <div class="section-actions">
+          <button class="action-btn btn-danger">Escalate All High</button>
+        </div>
+      </div>
+
+      <div class="table-wrap">
+        <div class="table-card">
+          <div class="table-header">
+            <span class="table-title">Active Cross-Tenant Alerts</span>
+            <span class="badge" style="background:rgba(255,68,68,0.1);color:var(--accent-red);">7 Active</span>
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th>Alert ID</th><th>Threat Actor</th><th>Tenants Affected</th>
+                <th>Severity</th><th>IOC Type</th><th>First Seen</th><th>Status</th><th>Action</th>
+              </tr>
+            </thead>
+            <tbody id="crossAlertBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ════════ INTEL SHARING PANE ════════ -->
+    <div class="content-pane" id="pane-intel-sharing">
+      <div class="section-header">
+        <div>
+          <div class="section-title">Intel Sharing Layer</div>
+          <div class="section-sub">TLP-controlled intelligence distribution across tenant boundaries</div>
+        </div>
+        <div class="section-actions">
+          <button class="action-btn btn-primary">Share Intelligence</button>
+        </div>
+      </div>
+
+      <div class="metrics-grid">
+        <div class="metric-card blue">
+          <div class="metric-label">TLP:WHITE Shared</div>
+          <div class="metric-value">891</div>
+          <div class="metric-sub">Open distribution this month</div>
+        </div>
+        <div class="metric-card green">
+          <div class="metric-label">TLP:GREEN Shared</div>
+          <div class="metric-value">312</div>
+          <div class="metric-sub">Community distribution</div>
+        </div>
+        <div class="metric-card orange">
+          <div class="metric-label">TLP:AMBER</div>
+          <div class="metric-value">74</div>
+          <div class="metric-sub">Limited distribution</div>
+        </div>
+        <div class="metric-card purple">
+          <div class="metric-label">TLP:RED Isolated</div>
+          <div class="metric-value">18</div>
+          <div class="metric-sub">Tenant-restricted only</div>
+        </div>
+      </div>
+
+      <div class="table-wrap">
+        <div class="table-card">
+          <div class="table-header">
+            <span class="table-title">Intelligence Distribution Log</span>
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th>Report ID</th><th>Title</th><th>TLP</th><th>Source Tenant</th>
+                <th>Recipients</th><th>Shared At</th><th>Downloads</th>
+              </tr>
+            </thead>
+            <tbody id="intelShareBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+  </main><!-- end main -->
+
+  <!-- RIGHT PANEL -->
+  <aside class="right-panel">
+    <div class="panel-section">
+      <div class="panel-title">Selected Tenant</div>
+      <div style="font-size:14px;font-weight:700;color:var(--text-bright);">GlobalBank Corp</div>
+      <div style="font-size:11px;color:var(--accent-purple);margin-top:2px;">Enterprise Tier</div>
+      <div style="margin-top:10px;">
+        <span class="badge active"><span class="badge-dot"></span>Active</span>
+        &nbsp;<span class="tier-badge tier-enterprise">Enterprise</span>
+      </div>
+    </div>
+
+    <div class="panel-section">
+      <div class="panel-title">Tenant Health</div>
+      <div class="panel-stat">
+        <span class="panel-stat-label">API Uptime</span>
+        <span class="panel-stat-value green">99.92%</span>
+      </div>
+      <div class="panel-stat">
+        <span class="panel-stat-label">Data Lag</span>
+        <span class="panel-stat-value blue">1.2s</span>
+      </div>
+      <div class="panel-stat">
+        <span class="panel-stat-label">MTTD</span>
+        <span class="panel-stat-value">2.8h</span>
+      </div>
+      <div class="panel-stat">
+        <span class="panel-stat-label">MTTR</span>
+        <span class="panel-stat-value">6.4h</span>
+      </div>
+      <div class="panel-stat">
+        <span class="panel-stat-label">SLA Compliance</span>
+        <span class="panel-stat-value green">100%</span>
+      </div>
+    </div>
+
+    <div class="panel-section">
+      <div class="panel-title">Billing Summary</div>
+      <div class="panel-stat">
+        <span class="panel-stat-label">Monthly Rate</span>
+        <span class="panel-stat-value green">$1,999</span>
+      </div>
+      <div class="panel-stat">
+        <span class="panel-stat-label">Contract End</span>
+        <span class="panel-stat-value">2026-12-31</span>
+      </div>
+      <div class="panel-stat">
+        <span class="panel-stat-label">Invoice Status</span>
+        <span class="panel-stat-value green">Paid ✓</span>
+      </div>
+      <div class="panel-stat">
+        <span class="panel-stat-label">Next Invoice</span>
+        <span class="panel-stat-value">2026-06-01</span>
+      </div>
+    </div>
+
+    <div class="panel-section">
+      <div class="panel-title">Assigned Analysts</div>
+      <div class="panel-stat">
+        <span class="panel-stat-label"><span class="analyst-online online-yes"></span>Priya R.</span>
+        <span class="panel-stat-value blue">Lead</span>
+      </div>
+      <div class="panel-stat">
+        <span class="panel-stat-label"><span class="analyst-online online-yes"></span>Marcus K.</span>
+        <span class="panel-stat-value">Tier 2</span>
+      </div>
+      <div class="panel-stat">
+        <span class="panel-stat-label"><span class="analyst-online online-idle"></span>Zoe W.</span>
+        <span class="panel-stat-value yellow">Idle</span>
+      </div>
+    </div>
+
+    <div class="panel-section">
+      <div class="panel-title">Quota Utilization</div>
+      <div style="font-size:11px;color:var(--text-secondary);margin-bottom:6px;">API Calls/day</div>
+      <div class="quota-numbers">
+        <span>0</span><span>4,200 / 5,000</span>
+      </div>
+      <div class="quota-bar">
+        <div class="quota-fill warn" style="width:84%"></div>
+      </div>
+      <div style="font-size:10px;color:var(--accent-yellow);margin-top:4px;">⚠ 84% — near limit</div>
+      <div style="font-size:11px;color:var(--text-secondary);margin-top:10px;margin-bottom:6px;">Storage Used</div>
+      <div class="quota-numbers">
+        <span>0</span><span>180 / 500 GB</span>
+      </div>
+      <div class="quota-bar">
+        <div class="quota-fill safe" style="width:36%"></div>
+      </div>
+    </div>
+
+    <div class="panel-section">
+      <div class="panel-title">Actions</div>
+      <div style="display:flex;flex-direction:column;gap:7px;">
+        <button class="action-btn btn-primary" style="font-size:11px;">View Tenant SOC</button>
+        <button class="action-btn btn-outline" style="font-size:11px;">Edit Configuration</button>
+        <button class="action-btn btn-purple" style="font-size:11px;">Share Intelligence</button>
+        <button class="action-btn btn-danger" style="font-size:11px;">Suspend Tenant</button>
+      </div>
+    </div>
+  </aside>
+
+</div><!-- end layout -->
+
+<!-- ══ PROVISION TENANT MODAL (simplified overlay) ══ -->
+<div id="modalOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:200;align-items:center;justify-content:center;">
+  <div style="background:var(--bg-panel);border:1px solid var(--border-bright);border-radius:12px;padding:28px;width:480px;max-width:95vw;">
+    <div style="font-size:16px;font-weight:700;color:var(--text-bright);margin-bottom:4px;">Provision New Tenant</div>
+    <div style="font-size:12px;color:var(--text-secondary);margin-bottom:20px;">Creates isolated environment with dedicated API keys, RBAC, telemetry namespace, and billing record.</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;">
+      <div>
+        <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px;">Organization Name</div>
+        <input style="width:100%;padding:8px;border-radius:6px;border:1px solid var(--border);background:var(--bg-secondary);color:var(--text-primary);font-size:12px;" placeholder="ACME Corp">
+      </div>
+      <div>
+        <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px;">Subscription Tier</div>
+        <select style="width:100%;padding:8px;border-radius:6px;border:1px solid var(--border);background:var(--bg-secondary);color:var(--text-primary);font-size:12px;">
+          <option>Enterprise ($1,999/mo)</option>
+          <option>Professional ($499/mo)</option>
+          <option>Starter ($49/mo)</option>
+          <option>Trial (14-day free)</option>
+        </select>
+      </div>
+      <div>
+        <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px;">Primary Analyst</div>
+        <select style="width:100%;padding:8px;border-radius:6px;border:1px solid var(--border);background:var(--bg-secondary);color:var(--text-primary);font-size:12px;">
+          <option>Priya R. (3 tenants)</option>
+          <option>Marcus K. (4 tenants)</option>
+          <option>Devon A. (2 tenants)</option>
+          <option>Zoe W. (5 tenants)</option>
+        </select>
+      </div>
+      <div>
+        <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px;">Deployment Region</div>
+        <select style="width:100%;padding:8px;border-radius:6px;border:1px solid var(--border);background:var(--bg-secondary);color:var(--text-primary);font-size:12px;">
+          <option>US-East (AWS us-east-1)</option>
+          <option>EU-West (AWS eu-west-1)</option>
+          <option>APAC (AWS ap-southeast-1)</option>
+        </select>
+      </div>
+      <div>
+        <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px;">Isolation Mode</div>
+        <select style="width:100%;padding:8px;border-radius:6px;border:1px solid var(--border);background:var(--bg-secondary);color:var(--text-primary);font-size:12px;">
+          <option>Dedicated (VLAN + namespace)</option>
+          <option>Shared (namespace only)</option>
+        </select>
+      </div>
+      <div>
+        <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px;">Deployment Pack</div>
+        <select style="width:100%;padding:8px;border-radius:6px;border:1px solid var(--border);background:var(--bg-secondary);color:var(--text-primary);font-size:12px;">
+          <option>Enterprise Full Stack</option>
+          <option>SOC Rapid Deploy</option>
+          <option>Financial Services</option>
+          <option>Government Grade</option>
+        </select>
+      </div>
+    </div>
+    <div style="display:flex;gap:10px;justify-content:flex-end;">
+      <button class="action-btn btn-outline" onclick="closeModal()">Cancel</button>
+      <button class="action-btn btn-primary" onclick="provisionTenant()">Provision Tenant →</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ══════════════════════════════════════════════════════
+// DATA LAYER
+// ══════════════════════════════════════════════════════
+
+const TENANTS = [
+  { id:'T-001', org:'GlobalBank Corp', tier:'enterprise', region:'US-East', status:'active', isolation:'Dedicated', analysts:3, incidents:2, apiCalls:4200, arr:23988, sla:'100%', created:'2025-01-15' },
+  { id:'T-002', org:'MedCure Systems', tier:'enterprise', region:'EU-West', status:'active', isolation:'Dedicated', analysts:2, incidents:5, apiCalls:3800, arr:23988, sla:'99.8%', created:'2025-02-08' },
+  { id:'T-003', org:'NexGen Defense Ltd', tier:'enterprise', region:'US-East', status:'active', isolation:'Dedicated', analysts:2, incidents:0, apiCalls:2900, arr:23988, sla:'100%', created:'2025-03-01' },
+  { id:'T-004', org:'TechPulse SaaS', tier:'professional', region:'US-East', status:'active', isolation:'Shared', analysts:1, incidents:4, apiCalls:1900, arr:5988, sla:'98.4%', created:'2025-04-12' },
+  { id:'T-005', org:'RetailChain APAC', tier:'professional', region:'APAC', status:'active', isolation:'Shared', analysts:1, incidents:3, apiCalls:2100, arr:5988, sla:'97.9%', created:'2025-05-20' },
+  { id:'T-006', org:'LogiFreight EU', tier:'professional', region:'EU-West', status:'active', isolation:'Shared', analysts:1, incidents:6, apiCalls:1200, arr:5988, sla:'96.2%', created:'2025-06-01' },
+  { id:'T-007', org:'StartupHive Inc', tier:'starter', region:'US-East', status:'trial', isolation:'Shared', analysts:1, incidents:1, apiCalls:320, arr:588, sla:'N/A', created:'2026-05-15' },
+  { id:'T-008', org:'EduGuard Academy', tier:'starter', region:'US-East', status:'active', isolation:'Shared', analysts:1, incidents:0, apiCalls:150, arr:588, sla:'100%', created:'2026-02-28' },
+  { id:'T-009', org:'CloudNative Corp', tier:'professional', region:'US-East', status:'onboarding', isolation:'Shared', analysts:0, incidents:0, apiCalls:0, arr:5988, sla:'N/A', created:'2026-05-26' },
+  { id:'T-010', org:'BioResearch Labs', tier:'enterprise', region:'EU-West', status:'active', isolation:'Dedicated', analysts:2, incidents:1, apiCalls:3100, arr:23988, sla:'99.9%', created:'2025-07-14' },
+];
+
+const ANALYSTS = [
+  { initials:'PR', name:'Priya R.', role:'Senior Analyst', tenants:['GlobalBank Corp','MedCure Systems','NexGen Defense Ltd'], load:'3/5', online:'yes', color:'#1e90ff', certs:['GCTI','GREM'] },
+  { initials:'MK', name:'Marcus K.', role:'Threat Intel Lead', tenants:['TechPulse SaaS','BioResearch Labs','LogiFreight EU','RetailChain APAC'], load:'4/5', online:'yes', color:'#bb86fc', certs:['CISSP','CEH'] },
+  { initials:'ZW', name:'Zoe W.', role:'SOC Analyst L3', tenants:['EduGuard Academy','StartupHive Inc','CloudNative Corp','RetailChain APAC','LogiFreight EU'], load:'5/5', online:'idle', color:'#ff9800', certs:['GCIH'] },
+  { initials:'DA', name:'Devon A.', role:'Threat Hunter', tenants:['MedCure Systems','NexGen Defense Ltd'], load:'2/5', online:'yes', color:'#00e676', certs:['GCFA','GCTI'] },
+  { initials:'RL', name:'Rosa L.', role:'SOC Analyst L2', tenants:['BioResearch Labs','GlobalBank Corp'], load:'2/5', online:'yes', color:'#00d4ff', certs:['CompTIA Sec+'] },
+  { initials:'JT', name:'James T.', role:'Incident Responder', tenants:['TechPulse SaaS'], load:'1/5', online:'no', color:'#ffc107', certs:['GCFE','GCIA'] },
+  { initials:'SK', name:'Sara K.', role:'Malware Analyst', tenants:['GlobalBank Corp','MedCure Systems','NexGen Defense Ltd'], load:'3/5', online:'yes', color:'#f06292', certs:['GREM','GCIH'] },
+  { initials:'AB', name:'Arjun B.', role:'CTI Analyst', tenants:['RetailChain APAC','CloudNative Corp'], load:'2/5', online:'yes', color:'#4db6ac', certs:['GCTI'] },
+];
+
+const RBAC_MSSP = [
+  { role:'MSSP Super Admin', perms:['full','full','full','full'] },
+  { role:'MSSP Operator', perms:['write','write','read','none'] },
+  { role:'MSSP Viewer', perms:['read','read','read','none'] },
+  { role:'Billing Manager', perms:['none','none','full','full'] },
+  { role:'Deployment Admin', perms:['write','full','none','none'] },
+];
+const RBAC_TENANT = [
+  { role:'Tenant Admin', perms:['full','full','write','none'] },
+  { role:'SOC Lead', perms:['write','write','read','none'] },
+  { role:'Analyst L3', perms:['write','read','none','none'] },
+  { role:'Analyst L2', perms:['read','read','none','none'] },
+  { role:'Read-Only Exec', perms:['read','none','none','none'] },
+];
+
+const FEDERATIONS = [
+  { name:'FS-ISAC TAXII', type:'STIX 2.1 TAXII', status:'ok', latency:'120ms', signals:1240, lastSync:'2min ago' },
+  { name:'MISP Platform', type:'MISP REST API', status:'ok', latency:'85ms', signals:892, lastSync:'5min ago' },
+  { name:'US-CERT AIS', type:'STIX/TAXII', status:'warn', latency:'680ms', signals:341, lastSync:'12min ago' },
+  { name:'CERTIn India', type:'Email+STIX', status:'warn', latency:'520ms', signals:156, lastSync:'18min ago' },
+  { name:'Tenant-Tenant Alpha', type:'Proprietary API', status:'ok', latency:'45ms', signals:443, lastSync:'1min ago' },
+  { name:'ENISA CTI Feed', type:'STIX 2.1', status:'ok', latency:'210ms', signals:199, lastSync:'8min ago' },
+  { name:'APAC Threat Consortium', type:'TAXII 2.1', status:'ok', latency:'390ms', signals:287, lastSync:'15min ago' },
+  { name:'Dark Web Monitor Bridge', type:'Proprietary', status:'ok', latency:'180ms', signals:713, lastSync:'3min ago' },
+];
+
+const TELEMETRY_POLICIES = [
+  { title:'Data Retention', rows:[['Raw Events','90 days'],['Processed Signals','365 days'],['Archived Intelligence','7 years'],['Audit Logs','10 years'],['Deletion on Offboard','Immediate']] },
+  { title:'Data Classification', rows:[['PII Handling','Anonymized'],['IOC Export','TLP-gated'],['Cross-tenant Share','Opt-in only'],['Regulatory Mapping','SOC2 + GDPR'],['Encryption In-Transit','TLS 1.3']] },
+  { title:'Flow Control', rows:[['Ingestion Rate Limit','50,000 eps'],['Egress Throttle','10 MB/s'],['Burst Allowance','5x for 60s'],['Backpressure Policy','Queue+Discard'],['Priority Queues','CRITICAL > HIGH']] },
+  { title:'Privacy & Compliance', rows:[['GDPR Compliance','Enforced'],['CCPA','Enforced'],['Right to Erasure','Automated'],['Data Residency','Region-locked'],['Third-party Audit','Annual']] },
+  { title:'AI/ML Governance', rows:[['Training Data Use','Opt-in only'],['Model Versioning','v22.0 pinned'],['Inference Logging','Enabled'],['Bias Monitoring','Active'],['Explainability','Required']] },
+  { title:'Isolation Controls', rows:[['Namespace Isolation','Hard'],['Network Segregation','VLAN-per-tenant'],['Storage Partitioning','S3 prefix ACLs'],['DB Row Security','RLS enabled'],['API Key Scope','Tenant-bound']],  },
+];
+
+const DEPLOY_PACKS = [
+  { title:'Enterprise Full Stack', desc:'Complete deployment bundle: API gateway, SIEM connector, SOAR playbooks, RBAC config, custom dashboards, 6-month onboarding support.', tags:['SIEM','SOAR','API','Playbooks'], status:'stable' },
+  { title:'SOC Rapid Deploy', desc:'Minimal time-to-value pack. Pre-configured incident queue, 20 starter playbooks, Splunk + QRadar connectors. 48h to live.', tags:['Splunk','QRadar','Playbooks'], status:'stable' },
+  { title:'Financial Services', desc:'FSI-grade package with PCI-DSS controls, fraud IOC feeds, SWIFT network monitoring, regulatory reporting templates.', tags:['PCI-DSS','SWIFT','FraudIOC'], status:'stable' },
+  { title:'Government / Defense', desc:'Air-gapped deployment support, ITAR-compliant data handling, classified compartmentalization, FedRAMP-ready config.', tags:['FedRAMP','ITAR','AirGap'], status:'beta' },
+  { title:'Healthcare / HIPAA', desc:'HIPAA-aligned telemetry, PHI anonymization pipeline, EHR system monitoring, healthcare threat feeds.', tags:['HIPAA','PHI','EHR'], status:'stable' },
+  { title:'Cloud-Native Starter', desc:'K8s-native deployment, Terraform modules, cloud provider integrations (AWS/GCP/Azure), IAC-first config.', tags:['K8s','Terraform','AWS'], status:'stable' },
+  { title:'MSSP White-Label', desc:'Fully rebrandable platform with white-label domains, custom logo, custom color scheme, customer-facing portal.', tags:['White-label','Branding'], status:'stable' },
+  { title:'OEM SDK Bundle', desc:'Python + JavaScript SDK, pre-built integrations, webhook examples, developer sandbox, API reference portal.', tags:['SDK','OEM','Dev Portal'], status:'ga' },
+  { title:'SMB Quick Start', desc:'One-click deployment for smaller organizations. 5-minute API setup, no on-prem required, mobile-first dashboard.', tags:['SMB','QuickStart','NoOps'], status:'stable' },
+];
+
+const INVOICES = [
+  { id:'INV-2026-042', tenant:'GlobalBank Corp', amount:'$1,999', period:'May 2026', status:'paid' },
+  { id:'INV-2026-041', tenant:'MedCure Systems', amount:'$1,999', period:'May 2026', status:'paid' },
+  { id:'INV-2026-040', tenant:'TechPulse SaaS', amount:'$499', period:'May 2026', status:'pending' },
+  { id:'INV-2026-039', tenant:'LogiFreight EU', amount:'$499', period:'Apr 2026', status:'overdue' },
+  { id:'INV-2026-038', tenant:'EduGuard Academy', amount:'$49', period:'May 2026', status:'paid' },
+  { id:'INV-2026-037', tenant:'RetailChain APAC', amount:'$499', period:'May 2026', status:'pending' },
+  { id:'INV-2026-036', tenant:'NexGen Defense Ltd', amount:'$1,999', period:'May 2026', status:'paid' },
+];
+
+const QUOTAS = [
+  { label:'GlobalBank Corp — API Calls', used:4200, total:5000 },
+  { label:'MedCure Systems — API Calls', used:3800, total:5000 },
+  { label:'TechPulse SaaS — API Calls', used:1900, total:2000 },
+  { label:'RetailChain APAC — API Calls', used:2100, total:3000 },
+  { label:'GlobalBank Corp — Storage', used:180, total:500, unit:'GB' },
+  { label:'MedCure Systems — Storage', used:420, total:500, unit:'GB' },
+  { label:'LogiFreight EU — Analyst Seats', used:1, total:3, unit:'seats' },
+  { label:'EduGuard Academy — Reports/mo', used:18, total:50, unit:'rpts' },
+  { label:'TechPulse SaaS — Storage', used:89, total:200, unit:'GB' },
+];
+
+const CROSS_ALERTS = [
+  { id:'XA-0047', actor:'Lazarus Group', tenants:3, sev:'high', ioc:'IP Cluster', first:'2026-05-26 14:22', status:'investigating' },
+  { id:'XA-0046', actor:'APT-41', tenants:2, sev:'high', ioc:'C2 Domain', first:'2026-05-25 09:11', status:'investigating' },
+  { id:'XA-0045', actor:'Unknown (Cluster-7)', tenants:5, sev:'medium', ioc:'User-Agent Pattern', first:'2026-05-24 22:45', status:'monitoring' },
+  { id:'XA-0044', actor:'Scattered Spider', tenants:1, sev:'medium', ioc:'Phishing Campaign', first:'2026-05-24 18:00', status:'resolved' },
+  { id:'XA-0043', actor:'TA453', tenants:2, sev:'medium', ioc:'Malware Hash', first:'2026-05-23 11:30', status:'monitoring' },
+  { id:'XA-0042', actor:'Unknown (Fin-ops)', tenants:4, sev:'medium', ioc:'Payment IOC', first:'2026-05-22 16:40', status:'monitoring' },
+  { id:'XA-0041', actor:'DarkVec', tenants:1, sev:'medium', ioc:'URL Pattern', first:'2026-05-21 08:15', status:'resolved' },
+];
+
+const INTEL_SHARES = [
+  { id:'RPT-2026-1847', title:'Lazarus Infrastructure Cluster', tlp:'WHITE', source:'GlobalBank Corp', recipients:12, shared:'2026-05-27 08:00', dl:38 },
+  { id:'RPT-2026-1821', title:'APT-41 C2 Indicators', tlp:'GREEN', source:'MedCure Systems', recipients:8, shared:'2026-05-26 14:30', dl:22 },
+  { id:'RPT-2026-1799', title:'Scattered Spider Phishing Kit', tlp:'AMBER', source:'NexGen Defense Ltd', recipients:3, shared:'2026-05-25 11:00', dl:7 },
+  { id:'RPT-2026-1782', title:'Ransomware Precursor IOCs', tlp:'GREEN', source:'TechPulse SaaS', recipients:6, shared:'2026-05-24 09:45', dl:15 },
+  { id:'RPT-2026-1761', title:'FS-ISAC SWIFT Fraud Alert', tlp:'AMBER', source:'GlobalBank Corp', recipients:4, shared:'2026-05-23 16:00', dl:9 },
+  { id:'RPT-2026-1740', title:'Cloud Enumeration Campaign', tlp:'WHITE', source:'CloudNative Corp', recipients:18, shared:'2026-05-22 10:30', dl:51 },
+];
+
+// ══════════════════════════════════════════════════════
+// RENDER ENGINE
+// ══════════════════════════════════════════════════════
+
+function tierBadge(t) {
+  const map = { enterprise:'tier-enterprise Enterprise', professional:'tier-professional Professional', starter:'tier-starter Starter', mssp:'tier-mssp MSSP' };
+  const [cls, label] = (map[t] || 'tier-starter Unknown').split(' ');
+  return `<span class="tier-badge ${cls}">${label}</span>`;
+}
+function statusBadge(s) {
+  const map = { active:'active ●', trial:'trial ●', suspended:'suspended ●', onboarding:'onboarding ●' };
+  const [cls, dot] = (map[s]||'active ●').split(' ');
+  return `<span class="badge ${cls}"><span class="badge-dot"></span>${s.charAt(0).toUpperCase()+s.slice(1)}</span>`;
+}
+function sevColor(s) {
+  return {critical:'var(--critical)',high:'var(--high)',medium:'var(--medium)',low:'var(--low)'}[s]||'var(--text-muted)';
+}
+function tlpColor(t) {
+  return {WHITE:'#e2e8f0',GREEN:'#00e676',AMBER:'#ffd740',RED:'#ff4444'}[t]||'#8b9ab5';
+}
+
+function renderTenantTable() {
+  const body = document.getElementById('tenantBody');
+  if(!body) return;
+  body.innerHTML = TENANTS.map(t => `
+    <tr>
+      <td><span style="font-family:var(--font-mono);font-size:11px;color:var(--accent-cyan)">${t.id}</span><br>
+          <span style="font-size:12px;font-weight:600;color:var(--text-primary)">${t.org}</span></td>
+      <td>${tierBadge(t.tier)}</td>
+      <td>${statusBadge(t.status)}</td>
+      <td style="text-align:center;font-weight:700;color:var(--accent-blue)">${t.analysts}</td>
+      <td style="text-align:center">
+        <span style="font-weight:700;color:${t.incidents>3?'var(--accent-orange)':t.incidents>0?'var(--accent-yellow)':'var(--accent-green)'}">${t.incidents}</span>
+      </td>
+      <td style="font-family:var(--font-mono);font-size:11px">${t.apiCalls.toLocaleString()}</td>
+      <td style="font-weight:700;color:var(--accent-green)">$${(t.arr/12).toLocaleString()}/mo</td>
+      <td><span style="color:${t.sla==='100%'?'var(--accent-green)':'var(--accent-yellow)'};font-weight:700">${t.sla}</span></td>
+      <td>
+        <button class="action-btn btn-outline" style="font-size:10px;padding:3px 8px">View</button>
+      </td>
+    </tr>
+  `).join('');
+}
+
+function renderTenantFull() {
+  const body = document.getElementById('tenantFullBody');
+  if(!body) return;
+  body.innerHTML = TENANTS.map(t => `
+    <tr>
+      <td style="font-family:var(--font-mono);font-size:11px;color:var(--accent-cyan)">${t.id}</td>
+      <td style="font-weight:600;color:var(--text-primary)">${t.org}</td>
+      <td>${tierBadge(t.tier)}</td>
+      <td style="color:var(--text-secondary)">${t.region}</td>
+      <td>${statusBadge(t.status)}</td>
+      <td style="font-size:11px;color:var(--text-secondary)">${t.isolation}</td>
+      <td style="color:var(--text-muted);font-size:11px">${t.created}</td>
+      <td>
+        <button class="action-btn btn-outline" style="font-size:10px;padding:3px 8px">Manage</button>
+        <button class="action-btn btn-danger" style="font-size:10px;padding:3px 8px;margin-left:4px">Suspend</button>
+      </td>
+    </tr>
+  `).join('');
+}
+
+function renderAnalysts() {
+  const grid = document.getElementById('analystGrid');
+  if(!grid) return;
+  grid.innerHTML = ANALYSTS.map(a => `
+    <div class="analyst-card">
+      <div class="analyst-av" style="background:${a.color}22;color:${a.color}">${a.initials}</div>
+      <div style="flex:1;min-width:0">
+        <div class="analyst-name">
+          <span class="analyst-online online-${a.online}"></span>${a.name}
+        </div>
+        <div class="analyst-role">${a.role}</div>
+        <div class="analyst-tenants">Tenants: ${a.tenants.length} assigned</div>
+        <div class="analyst-load">Load: ${a.load} | ${a.certs.join(' · ')}</div>
+        <div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:3px">
+          ${a.tenants.map(t=>`<span class="deploy-tag">${t}</span>`).join('')}
+        </div>
+      </div>
+    </div>
+  `).join('');
+}
+
+function renderRBAC() {
+  const permLabels = ['Intel Read','Intel Write','Admin','Billing'];
+  const permTagMap = { full:'perm-full FULL', write:'perm-write WRITE', read:'perm-read READ', none:'perm-none NONE' };
+
+  function buildRoles(containerId, roles) {
+    const el = document.getElementById(containerId);
+    if(!el) return;
+    el.innerHTML = roles.map(r => `
+      <div class="rbac-row">
+        <span class="rbac-role">${r.role}</span>
+        <div>${r.perms.map((p,i)=>{
+          const [cls,label] = permTagMap[p].split(' ');
+          return `<span class="perm-tag ${cls}" title="${permLabels[i]}">${label}</span>`;
+        }).join('')}</div>
+      </div>
+    `).join('');
+  }
+
+  buildRoles('mssp-roles', RBAC_MSSP);
+  buildRoles('tenant-roles', RBAC_TENANT);
+
+  const intelMatrix = [
+    { cap:'View Advisory Reports', admin:'✓', soc:'✓', l3:'✓', l2:'✓', exec:'✓' },
+    { cap:'Export Intelligence', admin:'✓', soc:'✓', l3:'✓', l2:'✗', exec:'✗' },
+    { cap:'Share Cross-Tenant Intel', admin:'✓', soc:'✓', l3:'✗', l2:'✗', exec:'✗' },
+    { cap:'Create Custom IOCs', admin:'✓', soc:'✓', l3:'✓', l2:'✗', exec:'✗' },
+    { cap:'Approve TLP Escalation', admin:'✓', soc:'✓', l3:'✗', l2:'✗', exec:'✗' },
+  ];
+  const adminMatrix = [
+    { cap:'Manage Analysts', admin:'✓', soc:'✗', l3:'✗', l2:'✗', exec:'✗' },
+    { cap:'View Billing', admin:'✓', soc:'✗', l3:'✗', l2:'✗', exec:'✓' },
+    { cap:'Edit Tenant Config', admin:'✓', soc:'✓', l3:'✗', l2:'✗', exec:'✗' },
+    { cap:'Deploy Integrations', admin:'✓', soc:'✓', l3:'✗', l2:'✗', exec:'✗' },
+    { cap:'Suspend Tenant', admin:'✓', soc:'✗', l3:'✗', l2:'✗', exec:'✗' },
+  ];
+
+  function buildMatrix(id, rows) {
+    const el = document.getElementById(id);
+    if(!el) return;
+    el.innerHTML = `<table style="width:100%;font-size:11px;border-collapse:collapse">
+      <thead><tr style="background:var(--bg-secondary)">
+        <th style="text-align:left;padding:6px 8px;color:var(--text-muted);font-size:10px">Capability</th>
+        <th style="padding:4px;color:var(--text-muted);font-size:10px">Admin</th>
+        <th style="padding:4px;color:var(--text-muted);font-size:10px">SOC Lead</th>
+        <th style="padding:4px;color:var(--text-muted);font-size:10px">L3</th>
+        <th style="padding:4px;color:var(--text-muted);font-size:10px">L2</th>
+        <th style="padding:4px;color:var(--text-muted);font-size:10px">Exec</th>
+      </tr></thead>
+      <tbody>${rows.map(r=>`
+        <tr style="border-bottom:1px solid var(--border)">
+          <td style="padding:6px 8px;color:var(--text-secondary)">${r.cap}</td>
+          ${[r.admin,r.soc,r.l3,r.l2,r.exec].map(v=>`
+            <td style="text-align:center;padding:4px;font-weight:700;color:${v==='✓'?'var(--accent-green)':'var(--text-muted)'}">${v}</td>
+          `).join('')}
+        </tr>`).join('')}
+      </tbody></table>`;
+  }
+  buildMatrix('perm-matrix-intel', intelMatrix);
+  buildMatrix('perm-matrix-admin', adminMatrix);
+}
+
+function renderFederation() {
+  const grid = document.getElementById('fedGrid');
+  if(!grid) return;
+  grid.innerHTML = '';
+  const chunks = [];
+  for(let i=0;i<FEDERATIONS.length;i+=4) chunks.push(FEDERATIONS.slice(i,i+4));
+  chunks.forEach(chunk => {
+    const card = document.createElement('div');
+    card.className = 'fed-card';
+    card.innerHTML = `<div class="fed-title">Federation Endpoints</div>` +
+      chunk.map(f => `
+        <div class="fed-item">
+          <div>
+            <div class="fed-item-name">${f.name}</div>
+            <div class="fed-item-sub">${f.type} · ${f.latency} · ${f.signals} signals</div>
+          </div>
+          <div>
+            <span class="fed-status ${f.status==='ok'?'fed-ok':f.status==='warn'?'fed-warn':'fed-error'}">
+              ${f.status.toUpperCase()}
+            </span>
+            <div style="font-size:10px;color:var(--text-muted);margin-top:3px">${f.lastSync}</div>
+          </div>
+        </div>`).join('');
+    grid.appendChild(card);
+  });
+}
+
+function renderTelemetry() {
+  const container = document.getElementById('telemetryPolicies');
+  if(!container) return;
+  container.innerHTML = TELEMETRY_POLICIES.map(p => `
+    <div class="policy-card">
+      <div class="policy-title">🛡️ ${p.title}</div>
+      ${p.rows.map(r=>`
+        <div class="policy-row">
+          <span class="policy-key">${r[0]}</span>
+          <span class="policy-val">${r[1]}</span>
+        </div>`).join('')}
+    </div>
+  `).join('');
+}
+
+function renderDeployment() {
+  const grid = document.getElementById('deployPacks');
+  if(!grid) return;
+  const statusColor = { stable:'var(--accent-green)', beta:'var(--accent-yellow)', ga:'var(--accent-blue)' };
+  grid.innerHTML = DEPLOY_PACKS.map(p => `
+    <div class="deploy-card">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px">
+        <div class="deploy-title">${p.title}</div>
+        <span style="font-size:10px;font-weight:700;color:${statusColor[p.status]};border:1px solid currentColor;padding:1px 6px;border-radius:4px">${p.status.toUpperCase()}</span>
+      </div>
+      <div class="deploy-desc">${p.desc}</div>
+      <div style="margin-bottom:10px">${p.tags.map(t=>`<span class="deploy-tag">${t}</span>`).join('')}</div>
+      <button class="deploy-btn">↓ Download Pack</button>
+    </div>
+  `).join('');
+}
+
+function renderBilling() {
+  const tiers = [
+    { label:'Enterprise (8 tenants)', rate:1999, count:8, color:'var(--accent-purple)' },
+    { label:'Professional (24 tenants)', rate:499, count:24, color:'var(--accent-blue)' },
+    { label:'Starter (10 tenants)', rate:49, count:10, color:'var(--accent-cyan)' },
+  ];
+  const total = tiers.reduce((s,t)=>s+t.rate*t.count,0);
+  const chart = document.getElementById('revenueTierChart');
+  if(chart) {
+    chart.innerHTML = tiers.map(t => {
+      const pct = Math.round(t.rate*t.count/total*100);
+      return `
+        <div style="margin-bottom:12px">
+          <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text-secondary);margin-bottom:4px">
+            <span>${t.label}</span>
+            <span style="color:var(--text-primary);font-weight:700">$${(t.rate*t.count).toLocaleString()}/mo (${pct}%)</span>
+          </div>
+          <div class="revenue-bar">
+            <div class="revenue-fill" style="width:${pct}%;background:${t.color}"></div>
+          </div>
+        </div>`;
+    }).join('') + `<div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border);display:flex;justify-content:space-between;font-size:13px;font-weight:700">
+        <span style="color:var(--text-secondary)">Total MRR</span>
+        <span style="color:var(--accent-green)">$${total.toLocaleString()}</span>
+      </div>`;
+  }
+
+  const invList = document.getElementById('invoiceList');
+  if(invList) {
+    invList.innerHTML = INVOICES.map(inv => `
+      <div class="invoice-row">
+        <div>
+          <div style="font-size:11px;font-weight:600;color:var(--text-primary)">${inv.id}</div>
+          <div style="font-size:10px;color:var(--text-secondary)">${inv.tenant} · ${inv.period}</div>
+        </div>
+        <div style="text-align:right">
+          <div class="invoice-amount">${inv.amount}</div>
+          <span class="invoice-status inv-${inv.status}">${inv.status.toUpperCase()}</span>
+        </div>
+      </div>`).join('');
+  }
+}
+
+function renderQuotas() {
+  const grid = document.getElementById('quotaGrid');
+  if(!grid) return;
+  grid.innerHTML = QUOTAS.map(q => {
+    const pct = Math.round(q.used/q.total*100);
+    const cls = pct>=90?'danger':pct>=75?'warn':'safe';
+    const unit = q.unit||'calls';
+    return `
+      <div class="quota-card">
+        <div class="quota-label">${q.label}</div>
+        <div class="quota-numbers">
+          <span>${q.used.toLocaleString()} ${unit}</span>
+          <span>${q.total.toLocaleString()} ${unit} (${pct}%)</span>
+        </div>
+        <div class="quota-bar">
+          <div class="quota-fill ${cls}" style="width:${pct}%"></div>
+        </div>
+        ${pct>=75?`<div style="font-size:10px;color:${pct>=90?'var(--accent-red)':'var(--accent-yellow)'};margin-top:4px">${pct>=90?'🔴 Limit breach imminent':'⚠ Approaching limit'}</div>`:''}
+      </div>`;
+  }).join('');
+}
+
+function renderCrossAlerts() {
+  const body = document.getElementById('crossAlertBody');
+  if(!body) return;
+  body.innerHTML = CROSS_ALERTS.map(a => `
+    <tr>
+      <td style="font-family:var(--font-mono);font-size:11px;color:var(--accent-cyan)">${a.id}</td>
+      <td style="font-weight:600;color:var(--text-primary)">${a.actor}</td>
+      <td style="text-align:center;font-weight:700;color:var(--accent-orange)">${a.tenants}</td>
+      <td><span style="color:${sevColor(a.sev)};font-weight:700;text-transform:uppercase">${a.sev}</span></td>
+      <td style="color:var(--text-secondary)">${a.ioc}</td>
+      <td style="color:var(--text-muted);font-size:11px">${a.first}</td>
+      <td>${statusBadge(a.status==='investigating'?'onboarding':a.status==='monitoring'?'trial':'active')}</td>
+      <td><button class="action-btn btn-outline" style="font-size:10px;padding:3px 8px">Investigate</button></td>
+    </tr>`).join('');
+}
+
+function renderIntelShares() {
+  const body = document.getElementById('intelShareBody');
+  if(!body) return;
+  body.innerHTML = INTEL_SHARES.map(s => `
+    <tr>
+      <td style="font-family:var(--font-mono);font-size:11px;color:var(--accent-cyan)">${s.id}</td>
+      <td style="font-weight:600;color:var(--text-primary)">${s.title}</td>
+      <td><span style="font-weight:700;font-size:11px;color:${tlpColor(s.tlp)}">TLP:${s.tlp}</span></td>
+      <td style="color:var(--text-secondary)">${s.source}</td>
+      <td style="text-align:center;color:var(--accent-blue);font-weight:700">${s.recipients}</td>
+      <td style="color:var(--text-muted);font-size:11px">${s.shared}</td>
+      <td style="text-align:center;color:var(--text-primary)">${s.dl}</td>
+    </tr>`).join('');
+}
+
+// ══════════════════════════════════════════════════════
+// NAV
+// ══════════════════════════════════════════════════════
+function setNav(el, pane) {
+  document.querySelectorAll('.sidebar-item').forEach(i => i.classList.remove('active'));
+  el.classList.add('active');
+  document.querySelectorAll('.content-pane').forEach(p => p.classList.remove('active'));
+  const target = document.getElementById('pane-'+pane);
+  if(target) {
+    target.classList.add('active');
+    // Lazy render
+    if(pane==='tenants') renderTenantFull();
+    if(pane==='analysts') renderAnalysts();
+    if(pane==='rbac') renderRBAC();
+    if(pane==='federation') renderFederation();
+    if(pane==='telemetry') renderTelemetry();
+    if(pane==='deployment') renderDeployment();
+    if(pane==='billing') renderBilling();
+    if(pane==='quotas') renderQuotas();
+    if(pane==='soc-alerts') renderCrossAlerts();
+    if(pane==='intel-sharing') renderIntelShares();
+  }
+}
+
+function filterTable(input) {
+  const val = input.value.toLowerCase();
+  document.querySelectorAll('#tenantTable tbody tr').forEach(tr => {
+    tr.style.display = tr.textContent.toLowerCase().includes(val) ? '' : 'none';
+  });
+}
+
+function showModal(type) {
+  document.getElementById('modalOverlay').style.display = 'flex';
+}
+function closeModal() {
+  document.getElementById('modalOverlay').style.display = 'none';
+}
+function provisionTenant() {
+  alert('✅ Tenant provisioning initiated.\nIsolated namespace, API keys, and RBAC configuration will be deployed within 60 seconds.');
+  closeModal();
+}
+function toggleTenantPicker() { /* future: dropdown */ }
+
+// ══════════════════════════════════════════════════════
+// INIT
+// ══════════════════════════════════════════════════════
+document.addEventListener('DOMContentLoaded', () => {
+  renderTenantTable();
+});
+
+// Close modal on overlay click
+document.getElementById('modalOverlay').addEventListener('click', function(e){
+  if(e.target===this) closeModal();
+});
+</script>
+</body>
+</html>
