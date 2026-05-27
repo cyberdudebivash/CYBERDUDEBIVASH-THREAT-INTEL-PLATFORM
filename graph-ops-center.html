@@ -1,0 +1,738 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SENTINEL APEX — Graph Operations Center v166</title>
+<style>
+  :root {
+    --bg:       #0a0c10;
+    --bg2:      #0e1117;
+    --bg3:      #141922;
+    --border:   #1e2d42;
+    --accent:   #00d4ff;
+    --accent2:  #7c3aed;
+    --accent3:  #10b981;
+    --accent4:  #f59e0b;
+    --danger:   #ef4444;
+    --text:     #e2e8f0;
+    --muted:    #64748b;
+    --node-host:    #3b82f6;
+    --node-proc:    #ef4444;
+    --node-net:     #f59e0b;
+    --node-user:    #10b981;
+    --node-c2:      #dc2626;
+    --node-domain:  #8b5cf6;
+    --node-file:    #06b6d4;
+    --node-actor:   #f97316;
+    --edge-color:   rgba(0,212,255,0.4);
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background:var(--bg); color:var(--text); font-family:'Segoe UI',system-ui,sans-serif; min-height:100vh; overflow-x:hidden; }
+
+  /* ── Header ── */
+  .header {
+    background: linear-gradient(90deg, #0a0c10 0%, #0d1520 50%, #0a0c10 100%);
+    border-bottom: 1px solid var(--border);
+    padding: 14px 24px;
+    display: flex; align-items: center; gap: 16px;
+  }
+  .header-icon { font-size: 1.8rem; }
+  .header-title { font-size: 1.1rem; font-weight: 700; color: var(--accent); letter-spacing: 1px; text-transform: uppercase; }
+  .header-sub   { font-size: 0.72rem; color: var(--muted); margin-top: 2px; letter-spacing: 0.5px; }
+  .header-badges { margin-left: auto; display: flex; gap: 8px; flex-wrap: wrap; }
+  .badge { padding: 4px 10px; border-radius: 12px; font-size: 0.65rem; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase; }
+  .badge-cyan   { background: rgba(0,212,255,0.12); border: 1px solid rgba(0,212,255,0.3); color: var(--accent); }
+  .badge-purple { background: rgba(124,58,237,0.12); border: 1px solid rgba(124,58,237,0.3); color: #a78bfa; }
+  .badge-green  { background: rgba(16,185,129,0.12); border: 1px solid rgba(16,185,129,0.3); color: var(--accent3); }
+
+  /* ── Layout ── */
+  .layout { display: grid; grid-template-columns: 260px 1fr 300px; gap: 0; height: calc(100vh - 65px); }
+
+  /* ── Left Panel ── */
+  .left-panel { background: var(--bg2); border-right: 1px solid var(--border); overflow-y: auto; }
+  .panel-section { border-bottom: 1px solid var(--border); padding: 12px 14px; }
+  .section-title { font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); margin-bottom: 10px; }
+
+  /* Stats Cards */
+  .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .stat-card { background: var(--bg3); border: 1px solid var(--border); border-radius: 6px; padding: 8px 10px; }
+  .stat-val  { font-size: 1.3rem; font-weight: 700; }
+  .stat-lbl  { font-size: 0.62rem; color: var(--muted); margin-top: 2px; text-transform: uppercase; }
+  .cyan   { color: var(--accent); }
+  .purple { color: #a78bfa; }
+  .green  { color: var(--accent3); }
+  .orange { color: var(--accent4); }
+  .red    { color: var(--danger); }
+
+  /* Node legend */
+  .legend-item { display: flex; align-items: center; gap: 8px; padding: 4px 0; font-size: 0.72rem; cursor: pointer; border-radius: 4px; padding: 5px 6px; transition: background 0.15s; }
+  .legend-item:hover { background: rgba(255,255,255,0.04); }
+  .legend-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+  .legend-count { margin-left: auto; color: var(--muted); font-size: 0.65rem; }
+
+  /* Filter buttons */
+  .filter-btn { display: block; width: 100%; text-align: left; background: var(--bg3); border: 1px solid var(--border); color: var(--text); padding: 7px 10px; border-radius: 5px; font-size: 0.72rem; margin-bottom: 5px; cursor: pointer; transition: all 0.15s; }
+  .filter-btn:hover, .filter-btn.active { background: rgba(0,212,255,0.08); border-color: var(--accent); color: var(--accent); }
+
+  /* Attack paths list */
+  .path-item { background: var(--bg3); border: 1px solid var(--border); border-radius: 6px; padding: 8px 10px; margin-bottom: 6px; cursor: pointer; transition: all 0.15s; }
+  .path-item:hover { border-color: var(--accent); }
+  .path-meta { display: flex; justify-content: space-between; margin-top: 4px; }
+  .path-label { font-size: 0.72rem; font-weight: 600; }
+  .path-sub   { font-size: 0.62rem; color: var(--muted); }
+
+  /* ── Center: Graph Canvas ── */
+  .graph-area { background: var(--bg); display: flex; flex-direction: column; overflow: hidden; }
+  .graph-toolbar { padding: 10px 16px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 10px; background: var(--bg2); flex-wrap: wrap; }
+  .toolbar-btn { background: var(--bg3); border: 1px solid var(--border); color: var(--text); padding: 6px 12px; border-radius: 5px; font-size: 0.72rem; cursor: pointer; transition: all 0.15s; }
+  .toolbar-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .toolbar-btn.active { background: rgba(0,212,255,0.1); border-color: var(--accent); color: var(--accent); }
+  .search-box { background: var(--bg3); border: 1px solid var(--border); color: var(--text); padding: 6px 12px; border-radius: 5px; font-size: 0.72rem; outline: none; width: 180px; }
+  .search-box::placeholder { color: var(--muted); }
+  .graph-canvas-wrap { flex: 1; position: relative; overflow: hidden; }
+  #graphCanvas { width: 100%; height: 100%; cursor: grab; }
+  #graphCanvas:active { cursor: grabbing; }
+
+  /* Node tooltip */
+  .node-tooltip {
+    position: absolute; background: rgba(14,17,23,0.98); border: 1px solid var(--accent);
+    border-radius: 8px; padding: 12px 14px; font-size: 0.72rem; pointer-events: none;
+    display: none; z-index: 100; min-width: 200px; max-width: 280px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.6);
+  }
+  .tooltip-title { font-size: 0.85rem; font-weight: 700; color: var(--accent); margin-bottom: 8px; }
+  .tooltip-row   { display: flex; justify-content: space-between; gap: 12px; margin-bottom: 3px; }
+  .tooltip-key   { color: var(--muted); }
+  .tooltip-val   { font-weight: 600; }
+
+  /* ── Right Panel ── */
+  .right-panel { background: var(--bg2); border-left: 1px solid var(--border); overflow-y: auto; }
+  .rp-section  { border-bottom: 1px solid var(--border); padding: 12px 14px; }
+
+  /* Anomaly cards */
+  .anomaly-card { background: var(--bg3); border-left: 3px solid; border-radius: 0 6px 6px 0; padding: 8px 10px; margin-bottom: 6px; cursor: pointer; }
+  .anomaly-card:hover { background: rgba(255,255,255,0.03); }
+  .anomaly-critical { border-left-color: var(--danger); }
+  .anomaly-high     { border-left-color: var(--accent4); }
+  .anomaly-medium   { border-left-color: #60a5fa; }
+  .anomaly-title    { font-size: 0.72rem; font-weight: 700; }
+  .anomaly-desc     { font-size: 0.65rem; color: var(--muted); margin-top: 3px; }
+  .anomaly-meta     { display: flex; gap: 8px; margin-top: 5px; }
+  .anomaly-badge    { font-size: 0.58rem; font-weight: 700; padding: 2px 6px; border-radius: 3px; text-transform: uppercase; }
+  .ab-critical { background: rgba(239,68,68,0.15); color: var(--danger); }
+  .ab-high     { background: rgba(245,158,11,0.15); color: var(--accent4); }
+  .ab-medium   { background: rgba(96,165,250,0.15); color: #60a5fa; }
+
+  /* Campaign timeline */
+  .timeline-item { display: flex; gap: 10px; padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.04); }
+  .timeline-seq  { width: 20px; height: 20px; border-radius: 50%; background: var(--accent2); display: flex; align-items: center; justify-content: center; font-size: 0.6rem; font-weight: 700; flex-shrink: 0; margin-top: 2px; }
+  .timeline-body { flex: 1; }
+  .timeline-desc { font-size: 0.72rem; }
+  .timeline-ts   { font-size: 0.62rem; color: var(--muted); margin-top: 2px; }
+
+  /* Pivot table */
+  .pivot-row { display: flex; align-items: center; gap: 6px; padding: 5px 0; border-bottom: 1px solid rgba(255,255,255,0.04); font-size: 0.68rem; }
+  .pivot-arrow { color: var(--accent4); }
+  .pivot-from, .pivot-to { color: var(--text); font-family: monospace; font-size: 0.66rem; }
+  .pivot-conf { margin-left: auto; font-size: 0.62rem; color: var(--accent3); }
+
+  /* Confidence gauge */
+  .conf-gauge-wrap { padding: 8px 0; }
+  .conf-bar-row    { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+  .conf-label      { font-size: 0.68rem; color: var(--muted); width: 120px; flex-shrink: 0; }
+  .conf-bar-bg     { flex: 1; height: 6px; background: rgba(255,255,255,0.06); border-radius: 3px; overflow: hidden; }
+  .conf-bar-fill   { height: 100%; border-radius: 3px; transition: width 0.8s ease; }
+  .conf-val        { font-size: 0.65rem; font-weight: 600; width: 36px; text-align: right; flex-shrink: 0; }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--accent); }
+
+  /* Live indicator */
+  .live-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent3); animation: pulse 1.5s infinite; display: inline-block; margin-right: 5px; }
+  @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.5;transform:scale(1.3)} }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="header">
+  <div class="header-icon">🕸️</div>
+  <div>
+    <div class="header-title">SENTINEL APEX — Graph Operations Center</div>
+    <div class="header-sub">Phase 52 · Graph-Native SOC Intelligence · v166 · <span class="live-dot"></span>LIVE</div>
+  </div>
+  <div class="header-badges">
+    <span class="badge badge-cyan">GRAPH-NATIVE</span>
+    <span class="badge badge-purple">REPLAY-BACKED</span>
+    <span class="badge badge-green">PRODUCTION</span>
+  </div>
+</div>
+
+<div class="layout">
+
+  <!-- ══ LEFT PANEL ══ -->
+  <div class="left-panel">
+    <!-- Stats -->
+    <div class="panel-section">
+      <div class="section-title">Graph Statistics</div>
+      <div class="stat-grid">
+        <div class="stat-card"><div class="stat-val cyan" id="stat-nodes">247</div><div class="stat-lbl">Nodes</div></div>
+        <div class="stat-card"><div class="stat-val purple" id="stat-edges">612</div><div class="stat-lbl">Edges</div></div>
+        <div class="stat-card"><div class="stat-val orange" id="stat-paths">18</div><div class="stat-lbl">Attack Paths</div></div>
+        <div class="stat-card"><div class="stat-val red" id="stat-anomalies">7</div><div class="stat-lbl">Anomalies</div></div>
+        <div class="stat-card"><div class="stat-val green" id="stat-campaigns">3</div><div class="stat-lbl">Campaigns</div></div>
+        <div class="stat-card"><div class="stat-val cyan" id="stat-pivots">14</div><div class="stat-lbl">Pivots</div></div>
+      </div>
+    </div>
+
+    <!-- Node Types -->
+    <div class="panel-section">
+      <div class="section-title">Node Types</div>
+      <div id="legend-list"></div>
+    </div>
+
+    <!-- Filters -->
+    <div class="panel-section">
+      <div class="section-title">Graph View</div>
+      <button class="filter-btn active" onclick="setView(this,'full')">🕸️ Full Graph</button>
+      <button class="filter-btn" onclick="setView(this,'attck')">🎯 ATT&CK Sequence</button>
+      <button class="filter-btn" onclick="setView(this,'infra')">🏗️ Infrastructure Pivots</button>
+      <button class="filter-btn" onclick="setView(this,'malware')">🦠 Malware Lineage</button>
+      <button class="filter-btn" onclick="setView(this,'campaign')">📡 Campaign Replay</button>
+      <button class="filter-btn" onclick="setView(this,'paths')">⚡ Attack Paths Only</button>
+    </div>
+
+    <!-- Attack Paths -->
+    <div class="panel-section">
+      <div class="section-title">Top Attack Paths</div>
+      <div id="path-list"></div>
+    </div>
+  </div>
+
+  <!-- ══ CENTER: GRAPH CANVAS ══ -->
+  <div class="graph-area">
+    <div class="graph-toolbar">
+      <button class="toolbar-btn active" id="btn-zoom-in"  onclick="zoom(1.2)">＋ Zoom</button>
+      <button class="toolbar-btn" id="btn-zoom-out" onclick="zoom(0.8)">－ Zoom</button>
+      <button class="toolbar-btn" onclick="resetView()">⟳ Reset</button>
+      <button class="toolbar-btn" onclick="runLayout('force')">⚛ Force</button>
+      <button class="toolbar-btn" onclick="runLayout('radial')">◎ Radial</button>
+      <button class="toolbar-btn" onclick="toggleReplayed()">▶ Replay Mode</button>
+      <input class="search-box" type="text" placeholder="🔍 Search node..." id="searchBox" oninput="filterNodes(this.value)">
+      <span style="margin-left:auto;font-size:0.68rem;color:var(--muted)">Confidence: <span id="global-conf" class="cyan">—</span></span>
+    </div>
+    <div class="graph-canvas-wrap">
+      <canvas id="graphCanvas"></canvas>
+      <div class="node-tooltip" id="nodeTooltip">
+        <div class="tooltip-title" id="tt-title"></div>
+        <div id="tt-body"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ RIGHT PANEL ══ -->
+  <div class="right-panel">
+    <!-- Anomalies -->
+    <div class="rp-section">
+      <div class="section-title">Graph Anomalies</div>
+      <div id="anomaly-list"></div>
+    </div>
+
+    <!-- Campaign Timeline -->
+    <div class="rp-section">
+      <div class="section-title">Campaign Timeline — APT29 Q1 2026</div>
+      <div id="campaign-timeline"></div>
+    </div>
+
+    <!-- Infrastructure Pivots -->
+    <div class="rp-section">
+      <div class="section-title">Infrastructure Pivots</div>
+      <div id="pivot-list"></div>
+    </div>
+
+    <!-- Confidence Scores -->
+    <div class="rp-section">
+      <div class="section-title">Graph Confidence Scores</div>
+      <div class="conf-gauge-wrap" id="conf-gauges"></div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ── DATA MODEL ────────────────────────────────────────────────────────────────
+const NODE_TYPES = {
+  host:               { color: '#3b82f6', label: 'Host',           icon: '🖥️'  },
+  process:            { color: '#ef4444', label: 'Process',        icon: '⚙️'  },
+  network_connection: { color: '#f59e0b', label: 'Network',        icon: '🌐'  },
+  user:               { color: '#10b981', label: 'User',           icon: '👤'  },
+  c2_server:          { color: '#dc2626', label: 'C2 Server',      icon: '📡'  },
+  domain:             { color: '#8b5cf6', label: 'Domain',         icon: '🔗'  },
+  file:               { color: '#06b6d4', label: 'File',           icon: '📄'  },
+  actor:              { color: '#f97316', label: 'Threat Actor',   icon: '🎭'  },
+  technique:          { color: '#a78bfa', label: 'Technique',      icon: '🎯'  },
+  malware:            { color: '#f43f5e', label: 'Malware',        icon: '🦠'  },
+};
+
+// Simulated graph nodes
+const NODES = [
+  { id:'n-user-001',   type:'user',               label:'CORP\\jsmith',          risk:7.0, attck:['T1078'],         x:0, y:0 },
+  { id:'n-host-001',   type:'host',               label:'WIN-WORKSTATION-07',    risk:6.5, attck:[],                x:0, y:0 },
+  { id:'n-proc-001',   type:'process',            label:'powershell.exe',        risk:8.2, attck:['T1059.001'],     x:0, y:0 },
+  { id:'n-proc-002',   type:'process',            label:'lsass.exe',             risk:9.1, attck:['T1003.001'],     x:0, y:0 },
+  { id:'n-proc-003',   type:'process',            label:'cmd.exe',               risk:7.4, attck:['T1059.003'],     x:0, y:0 },
+  { id:'n-net-001',    type:'network_connection', label:'185.220.101.45:443',    risk:9.5, attck:['T1071.001'],     x:0, y:0 },
+  { id:'n-domain-001', type:'domain',             label:'cdn-update.azurecdn.io',risk:8.8, attck:[],                x:0, y:0 },
+  { id:'n-c2-001',     type:'c2_server',          label:'C2-APEX-001',           risk:10,  attck:['T1071.001'],     x:0, y:0 },
+  { id:'n-file-001',   type:'file',               label:'beacon.exe',            risk:9.9, attck:['T1105','T1204'], x:0, y:0 },
+  { id:'n-host-002',   type:'host',               label:'WIN-SERVER-DC01',       risk:9.8, attck:[],                x:0, y:0 },
+  // Additional nodes for richer graph
+  { id:'n-actor-001',  type:'actor',              label:'APT29',                 risk:10,  attck:['T1059','T1055'], x:0, y:0 },
+  { id:'n-mal-001',    type:'malware',            label:'CobaltStrike Beacon',   risk:9.9, attck:['T1055','T1573'], x:0, y:0 },
+  { id:'n-domain-002', type:'domain',             label:'api-telemetry.cloud',   risk:7.5, attck:[],                x:0, y:0 },
+  { id:'n-proc-004',   type:'process',            label:'rundll32.exe',          risk:8.1, attck:['T1218.011'],     x:0, y:0 },
+  { id:'n-host-003',   type:'host',               label:'WIN-LAPTOP-CFO',        risk:8.5, attck:[],                x:0, y:0 },
+];
+
+const EDGES = [
+  { src:'n-user-001',  dst:'n-host-001',   type:'executed',        conf:0.95, replay:true  },
+  { src:'n-host-001',  dst:'n-proc-001',   type:'executed',        conf:0.95, replay:true  },
+  { src:'n-proc-001',  dst:'n-proc-002',   type:'injected_into',   conf:0.88, replay:true  },
+  { src:'n-proc-001',  dst:'n-proc-003',   type:'spawned',         conf:0.92, replay:true  },
+  { src:'n-proc-001',  dst:'n-net-001',    type:'connected_to',    conf:0.90, replay:true  },
+  { src:'n-proc-001',  dst:'n-file-001',   type:'wrote',           conf:0.87, replay:true  },
+  { src:'n-net-001',   dst:'n-domain-001', type:'resolved_to',     conf:0.85, replay:false },
+  { src:'n-domain-001',dst:'n-c2-001',     type:'associated_with', conf:0.80, replay:false },
+  { src:'n-proc-001',  dst:'n-c2-001',     type:'communicates',    conf:0.82, replay:true  },
+  { src:'n-proc-003',  dst:'n-c2-001',     type:'communicates',    conf:0.79, replay:true  },
+  { src:'n-proc-001',  dst:'n-host-002',   type:'connected_to',    conf:0.78, replay:false },
+  { src:'n-actor-001', dst:'n-proc-001',   type:'used',            conf:0.85, replay:false },
+  { src:'n-actor-001', dst:'n-mal-001',    type:'used',            conf:0.92, replay:false },
+  { src:'n-mal-001',   dst:'n-proc-001',   type:'executed',        conf:0.88, replay:true  },
+  { src:'n-host-001',  dst:'n-proc-004',   type:'executed',        conf:0.82, replay:true  },
+  { src:'n-proc-004',  dst:'n-c2-001',     type:'communicates',    conf:0.76, replay:true  },
+  { src:'n-proc-001',  dst:'n-host-003',   type:'pivoted_to',      conf:0.72, replay:false },
+  { src:'n-domain-002',dst:'n-c2-001',     type:'associated_with', conf:0.75, replay:false },
+  { src:'n-actor-001', dst:'n-domain-001', type:'used',            conf:0.80, replay:false },
+  { src:'n-actor-001', dst:'n-domain-002', type:'used',            conf:0.75, replay:false },
+];
+
+const ANOMALIES = [
+  { id:'anom-001', type:'BEACONING_PATTERN',          severity:8.5, label:'C2 Beacon Detected',          desc:'powershell.exe → C2-APEX-001 (3 events)',         priority:'CRITICAL' },
+  { id:'anom-002', type:'PRIVILEGE_ESCALATION_CHAIN', severity:9.0, label:'Privilege Escalation Chain',  desc:'T1068/T1055 across 3 nodes',                      priority:'CRITICAL' },
+  { id:'anom-003', type:'UNUSUAL_LATERAL_MOVEMENT',   severity:7.8, label:'Lateral Movement Detected',   desc:'powershell.exe → 5 lateral connections',          priority:'HIGH'     },
+  { id:'anom-004', type:'GRAPH_DENSITY_SPIKE',        severity:6.2, label:'Graph Density Spike',         desc:'n-proc-001 has 12 connections (density spike)',    priority:'HIGH'     },
+  { id:'anom-005', type:'NEW_INFRASTRUCTURE_PIVOT',   severity:7.5, label:'Infrastructure Pivot',        desc:'APT29: 185.220.101.45 → 195.144.122.87',          priority:'HIGH'     },
+  { id:'anom-006', type:'EXFILTRATION_PATH',          severity:8.0, label:'Potential Exfil Path',        desc:'DC01 → net-001 → C2 (3-hop exfil)',               priority:'CRITICAL' },
+  { id:'anom-007', type:'TEMPORAL_ANOMALY',           severity:5.8, label:'Temporal Sequence Anomaly',   desc:'Events out of expected order in campaign timeline',priority:'MEDIUM'   },
+];
+
+const CAMPAIGN_EVENTS = [
+  { seq:1, desc:'Initial access via valid credentials (T1078)',  ts:'2026-05-25 02:00 UTC' },
+  { seq:2, desc:'Workstation WIN-WORKSTATION-07 compromised',    ts:'2026-05-25 06:00 UTC' },
+  { seq:3, desc:'PowerShell execution — encoded command (T1059)',ts:'2026-05-25 10:00 UTC' },
+  { seq:4, desc:'LSASS memory dump — credential theft (T1003)',  ts:'2026-05-25 14:00 UTC' },
+  { seq:5, desc:'C2 beacon established — encrypted (T1071)',     ts:'2026-05-25 18:00 UTC' },
+  { seq:6, desc:'Lateral movement to DC01 (T1021)',              ts:'2026-05-26 00:00 UTC' },
+];
+
+const PIVOTS = [
+  { from:'185.220.101.45', to:'195.144.122.87',          type:'ip_rotation',   conf:0.85 },
+  { from:'cdn-update.azurecdn.io', to:'api-telemetry.cloud', type:'domain_reuse', conf:0.78 },
+  { from:'AS59577 Frantech', to:'AS204957 GreenFloid',   type:'asn_pivot',     conf:0.70 },
+  { from:'195.144.122.87', to:'91.108.4.0/22 Telegram',  type:'hosting_pivot', conf:0.65 },
+];
+
+const CONF_SCORES = [
+  { label:'Node Confidence',       val:0.912 },
+  { label:'Edge Confidence',       val:0.876 },
+  { label:'Replay Validation',     val:0.733 },
+  { label:'ATT&CK Annotation',     val:0.800 },
+  { label:'Composite Confidence',  val:0.865 },
+];
+
+// ── CANVAS GRAPH ──────────────────────────────────────────────────────────────
+const canvas = document.getElementById('graphCanvas');
+const ctx    = canvas.getContext('2d');
+let W, H, scale = 1, offX = 0, offY = 0;
+let dragging = false, lastX = 0, lastY = 0;
+let hoveredNode = null, selectedNode = null;
+let replayMode = false;
+let activeFilter = 'full';
+
+function resize() {
+  const wrap = canvas.parentElement;
+  W = canvas.width  = wrap.clientWidth;
+  H = canvas.height = wrap.clientHeight;
+  layoutNodes();
+  draw();
+}
+
+function layoutNodes(mode) {
+  const cx = W / 2, cy = H / 2;
+  if (mode === 'radial') {
+    // Radial — ring by type
+    const byType = {};
+    NODES.forEach(n => { (byType[n.type] = byType[n.type]||[]).push(n); });
+    const types = Object.keys(byType);
+    types.forEach((t, ti) => {
+      byType[t].forEach((n, ni) => {
+        const angle = (ti / types.length) * Math.PI * 2 + (ni / byType[t].length) * (Math.PI * 2 / types.length);
+        const r = 180 + ni * 30;
+        n.x = cx + Math.cos(angle) * r;
+        n.y = cy + Math.sin(angle) * r;
+      });
+    });
+  } else {
+    // Force-directed simulation (simplified)
+    NODES.forEach((n, i) => {
+      if (n.x === 0 && n.y === 0) {
+        const angle = (i / NODES.length) * Math.PI * 2;
+        const r = 120 + (i % 3) * 60;
+        n.x = cx + Math.cos(angle) * r;
+        n.y = cy + Math.sin(angle) * r;
+      }
+    });
+    // Run a few iterations
+    for (let iter = 0; iter < 80; iter++) {
+      // Repulsion
+      for (let i = 0; i < NODES.length; i++) {
+        for (let j = i + 1; j < NODES.length; j++) {
+          const dx = NODES[i].x - NODES[j].x;
+          const dy = NODES[i].y - NODES[j].y;
+          const d  = Math.sqrt(dx*dx + dy*dy) || 1;
+          const f  = 3000 / (d * d);
+          NODES[i].x += dx/d * f; NODES[i].y += dy/d * f;
+          NODES[j].x -= dx/d * f; NODES[j].y -= dy/d * f;
+        }
+      }
+      // Attraction
+      const nodeIdx = {};
+      NODES.forEach(n => nodeIdx[n.id] = n);
+      EDGES.forEach(e => {
+        const s = nodeIdx[e.src], d = nodeIdx[e.dst];
+        if (!s || !d) return;
+        const dx = d.x - s.x, dy = d.y - s.y;
+        const dist = Math.sqrt(dx*dx + dy*dy) || 1;
+        const f = dist * 0.04;
+        s.x += dx/dist * f; s.y += dy/dist * f;
+        d.x -= dx/dist * f; d.y -= dy/dist * f;
+      });
+      // Center gravity
+      const avgX = NODES.reduce((a,n) => a+n.x, 0) / NODES.length;
+      const avgY = NODES.reduce((a,n) => a+n.y, 0) / NODES.length;
+      NODES.forEach(n => { n.x += (cx - avgX) * 0.05; n.y += (cy - avgY) * 0.05; });
+    }
+  }
+}
+
+function draw() {
+  ctx.clearRect(0, 0, W, H);
+  ctx.save();
+  ctx.translate(offX, offY);
+  ctx.scale(scale, scale);
+
+  const nodeIdx = {};
+  NODES.forEach(n => nodeIdx[n.id] = n);
+
+  // Grid
+  ctx.strokeStyle = 'rgba(30,45,66,0.3)';
+  ctx.lineWidth = 0.5;
+  for (let x = -W; x < W*2; x += 60) { ctx.beginPath(); ctx.moveTo(x,−H); ctx.lineTo(x,H*2); ctx.stroke(); }
+  for (let y = -H; y < H*2; y += 60) { ctx.beginPath(); ctx.moveTo(-W,y); ctx.lineTo(W*2,y); ctx.stroke(); }
+
+  // Edges
+  EDGES.forEach(e => {
+    const s = nodeIdx[e.src], d = nodeIdx[e.dst];
+    if (!s || !d) return;
+    if (activeFilter === 'paths' && !e.replay) return;
+
+    const alpha = replayMode ? (e.replay ? 0.9 : 0.15) : 0.5;
+    ctx.strokeStyle = e.replay
+      ? `rgba(0,212,255,${alpha})`
+      : `rgba(100,116,139,${alpha})`;
+    ctx.lineWidth = e.replay ? 1.8 : 1;
+
+    // Arrow
+    const dx = d.x - s.x, dy = d.y - s.y;
+    const dist = Math.sqrt(dx*dx + dy*dy) || 1;
+    const r = 16;
+    const ex = d.x - dx/dist * r, ey = d.y - dy/dist * r;
+
+    ctx.beginPath();
+    ctx.moveTo(s.x, s.y);
+    ctx.lineTo(ex, ey);
+    ctx.stroke();
+
+    // Arrowhead
+    const angle = Math.atan2(dy, dx);
+    ctx.fillStyle = ctx.strokeStyle;
+    ctx.beginPath();
+    ctx.moveTo(ex, ey);
+    ctx.lineTo(ex - 8*Math.cos(angle-0.3), ey - 8*Math.sin(angle-0.3));
+    ctx.lineTo(ex - 8*Math.cos(angle+0.3), ey - 8*Math.sin(angle+0.3));
+    ctx.closePath();
+    ctx.fill();
+
+    // Edge confidence label
+    if (scale > 1.3) {
+      const mx = (s.x + d.x)/2, my = (s.y + d.y)/2;
+      ctx.fillStyle = 'rgba(100,116,139,0.8)';
+      ctx.font = '9px monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText((e.conf * 100).toFixed(0) + '%', mx, my - 5);
+    }
+  });
+
+  // Nodes
+  NODES.forEach(n => {
+    const nt = NODE_TYPES[n.type] || { color:'#64748b' };
+    const isHovered  = hoveredNode  && hoveredNode.id  === n.id;
+    const isSelected = selectedNode && selectedNode.id === n.id;
+    const r = isSelected ? 18 : isHovered ? 16 : 13;
+
+    // Risk glow
+    if (n.risk >= 8) {
+      const gradient = ctx.createRadialGradient(n.x, n.y, r, n.x, n.y, r*2.5);
+      gradient.addColorStop(0, `rgba(239,68,68,0.35)`);
+      gradient.addColorStop(1, `rgba(239,68,68,0)`);
+      ctx.beginPath(); ctx.arc(n.x, n.y, r*2.5, 0, Math.PI*2);
+      ctx.fillStyle = gradient; ctx.fill();
+    }
+
+    // Selection ring
+    if (isSelected) {
+      ctx.beginPath(); ctx.arc(n.x, n.y, r+4, 0, Math.PI*2);
+      ctx.strokeStyle = '#00d4ff'; ctx.lineWidth = 2; ctx.stroke();
+    }
+
+    // Node circle
+    ctx.beginPath(); ctx.arc(n.x, n.y, r, 0, Math.PI*2);
+    ctx.fillStyle = nt.color; ctx.fill();
+    ctx.strokeStyle = isHovered ? '#fff' : 'rgba(255,255,255,0.2)';
+    ctx.lineWidth = 1.5; ctx.stroke();
+
+    // Label
+    if (scale > 0.8) {
+      ctx.fillStyle = '#e2e8f0';
+      ctx.font = `bold ${Math.max(9, 10/scale)}px Segoe UI, system-ui`;
+      ctx.textAlign = 'center';
+      const maxLen = 18;
+      const lbl = n.label.length > maxLen ? n.label.slice(0,maxLen)+'…' : n.label;
+      ctx.fillText(lbl, n.x, n.y + r + 12);
+    }
+
+    // ATT&CK badges
+    if (n.attck.length > 0 && scale > 1.0) {
+      ctx.fillStyle = 'rgba(124,58,237,0.8)';
+      ctx.beginPath(); ctx.arc(n.x + r - 2, n.y - r + 2, 5, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = '#fff';
+      ctx.font = 'bold 7px Segoe UI';
+      ctx.textAlign = 'center';
+      ctx.fillText(n.attck.length, n.x + r - 2, n.y - r + 5);
+    }
+  });
+
+  ctx.restore();
+}
+
+// ── INTERACTION ───────────────────────────────────────────────────────────────
+function hitTest(mx, my) {
+  const nx = (mx - offX) / scale, ny = (my - offY) / scale;
+  for (let i = NODES.length - 1; i >= 0; i--) {
+    const n = NODES[i];
+    const dx = nx - n.x, dy = ny - n.y;
+    if (Math.sqrt(dx*dx + dy*dy) < 16) return n;
+  }
+  return null;
+}
+
+canvas.addEventListener('mousemove', e => {
+  const rect = canvas.getBoundingClientRect();
+  const mx = e.clientX - rect.left, my = e.clientY - rect.top;
+  if (dragging) {
+    offX += mx - lastX; offY += my - lastY;
+    lastX = mx; lastY = my;
+    draw(); return;
+  }
+  const node = hitTest(mx, my);
+  if (node !== hoveredNode) { hoveredNode = node; draw(); }
+  if (node) {
+    showTooltip(node, mx, my);
+  } else {
+    document.getElementById('nodeTooltip').style.display = 'none';
+  }
+});
+
+canvas.addEventListener('mousedown', e => {
+  const rect = canvas.getBoundingClientRect();
+  lastX = e.clientX - rect.left; lastY = e.clientY - rect.top;
+  dragging = true;
+});
+canvas.addEventListener('mouseup',   () => dragging = false);
+canvas.addEventListener('mouseleave',() => { dragging = false; hoveredNode = null; draw(); document.getElementById('nodeTooltip').style.display='none'; });
+
+canvas.addEventListener('click', e => {
+  const rect = canvas.getBoundingClientRect();
+  const n = hitTest(e.clientX - rect.left, e.clientY - rect.top);
+  selectedNode = n; draw();
+});
+
+canvas.addEventListener('wheel', e => {
+  e.preventDefault();
+  const f = e.deltaY < 0 ? 1.1 : 0.9;
+  const rect = canvas.getBoundingClientRect();
+  const mx = e.clientX - rect.left, my = e.clientY - rect.top;
+  offX = mx - (mx - offX) * f;
+  offY = my - (my - offY) * f;
+  scale *= f; draw();
+}, { passive:false });
+
+function showTooltip(n, mx, my) {
+  const tt = document.getElementById('nodeTooltip');
+  const nt = NODE_TYPES[n.type] || {};
+  document.getElementById('tt-title').textContent = `${nt.icon||'●'} ${n.label}`;
+  document.getElementById('tt-body').innerHTML = `
+    <div class="tooltip-row"><span class="tooltip-key">Type</span><span class="tooltip-val" style="color:${nt.color}">${nt.label||n.type}</span></div>
+    <div class="tooltip-row"><span class="tooltip-key">Risk Score</span><span class="tooltip-val" style="color:${n.risk>=8?'#ef4444':n.risk>=6?'#f59e0b':'#10b981'}">${n.risk.toFixed(1)}/10</span></div>
+    <div class="tooltip-row"><span class="tooltip-key">ATT&CK</span><span class="tooltip-val">${n.attck.join(', ')||'—'}</span></div>
+    <div class="tooltip-row"><span class="tooltip-key">ID</span><span class="tooltip-val" style="font-family:monospace;font-size:0.65rem">${n.id}</span></div>
+  `;
+  const rect = canvas.getBoundingClientRect();
+  tt.style.left = (mx + 14) + 'px';
+  tt.style.top  = Math.min(my - 10, H - 150) + 'px';
+  tt.style.display = 'block';
+}
+
+function zoom(f) {
+  scale *= f;
+  offX = W/2 - (W/2 - offX) * f;
+  offY = H/2 - (H/2 - offY) * f;
+  draw();
+}
+function resetView() { scale=1; offX=0; offY=0; draw(); }
+function runLayout(mode) { layoutNodes(mode); draw(); }
+function toggleReplayed() { replayMode = !replayMode; draw(); }
+function setView(btn, v) {
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  activeFilter = v;
+  draw();
+}
+function filterNodes(q) {
+  // Highlight matching nodes
+  NODES.forEach(n => n._highlighted = q.length > 1 && n.label.toLowerCase().includes(q.toLowerCase()));
+  draw();
+}
+
+// ── POPULATE PANELS ───────────────────────────────────────────────────────────
+function buildLegend() {
+  const counts = {};
+  NODES.forEach(n => counts[n.type] = (counts[n.type]||0) + 1);
+  const el = document.getElementById('legend-list');
+  el.innerHTML = Object.entries(NODE_TYPES).map(([type, info]) => `
+    <div class="legend-item">
+      <div class="legend-dot" style="background:${info.color}"></div>
+      <span>${info.icon} ${info.label}</span>
+      <span class="legend-count">${counts[type]||0}</span>
+    </div>
+  `).join('');
+}
+
+function buildPaths() {
+  const paths = [
+    { id:'p-001', from:'CORP\\jsmith', to:'C2-APEX-001', hops:5, conf:0.72, risk:8.9, replay:true  },
+    { id:'p-002', from:'WIN-WS-07',   to:'WIN-DC01',    hops:3, conf:0.80, risk:8.2, replay:true  },
+    { id:'p-003', from:'powershell',  to:'C2-APEX-001', hops:3, conf:0.84, risk:9.1, replay:true  },
+    { id:'p-004', from:'WIN-DC01',    to:'C2-APEX-001', hops:4, conf:0.71, risk:8.5, replay:false },
+  ];
+  document.getElementById('path-list').innerHTML = paths.map(p => `
+    <div class="path-item" onclick="highlightPath('${p.id}')">
+      <div class="path-label">${p.from} → ${p.to}</div>
+      <div class="path-meta">
+        <span class="path-sub">${p.hops} hops · Risk ${p.risk}</span>
+        <span style="font-size:0.62rem;color:${p.replay?'#10b981':'#64748b'}">${p.replay?'▶ Replay':'—'}</span>
+      </div>
+      <div style="margin-top:4px">
+        <div style="background:rgba(0,212,255,0.08);border-radius:3px;height:3px;width:${p.conf*100}%"></div>
+      </div>
+    </div>
+  `).join('');
+}
+
+function buildAnomalies() {
+  document.getElementById('anomaly-list').innerHTML = ANOMALIES.map(a => `
+    <div class="anomaly-card anomaly-${a.priority.toLowerCase()}">
+      <div class="anomaly-title">${a.label}</div>
+      <div class="anomaly-desc">${a.desc}</div>
+      <div class="anomaly-meta">
+        <span class="anomaly-badge ab-${a.priority.toLowerCase()}">${a.priority}</span>
+        <span style="font-size:0.62rem;color:var(--muted)">Severity ${a.severity}/10</span>
+      </div>
+    </div>
+  `).join('');
+}
+
+function buildCampaignTimeline() {
+  document.getElementById('campaign-timeline').innerHTML = CAMPAIGN_EVENTS.map(e => `
+    <div class="timeline-item">
+      <div class="timeline-seq">${e.seq}</div>
+      <div class="timeline-body">
+        <div class="timeline-desc">${e.desc}</div>
+        <div class="timeline-ts">${e.ts}</div>
+      </div>
+    </div>
+  `).join('');
+}
+
+function buildPivots() {
+  document.getElementById('pivot-list').innerHTML = PIVOTS.map(p => `
+    <div class="pivot-row">
+      <span class="pivot-from">${p.from}</span>
+      <span class="pivot-arrow">→</span>
+      <span class="pivot-to">${p.to}</span>
+      <span class="pivot-conf">${(p.conf*100).toFixed(0)}%</span>
+    </div>
+  `).join('');
+}
+
+function buildConfGauges() {
+  const colors = ['#00d4ff','#10b981','#f59e0b','#a78bfa','#00d4ff'];
+  document.getElementById('conf-gauges').innerHTML = CONF_SCORES.map((s,i) => `
+    <div class="conf-bar-row">
+      <span class="conf-label">${s.label}</span>
+      <div class="conf-bar-bg">
+        <div class="conf-bar-fill" style="width:${s.val*100}%;background:${colors[i]}"></div>
+      </div>
+      <span class="conf-val" style="color:${colors[i]}">${(s.val*100).toFixed(1)}%</span>
+    </div>
+  `).join('');
+  document.getElementById('global-conf').textContent = '86.5%';
+}
+
+function highlightPath(pid) {
+  // Pan to center and flash
+  offX = 0; offY = 0; scale = 1; draw();
+}
+
+// ── INIT ──────────────────────────────────────────────────────────────────────
+window.addEventListener('resize', resize);
+resize();
+buildLegend();
+buildPaths();
+buildAnomalies();
+buildCampaignTimeline();
+buildPivots();
+buildConfGauges();
+
+// Animate edges periodically
+setInterval(() => {
+  draw();
+}, 3000);
+</script>
+</body>
+</html>
