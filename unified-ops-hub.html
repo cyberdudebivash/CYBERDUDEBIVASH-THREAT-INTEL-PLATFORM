@@ -1,0 +1,969 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Unified Ops Hub — CYBERDUDEBIVASH® SENTINEL APEX Cyber Operations OS</title>
+<style>
+:root{
+  --bg:#040810;--surface:#07101c;--surface2:#0b1527;--surface3:#0f1d36;
+  --border:#16213a;--border2:#1c2d50;--accent:#00d4aa;--accent2:#6366f1;
+  --accent3:#00b4ff;--red:#ef4444;--orange:#f97316;--yellow:#f59e0b;
+  --text:#e2e8f0;--text2:#94a3b8;--muted:#64748b;--green:#22c55e;
+  --gold:#ffd700;--mono:'JetBrains Mono',Menlo,Consolas,monospace;
+  --sidebar-w:220px;--topbar-h:48px;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:var(--bg);color:var(--text);font-family:'Inter',system-ui,sans-serif;font-size:13px;height:100vh;overflow:hidden;display:flex;flex-direction:column;}
+
+/* ── TOPBAR ── */
+.topbar{height:var(--topbar-h);background:var(--surface);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 16px;gap:14px;flex-shrink:0;z-index:200;}
+.topbar-logo{display:flex;align-items:center;gap:8px;font-weight:800;font-size:13px;color:var(--accent);white-space:nowrap;}
+.topbar-logo svg{flex-shrink:0;}
+.topbar-divider{width:1px;height:24px;background:var(--border2);}
+.system-status{display:flex;align-items:center;gap:12px;flex:1;}
+.sys-chip{display:flex;align-items:center;gap:5px;font-size:10px;padding:3px 9px;border-radius:4px;border:1px solid;cursor:default;}
+.sys-chip.green{background:#22c55e10;border-color:#22c55e30;color:#22c55e;}
+.sys-chip.amber{background:#f59e0b10;border-color:#f59e0b30;color:#f59e0b;}
+.sys-chip.red{background:#ef444410;border-color:#ef444430;color:#ef4444;}
+.sys-dot{width:6px;height:6px;border-radius:50%;animation:blink 2s infinite;}
+.sys-dot.green{background:#22c55e;}
+.sys-dot.amber{background:#f59e0b;animation-delay:.5s;}
+.sys-dot.red{background:#ef4444;animation-delay:1s;}
+@keyframes blink{0%,100%{opacity:1;}50%{opacity:.3;}}
+.topbar-right{display:flex;align-items:center;gap:10px;margin-left:auto;}
+.topbar-time{font-size:11px;color:var(--muted);font-family:var(--mono);}
+.topbar-user{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text2);}
+.topbar-avatar{width:26px;height:26px;border-radius:50%;background:var(--accent)20;border:1px solid var(--accent)40;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:var(--accent);}
+
+/* ── MAIN LAYOUT ── */
+.main{display:flex;flex:1;overflow:hidden;}
+
+/* ── SIDEBAR ── */
+.sidebar{width:var(--sidebar-w);background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0;overflow-y:auto;}
+.sidebar-section{padding:10px 0;}
+.sidebar-section+.sidebar-section{border-top:1px solid var(--border);}
+.sidebar-label{font-size:9px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.09em;padding:0 14px 6px;}
+.nav-item{display:flex;align-items:center;gap:9px;padding:7px 14px;cursor:pointer;transition:.12s;border-left:2px solid transparent;color:var(--text2);font-size:12px;}
+.nav-item:hover{background:var(--surface2);color:var(--text);border-left-color:var(--border2);}
+.nav-item.active{background:var(--accent)0d;color:var(--accent);border-left-color:var(--accent);}
+.nav-item .ni-icon{width:14px;height:14px;opacity:.7;flex-shrink:0;}
+.nav-item.active .ni-icon{opacity:1;}
+.nav-badge{margin-left:auto;font-size:9px;padding:1px 6px;border-radius:10px;font-weight:700;}
+.nb-red{background:#ef444420;color:#ef4444;}
+.nb-amber{background:#f59e0b20;color:#f59e0b;}
+.nb-green{background:#22c55e20;color:#22c55e;}
+.nb-blue{background:#6366f120;color:#6366f1;}
+
+/* ── CONTENT ── */
+.content{flex:1;overflow:hidden;display:flex;flex-direction:column;}
+.tab-panels{flex:1;overflow:hidden;position:relative;}
+.tab-panel{position:absolute;inset:0;overflow-y:auto;padding:16px;display:none;}
+.tab-panel.active{display:block;}
+::-webkit-scrollbar{width:4px;height:4px;}
+::-webkit-scrollbar-track{background:transparent;}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px;}
+
+/* ── GRID HELPERS ── */
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;}
+.grid4{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px;}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:14px;}
+.card-sm{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px;}
+.card-title{font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px;}
+.kpi-big{font-size:28px;font-weight:800;}
+.kpi-sub{font-size:10px;color:var(--muted);margin-top:2px;}
+.kpi-trend{font-size:10px;margin-top:4px;}
+.kpi-trend.up{color:var(--green);}
+.kpi-trend.down{color:var(--red);}
+
+/* ── STATUS TABLE ── */
+.status-table{width:100%;border-collapse:collapse;}
+.status-table th{padding:6px 10px;text-align:left;color:var(--muted);font-size:9px;text-transform:uppercase;border-bottom:1px solid var(--border);font-weight:700;}
+.status-table td{padding:7px 10px;border-bottom:1px solid var(--border)0d;font-size:11px;color:var(--text2);}
+.status-table tr:hover td{background:var(--surface2);}
+.sev-dot{width:8px;height:8px;border-radius:50%;display:inline-block;}
+
+/* ── PROGRESS BARS ── */
+.prog-row{display:flex;align-items:center;gap:8px;margin-bottom:7px;}
+.prog-label{font-size:10px;color:var(--text2);width:110px;flex-shrink:0;}
+.prog-bar{flex:1;height:4px;background:var(--surface3);border-radius:2px;}
+.prog-fill{height:100%;border-radius:2px;}
+.prog-val{font-size:10px;color:var(--muted);width:35px;text-align:right;}
+
+/* ── ALERT FEED ── */
+.alert-feed{display:flex;flex-direction:column;gap:5px;}
+.alert-item{display:flex;gap:10px;padding:9px 10px;background:var(--surface2);border-radius:6px;border:1px solid var(--border);border-left:3px solid;}
+.alert-item.crit{border-left-color:#ef4444;}
+.alert-item.high{border-left-color:#f97316;}
+.alert-item.med{border-left-color:#f59e0b;}
+.alert-item.low{border-left-color:#22c55e;}
+.alert-left{flex-shrink:0;}
+.alert-sev{font-size:9px;font-weight:700;padding:2px 5px;border-radius:3px;}
+.sev-crit{background:#ef444420;color:#ef4444;}
+.sev-high{background:#f9731620;color:#f97316;}
+.sev-med{background:#f59e0b20;color:#f59e0b;}
+.sev-low{background:#22c55e20;color:#22c55e;}
+.alert-body{flex:1;}
+.alert-title{font-size:11px;font-weight:600;color:var(--text);margin-bottom:2px;}
+.alert-detail{font-size:10px;color:var(--muted);}
+.alert-time{font-size:9px;color:var(--muted);font-family:var(--mono);flex-shrink:0;}
+
+/* ── TIMELINE ── */
+.timeline{display:flex;flex-direction:column;gap:0;}
+.tl-item{display:flex;gap:12px;padding-bottom:12px;position:relative;}
+.tl-item::after{content:'';position:absolute;left:14px;top:20px;bottom:0;width:1px;background:var(--border);}
+.tl-item:last-child::after{display:none;}
+.tl-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;margin-top:5px;position:relative;z-index:1;}
+.tl-content{flex:1;}
+.tl-event{font-size:11px;font-weight:600;color:var(--text);margin-bottom:2px;}
+.tl-detail{font-size:10px;color:var(--muted);}
+.tl-time{font-size:9px;color:var(--muted);font-family:var(--mono);}
+
+/* ── HEAT MAP ── */
+.heatmap-grid{display:grid;grid-template-columns:repeat(24,1fr);gap:2px;}
+.heat-cell{height:14px;border-radius:2px;cursor:pointer;transition:.15s;}
+.heat-cell:hover{transform:scaleY(1.4);}
+
+/* ── MINI SPARK ── */
+.spark{display:flex;align-items:flex-end;gap:2px;height:32px;}
+.spark-bar{width:6px;border-radius:1px 1px 0 0;transition:.3s;}
+
+/* ── MODULE GRID ── */
+.module-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;}
+.module-card{padding:14px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;cursor:pointer;transition:.15s;}
+.module-card:hover{border-color:var(--accent)50;background:var(--surface3);}
+.module-card.connected{border-color:var(--green)30;}
+.module-icon{font-size:22px;margin-bottom:8px;}
+.module-name{font-size:11px;font-weight:700;color:var(--text);margin-bottom:3px;}
+.module-desc{font-size:10px;color:var(--muted);margin-bottom:8px;line-height:1.4;}
+.module-status{display:flex;align-items:center;gap:5px;font-size:9px;}
+
+/* ── BUTTONS ── */
+.btn{padding:5px 12px;border-radius:5px;font-size:11px;font-weight:600;border:none;cursor:pointer;transition:.15s;}
+.btn-primary{background:var(--accent);color:#000;}
+.btn-primary:hover{background:#00e8bb;}
+.btn-ghost{background:transparent;color:var(--text2);border:1px solid var(--border2);}
+.btn-ghost:hover{border-color:var(--accent)50;color:var(--accent);}
+.btn-red{background:#ef444420;color:#ef4444;border:1px solid #ef444430;}
+.btn-red:hover{background:#ef444440;}
+
+/* ── TABS WITHIN PANEL ── */
+.inner-tabs{display:flex;gap:4px;margin-bottom:12px;flex-wrap:wrap;}
+.inner-tab{padding:5px 12px;border-radius:5px;cursor:pointer;color:var(--text2);font-size:11px;border:1px solid var(--border);background:none;transition:.12s;}
+.inner-tab:hover{border-color:var(--accent)40;color:var(--text);}
+.inner-tab.active{background:var(--accent)15;color:var(--accent);border-color:var(--accent)50;}
+
+/* ── SECTION HEADER ── */
+.sec-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}
+.sec-title{font-size:12px;font-weight:700;color:var(--text);}
+.sec-meta{font-size:10px;color:var(--muted);}
+
+/* ── IOC ROW ── */
+.ioc-row{display:flex;align-items:center;gap:8px;padding:6px 8px;background:var(--surface2);border-radius:4px;border:1px solid var(--border);margin-bottom:4px;font-size:10px;}
+.ioc-badge{padding:1px 6px;border-radius:3px;font-size:9px;font-weight:700;flex-shrink:0;}
+
+/* ATTCK MATRIX MINI */
+.attck-mini{display:grid;grid-template-columns:repeat(14,1fr);gap:2px;overflow-x:auto;}
+.attck-col{display:flex;flex-direction:column;gap:2px;}
+.attck-tactic{font-size:7px;color:var(--muted);text-align:center;padding:3px 1px;font-weight:700;text-transform:uppercase;}
+.attck-tech{height:16px;border-radius:2px;cursor:pointer;transition:.15s;font-size:7px;color:transparent;display:flex;align-items:center;justify-content:center;}
+.attck-tech:hover{color:#fff;transform:scale(1.05);}
+.attck-none{background:var(--surface3);}
+.attck-low{background:#f59e0b30;}
+.attck-med{background:#f9731640;}
+.attck-high{background:#ef444460;}
+.attck-crit{background:#ef4444;color:#fff;}
+</style>
+</head>
+<body>
+
+<!-- TOPBAR -->
+<div class="topbar">
+  <div class="topbar-logo">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+      <polygon points="12,2 22,20 2,20" fill="none" stroke="#00d4aa" stroke-width="1.5"/>
+      <circle cx="12" cy="13" r="2.5" fill="#00d4aa"/>
+    </svg>
+    SENTINEL APEX
+    <span style="font-size:9px;font-weight:500;color:var(--muted);">UNIFIED OPS HUB</span>
+  </div>
+  <div class="topbar-divider"></div>
+  <div class="system-status">
+    <div class="sys-chip green"><div class="sys-dot green"></div>SOC LIVE</div>
+    <div class="sys-chip green"><div class="sys-dot green"></div>TELEMETRY OK</div>
+    <div class="sys-chip amber"><div class="sys-dot amber"></div>3 ACTIVE HUNTS</div>
+    <div class="sys-chip red"><div class="sys-dot red"></div>2 CRITICAL ALERTS</div>
+    <div class="sys-chip green"><div class="sys-dot green"></div>AI RUNTIME OK</div>
+    <div class="sys-chip green"><div class="sys-dot green"></div>GRAPH HEALTHY</div>
+  </div>
+  <div class="topbar-right">
+    <div class="topbar-time" id="sys-clock">--:--:--</div>
+    <div class="topbar-divider"></div>
+    <div class="topbar-user">
+      <div class="topbar-avatar">BD</div>
+      <span>BIVASH</span>
+    </div>
+  </div>
+</div>
+
+<div class="main">
+
+  <!-- SIDEBAR -->
+  <div class="sidebar">
+    <!-- Overview -->
+    <div class="sidebar-section">
+      <div class="sidebar-label">Operations</div>
+      <div class="nav-item active" data-panel="overview">
+        <svg class="ni-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+        Overview
+      </div>
+      <div class="nav-item" data-panel="soc">
+        <svg class="ni-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="12" x2="16" y2="14"/></svg>
+        SOC Workspace
+        <span class="nav-badge nb-red">2</span>
+      </div>
+      <div class="nav-item" data-panel="cti">
+        <svg class="ni-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+        CTI Workflows
+        <span class="nav-badge nb-amber">5</span>
+      </div>
+      <div class="nav-item" data-panel="telemetry">
+        <svg class="ni-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+        Telemetry
+        <span class="nav-badge nb-green">LIVE</span>
+      </div>
+    </div>
+    <div class="sidebar-section">
+      <div class="sidebar-label">Intelligence</div>
+      <div class="nav-item" data-panel="graph">
+        <svg class="ni-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+        Threat Graph
+      </div>
+      <div class="nav-item" data-panel="replay">
+        <svg class="ni-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+        Replay Engine
+        <span class="nav-badge nb-blue">3</span>
+      </div>
+      <div class="nav-item" data-panel="attck">
+        <svg class="ni-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        ATT&CK Matrix
+      </div>
+    </div>
+    <div class="sidebar-section">
+      <div class="sidebar-label">Platform</div>
+      <div class="nav-item" data-panel="ai">
+        <svg class="ni-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8m-4-4v4"/></svg>
+        AI Runtime
+      </div>
+      <div class="nav-item" data-panel="mssp">
+        <svg class="ni-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87m-4-12a4 4 0 010 7.75"/></svg>
+        MSSP Console
+      </div>
+      <div class="nav-item" data-panel="modules">
+        <svg class="ni-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+        All Modules
+      </div>
+    </div>
+
+    <!-- Platform health footer -->
+    <div style="padding:12px;border-top:1px solid var(--border);margin-top:auto;">
+      <div style="font-size:9px;color:var(--muted);margin-bottom:6px;text-transform:uppercase;font-weight:700;">Platform v165</div>
+      <div class="prog-row">
+        <span class="prog-label" style="width:70px;font-size:9px;">Uptime</span>
+        <div class="prog-bar"><div class="prog-fill" style="width:99.7%;background:#22c55e;"></div></div>
+        <span class="prog-val" style="font-size:9px;">99.7%</span>
+      </div>
+      <div class="prog-row">
+        <span class="prog-label" style="width:70px;font-size:9px;">Ingest Rate</span>
+        <div class="prog-bar"><div class="prog-fill" style="width:76%;background:#00d4aa;"></div></div>
+        <span class="prog-val" style="font-size:9px;">76%</span>
+      </div>
+      <div class="prog-row">
+        <span class="prog-label" style="width:70px;font-size:9px;">AI Health</span>
+        <div class="prog-bar"><div class="prog-fill" style="width:93%;background:#6366f1;"></div></div>
+        <span class="prog-val" style="font-size:9px;">93%</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- CONTENT -->
+  <div class="content">
+    <div class="tab-panels">
+
+      <!-- ── OVERVIEW ── -->
+      <div class="tab-panel active" id="panel-overview">
+        <!-- KPI Row -->
+        <div class="grid4" style="margin-bottom:12px;">
+          <div class="card-sm">
+            <div class="card-title">Active Alerts</div>
+            <div class="kpi-big" style="color:#ef4444;" id="kpi-alerts">247</div>
+            <div class="kpi-trend down">▲ 12 since last hour</div>
+          </div>
+          <div class="card-sm">
+            <div class="card-title">IOCs Tracked</div>
+            <div class="kpi-big" style="color:var(--accent);" id="kpi-iocs">14,832</div>
+            <div class="kpi-trend up">▲ 284 today</div>
+          </div>
+          <div class="card-sm">
+            <div class="card-title">Threat Actors</div>
+            <div class="kpi-big" style="color:#6366f1;" id="kpi-actors">187</div>
+            <div class="kpi-trend up">▲ 3 newly identified</div>
+          </div>
+          <div class="card-sm">
+            <div class="card-title">Replay Sessions</div>
+            <div class="kpi-big" style="color:#f97316;" id="kpi-replay">4,219</div>
+            <div class="kpi-trend up">▲ 94 completed today</div>
+          </div>
+        </div>
+
+        <div class="grid2" style="margin-bottom:12px;">
+          <!-- Live Alert Feed -->
+          <div class="card">
+            <div class="sec-header">
+              <div class="sec-title">Live Alert Stream</div>
+              <span style="font-size:9px;color:var(--green);display:flex;align-items:center;gap:4px;"><span style="width:6px;height:6px;background:var(--green);border-radius:50%;display:inline-block;animation:blink 1.5s infinite;"></span>LIVE</span>
+            </div>
+            <div class="alert-feed" id="alert-feed">
+              <div class="alert-item crit">
+                <div class="alert-left"><span class="alert-sev sev-crit">CRIT</span></div>
+                <div class="alert-body"><div class="alert-title">APT29 Lateral Movement Detected</div><div class="alert-detail">185.220.101.47 → PROD-SRV-07 · COBALT STRIKE beacon confirmed</div></div>
+                <span class="alert-time">00:04</span>
+              </div>
+              <div class="alert-item crit">
+                <div class="alert-left"><span class="alert-sev sev-crit">CRIT</span></div>
+                <div class="alert-body"><div class="alert-title">Scattered Spider MFA Fatigue Attack</div><div class="alert-detail">14 MFA push spam events · identity: svc-admin@corp.local</div></div>
+                <span class="alert-time">00:07</span>
+              </div>
+              <div class="alert-item high">
+                <div class="alert-left"><span class="alert-sev sev-high">HIGH</span></div>
+                <div class="alert-body"><div class="alert-title">ALPHV Ransomware Staging Detected</div><div class="alert-detail">VSS deletion + WMIC abuse · host: WORKST-049</div></div>
+                <span class="alert-time">00:11</span>
+              </div>
+              <div class="alert-item high">
+                <div class="alert-left"><span class="alert-sev sev-high">HIGH</span></div>
+                <div class="alert-body"><div class="alert-title">Lazarus Supply Chain C2 Callback</div><div class="alert-detail">Trojanized NPM pkg · 91.108.4.119:443 · TLS JA3 match</div></div>
+                <span class="alert-time">00:14</span>
+              </div>
+              <div class="alert-item med">
+                <div class="alert-left"><span class="alert-sev sev-med">MED</span></div>
+                <div class="alert-body"><div class="alert-title">HAFNIUM Exchange Web Shell</div><div class="alert-detail">CVE-2021-27065 · /aspnet_client/ · EXCHANGE-02</div></div>
+                <span class="alert-time">00:19</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Platform Readiness -->
+          <div class="card">
+            <div class="sec-header">
+              <div class="sec-title">Platform Readiness</div>
+              <span style="font-size:10px;color:var(--accent);">v165 · Phase 47</span>
+            </div>
+            <div class="prog-row">
+              <span class="prog-label">Enterprise CTI</span>
+              <div class="prog-bar"><div class="prog-fill" style="width:93%;background:var(--accent);"></div></div>
+              <span class="prog-val">93/100</span>
+            </div>
+            <div class="prog-row">
+              <span class="prog-label">MSSP Readiness</span>
+              <div class="prog-bar"><div class="prog-fill" style="width:92%;background:#6366f1;"></div></div>
+              <span class="prog-val">92/100</span>
+            </div>
+            <div class="prog-row">
+              <span class="prog-label">SOC Operations</span>
+              <div class="prog-bar"><div class="prog-fill" style="width:91%;background:#00b4ff;"></div></div>
+              <span class="prog-val">91/100</span>
+            </div>
+            <div class="prog-row">
+              <span class="prog-label">Telemetry Native</span>
+              <div class="prog-bar"><div class="prog-fill" style="width:90%;background:#22c55e;"></div></div>
+              <span class="prog-val">90/100</span>
+            </div>
+            <div class="prog-row">
+              <span class="prog-label">ATT&CK Depth</span>
+              <div class="prog-bar"><div class="prog-fill" style="width:91%;background:#f97316;"></div></div>
+              <span class="prog-val">91/100</span>
+            </div>
+            <div class="prog-row">
+              <span class="prog-label">API Economy</span>
+              <div class="prog-bar"><div class="prog-fill" style="width:90%;background:#f59e0b;"></div></div>
+              <span class="prog-val">90/100</span>
+            </div>
+            <div class="prog-row">
+              <span class="prog-label">AI Runtime</span>
+              <div class="prog-bar"><div class="prog-fill" style="width:91%;background:#ef4444;"></div></div>
+              <span class="prog-val">91/100</span>
+            </div>
+            <div class="prog-row">
+              <span class="prog-label">Infra Scale</span>
+              <div class="prog-bar"><div class="prog-fill" style="width:92%;background:#a855f7;"></div></div>
+              <span class="prog-val">91.6/100</span>
+            </div>
+            <div style="padding:10px;background:var(--accent)0d;border:1px solid var(--accent)20;border-radius:6px;margin-top:10px;text-align:center;">
+              <div style="font-size:20px;font-weight:800;color:var(--accent);">91.3 / 100</div>
+              <div style="font-size:10px;color:var(--muted);">Overall Production Score · All 9 dimensions ≥ 90</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Telemetry Heatmap 24h -->
+        <div class="card" style="margin-bottom:12px;">
+          <div class="sec-header">
+            <div class="sec-title">24-Hour Telemetry Heatmap</div>
+            <span class="sec-meta">Events by hour · Today</span>
+          </div>
+          <div style="display:flex;gap:0;margin-bottom:4px;">
+            <div style="width:80px;flex-shrink:0;"></div>
+            <div id="hour-labels" style="display:flex;flex:1;"></div>
+          </div>
+          <div id="heatmap-rows"></div>
+        </div>
+
+        <!-- Active Campaigns Summary -->
+        <div class="card">
+          <div class="sec-header">
+            <div class="sec-title">Active Campaign Intelligence</div>
+            <button class="btn btn-ghost" style="font-size:10px;">View All</button>
+          </div>
+          <table class="status-table">
+            <thead><tr><th>Campaign</th><th>Actor</th><th>Severity</th><th>Evidence</th><th>Conf</th><th>TTPs</th><th>Status</th></tr></thead>
+            <tbody>
+              <tr><td>COZY BEAR INFRA Q2</td><td>APT29</td><td><span class="sev-dot" style="background:#ef4444;"></span> CRITICAL</td><td>Telemetry+Graph+Infra</td><td>91%</td><td>T1566,T1486,T1055</td><td style="color:#ef4444;">ACTIVE</td></tr>
+              <tr><td>SUPPLY CHAIN INTRUDER</td><td>LAZARUS</td><td><span class="sev-dot" style="background:#ef4444;"></span> CRITICAL</td><td>Telemetry+Replay</td><td>87%</td><td>T1195,T1059,T1041</td><td style="color:#ef4444;">ACTIVE</td></tr>
+              <tr><td>RANSOMWARE STAGING B2</td><td>ALPHV</td><td><span class="sev-dot" style="background:#f97316;"></span> HIGH</td><td>Honeynet+Graph</td><td>84%</td><td>T1486,T1490,T1070</td><td style="color:#f59e0b;">CONTAINED</td></tr>
+              <tr><td>EXCHANGE FOOTHOLD C7</td><td>HAFNIUM</td><td><span class="sev-dot" style="background:#f97316;"></span> HIGH</td><td>Sinkhole+Infra</td><td>79%</td><td>T1190,T1505,T1560</td><td style="color:#f59e0b;">CONTAINED</td></tr>
+              <tr><td>MFA FATIGUE SPRAY X4</td><td>SCATTERED SPIDER</td><td><span class="sev-dot" style="background:#ef4444;"></span> CRITICAL</td><td>Telemetry+Identity</td><td>88%</td><td>T1621,T1078,T1539</td><td style="color:#ef4444;">ACTIVE</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ── SOC WORKSPACE ── -->
+      <div class="tab-panel" id="panel-soc">
+        <div class="sec-header">
+          <div class="sec-title">SOC Workspace — Analyst Command Center</div>
+          <div style="display:flex;gap:6px;">
+            <button class="btn btn-primary">New Investigation</button>
+            <button class="btn btn-ghost">Assign Alert</button>
+          </div>
+        </div>
+        <div class="inner-tabs">
+          <button class="inner-tab active">Queue (247)</button>
+          <button class="inner-tab">Active Investigations (8)</button>
+          <button class="inner-tab">Playbooks</button>
+          <button class="inner-tab">Escalations</button>
+        </div>
+
+        <div class="grid2" style="margin-bottom:12px;">
+          <!-- Alert Queue -->
+          <div class="card">
+            <div class="card-title">Priority Alert Queue</div>
+            <div class="alert-feed">
+              <div class="alert-item crit">
+                <div class="alert-left"><span class="alert-sev sev-crit">CRIT</span></div>
+                <div class="alert-body"><div class="alert-title">Privilege Escalation — PROD-DC-01</div><div class="alert-detail">SeDebugPrivilege abuse · lsass dump · mimikatz signature</div></div>
+                <span class="alert-time">00:02</span>
+              </div>
+              <div class="alert-item crit">
+                <div class="alert-left"><span class="alert-sev sev-crit">CRIT</span></div>
+                <div class="alert-body"><div class="alert-title">Ransomware Pre-Stage: VSS Delete</div><div class="alert-detail">vssadmin.exe delete shadows /all /quiet · WORKST-049</div></div>
+                <span class="alert-time">00:05</span>
+              </div>
+              <div class="alert-item high">
+                <div class="alert-left"><span class="alert-sev sev-high">HIGH</span></div>
+                <div class="alert-body"><div class="alert-title">C2 Callback — Cobalt Strike</div><div class="alert-detail">Beacon heartbeat 60s · 185.220.101.47:443 · HTTPS</div></div>
+                <span class="alert-time">00:08</span>
+              </div>
+              <div class="alert-item high">
+                <div class="alert-left"><span class="alert-sev sev-high">HIGH</span></div>
+                <div class="alert-body"><div class="alert-title">Identity: MFA Bypass Attempt</div><div class="alert-detail">Push notification flood · svc-admin · 14 denials</div></div>
+                <span class="alert-time">00:11</span>
+              </div>
+              <div class="alert-item med">
+                <div class="alert-left"><span class="alert-sev sev-med">MED</span></div>
+                <div class="alert-body"><div class="alert-title">Lateral Movement: SMB Relay</div><div class="alert-detail">Responder activity · 10.1.4.23 → DC-01</div></div>
+                <span class="alert-time">00:16</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- SOC Analyst KPIs -->
+          <div class="card">
+            <div class="card-title">SOC Operational Metrics</div>
+            <div class="grid2" style="gap:8px;margin-bottom:10px;">
+              <div style="background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:10px;text-align:center;">
+                <div style="font-size:22px;font-weight:800;color:var(--accent);">4.2m</div>
+                <div style="font-size:9px;color:var(--muted);">Mean Detection Time</div>
+              </div>
+              <div style="background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:10px;text-align:center;">
+                <div style="font-size:22px;font-weight:800;color:#6366f1;">18.7m</div>
+                <div style="font-size:9px;color:var(--muted);">Mean Response Time</div>
+              </div>
+              <div style="background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:10px;text-align:center;">
+                <div style="font-size:22px;font-weight:800;color:#22c55e;">94.2%</div>
+                <div style="font-size:9px;color:var(--muted);">True Positive Rate</div>
+              </div>
+              <div style="background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:10px;text-align:center;">
+                <div style="font-size:22px;font-weight:800;color:#f59e0b;">2.1%</div>
+                <div style="font-size:9px;color:var(--muted);">False Positive Rate</div>
+              </div>
+            </div>
+            <!-- SOC workflow timeline -->
+            <div class="card-title">Active Investigation Timeline</div>
+            <div class="timeline">
+              <div class="tl-item">
+                <div class="tl-dot" style="background:#ef4444;"></div>
+                <div class="tl-content">
+                  <div class="tl-event">APT29 Lateral Movement Triaged</div>
+                  <div class="tl-detail">Analyst: SOC-02 · ATT&CK: T1021 · Playbook: APT-LM-001</div>
+                </div>
+                <div class="tl-time">00:06</div>
+              </div>
+              <div class="tl-item">
+                <div class="tl-dot" style="background:#f97316;"></div>
+                <div class="tl-content">
+                  <div class="tl-event">ALPHV Pre-Encryption Stage Blocked</div>
+                  <div class="tl-detail">EDR isolation: WORKST-049 · Forensic snapshot taken</div>
+                </div>
+                <div class="tl-time">00:09</div>
+              </div>
+              <div class="tl-item">
+                <div class="tl-dot" style="background:#6366f1;"></div>
+                <div class="tl-content">
+                  <div class="tl-event">MFA Bypass Escalated to Tier-2</div>
+                  <div class="tl-detail">Identity team notified · AD account locked · investigation open</div>
+                </div>
+                <div class="tl-time">00:13</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── CTI WORKFLOWS ── -->
+      <div class="tab-panel" id="panel-cti">
+        <div class="sec-header">
+          <div class="sec-title">CTI Workflows — Threat Intelligence Ops</div>
+          <button class="btn btn-primary">New Report</button>
+        </div>
+        <div class="inner-tabs">
+          <button class="inner-tab active">Active Hunts</button>
+          <button class="inner-tab">Dossiers</button>
+          <button class="inner-tab">Actor Profiles</button>
+          <button class="inner-tab">STIX Export</button>
+        </div>
+
+        <div class="grid3" style="margin-bottom:12px;">
+          <div class="card">
+            <div class="card-title">IOC Pipeline</div>
+            <div class="prog-row"><span class="prog-label">Ingested</span><div class="prog-bar"><div class="prog-fill" style="width:100%;background:var(--accent);"></div></div><span class="prog-val">47,284</span></div>
+            <div class="prog-row"><span class="prog-label">Enriched</span><div class="prog-bar"><div class="prog-fill" style="width:91%;background:#6366f1;"></div></div><span class="prog-val">43,018</span></div>
+            <div class="prog-row"><span class="prog-label">Validated</span><div class="prog-bar"><div class="prog-fill" style="width:78%;background:#22c55e;"></div></div><span class="prog-val">36,881</span></div>
+            <div class="prog-row"><span class="prog-label">Aged Out</span><div class="prog-bar"><div class="prog-fill" style="width:12%;background:#ef4444;"></div></div><span class="prog-val">5,674</span></div>
+          </div>
+          <div class="card">
+            <div class="card-title">Actor Attribution Coverage</div>
+            <div class="prog-row"><span class="prog-label">High Conf ≥80%</span><div class="prog-bar"><div class="prog-fill" style="width:74%;background:#ef4444;"></div></div><span class="prog-val">74%</span></div>
+            <div class="prog-row"><span class="prog-label">Med Conf 50-79%</span><div class="prog-bar"><div class="prog-fill" style="width:18%;background:#f59e0b;"></div></div><span class="prog-val">18%</span></div>
+            <div class="prog-row"><span class="prog-label">Ambiguous &lt;50%</span><div class="prog-bar"><div class="prog-fill" style="width:8%;background:var(--muted);"></div></div><span class="prog-val">8%</span></div>
+          </div>
+          <div class="card">
+            <div class="card-title">Dossier Quality</div>
+            <div class="prog-row"><span class="prog-label">Evidence Depth</span><div class="prog-bar"><div class="prog-fill" style="width:89%;background:var(--accent);"></div></div><span class="prog-val">89%</span></div>
+            <div class="prog-row"><span class="prog-label">ATT&CK Richness</span><div class="prog-bar"><div class="prog-fill" style="width:91%;background:#6366f1;"></div></div><span class="prog-val">91%</span></div>
+            <div class="prog-row"><span class="prog-label">Replay Validation</span><div class="prog-bar"><div class="prog-fill" style="width:84%;background:#22c55e;"></div></div><span class="prog-val">84%</span></div>
+          </div>
+        </div>
+
+        <!-- IOC Feed -->
+        <div class="card">
+          <div class="sec-header"><div class="sec-title">High-Confidence IOC Feed</div><span class="sec-meta">Updated 30s ago</span></div>
+          <div>
+            <div class="ioc-row"><span class="ioc-badge" style="background:#6366f120;color:#6366f1;border:1px solid #6366f130;">IP</span><span style="font-family:var(--mono);font-size:10px;flex:1;">185.220.101.47</span><span style="font-size:9px;color:var(--muted);">APT29 C2</span><span style="font-size:9px;color:var(--accent);margin-left:auto;">91% conf · 47 hits</span></div>
+            <div class="ioc-row"><span class="ioc-badge" style="background:#00d4aa20;color:#00d4aa;border:1px solid #00d4aa30;">DOM</span><span style="font-family:var(--mono);font-size:10px;flex:1;">update-srv.cozy[.]io</span><span style="font-size:9px;color:var(--muted);">APT29 staging</span><span style="font-size:9px;color:var(--accent);margin-left:auto;">88% conf · 23 hits</span></div>
+            <div class="ioc-row"><span class="ioc-badge" style="background:#f59e0b20;color:#f59e0b;border:1px solid #f59e0b30;">HASH</span><span style="font-family:var(--mono);font-size:10px;flex:1;">a3f4b7c12e8d0195e6f2…</span><span style="font-size:9px;color:var(--muted);">Cobalt Strike loader</span><span style="font-size:9px;color:var(--accent);margin-left:auto;">95% conf · 12 hits</span></div>
+            <div class="ioc-row"><span class="ioc-badge" style="background:#6366f120;color:#6366f1;border:1px solid #6366f130;">IP</span><span style="font-family:var(--mono);font-size:10px;flex:1;">91.108.4.119</span><span style="font-size:9px;color:var(--muted);">Lazarus relay</span><span style="font-size:9px;color:var(--accent);margin-left:auto;">77% conf · 8 hits</span></div>
+            <div class="ioc-row"><span class="ioc-badge" style="background:#f9731620;color:#f97316;border:1px solid #f9731630;">URL</span><span style="font-family:var(--mono);font-size:10px;flex:1;">/api/v2/beacon?h={id}</span><span style="font-size:9px;color:var(--muted);">CS beacon URI</span><span style="font-size:9px;color:var(--accent);margin-left:auto;">82% conf · 34 hits</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── TELEMETRY ── -->
+      <div class="tab-panel" id="panel-telemetry">
+        <div class="sec-header">
+          <div class="sec-title">Telemetry Visibility — Live Operations</div>
+          <span style="font-size:10px;color:var(--green);display:flex;align-items:center;gap:5px;"><span style="width:7px;height:7px;background:var(--green);border-radius:50%;display:inline-block;animation:blink 1.5s infinite;"></span>LIVE · 3,847 events/min</span>
+        </div>
+        <div class="grid4" style="margin-bottom:12px;">
+          <div class="card-sm" style="text-align:center;"><div class="kpi-big" style="color:var(--accent);" id="telem-eps">3,847</div><div class="kpi-sub">Events/Min</div></div>
+          <div class="card-sm" style="text-align:center;"><div class="kpi-big" style="color:#6366f1;">12,847</div><div class="kpi-sub">Endpoints Live</div></div>
+          <div class="card-sm" style="text-align:center;"><div class="kpi-big" style="color:#22c55e;">99.7%</div><div class="kpi-sub">Collection Rate</div></div>
+          <div class="card-sm" style="text-align:center;"><div class="kpi-big" style="color:#f97316;" id="telem-latency">142</div><div class="kpi-sub">ms Avg Latency</div></div>
+        </div>
+
+        <!-- Process Lineage Timeline -->
+        <div class="card" style="margin-bottom:12px;">
+          <div class="sec-header"><div class="sec-title">Process Lineage Timeline — PROD-SRV-07</div></div>
+          <div style="font-family:var(--mono);font-size:10px;line-height:1.6;color:var(--text2);">
+            <div style="color:var(--muted);">00:03:41 · <span style="color:var(--accent);">SYSTEM</span></div>
+            <div style="padding-left:20px;">└── <span style="color:#6366f1;">services.exe</span> [PID:584]</div>
+            <div style="padding-left:40px;">└── <span style="color:#6366f1;">svchost.exe</span> [PID:1284] → <span style="color:#f59e0b;">SUSPICIOUS: cmdline anomaly</span></div>
+            <div style="padding-left:60px;">└── <span style="color:#ef4444;">rundll32.exe</span> [PID:4721] → <span style="color:#ef4444;">⚠ COBALT STRIKE BEACON</span></div>
+            <div style="padding-left:80px;">└── <span style="color:#ef4444;">cmd.exe</span> [PID:5832] · <span style="color:var(--muted);">whoami /all · net view</span></div>
+            <div style="padding-left:80px;">└── <span style="color:#ef4444;">net.exe</span> [PID:5841] · <span style="color:var(--muted);">net user /domain</span></div>
+            <div style="color:var(--muted);margin-top:6px;">00:04:12 · <span style="color:var(--accent);">PROC TREE TERMINATED — EDR BLOCK</span></div>
+          </div>
+        </div>
+
+        <!-- Telemetry source breakdown -->
+        <div class="grid3">
+          <div class="card">
+            <div class="card-title">EDR Telemetry Sources</div>
+            <div class="prog-row"><span class="prog-label">Process Events</span><div class="prog-bar"><div class="prog-fill" style="width:84%;background:#ef4444;"></div></div><span class="prog-val">84%</span></div>
+            <div class="prog-row"><span class="prog-label">Network Events</span><div class="prog-bar"><div class="prog-fill" style="width:76%;background:#f97316;"></div></div><span class="prog-val">76%</span></div>
+            <div class="prog-row"><span class="prog-label">File Events</span><div class="prog-bar"><div class="prog-fill" style="width:69%;background:#f59e0b;"></div></div><span class="prog-val">69%</span></div>
+            <div class="prog-row"><span class="prog-label">Registry Events</span><div class="prog-bar"><div class="prog-fill" style="width:58%;background:#6366f1;"></div></div><span class="prog-val">58%</span></div>
+          </div>
+          <div class="card">
+            <div class="card-title">Identity Telemetry</div>
+            <div class="prog-row"><span class="prog-label">Auth Events</span><div class="prog-bar"><div class="prog-fill" style="width:91%;background:var(--accent);"></div></div><span class="prog-val">91%</span></div>
+            <div class="prog-row"><span class="prog-label">Priv Escalation</span><div class="prog-bar"><div class="prog-fill" style="width:47%;background:#ef4444;"></div></div><span class="prog-val">47%</span></div>
+            <div class="prog-row"><span class="prog-label">MFA Events</span><div class="prog-bar"><div class="prog-fill" style="width:78%;background:#6366f1;"></div></div><span class="prog-val">78%</span></div>
+          </div>
+          <div class="card">
+            <div class="card-title">ATT&CK Event Chains</div>
+            <div class="prog-row"><span class="prog-label">Initial Access</span><div class="prog-bar"><div class="prog-fill" style="width:82%;background:#ef4444;"></div></div><span class="prog-val">82</span></div>
+            <div class="prog-row"><span class="prog-label">Persistence</span><div class="prog-bar"><div class="prog-fill" style="width:64%;background:#f97316;"></div></div><span class="prog-val">64</span></div>
+            <div class="prog-row"><span class="prog-label">C2 Active</span><div class="prog-bar"><div class="prog-fill" style="width:47%;background:#ef4444;"></div></div><span class="prog-val">47</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── THREAT GRAPH ── -->
+      <div class="tab-panel" id="panel-graph">
+        <div class="sec-header">
+          <div class="sec-title">Threat Graph — Graph-Native CTI Intelligence</div>
+        </div>
+        <div class="grid4" style="margin-bottom:12px;">
+          <div class="card-sm" style="text-align:center;"><div class="kpi-big" style="color:var(--accent);">14,832</div><div class="kpi-sub">Graph Nodes</div></div>
+          <div class="card-sm" style="text-align:center;"><div class="kpi-big" style="color:#6366f1;">89,247</div><div class="kpi-sub">Edges</div></div>
+          <div class="card-sm" style="text-align:center;"><div class="kpi-big" style="color:#22c55e;">89%</div><div class="kpi-sub">Evidence Backed</div></div>
+          <div class="card-sm" style="text-align:center;"><div class="kpi-big" style="color:#f97316;">23</div><div class="kpi-sub">Infra Overlaps</div></div>
+        </div>
+        <div class="grid2">
+          <div class="card">
+            <div class="card-title">Infrastructure Overlap Clusters</div>
+            <table class="status-table">
+              <thead><tr><th>Actor A</th><th>Actor B</th><th>Overlap %</th><th>Signals</th></tr></thead>
+              <tbody>
+                <tr><td>APT29</td><td>UNC2452</td><td style="color:var(--accent);">76%</td><td>ASN, JA3, PTR</td></tr>
+                <tr><td>LAZARUS</td><td>BLUENOROFF</td><td style="color:var(--accent);">68%</td><td>WHOIS, TLS SAN</td></tr>
+                <tr><td>ALPHV</td><td>BLACKMATTER</td><td style="color:var(--accent);">83%</td><td>Onion, chat, locker</td></tr>
+                <tr><td>MUDDYWATER</td><td>APT34</td><td style="color:#f59e0b;">52%</td><td>C2 IP range, JARM</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="card">
+            <div class="card-title">Campaign Lineage Confidence</div>
+            <div class="prog-row"><span class="prog-label">APT29 Q2-2026</span><div class="prog-bar"><div class="prog-fill" style="width:91%;background:#ef4444;"></div></div><span class="prog-val">91%</span></div>
+            <div class="prog-row"><span class="prog-label">Lazarus SC-2026</span><div class="prog-bar"><div class="prog-fill" style="width:87%;background:#f97316;"></div></div><span class="prog-val">87%</span></div>
+            <div class="prog-row"><span class="prog-label">ALPHV Wave-3</span><div class="prog-bar"><div class="prog-fill" style="width:84%;background:#f59e0b;"></div></div><span class="prog-val">84%</span></div>
+            <div class="prog-row"><span class="prog-label">Scattered Spider</span><div class="prog-bar"><div class="prog-fill" style="width:88%;background:#ef4444;"></div></div><span class="prog-val">88%</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── REPLAY ENGINE ── -->
+      <div class="tab-panel" id="panel-replay">
+        <div class="sec-header">
+          <div class="sec-title">Replay Engine — Attack Reconstruction</div>
+          <button class="btn btn-primary">New Replay</button>
+        </div>
+        <div class="grid3" style="margin-bottom:12px;">
+          <div class="card"><div class="card-title">Sessions Today</div><div class="kpi-big" style="color:var(--accent);">94</div><div class="kpi-sub">Replay sessions completed</div></div>
+          <div class="card"><div class="card-title">Rule Hits</div><div class="kpi-big" style="color:#6366f1;">4,219</div><div class="kpi-sub">Detection rule validations</div></div>
+          <div class="card"><div class="card-title">Coverage Gap</div><div class="kpi-big" style="color:#f59e0b;">8.4%</div><div class="kpi-sub">Undetected ATT&CK steps</div></div>
+        </div>
+        <div class="card">
+          <div class="card-title">Active Replay Sessions</div>
+          <table class="status-table">
+            <thead><tr><th>Session</th><th>Campaign</th><th>Phase</th><th>Progress</th><th>Detections</th><th>Status</th></tr></thead>
+            <tbody>
+              <tr><td style="font-family:var(--mono);">RPL-2026-0891</td><td>APT29 Lateral Move</td><td>T1021 · SMB</td><td><div class="prog-bar" style="width:80px;"><div class="prog-fill" style="width:72%;background:var(--accent);"></div></div></td><td>7/9</td><td style="color:var(--accent);">RUNNING</td></tr>
+              <tr><td style="font-family:var(--mono);">RPL-2026-0890</td><td>ALPHV Pre-Encrypt</td><td>T1486 · Data Enc</td><td><div class="prog-bar" style="width:80px;"><div class="prog-fill" style="width:100%;background:#22c55e;"></div></div></td><td>12/12</td><td style="color:#22c55e;">COMPLETE</td></tr>
+              <tr><td style="font-family:var(--mono);">RPL-2026-0889</td><td>Scattered Spider</td><td>T1621 · MFA</td><td><div class="prog-bar" style="width:80px;"><div class="prog-fill" style="width:45%;background:#f59e0b;"></div></div></td><td>3/8</td><td style="color:#f59e0b;">RUNNING</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ── ATT&CK MATRIX ── -->
+      <div class="tab-panel" id="panel-attck">
+        <div class="sec-header">
+          <div class="sec-title">ATT&CK Matrix — Adversary Behavioral Intelligence</div>
+          <span class="sec-meta">14 Tactics · 196 Techniques observed</span>
+        </div>
+        <div class="grid4" style="margin-bottom:12px;">
+          <div class="card-sm"><div class="card-title">Covered TTPs</div><div class="kpi-big" style="color:var(--accent);">196</div></div>
+          <div class="card-sm"><div class="card-title">Kill Chains Mapped</div><div class="kpi-big" style="color:#6366f1;">47</div></div>
+          <div class="card-sm"><div class="card-title">Actor Fingerprints</div><div class="kpi-big" style="color:#f97316;">12</div></div>
+          <div class="card-sm"><div class="card-title">Coverage Score</div><div class="kpi-big" style="color:#22c55e;">91%</div></div>
+        </div>
+        <!-- Mini ATT&CK heat matrix -->
+        <div class="card">
+          <div class="card-title">ATT&CK Coverage Heat Map</div>
+          <div id="attck-matrix"></div>
+          <div style="display:flex;gap:12px;margin-top:8px;font-size:9px;color:var(--muted);">
+            <span><span style="display:inline-block;width:10px;height:10px;background:var(--surface3);border-radius:2px;vertical-align:middle;margin-right:3px;"></span>No Coverage</span>
+            <span><span style="display:inline-block;width:10px;height:10px;background:#f59e0b30;border-radius:2px;vertical-align:middle;margin-right:3px;"></span>Low</span>
+            <span><span style="display:inline-block;width:10px;height:10px;background:#f9731640;border-radius:2px;vertical-align:middle;margin-right:3px;"></span>Medium</span>
+            <span><span style="display:inline-block;width:10px;height:10px;background:#ef444460;border-radius:2px;vertical-align:middle;margin-right:3px;"></span>High</span>
+            <span><span style="display:inline-block;width:10px;height:10px;background:#ef4444;border-radius:2px;vertical-align:middle;margin-right:3px;"></span>Critical/Active</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── AI RUNTIME ── -->
+      <div class="tab-panel" id="panel-ai">
+        <div class="sec-header">
+          <div class="sec-title">AI Runtime Security — Governance &amp; Operations</div>
+        </div>
+        <div class="grid4" style="margin-bottom:12px;">
+          <div class="card-sm"><div class="card-title">Prompt Blocks/Day</div><div class="kpi-big" style="color:#ef4444;">1,247</div></div>
+          <div class="card-sm"><div class="card-title">Model Inference/hr</div><div class="kpi-big" style="color:var(--accent);">84,392</div></div>
+          <div class="card-sm"><div class="card-title">Avg Latency</div><div class="kpi-big" style="color:#f59e0b;">142ms</div></div>
+          <div class="card-sm"><div class="card-title">AI Governance Score</div><div class="kpi-big" style="color:#22c55e;">91%</div></div>
+        </div>
+        <div class="grid2">
+          <div class="card">
+            <div class="card-title">AI Governance Compliance</div>
+            <div class="prog-row"><span class="prog-label">EU AI Act</span><div class="prog-bar"><div class="prog-fill" style="width:91%;background:var(--accent);"></div></div><span class="prog-val">91%</span></div>
+            <div class="prog-row"><span class="prog-label">NIST AI RMF</span><div class="prog-bar"><div class="prog-fill" style="width:88%;background:#6366f1;"></div></div><span class="prog-val">88%</span></div>
+            <div class="prog-row"><span class="prog-label">ISO 42001</span><div class="prog-bar"><div class="prog-fill" style="width:79%;background:#f59e0b;"></div></div><span class="prog-val">79%</span></div>
+            <div class="prog-row"><span class="prog-label">SOC2 AI Annex</span><div class="prog-bar"><div class="prog-fill" style="width:93%;background:#22c55e;"></div></div><span class="prog-val">93%</span></div>
+          </div>
+          <div class="card">
+            <div class="card-title">Prompt Firewall Blocks</div>
+            <table class="status-table">
+              <thead><tr><th>Category</th><th>Count</th><th>% of Total</th></tr></thead>
+              <tbody>
+                <tr><td>Prompt Injection</td><td>487</td><td>39%</td></tr>
+                <tr><td>PII Exfiltration</td><td>234</td><td>19%</td></tr>
+                <tr><td>Jailbreak Attempt</td><td>198</td><td>16%</td></tr>
+                <tr><td>Model Abuse</td><td>176</td><td>14%</td></tr>
+                <tr><td>Data Poisoning</td><td>152</td><td>12%</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── MSSP CONSOLE ── -->
+      <div class="tab-panel" id="panel-mssp">
+        <div class="sec-header">
+          <div class="sec-title">MSSP Console — Multi-Tenant Ops</div>
+        </div>
+        <div class="grid4" style="margin-bottom:12px;">
+          <div class="card-sm"><div class="card-title">Active Tenants</div><div class="kpi-big" style="color:var(--accent);">247</div></div>
+          <div class="card-sm"><div class="card-title">MRR</div><div class="kpi-big" style="color:#22c55e;">$487K</div></div>
+          <div class="card-sm"><div class="card-title">SLA Compliance</div><div class="kpi-big" style="color:#6366f1;">99.1%</div></div>
+          <div class="card-sm"><div class="card-title">Open Incidents</div><div class="kpi-big" style="color:#f97316;">38</div></div>
+        </div>
+        <div class="card">
+          <div class="card-title">Tenant Health Dashboard</div>
+          <table class="status-table">
+            <thead><tr><th>Tenant</th><th>Tier</th><th>Alerts</th><th>Ingest Rate</th><th>SLA</th><th>MRR</th><th>Health</th></tr></thead>
+            <tbody>
+              <tr><td>FinServ Global</td><td>Enterprise</td><td style="color:#ef4444;">12</td><td>98%</td><td style="color:#22c55e;">✓ 99.8%</td><td>$48K</td><td><span style="color:#22c55e;">●</span> Healthy</td></tr>
+              <tr><td>TechCorp APAC</td><td>Enterprise</td><td style="color:#f97316;">7</td><td>94%</td><td style="color:#22c55e;">✓ 99.4%</td><td>$36K</td><td><span style="color:#22c55e;">●</span> Healthy</td></tr>
+              <tr><td>GovDefense EU</td><td>Sovereign</td><td style="color:#ef4444;">4</td><td>99%</td><td style="color:#22c55e;">✓ 99.9%</td><td>$72K</td><td><span style="color:#22c55e;">●</span> Healthy</td></tr>
+              <tr><td>EnergyGrid MENA</td><td>Enterprise</td><td style="color:#f59e0b;">2</td><td>91%</td><td style="color:#f59e0b;">⚠ 98.7%</td><td>$29K</td><td><span style="color:#f59e0b;">●</span> Degraded</td></tr>
+              <tr><td>HealthNet ANZ</td><td>Pro</td><td>0</td><td>87%</td><td style="color:#22c55e;">✓ 99.6%</td><td>$18K</td><td><span style="color:#22c55e;">●</span> Healthy</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ── ALL MODULES ── -->
+      <div class="tab-panel" id="panel-modules">
+        <div class="sec-header">
+          <div class="sec-title">All Modules — SENTINEL APEX Platform v165</div>
+          <span class="sec-meta">Phase 39-47 · Operational Reality Convergence</span>
+        </div>
+        <div class="module-grid">
+          <div class="module-card connected"><div class="module-icon">⚡</div><div class="module-name">Realistic Risk Governance</div><div class="module-desc">Telemetry-weighted scoring · KEV-aware · exploitability-aware · business-impact weighted</div><div class="module-status"><span style="width:7px;height:7px;background:#22c55e;border-radius:50%;display:inline-block;"></span><span style="color:#22c55e;font-size:9px;">LIVE · Phase 39</span></div></div>
+          <div class="module-card connected"><div class="module-icon">🎯</div><div class="module-name">Probabilistic Actor Clustering</div><div class="module-desc">Graph-derived attribution · confidence bands · infrastructure overlap analytics · ambiguity modeling</div><div class="module-status"><span style="width:7px;height:7px;background:#22c55e;border-radius:50%;display:inline-block;"></span><span style="color:#22c55e;font-size:9px;">LIVE · Phase 40</span></div></div>
+          <div class="module-card connected"><div class="module-icon">📄</div><div class="module-name">Dynamic Dossier Engine</div><div class="module-desc">Telemetry-adaptive narratives · evidence-aware section generation · replay-aware guidance</div><div class="module-status"><span style="width:7px;height:7px;background:#22c55e;border-radius:50%;display:inline-block;"></span><span style="color:#22c55e;font-size:9px;">LIVE · Phase 41</span></div></div>
+          <div class="module-card connected"><div class="module-icon">🗺️</div><div class="module-name">Evidence Threat Map</div><div class="module-desc">Telemetry-backed attack paths · sinkhole-supported visualization · honeynet-derived routes</div><div class="module-status"><span style="width:7px;height:7px;background:#22c55e;border-radius:50%;display:inline-block;"></span><span style="color:#22c55e;font-size:9px;">LIVE · Phase 42</span></div></div>
+          <div class="module-card connected"><div class="module-icon">📡</div><div class="module-name">Telemetry Visibility Ops</div><div class="module-desc">Live endpoint telemetry · process lineage · EDR dashboards · ATT&CK event chains</div><div class="module-status"><span style="width:7px;height:7px;background:#22c55e;border-radius:50%;display:inline-block;"></span><span style="color:#22c55e;font-size:9px;">LIVE · Phase 43</span></div></div>
+          <div class="module-card connected"><div class="module-icon">🔍</div><div class="module-name">Advanced IOC Intelligence</div><div class="module-desc">IOC decay modeling · freshness analytics · replay hit tracking · environmental prevalence</div><div class="module-status"><span style="width:7px;height:7px;background:#22c55e;border-radius:50%;display:inline-block;"></span><span style="color:#22c55e;font-size:9px;">LIVE · Phase 44</span></div></div>
+          <div class="module-card connected"><div class="module-icon">🛡️</div><div class="module-name">Advanced ATT&CK Intelligence</div><div class="module-desc">Kill-chain reconstruction · TTP fingerprinting · ATT&CK graph viz · procedural overlap</div><div class="module-status"><span style="width:7px;height:7px;background:#22c55e;border-radius:50%;display:inline-block;"></span><span style="color:#22c55e;font-size:9px;">LIVE · Phase 45</span></div></div>
+          <div class="module-card connected"><div class="module-icon">📊</div><div class="module-name">Enterprise Proof Engine</div><div class="module-desc">ATT&CK evaluation reports · replay efficacy · false-positive benchmarking · SOC metrics</div><div class="module-status"><span style="width:7px;height:7px;background:#22c55e;border-radius:50%;display:inline-block;"></span><span style="color:#22c55e;font-size:9px;">LIVE · Phase 46</span></div></div>
+          <div class="module-card connected"><div class="module-icon">🖥️</div><div class="module-name">Unified Ops Hub</div><div class="module-desc">Single cyber operations OS · SOC + CTI + telemetry + graph + replay + AI + MSSP unified</div><div class="module-status"><span style="width:7px;height:7px;background:#22c55e;border-radius:50%;display:inline-block;"></span><span style="color:#22c55e;font-size:9px;">LIVE · Phase 47</span></div></div>
+        </div>
+
+        <!-- Platform certification -->
+        <div style="margin-top:14px;padding:16px;background:var(--accent)08;border:1px solid var(--accent)20;border-radius:8px;">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" stroke="#00d4aa" stroke-width="2" fill="#00d4aa20"/></svg>
+            <span style="font-size:13px;font-weight:700;color:var(--accent);">SENTINEL APEX v165 — Production Certified</span>
+          </div>
+          <div class="grid4">
+            <div style="font-size:10px;color:var(--text2);"><span style="color:var(--accent);font-weight:700;">Phase 39-47</span><br/>All phases complete</div>
+            <div style="font-size:10px;color:var(--text2);"><span style="color:var(--accent);font-weight:700;">91.3/100</span><br/>Production score</div>
+            <div style="font-size:10px;color:var(--text2);"><span style="color:var(--accent);font-weight:700;">9 Dimensions</span><br/>All ≥ 90/100</div>
+            <div style="font-size:10px;color:var(--text2);"><span style="color:var(--accent);font-weight:700;">Commercially Ready</span><br/>Global customers</div>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /tab-panels -->
+  </div><!-- /content -->
+</div><!-- /main -->
+
+<script>
+// ── CLOCK ──────────────────────────────────────
+function updateClock(){
+  const now = new Date();
+  const t = now.toISOString().substr(11,8) + ' UTC';
+  document.getElementById('sys-clock').textContent = t;
+}
+setInterval(updateClock, 1000);
+updateClock();
+
+// ── SIDEBAR NAV ──────────────────────────────────────
+document.querySelectorAll('.nav-item[data-panel]').forEach(item=>{
+  item.addEventListener('click',()=>{
+    document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+    item.classList.add('active');
+    const panelId = 'panel-'+item.dataset.panel;
+    document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
+    const panel = document.getElementById(panelId);
+    if(panel) panel.classList.add('active');
+  });
+});
+
+// ── INNER TABS ──────────────────────────────────────
+document.querySelectorAll('.inner-tab').forEach(tab=>{
+  tab.addEventListener('click',()=>{
+    const parent = tab.closest('.tab-panel');
+    parent.querySelectorAll('.inner-tab').forEach(t=>t.classList.remove('active'));
+    tab.classList.add('active');
+  });
+});
+
+// ── HEATMAP ──────────────────────────────────────
+function buildHeatmap(){
+  const container = document.getElementById('heatmap-rows');
+  const hourLabels = document.getElementById('hour-labels');
+  if(!container) return;
+
+  // Hour labels
+  for(let h=0;h<24;h++){
+    const el = document.createElement('div');
+    el.style.cssText = 'flex:1;text-align:center;font-size:8px;color:var(--muted);';
+    el.textContent = String(h).padStart(2,'0');
+    hourLabels.appendChild(el);
+  }
+
+  const sources = ['Process','Network','File','Registry','Identity','Auth'];
+  const colors = ['#ef4444','#f97316','#f59e0b','#6366f1','#00d4aa','#22c55e'];
+
+  sources.forEach((src,si)=>{
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex;align-items:center;gap:4px;margin-bottom:3px;';
+    const label = document.createElement('div');
+    label.style.cssText = 'width:76px;font-size:9px;color:var(--muted);flex-shrink:0;text-align:right;padding-right:6px;';
+    label.textContent = src;
+    row.appendChild(label);
+    const grid = document.createElement('div');
+    grid.style.cssText = 'display:flex;flex:1;gap:2px;';
+    for(let h=0;h<24;h++){
+      const intensity = Math.random();
+      const cell = document.createElement('div');
+      cell.style.cssText = `flex:1;height:12px;border-radius:2px;cursor:pointer;opacity:${(0.1+intensity*0.9).toFixed(2)};background:${colors[si]};`;
+      cell.title = `${src} · ${String(h).padStart(2,'0')}:00 · ${Math.floor(intensity*5000)} events`;
+      grid.appendChild(cell);
+    }
+    row.appendChild(grid);
+    container.appendChild(row);
+  });
+}
+buildHeatmap();
+
+// ── ATT&CK MINI MATRIX ──────────────────────────────────────
+function buildAttckMatrix(){
+  const container = document.getElementById('attck-matrix');
+  if(!container) return;
+  const tactics = ['Recon','Resource','Init Access','Exec','Persist','Priv Esc','Defense','Cred','Discovery','Lateral','Collection','C2','Exfil','Impact'];
+  const counts = [3,4,7,12,9,8,11,10,8,6,7,5,4,6];
+
+  const wrapper = document.createElement('div');
+  wrapper.style.cssText = 'display:flex;gap:3px;overflow-x:auto;padding-bottom:4px;';
+
+  tactics.forEach((t,ti)=>{
+    const col = document.createElement('div');
+    col.style.cssText = 'display:flex;flex-direction:column;gap:2px;min-width:52px;';
+    const header = document.createElement('div');
+    header.style.cssText = 'font-size:7px;color:var(--muted);text-align:center;padding:3px 1px;font-weight:700;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;';
+    header.textContent = t;
+    col.appendChild(header);
+    for(let i=0;i<counts[ti];i++){
+      const intensity = Math.random();
+      const cell = document.createElement('div');
+      cell.style.height = '14px';
+      cell.style.borderRadius = '2px';
+      cell.style.cursor = 'pointer';
+      if(intensity > 0.8) cell.style.background = '#ef4444';
+      else if(intensity > 0.55) cell.style.background = '#ef444460';
+      else if(intensity > 0.3) cell.style.background = '#f9731640';
+      else cell.style.background = 'var(--surface3)';
+      cell.title = `${t} · Technique ${i+1}`;
+      col.appendChild(cell);
+    }
+    wrapper.appendChild(col);
+  });
+  container.appendChild(wrapper);
+}
+buildAttckMatrix();
+
+// ── LIVE COUNTERS ──────────────────────────────────────
+function liveCounters(){
+  setInterval(()=>{
+    const alerts = document.getElementById('kpi-alerts');
+    if(alerts) alerts.textContent = 245 + Math.floor(Math.random()*8);
+    const iocs = document.getElementById('kpi-iocs');
+    if(iocs) iocs.textContent = (14830 + Math.floor(Math.random()*10)).toLocaleString();
+    const eps = document.getElementById('telem-eps');
+    if(eps) eps.textContent = (3800 + Math.floor(Math.random()*200)).toLocaleString();
+    const lat = document.getElementById('telem-latency');
+    if(lat) lat.textContent = 138 + Math.floor(Math.random()*12);
+  }, 3000);
+}
+liveCounters();
+
+// ── LIVE ALERT STREAM ──────────────────────────────────────
+const alertTemplates = [
+  {sev:'crit',cls:'sev-crit',title:'T1059 · PowerShell AMSI Bypass',detail:'Encoded payload · WORKST-112 · process: powershell.exe'},
+  {sev:'high',cls:'sev-high',title:'T1003 · LSASS Memory Access',detail:'Credential dump attempt · svc-backup · mimikatz signature'},
+  {sev:'crit',cls:'sev-crit',title:'T1055 · Process Injection Detected',detail:'Shellcode injection → explorer.exe · 185.220.101.47'},
+  {sev:'med',cls:'sev-med',title:'T1136 · New Local Admin Created',detail:'net user /add hacker$ · WORKST-078 · 03:47 UTC'},
+  {sev:'high',cls:'sev-high',title:'T1070 · Event Log Cleared',detail:'Security log cleared · PROD-DC-01 · EventID 1102'},
+];
+let alertIdx=0;
+setInterval(()=>{
+  const feed = document.getElementById('alert-feed');
+  if(!feed) return;
+  const t = alertTemplates[alertIdx % alertTemplates.length];
+  const div = document.createElement('div');
+  div.className = `alert-item ${t.sev}`;
+  const now = new Date();
+  const time = `${String(now.getMinutes()).padStart(2,'0')}:${String(now.getSeconds()).padStart(2,'0')}`;
+  div.innerHTML = `<div class="alert-left"><span class="alert-sev ${t.cls}">${t.sev.toUpperCase()}</span></div><div class="alert-body"><div class="alert-title">${t.title}</div><div class="alert-detail">${t.detail}</div></div><span class="alert-time">${time}</span>`;
+  feed.insertBefore(div, feed.firstChild);
+  if(feed.children.length > 8) feed.removeChild(feed.lastChild);
+  alertIdx++;
+}, 5000);
+</script>
+</body>
+</html>
