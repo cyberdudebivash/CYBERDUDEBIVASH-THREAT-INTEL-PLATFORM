@@ -72,7 +72,7 @@ MANIFEST_PATH = REPO_ROOT / "data" / "stix" / "feed_manifest.json"
 QUALITY_DIR   = REPO_ROOT / "data" / "ioc_quality"
 QUALITY_REPORT = QUALITY_DIR / "ioc_quality_report.json"
 
-ENGINE_VERSION = "149.0.0"
+ENGINE_VERSION = "166.2.0"
 NOW_ISO        = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -420,29 +420,46 @@ def _epss_sanity_check(epss, cvss):
 def _backfill_nvd_cvss(cve_id: str):
     """
     Query NVD REST API v2 for CVSS score.
-    Rate limit: 1 req/6s without API key (respected via sleep).
-    Returns (score: float|None, source: str).
+
+    v166.2 FIX (P0): Previously the NVD_API_KEY environment variable was never
+    read, causing ALL requests to run unauthenticated (5 req/30s limit →
+    forced 6s sleep per CVE). With 47+ CVEs this guaranteed the 5-minute step
+    timeout. Fix: read NVD_API_KEY from env and pass as apiKey header.
+
+    Rate limits:
+      - Without API key: 5 req/30s  → sleep 6.0s between calls
+      - With    API key: 50 req/30s → sleep 0.6s between calls
+
+    Returns (score: float|None, source: str, sleep_s: float).
     """
     import urllib.request
+
+    nvd_api_key = os.environ.get("NVD_API_KEY", "").strip()
+    sleep_s = 0.6 if nvd_api_key else 6.0  # respect correct rate limit tier
+
+    headers = {"User-Agent": "CDB-SENTINEL-APEX/166.2"}
+    if nvd_api_key:
+        headers["apiKey"] = nvd_api_key
+
     try:
         url = f"https://services.nvd.nist.gov/rest/json/cves/2.0?cveId={cve_id.upper()}"
-        req = urllib.request.Request(url, headers={"User-Agent": "CDB-SENTINEL-APEX/161.0"})
+        req = urllib.request.Request(url, headers=headers)
         with urllib.request.urlopen(req, timeout=8) as resp:
             data = __import__("json").loads(resp.read())
         vulns = data.get("vulnerabilities", [])
         if not vulns:
-            return None, "NVD_NOT_FOUND"
+            return None, "NVD_NOT_FOUND", sleep_s
         metrics = vulns[0].get("cve", {}).get("metrics", {})
         for key in ("cvssMetricV31", "cvssMetricV30", "cvssMetricV2"):
             entries = metrics.get(key, [])
             if entries:
                 score = entries[0].get("cvssData", {}).get("baseScore")
                 if score is not None:
-                    return float(score), "NVD_REST_v2"
-        return None, "NVD_NO_METRIC"
+                    return float(score), "NVD_REST_v2", sleep_s
+        return None, "NVD_NO_METRIC", sleep_s
     except Exception as e:
         log.debug("NVD CVSS backfill failed for %s: %s", cve_id, e)
-        return None, "NVD_ERROR"
+        return None, "NVD_ERROR", sleep_s
 
 def apply_ioc_hardening(manifest_path: Path = MANIFEST_PATH) -> dict:
     """
@@ -455,6 +472,14 @@ def apply_ioc_hardening(manifest_path: Path = MANIFEST_PATH) -> dict:
     log.info("Manifest: %s", manifest_path)
     log.info("=" * 60)
     t0 = time.monotonic()
+
+    # v166.2: Time-budget guard — bail out of NVD backfill before step timeout
+    # kills the entire job. Step timeout is 5 min; we stop backfill at 4 min,
+    # saving ~60s for the manifest write + downstream stages.
+    # When the API key is present (0.6s/req) this guard will rarely trigger.
+    # When the API key is absent (6s/req) it caps at ~40 CVEs before gracefully
+    # stopping rather than hard-timing out and failing the step.
+    BACKFILL_TIME_BUDGET_S = 240  # 4 minutes max for NVD backfill loop
 
     if not manifest_path.exists():
         log.error("FATAL: manifest not found: %s", manifest_path)
@@ -516,22 +541,33 @@ def apply_ioc_hardening(manifest_path: Path = MANIFEST_PATH) -> dict:
             global_stats["epss_anomalies_corrected"] += 1
 
         # v161.0 FIX: NVD CVSS backfill for items missing CVSS
+        # v166.2 FIX: Use NVD_API_KEY (10x faster rate limit) + time-budget guard
         _cvss_val = item.get("cvss_score") or item.get("cvss")
         if not _cvss_val:
             _cve_ids = item.get("cve_ids") or item.get("cves") or []
             if isinstance(_cve_ids, str):
                 _cve_ids = [_cve_ids]
             if _cve_ids:
-                import time as _time
-                _nvd_score, _nvd_src = _backfill_nvd_cvss(_cve_ids[0])
-                _time.sleep(6)  # NVD rate limit: 5 req/30s without API key
-                if _nvd_score is not None:
-                    item["cvss_score"] = _nvd_score
-                    item["cvss"] = _nvd_score
-                    item["cvss_source"] = _nvd_src
-                    global_stats.setdefault("cvss_backfilled", 0)
-                    global_stats["cvss_backfilled"] += 1
-                    log.info("CVSS backfilled for %s: %.1f (%s)", _cve_ids[0], _nvd_score, _nvd_src)
+                # v166.2: Time-budget guard — skip backfill if approaching step timeout
+                _elapsed = time.monotonic() - t0
+                if _elapsed >= BACKFILL_TIME_BUDGET_S:
+                    global_stats.setdefault("cvss_backfill_skipped_budget", 0)
+                    global_stats["cvss_backfill_skipped_budget"] += 1
+                    log.warning(
+                        "NVD backfill budget exhausted (%.0fs elapsed, limit %ds) — "
+                        "skipping %s. Will backfill on next pipeline run.",
+                        _elapsed, BACKFILL_TIME_BUDGET_S, _cve_ids[0]
+                    )
+                else:
+                    _nvd_score, _nvd_src, _sleep_s = _backfill_nvd_cvss(_cve_ids[0])
+                    time.sleep(_sleep_s)  # v166.2: dynamic — 0.6s w/ key, 6s without
+                    if _nvd_score is not None:
+                        item["cvss_score"] = _nvd_score
+                        item["cvss"] = _nvd_score
+                        item["cvss_source"] = _nvd_src
+                        global_stats.setdefault("cvss_backfilled", 0)
+                        global_stats["cvss_backfilled"] += 1
+                        log.info("CVSS backfilled for %s: %.1f (%s)", _cve_ids[0], _nvd_score, _nvd_src)
 
         updated_items.append(item)
 

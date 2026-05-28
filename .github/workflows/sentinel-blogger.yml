@@ -794,7 +794,7 @@ jobs:
           fi
 
       # -----------------------------------------------------------------------
-      # STAGE 3.1.8: IOC QUALITY HARDENER (v152.0 -- NON-BLOCKING)
+      # STAGE 3.1.8: IOC QUALITY HARDENER (v166.2 -- NON-BLOCKING)
       # Classifies every IOC in the manifest and strips pseudo-IOCs
       # (CVE reference strings, Vulners/NVD/NIST advisory URLs, UTM-tracked
       # RSS URLs) into a separate pseudo_iocs list. Recalibrates per-IOC
@@ -802,9 +802,13 @@ jobs:
       #   sha256 -> 90%  |  ipv4 -> 75%  |  domain -> 70%  |  url_c2 -> 65%
       # Adds ioc_type, classification, apex_validated, pseudo_ioc_count fields.
       # NON-BLOCKING: exit 1 logs error but does not abort pipeline.
+      # v166.2 FIX: Timeout raised 5→10min (defence-in-depth alongside the
+      # NVD_API_KEY + time-budget-guard fix in ioc_quality_hardener.py).
+      # Root cause: NVD_API_KEY was not being used → unauthenticated rate limit
+      # (6s/req) → 47 CVEs × 6s = 282s > 5min timeout. With API key: 0.6s/req.
       # -----------------------------------------------------------------------
-      - name: "STAGE 3.1.8 - IOC Quality Hardener (v160.0 — strip pseudo-IOCs, recalibrate confidence)"
-        timeout-minutes: 5
+      - name: "STAGE 3.1.8 - IOC Quality Hardener (v166.2 — strip pseudo-IOCs, recalibrate confidence)"
+        timeout-minutes: 10
         run: |
           set +e
           python3 scripts/ioc_quality_hardener.py --manifest data/stix/feed_manifest.json
