@@ -575,7 +575,19 @@ def run_enrichment() -> None:
     with open(manifest_file, "r", encoding="utf-8") as f:
         data = json.load(f)
 
-    items = data if isinstance(data, list) else data.get("items", [])
+    # fix(v166.2-P0): canonical key detection including "data" key
+    _MKEYS = ("advisories", "items", "data", "entries", "reports", "intel", "feed")
+    if isinstance(data, list):
+        items = data
+        _roisint_key = None
+    else:
+        items = []
+        _roisint_key = None
+        for _k in _MKEYS:
+            if isinstance(data.get(_k), list) and len(data[_k]) > 0:
+                items = data[_k]
+                _roisint_key = _k
+                break
     log.info("Loaded %d items from %s", len(items), manifest_file)
 
     total_new_iocs = 0
@@ -627,10 +639,18 @@ def run_enrichment() -> None:
         })
 
     # Write enriched manifest back
+    # fix(v166.2-P0): preserve original key, never inject "items" when key was "data"
     if isinstance(data, list):
         output_data = items
     else:
-        data["items"] = items
+        if _roisint_key is not None:
+            data[_roisint_key] = items
+        elif "advisories" in data:
+            data["advisories"] = items
+        elif "data" in data and isinstance(data["data"], list):
+            data["data"] = items
+        else:
+            data["items"] = items
         output_data = data
 
     # Atomic write

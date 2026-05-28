@@ -372,7 +372,15 @@ if __name__ == "__main__":
             continue
         try:
             _data = json.loads(_path.read_text(encoding="utf-8"))
-            _items = _data if isinstance(_data, list) else _data.get("items", [])
+            # fix(v166.2-P0): canonical key detection
+            if isinstance(_data, list):
+                _items = _data
+            else:
+                _items = []
+                for _k in ("advisories", "items", "data", "entries", "reports", "intel", "feed"):
+                    if isinstance(_data.get(_k), list) and len(_data[_k]) > 0:
+                        _items = _data[_k]
+                        break
             _count = enrich_feed_actors(_items)
             if _count > 0:
                 import os, tempfile

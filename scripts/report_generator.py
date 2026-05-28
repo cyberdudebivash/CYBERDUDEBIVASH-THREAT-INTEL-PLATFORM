@@ -1457,10 +1457,16 @@ def generate_reports_from_manifest(
         results["errors"].append(msg)
         return results
 
-    advisories = (
-        data if isinstance(data, list)
-        else data.get("advisories", data.get("entries", []))
-    )
+    # fix(v166.2-P0): canonical key detection including "data" key used by
+    # field_preserving_merge.py default write path.
+    if isinstance(data, list):
+        advisories = data
+    else:
+        advisories = []
+        for _k in ("advisories", "items", "data", "entries", "reports", "intel", "feed"):
+            if isinstance(data.get(_k), list) and len(data[_k]) > 0:
+                advisories = data[_k]
+                break
     logger.info("God mode batch: %d advisories", len(advisories))
 
     for entry in advisories:

@@ -2,7 +2,7 @@
 """
 CYBERDUDEBIVASH(R) SENTINEL APEX -- Report Validation Gate
 ============================================================
-Version : v134.0
+Version : v134.1
 Stage   : 3.3 (runs AFTER report_generator, BEFORE R2 upload)
 
 Purpose:
@@ -56,6 +56,15 @@ REPORTS_BASE    = Path("reports")
 MIN_FILE_BYTES  = 500
 HTML_SIGNATURES = ("<!doctype html", "<html")
 
+# fix(v166.2-P0): canonical ordered key list shared across all manifest readers.
+# field_preserving_merge.py defaults to writing under "data" key when no known
+# list key exists in the original dict. Previous 4-key lookup ("advisories",
+# "entries", "items", "reports") missed "data" and "intel", causing Stage 3.3
+# to read 0 advisories and HARD FAIL on every CI run.
+_MANIFEST_LIST_KEYS = (
+    "advisories", "items", "data", "entries", "reports", "intel", "feed"
+)
+
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -78,13 +87,30 @@ def _load_manifest(manifest_path: Path) -> List[Dict[str, Any]]:
     # called data.get() unconditionally, crashing with AttributeError: 'list'
     # object has no attribute 'get' — confirmed in 3 consecutive CI runs (#1322,
     # run_alt1, run_alt2) at this exact line.
+    #
+    # v166.2-P0 FIX: extended key chain now includes "data" and "intel".
+    # field_preserving_merge.py (Stage 3.1.6) writes under "data" by default
+    # when no known key exists. ioc_quality_hardener.py (Stage 3.1.8) was then
+    # injecting an empty "items": [] — shadowing the real 34-item "data" list —
+    # causing this validator to receive 0 advisories and HARD FAIL every run.
     if isinstance(data, list):
         advisories = data
     elif isinstance(data, dict):
-        advisories = data.get(
-            "advisories",
-            data.get("entries", data.get("items", data.get("reports", [])))
-        )
+        advisories = None
+        for _k in _MANIFEST_LIST_KEYS:
+            _candidate = data.get(_k)
+            if isinstance(_candidate, list) and len(_candidate) > 0:
+                advisories = _candidate
+                break
+        if advisories is None:
+            # Fall back to first list key found even if empty (preserves prior
+            # behaviour for genuinely empty manifests so we still HARD FAIL below)
+            for _k in _MANIFEST_LIST_KEYS:
+                if isinstance(data.get(_k), list):
+                    advisories = data[_k]
+                    break
+        if advisories is None:
+            advisories = []
     else:
         logger.error(
             "MANIFEST root is neither list nor dict in %s -- got %s",
@@ -137,10 +163,10 @@ def _resolve_report_path(entry: Dict[str, Any]) -> Tuple[str, str]:
     # v160.5 HARDENING: current-run date fallback (v160.5b FIX).
     # report_generator.py always writes reports to TODAY's year/month when no
     # explicit internal_report_url is present.  The manifest entry may carry a
-    # stale processed_at/timestamp from a prior run → derived fs_path points
+    # stale processed_at/timestamp from a prior run -> derived fs_path points
     # to a month/year that does not exist on the fresh runner.
     #
-    # Fallback strategy — triggers when the derived local path is absent:
+    # Fallback strategy -- triggers when the derived local path is absent:
     #   1. Try current run year/month (covers processed_at date-drift).
     #   2. Also fires when report_url is an HTTPS URL (cannot be checked
     #      locally; path was derived from processed_at, not from the URL).
@@ -164,13 +190,13 @@ def _validate_one(entry: Dict[str, Any], idx: int) -> List[str]:
     Validate a single advisory entry. Returns a list of failure messages.
     Empty list means PASS.
 
-    v152.2.0 IMMUTABLE GUARD — Root cause of Run #1269 false-positive FATAL:
+    v152.2.0 IMMUTABLE GUARD -- Root cause of Run #1269 false-positive FATAL:
     Previously RULE 1 returned early (failing) whenever report_url /
     internal_report_url were absent from the manifest entry. This produced
     false-positive failures for:
-      (a) data/stix/feed_manifest.json entries — STIX bundle index records
+      (a) data/stix/feed_manifest.json entries -- STIX bundle index records
           that never carry report_url fields by design.
-      (b) "god mode" reports skipped by report_generator — physical HTML files
+      (b) "god mode" reports skipped by report_generator -- physical HTML files
           exist on disk (74-81 KB) but the URL was not written back to the
           manifest entry because the generator skipped regeneration.
 
@@ -190,19 +216,19 @@ def _validate_one(entry: Dict[str, Any], idx: int) -> List[str]:
     if not fs_path:
         failures.append(
             f"[{intel_id}] RULE 1 FAIL: no report_url, internal_report_url, "
-            f"or derivable id — cannot locate report file"
+            f"or derivable id -- cannot locate report file"
         )
         return failures
 
     # v160.5e HARDENING: Skip STIX-bundle-only entries (no HTML report).
     # Manifest entries with NEITHER report_url NOR internal_report_url are raw
     # STIX bundle index records produced by run_pipeline.py. They never have
-    # associated HTML report files — HTML reports use intel--{hex} IDs while
+    # associated HTML report files -- HTML reports use intel--{hex} IDs while
     # STIX bundles use bundle--{uuid}. Derived fs_path will always be absent.
     # Condition: no explicit URL AND local file does not exist at derived path.
     # This preserves full RULE 3/4/5 checks for genuine intel-- advisory reports.
     if not explicit_url and not os.path.exists(fs_path):
-        return failures  # SKIP — STIX bundle-only record, no HTML report expected
+        return failures  # SKIP -- STIX bundle-only record, no HTML report expected
 
     # RULE 2: if an explicit URL is present, it must not be a foreign external URL
     if explicit_url and explicit_url.startswith("http") and "cyberdudebivash" not in explicit_url:
@@ -215,7 +241,7 @@ def _validate_one(entry: Dict[str, Any], idx: int) -> List[str]:
     # When report_url is an HTTPS URL on our own published domain
     # (cyberdudebivash.com), the report was generated and uploaded to
     # Cloudflare R2 / GitHub Pages in a prior run.  On a fresh GitHub Actions
-    # runner there is NO local copy of that file — it was never committed to
+    # runner there is NO local copy of that file -- it was never committed to
     # the repo.  Attempting a local-file check (RULE 3/4/5) will always fail
     # for these entries, producing spurious P0 GATE failures on fix-only or
     # no-new-intel commits.
@@ -228,7 +254,7 @@ def _validate_one(entry: Dict[str, Any], idx: int) -> List[str]:
         _pub_url.startswith("https://") and "cyberdudebivash" in _pub_url
     )
     if _already_deployed:
-        return failures  # PASS — report already live on cyberdudebivash CDN/R2
+        return failures  # PASS -- report already live on cyberdudebivash CDN/R2
 
     # RULE 3: physical HTML file must exist on disk at resolved path
     if not os.path.exists(fs_path):
@@ -247,7 +273,7 @@ def _validate_one(entry: Dict[str, Any], idx: int) -> List[str]:
             failures.append(
                 f"[{intel_id}] RULE 3b FAIL: public report_url path NOT FOUND: "
                 f"{_public_fs} (internal path {fs_path} exists but dashboard "
-                f"links to the public path — customers get 404)"
+                f"links to the public path -- customers get 404)"
             )
 
     # RULE 4: file must be >= 500 bytes

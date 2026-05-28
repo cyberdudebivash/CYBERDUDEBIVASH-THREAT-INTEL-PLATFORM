@@ -231,7 +231,12 @@ def main() -> int:
     if isinstance(data, list):
         items = data
     elif isinstance(data, dict):
-        items = data.get("advisories") or data.get("reports") or data.get("items") or []
+        # fix(v166.2-P0): canonical key detection including "data" key
+        items = []
+        for _k in ("advisories", "items", "data", "entries", "reports", "intel", "feed"):
+            if isinstance(data.get(_k), list) and len(data[_k]) > 0:
+                items = data[_k]
+                break
     else:
         items = []
     if not isinstance(items, list):
