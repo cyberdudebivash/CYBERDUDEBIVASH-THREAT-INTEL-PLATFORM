@@ -1,0 +1,80 @@
+{
+  "_schema": "sentinel-apex-version-registry-v1",
+  "_mandate": "PHASE 73 — GLOBAL VERSION AUTHORITY ENGINE. This is the single authoritative version registry for all CYBERDUDEBIVASH® SENTINEL APEX platform components. ALL components inherit version from here. NO hardcoded versions elsewhere.",
+  "_governance": "READ-ONLY at runtime. Written ONLY by version_sync_engine.py during CI deployment. Manual edits FORBIDDEN.",
+  "_source": "config/platform_version.json",
+  "_propagated_by": "core/version-governance/version_sync_engine.py",
+  "_last_sync": "2026-05-28T00:00:00Z",
+
+  "platform": {
+    "version": "166.2",
+    "version_semver": "166.2.0",
+    "label": "v166",
+    "full": "SENTINEL APEX v166.2",
+    "codename": "SOVEREIGN SYNC",
+    "release_date": "2026-05-28",
+    "release_type": "enterprise",
+    "display": "CYBERDUDEBIVASH® SENTINEL APEX v166.2",
+    "copyright": "(c) 2026 CyberDudeBivash Pvt. Ltd. All Rights Reserved.",
+    "schema_version": "v166.2",
+    "api_version": "v1",
+    "stix_version": "2.1"
+  },
+
+  "ci": {
+    "pipeline_version": "166.2",
+    "pipeline_label": "v166",
+    "pipeline_full": "SENTINEL APEX CI/CD Pipeline v166.2",
+    "engine_version": "166.2.0"
+  },
+
+  "components": {
+    "api_gateway": "166.2",
+    "report_engine": "166.2",
+    "ai_engine": "166.2",
+    "nexus": "166.2",
+    "genesis": "166.2",
+    "cortex": "166.2",
+    "quantum": "166.2",
+    "sovereign": "166.2",
+    "bug_hunter": "166.2",
+    "tip_soar": "166.2",
+    "worker": "166.2",
+    "dashboard": "166.2",
+    "ioc_engine": "166.2",
+    "ioc_quality_hardener": "166.2.0",
+    "manifest_guard": "166.2",
+    "version_governance": "166.2",
+    "payment_gateway": "3.0",
+    "onboarding_engine": "1.0",
+    "observability_engine": "1.0",
+    "stix_engine": "2.1"
+  },
+
+  "sync_targets": [
+    "VERSION",
+    "config/version.json",
+    "config/platform_version.json",
+    "api/latest.json",
+    "api/status.json",
+    "api/ai/health.json",
+    "data/telemetry/sync_report.json",
+    "core/version-governance/deployment_manifest.json"
+  ],
+
+  "drift_thresholds": {
+    "hard_fail_on_drift": true,
+    "allowed_stale_seconds": 0,
+    "components_must_match": ["api_gateway", "dashboard", "ioc_engine", "manifest_guard"]
+  },
+
+  "governance_rules": {
+    "no_hardcoded_versions_in_dashboards": true,
+    "no_hardcoded_versions_in_apis": true,
+    "no_hardcoded_versions_in_workflows": true,
+    "all_components_inherit_from_registry": true,
+    "ci_propagates_on_every_deploy": true,
+    "cache_busting_required": true,
+    "deployment_must_be_deterministic": true
+  }
+}
