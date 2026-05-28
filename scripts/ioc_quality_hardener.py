@@ -486,8 +486,27 @@ def apply_ioc_hardening(manifest_path: Path = MANIFEST_PATH) -> dict:
         return {"error": "manifest_not_found", "processed": 0}
 
     data = json.loads(manifest_path.read_text(encoding="utf-8"))
-    items = data if isinstance(data, list) else (
-        data.get("advisories") or data.get("reports") or data.get("items") or [])
+    # fix(v166.2-P0): canonical key detection — field_preserving_merge.py writes
+    # under "data" by default; old 3-key lookup missed it causing ioc_quality_hardener
+    # to inject "items":[] and wipe the real items for all downstream validators.
+    _MKEYS = ("advisories", "items", "data", "entries", "reports", "intel", "feed")
+    if isinstance(data, list):
+        items = data
+        _manifest_key = None
+    else:
+        items = []
+        _manifest_key = None
+        for _k in _MKEYS:
+            if isinstance(data.get(_k), list) and len(data[_k]) > 0:
+                items = data[_k]
+                _manifest_key = _k
+                break
+        if not items:  # empty manifest — pick first list key for proper write-back
+            for _k in _MKEYS:
+                if isinstance(data.get(_k), list):
+                    items = data[_k]
+                    _manifest_key = _k
+                    break
     total = len(items)
     log.info("Loaded %d advisories", total)
 
@@ -572,10 +591,18 @@ def apply_ioc_hardening(manifest_path: Path = MANIFEST_PATH) -> dict:
         updated_items.append(item)
 
     # Update items in data
-    if "advisories" in data:
+    # fix(v166.2-P0): write to the SAME key that was read; never inject "items" when
+    # the source key was "data" — that was the Stage 3.3 hard-fail root cause.
+    if isinstance(data, list):
+        data = updated_items
+    elif _manifest_key is not None:
+        data[_manifest_key] = updated_items
+    elif "advisories" in data:
         data["advisories"] = updated_items
-    elif "reports" in data:
-        data["reports"] = updated_items
+    elif "data" in data and isinstance(data["data"], list):
+        data["data"] = updated_items
+    elif "entries" in data and isinstance(data["entries"], list):
+        data["entries"] = updated_items
     else:
         data["items"] = updated_items
 

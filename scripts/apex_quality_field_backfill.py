@@ -129,9 +129,15 @@ def backfill_manifest(
         return {"error": "not_found"}
 
     data  = _safe_load(manifest_path)
-    items = data if isinstance(data, list) else (
-        data.get("advisories") or data.get("reports") or data.get("items") or []
-    )
+    # fix(v166.2-P0): canonical key detection including "data" key
+    if isinstance(data, list):
+        items = data
+    else:
+        items = []
+        for _k in ("advisories", "items", "data", "entries", "reports", "intel", "feed"):
+            if isinstance(data.get(_k), list) and len(data[_k]) > 0:
+                items = data[_k]
+                break
     log.info("Loaded %d items from %s", len(items), manifest_path)
 
     stats: dict[str, int] = {

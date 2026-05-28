@@ -43,8 +43,15 @@ def repair_manifest(manifest_path: Path, dry_run: bool = False) -> dict:
         log.error("Manifest not found: %s", manifest_path)
         return {"error": "not_found"}
     data  = _safe_load(manifest_path)
-    items = data if isinstance(data, list) else (
-        data.get("advisories") or data.get("reports") or data.get("items") or [])
+    # fix(v166.2-P0): canonical key detection including "data" key
+    if isinstance(data, list):
+        items = data
+    else:
+        items = []
+        for _k in ("advisories", "items", "data", "entries", "reports", "intel", "feed"):
+            if isinstance(data.get(_k), list) and len(data[_k]) > 0:
+                items = data[_k]
+                break
     log.info("Loaded %d items from manifest", len(items))
     report_files: dict[str, Path] = {}
     if REPORTS_DIR.exists():

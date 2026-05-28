@@ -850,8 +850,16 @@ def apply_enterprise_scoring(manifest_path: Path = MANIFEST_PATH) -> dict:
         return {"error": "manifest_not_found", "scored": 0}
 
     data = json.loads(manifest_path.read_text(encoding="utf-8"))
-    # fix(v160.7): feed_manifest.json may be a raw JSON list (written by agent.sentinel_blogger)
-    items = data if isinstance(data, list) else (data.get("advisories") or data.get("reports") or data.get("items") or [])
+    # fix(v166.2-P0): canonical key detection — covers "data" key from field_preserving_merge.py
+    _MKEYS = ("advisories", "items", "data", "entries", "reports", "intel", "feed")
+    if isinstance(data, list):
+        items = data
+    else:
+        items = []
+        for _k in _MKEYS:
+            if isinstance(data.get(_k), list) and len(data[_k]) > 0:
+                items = data[_k]
+                break
     total = len(items)
     log.info("Loaded %d advisories", total)
 
