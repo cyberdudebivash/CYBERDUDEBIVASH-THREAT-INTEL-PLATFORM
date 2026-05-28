@@ -132,7 +132,12 @@ HTML_EXCLUDE_PREFIXES = {
     # production page (subscriptions, upgrades, enterprise onboarding, monetization).
     # It was erroneously placed in this exclusion set, causing 404 on production.
     # Forensic fix: remove from exclusion so build pipeline copies it to dist/.
-    "SENTINEL-APEX-SOVEREIGN", "SENTINEL_APEX_ENTERPRISE",
+    "SENTINEL-APEX-SOVEREIGN",
+    # v166.2: Added SENTINEL-APEX-GLOBAL — covers internal CTI reality-validation
+    # reports (e.g. SENTINEL-APEX-GLOBAL-ENTERPRISE-CTI-REALITY-VALIDATION-REPORT-v161.html)
+    # that must never be published to gh-pages. Previously unprotected by exclusion set.
+    "SENTINEL-APEX-GLOBAL",
+    "SENTINEL_APEX_ENTERPRISE",
     "SENTINEL_APEX_P0", "dashboard-api-sync", "gh_pages_",
     "intel_card_enhanced", "index.html.bak", "index.html.pre",
 }
