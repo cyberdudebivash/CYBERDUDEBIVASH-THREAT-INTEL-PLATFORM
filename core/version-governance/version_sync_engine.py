@@ -95,21 +95,67 @@ def now_iso() -> str:
 # ─────────────────────────────────────────────────────────────────────────────
 
 def _rw_json(path: Path, updater, dry_run: bool) -> Tuple[bool, str]:
-    """Read, transform, write a JSON file. Returns (changed, message)."""
+    """Read, transform, write a JSON file atomically. Returns (changed, message).
+
+    v166.2-P0 HARDENING — two layers of defence:
+
+    READ GUARD: json.loads() hard-fails on trailing-garbage corruption (duplicate
+    block, extra bytes appended by a concurrent write).  We fall back to
+    json.JSONDecoder.raw_decode() which extracts the first valid JSON object and
+    ignores the trailing garbage.  The corruption is then silently healed on the
+    next write because we write only the clean parsed object.
+
+    WRITE GUARD: direct path.write_text() is NOT atomic — a crash mid-write
+    leaves a truncated/corrupt file.  We write to <file>.tmp first, then call
+    os.replace() (POSIX rename, atomic on Linux; as-close-as-possible on Win).
+    If the tmp write fails we delete the tmp and return an error without touching
+    the original file.
+    """
     import copy as _copy
     if not path.is_file():
         warn(f"SKIP (not found): {path.relative_to(REPO_ROOT)}")
         return False, "not_found"
-    raw = json.loads(path.read_text(encoding="utf-8"))
-    before = json.dumps(raw, sort_keys=True)    # snapshot BEFORE mutation
-    updated = updater(_copy.deepcopy(raw))       # deep copy prevents raw mutation
-    after  = json.dumps(updated, sort_keys=True)
+
+    # ── READ with corruption guard ────────────────────────────────────────────
+    raw_text = path.read_text(encoding="utf-8", errors="replace")
+    try:
+        raw = json.loads(raw_text)
+    except json.JSONDecodeError:
+        try:
+            _decoder = json.JSONDecoder()
+            raw, _ = _decoder.raw_decode(raw_text.strip())
+            warn(
+                f"CORRUPTION DETECTED+HEALED (trailing garbage) in "
+                f"{path.relative_to(REPO_ROOT)} — next write will clean the file"
+            )
+        except (json.JSONDecodeError, ValueError) as exc:
+            fail(f"UNRECOVERABLE JSON in {path.relative_to(REPO_ROOT)}: {exc}")
+            return False, "corrupt_unrecoverable"
+
+    before  = json.dumps(raw, sort_keys=True)       # snapshot BEFORE mutation
+    updated = updater(_copy.deepcopy(raw))           # deep copy prevents raw mutation
+    after   = json.dumps(updated, sort_keys=True)
     if before == after:
         ok(f"ALREADY CURRENT: {path.relative_to(REPO_ROOT)}")
         return False, "no_change"
+
     if not dry_run:
-        path.write_text(json.dumps(updated, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
-        ok(f"UPDATED: {path.relative_to(REPO_ROOT)}")
+        # ── ATOMIC WRITE via tmp → os.replace ────────────────────────────────
+        tmp = path.with_suffix(path.suffix + ".tmp")
+        try:
+            tmp.write_text(
+                json.dumps(updated, indent=2, ensure_ascii=False) + "\n",
+                encoding="utf-8",
+            )
+            os.replace(tmp, path)
+            ok(f"UPDATED: {path.relative_to(REPO_ROOT)}")
+        except OSError as exc:
+            fail(f"ATOMIC WRITE FAILURE for {path.relative_to(REPO_ROOT)}: {exc}")
+            try:
+                tmp.unlink(missing_ok=True)
+            except OSError:
+                pass
+            return False, "write_failed"
     else:
         info(f"[DRY-RUN] WOULD UPDATE: {path.relative_to(REPO_ROOT)}")
     return True, "updated"
