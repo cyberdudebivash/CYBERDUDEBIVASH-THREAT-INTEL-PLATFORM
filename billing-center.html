@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SENTINEL APEX — Billing Center</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0a0e1a;--card:#0f1629;--accent:#00d4ff;--danger:#ff3366;--success:#00ff88;--warning:#ffaa00;--text:#e2e8f0;--muted:#64748b;--border:#1e2d4a}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text)}
+.header{background:var(--card);border-bottom:1px solid var(--border);padding:0 24px;height:60px;display:flex;align-items:center;justify-content:space-between}
+.logo{font-weight:700;color:var(--accent);font-size:1.1rem;display:flex;align-items:center;gap:8px}
+.logo-icon{width:30px;height:30px;background:linear-gradient(135deg,var(--accent),#0066ff);border-radius:7px;display:flex;align-items:center;justify-content:center}
+.content{padding:24px;max-width:1200px;margin:0 auto}
+.page-title{font-size:1.4rem;font-weight:700;margin-bottom:4px}
+.page-sub{color:var(--muted);font-size:13px;margin-bottom:24px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:24px;margin-bottom:24px}
+.section-title{font-size:1rem;font-weight:600;margin-bottom:16px}
+/* PLAN CARD */
+.plan-header{display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:16px;margin-bottom:20px}
+.plan-name{display:inline-flex;align-items:center;gap:8px;background:linear-gradient(135deg,rgba(0,212,255,.15),rgba(0,102,255,.15));border:1px solid var(--accent);border-radius:10px;padding:8px 18px;font-weight:700;font-size:1.1rem;color:var(--accent)}
+.plan-price{font-size:2rem;font-weight:700;color:var(--text)}
+.plan-price span{font-size:13px;color:var(--muted);font-weight:400}
+.plan-meta{font-size:13px;color:var(--muted);margin-top:4px}
+.usage-wrap{margin-bottom:16px}
+.usage-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
+.usage-label-text{font-size:13px;font-weight:500}
+.usage-numbers{font-size:12px;color:var(--muted)}
+.progress-bar{height:10px;background:rgba(255,255,255,.07);border-radius:5px;overflow:hidden}
+.progress-fill{height:100%;border-radius:5px;transition:width .8s ease}
+/* TABLE */
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:left;padding:10px 14px;background:rgba(0,212,255,.05);color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.06em;border-bottom:1px solid var(--border)}
+td{padding:10px 14px;border-bottom:1px solid rgba(30,45,74,.4)}
+tr:hover td{background:rgba(0,212,255,.025)}
+.badge{display:inline-flex;padding:2px 10px;border-radius:20px;font-size:11px;font-weight:600}
+.b-paid{background:rgba(0,255,136,.12);color:var(--success)}
+.b-pending{background:rgba(255,170,0,.12);color:var(--warning)}
+.b-overdue{background:rgba(255,51,102,.12);color:var(--danger)}
+.btn{display:inline-flex;align-items:center;gap:5px;padding:6px 14px;border-radius:7px;font-size:12px;font-weight:600;cursor:pointer;border:none;transition:all .2s}
+.btn-outline{background:transparent;border:1px solid var(--accent);color:var(--accent)}
+.btn-outline:hover{background:rgba(0,212,255,.1)}
+.btn-primary{background:linear-gradient(135deg,var(--accent),#0066ff);color:#0a0e1a}
+.btn-primary:hover{opacity:.85}
+/* PLAN COMPARE */
+.plans-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+.plan-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:22px;text-align:center;position:relative}
+.plan-card.featured{border-color:var(--accent);background:linear-gradient(180deg,rgba(0,212,255,.06),var(--card))}
+.featured-badge{position:absolute;top:-12px;left:50%;transform:translateX(-50%);background:var(--accent);color:#0a0e1a;font-size:11px;font-weight:700;padding:3px 14px;border-radius:20px}
+.plan-card-name{font-size:1rem;font-weight:700;margin-bottom:8px}
+.plan-card-price{font-size:1.8rem;font-weight:700;color:var(--accent);margin-bottom:4px}
+.plan-card-price sub{font-size:12px;color:var(--muted)}
+.plan-features{list-style:none;text-align:left;margin:16px 0;font-size:12px;color:var(--muted)}
+.plan-features li{padding:4px 0;display:flex;align-items:center;gap:7px}
+.plan-features li::before{content:'✓';color:var(--success);font-weight:700}
+/* PAYMENT */
+.payment-card{display:flex;align-items:center;gap:16px;background:rgba(0,0,0,.25);border:1px solid var(--border);border-radius:10px;padding:16px}
+.cc-icon{width:50px;height:32px;background:linear-gradient(135deg,#1a1a2e,#16213e);border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:18px;border:1px solid var(--border)}
+/* TOAST */
+.toast{position:fixed;bottom:24px;right:24px;background:var(--success);color:#0a0e1a;padding:12px 20px;border-radius:10px;font-weight:600;font-size:14px;z-index:999;transform:translateY(80px);opacity:0;transition:all .3s}
+.toast.show{transform:translateY(0);opacity:1}
+@media(max-width:768px){.plans-grid{grid-template-columns:1fr}.plan-header{flex-direction:column}}
+</style>
+</head>
+<body>
+<div class="header">
+  <div class="logo"><div class="logo-icon">⬡</div>SENTINEL APEX — Billing Center</div>
+  <div style="font-size:13px;color:var(--muted)">AcmeCorp Security &nbsp;|&nbsp; Enterprise</div>
+</div>
+<div class="content">
+  <div class="page-title">Billing & Subscription</div>
+  <div class="page-sub">Manage your plan, usage, invoices and payment methods.</div>
+
+  <!-- CURRENT PLAN -->
+  <div class="card">
+    <div class="plan-header">
+      <div>
+        <div class="plan-name">★ Enterprise Plan</div>
+        <div class="plan-meta" style="margin-top:8px">Renewal: <strong>2026-06-15</strong> &nbsp;·&nbsp; Seats: <strong>8 / 25 used</strong></div>
+      </div>
+      <div style="text-align:right">
+        <div class="plan-price">$999<span>/month</span></div>
+        <div class="plan-meta">Billed monthly · Auto-renew ON</div>
+        <br>
+        <button class="btn btn-outline" onclick="showToast('Opening plan management...')">Change Plan</button>
+      </div>
+    </div>
+    <div class="section-title">Usage This Period</div>
+    <div class="usage-wrap" id="usage-meters"></div>
+  </div>
+
+  <!-- INVOICES -->
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:16px">
+      <div class="section-title" style="margin:0">Invoice History</div>
+      <button class="btn btn-outline" onclick="showToast('Exporting all invoices...')">Export All</button>
+    </div>
+    <div style="overflow-x:auto">
+      <table>
+        <thead><tr><th>Invoice #</th><th>Date</th><th>Amount</th><th>Status</th><th>Action</th></tr></thead>
+        <tbody id="invoice-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- PAYMENT METHOD -->
+  <div class="card">
+    <div class="section-title">Payment Method</div>
+    <div class="payment-card">
+      <div class="cc-icon">💳</div>
+      <div>
+        <div style="font-weight:600;font-size:14px">Visa ending in 4242</div>
+        <div style="font-size:12px;color:var(--muted)">Expires 09/2028 &nbsp;·&nbsp; Default method</div>
+      </div>
+      <div style="margin-left:auto;display:flex;gap:8px">
+        <button class="btn btn-outline" onclick="showToast('Opening card update form...')">Update</button>
+        <button class="btn" style="background:transparent;border:1px solid var(--muted);color:var(--muted);font-size:12px" onclick="showToast('Adding new payment method...')">+ Add New</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- UPGRADE PLANS -->
+  <div class="card">
+    <div class="section-title">Available Plans</div>
+    <div class="plans-grid">
+      <div class="plan-card">
+        <div class="plan-card-name">Professional</div>
+        <div class="plan-card-price">$299<sub>/mo</sub></div>
+        <ul class="plan-features">
+          <li>10,000 IOCs/month</li>
+          <li>50,000 API calls</li>
+          <li>5 user seats</li>
+          <li>Email support</li>
+          <li>Standard feeds</li>
+        </ul>
+        <button class="btn btn-outline" onclick="showToast('Downgrade scheduled for next cycle')">Select Plan</button>
+      </div>
+      <div class="plan-card featured">
+        <div class="featured-badge">CURRENT</div>
+        <div class="plan-card-name" style="color:var(--accent)">Enterprise</div>
+        <div class="plan-card-price">$999<sub>/mo</sub></div>
+        <ul class="plan-features">
+          <li>100,000 IOCs/month</li>
+          <li>1M API calls</li>
+          <li>25 user seats</li>
+          <li>Priority support &lt;1hr</li>
+          <li>Premium feeds + ATT&CK</li>
+          <li>SIEM/SOAR integrations</li>
+        </ul>
+        <button class="btn btn-primary" disabled style="opacity:.5;cursor:default">Current Plan</button>
+      </div>
+      <div class="plan-card">
+        <div class="plan-card-name">MSSP</div>
+        <div class="plan-card-price">$2,499<sub>/mo</sub></div>
+        <ul class="plan-features">
+          <li>Unlimited IOCs</li>
+          <li>Unlimited API calls</li>
+          <li>Multi-tenant portal</li>
+          <li>White-label reports</li>
+          <li>Dedicated CSM</li>
+          <li>SLA guarantee 99.9%</li>
+        </ul>
+        <button class="btn btn-primary" onclick="showToast('Sales team will contact you shortly!')">Upgrade to MSSP</button>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+const usageItems=[
+  {label:'API Calls',used:67432,total:100000,color:'#00d4ff'},
+  {label:'Intelligence Requests',used:4521,total:10000,color:'#00ff88'},
+  {label:'Webhooks',used:12,total:50,color:'#ffaa00'},
+  {label:'User Seats',used:8,total:25,color:'#8b5cf6'},
+];
+const usageDiv=document.getElementById('usage-meters');
+usageItems.forEach(u=>{
+  const pct=Math.round(u.used/u.total*100);
+  const color=pct>80?'var(--danger)':pct>60?'var(--warning)':u.color;
+  usageDiv.innerHTML+=`<div class="usage-wrap"><div class="usage-row"><span class="usage-label-text">${u.label}</span><span class="usage-numbers">${u.used.toLocaleString()} / ${u.total.toLocaleString()} &nbsp;(${pct}%)</span></div><div class="progress-bar"><div class="progress-fill" style="width:${pct}%;background:${color}"></div></div></div>`;
+});
+
+const invoices=[
+  {num:'INV-2026-051',date:'2026-05-01',amount:'$999.00',status:'Paid'},
+  {num:'INV-2026-041',date:'2026-04-01',amount:'$999.00',status:'Paid'},
+  {num:'INV-2026-031',date:'2026-03-01',amount:'$999.00',status:'Paid'},
+  {num:'INV-2026-021',date:'2026-02-01',amount:'$999.00',status:'Paid'},
+  {num:'INV-2026-011',date:'2026-01-01',amount:'$1,499.00',status:'Paid'},
+  {num:'INV-2025-121',date:'2025-12-01',amount:'$999.00',status:'Overdue'},
+];
+const bmap={Paid:'b-paid',Pending:'b-pending',Overdue:'b-overdue'};
+const tbody=document.getElementById('invoice-tbody');
+invoices.forEach(i=>{
+  tbody.innerHTML+=`<tr><td style="font-family:monospace;font-size:12px">${i.num}</td><td>${i.date}</td><td style="font-weight:600">${i.amount}</td><td><span class="badge ${bmap[i.status]}">${i.status}</span></td><td><button class="btn btn-outline" onclick="showToast('Downloading ${i.num}')">⬇ PDF</button></td></tr>`;
+});
+
+function showToast(msg){
+  const t=document.getElementById('toast');
+  t.textContent=msg;t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),2800);
+}
+</script>
+</body>
+</html>

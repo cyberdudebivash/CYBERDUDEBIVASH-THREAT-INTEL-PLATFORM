@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SENTINEL APEX — Customer Portal</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0a0e1a;--card:#0f1629;--accent:#00d4ff;--danger:#ff3366;--success:#00ff88;--warning:#ffaa00;--text:#e2e8f0;--muted:#64748b;--border:#1e2d4a}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;display:flex;flex-direction:column}
+a{color:var(--accent);text-decoration:none}
+/* TOP HEADER */
+.top-header{background:var(--card);border-bottom:1px solid var(--border);padding:0 24px;height:64px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
+.logo{display:flex;align-items:center;gap:10px;font-weight:700;font-size:1.1rem;color:var(--accent)}
+.logo-icon{width:32px;height:32px;background:linear-gradient(135deg,var(--accent),#0066ff);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:14px}
+.header-right{display:flex;align-items:center;gap:16px}
+.notif-btn{position:relative;background:none;border:none;color:var(--text);cursor:pointer;font-size:20px;padding:6px}
+.notif-badge{position:absolute;top:2px;right:2px;background:var(--danger);color:#fff;font-size:10px;font-weight:700;border-radius:50%;width:16px;height:16px;display:flex;align-items:center;justify-content:center}
+.avatar{width:36px;height:36px;background:linear-gradient(135deg,var(--accent),#0066ff);border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;cursor:pointer}
+.org-name{color:var(--muted);font-size:13px}
+/* LAYOUT */
+.main-layout{display:flex;flex:1}
+/* SIDEBAR */
+.sidebar{width:220px;background:var(--card);border-right:1px solid var(--border);padding:16px 0;flex-shrink:0;position:sticky;top:64px;height:calc(100vh - 64px);overflow-y:auto}
+.nav-section{padding:8px 16px;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-top:8px}
+.nav-item{display:flex;align-items:center;gap:10px;padding:10px 20px;cursor:pointer;color:var(--text);font-size:14px;border-left:3px solid transparent;transition:all .2s}
+.nav-item:hover{background:rgba(0,212,255,.06);color:var(--accent)}
+.nav-item.active{background:rgba(0,212,255,.1);color:var(--accent);border-left-color:var(--accent)}
+.nav-icon{width:18px;text-align:center}
+/* CONTENT */
+.content{flex:1;padding:24px;overflow-y:auto;max-width:1200px}
+/* SECTION CARDS */
+.section-title{font-size:1.1rem;font-weight:600;margin-bottom:16px;color:var(--text)}
+.card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px}
+.cards-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px;margin-bottom:24px}
+.summary-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px;text-align:center}
+.summary-card .val{font-size:2rem;font-weight:700;color:var(--accent)}
+.summary-card .lbl{font-size:12px;color:var(--muted);margin-top:4px}
+/* INTEL FEED */
+.intel-item{display:flex;align-items:flex-start;gap:12px;padding:12px 0;border-bottom:1px solid var(--border)}
+.intel-item:last-child{border-bottom:none}
+.intel-dot{width:10px;height:10px;border-radius:50%;margin-top:5px;flex-shrink:0}
+.intel-title{font-size:14px;font-weight:500}
+.intel-meta{font-size:12px;color:var(--muted);margin-top:2px}
+/* TABLE */
+.table-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:left;padding:10px 12px;background:rgba(0,212,255,.05);color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.06em;border-bottom:1px solid var(--border)}
+td{padding:10px 12px;border-bottom:1px solid rgba(30,45,74,.5)}
+tr:hover td{background:rgba(0,212,255,.03)}
+/* BADGES */
+.badge{display:inline-flex;align-items:center;padding:2px 10px;border-radius:20px;font-size:11px;font-weight:600}
+.badge-success{background:rgba(0,255,136,.12);color:var(--success)}
+.badge-danger{background:rgba(255,51,102,.12);color:var(--danger)}
+.badge-warning{background:rgba(255,170,0,.12);color:var(--warning)}
+.badge-info{background:rgba(0,212,255,.12);color:var(--accent)}
+.badge-gray{background:rgba(100,116,139,.15);color:var(--muted)}
+/* SUBSCRIPTION */
+.plan-badge{display:inline-flex;align-items:center;gap:6px;background:linear-gradient(135deg,rgba(0,212,255,.15),rgba(0,102,255,.15));border:1px solid var(--accent);border-radius:8px;padding:6px 16px;font-weight:700;color:var(--accent);font-size:1rem}
+.usage-bar-wrap{margin-top:12px}
+.usage-label{display:flex;justify-content:space-between;font-size:12px;color:var(--muted);margin-bottom:6px}
+.usage-bar{height:8px;background:rgba(255,255,255,.08);border-radius:4px;overflow:hidden}
+.usage-fill{height:100%;border-radius:4px;background:linear-gradient(90deg,var(--accent),#0066ff)}
+/* API KEY */
+.api-key-box{background:rgba(0,0,0,.3);border:1px solid var(--border);border-radius:8px;padding:12px 16px;font-family:monospace;font-size:13px;display:flex;justify-content:space-between;align-items:center;gap:12px;word-break:break-all}
+.copy-btn{background:rgba(0,212,255,.1);border:1px solid var(--accent);color:var(--accent);padding:6px 14px;border-radius:6px;cursor:pointer;font-size:12px;white-space:nowrap;transition:all .2s}
+.copy-btn:hover{background:rgba(0,212,255,.2)}
+/* REPORT CARDS */
+.report-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px}
+.report-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px}
+.report-card .rc-title{font-weight:600;font-size:14px;margin-bottom:4px}
+.report-card .rc-date{font-size:12px;color:var(--muted);margin-bottom:10px}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;border:none;transition:all .2s}
+.btn-primary{background:linear-gradient(135deg,var(--accent),#0066ff);color:#0a0e1a}
+.btn-primary:hover{opacity:.85}
+.btn-outline{background:transparent;border:1px solid var(--accent);color:var(--accent)}
+.btn-outline:hover{background:rgba(0,212,255,.1)}
+.btn-danger{background:transparent;border:1px solid var(--danger);color:var(--danger)}
+/* TOAST */
+.toast{position:fixed;bottom:24px;right:24px;background:var(--success);color:#0a0e1a;padding:12px 20px;border-radius:10px;font-weight:600;font-size:14px;z-index:999;transform:translateY(80px);opacity:0;transition:all .3s}
+.toast.show{transform:translateY(0);opacity:1}
+/* MOBILE */
+@media(max-width:768px){
+  .sidebar{display:none}
+  .content{padding:16px}
+  .cards-row{grid-template-columns:repeat(2,1fr)}
+}
+/* SECTIONS */
+.portal-section{margin-bottom:32px}
+</style>
+</head>
+<body>
+<header class="top-header">
+  <div class="logo">
+    <div class="logo-icon">⬡</div>
+    <span>SENTINEL APEX</span>
+  </div>
+  <div class="header-right">
+    <span class="org-name">AcmeCorp Security</span>
+    <button class="notif-btn" onclick="showToast('3 new notifications')">
+      🔔<span class="notif-badge">3</span>
+    </button>
+    <div class="avatar" title="Admin User">AU</div>
+  </div>
+</header>
+<div class="main-layout">
+  <nav class="sidebar">
+    <div class="nav-section">Main</div>
+    <div class="nav-item active" onclick="activateNav(this,'dashboard')"><span class="nav-icon">⊞</span> Dashboard</div>
+    <div class="nav-item" onclick="activateNav(this,'intelligence')"><span class="nav-icon">🧠</span> Intelligence</div>
+    <div class="nav-item" onclick="activateNav(this,'detections')"><span class="nav-icon">🎯</span> Detections</div>
+    <div class="nav-item" onclick="activateNav(this,'reports')"><span class="nav-icon">📊</span> Reports</div>
+    <div class="nav-section">Account</div>
+    <div class="nav-item" onclick="activateNav(this,'subscriptions')"><span class="nav-icon">💳</span> Subscriptions</div>
+    <div class="nav-item" onclick="activateNav(this,'api')"><span class="nav-icon">🔑</span> API</div>
+    <div class="nav-item" onclick="activateNav(this,'support')"><span class="nav-icon">🎧</span> Support</div>
+    <div class="nav-item" onclick="activateNav(this,'settings')"><span class="nav-icon">⚙️</span> Settings</div>
+  </nav>
+  <main class="content">
+    <!-- SUMMARY CARDS -->
+    <div class="portal-section">
+      <div class="section-title">Portal Overview</div>
+      <div class="cards-row">
+        <div class="summary-card"><div class="val" style="color:var(--danger)">47</div><div class="lbl">Threats Today</div></div>
+        <div class="summary-card"><div class="val">1,284</div><div class="lbl">IOCs Received</div></div>
+        <div class="summary-card"><div class="val" style="color:var(--warning)">12</div><div class="lbl">Active Detections</div></div>
+        <div class="summary-card"><div class="val" style="color:var(--success)">87%</div><div class="lbl">Health Score</div></div>
+      </div>
+    </div>
+    <!-- INTEL FEED -->
+    <div class="portal-section">
+      <div class="card">
+        <div class="section-title">Intelligence Feed</div>
+        <div id="intel-feed"></div>
+      </div>
+    </div>
+    <!-- RECENT DETECTIONS -->
+    <div class="portal-section">
+      <div class="card">
+        <div class="section-title">Recent Detections</div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Timestamp</th><th>Type</th><th>Severity</th><th>Source</th><th>Status</th></tr></thead>
+            <tbody id="detections-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+    <!-- SUBSCRIPTION + API KEY -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:32px" class="two-col">
+      <div class="card">
+        <div class="section-title">My Subscription</div>
+        <div class="plan-badge">★ Enterprise Plan</div>
+        <div class="usage-bar-wrap">
+          <div class="usage-label"><span>API Calls</span><span>67,432 / 100,000</span></div>
+          <div class="usage-bar"><div class="usage-fill" style="width:67%"></div></div>
+        </div>
+        <div class="usage-bar-wrap">
+          <div class="usage-label"><span>Intel Requests</span><span>4,521 / 10,000</span></div>
+          <div class="usage-bar"><div class="usage-fill" style="width:45%"></div></div>
+        </div>
+        <div class="usage-bar-wrap">
+          <div class="usage-label"><span>Seats Used</span><span>8 / 25</span></div>
+          <div class="usage-bar"><div class="usage-fill" style="width:32%"></div></div>
+        </div>
+        <br><button class="btn btn-outline" onclick="showToast('Opening billing portal...')">Manage Plan</button>
+      </div>
+      <div class="card">
+        <div class="section-title">API Key</div>
+        <div class="api-key-box">
+          <span id="api-key-display">sk-apex-••••••••••••••••••••••••3f9a</span>
+          <button class="copy-btn" onclick="copyKey()">Copy</button>
+        </div>
+        <p style="font-size:12px;color:var(--muted);margin-top:10px">Last used: 2 minutes ago &nbsp;|&nbsp; Created: 2025-01-15</p>
+        <br>
+        <button class="btn btn-danger" style="font-size:12px;padding:6px 14px" onclick="showToast('Key rotation initiated')">Rotate Key</button>
+        &nbsp;
+        <button class="btn btn-outline" style="font-size:12px;padding:6px 14px" onclick="toggleKeyReveal()">Reveal</button>
+      </div>
+    </div>
+    <!-- SUPPORT + REPORTS -->
+    <div class="portal-section">
+      <div class="card" style="margin-bottom:16px">
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
+          <div>
+            <div class="section-title" style="margin:0">Quick Support</div>
+            <p style="color:var(--muted);font-size:13px;margin-top:4px">Enterprise SLA — P1 response in &lt;1 hour</p>
+          </div>
+          <button class="btn btn-primary" onclick="showToast('Support chat opened!')">🎧 Open Support Chat</button>
+        </div>
+      </div>
+    </div>
+    <div class="portal-section">
+      <div class="section-title">Recent Reports</div>
+      <div class="report-cards" id="report-cards"></div>
+    </div>
+  </main>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+const intelItems=[
+  {color:'#ff3366',title:'APT29 Cozy Bear — New C2 Infrastructure Detected',meta:'Critical · 2026-05-29 09:14 · Source: OSINT + Internal'},
+  {color:'#ffaa00',title:'Ransomware Campaign Targeting Healthcare Sector',meta:'High · 2026-05-29 08:30 · Source: ISAC Feed'},
+  {color:'#00d4ff',title:'CISA KEV Update — 3 New Vulnerabilities Added',meta:'Medium · 2026-05-29 07:45 · Source: CISA'},
+  {color:'#00ff88',title:'Phishing Infrastructure Takedown Confirmed',meta:'Info · 2026-05-28 22:10 · Source: Threat Intel Exchange'},
+  {color:'#ffaa00',title:'TA505 Group Activity — New Malware Variant Observed',meta:'High · 2026-05-28 18:55 · Source: Premium Feed'},
+];
+const detections=[
+  ['2026-05-29 09:41','Malware C2 Beacon','danger','EDR Agent','Active'],
+  ['2026-05-29 09:22','Lateral Movement','warning','SIEM Correlation','Investigating'],
+  ['2026-05-29 08:55','Phishing Email Block','warning','Email Gateway','Blocked'],
+  ['2026-05-29 07:30','Suspicious Login','info','IAM Platform','Resolved'],
+  ['2026-05-28 23:11','Port Scan Detected','gray','Network Sensor','Closed'],
+];
+const reports=[
+  {title:'Weekly Threat Brief — W21',date:'2026-05-26',type:'Weekly'},
+  {title:'Monthly Executive Report — April',date:'2026-05-01',type:'Monthly'},
+  {title:'Incident Report — IR-2026-042',date:'2026-04-18',type:'Incident'},
+];
+
+const feed=document.getElementById('intel-feed');
+intelItems.forEach(i=>{
+  feed.innerHTML+=`<div class="intel-item"><div class="intel-dot" style="background:${i.color}"></div><div><div class="intel-title">${i.title}</div><div class="intel-meta">${i.meta}</div></div></div>`;
+});
+
+const tbody=document.getElementById('detections-tbody');
+detections.forEach(d=>{
+  const bmap={danger:'badge-danger',warning:'badge-warning',info:'badge-info',gray:'badge-gray'};
+  const smap={Active:'badge-danger',Investigating:'badge-warning',Blocked:'badge-info',Resolved:'badge-success',Closed:'badge-gray'};
+  tbody.innerHTML+=`<tr><td>${d[0]}</td><td>${d[1]}</td><td><span class="badge ${bmap[d[3]||'info']}">${d[2]}</span></td><td>${d[3]}</td><td><span class="badge ${smap[d[4]]||'badge-gray'}">${d[4]}</span></td></tr>`;
+});
+
+const rc=document.getElementById('report-cards');
+reports.forEach(r=>{
+  rc.innerHTML+=`<div class="report-card"><div class="rc-title">${r.title}</div><div class="rc-date">${r.date}</div><span class="badge badge-info">${r.type}</span><br><br><button class="btn btn-outline" style="font-size:12px;padding:6px 14px" onclick="showToast('Downloading ${r.title}')">⬇ Download</button></div>`;
+});
+
+function activateNav(el,section){
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  el.classList.add('active');
+  showToast('Navigating to '+section.charAt(0).toUpperCase()+section.slice(1));
+}
+function showToast(msg){
+  const t=document.getElementById('toast');
+  t.textContent=msg;t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),2800);
+}
+let keyRevealed=false;
+function toggleKeyReveal(){
+  const el=document.getElementById('api-key-display');
+  keyRevealed=!keyRevealed;
+  el.textContent=keyRevealed?'sk-apex-7f3a9b2c1d4e5f6a7b8c9d0e1f2a3b4c3f9a':'sk-apex-••••••••••••••••••••••••3f9a';
+}
+function copyKey(){showToast('API key copied to clipboard!');}
+</script>
+</body>
+</html>
