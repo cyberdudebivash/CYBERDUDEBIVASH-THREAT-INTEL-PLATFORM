@@ -4882,6 +4882,28 @@
 .intel-card.sev-high .cdb-summary{background:rgba(255,107,0,0.03) !important;border-color:rgba(255,107,0,0.1) !important;}
 .intel-card .mitre-chip{background:rgba(59,130,246,0.12) !important;border:1px solid rgba(59,130,246,0.28) !important;color:#60a5fa !important;border-radius:3px !important;font-size:8.5px !important;font-weight:700 !important;padding:2px 7px !important;transition:background 0.18s,box-shadow 0.18s !important;}
 .intel-card .mitre-chip:hover{background:rgba(59,130,246,0.22) !important;box-shadow:0 0 10px rgba(59,130,246,0.25) !important;}
+
+/* ═══ v167.0 — KILL CHAIN TACTIC STRIP ═══ */
+.cdb-kc-strip{display:flex;align-items:center;gap:3px;margin-top:8px;flex-wrap:nowrap;overflow:hidden;}
+.cdb-kc-node{display:flex;flex-direction:column;align-items:center;gap:2px;flex-shrink:0;}
+.cdb-kc-dot{width:20px;height:20px;border-radius:3px;display:flex;align-items:center;justify-content:center;font-family:var(--font-mono);font-size:6px;font-weight:800;letter-spacing:0.3px;transition:all 0.2s ease;cursor:default;}
+.cdb-kc-dot.active{box-shadow:0 0 8px currentColor;}
+.cdb-kc-dot.inactive{opacity:0.18;}
+.cdb-kc-arrow{font-size:7px;color:rgba(255,255,255,0.1);flex-shrink:0;line-height:20px;}
+.cdb-kc-dot:hover{transform:scale(1.2);opacity:1!important;}
+
+/* ═══ v167.0 — IOC COPY BUTTON ═══ */
+.cdb-ioc-copy-btn{display:inline-flex;align-items:center;gap:4px;font-family:var(--font-mono);font-size:7.5px;font-weight:800;letter-spacing:0.8px;color:#00d4aa;background:rgba(0,212,170,0.06);border:1px solid rgba(0,212,170,0.2);padding:3px 9px;border-radius:3px;cursor:pointer;transition:all 0.18s;text-transform:uppercase;margin-top:5px;}
+.cdb-ioc-copy-btn:hover{background:rgba(0,212,170,0.15);border-color:rgba(0,212,170,0.45);box-shadow:0 0 10px rgba(0,212,170,0.2);}
+.cdb-ioc-copy-btn.copied{color:#00ff88;border-color:rgba(0,255,136,0.4);background:rgba(0,255,136,0.08);}
+
+/* ═══ v167.0 — FRESHNESS TIMESTAMP ═══ */
+.cdb-freshness{font-family:var(--font-mono);font-size:8px;font-weight:700;letter-spacing:0.5px;padding:2px 7px;border-radius:2px;border:1px solid;}
+.cdb-fresh-live{color:#00ff88;background:rgba(0,255,136,0.08);border-color:rgba(0,255,136,0.25);}
+.cdb-fresh-new{color:#00d4aa;background:rgba(0,212,170,0.08);border-color:rgba(0,212,170,0.25);}
+.cdb-fresh-recent{color:#f59e0b;background:rgba(245,158,11,0.07);border-color:rgba(245,158,11,0.2);}
+.cdb-fresh-aged{color:#94a3b8;background:rgba(148,163,184,0.06);border-color:rgba(148,163,184,0.15);}
+.cdb-fresh-stale{color:#ef4444;background:rgba(239,68,68,0.07);border-color:rgba(239,68,68,0.2);}
 .intel-card .cdb-body{background:rgba(0,0,0,0.15) !important;border-radius:7px !important;border:1px solid rgba(255,255,255,0.04) !important;transition:background 0.18s !important;}
 .intel-card:hover .cdb-body{background:rgba(0,0,0,0.22) !important;border-color:rgba(255,255,255,0.07) !important;}
 .intel-card.sev-critical .cdb-body{box-shadow:inset 0 0 40px -18px rgba(255,26,26,0.07) !important;}
@@ -9499,6 +9521,80 @@
                     if (tacticLinks) mitreHtml = `<div class="mitre-strip">${tacticLinks}</div>`;
                 }
 
+                // ═══ v167.0 — KILL CHAIN TACTIC STRIP ═══
+                // Maps T-codes → ATT&CK tactic phase for kill-chain visualization
+                const _kcTacticMap = {
+                    'T1190':'IA','T1133':'IA','T1566':'IA','T1078':'IA','T1091':'IA','T1200':'IA','T1195':'IA','T1189':'IA',
+                    'T1059':'EX','T1106':'EX','T1203':'EX','T1053':'EX','T1204':'EX','T1072':'EX','T1129':'EX',
+                    'T1547':'PE','T1543':'PE','T1098':'PE','T1136':'PE','T1197':'PE','T1037':'PE','T1505':'PE','T1176':'PE',
+                    'T1548':'PR','T1134':'PR','T1068':'PR','T1574':'PR','T1055':'PR',
+                    'T1036':'DE','T1112':'DE','T1218':'DE','T1027':'DE','T1070':'DE','T1140':'DE','T1562':'DE','T1564':'DE',
+                    'T1110':'CA','T1003':'CA','T1558':'CA','T1555':'CA','T1056':'CA','T1539':'CA','T1528':'CA',
+                    'T1018':'DI','T1082':'DI','T1046':'DI','T1083':'DI','T1087':'DI','T1069':'DI','T1057':'DI',
+                    'T1021':'LM','T1534':'LM','T1080':'LM','T1570':'LM','T1210':'LM','T1563':'LM',
+                    'T1560':'CL','T1074':'CL','T1005':'CL','T1185':'CL','T1114':'CL','T1115':'CL',
+                    'T1041':'EF','T1048':'EF','T1567':'EF','T1052':'EF','T1029':'EF',
+                    'T1485':'IM','T1486':'IM','T1489':'IM','T1490':'IM','T1491':'IM','T1498':'IM','T1496':'IM'
+                };
+                const _kcPhases = [
+                    {k:'IA',label:'Initial Access',color:'#8b5cf6'},
+                    {k:'EX',label:'Execution',color:'#ef4444'},
+                    {k:'PE',label:'Persistence',color:'#f97316'},
+                    {k:'PR',label:'Priv Esc',color:'#f59e0b'},
+                    {k:'DE',label:'Defense Evasion',color:'#eab308'},
+                    {k:'CA',label:'Cred Access',color:'#84cc16'},
+                    {k:'DI',label:'Discovery',color:'#22d3ee'},
+                    {k:'LM',label:'Lateral Mvmt',color:'#3b82f6'},
+                    {k:'CL',label:'Collection',color:'#a78bfa'},
+                    {k:'EF',label:'Exfiltration',color:'#f472b6'},
+                    {k:'IM',label:'Impact',color:'#dc2626'}
+                ];
+                const _activeTactics = new Set(
+                    (item.mitre_tactics||[]).map(t=>{
+                        const tid = typeof t==='string'?t:(t.technique_id||t.id||'');
+                        // Normalize sub-technique T1059.001 → T1059
+                        return _kcTacticMap[tid.split('.')[0]] || _kcTacticMap[tid] || null;
+                    }).filter(Boolean)
+                );
+                let _kcHtml = '';
+                if (_activeTactics.size > 0) {
+                    const _kcNodes = _kcPhases.map((ph,i) => {
+                        const isActive = _activeTactics.has(ph.k);
+                        const arrow = i < _kcPhases.length-1 ? `<span class="cdb-kc-arrow">›</span>` : '';
+                        return `<div class="cdb-kc-node"><div class="cdb-kc-dot ${isActive?'active':'inactive'}" style="${isActive?`background:${ph.color}22;color:${ph.color};border:1px solid ${ph.color}55`:'background:rgba(255,255,255,0.04);color:#4a5568;border:1px solid rgba(255,255,255,0.06)'}" title="${ph.label}">${ph.k}</div></div>${arrow}`;
+                    }).join('');
+                    _kcHtml = `<div class="cdb-kc-strip" title="ATT&CK Kill Chain Coverage">${_kcNodes}</div>`;
+                }
+
+                // ═══ v167.0 — FRESHNESS TIMESTAMP ═══
+                const _tsRaw = item.processed_at || item.timestamp || '';
+                let _freshHtml = '';
+                if (_tsRaw) {
+                    const _tsMs = new Date(_tsRaw).getTime();
+                    const _ageMins = Math.round((Date.now() - _tsMs) / 60000);
+                    let _freshClass, _freshLabel;
+                    if (_ageMins < 60) { _freshClass='cdb-fresh-live'; _freshLabel=`${_ageMins}m ago`; }
+                    else if (_ageMins < 1440) { _freshClass='cdb-fresh-new'; _freshLabel=`${Math.round(_ageMins/60)}h ago`; }
+                    else if (_ageMins < 4320) { _freshClass='cdb-fresh-recent'; _freshLabel=`${Math.round(_ageMins/1440)}d ago`; }
+                    else if (_ageMins < 10080) { _freshClass='cdb-fresh-aged'; _freshLabel=`${Math.round(_ageMins/1440)}d ago`; }
+                    else { _freshClass='cdb-fresh-stale'; _freshLabel=`${Math.round(_ageMins/1440)}d ago`; }
+                    _freshHtml = `<span class="cdb-freshness ${_freshClass}" title="Last processed: ${_tsRaw}">${_freshLabel}</span>`;
+                }
+
+                // ═══ v167.0 — IOC COPY BUTTON ═══
+                const _iocCopyId = 'ioccp_' + Math.random().toString(36).slice(2,8);
+                let _iocCopyHtml = '';
+                if (item.ioc_counts || item.indicators || item.ioc_count > 0) {
+                    const _iocLines = [];
+                    const _iocC = item.ioc_counts || {};
+                    if (_iocC.ipv4 || _iocC.ip) _iocLines.push(`# IPv4 (${_iocC.ipv4||_iocC.ip})`);
+                    if (_iocC.domain) _iocLines.push(`# Domains (${_iocC.domain})`);
+                    if (_iocC.md5||_iocC.sha256||_iocC.sha1||_iocC.hash) _iocLines.push(`# Hashes (${_iocC.md5||_iocC.sha256||_iocC.sha1||_iocC.hash})`);
+                    if (_iocC.url) _iocLines.push(`# URLs (${_iocC.url})`);
+                    const _copyPayload = `# IOCs — ${_cdbEsc(item.title||'')}\n# Source: ${item.stix_id||item.id||''}\n# Exported: ${new Date().toISOString()}\n${_iocLines.join('\n')}\n# Full feed: /api/v1/intel/latest.json`;
+                    _iocCopyHtml = `<button class="cdb-ioc-copy-btn" id="${_iocCopyId}" onclick="(function(btn,txt){navigator.clipboard&&navigator.clipboard.writeText(txt).then(()=>{btn.textContent='✓ COPIED';btn.classList.add('copied');setTimeout(()=>{btn.textContent='⬡ COPY IOCs';btn.classList.remove('copied')},1800)});})(this,${JSON.stringify(_copyPayload)})" title="Copy IOC summary to clipboard"><span>⬡</span> COPY IOCs</button>`;
+                }
+
                 // v46.0 Threat Characteristic Badges
                 // v76.1: exploit badge \u2014 aligned threshold (EPSS>=50% = HIGH, not 70%)
                 // v161.x EPSS normalizer: FIRST.org returns 0.0-1.0 decimal; some legacy entries
@@ -9856,7 +9952,7 @@
                         ${blastBadge}
                         ${supplyBadge}
                         ${item.threat_type && item.threat_type !== 'THREAT-INTEL' && item.threat_type !== 'THREAT_INTEL' ? `<span title="Threat Type" style="font-family:var(--font-mono);font-size:7.5px;color:#94a3b8;background:rgba(148,163,184,0.08);border:1px solid rgba(148,163,184,0.2);padding:1px 7px;border-radius:2px;">${item.threat_type.replace(/_/g,' ')}</span>` : ''}
-                        ${ts ? `<span style="margin-left:auto;font-family:var(--font-mono);font-size:9px;color:var(--text-muted);">${ts}</span>` : ''}
+                        ${_freshHtml || (ts ? `<span style="margin-left:auto;font-family:var(--font-mono);font-size:9px;color:var(--text-muted);">${ts}</span>` : '')}
                         ${(()=>{
                             // v122.0.0: Tier badge \u2014 FREE/PRO/ENTERPRISE access indicator
                             const userTier = (window._platformTiers && window._platformTiers.current) || 'free';
@@ -9951,6 +10047,8 @@
                                 </div>`;
                             })()}
                             ${mitreHtml}
+                            ${_kcHtml}
+                            ${_iocCopyHtml}
                             <div class="cdb-signals">${_sigs.join('')}</div>
                         </div>
                     </div>
