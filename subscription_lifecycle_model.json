@@ -1,0 +1,168 @@
+{
+  "schema_version": "1.0",
+  "platform": "CYBERDUDEBIVASH® SENTINEL APEX",
+  "generated_at": "2026-05-29T00:00:00Z",
+  "model_name": "Subscription Lifecycle Operations Model",
+
+  "subscription_states": [
+    {"state": "TRIAL", "description": "Free tier, never converted to paid", "billing": false, "features": "free_tier"},
+    {"state": "ACTIVE", "description": "Paying customer, within contract period", "billing": true, "features": "plan_tier"},
+    {"state": "GRACE_PERIOD", "description": "Payment failed, retry in progress", "billing": "retry", "features": "plan_tier", "duration_days": 14},
+    {"state": "SUSPENDED", "description": "Payment failure unresolved >14 days", "billing": false, "features": "read_only"},
+    {"state": "RENEWAL_PENDING", "description": "Within 90 days of contract expiry", "billing": true, "features": "plan_tier"},
+    {"state": "CANCELLED", "description": "Customer-initiated cancellation before expiry", "billing": "prorated_refund", "features": "plan_tier_until_period_end"},
+    {"state": "CHURNED", "description": "Contract expired without renewal", "billing": false, "features": "downgrade_to_free"},
+    {"state": "REACTIVATED", "description": "Churned customer re-subscribed", "billing": true, "features": "new_plan_tier"}
+  ],
+
+  "plans": [
+    {
+      "plan_id": "free",
+      "name": "Free",
+      "monthly_price_usd": 0,
+      "annual_price_usd": 0,
+      "seats": 1,
+      "api_rate_limit_per_min": 100,
+      "advisories_per_month": 10,
+      "ioc_feed": "none",
+      "stix_bundles": "sample_only",
+      "detection_rules": "sample",
+      "soc_workspace": false,
+      "graph_intelligence": false,
+      "multi_tenant": false,
+      "white_label": false,
+      "support": "community",
+      "sla_uptime_pct": null,
+      "csm": false
+    },
+    {
+      "plan_id": "pro",
+      "name": "Professional",
+      "monthly_price_usd": 49,
+      "annual_price_usd": 499,
+      "annual_discount_pct": 15,
+      "seats": 3,
+      "api_rate_limit_per_min": 500,
+      "advisories_per_month": 100,
+      "ioc_feed": "partial",
+      "stix_bundles": "full",
+      "detection_rules": "sigma_yara",
+      "soc_workspace": false,
+      "graph_intelligence": "basic",
+      "multi_tenant": false,
+      "white_label": false,
+      "support": "email_48h",
+      "sla_uptime_pct": 99.5,
+      "csm": false,
+      "webhooks": 1
+    },
+    {
+      "plan_id": "enterprise",
+      "name": "Enterprise",
+      "monthly_price_usd": 499,
+      "annual_price_usd": 4999,
+      "annual_discount_pct": 17,
+      "seats": 25,
+      "api_rate_limit_per_min": 2000,
+      "advisories_per_month": "unlimited",
+      "ioc_feed": "full",
+      "stix_bundles": "full",
+      "detection_rules": "sigma_yara_kql_spl",
+      "soc_workspace": "5_analysts",
+      "graph_intelligence": "full",
+      "multi_tenant": false,
+      "white_label": false,
+      "support": "slack_email_4h",
+      "sla_uptime_pct": 99.9,
+      "csm": true,
+      "dedicated_csm": false,
+      "webhooks": 10,
+      "att_ck_navigator": "full",
+      "executive_reports": "monthly_pdf"
+    },
+    {
+      "plan_id": "mssp",
+      "name": "MSSP",
+      "monthly_price_usd": 1999,
+      "annual_price_usd": 19999,
+      "annual_discount_pct": 17,
+      "seats": "unlimited",
+      "api_rate_limit_per_min": 10000,
+      "advisories_per_month": "unlimited",
+      "tenants_included": 10,
+      "additional_tenant_price_usd_per_month": 149,
+      "ioc_feed": "full_per_tenant",
+      "stix_bundles": "full",
+      "detection_rules": "sigma_yara_kql_spl",
+      "soc_workspace": "unlimited",
+      "graph_intelligence": "full_per_tenant",
+      "multi_tenant": true,
+      "white_label": true,
+      "support": "dedicated_30m",
+      "sla_uptime_pct": 99.95,
+      "csm": true,
+      "dedicated_csm": true,
+      "partner_success_manager": true,
+      "webhooks": "unlimited",
+      "att_ck_navigator": "full_per_tenant",
+      "executive_reports": "monthly_white_label_pdf_per_tenant"
+    }
+  ],
+
+  "add_ons": [
+    {"id": "ai_security_module", "name": "AI Security Intelligence", "price_usd_per_month": 199, "eligible_plans": ["enterprise", "mssp"]},
+    {"id": "threat_hunting_5pack", "name": "Threat Hunting (5 hunts/mo)", "price_usd_per_month": 499, "eligible_plans": ["enterprise", "mssp"]},
+    {"id": "analyst_advisory_4pack", "name": "Analyst Advisory Briefings (4/quarter)", "price_usd_per_month": 299, "eligible_plans": ["enterprise", "mssp"]},
+    {"id": "api_rate_boost_2k", "name": "+2,000 req/min API capacity", "price_usd_per_month": 99, "eligible_plans": ["pro", "enterprise"]},
+    {"id": "mssp_tenant_pack_10", "name": "+10 MSSP Tenants", "price_usd_per_month": 499, "eligible_plans": ["mssp"]},
+    {"id": "white_label_branding", "name": "White-Label Branding Pack", "price_usd_per_month": 299, "eligible_plans": ["mssp"]},
+    {"id": "executive_reporting", "name": "Executive Reporting Automation", "price_usd_per_month": 199, "eligible_plans": ["enterprise"]},
+    {"id": "historical_archive_36mo", "name": "Historical Intelligence Archive (36 months)", "price_usd_per_month": 149, "eligible_plans": ["enterprise", "mssp"]},
+    {"id": "sso_saml", "name": "SSO / SAML Integration", "price_usd_per_month": 99, "eligible_plans": ["enterprise", "mssp"]},
+    {"id": "dedicated_ips", "name": "Dedicated IP Range for Webhooks", "price_usd_per_month": 49, "eligible_plans": ["enterprise", "mssp"]}
+  ],
+
+  "billing_automation": {
+    "payment_methods": ["credit_card_stripe", "ach_wire", "purchase_order"],
+    "invoice_cadence": {
+      "monthly": "Auto-charge on subscription anniversary date",
+      "annual_prepaid": "Invoice issued 30 days before renewal",
+      "annual_postpaid": "Monthly invoice on 1st of month"
+    },
+    "dunning_sequence": [
+      {"day": 0, "action": "Payment fails — auto-retry + customer email"},
+      {"day": 3, "action": "Retry #2 + warning email"},
+      {"day": 7, "action": "Retry #3 + CSM notification (Enterprise/MSSP)"},
+      {"day": 10, "action": "Account suspended — read-only mode"},
+      {"day": 14, "action": "Account deactivated if unresolved"},
+      {"day": 30, "action": "Data retention grace period expires"}
+    ]
+  },
+
+  "renewal_automation": {
+    "triggers": [
+      {"days_before_expiry": 90, "action": "renewal_alert_to_csm"},
+      {"days_before_expiry": 60, "action": "renewal_email_to_customer"},
+      {"days_before_expiry": 45, "action": "renewal_proposal_sent"},
+      {"days_before_expiry": 30, "action": "follow_up_if_unsigned"},
+      {"days_before_expiry": 14, "action": "escalation_to_vp_if_unsigned"},
+      {"days_before_expiry": 7, "action": "executive_engagement_if_unsigned"}
+    ],
+    "auto_renewal": {
+      "monthly_plans": true,
+      "annual_plans": false,
+      "opt_out_notice_days": 30
+    }
+  },
+
+  "upgrade_automation": {
+    "triggers": [
+      {"metric": "api_usage_pct_of_limit", "threshold": 80, "action": "in_app_upgrade_prompt"},
+      {"metric": "advisory_access_attempts_over_limit", "threshold": 1, "action": "paywall_with_upgrade_cta"},
+      {"metric": "seat_utilization_pct", "threshold": 90, "action": "seat_expansion_prompt"},
+      {"metric": "pro_feature_access_attempt_from_free", "threshold": 1, "action": "upgrade_dialog"}
+    ],
+    "instant_upgrade_activation": true,
+    "prorate_current_period": true
+  }
+}

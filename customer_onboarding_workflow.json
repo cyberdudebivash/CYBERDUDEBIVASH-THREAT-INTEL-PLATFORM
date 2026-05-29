@@ -1,0 +1,119 @@
+{
+  "schema_version": "1.0",
+  "platform": "CYBERDUDEBIVASH® SENTINEL APEX",
+  "generated_at": "2026-05-29T00:00:00Z",
+  "workflow_name": "Enterprise Customer Onboarding Workflow",
+  "success_target": "Customer fully onboarded in <60 minutes (automated path)",
+
+  "onboarding_tracks": [
+    {
+      "track": "free_self_service",
+      "description": "Fully automated onboarding for Free tier accounts",
+      "target_time_minutes": 15,
+      "steps": [
+        {"step": 1, "name": "Account creation", "owner": "Customer", "time_min": 2, "automated": true, "action": "Email + password or Google/GitHub OAuth"},
+        {"step": 2, "name": "Email verification", "owner": "Customer", "time_min": 1, "automated": true, "action": "One-click email link"},
+        {"step": 3, "name": "Profile completion", "owner": "Customer", "time_min": 3, "automated": false, "action": "Organization name, sector, role"},
+        {"step": 4, "name": "Free tier activated", "owner": "Platform", "time_min": 0, "automated": true, "action": "Dashboard access granted immediately"},
+        {"step": 5, "name": "Welcome email sent", "owner": "Platform", "time_min": 0, "automated": true, "action": "Getting started guide + video walkthrough link"},
+        {"step": 6, "name": "In-app checklist displayed", "owner": "Platform", "time_min": 0, "automated": true, "action": "5-item onboarding checklist shown in dashboard"},
+        {"step": 7, "name": "First advisory reviewed", "owner": "Customer", "time_min": 5, "automated": false, "action": "Customer views first threat advisory"},
+        {"step": 8, "name": "Upgrade CTA triggered", "owner": "Platform", "time_min": 0, "automated": true, "action": "Contextual upgrade prompt shown on Pro feature access"}
+      ]
+    },
+    {
+      "track": "professional_self_service",
+      "description": "Primarily automated onboarding with documentation support for Pro tier",
+      "target_time_minutes": 45,
+      "steps": [
+        {"step": 1, "name": "Pro upgrade completed", "owner": "Customer", "time_min": 3, "automated": true, "action": "Credit card → plan activated immediately"},
+        {"step": 2, "name": "API key provisioned", "owner": "Platform", "time_min": 0, "automated": true, "action": "API key generated and displayed in dashboard"},
+        {"step": 3, "name": "Welcome to Pro email", "owner": "Platform", "time_min": 0, "automated": true, "action": "Pro-specific getting started guide"},
+        {"step": 4, "name": "API authentication tested", "owner": "Customer", "time_min": 5, "automated": false, "action": "JWT token obtained. Quickstart guide linked."},
+        {"step": 5, "name": "First API call made", "owner": "Customer", "time_min": 5, "automated": false, "action": "GET /api/v1/intel/latest.json returns advisories"},
+        {"step": 6, "name": "Webhook configured", "owner": "Customer", "time_min": 10, "automated": false, "action": "Webhook URL registered. Test delivery confirmed."},
+        {"step": 7, "name": "First advisory in SIEM", "owner": "Customer", "time_min": 15, "automated": false, "action": "Integration guide followed. Advisory visible in SIEM."},
+        {"step": 8, "name": "Detection rules downloaded", "owner": "Customer", "time_min": 5, "automated": false, "action": "Sigma pack downloaded. 5 rules imported to SIEM."},
+        {"step": 9, "name": "Onboarding checklist complete", "owner": "Customer", "time_min": 0, "automated": true, "action": "Health score initialized. Day 7 check-in email scheduled."}
+      ]
+    },
+    {
+      "track": "enterprise_csm_led",
+      "description": "CSM-guided onboarding with SE support for Enterprise tier",
+      "target_time_minutes": 60,
+      "csm_required": true,
+      "se_available": true,
+      "steps": [
+        {"step": 1, "name": "Contract signed", "owner": "AE", "time_min": 0, "automated": false, "action": "DocuSign executed. AE hands off to CSM."},
+        {"step": 2, "name": "Account provisioned", "owner": "Platform", "time_min": 2, "automated": true, "action": "Enterprise tenant created. 25 seats activated. API key generated."},
+        {"step": 3, "name": "CSM assignment", "owner": "Operations", "time_min": 60, "automated": false, "action": "Named CSM assigned within 1 hour of contract signing"},
+        {"step": 4, "name": "Kickoff call scheduled", "owner": "CSM", "time_min": 30, "automated": false, "action": "60-minute kickoff within 24h. Calendar invite sent."},
+        {"step": 5, "name": "Kickoff call completed", "owner": "CSM + Customer", "time_min": 60, "automated": false, "action": "Success plan agreed. Integration timeline set. Slack channel created."},
+        {"step": 6, "name": "API key delivered securely", "owner": "Platform", "time_min": 0, "automated": true, "action": "Enterprise API key in customer portal. 2000 req/min active."},
+        {"step": 7, "name": "SIEM integration session", "owner": "SE + Customer", "time_min": 60, "automated": false, "action": "SE joins call. SIEM connector configured. Webhook tested."},
+        {"step": 8, "name": "First advisory in SIEM confirmed", "owner": "Customer + SE", "time_min": 15, "automated": false, "action": "Customer confirms SIEM receiving APEX advisories."},
+        {"step": 9, "name": "Detection rules deployed", "owner": "Customer", "time_min": 30, "automated": false, "action": "≥10 Sigma/KQL/SPL rules deployed in production SIEM."},
+        {"step": 10, "name": "ATT&CK baseline established", "owner": "CSM + Customer", "time_min": 30, "automated": false, "action": "Coverage heatmap reviewed. Baseline gap report generated."},
+        {"step": 11, "name": "User invitations sent", "owner": "Customer", "time_min": 10, "automated": false, "action": "≥3 analysts invited. Roles assigned (Admin, Analyst, Read-Only)."},
+        {"step": 12, "name": "Day 14 review scheduled", "owner": "CSM", "time_min": 5, "automated": false, "action": "2-week check-in calendar invite sent."},
+        {"step": 13, "name": "Onboarding complete", "owner": "CSM", "time_min": 0, "automated": true, "action": "Health score initialized. Monthly cadence activated."}
+      ],
+      "success_criteria": [
+        "API integration confirmed active",
+        "≥1 advisory visible in customer SIEM",
+        "≥5 detection rules deployed in production",
+        "≥2 analysts with active accounts",
+        "ATT&CK coverage baseline documented",
+        "Slack channel active with CSM"
+      ]
+    },
+    {
+      "track": "mssp_partner",
+      "description": "5-day structured MSSP partner onboarding",
+      "target_time_days": 5,
+      "steps": [
+        {"step": 1, "day": 1, "name": "MSSP contract executed + console access", "owner": "AE + Platform", "action": "MSSP console provisioned. Partner Success Manager assigned."},
+        {"step": 2, "day": 1, "name": "Partner training (2h)", "owner": "PSM + Partner", "action": "Console walkthrough. Tenant provisioning. API architecture. White-label config."},
+        {"step": 3, "day": 2, "name": "3 demo tenants provisioned", "owner": "Partner + PSM", "action": "Financial, Healthcare, Industrial demo tenants created. Intelligence validated."},
+        {"step": 4, "day": 3, "name": "White-label configuration", "owner": "Partner", "action": "Logo, brand color, company name configured. Report template verified."},
+        {"step": 5, "day": 4, "name": "MSSP own SIEM integration", "owner": "Partner + SE", "action": "Partner's internal SIEM connected to APEX. Multi-tenant webhook routing tested."},
+        {"step": 6, "day": 5, "name": "First production client tenant", "owner": "Partner", "action": "First real client tenant provisioned. Intelligence delivery verified. SLA tracking active."},
+        {"step": 7, "day": 5, "name": "MSSP go-live", "owner": "PSM", "action": "Go-live confirmed. Weekly sync cadence initiated. Partner listed in APEX directory."}
+      ]
+    }
+  ],
+
+  "onboarding_checklist_items": [
+    {"id": "OB-01", "item": "Account activated and verified", "tier": "all", "required": true},
+    {"id": "OB-02", "item": "API key obtained and tested", "tier": "pro+", "required": true},
+    {"id": "OB-03", "item": "First advisory reviewed in dashboard", "tier": "all", "required": true},
+    {"id": "OB-04", "item": "Webhook configured and test delivery confirmed", "tier": "pro+", "required": true},
+    {"id": "OB-05", "item": "First advisory received in SIEM", "tier": "pro+", "required": true},
+    {"id": "OB-06", "item": "≥5 detection rules deployed in SIEM", "tier": "enterprise+", "required": true},
+    {"id": "OB-07", "item": "ATT&CK coverage heatmap reviewed", "tier": "enterprise+", "required": false},
+    {"id": "OB-08", "item": "≥2 analysts invited to platform", "tier": "enterprise+", "required": true},
+    {"id": "OB-09", "item": "IOC feed confirmed active", "tier": "pro+", "required": false},
+    {"id": "OB-10", "item": "Graph intelligence first pivot completed", "tier": "enterprise+", "required": false},
+    {"id": "OB-11", "item": "First SOC investigation created", "tier": "enterprise+", "required": false},
+    {"id": "OB-12", "item": "Weekly report email subscription confirmed", "tier": "all", "required": false}
+  ],
+
+  "email_sequences": {
+    "free_tier": [
+      {"day": 0, "subject": "Welcome to SENTINEL APEX — get your first intel in 5 minutes", "cta": "View live feed"},
+      {"day": 1, "subject": "The 3 things every threat analyst checks in APEX first", "cta": "Open dashboard"},
+      {"day": 3, "subject": "Free vs Pro: what you're missing", "cta": "Compare plans"},
+      {"day": 7, "subject": "This week's top threat in your sector", "cta": "Read advisory"},
+      {"day": 14, "subject": "Your 2-week free report is ready", "cta": "View report"},
+      {"day": 30, "subject": "Last chance: your free trial of Pro expires in 3 days", "cta": "Start Pro trial"}
+    ],
+    "enterprise": [
+      {"day": 0, "subject": "Your SENTINEL APEX Enterprise account is live", "cta": "Log in now"},
+      {"day": 0, "subject": "Meet your CSM — kickoff call scheduled", "cta": "Confirm calendar invite"},
+      {"day": 2, "subject": "Your SIEM integration guide + API credentials", "cta": "Download integration guide"},
+      {"day": 7, "subject": "Week 1 check-in: how is onboarding going?", "cta": "Reply or schedule a call"},
+      {"day": 14, "subject": "Your 2-week onboarding summary", "cta": "View summary"},
+      {"day": 30, "subject": "Month 1 complete — here's your platform impact report", "cta": "View report"}
+    ]
+  }
+}
