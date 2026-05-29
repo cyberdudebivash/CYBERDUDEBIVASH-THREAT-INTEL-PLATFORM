@@ -1,0 +1,330 @@
+{
+  "registry_version": "2.0.0",
+  "generated_at": "2026-05-29T00:00:00Z",
+  "total_connectors": 24,
+  "connectors": [
+    {
+      "id": "splunk-enterprise",
+      "name": "Splunk Enterprise Security",
+      "category": "SIEM",
+      "vendor": "Splunk",
+      "logo": "🔷",
+      "status": "production",
+      "auth_type": "api_token",
+      "capabilities": ["push_sigma_rules", "push_ioc_feed", "pull_alerts", "push_correlation_searches", "push_watchlists"],
+      "setup_minutes": 15,
+      "docs_url": "https://docs.cyberdudebivash.in/integrations/splunk",
+      "api_endpoint": "/api/integrations/splunk",
+      "config_fields": [
+        {"key": "splunk_url", "label": "Splunk HEC URL", "type": "url", "required": true},
+        {"key": "hec_token", "label": "HEC Token", "type": "password", "required": true},
+        {"key": "index", "label": "Target Index", "type": "text", "default": "threat_intel"},
+        {"key": "push_interval", "label": "Push Interval (minutes)", "type": "number", "default": 60}
+      ]
+    },
+    {
+      "id": "microsoft-sentinel",
+      "name": "Microsoft Sentinel",
+      "category": "SIEM",
+      "vendor": "Microsoft",
+      "logo": "🔷",
+      "status": "production",
+      "auth_type": "oauth2",
+      "capabilities": ["push_kql_rules", "push_watchlists", "push_hunting_queries", "pull_incidents", "push_playbook_triggers"],
+      "setup_minutes": 20,
+      "docs_url": "https://docs.cyberdudebivash.in/integrations/sentinel",
+      "api_endpoint": "/api/integrations/sentinel",
+      "config_fields": [
+        {"key": "tenant_id", "label": "Azure Tenant ID", "type": "text", "required": true},
+        {"key": "workspace_id", "label": "Log Analytics Workspace ID", "type": "text", "required": true},
+        {"key": "client_id", "label": "App Registration Client ID", "type": "text", "required": true},
+        {"key": "client_secret", "label": "Client Secret", "type": "password", "required": true}
+      ]
+    },
+    {
+      "id": "elastic-siem",
+      "name": "Elastic SIEM / Security",
+      "category": "SIEM",
+      "vendor": "Elastic",
+      "logo": "🟡",
+      "status": "production",
+      "auth_type": "api_token",
+      "capabilities": ["push_eql_rules", "push_ioc_feed", "push_threat_intel_index"],
+      "setup_minutes": 20,
+      "docs_url": "https://docs.cyberdudebivash.in/integrations/elastic",
+      "api_endpoint": "/api/integrations/elastic",
+      "config_fields": [
+        {"key": "elasticsearch_url", "label": "Elasticsearch URL", "type": "url", "required": true},
+        {"key": "api_key", "label": "API Key", "type": "password", "required": true},
+        {"key": "kibana_url", "label": "Kibana URL", "type": "url", "required": false}
+      ]
+    },
+    {
+      "id": "ibm-qradar",
+      "name": "IBM QRadar SIEM",
+      "category": "SIEM",
+      "vendor": "IBM",
+      "logo": "🔵",
+      "status": "production",
+      "auth_type": "api_token",
+      "capabilities": ["push_reference_sets", "push_custom_rules", "push_offenses"],
+      "setup_minutes": 25,
+      "docs_url": "https://docs.cyberdudebivash.in/integrations/qradar",
+      "api_endpoint": "/api/integrations/qradar",
+      "config_fields": [
+        {"key": "qradar_url", "label": "QRadar Console URL", "type": "url", "required": true},
+        {"key": "sec_token", "label": "SEC Token", "type": "password", "required": true}
+      ]
+    },
+    {
+      "id": "crowdstrike-falcon",
+      "name": "CrowdStrike Falcon",
+      "category": "EDR/XDR",
+      "vendor": "CrowdStrike",
+      "logo": "🦅",
+      "status": "production",
+      "auth_type": "oauth2",
+      "capabilities": ["push_ioc_indicators", "push_custom_ioas", "pull_detections", "push_threat_intel"],
+      "setup_minutes": 10,
+      "docs_url": "https://docs.cyberdudebivash.in/integrations/crowdstrike",
+      "api_endpoint": "/api/integrations/crowdstrike",
+      "config_fields": [
+        {"key": "client_id", "label": "OAuth2 Client ID", "type": "text", "required": true},
+        {"key": "client_secret", "label": "OAuth2 Client Secret", "type": "password", "required": true},
+        {"key": "cloud", "label": "Cloud Region", "type": "select", "options": ["us-1","us-2","eu-1","us-gov-1"], "default": "us-1"}
+      ]
+    },
+    {
+      "id": "sentinelone",
+      "name": "SentinelOne Singularity",
+      "category": "EDR/XDR",
+      "vendor": "SentinelOne",
+      "logo": "🔵",
+      "status": "production",
+      "auth_type": "api_token",
+      "capabilities": ["push_threat_indicators", "pull_threats", "push_exclusions"],
+      "setup_minutes": 10,
+      "docs_url": "https://docs.cyberdudebivash.in/integrations/sentinelone",
+      "api_endpoint": "/api/integrations/sentinelone",
+      "config_fields": [
+        {"key": "management_url", "label": "Management URL", "type": "url", "required": true},
+        {"key": "api_token", "label": "API Token", "type": "password", "required": true}
+      ]
+    },
+    {
+      "id": "palo-alto-xsoar",
+      "name": "Palo Alto XSOAR",
+      "category": "SOAR",
+      "vendor": "Palo Alto",
+      "logo": "🟠",
+      "status": "production",
+      "auth_type": "api_key",
+      "capabilities": ["trigger_playbook", "push_indicators", "create_incident", "push_threat_intel"],
+      "setup_minutes": 20,
+      "docs_url": "https://docs.cyberdudebivash.in/integrations/xsoar",
+      "api_endpoint": "/api/integrations/xsoar",
+      "config_fields": [
+        {"key": "xsoar_url", "label": "XSOAR URL", "type": "url", "required": true},
+        {"key": "api_key", "label": "API Key", "type": "password", "required": true}
+      ]
+    },
+    {
+      "id": "servicenow",
+      "name": "ServiceNow ITSM",
+      "category": "ITSM",
+      "vendor": "ServiceNow",
+      "logo": "🟢",
+      "status": "production",
+      "auth_type": "basic_auth",
+      "capabilities": ["create_incident", "create_change_request", "push_cmdb_entries", "update_ticket"],
+      "setup_minutes": 15,
+      "docs_url": "https://docs.cyberdudebivash.in/integrations/servicenow",
+      "api_endpoint": "/api/integrations/servicenow",
+      "config_fields": [
+        {"key": "instance_url", "label": "ServiceNow Instance URL", "type": "url", "required": true},
+        {"key": "username", "label": "Username", "type": "text", "required": true},
+        {"key": "password", "label": "Password", "type": "password", "required": true},
+        {"key": "assignment_group", "label": "Default Assignment Group", "type": "text", "default": "SOC Team"}
+      ]
+    },
+    {
+      "id": "jira",
+      "name": "Atlassian Jira",
+      "category": "ITSM",
+      "vendor": "Atlassian",
+      "logo": "🔵",
+      "status": "production",
+      "auth_type": "api_token",
+      "capabilities": ["create_issue", "update_issue", "create_comment", "attach_evidence"],
+      "setup_minutes": 10,
+      "docs_url": "https://docs.cyberdudebivash.in/integrations/jira",
+      "api_endpoint": "/api/integrations/jira",
+      "config_fields": [
+        {"key": "jira_url", "label": "Jira URL", "type": "url", "required": true},
+        {"key": "email", "label": "Account Email", "type": "email", "required": true},
+        {"key": "api_token", "label": "API Token", "type": "password", "required": true},
+        {"key": "project_key", "label": "Project Key", "type": "text", "default": "SEC", "required": true}
+      ]
+    },
+    {
+      "id": "slack",
+      "name": "Slack",
+      "category": "Collaboration",
+      "vendor": "Slack",
+      "logo": "💬",
+      "status": "production",
+      "auth_type": "webhook",
+      "capabilities": ["send_alert", "send_report", "send_digest", "interactive_commands"],
+      "setup_minutes": 5,
+      "docs_url": "https://docs.cyberdudebivash.in/integrations/slack",
+      "api_endpoint": "/api/integrations/slack",
+      "config_fields": [
+        {"key": "webhook_url", "label": "Slack Webhook URL", "type": "url", "required": true},
+        {"key": "channel", "label": "Default Channel", "type": "text", "default": "#soc-alerts"},
+        {"key": "alert_severity", "label": "Minimum Alert Severity", "type": "select", "options": ["INFO","MEDIUM","HIGH","CRITICAL"], "default": "HIGH"}
+      ]
+    },
+    {
+      "id": "teams",
+      "name": "Microsoft Teams",
+      "category": "Collaboration",
+      "vendor": "Microsoft",
+      "logo": "🟣",
+      "status": "production",
+      "auth_type": "webhook",
+      "capabilities": ["send_alert", "send_report", "adaptive_cards"],
+      "setup_minutes": 5,
+      "docs_url": "https://docs.cyberdudebivash.in/integrations/teams",
+      "api_endpoint": "/api/integrations/teams",
+      "config_fields": [
+        {"key": "webhook_url", "label": "Teams Webhook URL", "type": "url", "required": true},
+        {"key": "alert_severity", "label": "Minimum Alert Severity", "type": "select", "options": ["MEDIUM","HIGH","CRITICAL"], "default": "HIGH"}
+      ]
+    },
+    {
+      "id": "misp",
+      "name": "MISP Threat Intelligence",
+      "category": "Threat Intelligence",
+      "vendor": "MISP Project",
+      "logo": "🔴",
+      "status": "production",
+      "auth_type": "api_key",
+      "capabilities": ["push_events", "push_attributes", "push_objects", "pull_feeds"],
+      "setup_minutes": 20,
+      "docs_url": "https://docs.cyberdudebivash.in/integrations/misp",
+      "api_endpoint": "/api/integrations/misp",
+      "config_fields": [
+        {"key": "misp_url", "label": "MISP URL", "type": "url", "required": true},
+        {"key": "api_key", "label": "API Key", "type": "password", "required": true},
+        {"key": "verify_ssl", "label": "Verify SSL", "type": "boolean", "default": true}
+      ]
+    },
+    {
+      "id": "opencti",
+      "name": "OpenCTI",
+      "category": "Threat Intelligence",
+      "vendor": "OpenCTI",
+      "logo": "🟠",
+      "status": "production",
+      "auth_type": "api_token",
+      "capabilities": ["push_stix_bundles", "push_indicators", "create_reports", "link_relationships"],
+      "setup_minutes": 20,
+      "docs_url": "https://docs.cyberdudebivash.in/integrations/opencti",
+      "api_endpoint": "/api/integrations/opencti",
+      "config_fields": [
+        {"key": "opencti_url", "label": "OpenCTI URL", "type": "url", "required": true},
+        {"key": "api_token", "label": "API Token", "type": "password", "required": true}
+      ]
+    },
+    {
+      "id": "pagerduty",
+      "name": "PagerDuty",
+      "category": "Alerting",
+      "vendor": "PagerDuty",
+      "logo": "🚨",
+      "status": "production",
+      "auth_type": "api_token",
+      "capabilities": ["create_incident", "trigger_alert", "resolve_incident"],
+      "setup_minutes": 10,
+      "docs_url": "https://docs.cyberdudebivash.in/integrations/pagerduty",
+      "api_endpoint": "/api/integrations/pagerduty",
+      "config_fields": [
+        {"key": "integration_key", "label": "Integration Key (Events API)", "type": "password", "required": true},
+        {"key": "escalation_policy", "label": "Escalation Policy ID", "type": "text", "required": false}
+      ]
+    },
+    {
+      "id": "aws-security-hub",
+      "name": "AWS Security Hub",
+      "category": "Cloud Security",
+      "vendor": "Amazon",
+      "logo": "🟡",
+      "status": "production",
+      "auth_type": "aws_credentials",
+      "capabilities": ["push_findings", "push_custom_insights", "pull_findings"],
+      "setup_minutes": 20,
+      "docs_url": "https://docs.cyberdudebivash.in/integrations/aws-security-hub",
+      "api_endpoint": "/api/integrations/aws-security-hub",
+      "config_fields": [
+        {"key": "aws_access_key", "label": "AWS Access Key ID", "type": "text", "required": true},
+        {"key": "aws_secret_key", "label": "AWS Secret Access Key", "type": "password", "required": true},
+        {"key": "aws_region", "label": "AWS Region", "type": "select", "options": ["us-east-1","us-west-2","eu-west-1","ap-south-1"], "default": "us-east-1"}
+      ]
+    },
+    {
+      "id": "azure-defender",
+      "name": "Microsoft Defender for Cloud",
+      "category": "Cloud Security",
+      "vendor": "Microsoft",
+      "logo": "🔷",
+      "status": "production",
+      "auth_type": "oauth2",
+      "capabilities": ["push_custom_alerts", "pull_recommendations", "push_threat_intel"],
+      "setup_minutes": 15,
+      "docs_url": "https://docs.cyberdudebivash.in/integrations/azure-defender",
+      "api_endpoint": "/api/integrations/azure-defender",
+      "config_fields": [
+        {"key": "subscription_id", "label": "Azure Subscription ID", "type": "text", "required": true},
+        {"key": "tenant_id", "label": "Azure Tenant ID", "type": "text", "required": true},
+        {"key": "client_id", "label": "Client ID", "type": "text", "required": true},
+        {"key": "client_secret", "label": "Client Secret", "type": "password", "required": true}
+      ]
+    },
+    {
+      "id": "cortex-xdr",
+      "name": "Palo Alto Cortex XDR",
+      "category": "EDR/XDR",
+      "vendor": "Palo Alto",
+      "logo": "🟠",
+      "status": "production",
+      "auth_type": "api_token",
+      "capabilities": ["push_ioc_list", "pull_alerts", "run_xql_query"],
+      "setup_minutes": 15,
+      "docs_url": "https://docs.cyberdudebivash.in/integrations/cortex-xdr",
+      "api_endpoint": "/api/integrations/cortex-xdr",
+      "config_fields": [
+        {"key": "api_url", "label": "Cortex XDR API URL", "type": "url", "required": true},
+        {"key": "api_key_id", "label": "API Key ID", "type": "text", "required": true},
+        {"key": "api_key", "label": "API Key", "type": "password", "required": true}
+      ]
+    },
+    {
+      "id": "taxii-generic",
+      "name": "Generic TAXII 2.1 Server",
+      "category": "Threat Intelligence",
+      "vendor": "OASIS Standard",
+      "logo": "📡",
+      "status": "production",
+      "auth_type": "basic_auth",
+      "capabilities": ["pull_collections", "push_stix_bundles"],
+      "setup_minutes": 15,
+      "docs_url": "https://docs.cyberdudebivash.in/integrations/taxii",
+      "api_endpoint": "/api/integrations/taxii",
+      "config_fields": [
+        {"key": "taxii_url", "label": "TAXII Server URL", "type": "url", "required": true},
+        {"key": "username", "label": "Username", "type": "text", "required": false},
+        {"key": "password", "label": "Password", "type": "password", "required": false}
+      ]
+    }
+  ]
+}
