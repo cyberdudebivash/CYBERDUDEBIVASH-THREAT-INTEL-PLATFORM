@@ -719,6 +719,26 @@ function highlightPath(pid) {
   offX = 0; offY = 0; scale = 1; draw();
 }
 
+// ── LIVE DATA LOADER ─────────────────────────────────────────────────────────
+function loadLiveGraphStats() {
+  fetch('/api/graph/stats.json?_t=' + Date.now())
+    .then(function(r) { return r.ok ? r.json() : null; })
+    .then(function(d) {
+      if (!d) return;
+      var el = function(id) { return document.getElementById(id); };
+      if (el('stat-nodes')) el('stat-nodes').textContent = (d.nodes || 0).toLocaleString();
+      if (el('stat-edges')) el('stat-edges').textContent = (d.edges || 0).toLocaleString();
+      if (el('stat-campaigns')) {
+        var actors = (d.node_types && d.node_types.actor) ? d.node_types.actor : 0;
+        el('stat-campaigns').textContent = actors;
+      }
+      if (el('stat-pivots')) {
+        var iocs = (d.node_types && d.node_types.ioc) ? d.node_types.ioc : 0;
+        el('stat-pivots').textContent = iocs;
+      }
+    }).catch(function() {});
+}
+
 // ── INIT ──────────────────────────────────────────────────────────────────────
 window.addEventListener('resize', resize);
 resize();
@@ -728,6 +748,7 @@ buildAnomalies();
 buildCampaignTimeline();
 buildPivots();
 buildConfGauges();
+loadLiveGraphStats();
 
 // Animate edges periodically
 setInterval(() => {

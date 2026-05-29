@@ -1,0 +1,10 @@
+// SENTINEL APEX — T1078 Privileged Login Outside Hours
+// ATT&CK: Initial Access + Persistence | T1078 | Valid Accounts
+DeviceLogonEvents
+| where LogonType == "RemoteInteractive"
+| where AccountName has_any ("admin","svc-","sa_","adm_","service")
+| extend Hour = datetime_part("Hour", Timestamp)
+| where Hour < 8 or Hour >= 18
+| extend Severity = "MEDIUM", MitreTechnique = "T1078"
+| project Timestamp, DeviceName, AccountName, RemoteIP, LogonType, Hour, Severity, MitreTechnique
+| order by Timestamp desc

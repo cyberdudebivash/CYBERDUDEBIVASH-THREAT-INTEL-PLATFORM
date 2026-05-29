@@ -1,0 +1,92 @@
+{
+  "id": "INV-2026-0829",
+  "title": "Suspected APT \u2014 SQL Injection on External Portal",
+  "severity": "HIGH",
+  "status": "CONTAINED",
+  "technique_ids": [
+    "T1190",
+    "T1190.001",
+    "T1059",
+    "T1505.003"
+  ],
+  "iocs": [
+    "45.155.205.233",
+    "91.108.56.77"
+  ],
+  "cves": [
+    "CVE-2026-31431"
+  ],
+  "assigned_analyst": "priya.sharma@corp.example.com",
+  "opened_at": "2026-05-27T04:48:47.750809+00:00",
+  "updated_at": "2026-05-28T23:48:47.750809+00:00",
+  "timeline": [
+    {
+      "ts": "2026-05-27T04:48:47.750809+00:00",
+      "actor": "system",
+      "action": "Alert created",
+      "detail": "WAF triggered: SQL injection pattern detected from IP 45.155.205.233 against /api/search endpoint."
+    },
+    {
+      "ts": "2026-05-27T04:58:47.750809+00:00",
+      "actor": "priya.sharma@corp.example.com",
+      "action": "WAF review",
+      "detail": "172 SQLi attempts in 4 minutes. Attacker fingerprinted using SQLmap tool signatures."
+    },
+    {
+      "ts": "2026-05-27T05:48:47.750809+00:00",
+      "actor": "priya.sharma@corp.example.com",
+      "action": "Exploitation confirmed",
+      "detail": "CVE-2026-31431 exploited. Web shell uploaded to /var/www/uploads/. T1505.003 confirmed."
+    },
+    {
+      "ts": "2026-05-27T06:18:47.750809+00:00",
+      "actor": "james.okello@corp.example.com",
+      "action": "Containment",
+      "detail": "IPs blocked at edge. Web shell removed. Application rollback initiated."
+    },
+    {
+      "ts": "2026-05-28T03:48:47.750809+00:00",
+      "actor": "priya.sharma@corp.example.com",
+      "action": "Forensic analysis",
+      "detail": "No data exfiltration confirmed (network logs reviewed). Attacker had 87-minute window."
+    },
+    {
+      "ts": "2026-05-28T23:48:47.750809+00:00",
+      "actor": "priya.sharma@corp.example.com",
+      "action": "CVE remediation",
+      "detail": "Patch for CVE-2026-31431 applied. WAF rules updated. Status: CONTAINED."
+    }
+  ],
+  "attck_map": [
+    {
+      "id": "T1190",
+      "name": "Exploit Public-Facing Application",
+      "tactic": "initial-access",
+      "confirmed": true
+    },
+    {
+      "id": "T1190.001",
+      "name": "SQL Injection",
+      "tactic": "initial-access",
+      "confirmed": true
+    },
+    {
+      "id": "T1505.003",
+      "name": "Web Shell",
+      "tactic": "persistence",
+      "confirmed": true
+    },
+    {
+      "id": "T1059",
+      "name": "Command and Scripting Interpreter",
+      "tactic": "execution",
+      "confirmed": false
+    }
+  ],
+  "playbooks_executed": [
+    "PB-WEBSHELL-001",
+    "PB-CVE-PATCH-001"
+  ],
+  "mttd_minutes": 10,
+  "mttr_estimate_hours": 26
+}

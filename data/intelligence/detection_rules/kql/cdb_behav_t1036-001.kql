@@ -1,0 +1,9 @@
+// SENTINEL APEX — T1036 Masquerading Detection
+// ATT&CK: Defense Evasion | T1036 | Masquerading
+let systemBinaries = dynamic(["svchost.exe","lsass.exe","csrss.exe","winlogon.exe","services.exe"]);
+DeviceProcessEvents
+| where FileName has_any (systemBinaries)
+| where not(FolderPath startswith @"C:\Windows\System32" or FolderPath startswith @"C:\Windows\SysWOW64")
+| extend Severity = "HIGH", MitreTechnique = "T1036"
+| project Timestamp, DeviceName, AccountName, FolderPath, FileName, ProcessCommandLine, SHA256, Severity, MitreTechnique
+| order by Timestamp desc

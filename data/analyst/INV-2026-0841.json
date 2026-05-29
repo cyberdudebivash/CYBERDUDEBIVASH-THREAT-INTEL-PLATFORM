@@ -1,0 +1,76 @@
+{
+  "id": "INV-2026-0841",
+  "title": "Phishing Campaign Targeting CFO \u2014 BEC Suspected",
+  "severity": "HIGH",
+  "status": "ACTIVE",
+  "technique_ids": [
+    "T1566.001",
+    "T1539",
+    "T1078"
+  ],
+  "iocs": [
+    "secure-docreview.xyz",
+    "171.25.193.20"
+  ],
+  "cves": [],
+  "assigned_analyst": "bob.martinez@corp.example.com",
+  "opened_at": "2026-05-28T17:38:47.750809+00:00",
+  "updated_at": "2026-05-29T06:08:47.750809+00:00",
+  "timeline": [
+    {
+      "ts": "2026-05-28T17:38:47.750809+00:00",
+      "actor": "system",
+      "action": "Alert created",
+      "detail": "Email gateway flagged phishing email to cfo@corp.example.com with attachment 'Q2-Invoice-Review.xlsm'"
+    },
+    {
+      "ts": "2026-05-28T17:43:47.750809+00:00",
+      "actor": "bob.martinez@corp.example.com",
+      "action": "Triage",
+      "detail": "Confirmed malicious macro attachment. Email quarantined. CFO contacted."
+    },
+    {
+      "ts": "2026-05-28T18:18:47.750809+00:00",
+      "actor": "bob.martinez@corp.example.com",
+      "action": "Domain pivot",
+      "detail": "secure-docreview.xyz confirmed malicious: registered 3 days ago, NameCheap, pointed to known phishing IP."
+    },
+    {
+      "ts": "2026-05-28T19:48:47.750809+00:00",
+      "actor": "priya.sharma@corp.example.com",
+      "action": "Scope expansion",
+      "detail": "Email campaign hit 7 employees total. 1 user clicked link. Account password reset forced."
+    },
+    {
+      "ts": "2026-05-29T06:08:47.750809+00:00",
+      "actor": "bob.martinez@corp.example.com",
+      "action": "Status update",
+      "detail": "No BEC funds transfer confirmed. Session cookie theft not confirmed. Monitoring for T1539 activity."
+    }
+  ],
+  "attck_map": [
+    {
+      "id": "T1566.001",
+      "name": "Spearphishing Attachment",
+      "tactic": "initial-access",
+      "confirmed": true
+    },
+    {
+      "id": "T1539",
+      "name": "Steal Web Session Cookie",
+      "tactic": "credential-access",
+      "confirmed": false
+    },
+    {
+      "id": "T1078",
+      "name": "Valid Accounts",
+      "tactic": "persistence",
+      "confirmed": false
+    }
+  ],
+  "playbooks_executed": [
+    "PB-PHISHING-001"
+  ],
+  "mttd_minutes": 5,
+  "mttr_estimate_hours": 4
+}

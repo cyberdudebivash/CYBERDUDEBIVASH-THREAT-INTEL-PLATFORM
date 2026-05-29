@@ -1,0 +1,97 @@
+{
+  "id": "INV-2026-0847",
+  "title": "LockBit 3.0 Ransomware Deployment \u2014 Finance Segment",
+  "severity": "CRITICAL",
+  "status": "ACTIVE",
+  "technique_ids": [
+    "T1486",
+    "T1059.001",
+    "T1078"
+  ],
+  "iocs": [
+    "185.220.101.45",
+    "lockbitapt28onion.top",
+    "a1b2c3d4e5f6789012345678901234567890abcd12345678901234567890abcd"
+  ],
+  "cves": [
+    "CVE-2024-37085"
+  ],
+  "assigned_analyst": "alice.chen@corp.example.com",
+  "opened_at": "2026-05-29T01:16:47.750809+00:00",
+  "updated_at": "2026-05-29T07:30:47.750809+00:00",
+  "timeline": [
+    {
+      "ts": "2026-05-29T01:16:47.750809+00:00",
+      "actor": "system",
+      "action": "Alert created",
+      "detail": "Sigma rule cdb-behav-t1486-001 triggered: 23 files encrypted in 30s on FIN-WKS-014"
+    },
+    {
+      "ts": "2026-05-29T01:20:47.750809+00:00",
+      "actor": "alice.chen@corp.example.com",
+      "action": "Investigation opened",
+      "detail": "Assigned to Alice Chen. Initial triage: endpoint isolated via EDR."
+    },
+    {
+      "ts": "2026-05-29T01:53:47.750809+00:00",
+      "actor": "alice.chen@corp.example.com",
+      "action": "IOC pivot",
+      "detail": "C2 IP 185.220.101.45 pivoted in graph: linked to LockBit campaign, 3 other victims identified."
+    },
+    {
+      "ts": "2026-05-29T02:28:47.750809+00:00",
+      "actor": "alice.chen@corp.example.com",
+      "action": "Lateral movement confirmed",
+      "detail": "T1078 \u2014 admin account CORP\\svc-backup used to move to 3 additional hosts."
+    },
+    {
+      "ts": "2026-05-29T03:38:47.750809+00:00",
+      "actor": "bob.martinez@corp.example.com",
+      "action": "Playbook executed",
+      "detail": "Auto-playbook PB-RANSOMWARE-001 ran: blocked C2 at firewall, reset compromised credentials, notified IR team."
+    },
+    {
+      "ts": "2026-05-29T05:48:47.750809+00:00",
+      "actor": "alice.chen@corp.example.com",
+      "action": "Forensic collection",
+      "detail": "Memory dumps collected from 4 affected hosts. Evidence preserved."
+    },
+    {
+      "ts": "2026-05-29T07:30:47.750809+00:00",
+      "actor": "alice.chen@corp.example.com",
+      "action": "Status update",
+      "detail": "Containment confirmed. Restoration from clean backup initiated. Estimated 4h to full recovery."
+    }
+  ],
+  "attck_map": [
+    {
+      "id": "T1486",
+      "name": "Data Encrypted for Impact",
+      "tactic": "impact",
+      "confirmed": true
+    },
+    {
+      "id": "T1059.001",
+      "name": "PowerShell",
+      "tactic": "execution",
+      "confirmed": true
+    },
+    {
+      "id": "T1078",
+      "name": "Valid Accounts",
+      "tactic": "initial-access",
+      "confirmed": true
+    },
+    {
+      "id": "T1036",
+      "name": "Masquerading",
+      "tactic": "defense-evasion",
+      "confirmed": false
+    }
+  ],
+  "playbooks_executed": [
+    "PB-RANSOMWARE-001"
+  ],
+  "mttd_minutes": 4,
+  "mttr_estimate_hours": 10
+}

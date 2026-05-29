@@ -1,0 +1,8 @@
+index=endpoint (file_name="*.locked" OR file_name="*.encrypted" OR file_name="*.lockbit" OR file_name="*.blackcat" OR file_name="*HOW_TO_DECRYPT*" OR file_name="*README_DECRYPT*")
+| bin _time span=30s
+| stats count by _time, host, user, file_name, process_name
+| where count > 5 OR (file_name="*HOW_TO_DECRYPT*" OR file_name="*README_DECRYPT*")
+| eval severity="CRITICAL"
+| eval mitre_technique="T1486"
+| eval response_action="ISOLATE_ENDPOINT_IMMEDIATELY"
+| table _time host user file_name process_name count severity mitre_technique response_action

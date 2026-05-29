@@ -1,0 +1,34 @@
+title: SQL Injection Attempt Against Web Application
+id: cdb-behav-t1190-001
+status: production
+description: Detects SQL injection patterns in web server access logs. T1190 (Exploit Public-Facing Application) is observed in 441 SENTINEL APEX advisories.
+author: CyberDudeBivash SENTINEL APEX v166.2
+date: 2026-05-29
+tags:
+    - attack.initial_access
+    - attack.t1190
+    - attack.t1190.001
+logsource:
+    category: webserver
+    product: any
+detection:
+    selection_sqli:
+        c-uri|contains:
+            - "' OR '"
+            - "1=1--"
+            - "' UNION SELECT"
+            - "'; DROP TABLE"
+            - "exec(xp_"
+            - "SLEEP(5)--"
+            - "BENCHMARK("
+            - "waitfor delay"
+            - "pg_sleep"
+    selection_status:
+        sc-status:
+            - 200
+            - 500
+    condition: selection_sqli AND selection_status
+falsepositives:
+    - Security scanners (DAST tools, Burp Suite)
+    - Penetration testing
+level: high

@@ -1,0 +1,6 @@
+index=proxy method=POST bytes_out > 50000000
+  NOT (dest_host="*.microsoft.com" OR dest_host="*.office365.com" OR dest_host="*.amazonaws.com" OR dest_host="*.google.com")
+| eval severity="HIGH"
+| eval mitre_technique="T1041"
+| stats sum(bytes_out) as total_bytes_out by src_ip, dest_host, method, severity, mitre_technique
+| sort -total_bytes_out

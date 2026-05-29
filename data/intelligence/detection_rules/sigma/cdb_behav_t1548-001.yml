@@ -1,0 +1,32 @@
+title: UAC Bypass via Trusted Binary Execution
+id: cdb-behav-t1548-001
+status: production
+description: Detects UAC bypass techniques via CMSTP, FODHELPER, EventViewer, and other trusted Windows binary abuse. T1548 observed in 67 SENTINEL APEX advisories.
+author: CyberDudeBivash SENTINEL APEX v166.2
+date: 2026-05-29
+tags:
+    - attack.privilege_escalation
+    - attack.t1548
+    - attack.defense_evasion
+logsource:
+    category: process_creation
+    product: windows
+detection:
+    selection_uac_bypass_binaries:
+        Image|endswith:
+            - '\fodhelper.exe'
+            - '\eventvwr.exe'
+            - '\cmstp.exe'
+            - '\sdclt.exe'
+            - '\SilentCleanup.exe'
+            - '\wscript.exe'
+    selection_high_integrity:
+        IntegrityLevel: 'High'
+    selection_unusual_parent:
+        ParentImage|endswith:
+            - '\cmd.exe'
+            - '\powershell.exe'
+    condition: selection_uac_bypass_binaries AND (selection_high_integrity OR selection_unusual_parent)
+falsepositives:
+    - System maintenance using elevated tools
+level: high

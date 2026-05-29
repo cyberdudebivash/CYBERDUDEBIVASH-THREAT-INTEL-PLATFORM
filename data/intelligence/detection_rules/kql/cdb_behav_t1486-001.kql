@@ -1,0 +1,12 @@
+// SENTINEL APEX — T1486 Ransomware Encryption Detection
+// ATT&CK: Impact | T1486 | Data Encrypted for Impact
+// CRITICAL SEVERITY — Immediate response required
+let ransomExtensions = dynamic([".locked",".encrypted",".lockbit",".blackcat",".alphv",".enc",".crypt",".crypted"]);
+let ransomNotes = dynamic(["HOW_TO_DECRYPT","README_DECRYPT","RESTORE_FILES","RANSOM_NOTE","_INSTRUCTIONS"]);
+DeviceFileEvents
+| where (FileName has_any (ransomExtensions)) or (FileName has_any (ransomNotes))
+| summarize FileCount=count(), AffectedFiles=make_set(FileName,20) by bin(Timestamp, 30s), DeviceName, InitiatingProcessFileName, InitiatingProcessAccountName
+| where FileCount >= 5 or (AffectedFiles has_any (ransomNotes))
+| extend Severity = "CRITICAL", MitreTechnique = "T1486"
+| project Timestamp, DeviceName, InitiatingProcessFileName, InitiatingProcessAccountName, FileCount, AffectedFiles, Severity, MitreTechnique
+| order by Timestamp desc
