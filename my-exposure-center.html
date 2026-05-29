@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Customer Exposure Center — Sentinel APEX</title>
+<style>
+  :root {
+    --bg: #0a0e1a;
+    --surface: #111827;
+    --surface2: #1a2235;
+    --border: #1e2d45;
+    --accent: #00d4ff;
+    --green: #00ff88;
+    --yellow: #ffd700;
+    --red: #ff4444;
+    --orange: #ff8800;
+    --purple: #a855f7;
+    --text: #e2e8f0;
+    --muted: #64748b;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background:var(--bg); color:var(--text); font-family:'Segoe UI',sans-serif; min-height:100vh; }
+
+  .topbar { background:var(--surface); border-bottom:1px solid var(--border); padding:14px 28px; display:flex; align-items:center; justify-content:space-between; }
+  .topbar-brand { display:flex; align-items:center; gap:12px; }
+  .logo { width:36px; height:36px; background:linear-gradient(135deg,#ff4444,#ff8800); border-radius:8px; display:flex; align-items:center; justify-content:center; font-weight:900; font-size:14px; color:#000; }
+  .title { font-size:18px; font-weight:700; }
+  .subtitle { font-size:11px; color:var(--muted); }
+  .topbar-right { display:flex; align-items:center; gap:16px; }
+  .badge { padding:4px 12px; border-radius:20px; font-size:11px; font-weight:700; }
+  .badge-red { background:rgba(255,68,68,0.15); color:var(--red); border:1px solid rgba(255,68,68,0.3); }
+  .badge-accent { background:rgba(0,212,255,0.15); color:var(--accent); border:1px solid rgba(0,212,255,0.3); }
+
+  .layout { display:grid; grid-template-columns:220px 1fr; min-height:calc(100vh - 65px); }
+  nav { background:var(--surface); border-right:1px solid var(--border); padding:20px 0; }
+  .nav-section { padding:8px 20px 4px; font-size:10px; color:var(--muted); text-transform:uppercase; letter-spacing:1px; }
+  .nav-item { display:flex; align-items:center; gap:10px; padding:10px 20px; font-size:13px; color:var(--muted); cursor:pointer; border-left:3px solid transparent; }
+  .nav-item:hover { background:var(--surface2); color:var(--text); }
+  .nav-item.active { background:var(--surface2); color:var(--red); border-left-color:var(--red); }
+
+  main { padding:28px; overflow-y:auto; }
+  .page-header { margin-bottom:28px; }
+  .page-header h1 { font-size:26px; font-weight:800; }
+  .page-header p { color:var(--muted); font-size:13px; margin-top:4px; }
+
+  .tenant-selector { display:flex; align-items:center; gap:12px; background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:14px 20px; margin-bottom:24px; }
+  .tenant-selector label { font-size:12px; color:var(--muted); }
+  .tenant-selector select { background:var(--surface2); border:1px solid var(--border); color:var(--text); padding:6px 12px; border-radius:6px; font-size:13px; }
+  .tenant-selector .refresh-btn { margin-left:auto; padding:6px 14px; background:var(--accent); color:#000; border:none; border-radius:6px; font-size:12px; font-weight:700; cursor:pointer; }
+
+  .kpi-grid { display:grid; grid-template-columns:repeat(5,1fr); gap:16px; margin-bottom:24px; }
+  .kpi-card { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:18px; position:relative; overflow:hidden; }
+  .kpi-card::before { content:''; position:absolute; top:0; left:0; right:0; height:3px; }
+  .kpi-card.red::before { background:var(--red); }
+  .kpi-card.orange::before { background:var(--orange); }
+  .kpi-card.yellow::before { background:var(--yellow); }
+  .kpi-card.purple::before { background:var(--purple); }
+  .kpi-card.green::before { background:var(--green); }
+  .kpi-label { font-size:11px; color:var(--muted); text-transform:uppercase; }
+  .kpi-value { font-size:26px; font-weight:800; margin:6px 0 4px; }
+  .kpi-value.red { color:var(--red); }
+  .kpi-value.orange { color:var(--orange); }
+  .kpi-value.yellow { color:var(--yellow); }
+  .kpi-value.purple { color:var(--purple); }
+  .kpi-value.green { color:var(--green); }
+  .kpi-delta { font-size:11px; color:var(--muted); }
+
+  .grid-2 { display:grid; grid-template-columns:1fr 1fr; gap:20px; margin-bottom:20px; }
+  .card { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:20px; }
+  .card-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:16px; }
+  .card-title { font-size:14px; font-weight:700; }
+  .card-action { font-size:11px; color:var(--accent); cursor:pointer; padding:4px 10px; border:1px solid var(--accent); border-radius:6px; }
+
+  .cve-item { display:flex; gap:14px; padding:12px 0; border-bottom:1px solid var(--border); }
+  .cve-item:last-child { border-bottom:none; }
+  .cve-severity { width:60px; text-align:center; padding:4px 0; border-radius:6px; font-size:11px; font-weight:700; flex-shrink:0; margin-top:2px; }
+  .sev-critical { background:rgba(255,68,68,0.2); color:var(--red); }
+  .sev-high { background:rgba(255,136,0,0.2); color:var(--orange); }
+  .sev-medium { background:rgba(255,215,0,0.2); color:var(--yellow); }
+  .sev-low { background:rgba(0,212,255,0.15); color:var(--accent); }
+  .cve-info { flex:1; }
+  .cve-id { font-size:13px; font-weight:700; color:var(--accent); }
+  .cve-title { font-size:12px; color:var(--text); margin:2px 0; }
+  .cve-meta { font-size:11px; color:var(--muted); }
+  .cve-cvss { font-size:18px; font-weight:800; color:var(--red); }
+  .cve-action { padding:5px 12px; border-radius:6px; font-size:11px; font-weight:600; background:rgba(0,255,136,0.15); color:var(--green); border:1px solid rgba(0,255,136,0.3); cursor:pointer; white-space:nowrap; }
+
+  .technique-item { display:flex; align-items:center; gap:12px; padding:10px 12px; background:var(--surface2); border-radius:8px; margin-bottom:8px; }
+  .technique-item:last-child { margin-bottom:0; }
+  .tactic-tag { padding:3px 8px; border-radius:4px; font-size:10px; font-weight:700; background:rgba(168,85,247,0.2); color:var(--purple); }
+  .tech-id { font-size:11px; color:var(--accent); font-weight:700; width:80px; flex-shrink:0; }
+  .tech-name { font-size:13px; flex:1; }
+  .tech-risk { font-size:12px; font-weight:700; }
+  .risk-high { color:var(--red); }
+  .risk-med { color:var(--yellow); }
+  .risk-low { color:var(--green); }
+
+  .campaign-item { padding:12px; background:var(--surface2); border:1px solid var(--border); border-radius:10px; margin-bottom:10px; }
+  .campaign-item:last-child { margin-bottom:0; }
+  .campaign-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; }
+  .campaign-name { font-size:13px; font-weight:700; }
+  .campaign-meta { font-size:11px; color:var(--muted); }
+  .campaign-tags { display:flex; gap:6px; flex-wrap:wrap; }
+  .tag { padding:2px 8px; border-radius:4px; font-size:10px; font-weight:600; }
+  .tag-red { background:rgba(255,68,68,0.15); color:var(--red); }
+  .tag-orange { background:rgba(255,136,0,0.15); color:var(--orange); }
+  .tag-purple { background:rgba(168,85,247,0.15); color:var(--purple); }
+  .tag-accent { background:rgba(0,212,255,0.15); color:var(--accent); }
+
+  .action-card { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:20px; margin-bottom:20px; }
+  .rec-item { display:flex; gap:14px; padding:12px 0; border-bottom:1px solid var(--border); align-items:flex-start; }
+  .rec-item:last-child { border-bottom:none; }
+  .rec-priority { width:24px; height:24px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:800; flex-shrink:0; margin-top:2px; }
+  .p1 { background:var(--red); color:#fff; }
+  .p2 { background:var(--orange); color:#fff; }
+  .p3 { background:var(--yellow); color:#000; }
+  .rec-content { flex:1; }
+  .rec-title { font-size:13px; font-weight:700; }
+  .rec-desc { font-size:12px; color:var(--muted); margin-top:2px; }
+  .rec-btn { padding:5px 14px; border-radius:6px; font-size:12px; font-weight:600; background:rgba(0,212,255,0.15); color:var(--accent); border:1px solid rgba(0,212,255,0.3); cursor:pointer; white-space:nowrap; }
+
+  table { width:100%; border-collapse:collapse; font-size:13px; }
+  thead tr { background:var(--surface2); }
+  th { padding:10px 14px; text-align:left; font-size:11px; color:var(--muted); text-transform:uppercase; }
+  td { padding:10px 14px; border-bottom:1px solid var(--border); }
+  tr:last-child td { border-bottom:none; }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-brand">
+    <div class="logo">⚠</div>
+    <div>
+      <div class="title">Sentinel APEX — Customer Exposure Intelligence</div>
+      <div class="subtitle">Phase 98 · My Exposure Center — Customer-Specific Threat Intelligence</div>
+    </div>
+  </div>
+  <div class="topbar-right">
+    <span class="badge badge-red">🔴 3 CRITICAL</span>
+    <span class="badge badge-accent">PHASE 98</span>
+    <span style="font-size:12px;color:var(--muted)" id="ts"></span>
+  </div>
+</div>
+
+<div class="layout">
+  <nav>
+    <div class="nav-section">My Exposure</div>
+    <div class="nav-item active">⚠️ Exposure Overview</div>
+    <div class="nav-item">🔴 Relevant CVEs</div>
+    <div class="nav-item">🎯 ATT&CK Techniques</div>
+    <div class="nav-item">📡 Active Campaigns</div>
+    <div class="nav-section">Intelligence</div>
+    <div class="nav-item">🛡️ Available Detections</div>
+    <div class="nav-item">📋 Recommended Actions</div>
+    <div class="nav-item">📊 Exposure Trends</div>
+    <div class="nav-section">Settings</div>
+    <div class="nav-item">⚙️ Asset Profile</div>
+    <div class="nav-item">🔔 Alert Settings</div>
+  </nav>
+
+  <main>
+    <div class="page-header">
+      <h1>⚠️ My Exposure Center</h1>
+      <p>Customer-specific threat intelligence — CVEs, campaigns, and ATT&CK techniques relevant to YOUR environment</p>
+    </div>
+
+    <div class="tenant-selector">
+      <label>Viewing as:</label>
+      <select id="tenant-sel" onchange="updateTenant()">
+        <option>TechCorp Global (Enterprise)</option>
+        <option>SecureBank Ltd (Professional)</option>
+        <option>DataSystems Inc (MSSP)</option>
+        <option>CloudVentures (Enterprise)</option>
+      </select>
+      <span style="font-size:12px;color:var(--muted);margin-left:8px">Asset profile: 340 hosts · Azure/AWS · Finance sector · Windows AD</span>
+      <button class="refresh-btn" onclick="alert('Exposure refresh triggered. New scan running...')">↻ Refresh Exposure</button>
+    </div>
+
+    <div class="kpi-grid">
+      <div class="kpi-card red">
+        <div class="kpi-label">Critical CVEs</div>
+        <div class="kpi-value red">3</div>
+        <div class="kpi-delta">Actively exploited</div>
+      </div>
+      <div class="kpi-card orange">
+        <div class="kpi-label">High Severity CVEs</div>
+        <div class="kpi-value orange">11</div>
+        <div class="kpi-delta">Patch available</div>
+      </div>
+      <div class="kpi-card yellow">
+        <div class="kpi-label">Active Campaigns</div>
+        <div class="kpi-value yellow">5</div>
+        <div class="kpi-delta">Targeting your sector</div>
+      </div>
+      <div class="kpi-card purple">
+        <div class="kpi-label">ATT&CK Techniques</div>
+        <div class="kpi-value purple">18</div>
+        <div class="kpi-delta">Relevant to your stack</div>
+      </div>
+      <div class="kpi-card green">
+        <div class="kpi-label">Available Detections</div>
+        <div class="kpi-value green">24</div>
+        <div class="kpi-delta">Ready to deploy</div>
+      </div>
+    </div>
+
+    <div class="grid-2">
+      <!-- Relevant CVEs -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">🔴 Relevant CVEs</div>
+          <div class="card-action">Download IOC Feed</div>
+        </div>
+        <div id="cve-list"></div>
+      </div>
+
+      <!-- Active Campaigns -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">📡 Active Campaigns Targeting Your Sector</div>
+          <div class="card-action">Full Reports</div>
+        </div>
+        <div id="campaigns"></div>
+      </div>
+    </div>
+
+    <!-- ATT&CK Techniques -->
+    <div class="card" style="margin-bottom:20px">
+      <div class="card-header">
+        <div class="card-title">🎯 ATT&CK Techniques Relevant to Your Environment</div>
+        <div class="card-action">View Coverage Map</div>
+      </div>
+      <div id="attack-techniques"></div>
+    </div>
+
+    <!-- Recommended Actions -->
+    <div class="action-card">
+      <div class="card-header">
+        <div class="card-title">📋 Recommended Actions (Priority Ordered)</div>
+        <div class="card-action">Generate Remediation Report</div>
+      </div>
+      <div id="recommendations"></div>
+    </div>
+
+    <!-- Available Detections -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">🛡️ Available Detections for Your Exposure</div>
+        <div class="card-action">Deploy All</div>
+      </div>
+      <table>
+        <thead><tr><th>Detection Rule</th><th>CVE / Technique</th><th>Format</th><th>Confidence</th><th>Action</th></tr></thead>
+        <tbody id="detections-table"></tbody>
+      </table>
+    </div>
+  </main>
+</div>
+
+<script>
+document.getElementById('ts').textContent = new Date().toLocaleString();
+
+const cves = [
+  { id:'CVE-2025-21334', title:'Windows Hyper-V Privilege Escalation', sev:'CRITICAL', cvss:'9.8', affected:'Windows Server 2022', action:'Patch Now' },
+  { id:'CVE-2025-29824', title:'CLFS Driver Zero-Day RCE', sev:'CRITICAL', cvss:'9.6', affected:'Windows 10/11, Server', action:'Patch Now' },
+  { id:'CVE-2025-24054', title:'NTLM Hash Disclosure via SMB', sev:'CRITICAL', cvss:'8.8', affected:'Windows AD environments', action:'Mitigate' },
+  { id:'CVE-2025-26647', title:'Kerberos Authentication Bypass', sev:'HIGH', cvss:'8.1', affected:'Active Directory', action:'Apply Fix' },
+  { id:'CVE-2025-21355', title:'Azure AD OAuth Token Forgery', sev:'HIGH', cvss:'7.9', affected:'Azure tenants', action:'Review Config' },
+  { id:'CVE-2025-30065', title:'Apache Log4j2 Context Injection', sev:'HIGH', cvss:'7.5', affected:'Java apps on Linux', action:'Upgrade' },
+];
+
+const sevClass = { CRITICAL:'sev-critical', HIGH:'sev-high', MEDIUM:'sev-medium', LOW:'sev-low' };
+const cveList = document.getElementById('cve-list');
+cves.forEach(c => {
+  cveList.innerHTML += `
+    <div class="cve-item">
+      <div>
+        <div class="cve-severity ${sevClass[c.sev]}">${c.sev}</div>
+        <div class="cve-cvss">${c.cvss}</div>
+      </div>
+      <div class="cve-info">
+        <div class="cve-id">${c.id}</div>
+        <div class="cve-title">${c.title}</div>
+        <div class="cve-meta">Affected: ${c.affected}</div>
+      </div>
+      <button class="cve-action" onclick="alert('Opening remediation workflow for ${c.id}...')">${c.action}</button>
+    </div>`;
+});
+
+const campaigns = [
+  { name:'APT29 — Finance Sector Campaign', date:'Active since Apr 2025', tags:['Spearphishing','LSASS Dump','Lateral Movement'], risk:'HIGH' },
+  { name:'LockBit 4.0 Ransomware Wave', date:'Active since Mar 2025', tags:['RDP Brute Force','Exfiltration','Encryption'], risk:'CRITICAL' },
+  { name:'Scattered Spider — Cloud Targeting', date:'Active since May 2025', tags:['MFA Fatigue','SIM Swap','Azure AD Abuse'], risk:'HIGH' },
+  { name:'TA577 — NTLM Relay Campaign', date:'Active since Jan 2025', tags:['Phishing','NTLM Relay','Credential Theft'], risk:'HIGH' },
+  { name:'FIN7 Financial Sector Ops', date:'Active since Feb 2025', tags:['Supply Chain','JS Injector','Banking Trojan'], risk:'MEDIUM' },
+];
+
+const campEl = document.getElementById('campaigns');
+campaigns.forEach(c => {
+  campEl.innerHTML += `
+    <div class="campaign-item">
+      <div class="campaign-header">
+        <div class="campaign-name">${c.name}</div>
+        <span class="tag ${c.risk==='CRITICAL'?'tag-red':c.risk==='HIGH'?'tag-orange':'tag-accent'}">${c.risk}</span>
+      </div>
+      <div class="campaign-meta">${c.date}</div>
+      <div class="campaign-tags" style="margin-top:8px">
+        ${c.tags.map(t=>`<span class="tag tag-purple">${t}</span>`).join('')}
+      </div>
+    </div>`;
+});
+
+const techniques = [
+  { id:'T1078', name:'Valid Accounts — Domain Accounts', tactic:'Initial Access', risk:'high' },
+  { id:'T1003.001', name:'LSASS Memory Credential Dumping', tactic:'Credential Access', risk:'high' },
+  { id:'T1550.002', name:'Pass the Hash — SMB/Windows Admin', tactic:'Lateral Movement', risk:'high' },
+  { id:'T1566.001', name:'Spearphishing Attachment', tactic:'Initial Access', risk:'high' },
+  { id:'T1486', name:'Data Encrypted for Impact (Ransomware)', tactic:'Impact', risk:'high' },
+  { id:'T1021.001', name:'Remote Desktop Protocol (RDP)', tactic:'Lateral Movement', risk:'med' },
+  { id:'T1059.001', name:'PowerShell Execution', tactic:'Execution', risk:'med' },
+  { id:'T1098', name:'Account Manipulation — Additional Accounts', tactic:'Persistence', risk:'med' },
+  { id:'T1110.003', name:'Password Spraying', tactic:'Credential Access', risk:'med' },
+  { id:'T1562.001', name:'Disable or Modify Security Tools', tactic:'Defense Evasion', risk:'med' },
+];
+
+const techEl = document.getElementById('attack-techniques');
+techEl.innerHTML = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">';
+techniques.forEach(t => {
+  techEl.innerHTML += `
+    <div class="technique-item">
+      <span class="tech-id">${t.id}</span>
+      <span class="tactic-tag">${t.tactic}</span>
+      <span class="tech-name">${t.name}</span>
+      <span class="tech-risk ${t.risk==='high'?'risk-high':t.risk==='med'?'risk-med':'risk-low'}">${t.risk.toUpperCase()}</span>
+    </div>`;
+});
+techEl.innerHTML += '</div>';
+
+const recs = [
+  { p:'P1', cls:'p1', title:'Apply emergency patch for CVE-2025-21334 (Hyper-V)', desc:'CVSS 9.8 — Patch KB5037025 available. Apply to all Windows Server 2022 hosts within 24h.' },
+  { p:'P1', cls:'p1', title:'Deploy LSASS protection rules across all endpoints', desc:'Active APT29 campaign targeting LSASS. 3 Sigma rules available — deploy immediately.' },
+  { p:'P1', cls:'p1', title:'Enable SMB signing to mitigate TA577 NTLM relay', desc:'17 Windows hosts detected without SMB signing. TA577 actively exploiting this gap.' },
+  { p:'P2', cls:'p2', title:'Block legacy NTLM authentication in Azure AD', desc:'Required to close CVE-2025-24054 attack vector. Conditional Access policy update required.' },
+  { p:'P2', cls:'p2', title:'Deploy MFA enforcement on all admin accounts', desc:'Scattered Spider campaign targets MFA fatigue. Enforce number-matching MFA for privileged users.' },
+  { p:'P3', cls:'p3', title:'Review Azure AD OAuth application permissions', desc:'CVE-2025-21355 — Audit app permissions and revoke unused delegated access.' },
+];
+
+const recEl = document.getElementById('recommendations');
+recs.forEach(r => {
+  recEl.innerHTML += `
+    <div class="rec-item">
+      <div class="rec-priority ${r.cls}">${r.p}</div>
+      <div class="rec-content">
+        <div class="rec-title">${r.title}</div>
+        <div class="rec-desc">${r.desc}</div>
+      </div>
+      <button class="rec-btn" onclick="alert('Opening task for: ${r.title}')">Action →</button>
+    </div>`;
+});
+
+const detections = [
+  { rule:'LSASS Memory Access via MiniDump', ref:'T1003.001', fmt:'Sigma', conf:95 },
+  { rule:'Pass the Hash via SMB Authentication', ref:'T1550.002', fmt:'Sigma', conf:91 },
+  { rule:'PowerShell Encoded Command Execution', ref:'T1059.001', fmt:'YARA+Sigma', conf:88 },
+  { rule:'Ransomware Volume Shadow Copy Deletion', ref:'T1490', fmt:'Sigma', conf:97 },
+  { rule:'Password Spray via Azure AD Sign-In Logs', ref:'T1110.003', fmt:'KQL', conf:86 },
+  { rule:'RDP Brute Force from External IPs', ref:'T1021.001', fmt:'Sigma', conf:90 },
+];
+
+const detTable = document.getElementById('detections-table');
+detections.forEach(d => {
+  detTable.innerHTML += `
+    <tr>
+      <td style="font-weight:600">${d.rule}</td>
+      <td style="color:var(--accent)">${d.ref}</td>
+      <td><span style="background:rgba(168,85,247,0.15);color:var(--purple);padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700">${d.fmt}</span></td>
+      <td><span style="color:${d.conf>=95?'var(--green)':d.conf>=85?'var(--yellow)':'var(--orange)'};font-weight:700">${d.conf}%</span></td>
+      <td><button onclick="alert('Deploying detection: ${d.rule}')" style="padding:4px 12px;background:rgba(0,255,136,0.15);color:var(--green);border:1px solid rgba(0,255,136,0.3);border-radius:6px;font-size:12px;cursor:pointer;font-weight:600">Deploy</button></td>
+    </tr>`;
+});
+
+function updateTenant() {
+  document.getElementById('ts').textContent = new Date().toLocaleString() + ' — refreshed';
+}
+</script>
+</body>
+</html>

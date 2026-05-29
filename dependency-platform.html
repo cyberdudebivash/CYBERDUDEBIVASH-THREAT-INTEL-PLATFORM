@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Customer Dependency Platform — Sentinel APEX</title>
+<style>
+  :root {
+    --bg: #0a0e1a; --surface: #111827; --surface2: #1a2235; --border: #1e2d45;
+    --accent: #00d4ff; --green: #00ff88; --yellow: #ffd700; --red: #ff4444;
+    --orange: #ff8800; --purple: #a855f7; --text: #e2e8f0; --muted: #64748b;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background:var(--bg); color:var(--text); font-family:'Segoe UI',sans-serif; min-height:100vh; }
+
+  .topbar { background:var(--surface); border-bottom:1px solid var(--border); padding:14px 28px; display:flex; align-items:center; justify-content:space-between; }
+  .topbar-brand { display:flex; align-items:center; gap:12px; }
+  .logo { width:36px; height:36px; background:linear-gradient(135deg,#a855f7,#00d4ff); border-radius:8px; display:flex; align-items:center; justify-content:center; font-size:18px; }
+  .title { font-size:18px; font-weight:700; }
+  .subtitle { font-size:11px; color:var(--muted); }
+  .topbar-right { display:flex; align-items:center; gap:16px; }
+  .badge { padding:4px 12px; border-radius:20px; font-size:11px; font-weight:700; }
+  .badge-purple { background:rgba(168,85,247,0.15); color:var(--purple); border:1px solid rgba(168,85,247,0.3); }
+  .badge-accent { background:rgba(0,212,255,0.15); color:var(--accent); border:1px solid rgba(0,212,255,0.3); }
+
+  .layout { display:grid; grid-template-columns:220px 1fr; min-height:calc(100vh - 65px); }
+  nav { background:var(--surface); border-right:1px solid var(--border); padding:20px 0; }
+  .nav-section { padding:8px 20px 4px; font-size:10px; color:var(--muted); text-transform:uppercase; letter-spacing:1px; }
+  .nav-item { display:flex; align-items:center; gap:10px; padding:10px 20px; font-size:13px; color:var(--muted); cursor:pointer; border-left:3px solid transparent; }
+  .nav-item:hover { background:var(--surface2); color:var(--text); }
+  .nav-item.active { background:var(--surface2); color:var(--purple); border-left-color:var(--purple); }
+
+  main { padding:28px; overflow-y:auto; }
+  .page-header { margin-bottom:28px; }
+  .page-header h1 { font-size:26px; font-weight:800; }
+  .page-header p { color:var(--muted); font-size:13px; margin-top:4px; }
+
+  .dependency-score {
+    background:linear-gradient(135deg,rgba(168,85,247,0.15),rgba(0,212,255,0.1));
+    border:1px solid rgba(168,85,247,0.3); border-radius:16px; padding:28px;
+    display:flex; align-items:center; gap:32px; margin-bottom:24px;
+  }
+  .dep-score-circle {
+    width:120px; height:120px; border-radius:50%; display:flex; flex-direction:column;
+    align-items:center; justify-content:center; flex-shrink:0;
+    border:4px solid var(--purple); background:rgba(168,85,247,0.1);
+  }
+  .dep-score-value { font-size:36px; font-weight:900; color:var(--purple); }
+  .dep-score-label { font-size:11px; color:var(--muted); }
+  .dep-score-info h2 { font-size:20px; font-weight:800; margin-bottom:8px; }
+  .dep-score-info p { font-size:13px; color:var(--muted); line-height:1.6; }
+  .dep-integrations { display:flex; gap:12px; margin-top:16px; flex-wrap:wrap; }
+  .dep-int-badge { padding:6px 14px; border-radius:8px; font-size:12px; font-weight:700; }
+
+  .kpi-grid { display:grid; grid-template-columns:repeat(6,1fr); gap:12px; margin-bottom:24px; }
+  .kpi-card { background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:16px; position:relative; overflow:hidden; }
+  .kpi-card::before { content:''; position:absolute; top:0; left:0; right:0; height:3px; }
+  .kpi-label { font-size:10px; color:var(--muted); text-transform:uppercase; }
+  .kpi-value { font-size:22px; font-weight:800; margin:6px 0 2px; }
+  .kpi-delta { font-size:11px; color:var(--muted); }
+
+  .grid-2 { display:grid; grid-template-columns:1fr 1fr; gap:20px; margin-bottom:20px; }
+  .grid-3 { display:grid; grid-template-columns:1fr 1fr 1fr; gap:20px; margin-bottom:20px; }
+  .card { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:20px; }
+  .card-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:16px; }
+  .card-title { font-size:14px; font-weight:700; }
+  .card-action { font-size:11px; color:var(--accent); cursor:pointer; padding:4px 10px; border:1px solid var(--accent); border-radius:6px; }
+
+  .integration-item { display:flex; align-items:center; gap:14px; padding:12px; background:var(--surface2); border-radius:10px; margin-bottom:8px; }
+  .integration-item:last-child { margin-bottom:0; }
+  .int-icon { width:40px; height:40px; border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:20px; flex-shrink:0; }
+  .int-info { flex:1; }
+  .int-name { font-size:13px; font-weight:600; }
+  .int-meta { font-size:11px; color:var(--muted); margin-top:2px; }
+  .int-status { padding:4px 10px; border-radius:6px; font-size:11px; font-weight:700; }
+  .int-active { background:rgba(0,255,136,0.15); color:var(--green); }
+  .int-inactive { background:rgba(100,116,139,0.15); color:var(--muted); border:1px solid var(--border); cursor:pointer; }
+  .int-calls { font-size:12px; color:var(--muted); text-align:right; }
+
+  .schedule-item { display:flex; align-items:center; gap:12px; padding:10px 0; border-bottom:1px solid var(--border); }
+  .schedule-item:last-child { border-bottom:none; }
+  .sch-icon { font-size:18px; flex-shrink:0; }
+  .sch-info { flex:1; }
+  .sch-name { font-size:13px; font-weight:600; }
+  .sch-meta { font-size:11px; color:var(--muted); }
+  .sch-next { font-size:12px; color:var(--accent); text-align:right; }
+  .sch-toggle { width:40px; height:22px; border-radius:11px; cursor:pointer; position:relative; flex-shrink:0; }
+  .sch-toggle.on { background:var(--green); }
+  .sch-toggle.off { background:var(--border); }
+  .sch-toggle::after { content:''; position:absolute; width:18px; height:18px; border-radius:50%; background:#fff; top:2px; transition:0.2s; }
+  .sch-toggle.on::after { left:20px; }
+  .sch-toggle.off::after { left:2px; }
+
+  .workflow-item { padding:14px; background:var(--surface2); border:1px solid var(--border); border-radius:10px; margin-bottom:10px; }
+  .workflow-item:last-child { margin-bottom:0; }
+  .wf-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; }
+  .wf-name { font-size:13px; font-weight:700; }
+  .wf-last { font-size:11px; color:var(--muted); }
+  .wf-metrics { display:flex; gap:16px; }
+  .wf-metric { text-align:center; }
+  .wf-metric-val { font-size:18px; font-weight:800; }
+  .wf-metric-label { font-size:10px; color:var(--muted); }
+  .wf-bar { height:4px; background:var(--border); border-radius:2px; margin-top:8px; }
+  .wf-bar-fill { height:100%; border-radius:2px; }
+
+  .export-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; }
+  .export-item { background:var(--surface2); border:1px solid var(--border); border-radius:10px; padding:16px; text-align:center; cursor:pointer; transition:all 0.2s; }
+  .export-item:hover { border-color:var(--accent); background:rgba(0,212,255,0.05); }
+  .export-icon { font-size:28px; margin-bottom:8px; }
+  .export-name { font-size:13px; font-weight:600; }
+  .export-meta { font-size:11px; color:var(--muted); margin-top:4px; }
+  .export-btn { margin-top:10px; padding:5px 14px; background:rgba(0,212,255,0.15); color:var(--accent); border:1px solid rgba(0,212,255,0.3); border-radius:6px; font-size:12px; font-weight:600; cursor:pointer; }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-brand">
+    <div class="logo">🔗</div>
+    <div>
+      <div class="title">Sentinel APEX — Customer Dependency Platform</div>
+      <div class="subtitle">Phase 100 · Daily Operations Integration — Make Sentinel APEX Mission-Critical</div>
+    </div>
+  </div>
+  <div class="topbar-right">
+    <span class="badge badge-purple">🔗 7 INTEGRATIONS ACTIVE</span>
+    <span class="badge badge-accent">PHASE 100</span>
+    <span style="font-size:12px;color:var(--muted)" id="ts"></span>
+  </div>
+</div>
+
+<div class="layout">
+  <nav>
+    <div class="nav-section">Dependency</div>
+    <div class="nav-item active">🔗 Dependency Overview</div>
+    <div class="nav-item">📅 Scheduled Reports</div>
+    <div class="nav-item">🔌 API Integrations</div>
+    <div class="nav-item">🪝 Webhooks</div>
+    <div class="nav-section">Workflows</div>
+    <div class="nav-item">🛡️ Detection Distribution</div>
+    <div class="nav-item">🎯 ATT&CK Exports</div>
+    <div class="nav-item">📊 Executive Reporting</div>
+    <div class="nav-item">⚙️ SOC Workflows</div>
+    <div class="nav-section">Platform</div>
+    <div class="nav-item">📥 Export Center</div>
+    <div class="nav-item">⚙️ Integration Settings</div>
+  </nav>
+
+  <main>
+    <div class="page-header">
+      <h1>🔗 Customer Dependency Platform</h1>
+      <p>Make Sentinel APEX part of your daily operations — integrations, scheduled reports, SOC workflows</p>
+    </div>
+
+    <!-- Dependency Score -->
+    <div class="dependency-score">
+      <div class="dep-score-circle">
+        <div class="dep-score-value">87</div>
+        <div class="dep-score-label">Sticky Score</div>
+      </div>
+      <div class="dep-score-info">
+        <h2>🔗 Platform Dependency Score: DEEPLY INTEGRATED</h2>
+        <p>Sentinel APEX is embedded in 7 daily operational workflows. Your SOC team runs 340 API calls/day,
+        receives automated reports, and distributes detection rules through this platform.
+        Risk of churning: <span style="color:var(--green);font-weight:700">Very Low</span></p>
+        <div class="dep-integrations">
+          <span class="dep-int-badge" style="background:rgba(0,255,136,0.15);color:var(--green)">✓ SIEM Connected</span>
+          <span class="dep-int-badge" style="background:rgba(0,212,255,0.15);color:var(--accent)">✓ SOAR Connected</span>
+          <span class="dep-int-badge" style="background:rgba(168,85,247,0.15);color:var(--purple)">✓ Webhook Active</span>
+          <span class="dep-int-badge" style="background:rgba(255,215,0,0.15);color:var(--yellow)">✓ Reports Auto-Sent</span>
+          <span class="dep-int-badge" style="background:rgba(255,136,0,0.15);color:var(--orange)">✓ API Keys Active</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="kpi-grid">
+      <div class="kpi-card" style="border-top:3px solid var(--accent)">
+        <div class="kpi-label">API Calls / Day</div>
+        <div class="kpi-value" style="color:var(--accent)">340</div>
+        <div class="kpi-delta">↑ 22% this week</div>
+      </div>
+      <div class="kpi-card" style="border-top:3px solid var(--green)">
+        <div class="kpi-label">Scheduled Reports</div>
+        <div class="kpi-value" style="color:var(--green)">12</div>
+        <div class="kpi-delta">Auto-delivered</div>
+      </div>
+      <div class="kpi-card" style="border-top:3px solid var(--purple)">
+        <div class="kpi-label">Active Webhooks</div>
+        <div class="kpi-value" style="color:var(--purple)">8</div>
+        <div class="kpi-delta">3 destinations</div>
+      </div>
+      <div class="kpi-card" style="border-top:3px solid var(--yellow)">
+        <div class="kpi-label">Detection Rules Pushed</div>
+        <div class="kpi-value" style="color:var(--yellow)">47</div>
+        <div class="kpi-delta">To SIEM this month</div>
+      </div>
+      <div class="kpi-card" style="border-top:3px solid var(--orange)">
+        <div class="kpi-label">ATT&CK Exports</div>
+        <div class="kpi-value" style="color:var(--orange)">23</div>
+        <div class="kpi-delta">Navigator layers</div>
+      </div>
+      <div class="kpi-card" style="border-top:3px solid var(--red)">
+        <div class="kpi-label">SOC Workflows</div>
+        <div class="kpi-value" style="color:var(--red)">6</div>
+        <div class="kpi-delta">Daily executions</div>
+      </div>
+    </div>
+
+    <div class="grid-2">
+      <!-- Active Integrations -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">🔌 Active Integrations</div>
+          <div class="card-action">+ Add Integration</div>
+        </div>
+        <div id="integrations"></div>
+      </div>
+
+      <!-- Scheduled Reports -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">📅 Scheduled Reports</div>
+          <div class="card-action">+ New Schedule</div>
+        </div>
+        <div id="schedules"></div>
+      </div>
+    </div>
+
+    <!-- SOC Workflows -->
+    <div class="card" style="margin-bottom:20px">
+      <div class="card-header">
+        <div class="card-title">⚙️ SOC Workflow Engine — Daily Operations</div>
+        <div class="card-action">New Workflow</div>
+      </div>
+      <div id="workflows"></div>
+    </div>
+
+    <!-- Export Center -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">📥 Export Center — Deploy Anywhere</div>
+        <div class="card-action">Bulk Export</div>
+      </div>
+      <div class="export-grid" id="exports"></div>
+    </div>
+  </main>
+</div>
+
+<script>
+document.getElementById('ts').textContent = new Date().toLocaleString();
+
+const integrations = [
+  { icon:'🔷', bg:'rgba(0,212,255,0.1)', name:'Splunk SIEM', meta:'IOC + Detection rule push · 12 rules deployed today', status:'active', calls:'198 calls/day' },
+  { icon:'🟣', bg:'rgba(168,85,247,0.1)', name:'Microsoft Sentinel', meta:'KQL rule sync · Azure AD threat feed', status:'active', calls:'87 calls/day' },
+  { icon:'🟢', bg:'rgba(0,255,136,0.1)', name:'Palo Alto XSOAR', meta:'Playbook triggers · Incident enrichment', status:'active', calls:'55 calls/day' },
+  { icon:'🔶', bg:'rgba(255,136,0,0.1)', name:'ServiceNow', meta:'Auto ticket creation from threat alerts', status:'active', calls:'12 calls/day' },
+  { icon:'🔴', bg:'rgba(255,68,68,0.1)', name:'CrowdStrike Falcon', meta:'IOC push · EDR alert enrichment', status:'active', calls:'34 calls/day' },
+  { icon:'⚫', bg:'rgba(255,255,255,0.05)', name:'IBM QRadar', meta:'Not connected', status:'inactive', calls:'—' },
+  { icon:'🔵', bg:'rgba(0,212,255,0.05)', name:'Elastic SIEM', meta:'Not connected', status:'inactive', calls:'—' },
+];
+
+const intEl = document.getElementById('integrations');
+integrations.forEach(i => {
+  intEl.innerHTML += `
+    <div class="integration-item">
+      <div class="int-icon" style="background:${i.bg}">${i.icon}</div>
+      <div class="int-info">
+        <div class="int-name">${i.name}</div>
+        <div class="int-meta">${i.meta}</div>
+      </div>
+      <div style="text-align:right">
+        <span class="int-status ${i.status === 'active' ? 'int-active' : 'int-inactive'}" onclick="if('${i.status}'==='inactive')alert('Configuring ${i.name} integration...')">${i.status === 'active' ? '● Active' : 'Connect'}</span>
+        <div class="int-calls">${i.calls}</div>
+      </div>
+    </div>`;
+});
+
+const schedules = [
+  { icon:'📊', name:'Weekly Executive Threat Brief', meta:'Every Monday 08:00 · Email + PDF', next:'Mon 08:00', on:true },
+  { icon:'📋', name:'Daily IOC Digest', meta:'Every day 07:00 · API push to SIEM', next:'Tomorrow 07:00', on:true },
+  { icon:'🎯', name:'ATT&CK Coverage Report', meta:'Every Friday 17:00 · Email to CISO', next:'Fri 17:00', on:true },
+  { icon:'🔍', name:'Detection Performance Report', meta:'Every Sunday 09:00 · Dashboard refresh', next:'Sun 09:00', on:true },
+  { icon:'💰', name:'Monthly Value & ROI Report', meta:'1st of month 09:00 · Board PDF', next:'Jun 1 09:00', on:true },
+  { icon:'⚠️', name:'Critical Threat Alert', meta:'Real-time · CVSS ≥ 9.0 only', next:'On trigger', on:true },
+  { icon:'📈', name:'Quarterly Business Review', meta:'Quarterly · Full platform report', next:'Jul 1 09:00', on:false },
+];
+
+const schEl = document.getElementById('schedules');
+schedules.forEach((s, i) => {
+  schEl.innerHTML += `
+    <div class="schedule-item">
+      <div class="sch-icon">${s.icon}</div>
+      <div class="sch-info">
+        <div class="sch-name">${s.name}</div>
+        <div class="sch-meta">${s.meta}</div>
+      </div>
+      <div class="sch-next" style="font-size:11px">${s.next}</div>
+      <div class="sch-toggle ${s.on?'on':'off'}" onclick="this.classList.toggle('on');this.classList.toggle('off')"></div>
+    </div>`;
+});
+
+const workflows = [
+  { name:'Morning Threat Brief Workflow', last:'Today 07:00', runs:30, success:100, color:'var(--green)' },
+  { name:'IOC Enrichment → SIEM Push', last:'10 min ago', runs:288, success:98, color:'var(--green)' },
+  { name:'Detection Rule Distribution', last:'Today 06:00', runs:30, success:100, color:'var(--accent)' },
+  { name:'Executive Escalation Trigger', last:'May 27', runs:3, success:100, color:'var(--yellow)' },
+  { name:'SOC Shift Handover Report', last:'Today 08:00', runs:60, success:97, color:'var(--purple)' },
+  { name:'Vulnerability Patch Tracker', last:'1h ago', runs:24, success:100, color:'var(--orange)' },
+];
+
+const wfEl = document.getElementById('workflows');
+workflows.forEach(w => {
+  wfEl.innerHTML += `
+    <div class="workflow-item">
+      <div class="wf-header">
+        <div class="wf-name">${w.name}</div>
+        <div class="wf-last">Last run: ${w.last}</div>
+      </div>
+      <div class="wf-metrics">
+        <div class="wf-metric">
+          <div class="wf-metric-val" style="color:${w.color}">${w.runs}</div>
+          <div class="wf-metric-label">Executions (30d)</div>
+        </div>
+        <div class="wf-metric">
+          <div class="wf-metric-val" style="color:var(--green)">${w.success}%</div>
+          <div class="wf-metric-label">Success Rate</div>
+        </div>
+      </div>
+      <div class="wf-bar"><div class="wf-bar-fill" style="width:${w.success}%;background:${w.color}"></div></div>
+    </div>`;
+});
+
+const exports = [
+  { icon:'🎯', name:'ATT&CK Navigator Layer', meta:'JSON · MITRE format', fmt:'JSON' },
+  { icon:'🔍', name:'Sigma Detection Rules', meta:'ZIP · All active rules', fmt:'ZIP' },
+  { icon:'📡', name:'IOC Feed (STIX/TAXII)', meta:'STIX 2.1 · Live feed', fmt:'STIX' },
+  { icon:'📋', name:'Threat Intelligence Report', meta:'PDF · Executive ready', fmt:'PDF' },
+  { icon:'📊', name:'Executive Dashboard Export', meta:'PDF/PPTX · Board format', fmt:'PPTX' },
+  { icon:'🔑', name:'API Key & SDK Package', meta:'Python/Node/Go SDKs', fmt:'ZIP' },
+  { icon:'⚙️', name:'SOC Playbooks Export', meta:'YAML · SOAR compatible', fmt:'YAML' },
+  { icon:'🧪', name:'Malware YARA Rules', meta:'ZIP · All threat families', fmt:'ZIP' },
+  { icon:'📈', name:'KQL Hunting Queries', meta:'ZIP · Sentinel/Splunk', fmt:'ZIP' },
+];
+
+const expEl = document.getElementById('exports');
+exports.forEach(e => {
+  expEl.innerHTML += `
+    <div class="export-item" onclick="alert('Generating ${e.name} export...')">
+      <div class="export-icon">${e.icon}</div>
+      <div class="export-name">${e.name}</div>
+      <div class="export-meta">${e.meta}</div>
+      <button class="export-btn">Export ${e.fmt}</button>
+    </div>`;
+});
+</script>
+</body>
+</html>
