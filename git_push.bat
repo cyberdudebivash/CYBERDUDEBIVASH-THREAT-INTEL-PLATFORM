@@ -1,7 +1,7 @@
 @echo off
-cd /d "C:\Users\Administrator\Desktop\cyberdudebivash-blog"
-if exist ".git\index.lock" del /f ".git\index.lock"
-git add index.html posts\cve-2026-33825-microsoft-defender-zero-day-bluehammer-redsun.html posts\cve-2026-35616-fortinet-forticlient-ems-zero-day.html posts\ai-llm-prompt-injection-enterprise-attack-surface-2026.html
-git commit -m "feat: SENTINEL APEX — publish 3 enterprise threat intel reports + rebuild blog hub"
-git push origin main
-echo DONE > "C:\Users\Administrator\Desktop\CYBERDUDEBIVASH-SENTINEL-APEX\CYBERDUDEBIVASH-THREAT-INTEL-PLATFORM\git_done.txt"
+cd /d "C:\Users\Administrator\Desktop\CYBERDUDEBIVASH-THREAT-INTEL-PLATFORM"
+del /f ".git\index.lock" 2>nul
+"C:\Program Files\Git\cmd\git.exe" add .
+"C:\Program Files\Git\cmd\git.exe" commit -m "feat: Global Customer Operations Transformation - 15-phase enterprise cybersecurity service org buildout"
+"C:\Program Files\Git\cmd\git.exe" pull --rebase origin main
+"C:\Program Files\Git\cmd\git.exe" push origin main

@@ -1,0 +1,215 @@
+{
+  "schema_version": "1.0",
+  "platform": "CYBERDUDEBIVASH® SENTINEL APEX",
+  "generated_at": "2026-05-29T00:00:00Z",
+  "model_name": "APEX Customer Health Score v1.0",
+  "description": "Composite health scoring model for all paying SENTINEL APEX customers. Scored daily. Used to drive CSM cadence, retention interventions, and expansion motions.",
+
+  "score_dimensions": [
+    {
+      "dimension": "api_activity",
+      "weight": 0.20,
+      "description": "API call volume and frequency — proxy for active integration depth",
+      "scoring_rules": [
+        {"condition": "≥1 API call per day (7-day rolling)", "score": 20},
+        {"condition": "≥1 API call per day (3 of last 7 days)", "score": 15},
+        {"condition": "≥1 API call in last 7 days", "score": 8},
+        {"condition": "No API call in 7–14 days", "score": 3},
+        {"condition": "No API call in >14 days", "score": 0}
+      ],
+      "data_source": "api_gateway_logs",
+      "refresh": "daily"
+    },
+    {
+      "dimension": "dashboard_logins",
+      "weight": 0.15,
+      "description": "Analyst login frequency — proxy for active platform engagement",
+      "scoring_rules": [
+        {"condition": "≥3 unique logins per week", "score": 15},
+        {"condition": "1–2 logins per week", "score": 10},
+        {"condition": "≥1 login in last 14 days", "score": 5},
+        {"condition": "No login in 14–30 days", "score": 2},
+        {"condition": "No login in >30 days", "score": 0}
+      ],
+      "data_source": "auth_logs",
+      "refresh": "daily"
+    },
+    {
+      "dimension": "intelligence_consumption",
+      "weight": 0.20,
+      "description": "Advisory views, IOC lookups, report downloads — proxy for intelligence value realization",
+      "scoring_rules": [
+        {"condition": "≥10 advisory views per week", "score": 20},
+        {"condition": "5–9 advisory views per week", "score": 15},
+        {"condition": "1–4 advisory views per week", "score": 8},
+        {"condition": "≥1 advisory view in last 14 days", "score": 3},
+        {"condition": "No advisory view in >14 days", "score": 0}
+      ],
+      "bonus_signals": [
+        {"signal": "IOC pivot executed in graph intelligence", "bonus": 3},
+        {"signal": "Detection rule downloaded", "bonus": 2},
+        {"signal": "Executive report downloaded", "bonus": 2}
+      ],
+      "data_source": "platform_activity_logs",
+      "refresh": "daily"
+    },
+    {
+      "dimension": "detection_rule_deployment",
+      "weight": 0.15,
+      "description": "Detection rules deployed to customer SIEM — proxy for operational integration depth",
+      "scoring_rules": [
+        {"condition": "≥10 rules deployed (via API confirmation or webhook)", "score": 15},
+        {"condition": "5–9 rules deployed", "score": 10},
+        {"condition": "1–4 rules deployed", "score": 6},
+        {"condition": "Rules downloaded but no deployment confirmation", "score": 3},
+        {"condition": "No rules deployed or downloaded", "score": 0}
+      ],
+      "data_source": "detection_download_logs + siem_webhook_confirmations",
+      "refresh": "weekly"
+    },
+    {
+      "dimension": "support_standing",
+      "weight": 0.10,
+      "description": "Open support tickets and sentiment — proxy for platform friction",
+      "scoring_rules": [
+        {"condition": "No open tickets", "score": 10},
+        {"condition": "Open P3/P4 tickets only", "score": 7},
+        {"condition": "Open P2 ticket", "score": 4},
+        {"condition": "Open P1 ticket", "score": 1},
+        {"condition": "P1 ticket SLA breached", "score": 0}
+      ],
+      "sentiment_modifier": {
+        "description": "Adjusts score based on NLP sentiment of last 3 support interactions",
+        "positive_sentiment": "+2",
+        "neutral_sentiment": "0",
+        "negative_sentiment": "-3"
+      },
+      "data_source": "support_ticketing_system",
+      "refresh": "daily"
+    },
+    {
+      "dimension": "billing_standing",
+      "weight": 0.10,
+      "description": "Payment health — proxy for financial and organizational commitment",
+      "scoring_rules": [
+        {"condition": "Payments current, no failures", "score": 10},
+        {"condition": "Payment retry in progress (<7 days)", "score": 6},
+        {"condition": "Payment failure unresolved 7–14 days", "score": 2},
+        {"condition": "Payment failure unresolved >14 days", "score": 0}
+      ],
+      "data_source": "billing_system",
+      "refresh": "daily"
+    },
+    {
+      "dimension": "engagement_and_relationship",
+      "weight": 0.10,
+      "description": "CSM relationship quality and strategic engagement",
+      "scoring_rules": [
+        {"condition": "QBR attended in last 90 days", "score": 6},
+        {"condition": "Monthly check-in attended in last 30 days", "score": 4},
+        {"condition": "CSM email response within 48h (last outreach)", "score": 3},
+        {"condition": "No engagement in 60 days", "score": 0}
+      ],
+      "bonus_signals": [
+        {"signal": "NPS score submitted in last 90 days", "bonus": 2},
+        {"signal": "Case study or reference participation", "bonus": 3},
+        {"signal": "Feature request submitted", "bonus": 1}
+      ],
+      "data_source": "crm_system",
+      "refresh": "weekly"
+    }
+  ],
+
+  "score_calculation": {
+    "formula": "SUM(dimension_score × dimension_weight) × 100",
+    "max_score": 100,
+    "bonus_cap": 10,
+    "refresh_cadence": "daily at 02:00 UTC"
+  },
+
+  "health_bands": [
+    {
+      "band": "HEALTHY",
+      "score_range": [80, 100],
+      "color": "#22c55e",
+      "csm_action": "Maintain standard cadence. Identify expansion signals.",
+      "automated_actions": ["Monthly digest", "Expansion CTA if usage >80% plan limit"],
+      "target_percentage_of_customers": "50%"
+    },
+    {
+      "band": "STABLE",
+      "score_range": [60, 79],
+      "color": "#3b82f6",
+      "csm_action": "Monitor for score decline. Ensure QBR scheduled.",
+      "automated_actions": ["Monthly check-in email", "Feature adoption nudge"],
+      "target_percentage_of_customers": "30%"
+    },
+    {
+      "band": "AT_RISK",
+      "score_range": [40, 59],
+      "color": "#f59e0b",
+      "csm_action": "Proactive outreach within 5 business days. Identify and resolve blockers.",
+      "automated_actions": ["Re-engagement email sequence triggered", "CSM alert created"],
+      "target_percentage_of_customers": "15%"
+    },
+    {
+      "band": "CRITICAL",
+      "score_range": [0, 39],
+      "color": "#ef4444",
+      "csm_action": "Executive intervention. Churn prevention mode. Immediate call.",
+      "automated_actions": ["CSM lead notification", "AE notification if ARR >$5K", "Cancellation page monitoring"],
+      "target_percentage_of_customers": "5%"
+    }
+  ],
+
+  "expansion_signals": [
+    {
+      "signal": "api_usage_pct_of_limit",
+      "threshold": 80,
+      "action": "Trigger upgrade prompt in dashboard + CSM alert",
+      "expansion_motion": "tier_upgrade_or_api_addon"
+    },
+    {
+      "signal": "seat_utilization_pct",
+      "threshold": 90,
+      "action": "In-app seat limit notification + upgrade CTA",
+      "expansion_motion": "seat_expansion_or_tier_upgrade"
+    },
+    {
+      "signal": "tenant_count_pct_of_limit",
+      "threshold": 80,
+      "action": "MSSP CSM conversation triggered",
+      "expansion_motion": "tenant_pack_addon"
+    },
+    {
+      "signal": "hunt_requests_submitted",
+      "threshold": 3,
+      "action": "Threat Hunting subscription upsell",
+      "expansion_motion": "hunting_addon"
+    },
+    {
+      "signal": "consecutive_days_at_api_limit",
+      "threshold": 3,
+      "action": "API tier upgrade prompt",
+      "expansion_motion": "api_rate_upgrade"
+    }
+  ],
+
+  "churn_risk_signals": [
+    {"signal": "no_login_days", "threshold": 14, "risk": "HIGH", "action": "re_engagement_playbook"},
+    {"signal": "api_volume_drop_pct_wow", "threshold": 50, "risk": "HIGH", "action": "csm_investigation"},
+    {"signal": "support_sentiment_score", "threshold": 0.3, "risk": "HIGH", "action": "csm_awareness"},
+    {"signal": "cancellation_page_visit", "threshold": 1, "risk": "CRITICAL", "action": "immediate_csm_notification"},
+    {"signal": "downgrade_request", "threshold": 1, "risk": "CRITICAL", "action": "immediate_csm_call"},
+    {"signal": "billing_failure_days", "threshold": 7, "risk": "CRITICAL", "action": "csm_and_finance_escalation"},
+    {"signal": "qbr_declines_consecutive", "threshold": 2, "risk": "MEDIUM", "action": "executive_outreach"}
+  ],
+
+  "reporting": {
+    "csm_dashboard_refresh": "hourly",
+    "customer_portal_visibility": false,
+    "internal_only": true,
+    "weekly_report": "At-risk account list distributed to CS team every Monday 08:00 UTC",
+    "monthly_report": "Health distribution report to VP CS every 1st of month"
+  }
+}

@@ -1,0 +1,118 @@
+{
+  "schema_version": "1.0",
+  "platform": "CYBERDUDEBIVASH® SENTINEL APEX",
+  "generated_at": "2026-05-29T00:00:00Z",
+  "model_name": "Expansion Revenue Recommendation Engine",
+  "description": "Automated expansion signal detection and recommendation generation for all paying SENTINEL APEX accounts.",
+
+  "recommendation_types": [
+    {
+      "type": "TIER_UPGRADE",
+      "priority": "HIGH",
+      "description": "Customer is constrained by current tier limits",
+      "triggers": ["api_usage_over_80pct", "seat_utilization_over_90pct", "advisory_limit_reached"],
+      "proposed_action": "Upgrade to next tier",
+      "talk_track": "You're operating at the ceiling of your current plan. Upgrading removes that constraint and gives you [next tier capabilities].",
+      "roi_model": "cost_vs_analyst_hours_saved",
+      "csm_action": "Schedule upgrade conversation within 5 business days"
+    },
+    {
+      "type": "AI_SECURITY_MODULE",
+      "priority": "HIGH",
+      "description": "Customer operates in AI-heavy environment or has expressed AI risk concern",
+      "triggers": ["customer_mentions_ai_in_ticket", "company_ai_investment_detected", "ai_security_page_visited"],
+      "proposed_action": "Demo AI Security Intelligence module ($199/mo)",
+      "talk_track": "Given your AI initiatives, you need intelligence on prompt injection, model attacks, and AI system vulnerabilities — before they affect your deployment.",
+      "csm_action": "Schedule AI Security demo with security architect"
+    },
+    {
+      "type": "MSSP_CONVERSION",
+      "priority": "HIGH",
+      "description": "Customer managing multiple client or subsidiary environments",
+      "triggers": ["multiple_environments_mentioned", "client_security_services_mentioned", "mssp_pricing_page_visited"],
+      "proposed_action": "Convert to MSSP tier ($1,999/mo)",
+      "talk_track": "You're already running intelligence operations for multiple environments. MSSP tier gives you true tenant isolation, per-client SLA tracking, and white-label reports — at 10–25x less than competitive platforms.",
+      "csm_action": "Qualify MSSP opportunity with AE before outreach"
+    },
+    {
+      "type": "THREAT_HUNTING_SUBSCRIPTION",
+      "priority": "MEDIUM",
+      "description": "Customer requests hunts ad hoc or has no hunt history",
+      "triggers": ["hunt_request_submitted_without_subscription", "zero_hunt_history_at_day_90"],
+      "proposed_action": "Add Threat Hunting subscription (5 hunts/mo, $499/mo)",
+      "talk_track": "Your team is spending analyst cycles building hunt hypotheses from scratch. Our subscription automates that — 5 curated, evidence-based hunt packages per month aligned to your threat profile.",
+      "csm_action": "Offer one complimentary hunt to demonstrate value before upsell"
+    },
+    {
+      "type": "ANALYST_ADVISORY",
+      "priority": "MEDIUM",
+      "description": "Customer requesting custom intelligence analysis beyond standard feed",
+      "triggers": ["custom_report_request", "analyst_service_inquiry", "complex_ticket_submitted"],
+      "proposed_action": "Add Analyst Advisory Briefings pack (4/quarter, $299/mo)",
+      "talk_track": "Your team needs intelligence that's specific to your environment — not just the general feed. Our analysts deliver custom briefings tailored to your sector, threat actors, and ATT&CK coverage gaps.",
+      "csm_action": "Offer one complimentary briefing to demonstrate value"
+    },
+    {
+      "type": "EXECUTIVE_REPORTING",
+      "priority": "MEDIUM",
+      "description": "Customer still manually compiling board/executive reports",
+      "triggers": ["no_report_download_in_60_days_despite_enterprise", "manual_reporting_mentioned"],
+      "proposed_action": "Enable Executive Reporting Automation add-on ($199/mo)",
+      "talk_track": "Your CISO is still compiling threat reports manually. We can automate monthly executive briefs and quarterly board summaries — branded, on schedule, zero analyst time.",
+      "csm_action": "Show sample executive report during next QBR"
+    },
+    {
+      "type": "SEAT_EXPANSION",
+      "priority": "MEDIUM",
+      "description": "Security team growing or new use cases emerging",
+      "triggers": ["seat_utilization_over_80pct", "user_invite_attempt_over_limit"],
+      "proposed_action": "Add seats or upgrade to next tier",
+      "talk_track": "Your team is growing — SENTINEL APEX should grow with it. Adding seats ensures every analyst has full platform access.",
+      "csm_action": "Confirm headcount and propose appropriate seat count"
+    },
+    {
+      "type": "ADDITIONAL_API_CAPACITY",
+      "priority": "LOW",
+      "description": "Customer API integration is approaching rate limits",
+      "triggers": ["api_usage_over_80pct_3_consecutive_days"],
+      "proposed_action": "Add +2,000 req/min API capacity block ($99/mo)",
+      "talk_track": "Your SIEM is polling SENTINEL APEX aggressively — great signal of integration success. An API capacity add-on prevents any rate-limit interruptions to your feed.",
+      "csm_action": "In-app prompt first. CSM follow-up if prompt not acted on in 3 days."
+    },
+    {
+      "type": "HISTORICAL_ARCHIVE",
+      "priority": "LOW",
+      "description": "Customer has compliance or audit requirements for extended data retention",
+      "triggers": ["compliance_audit_mentioned", "historical_data_request_submitted"],
+      "proposed_action": "Add Historical Intelligence Archive 36-month ($149/mo)",
+      "talk_track": "Your compliance team needs 3 years of threat intelligence provenance. Our historical archive keeps your full IOC history, advisory records, and detection lineage available for audit — always.",
+      "csm_action": "Include in annual renewal discussion if compliance team engaged"
+    }
+  ],
+
+  "qualification_rules": [
+    "Health score must be >60 before expansion motion begins",
+    "No expansion outreach within 60 days of unresolved P1 ticket",
+    "MSSP conversion requires AE qualification call before CSM proposes",
+    "ROI calculation must accompany every tier upgrade proposal",
+    "No multiple simultaneous expansion motions for same account",
+    "Customer must have completed onboarding before any upsell conversation"
+  ],
+
+  "revenue_impact_estimates": {
+    "tier_upgrade_free_to_pro": {"avg_arr_increase": 499, "conversion_rate_target": 0.12},
+    "tier_upgrade_pro_to_enterprise": {"avg_arr_increase": 4500, "conversion_rate_target": 0.20},
+    "tier_upgrade_enterprise_to_mssp": {"avg_arr_increase": 19000, "conversion_rate_target": 0.15},
+    "ai_security_module": {"avg_arr_increase": 2388, "conversion_rate_target": 0.25},
+    "threat_hunting_subscription": {"avg_arr_increase": 5988, "conversion_rate_target": 0.18},
+    "analyst_advisory_pack": {"avg_arr_increase": 3588, "conversion_rate_target": 0.22},
+    "executive_reporting": {"avg_arr_increase": 2388, "conversion_rate_target": 0.30},
+    "additional_api_capacity": {"avg_arr_increase": 1188, "conversion_rate_target": 0.40}
+  },
+
+  "reporting": {
+    "generated_for_csm": "weekly — top 5 expansion opportunities per CSM",
+    "in_app_triggers": "real-time on threshold breach",
+    "monthly_pipeline_review": "expansion ARR forecast vs. actuals"
+  }
+}
