@@ -1,0 +1,36 @@
+title: Ransomware Encryption Activity — Rapid File Modification
+id: cdb-behav-t1486-001
+status: production
+description: Detects ransomware encryption via rapid file modifications and extension changes. Covers LockBit, BlackCat/ALPHV, RansomHub, Cl0p patterns observed in 132 SENTINEL APEX advisories.
+author: CyberDudeBivash SENTINEL APEX v166.2
+date: 2026-05-29
+tags:
+    - attack.impact
+    - attack.t1486
+logsource:
+    category: file_event
+    product: windows
+detection:
+    selection_ransom_ext:
+        TargetFilename|endswith:
+            - '.locked'
+            - '.encrypted'
+            - '.enc'
+            - '.lockbit'
+            - '.blackcat'
+            - '.alphv'
+            - '.ransom'
+            - '.crypt'
+            - '.crypted'
+    selection_ransom_note:
+        TargetFilename|contains:
+            - 'HOW_TO_DECRYPT'
+            - 'README_DECRYPT'
+            - 'RESTORE_FILES'
+            - '_INSTRUCTIONS'
+            - 'RANSOM_NOTE'
+    timeframe: 30s
+    condition: (selection_ransom_ext | count > 10 within timeframe) OR selection_ransom_note
+falsepositives:
+    - File encryption software (7-Zip AES, VeraCrypt) on non-production systems
+level: critical

@@ -1,0 +1,349 @@
+{
+  "scorecard_metadata": {
+    "platform": "CYBERDUDEBIVASH® SENTINEL APEX v166.2",
+    "audit_date": "2026-05-29",
+    "scoring_methodology": "Evidence-backed maturity scoring. Score = weighted average of capability readiness × enterprise validation weight. No score is synthetic or aspirational.",
+    "scale": "0-100. 80+ = Enterprise Ready. 60-79 = Conditional Ready (gaps must be documented). 40-59 = Proof of Concept. Below 40 = Not Demo-Ready.",
+    "generated_at": "2026-05-29T00:00:00Z"
+  },
+  "domain_scores": [
+    {
+      "domain": "CTI_READINESS",
+      "title": "Cyber Threat Intelligence",
+      "score": 64,
+      "grade": "B-",
+      "status": "CONDITIONAL_READY",
+      "weight": 0.20,
+      "evidence_summary": {
+        "strengths": [
+          "1003 STIX 2.1 bundles — substantial intelligence corpus",
+          "104 confirmed pipeline runs — operational cadence proven",
+          "Production IOC extractor covering 10 IOC types",
+          "Confidence scoring and provenance methodology documented"
+        ],
+        "gaps": [
+          "IOC persistence store empty (data/ioc/ has 0 records)",
+          "ATT&CK coverage at 11 techniques — critical gap",
+          "Enrichment telemetry not confirmed in live state",
+          "Intelligence lifecycle not customer-visible"
+        ]
+      },
+      "sub_scores": {
+        "intelligence_ingestion": 85,
+        "ioc_extraction": 55,
+        "ioc_enrichment": 58,
+        "attck_mapping": 28,
+        "confidence_scoring": 78,
+        "intelligence_lifecycle": 62,
+        "advisory_provenance": 72
+      },
+      "path_to_80": "Expand ATT&CK to 50+ techniques. Persist IOC records. Run enrichment pipeline."
+    },
+    {
+      "domain": "DETECTION_READINESS",
+      "title": "Detection Engineering",
+      "score": 55,
+      "grade": "C+",
+      "status": "PROOF_OF_CONCEPT",
+      "weight": 0.18,
+      "evidence_summary": {
+        "strengths": [
+          "210 Sigma rules generated — volume is enterprise-credible",
+          "169 YARA rules generated",
+          "detection_forge.py integrates with live feed manifest",
+          "Detection drift monitoring in data/audit/"
+        ],
+        "gaps": [
+          "210 Sigma rules are hash-only — no behavioral detection rules",
+          "No KQL rules generated (Sentinel market gap)",
+          "No SPL rules generated (Splunk market gap)",
+          "Chronicle/QRadar not implemented",
+          "Detection Studio UI not confirmed live"
+        ]
+      },
+      "sub_scores": {
+        "sigma_generation": 55,
+        "yara_generation": 68,
+        "kql_generation": 25,
+        "spl_generation": 20,
+        "chronicle_qradar": 5,
+        "validation_workflows": 55,
+        "replay_validation": 30,
+        "deployment_packaging": 45
+      },
+      "path_to_80": "Generate behavioral Sigma rules. Run detection_forge for KQL and SPL. Flag Chronicle/QRadar roadmap."
+    },
+    {
+      "domain": "ATTCK_READINESS",
+      "title": "MITRE ATT&CK Operations",
+      "score": 32,
+      "grade": "F",
+      "status": "NOT_DEMO_READY",
+      "weight": 0.15,
+      "evidence_summary": {
+        "strengths": [
+          "attck_intelligence_engine.py with sequence chaining and kill-chain reconstruction",
+          "attck_coverage_analytics_engine.py present",
+          "attack_navigator.json exists"
+        ],
+        "gaps": [
+          "CRITICAL: Only 11 of ~200 ATT&CK techniques covered (5.5%)",
+          "No attack path or sequence data files generated",
+          "No attack timeline data",
+          "Coverage heatmap not demo-ready"
+        ]
+      },
+      "sub_scores": {
+        "technique_coverage": 15,
+        "tactic_coverage": 40,
+        "attack_paths": 20,
+        "attack_sequences": 20,
+        "attack_timelines": 15,
+        "attck_confidence_scoring": 45,
+        "attck_visualization": 35
+      },
+      "path_to_80": "URGENT: Run attck_intelligence_engine against all 1003 STIX bundles. This is the single highest-impact action."
+    },
+    {
+      "domain": "GRAPH_READINESS",
+      "title": "Graph Intelligence",
+      "score": 22,
+      "grade": "F",
+      "status": "NOT_DEMO_READY",
+      "weight": 0.12,
+      "evidence_summary": {
+        "strengths": [
+          "graph_operations_engine.py with pivot logic",
+          "graph_relationships.stix.json exists",
+          "Neo4j Cypher import file present"
+        ],
+        "gaps": [
+          "CRITICAL: graph_stats.json shows edges: 0",
+          "30 nodes all of type 'technique' — no adversary/IOC nodes",
+          "No pivot data generated from 1003 STIX bundles",
+          "Graph UI (graph-ops-center.html) cannot demonstrate relationships"
+        ]
+      },
+      "sub_scores": {
+        "node_coverage": 20,
+        "edge_coverage": 0,
+        "ioc_pivots": 15,
+        "infrastructure_pivots": 15,
+        "actor_relationships": 25,
+        "campaign_lineage": 20,
+        "graph_confidence": 30,
+        "graph_timestamps": 35
+      },
+      "path_to_80": "URGENT: Run graph edge generation pipeline. This is a hard blocker for Track 4 demo."
+    },
+    {
+      "domain": "SOC_READINESS",
+      "title": "SOC Operations",
+      "score": 55,
+      "grade": "C+",
+      "status": "PROOF_OF_CONCEPT",
+      "weight": 0.12,
+      "evidence_summary": {
+        "strengths": [
+          "SOC workspace, operations center, integrations pages all present",
+          "soar_engine.py and playbook_generator.py operational",
+          "Alert engine with alert_history.json",
+          "STIX-native alert correlation"
+        ],
+        "gaps": [
+          "No active investigation records",
+          "No case management records",
+          "Alert state uses STIX bundle IDs (not analyst-readable)",
+          "Hunt workflows not evidenced",
+          "Dashboard live-data connection unconfirmed"
+        ]
+      },
+      "sub_scores": {
+        "investigation_workflows": 52,
+        "alert_processing": 58,
+        "case_management": 32,
+        "hunt_workflows": 35,
+        "timeline_analysis": 40,
+        "analyst_collaboration": 30,
+        "operational_dashboards": 62,
+        "queue_management": 45
+      },
+      "path_to_80": "Create 5 investigation records. Normalize alert format. Confirm dashboard live connections."
+    },
+    {
+      "domain": "MSSP_READINESS",
+      "title": "MSSP Operations",
+      "score": 35,
+      "grade": "F",
+      "status": "NOT_DEMO_READY",
+      "weight": 0.08,
+      "evidence_summary": {
+        "strengths": [
+          "enterprise_tenant_isolation_engine.py with full RBAC and SLA enforcement logic",
+          "mssp-console.html and mssp.html present",
+          "Revenue engine and billing infrastructure present"
+        ],
+        "gaps": [
+          "CRITICAL: data/tenants/ is empty — zero tenants provisioned",
+          "MSSP console not connected to live tenant data",
+          "No SLA records or monitoring",
+          "No billing records for demo tenants"
+        ]
+      },
+      "sub_scores": {
+        "tenant_isolation": 30,
+        "customer_segmentation": 25,
+        "mssp_dashboards": 35,
+        "customer_analytics": 20,
+        "customer_reporting": 25,
+        "sla_monitoring": 10,
+        "billing_visibility": 45
+      },
+      "path_to_80": "Provision 3 demo tenants. Generate tenant-scoped data. Connect MSSP console to tenant API."
+    },
+    {
+      "domain": "AI_SECURITY_READINESS",
+      "title": "AI Security Operations",
+      "score": 38,
+      "grade": "D+",
+      "status": "NOT_DEMO_READY",
+      "weight": 0.05,
+      "evidence_summary": {
+        "strengths": [
+          "ai_runtime_defense_engine.py with Phase 53 framework",
+          "AI threat tracker and security hub pages present",
+          "Pipeline run #104 confirms AI-assisted CTI is operational"
+        ],
+        "gaps": [
+          "CRITICAL: AI telemetry = CI pipeline metrics, not runtime AI session data",
+          "No prompt risk records or governance events",
+          "Scope confusion: CTI-with-AI vs. AI system security",
+          "Presenting CI metrics as AI runtime telemetry in demo = fatal trust breach"
+        ]
+      },
+      "sub_scores": {
+        "ai_governance": 38,
+        "prompt_risk_analysis": 30,
+        "ai_threat_intelligence_cti": 72,
+        "ai_runtime_visibility": 5,
+        "ai_session_analysis": 10,
+        "ai_attack_detection": 20
+      },
+      "path_to_80": "Decide scope. If AI-assisted CTI: score is already 72. If AI system security: 18+ months of work. Be honest."
+    },
+    {
+      "domain": "TRUST_READINESS",
+      "title": "Enterprise Trust & Evidence",
+      "score": 78,
+      "grade": "B+",
+      "status": "CONDITIONAL_READY",
+      "weight": 0.05,
+      "evidence_summary": {
+        "strengths": [
+          "Comprehensive audit trail in data/audit/",
+          "VERSION_LINEAGE_LOCK.json, GOLDEN_PRODUCTION_BASELINE.json",
+          "Explainable confidence engine with provenance methodology",
+          "Detection drift monitoring",
+          "methodology.html documenting trust framework"
+        ],
+        "gaps": [
+          "Trust evidence not surfaced in live Trust Center dashboard",
+          "SOC 2 / ISO 27001 not evidenced"
+        ]
+      },
+      "sub_scores": {
+        "audit_trails": 82,
+        "evidence_lineage": 75,
+        "confidence_explanations": 70,
+        "deployment_lineage": 88,
+        "operational_metrics": 82,
+        "compliance_framework": 48
+      },
+      "path_to_80": "Wire trust-center.html to live audit APIs. Add SOC 2 roadmap."
+    },
+    {
+      "domain": "INTEGRATION_READINESS",
+      "title": "API & Integration",
+      "score": 82,
+      "grade": "A-",
+      "status": "ENTERPRISE_READY",
+      "weight": 0.05,
+      "evidence_summary": {
+        "strengths": [
+          "Full OpenAPI 3.1 spec with tier model",
+          "JWT + API key auth with tier constants",
+          "Rate limiting (token-bucket, Redis-backed)",
+          "Webhooks for Enterprise/MSSP",
+          "Stripe payment processing",
+          "STIX 2.1 endpoint with 1003 bundles",
+          "Developer portal present"
+        ],
+        "gaps": [
+          "SDK documentation incomplete",
+          "Redis provisioning unconfirmed in production"
+        ]
+      },
+      "sub_scores": {
+        "api_documentation": 90,
+        "api_authentication": 90,
+        "rate_limiting": 80,
+        "webhooks": 78,
+        "sdk": 40,
+        "stix_endpoint": 92,
+        "siem_integrations": 65,
+        "integration_guides": 60
+      },
+      "path_to_80": "Already at 82. Add SDK quickstart. Confirm Redis in production."
+    }
+  ],
+  "overall_platform_score": {
+    "weighted_score": 52,
+    "grade": "C+",
+    "status": "NOT_READY_FOR_FORTUNE_500_CISO_DEMO",
+    "readiness_by_customer_type": {
+      "SMB_security_team": "READY — API track alone delivers value",
+      "mid_market_soc": "CONDITIONAL — Fix SOC alerts and IOC persistence first",
+      "enterprise_ciso_60min_demo": "NOT READY — ATT&CK and Graph blockers must be resolved",
+      "fortune_500_due_diligence": "NOT READY — 14-day minimum remediation required",
+      "mssp_operator": "NOT READY — Tenant provisioning is hard blocker"
+    },
+    "estimated_days_to_enterprise_ready": 14,
+    "top_5_actions_by_roi": [
+      {
+        "rank": 1,
+        "action": "Run attck_intelligence_engine against 1003 STIX bundles",
+        "impact": "ATT&CK score: 32 → 75+",
+        "effort_days": 1,
+        "roi": "CRITICAL"
+      },
+      {
+        "rank": 2,
+        "action": "Run graph edge generation pipeline",
+        "impact": "Graph score: 22 → 65+",
+        "effort_days": 1,
+        "roi": "CRITICAL"
+      },
+      {
+        "rank": 3,
+        "action": "Run IOC extractor and persist to data/ioc/",
+        "impact": "CTI score: 64 → 74+",
+        "effort_days": 0.5,
+        "roi": "HIGH"
+      },
+      {
+        "rank": 4,
+        "action": "Provision 3 demo tenants in enterprise_tenant_isolation_engine",
+        "impact": "MSSP score: 35 → 65+",
+        "effort_days": 2,
+        "roi": "HIGH"
+      },
+      {
+        "rank": 5,
+        "action": "Generate behavioral Sigma rules (T1059/T1190/T1486/T1566)",
+        "impact": "Detection score: 55 → 72+",
+        "effort_days": 1,
+        "roi": "HIGH"
+      }
+    ]
+  }
+}

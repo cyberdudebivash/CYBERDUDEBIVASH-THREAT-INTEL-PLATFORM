@@ -1,0 +1,11 @@
+// SENTINEL APEX — T1190 SQL Injection Detection
+// ATT&CK: Initial Access | T1190 | Exploit Public-Facing Application
+DeviceNetworkEvents
+| join kind=inner (
+    DeviceProcessEvents
+    | where FileName has_any ("w3wp.exe","nginx","apache","httpd")
+  ) on DeviceId
+| where RemoteUrl has_any ("' OR '","1=1--","UNION SELECT","exec(xp_","SLEEP(","BENCHMARK(","pg_sleep","waitfor delay")
+| extend ThreatType = "SQL Injection"
+| project Timestamp, DeviceName, RemoteUrl, RemoteIP, ThreatType
+| order by Timestamp desc

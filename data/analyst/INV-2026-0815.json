@@ -1,0 +1,85 @@
+{
+  "id": "INV-2026-0815",
+  "title": "Cobalt Strike Beacon Detected \u2014 Internal Server",
+  "severity": "CRITICAL",
+  "status": "CLOSED",
+  "technique_ids": [
+    "T1071",
+    "T1059.001",
+    "T1055",
+    "T1041"
+  ],
+  "iocs": [
+    "cobalt-updates.net",
+    "23.183.88.172",
+    "7a3bde4f8c9e12a45b6d0f2e8c7a1b3d"
+  ],
+  "cves": [],
+  "assigned_analyst": "james.okello@corp.example.com",
+  "opened_at": "2026-05-24T00:48:47.750809+00:00",
+  "updated_at": "2026-05-25T05:48:47.750809+00:00",
+  "closed_at": "2026-05-25T05:48:47.750809+00:00",
+  "timeline": [
+    {
+      "ts": "2026-05-24T00:48:47.750809+00:00",
+      "actor": "system",
+      "action": "Alert created",
+      "detail": "EDR detected process injection (T1055) from SVHOST.EXE (masquerading). Memory beacon pattern matched Cobalt Strike 4.9."
+    },
+    {
+      "ts": "2026-05-24T00:58:47.750809+00:00",
+      "actor": "james.okello@corp.example.com",
+      "action": "Beacon confirmed",
+      "detail": "YARA rule cdb_malware_cobaltstrike matched. C2 communication to cobalt-updates.net confirmed."
+    },
+    {
+      "ts": "2026-05-24T01:48:47.750809+00:00",
+      "actor": "james.okello@corp.example.com",
+      "action": "Containment",
+      "detail": "Host APP-SRV-007 isolated. C2 domain blocked at DNS. 3 other hosts scanned \u2014 clean."
+    },
+    {
+      "ts": "2026-05-24T05:48:47.750809+00:00",
+      "actor": "alice.chen@corp.example.com",
+      "action": "Root cause",
+      "detail": "Initial access via phishing email 14 days prior (INV-2026-0782). Beacon dormant for 12 days."
+    },
+    {
+      "ts": "2026-05-25T05:48:47.750809+00:00",
+      "actor": "james.okello@corp.example.com",
+      "action": "Investigation closed",
+      "detail": "Host reimaged. IOCs shared to threat intel feed. Detection rule updated. CLOSED."
+    }
+  ],
+  "attck_map": [
+    {
+      "id": "T1071",
+      "name": "Application Layer Protocol",
+      "tactic": "command-and-control",
+      "confirmed": true
+    },
+    {
+      "id": "T1059.001",
+      "name": "PowerShell",
+      "tactic": "execution",
+      "confirmed": true
+    },
+    {
+      "id": "T1055",
+      "name": "Process Injection",
+      "tactic": "privilege-escalation",
+      "confirmed": true
+    },
+    {
+      "id": "T1041",
+      "name": "Exfiltration Over C2 Channel",
+      "tactic": "exfiltration",
+      "confirmed": false
+    }
+  ],
+  "playbooks_executed": [
+    "PB-BEACON-001"
+  ],
+  "mttd_minutes": 10,
+  "mttr_hours_actual": 29
+}

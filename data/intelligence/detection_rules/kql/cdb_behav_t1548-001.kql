@@ -1,0 +1,9 @@
+// SENTINEL APEX — T1548 UAC Bypass Detection
+// ATT&CK: Privilege Escalation | T1548 | Abuse Elevation Control Mechanism
+let uacBypassBinaries = dynamic(["fodhelper.exe","eventvwr.exe","cmstp.exe","sdclt.exe","silentcleanup.exe"]);
+DeviceProcessEvents
+| where FileName has_any (uacBypassBinaries)
+| where InitiatingProcessFileName in~ ("cmd.exe","powershell.exe","wscript.exe")
+| extend Severity = "HIGH", MitreTechnique = "T1548"
+| project Timestamp, DeviceName, AccountName, FileName, InitiatingProcessFileName, ProcessCommandLine, Severity, MitreTechnique
+| order by Timestamp desc

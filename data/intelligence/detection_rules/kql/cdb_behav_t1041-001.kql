@@ -1,0 +1,12 @@
+// SENTINEL APEX — T1041 C2 Exfiltration Detection
+// ATT&CK: Exfiltration | T1041 | Exfiltration Over C2 Channel
+let approvedDomains = dynamic(["microsoft.com","office365.com","sharepoint.com","amazonaws.com","google.com"]);
+DeviceNetworkEvents
+| where ActionType == "ConnectionSuccess"
+| where RemotePort in (80, 443, 8080, 8443)
+| where not(RemoteUrl has_any (approvedDomains))
+| summarize BytesSent=sum(SentBytes), ConnectionCount=count() by bin(Timestamp, 5m), DeviceName, RemoteUrl, RemoteIP, InitiatingProcessFileName
+| where BytesSent > 50000000
+| extend Severity = "HIGH", MitreTechnique = "T1041"
+| project Timestamp, DeviceName, RemoteUrl, RemoteIP, BytesSent, ConnectionCount, InitiatingProcessFileName, Severity, MitreTechnique
+| order by BytesSent desc

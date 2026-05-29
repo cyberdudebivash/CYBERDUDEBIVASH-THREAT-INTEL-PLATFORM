@@ -1,0 +1,6 @@
+index=web_logs (uri="*' OR '*" OR uri="*1=1--*" OR uri="*UNION SELECT*" OR uri="*exec(xp_*" OR uri="*SLEEP(*" OR uri="*waitfor delay*")
+| eval mitre_technique="T1190"
+| eval severity="HIGH"
+| eval attack_type="SQL Injection"
+| stats count by src_ip, uri, status, attack_type, severity, mitre_technique
+| sort -count

@@ -1,0 +1,34 @@
+title: Phishing Email with Suspicious Attachment Execution
+id: cdb-behav-t1566-001
+status: production
+description: Detects process execution from Office document macros or email attachments — primary phishing delivery mechanism (T1566). Observed in 150 SENTINEL APEX advisories.
+author: CyberDudeBivash SENTINEL APEX v166.2
+date: 2026-05-29
+tags:
+    - attack.initial_access
+    - attack.t1566
+    - attack.t1566.001
+logsource:
+    category: process_creation
+    product: windows
+detection:
+    selection_office_spawn:
+        ParentImage|endswith:
+            - '\WINWORD.EXE'
+            - '\EXCEL.EXE'
+            - '\POWERPNT.EXE'
+            - '\OUTLOOK.EXE'
+            - '\MSPUB.EXE'
+        Image|endswith:
+            - '\cmd.exe'
+            - '\powershell.exe'
+            - '\wscript.exe'
+            - '\cscript.exe'
+            - '\mshta.exe'
+            - '\rundll32.exe'
+            - '\certutil.exe'
+    condition: selection_office_spawn
+falsepositives:
+    - Legitimate macro-enabled templates with admin tooling
+    - Automated Office document processing pipelines
+level: high

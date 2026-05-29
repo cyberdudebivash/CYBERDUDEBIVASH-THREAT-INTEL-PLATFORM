@@ -1,0 +1,28 @@
+title: Masquerading — Suspicious System Binary Name or Path
+id: cdb-behav-t1036-001
+status: production
+description: Detects executables masquerading as Windows system binaries via wrong path or suspicious naming. T1036 observed in 15 SENTINEL APEX advisories.
+author: CyberDudeBivash SENTINEL APEX v166.2
+date: 2026-05-29
+tags:
+    - attack.defense_evasion
+    - attack.t1036
+logsource:
+    category: process_creation
+    product: windows
+detection:
+    selection_spoofed_system_binaries:
+        Image|endswith:
+            - '\svchost.exe'
+            - '\lsass.exe'
+            - '\csrss.exe'
+            - '\winlogon.exe'
+            - '\services.exe'
+    filter_legitimate_paths:
+        Image|startswith:
+            - 'C:\Windows\System32\'
+            - 'C:\Windows\SysWOW64\'
+    condition: selection_spoofed_system_binaries AND NOT filter_legitimate_paths
+falsepositives:
+    - Extremely rare — legitimate Windows binaries are always in System32 or SysWOW64
+level: high

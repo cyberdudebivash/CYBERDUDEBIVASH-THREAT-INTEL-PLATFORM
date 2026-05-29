@@ -1,0 +1,5 @@
+index=endpoint (process_name="svchost.exe" OR process_name="lsass.exe" OR process_name="csrss.exe" OR process_name="winlogon.exe")
+  NOT (file_path="*System32*" OR file_path="*SysWOW64*")
+| eval severity="HIGH"
+| eval mitre_technique="T1036"
+| table _time, host, user, process_name, file_path, command_line, severity, mitre_technique

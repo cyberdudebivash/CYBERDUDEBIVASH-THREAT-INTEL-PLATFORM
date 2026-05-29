@@ -1,0 +1,8 @@
+// SENTINEL APEX — T1566.001 Phishing Attachment Execution
+// ATT&CK: Initial Access | T1566.001 | Spearphishing Attachment
+DeviceProcessEvents
+| where InitiatingProcessFileName in~ ("WINWORD.EXE","EXCEL.EXE","POWERPNT.EXE","OUTLOOK.EXE","MSPUB.EXE")
+| where FileName in~ ("cmd.exe","powershell.exe","wscript.exe","cscript.exe","mshta.exe","rundll32.exe","certutil.exe")
+| extend Severity = "HIGH", MitreTechnique = "T1566.001"
+| project Timestamp, DeviceName, AccountName, InitiatingProcessFileName, FileName, ProcessCommandLine, SHA256, Severity, MitreTechnique
+| order by Timestamp desc

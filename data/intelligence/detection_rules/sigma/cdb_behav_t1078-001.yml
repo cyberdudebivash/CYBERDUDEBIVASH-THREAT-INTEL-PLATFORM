@@ -1,0 +1,31 @@
+title: Privileged Account Login Outside Business Hours
+id: cdb-behav-t1078-001
+status: production
+description: Detects admin/privileged account logins outside standard business hours (8am-6pm local time). T1078 is observed in 166 SENTINEL APEX advisories — frequently used by ransomware operators post-credential-theft.
+author: CyberDudeBivash SENTINEL APEX v166.2
+date: 2026-05-29
+tags:
+    - attack.initial_access
+    - attack.persistence
+    - attack.t1078
+logsource:
+    product: windows
+    service: security
+detection:
+    selection_login:
+        EventID: 4624
+        LogonType: 10
+    selection_admin_accounts:
+        TargetUserName|contains:
+            - 'admin'
+            - 'svc-'
+            - 'sa_'
+            - 'adm_'
+    filter_business_hours:
+        EventTime|timeframe: '08:00-18:00'
+    condition: selection_login AND selection_admin_accounts AND NOT filter_business_hours
+falsepositives:
+    - IT maintenance windows
+    - On-call administrators
+    - Automated service accounts with scheduled after-hours tasks
+level: medium

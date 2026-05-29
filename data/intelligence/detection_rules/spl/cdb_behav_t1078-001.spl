@@ -1,0 +1,6 @@
+index=wineventlog EventCode=4624 Logon_Type=10 (user="*admin*" OR user="*svc-*" OR user="*sa_*" OR user="*adm_*")
+| eval hour=strftime(_time, "%H")
+| where hour < "08" OR hour >= "18"
+| eval severity="MEDIUM"
+| eval mitre_technique="T1078"
+| table _time, host, user, src_ip, Logon_Type, hour, severity, mitre_technique

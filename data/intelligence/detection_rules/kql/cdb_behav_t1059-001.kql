@@ -1,0 +1,14 @@
+// SENTINEL APEX — T1059.001 Suspicious PowerShell Encoded Execution
+// ATT&CK: Execution | T1059.001 | PowerShell
+// Generated: 2026-05-29 | CYBERDUDEBIVASH SENTINEL APEX v166.2
+DeviceProcessEvents
+| where FileName in~ ("powershell.exe", "pwsh.exe")
+| where ProcessCommandLine has_any ("-enc", "-EncodedCommand", "-e ", "-ec ")
+| where ProcessCommandLine has_any ("-nop", "-noni", "-w hidden", "bypass", "DownloadString", "IEX", "iex(", "Invoke-Expression")
+| extend Confidence = case(
+    ProcessCommandLine has_any("DownloadString","IEX","Invoke-Expression"), "HIGH",
+    ProcessCommandLine has "-enc", "MEDIUM",
+    "LOW"
+  )
+| project Timestamp, DeviceName, AccountName, ProcessCommandLine, InitiatingProcessFileName, SHA256, Confidence
+| order by Timestamp desc

@@ -1,0 +1,558 @@
+{
+  "audit_metadata": {
+    "platform": "CYBERDUDEBIVASH® SENTINEL APEX",
+    "version": "v166.2",
+    "codename": "REVENUE ENGINE",
+    "audit_date": "2026-05-29",
+    "auditor": "Principal Platform Trust Architect — Demo-Truth Program",
+    "audit_standard": "DEMO = PRODUCTION REALITY",
+    "mandate": "Every capability shown in a customer demo must exist, work, be operational, testable, measurable, supportable, monetizable, and enterprise-defensible."
+  },
+  "demo_tracks": [
+    {
+      "track": "TRACK_1",
+      "title": "Threat Intelligence Operations",
+      "customer_expectation": "Show me how threat intelligence becomes action.",
+      "verdict": "TIER_B — Operational but incomplete lifecycle evidence",
+      "score": 72,
+      "capabilities": {
+        "intelligence_ingestion": {
+          "status": "REAL",
+          "evidence": "1003 STIX 2.1 bundles in data/stix/. GitHub Actions workflows: multi-source-intel.yml, nexus-intelligence.yml. Pipeline runs confirmed via data/ai-telemetry/last-run.json (run_number: 104).",
+          "gaps": "Feed freshness SLA not instrumented. Source diversity (>3 feeds) not confirmed in live state.",
+          "demo_safe": true
+        },
+        "ioc_extraction": {
+          "status": "REAL",
+          "evidence": "apex_ioc_extractor.py — production-grade, extracts IPv4/IPv6/domains/URLs/hashes/CVEs/registry keys/file paths. Syntactically valid, zero external dependencies.",
+          "gaps": "data/ioc/ directory is empty — extracted IOCs not persisted to queryable store. Analyst cannot browse IOC inventory.",
+          "demo_safe": false,
+          "blocker": "IOC persistence layer missing. Must write extracted IOCs to data/ioc/ with timestamps and provenance."
+        },
+        "ioc_enrichment": {
+          "status": "REAL",
+          "evidence": "agent/enricher.py, agent/enricher_pro.py, agent/ioc_intelligence_engine.py present. EPSS enrichment endpoint documented in enterprise_api.py.",
+          "gaps": "No live enrichment run evidence. No enrichment telemetry in data/.",
+          "demo_safe": false,
+          "blocker": "Enrichment pipeline must produce auditable output files before live demo."
+        },
+        "attck_mapping": {
+          "status": "REAL — THIN",
+          "evidence": "data/intelligence/attack_navigator.json covers 11 techniques. agent/attck_intelligence_engine.py and agent/mitre_mapper.py present with sequence chaining logic.",
+          "gaps": "11 techniques is insufficient for enterprise demo. CrowdStrike/Recorded Future cover 100+ techniques. Gap is visible.",
+          "demo_safe": false,
+          "blocker": "ATT&CK navigator must be enriched to minimum 50 techniques before CISO demo."
+        },
+        "confidence_scoring": {
+          "status": "REAL",
+          "evidence": "agent/explainable_confidence_engine.py, agent/confidence_signal_provenance.py, agent/intelligence_trust_tier_engine.py all present with documented methodology.",
+          "gaps": "Confidence scores not surfaced in UI dashboards with drill-down provenance.",
+          "demo_safe": true
+        },
+        "intelligence_lifecycle": {
+          "status": "REAL",
+          "evidence": "agent/intel_memory_aging_engine.py, agent/deduplication.py, agent/janitor.py implement aging, dedup, and cleanup.",
+          "gaps": "Lifecycle state not exposed in a customer-visible dashboard.",
+          "demo_safe": false
+        },
+        "investigation_workflows": {
+          "status": "PARTIAL",
+          "evidence": "soc-workspace.html, agent/soc/ directory exists. agent/soar_engine.py and agent/playbook_generator.py present.",
+          "gaps": "No evidence of active investigation records in data/analyst/.",
+          "demo_safe": false
+        }
+      },
+      "demo_truth_gaps": [
+        "IOC persistence store empty",
+        "ATT&CK coverage only 11 techniques",
+        "No live enrichment telemetry"
+      ],
+      "required_before_demo": [
+        "Run ioc_extractor against live feed and persist to data/ioc/",
+        "Expand ATT&CK navigator to 50+ techniques via attck_intelligence_engine",
+        "Surface confidence provenance in dashboard"
+      ]
+    },
+    {
+      "track": "TRACK_2",
+      "title": "Detection Engineering",
+      "customer_expectation": "Show me how intelligence becomes detections.",
+      "verdict": "TIER_B — Strong generation engine, validation evidence incomplete",
+      "score": 74,
+      "capabilities": {
+        "sigma_generation": {
+          "status": "REAL",
+          "evidence": "210 Sigma rules in data/intelligence/detection_rules/sigma/. apex_sigma_templates.py is production-grade with ATT&CK tags, false-positive annotations, per-vuln-class tuning. agent/detection_forge.py integrates with live feed manifest.",
+          "gaps": "Rules are file-hash based (cdb_file_hash_*.yml). Need technique-behavior rules, not just hash lists, for enterprise credibility.",
+          "demo_safe": false,
+          "blocker": "Hash-only Sigma rules will fail CISO technical scrutiny. Need T1059/T1190/T1486 behavioral rules."
+        },
+        "yara_generation": {
+          "status": "REAL",
+          "evidence": "169 YARA rules in data/intelligence/detection_rules/yara/. apex_sigma_templates.py covers YARA generation.",
+          "gaps": "YARA rule quality not independently validated.",
+          "demo_safe": true
+        },
+        "kql_generation": {
+          "status": "CODE_EXISTS",
+          "evidence": "detection_forge.py references KQL. apex_openapi_v3.yaml documents KQL in detection rule packs.",
+          "gaps": "No KQL rules found in data/intelligence/detection_rules/kql/. Directory may not exist.",
+          "demo_safe": false,
+          "blocker": "KQL rules not generated. Must run detection_forge for KQL output before demo."
+        },
+        "spl_generation": {
+          "status": "CODE_EXISTS",
+          "evidence": "Referenced in SENTINEL_APEX_DETECTION_FRAMEWORK.md and API spec.",
+          "gaps": "No SPL rules in data/intelligence/detection_rules/spl/.",
+          "demo_safe": false,
+          "blocker": "SPL rules not generated."
+        },
+        "chronicle_qradar": {
+          "status": "PLANNED",
+          "evidence": "Referenced in API OpenAPI spec.",
+          "gaps": "No Chronicle or QRadar rules found in filesystem.",
+          "demo_safe": false,
+          "blocker": "Chronicle/QRadar not implemented. Must be flagged as roadmap."
+        },
+        "validation_workflows": {
+          "status": "CODE_EXISTS",
+          "evidence": "agent/quality_gate_audit.py, detection_drift monitoring in data/audit/detection_drift_history.json present.",
+          "gaps": "Validation results not surfaced in Detection Studio UI.",
+          "demo_safe": false
+        },
+        "replay_validation": {
+          "status": "CODE_EXISTS",
+          "evidence": "agent/attck_intelligence_engine.py references replay analytics.",
+          "gaps": "No replay test results in data/.",
+          "demo_safe": false
+        }
+      },
+      "demo_truth_gaps": [
+        "210 rules are hash-only — not behavioral detections",
+        "KQL/SPL directories empty",
+        "Chronicle/QRadar not implemented"
+      ],
+      "required_before_demo": [
+        "Generate minimum 20 behavioral Sigma rules (T1059, T1190, T1486, T1566, T1078)",
+        "Run detection_forge for KQL and SPL output",
+        "Flag Chronicle/QRadar as Q3 2026 roadmap with clear dates"
+      ]
+    },
+    {
+      "track": "TRACK_3",
+      "title": "ATT&CK Operations",
+      "customer_expectation": "Show me attacker behavior.",
+      "verdict": "TIER_C — Engine present, coverage dangerously thin",
+      "score": 48,
+      "capabilities": {
+        "tactics_techniques": {
+          "status": "REAL — CRITICAL GAP",
+          "evidence": "data/intelligence/attack_navigator.json has 11 techniques. agent/attck_intelligence_engine.py implements sequence chaining and kill-chain reconstruction.",
+          "gaps": "11 techniques across ~200 total MITRE techniques = 5.5% coverage. Unacceptable for enterprise demo.",
+          "demo_safe": false,
+          "blocker": "CRITICAL: Must expand to minimum 50 techniques before any enterprise customer sees this."
+        },
+        "attack_paths": {
+          "status": "CODE_EXISTS",
+          "evidence": "agent/attck_intelligence_engine.py has kill-chain reconstruction from telemetry.",
+          "gaps": "No attack path data in data/ directory. Engine exists but has not produced output.",
+          "demo_safe": false
+        },
+        "attack_sequences": {
+          "status": "CODE_EXISTS",
+          "evidence": "attck_intelligence_engine.py implements ATT&CK sequence chaining.",
+          "gaps": "No sequence data files found.",
+          "demo_safe": false
+        },
+        "attack_timelines": {
+          "status": "CODE_EXISTS",
+          "evidence": "agent/attck_intelligence_engine.py references tactic progression timelines.",
+          "gaps": "No timeline data in data/.",
+          "demo_safe": false
+        },
+        "attck_coverage_dashboard": {
+          "status": "CODE_EXISTS",
+          "evidence": "agent/attck_coverage_analytics_engine.py present.",
+          "gaps": "Coverage dashboard not confirmed operational in UI.",
+          "demo_safe": false
+        }
+      },
+      "demo_truth_gaps": [
+        "ATT&CK coverage 11/200 techniques (5.5%) — critical",
+        "No attack path, sequence, or timeline data generated",
+        "ATT&CK operations center UI not confirmed connected to live data"
+      ],
+      "required_before_demo": [
+        "URGENT: Run attck_intelligence_engine against 1003 STIX bundles to generate full coverage",
+        "Target minimum 50 techniques, ideally 80+",
+        "Generate attack_paths.json, attack_sequences.json, attack_timelines.json"
+      ]
+    },
+    {
+      "track": "TRACK_4",
+      "title": "Graph Intelligence",
+      "customer_expectation": "Show me relationships.",
+      "verdict": "TIER_C — Graph has nodes but zero edges — not demo-ready",
+      "score": 35,
+      "capabilities": {
+        "graph_nodes": {
+          "status": "REAL",
+          "evidence": "data/graph/adversary_graph.json, graph_relationships.stix.json, graph_stats.json. Stats: 30 nodes, node_types: {technique: 30}.",
+          "gaps": "30 nodes of type 'technique' only. No adversary/IOC/infrastructure/campaign nodes.",
+          "demo_safe": false,
+          "blocker": "CRITICAL: graph_stats.json shows edges: 0. A graph with zero edges cannot demonstrate relationships."
+        },
+        "graph_edges": {
+          "status": "MISSING",
+          "evidence": "graph_stats.json confirms edges: 0",
+          "gaps": "Zero edges means zero relationships. This is the core failure for Track 4.",
+          "demo_safe": false,
+          "blocker": "CRITICAL BLOCKER: Must generate graph edges before any demo."
+        },
+        "ioc_pivots": {
+          "status": "CODE_EXISTS",
+          "evidence": "agent/graph_operations_engine.py implements infrastructure pivots, IOC pivots.",
+          "gaps": "No pivot data generated.",
+          "demo_safe": false
+        },
+        "infrastructure_pivots": {
+          "status": "CODE_EXISTS",
+          "evidence": "graph_operations_engine.py references infrastructure relationship mapping.",
+          "gaps": "No infrastructure graph data in data/graph/.",
+          "demo_safe": false
+        },
+        "actor_relationships": {
+          "status": "PARTIAL",
+          "evidence": "data/graph/graph_relationships.stix.json exists. agent/probabilistic_actor_clustering.py present.",
+          "gaps": "Relationships file exists but edges count is 0 in stats.",
+          "demo_safe": false
+        },
+        "campaign_lineage": {
+          "status": "CODE_EXISTS",
+          "evidence": "agent/graph_operations_engine.py references campaign lineage.",
+          "gaps": "No campaign lineage data generated.",
+          "demo_safe": false
+        }
+      },
+      "demo_truth_gaps": [
+        "CRITICAL: 0 graph edges — graph cannot demonstrate relationships",
+        "30 nodes all of type 'technique' — no adversary, IOC, infrastructure nodes",
+        "No pivot data generated from 1003 STIX bundles"
+      ],
+      "required_before_demo": [
+        "URGENT: Run graph_operations_engine against STIX bundles to generate edges",
+        "Target minimum 500 nodes, 1000 edges across all node types",
+        "Generate import.cypher for Neo4j if needed for live graph UI"
+      ]
+    },
+    {
+      "track": "TRACK_5",
+      "title": "SOC Operations",
+      "customer_expectation": "How does my SOC benefit?",
+      "verdict": "TIER_B — Infrastructure present, active workflow evidence incomplete",
+      "score": 65,
+      "capabilities": {
+        "analyst_investigations": {
+          "status": "PARTIAL",
+          "evidence": "soc-workspace.html, soc-operations-center.html, agent/soc/ directory present. agent/soar_engine.py, agent/playbook_generator.py operational.",
+          "gaps": "No investigation records in data/analyst/. UI pages exist but not confirmed connected to live data.",
+          "demo_safe": false
+        },
+        "hunt_workflows": {
+          "status": "CODE_EXISTS",
+          "evidence": "agent/v63_threathunter/ directory present.",
+          "gaps": "No hunt workflow records or outputs confirmed.",
+          "demo_safe": false
+        },
+        "alert_workflows": {
+          "status": "REAL",
+          "evidence": "data/alerts/alert_history.json and alert_state.json present. agent/alert_engine.py operational. Bundles referenced in alert_state: 10+ STIX bundles.",
+          "gaps": "Alert state keys are STIX bundle IDs — not analyst-readable alerts. Need alert normalization.",
+          "demo_safe": false
+        },
+        "case_management": {
+          "status": "CODE_EXISTS",
+          "evidence": "agent/soc/ directory contains case management code.",
+          "gaps": "No active case records found in data/.",
+          "demo_safe": false
+        },
+        "operational_dashboards": {
+          "status": "REAL",
+          "evidence": "dashboard.html, soc-operations-center.html, unified-ops-hub.html, observability.html all present.",
+          "gaps": "Dashboard pages exist — must confirm they are connected to live data APIs, not static HTML.",
+          "demo_safe": false,
+          "blocker": "Dashboard live-data connection must be validated before demo."
+        }
+      },
+      "demo_truth_gaps": [
+        "No active investigation or case records in data/",
+        "Alert state uses STIX bundle IDs — not analyst-friendly",
+        "SOC dashboards connectivity to live data unconfirmed"
+      ],
+      "required_before_demo": [
+        "Create 5 sample active investigations with analyst actions and timelines",
+        "Normalize alert_state to analyst-readable format",
+        "Confirm dashboard pages call live API endpoints"
+      ]
+    },
+    {
+      "track": "TRACK_6",
+      "title": "AI Security Operations",
+      "customer_expectation": "How do you secure AI?",
+      "verdict": "TIER_C — Engine code present, live telemetry minimal",
+      "score": 42,
+      "capabilities": {
+        "ai_governance": {
+          "status": "CODE_EXISTS",
+          "evidence": "agent/ai_runtime_defense_engine.py — Phase 53, implements AI governance, prompt firewall telemetry, session reconstruction. ai-security-ops-hub.html present.",
+          "gaps": "No governance records in data/ai_defense/.",
+          "demo_safe": false
+        },
+        "prompt_risk_analysis": {
+          "status": "CODE_EXISTS",
+          "evidence": "ai_runtime_defense_engine.py implements token anomaly analytics, prompt firewall.",
+          "gaps": "No live prompt risk records generated.",
+          "demo_safe": false
+        },
+        "ai_threat_intelligence": {
+          "status": "REAL",
+          "evidence": "data/ai-telemetry/last-run.json confirms pipeline run 104. api/ai/tracker.json (222KB) generated. agent/sentinel_ai_engine.py present.",
+          "gaps": "AI threat intel is a feed tracker, not adversarial AI threat intelligence (i.e., threats TO AI systems).",
+          "demo_safe": false,
+          "blocker": "Semantic confusion: platform does AI-assisted CTI, not AI security (securing AI systems). Must clarify scope or build dedicated AI attack intelligence."
+        },
+        "ai_runtime_visibility": {
+          "status": "MINIMAL",
+          "evidence": "data/ai-telemetry/last-run.json contains pipeline telemetry only (build times, file sizes). Not runtime AI session telemetry.",
+          "gaps": "No AI session records, no inference telemetry, no LLM workload visibility data.",
+          "demo_safe": false,
+          "blocker": "Runtime telemetry does not exist as real-time stream. MUST NOT be presented as such in demo."
+        }
+      },
+      "demo_truth_gaps": [
+        "AI runtime telemetry = CI pipeline metrics only, not runtime AI session data",
+        "No prompt risk records or governance events",
+        "Semantic scope confusion: CTI-with-AI vs. AI-security"
+      ],
+      "required_before_demo": [
+        "Decide scope: AI-assisted CTI or AI system security — cannot fake both",
+        "If AI security: generate synthetic session records with governance evidence",
+        "Display roadmap status prominently for capabilities not yet live"
+      ]
+    },
+    {
+      "track": "TRACK_7",
+      "title": "Enterprise Trust",
+      "customer_expectation": "Why should I trust this platform?",
+      "verdict": "TIER_B — Trust infrastructure strong, confidence explainability needs UI",
+      "score": 70,
+      "capabilities": {
+        "audit_trails": {
+          "status": "REAL",
+          "evidence": "data/audit/audit_log.json present. agent/enterprise_trust_engine.py (Phase 51) implements operational legitimacy, telemetry transparency. data/audit/ contains detection_drift_history.json, forensic_feed_report.json.",
+          "gaps": "Audit log format not validated for enterprise standards (SOC 2, ISO 27001).",
+          "demo_safe": true
+        },
+        "evidence_lineage": {
+          "status": "REAL",
+          "evidence": "agent/confidence_signal_provenance.py, agent/intelligence_reproducibility_engine.py present. VERSION_LINEAGE_LOCK.json in root.",
+          "gaps": "Lineage data not surfaced in a customer-facing Trust Dashboard UI.",
+          "demo_safe": false
+        },
+        "confidence_explanations": {
+          "status": "REAL",
+          "evidence": "agent/explainable_confidence_engine.py implements evidence-proportional scoring. SENTINEL_APEX_DATA_SCHEMA.md documents methodology.",
+          "gaps": "Explanations not rendered in UI with drill-down capability.",
+          "demo_safe": false
+        },
+        "deployment_lineage": {
+          "status": "REAL",
+          "evidence": "DEPLOYMENT_BASELINE.json, PRODUCTION_BASELINE_LOCK.json, VERSION_LINEAGE_LOCK.json, GOLDEN_PRODUCTION_BASELINE.json all present.",
+          "gaps": "None — this is strong evidence.",
+          "demo_safe": true
+        },
+        "operational_metrics": {
+          "status": "REAL",
+          "evidence": "data/audit/PLATFORM_STATUS.txt, data/audit/final_validation_report.json present. GitHub Actions run history confirms 104 pipeline runs.",
+          "gaps": "Metrics not on Trust Dashboard in real-time.",
+          "demo_safe": true
+        }
+      },
+      "demo_truth_gaps": [
+        "Trust evidence exists but not surfaced in live Trust Center dashboard",
+        "Confidence explanations not rendered with drill-down UI"
+      ],
+      "required_before_demo": [
+        "Wire trust-center.html to live audit_log.json and confidence provenance APIs",
+        "Add 'Evidence Lineage' view to Trust Center showing provenance chain"
+      ]
+    },
+    {
+      "track": "TRACK_8",
+      "title": "API Economy",
+      "customer_expectation": "Can we integrate?",
+      "verdict": "TIER_A — Strongest track. Real, documented, tiered.",
+      "score": 88,
+      "capabilities": {
+        "api_documentation": {
+          "status": "REAL",
+          "evidence": "apex_openapi_v3.yaml — full OpenAPI 3.1 spec. api-docs.html, api-reference-card.html, api-economy/developer-portal.html all present. Tier model documented: Free/Pro/Enterprise/MSSP.",
+          "gaps": "API base URL intel.cyberdudebivash.com — must confirm live and returning real data.",
+          "demo_safe": true
+        },
+        "api_authentication": {
+          "status": "REAL",
+          "evidence": "agent/api/auth.py, agent/api/auth_v2.py implement JWT + API key auth. TIER_ENTERPRISE, TIER_PRO, TIER_FREE constants defined.",
+          "gaps": "None material.",
+          "demo_safe": true
+        },
+        "rate_limiting": {
+          "status": "REAL",
+          "evidence": "agent/api/rate_limiter.py, agent/api/rate_limiter_redis.py — token-bucket per-identity rate limiting.",
+          "gaps": "Redis dependency — confirm Redis is provisioned in production.",
+          "demo_safe": true
+        },
+        "webhooks": {
+          "status": "REAL",
+          "evidence": "api-economy/webhook_registry.py present. Webhook push documented for Enterprise/MSSP in OpenAPI spec.",
+          "gaps": "Webhook delivery confirmation not available in UI.",
+          "demo_safe": true
+        },
+        "sdk": {
+          "status": "CODE_EXISTS",
+          "evidence": "agent/sdk/ directory present.",
+          "gaps": "SDK documentation and examples not confirmed in developer portal.",
+          "demo_safe": false
+        },
+        "stripe_integration": {
+          "status": "REAL",
+          "evidence": "agent/api/stripe_gateway.py present. agent/subscription_manager.py present. PAYMENT-GATEWAY.html present.",
+          "gaps": "Stripe live keys vs. test keys not confirmed.",
+          "demo_safe": true
+        }
+      },
+      "demo_truth_gaps": [
+        "SDK documentation incomplete",
+        "Redis for rate limiting — confirm provisioned"
+      ],
+      "required_before_demo": [
+        "Add SDK quickstart examples to developer portal",
+        "Confirm API base URL is live and returns real responses"
+      ]
+    },
+    {
+      "track": "TRACK_9",
+      "title": "MSSP Operations",
+      "customer_expectation": "Can I operate multiple customers?",
+      "verdict": "TIER_C — Engine architecture present, no tenant data exists",
+      "score": 45,
+      "capabilities": {
+        "tenant_isolation": {
+          "status": "CODE_EXISTS",
+          "evidence": "agent/enterprise_tenant_isolation_engine.py (Phase 6) implements multi-tenant data isolation, RBAC, audit logging, SLA enforcement, resource quotas.",
+          "gaps": "data/tenants/ directory is empty. No tenant provisioning has occurred. Cannot demo multi-tenancy without data.",
+          "demo_safe": false,
+          "blocker": "CRITICAL: data/tenants/ is empty. Must provision at minimum 3 demo tenants."
+        },
+        "customer_segmentation": {
+          "status": "CODE_EXISTS",
+          "evidence": "Tenant isolation engine implements per-tenant data namespacing.",
+          "gaps": "No tenant data provisioned.",
+          "demo_safe": false
+        },
+        "mssp_dashboards": {
+          "status": "REAL",
+          "evidence": "mssp-console.html and mssp.html present.",
+          "gaps": "Dashboards must be connected to live tenant API — unconfirmed.",
+          "demo_safe": false
+        },
+        "sla_monitoring": {
+          "status": "CODE_EXISTS",
+          "evidence": "Tenant isolation engine references SLA enforcement.",
+          "gaps": "No SLA records or monitoring data in data/.",
+          "demo_safe": false
+        },
+        "billing_visibility": {
+          "status": "CODE_EXISTS",
+          "evidence": "agent/billing/ directory present. agent/revenue_engine.py, agent/revenue_analytics.py present.",
+          "gaps": "No billing records in data/billing/ for demo tenants.",
+          "demo_safe": false
+        }
+      },
+      "demo_truth_gaps": [
+        "CRITICAL: data/tenants/ empty — no tenant provisioning",
+        "MSSP dashboards not confirmed connected to live APIs",
+        "No billing or SLA records exist"
+      ],
+      "required_before_demo": [
+        "Provision 3 demo tenants: Enterprise Client A, SMB Client B, Government Client C",
+        "Generate tenant-scoped intelligence and billing records",
+        "Confirm mssp-console.html calls tenant API endpoints"
+      ]
+    },
+    {
+      "track": "TRACK_10",
+      "title": "Monetization Readiness",
+      "customer_expectation": "How do I buy this?",
+      "verdict": "TIER_B — Commercial infrastructure present, needs polish",
+      "score": 68,
+      "capabilities": {
+        "pricing_tiers": {
+          "status": "REAL",
+          "evidence": "pricing.html present. OpenAPI spec documents Free ($0), Pro ($49/mo), Enterprise ($499/mo), MSSP ($1999/mo) tiers. agent/api/auth.py implements tier constants.",
+          "gaps": "Pricing page must be confirmed live and accurate.",
+          "demo_safe": true
+        },
+        "payment_processing": {
+          "status": "REAL",
+          "evidence": "agent/api/stripe_gateway.py, PAYMENT-GATEWAY.html, agent/subscription_manager.py, agent/gumroad_api.py all present.",
+          "gaps": "Live vs. test mode not confirmed.",
+          "demo_safe": true
+        },
+        "enterprise_contracting": {
+          "status": "REAL",
+          "evidence": "COMMERCIAL_LICENSE.md, ENTERPRISE_CHARTER.md, sla.html, PARTNER_ONBOARDING.md all present.",
+          "gaps": "MSA/DPA templates not found.",
+          "demo_safe": true
+        },
+        "api_tiering": {
+          "status": "REAL",
+          "evidence": "API rate limits by tier documented: Free 60 req/min, Pro 500, Enterprise 2000, MSSP 5000.",
+          "gaps": "None material.",
+          "demo_safe": true
+        }
+      },
+      "demo_truth_gaps": [
+        "MSA/DPA templates missing for enterprise contracts",
+        "Stripe live/test mode unconfirmed"
+      ],
+      "required_before_demo": [
+        "Confirm Stripe is in live mode for demo account",
+        "Create MSA template and add to enterprise.html",
+        "Add NDA/contract request flow to contact-enterprise.html"
+      ]
+    }
+  ],
+  "overall_platform_verdict": {
+    "demo_readiness_score": 61,
+    "tier_distribution": {
+      "TIER_A": 1,
+      "TIER_B": 5,
+      "TIER_C": 4,
+      "TIER_D": 0
+    },
+    "critical_blockers_before_any_ciso_demo": [
+      "Graph: 0 edges — run graph_operations_engine to generate relationship data",
+      "ATT&CK: 11 techniques — run attck_intelligence_engine for 50+ technique coverage",
+      "IOC persistence: data/ioc/ empty — run ioc_extractor and persist output",
+      "MSSP: data/tenants/ empty — provision 3 demo tenants",
+      "Sigma rules: behavioral rules missing — hash-only rules will fail scrutiny",
+      "AI security scope: clarify AI-assisted CTI vs AI system security before demo"
+    ],
+    "demo_safe_tracks": ["TRACK_8_API_ECONOMY"],
+    "tracks_needing_2_weeks_work": ["TRACK_3_ATTCK", "TRACK_4_GRAPH", "TRACK_6_AI_SECURITY", "TRACK_9_MSSP"],
+    "estimated_days_to_ciso_demo_ready": 14
+  },
+  "generated_at": "2026-05-29T00:00:00Z",
+  "schema": "sentinel-apex-demo-truth-audit-v1"
+}
