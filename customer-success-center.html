@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SENTINEL APEX — Customer Success Center</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0a0e1a;--card:#0f1629;--accent:#00d4ff;--danger:#ff3366;--success:#00ff88;--warning:#ffaa00;--text:#e2e8f0;--muted:#64748b;--border:#1e2d4a}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text)}
+.header{background:var(--card);border-bottom:1px solid var(--border);padding:0 24px;height:60px;display:flex;align-items:center;justify-content:space-between}
+.logo{font-weight:700;color:var(--accent);font-size:1.1rem;display:flex;align-items:center;gap:8px}
+.logo-icon{width:30px;height:30px;background:linear-gradient(135deg,var(--accent),#0066ff);border-radius:7px}
+.content{padding:24px;max-width:1400px;margin:0 auto}
+.page-title{font-size:1.4rem;font-weight:700;margin-bottom:4px}
+.page-sub{color:var(--muted);font-size:13px;margin-bottom:24px}
+/* AGGREGATE STATS */
+.agg-row{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:24px}
+.agg-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:18px;text-align:center}
+.agg-val{font-size:2rem;font-weight:700}
+.agg-lbl{font-size:12px;color:var(--muted);margin-top:4px}
+/* FILTER ROW */
+.filter-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:20px}
+.filter-btn{padding:7px 18px;border-radius:20px;border:1px solid var(--border);background:transparent;color:var(--muted);font-size:13px;cursor:pointer;transition:all .2s}
+.filter-btn.active{border-color:var(--accent);background:rgba(0,212,255,.1);color:var(--accent)}
+.filter-btn:hover{border-color:var(--accent);color:var(--accent)}
+/* CUSTOMER GRID */
+.customers-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:16px;margin-bottom:24px}
+.customer-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:18px;transition:border-color .2s;cursor:pointer}
+.customer-card:hover{border-color:var(--accent)}
+.customer-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.customer-name{font-weight:600;font-size:14px}
+.customer-badge{display:inline-flex;padding:2px 10px;border-radius:20px;font-size:11px;font-weight:600}
+.badge-healthy{background:rgba(0,255,136,.12);color:var(--success)}
+.badge-risk{background:rgba(255,170,0,.12);color:var(--warning)}
+.badge-renewal{background:rgba(255,51,102,.12);color:var(--danger)}
+.badge-expansion{background:rgba(0,212,255,.12);color:var(--accent)}
+/* GAUGE */
+.gauge-wrap{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.gauge{position:relative;width:54px;height:30px;overflow:hidden}
+.gauge svg{position:absolute;top:0;left:0}
+.gauge-score{font-size:1.2rem;font-weight:700}
+.customer-meta{font-size:11px;color:var(--muted)}
+.customer-metrics{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+.metric-chip{font-size:11px;background:rgba(255,255,255,.04);border:1px solid var(--border);border-radius:6px;padding:3px 8px;color:var(--muted)}
+/* CHART */
+.card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:24px}
+.section-title{font-size:1rem;font-weight:600;margin-bottom:16px}
+/* ALERTS */
+.alert-item{display:flex;align-items:flex-start;gap:14px;padding:14px;background:rgba(255,51,102,.05);border:1px solid rgba(255,51,102,.15);border-radius:10px;margin-bottom:10px}
+.alert-icon{font-size:20px;flex-shrink:0}
+.alert-info{flex:1}
+.alert-title{font-weight:600;font-size:13px;color:var(--danger)}
+.alert-desc{font-size:12px;color:var(--muted);margin-top:2px}
+.alert-actions{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap}
+.btn{display:inline-flex;align-items:center;gap:5px;padding:5px 13px;border-radius:7px;font-size:12px;font-weight:600;cursor:pointer;border:none;transition:all .2s}
+.btn-primary{background:linear-gradient(135deg,var(--accent),#0066ff);color:#0a0e1a}
+.btn-outline{background:transparent;border:1px solid var(--accent);color:var(--accent)}
+.btn-outline:hover{background:rgba(0,212,255,.1)}
+.btn-danger{background:transparent;border:1px solid var(--danger);color:var(--danger)}
+.bottom-grid{display:grid;grid-template-columns:3fr 2fr;gap:16px}
+.toast{position:fixed;bottom:24px;right:24px;background:var(--success);color:#0a0e1a;padding:12px 20px;border-radius:10px;font-weight:600;font-size:14px;z-index:999;transform:translateY(80px);opacity:0;transition:all .3s}
+.toast.show{transform:translateY(0);opacity:1}
+@media(max-width:900px){.agg-row{grid-template-columns:repeat(2,1fr)}.bottom-grid{grid-template-columns:1fr}}
+@media(max-width:600px){.customers-grid{grid-template-columns:1fr 1fr}}
+</style>
+</head>
+<body>
+<div class="header">
+  <div class="logo"><div class="logo-icon"></div>SENTINEL APEX — Customer Success</div>
+  <div style="font-size:13px;color:var(--muted)">CS Team View &nbsp;·&nbsp; 10 Customers</div>
+</div>
+<div class="content">
+  <div class="page-title">Customer Success Center</div>
+  <div class="page-sub">Monitor customer health, identify churn risks, and drive expansion opportunities.</div>
+
+  <div class="agg-row">
+    <div class="agg-card"><div class="agg-val" style="color:var(--success)">74.2</div><div class="agg-lbl">Avg Health Score</div></div>
+    <div class="agg-card"><div class="agg-val" style="color:var(--success)">60%</div><div class="agg-lbl">Healthy Customers</div></div>
+    <div class="agg-card"><div class="agg-val" style="color:var(--warning)">3</div><div class="agg-lbl">At Risk</div></div>
+    <div class="agg-card"><div class="agg-val" style="color:var(--accent)">2</div><div class="agg-lbl">Expansion Opps</div></div>
+  </div>
+
+  <div class="filter-row">
+    <button class="filter-btn active" onclick="filterCustomers('all',this)">All (10)</button>
+    <button class="filter-btn" onclick="filterCustomers('Healthy',this)">Healthy (6)</button>
+    <button class="filter-btn" onclick="filterCustomers('At Risk',this)">At Risk (2)</button>
+    <button class="filter-btn" onclick="filterCustomers('Renewal Risk',this)">Renewal Risk (1)</button>
+    <button class="filter-btn" onclick="filterCustomers('Expansion',this)">Expansion (1)</button>
+  </div>
+
+  <div class="customers-grid" id="customers-grid"></div>
+
+  <div class="bottom-grid">
+    <div class="card">
+      <div class="section-title">Health Score Breakdown by Customer</div>
+      <canvas id="healthChart" height="100"></canvas>
+    </div>
+    <div class="card">
+      <div class="section-title">Churn Risk Alerts</div>
+      <div id="churn-alerts"></div>
+    </div>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+const customers=[
+  {name:'AcmeCorp Security',score:87,cat:'Healthy',last:'5 min ago',metrics:['API: 67K calls','Intel: 4.5K req','12 rules active']},
+  {name:'FinTech Global',score:92,cat:'Healthy',last:'1 hr ago',metrics:['API: 120K calls','Intel: 9K req','24 rules active']},
+  {name:'MediSys Health',score:43,cat:'At Risk',last:'3 days ago',metrics:['API: 1.2K calls','Intel: 200 req','2 rules active']},
+  {name:'RetailMax Corp',score:78,cat:'Healthy',last:'2 hr ago',metrics:['API: 45K calls','Intel: 3.2K req','8 rules active']},
+  {name:'GovShield Agency',score:95,cat:'Healthy',last:'10 min ago',metrics:['API: 200K calls','Intel: 18K req','45 rules active']},
+  {name:'TechStart Inc',score:31,cat:'Renewal Risk',last:'8 days ago',metrics:['API: 300 calls','Intel: 50 req','1 rule active']},
+  {name:'LogiTrans Freight',score:65,cat:'At Risk',last:'2 days ago',metrics:['API: 5K calls','Intel: 800 req','5 rules active']},
+  {name:'EduNet Systems',score:82,cat:'Healthy',last:'4 hr ago',metrics:['API: 38K calls','Intel: 2.8K req','11 rules active']},
+  {name:'CloudNova SaaS',score:88,cat:'Expansion',last:'30 min ago',metrics:['API: 98K calls','Intel: 8K req','20 rules active']},
+  {name:'ManufactPro Ltd',score:74,cat:'Healthy',last:'6 hr ago',metrics:['API: 22K calls','Intel: 1.5K req','7 rules active']},
+];
+
+const catBadge={Healthy:'badge-healthy',['At Risk']:'badge-risk',['Renewal Risk']:'badge-renewal',Expansion:'badge-expansion'};
+const scoreColor=s=>s>=75?'var(--success)':s>=50?'var(--warning)':'var(--danger)';
+
+function gaugeArc(score){
+  const r=22,cx=27,cy=28,sweep=Math.PI;
+  const angle=(score/100)*sweep;
+  const x=cx+r*Math.cos(Math.PI-angle),y=cy-r*Math.sin(Math.PI-angle);
+  const col=score>=75?'#00ff88':score>=50?'#ffaa00':'#ff3366';
+  return `<svg width="54" height="30" viewBox="0 0 54 30"><path d="M5,28 A22,22 0 0,1 49,28" fill="none" stroke="rgba(255,255,255,.08)" stroke-width="5"/><path d="M5,28 A22,22 0 0,1 ${x.toFixed(1)},${y.toFixed(1)}" fill="none" stroke="${col}" stroke-width="5" stroke-linecap="round"/></svg>`;
+}
+
+function renderGrid(filter='all'){
+  const grid=document.getElementById('customers-grid');
+  grid.innerHTML='';
+  customers.filter(c=>filter==='all'||c.cat===filter).forEach(c=>{
+    grid.innerHTML+=`<div class="customer-card" onclick="showToast('Opening ${c.name} health profile...')">
+      <div class="customer-header"><div class="customer-name">${c.name}</div><span class="customer-badge ${catBadge[c.cat]}">${c.cat}</span></div>
+      <div class="gauge-wrap">
+        <div class="gauge">${gaugeArc(c.score)}</div>
+        <span class="gauge-score" style="color:${scoreColor(c.score)}">${c.score}</span>
+        <span style="font-size:11px;color:var(--muted)">/100</span>
+      </div>
+      <div class="customer-meta">Last active: ${c.last}</div>
+      <div class="customer-metrics">${c.metrics.map(m=>`<span class="metric-chip">${m}</span>`).join('')}</div>
+    </div>`;
+  });
+}
+renderGrid();
+
+function filterCustomers(cat,btn){
+  document.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  renderGrid(cat);
+}
+
+// Health breakdown chart
+const cnames=customers.map(c=>c.name.split(' ')[0]);
+new Chart(document.getElementById('healthChart'),{type:'bar',data:{
+  labels:cnames,
+  datasets:[
+    {label:'Login',data:[18,20,6,16,19,4,11,17,18,15],backgroundColor:'rgba(0,212,255,.5)',stack:'s'},
+    {label:'Intel',data:[22,24,9,20,25,6,14,21,23,19],backgroundColor:'rgba(0,255,136,.5)',stack:'s'},
+    {label:'API',data:[20,22,10,18,24,8,16,19,22,17],backgroundColor:'rgba(255,170,0,.5)',stack:'s'},
+    {label:'Support',data:[15,16,8,12,17,5,10,14,15,12],backgroundColor:'rgba(139,92,246,.5)',stack:'s'},
+    {label:'Adoption',data:[12,10,10,12,10,8,14,11,10,11],backgroundColor:'rgba(255,51,102,.5)',stack:'s'},
+  ]
+},options:{responsive:true,plugins:{legend:{labels:{color:'#64748b',font:{size:10}}}},scales:{x:{stacked:true,ticks:{color:'#64748b'},grid:{color:'rgba(30,45,74,.6)'}},y:{stacked:true,max:100,ticks:{color:'#64748b'},grid:{color:'rgba(30,45,74,.6)'}}}}});
+
+const churns=[
+  {icon:'🚨',title:'TechStart Inc — Renewal Risk',desc:'8 days since last login. Renewal in 22 days. Low API adoption (300 calls).'},
+  {icon:'⚠️',title:'MediSys Health — At Risk',desc:'Significant activity drop. Was averaging 15K API calls, now 1.2K. No Intel requests in 5 days.',type:'training'},
+  {icon:'⚠️',title:'LogiTrans Freight — Engagement Drop',desc:'2 days since last login. Only 5 detection rules active out of 50 available.',type:'call'},
+];
+const actns={undefined:`<button class="btn btn-primary" onclick="showToast('Scheduling executive review...')">Executive Review</button><button class="btn btn-danger" onclick="showToast('Escalation created')">Escalate</button>`,training:`<button class="btn btn-outline" onclick="showToast('Training session scheduled!')">Send Training</button>`,call:`<button class="btn btn-primary" onclick="showToast('Call scheduled!')">Schedule Call</button>`};
+const alertsDiv=document.getElementById('churn-alerts');
+churns.forEach(c=>{
+  alertsDiv.innerHTML+=`<div class="alert-item"><div class="alert-icon">${c.icon}</div><div class="alert-info"><div class="alert-title">${c.title}</div><div class="alert-desc">${c.desc}</div><div class="alert-actions">${actns[c.type]}</div></div></div>`;
+});
+
+function showToast(msg){
+  const t=document.getElementById('toast');
+  t.textContent=msg;t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),2800);
+}
+</script>
+</body>
+</html>

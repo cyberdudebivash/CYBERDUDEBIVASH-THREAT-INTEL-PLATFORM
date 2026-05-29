@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SENTINEL APEX — MSSP Customer Center</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0a0e1a;--card:#0f1629;--accent:#00d4ff;--danger:#ff3366;--success:#00ff88;--warning:#ffaa00;--text:#e2e8f0;--muted:#64748b;--border:#1e2d4a}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text)}
+.header{background:var(--card);border-bottom:1px solid var(--border);padding:0 24px;height:60px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px}
+.logo{font-weight:700;color:var(--accent);font-size:1.1rem;display:flex;align-items:center;gap:8px}
+.logo-icon{width:30px;height:30px;background:linear-gradient(135deg,var(--accent),#0066ff);border-radius:7px}
+.content{padding:24px;max-width:1400px;margin:0 auto}
+.top-bar{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:20px}
+.page-title{font-size:1.4rem;font-weight:700}
+.partner-select{background:rgba(255,255,255,.05);border:1px solid var(--border);border-radius:8px;padding:8px 14px;color:var(--text);font-size:13px;cursor:pointer;outline:none}
+.partner-select:focus{border-color:var(--accent)}
+.partner-select option{background:#0f1629}
+.summary-row{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:24px}
+.sum-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:18px;text-align:center}
+.sum-val{font-size:2rem;font-weight:700}
+.sum-lbl{font-size:12px;color:var(--muted);margin-top:4px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:24px}
+.section-title{font-size:1rem;font-weight:600;margin-bottom:16px}
+.btn{display:inline-flex;align-items:center;gap:5px;padding:7px 15px;border-radius:7px;font-size:12px;font-weight:600;cursor:pointer;border:none;transition:all .2s}
+.btn-primary{background:linear-gradient(135deg,var(--accent),#0066ff);color:#0a0e1a}
+.btn-primary:hover{opacity:.85}
+.btn-outline{background:transparent;border:1px solid var(--accent);color:var(--accent)}
+.btn-outline:hover{background:rgba(0,212,255,.1)}
+.btn-sm{padding:4px 10px;font-size:11px}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:left;padding:10px 12px;background:rgba(0,212,255,.05);color:var(--muted);font-size:11px;text-transform:uppercase;border-bottom:1px solid var(--border)}
+td{padding:10px 12px;border-bottom:1px solid rgba(30,45,74,.4);vertical-align:middle}
+tr:hover td{background:rgba(0,212,255,.02)}
+.badge{display:inline-flex;padding:2px 10px;border-radius:20px;font-size:11px;font-weight:600}
+.b-good{background:rgba(0,255,136,.12);color:var(--success)}
+.b-warn{background:rgba(255,170,0,.12);color:var(--warning)}
+.b-bad{background:rgba(255,51,102,.12);color:var(--danger)}
+.b-info{background:rgba(0,212,255,.12);color:var(--accent)}
+.health-circle{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;border:2px solid}
+/* 3-dot menu */
+.menu-wrap{position:relative;display:inline-block}
+.menu-btn{background:none;border:none;color:var(--muted);cursor:pointer;font-size:18px;padding:2px 8px;border-radius:6px}
+.menu-btn:hover{background:rgba(255,255,255,.05);color:var(--text)}
+.dropdown{position:absolute;right:0;top:100%;background:#131d35;border:1px solid var(--border);border-radius:8px;min-width:150px;z-index:50;display:none;box-shadow:0 8px 24px rgba(0,0,0,.5)}
+.dropdown.open{display:block}
+.dropdown-item{padding:9px 14px;font-size:12px;cursor:pointer;color:var(--text);display:flex;align-items:center;gap:7px}
+.dropdown-item:hover{background:rgba(0,212,255,.08);color:var(--accent)}
+.dropdown-item.danger{color:var(--danger)}
+.dropdown-item.danger:hover{background:rgba(255,51,102,.08)}
+/* SLIDE PANEL */
+.slide-panel{position:fixed;top:0;right:-420px;width:420px;height:100vh;background:#0d1427;border-left:1px solid var(--border);z-index:200;transition:right .3s;overflow-y:auto;padding:24px}
+.slide-panel.open{right:0}
+.panel-overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:150;display:none}
+.panel-overlay.open{display:block}
+.panel-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px}
+.close-btn{background:none;border:none;color:var(--muted);font-size:22px;cursor:pointer;line-height:1}
+.detail-row{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid rgba(30,45,74,.4);font-size:13px}
+.detail-label{color:var(--muted)}
+.bottom-row{display:grid;grid-template-columns:2fr 1fr;gap:16px}
+.toast{position:fixed;bottom:24px;right:24px;background:var(--success);color:#0a0e1a;padding:12px 20px;border-radius:10px;font-weight:600;font-size:14px;z-index:999;transform:translateY(80px);opacity:0;transition:all .3s}
+.toast.show{transform:translateY(0);opacity:1}
+@media(max-width:768px){.summary-row{grid-template-columns:repeat(2,1fr)}.bottom-row{grid-template-columns:1fr}.slide-panel{width:100%}}
+</style>
+</head>
+<body>
+<div class="header">
+  <div class="logo"><div class="logo-icon"></div>SENTINEL APEX — MSSP Operations</div>
+  <select class="partner-select" id="partner-select" onchange="loadPartner()">
+    <option value="0">🏢 CyberGuard MSSP Partners</option>
+    <option value="1">🏢 SecureNet Solutions</option>
+    <option value="2">🏢 ThreatShield MSSP</option>
+  </select>
+</div>
+
+<div class="content">
+  <div class="top-bar">
+    <div class="page-title">MSSP Multi-Tenant Operations Console</div>
+    <button class="btn btn-primary" onclick="showToast('Add Customer wizard opened!')">+ Add Customer</button>
+  </div>
+
+  <div class="summary-row" id="summary-row"></div>
+
+  <div class="bottom-row">
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:16px">
+        <div class="section-title" style="margin:0">Managed Customers</div>
+        <input type="text" placeholder="Search customers..." style="background:rgba(255,255,255,.04);border:1px solid var(--border);border-radius:7px;padding:7px 12px;color:var(--text);font-size:12px;outline:none;width:200px" oninput="filterTable(this.value)">
+      </div>
+      <div style="overflow-x:auto">
+        <table>
+          <thead><tr><th>Customer</th><th>Health</th><th>Active Threats</th><th>SLA Status</th><th>Last Report</th><th>Actions</th></tr></thead>
+          <tbody id="customers-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="card">
+      <div class="section-title">SLA Compliance Trend (7 Days)</div>
+      <canvas id="slaChart" height="180"></canvas>
+    </div>
+  </div>
+</div>
+
+<!-- Slide Panel -->
+<div class="panel-overlay" id="overlay" onclick="closePanel()"></div>
+<div class="slide-panel" id="slide-panel">
+  <div class="panel-header">
+    <div>
+      <div style="font-weight:700;font-size:1rem" id="panel-title">Customer Details</div>
+      <div style="font-size:12px;color:var(--muted)" id="panel-sub"></div>
+    </div>
+    <button class="close-btn" onclick="closePanel()">✕</button>
+  </div>
+  <div id="panel-content"></div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const partners=[
+  {name:'CyberGuard MSSP',customers:12,alerts:48,sla:96,revenue:'$28,450'},
+  {name:'SecureNet Solutions',customers:8,alerts:31,sla:98,revenue:'$19,200'},
+  {name:'ThreatShield MSSP',customers:15,alerts:67,sla:91,revenue:'$36,800'},
+];
+
+const allCustomers=[
+  {name:'FinBank Corp',score:92,threats:3,sla:'Compliant',report:'2026-05-28',tier:'Enterprise',seats:20,calls:'145K',intel:'12K',uptime:'99.9%'},
+  {name:'MedCare Health',score:78,threats:7,sla:'Compliant',report:'2026-05-27',tier:'Professional',seats:8,calls:'42K',intel:'3.8K',uptime:'99.7%'},
+  {name:'RetailChain Ltd',score:55,threats:14,sla:'At Risk',report:'2026-05-26',tier:'Enterprise',seats:15,calls:'28K',intel:'2.1K',uptime:'98.2%'},
+  {name:'AutoParts Inc',score:88,threats:2,sla:'Compliant',report:'2026-05-28',tier:'Professional',seats:5,calls:'18K',intel:'1.4K',uptime:'99.8%'},
+  {name:'EduLearn Systems',score:41,threats:19,sla:'Breached',report:'2026-05-22',tier:'Starter',seats:3,calls:'2K',intel:'200',uptime:'97.1%'},
+  {name:'CloudSaaS Co',score:95,threats:1,sla:'Compliant',report:'2026-05-29',tier:'Enterprise',seats:25,calls:'220K',intel:'18K',uptime:'99.99%'},
+  {name:'SupplyNet Global',score:70,threats:9,sla:'Compliant',report:'2026-05-27',tier:'Professional',seats:10,calls:'55K',intel:'4.2K',uptime:'99.4%'},
+];
+
+let currentCustomers=allCustomers;
+
+function loadPartner(){
+  const idx=document.getElementById('partner-select').value;
+  const p=partners[idx];
+  document.getElementById('summary-row').innerHTML=`
+    <div class="sum-card"><div class="sum-val" style="color:var(--accent)">${p.customers}</div><div class="sum-lbl">Managed Customers</div></div>
+    <div class="sum-card"><div class="sum-val" style="color:var(--danger)">${p.alerts}</div><div class="sum-lbl">Total Active Alerts</div></div>
+    <div class="sum-card"><div class="sum-val" style="color:var(--success)">${p.sla}%</div><div class="sum-lbl">SLA Compliance</div></div>
+    <div class="sum-card"><div class="sum-val" style="color:var(--warning)">${p.revenue}</div><div class="sum-lbl">Monthly Revenue</div></div>
+  `;
+  renderTable(currentCustomers);
+}
+loadPartner();
+
+function renderTable(rows){
+  const tbody=document.getElementById('customers-tbody');
+  tbody.innerHTML='';
+  rows.forEach((c,i)=>{
+    const col=c.score>=75?'var(--success)':c.score>=50?'var(--warning)':'var(--danger)';
+    const border=c.score>=75?'#00ff88':c.score>=50?'#ffaa00':'#ff3366';
+    const slaCls=c.sla==='Compliant'?'b-good':c.sla==='At Risk'?'b-warn':'b-bad';
+    tbody.innerHTML+=`<tr>
+      <td><strong>${c.name}</strong><br><span style="font-size:11px;color:var(--muted)">${c.tier}</span></td>
+      <td><div class="health-circle" style="color:${col};border-color:${border}">${c.score}</div></td>
+      <td><span style="color:${c.threats>10?'var(--danger)':c.threats>5?'var(--warning)':'var(--success)';font-weight:600}">${c.threats}</span></td>
+      <td><span class="badge ${slaCls}">${c.sla}</span></td>
+      <td style="color:var(--muted);font-size:12px">${c.report}</td>
+      <td>
+        <button class="btn btn-outline btn-sm" onclick="generateReport('${c.name}')">📊 Report</button>
+        <div class="menu-wrap" style="margin-left:4px">
+          <button class="menu-btn" onclick="toggleMenu(this)">⋮</button>
+          <div class="dropdown">
+            <div class="dropdown-item" onclick="openPanel(${i})">🔍 View Details</div>
+            <div class="dropdown-item" onclick="generateReport('${c.name}')">📄 Generate Report</div>
+            <div class="dropdown-item" onclick="showToast('${c.name} escalated!')">⚡ Escalate</div>
+            <div class="dropdown-item danger" onclick="showToast('${c.name} suspended!')">⛔ Suspend</div>
+          </div>
+        </div>
+      </td>
+    </tr>`;
+  });
+}
+
+function filterTable(q){
+  currentCustomers=allCustomers.filter(c=>c.name.toLowerCase().includes(q.toLowerCase()));
+  renderTable(currentCustomers);
+}
+
+function toggleMenu(btn){
+  document.querySelectorAll('.dropdown').forEach(d=>{if(d!==btn.nextElementSibling)d.classList.remove('open')});
+  btn.nextElementSibling.classList.toggle('open');
+}
+document.addEventListener('click',e=>{if(!e.target.classList.contains('menu-btn'))document.querySelectorAll('.dropdown').forEach(d=>d.classList.remove('open'))});
+
+function openPanel(idx){
+  const c=currentCustomers[idx];
+  document.getElementById('panel-title').textContent=c.name;
+  document.getElementById('panel-sub').textContent=c.tier+' · Last report: '+c.report;
+  const col=c.score>=75?'var(--success)':c.score>=50?'var(--warning)':'var(--danger)';
+  document.getElementById('panel-content').innerHTML=`
+    <div style="text-align:center;padding:20px 0;border-bottom:1px solid var(--border);margin-bottom:16px">
+      <div style="font-size:3rem;font-weight:700;color:${col}">${c.score}</div>
+      <div style="color:var(--muted);font-size:13px">Health Score</div>
+    </div>
+    <div class="detail-row"><span class="detail-label">Active Threats</span><span style="color:var(--danger);font-weight:600">${c.threats}</span></div>
+    <div class="detail-row"><span class="detail-label">SLA Status</span><span class="badge ${c.sla==='Compliant'?'b-good':c.sla==='At Risk'?'b-warn':'b-bad'}">${c.sla}</span></div>
+    <div class="detail-row"><span class="detail-label">API Calls (MTD)</span><span>${c.calls}</span></div>
+    <div class="detail-row"><span class="detail-label">Intel Requests (MTD)</span><span>${c.intel}</span></div>
+    <div class="detail-row"><span class="detail-label">Seats</span><span>${c.seats}</span></div>
+    <div class="detail-row"><span class="detail-label">Platform Uptime</span><span style="color:var(--success)">${c.uptime}</span></div>
+    <div class="detail-row"><span class="detail-label">Last Report</span><span>${c.report}</span></div>
+    <div style="margin-top:20px;display:flex;flex-direction:column;gap:8px">
+      <button class="btn btn-primary" style="width:100%;justify-content:center" onclick="generateReport('${c.name}')">📊 Generate Report</button>
+      <button class="btn btn-outline" style="width:100%;justify-content:center" onclick="showToast('Escalation opened for ${c.name}')">⚡ Escalate Issue</button>
+    </div>`;
+  document.getElementById('slide-panel').classList.add('open');
+  document.getElementById('overlay').classList.add('open');
+}
+function closePanel(){
+  document.getElementById('slide-panel').classList.remove('open');
+  document.getElementById('overlay').classList.remove('open');
+}
+
+// SLA trend chart
+const days=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+new Chart(document.getElementById('slaChart'),{type:'line',data:{labels:days,datasets:[{label:'SLA %',data:[94,96,93,97,95,98,96],borderColor:'var(--success)',backgroundColor:'rgba(0,255,136,.08)',tension:.4,fill:true,pointRadius:4,pointBackgroundColor:'var(--success)'}]},options:{responsive:true,plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#64748b'},grid:{color:'rgba(30,45,74,.6)'}},y:{min:85,max:100,ticks:{color:'#64748b'},grid:{color:'rgba(30,45,74,.6)'}}}}});
+
+function generateReport(name){
+  showToast('Generating report for '+name+'...');
+  setTimeout(()=>showToast('Report ready! Click to download.'),2000);
+}
+function showToast(msg){
+  const t=document.getElementById('toast');
+  t.textContent=msg;t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),2800);
+}
+</script>
+</body>
+</html>
