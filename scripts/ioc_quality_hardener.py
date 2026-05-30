@@ -639,6 +639,41 @@ def apply_ioc_hardening(manifest_path: Path = MANIFEST_PATH) -> dict:
     log.info("IOC type distribution: %s", global_stats["ioc_type_distribution"])
     log.info("=" * 60)
 
+    # v166.2 FIND-006: Emit alert + discard audit when IOC pseudo-removal rate > 70%
+    if removal_rate > 70.0 and global_stats["total_iocs_before"] > 0:
+        log.warning(
+            "[IOC-AUDIT] HIGH PSEUDO-IOC REMOVAL RATE: %.1f%% (%d/%d IOCs discarded). "
+            "Source feeds may be providing placeholder/example IOCs. "
+            "Review data/telemetry/ioc_discard_audit.json for details.",
+            removal_rate,
+            global_stats["total_pseudo_filtered"],
+            global_stats["total_iocs_before"],
+        )
+        _discard_audit = {
+            "timestamp": NOW_ISO,
+            "removal_rate_pct": round(removal_rate, 1),
+            "total_iocs_before": global_stats["total_iocs_before"],
+            "total_iocs_after": global_stats["total_iocs_after"],
+            "total_discarded": global_stats["total_pseudo_filtered"],
+            "ioc_type_distribution": global_stats["ioc_type_distribution"],
+            "alert": "PSEUDO_IOC_RATE_EXCEEDED_70PCT",
+            "action_required": "Investigate source feed IOC quality — high discard rate degrades MSSP intel delivery",
+        }
+        _audit_path = QUALITY_DIR.parent / "telemetry" / "ioc_discard_audit.json"
+        _audit_path.parent.mkdir(parents=True, exist_ok=True)
+        _existing = []
+        if _audit_path.exists():
+            try:
+                _existing = json.loads(_audit_path.read_text(encoding="utf-8"))
+                if not isinstance(_existing, list):
+                    _existing = []
+            except Exception:
+                _existing = []
+        _existing.append(_discard_audit)
+        _existing = _existing[-30:]  # rolling 30-entry window
+        _atomic_write(_audit_path, _existing)
+        log.info("[IOC-AUDIT] Discard audit written: %s", _audit_path)
+
     return report
 
 

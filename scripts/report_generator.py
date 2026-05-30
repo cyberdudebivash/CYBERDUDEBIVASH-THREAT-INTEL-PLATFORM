@@ -1412,6 +1412,24 @@ def _generate_internal(
 
     html_content = _build_html(entry, stix_bundle_path, out_path)
 
+    # v166.2 FIND-005 FIX: Validate HTML output before writing — never emit a malformed report.
+    # Previously, _build_html could silently return a short/empty string for entries
+    # with missing fields, resulting in reports that pass file-existence checks but
+    # contain no real content (causing "9 reports missing HTML signature" CI warning).
+    _HTML_REQUIRED_SIGNATURES = ["<!DOCTYPE html>", "<html", "</html>"]
+    _HTML_MIN_SIZE = 500  # bytes — every real report is well above this threshold
+    missing_sigs = [s for s in _HTML_REQUIRED_SIGNATURES if s not in html_content]
+    if missing_sigs or len(html_content.encode("utf-8")) < _HTML_MIN_SIZE:
+        reason = (
+            f"missing HTML signatures {missing_sigs}" if missing_sigs
+            else f"output too small ({len(html_content.encode('utf-8'))} bytes < {_HTML_MIN_SIZE})"
+        )
+        logger.error(
+            "HTML validation FAILED for %s (%s) — %s — report NOT written",
+            intel_id, out_path, reason,
+        )
+        return False, f"html_validation_failed for {out_path}: {reason}"
+
     tmp_path = out_path.with_suffix(".tmp")
     try:
         tmp_path.write_text(html_content, encoding="utf-8")
