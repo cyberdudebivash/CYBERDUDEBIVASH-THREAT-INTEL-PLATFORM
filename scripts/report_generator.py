@@ -1580,14 +1580,27 @@ def generate_reports_from_manifest(
                 # fall through to generate_report()
 
         if skip_existing and expected.exists() and expected.stat().st_size > 2000:
+            # v166.2 FIX: Use startswith check (matches pipeline_audit) NOT 'in' check.
+            # 'in' allows BOM/garbage prefix to hide invalid reports from regeneration.
+            # Also enforce _HTML_MIN_SIZE to catch truncated-but-signed files.
             try:
-                head = expected.read_text(encoding="utf-8", errors="replace")[:512].lower()
-                is_html = any(s in head for s in ("<!doctype html", "<html"))
+                raw_head = expected.read_bytes()[:64]
+                is_valid_html = any(
+                    raw_head.lower().startswith(sig.lower().encode())
+                    for sig in (b"<!doctype html", b"<html")
+                )
+                is_large_enough = expected.stat().st_size >= 500
             except Exception:
-                is_html = False
-            if is_html:
+                is_valid_html = False
+                is_large_enough = False
+            if is_valid_html and is_large_enough:
                 results["skipped"] += 1
                 continue
+            # Existing report is malformed — fall through to regenerate it
+            logger.info(
+                "Re-generating malformed existing report: %s (valid_html=%s, size=%d)",
+                expected, is_valid_html, expected.stat().st_size if expected.exists() else 0,
+            )
 
         stix_bundle = entry.get("stix_bundle") or entry.get("stix_file") or None
         ok, path_or_err = generate_report(entry, stix_bundle, reports_base)
@@ -1629,37 +1642,4 @@ def main() -> int:
         print("\nSupported vulnerability classes:")
         for cls, label in _VULN_CLASS_LABELS.items():
             print(f"  {cls:20s}  {label}")
-        print()
-        return 0
-
-    if args.entry:
-        try:
-            entry = json.loads(args.entry)
-        except json.JSONDecodeError as exc:
-            print(f"ERROR: invalid JSON in --entry: {exc}", file=sys.stderr)
-            return 1
-        ok, result = generate_report(entry, None, args.reports_base)
-        if ok:
-            print(f"OK  God mode report: {result}")
-            return 0
-        print(f"ERR {result}", file=sys.stderr)
-        return 1
-
-    results = generate_reports_from_manifest(
-        manifest_path=args.manifest,
-        reports_base=args.reports_base,
-        skip_existing=not args.force,
-    )
-    print(f"\n{'='*64}")
-    print(f"  SENTINEL APEX God Mode Report Generator v161.3")
-    print(f"  success={results['success']}  skipped={results['skipped']}  failed={results['failed']}")
-    if results["errors"]:
-        print(f"  Errors ({len(results['errors'])}):")
-        for e in results["errors"][:20]:
-            print(f"    - {e}")
-    print(f"{'='*64}\n")
-    return 1 if results["failed"] > 0 else 0
-
-
-if __name__ == "__main__":
-    sys.exit(main())
+        prin
