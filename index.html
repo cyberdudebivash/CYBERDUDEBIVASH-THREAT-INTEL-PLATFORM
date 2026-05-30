@@ -18281,7 +18281,55 @@ a:focus-visible {
 <!-- SENTINEL-APEX-v161-COMPONENT-UPGRADES-END -->
 
 
+        // ═══════════════════════════════════════════════════════════
+        // v166.2 ANTI-STALE GUARD — Prevents rollback to old dashboard
+        // Forces service worker update + hard reload if stale version detected
+        // ═══════════════════════════════════════════════════════════
+        (function _cdbAntiStaleGuard() {
+            const EXPECTED_VER = '166.2';
+            const GUARD_KEY    = 'cdb_ver_stamp';
+            const stored       = sessionStorage.getItem(GUARD_KEY);
+            // On every load, request SW update to catch new deployments
+            if ('serviceWorker' in navigator) {
+                navigator.serviceWorker.ready.then(function(reg) {
+                    reg.update().catch(function() {});
+                });
+            }
+            // Version stamp check — if version.json says newer, hard reload once
+            fetch('/version.json?_t=' + Date.now(), { cache: 'no-store' })
+                .then(function(r) { return r.ok ? r.json() : null; })
+                .then(function(d) {
+                    if (!d || !d.version) return;
+                    const live = d.version;
+                    if (stored && stored !== live) {
+                        // Version changed — clear caches and reload
+                        console.log('[ANTI-STALE] Version changed from', stored, '→', live, '— refreshing');
+                        sessionStorage.setItem(GUARD_KEY, live);
+                        if ('serviceWorker' in navigator) {
+                            navigator.serviceWorker.getRegistrations().then(function(regs) {
+                                regs.forEach(function(reg) { reg.update(); });
+                            });
+                        }
+                        // Clear all caches
+                        if ('caches' in window) {
+                            caches.keys().then(function(keys) {
+                                Promise.all(keys.filter(function(k) {
+                                    return k.startsWith('sentinel-apex-');
+                                }).map(function(k) { return caches.delete(k); })).then(function() {
+                                    window.location.reload(true);
+                                });
+                            });
+                        } else {
+                            window.location.reload(true);
+                        }
+                    } else {
+                        sessionStorage.setItem(GUARD_KEY, live);
+                    }
+                })
+                .catch(function() {});
+        })();
 
+    
 <!-- CDB-AI-BRAIN-INIT-v145 -->
 <script>
 /* ============================================================================
@@ -19168,55 +19216,6 @@ a:focus-visible {
 })();
 </script>
 <!-- /CDB-AI-BRAIN-INIT-v145 -->
-
-        // ═══════════════════════════════════════════════════════════
-        // v166.2 ANTI-STALE GUARD — Prevents rollback to old dashboard
-        // Forces service worker update + hard reload if stale version detected
-        // ═══════════════════════════════════════════════════════════
-        (function _cdbAntiStaleGuard() {
-            const EXPECTED_VER = '166.2';
-            const GUARD_KEY    = 'cdb_ver_stamp';
-            const stored       = sessionStorage.getItem(GUARD_KEY);
-            // On every load, request SW update to catch new deployments
-            if ('serviceWorker' in navigator) {
-                navigator.serviceWorker.ready.then(function(reg) {
-                    reg.update().catch(function() {});
-                });
-            }
-            // Version stamp check — if version.json says newer, hard reload once
-            fetch('/version.json?_t=' + Date.now(), { cache: 'no-store' })
-                .then(function(r) { return r.ok ? r.json() : null; })
-                .then(function(d) {
-                    if (!d || !d.version) return;
-                    const live = d.version;
-                    if (stored && stored !== live) {
-                        // Version changed — clear caches and reload
-                        console.log('[ANTI-STALE] Version changed from', stored, '→', live, '— refreshing');
-                        sessionStorage.setItem(GUARD_KEY, live);
-                        if ('serviceWorker' in navigator) {
-                            navigator.serviceWorker.getRegistrations().then(function(regs) {
-                                regs.forEach(function(reg) { reg.update(); });
-                            });
-                        }
-                        // Clear all caches
-                        if ('caches' in window) {
-                            caches.keys().then(function(keys) {
-                                Promise.all(keys.filter(function(k) {
-                                    return k.startsWith('sentinel-apex-');
-                                }).map(function(k) { return caches.delete(k); })).then(function() {
-                                    window.location.reload(true);
-                                });
-                            });
-                        } else {
-                            window.location.reload(true);
-                        }
-                    } else {
-                        sessionStorage.setItem(GUARD_KEY, live);
-                    }
-                })
-                .catch(function() {});
-        })();
-
-    </body>
+</body>
 </html>
 
