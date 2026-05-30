@@ -1871,6 +1871,23 @@ jobs:
         run: python3 scripts/regression_tests.py
 
       # -----------------------------------------------------------------------
+      # STAGE 5.6.0: FEED SYNC GATE (v166.2 -- PERMANENT FIX P0)
+      # ROOT CAUSE FIX: Check 4 (Regression Immunity System) fails because
+      # api/feed.json (enriched by 15+ pipeline stages) and root feed.json
+      # drift apart — api gains items from APEX AI, CVSS, KEV, Quality
+      # Hardener, Actor Attribution stages that never sync back to feed.json.
+      # FIX: Sync api/feed.json -> feed.json right before the regression
+      # check so Check 4 is permanently satisfied on every pipeline run.
+      # api/feed.json is the single authoritative source of truth.
+      # PERMANENT: This stage must never be removed or made continue-on-error.
+      # -----------------------------------------------------------------------
+      - name: "STAGE 5.6.0 - Feed Sync Gate (v166.2 -- PERMANENT FIX P0)"
+        if: ${{ !cancelled() }}
+        timeout-minutes: 2
+        run: |
+          python3 scripts/feed_sync_gate.py
+
+      # -----------------------------------------------------------------------
       # STAGE 5.6.1: REGRESSION IMMUNITY SYSTEM (v143.0 -- HARD FAIL GATE)
       # 10-check final assertion battery:
       #   1. Duplicate stix_id detection (feed + manifest)
