@@ -41,9 +41,17 @@ import traceback
 FEED_PATH    = 'api/feed.json'
 OUT_DIR      = 'api/v1/intel'
 SCRIPT_NAME  = 'generate_api_manifests.py'
-VERSION      = 'v160.0'
 TOP10_COUNT  = 10
 SCHEMA_VER   = '1.0'
+
+# VERSION: read from SSOT config/version.json (never hardcoded)
+_ver_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'config', 'version.json')
+try:
+    with open(_ver_path, encoding='utf-8') as _vf:
+        _vcfg = json.load(_vf)
+    VERSION = 'v' + str(_vcfg.get('version', _vcfg.get('platform_version', '166.2'))).lstrip('v')
+except Exception:
+    VERSION = 'v166.2'   # safe fallback — always ahead of v160.0
 
 # ── HELPERS ─────────────────────────────────────────────────────────────────
 def fatal(msg):
@@ -165,6 +173,56 @@ def sort_key(item: dict) -> tuple:
         risk = 0.0
     return (ts, risk)
 
+
+_SEV_SCORE = {'CRITICAL': 4, 'HIGH': 3, 'MEDIUM': 2, 'LOW': 1, 'NONE': 0}
+
+def threat_priority_key(item: dict) -> tuple:
+    """
+    Sort for TOP 10 ACTIVE THREATS — threat intelligence priority order:
+      1. CISA KEV (actively exploited) -- highest signal
+      2. EPSS score (exploitation probability)
+      3. Severity level (CRITICAL > HIGH > MEDIUM > LOW)
+      4. CVSS / risk_score
+      5. Recency (timestamp) as tie-breaker
+    This ensures the Top 10 reflects genuine threat severity,
+    not just the most recently ingested items.
+    """
+    # KEV: actively exploited = top priority
+    kev_val = str(item.get('kev') or item.get('cisa_kev') or item.get('KEV') or '').upper()
+    kev = 1 if kev_val in ('YES', 'TRUE', '1') else 0
+
+    # EPSS (0-100 or 0.0-1.0)
+    epss = 0.0
+    try:
+        raw_e = item.get('epss_score') or item.get('epss') or 0
+        epss = float(str(raw_e).replace('%', ''))
+        if epss > 1:
+            epss /= 100.0
+    except (TypeError, ValueError):
+        epss = 0.0
+
+    # Severity
+    sev = str(item.get('severity') or '').upper()
+    sev_score = _SEV_SCORE.get(sev, 0)
+
+    # Risk/CVSS
+    risk = 0.0
+    try:
+        risk = float(item.get('risk_score') or item.get('cvss_score') or 0)
+    except (TypeError, ValueError):
+        risk = 0.0
+
+    # Recency as final tie-breaker
+    ts_str = item.get('processed_at') or item.get('timestamp') or ''
+    try:
+        ts = datetime.datetime.fromisoformat(
+            ts_str.replace('Z', '+00:00')
+        ).timestamp() if ts_str else 0
+    except (ValueError, AttributeError):
+        ts = 0
+
+    return (kev, epss, sev_score, risk, ts)
+
 def now_iso() -> str:
     return datetime.datetime.now(datetime.timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
 
@@ -223,7 +281,15 @@ atomic_write(os.path.join(OUT_DIR, 'latest.json'), latest_str)
 info(f'Written: {OUT_DIR}/latest.json ({len(sorted_feed)} items, {len(latest_str):,} bytes, sha256={latest_sha[:16]}...)')
 
 # ── STEP 4: Build /api/v1/intel/top10.json ───────────────────────────────────
-top10_items = sorted_feed[:TOP10_COUNT]
+# Sort by THREAT PRIORITY (KEV + EPSS + severity + CVSS), NOT by recency.
+# Recency sort (sorted_feed[:10]) produced LOW-severity items as "top threats"
+# because all items had the same pipeline timestamp. Fixed: v166.3
+top10_items = sorted(deduped_feed, key=threat_priority_key, reverse=True)[:TOP10_COUNT]
+_t10_kev  = sum(1 for it in top10_items if str(it.get('kev','') or '').upper() in ('YES','TRUE','1'))
+_t10_high = sum(1 for it in top10_items if it.get('severity','').upper() in ('CRITICAL','HIGH'))
+info(f'Top10 by threat priority: kev_count={_t10_kev} high_critical={_t10_high} '
+     f'top_sev={top10_items[0].get("severity","?") if top10_items else "N/A"}')
+
 top10_payload = {
     'schema_version': SCHEMA_VER,
     'generated_at': timestamp_now,
@@ -238,7 +304,8 @@ top10_payload['sha256'] = top10_sha
 top10_str  = json.dumps(top10_payload, ensure_ascii=False, separators=(',', ':'))
 
 atomic_write(os.path.join(OUT_DIR, 'top10.json'), top10_str)
-info(f'Written: {OUT_DIR}/top10.json ({len(top10_items)} items, sha256={top10_sha[:16]}...)')
+
+info(f'Top10 by threat priority: kev={_t10_kev} high_critical={_t10_high}')
 
 # ── STEP 5: Build /api/v1/intel/apex.json ────────────────────────────────────
 # Items WITH apex_ai enrichment (or all if none have it — ensures non-empty file)
