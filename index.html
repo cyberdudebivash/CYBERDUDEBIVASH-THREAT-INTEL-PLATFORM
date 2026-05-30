@@ -9859,9 +9859,27 @@
                 // Actor context (only for attributed threats)
                 const _actorCtx = (item.actor_tag && item.actor_tag !== 'UNC-CDB-99') ? ` Attributed to <b>${item.actor_tag}</b>.` : '';
 
+                // v166.3 FIX: Prefer real CVE description from feed over boilerplate template.
+                // Strip leading "CVE-YYYY-NNNNN " prefix; use remainder if >30 chars.
+                const _rawFeedDesc = String(item.description || item.summary || '').trim();
+                const _strippedDesc = _rawFeedDesc.replace(/^CVE-\d{4}-\d+[\s\-:]+/i, '').trim();
+                const _hasRealDesc = _strippedDesc.length > 30 &&
+                    !/^(Exploit for CVE|Notable security|No active exploit)/i.test(_strippedDesc);
+                const _feedDescSentence = _hasRealDesc
+                    ? _strippedDesc.charAt(0).toUpperCase() + _strippedDesc.slice(1)
+                    : '';
+
                 // Assemble: Type + CVSS context + exposure + exploit + action
                 let _sumText = '';
-                if (_cvss != null) {
+                if (_hasRealDesc && _feedDescSentence) {
+                    // Use real feed description as primary sentence, append SOC context
+                    if (_cvss != null) {
+                        const _cvssWord = _cvss >= 9 ? 'Critical' : _cvss >= 7 ? 'High' : _cvss >= 4 ? 'Moderate' : 'Low';
+                        _sumText = `<b>${_cvssWord}-severity</b> ${_riskType}: ${_feedDescSentence}. ${_exploitCtx}. ${_actionCtx}${_actorCtx}`;
+                    } else {
+                        _sumText = `${_feedDescSentence}. ${_exploitCtx}. ${_actionCtx}${_actorCtx}`;
+                    }
+                } else if (_cvss != null) {
                     const _cvssWord = _cvss >= 9 ? 'Critical' : _cvss >= 7 ? 'High' : _cvss >= 4 ? 'Moderate' : 'Low';
                     _sumText = `<b>${_cvssWord}-severity</b> ${_riskType} (CVSS ${_cvss}) ${_exposureCtx}. ${_exploitCtx}. ${_actionCtx}${_actorCtx}`;
                 } else {
