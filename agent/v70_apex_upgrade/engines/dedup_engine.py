@@ -22,6 +22,41 @@ from ..core.models import Advisory
 logger = logging.getLogger("sentinel.dedup_engine")
 
 
+# ── v166.2 DEDUP HELPERS: handle lists of mixed str/dict without set() ───────
+def _dedup_mixed_list(items):
+    """Deduplicate a list that may contain strings, ints, or dicts."""
+    seen = set()
+    result = []
+    for item in items:
+        if isinstance(item, dict):
+            key = tuple(sorted(item.items()))
+        else:
+            try:
+                key = item
+                hash(key)
+            except TypeError:
+                key = str(item)
+        if key not in seen:
+            seen.add(key)
+            result.append(item)
+    return result
+
+
+def _dedup_mitre(techniques):
+    """Deduplicate MITRE techniques: prefer dict form, key by technique_id/name."""
+    seen = set()
+    result = []
+    for t in techniques:
+        if isinstance(t, dict):
+            key = t.get('technique_id') or t.get('technique') or t.get('name') or str(sorted(t.items()))
+        else:
+            key = str(t)
+        if key not in seen:
+            seen.add(key)
+            result.append(t)
+    return result
+
+
 class DedupEngine:
     def __init__(
         self,
@@ -63,9 +98,11 @@ class DedupEngine:
                 existing_ioc_vals.add(val)
                 merged_iocs.append(ioc)
         primary.iocs = merged_iocs
-        primary.actors = list(set(primary.actors + dup.actors))
-        primary.mitre_techniques = list(set(primary.mitre_techniques + dup.mitre_techniques))
-        primary.tags = list(set(primary.tags + dup.tags))
+        # v166.2 FIX: actors/tags may be strings OR dicts — use JSON-key dedup
+        # Root cause: set() fails on unhashable dict objects → TypeError crash
+        primary.actors = _dedup_mixed_list(primary.actors + dup.actors)
+        primary.mitre_techniques = _dedup_mitre(primary.mitre_techniques + dup.mitre_techniques)
+        primary.tags = _dedup_mixed_list(primary.tags + dup.tags)
         primary.threat_score = max(primary.threat_score, dup.threat_score)
         if not primary.summary and dup.summary:
             primary.summary = dup.summary
@@ -75,8 +112,9 @@ class DedupEngine:
             primary.ai_summary = dup.ai_summary
         if dup.advisory_id and dup.advisory_id not in primary.related_advisories:
             primary.related_advisories.append(dup.advisory_id)
-        primary.attack_chain = list(set(primary.attack_chain + dup.attack_chain))
-        primary.affected_products = list(set(primary.affected_products + dup.affected_products))
+        # v166.2 FIX: attack_chain / affected_products can contain dicts
+        primary.attack_chain = _dedup_mixed_list(primary.attack_chain + dup.attack_chain)
+        primary.affected_products = _dedup_mixed_list(primary.affected_products + dup.affected_products)
         if not primary.blog_post_url and dup.blog_post_url:
             primary.blog_post_url = dup.blog_post_url
             primary.blog_post_id = dup.blog_post_id
