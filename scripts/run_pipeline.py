@@ -1279,9 +1279,28 @@ def stage_anti_stale_hardening() -> None:
                         pass  # unparseable date -- allow through, schema stage handles it
 
             # --- Layer 2: Synthetic Title Detector ---
+            # v166.3 FIX: Raw CVE-ID titles (e.g. "CVE-2026-10121") are classified
+            # synthetic UNLESS the item has a real description (>30 chars, not itself
+            # a bare CVE-ID). The title enricher runs at Stage 3.1.11 -- AFTER this
+            # quarantine -- so new CVE items always arrive here with raw IDs. Quarantining
+            # them purely on title causes the pipeline to produce 0-2 advisories,
+            # failing the R2 verifier floor. Items with real descriptions are genuine
+            # intel; items with NO description and a raw CVE ID are synthetic stubs.
+            _CVE_BARE_RE = _re.compile(r"^CVE-\d{4}-\d{4,}$", _re.IGNORECASE)
             is_synthetic = False
             for cp in compiled_patterns:
                 if cp.search(title):
+                    # Special exemption for bare CVE-ID pattern only:
+                    # if the item has a real non-trivial description, it is NOT synthetic.
+                    if cp.pattern == r"^CVE-\d{4}-\d{4,7}$":
+                        desc = str(item.get("description") or item.get("summary") or "").strip()
+                        desc_clean = _re.sub(r"^CVE-\d{4}-\d+[\s\-:]+", "", desc, flags=_re.I).strip()
+                        if desc_clean and len(desc_clean) > 30 and not _CVE_BARE_RE.fullmatch(desc_clean):
+                            log.info(
+                                "[2.6] CVE raw-title EXEMPT (has real desc %d chars): id=%s title=%s",
+                                len(desc_clean), item_id, title[:60],
+                            )
+                            break  # do not set is_synthetic
                     is_synthetic = True
                     quarantine_log.append(
                         f"[SYNTH] id={item_id} pattern='{cp.pattern}' title={title[:80]}"
