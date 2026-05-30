@@ -893,13 +893,12 @@ jobs:
       # Without this, customers see no value and do not subscribe.
       # NON-BLOCKING with timeout — NVD API may be slow but pipeline must continue.
       # -----------------------------------------------------------------------
-      - name: "STAGE 3.1.11 - CVE Title Enricher (v166.2 — analyst-grade titles)"
+      - name: "STAGE 3.1.11 - CVE Title Enricher (v166.2 -- analyst-grade titles)"
         timeout-minutes: 8
         continue-on-error: true
         run: |
-          python3 scripts/cve_title_enricher.py 2>&1 && \
-            echo "[PASS] CVE titles enriched — raw CVE IDs replaced with analyst-grade descriptions" || \
-            echo "::warning::cve_title_enricher.py failed — non-fatal, raw CVE titles retained"
+          python3 scripts/cve_title_enricher.py 2>&1
+          python3 scripts/audit_title_enrichment.py
 
       # -----------------------------------------------------------------------
       # STAGE 3.1.12 - DETECTION BUNDLE INJECTOR (v166.2 — REVENUE-CRITICAL)
