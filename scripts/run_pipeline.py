@@ -1364,18 +1364,31 @@ def stage_anti_stale_hardening() -> None:
             raise
 
         # Fail-safe: ensure we still have enough entries after quarantine
+        # v166.2 FIX: Use proportional threshold to prevent false FATAL on small batches.
+        # OLD: hard minimum of MIN_FRESHNESS_ENTRIES=10 caused FATAL when bootstrap
+        #      starts with 10 items and quarantines 3 bare-CVE-ID advisories → 7 remain.
+        # NEW: FATAL only if >60% of items quarantined AND remaining < 5 (absolute floor).
+        #      This allows small legitimate batches to pass while blocking true data loss.
         remaining = len(clean_items)
-        if remaining < MIN_FRESHNESS_ENTRIES:
+        ABS_FLOOR = 5
+        quarantine_ratio = total_quarantined / max(original_count, 1)
+        if remaining < ABS_FLOOR or quarantine_ratio > 0.60:
             log.error(
                 "[2.6] FATAL: After anti-stale quarantine only %d entries remain "
-                "(minimum: %d). Quarantined %d. Check feed freshness and source config.",
-                remaining, MIN_FRESHNESS_ENTRIES, total_quarantined,
+                "(floor=%d, quarantine_ratio=%.0f%%). Quarantined %d. Check feed freshness.",
+                remaining, ABS_FLOOR, quarantine_ratio * 100, total_quarantined,
             )
             log.error("[2.6] Root causes to check:")
             log.error("[2.6]   1. All feeds returning stale data (> %d days old)", cutoff_days)
             log.error("[2.6]   2. Feed ingestion pipeline not running on schedule")
             log.error("[2.6]   3. ANTI_STALE_MAX_AGE_DAYS too restrictive (currently: %d)", cutoff_days)
             sys.exit(1)
+        if remaining < MIN_FRESHNESS_ENTRIES:
+            log.warning(
+                "[2.6] WARN: Only %d entries remain after quarantine (soft minimum=%d) "
+                "— pipeline continues, downstream gates will validate.",
+                remaining, MIN_FRESHNESS_ENTRIES,
+            )
 
         log.info(
             "[2.6] ANTI-STALE HARDENING COMPLETE: %d/%d entries passed "
