@@ -1,0 +1,167 @@
+# =============================================================================
+# CYBERDUDEBIVASH(R) SENTINEL APEX — Weekly Threat Brief Generator
+# =============================================================================
+# PURPOSE:
+#   Generates and publishes the weekly threat intelligence brief every Monday
+#   at 02:30 UTC (08:00 IST). Also sends Telegram notification to subscribers.
+#   The brief is published at /weekly-brief.html and /api/v1/intel/weekly_brief.json
+#
+# REVENUE PURPOSE:
+#   This is the primary recurring value delivery mechanism for PRO subscribers.
+#   Every Monday morning, subscribers receive a curated summary of:
+#     - Top 10 threats of the week
+#     - CISA KEV additions
+#     - Active threat actors
+#     - Detection rule roundup
+#   This justifies the monthly subscription cost and reduces churn.
+#
+# TRIGGERS:
+#   - Scheduled: every Monday 02:30 UTC (08:00 IST)
+#   - Manual: workflow_dispatch for immediate generation
+# =============================================================================
+
+name: weekly-threat-brief
+
+on:
+  schedule:
+    - cron: '30 2 * * 1'   # Every Monday 02:30 UTC = 08:00 IST
+  workflow_dispatch:
+    inputs:
+      send_telegram:
+        description: 'Send Telegram notification to subscribers'
+        required: false
+        default: 'true'
+        type: choice
+        options:
+          - 'true'
+          - 'false'
+
+concurrency:
+  group: sentinel-weekly-brief
+  cancel-in-progress: false
+
+env:
+  PIPELINE_VERSION: '166.2'
+  PYTHONIOENCODING: utf-8
+  PYTHONUTF8: 1
+  TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+  TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+  GH_TOKEN: ${{ secrets.GH_TOKEN || github.token }}
+  GITHUB_REPOSITORY: ${{ github.repository }}
+  GITHUB_RUN_ID: ${{ github.run_id }}
+
+jobs:
+  generate-brief:
+    name: generate-weekly-brief
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: write
+      pages: write
+
+    steps:
+      # ------------------------------------------------------------------
+      - name: "STEP 0 — Free disk space"
+        run: |
+          sudo rm -rf /usr/local/lib/android /usr/share/dotnet /usr/local/.ghcup /opt/ghc 2>/dev/null || true
+          sudo apt-get clean -qq 2>/dev/null || true
+          echo "Disk free: $(df -h / | tail -1 | awk '{print $4}')"
+
+      # ------------------------------------------------------------------
+      - name: "STEP 1 — Checkout repository"
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          ref: main
+          token: ${{ secrets.GH_TOKEN || github.token }}
+
+      # ------------------------------------------------------------------
+      - name: "STEP 2 — Setup Python 3.12"
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      # ------------------------------------------------------------------
+      - name: "STEP 3 — Install dependencies"
+        run: |
+          pip install --quiet --upgrade pip
+          pip install --quiet requests 2>/dev/null || true
+
+      # ------------------------------------------------------------------
+      - name: "STEP 4 — Generate Weekly Threat Brief"
+        timeout-minutes: 10
+        run: |
+          SEND_ARG=""
+          if [ "${{ github.event.inputs.send_telegram }}" = "true" ] || [ "${{ github.event_name }}" = "schedule" ]; then
+            SEND_ARG="--send-telegram"
+          fi
+          python3 scripts/weekly_threat_brief.py $SEND_ARG 2>&1
+          echo "[BRIEF] Generation complete"
+
+      # ------------------------------------------------------------------
+      - name: "STEP 5 — Verify brief outputs"
+        run: |
+          echo "=== Brief JSON ==="
+          if [ -f "api/v1/intel/weekly_brief.json" ]; then
+            python3 -c "
+import json
+with open('api/v1/intel/weekly_brief.json') as f:
+    b = json.load(f)
+print(f'  Week: {b.get(\"week\")}')
+print(f'  Period: {b.get(\"period\")}')
+print(f'  Advisories: {b.get(\"stats\", {}).get(\"total_advisories\")}')
+print(f'  Critical: {b.get(\"stats\", {}).get(\"critical_count\")}')
+print(f'  KEV: {b.get(\"stats\", {}).get(\"kev_additions\")}')
+print(f'  Top threat: {b.get(\"top_threats\", [{}])[0].get(\"title\", \"N/A\")[:60]}...')
+print('[PASS] Brief JSON valid')
+"
+          else
+            echo "::error::weekly_brief.json not generated"
+            exit 1
+          fi
+          echo "=== Brief HTML ==="
+          if [ -f "weekly-brief.html" ]; then
+            SIZE=$(wc -c < weekly-brief.html)
+            echo "[PASS] weekly-brief.html: ${SIZE} bytes"
+          else
+            echo "::error::weekly-brief.html not generated"
+            exit 1
+          fi
+
+      # ------------------------------------------------------------------
+      - name: "STEP 6 — Commit and push brief to repository"
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add api/v1/intel/weekly_brief.json weekly-brief.html || true
+          if git diff --staged --quiet; then
+            echo "[INFO] No changes to commit — brief unchanged"
+          else
+            WEEK=$(python3 -c "from datetime import datetime; print(f'Week {datetime.utcnow().isocalendar()[1]} {datetime.utcnow().year}')")
+            git commit -m "feat(brief): Weekly Threat Brief — ${WEEK} [skip ci]"
+            git push origin main 2>&1
+            echo "[PASS] Weekly brief committed and pushed"
+          fi
+
+      # ------------------------------------------------------------------
+      - name: "STEP 7 — Deploy brief to GitHub Pages"
+        uses: JamesIves/github-pages-deploy-action@v4
+        with:
+          folder: .
+          branch: gh-pages
+          clean: false
+          single-commit: false
+          token: ${{ secrets.GH_TOKEN || github.token }}
+          git-config-name: 'github-actions[bot]'
+          git-config-email: 'github-actions[bot]@users.noreply.github.com'
+          commit-message: 'deploy(brief): Weekly Threat Brief [skip ci]'
+
+      # ------------------------------------------------------------------
+      - name: "STEP 8 — Summary"
+        run: |
+          echo "======================================================"
+          echo "  WEEKLY THREAT BRIEF — COMPLETE"
+          echo "======================================================"
+          echo "  URL: https://intel.cyberdudebivash.com/weekly-brief.html"
+          echo "  API: https://intel.cyberdudebivash.com/api/v1/intel/weekly_brief.json"
+          echo "======================================================"
