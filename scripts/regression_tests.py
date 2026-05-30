@@ -709,8 +709,14 @@ def t20():
 # ---------------------------------------------------------------------------
 
 def main() -> int:
+    # v166.2 FIND-008: Read version from SSOT instead of hardcoded string
+    try:
+        _ver_path = REPO_ROOT / "config" / "version.json"
+        _suite_ver = json.loads(_ver_path.read_text(encoding="utf-8")).get("version", "UNKNOWN")
+    except Exception:
+        _suite_ver = "UNKNOWN"
     log.info("=" * 60)
-    log.info("SENTINEL APEX v143.2.0 -- Regression Test Suite (T01-T20)")
+    log.info("SENTINEL APEX v%s -- Regression Test Suite (T01-T20)", _suite_ver)
     log.info("=" * 60)
 
     pass_count = sum(1 for r in RESULTS if r["status"] == "PASS")

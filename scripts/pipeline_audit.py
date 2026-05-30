@@ -91,12 +91,14 @@ def check_reports(findings: list, stats: dict) -> None:
             invalid_html.append(str(f.relative_to(REPO_ROOT)) + " [unreadable]")
 
     if too_small:
-        findings.append({"level": "WARN", "check": "report_min_size",
-                         "detail": f"{len(too_small)} reports below 1KB minimum",
+        # v166.2 FIND-005: upgraded WARN -> FAIL
+        findings.append({"level": "FAIL", "check": "report_min_size",
+                         "detail": f"{len(too_small)} reports below 1KB — likely malformed output from report_generator.py",
                          "examples": too_small[:5]})
     if invalid_html:
-        findings.append({"level": "WARN", "check": "report_html_validity",
-                         "detail": f"{len(invalid_html)} reports missing HTML signature",
+        # v166.2 FIND-005: upgraded WARN -> FAIL
+        findings.append({"level": "FAIL", "check": "report_html_validity",
+                         "detail": f"{len(invalid_html)} reports missing HTML signature — customers see blank pages",
                          "examples": invalid_html[:5]})
     if not too_small and not invalid_html:
         findings.append({"level": "PASS", "check": "reports",

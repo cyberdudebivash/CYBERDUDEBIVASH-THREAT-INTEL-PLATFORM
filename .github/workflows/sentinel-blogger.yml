@@ -1960,12 +1960,14 @@ jobs:
           echo "STAGE 5.7.2: Runtime stability check complete"
 
       # -----------------------------------------------------------------------
-      # STAGE 5.8 - INTELLIGENCE QUALITY GATE (v146.0 ENTERPRISE)
-      # Runs full intelligence quality report. Non-blocking.
+      # STAGE 5.8 - INTELLIGENCE QUALITY GATE (v166.2 ENTERPRISE)
+      # v166.2 FIND-007: Removed || true mask. Hard-fail below --min-items 5.
+      # Feed volume naturally varies; threshold of 5 allows sparse ingestion days
+      # while catching true pipeline failures. Phase 8 assert must be observable.
       # -----------------------------------------------------------------------
       - name: "STAGE 5.8 - Intelligence Quality Gate"
         timeout-minutes: 5
-        run: python3 scripts/intel_quality_engine.py --report || true
+        run: python3 scripts/intel_quality_engine.py --report --min-items 5
 
       # -----------------------------------------------------------------------
       # STAGE 5.8.05 - ENTERPRISE MONETIZATION FRAMEWORK (v158.5 -- NON-BLOCKING)

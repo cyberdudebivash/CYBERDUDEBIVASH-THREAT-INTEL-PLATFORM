@@ -578,15 +578,26 @@ def check_synchronization(ssot: Dict) -> None:
                "api/latest.json MISSING — not found at api/latest.json or api/v1/intel/latest.json",
                hard=True)
 
-    # Observability telemetry sync report
+    # Observability telemetry sync report (v166.2 — hard-fail on -1 sentinel)
     sync_report = BASE_DIR / "data" / "telemetry" / "sync_report.json"
     if sync_report.exists():
         try:
             sr = json.loads(sync_report.read_text(encoding="utf-8"))
-            drift = sr.get("drift_count", sr.get("hard_fails", -1))
-            record("SYNC", "telemetry_sync_report",
-                   "PASS" if drift == 0 else "WARN",
-                   f"sync_report.json drift_count={drift}")
+            drift = sr.get("drift_count", sr.get("hard_fails", None))
+            if drift is None:
+                # drift_count key missing — schema mismatch; treat as uncomputed (WARN, not fail)
+                record("SYNC", "telemetry_sync_report", "WARN",
+                       "sync_report.json missing drift_count field — schema mismatch")
+            elif drift == -1:
+                # Sentinel error value: R2 sync compute failed silently — this is a HARD_FAIL
+                record("SYNC", "telemetry_sync_report", "HARD_FAIL",
+                       "sync_report.json drift_count=-1 (sentinel error) — R2 sync compute failed")
+            elif drift == 0:
+                record("SYNC", "telemetry_sync_report", "PASS",
+                       f"sync_report.json drift_count=0 — fully synced")
+            else:
+                record("SYNC", "telemetry_sync_report", "WARN",
+                       f"sync_report.json drift_count={drift} — drift detected")
         except Exception as e:
             record("SYNC", "telemetry_sync_report", "WARN", f"Parse error: {e}")
     else:

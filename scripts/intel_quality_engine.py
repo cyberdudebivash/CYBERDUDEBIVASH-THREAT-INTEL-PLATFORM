@@ -1368,6 +1368,9 @@ if __name__ == "__main__":
     parser.add_argument("--dry-run", action="store_true", help="Run without writing output")
     parser.add_argument("--report", action="store_true",
                         help="Print full quality report to stdout after pipeline run")
+    parser.add_argument("--min-items", type=int, default=0,
+                        help="v166.2: Hard-fail if output feed has fewer than N items. "
+                             "Default 0 = no minimum enforced.")
     args = parser.parse_args()
 
     manifest_path = Path(args.manifest)
@@ -1433,5 +1436,10 @@ if __name__ == "__main__":
             print(f"  Duplicates rm  : {len(raw_items) - len(result)}")
             print(f"  New entries    : {len(new_entries)}")
             print(f"  Duplicate stix : {dup_stix}")
+
+    # v166.2 FIND-007: --min-items hard-fail gate (replaces || true masking in CI)
+    if args.min_items > 0 and len(result) < args.min_items:
+        print(f"[PHASE8-GATE] HARD FAIL: output feed has {len(result)} items < --min-items {args.min_items}")
+        raise SystemExit(1)
 
     print("[DONE]")

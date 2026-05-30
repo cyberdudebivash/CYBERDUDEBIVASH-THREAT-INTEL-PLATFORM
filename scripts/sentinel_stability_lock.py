@@ -358,15 +358,35 @@ def run_post_pipeline_validation(repo_root):
         _run_phase6_selfheal(repo_root, report, reason="manifest_empty")
         return _finalize_report(report, repo_root)
 
-    # 3b. Delta detection
+    # 3b. Delta detection (v166.2 — hard-fail on >30% shrink, quarantine audit)
     prev_count = _load_prev_manifest_count(repo_root)
     if prev_count is not None:
         delta = manifest_count - prev_count
         report.metadata.update({"prev_manifest_count": prev_count, "delta_entries": delta})
         if delta < 0:
-            report.add_violation(
-                f"Manifest SHRANK: {prev_count} -> {manifest_count} ({abs(delta)} entries lost)"
-            )
+            drop_pct = abs(delta) / prev_count if prev_count > 0 else 0
+            report.metadata["drop_pct"] = round(drop_pct * 100, 1)
+            if drop_pct > 0.30:
+                report.health = "FAIL"
+                report.add_violation(
+                    f"[HARD-FAIL] Manifest SHRANK >{int(drop_pct*100)}%: "
+                    f"{prev_count} -> {manifest_count} ({abs(delta)} entries lost). "
+                    f"Exceeds 30% drop threshold. Check quarantine log."
+                )
+                log.error(
+                    "[Phase3] HARD FAIL: manifest dropped %d/%d entries (%.1f%%) — exceeds 30%% threshold",
+                    abs(delta), prev_count, drop_pct * 100,
+                )
+            else:
+                report.add_violation(
+                    f"Manifest SHRANK: {prev_count} -> {manifest_count} ({abs(delta)} entries lost, "
+                    f"{int(drop_pct*100)}% drop — within tolerance but investigate)"
+                )
+                log.warning(
+                    "[Phase3] Manifest shrank %d -> %d (-%d entries, %.1f%%)",
+                    prev_count, manifest_count, abs(delta), drop_pct * 100,
+                )
+            _write_shrink_audit(repo_root, prev_count, manifest_count, delta)
         else:
             log.info("[Phase3] No new entries added (manifest stable at %d)", manifest_count)
     else:
@@ -492,8 +512,10 @@ def _run_phase5_ui_check(repo_root, report):
         ("container.innerHTML",       "DOM hard-clear before render"),
     ]
 
+    # v166.2 FIX: Read full file — guards sit at ~730k bytes in current index.html;
+    # the previous 700k cap caused false-positive MISSING violations every run.
     with open(index_path, encoding="utf-8", errors="replace") as fh:
-        chunk = fh.read(700000)
+        chunk = fh.read()
 
     missing = [g for g, _ in required_guards if g not in chunk]
     if missing:
@@ -569,6 +591,33 @@ def create_manifest_backup(repo_root):
 # ============================================================================
 # INTERNAL HELPERS
 # ============================================================================
+
+
+def _write_shrink_audit(repo_root, prev_count, current_count, delta):
+    """Write shrink audit record to data/quarantine/shrink_audit.json (v166.2)."""
+    import datetime as _dt
+    audit_dir = repo_root / "data" / "quarantine"
+    audit_dir.mkdir(parents=True, exist_ok=True)
+    audit_path = audit_dir / "shrink_audit.json"
+    existing = []
+    if audit_path.exists():
+        try:
+            existing = json.loads(audit_path.read_text(encoding="utf-8"))
+            if not isinstance(existing, list):
+                existing = []
+        except Exception:
+            existing = []
+    entry = {
+        "timestamp": _dt.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "prev_count": prev_count,
+        "current_count": current_count,
+        "lost": abs(delta),
+        "drop_pct": round(abs(delta) / prev_count * 100, 1) if prev_count > 0 else 0,
+        "threshold_exceeded": (abs(delta) / prev_count > 0.30) if prev_count > 0 else False,
+    }
+    existing.append(entry)
+    audit_path.write_text(json.dumps(existing, indent=2), encoding="utf-8")
+    log.info("[Phase3] Shrink audit written: %s", audit_path)
 
 def _load_checksum_store(repo_root):
     cpath = repo_root / _CHECKSUM_PATH
