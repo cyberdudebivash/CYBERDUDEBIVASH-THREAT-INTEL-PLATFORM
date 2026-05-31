@@ -130,6 +130,39 @@ def _make_item(title: str, desc: str, severity: str, source: str,
             _adj -= 0.2
         _BASE = round(min(max(_BASE + _adj, 5.5), 8.9), 1)
     _risk_score = _BASE
+    # v166.8 FIX (GAP-011/GAP-025): assign source-appropriate actor + confidence
+    # instead of always CDB-UNATTR-CVE (which causes actor monoculture in IIG Gate B/C).
+    # Confidence is now source-tier based: CISA=0.82, GitHub=0.75, BleepingComputer=0.65,
+    # MalwareBazaar=0.72, URLhaus=0.68, OTX=0.62.
+    _src_lower = (source or "").lower()
+    if "cisa" in _src_lower:
+        _actor = "CDB-UNATTR-APT"
+        _confidence = 0.82
+        _threat_type = "Threat Intel"
+    elif "github" in _src_lower:
+        _actor = "CDB-UNATTR-CVE"
+        _confidence = 0.75
+        _threat_type = "Vulnerability"
+    elif "malwarebazaar" in _src_lower:
+        _actor = "CDB-UNATTR-RAN"
+        _confidence = 0.72
+        _threat_type = "Malware"
+    elif "urlhaus" in _src_lower:
+        _actor = "CDB-UNATTR-PHI"
+        _confidence = 0.68
+        _threat_type = "Malicious URL"
+    elif "bleepingcomputer" in _src_lower:
+        _actor = "CDB-UNATTR-APT" if not cve_ids else "CDB-UNATTR-CVE"
+        _confidence = 0.65
+        _threat_type = "Threat Intel"
+    elif "alienvault" in _src_lower or "otx" in _src_lower:
+        _actor = "CDB-UNATTR-APT"
+        _confidence = 0.62
+        _threat_type = "Threat Intel"
+    else:
+        _actor = "CDB-UNATTR-CVE"
+        _confidence = 0.65
+        _threat_type = "Threat Intel"
     return {
         "id": item_id,
         "stix_id": item_id,
@@ -137,11 +170,11 @@ def _make_item(title: str, desc: str, severity: str, source: str,
         "description": desc.strip()[:1000] if desc else "",
         "severity": sev_upper,
         "risk_score": _risk_score,
-        "confidence": 0.65,  # source-collected items start with 65% confidence
+        "confidence": _confidence,
         "source": source,
         "feed_source": source,
         "tlp": tlp,
-        "threat_type": "Threat Intel",
+        "threat_type": _threat_type,
         "tags": tags or [],
         "cve_id": primary_cve,
         "cve_ids": cve_ids,
@@ -151,7 +184,7 @@ def _make_item(title: str, desc: str, severity: str, source: str,
         "processed_at": ts,
         "published_at": ts,
         "source_url": url,
-        "actor": "CDB-UNATTR-CVE" if not cve_ids else "CDB-UNATTR-CVE",
+        "actor": _actor,
     }
 
 

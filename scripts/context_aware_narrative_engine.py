@@ -1080,9 +1080,11 @@ def generate_context_aware_executive_summary(item: Dict[str, Any]) -> str:
         feed     = str(item.get("feed_source") or "threat intelligence feed")
         actor    = _get_actor_display(item)
 
-        # CVE reference
+        # CVE reference — deduplicated (title+desc both scanned → same CVE appears twice)
         desc = str(item.get("description") or "")
-        cve_refs = re.findall(r'CVE-\d{4}-\d+', f"{title} {desc}", re.I)
+        _cve_raw = re.findall(r'CVE-\d{4}-\d+', f"{title} {desc}", re.I)
+        # Preserve order, remove duplicates (GAP-007 fix: "CVE-2026-x, CVE-2026-x" bug)
+        cve_refs = list(dict.fromkeys(c.upper() for c in _cve_raw))
         cve_str = (
             f" Vulnerability identifier: <strong>{', '.join(cve_refs[:3])}</strong>."
             if cve_refs else ""
