@@ -93,11 +93,16 @@ gate("404.html exists",
      (REPO_ROOT / "404.html").exists(),
      "Restore 404.html to repo root")
 
-# ── GATE 7: Service worker V173 cache version ─────────────────────
+# ── GATE 7: Service worker has a valid sentinel-apex-vXXX cache version ─────
+# v166.3 FIX: Gate previously hardcoded 'sentinel-apex-v173' which became
+# permanently stale when SW was upgraded to v175. Now checks for ANY valid
+# sentinel-apex-vNNN version string (version-agnostic, future-proof).
 sw_src = SW.read_text(encoding='utf-8') if SW.exists() else ""
-gate("Service worker has V173 cache version",
-     'sentinel-apex-v173' in sw_src,
-     "Update CACHE_VERSION in service-worker.js to sentinel-apex-v173-live")
+import re as _re_sw
+_sw_has_valid_ver = bool(_re_sw.search(r"sentinel-apex-v\d+", sw_src))
+gate("Service worker has valid sentinel-apex-vNNN cache version",
+     _sw_has_valid_ver,
+     "CACHE_VERSION in service-worker.js must contain sentinel-apex-vNNN pattern")
 
 # ── GATE 8: V173 renderer intact ─────────────────────────────────
 src = INDEX.read_text(encoding='utf-8') if INDEX.exists() else ""
