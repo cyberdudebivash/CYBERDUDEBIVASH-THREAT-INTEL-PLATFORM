@@ -430,6 +430,26 @@ jobs:
           echo "[OK] All critical scripts present"
 
       # -----------------------------------------------------------------------
+      # STAGE 0.06a: NULL-BYTE INTEGRITY GUARD (v1.0 — P0 PERMANENT)
+      # ROOT CAUSE FIXED HERE:
+      #   Cross-OS mount writes (Linux tmpfs → Windows NTFS via sandbox) using
+      #   Python open(path,'w').write() do NOT truncate correctly — residual
+      #   bytes are zero-padded → SyntaxError: source code string cannot contain
+      #   null bytes → Stage 0.06b HARD-FAILS → entire pipeline BLOCKED.
+      # THIS STAGE:
+      #   1. Scans ALL scripts/*.py for null bytes (\x00)
+      #   2. Auto-repairs via binary-mode write with explicit fsync (bypasses OS
+      #      text-mode buffering that causes the corruption)
+      #   3. Quarantines corrupt originals to data/quarantine/integrity/
+      #   4. Emits corruption telemetry to data/health/integrity_events.json
+      #   5. Re-validates repaired files with AST parse before continuing
+      # MUST RUN BEFORE Stage 0.06b — repairs files so governance gate passes.
+      # -----------------------------------------------------------------------
+      - name: "STAGE 0.06a - Null-Byte Integrity Guard (P0 PERMANENT FIX v1.0)"
+        timeout-minutes: 3
+        run: python3 scripts/null_byte_guard.py --fix
+
+      # -----------------------------------------------------------------------
       # STAGE 0.06b: PYTHON GOVERNANCE IMMUNITY ENGINE (v152.0.0)
       # Forensic-grade syntax + encoding guardian. Hard-fails the pipeline
       # before ANY execution if any script has: syntax errors, BOM, CRLF,

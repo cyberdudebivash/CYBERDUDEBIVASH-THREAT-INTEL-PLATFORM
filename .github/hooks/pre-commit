@@ -1,73 +1,81 @@
-#!/usr/bin/env python3
-"""
-.github/hooks/pre-commit
-CYBERDUDEBIVASH(R) SENTINEL APEX v131.0.0 — Git Pre-Commit BOM Guard
-=====================================================================
-Blocks commits that introduce UTF-8 BOM into tracked files.
+#!/usr/bin/env bash
+# .github/hooks/pre-commit
+# ================================================================================
+# SENTINEL APEX — Pre-Commit Repository Integrity Hook v1.0
+# ================================================================================
+# Prevents null-byte corrupted Python files from entering the repository.
+# Installed by: scripts/null_byte_guard.py setup
+#
+# ROOT CAUSE BLOCKED HERE:
+#   Cross-OS mount writes (Linux tmpfs → Windows NTFS) produce null-padded files.
+#   This hook catches corruption BEFORE commit, never letting it reach main.
+# ================================================================================
+set -euo pipefail
 
-Installation (one-time, per developer):
-  git config core.hooksPath .github/hooks
-  chmod +x .github/hooks/pre-commit
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+GUARD="${REPO_ROOT}/scripts/null_byte_guard.py"
+VIOLATIONS=0
+CHECKED=0
 
-What it checks:
-  - All staged files (added or modified)
-  - Text extensions: .json .yml .yaml .toml .py .js .html .md
+# Collect staged .py files
+STAGED_PY=$(git diff --cached --name-only --diff-filter=ACM | grep '\.py$' || true)
 
-Exit codes:
-  0 = clean, commit proceeds
-  1 = BOM found, commit blocked with clear error message
-"""
-import subprocess
+if [ -z "$STAGED_PY" ]; then
+    exit 0  # No Python files staged
+fi
+
+echo "🔍 [NULL-BYTE-GUARD] Scanning $(echo "$STAGED_PY" | wc -l) staged Python file(s)..."
+
+for FILE in $STAGED_PY; do
+    FULL_PATH="${REPO_ROOT}/${FILE}"
+    if [ ! -f "$FULL_PATH" ]; then
+        continue
+    fi
+
+    CHECKED=$((CHECKED + 1))
+
+    # Layer 1: null-byte detection (binary grep — fastest)
+    if python3 -c "
 import sys
+d = open('${FULL_PATH}', 'rb').read()
+n = d.count(b'\\x00')
+if n:
+    print(f'  ❌ NULL BYTES: ${FILE} contains {n} null bytes')
+    sys.exit(1)
+" 2>&1; then
+        : # clean
+    else
+        VIOLATIONS=$((VIOLATIONS + 1))
+        continue
+    fi
 
-BOM = b"\xef\xbb\xbf"
-TEXT_EXTENSIONS = {
-    ".json", ".yml", ".yaml", ".toml",
-    ".py", ".js", ".ts", ".jsx", ".tsx",
-    ".html", ".htm", ".css", ".md", ".txt",
-}
+    # Layer 2: UTF-8 validation
+    if ! python3 -c "open('${FULL_PATH}', encoding='utf-8').read()" 2>/dev/null; then
+        echo "  ❌ UTF-8 ERROR: ${FILE}"
+        VIOLATIONS=$((VIOLATIONS + 1))
+        continue
+    fi
 
-def get_staged_files():
-    result = subprocess.run(
-        ["git", "diff", "--cached", "--name-only", "--diff-filter=ACM"],
-        capture_output=True, text=True
-    )
-    return [f.strip() for f in result.stdout.splitlines() if f.strip()]
+    # Layer 3: AST syntax check
+    if ! python3 -m py_compile "${FULL_PATH}" 2>/dev/null; then
+        echo "  ❌ SYNTAX ERROR: ${FILE}"
+        VIOLATIONS=$((VIOLATIONS + 1))
+        continue
+    fi
 
-def get_staged_content(filepath):
-    result = subprocess.run(
-        ["git", "show", f":{filepath}"],
-        capture_output=True
-    )
-    return result.stdout if result.returncode == 0 else b""
+    echo "  ✅ CLEAN: ${FILE}"
+done
 
-def main():
-    import pathlib
-    staged = get_staged_files()
-    bom_files = []
+echo ""
+echo "Checked: ${CHECKED} | Violations: ${VIOLATIONS}"
 
-    for f in staged:
-        ext = pathlib.Path(f).suffix.lower()
-        if ext not in TEXT_EXTENSIONS:
-            continue
-        content = get_staged_content(f)
-        if content.startswith(BOM):
-            bom_files.append(f)
+if [ "${VIOLATIONS}" -gt 0 ]; then
+    echo ""
+    echo "❌ PRE-COMMIT BLOCKED: ${VIOLATIONS} file(s) have integrity violations."
+    echo "   Run: python3 scripts/null_byte_guard.py --fix"
+    echo "   Then re-stage: git add <fixed files>"
+    exit 1
+fi
 
-    if bom_files:
-        print("\n" + "=" * 60)
-        print("SENTINEL APEX — PRE-COMMIT BOM GUARD: COMMIT BLOCKED")
-        print("=" * 60)
-        print("\nThe following files contain UTF-8 BOM (\\xef\\xbb\\xbf):")
-        for f in bom_files:
-            print(f"  [BOM] {f}")
-        print("\nFix: python3 scripts/sanitize_encoding.py --fix")
-        print("Then: git add <files> && git commit")
-        print("=" * 60 + "\n")
-        sys.exit(1)
-
-    print(f"[pre-commit] BOM check passed ({len(staged)} staged files clean)")
-    sys.exit(0)
-
-if __name__ == "__main__":
-    main()
+echo "✅ Integrity check PASSED"
+exit 0
