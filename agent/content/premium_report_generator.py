@@ -362,6 +362,13 @@ class PremiumReportGenerator:
         Generate a premium 2500+ word threat intelligence report
         following the CYBERDUDEBIVASH 16-SECTION TEMPLATE.
         """
+        # v166.4 P0 FIX: initialize sections_html BEFORE the Campaign Graph block
+        # so appending to it never raises "name 'sections_html' is not defined".
+        # Previously sections_html = [] was at line ~1121 (after CVE routing gate),
+        # but campaign_graph_intel block at line ~415 already appended to it → NameError
+        # on every item that had campaign_graph_intel data, crashing report generation.
+        sections_html = []
+
         # ── Campaign Memory Graph Intelligence Block ──────────────────────────
         if campaign_graph_intel and campaign_graph_intel.get("status") == "ENRICHED":
             _cn  = campaign_graph_intel.get("graph_nodes", 0)

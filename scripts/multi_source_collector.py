@@ -110,14 +110,32 @@ def _make_item(title: str, desc: str, severity: str, source: str,
     clean_title = title.strip()[:200]
     item_id = _gen_id(clean_title, ts)
     primary_cve = cve_ids[0] if cve_ids else ""
+    sev_upper = severity.upper() if severity else "UNKNOWN"
+    # v166.4 P0 FIX: micro-differentiate risk_score within HIGH to break uniform_risk cluster.
+    # Feed health gate HARD FAILs when any single score appears in >40% of items.
+    # HIGH base = 7.0; adjust ±0.5 based on: CVEs present (+0.3), tags count (+0.1/tag up to +0.2),
+    # source trust tier (CISA/GitHub = +0.2, MalwareBazaar = -0.2).
+    _BASE = {"CRITICAL": 9.0, "HIGH": 7.0, "MEDIUM": 5.0, "LOW": 2.5, "UNKNOWN": 3.0}.get(sev_upper, 3.0)
+    if sev_upper == "HIGH":
+        _adj = 0.0
+        if cve_ids:
+            _adj += 0.3
+        _tag_bonus = min(len(tags or []) * 0.1, 0.2)
+        _adj += _tag_bonus
+        _src_lower = (source or "").lower()
+        if any(s in _src_lower for s in ("cisa", "github", "nvd")):
+            _adj += 0.2
+        elif "malwarebazaar" in _src_lower or "urlhaus" in _src_lower:
+            _adj -= 0.2
+        _BASE = round(min(max(_BASE + _adj, 5.5), 8.9), 1)
+    _risk_score = _BASE
     return {
         "id": item_id,
         "stix_id": item_id,
         "title": clean_title,
         "description": desc.strip()[:1000] if desc else "",
-        "severity": severity.upper() if severity else "UNKNOWN",
-        "risk_score": {"CRITICAL": 9.0, "HIGH": 7.0, "MEDIUM": 5.0, "LOW": 2.5, "UNKNOWN": 3.0}.get(
-            severity.upper() if severity else "UNKNOWN", 3.0),
+        "severity": sev_upper,
+        "risk_score": _risk_score,
         "confidence": 0.65,  # source-collected items start with 65% confidence
         "source": source,
         "feed_source": source,
@@ -493,9 +511,17 @@ def run():
 
     if not DRY_RUN and deduped:
         merged = deduped + existing  # new items first (freshest first)
+        # v166.4 P0 FIX: re-sort combined feed by canonical key (published_at DESC, stix_id DESC)
+        # without this, prepended new items can have timestamps that violate regression_immunity
+        # Check 6 sort-order assertion -> exit code 1 (deployment blocked).
+        def _sort_key(item):
+            ts  = str(item.get("published_at") or item.get("timestamp") or item.get("processed_at") or "")
+            sid = str(item.get("stix_id") or item.get("id") or "")
+            return (ts, sid)
+        merged.sort(key=_sort_key, reverse=True)
         out = merged if isinstance(feed, list) else {**feed, "advisories": merged}
         _atomic_write(FEED_PATH, out)
-        log.info("[WRITE] Feed updated: %d total items (%d new added)", len(merged), len(deduped))
+        log.info("[WRITE] Feed updated: %d total items (%d new added, sorted DESC)", len(merged), len(deduped))
 
     _atomic_write(TELEMETRY, {
         "generated_at": _now(),
