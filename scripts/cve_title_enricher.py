@@ -123,7 +123,19 @@ def _infer_vuln_type_from_item(item: dict) -> str:
 def _build_fallback_title(cve_id: str, item: dict) -> str:
     severity = str(item.get("severity") or "").upper().strip()
     sev_pfx  = SEVERITY_PREFIX.get(severity, "")
-    vtype    = _infer_vuln_type_from_item(item)
+    # v166.3 FIX: If description exists and is meaningful, use it directly as
+    # the title basis to avoid near-duplicate Jaccard similarity failures.
+    # "Low Security Vulnerability (CVE-2026-10121)" x 85 = Gate B HARD_FAIL.
+    raw_desc = str(item.get("description") or item.get("summary") or "").strip()
+    _cve_strip = re.compile(r"^CVE-\d{4}-\d+[\s\-:]+", re.I)
+    desc_clean = _cve_strip.sub("", raw_desc).strip()
+    if desc_clean and len(desc_clean) > 30:
+        # Build title from description: truncate at 80 chars, capitalize
+        desc_title = desc_clean[:80].rstrip(",. -")
+        if sev_pfx:
+            return f"{sev_pfx}: {desc_title} ({cve_id})"
+        return f"{desc_title} ({cve_id})"
+    vtype = _infer_vuln_type_from_item(item)
 
     kev_val = str(item.get("kev") or item.get("cisa_kev") or item.get("KEV") or "").upper()
     kev_tag = " -- Actively Exploited" if kev_val in ("YES","TRUE","1") else ""

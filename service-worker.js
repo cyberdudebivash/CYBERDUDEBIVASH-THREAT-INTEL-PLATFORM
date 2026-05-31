@@ -30,13 +30,13 @@ const STATIC_ASSETS = [
 
 // ── Install: cache static assets, activate immediately ──
 self.addEventListener('install', event => {
-    console.log('[SW v174] Installing:', CACHE_VERSION);
+    console.log('[SW v175] Installing:', CACHE_VERSION);
     // Skip waiting immediately — no old SW holdout
     self.skipWaiting();
     event.waitUntil(
         caches.open(CACHE_NAME).then(cache => {
             return cache.addAll(STATIC_ASSETS).catch(err => {
-                console.warn('[SW v174] Pre-cache failed (non-fatal):', err);
+                console.warn('[SW v175] Pre-cache failed (non-fatal):', err);
             });
         })
     );
@@ -44,14 +44,14 @@ self.addEventListener('install', event => {
 
 // ── Activate: purge ALL stale sentinel-apex-v* caches ──
 self.addEventListener('activate', event => {
-    console.log('[SW v174] Activating:', CACHE_VERSION);
+    console.log('[SW v175] Activating:', CACHE_VERSION);
     event.waitUntil(
         caches.keys().then(keys => {
             return Promise.all(
                 keys
                     .filter(key => key.startsWith('sentinel-apex-') && key !== CACHE_NAME)
                     .map(key => {
-                        console.log('[SW v174] Purging stale cache:', key);
+                        console.log('[SW v175] Purging stale cache:', key);
                         return caches.delete(key);
                     })
             );
@@ -73,7 +73,7 @@ self.addEventListener('activate', event => {
 // ── Message handler: SKIP_WAITING + version query support ──
 self.addEventListener('message', event => {
     if (event.data && event.data.type === 'SKIP_WAITING') {
-        console.log('[SW v174] SKIP_WAITING received — forcing activation');
+        console.log('[SW v175] SKIP_WAITING received — forcing activation');
         self.skipWaiting();
     }
     if (event.data && event.data.type === 'GET_VERSION') {
