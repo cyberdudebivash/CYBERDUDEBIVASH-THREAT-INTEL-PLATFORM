@@ -926,83 +926,57 @@ def run_all_gates(items: List[Dict], mode: str) -> int:
         ("B — Entropy Gate",                  EntropyGate().check(items)),
         ("C — Feed Diversity Validator",   FeedDiversityValidator().check(items)),
         ("D — KEV Health Gate",               KevHealthGate().check(items)),
-        ("E — Runtime Integrity Baseline",    RuntimeIntegrityBaseline().check(items, telemetry)),
+        ("E — Runtime Integrity Baseline",    RuntimeIntegrityBaseline().check()),
         ("F — Advisory Authenticity Scoring", AuthenticityScorer().check(items)),
-        ("G — Manifest Mutation Validator",   ManifestMutationValidator().check(items, manifest)),
+        ("G — Manifest Mutation Validator",   ManifestMutationValidator().check(items)),
         ("H — Synthetic Flood Circuit Breaker", SyntheticFloodCircuitBreaker().check(items)),
     ]
-    return gates, telemetry
 
-def print_gates(gates, mode):
-    import sys
-    print()
-    print(f"{'GATE':<50} {'STATUS'}")
-    print("-" * 60)
-    findings_all = []
-    hard_fails = 0
-    for name, (fail, findings) in gates:
+    report_rows = []
+    for gate_name, (fail, findings) in gates:
         status = "HARD_FAIL" if fail else "PASS"
-        icon = "  ✗ " if fail else "  ✓ "
-        print(f"  {icon} {name:<43} {status}")
         if fail:
-            hard_fails += 1
-        findings_all.extend(findings)
-    print()
-    print("DETAILED FINDINGS:")
-    print("-" * 60)
-    for f in findings_all:
-        if f.startswith("[A]") or f.startswith("[B]") or f.startswith("[C]") or f.startswith("[D]"):
-            log.info("  %s", f)
-        else:
-            if "WARN" in f or "warn" in f:
-                log.warning("  %s", f)
-            else:
-                log.info("  %s", f)
-    return hard_fails > 0
+            any_hard_fail = True
+        report_rows.append((gate_name, status, findings))
+        all_findings.extend(findings)
 
-def run_all_gates(items, mode="check"):
-    if not items:
-        log.warning("[IIG] Empty feed — all gates skipped")
+    # Print summary table
+    log.info("")
+    log.info("%-45s  %s", "GATE", "STATUS")
+    log.info("-" * 60)
+    for gate_name, status, _ in report_rows:
+        flag = "\u2717" if status == "HARD_FAIL" else "\u2713"
+        log.info("  %s  %-43s  %s", flag, gate_name, status)
+
+    log.info("")
+    log.info("DETAILED FINDINGS:")
+    log.info("-" * 60)
+    for finding in all_findings:
+        level = logging.ERROR if "HARD_FAIL" in finding or "CIRCUIT BREAKER" in finding else \
+                logging.WARNING if "WARN" in finding else logging.INFO
+        log.log(level, "  %s", finding)
+
+    log.info("")
+    overall = "HARD_FAIL" if any_hard_fail else "PASS"
+    log.info("=" * 70)
+    log.info("INTELLIGENCE INTEGRITY GATE RESULT: %s", overall)
+    log.info("=" * 70)
+
+    if mode == "report":
         return 0
-    gates, telemetry = _build_gates(items)
-    manifest = _load_manifest()
-    hard_fail_overall = print_gates(gates, mode)
-    result = "HARD_FAIL" if hard_fail_overall else "PASS"
-    log.info("INTELLIGENCE INTEGRITY GATE RESULT: %s", result)
-
-    if mode in ("report", "apply"):
-        report_path = REPO_ROOT / "data" / "quality" / "integrity_gate_report.json"
-        report_path.parent.mkdir(parents=True, exist_ok=True)
-        report = {
-            "generated_at": datetime.now(timezone.utc).isoformat(),
-            "result": result,
-            "items_checked": len(items),
-            "gates": [
-                {"name": name, "passed": not fail, "findings": findings}
-                for name, (fail, findings) in gates
-            ],
-        }
-        try:
-            tmp = str(report_path) + ".tmp"
-            with open(tmp, "w", encoding="utf-8") as fh:
-                import json as _json
-                _json.dump(report, fh, indent=2, ensure_ascii=False)
-            os.replace(tmp, report_path)
-            log.info("[IIG] Report written: %s (%d bytes)", report_path, report_path.stat().st_size)
-        except Exception as e:
-            log.warning("[IIG] Report write failed (non-fatal): %s", e)
-
-    return 1 if hard_fail_overall else 0
+    return 1 if any_hard_fail else 0
 
 
-def main():
+def main() -> int:
     ap = argparse.ArgumentParser(description="SENTINEL APEX Intelligence Integrity Gate")
-    ap.add_argument("--feed",   default="", help="Path to feed JSON (default: api/feed.json)")
-    ap.add_argument("--report", action="store_true", help="Write detailed report to data/quality/")
-    ap.add_argument("--apply",  action="store_true", help="Apply fixes where possible")
+    ap.add_argument("--feed",   default="api/feed.json", help="Path to feed JSON")
+    grp = ap.add_mutually_exclusive_group()
+    grp.add_argument("--check",  action="store_true", help="Exit 1 on HARD_FAIL")
+    grp.add_argument("--report", action="store_true", help="Always exit 0")
+    grp.add_argument("--apply",  action="store_true", help="Gates + write quarantine")
     args = ap.parse_args()
 
-    feed_path = Path(args.feed) if args.feed else REPO_ROOT / "api" / "feed.json"
+    feed_path = REPO_ROOT / args.feed
     items = load_feed(feed_path)
     log.info("[IIG] Loaded %d items from %s", len(items), feed_path)
 
