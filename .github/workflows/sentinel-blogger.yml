@@ -923,6 +923,76 @@ jobs:
       # HARD FAIL: exits non-zero if any report generation fails.
       # NO || true -- pipeline stops if any report is missing.
       # -----------------------------------------------------------------------
+      # -----------------------------------------------------------------------
+      # STAGE 3.1.13 - MULTI-SOURCE INTELLIGENCE COLLECTOR (v166.3 -- GAP-002/016 FIX)
+      # Adds 6 authoritative sources: GitHub Advisories, CISA Alerts, URLhaus,
+      # MalwareBazaar, BleepingComputer, AlienVault OTX.
+      # Critical fix: 95% of items were from cve.mitre.org (single free source).
+      # -----------------------------------------------------------------------
+      - name: "STAGE 3.1.13 - Multi-Source Intelligence Collector (v166.3 -- source diversity)"
+        timeout-minutes: 8
+        continue-on-error: true
+        env:
+          FEED_PATH: "api/feed.json"
+          MAX_PER_SOURCE: "15"
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          OTX_API_KEY: ${{ secrets.OTX_API_KEY || '' }}
+        run: python3 scripts/multi_source_collector.py 2>&1
+
+      # -----------------------------------------------------------------------
+      # STAGE 3.1.14 - OSV.dev CVSS FALLBACK ENRICHER (v166.3 -- GAP-003 FIX)
+      # CVSS was 100% absent because NVD API fails in CI. OSV.dev + GitHub
+      # Advisory DB provide CVSS without rate-limit or IP blocking issues.
+      # -----------------------------------------------------------------------
+      - name: "STAGE 3.1.14 - OSV.dev CVSS Fallback Enricher (v166.3 -- GAP-003)"
+        timeout-minutes: 10
+        continue-on-error: true
+        env:
+          FEED_PATH: "api/feed.json"
+          MAX_ENRICH: "150"
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+        run: python3 scripts/osv_cvss_enricher.py 2>&1
+
+      # -----------------------------------------------------------------------
+      # STAGE 3.1.15 - EXPLOIT MATURITY ENRICHER (v166.3 -- GAP-010 FIX)
+      # Checks PoC-in-GitHub index + Metasploit module list for each CVE.
+      # Adds exploit_maturity: WEAPONIZED/FUNCTIONAL/POC/UNPROVEN to all items.
+      # -----------------------------------------------------------------------
+      - name: "STAGE 3.1.15 - Exploit Maturity Enricher (v166.3 -- GAP-010)"
+        timeout-minutes: 10
+        continue-on-error: true
+        env:
+          FEED_PATH: "api/feed.json"
+          MAX_ENRICH: "200"
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+        run: python3 scripts/exploit_maturity_enricher.py 2>&1
+
+      # -----------------------------------------------------------------------
+      # STAGE 3.1.16 - ACTOR INTELLIGENCE ENGINE (v166.3 -- GAP-004/025 FIX)
+      # Maps internal CDB actor codes to industry-standard names (APT28, FIN7...).
+      # Adds actor profiles: aliases, sectors, TTPs, malware, country, MITRE ID.
+      # Saves full actor profile library to data/intelligence/actor_profiles.json.
+      # -----------------------------------------------------------------------
+      - name: "STAGE 3.1.16 - Actor Intelligence Engine (v166.3 -- GAP-004/025)"
+        timeout-minutes: 5
+        continue-on-error: true
+        env:
+          FEED_PATH: "api/feed.json"
+        run: python3 scripts/actor_intelligence_engine.py 2>&1
+
+      # -----------------------------------------------------------------------
+      # STAGE 3.1.17 - INTELLIGENCE QUALITY SCORER (v166.3 -- GAP-011/020/021)
+      # Computes multi-factor confidence score (source + enrichment + attribution
+      # + corroboration). Maps ATT&CK technique names to T-IDs. Applies age decay.
+      # -----------------------------------------------------------------------
+      - name: "STAGE 3.1.17 - Intelligence Quality Scorer (v166.3 -- GAP-011/020/021)"
+        timeout-minutes: 5
+        continue-on-error: true
+        env:
+          FEED_PATH: "api/feed.json"
+        run: python3 scripts/intelligence_quality_scorer.py 2>&1
+
+
       - name: "STAGE 3.2 - Generate Internal HTML Reports (report_generator)"
         timeout-minutes: 20
         run: python3 scripts/report_generator.py --manifest data/stix/feed_manifest.json
