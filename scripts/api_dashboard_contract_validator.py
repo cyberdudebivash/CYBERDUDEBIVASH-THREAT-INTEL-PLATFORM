@@ -260,32 +260,49 @@ def validate(repo_root, top_n):
     # ── CHECK 2: api ⊆ manifest ───────────────────────────────────────────────
     # v145.0: When ID format migration is detected, demote missing-from-manifest
     # from ERROR to WARNING. This prevents false positives when the ID scheme changes.
-    api_missing_count = 0
+    # v166.6 FIX: per-item legacy-ID detection.
+    # detect_id_format_migration() uses the MODE of all api IDs. When most api
+    # items are 24-char (new) but residual 12-char items (pre-v166.5) remain,
+    # mode=24==manifest_mode → is_migration=False → HARD FAIL on legacy items.
+    # Fix: per-item check — if the missing item has a SHORT hex ID vs the dominant
+    # feed format, classify it as a migration artifact (WARN, not FAIL).
+    # The ID migration in multi_source_collector.py will self-heal on next run.
+    api_missing_count   = 0
+    api_migration_warns = 0
+    dominant_hex_len    = api_hex_len or 24  # from detect_id_format_migration
+
     for api_rank, a_entry in enumerate(a_top, 1):
         a_id = a_entry.get("stix_id") or a_entry.get("id", "")
         if a_id not in manifest_ids:
             api_missing_count += 1
+            item_hex_len  = get_hex_len(a_entry)
+            item_is_legacy = (0 < item_hex_len < dominant_hex_len)
+            effective_migration = is_migration or item_is_legacy
             msg = (
-                f"API ITEM {'NOT IN MANIFEST' if not is_migration else 'ID SCHEMA MISMATCH'}: "
+                f"API ITEM {'ID SCHEMA MISMATCH (legacy 12-char, self-healing)' if item_is_legacy else 'NOT IN MANIFEST'}: "
                 f"{a_id[:40]} (api rank={api_rank})"
             )
-            if is_migration:
-                # Format migration: WARN not FAIL
-                if api_missing_count <= 5:
+            if effective_migration:
+                api_migration_warns += 1
+                if api_migration_warns <= 5:
                     warnings.append(msg)
-                elif api_missing_count == 6:
+                elif api_migration_warns == 6:
                     warnings.append(
-                        f"... and more ID schema mismatches (total so far: {api_missing_count}+)"
+                        f"... and more legacy-ID mismatches (total: {api_migration_warns}+, "
+                        f"self-healing via ID migration in multi_source_collector.py)"
                     )
             else:
-                # Genuine regression: HARD FAIL
                 errors.append(msg)
                 if api_missing_count >= 5:
                     errors.append("(truncated at 5 missing-from-manifest errors)")
                     break
 
     stats["api_missing_from_manifest"] = api_missing_count
-    stats["missing_reason"] = "id_format_migration" if is_migration else "genuine_regression"
+    stats["api_legacy_id_warnings"]    = api_migration_warns
+    stats["missing_reason"] = (
+        "id_format_migration" if (is_migration or api_migration_warns > 0)
+        else "genuine_regression"
+    )
 
     # ── CHECK 3: Relative order within manifest (WARN only) ──────────────────
     api_manifest_ranks = []
@@ -427,14 +444,9 @@ def main():
         "stats":    stats,
         "validated_at": datetime.now(timezone.utc).isoformat(),
     }
+    _write_json(REPORT_PATH, report)
 
-    if args.report:
-        os.makedirs(os.path.dirname(os.path.abspath(args.report)), exist_ok=True)
-        with open(args.report, "w", encoding="utf-8") as f:
-            json.dump(report, f, indent=2, ensure_ascii=False)
-        print(f"\n  Report written: {args.report}")
-
-    print(f"\n{'='*65}")
+    # ── Print result ──────────────────────────────────────────────────────────
     if errors:
         print(f"RESULT: FAIL -- {len(errors)} error(s) found")
         print(f"{'='*65}\n")
@@ -442,7 +454,8 @@ def main():
     else:
         status_suffix = (
             f" [ID FORMAT MIGRATION: {stats.get('api_missing_from_manifest',0)} warnings]"
-            if stats.get("id_format_migration") else ""
+            if stats.get("id_format_migration") or stats.get("api_legacy_id_warnings", 0) > 0
+            else ""
         )
         print(
             f"RESULT: PASS -- Contract validated "

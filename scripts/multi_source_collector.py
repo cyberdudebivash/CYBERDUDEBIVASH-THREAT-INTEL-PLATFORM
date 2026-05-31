@@ -81,7 +81,8 @@ def _now() -> str:
 
 
 def _gen_id(title: str, ts: str) -> str:
-    h = hashlib.md5(f"{title}{ts}".encode()).hexdigest()[:12]
+    # v166.6: 24-char hex ID matches main pipeline format; prevents Stage 3.91 contract failure
+    h = hashlib.md5(f"{title}{ts}".encode()).hexdigest()[:24]
     return f"intel--{h}"
 
 
@@ -454,7 +455,12 @@ def _dedup_against_feed(new_items: list, existing: list) -> list:
 def _atomic_write(path: Path, data) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp = path.with_suffix(".tmp")
-    tmp.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
+    # v166.6: binary mode + fsync prevents cross-OS null-byte padding (Linux→NTFS mount)
+    encoded = json.dumps(data, indent=2, ensure_ascii=False).encode("utf-8")
+    with open(tmp, "wb") as f:
+        f.write(encoded)
+        f.flush()
+        os.fsync(f.fileno())
     os.replace(tmp, path)
 
 
@@ -473,6 +479,27 @@ def run():
 
     existing = feed if isinstance(feed, list) else feed.get("advisories", feed.get("items", []))
     log.info("Existing feed: %d items", len(existing))
+
+    # v166.6 P0 FIX: ID Format Migration — upgrade 12-char IDs to 24-char.
+    # Root cause of Stage 3.91 HARD FAIL: items collected before v166.5 have
+    # 12-char hex IDs (hexdigest[:12]). These persist in api/feed.json and rank
+    # in the top-N checked by api_dashboard_contract_validator.py. The manifest
+    # always has 24-char IDs → contract validator reports "genuine_regression".
+    # Fix: regenerate IDs for any existing item using current _gen_id() (24-char).
+    migrated = 0
+    for item in existing:
+        sid = item.get("stix_id") or item.get("id") or ""
+        hex_part = sid.replace("intel--", "")
+        if len(hex_part) == 12:  # old format
+            title = item.get("title", "")
+            ts    = (item.get("published_at") or item.get("timestamp") or
+                     item.get("processed_at") or _now())
+            new_id = _gen_id(title, ts)  # now produces 24-char hex
+            item["id"]      = new_id
+            item["stix_id"] = new_id
+            migrated += 1
+    if migrated:
+        log.info("[ID-MIGRATION] Upgraded %d item(s) from 12-char to 24-char IDs", migrated)
 
     # Collect from all sources
     all_new = []
@@ -511,9 +538,7 @@ def run():
 
     if not DRY_RUN and deduped:
         merged = deduped + existing  # new items first (freshest first)
-        # v166.4 P0 FIX: re-sort combined feed by canonical key (published_at DESC, stix_id DESC)
-        # without this, prepended new items can have timestamps that violate regression_immunity
-        # Check 6 sort-order assertion -> exit code 1 (deployment blocked).
+        # v166.4: sort combined feed by canonical key (published_at DESC, stix_id DESC)
         def _sort_key(item):
             ts  = str(item.get("published_at") or item.get("timestamp") or item.get("processed_at") or "")
             sid = str(item.get("stix_id") or item.get("id") or "")
