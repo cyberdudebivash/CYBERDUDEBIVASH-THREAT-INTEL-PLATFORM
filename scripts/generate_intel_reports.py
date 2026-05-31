@@ -2483,7 +2483,7 @@ def main(argv=None) -> int:
     save_manifest(data)
 
     # v152.1: enforce --fail-on-zero flag (was parsed but never checked)
-    if args.fail_on_zero and written_count and written_count == 0:
+    if args.fail_on_zero and written == 0:
         return 1
 
     return 0  # success; written count is not an exit code
