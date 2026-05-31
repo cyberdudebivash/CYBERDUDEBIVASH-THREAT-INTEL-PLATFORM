@@ -222,16 +222,21 @@ def compute_correlations(data: list) -> dict:
             cve_groups[cve.upper()].append(idx)
 
     # ── Level 2: Named actor anchors (confidence: 80) ──
+    # v166.4 FIX: guard actor_tag — field can be a dict (from enrichers), str() prevents
+    # "dict object has no attribute upper" crash in correlation phase.
     actor_groups = defaultdict(list)
     for idx, item in enumerate(data):
-        actor = item.get("actor_tag", "")
-        if actor and actor != "UNC-CDB-99":
+        actor_raw = item.get("actor_tag", "")
+        actor = str(actor_raw) if actor_raw else ""
+        if actor and actor not in ("UNC-CDB-99", "None", "{}"):
             actor_groups[actor].append(idx)
 
     # ── Level 3: TTP anchors — same threat_type + rare tactic fingerprint (confidence: 65) ──
     ttp_groups = defaultdict(list)
     for idx, item in enumerate(data):
-        tt = item.get("threat_type", "General")
+        tt_raw = item.get("threat_type", "General")
+        # v166.4 FIX: threat_type can be a dict from enricher output — coerce to str
+        tt = str(tt_raw) if tt_raw else "General"
         if tt == "Vulnerability":
             continue
         rare = tuple(sorted(set(item.get("mitre_tactics", [])) - common_tactics))
@@ -716,12 +721,15 @@ def openclaw_enrich(data: list) -> dict:
             # ══════════════════════════════════════════════
             # NEW: Behavioral Fingerprint (v74.3.1)
             # ══════════════════════════════════════════════
+            # v166.4 FIX: coerce all fp_components to str — fields like exploit_probability
+            # can be dicts from enrichers, causing "sequence item 0: expected str instance,
+            # dict found" crash in join() → Phase 8 Summarization failure.
             fp_components = [
-                tt,
-                item.get("exploit_probability", "Low"),
+                str(tt),
+                str(item.get("exploit_probability", "Low")),
                 str(len(tactics)),
-                "+".join(sorted(phases_hit)) if phases_hit else "none",
-                "+".join(sorted(attack_surface)),
+                "+".join(str(p) for p in sorted(phases_hit)) if phases_hit else "none",
+                "+".join(str(s) for s in sorted(attack_surface)),
             ]
             fingerprint = hashlib.md5("|".join(fp_components).encode(), usedforsecurity=False).hexdigest()[:12]
 
