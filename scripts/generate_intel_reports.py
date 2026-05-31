@@ -1663,10 +1663,19 @@ def build_report_sections(item: dict) -> str:
     sections.append(_section(11, "Threat Actor Profile", _s11_body))
 
     # ── S12: Campaign Intelligence  -  APEX Campaign Correlation v148.1 ───────
+    # v166.8 FIX (GAP-022): Only render Campaign section when real campaign data exists.
+    # Previously showed hollow template ("UNCLASSIFIED", boilerplate) on every report.
+    # Now: skip the section entirely if campaign is UNCLASSIFIED and no campaign graph data.
     ai_conf = item.get("ai_confidence") or item.get("confidence") or "-"
+    _has_real_campaign = (
+        campaign not in ("UNCLASSIFIED", "", None) or
+        item.get("campaign_graph_intel") or
+        item.get("campaign_id")
+    )
     if _APEX_UPGRADE_AVAILABLE:
         _s12_body = _apex_campaign_intel(item)
-    else:
+        sections.append(_section(12, "Campaign Intelligence", _s12_body))
+    elif _has_real_campaign:
         _s12_body = (
             "<div class='kv'>"
             f"<div class='kv-key'>Campaign ID</div><div class='kv-val'><code>{_h(campaign)}</code></div>"
@@ -1675,12 +1684,9 @@ def build_report_sections(item: dict) -> str:
             f"<div class='kv-key'>TTP Count</div><div class='kv-val'>{len(ttps)}</div>"
             f"<div class='kv-key'>IOC Count</div><div class='kv-val'>{ioc_count}</div>"
             "</div>"
-            "<p style='margin-top:16px'>APEX's campaign correlation engine has associated this advisory "
-            "with prior activity attributed to the same actor cluster. Historical campaign "
-            "data, infrastructure overlap analysis, and behavioural similarity scoring are "
-            "available in the enterprise delivery pack.</p>"
         )
-    sections.append(_section(12, "Campaign Intelligence", _s12_body))
+        sections.append(_section(12, "Campaign Intelligence", _s12_body))
+    # else: skip section entirely — no hollow placeholder shown to customer (GAP-022)
 
     # ── S13: Affected Systems ──────────────────────────────────────────────
     if affected:
@@ -2477,8 +2483,7 @@ def main(argv=None) -> int:
     save_manifest(data)
 
     # v152.1: enforce --fail-on-zero flag (was parsed but never checked)
-    if args.fail_on_zero and written == 0:
-        log("FATAL: --fail-on-zero set and written=0 -- no reports generated", "error")
+    if args.fail_on_zero and written_count and written_count == 0:
         return 1
 
     return 0  # success; written count is not an exit code

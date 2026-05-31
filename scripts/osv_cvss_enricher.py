@@ -207,7 +207,17 @@ def run():
     log.info("Loaded %d items", len(items))
 
     # Identify items needing CVSS enrichment
-    needs_cvss = [it for it in items if not it.get("cvss_score") and not it.get("cvss")]
+    # v166.8 FIX (GAP-003): also enrich items with cvss_score=0 or cvss_score=0.0
+    # (previously they were skipped as "already enriched" — 0 is not a valid CVSS score)
+    def _needs_cvss(it: dict) -> bool:
+        v = it.get("cvss_score")
+        if v is None:
+            return True
+        try:
+            return float(v) == 0.0
+        except (TypeError, ValueError):
+            return not v
+    needs_cvss = [it for it in items if _needs_cvss(it)]
     needs_epss = [it for it in items if not it.get("epss_score") and not it.get("epss")]
 
     log.info("Items needing CVSS: %d | EPSS: %d", len(needs_cvss), len(needs_epss))
@@ -316,12 +326,11 @@ def run():
 
         _atomic_write(TELEMETRY, {
             "generated_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
-            "total_input": len(items),
-            "cvss_enriched": total_enriched,
-            "cvss_osv": cvss_osv,
-            "cvss_github": cvss_gh,
-            "cvss_estimated": cvss_est,
+            "total__enriched": total_enriched,
             "epss_applied": epss_applied,
+            "items_total": len(items),
+            "needs_cvss": len(needs_cvss),
+            "needs_epss": len(needs_epss),
         })
 
     return {"cvss_enriched": total_enriched, "epss_applied": epss_applied}

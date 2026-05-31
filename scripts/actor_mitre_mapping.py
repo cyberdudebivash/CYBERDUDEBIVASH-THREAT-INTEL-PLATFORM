@@ -262,6 +262,78 @@ CDB_ACTOR_MAP: Dict[str, Dict[str, Any]] = {
         "description":  "Advanced persistent threat activity cluster not yet formally attributed. "
                         "Characteristics suggest state-sponsored origin.",
     },
+    # ── v166.8 ADDITIONS: Actor codes seen in live feed (GAP-025) ──────────────
+    "CDB-UNATTR-PHI": {
+        "mitre_id":     None,
+        "name":         "Unattributed Phishing Cluster",
+        "aliases":      ["Generic Phishing Actor"],
+        "country":      "UNKNOWN",
+        "motivation":   "credential-theft",
+        "description":  "Phishing campaign activity not attributed to a named threat actor. "
+                        "Targeting credential harvesting via social engineering.",
+    },
+    "CDB-APT-22": {
+        "mitre_id":     "G0099",
+        "name":         "APT-22 / Sea Turtle",
+        "mandiant_id":  "APT22",
+        "crowdstrike":  "Cosmic Lynx",
+        "aliases":      ["Sea Turtle", "Teal Kurma", "Marbled Dust", "UNC1326", "Silicon"],
+        "country":      "TUR",
+        "motivation":   "espionage",
+        "sectors":      ["Government", "Telecommunications", "Military"],
+        "description":  "Turkish state-aligned DNS hijacking threat actor. Known for targeting "
+                        "DNS infrastructure to redirect traffic and intercept credentials.",
+    },
+    "CDB-FIN-09": {
+        "mitre_id":     None,
+        "name":         "FIN9 / Lazarus Financial Cluster",
+        "mandiant_id":  "FIN9",
+        "crowdstrike":  "Velvet Chollima",
+        "aliases":      ["FIN9", "Lazarus Group Financial"],
+        "country":      "PRK",
+        "motivation":   "financial-crime",
+        "sectors":      ["Financial Services", "Cryptocurrency", "Technology"],
+        "description":  "DPRK-nexus financially motivated threat cluster. Conducts "
+                        "cryptocurrency theft, supply chain compromise, and financial fraud.",
+    },
+    "CDB-FIN-11": {
+        "mitre_id":     None,
+        "name":         "FIN11 / CL0P Ransomware Group",
+        "mandiant_id":  "FIN11",
+        "crowdstrike":  "Graceful Spider",
+        "aliases":      ["FIN11", "TA505", "GRACEFUL SPIDER", "CL0P", "Clop"],
+        "country":      "UKR",
+        "motivation":   "financial-crime",
+        "sectors":      ["Healthcare", "Finance", "Retail", "Manufacturing"],
+        "description":  "Prolific financially motivated threat actor known for large-scale "
+                        "phishing campaigns and deployment of CL0P ransomware. Responsible for "
+                        "MOVEit Transfer mass exploitation campaign (2023).",
+    },
+    "CDB-RAN-04": {
+        "mitre_id":     None,
+        "name":         "LockBit Ransomware Group",
+        "aliases":      ["LockBit", "LockBit 2.0", "LockBit 3.0", "ABCD Ransomware"],
+        "country":      "UNKNOWN",
+        "motivation":   "financial-crime",
+        "sectors":      ["Critical Infrastructure", "Healthcare", "Government", "Finance"],
+        "description":  "Most prolific ransomware-as-a-service operation globally. "
+                        "Operates affiliate program. Infrastructure disrupted by Operation Cronos (2024) "
+                        "but resumed operations. Known for double-extortion tactics.",
+    },
+    "CDB-IR-02": {
+        "mitre_id":     "G0059",
+        "name":         "Magic Hound / APT35",
+        "mandiant_id":  "APT35",
+        "crowdstrike":  "Charming Kitten",
+        "aliases":      ["Magic Hound", "APT35", "Charming Kitten", "Phosphorus",
+                         "Mint Sandstorm", "TA453", "NewsBeef", "ITG18"],
+        "country":      "IRN",
+        "motivation":   "espionage",
+        "sectors":      ["Government", "Defense", "Think Tanks", "Academia", "Journalists"],
+        "description":  "Iranian IRGC-affiliated APT. Conducts long-running phishing and "
+                        "credential-harvesting campaigns targeting dissidents, journalists, "
+                        "and Western government officials.",
+    },
 }
 
 # ── Alias reverse-lookup (builds automatically from the map above) ────────────
