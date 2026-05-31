@@ -444,9 +444,18 @@ def main():
         "stats":    stats,
         "validated_at": datetime.now(timezone.utc).isoformat(),
     }
-    _write_json(REPORT_PATH, report)
+    # Write JSON report if --report path was given (optional)
+    if args.report:
+        try:
+            os.makedirs(os.path.dirname(os.path.abspath(args.report)), exist_ok=True)
+            with open(args.report, "w", encoding="utf-8") as f:
+                json.dump(report, f, indent=2, ensure_ascii=False)
+            print(f"\n  Report written: {args.report}")
+        except Exception as _re:
+            print(f"  [WARN] Report write failed (non-fatal): {_re}")
 
     # ── Print result ──────────────────────────────────────────────────────────
+    print(f"\n{'='*65}")
     if errors:
         print(f"RESULT: FAIL -- {len(errors)} error(s) found")
         print(f"{'='*65}\n")
