@@ -941,15 +941,23 @@ def generate_rules_for_advisory(item: Dict) -> Dict[str, str]:
         "RANSOMWARE":      sigma_ransomware,
         "PHISHING":        sigma_phishing,
     }
+    # v166.0 BUG-06/BUG-14 FIX: when no CVE ID, use a sanitised advisory slug
+    # (not a truncated article title) to avoid broken sigma/yara/kql rules.
+    if not cve_id:
+        _safe = re.sub(r'[^A-Za-z0-9]+', '-', title.strip())[:30].strip('-')
+        _safe_id = f"CDB-ADVISORY-{_safe.upper()}" if _safe else "CDB-ADVISORY"
+    else:
+        _safe_id = cve_id
+
     generator = sigma_dispatch.get(vuln_class, sigma_generic_cve)
     if vuln_class == "GENERIC_CVE" or vuln_class == "ZERO_DAY":
-        sigma = generator(cve_id or title[:20], title, ioc_values, ttp_ids, vuln_class)
+        sigma = generator(_safe_id, title, ioc_values, ttp_ids, vuln_class)
     else:
-        sigma = generator(cve_id or title[:20], title, ioc_values, ttp_ids)
+        sigma = generator(_safe_id, title, ioc_values, ttp_ids)
 
-    kql   = kql_rules(cve_id or title[:20], title, ioc_values, ttp_ids, vuln_class)
-    spl   = spl_rules(cve_id or title[:20], title, ioc_values, ttp_ids, vuln_class)
-    yara  = yara_rule(cve_id or title[:20], title, ioc_values, ttp_ids, vuln_class)
+    kql   = kql_rules(_safe_id, title, ioc_values, ttp_ids, vuln_class)
+    spl   = spl_rules(_safe_id, title, ioc_values, ttp_ids, vuln_class)
+    yara  = yara_rule(_safe_id, title, ioc_values, ttp_ids, vuln_class)
 
     return {
         "sigma":      sigma,

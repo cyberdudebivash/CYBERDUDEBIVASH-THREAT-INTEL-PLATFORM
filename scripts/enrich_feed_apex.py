@@ -16,39 +16,57 @@ REPO = Path(__file__).parent.parent
 FEED_PATH = REPO / "api" / "feed.json"
 
 # ─── SOC Priority Computation ─────────────────────────────────────────────────
+# v166.0 FIX (BUG-10): prefer apex_risk over risk_score; normalise EPSS.
 def compute_soc_priority(item):
-    risk  = float(item.get("risk_score") or 0)
-    kev   = bool(item.get("kev_present"))
-    epss  = item.get("epss_score")
-    cvss  = item.get("cvss_score")
-    epss_f = float(epss) if epss is not None else 0.0
-    cvss_f = float(cvss) if cvss is not None else 0.0
+    risk  = float(item.get("apex_risk") or item.get("risk_score") or 0)
+    kev   = bool(item.get("kev_present") or item.get("kev") or item.get("cisa_kev"))
+    apex_label = (item.get("apex_risk_label") or "").upper()
+    epss_raw = item.get("epss_score") or item.get("epss") or 0
+    try:
+        epss_f = float(str(epss_raw).rstrip("%"))
+        if 0 < epss_f <= 1.0:
+            epss_f *= 100.0
+    except (ValueError, TypeError):
+        epss_f = 0.0
+    cvss_raw = item.get("cvss_score") or item.get("cvss") or item.get("base_score") or 0
+    try:
+        cvss_f = float(cvss_raw)
+    except (ValueError, TypeError):
+        cvss_f = 0.0
 
-    if kev or epss_f >= 70:
+    if kev or epss_f >= 50 or apex_label == "CRITICAL" or risk >= 9:
         return "P1"
-    if cvss_f >= 9 or risk >= 9:
+    if cvss_f >= 9 or risk >= 7.5 or apex_label == "HIGH":
         return "P1"
-    if cvss_f >= 7 or risk >= 7.5:
+    if cvss_f >= 7 or risk >= 6.0:
         return "P2"
-    if cvss_f >= 5 or risk >= 5:
+    if cvss_f >= 5 or risk >= 4.0 or epss_f >= 20:
         return "P3"
     return "P4"
 
 # ─── Predictive Risk Score (0-10) ─────────────────────────────────────────────
+# v166.0 FIX (BUG-11): use apex_risk as baseline; normalise EPSS.
 def compute_predictive_risk(item):
-    risk  = float(item.get("risk_score") or 0)
-    kev   = bool(item.get("kev_present"))
-    epss  = item.get("epss_score")
-    cvss  = item.get("cvss_score")
+    risk  = float(item.get("apex_risk") or item.get("risk_score") or 0)
+    kev   = bool(item.get("kev_present") or item.get("kev") or item.get("cisa_kev"))
     ttps  = item.get("ttps") or item.get("mitre_tactics") or []
     ioc_c = int(item.get("ioc_count") or 0)
-
-    epss_f = float(epss) if epss is not None else 0.0
-    cvss_f = float(cvss) if cvss is not None else 0.0
+    cvss_raw = item.get("cvss_score") or item.get("cvss") or item.get("base_score")
+    try:
+        cvss_f = float(cvss_raw) if cvss_raw is not None else 0.0
+    except (ValueError, TypeError):
+        cvss_f = 0.0
+    epss_raw = item.get("epss_score") or item.get("epss")
+    try:
+        epss_f = float(str(epss_raw).rstrip("%")) if epss_raw is not None else 0.0
+        if epss_f > 1.0:
+            epss_f /= 100.0
+    except (ValueError, TypeError):
+        epss_f = 0.0
 
     score = risk * 0.40
     if cvss_f:   score += (cvss_f / 10) * 2.5
-    if epss_f:   score += (epss_f / 100) * 2.0
+    if epss_f:   score += epss_f * 2.0
     if kev:      score += 3.0
     if len(ttps) >= 5: score += 0.5
     if ioc_c >= 5:     score += 0.3
@@ -56,28 +74,45 @@ def compute_predictive_risk(item):
     return round(min(10.0, max(0.0, score)), 1)
 
 # ─── AI Confidence (0-100) ────────────────────────────────────────────────────
+# v166.0 FIX (BUG-09): previous algorithm started from conf_f*0.6=0 when no
+# prior confidence_score, giving 7-14% for CISA KEV CVSS-9 advisories.
 def compute_ai_confidence(item):
-    raw_conf = item.get("confidence_score") or item.get("confidence") or 0
-    conf_f = float(raw_conf) if raw_conf else 0.0
-    if conf_f <= 1.0 and conf_f > 0:
-        conf_f *= 100
-
-    ttps = item.get("ttps") or item.get("mitre_tactics") or []
+    ttps  = item.get("ttps") or item.get("mitre_tactics") or []
     ioc_c = int(item.get("ioc_count") or 0)
-    kev = bool(item.get("kev_present"))
+    kev   = bool(item.get("kev_present") or item.get("kev") or item.get("cisa_kev"))
+    cvss_raw = item.get("cvss_score") or item.get("cvss") or item.get("base_score")
+    epss_raw = item.get("epss_score") or item.get("epss")
+    try:
+        cvss_f = float(cvss_raw) if cvss_raw is not None else 0.0
+    except (ValueError, TypeError):
+        cvss_f = 0.0
+    try:
+        epss_f = float(str(epss_raw).rstrip("%")) if epss_raw is not None else 0.0
+        if epss_f > 1.0:
+            epss_f /= 100.0
+    except (ValueError, TypeError):
+        epss_f = 0.0
 
-    base = conf_f * 0.6
-    if len(ttps) >= 5: base += 20
-    elif len(ttps) >= 3: base += 12
-    elif len(ttps) >= 1: base += 6
-    if ioc_c >= 10: base += 15
-    elif ioc_c >= 3: base += 8
-    elif ioc_c >= 1: base += 4
-    if kev: base += 15
-    if item.get("cvss_score") is not None: base += 8
-    if item.get("epss_score") is not None: base += 5
+    base = 20.0  # Meaningful starting baseline (not 0)
+    if kev:
+        base += 35
+        if cvss_f >= 9.0:   base += 15
+        elif cvss_f >= 7.0: base += 10
+    if cvss_f >= 9.0:    base += 15
+    elif cvss_f >= 7.0:  base += 10
+    elif cvss_f >= 4.0:  base += 5
+    if epss_f >= 0.70:   base += 12
+    elif epss_f >= 0.40: base += 8
+    elif epss_f >= 0.10: base += 5
+    elif epss_f > 0.0:   base += 2
+    if len(ttps) >= 5:   base += 10
+    elif len(ttps) >= 3: base += 6
+    elif len(ttps) >= 1: base += 3
+    if ioc_c >= 10:  base += 8
+    elif ioc_c >= 3: base += 5
+    elif ioc_c >= 1: base += 2
 
-    return int(min(95, max(5, round(base))))
+    return int(min(97, max(10, round(base))))
 
 # ─── TTP Density (0-10) ───────────────────────────────────────────────────────
 def compute_ttp_density(item):
@@ -86,10 +121,11 @@ def compute_ttp_density(item):
     return round(min(10.0, len(ttps) * 1.5), 1)
 
 # ─── Threat Level ─────────────────────────────────────────────────────────────
+# v166.0 FIX (BUG-11): prefer apex_risk_label/apex_risk.
 def compute_threat_level(item):
-    sev = (item.get("severity") or "MEDIUM").upper()
-    kev = bool(item.get("kev_present"))
-    risk = float(item.get("risk_score") or 0)
+    sev  = (item.get("apex_risk_label") or item.get("severity") or "MEDIUM").upper()
+    kev  = bool(item.get("kev_present") or item.get("kev") or item.get("cisa_kev"))
+    risk = float(item.get("apex_risk") or item.get("risk_score") or 0)
 
     if kev or risk >= 9:
         return "CRITICAL_SURGE"
@@ -263,6 +299,9 @@ def enrich_item(item):
     ai_summary   = compute_ai_summary(item, soc_priority, pred_risk, ai_conf, ttp_density, category)
     ioc_paywall  = compute_ioc_paywall(item)
 
+    # v166.0 FIX (BUG-08): use full severity label, not [:1] slice.
+    _sev_label = (item.get("apex_risk_label") or item.get("severity") or "UNKNOWN").upper()
+
     # Inject apex_ai (always - this is the missing field)
     item["apex_ai"] = {
         "soc_priority":   soc_priority,
@@ -274,13 +313,13 @@ def enrich_item(item):
         "ai_summary":      ai_summary,
         "recommended_action": rec_action,
         "campaign_id":     campaign_id,
-        "actor_fingerprint": f"{item.get('actor_tag','UNK')}::{(item.get('severity','?'))[:1]}::{item.get('ioc_count',0)}::{len(item.get('ttps') or item.get('mitre_tactics') or [])}",
+        "actor_fingerprint": f"{item.get('actor_tag','UNK')}::{_sev_label[0]}::{item.get('ioc_count',0)}::{len(item.get('ttps') or item.get('mitre_tactics') or [])}",
         "behavioral_tags": _compute_behavioral_tags(item),
         "kill_chain":      _compute_kill_chain(item),
         "paywall": {
             "message": "Upgrade to Pro for full kill chain analysis, actor attribution, and 30-day threat forecast.",
             "upgrade_url": "/upgrade.html?plan=pro",
-            "urgency": f"[SOC {soc_priority}] {category} - {(item.get('severity','MEDIUM')).upper()} severity threat detected." if soc_priority in ("P1","P2") else None,
+            "urgency": f"[SOC {soc_priority}] {category} - {_sev_label} severity threat detected." if soc_priority in ("P1","P2") else None,
         } if soc_priority in ("P1","P2","P3") else None,
     }
 
@@ -289,13 +328,13 @@ def enrich_item(item):
     item["apex"] = {
         "priority":        existing_apex.get("priority") or soc_priority,
         "threat_level":    existing_apex.get("threat_level") or threat_level,
-        # v143.5 FIX: treat "UNKNOWN" as absent — prefer freshly computed category
         "threat_category": (existing_apex.get("threat_category")
                             if existing_apex.get("threat_category") not in ("", "UNKNOWN", None)
                             else category),
         "predictive_score": existing_apex.get("predictive_score") if existing_apex.get("predictive_score") is not None else pred_risk,
         "campaign_id":     existing_apex.get("campaign_id") if existing_apex.get("campaign_id") not in ("PRO_REQUIRED", None, "") else campaign_id,
-        "confidence":      existing_apex.get("confidence") or round(ai_conf / 100, 2),
+        # v166.0 FIX (BUG-15): store as 0-100 integer, not 0-1 fraction
+        "confidence":      existing_apex.get("confidence") or float(ai_conf),
         "behavioral_tags": existing_apex.get("behavioral_tags") or [],
         "ai_summary":      existing_apex.get("ai_summary") or ai_summary,
         "recommended_action": existing_apex.get("recommended_action") or rec_action,
@@ -305,12 +344,10 @@ def enrich_item(item):
     if ioc_paywall:
         item["ioc_paywall"] = ioc_paywall
 
-    # Ensure confidence_score is always set (many RSS items had None)
-    if not item.get("confidence_score") and not item.get("confidence"):
-        ttps = item.get("ttps") or item.get("mitre_tactics") or []
-        base_conf = 20 + len(ttps) * 5 + (20 if item.get("ioc_count", 0) > 0 else 0)
-        item["confidence_score"] = round(min(90, base_conf), 1)
-        item["confidence"] = item["confidence_score"]
+    # v166.0 FIX: always stamp confidence_score from compute_ai_confidence
+    if not item.get("confidence_score") or float(item.get("confidence_score") or 0) < 10.0:
+        item["confidence_score"] = float(ai_conf)
+        item["confidence"] = float(ai_conf)
 
     # C5/C6 root-cause fix: ensure ioc_confidence and ioc_threat_level are
     # always populated when ioc_count > 0.  The run_pipeline.py auto-fix
