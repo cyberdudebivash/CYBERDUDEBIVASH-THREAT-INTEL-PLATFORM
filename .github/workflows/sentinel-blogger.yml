@@ -2521,51 +2521,6 @@ jobs:
       # All stages: continue-on-error: true (non-blocking, zero regression)
       # =====================================================================
 
-      - name: "Stage 5.9.1 — Manifest URL Repair (P1-004)"
+      - name: "Stage 5.9.1 - Manifest URL Repair (P1-004)"
         continue-on-error: true
-        run: |
-          echo "=== STAGE 5.9.1: Manifest URL Repair (P1-004) ==="
-          python3 - <<'INNEREOF'
-import json, os, pathlib, sys
-
-REPO = pathlib.Path(os.environ.get("GITHUB_WORKSPACE", "."))
-MANIFEST = REPO / "data" / "stix" / "feed_manifest.json"
-FEED     = REPO / "api" / "feed.json"
-
-if not MANIFEST.exists():
-    print("[5.9.1] feed_manifest.json not found -- skipping")
-    sys.exit(0)
-
-url_map = {}
-if FEED.exists():
-    try:
-        raw_feed = json.loads(FEED.read_text(encoding="utf-8"))
-        items = raw_feed if isinstance(raw_feed, list) else raw_feed.get("advisories", raw_feed.get("items", []))
-        for item in items:
-            for key in ("stix_id", "id"):
-                v = item.get(key, "")
-                if v and item.get("report_url"):
-                    url_map[v] = item["report_url"]
-    except Exception as e:
-        print(f"[5.9.1] WARN: {e}")
-
-raw_m = json.loads(MANIFEST.read_text(encoding="utf-8"))
-m_list = raw_m if isinstance(raw_m, list) else raw_m.get("advisories", raw_m.get("items", []))
-
-repaired = 0
-for item in m_list:
-    if not item.get("report_url"):
-        for key in ("stix_id", "id"):
-            v = item.get(key, "")
-            if v and url_map.get(v):
-                item["report_url"] = url_map[v]
-                repaired += 1
-                break
-
-print(f"[5.9.1] Repaired report_url on {repaired} manifest items")
-tmp = MANIFEST.with_suffix(".tmp591")
-tmp.write_text(json.dumps(m_list if isinstance(raw_m, list) else {**{k: v for k, v in raw_m.items() if not isinstance(v, list)}, **{"advisories": m_list}}, ensure_ascii=False, indent=2), encoding="utf-8")
-tmp.replace(MANIFEST)
-print("[5.9.1] COMPLETE")
-INNEREOF
-          echo "=== STAGE 5.9.1 DONE ==="
+        run: python3 scripts/manifest_url_repair.py
