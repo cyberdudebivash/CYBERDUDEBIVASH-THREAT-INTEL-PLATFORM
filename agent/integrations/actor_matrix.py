@@ -282,6 +282,52 @@ class ActorMatrix:
                 "confidence_score": "Medium",
                 "keywords": ["beast gang", "beast ransomware"],
             },
+
+            # v166.2 NEW: Actors identified in live feed 2026
+            "CDB-NK-02": {
+                "alias": ["Famous Chollima", "Sapphire Sleet", "UNC4899"],
+                "origin": "North Korea (RGB / Lazarus sub-cluster)",
+                "motivation": "Cryptocurrency Theft / IT Worker Fraud / Supply Chain",
+                "tooling": ["Compromised npm/Packagist packages", "Fake IT contractor identities"],
+                "confidence_score": "High (CrowdStrike / Google GTIG)",
+                "keywords": ["famous chollima", "sapphire sleet", "php packagist supply chain",
+                             "compromised packagist", "north korea it worker"],
+            },
+            "CDB-RU-03": {
+                "alias": ["GreyVibe", "GREYVIBE"],
+                "origin": "Russia (GRU-affiliated, suspected)",
+                "motivation": "Ukraine Targeting / AI-assisted Cyber Operations",
+                "tooling": ["ChatGPT-assisted lures", "Gemini-assisted spearphishing", "PowerShell payloads"],
+                "confidence_score": "Medium (Microsoft Threat Intelligence 2026)",
+                "keywords": ["greyvibe", "grey vibe", "russia ai cyberattack", "gru ai",
+                             "russia chatgpt", "russia gemini"],
+            },
+            "CDB-CN-03": {
+                "alias": ["Cloud Atlas", "Clean Ursa", "Inception"],
+                "origin": "Unknown / China-nexus (suspected)",
+                "motivation": "Espionage - Government, Aerospace, Energy",
+                "tooling": ["PowerShower", "VBShower", "Phishing DOC macros"],
+                "confidence_score": "Medium-High (Kaspersky / ESET Attributed)",
+                "keywords": ["cloud atlas", "clean ursa", "inception group", "powershower",
+                             "cloud atlas apt"],
+            },
+            "CDB-TA-02": {
+                "alias": ["DriveSurge", "Drive Surge"],
+                "origin": "Unknown / Eastern Europe (suspected)",
+                "motivation": "Initial Access Brokerage / Drive-by Compromise",
+                "tooling": ["ClickFix lures", "Fake browser update pages", "SocGholish-style droppers"],
+                "confidence_score": "Medium (APEX Tracking - Emerging Threat)",
+                "keywords": ["drivesurge", "drive surge", "clickfix", "fake browser update",
+                             "fake update"],
+            },
+            "CDB-HACK-01": {
+                "alias": ["BlackFile", "BlackFile Vishing Group"],
+                "origin": "Eastern Europe / CIS (suspected)",
+                "motivation": "Extortion via Vishing / BEC / Data Theft",
+                "tooling": ["Telephone social engineering", "Fake IT support calls", "AnyDesk RAT"],
+                "confidence_score": "Medium (Mandiant / Google Attributed 2026)",
+                "keywords": ["blackfile", "black file", "vishing extortion", "vishing operation"],
+            },
         }
 
     def correlate_actor(self, corpus, iocs):

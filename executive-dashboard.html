@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SENTINEL APEX — Executive Intelligence Dashboard</title>
+<style>
+  :root {
+    --bg:#080c14; --card:#0d1421; --border:#1e2d3d; --accent:#00d4ff;
+    --accent2:#7c3aed; --red:#ef4444; --orange:#f97316; --yellow:#eab308;
+    --green:#22c55e; --white:#f1f5f9; --muted:#64748b; --mono:'Courier New',monospace;
+  }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { background:var(--bg); color:var(--white); font-family:'Inter',system-ui,sans-serif; min-height:100vh; }
+  .top-bar { background:var(--card); border-bottom:1px solid var(--border); padding:12px 24px;
+    display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px; }
+  .brand { font-size:12px; font-weight:900; letter-spacing:2px; color:var(--accent); font-family:var(--mono); }
+  .view-tabs { display:flex; gap:4px; }
+  .tab { padding:6px 16px; border-radius:4px; font-size:11px; font-weight:700; letter-spacing:1px;
+    cursor:pointer; border:1px solid var(--border); background:transparent; color:var(--muted);
+    transition:all .2s; text-transform:uppercase; }
+  .tab.active { background:var(--accent); color:#000; border-color:var(--accent); }
+  .tab:hover:not(.active) { border-color:var(--accent); color:var(--accent); }
+  .view { display:none; padding:24px; }
+  .view.active { display:block; }
+  .section-title { font-size:11px; font-weight:700; letter-spacing:2px; color:var(--muted);
+    text-transform:uppercase; margin-bottom:16px; display:flex; align-items:center; gap:8px; }
+  .section-title::after { content:''; flex:1; height:1px; background:var(--border); }
+  .grid-4 { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:12px; margin-bottom:24px; }
+  .grid-3 { display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:16px; margin-bottom:24px; }
+  .grid-2 { display:grid; grid-template-columns:repeat(auto-fit,minmax(400px,1fr)); gap:16px; margin-bottom:24px; }
+  .kpi-card { background:var(--card); border:1px solid var(--border); border-radius:8px; padding:20px 16px; }
+  .kpi-val { font-size:32px; font-weight:900; font-family:var(--mono); line-height:1; }
+  .kpi-label { font-size:11px; color:var(--muted); letter-spacing:1px; text-transform:uppercase; margin-top:6px; }
+  .kpi-delta { font-size:11px; margin-top:4px; }
+  .critical { color:var(--red); } .high { color:var(--orange); }
+  .medium { color:var(--yellow); } .low { color:var(--green); }
+  .accent { color:var(--accent); }
+  .card { background:var(--card); border:1px solid var(--border); border-radius:8px; padding:20px; }
+  .card-title { font-size:12px; font-weight:700; letter-spacing:1px; text-transform:uppercase;
+    color:var(--muted); margin-bottom:16px; }
+  .threat-row { display:flex; align-items:center; padding:10px 0; border-bottom:1px solid var(--border);
+    gap:12px; font-size:13px; }
+  .threat-row:last-child { border-bottom:none; }
+  .sev-badge { font-size:9px; font-weight:900; padding:3px 8px; border-radius:100px;
+    letter-spacing:1px; min-width:64px; text-align:center; }
+  .sev-CRITICAL { background:rgba(239,68,68,.2); color:var(--red); border:1px solid var(--red); }
+  .sev-HIGH { background:rgba(249,115,22,.2); color:var(--orange); border:1px solid var(--orange); }
+  .sev-MEDIUM { background:rgba(234,179,8,.2); color:var(--yellow); border:1px solid var(--yellow); }
+  .sev-LOW { background:rgba(34,197,94,.15); color:var(--green); border:1px solid var(--green); }
+  .threat-title { flex:1; color:var(--white); line-height:1.3; }
+  .risk-bar-wrap { width:80px; }
+  .risk-bar-bg { height:4px; background:var(--border); border-radius:2px; overflow:hidden; }
+  .risk-bar-fill { height:4px; border-radius:2px; transition:width .3s; }
+  .exec-table { width:100%; border-collapse:collapse; font-size:13px; }
+  .exec-table th { text-align:left; padding:8px 12px; font-size:10px; font-weight:700;
+    letter-spacing:1px; text-transform:uppercase; color:var(--muted);
+    border-bottom:2px solid var(--border); }
+  .exec-table td { padding:10px 12px; border-bottom:1px solid var(--border); vertical-align:top; }
+  .exec-table tr:last-child td { border-bottom:none; }
+  .action-required { background:rgba(239,68,68,.08); border-left:3px solid var(--red);
+    padding:12px 16px; border-radius:0 6px 6px 0; margin-bottom:8px; font-size:13px; }
+  .action-recommended { background:rgba(249,115,22,.08); border-left:3px solid var(--orange);
+    padding:12px 16px; border-radius:0 6px 6px 0; margin-bottom:8px; font-size:13px; }
+  .action-monitor { background:rgba(234,179,8,.08); border-left:3px solid var(--yellow);
+    padding:12px 16px; border-radius:0 6px 6px 0; margin-bottom:8px; font-size:13px; }
+  .actor-chip { display:inline-block; background:rgba(0,212,255,.1); border:1px solid rgba(0,212,255,.3);
+    color:var(--accent); font-size:10px; font-weight:700; padding:2px 8px; border-radius:100px;
+    font-family:var(--mono); margin:2px; }
+  .kev-badge { background:rgba(239,68,68,.2); color:var(--red); border:1px solid var(--red);
+    font-size:9px; font-weight:900; padding:2px 6px; border-radius:4px; margin-left:6px; }
+  .attck-cell { display:inline-block; background:var(--card); border:1px solid var(--border);
+    font-size:10px; font-family:var(--mono); padding:3px 8px; border-radius:4px; margin:2px;
+    color:var(--accent2); }
+  .metric-row { display:flex; justify-content:space-between; padding:8px 0;
+    border-bottom:1px solid var(--border); font-size:13px; }
+  .metric-row:last-child { border-bottom:none; }
+  .metric-label { color:var(--muted); }
+  .metric-val { font-weight:700; font-family:var(--mono); }
+  .prog-bar { height:6px; background:var(--border); border-radius:3px; overflow:hidden; margin-top:4px; }
+  .prog-fill { height:100%; border-radius:3px; }
+  .loading { text-align:center; color:var(--muted); padding:40px; font-size:13px; font-family:var(--mono); }
+  .live-dot { display:inline-block; width:6px; height:6px; border-radius:50%;
+    background:var(--green); margin-right:6px; animation:pulse 1.5s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.3} }
+  .status-bar { background:var(--card); border-top:1px solid var(--border); padding:8px 24px;
+    font-size:11px; color:var(--muted); font-family:var(--mono); display:flex; gap:24px;
+    flex-wrap:wrap; }
+  @media(max-width:600px){ .grid-4,.grid-3,.grid-2{ grid-template-columns:1fr; } }
+</style>
+</head>
+<body>
+
+<div class="top-bar">
+  <div>
+    <div class="brand">CYBERDUDEBIVASH® SENTINEL APEX</div>
+    <div style="font-size:10px;color:var(--muted);margin-top:2px;font-family:var(--mono);">EXECUTIVE INTELLIGENCE DASHBOARD · v166.2</div>
+  </div>
+  <div class="view-tabs">
+    <button class="tab active" onclick="switchView('board')">BOARD</button>
+    <button class="tab" onclick="switchView('ciso')">CISO</button>
+    <button class="tab" onclick="switchView('soc')">SOC</button>
+    <button class="tab" onclick="switchView('cti')">CTI</button>
+  </div>
+  <div style="font-size:11px;color:var(--muted);font-family:var(--mono);">
+    <span class="live-dot"></span>LIVE · <span id="last-sync">Loading…</span>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════ BOARD VIEW -->
+<div id="view-board" class="view active">
+  <div class="section-title">Business Risk Summary — Board of Directors</div>
+  <div class="grid-4" id="board-kpis">
+    <div class="kpi-card"><div class="kpi-val critical" id="b-critical">—</div><div class="kpi-label">Critical Threats</div><div class="kpi-delta" style="color:var(--red)">Requires immediate board attention</div></div>
+    <div class="kpi-card"><div class="kpi-val high" id="b-high">—</div><div class="kpi-label">High Severity</div><div class="kpi-delta" style="color:var(--orange)">Patch within 7 days</div></div>
+    <div class="kpi-card"><div class="kpi-val accent" id="b-kev">—</div><div class="kpi-label">KEV Active Exploits</div><div class="kpi-delta" style="color:var(--accent)">CISA Confirmed</div></div>
+    <div class="kpi-card"><div class="kpi-val" id="b-risk">—</div><div class="kpi-label">Avg Risk Score</div><div class="kpi-delta" style="color:var(--muted)">Platform-wide / 10</div></div>
+  </div>
+
+  <div class="section-title">Board Action Register</div>
+  <div class="card" id="board-actions">
+    <div class="loading">Loading intelligence feed…</div>
+  </div>
+
+  <div class="grid-2" style="margin-top:24px">
+    <div class="card">
+      <div class="card-title">Financial Exposure Estimate</div>
+      <div class="metric-row"><span class="metric-label">Critical threat avg breach cost</span><span class="metric-val critical">$4.9M – $9.8M</span></div>
+      <div class="metric-row"><span class="metric-label">Active KEV exploit exposure</span><span class="metric-val high" id="b-kev-exposure">Calculating…</span></div>
+      <div class="metric-row"><span class="metric-label">Regulatory notification risk</span><span class="metric-val" id="b-reg-risk">Calculating…</span></div>
+      <div class="metric-row"><span class="metric-label">Recommended insurance review</span><span class="metric-val" id="b-ins">On KEV listing</span></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Threat Landscape Summary</div>
+      <table class="exec-table" id="board-landscape">
+        <tr><th>Category</th><th>Count</th><th>Trend</th></tr>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════ CISO VIEW -->
+<div id="view-ciso" class="view">
+  <div class="section-title">CISO Operational Intelligence Briefing</div>
+  <div class="grid-4" id="ciso-kpis">
+    <div class="kpi-card"><div class="kpi-val" id="c-total">—</div><div class="kpi-label">Total Advisories</div></div>
+    <div class="kpi-card"><div class="kpi-val accent" id="c-iocs">—</div><div class="kpi-label">Active IOCs</div></div>
+    <div class="kpi-card"><div class="kpi-val" id="c-actors">—</div><div class="kpi-label">Tracked Actors</div></div>
+    <div class="kpi-card"><div class="kpi-val" id="c-ttps">—</div><div class="kpi-label">Unique TTPs</div></div>
+  </div>
+  <div class="section-title">Top Threats — CISO Priority</div>
+  <div class="card"><div id="ciso-threats"><div class="loading">Loading…</div></div></div>
+  <div class="grid-2" style="margin-top:24px">
+    <div class="card">
+      <div class="card-title">ATT&amp;CK Technique Exposure</div>
+      <div id="ciso-attck"><div class="loading">Loading…</div></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Intelligence Source Breakdown</div>
+      <div id="ciso-sources"><div class="loading">Loading…</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════ SOC VIEW -->
+<div id="view-soc" class="view">
+  <div class="section-title">SOC Analyst Live Feed</div>
+  <div class="grid-4" id="soc-kpis">
+    <div class="kpi-card"><div class="kpi-val critical" id="s-critical">—</div><div class="kpi-label">Critical</div></div>
+    <div class="kpi-card"><div class="kpi-val high" id="s-high">—</div><div class="kpi-label">High</div></div>
+    <div class="kpi-card"><div class="kpi-val medium" id="s-med">—</div><div class="kpi-label">Medium</div></div>
+    <div class="kpi-card"><div class="kpi-val low" id="s-low">—</div><div class="kpi-label">Low</div></div>
+  </div>
+  <div class="section-title">Actionable Intelligence Queue</div>
+  <div class="card"><div id="soc-feed"><div class="loading">Loading…</div></div></div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════ CTI VIEW -->
+<div id="view-cti" class="view">
+  <div class="section-title">Threat Actor Intelligence</div>
+  <div id="cti-actors"><div class="loading">Loading actor database…</div></div>
+</div>
+
+<div class="status-bar">
+  <span><span class="live-dot"></span>API: ONLINE</span>
+  <span id="status-count">Loading…</span>
+  <span id="status-ts">—</span>
+  <span>STIX 2.1 | MITRE ATT&CK v16 | CISA KEV</span>
+  <span style="margin-left:auto"><a href="https://intel.cyberdudebivash.com" style="color:var(--accent);text-decoration:none;">intel.cyberdudebivash.com</a></span>
+</div>
+
+<script>
+const API = 'https://intel.cyberdudebivash.com/api/v1/intel/latest.json';
+const ACTORS_API = 'https://intel.cyberdudebivash.com/api/apex_v2/actors.json';
+
+function switchView(name) {
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('view-' + name).classList.add('active');
+  document.querySelectorAll('.tab').forEach(t => { if(t.textContent===name.toUpperCase()) t.classList.add('active'); });
+}
+
+function sevColor(sev) {
+  return {CRITICAL:'var(--red)',HIGH:'var(--orange)',MEDIUM:'var(--yellow)',LOW:'var(--green)'}[sev]||'var(--muted)';
+}
+function riskColor(r) {
+  return r>=9?'var(--red)':r>=7?'var(--orange)':r>=4?'var(--yellow)':'var(--green)';
+}
+
+async function loadDashboard() {
+  let items=[], actors=[];
+  try {
+    const r = await fetch(API);
+    const d = await r.json();
+    items = d.items || [];
+    document.getElementById('last-sync').textContent = new Date().toLocaleTimeString();
+    document.getElementById('status-ts').textContent = 'Synced: ' + new Date().toLocaleTimeString();
+    document.getElementById('status-count').textContent = items.length + ' advisories loaded';
+  } catch(e) {
+    document.getElementById('last-sync').textContent = 'Feed unavailable';
+    return;
+  }
+  try {
+    const r2 = await fetch(ACTORS_API);
+    const d2 = await r2.json();
+    actors = d2.actors || [];
+  } catch(e) {}
+
+  // Count by severity
+  const counts = {CRITICAL:0,HIGH:0,MEDIUM:0,LOW:0};
+  let totalRisk=0, kevCount=0, totalIocs=0;
+  const ttpFreq={}, srcFreq={}, actorFreq={};
+
+  items.forEach(it => {
+    const sev=(it.severity||'LOW').toUpperCase();
+    counts[sev]=(counts[sev]||0)+1;
+    totalRisk+=parseFloat(it.risk_score||0);
+    if(it.kev_present||it.kev||(it.tags||[]).includes('kev')) kevCount++;
+    totalIocs+=parseInt(it.ioc_count||0);
+    (it.tags||[]).forEach(t=>{ if(t.match(/^T\d{4}/)){ttpFreq[t]=(ttpFreq[t]||0)+1;} });
+    const src=it.source||'Unknown'; srcFreq[src]=(srcFreq[src]||0)+1;
+    const act=it.actor_id||''; if(act&&act!=='UNATTRIBUTED') actorFreq[act]=(actorFreq[act]||0)+1;
+  });
+  const avgRisk = items.length ? (totalRisk/items.length).toFixed(1) : '—';
+
+  // ── BOARD VIEW ────────────────────────────────────────────────────────────
+  document.getElementById('b-critical').textContent = counts.CRITICAL||0;
+  document.getElementById('b-high').textContent = counts.HIGH||0;
+  document.getElementById('b-kev').textContent = kevCount;
+  document.getElementById('b-risk').textContent = avgRisk;
+  document.getElementById('b-kev-exposure').textContent = kevCount>0 ? '$1M–$4M per active exploit' : 'Low — no confirmed exploitation';
+  document.getElementById('b-reg-risk').textContent = counts.CRITICAL>0||counts.HIGH>0 ? 'GDPR/DPDP notification review advised' : 'Conditional assessment';
+
+  const critItems = items.filter(i=>i.severity==='CRITICAL').sort((a,b)=>b.risk_score-a.risk_score).slice(0,5);
+  const highItems = items.filter(i=>i.severity==='HIGH').sort((a,b)=>b.risk_score-a.risk_score).slice(0,3);
+  let actionsHtml = '';
+  critItems.forEach(it => {
+    actionsHtml += `<div class="action-required">
+      <strong style="color:var(--red)">⚠ IMMEDIATE ACTION — CRITICAL</strong>
+      <span class="kev-badge" style="${it.kev_present?'':'display:none'}>KEV</span>
+      <div style="margin-top:6px;font-size:13px;">${it.title}</div>
+      <div style="margin-top:4px;font-size:11px;color:var(--muted);">Risk: ${it.risk_score}/10 · Source: ${it.source||'—'} · <a href="https://intel.cyberdudebivash.com/reports/${it.stix_id||it.id}" target="_blank" style="color:var(--accent)">View Report →</a></div>
+    </div>`;
+  });
+  highItems.forEach(it => {
+    actionsHtml += `<div class="action-recommended">
+      <strong style="color:var(--orange)">▲ HIGH PRIORITY — Patch within 7 days</strong>
+      <div style="margin-top:6px;font-size:13px;">${it.title}</div>
+      <div style="margin-top:4px;font-size:11px;color:var(--muted);">Risk: ${it.risk_score}/10 · <a href="https://intel.cyberdudebivash.com/reports/${it.stix_id||it.id}" target="_blank" style="color:var(--accent)">View Report →</a></div>
+    </div>`;
+  });
+  if(!actionsHtml) actionsHtml = '<div style="color:var(--green);padding:16px;text-align:center;">No critical or high severity items in current feed window.</div>';
+  document.getElementById('board-actions').innerHTML = actionsHtml;
+
+  const threatTypes = {Vulnerability:0,Ransomware:0,'Threat Intel':0,'Supply Chain':0,'Data Breach':0,Other:0};
+  items.forEach(it=>{ const t=it.threat_type||'Other'; if(threatTypes[t]!==undefined) threatTypes[t]++; else threatTypes['Other']++; });
+  let landHtml='';
+  Object.entries(threatTypes).sort((a,b)=>b[1]-a[1]).forEach(([k,v])=>{
+    if(v>0) landHtml+=`<tr><td style="padding:8px 12px;">${k}</td><td style="padding:8px 12px;font-family:var(--mono);color:var(--accent);">${v}</td><td style="padding:8px 12px;">
+    <div class="prog-bar" style="width:100px"><div class="prog-fill" style="width:${Math.round(v/items.length*100)}%;background:var(--accent);"></div></div></td></tr>`;
+  });
+  document.getElementById('board-landscape').innerHTML = '<tr><th>Category</th><th>Count</th><th>Share</th></tr>' + landHtml;
+
+  // ── CISO VIEW ────────────────────────────────────────────────────────────
+  document.getElementById('c-total').textContent = items.length;
+  document.getElementById('c-iocs').textContent = totalIocs.toLocaleString();
+  document.getElementById('c-actors').textContent = Object.keys(actorFreq).length;
+  document.getElementById('c-ttps').textContent = Object.keys(ttpFreq).length;
+
+  const cisoItems = items.filter(i=>['CRITICAL','HIGH'].includes(i.severity)).sort((a,b)=>b.risk_score-a.risk_score).slice(0,10);
+  let cisoHtml = '';
+  cisoItems.forEach(it=>{
+    const r=parseFloat(it.risk_score||0);
+    cisoHtml+=`<div class="threat-row">
+      <span class="sev-badge sev-${it.severity}">${it.severity}</span>
+      <div class="threat-title">
+        <a href="https://intel.cyberdudebivash.com/reports/${it.stix_id||it.id}" target="_blank" style="color:var(--white);text-decoration:none;">${it.title}</a>
+        <div style="font-size:11px;color:var(--muted);margin-top:2px;">${it.source||'—'} · ${(it.published_at||'').slice(0,10)}</div>
+      </div>
+      <div class="risk-bar-wrap">
+        <div style="font-family:var(--mono);font-size:11px;color:${riskColor(r)};text-align:right;">${r}/10</div>
+        <div class="risk-bar-bg"><div class="risk-bar-fill" style="width:${r*10}%;background:${riskColor(r)};"></div></div>
+      </div>
+    </div>`;
+  });
+  document.getElementById('ciso-threats').innerHTML = cisoHtml || '<div class="loading">No critical/high advisories.</div>';
+
+  // ATT&CK top techniques
+  const topTtps = Object.entries(ttpFreq).sort((a,b)=>b[1]-a[1]).slice(0,10);
+  let attckHtml='';
+  topTtps.forEach(([tid,cnt])=>{
+    attckHtml+=`<div class="metric-row"><span><span class="attck-cell">${tid}</span></span><span class="metric-val accent">${cnt}×</span></div>`;
+  });
+  document.getElementById('ciso-attck').innerHTML=attckHtml||'<div class="loading">No TTP data.</div>';
+
+  // Sources
+  let srcHtml='';
+  Object.entries(srcFreq).sort((a,b)=>b[1]-a[1]).slice(0,8).forEach(([src,cnt])=>{
+    srcHtml+=`<div class="metric-row"><span class="metric-label">${src}</span><span class="metric-val">${cnt} advisories</span></div>`;
+  });
+  document.getElementById('ciso-sources').innerHTML=srcHtml||'<div class="loading">No source data.</div>';
+
+  // ── SOC VIEW ────────────────────────────────────────────────────────────
+  document.getElementById('s-critical').textContent=counts.CRITICAL||0;
+  document.getElementById('s-high').textContent=counts.HIGH||0;
+  document.getElementById('s-med').textContent=counts.MEDIUM||0;
+  document.getElementById('s-low').textContent=counts.LOW||0;
+
+  const socItems = items.sort((a,b)=>b.risk_score-a.risk_score).slice(0,20);
+  let socHtml='';
+  socItems.forEach(it=>{
+    const r=parseFloat(it.risk_score||0);
+    const kev=it.kev_present||(it.tags||[]).includes('kev');
+    socHtml+=`<div class="threat-row">
+      <span class="sev-badge sev-${it.severity}">${it.severity}</span>
+      <div class="threat-title">
+        <a href="https://intel.cyberdudebivash.com/reports/${it.stix_id||it.id}" target="_blank" style="color:var(--white);text-decoration:none;">${it.title}</a>
+        ${kev?'<span class="kev-badge">KEV</span>':''}
+        <div style="font-size:10px;color:var(--muted);margin-top:2px;font-family:var(--mono);">
+          ${(it.tags||[]).filter(t=>t.match(/^T\d{4}/)).slice(0,4).map(t=>`<span class="attck-cell">${t}</span>`).join('')}
+          IOCs: ${it.ioc_count||0} · ${(it.published_at||'').slice(0,10)}
+        </div>
+      </div>
+      <div style="font-family:var(--mono);font-size:13px;color:${riskColor(r)};white-space:nowrap;">${r}/10</div>
+    </div>`;
+  });
+  document.getElementById('soc-feed').innerHTML=socHtml||'<div class="loading">No items.</div>';
+
+  // ── CTI VIEW ────────────────────────────────────────────────────────────
+  let ctiHtml='<div class="grid-3">';
+  actors.slice(0,9).forEach(act=>{
+    const confColor = act.attribution_confidence==='HIGH'?'var(--green)':act.attribution_confidence.includes('MEDIUM')?'var(--yellow)':'var(--muted)';
+    ctiHtml+=`<div class="card">
+      <div style="font-family:var(--mono);font-size:10px;color:var(--accent);margin-bottom:4px;">${act.id}</div>
+      <div style="font-size:14px;font-weight:700;margin-bottom:8px;">${(act.aliases||[])[0]||act.id}</div>
+      <div style="font-size:11px;color:var(--muted);margin-bottom:8px;">${(act.aliases||[]).slice(1).join(' · ')}</div>
+      <div class="metric-row"><span class="metric-label">Origin</span><span class="metric-val">${act.origin||'Unknown'}</span></div>
+      <div class="metric-row"><span class="metric-label">Motivation</span><span class="metric-val" style="font-size:12px;">${act.motivation||'—'}</span></div>
+      <div class="metric-row"><span class="metric-label">Attribution</span><span class="metric-val" style="color:${confColor};">${act.attribution_confidence||'—'}</span></div>
+      <div style="margin-top:12px;font-size:11px;color:var(--muted);">Recent campaigns: ${(act.campaigns||['—']).slice(-1)[0]}</div>
+    </div>`;
+  });
+  ctiHtml+='</div>';
+  document.getElementById('cti-actors').innerHTML=ctiHtml;
+}
+
+loadDashboard();
+setInterval(loadDashboard, 300000); // refresh every 5 min
+</script>
+</body>
+</html>

@@ -51,6 +51,25 @@ BLOCKLISTED_PATTERNS = {
     "krebs on security", "krebsonsecurity.com", "darkreading.com",
     "securityweek.com", "nvd.nist.gov", "cisa.gov", "mitre.org",
     "attack.mitre.org", "nvd.nist.gov",
+    # Microsoft/Azure AD field names scraped as fake domain IOCs (P1 FIX)
+    "initiatedby.user.userprincipalname", "initiatedby.user",
+    "initiatedby.app.displayname", "initiatedby.app",
+    "targetresources.displayname", "targetresources.type",
+    "additionaldetails.key", "additionaldetails.value",
+    "userprincipalname", "signinactivity", "onpremisessyncenabled",
+    # Python/Node package filenames — not threat IOCs (P1 FIX)
+    "py3-none-any.whl", "py3-none-any", "none-any.whl",
+    # Apache/Java artifact IDs
+    "org.apache.sshd", "org.apache.activemq", "org.apache.airflow",
+    "org.apache.solr", "org.apache.fluss",
+    # Generic vendor advisory reference patterns
+    "cve@mitre.org",
+    # Semantic version strings that match hash regex but aren't hashes
+    # Package file extensions used in advisories
+    ".tgz", ".whl", ".tar.gz", ".zip",
+    # Generic SIEM/EDR field names that appear in detection rule examples
+    "destinationhostname", "initiatingprocessfilename",
+    "devicenetworkevents", "securityalert", "timegenerated",
 }
 
 # Allowlisted generic labels that appear in descriptions but are NOT domains
@@ -211,7 +230,8 @@ def _is_valid_domain(domain: str) -> bool:
     """
     Return True only if this looks like a real, threat-relevant domain.
     Rejects: generic labels, own infrastructure, news sources, internal labels,
-             single-word tokens, pure hex strings, version strings like 4.6.6
+             single-word tokens, pure hex strings, version strings like 4.6.6,
+             Azure AD field names, package filenames, Java package paths.
     """
     lower = domain.lower()
 
@@ -219,8 +239,33 @@ def _is_valid_domain(domain: str) -> bool:
     if '.' not in lower:
         return False
 
-    # Reject if in blocklist
+    # Reject if in blocklist (exact match or substring)
     if lower in BLOCKLISTED_PATTERNS:
+        return False
+    for block in BLOCKLISTED_PATTERNS:
+        if block in lower:
+            return False
+
+    # Reject Java/Python package paths (contain multiple dots + no valid TLD structure)
+    # e.g. "org.apache.sshd", "com.example.pkg", "pygments-2.19.2-py3-none-any.whl"
+    java_pkg_re = re.compile(r'^(org|com|net|io|edu)\.[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)+$')
+    if java_pkg_re.match(lower):
+        return False
+
+    # Reject package filenames (contain version-like segments with dashes)
+    # e.g. "pygments-2.19.2-py3-none-any.whl", "uuid-9.0.1.tgz"
+    pkg_file_re = re.compile(r'^[a-z0-9\-_]+-\d+\.\d+.*\.(whl|tgz|tar\.gz|zip|egg|jar)$')
+    if pkg_file_re.match(lower):
+        return False
+
+    # Reject Azure AD / Microsoft Entra field names
+    # e.g. "initiatedby.user.userprincipalname", "targetresources.displayname"
+    azure_field_re = re.compile(
+        r'^(initiatedby|targetresources|additionaldetails|signinactivity|'
+        r'useragentdetails|devicedetail|appliedconditional|authenticationdetails|'
+        r'modifiedproperties)\.'
+    )
+    if azure_field_re.match(lower):
         return False
 
     # Reject if any part matches own infrastructure
