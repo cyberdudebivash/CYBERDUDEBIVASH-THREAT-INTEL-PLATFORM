@@ -581,6 +581,43 @@ def run():
         _atomic_write(FEED_PATH, out)
         log.info("[WRITE] Feed updated: %d total items (%d new added, sorted DESC)", len(merged), len(deduped))
 
+        # v166.10 FIX: sync new items into feed_manifest.json so Stage 3.91 contract
+        # validator finds them. Root cause of genuine_regression: multi_source items
+        # are added to api/feed.json but never written to feed_manifest.json.
+        # The manifest is the "full-history superset" — adding items is always safe.
+        manifest_path = REPO_ROOT / "data" / "stix" / "feed_manifest.json"
+        try:
+            if manifest_path.exists():
+                raw_m = json.loads(manifest_path.read_text(encoding="utf-8"))
+                m_list = raw_m if isinstance(raw_m, list) else raw_m.get("advisories", raw_m.get("items", []))
+            else:
+                raw_m = []
+                m_list = []
+            # Build set of known manifest IDs (both id and stix_id fields)
+            manifest_id_set = set()
+            for m in m_list:
+                if m.get("stix_id"):
+                    manifest_id_set.add(m["stix_id"])
+                if m.get("id"):
+                    manifest_id_set.add(m["id"])
+            # Add only truly new items (not already in manifest)
+            added_to_manifest = 0
+            for item in deduped:
+                item_id = item.get("stix_id") or item.get("id") or ""
+                if item_id and item_id not in manifest_id_set:
+                    m_list.append(item)
+                    manifest_id_set.add(item_id)
+                    added_to_manifest += 1
+            if added_to_manifest:
+                out_m = m_list if isinstance(raw_m, list) else {**raw_m, "advisories": m_list}
+                _atomic_write(manifest_path, out_m)
+                log.info("[MANIFEST-SYNC] Added %d multi-source items to feed_manifest.json (total=%d)",
+                         added_to_manifest, len(m_list))
+            else:
+                log.info("[MANIFEST-SYNC] No new items to add to feed_manifest.json")
+        except Exception as e:
+            log.warning("[MANIFEST-SYNC] Non-fatal manifest sync error: %s", e)
+
     _atomic_write(TELEMETRY, {
         "generated_at": _now(),
         "existing_items": len(existing),
