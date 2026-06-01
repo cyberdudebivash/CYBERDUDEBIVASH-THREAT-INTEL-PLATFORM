@@ -1363,6 +1363,11 @@ def build_report_sections(item: dict) -> str:
         "Minimal direct financial exposure at current severity"
     )
     _reg_flag = "YES — Breach notification obligations may apply under GDPR/DPDP/HIPAA" if sev in ("CRITICAL", "HIGH") else "Conditional — assess scope of data at risk"
+    # v166.4 FIX: _urgency_txt was defined at line ~2060 (after first use at ~1386) causing
+    # NameError on every report render → 33 write failures → Stage 5.5 HARD FAIL.
+    _urgency_txt = ("PATCH IMMEDIATELY" if sev == "CRITICAL" else
+                    "HIGH PRIORITY"    if sev == "HIGH"     else
+                    "PATCH STANDARD"   if sev == "MEDIUM"   else "MONITOR")
     _exec_layer = (
         "<div style='background:#0a0a1a;border:2px solid #ff4444;border-radius:8px;"
         "padding:20px 24px;margin:0 0 20px;'>"
