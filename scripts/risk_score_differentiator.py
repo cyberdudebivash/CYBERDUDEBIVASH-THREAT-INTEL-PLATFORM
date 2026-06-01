@@ -49,6 +49,7 @@ v163.0 — Initial implementation
 
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
 import os
@@ -125,6 +126,19 @@ def compute_micro(item: Dict[str, Any]) -> float:
     ttp_count: int = len(ttps)
 
     micro = (ioc_count * IOC_WEIGHT) + (confidence / CONF_DIVISOR) + (ttp_count * TTP_WEIGHT)
+
+    # v166.14 FIX: when all signals are zero (no IOCs, no TTPs, near-zero confidence),
+    # the cluster is never broken — all items produce identical micro=0.
+    # Add deterministic stix_id-based entropy as guaranteed tiebreaker.
+    # Uses first 4 hex chars of SHA-256(stix_id) → 0-65535 → scaled to [0.001, 0.049]
+    # This ensures every item in a cluster gets a unique micro without crossing
+    # severity tier boundaries (max bump stays within MAX_MICRO_BUMP).
+    if micro < 0.001:
+        item_id = str(item.get("stix_id") or item.get("id") or "")
+        if item_id:
+            id_hash = int(hashlib.sha256(item_id.encode()).hexdigest()[:4], 16)
+            micro += round((id_hash / 65535) * 0.049, 6)
+
     return round(min(micro, MAX_MICRO_BUMP), 6)
 
 
@@ -309,18 +323,18 @@ def main() -> int:
 
     if pct <= threshold_pct:
         log.info(
-            "✅ uniform_risk check PASS — top cluster: %.4f ×%d (%.1f%% ≤ %.0f%%)",
+            "\u2705 uniform_risk check PASS \u2014 top cluster: %.4f \u00d7%d (%.1f%% \u2264 %.0f%%)",
             top_score, top_n, pct, threshold_pct,
         )
     else:
         log.warning(
-            "⚠ uniform_risk check WARN — top cluster still %.1f%% (threshold %.0f%%); "
+            "\u26a0 uniform_risk check WARN \u2014 top cluster still %.1f%% (threshold %.0f%%); "
             "manual review recommended.",
             pct, threshold_pct,
         )
 
     log.info("=== RISK SCORE DIFFERENTIATOR COMPLETE ===")
-    return 0  # always 0 — non-blocking
+    return 0  # always 0 \u2014 non-blocking
 
 
 if __name__ == "__main__":

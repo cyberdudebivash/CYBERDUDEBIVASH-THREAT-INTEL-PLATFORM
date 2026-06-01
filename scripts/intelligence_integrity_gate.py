@@ -925,7 +925,7 @@ def run_all_gates(items: List[Dict], mode: str) -> int:
         ("A — Synthetic CVE Detector",       SyntheticCVEDetector().check(items)),
         ("B — Entropy Gate",                  EntropyGate().check(items)),
         ("C — Feed Diversity Validator",   FeedDiversityValidator().check(items)),
-        ("D — KEV Health Gate",               KevHealthGate().check(items)),
+        ("D — KEV Health Gate",               KEVHealthGate().check(items)),
         ("E — Runtime Integrity Baseline",    RuntimeIntegrityBaseline().check()),
         ("F — Advisory Authenticity Scoring", AuthenticityScorer().check(items)),
         ("G — Manifest Mutation Validator",   ManifestMutationValidator().check(items)),

@@ -115,7 +115,11 @@ def make_fingerprint(item: Dict) -> str:
     else:
         title_slug = _title_slug(str(item.get("title") or ""))
         pub_at = str(item.get("published_at") or item.get("timestamp") or "")[:10]
-        key = f"title:{title_slug}|date:{pub_at}"
+        # v166.14: include stix_id/id as tiebreaker to prevent collision when two
+        # non-CVE items share the same title slug and publication date (e.g. two
+        # BleepingComputer articles published same day with similar short titles).
+        item_id = str(item.get("stix_id") or item.get("id") or "")
+        key = f"title:{title_slug}|date:{pub_at}|id:{item_id}"
 
     digest = hashlib.sha256(key.encode("utf-8")).hexdigest()[:24]
     return f"aie-{digest}"
@@ -361,18 +365,4 @@ def main() -> int:
     log.info("  Synthetic items  : %d (%.1f%%)", analysis["synthetic_count"],
              analysis["synthetic_ratio"] * 100)
     log.info("  Reuse violations : %d", analysis["reuse_violation_count"])
-    log.info("  Dedup removed    : %d", removed)
-    if hard_violations:
-        for v in hard_violations:
-            log.error("  VIOLATION: %s", v)
-    log.info("=" * 60)
-
-    if args.report:
-        return 0
-    if args.check and status == "FAIL":
-        return 1
-    return 0
-
-
-if __name__ == "__main__":
-    sys.exit(main())
+    lo
