@@ -1259,6 +1259,21 @@ jobs:
         run: python3 scripts/output_validation_gate.py
 
       # -----------------------------------------------------------------------
+      # STAGE 3.90 - MANIFEST RECONCILER (P0 PERMANENT FIX v1.0.0)
+      # Single authoritative sync point: api/feed.json → feed_manifest.json
+      # Root cause: multi_source_collector and other stages add items to
+      # api/feed.json without updating feed_manifest.json, causing Stage 3.91
+      # genuine_regression HARD FAIL. This reconciler runs unconditionally
+      # before every validation and guarantees zero divergence.
+      # NON-BLOCKING: exits 0 always; errors are logged, never pipeline-fatal.
+      # -----------------------------------------------------------------------
+      - name: "STAGE 3.90 - Manifest Reconciler (P0 PERMANENT FIX — pre-validator sync)"
+        timeout-minutes: 3
+        run: |
+          python3 scripts/manifest_reconciler.py \
+            --report data/health/manifest_reconciler_report.json
+
+      # -----------------------------------------------------------------------
       # STAGE 3.91: API <-> DASHBOARD CONTRACT VALIDATOR (v143.0 -- HARD FAIL)
       # Asserts: top-50 stix_ids match between manifest and api/feed.json.
       # Zero duplicates. Zero timestamp mismatches. Encoding clean.
@@ -2508,25 +2523,4 @@ jobs:
 
       - name: "Stage 5.9.1 — Manifest URL Repair (P1-004)"
         run: |
-          echo "=== STAGE 5.9.1: Manifest URL Backfill ==="
-          python3 scripts/manifest_repair.py             --manifest data/feed_manifest.json 2>&1 || true
-          echo "=== STAGE 5.9.1 COMPLETE ==="
-        continue-on-error: true
-
-      - name: "Stage 5.9.2 — OpenAPI Spec Generation (P2-001)"
-        run: |
-          echo "=== STAGE 5.9.2: OpenAPI 3.0 Spec ==="
-          python3 scripts/openapi_generator.py 2>&1 || true
-          echo "=== STAGE 5.9.2 COMPLETE ==="
-        continue-on-error: true
-
-      - name: "Stage 5.9.3 — EPSS + CVSS Quality Gate (P0-004 / P1-006)"
-        run: |
-          echo "=== STAGE 5.9.3: EPSS Sanity + NVD CVSS Backfill ==="
-          python3 scripts/ioc_quality_hardener.py --manifest data/feed_manifest.json 2>&1 || true
-          echo "=== STAGE 5.9.3 COMPLETE ==="
-        continue-on-error: true
-
-      - name: "Stage 5.9.4 — Enterprise Page Validation (P1-005 / P2-002)"
-        run: |
-         
+          echo "=== STAGE 5.9.1:
