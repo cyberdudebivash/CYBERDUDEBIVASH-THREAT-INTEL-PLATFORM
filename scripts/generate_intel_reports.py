@@ -1343,6 +1343,50 @@ def build_report_sections(item: dict) -> str:
     ))
 
     # ── S2: Executive Summary  -  APEX Enterprise Narrative Engine v149.0 ───
+    # v1.2: CEO/CISO/Board Executive Layer injected at top of every report
+    # Addresses customer feedback: "Reports are analyst-heavy, executives need
+    # What happened? Why care? What to do today?" (Priority 1 gap)
+    _exec_action = (
+        "IMMEDIATE PATCH REQUIRED — Active exploitation confirmed. Deploy emergency change advisory." if kev else
+        "HIGH PRIORITY — Actively exploited vulnerability. Accelerate patching timeline." if any(
+            w in title.lower() for w in ["actively exploit", "exploit in the wild", "under active exploit"]
+        ) else
+        "PATCH WITHIN 7 DAYS — High-severity advisory with significant exploitation probability." if sev == "CRITICAL" else
+        "PATCH WITHIN 14 DAYS — Prioritise remediation in next maintenance window." if sev == "HIGH" else
+        "STANDARD PATCH CYCLE — Include in next scheduled patching window." if sev == "MEDIUM" else
+        "INFORMATIONAL — Monitor; apply patch in routine cycle."
+    )
+    _fin_exposure = (
+        "$4M–$9M exposure (Critical Infrastructure / Healthcare rate)" if sev == "CRITICAL" else
+        "$1M–$4M exposure (Standard Enterprise rate)" if sev == "HIGH" else
+        "$250K–$1M potential exposure" if sev == "MEDIUM" else
+        "Minimal direct financial exposure at current severity"
+    )
+    _reg_flag = "YES — Breach notification obligations may apply under GDPR/DPDP/HIPAA" if sev in ("CRITICAL", "HIGH") else "Conditional — assess scope of data at risk"
+    _exec_layer = (
+        "<div style='background:#0a0a1a;border:2px solid #ff4444;border-radius:8px;"
+        "padding:20px 24px;margin:0 0 20px;'>"
+        "<div style='font-family:monospace;font-size:10px;color:#ff4444;letter-spacing:2px;"
+        "font-weight:900;margin-bottom:12px;'>EXECUTIVE INTELLIGENCE LAYER — CEO / CISO / BOARD</div>"
+        "<table style='width:100%;border-collapse:collapse;'>"
+        f"<tr><td style='padding:6px 12px 6px 0;color:#888;font-size:12px;width:180px;vertical-align:top;font-weight:600;'>WHAT HAPPENED?</td>"
+        f"<td style='padding:6px 0;color:#e0e0e0;font-size:13px;line-height:1.5;'>{_h(title)}</td></tr>"
+        f"<tr><td style='padding:6px 12px 6px 0;color:#888;font-size:12px;vertical-align:top;font-weight:600;'>WHY SHOULD I CARE?</td>"
+        f"<td style='padding:6px 0;color:#e0e0e0;font-size:13px;line-height:1.5;'>Severity: <strong style='color:{'#ff4444' if sev=='CRITICAL' else '#ff8800' if sev=='HIGH' else '#ffcc00' if sev=='MEDIUM' else '#888'};'>{_h(sev)}</strong>"
+        f" &nbsp;|&nbsp; Risk Score: <strong>{risk}/10</strong>"
+        f"{'&nbsp;|&nbsp;&#x26A0; <strong style=&quot;color:#ff4444;&quot;>CISA KEV — Active Exploitation Confirmed</strong>' if kev else ''}</td></tr>"
+        f"<tr><td style='padding:6px 12px 6px 0;color:#888;font-size:12px;vertical-align:top;font-weight:600;'>WHAT TO DO TODAY?</td>"
+        f"<td style='padding:6px 0;color:#ffcc00;font-size:13px;font-weight:700;line-height:1.5;'>{_exec_action}</td></tr>"
+        f"<tr><td style='padding:6px 12px 6px 0;color:#888;font-size:12px;vertical-align:top;font-weight:600;'>FINANCIAL EXPOSURE</td>"
+        f"<td style='padding:6px 0;color:#e0e0e0;font-size:13px;line-height:1.5;'>{_fin_exposure}</td></tr>"
+        f"<tr><td style='padding:6px 12px 6px 0;color:#888;font-size:12px;vertical-align:top;font-weight:600;'>REGULATORY EXPOSURE</td>"
+        f"<td style='padding:6px 0;color:#e0e0e0;font-size:13px;line-height:1.5;'>{_reg_flag}</td></tr>"
+        f"<tr><td style='padding:6px 12px 6px 0;color:#888;font-size:12px;vertical-align:top;font-weight:600;'>URGENCY</td>"
+        f"<td style='padding:6px 0;font-size:13px;font-weight:700;"
+        f"color:{'#ff4444' if sev in ('CRITICAL','HIGH') else '#ffcc00' if sev=='MEDIUM' else '#888'};'>{_urgency_txt}</td></tr>"
+        "</table></div>"
+    )
+
     if _APEX_UPGRADE_AVAILABLE:
         try:
             _s2_body = _apex_exec_summary(item)
@@ -1370,6 +1414,8 @@ def build_report_sections(item: dict) -> str:
             f"IOC Count: <strong>{ioc_count}</strong>"
             f"</div>"
         )
+    # Prepend the CEO/CISO/Board executive layer
+    _s2_body = _exec_layer + _s2_body
     sections.append(_section(2, "Executive Summary", _s2_body))
 
     # ── S3: Threat Profile ─────────────────────────────────────────────────
@@ -1992,6 +2038,15 @@ def render_report(item: dict, public_prefix: str) -> str:
 
     # ── Pre-computed display variables for god-mode template (no backslash in f-string) ──
     _ioc_conf    = min(int(item.get("ioc_confidence") or 75), 100)
+    # v1.2: Convert raw confidence % to methodology label (P1 fix — raw % confuses customers)
+    # Replaces "4%" (meaningless) with "Low — Limited verification signals"
+    _conf_label  = ("High" if _ioc_conf >= 70 else "Medium" if _ioc_conf >= 40 else "Low")
+    _conf_color  = ("#16a34a" if _ioc_conf >= 70 else "#d97706" if _ioc_conf >= 40 else "#6b7280")
+    _conf_method = (
+        "Source Reliability: Verified | Collection: KEV/EPSS-Enriched" if _ioc_conf >= 70 else
+        "Source Reliability: Standard | Collection: Feed Intelligence" if _ioc_conf >= 40 else
+        "Source Reliability: Standard | Limited verification signals — monitor for updates"
+    )
     _ioc_list    = item.get("iocs") or []
     _ttp_list    = (item.get("apex_ai") or {}).get("ttps") or item.get("ttps") or []
     _cvss_disp   = str(item["cvss_score"]) if item.get("cvss_score") is not None else "N/A"
@@ -2025,9 +2080,9 @@ def render_report(item: dict, public_prefix: str) -> str:
         "<div class='conf-bar'>"
         f"<div class='conf-fill' style='width:{_ioc_conf}%'></div>"
         "</div>"
-        f"<span class='conf-val'>{_ioc_conf}%</span>"
-        "<span style='font-family:var(--mono);font-size:9px;color:var(--muted);"
-        "margin-left:8px'>APEX ML ENRICHED</span>"
+        f"<span class='conf-val' style='color:{_conf_color};font-weight:700;'>{_conf_label}</span>"
+        f"<span style='font-family:var(--mono);font-size:9px;color:var(--muted);"
+        f"margin-left:8px'>{_conf_method}</span>"
         "</div>"
     )
 

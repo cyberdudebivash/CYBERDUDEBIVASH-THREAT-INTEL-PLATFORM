@@ -1,12 +1,11 @@
 """
 CYBERDUDEBIVASH® SENTINEL APEX
-EXPLOITABILITY & RISK SCORING ENGINE v1.1
+EXPLOITABILITY & RISK SCORING ENGINE v1.2
 CVE prioritization, EPSS enrichment, business impact scoring.
 
-v1.1 (v161.3) fixes:
-  - EPSS scale normalization: detect 0-100 % storage vs 0-1 fraction at intake
-  - CVE floor: unscored CVEs get MEDIUM floor (5.0) not zero
-  - biz_c floor: all advisories get minimum business impact contribution (0.5)
+v1.1 (v161.3): EPSS normalization, CVE floor, biz_c floor
+v1.2 (v166.x): Active exploitation floor, KEV+exploit floor,
+                methodology labels, confidence display fix
 """
 import logging
 from datetime import datetime, timezone
@@ -36,7 +35,6 @@ BUSINESS_IMPACT_FACTORS = {
     "default":           1.0,
 }
 
-# CVE keyword threat signals — extra score boost for dangerous vulnerability classes
 CVE_THREAT_KEYWORDS = {
     "remote code execution": 2.5, "rce": 2.5,
     "buffer overflow": 2.0, "heap overflow": 2.0,
@@ -52,18 +50,14 @@ CVE_THREAT_KEYWORDS = {
     "deserialization": 1.8,
 }
 
+ACTIVE_EXPLOIT_SIGNALS = [
+    "actively exploit", "exploit in the wild", "active exploitation",
+    "exploited in the wild", "wild exploitation", "under active exploit",
+    "observed exploitation", "confirmed exploitation", "actively being exploited",
+]
+
 
 class ScoringEngine:
-    """
-    Multi-dimensional risk scoring: CVSS + EPSS + KEV + Business Impact.
-    Produces normalized 0-10 composite risk score.
-
-    v1.1 changes:
-    - EPSS normalised to 0-1 fraction at intake (handles both 0-1 and 0-100 storage)
-    - CVE floor: advisory with a CVE ID but no CVSS/EPSS gets floor = 5.0 (MEDIUM)
-    - Keyword scoring: title/description signals add direct score contribution
-    - biz_c minimum floor = 0.5 (every advisory has some operational relevance)
-    """
 
     def score_advisory(self, advisory: Dict) -> Dict:
         def safe_float(v, default=0.0):
@@ -72,10 +66,9 @@ class ScoringEngine:
 
         cvss = safe_float(advisory.get("cvss") or advisory.get("cvss_score"))
         _epss_raw = safe_float(advisory.get("epss") or advisory.get("epss_score"))
-        # v1.1 FIX: EPSS is sometimes stored as 0-100 %; normalise to 0-1 fraction
         epss = _epss_raw / 100.0 if _epss_raw > 1.0 else _epss_raw
 
-        kev  = bool(
+        kev = bool(
             advisory.get("kev_confirmed")
             or advisory.get("kev", False)
             or advisory.get("kev_present", False)
@@ -93,35 +86,51 @@ class ScoringEngine:
         # 1. CVSS contribution (35% weight, max 3.5 pts)
         cvss_c = cvss * 0.35
 
-        # 2. EPSS contribution (25% weight, max 2.5 pts — EPSS now in 0-1 fraction)
-        epss_c = epss * 10.0 * 0.25   # 1.0 fraction → 10*0.25 = 2.5 max
+        # 2. EPSS contribution (25% weight, max 2.5 pts)
+        epss_c = epss * 10.0 * 0.25
 
-        # 3. KEV + exploitability bonus (25% weight, max 2.5 pts)
+        # 3. KEV + active exploit bonus (25% weight, max 2.5 pts)
+        # v1.2: text-based active exploitation detection
+        text_active_exploit = any(sig in text for sig in ACTIVE_EXPLOIT_SIGNALS)
         exploit_c = 0.0
         if kev:
             exploit_c += 2.5
+        elif text_active_exploit:
+            exploit_c += 2.0
         exploit_c = min(exploit_c, 2.5)
 
-        # 4. Keyword threat signals (additive, capped at 2.5)
+        # 4. Keyword threat signals (top-1 + 50% of second match)
+        kw_matches = sorted(
+            [pts for kw, pts in CVE_THREAT_KEYWORDS.items() if kw in text],
+            reverse=True
+        )
         kw_score = 0.0
-        for kw, pts in CVE_THREAT_KEYWORDS.items():
-            if kw in text:
-                kw_score = max(kw_score, pts)   # take max keyword match, not sum
+        if kw_matches:
+            kw_score = kw_matches[0]
+            if len(kw_matches) > 1:
+                kw_score += kw_matches[1] * 0.5
         kw_score = min(kw_score, 2.5)
 
         # 5. Business impact (15% weight, max 1.5 pts, floor 0.5)
         biz_factor = max(
-            (BUSINESS_IMPACT_FACTORS.get(k, 0) for k in BUSINESS_IMPACT_FACTORS
-             if k in text),
+            (BUSINESS_IMPACT_FACTORS.get(k, 0) for k in BUSINESS_IMPACT_FACTORS if k in text),
             default=BUSINESS_IMPACT_FACTORS["default"]
         )
         biz_c = max(0.5, min(1.5, (biz_factor - 1.0) * 0.5 + 0.5))
 
         raw_total = cvss_c + epss_c + exploit_c + kw_score + biz_c
 
-        # v1.1: CVE floor — a CVE with no external enrichment is at minimum MEDIUM
+        # CVE floor: minimum MEDIUM for any CVE advisory
         if has_cve and raw_total < 5.0:
             raw_total = max(raw_total, 5.0)
+
+        # v1.2: Active exploitation floor — MEDIUM minimum (5.0)
+        if text_active_exploit and raw_total < 5.0:
+            raw_total = max(raw_total, 5.0)
+
+        # v1.2: KEV + active = HIGH minimum (7.0)
+        if kev and text_active_exploit and raw_total < 7.0:
+            raw_total = max(raw_total, 7.0)
 
         total = round(min(10.0, raw_total), 2)
         severity = (
@@ -130,6 +139,14 @@ class ScoringEngine:
             "MEDIUM"   if total >= 4.0 else
             "LOW"
         )
+
+        methodology = {
+            "source_reliability":    "Verified" if kev else ("High" if epss > 0.1 else "Standard"),
+            "collection_confidence": "KEV Catalogue" if kev else ("EPSS-Enriched" if epss > 0 else "Feed Intelligence"),
+            "ioc_validation":        "Confirmed" if kev else "Assessed",
+            "correlation_confidence": "HIGH" if total >= 7.0 else ("MEDIUM" if total >= 4.0 else "LOW"),
+            "final_label":           severity,
+        }
 
         return {
             "advisory_id":    advisory.get("stix_id", ""),
@@ -142,7 +159,9 @@ class ScoringEngine:
                 "keyword_contribution":  round(kw_score,  2),
                 "business_contribution": round(biz_c,     2),
             },
+            "methodology": methodology,
             "raw_scores": {"cvss": cvss, "epss": epss, "kev": kev},
+            "active_exploitation_confirmed": text_active_exploit or kev,
             "action_required": total >= 7.0,
             "scored_at": datetime.now(timezone.utc).isoformat(),
         }

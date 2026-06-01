@@ -119,6 +119,8 @@ APEX_TECHNIQUE_REGISTRY: Dict[str, Dict[str, str]] = {
     "T1053":     {"name": "Scheduled Task/Job",                      "tactic": "Execution",             "desc": "Scheduled tasks used for persistent execution of malicious payloads."},
     "T1053.005": {"name": "Scheduled Task",                          "tactic": "Execution",             "desc": "Windows Task Scheduler abused to maintain persistence or execute payloads."},
     # PERSISTENCE
+        "T1098":     {"name": "Account Manipulation",                    "tactic": "Persistence",           "desc": "Adversary manipulates accounts to maintain or extend access; adding credentials or modifying permissions."},
+    "T1136":     {"name": "Create Account",                          "tactic": "Persistence",           "desc": "New local, domain, or cloud accounts created to maintain persistent access."},
     "T1547":     {"name": "Boot or Logon Autostart Execution",       "tactic": "Persistence",           "desc": "Malicious code configured to execute automatically at system boot or user logon."},
     "T1547.001": {"name": "Registry Run Keys / Startup Folder",      "tactic": "Persistence",           "desc": "Registry keys or startup folders used to maintain persistent execution."},
     "T1505":     {"name": "Server Software Component",               "tactic": "Persistence",           "desc": "Adversary installs malicious component into server software for persistent access."},
@@ -126,6 +128,7 @@ APEX_TECHNIQUE_REGISTRY: Dict[str, Dict[str, str]] = {
     "T1176":     {"name": "Browser Extensions",                      "tactic": "Persistence",           "desc": "Malicious browser extension installed to steal credentials, cookies, or maintain persistence."},
     "T1542":     {"name": "Pre-OS Boot",                             "tactic": "Persistence",           "desc": "Bootkits or UEFI implants installed to survive OS reinstallation."},
     # PRIVILEGE ESCALATION
+        "T1548":     {"name": "Abuse Elevation Control Mechanism",       "tactic": "Privilege Escalation",  "desc": "UAC bypass, sudo abuse, or setuid exploitation to obtain higher privilege levels."},
     "T1068":     {"name": "Exploitation for Privilege Escalation",   "tactic": "Privilege Escalation",  "desc": "Exploitation of software vulnerability to elevate privileges within the environment."},
     "T1134":     {"name": "Access Token Manipulation",               "tactic": "Privilege Escalation",  "desc": "Manipulation of Windows access tokens to run processes in elevated security context."},
     "T1055":     {"name": "Process Injection",                       "tactic": "Privilege Escalation",  "desc": "Malicious code injected into legitimate processes to evade detection and escalate privileges."},
@@ -163,6 +166,7 @@ APEX_TECHNIQUE_REGISTRY: Dict[str, Dict[str, str]] = {
     "T1021":     {"name": "Remote Services",                         "tactic": "Lateral Movement",      "desc": "Legitimate remote services abused to move laterally across the victim network."},
     "T1021.001": {"name": "Remote Desktop Protocol",                 "tactic": "Lateral Movement",      "desc": "RDP used to move laterally to additional hosts using stolen credentials."},
     "T1021.002": {"name": "SMB/Windows Admin Shares",               "tactic": "Lateral Movement",      "desc": "Administrative file shares (C$, ADMIN$) used for lateral movement and payload delivery."},
+        "T1210":     {"name": "Exploitation of Remote Services",         "tactic": "Lateral Movement",      "desc": "Exploitation of vulnerabilities in remote services to move laterally within the network."},
     "T1550":     {"name": "Use Alternate Authentication Material",   "tactic": "Lateral Movement",      "desc": "Pass-the-hash or pass-the-ticket used to move laterally without plaintext credentials."},
     # COLLECTION
     "T1005":     {"name": "Data from Local System",                  "tactic": "Collection",            "desc": "Files, documents, and data of interest collected from compromised local system."},

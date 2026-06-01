@@ -262,6 +262,38 @@ info(f'Dedup complete: {len(deduped_feed)} unique items ({len(raw_feed) - len(de
 sorted_feed = sorted(deduped_feed, key=sort_key, reverse=True)
 info(f'Sorted: {len(sorted_feed)} items by freshness DESC')
 
+# ── STEP 2b: Tag each item with intelligence_origin for source differentiation ─
+# Addresses customer feedback: "What is uniquely CyberDudeBivash vs aggregated feed?"
+# Three tiers:
+#   APEX-ORIGINAL   — APEX-generated research / honeypot / dark web alert
+#   APEX-ENRICHED   — External feed item enriched with CVSS/EPSS/KEV/ATT&CK/IOC/AI
+#   FEED-AGGREGATED — Raw syndication with minimal enrichment
+for _item in sorted_feed:
+    _has_apex_ai    = bool(_item.get('apex_ai'))
+    _has_actor      = bool(_item.get('actor_id') and _item.get('actor_id') not in
+                          ('CDB-UNATTR-CVE','CDB-UNATTR-RAN','CDB-UNATTR-PHI',
+                           'CDB-UNATTR-APT','CDB-UNATTR-SUP','CDB-UNATTR-RAT','UNATTRIBUTED'))
+    _has_cvss       = _item.get('cvss_score') is not None
+    _has_epss       = _item.get('epss_score') is not None
+    _has_kev        = bool(_item.get('kev_present') or _item.get('kev'))
+    _has_iocs       = bool(_item.get('ioc_count', 0) or len(_item.get('iocs') or []) > 0)
+    _has_ttps       = bool(_item.get('ttps') or _item.get('attack_techniques'))
+    _enrichment_signals = sum([_has_apex_ai, _has_actor, _has_cvss, _has_epss,
+                                _has_kev, _has_iocs, _has_ttps])
+    if _item.get('source') in ('CyberDudeBivash Intel', 'APEX Telemetry', 'APEX Honeypot'):
+        _item['intelligence_origin'] = 'APEX-ORIGINAL'
+        _item['apex_source_label']   = 'APEX Original Research'
+    elif _enrichment_signals >= 3:
+        _item['intelligence_origin'] = 'APEX-ENRICHED'
+        _item['apex_source_label']   = f'APEX-Enriched ({_item.get("source","External Feed")})'
+    else:
+        _item['intelligence_origin'] = 'FEED-AGGREGATED'
+        _item['apex_source_label']   = _item.get('source', 'External Feed')
+_apex_original_count = sum(1 for i in sorted_feed if i.get('intelligence_origin') == 'APEX-ORIGINAL')
+_apex_enriched_count = sum(1 for i in sorted_feed if i.get('intelligence_origin') == 'APEX-ENRICHED')
+_feed_agg_count      = sum(1 for i in sorted_feed if i.get('intelligence_origin') == 'FEED-AGGREGATED')
+info(f'Intel origin tagging: APEX-ORIGINAL={_apex_original_count} APEX-ENRICHED={_apex_enriched_count} FEED-AGGREGATED={_feed_agg_count}')
+
 # ── STEP 3: Build /api/v1/intel/latest.json ──────────────────────────────────
 timestamp_now = now_iso()
 latest_payload = {

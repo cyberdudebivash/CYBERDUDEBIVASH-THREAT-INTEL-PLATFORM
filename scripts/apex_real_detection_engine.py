@@ -671,7 +671,7 @@ detection:
       - 8888
       - 9001
       - 9999{ioc_detection}
-  condition: unexpected_outbound{'or ioc_network_indicators' if real_iocs else ''}
+  condition: unexpected_outbound{' or ioc_network_indicators' if real_iocs else ''}
 falsepositives:
   - Legitimate applications using non-standard ports
   - Development and testing environments
