@@ -6195,6 +6195,11 @@
             ];
             var AI_TRACKER_URL = '/api/ai/tracker.json';
 
+            // ── HTML escape helper (v166.4 XSS fix) ────────────────────────
+            function _hEsc(s){
+                if(!s) return '';
+                return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#x27;');
+            }
             // ── Ticker helpers ──────────────────────────────────────────────
             function buildTicker(items){
                 var ticker = document.getElementById('eicc-ticker-inner');
@@ -6202,9 +6207,9 @@
                 if(!ticker || !items || !items.length) return;
                 var sevColor = {CRITICAL:'#ef4444',HIGH:'#f97316',MEDIUM:'#f59e0b',LOW:'#6b7280'};
                 var spans = items.slice(0,30).map(function(it){
-                    var sev = (it.severity||it.risk_level||'INFO').toUpperCase();
-                    var c   = sevColor[sev] || 'rgba(0,212,170,0.7)';
-                    var title = (it.title||it.name||it.id||'UNKNOWN').substring(0,60);
+                    var sev = _hEsc((it.severity||it.risk_level||'INFO').toUpperCase());
+                    var c   = sevColor[it.severity||it.risk_level||''] || 'rgba(0,212,170,0.7)';
+                    var title = _hEsc((it.title||it.name||it.id||'UNKNOWN').substring(0,60));
                     return '<span style="color:'+c+';font-weight:700;">'+sev+'</span>'
                          + ' <span style="color:rgba(0,212,170,0.8);">'+title+'</span>'
                          + '<span style="color:rgba(100,120,140,0.6);margin:0 12px;">◆</span>';
@@ -6947,13 +6952,18 @@
                 /* Always render something \u2014 never show blank grid */
                 var src = (items && items.length) ? items : STATIC_FALLBACK;
                 grid.innerHTML = src.slice(0,18).map(function(it) {
-                    var lc = it.labelColor || '#00d4aa';
-                    var badge=it.label?'<span class="lcn-badge" style="background:'+lc+'22;color:'+lc+';border:1px solid '+lc+'44;">'+it.label+'</span>':'';
+                    var lc = /^#[0-9a-fA-F]{3,6}$/.test(it.labelColor||'') ? it.labelColor : '#00d4aa';
+                    var safeLabel = _hEsc(it.label||'');
+                    var safeTitle = _hEsc(it.title||'Untitled');
+                    var safeLink  = (it.link||'#').replace(/[^a-zA-Z0-9\-._~:/?#\[\]@!$&'()*+,;=%]/g,'');
+                    // Only allow http/https/relative links — block javascript: and data: URIs
+                    var href = /^(https?:\/\/|\/)/.test(safeLink) ? safeLink : '#';
+                    var badge=safeLabel?'<span class="lcn-badge" style="background:'+lc+'22;color:'+lc+';border:1px solid '+lc+'44;">'+safeLabel+'</span>':'';
                     var cacheMark=it.cached?'<span style="font-family:var(--font-mono);font-size:7px;color:#5a6578;padding:1px 5px;border:1px solid #2a3340;border-radius:2px;margin-left:4px;vertical-align:middle;">CACHED</span>':'';
-                    return '<a class="lcn-card" href="'+(it.link||'#')+'" target="_blank" rel="noopener noreferrer">'+
+                    return '<a class="lcn-card" href="'+href+'" target="_blank" rel="noopener noreferrer">'+
                         '<div>'+badge+cacheMark+'</div>'+
-                        '<div class="lcn-source">'+(it.label||'CYBER INTEL')+'</div>'+
-                        '<div class="lcn-title">'+(it.title||'Untitled').replace(/</g,'&lt;').replace(/>/g,'&gt;')+'</div>'+
+                        '<div class="lcn-source">'+safeLabel+'</div>'+
+                        '<div class="lcn-title">'+safeTitle+'</div>'+
                         '<div class="lcn-date">&#128197; '+(it.cached?'Last updated '+_relTime(it.pubDate):_relTime(it.pubDate))+'</div>'+
                         '</a>';
                 }).join('');
