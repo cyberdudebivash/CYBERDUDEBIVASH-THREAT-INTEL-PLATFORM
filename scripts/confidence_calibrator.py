@@ -163,23 +163,46 @@ def _kev_score(item: Dict, kev_ids: set) -> float:
 
 # ============================================================
 # COMPOSITE CONFIDENCE SCORE
+# v166.0 REBALANCED WEIGHTS — fixes BUG-03 / BUG-09
+#
+# Previous weights produced 7-14% confidence for CISA KEV-confirmed
+# CVSS 9.1 advisories because:
+#   - source_trust anchored baseline at 0.25×0.60 = 0.15 (15 pts) regardless of intelligence quality
+#   - KEV was only 5% — a KEV-confirmed exploit added just 5 pts
+#   - IOC richness penalised advisories that have real intelligence but few network IOCs
+#
+# New model:
+#   - KEV becomes the dominant signal (20%) — binary verified exploitation truth
+#   - CVSS and EPSS together are 35% — quantified severity/probability signals
+#   - source_trust reduced to 15% — source quality matters less than verified facts
+#   - IOC richness reduced to 10% — not all high-value intel has network IOCs
+#   - Freshness kept at 10% — recency still matters
+#   - MITRE kept at 10% — TTP depth is an intelligence quality proxy
+#
+# FLOORS (minimum confidence regardless of other signals):
+#   KEV-confirmed:          ≥ 75%
+#   CVSS ≥ 9.0:             ≥ 65%
+#   EPSS ≥ 50%:             ≥ 60%
+#   CVSS ≥ 7.0 + KEV:       ≥ 85%
+#   CVSS ≥ 9.0 + KEV:       ≥ 90%
 # ============================================================
 WEIGHTS = {
-    "source_trust": 0.25,
-    "ioc_richness": 0.20,
-    "cvss":         0.15,
-    "epss":         0.15,
-    "freshness":    0.10,
-    "mitre":        0.10,
-    "kev":          0.05,
+    "cvss":         0.20,   # was 0.15 — quantified severity baseline
+    "epss":         0.15,   # was 0.15 — real-world exploit probability
+    "kev":          0.20,   # was 0.05 — binary CISA-confirmed exploitation truth ← BIG FIX
+    "source_trust": 0.15,   # was 0.25 — source credibility (all ≥60%, so less differentiating)
+    "ioc_richness": 0.10,   # was 0.20 — IOC count (not all quality intel has network IOCs)
+    "freshness":    0.10,   # unchanged — recency
+    "mitre":        0.10,   # unchanged — TTP depth / intelligence completeness
 }
+assert abs(sum(WEIGHTS.values()) - 1.0) < 1e-9, "Weights must sum to 1.0"
 
 BAND_MAP = [
-    (90, "CRITICAL"),
+    (90, "VERIFIED"),
     (75, "HIGH"),
-    (50, "MEDIUM"),
-    (25, "LOW"),
-    (0,  "INFORMATIONAL"),
+    (55, "MEDIUM"),
+    (30, "LOW"),
+    (0,  "PRELIMINARY"),
 ]
 
 
@@ -187,7 +210,42 @@ def score_to_band(score: float) -> str:
     for threshold, label in BAND_MAP:
         if score >= threshold:
             return label
-    return "INFORMATIONAL"
+    return "PRELIMINARY"
+
+
+def _apply_confidence_floors(score: float, item: Dict, kev_val: float) -> float:
+    """Apply minimum confidence floors based on authoritative signal combinations."""
+    cvss = item.get("cvss_score") or item.get("cvss") or 0.0
+    epss = item.get("epss_score") or item.get("epss") or 0.0
+    try:
+        cvss_f = float(cvss)
+        epss_f = float(str(epss).rstrip("%"))
+        if epss_f > 1.0:
+            epss_f /= 100.0
+    except (ValueError, TypeError):
+        cvss_f = 0.0
+        epss_f = 0.0
+
+    # KEV-confirmed floors — CISA KEV is binary verified exploitation
+    if kev_val > 0:
+        if cvss_f >= 9.0:
+            score = max(score, 90.0)   # CVSS≥9.0 + KEV = very high confidence
+        elif cvss_f >= 7.0:
+            score = max(score, 85.0)   # CVSS≥7.0 + KEV = high confidence
+        else:
+            score = max(score, 75.0)   # Any KEV = minimum 75%
+
+    # Single-signal floors
+    if cvss_f >= 9.0:
+        score = max(score, 65.0)
+    elif cvss_f >= 7.0:
+        score = max(score, 50.0)
+    if epss_f >= 0.50:
+        score = max(score, 60.0)
+    elif epss_f >= 0.20:
+        score = max(score, 40.0)
+
+    return round(min(score, 97.0), 1)
 
 
 def calibrate_item(
@@ -204,21 +262,25 @@ def calibrate_item(
     if kev_ids is None:
         kev_ids = set()
 
+    kev_val = _kev_score(item, kev_ids)
     signals = {
-        "source_trust": _source_trust_score(item, trust_map),
-        "ioc_richness": _ioc_richness_score(item),
         "cvss":         _cvss_score(item),
         "epss":         _epss_score(item),
+        "kev":          kev_val,
+        "source_trust": _source_trust_score(item, trust_map),
+        "ioc_richness": _ioc_richness_score(item),
         "freshness":    _freshness_score(item),
         "mitre":        _mitre_coverage_score(item),
-        "kev":          _kev_score(item, kev_ids),
     }
 
     raw_score = sum(signals[k] * WEIGHTS[k] for k in signals)
-    confidence = round(raw_score * 100, 1)
+    confidence = raw_score * 100.0
 
-    item["confidence_score"]  = confidence
-    item["confidence_band"]   = score_to_band(confidence)
+    # Apply authoritative signal floors (BUG-03 fix)
+    confidence = _apply_confidence_floors(confidence, item, kev_val)
+
+    item["confidence_score"]   = confidence
+    item["confidence_band"]    = score_to_band(confidence)
     item["confidence_signals"] = {k: round(v, 3) for k, v in signals.items()}
 
     return item
@@ -277,7 +339,7 @@ def run_batch_calibration(report: bool = False) -> Dict:
 
     calibrated = []
     band_counts: Dict[str, int] = {
-        "CRITICAL": 0, "HIGH": 0, "MEDIUM": 0, "LOW": 0, "INFORMATIONAL": 0
+        "VERIFIED": 0, "HIGH": 0, "MEDIUM": 0, "LOW": 0, "PRELIMINARY": 0
     }
 
     for item in items:
@@ -317,7 +379,7 @@ def run_batch_calibration(report: bool = False) -> Dict:
         print(f"  Max confidence:      {max_score}")
         print(f"  Min confidence:      {min_score}")
         print("\n  BAND DISTRIBUTION:")
-        for band in ["CRITICAL", "HIGH", "MEDIUM", "LOW", "INFORMATIONAL"]:
+        for band in ["VERIFIED", "HIGH", "MEDIUM", "LOW", "PRELIMINARY"]:
             cnt = band_counts.get(band, 0)
             pct = round(cnt / max(1, len(calibrated)) * 100, 1)
             bar = "#" * min(40, int(pct * 0.4))
@@ -340,3 +402,71 @@ if __name__ == "__main__":
         run_batch_calibration(report=args.report)
     else:
         run_batch_calibration(report=True)
+on(report: bool = False) -> Dict:
+    """Full batch calibration pass over all intel items."""
+    items      = load_items()
+    trust_map  = load_trust_map()
+    kev_ids    = load_kev_ids()
+
+    print(f"[CONF] Calibrating {len(items)} items | "
+          f"{len(trust_map)} trust entries | {len(kev_ids)} KEV IDs")
+
+    calibrated = []
+    band_counts: Dict[str, int] = {
+        "VERIFIED": 0, "HIGH": 0, "MEDIUM": 0, "LOW": 0, "PRELIMINARY": 0
+    }
+
+    for item in items:
+        c = calibrate_item(item, trust_map, kev_ids)
+        calibrated.append(c)
+        band = c.get("confidence_band", "PRELIMINARY")
+        band_counts[band] = band_counts.get(band, 0) + 1
+
+    scores = [c.get("confidence_score", 0.0) for c in calibrated]
+    avg_score = round(sum(scores) / len(scores), 1) if scores else 0.0
+    max_score = round(max(scores), 1) if scores else 0.0
+    min_score = round(min(scores), 1) if scores else 0.0
+
+    summary = {
+        "generated_at":     datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "schema":           "sentinel_apex_confidence_calibration_v2",
+        "items_calibrated": len(calibrated),
+        "avg_confidence":   avg_score,
+        "max_confidence":   max_score,
+        "min_confidence":   min_score,
+        "band_distribution": band_counts,
+        "signal_weights":   WEIGHTS,
+    }
+
+    OUTPUT_PATH.parent.mkdir(parents=True, exist_ok=True)
+    OUTPUT_PATH.write_text(json.dumps(summary, indent=2), encoding="utf-8")
+    print(f"[CONF] Summary written: {OUTPUT_PATH}")
+
+    if report:
+        print("\n" + "=" * 60)
+        print("CONFIDENCE CALIBRATION REPORT v166.0")
+        print("=" * 60)
+        print(f"  Items calibrated : {len(calibrated)}")
+        print(f"  Avg confidence   : {avg_score}%")
+        print(f"  Max confidence   : {max_score}%")
+        print(f"  Min confidence   : {min_score}%")
+        print("\n  BAND DISTRIBUTION:")
+        for band in ["VERIFIED", "HIGH", "MEDIUM", "LOW", "PRELIMINARY"]:
+            cnt = band_counts.get(band, 0)
+            pct = round(cnt / max(1, len(calibrated)) * 100, 1)
+            bar = "#" * min(40, int(pct * 0.4))
+            print(f"    {band:<15} {cnt:>5}  {pct:>5.1f}%  {bar}")
+        print("=" * 60)
+
+    return summary
+
+
+# ============================================================
+# ENTRY POINT
+# ============================================================
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="SENTINEL APEX Confidence Calibrator v166.0")
+    parser.add_argument("--batch",  action="store_true", help="Run full batch calibration")
+    parser.add_argument("--report", action="store_true", help="Print report to stdout")
+    args = parser.parse_args()
+    run_batch_calibration(report=True)

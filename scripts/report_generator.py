@@ -771,8 +771,24 @@ def _build_html(
     # ── Extract fields ─────────────────────────────────────────────────────
     intel_id    = _esc(entry.get("id") or entry.get("stix_id") or "")
     title       = _esc(entry.get("title") or "Intel Advisory")
-    severity    = str(entry.get("severity") or "UNKNOWN").upper()
-    risk_score  = float(entry.get("risk_score") or 0.0)
+
+    # BUG-01 FIX: prefer apex_risk_label (computed by risk scoring engine) over raw severity label.
+    # The raw `severity` field from the feed is the initial ingest label and is NEVER updated
+    # by the APEX risk scoring engine.  apex_risk_label reflects CVSS + EPSS + KEV composite.
+    severity    = str(
+        entry.get("apex_risk_label") or
+        entry.get("apex_risk_severity") or
+        entry.get("severity") or
+        "UNKNOWN"
+    ).upper()
+
+    # BUG-02 FIX: prefer apex_risk (evidence-weighted score) over legacy risk_score.
+    risk_score  = float(
+        entry.get("apex_risk") or
+        entry.get("risk_score") or
+        0.0
+    )
+
     sev_color   = _SEV_COLOR.get(severity, "#6b7280")
     tlp         = _esc(entry.get("tlp") or entry.get("tlp_label") or "TLP:CLEAR")
     description = str(entry.get("description") or entry.get("summary") or
@@ -782,11 +798,61 @@ def _build_html(
     source_url  = str(entry.get("source_url") or "")
     processed   = _esc(entry.get("processed_at") or entry.get("timestamp") or
                        datetime.now(timezone.utc).isoformat())
-    confidence  = float(entry.get("confidence") or entry.get("confidence_score") or 75.0)
-    cvss_score  = entry.get("cvss_score")
+
+    # BUG-15 FIX: normalise confidence to 0-100 percentage scale.
+    # enrich_feed_apex.py stores apex.confidence as a 0-1 fraction;
+    # confidence_calibrator.py stores confidence_score as 0-100 integer.
+    # We normalise both to the 0-100 scale for display.
+    _raw_conf = (
+        entry.get("confidence_score") or
+        entry.get("confidence") or
+        (entry.get("apex_ai") or {}).get("ai_confidence") or
+        0.0
+    )
+    try:
+        _conf_f = float(_raw_conf)
+        confidence = _conf_f * 100.0 if _conf_f <= 1.0 and _conf_f > 0.0 else _conf_f
+        confidence = max(5.0, min(100.0, confidence))
+    except (ValueError, TypeError):
+        confidence = 55.0
+    # KEV floor: CISA KEV-confirmed advisories always have ≥75% confidence
+    if entry.get("kev_present") or entry.get("kev") or entry.get("cisa_kev"):
+        confidence = max(confidence, 75.0)
+
+    # BUG-04 / BUG-05 FIX: broad CVSS field lookup — pipeline writes under multiple names.
+    cvss_score  = (
+        entry.get("cvss_score") or
+        entry.get("cvss") or
+        entry.get("cvss3") or
+        entry.get("base_score") or
+        entry.get("cvss_base_score") or
+        (entry.get("apex_ai") or {}).get("cvss_score")
+    )
+    if cvss_score is not None:
+        try:
+            cvss_score = float(cvss_score) if float(cvss_score) > 0 else None
+        except (ValueError, TypeError):
+            cvss_score = None
+
     cvss_vector = str(entry.get("cvss_vector") or entry.get("cvss_v3_vector") or "")
-    epss        = entry.get("epss_score")
-    kev         = bool(entry.get("kev_present"))
+
+    # BUG-04 FIX: broad EPSS field lookup; normalise to 0-100% display scale.
+    _epss_raw = (
+        entry.get("epss_score") or
+        entry.get("epss") or
+        entry.get("epss_30d") or
+        (entry.get("apex_ai") or {}).get("epss_score")
+    )
+    epss = None
+    if _epss_raw is not None:
+        try:
+            _epss_f = float(str(_epss_raw).rstrip("%"))
+            # Normalise fraction (0-1) to percentage display (0-100)
+            epss = round(_epss_f * 100.0 if _epss_f <= 1.0 else _epss_f, 2)
+        except (ValueError, TypeError):
+            epss = None
+
+    kev         = bool(entry.get("kev_present") or entry.get("kev") or entry.get("cisa_kev"))
     cwe_raw     = str(entry.get("cwe") or "")
     patch_url   = str(entry.get("patch_url") or entry.get("fix_url") or "")
     affected_p  = entry.get("affected_products") or []
@@ -885,8 +951,10 @@ def _build_html(
     ))
 
     # ── 02 Vulnerability Intelligence ──────────────────────────────────────
+    # BUG-04 FIX: cvss_score already normalised above; display with one decimal.
     cvss_disp = f"{float(cvss_score):.1f}" if cvss_score is not None else "N/A"
-    epss_disp = f"{float(epss):.1f}%" if epss is not None else "N/A"
+    # BUG-03 FIX: epss is already in 0-100 display scale (normalised above).
+    epss_disp = f"{float(epss):.2f}%" if epss is not None else "N/A"
     kev_color = "#ef4444" if kev else "#6b7280"
     vec_line  = (
         f'<div class="mono" style="color:#6b7280;font-size:10px;margin-top:4px;">{_esc(cvss_vector)}</div>'
@@ -1056,32 +1124,82 @@ def _build_html(
     s06 = sec("06", "Technical Analysis", cb(analysis_map.get(vuln_class, analysis_map["generic"]), "Analysis"))
 
     # ── 07 IOC Intelligence ────────────────────────────────────────────────
+    # BUG-07 FIX: Filter out CVE IDs and reference URLs from the IOC table.
+    # These are vulnerability references / metadata, not network/endpoint observables.
+    # Displaying them as IOCs confuses customers and causes "all IOCs suppressed" state.
+    _CVE_PAT = re.compile(r'^CVE-\d{4}-\d+$', re.IGNORECASE)
+    _URL_PAT = re.compile(r'^https?://', re.IGNORECASE)
+
+    def _is_actionable_ioc(val: str, itype: str) -> bool:
+        """Return True only for network/endpoint observables that can be blocked or hunted."""
+        v = str(val or "").strip()
+        if not v or len(v) < 4:
+            return False
+        if _CVE_PAT.match(v):
+            return False   # CVE IDs are references, not indicators
+        if _URL_PAT.match(v) and "nvd.nist.gov" in v.lower():
+            return False   # NVD/advisory URLs are references
+        if v.upper() in ("N/A", "NONE", "UNKNOWN", "PENDING"):
+            return False
+        t = itype.upper()
+        # Accept known actionable IOC types
+        if t in ("IPV4", "IP", "DOMAIN", "URL", "SHA256", "MD5", "SHA1",
+                 "EMAIL", "HASH", "FILE_HASH", "FILE", "USER_AGENT", "JA3",
+                 "FILENAME", "REGISTRY", "MUTEX", "YARA", "INDICATOR"):
+            return True
+        # Accept if it looks like an IP, domain, or hash
+        if re.match(r'^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$', v):
+            return True
+        if re.match(r'^[0-9a-fA-F]{32,64}$', v):
+            return True
+        if re.match(r'^[a-zA-Z0-9\-]+\.[a-zA-Z]{2,}$', v):
+            return True
+        return False
+
     ioc_rows_html = ""
+    suppressed_count = 0
     for ioc in iocs_raw[:50]:
         if isinstance(ioc, dict):
-            itype = _esc(ioc.get("type", "indicator"))
-            ival  = _esc(ioc.get("value", ""))
-            iconf = _esc(str(ioc.get("confidence", "HIGH")))
-            ictx  = _esc(ioc.get("context", ""))
+            itype = ioc.get("type", "indicator")
+            ival  = ioc.get("value", "")
+            iconf = str(ioc.get("confidence", "HIGH"))
+            ictx  = ioc.get("context", "")
         else:
             itype = "indicator"
-            ival  = _esc(str(ioc))
+            ival  = str(ioc)
             iconf = "HIGH"
             ictx  = ""
+
+        if not _is_actionable_ioc(str(ival), str(itype)):
+            suppressed_count += 1
+            continue
+
         ioc_rows_html += (
-            f'<tr><td>{itype}</td>'
-            f'<td class="mono break-all">{ival}</td>'
-            f'<td><span class="badge-small">{iconf}</span></td>'
-            f'<td class="muted-text">{ictx}</td></tr>'
+            f'<tr><td>{_esc(itype)}</td>'
+            f'<td class="mono break-all">{_esc(ival)}</td>'
+            f'<td><span class="badge-small">{_esc(iconf)}</span></td>'
+            f'<td class="muted-text">{_esc(ictx)}</td></tr>'
         )
+
     if ioc_rows_html:
+        suppressed_note = (
+            f'<p class="muted-text" style="margin-top:8px;">'
+            f'{suppressed_count} non-actionable reference(s) (CVE IDs / advisory URLs) excluded. '
+            f'APEX Pro delivers structured IOCs in STIX 2.1, MISP, and CSV for direct SIEM ingestion.</p>'
+        ) if suppressed_count else ""
         ioc_content = (
             '<table class="ioc-table"><thead><tr>'
             '<th>Type</th><th>Indicator</th><th>Confidence</th><th>Context</th>'
             f'</tr></thead><tbody>{ioc_rows_html}</tbody></table>'
+            + suppressed_note
         )
     else:
-        ioc_content = '<p class="muted-text">IOCs pending extraction. Subscribe to APEX Pro for real-time IOC feeds.</p>'
+        ioc_content = (
+            '<p class="muted-text">No network/endpoint observables extracted for this advisory. '
+            'CVE identifiers and advisory URLs are classified as references (not indicators). '
+            'APEX Pro subscribers receive enriched IOC feeds including infrastructure IPs, '
+            'command-and-control domains, file hashes, and YARA signatures via the live API.</p>'
+        )
     s07 = sec("07", "Indicators of Compromise (IOC)", ioc_content)
 
     # ── 08 Threat Actor Intelligence ──────────────────────────────────────
