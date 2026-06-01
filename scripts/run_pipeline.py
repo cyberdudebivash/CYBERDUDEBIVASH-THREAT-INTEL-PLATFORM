@@ -1279,28 +1279,43 @@ def stage_anti_stale_hardening() -> None:
                         pass  # unparseable date -- allow through, schema stage handles it
 
             # --- Layer 2: Synthetic Title Detector ---
-            # v166.3 FIX: Raw CVE-ID titles (e.g. "CVE-2026-10121") are classified
-            # synthetic UNLESS the item has a real description (>30 chars, not itself
-            # a bare CVE-ID). The title enricher runs at Stage 3.1.11 -- AFTER this
-            # quarantine -- so new CVE items always arrive here with raw IDs. Quarantining
-            # them purely on title causes the pipeline to produce 0-2 advisories,
-            # failing the R2 verifier floor. Items with real descriptions are genuine
-            # intel; items with NO description and a raw CVE ID are synthetic stubs.
+            # v166.4 FIX: Root cause of recurring STAGE 2.6 / R2 verifier HARD FAIL:
+            # export_stix.py manifest entries have NO 'description' field (only title,
+            # severity, source, cvss_score, epss_score). The v166.3 exemption checked
+            # only 'description', which is always empty at Stage 2.6 time, so every
+            # bare-CVE-ID item was quarantined as synthetic → advisory_count < floor 5
+            # → R2 verifier HARD FAIL. The title enricher (Stage 3.1.11) runs AFTER
+            # this stage, so new CVE items legitimately arrive with bare IDs.
+            # FIX: Exempt bare-CVE-ID items that carry ANY real intel signal available
+            # in the manifest entry at this stage: severity, source, cvss_score, epss_score.
+            # Only truly synthetic stubs (no source, no severity, no scores) are quarantined.
             _CVE_BARE_RE = _re.compile(r"^CVE-\d{4}-\d{4,}$", _re.IGNORECASE)
             is_synthetic = False
             for cp in compiled_patterns:
                 if cp.search(title):
                     # Special exemption for bare CVE-ID pattern only:
-                    # if the item has a real non-trivial description, it is NOT synthetic.
                     if cp.pattern == r"^CVE-\d{4}-\d{4,7}$":
+                        # Check description (populated on enriched items)
                         desc = str(item.get("description") or item.get("summary") or "").strip()
                         desc_clean = _re.sub(r"^CVE-\d{4}-\d+[\s\-:]+", "", desc, flags=_re.I).strip()
-                        if desc_clean and len(desc_clean) > 30 and not _CVE_BARE_RE.fullmatch(desc_clean):
+                        has_real_desc = bool(desc_clean) and len(desc_clean) > 5 and not _CVE_BARE_RE.fullmatch(desc_clean)
+                        # Check fields present in export_stix.py manifest entries
+                        _sev_val = str(item.get("severity") or "").upper().strip()
+                        _src_val = str(item.get("source") or item.get("feed_source") or "").strip()
+                        has_severity = _sev_val not in ("", "UNKNOWN", "N/A", "NONE")
+                        has_cvss     = float(item.get("cvss_score") or 0) > 0
+                        has_epss     = float(item.get("epss_score") or 0) > 0
+                        has_source   = bool(_src_val)
+                        if has_real_desc or has_severity or has_cvss or has_epss or has_source:
                             log.info(
-                                "[2.6] CVE raw-title EXEMPT (has real desc %d chars): id=%s title=%s",
-                                len(desc_clean), item_id, title[:60],
+                                "[2.6] CVE raw-title EXEMPT (sev=%s cvss=%s epss=%s src=%s): id=%s",
+                                _sev_val or "none",
+                                item.get("cvss_score") or "0",
+                                item.get("epss_score") or "0",
+                                _src_val[:20] if _src_val else "none",
+                                item_id,
                             )
-                            break  # do not set is_synthetic
+                            break  # genuine CVE intel, not a synthetic stub
                     is_synthetic = True
                     quarantine_log.append(
                         f"[SYNTH] id={item_id} pattern='{cp.pattern}' title={title[:80]}"
