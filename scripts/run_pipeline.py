@@ -3481,6 +3481,30 @@ def main() -> None:
     stage_system_health_gate()           # CRITICAL: exit 1 | DEGRADED: drain-first then continue
 
     # ---- Intel Generation -------------------------------------------------
+    # ---- Stage 1.9: Synthetic Intelligence Quarantine (v170.0) -----------
+    # Runs BEFORE intel engine — removes provably synthetic content
+    try:
+        run_script(
+            [sys.executable, "scripts/synthetic_intelligence_quarantine.py"],
+            stage="1.9.synthetic_quarantine",
+            allow_fail=True,
+            timeout=60,
+        )
+    except Exception as _sq_e:
+        log.warning("[1.9.synthetic_quarantine] Non-fatal: %s", _sq_e)
+
+    # ---- Stage 1.91: Provenance Backfill (v170.0) ----------------------
+    # Fix source labels before any downstream enrichment reads them
+    try:
+        run_script(
+            [sys.executable, "scripts/sentinel_apex_mandate_enforcer.py", "--fix"],
+            stage="1.91.provenance_fix",
+            allow_fail=True,
+            timeout=60,
+        )
+    except Exception as _pf_e:
+        log.warning("[1.91.provenance_fix] Non-fatal: %s", _pf_e)
+
     stage_run_intel_engine()
     _stage_done("intel_engine")
     stage_pre_v70_manifest_sync()
@@ -3572,6 +3596,18 @@ def main() -> None:
     # ---- Observability ----------------------------------------------------
     stage_write_metrics()                # Write pipeline_metrics.json
     _stage_done("write_metrics")
+
+    # ---- Stage FINAL: Mandate Compliance Report (v170.0) ---------------
+    # --report mode: writes report, non-fatal (M6 stale archives don't block CI)
+    try:
+        run_script(
+            [sys.executable, "scripts/sentinel_apex_mandate_enforcer.py", "--report"],
+            stage="final.mandate_compliance",
+            allow_fail=True,
+            timeout=60,
+        )
+    except Exception as _mc_e:
+        log.warning("[final.mandate_compliance] Non-fatal: %s", _mc_e)
     stage_sync_root_feed_json()          # FINAL: ensure feed.json populated (double-guarantee)
     _stage_done("feed_json_final")       # v143.4.1 FIX: mark BEFORE stage audit so it registers
 
