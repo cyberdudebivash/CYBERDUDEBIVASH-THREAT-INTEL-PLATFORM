@@ -122,12 +122,12 @@ function injectVersionHeaders(response, config) {
   headers.set("X-SENTINEL-Version", config.GATEWAY_VERSION);
   headers.set("X-SENTINEL-Platform", "SENTINEL-APEX");
   headers.set("X-SENTINEL-Codename", "GOD-MODE");
-  headers.set("X-Powered-By", "CYBERDUDEBIVASH-SENTINEL-APEX-v166.3");
+  headers.set("X-Powered-By", "CYBERDUDEBIVASH-SENTINEL-APEX-v167.3");
   return new Response(response.body, { status: response.status, headers });
 }
 
 const CONFIG = {
-  GATEWAY_VERSION:   "166.2",    // PLATFORM version -- governed by VERSION file + version_governance.py. DO NOT change manually. CI injects from SSOT.
+  GATEWAY_VERSION:   "167.2",    // PLATFORM version -- governed by VERSION file + version_governance.py. DO NOT change manually. CI injects from SSOT.
   GATEWAY_NAME:      "SENTINEL-APEX",
   BYPASS_FEED_CACHE: false,
   // P0 FIX v134.0: Reduced cache TTLs to ensure dashboard reflects fresh R2 data
@@ -6657,12 +6657,14 @@ export default {
       return handleDetectionAPI(request, env, rid, pathname);
     }
 
-    // v162.6 P0-FIX: HTML Intel Reports -- defense-in-depth handler
+    // v167.2 FIX: HTML Intel Reports -- Worker now intercepts /reports/* via CF Route
     // GET /reports/{year}/{month}/intel--{hash}.html
-    // Primary source: INTEL_R2 bucket; fallback: gh-pages raw.githubusercontent.com
+    // Source 1: REPORTS_R2 (sentinel-apex-reports) -- primary, uploaded by r2_upload.py
+    // Source 2: INTEL_R2  (sentinel-apex-data)    -- legacy fallback
+    // Source 3: gh-pages raw.githubusercontent.com -- last resort
     // No auth required -- public TLP-CLEAR intel assets.
-    // NOTE: Cloudflare Worker Routes normally only intercept /api/* so GitHub Pages
-    //       handles these. This handler is defense-in-depth for future route expansions.
+    // Route intel.cyberdudebivash.com/reports/* is now registered in wrangler.toml so
+    // the Worker intercepts these requests instead of falling through to CF Pages 404.
     if (pathname.match(/^\/reports\/\d{4}\/\d{2}\/intel--[a-f0-9]{10,64}\.html$/i) && method === 'GET') {
       return withSec(await serveHtmlIntelReport(pathname, env, rid));
     }

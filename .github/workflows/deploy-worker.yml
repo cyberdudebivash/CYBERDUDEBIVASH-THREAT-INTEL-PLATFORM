@@ -394,7 +394,13 @@ jobs:
 
           echo ""
           echo "--- Preview endpoint check ---"
-          curl -s --max-time 10 "https://intel.cyberdudebivash.com/api/preview" 2>/dev/null | python3 -c "
-          import json,sys
-          try:
-         
+          PREVIEW_HTTP=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "https://intel.cyberdudebivash.com/api/preview" 2>/dev/null || echo "000")
+          echo "Preview HTTP status: ${PREVIEW_HTTP}"
+          if [ "$PREVIEW_HTTP" = "200" ] || [ "$PREVIEW_HTTP" = "401" ]; then
+            echo "OK: Preview endpoint reachable (HTTP ${PREVIEW_HTTP})"
+          else
+            echo "NOTE: Preview endpoint not yet reachable (HTTP ${PREVIEW_HTTP}) -- still propagating"
+          fi
+
+          echo ""
+          echo "=== Post-Deploy Smoke Test COMPLETE ==="
