@@ -6494,12 +6494,12 @@ export default {
       }, 404);
     }
 
-    // ═══════════════════════════════════════════════════════════════════════
-    // SENTINEL APEX v167.0 — CTI API v2 NAMESPACE
-    // Enterprise threat intelligence endpoints — Phase 9 CTI Transformation
-    // ═══════════════════════════════════════════════════════════════════════
+    // =======================================================================
+    // SENTINEL APEX v167.0  -  CTI API v2 NAMESPACE
+    // Enterprise threat intelligence endpoints  -  Phase 9 CTI Transformation
+    // =======================================================================
 
-    // /api/v2/threat-actors — Threat Actor Intelligence Engine
+    // /api/v2/threat-actors  -  Threat Actor Intelligence Engine
     if (pathname.startsWith('/api/v2/threat-actors') && method === 'GET') {
       const actorId = pathname.replace('/api/v2/threat-actors', '').replace(/^\//, '').split('/')[0];
       if (!actorId || actorId === '') {
@@ -6511,7 +6511,7 @@ export default {
             return withSec(jsonResponse({ schema_version: '2.0', intelligence_object_type: 'threat_actor_index', generated_at: new Date().toISOString(), data }, 200));
           }
         } catch (e) { slog('WARN', 'CTI-API', `Actor index error: ${e.message}`, { rid }); }
-        return withSec(jsonResponse({ schema_version: '2.0', intelligence_object_type: 'threat_actor_index', generated_at: new Date().toISOString(), data: { message: 'Threat actor library loading — run pipeline to generate profiles', total_actors: 11, actors: [] }, tier_notice: 'Upgrade to PRO for full actor profiles with campaigns, TTPs, and dossiers' }, 200));
+        return withSec(jsonResponse({ schema_version: '2.0', intelligence_object_type: 'threat_actor_index', generated_at: new Date().toISOString(), data: { message: 'Threat actor library loading  -  run pipeline to generate profiles', total_actors: 11, actors: [] }, tier_notice: 'Upgrade to PRO for full actor profiles with campaigns, TTPs, and dossiers' }, 200));
       }
       // Single actor
       const isDossier = pathname.endsWith('/dossier');
@@ -6529,7 +6529,7 @@ export default {
       return withSec(jsonResponse({ error: 'actor_not_found', actor_id: actorId, message: 'Run pipeline to generate actor profiles' }, 404));
     }
 
-    // /api/v2/campaigns — Campaign Intelligence Engine
+    // /api/v2/campaigns  -  Campaign Intelligence Engine
     if (pathname.startsWith('/api/v2/campaigns') && method === 'GET') {
       const campaignId = pathname.replace('/api/v2/campaigns', '').replace(/^\//, '').split('/')[0];
       if (!campaignId) {
@@ -6537,7 +6537,7 @@ export default {
           const obj = env.INTEL_R2 ? await env.INTEL_R2.get('intel/campaigns/_index.json') : null;
           if (obj) { const data = await obj.json(); return withSec(jsonResponse({ schema_version: '2.0', intelligence_object_type: 'campaign_index', data }, 200)); }
         } catch (e) { /* fall through */ }
-        return withSec(jsonResponse({ schema_version: '2.0', intelligence_object_type: 'campaign_index', data: { message: 'Campaign intelligence loading — run pipeline', total_campaigns: 5, active_campaigns: 3 } }, 200));
+        return withSec(jsonResponse({ schema_version: '2.0', intelligence_object_type: 'campaign_index', data: { message: 'Campaign intelligence loading  -  run pipeline', total_campaigns: 5, active_campaigns: 3 } }, 200));
       }
       try {
         const obj = env.INTEL_R2 ? await env.INTEL_R2.get(`intel/campaigns/${campaignId}/report.json`) : null;
@@ -6546,7 +6546,7 @@ export default {
       return withSec(jsonResponse({ error: 'campaign_not_found', campaign_id: campaignId }, 404));
     }
 
-    // /api/v2/malware — Malware Intelligence Engine
+    // /api/v2/malware  -  Malware Intelligence Engine
     if (pathname.startsWith('/api/v2/malware') && method === 'GET') {
       const malwareId = pathname.replace('/api/v2/malware', '').replace(/^\//, '').split('/')[0];
       if (!malwareId) {
@@ -6554,7 +6554,7 @@ export default {
           const obj = env.INTEL_R2 ? await env.INTEL_R2.get('intel/malware/_index.json') : null;
           if (obj) { const data = await obj.json(); return withSec(jsonResponse({ schema_version: '2.0', intelligence_object_type: 'malware_index', data }, 200)); }
         } catch (e) { /* fall through */ }
-        return withSec(jsonResponse({ schema_version: '2.0', intelligence_object_type: 'malware_index', data: { message: 'Malware library loading — run pipeline' } }, 200));
+        return withSec(jsonResponse({ schema_version: '2.0', intelligence_object_type: 'malware_index', data: { message: 'Malware library loading  -  run pipeline' } }, 200));
       }
       try {
         const obj = env.INTEL_R2 ? await env.INTEL_R2.get(`intel/malware/${malwareId}/profile.json`) : null;
@@ -6563,7 +6563,7 @@ export default {
       return withSec(jsonResponse({ error: 'malware_not_found', malware_id: malwareId }, 404));
     }
 
-    // /api/v2/detection/{advisory_id} — Detection Content Pack
+    // /api/v2/detection/{advisory_id}  -  Detection Content Pack
     if (pathname.startsWith('/api/v2/detection') && method === 'GET') {
       const advisoryId = pathname.replace('/api/v2/detection', '').replace(/^\//, '').split('/')[0];
       if (advisoryId) {
@@ -6572,10 +6572,10 @@ export default {
           if (obj) { const data = await obj.json(); return withSec(jsonResponse({ schema_version: '2.0', intelligence_object_type: 'detection_pack', data, request_id: rid }, 200)); }
         } catch (e) { /* fall through */ }
       }
-      return withSec(jsonResponse({ schema_version: '2.0', intelligence_object_type: 'detection_pack', data: { message: 'Detection content loading — run pipeline with v167.0 detection generator' }, tier_notice: 'Upgrade to PRO for full Sigma/YARA/KQL detection packs' }, 200));
+      return withSec(jsonResponse({ schema_version: '2.0', intelligence_object_type: 'detection_pack', data: { message: 'Detection content loading  -  run pipeline with v167.0 detection generator' }, tier_notice: 'Upgrade to PRO for full Sigma/YARA/KQL detection packs' }, 200));
     }
 
-    // /api/v2/graph — Intelligence Knowledge Graph
+    // /api/v2/graph  -  Intelligence Knowledge Graph
     if (pathname.startsWith('/api/v2/graph') && method === 'GET') {
       const subPath = pathname.replace('/api/v2/graph', '').replace(/^\//, '');
       const url = new URL(request.url);
@@ -6596,10 +6596,10 @@ export default {
         const obj = env.INTEL_R2 ? await env.INTEL_R2.get(graphKey) : null;
         if (obj) { const data = await obj.json(); return withSec(jsonResponse({ schema_version: '2.0', intelligence_object_type: 'knowledge_graph', data, request_id: rid }, 200)); }
       } catch (e) { /* fall through */ }
-      return withSec(jsonResponse({ schema_version: '2.0', intelligence_object_type: 'knowledge_graph', data: { message: 'Knowledge graph loading — run pipeline with v167.0 graph engine', status: 'INITIALIZING' } }, 200));
+      return withSec(jsonResponse({ schema_version: '2.0', intelligence_object_type: 'knowledge_graph', data: { message: 'Knowledge graph loading  -  run pipeline with v167.0 graph engine', status: 'INITIALIZING' } }, 200));
     }
 
-    // /api/v2/reports/executive-brief — Executive Intelligence Briefs
+    // /api/v2/reports/executive-brief  -  Executive Intelligence Briefs
     if (pathname.startsWith('/api/v2/reports/executive-brief') && method === 'GET') {
       try {
         const obj = env.INTEL_R2 ? await env.INTEL_R2.get('intel/reports/executive-briefs/latest.json') : null;
@@ -6608,7 +6608,7 @@ export default {
       return withSec(jsonResponse({ schema_version: '2.0', intelligence_object_type: 'executive_brief', data: { message: 'Executive brief generation requires ENTERPRISE tier', tier_notice: 'Upgrade to ENTERPRISE for weekly CEO/CISO/Board intelligence briefs' } }, 200));
     }
 
-    // /api/v2/intel/latest — v2 alias for existing intel feed with CTI enrichment
+    // /api/v2/intel/latest  -  v2 alias for existing intel feed with CTI enrichment
     if (pathname === '/api/v2/intel/latest' && method === 'GET') {
       try {
         const obj = env.INTEL_R2 ? await env.INTEL_R2.get('intel/feed_manifest.json') : null;
