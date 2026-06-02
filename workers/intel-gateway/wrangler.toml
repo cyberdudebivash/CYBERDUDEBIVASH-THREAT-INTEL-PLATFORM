@@ -35,13 +35,23 @@ id      = "baa66e510f7247d4b268af943bfb7213"
 binding = "SECURITY_HUB_KV"
 id      = "95faae90943f43afa26d552b8385d339"
 
-# -- R2 Bucket --
-# Primary intel storage -- private, never public
+# -- R2 Buckets --
+# INTEL_R2: Primary intel storage (feed, STIX, manifests, CTI data)
 # Create: npx wrangler r2 bucket create sentinel-apex-data
 
 [[r2_buckets]]
 binding     = "INTEL_R2"
 bucket_name = "sentinel-apex-data"
+
+# REPORTS_R2: Advisory HTML report storage
+# r2_upload.py uploads reports/ to sentinel-apex-reports (dedicated token).
+# Worker serves /reports/**/*.html from this bucket.
+# Fix (v167.1): was missing — caused all /reports/ URLs to 404.
+# Create: npx wrangler r2 bucket create sentinel-apex-reports
+
+[[r2_buckets]]
+binding     = "REPORTS_R2"
+bucket_name = "sentinel-apex-reports"
 
 # -- Secrets (set via wrangler CLI -- NEVER commit to source control) --
 # npx wrangler secret put ADMIN_SECRET             -> cache bust + admin key management
@@ -89,3 +99,7 @@ id      = "95faae90943f43afa26d552b8385d339"
 [[env.production.r2_buckets]]
 binding     = "INTEL_R2"
 bucket_name = "sentinel-apex-data"
+
+[[env.production.r2_buckets]]
+binding     = "REPORTS_R2"
+bucket_name = "sentinel-apex-reports"

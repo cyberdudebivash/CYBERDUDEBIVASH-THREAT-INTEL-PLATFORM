@@ -5731,13 +5731,14 @@ async function handleTenantListCustomers(request, env, auth, rid) {
 // =============================================================================
 // v162.6 P0-FIX: serveHtmlIntelReport -- defense-in-depth handler for HTML reports
 // Route: GET /reports/{year}/{month}/intel--{hash}.html
-// Primary:  R2 INTEL_R2 bucket key = "reports/{year}/{month}/intel--{hash}.html"
-// Fallback: GitHub raw gh-pages branch (canonical source for static HTML reports)
+// Primary:  REPORTS_R2 bucket (sentinel-apex-reports) — reports/ uploaded here by r2_upload.py
+// Secondary: INTEL_R2 bucket (sentinel-apex-data) — fallback for legacy reports
+// Tertiary: GitHub raw gh-pages branch (canonical source for static HTML reports)
 // No auth required -- HTML intel reports are public TLP-CLEAR assets.
-// NOTE: Worker Routes in Cloudflare Dashboard intercept only /api/* so GitHub Pages
-//       normally handles /reports/*. This function is DEFENSE-IN-DEPTH: if Worker
-//       Routes are ever broadened OR the Worker is invoked via subrequest, it will
-//       serve the report correctly rather than returning a JSON 404.
+//
+// v167.1 FIX: Added REPORTS_R2 binding to wrangler.toml (sentinel-apex-reports).
+// Root cause of 404s: r2_upload.py uploads reports/ to sentinel-apex-reports bucket,
+// but Worker only had INTEL_R2 (sentinel-apex-data) — wrong bucket → always missed → 404.
 // =============================================================================
 async function serveHtmlIntelReport(pathname, env, rid) {
   // Validate path pattern: /reports/YYYY/MM/intel--{hex}.html
@@ -5751,32 +5752,44 @@ async function serveHtmlIntelReport(pathname, env, rid) {
   }
 
   const r2Key = pathname.slice(1); // strip leading slash
+  const htmlHeaders = {
+    'Content-Type': 'text/html; charset=utf-8',
+    'Cache-Control': 'public, max-age=3600, stale-while-revalidate=86400',
+    'X-Intel-Classification': 'TLP-CLEAR',
+    'X-Sentinel-Version': CONFIG.GATEWAY_VERSION,
+    'X-Request-Id': rid,
+  };
 
-  // Primary: INTEL_R2 bucket
+  // Source 1: REPORTS_R2 (sentinel-apex-reports) — PRIMARY authoritative source
+  // r2_upload.py uploads HTML reports here via CF_R2_REPORTS_KEY_ID token
+  if (env?.REPORTS_R2) {
+    try {
+      const r2Obj = await env.REPORTS_R2.get(r2Key);
+      if (r2Obj) {
+        slog('INFO', 'REPORT-HTML', `REPORTS_R2 HIT: ${r2Key}`, { rid });
+        return new Response(r2Obj.body, { status: 200, headers: { ...htmlHeaders, 'X-Source': 'reports_r2' } });
+      }
+      slog('INFO', 'REPORT-HTML', `REPORTS_R2 MISS: ${r2Key}`, { rid });
+    } catch (e) {
+      slog('WARN', 'REPORT-HTML', `REPORTS_R2 error: ${e.message}`, { rid, r2Key });
+    }
+  }
+
+  // Source 2: INTEL_R2 (sentinel-apex-data) — secondary fallback for legacy/migrated reports
   if (env?.INTEL_R2) {
     try {
       const r2Obj = await env.INTEL_R2.get(r2Key);
       if (r2Obj) {
-        slog('INFO', 'REPORT-HTML', `R2 HIT: ${r2Key}`, { rid });
-        return new Response(r2Obj.body, {
-          status: 200,
-          headers: {
-            'Content-Type': 'text/html; charset=utf-8',
-            'Cache-Control': 'public, max-age=3600, stale-while-revalidate=86400',
-            'X-Intel-Classification': 'TLP-CLEAR',
-            'X-Sentinel-Version': CONFIG.GATEWAY_VERSION,
-            'X-Source': 'r2',
-            'X-Request-Id': rid,
-          },
-        });
+        slog('INFO', 'REPORT-HTML', `INTEL_R2 HIT: ${r2Key}`, { rid });
+        return new Response(r2Obj.body, { status: 200, headers: { ...htmlHeaders, 'X-Source': 'intel_r2' } });
       }
-      slog('INFO', 'REPORT-HTML', `R2 MISS: ${r2Key}  -  falling back to gh-pages`, { rid });
+      slog('INFO', 'REPORT-HTML', `INTEL_R2 MISS: ${r2Key} — falling back to gh-pages`, { rid });
     } catch (e) {
-      slog('WARN', 'REPORT-HTML', `R2 error: ${e.message}`, { rid, r2Key });
+      slog('WARN', 'REPORT-HTML', `INTEL_R2 error: ${e.message}`, { rid, r2Key });
     }
   }
 
-  // Fallback: GitHub raw gh-pages branch (canonical static source)
+  // Source 3: GitHub raw gh-pages branch (canonical static source)
   const ghUrl = `https://raw.githubusercontent.com/${CONFIG.GITHUB_REPO}/gh-pages${pathname}`;
   try {
     const resp = await fetch(ghUrl, {
