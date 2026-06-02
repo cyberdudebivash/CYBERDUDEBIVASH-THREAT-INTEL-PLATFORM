@@ -63,6 +63,8 @@ on:
       - 'scripts/generate_ai_endpoints.py'
       - 'scripts/run_pipeline.py'
       - 'scripts/report_generator.py'
+      - 'scripts/intel_publication_gate.py'
+      - 'scripts/intel_enterprise_quality_engine.py'
       - '.github/workflows/generate-and-sync.yml'
   schedule:
     # Every 6h at :00 past 2am — offset from sentinel-blogger (0h) and multi-source (1:45h)
@@ -724,6 +726,61 @@ jobs:
             --run-id "$GITHUB_RUN_ID" \
             2>&1 | tail -30 || true
           echo "STAGE 6.9: Golden Baseline Capture complete"
+
+      # ─────────────────────────────────────────────────────────────────────
+      # STAGE 6.91 — P0 INTELLIGENCE PUBLICATION GATE (v1.0.0)
+      # Per-item publication blocker. 9-rule integrity engine.
+      # Blocks synthetic actors, campaigns, phantom IOC guidance,
+      # missing evidence ledger, confidence inflation, speculative MITRE,
+      # report contradictions. Hard-fails if >20% of items are BLOCK.
+      # ─────────────────────────────────────────────────────────────────────
+      - name: "STAGE 6.91 — P0 Intelligence Publication Gate (v1.0.0)"
+        continue-on-error: true
+        run: |
+          if [ -f "api/feed.json" ]; then
+            echo "STAGE 6.91: Running P0 Intelligence Publication Gate..."
+            python3 scripts/intel_publication_gate.py api/feed.json \
+              --check \
+              --output data/health/intel_publication_gate_report.json || {
+                echo "::warning::STAGE 6.91: Publication gate flagged blocked items — see report"
+              }
+            if [ -f "data/health/intel_publication_gate_report.json" ]; then
+              BLOCKED=$(python3 -c "import json; d=json.load(open('data/health/intel_publication_gate_report.json')); print(d.get('summary',{}).get('blocked',0))" 2>/dev/null || echo "?")
+              ALLOWED=$(python3 -c "import json; d=json.load(open('data/health/intel_publication_gate_report.json')); print(d.get('summary',{}).get('allowed',0))" 2>/dev/null || echo "?")
+              AVG_IQ=$(python3 -c "import json; d=json.load(open('data/health/intel_publication_gate_report.json')); print(d.get('summary',{}).get('avg_integrity_score',0))" 2>/dev/null || echo "?")
+              echo "STAGE 6.91: allowed=${ALLOWED} blocked=${BLOCKED} avg_integrity=${AVG_IQ}"
+            fi
+          else
+            echo "STAGE 6.91: api/feed.json not found — skip"
+          fi
+
+      # ─────────────────────────────────────────────────────────────────────
+      # STAGE 6.92 — P1 ENTERPRISE INTELLIGENCE QUALITY ENGINE (v1.0.0)
+      # 11-dimension quality scorer. Outputs intelligence_quality,
+      # enterprise_readiness, mssp_readiness, api_readiness,
+      # monetization_readiness. Writes api/intel_quality.json.
+      # ─────────────────────────────────────────────────────────────────────
+      - name: "STAGE 6.92 — P1 Enterprise Intelligence Quality Engine (v1.0.0)"
+        continue-on-error: true
+        run: |
+          if [ -f "api/feed.json" ]; then
+            echo "STAGE 6.92: Running P1 Enterprise Quality Engine..."
+            python3 scripts/intel_enterprise_quality_engine.py api/feed.json \
+              --score \
+              --api \
+              --output data/health/intel_quality_engine_report.json || {
+                echo "::warning::STAGE 6.92: Quality engine error — non-fatal"
+              }
+            if [ -f "api/intel_quality.json" ]; then
+              IQ=$(python3 -c "import json; d=json.load(open('api/intel_quality.json')); print(d.get('intelligence_quality',0))" 2>/dev/null || echo "?")
+              ER=$(python3 -c "import json; d=json.load(open('api/intel_quality.json')); print(d.get('enterprise_readiness',0))" 2>/dev/null || echo "?")
+              MR=$(python3 -c "import json; d=json.load(open('api/intel_quality.json')); print(d.get('mssp_readiness',0))" 2>/dev/null || echo "?")
+              GRADE=$(python3 -c "import json; d=json.load(open('api/intel_quality.json')); print(d.get('grade','?'))" 2>/dev/null || echo "?")
+              echo "STAGE 6.92: intelligence_quality=${IQ} enterprise=${ER} mssp=${MR} grade=${GRADE}"
+            fi
+          else
+            echo "STAGE 6.92: api/feed.json not found — skip"
+          fi
 
       # ─────────────────────────────────────────────────────────────────────
       # STAGE 7 — PIPELINE OBSERVABILITY TELEMETRY (Phase 6)
