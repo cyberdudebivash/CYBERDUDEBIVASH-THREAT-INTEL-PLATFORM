@@ -380,6 +380,110 @@ jobs:
           set -e
           exit 0
 
+      # ═════════════════════════════════════════════════════════════════════
+      # SENTINEL APEX v167.0 — ENTERPRISE CTI TRANSFORMATION STAGES
+      # Phases 1-6: Actor Attribution, Campaign Correlation, Malware Intel,
+      # Detection Content v2, Knowledge Graph, Executive Brief
+      # ═════════════════════════════════════════════════════════════════════
+
+      - name: "STAGE 3.1.18 - Threat Actor Intelligence Engine (v167.0)"
+        timeout-minutes: 8
+        continue-on-error: true
+        run: |
+          set +e
+          echo "::group::STAGE 3.1.18 — Threat Actor Intelligence Engine v167.0"
+          echo "[TAIE] Starting actor attribution for all advisories..."
+          python3 scripts/threat_actor_engine.py
+          EXIT_CODE=$?
+          if [ $EXIT_CODE -eq 0 ]; then
+            ATTR_RATE=$(python3 -c "import json; r=json.load(open('data/health/actor_attribution_report.json')); print(r.get('attribution_rate_pct','?'))" 2>/dev/null || echo "N/A")
+            echo "[TAIE] Actor attribution complete | Rate: ${ATTR_RATE}%"
+          else
+            echo "::warning::TAIE exited ${EXIT_CODE} -- non-fatal, pipeline continues"
+          fi
+          echo "::endgroup::"
+          set -e; exit 0
+
+      - name: "STAGE 3.1.19 - Campaign Intelligence Engine (v167.0)"
+        timeout-minutes: 5
+        continue-on-error: true
+        run: |
+          set +e
+          echo "::group::STAGE 3.1.19 — Campaign Intelligence Engine v167.0"
+          echo "[CIE] Starting campaign correlation for all advisories..."
+          python3 scripts/campaign_intelligence_engine.py
+          EXIT_CODE=$?
+          if [ $EXIT_CODE -eq 0 ]; then
+            CORR_RATE=$(python3 -c "import json; r=json.load(open('data/health/campaign_correlation_report.json')); print(r.get('correlation_rate_pct','?'))" 2>/dev/null || echo "N/A")
+            echo "[CIE] Campaign correlation complete | Rate: ${CORR_RATE}%"
+          else
+            echo "::warning::CIE exited ${EXIT_CODE} -- non-fatal"
+          fi
+          echo "::endgroup::"
+          set -e; exit 0
+
+      - name: "STAGE 3.1.20 - Malware Intelligence Engine (v167.0)"
+        timeout-minutes: 5
+        continue-on-error: true
+        run: |
+          set +e
+          echo "::group::STAGE 3.1.20 — Malware Intelligence Engine v167.0"
+          python3 scripts/malware_intelligence_engine.py
+          EXIT_CODE=$?
+          [ $EXIT_CODE -ne 0 ] && echo "::warning::MIE exited ${EXIT_CODE} -- non-fatal"
+          echo "::endgroup::"
+          set -e; exit 0
+
+      - name: "STAGE 3.1.21 - Detection Content Generator v2 (v167.0)"
+        timeout-minutes: 10
+        continue-on-error: true
+        run: |
+          set +e
+          echo "::group::STAGE 3.1.21 — Detection Content Generator v2 v167.0"
+          echo "[DCG-V2] Generating threat-specific Sigma/YARA/KQL/Suricata packs..."
+          python3 scripts/detection_content_generator_v2.py
+          EXIT_CODE=$?
+          if [ $EXIT_CODE -eq 0 ]; then
+            PACK_COUNT=$(find data/detection -name "detection_pack.json" 2>/dev/null | wc -l)
+            echo "[DCG-V2] Detection packs generated: ${PACK_COUNT}"
+          else
+            echo "::warning::DCG-V2 exited ${EXIT_CODE} -- non-fatal"
+          fi
+          echo "::endgroup::"
+          set -e; exit 0
+
+      - name: "STAGE 3.1.22 - Intelligence Knowledge Graph (v167.0)"
+        timeout-minutes: 8
+        continue-on-error: true
+        run: |
+          set +e
+          echo "::group::STAGE 3.1.22 — Intelligence Knowledge Graph v167.0"
+          echo "[KG] Building actor-campaign-malware-IOC knowledge graph..."
+          python3 scripts/intelligence_knowledge_graph.py
+          EXIT_CODE=$?
+          if [ $EXIT_CODE -eq 0 ]; then
+            NODE_COUNT=$(python3 -c "import json; g=json.load(open('data/graph/snapshot.json')); print(g['stats']['total_nodes'])" 2>/dev/null || echo "N/A")
+            EDGE_COUNT=$(python3 -c "import json; g=json.load(open('data/graph/snapshot.json')); print(g['stats']['total_edges'])" 2>/dev/null || echo "N/A")
+            echo "[KG] Graph built: ${NODE_COUNT} nodes, ${EDGE_COUNT} edges"
+          else
+            echo "::warning::KG exited ${EXIT_CODE} -- non-fatal"
+          fi
+          echo "::endgroup::"
+          set -e; exit 0
+
+      - name: "STAGE 3.2.1 - Executive Intelligence Brief Generator (v167.0)"
+        timeout-minutes: 5
+        continue-on-error: true
+        run: |
+          set +e
+          echo "::group::STAGE 3.2.1 — Executive Intelligence Brief Generator v167.0"
+          python3 scripts/executive_brief_generator.py
+          EXIT_CODE=$?
+          [ $EXIT_CODE -eq 0 ] && echo "[EBG] Executive brief generated: data/reports/executive-briefs/latest.json"
+          [ $EXIT_CODE -ne 0 ] && echo "::warning::EBG exited ${EXIT_CODE} -- non-fatal"
+          echo "::endgroup::"
+          set -e; exit 0
+
       # ─────────────────────────────────────────────────────────────────────
       # STAGE 5 — AI TRACKER GENERATION (Phase 1+2+3: explainability + health + exec)
       # ─────────────────────────────────────────────────────────────────────
