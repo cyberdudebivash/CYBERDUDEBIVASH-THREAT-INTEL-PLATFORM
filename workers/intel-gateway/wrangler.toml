@@ -2,13 +2,25 @@ name              = "sentinel-apex-gateway"
 main              = "src/index.js"
 compatibility_date = "2025-09-01"
 
+# Worker Routes -- intel.cyberdudebivash.com
+# /api/*        -- Worker-native API endpoints (auth, feed, reports index, etc.)
+# /reports/*    -- HTML intel reports served from REPORTS_R2 (sentinel-apex-reports)
+#                  Previously only /api/* was routed to the Worker; /reports/* fell
+#                  through to CF Pages static hosting which had no matching files => 404.
+# Fix (v167.2): Added /reports/* route so serveHtmlIntelReport() is invoked and
+#               reports are served directly from R2 (REPORTS_R2 binding).
+routes = [
+  { pattern = "intel.cyberdudebivash.com/api/*",     zone_name = "cyberdudebivash.com" },
+  { pattern = "intel.cyberdudebivash.com/reports/*", zone_name = "cyberdudebivash.com" },
+]
+
 # v143.0.0: Cron trigger for scheduled webhook push + cache refresh
 # Fires every 15 minutes -- matches typical CTI pipeline run cadence
 [triggers]
 crons = ["*/15 * * * *"]
 
 [vars]
-GATEWAY_VERSION = "166.2"
+GATEWAY_VERSION = "167.2"
 
 # -- KV Namespaces --
 # Deployed KV IDs -- verified live on intel.cyberdudebivash.com (v142.3.1)
@@ -75,10 +87,14 @@ bucket_name = "sentinel-apex-reports"
 # Verify configured: GET /api/health -> checks.jwt_configured: true
 
 # -- Production environment --
+# Mirrors default env exactly. Required so `wrangler deploy --env production`
+# succeeds on the first deploy attempt (deploy-worker.yml retries without --env
+# on failure, but having this avoids a spurious first-attempt error in CI logs).
 [env.production]
 name = "sentinel-apex-gateway"
+
 [env.production.vars]
-GATEWAY_VERSION = "166.2"
+GATEWAY_VERSION = "167.2"
 
 [[env.production.kv_namespaces]]
 binding = "API_KEYS_KV"

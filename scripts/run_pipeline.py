@@ -1585,6 +1585,29 @@ def stage_html_reports() -> None:
         log.error("[3.6] HTML report generation FAILED (exit %d).", r.returncode)
         sys.exit(1)
 
+    # v167.2 FIX: ID format migration -- api/feed.json uses 24-char hex IDs while
+    # feed_manifest.json may use 16-char IDs. Run a second report generation pass
+    # against api/feed.json to ensure every item in the API feed has an HTML report.
+    # This is NON-FATAL: if api/feed.json has the same items as manifest, it's a no-op.
+    import pathlib as _pl
+    _api_feed = _pl.Path("api/feed.json")
+    if _api_feed.exists():
+        r2 = run_script(
+            [
+                sys.executable, "scripts/generate_intel_reports.py",
+                "--manifest", "api/feed.json",
+                "--public-prefix", "https://intel.cyberdudebivash.com",
+                "--limit", "0",
+            ],
+            stage="3.6.reports.feed",
+            allow_fail=True,   # Non-fatal: manifest pass already succeeded
+            timeout=900,
+        )
+        if r2.returncode != 0:
+            log.warning("[3.6.feed] feed.json report generation exited %d (non-fatal).", r2.returncode)
+        else:
+            log.info("[3.6.feed] feed.json HTML reports generated OK (ID format migration pass).")
+
     # v134 upgrades: IOC enforcement, dedup, synthetic fallback, PDF, revenue
     run_script(
         [sys.executable, "scripts/apply_v131_upgrades.py"],
