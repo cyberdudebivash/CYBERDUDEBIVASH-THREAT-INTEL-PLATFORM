@@ -3804,3 +3804,11 @@ def main() -> None:
     _missing_stages = [s for s in _STAGE_REGISTRY if s not in _completed_stages]
     if _missing_stages:
         log.warning('[pipeline] Incomplete stages: %s', _missing_stages)
+
+
+if __name__ == "__main__":
+    main()
+
+
+if __name__ == "__main__":
+    main()

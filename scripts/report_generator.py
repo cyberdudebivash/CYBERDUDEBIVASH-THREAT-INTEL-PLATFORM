@@ -1761,4 +1761,22 @@ def main() -> int:
         print("\nSupported vulnerability classes:")
         for cls, label in _VULN_CLASS_LABELS.items():
             print(f"  {cls:20s}  {label}")
-        prin
+        return 0
+
+    if args.entry:
+        import json as _json
+        entry = _json.loads(args.entry)
+        ok = generate_report(entry, reports_base=args.reports_base, force=args.force)
+        return 0 if ok else 1
+
+    results = generate_reports_from_manifest(
+        manifest_path=args.manifest,
+        reports_base=args.reports_base,
+        skip_existing=not args.force,
+    )
+    return 0 if results["failed"] == 0 else 1
+
+
+if __name__ == "__main__":
+    import sys as _sys
+    _sys.exit(main())
