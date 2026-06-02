@@ -740,7 +740,7 @@ jobs:
           if [ -f "api/feed.json" ]; then
             echo "STAGE 6.91: Running P0 Intelligence Publication Gate..."
             python3 scripts/intel_publication_gate.py api/feed.json \
-              --check \
+              --patch \
               --output data/health/intel_publication_gate_report.json || {
                 echo "::warning::STAGE 6.91: Publication gate flagged blocked items — see report"
               }
@@ -780,6 +780,35 @@ jobs:
             fi
           else
             echo "STAGE 6.92: api/feed.json not found — skip"
+          fi
+
+      # ─────────────────────────────────────────────────────────────────────
+      # STAGE 6.93 — INTELLIGENCE GRADE ENGINE (v1.0.0)
+      # Applies Output Contract fields to every item in api/feed.json:
+      # publication_decision, intelligence_grade, evidence_count,
+      # corroboration_count, attribution_status, campaign_status,
+      # ioc_quality_score, attck_verification, risk_score_reasoning,
+      # analyst_verdict. Strips banned actors (CDB-UNATTR-*). Hard-fails
+      # if block_pct > 30%.
+      # ─────────────────────────────────────────────────────────────────────
+      - name: "STAGE 6.93 — Intelligence Grade Engine (v1.0.0)"
+        continue-on-error: true
+        run: |
+          if [ -f "api/feed.json" ]; then
+            echo "STAGE 6.93: Running Intelligence Grade Engine..."
+            python3 scripts/intelligence_grade_engine.py api/feed.json \
+              --apply \
+              --report data/health/intel_grade_engine_report.json || {
+                echo "::warning::STAGE 6.93: Grade engine error — non-fatal"
+              }
+            if [ -f "data/health/intel_grade_engine_report.json" ]; then
+              BLOCK_PCT=$(python3 -c "import json; d=json.load(open('data/health/intel_grade_engine_report.json')); print(d.get('block_pct',0))" 2>/dev/null || echo "?")
+              GRADE_A=$(python3 -c "import json; d=json.load(open('data/health/intel_grade_engine_report.json')); print(d.get('grade_distribution',{}).get('A',0))" 2>/dev/null || echo "?")
+              GRADE_B=$(python3 -c "import json; d=json.load(open('data/health/intel_grade_engine_report.json')); print(d.get('grade_distribution',{}).get('B',0))" 2>/dev/null || echo "?")
+              echo "STAGE 6.93: block_pct=${BLOCK_PCT}% grade_A=${GRADE_A} grade_B=${GRADE_B}"
+            fi
+          else
+            echo "STAGE 6.93: api/feed.json not found — skip"
           fi
 
       # ─────────────────────────────────────────────────────────────────────
@@ -858,6 +887,13 @@ jobs:
           git add api/ai/executive-brief.json 2>/dev/null || true
           git add api/ai/monetization.json 2>/dev/null || true
           git add data/ai-telemetry/ 2>/dev/null || true
+
+          # Stage governance engine outputs (feed enrichment + quality reports)
+          git add api/feed.json 2>/dev/null || true
+          git add api/intel_quality.json 2>/dev/null || true
+          git add data/health/intel_publication_gate_report.json 2>/dev/null || true
+          git add data/health/intel_quality_engine_report.json 2>/dev/null || true
+          git add data/health/intel_grade_engine_report.json 2>/dev/null || true
 
           # Check if anything changed
           if git diff --staged --quiet; then
