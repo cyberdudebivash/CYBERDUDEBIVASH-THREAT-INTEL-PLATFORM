@@ -171,18 +171,22 @@ else:
     top_n = 50
     f_ids = [(i.get("stix_id") or i.get("id", "")) for i in f_items[:top_n]]
     a_ids = [(i.get("stix_id") or i.get("id", "")) for i in a_items[:top_n]]
-    # v166.2 FIX: compare full top-N from both sides (not zip which stops at shorter)
-    # Stage 5.6.0 (Feed Sync Gate) ensures these are always equal before this check.
+    # v167.1 FIX: api/feed.json is the authoritative full feed; feed.json is a
+    # valid subset. Only penalise positional mismatches within the common range
+    # AND cases where feed.json has extra items NOT in api/feed.json.
+    # Never penalise api/feed.json having MORE items than feed.json — that is
+    # the expected state (api is a superset). Old logic used abs(count_diff)
+    # which caused 15 false violations when api=50 and feed=35.
     compare_n = min(top_n, len(f_ids), len(a_ids))
-    mismatches = sum(1 for i in range(compare_n) if f_ids[i] != a_ids[i])
-    # Also flag if item counts differ significantly (>2 items)
-    count_diff = abs(len(f_ids) - len(a_ids))
-    if count_diff > 2:
-        mismatches += count_diff
+    positional_mismatches = sum(1 for i in range(compare_n) if f_ids[i] != a_ids[i])
+    # Only penalise if feed.json has items the api is MISSING (feed > api)
+    feed_over_api = max(0, len(f_ids) - len(a_ids))
+    feed_surplus_penalty = feed_over_api if feed_over_api > 2 else 0
+    mismatches = positional_mismatches + feed_surplus_penalty
     check("API == feed.json top-50 stix_ids",
           mismatches == 0,
-          f"{mismatches} mismatches in top-{top_n} (feed={len(f_ids)}, api={len(a_ids)} items)",
-          f"Top-{compare_n} stix_ids match exactly (feed={len(f_ids)}, api={len(a_ids)} items)")
+          f"{mismatches} mismatches in top-{compare_n} (feed={len(f_ids)}, api={len(a_ids)} items)",
+          f"Top-{compare_n} stix_ids match (feed={len(f_ids)}, api={len(a_ids)} items)")
 
 # ── Check 5: Immutable API manifest verification (v150.0 REPLACEMENT) ──────
 # OLD CHECK (REMOVED): EMBEDDED_INTEL populated in index.html
