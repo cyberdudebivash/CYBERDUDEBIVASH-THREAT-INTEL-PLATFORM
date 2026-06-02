@@ -3511,6 +3511,19 @@ def main() -> None:
     except Exception as _bd_e:
         log.warning("[2.3.behavioral_detection] Non-fatal error: %s", _bd_e)
 
+    # ---- Stage 2.4: Multi-Signal Attribution Engine v2 (v169.0) -----------
+    # Authoritative final pass: replaces UNC-CDB with real actors/categories
+    # Runs AFTER all enrichment stages so it sees full item data
+    try:
+        run_script(
+            [sys.executable, "scripts/apex_attribution_engine_v2.py"],
+            stage="2.4.attribution_v2",
+            allow_fail=True,
+            timeout=120,
+        )
+    except Exception as _av2_e:
+        log.warning("[2.4.attribution_v2] Non-fatal error: %s", _av2_e)
+
     stage_freshness_gate()               # HARD FAIL if < MIN entries
     _stage_done("freshness_gate")
     stage_anti_stale_hardening()         # v160.0: quarantine stale/synthetic/fake intel
@@ -3754,15 +3767,4 @@ def main() -> None:
     # ── Stage Registry Completion Check ──────────────────────────────────────
     _missing_stages = [s for s in _STAGE_REGISTRY if s not in _completed_stages]
     if _missing_stages:
-        log.warning("[stage-registry] %d stage(s) did not complete: %s",
-                    len(_missing_stages), _missing_stages)
-    else:
-        log.info("[stage-registry] All %d registered stages completed successfully",
-                 len(_STAGE_REGISTRY))
-
-
-# ---------------------------------------------------------------------------
-# Entry point — MANDATORY: this block was absent causing 0s silent exit
-# ---------------------------------------------------------------------------
-if __name__ == "__main__":
-    main()
+        log.warning('[pipeline] Incomplete stages: %s', _missing_stages)
