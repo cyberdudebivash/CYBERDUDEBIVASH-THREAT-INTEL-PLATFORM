@@ -122,12 +122,12 @@ function injectVersionHeaders(response, config) {
   headers.set("X-SENTINEL-Version", config.GATEWAY_VERSION);
   headers.set("X-SENTINEL-Platform", "SENTINEL-APEX");
   headers.set("X-SENTINEL-Codename", "GOD-MODE");
-  headers.set("X-Powered-By", "CYBERDUDEBIVASH-SENTINEL-APEX-v169.3");
+  headers.set("X-Powered-By", "CYBERDUDEBIVASH-SENTINEL-APEX-v170.3");
   return new Response(response.body, { status: response.status, headers });
 }
 
 const CONFIG = {
-  GATEWAY_VERSION:   "169.0",    // PLATFORM version -- governed by VERSION file + version_governance.py. DO NOT change manually. CI injects from SSOT.
+  GATEWAY_VERSION:   "170.0",    // PLATFORM version -- governed by VERSION file + version_governance.py. DO NOT change manually. CI injects from SSOT.
   GATEWAY_NAME:      "SENTINEL-APEX",
   BYPASS_FEED_CACHE: false,
   // P0 FIX v134.0: Reduced cache TTLs to ensure dashboard reflects fresh R2 data
@@ -7208,4 +7208,4 @@ export default {
       }
     })());
   },
-};
+};  
