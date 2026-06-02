@@ -122,12 +122,12 @@ function injectVersionHeaders(response, config) {
   headers.set("X-SENTINEL-Version", config.GATEWAY_VERSION);
   headers.set("X-SENTINEL-Platform", "SENTINEL-APEX");
   headers.set("X-SENTINEL-Codename", "GOD-MODE");
-  headers.set("X-Powered-By", "CYBERDUDEBIVASH-SENTINEL-APEX-v168.3");
+  headers.set("X-Powered-By", "CYBERDUDEBIVASH-SENTINEL-APEX-v169.3");
   return new Response(response.body, { status: response.status, headers });
 }
 
 const CONFIG = {
-  GATEWAY_VERSION:   "168.0",    // PLATFORM version -- governed by VERSION file + version_governance.py. DO NOT change manually. CI injects from SSOT.
+  GATEWAY_VERSION:   "169.0",    // PLATFORM version -- governed by VERSION file + version_governance.py. DO NOT change manually. CI injects from SSOT.
   GATEWAY_NAME:      "SENTINEL-APEX",
   BYPASS_FEED_CACHE: false,
   // P0 FIX v134.0: Reduced cache TTLs to ensure dashboard reflects fresh R2 data
@@ -5762,14 +5762,14 @@ async function handleTenantListCustomers(request, env, auth, rid) {
 // =============================================================================
 // v162.6 P0-FIX: serveHtmlIntelReport -- defense-in-depth handler for HTML reports
 // Route: GET /reports/{year}/{month}/intel--{hash}.html
-// Primary:  REPORTS_R2 bucket (sentinel-apex-reports) — reports/ uploaded here by r2_upload.py
-// Secondary: INTEL_R2 bucket (sentinel-apex-data) — fallback for legacy reports
+// Primary:  REPORTS_R2 bucket (sentinel-apex-reports)  -  reports/ uploaded here by r2_upload.py
+// Secondary: INTEL_R2 bucket (sentinel-apex-data)  -  fallback for legacy reports
 // Tertiary: GitHub raw gh-pages branch (canonical source for static HTML reports)
 // No auth required -- HTML intel reports are public TLP-CLEAR assets.
 //
 // v167.1 FIX: Added REPORTS_R2 binding to wrangler.toml (sentinel-apex-reports).
 // Root cause of 404s: r2_upload.py uploads reports/ to sentinel-apex-reports bucket,
-// but Worker only had INTEL_R2 (sentinel-apex-data) — wrong bucket → always missed → 404.
+// but Worker only had INTEL_R2 (sentinel-apex-data)  -  wrong bucket -> always missed -> 404.
 // =============================================================================
 async function serveHtmlIntelReport(pathname, env, rid) {
   // Validate path pattern: /reports/YYYY/MM/intel--{hex}.html
@@ -5791,7 +5791,7 @@ async function serveHtmlIntelReport(pathname, env, rid) {
     'X-Request-Id': rid,
   };
 
-  // Source 1: REPORTS_R2 (sentinel-apex-reports) — PRIMARY authoritative source
+  // Source 1: REPORTS_R2 (sentinel-apex-reports)  -  PRIMARY authoritative source
   // r2_upload.py uploads HTML reports here via CF_R2_REPORTS_KEY_ID token
   if (env?.REPORTS_R2) {
     try {
@@ -5806,7 +5806,7 @@ async function serveHtmlIntelReport(pathname, env, rid) {
     }
   }
 
-  // Source 2: INTEL_R2 (sentinel-apex-data) — secondary fallback for legacy/migrated reports
+  // Source 2: INTEL_R2 (sentinel-apex-data)  -  secondary fallback for legacy/migrated reports
   if (env?.INTEL_R2) {
     try {
       const r2Obj = await env.INTEL_R2.get(r2Key);
@@ -5814,7 +5814,7 @@ async function serveHtmlIntelReport(pathname, env, rid) {
         slog('INFO', 'REPORT-HTML', `INTEL_R2 HIT: ${r2Key}`, { rid });
         return new Response(r2Obj.body, { status: 200, headers: { ...htmlHeaders, 'X-Source': 'intel_r2' } });
       }
-      slog('INFO', 'REPORT-HTML', `INTEL_R2 MISS: ${r2Key} — falling back to gh-pages`, { rid });
+      slog('INFO', 'REPORT-HTML', `INTEL_R2 MISS: ${r2Key}  -  falling back to gh-pages`, { rid });
     } catch (e) {
       slog('WARN', 'REPORT-HTML', `INTEL_R2 error: ${e.message}`, { rid, r2Key });
     }
@@ -6964,32 +6964,32 @@ export default {
     }
 
     // v168.0: Intelligence Knowledge Base API endpoints
-    // GET /api/actors — list all real threat actor profiles
+    // GET /api/actors  -  list all real threat actor profiles
     if (pathname === '/api/actors' && method === 'GET') {
       return withSec(await serveR2Json('api/actors/index.json', env, rid));
     }
-    // GET /api/actors/:id — single actor profile
+    // GET /api/actors/:id  -  single actor profile
     if (pathname.match(/^\/api\/actors\/[a-zA-Z0-9_-]+$/) && method === 'GET') {
       const actorId = pathname.split('/').pop();
       return withSec(await serveR2Json(`api/actors/${actorId}.json`, env, rid));
     }
-    // GET /api/campaigns — list all threat campaigns
+    // GET /api/campaigns  -  list all threat campaigns
     if (pathname === '/api/campaigns' && method === 'GET') {
       return withSec(await serveR2Json('api/campaigns/index.json', env, rid));
     }
-    // GET /api/malware — list all malware families
+    // GET /api/malware  -  list all malware families
     if (pathname === '/api/malware' && method === 'GET') {
       return withSec(await serveR2Json('api/malware/index.json', env, rid));
     }
-    // GET /api/iocs — IOC feed
+    // GET /api/iocs  -  IOC feed
     if (pathname === '/api/iocs' && method === 'GET') {
       return withSec(await serveR2Json('api/iocs/feed.json', env, rid));
     }
-    // GET /api/hunt-queries — threat hunting query library
+    // GET /api/hunt-queries  -  threat hunting query library
     if (pathname === '/api/hunt-queries' && method === 'GET') {
       return withSec(await serveR2Json('data/intelligence/hunt_queries.json', env, rid));
     }
-    // GET /api/detection-rules — behavioral detection rules index
+    // GET /api/detection-rules  -  behavioral detection rules index
     if (pathname === '/api/detection-rules' && method === 'GET') {
       return withSec(await serveR2Json('api/detection_rules.json', env, rid));
     }
