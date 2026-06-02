@@ -570,7 +570,10 @@ def main():
                 pub_dt = datetime.fromisoformat(pub.replace("Z", "+00:00"))
                 report_url = f"{PLATFORM['domain']}/reports/{pub_dt.year}/{pub_dt.month:02d}/intel--{sid}.html"
             except Exception:
-                report_url = f"{PLATFORM['domain']}/reports/intel--{sid}.html"
+                # v166.3-FIX: fallback must include year/month (bare /reports/intel--xxx.html → 404)
+                from datetime import datetime as _dt
+                _now = _dt.utcnow()
+                report_url = f"{PLATFORM['domain']}/reports/{_now.year}/{_now.month:02d}/intel--{sid}.html"
 
             try:
                 meta = build_meta_block(item, report_url)

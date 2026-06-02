@@ -486,8 +486,10 @@ def build_monetization_banner(item: Dict, tier: str = "free") -> str:
         return ""
 
     unlock_text = "PRO: Unlock IOCs, Sigma Rules & Playbook" if tier == "free" else "ENTERPRISE: Unlock Full STIX + Custom Feeds"
-    unlock_url  = f"{UPGRADE_URL}?plan=pro" if tier == "free" else f"{UPGRADE_URL}?plan=enterprise"
+    # v166.3-FIX: UPGRADE_URL already contains ?plan=pro — do NOT append ?plan=pro again (→ double param bug)
+    unlock_url  = UPGRADE_URL if tier == "free" else "https://intel.cyberdudebivash.com/get-api-key.html?plan=enterprise"
     trial_text  = "Start Free 7-Day Trial"
+    trial_url   = TRIAL_URL  # v166.3-FIX: was using trial_text as href → href="Start Free 7-Day Trial"
 
     return (
         f'<div class="monetization-banner">'
@@ -498,7 +500,7 @@ def build_monetization_banner(item: Dict, tier: str = "free") -> str:
         f'{actor} campaign intelligence — upgrade to access full actionable data</div>'
         f'</div>'
         f'<div style="display:flex;gap:10px;flex-shrink:0;">'
-        f'<a href="{trial_text}" style="background:#1e293b;color:#e2e8f0;padding:8px 16px;'
+        f'<a href="{trial_url}" style="background:#1e293b;color:#e2e8f0;padding:8px 16px;'
         f'border-radius:6px;text-decoration:none;font-size:12px;border:1px solid #334155;">'
         f'{trial_text}</a>'
         f'<a href="{unlock_url}" style="background:linear-gradient(135deg,#7c3aed,#2563eb);'
@@ -587,9 +589,11 @@ def enhance_report_html(html: str, item: Dict, tier: str = "free") -> str:
         f'<a href="{pdf_path}" style="background:#1e293b;color:#e2e8f0;padding:8px 16px;'
         f'border-radius:6px;text-decoration:none;font-size:11px;border:1px solid #334155;margin-right:8px;">'
         f'📄 Download PDF</a>'
-        f'<a href="/stix/{item_id}.json" style="background:#1e293b;color:#e2e8f0;padding:8px 16px;'
+        # v166.3-FIX: /stix/{id}.json was a 404 path. STIX export requires Pro auth.
+        # Link to get-api-key so users can unlock it.
+        f'<a href="https://intel.cyberdudebivash.com/get-api-key.html?plan=pro&utm_source=report-stix-btn" style="background:#1e293b;color:#e2e8f0;padding:8px 16px;'
         f'border-radius:6px;text-decoration:none;font-size:11px;border:1px solid #334155;">'
-        f'🔗 STIX 2.1 Bundle</a>'
+        f'🔗 STIX 2.1 Bundle (Pro)</a>'
         f'</div>'
     )
 

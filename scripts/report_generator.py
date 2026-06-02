@@ -878,7 +878,8 @@ def _build_html(
     pb    = _gen_playbook(vuln_class, severity, product_1)
 
     risk_pct      = min(100.0, max(0.0, risk_score * 10.0))
-    canonical_url = f"{PLATFORM_URL}/reports/{out_path.parent.name}/{out_path.name}"
+    # v166.3-FIX: use full relative path (year/month/file) not just parent.name (month only → 404)
+    canonical_url = f"{PLATFORM_URL}/{out_path.as_posix().lstrip('/')}"
 
     # ── Section template helpers ───────────────────────────────────────────
     def sec(num: str, heading: str, body: str) -> str:
