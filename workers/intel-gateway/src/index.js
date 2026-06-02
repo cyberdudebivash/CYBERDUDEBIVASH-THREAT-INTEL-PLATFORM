@@ -122,12 +122,12 @@ function injectVersionHeaders(response, config) {
   headers.set("X-SENTINEL-Version", config.GATEWAY_VERSION);
   headers.set("X-SENTINEL-Platform", "SENTINEL-APEX");
   headers.set("X-SENTINEL-Codename", "GOD-MODE");
-  headers.set("X-Powered-By", "CYBERDUDEBIVASH-SENTINEL-APEX-v167.3");
+  headers.set("X-Powered-By", "CYBERDUDEBIVASH-SENTINEL-APEX-v168.3");
   return new Response(response.body, { status: response.status, headers });
 }
 
 const CONFIG = {
-  GATEWAY_VERSION:   "167.2",    // PLATFORM version -- governed by VERSION file + version_governance.py. DO NOT change manually. CI injects from SSOT.
+  GATEWAY_VERSION:   "168.0",    // PLATFORM version -- governed by VERSION file + version_governance.py. DO NOT change manually. CI injects from SSOT.
   GATEWAY_NAME:      "SENTINEL-APEX",
   BYPASS_FEED_CACHE: false,
   // P0 FIX v134.0: Reduced cache TTLs to ensure dashboard reflects fresh R2 data
@@ -196,6 +196,37 @@ function sanitizeInt(raw, def = 0, min = 0, max = 9999) {
   const n = parseInt(raw);
   if (isNaN(n)) return def;
   return Math.max(min, Math.min(max, n));
+}
+
+// v168.0: Serve JSON from R2 bucket by key path
+async function serveR2Json(key, env, rid) {
+  try {
+    const bucket = env.INTEL_R2 || env.R2_BUCKET || null;
+    if (!bucket) {
+      return new Response(JSON.stringify({error: 'r2_unavailable', key, rid}), {
+        status: 503, headers: {'Content-Type': 'application/json'}
+      });
+    }
+    const obj = await bucket.get(key);
+    if (!obj) {
+      return new Response(JSON.stringify({error: 'not_found', key, rid}), {
+        status: 404, headers: {'Content-Type': 'application/json'}
+      });
+    }
+    const data = await obj.text();
+    return new Response(data, {
+      status: 200,
+      headers: {
+        'Content-Type': 'application/json',
+        'Cache-Control': 'public, max-age=300',
+        'X-Request-ID': rid || '',
+      }
+    });
+  } catch(e) {
+    return new Response(JSON.stringify({error: 'internal', message: e.message, key, rid}), {
+      status: 500, headers: {'Content-Type': 'application/json'}
+    });
+  }
 }
 
 function sanitizeTier(raw) {
@@ -6930,6 +6961,47 @@ export default {
       } catch (_ent_err) {
         slog("ERROR", "ENTERPRISE_ROUTER", `Unhandled error: ${_ent_err?.message}`, { rid, pathname });
       }
+    }
+
+    // v168.0: Intelligence Knowledge Base API endpoints
+    // GET /api/actors — list all real threat actor profiles
+    if (pathname === '/api/actors' && method === 'GET') {
+      return withSec(await serveR2Json('api/actors/index.json', env, rid));
+    }
+    // GET /api/actors/:id — single actor profile
+    if (pathname.match(/^\/api\/actors\/[a-zA-Z0-9_-]+$/) && method === 'GET') {
+      const actorId = pathname.split('/').pop();
+      return withSec(await serveR2Json(`api/actors/${actorId}.json`, env, rid));
+    }
+    // GET /api/campaigns — list all threat campaigns
+    if (pathname === '/api/campaigns' && method === 'GET') {
+      return withSec(await serveR2Json('api/campaigns/index.json', env, rid));
+    }
+    // GET /api/malware — list all malware families
+    if (pathname === '/api/malware' && method === 'GET') {
+      return withSec(await serveR2Json('api/malware/index.json', env, rid));
+    }
+    // GET /api/iocs — IOC feed
+    if (pathname === '/api/iocs' && method === 'GET') {
+      return withSec(await serveR2Json('api/iocs/feed.json', env, rid));
+    }
+    // GET /api/hunt-queries — threat hunting query library
+    if (pathname === '/api/hunt-queries' && method === 'GET') {
+      return withSec(await serveR2Json('data/intelligence/hunt_queries.json', env, rid));
+    }
+    // GET /api/detection-rules — behavioral detection rules index
+    if (pathname === '/api/detection-rules' && method === 'GET') {
+      return withSec(await serveR2Json('api/detection_rules.json', env, rid));
+    }
+    // TAXII 2.1 discovery endpoint
+    if (pathname === '/taxii2/' && method === 'GET') {
+      return withSec(new Response(JSON.stringify({
+        title: 'CYBERDUDEBIVASH SENTINEL APEX TAXII 2.1',
+        description: 'SENTINEL APEX Threat Intelligence TAXII 2.1 Server',
+        contact: 'enterprise@cyberdudebivash.com',
+        api_roots: ['https://intel.cyberdudebivash.com/taxii2/root/'],
+        default: 'https://intel.cyberdudebivash.com/taxii2/root/'
+      }), {status: 200, headers: {'Content-Type': 'application/taxii+json;version=2.1', 'Cache-Control': 'public, max-age=3600'}}));
     }
 
     slog("WARN", "ROUTER", `404 ${pathname}`, { rid, method });

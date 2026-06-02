@@ -1,0 +1,458 @@
+{
+  "version": "1.0.0",
+  "generated_at": "2026-06-02T00:00:00Z",
+  "source": "SENTINEL APEX Intelligence Knowledge Base",
+  "total": 50,
+  "queries": [
+    {
+      "id": "HQ-001", "technique_id": "T1486", "technique_name": "Data Encrypted for Impact",
+      "name": "Mass File Rename - Ransomware Indicator",
+      "description": "Detects bulk file renaming activity indicative of ransomware encryption",
+      "kql": "DeviceFileEvents | where ActionType == 'FileRenamed' | summarize count() by DeviceName, InitiatingProcessFileName, bin(Timestamp, 1m) | where count_ > 50 | order by count_ desc",
+      "spl": "index=windows EventCode=4663 ObjectType=File AccessMask=0x2 | stats count by host, process_name, _time | where count > 50 | sort -count",
+      "eql": "sequence by host.name [file where event.action == 'rename' and file.extension in ('lockbit','basta','akira','alphv')] with maxspan=5m",
+      "platform": "windows", "severity": "CRITICAL"
+    },
+    {
+      "id": "HQ-002", "technique_id": "T1486", "technique_name": "Data Encrypted for Impact",
+      "name": "Shadow Copy Deletion - Ransomware Pre-Stage",
+      "description": "Detects vssadmin and wbadmin commands used to delete shadow copies before ransomware deployment",
+      "kql": "DeviceProcessEvents | where FileName in ('vssadmin.exe','wbadmin.exe','bcdedit.exe') and ProcessCommandLine has_any('delete shadows','delete catalog','recoveryenabled No') | project Timestamp, DeviceName, AccountName, ProcessCommandLine",
+      "spl": "index=windows (process_name='vssadmin.exe' OR process_name='wbadmin.exe' OR process_name='bcdedit.exe') (cmdline='delete shadows' OR cmdline='delete catalog' OR cmdline='recoveryenabled') | table _time host user cmdline",
+      "eql": "process where process.name in ('vssadmin.exe','wbadmin.exe','bcdedit.exe') and process.command_line : ('*delete shadows*','*delete catalog*','*recoveryenabled No*')",
+      "platform": "windows", "severity": "CRITICAL"
+    },
+    {
+      "id": "HQ-003", "technique_id": "T1486", "technique_name": "Data Encrypted for Impact",
+      "name": "Ransomware Note File Creation",
+      "description": "Detects creation of ransomware note files with common naming patterns",
+      "kql": "DeviceFileEvents | where ActionType == 'FileCreated' and FileName has_any('DECRYPT','README','RECOVER','HOW_TO','!!!') and FileName endswith '.txt' | project Timestamp, DeviceName, FileName, InitiatingProcessFileName, FolderPath",
+      "spl": "index=windows EventCode=4663 ObjectType=File object_name IN ('*DECRYPT*.txt','*README*.txt','*RECOVER*.txt','*HOW_TO*.txt') | table _time host object_name process_name",
+      "eql": "file where event.action == 'create' and file.name : ('DECRYPT*.txt','README*.txt','RECOVER*.txt','HOW_TO*.txt','!!!*.txt')",
+      "platform": "windows", "severity": "HIGH"
+    },
+    {
+      "id": "HQ-004", "technique_id": "T1078", "technique_name": "Valid Accounts",
+      "name": "Off-Hours Administrative Login",
+      "description": "Detects successful administrative logins outside business hours which may indicate credential compromise",
+      "kql": "DeviceLogonEvents | where LogonType in ('Interactive','RemoteInteractive') and IsLocalAdmin == true and (hourofday(Timestamp) < 7 or hourofday(Timestamp) > 19) | project Timestamp, DeviceName, AccountName, RemoteIP, LogonType",
+      "spl": "index=windows EventCode=4624 LogonType IN (2,10) Privileges='SeDebugPrivilege' | eval hour=strftime(_time,'%H') | where hour < 7 OR hour > 19 | table _time host user src_ip",
+      "eql": "authentication where event.outcome == 'success' and user.name : '*admin*' and not (hour_of_day >= 7 and hour_of_day <= 19)",
+      "platform": "windows", "severity": "HIGH"
+    },
+    {
+      "id": "HQ-005", "technique_id": "T1078", "technique_name": "Valid Accounts",
+      "name": "Impossible Travel - Same Account Multiple Geographies",
+      "description": "Detects same user account authenticating from geographically impossible locations within short timeframe",
+      "kql": "SigninLogs | where ResultType == 0 | summarize Locations = make_set(Location), IPs = make_set(IPAddress) by UserPrincipalName, bin(TimeGenerated, 1h) | where array_length(Locations) > 2",
+      "spl": "index=azure sourcetype=azure:signinlogs status.errorCode=0 | stats values(location) as locations values(ipAddress) as ips by userPrincipalName, span(1h) | where mvcount(locations) > 2",
+      "eql": "authentication where event.outcome == 'success' and source.geo.country_iso_code != null | by user.name | where span(1h) count(distinct source.geo.country_iso_code) > 2",
+      "platform": "cloud", "severity": "HIGH"
+    },
+    {
+      "id": "HQ-006", "technique_id": "T1078", "technique_name": "Valid Accounts",
+      "name": "MFA Fatigue Attack - Repeated Push Denials",
+      "description": "Detects repeated MFA push denials followed by eventual success - indicative of MFA fatigue attack",
+      "kql": "SigninLogs | where AuthenticationRequirement == 'multiFactorAuthentication' | summarize Total = count(), Failures = countif(ResultType != 0), Success = countif(ResultType == 0) by UserPrincipalName, bin(TimeGenerated, 1h) | where Failures > 10 and Success > 0",
+      "spl": "index=azure sourcetype=azure:signinlogs authenticationRequirement=multiFactorAuthentication | stats count(eval(status.errorCode!=0)) as failures count(eval(status.errorCode=0)) as success by userPrincipalName span(1h) | where failures > 10 AND success > 0",
+      "eql": "authentication where event.dataset == 'azure.signinlogs' | sequence by user.name with maxspan=1h [authentication where event.outcome == 'failure'] [authentication where event.outcome == 'failure'] [authentication where event.outcome == 'failure'] [authentication where event.outcome == 'success']",
+      "platform": "cloud", "severity": "CRITICAL"
+    },
+    {
+      "id": "HQ-007", "technique_id": "T1566", "technique_name": "Phishing",
+      "name": "Macro-Enabled Document Spawning Shell",
+      "description": "Detects Office applications spawning command interpreters indicating macro execution",
+      "kql": "DeviceProcessEvents | where InitiatingProcessFileName in ('winword.exe','excel.exe','powerpnt.exe','outlook.exe') and FileName in ('cmd.exe','powershell.exe','wscript.exe','cscript.exe','mshta.exe') | project Timestamp, DeviceName, InitiatingProcessFileName, FileName, ProcessCommandLine",
+      "spl": "index=windows (parent_process=winword.exe OR parent_process=excel.exe OR parent_process=outlook.exe) (process=cmd.exe OR process=powershell.exe OR process=wscript.exe) | table _time host parent_process process cmdline",
+      "eql": "process where process.name in ('cmd.exe','powershell.exe','wscript.exe','cscript.exe') and process.parent.name in ('winword.exe','excel.exe','powerpnt.exe','outlook.exe')",
+      "platform": "windows", "severity": "HIGH"
+    },
+    {
+      "id": "HQ-008", "technique_id": "T1566", "technique_name": "Phishing",
+      "name": "SVG File Email Attachment Execution",
+      "description": "Detects execution of SVG files from email client temp directories - used in modern phishing campaigns",
+      "kql": "DeviceProcessEvents | where ProcessCommandLine has '.svg' and (InitiatingProcessFolderPath has 'Temp' or InitiatingProcessFolderPath has 'Downloads') | project Timestamp, DeviceName, FileName, ProcessCommandLine",
+      "spl": "index=windows (cmdline='*.svg*') (process_path='*Temp*' OR process_path='*Downloads*') | table _time host process cmdline",
+      "eql": "process where process.command_line : '*.svg*' and (process.working_directory : '*\\Temp\\*' or process.working_directory : '*\\Downloads\\*')",
+      "platform": "windows", "severity": "MEDIUM"
+    },
+    {
+      "id": "HQ-009", "technique_id": "T1566", "technique_name": "Phishing",
+      "name": "Double Extension File Execution",
+      "description": "Detects execution of files with double extensions commonly used in phishing attacks",
+      "kql": "DeviceProcessEvents | where ProcessCommandLine matches regex @'\\.(pdf|doc|xls|jpg|png)\\.exe' or FileName matches regex @'\\.(pdf|doc|xls|jpg|png)\\.exe' | project Timestamp, DeviceName, FileName, ProcessCommandLine, InitiatingProcessFileName",
+      "spl": "index=windows (process=*.pdf.exe OR process=*.doc.exe OR process=*.xls.exe OR process=*.jpg.exe) | table _time host process parent_process cmdline",
+      "eql": "process where process.name : ('*.pdf.exe','*.doc.exe','*.xls.exe','*.jpg.exe','*.png.exe')",
+      "platform": "windows", "severity": "HIGH"
+    },
+    {
+      "id": "HQ-010", "technique_id": "T1190", "technique_name": "Exploit Public-Facing Application",
+      "name": "Web Server Spawning Child Process",
+      "description": "Detects web server processes spawning interactive shells - strong indicator of web application exploitation",
+      "kql": "DeviceProcessEvents | where InitiatingProcessFileName in ('w3wp.exe','httpd.exe','nginx.exe','java.exe','tomcat.exe') and FileName in ('cmd.exe','powershell.exe','sh','bash','wget','curl') | project Timestamp, DeviceName, InitiatingProcessFileName, FileName, ProcessCommandLine",
+      "spl": "index=windows (parent_process=w3wp.exe OR parent_process=httpd.exe OR parent_process=java.exe OR parent_process=tomcat) (process=cmd.exe OR process=powershell.exe OR process=sh OR process=bash) | table _time host parent_process process cmdline",
+      "eql": "process where process.name in ('cmd.exe','powershell.exe','sh','bash','wget','curl') and process.parent.name in ('w3wp.exe','httpd','nginx','java','tomcat')",
+      "platform": "windows", "severity": "CRITICAL"
+    },
+    {
+      "id": "HQ-011", "technique_id": "T1190", "technique_name": "Exploit Public-Facing Application",
+      "name": "Web Shell File Created in Web Root",
+      "description": "Detects web shell files created in web server directories by web server processes",
+      "kql": "DeviceFileEvents | where ActionType == 'FileCreated' and InitiatingProcessFileName in ('w3wp.exe','httpd.exe','nginx.exe') and (FileName endswith '.aspx' or FileName endswith '.php' or FileName endswith '.jsp') | project Timestamp, DeviceName, FileName, FolderPath, InitiatingProcessFileName",
+      "spl": "index=windows EventCode=4663 ObjectType=File (object_name=*.aspx OR object_name=*.php OR object_name=*.jsp) (process=w3wp.exe OR process=httpd.exe OR process=nginx.exe) | table _time host object_name process",
+      "eql": "file where event.action == 'create' and file.extension in ('aspx','php','jsp','jspx') and process.name in ('w3wp.exe','httpd','nginx.exe','java')",
+      "platform": "windows", "severity": "CRITICAL"
+    },
+    {
+      "id": "HQ-012", "technique_id": "T1190", "technique_name": "Exploit Public-Facing Application",
+      "name": "SQL Injection Exploitation Pattern",
+      "description": "Detects potential SQL injection exploitation via unusual database process behavior",
+      "kql": "DeviceProcessEvents | where InitiatingProcessFileName in ('sqlservr.exe','mysqld.exe','postgres.exe') and FileName in ('cmd.exe','powershell.exe','xp_cmdshell') | project Timestamp, DeviceName, FileName, ProcessCommandLine",
+      "spl": "index=windows (parent_process=sqlservr.exe OR parent_process=mysqld.exe) (process=cmd.exe OR process=powershell.exe) | table _time host parent_process process cmdline",
+      "eql": "process where process.parent.name in ('sqlservr.exe','mysqld.exe','postgres.exe') and process.name in ('cmd.exe','powershell.exe')",
+      "platform": "windows", "severity": "CRITICAL"
+    },
+    {
+      "id": "HQ-013", "technique_id": "T1059", "technique_name": "Command and Scripting Interpreter",
+      "name": "Encoded PowerShell Execution",
+      "description": "Detects PowerShell executing with base64 encoded commands - common malware obfuscation technique",
+      "kql": "DeviceProcessEvents | where FileName == 'powershell.exe' and ProcessCommandLine has_any('-EncodedCommand','-enc','-ec') | project Timestamp, DeviceName, AccountName, ProcessCommandLine | extend DecodedCmd = base64_decode_tostring(extract(@'-[Ee][Nn][Cc][Oo][Dd][Ee][Dd][Cc][Oo][Mm][Mm][Aa][Nn][Dd]\\s+([A-Za-z0-9+/=]+)',1,ProcessCommandLine))",
+      "spl": "index=windows process=powershell.exe (cmdline=-encodedcommand OR cmdline=-enc OR cmdline=-ec) | eval decoded=base64decode(extract_field) | table _time host user cmdline decoded",
+      "eql": "process where process.name == 'powershell.exe' and process.command_line : ('*-EncodedCommand*','*-enc *','*-ec *')",
+      "platform": "windows", "severity": "HIGH"
+    },
+    {
+      "id": "HQ-014", "technique_id": "T1059", "technique_name": "Command and Scripting Interpreter",
+      "name": "WMIC Remote Command Execution",
+      "description": "Detects WMIC being used for remote command execution via node parameter",
+      "kql": "DeviceProcessEvents | where FileName == 'wmic.exe' and ProcessCommandLine has '/node:' and ProcessCommandLine has_any('process call create','os get','bios get') | project Timestamp, DeviceName, AccountName, ProcessCommandLine",
+      "spl": "index=windows process=wmic.exe cmdline='/node:*' (cmdline='process call create' OR cmdline='os get') | table _time host user cmdline",
+      "eql": "process where process.name == 'wmic.exe' and process.command_line : '*node:*' and process.command_line : '*process call create*'",
+      "platform": "windows", "severity": "HIGH"
+    },
+    {
+      "id": "HQ-015", "technique_id": "T1059", "technique_name": "Command and Scripting Interpreter",
+      "name": "Certutil Download Cradle",
+      "description": "Detects certutil being abused as a download cradle for malware delivery",
+      "kql": "DeviceProcessEvents | where FileName == 'certutil.exe' and ProcessCommandLine has_any('-urlcache','-decode','-split') and ProcessCommandLine has 'http' | project Timestamp, DeviceName, AccountName, ProcessCommandLine",
+      "spl": "index=windows process=certutil.exe (cmdline=-urlcache OR cmdline=-decode) cmdline=http* | table _time host user cmdline",
+      "eql": "process where process.name == 'certutil.exe' and process.command_line : ('*-urlcache*http*','*-decode*http*')",
+      "platform": "windows", "severity": "HIGH"
+    },
+    {
+      "id": "HQ-016", "technique_id": "T1021", "technique_name": "Remote Services",
+      "name": "RDP Lateral Movement from Workstation",
+      "description": "Detects RDP connections initiated from workstations which is atypical for most environments",
+      "kql": "DeviceNetworkEvents | where RemotePort == 3389 and InitiatingProcessFileName == 'mstsc.exe' and DeviceType == 'Workstation' | project Timestamp, DeviceName, RemoteIP, InitiatingProcessAccountName | join kind=leftouter (DeviceInfo | project DeviceName, DeviceType) on DeviceName",
+      "spl": "index=windows EventCode=4648 LogonType=10 | lookup host_type DeviceName OUTPUT device_type | where device_type='workstation' | table _time src_host user dest_host",
+      "eql": "network where destination.port == 3389 and process.name == 'mstsc.exe' and host.type == 'workstation'",
+      "platform": "windows", "severity": "HIGH"
+    },
+    {
+      "id": "HQ-017", "technique_id": "T1021", "technique_name": "Remote Services",
+      "name": "SMB Lateral Movement - Net Use or PsExec",
+      "description": "Detects SMB lateral movement via net use commands or PsExec-like tool execution",
+      "kql": "DeviceProcessEvents | where (FileName == 'net.exe' and ProcessCommandLine has 'use' and ProcessCommandLine has '\\\\') or (FileName == 'PsExec.exe') or (FileName == 'cmd.exe' and ProcessCommandLine has '\\\\' and ProcessCommandLine has 'admin$') | project Timestamp, DeviceName, AccountName, FileName, ProcessCommandLine",
+      "spl": "index=windows (process=net.exe cmdline='*use*\\\\*') OR (process=PsExec.exe) | table _time host user process cmdline",
+      "eql": "process where (process.name == 'net.exe' and process.command_line : ('*use*\\\\*','*admin$*')) or process.name : 'psexec*'",
+      "platform": "windows", "severity": "HIGH"
+    },
+    {
+      "id": "HQ-018", "technique_id": "T1021", "technique_name": "Remote Services",
+      "name": "SSH Unusual Outbound Connection",
+      "description": "Detects SSH connections to external IPs from server infrastructure indicating potential exfiltration",
+      "kql": "DeviceNetworkEvents | where RemotePort == 22 and not (RemoteIPType == 'Private') and InitiatingProcessFileName == 'ssh.exe' | project Timestamp, DeviceName, RemoteIP, RemotePort, InitiatingProcessAccountName",
+      "spl": "index=linux sourcetype=syslog process=ssh NOT (dest_ip=10.0.0.0/8 OR dest_ip=172.16.0.0/12 OR dest_ip=192.168.0.0/16) | table _time host user dest_ip",
+      "eql": "network where destination.port == 22 and not destination.ip : ('10.0.0.0/8','172.16.0.0/12','192.168.0.0/16') and process.name == 'ssh'",
+      "platform": "linux", "severity": "MEDIUM"
+    },
+    {
+      "id": "HQ-019", "technique_id": "T1055", "technique_name": "Process Injection",
+      "name": "Remote Thread Creation in Non-Child Process",
+      "description": "Detects remote thread creation in processes that are not child processes - key indicator of process injection",
+      "kql": "DeviceEvents | where ActionType == 'CreateRemoteThreadApiCall' and not (InitiatingProcessFileName == TargetFileName) | project Timestamp, DeviceName, InitiatingProcessFileName, InitiatingProcessId, FileName, ActionType, ProcessId",
+      "spl": "index=windows EventCode=8 (sysmon) | where SourceProcessGuid != TargetProcessGuid | table _time host SourceImage TargetImage StartModule",
+      "eql": "process where event.action == 'CreateRemoteThread' and source.process.name != target.process.name and not target.process.name in ('chrome.exe','firefox.exe','teams.exe')",
+      "platform": "windows", "severity": "HIGH"
+    },
+    {
+      "id": "HQ-020", "technique_id": "T1055", "technique_name": "Process Injection",
+      "name": "Suspicious Process Injection via VirtualAllocEx",
+      "description": "Detects suspicious memory allocation in remote processes used for shellcode injection",
+      "kql": "DeviceEvents | where ActionType == 'NtAllocateVirtualMemoryApiCall' and RemoteAddressType == 'Remote' and not (InitiatingProcessFileName in ('svchost.exe','SearchIndexer.exe','MsMpEng.exe')) | project Timestamp, DeviceName, InitiatingProcessFileName, TargetProcessId",
+      "spl": "index=windows EventCode=10 (sysmon) GrantedAccess=0x1fffff NOT (SourceImage=*MsMpEng.exe OR SourceImage=*svchost.exe) | table _time host SourceImage TargetImage GrantedAccess",
+      "eql": "any where event.action == 'ntallocatevirtualmemory' and event.category == 'process' and not process.name in ('MsMpEng.exe','svchost.exe','SearchIndexer.exe')",
+      "platform": "windows", "severity": "HIGH"
+    },
+    {
+      "id": "HQ-021", "technique_id": "T1055", "technique_name": "Process Injection",
+      "name": "LSASS Memory Access by Non-System Process",
+      "description": "Detects unauthorized access to LSASS process memory - primary credential dumping indicator",
+      "kql": "DeviceEvents | where ActionType == 'OpenProcessApiCall' and TargetProcessFileName =~ 'lsass.exe' and not (InitiatingProcessFileName in ('MsMpEng.exe','csrss.exe','wininit.exe','services.exe','svchost.exe')) | project Timestamp, DeviceName, InitiatingProcessFileName, InitiatingProcessAccountName",
+      "spl": "index=windows EventCode=10 (sysmon) TargetImage=*lsass.exe GrantedAccess IN (0x1010,0x1410,0x147a) NOT (SourceImage=*MsMpEng* OR SourceImage=*csrss*) | table _time host SourceImage TargetImage GrantedAccess",
+      "eql": "process where event.action == 'open_process' and process.executable : '*lsass.exe' and not initiating.process.name in ('MsMpEng.exe','csrss.exe','wininit.exe','services.exe')",
+      "platform": "windows", "severity": "CRITICAL"
+    },
+    {
+      "id": "HQ-022", "technique_id": "T1547", "technique_name": "Boot/Logon Autostart Execution",
+      "name": "Registry Run Key Modification by Script",
+      "description": "Detects script interpreters modifying registry run keys for persistence",
+      "kql": "DeviceRegistryEvents | where RegistryKey has 'Run' and RegistryKey has 'CurrentVersion' and InitiatingProcessFileName in ('powershell.exe','cmd.exe','wscript.exe','cscript.exe','regsvr32.exe') | project Timestamp, DeviceName, RegistryKey, RegistryValueName, RegistryValueData, InitiatingProcessFileName",
+      "spl": "index=windows EventCode=13 (sysmon) TargetObject='*\\CurrentVersion\\Run*' (Image=*powershell.exe OR Image=*cmd.exe OR Image=*wscript.exe) | table _time host Image TargetObject Details",
+      "eql": "registry where registry.path : ('*\\CurrentVersion\\Run*','*\\CurrentVersion\\RunOnce*') and process.name in ('powershell.exe','cmd.exe','wscript.exe','cscript.exe')",
+      "platform": "windows", "severity": "HIGH"
+    },
+    {
+      "id": "HQ-023", "technique_id": "T1547", "technique_name": "Boot/Logon Autostart Execution",
+      "name": "Scheduled Task Created by Script or Malware",
+      "description": "Detects scheduled tasks created by suspicious parent processes for persistence",
+      "kql": "DeviceProcessEvents | where FileName == 'schtasks.exe' and ProcessCommandLine has '/create' and InitiatingProcessFileName in ('powershell.exe','cmd.exe','wscript.exe','cscript.exe','mshta.exe','regsvr32.exe') | project Timestamp, DeviceName, AccountName, ProcessCommandLine, InitiatingProcessFileName",
+      "spl": "index=windows process=schtasks.exe cmdline='/create*' (parent_process=powershell.exe OR parent_process=cmd.exe OR parent_process=wscript.exe) | table _time host user cmdline parent_process",
+      "eql": "process where process.name == 'schtasks.exe' and process.command_line : '*/create*' and process.parent.name in ('powershell.exe','cmd.exe','wscript.exe','mshta.exe')",
+      "platform": "windows", "severity": "HIGH"
+    },
+    {
+      "id": "HQ-024", "technique_id": "T1547", "technique_name": "Boot/Logon Autostart Execution",
+      "name": "New Service Installation via Command Line",
+      "description": "Detects new Windows services created via sc.exe or PowerShell - common malware persistence",
+      "kql": "DeviceProcessEvents | where (FileName == 'sc.exe' and ProcessCommandLine has 'create') or (FileName == 'powershell.exe' and ProcessCommandLine has_any('New-Service','Install-Service')) | project Timestamp, DeviceName, AccountName, ProcessCommandLine",
+      "spl": "index=windows (process=sc.exe cmdline='create*') OR (process=powershell.exe cmdline='*New-Service*') | table _time host user cmdline",
+      "eql": "process where (process.name == 'sc.exe' and process.command_line : '*create*') or (process.name == 'powershell.exe' and process.command_line : '*New-Service*')",
+      "platform": "windows", "severity": "HIGH"
+    },
+    {
+      "id": "HQ-025", "technique_id": "T1071", "technique_name": "Application Layer Protocol",
+      "name": "DNS over HTTPS Tunneling Detection",
+      "description": "Detects high-frequency DNS queries that may indicate DNS tunneling for C2 communication",
+      "kql": "DeviceNetworkEvents | where RemotePort == 53 | summarize QueryCount = count(), UniqueRemoteIPs = dcount(RemoteIP) by InitiatingProcessFileName, DeviceName, bin(Timestamp, 5m) | where QueryCount > 100",
+      "spl": "index=network sourcetype=stream:dns | stats count as queries dc(dest_ip) as unique_servers by src_host app span(5m) | where queries > 100",
+      "eql": "network where destination.port == 53 | by process.name, host.name | sequence with maxspan=5m [network] [network] [network] until [network where event.count > 100]",
+      "platform": "windows", "severity": "MEDIUM"
+    },
+    {
+      "id": "HQ-026", "technique_id": "T1071", "technique_name": "Application Layer Protocol",
+      "name": "Cobalt Strike Default Beacon HTTP Pattern",
+      "description": "Detects network patterns consistent with Cobalt Strike beacon default profiles",
+      "kql": "DeviceNetworkEvents | where RemotePort in (80, 443, 8443) and InitiatingProcessFileName in ('rundll32.exe','regsvr32.exe','svchost.exe','powershell.exe') | where not (RemoteIPType == 'Private') | summarize count(), dcount(RemoteIP) by InitiatingProcessFileName, DeviceName | where count_ > 5",
+      "spl": "index=proxy (cs_useragent='Mozilla/4.0*Trident*' OR cs_uri_stem='/jquery-3.3.1.min.js' OR cs_uri_stem='/ca') | table _time src cs_host cs_uri_stem cs_useragent",
+      "eql": "network where destination.port in (80,443) and http.request.headers.user_agent : 'Mozilla/4.0*Trident*' and process.name in ('rundll32.exe','regsvr32.exe','svchost.exe')",
+      "platform": "windows", "severity": "HIGH"
+    },
+    {
+      "id": "HQ-027", "technique_id": "T1071", "technique_name": "Application Layer Protocol",
+      "name": "C2 Beaconing - Regular Interval Network Connections",
+      "description": "Detects regular interval network beaconing behavior characteristic of C2 communication",
+      "kql": "DeviceNetworkEvents | where RemotePort in (80,443,8080,8443,4443) | summarize Connections = count(), StdDev = stdev(datetime_diff('second', prev(Timestamp), Timestamp)) by InitiatingProcessFileName, RemoteIP, DeviceName | where Connections > 10 and StdDev < 5",
+      "spl": "index=network | stats count as beacon_count, stdev(interval) as jitter by src_ip dest_ip dest_port | where beacon_count > 10 AND jitter < 5",
+      "eql": "network where destination.port in (80,443,8080) | by process.name, destination.ip | where span(1h) count() > 10",
+      "platform": "windows", "severity": "MEDIUM"
+    },
+    {
+      "id": "HQ-028", "technique_id": "T1105", "technique_name": "Ingress Tool Transfer",
+      "name": "Living-off-the-Land Binary Download",
+      "description": "Detects abuse of legitimate Windows binaries for downloading malware payloads",
+      "kql": "DeviceProcessEvents | where FileName in ('certutil.exe','bitsadmin.exe','powershell.exe','wget.exe','curl.exe') and ProcessCommandLine has_any('http://','https://','ftp://') and not (InitiatingProcessFileName in ('MicrosoftEdgeUpdate.exe','WinDefend.exe','svchost.exe')) | project Timestamp, DeviceName, AccountName, FileName, ProcessCommandLine",
+      "spl": "index=windows (process=certutil.exe OR process=bitsadmin.exe OR process=powershell.exe) (cmdline='*http://*' OR cmdline='*https://*') NOT (parent_process=svchost.exe OR parent_process=WinDefend.exe) | table _time host user process cmdline",
+      "eql": "process where process.name in ('certutil.exe','bitsadmin.exe','powershell.exe','wget.exe','curl.exe') and process.command_line : ('*http://*','*https://*') and not process.parent.name in ('WinDefend.exe','MicrosoftEdgeUpdate.exe')",
+      "platform": "windows", "severity": "HIGH"
+    },
+    {
+      "id": "HQ-029", "technique_id": "T1105", "technique_name": "Ingress Tool Transfer",
+      "name": "Suspicious File Download to Temp Directory",
+      "description": "Detects executable files written to temporary directories by browser or document processes",
+      "kql": "DeviceFileEvents | where ActionType == 'FileCreated' and FolderPath has_any('\\Temp\\','\\AppData\\Roaming\\','\\AppData\\Local\\Temp\\') and FileName endswith_cs '.exe' and InitiatingProcessFileName in ('chrome.exe','firefox.exe','msedge.exe','winword.exe','excel.exe') | project Timestamp, DeviceName, FileName, FolderPath, InitiatingProcessFileName",
+      "spl": "index=windows EventCode=4663 ObjectType=File (object_path='*\\Temp\\*' OR object_path='*\\AppData\\Roaming\\*') object_name=*.exe (process=chrome.exe OR process=firefox.exe OR process=winword.exe) | table _time host object_name object_path process",
+      "eql": "file where event.action == 'create' and file.extension == 'exe' and file.path : ('*\\Temp\\*','*\\AppData\\Roaming\\*') and process.name in ('chrome.exe','firefox.exe','msedge.exe','winword.exe')",
+      "platform": "windows", "severity": "HIGH"
+    },
+    {
+      "id": "HQ-030", "technique_id": "T1105", "technique_name": "Ingress Tool Transfer",
+      "name": "msiexec.exe Remote MSI Package Execution",
+      "description": "Detects msiexec loading MSI packages directly from remote URLs - used for malware staging",
+      "kql": "DeviceProcessEvents | where FileName == 'msiexec.exe' and ProcessCommandLine has_any('http://','https://','\\\\') and ProcessCommandLine has_any('/q','/quiet','/passive') | project Timestamp, DeviceName, AccountName, ProcessCommandLine",
+      "spl": "index=windows process=msiexec.exe (cmdline='*http*' OR cmdline='*https*') (cmdline='/q' OR cmdline='/quiet') | table _time host user cmdline",
+      "eql": "process where process.name == 'msiexec.exe' and process.command_line : ('*http://*',  '*https://*') and process.command_line : ('*/q*','*/quiet*')",
+      "platform": "windows", "severity": "HIGH"
+    },
+    {
+      "id": "HQ-031", "technique_id": "T1486", "technique_name": "Data Encrypted for Impact",
+      "name": "Akira Ransomware ESXi Target Detection",
+      "description": "Detects Akira ransomware targeting VMware ESXi infrastructure for maximum impact",
+      "kql": "DeviceProcessEvents | where FileName in ('esxcli','vmkfstools') and ProcessCommandLine has_any('vm process kill','storage filesystem unmount','--force') | project Timestamp, DeviceName, AccountName, ProcessCommandLine",
+      "spl": "index=linux sourcetype=syslog (process=esxcli cmdline='vm process kill') OR (process=vmkfstools cmdline='--force') | table _time host user cmdline",
+      "eql": "process where process.name in ('esxcli','vmkfstools') and process.command_line : ('*vm process kill*','*storage filesystem unmount*')",
+      "platform": "linux", "severity": "CRITICAL"
+    },
+    {
+      "id": "HQ-032", "technique_id": "T1078", "technique_name": "Valid Accounts",
+      "name": "Service Account Interactive Login",
+      "description": "Detects service accounts being used for interactive logins which may indicate credential theft",
+      "kql": "DeviceLogonEvents | where LogonType in ('Interactive','RemoteInteractive') and AccountName has_any('svc-','service-','_svc','_service') | project Timestamp, DeviceName, AccountName, RemoteIP, LogonType",
+      "spl": "index=windows EventCode=4624 LogonType IN (2,10) Account_Name IN (*svc-*, *service-*, *_svc*) | table _time host Account_Name src_ip LogonType",
+      "eql": "authentication where event.type == 'start' and event.outcome == 'success' and user.name : ('svc-*','service-*','*_svc','*_service') and winlog.event_data.LogonType in ('2','10')",
+      "platform": "windows", "severity": "HIGH"
+    },
+    {
+      "id": "HQ-033", "technique_id": "T1059", "technique_name": "Command and Scripting Interpreter",
+      "name": "PowerShell Download String One-Liner",
+      "description": "Detects PowerShell IEX download cradles commonly used for fileless malware execution",
+      "kql": "DeviceProcessEvents | where FileName == 'powershell.exe' and ProcessCommandLine has_any('IEX','Invoke-Expression') and ProcessCommandLine has_any('DownloadString','WebClient','Net.WebClient') | project Timestamp, DeviceName, AccountName, ProcessCommandLine",
+      "spl": "index=windows process=powershell.exe (cmdline='*IEX*' OR cmdline='*Invoke-Expression*') (cmdline='*DownloadString*' OR cmdline='*Net.WebClient*') | table _time host user cmdline",
+      "eql": "process where process.name == 'powershell.exe' and process.command_line : ('*IEX*DownloadString*','*Invoke-Expression*WebClient*','*Net.WebClient*IEX*')",
+      "platform": "windows", "severity": "HIGH"
+    },
+    {
+      "id": "HQ-034", "technique_id": "T1021", "technique_name": "Remote Services",
+      "name": "WinRM Lateral Movement Detection",
+      "description": "Detects WinRM being used for lateral movement via Enter-PSSession or Invoke-Command",
+      "kql": "DeviceNetworkEvents | where RemotePort == 5985 or RemotePort == 5986 | where not (InitiatingProcessFileName in ('svchost.exe','wsmprovhost.exe')) | project Timestamp, DeviceName, RemoteIP, InitiatingProcessFileName, InitiatingProcessCommandLine",
+      "spl": "index=windows (dest_port=5985 OR dest_port=5986) NOT (process=svchost.exe OR process=wsmprovhost.exe) | table _time host process dest_host dest_port",
+      "eql": "network where destination.port in (5985, 5986) and not process.name in ('svchost.exe','wsmprovhost.exe')",
+      "platform": "windows", "severity": "HIGH"
+    },
+    {
+      "id": "HQ-035", "technique_id": "T1055", "technique_name": "Process Injection",
+      "name": "Cobalt Strike Named Pipe Detection",
+      "description": "Detects Cobalt Strike default named pipe patterns used for beacon communication",
+      "kql": "DeviceEvents | where ActionType == 'NamedPipeEvent' and AdditionalFields has_any('postex_','status_','msagent_','MSSE-','wkssvc') | project Timestamp, DeviceName, InitiatingProcessFileName, AdditionalFields",
+      "spl": "index=windows EventCode=17 (sysmon) (PipeName='*\\postex_*' OR PipeName='*\\status_*' OR PipeName='*\\MSSE-*' OR PipeName='*\\msagent_*') | table _time host Image PipeName",
+      "eql": "network where event.action == 'named_pipe_event' and process.name != null and event.dataset == 'sysmon' and winlog.event_data.PipeName : ('*\\postex_*','*\\status_*','*\\MSSE-*','*\\msagent_*')",
+      "platform": "windows", "severity": "CRITICAL"
+    },
+    {
+      "id": "HQ-036", "technique_id": "T1547", "technique_name": "Boot/Logon Autostart Execution",
+      "name": "DLL Hijacking via Windows Temp",
+      "description": "Detects unsigned DLLs loaded from temporary directories by legitimate system processes",
+      "kql": "DeviceImageLoadEvents | where FolderPath has_any('\\Temp\\','\\AppData\\Local\\Temp\\') and InitiatingProcessFileName in ('svchost.exe','dllhost.exe','rundll32.exe') and not (IsSigned == true) | project Timestamp, DeviceName, FileName, FolderPath, InitiatingProcessFileName",
+      "spl": "index=windows EventCode=7 (sysmon) (ImageLoaded='*\\Temp\\*' OR ImageLoaded='*\\AppData\\Local\\Temp\\*') (Image=svchost.exe OR Image=dllhost.exe) Signed=false | table _time host Image ImageLoaded Signed",
+      "eql": "library where dll.path : ('*\\Temp\\*','*\\AppData\\Local\\Temp\\*') and dll.code_signature.trusted != true and process.name in ('svchost.exe','dllhost.exe','rundll32.exe')",
+      "platform": "windows", "severity": "HIGH"
+    },
+    {
+      "id": "HQ-037", "technique_id": "T1071", "technique_name": "Application Layer Protocol",
+      "name": "Suspicious DNS TXT Record Queries",
+      "description": "Detects DNS TXT record queries which may be used for DNS tunneling C2 communication",
+      "kql": "DeviceNetworkEvents | where RemotePort == 53 | join kind=inner (DnsEvents | where QueryType == 'TXT' | summarize TXTCount = count() by Computer, bin(TimeGenerated, 5m) | where TXTCount > 10) on $left.DeviceName == $right.Computer | project Timestamp, DeviceName, RemoteIP",
+      "spl": "index=dns query_type=TXT | stats count as txt_queries by src_host dest_ip span(5m) | where txt_queries > 10",
+      "eql": "dns where dns.question.type == 'TXT' | by host.name | where span(5m) count() > 10",
+      "platform": "windows", "severity": "MEDIUM"
+    },
+    {
+      "id": "HQ-038", "technique_id": "T1566", "technique_name": "Phishing",
+      "name": "ISO/IMG File Mount and Execute Pattern",
+      "description": "Detects mounting of ISO files followed by execution of contents - modern phishing delivery",
+      "kql": "DeviceProcessEvents | where ProcessCommandLine has '.iso' and FileName in ('cmd.exe','powershell.exe','wscript.exe','regsvr32.exe') | project Timestamp, DeviceName, AccountName, FileName, ProcessCommandLine, InitiatingProcessFileName",
+      "spl": "index=windows (parent_cmdline='*.iso*' OR grandparent_cmdline='*.iso*') (process=cmd.exe OR process=powershell.exe OR process=regsvr32.exe) | table _time host process cmdline",
+      "eql": "sequence by host.name with maxspan=2m [process where process.name == 'explorer.exe' and process.command_line : '*.iso*'] [process where process.name in ('cmd.exe','powershell.exe','regsvr32.exe')]",
+      "platform": "windows", "severity": "HIGH"
+    },
+    {
+      "id": "HQ-039", "technique_id": "T1190", "technique_name": "Exploit Public-Facing Application",
+      "name": "MOVEit Transfer Exploitation Indicators",
+      "description": "Detects indicators of MOVEit Transfer exploitation including LEMURLOOT web shell activity",
+      "kql": "DeviceNetworkEvents | where RemotePort in (443, 80) and InitiatingProcessFileName in ('w3wp.exe') | where RemoteURL has_any('moveit','MOVEit') | project Timestamp, DeviceName, RemoteIP, RemoteURL, InitiatingProcessFileName",
+      "spl": "index=iis cs_uri_stem='*moveit*' (cs_method=POST) cs_uri_query='*X-siLock-Comment*' | table _time cs_host cs_uri_stem c-ip cs_bytes",
+      "eql": "network where destination.port in (443,80) and process.name == 'w3wp.exe' and http.request.uri.path : ('*moveitisapi*','*MOVEitISAPI*')",
+      "platform": "windows", "severity": "CRITICAL"
+    },
+    {
+      "id": "HQ-040", "technique_id": "T1105", "technique_name": "Ingress Tool Transfer",
+      "name": "Unusual Binary Execution from User Profile",
+      "description": "Detects execution of binaries from user profile directories which is atypical for legitimate software",
+      "kql": "DeviceProcessEvents | where FolderPath has_any('\\Users\\','\\AppData\\') and not (FolderPath has_any('\\Program Files\\','\\Windows\\')) and FileName endswith '.exe' and not (InitiatingProcessFileName in ('explorer.exe','cmd.exe')) | project Timestamp, DeviceName, AccountName, FileName, FolderPath",
+      "spl": "index=windows (process_path='*\\Users\\*\\AppData\\*') NOT (process_path='*Program Files*') | table _time host user process process_path",
+      "eql": "process where process.executable : ('*\\Users\\*\\AppData\\*') and not process.executable : ('*\\AppData\\Local\\Microsoft\\*','*Program Files*')",
+      "platform": "windows", "severity": "MEDIUM"
+    },
+    {
+      "id": "HQ-041", "technique_id": "T1078", "technique_name": "Valid Accounts",
+      "name": "Azure AD Guest Account Privilege Escalation",
+      "description": "Detects guest accounts in Azure AD performing privileged operations",
+      "kql": "AuditLogs | where OperationName in ('Add member to role','Add owner to application') and InitiatedBy.user.userPrincipalName has '#EXT#' | project TimeGenerated, OperationName, InitiatedBy, TargetResources",
+      "spl": "index=azure sourcetype=azure:audit operationName IN ('Add member to role', 'Add owner to application') initiatedBy.user.userPrincipalName='*#EXT#*' | table _time operationName initiatedBy.user.userPrincipalName targetResources",
+      "eql": "authentication where event.dataset == 'azure.auditlogs' and event.action in ('Add member to role') and user.name : '*#EXT#*'",
+      "platform": "cloud", "severity": "HIGH"
+    },
+    {
+      "id": "HQ-042", "technique_id": "T1059", "technique_name": "Command and Scripting Interpreter",
+      "name": "MSHTA Executing Remote Script",
+      "description": "Detects mshta.exe loading scripts from remote URLs - used for LOLBin payload delivery",
+      "kql": "DeviceProcessEvents | where FileName == 'mshta.exe' and ProcessCommandLine has_any('http://','https://','javascript:','vbscript:') | project Timestamp, DeviceName, AccountName, ProcessCommandLine",
+      "spl": "index=windows process=mshta.exe (cmdline='*http://*' OR cmdline='*javascript:*' OR cmdline='*vbscript:*') | table _time host user cmdline",
+      "eql": "process where process.name == 'mshta.exe' and process.command_line : ('*http://*','*https://*','*javascript:*','*vbscript:*')",
+      "platform": "windows", "severity": "HIGH"
+    },
+    {
+      "id": "HQ-043", "technique_id": "T1547", "technique_name": "Boot/Logon Autostart Execution",
+      "name": "WMI Subscription Persistence",
+      "description": "Detects WMI event subscription creation used for fileless persistence",
+      "kql": "DeviceEvents | where ActionType in ('WmiBindingCreated','WmiFilterCreated','WmiConsumerCreated') | project Timestamp, DeviceName, AccountName, ActionType, AdditionalFields",
+      "spl": "index=windows EventCode IN (5861, 5859, 5860) | table _time host EventCode EventData",
+      "eql": "any where event.code in ('5861','5859','5860') and event.provider == 'Microsoft-Windows-WMI-Activity'",
+      "platform": "windows", "severity": "HIGH"
+    },
+    {
+      "id": "HQ-044", "technique_id": "T1021", "technique_name": "Remote Services",
+      "name": "DCOM Lateral Movement via MMC20",
+      "description": "Detects DCOM-based lateral movement using MMC20.Application which executes commands on remote hosts",
+      "kql": "DeviceProcessEvents | where InitiatingProcessFileName == 'svchost.exe' and FileName == 'mmc.exe' and ProcessCommandLine has_any('-Embedding') | project Timestamp, DeviceName, AccountName, ProcessCommandLine, InitiatingProcessCommandLine",
+      "spl": "index=windows parent_process=svchost.exe process=mmc.exe cmdline='-Embedding' | table _time host user cmdline",
+      "eql": "process where process.name == 'mmc.exe' and process.parent.name == 'svchost.exe' and process.command_line : '*-Embedding*'",
+      "platform": "windows", "severity": "HIGH"
+    },
+    {
+      "id": "HQ-045", "technique_id": "T1055", "technique_name": "Process Injection",
+      "name": "Reflective DLL Injection - Unsigned Module Load",
+      "description": "Detects unsigned DLL modules loaded without disk artifact - indicator of reflective DLL injection",
+      "kql": "DeviceImageLoadEvents | where not (IsSigned == true) and not (IsImageLoadedFromDisk == true) | project Timestamp, DeviceName, InitiatingProcessFileName, FileName, IsSigned, IsImageLoadedFromDisk",
+      "spl": "index=windows EventCode=7 (sysmon) Signed=false NOT (ImageLoaded='*Windows*' OR ImageLoaded='*Program Files*') | table _time host Image ImageLoaded Signed",
+      "eql": "library where dll.code_signature.trusted != true and not dll.path : ('*\\Windows\\*','*\\Program Files\\*') and event.action == 'load'",
+      "platform": "windows", "severity": "HIGH"
+    },
+    {
+      "id": "HQ-046", "technique_id": "T1566", "technique_name": "Phishing",
+      "name": "QR Code Phishing PDF Execution",
+      "description": "Detects opening of PDF files followed by browser navigation to external URLs - QR code phishing pattern",
+      "kql": "let pdfOpens = DeviceProcessEvents | where FileName in ('AcroRd32.exe','Acrobat.exe') | project Timestamp, DeviceName, AccountName; let browserLaunch = DeviceProcessEvents | where FileName in ('chrome.exe','msedge.exe','firefox.exe') and InitiatingProcessFileName in ('AcroRd32.exe','Acrobat.exe') | project Timestamp, DeviceName, ProcessCommandLine; pdfOpens | join kind=inner (browserLaunch) on DeviceName",
+      "spl": "index=windows (parent_process=AcroRd32.exe OR parent_process=Acrobat.exe) (process=chrome.exe OR process=msedge.exe) cmdline='*http*' | table _time host user cmdline",
+      "eql": "process where process.name in ('chrome.exe','msedge.exe') and process.parent.name in ('AcroRd32.exe','Acrobat.exe') and process.command_line : '*http*'",
+      "platform": "windows", "severity": "MEDIUM"
+    },
+    {
+      "id": "HQ-047", "technique_id": "T1071", "technique_name": "Application Layer Protocol",
+      "name": "Sliver C2 WireGuard Detection",
+      "description": "Detects Sliver C2 framework using WireGuard transport protocol for covert C2 communication",
+      "kql": "DeviceNetworkEvents | where RemotePort == 51820 and not (InitiatingProcessFileName in ('wg.exe','WireGuardManager.exe')) | project Timestamp, DeviceName, RemoteIP, RemotePort, InitiatingProcessFileName",
+      "spl": "index=network dest_port=51820 NOT (process=wg.exe OR process=WireGuardManager.exe) | table _time host process dest_ip dest_port",
+      "eql": "network where destination.port == 51820 and not process.name in ('wg.exe','WireGuardManager.exe','WireGuard.exe')",
+      "platform": "windows", "severity": "HIGH"
+    },
+    {
+      "id": "HQ-048", "technique_id": "T1078", "technique_name": "Valid Accounts",
+      "name": "Dormant Account Activation",
+      "description": "Detects previously dormant accounts (>90 days inactive) being used for authentication",
+      "kql": "SigninLogs | where TimeGenerated > ago(7d) | join kind=inner (SigninLogs | where TimeGenerated < ago(90d) | summarize LastLogin = max(TimeGenerated) by UserPrincipalName) on UserPrincipalName | where LastLogin < ago(90d) | project TimeGenerated, UserPrincipalName, IPAddress, Location, LastLogin",
+      "spl": "index=windows EventCode=4624 | stats latest(_time) as last_seen earliest(_time) as first_seen by Account_Name | where (now() - last_seen) < 7*86400 AND (now() - first_seen) > 90*86400",
+      "eql": "authentication where event.outcome == 'success' and user.last_login < now() - 90d",
+      "platform": "cloud", "severity": "HIGH"
+    },
+    {
+      "id": "HQ-049", "technique_id": "T1105", "technique_name": "Ingress Tool Transfer",
+      "name": "Cobalt Strike Beacon Staging via SMB",
+      "description": "Detects Cobalt Strike SMB beacon staging via named pipe communication",
+      "kql": "DeviceNetworkEvents | where RemotePort == 445 and InitiatingProcessFileName in ('powershell.exe','cmd.exe','rundll32.exe') | project Timestamp, DeviceName, RemoteIP, InitiatingProcessFileName, InitiatingProcessCommandLine",
+      "spl": "index=windows EventCode=3 (sysmon) DestinationPort=445 (Image=powershell.exe OR Image=cmd.exe OR Image=rundll32.exe) | table _time host Image DestinationIp DestinationPort",
+      "eql": "network where destination.port == 445 and process.name in ('powershell.exe','cmd.exe','rundll32.exe','regsvr32.exe')",
+      "platform": "windows", "severity": "HIGH"
+    },
+    {
+      "id": "HQ-050", "technique_id": "T1059", "technique_name": "Command and Scripting Interpreter",
+      "name": "Volt Typhoon LOLBin Discovery Commands",
+      "description": "Detects Volt Typhoon signature Living-off-the-Land discovery commands for network reconnaissance",
+      "kql": "DeviceProcessEvents | where FileName in ('netstat.exe','ipconfig.exe','arp.exe','net.exe','whoami.exe','systeminfo.exe') | summarize CommandCount = count(), Commands = make_set(ProcessCommandLine) by DeviceName, AccountName, bin(Timestamp, 5m) | where CommandCount > 4",
+      "spl": "index=windows (process=netstat.exe OR process=ipconfig.exe OR process=arp.exe OR process=net.exe OR process=whoami.exe OR process=systeminfo.exe) | stats count as cmd_count values(process) as commands by host user span(5m) | where cmd_count > 4",
+      "eql": "sequence by host.name, user.name with maxspan=5m [process where process.name in ('netstat.exe','ipconfig.exe')] [process where process.name in ('arp.exe','net.exe')] [process where process.name in ('whoami.exe','systeminfo.exe')]",
+      "platform": "windows", "severity": "HIGH"
+    }
+  ]
+}
