@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Enterprise Observability &mdash; CYBERDUDEBIVASH&reg; SENTINEL APEX v169.0</title>
+<title>Enterprise Observability &mdash; CYBERDUDEBIVASH&reg; SENTINEL APEX v170.0</title>
 <meta name="description" content="Real-time enterprise observability dashboard for SENTINEL APEX. AI engine health, pipeline latency, SLA uptime metrics, feed freshness, worker diagnostics."/>
 <meta name="robots" content="noindex"/>
 <style>
@@ -79,7 +79,7 @@ footer{text-align:center;padding:32px;color:var(--muted);font-size:12px;border-t
 <body>
 
 <div class="topbar">
-  <div class="brand">CYBERDUDEBIVASH&reg; SENTINEL APEX <span>v169.0</span></div>
+  <div class="brand">CYBERDUDEBIVASH&reg; SENTINEL APEX <span>v170.0</span></div>
   <nav class="nav-links">
     <a href="/">Dashboard</a>
     <a href="/api-docs.html">API Docs</a>
@@ -101,7 +101,7 @@ footer{text-align:center;padding:32px;color:var(--muted);font-size:12px;border-t
     <div class="status-indicator loading" id="overall-indicator"></div>
     <div class="status-text" id="overall-status">Fetching platform status&hellip;</div>
     <div class="status-sub">
-      <span id="platform-version">SENTINEL APEX v169.0</span> &middot;
+      <span id="platform-version">SENTINEL APEX v170.0</span> &middot;
       <span id="advisory-count">&mdash;</span> advisories &middot;
       <span id="last-sync">&mdash;</span>
     </div>
@@ -199,7 +199,7 @@ footer{text-align:center;padding:32px;color:var(--muted);font-size:12px;border-t
   <!-- PIPELINE LOG -->
   <div class="section-header"><div class="line"></div><h2>Live Pipeline Log</h2><div class="line"></div></div>
   <div class="log-box" id="pipeline-log">
-    <span class="log-info">Initializing SENTINEL APEX Observability Engine v169.0&hellip;</span>
+    <span class="log-info">Initializing SENTINEL APEX Observability Engine v170.0&hellip;</span>
   </div>
   <div style="margin-top:12px;display:flex;gap:12px;flex-wrap:wrap">
     <button class="btn" onclick="refreshAll()">&#8635; Refresh Now</button>
@@ -220,7 +220,7 @@ footer{text-align:center;padding:32px;color:var(--muted);font-size:12px;border-t
 
 <script>
 // ============================================================================
-// SENTINEL APEX Enterprise Observability Dashboard v169.0
+// SENTINEL APEX Enterprise Observability Dashboard v170.0
 // ============================================================================
 const API_BASE = 'https://intel.cyberdudebivash.com';
 const REFRESH_MS = 60000;
@@ -292,8 +292,8 @@ function renderTelemetry(health) {
   const rows = [
     {comp:'API Gateway',     s:'ok',  ver:health?.gateway||health?.version||'—',  detail:`Platform: ${health?.platform||'SENTINEL APEX'}`},
     {comp:'Platform Version',s:'ok',  ver:health?.version||'—',                   detail:`Manifest: ${pl.manifest_version||health?.version||'—'}`},
-    {comp:'IOC Engine',      s:'ok',  ver:pl.ioc_engine||'v169.0',                detail:'IOC extraction, dedup, fingerprinting'},
-    {comp:'AI Brain Engine', s:'ok',  ver:pl.ai_engine||'v169.0',                 detail:'Campaigns, Anomalies, Predictions'},
+    {comp:'IOC Engine',      s:'ok',  ver:pl.ioc_engine||'v170.0',                detail:'IOC extraction, dedup, fingerprinting'},
+    {comp:'AI Brain Engine', s:'ok',  ver:pl.ai_engine||'v170.0',                 detail:'Campaigns, Anomalies, Predictions'},
     {comp:'STIX Exporter',   s:'ok',  ver:pl.stix_version||'2.1',                 detail:'STIX 2.1 bundle export'},
     {comp:'Feed Dedup',      s:pl.dedup_active?'ok':'warn', ver:'—',              detail:pl.dedup_active?'Active':'Inactive'},
     {comp:'Advisory Count',  s:'ok',  ver:'—',                                    detail:`${pl.advisory_count||'156+'}+ active advisories`},
@@ -390,7 +390,7 @@ async function refreshAll() {
   setVal('kpi-last-sync',  pl.last_sync ? pl.last_sync.replace('T',' ').slice(0,16)+' UTC' : '—',
     hrs&&parseFloat(hrs)<6?'ok':'warn');
 
-  document.getElementById('platform-version').textContent = `SENTINEL APEX ${data.version||'v169.0'}`;
+  document.getElementById('platform-version').textContent = `SENTINEL APEX ${data.version||'v170.0'}`;
   document.getElementById('advisory-count').textContent   = `${pl.advisory_count||'156+'}`;
   document.getElementById('last-sync').textContent        = hrs ? `Synced ${hrs}h ago` : '—';
 
