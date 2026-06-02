@@ -1827,7 +1827,8 @@ def build_report_sections(item: dict) -> str:
         "<li>CYBERDUDEBIVASH SENTINEL APEX: <a href='https://intel.cyberdudebivash.com' target='_blank' rel='noopener' style='color:var(--accent2)'>intel.cyberdudebivash.com</a></li>",
         "<li>CISA KEV Catalog: <a href='https://www.cisa.gov/known-exploited-vulnerabilities-catalog' target='_blank' rel='noopener' style='color:var(--accent2)'>cisa.gov/kev</a></li>",
         "<li>MITRE ATT&amp;CK: <a href='https://attack.mitre.org' target='_blank' rel='noopener' style='color:var(--accent2)'>attack.mitre.org</a></li>",
-        "<li>STIX 2.1 API: <a href='https://intel.cyberdudebivash.com/api/stix/" + _h(stix_id) + "' target='_blank' rel='noopener' style='color:var(--accent2)'>intel.cyberdudebivash.com/api/stix/" + _h(stix_id) + "</a></li>",
+        # v166.3-FIX: /api/stix/ requires Pro auth (401 for public). Link to get-api-key instead.
+        "<li>STIX 2.1 Export: <a href='https://intel.cyberdudebivash.com/get-api-key.html?plan=pro&utm_source=report-stix-ref' target='_blank' rel='noopener' style='color:var(--accent2)'>Unlock STIX 2.1 bundle — Pro tier required</a></li>",
     ]
     sections.append(_section(16, "References, Remediation &amp; Enterprise Access",
         "<ul>" + "".join(refs) + "</ul>"
@@ -2037,7 +2038,9 @@ def render_report(item: dict, public_prefix: str) -> str:
     tlp      = str(item.get("tlp") or "TLP:CLEAR").replace(":", "-")
     risk     = item.get("risk_score") or 0
     tags     = item.get("tags") or []
-    report_url = f"{public_prefix.rstrip('/')}/reports/{intel_id}.html"
+    # v166.3-FIX: include year/month in canonical report URL (was missing → 404)
+    _yyyy, _mm = iso_path(item.get("processed_at") or item.get("timestamp") or utc_now_iso())
+    report_url = f"{public_prefix.rstrip('/')}/reports/{_yyyy}/{_mm}/{intel_id}.html"
 
     sections_html = build_report_sections(item)
 
