@@ -9875,8 +9875,14 @@
                 const _strippedDesc = _rawFeedDesc.replace(/^CVE-\d{4}-\d+[\s\-:]+/i, '').trim();
                 const _hasRealDesc = _strippedDesc.length > 30 &&
                     !/^(Exploit for CVE|Notable security|No active exploit)/i.test(_strippedDesc);
+                // v166.4 XSS FIX: escape feed description before inserting into innerHTML.
+                // Feed data (GitHub Advisories, RSS) can contain HTML/script payloads
+                // (e.g. PoC code like <img onerror=alert(1)>) that execute when injected raw.
+                const _escFeedDesc = (s) => String(s)
+                    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+                    .replace(/"/g,'&quot;').replace(/'/g,'&#x27;');
                 const _feedDescSentence = _hasRealDesc
-                    ? _strippedDesc.charAt(0).toUpperCase() + _strippedDesc.slice(1)
+                    ? _escFeedDesc(_strippedDesc.charAt(0).toUpperCase() + _strippedDesc.slice(1))
                     : '';
 
                 // Assemble: Type + CVSS context + exposure + exploit + action
