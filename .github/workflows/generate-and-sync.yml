@@ -812,6 +812,35 @@ jobs:
           fi
 
       # ─────────────────────────────────────────────────────────────────────
+      # STAGE 6.94 — COMMERCIAL READINESS GOVERNOR (v1.0.0)
+      # Implements Mandates 1-10. Strips BLOCK items from published feed.
+      # Produces tier feeds: feed_enterprise.json, feed_mssp.json,
+      # feed_public.json. Quarantines BLOCK items to internal/.
+      # Writes api/governance_status.json with GO-LIVE criteria.
+      # ─────────────────────────────────────────────────────────────────────
+      - name: "STAGE 6.94 — Commercial Readiness Governor (v1.0.0)"
+        continue-on-error: true
+        run: |
+          if [ -f "api/feed.json" ]; then
+            echo "STAGE 6.94: Running Commercial Readiness Governor..."
+            python3 scripts/commercial_readiness_governor.py api/feed.json \
+              --apply \
+              --report data/health/commercial_readiness_governor_report.json || {
+                echo "::warning::STAGE 6.94: Governor error — non-fatal"
+              }
+            if [ -f "api/governance_status.json" ]; then
+              DASH=$(python3 -c "import json; d=json.load(open('api/governance_status.json')); print(d.get('dashboard_status','?'))" 2>/dev/null || echo "?")
+              API=$(python3 -c "import json; d=json.load(open('api/governance_status.json')); print(d.get('cti_api_status','?'))" 2>/dev/null || echo "?")
+              MSSP=$(python3 -c "import json; d=json.load(open('api/governance_status.json')); print(d.get('mssp_status','?'))" 2>/dev/null || echo "?")
+              ENT=$(python3 -c "import json; d=json.load(open('api/governance_status.json')); print(d.get('enterprise_status','?'))" 2>/dev/null || echo "?")
+              SCORE=$(python3 -c "import json; d=json.load(open('api/governance_status.json')); print(d.get('commercial_readiness_score',0))" 2>/dev/null || echo "?")
+              echo "STAGE 6.94: Dashboard=${DASH} API=${API} MSSP=${MSSP} Enterprise=${ENT} Score=${SCORE}/100"
+            fi
+          else
+            echo "STAGE 6.94: api/feed.json not found — skip"
+          fi
+
+      # ─────────────────────────────────────────────────────────────────────
       # STAGE 7 — PIPELINE OBSERVABILITY TELEMETRY (Phase 6)
       # ─────────────────────────────────────────────────────────────────────
       # v148.0 FIX: Moved from inline python3 -c block (RULE 1 violation) to
@@ -894,6 +923,13 @@ jobs:
           git add data/health/intel_publication_gate_report.json 2>/dev/null || true
           git add data/health/intel_quality_engine_report.json 2>/dev/null || true
           git add data/health/intel_grade_engine_report.json 2>/dev/null || true
+
+          # Stage commercial readiness governor outputs
+          git add api/feed_enterprise.json 2>/dev/null || true
+          git add api/feed_mssp.json 2>/dev/null || true
+          git add api/feed_public.json 2>/dev/null || true
+          git add api/governance_status.json 2>/dev/null || true
+          git add data/health/commercial_readiness_governor_report.json 2>/dev/null || true
 
           # Check if anything changed
           if git diff --staged --quiet; then
