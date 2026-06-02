@@ -3489,6 +3489,28 @@ def main() -> None:
     # ---- Manifest Processing ----------------------------------------------
     stage_manifest_stabilisation()
     _stage_done("manifest_stabilisation")
+
+    # ---- Stage 2.3: Intelligence Transformation (v168.0 P0) ---------------
+    # Real actor attribution, campaign linking, IOC enrichment, behavioral rules
+    try:
+        run_script(
+            [sys.executable, "scripts/platform_intelligence_transformer.py"],
+            stage="2.3.intel_transform",
+            allow_fail=True,
+            timeout=300,
+        )
+    except Exception as _it_e:
+        log.warning("[2.3.intel_transform] Non-fatal error: %s", _it_e)
+    try:
+        run_script(
+            [sys.executable, "scripts/behavioral_detection_generator.py"],
+            stage="2.3.behavioral_detection",
+            allow_fail=True,
+            timeout=120,
+        )
+    except Exception as _bd_e:
+        log.warning("[2.3.behavioral_detection] Non-fatal error: %s", _bd_e)
+
     stage_freshness_gate()               # HARD FAIL if < MIN entries
     _stage_done("freshness_gate")
     stage_anti_stale_hardening()         # v160.0: quarantine stale/synthetic/fake intel
