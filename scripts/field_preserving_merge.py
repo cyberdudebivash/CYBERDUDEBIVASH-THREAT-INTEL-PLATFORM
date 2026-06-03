@@ -190,18 +190,14 @@ def _atomic_write(path: Path, items: list[dict], fmt: str, raw_data: Any) -> Non
         raise
 
 
-def _sort_key(item: dict) -> float:
-    """Return a sortable float for published_at/timestamp DESC ordering."""
-    for field in ("published_at", "generated_at", "timestamp", "created_at"):
-        val = item.get(field)
-        if val and isinstance(val, str):
-            try:
-                from datetime import datetime
-                dt = datetime.fromisoformat(val.replace("Z", "+00:00"))
-                return dt.timestamp()
-            except Exception:
-                pass
-    return 0.0
+def _sort_key(item: dict) -> tuple:
+    """Canonical sort key: (ts_string, stix_id) DESC — matches regression_immunity.py Check 6
+    and run_pipeline.py exactly.  String-based comparison avoids float precision issues and
+    provides deterministic tie-breaking via stix_id when timestamps are identical."""
+    ts_val  = (item.get("published_at") or item.get("timestamp") or
+               item.get("generated_at") or item.get("created_at") or item.get("processed_at") or "")
+    sid_val = (item.get("stix_id") or item.get("id") or "")
+    return (ts_val, sid_val)
 
 
 # ---------------------------------------------------------------------------
