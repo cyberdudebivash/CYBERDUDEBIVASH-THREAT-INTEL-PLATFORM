@@ -670,23 +670,120 @@ def build_feed_json(entries: List[Dict], flags: Dict) -> Path:
     return out_path
 
 # ── Phase 1: /api/latest.json ─────────────────────────────────────────────────
+_REPORT_CDN_BASE = "https://intel.cyberdudebivash.com"
+
+def _enforce_metadata_fields(item: Dict) -> Dict:
+    """
+    v171.2 B1/B2 FIX: Mandatory validation for report_url and published_at.
+    Any record missing either field is populated from source metadata.
+    No output record may contain null/empty values for these fields.
+
+    Population priority:
+      report_url:   entry field → construct from id + timestamp
+      published_at: published → timestamp → processed_at → generated_at
+    """
+    import re as _re
+    out = dict(item)
+
+    # ── report_url ──────────────────────────────────────────────────────────
+    ru = (out.get("report_url") or "").strip()
+    if not ru or ru == "null":
+        entry_id = (out.get("id") or out.get("stix_id") or "").strip()
+        ts_raw   = (out.get("timestamp") or out.get("processed_at") or
+                    out.get("generated_at") or "").strip()
+        if entry_id and ts_raw:
+            # Extract YYYY/MM from ISO timestamp: "2026-06-03T10:11:31Z" → "2026/06"
+            m = _re.match(r"(\d{4})-(\d{2})", ts_raw)
+            if m:
+                year, month = m.group(1), m.group(2)
+                # Normalise id: strip "intel--" prefix for path safety
+                slug = entry_id.replace("intel--", "").strip("-")
+                out["report_url"] = (
+                    f"{_REPORT_CDN_BASE}/reports/{year}/{month}/intel--{slug}.html"
+                )
+            else:
+                out["report_url"] = f"{_REPORT_CDN_BASE}/reports/intel--{entry_id}.html"
+        elif entry_id:
+            out["report_url"] = f"{_REPORT_CDN_BASE}/reports/intel--{entry_id}.html"
+        else:
+            # Cannot construct — mark as missing rather than null
+            out["report_url"] = ""
+
+    # ── published_at ─────────────────────────────────────────────────────────
+    pa = (out.get("published_at") or "").strip()
+    if not pa or pa == "null":
+        # Try candidate fields in priority order
+        for _field in ("published", "timestamp", "processed_at", "generated_at"):
+            _val = (out.get(_field) or "").strip()
+            if _val and _val != "null" and len(_val) >= 10:
+                out["published_at"] = _val
+                break
+
+    return out
+
+
 def build_latest_json(entries: List[Dict]) -> Path:
-    """Last 20 items (newest-first). Lightweight endpoint for widgets/tickers."""
-    recent = sorted(
+    """Last 20 items (newest-first). Lightweight endpoint for widgets/tickers.
+
+    v171.2 B1/B2 FIX: Mandatory validation — every record is passed through
+    _enforce_metadata_fields() before write. Records with both report_url and
+    published_at missing AND no fallback source are excluded rather than
+    published with null values.
+    """
+    # Sort newest-first, then apply metadata enforcement
+    sorted_entries = sorted(
         entries,
         key=lambda x: str(x.get("timestamp", "")),
         reverse=True
-    )[:20]
+    )
+
+    validated   = []
+    rejected    = 0
+    populated   = 0
+
+    for item in sorted_entries[:50]:  # oversample to ensure 20 after filtering
+        before_ru = (item.get("report_url") or "").strip()
+        before_pa = (item.get("published_at") or "").strip()
+
+        enforced = _enforce_metadata_fields(item)
+
+        after_ru = (enforced.get("report_url") or "").strip()
+        after_pa = (enforced.get("published_at") or "").strip()
+
+        if not after_ru and not after_pa:
+            # Cannot populate either field — reject record
+            rejected += 1
+            log(f"[B1/B2-GATE] REJECTED (no report_url, no published_at): {item.get('id','?')[:40]}", "WARN")
+            continue
+
+        if after_ru != before_ru or after_pa != before_pa:
+            populated += 1
+
+        validated.append(enforced)
+        if len(validated) >= 20:
+            break
+
+    if populated:
+        log(f"[B1/B2-FIX] Populated metadata for {populated} records (report_url/published_at)")
+    if rejected:
+        log(f"[B1/B2-GATE] Excluded {rejected} records with unresolvable metadata", "WARN")
+
+    recent = validated
 
     obj = {
-        "version":      "101.1",
+        "version":      "101.2",
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "count":        len(recent),
         "data":         recent,
+        "_meta": {
+            "b1_b2_validation": "enforced",
+            "records_populated": populated,
+            "records_rejected":  rejected,
+        },
     }
     out_path = API_DIR / "latest.json"
     sz = atomic_write_json(out_path, obj, compact=True)
-    log(f"latest.json: {len(recent)} items | {sz:,} bytes")
+    log(f"latest.json: {len(recent)} items | {sz:,} bytes | populated={populated} rejected={rejected}")
     return out_path
 
 # ── Phase 1: /api/status.json ─────────────────────────────────────────────────
