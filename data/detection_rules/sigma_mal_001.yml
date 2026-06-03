@@ -1,0 +1,47 @@
+title: Suspicious LSASS Process Access - Credential Dumping
+id: malware-lsass-access-001
+status: stable
+description: |
+    Detects suspicious access to LSASS process memory with credential-dumping
+    level access rights. Used by Mimikatz, Cobalt Strike sekurlsa, and
+    virtually every post-exploitation framework for credential harvesting.
+author: SENTINEL APEX
+date: 2026/06/02
+tags:
+    - attack.credential_access
+    - attack.T1003.001
+    - attack.T1055
+references:
+    - https://attack.mitre.org/techniques/T1003/001/
+logsource:
+    category: process_access
+    product: windows
+detection:
+    selection_lsass_access:
+        TargetImage|endswith: '\lsass.exe'
+        GrantedAccess:
+            - '0x1010'
+            - '0x1410'
+            - '0x147a'
+            - '0x143a'
+            - '0x1438'
+            - '0x1fffff'
+            - '0x40'
+            - '0x1000'
+    filter_legit_tools:
+        SourceImage|endswith:
+            - '\MsMpEng.exe'
+            - '\csrss.exe'
+            - '\wininit.exe'
+            - '\services.exe'
+            - '\lsm.exe'
+            - '\svchost.exe'
+        SourceImage|contains:
+            - 'SentinelOne'
+            - 'CrowdStrike'
+            - 'Cylance'
+    condition: selection_lsass_access and not filter_legit_tools
+falsepositives:
+    - EDR/AV products that legitimately access LSASS
+    - Task Manager (verify SourceImage = taskmgr.exe for low-severity)
+level: critical

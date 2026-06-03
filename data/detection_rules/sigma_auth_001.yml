@@ -1,0 +1,29 @@
+title: Sequential HTTP 401 to 200 Authentication Bypass
+id: auth-bypass-seq-001
+status: stable
+description: Detects HTTP auth bypass - 401 immediately followed by 200 on admin paths from same source IP
+author: SENTINEL APEX
+date: 2026/06/02
+tags:
+    - attack.defense_evasion
+    - attack.T1078
+    - attack.credential_access
+logsource:
+    category: webserver
+detection:
+    selection_bypass_pattern:
+        sc_status:
+            - '401'
+            - '403'
+        cs_uri_stem|contains:
+            - '/admin'
+            - '/api/admin'
+            - '/management'
+            - '/console'
+            - '/.env'
+            - '/wp-admin'
+    condition: selection_bypass_pattern
+falsepositives:
+    - Legitimate users with browser-cached credentials
+    - Automated security scanners
+level: high

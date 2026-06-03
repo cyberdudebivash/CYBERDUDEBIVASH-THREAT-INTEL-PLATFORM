@@ -1,0 +1,228 @@
+{
+  "version": "1.0.0",
+  "generated_at": "2026-06-03T11:16:57Z",
+  "total": 13,
+  "note": "Behavioral detection rules - NOT CVE ID string matching",
+  "rules": [
+    {
+      "id": "SIGMA-AUTH-001",
+      "class": "AUTH_BYPASS",
+      "title": "Sequential HTTP 401 to 200 Authentication Bypass",
+      "status": "stable",
+      "description": "Detects HTTP authentication bypass patterns where a 401 Unauthorized response is immediately followed by a 200 OK on a protected endpoint, indicating potential authentication bypass exploitation.",
+      "level": "high",
+      "tags": [
+        "attack.defense_evasion",
+        "attack.T1078",
+        "attack.credential_access"
+      ],
+      "falsepositives": [
+        "Legitimate users with cached credentials re-authenticating"
+      ],
+      "rule_file": "data/detection_rules/sigma_auth_001.yml"
+    },
+    {
+      "id": "SIGMA-AUTH-002",
+      "class": "AUTH_BYPASS",
+      "title": "JWT None Algorithm Authentication Bypass",
+      "status": "stable",
+      "description": "Detects use of 'none' algorithm in JWT tokens which bypasses signature verification on vulnerable implementations.",
+      "level": "critical",
+      "tags": [
+        "attack.defense_evasion",
+        "attack.T1550"
+      ],
+      "falsepositives": [
+        "Intentionally unsigned tokens in test environments"
+      ],
+      "rule_file": "data/detection_rules/sigma_auth_002.yml"
+    },
+    {
+      "id": "SIGMA-RANSOM-001",
+      "class": "RANSOMWARE",
+      "title": "Ransomware Shadow Copy and Backup Deletion Chain",
+      "status": "stable",
+      "description": "Detects the combination of shadow copy deletion, backup catalog deletion, and boot recovery disable commands executed in sequence - the standard ransomware pre-encryption preparation routine.",
+      "level": "critical",
+      "tags": [
+        "attack.impact",
+        "attack.T1490",
+        "attack.T1486"
+      ],
+      "falsepositives": [
+        "Legitimate system administrators performing backup maintenance"
+      ],
+      "rule_file": "data/detection_rules/sigma_ransom_001.yml"
+    },
+    {
+      "id": "SIGMA-RANSOM-002",
+      "class": "RANSOMWARE",
+      "title": "Mass File Extension Rename - Ransomware Encryption",
+      "status": "experimental",
+      "description": "Detects rapid bulk file renaming to unknown extensions indicative of ransomware encryption activity.",
+      "level": "critical",
+      "tags": [
+        "attack.impact",
+        "attack.T1486"
+      ],
+      "falsepositives": [
+        "File format conversion tools"
+      ],
+      "rule_file": "data/detection_rules/sigma_ransom_002.yml"
+    },
+    {
+      "id": "SIGMA-RANSOM-003",
+      "class": "RANSOMWARE",
+      "title": "Ransomware Service and Process Termination",
+      "status": "stable",
+      "description": "Detects bulk service and process termination targeting backup, database, and AV services - standard ransomware preparation to maximize encryption impact.",
+      "level": "high",
+      "tags": [
+        "attack.impact",
+        "attack.T1489",
+        "attack.T1562"
+      ],
+      "falsepositives": [
+        "System administrators stopping services for maintenance"
+      ],
+      "rule_file": "data/detection_rules/sigma_ransom_003.yml"
+    },
+    {
+      "id": "SIGMA-PHISH-001",
+      "class": "PHISHING",
+      "title": "Office Application Spawning Scripting Engine",
+      "status": "stable",
+      "description": "Detects Microsoft Office applications (Word, Excel, PowerPoint, Outlook) spawning scripting engines or command interpreters, indicating macro or embedded script execution from a potentially malicious document.",
+      "level": "high",
+      "tags": [
+        "attack.initial_access",
+        "attack.T1566.001",
+        "attack.execution",
+        "attack.T1204.002"
+      ],
+      "falsepositives": [
+        "Legitimate macros in trusted document templates"
+      ],
+      "rule_file": "data/detection_rules/sigma_phish_001.yml"
+    },
+    {
+      "id": "SIGMA-PHISH-002",
+      "class": "PHISHING",
+      "title": "HTML Smuggling File Written to Downloads",
+      "status": "stable",
+      "description": "Detects HTML smuggling technique where a browser writes an executable or archive to the Downloads folder as triggered by visiting a malicious web page.",
+      "level": "medium",
+      "tags": [
+        "attack.initial_access",
+        "attack.T1566.002",
+        "attack.T1027.006"
+      ],
+      "falsepositives": [
+        "Legitimate software downloads from browsers"
+      ],
+      "rule_file": "data/detection_rules/sigma_phish_002.yml"
+    },
+    {
+      "id": "SIGMA-MAL-001",
+      "class": "MALWARE",
+      "title": "Process Injection via WriteProcessMemory and CreateRemoteThread",
+      "status": "stable",
+      "description": "Detects classic process injection technique using WriteProcessMemory followed by CreateRemoteThread - used by Cobalt Strike, Meterpreter, and numerous malware loaders.",
+      "level": "critical",
+      "tags": [
+        "attack.defense_evasion",
+        "attack.T1055",
+        "attack.privilege_escalation"
+      ],
+      "falsepositives": [
+        "Security products legitimately accessing LSASS"
+      ],
+      "rule_file": "data/detection_rules/sigma_mal_001.yml"
+    },
+    {
+      "id": "SIGMA-MAL-002",
+      "class": "MALWARE",
+      "title": "Registry Run Key Persistence by Suspicious Process",
+      "status": "stable",
+      "description": "Detects malware persistence via Windows Registry run keys created by non-standard parent processes.",
+      "level": "high",
+      "tags": [
+        "attack.persistence",
+        "attack.T1547.001"
+      ],
+      "falsepositives": [
+        "Legitimate software setting startup entries from user profile"
+      ],
+      "rule_file": "data/detection_rules/sigma_mal_002.yml"
+    },
+    {
+      "id": "SIGMA-MAL-003",
+      "class": "MALWARE",
+      "title": "C2 Beaconing - Regular Interval Outbound Connection",
+      "status": "experimental",
+      "description": "Detects regular-interval outbound connections from non-browser processes indicative of C2 beaconing behavior.",
+      "level": "high",
+      "tags": [
+        "attack.command_and_control",
+        "attack.T1071.001",
+        "attack.T1095"
+      ],
+      "falsepositives": [
+        "Legitimate applications using rundll32 for network operations"
+      ],
+      "rule_file": "data/detection_rules/sigma_mal_003.yml"
+    },
+    {
+      "id": "SIGMA-EXPLOIT-001",
+      "class": "EXPLOIT",
+      "title": "Web Server Process Spawning Interactive Shell",
+      "status": "stable",
+      "description": "Detects web server processes spawning command shells or interpreters, a strong indicator of successful web application exploitation (RCE, SQLi, LFI to RCE, web shell execution).",
+      "level": "critical",
+      "tags": [
+        "attack.initial_access",
+        "attack.T1190",
+        "attack.execution",
+        "attack.T1059"
+      ],
+      "falsepositives": [
+        "Web applications legitimately spawning shell for system integration"
+      ],
+      "rule_file": "data/detection_rules/sigma_exploit_001.yml"
+    },
+    {
+      "id": "SIGMA-EXPLOIT-002",
+      "class": "EXPLOIT",
+      "title": "Exchange Server OWA Web Shell Execution",
+      "status": "stable",
+      "description": "Detects web shell execution on Microsoft Exchange Server OWA paths, indicative of ProxyLogon/ProxyShell or similar Exchange exploitation.",
+      "level": "critical",
+      "tags": [
+        "attack.initial_access",
+        "attack.T1190",
+        "attack.T1505.003"
+      ],
+      "falsepositives": [
+        "Legitimate Exchange web services"
+      ],
+      "rule_file": "data/detection_rules/sigma_exploit_002.yml"
+    },
+    {
+      "id": "SIGMA-EXPLOIT-003",
+      "class": "EXPLOIT",
+      "title": "Log4Shell JNDI Exploitation Attempt",
+      "status": "stable",
+      "description": "Detects Log4Shell (CVE-2021-44228) exploitation attempts via JNDI injection strings in HTTP headers or request parameters.",
+      "level": "critical",
+      "tags": [
+        "attack.initial_access",
+        "attack.T1190",
+        "attack.T1059"
+      ],
+      "falsepositives": [
+        "Security scanner testing"
+      ],
+      "rule_file": "data/detection_rules/sigma_exploit_003.yml"
+    }
+  ]
+}

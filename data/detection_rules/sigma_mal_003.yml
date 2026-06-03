@@ -1,0 +1,45 @@
+title: C2 Beaconing from LOLBin Process
+id: malware-c2-beacon-lolbin-001
+status: stable
+description: |
+    Detects outbound network connections from LOLBins (Living off the Land Binaries)
+    to external IPs/domains. Rundll32, regsvr32, wscript, and mshta are commonly
+    used by Cobalt Strike, Sliver, Havoc, and other C2 frameworks to evade
+    process-based detection while maintaining C2 communication.
+author: SENTINEL APEX
+date: 2026/06/02
+tags:
+    - attack.command_and_control
+    - attack.T1071.001
+    - attack.T1218
+logsource:
+    category: network_connection
+    product: windows
+detection:
+    selection_lolbin_network:
+        Initiated: 'true'
+        DestinationPort:
+            - 80
+            - 443
+            - 8080
+            - 8443
+            - 4443
+            - 1337
+        Image|endswith:
+            - '\rundll32.exe'
+            - '\regsvr32.exe'
+            - '\mshta.exe'
+            - '\wscript.exe'
+            - '\cscript.exe'
+            - '\msiexec.exe'
+    filter_known_legit:
+        DestinationHostname|endswith:
+            - '.microsoft.com'
+            - '.windows.com'
+            - '.windowsupdate.com'
+            - '.digicert.com'
+    condition: selection_lolbin_network and not filter_known_legit
+falsepositives:
+    - Legitimate software using LOLBins for update checks
+    - Windows component network operations
+level: high

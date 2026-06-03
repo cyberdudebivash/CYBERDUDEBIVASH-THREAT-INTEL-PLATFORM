@@ -1,0 +1,35 @@
+title: Mass File Rename to Ransomware Extension
+id: ransom-mass-rename-001
+status: stable
+description: |
+    Detects mass file renaming to known ransomware extensions.
+    Threshold of 20+ renames in 60 seconds indicates active encryption.
+author: SENTINEL APEX
+date: 2026/06/02
+tags:
+    - attack.impact
+    - attack.T1486
+logsource:
+    category: file_event
+    product: windows
+detection:
+    selection_ransomware_extensions:
+        TargetFilename|endswith:
+            - '.lockbit'
+            - '.basta'
+            - '.akira'
+            - '.alphv'
+            - '.sykffle'
+            - '.locked'
+            - '.encrypted'
+            - '.ransom'
+            - '.crypted'
+            - '.WNCRY'
+    filter_expected_apps:
+        Image|contains:
+            - '\Program Files\'
+            - 'Windows Defender'
+    condition: selection_ransomware_extensions and not filter_expected_apps
+falsepositives:
+    - File encryption utilities used legitimately
+level: critical

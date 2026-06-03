@@ -1,0 +1,46 @@
+title: Ransomware Pre-Encryption Shadow Copy and Backup Deletion
+id: ransom-shadow-delete-001
+status: stable
+description: |
+    Detects ransomware preparation - deletion of shadow copies and disabling
+    recovery mechanisms. This is a near-universal ransomware pre-stage activity
+    observed in LockBit, BlackCat, Black Basta, Akira and other ransomware families.
+author: SENTINEL APEX
+date: 2026/06/02
+tags:
+    - attack.impact
+    - attack.T1490
+    - attack.T1486
+    - detection.threat_hunting
+references:
+    - https://attack.mitre.org/techniques/T1490/
+logsource:
+    category: process_creation
+    product: windows
+detection:
+    selection_vss_delete:
+        Image|endswith: '\vssadmin.exe'
+        CommandLine|contains:
+            - 'Delete Shadows'
+            - 'delete shadows'
+            - 'resize shadowstorage'
+    selection_wbadmin_delete:
+        Image|endswith: '\wbadmin.exe'
+        CommandLine|contains:
+            - 'delete catalog'
+            - 'delete backup'
+    selection_bcdedit_disable:
+        Image|endswith: '\bcdedit.exe'
+        CommandLine|contains:
+            - 'recoveryenabled No'
+            - 'bootstatuspolicy ignoreallfailures'
+    selection_wmic_shadow:
+        Image|endswith: '\wmic.exe'
+        CommandLine|contains:
+            - 'shadowcopy delete'
+            - 'shadowcopy where'
+    condition: 1 of selection_*
+falsepositives:
+    - Legitimate system administrators performing maintenance
+    - Backup software agents (verify parent process)
+level: critical
