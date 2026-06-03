@@ -841,6 +841,96 @@ jobs:
           fi
 
       # ─────────────────────────────────────────────────────────────────────
+      # STAGE 6.95 — ATTRIBUTION EVIDENCE ENGINE (v1.0.0)
+      # ─────────────────────────────────────────────────────────────────────
+      - name: "STAGE 6.95 — Attribution Evidence Engine (v1.0.0)"
+        continue-on-error: true
+        run: |
+          if [ -f "api/feed.json" ]; then
+            python3 scripts/attribution_evidence_engine.py api/feed.json \
+              --apply --output data/governance/attribution_evidence.json 2>&1 | tail -3
+          fi
+
+      # ─────────────────────────────────────────────────────────────────────
+      # STAGE 6.96 — ATT&CK MAPPING VALIDATOR (v1.0.0)
+      # ─────────────────────────────────────────────────────────────────────
+      - name: "STAGE 6.96 — ATT&CK Mapping Validator (v1.0.0)"
+        continue-on-error: true
+        run: |
+          if [ -f "api/feed.json" ]; then
+            python3 scripts/attack_mapping_validator.py api/feed.json \
+              --apply --output data/governance/attack_validation.json 2>&1 | tail -3
+          fi
+
+      # ─────────────────────────────────────────────────────────────────────
+      # STAGE 6.97 — SOURCE CORROBORATION ENGINE (v1.0.0)
+      # ─────────────────────────────────────────────────────────────────────
+      - name: "STAGE 6.97 — Source Corroboration Engine (v1.0.0)"
+        continue-on-error: true
+        run: |
+          if [ -f "api/feed.json" ]; then
+            python3 scripts/source_corroboration_engine.py api/feed.json \
+              --apply --output data/governance/corroboration_report.json 2>&1 | tail -3
+          fi
+
+      # ─────────────────────────────────────────────────────────────────────
+      # STAGE 6.98 — OPERATIONAL IOC VALIDATOR (v1.0.0)
+      # ─────────────────────────────────────────────────────────────────────
+      - name: "STAGE 6.98 — Operational IOC Validator (v1.0.0)"
+        continue-on-error: true
+        run: |
+          if [ -f "api/feed.json" ]; then
+            python3 scripts/operational_ioc_validator.py api/feed.json \
+              --output api/ioc_quality.json 2>&1 | tail -3
+          fi
+
+      # ─────────────────────────────────────────────────────────────────────
+      # STAGE 6.99 — DETECTION QUALITY ENGINE (v1.0.0)
+      # ─────────────────────────────────────────────────────────────────────
+      - name: "STAGE 6.99 — Detection Quality Engine (v1.0.0)"
+        continue-on-error: true
+        run: |
+          if [ -f "api/feed.json" ]; then
+            python3 scripts/detection_quality_engine.py api/feed.json \
+              --apply --output api/detection_quality.json 2>&1 | tail -3
+          fi
+
+      # ─────────────────────────────────────────────────────────────────────
+      # STAGE 6.100 — INTELLIGENCE GRADE ENGINE v2 (v2.0.0)
+      # Grade B: CVSS>=8.0 + 2 independent sources + evidence-based ATT&CK.
+      # ─────────────────────────────────────────────────────────────────────
+      - name: "STAGE 6.100 — Intelligence Grade Engine v2 (v2.0.0)"
+        continue-on-error: true
+        run: |
+          if [ -f "api/feed.json" ]; then
+            python3 scripts/intelligence_grade_engine_v2.py api/feed.json \
+              --apply --output data/governance/intelligence_grade_v2.json 2>&1 | tail -3
+            if [ -f "data/governance/intelligence_grade_v2.json" ]; then
+              GRADE_B=$(python3 -c "import json; d=json.load(open('data/governance/intelligence_grade_v2.json')); print(d.get('grade_distribution',{}).get('B',0))" 2>/dev/null || echo "?")
+              ENT=$(python3 -c "import json; d=json.load(open('data/governance/intelligence_grade_v2.json')); print(d.get('enterprise_eligible',0))" 2>/dev/null || echo "?")
+              echo "STAGE 6.100: grade_B=${GRADE_B} enterprise_eligible=${ENT}"
+            fi
+          fi
+
+      # ─────────────────────────────────────────────────────────────────────
+      # STAGE 6.101 — COMMERCIAL READINESS GOVERNOR v2 (final pass)
+      # Produces tier feeds, quarantine, governance_status.json, score.
+      # ─────────────────────────────────────────────────────────────────────
+      - name: "STAGE 6.101 — Commercial Readiness Governor v2 (final pass)"
+        continue-on-error: true
+        run: |
+          if [ -f "api/feed.json" ]; then
+            python3 scripts/commercial_readiness_governor.py api/feed.json \
+              --apply --report data/health/commercial_readiness_governor_report.json 2>&1 | tail -5
+            if [ -f "api/governance_status.json" ]; then
+              SCORE=$(python3 -c "import json; print(json.load(open('api/governance_status.json')).get('commercial_readiness_score',0))" 2>/dev/null || echo "?")
+              ENT=$(python3 -c "import json; print(json.load(open('api/governance_status.json')).get('enterprise_status','?'))" 2>/dev/null || echo "?")
+              MSSP=$(python3 -c "import json; print(json.load(open('api/governance_status.json')).get('mssp_status','?'))" 2>/dev/null || echo "?")
+              echo "STAGE 6.101: score=${SCORE}/100 enterprise=${ENT} mssp=${MSSP}"
+            fi
+          fi
+
+      # ─────────────────────────────────────────────────────────────────────
       # STAGE 7 — PIPELINE OBSERVABILITY TELEMETRY (Phase 6)
       # ─────────────────────────────────────────────────────────────────────
       # v148.0 FIX: Moved from inline python3 -c block (RULE 1 violation) to
@@ -929,7 +1019,14 @@ jobs:
           git add api/feed_mssp.json 2>/dev/null || true
           git add api/feed_public.json 2>/dev/null || true
           git add api/governance_status.json 2>/dev/null || true
+          git add api/commercial_readiness.json 2>/dev/null || true
           git add data/health/commercial_readiness_governor_report.json 2>/dev/null || true
+
+          # Stage v2 validation engine outputs
+          git add api/ioc_quality.json 2>/dev/null || true
+          git add api/detection_quality.json 2>/dev/null || true
+          git add data/governance/ 2>/dev/null || true
+          git add internal/governance/quarantine.json 2>/dev/null || true
 
           # Check if anything changed
           if git diff --staged --quiet; then
