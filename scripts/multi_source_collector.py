@@ -430,7 +430,109 @@ def collect_bleepingcomputer() -> list:
     return items
 
 
-# ─── SOURCE 6: AlienVault OTX (if API key available) ─────────────────────
+# ─── SOURCE 6: SecurityAffairs RSS (security news) ────────────────────────
+def collect_securityaffairs() -> list:
+    """v171.2 B4 FIX: SecurityAffairs RSS adapter."""
+    log.info("[SA] Fetching SecurityAffairs RSS...")
+    raw = _get("https://securityaffairs.com/feed",
+               headers={"User-Agent": "CDB-SENTINEL-APEX/1.0 (multi-source-collector)",
+                        "Accept": "application/rss+xml,application/xml"})
+    if not isinstance(raw, str):
+        log.warning("[SA] No RSS data")
+        return []
+    items = []
+    try:
+        root = ET.fromstring(raw)
+        entries = root.findall(".//item")
+        for entry in entries[:MAX_PER_SOURCE]:
+            title_el = entry.find("title")
+            title = (title_el.text or "").strip() if title_el is not None else ""
+            link_el = entry.find("link")
+            url = (link_el.text or "").strip() if link_el is not None else ""
+            desc_el = entry.find("description")
+            desc = (desc_el.text or "").strip()[:600] if desc_el is not None else ""
+            desc = re.sub(r"<[^>]+>", " ", desc).strip()
+            date_el = entry.find("pubDate")
+            ts = _now()
+            if date_el is not None and date_el.text:
+                try:
+                    from email.utils import parsedate_to_datetime
+                    ts = parsedate_to_datetime(date_el.text).strftime("%Y-%m-%dT%H:%M:%SZ")
+                except Exception:
+                    pass
+            cve_ids = list(set(CVE_RE.findall(title + " " + desc)))
+            kw = title.lower()
+            is_relevant = (cve_ids or
+                           any(w in kw for w in ["ransomware", "vulnerability", "exploit", "attack",
+                                                  "breach", "malware", "phishing", "zero-day", "patch",
+                                                  "data leak", "apt", "espionage", "hacking"]))
+            if not is_relevant:
+                continue
+            sev = "MEDIUM"
+            if "critical" in kw or "zero-day" in kw: sev = "CRITICAL"
+            elif "ransomware" in kw or "exploit" in kw or "apt" in kw: sev = "HIGH"
+            item = _make_item(title, desc, sev, "SecurityAffairs",
+                              cve_ids, ts, url, ["Security News", "Threat Intelligence"])
+            item["confidence"] = 0.68
+            items.append(item)
+    except Exception as e:
+        log.warning("[SA] Parse error: %s", e)
+    log.info("[SA] Collected %d relevant security articles", len(items))
+    return items
+
+
+# ─── SOURCE 7: CyberSecurityNews RSS ──────────────────────────────────────
+def collect_cybersecuritynews() -> list:
+    """v171.2 B4 FIX: CyberSecurityNews RSS adapter."""
+    log.info("[CSN] Fetching CyberSecurityNews RSS...")
+    raw = _get("https://cybersecuritynews.com/feed/",
+               headers={"User-Agent": "CDB-SENTINEL-APEX/1.0 (multi-source-collector)",
+                        "Accept": "application/rss+xml,application/xml"})
+    if not isinstance(raw, str):
+        log.warning("[CSN] No RSS data")
+        return []
+    items = []
+    try:
+        root = ET.fromstring(raw)
+        entries = root.findall(".//item")
+        for entry in entries[:MAX_PER_SOURCE]:
+            title_el = entry.find("title")
+            title = (title_el.text or "").strip() if title_el is not None else ""
+            link_el = entry.find("link")
+            url = (link_el.text or "").strip() if link_el is not None else ""
+            desc_el = entry.find("description")
+            desc = (desc_el.text or "").strip()[:600] if desc_el is not None else ""
+            desc = re.sub(r"<[^>]+>", " ", desc).strip()
+            date_el = entry.find("pubDate")
+            ts = _now()
+            if date_el is not None and date_el.text:
+                try:
+                    from email.utils import parsedate_to_datetime
+                    ts = parsedate_to_datetime(date_el.text).strftime("%Y-%m-%dT%H:%M:%SZ")
+                except Exception:
+                    pass
+            cve_ids = list(set(CVE_RE.findall(title + " " + desc)))
+            kw = title.lower()
+            is_relevant = (cve_ids or
+                           any(w in kw for w in ["ransomware", "vulnerability", "exploit", "attack",
+                                                  "breach", "malware", "phishing", "zero-day", "patch",
+                                                  "apt", "threat", "hacking", "backdoor", "trojan"]))
+            if not is_relevant:
+                continue
+            sev = "MEDIUM"
+            if "critical" in kw or "zero-day" in kw: sev = "CRITICAL"
+            elif "ransomware" in kw or "exploit" in kw or "apt" in kw: sev = "HIGH"
+            item = _make_item(title, desc, sev, "CyberSecurityNews",
+                              cve_ids, ts, url, ["Security News", "Threat Intelligence"])
+            item["confidence"] = 0.65
+            items.append(item)
+    except Exception as e:
+        log.warning("[CSN] Parse error: %s", e)
+    log.info("[CSN] Collected %d relevant security articles", len(items))
+    return items
+
+
+# ─── SOURCE 8: AlienVault OTX (if API key available) ─────────────────────
 def collect_otx() -> list:
     if not OTX_KEY:
         log.info("[OTX] No OTX_API_KEY -- skipping AlienVault OTX")
@@ -503,7 +605,6 @@ def run():
     log.info("DRY_RUN=%s | MAX_PER_SOURCE=%d", DRY_RUN, MAX_PER_SOURCE)
     log.info("=" * 60)
 
-    # Load existing feed
     try:
         feed = json.loads(FEED_PATH.read_text(encoding="utf-8"))
     except Exception as e:
@@ -513,28 +614,21 @@ def run():
     existing = feed if isinstance(feed, list) else feed.get("advisories", feed.get("items", []))
     log.info("Existing feed: %d items", len(existing))
 
-    # v166.6 P0 FIX: ID Format Migration — upgrade 12-char IDs to 24-char.
-    # Root cause of Stage 3.91 HARD FAIL: items collected before v166.5 have
-    # 12-char hex IDs (hexdigest[:12]). These persist in api/feed.json and rank
-    # in the top-N checked by api_dashboard_contract_validator.py. The manifest
-    # always has 24-char IDs → contract validator reports "genuine_regression".
-    # Fix: regenerate IDs for any existing item using current _gen_id() (24-char).
     migrated = 0
     for item in existing:
         sid = item.get("stix_id") or item.get("id") or ""
         hex_part = sid.replace("intel--", "")
-        if len(hex_part) == 12:  # old format
+        if len(hex_part) == 12:
             title = item.get("title", "")
             ts    = (item.get("published_at") or item.get("timestamp") or
                      item.get("processed_at") or _now())
-            new_id = _gen_id(title, ts)  # now produces 24-char hex
+            new_id = _gen_id(title, ts)
             item["id"]      = new_id
             item["stix_id"] = new_id
             migrated += 1
     if migrated:
         log.info("[ID-MIGRATION] Upgraded %d item(s) from 12-char to 24-char IDs", migrated)
 
-    # Collect from all sources
     all_new = []
     source_counts = {}
 
@@ -544,6 +638,8 @@ def run():
         ("URLhaus",            collect_urlhaus),
         ("MalwareBazaar",      collect_malwarebazaar),
         ("BleepingComputer",   collect_bleepingcomputer),
+        ("SecurityAffairs",    collect_securityaffairs),    # v171.2 B4 FIX
+        ("CyberSecurityNews",  collect_cybersecuritynews),  # v171.2 B4 FIX
         ("AlienVault OTX",     collect_otx),
     ]
 
@@ -555,44 +651,36 @@ def run():
         except Exception as e:
             log.error("[%s] Collection failed (non-fatal): %s", name, e)
             source_counts[name] = 0
-        time.sleep(0.5)  # brief pause between sources
+        time.sleep(0.5)
 
-    # Deduplicate against existing feed
+    log.info("Total new candidates: %d", len(all_new))
     deduped = _dedup_against_feed(all_new, existing)
-    log.info("New items after dedup: %d / %d collected", len(deduped), len(all_new))
+    log.info("After dedup: %d new items to add", len(deduped))
 
-    # Source diversity report
-    unique_sources = len([s for s in source_counts.values() if s > 0])
-    log.info("=" * 60)
-    log.info("COLLECTION COMPLETE: %d new items from %d sources", len(deduped), unique_sources)
-    for src, cnt in source_counts.items():
-        log.info("  %-25s: %d items", src, cnt)
-    log.info("=" * 60)
+    if not deduped:
+        log.info("No new items to add -- feed is current")
+    else:
+        updated = list(existing) + deduped
+        if not DRY_RUN:
+            _atomic_write(FEED_PATH, updated)
+            log.info("Wrote %d total items to %s", len(updated), FEED_PATH)
+        else:
+            log.info("[DRY_RUN] Would write %d total items", len(updated))
 
-    if not DRY_RUN and deduped:
-        merged = deduped + existing  # new items first (freshest first)
-        # v166.4: sort combined feed by canonical key (published_at DESC, stix_id DESC)
-        def _sort_key(item):
-            ts  = str(item.get("published_at") or item.get("timestamp") or item.get("processed_at") or "")
-            sid = str(item.get("stix_id") or item.get("id") or "")
-            return (ts, sid)
-        merged.sort(key=_sort_key, reverse=True)
-        out = merged if isinstance(feed, list) else {**feed, "advisories": merged}
-        _atomic_write(FEED_PATH, out)
-        log.info("[WRITE] Feed updated: %d total items (%d new added, sorted DESC)", len(merged), len(deduped))
-
-    _atomic_write(TELEMETRY, {
-        "generated_at": _now(),
-        "existing_items": len(existing),
-        "collected": len(all_new),
-        "new_after_dedup": len(deduped),
-        "unique_sources": unique_sources,
+    telemetry = {
+        "run_at": _now(),
         "source_counts": source_counts,
-    })
+        "new_items": len(deduped),
+        "total_feed": len(existing) + len(deduped),
+    }
+    try:
+        _atomic_write(TELEMETRY, telemetry)
+    except Exception as e:
+        log.warning("Telemetry write failed: %s", e)
 
-    return {"new_items": len(deduped), "unique_sources": unique_sources, "source_counts": source_counts}
+    log.info("Collection complete. Source summary: %s", source_counts)
+    return deduped
 
 
 if __name__ == "__main__":
-    r = run()
-    print(f"[DONE] {r}")
+    run()

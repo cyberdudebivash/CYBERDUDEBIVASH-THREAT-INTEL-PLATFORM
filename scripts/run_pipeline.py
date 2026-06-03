@@ -2466,6 +2466,86 @@ def stage_pipeline_consistency_check() -> None:
                         item["risk_score"] = 9.0
                         auto_fixed += 1
 
+            # ── C3.5 v171.2 B3 FIX: Severity Minimum Calibration ──────────────
+            # Mandatory minimum severity floors based on hard evidence signals.
+            # Applied AFTER the false-CRITICAL downgrade gate above.
+            # Rules (in ascending priority):
+            #   R1: KEV=true                   → minimum HIGH
+            #   R2: CVSS >= 9.0                → minimum HIGH
+            #   R3: EPSS >= 70%                → minimum HIGH
+            #   R4: "ransomware" in title/desc → minimum HIGH
+            #   R5: "actively exploited" or "exploited in the wild" → minimum HIGH
+            #   R6: risk_score >= 9.0 with R1/R2/R3 evidence → minimum CRITICAL
+            #
+            # These rules correct the 97% LOW calibration caused by CVE-only
+            # records with no EPSS signal scoring below the 4.0 MEDIUM threshold.
+            # ──────────────────────────────────────────────────────────────────
+
+            _cur_sev   = item.get("severity", "LOW").upper()
+            _kev_flag  = item.get("kev_present", False) or item.get("kev", False)
+            _cvss_val  = float(item.get("cvss_score") or item.get("cvss") or 0.0)
+            _epss_val  = float(item.get("epss_score") or item.get("epss") or 0.0)
+            _rs_val    = float(item.get("risk_score", 0.0))
+            _text_blob = (
+                item.get("title", "") + " " +
+                item.get("description", "") + " " +
+                item.get("summary", "")
+            ).lower()
+
+            _SEV_RANK = {"INFO": 0, "LOW": 1, "MEDIUM": 2, "HIGH": 3, "CRITICAL": 4}
+            _SEV_FROM_RANK = {0: "INFO", 1: "LOW", 2: "MEDIUM", 3: "HIGH", 4: "CRITICAL"}
+            _cur_rank  = _SEV_RANK.get(_cur_sev, 1)
+            _min_rank  = _cur_rank  # start with current, only upgrade
+
+            # R1: KEV = CISA confirmed active exploitation → minimum HIGH
+            if _kev_flag:
+                _min_rank = max(_min_rank, 3)  # HIGH
+
+            # R2: CVSS >= 9.0 → minimum HIGH
+            if _cvss_val >= 9.0:
+                _min_rank = max(_min_rank, 3)  # HIGH
+
+            # R3: EPSS >= 70% → minimum HIGH (very high exploitation probability)
+            _epss_pct = _epss_val if _epss_val > 1.0 else _epss_val * 100.0
+            if _epss_pct >= 70.0:
+                _min_rank = max(_min_rank, 3)  # HIGH
+
+            # R4: Ransomware linkage → minimum HIGH
+            _ransomware_kw = [
+                "ransomware", "ransom demand", "data extortion", "locker", "encryptor",
+            ]
+            if any(kw in _text_blob for kw in _ransomware_kw):
+                _min_rank = max(_min_rank, 3)  # HIGH
+
+            # R5: Active exploitation keywords → minimum HIGH
+            _active_exploit_kw = [
+                "actively exploited", "exploited in the wild", "active exploitation",
+                "under active attack", "zero-day exploit", "0-day exploit",
+                "mass exploitation", "widespread exploitation",
+            ]
+            if any(kw in _text_blob for kw in _active_exploit_kw):
+                _min_rank = max(_min_rank, 3)  # HIGH
+
+            # R6: Active campaign with high risk score → minimum CRITICAL
+            _active_campaign_kw = [
+                "active campaign", "nation-state", "apt campaign", "advanced persistent",
+                "supply chain attack", "supply chain compromise",
+            ]
+            if (_rs_val >= 9.0 and
+                    (_kev_flag or _cvss_val >= 9.0 or _epss_pct >= 70.0) and
+                    any(kw in _text_blob for kw in _active_campaign_kw)):
+                _min_rank = max(_min_rank, 4)  # CRITICAL
+
+            if _min_rank > _cur_rank:
+                _new_sev = _SEV_FROM_RANK[_min_rank]
+                item["severity"] = _new_sev
+                # Bump risk_score to align with new severity tier minimum
+                _sev_score_floors = {"MEDIUM": 4.0, "HIGH": 6.5, "CRITICAL": 8.5}
+                _floor = _sev_score_floors.get(_new_sev, 0.0)
+                if _rs_val < _floor:
+                    item["risk_score"] = round(_floor + (_rs_val * 0.1), 2)
+                auto_fixed += 1
+
             # C5: ioc_confidence must be > 0 when ioc_count > 0
             final_ioc_cnt = int(item.get("ioc_count", 0))
             final_conf    = float(item.get("ioc_confidence", 0.0))
