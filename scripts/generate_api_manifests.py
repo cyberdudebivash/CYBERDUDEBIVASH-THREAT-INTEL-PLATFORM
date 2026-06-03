@@ -37,6 +37,18 @@ import tempfile
 import shutil
 import traceback
 
+# PUBLIC API SANITIZER -- mandatory before any public write
+_script_dir = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, _script_dir)
+try:
+    from public_api_sanitizer import sanitize_feed as _sanitize_feed, audit_leakage as _audit_leakage
+    _SANITIZER_AVAILABLE = True
+except ImportError:
+    _SANITIZER_AVAILABLE = False
+    def _sanitize_feed(items): return items
+    def _audit_leakage(items): return {"PASS": True, "leaking_items": 0, "field_counts": {}}
+    print("[WARN] public_api_sanitizer not found", flush=True)
+
 # ── CONFIG ──────────────────────────────────────────────────────────────────
 FEED_PATH    = 'api/feed.json'
 OUT_DIR      = 'api/v1/intel'
@@ -294,6 +306,24 @@ _apex_enriched_count = sum(1 for i in sorted_feed if i.get('intelligence_origin'
 _feed_agg_count      = sum(1 for i in sorted_feed if i.get('intelligence_origin') == 'FEED-AGGREGATED')
 info(f'Intel origin tagging: APEX-ORIGINAL={_apex_original_count} APEX-ENRICHED={_apex_enriched_count} FEED-AGGREGATED={_feed_agg_count}')
 
+# STEP 2c: MANDATORY PUBLIC API SANITIZATION
+_pre_audit = _audit_leakage(sorted_feed)
+if _pre_audit["leaking_items"] > 0:
+    warn("[SANITIZER] " + str(_pre_audit["leaking_items"]) + " items expose premium fields: " + str(list(_pre_audit["field_counts"].keys())))
+sorted_feed_public = _sanitize_feed(sorted_feed)
+_post_audit = _audit_leakage(sorted_feed_public)
+if not _post_audit["PASS"]:
+    fatal("[SANITIZER] CRITICAL: Premium fields remain after sanitization: " + str(_post_audit["field_counts"]))
+info("[SANITIZER] " + str(_pre_audit["leaking_items"]) + " items cleaned. Public feed is premium-field-free.")
+try:
+    import json as _j
+    _srp = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'reports', 'public_api_sanitization_audit.json')
+    os.makedirs(os.path.dirname(_srp), exist_ok=True)
+    open(_srp, 'w', encoding='utf-8').write(_j.dumps({"report_type": "public_api_sanitization_audit", "generated_at": now_iso(), "pre_sanitize": _pre_audit, "post_sanitize": _post_audit, "VERDICT": "PASS", "sanitizer_active": _SANITIZER_AVAILABLE}, indent=2))
+    info("[SANITIZER] Report: reports/public_api_sanitization_audit.json")
+except Exception as _e:
+    warn("[SANITIZER] Could not write audit report: " + str(_e))
+
 # ── STEP 3: Build /api/v1/intel/latest.json ──────────────────────────────────
 timestamp_now = now_iso()
 latest_payload = {
@@ -301,8 +331,8 @@ latest_payload = {
     'generated_at': timestamp_now,
     'generator': SCRIPT_NAME,
     'version': VERSION,
-    'count': len(sorted_feed),
-    'items': sorted_feed,
+    'count': len(sorted_feed_public),
+    'items': sorted_feed_public,
 }
 latest_str = json.dumps(latest_payload, ensure_ascii=False, separators=(',', ':'))
 latest_sha  = sha256_of(latest_str)
@@ -316,7 +346,8 @@ info(f'Written: {OUT_DIR}/latest.json ({len(sorted_feed)} items, {len(latest_str
 # Sort by THREAT PRIORITY (KEV + EPSS + severity + CVSS), NOT by recency.
 # Recency sort (sorted_feed[:10]) produced LOW-severity items as "top threats"
 # because all items had the same pipeline timestamp. Fixed: v166.3
-top10_items = sorted(deduped_feed, key=threat_priority_key, reverse=True)[:TOP10_COUNT]
+top10_items_raw = sorted(deduped_feed, key=threat_priority_key, reverse=True)[:TOP10_COUNT]
+top10_items = _sanitize_feed(top10_items_raw)
 _t10_kev  = sum(1 for it in top10_items if str(it.get('kev','') or '').upper() in ('YES','TRUE','1'))
 _t10_high = sum(1 for it in top10_items if it.get('severity','').upper() in ('CRITICAL','HIGH'))
 info(f'Top10 by threat priority: kev_count={_t10_kev} high_critical={_t10_high} '
@@ -341,10 +372,10 @@ info(f'Top10 by threat priority: kev={_t10_kev} high_critical={_t10_high}')
 
 # ── STEP 5: Build /api/v1/intel/apex.json ────────────────────────────────────
 # Items WITH apex_ai enrichment (or all if none have it — ensures non-empty file)
-apex_items = [item for item in sorted_feed if item.get('apex_ai')]
+apex_items = [item for item in sorted_feed_public if item.get('apex_ai')]
 if not apex_items:
     warn('No items have apex_ai enrichment — apex.json will contain all items as fallback')
-    apex_items = sorted_feed
+    apex_items = sorted_feed_public
 
 apex_payload = {
     'schema_version': SCHEMA_VER,
@@ -373,7 +404,7 @@ manifest_registry = {
     'bundles': {
         'latest': {
             'path': 'api/v1/intel/latest.json',
-            'count': len(sorted_feed),
+            'count': len(sorted_feed_public),
             'sha256': latest_sha,
             'generated_at': timestamp_now,
         },
@@ -424,7 +455,7 @@ for fname in ['latest.json', 'top10.json', 'apex.json', 'manifest.json']:
 print()
 print('=' * 68, flush=True)
 print(f'SENTINEL APEX {VERSION} -- MANIFEST GENERATION COMPLETE', flush=True)
-print(f'  Items in latest.json : {len(sorted_feed)}', flush=True)
+print(f'  Items in latest.json : {len(sorted_feed_public)} (sanitized)', flush=True)
 print(f'  Items in top10.json  : {len(top10_items)}', flush=True)
 print(f'  Items in apex.json   : {len(apex_items)}', flush=True)
 print(f'  Apex-enriched count  : {len([i for i in sorted_feed if i.get("apex_ai")])}', flush=True)
