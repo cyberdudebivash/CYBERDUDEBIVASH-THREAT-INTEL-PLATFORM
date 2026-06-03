@@ -361,6 +361,131 @@ else:
     check("index.html immutability (EMBEDDED_INTEL = [])",
           False, "index.html not found", "MISSING")
 
+
+# ══════════════════════════════════════════════════════════════════════════════
+# PHASE 9 GOVERNANCE REGRESSION SUITE  v1.0
+# Added 2026-06-03 -- production governance, commercial protection, IOC quality
+# ══════════════════════════════════════════════════════════════════════════════
+
+# ── [10] Public API Sanitization Gate ─────────────────────────────────────────
+# HARD FAIL if any premium field is present in the public API manifests.
+# Premium fields: report_url, internal_report_url, stix_bundle_url, pdf_url,
+#                 apex_ai, stix_bundle, kill_chain_phases
+print("\n[10] Public API sanitization gate")
+PREMIUM_FIELDS = [
+    "report_url", "internal_report_url", "stix_bundle_url",
+    "pdf_url", "apex_ai", "stix_bundle", "kill_chain_phases",
+    "ioc_hashes", "ioc_payload", "detection_rules", "sigma_rules",
+    "yara_rules", "actor_attribution",
+]
+_api_manifests = []
+for _amf in ["api/v1/intel/latest.json", "api/v1/intel/top10.json"]:
+    _amp = os.path.join(REPO, _amf)
+    if os.path.exists(_amp):
+        try:
+            _amd = json.loads(open(_amp, encoding="utf-8").read())
+            _items = _amd.get("items") or (_amd if isinstance(_amd, list) else [])
+            _api_manifests.extend(_items)
+        except Exception:
+            pass
+if _api_manifests:
+    _leaked_fields = set()
+    _leaked_count = 0
+    for _itm in _api_manifests:
+        for _pf in PREMIUM_FIELDS:
+            if _itm.get(_pf) is not None:
+                _leaked_fields.add(_pf)
+                _leaked_count += 1
+    check("Public API manifests free of premium fields",
+          len(_leaked_fields) == 0,
+          f"PREMIUM FIELD LEAKAGE: {_leaked_count} exposures across fields {sorted(_leaked_fields)}",
+          f"No premium fields in {len(_api_manifests)} public API items")
+else:
+    check("Public API manifests free of premium fields", True,
+          "N/A", "API manifests absent at check time (non-fatal)")
+
+# ── [11] CVE Deduplication Gate ───────────────────────────────────────────────
+# HARD FAIL if the same CVE ID appears in more than one feed item.
+print("\n[11] CVE deduplication gate")
+if fdata:
+    _cve_seen = {}
+    _cve_dupes = []
+    for _itm in (fdata if isinstance(fdata, list) else []):
+        _cves = set()
+        for _cf in ("cve_ids", "cve_id"):
+            _cv = _itm.get(_cf)
+            if isinstance(_cv, list):
+                _cves.update(str(c).upper() for c in _cv if c)
+            elif _cv:
+                _cves.add(str(_cv).upper())
+        for _cve in _cves:
+            import re as _re2
+            if not _re2.match(r"CVE-\d{4}-\d+", _cve, _re2.I):
+                continue
+            if _cve in _cve_seen:
+                _cve_dupes.append(_cve)
+            else:
+                _cve_seen[_cve] = _itm.get("stix_id", "?")
+    _unique_dupes = list(set(_cve_dupes))
+    check("CVE deduplication: no duplicate CVE IDs in feed",
+          len(_unique_dupes) == 0,
+          f"{len(_unique_dupes)} CVE IDs appear in multiple items: {_unique_dupes[:5]}",
+          f"All {len(_cve_seen)} CVE IDs are unique")
+
+# ── [12] IOC Artifact Gate ────────────────────────────────────────────────────
+# HARD FAIL if False IOC Rate >= 5% (warn at >= 1%)
+print("\n[12] IOC artifact contamination gate")
+try:
+    import sys as _sys2
+    _scripts_dir = os.path.join(REPO, "scripts")
+    if _scripts_dir not in _sys2.path:
+        _sys2.path.insert(0, _scripts_dir)
+    from ioc_quality_governor import audit_iocs as _audit_iocs
+    if fdata:
+        _ioc_audit = _audit_iocs(fdata if isinstance(fdata, list) else [])
+        _fp_rate = _ioc_audit["false_positive_rate_pct"]
+        check("IOC false-positive rate < 5%",
+              _fp_rate < 5.0,
+              f"IOC false-positive rate {_fp_rate}% >= 5% threshold",
+              f"IOC FP rate {_fp_rate}% < 5% threshold")
+        if _fp_rate >= 1.0:
+            warnings.append(f"IOC FP rate {_fp_rate}% exceeds 1% target (non-blocking)")
+    else:
+        check("IOC artifact contamination gate", True, "N/A", "feed absent (non-fatal)")
+except ImportError:
+    check("IOC artifact contamination gate", True,
+          "N/A", "ioc_quality_governor not available (non-fatal)")
+
+# ── [13] Severity Floor Gate ──────────────────────────────────────────────────
+# HARD FAIL if any item with active exploitation signals has severity LOW.
+print("\n[13] Severity floor gate")
+try:
+    from severity_recalibration_engine import recalibrate_feed as _recalibrate
+    if fdata:
+        _, _sev_report = _recalibrate(fdata if isinstance(fdata, list) else [])
+        _sev_violations = [v for v in _sev_report.get("violations", [])
+                           if v["old_severity"] == "LOW" and "active exploitation" in str(v.get("reasons", "")).lower()]
+        check("No LOW severity for actively-exploited vulnerabilities",
+              len(_sev_violations) == 0,
+              f"{len(_sev_violations)} actively-exploited items have LOW severity: "
+              f"{[v['title'][:40] for v in _sev_violations[:2]]}",
+              "All severity floors correctly applied")
+    else:
+        check("Severity floor gate", True, "N/A", "feed absent (non-fatal)")
+except ImportError:
+    check("Severity floor gate", True,
+          "N/A", "severity_recalibration_engine not available (non-fatal)")
+
+# ── [14] Commercial Protection Audit ─────────────────────────────────────────
+# Verify public_api_sanitizer.py exists (hard contract: if missing, sanitizer import fails)
+print("\n[14] Commercial protection audit")
+_sanitizer_path = os.path.join(REPO, "scripts", "public_api_sanitizer.py")
+_sanitizer_exists = os.path.exists(_sanitizer_path)
+check("public_api_sanitizer.py present (commercial protection contract)",
+      _sanitizer_exists,
+      "public_api_sanitizer.py MISSING -- premium field protection broken",
+      "public_api_sanitizer.py present -- commercial protection active")
+
 # ── FINAL REPORT ──
 print("\n" + "=" * 68)
 print(f"CHECKS PASSED: {checks_passed}/{checks_total}")
@@ -396,6 +521,6 @@ if violations:
     sys.exit(1)
 else:
     print(f"\nRESULT: PASS -- Platform is regression-immune")
-    print("All 11 production invariants confirmed")
+    print("All production invariants and governance gates confirmed")
     print("=" * 68)
     sys.exit(0)

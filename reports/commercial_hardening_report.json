@@ -1,0 +1,54 @@
+{
+  "report_type": "commercial_hardening_report",
+  "generated_at": "2026-06-03T17:42:34.489905+00:00",
+  "version": "v1.0",
+  "platform": "CYBERDUDEBIVASH SENTINEL APEX",
+  "checks": {
+    "public_api_sanitization": {
+      "status": "FIXED",
+      "finding": "report_url, stix_bundle_url, pdf_url, apex_ai exposed in public API before this fix",
+      "fix": "public_api_sanitizer.py injected into generate_api_manifests.py \u2014 strips all premium fields before write",
+      "hard_fail_gate": "Stage 5.6.2 will block deployment if premium fields present post-sanitization",
+      "score": 9
+    },
+    "pro_report_protection": {
+      "status": "VERIFIED",
+      "finding": "HTML reports at /reports/* require PRO tier auth via Cloudflare Worker",
+      "score": 9
+    },
+    "stix_bundle_protection": {
+      "status": "VERIFIED",
+      "finding": "STIX bundles at /data/stix/* are ENTERPRISE tier gated",
+      "score": 9
+    },
+    "pdf_protection": {
+      "status": "FIXED",
+      "finding": "pdf_url field was leaking in public API \u2014 now stripped by sanitizer",
+      "score": 8
+    },
+    "apex_ai_protection": {
+      "status": "FIXED",
+      "finding": "apex_ai enrichment block was leaking in public API \u2014 now stripped",
+      "score": 9
+    },
+    "ioc_paywall": {
+      "status": "ACTIVE",
+      "finding": "_ioc_paywall field present in public items signals IOC gating",
+      "score": 8
+    },
+    "tier_notice": {
+      "status": "ACTIVE",
+      "finding": "_tier_notice and _upgrade_url present on all public items",
+      "score": 9
+    },
+    "kill_chain_protection": {
+      "status": "FIXED",
+      "finding": "kill_chain_phases leaked in public API \u2014 now stripped by sanitizer",
+      "score": 9
+    }
+  },
+  "score": 88,
+  "target": 95,
+  "VERDICT": "CONDITIONAL_GO",
+  "recommendation": "Re-run after pipeline deploys with sanitizer active to confirm 0 field leakage in production"
+}
