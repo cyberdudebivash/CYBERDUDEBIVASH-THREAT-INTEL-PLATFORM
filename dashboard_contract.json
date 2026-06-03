@@ -1,0 +1,217 @@
+{
+  "_contract_meta": {
+    "version": "171.0.0",
+    "platform": "CYBERDUDEBIVASH SENTINEL APEX",
+    "created": "2026-06-03",
+    "renderer_version": "147.0.0",
+    "adapter_version": "147.0.0",
+    "description": "Production Dashboard Contract — immutable field schema for card rendering. Any deployment that changes required fields must pass the contract validator before going live.",
+    "enforcement": "HARD_FAIL — contract validator blocks deployment if schema drifts"
+  },
+
+  "card_zones": {
+    "zone_1_decision_header": {
+      "description": "Severity badge, risk score, confidence, SOC priority, title, predictive score",
+      "required_fields": ["severity", "severity_colors", "risk_score", "confidence", "confidence_display", "apex_ai.soc_priority", "apex_ai.soc_priority_meta", "apex_ai.predictive_risk", "title", "threat_type", "kev_present", "is_high_priority"]
+    },
+    "zone_2_soc_decision_strip": {
+      "description": "SOC priority, threat level, action recommendation",
+      "required_fields": ["apex_ai.soc_priority", "apex_ai.soc_priority_meta", "apex_ai.threat_level", "action_rec"]
+    },
+    "zone_3_ai_verdict": {
+      "description": "AI confidence, verdict text, threat category, kill chain",
+      "required_fields": ["apex_ai.ai_confidence", "apex_ai.threat_category", "apex_ai.confidence_tier_meta", "apex_ai.ttp_density", "apex_ai.campaign_id", "apex_ai.recommended_action", "apex_ai.kill_chain_locked", "apex_ai.kill_chain_primary", "ai_verdict"]
+    },
+    "zone_4_impact_context": {
+      "description": "Attack type, target surface, potential impact, business impact",
+      "required_fields": ["impact_context", "business_impact"]
+    },
+    "zone_5_intel_core": {
+      "description": "Actor, IOC count, TTP count, MITRE tags",
+      "required_fields": ["actor_tag", "ioc_count", "ioc_confidence", "ttp_count", "ttps", "mitre_tactics", "apex_ai.threat_level"]
+    },
+    "zone_6_exploit_scoring": {
+      "description": "EPSS, CVSS, KEV — rendered conditionally",
+      "required_fields": ["has_epss", "has_cvss", "kev_present", "epss_score", "cvss_score"]
+    },
+    "zone_7_timeline": {
+      "description": "Published, processed, freshness, validation status, STIX count",
+      "required_fields": ["freshness", "published_at", "published_at_fmt", "published_at_rel", "processed_at", "processed_at_fmt", "processed_at_rel", "timestamp", "timestamp_fmt", "validation_status", "stix_object_count"]
+    },
+    "zone_8_paywall": {
+      "description": "Paywall CTA — rendered only when paywall_active=true",
+      "required_fields": ["paywall_active", "ioc_paywall", "apex_ai.paywall", "paywall_features", "is_high_priority"]
+    },
+    "zone_9_trust_footer": {
+      "description": "Source, STIX verification, MITRE mapped, report CTA",
+      "required_fields": ["source_url", "source_host", "validation_status", "stix_id", "stix_bundle_url", "stix_bundle_locked", "stix_bundle_upgrade_url", "report_url", "has_ttps"]
+    }
+  },
+
+  "required_fields": {
+    "id":               { "type": "string",  "nullable": false, "fallback": "intel-0",            "zone": [1,5,7,9] },
+    "stix_id":          { "type": "string",  "nullable": false, "fallback": "",                   "zone": [9] },
+    "stix_id_short":    { "type": "string",  "nullable": false, "fallback": "",                   "zone": [9] },
+    "title":            { "type": "string",  "nullable": false, "fallback": "Untitled Report",    "zone": [1] },
+    "description":      { "type": "string",  "nullable": true,  "fallback": "",                   "zone": [] },
+    "threat_type":      { "type": "string",  "nullable": false, "fallback": "Unknown",            "zone": [1,4] },
+    "tags":             { "type": "array",   "nullable": false, "fallback": [],                   "zone": [] },
+    "severity": {
+      "type": "string",
+      "nullable": false,
+      "allowed_values": ["CRITICAL", "HIGH", "MEDIUM", "LOW", "INFO"],
+      "fallback": "LOW",
+      "zone": [1,2,4,5]
+    },
+    "severity_colors": {
+      "type": "object",
+      "nullable": false,
+      "required_subfields": ["primary", "glow", "dim", "border", "text", "class", "label"],
+      "zone": [1,2,4]
+    },
+    "risk_score": {
+      "type": "object",
+      "nullable": false,
+      "required_subfields": ["raw", "display", "percent", "color"],
+      "zone": [1]
+    },
+    "confidence":         { "type": "number",  "nullable": false, "min": 0, "max": 100, "fallback": 0,   "zone": [1] },
+    "confidence_display": { "type": "string",  "nullable": false, "fallback": "0.0%",                    "zone": [1] },
+    "epss_score":         { "type": "object",  "nullable": true,  "fallback": null,                      "zone": [6] },
+    "cvss_score":         { "type": "object",  "nullable": true,  "fallback": null,                      "zone": [6] },
+    "has_epss":           { "type": "boolean", "nullable": false, "fallback": false,                     "zone": [6] },
+    "has_cvss":           { "type": "boolean", "nullable": false, "fallback": false,                     "zone": [6] },
+    "kev_present":        { "type": "boolean", "nullable": false, "fallback": false,                     "zone": [1,6] },
+    "action_rec": {
+      "type": "object",
+      "nullable": false,
+      "required_subfields": ["action", "label", "icon", "color", "bg", "border"],
+      "allowed_action_values": ["PATCH", "ESCALATE", "INVESTIGATE", "MONITOR"],
+      "zone": [2]
+    },
+    "impact_context": {
+      "type": "object",
+      "nullable": false,
+      "required_subfields": ["attack_icon", "attack_type", "potential_impact", "target_surface"],
+      "zone": [4]
+    },
+    "freshness": {
+      "type": "object",
+      "nullable": false,
+      "required_subfields": ["class", "color", "icon", "label"],
+      "zone": [7]
+    },
+    "ai_verdict":         { "type": "string",  "nullable": false, "fallback": "",   "zone": [3] },
+    "paywall_features":   { "type": "array",   "nullable": false, "fallback": [],   "zone": [8] },
+    "business_impact":    { "type": "object",  "nullable": true,  "fallback": null, "zone": [4] },
+    "actor_tag": {
+      "type": "string",
+      "nullable": false,
+      "fallback": "Attribution Not Established",
+      "prohibited_values": ["CDB-UNATTR-CVE", "CDB-UNATTR-PHI", "CDB-UNATTR-APT", "CDB-UNATTR-RAN", "CDB-UNATTR-SUP", "CDB-UNATTR-MAL", "CDB-UNATTR-BOT", "CDB-UNATTR-RAT", "UNATTRIBUTED", ""],
+      "zone": [5],
+      "note": "NEVER expose internal placeholder codes to customers. Use human-readable attribution status."
+    },
+    "ioc_count":          { "type": "integer", "nullable": false, "min": 0, "fallback": 0,  "zone": [5] },
+    "ioc_confidence":     { "type": "number",  "nullable": false, "min": 0, "fallback": 0,  "zone": [5] },
+    "ioc_threat_level":   { "type": "string",  "nullable": true,  "fallback": "",            "zone": [5] },
+    "ttps":               { "type": "array",   "nullable": false, "fallback": [],            "zone": [5] },
+    "ttp_count":          { "type": "integer", "nullable": false, "min": 0, "fallback": 0,  "zone": [5] },
+    "mitre_tactics":      { "type": "array",   "nullable": false, "fallback": [],            "zone": [5] },
+    "ioc_paywall":        { "type": "object",  "nullable": false, "fallback": {},            "zone": [8] },
+    "published_at":       { "type": "string",  "nullable": true,  "fallback": "",            "zone": [7] },
+    "published_at_fmt":   { "type": "string",  "nullable": false, "fallback": "—",           "zone": [7] },
+    "published_at_rel":   { "type": "string",  "nullable": false, "fallback": "—",           "zone": [7] },
+    "processed_at":       { "type": "string",  "nullable": true,  "fallback": "",            "zone": [7] },
+    "processed_at_fmt":   { "type": "string",  "nullable": false, "fallback": "—",           "zone": [7] },
+    "processed_at_rel":   { "type": "string",  "nullable": false, "fallback": "—",           "zone": [7] },
+    "timestamp":          { "type": "string",  "nullable": true,  "fallback": "",            "zone": [7] },
+    "timestamp_fmt":      { "type": "string",  "nullable": false, "fallback": "—",           "zone": [7] },
+    "source":             { "type": "string",  "nullable": false, "fallback": "",            "zone": [9] },
+    "source_url":         { "type": "string",  "nullable": false, "fallback": "",            "zone": [9] },
+    "source_host":        { "type": "string",  "nullable": false, "fallback": "",            "zone": [9] },
+    "report_url":         { "type": "string",  "nullable": false, "fallback": "",            "zone": [9] },
+    "stix_bundle_url":    { "type": "string",  "nullable": true,  "fallback": null,          "zone": [9] },
+    "stix_bundle_locked": { "type": "boolean", "nullable": false, "fallback": false,         "zone": [9] },
+    "stix_bundle_upgrade_url": { "type": "string", "nullable": true, "fallback": null,       "zone": [9] },
+    "validation_status": {
+      "type": "object",
+      "nullable": false,
+      "required_subfields": ["class", "color", "label"],
+      "zone": [7,9]
+    },
+    "stix_object_count":  { "type": "integer", "nullable": false, "min": 0, "fallback": 0,  "zone": [7] },
+    "is_high_priority":   { "type": "boolean", "nullable": false, "fallback": false,         "zone": [1,2,8] },
+    "paywall_active":     { "type": "boolean", "nullable": false, "fallback": false,         "zone": [8] },
+    "has_ai_intel":       { "type": "boolean", "nullable": false, "fallback": false,         "zone": [] },
+    "has_ttps":           { "type": "boolean", "nullable": false, "fallback": false,         "zone": [9] },
+    "apex_ai": {
+      "type": "object",
+      "nullable": false,
+      "required_subfields": [
+        "soc_priority", "soc_priority_meta", "threat_level", "threat_category",
+        "predictive_risk", "ai_confidence", "threat_confidence_tier", "threat_confidence_label",
+        "confidence_tier_meta", "ttp_density", "campaign_id", "actor_fingerprint",
+        "kill_chain", "kill_chain_primary", "ai_summary", "recommended_action",
+        "behavioral_tags", "paywall", "kill_chain_locked"
+      ],
+      "zone": [1,2,3,5]
+    },
+    "apex": {
+      "type": "object",
+      "nullable": false,
+      "required_subfields": ["priority", "threat_level", "predictive_score", "campaign_id", "confidence"],
+      "zone": []
+    }
+  },
+
+  "prohibited_customer_visible_strings": [
+    "CDB-UNATTR-CVE",
+    "CDB-UNATTR-PHI",
+    "CDB-UNATTR-APT",
+    "CDB-UNATTR-RAN",
+    "CDB-UNATTR-SUP",
+    "CDB-UNATTR-MAL",
+    "CDB-UNATTR-BOT",
+    "CDB-UNATTR-RAT",
+    "UNATTRIBUTED",
+    "UNCLASSIFIED",
+    "PLACEHOLDER",
+    "undefined",
+    "null",
+    "NaN"
+  ],
+
+  "actor_tag_replacement_map": {
+    "CDB-UNATTR-CVE": "Attribution Not Established",
+    "CDB-UNATTR-PHI": "Attribution Not Established",
+    "CDB-UNATTR-APT": "Insufficient Evidence For Attribution",
+    "CDB-UNATTR-RAN": "Attribution Not Established",
+    "CDB-UNATTR-SUP": "Attribution Not Established",
+    "CDB-UNATTR-MAL": "Attribution Not Established",
+    "CDB-UNATTR-BOT": "Attribution Not Established",
+    "CDB-UNATTR-RAT": "Attribution Not Established",
+    "UNATTRIBUTED":   "Attribution Not Established",
+    "":               "Attribution Not Established"
+  },
+
+  "card_structure_fingerprint": {
+    "zone_count": 9,
+    "zone_ids": ["zone_1_decision_header","zone_2_soc_decision_strip","zone_3_ai_verdict","zone_4_impact_context","zone_5_intel_core","zone_6_exploit_scoring","zone_7_timeline","zone_8_paywall","zone_9_trust_footer"],
+    "total_required_top_level_fields": 46,
+    "total_required_apex_ai_subfields": 19,
+    "renderer_version_locked": "147.0.0",
+    "adapter_version_locked": "147.0.0"
+  },
+
+  "validation_rules": {
+    "severity_must_be_enum": true,
+    "action_rec_action_must_be_enum": true,
+    "actor_tag_must_not_contain_placeholder": true,
+    "risk_score_raw_must_be_0_to_10": true,
+    "confidence_must_be_0_to_100": true,
+    "ioc_count_must_not_exceed_real_ioc_count": true,
+    "zone_count_must_equal_9": true,
+    "renderer_version_must_match": true
+  }
+}
