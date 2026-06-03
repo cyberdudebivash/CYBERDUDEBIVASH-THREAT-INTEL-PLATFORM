@@ -661,6 +661,30 @@ def run():
         log.info("No new items to add -- feed is current")
     else:
         updated = list(existing) + deduped
+
+        # ── SORT ENFORCEMENT (permanent fix — v173.1) ─────────────────────────
+        # Root cause: appending new items without sorting breaks the published_at
+        # DESC contract required by Stage 5.6.1 (Regression Immunity System).
+        # All timestamps use "%Y-%m-%dT%H:%M:%SZ" — lexicographic sort is
+        # chronologically correct.  Items missing published_at fall back to
+        # timestamp / processed_at / "" so they sort to the end (oldest).
+        # This sort is idempotent — re-running it on an already-sorted feed is a
+        # no-op. Zero regression on existing items.
+        updated.sort(
+            key=lambda x: (
+                x.get("published_at") or
+                x.get("timestamp") or
+                x.get("processed_at") or
+                ""
+            ),
+            reverse=True,
+        )
+        log.info(
+            "[SORT] Feed sorted by published_at DESC — %d total items",
+            len(updated),
+        )
+        # ── END SORT ENFORCEMENT ───────────────────────────────────────────────
+
         if not DRY_RUN:
             _atomic_write(FEED_PATH, updated)
             log.info("Wrote %d total items to %s", len(updated), FEED_PATH)
@@ -669,17 +693,15 @@ def run():
 
     telemetry = {
         "run_at": _now(),
-        "source_counts": source_counts,
         "new_items": len(deduped),
-        "total_feed": len(existing) + len(deduped),
+        "total_items": len(updated) if deduped else len(existing),
+        "sources": source_counts,
+        "dry_run": DRY_RUN,
     }
     try:
         _atomic_write(TELEMETRY, telemetry)
     except Exception as e:
         log.warning("Telemetry write failed: %s", e)
-
-    log.info("Collection complete. Source summary: %s", source_counts)
-    return deduped
 
 
 if __name__ == "__main__":
