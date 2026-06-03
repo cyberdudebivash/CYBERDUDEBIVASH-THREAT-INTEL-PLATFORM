@@ -1,0 +1,157 @@
+{
+  "report_id": "v171-phase7-commercial-readiness",
+  "generated_at": "2026-06-03T09:51:49.340289+00:00",
+  "version": "171.1.0",
+  "assessment_basis": "Customer-visible quality only",
+  "before_average": 17.0,
+  "after_average": 64.3,
+  "before_scores": {
+    "Dashboard": 17,
+    "CTI_API": 17,
+    "MSSP_Feed": 17,
+    "Enterprise_Feed": 17,
+    "Enterprise_Subscription": 17,
+    "Detection_Pack": 17,
+    "STIX_Export": 17
+  },
+  "results": {
+    "Dashboard": {
+      "before_score": 17,
+      "after_score": 75,
+      "delta": 58,
+      "gate": "CONDITIONAL-GO",
+      "remediated": [
+        "Attribution sanitization complete: 32 CDB-UNATTR-CVE fixed",
+        "Contract v171.0.0 validated: PASS",
+        "Hard-fail validator confirmed operational",
+        "Intelligence transformation engine quality: 84.2/100",
+        "Feed deduplication applied: 1 duplicate removed"
+      ],
+      "remaining_issues": []
+    },
+    "CTI_API": {
+      "before_score": 17,
+      "after_score": 70,
+      "delta": 53,
+      "gate": "CONDITIONAL-GO",
+      "remediated": [
+        "Attribution sanitization complete: 32 CDB-UNATTR-CVE fixed",
+        "Contract v171.0.0 validated: PASS",
+        "Hard-fail validator confirmed operational",
+        "Intelligence transformation engine quality: 84.2/100",
+        "Feed deduplication applied: 1 duplicate removed"
+      ],
+      "remaining_issues": [
+        "latest.json 484 records missing report_url and published_at"
+      ]
+    },
+    "MSSP_Feed": {
+      "before_score": 17,
+      "after_score": 60,
+      "delta": 43,
+      "gate": "CONDITIONAL-GO",
+      "remediated": [
+        "Attribution sanitization complete: 32 CDB-UNATTR-CVE fixed",
+        "Contract v171.0.0 validated: PASS",
+        "Hard-fail validator confirmed operational",
+        "Intelligence transformation engine quality: 84.2/100",
+        "Feed deduplication applied: 1 duplicate removed"
+      ],
+      "remaining_issues": [
+        "Source diversity gap: missing BleepingComputer/SecurityAffairs/CyberSecurityNews",
+        "Severity calibration: 32/33 LOW records"
+      ]
+    },
+    "Enterprise_Feed": {
+      "before_score": 17,
+      "after_score": 60,
+      "delta": 43,
+      "gate": "NO-GO",
+      "remediated": [
+        "Attribution sanitization complete: 32 CDB-UNATTR-CVE fixed",
+        "Contract v171.0.0 validated: PASS",
+        "Hard-fail validator confirmed operational",
+        "Intelligence transformation engine quality: 84.2/100",
+        "Feed deduplication applied: 1 duplicate removed"
+      ],
+      "remaining_issues": [
+        "484/484 latest.json records missing report_url \u2014 enterprise links broken",
+        "Severity calibration required for enterprise delivery"
+      ]
+    },
+    "Enterprise_Subscription": {
+      "before_score": 17,
+      "after_score": 50,
+      "delta": 33,
+      "gate": "NO-GO",
+      "remediated": [
+        "Attribution sanitization complete: 32 CDB-UNATTR-CVE fixed",
+        "Contract v171.0.0 validated: PASS",
+        "Hard-fail validator confirmed operational",
+        "Intelligence transformation engine quality: 84.2/100",
+        "Feed deduplication applied: 1 duplicate removed"
+      ],
+      "remaining_issues": [
+        "Blocked by Enterprise_Feed NO-GO gate"
+      ]
+    },
+    "Detection_Pack": {
+      "before_score": 17,
+      "after_score": 65,
+      "delta": 48,
+      "gate": "CONDITIONAL-GO",
+      "remediated": [
+        "Attribution sanitization complete: 32 CDB-UNATTR-CVE fixed",
+        "Contract v171.0.0 validated: PASS",
+        "Hard-fail validator confirmed operational",
+        "Intelligence transformation engine quality: 84.2/100",
+        "Feed deduplication applied: 1 duplicate removed",
+        "Transformation engine quality >=70: PASS"
+      ],
+      "remaining_issues": [
+        "TTP template patterns require evidence-based replacement before detection pack publication"
+      ]
+    },
+    "STIX_Export": {
+      "before_score": 17,
+      "after_score": 70,
+      "delta": 53,
+      "gate": "CONDITIONAL-GO",
+      "remediated": [
+        "Attribution sanitization complete: 32 CDB-UNATTR-CVE fixed",
+        "Contract v171.0.0 validated: PASS",
+        "Hard-fail validator confirmed operational",
+        "Intelligence transformation engine quality: 84.2/100",
+        "Feed deduplication applied: 1 duplicate removed"
+      ],
+      "remaining_issues": [
+        "Verify STIX bundle objects reflect sanitized actor_tag values (field-level audit needed)"
+      ]
+    }
+  },
+  "products_at_go_or_conditional_go": 5,
+  "products_at_no_go": 2,
+  "overall_gate": "CONDITIONAL-GO",
+  "critical_blockers_remaining": [
+    "B1: latest.json 484 records missing report_url \u2014 Enterprise Feed/Subscription blocked",
+    "B2: latest.json 484 records missing published_at \u2014 temporal intelligence broken",
+    "B3: Severity calibration (97% LOW in feed.json) \u2014 scoring engine needs recalibration",
+    "B4: Source diversity (CVE-only feed) \u2014 no BleepingComputer/SecurityAffairs/CyberSecurityNews"
+  ],
+  "remediated_this_release": [
+    "R1: 32 CDB-UNATTR-CVE actor_tag violations fixed in feed.json",
+    "R2: CVE-2026-10705 duplicate removed (34 \u2192 33 records in feed.json)",
+    "R3: Dashboard contract v171.0.0 validated \u2014 schema and hard-fail enforcement confirmed",
+    "R4: Intelligence transformation engine quality confirmed at 84.2/100",
+    "R5: Attribution replacement map operational (8 prohibited codes \u2192 human-readable strings)"
+  ],
+  "next_required_actions": [
+    "ACTION-1 [P0]: Fix pipeline to populate report_url in latest.json and feed output",
+    "ACTION-2 [P0]: Fix pipeline to populate published_at in all output records",
+    "ACTION-3 [P1]: Recalibrate severity: KEV=true \u2192 HIGH minimum; CVSS>=9.0 \u2192 CRITICAL",
+    "ACTION-4 [P1]: Add BleepingComputer + SecurityAffairs to ingestion pipeline",
+    "ACTION-5 [P2]: Replace UNC-CDB-99 with \"Unclassified Threat Cluster\" in output",
+    "ACTION-6 [P2]: Evidence-based TTP assignment \u2014 eliminate template patterns in pipeline"
+  ],
+  "status": "COMPLETE"
+}

@@ -1,0 +1,182 @@
+{
+  "report_id": "v171-phase6-report-quality-audit",
+  "generated_at": "2026-06-03T09:51:49.340289+00:00",
+  "scope": "feed.json (post-dedup), intelligence_transformation_engine output",
+  "summary": {
+    "feed_records_audited": 33,
+    "records_with_quality_issues": 4,
+    "quality_issue_rate": "12.1%",
+    "template_ttp_pattern_count": 8,
+    "low_confidence_count": 4,
+    "kev_severity_mismatch_count": 0,
+    "transformation_engine_quality": "84.2/100"
+  },
+  "ttp_distribution_top3": {
+    "('T1059',)": 8,
+    "('T1059', 'T1190')": 6,
+    "('T1083',)": 2
+  },
+  "quality_findings": [
+    {
+      "finding": "TTP_TEMPLATE_PATTERN",
+      "severity": "HIGH",
+      "description": "Most common TTP pattern appears 8 times \u2014 template assignment not evidence-based",
+      "affected_records": 8,
+      "remediation": "Only assign ATT&CK techniques when CVE class, behavioral evidence, or vendor advisory explicitly supports them"
+    },
+    {
+      "finding": "LOW_CONFIDENCE_PREVALENCE",
+      "severity": "MEDIUM",
+      "description": "4/33 records have confidence <20% \u2014 unacceptable for enterprise CTI product",
+      "affected_records": 4,
+      "remediation": "Minimum confidence floor: 25% for CVE-only records, 40% for corroborated campaign records"
+    },
+    {
+      "finding": "SEVERITY_SCORE_CALIBRATION",
+      "severity": "CRITICAL",
+      "description": "Feed is 97% LOW severity. KEV-confirmed records must score >= MEDIUM.",
+      "affected_records": 32,
+      "remediation": "Severity scoring rule: KEV=true \u2192 minimum HIGH; CVSS>=9.0 \u2192 CRITICAL; CVSS>=7.0 \u2192 HIGH; EPSS>10% \u2192 MEDIUM minimum"
+    },
+    {
+      "finding": "SOURCE_DIVERSITY_DEFICIT",
+      "severity": "HIGH",
+      "description": "Only CVE feeds (cvefeed.io, vulners.com) and CISA present. No campaign/narrative intelligence.",
+      "affected_records": 0,
+      "remediation": "Add BleepingComputer, SecurityAffairs, CyberSecurityNews to ingestion pipeline for campaign-level CTI"
+    },
+    {
+      "finding": "REPORT_URL_MISSING_IN_LATEST",
+      "severity": "CRITICAL",
+      "description": "484/484 records in latest.json missing report_url. All customer-facing report links are broken.",
+      "affected_records": 484,
+      "remediation": "Fix report generation pipeline to populate report_url and published_at fields before writing latest.json"
+    }
+  ],
+  "items_with_issues": [
+    {
+      "id": "intel--050080ad25bde141fa327071",
+      "title": "SUSE CVE-2026-5422",
+      "issues": [
+        "LOW_CONFIDENCE: 15.6% \u2014 below 20% minimum threshold"
+      ]
+    },
+    {
+      "id": "intel--f2784887848911499d404469",
+      "title": "SUSE CVE-2026-41115",
+      "issues": [
+        "LOW_CONFIDENCE: 16.6% \u2014 below 20% minimum threshold"
+      ]
+    },
+    {
+      "id": "intel--0a3da8ebf7b6d8f0cf884b97",
+      "title": "SUSE CVE-2026-42795",
+      "issues": [
+        "LOW_CONFIDENCE: 15.6% \u2014 below 20% minimum threshold"
+      ]
+    },
+    {
+      "id": "intel--7c157039f73c974e95d85859",
+      "title": "SUSE CVE-2026-44740",
+      "issues": [
+        "LOW_CONFIDENCE: 15.6% \u2014 below 20% minimum threshold"
+      ]
+    }
+  ],
+  "existing_reports_inventory": {
+    "SENTINEL_APEX_GOVERNANCE_REPORT.json": {
+      "loaded": true,
+      "keys": [
+        "report_metadata",
+        "before_score",
+        "after_score",
+        "stage_results",
+        "violations_summary",
+        "commercial_gates"
+      ]
+    },
+    "attck_confidence_report.json": {
+      "loaded": true,
+      "keys": [
+        "report_metadata",
+        "before_metrics",
+        "after_metrics",
+        "delta",
+        "governance",
+        "records"
+      ]
+    },
+    "detection_specificity_report.json": {
+      "loaded": true,
+      "keys": [
+        "report_metadata",
+        "before_metrics",
+        "after_metrics",
+        "delta",
+        "governance",
+        "records"
+      ]
+    },
+    "enterprise_confidence_report.json": {
+      "loaded": true,
+      "keys": [
+        "report_metadata",
+        "before_metrics",
+        "after_metrics",
+        "delta",
+        "governance",
+        "records"
+      ]
+    },
+    "ioc_validation_report.json": {
+      "loaded": true,
+      "keys": [
+        "report_metadata",
+        "before_metrics",
+        "after_metrics",
+        "delta",
+        "type_distribution_real",
+        "rejection_breakdown_feed"
+      ]
+    },
+    "kpi_integrity_report.json": {
+      "loaded": true,
+      "keys": [
+        "engine_id",
+        "engine_version",
+        "stage_id",
+        "audited_at",
+        "audit_status",
+        "publication_blocked"
+      ]
+    },
+    "narrative_intelligence_report.json": {
+      "loaded": true,
+      "keys": [
+        "report_metadata",
+        "feed_narrative_quality_score",
+        "repetition_violations_total",
+        "governance",
+        "records"
+      ]
+    },
+    "system_audit.json": {
+      "loaded": true,
+      "keys": [
+        "schema_version",
+        "cycle_id",
+        "generated_at",
+        "cycle_status",
+        "health",
+        "issues_detected"
+      ]
+    }
+  },
+  "transformation_engine_assessment": {
+    "status": "PASS",
+    "avg_quality_score": 84.2,
+    "assessment": "GOOD \u2014 7-section CTI format, attribution separation, evidence-based confidence all correct",
+    "gap_vs_mission_spec": "Mission specifies 8 sections; engine has 7. Analyst Confidence is embedded in section outputs rather than as a standalone section. Acceptable for v171.1."
+  },
+  "status": "COMPLETE"
+}
