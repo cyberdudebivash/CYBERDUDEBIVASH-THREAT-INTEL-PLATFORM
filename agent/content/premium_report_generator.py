@@ -13,6 +13,17 @@ from typing import Dict, List, Optional
 
 from agent.config import BRAND, COLORS, FONTS
 
+# ACCESS GOVERNANCE v173.0 — import policy governor
+try:
+    from access_control_policy import (
+        get_report_classification,
+        validate_report_metadata,
+        TIER_PRO,
+    )
+    _POLICY_AVAILABLE = True
+except ImportError:
+    _POLICY_AVAILABLE = False
+
 # -- CVE-Verified Report Engine (v44.0) ----------------------------------------
 # Generates NVD-grounded, zero-hallucination reports for CVE advisories.
 # Loaded lazily - zero impact on non-CVE report paths.
@@ -121,6 +132,47 @@ class PremiumReportGenerator:
 
     def __init__(self):
         self.report_counter = 0
+
+    # ACCESS GOVERNANCE v173.0 ─────────────────────────────────────────────────
+    # Every premium report MUST carry governance metadata.
+    # This method returns the canonical classification block for this generator.
+    # The metadata is embedded as an HTML comment at the top of every report.
+
+    def _get_governance_metadata(self) -> Dict[str, str]:
+        """
+        Return mandatory access governance metadata for every generated report.
+        Consumed by the deployment gate and any downstream report validator.
+        Fields: classification, required_tier, access_policy.
+        """
+        if _POLICY_AVAILABLE:
+            meta = get_report_classification("full")
+        else:
+            meta = {
+                "classification": "TLP:AMBER",
+                "required_tier":  "PRO",
+                "access_policy":  "MODEL_C_PRO",
+            }
+        return meta
+
+    def _governance_html_comment(self) -> str:
+        """
+        Embed governance metadata as an HTML comment at the head of every report.
+        This allows validators to confirm tier classification without parsing HTML.
+        Format: <!-- CDB-GOVERNANCE: required_tier=PRO access_policy=MODEL_C_PRO -->
+        """
+        meta = self._get_governance_metadata()
+        required_tier  = meta.get("required_tier", "PRO")
+        access_policy  = meta.get("access_policy", "MODEL_C_PRO")
+        classification = meta.get("classification", "TLP:AMBER")
+        return (
+            f"<!-- CDB-GOVERNANCE: "
+            f"required_tier={required_tier} "
+            f"access_policy={access_policy} "
+            f"classification={classification} "
+            f"model_b_disabled=true model_a_disabled=true -->\n"
+        )
+
+    # ─────────────────────────────────────────────────────────────────────────
 
     def generate_report_id(self) -> str:
         """Generate unique report ID."""

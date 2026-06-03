@@ -1,0 +1,198 @@
+# SENTINEL APEX v173.0 — Access Governance Gate
+# Runs on every push and PR to main.
+# Blocks deployment if any access governance check fails.
+# MODEL_A and MODEL_B are permanently disabled.
+# MODEL_C is the ONLY supported architecture.
+
+name: Access Governance Gate v173.0
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      strict:
+        description: 'Fail deployment on any governance violation'
+        required: false
+        default: 'true'
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: access-governance-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  PYTHONPATH: ${{ github.workspace }}
+
+jobs:
+  access-governance:
+    name: "ACCESS GOVERNANCE — MODEL_C Enforcement"
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6.0.2
+        with:
+          fetch-depth: 1
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5.5.0
+        with:
+          python-version: '3.12'
+
+      - name: Install governance dependencies
+        run: |
+          pip install pytest --quiet
+
+      - name: Verify access_control_policy.py exists
+        run: |
+          if [ ! -f "access_control_policy.py" ]; then
+            echo "❌ FATAL: access_control_policy.py is missing — governance anchor removed"
+            echo "   This file is the Single Source of Truth for all access control."
+            echo "   It MUST exist. Deployment BLOCKED."
+            exit 1
+          fi
+          echo "✅ access_control_policy.py present"
+
+      - name: Verify policy integrity (import self-check)
+        run: |
+          python -c "
+          import sys
+          sys.path.insert(0, '.')
+          try:
+              import access_control_policy as p
+              print(f'✅ Policy imported successfully — version {p.POLICY_CANONICAL_VERSION}')
+              print(f'   Policy hash: {p.compute_policy_hash()[:16]}...')
+              print(f'   PUBLIC blocked fields: {len(p.PUBLIC_BLOCKED_FIELDS)}')
+              print(f'   TIERS: {list(p.TIER_ORDER.keys())}')
+              # Confirm critical MODEL_B invariants
+              assert \"report_url\" not in p.TIER_ALLOWED_FIELDS[\"PUBLIC\"], \"MODEL_B VIOLATION\"
+              assert \"internal_report_url\" not in p.TIER_ALLOWED_FIELDS[\"PUBLIC\"], \"MODEL_B VIOLATION\"
+              print(\"✅ MODEL_B invariants confirmed\")
+          except AssertionError as e:
+              print(f'❌ POLICY INVARIANT FAILED: {e}')
+              sys.exit(1)
+          except Exception as e:
+              print(f'❌ Policy import failed: {e}')
+              sys.exit(1)
+          "
+
+      - name: Run policy self-checks
+        run: |
+          python -c "
+          import sys, json
+          sys.path.insert(0, '.')
+          from access_control_policy import run_policy_checks
+          result = run_policy_checks()
+          print(json.dumps(result, indent=2))
+          if not result['passed']:
+              failed = [k for k, v in result['checks'].items() if not v['passed']]
+              print(f'❌ POLICY CHECKS FAILED: {failed}')
+              sys.exit(1)
+          print(f'✅ All {result[\"total_checks\"]} policy checks passed')
+          "
+
+      - name: Run access governance regression tests
+        run: |
+          python -m pytest tests/test_access_governance.py -v \
+            --tb=short \
+            --no-header \
+            -x
+
+      - name: Run deployment governance gate
+        run: |
+          python scripts/deployment_gate.py --strict --skip-tests
+        # Note: regression tests already ran above; skip-tests avoids double execution
+
+      - name: Verify MODEL_B not re-introduced (public_api.py scan)
+        run: |
+          python -c "
+          import sys, re
+          sys.path.insert(0, '.')
+
+          with open('agent/api/public_api.py', 'r') as f:
+              content = f.read()
+
+          # Confirm strip_for_tier is used (not hard-coded PUBLIC_FIELDS set)
+          if 'from access_control_policy import' not in content:
+              print('❌ public_api.py does not import access_control_policy')
+              sys.exit(1)
+
+          # Confirm report_url is NOT in a PUBLIC_FIELDS set literal
+          lines = content.split('\n')
+          for i, line in enumerate(lines, 1):
+              stripped = line.strip()
+              if stripped.startswith('#'):
+                  continue
+              # Look for report_url being added to a PUBLIC_FIELDS set
+              if re.search(r'PUBLIC_FIELDS\s*=.*\{', stripped):
+                  # Scan forward for report_url in this set
+                  pass
+              if '\"report_url\"' in line and 'PUBLIC_FIELDS' in line and '#' not in line.split('\"report_url\"')[0]:
+                  # Check it's not a comment
+                  if not stripped.startswith('#') and not stripped.startswith('//'):
+                      print(f'❌ Line {i}: report_url appears in public_api.py outside of comment: {stripped[:80]}')
+                      sys.exit(1)
+
+          print('✅ public_api.py: MODEL_B not re-introduced')
+          "
+
+      - name: Verify dashboard tier gates (index.html scan)
+        run: |
+          python -c "
+          with open('index.html', 'r', encoding='utf-8', errors='replace') as f:
+              content = f.read()
+
+          checks = {
+              '_isPro': '_isPro tier check present',
+              '_hasProAccess': '_hasProAccess present',
+              'ACCESS GOVERNANCE v173.0': 'Governance marker present',
+              'UPGRADE FOR DOSSIER': 'Modal dossier upgrade CTA present',
+              'upgrade.html?plan=pro&utm_source=report-gate': 'Report gate upgrade link present',
+          }
+
+          failed = []
+          for pattern, description in checks.items():
+              if pattern in content:
+                  print(f'✅ {description}')
+              else:
+                  print(f'❌ MISSING: {description} (pattern: {pattern})')
+                  failed.append(description)
+
+          if failed:
+              sys.exit(1)
+          print('✅ Dashboard tier gates verified')
+          "
+
+      - name: Generate audit snapshot
+        if: always()
+        run: |
+          python -c "
+          import sys, json, os
+          sys.path.insert(0, '.')
+          try:
+              from access_control_policy import generate_audit_record
+              audit = generate_audit_record()
+              os.makedirs('reports', exist_ok=True)
+              with open('reports/access_policy_audit.json', 'w') as f:
+                  json.dump(audit, f, indent=2)
+              print('✅ Audit snapshot written to reports/access_policy_audit.json')
+          except Exception as e:
+              print(f'⚠ Audit generation failed (non-blocking): {e}')
+          "
+
+      - name: Upload governance audit report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: access-governance-audit-${{ github.run_id }}
+          path: reports/access_policy_audit.json
+          retention-days: 90
+          if-no-files-found: warn

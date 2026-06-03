@@ -1,7 +1,17 @@
 #!/usr/bin/env python3
 """
-public_api.py - CyberDudeBivash v22.0 (SENTINEL APEX ULTRA)
-PUBLIC API DATA LAYER - PRODUCTION UPGRADE
+public_api.py - CyberDudeBivash v173.0 (SENTINEL APEX — ACCESS GOVERNANCE LOCKDOWN)
+PUBLIC API DATA LAYER
+
+ACCESS GOVERNANCE v173.0:
+  - _strip_for_public() now delegates to access_control_policy.strip_for_tier(TIER_PUBLIC)
+  - report_url, internal_report_url, stix_bundle_url, pdf_url are PERMANENTLY REMOVED
+    from all PUBLIC API responses (MODEL_B permanently disabled)
+  - All responses are validated via access_control_policy.validate_api_response()
+    before return — violations are logged and the entry is blocked
+  - MODEL_A (dashboard → upgrade only) disabled — not used
+  - MODEL_C (tiered access) is the ONLY supported architecture
+
 
 v22.0 ADDITIONS (additive, backward compatible):
   - Rate limiting on all endpoints via RateLimiter
@@ -28,6 +38,13 @@ from typing import Dict, List, Optional
 from datetime import datetime, timezone
 
 from agent.api.rate_limiter import rate_limiter
+from access_control_policy import (
+    TIER_PUBLIC,
+    strip_for_tier,
+    validate_api_response,
+    build_upgrade_prompt,
+    SUMMARY_MAX_CHARS,
+)
 
 logger = logging.getLogger("CDB-API-PUBLIC")
 
@@ -73,14 +90,16 @@ class PublicAPIHandler:
         sorted_entries = sorted(active, key=lambda x: x.get("generated_at", ""), reverse=True)[:limit]
         public_entries = [self._strip_for_public(e) for e in sorted_entries]
 
-        return _envelope({
-            "api_tier":     "FREE",
+        payload = _envelope({
+            "api_tier":     TIER_PUBLIC,
             "endpoint":     "/api/v1/threats",
             "count":        len(public_entries),
             "max_allowed":  PUBLIC_MAX_ENTRIES,
             "entries":      public_entries,
             "upgrade_note": "Upgrade to Pro for full IOC details, STIX export, and 90-day history.",
+            "access_policy":"MODEL_C_PUBLIC",
         }, req_id, (time.monotonic() - t0) * 1000)
+        return self._validate_and_block(payload)
 
     def get_public_feed(self, identity: str = "anon") -> Dict:
         """Returns public feed manifest with limited fields."""
@@ -95,8 +114,8 @@ class PublicAPIHandler:
         entries = self._load_manifest_entries()
         active  = [e for e in entries if e.get("status") != "archived"]
 
-        return _envelope({
-            "api_tier":       "FREE",
+        payload = _envelope({
+            "api_tier":       TIER_PUBLIC,
             "endpoint":       "/api/v1/feed",
             "platform":       "CyberDudeBivash SENTINEL APEX",
             "total_entries":  len(entries),
@@ -104,7 +123,9 @@ class PublicAPIHandler:
             "preview_entries":[self._strip_for_public(e) for e in active[:PUBLIC_MAX_ENTRIES]],
             "feed_url":       "https://intel.cyberdudebivash.com",
             "upgrade_url":    "https://tools.cyberdudebivash.com/",
+            "access_policy":  "MODEL_C_PUBLIC",
         }, req_id, (time.monotonic() - t0) * 1000)
+        return self._validate_and_block(payload)
 
     def get_platform_health(self, identity: str = "anon") -> Dict:
         """Returns basic platform health for public consumption."""
@@ -184,36 +205,45 @@ class PublicAPIHandler:
         return None
 
     def _strip_for_public(self, entry: Dict) -> Dict:
-        """Remove sensitive/premium fields for public API response.
-        v23.0 P0 FIX: expose internal_report_url, report_url, id, stix_id,
-        stix_bundle_url so the dashboard can render the Tactical Dossier link
-        without falling back to external source_url.
         """
-        PUBLIC_FIELDS = {
-            "id", "stix_id", "bundle_id", "title", "risk_score", "severity",
-            "tlp_label", "generated_at", "source_url", "mitre_tactics",
-            "actor_tag", "status", "confidence",
-            # v22.0: safe additions
-            "kev_present", "feed_source",
-            # v23.0 P0 FIX: internal report routing fields (never external leak)
-            "report_url", "internal_report_url", "stix_bundle_url",
-            "validation_status", "processed_at", "timestamp",
-        }
-        stripped = {k: v for k, v in entry.items() if k in PUBLIC_FIELDS}
+        Strip an entry to PUBLIC-tier safe fields.
 
-        # P0 SAFETY: ensure report_url is always the INTERNAL path.
-        # If report_url is an external URL (not cyberdudebivash domain),
-        # override with internal_report_url or construct the canonical path.
-        ru = stripped.get("report_url", "")
-        iru = stripped.get("internal_report_url", "")
-        if ru and ru.startswith("http") and "cyberdudebivash" not in ru:
-            # External URL leaked into report_url — redirect to internal
-            stripped["report_url"] = iru or ru
-        # Backfill internal_report_url if missing
-        if not iru and ru:
-            stripped["internal_report_url"] = ru
+        ACCESS GOVERNANCE v173.0 — MODEL_B PERMANENTLY DISABLED:
+          Delegates entirely to access_control_policy.strip_for_tier(TIER_PUBLIC).
+          report_url, internal_report_url, stix_bundle_url, pdf_url are REMOVED.
+          No component may re-add these fields to public API responses.
+
+        Dashboard report links must be generated client-side only when the
+        authenticated user tier >= PRO (enforced in index.html JS tier gate).
+        """
+        stripped = strip_for_tier(entry, TIER_PUBLIC)
+
+        # Add upgrade routing hint for the client to construct the upgrade CTA
+        stripped["upgrade_url"] = "/upgrade.html"
+        stripped["view_summary_action"] = "view_intelligence_summary"
 
         return stripped
+
+    def _validate_and_block(self, response: Dict) -> Dict:
+        """
+        Validate an outgoing public API response against access_control_policy.
+        If violations are found, scrub the offending fields and log an alert.
+        This is the last-line defense before any payload leaves the API.
+        """
+        is_valid, violations = validate_api_response(response, TIER_PUBLIC)
+        if not is_valid:
+            for v in violations:
+                logger.error(f"[ACCESS-GOVERNANCE] BLOCKED VIOLATION: {v}")
+            # Scrub entries defensively
+            from access_control_policy import API_PUBLIC_BLOCKED
+            for entry in response.get("entries", []) + response.get("preview_entries", []):
+                if isinstance(entry, dict):
+                    for blocked in API_PUBLIC_BLOCKED:
+                        entry.pop(blocked, None)
+            # Remove blocked top-level fields too
+            for blocked in API_PUBLIC_BLOCKED:
+                response.pop(blocked, None)
+        return response
 
     def _load_manifest_entries(self) -> List[Dict]:
         """v23.0 P0 FIX: support both 'advisories' key (current schema) and

@@ -9069,7 +9069,16 @@
                     <div class="watchlist-item-meta">
                         <span class="badge badge-${sev.toLowerCase()}">${sev}</span>
                         <span style="font-family:var(--font-mono);font-size:9px;color:${sevColor};">RISK ${item.risk_score}/10</span>
-                        ${(()=>{ const _wiru=item.internal_report_url||''; const _wru=(item.report_url||'').replace('https://reports.cyberdudebivash.com','https://intel.cyberdudebivash.com'); const _wruInt=_wru&&(_wru.startsWith('/reports/')||_wru.includes('intel.cyberdudebivash.com')||_wru.includes('cyberdudebivash.com/reports')); const _weid=item.stix_id||item.id||''; const _wInternal=_wiru||(_wruInt?_wru:'')||(_weid?`/reports/${_weid}.html`:''); const _wVsFail=item.validation_status==='quality_fail'||item.validation_status==='write_error'; const hasR=!!_wInternal&&!_wVsFail; const u=hasR?_wInternal:(item.source_url||''); return u?`<a href="${u}" target="_blank" style="font-family:var(--font-mono);font-size:9px;color:var(--accent);">${hasR?'DOSSIER →':'SOURCE →'}</a>`:''; })()}
+                        ${(()=>{
+                            // ACCESS GOVERNANCE v173.0 — DOSSIER link gated to PRO+
+                            const _wTier = (window._platformTiers && window._platformTiers.current) || 'free';
+                            const _wPro = _wTier==='pro'||_wTier==='PRO'||_wTier==='premium'||_wTier==='PREMIUM'||_wTier==='enterprise'||_wTier==='ENTERPRISE'||_wTier==='mssp'||_wTier==='MSSP';
+                            const _wSrc = item.source_url||'';
+                            if (!_wPro) {
+                                return _wSrc ? `<a href="/upgrade.html?plan=pro&utm_source=watchlist-dossier" target="_blank" style="font-family:var(--font-mono);font-size:9px;color:#666;">🔒 PRO</a>` : '';
+                            }
+                            const _wiru=item.internal_report_url||''; const _wru=(item.report_url||'').replace('https://reports.cyberdudebivash.com','https://intel.cyberdudebivash.com'); const _wruInt=_wru&&(_wru.startsWith('/reports/')||_wru.includes('intel.cyberdudebivash.com')||_wru.includes('cyberdudebivash.com/reports')); const _weid=item.stix_id||item.id||''; const _wInternal=_wiru||(_wruInt?_wru:'')||(_weid?`/reports/${_weid}.html`:''); const _wVsFail=item.validation_status==='quality_fail'||item.validation_status==='write_error'; const hasR=!!_wInternal&&!_wVsFail; const u=hasR?_wInternal:(_wSrc); return u?`<a href="${u}" target="_blank" style="font-family:var(--font-mono);font-size:9px;color:var(--accent);">${hasR?'DOSSIER →':'SOURCE →'}</a>`:'';
+                        })()}
                         <button class="watchlist-remove" onclick="removeFromWatchlist('${item.stix_id}')">REMOVE</button>
                     </div>
                 </div>`;
@@ -10415,12 +10424,26 @@ ${item.stix_object_count != null ? `<div class="apex-kv" style="margin-top:4px;"
                                 <a href="/upgrade.html?plan=pro&utm_source=ai-insight&ref=${encodeURIComponent(item.id||item.stix_id||'')}" target="_blank" class="cdb-pro-unlock-btn">UPGRADE →</a>
                             </div>` : '';
 
-                        // CTA ROW
-                        const _reportCta = _hasReport ? `
+                        // CTA ROW — ACCESS GOVERNANCE v173.0
+                        // MODEL_B PERMANENTLY DISABLED: report links are gated behind PRO tier.
+                        // PUBLIC (free) users see an upgrade CTA instead of a direct report link.
+                        // PRO / ENTERPRISE / MSSP users see the full report link.
+                        // _isPro: true if user tier is PRO, ENTERPRISE, or MSSP
+                        const _isPro = _userTier === 'pro' || _userTier === 'PRO'
+                                    || _userTier === 'premium' || _userTier === 'PREMIUM'
+                                    || _userTier === 'enterprise' || _userTier === 'ENTERPRISE'
+                                    || _userTier === 'mssp' || _userTier === 'MSSP';
+
+                        const _reportCta = _hasReport && _isPro ? `
                             <a href="${_reportUrl}" target="_blank" rel="noopener" class="cdb-god-cta cdb-cta-report">
                                 📋 VIEW FULL REPORT →
+                            </a>` :
+                            _hasReport && _isFree ? `
+                            <a href="/upgrade.html?plan=pro&utm_source=report-gate&ref=${encodeURIComponent(item.id||item.stix_id||'')}" target="_blank" rel="noopener" class="cdb-god-cta cdb-cta-report" style="opacity:0.75;" title="PRO tier required — upgrade to access full intelligence report">
+                                🔒 VIEW INTELLIGENCE SUMMARY →
                             </a>` : '';
-                        const _pdfCta = _hasPdf ? `
+
+                        const _pdfCta = _hasPdf && _isPro ? `
                             <a href="${item.pdf_url}" target="_blank" rel="noopener" class="cdb-god-cta cdb-cta-pdf">
                                 📄 PDF REPORT
                             </a>` : '';
@@ -10618,7 +10641,23 @@ ${item.stix_object_count != null ? `<div class="apex-kv" style="margin-top:4px;"
                         var rawConf = item.confidence_score != null ? parseFloat(item.confidence_score) : null;
                         var conf = (rawConf != null && rawConf > 0) ? Math.round(rawConf <= 1 ? rawConf * 100 : rawConf) : (sev === 'CRITICAL' ? 85 : sev === 'HIGH' ? 72 : sev === 'MEDIUM' ? 60 : 45);
                         var iocCount = item.ioc_count || 0;
-                        var reportUrl = _es(item.report_url || item.source_url || '#');
+                        // ACCESS GOVERNANCE v173.0 — MODEL_B DISABLED
+                        // report_url is only resolved for PRO+ tiers.
+                        // For PUBLIC/free tier, report_url is NOT available from the API
+                        // (stripped by access_control_policy in public_api.py).
+                        // We gate it here as well for defence-in-depth.
+                        var _currentTierLvl = (function(){
+                            var t = (window._platformTiers && window._platformTiers.current) || 'free';
+                            if (t==='mssp'||t==='MSSP') return 3;
+                            if (t==='enterprise'||t==='ENTERPRISE') return 2;
+                            if (t==='pro'||t==='PRO'||t==='premium'||t==='PREMIUM') return 1;
+                            return 0; // free / public
+                        })();
+                        var _hasProAccess = _currentTierLvl >= 1;
+                        // For PRO+: use report_url. For PUBLIC: fall back to source_url only.
+                        var reportUrl = _hasProAccess
+                            ? _es(item.report_url || item.internal_report_url || item.source_url || '#')
+                            : _es(item.source_url || '#');
 
                         // MITRE tactic chips
                         var tactics = Array.isArray(item.mitre_tactics) ? item.mitre_tactics.slice(0, 5) : [];
@@ -10688,9 +10727,13 @@ ${item.stix_object_count != null ? `<div class="apex-kv" style="margin-top:4px;"
                                 enrichParts.join('') +
                             '</div>' +
                             // Footer row: badges + report link
+                            // ACCESS GOVERNANCE v173.0 — report link only for PRO+
                             '<div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;">' +
                                 badges +
-                                '<a href="' + reportUrl + '" target="_blank" rel="noopener" style="margin-left:auto;background:linear-gradient(135deg,rgba(0,212,170,0.14),rgba(0,212,170,0.05));border:1px solid var(--accent,#00d4aa);color:var(--accent,#00d4aa);padding:6px 16px;border-radius:5px;font-size:11px;font-weight:700;letter-spacing:0.5px;text-decoration:none;display:inline-flex;align-items:center;gap:5px;font-family:var(--font-mono,monospace);" title="View Full Intel Report">&#128196; VIEW REPORT &#8599;</a>' +
+                                (_hasProAccess && reportUrl !== '#'
+                                    ? '<a href="' + reportUrl + '" target="_blank" rel="noopener" style="margin-left:auto;background:linear-gradient(135deg,rgba(0,212,170,0.14),rgba(0,212,170,0.05));border:1px solid var(--accent,#00d4aa);color:var(--accent,#00d4aa);padding:6px 16px;border-radius:5px;font-size:11px;font-weight:700;letter-spacing:0.5px;text-decoration:none;display:inline-flex;align-items:center;gap:5px;font-family:var(--font-mono,monospace);" title="View Full Intel Report">&#128196; VIEW REPORT &#8599;</a>'
+                                    : '<a href="/upgrade.html?plan=pro&utm_source=reports-tab-gate" target="_blank" rel="noopener" style="margin-left:auto;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.1);color:#666;padding:6px 16px;border-radius:5px;font-size:11px;font-weight:700;letter-spacing:0.5px;text-decoration:none;display:inline-flex;align-items:center;gap:5px;font-family:var(--font-mono,monospace);" title="PRO tier required">&#128274; UPGRADE FOR FULL REPORT</a>'
+                                ) +
                             '</div>' +
                         '</div>';
                     } catch(itemErr) {
@@ -11067,9 +11110,19 @@ ${item.stix_object_count != null ? `<div class="apex-kv" style="margin-top:4px;"
                     <div class="modal-section-title">Links & Resources</div>
                     <div style="display:flex;flex-direction:column;gap:10px;">
                         ${(()=>{
-                            // v116.3.0: fallback chain + rewrite stale domain
-                            let ru = (item.report_url||'').replace('https://reports.cyberdudebivash.com','https://intel.cyberdudebivash.com');
+                            // ACCESS GOVERNANCE v173.0 — Links & Resources — MODEL_B DISABLED
+                            // Full dossier links gated to PRO+ tier only.
+                            const _mTier = (window._platformTiers && window._platformTiers.current) || 'free';
+                            const _mPro = _mTier==='pro'||_mTier==='PRO'||_mTier==='premium'||_mTier==='PREMIUM'||_mTier==='enterprise'||_mTier==='ENTERPRISE'||_mTier==='mssp'||_mTier==='MSSP';
                             const su = item.source_url||'';
+                            if (!_mPro) {
+                                // Public tier: show source article only + upgrade prompt
+                                const srcLink = su ? `<a href="${su}" target="_blank" rel="noopener" style="font-family:var(--font-mono);font-size:11px;color:var(--accent);border-bottom:1px solid rgba(0,212,170,0.3);width:fit-content;"><i class="fas fa-external-link-alt"></i> View Source Article</a>` : '';
+                                const upgradeLink = `<a href="/upgrade.html?plan=pro&utm_source=modal-links-gate" target="_blank" rel="noopener" style="font-family:var(--font-mono);font-size:11px;color:#8b5cf6;border-bottom:1px solid rgba(139,92,246,0.3);width:fit-content;"><i class="fas fa-lock"></i> 🔒 Upgrade to PRO — Full Dossier Access</a>`;
+                                return srcLink + upgradeLink;
+                            }
+                            // PRO+ tier: full dossier link
+                            let ru = (item.report_url||item.internal_report_url||'').replace('https://reports.cyberdudebivash.com','https://intel.cyberdudebivash.com');
                             const hasReport = ru && item.validation_status !== 'quality_fail' && item.validation_status !== 'write_error' && item.validation_status !== 'file_missing' && item.validation_status !== 'brand_skip';
                             const u = hasReport ? ru : su;
                             const lbl = hasReport ? 'View Full Tactical Dossier' : 'View Source Article';
@@ -11082,10 +11135,16 @@ ${item.stix_object_count != null ? `<div class="apex-kv" style="margin-top:4px;"
                 </div>
 
                 <div style="border-top:1px solid var(--border);padding-top:16px;display:flex;gap:10px;flex-wrap:wrap;">
-                    <a href="${((r,s)=>{ const ru=(r||'').replace('https://reports.cyberdudebivash.com','https://intel.cyberdudebivash.com'); const hasR=ru&&item.validation_status!=='quality_fail'&&item.validation_status!=='write_error'; return hasR?ru:(s||'#'); })(item.report_url,item.source_url)}" target="_blank" rel="noopener"
-                       style="padding:10px 20px;background:var(--accent);color:var(--bg);border-radius:3px;font-family:var(--font-mono);font-size:11px;font-weight:900;text-decoration:none;">
-                        VIEW DOSSIER →
-                    </a>
+                    ${(()=>{
+                        // ACCESS GOVERNANCE v173.0 — Modal VIEW DOSSIER gated to PRO+
+                        const _mdTier = (window._platformTiers && window._platformTiers.current) || 'free';
+                        const _mdPro = _mdTier==='pro'||_mdTier==='PRO'||_mdTier==='premium'||_mdTier==='PREMIUM'||_mdTier==='enterprise'||_mdTier==='ENTERPRISE'||_mdTier==='mssp'||_mdTier==='MSSP';
+                        if (_mdPro) {
+                            const _mdr = ((r,s)=>{ const ru=(r||'').replace('https://reports.cyberdudebivash.com','https://intel.cyberdudebivash.com'); const hasR=ru&&item.validation_status!=='quality_fail'&&item.validation_status!=='write_error'; return hasR?ru:(s||'#'); })(item.report_url||item.internal_report_url,item.source_url);
+                            return `<a href="${_mdr}" target="_blank" rel="noopener" style="padding:10px 20px;background:var(--accent);color:var(--bg);border-radius:3px;font-family:var(--font-mono);font-size:11px;font-weight:900;text-decoration:none;">VIEW DOSSIER →</a>`;
+                        }
+                        return `<a href="/upgrade.html?plan=pro&utm_source=modal-dossier-gate" target="_blank" rel="noopener" style="padding:10px 20px;background:rgba(139,92,246,0.15);color:#8b5cf6;border:1px solid rgba(139,92,246,0.3);border-radius:3px;font-family:var(--font-mono);font-size:11px;font-weight:900;text-decoration:none;">🔒 UPGRADE FOR DOSSIER</a>`;
+                    })()}
                     <button onclick="copyCurrentModalJson()" id="modal-copy-json-btn"
                             style="padding:10px 20px;background:var(--bg-surface);color:var(--text);border:1px solid var(--border);border-radius:3px;font-family:var(--font-mono);font-size:11px;cursor:pointer;">
                         <i class="fas fa-copy"></i> Copy JSON Record

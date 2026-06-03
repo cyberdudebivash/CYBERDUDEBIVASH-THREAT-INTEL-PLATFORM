@@ -34,6 +34,19 @@ from starlette.middleware.base import BaseHTTPMiddleware
 
 from agent.api import public_api, premium_api
 
+# ACCESS GOVERNANCE v173.0 — Single Source of Truth
+# All access decisions must flow through access_control_policy.
+# This import also runs _self_check_on_import() which will raise on startup
+# if the policy is in an invalid state — preventing a bad deploy from going live.
+from access_control_policy import (
+    TIER_PUBLIC, TIER_PRO, TIER_ENTERPRISE, TIER_MSSP,
+    validate_api_response,
+    run_policy_checks,
+    detect_policy_drift,
+    generate_audit_record,
+    POLICY_CANONICAL_VERSION,
+)
+
 # Graceful config import — VERSION may be in config or config_v25
 try:
     from agent.config import VERSION, AUTHORITY, API_HOST, API_PORT
@@ -327,10 +340,49 @@ async def jwks_endpoint():
 @app.on_event("startup")
 async def startup_event():
     # Original startup output — preserved exactly
-    print(f"? CDB SENTINEL APEX v{VERSION}: ONLINE")
-    print(f"? DELIVERY VAULT: ACTIVE")
-    print(f"? REVENUE ENGINE: MONITORING MRR")
+    print(f"✅ CDB SENTINEL APEX v{VERSION}: ONLINE")
+    print(f"🔐 DELIVERY VAULT: ACTIVE")
+    print(f"💰 REVENUE ENGINE: MONITORING MRR")
     print(f"Authority: {AUTHORITY}")
+
+    # ── ACCESS GOVERNANCE v173.0 STARTUP VALIDATION ──────────────────────────
+    # Run policy self-checks at startup. If any check fails, log a CRITICAL
+    # alert. The platform starts but the ops team is immediately notified.
+    # A hard crash is avoided to preserve availability, but the CI deployment
+    # gate (deployment_gate.py) will have already blocked bad code from shipping.
+    policy_result = run_policy_checks()
+    if policy_result["passed"]:
+        logger.info(
+            "[ACCESS-GOVERNANCE] Policy startup checks PASSED",
+            extra={
+                "policy_version":  POLICY_CANONICAL_VERSION,
+                "checks_passed":   policy_result["checks_passed"],
+                "total_checks":    policy_result["total_checks"],
+                "model_c_active":  True,
+                "model_a_disabled":True,
+                "model_b_disabled":True,
+            }
+        )
+        print(f"🛡️  ACCESS GOVERNANCE: POLICY v{POLICY_CANONICAL_VERSION} — ALL {policy_result['total_checks']} CHECKS PASSED")
+    else:
+        failed = [k for k, v in policy_result["checks"].items() if not v["passed"]]
+        logger.critical(
+            "[ACCESS-GOVERNANCE] POLICY STARTUP CHECK FAILED — COMMERCIAL ACCESS AT RISK",
+            extra={"failed_checks": failed, "policy_version": POLICY_CANONICAL_VERSION}
+        )
+        print(f"🚨 ACCESS GOVERNANCE FAILURE: {len(failed)} checks failed — {failed}")
+
+    # Persist startup audit snapshot
+    try:
+        import os, json
+        os.makedirs("reports", exist_ok=True)
+        audit = generate_audit_record()
+        with open("reports/access_policy_audit.json", "w") as _af:
+            json.dump(audit, _af, indent=2)
+        logger.info("[ACCESS-GOVERNANCE] Audit snapshot written to reports/access_policy_audit.json")
+    except Exception as _ae:
+        logger.warning(f"[ACCESS-GOVERNANCE] Audit snapshot write failed: {_ae}")
+    # ── END ACCESS GOVERNANCE STARTUP ──────────────────────────────────────────
 
     # Enterprise extensions — structured log for Railway/Docker log aggregator
     logger.info(
