@@ -1,0 +1,39 @@
+title: Registry Run Key Created by Suspicious Process
+id: malware-reg-run-persist-001
+status: stable
+description: |
+    Detects creation of registry run keys by processes outside of standard
+    installation paths. Used by virtually all RATs, infostealers, and
+    backdoors for persistence: Remcos, AsyncRAT, njRAT, AgentTesla, XWorm.
+author: SENTINEL APEX
+date: 2026/06/02
+tags:
+    - attack.persistence
+    - attack.T1547.001
+logsource:
+    category: registry_event
+    product: windows
+detection:
+    selection_run_keys:
+        EventType: SetValue
+        TargetObject|contains:
+            - '\Software\Microsoft\Windows\CurrentVersion\Run\'
+            - '\Software\Microsoft\Windows\CurrentVersion\RunOnce\'
+            - '\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon'
+    filter_legitimate:
+        Image|contains:
+            - '\Program Files\'
+            - '\Program Files (x86)\'
+            - '\Windows\System32\'
+            - '\Windows\SysWOW64\'
+            - 'MicrosoftEdgeUpdate'
+            - 'OneDrive'
+    filter_user_scope:
+        TargetObject|contains:
+            - 'HKCU\Software\Microsoft\Windows\CurrentVersion\Run\OneDrive'
+            - 'HKCU\Software\Microsoft\Windows\CurrentVersion\Run\Teams'
+    condition: selection_run_keys and not 1 of filter_*
+falsepositives:
+    - Legitimate user-installed software using run keys
+    - Software update mechanisms
+level: high

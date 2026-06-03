@@ -1,0 +1,47 @@
+title: Office Application Spawning Scripting Interpreter
+id: phish-office-spawn-001
+status: stable
+description: |
+    Detects Microsoft Office applications spawning command interpreters or
+    scripting engines. This is a primary indicator of malicious macro execution
+    from phishing documents. Observed in Emotet, QakBot, IcedID, and numerous
+    other malware families delivered via email.
+author: SENTINEL APEX
+date: 2026/06/02
+tags:
+    - attack.initial_access
+    - attack.T1566.001
+    - attack.execution
+    - attack.T1204.002
+    - attack.T1059
+references:
+    - https://attack.mitre.org/techniques/T1566/001/
+logsource:
+    category: process_creation
+    product: windows
+detection:
+    selection_office_parent:
+        ParentImage|endswith:
+            - '\winword.exe'
+            - '\excel.exe'
+            - '\powerpnt.exe'
+            - '\outlook.exe'
+            - '\onenote.exe'
+            - '\msaccess.exe'
+    selection_suspicious_child:
+        Image|endswith:
+            - '\cmd.exe'
+            - '\powershell.exe'
+            - '\pwsh.exe'
+            - '\wscript.exe'
+            - '\cscript.exe'
+            - '\mshta.exe'
+            - '\regsvr32.exe'
+            - '\rundll32.exe'
+            - '\certutil.exe'
+            - '\bitsadmin.exe'
+    condition: all of selection_*
+falsepositives:
+    - Legitimate macros in organization-trusted document templates
+    - IT automation scripts run via Office (verify with baseline)
+level: high

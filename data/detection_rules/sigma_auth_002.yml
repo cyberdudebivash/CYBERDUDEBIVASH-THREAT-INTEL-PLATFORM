@@ -1,0 +1,25 @@
+title: JWT None Algorithm Authentication Bypass Attempt
+id: auth-bypass-jwt-none-001
+status: stable
+description: Detects JWT tokens using 'none' algorithm which bypasses signature verification
+author: SENTINEL APEX
+date: 2026/06/02
+tags:
+    - attack.defense_evasion
+    - attack.T1550
+    - attack.T1078
+logsource:
+    category: webserver
+detection:
+    selection_jwt_none:
+        cs_uri_query|base64offset|contains:
+            - 'alg":"none"'
+            - 'alg": "none"'
+            - '"alg":"NONE"'
+        cs_referer|contains: '/api/'
+    selection_header_jwt:
+        Authorization|contains: 'eyJhbGciOiJub25lIi'
+    condition: 1 of selection_*
+falsepositives:
+    - Development/test environments with unsigned tokens
+level: critical

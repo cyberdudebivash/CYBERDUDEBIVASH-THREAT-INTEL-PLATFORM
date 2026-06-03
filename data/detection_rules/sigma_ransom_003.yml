@@ -1,0 +1,52 @@
+title: Ransomware Bulk Service/Database Process Termination
+id: ransom-service-kill-001
+status: stable
+description: |
+    Detects bulk termination of database, backup, and security services
+    as a precursor to ransomware deployment. This pattern is observed
+    across LockBit, Black Basta, Akira, and Cl0p operations.
+author: SENTINEL APEX
+date: 2026/06/02
+tags:
+    - attack.impact
+    - attack.T1489
+    - attack.T1562.001
+logsource:
+    category: process_creation
+    product: windows
+detection:
+    selection_sc_stop:
+        Image|endswith: '\sc.exe'
+        CommandLine|contains: 'stop'
+        CommandLine|contains:
+            - 'BackupExec'
+            - 'MSSQL'
+            - 'MySQL'
+            - 'Oracle'
+            - 'Veeam'
+            - 'SQLWriter'
+            - 'VeeamDeploymentSvc'
+    selection_net_stop:
+        Image|endswith:
+            - '\net.exe'
+            - '\net1.exe'
+        CommandLine|startswith: 'stop'
+        CommandLine|contains:
+            - 'sql'
+            - 'oracle'
+            - 'backup'
+            - 'veeam'
+            - 'exchange'
+    selection_taskkill_db:
+        Image|endswith: '\taskkill.exe'
+        CommandLine|contains: '/f'
+        CommandLine|contains:
+            - 'sqlservr'
+            - 'mysqld'
+            - 'oracle'
+            - 'backup'
+    condition: 1 of selection_*
+falsepositives:
+    - Planned database maintenance windows
+    - Legitimate deployment scripts
+level: high

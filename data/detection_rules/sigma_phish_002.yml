@@ -1,0 +1,41 @@
+title: HTML Smuggling - Browser Writing Executable to Downloads
+id: phish-html-smuggling-001
+status: stable
+description: |
+    Detects potential HTML smuggling where a browser process writes executable
+    content directly to the Downloads directory. Used in sophisticated phishing
+    campaigns to bypass email gateway scanning.
+author: SENTINEL APEX
+date: 2026/06/02
+tags:
+    - attack.initial_access
+    - attack.T1566.002
+    - attack.T1027.006
+logsource:
+    category: file_event
+    product: windows
+detection:
+    selection_browser_drop_executable:
+        Image|endswith:
+            - '\chrome.exe'
+            - '\msedge.exe'
+            - '\firefox.exe'
+            - '\iexplore.exe'
+        TargetFilename|contains: '\Downloads\'
+        TargetFilename|endswith:
+            - '.exe'
+            - '.dll'
+            - '.msi'
+            - '.iso'
+            - '.img'
+            - '.hta'
+    filter_known_updates:
+        TargetFilename|contains:
+            - 'ChromeSetup'
+            - 'MicrosoftEdgeSetup'
+            - 'Firefox Setup'
+    condition: selection_browser_drop_executable and not filter_known_updates
+falsepositives:
+    - Legitimate software downloads
+    - Security tool deployment via browser
+level: medium
