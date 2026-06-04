@@ -518,10 +518,79 @@ _KEV_CATALOG_PATHS = [
     REPO_ROOT / "data" / "kev" / "kev_catalog.json",
     REPO_ROOT / "data" / "correlation" / "kev_catalog.json",
 ]
+_KEV_LIVE_URL = "https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json"
+_KEV_CATALOG_MAX_AGE_DAYS = 30   # If local catalog is older than this, fetch live
+
+
+def _catalog_age_days(data: dict) -> float:
+    """Return age of catalog in days based on catalogVersion or fetched_at field."""
+    for key in ("catalogVersion", "fetched_at", "updated_at"):
+        val = data.get(key)
+        if not val:
+            continue
+        try:
+            # Handle ISO-8601 timestamps
+            if "T" in str(val):
+                dt = datetime.fromisoformat(str(val).replace("Z", "+00:00"))
+                return (datetime.now(timezone.utc) - dt).days
+            # Handle YYYY.MM.DD version strings (e.g. "2026.04.02")
+            parts = str(val).split(".")
+            if len(parts) == 3:
+                dt = datetime(int(parts[0]), int(parts[1]), int(parts[2]), tzinfo=timezone.utc)
+                return (datetime.now(timezone.utc) - dt).days
+        except Exception:
+            continue
+    return float("inf")
+
+
+def _fetch_live_kev_catalog() -> Tuple[Optional[set], str]:
+    """Fetch CISA KEV catalog live and optionally refresh local cache. Returns (set|None, version)."""
+    try:
+        import urllib.request
+        req = urllib.request.Request(
+            _KEV_LIVE_URL,
+            headers={"User-Agent": "SENTINEL-APEX-IIG/175.0 (KEV-CrossValidation)"},
+        )
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+        vulns = data.get("vulnerabilities", [])
+        ids = set()
+        for v in vulns:
+            cid = str(v.get("cveID") or "")
+            m = CVE_ID_RE.search(cid)
+            if m:
+                ids.add(m.group(0).upper())
+        ver = data.get("catalogVersion", "live")
+        log.info("[D] KEV catalog fetched live from CISA: %d CVEs (version %s)", len(ids), ver)
+        # Refresh the local cache so the next run is fast
+        for p in _KEV_CATALOG_PATHS:
+            try:
+                p.parent.mkdir(parents=True, exist_ok=True)
+                import copy
+                cached = copy.deepcopy(data)
+                cached["fetched_at"] = datetime.now(timezone.utc).isoformat()
+                p.write_text(json.dumps(cached, indent=2), encoding="utf-8")
+                log.info("[D] KEV catalog cache refreshed: %s", p)
+                break
+            except Exception as cache_e:
+                log.debug("[D] KEV cache write failed (%s): %s", p, cache_e)
+        return ids, ver
+    except Exception as e:
+        log.warning("[D] Live KEV fetch failed: %s", e)
+        return None, "fetch-failed"
 
 
 def _load_kev_catalog() -> Tuple[Optional[set], str]:
-    """Load the CISA KEV CVE-ID set from the first available catalog. Returns (set|None, version)."""
+    """Load the CISA KEV CVE-ID set.
+    Priority:
+      1. Local catalog file (if fresh, i.e. age <= _KEV_CATALOG_MAX_AGE_DAYS)
+      2. Live CISA fetch (if local is stale or missing) — refreshes local cache
+    Returns (set|None, version).
+    P0-FIX v175.0: Added live-fetch fallback so the gate never cross-validates
+    against a stale catalog. Stale catalog was causing false INFLATION HARD_FAIL
+    for legitimate KEV entries added after the local catalog's cutoff date
+    (confirmed: CVE-2026-0257 added 2026-05-29, local catalog was 2026.04.02).
+    """
     for p in _KEV_CATALOG_PATHS:
         if not p.exists():
             continue
@@ -537,8 +606,20 @@ def _load_kev_catalog() -> Tuple[Optional[set], str]:
             if m:
                 ids.add(m.group(0).upper())
         ver = (data.get("catalogVersion") or data.get("updated_at") or "unknown") if isinstance(data, dict) else "unknown"
+        age = _catalog_age_days(data) if isinstance(data, dict) else float("inf")
+        if age > _KEV_CATALOG_MAX_AGE_DAYS:
+            log.warning(
+                "[D] Local KEV catalog is %.0f days old (version %s) — fetching live from CISA "
+                "to prevent false INFLATION alerts from catalog version skew.", age, ver
+            )
+            live_ids, live_ver = _fetch_live_kev_catalog()
+            if live_ids is not None:
+                return live_ids, live_ver
+            log.warning("[D] Live fetch failed — falling back to stale local catalog (%s).", ver)
         return ids, ver
-    return None, "missing"
+    # No local file found — try live fetch
+    log.warning("[D] No local KEV catalog found — attempting live CISA fetch.")
+    return _fetch_live_kev_catalog()
 
 
 class KEVHealthGate:

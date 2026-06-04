@@ -106,16 +106,24 @@ class VanguardEngine:
                 logger.warning(f"VANGUARD IOC validation failed (non-critical): {e}")
 
         # -- 2. KEV Enrichment --
+        # P0-FIX v175.0: KEV attribution MUST be scoped to the PRIMARY advisory CVE only.
+        # cve_ids contains ALL CVEs extracted from article text (primary + any referenced CVEs).
+        # Iterating beyond cve_ids[0] causes cross-CVE contamination: a secondary referenced
+        # CVE that happens to be KEV-listed (e.g. an old vuln mentioned for context) falsely
+        # marks the advisory's primary CVE as KEV=True.
+        # Confirmed cases:
+        #   CVE-2026-3102 advisory referenced CVE-2021-22204 (ExifTool, KEV) → false kev=True
+        #   CVE-2026-0826 advisories referenced CVE-2026-20182 (Cisco, KEV) → false kev=True
+        # Fix: only check cve_ids[0] (the advisory's primary CVE) against the KEV catalog.
         if _kev_enricher and cve_ids:
             try:
-                for cve_id in cve_ids[:5]:  # Limit to first 5 CVEs
-                    is_kev, kev_meta = _kev_enricher.lookup(cve_id)
-                    if is_kev:
-                        result["kev_present"] = True
-                        result["kev_metadata"] = kev_meta
-                        result["enhancements_applied"].append("kev_enrichment")
-                        logger.info(f"VANGUARD KEV: {cve_id} CONFIRMED in CISA KEV catalog")
-                        break  # One KEV hit is sufficient to flag
+                primary_cve = cve_ids[0]  # Primary advisory CVE only — never check secondary refs
+                is_kev, kev_meta = _kev_enricher.lookup(primary_cve)
+                if is_kev:
+                    result["kev_present"] = True
+                    result["kev_metadata"] = kev_meta
+                    result["enhancements_applied"].append("kev_enrichment")
+                    logger.info(f"? KEV CONFIRMED: {primary_cve} CONFIRMED in CISA KEV catalog")
             except Exception as e:
                 logger.warning(f"VANGUARD KEV enrichment failed (non-critical): {e}")
 
