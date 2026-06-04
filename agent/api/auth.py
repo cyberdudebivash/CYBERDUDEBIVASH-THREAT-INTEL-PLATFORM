@@ -36,12 +36,17 @@ from agent.config import (
 
 logger = logging.getLogger("CDB-AUTH")
 
-# -- Tier constants (4-tier model v1.0.0) --
+# -- Tier constants (v176.0 — 6-tier commercial model) --
 TIER_FREE       = "FREE"
 TIER_STANDARD   = "STANDARD"
 TIER_PREMIUM    = "PREMIUM"
-TIER_PRO        = "PRO"        # legacy alias - treated as PREMIUM internally
+TIER_PRO        = "PRO"        # legacy alias — treated as PREMIUM internally
 TIER_ENTERPRISE = "ENTERPRISE"
+TIER_MSSP       = "MSSP"       # v176.0: MSSP commercial tier (500k calls/day)
+TIER_TRIAL      = "TRIAL"      # v176.0: 7-day trial tier (500 calls/day)
+
+# Tier hierarchy (higher index = higher privilege)
+TIER_HIERARCHY = [TIER_FREE, TIER_STANDARD, TIER_TRIAL, TIER_PREMIUM, TIER_PRO, TIER_ENTERPRISE, TIER_MSSP]
 
 JWT_ALGORITHM   = "HS256"
 JWT_EXPIRY_SECS = 86400  # 24 hours
@@ -49,6 +54,34 @@ JWT_EXPIRY_SECS = 86400  # 24 hours
 # Revocation registry path — keys listed here are IMMEDIATELY rejected regardless
 # of tier, without requiring config reload or service restart.
 _REVOCATION_REGISTRY_PATH = "data/security/revoked_keys.json"
+
+# v176.0: Runtime key registry — keys issued via generate_key.py
+# Loaded on every resolve_tier() call for zero-restart key activation
+_ACTIVE_KEYS_PATH = "data/keys/active_keys.json"
+
+
+def _load_active_key_registry() -> dict:
+    """Load runtime key registry (data/keys/active_keys.json)."""
+    try:
+        if os.path.exists(_ACTIVE_KEYS_PATH):
+            with open(_ACTIVE_KEYS_PATH, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            return data.get("keys", {})
+    except Exception as e:
+        logger.warning(f"[AUTH] Active key registry load failed: {e}")
+    return {}
+
+
+def _check_runtime_expiry(record: dict) -> bool:
+    """Return True if the key record is still within its validity window."""
+    try:
+        expires_at = record.get("expires_at", "")
+        if not expires_at:
+            return True  # No expiry set — assume valid (legacy)
+        exp_dt = datetime.fromisoformat(expires_at.replace("Z", "+00:00"))
+        return datetime.now(timezone.utc) < exp_dt
+    except Exception:
+        return True  # Parse error — be permissive, log separately
 
 
 def _load_revocation_registry() -> set:
@@ -116,11 +149,18 @@ class AuthHandler:
         return TIER_FREE, f"anon:{remote_ip}", None
 
     def _validate_api_key(self, key: str) -> Tuple[str, str]:
-        """Check key against all tier sets. Hierarchy: ENTERPRISE > PREMIUM > STANDARD > FREE.
+        """
+        Check key against all tier sets.
+        Hierarchy (v176.0): MSSP > ENTERPRISE > PREMIUM/PRO > TRIAL > STANDARD > FREE
 
-        Revocation check runs FIRST — a revoked key is rejected regardless of tier.
+        Resolution order:
+        1. Revocation check (immediate reject if revoked)
+        2. Config-based keys (existing — no restart needed for config reload)
+        3. Runtime key registry (data/keys/active_keys.json — no restart needed)
+
+        Revocation check runs first - a revoked key is rejected regardless of tier.
         The revocation registry is reloaded on every call so runtime revocations
-        (e.g., after a credential leak is reported) take effect immediately.
+        (e.g., after a credential leak) take effect immediately.
         """
         key = key.strip()
         # Revocation guard — check registry before tier resolution
@@ -129,14 +169,43 @@ class AuthHandler:
             logger.warning(f"[AUTH] REVOKED key attempted: {key[:8]}***")
             self._audit("APIKEY_REVOKED", f"rev:{key[:8]}", TIER_FREE, "revocation-check")
             return TIER_FREE, f"revoked:{key[:8]}"
-        # Tier resolution
+        # ── 1. Config-based tier resolution (existing behaviour, no change) ──
         if key in CDB_ENTERPRISE_API_KEYS:
             return TIER_ENTERPRISE, f"ent:{key[:8]}"
         if key in CDB_PREMIUM_API_KEYS or key in CDB_PRO_API_KEYS:
-            # CDB_PRO_API_KEYS is a legacy alias - treated as PREMIUM
+            # CDB_PRO_API_KEYS is a legacy alias — treated as PREMIUM internally
             return TIER_PREMIUM, f"prm:{key[:8]}"
         if key in CDB_STANDARD_API_KEYS:
             return TIER_STANDARD, f"std:{key[:8]}"
+
+        # ── 2. v176.0: Runtime key registry (data/keys/active_keys.json) ──
+        # Enables zero-restart key provisioning via generate_key.py
+        kh = _key_hash(key)
+        registry = _load_active_key_registry()
+        if kh in registry:
+            record = registry[kh]
+            # Check expiry before granting access
+            if not _check_runtime_expiry(record):
+                logger.info(f"[AUTH] Runtime key EXPIRED: {key[:8]}*** ref={record.get('reference_id','?')}")
+                self._audit("APIKEY_EXPIRED", f"exp:{key[:8]}", TIER_FREE, "expiry-check")
+                return TIER_FREE, f"expired:{key[:8]}"
+            # Check record-level revocation status
+            if record.get("status") == "revoked":
+                self._audit("APIKEY_REVOKED", f"rev:{key[:8]}", TIER_FREE, "registry-revoked")
+                return TIER_FREE, f"revoked:{key[:8]}"
+            # Resolve tier from registry record
+            tier = record.get("tier", TIER_FREE).upper()
+            identity_prefix = {
+                TIER_MSSP: "mssp", TIER_ENTERPRISE: "ent",
+                TIER_PRO: "prm", TIER_PREMIUM: "prm",
+                TIER_TRIAL: "trial", TIER_STANDARD: "std",
+            }.get(tier, "reg")
+            logger.debug(f"[AUTH] Runtime registry hit: {key[:8]}*** tier={tier}")
+            self._audit("APIKEY_REGISTRY_HIT", f"reg:{key[:8]}", tier,
+                        record.get("customer_email", "?"))
+            return tier, f"{identity_prefix}:{key[:8]}"
+
+        # ── 3. Unknown key — default to FREE ──
         return TIER_FREE, f"unk:{key[:8]}"
 
     # ── Revocation management ─────────────────────────────────────────────────

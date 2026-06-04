@@ -1,0 +1,100 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://intel.cyberdudebivash.com/schemas/subscription.json",
+  "title": "SENTINEL APEX Subscription Schema v1.0",
+  "description": "Canonical schema for a subscription lifecycle record",
+  "type": "object",
+  "required": ["id", "reference_id", "customer_email", "tier", "status", "starts_at", "expires_at"],
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "reference_id": {
+      "type": "string",
+      "pattern": "^SA-[0-9]{8}-[A-Z0-9]{4}$"
+    },
+    "customer_email": {
+      "type": "string",
+      "format": "email"
+    },
+    "tier": {
+      "type": "string",
+      "enum": ["FREE", "PRO", "ENTERPRISE", "MSSP", "TRIAL"],
+      "description": "API tier mapped to backend auth.py"
+    },
+    "plan_name": {
+      "type": "string",
+      "description": "Human-readable plan name"
+    },
+    "billing_cycle": {
+      "type": "string",
+      "enum": ["monthly", "annual", "free", "trial"]
+    },
+    "amount_inr_per_cycle": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "api_calls_per_day": {
+      "type": "integer",
+      "description": "Daily API call quota for this subscription"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["active", "grace", "suspended", "expired", "cancelled", "trial"],
+      "description": "Current subscription lifecycle status"
+    },
+    "starts_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Subscription start (UTC)"
+    },
+    "expires_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Subscription expiry (UTC)"
+    },
+    "grace_ends_at": {
+      "type": ["string", "null"],
+      "format": "date-time",
+      "description": "Grace period end — key remains active until this date after expiry"
+    },
+    "renewal_count": {
+      "type": "integer",
+      "minimum": 0,
+      "default": 0
+    },
+    "last_renewed_at": {
+      "type": ["string", "null"],
+      "format": "date-time"
+    },
+    "renewal_reminded_d14": {"type": "boolean", "default": false},
+    "renewal_reminded_d7":  {"type": "boolean", "default": false},
+    "renewal_reminded_d3":  {"type": "boolean", "default": false},
+    "api_key_hash": {
+      "type": "string",
+      "description": "SHA-256 hash of the API key for this subscription period"
+    },
+    "transaction_ids": {
+      "type": "array",
+      "items": {"type": "string"},
+      "description": "All transaction IDs associated with this subscription"
+    },
+    "mssp_client_count": {
+      "type": ["integer", "null"],
+      "description": "Number of sub-clients (MSSP only)"
+    },
+    "notes": {
+      "type": "string"
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "updated_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "additionalProperties": false
+}
