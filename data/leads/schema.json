@@ -1,0 +1,41 @@
+{
+  "_meta": {
+    "schema_version": "1.0",
+    "description": "SENTINEL APEX Lead CRM Schema v177.0",
+    "created": "2026-06-04",
+    "fields": "id, lead_id, name, email, company, country, phone, use_case, siem_platform, org_size, source, status, score, created_at, updated_at, trial_key, ref_id, notes"
+  },
+  "lead_schema": {
+    "id": "Auto-increment integer",
+    "lead_id": "LC-YYYYMMDD-XXXX (auto-generated)",
+    "name": "Full name",
+    "email": "Work email (required)",
+    "company": "Company name",
+    "country": "Country",
+    "phone": "WhatsApp / phone (optional)",
+    "use_case": "Intended use: SOC / SIEM Integration / Threat Hunting / Compliance / Research",
+    "siem_platform": "Splunk / Sentinel / QRadar / Elastic / Other / None",
+    "org_size": "1-10 / 11-50 / 51-250 / 251-1000 / 1000+",
+    "source": "direct / organic / referral / social / email / mssp-inquiry",
+    "status": "new | contacted | qualified | trial | paying | churned | disqualified",
+    "score": "0-100 (calculated: see scoring_criteria)",
+    "created_at": "ISO 8601 timestamp",
+    "updated_at": "ISO 8601 timestamp",
+    "trial_key": "API key prefix if trial issued (SA-TRIAL-XXXXX)",
+    "ref_id": "Customer reference if converted (SA-YYYYMMDD-XXXX)",
+    "converted_tier": "PRO | ENTERPRISE | MSSP | null",
+    "notes": "Operator freetext notes"
+  },
+  "scoring_criteria": {
+    "uses_siem": 25,
+    "org_size_250_plus": 20,
+    "org_size_51_250": 10,
+    "use_case_soc_or_threat_hunting": 20,
+    "sector_financial_healthcare_gov": 15,
+    "phone_provided": 10,
+    "enterprise_email_domain": 10
+  },
+  "status_flow": "new -> contacted -> qualified -> trial -> paying",
+  "auto_qualify_threshold": 40,
+  "auto_trial_threshold": 60
+}
