@@ -1360,6 +1360,33 @@ jobs:
           fi
 
       # -----------------------------------------------------------------------
+      # STAGE 3.93.14: FINAL KEV PASS — P0 KEV Re-marker on Fully-Assembled Feed
+      # P0-FIX v175.1: The earlier kev_feed_marker (Stage 3.1.3) runs before
+      # Stage 3.93 assembles the final api/feed.json from all STIX bundles.
+      # Pre-existing items added during Stage 3.93 assembly may have KEV CVEs
+      # that were never marked (added to CISA KEV after original publish date),
+      # or may carry false kev=True from prior enrichment bugs (inflation).
+      # This second pass ensures the feed is KEV-accurate before the integrity
+      # gate runs. Also de-inflates items whose CVE is not in the live catalog.
+      # Non-fatal: pipeline continues on failure, gate will catch any residual gaps.
+      # -----------------------------------------------------------------------
+      - name: "STAGE 3.93.14 - Final KEV Pass on Complete Feed (v175.1 P0 FIX)"
+        timeout-minutes: 3
+        continue-on-error: false
+        run: |
+          set +e
+          python3 scripts/kev_feed_marker.py
+          KEV2_EXIT=$?
+          set -e
+          if [ -f "data/health/kev_marker_report.json" ]; then
+            KEV2_MARKED=$(jq -r '.items_marked // "?"' data/health/kev_marker_report.json 2>/dev/null || echo "?")
+            KEV2_DEFLATED=$(jq -r '.items_deflated // "0"' data/health/kev_marker_report.json 2>/dev/null || echo "0")
+            KEV2_TOTAL=$(jq -r '.total_kev_in_feed // "?"' data/health/kev_marker_report.json 2>/dev/null || echo "?")
+            echo "[KEV-FINAL] NewlyMarked=$KEV2_MARKED | Deflated=$KEV2_DEFLATED | TotalKEVInFeed=$KEV2_TOTAL"
+          fi
+          echo "STAGE 3.93.14: Final KEV pass complete (exit=$KEV2_EXIT)"
+
+      # -----------------------------------------------------------------------
       # STAGE 3.93.15: P0 INTELLIGENCE INTEGRITY GATE (v158.5 -- NON-BLOCKING WARN)
       # Runs 8 safeguard checks against the live feed and manifest.
       # In --check mode it reports gate results but does NOT hard-fail the pipeline
