@@ -1,17 +1,25 @@
 #!/usr/bin/env python3
 """
 scripts/report_url_canary.py
-CYBERDUDEBIVASH(R) SENTINEL APEX v174.0 -- Report URL Canary (Existence + Body)
+CYBERDUDEBIVASH(R) SENTINEL APEX v174.1 -- Report URL Canary (Existence + Body)
 ====================================================================
 Two-phase, fail-closed verification that customer-facing report_url values
 actually resolve to a REAL report -- not a soft-404 stub, and not a stale
 historical sample.
 
-  --local  (PRE-DEPLOY, fail-closed, no network):
+  --local  (PRE/POST-DEPLOY, fail-closed, no network):
            For EVERY report_url in the CURRENT run's feed, verify the on-disk
-           artifact exists, is readable, and carries a valid report body
-           (size + <html> + no soft-404 marker). Exit 1 on ANY missing/invalid.
-           This is the gate that BLOCKS publish-before-persist.
+           artifact exists (in reports/ OR dist/reports/), is readable, and
+           carries a valid report body (size + <html> + no soft-404 marker).
+           Exit 1 on ANY missing/invalid. Blocks publish-before-persist.
+
+           Pipeline lifecycle on CI:
+             Stage 5.4.6  : reports/ -> dist/reports/  (copy)
+             Stage 5.4.6b : rm -rf reports/             (disk governance)
+             Stage 5.8.1b : THIS gate                   (dist/reports/ present)
+
+           The gate checks BOTH locations so it works correctly at any stage
+           position -- before OR after Stage 5.4.6b cleanup.
 
   --live / (default, POST-DEPLOY HTTP probe):
            GET each CURRENT-run report URL from the live site and validate the
@@ -28,6 +36,12 @@ ROOT CAUSES FIXED (v174.0):
      Now the CURRENT feed is the authoritative source.
   4. No pre-deploy existence gate -> URLs were published before artifacts were
      persisted. --local now fails closed before publish.
+
+ROOT CAUSE FIXED (v174.1):
+  5. --local checked ONLY reports/ directory. Stage 5.4.6b deletes reports/
+     for disk governance BEFORE Stage 5.8.1b runs this gate. All 11 artifacts
+     appeared missing even though they were present in dist/reports/.
+     Fix: _resolve_artifact() checks reports/ first, then dist/reports/.
 
 Env: PAGES_BASE_URL CANARY_WAIT_SECS CANARY_RETRY_COUNT CANARY_RETRY_WAIT
      CANARY_MAX_PROBES CANARY_TIMEOUT
@@ -54,14 +68,15 @@ logging.basicConfig(
 )
 log = logging.getLogger("sentinel.report_url_canary")
 
-REPO_ROOT      = Path(__file__).resolve().parent.parent
-REPORTS_DIR    = REPO_ROOT / "reports"
-PAGES_BASE_URL = os.environ.get("PAGES_BASE_URL", "https://intel.cyberdudebivash.com").rstrip("/")
-CANARY_WAIT    = int(os.environ.get("CANARY_WAIT_SECS", "120"))
-RETRY_COUNT    = int(os.environ.get("CANARY_RETRY_COUNT", "3"))
-RETRY_WAIT     = int(os.environ.get("CANARY_RETRY_WAIT", "60"))
-MAX_PROBES     = int(os.environ.get("CANARY_MAX_PROBES", "10"))
-HTTP_TIMEOUT   = int(os.environ.get("CANARY_TIMEOUT", "15"))
+REPO_ROOT          = Path(__file__).resolve().parent.parent
+REPORTS_DIR        = REPO_ROOT / "reports"
+DIST_REPORTS_DIR   = REPO_ROOT / "dist" / "reports"
+PAGES_BASE_URL     = os.environ.get("PAGES_BASE_URL", "https://intel.cyberdudebivash.com").rstrip("/")
+CANARY_WAIT        = int(os.environ.get("CANARY_WAIT_SECS", "120"))
+RETRY_COUNT        = int(os.environ.get("CANARY_RETRY_COUNT", "3"))
+RETRY_WAIT         = int(os.environ.get("CANARY_RETRY_WAIT", "60"))
+MAX_PROBES         = int(os.environ.get("CANARY_MAX_PROBES", "10"))
+HTTP_TIMEOUT       = int(os.environ.get("CANARY_TIMEOUT", "15"))
 
 MANIFEST_PATH = REPO_ROOT / "dist" / "deployment_manifest.json"
 FEED_PATHS = [REPO_ROOT / "api" / "feed.json", REPO_ROOT / "feed.json"]
@@ -148,10 +163,43 @@ def validate_body(body: str) -> Tuple[bool, str]:
     return True, "ok"
 
 
+def _resolve_artifact(rel: str) -> Optional[Path]:
+    """Return the first on-disk path that holds the artifact, checking both
+    the working-tree reports/ directory (pre-cleanup) and dist/reports/ (post-
+    Stage-5.4.6b cleanup, where the dist artifact is always present until
+    the gh-pages upload completes).  Returns None when neither location has
+    the file.
+
+    Pipeline lifecycle on CI:
+      Stage 5.4.6  : reports/ -> dist/reports/  (copy)
+      Stage 5.4.6b : rm -rf reports/             (disk governance)
+      Stage 5.8.1b : THIS gate                   (dist/reports/ still present)
+
+    On local dev both directories may coexist; reports/ is checked first.
+    """
+    for base in (REPORTS_DIR, DIST_REPORTS_DIR):
+        candidate = base / rel
+        if candidate.exists():
+            return candidate
+    return None
+
+
 def local_artifact_check(paths: List[str]) -> int:
-    """PRE-DEPLOY fail-closed: every current report_url must resolve to a valid
-    on-disk artifact. Exit 1 on ANY missing or invalid (report_not_found)."""
+    """PRE/POST-DEPLOY fail-closed: every current report_url must resolve to a
+    valid on-disk artifact in reports/ OR dist/reports/.  Exit 1 on ANY
+    missing or invalid (report_not_found body).
+
+    Root cause fix v174.1: Stage 5.4.6b deletes reports/ before Stage 5.8.1b
+    runs this gate. dist/reports/ is the authoritative fallback because
+    Stage 5.4.6 copies all reports there and nothing deletes dist/ before
+    Stage 5.8.1b executes.
+    """
+    reports_present  = REPORTS_DIR.exists()
+    dist_present     = DIST_REPORTS_DIR.exists()
     log.info("LOCAL pre-deploy artifact gate: %d current report_url(s)", len(paths))
+    log.info("Artifact search: reports/=%s  dist/reports/=%s",
+             "EXISTS" if reports_present else "ABSENT",
+             "EXISTS" if dist_present    else "ABSENT")
     if not paths:
         log.info("No report_url values in current feed -- nothing to publish, gate PASS (exit 0).")
         return 0
@@ -160,10 +208,10 @@ def local_artifact_check(paths: List[str]) -> int:
     ok = 0
     for rp in paths:
         rel = rp.split("/reports/", 1)[1]
-        disk = REPORTS_DIR / rel
-        if not disk.exists():
+        disk = _resolve_artifact(rel)
+        if disk is None:
             missing.append(rp)
-            log.error("[MISSING] %s -> %s (artifact not persisted)", rp, disk)
+            log.error("[MISSING] %s  (checked reports/ and dist/reports/)", rp)
             continue
         try:
             body = disk.read_text(encoding="utf-8", errors="replace")
@@ -174,7 +222,7 @@ def local_artifact_check(paths: List[str]) -> int:
         valid, why = validate_body(body)
         if valid:
             ok += 1
-            log.info("[OK] %s (%dB)", rp, len(body))
+            log.info("[OK] %s  [from %s] (%dB)", rp, disk.parent.parent.name, len(body))
         else:
             invalid.append((rp, why))
             log.error("[INVALID] %s -- %s", rp, why)
@@ -195,7 +243,7 @@ def probe_url(report_path: str) -> Tuple[str, int, str, str]:
     full_url = f"{PAGES_BASE_URL}{report_path}"
     try:
         req = urllib.request.Request(full_url, method="GET")
-        req.add_header("User-Agent", "CDB-Sentinel-Canary/174.0")
+        req.add_header("User-Agent", "CDB-Sentinel-Canary/174.1")
         with urllib.request.urlopen(req, timeout=HTTP_TIMEOUT) as resp:
             body = resp.read(131072).decode("utf-8", errors="replace")
             return full_url, resp.status, body, ""
@@ -259,15 +307,15 @@ def run_live(report_paths: List[str]) -> int:
 
 
 def main() -> int:
-    ap = argparse.ArgumentParser(description="SENTINEL APEX Report URL Canary v174.0")
+    ap = argparse.ArgumentParser(description="SENTINEL APEX Report URL Canary v174.1")
     ap.add_argument("--local", action="store_true",
-                    help="Pre-deploy fail-closed on-disk existence+body gate (no network)")
+                    help="Pre/post-deploy fail-closed on-disk existence+body gate (no network)")
     ap.add_argument("--live", action="store_true",
                     help="Post-deploy live HTTP probe with body validation")
     args = ap.parse_args()
 
     log.info("=" * 70)
-    log.info("SENTINEL APEX -- Report URL Canary v174.0")
+    log.info("SENTINEL APEX -- Report URL Canary v174.1")
     log.info("Mode: %s | Pages base: %s", "LOCAL" if args.local else "LIVE", PAGES_BASE_URL)
     log.info("=" * 70)
 
