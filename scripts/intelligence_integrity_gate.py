@@ -133,7 +133,15 @@ def load_feed(path: Path) -> List[Dict]:
         log.error("[load] Feed not found: %s", path)
         sys.exit(2)
     try:
-        raw = json.loads(path.read_text(encoding="utf-8"))
+        blob = path.read_bytes()
+        nul = blob.count(b"\x00")
+        if nul:
+            # P0-3 fix (v174): feed.json carries NUL-byte padding corruption that
+            # made strict json.loads raise "Extra data" -> sys.exit(2) on EVERY run,
+            # so the gate never executed. Strip padding (same guard as certifier/canary).
+            log.warning("[load] Feed contains %d NUL byte(s) -- stripping corruption padding", nul)
+            blob = blob.rstrip(b"\x00").replace(b"\x00", b"")
+        raw = json.loads(blob.decode("utf-8", errors="replace"))
     except Exception as e:
         log.error("[load] Cannot parse %s: %s", path, e)
         sys.exit(2)
@@ -506,6 +514,33 @@ class FeedDiversityValidator:
 
 # ── Safeguard D: KEV Health Gate ──────────────────────────────────────────────
 
+_KEV_CATALOG_PATHS = [
+    REPO_ROOT / "data" / "kev" / "kev_catalog.json",
+    REPO_ROOT / "data" / "correlation" / "kev_catalog.json",
+]
+
+
+def _load_kev_catalog() -> Tuple[Optional[set], str]:
+    """Load the CISA KEV CVE-ID set from the first available catalog. Returns (set|None, version)."""
+    for p in _KEV_CATALOG_PATHS:
+        if not p.exists():
+            continue
+        try:
+            data = json.loads(p.read_bytes().rstrip(b"\x00").decode("utf-8", "replace"))
+        except Exception:
+            continue
+        vulns = data.get("vulnerabilities") if isinstance(data, dict) else (data if isinstance(data, list) else [])
+        ids = set()
+        for v in (vulns or []):
+            cid = str((v.get("cveID") or v.get("cve_id") or v.get("cve") or "") if isinstance(v, dict) else v)
+            m = CVE_ID_RE.search(cid)
+            if m:
+                ids.add(m.group(0).upper())
+        ver = (data.get("catalogVersion") or data.get("updated_at") or "unknown") if isinstance(data, dict) else "unknown"
+        return ids, ver
+    return None, "missing"
+
+
 class KEVHealthGate:
     """CISA KEV enrichment continuity enforcement."""
 
@@ -516,42 +551,64 @@ class KEVHealthGate:
         if not items:
             return False, ["[D] KEV Health Gate: no items to check."]
 
+        # ── v174 P0-3: cross-validate against the REAL CISA KEV catalog ─────────
+        # The prior heuristic HARD_FAILed on "0 KEV" for any feed with >=10 CVEs.
+        # That is a FALSE POSITIVE for fresh feeds whose CVEs CISA has not yet
+        # KEV-listed. We now enforce CORRECTNESS: KEV inflation (claimed but not in
+        # catalog) and missed enrichment (in catalog but unflagged) HARD_FAIL.
         kev_items = [item for item in items if _kev(item)]
         cve_items = [item for item in items if _cves(item)]
         kev_ratio = len(kev_items) / len(items)
-
         findings.append(
             f"[D] KEV: {len(kev_items)}/{len(items)} items KEV-confirmed "
             f"({kev_ratio:.1%}), CVE-linked items: {len(cve_items)}"
         )
 
-        # Flat zero KEV on a large feed with CVEs is a strong enrichment failure signal
-        if len(cve_items) >= 10 and len(kev_items) == 0:
+        catalog_kev, catalog_ver = _load_kev_catalog()
+        if catalog_kev is None:
             findings.append(
-                f"[D] KEV ENRICHMENT FAILURE: {len(cve_items)} CVE-linked advisories but "
-                f"0 KEV confirmations. CISA KEV catalog should match some fraction of CVEs. "
-                f"Check kev_checker.py and CISA KEV catalog ingestion pipeline."
+                "[D] WARN — KEV catalog not found (data/kev/ or data/correlation/); "
+                "cannot cross-validate KEV markers. Review catalog ingestion."
+            )
+            return hard_fail, findings
+
+        findings.append(f"[D] KEV catalog: {catalog_ver} ({len(catalog_kev)} CVEs)")
+
+        inflated, missed, overlap = [], [], set()
+        for item in items:
+            cves = {c.upper() for c in _cves(item)}
+            hit = cves & catalog_kev
+            overlap |= hit
+            marked = _kev(item)
+            if marked and cves and not hit:
+                inflated.append(sorted(cves)[0])
+            elif hit and not marked:
+                missed.append(sorted(hit)[0])
+
+        findings.append(
+            f"[D] KEV cross-check: feed_cap_catalog={len(overlap)}, "
+            f"inflated(claimed!=catalog)={len(inflated)}, missed(catalog!=flagged)={len(missed)}"
+        )
+        if inflated:
+            findings.append(
+                f"[D] KEV INFLATION HARD_FAIL: {len(inflated)} item(s) flagged KEV-true with no "
+                f"CISA KEV match (fabricated urgency): {inflated[:8]}"
             )
             hard_fail = True
-        elif kev_ratio < KEV_EXPECTED_RATIO and len(items) >= 30:
+        if missed:
             findings.append(
-                f"[D] WARN — Low KEV ratio: {kev_ratio:.1%} "
-                f"(expected ≥{KEV_EXPECTED_RATIO:.0%}). "
-                f"Review KEV catalog sync and enrichment pipeline."
+                f"[D] KEV ENRICHMENT GAP HARD_FAIL: {len(missed)} CVE(s) present in the CISA KEV "
+                f"catalog were NOT flagged KEV in the feed: {missed[:8]}. Fix kev ingestion."
+            )
+            hard_fail = True
+        if not overlap and not inflated:
+            findings.append(
+                "[D] KEV CORRECT: 0 feed CVEs are in the current CISA KEV catalog and 0 are "
+                "falsely flagged -- truthful absence (fresh advisories not yet KEV-listed)."
             )
 
-        # Check KEV sync timestamp if available
-        kev_cache = REPO_ROOT / "data" / "kev" / "kev_catalog.json"
-        if kev_cache.exists():
-            try:
-                kev_data = json.loads(kev_cache.read_text(encoding="utf-8"))
-                updated = kev_data.get("catalogVersion") or kev_data.get("updated_at") or ""
-                if updated:
-                    findings.append(f"[D] KEV catalog: {updated}")
-            except Exception:
-                pass
-
         return hard_fail, findings
+
 
 
 # ── Safeguard E: Runtime Integrity Baseline ───────────────────────────────────
@@ -707,7 +764,6 @@ class AdvisoryAuthenticityScoring:
         risk = _risk(item)
         if risk is not None:
             # Non-bucket scores = evidence-derived
-            from scripts.intelligence_integrity_gate import SYNTHETIC_CVEDetector_STATIC_BUCKETS
             static_buckets = {10.0, 7.5, 5.5, 5.0, 4.8, 2.8, 2.3}
             if risk not in static_buckets:
                 score += 10
@@ -927,7 +983,7 @@ def run_all_gates(items: List[Dict], mode: str) -> int:
         ("C — Feed Diversity Validator",   FeedDiversityValidator().check(items)),
         ("D — KEV Health Gate",               KEVHealthGate().check(items)),
         ("E — Runtime Integrity Baseline",    RuntimeIntegrityBaseline().check()),
-        ("F — Advisory Authenticity Scoring", AuthenticityScorer().check(items)),
+        ("F — Advisory Authenticity Scoring", AdvisoryAuthenticityScoring().check(items)),
         ("G — Manifest Mutation Validator",   ManifestMutationValidator().check(items)),
         ("H — Synthetic Flood Circuit Breaker", SyntheticFloodCircuitBreaker().check(items)),
     ]
