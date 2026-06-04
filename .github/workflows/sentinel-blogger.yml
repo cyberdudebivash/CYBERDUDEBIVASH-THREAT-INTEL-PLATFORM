@@ -1373,7 +1373,7 @@ jobs:
         timeout-minutes: 3
         run: |
           set +e
-          python3 scripts/intelligence_integrity_gate.py --report
+          python3 scripts/intelligence_integrity_gate.py --check
           IG_EXIT=$?
           set -e
           if [ "$IG_EXIT" -eq 0 ]; then
@@ -1381,7 +1381,8 @@ jobs:
             [ -f "data/quality/integrity_gate_report.json" ] && \
               echo "[INFO] Report: $(wc -c < data/quality/integrity_gate_report.json)B" || true
           else
-            echo "::warning::Intelligence Integrity Gate reported issues (exit $IG_EXIT) -- non-blocking, check data/quality/integrity_gate_report.json"
+            echo "::error::Intelligence Integrity Gate HARD_FAIL (exit $IG_EXIT) -- BLOCKING publish, check data/quality/integrity_gate_report.json"
+            exit 1
           fi
 
       # -----------------------------------------------------------------------
@@ -2149,7 +2150,14 @@ jobs:
           CANARY_WAIT_SECS: "60"
           CANARY_RETRY_COUNT: "2"
           CANARY_RETRY_WAIT: "30"
-        run: python3 scripts/report_url_canary.py || true
+        run: |
+          set -e
+          # v174 P0-2 (BLOCKING): fail-closed pre-deploy existence + body gate.
+          # Every report_url in the CURRENT feed must resolve to a valid on-disk
+          # artifact (blocks publish-before-persist and soft-404 stubs).
+          python3 scripts/report_url_canary.py --local
+          # Non-blocking live spot-check of the deployed site (CDN-propagation tolerant).
+          python3 scripts/report_url_canary.py --live || true
 
       # -----------------------------------------------------------------------
       # STAGE 5.8.1c - DEPLOYMENT CONVERGENCE ENGINE (v156.0 ENTERPRISE GRADE)
