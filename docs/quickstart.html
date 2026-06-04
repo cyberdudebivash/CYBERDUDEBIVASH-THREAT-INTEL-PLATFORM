@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Quick Start — SENTINEL APEX API</title>
+<meta name="description" content="Get your first SENTINEL APEX API call working in under 5 minutes.">
+<link rel="icon" type="image/x-icon" href="/favicon.ico">
+<style>
+:root{--bg:#050c18;--bg2:#090f1e;--bg3:#0d1525;--border:#162030;--accent:#00ffc6;--accent2:#7c3aed;--text:#e2e8f0;--muted:#64748b;--green:#10b981;--yellow:#f59e0b;--red:#ef4444;--card:#0b1422;--mono:'JetBrains Mono','Fira Code',monospace;}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,sans-serif;min-height:100vh;line-height:1.7;}
+a{color:var(--accent);}
+nav{display:flex;align-items:center;justify-content:space-between;padding:14px 32px;background:rgba(5,12,24,0.97);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:100;}
+.nav-logo{font-family:var(--mono);font-weight:900;font-size:12px;color:var(--accent);letter-spacing:2px;text-decoration:none;}
+.nav-links a{color:var(--muted);font-size:12px;margin-left:18px;text-decoration:none;}
+.nav-links a:hover{color:var(--accent);}
+.page{max-width:860px;margin:0 auto;padding:48px 24px;}
+h1{font-size:32px;font-weight:900;margin-bottom:8px;}
+h1 span{color:var(--accent);}
+.subtitle{font-size:15px;color:var(--muted);margin-bottom:40px;}
+h2{font-size:18px;font-weight:700;margin:36px 0 14px;color:var(--accent);}
+h3{font-size:14px;font-weight:700;margin:24px 0 10px;color:var(--text);}
+p{color:var(--muted);font-size:14px;margin-bottom:14px;}
+.step-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:22px 24px;margin-bottom:16px;position:relative;overflow:hidden;}
+.step-card::before{content:'';position:absolute;top:0;left:0;width:4px;height:100%;background:var(--accent);}
+.step-num{font-family:var(--mono);font-size:10px;color:var(--accent);letter-spacing:2px;text-transform:uppercase;margin-bottom:6px;}
+.step-title{font-size:16px;font-weight:700;margin-bottom:10px;}
+.step-body{font-size:13px;color:var(--muted);line-height:1.7;}
+.code-block{background:#000d1a;border:1px solid var(--border);border-radius:8px;padding:16px 18px;font-family:var(--mono);font-size:12px;color:#e2e8f0;margin:12px 0;overflow-x:auto;position:relative;}
+.code-block .comment{color:#4a6580;}
+.code-block .key{color:#f59e0b;}
+.code-block .str{color:#00ffc6;}
+.code-block .num{color:#a78bfa;}
+.copy-btn{position:absolute;top:10px;right:10px;background:rgba(0,255,198,0.1);border:1px solid rgba(0,255,198,0.2);color:var(--accent);padding:4px 10px;border-radius:5px;cursor:pointer;font-size:10px;font-weight:700;}
+.copy-btn:hover{background:rgba(0,255,198,0.2);}
+.tip-box{background:rgba(0,255,198,0.04);border:1px solid rgba(0,255,198,0.12);border-radius:8px;padding:14px 18px;margin:12px 0;font-size:13px;color:var(--muted);}
+.tip-box strong{color:var(--accent);}
+.warn-box{background:rgba(245,158,11,0.05);border:1px solid rgba(245,158,11,0.2);border-radius:8px;padding:14px 18px;margin:12px 0;font-size:13px;color:var(--muted);}
+.warn-box strong{color:var(--yellow);}
+.endpoint-table{width:100%;border-collapse:collapse;font-size:13px;margin:14px 0;}
+.endpoint-table th{text-align:left;padding:8px 12px;background:rgba(0,255,198,0.05);color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.06em;border-bottom:1px solid var(--border);}
+.endpoint-table td{padding:10px 12px;border-bottom:1px solid rgba(22,32,48,.5);color:var(--muted);}
+.endpoint-table td:first-child{font-family:var(--mono);color:var(--accent);font-size:12px;}
+.badge{display:inline-block;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;}
+.badge.get{background:rgba(16,185,129,.15);color:#10b981;}
+.badge.free{background:rgba(100,116,139,.15);color:var(--muted);}
+.badge.pro{background:rgba(0,255,198,.12);color:var(--accent);}
+.badge.ent{background:rgba(124,58,237,.15);color:#a78bfa;}
+footer{text-align:center;padding:32px;border-top:1px solid var(--border);font-size:12px;color:var(--muted);}
+</style>
+</head>
+<body>
+<nav>
+  <a href="/" class="nav-logo">SENTINEL APEX</a>
+  <div class="nav-links">
+    <a href="/api-docs.html">Full API Docs</a>
+    <a href="/onboarding.html">SIEM Integration</a>
+    <a href="/docs/faq.html">FAQ</a>
+    <a href="mailto:bivash@cyberdudebivash.com">Support</a>
+  </div>
+</nav>
+
+<div class="page">
+  <h1>API <span>Quick Start</span></h1>
+  <p class="subtitle">First API call in under 5 minutes. No SDKs. Pure REST.</p>
+
+  <!-- STEP 1 -->
+  <div class="step-card">
+    <div class="step-num">Step 1</div>
+    <div class="step-title">Get Your API Key</div>
+    <div class="step-body">
+      If you already subscribed, check your email — your API key was delivered with subject line
+      <em>"SENTINEL APEX API Key Delivered"</em>.
+      <br><br>
+      Don't have a key yet? <a href="/get-api-key.html">Request access here →</a>
+      <br><br>
+      Your key looks like this:
+      <div class="code-block">SA-PRO-A1B2C3D4E5F6A7B8C9D0E1F2A3B4C5D6E7F8</div>
+      <div class="warn-box"><strong>⚠ Never share your API key publicly.</strong> Do not commit it to Git. Use environment variables.</div>
+    </div>
+  </div>
+
+  <!-- STEP 2 -->
+  <div class="step-card">
+    <div class="step-num">Step 2</div>
+    <div class="step-title">Make Your First API Call</div>
+    <div class="step-body">
+      Replace <code style="color:var(--accent)">YOUR_KEY</code> with your actual API key.
+
+      <h3>cURL (Terminal)</h3>
+      <div class="code-block" id="code-curl">
+        <button class="copy-btn" onclick="copyCode('code-curl')">Copy</button>
+<span class="comment"># Fetch latest critical severity threats</span>
+curl -H <span class="str">"Authorization: Bearer YOUR_KEY"</span> \
+  <span class="str">"https://intel.cyberdudebivash.com/api/intel?severity=critical&limit=5"</span>
+      </div>
+
+      <h3>Python</h3>
+      <div class="code-block" id="code-python">
+        <button class="copy-btn" onclick="copyCode('code-python')">Copy</button>
+<span class="key">import</span> requests
+
+API_KEY = <span class="str">"YOUR_KEY"</span>
+headers = {<span class="str">"Authorization"</span>: <span class="str">f"Bearer {API_KEY}"</span>}
+
+response = requests.get(
+    <span class="str">"https://intel.cyberdudebivash.com/api/intel"</span>,
+    headers=headers,
+    params={<span class="str">"severity"</span>: <span class="str">"critical"</span>, <span class="str">"limit"</span>: <span class="num">10</span>}
+)
+data = response.json()
+<span class="key">print</span>(f<span class="str">"Retrieved {data['count']} threats"</span>)
+<span class="key">for</span> threat <span class="key">in</span> data[<span class="str">"intel"</span>]:
+    <span class="key">print</span>(f<span class="str">"  [{threat['severity']}] {threat['title']}"</span>)
+      </div>
+
+      <h3>JavaScript (Node.js / Browser)</h3>
+      <div class="code-block" id="code-js">
+        <button class="copy-btn" onclick="copyCode('code-js')">Copy</button>
+<span class="key">const</span> API_KEY = <span class="str">'YOUR_KEY'</span>;
+
+<span class="key">const</span> response = <span class="key">await</span> fetch(
+  <span class="str">'https://intel.cyberdudebivash.com/api/intel?severity=critical&limit=10'</span>,
+  { headers: { <span class="str">'Authorization'</span>: <span class="str">`Bearer ${API_KEY}`</span> } }
+);
+<span class="key">const</span> data = <span class="key">await</span> response.json();
+console.log(<span class="str">`Retrieved ${data.count} threats`</span>);
+      </div>
+    </div>
+  </div>
+
+  <!-- STEP 3 -->
+  <div class="step-card">
+    <div class="step-num">Step 3</div>
+    <div class="step-title">Understand the Response</div>
+    <div class="step-body">
+      <div class="code-block">
+{
+  <span class="key">"status"</span>: <span class="str">"ok"</span>,
+  <span class="key">"count"</span>: <span class="num">5</span>,
+  <span class="key">"tier"</span>: <span class="str">"PRO"</span>,
+  <span class="key">"quota"</span>: { <span class="key">"used"</span>: <span class="num">47</span>, <span class="key">"limit"</span>: <span class="num">5000</span>, <span class="key">"resets_at"</span>: <span class="str">"2026-06-05T00:00:00Z"</span> },
+  <span class="key">"intel"</span>: [
+    {
+      <span class="key">"id"</span>: <span class="str">"CVE-2026-1234"</span>,
+      <span class="key">"title"</span>: <span class="str">"Critical RCE in Apache HTTP Server"</span>,
+      <span class="key">"severity"</span>: <span class="str">"CRITICAL"</span>,
+      <span class="key">"cvss"</span>: <span class="num">9.8</span>,
+      <span class="key">"published"</span>: <span class="str">"2026-06-04T08:00:00Z"</span>,
+      <span class="key">"iocs"</span>: [<span class="str">"192.0.2.1"</span>, <span class="str">"malware.example.com"</span>],
+      <span class="key">"mitre_ttps"</span>: [<span class="str">"T1190"</span>, <span class="str">"T1059"</span>],
+      <span class="key">"sigma_rule_url"</span>: <span class="str">"https://intel.cyberdudebivash.com/rules/sigma/CVE-2026-1234.yml"</span>
+    }
+  ]
+}
+      </div>
+    </div>
+  </div>
+
+  <!-- STEP 4 -->
+  <div class="step-card">
+    <div class="step-num">Step 4</div>
+    <div class="step-title">Check Your Quota</div>
+    <div class="step-body">
+      <div class="code-block" id="code-quota">
+        <button class="copy-btn" onclick="copyCode('code-quota')">Copy</button>
+curl -H <span class="str">"Authorization: Bearer YOUR_KEY"</span> \
+  <span class="str">"https://intel.cyberdudebivash.com/api/quota"</span>
+
+<span class="comment"># Response:</span>
+{
+  <span class="key">"tier"</span>: <span class="str">"PRO"</span>,
+  <span class="key">"quota_daily"</span>: <span class="num">5000</span>,
+  <span class="key">"used_today"</span>: <span class="num">47</span>,
+  <span class="key">"remaining"</span>: <span class="num">4953</span>,
+  <span class="key">"resets_at"</span>: <span class="str">"2026-06-05T00:00:00Z"</span>
+}
+      </div>
+    </div>
+  </div>
+
+  <!-- STEP 5 -->
+  <div class="step-card">
+    <div class="step-num">Step 5</div>
+    <div class="step-title">Connect Your SIEM</div>
+    <div class="step-body">
+      For production use, integrate directly into your SIEM or security toolchain.
+      <br><br>
+      <strong style="color:var(--text);">Platform guides available:</strong>
+      <ul style="margin:12px 0 0 16px;font-size:13px;color:var(--muted);">
+        <li><a href="/onboarding.html#microsoft-sentinel">Microsoft Sentinel — KQL + TAXII</a></li>
+        <li><a href="/onboarding.html#splunk">Splunk — SPL + TAXII connector</a></li>
+        <li><a href="/onboarding.html#elastic">Elastic Security — EQL + STIX</a></li>
+        <li><a href="/onboarding.html#qradar">IBM QRadar — STIX TAXII 2.1</a></li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- ENDPOINT REFERENCE -->
+  <h2>Core Endpoints</h2>
+  <table class="endpoint-table">
+    <thead><tr><th>Endpoint</th><th>Description</th><th>Tier</th></tr></thead>
+    <tbody>
+      <tr><td>GET /api/intel</td><td>Threat intel feed (CVEs, IOCs, advisories)</td><td><span class="badge free">FREE+</span></td></tr>
+      <tr><td>GET /api/intel?severity=critical</td><td>Filter by severity (low/medium/high/critical)</td><td><span class="badge free">FREE+</span></td></tr>
+      <tr><td>GET /api/stix</td><td>STIX 2.1 bundle export</td><td><span class="badge pro">PRO+</span></td></tr>
+      <tr><td>GET /api/ioc</td><td>IOC list (IPs, domains, hashes)</td><td><span class="badge pro">PRO+</span></td></tr>
+      <tr><td>GET /api/sigma</td><td>Sigma detection rules</td><td><span class="badge pro">PRO+</span></td></tr>
+      <tr><td>GET /api/yara</td><td>YARA rules</td><td><span class="badge ent">ENT+</span></td></tr>
+      <tr><td>GET /api/quota</td><td>Current quota usage</td><td><span class="badge free">FREE+</span></td></tr>
+      <tr><td>GET /api/taxii/</td><td>TAXII 2.1 discovery endpoint</td><td><span class="badge pro">PRO+</span></td></tr>
+    </tbody>
+  </table>
+
+  <h2>Common Parameters</h2>
+  <table class="endpoint-table">
+    <thead><tr><th>Parameter</th><th>Values</th><th>Description</th></tr></thead>
+    <tbody>
+      <tr><td>severity</td><td>low, medium, high, critical</td><td>Filter by CVSS severity</td></tr>
+      <tr><td>limit</td><td>1–1000 (default 50)</td><td>Results per page</td></tr>
+      <tr><td>offset</td><td>integer (default 0)</td><td>Pagination offset</td></tr>
+      <tr><td>days</td><td>1–30 (default 7)</td><td>Look-back window in days</td></tr>
+      <tr><td>format</td><td>json, stix, csv</td><td>Response format (PRO+)</td></tr>
+    </tbody>
+  </table>
+
+  <div class="tip-box">
+    <strong>Need help?</strong> Email <a href="mailto:bivash@cyberdudebivash.com">bivash@cyberdudebivash.com</a>
+    or WhatsApp <strong>+91 8179881447</strong>. Response within 24 hours for PRO, 4 hours for Enterprise.
+  </div>
+</div>
+
+<footer>
+  <a href="/api-docs.html">Full API Reference</a> · <a href="/onboarding.html">SIEM Integration</a> · <a href="/docs/faq.html">FAQ</a> · <a href="mailto:bivash@cyberdudebivash.com">Support</a>
+</footer>
+
+<script>
+function copyCode(id) {
+  var el = document.getElementById(id);
+  if (!el) return;
+  // Get text content without the copy button text
+  var clone = el.cloneNode(true);
+  var btn = clone.querySelector('.copy-btn');
+  if (btn) btn.remove();
+  var text = clone.textContent || clone.innerText;
+  text = text.replace(/^\s+|\s+$/g,'');
+  navigator.clipboard.writeText(text).catch(function(){});
+  var btn2 = el.querySelector('.copy-btn');
+  if (btn2) { btn2.textContent='Copied!'; setTimeout(function(){btn2.textContent='Copy';},2000); }
+}
+</script>
+</body>
+</html>

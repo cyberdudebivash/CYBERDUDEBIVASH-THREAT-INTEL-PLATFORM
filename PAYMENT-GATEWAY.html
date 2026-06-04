@@ -523,6 +523,11 @@ footer a { color: var(--accent); text-decoration: none; }
 
     <!-- CRYPTO PANEL -->
     <div class="pay-panel" id="panel-crypto">
+      <!-- v176: Live exchange rate widget -->
+      <div id="crypto-rate-display" style="background:rgba(0,255,198,0.04);border:1px solid rgba(0,255,198,0.12);border-radius:10px;padding:14px 18px;margin-bottom:16px;">
+        <div style="font-size:10px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:8px;">Live Exchange Rates</div>
+        <div style="color:var(--muted);font-size:13px;">Loading rates...</div>
+      </div>
       <div class="crypto-chain-tabs">
         <div class="chain-tab active" onclick="switchChain('bnb',this)"><span style="color:#f0b90b;">&#9679;</span> BNB (BSC)</div>
         <div class="chain-tab" onclick="switchChain('usdt-bsc',this)"><span style="color:#26a17b;">&#9679;</span> USDT BEP-20</div>
@@ -590,15 +595,43 @@ footer a { color: var(--accent); text-decoration: none; }
   <div class="tracker-section">
     <div class="tracker-title">&#128203; Payment Confirmation Tracker</div>
     <div class="tracker-subtitle">Submitted a payment? Fill this form and we will activate your API key within 2 hours. All payment methods supported &mdash; UPI UTR, NEFT reference, PayPal Transaction ID, or Crypto TxHash.</div>
+    <!-- v176: Reference ID display -->
+    <div id="pct-ref-display" style="background:rgba(0,255,198,0.06);border:1px solid rgba(0,255,198,0.2);border-radius:8px;padding:10px 16px;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;">
+      <div><span style="font-size:10px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;">Your Reference ID</span><br><span id="pct-ref-id" style="font-family:monospace;font-size:15px;font-weight:700;color:var(--accent);letter-spacing:2px;">SA-LOADING</span></div>
+      <button type="button" onclick="copyPctRef()" style="background:rgba(0,255,198,0.1);border:1px solid rgba(0,255,198,0.2);color:var(--accent);padding:5px 12px;border-radius:6px;cursor:pointer;font-size:11px;font-weight:700;" id="pct-ref-copy-btn">Copy</button>
+    </div>
     <div class="tracker-grid">
-      <div><label class="form-label">Full Name *</label><input type="text" class="form-input" id="pct-name" placeholder="Your full name / company"></div>
+      <div><label class="form-label">Full Name *</label><input type="text" class="form-input" id="pct-name" placeholder="Your full name"></div>
       <div><label class="form-label">Email Address *</label><input type="email" class="form-input" id="pct-email" placeholder="you@company.com"></div>
+      <div><label class="form-label">Company / Organization *</label><input type="text" class="form-input" id="pct-company" placeholder="Acme Security Ltd."></div>
+      <div>
+        <label class="form-label">Country *</label>
+        <select class="form-select" id="pct-country">
+          <option value="IN">🇮🇳 India</option>
+          <option value="US">🇺🇸 United States</option>
+          <option value="GB">🇬🇧 United Kingdom</option>
+          <option value="SG">🇸🇬 Singapore</option>
+          <option value="AU">🇦🇺 Australia</option>
+          <option value="CA">🇨🇦 Canada</option>
+          <option value="DE">🇩🇪 Germany</option>
+          <option value="AE">🇦🇪 UAE</option>
+          <option value="OTHER">🌐 Other</option>
+        </select>
+      </div>
       <div>
         <label class="form-label">Plan Selected *</label>
         <select class="form-select" id="pct-plan">
-          <option value="pro">PRO Defense &mdash; $49/mo</option>
-          <option value="enterprise">Enterprise SOC &mdash; $499/mo</option>
-          <option value="mssp">MSSP / White-Label &mdash; $1,999/mo</option>
+          <option value="community">Community — Free</option>
+          <option value="pro" selected>PRO — ₹4,100/mo ($49)</option>
+          <option value="enterprise">Enterprise — ₹41,600/mo ($499)</option>
+          <option value="mssp">MSSP / White-Label — $1,999/mo</option>
+        </select>
+      </div>
+      <div>
+        <label class="form-label">Billing Period *</label>
+        <select class="form-select" id="pct-billing">
+          <option value="monthly">Monthly</option>
+          <option value="annual">Annual (save 17%)</option>
         </select>
       </div>
       <div>
@@ -607,19 +640,24 @@ footer a { color: var(--accent); text-decoration: none; }
           <option value="upi">UPI (GPay/PhonePe/Paytm/BHIM/AmazonPay)</option>
           <option value="neft">Bank NEFT / IMPS / RTGS</option>
           <option value="paypal">PayPal</option>
-          <option value="crypto-bnb">Crypto &mdash; BNB (BSC)</option>
-          <option value="crypto-usdt-bsc">Crypto &mdash; USDT (BEP-20)</option>
-          <option value="crypto-eth">Crypto &mdash; ETH (ERC-20)</option>
-          <option value="crypto-usdt-erc">Crypto &mdash; USDT (ERC-20)</option>
+          <option value="crypto-usdt-trc20">Crypto — USDT (TRC-20 / Tron)</option>
+          <option value="crypto-usdt-erc20">Crypto — USDT (ERC-20 / Ethereum)</option>
+          <option value="crypto-usdt-bep20">Crypto — USDT (BEP-20 / BSC)</option>
+          <option value="crypto-btc">Crypto — Bitcoin (BTC)</option>
+          <option value="amazon-pay">Amazon Pay (via UPI)</option>
         </select>
       </div>
+      <div><label class="form-label">Amount Paid *</label><input type="text" class="form-input" id="pct-amount" placeholder="e.g. ₹4,100 or $49 or 49 USDT"></div>
       <div><label class="form-label">UTR / Transaction ID / TxHash *</label><input type="text" class="form-input" id="pct-utr" placeholder="Payment reference number"></div>
-      <div><label class="form-label">Amount Paid *</label><input type="text" class="form-input" id="pct-amount" placeholder="e.g. 4100 INR or $49 USD or 49 USDT"></div>
+      <div><label class="form-label">Date of Payment *</label><input type="date" class="form-input" id="pct-date"></div>
     </div>
     <button class="submit-btn" id="pct-submit" onclick="submitPaymentTracker()">&#9889; Submit &amp; Activate API Key</button>
     <div class="confirmation-success" id="pct-success">
-      <div class="cs-title">&#10003; Payment Submitted Successfully!</div>
-      <div class="cs-msg">Your API key will be delivered to <strong id="pct-confirm-email"></strong> within 2 hours.<br>Urgent? <a href="https://wa.me/918179881447" target="_blank" style="color:var(--accent);">WhatsApp +91 8179881447</a> or <a href="mailto:bivash@cyberdudebivash.com" style="color:var(--accent);">bivash@cyberdudebivash.com</a></div>
+      <div class="cs-title">&#10003; Payment Submitted — Reference: <span id="pct-success-ref" style="font-family:monospace;"></span></div>
+      <div class="cs-msg">Your API key will be delivered to <strong id="pct-confirm-email"></strong> within 2 hours. Keep your Reference ID for support queries.<br><br>
+        <a href="/customer-intake.html" id="pct-intake-link" style="display:inline-block;background:var(--accent);color:#000;font-weight:800;padding:10px 22px;border-radius:8px;text-decoration:none;font-size:13px;margin-top:8px;">&#x2192; Complete Full Onboarding Form</a><br><br>
+        Urgent? <a href="https://wa.me/918179881447" target="_blank" style="color:var(--accent);">WhatsApp +91 8179881447</a> or <a href="mailto:bivash@cyberdudebivash.com" style="color:var(--accent);">bivash@cyberdudebivash.com</a>
+      </div>
     </div>
     <div style="margin-top:14px;font-size:12px;color:var(--muted);">Urgent? <a href="https://wa.me/918179881447?text=Hi+Bivash+I+have+paid+for+SENTINEL+APEX+please+activate+my+key" target="_blank" style="color:#4ade80;">WhatsApp +91 8179881447</a> with payment screenshot for instant activation.</div>
   </div>
@@ -874,38 +912,180 @@ function startUrgencyTimer() {
   tick();
 }
 
-function submitPaymentTracker() {
-  var name   = (document.getElementById('pct-name')||{}).value||'';
-  var email  = (document.getElementById('pct-email')||{}).value||'';
-  var plan   = (document.getElementById('pct-plan')||{}).value||'';
-  var method = (document.getElementById('pct-method')||{}).value||'';
-  var utr    = (document.getElementById('pct-utr')||{}).value||'';
-  var amount = (document.getElementById('pct-amount')||{}).value||'';
-  if (!name.trim()||!email.trim()||!utr.trim()) { showToast('Fill all required fields', '⚠'); return; }
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { showToast('Enter a valid email', '⚠'); return; }
-  var btn = document.getElementById('pct-submit');
-  if (btn) { btn.disabled = true; btn.textContent = 'Submitting...'; }
-  var fd = new FormData();
-  fd.append('name',name); fd.append('email',email); fd.append('plan',plan);
-  fd.append('payment_method',method); fd.append('utr',utr); fd.append('amount',amount);
-  fd.append('_subject','SENTINEL APEX Payment: '+plan.toUpperCase()+' - '+name);
-  fetch('https://formspree.io/f/xpzgkqly', { method:'POST', body:fd, headers:{'Accept':'application/json'} })
-    .then(function(r) {
-      if (r.ok) {
-        var suc = document.getElementById('pct-success');
-        var ce = document.getElementById('pct-confirm-email');
-        if (ce) ce.textContent = email;
-        if (suc) suc.classList.add('show');
-        showToast('Payment submitted! API key incoming.', '✓');
-        if (btn) btn.textContent = '✓ Submitted!';
-      } else { fallbackEmail(name,email,plan,method,utr,amount,btn); }
-    }).catch(function(){ fallbackEmail(name,email,plan,method,utr,amount,btn); });
+// ── v176: Reference ID Generator ─────────────────────────────────────────────
+var PCT_REF_ID = (function() {
+  var now = new Date();
+  var y = now.getFullYear(), m = String(now.getMonth()+1).padStart(2,'0'), d = String(now.getDate()).padStart(2,'0');
+  var chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  var rand = ''; for (var i=0;i<4;i++) rand += chars[Math.floor(Math.random()*chars.length)];
+  return 'SA-'+y+m+d+'-'+rand;
+})();
+
+function initPctRefId() {
+  var el = document.getElementById('pct-ref-id');
+  if (el) el.textContent = PCT_REF_ID;
+  var sl = document.getElementById('pct-intake-link');
+  if (sl) sl.href = '/customer-intake.html?ref=' + PCT_REF_ID;
+  var sr = document.getElementById('pct-success-ref');
+  if (sr) sr.textContent = PCT_REF_ID;
+  // Set today's date
+  var today = new Date().toISOString().split('T')[0];
+  var de = document.getElementById('pct-date'); if (de) de.value = today;
 }
 
-function fallbackEmail(name,email,plan,method,utr,amount,btn) {
-  var body = 'Name: '+name+'\nEmail: '+email+'\nPlan: '+plan+'\nMethod: '+method+'\nUTR: '+utr+'\nAmount: '+amount;
-  window.location.href = 'mailto:bivash@cyberdudebivash.com?subject=SENTINEL+APEX+Payment+-'+encodeURIComponent(plan.toUpperCase()+'-'+name)+'&body='+encodeURIComponent(body);
-  if (btn) { btn.disabled = false; btn.textContent = '> Submit & Activate API Key'; }
+function copyPctRef() {
+  var el = document.getElementById('pct-ref-id');
+  var txt = el ? el.textContent : PCT_REF_ID;
+  navigator.clipboard.writeText(txt).catch(function(){
+    var t=document.createElement('textarea'); t.value=txt; document.body.appendChild(t); t.select(); document.execCommand('copy'); document.body.removeChild(t);
+  });
+  var btn = document.getElementById('pct-ref-copy-btn');
+  if (btn) { btn.textContent='Copied!'; setTimeout(function(){btn.textContent='Copy';},2000); }
+}
+
+// ── v176: Crypto Rate Widget ──────────────────────────────────────────────────
+var cryptoRateCache = null;
+var cryptoRateTs = 0;
+
+function fetchCryptoRate() {
+  var rateEl = document.getElementById('crypto-rate-display');
+  if (!rateEl) return;
+  // Use CoinGecko free endpoint (no API key needed)
+  var now = Date.now();
+  if (cryptoRateCache && (now - cryptoRateTs) < 15 * 60 * 1000) {
+    renderCryptoRate(cryptoRateCache);
+    return;
+  }
+  fetch('https://api.coingecko.com/api/v3/simple/price?ids=tether,bitcoin&vs_currencies=inr,usd', {
+    headers:{'Accept':'application/json'}
+  }).then(function(r){return r.json();})
+  .then(function(data) {
+    cryptoRateCache = data;
+    cryptoRateTs = Date.now();
+    renderCryptoRate(data);
+  }).catch(function(){
+    // Static fallback
+    renderCryptoRate({tether:{inr:83.5,usd:1},bitcoin:{inr:6800000,usd:81500}});
+  });
+}
+
+function renderCryptoRate(data) {
+  var rateEl = document.getElementById('crypto-rate-display');
+  if (!rateEl) return;
+  var usdtInr = data.tether && data.tether.inr ? data.tether.inr.toFixed(2) : '83.50';
+  var btcUsd  = data.bitcoin && data.bitcoin.usd ? Math.round(data.bitcoin.usd).toLocaleString() : '81,500';
+  var ts = new Date().toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'});
+  rateEl.innerHTML =
+    '<div style="display:flex;gap:20px;flex-wrap:wrap;align-items:center;">' +
+    '<div><span style="font-size:10px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;">1 USDT</span><br>' +
+    '<span style="font-size:18px;font-weight:900;color:var(--accent);font-family:monospace;">₹'+usdtInr+'</span></div>' +
+    '<div><span style="font-size:10px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;">1 BTC</span><br>' +
+    '<span style="font-size:18px;font-weight:900;color:var(--yellow);font-family:monospace;">$'+btcUsd+'</span></div>' +
+    '<div id="crypto-plan-calc" style="background:rgba(0,255,198,0.07);border:1px solid rgba(0,255,198,0.15);border-radius:8px;padding:8px 14px;">' +
+    '<span style="font-size:10px;color:var(--muted);">PRO Plan = 49 USDT</span><br>' +
+    '<span style="font-size:13px;font-weight:700;color:var(--text);">Send exactly <span style="color:var(--accent)">49 USDT</span> or <span style="color:var(--yellow)">0.0006 BTC</span></span>' +
+    '</div>' +
+    '<div style="font-size:10px;color:var(--muted);">Updated: '+ts+'<br><button onclick="fetchCryptoRate()" style="background:none;border:none;color:var(--accent);cursor:pointer;font-size:10px;padding:0;text-decoration:underline;">Refresh</button></div>' +
+    '</div>';
+  // Update calc based on selected plan
+  updateCryptoPlanCalc(data);
+}
+
+function updateCryptoPlanCalc(data) {
+  // Called after plan selection to show correct USDT amount
+  var calcEl = document.getElementById('crypto-plan-calc');
+  if (!calcEl || !data) return;
+  var planUsd = {'community':0,'pro':49,'enterprise':499,'mssp':1999}[selectedPlan] || 49;
+  var btcPrice = data.bitcoin && data.bitcoin.usd ? data.bitcoin.usd : 81500;
+  var btcAmt = planUsd > 0 ? (planUsd / btcPrice).toFixed(6) : '0';
+  calcEl.innerHTML =
+    '<span style="font-size:10px;color:var(--muted);">'+selectedPlan.toUpperCase()+' Plan</span><br>' +
+    '<span style="font-size:13px;font-weight:700;color:var(--text);">Send exactly <span style="color:var(--accent)">'+planUsd+' USDT</span> or <span style="color:var(--yellow)">'+btcAmt+' BTC</span></span>';
+}
+
+// ── v176: URL Param Plan Pre-Selection ────────────────────────────────────────
+function readGatewayUrlParams() {
+  var params = new URLSearchParams(window.location.search);
+  var plan    = params.get('plan') || params.get('p') || '';
+  var billing = params.get('billing') || params.get('b') || 'monthly';
+  var email   = params.get('email') || params.get('e') || '';
+
+  if (plan && PLANS[plan]) {
+    // Find and click the plan tile
+    var tile = document.querySelector('.plan-tile[data-plan="'+plan+'"]');
+    if (tile) tile.click();
+    // Also update payment tracker plan select
+    var pctPlan = document.getElementById('pct-plan');
+    if (pctPlan) pctPlan.value = plan;
+  }
+  if (billing === 'annual') {
+    var toggleBtn = document.querySelector('.toggle-btn');
+    if (toggleBtn && !isAnnual) toggleBtn.click();
+    var pctBilling = document.getElementById('pct-billing');
+    if (pctBilling) pctBilling.value = 'annual';
+  }
+  if (email) {
+    var pctEmail = document.getElementById('pct-email');
+    if (pctEmail) pctEmail.value = decodeURIComponent(email);
+  }
+}
+
+function submitPaymentTracker() {
+  var name    = (document.getElementById('pct-name')||{}).value||'';
+  var email   = (document.getElementById('pct-email')||{}).value||'';
+  var company = (document.getElementById('pct-company')||{}).value||'';
+  var country = (document.getElementById('pct-country')||{}).value||'';
+  var plan    = (document.getElementById('pct-plan')||{}).value||'';
+  var billing = (document.getElementById('pct-billing')||{}).value||'monthly';
+  var method  = (document.getElementById('pct-method')||{}).value||'';
+  var amount  = (document.getElementById('pct-amount')||{}).value||'';
+  var utr     = (document.getElementById('pct-utr')||{}).value||'';
+  var paydate = (document.getElementById('pct-date')||{}).value||'';
+
+  if (!name.trim()||!email.trim()||!utr.trim()||!amount.trim()) { showToast('Fill all required fields', '⚠'); return; }
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { showToast('Enter a valid email', '⚠'); return; }
+
+  var btn = document.getElementById('pct-submit');
+  if (btn) { btn.disabled = true; btn.textContent = 'Submitting...'; }
+
+  var fd = new FormData();
+  fd.append('reference_id', PCT_REF_ID);
+  fd.append('name',    name);
+  fd.append('email',   email);
+  fd.append('company', company);
+  fd.append('country', country);
+  fd.append('plan',    plan);
+  fd.append('billing', billing);
+  fd.append('payment_method', method);
+  fd.append('amount',  amount);
+  fd.append('transaction_id', utr);
+  fd.append('payment_date', paydate);
+  fd.append('submitted_at', new Date().toISOString());
+  fd.append('_subject', '[SA PAYMENT] ' + plan.toUpperCase() + ' | ' + PCT_REF_ID + ' | ' + name);
+  fd.append('_replyto', email);
+
+  fetch('https://formspree.io/f/xpzgkqly', { method:'POST', body:fd, headers:{'Accept':'application/json'} })
+    .then(function(r) {
+      var suc = document.getElementById('pct-success');
+      var ce  = document.getElementById('pct-confirm-email');
+      var sr  = document.getElementById('pct-success-ref');
+      if (ce) ce.textContent = email;
+      if (sr) sr.textContent = PCT_REF_ID;
+      if (suc) suc.classList.add('show');
+      // Update intake link with email + plan pre-filled
+      var il = document.getElementById('pct-intake-link');
+      if (il) il.href = '/customer-intake.html?plan='+plan+'&billing='+billing+'&method='+method+'&email='+encodeURIComponent(email)+'&ref='+PCT_REF_ID;
+      showToast('Submitted! Ref: '+PCT_REF_ID, '✓');
+      if (btn) btn.textContent = '✓ Submitted — Ref: '+PCT_REF_ID;
+    }).catch(function(){
+      fallbackEmail(name,email,company,plan,method,utr,amount,btn);
+    });
+}
+
+function fallbackEmail(name,email,company,plan,method,utr,amount,btn) {
+  var body = 'Ref: '+PCT_REF_ID+'\nName: '+name+'\nEmail: '+email+'\nCompany: '+company+'\nPlan: '+plan+'\nMethod: '+method+'\nUTR: '+utr+'\nAmount: '+amount;
+  window.location.href = 'mailto:bivash@cyberdudebivash.com?subject='+encodeURIComponent('[SA PAYMENT] '+plan.toUpperCase()+' | '+PCT_REF_ID)+'&body='+encodeURIComponent(body);
+  if (btn) { btn.disabled = false; btn.textContent = '⚡ Submit & Activate API Key'; }
 }
 
 function getAffiliateLink() {
@@ -927,6 +1107,11 @@ function copyReferralLink() {
 window.addEventListener('DOMContentLoaded', function() {
   startUrgencyTimer();
   generateUpiQR();
+  initPctRefId();
+  readGatewayUrlParams();
+  fetchCryptoRate();
+  // Auto-refresh crypto rate every 15 minutes
+  setInterval(fetchCryptoRate, 15 * 60 * 1000);
 });
 </script>
 </body>
