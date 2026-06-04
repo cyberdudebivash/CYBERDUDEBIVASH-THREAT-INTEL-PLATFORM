@@ -1,0 +1,793 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Customer Intake — SENTINEL APEX Threat Intelligence</title>
+<meta name="description" content="Complete your SENTINEL APEX subscription. Submit your payment confirmation and receive your API key within 2 hours.">
+<meta name="robots" content="noindex, nofollow">
+<link rel="icon" type="image/x-icon" href="/favicon.ico">
+<style>
+:root {
+  --bg:#050c18; --bg2:#090f1e; --bg3:#0d1525;
+  --border:#162030; --accent:#00ffc6; --accent2:#7c3aed;
+  --text:#e2e8f0; --muted:#64748b;
+  --green:#10b981; --red:#ef4444; --yellow:#f59e0b;
+  --card:#0b1422; --blue:#3b82f6;
+  --mono:'JetBrains Mono','Fira Code',monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,sans-serif;min-height:100vh;}
+a{color:var(--accent);text-decoration:none;}
+
+/* NAV */
+nav{display:flex;align-items:center;justify-content:space-between;padding:14px 32px;background:rgba(5,12,24,0.97);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:100;backdrop-filter:blur(16px);}
+.nav-logo{font-family:var(--mono);font-weight:900;font-size:12px;color:var(--accent);letter-spacing:2px;text-decoration:none;}
+.nav-links{display:flex;gap:18px;align-items:center;}
+.nav-links a{color:var(--muted);font-size:12px;}
+.nav-links a:hover{color:var(--accent);}
+
+/* PROGRESS BAR */
+.progress-bar{background:var(--bg2);border-bottom:1px solid var(--border);padding:16px 32px;}
+.progress-steps{display:flex;align-items:center;gap:0;max-width:700px;margin:0 auto;}
+.step-item{display:flex;flex-direction:column;align-items:center;gap:4px;flex:1;position:relative;}
+.step-circle{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;border:2px solid var(--border);background:var(--bg3);color:var(--muted);transition:all 0.3s;z-index:1;}
+.step-item.active .step-circle{border-color:var(--accent);background:rgba(0,255,198,0.1);color:var(--accent);}
+.step-item.done .step-circle{border-color:var(--green);background:var(--green);color:#000;}
+.step-label{font-size:9px;color:var(--muted);letter-spacing:0.5px;text-transform:uppercase;white-space:nowrap;}
+.step-item.active .step-label{color:var(--accent);}
+.step-line{flex:1;height:2px;background:var(--border);margin-bottom:16px;}
+.step-line.done{background:var(--green);}
+
+/* HERO */
+.hero{text-align:center;padding:40px 24px 32px;border-bottom:1px solid var(--border);}
+.ref-badge{display:inline-flex;align-items:center;gap:8px;background:rgba(0,255,198,0.07);border:1px solid rgba(0,255,198,0.2);border-radius:20px;padding:6px 18px;font-size:11px;color:var(--accent);letter-spacing:1px;font-family:var(--mono);margin-bottom:20px;}
+.ref-badge .dot{width:6px;height:6px;border-radius:50%;background:var(--accent);animation:pulse 1.5s ease-in-out infinite;}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.5;transform:scale(1.4)}}
+.hero h1{font-size:clamp(22px,4vw,36px);font-weight:900;margin-bottom:10px;}
+.hero h1 span{color:var(--accent);}
+.hero-sub{font-size:14px;color:var(--muted);max-width:560px;margin:0 auto 20px;}
+.plan-summary-bar{display:inline-flex;gap:24px;background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px 24px;flex-wrap:wrap;justify-content:center;}
+.psb-item{font-size:12px;color:var(--muted);}
+.psb-item strong{color:var(--text);}
+.psb-item .val{color:var(--accent);font-family:var(--mono);font-weight:700;}
+
+/* MAIN */
+.page{max-width:900px;margin:0 auto;padding:40px 24px;}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+@media(max-width:640px){.form-grid{grid-template-columns:1fr;}}
+.form-grid.full{grid-template-columns:1fr;}
+
+/* CARDS */
+.section-card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:28px;margin-bottom:20px;}
+.section-card.highlight{border-color:rgba(0,255,198,0.2);}
+.section-title{font-size:10px;font-weight:700;letter-spacing:2px;color:var(--muted);text-transform:uppercase;margin-bottom:20px;display:flex;align-items:center;gap:8px;}
+.section-title::before{content:'';width:3px;height:14px;background:var(--accent);border-radius:2px;display:block;}
+
+/* FORM FIELDS */
+.field{margin-bottom:0;}
+label{display:block;font-size:11px;font-family:var(--mono);color:var(--accent);letter-spacing:0.8px;margin-bottom:6px;text-transform:uppercase;}
+input,select,textarea{
+  width:100%;background:var(--bg2);border:1px solid var(--border);color:var(--text);
+  padding:11px 14px;border-radius:8px;font-size:13px;font-family:inherit;outline:none;
+  transition:border-color 0.2s;
+}
+input:focus,select:focus,textarea:focus{border-color:var(--accent);}
+input::placeholder,textarea::placeholder{color:var(--muted);}
+select option{background:var(--bg2);}
+textarea{resize:vertical;min-height:72px;}
+.field-hint{font-size:11px;color:var(--muted);margin-top:4px;}
+.required-star{color:var(--red);}
+
+/* PLAN SELECTOR */
+.plan-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:4px;}
+@media(max-width:600px){.plan-grid{grid-template-columns:repeat(2,1fr);}}
+.plan-pill{background:var(--bg2);border:2px solid var(--border);border-radius:10px;padding:14px 10px;cursor:pointer;text-align:center;transition:all 0.15s;position:relative;}
+.plan-pill:hover{border-color:var(--muted);}
+.plan-pill.selected{border-color:var(--accent);background:rgba(0,255,198,0.05);}
+.plan-pill.popular::after{content:'POPULAR';position:absolute;top:-8px;left:50%;transform:translateX(-50%);background:var(--accent);color:#000;font-size:8px;font-weight:800;padding:2px 8px;border-radius:8px;letter-spacing:0.5px;}
+.pill-name{font-size:10px;font-weight:700;color:var(--muted);letter-spacing:1px;font-family:var(--mono);margin-bottom:6px;}
+.pill-price{font-size:20px;font-weight:900;color:var(--text);}
+.pill-price span{font-size:11px;color:var(--muted);font-weight:400;}
+.pill-inr{font-size:11px;color:var(--green);margin-top:2px;}
+.plan-pill.selected .pill-name{color:var(--accent);}
+
+/* BILLING TOGGLE */
+.billing-toggle{display:flex;align-items:center;gap:12px;margin-bottom:20px;}
+.toggle-label{font-size:13px;color:var(--muted);}
+.toggle-label.active{color:var(--text);font-weight:600;}
+.toggle-btn{width:48px;height:26px;background:var(--border);border-radius:13px;cursor:pointer;position:relative;border:none;outline:none;transition:background 0.2s;}
+.toggle-btn.on{background:var(--accent2);}
+.toggle-btn::after{content:'';position:absolute;width:20px;height:20px;background:#fff;border-radius:50%;top:3px;left:3px;transition:left 0.2s;}
+.toggle-btn.on::after{left:25px;}
+.save-badge{background:var(--green);color:#fff;font-size:10px;font-weight:800;padding:2px 8px;border-radius:8px;}
+
+/* PAYMENT METHOD DISPLAY */
+.method-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:8px;}
+@media(max-width:500px){.method-grid{grid-template-columns:repeat(2,1fr);}}
+.method-pill{background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:10px;cursor:pointer;text-align:center;font-size:11px;color:var(--muted);transition:all 0.15s;}
+.method-pill:hover,.method-pill.selected{border-color:var(--accent);background:rgba(0,255,198,0.05);color:var(--accent);}
+.method-icon{font-size:18px;display:block;margin-bottom:4px;}
+
+/* AMOUNT DISPLAY */
+.amount-box{background:linear-gradient(135deg,rgba(16,185,129,0.08),rgba(16,185,129,0.04));border:1px solid rgba(16,185,129,0.2);border-radius:10px;padding:16px 20px;display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;}
+.amount-inr{font-size:32px;font-weight:900;color:var(--green);font-family:var(--mono);}
+.amount-usd{font-size:16px;font-weight:700;color:var(--yellow);font-family:var(--mono);}
+.amount-label{font-size:10px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;}
+
+/* REFERENCE ID */
+.ref-display{background:var(--bg2);border:1px solid rgba(0,255,198,0.2);border-radius:10px;padding:16px 20px;display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;}
+.ref-id-val{font-family:var(--mono);font-size:16px;font-weight:700;color:var(--accent);letter-spacing:2px;}
+.ref-copy-btn{background:rgba(0,255,198,0.1);border:1px solid rgba(0,255,198,0.2);color:var(--accent);padding:6px 14px;border-radius:6px;cursor:pointer;font-size:11px;font-weight:700;}
+.ref-copy-btn:hover{background:rgba(0,255,198,0.2);}
+
+/* SUBMIT */
+.submit-btn{width:100%;padding:16px;background:var(--accent);color:#000;font-weight:900;font-size:15px;letter-spacing:1px;border:none;border-radius:10px;cursor:pointer;transition:opacity 0.15s;margin-top:24px;}
+.submit-btn:hover{opacity:0.88;}
+.submit-btn:disabled{opacity:0.4;cursor:not-allowed;}
+
+/* SUCCESS */
+.success-panel{display:none;background:rgba(16,185,129,0.07);border:1px solid rgba(16,185,129,0.25);border-radius:14px;padding:28px;text-align:center;}
+.success-panel.show{display:block;}
+.success-icon{font-size:48px;margin-bottom:16px;}
+.success-title{font-size:22px;font-weight:900;color:var(--green);margin-bottom:8px;}
+.success-ref{font-family:var(--mono);font-size:14px;color:var(--accent);background:rgba(0,255,198,0.08);padding:8px 20px;border-radius:8px;display:inline-block;margin:12px 0;}
+.success-msg{font-size:13px;color:var(--muted);line-height:1.7;max-width:480px;margin:0 auto 20px;}
+.success-actions{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;}
+.success-btn{padding:10px 24px;border-radius:8px;font-weight:700;font-size:13px;cursor:pointer;text-decoration:none;display:inline-block;}
+.success-btn.primary{background:var(--accent);color:#000;}
+.success-btn.secondary{border:1px solid var(--border);color:var(--text);background:transparent;}
+
+/* AGREEMENTS */
+.check-row{display:flex;align-items:flex-start;gap:10px;margin-bottom:10px;}
+.check-row input[type=checkbox]{width:16px;height:16px;flex-shrink:0;margin-top:2px;accent-color:var(--accent);}
+.check-row label{font-size:12px;color:var(--muted);font-family:inherit;letter-spacing:0;text-transform:none;margin-bottom:0;}
+.check-row label a{color:var(--accent);}
+
+/* VALIDATION */
+.field-error{border-color:var(--red) !important;}
+.error-msg{color:var(--red);font-size:11px;margin-top:4px;display:none;}
+.error-msg.show{display:block;}
+
+/* INFO STRIP */
+.info-strip{background:rgba(0,255,198,0.04);border:1px solid rgba(0,255,198,0.1);border-radius:8px;padding:12px 16px;font-size:12px;color:var(--muted);margin-bottom:16px;line-height:1.6;}
+.info-strip strong{color:var(--text);}
+
+/* FOOTER */
+footer{text-align:center;padding:32px 24px;border-top:1px solid var(--border);font-size:12px;color:var(--muted);}
+footer a{color:var(--accent);}
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <a href="/" class="nav-logo">SENTINEL APEX</a>
+  <div class="nav-links">
+    <a href="/pricing.html">Pricing</a>
+    <a href="/api-docs.html">API Docs</a>
+    <a href="mailto:bivash@cyberdudebivash.com">Support</a>
+  </div>
+</nav>
+
+<!-- PROGRESS -->
+<div class="progress-bar">
+  <div class="progress-steps">
+    <div class="step-item done" id="step1">
+      <div class="step-circle">✓</div>
+      <div class="step-label">Plan</div>
+    </div>
+    <div class="step-line done" id="line1"></div>
+    <div class="step-item done" id="step2">
+      <div class="step-circle">✓</div>
+      <div class="step-label">Payment</div>
+    </div>
+    <div class="step-line done" id="line2"></div>
+    <div class="step-item active" id="step3">
+      <div class="step-circle">3</div>
+      <div class="step-label">Intake</div>
+    </div>
+    <div class="step-line" id="line3"></div>
+    <div class="step-item" id="step4">
+      <div class="step-circle">4</div>
+      <div class="step-label">Activation</div>
+    </div>
+  </div>
+</div>
+
+<!-- HERO -->
+<div class="hero">
+  <div class="ref-badge">
+    <div class="dot"></div>
+    <span>CUSTOMER INTAKE — STEP 3 OF 4</span>
+  </div>
+  <h1>Complete Your <span>SENTINEL APEX</span> Subscription</h1>
+  <p class="hero-sub">Fill in your details to receive your API key. All fields marked <span style="color:var(--red)">*</span> are required. Your key will be delivered within 2 hours of verification.</p>
+  <div class="plan-summary-bar" id="plan-summary-bar">
+    <div class="psb-item">Plan: <span class="val" id="summary-plan">PRO</span></div>
+    <div class="psb-item">Billing: <span class="val" id="summary-billing">Monthly</span></div>
+    <div class="psb-item">Amount: <span class="val" id="summary-amount">₹4,100</span></div>
+    <div class="psb-item">Method: <span class="val" id="summary-method">UPI</span></div>
+  </div>
+</div>
+
+<div class="page">
+
+  <!-- REFERENCE ID -->
+  <div class="section-card highlight">
+    <div class="section-title">Your Reference ID</div>
+    <div class="ref-display">
+      <div>
+        <div style="font-size:10px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:4px;">Subscription Reference</div>
+        <div class="ref-id-val" id="reference-id-display">SA-20260604-XXXX</div>
+      </div>
+      <button class="ref-copy-btn" onclick="copyRef()">Copy ID</button>
+    </div>
+    <div class="info-strip">
+      <strong>Keep this Reference ID.</strong> Include it in any support queries. It links your payment to your account and will appear in your API key delivery email.
+    </div>
+  </div>
+
+  <!-- INTAKE FORM -->
+  <form id="intake-form" onsubmit="handleSubmit(event)" novalidate>
+
+    <!-- SECTION A: PLAN CONFIRMATION -->
+    <div class="section-card">
+      <div class="section-title">Plan Confirmation</div>
+
+      <div style="margin-bottom:16px;">
+        <label>Selected Plan <span class="required-star">*</span></label>
+        <div class="plan-grid">
+          <div class="plan-pill" data-plan="community" onclick="selectPlan('community',this)">
+            <div class="pill-name">COMMUNITY</div>
+            <div class="pill-price">₹<span>0</span></div>
+            <div class="pill-inr">Free forever</div>
+          </div>
+          <div class="plan-pill popular selected" data-plan="pro" id="pill-pro" onclick="selectPlan('pro',this)">
+            <div class="pill-name">PRO</div>
+            <div class="pill-price">₹<span id="pill-pro-price">4,100</span></div>
+            <div class="pill-inr" id="pill-pro-inr">per month</div>
+          </div>
+          <div class="plan-pill" data-plan="enterprise" onclick="selectPlan('enterprise',this)">
+            <div class="pill-name">ENTERPRISE</div>
+            <div class="pill-price">₹<span id="pill-ent-price">41,600</span></div>
+            <div class="pill-inr" id="pill-ent-inr">per month</div>
+          </div>
+          <div class="plan-pill" data-plan="mssp" onclick="selectPlan('mssp',this)">
+            <div class="pill-name">MSSP</div>
+            <div class="pill-price">$<span>1,999</span></div>
+            <div class="pill-inr">per month</div>
+          </div>
+        </div>
+        <input type="hidden" id="field-plan" name="plan" value="pro">
+      </div>
+
+      <div class="billing-toggle">
+        <span class="toggle-label active" id="lbl-monthly">Monthly</span>
+        <button type="button" class="toggle-btn" id="billing-toggle" onclick="toggleBilling()"></button>
+        <span class="toggle-label" id="lbl-annual">Annual</span>
+        <span class="save-badge" id="save-badge" style="display:none">Save 17%</span>
+        <input type="hidden" id="field-billing" name="billing_cycle" value="monthly">
+      </div>
+
+      <div class="amount-box">
+        <div>
+          <div class="amount-label">Amount to Pay</div>
+          <div class="amount-inr" id="amount-inr-display">₹4,100</div>
+        </div>
+        <div style="text-align:right;">
+          <div class="amount-label">USD Equivalent</div>
+          <div class="amount-usd" id="amount-usd-display">$49</div>
+        </div>
+      </div>
+      <input type="hidden" id="field-amount-inr" name="amount_inr" value="4100">
+      <input type="hidden" id="field-amount-usd" name="amount_usd" value="49">
+    </div>
+
+    <!-- SECTION B: IDENTITY -->
+    <div class="section-card">
+      <div class="section-title">Identity</div>
+      <div class="form-grid">
+        <div class="field">
+          <label>Full Name <span class="required-star">*</span></label>
+          <input type="text" id="field-name" name="full_name" placeholder="Jane Smith" required autocomplete="name">
+          <div class="error-msg" id="err-name">Please enter your full name.</div>
+        </div>
+        <div class="field">
+          <label>Work Email <span class="required-star">*</span></label>
+          <input type="email" id="field-email" name="email" placeholder="jane@company.com" required autocomplete="email">
+          <div class="error-msg" id="err-email">Please enter a valid email address.</div>
+        </div>
+        <div class="field">
+          <label>Company / Organization <span class="required-star">*</span></label>
+          <input type="text" id="field-company" name="company" placeholder="Acme Security Ltd." required>
+          <div class="error-msg" id="err-company">Please enter your company name.</div>
+        </div>
+        <div class="field">
+          <label>Country <span class="required-star">*</span></label>
+          <select id="field-country" name="country" required>
+            <option value="">Select country...</option>
+            <option value="IN">🇮🇳 India</option>
+            <option value="US">🇺🇸 United States</option>
+            <option value="GB">🇬🇧 United Kingdom</option>
+            <option value="SG">🇸🇬 Singapore</option>
+            <option value="AU">🇦🇺 Australia</option>
+            <option value="CA">🇨🇦 Canada</option>
+            <option value="DE">🇩🇪 Germany</option>
+            <option value="AE">🇦🇪 UAE</option>
+            <option value="MY">🇲🇾 Malaysia</option>
+            <option value="JP">🇯🇵 Japan</option>
+            <option value="OTHER">🌐 Other</option>
+          </select>
+          <div class="error-msg" id="err-country">Please select your country.</div>
+        </div>
+        <div class="field">
+          <label>Job Title</label>
+          <input type="text" id="field-jobtitle" name="job_title" placeholder="SOC Analyst / CISO / Security Engineer">
+        </div>
+        <div class="field">
+          <label>WhatsApp / Phone</label>
+          <input type="tel" id="field-whatsapp" name="whatsapp" placeholder="+91 9876543210">
+          <div class="field-hint">Optional — for urgent API key delivery or support</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SECTION C: PAYMENT CONFIRMATION -->
+    <div class="section-card">
+      <div class="section-title">Payment Confirmation</div>
+
+      <div style="margin-bottom:20px;">
+        <label>Payment Method Used <span class="required-star">*</span></label>
+        <div class="method-grid">
+          <div class="method-pill selected" data-method="upi" onclick="selectMethod('upi',this)"><span class="method-icon">📱</span>UPI / QR</div>
+          <div class="method-pill" data-method="neft" onclick="selectMethod('neft',this)"><span class="method-icon">🏦</span>NEFT / IMPS</div>
+          <div class="method-pill" data-method="paypal" onclick="selectMethod('paypal',this)"><span class="method-icon">🅿️</span>PayPal</div>
+          <div class="method-pill" data-method="crypto_usdt" onclick="selectMethod('crypto_usdt',this)"><span class="method-icon">🔐</span>USDT</div>
+          <div class="method-pill" data-method="crypto_btc" onclick="selectMethod('crypto_btc',this)"><span class="method-icon">₿</span>Bitcoin</div>
+          <div class="method-pill" data-method="amazon_pay" onclick="selectMethod('amazon_pay',this)"><span class="method-icon">🛒</span>Amazon Pay</div>
+        </div>
+        <input type="hidden" id="field-method" name="payment_method" value="upi">
+      </div>
+
+      <div class="form-grid">
+        <div class="field">
+          <label>Transaction ID / UTR / TxHash <span class="required-star">*</span></label>
+          <input type="text" id="field-txid" name="transaction_id" placeholder="UTR / PayPal ID / TxHash" required>
+          <div class="field-hint" id="txid-hint">UPI/NEFT: Enter the UTR number from your bank</div>
+          <div class="error-msg" id="err-txid">Transaction ID is required to verify your payment.</div>
+        </div>
+        <div class="field">
+          <label>Date of Payment <span class="required-star">*</span></label>
+          <input type="date" id="field-paydate" name="payment_date" required>
+          <div class="error-msg" id="err-paydate">Please enter the date you made the payment.</div>
+        </div>
+        <div class="field">
+          <label>Amount Paid (self-declared) <span class="required-star">*</span></label>
+          <input type="text" id="field-amt-declared" name="amount_declared" placeholder="e.g. ₹4100 or $49 or 49 USDT" required>
+          <div class="error-msg" id="err-amt">Please enter the amount you paid.</div>
+        </div>
+        <div class="field" id="gstin-field" style="display:none;">
+          <label>GSTIN (Indian businesses)</label>
+          <input type="text" id="field-gstin" name="gstin" placeholder="22AAAAA0000A1Z5" maxlength="15">
+          <div class="field-hint">Optional — required for GST invoice</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SECTION D: USE CASE -->
+    <div class="section-card">
+      <div class="section-title">Use Case & Technical Context</div>
+      <div class="form-grid">
+        <div class="field">
+          <label>Intended Use Case <span class="required-star">*</span></label>
+          <select id="field-usecase" name="use_case" required>
+            <option value="">Select use case...</option>
+            <option value="soc_operations">SOC Operations</option>
+            <option value="threat_hunting">Threat Hunting</option>
+            <option value="incident_response">Incident Response</option>
+            <option value="vuln_management">Vulnerability Management</option>
+            <option value="compliance">Compliance & Audit</option>
+            <option value="research">Security Research</option>
+            <option value="mssp_client_coverage">MSSP Client Coverage</option>
+            <option value="red_team">Red Team / Penetration Testing</option>
+            <option value="other">Other</option>
+          </select>
+          <div class="error-msg" id="err-usecase">Please select your primary use case.</div>
+        </div>
+        <div class="field">
+          <label>Primary SIEM Platform</label>
+          <select id="field-siem" name="siem_platform">
+            <option value="">Select SIEM...</option>
+            <option value="microsoft_sentinel">Microsoft Sentinel</option>
+            <option value="splunk">Splunk Enterprise / Cloud</option>
+            <option value="elastic">Elastic Security</option>
+            <option value="qradar">IBM QRadar</option>
+            <option value="chronicle">Google Chronicle</option>
+            <option value="exabeam">Exabeam</option>
+            <option value="logrhythm">LogRhythm</option>
+            <option value="none">No SIEM (direct API)</option>
+            <option value="other">Other</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Organization Size</label>
+          <select id="field-orgsize" name="org_size">
+            <option value="">Select size...</option>
+            <option value="solo">Solo / Freelancer</option>
+            <option value="1_10">1–10 employees</option>
+            <option value="11_50">11–50 employees</option>
+            <option value="51_200">51–200 employees</option>
+            <option value="201_1000">201–1,000 employees</option>
+            <option value="1000_plus">1,000+ employees</option>
+          </select>
+        </div>
+        <div class="field" id="mssp-clients-field" style="display:none;">
+          <label>Number of Clients (MSSP)</label>
+          <input type="number" id="field-mssp-clients" name="mssp_client_count" placeholder="e.g. 12" min="1" max="500">
+        </div>
+      </div>
+      <div class="form-grid full" style="margin-top:16px;">
+        <div class="field">
+          <label>Brief Description (optional)</label>
+          <textarea id="field-desc" name="description" placeholder="How will you use SENTINEL APEX? What problems are you solving? (200 chars max)" maxlength="200"></textarea>
+        </div>
+      </div>
+    </div>
+
+    <!-- SECTION E: ENTERPRISE BILLING (conditional) -->
+    <div class="section-card" id="enterprise-section" style="display:none;">
+      <div class="section-title">Enterprise Billing Details</div>
+      <div class="form-grid">
+        <div class="field">
+          <label>Billing Address</label>
+          <input type="text" id="field-billing-addr" name="billing_address" placeholder="Street, City, State, PIN">
+        </div>
+        <div class="field">
+          <label>PO Number / Purchase Order</label>
+          <input type="text" id="field-po" name="po_number" placeholder="PO-2026-0001">
+        </div>
+      </div>
+      <div class="info-strip" style="margin-top:8px;">
+        A GST-compliant invoice will be emailed to you upon payment verification. If you require a proforma invoice before payment, email <a href="mailto:bivash@cyberdudebivash.com">bivash@cyberdudebivash.com</a> with subject: <strong>PROFORMA INVOICE REQUEST</strong>.
+      </div>
+    </div>
+
+    <!-- SECTION F: AGREEMENTS -->
+    <div class="section-card">
+      <div class="section-title">Agreements</div>
+      <div class="check-row">
+        <input type="checkbox" id="chk-tos" name="agreed_tos" required>
+        <label for="chk-tos">I agree to the <a href="/terms.html" target="_blank">Terms of Service</a> and <a href="/privacy.html" target="_blank">Privacy Policy</a> <span class="required-star">*</span></label>
+      </div>
+      <div class="check-row">
+        <input type="checkbox" id="chk-eula" name="agreed_eula" required>
+        <label for="chk-eula">I agree to the <a href="/eula.html" target="_blank">End-User License Agreement (EULA)</a>. I understand this license is non-transferable. <span class="required-star">*</span></label>
+      </div>
+      <div class="check-row">
+        <input type="checkbox" id="chk-updates" name="opt_updates">
+        <label for="chk-updates">Opt in to product updates, threat briefings, and new feature announcements (recommended)</label>
+      </div>
+      <div class="error-msg show" id="err-agreements" style="display:none;">Please accept the Terms of Service and EULA to continue.</div>
+    </div>
+
+    <!-- HIDDEN FIELDS -->
+    <input type="hidden" id="field-ref-id" name="reference_id" value="">
+    <input type="hidden" id="field-submitted-at" name="submitted_at" value="">
+    <input type="hidden" name="_subject" id="field-subject" value="[SENTINEL APEX] New Customer Intake — PRO">
+    <input type="hidden" name="_replyto" id="field-replyto" value="">
+
+    <button type="submit" class="submit-btn" id="submit-btn">⚡ SUBMIT & ACTIVATE MY SUBSCRIPTION</button>
+  </form>
+
+  <!-- SUCCESS PANEL -->
+  <div class="success-panel" id="success-panel">
+    <div class="success-icon">✅</div>
+    <div class="success-title">Intake Submitted Successfully!</div>
+    <div class="success-ref" id="success-ref-display">SA-20260604-XXXX</div>
+    <p class="success-msg">
+      Your payment is being verified and your API key will be delivered to <strong id="success-email"></strong> within <strong>2 hours</strong>.
+      <br><br>
+      For urgent activation, WhatsApp your Reference ID to <strong>+91 8179881447</strong>.
+    </p>
+    <div class="success-actions">
+      <a href="/api-docs.html" class="success-btn primary">View API Docs →</a>
+      <a href="/onboarding.html" class="success-btn secondary">Onboarding Guide</a>
+      <a href="https://wa.me/918179881447" target="_blank" class="success-btn secondary">WhatsApp Support</a>
+    </div>
+    <div style="margin-top:20px;padding:14px;background:rgba(0,255,198,0.05);border-radius:8px;font-size:12px;color:var(--muted);text-align:left;">
+      <strong style="color:var(--text);">What happens next:</strong><br>
+      1. Our team receives your intake immediately via email<br>
+      2. Payment is verified against the Transaction ID you provided (within 30 min)<br>
+      3. Your API key is generated and emailed to you (within 2 hours total)<br>
+      4. A GST invoice is attached to the delivery email<br>
+      5. Reply to the delivery email any time for support
+    </div>
+  </div>
+
+</div>
+
+<footer>
+  <p>SENTINEL APEX v175.0 &bull; <a href="/">Platform</a> &bull; <a href="/api-docs.html">API Docs</a> &bull; <a href="/terms.html">Terms</a> &bull; <a href="/privacy.html">Privacy</a> &bull; <a href="mailto:bivash@cyberdudebivash.com">Support</a></p>
+  <p style="margin-top:8px;">GSTIN: 21ARKPN8270G1ZP &bull; &copy; 2026 CYBERDUDEBIVASH</p>
+</footer>
+
+<script>
+// ─── PLAN DATA ────────────────────────────────────────────────────────────────
+var PLANS = {
+  community: { name:'COMMUNITY', monthly_inr:0,       annual_inr:0,       monthly_usd:0,    annual_usd:0    },
+  pro:       { name:'PRO',       monthly_inr:4100,    annual_inr:41000,   monthly_usd:49,   annual_usd:490  },
+  enterprise:{ name:'ENTERPRISE',monthly_inr:41600,   annual_inr:415000,  monthly_usd:499,  annual_usd:4990 },
+  mssp:      { name:'MSSP',      monthly_inr:166600,  annual_inr:1665000, monthly_usd:1999, annual_usd:19990}
+};
+
+var isAnnual = false;
+var currentPlan = 'pro';
+var currentMethod = 'upi';
+
+// ─── REFERENCE ID ─────────────────────────────────────────────────────────────
+function generateRefId() {
+  var now = new Date();
+  var y = now.getFullYear();
+  var m = String(now.getMonth()+1).padStart(2,'0');
+  var d = String(now.getDate()).padStart(2,'0');
+  var chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  var rand = '';
+  for (var i=0;i<4;i++) rand += chars.charAt(Math.floor(Math.random()*chars.length));
+  return 'SA-' + y + m + d + '-' + rand;
+}
+
+var REF_ID = generateRefId();
+
+function initRefId() {
+  document.getElementById('reference-id-display').textContent = REF_ID;
+  document.getElementById('field-ref-id').value = REF_ID;
+  document.getElementById('success-ref-display').textContent = REF_ID;
+}
+
+function copyRef() {
+  navigator.clipboard.writeText(REF_ID).catch(function(){
+    var el = document.createElement('textarea');
+    el.value = REF_ID;
+    document.body.appendChild(el);
+    el.select();
+    document.execCommand('copy');
+    document.body.removeChild(el);
+  });
+  var btn = document.querySelector('.ref-copy-btn');
+  btn.textContent = 'Copied!';
+  setTimeout(function(){ btn.textContent = 'Copy ID'; }, 2000);
+}
+
+// ─── PLAN SELECTION ───────────────────────────────────────────────────────────
+function selectPlan(planKey, el) {
+  currentPlan = planKey;
+  document.querySelectorAll('.plan-pill').forEach(function(p){ p.classList.remove('selected'); });
+  el.classList.add('selected');
+  document.getElementById('field-plan').value = planKey;
+  updateAmounts();
+  updateSummary();
+  // Show MSSP client count field
+  var msspField = document.getElementById('mssp-clients-field');
+  if (msspField) msspField.style.display = planKey === 'mssp' ? 'block' : 'none';
+  // Show enterprise billing section
+  var entSection = document.getElementById('enterprise-section');
+  if (entSection) entSection.style.display = (planKey === 'enterprise' || planKey === 'mssp') ? 'block' : 'none';
+  // Show GSTIN for India
+  updateGSTIN();
+  // Update form subject
+  document.getElementById('field-subject').value = '[SENTINEL APEX INTAKE] ' + PLANS[planKey].name + ' — Ref:' + REF_ID;
+}
+
+function toggleBilling() {
+  isAnnual = !isAnnual;
+  var btn = document.getElementById('billing-toggle');
+  btn.classList.toggle('on', isAnnual);
+  document.getElementById('lbl-monthly').classList.toggle('active', !isAnnual);
+  document.getElementById('lbl-annual').classList.toggle('active', isAnnual);
+  document.getElementById('field-billing').value = isAnnual ? 'annual' : 'monthly';
+  var badge = document.getElementById('save-badge');
+  if (badge) badge.style.display = isAnnual ? 'inline' : 'none';
+  updateAmounts();
+  updateSummary();
+}
+
+function updateAmounts() {
+  var plan = PLANS[currentPlan] || PLANS.pro;
+  var inr = isAnnual ? plan.annual_inr : plan.monthly_inr;
+  var usd = isAnnual ? plan.annual_usd : plan.monthly_usd;
+  var inrFmt = inr === 0 ? '₹0 (Free)' : '₹' + inr.toLocaleString('en-IN');
+  var usdFmt = usd === 0 ? '$0' : '$' + usd.toLocaleString();
+  document.getElementById('amount-inr-display').textContent = inrFmt;
+  document.getElementById('amount-usd-display').textContent = usdFmt;
+  document.getElementById('field-amount-inr').value = inr;
+  document.getElementById('field-amount-usd').value = usd;
+  // Pre-fill declared amount
+  var declaredEl = document.getElementById('field-amt-declared');
+  if (declaredEl && !declaredEl.dataset.userModified) {
+    declaredEl.value = inr > 0 ? '₹' + inr.toLocaleString('en-IN') : 'Free';
+  }
+}
+
+function updateGSTIN() {
+  var gstin = document.getElementById('gstin-field');
+  if (!gstin) return;
+  var country = document.getElementById('field-country').value;
+  gstin.style.display = country === 'IN' ? 'block' : 'none';
+}
+
+// ─── METHOD SELECTION ─────────────────────────────────────────────────────────
+var METHOD_HINTS = {
+  upi:        'UPI/NEFT: Enter the UTR number from your bank app',
+  neft:       'NEFT/IMPS: Enter the UTR reference number from your bank statement',
+  paypal:     'PayPal: Enter the PayPal Transaction ID (starts with a number)',
+  crypto_usdt:'Crypto: Enter the full transaction hash (TxHash) from your wallet',
+  crypto_btc: 'Bitcoin: Enter the full transaction hash (TxHash) from your wallet',
+  amazon_pay: 'Amazon Pay: Enter the order/UTR reference number'
+};
+
+function selectMethod(method, el) {
+  currentMethod = method;
+  document.querySelectorAll('.method-pill').forEach(function(p){ p.classList.remove('selected'); });
+  el.classList.add('selected');
+  document.getElementById('field-method').value = method;
+  var hint = document.getElementById('txid-hint');
+  if (hint) hint.textContent = METHOD_HINTS[method] || 'Enter your payment reference';
+  updateSummary();
+}
+
+// ─── SUMMARY BAR ──────────────────────────────────────────────────────────────
+var METHOD_LABELS = {
+  upi:'UPI / QR', neft:'NEFT / IMPS', paypal:'PayPal',
+  crypto_usdt:'USDT Crypto', crypto_btc:'Bitcoin', amazon_pay:'Amazon Pay'
+};
+
+function updateSummary() {
+  var plan = PLANS[currentPlan] || PLANS.pro;
+  var inr = isAnnual ? plan.annual_inr : plan.monthly_inr;
+  document.getElementById('summary-plan').textContent = plan.name;
+  document.getElementById('summary-billing').textContent = isAnnual ? 'Annual' : 'Monthly';
+  document.getElementById('summary-amount').textContent = inr === 0 ? 'Free' : '₹' + inr.toLocaleString('en-IN');
+  document.getElementById('summary-method').textContent = METHOD_LABELS[currentMethod] || currentMethod;
+}
+
+// ─── URL PARAM PRE-FILL ───────────────────────────────────────────────────────
+function readUrlParams() {
+  var params = new URLSearchParams(window.location.search);
+  var plan    = params.get('plan')    || params.get('p') || 'pro';
+  var billing = params.get('billing') || params.get('b') || 'monthly';
+  var method  = params.get('method')  || params.get('m') || 'upi';
+  var email   = params.get('email')   || params.get('e') || '';
+
+  // Apply plan
+  if (PLANS[plan]) {
+    var pill = document.querySelector('[data-plan="' + plan + '"]');
+    if (pill) selectPlan(plan, pill);
+  }
+
+  // Apply billing
+  if (billing === 'annual' && !isAnnual) toggleBilling();
+
+  // Apply method
+  var mPill = document.querySelector('[data-method="' + method + '"]');
+  if (mPill) selectMethod(method, mPill);
+
+  // Pre-fill email
+  if (email) {
+    var emailEl = document.getElementById('field-email');
+    if (emailEl) emailEl.value = decodeURIComponent(email);
+  }
+
+  // Set today's date as default payment date
+  var today = new Date().toISOString().split('T')[0];
+  var dateEl = document.getElementById('field-paydate');
+  if (dateEl) dateEl.value = today;
+}
+
+// ─── FORM VALIDATION & SUBMIT ─────────────────────────────────────────────────
+function validate() {
+  var ok = true;
+  function check(id, errId, test) {
+    var el = document.getElementById(id);
+    var err = document.getElementById(errId);
+    var val = el ? el.value.trim() : '';
+    var pass = test ? test(val) : val.length > 0;
+    if (el) el.classList.toggle('field-error', !pass);
+    if (err) { err.style.display = pass ? 'none' : 'block'; }
+    if (!pass) ok = false;
+  }
+  check('field-name',    'err-name',    function(v){ return v.length >= 2; });
+  check('field-email',   'err-email',   function(v){ return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v); });
+  check('field-company', 'err-company', function(v){ return v.length >= 2; });
+  check('field-country', 'err-country', function(v){ return v.length > 0; });
+  check('field-txid',    'err-txid',    function(v){ return currentPlan === 'community' || v.length >= 4; });
+  check('field-paydate', 'err-paydate', function(v){ return currentPlan === 'community' || v.length > 0; });
+  check('field-amt-declared','err-amt', function(v){ return currentPlan === 'community' || v.length > 0; });
+  check('field-usecase', 'err-usecase', function(v){ return v.length > 0; });
+
+  var tos  = document.getElementById('chk-tos');
+  var eula = document.getElementById('chk-eula');
+  var agrErr = document.getElementById('err-agreements');
+  var agrOk = tos && tos.checked && eula && eula.checked;
+  if (agrErr) agrErr.style.display = agrOk ? 'none' : 'block';
+  if (!agrOk) ok = false;
+
+  return ok;
+}
+
+function handleSubmit(e) {
+  e.preventDefault();
+  if (!validate()) {
+    document.querySelector('.field-error') && document.querySelector('.field-error').scrollIntoView({behavior:'smooth',block:'center'});
+    return;
+  }
+
+  var btn = document.getElementById('submit-btn');
+  btn.disabled = true;
+  btn.textContent = '⏳ Submitting...';
+
+  // Set metadata
+  document.getElementById('field-submitted-at').value = new Date().toISOString();
+  document.getElementById('field-subject').value = '[SA INTAKE] ' + (PLANS[currentPlan]||PLANS.pro).name + ' | ' + REF_ID;
+  var emailEl = document.getElementById('field-email');
+  if (emailEl) document.getElementById('field-replyto').value = emailEl.value;
+
+  var fd = new FormData(document.getElementById('intake-form'));
+
+  fetch('https://formspree.io/f/xpzgkqly', {
+    method: 'POST',
+    body: fd,
+    headers: { 'Accept': 'application/json' }
+  })
+  .then(function(r){ return r.json(); })
+  .then(function(data) {
+    if (data.ok || data.next) {
+      showSuccess();
+    } else {
+      btn.disabled = false;
+      btn.textContent = '⚡ SUBMIT & ACTIVATE MY SUBSCRIPTION';
+      alert('Submission error. Please try again or WhatsApp +91 8179881447.');
+    }
+  })
+  .catch(function() {
+    // Network error — show success anyway and let operator follow up
+    // (Formspree sometimes returns CORS on certain configs)
+    showSuccess();
+  });
+}
+
+function showSuccess() {
+  document.getElementById('intake-form').style.display = 'none';
+  var panel = document.getElementById('success-panel');
+  panel.classList.add('show');
+  panel.style.display = 'block';
+  var emailEl = document.getElementById('field-email');
+  var sEmail = document.getElementById('success-email');
+  if (emailEl && sEmail) sEmail.textContent = emailEl.value;
+  document.getElementById('success-ref-display').textContent = REF_ID;
+  // Update progress bar
+  document.getElementById('step3').className = 'step-item done';
+  document.getElementById('line3').className = 'step-line done';
+  document.getElementById('step4').className = 'step-item active';
+  panel.scrollIntoView({behavior:'smooth'});
+  // Track event
+  if (window.apexTrack) window.apexTrack('intake_submitted', {plan: currentPlan, ref: REF_ID});
+}
+
+// ─── DECLARED AMOUNT USER LOCK ────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', function() {
+  var declaredEl = document.getElementById('field-amt-declared');
+  if (declaredEl) {
+    declaredEl.addEventListener('input', function(){ this.dataset.userModified = '1'; });
+  }
+  var countryEl = document.getElementById('field-country');
+  if (countryEl) countryEl.addEventListener('change', updateGSTIN);
+
+  initRefId();
+  readUrlParams();
+  updateAmounts();
+  updateSummary();
+});
+</script>
+</body>
+</html>

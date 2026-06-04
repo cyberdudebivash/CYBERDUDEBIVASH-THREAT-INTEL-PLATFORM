@@ -1,0 +1,106 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://intel.cyberdudebivash.com/schemas/transaction.json",
+  "title": "SENTINEL APEX Transaction Schema v1.0",
+  "description": "Canonical schema for a payment transaction record",
+  "type": "object",
+  "required": ["id", "reference_id", "customer_email", "plan", "payment_method", "amount_inr", "transaction_id", "status"],
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Internal UUID (auto-generated)"
+    },
+    "reference_id": {
+      "type": "string",
+      "pattern": "^SA-[0-9]{8}-[A-Z0-9]{4}$",
+      "description": "Customer-facing reference ID — links to customer record"
+    },
+    "invoice_number": {
+      "type": "string",
+      "pattern": "^INV-[0-9]{4}-[0-9]{3,5}$",
+      "description": "Invoice number, e.g. INV-2026-001"
+    },
+    "customer_email": {
+      "type": "string",
+      "format": "email"
+    },
+    "customer_name": {
+      "type": "string"
+    },
+    "company": {
+      "type": "string"
+    },
+    "plan": {
+      "type": "string",
+      "enum": ["community", "pro", "enterprise", "mssp", "trial"]
+    },
+    "billing_cycle": {
+      "type": "string",
+      "enum": ["monthly", "annual", "free"]
+    },
+    "payment_method": {
+      "type": "string",
+      "enum": ["upi", "neft", "paypal", "crypto_usdt_trc20", "crypto_usdt_erc20", "crypto_usdt_bep20", "crypto_btc", "amazon_pay", "bank_transfer"]
+    },
+    "amount_inr": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Amount in Indian Rupees (paise-free integer)"
+    },
+    "amount_usd": {
+      "type": "number",
+      "minimum": 0,
+      "description": "USD equivalent at time of payment"
+    },
+    "amount_declared": {
+      "type": "string",
+      "description": "Amount as declared by customer (free-form string for crypto/FX)"
+    },
+    "transaction_id": {
+      "type": "string",
+      "description": "UTR / PayPal TxID / Crypto TxHash as submitted by customer"
+    },
+    "payment_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Date payment was made (as declared by customer)"
+    },
+    "verified": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether payment has been verified by operator"
+    },
+    "verified_at": {
+      "type": ["string", "null"],
+      "format": "date-time",
+      "description": "UTC timestamp of verification"
+    },
+    "verified_by": {
+      "type": "string",
+      "description": "Operator name who verified the payment"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["pending", "verified", "failed", "refunded", "disputed"],
+      "description": "Payment status"
+    },
+    "verification_notes": {
+      "type": "string",
+      "description": "Operator notes on verification (e.g. amount mismatch details)"
+    },
+    "gstin": {
+      "type": "string",
+      "description": "Customer GSTIN for GST invoice"
+    },
+    "submitted_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the customer submitted the payment tracker form"
+    },
+    "notes": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": false
+}
