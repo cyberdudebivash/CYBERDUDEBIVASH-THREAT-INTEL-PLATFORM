@@ -801,7 +801,7 @@
     "exploit_refs": [],
     "metasploit_available": false,
     "poc_github_count": 0,
-    "actor_display_name": "Unknown Threat Actor",
+    "actor_display_name": null,
     "actor_aliases": [
       "Unattributed"
     ],
@@ -1931,7 +1931,7 @@
     "exploit_refs": [],
     "metasploit_available": false,
     "poc_github_count": 0,
-    "actor_display_name": "Unknown Threat Actor",
+    "actor_display_name": null,
     "actor_aliases": [
       "Unattributed"
     ],
@@ -2162,7 +2162,7 @@
     "exploit_refs": [],
     "metasploit_available": false,
     "poc_github_count": 0,
-    "actor_display_name": "Unknown Threat Actor",
+    "actor_display_name": null,
     "actor_aliases": [
       "Unattributed"
     ],
@@ -3186,14 +3186,17 @@
     "title": "browserstack-runner vulnerable to Remote Code Execution via vm sandbox escape in _log HTTP handler",
     "description": "### Summary\n\nThe HTTP handler `/_log` in `lib/server.js` (lines 491–515) of browserstack-runner passes unauthenticated user-supplied data to `vm.runInNewContext()` combined with `eval()`, enabling a sandbox escape and arbitrary code execution on the host system.\n\n### Details\n\nWhen `browserstack-runner` starts, it creates an HTTP server on port 8888 (configurable) that listens on all network interfaces (`0.0.0.0`). The `/_log` endpoint accepts POST requests and processes the JSON body as follows:\n\n```javascript\n// lib/server.js lines 504-510\nvar context = { input: query.arguments, format: util.format, output: '' };\nvar tryEvalOrString = 'function (arg) { try { return eval(\\'o = \\' + arg); } catch (e) { return arg; } }';\nvm.runInNewContext('output = format.apply(null, input.map(' + tryEvalOrString + '));', context);\n```\n\nThe `vm` module is [not a security mechanism](https://nodejs.org/api/vm.html#vm-executing-javascript) per Node.js documentation. The `context` object contains a referenc",
     "severity": "HIGH",
-    "risk_score": 7.607,
-    "confidence": 0.45,
+    "risk_score": 7.0,
+    "confidence": 0.17,
     "source": "GitHub Security Advisories",
     "feed_source": "GitHub Security Advisories",
-    "tlp": "TLP:CLEAR",
+    "tlp": "TLP:AMBER",
     "threat_type": "Vulnerability",
     "tags": [
-      "npm:browserstack-runner"
+      "npm:browserstack-runner",
+      "kev",
+      "cisa",
+      "actively-exploited"
     ],
     "cve_id": "CVE-2026-49143",
     "cve_ids": [
@@ -3205,9 +3208,9 @@
     "processed_at": "2026-06-03T21:39:32Z",
     "published_at": "2026-06-03T21:39:32Z",
     "source_url": "https://github.com/advisories/GHSA-6vr3-7wcx-v5g5",
-    "actor": "CDB-UNATTR-CVE",
+    "actor": null,
     "ghsa_id": "GHSA-6vr3-7wcx-v5g5",
-    "epss_score": 0.15,
+    "epss_score": 15.0,
     "epss": "0.15%",
     "cvss_score": 8.8,
     "cvss_vector": "CVSS:3.1/AV:A/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H",
@@ -3217,18 +3220,14 @@
     "exploit_refs": [],
     "metasploit_available": false,
     "poc_github_count": 0,
-    "actor_display_name": "Unknown Threat Actor",
-    "actor_aliases": [
-      "Unattributed"
-    ],
-    "actor_country": "Unknown",
-    "actor_motivation": [
-      "unknown"
-    ],
+    "actor_display_name": null,
+    "actor_aliases": [],
+    "actor_country": null,
+    "actor_motivation": null,
     "actor_sectors": [],
     "actor_ttps": [],
     "actor_malware": [],
-    "actor_threat_level": "UNKNOWN",
+    "actor_threat_level": null,
     "actor_mitre_id": null,
     "iq_score": 45,
     "iq_breakdown": {
@@ -3244,64 +3243,21 @@
     "apex_ai_score": 7.6,
     "status": "active",
     "schema_version": "stable-v1.0-apex",
-    "_risk_micro_adj": 0.006966
-  },
-  {
-    "id": "intel--5cf08e8e8ae3e12f3335c634",
-    "stix_id": "intel--5cf08e8e8ae3e12f3335c634",
-    "title": "browserstack-runner has an unauthenticated arbitrary file read via path traversal in HTTP server",
-    "description": "## Summary\n\nThe HTTP server in browserstack-runner serves files from the project directory via the `_default` handler. This handler uses `path.join(process.cwd(), uri)` to resolve file paths but does not validate that the resulting path stays within the project root. Combined with the server binding on `0.0.0.0` (all interfaces) and the absence of any authentication, this allows an unauthenticated network-adjacent attacker to read arbitrary files from the host filesystem.\n\n## Root Cause\n\n**lib/server.js, lines 530–534 : `_default` handler:**\n\n```javascript\n'_default': function defaultHandler(uri, body, request, response) {\n    var filePath = path.join(process.cwd(), uri);\n    handleFile(filePath, request, response);\n}\n```\n\n`uri` comes from `url.parse(request.url).pathname` (line 540), which preserves `../` sequences. `path.join` resolves them, producing absolute paths outside the project directory. No boundary check is performed before serving the file.\n\n**bin/cli.js, line 131 : server",
-    "severity": "HIGH",
-    "risk_score": 7.6468,
-    "confidence": 0.25,
-    "source": "GitHub Security Advisories",
-    "feed_source": "GitHub Security Advisories",
-    "tlp": "TLP:CLEAR",
-    "threat_type": "Vulnerability",
-    "tags": [
-      "npm:browserstack-runner"
-    ],
-    "cve_id": "CVE-2026-49144",
-    "cve_ids": [
-      "CVE-2026-49144"
-    ],
-    "ioc_count": 0,
-    "kev": "NO",
-    "timestamp": "2026-06-03T21:38:40Z",
-    "processed_at": "2026-06-03T21:38:40Z",
-    "published_at": "2026-06-03T21:38:40Z",
-    "source_url": "https://github.com/advisories/GHSA-8rpw-6cqh-2v9h",
-    "actor": "CDB-UNATTR-CVE",
-    "ghsa_id": "GHSA-8rpw-6cqh-2v9h",
-    "epss_score": 0.02,
-    "epss": "0.02%",
-    "cvss_score": 6.5,
-    "cvss_vector": "CVSS:3.1/AV:A/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:N",
-    "cvss_source": "github_advisory",
-    "exploit_maturity": "UNPROVEN",
-    "exploit_count": 0,
-    "exploit_refs": [],
-    "metasploit_available": false,
-    "poc_github_count": 0,
-    "actor_display_name": "Unknown Threat Actor",
-    "actor_aliases": [
-      "Unattributed"
-    ],
-    "actor_country": "Unknown",
-    "actor_motivation": [
-      "unknown"
-    ],
-    "actor_sectors": [],
-    "actor_ttps": [],
-    "actor_malware": [],
-    "actor_threat_level": "UNKNOWN",
-    "actor_mitre_id": null,
-    "iq_score": 25,
-    "iq_breakdown": {
-      "source": 10,
-      "enrichment": 10,
-      "attribution": 5,
-      "corroboration": 0
+    "_risk_micro_adj": 0.006966,
+    "actor_code": "Unattributed",
+    "actor_type": "UNATTRIBUTED",
+    "actor_region": "Unknown",
+    "_quality_hardened_at": "2026-06-04T06:46:45.146381+00:00",
+    "_quality_version": "160.0",
+    "evidence_ledger": {
+      "source_count": 1,
+      "verified_sources": 0,
+      "ioc_count": 0,
+      "ttp_count": 0,
+      "cve_count": 1,
+      "confidence_score": 45,
+      "evidence_strength": "LOW",
+      "ledger_generated": true
     },
     "intelligence_age_days": 0.4,
     "pdf_url": "/reports/pdf/intel--5cf08e8e8ae3e12f3335c634.pdf",
@@ -3318,14 +3274,17 @@
     "title": "Jupyter Enterprise Gateway: Kubernetes Manifest Injection in Jinja2 Template Rendering",
     "description": "### Summary\n\nThe environment variables used during the rendering of the Kubernetes manifest allow YAML injection, enabling attackers to overwrite existing keys like `securityContext` and inject multi-document YAML to create additional unintended Kubernetes resources.\n\n### Details\n\nThe server interpolates untrusted environment variables (e.g., `KERNEL_XXX`) into Kubernetes manifests without YAML-aware escaping, enabling YAML injection attacks. Attackers can inject new fields, overwrite critical fields (e.g., duplicate `securityContext` keys, where the last one prevails), and inject document boundaries (`---` for new documents, `...` for end-of-document) to generate multiple resources, potentially creating arbitrary kinds like privileged pods.\n\nThe Jinja2 template for the Kubernetes manifest contains several `kernel_xxx` variables, such as `kernel_working_dir` that are used when rendering the manifest and are all vectors for YAML injection.\nhttps://github.com/jupyter-server/enterprise_ga",
     "severity": "CRITICAL",
-    "risk_score": 9.0281,
-    "confidence": 0.2,
+    "risk_score": 8.5,
+    "confidence": 0.12,
     "source": "GitHub Security Advisories",
     "feed_source": "GitHub Security Advisories",
-    "tlp": "TLP:CLEAR",
+    "tlp": "TLP:AMBER",
     "threat_type": "Vulnerability",
     "tags": [
-      "pip:jupyter_enterprise_gateway"
+      "pip:jupyter_enterprise_gateway",
+      "kev",
+      "cisa",
+      "actively-exploited"
     ],
     "cve_id": "CVE-2026-44182",
     "cve_ids": [
@@ -3337,7 +3296,7 @@
     "processed_at": "2026-06-03T21:37:16Z",
     "published_at": "2026-06-03T21:37:16Z",
     "source_url": "https://github.com/advisories/GHSA-cfw7-6c5v-2wjq",
-    "actor": "CDB-UNATTR-CVE",
+    "actor": null,
     "ghsa_id": "GHSA-cfw7-6c5v-2wjq",
     "cvss_score": 9.5,
     "cvss_vector": null,
@@ -3347,18 +3306,14 @@
     "exploit_refs": [],
     "metasploit_available": false,
     "poc_github_count": 0,
-    "actor_display_name": "Unknown Threat Actor",
-    "actor_aliases": [
-      "Unattributed"
-    ],
-    "actor_country": "Unknown",
-    "actor_motivation": [
-      "unknown"
-    ],
+    "actor_display_name": null,
+    "actor_aliases": [],
+    "actor_country": null,
+    "actor_motivation": null,
     "actor_sectors": [],
     "actor_ttps": [],
     "actor_malware": [],
-    "actor_threat_level": "UNKNOWN",
+    "actor_threat_level": null,
     "actor_mitre_id": null,
     "iq_score": 20,
     "iq_breakdown": {
@@ -3374,7 +3329,106 @@
     "apex_ai_score": 9.0,
     "status": "active",
     "schema_version": "stable-v1.0-apex",
-    "_risk_micro_adj": 0.02805
+    "_risk_micro_adj": 0.02805,
+    "actor_code": "Unattributed",
+    "actor_type": "UNATTRIBUTED",
+    "actor_region": "Unknown",
+    "_quality_hardened_at": "2026-06-04T06:46:45.146399+00:00",
+    "_quality_version": "160.0",
+    "evidence_ledger": {
+      "source_count": 1,
+      "verified_sources": 0,
+      "ioc_count": 0,
+      "ttp_count": 0,
+      "cve_count": 1,
+      "confidence_score": 20,
+      "evidence_strength": "LOW",
+      "ledger_generated": true
+    },
+    "confidence_score": 12,
+    "confidence_reason": [
+      "Single unverified source — low evidence base"
+    ],
+    "cti_tier": "FREE_INFORMATIONAL",
+    "verification_status": "UNVERIFIED",
+    "attribution_status": "UNATTRIBUTED",
+    "source_reliability": "UNRATED",
+    "ioc_quality": "LOW",
+    "ttp_quality": "LOW",
+    "report_quality": "INFORMATIONAL",
+    "verified_actor": false,
+    "campaign_status": "UNVERIFIED",
+    "publication_decision": "ALLOW_WITH_WARNING",
+    "intelligence_grade": "B",
+    "evidence_count": 2,
+    "corroboration_count": 2,
+    "ioc_quality_score": 0,
+    "ioc_quality_label": "NONE",
+    "real_ioc_count": 0,
+    "attck_verification": "EVIDENCE_BASED",
+    "attck_notes": [
+      "Derived from CVE description: rce"
+    ],
+    "risk_score_reasoning": "{\"formula\": \"v1.0.0-deterministic\", \"inputs\": {\"cvss_score\": 9.5, \"epss_pct\": 0.0, \"kev_confirmed\": false, \"verified_actor\": false, \"real_ioc_count\": 0}, \"components\": {\"base_cvss\": 3.8, \"epss_boost\": 0.0, \"kev_boost\": 0.0, \"actor_boost\": 0.0, \"ioc_boost\": 0.0}, \"computed_score\": 3.8, \"notes\": [\"EPSS absent for CVE item \\u2014 enrich from FIRST.org API\", \"Critical CVSS without KEV confirmation \\u2014 monitor for escalation\"]}",
+    "analyst_verdict": "ALLOW — Grade B: strong CVE intelligence. Verified CVE, CVSS>=8.0, evidence-based ATT&CK, multi-source corroboration.",
+    "mitre_tactics": [],
+    "ttps": [],
+    "grade_notes": [
+      "Partial verification: CVSS 9.5"
+    ],
+    "grade_engine_version": "v2.0.0",
+    "graded_at": "2026-06-04T06:46:47.792281+00:00",
+    "actor_tag": null,
+    "actor_name": null,
+    "allowed_content_tier": "enterprise_dossier",
+    "premium_eligible": true,
+    "enterprise_eligible": true,
+    "mssp_eligible": true,
+    "governor_version": "1.0.0",
+    "governed_at": "2026-06-04T06:46:48.487354+00:00",
+    "governor_audit_log": [
+      "M2: Banned actor 'Unattributed Threat Actor' nulled — attribution_status=NONE",
+      "M4: risk_score raised 3.8→8.5 [severity=CRITICAL → floor 8.5; CVSS=9.5 ≥ 9.0 → floor 8.5; KEV=true → floor 7.0]"
+    ],
+    "actor_confidence_label": "NONE",
+    "attribution_assessment": {
+      "status": "UNATTRIBUTED",
+      "confidence": "NONE",
+      "evidence_count": 0,
+      "verdict": "No actor claimed — correct",
+      "engine_version": "1.0.0"
+    },
+    "attck_technique_ids": [
+      "T1059"
+    ],
+    "attck_techniques": [
+      {
+        "technique_id": "T1059",
+        "technique_name": "Command and Scripting Interpreter",
+        "attack_justification": "CVE confirms remote/arbitrary code execution capability",
+        "attack_evidence": "CVE-2026-44182 — jupyter enterprise gateway: kubernetes manifest injection in jinja2 template rendering ### summary\n\nthe environment vari...",
+        "attack_source": "GitHub Security Advisories",
+        "mapping_method": "cve_description_derivation",
+        "verification_status": "EVIDENCE_BASED",
+        "matched_pattern": "rce",
+        "source_reference": "",
+        "mapping_reason": ""
+      }
+    ],
+    "corroboration_score": 40,
+    "corroboration_strength": "MODERATE",
+    "corroboration_sources": [
+      "GitHub Advisory",
+      "NVD/CVE-Database"
+    ],
+    "detection_quality_status": "DETECTION_NOT_PRODUCTION_READY",
+    "detection_production_ready": false,
+    "detection_rules_total": 0,
+    "detection_rules_production_ready": 0,
+    "grade_notes_v2": [
+      "Grade B: CVE verified; CVSS=9.5; 2 sources; evidence-based ATT&CK; corroboration=40"
+    ],
+    "graded_at_v2": "2026-06-04T06:46:48.392047+00:00"
   },
   {
     "id": "intel--91fd7cda9eccdbe2b8e6c856",
@@ -3382,14 +3436,17 @@
     "title": "Jupyter Enterprise Gateway: Jinja2 Template Server Side Template Injection resulting in Remote Code Execution",
     "description": "### Summary\n\nThe environment variables (`KERNEL_XXX`) used during the rendering of the Kubernetes manifest are vulnerable to Server Side Template Injection (SSTI).\nBy including Jinja2 template expressions it is possible to execution Python code and OS Commands in the Enterprise Gateway service.\nThe code can use or steal the Kubernetes service account token, which can steal Kubernetes secrets and be used to fully compromise the Kubernetes cluster by scheduling a privileged pod or a pod with a `hostPath` volume mount.\n\n### Details\n\nThe `KERNEL_POD_NAME` variable is rendered using Jinja2, allowing for code execution via template expression statements, in this code:\nhttps://github.com/jupyter-server/enterprise_gateway/blob/152c20f162f2fab700c04c8830ebf8c1e2e2217a/enterprise_gateway/services/processproxies/k8s.py#L219-L247\n\nThe Jinja2 template for the Kubernetes manifest contains several `kernel_xxx` variables, in addition to `kernel_pod_name` discussed above, such as `kernel_working_dir` t",
     "severity": "CRITICAL",
-    "risk_score": 9.003,
-    "confidence": 0.2,
+    "risk_score": 8.5,
+    "confidence": 0.12,
     "source": "GitHub Security Advisories",
     "feed_source": "GitHub Security Advisories",
-    "tlp": "TLP:CLEAR",
+    "tlp": "TLP:AMBER",
     "threat_type": "Vulnerability",
     "tags": [
-      "pip:jupyter_enterprise_gateway"
+      "pip:jupyter_enterprise_gateway",
+      "kev",
+      "cisa",
+      "actively-exploited"
     ],
     "cve_id": "CVE-2026-44181",
     "cve_ids": [
@@ -3401,7 +3458,7 @@
     "processed_at": "2026-06-03T21:36:05Z",
     "published_at": "2026-06-03T21:36:05Z",
     "source_url": "https://github.com/advisories/GHSA-f49j-v924-fx9w",
-    "actor": "CDB-UNATTR-CVE",
+    "actor": null,
     "ghsa_id": "GHSA-f49j-v924-fx9w",
     "cvss_score": 9.5,
     "cvss_vector": null,
@@ -3411,20 +3468,14 @@
     "exploit_refs": [],
     "metasploit_available": false,
     "poc_github_count": 0,
-    "actor_display_name": "Unknown Threat Actor",
-    "actor_aliases": [
-      "Unattributed"
-    ],
-    "actor_country": "Unknown",
-    "actor_motivation": [
-      "unknown"
-    ],
-    "actor_sectors": [
-      "Government"
-    ],
+    "actor_display_name": null,
+    "actor_aliases": [],
+    "actor_country": null,
+    "actor_motivation": null,
+    "actor_sectors": [],
     "actor_ttps": [],
     "actor_malware": [],
-    "actor_threat_level": "UNKNOWN",
+    "actor_threat_level": null,
     "actor_mitre_id": null,
     "iq_score": 20,
     "iq_breakdown": {
@@ -3440,64 +3491,21 @@
     "apex_ai_score": 9.0,
     "status": "active",
     "schema_version": "stable-v1.0-apex",
-    "_risk_micro_adj": 0.002976
-  },
-  {
-    "id": "intel--014d15159a4e58503ec3c584",
-    "stix_id": "intel--014d15159a4e58503ec3c584",
-    "title": "AIOHTTP is vulnerable to cross-origin redirect with per-request cookies",
-    "description": "### Summary\n\nCookies set with the `cookies` parameter on requests are sent after following a cross-origin redirect.\n\n### Impact\n\nIf a developer uses the `cookies` parameter on a per-request basis then sensitive data might be leaked to an attacker if they manage to control a redirect.\n\n### Workaround\n\nIf unable to upgrade, using a `Cookie` header in the `headers` parameter is not vulnerable.\n\n-----\n\nPatch: https://github.com/aio-libs/aiohttp/commit/f54c40851b0d6c4bbdab97ba518a223adda32478",
-    "severity": "MEDIUM",
-    "risk_score": 5.0353,
-    "confidence": 0.25,
-    "source": "GitHub Security Advisories",
-    "feed_source": "GitHub Security Advisories",
-    "tlp": "TLP:CLEAR",
-    "threat_type": "Vulnerability",
-    "tags": [
-      "pip:aiohttp"
-    ],
-    "cve_id": "CVE-2026-47265",
-    "cve_ids": [
-      "CVE-2026-47265"
-    ],
-    "ioc_count": 0,
-    "kev": "NO",
-    "timestamp": "2026-06-03T21:34:38Z",
-    "processed_at": "2026-06-03T21:34:38Z",
-    "published_at": "2026-06-03T21:34:38Z",
-    "source_url": "https://github.com/advisories/GHSA-hg6j-4rv6-33pg",
-    "actor": "CDB-UNATTR-CVE",
-    "ghsa_id": "GHSA-hg6j-4rv6-33pg",
-    "epss_score": 0.02,
-    "epss": "0.02%",
-    "cvss_score": 5.5,
-    "cvss_vector": null,
-    "cvss_source": "github_advisory",
-    "exploit_maturity": "UNPROVEN",
-    "exploit_count": 0,
-    "exploit_refs": [],
-    "metasploit_available": false,
-    "poc_github_count": 0,
-    "actor_display_name": "Unknown Threat Actor",
-    "actor_aliases": [
-      "Unattributed"
-    ],
-    "actor_country": "Unknown",
-    "actor_motivation": [
-      "unknown"
-    ],
-    "actor_sectors": [],
-    "actor_ttps": [],
-    "actor_malware": [],
-    "actor_threat_level": "UNKNOWN",
-    "actor_mitre_id": null,
-    "iq_score": 25,
-    "iq_breakdown": {
-      "source": 10,
-      "enrichment": 10,
-      "attribution": 5,
-      "corroboration": 0
+    "_risk_micro_adj": 0.002976,
+    "actor_code": "Unattributed",
+    "actor_type": "UNATTRIBUTED",
+    "actor_region": "Unknown",
+    "_quality_hardened_at": "2026-06-04T06:46:45.146408+00:00",
+    "_quality_version": "160.0",
+    "evidence_ledger": {
+      "source_count": 1,
+      "verified_sources": 0,
+      "ioc_count": 0,
+      "ttp_count": 0,
+      "cve_count": 1,
+      "confidence_score": 20,
+      "evidence_strength": "LOW",
+      "ledger_generated": true
     },
     "intelligence_age_days": 0.4,
     "pdf_url": "/reports/pdf/intel--014d15159a4e58503ec3c584.pdf",
@@ -3514,14 +3522,17 @@
     "title": "Jupyter Enterprise Gateway: ContainerProcessProxy._enforce_prohibited_ids Bypass",
     "description": "### Summary\n\nJupyter Enterprise Gateway has a prohibited UID and GID feature that by default prevents launching kernels with UID or GID 0 (root).\nThis can be bypassed. It is possible to launch kernels with a prohibited UID and/or GID by using a specially crafted `KERNEL_UID` or `KERNEL_GID` value.\n\nThe feature is described in the documentation: \n\nhttps://github.com/jupyter-server/enterprise_gateway/blob/152c20f162f2fab700c04c8830ebf8c1e2e2217a/docs/source/operators/config-add-env.md?plain=1#L103-L107\n\nhttps://github.com/jupyter-server/enterprise_gateway/blob/152c20f162f2fab700c04c8830ebf8c1e2e2217a/docs/source/operators/config-add-env.md?plain=1#L88-L92\n\nhttps://github.com/jupyter-server/enterprise_gateway/blob/152c20f162f2fab700c04c8830ebf8c1e2e2217a/docs/source/operators/deploy-kubernetes.md?plain=1#L769\n\n### Details\n\nThe `prohibited_uids` and `prohibited_uids` are set based of the OS env var `EG_PROHIBITED_UIDS` and `EG_PROHIBITED_GIDS`, and default to the string `0`.\n\nhttps://githu",
     "severity": "CRITICAL",
-    "risk_score": 9.0441,
-    "confidence": 0.2,
+    "risk_score": 8.5,
+    "confidence": 0.12,
     "source": "GitHub Security Advisories",
     "feed_source": "GitHub Security Advisories",
-    "tlp": "TLP:CLEAR",
+    "tlp": "TLP:AMBER",
     "threat_type": "Vulnerability",
     "tags": [
-      "pip:jupyter_enterprise_gateway"
+      "pip:jupyter_enterprise_gateway",
+      "kev",
+      "cisa",
+      "actively-exploited"
     ],
     "cve_id": "CVE-2026-44180",
     "cve_ids": [
@@ -3533,7 +3544,7 @@
     "processed_at": "2026-06-03T21:30:10Z",
     "published_at": "2026-06-03T21:30:10Z",
     "source_url": "https://github.com/advisories/GHSA-chq7-94j8-cj28",
-    "actor": "CDB-UNATTR-CVE",
+    "actor": null,
     "ghsa_id": "GHSA-chq7-94j8-cj28",
     "cvss_score": 9.8,
     "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H",
@@ -3543,18 +3554,14 @@
     "exploit_refs": [],
     "metasploit_available": false,
     "poc_github_count": 0,
-    "actor_display_name": "Unknown Threat Actor",
-    "actor_aliases": [
-      "Unattributed"
-    ],
-    "actor_country": "Unknown",
-    "actor_motivation": [
-      "unknown"
-    ],
+    "actor_display_name": null,
+    "actor_aliases": [],
+    "actor_country": null,
+    "actor_motivation": null,
     "actor_sectors": [],
     "actor_ttps": [],
     "actor_malware": [],
-    "actor_threat_level": "UNKNOWN",
+    "actor_threat_level": null,
     "actor_mitre_id": null,
     "iq_score": 20,
     "iq_breakdown": {
@@ -3570,7 +3577,106 @@
     "apex_ai_score": 9.0,
     "status": "active",
     "schema_version": "stable-v1.0-apex",
-    "_risk_micro_adj": 0.044116
+    "_risk_micro_adj": 0.044116,
+    "actor_code": "Unattributed",
+    "actor_type": "UNATTRIBUTED",
+    "actor_region": "Unknown",
+    "_quality_hardened_at": "2026-06-04T06:46:45.146425+00:00",
+    "_quality_version": "160.0",
+    "evidence_ledger": {
+      "source_count": 1,
+      "verified_sources": 0,
+      "ioc_count": 0,
+      "ttp_count": 0,
+      "cve_count": 1,
+      "confidence_score": 20,
+      "evidence_strength": "LOW",
+      "ledger_generated": true
+    },
+    "confidence_score": 12,
+    "confidence_reason": [
+      "Single unverified source — low evidence base"
+    ],
+    "cti_tier": "FREE_INFORMATIONAL",
+    "verification_status": "UNVERIFIED",
+    "attribution_status": "UNATTRIBUTED",
+    "source_reliability": "UNRATED",
+    "ioc_quality": "LOW",
+    "ttp_quality": "LOW",
+    "report_quality": "INFORMATIONAL",
+    "verified_actor": false,
+    "campaign_status": "UNVERIFIED",
+    "publication_decision": "ALLOW_WITH_WARNING",
+    "intelligence_grade": "B",
+    "evidence_count": 2,
+    "corroboration_count": 2,
+    "ioc_quality_score": 0,
+    "ioc_quality_label": "NONE",
+    "real_ioc_count": 0,
+    "attck_verification": "EVIDENCE_BASED",
+    "attck_notes": [
+      "Derived from CVE description: rce"
+    ],
+    "risk_score_reasoning": "{\"formula\": \"v1.0.0-deterministic\", \"inputs\": {\"cvss_score\": 9.8, \"epss_pct\": 0.0, \"kev_confirmed\": false, \"verified_actor\": false, \"real_ioc_count\": 0}, \"components\": {\"base_cvss\": 3.92, \"epss_boost\": 0.0, \"kev_boost\": 0.0, \"actor_boost\": 0.0, \"ioc_boost\": 0.0}, \"computed_score\": 3.92, \"notes\": [\"EPSS absent for CVE item \\u2014 enrich from FIRST.org API\", \"Critical CVSS without KEV confirmation \\u2014 monitor for escalation\"]}",
+    "analyst_verdict": "ALLOW — Grade B: strong CVE intelligence. Verified CVE, CVSS>=8.0, evidence-based ATT&CK, multi-source corroboration.",
+    "mitre_tactics": [],
+    "ttps": [],
+    "grade_notes": [
+      "Partial verification: CVSS 9.8"
+    ],
+    "grade_engine_version": "v2.0.0",
+    "graded_at": "2026-06-04T06:46:47.792332+00:00",
+    "actor_tag": null,
+    "actor_name": null,
+    "allowed_content_tier": "enterprise_dossier",
+    "premium_eligible": true,
+    "enterprise_eligible": true,
+    "mssp_eligible": true,
+    "governor_version": "1.0.0",
+    "governed_at": "2026-06-04T06:46:48.487381+00:00",
+    "governor_audit_log": [
+      "M2: Banned actor 'Unattributed Threat Actor' nulled — attribution_status=NONE",
+      "M4: risk_score raised 3.9→8.5 [severity=CRITICAL → floor 8.5; CVSS=9.8 ≥ 9.0 → floor 8.5; KEV=true → floor 7.0]"
+    ],
+    "actor_confidence_label": "NONE",
+    "attribution_assessment": {
+      "status": "UNATTRIBUTED",
+      "confidence": "NONE",
+      "evidence_count": 0,
+      "verdict": "No actor claimed — correct",
+      "engine_version": "1.0.0"
+    },
+    "attck_technique_ids": [
+      "T1059"
+    ],
+    "attck_techniques": [
+      {
+        "technique_id": "T1059",
+        "technique_name": "Command and Scripting Interpreter",
+        "attack_justification": "CVE confirms remote/arbitrary code execution capability",
+        "attack_evidence": "CVE-2026-44180 — jupyter enterprise gateway: containerprocessproxy._enforce_prohibited_ids bypass ### summary\n\njupyter enterprise gateway...",
+        "attack_source": "GitHub Security Advisories",
+        "mapping_method": "cve_description_derivation",
+        "verification_status": "EVIDENCE_BASED",
+        "matched_pattern": "rce",
+        "source_reference": "",
+        "mapping_reason": ""
+      }
+    ],
+    "corroboration_score": 40,
+    "corroboration_strength": "MODERATE",
+    "corroboration_sources": [
+      "GitHub Advisory",
+      "NVD/CVE-Database"
+    ],
+    "detection_quality_status": "DETECTION_NOT_PRODUCTION_READY",
+    "detection_production_ready": false,
+    "detection_rules_total": 0,
+    "detection_rules_production_ready": 0,
+    "grade_notes_v2": [
+      "Grade B: CVE verified; CVSS=9.8; 2 sources; evidence-based ATT&CK; corroboration=40"
+    ],
+    "graded_at_v2": "2026-06-04T06:46:48.392067+00:00"
   },
   {
     "id": "intel--88f6a69f81808f36fd84104f",
@@ -3578,14 +3684,17 @@
     "title": "Docling Core: Unsafe remote filename resolution",
     "description": "### Impact\nIn versions `>= 1.5.0, < 2.74.1`, `docling-core` did not sufficiently restrict remote request destinations and could resolve a server-provided `Content-Disposition` to a local path in an unsafe manner.\n\nIn applications that accept untrusted URLs, this could allow SSRF attacks targeting local files outside the user-defined cache directory.\n\n### Patches\nPatched in `docling-core` `2.74.1`.\nThe fix adds stricter validation for remote destinations and normalizes server-provided filenames before use.\n\nUsers should upgrade to:\n- `docling-core` `>= 2.74.1`\n\n### Workarounds\nIf upgrading is not immediately possible, avoid passing untrusted URLs into remote fetch functionality.\n\n### References\n- Fix release: [`v2.74.1`](https://github.com/docling-project/docling-core/releases/tag/v2.74.1)",
     "severity": "HIGH",
-    "risk_score": 7.6003,
-    "confidence": 0.2,
+    "risk_score": 7.0,
+    "confidence": 0.12,
     "source": "GitHub Security Advisories",
     "feed_source": "GitHub Security Advisories",
-    "tlp": "TLP:CLEAR",
+    "tlp": "TLP:AMBER",
     "threat_type": "Vulnerability",
     "tags": [
-      "pip:docling-core"
+      "pip:docling-core",
+      "kev",
+      "cisa",
+      "actively-exploited"
     ],
     "cve_id": "CVE-2026-44023",
     "cve_ids": [
@@ -3597,7 +3706,7 @@
     "processed_at": "2026-06-03T21:16:25Z",
     "published_at": "2026-06-03T21:16:25Z",
     "source_url": "https://github.com/advisories/GHSA-jmmv-h3mp-59v8",
-    "actor": "CDB-UNATTR-CVE",
+    "actor": null,
     "ghsa_id": "GHSA-jmmv-h3mp-59v8",
     "cvss_score": 8.6,
     "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:L/A:L",
@@ -3607,18 +3716,14 @@
     "exploit_refs": [],
     "metasploit_available": false,
     "poc_github_count": 0,
-    "actor_display_name": "Unknown Threat Actor",
-    "actor_aliases": [
-      "Unattributed"
-    ],
-    "actor_country": "Unknown",
-    "actor_motivation": [
-      "unknown"
-    ],
+    "actor_display_name": null,
+    "actor_aliases": [],
+    "actor_country": null,
+    "actor_motivation": null,
     "actor_sectors": [],
     "actor_ttps": [],
     "actor_malware": [],
-    "actor_threat_level": "UNKNOWN",
+    "actor_threat_level": null,
     "actor_mitre_id": null,
     "iq_score": 20,
     "iq_breakdown": {
@@ -3634,7 +3739,106 @@
     "apex_ai_score": 7.6,
     "status": "active",
     "schema_version": "stable-v1.0-apex",
-    "_risk_micro_adj": 0.000283
+    "_risk_micro_adj": 0.000283,
+    "actor_code": "Unattributed",
+    "actor_type": "UNATTRIBUTED",
+    "actor_region": "Unknown",
+    "_quality_hardened_at": "2026-06-04T06:46:45.146433+00:00",
+    "_quality_version": "160.0",
+    "evidence_ledger": {
+      "source_count": 1,
+      "verified_sources": 0,
+      "ioc_count": 0,
+      "ttp_count": 0,
+      "cve_count": 1,
+      "confidence_score": 20,
+      "evidence_strength": "LOW",
+      "ledger_generated": true
+    },
+    "confidence_score": 12,
+    "confidence_reason": [
+      "Single unverified source — low evidence base"
+    ],
+    "cti_tier": "FREE_INFORMATIONAL",
+    "verification_status": "UNVERIFIED",
+    "attribution_status": "UNATTRIBUTED",
+    "source_reliability": "UNRATED",
+    "ioc_quality": "LOW",
+    "ttp_quality": "LOW",
+    "report_quality": "INFORMATIONAL",
+    "verified_actor": false,
+    "campaign_status": "UNVERIFIED",
+    "publication_decision": "ALLOW_WITH_WARNING",
+    "intelligence_grade": "B",
+    "evidence_count": 2,
+    "corroboration_count": 2,
+    "ioc_quality_score": 0,
+    "ioc_quality_label": "NONE",
+    "real_ioc_count": 0,
+    "attck_verification": "EVIDENCE_BASED",
+    "attck_notes": [
+      "Derived from CVE description: ssrf"
+    ],
+    "risk_score_reasoning": "{\"formula\": \"v1.0.0-deterministic\", \"inputs\": {\"cvss_score\": 8.6, \"epss_pct\": 0.0, \"kev_confirmed\": false, \"verified_actor\": false, \"real_ioc_count\": 0}, \"components\": {\"base_cvss\": 3.44, \"epss_boost\": 0.0, \"kev_boost\": 0.0, \"actor_boost\": 0.0, \"ioc_boost\": 0.0}, \"computed_score\": 3.44, \"notes\": [\"EPSS absent for CVE item \\u2014 enrich from FIRST.org API\"]}",
+    "analyst_verdict": "ALLOW — Grade B: strong CVE intelligence. Verified CVE, CVSS>=8.0, evidence-based ATT&CK, multi-source corroboration.",
+    "mitre_tactics": [],
+    "ttps": [],
+    "grade_notes": [
+      "Partial verification: CVSS 8.6"
+    ],
+    "grade_engine_version": "v2.0.0",
+    "graded_at": "2026-06-04T06:46:47.792348+00:00",
+    "actor_tag": null,
+    "actor_name": null,
+    "allowed_content_tier": "enterprise_dossier",
+    "premium_eligible": true,
+    "enterprise_eligible": true,
+    "mssp_eligible": true,
+    "governor_version": "1.0.0",
+    "governed_at": "2026-06-04T06:46:48.487392+00:00",
+    "governor_audit_log": [
+      "M2: Banned actor 'Unattributed Threat Actor' nulled — attribution_status=NONE",
+      "M4: risk_score raised 3.4→7.0 [severity=HIGH → floor 7.0; CVSS=8.6 ≥ 7.0 → floor 7.0; KEV=true → floor 7.0]"
+    ],
+    "actor_confidence_label": "NONE",
+    "attribution_assessment": {
+      "status": "UNATTRIBUTED",
+      "confidence": "NONE",
+      "evidence_count": 0,
+      "verdict": "No actor claimed — correct",
+      "engine_version": "1.0.0"
+    },
+    "attck_technique_ids": [
+      "T1090.002"
+    ],
+    "attck_techniques": [
+      {
+        "technique_id": "T1090.002",
+        "technique_name": "Proxy: External Proxy",
+        "attack_justification": "CVE confirms SSRF allowing requests to internal resources via server-side forgery",
+        "attack_evidence": "CVE-2026-44023 — docling core: unsafe remote filename resolution ### impact\nin versions `>= 1.5.0, < 2.74.1`, `docling-core` did not suff...",
+        "attack_source": "GitHub Security Advisories",
+        "mapping_method": "cve_description_derivation",
+        "verification_status": "EVIDENCE_BASED",
+        "matched_pattern": "ssrf",
+        "source_reference": "",
+        "mapping_reason": ""
+      }
+    ],
+    "corroboration_score": 40,
+    "corroboration_strength": "MODERATE",
+    "corroboration_sources": [
+      "GitHub Advisory",
+      "NVD/CVE-Database"
+    ],
+    "detection_quality_status": "DETECTION_NOT_PRODUCTION_READY",
+    "detection_production_ready": false,
+    "detection_rules_total": 0,
+    "detection_rules_production_ready": 0,
+    "grade_notes_v2": [
+      "Grade B: CVE verified; CVSS=8.6; 2 sources; evidence-based ATT&CK; corroboration=40"
+    ],
+    "graded_at_v2": "2026-06-04T06:46:48.392075+00:00"
   },
   {
     "id": "intel--32ae6f21cd05a3b5332f1c2f",
@@ -3642,14 +3846,17 @@
     "title": "Docling Core: Insufficient validation of image reference URIs",
     "description": "### Impact\nIn versions `>= 2.5.0, < 2.74.1`, `docling-core`  could allow local `file://` image references and accepted inline `data:` content without a decoded-size limit.\n\nIn applications that accept untrusted image references, this may allow access to local files readable by the process or excessive memory use from large inline payloads.\n\n### Patches\nPatched in `docling-core` `2.74.1`.\nThe fix blocks local file URIs by default and adds a size limit for decoded inline image data.\n\nUsers should upgrade to:\n- `docling-core` `>= 2.74.1`\n\n### Workarounds\nIf upgrading is not immediately possible:\n- reject `file:` and `data:` image references from untrusted input\n- allow only approved local or remote image sources\n- apply input size and memory limits to processing workers\n\n### References\n- Fix release: [`v2.74.1`](https://github.com/docling-project/docling-core/releases/tag/v2.74.1)",
     "severity": "HIGH",
-    "risk_score": 7.6302,
-    "confidence": 0.2,
+    "risk_score": 7.0,
+    "confidence": 0.12,
     "source": "GitHub Security Advisories",
     "feed_source": "GitHub Security Advisories",
-    "tlp": "TLP:CLEAR",
+    "tlp": "TLP:AMBER",
     "threat_type": "Vulnerability",
     "tags": [
-      "pip:docling-core"
+      "pip:docling-core",
+      "kev",
+      "cisa",
+      "actively-exploited"
     ],
     "cve_id": "CVE-2026-44019",
     "cve_ids": [
@@ -3661,7 +3868,7 @@
     "processed_at": "2026-06-03T21:15:31Z",
     "published_at": "2026-06-03T21:15:31Z",
     "source_url": "https://github.com/advisories/GHSA-j5xp-7m2f-49jv",
-    "actor": "CDB-UNATTR-CVE",
+    "actor": null,
     "ghsa_id": "GHSA-j5xp-7m2f-49jv",
     "cvss_score": 8.1,
     "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:U/C:H/I:N/A:H",
@@ -3671,18 +3878,14 @@
     "exploit_refs": [],
     "metasploit_available": false,
     "poc_github_count": 0,
-    "actor_display_name": "Unknown Threat Actor",
-    "actor_aliases": [
-      "Unattributed"
-    ],
-    "actor_country": "Unknown",
-    "actor_motivation": [
-      "unknown"
-    ],
+    "actor_display_name": null,
+    "actor_aliases": [],
+    "actor_country": null,
+    "actor_motivation": null,
     "actor_sectors": [],
     "actor_ttps": [],
     "actor_malware": [],
-    "actor_threat_level": "UNKNOWN",
+    "actor_threat_level": null,
     "actor_mitre_id": null,
     "iq_score": 20,
     "iq_breakdown": {
@@ -3698,7 +3901,106 @@
     "apex_ai_score": 7.6,
     "status": "active",
     "schema_version": "stable-v1.0-apex",
-    "_risk_micro_adj": 0.030191
+    "_risk_micro_adj": 0.030191,
+    "actor_code": "Unattributed",
+    "actor_type": "UNATTRIBUTED",
+    "actor_region": "Unknown",
+    "_quality_hardened_at": "2026-06-04T06:46:45.146441+00:00",
+    "_quality_version": "160.0",
+    "evidence_ledger": {
+      "source_count": 1,
+      "verified_sources": 0,
+      "ioc_count": 0,
+      "ttp_count": 0,
+      "cve_count": 1,
+      "confidence_score": 20,
+      "evidence_strength": "LOW",
+      "ledger_generated": true
+    },
+    "confidence_score": 12,
+    "confidence_reason": [
+      "Single unverified source — low evidence base"
+    ],
+    "cti_tier": "FREE_INFORMATIONAL",
+    "verification_status": "UNVERIFIED",
+    "attribution_status": "UNATTRIBUTED",
+    "source_reliability": "UNRATED",
+    "ioc_quality": "LOW",
+    "ttp_quality": "LOW",
+    "report_quality": "INFORMATIONAL",
+    "verified_actor": false,
+    "campaign_status": "UNVERIFIED",
+    "publication_decision": "ALLOW_WITH_WARNING",
+    "intelligence_grade": "B",
+    "evidence_count": 2,
+    "corroboration_count": 2,
+    "ioc_quality_score": 0,
+    "ioc_quality_label": "NONE",
+    "real_ioc_count": 0,
+    "attck_verification": "EVIDENCE_BASED",
+    "attck_notes": [
+      "Derived from CVE description: rce"
+    ],
+    "risk_score_reasoning": "{\"formula\": \"v1.0.0-deterministic\", \"inputs\": {\"cvss_score\": 8.1, \"epss_pct\": 0.0, \"kev_confirmed\": false, \"verified_actor\": false, \"real_ioc_count\": 0}, \"components\": {\"base_cvss\": 3.24, \"epss_boost\": 0.0, \"kev_boost\": 0.0, \"actor_boost\": 0.0, \"ioc_boost\": 0.0}, \"computed_score\": 3.24, \"notes\": [\"EPSS absent for CVE item \\u2014 enrich from FIRST.org API\"]}",
+    "analyst_verdict": "ALLOW — Grade B: strong CVE intelligence. Verified CVE, CVSS>=8.0, evidence-based ATT&CK, multi-source corroboration.",
+    "mitre_tactics": [],
+    "ttps": [],
+    "grade_notes": [
+      "Partial verification: CVSS 8.1"
+    ],
+    "grade_engine_version": "v2.0.0",
+    "graded_at": "2026-06-04T06:46:47.792366+00:00",
+    "actor_tag": null,
+    "actor_name": null,
+    "allowed_content_tier": "enterprise_dossier",
+    "premium_eligible": true,
+    "enterprise_eligible": true,
+    "mssp_eligible": true,
+    "governor_version": "1.0.0",
+    "governed_at": "2026-06-04T06:46:48.487404+00:00",
+    "governor_audit_log": [
+      "M2: Banned actor 'Unattributed Threat Actor' nulled — attribution_status=NONE",
+      "M4: risk_score raised 3.2→7.0 [severity=HIGH → floor 7.0; CVSS=8.1 ≥ 7.0 → floor 7.0; KEV=true → floor 7.0]"
+    ],
+    "actor_confidence_label": "NONE",
+    "attribution_assessment": {
+      "status": "UNATTRIBUTED",
+      "confidence": "NONE",
+      "evidence_count": 0,
+      "verdict": "No actor claimed — correct",
+      "engine_version": "1.0.0"
+    },
+    "attck_technique_ids": [
+      "T1059"
+    ],
+    "attck_techniques": [
+      {
+        "technique_id": "T1059",
+        "technique_name": "Command and Scripting Interpreter",
+        "attack_justification": "CVE confirms remote/arbitrary code execution capability",
+        "attack_evidence": "CVE-2026-44019 — docling core: insufficient validation of image reference uris ### impact\nin versions `>= 2.5.0, < 2.74.1`, `docling-core...",
+        "attack_source": "GitHub Security Advisories",
+        "mapping_method": "cve_description_derivation",
+        "verification_status": "EVIDENCE_BASED",
+        "matched_pattern": "rce",
+        "source_reference": "",
+        "mapping_reason": ""
+      }
+    ],
+    "corroboration_score": 40,
+    "corroboration_strength": "MODERATE",
+    "corroboration_sources": [
+      "GitHub Advisory",
+      "NVD/CVE-Database"
+    ],
+    "detection_quality_status": "DETECTION_NOT_PRODUCTION_READY",
+    "detection_production_ready": false,
+    "detection_rules_total": 0,
+    "detection_rules_production_ready": 0,
+    "grade_notes_v2": [
+      "Grade B: CVE verified; CVSS=8.1; 2 sources; evidence-based ATT&CK; corroboration=40"
+    ],
+    "graded_at_v2": "2026-06-04T06:46:48.392084+00:00"
   },
   {
     "id": "intel--d56611d2b44fe6c574dd8f82",
@@ -3706,14 +4008,17 @@
     "title": "Docling: Unsafe URI and Path Handling in HTML Backend",
     "description": "### Impact\nThe HTML backend did not perform sufficient validation during resource handling:\n- Accepted `file://` URIs enabling local file system access when `enable_local_fetch=True`\n- Path resolution allowed traversal outside intended directories via `../` sequences and absolute paths\n- Did not block internal network resources under `enable_remote_fetch=True`\n- HTTP redirects were not validated, potentially redirecting to unintended schemes\n- No resource limits for remote image downloads and `data:` URIs\n\n### Patches\nFixed in versions 2.91.0 (initial fixes) and 2.94.0 (additional improvements). The fixes implement:\n- Updated local path treatment: absolute files always blocked, relative paths require `enable_local_fetch=True` (default: False) and containment within configured `base_path` for path traversal protection\n- `file://` scheme stripped & treated as local path (above)\n- IP address validation to prevent SSRF\n- HTTP redirect validation, connection and read timeouts\n- Size limit f",
     "severity": "HIGH",
-    "risk_score": 7.6132,
-    "confidence": 0.2,
+    "risk_score": 7.0,
+    "confidence": 0.12,
     "source": "GitHub Security Advisories",
     "feed_source": "GitHub Security Advisories",
-    "tlp": "TLP:CLEAR",
+    "tlp": "TLP:AMBER",
     "threat_type": "Vulnerability",
     "tags": [
-      "pip:docling"
+      "pip:docling",
+      "kev",
+      "cisa",
+      "actively-exploited"
     ],
     "cve_id": "CVE-2026-47214",
     "cve_ids": [
@@ -3725,7 +4030,7 @@
     "processed_at": "2026-06-03T21:15:02Z",
     "published_at": "2026-06-03T21:15:02Z",
     "source_url": "https://github.com/advisories/GHSA-q29v-xc37-wh5m",
-    "actor": "CDB-UNATTR-CVE",
+    "actor": null,
     "ghsa_id": "GHSA-q29v-xc37-wh5m",
     "cvss_score": 7.1,
     "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:U/C:H/I:N/A:L",
@@ -3735,18 +4040,14 @@
     "exploit_refs": [],
     "metasploit_available": false,
     "poc_github_count": 0,
-    "actor_display_name": "Unknown Threat Actor",
-    "actor_aliases": [
-      "Unattributed"
-    ],
-    "actor_country": "Unknown",
-    "actor_motivation": [
-      "unknown"
-    ],
+    "actor_display_name": null,
+    "actor_aliases": [],
+    "actor_country": null,
+    "actor_motivation": null,
     "actor_sectors": [],
     "actor_ttps": [],
     "actor_malware": [],
-    "actor_threat_level": "UNKNOWN",
+    "actor_threat_level": null,
     "actor_mitre_id": null,
     "iq_score": 20,
     "iq_breakdown": {
@@ -3762,62 +4063,21 @@
     "apex_ai_score": 7.6,
     "status": "active",
     "schema_version": "stable-v1.0-apex",
-    "_risk_micro_adj": 0.013175
-  },
-  {
-    "id": "intel--111328c82abbe2d9e33ea970",
-    "stix_id": "intel--111328c82abbe2d9e33ea970",
-    "title": "Docling: Potential Path Traversal via LaTeX \\includegraphics and \\input Commands",
-    "description": "### Impact\nThe LaTeX backend's handling of `\\includegraphics`, `\\input`, and `\\include` commands lacked path containment validation. Attackers could craft malicious LaTeX documents with path traversal sequences (e.g., `../../../etc/passwd`) to:\n- Read arbitrary files from the file system accessible to the process\n- Include sensitive files in the converted document output\n- Potentially access configuration files, credentials, or other sensitive data\n\n### Patches\nFixed in version 2.91.0. The fix implements strict path validation using `Path.resolve().is_relative_to()` to ensure all resolved paths remain within the base document directory. Attempts to traverse outside the base directory are logged and blocked.\n\n### Workarounds\nAvoid processing untrusted LaTeX documents. If processing is necessary, run in a sandboxed environment with restricted file system access.\n\n### References\n- Fix release: [v2.91.0](https://github.com/docling-project/docling/releases/tag/v2.91.0)",
-    "severity": "MEDIUM",
-    "risk_score": 5.0308,
-    "confidence": 0.2,
-    "source": "GitHub Security Advisories",
-    "feed_source": "GitHub Security Advisories",
-    "tlp": "TLP:CLEAR",
-    "threat_type": "Vulnerability",
-    "tags": [
-      "pip:docling"
-    ],
-    "cve_id": "CVE-2026-44022",
-    "cve_ids": [
-      "CVE-2026-44022"
-    ],
-    "ioc_count": 0,
-    "kev": "NO",
-    "timestamp": "2026-06-03T21:14:35Z",
-    "processed_at": "2026-06-03T21:14:35Z",
-    "published_at": "2026-06-03T21:14:35Z",
-    "source_url": "https://github.com/advisories/GHSA-2j5p-7p5m-cvqr",
-    "actor": "CDB-UNATTR-CVE",
-    "ghsa_id": "GHSA-2j5p-7p5m-cvqr",
-    "cvss_score": 5.5,
-    "cvss_vector": "CVSS:3.1/AV:L/AC:L/PR:N/UI:R/S:U/C:H/I:N/A:N",
-    "cvss_source": "github_advisory",
-    "exploit_maturity": "UNPROVEN",
-    "exploit_count": 0,
-    "exploit_refs": [],
-    "metasploit_available": false,
-    "poc_github_count": 0,
-    "actor_display_name": "Unknown Threat Actor",
-    "actor_aliases": [
-      "Unattributed"
-    ],
-    "actor_country": "Unknown",
-    "actor_motivation": [
-      "unknown"
-    ],
-    "actor_sectors": [],
-    "actor_ttps": [],
-    "actor_malware": [],
-    "actor_threat_level": "UNKNOWN",
-    "actor_mitre_id": null,
-    "iq_score": 20,
-    "iq_breakdown": {
-      "source": 10,
-      "enrichment": 5,
-      "attribution": 5,
-      "corroboration": 0
+    "_risk_micro_adj": 0.013175,
+    "actor_code": "Unattributed",
+    "actor_type": "UNATTRIBUTED",
+    "actor_region": "Unknown",
+    "_quality_hardened_at": "2026-06-04T06:46:45.146449+00:00",
+    "_quality_version": "160.0",
+    "evidence_ledger": {
+      "source_count": 1,
+      "verified_sources": 0,
+      "ioc_count": 0,
+      "ttp_count": 0,
+      "cve_count": 1,
+      "confidence_score": 20,
+      "evidence_strength": "LOW",
+      "ledger_generated": true
     },
     "intelligence_age_days": 0.4,
     "pdf_url": "/reports/pdf/intel--111328c82abbe2d9e33ea970.pdf",
@@ -3834,14 +4094,17 @@
     "title": "Docling: Unsafe XML Entity Expansion in USPTO Patent Backend",
     "description": "### Impact\nThe USPTO patent XML parser used the standard `xml.sax.parseString()` without protection against XML External Entity (XXE) attacks. An attacker could craft malicious USPTO patent XML files with external entity references that could:\n- Read arbitrary files from the server filesystem\n- Perform Server-Side Request Forgery (SSRF) attacks\n- Cause denial of service through entity expansion (Billion Laughs attack)\n\nThe vulnerability affects three USPTO patent format parsers: ICE (v4.x), Grant v2.5, and Application v1.x.\n\n### Patches\nFixed in version 2.74.0. The parser now uses `defusedxml.sax.make_parser()` with secure configuration that blocks external entity resolution (`feature_external_ges=False`, `feature_external_pes=False`) while allowing DTD declarations required by USPTO files. This prevents XXE attacks while maintaining compatibility with the USPTO XML format.\n\n### Workarounds\nAvoid processing USPTO patent XML files from untrusted sources. Implement resource limits (memor",
     "severity": "HIGH",
-    "risk_score": 7.6228,
-    "confidence": 0.2,
+    "risk_score": 7.0,
+    "confidence": 0.12,
     "source": "GitHub Security Advisories",
     "feed_source": "GitHub Security Advisories",
-    "tlp": "TLP:CLEAR",
+    "tlp": "TLP:AMBER",
     "threat_type": "Vulnerability",
     "tags": [
-      "pip:docling"
+      "pip:docling",
+      "kev",
+      "cisa",
+      "actively-exploited"
     ],
     "cve_id": "CVE-2026-44020",
     "cve_ids": [
@@ -3853,7 +4116,7 @@
     "processed_at": "2026-06-03T21:14:15Z",
     "published_at": "2026-06-03T21:14:15Z",
     "source_url": "https://github.com/advisories/GHSA-m88r-rg27-5xfg",
-    "actor": "CDB-UNATTR-CVE",
+    "actor": null,
     "ghsa_id": "GHSA-m88r-rg27-5xfg",
     "cvss_score": 7.5,
     "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
@@ -3863,18 +4126,14 @@
     "exploit_refs": [],
     "metasploit_available": false,
     "poc_github_count": 0,
-    "actor_display_name": "Unknown Threat Actor",
-    "actor_aliases": [
-      "Unattributed"
-    ],
-    "actor_country": "Unknown",
-    "actor_motivation": [
-      "unknown"
-    ],
+    "actor_display_name": null,
+    "actor_aliases": [],
+    "actor_country": null,
+    "actor_motivation": null,
     "actor_sectors": [],
     "actor_ttps": [],
     "actor_malware": [],
-    "actor_threat_level": "UNKNOWN",
+    "actor_threat_level": null,
     "actor_mitre_id": null,
     "iq_score": 20,
     "iq_breakdown": {
@@ -3890,62 +4149,21 @@
     "apex_ai_score": 7.6,
     "status": "active",
     "schema_version": "stable-v1.0-apex",
-    "_risk_micro_adj": 0.022771
-  },
-  {
-    "id": "intel--a96f9d72f71be9882b5d1849",
-    "stix_id": "intel--a96f9d72f71be9882b5d1849",
-    "title": "Docling: Unsafe Archive Extraction and XML Parsing in METS-GBS Backend",
-    "description": "### Impact\nThe METS-GBS backend's XML parsing and the input document format detection lacked security controls, enabling:\n- XML External Entity (XXE) attacks to read local files or cause denial of service\n- Decompression bombs (zip bombs) to exhaust memory and disk space\n- Unbounded archive extraction consuming system resources\n\nAn attacker could craft malicious METS-GBS archives that, when processed, could read sensitive files, exhaust system resources, or cause application crashes.\n\n### Patches\nFixed in version 2.91.0. The fix implements:\n- Secure XML parsing with `resolve_entities=False`, `load_dtd=False`, and `no_network=True`\n- Configurable limits: 300 MB total extraction size, 10 MB per file, 1000 member count\n- Cumulative size tracking across all extractions\n- Early termination when limits are exceeded\n- Secure format detection of METS-GBS tar archives with `_detect_mets_gbs()` method: maximum file size (10 MB per file), maximum member count (1000 members), and exception handlin",
-    "severity": "MEDIUM",
-    "risk_score": 5.003,
-    "confidence": 0.2,
-    "source": "GitHub Security Advisories",
-    "feed_source": "GitHub Security Advisories",
-    "tlp": "TLP:CLEAR",
-    "threat_type": "Vulnerability",
-    "tags": [
-      "pip:docling"
-    ],
-    "cve_id": "CVE-2026-44018",
-    "cve_ids": [
-      "CVE-2026-44018"
-    ],
-    "ioc_count": 0,
-    "kev": "NO",
-    "timestamp": "2026-06-03T21:13:32Z",
-    "processed_at": "2026-06-03T21:13:32Z",
-    "published_at": "2026-06-03T21:13:32Z",
-    "source_url": "https://github.com/advisories/GHSA-r3xg-rg9j-67fv",
-    "actor": "CDB-UNATTR-CVE",
-    "ghsa_id": "GHSA-r3xg-rg9j-67fv",
-    "cvss_score": 5.5,
-    "cvss_vector": "CVSS:3.1/AV:L/AC:L/PR:N/UI:R/S:U/C:N/I:N/A:H",
-    "cvss_source": "github_advisory",
-    "exploit_maturity": "UNPROVEN",
-    "exploit_count": 0,
-    "exploit_refs": [],
-    "metasploit_available": false,
-    "poc_github_count": 0,
-    "actor_display_name": "Unknown Threat Actor",
-    "actor_aliases": [
-      "Unattributed"
-    ],
-    "actor_country": "Unknown",
-    "actor_motivation": [
-      "unknown"
-    ],
-    "actor_sectors": [],
-    "actor_ttps": [],
-    "actor_malware": [],
-    "actor_threat_level": "UNKNOWN",
-    "actor_mitre_id": null,
-    "iq_score": 20,
-    "iq_breakdown": {
-      "source": 10,
-      "enrichment": 5,
-      "attribution": 5,
-      "corroboration": 0
+    "_risk_micro_adj": 0.022771,
+    "actor_code": "Unattributed",
+    "actor_type": "UNATTRIBUTED",
+    "actor_region": "Unknown",
+    "_quality_hardened_at": "2026-06-04T06:46:45.146465+00:00",
+    "_quality_version": "160.0",
+    "evidence_ledger": {
+      "source_count": 1,
+      "verified_sources": 0,
+      "ioc_count": 0,
+      "ttp_count": 0,
+      "cve_count": 1,
+      "confidence_score": 20,
+      "evidence_strength": "LOW",
+      "ledger_generated": true
     },
     "intelligence_age_days": 0.4,
     "pdf_url": "/reports/pdf/intel--a96f9d72f71be9882b5d1849.pdf",
@@ -3962,14 +4180,17 @@
     "title": "Docling: Unsafe Playwright-based HTML Rendering",
     "description": "### Impact\nIn versions `>= 2.82.0, < 2.91.0`, if the HTML backend was explicitly configured for rendering (rendering option by default deactivated), then the Playwright-based rendering feature could allow JavaScript execution and unrestricted network access when processing untrusted HTML documents. An attacker could craft malicious HTML that executes arbitrary JavaScript in the rendering context or makes unauthorized network requests to internal services, potentially leading to SSRF attacks, data exfiltration, or remote code execution in the rendering environment.\n\n### Patches\nFixed in version 2.91.0. The rendering context now explicitly disables JavaScript execution (`java_script_enabled=False`) and implements network isolation controls. When `enable_remote_fetch` is disabled, the browser operates in offline mode, preventing all network requests.\n\n### Workarounds\nRefrain from using `render_page=True` when processing untrusted HTML documents.\n\n### References\n- Fix release: [v2.91.0](ht",
     "severity": "HIGH",
-    "risk_score": 7.628,
-    "confidence": 0.2,
+    "risk_score": 7.0,
+    "confidence": 0.12,
     "source": "GitHub Security Advisories",
     "feed_source": "GitHub Security Advisories",
-    "tlp": "TLP:CLEAR",
+    "tlp": "TLP:AMBER",
     "threat_type": "Vulnerability",
     "tags": [
-      "pip:docling"
+      "pip:docling",
+      "kev",
+      "cisa",
+      "actively-exploited"
     ],
     "cve_id": "CVE-2026-44016",
     "cve_ids": [
@@ -3981,7 +4202,7 @@
     "processed_at": "2026-06-03T21:09:37Z",
     "published_at": "2026-06-03T21:09:37Z",
     "source_url": "https://github.com/advisories/GHSA-pj2v-ggqh-cmq2",
-    "actor": "CDB-UNATTR-CVE",
+    "actor": null,
     "ghsa_id": "GHSA-pj2v-ggqh-cmq2",
     "cvss_score": 8.2,
     "cvss_vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:R/S:C/C:H/I:H/A:L",
@@ -3991,18 +4212,14 @@
     "exploit_refs": [],
     "metasploit_available": false,
     "poc_github_count": 0,
-    "actor_display_name": "Unknown Threat Actor",
-    "actor_aliases": [
-      "Unattributed"
-    ],
-    "actor_country": "Unknown",
-    "actor_motivation": [
-      "unknown"
-    ],
+    "actor_display_name": null,
+    "actor_aliases": [],
+    "actor_country": null,
+    "actor_motivation": null,
     "actor_sectors": [],
     "actor_ttps": [],
     "actor_malware": [],
-    "actor_threat_level": "UNKNOWN",
+    "actor_threat_level": null,
     "actor_mitre_id": null,
     "iq_score": 20,
     "iq_breakdown": {
@@ -4018,62 +4235,21 @@
     "apex_ai_score": 7.6,
     "status": "active",
     "schema_version": "stable-v1.0-apex",
-    "_risk_micro_adj": 0.027951
-  },
-  {
-    "id": "intel--03db073c8cae93ceb4c19c1f",
-    "stix_id": "intel--03db073c8cae93ceb4c19c1f",
-    "title": "malla: Stored XSS via Meshtastic node names in multiple frontend pages",
-    "description": "Node names (long_name, short_name) received via MQTT are stored in SQLite without sanitization and rendered into the DOM without escaping.\nAny participant on a public Meshtastic MQTT broker can set a malicious node name that executes JavaScript in the browser of every Malla dashboard visitor.\n\nAffected files:\n\n - src/malla/templates/traceroute_graph.html (line ~832)\n - src/malla/templates/map.html (lines ~945, 1078)\n - src/malla/templates/packet_detail.html (lines ~1402, 1452)\n - src/malla/static/js/relay_node_analysis.js (line ~124)\n\nSteps to reproduce\n\n 1. Publish a Meshtastic NODEINFO_APP packet to any public MQTT broker with long_name set to a HTML entity i.e `<img src=x onerror=alert(1)>`\n 2. Wait for malla-capture to store it\n 3. Open the dashboard\n\nImpact\n\nAllows unauthenticated remote attackers to execute arbitrary JavaScript in the browser, such as: \n\n - Phishing overlays\n - Force redirect to malicious websites\n - Injection of arbitrary third-party scripts (no CSP restrictions",
-    "severity": "MEDIUM",
-    "risk_score": 5.0476,
-    "confidence": 0.2,
-    "source": "GitHub Security Advisories",
-    "feed_source": "GitHub Security Advisories",
-    "tlp": "TLP:CLEAR",
-    "threat_type": "Vulnerability",
-    "tags": [
-      "pip:malla"
-    ],
-    "cve_id": "CVE-2026-43980",
-    "cve_ids": [
-      "CVE-2026-43980"
-    ],
-    "ioc_count": 0,
-    "kev": "NO",
-    "timestamp": "2026-06-03T21:06:27Z",
-    "processed_at": "2026-06-03T21:06:27Z",
-    "published_at": "2026-06-03T21:06:27Z",
-    "source_url": "https://github.com/advisories/GHSA-ch57-39q2-4crm",
-    "actor": "CDB-UNATTR-CVE",
-    "ghsa_id": "GHSA-ch57-39q2-4crm",
-    "cvss_score": 6.3,
-    "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:U/C:L/I:L/A:L",
-    "cvss_source": "github_advisory",
-    "exploit_maturity": "UNPROVEN",
-    "exploit_count": 0,
-    "exploit_refs": [],
-    "metasploit_available": false,
-    "poc_github_count": 0,
-    "actor_display_name": "Unknown Threat Actor",
-    "actor_aliases": [
-      "Unattributed"
-    ],
-    "actor_country": "Unknown",
-    "actor_motivation": [
-      "unknown"
-    ],
-    "actor_sectors": [],
-    "actor_ttps": [],
-    "actor_malware": [],
-    "actor_threat_level": "UNKNOWN",
-    "actor_mitre_id": null,
-    "iq_score": 20,
-    "iq_breakdown": {
-      "source": 10,
-      "enrichment": 5,
-      "attribution": 5,
-      "corroboration": 0
+    "_risk_micro_adj": 0.027951,
+    "actor_code": "Unattributed",
+    "actor_type": "UNATTRIBUTED",
+    "actor_region": "Unknown",
+    "_quality_hardened_at": "2026-06-04T06:46:45.146481+00:00",
+    "_quality_version": "160.0",
+    "evidence_ledger": {
+      "source_count": 1,
+      "verified_sources": 0,
+      "ioc_count": 0,
+      "ttp_count": 0,
+      "cve_count": 1,
+      "confidence_score": 20,
+      "evidence_strength": "LOW",
+      "ledger_generated": true
     },
     "intelligence_age_days": 0.4,
     "pdf_url": "/reports/pdf/intel--03db073c8cae93ceb4c19c1f.pdf",
@@ -4100,37 +4276,54 @@
       "Security News",
       "Threat Intelligence"
     ],
-    "cve_id": "",
-    "cve_ids": [],
-    "ioc_count": 0,
-    "kev": "NO",
-    "timestamp": "2026-06-03T18:13:17Z",
-    "processed_at": "2026-06-03T18:13:17Z",
-    "published_at": "2026-06-03T18:13:17Z",
-    "source_url": "https://securityaffairs.com/193086/intelligence/cyber-espionage-campaign-targeted-stock-exchange-executives-outlook-account.html",
-    "actor": "CDB-UNATTR-CVE",
-    "exploit_maturity": "UNPROVEN",
-    "exploit_count": 0,
-    "exploit_refs": [],
-    "actor_display_name": "Unknown Threat Actor",
-    "actor_aliases": [
-      "Unattributed"
+    "cti_tier": "FREE_INFORMATIONAL",
+    "verification_status": "UNVERIFIED",
+    "attribution_status": "UNATTRIBUTED",
+    "source_reliability": "UNRATED",
+    "ioc_quality": "LOW",
+    "ttp_quality": "LOW",
+    "report_quality": "INFORMATIONAL",
+    "verified_actor": false,
+    "campaign_status": "UNVERIFIED",
+    "publication_decision": "ALLOW_WITH_WARNING",
+    "intelligence_grade": "B",
+    "evidence_count": 2,
+    "corroboration_count": 2,
+    "ioc_quality_score": 0,
+    "ioc_quality_label": "NONE",
+    "real_ioc_count": 0,
+    "attck_verification": "EVIDENCE_BASED",
+    "attck_notes": [
+      "Derived from CVE description: ssrf"
     ],
-    "actor_country": "Unknown",
-    "actor_motivation": [
-      "unknown"
+    "risk_score_reasoning": "{\"formula\": \"v1.0.0-deterministic\", \"inputs\": {\"cvss_score\": 8.2, \"epss_pct\": 0.0, \"kev_confirmed\": false, \"verified_actor\": false, \"real_ioc_count\": 0}, \"components\": {\"base_cvss\": 3.28, \"epss_boost\": 0.0, \"kev_boost\": 0.0, \"actor_boost\": 0.0, \"ioc_boost\": 0.0}, \"computed_score\": 3.28, \"notes\": [\"EPSS absent for CVE item \\u2014 enrich from FIRST.org API\"]}",
+    "analyst_verdict": "ALLOW — Grade B: strong CVE intelligence. Verified CVE, CVSS>=8.0, evidence-based ATT&CK, multi-source corroboration.",
+    "mitre_tactics": [],
+    "ttps": [],
+    "grade_notes": [
+      "Partial verification: CVSS 8.2"
     ],
-    "actor_sectors": [],
-    "actor_ttps": [],
-    "actor_malware": [],
-    "actor_threat_level": "UNKNOWN",
-    "actor_mitre_id": null,
-    "iq_score": 15,
-    "iq_breakdown": {
-      "source": 10,
-      "enrichment": 0,
-      "attribution": 5,
-      "corroboration": 0
+    "grade_engine_version": "v2.0.0",
+    "graded_at": "2026-06-04T06:46:47.792448+00:00",
+    "actor_tag": null,
+    "actor_name": null,
+    "allowed_content_tier": "enterprise_dossier",
+    "premium_eligible": true,
+    "enterprise_eligible": true,
+    "mssp_eligible": true,
+    "governor_version": "1.0.0",
+    "governed_at": "2026-06-04T06:46:48.487437+00:00",
+    "governor_audit_log": [
+      "M2: Banned actor 'Unattributed Threat Actor' nulled — attribution_status=NONE",
+      "M4: risk_score raised 3.3→7.0 [severity=HIGH → floor 7.0; CVSS=8.2 ≥ 7.0 → floor 7.0; KEV=true → floor 7.0]"
+    ],
+    "actor_confidence_label": "NONE",
+    "attribution_assessment": {
+      "status": "UNATTRIBUTED",
+      "confidence": "NONE",
+      "evidence_count": 0,
+      "verdict": "No actor claimed — correct",
+      "engine_version": "1.0.0"
     },
     "intelligence_age_days": 0.5,
     "pdf_url": "/reports/pdf/intel--55a68392360d791f8d66d486.pdf",
@@ -4202,10 +4395,7 @@
     },
     "intelligence_age_days": 0.6,
     "attck_technique_ids": [
-      "T1190",
-      "T1078",
-      "T1059",
-      "T1071"
+      "T1090.002"
     ],
     "attck_techniques": [],
     "pdf_url": "/reports/pdf/intel--db00bc62d79fe3f20d5c45c1.pdf",
@@ -4638,15 +4828,18 @@
     "title": "Google Patches Actively Exploited Android Flaw Affecting Millions of Devices",
     "description": "Google fixed 124 Android flaws, including CVE-2025-48595, an actively exploited privilege escalation bug linked to targeted attacks. Google has released its June 2026 Android security updates, fixing 124 vulnerabilities across the mobile operating system. One flaw, tracked as CVE-2025-48595 (CVSS score of 8.4) stands out from the rest because it is already being exploited in [&#8230;]",
     "severity": "HIGH",
-    "risk_score": 7.5041,
-    "confidence": 0.45,
+    "risk_score": 7.0,
+    "confidence": 0.17,
     "source": "SecurityAffairs",
     "feed_source": "SecurityAffairs",
-    "tlp": "TLP:CLEAR",
+    "tlp": "TLP:AMBER",
     "threat_type": "Threat Intel",
     "tags": [
       "Security News",
-      "Threat Intelligence"
+      "Threat Intelligence",
+      "kev",
+      "cisa",
+      "actively-exploited"
     ],
     "cve_id": "CVE-2025-48595",
     "cve_ids": [
@@ -4658,8 +4851,8 @@
     "processed_at": "2026-06-03T09:44:47Z",
     "published_at": "2026-06-03T09:44:47Z",
     "source_url": "https://securityaffairs.com/193057/breaking-news/google-patches-actively-exploited-android-flaw-affecting-millions-of-devices.html",
-    "actor": "CDB-UNATTR-CVE",
-    "epss_score": 0.4,
+    "actor": null,
+    "epss_score": 40.0,
     "epss": "0.4%",
     "cvss_score": 8.4,
     "cvss_vector": "CVSS:3.1/AV:L/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H",
@@ -4671,18 +4864,14 @@
     ],
     "metasploit_available": false,
     "poc_github_count": 1,
-    "actor_display_name": "Unknown Threat Actor",
-    "actor_aliases": [
-      "Unattributed"
-    ],
-    "actor_country": "Unknown",
-    "actor_motivation": [
-      "unknown"
-    ],
+    "actor_display_name": null,
+    "actor_aliases": [],
+    "actor_country": null,
+    "actor_motivation": null,
     "actor_sectors": [],
     "actor_ttps": [],
     "actor_malware": [],
-    "actor_threat_level": "UNKNOWN",
+    "actor_threat_level": null,
     "actor_mitre_id": null,
     "iq_score": 45,
     "iq_breakdown": {
@@ -4698,66 +4887,25 @@
     "apex_ai_score": 7.5,
     "status": "active",
     "schema_version": "stable-v1.0-apex",
-    "_risk_micro_adj": 0.004143
-  },
-  {
-    "id": "intel--3c08fcf1b1a1a8fdc814f58a",
-    "stix_id": "intel--3c08fcf1b1a1a8fdc814f58a",
-    "title": "Acer working to patch max severity zero-days in Wave 7 routers",
-    "description": "Acer is working to address two maximum-severity zero-day vulnerabilities affecting its Wave 7 mesh routers. [...]",
-    "severity": "CRITICAL",
-    "risk_score": 9.0141,
-    "confidence": 0.25,
-    "source": "BleepingComputer",
-    "feed_source": "BleepingComputer",
-    "tlp": "TLP:CLEAR",
-    "threat_type": "Threat Intel",
-    "tags": [
-      "Security News",
-      "Threat Intelligence"
+    "_risk_micro_adj": 0.004143,
+    "actor_code": "Unattributed",
+    "actor_type": "UNATTRIBUTED",
+    "actor_region": "Unknown",
+    "ioc_types": [
+      "ip_address",
+      "domain"
     ],
-    "cve_id": "",
-    "cve_ids": [],
-    "ioc_count": 0,
-    "kev": "NO",
-    "timestamp": "2026-06-03T07:35:47Z",
-    "processed_at": "2026-06-03T07:35:47Z",
-    "published_at": "2026-06-03T07:35:47Z",
-    "source_url": "https://www.bleepingcomputer.com/news/security/acer-warns-of-max-severity-zero-days-affecting-wave-7-routers/",
-    "actor": "CDB-UNATTR-APT",
-    "exploit_maturity": "UNPROVEN",
-    "exploit_count": 0,
-    "exploit_refs": [],
-    "actor_display_name": "Unknown State-Sponsored Actor",
-    "actor_aliases": [
-      "Unattributed APT Cluster"
-    ],
-    "actor_country": "Unknown",
-    "actor_motivation": [
-      "espionage",
-      "IP theft",
-      "sabotage"
-    ],
-    "actor_sectors": [
-      "Government",
-      "Defense",
-      "Critical Infrastructure"
-    ],
-    "actor_ttps": [
-      "T1190",
-      "T1078",
-      "T1059",
-      "T1071"
-    ],
-    "actor_malware": [],
-    "actor_threat_level": "HIGH",
-    "actor_mitre_id": null,
-    "iq_score": 25,
-    "iq_breakdown": {
-      "source": 20,
-      "enrichment": 0,
-      "attribution": 5,
-      "corroboration": 0
+    "_quality_hardened_at": "2026-06-04T06:46:45.146630+00:00",
+    "_quality_version": "160.0",
+    "evidence_ledger": {
+      "source_count": 1,
+      "verified_sources": 0,
+      "ioc_count": 0,
+      "ttp_count": 0,
+      "cve_count": 1,
+      "confidence_score": 45,
+      "evidence_strength": "LOW",
+      "ledger_generated": true
     },
     "intelligence_age_days": 1.0,
     "attck_technique_ids": [
@@ -4766,14 +4914,89 @@
       "T1059",
       "T1071"
     ],
-    "attck_techniques": [],
-    "pdf_url": "/reports/pdf/intel--3c08fcf1b1a1a8fdc814f58a.pdf",
-    "pdf_available": true,
-    "apex_ai_summary": "[CRITICAL] Threat Intel advisory. Risk score 9.0/10. Full APEX AI analysis available to Pro subscribers.",
-    "apex_ai_score": 9.0,
-    "status": "active",
-    "schema_version": "stable-v1.0-apex",
-    "_risk_micro_adj": 0.014076
+    "cti_tier": "FREE_INFORMATIONAL",
+    "verification_status": "UNVERIFIED",
+    "attribution_status": "UNATTRIBUTED",
+    "source_reliability": "UNRATED",
+    "ioc_quality": "LOW",
+    "ttp_quality": "LOW",
+    "report_quality": "INFORMATIONAL",
+    "verified_actor": false,
+    "campaign_status": "UNVERIFIED",
+    "publication_decision": "ALLOW_WITH_WARNING",
+    "intelligence_grade": "B",
+    "evidence_count": 3,
+    "corroboration_count": 4,
+    "ioc_quality_score": 0,
+    "ioc_quality_label": "NONE",
+    "real_ioc_count": 0,
+    "attck_verification": "EVIDENCE_BASED",
+    "attck_notes": [
+      "Derived from CVE description: privilege escalat"
+    ],
+    "risk_score_reasoning": "{\"formula\": \"v1.0.0-deterministic\", \"inputs\": {\"cvss_score\": 8.4, \"epss_pct\": 40.0, \"kev_confirmed\": false, \"verified_actor\": false, \"real_ioc_count\": 0}, \"components\": {\"base_cvss\": 3.36, \"epss_boost\": 1.2, \"kev_boost\": 0.0, \"actor_boost\": 0.0, \"ioc_boost\": 0.0}, \"computed_score\": 4.56, \"notes\": []}",
+    "analyst_verdict": "ALLOW — Grade B: strong CVE intelligence. Verified CVE, CVSS>=8.0, evidence-based ATT&CK, multi-source corroboration.",
+    "mitre_tactics": [],
+    "ttps": [],
+    "grade_notes": [
+      "Partial verification: EPSS 40.0%, CVSS 8.4"
+    ],
+    "grade_engine_version": "v2.0.0",
+    "graded_at": "2026-06-04T06:46:47.792675+00:00",
+    "epss_normalized": true,
+    "actor_tag": null,
+    "actor_name": null,
+    "allowed_content_tier": "enterprise_dossier",
+    "premium_eligible": true,
+    "enterprise_eligible": true,
+    "mssp_eligible": true,
+    "governor_version": "1.0.0",
+    "governed_at": "2026-06-04T06:46:48.487447+00:00",
+    "governor_audit_log": [
+      "M2: Banned actor 'Unattributed Threat Actor' nulled — attribution_status=NONE",
+      "M4: risk_score raised 4.6→7.0 [severity=HIGH → floor 7.0; CVSS=8.4 ≥ 7.0 → floor 7.0; KEV=true → floor 7.0]"
+    ],
+    "actor_confidence_label": "NONE",
+    "attribution_assessment": {
+      "status": "UNATTRIBUTED",
+      "confidence": "NONE",
+      "evidence_count": 0,
+      "verdict": "No actor claimed — correct",
+      "engine_version": "1.0.0"
+    },
+    "attck_technique_ids": [
+      "T1548"
+    ],
+    "attck_techniques": [
+      {
+        "technique_id": "T1548",
+        "technique_name": "Abuse Elevation Control Mechanism",
+        "attack_justification": "CVE confirms exploitation allows privilege escalation to higher role",
+        "attack_evidence": "CVE-2025-48595 — google patches actively exploited android flaw affecting millions of devices google fixed 124 android flaws, including c...",
+        "attack_source": "SecurityAffairs",
+        "mapping_method": "cve_description_derivation",
+        "verification_status": "EVIDENCE_BASED",
+        "matched_pattern": "privilege escalat",
+        "source_reference": "",
+        "mapping_reason": ""
+      }
+    ],
+    "corroboration_score": 90,
+    "corroboration_strength": "STRONG",
+    "corroboration_sources": [
+      "SecurityAffairs",
+      "EPSS/FIRST",
+      "NVD/CVE-Database",
+      "PublicExploitConfirmed"
+    ],
+    "detection_quality_status": "DETECTION_NOT_PRODUCTION_READY",
+    "detection_production_ready": false,
+    "detection_rules_total": 0,
+    "detection_rules_production_ready": 0,
+    "grade_notes_v2": [
+      "Grade B: CVE verified; CVSS=8.4; 4 sources; evidence-based ATT&CK; exploit evidence; corroboration=90"
+    ],
+    "graded_at_v2": "2026-06-04T06:46:48.392122+00:00"
   },
   {
     "id": "intel--8d4a91edee2012fb963f9d24",
@@ -4781,15 +5004,18 @@
     "title": "Why an HP Poly VoIP Phones Bug Could Become an Enterprise Foothold",
     "description": "Rapid7 details a critical unauthenticated overflow in HP Poly VoIP phones that can lead to root RCE, with patches available for affected models. Rapid7’s latest disclosure on CVE-2026-0826 should get serious attention from anyone running HP Poly VoIP phones in an enterprise setting. It’s a critical unauthenticated stack-based buffer overflow that can give a remote [&#8230;]",
     "severity": "MEDIUM",
-    "risk_score": 5.0477,
-    "confidence": 0.45,
+    "risk_score": 8.5,
+    "confidence": 0.17,
     "source": "SecurityAffairs",
     "feed_source": "SecurityAffairs",
-    "tlp": "TLP:CLEAR",
+    "tlp": "TLP:AMBER",
     "threat_type": "Threat Intel",
     "tags": [
       "Security News",
-      "Threat Intelligence"
+      "Threat Intelligence",
+      "kev",
+      "cisa",
+      "actively-exploited"
     ],
     "cve_id": "CVE-2026-0826",
     "cve_ids": [
@@ -4801,8 +5027,8 @@
     "processed_at": "2026-06-03T05:03:30Z",
     "published_at": "2026-06-03T05:03:30Z",
     "source_url": "https://securityaffairs.com/193045/security/why-an-hp-poly-voip-phones-bug-could-become-an-enterprise-foothold.html",
-    "actor": "CDB-UNATTR-CVE",
-    "epss_score": 0.21,
+    "actor": null,
+    "epss_score": 21.0,
     "epss": "0.21%",
     "cvss_score": 9.5,
     "cvss_vector": null,
@@ -4812,18 +5038,14 @@
     "exploit_refs": [],
     "metasploit_available": false,
     "poc_github_count": 0,
-    "actor_display_name": "Unknown Threat Actor",
-    "actor_aliases": [
-      "Unattributed"
-    ],
-    "actor_country": "Unknown",
-    "actor_motivation": [
-      "unknown"
-    ],
+    "actor_display_name": null,
+    "actor_aliases": [],
+    "actor_country": null,
+    "actor_motivation": null,
     "actor_sectors": [],
     "actor_ttps": [],
     "actor_malware": [],
-    "actor_threat_level": "UNKNOWN",
+    "actor_threat_level": null,
     "actor_mitre_id": null,
     "iq_score": 45,
     "iq_breakdown": {
@@ -4839,66 +5061,25 @@
     "apex_ai_score": 5.0,
     "status": "active",
     "schema_version": "stable-v1.0-apex",
-    "_risk_micro_adj": 0.047667
-  },
-  {
-    "id": "intel--50f7153487b013061e22ce3b",
-    "stix_id": "intel--50f7153487b013061e22ce3b",
-    "title": "VS Code zero-day lets hackers steal GitHub tokens in one click",
-    "description": "A security researcher has released exploit code for a Visual Studio Code (VS Code) zero-day vulnerability that allows attackers to steal GitHub authentication tokens by tricking users into clicking a link. [...]",
-    "severity": "CRITICAL",
-    "risk_score": 9.0202,
-    "confidence": 0.25,
-    "source": "BleepingComputer",
-    "feed_source": "BleepingComputer",
-    "tlp": "TLP:CLEAR",
-    "threat_type": "Threat Intel",
-    "tags": [
-      "Security News",
-      "Threat Intelligence"
+    "_risk_micro_adj": 0.047667,
+    "actor_code": "Unattributed",
+    "actor_type": "UNATTRIBUTED",
+    "actor_region": "Unknown",
+    "ioc_types": [
+      "ip_address",
+      "domain"
     ],
-    "cve_id": "",
-    "cve_ids": [],
-    "ioc_count": 0,
-    "kev": "NO",
-    "timestamp": "2026-06-03T02:50:30Z",
-    "processed_at": "2026-06-03T02:50:30Z",
-    "published_at": "2026-06-03T02:50:30Z",
-    "source_url": "https://www.bleepingcomputer.com/news/security/vs-code-zero-day-lets-hackers-steal-github-tokens-in-one-click/",
-    "actor": "CDB-UNATTR-APT",
-    "exploit_maturity": "UNPROVEN",
-    "exploit_count": 0,
-    "exploit_refs": [],
-    "actor_display_name": "Unknown State-Sponsored Actor",
-    "actor_aliases": [
-      "Unattributed APT Cluster"
-    ],
-    "actor_country": "Unknown",
-    "actor_motivation": [
-      "espionage",
-      "IP theft",
-      "sabotage"
-    ],
-    "actor_sectors": [
-      "Government",
-      "Defense",
-      "Critical Infrastructure"
-    ],
-    "actor_ttps": [
-      "T1190",
-      "T1078",
-      "T1059",
-      "T1071"
-    ],
-    "actor_malware": [],
-    "actor_threat_level": "HIGH",
-    "actor_mitre_id": null,
-    "iq_score": 25,
-    "iq_breakdown": {
-      "source": 20,
-      "enrichment": 0,
-      "attribution": 5,
-      "corroboration": 0
+    "_quality_hardened_at": "2026-06-04T06:46:45.146647+00:00",
+    "_quality_version": "160.0",
+    "evidence_ledger": {
+      "source_count": 1,
+      "verified_sources": 0,
+      "ioc_count": 0,
+      "ttp_count": 0,
+      "cve_count": 1,
+      "confidence_score": 45,
+      "evidence_strength": "LOW",
+      "ledger_generated": true
     },
     "intelligence_age_days": 1.2,
     "attck_technique_ids": [
@@ -4907,14 +5088,88 @@
       "T1059",
       "T1071"
     ],
-    "attck_techniques": [],
-    "pdf_url": "/reports/pdf/intel--50f7153487b013061e22ce3b.pdf",
-    "pdf_available": true,
-    "apex_ai_summary": "[CRITICAL] Threat Intel advisory. Risk score 9.0/10. Full APEX AI analysis available to Pro subscribers.",
-    "apex_ai_score": 9.0,
-    "status": "active",
-    "schema_version": "stable-v1.0-apex",
-    "_risk_micro_adj": 0.020241
+    "cti_tier": "FREE_INFORMATIONAL",
+    "verification_status": "UNVERIFIED",
+    "attribution_status": "UNATTRIBUTED",
+    "source_reliability": "UNRATED",
+    "ioc_quality": "LOW",
+    "ttp_quality": "LOW",
+    "report_quality": "INFORMATIONAL",
+    "verified_actor": false,
+    "campaign_status": "UNVERIFIED",
+    "publication_decision": "ALLOW_WITH_WARNING",
+    "intelligence_grade": "B",
+    "evidence_count": 3,
+    "corroboration_count": 3,
+    "ioc_quality_score": 0,
+    "ioc_quality_label": "NONE",
+    "real_ioc_count": 0,
+    "attck_verification": "EVIDENCE_BASED",
+    "attck_notes": [
+      "Derived from CVE description: rce"
+    ],
+    "risk_score_reasoning": "{\"formula\": \"v1.0.0-deterministic\", \"inputs\": {\"cvss_score\": 9.5, \"epss_pct\": 21.0, \"kev_confirmed\": false, \"verified_actor\": false, \"real_ioc_count\": 0}, \"components\": {\"base_cvss\": 3.8, \"epss_boost\": 0.63, \"kev_boost\": 0.0, \"actor_boost\": 0.0, \"ioc_boost\": 0.0}, \"computed_score\": 4.43, \"notes\": [\"Critical CVSS without KEV confirmation \\u2014 monitor for escalation\"]}",
+    "analyst_verdict": "ALLOW — Grade B: strong CVE intelligence. Verified CVE, CVSS>=8.0, evidence-based ATT&CK, multi-source corroboration.",
+    "mitre_tactics": [],
+    "ttps": [],
+    "grade_notes": [
+      "Partial verification: EPSS 21.0%, CVSS 9.5"
+    ],
+    "grade_engine_version": "v2.0.0",
+    "graded_at": "2026-06-04T06:46:47.792708+00:00",
+    "epss_normalized": true,
+    "actor_tag": null,
+    "actor_name": null,
+    "allowed_content_tier": "enterprise_dossier",
+    "premium_eligible": true,
+    "enterprise_eligible": true,
+    "mssp_eligible": true,
+    "governor_version": "1.0.0",
+    "governed_at": "2026-06-04T06:46:48.487458+00:00",
+    "governor_audit_log": [
+      "M2: Banned actor 'Unattributed Threat Actor' nulled — attribution_status=NONE",
+      "M4: risk_score raised 4.4→8.5 [CVSS=9.5 ≥ 9.0 → floor 8.5; KEV=true → floor 7.0]"
+    ],
+    "actor_confidence_label": "NONE",
+    "attribution_assessment": {
+      "status": "UNATTRIBUTED",
+      "confidence": "NONE",
+      "evidence_count": 0,
+      "verdict": "No actor claimed — correct",
+      "engine_version": "1.0.0"
+    },
+    "attck_technique_ids": [
+      "T1059"
+    ],
+    "attck_techniques": [
+      {
+        "technique_id": "T1059",
+        "technique_name": "Command and Scripting Interpreter",
+        "attack_justification": "CVE confirms remote/arbitrary code execution capability",
+        "attack_evidence": "CVE-2026-0826 — why an hp poly voip phones bug could become an enterprise foothold rapid7 details a critical unauthenticated overflow in...",
+        "attack_source": "SecurityAffairs",
+        "mapping_method": "cve_description_derivation",
+        "verification_status": "EVIDENCE_BASED",
+        "matched_pattern": "rce",
+        "source_reference": "",
+        "mapping_reason": ""
+      }
+    ],
+    "corroboration_score": 70,
+    "corroboration_strength": "STRONG",
+    "corroboration_sources": [
+      "SecurityAffairs",
+      "EPSS/FIRST",
+      "NVD/CVE-Database"
+    ],
+    "detection_quality_status": "DETECTION_NOT_PRODUCTION_READY",
+    "detection_production_ready": false,
+    "detection_rules_total": 0,
+    "detection_rules_production_ready": 0,
+    "grade_notes_v2": [
+      "Grade B: CVE verified; CVSS=9.5; 3 sources; evidence-based ATT&CK; corroboration=70"
+    ],
+    "graded_at_v2": "2026-06-04T06:46:48.392132+00:00"
   },
   {
     "id": "intel--8d7def3a6fc2a1c20636ce9e",
@@ -4922,15 +5177,18 @@
     "title": "Critical Kirki flaw exploited to hijack WordPress admin accounts",
     "description": "Hackers are exploiting a critical privilege escalation vulnerability (CVE-2026-8206) in the Kirki plugin for WordPress to take over any user account, including those belonging to administrators. [...]",
     "severity": "CRITICAL",
-    "risk_score": 9.027,
-    "confidence": 0.55,
+    "risk_score": 8.5,
+    "confidence": 0.22,
     "source": "BleepingComputer",
     "feed_source": "BleepingComputer",
-    "tlp": "TLP:CLEAR",
+    "tlp": "TLP:AMBER",
     "threat_type": "Threat Intel",
     "tags": [
       "Security News",
-      "Threat Intelligence"
+      "Threat Intelligence",
+      "kev",
+      "cisa",
+      "actively-exploited"
     ],
     "cve_id": "CVE-2026-8206",
     "cve_ids": [
@@ -4942,8 +5200,8 @@
     "processed_at": "2026-06-02T18:12:57Z",
     "published_at": "2026-06-02T18:12:57Z",
     "source_url": "https://www.bleepingcomputer.com/news/security/critical-kirki-flaw-exploited-to-hijack-wordpress-admin-accounts/",
-    "actor": "CDB-UNATTR-CVE",
-    "epss_score": 0.12,
+    "actor": null,
+    "epss_score": 12.0,
     "epss": "0.12%",
     "cvss_score": 9.8,
     "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H",
@@ -4956,18 +5214,14 @@
     ],
     "metasploit_available": false,
     "poc_github_count": 2,
-    "actor_display_name": "Unknown Threat Actor",
-    "actor_aliases": [
-      "Unattributed"
-    ],
-    "actor_country": "Unknown",
-    "actor_motivation": [
-      "unknown"
-    ],
+    "actor_display_name": null,
+    "actor_aliases": [],
+    "actor_country": null,
+    "actor_motivation": null,
     "actor_sectors": [],
     "actor_ttps": [],
     "actor_malware": [],
-    "actor_threat_level": "UNKNOWN",
+    "actor_threat_level": null,
     "actor_mitre_id": null,
     "iq_score": 55,
     "iq_breakdown": {
@@ -4983,66 +5237,25 @@
     "apex_ai_score": 9.0,
     "status": "active",
     "schema_version": "stable-v1.0-apex",
-    "_risk_micro_adj": 0.026975
-  },
-  {
-    "id": "intel--233829c8eec77cb8c07b40d7",
-    "stix_id": "intel--233829c8eec77cb8c07b40d7",
-    "title": "Over 116,000 Minecraft systems infected in WeedHack malware campaign",
-    "description": "A large-scale malware campaign dubbed WeedHack is targeting Minecraft players and has infected more than 116,000 systems since January. [...]",
-    "severity": "HIGH",
-    "risk_score": 7.2192,
-    "confidence": 0.25,
-    "source": "BleepingComputer",
-    "feed_source": "BleepingComputer",
-    "tlp": "TLP:CLEAR",
-    "threat_type": "Threat Intel",
-    "tags": [
-      "Security News",
-      "Threat Intelligence"
+    "_risk_micro_adj": 0.026975,
+    "actor_code": "Unattributed",
+    "actor_type": "UNATTRIBUTED",
+    "actor_region": "Unknown",
+    "ioc_types": [
+      "ip_address",
+      "domain"
     ],
-    "cve_id": "",
-    "cve_ids": [],
-    "ioc_count": 0,
-    "kev": "NO",
-    "timestamp": "2026-06-02T17:54:49Z",
-    "processed_at": "2026-06-02T17:54:49Z",
-    "published_at": "2026-06-02T17:54:49Z",
-    "source_url": "https://www.bleepingcomputer.com/news/security/over-116-000-minecraft-systems-infected-in-weedhack-malware-campaign/",
-    "actor": "CDB-UNATTR-APT",
-    "exploit_maturity": "UNPROVEN",
-    "exploit_count": 0,
-    "exploit_refs": [],
-    "actor_display_name": "Unknown State-Sponsored Actor",
-    "actor_aliases": [
-      "Unattributed APT Cluster"
-    ],
-    "actor_country": "Unknown",
-    "actor_motivation": [
-      "espionage",
-      "IP theft",
-      "sabotage"
-    ],
-    "actor_sectors": [
-      "Government",
-      "Defense",
-      "Critical Infrastructure"
-    ],
-    "actor_ttps": [
-      "T1190",
-      "T1078",
-      "T1059",
-      "T1071"
-    ],
-    "actor_malware": [],
-    "actor_threat_level": "HIGH",
-    "actor_mitre_id": null,
-    "iq_score": 25,
-    "iq_breakdown": {
-      "source": 20,
-      "enrichment": 0,
-      "attribution": 5,
-      "corroboration": 0
+    "_quality_hardened_at": "2026-06-04T06:46:45.146664+00:00",
+    "_quality_version": "160.0",
+    "evidence_ledger": {
+      "source_count": 1,
+      "verified_sources": 1,
+      "ioc_count": 0,
+      "ttp_count": 0,
+      "cve_count": 1,
+      "confidence_score": 55,
+      "evidence_strength": "LOW",
+      "ledger_generated": true
     },
     "intelligence_age_days": 1.5,
     "attck_technique_ids": [
@@ -5051,89 +5264,91 @@
       "T1059",
       "T1071"
     ],
-    "attck_techniques": [],
-    "pdf_url": "/reports/pdf/intel--233829c8eec77cb8c07b40d7.pdf",
-    "pdf_available": true,
-    "apex_ai_summary": "[HIGH] Threat Intel advisory. Risk score 7.2/10. Full APEX AI analysis available to Pro subscribers.",
-    "apex_ai_score": 7.2,
-    "status": "active",
-    "schema_version": "stable-v1.0-apex",
-    "_risk_micro_adj": 0.019232
-  },
-  {
-    "id": "intel--a7d39c3005ca0f745d38b667",
-    "stix_id": "intel--a7d39c3005ca0f745d38b667",
-    "title": "AI-built ransomware toolkit automates EDR evasion, AD discovery",
-    "description": "A threat actor is using an AI-built ransomware attack toolkit that automates Active Directory discovery and helps evade endpoint detection and response (EDR) solutions. [...]",
-    "severity": "HIGH",
-    "risk_score": 7.2482,
-    "confidence": 0.25,
-    "source": "BleepingComputer",
-    "feed_source": "BleepingComputer",
-    "tlp": "TLP:CLEAR",
-    "threat_type": "Threat Intel",
-    "tags": [
-      "Security News",
-      "Threat Intelligence"
+    "cti_tier": "FREE_INFORMATIONAL",
+    "verification_status": "UNVERIFIED",
+    "attribution_status": "UNATTRIBUTED",
+    "source_reliability": "UNRATED",
+    "ioc_quality": "LOW",
+    "ttp_quality": "LOW",
+    "report_quality": "INFORMATIONAL",
+    "verified_actor": false,
+    "campaign_status": "UNVERIFIED",
+    "publication_decision": "ALLOW_WITH_WARNING",
+    "intelligence_grade": "B",
+    "evidence_count": 3,
+    "corroboration_count": 5,
+    "ioc_quality_score": 0,
+    "ioc_quality_label": "NONE",
+    "real_ioc_count": 0,
+    "attck_verification": "EVIDENCE_BASED",
+    "attck_notes": [
+      "Derived from CVE description: privilege escalat"
     ],
-    "cve_id": "",
-    "cve_ids": [],
-    "ioc_count": 0,
-    "kev": "NO",
-    "timestamp": "2026-06-02T16:01:20Z",
-    "processed_at": "2026-06-02T16:01:20Z",
-    "published_at": "2026-06-02T16:01:20Z",
-    "source_url": "https://www.bleepingcomputer.com/news/security/ai-built-ransomware-toolkit-automates-edr-evasion-ad-discovery/",
-    "actor": "CDB-UNATTR-APT",
-    "exploit_maturity": "UNPROVEN",
-    "exploit_count": 0,
-    "exploit_refs": [],
-    "actor_display_name": "Unknown State-Sponsored Actor",
-    "actor_aliases": [
-      "Unattributed APT Cluster"
+    "risk_score_reasoning": "{\"formula\": \"v1.0.0-deterministic\", \"inputs\": {\"cvss_score\": 9.8, \"epss_pct\": 12.0, \"kev_confirmed\": false, \"verified_actor\": false, \"real_ioc_count\": 0}, \"components\": {\"base_cvss\": 3.92, \"epss_boost\": 0.36, \"kev_boost\": 0.0, \"actor_boost\": 0.0, \"ioc_boost\": 0.0}, \"computed_score\": 4.28, \"notes\": [\"Critical CVSS without KEV confirmation \\u2014 monitor for escalation\"]}",
+    "analyst_verdict": "ALLOW — Grade B: strong CVE intelligence. Verified CVE, CVSS>=8.0, evidence-based ATT&CK, multi-source corroboration.",
+    "mitre_tactics": [],
+    "ttps": [],
+    "grade_notes": [
+      "Partial verification: EPSS 12.0%, CVSS 9.8"
     ],
-    "actor_country": "Unknown",
-    "actor_motivation": [
-      "espionage",
-      "IP theft",
-      "sabotage"
+    "grade_engine_version": "v2.0.0",
+    "graded_at": "2026-06-04T06:46:47.792740+00:00",
+    "epss_normalized": true,
+    "actor_tag": null,
+    "actor_name": null,
+    "allowed_content_tier": "enterprise_dossier",
+    "premium_eligible": true,
+    "enterprise_eligible": true,
+    "mssp_eligible": true,
+    "governor_version": "1.0.0",
+    "governed_at": "2026-06-04T06:46:48.487470+00:00",
+    "governor_audit_log": [
+      "M2: Banned actor 'Unattributed Threat Actor' nulled — attribution_status=NONE",
+      "M4: risk_score raised 4.3→8.5 [severity=CRITICAL → floor 8.5; CVSS=9.8 ≥ 9.0 → floor 8.5; KEV=true → floor 7.0]"
     ],
-    "actor_sectors": [
-      "Government",
-      "Defense",
-      "Critical Infrastructure"
-    ],
-    "actor_ttps": [
-      "T1190",
-      "T1078",
-      "T1059",
-      "T1071"
-    ],
-    "actor_malware": [],
-    "actor_threat_level": "HIGH",
-    "actor_mitre_id": null,
-    "iq_score": 25,
-    "iq_breakdown": {
-      "source": 20,
-      "enrichment": 0,
-      "attribution": 5,
-      "corroboration": 0
+    "actor_confidence_label": "NONE",
+    "attribution_assessment": {
+      "status": "UNATTRIBUTED",
+      "confidence": "NONE",
+      "evidence_count": 0,
+      "verdict": "No actor claimed — correct",
+      "engine_version": "1.0.0"
     },
     "intelligence_age_days": 1.6,
     "attck_technique_ids": [
-      "T1190",
-      "T1078",
-      "T1059",
-      "T1071"
+      "T1548"
     ],
-    "attck_techniques": [],
-    "pdf_url": "/reports/pdf/intel--a7d39c3005ca0f745d38b667.pdf",
-    "pdf_available": true,
-    "apex_ai_summary": "[HIGH] Threat Intel advisory. Risk score 7.2/10. Full APEX AI analysis available to Pro subscribers.",
-    "apex_ai_score": 7.2,
-    "status": "active",
-    "schema_version": "stable-v1.0-apex",
-    "_risk_micro_adj": 0.048199
+    "attck_techniques": [
+      {
+        "technique_id": "T1548",
+        "technique_name": "Abuse Elevation Control Mechanism",
+        "attack_justification": "CVE confirms exploitation allows privilege escalation to higher role",
+        "attack_evidence": "CVE-2026-8206 — critical kirki flaw exploited to hijack wordpress admin accounts hackers are exploiting a critical privilege escalation...",
+        "attack_source": "BleepingComputer",
+        "mapping_method": "cve_description_derivation",
+        "verification_status": "EVIDENCE_BASED",
+        "matched_pattern": "privilege escalat",
+        "source_reference": "",
+        "mapping_reason": ""
+      }
+    ],
+    "corroboration_score": 90,
+    "corroboration_strength": "STRONG",
+    "corroboration_sources": [
+      "EPSS/FIRST",
+      "ExploitDB/Metasploit",
+      "NVD/CVE-Database",
+      "PublicExploitConfirmed",
+      "BleepingComputer"
+    ],
+    "detection_quality_status": "DETECTION_NOT_PRODUCTION_READY",
+    "detection_production_ready": false,
+    "detection_rules_total": 0,
+    "detection_rules_production_ready": 0,
+    "grade_notes_v2": [
+      "Grade B: CVE verified; CVSS=9.8; 5 sources; evidence-based ATT&CK; exploit evidence; corroboration=90"
+    ],
+    "graded_at_v2": "2026-06-04T06:46:48.392141+00:00"
   },
   {
     "id": "intel--b4da800bd82a1c61b8371a4c",
@@ -5141,15 +5356,18 @@
     "title": "U.S. CISA adds Oracle WebLogic flaw to its Known Exploited Vulnerabilities catalog",
     "description": "U.S. Cybersecurity and Infrastructure Security Agency (CISA) adds Oracle WebLogic flaw to its Known Exploited Vulnerabilities catalog. The U.S. Cybersecurity and Infrastructure Security Agency (CISA) added Palo Alto Networks PAN-OS flaw, tracked as CVE-2024-21182 (CVSS score of 7.5), to its Known Exploited Vulnerabilities (KEV) catalog. The CVE-2024-21182 flaw is an easily exploitable vulnerability affecting Oracle WebLogic [&#8230;]",
     "severity": "HIGH",
-    "risk_score": 7.5275,
-    "confidence": 0.5,
+    "risk_score": 7.0,
+    "confidence": 0.17,
     "source": "SecurityAffairs",
     "feed_source": "SecurityAffairs",
-    "tlp": "TLP:CLEAR",
+    "tlp": "TLP:AMBER",
     "threat_type": "Threat Intel",
     "tags": [
       "Security News",
-      "Threat Intelligence"
+      "Threat Intelligence",
+      "kev",
+      "cisa",
+      "actively-exploited"
     ],
     "cve_id": "CVE-2024-21182",
     "cve_ids": [
@@ -5161,7 +5379,7 @@
     "processed_at": "2026-06-02T15:18:52Z",
     "published_at": "2026-06-02T15:18:52Z",
     "source_url": "https://securityaffairs.com/193027/security/u-s-cisa-adds-oracle-weblogic-flaw-to-its-known-exploited-vulnerabilities-catalog.html",
-    "actor": "CDB-UNATTR-CVE",
+    "actor": null,
     "epss_score": 89.65,
     "epss": "89.65%",
     "cvss_score": 7.5,
@@ -5176,18 +5394,14 @@
     ],
     "metasploit_available": false,
     "poc_github_count": 3,
-    "actor_display_name": "Unknown Threat Actor",
-    "actor_aliases": [
-      "Unattributed"
-    ],
-    "actor_country": "Unknown",
-    "actor_motivation": [
-      "unknown"
-    ],
+    "actor_display_name": null,
+    "actor_aliases": [],
+    "actor_country": null,
+    "actor_motivation": null,
     "actor_sectors": [],
     "actor_ttps": [],
     "actor_malware": [],
-    "actor_threat_level": "UNKNOWN",
+    "actor_threat_level": null,
     "actor_mitre_id": null,
     "iq_score": 50,
     "iq_breakdown": {
@@ -5203,55 +5417,25 @@
     "apex_ai_score": 7.5,
     "status": "active",
     "schema_version": "stable-v1.0-apex",
-    "_risk_micro_adj": 0.027452
-  },
-  {
-    "id": "intel--370f262188952b4bc21bbbb9",
-    "stix_id": "intel--370f262188952b4bc21bbbb9",
-    "title": "GoDaddy found malware on 1,980 WordPress sites using Steam as C2 infrastructure",
-    "description": "Malware on approximately 2,000 WordPress sites hid C2 instructions in Steam profile comments using invisible Unicode. GoDaddy researchers spotted a command-and-control infrastructure for a malware campaign abusing Valve&#8217;s Steam gaming platform. The experts discovered malware on approximately 1,980 WordPress sites that fetches its instructions by reading Steam Community profile comments, where the actual payload is [&#8230;]",
-    "severity": "MEDIUM",
-    "risk_score": 5.0135,
-    "confidence": 0.15,
-    "source": "SecurityAffairs",
-    "feed_source": "SecurityAffairs",
-    "tlp": "TLP:CLEAR",
-    "threat_type": "Threat Intel",
-    "tags": [
-      "Security News",
-      "Threat Intelligence"
+    "_risk_micro_adj": 0.027452,
+    "actor_code": "Unattributed",
+    "actor_type": "UNATTRIBUTED",
+    "actor_region": "Unknown",
+    "ioc_types": [
+      "ip_address",
+      "domain"
     ],
-    "cve_id": "",
-    "cve_ids": [],
-    "ioc_count": 0,
-    "kev": "NO",
-    "timestamp": "2026-06-02T05:38:31Z",
-    "processed_at": "2026-06-02T05:38:31Z",
-    "published_at": "2026-06-02T05:38:31Z",
-    "source_url": "https://securityaffairs.com/192990/breaking-news/godaddy-found-malware-on-1980-wordpress-sites-using-steam-as-c2-infrastructure.html",
-    "actor": "CDB-UNATTR-CVE",
-    "exploit_maturity": "UNPROVEN",
-    "exploit_count": 0,
-    "exploit_refs": [],
-    "actor_display_name": "Unknown Threat Actor",
-    "actor_aliases": [
-      "Unattributed"
-    ],
-    "actor_country": "Unknown",
-    "actor_motivation": [
-      "unknown"
-    ],
-    "actor_sectors": [],
-    "actor_ttps": [],
-    "actor_malware": [],
-    "actor_threat_level": "UNKNOWN",
-    "actor_mitre_id": null,
-    "iq_score": 15,
-    "iq_breakdown": {
-      "source": 10,
-      "enrichment": 0,
-      "attribution": 5,
-      "corroboration": 0
+    "_quality_hardened_at": "2026-06-04T06:46:45.146690+00:00",
+    "_quality_version": "160.0",
+    "evidence_ledger": {
+      "source_count": 1,
+      "verified_sources": 0,
+      "ioc_count": 0,
+      "ttp_count": 0,
+      "cve_count": 1,
+      "confidence_score": 50,
+      "evidence_strength": "LOW",
+      "ledger_generated": true
     },
     "intelligence_age_days": 2.1,
     "pdf_url": "/reports/pdf/intel--370f262188952b4bc21bbbb9.pdf",
@@ -5278,37 +5462,55 @@
       "Security News",
       "Threat Intelligence"
     ],
-    "cve_id": "",
-    "cve_ids": [],
-    "ioc_count": 0,
-    "kev": "NO",
-    "timestamp": "2026-06-01T13:55:20Z",
-    "processed_at": "2026-06-01T13:55:20Z",
-    "published_at": "2026-06-01T13:55:20Z",
-    "source_url": "https://securityaffairs.com/192969/cyber-crime/ransomware-operators-keep-business-hours-the-data-proves-it.html",
-    "actor": "CDB-UNATTR-CVE",
-    "exploit_maturity": "UNPROVEN",
-    "exploit_count": 0,
-    "exploit_refs": [],
-    "actor_display_name": "Unknown Threat Actor",
-    "actor_aliases": [
-      "Unattributed"
+    "cti_tier": "FREE_INFORMATIONAL",
+    "verification_status": "UNVERIFIED",
+    "attribution_status": "UNATTRIBUTED",
+    "source_reliability": "UNRATED",
+    "ioc_quality": "LOW",
+    "ttp_quality": "LOW",
+    "report_quality": "INFORMATIONAL",
+    "verified_actor": false,
+    "campaign_status": "UNVERIFIED",
+    "publication_decision": "ALLOW_WITH_WARNING",
+    "intelligence_grade": "C",
+    "evidence_count": 3,
+    "corroboration_count": 5,
+    "ioc_quality_score": 0,
+    "ioc_quality_label": "NONE",
+    "real_ioc_count": 0,
+    "attck_verification": "EVIDENCE_BASED",
+    "attck_notes": [
+      "Derived from CVE description: exploit.*web"
     ],
-    "actor_country": "Unknown",
-    "actor_motivation": [
-      "unknown"
+    "risk_score_reasoning": "{\"formula\": \"v1.0.0-deterministic\", \"inputs\": {\"cvss_score\": 7.5, \"epss_pct\": 89.65, \"kev_confirmed\": false, \"verified_actor\": false, \"real_ioc_count\": 0}, \"components\": {\"base_cvss\": 3.0, \"epss_boost\": 2.6895, \"kev_boost\": 0.0, \"actor_boost\": 0.0, \"ioc_boost\": 0.0}, \"computed_score\": 5.6895, \"notes\": []}",
+    "analyst_verdict": "WARNING — Grade C: standard vulnerability advisory. Verified CVE, limited enrichment. Suitable for awareness/advisory tiers.",
+    "mitre_tactics": [],
+    "ttps": [],
+    "grade_notes": [
+      "Partial verification: EPSS 89.7%, CVSS 7.5"
     ],
-    "actor_sectors": [],
-    "actor_ttps": [],
-    "actor_malware": [],
-    "actor_threat_level": "UNKNOWN",
-    "actor_mitre_id": null,
-    "iq_score": 15,
-    "iq_breakdown": {
-      "source": 10,
-      "enrichment": 0,
-      "attribution": 5,
-      "corroboration": 0
+    "grade_engine_version": "v2.0.0",
+    "graded_at": "2026-06-04T06:46:47.792783+00:00",
+    "epss_normalized": true,
+    "actor_tag": null,
+    "actor_name": null,
+    "allowed_content_tier": "standard_report",
+    "premium_eligible": false,
+    "enterprise_eligible": false,
+    "mssp_eligible": true,
+    "governor_version": "1.0.0",
+    "governed_at": "2026-06-04T06:46:48.487484+00:00",
+    "governor_audit_log": [
+      "M2: Banned actor 'Unattributed Threat Actor' nulled — attribution_status=NONE",
+      "M4: risk_score raised 5.7→7.0 [severity=HIGH → floor 7.0; CVSS=7.5 ≥ 7.0 → floor 7.0; KEV=true → floor 7.0]"
+    ],
+    "actor_confidence_label": "NONE",
+    "attribution_assessment": {
+      "status": "UNATTRIBUTED",
+      "confidence": "NONE",
+      "evidence_count": 0,
+      "verdict": "No actor claimed — correct",
+      "engine_version": "1.0.0"
     },
     "intelligence_age_days": 2.7,
     "pdf_url": "/reports/pdf/intel--ded690c31c3883fbd54f673c.pdf",
