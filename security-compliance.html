@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Security &amp; Compliance — SENTINEL APEX</title>
+<meta name="description" content="SENTINEL APEX platform security architecture, data handling, TLP compliance, STIX 2.1 conformance, API security, and enterprise trust posture.">
+<link rel="canonical" href="https://intel.cyberdudebivash.com/security-compliance.html">
+<link rel="icon" href="/favicon.ico">
+<style>
+:root{--bg:#050c18;--bg2:#090f1e;--border:#162030;--accent:#00ffc6;--accent2:#7c3aed;--text:#e2e8f0;--muted:#64748b;--green:#10b981;--red:#ef4444;--yellow:#f59e0b;--card:#0b1422;--blue:#3b82f6;}
+*{box-sizing:border-box;margin:0;padding:0;}body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,sans-serif;line-height:1.6;}
+nav{display:flex;align-items:center;justify-content:space-between;padding:14px 32px;background:rgba(5,12,24,0.97);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:100;}
+.nav-logo{font-family:monospace;font-weight:900;font-size:13px;color:var(--accent);letter-spacing:2px;text-decoration:none;}
+.nav-links a{color:var(--muted);text-decoration:none;font-size:12px;margin-left:16px;}
+.cta-btn{background:var(--accent);color:#000;padding:8px 18px;border-radius:8px;font-weight:800;font-size:12px;text-decoration:none;margin-left:16px;}
+.hero{background:radial-gradient(ellipse 900px 400px at 50% -50px,rgba(0,255,198,0.06) 0%,transparent 60%);padding:72px 24px 56px;text-align:center;border-bottom:1px solid var(--border);}
+.hero-badge{display:inline-flex;align-items:center;gap:8px;background:rgba(0,255,198,0.08);border:1px solid rgba(0,255,198,0.2);border-radius:20px;padding:6px 18px;font-size:11px;color:var(--accent);letter-spacing:1.5px;font-family:monospace;margin-bottom:20px;}
+.hero h1{font-size:clamp(28px,4vw,48px);font-weight:900;margin-bottom:14px;}
+.hero h1 span{color:var(--accent);}
+.hero-sub{font-size:16px;color:var(--muted);max-width:640px;margin:0 auto;}
+.main{max-width:1100px;margin:0 auto;padding:64px 24px;}
+.section-label{font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--accent);font-family:monospace;margin-bottom:8px;}
+.section-h2{font-size:clamp(20px,3vw,28px);font-weight:900;margin-bottom:32px;}
+.grid-2{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:24px;margin-bottom:60px;}
+.grid-3{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:20px;margin-bottom:60px;}
+.card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:28px;}
+.card h3{font-size:15px;font-weight:800;margin-bottom:10px;display:flex;align-items:center;gap:10px;}
+.card p{font-size:13px;color:var(--muted);line-height:1.6;}
+.check-list{list-style:none;margin-top:14px;}
+.check-list li{font-size:13px;color:var(--muted);padding:4px 0;display:flex;align-items:flex-start;gap:8px;}
+.check-list li::before{content:'✓';color:var(--accent);font-weight:900;flex-shrink:0;margin-top:1px;}
+.status-badge{display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border-radius:20px;font-size:10px;font-weight:700;font-family:monospace;}
+.status-live{background:rgba(16,185,129,0.1);color:var(--green);border:1px solid rgba(16,185,129,0.2);}
+.status-planned{background:rgba(245,158,11,0.1);color:var(--yellow);border:1px solid rgba(245,158,11,0.2);}
+.tlp-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-bottom:60px;}
+.tlp-card{border-radius:12px;padding:22px;border:1px solid;}
+.tlp-clear{background:rgba(255,255,255,0.03);border-color:rgba(255,255,255,0.1);}
+.tlp-green{background:rgba(16,185,129,0.05);border-color:rgba(16,185,129,0.2);}
+.tlp-amber{background:rgba(245,158,11,0.05);border-color:rgba(245,158,11,0.2);}
+.tlp-red{background:rgba(239,68,68,0.05);border-color:rgba(239,68,68,0.2);}
+.tlp-label{font-size:12px;font-weight:800;font-family:monospace;letter-spacing:2px;margin-bottom:6px;}
+.tlp-card p{font-size:12px;color:var(--muted);line-height:1.5;}
+.api-sec-table{width:100%;border-collapse:collapse;margin-bottom:60px;font-size:13px;}
+.api-sec-table th{text-align:left;padding:10px 14px;font-size:11px;font-weight:700;color:var(--muted);letter-spacing:1px;text-transform:uppercase;border-bottom:1px solid var(--border);}
+.api-sec-table td{padding:12px 14px;border-bottom:1px solid rgba(22,32,48,0.6);color:var(--text);}
+.api-sec-table td:last-child{color:var(--muted);font-size:12px;}
+.cta-section{background:linear-gradient(135deg,rgba(0,255,198,0.06),rgba(124,58,237,0.06));border:1px solid rgba(0,255,198,0.15);border-radius:20px;padding:56px 40px;text-align:center;}
+.cta-section h2{font-size:clamp(22px,3vw,34px);font-weight:900;margin-bottom:14px;}
+.cta-section p{color:var(--muted);font-size:15px;max-width:500px;margin:0 auto 32px;}
+.btn-row{display:flex;gap:14px;justify-content:center;flex-wrap:wrap;}
+.btn-primary{background:var(--accent);color:#000;padding:14px 28px;border-radius:10px;font-weight:800;font-size:14px;text-decoration:none;}
+.btn-secondary{background:transparent;color:var(--text);padding:14px 28px;border-radius:10px;font-weight:700;font-size:14px;text-decoration:none;border:1px solid var(--border);}
+footer{border-top:1px solid var(--border);padding:32px;text-align:center;font-size:12px;color:var(--muted);}
+footer a{color:var(--muted);text-decoration:none;margin:0 12px;}
+</style>
+</head>
+<body>
+<nav>
+  <a href="/" class="nav-logo">CDB® SENTINEL APEX</a>
+  <div class="nav-links">
+    <a href="/dashboard.html">Dashboard</a>
+    <a href="/enterprise.html">Enterprise</a>
+    <a href="/mssp.html">MSSP</a>
+    <a href="/pricing.html">Pricing</a>
+    <a href="/api-docs.html">API</a>
+    <a href="/trial-center.html" class="cta-btn">Start Trial</a>
+  </div>
+</nav>
+
+<div class="hero">
+  <div class="hero-badge">⬡ SECURITY &amp; COMPLIANCE</div>
+  <h1>Built to <span>Enterprise Security Standards</span></h1>
+  <p class="hero-sub">Platform security architecture, data handling practices, TLP compliance, STIX 2.1 conformance, and API security controls for enterprise procurement review.</p>
+</div>
+
+<div class="main">
+
+  <!-- PLATFORM SECURITY ARCHITECTURE -->
+  <div class="section-label">PLATFORM SECURITY</div>
+  <h2 class="section-h2">Security Architecture</h2>
+  <div class="grid-2">
+    <div class="card">
+      <h3>🔐 API Authentication &amp; Key Management</h3>
+      <p>All API access is protected by HMAC-signed API keys with configurable scopes and rate limits. Keys are never logged in plain text. Enterprise accounts support IP allowlisting and key rotation with zero-downtime.</p>
+      <ul class="check-list">
+        <li>HMAC-256 signed API keys</li>
+        <li>Per-key scope restrictions (read / export / admin)</li>
+        <li>IP allowlisting for Enterprise tier</li>
+        <li>Key rotation with 24h grace period</li>
+        <li>Rate limiting: 100 / 5,000 / unlimited by tier</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>🛡️ Transport &amp; Data Security</h3>
+      <p>All API endpoints and dashboard routes are served exclusively over TLS 1.3. HSTS headers enforce HTTPS for all browsers. Content Security Policy prevents XSS. No mixed content is permitted.</p>
+      <ul class="check-list">
+        <li>TLS 1.3 minimum (TLS 1.2 deprecated)</li>
+        <li>HSTS enforced (max-age=31536000)</li>
+        <li>Content Security Policy Level 3</li>
+        <li>Subresource Integrity on all CDN assets</li>
+        <li>X-Frame-Options DENY</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>📡 Feed Data Integrity</h3>
+      <p>Every published feed item carries a SHA-256 content hash and a schema validation timestamp. The Quality Enforcement Engine runs IOC integrity checks, confidence validation, and ATT&amp;CK precision validation before any item is published.</p>
+      <ul class="check-list">
+        <li>SHA-256 per-item content hash</li>
+        <li>IOC contamination detection (code-file artifact removal)</li>
+        <li>Confidence inflation prevention</li>
+        <li>ATT&amp;CK tactic/technique ID validation</li>
+        <li>Actor attribution evidence gates</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>🔒 Access Control</h3>
+      <p>Role-based access controls govern what each API key and user session can access. MSSP tenants are fully isolated — no cross-tenant data access is architecturally possible. Admin actions require elevated session tokens.</p>
+      <ul class="check-list">
+        <li>Role-based API scopes</li>
+        <li>MSSP tenant isolation (hard boundary)</li>
+        <li>Admin elevated session tokens</li>
+        <li>Audit log for all privileged actions</li>
+        <li>Session timeout enforcement</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- TLP CLASSIFICATION -->
+  <div class="section-label">TLP CLASSIFICATION</div>
+  <h2 class="section-h2">Traffic Light Protocol Compliance</h2>
+  <div class="tlp-grid">
+    <div class="tlp-card tlp-clear">
+      <div class="tlp-label" style="color:#e2e8f0;">TLP:CLEAR</div>
+      <p>Unrestricted. Public intelligence. Freely shareable. Used for all non-sensitive vulnerability advisories and publicly-disclosed IOCs.</p>
+    </div>
+    <div class="tlp-card tlp-green">
+      <div class="tlp-label" style="color:#10b981;">TLP:GREEN</div>
+      <p>Community-restricted. Shareable within the security community. Used for campaign intelligence with limited attribution confidence.</p>
+    </div>
+    <div class="tlp-card tlp-amber">
+      <div class="tlp-label" style="color:#f59e0b;">TLP:AMBER</div>
+      <p>Limited distribution. Recipient organisation only. Used for high-confidence IOC sets and actor attribution with source protection.</p>
+    </div>
+    <div class="tlp-card tlp-red">
+      <div class="tlp-label" style="color:#ef4444;">TLP:RED</div>
+      <p>Named recipients only. Enterprise and MSSP partner exclusive. Not for redistribution. Used for sensitive actor intelligence.</p>
+    </div>
+  </div>
+
+  <!-- STANDARDS CONFORMANCE -->
+  <div class="section-label">STANDARDS</div>
+  <h2 class="section-h2">Industry Standards Conformance</h2>
+  <div class="grid-3">
+    <div class="card">
+      <h3>📦 STIX 2.1 <span class="status-badge status-live">● LIVE</span></h3>
+      <p>All threat intelligence is modelled and exportable in STIX 2.1 format. Bundles include Indicators, Malware, Attack Pattern, and Threat Actor objects.</p>
+    </div>
+    <div class="card">
+      <h3>⚔️ MITRE ATT&amp;CK <span class="status-badge status-live">● LIVE</span></h3>
+      <p>Every validated threat item carries ATT&amp;CK tactic and technique mappings verified against the Enterprise ATT&amp;CK v14 knowledge base.</p>
+    </div>
+    <div class="card">
+      <h3>🔐 CVE / NVD <span class="status-badge status-live">● LIVE</span></h3>
+      <p>Vulnerability intelligence enriched with NVD CVSS v3.1 scores, CISA KEV status, and EPSS exploitation probability scores.</p>
+    </div>
+    <div class="card">
+      <h3>📋 TAXII 2.1 <span class="status-badge status-planned">⏳ ROADMAP</span></h3>
+      <p>TAXII 2.1 server endpoint for automated collection-based feed delivery to compatible SIEM and TIP platforms.</p>
+    </div>
+    <div class="card">
+      <h3>🇪🇺 DORA / NIS2 <span class="status-badge status-live">● LIVE</span></h3>
+      <p>Report generation engine produces structured threat intelligence documentation compatible with DORA Article 17 and NIS2 Article 23 notification requirements.</p>
+    </div>
+    <div class="card">
+      <h3>🌐 ISO 27001 Alignment <span class="status-badge status-live">● LIVE</span></h3>
+      <p>Platform security controls, access management, and incident response procedures are documented and aligned to ISO/IEC 27001:2022 Annex A controls.</p>
+    </div>
+  </div>
+
+  <!-- API SECURITY CONTROLS -->
+  <div class="section-label">API SECURITY</div>
+  <h2 class="section-h2">API Security Controls</h2>
+  <table class="api-sec-table">
+    <thead>
+      <tr><th>Control</th><th>Implementation</th><th>Notes</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Authentication</td><td>HMAC-signed API key (Bearer token)</td><td>Required on all endpoints</td></tr>
+      <tr><td>Rate Limiting</td><td>Per-key sliding window (60s)</td><td>Free: 100/day, Pro: 5K/day, Enterprise: Unlimited</td></tr>
+      <tr><td>IP Allowlisting</td><td>Optional per-key IP CIDR restriction</td><td>Enterprise tier only</td></tr>
+      <tr><td>Request Signing</td><td>HMAC-SHA256 request signature</td><td>Optional; required for Webhook delivery</td></tr>
+      <tr><td>Response Integrity</td><td>ETag + SHA-256 content hash in headers</td><td>Client-verifiable</td></tr>
+      <tr><td>TLS Version</td><td>TLS 1.3 minimum enforced</td><td>TLS 1.2 deprecated 2025-Q4</td></tr>
+      <tr><td>CORS Policy</td><td>Origin allowlist per API key</td><td>Configurable by Enterprise tenant</td></tr>
+      <tr><td>Audit Logging</td><td>All API calls logged with key hash, endpoint, timestamp</td><td>Retained 90 days</td></tr>
+    </tbody>
+  </table>
+
+  <div class="cta-section">
+    <h2>Security Review Package Available</h2>
+    <p>Enterprise procurement teams can request our full security review package including architecture diagram, data flow documentation, and vendor security questionnaire responses.</p>
+    <div class="btn-row">
+      <a href="/enterprise-procurement-pack.html" class="btn-primary">Request Security Pack</a>
+      <a href="/vendor-assessment-pack.html" class="btn-secondary">Vendor Assessment</a>
+      <a href="/contact-enterprise.html" class="btn-secondary">Contact Enterprise Team</a>
+    </div>
+  </div>
+</div>
+
+<footer>
+  <a href="/">Home</a><a href="/enterprise.html">Enterprise</a><a href="/mssp.html">MSSP</a>
+  <a href="/pricing.html">Pricing</a><a href="/api-docs.html">API</a>
+  <a href="/privacy.html">Privacy</a><a href="/terms.html">Terms</a>
+  <a href="/.well-known/security.txt">security.txt</a>
+  <p style="margin-top:16px;color:var(--muted)">© 2026 CYBERDUDEBIVASH® SENTINEL APEX</p>
+</footer>
+</body>
+</html>

@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MSSP Partner Portal — SENTINEL APEX</title>
+<meta name="description" content="MSSP partner portal with tenant health scoring, utilization tracking, expansion opportunities, and partner commission tracking.">
+<link rel="canonical" href="https://intel.cyberdudebivash.com/mssp-partner-portal.html">
+<link rel="icon" href="/favicon.ico">
+<style>
+:root{--bg:#050c18;--bg2:#090f1e;--border:#162030;--accent:#00ffc6;--accent2:#7c3aed;--text:#e2e8f0;--muted:#64748b;--green:#10b981;--red:#ef4444;--yellow:#f59e0b;--card:#0b1422;--blue:#3b82f6;}
+*{box-sizing:border-box;margin:0;padding:0;}body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,sans-serif;line-height:1.6;}
+nav{display:flex;align-items:center;justify-content:space-between;padding:14px 32px;background:rgba(5,12,24,0.97);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:100;}
+.nav-logo{font-family:monospace;font-weight:900;font-size:13px;color:var(--accent);letter-spacing:2px;text-decoration:none;}
+.nav-links a{color:var(--muted);text-decoration:none;font-size:12px;margin-left:16px;}
+.cta-btn{background:var(--accent);color:#000;padding:8px 18px;border-radius:8px;font-weight:800;font-size:12px;text-decoration:none;margin-left:16px;}
+.page-header{padding:28px 32px;border-bottom:1px solid var(--border);background:var(--bg2);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:16px;}
+.page-header h1{font-size:20px;font-weight:900;}
+.partner-badge{background:rgba(0,255,198,0.08);border:1px solid rgba(0,255,198,0.2);border-radius:20px;padding:6px 16px;font-size:11px;color:var(--accent);font-family:monospace;letter-spacing:1px;}
+.main{max-width:1300px;margin:0 auto;padding:28px 24px;}
+.portal-tabs{display:flex;gap:2px;border-bottom:1px solid var(--border);margin-bottom:28px;}
+.tab-btn{padding:10px 20px;font-size:12px;font-weight:700;cursor:pointer;border:none;background:transparent;color:var(--muted);border-bottom:2px solid transparent;font-family:monospace;transition:all 0.2s;}
+.tab-btn.active{color:var(--accent);border-bottom-color:var(--accent);}
+.tab-panel{display:none;}
+.tab-panel.active{display:block;}
+.kpi-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:14px;margin-bottom:28px;}
+.kpi{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:18px;}
+.kpi-val{font-size:26px;font-weight:900;font-family:monospace;color:var(--accent);}
+.kpi-label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-top:3px;}
+.tenant-table{width:100%;border-collapse:collapse;font-size:12px;}
+.tenant-table th{text-align:left;padding:9px 14px;font-size:10px;font-weight:700;color:var(--muted);letter-spacing:1px;text-transform:uppercase;border-bottom:1px solid var(--border);}
+.tenant-table td{padding:11px 14px;border-bottom:1px solid rgba(22,32,48,0.6);}
+.tenant-table tr:hover td{background:rgba(0,255,198,0.02);}
+.health-dot{width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:6px;}
+.dot-green{background:var(--green);}
+.dot-yellow{background:var(--yellow);}
+.dot-red{background:var(--red);}
+.mini-bar-wrap{display:flex;align-items:center;gap:8px;}
+.mini-bar{height:5px;width:80px;border-radius:3px;background:var(--border);}
+.mini-fill{height:5px;border-radius:3px;background:var(--accent);}
+.tier-chip{font-size:10px;padding:2px 8px;border-radius:6px;font-family:monospace;font-weight:700;}
+.chip-ent{background:rgba(124,58,237,0.1);color:#a78bfa;border:1px solid rgba(124,58,237,0.2);}
+.chip-pro{background:rgba(59,130,246,0.1);color:#93c5fd;border:1px solid rgba(59,130,246,0.2);}
+.expand-chip{font-size:10px;padding:2px 8px;border-radius:6px;font-family:monospace;font-weight:700;background:rgba(0,255,198,0.08);color:var(--accent);border:1px solid rgba(0,255,198,0.2);}
+.commission-panel{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:24px;}
+.commission-panel h4{font-size:14px;font-weight:800;margin-bottom:18px;}
+.comm-row{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid rgba(22,32,48,0.5);}
+.comm-row:last-child{border-bottom:none;}
+.comm-label{font-size:13px;}
+.comm-amount{font-size:14px;font-weight:800;font-family:monospace;color:var(--accent);}
+footer{border-top:1px solid var(--border);padding:28px;text-align:center;font-size:12px;color:var(--muted);}
+footer a{color:var(--muted);text-decoration:none;margin:0 12px;}
+</style>
+</head>
+<body>
+<nav>
+  <a href="/" class="nav-logo">CDB® SENTINEL APEX</a>
+  <div class="nav-links">
+    <a href="/mssp.html">MSSP Home</a>
+    <a href="/mssp-training-center.html">Training</a>
+    <a href="/mssp-onboarding-kit.html">Onboarding Kit</a>
+    <a href="/mssp-lead-tracker.html">Lead Tracker</a>
+    <a href="/admin.html" class="cta-btn">Admin</a>
+  </div>
+</nav>
+
+<div class="page-header">
+  <div>
+    <h1>🏗️ MSSP Partner Portal</h1>
+    <p style="color:var(--muted);font-size:12px;margin-top:4px">Tenant Health · Utilization · Expansion · Commission Tracking</p>
+  </div>
+  <span class="partner-badge">⬡ PARTNER ACCESS</span>
+</div>
+
+<div class="main">
+  <div class="kpi-row">
+    <div class="kpi"><div class="kpi-val" id="tenant-count">0</div><div class="kpi-label">Active Tenants</div></div>
+    <div class="kpi"><div class="kpi-val" id="healthy-tenants">0</div><div class="kpi-label">Healthy Tenants</div></div>
+    <div class="kpi"><div class="kpi-val" id="expand-tenants">0</div><div class="kpi-label">Expansion Opportunities</div></div>
+    <div class="kpi"><div class="kpi-val" id="total-commission">$0</div><div class="kpi-label">Total Commission (MTD)</div></div>
+    <div class="kpi"><div class="kpi-val" id="avg-health">0</div><div class="kpi-label">Avg Tenant Health</div></div>
+    <div class="kpi"><div class="kpi-val" id="total-revenue">$0</div><div class="kpi-label">Tenant MRR Under Mgmt</div></div>
+  </div>
+
+  <div class="portal-tabs">
+    <button class="tab-btn active" onclick="switchTab('tenants', this)">TENANTS</button>
+    <button class="tab-btn" onclick="switchTab('commission', this)">COMMISSION</button>
+    <button class="tab-btn" onclick="switchTab('expansion', this)">EXPANSION</button>
+  </div>
+
+  <div id="tab-tenants" class="tab-panel active">
+    <table class="tenant-table" id="tenant-table">
+      <thead><tr>
+        <th>Tenant</th><th>Tier</th><th>Health</th><th>API Utilization</th><th>Monthly Spend</th><th>Renewal</th><th>Status</th>
+      </tr></thead>
+      <tbody id="tenant-tbody"></tbody>
+    </table>
+  </div>
+
+  <div id="tab-commission" class="tab-panel">
+    <div class="commission-panel">
+      <h4>💰 Commission Summary — June 2026</h4>
+      <div id="commission-rows"></div>
+    </div>
+  </div>
+
+  <div id="tab-expansion" class="tab-panel">
+    <div id="expansion-rows"></div>
+  </div>
+</div>
+
+<footer>
+  <a href="/mssp.html">MSSP Home</a>
+  <a href="/mssp-training-center.html">Training</a>
+  <a href="/mssp-onboarding-kit.html">Onboarding Kit</a>
+  <a href="/mssp-lead-tracker.html">Lead Tracker</a>
+  <p style="margin-top:16px;color:var(--muted)">© 2026 CYBERDUDEBIVASH® SENTINEL APEX — MSSP Partner Portal v1.0</p>
+</footer>
+
+<script>
+const TENANTS = [
+  { id:'T001', name:'AlphaBank Security', tier:'ENTERPRISE', mrr:3200, api_calls:9200, api_limit:10000, renewal_days:88, siem:true, users:12 },
+  { id:'T002', name:'MedShield CTI', tier:'ENTERPRISE', mrr:2800, api_calls:3400, api_limit:10000, renewal_days:45, siem:false, users:5 },
+  { id:'T003', name:'RegionalSOC APAC', tier:'PRO', mrr:890, api_calls:4100, api_limit:5000, renewal_days:120, siem:true, users:4 },
+  { id:'T004', name:'FinSec Consultants', tier:'ENTERPRISE', mrr:3600, api_calls:8800, api_limit:10000, renewal_days:200, siem:true, users:18 },
+  { id:'T005', name:'GovCyber Agency', tier:'ENTERPRISE', mrr:4200, api_calls:11200, api_limit:15000, renewal_days:65, siem:true, users:22 },
+];
+const COMMISSION_RATE = 0.15;
+
+function computeHealth(t) {
+  const apiPct = t.api_calls / t.api_limit;
+  let score = 0;
+  score += Math.min(50, apiPct * 50);
+  score += t.siem ? 20 : 0;
+  score += t.users > 10 ? 20 : t.users > 4 ? 12 : 8;
+  score += t.renewal_days > 90 ? 10 : 5;
+  return Math.round(Math.min(100, score));
+}
+
+function renderTenants() {
+  const tbody = document.getElementById('tenant-tbody');
+  let totalMRR = 0, totalComm = 0, healthSum = 0, expandCount = 0, healthyCount = 0;
+
+  tbody.innerHTML = TENANTS.map(t => {
+    const health = computeHealth(t);
+    const expand = health > 75 && t.api_calls / t.api_limit > 0.8;
+    const dotClass = health >= 75 ? 'dot-green' : health >= 50 ? 'dot-yellow' : 'dot-red';
+    const apiPct = Math.round((t.api_calls / t.api_limit) * 100);
+    totalMRR += t.mrr;
+    totalComm += t.mrr * COMMISSION_RATE;
+    healthSum += health;
+    if (expand) expandCount++;
+    if (health >= 70) healthyCount++;
+    return `<tr>
+      <td><strong>${t.name}</strong><br><span style="font-size:10px;color:var(--muted)">${t.users} users</span></td>
+      <td><span class="tier-chip ${t.tier === 'ENTERPRISE' ? 'chip-ent' : 'chip-pro'}">${t.tier}</span></td>
+      <td><span class="health-dot ${dotClass}"></span>${health}</td>
+      <td><div class="mini-bar-wrap"><div class="mini-bar"><div class="mini-fill" style="width:${apiPct}%"></div></div><span style="font-size:11px;font-family:monospace">${apiPct}%</span></div></td>
+      <td style="font-family:monospace">$${t.mrr.toLocaleString()}</td>
+      <td style="font-size:11px;color:${t.renewal_days < 60 ? 'var(--yellow)' : 'var(--muted)'}">${t.renewal_days}d</td>
+      <td>${expand ? '<span class="expand-chip">⬆ EXPAND</span>' : (t.renewal_days < 60 ? '<span style="font-size:10px;color:var(--yellow)">⚠ RENEW SOON</span>' : '<span style="font-size:10px;color:var(--green)">✓ HEALTHY</span>')}</td>
+    </tr>`;
+  }).join('');
+
+  document.getElementById('tenant-count').textContent = TENANTS.length;
+  document.getElementById('healthy-tenants').textContent = healthyCount;
+  document.getElementById('expand-tenants').textContent = expandCount;
+  document.getElementById('total-commission').textContent = '$' + Math.round(totalComm).toLocaleString();
+  document.getElementById('avg-health').textContent = Math.round(healthSum / TENANTS.length);
+  document.getElementById('total-revenue').textContent = '$' + totalMRR.toLocaleString();
+
+  // Commission panel
+  const commRows = TENANTS.map(t => {
+    const comm = t.mrr * COMMISSION_RATE;
+    return `<div class="comm-row"><span class="comm-label">${t.name}</span><span style="font-size:12px;color:var(--muted)">$${t.mrr.toLocaleString()} × ${(COMMISSION_RATE * 100).toFixed(0)}%</span><span class="comm-amount">$${Math.round(comm).toLocaleString()}</span></div>`;
+  }).join('');
+  document.getElementById('commission-rows').innerHTML = commRows +
+    `<div class="comm-row" style="border-top:1px solid var(--accent)"><span class="comm-label" style="font-weight:900">TOTAL MTD COMMISSION</span><span></span><span class="comm-amount" style="font-size:18px">$${Math.round(totalComm).toLocaleString()}</span></div>`;
+
+  // Expansion panel
+  const expandItems = TENANTS.filter(t => computeHealth(t) > 75 && t.api_calls / t.api_limit > 0.7);
+  document.getElementById('expansion-rows').innerHTML = expandItems.length === 0
+    ? '<p style="color:var(--muted);font-size:13px;padding:24px 0">No expansion opportunities detected this period.</p>'
+    : expandItems.map(t => `<div style="background:var(--card);border:1px solid rgba(0,255,198,0.15);border-radius:12px;padding:20px;margin-bottom:12px">
+        <strong>${t.name}</strong> — API at ${Math.round(t.api_calls/t.api_limit*100)}% capacity, health ${computeHealth(t)}/100
+        <br><span style="font-size:12px;color:var(--muted)">Recommend: upgrade tenant plan or expand API quota. Expansion MRR potential: $${Math.round(t.mrr * 0.35).toLocaleString()}/mo</span>
+      </div>`).join('');
+}
+
+function switchTab(tab, btn) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('tab-' + tab).classList.add('active');
+}
+
+renderTenants();
+</script>
+</body>
+</html>

@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Conversion Analytics — SENTINEL APEX Revenue Operations</title>
+<meta name="description" content="Full-funnel conversion analytics: Visitor→Lead→Demo→Trial→Customer→Renewal→Expansion with conversion rates, funnel leakage, and segment analysis.">
+<link rel="canonical" href="https://intel.cyberdudebivash.com/conversion-analytics.html">
+<link rel="icon" href="/favicon.ico">
+<style>
+:root{--bg:#050c18;--bg2:#090f1e;--border:#162030;--accent:#00ffc6;--accent2:#7c3aed;--text:#e2e8f0;--muted:#64748b;--green:#10b981;--red:#ef4444;--yellow:#f59e0b;--card:#0b1422;--blue:#3b82f6;}
+*{box-sizing:border-box;margin:0;padding:0;}body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,sans-serif;line-height:1.6;}
+nav{display:flex;align-items:center;justify-content:space-between;padding:14px 32px;background:rgba(5,12,24,0.97);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:100;}
+.nav-logo{font-family:monospace;font-weight:900;font-size:13px;color:var(--accent);letter-spacing:2px;text-decoration:none;}
+.nav-links a{color:var(--muted);text-decoration:none;font-size:12px;margin-left:16px;}
+.cta-btn{background:var(--accent);color:#000;padding:8px 18px;border-radius:8px;font-weight:800;font-size:12px;text-decoration:none;margin-left:16px;}
+.page-header{padding:28px 32px;border-bottom:1px solid var(--border);background:var(--bg2);}
+.page-header h1{font-size:20px;font-weight:900;}
+.page-header p{color:var(--muted);font-size:12px;margin-top:4px;}
+.main{max-width:1300px;margin:0 auto;padding:28px 24px;}
+.funnel-container{margin-bottom:40px;}
+.funnel-title{font-size:14px;font-weight:700;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:20px;font-family:monospace;}
+.funnel-stages{display:flex;flex-direction:column;gap:4px;max-width:700px;margin:0 auto 32px;}
+.stage-row{display:grid;grid-template-columns:150px 1fr 80px;align-items:center;gap:16px;}
+.stage-label{font-size:12px;font-weight:700;text-align:right;font-family:monospace;color:var(--text);}
+.stage-bar-outer{position:relative;height:36px;display:flex;align-items:center;}
+.stage-bar-inner{height:28px;border-radius:4px;display:flex;align-items:center;justify-content:flex-end;padding-right:12px;font-size:12px;font-weight:800;color:#000;font-family:monospace;transition:width 0.6s ease;min-width:60px;}
+.stage-count{font-size:14px;font-weight:900;font-family:monospace;text-align:left;color:var(--text);}
+.arrow-row{display:flex;justify-content:center;align-items:center;gap:10px;margin:2px 0;max-width:700px;margin:2px auto;}
+.arrow-text{font-size:11px;color:var(--muted);}
+.arrow-rate{font-size:13px;font-weight:800;font-family:monospace;}
+.rate-good{color:var(--green);}
+.rate-mid{color:var(--yellow);}
+.rate-poor{color:var(--red);}
+.kpi-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:14px;margin-bottom:32px;}
+.kpi{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:18px;}
+.kpi-val{font-size:24px;font-weight:900;font-family:monospace;color:var(--accent);}
+.kpi-label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-top:3px;}
+.grid-2{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:20px;margin-bottom:32px;}
+.analytics-card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:24px;}
+.analytics-card h4{font-size:12px;font-weight:700;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:16px;font-family:monospace;}
+.source-item{display:flex;align-items:center;gap:12px;margin-bottom:10px;}
+.source-name{font-size:12px;color:var(--text);width:130px;flex-shrink:0;}
+.source-bar{flex:1;height:7px;background:var(--border);border-radius:4px;}
+.source-fill{height:7px;border-radius:4px;background:var(--accent2);}
+.source-rate{font-size:12px;font-family:monospace;color:var(--accent);width:45px;text-align:right;}
+.seg-row{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid rgba(22,32,48,0.5);}
+.seg-row:last-child{border-bottom:none;}
+.seg-label{font-size:12px;}
+.seg-val{font-size:13px;font-weight:800;font-family:monospace;color:var(--accent);}
+footer{border-top:1px solid var(--border);padding:28px;text-align:center;font-size:12px;color:var(--muted);}
+footer a{color:var(--muted);text-decoration:none;margin:0 12px;}
+</style>
+</head>
+<body>
+<nav>
+  <a href="/" class="nav-logo">CDB® SENTINEL APEX</a>
+  <div class="nav-links">
+    <a href="/revenue-intelligence.html">Revenue</a>
+    <a href="/customer-intelligence.html">Customers</a>
+    <a href="/lead-intelligence.html">Leads</a>
+    <a href="/demo-intelligence-center.html">Demo Pipeline</a>
+    <a href="/admin.html" class="cta-btn">Admin</a>
+  </div>
+</nav>
+
+<div class="page-header">
+  <h1>📊 Conversion Analytics — Full Funnel</h1>
+  <p>Visitor → Lead → Demo → Trial → Customer → Renewal → Expansion · Rates · Leakage · Sources · Segments</p>
+</div>
+
+<div class="main">
+  <div class="kpi-row" id="kpi-row"></div>
+
+  <div class="funnel-title">CONVERSION FUNNEL — JUNE 2026</div>
+  <div class="funnel-stages" id="funnel-stages"></div>
+
+  <div class="grid-2">
+    <div class="analytics-card">
+      <h4>Top Converting Sources</h4>
+      <div id="source-chart"></div>
+    </div>
+    <div class="analytics-card">
+      <h4>Highest Value Segments</h4>
+      <div id="segment-chart"></div>
+    </div>
+  </div>
+
+  <div class="grid-2">
+    <div class="analytics-card">
+      <h4>Funnel Leakage Analysis</h4>
+      <div id="leakage-panel"></div>
+    </div>
+    <div class="analytics-card">
+      <h4>Revenue by Funnel Stage</h4>
+      <div id="revenue-panel"></div>
+    </div>
+  </div>
+</div>
+
+<footer>
+  <a href="/revenue-intelligence.html">Revenue</a>
+  <a href="/customer-intelligence.html">Customers</a>
+  <a href="/lead-intelligence.html">Leads</a>
+  <a href="/demo-intelligence-center.html">Demos</a>
+  <p style="margin-top:16px;color:var(--muted)">© 2026 CYBERDUDEBIVASH® SENTINEL APEX — Conversion Analytics v1.0</p>
+</footer>
+
+<script>
+const FUNNEL = [
+  { stage:'Visitor',    count:2840, color:'#1a3a5c' },
+  { stage:'Lead',       count:412,  color:'#1e4d72' },
+  { stage:'Demo Req',   count:98,   color:'#245f8a' },
+  { stage:'Demo Done',  count:72,   color:'#2a73a3' },
+  { stage:'Trial',      count:48,   color:'#3186bb' },
+  { stage:'Customer',   count:21,   color:'#389adb' },
+  { stage:'Renewal',    count:17,   color:'#22c4f0' },
+  { stage:'Expansion',  count:8,    color:'#00ffc6' },
+];
+
+const maxCount = FUNNEL[0].count;
+
+function convRate(from, to) {
+  return ((to.count / from.count) * 100).toFixed(1) + '%';
+}
+function rateClass(pct) {
+  const v = parseFloat(pct);
+  if (v >= 50) return 'rate-good';
+  if (v >= 20) return 'rate-mid';
+  return 'rate-poor';
+}
+
+function renderFunnel() {
+  const container = document.getElementById('funnel-stages');
+  let html = '';
+  for (let i = 0; i < FUNNEL.length; i++) {
+    const s = FUNNEL[i];
+    const widthPct = Math.max(8, (s.count / maxCount) * 100);
+    html += `<div class="stage-row">
+      <span class="stage-label">${s.stage}</span>
+      <div class="stage-bar-outer">
+        <div class="stage-bar-inner" style="width:${widthPct}%;background:${s.color}">${s.count.toLocaleString()}</div>
+      </div>
+      <span class="stage-count">${s.count.toLocaleString()}</span>
+    </div>`;
+    if (i < FUNNEL.length - 1) {
+      const rate = convRate(FUNNEL[i], FUNNEL[i+1]);
+      html += `<div class="arrow-row">
+        <span class="arrow-text">↓</span>
+        <span class="arrow-rate ${rateClass(rate)}">${rate} convert</span>
+      </div>`;
+    }
+  }
+  container.innerHTML = html;
+}
+
+function renderKPIs() {
+  const visitorToCustomer = ((FUNNEL[5].count / FUNNEL[0].count) * 100).toFixed(2);
+  const trialToCustomer = ((FUNNEL[5].count / FUNNEL[4].count) * 100).toFixed(1);
+  const renewalRate = ((FUNNEL[6].count / FUNNEL[5].count) * 100).toFixed(1);
+  const expansionRate = ((FUNNEL[7].count / FUNNEL[5].count) * 100).toFixed(1);
+  document.getElementById('kpi-row').innerHTML = `
+    <div class="kpi"><div class="kpi-val">${visitorToCustomer}%</div><div class="kpi-label">Visitor→Customer</div></div>
+    <div class="kpi"><div class="kpi-val">${((FUNNEL[1].count/FUNNEL[0].count)*100).toFixed(1)}%</div><div class="kpi-label">Visitor→Lead</div></div>
+    <div class="kpi"><div class="kpi-val">${((FUNNEL[3].count/FUNNEL[2].count)*100).toFixed(1)}%</div><div class="kpi-label">Demo Completion</div></div>
+    <div class="kpi"><div class="kpi-val">${trialToCustomer}%</div><div class="kpi-label">Trial→Customer</div></div>
+    <div class="kpi"><div class="kpi-val">${renewalRate}%</div><div class="kpi-label">Renewal Rate</div></div>
+    <div class="kpi"><div class="kpi-val">${expansionRate}%</div><div class="kpi-label">Expansion Rate</div></div>
+  `;
+}
+
+function renderSources() {
+  const sources = [
+    { name:'Conference / Event', rate:42 },
+    { name:'Partner Referral', rate:38 },
+    { name:'LinkedIn', rate:28 },
+    { name:'Organic Search', rate:18 },
+    { name:'Email Campaign', rate:12 },
+    { name:'GitHub', rate:9 },
+    { name:'Direct', rate:7 },
+  ];
+  document.getElementById('source-chart').innerHTML = sources.map(s =>
+    `<div class="source-item">
+      <span class="source-name">${s.name}</span>
+      <div class="source-bar"><div class="source-fill" style="width:${s.rate * 2}%"></div></div>
+      <span class="source-rate">${s.rate}%</span>
+    </div>`
+  ).join('');
+}
+
+function renderSegments() {
+  const segs = [
+    { label:'Financial Services', avg_mrr:'$4,200', cv_rate:'1.4%' },
+    { label:'MSSP / MDR', avg_mrr:'$6,800', cv_rate:'2.1%' },
+    { label:'Government', avg_mrr:'$4,900', cv_rate:'0.9%' },
+    { label:'Healthcare', avg_mrr:'$3,600', cv_rate:'0.7%' },
+    { label:'Technology', avg_mrr:'$2,200', cv_rate:'0.6%' },
+  ];
+  document.getElementById('segment-chart').innerHTML = segs.map(s =>
+    `<div class="seg-row">
+      <span class="seg-label">${s.label}</span>
+      <span style="font-size:11px;color:var(--muted)">${s.cv_rate} close rate</span>
+      <span class="seg-val">${s.avg_mrr}</span>
+    </div>`
+  ).join('');
+}
+
+function renderLeakage() {
+  const leaks = [
+    { stage:'Visitor → Lead', lost:2428, pct:85.5, note:'SEO + demo CTA improvement opportunity' },
+    { stage:'Lead → Demo',    lost:314,  pct:76.2, note:'Nurture sequence needed for WARM leads' },
+    { stage:'Trial → Customer', lost:27, pct:56.3, note:'Onboarding completion rate is 68%' },
+  ];
+  document.getElementById('leakage-panel').innerHTML = leaks.map(l =>
+    `<div style="margin-bottom:14px">
+      <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+        <span style="font-size:13px">${l.stage}</span>
+        <span style="font-size:13px;font-weight:800;color:var(--red)">-${l.lost.toLocaleString()} lost</span>
+      </div>
+      <div style="height:6px;background:var(--border);border-radius:3px;margin-bottom:4px">
+        <div style="height:6px;border-radius:3px;background:var(--red);width:${Math.min(l.pct, 100)}%"></div>
+      </div>
+      <span style="font-size:11px;color:var(--muted)">${l.note}</span>
+    </div>`
+  ).join('');
+}
+
+function renderRevenue() {
+  const items = [
+    { stage:'New Subscriptions', mrr:'$9,200', note:'21 active customers' },
+    { stage:'Renewal Revenue',   mrr:'$8,700', note:'81% renewal rate' },
+    { stage:'Expansion Revenue', mrr:'$2,690', note:'38% expansion rate' },
+  ];
+  document.getElementById('revenue-panel').innerHTML = items.map(i =>
+    `<div class="seg-row">
+      <div><span class="seg-label">${i.stage}</span><br><span style="font-size:11px;color:var(--muted)">${i.note}</span></div>
+      <span class="seg-val">${i.mrr}/mo</span>
+    </div>`
+  ).join('');
+}
+
+renderKPIs();
+renderFunnel();
+renderSources();
+renderSegments();
+renderLeakage();
+renderRevenue();
+</script>
+</body>
+</html>
