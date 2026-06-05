@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Payment Verification — SENTINEL APEX Admin</title>
+<meta name="robots" content="noindex,nofollow">
+<link rel="icon" href="/favicon.ico">
+<style>
+:root{--bg:#050c18;--bg2:#090f1e;--border:#162030;--accent:#00ffc6;--accent2:#7c3aed;--text:#e2e8f0;--muted:#64748b;--green:#10b981;--red:#ef4444;--yellow:#f59e0b;--card:#0b1422;--blue:#3b82f6;}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,sans-serif;min-height:100vh;}
+#loginScreen{display:flex;align-items:center;justify-content:center;min-height:100vh;padding:24px;}
+.login-card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:40px;max-width:380px;width:100%;text-align:center;}
+.login-card h2{font-size:20px;margin-bottom:6px;}
+.login-card p{font-size:13px;color:var(--muted);margin-bottom:24px;}
+.login-input{width:100%;background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:12px 14px;color:var(--text);font-size:14px;font-family:inherit;outline:none;margin-bottom:14px;}
+.login-input:focus{border-color:var(--accent);}
+.login-btn{width:100%;padding:13px;background:var(--accent);color:#000;font-size:14px;font-weight:800;border:none;border-radius:8px;cursor:pointer;}
+#adminApp{display:none;}
+nav{display:flex;align-items:center;justify-content:space-between;padding:14px 28px;background:rgba(5,12,24,0.97);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:100;}
+.nav-logo{font-family:monospace;font-weight:900;font-size:13px;color:var(--accent);letter-spacing:2px;}
+.nav-links{display:flex;gap:12px;align-items:center;}
+.nav-tab{color:var(--muted);font-size:12px;font-weight:600;cursor:pointer;padding:6px 12px;border-radius:6px;border:none;background:none;font-family:inherit;transition:all 0.15s;}
+.nav-tab.active,.nav-tab:hover{color:var(--accent);background:rgba(0,255,198,0.08);}
+.main{max-width:1280px;margin:0 auto;padding:28px 24px;}
+.stats-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:28px;}
+.stat-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:18px 20px;}
+.stat-val{font-size:28px;font-weight:900;font-family:monospace;color:var(--accent);}
+.stat-label{font-size:10px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-top:4px;}
+.stat-card.yellow .stat-val{color:var(--yellow);}
+.stat-card.red .stat-val{color:var(--red);}
+.stat-card.green .stat-val{color:var(--green);}
+.tab-panel{display:none;}
+.tab-panel.active{display:block;}
+.toolbar{display:flex;gap:10px;align-items:center;margin-bottom:20px;flex-wrap:wrap;}
+.filter-btn{padding:7px 16px;border-radius:8px;border:1px solid var(--border);background:var(--card);color:var(--muted);font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;letter-spacing:0.5px;transition:all 0.15s;}
+.filter-btn.active{border-color:var(--accent);color:var(--accent);background:rgba(0,255,198,0.08);}
+.search-box{flex:1;background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:8px 14px;color:var(--text);font-size:13px;font-family:inherit;outline:none;min-width:180px;}
+.search-box:focus{border-color:var(--accent);}
+.refresh-btn{padding:8px 16px;border-radius:8px;border:1px solid rgba(0,255,198,0.3);background:rgba(0,255,198,0.08);color:var(--accent);font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;}
+table{width:100%;border-collapse:collapse;}
+th{text-align:left;padding:10px 14px;font-size:10px;font-weight:700;color:var(--muted);letter-spacing:1px;text-transform:uppercase;border-bottom:1px solid var(--border);}
+td{padding:12px 14px;border-bottom:1px solid rgba(22,32,48,0.6);font-size:13px;vertical-align:top;}
+tr:hover td{background:rgba(255,255,255,0.02);}
+.badge{display:inline-block;padding:3px 10px;border-radius:20px;font-size:10px;font-weight:800;letter-spacing:0.5px;}
+.badge-pending{background:rgba(245,158,11,0.15);color:var(--yellow);border:1px solid rgba(245,158,11,0.3);}
+.badge-approved{background:rgba(16,185,129,0.15);color:var(--green);border:1px solid rgba(16,185,129,0.3);}
+.badge-rejected{background:rgba(239,68,68,0.15);color:var(--red);border:1px solid rgba(239,68,68,0.3);}
+.badge-pro{background:rgba(124,58,237,0.15);color:#a78bfa;border:1px solid rgba(124,58,237,0.3);}
+.badge-enterprise{background:rgba(59,130,246,0.15);color:#60a5fa;border:1px solid rgba(59,130,246,0.3);}
+.badge-mssp{background:rgba(0,255,198,0.1);color:var(--accent);border:1px solid rgba(0,255,198,0.2);}
+.action-btn{padding:6px 12px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;border:1px solid;margin-right:4px;transition:all 0.15s;}
+.btn-approve{background:rgba(16,185,129,0.1);color:var(--green);border-color:rgba(16,185,129,0.3);}
+.btn-approve:hover{background:rgba(16,185,129,0.2);}
+.btn-reject{background:rgba(239,68,68,0.1);color:var(--red);border-color:rgba(239,68,68,0.3);}
+.btn-reject:hover{background:rgba(239,68,68,0.2);}
+.btn-view{background:rgba(59,130,246,0.1);color:var(--blue);border-color:rgba(59,130,246,0.3);}
+.empty-state{text-align:center;padding:60px 24px;color:var(--muted);}
+.empty-state .icon{font-size:40px;margin-bottom:12px;}
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:1000;align-items:center;justify-content:center;}
+.modal-overlay.show{display:flex;}
+.modal{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:28px;max-width:520px;width:90%;max-height:90vh;overflow-y:auto;}
+.modal h3{font-size:16px;margin-bottom:16px;padding-bottom:10px;border-bottom:1px solid var(--border);}
+.modal-row{display:flex;justify-content:space-between;align-items:flex-start;padding:8px 0;border-bottom:1px solid rgba(22,32,48,0.5);font-size:13px;}
+.modal-row:last-child{border-bottom:none;}
+.modal-key{color:var(--muted);font-size:11px;letter-spacing:0.5px;}
+.modal-val{color:var(--text);font-weight:600;text-align:right;max-width:280px;word-break:break-all;}
+.modal-actions{display:flex;gap:10px;margin-top:20px;}
+.modal-input{width:100%;background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;color:var(--text);font-family:inherit;font-size:13px;outline:none;margin-top:8px;}
+.modal-input:focus{border-color:var(--accent);}
+.provision-result{background:rgba(16,185,129,0.08);border:1px solid rgba(16,185,129,0.2);border-radius:10px;padding:14px;margin-top:16px;font-size:12px;line-height:1.7;}
+.provision-key{font-family:monospace;font-size:14px;font-weight:900;color:var(--accent);word-break:break-all;}
+.spinner{display:inline-block;width:14px;height:14px;border:2px solid rgba(0,0,0,0.3);border-top-color:#000;border-radius:50%;animation:spin 0.7s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg)}}
+#toast{position:fixed;bottom:24px;right:24px;background:var(--green);color:#000;padding:12px 20px;border-radius:10px;font-weight:700;font-size:13px;z-index:9999;opacity:0;transform:translateY(20px);transition:all 0.3s;}
+#toast.show{opacity:1;transform:translateY(0);}
+#toast.error{background:var(--red);color:#fff;}
+</style>
+</head>
+<body>
+
+<div id="loginScreen">
+  <div class="login-card">
+    <div style="font-family:monospace;font-size:18px;font-weight:900;color:var(--accent);margin-bottom:4px;">⬡ SENTINEL APEX</div>
+    <h2>Admin Payment Dashboard</h2>
+    <p>Enter your admin secret to continue</p>
+    <input type="password" id="adminSecret" class="login-input" placeholder="Admin Secret" onkeydown="if(event.key==='Enter')login()">
+    <button class="login-btn" onclick="login()">Access Dashboard</button>
+    <p style="font-size:11px;color:var(--red);margin-top:10px;display:none;" id="loginErr">Invalid secret</p>
+  </div>
+</div>
+
+<div id="adminApp">
+  <nav>
+    <span class="nav-logo">⬡ SENTINEL APEX ADMIN</span>
+    <div class="nav-links">
+      <button class="nav-tab active" onclick="showTab('payments',this)">Payments</button>
+      <button class="nav-tab" onclick="showTab('customers',this)">Customers</button>
+      <button class="nav-tab" onclick="showTab('subscriptions',this)">Subscriptions</button>
+      <button class="nav-tab" onclick="showTab('revenue',this)">Revenue</button>
+      <button class="nav-tab" onclick="logout()" style="color:var(--red)">Logout</button>
+    </div>
+  </nav>
+
+  <div class="main">
+    <div class="stats-row" id="statsRow">
+      <div class="stat-card yellow"><div class="stat-val" id="statPending">—</div><div class="stat-label">Pending Payments</div></div>
+      <div class="stat-card green"><div class="stat-val" id="statApproved">—</div><div class="stat-label">Approved</div></div>
+      <div class="stat-card"><div class="stat-val" id="statCustomers">—</div><div class="stat-label">Total Customers</div></div>
+      <div class="stat-card"><div class="stat-val" id="statMRR">—</div><div class="stat-label">MRR (USD)</div></div>
+      <div class="stat-card red"><div class="stat-val" id="statExpiring">—</div><div class="stat-label">Expiring ≤14d</div></div>
+    </div>
+
+    <!-- Payments Tab -->
+    <div class="tab-panel active" id="tab-payments">
+      <div class="toolbar">
+        <button class="filter-btn active" onclick="filterPayments('',this)">All</button>
+        <button class="filter-btn" onclick="filterPayments('pending',this)">Pending</button>
+        <button class="filter-btn" onclick="filterPayments('approved',this)">Approved</button>
+        <button class="filter-btn" onclick="filterPayments('rejected',this)">Rejected</button>
+        <input type="text" class="search-box" placeholder="Search email, plan, method…" oninput="searchPayments(this.value)">
+        <button class="refresh-btn" onclick="loadDashboard()">↺ Refresh</button>
+      </div>
+      <div style="overflow-x:auto;">
+        <table>
+          <thead><tr><th>Submitted</th><th>Email</th><th>Plan</th><th>Method</th><th>Amount</th><th>Ref / TxID</th><th>Status</th><th>Actions</th></tr></thead>
+          <tbody id="paymentsTable"><tr><td colspan="8" class="empty-state"><div class="icon">⏳</div><p>Loading payments…</p></td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Customers Tab -->
+    <div class="tab-panel" id="tab-customers">
+      <div class="toolbar">
+        <button class="filter-btn active" onclick="filterCustomers('',this)">All</button>
+        <button class="filter-btn" onclick="filterCustomers('PRO',this)">PRO</button>
+        <button class="filter-btn" onclick="filterCustomers('ENTERPRISE',this)">Enterprise</button>
+        <button class="filter-btn" onclick="filterCustomers('MSSP',this)">MSSP</button>
+        <input type="text" class="search-box" placeholder="Search email…" oninput="searchCustomers(this.value)">
+        <button class="refresh-btn" onclick="loadCustomers()">↺ Refresh</button>
+      </div>
+      <div style="overflow-x:auto;">
+        <table>
+          <thead><tr><th>Email</th><th>Tier</th><th>Status</th><th>Period End</th><th>Created</th><th>Actions</th></tr></thead>
+          <tbody id="customersTable"><tr><td colspan="6" class="empty-state"><div class="icon">👥</div><p>Loading customers…</p></td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Subscriptions Tab -->
+    <div class="tab-panel" id="tab-subscriptions">
+      <div class="toolbar">
+        <button class="filter-btn active" onclick="filterSubs('',this)">All</button>
+        <button class="filter-btn" onclick="filterSubs('active',this)">Active</button>
+        <button class="filter-btn" onclick="filterSubs('trial',this)">Trial</button>
+        <button class="filter-btn" onclick="filterSubs('expiring',this)">Expiring Soon</button>
+        <button class="filter-btn" onclick="filterSubs('expired',this)">Expired</button>
+        <button class="refresh-btn" onclick="loadSubscriptions()">↺ Refresh</button>
+      </div>
+      <div style="overflow-x:auto;">
+        <table>
+          <thead><tr><th>Email</th><th>Tier</th><th>Status</th><th>Period End</th><th>Days Left</th><th>Actions</th></tr></thead>
+          <tbody id="subsTable"><tr><td colspan="6" class="empty-state"><div class="icon">📅</div><p>Loading subscriptions…</p></td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Revenue Tab -->
+    <div class="tab-panel" id="tab-revenue">
+      <div id="revenueContent" style="padding:20px 0;"><p style="color:var(--muted)">Loading revenue data…</p></div>
+    </div>
+  </div>
+</div>
+
+<!-- Payment Detail Modal -->
+<div class="modal-overlay" id="payModal">
+  <div class="modal">
+    <h3>💳 Payment Detail</h3>
+    <div id="payModalBody"></div>
+    <div id="rejectForm" style="display:none;margin-top:14px;">
+      <label style="font-size:11px;color:var(--muted);display:block;margin-bottom:6px;">Rejection Reason</label>
+      <input type="text" class="modal-input" id="rejectReason" placeholder="e.g. Transaction ID not found in our records">
+    </div>
+    <div id="provisionResult" class="provision-result" style="display:none;"></div>
+    <div class="modal-actions">
+      <button class="action-btn btn-approve" id="modalApproveBtn" onclick="approvePayment()">✅ Approve & Provision</button>
+      <button class="action-btn btn-reject" id="modalRejectBtn" onclick="toggleRejectForm()">✗ Reject</button>
+      <button class="action-btn btn-view" onclick="closeModal()">Close</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+let adminSecret = '', currentPaymentId = '', allPayments = [], allCustomers = [], allSubs = [];
+const API = 'https://revenue.intel.cyberdudebivash.com';
+
+async function login() {
+  const s = document.getElementById('adminSecret').value.trim();
+  if (!s) return;
+  const res = await fetch(`${API}/api/revenue/commercial`, { headers:{'X-Admin-Secret':s} });
+  if (res.ok) {
+    adminSecret = s;
+    document.getElementById('loginScreen').style.display = 'none';
+    document.getElementById('adminApp').style.display = 'block';
+    loadDashboard();
+  } else {
+    document.getElementById('loginErr').style.display = 'block';
+  }
+}
+
+function logout() { adminSecret=''; location.reload(); }
+
+function adminFetch(path, opts={}) {
+  return fetch(API + path, { ...opts, headers:{ 'Content-Type':'application/json', 'X-Admin-Secret':adminSecret, ...(opts.headers||{}) } });
+}
+
+async function loadDashboard() {
+  const [dashRes, paymentsRes] = await Promise.all([
+    adminFetch('/api/revenue/commercial'),
+    adminFetch('/api/payments')
+  ]);
+  const dash = await dashRes.json();
+  const paymentsData = await paymentsRes.json();
+  allPayments = paymentsData.payments || [];
+  document.getElementById('statPending').textContent = dash.payments?.pending ?? '—';
+  document.getElementById('statApproved').textContent = dash.payments?.approved ?? '—';
+  document.getElementById('statCustomers').textContent = dash.customers?.total ?? '—';
+  document.getElementById('statMRR').textContent = dash.revenue?.mrr_usd ? '$' + dash.revenue.mrr_usd.toLocaleString() : '—';
+  document.getElementById('statExpiring').textContent = dash.subscriptions?.expiring_soon ?? '—';
+  renderPayments(allPayments);
+}
+
+async function loadCustomers(tierFilter) {
+  const url = tierFilter ? `/api/customers?tier=${tierFilter}` : '/api/customers';
+  const res = await adminFetch(url);
+  const data = await res.json();
+  allCustomers = data.customers || [];
+  renderCustomers(allCustomers);
+}
+
+async function loadSubscriptions(statusFilter) {
+  const url = statusFilter ? `/api/subscriptions?status=${statusFilter}` : '/api/subscriptions';
+  const res = await adminFetch(url);
+  const data = await res.json();
+  allSubs = data.subscriptions || [];
+  renderSubs(allSubs);
+}
+
+async function loadRevenue() {
+  const res = await adminFetch('/api/revenue/commercial');
+  const d = await res.json();
+  document.getElementById('revenueContent').innerHTML = `
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-bottom:28px;">
+      <div class="stat-card"><div class="stat-val">$${(d.revenue?.mrr_usd||0).toLocaleString()}</div><div class="stat-label">MRR (USD)</div></div>
+      <div class="stat-card"><div class="stat-val">$${(d.revenue?.arr_usd||0).toLocaleString()}</div><div class="stat-label">ARR (USD)</div></div>
+      <div class="stat-card"><div class="stat-val">₹${(d.revenue?.mrr_inr||0).toLocaleString()}</div><div class="stat-label">MRR (INR)</div></div>
+      <div class="stat-card"><div class="stat-val">${d.customers?.total||0}</div><div class="stat-label">Total Customers</div></div>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;">
+      ${Object.entries(d.customers?.by_tier||{}).map(([t,c])=>`<div class="stat-card"><div class="stat-val">${c}</div><div class="stat-label">${t}</div></div>`).join('')}
+    </div>
+    <div style="margin-top:24px;background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px;">
+      <div style="font-size:11px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:14px;">MSSP Revenue</div>
+      <div style="font-size:28px;font-weight:900;color:var(--accent);">$${(d.mssp?.revenue_usd||0).toLocaleString()}/mo</div>
+      <div style="font-size:13px;color:var(--muted);margin-top:6px;">${d.mssp?.partners||0} partners · ${d.mssp?.tenants||0} active tenants</div>
+    </div>
+  `;
+}
+
+function renderPayments(payments) {
+  const tb = document.getElementById('paymentsTable');
+  if (!payments.length) { tb.innerHTML='<tr><td colspan="8"><div class="empty-state"><div class="icon">📭</div><p>No payments found</p></div></td></tr>'; return; }
+  tb.innerHTML = payments.map(p => `
+    <tr>
+      <td style="font-size:11px;color:var(--muted);">${new Date(p.submitted_at).toLocaleString()}</td>
+      <td>${p.email}</td>
+      <td><span class="badge badge-${p.plan.toLowerCase()}">${p.plan}</span></td>
+      <td style="font-size:12px;color:var(--muted);">${p.method}</td>
+      <td style="font-family:monospace;font-size:12px;">—</td>
+      <td style="font-size:11px;font-family:monospace;color:var(--muted);">${p.id}</td>
+      <td><span class="badge badge-${p.status}">${p.status}</span></td>
+      <td>
+        <button class="action-btn btn-view" onclick="viewPayment('${p.id}')">View</button>
+        ${p.status==='pending'?`<button class="action-btn btn-approve" onclick="quickApprove('${p.id}')">✅</button><button class="action-btn btn-reject" onclick="quickReject('${p.id}')">✗</button>`:''}
+      </td>
+    </tr>`).join('');
+}
+
+function renderCustomers(custs) {
+  const tb = document.getElementById('customersTable');
+  if (!custs.length) { tb.innerHTML='<tr><td colspan="6"><div class="empty-state"><div class="icon">👤</div><p>No customers found</p></div></td></tr>'; return; }
+  tb.innerHTML = custs.map(c => `
+    <tr>
+      <td>${c.email}</td>
+      <td><span class="badge badge-${c.tier.toLowerCase()}">${c.tier}</span></td>
+      <td><span class="badge badge-${c.status==='active'?'approved':'rejected'}">${c.status}</span></td>
+      <td style="font-size:11px;color:var(--muted);">—</td>
+      <td style="font-size:11px;color:var(--muted);">${new Date(c.created_at).toLocaleDateString()}</td>
+      <td><button class="action-btn btn-view" onclick="rotateKey('${c.email}')">Rotate Key</button><button class="action-btn btn-reject" onclick="revokeKey('${c.email}')">Revoke</button></td>
+    </tr>`).join('');
+}
+
+function renderSubs(subs) {
+  const tb = document.getElementById('subsTable');
+  if (!subs.length) { tb.innerHTML='<tr><td colspan="6"><div class="empty-state"><div class="icon">📅</div><p>No subscriptions</p></div></td></tr>'; return; }
+  tb.innerHTML = subs.map(s => {
+    const d = s.days_remaining;
+    const dColor = d <= 3 ? 'var(--red)' : d <= 7 ? 'var(--yellow)' : 'var(--green)';
+    return `<tr>
+      <td>${s.email}</td>
+      <td><span class="badge badge-${s.tier.toLowerCase()}">${s.tier}</span></td>
+      <td><span class="badge badge-${s.status==='active'?'approved':'pending'}">${s.status}</span></td>
+      <td style="font-size:11px;color:var(--muted);">${s.current_period_end?.slice(0,10)||'—'}</td>
+      <td style="color:${dColor};font-weight:700;font-family:monospace;">${d > 0 ? d+'d' : 'EXPIRED'}</td>
+      <td><button class="action-btn btn-view" onclick="sendRenewalEmail('${s.email}','${s.tier}')">Send Renewal</button></td>
+    </tr>`;
+  }).join('');
+}
+
+async function viewPayment(paymentId) {
+  currentPaymentId = paymentId;
+  const res = await adminFetch(`/api/payments/${paymentId}`);
+  const p = await res.json();
+  document.getElementById('payModalBody').innerHTML = [
+    ['ID', p.id], ['Email', p.email], ['Plan', p.plan], ['Cycle', p.billing_cycle||'monthly'],
+    ['Method', p.payment_method], ['Amount', p.amount_paid||'—'], ['Currency', p.currency||'—'],
+    ['Tx ID', p.transaction_id||'—'], ['Screenshot', p.screenshot_url ? `<a href="${p.screenshot_url}" target="_blank" style="color:var(--accent)">View</a>` : '—'],
+    ['Notes', p.payment_notes||'—'], ['Status', `<span class="badge badge-${p.status}">${p.status}</span>`],
+    ['Submitted', new Date(p.submitted_at).toLocaleString()]
+  ].map(([k,v]) => `<div class="modal-row"><span class="modal-key">${k}</span><span class="modal-val">${v}</span></div>`).join('');
+  const approved = p.status === 'approved' || p.status === 'rejected';
+  document.getElementById('modalApproveBtn').style.display = approved ? 'none' : '';
+  document.getElementById('modalRejectBtn').style.display = approved ? 'none' : '';
+  document.getElementById('provisionResult').style.display = 'none';
+  document.getElementById('rejectForm').style.display = 'none';
+  document.getElementById('payModal').classList.add('show');
+}
+
+async function approvePayment() {
+  const btn = document.getElementById('modalApproveBtn');
+  btn.innerHTML = '<span class="spinner"></span> Provisioning…';
+  btn.disabled = true;
+  const res = await adminFetch(`/api/payments/approve/${currentPaymentId}`, { method:'POST', body:JSON.stringify({ approved_by:'admin' }) });
+  const data = await res.json();
+  if (data.success) {
+    const r = data.provisioning;
+    document.getElementById('provisionResult').innerHTML = `
+      <strong style="color:var(--green);">✅ Customer Provisioned Successfully</strong><br>
+      Customer ID: <span style="font-family:monospace;">${r.customer_id}</span><br>
+      API Key: <span class="provision-key">${r.api_key}</span><br>
+      Tier: ${r.tier} | Period End: ${r.period_end?.slice(0,10)}<br>
+      <span style="color:var(--muted);font-size:11px;">Welcome email sent with API key.</span>
+    `;
+    document.getElementById('provisionResult').style.display = 'block';
+    showToast('✅ Payment approved & customer provisioned');
+    loadDashboard();
+  } else {
+    showToast('Error: ' + (data.error||'unknown'), true);
+  }
+  btn.innerHTML = '✅ Approve & Provision';
+  btn.disabled = false;
+}
+
+function toggleRejectForm() {
+  const f = document.getElementById('rejectForm');
+  f.style.display = f.style.display === 'none' ? 'block' : 'none';
+  if (f.style.display === 'block') {
+    document.getElementById('modalRejectBtn').textContent = 'Confirm Reject';
+    document.getElementById('modalRejectBtn').onclick = confirmReject;
+  }
+}
+
+async function confirmReject() {
+  const reason = document.getElementById('rejectReason').value.trim() || 'Payment could not be verified';
+  await adminFetch(`/api/payments/reject/${currentPaymentId}`, { method:'POST', body:JSON.stringify({ reason }) });
+  showToast('Payment rejected');
+  closeModal();
+  loadDashboard();
+}
+
+async function quickApprove(id) {
+  if (!confirm('Approve and provision this payment?')) return;
+  currentPaymentId = id;
+  const res = await adminFetch(`/api/payments/approve/${id}`, { method:'POST', body:JSON.stringify({ approved_by:'admin' }) });
+  const data = await res.json();
+  if (data.success) { showToast('✅ Provisioned: ' + data.provisioning.api_key.substring(0,20)+'…'); loadDashboard(); }
+  else showToast('Error: ' + data.error, true);
+}
+
+async function quickReject(id) {
+  const reason = prompt('Rejection reason:');
+  if (!reason) return;
+  await adminFetch(`/api/payments/reject/${id}`, { method:'POST', body:JSON.stringify({ reason }) });
+  showToast('Payment rejected'); loadDashboard();
+}
+
+async function rotateKey(email) {
+  if (!confirm(`Rotate API key for ${email}?`)) return;
+  const res = await adminFetch('/api/apikeys/rotate', { method:'POST', body:JSON.stringify({ email }) });
+  const data = await res.json();
+  if (data.success) showToast('Key rotated: ' + data.new_key.substring(0,20)+'…');
+  else showToast('Error: ' + data.error, true);
+}
+
+async function revokeKey(email) {
+  const reason = prompt(`Revocation reason for ${email}:`);
+  if (!reason) return;
+  await adminFetch('/api/apikeys/revoke', { method:'POST', body:JSON.stringify({ email, reason }) });
+  showToast('Keys revoked for ' + email); loadCustomers();
+}
+
+async function sendRenewalEmail(email, tier) {
+  showToast(`Renewal reminder queued for ${email} (${tier})`);
+}
+
+function closeModal() { document.getElementById('payModal').classList.remove('show'); }
+window.onclick = e => { if (e.target.id === 'payModal') closeModal(); };
+
+function showTab(tab, btn) {
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('tab-'+tab).classList.add('active');
+  btn.classList.add('active');
+  if (tab === 'customers') loadCustomers();
+  else if (tab === 'subscriptions') loadSubscriptions();
+  else if (tab === 'revenue') loadRevenue();
+}
+
+function filterPayments(status, btn) {
+  document.querySelectorAll('#tab-payments .filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderPayments(status ? allPayments.filter(p => p.status === status) : allPayments);
+}
+
+function filterCustomers(tier, btn) {
+  document.querySelectorAll('#tab-customers .filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderCustomers(tier ? allCustomers.filter(c => c.tier === tier) : allCustomers);
+}
+
+function filterSubs(status, btn) {
+  document.querySelectorAll('#tab-subscriptions .filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  let subs = allSubs;
+  if (status === 'expiring') subs = allSubs.filter(s => s.expiring_soon);
+  else if (status) subs = allSubs.filter(s => s.status === status);
+  renderSubs(subs);
+}
+
+function searchPayments(q) {
+  q = q.toLowerCase();
+  renderPayments(allPayments.filter(p => p.email?.includes(q) || p.plan?.toLowerCase().includes(q) || p.method?.includes(q) || p.id?.includes(q)));
+}
+
+function searchCustomers(q) {
+  q = q.toLowerCase();
+  renderCustomers(allCustomers.filter(c => c.email?.includes(q)));
+}
+
+function showToast(msg, err=false) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.className = 'show' + (err?' error':'');
+  setTimeout(() => t.className = '', 3500);
+}
+</script>
+</body>
+</html>

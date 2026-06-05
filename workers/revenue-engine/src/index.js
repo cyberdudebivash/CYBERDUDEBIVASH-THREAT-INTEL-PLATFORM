@@ -81,16 +81,21 @@ export default {
       if (path === "/api/automation/trigger"     && method === "POST") return await automationTrigger(request, env, rid);
       if (path === "/api/automation/sequences"   && method === "GET")  return await listSequences(request, env, rid);
 
+      // ── Phase 2: Commercial Operations routes ──────────────────────────────
+      const commercialResult = await dispatchCommercialRoutes(path, method, request, env, rid);
+      if (commercialResult) return commercialResult;
+
       return json({ error: "not_found", path }, 404);
     } catch (e) {
       return json({ error: "internal_error", message: e.message, rid }, 500);
     }
   },
 
-  // ── Cron handler — email send + follow-ups + trial nudges ─────────────────
+  // ── Cron handler — email send + follow-ups + trial nudges + sub expiry ────
   async scheduled(event, env, ctx) {
     const h = new Date().getUTCHours();
     if (h === 9)  await runDailyOutreach(env);
+    if (h === 9)  await handleSubExpireCheck({}, env, "cron"); // daily expiry check
     if (h === 14) await runFollowUps(env);
     if (h === 18 && new Date().getUTCDay() === 1) await runWeeklyDigest(env);
   },
@@ -1289,3 +1294,778 @@ const DEMO_FALLBACK_THREATS = [
   { title: "APT41 Campaign Targeting Financial Sector via Spear Phishing", severity: "high", risk_score: 8.5, ioc_count: 34 },
   { title: "Ransomware Group LockBit 4.0 — New Variant Detected", severity: "critical", risk_score: 9.5, ioc_count: 67 },
 ];
+
+// =============================================================================
+// SENTINEL APEX REVENUE ENGINE — PHASE 2: COMMERCIAL OPERATIONS
+// Payment Processing · API Key Management · Customer Provisioning
+// Subscription Lifecycle · MSSP Tenant Management · Customer Success
+// Added: 2026-06-05 | Version: v175.0.0
+// =============================================================================
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TIER CONFIGURATION
+// ─────────────────────────────────────────────────────────────────────────────
+const TIERS = {
+  FREE:       { label:"Free",       req_day:100,    req_min:10,   price_usd:0,    price_inr:0,       trial_days:0,  features:["basic_feed","metadata","stix_ids"] },
+  PRO:        { label:"Pro",        req_day:1000,   req_min:100,  price_usd:99,   price_inr:8250,    trial_days:7,  features:["full_ioc","sigma","yara","kql","spl","stix_bundle","actor","kill_chain","playbook","misp_json","csv_export"] },
+  ENTERPRISE: { label:"Enterprise", req_day:50000,  req_min:500,  price_usd:999,  price_inr:83200,   trial_days:14, features:["siem_webhook","soar_export","navigator","hunt_queries","actor_tracking","campaign_intel","prediction_api","sector_feed","executive_brief","fair_model","reg_compliance","10_seats"] },
+  MSSP:       { label:"MSSP",       req_day:200000, req_min:2000, price_usd:1999, price_inr:166500,  trial_days:14, features:["multi_tenant","white_label","partner_api","bulk_stix","tenant_keys","oem_resale","40pct_revshare","unlimited_seats"] },
+};
+
+const PAYMENT_METHODS = ["upi","qr","paypal","neft","crypto_usdt_bep20","crypto_usdt_erc20","amazon_pay","bank_wire"];
+const PAYMENT_STATUS  = { PENDING:"pending", VERIFIED:"verified", APPROVED:"approved", REJECTED:"rejected", REFUNDED:"refunded" };
+const SUB_STATUS      = { TRIAL:"trial", ACTIVE:"active", EXPIRING:"expiring", EXPIRED:"expired", SUSPENDED:"suspended", CANCELLED:"cancelled", RENEWED:"renewed" };
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ROUTER EXTENSION — inject into main fetch() by pattern
+// These routes are appended after existing route table
+// ─────────────────────────────────────────────────────────────────────────────
+
+// Called from main fetch() — we expose a secondary dispatcher
+async function dispatchCommercialRoutes(path, method, request, env, rid) {
+  // ── Public: free API key request ──────────────────────────────────────────
+  if (path === "/api/apikeys/request-free" && method === "POST")
+    return await handleFreeKeyRequest(request, env, rid);
+
+  // ── Public: validate API key (used by intel-gateway) ─────────────────────
+  if (path === "/api/apikeys/validate" && method === "GET")
+    return await handleApiKeyValidate(request, env, rid);
+
+  // ── Public: payment submission (customer uploads evidence) ───────────────
+  if (path === "/api/payments/submit" && method === "POST")
+    return await handlePaymentSubmit(request, env, rid);
+
+  // ── Public: customer self-service portal ──────────────────────────────────
+  if (path === "/api/customer/portal" && method === "GET")
+    return await handleCustomerPortal(request, env, rid);
+
+  // ── Admin-secured routes below ────────────────────────────────────────────
+  if (!await isAdmin(request, env))
+    return json({ error:"unauthorized", message:"X-Admin-Secret required." }, 401);
+
+  // Payments
+  if (path === "/api/payments"                  && method === "GET")  return await handlePaymentList(request, env, rid);
+  if (path.startsWith("/api/payments/approve/") && method === "POST") return await handlePaymentApprove(request, env, rid, path.slice(22));
+  if (path.startsWith("/api/payments/reject/")  && method === "POST") return await handlePaymentReject(request, env, rid, path.slice(21));
+  if (path.startsWith("/api/payments/")         && method === "GET")  return await handlePaymentGet(request, env, rid, path.slice(14));
+
+  // API Keys
+  if (path === "/api/apikeys"                   && method === "GET")  return await handleApiKeyListAll(request, env, rid);
+  if (path === "/api/apikeys/generate"          && method === "POST") return await handleApiKeyGenerate(request, env, rid);
+  if (path === "/api/apikeys/rotate"            && method === "POST") return await handleApiKeyRotate(request, env, rid);
+  if (path === "/api/apikeys/revoke"            && method === "POST") return await handleApiKeyRevoke(request, env, rid);
+
+  // Customer provisioning
+  if (path === "/api/customers"                 && method === "GET")  return await handleCustomerList(request, env, rid);
+  if (path === "/api/customers/provision"       && method === "POST") return await handleCustomerProvision(request, env, rid);
+  if (path.startsWith("/api/customers/")        && method === "GET")  return await handleCustomerGet(request, env, rid, path.slice(16));
+  if (path.startsWith("/api/customers/")        && method === "PUT")  return await handleCustomerUpdate(request, env, rid, path.slice(16));
+
+  // Subscriptions
+  if (path === "/api/subscriptions"             && method === "GET")  return await handleSubList(request, env, rid);
+  if (path === "/api/subscriptions/expire-check"&& method === "POST") return await handleSubExpireCheck(request, env, rid);
+  if (path.startsWith("/api/subscriptions/")    && method === "GET")  return await handleSubGet(request, env, rid, path.slice(19));
+  if (path.startsWith("/api/subscriptions/")    && method === "PUT")  return await handleSubUpdate(request, env, rid, path.slice(19));
+
+  // MSSP tenants
+  if (path === "/api/mssp/tenants"              && method === "GET")  return await handleMSSPTenantList(request, env, rid);
+  if (path === "/api/mssp/tenants"              && method === "POST") return await handleMSSPTenantCreate(request, env, rid);
+  if (path.startsWith("/api/mssp/tenants/")     && method === "GET")  return await handleMSSPTenantGet(request, env, rid, path.slice(19));
+  if (path.startsWith("/api/mssp/tenants/")     && method === "PUT")  return await handleMSSPTenantUpdate(request, env, rid, path.slice(19));
+  if (path.startsWith("/api/mssp/tenants/")     && method === "DELETE") return await handleMSSPTenantRevoke(request, env, rid, path.slice(19));
+
+  // Customer success
+  if (path === "/api/success/scores"            && method === "GET")  return await handleSuccessScores(request, env, rid);
+  if (path === "/api/success/at-risk"           && method === "GET")  return await handleAtRisk(request, env, rid);
+
+  // Revenue analytics
+  if (path === "/api/revenue/commercial"        && method === "GET")  return await handleCommercialDashboard(request, env, rid);
+
+  return null; // not handled — fall through to main router's 404
+}
+
+// =============================================================================
+// FREE API KEY REQUEST
+// =============================================================================
+async function handleFreeKeyRequest(request, env, rid) {
+  const body = await request.json().catch(() => ({}));
+  const email = sanitizeEmail(body.email);
+  if (!email) return json({ error:"invalid_email" }, 400);
+
+  // Check for existing key
+  const existing = await env.REVENUE_CRM_KV.get(`customer:${email}`, "json");
+  if (existing) {
+    const keys = await env.REVENUE_CRM_KV.get(`apikeys:${email}`, "json") || [];
+    const activeKey = keys.find(k => k.tier === "FREE" && k.status === "active");
+    if (activeKey) return json({ success:true, already_exists:true, key:activeKey.key, tier:"FREE", message:"Your existing free API key has been resent." });
+  }
+
+  const key = generateApiKey("FREE");
+  const keyId = genId("key");
+  const now = new Date().toISOString();
+  const expiresAt = new Date(Date.now() + 365 * 86400000).toISOString(); // 1 year
+
+  const keyRecord = { id:keyId, key, tier:"FREE", status:"active", email, created_at:now, expires_at:expiresAt, req_day:100, req_min:10, rotation_count:0 };
+  const custRecord = { id:genId("cust"), email, tier:"FREE", status:"active", created_at:now, plan_started_at:now, source:"free_signup" };
+
+  await env.REVENUE_CRM_KV.put(`customer:${email}`, JSON.stringify(custRecord));
+  await env.REVENUE_CRM_KV.put(`apikeys:${email}`, JSON.stringify([keyRecord]));
+  await env.REVENUE_CRM_KV.put(`apikey:${key}`, JSON.stringify(keyRecord));
+  await env.REVENUE_CRM_KV.put(`apikey_id:${keyId}`, JSON.stringify(keyRecord));
+
+  await queueEmail(env, { to:email, template:"free_key_welcome", vars:{ api_key:key, tier:"FREE", req_day:100, upgrade_url:"https://intel.cyberdudebivash.com/PAYMENT-GATEWAY.html" } });
+  await trackEvent(env, "free_key_issued", { email, keyId });
+
+  return json({ success:true, key, tier:"FREE", req_day:100, req_min:10, expires_at:expiresAt, upgrade_url:"/PAYMENT-GATEWAY.html", message:"API key issued. Check your email for onboarding details." });
+}
+
+// =============================================================================
+// API KEY VALIDATION (used by intel-gateway on every request)
+// =============================================================================
+async function handleApiKeyValidate(request, env, rid) {
+  const url = new URL(request.url);
+  const key = url.searchParams.get("key") || request.headers.get("X-API-Key") || request.headers.get("Authorization")?.replace("Bearer ","");
+  if (!key) return json({ valid:false, error:"no_key" }, 401);
+
+  const rec = await env.REVENUE_CRM_KV.get(`apikey:${key}`, "json");
+  if (!rec) return json({ valid:false, error:"invalid_key" }, 401);
+  if (rec.status !== "active") return json({ valid:false, error:`key_${rec.status}`, tier:rec.tier }, 403);
+  if (rec.expires_at && new Date(rec.expires_at) < new Date()) {
+    await env.REVENUE_CRM_KV.put(`apikey:${key}`, JSON.stringify({...rec, status:"expired"}));
+    return json({ valid:false, error:"key_expired", tier:rec.tier, renew_url:"/PAYMENT-GATEWAY.html" }, 403);
+  }
+
+  // Usage tracking
+  const day = new Date().toISOString().slice(0,10);
+  const usageKey = `usage:${key}:${day}`;
+  const usage = parseInt(await env.REVENUE_CRM_KV.get(usageKey) || "0") + 1;
+  await env.REVENUE_CRM_KV.put(usageKey, String(usage), { expirationTtl: 86400 * 2 });
+
+  const tier = TIERS[rec.tier] || TIERS.FREE;
+  if (usage > tier.req_day) return json({ valid:false, error:"rate_limit_day", tier:rec.tier, usage_today:usage, limit_day:tier.req_day, upgrade_url:"/PAYMENT-GATEWAY.html?from=rate_limit" }, 429);
+
+  return json({ valid:true, tier:rec.tier, email:rec.email, customer_id:rec.customer_id, req_day:tier.req_day, req_min:tier.req_min, usage_today:usage, expires_at:rec.expires_at, features:tier.features });
+}
+
+// =============================================================================
+// PAYMENT SUBMISSION (customer uploads evidence)
+// =============================================================================
+async function handlePaymentSubmit(request, env, rid) {
+  const body = await request.json().catch(() => ({}));
+  const { email, plan, payment_method, transaction_id, amount_paid, currency, payment_notes, screenshot_url, billing_cycle } = body;
+
+  const cleanEmail = sanitizeEmail(email);
+  if (!cleanEmail) return json({ error:"invalid_email" }, 400);
+  if (!plan || !TIERS[plan.toUpperCase()]) return json({ error:"invalid_plan", valid_plans:Object.keys(TIERS) }, 400);
+  if (!payment_method || !PAYMENT_METHODS.includes(payment_method)) return json({ error:"invalid_payment_method", valid_methods:PAYMENT_METHODS }, 400);
+  if (!transaction_id && !screenshot_url) return json({ error:"evidence_required", message:"Provide transaction_id or screenshot_url" }, 400);
+
+  const paymentId = genId("pay");
+  const now = new Date().toISOString();
+  const tier = plan.toUpperCase();
+
+  const record = {
+    id: paymentId, email: cleanEmail, plan: tier, billing_cycle: billing_cycle || "monthly",
+    payment_method, transaction_id: transaction_id || null, amount_paid: amount_paid || null,
+    currency: currency || (payment_method === "upi" || payment_method === "neft" ? "INR" : "USD"),
+    screenshot_url: screenshot_url || null, payment_notes: payment_notes || null,
+    status: PAYMENT_STATUS.PENDING, submitted_at: now, verified_at: null, approved_at: null,
+    approved_by: null, rejection_reason: null, rid
+  };
+
+  await env.REVENUE_CRM_KV.put(`payment:${paymentId}`, JSON.stringify(record));
+
+  // Append to payment index
+  const idx = await env.REVENUE_CRM_KV.get("payments:index", "json") || [];
+  idx.unshift({ id:paymentId, email:cleanEmail, plan:tier, method:payment_method, status:PAYMENT_STATUS.PENDING, submitted_at:now });
+  await env.REVENUE_CRM_KV.put("payments:index", JSON.stringify(idx.slice(0, 500)));
+
+  // Notify admin via Slack
+  await slackNotify(env, `💳 *NEW PAYMENT SUBMISSION* — ${cleanEmail}\nPlan: ${tier} | Method: ${payment_method} | TxID: ${transaction_id||"(screenshot)"}\nApprove: https://intel.cyberdudebivash.com/payment-status-dashboard.html`);
+
+  // Confirm email to customer
+  await queueEmail(env, { to:cleanEmail, template:"payment_received", vars:{ payment_id:paymentId, plan:tier, method:payment_method, expected_hours:"4" } });
+  await trackEvent(env, "payment_submitted", { paymentId, email:cleanEmail, plan:tier, method:payment_method });
+
+  return json({ success:true, payment_id:paymentId, status:"pending", message:"Payment submission received. Verification usually completes within 4 business hours. Reference: "+paymentId });
+}
+
+// =============================================================================
+// PAYMENT LIST + GET (admin)
+// =============================================================================
+async function handlePaymentList(request, env, rid) {
+  const url = new URL(request.url);
+  const statusFilter = url.searchParams.get("status");
+  const idx = await env.REVENUE_CRM_KV.get("payments:index", "json") || [];
+  const filtered = statusFilter ? idx.filter(p => p.status === statusFilter) : idx;
+  return json({ count:filtered.length, payments:filtered.slice(0,200) });
+}
+
+async function handlePaymentGet(request, env, rid, paymentId) {
+  const rec = await env.REVENUE_CRM_KV.get(`payment:${paymentId}`, "json");
+  if (!rec) return json({ error:"not_found" }, 404);
+  return json(rec);
+}
+
+// =============================================================================
+// PAYMENT APPROVE → triggers full customer provisioning
+// =============================================================================
+async function handlePaymentApprove(request, env, rid, paymentId) {
+  const body = await request.json().catch(() => ({}));
+  const rec = await env.REVENUE_CRM_KV.get(`payment:${paymentId}`, "json");
+  if (!rec) return json({ error:"not_found" }, 404);
+  if (rec.status === PAYMENT_STATUS.APPROVED) return json({ error:"already_approved", payment_id:paymentId }, 400);
+
+  const now = new Date().toISOString();
+  rec.status    = PAYMENT_STATUS.APPROVED;
+  rec.approved_at = now;
+  rec.approved_by = body.approved_by || "admin";
+  await env.REVENUE_CRM_KV.put(`payment:${paymentId}`, JSON.stringify(rec));
+
+  // Update index
+  const idx = await env.REVENUE_CRM_KV.get("payments:index", "json") || [];
+  const i = idx.findIndex(p => p.id === paymentId);
+  if (i >= 0) { idx[i].status = PAYMENT_STATUS.APPROVED; await env.REVENUE_CRM_KV.put("payments:index", JSON.stringify(idx)); }
+
+  // Audit log
+  await appendAuditLog(env, { action:"payment_approved", payment_id:paymentId, email:rec.email, plan:rec.plan, approved_by:rec.approved_by, ts:now });
+
+  // PROVISION CUSTOMER
+  const result = await provisionCustomer(env, { email:rec.email, tier:rec.plan, billing_cycle:rec.billing_cycle, payment_id:paymentId, payment_method:rec.payment_method, amount_paid:rec.amount_paid, currency:rec.currency });
+
+  await slackNotify(env, `✅ *PAYMENT APPROVED & PROVISIONED* — ${rec.email}\nPlan: ${rec.plan} | API Key: ${result.api_key.substring(0,20)}...\nCustomer ID: ${result.customer_id}`);
+  await trackEvent(env, "payment_approved", { paymentId, email:rec.email, plan:rec.plan });
+
+  return json({ success:true, payment_id:paymentId, provisioning:result, message:"Customer provisioned and API key delivered." });
+}
+
+async function handlePaymentReject(request, env, rid, paymentId) {
+  const body = await request.json().catch(() => ({}));
+  const rec = await env.REVENUE_CRM_KV.get(`payment:${paymentId}`, "json");
+  if (!rec) return json({ error:"not_found" }, 404);
+  const now = new Date().toISOString();
+  rec.status = PAYMENT_STATUS.REJECTED;
+  rec.rejection_reason = body.reason || "Payment could not be verified.";
+  rec.rejected_at = now;
+  await env.REVENUE_CRM_KV.put(`payment:${paymentId}`, JSON.stringify(rec));
+  const idx = await env.REVENUE_CRM_KV.get("payments:index", "json") || [];
+  const i = idx.findIndex(p => p.id === paymentId);
+  if (i >= 0) { idx[i].status = PAYMENT_STATUS.REJECTED; await env.REVENUE_CRM_KV.put("payments:index", JSON.stringify(idx)); }
+  await queueEmail(env, { to:rec.email, template:"payment_rejected", vars:{ reason:rec.rejection_reason, retry_url:"https://intel.cyberdudebivash.com/PAYMENT-GATEWAY.html" } });
+  await trackEvent(env, "payment_rejected", { paymentId, email:rec.email });
+  return json({ success:true, payment_id:paymentId, status:"rejected" });
+}
+
+// =============================================================================
+// CORE: provisionCustomer — creates record + sub + API key + sends welcome
+// =============================================================================
+async function provisionCustomer(env, { email, tier, billing_cycle, payment_id, payment_method, amount_paid, currency, trial=false, mssp_parent_id=null }) {
+  const now = new Date().toISOString();
+  const customerId = genId("cust");
+  const subId = genId("sub");
+  const tierCfg = TIERS[tier] || TIERS.PRO;
+
+  // Calculate subscription dates
+  const trialDays = trial ? (tierCfg.trial_days || 7) : 0;
+  const billDays  = billing_cycle === "annual" ? 365 : 30;
+  const activeDays = trialDays + billDays;
+  const trialEndsAt   = trial ? new Date(Date.now() + trialDays * 86400000).toISOString() : null;
+  const currentPeriodEnd = new Date(Date.now() + activeDays * 86400000).toISOString();
+
+  // 1. Create/update customer record
+  const existing = await env.REVENUE_CRM_KV.get(`customer:${email}`, "json");
+  const custRecord = {
+    id: existing?.id || customerId,
+    email, tier, status:"active", billing_cycle: billing_cycle || "monthly",
+    plan_started_at: now, current_period_end: currentPeriodEnd,
+    payment_method: payment_method || null, amount_paid: amount_paid || null, currency: currency || null,
+    payment_id, mssp_parent_id, trial_ends_at: trialEndsAt,
+    onboarding_completed: false, first_api_call_at: null, first_report_access_at: null,
+    api_calls_total: 0, created_at: existing?.created_at || now, updated_at: now,
+    source: trial ? "trial" : "payment"
+  };
+  await env.REVENUE_CRM_KV.put(`customer:${email}`, JSON.stringify(custRecord));
+
+  // Append to customer index
+  const custIdx = await env.REVENUE_CRM_KV.get("customers:index", "json") || [];
+  const ci = custIdx.findIndex(c => c.email === email);
+  const custSummary = { id:custRecord.id, email, tier, status:"active", created_at:now };
+  if (ci >= 0) custIdx[ci] = custSummary; else custIdx.unshift(custSummary);
+  await env.REVENUE_CRM_KV.put("customers:index", JSON.stringify(custIdx.slice(0,1000)));
+
+  // 2. Generate API key
+  const key = generateApiKey(tier);
+  const keyId = genId("key");
+  const keyRecord = {
+    id:keyId, key, tier, status:"active", email, customer_id:custRecord.id,
+    created_at:now, expires_at:currentPeriodEnd, req_day:tierCfg.req_day, req_min:tierCfg.req_min,
+    features:tierCfg.features, rotation_count:0, mssp_parent_id, billing_cycle
+  };
+  await env.REVENUE_CRM_KV.put(`apikey:${key}`, JSON.stringify(keyRecord));
+  await env.REVENUE_CRM_KV.put(`apikey_id:${keyId}`, JSON.stringify(keyRecord));
+
+  // Revoke previous keys for this email
+  const prevKeys = await env.REVENUE_CRM_KV.get(`apikeys:${email}`, "json") || [];
+  for (const pk of prevKeys) {
+    if (pk.status === "active" && pk.key !== key) {
+      await env.REVENUE_CRM_KV.put(`apikey:${pk.key}`, JSON.stringify({...pk, status:"superseded", superseded_at:now}));
+    }
+  }
+  await env.REVENUE_CRM_KV.put(`apikeys:${email}`, JSON.stringify([keyRecord]));
+
+  // 3. Create subscription record
+  const subRecord = {
+    id:subId, customer_id:custRecord.id, email, tier, billing_cycle,
+    status: trial ? SUB_STATUS.TRIAL : SUB_STATUS.ACTIVE,
+    created_at:now, current_period_start:now, current_period_end:currentPeriodEnd,
+    trial_ends_at:trialEndsAt, payment_id, renewal_reminder_sent:false, renewal_count:0,
+    auto_renew:true, mssp_parent_id
+  };
+  await env.REVENUE_CRM_KV.put(`sub:${subId}`, JSON.stringify(subRecord));
+  await env.REVENUE_CRM_KV.put(`sub:email:${email}`, JSON.stringify(subRecord));
+
+  // Append to subscription index
+  const subIdx = await env.REVENUE_CRM_KV.get("subscriptions:index", "json") || [];
+  subIdx.unshift({ id:subId, email, tier, status:subRecord.status, current_period_end:currentPeriodEnd, created_at:now });
+  await env.REVENUE_CRM_KV.put("subscriptions:index", JSON.stringify(subIdx.slice(0,1000)));
+
+  // 4. Send welcome email with API key
+  const welcomeVars = {
+    email, tier, api_key:key, req_day:tierCfg.req_day, req_min:tierCfg.req_min,
+    period_end:currentPeriodEnd, features:tierCfg.features.join(", "),
+    dashboard_url:"https://intel.cyberdudebivash.com", api_docs_url:"https://intel.cyberdudebivash.com/api-docs.html",
+    customer_id:custRecord.id, sub_id:subId
+  };
+  await queueEmail(env, { to:email, template:"welcome_provisioned", vars:welcomeVars });
+
+  // 5. Update revenue MRR counter
+  await updateMRR(env, tier, billing_cycle, "add");
+
+  return { customer_id:custRecord.id, sub_id:subId, api_key:key, key_id:keyId, tier, period_end:currentPeriodEnd, features:tierCfg.features };
+}
+
+// =============================================================================
+// API KEY MANAGEMENT (admin)
+// =============================================================================
+async function handleApiKeyGenerate(request, env, rid) {
+  const body = await request.json().catch(() => ({}));
+  const { email, tier, billing_cycle, payment_id, mssp_parent_id, trial } = body;
+  const cleanEmail = sanitizeEmail(email);
+  if (!cleanEmail) return json({ error:"invalid_email" }, 400);
+  if (!tier || !TIERS[tier]) return json({ error:"invalid_tier" }, 400);
+  const result = await provisionCustomer(env, { email:cleanEmail, tier, billing_cycle:billing_cycle||"monthly", payment_id:payment_id||null, mssp_parent_id:mssp_parent_id||null, trial:!!trial });
+  return json({ success:true, ...result });
+}
+
+async function handleApiKeyListAll(request, env, rid) {
+  const url  = new URL(request.url);
+  const tier = url.searchParams.get("tier");
+  const idx  = await env.REVENUE_CRM_KV.get("customers:index", "json") || [];
+  const results = [];
+  for (const c of idx.slice(0,100)) {
+    const keys = await env.REVENUE_CRM_KV.get(`apikeys:${c.email}`, "json") || [];
+    for (const k of keys) {
+      if (!tier || k.tier === tier) results.push({ email:c.email, tier:k.tier, key_prefix:k.key.substring(0,20)+"...", status:k.status, expires_at:k.expires_at, req_day:k.req_day });
+    }
+  }
+  return json({ count:results.length, keys:results });
+}
+
+async function handleApiKeyRotate(request, env, rid) {
+  const body = await request.json().catch(() => ({}));
+  const { email } = body;
+  const cleanEmail = sanitizeEmail(email);
+  if (!cleanEmail) return json({ error:"invalid_email" }, 400);
+  const cust = await env.REVENUE_CRM_KV.get(`customer:${cleanEmail}`, "json");
+  if (!cust) return json({ error:"customer_not_found" }, 404);
+
+  const now = new Date().toISOString();
+  const oldKeys = await env.REVENUE_CRM_KV.get(`apikeys:${cleanEmail}`, "json") || [];
+  const newKey = generateApiKey(cust.tier);
+  const newKeyId = genId("key");
+  const tierCfg = TIERS[cust.tier] || TIERS.PRO;
+
+  // Revoke all old keys
+  for (const ok of oldKeys) {
+    await env.REVENUE_CRM_KV.put(`apikey:${ok.key}`, JSON.stringify({...ok, status:"rotated", rotated_at:now}));
+  }
+
+  const newRecord = {
+    id:newKeyId, key:newKey, tier:cust.tier, status:"active", email:cleanEmail,
+    customer_id:cust.id, created_at:now, expires_at:cust.current_period_end,
+    req_day:tierCfg.req_day, req_min:tierCfg.req_min, features:tierCfg.features,
+    rotation_count:(oldKeys[0]?.rotation_count||0)+1
+  };
+  await env.REVENUE_CRM_KV.put(`apikey:${newKey}`, JSON.stringify(newRecord));
+  await env.REVENUE_CRM_KV.put(`apikeys:${cleanEmail}`, JSON.stringify([newRecord]));
+
+  await appendAuditLog(env, { action:"key_rotated", email:cleanEmail, new_key_prefix:newKey.substring(0,16), ts:now });
+  await queueEmail(env, { to:cleanEmail, template:"key_rotated", vars:{ new_key:newKey, tier:cust.tier } });
+
+  return json({ success:true, new_key:newKey, old_key_prefix:oldKeys[0]?.key?.substring(0,16)||"—", tier:cust.tier, expires_at:cust.current_period_end });
+}
+
+async function handleApiKeyRevoke(request, env, rid) {
+  const body = await request.json().catch(() => ({}));
+  const { email, reason } = body;
+  const cleanEmail = sanitizeEmail(email);
+  if (!cleanEmail) return json({ error:"invalid_email" }, 400);
+  const keys = await env.REVENUE_CRM_KV.get(`apikeys:${cleanEmail}`, "json") || [];
+  const now = new Date().toISOString();
+  for (const k of keys) {
+    await env.REVENUE_CRM_KV.put(`apikey:${k.key}`, JSON.stringify({...k, status:"revoked", revoked_at:now, revocation_reason:reason||"admin_action"}));
+  }
+  await env.REVENUE_CRM_KV.put(`apikeys:${cleanEmail}`, JSON.stringify(keys.map(k => ({...k, status:"revoked"}))));
+  const cust = await env.REVENUE_CRM_KV.get(`customer:${cleanEmail}`, "json");
+  if (cust) await env.REVENUE_CRM_KV.put(`customer:${cleanEmail}`, JSON.stringify({...cust, status:"suspended", suspended_at:now}));
+  await appendAuditLog(env, { action:"key_revoked", email:cleanEmail, reason:reason||"admin_action", ts:now });
+  return json({ success:true, keys_revoked:keys.length, email:cleanEmail });
+}
+
+// =============================================================================
+// CUSTOMER MANAGEMENT (admin)
+// =============================================================================
+async function handleCustomerList(request, env, rid) {
+  const url = new URL(request.url);
+  const tier = url.searchParams.get("tier");
+  const idx  = await env.REVENUE_CRM_KV.get("customers:index", "json") || [];
+  const filtered = tier ? idx.filter(c => c.tier === tier) : idx;
+  return json({ count:filtered.length, customers:filtered.slice(0,200) });
+}
+
+async function handleCustomerGet(request, env, rid, email) {
+  const cleanEmail = sanitizeEmail(decodeURIComponent(email));
+  if (!cleanEmail) return json({ error:"invalid_email" }, 400);
+  const cust = await env.REVENUE_CRM_KV.get(`customer:${cleanEmail}`, "json");
+  if (!cust) return json({ error:"not_found" }, 404);
+  const keys = await env.REVENUE_CRM_KV.get(`apikeys:${cleanEmail}`, "json") || [];
+  const sub  = await env.REVENUE_CRM_KV.get(`sub:email:${cleanEmail}`, "json");
+  return json({ customer:cust, subscription:sub, api_keys:keys.map(k => ({...k, key:k.key.substring(0,20)+"..."})) });
+}
+
+async function handleCustomerUpdate(request, env, rid, email) {
+  const cleanEmail = sanitizeEmail(decodeURIComponent(email));
+  const body = await request.json().catch(() => ({}));
+  const cust = await env.REVENUE_CRM_KV.get(`customer:${cleanEmail}`, "json");
+  if (!cust) return json({ error:"not_found" }, 404);
+  const updated = { ...cust, ...body, email:cleanEmail, updated_at:new Date().toISOString() };
+  await env.REVENUE_CRM_KV.put(`customer:${cleanEmail}`, JSON.stringify(updated));
+  return json({ success:true, customer:updated });
+}
+
+async function handleCustomerProvision(request, env, rid) {
+  const body = await request.json().catch(() => ({}));
+  const { email, tier, billing_cycle, payment_id, mssp_parent_id, trial } = body;
+  const cleanEmail = sanitizeEmail(email);
+  if (!cleanEmail || !tier || !TIERS[tier]) return json({ error:"invalid_params" }, 400);
+  const result = await provisionCustomer(env, { email:cleanEmail, tier, billing_cycle:billing_cycle||"monthly", payment_id, mssp_parent_id, trial:!!trial });
+  return json({ success:true, ...result });
+}
+
+async function handleCustomerPortal(request, env, rid) {
+  const url = new URL(request.url);
+  const token = url.searchParams.get("token"); // token = HMAC of email (for simple auth)
+  const email = url.searchParams.get("email");
+  const cleanEmail = sanitizeEmail(email);
+  if (!cleanEmail) return json({ error:"invalid_email" }, 400);
+  const cust = await env.REVENUE_CRM_KV.get(`customer:${cleanEmail}`, "json");
+  if (!cust) return json({ error:"not_found", message:"No account found. Check your email or subscribe at /PAYMENT-GATEWAY.html" }, 404);
+  const keys = await env.REVENUE_CRM_KV.get(`apikeys:${cleanEmail}`, "json") || [];
+  const sub  = await env.REVENUE_CRM_KV.get(`sub:email:${cleanEmail}`, "json");
+  const tierCfg = TIERS[cust.tier] || TIERS.FREE;
+  // Mask key for security
+  const maskedKeys = keys.map(k => ({ id:k.id, key_masked:k.key.substring(0,10)+"••••••••••••••••"+k.key.slice(-4), tier:k.tier, status:k.status, expires_at:k.expires_at, req_day:k.req_day, req_min:k.req_min }));
+  return json({ customer:{ ...cust }, subscription:sub, api_keys:maskedKeys, tier_config:{ features:tierCfg.features, req_day:tierCfg.req_day, req_min:tierCfg.req_min }, upgrade_url:"/PAYMENT-GATEWAY.html" });
+}
+
+// =============================================================================
+// SUBSCRIPTION LIFECYCLE
+// =============================================================================
+async function handleSubList(request, env, rid) {
+  const url    = new URL(request.url);
+  const status = url.searchParams.get("status");
+  const idx    = await env.REVENUE_CRM_KV.get("subscriptions:index", "json") || [];
+  const now    = new Date();
+  const enriched = idx.map(s => {
+    const daysLeft = Math.ceil((new Date(s.current_period_end) - now) / 86400000);
+    return { ...s, days_remaining:daysLeft, expiring_soon: daysLeft <= 7 && daysLeft > 0, overdue: daysLeft < 0 };
+  });
+  const filtered = status ? enriched.filter(s => s.status === status) : enriched;
+  const expiringSoon = enriched.filter(s => s.days_remaining > 0 && s.days_remaining <= 14 && s.status === SUB_STATUS.ACTIVE);
+  return json({ count:filtered.length, expiring_soon_count:expiringSoon.length, subscriptions:filtered.slice(0,200) });
+}
+
+async function handleSubGet(request, env, rid, subId) {
+  const rec = await env.REVENUE_CRM_KV.get(`sub:${subId}`, "json");
+  if (!rec) return json({ error:"not_found" }, 404);
+  const now = new Date();
+  const daysLeft = Math.ceil((new Date(rec.current_period_end) - now) / 86400000);
+  return json({ ...rec, days_remaining:daysLeft });
+}
+
+async function handleSubUpdate(request, env, rid, subId) {
+  const body = await request.json().catch(() => ({}));
+  const rec  = await env.REVENUE_CRM_KV.get(`sub:${subId}`, "json");
+  if (!rec) return json({ error:"not_found" }, 404);
+  const updated = { ...rec, ...body, id:subId, updated_at:new Date().toISOString() };
+  await env.REVENUE_CRM_KV.put(`sub:${subId}`, JSON.stringify(updated));
+  await env.REVENUE_CRM_KV.put(`sub:email:${rec.email}`, JSON.stringify(updated));
+  return json({ success:true, subscription:updated });
+}
+
+async function handleSubExpireCheck(request, env, rid) {
+  // Called by cron: check all subscriptions, mark expiring/expired, send reminders
+  const idx = await env.REVENUE_CRM_KV.get("subscriptions:index", "json") || [];
+  const now = new Date();
+  let reminded=0, expired=0, suspended=0;
+  for (const s of idx) {
+    if (s.status === SUB_STATUS.CANCELLED || s.status === SUB_STATUS.EXPIRED) continue;
+    const rec = await env.REVENUE_CRM_KV.get(`sub:${s.id}`, "json");
+    if (!rec) continue;
+    const daysLeft = Math.ceil((new Date(rec.current_period_end) - now) / 86400000);
+    if (daysLeft === 7 && !rec.renewal_reminder_sent) {
+      await queueEmail(env, { to:rec.email, template:"renewal_reminder_7d", vars:{ tier:rec.tier, days:7, renew_url:"https://intel.cyberdudebivash.com/PAYMENT-GATEWAY.html?renew="+rec.id } });
+      await env.REVENUE_CRM_KV.put(`sub:${s.id}`, JSON.stringify({...rec, renewal_reminder_sent:true, reminder_sent_at:now.toISOString()}));
+      reminded++;
+    }
+    if (daysLeft === 3) {
+      await queueEmail(env, { to:rec.email, template:"renewal_reminder_3d", vars:{ tier:rec.tier, days:3, renew_url:"https://intel.cyberdudebivash.com/PAYMENT-GATEWAY.html?renew="+rec.id } });
+      reminded++;
+    }
+    if (daysLeft <= 0 && rec.status === SUB_STATUS.ACTIVE) {
+      const updatedRec = { ...rec, status:SUB_STATUS.EXPIRED, expired_at:now.toISOString() };
+      await env.REVENUE_CRM_KV.put(`sub:${s.id}`, JSON.stringify(updatedRec));
+      await env.REVENUE_CRM_KV.put(`sub:email:${rec.email}`, JSON.stringify(updatedRec));
+      // Suspend API key
+      const keys = await env.REVENUE_CRM_KV.get(`apikeys:${rec.email}`, "json") || [];
+      for (const k of keys) {
+        await env.REVENUE_CRM_KV.put(`apikey:${k.key}`, JSON.stringify({...k, status:"expired"}));
+      }
+      await queueEmail(env, { to:rec.email, template:"subscription_expired", vars:{ tier:rec.tier, renew_url:"https://intel.cyberdudebivash.com/PAYMENT-GATEWAY.html?renew="+rec.id } });
+      await updateMRR(env, rec.tier, rec.billing_cycle, "remove");
+      expired++;
+    }
+  }
+  return json({ processed:idx.length, reminded, expired, suspended });
+}
+
+// =============================================================================
+// MSSP TENANT MANAGEMENT
+// =============================================================================
+async function handleMSSPTenantList(request, env, rid) {
+  const url = new URL(request.url);
+  const msspEmail = url.searchParams.get("mssp_email");
+  const idx = await env.REVENUE_CRM_KV.get("mssp:tenants:index", "json") || [];
+  const filtered = msspEmail ? idx.filter(t => t.mssp_email === msspEmail) : idx;
+  return json({ count:filtered.length, tenants:filtered.slice(0,500) });
+}
+
+async function handleMSSPTenantCreate(request, env, rid) {
+  const body = await request.json().catch(() => ({}));
+  const { mssp_email, tenant_name, tenant_email, tenant_tier, sector, quota_req_day, white_label_slug } = body;
+  const cleanMSSP = sanitizeEmail(mssp_email);
+  const cleanTenant = sanitizeEmail(tenant_email);
+  if (!cleanMSSP || !cleanTenant || !tenant_name) return json({ error:"invalid_params" }, 400);
+
+  // Verify MSSP is valid customer
+  const mssp = await env.REVENUE_CRM_KV.get(`customer:${cleanMSSP}`, "json");
+  if (!mssp || mssp.tier !== "MSSP") return json({ error:"mssp_account_not_found_or_not_mssp_tier" }, 403);
+
+  const tenantId = genId("ten");
+  const now = new Date().toISOString();
+  const tenantTier = tenant_tier || "ENTERPRISE";
+  const tierCfg = TIERS[tenantTier] || TIERS.ENTERPRISE;
+
+  // Provision tenant's API key under MSSP namespace
+  const key = generateApiKey(tenantTier, `MSSP-${white_label_slug || cleanMSSP.split("@")[0].substring(0,8).toUpperCase()}`);
+  const keyId = genId("key");
+  const tenantKeyRecord = {
+    id:keyId, key, tier:tenantTier, status:"active", email:cleanTenant,
+    mssp_parent_id:mssp.id, mssp_email:cleanMSSP, created_at:now,
+    expires_at:mssp.current_period_end,
+    req_day:quota_req_day || Math.floor(tierCfg.req_day * 0.3),
+    req_min:Math.floor(tierCfg.req_min * 0.3),
+    features:tierCfg.features, rotation_count:0
+  };
+  await env.REVENUE_CRM_KV.put(`apikey:${key}`, JSON.stringify(tenantKeyRecord));
+  await env.REVENUE_CRM_KV.put(`apikeys:${cleanTenant}`, JSON.stringify([tenantKeyRecord]));
+
+  const tenantRecord = {
+    id:tenantId, mssp_email:cleanMSSP, mssp_id:mssp.id, tenant_name, tenant_email:cleanTenant,
+    tenant_tier:tenantTier, sector:sector||"general", status:"active", api_key_id:keyId,
+    api_key_preview:key.substring(0,20)+"...", quota_req_day:tenantKeyRecord.req_day,
+    white_label_slug:white_label_slug||null, created_at:now, activated_at:now,
+    api_calls_total:0, last_call_at:null
+  };
+  await env.REVENUE_CRM_KV.put(`mssp:tenant:${tenantId}`, JSON.stringify(tenantRecord));
+
+  // MSSP tenant index
+  const idx = await env.REVENUE_CRM_KV.get("mssp:tenants:index", "json") || [];
+  idx.unshift({ id:tenantId, mssp_email:cleanMSSP, tenant_name, tenant_email:cleanTenant, status:"active", created_at:now });
+  await env.REVENUE_CRM_KV.put("mssp:tenants:index", JSON.stringify(idx.slice(0,1000)));
+
+  // Welcome tenant
+  await queueEmail(env, { to:cleanTenant, template:"mssp_tenant_welcome", vars:{ tenant_name, api_key:key, tier:tenantTier, req_day:tenantKeyRecord.req_day, mssp_name:cleanMSSP } });
+  await slackNotify(env, `🏢 *NEW MSSP TENANT* — ${tenant_name} (${cleanTenant})\nMSSP: ${cleanMSSP} | Tier: ${tenantTier} | Quota: ${tenantKeyRecord.req_day} req/day`);
+
+  return json({ success:true, tenant_id:tenantId, api_key:key, tenant:tenantRecord });
+}
+
+async function handleMSSPTenantGet(request, env, rid, tenantId) {
+  const rec = await env.REVENUE_CRM_KV.get(`mssp:tenant:${tenantId}`, "json");
+  if (!rec) return json({ error:"not_found" }, 404);
+  return json(rec);
+}
+
+async function handleMSSPTenantUpdate(request, env, rid, tenantId) {
+  const body = await request.json().catch(() => ({}));
+  const rec  = await env.REVENUE_CRM_KV.get(`mssp:tenant:${tenantId}`, "json");
+  if (!rec) return json({ error:"not_found" }, 404);
+  const updated = { ...rec, ...body, id:tenantId, updated_at:new Date().toISOString() };
+  await env.REVENUE_CRM_KV.put(`mssp:tenant:${tenantId}`, JSON.stringify(updated));
+  // Update quota on API key if changed
+  if (body.quota_req_day && rec.api_key_id) {
+    const keys = await env.REVENUE_CRM_KV.get(`apikeys:${rec.tenant_email}`, "json") || [];
+    for (const k of keys) {
+      await env.REVENUE_CRM_KV.put(`apikey:${k.key}`, JSON.stringify({...k, req_day:body.quota_req_day}));
+    }
+    await env.REVENUE_CRM_KV.put(`apikeys:${rec.tenant_email}`, JSON.stringify(keys.map(k => ({...k, req_day:body.quota_req_day}))));
+  }
+  return json({ success:true, tenant:updated });
+}
+
+async function handleMSSPTenantRevoke(request, env, rid, tenantId) {
+  const rec = await env.REVENUE_CRM_KV.get(`mssp:tenant:${tenantId}`, "json");
+  if (!rec) return json({ error:"not_found" }, 404);
+  const now = new Date().toISOString();
+  const updated = { ...rec, status:"revoked", revoked_at:now };
+  await env.REVENUE_CRM_KV.put(`mssp:tenant:${tenantId}`, JSON.stringify(updated));
+  const keys = await env.REVENUE_CRM_KV.get(`apikeys:${rec.tenant_email}`, "json") || [];
+  for (const k of keys) await env.REVENUE_CRM_KV.put(`apikey:${k.key}`, JSON.stringify({...k, status:"revoked"}));
+  return json({ success:true, tenant_id:tenantId, status:"revoked" });
+}
+
+// =============================================================================
+// CUSTOMER SUCCESS TRACKING
+// =============================================================================
+async function handleSuccessScores(request, env, rid) {
+  const custIdx = await env.REVENUE_CRM_KV.get("customers:index", "json") || [];
+  const scored = [];
+  for (const c of custIdx.slice(0,50)) {
+    const cust = await env.REVENUE_CRM_KV.get(`customer:${c.email}`, "json");
+    if (!cust) continue;
+    const sub  = await env.REVENUE_CRM_KV.get(`sub:email:${c.email}`, "json");
+    const daysSinceCreate = Math.ceil((Date.now() - new Date(cust.created_at).getTime()) / 86400000);
+    const daysRemaining = sub ? Math.ceil((new Date(sub.current_period_end) - Date.now()) / 86400000) : 0;
+    let score = 0;
+    if (cust.onboarding_completed) score += 20;
+    if (cust.first_api_call_at) score += 30;
+    if (cust.first_report_access_at) score += 20;
+    if (cust.api_calls_total > 100) score += 15;
+    if (cust.api_calls_total > 1000) score += 15;
+    const health = score >= 80 ? "healthy" : score >= 50 ? "at_risk" : "critical";
+    const renewal_ready = daysRemaining > 0 && daysRemaining <= 30 && health === "healthy";
+    const expansion_ready = cust.api_calls_total > 500 && cust.tier !== "ENTERPRISE";
+    scored.push({ email:c.email, tier:c.tier, health_score:score, health, days_remaining:daysRemaining, renewal_ready, expansion_ready, api_calls:cust.api_calls_total, onboarded:cust.onboarding_completed, first_api_call:cust.first_api_call_at });
+  }
+  scored.sort((a,b) => a.health_score - b.health_score);
+  return json({ total:scored.length, healthy:scored.filter(s=>s.health==="healthy").length, at_risk:scored.filter(s=>s.health==="at_risk").length, critical:scored.filter(s=>s.health==="critical").length, customers:scored });
+}
+
+async function handleAtRisk(request, env, rid) {
+  const custIdx = await env.REVENUE_CRM_KV.get("customers:index", "json") || [];
+  const at_risk = [];
+  for (const c of custIdx.slice(0,100)) {
+    const sub = await env.REVENUE_CRM_KV.get(`sub:email:${c.email}`, "json");
+    if (!sub) continue;
+    const daysLeft = Math.ceil((new Date(sub.current_period_end) - Date.now()) / 86400000);
+    if (daysLeft <= 14 && daysLeft > 0 && sub.status === SUB_STATUS.ACTIVE) {
+      at_risk.push({ email:c.email, tier:c.tier, days_remaining:daysLeft, sub_id:sub.id, renew_url:`/PAYMENT-GATEWAY.html?renew=${sub.id}&email=${c.email}` });
+    }
+  }
+  return json({ count:at_risk.length, at_risk });
+}
+
+// =============================================================================
+// COMMERCIAL ANALYTICS DASHBOARD
+// =============================================================================
+async function handleCommercialDashboard(request, env, rid) {
+  const custIdx = await env.REVENUE_CRM_KV.get("customers:index", "json") || [];
+  const subIdx  = await env.REVENUE_CRM_KV.get("subscriptions:index", "json") || [];
+  const payIdx  = await env.REVENUE_CRM_KV.get("payments:index", "json") || [];
+
+  const now = new Date();
+  const tierCounts = { FREE:0, PRO:0, ENTERPRISE:0, MSSP:0 };
+  for (const c of custIdx) { if (tierCounts[c.tier] !== undefined) tierCounts[c.tier]++; }
+
+  const tierPrices = { FREE:0, PRO:99, ENTERPRISE:999, MSSP:1999 };
+  const mrr = (tierCounts.PRO * tierPrices.PRO) + (tierCounts.ENTERPRISE * tierPrices.ENTERPRISE) + (tierCounts.MSSP * tierPrices.MSSP);
+  const arr = mrr * 12;
+
+  const activeCount   = subIdx.filter(s => s.status === SUB_STATUS.ACTIVE).length;
+  const trialCount    = subIdx.filter(s => s.status === SUB_STATUS.TRIAL).length;
+  const expiredCount  = subIdx.filter(s => s.status === SUB_STATUS.EXPIRED).length;
+  const expiringSoon  = subIdx.filter(s => { const d=Math.ceil((new Date(s.current_period_end)-now)/86400000); return d>0&&d<=14&&s.status===SUB_STATUS.ACTIVE; }).length;
+  const pendingPayments = payIdx.filter(p => p.status === PAYMENT_STATUS.PENDING).length;
+  const approvedPayments = payIdx.filter(p => p.status === PAYMENT_STATUS.APPROVED).length;
+
+  const tenantIdx = await env.REVENUE_CRM_KV.get("mssp:tenants:index", "json") || [];
+  const msspRevenue = tierCounts.MSSP * tierPrices.MSSP + tenantIdx.filter(t=>t.status==="active").length * 149;
+
+  return json({ generated_at:now.toISOString(), revenue:{ mrr_usd:mrr, arr_usd:arr, mrr_inr:mrr*83, arr_inr:arr*83 }, customers:{ total:custIdx.length, by_tier:tierCounts }, subscriptions:{ active:activeCount, trial:trialCount, expiring_soon:expiringSoon, expired:expiredCount }, payments:{ pending:pendingPayments, approved:approvedPayments, total:payIdx.length }, mssp:{ partners:tierCounts.MSSP, tenants:tenantIdx.filter(t=>t.status==="active").length, revenue_usd:msspRevenue } });
+}
+
+// =============================================================================
+// HELPERS
+// =============================================================================
+function generateApiKey(tier, prefix) {
+  const tPrefix = prefix || { FREE:"CDB-FREE", PRO:"CDB-PRO", ENTERPRISE:"CDB-ENT", MSSP:"CDB-MSSP" }[tier] || "CDB-PRO";
+  const buf = crypto.getRandomValues(new Uint8Array(12));
+  const hex = [...buf].map(b=>b.toString(16).padStart(2,"0")).join("").toUpperCase();
+  const checksum = (buf.reduce((a,b)=>a^b,0)).toString(16).padStart(4,"0").toUpperCase();
+  return `${tPrefix}-${hex}-${checksum}`;
+}
+
+async function updateMRR(env, tier, billing_cycle, action) {
+  const price = { FREE:0, PRO:99, ENTERPRISE:999, MSSP:1999 }[tier] || 0;
+  const monthly = billing_cycle === "annual" ? price : price;
+  const key = "revenue:mrr_usd";
+  const curr = parseFloat(await env.REVENUE_CRM_KV.get(key) || "0");
+  const updated = action === "add" ? curr + monthly : Math.max(0, curr - monthly);
+  await env.REVENUE_CRM_KV.put(key, String(updated));
+}
+
+async function appendAuditLog(env, entry) {
+  const day = new Date().toISOString().slice(0,10);
+  const key = `audit:${day}`;
+  const log = await env.REVENUE_CRM_KV.get(key, "json") || [];
+  log.push({ ...entry, logged_at: new Date().toISOString() });
+  await env.REVENUE_CRM_KV.put(key, JSON.stringify(log.slice(-200)), { expirationTtl: 86400 * 90 });
+}
+
+// Email template definitions (extend existing getEmailTemplate)
+const COMMERCIAL_EMAIL_TEMPLATES = {
+  free_key_welcome: (v) => ({ subject:`Your SENTINEL APEX Free API Key`, html:`<h2>Your Free API Key</h2><p>Key: <code>${v.api_key}</code></p><p>Rate limit: ${v.req_day} requests/day</p><p><a href="${v.upgrade_url}">Upgrade to PRO</a> for full IOC access, Sigma/YARA rules, and more.</p>` }),
+  payment_received: (v) => ({ subject:`Payment Received — Reference: ${v.payment_id}`, html:`<h2>Payment Under Review</h2><p>We've received your payment for <strong>${v.plan}</strong> via ${v.method}. Verification typically takes within ${v.expected_hours} business hours.</p><p>Reference: <strong>${v.payment_id}</strong></p>` }),
+  payment_rejected: (v) => ({ subject:`Payment Could Not Be Verified`, html:`<h2>Payment Verification Issue</h2><p>Unfortunately we couldn't verify your payment: ${v.reason}</p><p><a href="${v.retry_url}">Try again</a> or contact us at support@cyberdudebivash.in</p>` }),
+  welcome_provisioned: (v) => ({ subject:`🔑 Your SENTINEL APEX ${v.tier} API Key is Ready`, html:`<h2>Welcome to SENTINEL APEX ${v.tier}</h2><p>Your API key: <code>${v.api_key}</code></p><p>Rate limit: ${v.req_day} requests/day, ${v.req_min} req/min</p><p>Valid until: ${v.period_end}</p><p>Features: ${v.features}</p><p><a href="${v.api_docs_url}">API Documentation</a> | <a href="${v.dashboard_url}">Platform Dashboard</a></p><p>Customer ID: ${v.customer_id}</p>` }),
+  key_rotated: (v) => ({ subject:`API Key Rotated — SENTINEL APEX ${v.tier}`, html:`<h2>Your API key has been rotated</h2><p>New key: <code>${v.new_key}</code></p><p>Your old key has been deactivated. Update your integrations now.</p>` }),
+  renewal_reminder_7d: (v) => ({ subject:`⚠️ Your ${v.tier} subscription expires in ${v.days} days`, html:`<h2>Subscription Expiring Soon</h2><p>Your SENTINEL APEX ${v.tier} plan expires in ${v.days} days. <a href="${v.renew_url}">Renew now</a> to keep your API key active.</p>` }),
+  renewal_reminder_3d: (v) => ({ subject:`🚨 Final Reminder: ${v.tier} expires in ${v.days} days`, html:`<h2>Last Chance — Renew Today</h2><p>Your API key will stop working in ${v.days} days. <a href="${v.renew_url}">Renew immediately</a>.</p>` }),
+  subscription_expired: (v) => ({ subject:`Subscription Expired — API Key Deactivated`, html:`<h2>Your SENTINEL APEX ${v.tier} has expired</h2><p>Your API key has been deactivated. <a href="${v.renew_url}">Renew now</a> to restore access.</p>` }),
+  mssp_tenant_welcome: (v) => ({ subject:`Welcome to ${v.mssp_name} Threat Intelligence (Powered by SENTINEL APEX)`, html:`<h2>Welcome, ${v.tenant_name}</h2><p>Your threat intelligence API key: <code>${v.api_key}</code></p><p>Rate limit: ${v.req_day} requests/day</p>` }),
+};
+
+// Patch getEmailTemplate to include commercial templates
+const _origGetEmailTemplate = typeof getEmailTemplate === "function" ? getEmailTemplate : (name, vars) => null;
+function getEmailTemplate(name, vars) {
+  if (COMMERCIAL_EMAIL_TEMPLATES[name]) {
+    const t = COMMERCIAL_EMAIL_TEMPLATES[name](vars);
+    return { subject:t.subject, html:t.html, text:t.html.replace(/<[^>]+>/g,"") };
+  }
+  return _origGetEmailTemplate(name, vars);
+}
+
+// =============================================================================
+// END PHASE 2 COMMERCIAL OPERATIONS
+// =============================================================================

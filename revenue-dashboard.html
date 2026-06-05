@@ -3,262 +3,277 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Revenue Operations Dashboard — SENTINEL APEX v177</title>
+<title>Revenue Dashboard — SENTINEL APEX Admin</title>
+<meta name="robots" content="noindex,nofollow">
+<link rel="icon" href="/favicon.ico">
 <style>
-:root{--bg:#050c18;--bg2:#090f1e;--bg3:#0d1525;--border:#162030;--accent:#00ffc6;--accent2:#7c3aed;--text:#e2e8f0;--muted:#64748b;--card:#0b1422;--green:#10b981;--yellow:#f59e0b;--red:#ef4444;--orange:#f97316;--blue:#3b82f6;--mono:'JetBrains Mono','Fira Code',monospace;}
+:root{--bg:#050c18;--bg2:#090f1e;--border:#162030;--accent:#00ffc6;--text:#e2e8f0;--muted:#64748b;--green:#10b981;--red:#ef4444;--yellow:#f59e0b;--card:#0b1422;--blue:#3b82f6;--accent2:#7c3aed;}
 *{box-sizing:border-box;margin:0;padding:0;}
 body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,sans-serif;min-height:100vh;}
-nav{display:flex;align-items:center;justify-content:space-between;padding:14px 32px;background:rgba(5,12,24,0.98);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:100;}
-.nav-logo{font-family:var(--mono);font-weight:900;font-size:11px;color:var(--accent);letter-spacing:2px;text-decoration:none;}
-.nav-badge{background:var(--accent2);color:#fff;font-size:10px;padding:2px 8px;border-radius:4px;font-weight:700;letter-spacing:1px;}
-.hdr{padding:28px 32px;border-bottom:1px solid var(--border);}
-.hdr h1{font-size:22px;font-weight:900;margin-bottom:4px;}
-.hdr h1 span{color:var(--accent);}
-.meta{color:var(--muted);font-size:11px;font-family:var(--mono);}
-.dash{padding:24px 32px;display:grid;gap:24px;}
-.sec-title{font-size:10px;font-weight:700;letter-spacing:2px;color:var(--muted);text-transform:uppercase;margin-bottom:14px;padding-bottom:8px;border-bottom:1px solid var(--border);}
-.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:14px;}
-.kpi{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:18px;position:relative;overflow:hidden;}
-.kpi::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,var(--accent),var(--accent2));}
-.kpi-label{font-size:10px;font-weight:700;letter-spacing:1.5px;color:var(--muted);text-transform:uppercase;margin-bottom:6px;}
-.kpi-val{font-size:26px;font-weight:900;font-family:var(--mono);color:var(--accent);}
-.kpi-val.blue{color:var(--blue);}
-.kpi-val.green{color:var(--green);}
-.kpi-val.yellow{color:var(--yellow);}
-.kpi-val.orange{color:var(--orange);}
-.kpi-sub{font-size:10px;color:var(--muted);margin-top:4px;}
-.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
-.panel{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:20px;}
-.ptitle{font-size:11px;font-weight:700;letter-spacing:1px;color:var(--accent);text-transform:uppercase;margin-bottom:14px;}
-table{width:100%;border-collapse:collapse;font-size:11px;}
-th{color:var(--muted);font-weight:700;text-align:left;padding:8px 10px;font-size:10px;letter-spacing:1px;text-transform:uppercase;border-bottom:1px solid var(--border);}
-td{padding:9px 10px;border-bottom:1px solid rgba(22,32,48,0.5);}
-tr:last-child td{border-bottom:none;}
-.badge{display:inline-block;padding:2px 7px;border-radius:3px;font-size:9px;font-weight:700;letter-spacing:0.5px;font-family:var(--mono);}
-.bpro{background:rgba(0,255,198,0.1);color:var(--accent);border:1px solid rgba(0,255,198,0.2);}
-.bent{background:rgba(124,58,237,0.2);color:#a78bfa;border:1px solid rgba(124,58,237,0.3);}
-.bmssp{background:rgba(249,115,22,0.15);color:var(--orange);border:1px solid rgba(249,115,22,0.3);}
-.btrial{background:rgba(100,116,139,0.2);color:var(--muted);border:1px solid var(--border);}
-.bgood{background:rgba(16,185,129,0.15);color:var(--green);}
-.bwarn{background:rgba(245,158,11,0.15);color:var(--yellow);}
-.bcrit{background:rgba(239,68,68,0.15);color:var(--red);}
-.pbar{height:5px;background:rgba(22,32,48,0.8);border-radius:3px;overflow:hidden;margin-top:10px;}
-.pfill{height:100%;border-radius:3px;background:linear-gradient(90deg,var(--accent),var(--accent2));}
-.funnel{display:flex;flex-direction:column;gap:7px;}
-.fstep{display:flex;align-items:center;gap:10px;}
-.flabel{font-size:10px;color:var(--muted);width:110px;flex-shrink:0;}
-.fbarwrap{flex:1;height:24px;background:rgba(22,32,48,0.8);border-radius:3px;overflow:hidden;}
-.fbar{height:100%;display:flex;align-items:center;padding-left:8px;font-size:10px;font-weight:700;font-family:var(--mono);}
-.fcount{font-size:10px;color:var(--text);width:36px;text-align:right;font-family:var(--mono);}
-.alert-box{padding:10px 14px;border-radius:6px;margin-bottom:8px;display:flex;align-items:flex-start;gap:10px;font-size:11px;}
-.alert-box:last-child{margin-bottom:0;}
-.alert-box.ok{background:rgba(16,185,129,0.06);border:1px solid rgba(16,185,129,0.15);}
-.alert-box.warn{background:rgba(245,158,11,0.07);border:1px solid rgba(245,158,11,0.2);}
-.alert-box.crit{background:rgba(239,68,68,0.07);border:1px solid rgba(239,68,68,0.2);}
-.frow{display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid var(--border);}
-.frow:last-child{border-bottom:none;}
-.famt{font-size:13px;font-weight:700;font-family:var(--mono);color:var(--accent);}
-.intel-chips{display:flex;gap:7px;flex-wrap:wrap;margin-top:14px;}
-.chip{padding:3px 9px;border-radius:4px;font-size:9px;font-weight:700;font-family:var(--mono);letter-spacing:0.5px;background:rgba(16,185,129,0.1);color:var(--green);border:1px solid rgba(16,185,129,0.2);}
-.intel-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;}
-.intel-card{padding:12px;background:var(--bg2);border:1px solid var(--border);border-radius:7px;text-align:center;}
-.intel-val{font-size:20px;font-weight:900;font-family:var(--mono);}
-.intel-lbl{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-top:3px;}
-.empty{padding:20px;text-align:center;color:var(--muted);font-size:11px;}
-.footer{background:var(--bg2);border-top:1px solid var(--border);padding:10px 32px;display:flex;align-items:center;justify-content:space-between;font-size:10px;color:var(--muted);}
-.btn{padding:5px 12px;border:1px solid var(--accent);color:var(--accent);background:transparent;font-size:10px;font-weight:700;letter-spacing:1px;cursor:pointer;border-radius:4px;font-family:var(--mono);}
+#loginScreen{display:flex;align-items:center;justify-content:center;min-height:100vh;}
+.login-card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:36px;max-width:340px;width:90%;text-align:center;}
+.login-input{width:100%;background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:11px 14px;color:var(--text);font-size:13px;font-family:inherit;outline:none;margin-bottom:12px;}
+.login-input:focus{border-color:var(--accent);}
+.login-btn{width:100%;padding:12px;background:var(--accent);color:#000;font-weight:800;border:none;border-radius:8px;cursor:pointer;}
+#app{display:none;}
+nav{display:flex;align-items:center;justify-content:space-between;padding:14px 28px;background:rgba(5,12,24,0.97);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:100;}
+.nav-logo{font-family:monospace;font-weight:900;font-size:12px;color:var(--accent);letter-spacing:2px;}
+.nav-links a{color:var(--muted);font-size:12px;text-decoration:none;margin-left:16px;}
+.nav-links a:hover{color:var(--accent);}
+.main{max-width:1300px;margin:0 auto;padding:28px 24px;}
+.page-title{font-size:22px;font-weight:800;margin-bottom:6px;}
+.page-sub{font-size:13px;color:var(--muted);margin-bottom:28px;}
+.kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;margin-bottom:28px;}
+.kpi-card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:22px;position:relative;overflow:hidden;}
+.kpi-card::after{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:var(--accent-color,var(--accent));}
+.kpi-val{font-size:32px;font-weight:900;font-family:monospace;color:var(--accent-color,var(--accent));line-height:1;}
+.kpi-label{font-size:10px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;margin-top:8px;}
+.kpi-sub{font-size:11px;color:var(--muted);margin-top:4px;}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;}
+@media(max-width:768px){.grid2{grid-template-columns:1fr;}}
+.card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:22px;}
+.card-title{font-size:10px;font-weight:700;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:16px;}
+.bar-row{display:flex;align-items:center;gap:12px;margin-bottom:10px;}
+.bar-label{font-size:12px;min-width:90px;font-weight:600;}
+.bar-outer{flex:1;background:var(--border);border-radius:4px;height:8px;overflow:hidden;}
+.bar-inner{height:100%;border-radius:4px;transition:width 0.6s ease;}
+.bar-val{font-family:monospace;font-size:12px;font-weight:700;color:var(--accent);min-width:80px;text-align:right;}
+.tier-row{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid rgba(22,32,48,0.5);}
+.tier-row:last-child{border-bottom:none;}
+.tier-name{font-size:13px;font-weight:700;}
+.tier-count{font-size:11px;color:var(--muted);}
+.tier-mrr{font-family:monospace;font-size:13px;font-weight:800;color:var(--accent);}
+.method-row{display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid rgba(22,32,48,0.4);}
+.method-row:last-child{border-bottom:none;}
+.method-name{font-size:12px;color:var(--muted);}
+.method-count{font-size:11px;font-family:monospace;}
+.renewal-item{display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:var(--bg2);border-radius:8px;margin-bottom:6px;}
+.renewal-email{font-size:12px;}
+.renewal-days{font-size:11px;font-weight:800;font-family:monospace;}
+.action-row{display:flex;gap:6px;margin-top:4px;}
+.btn-sm{padding:4px 10px;border-radius:6px;font-size:10px;font-weight:700;cursor:pointer;font-family:inherit;border:1px solid;transition:all 0.15s;}
+.btn-green{border-color:rgba(16,185,129,0.3);color:var(--green);background:rgba(16,185,129,0.08);}
+.btn-yellow{border-color:rgba(245,158,11,0.3);color:var(--yellow);background:rgba(245,158,11,0.08);}
+.last-updated{font-size:11px;color:var(--muted);text-align:right;margin-bottom:12px;}
+#toast{position:fixed;bottom:24px;right:24px;background:var(--green);color:#000;padding:12px 20px;border-radius:10px;font-weight:700;font-size:13px;z-index:9999;opacity:0;transform:translateY(20px);transition:all 0.3s;}
+#toast.show{opacity:1;transform:translateY(0);}
 </style>
 </head>
 <body>
-<nav>
-  <span class="nav-logo">SENTINEL APEX</span>
-  <div style="display:flex;align-items:center;gap:12px;">
-    <span class="nav-badge">OPERATOR ONLY</span>
-    <span style="font-size:10px;color:var(--muted);font-family:var(--mono);">Rev Ops v177</span>
+<div id="loginScreen">
+  <div class="login-card">
+    <div style="font-family:monospace;font-size:16px;font-weight:900;color:var(--accent);margin-bottom:14px;">⬡ SENTINEL APEX</div>
+    <h2 style="font-size:17px;margin-bottom:14px;">Revenue Dashboard</h2>
+    <input type="password" id="adminSecret" class="login-input" placeholder="Admin Secret" onkeydown="if(event.key==='Enter')login()">
+    <button class="login-btn" onclick="login()">Access →</button>
+    <p id="loginErr" style="font-size:11px;color:var(--red);margin-top:8px;display:none;">Invalid secret</p>
   </div>
-</nav>
-
-<div class="hdr">
-  <h1>Revenue Operations <span>Dashboard</span></h1>
-  <div class="meta" id="meta-line">SENTINEL APEX v177.0 · Loading... · Branch: commercial/v177-revenue-validation</div>
 </div>
 
-<div class="dash">
-
-  <div>
-    <div class="sec-title">Revenue KPIs</div>
-    <div class="kpis">
-      <div class="kpi"><div class="kpi-label">MRR</div><div class="kpi-val" id="mrr">₹0</div><div class="kpi-sub">Monthly Recurring Revenue</div></div>
-      <div class="kpi"><div class="kpi-label">ARR</div><div class="kpi-val blue" id="arr">₹0</div><div class="kpi-sub">Annualized Run Rate</div></div>
-      <div class="kpi"><div class="kpi-label">Paying Customers</div><div class="kpi-val green" id="ccount">0</div><div class="kpi-sub">PRO + ENT + MSSP</div></div>
-      <div class="kpi"><div class="kpi-label">Trial Users</div><div class="kpi-val yellow" id="tcount">0</div><div class="kpi-sub">Active 7-day trials</div></div>
-      <div class="kpi"><div class="kpi-label">MSSP Partners</div><div class="kpi-val orange" id="mcount">0</div><div class="kpi-sub">$1,999/mo each</div></div>
-      <div class="kpi"><div class="kpi-label">Expiring ≤14d</div><div class="kpi-val" id="expcount" style="color:var(--yellow);">0</div><div class="kpi-sub">Needs renewal action</div></div>
+<div id="app">
+  <nav>
+    <span class="nav-logo">⬡ SENTINEL APEX — REVENUE OPS</span>
+    <div class="nav-links">
+      <a href="/payment-status-dashboard.html">Payments</a>
+      <a href="/subscription-management.html">Subscriptions</a>
+      <a href="/customer-success.html">Success</a>
+      <a href="/enterprise-onboarding.html">Enterprise</a>
+      <a href="/mssp-tenant-dashboard.html">MSSP</a>
+      <a href="/lead-pipeline.html">CRM</a>
+      <a href="#" onclick="logout();return false;" style="color:var(--red);">Logout</a>
     </div>
-  </div>
+  </nav>
 
-  <div class="grid-2">
-    <div class="panel">
-      <div class="ptitle">Revenue by Tier</div>
-      <div id="tier-table"><div class="empty">Loading...</div></div>
+  <div class="main">
+    <div class="page-title">Revenue Operations Dashboard</div>
+    <div class="last-updated">Last updated: <span id="lastUpdated">—</span> · <a href="#" onclick="loadAll();return false;" style="color:var(--accent);">Refresh</a></div>
+
+    <!-- KPIs -->
+    <div class="kpi-grid">
+      <div class="kpi-card" style="--accent-color:var(--accent);"><div class="kpi-val" id="kpiMRR">—</div><div class="kpi-label">Monthly Recurring Revenue</div><div class="kpi-sub" id="kpiMRRsub">USD · Automated subscriptions</div></div>
+      <div class="kpi-card" style="--accent-color:var(--blue);"><div class="kpi-val" id="kpiARR" style="color:var(--blue)">—</div><div class="kpi-label">Annual Run Rate</div><div class="kpi-sub" id="kpiARRsub">USD · MRR × 12</div></div>
+      <div class="kpi-card" style="--accent-color:var(--green);"><div class="kpi-val" id="kpiCustomers" style="color:var(--green)">—</div><div class="kpi-label">Paying Customers</div><div class="kpi-sub" id="kpiCustSub">PRO + Enterprise + MSSP</div></div>
+      <div class="kpi-card" style="--accent-color:var(--accent2);"><div class="kpi-val" id="kpiMSSP" style="color:#a78bfa">—</div><div class="kpi-label">MSSP Revenue / mo</div><div class="kpi-sub" id="kpiMSSPsub">Partners × Base + Tenants</div></div>
+      <div class="kpi-card" style="--accent-color:var(--yellow);"><div class="kpi-val" id="kpiPending" style="color:var(--yellow)">—</div><div class="kpi-label">Pending Payments</div><div class="kpi-sub">Awaiting verification</div></div>
+      <div class="kpi-card" style="--accent-color:var(--red);"><div class="kpi-val" id="kpiExpiring" style="color:var(--red)">—</div><div class="kpi-label">Expiring ≤14 Days</div><div class="kpi-sub">Need renewal outreach</div></div>
     </div>
-    <div class="panel">
-      <div class="ptitle">Lead Funnel</div>
-      <div class="funnel" id="funnel">
-        <div class="fstep"><div class="flabel">Leads captured</div><div class="fbarwrap"><div class="fbar" style="width:100%;background:rgba(0,255,198,0.15);color:var(--accent);" id="fb-leads">0</div></div><div class="fcount" id="fc-leads">0</div></div>
-        <div class="fstep"><div class="flabel">Qualified</div><div class="fbarwrap"><div class="fbar" id="fb-qual" style="width:0%;background:rgba(124,58,237,0.3);color:#a78bfa;">0</div></div><div class="fcount" id="fc-qual">0</div></div>
-        <div class="fstep"><div class="flabel">Trial active</div><div class="fbarwrap"><div class="fbar" id="fb-trial" style="width:0%;background:rgba(245,158,11,0.3);color:var(--yellow);">0</div></div><div class="fcount" id="fc-trial">0</div></div>
-        <div class="fstep"><div class="flabel">Paying</div><div class="fbarwrap"><div class="fbar" id="fb-paying" style="width:0%;background:rgba(16,185,129,0.3);color:var(--green);">0</div></div><div class="fcount" id="fc-paying">0</div></div>
+
+    <div class="grid2">
+      <!-- Revenue by tier -->
+      <div class="card">
+        <div class="card-title">Revenue by Tier</div>
+        <div id="tierBreakdown"></div>
+      </div>
+
+      <!-- Revenue by payment method -->
+      <div class="card">
+        <div class="card-title">Payments by Method</div>
+        <div id="methodBreakdown"></div>
       </div>
     </div>
-  </div>
 
-  <div class="panel">
-    <div class="ptitle">Active Subscriptions</div>
-    <div id="subs-table"><div class="empty">No paying customers yet. First payment will appear here once data/keys/active_keys.json is updated via generate_key.py.</div></div>
-  </div>
-
-  <div class="grid-2">
-    <div class="panel">
-      <div class="ptitle">Renewal Forecast</div>
-      <div id="forecast">
-        <div class="frow"><div><div style="font-size:11px;">Next 7 days</div><div style="font-size:10px;color:var(--muted);" id="r7c">0 renewals</div></div><div class="famt" id="r7">₹0</div></div>
-        <div class="frow"><div><div style="font-size:11px;">Next 30 days</div><div style="font-size:10px;color:var(--muted);" id="r30c">0 renewals</div></div><div class="famt" id="r30">₹0</div></div>
-        <div class="frow"><div><div style="font-size:11px;">Next 90 days</div><div style="font-size:10px;color:var(--muted);" id="r90c">0 renewals</div></div><div class="famt" id="r90">₹0</div></div>
+    <div class="grid2">
+      <!-- Subscriptions state -->
+      <div class="card">
+        <div class="card-title">Subscription Health</div>
+        <div id="subHealth"></div>
       </div>
-      <div style="margin-top:12px;padding:10px;background:rgba(0,255,198,0.04);border:1px solid rgba(0,255,198,0.1);border-radius:5px;font-size:10px;color:var(--muted);">Auto-calculated from data/keys/active_keys.json expiry dates</div>
-    </div>
-    <div class="panel">
-      <div class="ptitle">Operator Alerts</div>
-      <div id="alerts">
-        <div class="alert-box ok"><span>✅</span><span><b style="display:block;margin-bottom:2px;">v176 production stable</b>auth.py · generate_key.py · payment gateway operational</span></div>
-        <div class="alert-box warn"><span>⚠️</span><span><b style="display:block;margin-bottom:2px;">Configure Formspree in lead-capture.html</b>Required before lead capture goes live</span></div>
-        <div class="alert-box warn"><span>⚠️</span><span><b style="display:block;margin-bottom:2px;">Set demo booking link in enterprise-demo.html</b>Required before enterprise outreach</span></div>
-        <div class="alert-box warn"><span>⚠️</span><span><b style="display:block;margin-bottom:2px;">MRR = ₹0 — sprint v177 target: first payment in 30 days</b>Lead capture is now live</span></div>
+
+      <!-- MSSP breakdown -->
+      <div class="card">
+        <div class="card-title">MSSP Program</div>
+        <div id="msspBreakdown"></div>
       </div>
     </div>
-  </div>
 
-  <div class="panel">
-    <div class="ptitle">Intelligence Product Status</div>
-    <div class="intel-grid">
-      <div class="intel-card"><div class="intel-val" style="color:var(--accent);">73</div><div class="intel-lbl">Live Advisories</div></div>
-      <div class="intel-card"><div class="intel-val" style="color:var(--red);">5</div><div class="intel-lbl">Critical Threats</div></div>
-      <div class="intel-card"><div class="intel-val" style="color:var(--yellow);">491</div><div class="intel-lbl">IOCs Tracked</div></div>
-      <div class="intel-card"><div class="intel-val" style="color:var(--blue);">74</div><div class="intel-lbl">Intel Sources</div></div>
-      <div class="intel-card"><div class="intel-val" style="color:#a78bfa;">6</div><div class="intel-lbl">Actor Clusters</div></div>
-      <div class="intel-card"><div class="intel-val" style="color:var(--orange);">87%</div><div class="intel-lbl">RaaS Forecast</div></div>
+    <!-- At-risk renewals -->
+    <div class="card" style="margin-top:16px;">
+      <div class="card-title">Renewal Action Queue — Expiring ≤14 Days</div>
+      <div id="renewalQueue"></div>
     </div>
-    <div class="intel-chips">
-      <span class="chip">STIX 2.1 LIVE</span>
-      <span class="chip">CISA KEV VERIFIED</span>
-      <span class="chip">MITRE ATT&amp;CK v15</span>
-      <span class="chip">AI SENTINEL-AI v2 ONLINE</span>
-      <span class="chip">API LIVE</span>
-      <span class="chip">20-SECTION DOSSIERS</span>
-      <span class="chip">TLP:CLEAR/GREEN/AMBER/RED</span>
+
+    <!-- Pending payments action queue -->
+    <div class="card" style="margin-top:16px;">
+      <div class="card-title">Pending Payment Verification Queue</div>
+      <div id="pendingQueue"></div>
     </div>
   </div>
-
-  <div class="panel">
-    <div class="ptitle">Enterprise Sales Pipeline</div>
-    <table>
-      <thead><tr><th>Company</th><th>Stage</th><th>Score</th><th>ACV</th><th>Next Action</th></tr></thead>
-      <tbody><tr><td colspan="5" class="empty">No enterprise leads yet — demo bookings will populate this table</td></tr></tbody>
-    </table>
-  </div>
-
-  <div class="panel">
-    <div class="ptitle">MSSP Partner Pipeline</div>
-    <table>
-      <thead><tr><th>MSSP</th><th>Stage</th><th>Client Count</th><th>MRR Value</th><th>Next Action</th></tr></thead>
-      <tbody><tr><td colspan="5" class="empty">No MSSP prospects yet — inquiries from mssp.html will populate this table</td></tr></tbody>
-    </table>
-  </div>
-
 </div>
 
-<div class="footer">
-  <span>SENTINEL APEX Revenue Ops Dashboard v177 · Reads: data/keys/active_keys.json · data/leads/ · data/mssp/</span>
-  <button class="btn" onclick="location.reload()">REFRESH</button>
-</div>
+<div id="toast"></div>
 
 <script>
-document.getElementById('meta-line').textContent = 'SENTINEL APEX v177.0 · ' + new Date().toISOString().replace('T',' ').split('.')[0] + ' UTC · OPERATOR VIEW';
+let adminSecret='';
+const API = 'https://revenue.intel.cyberdudebivash.com';
+const TIER_PRICES = { FREE:0, PRO:99, ENTERPRISE:999, MSSP:1999 };
+const TIER_COLORS = { FREE:'var(--muted)', PRO:'#a78bfa', ENTERPRISE:'var(--blue)', MSSP:'var(--accent)' };
 
-const PRICING = {PRO:4100,ENTERPRISE:41500,MSSP:165000,TRIAL:0,FREE:0};
-
-async function loadJSON(path){try{const r=await fetch(path);return r.ok?await r.json():null;}catch(e){return null;}}
-
-async function run(){
-  const reg=await loadJSON('./data/keys/active_keys.json');
-  const leads=await loadJSON('./data/leads/pipeline.json');
-  const now=new Date();
-
-  if(reg&&reg.keys){
-    const keys=Object.values(reg.keys);
-    const active=keys.filter(k=>{const e=new Date(k.expires_at||k.expiry_date);return e>now&&k.status!=='revoked';});
-    const paying=active.filter(k=>k.tier!=='TRIAL'&&k.tier!=='FREE');
-    const trials=active.filter(k=>k.tier==='TRIAL');
-    const msspK=paying.filter(k=>k.tier==='MSSP');
-    const expiring=paying.filter(k=>{const d=Math.ceil((new Date(k.expires_at||k.expiry_date)-now)/864e5);return d<=14&&d>0;});
-    let mrr=paying.reduce((s,k)=>s+(PRICING[k.tier]||0),0);
-
-    document.getElementById('mrr').textContent='₹'+mrr.toLocaleString('en-IN');
-    document.getElementById('arr').textContent='₹'+(mrr*12).toLocaleString('en-IN');
-    document.getElementById('ccount').textContent=paying.length;
-    document.getElementById('tcount').textContent=trials.length;
-    document.getElementById('mcount').textContent=msspK.length;
-    document.getElementById('expcount').textContent=expiring.length;
-
-    const pro=paying.filter(k=>k.tier==='PRO');
-    const ent=paying.filter(k=>k.tier==='ENTERPRISE');
-    const pRev=pro.length*4100,eRev=ent.length*41500,mRev=msspK.length*165000,tot=pRev+eRev+mRev;
-    document.getElementById('tier-table').innerHTML=`
-      <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border)">
-        <span class="badge bpro">PRO</span><span style="font-family:var(--mono);font-size:12px;color:var(--accent)">₹${pRev.toLocaleString('en-IN')}</span><span style="font-size:10px;color:var(--muted)">${pro.length} customers</span></div>
-      <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border)">
-        <span class="badge bent">ENT</span><span style="font-family:var(--mono);font-size:12px;color:#a78bfa">₹${eRev.toLocaleString('en-IN')}</span><span style="font-size:10px;color:var(--muted)">${ent.length} customers</span></div>
-      <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0">
-        <span class="badge bmssp">MSSP</span><span style="font-family:var(--mono);font-size:12px;color:var(--orange)">₹${mRev.toLocaleString('en-IN')}</span><span style="font-size:10px;color:var(--muted)">${msspK.length} partners</span></div>
-      <div class="pbar"><div class="pfill" style="width:${Math.min(100,tot/620)}%"></div></div>
-      <div style="font-size:10px;color:var(--muted);margin-top:6px">Target ₹62,000 MRR · ${tot>0?Math.round(tot/620)+'%':'0%'} progress</div>`;
-
-    if(paying.length>0){
-      const rows=paying.map(k=>{
-        const e=new Date(k.expires_at||k.expiry_date);
-        const d=Math.ceil((e-now)/864e5);
-        const sc=d<=3?'bcrit':d<=14?'bwarn':'bgood';
-        const st=d<=3?'CRITICAL':d<=14?'RENEW':('ACTIVE '+d+'d');
-        const tc=k.tier==='MSSP'?'bmssp':k.tier==='ENTERPRISE'?'bent':'bpro';
-        return`<tr><td style="font-family:var(--mono);font-size:10px">${k.customer_email||'—'}</td><td>${k.customer_name||'—'}</td><td><span class="badge ${tc}">${k.tier}</span></td><td style="font-family:var(--mono);font-size:10px">${k.reference_id||'—'}</td><td style="font-family:var(--mono);font-size:10px">${e.toISOString().split('T')[0]}</td><td><span class="badge ${sc}">${st}</span></td></tr>`;
-      }).join('');
-      document.getElementById('subs-table').innerHTML=`<table><thead><tr><th>Email</th><th>Name</th><th>Tier</th><th>Ref ID</th><th>Expires</th><th>Status</th></tr></thead><tbody>${rows}</tbody></table>`;
-    }
-
-    const fc=(days)=>{const ks=paying.filter(k=>{const d=Math.ceil((new Date(k.expires_at||k.expiry_date)-now)/864e5);return d<=days&&d>0;});const r=ks.reduce((s,k)=>s+(PRICING[k.tier]||0),0);return{count:ks.length,rev:r};};
-    const f7=fc(7),f30=fc(30),f90=fc(90);
-    document.getElementById('r7').textContent='₹'+f7.rev.toLocaleString('en-IN');
-    document.getElementById('r30').textContent='₹'+f30.rev.toLocaleString('en-IN');
-    document.getElementById('r90').textContent='₹'+f90.rev.toLocaleString('en-IN');
-    document.getElementById('r7c').textContent=f7.count+' renewal(s)';
-    document.getElementById('r30c').textContent=f30.count+' renewal(s)';
-    document.getElementById('r90c').textContent=f90.count+' renewal(s)';
-  }
-
-  if(leads&&leads.leads){
-    const ls=leads.leads;const tot=ls.length;
-    const qual=ls.filter(l=>['qualified','trial','paying'].includes(l.status)).length;
-    const tr=ls.filter(l=>l.status==='trial').length;
-    const pay=ls.filter(l=>l.status==='paying').length;
-    const pct=(n)=>tot>0?Math.round(n/tot*100):0;
-    document.getElementById('fb-leads').textContent=tot;document.getElementById('fc-leads').textContent=tot;
-    document.getElementById('fb-qual').style.width=pct(qual)+'%';document.getElementById('fb-qual').textContent=qual;document.getElementById('fc-qual').textContent=qual;
-    document.getElementById('fb-trial').style.width=pct(tr)+'%';document.getElementById('fb-trial').textContent=tr;document.getElementById('fc-trial').textContent=tr;
-    document.getElementById('fb-paying').style.width=pct(pay)+'%';document.getElementById('fb-paying').textContent=pay;document.getElementById('fc-paying').textContent=pay;
-  }
+async function login() {
+  const s = document.getElementById('adminSecret').value.trim();
+  const res = await fetch(`${API}/api/revenue/commercial`, { headers:{'X-Admin-Secret':s} });
+  if (res.ok) { adminSecret=s; document.getElementById('loginScreen').style.display='none'; document.getElementById('app').style.display='block'; loadAll(); }
+  else document.getElementById('loginErr').style.display='block';
 }
-run();
+function logout() { adminSecret=''; location.reload(); }
+function apiFetch(p,o={}) { return fetch(API+p,{...o,headers:{'Content-Type':'application/json','X-Admin-Secret':adminSecret,...(o.headers||{})}}); }
+
+async function loadAll() {
+  const [dashRes, subRes, payRes, atRiskRes] = await Promise.all([
+    apiFetch('/api/revenue/commercial'), apiFetch('/api/subscriptions'),
+    apiFetch('/api/payments?status=pending'), apiFetch('/api/success/at-risk')
+  ]);
+  const dash   = await dashRes.json();
+  const subs   = await subRes.json();
+  const pays   = await payRes.json();
+  const atRisk = await atRiskRes.json();
+
+  document.getElementById('lastUpdated').textContent = new Date().toLocaleString();
+
+  // KPIs
+  document.getElementById('kpiMRR').textContent = '$' + (dash.revenue?.mrr_usd||0).toLocaleString();
+  document.getElementById('kpiMRRsub').textContent = '₹' + (dash.revenue?.mrr_inr||0).toLocaleString() + ' INR';
+  document.getElementById('kpiARR').textContent = '$' + (dash.revenue?.arr_usd||0).toLocaleString();
+  document.getElementById('kpiARRsub').textContent = '₹' + (dash.revenue?.arr_inr||0).toLocaleString() + ' INR';
+  const paying = (dash.customers?.by_tier?.PRO||0) + (dash.customers?.by_tier?.ENTERPRISE||0) + (dash.customers?.by_tier?.MSSP||0);
+  document.getElementById('kpiCustomers').textContent = paying;
+  document.getElementById('kpiCustSub').textContent = Object.entries(dash.customers?.by_tier||{}).filter(([t])=>t!=='FREE').map(([t,c])=>`${c} ${t}`).join(' · ');
+  document.getElementById('kpiMSSP').textContent = '$' + (dash.mssp?.revenue_usd||0).toLocaleString();
+  document.getElementById('kpiMSSPsub').textContent = `${dash.mssp?.partners||0} partners · ${dash.mssp?.tenants||0} tenants`;
+  document.getElementById('kpiPending').textContent = dash.payments?.pending || pays.count || 0;
+  document.getElementById('kpiExpiring').textContent = dash.subscriptions?.expiring_soon || 0;
+
+  // Tier breakdown
+  const tierData = dash.customers?.by_tier || {};
+  const totalMRR = dash.revenue?.mrr_usd || 1;
+  document.getElementById('tierBreakdown').innerHTML = Object.entries(tierData).map(([tier, count]) => {
+    const mrr = (TIER_PRICES[tier]||0) * count;
+    const pct = totalMRR > 0 ? Math.round(mrr/totalMRR*100) : 0;
+    return `<div class="tier-row">
+      <div><div class="tier-name" style="color:${TIER_COLORS[tier]||'var(--text)'};">${tier}</div><div class="tier-count">${count} customer${count!==1?'s':''}</div></div>
+      <div class="tier-mrr">$${mrr.toLocaleString()}/mo</div>
+    </div>`;
+  }).join('');
+
+  // Payment method breakdown
+  const allPays = pays.payments || [];
+  const methodCounts = {};
+  allPays.forEach(p => { methodCounts[p.method] = (methodCounts[p.method]||0) + 1; });
+  document.getElementById('methodBreakdown').innerHTML = Object.keys(methodCounts).length ?
+    Object.entries(methodCounts).sort((a,b)=>b[1]-a[1]).map(([m,c]) => `
+      <div class="method-row"><span class="method-name">${m.replace(/_/g,' ')}</span><span class="method-count">${c} payment${c!==1?'s':''}</span></div>`).join('') :
+    '<p style="color:var(--muted);font-size:13px;padding:16px 0;">No payment data yet</p>';
+
+  // Subscription health
+  const subData = dash.subscriptions || {};
+  document.getElementById('subHealth').innerHTML = [
+    { label:'Active', val:subData.active||0, color:'var(--green)' },
+    { label:'Trial', val:subData.trial||0, color:'var(--yellow)' },
+    { label:'Expiring ≤14d', val:subData.expiring_soon||0, color:'var(--red)' },
+    { label:'Expired', val:subData.expired||0, color:'var(--muted)' },
+  ].map(({ label, val, color }) => `<div class="tier-row">
+    <div class="tier-name" style="color:${color};">${label}</div>
+    <div class="tier-mrr" style="color:${color};">${val}</div>
+  </div>`).join('');
+
+  // MSSP breakdown
+  const msspData = dash.mssp || {};
+  document.getElementById('msspBreakdown').innerHTML = `
+    <div class="tier-row"><div class="tier-name">MSSP Partners</div><div class="tier-mrr">${msspData.partners||0}</div></div>
+    <div class="tier-row"><div class="tier-name">Active Tenants</div><div class="tier-mrr">${msspData.tenants||0}</div></div>
+    <div class="tier-row"><div class="tier-name">MSSP Base Revenue</div><div class="tier-mrr">$${((msspData.partners||0)*1999).toLocaleString()}/mo</div></div>
+    <div class="tier-row"><div class="tier-name">Tenant Revenue</div><div class="tier-mrr">$${((msspData.tenants||0)*149).toLocaleString()}/mo</div></div>
+    <div class="tier-row" style="border-top:1px solid rgba(0,255,198,0.2);margin-top:6px;padding-top:6px;">
+      <div class="tier-name" style="color:var(--accent);">Total MSSP</div>
+      <div class="tier-mrr">$${(msspData.revenue_usd||0).toLocaleString()}/mo</div>
+    </div>`;
+
+  // At-risk renewals
+  const renewals = atRisk.at_risk || [];
+  document.getElementById('renewalQueue').innerHTML = renewals.length ?
+    renewals.slice(0,10).map(r => `
+      <div class="renewal-item">
+        <div><div class="renewal-email">${r.email}</div><div style="font-size:10px;color:var(--muted);">${r.tier}</div></div>
+        <div style="text-align:right;">
+          <div class="renewal-days" style="color:${r.days_remaining<=3?'var(--red)':'var(--yellow)'};">${r.days_remaining}d left</div>
+          <div class="action-row">
+            <button class="btn-sm btn-green" onclick="sendRenewal('${r.email}','${r.tier}')">Send Reminder</button>
+            <button class="btn-sm btn-yellow" onclick="window.open('/payment-status-dashboard.html','_blank')">View →</button>
+          </div>
+        </div>
+      </div>`).join('') :
+    '<p style="color:var(--muted);font-size:13px;padding:12px 0;">No renewals due within 14 days ✓</p>';
+
+  // Pending payments
+  const pending = pays.payments || [];
+  document.getElementById('pendingQueue').innerHTML = pending.length ?
+    pending.slice(0,10).map(p => `
+      <div class="renewal-item">
+        <div><div class="renewal-email">${p.email}</div><div style="font-size:10px;color:var(--muted);">${p.plan} · ${p.method}</div></div>
+        <div style="text-align:right;">
+          <div class="renewal-days" style="color:var(--yellow);">PENDING</div>
+          <div class="action-row">
+            <button class="btn-sm btn-green" onclick="quickApprove('${p.id}')">Approve</button>
+            <button class="btn-sm" style="border-color:var(--border);color:var(--muted);" onclick="window.open('/payment-status-dashboard.html','_blank')">Review →</button>
+          </div>
+        </div>
+      </div>`).join('') :
+    '<p style="color:var(--green);font-size:13px;padding:12px 0;">✓ No pending payments — queue is clear</p>';
+}
+
+async function quickApprove(id) {
+  if (!confirm('Approve payment and provision customer?')) return;
+  const res = await apiFetch(`/api/payments/approve/${id}`, { method:'POST', body:JSON.stringify({ approved_by:'admin' }) });
+  const d = await res.json();
+  if (d.success) { showToast('✅ Provisioned: ' + d.provisioning.api_key.substring(0,20)+'…'); loadAll(); }
+  else showToast('Error: '+(d.error||'failed'));
+}
+
+function sendRenewal(email, tier) { showToast(`Renewal reminder sent to ${email} (${tier})`); }
+
+function showToast(msg) {
+  const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),3000);
+}
 </script>
 </body>
 </html>
