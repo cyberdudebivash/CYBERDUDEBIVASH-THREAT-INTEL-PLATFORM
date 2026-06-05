@@ -1,0 +1,514 @@
+{
+  "type": "bundle",
+  "id": "bundle--ce444acd-6938-4fda-8889-d2928a6d5fb7",
+  "objects": [
+    {
+      "type": "identity",
+      "spec_version": "2.1",
+      "id": "identity--cyberdudebivash-sentinel-apex-v30",
+      "name": "CyberDudeBivash SENTINEL APEX",
+      "description": "CyberDudeBivash Pvt. Ltd. - Global Cybersecurity Intelligence Infrastructure",
+      "identity_class": "organization",
+      "sectors": [
+        "technology"
+      ],
+      "contact_information": "bivash@cyberdudebivash.com",
+      "created": "2024-01-01T00:00:00Z",
+      "modified": "2024-01-01T00:00:00Z"
+    },
+    {
+      "type": "marking-definition",
+      "spec_version": "2.1",
+      "id": "marking-definition--34098fce-860f-479c-ad6f-e09814c4f58a",
+      "created": "2017-01-20T00:00:00.000Z",
+      "definition_type": "tlp",
+      "definition": {
+        "tlp": "green"
+      }
+    },
+    {
+      "type": "intrusion-set",
+      "spec_version": "2.1",
+      "id": "intrusion-set--6264cc43-0890-46c3-8902-a99b8f347e5a",
+      "name": "CDB-UNATTR-CVE Campaign",
+      "description": "CVE-2026-48103 - GHSL-2026-119 7-Zip WIM SecurityId OOB read",
+      "created": "2026-06-05T17:15:23Z",
+      "modified": "2026-06-05T17:15:23Z",
+      "confidence": 28,
+      "aliases": [
+        "CDB-UNATTR-CVE"
+      ],
+      "extensions": {
+        "x-cdb-apex-1": {
+          "predictive_score": 5.5,
+          "campaign_id": "UNCLASSIFIED",
+          "campaign_confidence": 5.5,
+          "threat_category": "Phishing",
+          "behavioral_tags": [
+            "data_staging"
+          ],
+          "ai_summary": "Initial access via phishing → execution chain: impact → malware behaviors: data staging",
+          "risk_factors": [
+            "IOC_density",
+            "MITRE_coverage"
+          ],
+          "soc_priority": "P3",
+          "threat_level": "MEDIUM",
+          "recommended_action": "Medium severity threat (score 5.5/10) — limited technical indicators in source data",
+          "x_cdb_published_at": "2026-06-05T15:48:49Z"
+        }
+      },
+      "object_marking_refs": [
+        "marking-definition--34098fce-860f-479c-ad6f-e09814c4f58a"
+      ],
+      "created_by_ref": "identity--cyberdudebivash-sentinel-apex-v30"
+    },
+    {
+      "type": "indicator",
+      "spec_version": "2.1",
+      "id": "indicator--f9d438d0-3f1d-41b8-91b4-1c53038c4541",
+      "name": "Malicious Artifact: 7z.dll",
+      "pattern": "[file:name = '7z.dll']",
+      "pattern_type": "stix",
+      "valid_from": "2026-06-05T17:15:23Z",
+      "created": "2026-06-05T17:15:23Z",
+      "modified": "2026-06-05T17:15:23Z",
+      "indicator_types": [
+        "malicious-activity"
+      ],
+      "confidence": 28,
+      "object_marking_refs": [
+        "marking-definition--34098fce-860f-479c-ad6f-e09814c4f58a"
+      ],
+      "created_by_ref": "identity--cyberdudebivash-sentinel-apex-v30"
+    },
+    {
+      "type": "indicator",
+      "spec_version": "2.1",
+      "id": "indicator--fa0508c6-0404-4606-97ac-7628f2b5581b",
+      "name": "Malicious Artifact: 7zFM.exe",
+      "pattern": "[file:name = '7zFM.exe']",
+      "pattern_type": "stix",
+      "valid_from": "2026-06-05T17:15:23Z",
+      "created": "2026-06-05T17:15:23Z",
+      "modified": "2026-06-05T17:15:23Z",
+      "indicator_types": [
+        "malicious-activity"
+      ],
+      "confidence": 28,
+      "object_marking_refs": [
+        "marking-definition--34098fce-860f-479c-ad6f-e09814c4f58a"
+      ],
+      "created_by_ref": "identity--cyberdudebivash-sentinel-apex-v30"
+    },
+    {
+      "type": "relationship",
+      "spec_version": "2.1",
+      "id": "relationship--f4a5dddd-4e81-480b-94ac-02fe352e13a4",
+      "relationship_type": "indicates",
+      "source_ref": "indicator--f9d438d0-3f1d-41b8-91b4-1c53038c4541",
+      "target_ref": "intrusion-set--6264cc43-0890-46c3-8902-a99b8f347e5a",
+      "created": "2026-06-05T17:15:23Z",
+      "modified": "2026-06-05T17:15:23Z",
+      "object_marking_refs": [
+        "marking-definition--34098fce-860f-479c-ad6f-e09814c4f58a"
+      ],
+      "created_by_ref": "identity--cyberdudebivash-sentinel-apex-v30"
+    },
+    {
+      "type": "relationship",
+      "spec_version": "2.1",
+      "id": "relationship--bb6bd4f1-27bd-4d14-b496-e2fc76601559",
+      "relationship_type": "indicates",
+      "source_ref": "indicator--fa0508c6-0404-4606-97ac-7628f2b5581b",
+      "target_ref": "intrusion-set--6264cc43-0890-46c3-8902-a99b8f347e5a",
+      "created": "2026-06-05T17:15:23Z",
+      "modified": "2026-06-05T17:15:23Z",
+      "object_marking_refs": [
+        "marking-definition--34098fce-860f-479c-ad6f-e09814c4f58a"
+      ],
+      "created_by_ref": "identity--cyberdudebivash-sentinel-apex-v30"
+    },
+    {
+      "type": "attack-pattern",
+      "spec_version": "2.1",
+      "id": "attack-pattern--ef30dc7d-f235-474e-aefa-673017a588ba",
+      "name": "File and Directory Discovery",
+      "created": "2026-06-05T17:15:23Z",
+      "modified": "2026-06-05T17:15:23Z",
+      "object_marking_refs": [
+        "marking-definition--34098fce-860f-479c-ad6f-e09814c4f58a"
+      ],
+      "created_by_ref": "identity--cyberdudebivash-sentinel-apex-v30",
+      "external_references": [
+        {
+          "source_name": "mitre-attack",
+          "external_id": "T1083",
+          "url": "https://attack.mitre.org/techniques/T1083/"
+        }
+      ]
+    },
+    {
+      "type": "relationship",
+      "spec_version": "2.1",
+      "id": "relationship--0c099b68-ac33-4de4-b26b-6a6787cded1d",
+      "relationship_type": "uses",
+      "source_ref": "intrusion-set--6264cc43-0890-46c3-8902-a99b8f347e5a",
+      "target_ref": "attack-pattern--ef30dc7d-f235-474e-aefa-673017a588ba",
+      "created": "2026-06-05T17:15:23Z",
+      "modified": "2026-06-05T17:15:23Z",
+      "object_marking_refs": [
+        "marking-definition--34098fce-860f-479c-ad6f-e09814c4f58a"
+      ],
+      "created_by_ref": "identity--cyberdudebivash-sentinel-apex-v30"
+    },
+    {
+      "type": "attack-pattern",
+      "spec_version": "2.1",
+      "id": "attack-pattern--8b0ab179-ea85-4d58-bf32-b7aef9b2f4ad",
+      "name": "Command and Scripting Interpreter",
+      "created": "2026-06-05T17:15:23Z",
+      "modified": "2026-06-05T17:15:23Z",
+      "object_marking_refs": [
+        "marking-definition--34098fce-860f-479c-ad6f-e09814c4f58a"
+      ],
+      "created_by_ref": "identity--cyberdudebivash-sentinel-apex-v30",
+      "external_references": [
+        {
+          "source_name": "mitre-attack",
+          "external_id": "T1059",
+          "url": "https://attack.mitre.org/techniques/T1059/"
+        }
+      ]
+    },
+    {
+      "type": "relationship",
+      "spec_version": "2.1",
+      "id": "relationship--ec82b47a-6450-4241-9b24-12f31d9127b8",
+      "relationship_type": "uses",
+      "source_ref": "intrusion-set--6264cc43-0890-46c3-8902-a99b8f347e5a",
+      "target_ref": "attack-pattern--8b0ab179-ea85-4d58-bf32-b7aef9b2f4ad",
+      "created": "2026-06-05T17:15:23Z",
+      "modified": "2026-06-05T17:15:23Z",
+      "object_marking_refs": [
+        "marking-definition--34098fce-860f-479c-ad6f-e09814c4f58a"
+      ],
+      "created_by_ref": "identity--cyberdudebivash-sentinel-apex-v30"
+    },
+    {
+      "type": "vulnerability",
+      "spec_version": "2.1",
+      "id": "vulnerability--e3d7e2eb-c776-41f3-85b0-32f9f441d458",
+      "name": "CVE-2026-20230",
+      "created": "2026-06-05T17:15:23Z",
+      "modified": "2026-06-05T17:15:23Z",
+      "external_references": [
+        {
+          "source_name": "cve",
+          "external_id": "CVE-2026-20230",
+          "url": "https://nvd.nist.gov/vuln/detail/CVE-2026-20230"
+        }
+      ],
+      "object_marking_refs": [
+        "marking-definition--34098fce-860f-479c-ad6f-e09814c4f58a"
+      ],
+      "created_by_ref": "identity--cyberdudebivash-sentinel-apex-v30"
+    },
+    {
+      "type": "relationship",
+      "spec_version": "2.1",
+      "id": "relationship--ca672054-ea3f-4e86-bd40-159672d927b6",
+      "relationship_type": "exploits",
+      "source_ref": "intrusion-set--6264cc43-0890-46c3-8902-a99b8f347e5a",
+      "target_ref": "vulnerability--e3d7e2eb-c776-41f3-85b0-32f9f441d458",
+      "created": "2026-06-05T17:15:23Z",
+      "modified": "2026-06-05T17:15:23Z",
+      "object_marking_refs": [
+        "marking-definition--34098fce-860f-479c-ad6f-e09814c4f58a"
+      ],
+      "created_by_ref": "identity--cyberdudebivash-sentinel-apex-v30"
+    },
+    {
+      "type": "relationship",
+      "spec_version": "2.1",
+      "id": "relationship--770c001a-f7ef-45cc-b166-df45372cae5e",
+      "relationship_type": "targets",
+      "source_ref": "vulnerability--e3d7e2eb-c776-41f3-85b0-32f9f441d458",
+      "target_ref": "attack-pattern--ef30dc7d-f235-474e-aefa-673017a588ba",
+      "created": "2026-06-05T17:15:23Z",
+      "modified": "2026-06-05T17:15:23Z",
+      "description": "CVE exploited via mapped ATT&CK technique",
+      "object_marking_refs": [
+        "marking-definition--34098fce-860f-479c-ad6f-e09814c4f58a"
+      ],
+      "created_by_ref": "identity--cyberdudebivash-sentinel-apex-v30"
+    },
+    {
+      "type": "relationship",
+      "spec_version": "2.1",
+      "id": "relationship--af0820f5-e525-49b3-ae02-221e4f868f64",
+      "relationship_type": "targets",
+      "source_ref": "vulnerability--e3d7e2eb-c776-41f3-85b0-32f9f441d458",
+      "target_ref": "attack-pattern--8b0ab179-ea85-4d58-bf32-b7aef9b2f4ad",
+      "created": "2026-06-05T17:15:23Z",
+      "modified": "2026-06-05T17:15:23Z",
+      "description": "CVE exploited via mapped ATT&CK technique",
+      "object_marking_refs": [
+        "marking-definition--34098fce-860f-479c-ad6f-e09814c4f58a"
+      ],
+      "created_by_ref": "identity--cyberdudebivash-sentinel-apex-v30"
+    },
+    {
+      "type": "vulnerability",
+      "spec_version": "2.1",
+      "id": "vulnerability--3ea984e0-be73-4e65-af52-bc7064b64085",
+      "name": "CVE-2026-8714",
+      "created": "2026-06-05T17:15:23Z",
+      "modified": "2026-06-05T17:15:23Z",
+      "external_references": [
+        {
+          "source_name": "cve",
+          "external_id": "CVE-2026-8714",
+          "url": "https://nvd.nist.gov/vuln/detail/CVE-2026-8714"
+        }
+      ],
+      "object_marking_refs": [
+        "marking-definition--34098fce-860f-479c-ad6f-e09814c4f58a"
+      ],
+      "created_by_ref": "identity--cyberdudebivash-sentinel-apex-v30"
+    },
+    {
+      "type": "relationship",
+      "spec_version": "2.1",
+      "id": "relationship--abe6f5db-2801-4018-b199-05487284345a",
+      "relationship_type": "exploits",
+      "source_ref": "intrusion-set--6264cc43-0890-46c3-8902-a99b8f347e5a",
+      "target_ref": "vulnerability--3ea984e0-be73-4e65-af52-bc7064b64085",
+      "created": "2026-06-05T17:15:23Z",
+      "modified": "2026-06-05T17:15:23Z",
+      "object_marking_refs": [
+        "marking-definition--34098fce-860f-479c-ad6f-e09814c4f58a"
+      ],
+      "created_by_ref": "identity--cyberdudebivash-sentinel-apex-v30"
+    },
+    {
+      "type": "relationship",
+      "spec_version": "2.1",
+      "id": "relationship--3210cfeb-2f3e-4bbb-8663-04e31a2515e3",
+      "relationship_type": "targets",
+      "source_ref": "vulnerability--3ea984e0-be73-4e65-af52-bc7064b64085",
+      "target_ref": "attack-pattern--ef30dc7d-f235-474e-aefa-673017a588ba",
+      "created": "2026-06-05T17:15:23Z",
+      "modified": "2026-06-05T17:15:23Z",
+      "description": "CVE exploited via mapped ATT&CK technique",
+      "object_marking_refs": [
+        "marking-definition--34098fce-860f-479c-ad6f-e09814c4f58a"
+      ],
+      "created_by_ref": "identity--cyberdudebivash-sentinel-apex-v30"
+    },
+    {
+      "type": "relationship",
+      "spec_version": "2.1",
+      "id": "relationship--0152f9ea-fac3-44cb-88b0-318ae4c911b0",
+      "relationship_type": "targets",
+      "source_ref": "vulnerability--3ea984e0-be73-4e65-af52-bc7064b64085",
+      "target_ref": "attack-pattern--8b0ab179-ea85-4d58-bf32-b7aef9b2f4ad",
+      "created": "2026-06-05T17:15:23Z",
+      "modified": "2026-06-05T17:15:23Z",
+      "description": "CVE exploited via mapped ATT&CK technique",
+      "object_marking_refs": [
+        "marking-definition--34098fce-860f-479c-ad6f-e09814c4f58a"
+      ],
+      "created_by_ref": "identity--cyberdudebivash-sentinel-apex-v30"
+    },
+    {
+      "type": "vulnerability",
+      "spec_version": "2.1",
+      "id": "vulnerability--1a9d9eac-e254-4b50-a0d6-b1d99043efaf",
+      "name": "CVE-2026-48104",
+      "created": "2026-06-05T17:15:23Z",
+      "modified": "2026-06-05T17:15:23Z",
+      "external_references": [
+        {
+          "source_name": "cve",
+          "external_id": "CVE-2026-48104",
+          "url": "https://nvd.nist.gov/vuln/detail/CVE-2026-48104"
+        }
+      ],
+      "object_marking_refs": [
+        "marking-definition--34098fce-860f-479c-ad6f-e09814c4f58a"
+      ],
+      "created_by_ref": "identity--cyberdudebivash-sentinel-apex-v30"
+    },
+    {
+      "type": "relationship",
+      "spec_version": "2.1",
+      "id": "relationship--0da47787-65cd-42f1-a31d-669a92db598d",
+      "relationship_type": "exploits",
+      "source_ref": "intrusion-set--6264cc43-0890-46c3-8902-a99b8f347e5a",
+      "target_ref": "vulnerability--1a9d9eac-e254-4b50-a0d6-b1d99043efaf",
+      "created": "2026-06-05T17:15:23Z",
+      "modified": "2026-06-05T17:15:23Z",
+      "object_marking_refs": [
+        "marking-definition--34098fce-860f-479c-ad6f-e09814c4f58a"
+      ],
+      "created_by_ref": "identity--cyberdudebivash-sentinel-apex-v30"
+    },
+    {
+      "type": "relationship",
+      "spec_version": "2.1",
+      "id": "relationship--3f057733-d56e-4d23-ae43-13316a7638a7",
+      "relationship_type": "targets",
+      "source_ref": "vulnerability--1a9d9eac-e254-4b50-a0d6-b1d99043efaf",
+      "target_ref": "attack-pattern--ef30dc7d-f235-474e-aefa-673017a588ba",
+      "created": "2026-06-05T17:15:23Z",
+      "modified": "2026-06-05T17:15:23Z",
+      "description": "CVE exploited via mapped ATT&CK technique",
+      "object_marking_refs": [
+        "marking-definition--34098fce-860f-479c-ad6f-e09814c4f58a"
+      ],
+      "created_by_ref": "identity--cyberdudebivash-sentinel-apex-v30"
+    },
+    {
+      "type": "relationship",
+      "spec_version": "2.1",
+      "id": "relationship--21ef8fbf-4607-49b8-9c9c-70a737ea0999",
+      "relationship_type": "targets",
+      "source_ref": "vulnerability--1a9d9eac-e254-4b50-a0d6-b1d99043efaf",
+      "target_ref": "attack-pattern--8b0ab179-ea85-4d58-bf32-b7aef9b2f4ad",
+      "created": "2026-06-05T17:15:23Z",
+      "modified": "2026-06-05T17:15:23Z",
+      "description": "CVE exploited via mapped ATT&CK technique",
+      "object_marking_refs": [
+        "marking-definition--34098fce-860f-479c-ad6f-e09814c4f58a"
+      ],
+      "created_by_ref": "identity--cyberdudebivash-sentinel-apex-v30"
+    },
+    {
+      "type": "vulnerability",
+      "spec_version": "2.1",
+      "id": "vulnerability--d729126f-90aa-4f93-8fdd-bbe61806a543",
+      "name": "CVE-2026-11338",
+      "created": "2026-06-05T17:15:23Z",
+      "modified": "2026-06-05T17:15:23Z",
+      "external_references": [
+        {
+          "source_name": "cve",
+          "external_id": "CVE-2026-11338",
+          "url": "https://nvd.nist.gov/vuln/detail/CVE-2026-11338"
+        }
+      ],
+      "object_marking_refs": [
+        "marking-definition--34098fce-860f-479c-ad6f-e09814c4f58a"
+      ],
+      "created_by_ref": "identity--cyberdudebivash-sentinel-apex-v30"
+    },
+    {
+      "type": "relationship",
+      "spec_version": "2.1",
+      "id": "relationship--51398c33-abae-417e-b1da-0447a65b290c",
+      "relationship_type": "exploits",
+      "source_ref": "intrusion-set--6264cc43-0890-46c3-8902-a99b8f347e5a",
+      "target_ref": "vulnerability--d729126f-90aa-4f93-8fdd-bbe61806a543",
+      "created": "2026-06-05T17:15:23Z",
+      "modified": "2026-06-05T17:15:23Z",
+      "object_marking_refs": [
+        "marking-definition--34098fce-860f-479c-ad6f-e09814c4f58a"
+      ],
+      "created_by_ref": "identity--cyberdudebivash-sentinel-apex-v30"
+    },
+    {
+      "type": "relationship",
+      "spec_version": "2.1",
+      "id": "relationship--3d04de49-00ee-4636-9524-41b1d3342cc8",
+      "relationship_type": "targets",
+      "source_ref": "vulnerability--d729126f-90aa-4f93-8fdd-bbe61806a543",
+      "target_ref": "attack-pattern--ef30dc7d-f235-474e-aefa-673017a588ba",
+      "created": "2026-06-05T17:15:23Z",
+      "modified": "2026-06-05T17:15:23Z",
+      "description": "CVE exploited via mapped ATT&CK technique",
+      "object_marking_refs": [
+        "marking-definition--34098fce-860f-479c-ad6f-e09814c4f58a"
+      ],
+      "created_by_ref": "identity--cyberdudebivash-sentinel-apex-v30"
+    },
+    {
+      "type": "relationship",
+      "spec_version": "2.1",
+      "id": "relationship--f9b3841b-9a08-4025-ab31-e37f21f33088",
+      "relationship_type": "targets",
+      "source_ref": "vulnerability--d729126f-90aa-4f93-8fdd-bbe61806a543",
+      "target_ref": "attack-pattern--8b0ab179-ea85-4d58-bf32-b7aef9b2f4ad",
+      "created": "2026-06-05T17:15:23Z",
+      "modified": "2026-06-05T17:15:23Z",
+      "description": "CVE exploited via mapped ATT&CK technique",
+      "object_marking_refs": [
+        "marking-definition--34098fce-860f-479c-ad6f-e09814c4f58a"
+      ],
+      "created_by_ref": "identity--cyberdudebivash-sentinel-apex-v30"
+    },
+    {
+      "type": "vulnerability",
+      "spec_version": "2.1",
+      "id": "vulnerability--12ea2eae-02f4-4aff-b0fc-a896a2f8a377",
+      "name": "CVE-2026-48112",
+      "created": "2026-06-05T17:15:23Z",
+      "modified": "2026-06-05T17:15:23Z",
+      "external_references": [
+        {
+          "source_name": "cve",
+          "external_id": "CVE-2026-48112",
+          "url": "https://nvd.nist.gov/vuln/detail/CVE-2026-48112"
+        }
+      ],
+      "object_marking_refs": [
+        "marking-definition--34098fce-860f-479c-ad6f-e09814c4f58a"
+      ],
+      "created_by_ref": "identity--cyberdudebivash-sentinel-apex-v30"
+    },
+    {
+      "type": "relationship",
+      "spec_version": "2.1",
+      "id": "relationship--6efab14a-09af-419e-a455-37ee9a4704db",
+      "relationship_type": "exploits",
+      "source_ref": "intrusion-set--6264cc43-0890-46c3-8902-a99b8f347e5a",
+      "target_ref": "vulnerability--12ea2eae-02f4-4aff-b0fc-a896a2f8a377",
+      "created": "2026-06-05T17:15:23Z",
+      "modified": "2026-06-05T17:15:23Z",
+      "object_marking_refs": [
+        "marking-definition--34098fce-860f-479c-ad6f-e09814c4f58a"
+      ],
+      "created_by_ref": "identity--cyberdudebivash-sentinel-apex-v30"
+    },
+    {
+      "type": "relationship",
+      "spec_version": "2.1",
+      "id": "relationship--ef924383-faf0-453b-a850-bb514ecfc523",
+      "relationship_type": "targets",
+      "source_ref": "vulnerability--12ea2eae-02f4-4aff-b0fc-a896a2f8a377",
+      "target_ref": "attack-pattern--ef30dc7d-f235-474e-aefa-673017a588ba",
+      "created": "2026-06-05T17:15:23Z",
+      "modified": "2026-06-05T17:15:23Z",
+      "description": "CVE exploited via mapped ATT&CK technique",
+      "object_marking_refs": [
+        "marking-definition--34098fce-860f-479c-ad6f-e09814c4f58a"
+      ],
+      "created_by_ref": "identity--cyberdudebivash-sentinel-apex-v30"
+    },
+    {
+      "type": "relationship",
+      "spec_version": "2.1",
+      "id": "relationship--c475c47d-c424-4885-8286-45143f0b5a47",
+      "relationship_type": "targets",
+      "source_ref": "vulnerability--12ea2eae-02f4-4aff-b0fc-a896a2f8a377",
+      "target_ref": "attack-pattern--8b0ab179-ea85-4d58-bf32-b7aef9b2f4ad",
+      "created": "2026-06-05T17:15:23Z",
+      "modified": "2026-06-05T17:15:23Z",
+      "description": "CVE exploited via mapped ATT&CK technique",
+      "object_marking_refs": [
+        "marking-definition--34098fce-860f-479c-ad6f-e09814c4f58a"
+      ],
+      "created_by_ref": "identity--cyberdudebivash-sentinel-apex-v30"
+    }
+  ]
+}
