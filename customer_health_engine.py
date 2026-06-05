@@ -345,3 +345,229 @@ if __name__ == "__main__":
     for org_id, hs in HEALTH_SCORES.items():
         print(f"  {CUSTOMER_PROFILES[org_id]['name']}: {hs['health_score']} ({hs['category']})")
     app.run(host="0.0.0.0", port=8505, debug=False)
+
+# ============================================================
+# SECTION 10 ADDITIONS — Customer Success Automation v1.0
+# Added: 2026-06-05
+# ============================================================
+
+import json
+import datetime
+from pathlib import Path
+
+
+def _days_until(date_str: str) -> int:
+    """Return days until the given ISO date string."""
+    try:
+        target = datetime.datetime.fromisoformat(date_str.replace('Z', '+00:00'))
+        now = datetime.datetime.now(datetime.timezone.utc)
+        delta = (target - now).days
+        return max(0, delta)
+    except Exception:
+        return 999
+
+
+def compute_onboarding_milestones(customer: dict) -> dict:
+    """
+    Determine which onboarding milestones are complete and which are outstanding.
+    Returns milestone status dict.
+    """
+    MILESTONES = [
+        {'id': 'ACCOUNT_ACTIVATED',     'label': 'Account Activated',           'required': True},
+        {'id': 'FIRST_API_CALL',        'label': 'First API Call Made',          'required': True},
+        {'id': 'SIEM_CONNECTED',        'label': 'SIEM Integration Configured',  'required': True},
+        {'id': 'FIRST_REPORT',          'label': 'First Report Generated',       'required': True},
+        {'id': 'ALERT_CONFIGURED',      'label': 'Alert Rule Created',           'required': False},
+        {'id': 'STIX_EXPORTED',         'label': 'STIX Bundle Exported',         'required': False},
+        {'id': 'TEAM_INVITED',          'label': 'Team Members Invited',         'required': False},
+        {'id': 'EXEC_BRIEF_SCHEDULED',  'label': 'Executive Brief Scheduled',    'required': False},
+    ]
+    usage = customer.get('usage', {})
+    completed_set = set(customer.get('completed_onboarding_milestones', []))
+
+    # Auto-complete milestones based on usage data
+    if usage.get('api_calls', 0) > 0:
+        completed_set.add('FIRST_API_CALL')
+    if usage.get('siem_connected'):
+        completed_set.add('SIEM_CONNECTED')
+    if usage.get('reports', 0) > 0:
+        completed_set.add('FIRST_REPORT')
+    if usage.get('stix_exports', 0) > 0:
+        completed_set.add('STIX_EXPORTED')
+    if customer.get('id'):
+        completed_set.add('ACCOUNT_ACTIVATED')
+
+    result = []
+    for m in MILESTONES:
+        result.append({
+            'id': m['id'],
+            'label': m['label'],
+            'required': m['required'],
+            'completed': m['id'] in completed_set,
+        })
+
+    completed_count = sum(1 for m in result if m['completed'])
+    required_count = sum(1 for m in result if m['required'])
+    required_completed = sum(1 for m in result if m['required'] and m['completed'])
+
+    return {
+        'milestones': result,
+        'completion_pct': round((completed_count / len(result)) * 100),
+        'required_complete': required_completed == required_count,
+        'required_completion_pct': round((required_completed / required_count) * 100) if required_count else 0,
+    }
+
+
+def detect_renewal_alerts(customer: dict) -> list:
+    """
+    Detect customers approaching renewal window and generate alerts.
+    Alert tiers: 90d, 60d, 30d, 14d, 7d
+    """
+    alerts = []
+    renewal_date = customer.get('renewal_date')
+    if not renewal_date:
+        return alerts
+
+    days_left = _days_until(renewal_date)
+
+    if days_left <= 7:
+        alerts.append({'severity': 'URGENT', 'type': 'RENEWAL', 'days_left': days_left,
+                       'message': f"URGENT: Renewal in {days_left} day(s). Immediate outreach required."})
+    elif days_left <= 14:
+        alerts.append({'severity': 'CRITICAL', 'type': 'RENEWAL', 'days_left': days_left,
+                       'message': f"Renewal in {days_left} days. Send renewal proposal today."})
+    elif days_left <= 30:
+        alerts.append({'severity': 'HIGH', 'type': 'RENEWAL', 'days_left': days_left,
+                       'message': f"Renewal in {days_left} days. Schedule renewal review call."})
+    elif days_left <= 60:
+        alerts.append({'severity': 'MEDIUM', 'type': 'RENEWAL', 'days_left': days_left,
+                       'message': f"Renewal in {days_left} days. Begin renewal nurture sequence."})
+    elif days_left <= 90:
+        alerts.append({'severity': 'LOW', 'type': 'RENEWAL', 'days_left': days_left,
+                       'message': f"Renewal in {days_left} days. Queue for QBR scheduling."})
+
+    return alerts
+
+
+def detect_expansion_opportunity(customer: dict) -> dict:
+    """
+    Score expansion readiness and generate recommendations.
+    """
+    usage = customer.get('usage', {})
+    tier = customer.get('tier', 'PRO')
+
+    tier_api_limits = {'MSSP': 20000, 'ENTERPRISE': 10000, 'PRO': 5000}
+    api_limit = tier_api_limits.get(tier, 5000)
+    api_utilization = usage.get('api_calls', 0) / api_limit
+
+    features_adopted = customer.get('features_adopted', 0)
+    total_features = customer.get('total_features', 10)
+    adoption_pct = features_adopted / total_features if total_features > 0 else 0
+
+    score = 0
+    score += min(40, api_utilization * 40)
+    score += min(40, adoption_pct * 40)
+    score += 20 if usage.get('siem_connected') else 0
+
+    opportunity = None
+    if tier == 'PRO' and score >= 65:
+        opportunity = {'type': 'TIER_UPGRADE', 'from': 'PRO', 'to': 'ENTERPRISE', 'potential_mrr_increase': 3000}
+    elif tier == 'ENTERPRISE' and score >= 75 and api_utilization > 0.8:
+        opportunity = {'type': 'API_QUOTA_EXPAND', 'current_util': f"{api_utilization:.0%}", 'potential_mrr_increase': 800}
+    elif tier in ('ENTERPRISE', 'PRO') and score >= 60:
+        opportunity = {'type': 'MSSP_UPGRADE', 'from': tier, 'to': 'MSSP', 'potential_mrr_increase': 2500}
+
+    return {
+        'expansion_score': round(score),
+        'api_utilization': round(api_utilization * 100),
+        'feature_adoption_pct': round(adoption_pct * 100),
+        'expansion_ready': score >= 65,
+        'opportunity': opportunity,
+    }
+
+
+def detect_inactive_customer(customer: dict, inactive_threshold_days: int = 14) -> dict:
+    """
+    Detect customers with no API activity in threshold window.
+    """
+    last_activity = customer.get('last_activity_at') or customer.get('last_api_call_at')
+    if not last_activity:
+        return {'inactive': True, 'days_inactive': 999, 'severity': 'HIGH'}
+
+    try:
+        last_dt = datetime.datetime.fromisoformat(last_activity.replace('Z', '+00:00'))
+        now = datetime.datetime.now(datetime.timezone.utc)
+        days_inactive = (now - last_dt).days
+    except Exception:
+        return {'inactive': False, 'days_inactive': 0, 'severity': 'NONE'}
+
+    inactive = days_inactive >= inactive_threshold_days
+    severity = 'HIGH' if days_inactive >= 21 else 'MEDIUM' if days_inactive >= 14 else 'LOW'
+    return {
+        'inactive': inactive,
+        'days_inactive': days_inactive,
+        'severity': severity if inactive else 'NONE',
+        'recommended_action': 'Send re-engagement email with platform highlights' if inactive else None,
+    }
+
+
+def compute_success_score(customer: dict) -> dict:
+    """
+    Compute overall Customer Success Score (0–100).
+    Combines health, onboarding completion, engagement, and risk signals.
+    """
+    milestones = compute_onboarding_milestones(customer)
+    expansion = detect_expansion_opportunity(customer)
+    inactive = detect_inactive_customer(customer)
+    renewal_alerts = detect_renewal_alerts(customer)
+
+    score = 50  # baseline
+
+    # Onboarding contribution (max 20)
+    score += (milestones['completion_pct'] / 100) * 20
+
+    # Expansion / adoption contribution (max 20)
+    score += (expansion['expansion_score'] / 100) * 20
+
+    # Activity (max 10)
+    if not inactive['inactive']:
+        score += 10
+    else:
+        score -= min(15, inactive['days_inactive'])
+
+    # Risk penalties
+    for alert in renewal_alerts:
+        if alert['severity'] == 'URGENT':
+            score -= 20
+        elif alert['severity'] == 'CRITICAL':
+            score -= 12
+        elif alert['severity'] == 'HIGH':
+            score -= 6
+
+    final_score = max(0, min(100, round(score)))
+
+    return {
+        'customer_id': customer.get('id', 'UNKNOWN'),
+        'success_score': final_score,
+        'grade': 'A' if final_score >= 85 else 'B' if final_score >= 70 else 'C' if final_score >= 50 else 'D',
+        'onboarding': milestones,
+        'expansion': expansion,
+        'activity': inactive,
+        'renewal_alerts': renewal_alerts,
+        'generated_at': datetime.datetime.utcnow().isoformat() + 'Z',
+    }
+
+
+# --- CLI runner for quick validation ---
+if __name__ == '__main__':
+    import sys
+    test_customer = {
+        'id': 'C001', 'name': 'Test Corp', 'tier': 'ENTERPRISE',
+        'usage': {'api_calls': 8420, 'dashboard_sessions': 48, 'reports': 32, 'feed_accesses': 180, 'stix_exports': 15, 'siem_connected': True},
+        'features_adopted': 8, 'total_features': 10,
+        'last_activity_at': datetime.datetime.utcnow().isoformat() + 'Z',
+        'renewal_date': (datetime.datetime.utcnow() + datetime.timedelta(days=45)).isoformat() + 'Z',
+    }
+    result = compute_success_score(test_customer)
+    print(json.dumps(result, indent=2))
+    print(f"\nValidation PASS — success_score={result['success_score']}, grade={result['grade']}")

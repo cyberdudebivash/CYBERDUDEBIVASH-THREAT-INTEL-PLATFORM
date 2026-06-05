@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lead Intelligence Engine — SENTINEL APEX Revenue Operations</title>
+<meta name="description" content="Behavioral lead scoring, HOT/WARM/COLD classification, and conversion intelligence for SENTINEL APEX sales operations.">
+<link rel="canonical" href="https://intel.cyberdudebivash.com/lead-intelligence.html">
+<link rel="icon" href="/favicon.ico">
+<style>
+:root{--bg:#050c18;--bg2:#090f1e;--border:#162030;--accent:#00ffc6;--accent2:#7c3aed;--text:#e2e8f0;--muted:#64748b;--green:#10b981;--red:#ef4444;--yellow:#f59e0b;--card:#0b1422;--blue:#3b82f6;--orange:#f97316;}
+*{box-sizing:border-box;margin:0;padding:0;}body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,sans-serif;line-height:1.6;}
+nav{display:flex;align-items:center;justify-content:space-between;padding:14px 32px;background:rgba(5,12,24,0.97);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:100;}
+.nav-logo{font-family:monospace;font-weight:900;font-size:13px;color:var(--accent);letter-spacing:2px;text-decoration:none;}
+.nav-links a{color:var(--muted);text-decoration:none;font-size:12px;margin-left:16px;}
+.cta-btn{background:var(--accent);color:#000;padding:8px 18px;border-radius:8px;font-weight:800;font-size:12px;text-decoration:none;margin-left:16px;}
+.page-header{padding:32px;border-bottom:1px solid var(--border);background:var(--bg2);}
+.page-header h1{font-size:22px;font-weight:900;display:flex;align-items:center;gap:12px;}
+.page-header p{color:var(--muted);font-size:13px;margin-top:6px;}
+.main{max-width:1300px;margin:0 auto;padding:32px 24px;}
+.stats-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:16px;margin-bottom:32px;}
+.stat-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px;}
+.stat-val{font-size:28px;font-weight:900;font-family:monospace;}
+.stat-val.hot{color:var(--red);}
+.stat-val.warm{color:var(--yellow);}
+.stat-val.cold{color:var(--blue);}
+.stat-val.total{color:var(--accent);}
+.stat-label{font-size:11px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-top:4px;}
+.controls-row{display:flex;gap:12px;margin-bottom:24px;flex-wrap:wrap;align-items:center;}
+.filter-btn{padding:7px 16px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;border:1px solid var(--border);color:var(--muted);background:transparent;font-family:monospace;transition:all 0.2s;}
+.filter-btn.active,.filter-btn:hover{border-color:var(--accent);color:var(--accent);}
+.filter-btn.hot-btn.active{border-color:var(--red);color:var(--red);}
+.filter-btn.warm-btn.active{border-color:var(--yellow);color:var(--yellow);}
+.filter-btn.cold-btn.active{border-color:var(--blue);color:var(--blue);}
+.leads-table{width:100%;border-collapse:collapse;font-size:13px;margin-bottom:40px;}
+.leads-table th{text-align:left;padding:10px 14px;font-size:10px;font-weight:700;color:var(--muted);letter-spacing:1px;text-transform:uppercase;border-bottom:1px solid var(--border);}
+.leads-table td{padding:12px 14px;border-bottom:1px solid rgba(22,32,48,0.6);}
+.leads-table tr:hover td{background:rgba(0,255,198,0.02);}
+.score-bar-wrap{display:flex;align-items:center;gap:10px;}
+.score-bar{height:6px;border-radius:3px;flex:1;background:var(--border);}
+.score-fill{height:6px;border-radius:3px;}
+.fill-hot{background:var(--red);}
+.fill-warm{background:var(--yellow);}
+.fill-cold{background:var(--blue);}
+.tier-badge{display:inline-block;padding:3px 10px;border-radius:10px;font-size:10px;font-weight:700;font-family:monospace;}
+.badge-hot{background:rgba(239,68,68,0.15);color:var(--red);border:1px solid rgba(239,68,68,0.25);}
+.badge-warm{background:rgba(245,158,11,0.12);color:var(--yellow);border:1px solid rgba(245,158,11,0.2);}
+.badge-cold{background:rgba(59,130,246,0.1);color:#93c5fd;border:1px solid rgba(59,130,246,0.2);}
+.source-badge{font-size:10px;padding:2px 8px;border-radius:6px;background:rgba(255,255,255,0.05);border:1px solid var(--border);color:var(--muted);font-family:monospace;}
+.action-btn{padding:5px 12px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;border:none;font-family:monospace;}
+.btn-followup{background:rgba(0,255,198,0.1);color:var(--accent);}
+.btn-demo{background:rgba(124,58,237,0.1);color:#a78bfa;}
+.signal-list{display:flex;gap:6px;flex-wrap:wrap;}
+.signal{font-size:10px;padding:2px 7px;border-radius:6px;background:rgba(0,255,198,0.06);border:1px solid rgba(0,255,198,0.12);color:var(--muted);font-family:monospace;}
+.scoring-panel{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:28px;margin-bottom:32px;}
+.scoring-panel h3{font-size:15px;font-weight:800;margin-bottom:20px;display:flex;align-items:center;gap:10px;}
+.factor-row{display:flex;align-items:center;gap:14px;margin-bottom:12px;}
+.factor-name{font-size:12px;color:var(--muted);width:160px;flex-shrink:0;}
+.factor-bar-wrap{flex:1;display:flex;align-items:center;gap:8px;}
+.factor-bar{height:8px;border-radius:4px;background:var(--border);flex:1;}
+.factor-fill{height:8px;border-radius:4px;background:var(--accent);}
+.factor-weight{font-size:11px;color:var(--muted);width:40px;text-align:right;font-family:monospace;}
+.empty-state{text-align:center;padding:60px 24px;color:var(--muted);}
+.empty-state h3{font-size:18px;font-weight:700;margin-bottom:8px;color:var(--text);}
+footer{border-top:1px solid var(--border);padding:32px;text-align:center;font-size:12px;color:var(--muted);}
+footer a{color:var(--muted);text-decoration:none;margin:0 12px;}
+</style>
+</head>
+<body>
+<nav>
+  <a href="/" class="nav-logo">CDB® SENTINEL APEX</a>
+  <div class="nav-links">
+    <a href="/revenue-dashboard.html">Revenue</a>
+    <a href="/customer-intelligence.html">Customers</a>
+    <a href="/conversion-analytics.html">Funnel</a>
+    <a href="/mssp-partner-portal.html">MSSP</a>
+    <a href="/admin.html" class="cta-btn">Admin</a>
+  </div>
+</nav>
+
+<div class="page-header">
+  <h1>🎯 Lead Intelligence Engine</h1>
+  <p>Behavioral scoring · HOT / WARM / COLD classification · Conversion signal tracking</p>
+</div>
+
+<div class="main">
+  <div class="stats-row">
+    <div class="stat-card"><div class="stat-val hot" id="hot-count">0</div><div class="stat-label">🔥 HOT Leads</div></div>
+    <div class="stat-card"><div class="stat-val warm" id="warm-count">0</div><div class="stat-label">⚡ WARM Leads</div></div>
+    <div class="stat-card"><div class="stat-val cold" id="cold-count">0</div><div class="stat-label">❄️ COLD Leads</div></div>
+    <div class="stat-card"><div class="stat-val total" id="total-leads">0</div><div class="stat-label">Total Leads</div></div>
+    <div class="stat-card"><div class="stat-val" style="color:var(--accent2)" id="avg-score">0</div><div class="stat-label">Avg Score</div></div>
+    <div class="stat-card"><div class="stat-val" style="color:var(--green)" id="demo-rate">0%</div><div class="stat-label">Demo Conversion</div></div>
+  </div>
+
+  <!-- SCORING MODEL PANEL -->
+  <div class="scoring-panel">
+    <h3>📊 Scoring Model — Behavioral Signal Weights</h3>
+    <div class="factor-row">
+      <span class="factor-name">Demo Participation</span>
+      <div class="factor-bar-wrap"><div class="factor-bar"><div class="factor-fill" style="width:20%"></div></div></div>
+      <span class="factor-weight">20 pts</span>
+    </div>
+    <div class="factor-row">
+      <span class="factor-name">API Activity</span>
+      <div class="factor-bar-wrap"><div class="factor-bar"><div class="factor-fill" style="width:20%"></div></div></div>
+      <span class="factor-weight">20 pts</span>
+    </div>
+    <div class="factor-row">
+      <span class="factor-name">Enterprise Inquiry</span>
+      <div class="factor-bar-wrap"><div class="factor-bar"><div class="factor-fill" style="width:15%"></div></div></div>
+      <span class="factor-weight">15 pts</span>
+    </div>
+    <div class="factor-row">
+      <span class="factor-name">MSSP Inquiry</span>
+      <div class="factor-bar-wrap"><div class="factor-bar"><div class="factor-fill" style="width:15%"></div></div></div>
+      <span class="factor-weight">15 pts</span>
+    </div>
+    <div class="factor-row">
+      <span class="factor-name">Dashboard Usage</span>
+      <div class="factor-bar-wrap"><div class="factor-bar"><div class="factor-fill" style="width:15%"></div></div></div>
+      <span class="factor-weight">15 pts</span>
+    </div>
+    <div class="factor-row">
+      <span class="factor-name">Report Consumption</span>
+      <div class="factor-bar-wrap"><div class="factor-bar"><div class="factor-fill" style="width:15%"></div></div></div>
+      <span class="factor-weight">15 pts</span>
+    </div>
+    <div class="factor-row">
+      <span class="factor-name">Repeat Visits</span>
+      <div class="factor-bar-wrap"><div class="factor-bar"><div class="factor-fill" style="width:10%"></div></div></div>
+      <span class="factor-weight">10 pts</span>
+    </div>
+    <div class="factor-row">
+      <span class="factor-name">Company Size</span>
+      <div class="factor-bar-wrap"><div class="factor-bar"><div class="factor-fill" style="width:10%"></div></div></div>
+      <span class="factor-weight">10 pts</span>
+    </div>
+    <p style="margin-top:14px;font-size:12px;color:var(--muted);">Thresholds: HOT ≥ 70 | WARM ≥ 40 | COLD &lt; 40</p>
+  </div>
+
+  <div class="controls-row">
+    <button class="filter-btn active" onclick="filterLeads('all', this)">ALL</button>
+    <button class="filter-btn hot-btn" onclick="filterLeads('HOT', this)">🔥 HOT</button>
+    <button class="filter-btn warm-btn" onclick="filterLeads('WARM', this)">⚡ WARM</button>
+    <button class="filter-btn cold-btn" onclick="filterLeads('COLD', this)">❄️ COLD</button>
+    <button class="filter-btn" onclick="filterLeads('demo', this)">Demo Requested</button>
+    <button class="filter-btn" onclick="filterLeads('api', this)">API Active</button>
+  </div>
+
+  <div id="leads-container">
+    <div class="empty-state">
+      <h3>Lead Intelligence Initialising</h3>
+      <p>Loading behavioral scoring data from lead registry...</p>
+    </div>
+  </div>
+</div>
+
+<footer>
+  <a href="/revenue-dashboard.html">Revenue</a>
+  <a href="/customer-intelligence.html">Customers</a>
+  <a href="/conversion-analytics.html">Funnel</a>
+  <a href="/demo-intelligence-center.html">Demo Pipeline</a>
+  <p style="margin-top:16px;color:var(--muted)">© 2026 CYBERDUDEBIVASH® SENTINEL APEX — Lead Intelligence Engine v1.0</p>
+</footer>
+
+<script>
+const LEAD_SCORING_MODEL = {
+  api_activity:      { '>100':20, '50-100':14, '10-49':8, '1-9':4, '0':0 },
+  dashboard_usage:   { '>10':15, '5-10':10, '2-4':6, '1':3, '0':0 },
+  report_downloads:  { '>10':15, '5-10':10, '2-4':6, '1':3, '0':0 },
+  repeat_visits:     { '>5':10, '3-5':6, '2':3, '1':1, '0':0 },
+  enterprise_inquiry:{ 'submitted':15, 'page_viewed':5, 'none':0 },
+  mssp_inquiry:      { 'submitted':15, 'page_viewed':5, 'none':0 },
+  demo:              { 'completed':20, 'scheduled':12, 'requested':6, 'none':0 },
+  company_size:      { '5000+':10, '1001-5000':8, '201-1000':5, '51-200':3, '1-50':1 },
+};
+
+function scoreLead(lead) {
+  const s = lead.signals || {};
+  let score = 0;
+  const apiCalls = s.api_calls || 0;
+  score += apiCalls > 100 ? 20 : apiCalls >= 50 ? 14 : apiCalls >= 10 ? 8 : apiCalls >= 1 ? 4 : 0;
+  const dash = s.dashboard_sessions || 0;
+  score += dash > 10 ? 15 : dash >= 5 ? 10 : dash >= 2 ? 6 : dash >= 1 ? 3 : 0;
+  const reports = s.report_downloads || 0;
+  score += reports > 10 ? 15 : reports >= 5 ? 10 : reports >= 2 ? 6 : reports >= 1 ? 3 : 0;
+  const visits = s.repeat_visits || 0;
+  score += visits > 5 ? 10 : visits >= 3 ? 6 : visits >= 2 ? 3 : visits >= 1 ? 1 : 0;
+  if (s.enterprise_inquiry === 'submitted') score += 15;
+  else if (s.enterprise_inquiry === 'page_viewed') score += 5;
+  if (s.mssp_inquiry === 'submitted') score += 15;
+  else if (s.mssp_inquiry === 'page_viewed') score += 5;
+  if (s.demo_status === 'completed') score += 20;
+  else if (s.demo_status === 'scheduled') score += 12;
+  else if (s.demo_status === 'requested') score += 6;
+  const sz = s.company_size || '';
+  score += sz === '5000+' ? 10 : sz === '1001-5000' ? 8 : sz === '201-1000' ? 5 : sz === '51-200' ? 3 : 1;
+  return Math.min(100, score);
+}
+
+function getTier(score) {
+  return score >= 70 ? 'HOT' : score >= 40 ? 'WARM' : 'COLD';
+}
+
+// Demo lead data
+const demoLeads = [
+  { id:'L001', name:'Aditya Sharma', company:'SecureBank Ltd', title:'Head of Threat Intel', industry:'Financial Services', size:'1001-5000',
+    signals:{api_calls:247,dashboard_sessions:18,report_downloads:12,repeat_visits:8,enterprise_inquiry:'submitted',demo_status:'scheduled',company_size:'1001-5000'},
+    source:'LinkedIn', created_at:'2026-06-01' },
+  { id:'L002', name:'Elena Kowalski', company:'EuroMSSP GmbH', title:'CTO', industry:'MSSP / MDR', size:'201-1000',
+    signals:{api_calls:89,dashboard_sessions:7,report_downloads:4,repeat_visits:5,mssp_inquiry:'submitted',demo_status:'requested',company_size:'201-1000'},
+    source:'Partner Referral', created_at:'2026-06-02' },
+  { id:'L003', name:'James Okafor', company:'HealthGuard Systems', title:'CISO', industry:'Healthcare', size:'5000+',
+    signals:{api_calls:12,dashboard_sessions:3,report_downloads:2,repeat_visits:3,enterprise_inquiry:'page_viewed',company_size:'5000+'},
+    source:'Organic Search', created_at:'2026-06-03' },
+  { id:'L004', name:'Priya Nair', company:'TechCorp India', title:'Security Analyst', industry:'Technology', size:'51-200',
+    signals:{api_calls:5,dashboard_sessions:2,report_downloads:1,repeat_visits:2,company_size:'51-200'},
+    source:'Blog / Content', created_at:'2026-06-04' },
+  { id:'L005', name:'Marcus Webb', company:'FinSec Partners', title:'VP Security', industry:'Financial Services', size:'1001-5000',
+    signals:{api_calls:312,dashboard_sessions:24,report_downloads:19,repeat_visits:12,enterprise_inquiry:'submitted',demo_status:'completed',company_size:'1001-5000'},
+    source:'Conference / Event', created_at:'2026-05-28' },
+];
+
+let allLeads = [];
+let currentFilter = 'all';
+
+function loadLeads() {
+  allLeads = demoLeads.map(l => ({ ...l, score: scoreLead(l), tier: getTier(scoreLead(l)) }));
+  updateStats();
+  renderLeads(allLeads);
+}
+
+function updateStats() {
+  const hot = allLeads.filter(l => l.tier === 'HOT').length;
+  const warm = allLeads.filter(l => l.tier === 'WARM').length;
+  const cold = allLeads.filter(l => l.tier === 'COLD').length;
+  const avg = allLeads.reduce((s, l) => s + l.score, 0) / (allLeads.length || 1);
+  const demos = allLeads.filter(l => l.signals.demo_status && l.signals.demo_status !== 'none').length;
+  document.getElementById('hot-count').textContent = hot;
+  document.getElementById('warm-count').textContent = warm;
+  document.getElementById('cold-count').textContent = cold;
+  document.getElementById('total-leads').textContent = allLeads.length;
+  document.getElementById('avg-score').textContent = avg.toFixed(0);
+  document.getElementById('demo-rate').textContent = allLeads.length ? ((demos / allLeads.length) * 100).toFixed(0) + '%' : '0%';
+}
+
+function filterLeads(filter, btn) {
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  currentFilter = filter;
+  let filtered = allLeads;
+  if (filter === 'HOT') filtered = allLeads.filter(l => l.tier === 'HOT');
+  else if (filter === 'WARM') filtered = allLeads.filter(l => l.tier === 'WARM');
+  else if (filter === 'COLD') filtered = allLeads.filter(l => l.tier === 'COLD');
+  else if (filter === 'demo') filtered = allLeads.filter(l => l.signals.demo_status && l.signals.demo_status !== 'none');
+  else if (filter === 'api') filtered = allLeads.filter(l => (l.signals.api_calls || 0) > 0);
+  renderLeads(filtered);
+}
+
+function renderLeads(leads) {
+  const container = document.getElementById('leads-container');
+  if (!leads.length) {
+    container.innerHTML = '<div class="empty-state"><h3>No leads match this filter</h3><p>Adjust filter criteria or add leads via the lead capture forms.</p></div>';
+    return;
+  }
+  const fillClass = t => t === 'HOT' ? 'fill-hot' : t === 'WARM' ? 'fill-warm' : 'fill-cold';
+  const badgeClass = t => t === 'HOT' ? 'badge-hot' : t === 'WARM' ? 'badge-warm' : 'badge-cold';
+
+  container.innerHTML = `<table class="leads-table">
+    <thead><tr>
+      <th>Lead</th><th>Company</th><th>Industry</th><th>Score</th><th>Tier</th><th>Signals</th><th>Source</th><th>Actions</th>
+    </tr></thead>
+    <tbody>${leads.sort((a,b) => b.score - a.score).map(l => `
+    <tr>
+      <td><strong>${l.name}</strong><br><span style="font-size:11px;color:var(--muted)">${l.title}</span></td>
+      <td>${l.company}<br><span style="font-size:10px;color:var(--muted)">${l.size} employees</span></td>
+      <td style="font-size:12px">${l.industry}</td>
+      <td><div class="score-bar-wrap">
+        <div class="score-bar"><div class="score-fill ${fillClass(l.tier)}" style="width:${l.score}%"></div></div>
+        <span style="font-size:12px;font-family:monospace;font-weight:700">${l.score}</span>
+      </div></td>
+      <td><span class="tier-badge ${badgeClass(l.tier)}">${l.tier}</span></td>
+      <td><div class="signal-list">
+        ${l.signals.api_calls ? `<span class="signal">API: ${l.signals.api_calls}</span>` : ''}
+        ${l.signals.dashboard_sessions ? `<span class="signal">Dash: ${l.signals.dashboard_sessions}</span>` : ''}
+        ${l.signals.demo_status && l.signals.demo_status !== 'none' ? `<span class="signal">Demo: ${l.signals.demo_status}</span>` : ''}
+        ${l.signals.enterprise_inquiry === 'submitted' ? `<span class="signal">ENT Inquiry</span>` : ''}
+        ${l.signals.mssp_inquiry === 'submitted' ? `<span class="signal">MSSP Inquiry</span>` : ''}
+      </div></td>
+      <td><span class="source-badge">${l.source}</span></td>
+      <td><button class="action-btn btn-followup">Follow-up</button> <button class="action-btn btn-demo">Demo</button></td>
+    </tr>`).join('')}
+    </tbody></table>`;
+}
+
+loadLeads();
+</script>
+</body>
+</html>
