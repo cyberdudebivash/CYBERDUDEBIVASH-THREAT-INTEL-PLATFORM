@@ -10726,15 +10726,30 @@ ${item.stix_object_count != null ? `<div class="apex-kv" style="margin-top:4px;"
                                 (iocCount > 0 ? '<span class="enrich-item">IOCs <span class="e-val" style="color:#ff7700;">' + iocCount + '</span></span>' : '') +
                                 enrichParts.join('') +
                             '</div>' +
-                            // Footer row: badges + report link
-                            // ACCESS GOVERNANCE v173.0 — report link only for PRO+
-                            '<div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;">' +
-                                badges +
-                                (_hasProAccess && reportUrl !== '#'
-                                    ? '<a href="' + reportUrl + '" target="_blank" rel="noopener" style="margin-left:auto;background:linear-gradient(135deg,rgba(0,212,170,0.14),rgba(0,212,170,0.05));border:1px solid var(--accent,#00d4aa);color:var(--accent,#00d4aa);padding:6px 16px;border-radius:5px;font-size:11px;font-weight:700;letter-spacing:0.5px;text-decoration:none;display:inline-flex;align-items:center;gap:5px;font-family:var(--font-mono,monospace);" title="View Full Intel Report">&#128196; VIEW REPORT &#8599;</a>'
-                                    : '<a href="/upgrade.html?plan=pro&utm_source=reports-tab-gate" target="_blank" rel="noopener" style="margin-left:auto;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.1);color:#666;padding:6px 16px;border-radius:5px;font-size:11px;font-weight:700;letter-spacing:0.5px;text-decoration:none;display:inline-flex;align-items:center;gap:5px;font-family:var(--font-mono,monospace);" title="PRO tier required">&#128274; UPGRADE FOR FULL REPORT</a>'
-                                ) +
-                            '</div>' +
+                            // v175.2 World-Class Footer — report CTA + source trust signal + conversion row
+                            (function(){
+                                const _srcName = item.source_name || item.source || item.feed_source || '';
+                                const _srcTrust = ['BleepingComputer','The Hacker News','Krebs','Recorded Future','Mandiant','CrowdStrike','Rapid7','CISA','NSA','CERT','Secureworks'].find(s => _srcName.includes(s)) ? '&#10003; Verified Source' : '';
+                                const _iocTotal = Object.values(item.ioc_counts||{}).reduce((a,b)=>a+(+b||0),0);
+                                const _ttpTotal = (item.mitre_techniques||[]).length;
+                                const _hasCve = !!(item.cve_id || (item.cve_ids||[]).length);
+                                const _statsRow = (_iocTotal||_ttpTotal||_hasCve) ? '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;padding:8px 0;border-top:1px solid rgba(255,255,255,0.04);">'
+                                    + (_iocTotal  ? '<span style="font-family:var(--font-mono,monospace);font-size:8px;color:#00d4aa;background:rgba(0,212,170,0.08);border:1px solid rgba(0,212,170,0.2);padding:3px 8px;border-radius:4px;letter-spacing:0.5px;font-weight:700;">&#9671; ' + _iocTotal + ' IOC' + (_iocTotal>1?'s':'') + '</span>' : '')
+                                    + (_ttpTotal  ? '<span style="font-family:var(--font-mono,monospace);font-size:8px;color:#818cf8;background:rgba(129,140,248,0.08);border:1px solid rgba(129,140,248,0.2);padding:3px 8px;border-radius:4px;letter-spacing:0.5px;font-weight:700;">&#9670; ' + _ttpTotal + ' TTP' + (_ttpTotal>1?'s':'') + '</span>' : '')
+                                    + (_hasCve    ? '<span style="font-family:var(--font-mono,monospace);font-size:8px;color:#f59e0b;background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.2);padding:3px 8px;border-radius:4px;letter-spacing:0.5px;font-weight:700;">&#9650; ' + (item.cve_id||(item.cve_ids||[])[0]||'CVE') + '</span>' : '')
+                                    + (_srcTrust  ? '<span style="font-family:var(--font-mono,monospace);font-size:8px;color:#34d399;background:rgba(52,211,153,0.06);border:1px solid rgba(52,211,153,0.15);padding:3px 8px;border-radius:4px;margin-left:auto;">' + _srcTrust + '</span>' : '')
+                                    + '</div>' : '';
+                                const _ctaReport = (_hasProAccess && reportUrl !== '#')
+                                    ? '<a href="' + reportUrl + '" target="_blank" rel="noopener" class="cdb-report-link" style="margin-left:auto;background:linear-gradient(135deg,rgba(0,212,170,0.18),rgba(0,212,170,0.07));border:1px solid rgba(0,212,170,0.4);color:#00d4aa;padding:9px 18px;border-radius:6px;font-size:10.5px;font-weight:800;letter-spacing:0.8px;text-decoration:none;display:inline-flex;align-items:center;gap:6px;font-family:var(--font-mono,monospace);box-shadow:0 0 16px rgba(0,212,170,0.12);transition:all 0.2s;" title="View Full Intel Dossier — 20 sections, STIX 2.1, IOC data">&#128196; VIEW DOSSIER &rarr;</a>'
+                                    : '<a href="/upgrade.html?plan=pro&utm_source=reports-tab-gate&ref=' + encodeURIComponent(item.stix_id||'') + '" target="_blank" rel="noopener" style="margin-left:auto;background:linear-gradient(135deg,rgba(220,38,38,0.2),rgba(185,28,28,0.12));border:1px solid rgba(220,38,38,0.38);color:#f87171;padding:9px 18px;border-radius:6px;font-size:10px;font-weight:900;letter-spacing:1px;text-decoration:none;display:inline-flex;align-items:center;gap:6px;font-family:var(--font-mono,monospace);box-shadow:0 0 18px rgba(220,38,38,0.18);transition:all 0.2s;" title="Upgrade to PRO — unlock full 20-section dossier">&#128274; UNLOCK FULL INTEL</a>';
+                                const _srcBadge = _srcName ? '<span style="font-family:var(--font-mono,monospace);font-size:8px;color:#3d5060;letter-spacing:0.3px;padding:2px 0;">SRC: ' + _srcName.slice(0,28) + '</span>' : '';
+                                return _statsRow +
+                                    '<div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding-top:10px;border-top:1px solid rgba(255,255,255,0.04);">'
+                                    + badges
+                                    + _srcBadge
+                                    + _ctaReport
+                                    + '</div>';
+                            })() +
                         '</div>';
                     } catch(itemErr) {
                         console.warn('[GOD MODE] Card render error:', item && (item.stix_id || item.id), itemErr.message);
@@ -16924,6 +16939,349 @@ a:focus-visible {
   outline: none !important;
   /* background deliberately omitted — panel bg (#020a14) shows through */
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   SENTINEL APEX v175.2 — WORLD-CLASS THREAT INTEL CARD SYSTEM
+   God-Level Production UI/UX — Lead Generation Optimized
+   Global Enterprise Grade · Mobile-First · Conversion Optimized
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── Card Foundation ──────────────────────────────────────────────────────── */
+.intel-card {
+  background: linear-gradient(145deg, rgba(10,13,22,0.98) 0%, rgba(8,11,20,0.99) 100%) !important;
+  border-radius: 12px !important;
+  border: 1px solid rgba(255,255,255,0.06) !important;
+  border-left-width: 3px !important;
+  box-shadow: 0 4px 32px rgba(0,0,0,0.6), 0 1px 0 rgba(255,255,255,0.03) inset !important;
+  transition: transform 0.2s cubic-bezier(0.4,0,0.2,1), box-shadow 0.2s cubic-bezier(0.4,0,0.2,1), border-color 0.2s !important;
+  position: relative !important;
+  overflow: hidden !important;
+  padding: 18px 20px 16px !important;
+  will-change: transform !important;
+}
+
+/* Subtle noise texture overlay for depth */
+.intel-card::before {
+  content: '' !important;
+  position: absolute !important; inset: 0 !important;
+  background: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.025'/%3E%3C/svg%3E") !important;
+  pointer-events: none !important; opacity: 0.4 !important; z-index: 0 !important;
+  border-radius: inherit !important;
+}
+
+/* ── Severity-Specific Treatments ────────────────────────────────────────── */
+.intel-card.sev-critical {
+  background: linear-gradient(145deg, rgba(18,8,8,0.99) 0%, rgba(12,6,6,0.99) 100%) !important;
+  border-left-color: #dc2626 !important;
+  border-top: 1px solid rgba(220,38,38,0.18) !important;
+  animation: cdb-crit-pulse 3.5s ease-in-out infinite !important;
+}
+.intel-card.sev-high {
+  background: linear-gradient(145deg, rgba(16,10,6,0.99) 0%, rgba(12,8,5,0.99) 100%) !important;
+  border-left-color: #ea580c !important;
+  border-top: 1px solid rgba(234,88,12,0.14) !important;
+  animation: cdb-high-pulse 4.5s ease-in-out infinite !important;
+}
+.intel-card.sev-medium {
+  border-left-color: #d97706 !important;
+}
+.intel-card.sev-low {
+  border-left-color: rgba(22,163,74,0.7) !important;
+}
+
+@keyframes cdb-crit-pulse {
+  0%,100% { box-shadow: 0 4px 32px rgba(0,0,0,0.65), -3px 0 20px rgba(220,38,38,0.12); }
+  50%      { box-shadow: 0 6px 40px rgba(0,0,0,0.7), -3px 0 30px rgba(220,38,38,0.22), 0 0 60px rgba(220,38,38,0.04); }
+}
+@keyframes cdb-high-pulse {
+  0%,100% { box-shadow: 0 4px 32px rgba(0,0,0,0.6), -3px 0 16px rgba(234,88,12,0.1); }
+  50%      { box-shadow: 0 6px 36px rgba(0,0,0,0.65), -3px 0 24px rgba(234,88,12,0.18); }
+}
+
+/* ── Hover State ──────────────────────────────────────────────────────────── */
+.intel-card:hover {
+  transform: translateY(-3px) !important;
+  box-shadow: 0 16px 56px rgba(0,0,0,0.75), 0 1px 0 rgba(255,255,255,0.05) inset !important;
+  border-color: rgba(255,255,255,0.1) !important;
+  z-index: 2 !important;
+}
+.intel-card.sev-critical:hover { box-shadow: 0 16px 56px rgba(0,0,0,0.8), -4px 0 28px rgba(220,38,38,0.25), 0 0 80px rgba(220,38,38,0.05) !important; }
+.intel-card.sev-high:hover     { box-shadow: 0 16px 48px rgba(0,0,0,0.75), -4px 0 22px rgba(234,88,12,0.2) !important; }
+.intel-card.sev-medium:hover   { box-shadow: 0 14px 44px rgba(0,0,0,0.7), -3px 0 18px rgba(217,119,6,0.12) !important; }
+
+/* ── Card Header Badges ───────────────────────────────────────────────────── */
+.intel-card .card-meta {
+  display: flex !important; flex-wrap: wrap !important; gap: 5px !important;
+  align-items: center !important; margin-bottom: 10px !important;
+}
+.intel-card .badge {
+  font-family: 'JetBrains Mono', monospace !important;
+  font-size: 8px !important; font-weight: 800 !important;
+  letter-spacing: 1.5px !important; text-transform: uppercase !important;
+  padding: 3px 9px !important; border-radius: 3px !important;
+  border: 1px solid transparent !important; line-height: 1.4 !important;
+  backdrop-filter: blur(4px) !important;
+}
+.intel-card .badge-critical, .intel-card .badge-CRITICAL {
+  background: rgba(220,38,38,0.18) !important; color: #f87171 !important;
+  border-color: rgba(220,38,38,0.35) !important;
+  box-shadow: 0 0 10px rgba(220,38,38,0.15) !important;
+}
+.intel-card .badge-high, .intel-card .badge-HIGH {
+  background: rgba(234,88,12,0.16) !important; color: #fb923c !important;
+  border-color: rgba(234,88,12,0.3) !important;
+}
+.intel-card .badge-medium, .intel-card .badge-MEDIUM {
+  background: rgba(217,119,6,0.14) !important; color: #fbbf24 !important;
+  border-color: rgba(217,119,6,0.28) !important;
+}
+.intel-card .badge-low, .intel-card .badge-LOW {
+  background: rgba(22,163,74,0.1) !important; color: #4ade80 !important;
+  border-color: rgba(22,163,74,0.2) !important;
+}
+.intel-card .badge-accent {
+  background: rgba(0,212,170,0.1) !important; color: #00d4aa !important;
+  border-color: rgba(0,212,170,0.25) !important;
+}
+
+/* ── KEV Badge — Maximum Urgency ──────────────────────────────────────────── */
+.intel-card [class*="kev"], .intel-card [title*="KEV"], .intel-card [title*="kev"] {
+  background: linear-gradient(135deg, rgba(220,38,38,0.25), rgba(239,68,68,0.15)) !important;
+  color: #ff6b6b !important; border-color: rgba(220,38,38,0.5) !important;
+  box-shadow: 0 0 12px rgba(220,38,38,0.2), 0 0 0 1px rgba(220,38,38,0.15) !important;
+  font-weight: 900 !important; letter-spacing: 2px !important;
+  animation: kev-warn 2s ease-in-out infinite !important;
+}
+@keyframes kev-warn {
+  0%,100% { box-shadow: 0 0 10px rgba(220,38,38,0.18), 0 0 0 1px rgba(220,38,38,0.12); }
+  50%      { box-shadow: 0 0 18px rgba(220,38,38,0.32), 0 0 0 1px rgba(220,38,38,0.25); }
+}
+
+/* ── Card Title ───────────────────────────────────────────────────────────── */
+.intel-card .card-title, .intel-card h3.card-title {
+  font-family: 'Outfit', system-ui, sans-serif !important;
+  font-size: 14px !important; font-weight: 700 !important;
+  color: #dde6f0 !important; line-height: 1.45 !important;
+  margin: 10px 0 10px !important;
+  letter-spacing: -0.01em !important;
+  transition: color 0.2s !important;
+}
+.intel-card:hover .card-title, .intel-card:hover h3.card-title { color: #f0f6ff !important; }
+.intel-card.sev-critical .card-title,
+.intel-card.sev-critical h3.card-title { color: #fecaca !important; }
+.intel-card.sev-high .card-title,
+.intel-card.sev-high h3.card-title { color: #fed7aa !important; }
+
+/* ── AI Summary Preview ───────────────────────────────────────────────────── */
+.intel-card .cdb-summary {
+  display: flex !important; gap: 8px !important; align-items: flex-start !important;
+  padding: 10px 12px !important;
+  background: rgba(255,255,255,0.025) !important;
+  border: 1px solid rgba(255,255,255,0.06) !important;
+  border-radius: 6px !important; margin-bottom: 12px !important;
+}
+.intel-card .cdb-summary-ico {
+  font-size: 13px !important; flex-shrink: 0 !important; margin-top: 1px !important;
+}
+.intel-card .cdb-summary-txt {
+  font-size: 11.5px !important; color: #8fa3b8 !important;
+  line-height: 1.6 !important; font-weight: 400 !important;
+}
+
+/* ── Score Bars ───────────────────────────────────────────────────────────── */
+.intel-card .cdb-ring {
+  width: 68px !important; height: 68px !important;
+}
+.intel-card .cdb-rval {
+  font-family: 'JetBrains Mono', monospace !important;
+  font-size: 13px !important; font-weight: 900 !important;
+}
+.intel-card .cdb-rlabel {
+  font-family: 'JetBrains Mono', monospace !important;
+  font-size: 7.5px !important; letter-spacing: 1.5px !important;
+  text-transform: uppercase !important; margin-top: 4px !important;
+}
+
+/* ── MITRE / IOC / Enrich Strips ─────────────────────────────────────────── */
+.intel-card .enrich-strip {
+  display: flex !important; flex-wrap: wrap !important;
+  gap: 6px !important; margin-bottom: 10px !important;
+  padding: 8px 10px !important;
+  background: rgba(0,0,0,0.2) !important;
+  border: 1px solid rgba(255,255,255,0.04) !important;
+  border-radius: 6px !important;
+}
+.intel-card .enrich-item {
+  font-family: 'JetBrains Mono', monospace !important;
+  font-size: 8.5px !important; color: #4a6070 !important;
+  letter-spacing: 0.5px !important; text-transform: uppercase !important;
+}
+.intel-card .enrich-item .e-val {
+  font-weight: 800 !important; margin-left: 4px !important;
+}
+.intel-card .cdb-ioc {
+  font-family: 'JetBrains Mono', monospace !important;
+  font-size: 8px !important; padding: 2px 7px !important;
+  border-radius: 3px !important;
+  background: rgba(0,255,200,0.07) !important;
+  color: #00d4aa !important; border: 1px solid rgba(0,212,170,0.18) !important;
+}
+
+/* ── Card Footer / CTA ────────────────────────────────────────────────────── */
+.intel-card .card-footer {
+  display: flex !important; flex-wrap: wrap !important;
+  gap: 8px !important; align-items: center !important;
+  padding-top: 12px !important;
+  border-top: 1px solid rgba(255,255,255,0.05) !important;
+  margin-top: 12px !important;
+}
+.intel-card a[href*="report"], .intel-card a[href*="/reports/"],
+.intel-card .card-link, .intel-card .cdb-report-link {
+  display: inline-flex !important; align-items: center !important;
+  gap: 6px !important; padding: 8px 16px !important;
+  background: linear-gradient(135deg, rgba(0,212,170,0.16), rgba(0,212,170,0.06)) !important;
+  border: 1px solid rgba(0,212,170,0.35) !important;
+  color: #00d4aa !important; border-radius: 6px !important;
+  font-family: 'JetBrains Mono', monospace !important;
+  font-size: 10px !important; font-weight: 800 !important;
+  letter-spacing: 0.8px !important; text-decoration: none !important;
+  transition: all 0.2s !important; white-space: nowrap !important;
+  box-shadow: 0 0 14px rgba(0,212,170,0.1) !important;
+}
+.intel-card a[href*="report"]:hover, .intel-card a[href*="/reports/"]:hover,
+.intel-card .card-link:hover, .intel-card .cdb-report-link:hover {
+  background: linear-gradient(135deg, rgba(0,212,170,0.28), rgba(0,212,170,0.14)) !important;
+  border-color: rgba(0,212,170,0.6) !important;
+  box-shadow: 0 0 24px rgba(0,212,170,0.22), 0 4px 16px rgba(0,0,0,0.4) !important;
+  transform: translateY(-1px) !important;
+}
+
+/* ── Upgrade / Locked CTA — Conversion Optimized ─────────────────────────── */
+.intel-card a[href*="upgrade"], .intel-card a[href*="UPGRADE"],
+.intel-card .card-tier-cta-btn {
+  display: inline-flex !important; align-items: center !important;
+  gap: 6px !important; padding: 8px 16px !important;
+  background: linear-gradient(135deg, #dc2626, #b91c1c) !important;
+  border: 1px solid rgba(220,38,38,0.5) !important;
+  color: #fff !important; border-radius: 6px !important;
+  font-family: 'JetBrains Mono', monospace !important;
+  font-size: 10px !important; font-weight: 900 !important;
+  letter-spacing: 1px !important; text-decoration: none !important;
+  transition: all 0.2s !important; white-space: nowrap !important;
+  box-shadow: 0 0 20px rgba(220,38,38,0.3), 0 4px 16px rgba(0,0,0,0.4) !important;
+}
+.intel-card a[href*="upgrade"]:hover, .intel-card .card-tier-cta-btn:hover {
+  background: linear-gradient(135deg, #ef4444, #dc2626) !important;
+  box-shadow: 0 0 32px rgba(220,38,38,0.45), 0 6px 20px rgba(0,0,0,0.5) !important;
+  transform: translateY(-1px) !important;
+}
+
+/* ── LIVE / NEW Indicators ────────────────────────────────────────────────── */
+@keyframes cdb-live-dot { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.6;transform:scale(1.4)} }
+
+/* ── Threat Grid Responsive ───────────────────────────────────────────────── */
+#threat-grid {
+  gap: 16px !important;
+}
+@media (max-width: 768px) {
+  .intel-card { padding: 14px 16px 12px !important; border-radius: 10px !important; }
+  .intel-card .card-title, .intel-card h3.card-title { font-size: 13px !important; }
+  .intel-card .cdb-summary-txt { font-size: 11px !important; }
+  .intel-card .cdb-ring { width: 58px !important; height: 58px !important; }
+}
+@media (max-width: 480px) {
+  .intel-card { padding: 12px 14px 10px !important; }
+  .intel-card .badge { font-size: 7px !important; padding: 2px 7px !important; }
+}
+
+/* ── Trust Signal Footer Strip ────────────────────────────────────────────── */
+.intel-card .card-stix {
+  font-family: 'JetBrains Mono', monospace !important;
+  font-size: 8.5px !important; color: #2a3a4a !important;
+  letter-spacing: 0.3px !important; margin-bottom: 6px !important;
+  transition: color 0.2s !important;
+}
+.intel-card:hover .card-stix { color: #3d5060 !important; }
+
+/* ── Scan Bar ─────────────────────────────────────────────────────────────── */
+.intel-card .cdb-scan-bar {
+  display: flex !important; gap: 6px !important; margin-bottom: 8px !important;
+  flex-wrap: wrap !important;
+}
+
+/* ── Apex Panel ───────────────────────────────────────────────────────────── */
+.intel-card .apex-panel {
+  border-radius: 8px !important;
+  background: rgba(0,0,0,0.25) !important;
+  border: 1px solid rgba(255,255,255,0.06) !important;
+  margin-top: 12px !important;
+}
+
+/* ── Priority Indicator ───────────────────────────────────────────────────── */
+.intel-card .cdb-priority {
+  border-radius: 4px !important;
+  font-family: 'JetBrains Mono', monospace !important;
+  font-size: 8px !important; font-weight: 900 !important;
+  letter-spacing: 2px !important;
+}
+
+/* ── Data Column Improvements ─────────────────────────────────────────────── */
+.intel-card .cdb-data-col { flex: 1 !important; min-width: 0 !important; }
+.intel-card .cdb-ring-col {
+  display: flex !important; flex-direction: column !important;
+  align-items: center !important; flex-shrink: 0 !important;
+  gap: 4px !important;
+}
+
+/* ── Card-level AI Signal Box ─────────────────────────────────────────────── */
+.intel-card [style*="AI SIGNAL"] {
+  border-radius: 6px !important;
+  border: 1px solid rgba(0,212,170,0.18) !important;
+}
+
+/* ── Stats Row Enhancement ────────────────────────────────────────────────── */
+.intel-card .card-ioc-strip {
+  display: flex !important; gap: 5px !important; flex-wrap: wrap !important;
+  margin: 6px 0 !important;
+}
+
+/* ── Paywall Gate Styling ─────────────────────────────────────────────────── */
+.intel-card .apex-lock-cta {
+  background: linear-gradient(135deg, rgba(17,5,5,0.95), rgba(12,4,4,0.9)) !important;
+  border: 1px solid rgba(220,38,38,0.28) !important;
+  border-radius: 6px !important; padding: 10px 14px !important;
+  font-size: 10px !important; color: #9a6060 !important;
+}
+.intel-card .apex-lock-cta a {
+  color: #f87171 !important; font-weight: 900 !important;
+  text-decoration: none !important; margin-left: 8px !important;
+  border-bottom: 1px solid rgba(248,113,113,0.3) !important;
+}
+
+/* ── Feed Health Warning Banner ───────────────────────────────────────────── */
+.cdb-feed-health-warn {
+  background: linear-gradient(135deg, rgba(217,119,6,0.1), rgba(217,119,6,0.05)) !important;
+  border: 1px solid rgba(217,119,6,0.25) !important;
+  border-radius: 8px !important; padding: 10px 16px !important;
+  font-family: 'JetBrains Mono', monospace !important;
+  font-size: 10px !important; color: #f59e0b !important;
+  display: flex !important; align-items: center !important; gap: 8px !important;
+  margin-bottom: 12px !important;
+}
+
+/* ── Shimmer Loading Skeleton ─────────────────────────────────────────────── */
+@keyframes cdb-shimmer {
+  0%   { background-position: -400px 0; }
+  100% { background-position: 400px 0; }
+}
+.intel-card-skeleton {
+  background: linear-gradient(90deg, rgba(255,255,255,0.03) 25%, rgba(255,255,255,0.07) 37%, rgba(255,255,255,0.03) 63%) !important;
+  background-size: 800px 100% !important;
+  animation: cdb-shimmer 1.5s infinite linear !important;
+  border-radius: 12px !important; min-height: 180px !important;
+}
+
+/* ══ END SENTINEL APEX v175.2 WORLD-CLASS CARD ENHANCEMENT ══ */
 </style>
 
 <script>
