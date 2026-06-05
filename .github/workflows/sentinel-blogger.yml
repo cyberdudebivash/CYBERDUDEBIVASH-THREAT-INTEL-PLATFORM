@@ -1638,6 +1638,17 @@ jobs:
         run: python3 scripts/apex_stability_lock.py
 
       # -----------------------------------------------------------------------
+      # STAGE 3.95 - INTELLIGENCE PERSISTENCE ENGINE (v171.0 P0 FIX)
+      # Transforms platform from LATEST FEED VIEW to PERSISTENT REPOSITORY.
+      # Runs AFTER all feed generation so it captures the final state.
+      # NEVER removes advisories -- append-only, cumulative totals only.
+      # Output: data/intelligence_repository/ (committed in STAGE 4)
+      # -----------------------------------------------------------------------
+      - name: "STAGE 3.95 - Intelligence Persistence Engine (v171.0)"
+        timeout-minutes: 10
+        run: python3 scripts/intel_persistence_engine.py
+
+      # -----------------------------------------------------------------------
       # STAGE 4: GIT SYNC -- ALWAYS RUNS
       # Commits non-sensitive metadata and HTML reports. 4-attempt push retry.
       # Exit 0 guaranteed - never kills pipeline.

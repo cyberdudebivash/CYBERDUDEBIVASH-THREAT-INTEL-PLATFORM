@@ -342,6 +342,14 @@ def main() -> None:
         "data/validated_manifest.json",
         "config/feature_flags.json",
         "data/publish_queue.json",
+        # v171.0 INTELLIGENCE PERSISTENCE REPOSITORY (always stage — append-only)
+        "data/intelligence_repository/intelligence_index.json",
+        "data/intelligence_repository/advisory_registry.json",
+        "data/intelligence_repository/intel_retention_registry.json",
+        "data/intelligence_repository/intel_lifecycle_registry.json",
+        "data/intelligence_repository/historical_feed_registry.json",
+        "data/intelligence_repository/advisories/",
+        "intelligence-archive.html",
         # data/feed_manifest.json     → JSON_GUARDED (validated above)
         # data/cache/intel_index.json → JSON_GUARDED (validated above)
         # data/cache/feed_state.json  → JSON_GUARDED (validated above)
