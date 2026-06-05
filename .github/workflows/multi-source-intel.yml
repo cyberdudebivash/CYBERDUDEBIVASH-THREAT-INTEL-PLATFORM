@@ -104,6 +104,17 @@ jobs:
           git add -f data/processed_intel.json     2>/dev/null || true  # dedup fingerprint store
           git add -f data/stix/feed_manifest.json  2>/dev/null || true  # intel manifest (additive)
 
+          # v171.0 P0: Run Intelligence Persistence Engine after every ingest
+          python3 scripts/intel_persistence_engine.py 2>/dev/null || true
+
+          # Stage repository files (append-only, never lose intelligence)
+          git add -f data/intelligence_repository/intelligence_index.json     2>/dev/null || true
+          git add -f data/intelligence_repository/advisory_registry.json      2>/dev/null || true
+          git add -f data/intelligence_repository/intel_retention_registry.json 2>/dev/null || true
+          git add -f data/intelligence_repository/intel_lifecycle_registry.json  2>/dev/null || true
+          git add -f data/intelligence_repository/historical_feed_registry.json  2>/dev/null || true
+          git add -f data/intelligence_repository/advisories/                  2>/dev/null || true
+
           if git diff --staged --quiet; then
             echo "No intel state changes to commit."; exit 0
           fi

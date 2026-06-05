@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Intelligence Archive | CYBERDUDEBIVASH® SENTINEL APEX</title>
+<meta name="description" content="Historical threat intelligence archive — 30, 90, 180, and 365-day views. Persistent advisory repository for SOC, MSSP, and Enterprise customers.">
+<style>
+  :root {
+    --bg: #0a0e1a; --surface: #111827; --surface2: #1a2236; --border: #1e2d45;
+    --accent: #00d4ff; --accent2: #7c3aed; --critical: #ef4444; --high: #f97316;
+    --medium: #eab308; --low: #22c55e; --text: #e2e8f0; --muted: #64748b;
+    --kev: #ff6b00; --permanent: #a855f7;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Inter', system-ui, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+
+  /* Nav */
+  nav { background: var(--surface); border-bottom: 1px solid var(--border); padding: 1rem 2rem; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 100; }
+  .nav-brand { font-size: 1.1rem; font-weight: 700; color: var(--accent); letter-spacing: 0.03em; }
+  .nav-links a { color: var(--muted); text-decoration: none; margin-left: 1.5rem; font-size: 0.9rem; transition: color 0.2s; }
+  .nav-links a:hover { color: var(--text); }
+  .nav-links a.active { color: var(--accent); }
+
+  /* Hero */
+  .hero { padding: 3rem 2rem 2rem; max-width: 1400px; margin: 0 auto; }
+  .hero h1 { font-size: 2rem; font-weight: 800; margin-bottom: 0.5rem; }
+  .hero h1 span { color: var(--accent); }
+  .hero p { color: var(--muted); font-size: 1rem; max-width: 700px; line-height: 1.7; }
+
+  /* Stats bar */
+  .stats-bar { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 1rem; max-width: 1400px; margin: 2rem auto; padding: 0 2rem; }
+  .stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 1.2rem; text-align: center; }
+  .stat-card .value { font-size: 2rem; font-weight: 800; color: var(--accent); }
+  .stat-card .label { font-size: 0.8rem; color: var(--muted); margin-top: 0.3rem; text-transform: uppercase; letter-spacing: 0.05em; }
+  .stat-card.critical .value { color: var(--critical); }
+  .stat-card.high .value { color: var(--high); }
+  .stat-card.kev .value { color: var(--kev); }
+  .stat-card.perm .value { color: var(--permanent); }
+
+  /* Window tabs */
+  .window-tabs { max-width: 1400px; margin: 0 auto; padding: 0 2rem; }
+  .tab-bar { display: flex; gap: 0.5rem; margin-bottom: 1.5rem; flex-wrap: wrap; }
+  .tab { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 0.6rem 1.2rem; cursor: pointer; font-size: 0.9rem; color: var(--muted); transition: all 0.2s; }
+  .tab.active { background: var(--accent); border-color: var(--accent); color: #000; font-weight: 700; }
+  .tab:hover:not(.active) { border-color: var(--accent); color: var(--text); }
+
+  /* Window panel */
+  .window-panel { display: none; }
+  .window-panel.active { display: block; }
+  .panel-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem; }
+  .panel-title { font-size: 1.2rem; font-weight: 700; }
+  .panel-meta { font-size: 0.85rem; color: var(--muted); }
+
+  /* Severity breakdown */
+  .sev-breakdown { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 0.8rem; margin-bottom: 2rem; }
+  .sev-card { background: var(--surface2); border-radius: 8px; padding: 1rem; text-align: center; border-left: 4px solid var(--border); }
+  .sev-card.CRITICAL { border-color: var(--critical); } .sev-card.HIGH { border-color: var(--high); }
+  .sev-card.MEDIUM { border-color: var(--medium); } .sev-card.LOW { border-color: var(--low); }
+  .sev-card .sev-count { font-size: 1.8rem; font-weight: 800; }
+  .sev-card .sev-label { font-size: 0.75rem; color: var(--muted); margin-top: 0.2rem; }
+  .CRITICAL .sev-count { color: var(--critical); } .HIGH .sev-count { color: var(--high); }
+  .MEDIUM .sev-count { color: var(--medium); } .LOW .sev-count { color: var(--low); }
+
+  /* Advisory list */
+  .advisory-list { display: flex; flex-direction: column; gap: 0.8rem; }
+  .advisory-item { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 1.2rem 1.5rem; display: flex; align-items: flex-start; gap: 1.2rem; transition: border-color 0.2s; }
+  .advisory-item:hover { border-color: var(--accent); }
+  .sev-badge { font-size: 0.7rem; font-weight: 700; padding: 0.25rem 0.6rem; border-radius: 4px; white-space: nowrap; flex-shrink: 0; margin-top: 2px; }
+  .badge-CRITICAL { background: rgba(239,68,68,0.15); color: var(--critical); border: 1px solid rgba(239,68,68,0.3); }
+  .badge-HIGH     { background: rgba(249,115,22,0.15); color: var(--high); border: 1px solid rgba(249,115,22,0.3); }
+  .badge-MEDIUM   { background: rgba(234,179,8,0.15); color: var(--medium); border: 1px solid rgba(234,179,8,0.3); }
+  .badge-LOW      { background: rgba(34,197,94,0.15); color: var(--low); border: 1px solid rgba(34,197,94,0.3); }
+  .advisory-content { flex: 1; min-width: 0; }
+  .advisory-title { font-size: 0.95rem; font-weight: 600; line-height: 1.5; margin-bottom: 0.4rem; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+  .advisory-meta { display: flex; gap: 1rem; font-size: 0.8rem; color: var(--muted); flex-wrap: wrap; }
+  .kev-tag { background: rgba(255,107,0,0.15); color: var(--kev); border: 1px solid rgba(255,107,0,0.3); border-radius: 3px; padding: 0.1rem 0.4rem; font-size: 0.7rem; font-weight: 700; }
+  .perm-tag { background: rgba(168,85,247,0.15); color: var(--permanent); border: 1px solid rgba(168,85,247,0.3); border-radius: 3px; padding: 0.1rem 0.4rem; font-size: 0.7rem; font-weight: 700; }
+
+  /* Search & filter */
+  .controls { display: flex; gap: 1rem; margin-bottom: 1.5rem; flex-wrap: wrap; }
+  .search-input { flex: 1; min-width: 200px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 0.7rem 1rem; color: var(--text); font-size: 0.9rem; }
+  .search-input:focus { outline: none; border-color: var(--accent); }
+  .filter-select { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 0.7rem 1rem; color: var(--text); font-size: 0.9rem; cursor: pointer; }
+
+  /* Export */
+  .export-bar { display: flex; gap: 0.8rem; margin-bottom: 2rem; flex-wrap: wrap; }
+  .export-btn { background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 0.6rem 1.2rem; cursor: pointer; font-size: 0.85rem; color: var(--text); transition: all 0.2s; }
+  .export-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* Loading spinner */
+  .loading { display: flex; align-items: center; justify-content: center; min-height: 200px; }
+  .spinner { width: 40px; height: 40px; border: 3px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* Tier gate */
+  .tier-gate { background: linear-gradient(135deg, rgba(124,58,237,0.1), rgba(0,212,255,0.1)); border: 1px solid var(--accent2); border-radius: 12px; padding: 2rem; text-align: center; margin: 2rem 0; }
+  .tier-gate h3 { font-size: 1.2rem; font-weight: 700; margin-bottom: 0.5rem; color: var(--accent); }
+  .tier-gate p { color: var(--muted); margin-bottom: 1.2rem; }
+  .upgrade-btn { background: var(--accent2); color: #fff; border: none; border-radius: 8px; padding: 0.8rem 2rem; font-size: 0.95rem; font-weight: 700; cursor: pointer; text-decoration: none; display: inline-block; }
+
+  /* Pagination */
+  .pagination { display: flex; gap: 0.5rem; align-items: center; justify-content: center; margin-top: 2rem; flex-wrap: wrap; }
+  .page-btn { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 0.5rem 0.9rem; cursor: pointer; color: var(--text); font-size: 0.85rem; }
+  .page-btn.active { background: var(--accent); border-color: var(--accent); color: #000; font-weight: 700; }
+  .page-btn:hover:not(.active) { border-color: var(--accent); }
+
+  /* Trend chart placeholder */
+  .trend-chart { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 1.5rem; margin-bottom: 2rem; }
+  .trend-title { font-size: 0.9rem; color: var(--muted); margin-bottom: 1rem; }
+  .trend-bars { display: flex; gap: 3px; align-items: flex-end; height: 60px; }
+  .trend-bar { flex: 1; background: var(--accent); border-radius: 2px 2px 0 0; min-width: 4px; opacity: 0.7; transition: opacity 0.2s; }
+  .trend-bar:hover { opacity: 1; }
+
+  /* Responsive */
+  @media (max-width: 768px) {
+    .hero { padding: 2rem 1rem 1rem; }
+    .hero h1 { font-size: 1.5rem; }
+    .stats-bar, .window-tabs { padding: 0 1rem; }
+  }
+</style>
+</head>
+<body>
+<nav>
+  <div class="nav-brand">⚡ SENTINEL APEX</div>
+  <div class="nav-links">
+    <a href="/">Dashboard</a>
+    <a href="/intelligence-archive.html" class="active">Archive</a>
+    <a href="/intel.html">Intelligence</a>
+    <a href="/upgrade.html">Upgrade</a>
+  </div>
+</nav>
+
+<div class="hero">
+  <h1>Intelligence <span>Archive</span></h1>
+  <p>Persistent threat intelligence repository. Every advisory ever published — searchable, filterable, exportable. Historical intelligence never disappears.</p>
+</div>
+
+<div class="stats-bar" id="statsBar">
+  <div class="stat-card"><div class="value" id="totalCount">—</div><div class="label">Total Advisories</div></div>
+  <div class="stat-card critical"><div class="value" id="criticalCount">—</div><div class="label">Critical</div></div>
+  <div class="stat-card high"><div class="value" id="highCount">—</div><div class="label">High</div></div>
+  <div class="stat-card kev"><div class="value" id="kevCount">—</div><div class="label">KEV Listed</div></div>
+  <div class="stat-card perm"><div class="value" id="permCount">—</div><div class="label">Permanent</div></div>
+  <div class="stat-card"><div class="value" id="runsCount">—</div><div class="label">Pipeline Runs</div></div>
+</div>
+
+<div class="window-tabs">
+  <div class="tab-bar">
+    <button class="tab active" onclick="switchTab('30d',this)">Last 30 Days</button>
+    <button class="tab" onclick="switchTab('90d',this)">Last 90 Days</button>
+    <button class="tab" onclick="switchTab('180d',this)">Last 180 Days</button>
+    <button class="tab" onclick="switchTab('365d',this)">Last 365 Days</button>
+    <button class="tab" onclick="switchTab('all',this)">All Time</button>
+  </div>
+
+  <!-- Window panels -->
+  <div id="panel-30d" class="window-panel active">
+    <div class="panel-header">
+      <div class="panel-title">30-Day Intelligence Window</div>
+      <div class="panel-meta" id="meta-30d">Loading...</div>
+    </div>
+    <div class="sev-breakdown" id="sev-30d"></div>
+    <div class="controls">
+      <input class="search-input" placeholder="Search advisories..." id="search-30d" oninput="filterAdvisories('30d')">
+      <select class="filter-select" id="filter-sev-30d" onchange="filterAdvisories('30d')">
+        <option value="">All Severity</option>
+        <option value="CRITICAL">Critical</option>
+        <option value="HIGH">High</option>
+        <option value="MEDIUM">Medium</option>
+        <option value="LOW">Low</option>
+      </select>
+    </div>
+    <div class="export-bar">
+      <button class="export-btn" onclick="exportJSON('30d')">Export JSON</button>
+      <button class="export-btn" onclick="exportCSV('30d')">Export CSV</button>
+    </div>
+    <div id="list-30d" class="advisory-list"><div class="loading"><div class="spinner"></div></div></div>
+    <div class="pagination" id="page-30d"></div>
+  </div>
+
+  <div id="panel-90d" class="window-panel">
+    <div class="panel-header">
+      <div class="panel-title">90-Day Intelligence Window</div>
+      <div class="panel-meta" id="meta-90d">Loading...</div>
+    </div>
+    <div class="sev-breakdown" id="sev-90d"></div>
+    <div class="controls">
+      <input class="search-input" placeholder="Search advisories..." id="search-90d" oninput="filterAdvisories('90d')">
+      <select class="filter-select" id="filter-sev-90d" onchange="filterAdvisories('90d')">
+        <option value="">All Severity</option>
+        <option value="CRITICAL">Critical</option>
+        <option value="HIGH">High</option>
+        <option value="MEDIUM">Medium</option>
+        <option value="LOW">Low</option>
+      </select>
+    </div>
+    <div class="export-bar">
+      <button class="export-btn" onclick="exportJSON('90d')">Export JSON</button>
+      <button class="export-btn" onclick="exportCSV('90d')">Export CSV</button>
+    </div>
+    <div id="list-90d" class="advisory-list"><div class="loading"><div class="spinner"></div></div></div>
+    <div class="pagination" id="page-90d"></div>
+  </div>
+
+  <div id="panel-180d" class="window-panel">
+    <div class="panel-header">
+      <div class="panel-title">180-Day Intelligence Window</div>
+      <div class="panel-meta" id="meta-180d">Loading...</div>
+    </div>
+    <div class="sev-breakdown" id="sev-180d"></div>
+    <div class="controls">
+      <input class="search-input" placeholder="Search advisories..." id="search-180d" oninput="filterAdvisories('180d')">
+      <select class="filter-select" id="filter-sev-180d" onchange="filterAdvisories('180d')">
+        <option value="">All Severity</option>
+        <option value="CRITICAL">Critical</option>
+        <option value="HIGH">High</option>
+        <option value="MEDIUM">Medium</option>
+        <option value="LOW">Low</option>
+      </select>
+    </div>
+    <div class="export-bar">
+      <button class="export-btn" onclick="exportJSON('180d')">Export JSON</button>
+      <button class="export-btn" onclick="exportCSV('180d')">Export CSV</button>
+    </div>
+    <div id="list-180d" class="advisory-list"><div class="loading"><div class="spinner"></div></div></div>
+    <div class="pagination" id="page-180d"></div>
+  </div>
+
+  <div id="panel-365d" class="window-panel">
+    <div class="panel-header">
+      <div class="panel-title">365-Day Intelligence Window</div>
+      <div class="panel-meta" id="meta-365d">Loading...</div>
+    </div>
+    <div class="tier-gate" id="tier-gate-365d" style="display:none;">
+      <h3>Enterprise Feature</h3>
+      <p>365-day historical archive access requires an Enterprise or MSSP subscription.</p>
+      <a href="/upgrade.html" class="upgrade-btn">Upgrade to Enterprise</a>
+    </div>
+    <div class="sev-breakdown" id="sev-365d"></div>
+    <div class="controls">
+      <input class="search-input" placeholder="Search advisories..." id="search-365d" oninput="filterAdvisories('365d')">
+      <select class="filter-select" id="filter-sev-365d" onchange="filterAdvisories('365d')">
+        <option value="">All Severity</option>
+        <option value="CRITICAL">Critical</option>
+        <option value="HIGH">High</option>
+        <option value="MEDIUM">Medium</option>
+        <option value="LOW">Low</option>
+      </select>
+    </div>
+    <div class="export-bar">
+      <button class="export-btn" onclick="exportJSON('365d')">Export JSON</button>
+      <button class="export-btn" onclick="exportCSV('365d')">Export CSV</button>
+    </div>
+    <div id="list-365d" class="advisory-list"><div class="loading"><div class="spinner"></div></div></div>
+    <div class="pagination" id="page-365d"></div>
+  </div>
+
+  <div id="panel-all" class="window-panel">
+    <div class="panel-header">
+      <div class="panel-title">All-Time Intelligence Repository</div>
+      <div class="panel-meta" id="meta-all">Loading...</div>
+    </div>
+    <div class="trend-chart" id="trend-chart">
+      <div class="trend-title">Advisory Accumulation Trend</div>
+      <div class="trend-bars" id="trend-bars"></div>
+    </div>
+    <div class="controls">
+      <input class="search-input" placeholder="Search all advisories..." id="search-all" oninput="filterAdvisories('all')">
+      <select class="filter-select" id="filter-sev-all" onchange="filterAdvisories('all')">
+        <option value="">All Severity</option>
+        <option value="CRITICAL">Critical</option>
+        <option value="HIGH">High</option>
+        <option value="MEDIUM">Medium</option>
+        <option value="LOW">Low</option>
+      </select>
+    </div>
+    <div class="export-bar">
+      <button class="export-btn" onclick="exportJSON('all')">Export Full Archive JSON</button>
+      <button class="export-btn" onclick="exportCSV('all')">Export Full Archive CSV</button>
+    </div>
+    <div id="list-all" class="advisory-list"><div class="loading"><div class="spinner"></div></div></div>
+    <div class="pagination" id="page-all"></div>
+  </div>
+</div>
+
+<script>
+// ── State ────────────────────────────────────────────────────────────────────
+const REPO_INDEX_URL  = '/data/intelligence_repository/intelligence_index.json';
+const ADVISORY_URL    = '/data/intelligence_repository/advisory_registry.json';
+const HISTORY_URL     = '/data/intelligence_repository/historical_feed_registry.json';
+const PAGE_SIZE = 25;
+const WINDOW_DAYS = { '30d': 30, '90d': 90, '180d': 180, '365d': 365, 'all': 36500 };
+
+let allAdvisories = [];
+let filteredByWindow = {};
+let currentPages = { '30d': 1, '90d': 1, '180d': 1, '365d': 1, 'all': 1 };
+let repoIndex = null;
+let activeWindow = '30d';
+
+// ── Init ─────────────────────────────────────────────────────────────────────
+async function init() {
+  await Promise.all([loadRepoIndex(), loadAdvisories()]);
+}
+
+async function loadRepoIndex() {
+  try {
+    const res = await fetch(REPO_INDEX_URL + '?t=' + Date.now());
+    if (!res.ok) return;
+    repoIndex = await res.json();
+    updateStatsBar(repoIndex);
+    if (repoIndex.feed_history) {
+      document.getElementById('runsCount').textContent = fmtNum(repoIndex.feed_history.total_runs || 0);
+    }
+  } catch(e) {
+    console.warn('Could not load repo index:', e);
+  }
+}
+
+async function loadAdvisories() {
+  try {
+    const res = await fetch(ADVISORY_URL + '?t=' + Date.now());
+    if (!res.ok) { renderError('all'); return; }
+    const data = await res.json();
+    const advisoriesObj = data.advisories || {};
+    allAdvisories = Object.values(advisoriesObj);
+    buildWindowData();
+    renderAllWindows();
+    buildTrendChart();
+  } catch(e) {
+    console.warn('Could not load advisories:', e);
+    renderError('all');
+  }
+}
+
+function buildWindowData() {
+  const now = Date.now();
+  for (const [window, days] of Object.entries(WINDOW_DAYS)) {
+    const cutoff = new Date(now - days * 86400000).toISOString().slice(0,10);
+    filteredByWindow[window] = allAdvisories.filter(a => {
+      const pub = (a.published || a.published_at || '').slice(0,10);
+      return window === 'all' || pub >= cutoff;
+    });
+  }
+}
+
+function renderAllWindows() {
+  for (const w of ['30d', '90d', '180d', '365d', 'all']) {
+    renderWindow(w);
+  }
+}
+
+function renderWindow(window) {
+  const items = filteredByWindow[window] || [];
+  const search = (document.getElementById('search-' + window)?.value || '').toLowerCase();
+  const sevFilter = document.getElementById('filter-sev-' + window)?.value || '';
+  const filtered = items.filter(a => {
+    if (search && !((a.title||'') + (a.source||'')).toLowerCase().includes(search)) return false;
+    if (sevFilter && a.severity !== sevFilter) return false;
+    return true;
+  });
+
+  // Severity breakdown
+  const sev = { CRITICAL: 0, HIGH: 0, MEDIUM: 0, LOW: 0 };
+  for (const a of filtered) { if (a.severity in sev) sev[a.severity]++; }
+  const sevEl = document.getElementById('sev-' + window);
+  if (sevEl) sevEl.innerHTML = Object.entries(sev).map(([k,v]) =>
+    `<div class="sev-card ${k}"><div class="sev-count">${fmtNum(v)}</div><div class="sev-label">${k}</div></div>`
+  ).join('');
+
+  // Meta
+  const metaEl = document.getElementById('meta-' + window);
+  if (metaEl) metaEl.textContent = `${fmtNum(filtered.length)} advisories`;
+
+  // Paginate
+  const page = currentPages[window] || 1;
+  const total = Math.ceil(filtered.length / PAGE_SIZE);
+  const paged = filtered.slice((page-1)*PAGE_SIZE, page*PAGE_SIZE);
+
+  const listEl = document.getElementById('list-' + window);
+  if (!listEl) return;
+  if (paged.length === 0) {
+    listEl.innerHTML = '<div style="padding:2rem;color:var(--muted);text-align:center">No advisories found for this filter.</div>';
+  } else {
+    listEl.innerHTML = paged.map(a => renderAdvisory(a)).join('');
+  }
+
+  // Pagination
+  const pageEl = document.getElementById('page-' + window);
+  if (pageEl && total > 1) {
+    const pages = [];
+    for (let i = Math.max(1,page-2); i <= Math.min(total, page+2); i++) pages.push(i);
+    pageEl.innerHTML =
+      (page > 1 ? `<button class="page-btn" onclick="goPage('${window}',${page-1})">&#8249;</button>` : '') +
+      pages.map(p => `<button class="page-btn${p===page?' active':''}" onclick="goPage('${window}',${p})">${p}</button>`).join('') +
+      (page < total ? `<button class="page-btn" onclick="goPage('${window}',${page+1})">&#8250;</button>` : '') +
+      `<span style="color:var(--muted);font-size:.8rem;margin-left:.5rem">of ${total} pages</span>`;
+  } else if (pageEl) {
+    pageEl.innerHTML = '';
+  }
+}
+
+function renderAdvisory(a) {
+  const sev = a.severity || 'MEDIUM';
+  const title = a.title || 'Untitled Advisory';
+  const src = a.source || '';
+  const pub = (a.published || a.published_at || '').slice(0,10);
+  const kev = a.is_kev ? '<span class="kev-tag">KEV</span>' : '';
+  const perm = a.is_permanent ? '<span class="perm-tag">PERMANENT</span>' : '';
+  return `
+    <div class="advisory-item">
+      <span class="sev-badge badge-${sev}">${sev}</span>
+      <div class="advisory-content">
+        <div class="advisory-title">${escHtml(title)}</div>
+        <div class="advisory-meta">
+          <span>${escHtml(src)}</span>
+          <span>${pub}</span>
+          ${kev} ${perm}
+        </div>
+      </div>
+    </div>`;
+}
+
+function updateStatsBar(index) {
+  const r = index?.repository || {};
+  const d = index?.dashboard  || {};
+  document.getElementById('totalCount').textContent    = fmtNum(d.total_advisories || r.total_advisories || 0);
+  document.getElementById('criticalCount').textContent = fmtNum(r.severity_breakdown?.CRITICAL || 0);
+  document.getElementById('highCount').textContent     = fmtNum(r.severity_breakdown?.HIGH || 0);
+  document.getElementById('kevCount').textContent      = fmtNum(r.kev_count || 0);
+  document.getElementById('permCount').textContent     = fmtNum(r.permanent_count || 0);
+}
+
+function buildTrendChart() {
+  const bars = document.getElementById('trend-bars');
+  if (!bars || allAdvisories.length === 0) return;
+  // Group by month
+  const monthly = {};
+  for (const a of allAdvisories) {
+    const ym = (a.published || a.published_at || '').slice(0,7);
+    if (ym) monthly[ym] = (monthly[ym] || 0) + 1;
+  }
+  const keys = Object.keys(monthly).sort().slice(-24);
+  const max = Math.max(...keys.map(k => monthly[k]), 1);
+  bars.innerHTML = keys.map(k => {
+    const h = Math.max(4, Math.round((monthly[k]/max)*56));
+    return `<div class="trend-bar" style="height:${h}px" title="${k}: ${monthly[k]}"></div>`;
+  }).join('');
+}
+
+function switchTab(window, btn) {
+  activeWindow = window;
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  btn.classList.add('active');
+  document.querySelectorAll('.window-panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('panel-' + window)?.classList.add('active');
+  renderWindow(window);
+}
+
+function filterAdvisories(window) {
+  currentPages[window] = 1;
+  renderWindow(window);
+}
+
+function goPage(window, page) {
+  currentPages[window] = page;
+  renderWindow(window);
+}
+
+function exportJSON(window) {
+  const data = filteredByWindow[window] || [];
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `sentinel-apex-intel-${window}-${new Date().toISOString().slice(0,10)}.json`;
+  a.click();
+}
+
+function exportCSV(window) {
+  const data = filteredByWindow[window] || [];
+  const cols = ['intel_id','title','severity','risk_score','source','published_at','is_kev','is_permanent'];
+  const rows = data.map(a => cols.map(c => JSON.stringify(a[c]||'')).join(','));
+  const csv = [cols.join(','), ...rows].join('\n');
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `sentinel-apex-intel-${window}-${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+}
+
+function renderError(window) {
+  const el = document.getElementById('list-' + window);
+  if (el) el.innerHTML = '<div style="padding:2rem;color:var(--muted);text-align:center">Repository loading... check back shortly.</div>';
+}
+
+function fmtNum(n) {
+  if (n >= 1000) return (n/1000).toFixed(1) + 'k';
+  return String(n);
+}
+
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// Boot
+init();
+</script>
+</body>
+</html>
