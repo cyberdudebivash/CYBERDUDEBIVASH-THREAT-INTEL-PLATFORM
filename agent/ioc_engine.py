@@ -123,11 +123,16 @@ _DOMAIN_BLOCKLIST = frozenset({
     "cyberdudebivash.com", "cyberdudebivash.in", "intel.cyberdudebivash.com",
     "blog.cyberdudebivash.in", "cyberbivash.blogspot.com",
     # ── Threat intel SOURCE domains (news feeds / vendor blogs) ──────────────
-    # These are intelligence PUBLISHERS — never C2 infrastructure.
+    # These are intelligence PUBLISHERS and data sources -- never C2 infrastructure.
     # Extracting them as IOCs pollutes feeds with false positives.
+    # P0 FIX (2026-06-06): Added vulners.com + vuln-db source domains.
+    # Evidence: vulners.com source_url appeared as URL IOC in 44/44 feed items.
+    "vulners.com", "exploit-db.com", "packetstormsecurity.com",
+    "nvd.nist.gov", "cve.mitre.org", "cisa.gov", "us-cert.cisa.gov",
+    "msrc.microsoft.com", "security.microsoft.com",
     "malwarebytes.com", "wordfence.com", "rapid7.com",
     "bleepingcomputer.com", "thehackernews.com", "securityweek.com",
-    "darkreading.com", "isc.sans.edu", "sans.org",
+    "darkreading.com", "isc.sans.edu", "sans.org", "sans.edu",
     "recordedfuture.com", "mandiant.com", "crowdstrike.com",
     "paloaltonetworks.com", "unit42.paloaltonetworks.com",
     "talos-intelligence.com", "talosintelligence.com", "blog.talosintelligence.com",
@@ -151,12 +156,24 @@ _DOMAIN_BLOCKLIST = frozenset({
 # STIX/JSON feeds embed MITRE T-codes (attack.execution, attack.discovery) and
 # JavaScript property names (document.cookie, tools.installer) in tag fields.
 # The domain regex matches these as fake domain IOCs — this pattern rejects them.
+# P0 FIX (2026-06-06): Expanded from MITRE-only to full code-namespace coverage.
 _MITRE_TAG_PREFIX_RE = re.compile(
-    r'^(?:attack|defense|exfiltration|impact|initial_access|lateral_movement'
+    r'^(?:'
+    r'attack|defense|exfiltration|impact|initial_access|lateral_movement'
     r'|collection|command_and_control|credential_access|discovery|execution'
     r'|persistence|privilege_escalation|reconnaissance|resource_development'
-    r'|document|tools|window|navigator|location|history|screen|console)\.'
-    r'[a-zA-Z_]',
+    r'|document|tools|window|navigator|location|history|screen|console'
+    r'|event|object|function|prototype'
+    r'|os|sys|system|kernel|process|service|thread|socket|file|path'
+    r'|resource|principal|target|method|handler|listener|callback'
+    r'|user|device|session|token|credential|identity|auth'
+    r'|api|app|application|component|module|load|loader|config'
+    r'|additional|result|response|request|error|exception|status|value'
+    r'|param|params|args|attr|attribute|element|node|type|class'
+    r'|cert|http|https|ftp|smtp|dns|ssl|tls|tcp|udp|icmp'
+    r'|isolation|graph|support|victim|video|vscode|ext|extensions'
+    r'|hipreport|getconfig|login|overview|io|the|com|org|net|local'
+    r')[.][a-zA-Z_-]',
     re.IGNORECASE
 )
 
@@ -177,12 +194,33 @@ _FILE_EXT_BLOCKLIST: frozenset = frozenset({
     "zip", "rar", "7z", "tar", "gz", "bz2", "xz", "iso", "cab", "ace",
     # Image
     "png", "jpg", "jpeg", "gif", "bmp", "svg", "ico", "tiff", "webp",
-    # System / binary
+        # System / binary
     "sys", "drv", "ocx", "cpl", "msi", "msp", "scr", "hta", "wsf",
-    "wsh", "lnk", "pif", "com", "tmp", "log", "ini", "cfg", "dat",
+    # NOTE: "com" EXCLUDED -- .com is the world's most common TLD.
+    "wsh", "lnk", "pif", "tmp", "log", "ini", "cfg", "dat",
     "db", "sqlite", "mdb", "bin", "hex",
     # Media
     "mp3", "mp4", "avi", "mkv", "mov", "wav", "flv",
+    # P0 FIX (2026-06-06): Modern language extensions
+    "ts", "tsx", "jsx", "mjs", "cjs", "mts", "cts",
+    "go", "rs", "cs", "kt", "swift", "vue", "svelte", "dart", "elm",
+    "scala", "sol", "lua", "coffee", "wasm",
+    # Package / installer formats
+    "asar", "dmg", "pkg", "deb", "rpm", "appimage", "snap",
+    # Windows / AD system files
+    "dit", "evt", "evtx", "reg", "inf",
+    # Config / runtime files
+    "config", "local", "lock", "pid",
+    # Web-server scripts
+    "jsp",
+    # macOS data store (NOT a ccTLD)
+    "ds",
+    # Certificate / key files
+    "pem", "crt", "cer", "key", "csr", "p12", "pfx", "pub",
+    # Programming pseudo-TLDs (NOT real IANA TLDs)
+    # Evidence: "bd.length" extracted from JS property-chain in feed
+    "length", "prototype", "indexof", "tostring", "valueof",
+    "split", "join", "push", "pop", "shift", "slice",
 })
 
 # Valid hash hex patterns sometimes appear as version numbers, etc.
@@ -382,12 +420,46 @@ def _extract_domains(text: str, exclude_from_urls: Optional[List[str]] = None) -
         # Reject domains that look like version numbers (e.g. 1.2.3.4.5)
         if re.match(r"^[\d.]+$", dom_lower):
             continue
-        # Reject MITRE ATT&CK tags and JS properties misidentified as domains
-        # e.g. attack.execution, document.cookie, tools.installer
+        # Reject code/API/namespace pseudo-domains
         if _MITRE_TAG_PREFIX_RE.match(dom_lower):
+            continue
+        # P0 FIX: Reject single-letter variable chains
+        # e.g. "e.target.closest", "w.location.href"
+        if len(labels[0]) == 1 and labels[0].isalpha() and len(labels) >= 3:
             continue
         result.append(dom_lower)
     return sorted(result)
+
+
+def _is_valid_extracted_domain(dom: str) -> bool:
+    """
+    Single-value domain validator (same rules as _extract_domains).
+    Used in merge path and enforce_ioc_integrity to prevent
+    false-positive re-injection across runs.
+    Returns True only if value is a plausibly valid network domain.
+    """
+    if not dom or not isinstance(dom, str):
+        return False
+    dom_lower = dom.lower().strip().rstrip(".")
+    if not dom_lower:
+        return False
+    labels = dom_lower.split(".")
+    if len(labels) < _DOMAIN_MIN_LABELS:
+        return False
+    tld = labels[-1]
+    if tld in _FILE_EXT_BLOCKLIST:
+        return False
+    if dom_lower in _DOMAIN_BLOCKLIST:
+        return False
+    if len(labels) >= 2 and ".".join(labels[-2:]) in _DOMAIN_BLOCKLIST:
+        return False
+    if re.match(r"^[\d.]+$", dom_lower):
+        return False
+    if _MITRE_TAG_PREFIX_RE.match(dom_lower):
+        return False
+    if len(labels[0]) == 1 and labels[0].isalpha() and len(labels) >= 3:
+        return False
+    return True
 
 
 def _extract_urls(text: str) -> List[str]:
@@ -523,23 +595,25 @@ def extract_iocs(
             "cve":    cves,
         }
 
-        # Merge with pre-existing structured IOCs if provided
+        # Merge with pre-existing structured IOCs.
+        # P0 FIX: domain values validated before merging.
         if existing_iocs_by_type and isinstance(existing_iocs_by_type, dict):
             for ioc_type, values in existing_iocs_by_type.items():
                 if not isinstance(values, list):
                     continue
                 normalized_type = ioc_type.lower().replace("-", "_")
+                if normalized_type == "domain":
+                    clean_values = {
+                        str(v).strip() for v in values
+                        if v and _is_valid_extracted_domain(str(v).strip())
+                    }
+                else:
+                    clean_values = {str(v).strip() for v in values if v}
                 if normalized_type in iocs_by_type:
-                    # Deduplicated union
-                    merged = sorted(
-                        set(iocs_by_type[normalized_type])
-                        | {str(v).strip() for v in values if v}
-                    )
+                    merged = sorted(set(iocs_by_type[normalized_type]) | clean_values)
                     iocs_by_type[normalized_type] = merged
                 else:
-                    iocs_by_type[normalized_type] = sorted(
-                        {str(v).strip() for v in values if v}
-                    )
+                    iocs_by_type[normalized_type] = sorted(clean_values)
 
         # Remove empty types to keep manifest clean
         iocs_by_type = {k: v for k, v in iocs_by_type.items() if v}
@@ -682,6 +756,40 @@ def enforce_ioc_integrity(entry: Dict) -> Dict:
             confidence = min(confidence, 100.0)
         entry["ioc_confidence"] = round(confidence, 2)
         entry["ioc_threat_level"] = _confidence_to_threat_level(confidence)
+
+    # Case 4 (P0 FIX 2026-06-06): Domain scrubbing pass.
+    # Scrubs iocs_by_type["domain"] on EVERY call, regardless of
+    # consistency state, to remove false-positives from prior runs.
+    _ibt = entry.get("iocs_by_type")
+    if isinstance(_ibt, dict) and "domain" in _ibt:
+        _raw = _ibt.get("domain", [])
+        if isinstance(_raw, list):
+            _clean = [d for d in _raw if _is_valid_extracted_domain(str(d))]
+            if len(_clean) != len(_raw):
+                _removed = set(_raw) - set(_clean)
+                logger.info(
+                    "[P0-SCRUB] Removed %d false-positive domains from entry: %s",
+                    len(_removed), sorted(_removed),
+                )
+                _ibt["domain"] = _clean
+                entry["iocs_by_type"] = _ibt
+                _ORD = ["sha256", "sha512", "sha1", "md5", "ipv4", "ipv6",
+                        "url", "domain", "email", "cve"]
+                _flat, _seen = [], set()
+                for _t in _ORD:
+                    for _v in _ibt.get(_t, []):
+                        if _v not in _seen:
+                            _flat.append(_v); _seen.add(_v)
+                for _t, _vs in _ibt.items():
+                    if _t not in _ORD:
+                        for _v in _vs:
+                            if _v not in _seen:
+                                _flat.append(_v); _seen.add(_v)
+                entry["iocs"] = _flat
+                entry["ioc_count"] = len(_flat)
+                _nc = _compute_confidence(_ibt)
+                entry["ioc_confidence"] = round(_nc, 2)
+                entry["ioc_threat_level"] = _confidence_to_threat_level(_nc)
 
     # Guarantee: remove ioc_threat_level=NONE when confidence > 0
     if float(entry.get("ioc_confidence", 0.0)) > 0 and entry.get("ioc_threat_level") == "NONE":
