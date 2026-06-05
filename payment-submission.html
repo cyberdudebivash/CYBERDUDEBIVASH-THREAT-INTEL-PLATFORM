@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Submit Payment — CYBERDUDEBIVASH SENTINEL APEX</title>
+<link rel="icon" type="image/x-icon" href="/favicon.ico">
+<style>
+:root{--bg:#050c18;--bg2:#090f1e;--bg3:#0d1525;--border:#162030;--accent:#00ffc6;--accent2:#7c3aed;--text:#e2e8f0;--muted:#64748b;--green:#10b981;--red:#ef4444;--yellow:#f59e0b;--card:#0b1422;--blue:#3b82f6;}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,sans-serif;min-height:100vh;}
+nav{display:flex;align-items:center;justify-content:space-between;padding:14px 32px;background:rgba(5,12,24,0.97);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:100;}
+.nav-logo{font-family:monospace;font-weight:900;font-size:13px;color:var(--accent);letter-spacing:2px;text-decoration:none;}
+.nav-back{color:var(--muted);text-decoration:none;font-size:12px;display:flex;align-items:center;gap:6px;}
+.nav-back:hover{color:var(--accent);}
+.hero{background:radial-gradient(ellipse 800px 400px at 50% -50px,rgba(0,255,198,0.07) 0%,transparent 60%);padding:40px 24px 32px;text-align:center;border-bottom:1px solid var(--border);}
+.hero-badge{display:inline-flex;align-items:center;gap:8px;background:rgba(0,255,198,0.08);border:1px solid rgba(0,255,198,0.25);border-radius:20px;padding:6px 18px;font-size:11px;color:var(--accent);letter-spacing:1.5px;font-family:monospace;margin-bottom:18px;}
+.hero h1{font-size:clamp(22px,4vw,36px);font-weight:900;margin-bottom:10px;}
+.hero h1 span{color:var(--accent);}
+.hero-sub{font-size:14px;color:var(--muted);max-width:540px;margin:0 auto;}
+.main{max-width:900px;margin:0 auto;padding:40px 24px;}
+.plan-bar{display:flex;gap:10px;margin-bottom:32px;flex-wrap:wrap;justify-content:center;}
+.plan-btn{padding:10px 22px;border-radius:8px;border:2px solid var(--border);background:var(--card);color:var(--muted);font-size:13px;font-weight:700;cursor:pointer;transition:all 0.15s;font-family:inherit;}
+.plan-btn.active{border-color:var(--accent);color:var(--accent);background:rgba(0,255,198,0.06);}
+.plan-btn:hover{border-color:rgba(0,255,198,0.3);color:var(--text);}
+.plan-price{font-size:11px;font-weight:600;color:var(--muted);margin-top:3px;}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:24px;}
+@media(max-width:680px){.grid{grid-template-columns:1fr;}}
+.card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:24px;}
+.card-title{font-size:11px;font-weight:700;color:var(--muted);letter-spacing:2px;text-transform:uppercase;margin-bottom:18px;padding-bottom:10px;border-bottom:1px solid var(--border);}
+.method-tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:20px;}
+.method-tab{padding:8px 14px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--muted);font-size:11px;font-weight:700;cursor:pointer;transition:all 0.15s;font-family:inherit;letter-spacing:0.5px;}
+.method-tab.active{background:rgba(0,255,198,0.1);border-color:var(--accent);color:var(--accent);}
+.method-tab:hover{border-color:rgba(0,255,198,0.3);}
+.method-panel{display:none;}
+.method-panel.active{display:block;}
+.payment-detail{background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:16px;margin-bottom:14px;}
+.pd-label{font-size:10px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:6px;}
+.pd-value{font-family:monospace;font-size:14px;font-weight:700;color:var(--accent);word-break:break-all;}
+.copy-btn{background:rgba(0,255,198,0.1);border:1px solid rgba(0,255,198,0.2);color:var(--accent);padding:5px 12px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;margin-top:8px;font-family:inherit;}
+.copy-btn:hover{background:rgba(0,255,198,0.2);}
+.amount-badge{display:inline-block;background:rgba(245,158,11,0.15);border:1px solid rgba(245,158,11,0.3);color:var(--yellow);padding:6px 14px;border-radius:8px;font-size:13px;font-weight:800;font-family:monospace;margin-bottom:16px;}
+.qr-box{text-align:center;padding:16px;}
+.qr-img{width:160px;height:160px;background:#fff;border-radius:10px;display:flex;align-items:center;justify-content:center;margin:0 auto 12px;font-size:11px;color:#999;}
+.form-group{margin-bottom:16px;}
+.form-label{font-size:11px;font-weight:700;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:7px;display:block;}
+.form-label span{color:var(--red);}
+.form-input,.form-select,.form-textarea{width:100%;background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:12px 14px;color:var(--text);font-size:13px;font-family:inherit;outline:none;transition:border-color 0.15s;}
+.form-input:focus,.form-select:focus,.form-textarea:focus{border-color:var(--accent);}
+.form-select option{background:var(--bg2);}
+.form-textarea{resize:vertical;min-height:80px;}
+.upload-zone{border:2px dashed var(--border);border-radius:10px;padding:20px;text-align:center;cursor:pointer;transition:border-color 0.15s;background:var(--bg2);}
+.upload-zone:hover,.upload-zone.dragover{border-color:var(--accent);background:rgba(0,255,198,0.03);}
+.upload-zone p{font-size:12px;color:var(--muted);margin-top:6px;}
+.upload-icon{font-size:28px;margin-bottom:6px;}
+.submit-btn{width:100%;padding:16px;background:linear-gradient(135deg,var(--accent),#00cc9e);color:#000;font-size:15px;font-weight:900;border:none;border-radius:10px;cursor:pointer;letter-spacing:0.5px;transition:opacity 0.15s;margin-top:8px;}
+.submit-btn:hover{opacity:0.9;}
+.submit-btn:disabled{opacity:0.5;cursor:not-allowed;}
+.note-box{background:rgba(59,130,246,0.08);border:1px solid rgba(59,130,246,0.2);border-radius:10px;padding:14px 16px;margin-top:16px;font-size:12px;color:var(--muted);line-height:1.6;}
+.note-box strong{color:var(--blue);}
+.success-panel{display:none;text-align:center;padding:40px 24px;background:var(--card);border:1px solid var(--green);border-radius:14px;}
+.success-panel.show{display:block;}
+.success-icon{font-size:52px;margin-bottom:16px;}
+.success-ref{font-family:monospace;font-size:18px;font-weight:900;color:var(--accent);margin:12px 0;}
+.badge-row{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-top:20px;}
+.badge{padding:6px 14px;border-radius:20px;border:1px solid var(--border);font-size:11px;color:var(--muted);}
+.spinner{display:inline-block;width:16px;height:16px;border:2px solid rgba(0,0,0,0.3);border-top-color:#000;border-radius:50%;animation:spin 0.7s linear infinite;vertical-align:middle;}
+@keyframes spin{to{transform:rotate(360deg)}}
+.err-msg{background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);border-radius:8px;padding:10px 14px;font-size:12px;color:var(--red);margin-top:8px;display:none;}
+</style>
+</head>
+<body>
+<nav>
+  <a href="/" class="nav-logo">⬡ SENTINEL APEX</a>
+  <a href="/PAYMENT-GATEWAY.html" class="nav-back">← Back to Plans</a>
+</nav>
+
+<div class="hero">
+  <div class="hero-badge">● SECURE PAYMENT SUBMISSION</div>
+  <h1>Submit Your <span>Payment</span></h1>
+  <p class="hero-sub">Pay via your preferred method, then submit your transaction reference. API key delivered within 4 business hours.</p>
+</div>
+
+<div class="main">
+  <div id="successPanel" class="success-panel">
+    <div class="success-icon">✅</div>
+    <h2>Payment Submitted Successfully</h2>
+    <p class="hero-sub" style="margin-top:10px;">We've received your payment evidence and will verify within 4 business hours.</p>
+    <div class="success-ref" id="refNum">REF: —</div>
+    <p style="font-size:12px;color:var(--muted);">Check your email for confirmation. Save this reference number.</p>
+    <div class="badge-row">
+      <span class="badge">📧 Confirmation sent to your email</span>
+      <span class="badge">⏱ Verification: ≤4 business hours</span>
+      <span class="badge">🔑 API key via email on approval</span>
+    </div>
+    <a href="/" style="display:inline-block;margin-top:24px;color:var(--accent);font-size:13px;">← Return to Platform</a>
+  </div>
+
+  <div id="formSection">
+    <!-- Plan selector -->
+    <div style="margin-bottom:24px;">
+      <p style="font-size:11px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:14px;">Select Your Plan</p>
+      <div class="plan-bar">
+        <button class="plan-btn" onclick="selectPlan('PRO',this)" data-plan="PRO">
+          PRO — $99/mo<br><span class="plan-price">₹8,250/mo · 1,000 req/day</span>
+        </button>
+        <button class="plan-btn" onclick="selectPlan('ENTERPRISE',this)" data-plan="ENTERPRISE">
+          ENTERPRISE — $999/mo<br><span class="plan-price">₹83,200/mo · 50,000 req/day</span>
+        </button>
+        <button class="plan-btn" onclick="selectPlan('MSSP',this)" data-plan="MSSP">
+          MSSP — $1,999/mo<br><span class="plan-price">₹1,66,500/mo · White-label</span>
+        </button>
+      </div>
+      <div style="text-align:center;margin-top:10px;">
+        <label style="font-size:12px;color:var(--muted);display:flex;align-items:center;gap:8px;justify-content:center;cursor:pointer;">
+          <input type="checkbox" id="annualToggle" onchange="updateAmounts()" style="accent-color:var(--accent);"> Annual billing — save 2 months (pay 10, get 12)
+        </label>
+      </div>
+    </div>
+
+    <div class="grid">
+      <!-- Payment Instructions -->
+      <div class="card">
+        <div class="card-title">Payment Instructions</div>
+        <div id="amountDisplay" class="amount-badge">Select a plan above</div>
+
+        <div class="method-tabs">
+          <button class="method-tab active" onclick="switchMethod('upi',this)">UPI</button>
+          <button class="method-tab" onclick="switchMethod('paypal',this)">PayPal</button>
+          <button class="method-tab" onclick="switchMethod('neft',this)">NEFT</button>
+          <button class="method-tab" onclick="switchMethod('crypto',this)">Crypto</button>
+          <button class="method-tab" onclick="switchMethod('amazon',this)">Amazon Pay</button>
+        </div>
+
+        <!-- UPI -->
+        <div class="method-panel active" id="method-upi">
+          <div class="payment-detail">
+            <div class="pd-label">UPI ID</div>
+            <div class="pd-value" id="upiId">bivash@ybl</div>
+            <button class="copy-btn" onclick="copyText('bivash@ybl')">Copy UPI ID</button>
+          </div>
+          <div class="payment-detail">
+            <div class="pd-label">Accepted Apps</div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:4px;">
+              <span style="font-size:12px;color:var(--text);">GPay</span><span style="color:var(--border);">·</span>
+              <span style="font-size:12px;color:var(--text);">PhonePe</span><span style="color:var(--border);">·</span>
+              <span style="font-size:12px;color:var(--text);">Paytm</span><span style="color:var(--border);">·</span>
+              <span style="font-size:12px;color:var(--text);">BHIM</span><span style="color:var(--border);">·</span>
+              <span style="font-size:12px;color:var(--text);">AmazonPay UPI</span>
+            </div>
+          </div>
+          <div class="qr-box">
+            <div class="qr-img" id="upiQR"><span>QR Loading…</span></div>
+            <p style="font-size:11px;color:var(--muted);">Scan with any UPI app</p>
+          </div>
+        </div>
+
+        <!-- PayPal -->
+        <div class="method-panel" id="method-paypal">
+          <div class="payment-detail">
+            <div class="pd-label">PayPal.me Link</div>
+            <div class="pd-value" id="paypalLink">paypal.me/cyberdudebivash</div>
+            <button class="copy-btn" onclick="openPaypal()">Open PayPal →</button>
+          </div>
+          <div class="note-box"><strong>Note:</strong> Send payment as "Friends & Family" to avoid fees. Use "Goods & Services" for invoice. Include your email in the PayPal note.</div>
+        </div>
+
+        <!-- NEFT -->
+        <div class="method-panel" id="method-neft">
+          <div class="payment-detail"><div class="pd-label">Account Name</div><div class="pd-value">CYBERDUDEBIVASH PVT LTD</div></div>
+          <div class="payment-detail"><div class="pd-label">Account Number</div><div class="pd-value" id="accNum">XXXXXXXXXX</div><button class="copy-btn" onclick="copyText(document.getElementById('accNum').textContent)">Copy</button></div>
+          <div class="payment-detail"><div class="pd-label">IFSC Code</div><div class="pd-value" id="ifscCode">XXXXXXXXXX</div><button class="copy-btn" onclick="copyText(document.getElementById('ifscCode').textContent)">Copy</button></div>
+          <div class="payment-detail"><div class="pd-label">Bank</div><div class="pd-value">Contact: bivash@cyberdudebivash.in for bank details</div></div>
+          <div class="note-box"><strong>Note:</strong> Include your email in the NEFT remarks field. Send bank transfer confirmation screenshot below.</div>
+        </div>
+
+        <!-- Crypto -->
+        <div class="method-panel" id="method-crypto">
+          <div class="payment-detail">
+            <div class="pd-label">USDT (BEP-20 / BSC)</div>
+            <div class="pd-value" style="font-size:11px;" id="bscWallet">0xYourWalletAddressHere</div>
+            <button class="copy-btn" onclick="copyText(document.getElementById('bscWallet').textContent)">Copy</button>
+          </div>
+          <div class="payment-detail">
+            <div class="pd-label">USDT (ERC-20 / Ethereum)</div>
+            <div class="pd-value" style="font-size:11px;" id="ethWallet">0xYourWalletAddressHere</div>
+            <button class="copy-btn" onclick="copyText(document.getElementById('ethWallet').textContent)">Copy</button>
+          </div>
+          <div class="note-box"><strong>⚠ CRITICAL:</strong> BEP-20 ONLY on BSC network. ERC-20 ONLY on Ethereum mainnet. Do NOT send on wrong network. Amount in USDT = USD price shown above.</div>
+        </div>
+
+        <!-- Amazon Pay -->
+        <div class="method-panel" id="method-amazon">
+          <div class="payment-detail">
+            <div class="pd-label">Amazon Pay UPI</div>
+            <div class="pd-value">bivash@apl</div>
+            <button class="copy-btn" onclick="copyText('bivash@apl')">Copy</button>
+          </div>
+          <div class="note-box">Open Amazon Pay app → Send Money → Enter UPI ID above → Enter the exact amount shown.</div>
+        </div>
+      </div>
+
+      <!-- Submission Form -->
+      <div class="card">
+        <div class="card-title">Payment Evidence</div>
+        <form id="payForm" onsubmit="submitPayment(event)">
+          <div class="form-group">
+            <label class="form-label">Your Email <span>*</span></label>
+            <input type="email" id="fEmail" class="form-input" placeholder="you@company.com" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Plan <span>*</span></label>
+            <select id="fPlan" class="form-select" required onchange="updatePlanFromSelect()">
+              <option value="">— Select Plan —</option>
+              <option value="PRO">PRO — $99/month</option>
+              <option value="ENTERPRISE">ENTERPRISE — $999/month</option>
+              <option value="MSSP">MSSP — $1,999/month</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Billing Cycle</label>
+            <select id="fCycle" class="form-select">
+              <option value="monthly">Monthly</option>
+              <option value="annual">Annual (save 2 months)</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Payment Method <span>*</span></label>
+            <select id="fMethod" class="form-select" required>
+              <option value="">— Select Method —</option>
+              <option value="upi">UPI (GPay/PhonePe/Paytm/BHIM)</option>
+              <option value="amazon_pay">Amazon Pay</option>
+              <option value="paypal">PayPal</option>
+              <option value="neft">NEFT / Bank Transfer</option>
+              <option value="crypto_usdt_bep20">USDT BEP-20 (BSC)</option>
+              <option value="crypto_usdt_erc20">USDT ERC-20 (Ethereum)</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Transaction ID / UTR / Reference</label>
+            <input type="text" id="fTxId" class="form-input" placeholder="UPI Ref / PayPal TxID / NEFT UTR / Crypto TxHash">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Amount Paid <span>*</span></label>
+            <input type="text" id="fAmount" class="form-input" placeholder="e.g. ₹8,250 or $99 or 99 USDT" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Screenshot URL (optional)</label>
+            <input type="url" id="fScreenshot" class="form-input" placeholder="https://drive.google.com/... or paste image URL">
+            <p style="font-size:11px;color:var(--muted);margin-top:5px;">Upload screenshot to Google Drive/Dropbox and paste the share link, OR email it to: payment@cyberdudebivash.in</p>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Notes (optional)</label>
+            <textarea id="fNotes" class="form-textarea" placeholder="Any additional information…"></textarea>
+          </div>
+          <div id="formErr" class="err-msg"></div>
+          <button type="submit" class="submit-btn" id="submitBtn">Submit Payment Evidence</button>
+          <div class="note-box" style="margin-top:14px;">
+            <strong>What happens next:</strong><br>
+            1. We verify your payment (within 4 business hours)<br>
+            2. API key generated automatically upon approval<br>
+            3. Welcome email with key, docs, and onboarding guide<br>
+            4. For Enterprise/MSSP: onboarding call scheduled within 24h
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const PLANS = {
+  PRO:        { usd:99,   inr:8250,   annual_usd:990,   annual_inr:82500  },
+  ENTERPRISE: { usd:999,  inr:83200,  annual_usd:9990,  annual_inr:832000 },
+  MSSP:       { usd:1999, inr:166500, annual_usd:19990, annual_inr:1665000}
+};
+const PAYPAL_AMOUNTS = { PRO:99, ENTERPRISE:999, MSSP:1999 };
+let selectedPlan = null;
+
+// Init from URL params
+const params = new URLSearchParams(location.search);
+const planParam = (params.get('plan')||'').toUpperCase();
+if (PLANS[planParam]) {
+  document.querySelectorAll('.plan-btn').forEach(b => { if (b.dataset.plan === planParam) selectPlan(planParam, b); });
+  document.getElementById('fPlan').value = planParam;
+}
+
+function selectPlan(plan, btn) {
+  selectedPlan = plan;
+  document.querySelectorAll('.plan-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('fPlan').value = plan;
+  updateAmounts();
+}
+
+function updatePlanFromSelect() {
+  const val = document.getElementById('fPlan').value;
+  if (val) {
+    selectedPlan = val;
+    document.querySelectorAll('.plan-btn').forEach(b => { b.classList.toggle('active', b.dataset.plan === val); });
+    updateAmounts();
+  }
+}
+
+function updateAmounts() {
+  if (!selectedPlan) return;
+  const annual = document.getElementById('annualToggle').checked;
+  const p = PLANS[selectedPlan];
+  const usd = annual ? p.annual_usd : p.usd;
+  const inr = annual ? p.annual_inr : p.inr;
+  const label = annual ? '/year' : '/month';
+  document.getElementById('amountDisplay').textContent = `Pay: $${usd.toLocaleString()} USD (₹${inr.toLocaleString()} INR)${label}`;
+  document.getElementById('fAmount').placeholder = `$${usd} or ₹${inr.toLocaleString()} or ${usd} USDT`;
+  document.getElementById('fCycle').value = annual ? 'annual' : 'monthly';
+  generateUPIQR(`bivash@ybl`, usd, selectedPlan);
+}
+
+function switchMethod(method, btn) {
+  document.querySelectorAll('.method-tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.method-panel').forEach(p => p.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('method-'+method).classList.add('active');
+}
+
+function generateUPIQR(upiId, amount, plan) {
+  const upiStr = `upi://pay?pa=${upiId}&pn=CYBERDUDEBIVASH&am=${amount}&cu=INR&tn=SENTINELAPEX-${plan}`;
+  const qrEl = document.getElementById('upiQR');
+  qrEl.innerHTML = '';
+  try {
+    new QRCode(qrEl, { text: upiStr, width:150, height:150, colorDark:'#000', colorLight:'#fff', correctLevel:QRCode.CorrectLevel.H });
+  } catch(e) { qrEl.textContent = 'QR unavailable — use UPI ID above'; }
+}
+
+function openPaypal() {
+  const plan = selectedPlan || 'PRO';
+  window.open(`https://paypal.me/cyberdudebivash/${PAYPAL_AMOUNTS[plan]}`, '_blank');
+}
+
+function copyText(t) {
+  navigator.clipboard.writeText(t).then(() => {
+    const el = event.target; const orig = el.textContent; el.textContent = '✓ Copied!';
+    setTimeout(() => el.textContent = orig, 1800);
+  });
+}
+
+async function submitPayment(e) {
+  e.preventDefault();
+  const btn = document.getElementById('submitBtn');
+  const errEl = document.getElementById('formErr');
+  errEl.style.display = 'none';
+
+  const email = document.getElementById('fEmail').value.trim();
+  const plan  = document.getElementById('fPlan').value;
+  const method = document.getElementById('fMethod').value;
+  const txId  = document.getElementById('fTxId').value.trim();
+  const amount = document.getElementById('fAmount').value.trim();
+  const screenshot = document.getElementById('fScreenshot').value.trim();
+  const notes = document.getElementById('fNotes').value.trim();
+  const cycle = document.getElementById('fCycle').value;
+
+  if (!email || !plan || !method || !amount) { errEl.textContent='Please fill all required fields.'; errEl.style.display='block'; return; }
+  if (!txId && !screenshot) { errEl.textContent='Please provide a transaction ID or screenshot URL as payment evidence.'; errEl.style.display='block'; return; }
+
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Submitting…';
+
+  try {
+    const res = await fetch('https://revenue.intel.cyberdudebivash.com/api/payments/submit', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ email, plan, payment_method:method, transaction_id:txId||null, amount_paid:amount, currency: method.includes('crypto')||method==='paypal' ? 'USD' : 'INR', screenshot_url:screenshot||null, payment_notes:notes||null, billing_cycle:cycle })
+    });
+    const data = await res.json();
+    if (data.success) {
+      document.getElementById('formSection').style.display = 'none';
+      document.getElementById('refNum').textContent = 'REF: ' + data.payment_id;
+      document.getElementById('successPanel').classList.add('show');
+    } else {
+      errEl.textContent = data.error || data.message || 'Submission failed. Try again.';
+      errEl.style.display = 'block';
+      btn.disabled = false; btn.textContent = 'Submit Payment Evidence';
+    }
+  } catch(err) {
+    errEl.textContent = 'Network error. Please email payment@cyberdudebivash.in with your details.';
+    errEl.style.display = 'block';
+    btn.disabled = false; btn.textContent = 'Submit Payment Evidence';
+  }
+}
+</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+</body>
+</html>

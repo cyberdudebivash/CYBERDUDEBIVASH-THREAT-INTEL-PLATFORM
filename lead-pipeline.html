@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lead Pipeline — SENTINEL APEX Admin</title>
+<meta name="robots" content="noindex,nofollow">
+<link rel="icon" href="/favicon.ico">
+<style>
+:root{--bg:#050c18;--bg2:#090f1e;--border:#162030;--accent:#00ffc6;--text:#e2e8f0;--muted:#64748b;--green:#10b981;--red:#ef4444;--yellow:#f59e0b;--card:#0b1422;--blue:#3b82f6;--accent2:#7c3aed;}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,sans-serif;min-height:100vh;}
+#loginScreen{display:flex;align-items:center;justify-content:center;min-height:100vh;}
+.login-card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:36px;max-width:340px;width:90%;text-align:center;}
+.login-input{width:100%;background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:11px 14px;color:var(--text);font-size:13px;font-family:inherit;outline:none;margin-bottom:12px;}
+.login-input:focus{border-color:var(--accent);}
+.login-btn{width:100%;padding:12px;background:var(--accent);color:#000;font-weight:800;border:none;border-radius:8px;cursor:pointer;}
+#app{display:none;}
+nav{display:flex;align-items:center;justify-content:space-between;padding:12px 28px;background:rgba(5,12,24,0.97);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:100;}
+.nav-logo{font-family:monospace;font-weight:900;font-size:12px;color:var(--accent);letter-spacing:2px;}
+.main{max-width:1400px;margin:0 auto;padding:24px;}
+.page-title{font-size:20px;font-weight:800;margin-bottom:4px;}
+.page-sub{font-size:13px;color:var(--muted);margin-bottom:20px;}
+.stats-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px;margin-bottom:20px;}
+.stat-card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:12px;}
+.stat-val{font-size:20px;font-weight:900;font-family:monospace;color:var(--accent);}
+.stat-label{font-size:9px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-top:2px;}
+.toolbar{display:flex;gap:8px;align-items:center;margin-bottom:16px;flex-wrap:wrap;}
+.search-box{background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:8px 12px;color:var(--text);font-size:13px;font-family:inherit;outline:none;min-width:180px;}
+.search-box:focus{border-color:var(--accent);}
+.primary-btn{padding:9px 16px;background:var(--accent);color:#000;font-size:12px;font-weight:800;border:none;border-radius:8px;cursor:pointer;white-space:nowrap;}
+.refresh-btn{padding:9px 14px;border-radius:8px;border:1px solid rgba(0,255,198,0.3);background:rgba(0,255,198,0.06);color:var(--accent);font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;}
+.kanban{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px;overflow-x:auto;}
+.stage-col{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px;min-height:400px;min-width:170px;}
+.stage-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid var(--border);}
+.stage-title{font-size:10px;font-weight:800;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;}
+.stage-count{font-size:10px;font-family:monospace;background:rgba(0,255,198,0.1);color:var(--accent);padding:2px 6px;border-radius:8px;}
+.stage-value{font-size:9px;color:var(--muted);font-family:monospace;display:block;margin-top:3px;}
+.lead-card{background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:10px;margin-bottom:6px;cursor:pointer;transition:border-color 0.15s;}
+.lead-card:hover{border-color:rgba(0,255,198,0.25);}
+.lead-name{font-size:12px;font-weight:700;margin-bottom:3px;}
+.lead-company{font-size:11px;color:var(--muted);margin-bottom:4px;}
+.lead-email{font-size:10px;color:var(--muted);font-family:monospace;}
+.lead-score{display:inline-block;font-size:9px;font-weight:800;padding:2px 6px;border-radius:8px;margin-top:4px;}
+.score-hot{background:rgba(239,68,68,0.2);color:var(--red);border:1px solid rgba(239,68,68,0.3);}
+.score-warm{background:rgba(245,158,11,0.2);color:var(--yellow);border:1px solid rgba(245,158,11,0.3);}
+.score-cold{background:rgba(100,116,139,0.2);color:var(--muted);border:1px solid var(--border);}
+.lead-actions{display:flex;gap:4px;margin-top:6px;}
+.la-btn{padding:3px 7px;border-radius:4px;font-size:9px;font-weight:700;cursor:pointer;font-family:inherit;border:1px solid;transition:all 0.15s;}
+.la-advance{border-color:rgba(16,185,129,0.3);color:var(--green);background:rgba(16,185,129,0.08);}
+.la-email{border-color:rgba(59,130,246,0.3);color:var(--blue);background:rgba(59,130,246,0.08);}
+.la-lost{border-color:rgba(239,68,68,0.3);color:var(--red);background:rgba(239,68,68,0.08);}
+.add-lead-btn{width:100%;padding:6px;background:none;border:1px dashed var(--border);border-radius:6px;color:var(--muted);font-size:10px;cursor:pointer;font-family:inherit;transition:all 0.15s;margin-top:4px;}
+.add-lead-btn:hover{border-color:var(--accent);color:var(--accent);}
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:1000;align-items:center;justify-content:center;}
+.modal-overlay.show{display:flex;}
+.modal{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:24px;max-width:480px;width:90%;max-height:90vh;overflow-y:auto;}
+.modal h3{font-size:15px;font-weight:800;margin-bottom:14px;padding-bottom:10px;border-bottom:1px solid var(--border);}
+.form-group{margin-bottom:12px;}
+.form-label{font-size:10px;font-weight:700;color:var(--muted);letter-spacing:1px;text-transform:uppercase;display:block;margin-bottom:5px;}
+.form-input,.form-select,.form-textarea{width:100%;background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:9px 12px;color:var(--text);font-size:13px;font-family:inherit;outline:none;}
+.form-input:focus,.form-select:focus,.form-textarea:focus{border-color:var(--accent);}
+.form-select option{background:var(--bg2);}
+.form-textarea{min-height:60px;resize:vertical;}
+.modal-actions{display:flex;gap:8px;margin-top:14px;}
+.btn-prim{padding:10px 18px;background:var(--accent);color:#000;font-size:12px;font-weight:800;border:none;border-radius:8px;cursor:pointer;}
+.btn-sec{padding:10px 18px;background:none;color:var(--muted);font-size:12px;font-weight:700;border:1px solid var(--border);border-radius:8px;cursor:pointer;font-family:inherit;}
+#toast{position:fixed;bottom:24px;right:24px;background:var(--green);color:#000;padding:12px 20px;border-radius:10px;font-weight:700;font-size:13px;z-index:9999;opacity:0;transform:translateY(20px);transition:all 0.3s;}
+#toast.show{opacity:1;transform:translateY(0);}
+</style>
+</head>
+<body>
+<div id="loginScreen">
+  <div class="login-card">
+    <div style="font-family:monospace;font-size:16px;font-weight:900;color:var(--accent);margin-bottom:14px;">⬡ SENTINEL APEX</div>
+    <h2 style="font-size:17px;margin-bottom:14px;">CRM Lead Pipeline</h2>
+    <input type="password" id="adminSecret" class="login-input" placeholder="Admin Secret" onkeydown="if(event.key==='Enter')login()">
+    <button class="login-btn" onclick="login()">Access →</button>
+    <p id="loginErr" style="font-size:11px;color:var(--red);margin-top:8px;display:none;">Invalid secret</p>
+  </div>
+</div>
+
+<div id="app">
+  <nav>
+    <span class="nav-logo">⬡ SENTINEL APEX — CRM</span>
+    <div style="display:flex;gap:10px;align-items:center;">
+      <a href="/enterprise-onboarding.html" style="color:var(--muted);font-size:12px;text-decoration:none;">Enterprise</a>
+      <a href="/revenue-dashboard.html" style="color:var(--muted);font-size:12px;text-decoration:none;">Revenue</a>
+      <button onclick="openAddLead()" class="primary-btn">+ Add Lead</button>
+      <button onclick="logout()" style="color:var(--red);background:none;border:none;cursor:pointer;font-size:12px;font-family:inherit;">Logout</button>
+    </div>
+  </nav>
+
+  <div class="main">
+    <div class="page-title">Lead Pipeline — CRM</div>
+    <div class="page-sub">Track all leads from initial contact to closed won. Drag to advance (click Advance).</div>
+    <div class="stats-row">
+      <div class="stat-card"><div class="stat-val" id="sTotal">—</div><div class="stat-label">Total Leads</div></div>
+      <div class="stat-card"><div class="stat-val" id="sPipeline">—</div><div class="stat-label">Pipeline Value</div></div>
+      <div class="stat-card"><div class="stat-val" id="sWon">—</div><div class="stat-label">Closed Won</div></div>
+      <div class="stat-card"><div class="stat-val" id="sWonVal">—</div><div class="stat-label">Won Value/mo</div></div>
+      <div class="stat-card"><div class="stat-val" id="sWinRate">—</div><div class="stat-label">Win Rate</div></div>
+      <div class="stat-card"><div class="stat-val" id="sHot">—</div><div class="stat-label">Hot Leads</div></div>
+    </div>
+    <div class="toolbar">
+      <input type="text" class="search-box" placeholder="Search leads…" oninput="searchLeads(this.value)">
+      <button class="refresh-btn" onclick="loadLeads()">↺ Refresh</button>
+    </div>
+    <div class="kanban" id="kanbanBoard"></div>
+  </div>
+</div>
+
+<!-- Add Lead Modal -->
+<div class="modal-overlay" id="addLeadModal">
+  <div class="modal">
+    <h3>+ Add Lead</h3>
+    <div class="form-group"><label class="form-label">Contact Name *</label><input type="text" id="lName" class="form-input" placeholder="Jane Smith"></div>
+    <div class="form-group"><label class="form-label">Company *</label><input type="text" id="lCompany" class="form-input" placeholder="Acme Corp"></div>
+    <div class="form-group"><label class="form-label">Email *</label><input type="email" id="lEmail" class="form-input" placeholder="jane@acme.com"></div>
+    <div class="form-group"><label class="form-label">Role</label><input type="text" id="lRole" class="form-input" placeholder="CISO / SOC Manager"></div>
+    <div class="form-group"><label class="form-label">Plan Interest</label>
+      <select id="lPlan" class="form-select">
+        <option value="PRO">PRO — $99/mo</option>
+        <option value="ENTERPRISE">Enterprise — $999/mo</option>
+        <option value="MSSP">MSSP — $1,999/mo</option>
+      </select>
+    </div>
+    <div class="form-group"><label class="form-label">Source</label>
+      <select id="lSource" class="form-select">
+        <option value="linkedin">LinkedIn</option>
+        <option value="cold_email">Cold Email</option>
+        <option value="inbound">Inbound Form</option>
+        <option value="referral">Referral</option>
+        <option value="event">Event</option>
+        <option value="organic">Organic / SEO</option>
+      </select>
+    </div>
+    <div class="form-group"><label class="form-label">Lead Temperature</label>
+      <select id="lTemp" class="form-select">
+        <option value="warm">Warm — showed interest</option>
+        <option value="hot">Hot — ready to buy</option>
+        <option value="cold">Cold — outbound target</option>
+      </select>
+    </div>
+    <div class="form-group"><label class="form-label">Notes</label><textarea id="lNotes" class="form-textarea" placeholder="Context, pain points, budget signals…"></textarea></div>
+    <div class="modal-actions">
+      <button class="btn-prim" onclick="addLead()">Add Lead</button>
+      <button class="btn-sec" onclick="closeModal('addLeadModal')">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- Advance Stage Modal -->
+<div class="modal-overlay" id="advLeadModal">
+  <div class="modal">
+    <h3>Advance Lead Stage</h3>
+    <input type="hidden" id="advLeadId">
+    <div class="form-group"><label class="form-label">New Stage</label>
+      <select id="advLeadStage" class="form-select">
+        <option value="new">New</option>
+        <option value="contacted">Contacted</option>
+        <option value="demo_scheduled">Demo Scheduled</option>
+        <option value="demo_done">Demo Done</option>
+        <option value="trial">Trial Active</option>
+        <option value="proposal">Proposal Sent</option>
+        <option value="negotiation">Negotiation</option>
+        <option value="closed_won">Closed Won ✅</option>
+        <option value="closed_lost">Closed Lost ✗</option>
+      </select>
+    </div>
+    <div class="form-group"><label class="form-label">Next Step / Note</label><textarea id="advLeadNote" class="form-textarea" placeholder="What happened? What's the next action?"></textarea></div>
+    <div class="modal-actions">
+      <button class="btn-prim" onclick="saveLeadStage()">Save</button>
+      <button class="btn-sec" onclick="closeModal('advLeadModal')">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+let adminSecret='', allLeads=[], filteredLeads=[];
+const API = 'https://revenue.intel.cyberdudebivash.com';
+const PLAN_PRICES = { PRO:99, ENTERPRISE:999, MSSP:1999 };
+const STAGES = ['new','contacted','demo_scheduled','demo_done','trial','proposal','negotiation','closed_won','closed_lost'];
+const STAGE_LABELS = { new:'New',contacted:'Contacted',demo_scheduled:'Demo Scheduled',demo_done:'Demo Done',trial:'Trial',proposal:'Proposal',negotiation:'Negotiation',closed_won:'Closed Won ✅',closed_lost:'Lost ✗' };
+
+async function login() {
+  const s = document.getElementById('adminSecret').value.trim();
+  const res = await fetch(`${API}/api/crm/leads`, { headers:{'X-Admin-Secret':s} });
+  if (res.ok) { adminSecret=s; document.getElementById('loginScreen').style.display='none'; document.getElementById('app').style.display='block'; loadLeads(); }
+  else document.getElementById('loginErr').style.display='block';
+}
+function logout() { adminSecret=''; location.reload(); }
+function apiFetch(p,o={}) { return fetch(API+p,{...o,headers:{'Content-Type':'application/json','X-Admin-Secret':adminSecret,...(o.headers||{})}}); }
+
+async function loadLeads() {
+  const res = await apiFetch('/api/crm/leads');
+  const data = await res.json();
+  allLeads = data.leads || [];
+  filteredLeads = allLeads;
+  // Stats
+  const won = allLeads.filter(l=>l.stage==='closed_won');
+  const open = allLeads.filter(l=>!['closed_won','closed_lost'].includes(l.stage));
+  const hot = allLeads.filter(l=>l.temperature==='hot');
+  const pipelineVal = open.reduce((s,l)=>s+(PLAN_PRICES[l.plan]||99),0);
+  const wonVal = won.reduce((s,l)=>s+(PLAN_PRICES[l.plan]||99),0);
+  const closed = allLeads.filter(l=>['closed_won','closed_lost'].includes(l.stage)).length;
+  document.getElementById('sTotal').textContent = allLeads.length;
+  document.getElementById('sPipeline').textContent = '$'+pipelineVal.toLocaleString();
+  document.getElementById('sWon').textContent = won.length;
+  document.getElementById('sWonVal').textContent = '$'+wonVal.toLocaleString();
+  document.getElementById('sWinRate').textContent = closed > 0 ? Math.round(won.length/closed*100)+'%' : '—';
+  document.getElementById('sHot').textContent = hot.length;
+  renderKanban(filteredLeads);
+}
+
+function renderKanban(leads) {
+  const board = document.getElementById('kanbanBoard');
+  board.innerHTML = STAGES.map(stage => {
+    const stageLeads = leads.filter(l => l.stage === stage);
+    const stageVal = stageLeads.reduce((s,l)=>s+(PLAN_PRICES[l.plan]||99),0);
+    return `<div class="stage-col">
+      <div class="stage-header">
+        <div>
+          <div class="stage-title">${STAGE_LABELS[stage]}</div>
+          <span class="stage-value">$${stageVal.toLocaleString()}/mo</span>
+        </div>
+        <span class="stage-count">${stageLeads.length}</span>
+      </div>
+      ${stageLeads.map(l => {
+        const scoreClass = l.temperature === 'hot' ? 'score-hot' : l.temperature === 'warm' ? 'score-warm' : 'score-cold';
+        return `<div class="lead-card">
+          <div class="lead-name">${l.contact_name||l.name||'—'}</div>
+          <div class="lead-company">${l.company||'—'}</div>
+          <div class="lead-email">${l.email}</div>
+          <div><span class="lead-score ${scoreClass}">${(l.temperature||'cold').toUpperCase()}</span></div>
+          <div class="lead-actions">
+            ${!['closed_won','closed_lost'].includes(stage)?`<button class="la-btn la-advance" onclick="openAdvanceLead('${l.id||l.lead_id}')">Advance</button>`:''}
+            <button class="la-btn la-email" onclick="emailLead('${l.email}')">Email</button>
+            ${!['closed_won','closed_lost'].includes(stage)?`<button class="la-btn la-lost" onclick="markLost('${l.id||l.lead_id}')">Lost</button>`:''}
+          </div>
+        </div>`;
+      }).join('')}
+      <button class="add-lead-btn" onclick="openAddLead('${stage}')">+ Add to ${STAGE_LABELS[stage]}</button>
+    </div>`;
+  }).join('');
+}
+
+function searchLeads(q) {
+  const ql = q.toLowerCase();
+  filteredLeads = allLeads.filter(l => l.email?.includes(ql) || l.company?.includes(ql) || (l.contact_name||l.name||'').toLowerCase().includes(ql));
+  renderKanban(filteredLeads);
+}
+
+function openAddLead(stage) {
+  document.getElementById('addLeadModal').classList.add('show');
+}
+
+async function addLead() {
+  const name = document.getElementById('lName').value.trim();
+  const company = document.getElementById('lCompany').value.trim();
+  const email = document.getElementById('lEmail').value.trim();
+  if (!name || !company || !email) { showToast('Fill required fields','err'); return; }
+  const body = { contact_name:name, company, email, role:document.getElementById('lRole').value.trim(), plan:document.getElementById('lPlan').value, source:document.getElementById('lSource').value, temperature:document.getElementById('lTemp').value, notes:document.getElementById('lNotes').value.trim(), stage:'new' };
+  const res = await apiFetch('/api/crm/leads', { method:'POST', body:JSON.stringify(body) });
+  const d = await res.json();
+  if (d.lead_id || d.id || d.success) { closeModal('addLeadModal'); showToast('Lead added'); loadLeads(); }
+  else showToast('Error: '+JSON.stringify(d),'err');
+}
+
+function openAdvanceLead(id) {
+  document.getElementById('advLeadId').value = id;
+  const lead = allLeads.find(l=>(l.id||l.lead_id)===id);
+  if (lead) {
+    const si = STAGES.indexOf(lead.stage);
+    document.getElementById('advLeadStage').value = STAGES[Math.min(si+1, STAGES.indexOf('closed_won'))];
+  }
+  document.getElementById('advLeadModal').classList.add('show');
+}
+
+async function saveLeadStage() {
+  const id = document.getElementById('advLeadId').value;
+  const stage = document.getElementById('advLeadStage').value;
+  const note = document.getElementById('advLeadNote').value.trim();
+  await apiFetch(`/api/crm/leads/${id}`, { method:'PUT', body:JSON.stringify({ stage, note, updated_at:new Date().toISOString() }) });
+  closeModal('advLeadModal'); showToast(`Lead moved to ${STAGE_LABELS[stage]}`); loadLeads();
+}
+
+async function markLost(id) {
+  if (!confirm('Mark lead as Lost?')) return;
+  await apiFetch(`/api/crm/leads/${id}`, { method:'PUT', body:JSON.stringify({ stage:'closed_lost', lost_at:new Date().toISOString() }) });
+  showToast('Lead marked as lost'); loadLeads();
+}
+
+function emailLead(email) { window.open(`mailto:${email}?subject=SENTINEL APEX Threat Intelligence Demo&body=Hi,%0D%0A%0D%0AI'd love to show you what SENTINEL APEX can do for your SOC team.%0D%0A%0D%0ABivash%0D%0ACYBERDUDEBIVASH SENTINEL APEX`,'_blank'); }
+
+function closeModal(id) { document.getElementById(id).classList.remove('show'); }
+window.onclick = e => { if (e.target.classList.contains('modal-overlay')) e.target.classList.remove('show'); };
+function showToast(msg,type) {
+  const t=document.getElementById('toast'); t.textContent=msg; t.style.background=type==='err'?'var(--red)':'var(--green)'; t.style.color=type==='err'?'#fff':'#000';
+  t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),3000);
+}
+</script>
+</body>
+</html>

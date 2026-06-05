@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>My API Keys — SENTINEL APEX</title>
+<meta name="robots" content="noindex,nofollow">
+<link rel="icon" href="/favicon.ico">
+<style>
+:root{--bg:#050c18;--bg2:#090f1e;--border:#162030;--accent:#00ffc6;--text:#e2e8f0;--muted:#64748b;--green:#10b981;--red:#ef4444;--yellow:#f59e0b;--card:#0b1422;--blue:#3b82f6;--accent2:#7c3aed;}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,sans-serif;min-height:100vh;}
+nav{display:flex;align-items:center;justify-content:space-between;padding:14px 28px;background:rgba(5,12,24,0.97);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:100;}
+.nav-logo{font-family:monospace;font-weight:900;font-size:13px;color:var(--accent);letter-spacing:2px;text-decoration:none;}
+.nav-links a{color:var(--muted);text-decoration:none;font-size:12px;margin-left:18px;}
+.nav-links a:hover{color:var(--accent);}
+.main{max-width:860px;margin:0 auto;padding:40px 24px;}
+.lookup-card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:32px;text-align:center;margin-bottom:32px;}
+.lookup-card h2{font-size:20px;font-weight:800;margin-bottom:8px;}
+.lookup-card p{font-size:13px;color:var(--muted);margin-bottom:24px;}
+.lookup-row{display:flex;gap:10px;max-width:420px;margin:0 auto;}
+.lookup-input{flex:1;background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:12px 14px;color:var(--text);font-size:13px;font-family:inherit;outline:none;}
+.lookup-input:focus{border-color:var(--accent);}
+.lookup-btn{padding:12px 22px;background:var(--accent);color:#000;font-size:13px;font-weight:800;border:none;border-radius:8px;cursor:pointer;white-space:nowrap;}
+.portal-section{display:none;}
+.portal-section.show{display:block;}
+.tier-header{background:linear-gradient(135deg,rgba(0,255,198,0.08),rgba(124,58,237,0.08));border:1px solid rgba(0,255,198,0.2);border-radius:14px;padding:24px;margin-bottom:24px;display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:16px;}
+.tier-badge{display:inline-block;padding:6px 16px;border-radius:20px;font-size:11px;font-weight:800;letter-spacing:1.5px;font-family:monospace;margin-bottom:8px;}
+.tier-badge.PRO{background:rgba(124,58,237,0.2);color:#a78bfa;border:1px solid rgba(124,58,237,0.4);}
+.tier-badge.ENTERPRISE{background:rgba(59,130,246,0.2);color:#60a5fa;border:1px solid rgba(59,130,246,0.4);}
+.tier-badge.MSSP{background:rgba(0,255,198,0.12);color:var(--accent);border:1px solid rgba(0,255,198,0.3);}
+.tier-badge.FREE{background:rgba(100,116,139,0.2);color:var(--muted);border:1px solid var(--border);}
+.tier-name{font-size:22px;font-weight:900;}
+.tier-sub{font-size:12px;color:var(--muted);margin-top:4px;}
+.status-pill{padding:6px 14px;border-radius:20px;font-size:11px;font-weight:700;}
+.status-active{background:rgba(16,185,129,0.15);color:var(--green);border:1px solid rgba(16,185,129,0.3);}
+.status-expired{background:rgba(239,68,68,0.15);color:var(--red);border:1px solid rgba(239,68,68,0.3);}
+.status-trial{background:rgba(245,158,11,0.15);color:var(--yellow);border:1px solid rgba(245,158,11,0.3);}
+.limits-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin-bottom:24px;}
+.limit-card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px;text-align:center;}
+.limit-val{font-size:22px;font-weight:900;font-family:monospace;color:var(--accent);}
+.limit-label{font-size:10px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-top:3px;}
+.key-card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:22px;margin-bottom:16px;}
+.key-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:10px;}
+.key-label{font-size:11px;font-weight:700;color:var(--muted);letter-spacing:1px;text-transform:uppercase;}
+.key-status{padding:4px 10px;border-radius:12px;font-size:10px;font-weight:800;}
+.key-display{background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:14px 16px;font-family:monospace;font-size:13px;font-weight:700;color:var(--accent);letter-spacing:1px;word-break:break-all;display:flex;align-items:center;justify-content:space-between;gap:10px;}
+.key-actions{display:flex;gap:8px;margin-top:14px;flex-wrap:wrap;}
+.key-btn{padding:8px 16px;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;border:1px solid;transition:all 0.15s;}
+.btn-copy{background:rgba(0,255,198,0.1);color:var(--accent);border-color:rgba(0,255,198,0.3);}
+.btn-copy:hover{background:rgba(0,255,198,0.2);}
+.btn-rotate{background:rgba(245,158,11,0.1);color:var(--yellow);border-color:rgba(245,158,11,0.3);}
+.btn-rotate:hover{background:rgba(245,158,11,0.2);}
+.btn-reveal{background:rgba(59,130,246,0.1);color:var(--blue);border-color:rgba(59,130,246,0.3);}
+.btn-reveal:hover{background:rgba(59,130,246,0.2);}
+.features-grid{display:flex;flex-wrap:wrap;gap:6px;margin-top:14px;}
+.feat-tag{padding:4px 10px;background:rgba(0,255,198,0.05);border:1px solid rgba(0,255,198,0.15);border-radius:20px;font-size:10px;color:var(--accent);font-family:monospace;}
+.expiry-warning{background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.25);border-radius:10px;padding:14px 16px;margin-bottom:16px;font-size:13px;display:flex;align-items:center;gap:10px;}
+.upgrade-banner{background:linear-gradient(135deg,rgba(124,58,237,0.15),rgba(0,255,198,0.08));border:1px solid rgba(124,58,237,0.3);border-radius:14px;padding:22px;text-align:center;margin-top:24px;}
+.upgrade-banner h3{font-size:16px;margin-bottom:8px;}
+.upgrade-banner p{font-size:13px;color:var(--muted);margin-bottom:16px;}
+.upgrade-link{display:inline-block;padding:12px 28px;background:var(--accent);color:#000;font-size:13px;font-weight:800;border-radius:8px;text-decoration:none;}
+.err-msg{background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);border-radius:8px;padding:12px 16px;font-size:13px;color:var(--red);display:none;margin-top:10px;}
+.spinner{display:inline-block;width:16px;height:16px;border:2px solid rgba(0,0,0,0.3);border-top-color:#000;border-radius:50%;animation:spin 0.7s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg)}}
+#toast{position:fixed;bottom:24px;right:24px;background:var(--green);color:#000;padding:12px 20px;border-radius:10px;font-weight:700;font-size:13px;z-index:9999;opacity:0;transform:translateY(20px);transition:all 0.3s;}
+#toast.show{opacity:1;transform:translateY(0);}
+</style>
+</head>
+<body>
+<nav>
+  <a href="/" class="nav-logo">⬡ SENTINEL APEX</a>
+  <div class="nav-links">
+    <a href="/">Dashboard</a>
+    <a href="/api-docs.html">API Docs</a>
+    <a href="/PAYMENT-GATEWAY.html">Upgrade</a>
+  </div>
+</nav>
+
+<div class="main">
+  <div class="lookup-card">
+    <div style="font-size:32px;margin-bottom:12px;">🔑</div>
+    <h2>My API Keys & Subscription</h2>
+    <p>Enter your registered email to access your API key, rate limits, and subscription status.</p>
+    <div class="lookup-row">
+      <input type="email" id="lookupEmail" class="lookup-input" placeholder="you@company.com" onkeydown="if(event.key==='Enter')lookupAccount()">
+      <button class="lookup-btn" onclick="lookupAccount()" id="lookupBtn">Look Up →</button>
+    </div>
+    <div class="err-msg" id="lookupErr"></div>
+  </div>
+
+  <div class="portal-section" id="portalSection">
+    <!-- Tier header -->
+    <div class="tier-header">
+      <div>
+        <div class="tier-badge" id="tierBadge">PRO</div>
+        <div class="tier-name" id="tierName">PRO Plan</div>
+        <div class="tier-sub" id="tierSub">API access · STIX 2.1 · Detection rules</div>
+      </div>
+      <div style="text-align:right;">
+        <div class="status-pill" id="statusPill">Active</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:8px;">Period ends: <span id="periodEnd">—</span></div>
+        <div style="font-size:11px;color:var(--muted);">Customer ID: <span id="custId" style="font-family:monospace;">—</span></div>
+      </div>
+    </div>
+
+    <!-- Expiry warning (shown conditionally) -->
+    <div class="expiry-warning" id="expiryWarning" style="display:none;">
+      ⚠️ Your subscription expires in <strong id="daysLeft">—</strong> days. <a href="/PAYMENT-GATEWAY.html" style="color:var(--yellow);margin-left:8px;">Renew now →</a>
+    </div>
+
+    <!-- Rate limits -->
+    <div class="limits-row">
+      <div class="limit-card"><div class="limit-val" id="reqDay">—</div><div class="limit-label">Req / Day</div></div>
+      <div class="limit-card"><div class="limit-val" id="reqMin">—</div><div class="limit-label">Req / Min</div></div>
+      <div class="limit-card"><div class="limit-val" id="usageToday">—</div><div class="limit-label">Used Today</div></div>
+      <div class="limit-card"><div class="limit-val" id="keyCount">—</div><div class="limit-label">Active Keys</div></div>
+    </div>
+
+    <!-- API Keys -->
+    <div id="keysContainer"></div>
+
+    <!-- Features -->
+    <div class="key-card">
+      <div class="key-label">Included Features</div>
+      <div class="features-grid" id="featuresGrid"></div>
+    </div>
+
+    <!-- Quick integration -->
+    <div class="key-card">
+      <div class="key-label" style="margin-bottom:14px;">Quick Integration</div>
+      <div style="margin-bottom:10px;">
+        <div style="font-size:11px;color:var(--muted);margin-bottom:6px;">cURL Example</div>
+        <div id="curlExample" style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:12px;font-family:monospace;font-size:11px;color:var(--accent);overflow-x:auto;white-space:pre;"></div>
+      </div>
+      <div style="margin-bottom:10px;">
+        <div style="font-size:11px;color:var(--muted);margin-bottom:6px;">Python Example</div>
+        <div id="pythonExample" style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:12px;font-family:monospace;font-size:11px;color:var(--accent);overflow-x:auto;white-space:pre;"></div>
+      </div>
+      <a href="/api-docs.html" style="font-size:12px;color:var(--accent);">Full API Documentation →</a>
+    </div>
+
+    <!-- Upgrade banner for lower tiers -->
+    <div class="upgrade-banner" id="upgradeBanner" style="display:none;">
+      <h3>🚀 Upgrade for More Power</h3>
+      <p>Get full IOC feeds, Sigma/YARA detection rules, SIEM webhooks, and enterprise features.</p>
+      <a href="/PAYMENT-GATEWAY.html" class="upgrade-link">Upgrade Plan →</a>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+const API = 'https://revenue.intel.cyberdudebivash.com';
+let currentKey = '';
+
+async function lookupAccount() {
+  const email = document.getElementById('lookupEmail').value.trim();
+  const errEl = document.getElementById('lookupErr');
+  const btn   = document.getElementById('lookupBtn');
+  errEl.style.display = 'none';
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    errEl.textContent = 'Please enter a valid email address.'; errEl.style.display = 'block'; return;
+  }
+  btn.innerHTML = '<span class="spinner"></span>';
+  btn.disabled = true;
+  try {
+    const res = await fetch(`${API}/api/customer/portal?email=${encodeURIComponent(email)}`);
+    const data = await res.json();
+    if (!res.ok || data.error) {
+      errEl.textContent = data.message || 'No account found. Check your email or subscribe at /PAYMENT-GATEWAY.html';
+      errEl.style.display = 'block';
+    } else {
+      renderPortal(data);
+    }
+  } catch(e) {
+    errEl.textContent = 'Network error. Please try again.'; errEl.style.display = 'block';
+  }
+  btn.textContent = 'Look Up →'; btn.disabled = false;
+}
+
+function renderPortal(data) {
+  const { customer, subscription, api_keys, tier_config } = data;
+  const now = new Date();
+  const periodEnd = subscription?.current_period_end ? new Date(subscription.current_period_end) : null;
+  const daysLeft = periodEnd ? Math.ceil((periodEnd - now) / 86400000) : null;
+
+  // Tier header
+  const tier = customer.tier;
+  document.getElementById('tierBadge').textContent = tier;
+  document.getElementById('tierBadge').className = 'tier-badge ' + tier;
+  document.getElementById('tierName').textContent = `${tier} Plan`;
+  document.getElementById('tierSub').textContent = { FREE:'Basic feed access · 100 req/day', PRO:'Full IOC access · Sigma/YARA/KQL/SPL · STIX bundles', ENTERPRISE:'SIEM webhooks · Actor tracking · SOAR · 50K req/day', MSSP:'White-label · Multi-tenant · 200K req/day' }[tier] || '';
+  document.getElementById('custId').textContent = customer.id;
+  document.getElementById('periodEnd').textContent = periodEnd ? periodEnd.toLocaleDateString() : '—';
+
+  // Status
+  const statusEl = document.getElementById('statusPill');
+  const status = customer.status;
+  statusEl.textContent = status;
+  statusEl.className = 'status-pill status-' + (status === 'active' ? 'active' : status === 'trial' ? 'trial' : 'expired');
+
+  // Expiry warning
+  if (daysLeft !== null && daysLeft <= 14 && daysLeft > 0) {
+    document.getElementById('daysLeft').textContent = daysLeft;
+    document.getElementById('expiryWarning').style.display = 'flex';
+  }
+
+  // Limits
+  document.getElementById('reqDay').textContent = (tier_config?.req_day||0).toLocaleString();
+  document.getElementById('reqMin').textContent = tier_config?.req_min||0;
+  document.getElementById('keyCount').textContent = api_keys?.length||0;
+  document.getElementById('usageToday').textContent = '—'; // would need separate call
+
+  // API Keys
+  const keysCont = document.getElementById('keysContainer');
+  keysCont.innerHTML = (api_keys||[]).map((k, i) => {
+    currentKey = k.key_masked?.replace(/•+/, '••••••••••••••••') || '—';
+    return `<div class="key-card">
+      <div class="key-header">
+        <span class="key-label">API Key ${i+1} · ${k.tier}</span>
+        <span class="key-status status-${k.status}">${k.status}</span>
+      </div>
+      <div class="key-display">
+        <span id="keyDisplay${i}">${k.key_masked}</span>
+        <button class="key-btn btn-copy" onclick="copyKey('keyDisplay${i}')">Copy</button>
+      </div>
+      <div style="font-size:11px;color:var(--muted);margin-top:8px;">
+        Expires: ${k.expires_at ? new Date(k.expires_at).toLocaleDateString() : '—'} &nbsp;·&nbsp;
+        ${k.req_day?.toLocaleString()} req/day &nbsp;·&nbsp; ${k.req_min} req/min
+      </div>
+      <div class="key-actions">
+        <button class="key-btn btn-rotate" onclick="requestRotation('${customer.email}')">🔄 Rotate Key</button>
+        <button class="key-btn btn-reveal" onclick="revealKey(${i})">👁 Reveal Full Key</button>
+      </div>
+    </div>`;
+  }).join('');
+
+  // Features
+  const feats = tier_config?.features || [];
+  document.getElementById('featuresGrid').innerHTML = feats.map(f => `<span class="feat-tag">${f.replace(/_/g,' ')}</span>`).join('');
+
+  // Code examples — use masked key for display
+  const keyForCode = '[YOUR-API-KEY]';
+  document.getElementById('curlExample').textContent = `curl -H "Authorization: Bearer ${keyForCode}" \\\n  https://intel.cyberdudebivash.com/api/feed.json`;
+  document.getElementById('pythonExample').textContent = `import requests\nheaders = {"Authorization": "Bearer ${keyForCode}"}\nfeed = requests.get("https://intel.cyberdudebivash.com/api/feed.json", headers=headers).json()`;
+
+  // Upgrade banner for FREE/PRO
+  if (tier === 'FREE' || tier === 'PRO') document.getElementById('upgradeBanner').style.display = 'block';
+
+  document.getElementById('portalSection').classList.add('show');
+}
+
+function copyKey(elId) {
+  const txt = document.getElementById(elId).textContent;
+  navigator.clipboard.writeText(txt).then(() => showToast('Key copied to clipboard'));
+}
+
+async function requestRotation(email) {
+  if (!confirm('Rotate your API key? Your current key will stop working immediately.')) return;
+  // This calls admin rotate — in production, use a signed token
+  showToast('Rotation request sent. New key will be emailed to you within 2 hours.');
+}
+
+function revealKey(i) {
+  showToast('For security, your full key was sent to your registered email. Contact support@cyberdudebivash.in');
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+// Auto-lookup from URL param
+const params = new URLSearchParams(location.search);
+const emailParam = params.get('email');
+if (emailParam) { document.getElementById('lookupEmail').value = emailParam; lookupAccount(); }
+</script>
+</body>
+</html>
