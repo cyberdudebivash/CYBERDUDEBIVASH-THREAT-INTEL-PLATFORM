@@ -2518,10 +2518,16 @@ def stage_pipeline_consistency_check() -> None:
                 _min_rank = max(_min_rank, 3)  # HIGH
 
             # R5: Active exploitation keywords → minimum HIGH
+            # FIX v171.1: Added present-participle forms ("actively exploiting",
+            # "attackers actively exploiting") that were previously missing and caused
+            # governance gate [13] to FAIL — items like "Attackers Actively Exploiting
+            # Critical Vulnerability in X" were not matched by past-tense-only list.
             _active_exploit_kw = [
-                "actively exploited", "exploited in the wild", "active exploitation",
+                "actively exploited", "actively exploiting", "attackers actively exploit",
+                "exploited in the wild", "active exploitation",
                 "under active attack", "zero-day exploit", "0-day exploit",
                 "mass exploitation", "widespread exploitation",
+                "exploiting in the wild", "being actively exploit",
             ]
             if any(kw in _text_blob for kw in _active_exploit_kw):
                 _min_rank = max(_min_rank, 3)  # HIGH

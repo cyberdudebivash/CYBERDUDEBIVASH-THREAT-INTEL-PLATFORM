@@ -82,14 +82,33 @@ def compute_minimum_severity(item: dict) -> tuple:
         pass
 
     # Signal 3: CVSS >= 9.0
+    # FIX v171.1: Probe all CVSS field variants — many items carry score in
+    # "cvss" not "cvss_score"; falling through to 0 caused HIGH floor to be
+    # missed for items with CVSS 9.x stored under alternate field names.
     try:
-        cvss = float(item.get("cvss_score") or 0)
+        cvss = 0.0
+        for _cvss_field in ("cvss_score", "cvss", "cvss_base", "cvss_v3", "cvss3_score"):
+            _cv = item.get(_cvss_field)
+            if _cv is not None and _cv not in ("", "N/A", "Pending"):
+                try:
+                    _cv_f = float(_cv)
+                    if 0.0 <= _cv_f <= 10.0:
+                        cvss = _cv_f
+                        break
+                except (TypeError, ValueError):
+                    pass
         if cvss >= 9.5:
             min_rank = max(min_rank, _SEV_RANK["CRITICAL"])
             reasons.append(f"CVSS={cvss}>=9.5:CRITICAL_minimum")
         elif cvss >= 9.0:
             min_rank = max(min_rank, _SEV_RANK["HIGH"])
             reasons.append(f"CVSS={cvss}>=9.0:HIGH_minimum")
+        elif cvss >= 7.0:
+            # FIX v171.1: CVSS 7.0–8.9 must be at minimum HIGH per industry
+            # standard (NVD/NIST classify 7.0–8.9 as HIGH severity).
+            # Previously missing — items with CVSS 8.x could remain LOW.
+            min_rank = max(min_rank, _SEV_RANK["HIGH"])
+            reasons.append(f"CVSS={cvss}>=7.0:HIGH_minimum")
     except (TypeError, ValueError):
         pass
 
@@ -192,6 +211,30 @@ if __name__ == "__main__":
     print("=" * 60)
     print("SEVERITY RECALIBRATION ENGINE  v1.0")
     print(f"Feed: {feed_path}  ({len(items)} items)")
+    print("=" * 60)
+
+    recalibrated, report = recalibrate_feed(items)
+
+    print(f"Items recalibrated: {report['recalibrated_count']}")
+    if report["violations"]:
+        print("\nRecalibrations applied:")
+        for v in report["violations"]:
+            print(f"  [{v['old_severity']} -> {v['new_severity']}] {v['title']}")
+            print(f"    reasons: {v['reasons']}")
+
+    if args.fix and report["recalibrated_count"] > 0:
+        tmp = feed_path.with_suffix(".sevrecal.tmp")
+        out = recalibrated if isinstance(raw, list) else {**raw, "items": recalibrated}
+        tmp.write_text(json.dumps(out, ensure_ascii=False, indent=2), encoding="utf-8")
+        tmp.replace(feed_path)
+        print(f"\n[FIX] Recalibrated feed written: {feed_path}")
+
+    rpath = pathlib.Path(args.report)
+    rpath.parent.mkdir(parents=True, exist_ok=True)
+    rpath.write_text(json.dumps(report, indent=2, ensure_ascii=False), encoding="utf-8")
+    print(f"[REPORT] {rpath}")
+    sys.exit(0)
+en(items)} items)")
     print("=" * 60)
 
     recalibrated, report = recalibrate_feed(items)
