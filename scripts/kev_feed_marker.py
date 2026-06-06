@@ -80,7 +80,18 @@ def _extract_cve(item: dict) -> list:
                 if _CVE_RE.match(cid) and cid not in cves:
                     cves.append(cid)
     # Text fallback
-    for field in ("title", "id", "source_url", "description"):
+    # P1-FIX (audit finding F1, run #1551 / STAGE 3.93.15 false HARD_FAIL):
+    # Added 'headline' and 'name' for parity with intelligence_integrity_gate
+    # ._title(), which falls back through title -> headline -> name. Without
+    # this, items whose CVE text lives in `headline`/`name` (a real, populated
+    # field pattern elsewhere in this codebase — see manifest_repair.py,
+    # ocios_campaign_correlation_engine.py, auto_blog_publisher.py, etc.) were
+    # returned as cves=[], fell through `if not cves: continue` below, and their
+    # kev flag was never re-validated against the live catalog — surviving as an
+    # unverified true/false positive that the Integrity Gate then (correctly,
+    # from its own wider view) flagged as "inflated". This made the gate look
+    # wrong when it was actually catching what THIS function missed.
+    for field in ("title", "headline", "name", "id", "source_url", "description"):
         val = item.get(field) or ""
         for m in _CVE_RE.finditer(str(val)):
             c = m.group(0).upper()

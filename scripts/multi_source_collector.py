@@ -273,7 +273,21 @@ def collect_cisa_alerts() -> list:
             elif "high" in title_low: sev = "HIGH"
             item = _make_item(title, desc[:500], sev, "CISA", cve_ids, ts[:25], url,
                               ["CISA Advisory", "Government Source"])
-            item["kev"] = "YES" if "kev" in title_low or "known exploited" in title_low else "NO"
+            # P3-FIX (audit finding F1-secondary): do NOT originate a `kev` value
+            # from a bare substring match on the title ("kev" matches inside any
+            # word containing those three letters in sequence, independent of the
+            # `cve_ids` extracted two lines above — a "Frankenstein" pairing of a
+            # real CVE with a guessed KEV flag). This is not the authoritative
+            # source for this fact: kev_feed_marker.py runs later in this same
+            # pipeline (Stage 3.93.14, "Final KEV Pass on Complete Feed") and
+            # checks every item — including freshly collected ones — against the
+            # live CISA KEV catalog. Leaving `kev` unset here means
+            # `_is_kev_true(item.get("kev"))` reads False ("not yet confirmed"),
+            # which is the correct, honest default: the catalog-backed pass marks
+            # it True if and only if it's genuinely listed, instead of this
+            # heuristic planting a guess that a later stage then has to detect
+            # and correct (and only can, if the CVE happens to live in a field
+            # that stage's extractor checks).
             item["actor"] = "CDB-UNATTR-CVE"
             item["confidence"] = 0.85  # CISA = high authority source
             items.append(item)
