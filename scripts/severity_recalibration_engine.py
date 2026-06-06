@@ -234,27 +234,3 @@ if __name__ == "__main__":
     rpath.write_text(json.dumps(report, indent=2, ensure_ascii=False), encoding="utf-8")
     print(f"[REPORT] {rpath}")
     sys.exit(0)
-en(items)} items)")
-    print("=" * 60)
-
-    recalibrated, report = recalibrate_feed(items)
-
-    print(f"Items recalibrated: {report['recalibrated_count']}")
-    if report["violations"]:
-        print("\nRecalibrations applied:")
-        for v in report["violations"]:
-            print(f"  [{v['old_severity']} -> {v['new_severity']}] {v['title']}")
-            print(f"    reasons: {v['reasons']}")
-
-    if args.fix and report["recalibrated_count"] > 0:
-        tmp = feed_path.with_suffix(".sevrecal.tmp")
-        out = recalibrated if isinstance(raw, list) else {**raw, "items": recalibrated}
-        tmp.write_text(json.dumps(out, ensure_ascii=False, indent=2), encoding="utf-8")
-        tmp.replace(feed_path)
-        print(f"\n[FIX] Recalibrated feed written: {feed_path}")
-
-    rpath = pathlib.Path(args.report)
-    rpath.parent.mkdir(parents=True, exist_ok=True)
-    rpath.write_text(json.dumps(report, indent=2, ensure_ascii=False), encoding="utf-8")
-    print(f"[REPORT] {rpath}")
-    sys.exit(0)

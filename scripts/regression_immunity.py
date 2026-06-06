@@ -559,20 +559,3 @@ else:
     print("All production invariants and governance gates confirmed")
     print("=" * 68)
     sys.exit(0)
-immunity_report.json")
-os.makedirs(os.path.dirname(report_path), exist_ok=True)
-tmp = report_path + ".tmp"
-with open(tmp, "w", encoding="utf-8") as f:
-    json.dump(report, f, ensure_ascii=False, indent=2)
-os.replace(tmp, report_path)
-
-if violations:
-    print(f"\nRESULT: FAIL -- {len(violations)} violations detected")
-    print("DEPLOYMENT BLOCKED until all violations are resolved")
-    print("=" * 68)
-    sys.exit(1)
-else:
-    print(f"\nRESULT: PASS -- Platform is regression-immune")
-    print("All production invariants and governance gates confirmed")
-    print("=" * 68)
-    sys.exit(0)
