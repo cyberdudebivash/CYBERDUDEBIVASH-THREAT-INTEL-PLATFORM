@@ -3894,14 +3894,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-    except Exception as _p9_e:
-        log.warning("[p9-immunity] Skipped (non-fatal): %s", _p9_e)
-
-    # ── Stage Registry Completion Check ──────────────────────────────────────
-    _missing_stages = [s for s in _STAGE_REGISTRY if s not in _completed_stages]
-    if _missing_stages:
-        log.warning('[pipeline] Incomplete stages: %s', _missing_stages)
-
-
-if __name__ == "__main__":
-    main()
