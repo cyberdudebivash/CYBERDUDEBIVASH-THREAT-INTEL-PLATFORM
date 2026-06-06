@@ -519,7 +519,10 @@ _KEV_CATALOG_PATHS = [
     REPO_ROOT / "data" / "correlation" / "kev_catalog.json",
 ]
 _KEV_LIVE_URL = "https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json"
-_KEV_CATALOG_MAX_AGE_DAYS = 30   # If local catalog is older than this, fetch live
+_KEV_CATALOG_MAX_AGE_DAYS = 1    # v175.1 FIX: fetch live if catalog >1 day old.
+# Root cause: kev_feed_marker fetches LIVE catalog; gate used 3-day-old LOCAL
+# cache → CVE-2026-28318 (added 2026-06-05) not found → false INFLATION HARD_FAIL.
+# Reducing from 30→1 ensures gate always validates against the same-day catalog.
 
 
 def _catalog_age_days(data: dict) -> float:
