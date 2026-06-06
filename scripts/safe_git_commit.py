@@ -429,6 +429,15 @@ def main() -> None:
             _MANIFEST_GUARD_PATHS = [
                 REPO_ROOT / "data" / "stix" / "feed_manifest.json",
                 REPO_ROOT / "data" / "feed_manifest.json",
+                # v173.2 FIX: These runtime-written data files repeatedly get conflict
+                # markers during stash pop because both pipeline and remote modified them.
+                # Pre-snapshot and restore avoids the conflict entirely (no WARN needed).
+                REPO_ROOT / "data" / "governance" / "evidence_score_enforcement.json",
+                REPO_ROOT / "data" / "health"      / "sla_status.json",
+                REPO_ROOT / "data" / "quality"     / "source_trust_scores.json",
+                REPO_ROOT / "data" / "health"      / "kev_marker_report.json",
+                REPO_ROOT / "data" / "health"      / "pipeline_status.json",
+                REPO_ROOT / "data" / "telemetry"   / "pipeline_telemetry.json",
             ]
             _manifest_backups: dict = {}
             for _mp in _MANIFEST_GUARD_PATHS:

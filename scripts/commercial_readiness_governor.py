@@ -699,9 +699,22 @@ def main() -> int:
         log.info("[governor] Governed feed written to %s (%d items)", feed_path, len(result["published"]))
 
         # Write tier feeds
+        # v173.2 MONETIZATION FIX: Strip premium fields before writing public/mssp feeds.
+        # Previously writing raw items exposed report_url, apex_ai, stix_bundle_url etc.
+        # to free-tier consumers — undercut every Pro/Enterprise upsell.
+        try:
+            from public_api_sanitizer import sanitize_for_public as _sanitize_pub
+            _pub_clean  = [_sanitize_pub(i) for i in result["feed_public"]]
+            _mssp_clean = [_sanitize_pub(i) for i in result["feed_mssp"]]
+            log.info("[governor] Sanitizer applied: %d public + %d mssp items stripped of premium fields",
+                     len(_pub_clean), len(_mssp_clean))
+        except ImportError:
+            log.warning("[governor] public_api_sanitizer not available — writing unsanitized (non-fatal)")
+            _pub_clean  = result["feed_public"]
+            _mssp_clean = result["feed_mssp"]
         _write_json(REPO_ROOT / "api" / "feed_enterprise.json", result["feed_enterprise"])
-        _write_json(REPO_ROOT / "api" / "feed_mssp.json", result["feed_mssp"])
-        _write_json(REPO_ROOT / "api" / "feed_public.json", result["feed_public"])
+        _write_json(REPO_ROOT / "api" / "feed_mssp.json",       _mssp_clean)
+        _write_json(REPO_ROOT / "api" / "feed_public.json",     _pub_clean)
         log.info("[governor] Tier feeds written: enterprise=%d mssp=%d public=%d",
                  len(result["feed_enterprise"]),
                  len(result["feed_mssp"]),

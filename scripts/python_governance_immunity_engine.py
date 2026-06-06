@@ -2,7 +2,7 @@
 """
 Python Governance Immunity Engine (PGIE)
 =========================================
-SENTINEL APEX — STAGE 0.06b enforcement script.
+SENTINEL APEX - STAGE 0.06b enforcement script.
 
 Forensic-grade Python syntax and encoding guardian.
 Detects and reports: syntax errors, BOM, CRLF, smart-quotes,
@@ -10,8 +10,8 @@ invisible chars, Unicode corruption, truncation, incomplete
 multiline/f-string/docstring blocks.
 
 Exit codes:
-  0 — all scripts PASS all checks
-  1 — one or more scripts FAIL (hard-fail the pipeline)
+  0 - all scripts PASS all checks
+  1 - one or more scripts FAIL (hard-fail the pipeline)
 
 Author: CyberDudeBivash governance pipeline
 Version: 1.0.0 (SENTINEL APEX v152.0.0)
@@ -38,10 +38,10 @@ BOLD   = "\033[1m"
 
 # ── Smart / curly quote codepoints (common corruption artefacts) ──────────────
 SMART_QUOTES = {
-    "‘": "'",  # LEFT SINGLE QUOTATION MARK
-    "’": "'",  # RIGHT SINGLE QUOTATION MARK
-    "“": '"',  # LEFT DOUBLE QUOTATION MARK
-    "”": '"',  # RIGHT DOUBLE QUOTATION MARK
+    "'": "'",  # LEFT SINGLE QUOTATION MARK
+    "'": "'",  # RIGHT SINGLE QUOTATION MARK
+    """: '"',  # LEFT DOUBLE QUOTATION MARK
+    """: '"',  # RIGHT DOUBLE QUOTATION MARK
     "′": "'",  # PRIME
     "″": '"',  # DOUBLE PRIME
     "«": '"',  # LEFT-POINTING DOUBLE ANGLE QUOTATION MARK
@@ -50,14 +50,14 @@ SMART_QUOTES = {
 
 # ── Invisible / zero-width characters ────────────────────────────────────────
 INVISIBLE_CHARS = {
-    "​": "ZERO WIDTH SPACE",
-    "‌": "ZERO WIDTH NON-JOINER",
-    "‍": "ZERO WIDTH JOINER",
+    "": "ZERO WIDTH SPACE",
+    "": "ZERO WIDTH NON-JOINER",
+    "": "ZERO WIDTH JOINER",
     "‎": "LEFT-TO-RIGHT MARK",
     "‏": "RIGHT-TO-LEFT MARK",
-    "⁠": "WORD JOINER",
-    "﻿": "BOM / ZERO WIDTH NO-BREAK SPACE",
-    " ": "NO-BREAK SPACE",
+    "": "WORD JOINER",
+    "": "BOM / ZERO WIDTH NO-BREAK SPACE",
+    " ": "NO-BREAK SPACE",
     " ": "LINE SEPARATOR",
     " ": "PARAGRAPH SEPARATOR",
 }
@@ -125,7 +125,7 @@ def check_bom(filepath: str, raw_bytes: bytes) -> list:
             "check": "BOM",
             "filepath": filepath,
             "lineno": 1,
-            "message": "File starts with UTF-8 BOM (\\xEF\\xBB\\xBF) — corrupts module imports and CI tools",
+            "message": "File starts with UTF-8 BOM (\\xEF\\xBB\\xBF) - corrupts module imports and CI tools",
             "traceback": "",
             "snippet_lines": [],
         })
@@ -140,7 +140,7 @@ def check_crlf(filepath: str, raw_bytes: bytes) -> list:
             "check": "CRLF",
             "filepath": filepath,
             "lineno": 0,
-            "message": f"File contains {crlf_count} CRLF line endings (Windows \\r\\n) — use LF only",
+            "message": f"File contains {crlf_count} CRLF line endings (Windows \\r\\n) - use LF only",
             "traceback": "",
             "snippet_lines": [],
         })
@@ -172,7 +172,7 @@ def check_smart_quotes(filepath: str, source_lines: list) -> list:
                     "check": "SMART_QUOTE",
                     "filepath": filepath,
                     "lineno": lineno,
-                    "message": f"Smart/curly quote U+{ord(char):04X} ({char!r}) found — replace with {replacement!r}",
+                    "message": f"Smart/curly quote U+{ord(char):04X} ({char!r}) found - replace with {replacement!r}",
                     "traceback": "",
                     "snippet_lines": source_lines,
                 })
@@ -215,7 +215,7 @@ def check_truncation(filepath: str, source: str, source_lines: list) -> list:
             "check": "TRUNCATION",
             "filepath": filepath,
             "lineno": lineno,
-            "message": f"Tokenization failed — likely truncated/incomplete structure: {msg}",
+            "message": f"Tokenization failed - likely truncated/incomplete structure: {msg}",
             "traceback": "",
             "snippet_lines": source_lines,
         })
@@ -230,7 +230,7 @@ def check_truncation(filepath: str, source: str, source_lines: list) -> list:
                 "check": "TRUNCATION",
                 "filepath": filepath,
                 "lineno": len(source_lines),
-                "message": f"File ends with '{last.strip()}' — expected indented body after colon (truncated?)",
+                "message": f"File ends with '{last.strip()}' - expected indented body after colon (truncated?)",
                 "traceback": "",
                 "snippet_lines": source_lines,
             })
@@ -315,7 +315,7 @@ def audit_file(filepath: str) -> dict:
     # Only run truncation / f-string checks if syntax is clean
     if not any(f["check"] == "SYNTAX" for f in result["failures"]):
         result["warnings"] += check_truncation(filepath, source, source_lines)
-        # f-string check is informational — downgrade to warning
+        # f-string check is informational - downgrade to warning
         result["warnings"] += check_incomplete_fstrings(filepath, source_lines)
 
     if result["failures"]:
@@ -343,7 +343,7 @@ def main() -> int:
     target_pattern = os.environ.get("PGIE_PATTERN", "scripts/*.py")
     files = sorted(glob.glob(target_pattern))
 
-    banner(f"PYTHON GOVERNANCE IMMUNITY ENGINE  —  SENTINEL APEX v152.0.0")
+    banner(f"PYTHON GOVERNANCE IMMUNITY ENGINE  -  SENTINEL APEX v152.0.0")
     print(f"  Target pattern : {BOLD}{target_pattern}{RESET}")
     print(f"  Files matched  : {BOLD}{len(files)}{RESET}")
 
@@ -389,15 +389,15 @@ def main() -> int:
     print(f"  {RED}✘ FAIL   {total_fail:>4} / {total}{RESET}")
 
     if total_fail > 0:
-        banner(f"GOVERNANCE: HARD-FAIL — {total_fail} script(s) corrupted. PIPELINE BLOCKED.", RED)
+        banner(f"GOVERNANCE: HARD-FAIL - {total_fail} script(s) corrupted. PIPELINE BLOCKED.", RED)
         print(f"\n  {RED}Fix ALL failures listed above before re-running the pipeline.{RESET}")
         print(f"  {RED}DO NOT: disable syntax guards, bypass regression gates, remove validators, weaken governance.{RESET}\n")
         return 1
 
     if total_warn > 0:
-        banner(f"GOVERNANCE: WARN — {total_warn} script(s) with warnings. Pipeline CONTINUES.", YELLOW)
+        banner(f"GOVERNANCE: WARN - {total_warn} script(s) with warnings. Pipeline CONTINUES.", YELLOW)
     else:
-        banner("GOVERNANCE: ALL PASS — Pipeline CLEAR.", GREEN)
+        banner("GOVERNANCE: ALL PASS - Pipeline CLEAR.", GREEN)
 
     return 0
 
