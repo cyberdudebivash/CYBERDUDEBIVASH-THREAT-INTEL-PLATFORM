@@ -236,7 +236,7 @@ def check_confidence_uniformity(items: List[Dict]) -> Tuple[str, float, str]:
     """Warn if confidence distribution is highly uniform."""
     if not items:
         return "PASS", 0.0, "no items"
-    confs = [round(float(i.get("confidence") or i.get("confidence_score") or 0), 1) for i in items]
+    confs = [round(float(i.get("confidence") or i.get("confidence_score") or 0), 2) for i in items]
     counter = Counter(confs)
     most_common_conf, most_common_cnt = counter.most_common(1)[0]
     ratio = most_common_cnt / len(items)
