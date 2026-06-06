@@ -3515,6 +3515,27 @@ def stage_sync_root_feed_json() -> None:
     except Exception as _rpt_e:
         log.warning("[3.9-RPT] Post-sync report gap fill skipped (non-fatal): %s", _rpt_e)
     # ── End v173.0 P0 FIX ────────────────────────────────────────────────────
+    # ── v173.1 FIX: Sync root feed.json from api/feed.json ─────────────────────
+    # Regression immunity check requires feed.json == api/feed.json (positional).
+    # If they diverged (different pipeline runs wrote to each independently),
+    # the deploy-worker gate fails with "42 mismatches".
+    # Fix: after every Stage 3.9 write, copy api/feed.json → feed.json atomically.
+    try:
+        _api_f = REPO_ROOT / "api" / "feed.json"
+        _root_f = REPO_ROOT / "feed.json"
+        if _api_f.exists():
+            import json as _jsync
+            _api_content = _api_f.read_text(encoding="utf-8")
+            # Validate before overwriting
+            _jsync.loads(_api_content)
+            _tmp_root = _root_f.with_suffix(".sync_tmp")
+            _tmp_root.write_text(_api_content, encoding="utf-8")
+            _tmp_root.replace(_root_f)
+            log.info("[3.9-SYNC] ✅ feed.json synced from api/feed.json (atomic).")
+    except Exception as _sync_e:
+        log.warning("[3.9-SYNC] feed.json sync skipped (non-fatal): %s", _sync_e)
+    # ── End v173.1 FIX ──────────────────────────────────────────────────────────
+
 
 
 def main() -> None:

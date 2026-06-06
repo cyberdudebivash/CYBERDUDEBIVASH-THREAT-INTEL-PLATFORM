@@ -237,7 +237,14 @@ class SeverityGovernanceEngine:
         else:
             output = governed_items
 
-        feed_path.write_text(json.dumps(output, indent=2, ensure_ascii=False), encoding="utf-8")
+        # v173.0 FIX: atomic write via temp file to prevent null-byte corruption.
+        # Direct write_text on large files can leave old content past the new EOF on
+        # some filesystems (GitHub Actions runner NTFS/ext4 under high I/O load).
+        import tempfile
+        _out_json = json.dumps(output, indent=2, ensure_ascii=False)
+        _tmp = feed_path.with_suffix(".gov_tmp")
+        _tmp.write_text(_out_json, encoding="utf-8")
+        _tmp.replace(feed_path)
 
         return {
             "validator": "SeverityGovernanceEngine",
