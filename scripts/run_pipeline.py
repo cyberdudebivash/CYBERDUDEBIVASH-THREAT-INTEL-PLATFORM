@@ -3438,6 +3438,43 @@ def stage_sync_root_feed_json() -> None:
             except Exception:
                 pass
 
+    # ── v172.0 P0 FIX: Post-sync Severity Governance ────────────────────────
+    # ROOT CAUSE: stage_sync_root_feed_json() writes api/feed.json from the
+    # manifest whose severity values were set BEFORE CVSS/KEV enrichment.
+    # Items with CVSS 9.1 / Risk 8.5 showed severity=LOW because the
+    # SeverityGovernanceEngine ran in STAGE 3.2 before this stage re-wrote
+    # the feed.  FIX: apply governance immediately after every write here.
+    # Idempotent — running on already-correct items is a no-op.
+    try:
+        from severity_governance_engine import SeverityGovernanceEngine as _SGE
+        _gov_targets = [REPO_ROOT / "api" / "feed.json", REPO_ROOT / "feed.json"]
+        _total_gov_upgrades = 0
+        for _gt in _gov_targets:
+            if _gt.exists():
+                _sge_result = _SGE().run_governance(_gt)
+                _up = _sge_result.get("upgrades", 0)
+                _total_gov_upgrades += _up
+                if _up:
+                    log.info(
+                        "[3.9-GOV] ✅ Severity governance applied to %s: "
+                        "%d upgrade(s)  before=%s  after=%s",
+                        _gt.name, _up,
+                        _sge_result.get("before_distribution", {}),
+                        _sge_result.get("after_distribution", {}),
+                    )
+                else:
+                    log.info("[3.9-GOV] %s — 0 violations.", _gt.name)
+        if _total_gov_upgrades:
+            log.warning(
+                "[3.9-GOV] ⚠️  %d severity upgrade(s) applied post-feed-sync. "
+                "Root cause: CVSS enrichment runs before STIX export but after initial "
+                "severity assignment; manifest severity can lag enriched CVSS. "
+                "This correction ensures API consumers always receive accurate severity.",
+                _total_gov_upgrades,
+            )
+    except Exception as _gov_e:
+        log.warning("[3.9-GOV] Severity governance post-sync skipped (non-fatal): %s", _gov_e)
+    # ── End v172.0 P0 FIX ───────────────────────────────────────────────────
     log.info("[3.9] STAGE 3.9 COMPLETE — feed.json has %d entries [OK]", out_count)
 
 
