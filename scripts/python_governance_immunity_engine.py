@@ -50,16 +50,16 @@ SMART_QUOTES = {
 
 # ── Invisible / zero-width characters ────────────────────────────────────────
 INVISIBLE_CHARS = {
-    "": "ZERO WIDTH SPACE",
-    "": "ZERO WIDTH NON-JOINER",
-    "": "ZERO WIDTH JOINER",
-    "‎": "LEFT-TO-RIGHT MARK",
-    "‏": "RIGHT-TO-LEFT MARK",
-    "": "WORD JOINER",
-    "": "BOM / ZERO WIDTH NO-BREAK SPACE",
-    " ": "NO-BREAK SPACE",
-    " ": "LINE SEPARATOR",
-    " ": "PARAGRAPH SEPARATOR",
+    "\u200b": "ZERO WIDTH SPACE",
+    "\u200c": "ZERO WIDTH NON-JOINER",
+    "\u200d": "ZERO WIDTH JOINER",
+    "\u200e": "LEFT-TO-RIGHT MARK",
+    "\u200f": "RIGHT-TO-LEFT MARK",
+    "\u2060": "WORD JOINER",
+    "\ufeff": "BOM / ZERO WIDTH NO-BREAK SPACE",
+    "\u00a0": "NO-BREAK SPACE",
+    "\u2028": "LINE SEPARATOR",
+    "\u2029": "PARAGRAPH SEPARATOR",
 }
 
 
@@ -183,6 +183,8 @@ def check_invisible_chars(filepath: str, source_lines: list) -> list:
     failures = []
     for lineno, line in enumerate(source_lines, start=1):
         for char, name in INVISIBLE_CHARS.items():
+            if len(char) != 1:  # safety: skip empty/corrupt dict keys
+                continue
             if char in line:
                 failures.append({
                     "check": "INVISIBLE_CHAR",
