@@ -3476,6 +3476,45 @@ def stage_sync_root_feed_json() -> None:
         log.warning("[3.9-GOV] Severity governance post-sync skipped (non-fatal): %s", _gov_e)
     # ── End v172.0 P0 FIX ───────────────────────────────────────────────────
     log.info("[3.9] STAGE 3.9 COMPLETE — feed.json has %d entries [OK]", out_count)
+    # ── v173.0 P0 FIX: Post-sync Report Generation for Missing Reports ──────
+    # ROOT CAUSE: Stage 3.9 rebuilds api/feed.json from STIX manifest items.
+    # Many of those items (esp. GitHub Security Advisories, BleepingComputer)
+    # have empty report_url because generate_intel_reports.py ran BEFORE Stage
+    # 3.9 on different items.  Dashboard "FULL INTEL →" buttons then 404.
+    # FIX: run generate_intel_reports.py --manifest api/feed.json after every
+    # Stage 3.9 write to fill the gap.  Non-fatal; pipeline continues on fail.
+    try:
+        import json as _j
+        _feed_path = REPO_ROOT / "api" / "feed.json"
+        if _feed_path.exists():
+            _feed_raw = _j.loads(_feed_path.read_text(encoding="utf-8"))
+            _feed_items = (_feed_raw if isinstance(_feed_raw, list)
+                           else _feed_raw.get("items", _feed_raw.get("advisories", [])))
+            _missing_rpt = [
+                i for i in _feed_items
+                if not (i.get("report_url") or "").strip()
+            ]
+            if _missing_rpt:
+                log.info(
+                    "[3.9-RPT] %d item(s) in api/feed.json have no report_url — "
+                    "running generate_intel_reports.py to fill gaps.", len(_missing_rpt)
+                )
+                _rpt_result = run_script(
+                    [sys.executable, "scripts/generate_intel_reports.py",
+                     "--manifest", "api/feed.json"],
+                    stage="3.9-rpt-fill", allow_fail=True, timeout=120,
+                )
+                if _rpt_result.returncode == 0:
+                    log.info("[3.9-RPT] ✅ Report generation for missing items OK.")
+                else:
+                    log.warning("[3.9-RPT] generate_intel_reports.py exited %d (non-fatal).",
+                                _rpt_result.returncode)
+            else:
+                log.info("[3.9-RPT] All %d feed items already have report_url — no gap fill needed.",
+                         len(_feed_items))
+    except Exception as _rpt_e:
+        log.warning("[3.9-RPT] Post-sync report gap fill skipped (non-fatal): %s", _rpt_e)
+    # ── End v173.0 P0 FIX ────────────────────────────────────────────────────
 
 
 def main() -> None:
