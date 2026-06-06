@@ -5847,15 +5847,16 @@ async function serveHtmlIntelReport(pathname, env, rid) {
     slog('WARN', 'REPORT-HTML', `gh-pages fetch error: ${e.message}`, { rid, pathname });
   }
 
-  // Both sources missed  -  return structured 404
-  return jsonResponse({
-    error: 'report_not_found',
-    message: `Intelligence report '${pathname}' is not available. Reports are generated every 4 hours via the sentinel-blogger pipeline.`,
-    report_path: pathname,
-    request_id: rid,
-    hint: 'If this report was recently generated, allow up to 10 minutes for cache propagation.',
-    platform_url: 'https://intel.cyberdudebivash.com',
-  }, 404);
+  // v173.0 MONETIZATION: report not found → redirect to upgrade page
+  // Free users click "FULL INTEL →" → upgrade.html; paid users see context.
+  // replaces raw JSON 404 which was confusing and not monetizing the traffic.
+  const _rmatch = pathname.match(/intel--[a-f0-9]+/i);
+  const _rid2   = _rmatch ? _rmatch[0] : '';
+  const _upgradeUrl = `https://intel.cyberdudebivash.com/upgrade.html?plan=pro` +
+    `&report_id=${encodeURIComponent(_rid2)}` +
+    `&utm_source=report_gate&utm_medium=report_not_found` +
+    `&utm_campaign=intel_report_upgrade`;
+  return Response.redirect(_upgradeUrl, 302);
 }
 
 // -----------------------------------------------------------------------------
@@ -6697,6 +6698,23 @@ export default {
     // Route intel.cyberdudebivash.com/reports/* is now registered in wrangler.toml so
     // the Worker intercepts these requests instead of falling through to CF Pages 404.
     if (pathname.match(/^\/reports\/\d{4}\/\d{2}\/intel--[a-f0-9]{10,64}\.html$/i) && method === 'GET') {
+      // v173.0 MONETIZATION GATE: tier-check before serving HTML intel reports.
+      // Free / anonymous users are redirected to upgrade.html?plan=pro with
+      // the specific report context so they see what they're missing.
+      // Paid (premium / enterprise) users receive the full report.
+      const _rptAuth  = await resolveAuth(request, env).catch(() => ({ valid: false, tier: 'free' }));
+      const _rptTier  = (_rptAuth?.tier || 'free').toLowerCase();
+      const _isPaidRpt = _rptTier === 'premium' || _rptTier === 'enterprise';
+      if (!_isPaidRpt) {
+        const _rptIdMatch = pathname.match(/intel--[a-f0-9]+/i);
+        const _rptId = _rptIdMatch ? _rptIdMatch[0] : '';
+        const _medium = _rptAuth?.valid ? 'free_user' : 'anonymous';
+        const _upgUrl = `https://intel.cyberdudebivash.com/upgrade.html?plan=pro` +
+          `&report_id=${encodeURIComponent(_rptId)}` +
+          `&utm_source=report_gate&utm_medium=${_medium}` +
+          `&utm_campaign=intel_report_upgrade`;
+        return Response.redirect(_upgUrl, 302);
+      }
       return withSec(await serveHtmlIntelReport(pathname, env, rid));
     }
 
