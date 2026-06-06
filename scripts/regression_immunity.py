@@ -484,7 +484,20 @@ print("\n[13] Severity floor gate")
 try:
     from severity_recalibration_engine import recalibrate_feed as _recalibrate
     if fdata:
-        _, _sev_report = _recalibrate(fdata if isinstance(fdata, list) else [])
+        # FIX v171.1: Previous code passed [] when fdata was a dict, causing
+        # the gate to vacuously pass with 0 violations even when the feed
+        # contained actively-exploited items with LOW severity.
+        # Now correctly extracts items regardless of feed shape (list or dict).
+        if isinstance(fdata, list):
+            _gate_items = fdata
+        elif isinstance(fdata, dict):
+            _gate_items = (fdata.get("items")
+                           or fdata.get("advisories")
+                           or fdata.get("data")
+                           or [])
+        else:
+            _gate_items = []
+        _, _sev_report = _recalibrate(_gate_items)
         _sev_violations = [v for v in _sev_report.get("violations", [])
                            if v["old_severity"] == "LOW" and "active exploitation" in str(v.get("reasons", "")).lower()]
         check("No LOW severity for actively-exploited vulnerabilities",
@@ -530,6 +543,23 @@ report = {
     "warnings": warnings,
 }
 report_path = os.path.join(REPO, "data", "audit", "regression_immunity_report.json")
+os.makedirs(os.path.dirname(report_path), exist_ok=True)
+tmp = report_path + ".tmp"
+with open(tmp, "w", encoding="utf-8") as f:
+    json.dump(report, f, ensure_ascii=False, indent=2)
+os.replace(tmp, report_path)
+
+if violations:
+    print(f"\nRESULT: FAIL -- {len(violations)} violations detected")
+    print("DEPLOYMENT BLOCKED until all violations are resolved")
+    print("=" * 68)
+    sys.exit(1)
+else:
+    print(f"\nRESULT: PASS -- Platform is regression-immune")
+    print("All production invariants and governance gates confirmed")
+    print("=" * 68)
+    sys.exit(0)
+immunity_report.json")
 os.makedirs(os.path.dirname(report_path), exist_ok=True)
 tmp = report_path + ".tmp"
 with open(tmp, "w", encoding="utf-8") as f:

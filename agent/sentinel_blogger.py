@@ -332,7 +332,15 @@ def is_temporally_relevant(entry: dict) -> bool:
 
     kev     = entry.get("kev_present", False)
     epss    = entry.get("epss_score") or 0.0
-    act_exp = any(s in title.lower() for s in ["actively exploited", "in the wild"])
+    # FIX v171.1: Added present-participle / gerund forms so titles like
+    # "Attackers Actively Exploiting Critical Vulnerability in X" are correctly
+    # detected as active-exploitation signals (was only matching past-tense).
+    act_exp = any(s in title.lower() for s in [
+        "actively exploited", "actively exploiting", "attackers actively exploit",
+        "in the wild", "active exploitation", "exploited in the wild",
+        "under active attack", "mass exploitation", "widespread exploitation",
+        "weaponized", "zero-day exploit", "0-day exploit",
+    ])
 
     if kev:
         logger.info(f"[TEMPORAL] Old CVE-{cve_year} passes — KEV confirmed")

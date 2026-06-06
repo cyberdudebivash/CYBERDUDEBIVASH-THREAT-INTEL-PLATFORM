@@ -726,6 +726,71 @@ def integrate_intelligence(
         rse_result = _run_rse(item, risk_score)
         engine_results["rse"] = rse_result
         new_risk = rse_result.get("risk_score", risk_score)
+
+        # ── IMMUTABLE SEVERITY FLOORS v171.1 ────────────────────────────────
+        # The RSE is an evidence-weighted FORECAST engine and may legitimately
+        # reduce scores for low-signal items.  However, it MUST NOT reduce the
+        # published risk_score below the minimum that corresponds to the item's
+        # confirmed threat tier.  Doing so causes severity to be re-derived as
+        # LOW even when CVSS >= 9, KEV is confirmed, or active exploitation is
+        # observed — a P0 governance failure.
+        #
+        # Rules (immutable — cannot be overridden by any downstream engine):
+        #   KEV confirmed                    → risk_score >= 7.5 (HIGH floor)
+        #   Active exploitation in title/desc → risk_score >= 7.0 (HIGH floor)
+        #   CVSS >= 9.5                       → risk_score >= 8.0 (HIGH floor)
+        #   CVSS >= 9.0                       → risk_score >= 7.0 (HIGH floor)
+        #   CVSS >= 8.0                       → risk_score >= 6.0 (HIGH floor)
+        #   KEV + active exploitation         → risk_score >= 8.5 (CRITICAL floor)
+        _kev_val   = str(item.get("kev") or item.get("kev_present") or "").upper()
+        _kev_conf  = _kev_val in ("YES", "TRUE", "1", "LISTED")
+        _cvss_rse  = 0.0
+        for _f in ("cvss_score", "cvss", "cvss_base", "cvss_v3"):
+            _v = item.get(_f)
+            if _v is not None:
+                try:
+                    _cvss_rse = float(_v)
+                    break
+                except (TypeError, ValueError):
+                    pass
+        _title_rse = (item.get("title", "") + " " + item.get("description", "")).lower()
+        _active_exploit_signals = [
+            "actively exploited", "actively exploiting", "attackers actively exploit",
+            "exploited in the wild", "active exploitation", "under active attack",
+        ]
+        _active_exp_rse = any(s in _title_rse for s in _active_exploit_signals)
+
+        _risk_floor = 0.0
+        _floor_reason = ""
+        if _kev_conf and _active_exp_rse:
+            _risk_floor = 8.5
+            _floor_reason = "KEV+ACTIVE_EXPLOIT→8.5_floor"
+        elif _kev_conf:
+            _risk_floor = 7.5
+            _floor_reason = "KEV_CONFIRMED→7.5_floor"
+        elif _active_exp_rse:
+            _risk_floor = 7.0
+            _floor_reason = "ACTIVE_EXPLOIT→7.0_floor"
+        elif _cvss_rse >= 9.5:
+            _risk_floor = 8.0
+            _floor_reason = f"CVSS={_cvss_rse}>=9.5→8.0_floor"
+        elif _cvss_rse >= 9.0:
+            _risk_floor = 7.0
+            _floor_reason = f"CVSS={_cvss_rse}>=9.0→7.0_floor"
+        elif _cvss_rse >= 8.0:
+            _risk_floor = 6.0
+            _floor_reason = f"CVSS={_cvss_rse}>=8.0→6.0_floor"
+
+        if _risk_floor > 0.0 and new_risk < _risk_floor:
+            logger.info(
+                "[EII-4/7] RSE FLOOR APPLIED: %.2f → %.2f (%s) [original=%.2f]",
+                new_risk, _risk_floor, _floor_reason, risk_score
+            )
+            new_risk = _risk_floor
+            rse_result["risk_score"] = new_risk
+            rse_result["floor_applied"] = _floor_reason
+        # ── END IMMUTABLE FLOORS ─────────────────────────────────────────────
+
         logger.info("[EII-4/7] RSE: %s | score=%.2f → %.2f",
                     rse_result.get("status", "?"), risk_score, new_risk)
 
