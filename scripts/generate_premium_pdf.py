@@ -1,26 +1,26 @@
 #!/usr/bin/env python3
 """
-generate_premium_pdf.py — CYBERDUDEBIVASH SENTINEL APEX v166.0
+generate_premium_pdf.py - CYBERDUDEBIVASH SENTINEL APEX v166.0
 ==============================================================
-Premium Threat Intelligence PDF Report Generator — PRODUCTION REBUILD
+Premium Threat Intelligence PDF Report Generator - PRODUCTION REBUILD
 
 FIXES IN v166.0 (comprehensive premium rewrite):
-  FIX-01  Blank page 1 — removed forced PageBreak after thin exec summary;
+  FIX-01  Blank page 1 - removed forced PageBreak after thin exec summary;
           content now flows naturally; PageBreak only when page is >70% full.
-  FIX-02  Watermark — changed from aggressive 38pt diagonal to a subtle
+  FIX-02  Watermark - changed from aggressive 38pt diagonal to a subtle
           low-opacity corner stamp; content is fully readable on every page.
-  FIX-03  ATT&CK XML encoding — all & in ReportLab Paragraph now &amp;
-  FIX-04  MITRE 0/0 — broadened field lookup (ttps/mitre_techniques/
+  FIX-03  ATT&CK XML encoding - all & in ReportLab Paragraph now &amp;
+  FIX-04  MITRE 0/0 - broadened field lookup (ttps/mitre_techniques/
           mitre_tactics/techniques); auto-generates from title when empty.
-  FIX-05  IOC section — looks for iocs/ioc_objects/indicators; shows
+  FIX-05  IOC section - looks for iocs/ioc_objects/indicators; shows
           "IOCs pending enrichment" instead of silently omitting section.
-  FIX-06  CVSS/EPSS — broadened to cvss_score/cvss/cvss3/score/epss_score/epss
-  FIX-07  NEW: CVE Deep-Dive section — CVSS vector grid, CWE, affected products
-  FIX-08  NEW: Detection Engineering — auto-generated Sigma rule per vuln class
-  FIX-09  NEW: Incident Response Playbook — 3-phase containment/eradication/recovery
-  FIX-10  NEW: Financial Impact — FAIR model breach cost estimates per severity
-  FIX-11  Recommendations — enriched; minimum 5 specific, CVE-aware items
-  FIX-12  Schema normalizer — handles both generate_advisory_pdfs schema AND
+  FIX-06  CVSS/EPSS - broadened to cvss_score/cvss/cvss3/score/epss_score/epss
+  FIX-07  NEW: CVE Deep-Dive section - CVSS vector grid, CWE, affected products
+  FIX-08  NEW: Detection Engineering - auto-generated Sigma rule per vuln class
+  FIX-09  NEW: Incident Response Playbook - 3-phase containment/eradication/recovery
+  FIX-10  NEW: Financial Impact - FAIR model breach cost estimates per severity
+  FIX-11  Recommendations - enriched; minimum 5 specific, CVE-aware items
+  FIX-12  Schema normalizer - handles both generate_advisory_pdfs schema AND
           weekly_threat_brief schema transparently
 
 Usage (CLI):
@@ -154,7 +154,7 @@ _VULN_LABELS = {
 }
 
 _SIGMA_TEMPLATES = {
-    "mem_corruption": """title: SENTINEL APEX — Heap Overflow Exploitation Attempt
+    "mem_corruption": """title: SENTINEL APEX - Heap Overflow Exploitation Attempt
 id: cdb-{cve_slug}-det
 status: experimental
 description: |
@@ -185,7 +185,7 @@ detection:
 falsepositives:
   - Legitimate software bugs / crash reporting
 level: medium""",
-    "generic": """title: SENTINEL APEX — {cve_id} Exploitation Attempt
+    "generic": """title: SENTINEL APEX - {cve_id} Exploitation Attempt
 id: cdb-{cve_slug}-det
 status: experimental
 description: Detects exploitation indicators related to {cve_id}.
@@ -212,23 +212,23 @@ level: medium""",
 # ─────────────────────────────────────────────────────────────────────────────
 _FINANCIAL = {
     "CRITICAL": {
-        "range": "$2.4M — $12M", "median": "$5.8M",
+        "range": "$2.4M - $12M", "median": "$5.8M",
         "regulatory": "$850K",   "remediation": "$380K", "downtime": "$1.2M/day",
         "detail": (
             "Critical severity breaches trigger mandatory 72-hour regulatory disclosure (GDPR Art. 33), "
-            "class-action exposure, and long-tail legal costs averaging 18–36 months post-incident."
+            "class-action exposure, and long-tail legal costs averaging 18-36 months post-incident."
         ),
     },
     "HIGH": {
-        "range": "$800K — $4.5M", "median": "$1.8M",
+        "range": "$800K - $4.5M", "median": "$1.8M",
         "regulatory": "$320K",    "remediation": "$180K", "downtime": "$450K/day",
         "detail": (
             "High severity incidents activate IR retainers, forensic investigation (avg 47 days), "
-            "and reputational damage impacting 12–18% of revenue."
+            "and reputational damage impacting 12-18% of revenue."
         ),
     },
     "MEDIUM": {
-        "range": "$150K — $900K", "median": "$380K",
+        "range": "$150K - $900K", "median": "$380K",
         "regulatory": "$85K",     "remediation": "$55K",  "downtime": "$120K/day",
         "detail": (
             "Medium severity events require internal investigation and targeted customer notification. "
@@ -236,7 +236,7 @@ _FINANCIAL = {
         ),
     },
     "LOW": {
-        "range": "$20K — $180K", "median": "$60K",
+        "range": "$20K - $180K", "median": "$60K",
         "regulatory": "N/A",     "remediation": "$15K",  "downtime": "$25K/day",
         "detail": (
             "Low severity findings require targeted patches. Aggregated low-severity debt "
@@ -327,7 +327,7 @@ def _normalize(report: dict) -> dict:
                         pass
                     break
 
-    # iocs: FIX-05 — check multiple field names
+    # iocs: FIX-05 - check multiple field names
     if not r.get("iocs"):
         raw_iocs = r.get("ioc_objects") or r.get("indicators") or r.get("ioc_list") or []
         if raw_iocs:
@@ -341,7 +341,7 @@ def _normalize(report: dict) -> dict:
                 for i in raw_iocs[:60]
             ]
 
-    # mitre_coverage: FIX-04 — broaden field lookup
+    # mitre_coverage: FIX-04 - broaden field lookup
     mc = r.get("mitre_coverage") or {}
     if not mc.get("techniques"):
         # Try top-level fields
@@ -391,13 +391,13 @@ def _normalize(report: dict) -> dict:
                 "tactics":    [{"tactic": t, "count": c} for t, c in tactics_seen.items()],
             }
 
-    # recommendations: FIX-11 — ensure at least 5 specific items
+    # recommendations: FIX-11 - ensure at least 5 specific items
     recs = r.get("recommendations") or []
     if len(recs) < 5:
         title = r.get("title") or "this vulnerability"
         sev = _first_threat_field(r, "severity", "MEDIUM").upper()
         base_recs = [
-            f"Apply vendor patch for {title} immediately — check NVD for official fix guidance.",
+            f"Apply vendor patch for {title} immediately - check NVD for official fix guidance.",
             "Enable enhanced logging and alerting on all systems running affected software versions.",
             "Deploy the Sigma detection rule from this report into your SIEM platform (Sentinel / Splunk / Elastic).",
             "Audit all internet-facing instances of affected products and confirm patch deployment.",
@@ -439,7 +439,7 @@ def _x(s: Any) -> str:
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# PAGE CANVAS — header, footer, subtle watermark  (FIX-01, FIX-02)
+# PAGE CANVAS - header, footer, subtle watermark  (FIX-01, FIX-02)
 # ─────────────────────────────────────────────────────────────────────────────
 FOOTER_TEXT = "cyberdudebivash.com  |  intel.cyberdudebivash.com  |  GSTIN: 21ARKPN8270G1ZP"
 
@@ -457,7 +457,7 @@ def _draw_page(c: canvas.Canvas, doc, report: dict, page_num: int, total_pages: 
     c.saveState()
     c.translate(12 * mm, 22 * mm)
     c.rotate(90)
-    c.drawString(0, 0, "CYBERDUDEBIVASH® SENTINEL APEX  //  CONFIDENTIAL — FOR AUTHORIZED USE ONLY")
+    c.drawString(0, 0, "CYBERDUDEBIVASH® SENTINEL APEX  //  CONFIDENTIAL - FOR AUTHORIZED USE ONLY")
     c.restoreState()
 
     # Top header bar
@@ -576,7 +576,7 @@ def _ts():
 # ─────────────────────────────────────────────────────────────────────────────
 
 def _section_cover(report: dict, st: dict) -> list:
-    """Cover page — FIX-01: no forced PageBreak; flows into page 2 naturally."""
+    """Cover page - FIX-01: no forced PageBreak; flows into page 2 naturally."""
     W, _ = A4
     usable = W - 32*mm
     elems  = []
@@ -594,7 +594,7 @@ def _section_cover(report: dict, st: dict) -> list:
         try:
             pf = datetime.fromisoformat(period["from"].replace("Z", "+00:00"))
             pt = datetime.fromisoformat(period["to"].replace("Z", "+00:00"))
-            period_str = f"  ·  Coverage: {pf.strftime('%b %d')} – {pt.strftime('%b %d, %Y')}"
+            period_str = f"  ·  Coverage: {pf.strftime('%b %d')} - {pt.strftime('%b %d, %Y')}"
         except Exception:
             pass
 
@@ -696,15 +696,15 @@ def _section_top_threats(report: dict, st: dict) -> list:
     for i, t in enumerate(threats[:15], start=1):
         sev  = (t.get("severity") or "MEDIUM").upper()
         apex = t.get("apex_ai") or {}
-        summ = apex.get("ai_summary") or apex.get("summary") or "—"
+        summ = apex.get("ai_summary") or apex.get("summary") or "-"
         summ = summ[:130]
         cvss = t.get("cvss")
         epss = t.get("epss")
         rows.append([
             (t.get("title") or t.get("id") or "")[:70],
             sev,
-            f"{float(cvss):.1f}" if cvss is not None else "—",
-            f"{float(epss)*100:.1f}%" if epss is not None else "—",
+            f"{float(cvss):.1f}" if cvss is not None else "-",
+            f"{float(epss)*100:.1f}%" if epss is not None else "-",
             summ,
         ])
         ts.add("TEXTCOLOR", (1, i), (1, i), Brand.sev(sev))
@@ -718,7 +718,7 @@ def _section_top_threats(report: dict, st: dict) -> list:
 
 
 def _section_cve_deep_dive(report: dict, st: dict) -> list:
-    """FIX-07: CVE deep-dive — CVSS vector grid, CWE, affected products, patch."""
+    """FIX-07: CVE deep-dive - CVSS vector grid, CWE, affected products, patch."""
     threats = report.get("top_threats") or []
     if not threats:
         return []
@@ -840,8 +840,8 @@ def _section_cve_deep_dive(report: dict, st: dict) -> list:
             "Remote code execution vulnerabilities allow attackers to execute arbitrary operating "
             "system commands in the context of the application server process. Successful exploitation "
             "typically results in full server compromise, lateral movement, and persistent backdoor "
-            "installation. Internet-facing applications are prioritized for exploitation — median "
-            "time from PoC publication to in-the-wild exploitation is 3–14 days."
+            "installation. Internet-facing applications are prioritized for exploitation - median "
+            "time from PoC publication to in-the-wild exploitation is 3-14 days."
         ),
         "auth_bypass": (
             "Authentication bypass enables unauthenticated actors to access privileged resources "
@@ -884,9 +884,9 @@ def _section_mitre(report: dict, st: dict) -> list:
         rows  = [["Technique ID", "Name", "Tactic", "Count"]]
         for t in techniques[:20]:
             rows.append([
-                t.get("id") or "—",
+                t.get("id") or "-",
                 (t.get("name") or "")[:50],
-                (t.get("tactic") or "—")[:24],
+                (t.get("tactic") or "-")[:24],
                 str(t.get("count") or "1"),
             ])
         tbl = Table(rows, colWidths=col_w, repeatRows=1)
@@ -953,7 +953,7 @@ def _section_actor_intel(report: dict, st: dict) -> list:
         rows.append([
             (a.get("actor") or "Unknown")[:35],
             str(a.get("count") or "1"),
-            cves[:85] or "—",
+            cves[:85] or "-",
         ])
     tbl = Table(rows, colWidths=col_w, repeatRows=1)
     ts  = _ts()
@@ -984,8 +984,8 @@ def _section_iocs(report: dict, st: dict) -> list:
             rows.append([
                 (str(ioc.get("type") or "INDICATOR"))[:14],
                 (str(ioc.get("value") or ""))[:55],
-                f"{int(float(conf)*100)}%" if conf is not None else "—",
-                (str(ioc.get("first_seen") or ""))[:10] or "—",
+                f"{int(float(conf)*100)}%" if conf is not None else "-",
+                (str(ioc.get("first_seen") or ""))[:10] or "-",
             ])
         tbl = Table(rows, colWidths=col_w, repeatRows=1)
         tbl.setStyle(_ts())
@@ -1034,7 +1034,7 @@ def _section_detection(report: dict, st: dict) -> list:
     # KQL query
     cve_tag = (cve or "ADVISORY").replace("-", "")
     kql = (
-        f"// SENTINEL APEX — {title}\n"
+        f"// SENTINEL APEX - {title}\n"
         f"// {cve or 'Advisory'} | Microsoft Sentinel KQL\n"
         f"let time_window = ago(24h);\n"
         f"SecurityAlert\n"
@@ -1059,12 +1059,12 @@ def _section_detection(report: dict, st: dict) -> list:
         "and any Sigma-compatible platform.", st["Body"]))
     elems.append(_sp(3))
 
-    elems.append(Paragraph("Sigma Rule — Webserver / Process Monitoring", st["SubHead"]))
+    elems.append(Paragraph("Sigma Rule - Webserver / Process Monitoring", st["SubHead"]))
     for line in sigma_rule.split("\n"):
         elems.append(Paragraph(_x(line) or " ", st["Mono"]))
     elems.append(_sp(5))
 
-    elems.append(Paragraph("Microsoft Sentinel — KQL Query", st["SubHead"]))
+    elems.append(Paragraph("Microsoft Sentinel - KQL Query", st["SubHead"]))
     for line in kql.split("\n"):
         elems.append(Paragraph(_x(line) or " ", st["Mono"]))
     elems.append(_sp(4))
@@ -1080,7 +1080,7 @@ def _section_playbook(report: dict, st: dict) -> list:
     product = (threats[0].get("title") or cve or "affected application").split("-")[0].strip()
 
     phases = {
-        "Phase 1 — 0–24 Hours (Containment)": [
+        "Phase 1 - 0-24 Hours (Containment)": [
             f"Activate IR team; assign lead analyst and executive sponsor.",
             f"Isolate or WAF-shield {product} instances exposed to the internet.",
             f"Enable verbose access logging on all {product} endpoints immediately.",
@@ -1088,14 +1088,14 @@ def _section_playbook(report: dict, st: dict) -> list:
             f"Check SENTINEL APEX IOC feeds and SIEM alerts for exploitation hits in your environment.",
             f"Notify relevant internal stakeholders and legal / compliance team.",
         ],
-        "Phase 2 — 24–72 Hours (Eradication)": [
+        "Phase 2 - 24-72 Hours (Eradication)": [
             f"Apply vendor patch for {cve or product} or implement recommended mitigation.",
             f"Deploy Sigma and KQL detection rules from Section 6 across all SIEM platforms.",
             f"Rotate all API keys, service account credentials, and session tokens.",
             f"Conduct forensic timeline reconstruction for potential compromise window.",
             f"Validate patch deployment across 100% of affected instances via asset inventory.",
         ],
-        "Phase 3 — 7 Days (Recovery &amp; Hardening)": [
+        "Phase 3 - 7 Days (Recovery &amp; Hardening)": [
             f"Conduct post-incident review and update incident response runbooks.",
             f"Threat hunt for lateral movement or persistence artifacts using MITRE ATT&amp;CK mapping.",
             f"Update asset inventory with patched version information and closure evidence.",
@@ -1195,7 +1195,7 @@ def _section_compliance(report: dict, st: dict) -> list:
 
 
 def _section_recommendations(report: dict, st: dict) -> list:
-    """FIX-11: Enriched recommendations — minimum 5 specific items."""
+    """FIX-11: Enriched recommendations - minimum 5 specific items."""
     recs = report.get("recommendations") or []
     if not recs:
         return []
@@ -1203,7 +1203,7 @@ def _section_recommendations(report: dict, st: dict) -> list:
     elems = []
     elems.append(Paragraph("Actionable Recommendations", st["SectionHead"]))
     elems.append(Paragraph(
-        "Prioritized defensive actions based on this period’s intelligence.",
+        "Prioritized defensive actions based on this period's intelligence.",
         st["Body"]))
 
     for i, rec in enumerate(recs[:10], start=1):
@@ -1218,16 +1218,16 @@ def _section_appendix(report: dict, st: dict) -> list:
     usable = W - 32*mm
     elems  = []
     elems.append(PageBreak())
-    elems.append(Paragraph("Appendix — Report Metadata &amp; Legal", st["SectionHead"]))
+    elems.append(Paragraph("Appendix - Report Metadata &amp; Legal", st["SectionHead"]))
     elems.append(_hr())
 
     meta = [
-        ("Report ID",      report.get("report_id") or "—"),
-        ("Report Type",    (report.get("type") or "—").replace("_", " ").title()),
+        ("Report ID",      report.get("report_id") or "-"),
+        ("Report Type",    (report.get("type") or "-").replace("_", " ").title()),
         ("Platform",       "CYBERDUDEBIVASH SENTINEL APEX v166.0 GOD-MODE"),
-        ("Generated At",   (report.get("generated_at") or "—")[:25]),
-        ("Customer Tier",  (report.get("tier") or "—").upper()),
-        ("Customer Email", report.get("customer_email") or "—"),
+        ("Generated At",   (report.get("generated_at") or "-")[:25]),
+        ("Customer Tier",  (report.get("tier") or "-").upper()),
+        ("Customer Email", report.get("customer_email") or "-"),
         ("TLP",            report.get("tlp") or "TLP:GREEN"),
         ("STIX Version",   "2.1"),
         ("ATT&CK Version", "v15"),
@@ -1276,7 +1276,7 @@ def _build_story(report: dict, st: dict) -> list:
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# PDF GENERATOR — two-pass for accurate Page N of M
+# PDF GENERATOR - two-pass for accurate Page N of M
 # ─────────────────────────────────────────────────────────────────────────────
 def _make_doc(buf: io.BytesIO, report: dict, on_page_cb) -> BaseDocTemplate:
     W, H = A4
@@ -1347,7 +1347,7 @@ DEMO_REPORT = {
         "application loading the model. Risk Score: 5.3/10 (LOW-MEDIUM). MITRE ATT&CK mapped: "
         "T1190 (Exploit Public-Facing Application), T1203 (Exploitation for Client Execution). "
         "16 potential indicators detected. AI confidence: MEDIUM (62%). Patch available from "
-        "upstream Assimp repository — immediate upgrade recommended for all deployments processing "
+        "upstream Assimp repository - immediate upgrade recommended for all deployments processing "
         "untrusted 3D model files."
     ),
     "threat_landscape": {"total_advisories": 1, "critical": 0, "high": 0, "medium": 1, "low": 0},
@@ -1384,7 +1384,7 @@ DEMO_REPORT = {
                 "Restrict file upload endpoints to known-safe 3D model formats and validate magic bytes.",
                 "Monitor application crash logs for abnormal termination patterns indicative of exploitation.",
                 "Deploy the Sigma rule from this report to detect process anomalies on affected hosts.",
-                "Conduct a dependency audit — identify all internal applications embedding Assimp.",
+                "Conduct a dependency audit - identify all internal applications embedding Assimp.",
             ],
         },
     }],
@@ -1406,7 +1406,7 @@ DEMO_REPORT = {
     }],
     "iocs": [
         {"type": "FILE_PATTERN", "value": "*.mdl (maliciously crafted Half-Life model)", "confidence": 0.70, "first_seen": datetime.now(timezone.utc).strftime("%Y-%m-%d")},
-        {"type": "FUNCTION",     "value": "extract_anim_value() — Assimp HL1MDLLoader.cpp", "confidence": 0.95, "first_seen": datetime.now(timezone.utc).strftime("%Y-%m-%d")},
+        {"type": "FUNCTION",     "value": "extract_anim_value() - Assimp HL1MDLLoader.cpp", "confidence": 0.95, "first_seen": datetime.now(timezone.utc).strftime("%Y-%m-%d")},
     ],
     "recommendations": [
         "Upgrade Assimp to the latest patched version from the upstream GitHub repository.",
@@ -1425,7 +1425,7 @@ DEMO_REPORT = {
 # ─────────────────────────────────────────────────────────────────────────────
 def main():
     parser = argparse.ArgumentParser(
-        description="CYBERDUDEBIVASH SENTINEL APEX — Premium PDF Generator v166.0"
+        description="CYBERDUDEBIVASH SENTINEL APEX - Premium PDF Generator v166.0"
     )
     parser.add_argument("--report-json", "-r",
                         help="Path to report JSON file")
@@ -1441,7 +1441,7 @@ def main():
     else:
         report = DEMO_REPORT
         if not args.demo and not args.report_json:
-            print("[INFO] No --report-json provided — using demo report.", file=sys.stderr)
+            print("[INFO] No --report-json provided - using demo report.", file=sys.stderr)
 
     print(f"[SENTINEL APEX v166.0] Generating PDF: {report.get('report_id','unknown')}",
           file=sys.stderr)

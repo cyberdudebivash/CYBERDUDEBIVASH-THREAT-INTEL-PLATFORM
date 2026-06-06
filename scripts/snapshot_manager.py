@@ -2,19 +2,19 @@
 # -*- coding: utf-8 -*-
 """
 scripts/snapshot_manager.py
-CYBERDUDEBIVASH® SENTINEL APEX v144.0.0 — Immutable Snapshot System
+CYBERDUDEBIVASH® SENTINEL APEX v144.0.0 - Immutable Snapshot System
 ====================================================================
 ARCHITECTURE: SINGLE WRITER → IMMUTABLE DATA → READ-ONLY API → DUMB UI
 
 Implements Phase 1+2 of the Permanent Production Transformation Protocol:
 
-  Phase 1 — Immutable Snapshot System
+  Phase 1 - Immutable Snapshot System
     • Each pipeline run creates a NEW timestamped snapshot
     • NEVER overwrites a previous snapshot
     • Snapshot = deduplicated + sorted (published_at DESC) + clean UTF-8
     • data/snapshots/current.json → pointer to latest snapshot path
 
-  Phase 2 — Pipeline Hardening
+  Phase 2 - Pipeline Hardening
     • Atomic writes only: write → temp → validate → replace
     • Dedup: unique stix_id + hash(title+source+published_at) + ±6h window
     • Pipeline is the ONLY writer in the system
@@ -65,11 +65,11 @@ MIN_ITEMS      = 1           # reject snapshot if fewer entries
 DEDUP_WINDOW_H = 6           # ±6 h window for time-window dedup
 
 MOJIBAKE_MAP = {
-    "â": "–",   # â€" → en-dash
-    "â": "—",   # â€" → em-dash
-    "â": "’",   # â€™ → right single quote
-    "â": "“",   # â€œ → left double quote
-    "â": "”",   # â€ → right double quote
+    "â": "-",   # â€" → en-dash
+    "â": "-",   # â€" → em-dash
+    "â": "'",   # â€™ → right single quote
+    "â": """,   # â€œ → left double quote
+    "â": """,   # â€ → right double quote
     "â¢": "•",   # â€¢ → bullet
     "Ã©": "é",          # Ã© → é
     "Ã¨": "è",          # Ã¨ → è
@@ -77,11 +77,11 @@ MOJIBAKE_MAP = {
 
 # Byte-level mojibake patterns that indicate double-encoded UTF-8
 MOJIBAKE_BYTES = [
-    (b"\xc3\xa2\xc2\x80\xc2\x93", "–"),
-    (b"\xc3\xa2\xc2\x80\xc2\x94", "—"),
-    (b"\xc3\xa2\xc2\x80\xc2\x99", "’"),
-    (b"\xc3\xa2\xc2\x80\xc2\x9c", "“"),
-    (b"\xc3\xa2\xc2\x80\xc2\x9d", "”"),
+    (b"\xc3\xa2\xc2\x80\xc2\x93", "-"),
+    (b"\xc3\xa2\xc2\x80\xc2\x94", "-"),
+    (b"\xc3\xa2\xc2\x80\xc2\x99", "'"),
+    (b"\xc3\xa2\xc2\x80\xc2\x9c", """),
+    (b"\xc3\xa2\xc2\x80\xc2\x9d", """),
 ]
 
 
@@ -193,7 +193,7 @@ def deduplicate(items: List[Dict]) -> Tuple[List[Dict], int]:
 # Sort
 # ---------------------------------------------------------------------------
 def sort_desc(items: List[Dict]) -> List[Dict]:
-    """Sort by (published_at DESC, stix_id DESC) — deterministic."""
+    """Sort by (published_at DESC, stix_id DESC) - deterministic."""
     def key(item):
         ts_val  = item.get("published_at") or item.get("timestamp") or item.get("processed_at") or ""
         sid_val = item.get("stix_id") or item.get("id") or ""
@@ -271,7 +271,7 @@ class SnapshotManager:
 
         # Safety: never overwrite
         if path.exists():
-            log.warning("[snapshot] File already exists — appending suffix: %s", path)
+            log.warning("[snapshot] File already exists - appending suffix: %s", path)
             path = path.with_name(path.stem + "_dup.json")
 
         log.info("[snapshot] Creating snapshot: %d raw items → %s", len(items), path.name)
@@ -340,7 +340,7 @@ class SnapshotManager:
         """
         Load items from the current snapshot (as pointed to by current.json).
         Returns (items, None) or (None, error_str).
-        API reads ONLY from here — NO sorting, NO mutation, NO dedup.
+        API reads ONLY from here - NO sorting, NO mutation, NO dedup.
         """
         ptr, err = _load_json_safe(CURRENT_PTR)
         if err:

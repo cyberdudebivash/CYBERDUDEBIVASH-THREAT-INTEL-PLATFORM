@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-SENTINEL APEX v134.0 – ONE-TIME MANIFEST REBUILD
+SENTINEL APEX v134.0 - ONE-TIME MANIFEST REBUILD
 =================================================
 ROOT CAUSE: MANIFEST_MAX_ENTRIES was set to 50, causing all articles beyond
 the 50th to be evicted from feed_manifest.json even though:
@@ -132,7 +132,7 @@ def extract_from_bundle(bundle_path: Path) -> dict:
         "stix_id": bundle_id,
         "bundle_id": bundle_id,
         "risk_score": risk_score,
-        "blog_url": "",  # Can't recover blog URL from STIX – will be blank
+        "blog_url": "",  # Can't recover blog URL from STIX - will be blank
         "source_url": "",
         "timestamp": timestamp,
         "generated_at": timestamp,
@@ -168,7 +168,7 @@ def main():
     apply_mode = "--apply" in sys.argv
 
     print("=" * 60)
-    print("SENTINEL APEX v134.0 – MANIFEST REBUILD FROM STIX BUNDLES")
+    print("SENTINEL APEX v134.0 - MANIFEST REBUILD FROM STIX BUNDLES")
     print(f"Mode: {'APPLY (writing changes)' if apply_mode else 'PREVIEW (read-only)'}")
     print("=" * 60)
 
@@ -226,8 +226,8 @@ def main():
     merged = merged[:MAX_ENTRIES]
 
     print(f"\n[RESULT] Final manifest: {len(merged)} entries (cap: {MAX_ENTRIES})")
-    newest_ts = merged[0].get("timestamp", "?")[:19] if merged else "–"
-    oldest_ts = merged[-1].get("timestamp", "?")[:19] if merged else "–"
+    newest_ts = merged[0].get("timestamp", "?")[:19] if merged else "-"
+    oldest_ts = merged[-1].get("timestamp", "?")[:19] if merged else "-"
     print(f"  Newest: {newest_ts}")
     print(f"  Oldest: {oldest_ts}")
 
@@ -241,8 +241,8 @@ def main():
 
         with open(MANIFEST_PATH, "w") as f:
             json.dump(merged, f, indent=4)
-        print(f"[WRITTEN] {MANIFEST_PATH} – {len(merged)} entries")
-        print("[SUCCESS] Manifest rebuilt âœ“")
+        print(f"[WRITTEN] {MANIFEST_PATH} - {len(merged)} entries")
+        print("[SUCCESS] Manifest rebuilt OK")
     else:
         print(f"\n[DRY RUN] No changes written. Run with --apply to write.")
 

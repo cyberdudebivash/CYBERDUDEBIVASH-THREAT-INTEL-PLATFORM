@@ -1,9 +1,9 @@
 {
-  "total_experiments": 2,
+  "total_experiments": 3,
   "experiments": [
     {
-      "experiment_id": "abtest--b9b35ecfa8d4",
-      "name": "Detection Optimization: Cisco Catalyst SD-WAN Manager CVE-2026-20245 Flaw ",
+      "experiment_id": "abtest--311f5b9e4e72",
+      "name": "Detection Optimization: CVE-2026-10880 - Unauthenticated SQL Injection in ",
       "hypothesis": "Narrow detection rules reduce false positives without missing true threats",
       "variant_a": {
         "name": "Broad Detection",
@@ -30,17 +30,17 @@
       "duration_days": 14,
       "status": "PROPOSED",
       "advisory_context": {
-        "title": "Cisco Catalyst SD-WAN Manager CVE-2026-20245 Flaw Actively Exploited \u2013 No Patch ",
+        "title": "CVE-2026-10880 - Unauthenticated SQL Injection in Osnexus Quantastor",
         "risk_score": 8.5,
         "cves": [
-          "CVE-2026-20245"
+          "CVE-2026-10880"
         ],
         "techniques": []
       }
     },
     {
-      "experiment_id": "abtest--0898b10cfce0",
-      "name": "Detection Optimization: Exploit for CVE-2026-3300 exploit",
+      "experiment_id": "abtest--eded2cbbc93d",
+      "name": "Detection Optimization: CVE-2026-46741 - Etsy::StatsD versions through 1.0",
       "hypothesis": "Narrow detection rules reduce false positives without missing true threats",
       "variant_a": {
         "name": "Broad Detection",
@@ -67,10 +67,47 @@
       "duration_days": 14,
       "status": "PROPOSED",
       "advisory_context": {
-        "title": "Exploit for CVE-2026-3300 exploit",
+        "title": "CVE-2026-46741 - Etsy::StatsD versions through 1.002002 for Perl allow metric in",
         "risk_score": 7.0,
         "cves": [
-          "CVE-2026-3300"
+          "CVE-2026-46741"
+        ],
+        "techniques": []
+      }
+    },
+    {
+      "experiment_id": "abtest--2ddff4c4a659",
+      "name": "Detection Optimization: Cisco Patches CVE-2026-20230 in Unified CM as Expl",
+      "hypothesis": "Narrow detection rules reduce false positives without missing true threats",
+      "variant_a": {
+        "name": "Broad Detection",
+        "description": "Matches any related IOC or technique indicator",
+        "expected_recall": 0.95,
+        "expected_precision": 0.6,
+        "rule_type": "sigma",
+        "detection_logic": "selection: any technique OR any CVE mention"
+      },
+      "variant_b": {
+        "name": "Precise Detection",
+        "description": "Requires multiple correlated indicators",
+        "expected_recall": 0.75,
+        "expected_precision": 0.9,
+        "rule_type": "sigma",
+        "detection_logic": "selection: (technique AND CVE) OR (IOC AND actor_tag)"
+      },
+      "metrics": [
+        "true_positive_rate",
+        "false_positive_rate",
+        "mean_time_to_detect",
+        "analyst_triage_time"
+      ],
+      "duration_days": 14,
+      "status": "PROPOSED",
+      "advisory_context": {
+        "title": "Cisco Patches CVE-2026-20230 in Unified CM as Exploit Code Goes Public",
+        "risk_score": 7.0,
+        "cves": [
+          "CVE-2026-20230"
         ],
         "techniques": []
       }
@@ -82,5 +119,5 @@
     "statistical_test": "chi_squared",
     "rollout_strategy": "gradual"
   },
-  "generated_at": "2026-06-06T08:50:22.285577+00:00"
+  "generated_at": "2026-06-04T20:28:28.384283+00:00"
 }
