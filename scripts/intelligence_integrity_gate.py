@@ -90,11 +90,11 @@ FEED_MAX_SINGLE_ACTOR_RATIO  = 0.90       # >90% single actor = diversity failur
 FEED_MIN_UNIQUE_ACTORS       = 2          # Minimum distinct actor IDs (was 3)
 
 # D. KEV Health thresholds
-KEV_EXPECTED_RATIO           = 0.02       # Expect ≥2% of advisories to have KEV=True
+KEV_EXPECTED_RATIO           = 0.02       # Expect >=2% of advisories to have KEV=True
                                           # (realistic for a 100-item feed)
 
 # E. Runtime Integrity thresholds
-RUNTIME_MIN_MINUTES          = 8          # Pipeline should run ≥8 minutes (not collapsed)
+RUNTIME_MIN_MINUTES          = 8          # Pipeline should run >=8 minutes (not collapsed)
 RUNTIME_MAX_MINUTES          = 120        # >120 min = hung pipeline warning
 STAGE_REQUIRED               = ["2", "3", "3.5", "5"]  # must appear in timing
 
@@ -204,11 +204,25 @@ def _techniques(item: Dict) -> List[str]:
 
 
 def _cves(item: Dict) -> List[str]:
+    # Structured CVE fields (most reliable).
     cve_list = item.get("cve_ids") or item.get("cves") or []
     if isinstance(cve_list, str):
         cve_list = [cve_list]
-    title_cves = CVE_ID_RE.findall(_title(item))
-    return list(set(str(c) for c in cve_list + title_cves if c))
+    # F1-GATE-FIX (field-parity with kev_feed_marker._extract_cve):
+    # The original code called CVE_ID_RE.findall(_title(item)), where _title()
+    # returns the FIRST non-null of (title, headline, name) — an OR chain, not
+    # a union.  Any item whose CVE text lives in a field shadowed by a non-null
+    # `title` (e.g. headline='CVE-2024-39930 ...' with title='Generic advisory')
+    # yielded 0 text CVEs here, while kev_feed_marker._extract_cve() (patched
+    # F1) scans ALL text fields in a loop. The divergence is the exact mechanism
+    # of the #1551 false HARD_FAIL: marker sets kev=True from headline, gate
+    # can't see the CVE, gate flags "inflation". Fix: scan every text field the
+    # same way the marker does, producing identical CVE sets for identical items.
+    text_cves: list = []
+    for field in ("title", "headline", "name", "id", "source_url", "description"):
+        val = item.get(field) or ""
+        text_cves += CVE_ID_RE.findall(str(val))
+    return list(set(str(c) for c in cve_list + text_cves if c))
 
 
 def _iocs(item: Dict) -> Dict:
@@ -398,7 +412,7 @@ class EntropyGate:
         # Near-duplicate detection (Jaccard similarity)
         # v166.8 FIX (GAP-014): CVE advisory titles naturally share "CVE-YYYY-NNNNN" tokens,
         # causing Jaccard similarity to be high (e.g. "CVE-2026-10190 denial of service" vs
-        # "CVE-2026-10191 stack overflow" share "CVE-2026" prefix tokens → high similarity).
+        # "CVE-2026-10191 stack overflow" share "CVE-2026" prefix tokens -> high similarity).
         # This is NOT near-duplication — these are distinct CVEs for distinct vulnerabilities.
         # Fix: exclude the CVE ID token itself from Jaccard comparison. Only warn, not hard-fail.
         if len(titles) > 2:
@@ -521,8 +535,8 @@ _KEV_CATALOG_PATHS = [
 _KEV_LIVE_URL = "https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json"
 _KEV_CATALOG_MAX_AGE_DAYS = 1    # v175.1 FIX: fetch live if catalog >1 day old.
 # Root cause: kev_feed_marker fetches LIVE catalog; gate used 3-day-old LOCAL
-# cache → CVE-2026-28318 (added 2026-06-05) not found → false INFLATION HARD_FAIL.
-# Reducing from 30→1 ensures gate always validates against the same-day catalog.
+# cache -> CVE-2026-28318 (added 2026-06-05) not found -> false INFLATION HARD_FAIL.
+# Reducing from 30->1 ensures gate always validates against the same-day catalog.
 
 
 def _catalog_age_days(data: dict) -> float:
@@ -1085,7 +1099,7 @@ def run_all_gates(items: List[Dict], mode: str) -> int:
     log.info("%-45s  %s", "GATE", "STATUS")
     log.info("-" * 60)
     for gate_name, status, _ in report_rows:
-        flag = "\u2717" if status == "HARD_FAIL" else "\u2713"
+        flag = "✗" if status == "HARD_FAIL" else "✓"
         log.info("  %s  %-43s  %s", flag, gate_name, status)
 
     log.info("")

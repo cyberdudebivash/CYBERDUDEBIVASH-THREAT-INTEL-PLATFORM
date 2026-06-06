@@ -829,18 +829,36 @@ def run_enforcement(fix_mode: bool = False, report_only: bool = False) -> int:
                     len(info_violations))
 
     if blocking_violations:
-        log.error("[MANDATE ENFORCER] ██ DEPLOYMENT BLOCKED ██")
-        log.error("[MANDATE ENFORCER] %d blocking violations across mandates",
-                  len(blocking_violations))
         blocking_mandates = {}
         for v in blocking_violations:
             blocking_mandates[v.mandate] = blocking_mandates.get(v.mandate, 0) + 1
+
+        # P2-FIX (audit finding F2 / O1): a report_only run is GUARANTEED to
+        # `return 0` a few lines below — that is this flag's documented purpose
+        # (see --report help text: "do not block deployment"). Logging
+        # "██ DEPLOYMENT BLOCKED ██" at ERROR severity on a path that cannot
+        # block anything is self-contradicting: run #1551's own log showed
+        # "██ DEPLOYMENT BLOCKED ██" / "274 blocking violations" immediately
+        # followed by "[REPORT-ONLY] ... Exiting 0". That trains readers to
+        # distrust ERROR-level output — including the times it's reporting a
+        # real, actionable problem. Same counts, same data, same exit code:
+        # only the framing changes, to match what the code actually does.
+        if report_only:
+            log.warning("[MANDATE ENFORCER] %d advisory violations across mandates "
+                        "(report-only mode — NOT enforced, deployment proceeds)",
+                        len(blocking_violations))
+            for m, count in sorted(blocking_mandates.items()):
+                log.warning("  MANDATE %2d: %d violations (advisory, non-blocking)", m, count)
+            log.info("[REPORT-ONLY] Advisory report written to "
+                     "data/health/mandate_enforcement_report.json. "
+                     "Exiting 0 — this run does not gate deployment.")
+            return 0
+
+        log.error("[MANDATE ENFORCER] ██ DEPLOYMENT BLOCKED ██")
+        log.error("[MANDATE ENFORCER] %d blocking violations across mandates",
+                  len(blocking_violations))
         for m, count in sorted(blocking_mandates.items()):
             log.error("  MANDATE %2d: %d violations", m, count)
-
-        if report_only:
-            log.info("[REPORT-ONLY] Violations logged. Exiting 0 (report mode).")
-            return 0
 
         return 2 if fix_mode else 1
 
