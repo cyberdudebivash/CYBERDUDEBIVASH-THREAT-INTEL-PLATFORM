@@ -210,4 +210,30 @@ def main() -> int:
     log.info("Report written: %s", REPORT_PATH)
 
     if DRY_RUN:
-        log.info("[DRY RUN] Would write %d marked, %d def
+        log.info("[DRY RUN] Would write %d marked, %d deflated", marked, deflated)
+        return 0
+
+    if marked == 0 and deflated == 0:
+        log.info("No KEV changes — feed unchanged")
+        return 0
+
+    tmp = FEED_PATH.with_suffix(".kev_tmp")
+    try:
+        out = items if isinstance(feed_data, list) else {**feed_data, "items": items}
+        tmp.write_text(json.dumps(out, ensure_ascii=False, indent=2), encoding="utf-8")
+        tmp.replace(FEED_PATH)
+        log.info("Feed updated: %s (%d items, %d KEV, %d deflated)",
+                 FEED_PATH, len(items), total_kev, deflated)
+    except Exception as e:
+        log.error("Feed write failed: %s", e)
+        tmp.unlink(missing_ok=True)
+        return 1
+
+    log.info("=" * 60)
+    log.info("KEV Feed Marker complete — %d marked CRITICAL, %d deflated", marked, deflated)
+    log.info("=" * 60)
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
