@@ -3486,6 +3486,52 @@ def stage_sync_root_feed_json() -> None:
         log.warning("[3.9-GOV] Severity governance post-sync skipped (non-fatal): %s", _gov_e)
     # ── End v172.0 P0 FIX ───────────────────────────────────────────────────
     log.info("[3.9] STAGE 3.9 COMPLETE — feed.json has %d entries [OK]", out_count)
+
+    # v177.0 FIX: Confidence Scale Normalization (post Stage 3.9)
+    # Some sources store confidence in 0-100 scale. Normalize >1.0 values to 0-1.
+    # Idempotent -- safe to run on every pipeline execution.
+    try:
+        import json as _cnorm_json
+        _cnorm_path = REPO_ROOT / "api" / "feed.json"
+        if _cnorm_path.exists():
+            _cnorm_raw = _cnorm_path.read_text(encoding="utf-8")
+            _cnorm_data = _cnorm_json.loads(_cnorm_raw)
+            _cnorm_items = (
+                _cnorm_data if isinstance(_cnorm_data, list)
+                else _cnorm_data.get("items", _cnorm_data.get("advisories", []))
+            )
+            _cnorm_fixed = 0
+            for _item in _cnorm_items:
+                _conf = _item.get("confidence")
+                if _conf is not None:
+                    try:
+                        _conf_f = float(_conf)
+                        if _conf_f > 1.0:
+                            _item["confidence"] = round(min(1.0, _conf_f / 100.0), 4)
+                            _cnorm_fixed += 1
+                    except (ValueError, TypeError):
+                        pass
+            if _cnorm_fixed > 0:
+                _cnorm_tmp = _cnorm_path.with_suffix(".cnorm_tmp")
+                _cnorm_tmp.write_text(
+                    _cnorm_json.dumps(_cnorm_data, ensure_ascii=False, indent=2),
+                    encoding="utf-8",
+                )
+                _cnorm_tmp.replace(_cnorm_path)
+                _root_cnorm = REPO_ROOT / "feed.json"
+                _cnorm_tmp2 = _root_cnorm.with_suffix(".cnorm2_tmp")
+                _cnorm_tmp2.write_text(
+                    _cnorm_json.dumps(_cnorm_data, ensure_ascii=False, indent=2),
+                    encoding="utf-8",
+                )
+                _cnorm_tmp2.replace(_root_cnorm)
+                log.info("[3.9-CNORM] Normalized %d item(s): confidence >1.0 divided by 100.", _cnorm_fixed)
+            else:
+                log.info("[3.9-CNORM] All confidence values in 0-1 range -- no normalization needed.")
+    except Exception as _cnorm_e:
+        log.warning("[3.9-CNORM] Confidence normalization skipped (non-fatal): %s", _cnorm_e)
+    # End v177.0 FIX
+
     # ── v173.0 P0 FIX: Post-sync Report Generation for Missing Reports ──────
     # ROOT CAUSE: Stage 3.9 rebuilds api/feed.json from STIX manifest items.
     # Many of those items (esp. GitHub Security Advisories, BleepingComputer)
