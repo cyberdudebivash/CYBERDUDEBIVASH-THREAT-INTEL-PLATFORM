@@ -40,7 +40,25 @@ ROLLBACK SAFETY:
   - Script exits 0 on any error (pipeline continues safely)
   - Quarantine queue is additive only (no deletions from main feed)
 
-VERSION: 149.0.0
+v149.1.0 PRODUCTION FIX — P0 FEED ERASURE PREVENTION:
+  Root cause: APEX_REQUIRE_CONFIDENCE_GATE=true with all items having
+  confidence_score=0 (field not yet populated at pre-enrichment stage)
+  caused 100% of existing items to be quarantined, wiping the feed to near-zero
+  on every 6-hour workflow run.
+
+  Fix applied (permanent platform mandate):
+    1. 15-DAY RETENTION WINDOW: Items published within the last 15 days are
+       NEVER removed from the feed regardless of confidence score. This is the
+       mandatory SENTINEL APEX platform rule — fresh intel is always protected.
+    2. ARCHIVAL (not deletion): Items older than 15 days that fail the confidence
+       gate are ARCHIVED to data/archive/YYYY-MM/archived_intel.json (append-only,
+       never deleted). intel_persistence_engine.py ingests data/archive/ on every
+       run, ensuring archived items remain accessible for historical retrieval.
+    3. UNKNOWN AGE = PROTECTED: Items with no parseable published date are treated
+       as age=0 (fresh) — conservative default prevents accidental erasure.
+    4. Feed files are NEVER written with fewer items than the 15-day protected set.
+
+VERSION: 149.1.0
 """
 import json
 import logging
@@ -60,8 +78,18 @@ log = logging.getLogger("v149-INTEL-HARD")
 REPO = Path(__file__).resolve().parent.parent
 NOW_ISO = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
+# ── Retention Window (P0 Fix v149.1.0) ───────────────────────────────────────
+# Items published within RETENTION_WINDOW_DAYS are NEVER removed from feed.
+# This is the MANDATORY PLATFORM RULE — fresh intel must stay available.
+RETENTION_WINDOW_DAYS = 15
+
+# ── Archive Directory (mirrors intel_persistence_engine.py path) ─────────────
+# Items older than RETENTION_WINDOW_DAYS that fail confidence gate are ARCHIVED
+# here (never deleted). intel_persistence_engine.py reads this dir every run.
+ARCHIVE_BASE = REPO / "data" / "archive"
+
 # ── Confidence Gate ───────────────────────────────────────────────────────────
-CONFIDENCE_GATE_MIN = 30        # items below this % go to quarantine
+CONFIDENCE_GATE_MIN = 30        # items below this % go to archive (if old) or are protected (if fresh)
 CONFIDENCE_QUARANTINE_PATH = REPO / "data" / "quarantine" / "low_confidence.json"
 
 # ── False CRITICAL Thresholds ─────────────────────────────────────────────────
@@ -169,6 +197,32 @@ def _load_feed(path: Path) -> Optional[List[Dict]]:
     return None
 
 
+def _item_age_days(item: Dict) -> float:
+    """Return item age in days from its published/timestamp date.
+
+    Returns 0.0 (treat as fresh/protected) if date cannot be parsed.
+    Conservative default: unknown age -> protect from erasure per platform mandate.
+    """
+    for field in ("published", "published_at", "timestamp", "created_at",
+                  "generated_at", "date", "pub_date"):
+        val = item.get(field)
+        if not val or not isinstance(val, str):
+            continue
+        try:
+            # Normalize common ISO variants
+            ts = val.replace("Z", "+00:00")
+            pub = datetime.fromisoformat(ts)
+            if pub.tzinfo is None:
+                pub = pub.replace(tzinfo=timezone.utc)
+            now = datetime.now(timezone.utc)
+            age = (now - pub).total_seconds() / 86400.0
+            return max(0.0, age)
+        except (ValueError, TypeError, OverflowError):
+            continue
+    # Cannot determine age — treat as fresh to prevent accidental erasure
+    return 0.0
+
+
 def _resolve_source_trust(item: Dict) -> int:
     """Resolve authoritative trust score for an item's source."""
     # Try different source field names
@@ -221,7 +275,7 @@ def fix_false_critical(item: Dict, stats: Dict) -> Dict:
         item.setdefault("apex_ai", {})["original_severity"] = "CRITICAL"
         stats["false_critical_fixed"] = stats.get("false_critical_fixed", 0) + 1
         log.info(
-            "  [C4-FIX] FALSE_CRITICAL → HIGH: kev=%s cvss=%.1f epss=%.1f | %s",
+            "  [C4-FIX] FALSE_CRITICAL -> HIGH: kev=%s cvss=%.1f epss=%.1f | %s",
             kev, cvss, epss, item.get("title", "?")[:60]
         )
 
@@ -245,7 +299,7 @@ def fix_none_threat_level(item: Dict, stats: Dict) -> Dict:
 
 def normalize_threat_category(item: Dict, stats: Dict) -> Dict:
     """
-    Resolve actor code → human-readable threat_category at top-level field.
+    Resolve actor code -> human-readable threat_category at top-level field.
     This ensures the CSV export and API response both show human-readable categories.
     Only overwrites if current value is a code pattern (CDB-*) or blank/General.
     """
@@ -268,11 +322,95 @@ def normalize_threat_category(item: Dict, stats: Dict) -> Dict:
     return item
 
 
-def apply_confidence_gate(items: List[Dict], stats: Dict) -> Tuple[List[Dict], List[Dict]]:
+def write_archive_items(items: List[Dict]) -> None:
+    """Archive items to data/archive/YYYY-MM/archived_intel.json (append-only).
+
+    This directory is read by intel_persistence_engine.py on every run, ensuring
+    archived items remain accessible in the intelligence repository for historical
+    customer retrieval. Deduplication by stix_id/id/title prevents inflation.
     """
-    Confidence gate: route low-confidence items to quarantine.
-    Returns (production_items, quarantine_items).
-    Gate fires only when APEX_REQUIRE_CONFIDENCE_GATE=true in feature_flags.
+    if not items:
+        return
+
+    # Group by published month
+    by_month: Dict[str, List[Dict]] = {}
+    for item in items:
+        month = ""
+        for field in ("published", "published_at", "timestamp", "created_at",
+                      "generated_at", "date", "pub_date"):
+            val = item.get(field)
+            if val and isinstance(val, str):
+                try:
+                    pub = datetime.fromisoformat(val.replace("Z", "+00:00"))
+                    month = pub.strftime("%Y-%m")
+                    break
+                except (ValueError, TypeError):
+                    continue
+        if not month:
+            month = datetime.now(timezone.utc).strftime("%Y-%m")
+        by_month.setdefault(month, []).append(item)
+
+    total_archived = 0
+    for month, month_items in sorted(by_month.items()):
+        archive_dir = ARCHIVE_BASE / month
+        archive_dir.mkdir(parents=True, exist_ok=True)
+        archive_file = archive_dir / "archived_intel.json"
+
+        # Load existing archive for this month (never overwrite)
+        existing: List[Dict] = []
+        if archive_file.exists():
+            try:
+                existing = json.loads(archive_file.read_text(encoding="utf-8"))
+                if not isinstance(existing, list):
+                    existing = []
+            except Exception:
+                existing = []
+
+        # Deduplicate: prefer stix_id > id > title
+        existing_keys = {
+            item.get("stix_id") or item.get("id") or item.get("title", "")
+            for item in existing
+            if item.get("stix_id") or item.get("id") or item.get("title")
+        }
+        new_items = [
+            i for i in month_items
+            if (i.get("stix_id") or i.get("id") or i.get("title", "")) not in existing_keys
+        ]
+
+        if new_items:
+            _atomic_write(archive_file, existing + new_items)
+            total_archived += len(new_items)
+            log.info(
+                "  [ARCHIVE] %s: +%d items -> %d total",
+                month, len(new_items), len(existing) + len(new_items)
+            )
+        else:
+            log.info(
+                "  [ARCHIVE] %s: all %d items already archived (deduped)",
+                month, len(month_items)
+            )
+
+    log.info("  [ARCHIVE] Total new items archived: %d", total_archived)
+
+
+def apply_confidence_gate(
+    items: List[Dict], stats: Dict
+) -> Tuple[List[Dict], List[Dict], List[Dict]]:
+    """
+    Confidence gate with 15-day retention protection.
+
+    Returns (production_items, archive_items, quarantine_items).
+
+    Retention rules (platform mandate, v149.1.0):
+      - Items published within RETENTION_WINDOW_DAYS: ALWAYS production.
+        Never removed regardless of confidence score.
+      - Items older than RETENTION_WINDOW_DAYS AND confidence < threshold:
+        ARCHIVED to data/archive/YYYY-MM/ (not deleted, not quarantined).
+        intel_persistence_engine.py reads archive on every run.
+      - Items with unparseable published date: treated as age=0 (fresh) —
+        conservative default, never accidentally erased.
+      - Gate is applied only when APEX_REQUIRE_CONFIDENCE_GATE=true in
+        config/feature_flags.json.
     """
     try:
         ff_path = REPO / "config" / "feature_flags.json"
@@ -285,31 +423,56 @@ def apply_confidence_gate(items: List[Dict], stats: Dict) -> Tuple[List[Dict], L
 
     if not gate_enabled:
         log.info("  [CONF-GATE] Disabled (APEX_REQUIRE_CONFIDENCE_GATE=false) — skipping")
-        return items, []
+        return items, [], []
 
-    production: List[Dict] = []
-    quarantine: List[Dict] = []
+    production: List[Dict] = []     # items going to live feed
+    to_archive: List[Dict] = []     # old items failing gate -> archive (never delete)
+    to_quarantine: List[Dict] = []  # reserved for future use
+
+    retention_protected = 0
+    gate_passed = 0
+    gate_failed = 0
 
     for item in items:
+        # ── 15-day retention: protect all fresh intel ─────────────────────────
+        age = _item_age_days(item)
+        if age <= RETENTION_WINDOW_DAYS:
+            production.append(item)
+            retention_protected += 1
+            continue
+
+        # ── Older items: apply confidence gate ───────────────────────────────
         conf = float(item.get("confidence_score") or item.get("confidence") or 0)
         # Normalize 0.0-1.0 range to 0-100
-        if conf <= 1.0 and conf > 0:
-            conf = conf * 100
+        if 0.0 < conf <= 1.0:
+            conf = conf * 100.0
 
         if conf >= threshold:
             production.append(item)
+            gate_passed += 1
         else:
-            item["_quarantine_reason"] = f"confidence={conf:.1f}% < threshold={threshold}%"
-            item["_quarantined_at"] = NOW_ISO
-            quarantine.append(item)
-            stats["confidence_quarantined"] = stats.get("confidence_quarantined", 0) + 1
+            # Archive (not delete) — preserve for historical retrieval
+            item["_archived_reason"] = (
+                "age={:.0f}d > {}d AND confidence={:.1f}% < threshold={}%".format(
+                    age, RETENTION_WINDOW_DAYS, conf, threshold
+                )
+            )
+            item["_archived_at"] = NOW_ISO
+            to_archive.append(item)
+            gate_failed += 1
+            stats["confidence_archived"] = stats.get("confidence_archived", 0) + 1
+
+    stats["retention_protected"] = stats.get("retention_protected", 0) + retention_protected
 
     log.info(
-        "  [CONF-GATE] threshold=%d%% | production=%d | quarantined=%d",
-        threshold, len(production), len(quarantine)
+        "  [CONF-GATE] threshold=%d%% | retention_protected(<=15d)=%d | "
+        "gate_passed=%d | archived(>15d low-conf)=%d | production=%d",
+        threshold, retention_protected,
+        gate_passed, gate_failed,
+        len(production),
     )
 
-    return production, quarantine
+    return production, to_archive, to_quarantine
 
 
 def enrich_source_trust(item: Dict, stats: Dict) -> Dict:
@@ -328,7 +491,7 @@ def write_source_trust_registry() -> None:
     registry_path.parent.mkdir(parents=True, exist_ok=True)
     registry = {
         "schema": "sentinel_apex_source_trust_v1",
-        "version": "149.0.0",
+        "version": "149.1.0",
         "generated_at": NOW_ISO,
         "trust_scores": SOURCE_TRUST_MAP,
         "methodology": (
@@ -358,10 +521,15 @@ def process_feed_file(path: Path, stats: Dict) -> Optional[List[Dict]]:
         normalize_threat_category(item, stats)
         enrich_source_trust(item, stats)
 
-    # Apply confidence gate
-    production_items, quarantine_items = apply_confidence_gate(items, stats)
+    # Apply confidence gate with 15-day retention protection
+    production_items, archive_items, quarantine_items = apply_confidence_gate(items, stats)
 
-    # Write quarantine items
+    # Write items that aged out of the active window to data/archive/
+    # (intel_persistence_engine.py ingests this directory every run)
+    if archive_items:
+        write_archive_items(archive_items)
+
+    # Legacy quarantine path (currently empty under v149.1.0 logic)
     if quarantine_items:
         existing_quarantine: List[Dict] = []
         if CONFIDENCE_QUARANTINE_PATH.exists():
@@ -379,7 +547,7 @@ def process_feed_file(path: Path, stats: Dict) -> Optional[List[Dict]]:
         ]
         _atomic_write(CONFIDENCE_QUARANTINE_PATH, existing_quarantine + new_quarantine)
         log.info(
-            "  [QUARANTINE] Written %d new low-confidence items → %s",
+            "  [QUARANTINE] Written %d new low-confidence items -> %s",
             len(new_quarantine), CONFIDENCE_QUARANTINE_PATH
         )
 
@@ -388,8 +556,9 @@ def process_feed_file(path: Path, stats: Dict) -> Optional[List[Dict]]:
 
 def main():
     log.info("=" * 70)
-    log.info("SENTINEL APEX v149 — Intelligence Hardening Engine")
+    log.info("SENTINEL APEX v149.1.0 — Intelligence Hardening Engine")
     log.info("Scope: P0 FALSE_CRITICAL + P0 NONE_THREAT + P1 CONF_GATE + P1 TRUST + P1 CATEGORY")
+    log.info("P0 Fix: 15-day retention protection + archive (never delete)")
     log.info("Timestamp: %s", NOW_ISO)
     log.info("=" * 70)
 
@@ -430,15 +599,22 @@ def main():
     # Audit report
     audit = {
         "schema": "v149_intelligence_hardening_audit_v1",
-        "version": "149.0.0",
+        "version": "149.1.0",
         "timestamp": NOW_ISO,
         "stats": stats,
         "fixes_applied": {
-            "false_critical_downgraded": stats.get("false_critical_fixed", 0),
-            "none_threat_level_normalized": stats.get("none_threat_fixed", 0),
-            "threat_categories_resolved": stats.get("category_resolved", 0),
-            "source_trust_scores_updated": stats.get("trust_updated", 0),
-            "low_confidence_quarantined": stats.get("confidence_quarantined", 0),
+            "false_critical_downgraded":       stats.get("false_critical_fixed", 0),
+            "none_threat_level_normalized":     stats.get("none_threat_fixed", 0),
+            "threat_categories_resolved":       stats.get("category_resolved", 0),
+            "source_trust_scores_updated":      stats.get("trust_updated", 0),
+            "retention_protected_15d":          stats.get("retention_protected", 0),
+            "low_confidence_archived":          stats.get("confidence_archived", 0),
+        },
+        "retention_policy": {
+            "window_days":   RETENTION_WINDOW_DAYS,
+            "rule":          "Items published within 15 days are NEVER removed from feed",
+            "archive_path":  str(ARCHIVE_BASE),
+            "archive_rule":  "Items >15 days old with low confidence are ARCHIVED (never deleted)",
         },
         "source_trust_registry": str(REPO / "data" / "quality" / "source_trust_scores.json"),
         "quarantine_path": str(CONFIDENCE_QUARANTINE_PATH),
@@ -451,13 +627,14 @@ def main():
 
     log.info("=" * 70)
     log.info("HARDENING COMPLETE")
-    log.info("  False CRITICAL downgraded : %d", stats.get("false_critical_fixed", 0))
-    log.info("  NONE threat_level fixed   : %d", stats.get("none_threat_fixed", 0))
-    log.info("  Threat categories resolved: %d", stats.get("category_resolved", 0))
-    log.info("  Source trust updated      : %d", stats.get("trust_updated", 0))
-    log.info("  Low-confidence quarantined: %d", stats.get("confidence_quarantined", 0))
-    log.info("  Audit written             : %s", audit_path.name)
-    log.info("[PASS] v149 Intelligence Hardening complete.")
+    log.info("  False CRITICAL downgraded       : %d", stats.get("false_critical_fixed", 0))
+    log.info("  NONE threat_level fixed          : %d", stats.get("none_threat_fixed", 0))
+    log.info("  Threat categories resolved       : %d", stats.get("category_resolved", 0))
+    log.info("  Source trust updated             : %d", stats.get("trust_updated", 0))
+    log.info("  Retention-protected (<=15d)      : %d", stats.get("retention_protected", 0))
+    log.info("  Archived (>15d low-confidence)   : %d", stats.get("confidence_archived", 0))
+    log.info("  Audit written                    : %s", audit_path.name)
+    log.info("[PASS] v149.1.0 Intelligence Hardening complete.")
     log.info("=" * 70)
 
 
