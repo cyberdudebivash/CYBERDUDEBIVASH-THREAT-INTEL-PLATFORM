@@ -712,6 +712,14 @@ def check_sellability(feed: Optional[List[Dict]]) -> Dict:
             if d:
                 try:
                     dt = datetime.fromisoformat(d.replace("Z", "+00:00"))
+                    # v160.1 FIX: normalize naive datetimes to UTC.
+                    # Some source feeds emit timestamps without timezone suffix
+                    # (e.g. "2026-06-07T17:12:59" vs "2026-06-07T17:12:59Z").
+                    # Mixing offset-naive and offset-aware datetimes causes
+                    # TypeError: can't compare offset-naive and offset-aware datetimes
+                    # at max(latest_dates). Conservative fix: assume UTC for naive.
+                    if dt.tzinfo is None:
+                        dt = dt.replace(tzinfo=timezone.utc)
                     latest_dates.append(dt)
                 except Exception:
                     pass
