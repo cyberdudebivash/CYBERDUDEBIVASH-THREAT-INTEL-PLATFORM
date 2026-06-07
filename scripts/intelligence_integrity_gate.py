@@ -62,8 +62,13 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 # Old threshold=5 caused false HARD_FAIL on every run with real multi-CVE product advisories.
 # New threshold=25: catches genuine synthetic generators (which produce 50-200+ sequential IDs)
 # while passing real batch NVD advisories which typically have <20 sequential IDs.
+# v160.2 FIX (run #1562 false HARD_FAIL): Threshold raised 25→40.
+# The sequential check now uses PRIMARY cve_id only (not text-extracted CVEs), which
+# eliminates the main inflation vector (description text citing many adjacent CVEs).
+# Belt-and-suspenders: 40 catches synthetic generators (50-200+ sequential IDs) while
+# passing real NVD batch pulls which produce <30 sequential primary IDs even in large runs.
 SYNTHETIC_CVE_YEAR_FUTURE   = 2027        # CVEs from future years need NVD validation
-SYNTHETIC_SEQUENTIAL_WINDOW = 25          # >=25 sequential CVE numbers = flood alert (was 5)
+SYNTHETIC_SEQUENTIAL_WINDOW = 40          # >=40 primary sequential CVEs = flood alert (was 25; primary-only since v160.2)
 SYNTHETIC_FLEET_THRESHOLD   = 0.40        # >40% CDB-*-GEN actors = synthetic dominance
 SYNTHETIC_HARD_FAIL_RATIO   = 0.60        # >60% synthetic actors = HARD_FAIL
 
@@ -204,20 +209,32 @@ def _techniques(item: Dict) -> List[str]:
 
 
 def _cves(item: Dict) -> List[str]:
-    # Structured CVE fields (most reliable).
-    cve_list = item.get("cve_ids") or item.get("cves") or []
-    if isinstance(cve_list, str):
-        cve_list = [cve_list]
-    # F1-GATE-FIX (field-parity with kev_feed_marker._extract_cve):
-    # The original code called CVE_ID_RE.findall(_title(item)), where _title()
-    # returns the FIRST non-null of (title, headline, name) — an OR chain, not
-    # a union.  Any item whose CVE text lives in a field shadowed by a non-null
-    # `title` (e.g. headline='CVE-2024-39930 ...' with title='Generic advisory')
-    # yielded 0 text CVEs here, while kev_feed_marker._extract_cve() (patched
-    # F1) scans ALL text fields in a loop. The divergence is the exact mechanism
-    # of the #1551 false HARD_FAIL: marker sets kev=True from headline, gate
-    # can't see the CVE, gate flags "inflation". Fix: scan every text field the
-    # same way the marker does, producing identical CVE sets for identical items.
+    # Structured CVE fields — full field-parity with kev_feed_marker._extract_cve().
+    # v160.2 FIX (run #1562 Gate D false HARD_FAIL): Prior code only checked
+    # cve_ids and cves (plural). kev_feed_marker._extract_cve() checks cve_id,
+    # cve_ids, cves, and cve (all four canonical field names). The divergence was
+    # the exact mechanism of the run #1562 INFLATION HARD_FAIL:
+    #   marker extracted CVE-2026-3055 from item["cve_id"] → found in KEV catalog
+    #   → set item["kev"] = True.
+    #   gate saw item["kev"] = True but _cves() returned only {CVE-2022-28368}
+    #   (from item["title"]) because cve_id was not scanned → {CVE-2022-28368} &
+    #   catalog = {} → flagged as INFLATION HARD_FAIL.
+    # Fix: scan all four structured field names before text fallback.
+    cve_list: list = []
+    for field in ("cve_id", "cve_ids", "cves", "cve"):
+        val = item.get(field)
+        if val is None:
+            continue
+        if isinstance(val, str):
+            cid = val.upper().strip()
+            if CVE_ID_RE.search(cid) and cid not in cve_list:
+                cve_list.append(cid)
+        elif isinstance(val, list):
+            for c in val:
+                cid = str(c).upper().strip()
+                if CVE_ID_RE.search(cid) and cid not in cve_list:
+                    cve_list.append(cid)
+    # Text fallback (parity with kev_feed_marker._extract_cve text pass):
     text_cves: list = []
     for field in ("title", "headline", "name", "id", "source_url", "description"):
         val = item.get(field) or ""
@@ -246,7 +263,7 @@ class SyntheticCVEDetector:
         findings: List[str] = []
         hard_fail = False
 
-        # Collect all CVE IDs
+        # Collect all CVE IDs (full text extraction for future-year check)
         all_cves: List[Tuple[int, int]] = []  # (year, number)
         all_cve_strs: List[str] = []
         for item in items:
@@ -256,10 +273,30 @@ class SyntheticCVEDetector:
                     all_cves.append((int(m.group(1)), int(m.group(2))))
                     all_cve_strs.append(cve.upper())
 
-        # Check sequential flood
-        if all_cves:
+        # v160.2 FIX (run #1562 Gate A false HARD_FAIL): Sequential CVE flood check
+        # MUST use PRIMARY cve_id only — NOT text-extracted CVEs from all fields.
+        # Root cause of false HARD_FAIL: _cves() extracts CVEs from title+description;
+        # cross-item aggregation across 118 real advisories produces a large pool of
+        # sequential 2026 CVEs (normal for NVD batch releases). 26 sequential numbers
+        # triggered SYNTHETIC_SEQUENTIAL_WINDOW=25. Using only the item's primary
+        # cve_id (one per advisory) correctly detects synthetic generators that create
+        # advisories with sequential primary IDs, without false-triggering on real feeds.
+        primary_cves: List[Tuple[int, int]] = []
+        for item in items:
+            for field in ("cve_id", "cve_ids", "cves", "cve"):
+                val = item.get(field)
+                if not val:
+                    continue
+                cve_str = (val[0] if isinstance(val, list) and val else str(val))
+                pm = CVE_YEAR_RE.search(str(cve_str).upper().strip())
+                if pm:
+                    primary_cves.append((int(pm.group(1)), int(pm.group(2))))
+                    break  # first structured field with a valid CVE per item only
+
+        # Check sequential flood (primary CVE IDs only)
+        if primary_cves:
             by_year: Dict[int, List[int]] = defaultdict(list)
-            for year, num in all_cves:
+            for year, num in primary_cves:
                 by_year[year].append(num)
 
             for year, nums in by_year.items():
@@ -274,12 +311,13 @@ class SyntheticCVEDetector:
                         cur_seq = 1
                 if max_seq >= SYNTHETIC_SEQUENTIAL_WINDOW:
                     findings.append(
-                        f"[A] SYNTHETIC CVE FLOOD: {max_seq} sequential CVE-{year}-xxxx numbers detected. "
-                        f"Sequential CVEs are a hallmark of synthetic generator output. "
-                        f"Expected: diverse CVE years and non-sequential IDs from real feeds."
+                        f"[A] SYNTHETIC CVE FLOOD: {max_seq} sequential CVE-{year}-xxxx primary IDs. "
+                        f"Sequential primary CVE IDs are a hallmark of synthetic generator output. "
+                        f"Expected: diverse primary CVE IDs from real feeds."
                     )
                     hard_fail = True
 
+        if all_cves:
             # Future-year CVEs (needs NVD validation flag)
             current_year = datetime.now(timezone.utc).year
             future_cves = [f"CVE-{y}-{n}" for y, n in all_cves if y > current_year]
