@@ -5847,8 +5847,8 @@ async function serveHtmlIntelReport(pathname, env, rid) {
     slog('WARN', 'REPORT-HTML', `gh-pages fetch error: ${e.message}`, { rid, pathname });
   }
 
-  // v173.0 MONETIZATION: report not found → redirect to upgrade page
-  // Free users click "FULL INTEL →" → upgrade.html; paid users see context.
+  // v173.0 MONETIZATION: report not found -> redirect to upgrade page
+  // Free users click "FULL INTEL ->" -> upgrade.html; paid users see context.
   // replaces raw JSON 404 which was confusing and not monetizing the traffic.
   const _rmatch = pathname.match(/intel--[a-f0-9]+/i);
   const _rid2   = _rmatch ? _rmatch[0] : '';
