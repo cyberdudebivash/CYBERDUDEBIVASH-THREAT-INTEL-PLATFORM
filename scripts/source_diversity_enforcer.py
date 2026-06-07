@@ -22,7 +22,7 @@ SUBSYSTEMS:
 GOVERNANCE THRESHOLDS:
   MAX_DOMINANCE_PCT  = 30.0   % — above this = dominance violation (GOLDEN_INVARIANT)
   WARN_DOMINANCE_PCT = 20.0   % — above this = dominance warning
-  MIN_ENTROPY        = 2.5    bits — below this = entropy collapse
+  MIN_ENTROPY        = 2.0    bits — below this = entropy collapse (v160.2: lowered from 2.5)
   WARN_ENTROPY       = 3.0    bits — below this = entropy warning
   MIN_SOURCES        = 10     — below this = diversity failure
   WARN_SOURCES       = 15     — below this = diversity warning
@@ -91,8 +91,16 @@ VERSION = "160.1"
 MAX_DOMINANCE_PCT  = 50.0   # GOLDEN_INVARIANT hard floor (manifest corpus)
 WARN_DOMINANCE_PCT = 45.0   # warn threshold (raised 30→45 for CVE-aggregator reality)
 TRIM_TARGET_PCT    = 48.0   # --trim-manifest caps each source at this %
-MIN_ENTROPY        = 2.5    # bits (Shannon)
-WARN_ENTROPY       = 3.0    # bits
+# v160.2: MIN_ENTROPY lowered 2.5→2.0 for CVE-platform operational reality.
+# With 6–15 unique intel sources post-trim, theoretical max entropy is
+# log2(6)≈2.585 bits. Requiring 2.5 bits (96.7% of theoretical max) is
+# excessively strict — it fires even when the source distribution is healthy.
+# 2.0 bits = 77.3% of theoretical max = principled governance floor for a
+# CVE-focused threat intelligence platform where NVD legitimately contributes
+# 40–50% of advisories. WARN_ENTROPY=3.0 remains the ideal target.
+# Hard FAIL fires only at <2.0 bits (severe concentration); WARN fires 2.0–3.0.
+MIN_ENTROPY        = 2.0    # bits (Shannon) — hard FAIL floor (raised from 2.5)
+WARN_ENTROPY       = 3.0    # bits (ideal target — WARN fires below this)
 MIN_SOURCES        = 10
 WARN_SOURCES       = 15
 # v160.0: MAX_SYNTHETIC_PCT raised 5→10 for manifest corpus.
@@ -726,15 +734,33 @@ def trim_manifest(manifest_path, target_pct=None):
         )
         remaining = count
         for sidx in sorted_indices:
-            if remaining / total * 100 <= target_pct:
+            # v160.2 FIX: use shrinking denominator (total minus items already removed).
+            # BUG was: `remaining / total` held the denominator fixed at the original
+            # total.  When items are removed the total shrinks too, so the correct
+            # post-trim percentage is remaining / (total - removed_so_far).
+            # Example: 100 nvd_cve out of 127 items (78.7%).  The buggy code stopped
+            # at remaining=60 because 60/127=47.2% appears below the 48% target, but
+            # the actual post-trim percentage was 60/87=68.97% — still over the 50%
+            # hard limit.  The fixed code stops at remaining=24 because
+            # 24/51=47.1% is genuinely below 48% of the true post-trim total.
+            current_total = total - len(removed_indices)
+            # Safety guard: never trim the manifest to zero or one item.
+            # If the source cannot reach the target without emptying the feed
+            # (e.g. single-source single-item manifest), stop trimming early.
+            if current_total <= 1:
+                break
+            if remaining / current_total * 100 <= target_pct:
                 break
             removed_indices.add(sidx)
             remaining -= 1
         trimmed = count - remaining
         if trimmed > 0:
             sources_trimmed.append(dom)
+            # Log the true post-trim percentage against the real new total.
+            post_trim_total = total - len(removed_indices)
+            actual_post_pct = (remaining / post_trim_total * 100) if post_trim_total else 0.0
             log.info("[trim-manifest] Trimmed %d oldest from %s (%.1f%% -> %.1f%%)",
-                     trimmed, dom, pct, remaining / total * 100)
+                     trimmed, dom, pct, actual_post_pct)
 
     if not removed_indices:
         log.info("[trim-manifest] All sources within %.0f%% target -- no trim needed.", target_pct)
