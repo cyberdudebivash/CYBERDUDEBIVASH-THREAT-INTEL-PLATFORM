@@ -81,14 +81,21 @@ jobs:
           fetch-depth: 0
 
       - name: Trivy filesystem scan
-        # Pinned @0.24.0 (was @master — drift risk). exit-code=0 means non-blocking.
-        uses: aquasecurity/trivy-action@0.24.0
-        with:
-          scan-type: fs
-          scan-ref: platform/
-          severity: CRITICAL,HIGH
-          exit-code: "0"
-          format: table
+        # v49.0 FIX: aquasecurity/trivy-action@0.24.0 is a Docker container action.
+        # The Docker image pull happens during "Set up job" — if it fails (rate limit,
+        # image unavailable, network blip) the whole job dies before any user step.
+        # Replace with Trivy CLI install: we own the error boundary and can guarantee
+        # non-blocking behaviour. Same scan coverage, no Docker pull at job init.
+        run: |
+          curl -sSfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh \
+            | sh -s -- -b /tmp/trivy-bin 2>/dev/null \
+            || { echo "::warning::Trivy install failed — skipping filesystem scan"; exit 0; }
+          /tmp/trivy-bin/trivy fs \
+            --severity CRITICAL,HIGH \
+            --exit-code 0 \
+            --format table \
+            platform/ \
+            || echo "::warning::Trivy scan encountered errors (non-blocking)"
 
       - name: Bandit SAST
         run: |
