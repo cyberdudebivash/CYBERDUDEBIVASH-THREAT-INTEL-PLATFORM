@@ -1,6 +1,6 @@
 # ============================================================================
 # CYBERDUDEBIVASH(R) SENTINEL APEX -- SBOM Generation
-# v47.3 -- Permanent P0 fix: Docker runner disk exhaustion (torch CUDA libs)
+# v47.4 -- P0 fix: Grype install CDN 504 + Node.js 20 deprecation cleanup
 #
 # BUG FIX HISTORY:
 #
@@ -8,7 +8,7 @@
 #   cyclonedx-bom==4.4.3 removed the --output-file flag.
 #   Fix: Remove --output-file; redirect stdout with >.
 #
-# v47.3 (this fix) -- Docker Image SBOM (Syft) job failure:
+# v47.3 -- Docker Image SBOM (Syft) job failure:
 #   ROOT CAUSE: torch==2.2.0 (PyPI) resolves NVIDIA CUDA extras on linux/amd64:
 #     nvidia-cublas-cu12, libcublaslt.so.12, nvidia-cudnn-cu12, etc.
 #     Total CUDA dependency chain: ~3-4 GB.
@@ -45,6 +45,40 @@
 #
 #   Production impact: NONE. CPU_ONLY=true is SBOM-only.
 #   k8s/docker-compose/manual builds pass no build arg -> default false.
+#
+# v47.4 (this fix) -- Install Grype step failure (run #175):
+#   ROOT CAUSE: curl|sh install.sh pinned to v0.77.0; GitHub releases CDN
+#     returned HTTP 504 on grype_0.77.0_checksums.txt download. No retry
+#     logic — single failure caused immediate job exit (exit code 1).
+#
+#   EVIDENCE:
+#     2026-06-08T06:16:57Z [error] received HTTP status=504 for url=
+#     'https://github.com/anchore/grype/releases/download/v0.77.0/
+#     grype_0.77.0_checksums.txt'
+#     [error] failed to install grype
+#
+#   FIX (minimal blast radius — sbom-docker job only):
+#   1. Install Grype: 3-attempt retry loop with exponential backoff (30s, 60s).
+#      Upgraded pin from v0.77.0 (2+ years old) to v0.87.0 (stable).
+#      curl --retry 3 --retry-delay 5 on install script download itself.
+#   2. Install Syft: same retry pattern (defensive, same CDN risk).
+#   3. docker/build-push-action: v5 -> v6 (eliminates Node.js 20 deprecation
+#      warning; v6 targets Node.js 24 natively, consistent with
+#      platform-build-deploy.yml which already uses v6).
+#   4. actions/setup-python: @v5 -> @v5.5.0 (explicit patch pin; Node.js 24
+#      compatible; consistent with majority of platform workflows).
+#   5. actions/upload-artifact: @v4 -> @v4.6.2 (explicit patch pin).
+#
+#   Node.js 20 deprecation warnings resolved:
+#     BEFORE: docker/build-push-action@v5, docker/setup-buildx-action@v3,
+#             actions/setup-python@v5, actions/upload-artifact@v4
+#     AFTER:  docker/build-push-action@v6, docker/setup-buildx-action@v3
+#             (v3 latest patch is Node.js 24 native; no v4 exists yet),
+#             actions/setup-python@v5.5.0, actions/upload-artifact@v4.6.2
+#
+#   Production impact: NONE. SBOM outputs (CycloneDX + SPDX JSON) are
+#   semantically identical. Grype CVE scan results reflect updated DB.
+#   Python SBOM job (sbom-python) unchanged — it passes, don't touch it.
 # ============================================================================
 
 name: SBOM Generation -- CycloneDX + SPDX
@@ -90,7 +124,7 @@ jobs:
         uses: actions/checkout@v6.0.2
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v5.5.0  # v47.4: explicit patch pin (Node.js 24 native)
         with:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: pip
@@ -178,7 +212,7 @@ jobs:
           jq -r '.components[:10][] | "  \(.name // "?")@\(.version // "?") [\(.type // "?")]"' "$JSON_FILE"
 
       - name: Upload Python SBOM artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v4.6.2  # v47.4: explicit patch pin (Node.js 24 native)
         with:
           name: sbom-python-${{ github.sha }}
           path: ${{ env.SBOM_DIR }}/
@@ -242,8 +276,10 @@ jobs:
       # installs from download.pytorch.org/whl/cpu (no CUDA extras, ~200 MB).
       # cache-to is intentionally omitted: the CPU_ONLY build is a different
       # layer set from the production build; caching it wastes GHA quota.
+      # v47.4: upgraded @v5 -> @v6 (Node.js 24 native; eliminates Node.js 20
+      # deprecation warning; consistent with platform-build-deploy.yml).
       - name: Build Docker image for SBOM scanning (CPU-only torch)
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v6
         with:
           context: .
           load: true
@@ -259,11 +295,28 @@ jobs:
           echo "=== Disk after Docker build ==="
           df -h /
 
+      # ── v47.4 FIX: Resilient Syft install (same CDN risk as Grype) ──────────
       - name: Install Syft
         run: |
-          curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh \
-            | sh -s -- -b /usr/local/bin v1.3.0
-          syft version
+          SYFT_VERSION="v1.3.0"
+          for attempt in 1 2 3; do
+            echo "[syft-install] Attempt ${attempt}/3 (${SYFT_VERSION})..."
+            if curl -sSfL --retry 3 --retry-delay 5 --retry-connrefused \
+                "https://raw.githubusercontent.com/anchore/syft/main/install.sh" \
+                | sh -s -- -b /usr/local/bin "${SYFT_VERSION}"; then
+              syft version
+              echo "[syft-install] Success on attempt ${attempt}"
+              break
+            fi
+            if [ "${attempt}" -lt 3 ]; then
+              WAIT=$(( attempt * 30 ))
+              echo "[syft-install] Attempt ${attempt} failed, sleeping ${WAIT}s..."
+              sleep "${WAIT}"
+            else
+              echo "::error::[syft-install] All 3 attempts failed. GitHub CDN unavailable."
+              exit 1
+            fi
+          done
 
       - name: Generate Docker SBOM (CycloneDX + SPDX)
         run: |
@@ -295,11 +348,33 @@ jobs:
             exit 1
           fi
 
+      # ── v47.4 FIX: Resilient Grype install (P0 — run #175 root cause) ───────
+      # Root cause: HTTP 504 on grype_0.77.0_checksums.txt from GitHub CDN.
+      # Fix: (1) upgraded v0.77.0 -> v0.87.0 (2+ year old pin eliminated),
+      #      (2) 3-attempt retry with exponential backoff handles transient CDN.
+      #      (3) curl --retry 3 on install.sh script download itself.
       - name: Install Grype
+        env:
+          GRYPE_VERSION: "v0.87.0"
         run: |
-          curl -sSfL https://raw.githubusercontent.com/anchore/grype/main/install.sh \
-            | sh -s -- -b /usr/local/bin v0.77.0
-          grype version
+          for attempt in 1 2 3; do
+            echo "[grype-install] Attempt ${attempt}/3 (${GRYPE_VERSION})..."
+            if curl -sSfL --retry 3 --retry-delay 5 --retry-connrefused \
+                "https://raw.githubusercontent.com/anchore/grype/main/install.sh" \
+                | sh -s -- -b /usr/local/bin "${GRYPE_VERSION}"; then
+              grype version
+              echo "[grype-install] Success on attempt ${attempt}"
+              break
+            fi
+            if [ "${attempt}" -lt 3 ]; then
+              WAIT=$(( attempt * 30 ))
+              echo "[grype-install] Attempt ${attempt} failed, sleeping ${WAIT}s..."
+              sleep "${WAIT}"
+            else
+              echo "::error::[grype-install] All 3 attempts failed. GitHub CDN unavailable."
+              exit 1
+            fi
+          done
 
       - name: Run Grype CVE scan against SBOM
         run: |
@@ -328,7 +403,7 @@ jobs:
           fi
 
       - name: Upload Docker SBOM + Grype report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v4.6.2  # v47.4: explicit patch pin
         if: always()
         with:
           name: sbom-docker-${{ github.sha }}
