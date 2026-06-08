@@ -6,9 +6,15 @@
 name: CDB Bug Hunter Recon Engine v49.0
 
 on:
-  schedule:
-    # Run every 8 hours (offset from other pipelines)
-    - cron: '15 */8 * * *'
+  # v49.0 SCHEDULE DISABLED (2026-06-08):
+  # Bug Hunter Resilient Recon (bughunter-resilient.yml) runs the same scan on
+  # the same schedule and writes to the same output file. Both sharing the
+  # sentinel-data-writer concurrency group at identical cron times caused
+  # this workflow to be permanently QUEUED then CANCELLED every 8h.
+  # Resilient Recon is the active version — this is kept for emergency
+  # manual use (workflow_dispatch) only, same pattern as r2-data-sync.yml.
+  # schedule:
+  #   - cron: '15 */8 * * *'
   workflow_dispatch:
     inputs:
       target_domain:
