@@ -1,5 +1,11 @@
 # SENTINEL APEX — Platform Monorepo CI/CD Pipeline v2
 # Builds, tests, security-scans, and deploys all microservices
+#
+# AUDIT FIX (2026-06-08):
+#   Added concurrency group (prevents parallel builds on the same branch).
+#   Added timeout-minutes to all jobs (prevents runaway builds consuming quota).
+#   Pinned aquasecurity/trivy-action from @master -> @0.24.0 (stable, no
+#     @master drift risk; exit-code=0 means it still won't fail the build).
 name: platform-build-deploy
 
 on:
@@ -15,6 +21,13 @@ on:
     paths:
       - "platform/**"
       - ".github/workflows/platform-build-deploy.yml"
+
+# Prevent concurrent runs on the same ref.
+# On push: cancel in-progress; old PR builds are superseded by new pushes.
+# On pull_request: cancel in-progress; avoids wasted runner minutes.
+concurrency:
+  group: platform-build-deploy-${{ github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
@@ -33,6 +46,7 @@ jobs:
   lint:
     name: Lint & Type Check
     runs-on: ubuntu-24.04
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v6.0.2
 
@@ -56,13 +70,15 @@ jobs:
   security-scan:
     name: Security Scanning
     runs-on: ubuntu-24.04
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v6.0.2
         with:
           fetch-depth: 0
 
       - name: Trivy filesystem scan
-        uses: aquasecurity/trivy-action@master
+        # Pinned @0.24.0 (was @master — drift risk). exit-code=0 means non-blocking.
+        uses: aquasecurity/trivy-action@0.24.0
         with:
           scan-type: fs
           scan-ref: platform/
@@ -88,6 +104,7 @@ jobs:
   build-services:
     name: Build ${{ matrix.service }}
     runs-on: ubuntu-24.04
+    timeout-minutes: 30
     needs: [lint]
     strategy:
       fail-fast: false
@@ -136,6 +153,7 @@ jobs:
   build-frontend:
     name: Build Enterprise Dashboard
     runs-on: ubuntu-24.04
+    timeout-minutes: 20
     needs: [lint]
     steps:
       - uses: actions/checkout@v6.0.2
@@ -168,6 +186,7 @@ jobs:
   validate-helm:
     name: Validate Helm Charts
     runs-on: ubuntu-24.04
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v6.0.2
 
@@ -209,6 +228,7 @@ jobs:
   terraform-validate:
     name: Terraform Validate
     runs-on: ubuntu-24.04
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v6.0.2
 
@@ -237,6 +257,7 @@ jobs:
   post-deploy-verify:
     name: Live Platform Health Check
     runs-on: ubuntu-24.04
+    timeout-minutes: 5
     needs: [build-services, build-frontend, validate-helm, terraform-validate]
     if: github.ref == 'refs/heads/main'
     steps:
