@@ -34,9 +34,17 @@ def _load(path):
         with open(path) as f: return json.load(f)
     except: return None
 
+_SEVERITY_RISK = {"CRITICAL": 9.0, "HIGH": 7.5, "MEDIUM": 5.0, "LOW": 2.0, "INFORMATIONAL": 0.5}
+
 def _entries():
     d = _load(MANIFEST_PATH)
     return d if isinstance(d, list) else (d.get("entries", []) if d else [])
+
+def _derive_risk(e: Dict) -> float:
+    """Derive a risk_score from severity/cvss when the field is absent."""
+    cvss = float(e.get("cvss_score", e.get("cvss", 0)) or 0)
+    sev  = str(e.get("severity", e.get("risk_level", ""))).upper()
+    return _SEVERITY_RISK.get(sev, cvss if cvss > 0 else 3.0)
 
 def _stix_iocs(stix_file: str) -> Dict[str, List[str]]:
     """Extract IOCs from STIX bundle."""
@@ -76,10 +84,12 @@ class ThreatMonitor:
         cutoff = (datetime.now(timezone.utc) - timedelta(hours=window_hours)).isoformat()
 
         for e in entries:
-            ts = e.get("timestamp", "")
+            # Support both 'timestamp' and 'published_at' field names
+            ts = e.get("timestamp", "") or e.get("published_at", "")
             if ts and ts < cutoff: continue
             title = e.get("title", "")
-            risk = e.get("risk_score", 0)
+            # Derive risk_score from severity/cvss when field absent (STIX manifest entries)
+            risk = float(e.get("risk_score") or 0) or _derive_risk(e)
             cves = [c.upper() for c in CVE_RE.findall(title)]
             iocs = _stix_iocs(e.get("stix_file", ""))
 

@@ -1175,6 +1175,12 @@ def main():
         "pipeline_run_id": PIPELINE_RUN_ID,
         "feed_item_count": len(items),
 
+        # Top-level GRI — mirrors exec_summary for CI/JQ/dashboard compatibility
+        "global_risk_index": {
+            "gri_score": exec_summary["global_risk_index"],
+            "trend":     exec_summary.get("threat_posture", "STABLE"),
+        },
+
         # Three AI Engines (Phase 1: full explainability)
         "engine_alpha":  alpha,
         "engine_beta":   beta,
