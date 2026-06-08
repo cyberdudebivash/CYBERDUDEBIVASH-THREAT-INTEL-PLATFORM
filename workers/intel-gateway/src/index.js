@@ -2057,7 +2057,8 @@ async function handleFeedJson(request, env, rid) {
     "Access-Control-Allow-Origin":  "*",
     "Access-Control-Allow-Methods": "GET, OPTIONS",
     "Access-Control-Allow-Headers": "Content-Type",
-    "Cache-Control":                "no-store, max-age=0",
+    // v161.0: changed from no-store to 5-min edge cache (was causing p95>1000ms via cold R2 reads)
+    "Cache-Control":                "public, max-age=300, s-maxage=300, stale-while-revalidate=60",
     "X-SENTINEL-Endpoint":          "feed-json",
     "X-SENTINEL-Version":           CONFIG.GATEWAY_VERSION,
   };

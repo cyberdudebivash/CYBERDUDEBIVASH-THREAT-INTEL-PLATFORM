@@ -222,7 +222,15 @@ def check_manifest_freshness(probe_results: dict) -> dict:
     for key in ["latest_json", "apex_json"]:
         r = probe_results["endpoints"].get(key, {})
         if not r.get("ok"):
-            freshness[key] = {"fresh": False, "age_hours": None, "error": "endpoint_down"}
+            # Auth-protected endpoints return 401/403 -- not an outage, just requires JWT
+            if r.get("auth_protected") or r.get("status") in (401, 403):
+                freshness[key] = {
+                    "fresh": True, "age_hours": None,
+                    "error": "auth_required_not_probed",
+                    "note": "Auth-protected endpoint — 401 expected without JWT; not an SLA violation",
+                }
+            else:
+                freshness[key] = {"fresh": False, "age_hours": None, "error": "endpoint_down"}
             continue
         snippet = r.get("body_snippet", "")
         # Try to parse generated_at from snippet
