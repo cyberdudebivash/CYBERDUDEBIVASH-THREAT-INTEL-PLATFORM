@@ -50,6 +50,7 @@ jobs:
   authorize:
     name: Authorization Gate
     runs-on: ubuntu-latest
+    timeout-minutes: 2
     outputs:
       authorized: ${{ steps.check.outputs.authorized }}
     steps:
@@ -72,6 +73,7 @@ jobs:
     needs: authorize
     if: needs.authorize.outputs.authorized == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     outputs:
       current_sha: ${{ steps.capture.outputs.current_sha }}
       rollback_tag: ${{ steps.capture.outputs.rollback_tag }}
@@ -105,6 +107,7 @@ jobs:
     name: Validate Rollback Target
     needs: [authorize, snapshot]
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     outputs:
       target_sha: ${{ steps.validate.outputs.target_sha }}
     steps:
@@ -172,6 +175,7 @@ jobs:
     name: Execute Rollback
     needs: [snapshot, validate-target]
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     environment: production
     steps:
       - uses: actions/checkout@v6.0.2
@@ -219,6 +223,7 @@ jobs:
     needs: rollback
     if: github.event.inputs.skip_canary != 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v6.0.2
 
@@ -268,6 +273,7 @@ jobs:
     needs: [rollback, post-rollback-canary]
     if: always()
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - name: Write rollback audit record
         run: |
