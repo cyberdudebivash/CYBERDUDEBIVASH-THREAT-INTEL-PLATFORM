@@ -1566,11 +1566,11 @@ function computeApexAI(item, tier) {
   }
 }
 
-// ── v180.0: PAYWALL — Premium Tactical Detection Field Scrubber ──────────────
+// -- v180.0: PAYWALL  -  Premium Tactical Detection Field Scrubber --------------
 // Strips high-value detection artifacts from items when the caller's tier is
 // below PRO ("premium") or ENTERPRISE.  Fields contain production-grade Sigma
 // rules, KQL hunting queries, Suricata IDS signatures, YARA patterns, and SOC
-// playbooks — each worth $49–$499/month ARR.
+// playbooks  -  each worth $49-$499/month ARR.
 //
 // Scrubbed fields (exact key match, case-sensitive):
 //   sigma_rule, sigma, kql_query, kql, suricata_rule, suricata,
@@ -1579,7 +1579,7 @@ function computeApexAI(item, tier) {
 // Replacement: a single _tier_notice key is injected so clients understand
 // the gate without receiving an opaque empty object.
 //
-// Called from: applyTierGate() and handleStixExport() — must NOT throw.
+// Called from: applyTierGate() and handleStixExport()  -  must NOT throw.
 const PAYWALL_TACTICAL_FIELDS = [
   'sigma_rule', 'sigma',
   'kql_query',  'kql',
@@ -1604,7 +1604,7 @@ function scrubPremiumTacticalFields(item, tier) {
     tier === CONFIG.TIERS.PREMIUM ||
     tier === CONFIG.TIERS.ENTERPRISE
   );
-  if (hasPremiumAccess) return item;  // fast path — no scrubbing needed
+  if (hasPremiumAccess) return item;  // fast path  -  no scrubbing needed
 
   // Check whether any scrubable field is actually present before copying
   let needsScrub = false;
@@ -1624,7 +1624,7 @@ function scrubPremiumTacticalFields(item, tier) {
   scrubbed._tier_current   = tier || 'free';
   return scrubbed;
 }
-// ── End v180.0 Paywall scrubber ───────────────────────────────────────────────
+// -- End v180.0 Paywall scrubber -----------------------------------------------
 
 //  v134.0.0: applyTierGate -- enforces monetization on feed items
 // Free tier: iocs = count only, stix_bundle = locked, apex_ai = partial
@@ -1696,7 +1696,7 @@ function applyTierGate(item, tier) {
   }
 
   // v180.0: Scrub premium tactical detection fields for non-PRO/ENTERPRISE callers.
-  // sigma_rule, kql_query, suricata_rule, yara_rule, soc_playbook → _tier_notice.
+  // sigma_rule, kql_query, suricata_rule, yara_rule, soc_playbook -> _tier_notice.
   // gated is always a spread copy of item, so mutation is safe.
   const hasPremiumTier = (tier === CONFIG.TIERS.PREMIUM || tier === CONFIG.TIERS.ENTERPRISE);
   if (!hasPremiumTier) {
@@ -4013,47 +4013,47 @@ async function handleBillingPortal(request, env, rid, auth) {
 
 // ---------------------------------------------------------------------------
 // =============================================================================
-// v180.0: POST /api/v1/checkout/initialize — MULTI-RAIL CHECKOUT INITIALIZER
+// v180.0: POST /api/v1/checkout/initialize  -  MULTI-RAIL CHECKOUT INITIALIZER
 // =============================================================================
 // Rearchitected checkout endpoint that initialises ALL payment rails in a single
 // API call and returns structured payment options to the client.
 //
 // Rails:
 //   A. UPI deep-link  (upi://pay?... RFC 6570 compliant)
-//   B. QR code        (base64-encoded SVG data URI — render-ready inline PNG alt)
-//   C. Bank transfer  (NEFT/IMPS/RTGS — all credentials via ENV VARS)
+//   B. QR code        (base64-encoded SVG data URI  -  render-ready inline PNG alt)
+//   C. Bank transfer  (NEFT/IMPS/RTGS  -  all credentials via ENV VARS)
 //   D. Razorpay       (order creation via Razorpay API)
 //   E. PayPal         (PayPal Pay Link generation)
 //   F. Web3 crypto    (ETH mainnet / BSC BNB / Tron USDT-TRC20 addresses + tx monitor)
 //
-// ENV VARS (all required — set via `wrangler secret put`):
-//   UPI_VPA                  — UPI Virtual Payment Address  (e.g. bivash@cyberdudebivash.com)
-//   BANK_ACCOUNT_NUMBER      — Corporate bank account number
-//   BANK_IFSC_CODE           — IFSC code for NEFT/IMPS/RTGS
-//   BANK_ACCOUNT_NAME        — Account name (default: CYBERDUDEBIVASH PRIVATE LIMITED)
-//   RAZORPAY_KEY_ID          — Razorpay API key ID  (rzp_live_...)
-//   RAZORPAY_KEY_SECRET      — Razorpay API key secret
-//   PAYPAL_CLIENT_ID         — PayPal REST API client ID
-//   PAYPAL_CLIENT_SECRET     — PayPal REST API client secret
-//   ETH_WALLET_ADDRESS       — ETH mainnet wallet address
-//   BNB_WALLET_ADDRESS       — BSC (BNB) wallet address
-//   TRON_WALLET_ADDRESS      — Tron USDT-TRC20 wallet address
+// ENV VARS (all required  -  set via `wrangler secret put`):
+//   UPI_VPA                   -  UPI Virtual Payment Address  (e.g. bivash@cyberdudebivash.com)
+//   BANK_ACCOUNT_NUMBER       -  Corporate bank account number
+//   BANK_IFSC_CODE            -  IFSC code for NEFT/IMPS/RTGS
+//   BANK_ACCOUNT_NAME         -  Account name (default: CYBERDUDEBIVASH PRIVATE LIMITED)
+//   RAZORPAY_KEY_ID           -  Razorpay API key ID  (rzp_live_...)
+//   RAZORPAY_KEY_SECRET       -  Razorpay API key secret
+//   PAYPAL_CLIENT_ID          -  PayPal REST API client ID
+//   PAYPAL_CLIENT_SECRET      -  PayPal REST API client secret
+//   ETH_WALLET_ADDRESS        -  ETH mainnet wallet address
+//   BNB_WALLET_ADDRESS        -  BSC (BNB) wallet address
+//   TRON_WALLET_ADDRESS       -  Tron USDT-TRC20 wallet address
 //
 // Response shape: { transaction_id, plan, amount_inr, upi, qr_code, bank_transfer,
 //                   razorpay, paypal, crypto, expires_at }
 // =============================================================================
 
-// ── Plan pricing (INR) ────────────────────────────────────────────────────────
+// -- Plan pricing (INR) --------------------------------------------------------
 const CHECKOUT_PLANS = {
   pro:        { tier: "premium",    inr: 4099,   usd_cents: 4900,  name: "PRO Defense",         tier_label: "PRO_DEFENSE"   },
   enterprise: { tier: "enterprise", inr: 41499,  usd_cents: 49900, name: "Enterprise SOC",      tier_label: "ENTERPRISE_SOC" },
   mssp:       { tier: "mssp",       inr: 166499, usd_cents: 199900, name: "MSSP White-Label",   tier_label: "MSSP_WHITE_LABEL" },
 };
 
-// ── Minimal inline SVG QR code generator ─────────────────────────────────────
-// Implements Reed–Solomon QR encoding for short alphanumeric UPI strings.
+// -- Minimal inline SVG QR code generator -------------------------------------
+// Implements Reed-Solomon QR encoding for short alphanumeric UPI strings.
 // Output: SVG string renderable as <img src="data:image/svg+xml;base64,...">
-// For UPI strings up to ~100 chars (QR version 3–5, error correction M).
+// For UPI strings up to ~100 chars (QR version 3-5, error correction M).
 //
 // NOTE: This is a minimal implementation that generates a valid scannable QR code
 // using a pre-computed ECC table approach for UPI deep-link strings.
@@ -4069,7 +4069,7 @@ function generateUpiQrSvg(upiLink) {
   // so screen-reader accessible, plus a compact visual grid.
   //
   // For real scannable QR, we use QR Code version 5-M (37x37 modules) which
-  // supports up to 77 bytes. UPI strings are typically 80–140 chars, so we
+  // supports up to 77 bytes. UPI strings are typically 80-140 chars, so we
   // use version 7-M (45x45, 122 bytes capacity).
   //
   // Rather than implementing full QR ECC (2000+ lines), we produce a visually
@@ -4093,7 +4093,7 @@ function generateUpiQrSvg(upiLink) {
   const cellSize = Math.floor(size / modules);
   const svgSize  = modules * cellSize;
 
-  // Finder pattern (top-left, top-right, bottom-left) — standard QR structure
+  // Finder pattern (top-left, top-right, bottom-left)  -  standard QR structure
   function finderRect(ox, oy) {
     const out = [];
     // Outer 7x7 dark
@@ -4143,7 +4143,7 @@ function upiQrBase64(upiLink) {
   }
 }
 
-// ── Razorpay order creation ────────────────────────────────────────────────────
+// -- Razorpay order creation ----------------------------------------------------
 async function createRazorpayOrder(env, amountInr, currency, transactionId, planName, userId) {
   if (!env?.RAZORPAY_KEY_ID || !env?.RAZORPAY_KEY_SECRET) {
     return { error: 'razorpay_not_configured', message: 'Set RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET.' };
@@ -4187,7 +4187,7 @@ async function createRazorpayOrder(env, amountInr, currency, transactionId, plan
   }
 }
 
-// ── PayPal order creation ─────────────────────────────────────────────────────
+// -- PayPal order creation -----------------------------------------------------
 async function createPayPalOrder(env, amountUsdCents, transactionId, planName, userId) {
   if (!env?.PAYPAL_CLIENT_ID || !env?.PAYPAL_CLIENT_SECRET) {
     return { error: 'paypal_not_configured', message: 'Set PAYPAL_CLIENT_ID and PAYPAL_CLIENT_SECRET.' };
@@ -4254,7 +4254,7 @@ async function createPayPalOrder(env, amountUsdCents, transactionId, planName, u
   }
 }
 
-// ── Main checkout initialize handler ─────────────────────────────────────────
+// -- Main checkout initialize handler -----------------------------------------
 async function handleCheckoutInitialize(request, env, auth, rid) {
   let body;
   try { body = await request.json(); }
@@ -4280,7 +4280,7 @@ async function handleCheckoutInitialize(request, env, auth, rid) {
     Math.random().toString(36).slice(2, 7).toUpperCase(),
   ].join('_');
 
-  // ── A. UPI deep-link ────────────────────────────────────────────────────────
+  // -- A. UPI deep-link --------------------------------------------------------
   const upiVpa = env?.UPI_VPA || 'bivash@cyberdudebivash.com';  // ENV VAR mandatory in prod
   const upiDeepLink = [
     'upi://pay?',
@@ -4292,10 +4292,10 @@ async function handleCheckoutInitialize(request, env, auth, rid) {
     `&tn=${encodeURIComponent(`SENTINEL_APEX_${tierLabel}_SUBSCRIPTION`)}`,
   ].join('');
 
-  // ── B. QR code (base64 SVG data URI) ────────────────────────────────────────
+  // -- B. QR code (base64 SVG data URI) ----------------------------------------
   const qrCodeDataUri = upiQrBase64(upiDeepLink);
 
-  // ── C. Bank transfer details (all credentials via ENV VARS) ─────────────────
+  // -- C. Bank transfer details (all credentials via ENV VARS) -----------------
   const bankTransfer = {
     account_name:   env?.BANK_ACCOUNT_NAME   || 'CYBERDUDEBIVASH PRIVATE LIMITED',
     account_number: env?.BANK_ACCOUNT_NUMBER
@@ -4309,24 +4309,24 @@ async function handleCheckoutInitialize(request, env, auth, rid) {
     reference:      transactionId,
     narration:      `SENTINEL_APEX_${tierLabel}_${transactionId}`,
     instructions: [
-      `Transfer exactly ₹${amountInr.toLocaleString('en-IN')} via NEFT/IMPS/RTGS`,
+      `Transfer exactly ?${amountInr.toLocaleString('en-IN')} via NEFT/IMPS/RTGS`,
       `Use reference: ${transactionId}`,
       `Email payment proof to accounts@cyberdudebivash.in`,
       'Account will be upgraded within 2 business hours after confirmation',
     ],
   };
 
-  // ── D. Razorpay ──────────────────────────────────────────────────────────────
+  // -- D. Razorpay --------------------------------------------------------------
   const razorpayOrder = await createRazorpayOrder(
     env, amountInr, 'INR', transactionId, planName, userId,
   );
 
-  // ── E. PayPal ────────────────────────────────────────────────────────────────
+  // -- E. PayPal ----------------------------------------------------------------
   const paypalOrder = await createPayPalOrder(
     env, planCfg.usd_cents, transactionId, planName, userId,
   );
 
-  // ── F. Web3 crypto addresses ─────────────────────────────────────────────────
+  // -- F. Web3 crypto addresses -------------------------------------------------
   const cryptoRails = {
     eth_mainnet: {
       address:      env?.ETH_WALLET_ADDRESS  || '*** Configure ETH_WALLET_ADDRESS env var ***',
@@ -4357,7 +4357,7 @@ async function handleCheckoutInitialize(request, env, auth, rid) {
     webhook_url: '/api/webhooks/web3',
   };
 
-  // ── Store pending transaction in KV for webhook reconciliation ───────────────
+  // -- Store pending transaction in KV for webhook reconciliation ---------------
   if (env?.RATE_LIMIT_KV) {
     const pendingTx = {
       transaction_id:  transactionId,
@@ -4408,10 +4408,10 @@ async function handleCheckoutInitialize(request, env, auth, rid) {
     gateway:       `${CONFIG.GATEWAY_NAME}/${CONFIG.GATEWAY_VERSION}`,
   });
 }
-// ── End v180.0 Multi-Rail Checkout Initializer ────────────────────────────────
+// -- End v180.0 Multi-Rail Checkout Initializer --------------------------------
 
 // =============================================================================
-// v180.0: GET /api/v1/checkout/crypto-status — Web3 Payment Monitor
+// v180.0: GET /api/v1/checkout/crypto-status  -  Web3 Payment Monitor
 // =============================================================================
 // Polls on-chain state for a pending transaction. Checks ETH/BSC/TRON explorers.
 // On confirmed payment, auto-upgrades user tier and issues new JWT.
@@ -4444,7 +4444,7 @@ async function handleCryptoPaymentStatus(request, env, auth, rid) {
     });
   }
 
-  // ── Chain-specific confirmation check ────────────────────────────────────────
+  // -- Chain-specific confirmation check ----------------------------------------
   let confirmed = false;
   let confirmationDetail = null;
 
@@ -4484,7 +4484,7 @@ async function handleCryptoPaymentStatus(request, env, auth, rid) {
     slog('WARN', 'BILLING', `Crypto check error: ${e.message}`, { rid, chain, txHash });
   }
 
-  // ── Auto-upgrade on confirmed payment ────────────────────────────────────────
+  // -- Auto-upgrade on confirmed payment ----------------------------------------
   if (confirmed) {
     const userId = pendingTx.user_id || auth?.user_id || auth?.key_id;
     const tier   = pendingTx.tier;
@@ -4499,7 +4499,7 @@ async function handleCryptoPaymentStatus(request, env, auth, rid) {
           };
           await env.API_KEYS_KV.put(`user:${userId}`, JSON.stringify(ur));
           await cascadeUserTierToKeys(userId, tier, env);
-          slog('INFO', 'BILLING', `Crypto payment confirmed — tier upgraded: ${tier}`, { user_id: userId, chain, txHash });
+          slog('INFO', 'BILLING', `Crypto payment confirmed  -  tier upgraded: ${tier}`, { user_id: userId, chain, txHash });
         }
         // Mark pending tx as completed
         pendingTx.status       = 'completed';
@@ -4509,7 +4509,7 @@ async function handleCryptoPaymentStatus(request, env, auth, rid) {
           await env.RATE_LIMIT_KV.put(`checkout_pending:${tid}`, JSON.stringify(pendingTx), { expirationTtl: 60 * 60 * 24 * 7 }).catch(() => {});
         }
         await sendTelegramAlert(env,
-          `✅ <b>CRYPTO PAYMENT CONFIRMED</b>\nPlan: ${pendingTx.plan.toUpperCase()}\nChain: ${chain}\nTX: ${txHash}\nUser: ${userId}`,
+          `[OK] <b>CRYPTO PAYMENT CONFIRMED</b>\nPlan: ${pendingTx.plan.toUpperCase()}\nChain: ${chain}\nTX: ${txHash}\nUser: ${userId}`,
         );
       } catch (e) {
         slog('ERROR', 'BILLING', `Auto-upgrade failed: ${e.message}`, { rid, userId });
@@ -4538,7 +4538,7 @@ async function handleCryptoPaymentStatus(request, env, auth, rid) {
 }
 
 // =============================================================================
-// v180.0: POST /api/webhooks/paypal — PayPal Webhook Adapter
+// v180.0: POST /api/webhooks/paypal  -  PayPal Webhook Adapter
 // =============================================================================
 // Validates PayPal-Transmission-Sig header and processes PAYMENT.CAPTURE.COMPLETED.
 //
@@ -4604,7 +4604,7 @@ async function handlePayPalWebhook(request, env, rid) {
       }
     } catch (e) {
       slog('WARN', 'BILLING', `PayPal signature verification error: ${e.message}`, { rid });
-      // Non-blocking — continue processing (log but don't block)
+      // Non-blocking  -  continue processing (log but don't block)
     }
   }
 
@@ -4630,7 +4630,7 @@ async function handlePayPalWebhook(request, env, rid) {
         // (set to transactionId at order creation time)
         const purchaseRef = (event.resource?.custom_id || '').trim();
         if (purchaseRef && env?.RATE_LIMIT_KV) {
-          // Scan for pending tx — the checkout_pending key uses our SA_ prefix
+          // Scan for pending tx  -  the checkout_pending key uses our SA_ prefix
           // PayPal reference_id was set to our transactionId
           const pendingKey = Object.keys(CHECKOUT_PLANS).map(p =>
             `checkout_pending:SA_${p.slice(0,3).toUpperCase()}`).join('');
@@ -4649,9 +4649,9 @@ async function handlePayPalWebhook(request, env, rid) {
             amount: `${amount} ${currency}`, updated_at: new Date().toISOString() };
           await env.API_KEYS_KV.put(`user:${userId}`, JSON.stringify(ur));
           await cascadeUserTierToKeys(userId, tier, env);
-          slog('INFO', 'BILLING', 'PayPal payment — tier upgraded', { user_id: userId, tier, txnId });
+          slog('INFO', 'BILLING', 'PayPal payment  -  tier upgraded', { user_id: userId, tier, txnId });
           await sendTelegramAlert(env,
-            `💳 <b>PAYPAL PAYMENT CONFIRMED</b>\nUser: ${userId}\nTier: ${tier}\nAmount: ${amount} ${currency}\nTX: ${txnId}`,
+            `? <b>PAYPAL PAYMENT CONFIRMED</b>\nUser: ${userId}\nTier: ${tier}\nAmount: ${amount} ${currency}\nTX: ${txnId}`,
           );
         }
       }
@@ -4664,7 +4664,7 @@ async function handlePayPalWebhook(request, env, rid) {
           ur.subscription = { status: 'cancelled', tier: CONFIG.TIERS.FREE, gateway: 'paypal',
             updated_at: new Date().toISOString() };
           await env.API_KEYS_KV.put(`user:${userId}`, JSON.stringify(ur));
-          slog('INFO', 'BILLING', 'PayPal sub cancelled — downgraded to FREE', { user_id: userId });
+          slog('INFO', 'BILLING', 'PayPal sub cancelled  -  downgraded to FREE', { user_id: userId });
         }
       }
     }
@@ -4674,7 +4674,7 @@ async function handlePayPalWebhook(request, env, rid) {
 
   return jsonResponse({ status: 'ok', received: true, event_type: event.event_type });
 }
-// ── End v180.0 PayPal Webhook Adapter ─────────────────────────────────────────
+// -- End v180.0 PayPal Webhook Adapter -----------------------------------------
 
 //  v143.0.0: POST /api/checkout/session -- Dynamic Stripe Checkout Session
 //  Creates a Stripe Checkout Session on-the-fly (server-side), returns a
@@ -7560,7 +7560,7 @@ export default {
       if (keyId) return withRL(await handleUserDeleteKey(request, env, rid, auth, keyId));
     }
     if (pathname === "/api/billing/portal"   && method === "GET")    return withRL(await handleBillingPortal(request, env, rid, auth));
-    // v180.0: Multi-Rail Checkout (UPI + Bank + Razorpay + PayPal + Web3) — auth optional
+    // v180.0: Multi-Rail Checkout (UPI + Bank + Razorpay + PayPal + Web3)  -  auth optional
     if (pathname === "/api/v1/checkout/initialize"    && method === "POST") return withRL(await handleCheckoutInitialize(request, env, auth, rid));
     if (pathname === "/api/v1/checkout/crypto-status" && method === "GET")  return withRL(await handleCryptoPaymentStatus(request, env, auth, rid));
     // v143.0.0: Dynamic Stripe Checkout Session (auth optional -- guest checkout allowed)
