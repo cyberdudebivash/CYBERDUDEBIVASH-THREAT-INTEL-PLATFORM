@@ -80,6 +80,14 @@ LABEL version="47.0"
 LABEL org.opencontainers.image.source="https://github.com/cyberdudebivash/CYBERDUDEBIVASH-THREAT-INTEL-PLATFORM"
 LABEL org.opencontainers.image.vendor="CyberDudeBivash Pvt. Ltd."
 
+# v48.0 SECURITY FIX: Apply all available OS patches to eliminate critical CVEs
+# in the python:3.12-slim base image (e.g., openssl, libssl, libexpat, glibc).
+# This runs apt-get upgrade in the runtime stage so the SHIPPED image is fully
+# patched. The SBOM build (CPU_ONLY=true) also benefits since it copies this stage.
+RUN apt-get update -qq \
+ && apt-get upgrade -y --no-install-recommends \
+ && rm -rf /var/lib/apt/lists/*
+
 # Security: create non-root service account (CIS Docker Benchmark L1 compliance)
 RUN groupadd -r cdbuser --gid=1001 \
  && useradd -r -g cdbuser --uid=1001 \
