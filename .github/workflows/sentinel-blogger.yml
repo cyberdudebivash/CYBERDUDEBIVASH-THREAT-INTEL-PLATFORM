@@ -97,12 +97,23 @@ env:
   PYTHONIOENCODING: "utf-8"
   PYTHONUTF8: "1"
 
-# ENTERPRISE DEPLOYMENT GOVERNANCE (v158.0.1):
-# Serialized production deployments — only ONE pipeline runs at a time.
+# ENTERPRISE DEPLOYMENT GOVERNANCE (v175.2 P0 FIX):
+# Serialized production deployments — only ONE data-writing pipeline runs at a time.
 # cancel-in-progress: false ensures in-flight deploys are NEVER interrupted.
 # This prevents manifest corruption, artifact races, and partial deploys.
+#
+# P0 RACE CONDITION FIX (v175.2):
+#   PREVIOUS BUG: group was 'sentinel-apex-production' — a unique group that did NOT
+#   serialize sentinel-blogger with the 21 other sentinel-data-writer workflows
+#   (multi-source-intel, genesis-powerhouse, nexus-intelligence, etc.).
+#   This allowed sentinel-blogger to run SIMULTANEOUSLY with those workflows,
+#   causing git push conflicts and R2 write races on feed_manifest.json / api/feed.json.
+#
+#   FIX: Use 'sentinel-data-writer' — the shared concurrency group used by all
+#   data-writing workflows. This guarantees at most ONE data-writing pipeline
+#   runs at any time across the entire platform.
 concurrency:
-  group: sentinel-apex-production
+  group: sentinel-data-writer
   cancel-in-progress: false
 
 jobs:
@@ -1584,13 +1595,20 @@ jobs:
       # is always in sync with the final pipeline output before Git commit.
       # Non-fatal: exit 0 guaranteed -- pipeline continues even if R2 is slow.
       # -----------------------------------------------------------------------
-      - name: "STAGE 3.93.6 - R2 Re-sync Final API Manifests (v160.0 CRITICAL FIX)"
+      - name: "STAGE 3.93.6 - R2 Re-sync Final API Manifests (v175.2 CRITICAL FIX)"
         timeout-minutes: 5
         env:
           CF_ACCOUNT_ID:       ${{ secrets.CF_ACCOUNT_ID }}
           AWS_ACCESS_KEY_ID:   ${{ secrets.CF_R2_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.CF_R2_SECRET_ACCESS_KEY }}
-        run: python3 scripts/r2_resync_manifests.py
+        run: |
+          # v175.2 P1 FIX: Capture exit code from r2_resync_manifests.py.
+          # Script exits 1 when uploads fail (::error:: annotation already emitted by
+          # the script itself). Wrap here to keep the step non-fatal while still
+          # surfacing a ::warning:: annotation in the GitHub Actions UI.
+          if ! python3 scripts/r2_resync_manifests.py; then
+            echo "::warning::STAGE 3.93.6: R2 manifest resync failed — Stage 4.1 will retry after git push. Verify CF_ACCOUNT_ID and R2 credentials in repository secrets."
+          fi
 
       # -----------------------------------------------------------------------
       # STAGE 3.93.7: GLOBAL VERSION GOVERNANCE (v147.0 -- HARD FAIL)
@@ -1670,17 +1688,25 @@ jobs:
       #
       # THIS STAGE: Runs AFTER STAGE 4 Git Sync (post-commit, post-push) and
       # re-uploads the final committed versions of all API manifests to R2.
-      # R2 now receives the same 71-item feed that GitHub Pages serves.
-      # Non-fatal: || true ensures pipeline continues even if R2 is unreachable.
+      # R2 now receives the same final-item feed that GitHub Pages serves.
+      # Non-fatal: step always exits 0 so the pipeline never dies here, but
+      # upload failures emit a ::warning:: annotation visible in the UI.
       # -----------------------------------------------------------------------
-      - name: "STAGE 4.1 - Final R2 Full Sync (v160.0 -- post-git-push complete feed)"
+      - name: "STAGE 4.1 - Final R2 Full Sync (v175.2 -- post-git-push complete feed)"
         timeout-minutes: 5
         if: always()
         env:
           CF_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
           AWS_ACCESS_KEY_ID: ${{ secrets.CF_R2_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.CF_R2_SECRET_ACCESS_KEY }}
-        run: python3 scripts/r2_resync_manifests.py || true
+        run: |
+          # v175.2 P1 FIX: Replace silent '|| true' with annotation-emitting wrapper.
+          # Previous: 'python3 scripts/r2_resync_manifests.py || true' swallowed ALL
+          # exit codes including upload failures, making stale R2 data invisible.
+          # Now: captures exit code, emits ::warning:: on failure, always exits 0.
+          if ! python3 scripts/r2_resync_manifests.py; then
+            echo "::warning::STAGE 4.1: Final R2 full sync failed — feed data in R2 may be stale. Check CF_ACCOUNT_ID, CF_R2_ACCESS_KEY_ID, CF_R2_SECRET_ACCESS_KEY secrets and bucket 'sentinel-apex-data' policy. See error annotation above for file-level detail."
+          fi
 
       # -----------------------------------------------------------------------
       # STAGE 5.1: POST-DEPLOY API MANIFEST VERIFIER (v150.0 -- INFORMATIONAL)

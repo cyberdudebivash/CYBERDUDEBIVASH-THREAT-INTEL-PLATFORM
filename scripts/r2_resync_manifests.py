@@ -104,8 +104,10 @@ def count_items(path: Path) -> int:
         for k in ("items", "data", "reports", "advisories"):
             if isinstance(d.get(k), list):
                 return len(d[k])
-    except Exception:
-        pass
+    except Exception as exc:
+        # v175.2: Log instead of silently swallowing — zero count returned but
+        # the warning surfaces JSON parse errors or encoding issues in CI logs.
+        log.warning("count_items(%s): parse error — %s (uploading anyway)", path.name, exc)
     return 0
 
 
@@ -153,10 +155,23 @@ def main() -> None:
             "Worker will fall back to KV/GitHub for those endpoints.",
             failed,
         )
-        # Non-fatal: do not block the pipeline. KV TTL or next run will heal.
-        sys.exit(0)
+        # v175.2 P1 FIX: Emit GitHub Actions error annotation so the failure is
+        # VISIBLE in the workflow run UI even though we do not block the pipeline.
+        # Callers (Stage 3.93.6, Stage 4.1) wrap this in an if/else block that
+        # catches exit(1) and emits a ::warning:: annotation, always exiting 0.
+        print(
+            f"::error::R2 resync: {failed} file(s) failed to upload to R2. "
+            "Feed may be stale. Verify CF_ACCOUNT_ID, CF_R2_ACCESS_KEY_ID, "
+            "CF_R2_SECRET_ACCESS_KEY secrets and bucket 'sentinel-apex-data' policy.",
+            flush=True,
+        )
+        sys.exit(1)  # Non-zero so callers can detect and surface the failure
 
     log.info("All post-STAGE-3.93 manifests successfully synced to R2.")
+    print(
+        f"::notice::R2 resync: {uploaded} files uploaded, {skipped} skipped. Feed is fresh.",
+        flush=True,
+    )
     sys.exit(0)
 
 
@@ -171,4 +186,10 @@ if __name__ == "__main__":
             "r2_resync_manifests.py unhandled error (non-fatal): %s\n%s",
             e, traceback.format_exc(),
         )
-        sys.exit(0)  # Always non-fatal -- pipeline must not die here
+        # Truly unexpected errors stay non-fatal. Upload failures exit(1) above.
+        print(
+            f"::warning::r2_resync_manifests.py unexpected error: {e}. "
+            "R2 may not have the latest data. Check runner logs.",
+            flush=True,
+        )
+        sys.exit(0)  # Unexpected errors stay non-fatal
