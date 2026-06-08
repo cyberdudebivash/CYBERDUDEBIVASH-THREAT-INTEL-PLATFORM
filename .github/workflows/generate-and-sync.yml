@@ -1050,7 +1050,7 @@ jobs:
           # Build deterministic commit message (run ID + schema version)
           # v149 FIX T12: replaced old-style inline Python one-liner (RULE 1 violation) with jq (ubuntu-latest)
           FEED_ITEMS=$(jq -r '.feed_item_count // 0' api/ai/tracker.json 2>/dev/null || echo "N/A")
-          GRI=$(jq -r '.global_risk_index.gri_score // "N/A"' api/ai/tracker.json 2>/dev/null || echo "N/A")
+          GRI=$(jq -r '(.global_risk_index.gri_score // .executive_summary.global_risk_index // "N/A") | tostring' api/ai/tracker.json 2>/dev/null || echo "N/A")
           COMMIT_MSG="AI Tracker v${PIPELINE_VERSION}: run #${GITHUB_RUN_NUMBER} | items=${FEED_ITEMS} | GRI=${GRI} | $(date -u +'%Y-%m-%dT%H:%MZ') [skip ci]"
           git commit -m "$COMMIT_MSG"
           echo "[INFO] Commit: $COMMIT_MSG"

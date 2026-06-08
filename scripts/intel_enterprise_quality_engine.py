@@ -66,17 +66,46 @@ TIER1_SOURCES = frozenset([
     "CISA", "NCSC", "FBI", "NSA", "CERT", "US-CERT",
     "Mandiant", "CrowdStrike", "Microsoft", "Microsoft Security",
     "Microsoft MSRC", "Google Project Zero",
+    # domain aliases
+    "cisa.gov", "us-cert.cisa.gov", "ncsc.gov.uk", "fbi.gov",
+    "nsa.gov", "mandiant.com", "crowdstrike.com", "microsoft.com",
+    "msrc.microsoft.com", "googleprojectzero.blogspot.com",
+    "security.googleblog.com",
 ])
 
 TIER2_SOURCES = frozenset([
     "Palo Alto Unit 42", "Recorded Future", "Sophos", "Kaspersky SecureList",
     "Check Point Research", "Trend Micro", "Rapid7", "NIST NVD",
     "GitHub Security Advisory", "abuse.ch", "Google Security Blog",
+    # SENTINEL APEX is a commercial CTI vendor — classified Tier 2
+    "SENTINEL-APEX", "SENTINEL APEX", "CYBERDUDEBIVASH", "CDB",
+    "sentinel-apex", "cyberdudebivash", "CDB-REBUILT",
+    # domain aliases
+    "unit42.paloaltonetworks.com", "paloaltonetworks.com",
+    "recordedfuture.com", "sophos.com", "securelist.com", "kaspersky.com",
+    "research.checkpoint.com", "checkpoint.com", "trendmicro.com",
+    "rapid7.com", "nvd.nist.gov", "github.com", "abuse.ch",
+    "bazaar.abuse.ch", "threatfox.abuse.ch", "feodotracker.abuse.ch",
+    "intel.cyberdudebivash.com",
 ])
 
 TIER3_SOURCES = frozenset([
     "BleepingComputer", "KrebsOnSecurity", "Wordfence", "WPScan",
     "The Hacker News", "SecurityWeek", "ransomware.live",
+    # expanded Tier 3 — reputable security news and research
+    "SecurityAffairs", "Security Affairs", "CyberScoop", "Cyberscoop",
+    "ThreatPost", "Threatpost", "SCMedia", "SC Media",
+    "DarkReading", "Dark Reading", "Infosecurity Magazine",
+    "Recorded Future News", "BankInfoSecurity",
+    "CVEfeed.io", "CVE feed", "NVD CVE", "CVE Details",
+    "TechRepublic", "ZDNet", "ArsTechnica",
+    # domain aliases
+    "bleepingcomputer.com", "krebsonsecurity.com", "wordfence.com",
+    "wpscan.com", "thehackernews.com", "securityweek.com",
+    "securityaffairs.com", "securityaffairs.co", "cyberscoop.com",
+    "threatpost.com", "scmagazine.com", "darkreading.com",
+    "infosecurity-magazine.com", "bankinfosecurity.com",
+    "cvefeed.io", "techrepublic.com", "zdnet.com", "arstechnica.com",
 ])
 
 # Source diversity scoring weights
@@ -118,12 +147,33 @@ def _safe_int(val, default: int = 0) -> int:
         return default
 
 
+def _normalize_source(s: str) -> str:
+    """Normalize source name variants to canonical form for tier matching."""
+    if not s:
+        return s
+    # Strip common URL prefixes
+    for prefix in ("https://", "http://", "www.", "rss_", "rss."):
+        if s.lower().startswith(prefix):
+            s = s[len(prefix):]
+    # Map known aliases
+    _ALIAS = {
+        "sentinel-apex": "SENTINEL-APEX",
+        "sentinelapex": "SENTINEL-APEX",
+        "cyberdudebivash": "CYBERDUDEBIVASH",
+        "cdb-rebuilt": "CDB-REBUILT",
+        "cdb rebuilt": "CDB-REBUILT",
+    }
+    return _ALIAS.get(s.strip().lower(), s.strip())
+
+
 def _sources(item: Dict) -> List[str]:
     out = []
-    for key in ("source", "feed_source", "source_name"):
+    for key in ("source", "feed_source", "source_name", "origin", "publisher"):
         s = item.get(key, "")
-        if s and s not in out:
-            out.append(str(s))
+        if s:
+            s = _normalize_source(str(s))
+            if s and s not in out:
+                out.append(s)
     return [s for s in out if s]
 
 
@@ -219,16 +269,32 @@ def d02_ioc_enrichment(item: Dict) -> Tuple[int, Dict]:
     ioc_confidence = _safe_int(item.get("ioc_confidence", 0))
     quality_score = min(20, int(ioc_confidence / 5))
 
-    # Threat level bonus
+    # Threat level bonus — fall back to item severity when ioc_threat_level absent
     threat_map = {"CRITICAL": 10, "HIGH": 8, "MEDIUM": 5, "LOW": 2}
-    threat_score = threat_map.get(str(item.get("ioc_threat_level", "")).upper(), 0)
+    threat_level = str(item.get("ioc_threat_level", "") or "").upper()
+    if not threat_level:
+        # Fall back to item severity field
+        threat_level = str(item.get("severity", "") or "").upper()
+    threat_score = threat_map.get(threat_level, 0)
 
-    score = min(100, count_score + type_score + quality_score + threat_score)
+    # Base intel bonus — threat intel items that carry CVEs or TTPs have inherent IOC value
+    has_cve = bool(item.get("cve_ids") or item.get("cve_id"))
+    has_ttps = bool(item.get("attck_technique_ids") or item.get("actor_ttps") or item.get("ttps"))
+    base_bonus = 0
+    if has_cve:
+        base_bonus += 8   # CVEs are machine-actionable indicators
+    if has_ttps:
+        base_bonus += 7   # ATT&CK-mapped TTPs add IOC context
+
+    score = min(100, count_score + type_score + quality_score + threat_score + base_bonus)
     breakdown = {
         "ioc_count": ioc_cnt,
         "types": list(by_type.keys()),
         "type_count": type_count,
         "ioc_confidence": ioc_confidence,
+        "threat_level": threat_level or "unknown",
+        "cve_bonus": has_cve,
+        "ttp_bonus": has_ttps,
     }
     return score, breakdown
 
