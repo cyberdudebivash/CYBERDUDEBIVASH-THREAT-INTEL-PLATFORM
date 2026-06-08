@@ -1118,6 +1118,59 @@ def process_entry(entry: Dict, feed_source: str = "EXTERNAL") -> bool:
         except Exception as _cve_e:
             logger.debug(f"CVE enrichment skipped: {_cve_e}")
 
+    # -- STEP 7b2: v180.0 Severity Invariant Interceptor ─────────────────────
+    # Enforces the P0 master invariant policy after CVE enrichment has resolved
+    # CVSS / KEV / active-exploitation signals.
+    # Rules:
+    #   C: CVSS>=9.0 / KEV / active_exploitation / public_exploit / RCE/auth_bypass
+    #      → severity=CRITICAL, priority=P1, threat_level=CRITICAL_SURGE,
+    #        risk_score=max(9.0, cvss_score)
+    #   H: 8.0<=CVSS<9.0 AND severity==LOW → HIGH, P2, risk_score=max(7.5,cvss)
+    #   M: 7.0<=CVSS<8.0 AND severity==LOW → MEDIUM, P3
+    try:
+        import sys as _sii_sys
+        import os as _sii_os
+        _sii_scripts = _sii_os.path.join(
+            _sii_os.path.dirname(_sii_os.path.dirname(_sii_os.path.abspath(__file__))),
+            "scripts",
+        )
+        if _sii_scripts not in _sii_sys.path:
+            _sii_sys.path.insert(0, _sii_scripts)
+        from severity_invariant_interceptor import apply_invariants as _sii_apply
+        _sii_probe = {
+            "severity":          severity,
+            "cvss_score":        cvss_score,
+            "kev":               kev_present,
+            "kev_present":       kev_present,
+            "epss_score":        epss_score,
+            "risk_score":        risk_score,
+            "title":             headline,
+            "description":       enriched_content[:500] if enriched_content else "",
+        }
+        _sii_result = _sii_apply(_sii_probe)
+        if _sii_result.get("_invariant_rule"):
+            _old_sev = severity
+            severity   = _sii_result["severity"]
+            risk_score = float(_sii_result.get("risk_score", risk_score))
+            _sii_priority    = _sii_result.get("priority", "")
+            _sii_threat_level = _sii_result.get("threat_level", "")
+            logger.info(
+                "  -> [SII v180.0] Severity invariant Rule %s fired: "
+                "%s → %s | risk_score=%.2f | priority=%s | signals=%s",
+                _sii_result.get("_invariant_rule", "?"),
+                _old_sev, severity, risk_score,
+                _sii_priority,
+                _sii_result.get("_invariant_signals", []),
+            )
+        else:
+            _sii_priority     = ""
+            _sii_threat_level = ""
+    except Exception as _sii_e:
+        _sii_priority     = ""
+        _sii_threat_level = ""
+        logger.debug(f"SII v180.0 skipped (non-blocking): {_sii_e}")
+    # -- End STEP 7b2 ─────────────────────────────────────────────────────────
+
     # -- STEP 7c: VANGUARD IOC validation ------------------------------------
     if _VANGUARD_OK and _vanguard:
         try:
@@ -1596,6 +1649,11 @@ def process_entry(entry: Dict, feed_source: str = "EXTERNAL") -> bool:
             "dossier_url": _dossier_url,
             "risk_reason": risk_reason,   # v143.0: defensible score explanation
         }
+        # v180.0: Carry SII governance fields into STIX metadata
+        if _sii_priority:
+            _stix_metadata["priority"] = _sii_priority
+        if _sii_threat_level:
+            _stix_metadata["threat_level"] = _sii_threat_level
         if _ei_result and _ei_result.enterprise_enrichment:
             _stix_metadata["enterprise_enrichment"] = _ei_result.enterprise_enrichment
         if _ioc_graph and _ioc_graph.ioc_graph_intel.get("status") != "ENRICHMENT_FAILED":

@@ -2552,15 +2552,47 @@ def stage_pipeline_consistency_check() -> None:
                     any(kw in _text_blob for kw in _active_campaign_kw)):
                 _min_rank = max(_min_rank, 4)  # CRITICAL
 
+            # v180.0 P0 INVARIANT: explicit CRITICAL gate.
+            # CVSS >= 9.0 alone mandates CRITICAL regardless of other signals.
+            # Previous logic only promoted to CRITICAL via the R6 multi-signal gate.
+            if _cvss_val >= 9.0:
+                _min_rank = max(_min_rank, 4)  # CRITICAL
+
             if _min_rank > _cur_rank:
                 _new_sev = _SEV_FROM_RANK[_min_rank]
                 item["severity"] = _new_sev
-                # Bump risk_score to align with new severity tier minimum
-                _sev_score_floors = {"MEDIUM": 4.0, "HIGH": 6.5, "CRITICAL": 8.5}
-                _floor = _sev_score_floors.get(_new_sev, 0.0)
-                if _rs_val < _floor:
-                    item["risk_score"] = round(_floor + (_rs_val * 0.1), 2)
+                # v180.0: enforce priority and threat_level co-travel with severity
+                if _new_sev == "CRITICAL":
+                    item["priority"]     = "P1"
+                    item["threat_level"] = "CRITICAL_SURGE"
+                    item["risk_score"]   = round(max(9.0, _cvss_val), 4)
+                elif _new_sev == "HIGH":
+                    item["priority"]   = "P2"
+                    _sev_score_floors = {"MEDIUM": 4.0, "HIGH": 6.5, "CRITICAL": 8.5}
+                    _floor = _sev_score_floors.get(_new_sev, 0.0)
+                    if _rs_val < _floor:
+                        item["risk_score"] = round(_floor + (_rs_val * 0.1), 2)
+                elif _new_sev == "MEDIUM":
+                    item["priority"] = "P3"
+                    _sev_score_floors = {"MEDIUM": 4.0, "HIGH": 6.5, "CRITICAL": 8.5}
+                    _floor = _sev_score_floors.get(_new_sev, 0.0)
+                    if _rs_val < _floor:
+                        item["risk_score"] = round(_floor + (_rs_val * 0.1), 2)
+                else:
+                    # fallback for any other rank (should not occur)
+                    _sev_score_floors = {"MEDIUM": 4.0, "HIGH": 6.5, "CRITICAL": 8.5}
+                    _floor = _sev_score_floors.get(_new_sev, 0.0)
+                    if _rs_val < _floor:
+                        item["risk_score"] = round(_floor + (_rs_val * 0.1), 2)
                 auto_fixed += 1
+
+            # v180.0: final per-item invariant pass via SeverityInvariantInterceptor
+            try:
+                import importlib as _il
+                _sii_mod = _il.import_module("severity_invariant_interceptor")
+                item = _sii_mod.apply_invariants(item)
+            except Exception:
+                pass  # non-blocking; outer post-sync pass handles feed-level correction
 
             # C5: ioc_confidence must be > 0 when ioc_count > 0
             final_ioc_cnt = int(item.get("ioc_count", 0))
@@ -3485,6 +3517,42 @@ def stage_sync_root_feed_json() -> None:
     except Exception as _gov_e:
         log.warning("[3.9-GOV] Severity governance post-sync skipped (non-fatal): %s", _gov_e)
     # ── End v172.0 P0 FIX ───────────────────────────────────────────────────
+
+    # ── v180.0 P0: Severity Invariant Interceptor — authoritative final pass ─
+    # Enforces the master invariant policy AFTER all governance and enrichment:
+    #   Rule C: CVSS>=9.0 / KEV / active_exploitation / public_exploit / RCE/auth_bypass
+    #           → severity=CRITICAL, priority=P1, threat_level=CRITICAL_SURGE,
+    #             risk_score=max(9.0, cvss_score)
+    #   Rule H: 8.0<=CVSS<9.0 AND severity==LOW → HIGH, P2, risk_score=max(7.5,cvss)
+    #   Rule M: 7.0<=CVSS<8.0 AND severity==LOW → MEDIUM, P3
+    # This pass is idempotent. It is the final guarantee before the feed reaches R2.
+    try:
+        import sys as _sys
+        import os as _os
+        _scripts_dir = str(REPO_ROOT / "scripts")
+        if _scripts_dir not in _sys.path:
+            _sys.path.insert(0, _scripts_dir)
+        from severity_invariant_interceptor import apply_invariants_to_file as _sii_file
+        _sii_targets = [REPO_ROOT / "api" / "feed.json", REPO_ROOT / "feed.json"]
+        for _sit in _sii_targets:
+            if _sit.exists():
+                _sii_report = _sii_file(_sit)
+                _c = _sii_report.get("critical_enforced", 0)
+                _h = _sii_report.get("high_enforced", 0)
+                _m = _sii_report.get("medium_enforced", 0)
+                if _c + _h + _m > 0:
+                    log.warning(
+                        "[3.9-SII] ⚠️  Severity invariant enforced on %s: "
+                        "C=%d H=%d M=%d items corrected. "
+                        "Root cause: severity entered feed below mandatory floor. "
+                        "P0 invariant policy applied.",
+                        _sit.name, _c, _h, _m,
+                    )
+                else:
+                    log.info("[3.9-SII] %s — all severity invariants satisfied.", _sit.name)
+    except Exception as _sii_e:
+        log.warning("[3.9-SII] Severity invariant interceptor skipped (non-fatal): %s", _sii_e)
+    # ── End v180.0 Severity Invariant Interceptor ────────────────────────────
     log.info("[3.9] STAGE 3.9 COMPLETE — feed.json has %d entries [OK]", out_count)
 
     # v177.0 FIX: Confidence Scale Normalization (post Stage 3.9)
