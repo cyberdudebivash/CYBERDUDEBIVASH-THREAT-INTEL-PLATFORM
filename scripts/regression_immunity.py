@@ -171,22 +171,39 @@ else:
     top_n = 50
     f_ids = [(i.get("stix_id") or i.get("id", "")) for i in f_items[:top_n]]
     a_ids = [(i.get("stix_id") or i.get("id", "")) for i in a_items[:top_n]]
-    # v167.1 FIX: api/feed.json is the authoritative full feed; feed.json is a
-    # valid subset. Only penalise positional mismatches within the common range
-    # AND cases where feed.json has extra items NOT in api/feed.json.
-    # Never penalise api/feed.json having MORE items than feed.json — that is
-    # the expected state (api is a superset). Old logic used abs(count_diff)
-    # which caused 15 false violations when api=50 and feed=35.
-    compare_n = min(top_n, len(f_ids), len(a_ids))
-    positional_mismatches = sum(1 for i in range(compare_n) if f_ids[i] != a_ids[i])
-    # Only penalise if feed.json has items the api is MISSING (feed > api)
-    feed_over_api = max(0, len(f_ids) - len(a_ids))
-    feed_surplus_penalty = feed_over_api if feed_over_api > 2 else 0
-    mismatches = positional_mismatches + feed_surplus_penalty
-    check("API == feed.json top-50 stix_ids",
-          mismatches == 0,
-          f"{mismatches} mismatches in top-{compare_n} (feed={len(f_ids)}, api={len(a_ids)} items)",
-          f"Top-{compare_n} stix_ids match (feed={len(f_ids)}, api={len(a_ids)} items)")
+    # v49.0 FIX: feed.json (sentinel-blogger) and api/feed.json (generate-and-sync)
+    # are updated by DIFFERENT independent workflows on different schedules.
+    # feed.json always LEADS api/feed.json — sentinel-blogger runs every 4 h and
+    # pushes new items before generate-and-sync gets to update api/feed.json.
+    # The old positional top-50 comparison caused permanent false violations:
+    # feed.json item[0] = newest (e.g. 09:00) but api/feed.json item[0] = older
+    # (e.g. 07:00), so ALL 50 positions mismatched even when data was correct.
+    #
+    # NEW LOGIC: Check relative ordering of COMMON items only.
+    # Items present in both files must appear in the same relative order
+    # (both sorted published_at DESC). feed.json having extra *newer* items not
+    # yet propagated to api/feed.json is expected and not a violation.
+    # Overlap must be >= 25 % of api items to catch total divergence.
+    f_set = set(f_ids)
+    a_set = set(a_ids)
+    common_in_feed = [id for id in f_ids if id in a_set]
+    common_in_api  = [id for id in a_ids if id in f_set]
+    api_pos = {id: i for i, id in enumerate(common_in_api)}
+    order_violations = 0
+    for j in range(len(common_in_feed) - 1):
+        a_item, b_item = common_in_feed[j], common_in_feed[j + 1]
+        if a_item in api_pos and b_item in api_pos:
+            if api_pos[a_item] > api_pos[b_item]:
+                order_violations += 1
+    overlap_count = len(f_set & a_set)
+    overlap_ratio = overlap_count / max(1, len(a_set))
+    all_ok = (order_violations == 0) and (overlap_ratio >= 0.25 or len(a_set) == 0)
+    check("API/feed relative ordering consistent with feed.json",
+          all_ok,
+          f"order_violations={order_violations}, overlap={overlap_count}/{len(a_set)} ({overlap_ratio:.0%})"
+          f" (feed={len(f_ids)}, api={len(a_ids)} items)",
+          f"Consistent ordering, overlap={overlap_count}/{len(a_set)} ({overlap_ratio:.0%})"
+          f" (feed={len(f_ids)}, api={len(a_ids)} items)")
 
 # ── Check 5: Immutable API manifest verification (v150.0 REPLACEMENT) ──────
 # OLD CHECK (REMOVED): EMBEDDED_INTEL populated in index.html
