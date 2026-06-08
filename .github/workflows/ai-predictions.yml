@@ -10,8 +10,12 @@ permissions:
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+# v50.0 FIX (2026-06-08): Unique concurrency group prevents cancellation by
+# other sentinel-data-writer workflows (genesis, nexus, sovereign, zerodayhunter,
+# production-hardening, sentinel-blogger) queuing simultaneously.
+# Git push conflicts are handled by the rebase retry loop in the commit step.
 concurrency:
-  group: sentinel-data-writer
+  group: sentinel-data-writer-ai-predictions
   cancel-in-progress: false
 
 jobs:
