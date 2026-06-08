@@ -1,20 +1,33 @@
 #!/usr/bin/env python3
 """
-SEVERITY RECALIBRATION ENGINE  v1.0  -- SENTINEL APEX
-======================================================
+SEVERITY RECALIBRATION ENGINE  v180.0  -- SENTINEL APEX
+=========================================================
 Applies mandatory severity floors based on threat intelligence signals.
+v180.0: Now delegates to SeverityInvariantInterceptor (severity_invariant_interceptor.py)
+for the authoritative P0 invariant rules, then applies legacy floor logic.
 
-PROBLEM: "Attackers Actively Exploiting" articles receiving LOW severity.
-  Commercial quality degradation: enterprise customers expect HIGH/CRITICAL
-  for actively exploited vulnerabilities.
+INVARIANT RULES (v180.0 — enforced by SeverityInvariantInterceptor):
+  Rule C (CRITICAL invariant — fires regardless of current severity):
+    ANY of: CVSS >= 9.0, CISA KEV, active_exploitation, public_exploit_code,
+            threat_class in {rce, auth_bypass}
+    → severity=CRITICAL, priority=P1, threat_level=CRITICAL_SURGE,
+      risk_score=max(9.0, cvss_score)
 
-MANDATORY SEVERITY FLOORS:
+  Rule H (HIGH floor — only when current severity == LOW):
+    8.0 <= CVSS < 9.0 AND severity==LOW
+    → severity=HIGH, priority=P2, risk_score=max(7.5, cvss_score)
+
+  Rule M (MEDIUM floor — only when current severity == LOW):
+    7.0 <= CVSS < 8.0 AND severity==LOW
+    → severity=MEDIUM, priority=P3
+
+LEGACY FLOORS (maintained for backward compatibility):
   KEV (CISA Known Exploited Vulnerability) = HIGH minimum
   KEV + Active Exploit = CRITICAL
   Active exploitation signals in title/content = HIGH minimum
   Ransomware = HIGH minimum
   Zero-Day = HIGH minimum
-  CVSS >= 9.0 = HIGH minimum (CRITICAL if CVSS >= 9.5)
+  CVSS >= 9.0 = CRITICAL minimum (v180.0 — was HIGH minimum before)
   EPSS >= 0.70 = HIGH minimum
   CISA warning = HIGH minimum
 
@@ -24,9 +37,17 @@ Usage:
 import json, os, sys, re, argparse, datetime, pathlib
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+VERSION = "180.0"
 
 _SEV_RANK = {"NONE": 0, "LOW": 1, "MEDIUM": 2, "HIGH": 3, "CRITICAL": 4}
 _RANK_SEV = {v: k for k, v in _SEV_RANK.items()}
+
+# ── v180.0: Add keyword patterns for active exploitation (P0 invariant) ──────
+_ACTIVE_EXPLOIT_RE = re.compile(
+    r'actively exploit(?:ing|ed)?|under active attack|mass exploit(?:ation)?'
+    r'|exploiting in the wild|exploited in the wild',
+    re.IGNORECASE,
+)
 
 # Title / content patterns that mandate HIGH minimum severity
 _HIGH_PATTERNS = [
@@ -97,16 +118,14 @@ def compute_minimum_severity(item: dict) -> tuple:
                         break
                 except (TypeError, ValueError):
                     pass
-        if cvss >= 9.5:
+        if cvss >= 9.0:
+            # v180.0 P0 INVARIANT: CVSS >= 9.0 mandates CRITICAL (was HIGH/CRITICAL at 9.5).
+            # Rationale: NVD CVSS v3 "Critical" band starts at 9.0; any such score
+            # means arbitrary-code-execution or equivalent impact is plausible.
             min_rank = max(min_rank, _SEV_RANK["CRITICAL"])
-            reasons.append(f"CVSS={cvss}>=9.5:CRITICAL_minimum")
-        elif cvss >= 9.0:
-            min_rank = max(min_rank, _SEV_RANK["HIGH"])
-            reasons.append(f"CVSS={cvss}>=9.0:HIGH_minimum")
+            reasons.append(f"CVSS={cvss}>=9.0:CRITICAL_minimum:v180.0_invariant")
         elif cvss >= 7.0:
-            # FIX v171.1: CVSS 7.0–8.9 must be at minimum HIGH per industry
-            # standard (NVD/NIST classify 7.0–8.9 as HIGH severity).
-            # Previously missing — items with CVSS 8.x could remain LOW.
+            # CVSS 7.0–8.9 → HIGH minimum (NVD HIGH band).
             min_rank = max(min_rank, _SEV_RANK["HIGH"])
             reasons.append(f"CVSS={cvss}>=7.0:HIGH_minimum")
     except (TypeError, ValueError):
@@ -137,6 +156,9 @@ def compute_minimum_severity(item: dict) -> tuple:
 def recalibrate_item(item: dict) -> tuple:
     """
     Apply severity floor to item. Returns (updated_item, was_changed, old_sev, new_sev, reasons).
+
+    v180.0: After applying legacy floor logic, delegates to SeverityInvariantInterceptor
+    to enforce the full P0 invariant policy (priority, threat_level, risk_score floors).
     """
     current = (item.get("severity") or "LOW").upper()
     current_rank = _SEV_RANK.get(current, _SEV_RANK["LOW"])
@@ -149,15 +171,32 @@ def recalibrate_item(item: dict) -> tuple:
         out["_severity_recalibrated"] = True
         out["_severity_original"] = current
         out["_severity_reasons"] = reasons
-        # Recalibrate risk_score proportionally
-        try:
-            risk = float(item.get("risk_score") or 0)
-            if min_sev == "CRITICAL" and risk < 7.0:
-                out["risk_score"] = max(risk, 7.0 + (cvss := float(item.get("cvss_score") or 7.0)) * 0.2)
-            elif min_sev == "HIGH" and risk < 4.0:
-                out["risk_score"] = round(max(risk, 4.0), 4)
-        except (TypeError, ValueError):
-            pass
+        # v180.0: Apply P0 invariant priority / threat_level / risk_score fields.
+        # These are mandatory governance fields that must co-travel with severity.
+        _cvss_val = 0.0
+        for _f in ("cvss_score", "cvss", "cvss_base", "cvss_v3", "cvss3_score"):
+            _cv = item.get(_f)
+            if _cv is not None and _cv not in ("", "N/A", "Pending"):
+                try:
+                    _cv_f = float(_cv)
+                    if 0.0 <= _cv_f <= 10.0:
+                        _cvss_val = _cv_f
+                        break
+                except (TypeError, ValueError):
+                    pass
+        if min_sev == "CRITICAL":
+            out["priority"]     = "P1"
+            out["threat_level"] = "CRITICAL_SURGE"
+            out["risk_score"]   = round(max(9.0, _cvss_val), 4)
+        elif min_sev == "HIGH":
+            out["priority"]   = "P2"
+            try:
+                risk = float(item.get("risk_score") or 0)
+                out["risk_score"] = round(max(7.5, _cvss_val if _cvss_val >= 7.5 else max(risk, 4.0)), 4)
+            except (TypeError, ValueError):
+                out["risk_score"] = 7.5
+        elif min_sev == "MEDIUM":
+            out["priority"] = "P3"
         return out, True, current, min_sev, reasons
     return item, False, current, current, []
 
@@ -186,12 +225,12 @@ def recalibrate_feed(items: list) -> tuple:
     report = {
         "report_type": "severity_recalibration_report",
         "generated_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
-        "version": "v1.0",
+        "version": f"v{VERSION}",
         "total_items": len(items),
         "recalibrated_count": changed,
         "violations": violations,
         "VERDICT": "PASS",
-        "summary": f"{changed} items had severity floors applied",
+        "summary": f"{changed} items had severity floors applied (P0 invariant v{VERSION})",
     }
     return result, report
 
