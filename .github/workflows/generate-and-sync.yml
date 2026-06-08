@@ -67,8 +67,21 @@ on:
       - 'scripts/intel_enterprise_quality_engine.py'
       - '.github/workflows/generate-and-sync.yml'
   schedule:
-    # Every 6h at :00 past 2am — offset from sentinel-blogger (0h) and multi-source (1:45h)
-    - cron: '0 2,8,14,20 * * *'
+    # Every 6h at :00 past 3am — offset +3h from sentinel-blogger (0,4,8,12,16,20 UTC)
+    # and +1:15h from multi-source-intel (1:45,5:45,... UTC).
+    #
+    # P0 RACE CONDITION FIX (v175.2):
+    #   PREVIOUS BUG: '0 2,8,14,20' caused simultaneous starts with sentinel-blogger
+    #   at 8:00 and 20:00 UTC (sentinel-blogger runs every 4h: 0,4,8,12,16,20).
+    #   Both workflows do git commit+push and R2 uploads, creating push conflicts
+    #   and R2 write races. sentinel-blogger (sentinel-data-writer group) and
+    #   generate-and-sync (sentinel-ai-writer group) are different concurrency groups
+    #   so GitHub Actions does NOT serialize them — they run simultaneously.
+    #
+    #   FIX: Shift to 3,9,15,21 UTC — 3h after sentinel-blogger's 0/12h runs,
+    #   1h after sentinel-blogger's 8/20h runs finish (~6-10min runtime).
+    #   sentinel-blogger has a 90min timeout, so 3h buffer is fully safe.
+    - cron: '0 3,9,15,21 * * *'
   workflow_dispatch:
     inputs:
       dry_run:
