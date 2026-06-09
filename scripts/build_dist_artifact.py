@@ -486,7 +486,22 @@ def main() -> int:
         if retention_days > 0 else None
     )
 
+    skipped_excluded_by_design: int = 0
+
     for ru in report_urls:
+        # v175.6 P0 FIX: Skip paths excluded from dist/ by design.
+        # root cause: load_report_urls_from_feeds() uses
+        #   report_url OR internal_report_url fallback. Items that have no
+        #   report_url but have internal_report_url=/reports/pdf/xxx.pdf get
+        #   loaded; PDFs are excluded from dist/ by EXCLUDE_PATTERNS ("*.pdf"),
+        #   so they are NEVER present in dist/ — validating them would always
+        #   produce a false-positive HARD FAIL.  Skip any path whose suffix is
+        #   in EXCLUDE_SUFFIXES (covers .pdf and all other excluded types).
+        ru_lower = ru.lower()
+        if any(ru_lower.endswith(suf) for suf in EXCLUDE_SUFFIXES):
+            skipped_excluded_by_design += 1
+            continue
+
         dist_path = DIST_DIR / ru.lstrip("/")
         if dist_path.exists():
             continue  # present in dist/ — OK
@@ -512,6 +527,9 @@ def main() -> int:
         else:
             skipped_outside_window += 1
 
+    if skipped_excluded_by_design > 0:
+        log.info("  %d report_url(s) excluded from dist/ by design (e.g. PDFs → "
+                 "Cloudflare R2) — skipped from validation", skipped_excluded_by_design)
     if skipped_outside_window > 0:
         log.info("  %d report_url(s) outside retention window — expected on gh-pages "
                  "(clean:false preserves history)", skipped_outside_window)
