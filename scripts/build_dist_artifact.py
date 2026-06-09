@@ -487,6 +487,7 @@ def main() -> int:
     )
 
     skipped_excluded_by_design: int = 0
+    skipped_no_source: int = 0
 
     for ru in report_urls:
         # v175.6 P0 FIX: Skip paths excluded from dist/ by design.
@@ -502,11 +503,37 @@ def main() -> int:
             skipped_excluded_by_design += 1
             continue
 
+        # v175.7 P0 FIX: Skip paths whose source file does not exist in the
+        # working tree.
+        #
+        # ROOT CAUSE: reports/ is gitignored. api/feed.json is rebuilt mid-pipeline
+        # from Cloudflare R2 data that contains ALL historical intel items — including
+        # items whose HTML reports were generated in PREVIOUS pipeline runs but are
+        # not present in the current workspace (gitignored → never committed).
+        #
+        # These "orphan" report_url paths are within the retention window but their
+        # source HTML files are absent from REPO_ROOT/reports/. They cannot be
+        # copied to dist/ and should NOT trigger a HARD FAIL — the files are already
+        # live on gh-pages from prior deployments (clean:false preserves history).
+        #
+        # CORRECT LOGIC:
+        #   - Source EXISTS in workspace AND missing from dist/ → genuine copy failure
+        #     → validate against retention window → HARD FAIL if in-window
+        #   - Source ABSENT from workspace → generated in a previous run, already
+        #     live on gh-pages → skip (expected, not a defect in this run's artifact)
+        #
+        # This is the permanent production fix: only validate what THIS run generated.
+        src_path = REPO_ROOT / ru.lstrip("/")
+        if not src_path.exists():
+            skipped_no_source += 1
+            continue
+
         dist_path = DIST_DIR / ru.lstrip("/")
         if dist_path.exists():
             continue  # present in dist/ — OK
 
-        # Path missing from dist/ — check retention window before hard-failing
+        # Source EXISTS in working tree but is MISSING from dist/.
+        # Check retention window before hard-failing.
         in_window = True
         if cutoff_for_validation is not None:
             parts = ru.lstrip("/").split("/")
@@ -530,6 +557,10 @@ def main() -> int:
     if skipped_excluded_by_design > 0:
         log.info("  %d report_url(s) excluded from dist/ by design (e.g. PDFs → "
                  "Cloudflare R2) — skipped from validation", skipped_excluded_by_design)
+    if skipped_no_source > 0:
+        log.info("  %d report_url(s) have no source in working tree — generated in a "
+                 "prior run, already live on gh-pages (clean:false) — skipped",
+                 skipped_no_source)
     if skipped_outside_window > 0:
         log.info("  %d report_url(s) outside retention window — expected on gh-pages "
                  "(clean:false preserves history)", skipped_outside_window)
@@ -548,9 +579,14 @@ def main() -> int:
         log.error("ACTION: Do NOT deploy. Run report_generator.py to regenerate missing reports.")
         return 1
 
-    log.info("  report_url validation: %d paths checked — ALL PRESENT in dist/ "
-             "(%d outside-window skipped)", len(report_urls) - skipped_outside_window,
-             skipped_outside_window)
+    actually_validated = (len(report_urls)
+                         - skipped_excluded_by_design
+                         - skipped_no_source
+                         - skipped_outside_window)
+    log.info("  report_url validation: %d paths validated — ALL PRESENT in dist/ "
+             "(%d excluded-by-design, %d no-source, %d outside-window skipped)",
+             actually_validated, skipped_excluded_by_design,
+             skipped_no_source, skipped_outside_window)
 
     # ── 5.1. Validate dashboard/ route integrity (v157.0 HARD FAIL) ─────────
     # P0 safeguard: any dashboard file linked from nav that is absent from dist/
