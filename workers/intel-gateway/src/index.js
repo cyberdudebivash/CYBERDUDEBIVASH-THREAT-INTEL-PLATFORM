@@ -824,7 +824,7 @@ async function handleRequest(request, env) {
 
   // -- /api/reports/latest.json ------------------------------------------------
   // RC-REPORTS-1 FIX v171.1: Dashboard fetches /api/reports/latest.json first.
-  // Previously this route was absent → 404 → dashboard shows REPORTS: 0.
+  // Previously this route was absent -> 404 -> dashboard shows REPORTS: 0.
   // Now: serve from R2 (key "api/reports/latest.json") with fallback to index.
   // Schema uses total_reports (matches dashboard field: data.total_reports || 0).
   if (path === "/api/reports/latest.json") {
