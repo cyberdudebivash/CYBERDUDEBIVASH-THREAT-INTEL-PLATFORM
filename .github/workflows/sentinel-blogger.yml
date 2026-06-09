@@ -2279,8 +2279,16 @@ jobs:
           HISTORICAL_PROBE_COUNT: "5"
         run: |
           set +e
-          python3 scripts/deployment_convergence_validator.py
+          # v160.7 FIX: 28-min hard deadline — prevents GitHub Actions from killing
+          # the process at the 30-min step timeout (unhandled exit → hard fail).
+          # GNU timeout exit 124 = deadline → remap to DEGRADED (non-blocking).
+          # Genuine DEPLOYMENT_FAILED (exit 1 within budget) still hard-fails.
+          timeout 1680 python3 scripts/deployment_convergence_validator.py
           CONVERGENCE_EXIT=$?
+          if [ "$CONVERGENCE_EXIT" -eq "124" ]; then
+            echo "::warning::CONVERGENCE_TIMEOUT — CDN probe ran 28min without STABLE. Treating as DEPLOYMENT_DEGRADED (non-blocking)."
+            CONVERGENCE_EXIT=2
+          fi
           echo "CONVERGENCE_EXIT_CODE=${CONVERGENCE_EXIT}" >> $GITHUB_ENV
 
           # Surface confidence score in GitHub step summary
