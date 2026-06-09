@@ -1,0 +1,32 @@
+title: CDB SENTINEL APEX - Network Threat Intel [25a3f6600d81]
+id: cdb-net-25a3f6600d81
+status: production
+description: >
+    Auto-generated detection rule for 2 malicious IPs and 2 malicious domains
+    from CYBERDUDEBIVASH SENTINEL APEX threat intelligence feeds.
+author: CyberDudeBivash SENTINEL APEX v51
+date: 2026-06-09
+modified: 2026-06-09
+tags:
+    - attack.command_and_control
+    - attack.t1071
+    - attack.t1090
+logsource:
+    category: firewall
+    product: any
+detection:
+    selection:
+        DestinationIp:
+            - '16.03.53.12'
+            - '15.03.05.19'
+        DestinationHostname|contains:
+            - 'java.net'
+            - 'rsync.samba.org'
+    condition: selection
+level: medium
+falsepositives:
+    - Shared hosting infrastructure
+    - CDN/cloud provider IP overlap
+references:
+    - https://intel.cyberdudebivash.com
+    - https://cyberdudebivash.com/threat-intel
