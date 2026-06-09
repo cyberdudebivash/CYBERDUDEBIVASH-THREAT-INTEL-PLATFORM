@@ -121,6 +121,11 @@ EXCLUDE_SUFFIXES = {
 }
 EXCLUDE_PATTERNS = {
     "__pycache__", ".git", ".env", "*.log", "dist",
+    # v175.3 P0 SIZE FIX: Exclude PDFs at copytree level — affects ALL shutil.copytree
+    # calls in copy_reports_selective() including the non-numeric-subdir verbatim path
+    # that bypasses EXCLUDE_SUFFIXES (reports/pdf/ is non-numeric → copied unconditionally
+    # unless blocked here). Advisory PDFs are served from Cloudflare R2, not GitHub Pages.
+    "*.pdf",
 }
 EXCLUDE_ROOT_FILE_GLOBS = [
     "*.bak", "*.pre_*", "*.md", "*.txt", "*.csv", "*.zip",
