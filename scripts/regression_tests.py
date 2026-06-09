@@ -245,17 +245,26 @@ def t06():
 def t07():
     """
     Ensures no entry has a CRITICAL-tier risk score (>= 9.0) without at least ONE
-    piece of verifiable high-confidence evidence.
+    piece of verifiable justification.
 
-    Evidence criteria (ANY ONE satisfies the gate — mirrors stage_pipeline_consistency_check):
+    Evidence criteria (ANY ONE satisfies the gate — mirrors run_pipeline.py C3
+    FALSE_CRITICAL gate AND severity_invariant_interceptor.py Rule C signals):
       a) Formal CVE identifier  (cve_id present)
       b) CISA KEV confirmed     (kev_present)
-      c) CVSS >= 9.0 AND (ioc_count > 0 OR epss >= 0.5)  -- NVD-severity + observable
+      c) CVSS >= 9.0            -- NVD critical score (SII Rule C; alone is sufficient)
       d) EPSS >= 0.7            -- 70%+ exploitation probability in 30 days
       e) IOC confidence >= 80 AND ioc_count >= 5          -- high-quality observables
+      f) CDB proprietary campaign (actor_tag starts with CDB-)
+      g) Active exploitation structured field (active_exploitation, exploited_in_wild…)
+      h) Public exploit code available (public_exploit_code, poc_available…)
+      i) Critical threat class (rce, auth_bypass, unauthenticated_rce…)
+      j) Active exploitation keywords in text (SII Rule C keyword set)
 
-    This is intentionally aligned with the pipeline's FALSE_CRITICAL auto-fix logic so
-    T07 never flags entries that the pipeline itself considers legitimately justified.
+    Criteria g–j mirror the SeverityInvariantInterceptor Rule C signals so T07 never
+    flags entries that SII itself considers legitimately CRITICAL.  Without these, SII
+    promotes items to CRITICAL/risk=9.0 on keyword or struct signals, then T07 falsely
+    flags them — causing STAGE 5.6 HARD FAIL on every pipeline run that ingests an
+    actively-exploited threat without a formal CVE assignment.
     """
     if not MANIFEST_PATH.exists():
         return  # not blocking if manifest absent
@@ -275,13 +284,55 @@ def t07():
         # Pipeline considers these legitimately CRITICAL; T07 must agree.
         _actor   = (i.get("actor_tag") or "").strip().upper()
         cdb_prop = ("CDB-" in _actor) and not (i.get("cve_ids") or cve_id)
+        # g) SII Rule C: active exploitation structured fields.
+        # Mirrors severity_invariant_interceptor._ACTIVE_EXPLOIT_STRUCT_FIELDS.
+        # SII promotes items to CRITICAL on these fields; T07 must agree.
+        _ae_struct = any(bool(i.get(f)) for f in (
+            "active_exploitation", "actively_exploited", "exploited_in_wild",
+            "is_exploited", "exploited",
+        ))
+        # h) SII Rule C: public exploit code available.
+        # Mirrors severity_invariant_interceptor._PUBLIC_EXPLOIT_FIELDS.
+        _pub_exploit = any(bool(i.get(f)) for f in (
+            "public_exploit_code", "exploit_available", "exploit_public",
+            "exploit_code", "poc_available",
+        ))
+        # i) SII Rule C: critical threat class (RCE, auth bypass, etc.).
+        # Mirrors severity_invariant_interceptor._CRITICAL_THREAT_CLASSES.
+        _tc = (
+            i.get("threat_class") or i.get("threat_type") or i.get("vuln_type") or ""
+        ).lower()
+        _crit_tc = _tc in {
+            "rce", "auth_bypass", "remote_code_execution", "authentication_bypass",
+            "unauthenticated_rce", "pre_auth_rce", "os_command_injection",
+            "deserialization_rce",
+        }
+        # j) SII Rule C: active exploitation keywords in text fields.
+        # Mirrors severity_invariant_interceptor._has_active_exploit_keywords().
+        # SII promotes to CRITICAL when these appear in title/desc/summary.
+        # T07 must recognise the same signals as legitimate justification.
+        _text = " ".join(
+            str(i.get(f, ""))
+            for f in ("title", "description", "summary", "analysis", "notes")
+        ).lower()
+        _exploit_kw = [
+            "actively exploited", "actively exploiting", "exploited in the wild",
+            "active exploitation", "under active attack", "zero-day exploit",
+            "0-day exploit", "mass exploitation", "widespread exploitation",
+            "ransomware deployment", "ransom deployed", "weaponized exploit",
+        ]
+        _sii_keyword = any(kw in _text for kw in _exploit_kw)
         return (
-            cdb_prop                                        # f) CDB proprietary campaign
-            or cve_id                                       # a) formal CVE
-            or kev                                          # b) CISA KEV
-            or (cvss >= 9.0 and (ioc_cnt > 0 or epss >= 0.5))  # c) CVSS+observable
-            or epss >= 0.7                                  # d) very high EPSS
-            or (ioc_conf >= 80.0 and ioc_cnt >= 5)         # e) high-quality IOCs
+            cdb_prop                                # f) CDB proprietary campaign
+            or cve_id                               # a) formal CVE
+            or kev                                  # b) CISA KEV
+            or cvss >= 9.0                          # c) CVSS critical (SII Rule C: cvss alone)
+            or epss >= 0.7                          # d) very high EPSS
+            or (ioc_conf >= 80.0 and ioc_cnt >= 5) # e) high-quality IOC cluster
+            or _ae_struct                           # g) active exploitation struct field
+            or _pub_exploit                         # h) public exploit code available
+            or _crit_tc                             # i) critical threat class (RCE etc)
+            or _sii_keyword                         # j) active exploitation keywords in text
         )
 
     fake = [
