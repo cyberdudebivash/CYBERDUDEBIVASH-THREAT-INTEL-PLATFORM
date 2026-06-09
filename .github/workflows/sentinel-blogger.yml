@@ -1830,7 +1830,7 @@ jobs:
           # 30-day retention = ~15,360 reports (~2.3 GB). 90-day = ~45,925 (~7 GB).
           # This cuts the dual-copy peak (reports/ + dist/) from 14 GB to 4.6 GB.
           # Override via GitHub Repository Variable: Settings -> Variables -> REPORT_RETENTION_DAYS
-          REPORT_RETENTION_DAYS: ${{ vars.REPORT_RETENTION_DAYS || '30' }}
+          REPORT_RETENTION_DAYS: ${{ vars.REPORT_RETENTION_DAYS || '7' }}
           ARCHIVE_DRY_RUN: ${{ vars.ARCHIVE_DRY_RUN || '0' }}
           ARCHIVE_MIN_REPORTS: ${{ vars.ARCHIVE_MIN_REPORTS || '500' }}
         run: |
@@ -1972,7 +1972,7 @@ jobs:
         if: ${{ !cancelled() }}
         timeout-minutes: 10
         env:
-          REPORT_RETENTION_DAYS: ${{ vars.REPORT_RETENTION_DAYS || '30' }}
+          REPORT_RETENTION_DAYS: ${{ vars.REPORT_RETENTION_DAYS || '7' }}
         run: python3 scripts/build_dist_artifact.py
 
       # -----------------------------------------------------------------------
@@ -2035,7 +2035,7 @@ jobs:
         if: ${{ !cancelled() && steps.build-dist.conclusion == 'success' }}
         timeout-minutes: 5
         env:
-          REPORT_RETENTION_DAYS: ${{ vars.REPORT_RETENTION_DAYS || '30' }}
+          REPORT_RETENTION_DAYS: ${{ vars.REPORT_RETENTION_DAYS || '7' }}
         run: python3 scripts/dist_artifact_verifier.py
 
       # -----------------------------------------------------------------------
