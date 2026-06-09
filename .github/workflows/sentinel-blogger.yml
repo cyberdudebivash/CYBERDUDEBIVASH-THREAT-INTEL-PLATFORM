@@ -572,6 +572,7 @@ jobs:
       # Hard fails on: missing JWT, freshness gate, schema, integrity.
       # -----------------------------------------------------------------------
       - name: "STAGE 1-3 - Master Pipeline Orchestrator"
+        id: pipeline_stage_1_3
         timeout-minutes: 40
         # v162.5 P0 FIX: continue-on-error allows the deploy chain (5.4.5c→Stage 5) to
         # run even when intelligence generation fails (e.g. stix feed_manifest missing,
@@ -580,6 +581,48 @@ jobs:
         # deployment if the dist/ artifact itself is corrupt or incomplete.
         continue-on-error: true
         run: python3 scripts/run_pipeline.py
+
+      # -----------------------------------------------------------------------
+      # STAGE 1-3 STATUS GATE (RC-6 FIX v171.0)
+      # Captures Stage 1-3 pipeline health into PIPELINE_HEALTH env var so every
+      # downstream step can distinguish DEGRADED from HEALTHY deploys.
+      # When DEGRADED: emits GitHub Actions warning annotation and writes
+      # data/status/pipeline_health.json with degraded=true for telemetry.
+      # Does NOT block deployment — existing committed content still deploys.
+      # Prevents SILENT degraded deploys: all consumers see explicit health state.
+      # -----------------------------------------------------------------------
+      - name: "STAGE 1-3 STATUS GATE (RC-6 FIX — pipeline health capture)"
+        if: always()
+        run: |
+          OUTCOME="${{ steps.pipeline_stage_1_3.outcome }}"
+          if [ "$OUTCOME" = "failure" ] || [ "$OUTCOME" = "cancelled" ]; then
+            echo "PIPELINE_HEALTH=DEGRADED" >> $GITHUB_ENV
+            echo "[STATUS-GATE] Stage 1-3 outcome=$OUTCOME — marking PIPELINE_HEALTH=DEGRADED"
+            echo "::warning::Stage 1-3 pipeline FAILED (outcome=$OUTCOME) — deploying existing committed content only. New intel was NOT generated this run."
+            mkdir -p data/status
+            python3 -c "
+          import json, pathlib, datetime
+          pathlib.Path('data/status/pipeline_health.json').write_text(json.dumps({
+            'pipeline_health': 'DEGRADED',
+            'stage_1_3_outcome': '$OUTCOME',
+            'degraded_at': datetime.datetime.utcnow().isoformat() + 'Z',
+            'note': 'Stage 1-3 failed; deploying existing committed content only'
+          }, indent=2))
+          print('[STATUS-GATE] Wrote data/status/pipeline_health.json')
+          " 2>/dev/null || true
+          else
+            echo "PIPELINE_HEALTH=HEALTHY" >> $GITHUB_ENV
+            echo "[STATUS-GATE] Stage 1-3 outcome=$OUTCOME — PIPELINE_HEALTH=HEALTHY"
+            mkdir -p data/status
+            python3 -c "
+          import json, pathlib, datetime
+          pathlib.Path('data/status/pipeline_health.json').write_text(json.dumps({
+            'pipeline_health': 'HEALTHY',
+            'stage_1_3_outcome': '$OUTCOME',
+            'healthy_at': datetime.datetime.utcnow().isoformat() + 'Z'
+          }, indent=2))
+          " 2>/dev/null || true
+          fi
 
       # -----------------------------------------------------------------------
       # STAGE 3.1: APEX AI ENRICHMENT ENGINE (PERMANENT -- DO NOT REMOVE)
@@ -2416,12 +2459,34 @@ jobs:
           fi
           ls -la dist/ 2>/dev/null || echo "[DIST-BUILDER] dist/ listing failed"
 
-          # ── Fix #2: Ensure api/latest.json exists ─────────────────────────
+          # ── Fix #2: Ensure api/latest.json exists and is populated ──────────
           echo ""
           echo "[API-PREP] Checking api/latest.json..."
           if [ -f "api/latest.json" ]; then
             ITEMS=$(jq 'if type=="array" then length else (.items // [] | length) end' api/latest.json 2>/dev/null || echo "?")
             echo "[API-PREP] api/latest.json exists — $ITEMS items"
+            # RC-3 FIX v171.0: file-existence check is insufficient — a 0-item stub
+            # satisfies the -f guard but leaves api/latest.json empty on Pages deploy.
+            # If item count is 0 or unparseable, overwrite from the authoritative v1 endpoint.
+            if [ "$ITEMS" = "0" ] || [ "$ITEMS" = "?" ]; then
+              echo "[API-PREP] api/latest.json is empty or invalid — overwriting from primary source"
+              if [ -f "api/v1/intel/latest.json" ]; then
+                cp -f api/v1/intel/latest.json api/latest.json
+                ITEMS=$(jq 'if type=="array" then length else (.items // [] | length) end' api/latest.json 2>/dev/null || echo "?")
+                echo "[API-PREP] api/latest.json replaced from api/v1/intel/latest.json ($ITEMS items)"
+              elif [ -f "api/feed.json" ]; then
+                python3 -c "
+          import json, pathlib
+          feed = json.loads(pathlib.Path('api/feed.json').read_text())
+          items = feed if isinstance(feed, list) else feed.get('items', [])
+          latest = sorted(items, key=lambda x: x.get('timestamp', x.get('published_at', '')), reverse=True)[:10]
+          pathlib.Path('api/latest.json').write_text(json.dumps(latest, indent=2))
+          print(f'[API-PREP] api/latest.json replaced from feed.json top-10 ({len(latest)} items)')
+          " 2>/dev/null || echo "[API-PREP] WARN: fallback generation from feed.json failed"
+              else
+                echo "[API-PREP] WARN: api/latest.json is empty and no source available to populate it"
+              fi
+            fi
           else
             echo "[API-PREP] api/latest.json missing — searching for source..."
             # Try v1 intel endpoint first (primary source)

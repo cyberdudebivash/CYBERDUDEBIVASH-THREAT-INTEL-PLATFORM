@@ -71,6 +71,7 @@ _SEV_COLOR = {
 # Protected report IDs that must never be overwritten by the pipeline:
 # ─────────────────────────────────────────────────────────────────────────────
 GODMODE_MIN_SIZE_BYTES    = 60_000       # 60 KB minimum for god mode quality
+GODMODE_MAX_AGE_DAYS      = 7           # RC-5 FIX v171.0: regenerate if older than N days
 GODMODE_MIN_SECTIONS      = 18           # Minimum section count (allow up to 20)
 GODMODE_PROTECTED_IDS     = frozenset([  # These reports are operator-curated
     "intel--c687f56fd93c6ea6d1e3dd6a",   # CVE-2026-42208 LiteLLM CRITICAL 9.1
@@ -1655,37 +1656,54 @@ def generate_reports_from_manifest(
             # CRITICAL: also require the public-facing path to exist
             public_path_ok = public_expected.exists()
             if (is_protected_id or is_godmode_size) and public_path_ok:
-                size_kb = round(existing_size / 1024, 1)
-                if is_protected_id:
-                    logger.info(
-                        "[GODMODE-PROTECTED] %s (%s KB) — operator-curated, pipeline skip",
-                        intel_id, size_kb
-                    )
-                else:
-                    logger.info(
-                        "[GODMODE-QUALITY] %s (%s KB) — god mode size, pipeline skip",
-                        intel_id, size_kb
-                    )
-                # v160.6 FIX: preserve deployed CDN report_url in manifest entry.
-                # When a report is godmode-skipped, the convergence engine needs a
-                # valid HTTPS probe URL. Without this, all fallbacks yield 0 URLs
-                # and Phase 3 produces false DEPLOYMENT_FAILED (Score 32.5/100).
-                # Derive canonical CDN URL from the confirmed-existing public path.
-                _existing_ru = (entry.get("report_url") or "").strip()
-                if not _existing_ru.startswith("https://intel.cyberdudebivash"):
-                    try:
-                        _rel = public_expected.relative_to(REPO_ROOT).as_posix()
-                        _cdn = "https://intel.cyberdudebivash.com/" + _rel
-                        entry["report_url"] = _cdn
-                        entry["internal_report_url"] = "/" + _rel
+                # RC-5 FIX v171.0: apply freshness threshold for size-qualified (non-protected)
+                # reports. Previously the gate was permanent — once a report reached 60 KB it
+                # was NEVER regenerated, causing all 164 advisories to be skipped every run
+                # (success=0, skipped=164, failed=0). Now regenerate if older than threshold.
+                _should_skip = True
+                if not is_protected_id:
+                    _existing_dt = datetime.fromtimestamp(expected.stat().st_mtime, tz=timezone.utc)
+                    _age_days = (datetime.now(tz=timezone.utc) - _existing_dt).days
+                    if _age_days > GODMODE_MAX_AGE_DAYS:
                         logger.info(
-                            "[GODMODE-URL-PRESERVED] %s → report_url=%s",
-                            intel_id, _cdn
+                            "[GODMODE-STALE] %s (%s KB, %d days old) — exceeds freshness "
+                            "threshold (%d days), forcing regeneration",
+                            intel_id, round(existing_size / 1024, 1), _age_days, GODMODE_MAX_AGE_DAYS
                         )
-                    except Exception as _ue:
-                        logger.debug("[GODMODE-URL-PRESERVE-WARN] %s: %s", intel_id, _ue)
-                results["skipped"] += 1
-                continue
+                        _should_skip = False  # fall through to generate_report()
+
+                if _should_skip:
+                    size_kb = round(existing_size / 1024, 1)
+                    if is_protected_id:
+                        logger.info(
+                            "[GODMODE-PROTECTED] %s (%s KB) — operator-curated, pipeline skip",
+                            intel_id, size_kb
+                        )
+                    else:
+                        logger.info(
+                            "[GODMODE-QUALITY] %s (%s KB) — god mode size, pipeline skip",
+                            intel_id, size_kb
+                        )
+                    # v160.6 FIX: preserve deployed CDN report_url in manifest entry.
+                    # When a report is godmode-skipped, the convergence engine needs a
+                    # valid HTTPS probe URL. Without this, all fallbacks yield 0 URLs
+                    # and Phase 3 produces false DEPLOYMENT_FAILED (Score 32.5/100).
+                    # Derive canonical CDN URL from the confirmed-existing public path.
+                    _existing_ru = (entry.get("report_url") or "").strip()
+                    if not _existing_ru.startswith("https://intel.cyberdudebivash"):
+                        try:
+                            _rel = public_expected.relative_to(REPO_ROOT).as_posix()
+                            _cdn = "https://intel.cyberdudebivash.com/" + _rel
+                            entry["report_url"] = _cdn
+                            entry["internal_report_url"] = "/" + _rel
+                            logger.info(
+                                "[GODMODE-URL-PRESERVED] %s → report_url=%s",
+                                intel_id, _cdn
+                            )
+                        except Exception as _ue:
+                            logger.debug("[GODMODE-URL-PRESERVE-WARN] %s: %s", intel_id, _ue)
+                    results["skipped"] += 1
+                    continue
             elif (is_protected_id or is_godmode_size) and not public_path_ok:
                 # Internal file is god-mode quality but PUBLIC URL is missing.
                 # Fall through to generation — do NOT skip.
