@@ -96,7 +96,7 @@ smoke("Analyst Dashboard",      PLATFORM_URL + "/dashboard/analyst_dashboard.htm
 
 # ── API ENDPOINTS ─────────────────────────────────────────────────
 print("\n[API ENDPOINTS]")
-smoke("AI Tracker API",         PLATFORM_URL + "/api/ai/tracker.json",    200, 1_000)
+smoke("AI Brain Summary",        PLATFORM_URL + "/api/v1/intel/ai_summary.json", 200, 1_000)
 smoke("Live Feed",              PLATFORM_URL + "/feed.json",               200, 10_000)
 smoke("Latest Feed",            PLATFORM_URL + "/latest.json",             200, 10_000)
 smoke("Feed Manifest",          PLATFORM_URL + "/feed_manifest.json",      200, 500)

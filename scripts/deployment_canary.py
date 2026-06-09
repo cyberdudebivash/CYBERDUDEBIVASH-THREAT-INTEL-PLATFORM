@@ -55,7 +55,7 @@ def _fetch(url: str, timeout: int, token: Optional[str] = None) -> Tuple[int, st
     req = urllib.request.Request(url, headers=headers)
     try:
         with urllib.request.urlopen(req, timeout=timeout) as resp:
-            body = resp.read(65536).decode("utf-8", errors="replace")
+            body = resp.read(1 << 20).decode("utf-8", errors="replace")  # 1 MB cap (was 64 KB — too small for /api/preview)
             return resp.status, body
     except urllib.error.HTTPError as exc:
         return exc.code, str(exc)

@@ -911,6 +911,34 @@ async function handleRequest(request, env) {
     return jsonResp(data, 200, { "Cache-Control": "public, max-age=120" });
   }
 
+  // -- /reports/**/*.html (serve HTML intel reports from REPORTS_R2) ----------
+  // wrangler.toml routes intel.cyberdudebivash.com/reports/* to this Worker
+  // (v167.2 fix). R2 key format: reports/{year}/{month}/{slug}.html
+  // Previously this handler was absent — all /reports/ requests fell through
+  // to the 404 block below. Fix (v170.1): reads from REPORTS_R2 binding.
+  if (path.startsWith("/reports/")) {
+    if (!env.REPORTS_R2) {
+      return new Response("Reports bucket not configured", {
+        status: 503,
+        headers: { ...CORS_HEADERS, "Content-Type": "text/plain" },
+      });
+    }
+    const key = path.replace(/^\//, ""); // strip leading "/" → "reports/2026/06/intel--xxx.html"
+    const obj = await env.REPORTS_R2.get(key);
+    if (!obj) {
+      return jsonResp({ error: "Report not found", path }, 404);
+    }
+    return new Response(obj.body, {
+      status: 200,
+      headers: {
+        ...CORS_HEADERS,
+        "Content-Type":  "text/html; charset=utf-8",
+        "Cache-Control": "public, max-age=86400, stale-while-revalidate=3600",
+        "ETag":          obj.httpEtag || "",
+      },
+    });
+  }
+
   // -- 404 ---------------------------------------------------------------------
   return jsonResp({
     error: "Not found",

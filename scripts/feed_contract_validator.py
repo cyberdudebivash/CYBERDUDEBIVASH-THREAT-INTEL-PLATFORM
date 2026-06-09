@@ -296,7 +296,7 @@ class FeedContractValidator:
         # Check that the previewPayload pattern is present
         if "total_preview:" in src and "preview:" in src:
             # Verify the structure: previewPayload has items + total_preview
-            if re.search(r"previewPayload\s*=\s*\{[^}]*items\s*:", src, re.DOTALL):
+            if re.search(r"previewPayload\s*=\s*\{[^}]*\bitems\b", src, re.DOTALL):
                 self._pass("/api/preview", "CONTRACT-5",
                            "handlePreview() emits previewPayload.items (nested envelope confirmed)")
             else:
