@@ -1,8 +1,8 @@
 /**
- * CYBERDUDEBIVASH® SENTINEL APEX — Cloudflare Worker v170.0
+ * CYBERDUDEBIVASH(R) SENTINEL APEX  -  Cloudflare Worker v170.0
  * intel-gateway/src/index.js
  *
- * COMPLETE PRODUCTION REBUILD — ALL ENDPOINTS LIVE
+ * COMPLETE PRODUCTION REBUILD  -  ALL ENDPOINTS LIVE
  * Replaces broken stub. All dashboard features now API-backed.
  *
  * Routes:
@@ -12,22 +12,22 @@
  *   GET /api/v1/intel/ai_summary.json      (from R2 with inline fallback)
  *   GET /api/v1/intel/top10.json           (computed from latest)
  *   GET /api/v1/intel/stats                (computed from latest)
- *   GET /api/v1/intel/campaigns            (computed — kill chain clusters)
- *   GET /api/v1/intel/ransomware           (computed — ransomware tracker)
- *   GET /api/v1/intel/apt                  (computed — APT radar)
- *   GET /api/v1/intel/epss                 (computed — top CVEs by EPSS)
- *   GET /api/v1/intel/defcon               (computed — DEFCON status)
- *   GET /api/v1/intel/pulse                (computed — live threat pulse)
- *   GET /api/v1/intel/darkweb              (computed — dark web monitor)
- *   GET /api/v1/intel/cybermap            (computed — geo attack heatmap)
- *   GET /api/v1/news/feed                  (RSS proxy — cached 5 min in KV)
+ *   GET /api/v1/intel/campaigns            (computed  -  kill chain clusters)
+ *   GET /api/v1/intel/ransomware           (computed  -  ransomware tracker)
+ *   GET /api/v1/intel/apt                  (computed  -  APT radar)
+ *   GET /api/v1/intel/epss                 (computed  -  top CVEs by EPSS)
+ *   GET /api/v1/intel/defcon               (computed  -  DEFCON status)
+ *   GET /api/v1/intel/pulse                (computed  -  live threat pulse)
+ *   GET /api/v1/intel/darkweb              (computed  -  dark web monitor)
+ *   GET /api/v1/intel/cybermap            (computed  -  geo attack heatmap)
+ *   GET /api/v1/news/feed                  (RSS proxy  -  cached 5 min in KV)
  *   GET /api/reports/index.json            (from R2)
  *   GET /api/reports/stats.json            (computed from reports index)
  *   POST /auth/login                       (JWT issue)
  *   POST /api/v1/ioc/lookup               (IOC scanner)
  */
 
-// ─── Constants ────────────────────────────────────────────────────────────────
+// --- Constants ----------------------------------------------------------------
 const PLATFORM_VERSION = "170.0";
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
@@ -43,7 +43,7 @@ const APEX_JSON_KEY   = "api/v1/intel/apex.json";
 const AI_SUMMARY_KEY  = "api/v1/intel/ai_summary.json";
 const REPORTS_KEY     = "api/reports/index.json";
 
-// ─── Geo country → attack origin mapping (curated intelligence) ──────────────
+// --- Geo country -> attack origin mapping (curated intelligence) --------------
 const GEO_ATTACK_MAP = [
   { code: "RU", country: "Russian Federation", attacks: 0, risk: "CRITICAL" },
   { code: "CN", country: "China",              attacks: 0, risk: "CRITICAL" },
@@ -85,7 +85,7 @@ const APT_PROFILES = [
   { id: "Sandworm", alias: "Sandworm Team",    nation: "RU", sector: "Energy,ICS/SCADA",      ttps: 22 },
 ];
 
-// ─── Utility ──────────────────────────────────────────────────────────────────
+// --- Utility ------------------------------------------------------------------
 function jsonResp(data, status = 200, extra = {}) {
   return new Response(JSON.stringify(data), {
     status,
@@ -101,7 +101,7 @@ function now() {
   return new Date().toISOString();
 }
 
-// ─── R2 reader with graceful fallback ────────────────────────────────────────
+// --- R2 reader with graceful fallback ----------------------------------------
 async function r2Get(env, key) {
   try {
     const obj = await env.INTEL_R2.get(key);
@@ -114,7 +114,7 @@ async function r2Get(env, key) {
   }
 }
 
-// ─── Load and cache latest feed items ────────────────────────────────────────
+// --- Load and cache latest feed items ----------------------------------------
 async function loadFeedItems(env) {
   // Try R2 first
   const data = await r2Get(env, LATEST_JSON_KEY);
@@ -123,7 +123,7 @@ async function loadFeedItems(env) {
   return { schema_version: "1.0", count: 0, items: [], generated_at: now(), version: PLATFORM_VERSION };
 }
 
-// ─── Compute stats from feed items ───────────────────────────────────────────
+// --- Compute stats from feed items -------------------------------------------
 function computeStats(items) {
   const sev = { CRITICAL: 0, HIGH: 0, MEDIUM: 0, LOW: 0, INFO: 0 };
   let totalRisk = 0, totalIOCs = 0, kevCount = 0;
@@ -154,7 +154,7 @@ function computeStats(items) {
   };
 }
 
-// ─── Compute DEFCON from threat posture ──────────────────────────────────────
+// --- Compute DEFCON from threat posture --------------------------------------
 function computeDefcon(stats) {
   const ratio = stats.total > 0 ? stats.critical / stats.total : 0;
   if (ratio >= 0.4 || stats.kev_confirmed >= 5) return { level: 1, label: "DEFCON 1", status: "WAR", color: "#ff0000" };
@@ -164,7 +164,7 @@ function computeDefcon(stats) {
   return { level: 5, label: "DEFCON 5", status: "FADE OUT", color: "#00d4aa" };
 }
 
-// ─── Compute global threat level ─────────────────────────────────────────────
+// --- Compute global threat level ---------------------------------------------
 function computeThreatLevel(stats) {
   const base = Math.min(stats.avg_risk_score, 10);
   const kevBoost = Math.min(stats.kev_confirmed * 0.15, 1.5);
@@ -178,7 +178,7 @@ function computeThreatLevel(stats) {
   return { level: parseFloat(level), label, generated_at: now() };
 }
 
-// ─── Compute kill chain coverage from items ───────────────────────────────────
+// --- Compute kill chain coverage from items -----------------------------------
 function computeKillChain(items) {
   const phases = {
     recon: 0, weaponize: 0, deliver: 0, exploit: 0,
@@ -226,7 +226,7 @@ function computeKillChain(items) {
   };
 }
 
-// ─── Compute ransomware tracker data ─────────────────────────────────────────
+// --- Compute ransomware tracker data -----------------------------------------
 function computeRansomware(items) {
   const ransomItems = items.filter(i => {
     const t = (i.title + " " + (i.tags || []).join(" ")).toLowerCase();
@@ -250,7 +250,7 @@ function computeRansomware(items) {
   };
 }
 
-// ─── Compute APT radar data ───────────────────────────────────────────────────
+// --- Compute APT radar data ---------------------------------------------------
 function computeAPT(items) {
   const aptItems = items.filter(i => {
     const t = (i.title + " " + (i.tags || []).join(" ")).toLowerCase();
@@ -278,7 +278,7 @@ function computeAPT(items) {
   };
 }
 
-// ─── Compute EPSS top CVEs ────────────────────────────────────────────────────
+// --- Compute EPSS top CVEs ----------------------------------------------------
 function computeEPSS(items) {
   const cveItems = items
     .filter(i => i.cve_ids && i.cve_ids.length > 0 && parseFloat(i.risk_score || 0) > 0)
@@ -303,7 +303,7 @@ function computeEPSS(items) {
   };
 }
 
-// ─── Compute live threat pulse ────────────────────────────────────────────────
+// --- Compute live threat pulse ------------------------------------------------
 function computePulse(items, stats) {
   // Derive approximate rate from advisory count and generation cadence (6h sync)
   const rateHr = Math.round(stats.total / 6);
@@ -321,7 +321,7 @@ function computePulse(items, stats) {
   };
 }
 
-// ─── Compute dark web monitor stats ──────────────────────────────────────────
+// --- Compute dark web monitor stats ------------------------------------------
 function computeDarkweb(items) {
   // Derive from available data + intelligence baselines
   const breachItems = items.filter(i => {
@@ -343,7 +343,7 @@ function computeDarkweb(items) {
   };
 }
 
-// ─── Compute cyber attack geo heatmap ────────────────────────────────────────
+// --- Compute cyber attack geo heatmap ----------------------------------------
 function computeCybermap(items, stats) {
   // Assign attack counts based on threat profile ratios
   const totalAttacks = Math.max(stats.total * 12, 200);
@@ -363,7 +363,7 @@ function computeCybermap(items, stats) {
   };
 }
 
-// ─── Build apex.json inline from latest items ─────────────────────────────────
+// --- Build apex.json inline from latest items ---------------------------------
 function buildApexInline(feedData, stats) {
   const items = (feedData.items || []).slice(0, 20);
   const defcon = computeDefcon(stats);
@@ -398,7 +398,7 @@ function buildApexInline(feedData, stats) {
   };
 }
 
-// ─── Build ai_summary.json inline ─────────────────────────────────────────────
+// --- Build ai_summary.json inline ---------------------------------------------
 function buildAISummaryInline(feedData, stats) {
   const critItems = (feedData.items || [])
     .filter(i => (i.severity || "") === "CRITICAL")
@@ -437,7 +437,7 @@ function buildAISummaryInline(feedData, stats) {
   };
 }
 
-// ─── Fetch and cache RSS news feed ────────────────────────────────────────────
+// --- Fetch and cache RSS news feed --------------------------------------------
 const RSS_SOURCES = [
   { name: "The Hacker News",     url: "https://feeds.feedburner.com/TheHackersNews",           bias: "HIGH"   },
   { name: "Bleeping Computer",   url: "https://www.bleepingcomputer.com/feed/",                bias: "HIGH"   },
@@ -531,7 +531,7 @@ async function fetchNewsFromRSS(kvNamespace) {
   return feed;
 }
 
-// ─── IOC Lookup ──────────────────────────────────────────────────────────────
+// --- IOC Lookup --------------------------------------------------------------
 async function iocLookup(query, feedData) {
   const q = (query || "").trim().toLowerCase();
   if (!q) return { found: false, query, results: [] };
@@ -562,7 +562,7 @@ async function iocLookup(query, feedData) {
   };
 }
 
-// ─── Route table ─────────────────────────────────────────────────────────────
+// --- Route table -------------------------------------------------------------
 async function handleRequest(request, env) {
   const url = new URL(request.url);
   const path = url.pathname;
@@ -573,7 +573,7 @@ async function handleRequest(request, env) {
     return new Response(null, { status: 204, headers: CORS_HEADERS });
   }
 
-  // ── /api/health ─────────────────────────────────────────────────────────────
+  // -- /api/health -------------------------------------------------------------
   if (path === "/api/health" || path === "/api/health/") {
     const feedData = await loadFeedItems(env);
     const stats = computeStats(feedData.items || []);
@@ -598,14 +598,14 @@ async function handleRequest(request, env) {
     });
   }
 
-  // ── /api/v1/intel/latest.json ───────────────────────────────────────────────
+  // -- /api/v1/intel/latest.json -----------------------------------------------
   if (path === "/api/v1/intel/latest.json") {
     const data = await r2Get(env, LATEST_JSON_KEY);
     if (!data) return errorResp("Feed not available", 503);
     return jsonResp(data, 200, { "Cache-Control": "public, max-age=120" });
   }
 
-  // ── /api/v1/intel/apex.json ─────────────────────────────────────────────────
+  // -- /api/v1/intel/apex.json -------------------------------------------------
   if (path === "/api/v1/intel/apex.json") {
     // Try R2 first; fall back to inline computation
     let data = await r2Get(env, APEX_JSON_KEY);
@@ -617,7 +617,7 @@ async function handleRequest(request, env) {
     return jsonResp(data, 200, { "Cache-Control": "public, max-age=120" });
   }
 
-  // ── /api/v1/intel/ai_summary.json ──────────────────────────────────────────
+  // -- /api/v1/intel/ai_summary.json ------------------------------------------
   if (path === "/api/v1/intel/ai_summary.json") {
     let data = await r2Get(env, AI_SUMMARY_KEY);
     if (!data || Object.keys(data).length === 0) {
@@ -628,7 +628,7 @@ async function handleRequest(request, env) {
     return jsonResp(data, 200, { "Cache-Control": "public, max-age=120" });
   }
 
-  // ── /api/v1/intel/stats ─────────────────────────────────────────────────────
+  // -- /api/v1/intel/stats -----------------------------------------------------
   if (path === "/api/v1/intel/stats" || path === "/api/v1/stats") {
     const feedData = await loadFeedItems(env);
     const stats = computeStats(feedData.items || []);
@@ -646,7 +646,7 @@ async function handleRequest(request, env) {
     }, 200, { "Cache-Control": "public, max-age=60" });
   }
 
-  // ── /api/v1/intel/top10.json ────────────────────────────────────────────────
+  // -- /api/v1/intel/top10.json ------------------------------------------------
   if (path === "/api/v1/intel/top10.json") {
     let data = await r2Get(env, "api/v1/intel/top10.json");
     if (!data) {
@@ -659,7 +659,7 @@ async function handleRequest(request, env) {
     return jsonResp(data, 200, { "Cache-Control": "public, max-age=120" });
   }
 
-  // ── /api/v1/intel/campaigns ─────────────────────────────────────────────────
+  // -- /api/v1/intel/campaigns -------------------------------------------------
   if (path === "/api/v1/intel/campaigns") {
     const feedData = await loadFeedItems(env);
     const stats = computeStats(feedData.items || []);
@@ -669,28 +669,28 @@ async function handleRequest(request, env) {
       200, { "Cache-Control": "public, max-age=60" });
   }
 
-  // ── /api/v1/intel/ransomware ────────────────────────────────────────────────
+  // -- /api/v1/intel/ransomware ------------------------------------------------
   if (path === "/api/v1/intel/ransomware") {
     const feedData = await loadFeedItems(env);
     const rw = computeRansomware(feedData.items || []);
     return jsonResp({ ...rw, version: PLATFORM_VERSION }, 200, { "Cache-Control": "public, max-age=120" });
   }
 
-  // ── /api/v1/intel/apt ───────────────────────────────────────────────────────
+  // -- /api/v1/intel/apt -------------------------------------------------------
   if (path === "/api/v1/intel/apt") {
     const feedData = await loadFeedItems(env);
     const apt = computeAPT(feedData.items || []);
     return jsonResp({ ...apt, version: PLATFORM_VERSION }, 200, { "Cache-Control": "public, max-age=120" });
   }
 
-  // ── /api/v1/intel/epss ──────────────────────────────────────────────────────
+  // -- /api/v1/intel/epss ------------------------------------------------------
   if (path === "/api/v1/intel/epss") {
     const feedData = await loadFeedItems(env);
     const epss = computeEPSS(feedData.items || []);
     return jsonResp({ ...epss, version: PLATFORM_VERSION }, 200, { "Cache-Control": "public, max-age=120" });
   }
 
-  // ── /api/v1/intel/defcon ────────────────────────────────────────────────────
+  // -- /api/v1/intel/defcon ----------------------------------------------------
   if (path === "/api/v1/intel/defcon") {
     const feedData = await loadFeedItems(env);
     const stats = computeStats(feedData.items || []);
@@ -700,7 +700,7 @@ async function handleRequest(request, env) {
       200, { "Cache-Control": "public, max-age=60" });
   }
 
-  // ── /api/v1/intel/pulse ─────────────────────────────────────────────────────
+  // -- /api/v1/intel/pulse -----------------------------------------------------
   if (path === "/api/v1/intel/pulse") {
     const feedData = await loadFeedItems(env);
     const stats = computeStats(feedData.items || []);
@@ -708,14 +708,14 @@ async function handleRequest(request, env) {
     return jsonResp({ ...pulse, version: PLATFORM_VERSION }, 200, { "Cache-Control": "public, max-age=60" });
   }
 
-  // ── /api/v1/intel/darkweb ───────────────────────────────────────────────────
+  // -- /api/v1/intel/darkweb ---------------------------------------------------
   if (path === "/api/v1/intel/darkweb") {
     const feedData = await loadFeedItems(env);
     const dw = computeDarkweb(feedData.items || []);
     return jsonResp({ ...dw, version: PLATFORM_VERSION }, 200, { "Cache-Control": "public, max-age=300" });
   }
 
-  // ── /api/v1/intel/cybermap ──────────────────────────────────────────────────
+  // -- /api/v1/intel/cybermap --------------------------------------------------
   if (path === "/api/v1/intel/cybermap" || path === "/api/v1/geo/cybermap") {
     const feedData = await loadFeedItems(env);
     const stats = computeStats(feedData.items || []);
@@ -723,7 +723,7 @@ async function handleRequest(request, env) {
     return jsonResp({ ...map, version: PLATFORM_VERSION }, 200, { "Cache-Control": "public, max-age=120" });
   }
 
-  // ── /api/v1/news/feed ───────────────────────────────────────────────────────
+  // -- /api/v1/news/feed -------------------------------------------------------
   if (path === "/api/v1/news/feed" || path === "/api/news/feed") {
     try {
       const feed = await fetchNewsFromRSS(env.RATE_LIMIT_KV);
@@ -735,7 +735,7 @@ async function handleRequest(request, env) {
     }
   }
 
-  // ── /api/reports/index.json ─────────────────────────────────────────────────
+  // -- /api/reports/index.json -------------------------------------------------
   if (path === "/api/reports/index.json") {
     let data = await r2Get(env, REPORTS_KEY);
     if (!data) {
@@ -762,7 +762,7 @@ async function handleRequest(request, env) {
     return jsonResp(data, 200, { "Cache-Control": "public, max-age=300" });
   }
 
-  // ── /api/reports/stats.json ─────────────────────────────────────────────────
+  // -- /api/reports/stats.json -------------------------------------------------
   if (path === "/api/reports/stats.json") {
     const feedData = await loadFeedItems(env);
     const stats = computeStats(feedData.items || []);
@@ -778,7 +778,7 @@ async function handleRequest(request, env) {
     }, 200, { "Cache-Control": "public, max-age=300" });
   }
 
-  // ── /api/v1/ioc/lookup ─────────────────────────────────────────────────────
+  // -- /api/v1/ioc/lookup -----------------------------------------------------
   if (path === "/api/v1/ioc/lookup" && method === "POST") {
     let body = {};
     try { body = await request.json(); } catch (_) {}
@@ -794,14 +794,14 @@ async function handleRequest(request, env) {
     return jsonResp(result);
   }
 
-  // ── /api/feed (legacy) ──────────────────────────────────────────────────────
+  // -- /api/feed (legacy) ------------------------------------------------------
   if (path === "/api/feed") {
     const data = await r2Get(env, LATEST_JSON_KEY);
     if (!data) return errorResp("Feed not available", 503);
     return jsonResp(data, 200, { "Cache-Control": "public, max-age=120" });
   }
 
-  // ── 404 ─────────────────────────────────────────────────────────────────────
+  // -- 404 ---------------------------------------------------------------------
   return jsonResp({
     error: "Not found",
     path,
@@ -828,7 +828,7 @@ async function handleRequest(request, env) {
   }, 404);
 }
 
-// ─── Worker entry point ───────────────────────────────────────────────────────
+// --- Worker entry point -------------------------------------------------------
 export default {
   async fetch(request, env, ctx) {
     try {
