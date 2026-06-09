@@ -38,6 +38,7 @@ const CORS_HEADERS = {
 const JSON_CONTENT = { "Content-Type": "application/json; charset=utf-8" };
 const NEWS_TTL_SEC = 300;      // 5 minutes
 const STATS_TTL_SEC = 120;     // 2 minutes
+const PREVIEW_LIMIT = 25;      // max items in public /api/preview envelope
 const LATEST_JSON_KEY = "api/v1/intel/latest.json";
 const APEX_JSON_KEY   = "api/v1/intel/apex.json";
 const AI_SUMMARY_KEY  = "api/v1/intel/ai_summary.json";
@@ -878,6 +879,29 @@ async function handleRequest(request, env) {
     const feedData = await loadFeedItems(env);
     const result = await iocLookup(query, feedData);
     return jsonResp(result);
+  }
+
+  // -- /api/preview (public free-tier preview envelope) -----------------------
+  // Returns { status:"ok", preview: previewPayload } where previewPayload holds
+  // a PREVIEW_LIMIT-capped slice of feed items — aligned with canary B contract.
+  if (path === "/api/preview" || path === "/api/preview/") {
+    const feedData = await loadFeedItems(env);
+    const items = (feedData.items || []).slice(0, PREVIEW_LIMIT);
+    const previewPayload = {
+      items,
+      total_preview: items.length,
+      feed_total:    (feedData.items || []).length,
+      preview_limit: PREVIEW_LIMIT,
+      generated_at:  now(),
+      version:       PLATFORM_VERSION,
+      _tier:         TIERS.FREE,
+      _upgrade_url:  "https://intel.cyberdudebivash.com/upgrade.html",
+    };
+    return jsonResp(
+      { status: "ok", preview: previewPayload },
+      200,
+      { "Cache-Control": "public, max-age=120" }
+    );
   }
 
   // -- /api/feed + /api/feed.json (legacy aliases) ----------------------------
