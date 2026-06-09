@@ -880,8 +880,8 @@ async function handleRequest(request, env) {
     return jsonResp(result);
   }
 
-  // -- /api/feed (legacy) ------------------------------------------------------
-  if (path === "/api/feed") {
+  // -- /api/feed + /api/feed.json (legacy aliases) ----------------------------
+  if (path === "/api/feed" || path === "/api/feed.json") {
     const data = await r2Get(env, LATEST_JSON_KEY);
     if (!data) return errorResp("Feed not available", 503);
     return jsonResp(data, 200, { "Cache-Control": "public, max-age=120" });
@@ -906,6 +906,7 @@ async function handleRequest(request, env) {
       "/api/v1/intel/pulse",
       "/api/v1/intel/darkweb",
       "/api/v1/intel/cybermap",
+      "/api/feed.json",
       "/api/v1/news/feed",
       "/api/reports/index.json",
       "/api/reports/stats.json",
