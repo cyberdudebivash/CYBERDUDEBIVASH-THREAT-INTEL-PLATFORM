@@ -883,7 +883,7 @@ async function handleRequest(request, env) {
 
   // -- /api/preview (public free-tier preview envelope) -----------------------
   // Returns { status:"ok", preview: previewPayload } where previewPayload holds
-  // a PREVIEW_LIMIT-capped slice of feed items — aligned with canary B contract.
+  // a PREVIEW_LIMIT-capped slice of feed items  -  aligned with canary B contract.
   if (path === "/api/preview" || path === "/api/preview/") {
     const feedData = await loadFeedItems(env);
     const items = (feedData.items || []).slice(0, PREVIEW_LIMIT);
@@ -914,7 +914,7 @@ async function handleRequest(request, env) {
   // -- /reports/**/*.html (serve HTML intel reports from REPORTS_R2) ----------
   // wrangler.toml routes intel.cyberdudebivash.com/reports/* to this Worker
   // (v167.2 fix). R2 key format: reports/{year}/{month}/{slug}.html
-  // Previously this handler was absent — all /reports/ requests fell through
+  // Previously this handler was absent  -  all /reports/ requests fell through
   // to the 404 block below. Fix (v170.1): reads from REPORTS_R2 binding.
   if (path.startsWith("/reports/")) {
     if (!env.REPORTS_R2) {
@@ -923,7 +923,7 @@ async function handleRequest(request, env) {
         headers: { ...CORS_HEADERS, "Content-Type": "text/plain" },
       });
     }
-    const key = path.replace(/^\//, ""); // strip leading "/" → "reports/2026/06/intel--xxx.html"
+    const key = path.replace(/^\//, ""); // strip leading "/" -> "reports/2026/06/intel--xxx.html"
     const obj = await env.REPORTS_R2.get(key);
     if (!obj) {
       return jsonResp({ error: "Report not found", path }, 404);
