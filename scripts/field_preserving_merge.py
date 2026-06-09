@@ -57,6 +57,7 @@ from __future__ import annotations
 import argparse
 import json
 import logging
+import hashlib
 import os
 import sys
 from datetime import datetime, timezone
@@ -276,8 +277,28 @@ def merge_preserving_fields(
             merged[key] = new_item
             stats["new"] += 1
 
-    # Append incoming items without a key (no stix_id -- include but cannot dedup)
-    result = list(merged.values()) + incoming_no_key
+    # RC-1 FIX v171.0: Deduplicate keyless items using sha256(title|timestamp) fingerprint.
+    # Previously incoming_no_key was unconditionally appended on every run, causing the same
+    # items to accumulate across runs (dashboard duplicates — Symptoms A, B, J confirmed).
+    # Now: fingerprint existing keyless items + incoming keyless items; incoming wins on match.
+    def _keyless_fp(item: dict) -> str:
+        title = str(item.get("title") or "")
+        ts    = str(item.get("timestamp") or item.get("published_at") or "")
+        return "fp--" + hashlib.sha256(f"{title}|{ts}".encode("utf-8", errors="replace")).hexdigest()[:24]
+
+    # Extract keyless items from existing manifest (cross-run dedup baseline)
+    existing_no_key_fps: dict[str, dict] = {
+        _keyless_fp(item): item
+        for item in existing
+        if not _get_key(item)
+    }
+    # Merge: start from existing keyless items, then incoming overwrites (fresher data wins)
+    all_no_key: dict[str, dict] = dict(existing_no_key_fps)
+    for item in incoming_no_key:
+        fp = _keyless_fp(item)
+        all_no_key[fp] = item  # incoming wins over existing for same fingerprint
+
+    result = list(merged.values()) + list(all_no_key.values())
 
     # Normalize: backfill 'source' from 'feed_source'/'source_url' if absent.
     # validate_repo.py intel_schema gate requires a non-empty 'source' field.
