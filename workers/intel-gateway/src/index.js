@@ -822,27 +822,65 @@ async function handleRequest(request, env) {
     }
   }
 
+  // -- /api/reports/latest.json ------------------------------------------------
+  // RC-REPORTS-1 FIX v171.1: Dashboard fetches /api/reports/latest.json first.
+  // Previously this route was absent → 404 → dashboard shows REPORTS: 0.
+  // Now: serve from R2 (key "api/reports/latest.json") with fallback to index.
+  // Schema uses total_reports (matches dashboard field: data.total_reports || 0).
+  if (path === "/api/reports/latest.json") {
+    let data = await r2Get(env, "api/reports/latest.json");
+    if (!data) {
+      // Fallback: try to serve index.json from R2, or build minimal from feed
+      data = await r2Get(env, REPORTS_KEY);
+    }
+    if (!data) {
+      const feedData = await loadFeedItems(env);
+      const critItems = (feedData.items || []).filter(i =>
+        (i.severity || "") === "CRITICAL" || parseFloat(i.risk_score || 0) >= 8.0
+      );
+      data = {
+        schema_version: "sentinel_apex_reports_v1",
+        generated_at: now(),
+        total_reports: critItems.length,
+        reports_listed: Math.min(critItems.length, 50),
+        reports: critItems.slice(0, 50).map(i => ({
+          id: i.stix_id || i.id,
+          url: `/reports/2026/06/${i.stix_id || i.id}.html`,
+          title: i.title,
+          severity: i.severity,
+          risk_score: i.risk_score,
+          cve: i.cve_id || (i.cve_ids || [])[0] || null,
+          timestamp: i.published || i.published_at,
+        })),
+      };
+    }
+    return jsonResp(data, 200, { "Cache-Control": "public, max-age=300" });
+  }
+
   // -- /api/reports/index.json -------------------------------------------------
   if (path === "/api/reports/index.json") {
     let data = await r2Get(env, REPORTS_KEY);
     if (!data) {
-      // Build minimal index from feed data
+      // RC-REPORTS-2 FIX v171.1: Fallback schema now uses total_reports (not report_count)
+      // to match what dashboard reads: data.total_reports || 0.
       const feedData = await loadFeedItems(env);
-      const critItems = (feedData.items || []).filter(i => (i.severity || "") === "CRITICAL" || parseFloat(i.risk_score || 0) >= 8.0);
+      const critItems = (feedData.items || []).filter(i =>
+        (i.severity || "") === "CRITICAL" || parseFloat(i.risk_score || 0) >= 8.0
+      );
       data = {
-        schema: "sentinel_apex_reports_v1",
+        schema_version: "sentinel_apex_reports_v1",
         version: PLATFORM_VERSION,
         generated_at: now(),
-        report_count: critItems.length,
+        total_reports: critItems.length,        // FIX: was report_count (unread by dashboard)
+        reports_listed: Math.min(critItems.length, 20),
         reports: critItems.slice(0, 20).map(i => ({
-          id: i.id,
+          id: i.stix_id || i.id,
+          url: `/reports/2026/06/${i.stix_id || i.id}.html`,
           title: i.title,
           severity: i.severity,
           risk_score: i.risk_score,
-          source: i.source,
-          published: i.published,
-          cve_ids: i.cve_ids || [],
-          url: `/api/reports/${i.id}.json`,
+          cve: i.cve_id || (i.cve_ids || [])[0] || null,
+          timestamp: i.published || i.published_at,
         })),
       };
     }
