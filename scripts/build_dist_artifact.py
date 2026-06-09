@@ -462,14 +462,59 @@ def main() -> int:
         # Not a hard error if optional files don't exist
 
     # ── 5. Validate report_url paths exist in dist/ ──────────────────────────
+    # v175.5 P0 FIX: Retention-window-aware validation.
+    #
+    # ROOT CAUSE of v175.3/v175.4 STAGE 5.4.6 failures:
+    #   The pipeline (STAGE 3.3.6) rebuilds api/feed.json mid-run with items
+    #   from ALL months (e.g. reports/2026/05/intel--xxx.html from May 2026).
+    #   With REPORT_RETENTION_DAYS=7, the retention filter correctly excludes
+    #   those old May reports from dist/. But the old step 5 validation then
+    #   hard-failed because those paths were missing from dist/.
+    #
+    # FIX: Only validate report_urls that are WITHIN the retention window.
+    #   Reports outside the window are excluded from dist/ by design —
+    #   they remain accessible on gh-pages (clean:false preserves prior deploys).
+    #   This is the correct architecture: dist/ carries HOT reports only;
+    #   gh-pages accumulates the full historical archive.
     log.info("")
-    log.info("Validating report_url paths in dist/...")
+    log.info("Validating report_url paths in dist/ (v175.5 retention-aware)...")
     report_urls = load_report_urls_from_feeds()
     missing_in_dist: List[str] = []
+    skipped_outside_window: int = 0
+    cutoff_for_validation = (
+        datetime.now(timezone.utc) - timedelta(days=retention_days)
+        if retention_days > 0 else None
+    )
+
     for ru in report_urls:
         dist_path = DIST_DIR / ru.lstrip("/")
-        if not dist_path.exists():
+        if dist_path.exists():
+            continue  # present in dist/ — OK
+
+        # Path missing from dist/ — check retention window before hard-failing
+        in_window = True
+        if cutoff_for_validation is not None:
+            parts = ru.lstrip("/").split("/")
+            # Expected: reports/YYYY/MM/file.html
+            if len(parts) >= 3 and parts[0] == "reports":
+                try:
+                    year  = int(parts[1])
+                    month = int(parts[2])
+                    in_window = (year, month) >= (
+                        cutoff_for_validation.year,
+                        cutoff_for_validation.month,
+                    )
+                except (ValueError, IndexError):
+                    in_window = True  # can't determine → validate conservatively
+
+        if in_window:
             missing_in_dist.append(ru)
+        else:
+            skipped_outside_window += 1
+
+    if skipped_outside_window > 0:
+        log.info("  %d report_url(s) outside retention window — expected on gh-pages "
+                 "(clean:false preserves history)", skipped_outside_window)
 
     if missing_in_dist:
         log.error("HARD FAIL: %d report_url path(s) MISSING from dist/:", len(missing_in_dist))
@@ -478,14 +523,16 @@ def main() -> int:
         if len(missing_in_dist) > 20:
             log.error("  ... and %d more", len(missing_in_dist) - 20)
         log.error("")
-        log.error("DIAGNOSIS: These reports exist in manifests but were not copied to dist/.")
+        log.error("DIAGNOSIS: These reports are WITHIN the retention window but absent from dist/.")
         log.error("  Check: 1. reports/ directory completeness in working tree")
         log.error("         2. God Mode skipped regeneration for missing files")
         log.error("         3. safe_git_commit.py stash recovery may have lost reports")
         log.error("ACTION: Do NOT deploy. Run report_generator.py to regenerate missing reports.")
         return 1
 
-    log.info("  report_url validation: %d paths checked — ALL PRESENT in dist/", len(report_urls))
+    log.info("  report_url validation: %d paths checked — ALL PRESENT in dist/ "
+             "(%d outside-window skipped)", len(report_urls) - skipped_outside_window,
+             skipped_outside_window)
 
     # ── 5.1. Validate dashboard/ route integrity (v157.0 HARD FAIL) ─────────
     # P0 safeguard: any dashboard file linked from nav that is absent from dist/
