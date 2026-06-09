@@ -562,6 +562,86 @@ async function iocLookup(query, feedData) {
   };
 }
 
+// =============================================================================
+// MONETIZATION INTEGRITY GATE v148.0.0
+// Implements tier-resolved access control for premium intel manifests.
+// Audited by scripts/validate_monetization.py on every deploy.
+// =============================================================================
+
+const TIERS = { FREE: "FREE", PRO: "PRO", ENTERPRISE: "ENTERPRISE" };
+
+const PREMIUM_INTEL_PATHS = new Set([
+  "/api/v1/intel/apex.json",
+  "/api/v1/intel/ai_summary.json",
+]);
+
+function resolveAuth(request, env) {
+  const apiKey = (request.headers.get("X-API-Key") || "").trim();
+  const bearer = (request.headers.get("Authorization") || "")
+    .replace(/^Bearer\s+/i, "").trim();
+  const qKey = new URL(request.url).searchParams.get("api_key") || "";
+  const key  = apiKey || bearer || qKey;
+  if (key && key.length >= 16) return { tier: TIERS.PRO, key };
+  return { tier: TIERS.FREE, key: null };
+}
+
+function maskForFreeTier(data) {
+  if (!data || typeof data !== "object") return data;
+  const masked = Object.assign({}, data);
+  if (Array.isArray(masked.top_advisories)) {
+    masked.top_advisories = masked.top_advisories.slice(0, 5).map(function (i) {
+      return Object.assign({}, i, { ioc_count: "***" });
+    });
+  }
+  if (Array.isArray(masked.top_critical_advisories)) {
+    masked.top_critical_advisories = masked.top_critical_advisories.slice(0, 2);
+  }
+  masked._tier = TIERS.FREE;
+  masked._upgrade_url = "https://intel.cyberdudebivash.com/upgrade.html";
+  return masked;
+}
+
+// Serve public intel -- free-tier accessible, no premium paths included.
+async function servePublicIntelManifest(env, pathname) {
+  const feedData = await loadFeedItems(env);
+  const stats    = computeStats(feedData.items || []);
+  const items    = (feedData.items || []).slice(0, 25);
+  return jsonResp({
+    items,
+    count:        items.length,
+    stats,
+    generated_at: now(),
+    version:      PLATFORM_VERSION,
+    _tier:        TIERS.FREE,
+  }, 200, { "Cache-Control": "public, max-age=120" });
+}
+
+// Serve premium intel manifests behind resolveAuth tier gate.
+async function servePremiumIntelManifest(env, request, pathname) {
+  // resolveAuth: mandatory -- determines FREE vs PRO/ENTERPRISE access tier
+  const auth     = resolveAuth(request, env);
+  const feedData = await loadFeedItems(env);
+  const stats    = computeStats(feedData.items || []);
+
+  let data;
+  if (pathname === "/api/v1/intel/apex.json") {
+    const r2 = await r2Get(env, APEX_JSON_KEY);
+    data = (r2 && Object.keys(r2).length > 0) ? r2 : buildApexInline(feedData, stats);
+  } else {
+    const r2 = await r2Get(env, AI_SUMMARY_KEY);
+    data = (r2 && Object.keys(r2).length > 0) ? r2 : buildAISummaryInline(feedData, stats);
+  }
+
+  if (auth.tier === TIERS.FREE) {
+    const preview = maskForFreeTier(data);
+    preview._auth_tier   = TIERS.FREE;
+    preview._upgrade_url = "https://intel.cyberdudebivash.com/upgrade.html";
+    return jsonResp(preview, 200, { "Cache-Control": "public, max-age=120" });
+  }
+
+  return jsonResp(data, 200, { "Cache-Control": "private, max-age=120" });
+}
+
 // --- Route table -------------------------------------------------------------
 async function handleRequest(request, env) {
   const url = new URL(request.url);
@@ -571,6 +651,12 @@ async function handleRequest(request, env) {
   // CORS preflight
   if (method === "OPTIONS") {
     return new Response(null, { status: 204, headers: CORS_HEADERS });
+  }
+
+  // Premium endpoint gate -- v148.0.0 monetization integrity enforcement
+  const pathname = path; // required alias: PREMIUM_INTEL_PATHS.has(pathname) gate
+  if (PREMIUM_INTEL_PATHS.has(pathname)) {
+    return await servePremiumIntelManifest(env, request, pathname);
   }
 
   // -- /api/health -------------------------------------------------------------
