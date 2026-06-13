@@ -252,32 +252,137 @@ def reclaim_dist() -> int:
     return count
 
 
+def reclaim_old_html_reports(retention_days: int = 3) -> Dict:
+    """
+    Physically delete HTML report files from reports/ that are outside the
+    retention window. This prevents the runner from holding gigabytes of old
+    reports that would never be copied to dist/ anyway.
+
+    v176.0 P0 FIX: The root cause of run #1616 failure was 34,382 May 2026
+    HTML files (3.2 GB) in reports/ being copied into dist/ because
+    REPORT_RETENTION_DAYS=30 included the entire boundary month. Even after
+    fixing build_dist_artifact.py to use mtime-level filtering, physically
+    deleting old reports from the runner before the dist build reduces peak
+    disk usage and speeds up the copytree pass.
+
+    Returns dict with keys: dirs_removed, files_removed, bytes_freed, report_mb_before.
+    """
+    reports_dir = REPO_ROOT / "reports"
+    if not reports_dir.exists():
+        return {"dirs_removed": 0, "files_removed": 0, "bytes_freed": 0, "report_mb_before": 0.0}
+
+    cutoff = datetime.now(timezone.utc) - timedelta(days=retention_days)
+    cutoff_ts = cutoff.timestamp()
+    report_mb_before = round(
+        sum(f.stat().st_size for f in reports_dir.rglob("*") if f.is_file()) / 1e6, 1
+    )
+
+    log.info("  PRE-DIST REPORT PURGE: removing HTML reports older than %d days "
+             "(cutoff %s) from runner disk...", retention_days, cutoff.strftime("%Y-%m-%d"))
+    log.info("  reports/ size before: %.1f MB", report_mb_before)
+
+    dirs_removed = 0
+    files_removed = 0
+    bytes_freed = 0
+
+    for year_dir in sorted(reports_dir.iterdir()):
+        if not year_dir.is_dir():
+            continue
+        try:
+            year = int(year_dir.name)
+        except ValueError:
+            continue
+
+        for month_dir in sorted(year_dir.iterdir()):
+            if not month_dir.is_dir():
+                continue
+            try:
+                month = int(month_dir.name)
+            except ValueError:
+                continue
+
+            if (year, month) < (cutoff.year, cutoff.month):
+                # Entire month before cutoff — delete directory
+                sz = sum(f.stat().st_size for f in month_dir.rglob("*") if f.is_file())
+                fc = sum(1 for _ in month_dir.rglob("*") if _.is_file())
+                try:
+                    shutil.rmtree(month_dir)
+                    dirs_removed += 1
+                    files_removed += fc
+                    bytes_freed += sz
+                    log.info("    PURGED %s/%02d  (%d files, %.1f MB freed)",
+                             year, month, fc, sz / 1e6)
+                except OSError as exc:
+                    log.warning("    WARN: could not purge %s/%02d: %s", year, month, exc)
+
+            elif (year, month) == (cutoff.year, cutoff.month):
+                # Boundary month — delete individual files older than cutoff
+                for fpath in list(month_dir.iterdir()):
+                    if not fpath.is_file():
+                        continue
+                    try:
+                        if fpath.stat().st_mtime < cutoff_ts:
+                            sz = fpath.stat().st_size
+                            fpath.unlink()
+                            files_removed += 1
+                            bytes_freed += sz
+                    except OSError:
+                        continue
+                log.info("    BOUNDARY %s/%02d: removed %d old files",
+                         year, month, files_removed)
+
+    mb_freed = round(bytes_freed / 1e6, 1)
+    log.info("  Report purge complete: %d dirs, %d files removed, %.1f MB freed",
+             dirs_removed, files_removed, mb_freed)
+
+    return {
+        "dirs_removed": dirs_removed,
+        "files_removed": files_removed,
+        "bytes_freed": bytes_freed,
+        "mb_freed": mb_freed,
+        "report_mb_before": report_mb_before,
+        "retention_days": retention_days,
+    }
+
+
 def run_full_reclaim(include_dist: bool = False) -> Dict:
     """Execute all reclaim actions. Returns summary dict."""
     log.info("Starting full disk reclaim sequence...")
     results = {}
 
-    log.info("  [1/6] Reclaiming __pycache__...")
+    log.info("  [1/7] Reclaiming __pycache__...")
     results["pycache_files"] = reclaim_pycache()
     log.info("        Removed %d __pycache__ files", results["pycache_files"])
 
-    log.info("  [2/6] Purging pip cache...")
+    log.info("  [2/7] Purging pip cache...")
     results["pip_cache"] = reclaim_pip_cache()
 
-    log.info("  [3/6] Cleaning apt cache...")
+    log.info("  [3/7] Cleaning apt cache...")
     results["apt_cache"] = reclaim_apt_cache()
 
-    log.info("  [4/6] Clearing /tmp/ temp files...")
+    log.info("  [4/7] Clearing /tmp/ temp files...")
     results["tmp_files"] = reclaim_tmp()
     log.info("        Removed %d /tmp entries", results["tmp_files"])
 
-    log.info("  [5/6] Pruning STIX bundles (keep latest %d)...", STIX_MAX_BUNDLES)
+    log.info("  [5/7] Pruning STIX bundles (keep latest %d)...", STIX_MAX_BUNDLES)
     results["stix_pruned"] = reclaim_stix_bundles(STIX_MAX_BUNDLES)
     log.info("        Pruned %d STIX bundles", results["stix_pruned"])
 
-    log.info("  [6/6] Rotating stale telemetry (> %d days)...", TELEMETRY_MAX_DAYS)
+    log.info("  [6/7] Rotating stale telemetry (> %d days)...", TELEMETRY_MAX_DAYS)
     results["telemetry_removed"] = reclaim_telemetry(TELEMETRY_MAX_DAYS)
     log.info("        Removed %d stale telemetry files", results["telemetry_removed"])
+
+    # v176.0 P0 FIX: Purge old HTML reports from runner disk before dist build.
+    # Uses same retention window as build_dist_artifact.py (default 3 days, cap 7).
+    # This prevents 3+ GB of old reports from consuming runner disk and slowing
+    # the copytree operation in build_dist_artifact.py.
+    retention_days_env = int(os.environ.get("REPORT_RETENTION_DAYS", "3"))
+    retention_days = min(retention_days_env, 7)
+    log.info("  [7/7] Purging HTML reports older than %d days from runner disk...",
+             retention_days)
+    results["report_purge"] = reclaim_old_html_reports(retention_days)
+    mb_freed = results["report_purge"].get("mb_freed", 0)
+    log.info("        Report purge freed %.1f MB from runner disk", mb_freed)
 
     if include_dist:
         log.info("  [+dist] Wiping previous dist/ directory...")

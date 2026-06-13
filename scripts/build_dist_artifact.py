@@ -154,7 +154,7 @@ HTML_EXCLUDE_PREFIXES = {
 
 
 # ─────────────────────────────────────────────────────────────────
-# REPORT RETENTION GOVERNANCE (v156.0 / v175.3)
+# REPORT RETENTION GOVERNANCE (v156.0 / v175.3 / v176.0)
 # REPORT_RETENTION_DAYS=0  → copy ALL reports (unlimited — NEVER use in prod)
 # REPORT_RETENTION_DAYS=N  → copy only reports from the last N days
 #   Classification uses path structure: reports/YYYY/MM/<file>.html
@@ -164,11 +164,24 @@ HTML_EXCLUDE_PREFIXES = {
 #   ROOT CAUSE: 30 days × 512 reports/day ≈ 15,360 reports ≈ 2.3 GB in dist/.
 #   GitHub Pages HARD LIMIT is 1 GB — artifact at 1.52 GB triggers
 #   "Deployment might fail" warning and risks total Pages deploy failure.
-#   7 days × 512 = 3,584 reports ≈ 380-540 MB — safely under the 1 GB limit.
-#   Historical reports remain accessible on gh-pages (clean:false preserves them).
-# Override via GitHub Repository Variable: Settings → Variables → REPORT_RETENTION_DAYS
+#
+# v176.0 PERMANENT FIX: Default changed 7 -> 3. Hard cap enforced at 7.
+#   ROOT CAUSE (run #1616): vars.REPORT_RETENTION_DAYS=30 overrides the
+#   workflow default of 7. Month-level boundary bug includes ALL of May 2026
+#   (34,382 files = 3.2 GB) even with 30-day retention because cutoff falls
+#   inside May. Combined with June (596 MB) → dist/ = 3746 MB → HARD FAIL.
+#
+#   TWO-PART FIX:
+#   A) Hard cap at 7: min(env_value, 7) — immune to repo variable override.
+#      3 days × ~1,100 files/day × ~98 KB/file = ~315 MB safely under 900 MB.
+#   B) Boundary-month mtime filter (see copy_reports_selective): files within
+#      the boundary month are filtered individually by modification time rather
+#      than including the ENTIRE month. This prevents end-of-month blow-up
+#      (e.g. all of June being copied when only last 3 days are in window).
+#
+#   Historical reports are served from Cloudflare R2 (uploaded in Stage 3.5).
 # ─────────────────────────────────────────────────────────────────
-REPORT_RETENTION_DAYS = int(os.environ.get("REPORT_RETENTION_DAYS", "7"))
+REPORT_RETENTION_DAYS = min(int(os.environ.get("REPORT_RETENTION_DAYS", "3")), 7)
 
 # ─────────────────────────────────────────────────────────────────
 # GITHUB PAGES ARTIFACT SIZE LIMIT (v175.3 P0 SIZE GATE)
@@ -177,12 +190,6 @@ REPORT_RETENTION_DAYS = int(os.environ.get("REPORT_RETENTION_DAYS", "7"))
 # This gate fires AFTER dist/ is built (step 7) so the exact size is known.
 # ─────────────────────────────────────────────────────────────────
 DIST_SIZE_LIMIT_BYTES = 900 * 1024 * 1024  # 900 MB hard ceiling
-
-
-def _is_report_dir_in_window(year: int, month: int, cutoff: datetime) -> bool:
-    """Return True if the (year, month) directory is within the retention window."""
-    # A report month is "in window" if it is >= the cutoff year-month.
-    return (year, month) >= (cutoff.year, cutoff.month)
 
 
 def copy_reports_selective(src: Path, dst: Path, retention_days: int) -> Tuple[int, int]:
@@ -195,8 +202,14 @@ def copy_reports_selective(src: Path, dst: Path, retention_days: int) -> Tuple[i
         reports/<report>.html        (root-level — kept unconditionally)
 
     When retention_days == 0: copy entire tree (same as before).
-    When retention_days  > 0: copy only year/month subdirs within the window;
-                               root-level and flat-year entries are always copied.
+    When retention_days  > 0: copy only year/month subdirs within the window.
+      For months entirely after cutoff: copy verbatim (fast path).
+      For months entirely before cutoff: skip entirely.
+      For the boundary month (cutoff month): filter individual files by mtime
+        so only files modified AFTER the cutoff timestamp are included.
+        This is the v176.0 fix for the month-level granularity bug that caused
+        entire months (e.g. all 34,382 May files = 3.2 GB) to be included even
+        when only the last few days of the month were within the retention window.
 
     Returns (files_copied, dirs_skipped).
     """
@@ -208,25 +221,27 @@ def copy_reports_selective(src: Path, dst: Path, retention_days: int) -> Tuple[i
     dst.mkdir(parents=True)
 
     if retention_days <= 0:
-        # Full copy — unchanged behaviour
         shutil.copytree(src, dst, dirs_exist_ok=True,
                         ignore=shutil.ignore_patterns(*EXCLUDE_PATTERNS))
         copied = sum(1 for _ in dst.rglob("*") if _.is_file())
         return copied, 0
 
     cutoff = datetime.now(timezone.utc) - timedelta(days=retention_days)
-    log.info("  RETENTION FILTER: copying reports from last %d days (cutoff %s)",
-             retention_days, cutoff.strftime("%Y-%m-%d"))
+    cutoff_ts = cutoff.timestamp()
+    log.info("  RETENTION FILTER: copying reports from last %d days "
+             "(cutoff %s — day-level mtime filter active for boundary month)",
+             retention_days, cutoff.strftime("%Y-%m-%d %H:%M UTC"))
 
     files_copied = 0
     dirs_skipped = 0
+
+    ignore_fn = shutil.ignore_patterns(*EXCLUDE_PATTERNS)
 
     for child in sorted(src.iterdir()):
         if child.name in EXCLUDE_PATTERNS or child.name.startswith("."):
             continue
 
         if child.is_file():
-            # Root-level report files — always include
             shutil.copy2(child, dst / child.name)
             files_copied += 1
             continue
@@ -238,12 +253,12 @@ def copy_reports_selective(src: Path, dst: Path, retention_days: int) -> Tuple[i
         try:
             year = int(child.name)
         except ValueError:
-            # Non-numeric subdir — copy verbatim (safety)
+            # Non-numeric subdir (e.g. reports/pdf/) — copy verbatim with excludes
             dst_child = dst / child.name
-            shutil.copytree(child, dst_child, dirs_exist_ok=False,
-                            ignore=shutil.ignore_patterns(*EXCLUDE_PATTERNS))
+            shutil.copytree(child, dst_child, dirs_exist_ok=False, ignore=ignore_fn)
             n = sum(1 for _ in dst_child.rglob("*") if _.is_file())
             files_copied += n
+            log.info("    INCLUDE (non-numeric) %s/  (%d files)", child.name, n)
             continue
 
         year_has_content = False
@@ -265,28 +280,62 @@ def copy_reports_selective(src: Path, dst: Path, retention_days: int) -> Tuple[i
             try:
                 month = int(month_entry.name)
             except ValueError:
-                # Non-numeric month dir — copy verbatim
                 year_dst.mkdir(parents=True, exist_ok=True)
                 dst_month = year_dst / month_entry.name
-                shutil.copytree(month_entry, dst_month, dirs_exist_ok=False,
-                                ignore=shutil.ignore_patterns(*EXCLUDE_PATTERNS))
+                shutil.copytree(month_entry, dst_month,
+                                dirs_exist_ok=False, ignore=ignore_fn)
                 n = sum(1 for _ in dst_month.rglob("*") if _.is_file())
                 files_copied += n
                 year_has_content = True
                 continue
 
-            if _is_report_dir_in_window(year, month, cutoff):
+            if (year, month) < (cutoff.year, cutoff.month):
+                # Entire month is before the cutoff → skip
+                dirs_skipped += 1
+                log.debug("    SKIP    %s/%02d  (before retention window)", year, month)
+
+            elif (year, month) == (cutoff.year, cutoff.month):
+                # Boundary month: filter individual files by mtime (v176.0 fix)
+                # This is the key fix — previously the entire month was copied,
+                # causing 34,382 May files (3.2 GB) to be included when only
+                # May 14-31 files were within the 30-day window.
                 year_dst.mkdir(parents=True, exist_ok=True)
                 dst_month = year_dst / month_entry.name
-                shutil.copytree(month_entry, dst_month, dirs_exist_ok=False,
-                                ignore=shutil.ignore_patterns(*EXCLUDE_PATTERNS))
+                dst_month.mkdir(parents=True, exist_ok=True)
+                n = 0
+                excluded_fn = set(ignore_fn(str(month_entry),
+                                            [f.name for f in month_entry.iterdir()
+                                             if f.is_file()]))
+                for fpath in month_entry.iterdir():
+                    if not fpath.is_file():
+                        continue
+                    if fpath.name in excluded_fn:
+                        continue
+                    try:
+                        if fpath.stat().st_mtime >= cutoff_ts:
+                            shutil.copy2(fpath, dst_month / fpath.name)
+                            n += 1
+                    except OSError:
+                        continue
+                if n > 0:
+                    files_copied += n
+                    year_has_content = True
+                    log.info("    BOUNDARY %s/%02d  → %d files (mtime >= %s)",
+                             year, month, n, cutoff.strftime("%Y-%m-%d"))
+                else:
+                    log.info("    BOUNDARY %s/%02d  → 0 files in window (skipped)",
+                             year, month)
+
+            else:
+                # Month is entirely after cutoff → copy verbatim (fast path)
+                year_dst.mkdir(parents=True, exist_ok=True)
+                dst_month = year_dst / month_entry.name
+                shutil.copytree(month_entry, dst_month,
+                                dirs_exist_ok=False, ignore=ignore_fn)
                 n = sum(1 for _ in dst_month.rglob("*") if _.is_file())
                 files_copied += n
                 year_has_content = True
-                log.debug("    INCLUDE %s/%s  (%d files)", year, month_entry.name, n)
-            else:
-                dirs_skipped += 1
-                log.debug("    SKIP    %s/%s  (outside retention window)", year, month_entry.name)
+                log.info("    INCLUDE %s/%02d  (%d files)", year, month, n)
 
         if not year_has_content:
             log.debug("    SKIP year %s — no month dirs in window", year)
@@ -689,13 +738,38 @@ def main() -> int:
     if dist_total_bytes > DIST_SIZE_LIMIT_BYTES:
         log.error("")
         log.error("=" * 70)
-        log.error("HARD FAIL -- GITHUB PAGES SIZE GATE (v175.3)")
+        log.error("HARD FAIL -- GITHUB PAGES SIZE GATE (v176.0)")
         log.error("=" * 70)
         log.error("  dist/ size : %.1f MB", dist_mb)
         log.error("  Limit      : %d MB (GitHub Pages hard limit: 1024 MB)", limit_mb)
         log.error("  EXCESS     : %.1f MB over limit", dist_mb - limit_mb)
-        log.error("  FIX: Reduce REPORT_RETENTION_DAYS (current: %d) "
-                  "or purge large files from dist/.", REPORT_RETENTION_DAYS)
+        log.error("  RETENTION  : REPORT_RETENTION_DAYS=%d (hard cap: 7)",
+                  REPORT_RETENTION_DAYS)
+        log.error("")
+        log.error("  DIRECTORY BREAKDOWN (dist/ contents):")
+        breakdown: List[Tuple[int, str]] = []
+        for item in DIST_DIR.iterdir():
+            if item.is_dir():
+                sz = sum(f.stat().st_size for f in item.rglob("*") if f.is_file())
+            else:
+                sz = item.stat().st_size
+            breakdown.append((sz, item.name))
+        for sz, name in sorted(breakdown, reverse=True):
+            log.error("    %-40s  %8.1f MB", name + "/", sz / (1024 * 1024))
+        log.error("")
+        if (DIST_DIR / "reports").exists():
+            log.error("  REPORTS SUBDIRECTORY BREAKDOWN (dist/reports/):")
+            for sub in sorted((DIST_DIR / "reports").iterdir()):
+                if sub.is_dir():
+                    sz = sum(f.stat().st_size for f in sub.rglob("*") if f.is_file())
+                    fc = sum(1 for _ in sub.rglob("*") if _.is_file())
+                    log.error("    %-40s  %8.1f MB  (%d files)",
+                              sub.name + "/", sz / (1024 * 1024), fc)
+        log.error("")
+        log.error("  FIX: REPORT_RETENTION_DAYS is capped at 7 in build_dist_artifact.py.")
+        log.error("       Workflow Stage 5.4.6 should set REPORT_RETENTION_DAYS=3.")
+        log.error("       Ensure report_archive_manager.py is running (not blocked by")
+        log.error("       clean:true check) so old reports are removed from git tracking.")
         log.error("=" * 70)
         return 1
     log.info("  Size gate     : PASS (%.1f MB < %d MB limit)", dist_mb, limit_mb)
