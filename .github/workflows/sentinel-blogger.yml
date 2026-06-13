@@ -1864,16 +1864,23 @@ jobs:
       #
       # MANDATORY: This stage must run before STAGE 5.4.6.
       # -----------------------------------------------------------------------
-      - name: "STAGE 5.4.5c - Pre-dist Runner Disk Cleanup (v156.0 P0 MANDATORY)"
+      - name: "STAGE 5.4.5c - Pre-dist Runner Disk Cleanup (v176.0 P0 MANDATORY)"
         id: predist-cleanup
         # v162.5: !cancelled() bootstraps the deploy chain independent of prior job failures.
         # success() would be false whenever Stage 1-3 or Stage 3.2 fails; this step
         # must run regardless so the full dist-build → Pages-deploy chain executes.
+        #
+        # v176.0 P0 FIX: Added REPORT_RETENTION_DAYS=3 so runner_disk_governor.py
+        # --predist physically deletes HTML reports older than 3 days from the runner
+        # disk before build_dist_artifact.py runs. With 82,387 HTML+PDF files checked
+        # out (7.1 GB), purging old reports frees 3+ GB and speeds up the dist/ build.
+        # This is defence-in-depth alongside the mtime filter fix in build_dist_artifact.py.
         if: ${{ !cancelled() }}
         timeout-minutes: 5
         env:
           STIX_MAX_BUNDLES: "50"
           TELEMETRY_MAX_DAYS: "7"
+          REPORT_RETENTION_DAYS: "3"
         run: |
           EXIT_CODE=0
           python3 scripts/runner_disk_governor.py --predist || EXIT_CODE=$?
@@ -1962,17 +1969,32 @@ jobs:
       #
       # HARD FAIL: blocks deployment if any report_url path is missing from dist/
       # -----------------------------------------------------------------------
-      - name: "STAGE 5.4.6 - Build Deterministic Dist Artifact (v160.0 HARD FAIL)"
+      - name: "STAGE 5.4.6 - Build Deterministic Dist Artifact (v176.0 HARD FAIL)"
         id: build-dist
         # v162.6 P0-FIX: Always build dist/ with reports regardless of predeploy-gate
         # outcome. predeploy-gate is a quality gate, NOT a prerequisite for building
         # the artifact. If gate fails, we still need dist/reports/ deployed so that
         # reports URLs remain live. Removing the success() dependency eliminates the
         # root cause of the 404 issue: skipped dist build → wipe of gh-pages reports.
+        #
+        # v176.0 STORAGE GOVERNANCE FIX (P0 run #1616):
+        # ROOT CAUSE: vars.REPORT_RETENTION_DAYS=30 overrode the workflow default of 7.
+        # With 30-day retention, the month-level boundary filter included ALL of May 2026
+        # (34,382 HTML files = 3.2 GB) causing dist/ = 3746 MB -> HARD FAIL at 900 MB gate.
+        #
+        # FIX: Hard-code REPORT_RETENTION_DAYS=3. This value is NOT read from repository
+        # variables — it is fixed at 3 days and cannot be overridden by vars.REPORT_RETENTION_DAYS.
+        # build_dist_artifact.py also enforces a hard cap of min(env_value, 7) as defence-in-depth.
+        #
+        # With 3-day retention and the v176.0 mtime boundary filter:
+        #   Only files from the last 3 days of the active month are copied to dist/
+        #   Estimated dist/ size: ~3 days x ~46 MB/day = ~138 MB (well under 900 MB gate)
+        #
+        # Historical reports are served from Cloudflare R2 (uploaded in Stage 3.5).
         if: ${{ !cancelled() }}
         timeout-minutes: 10
         env:
-          REPORT_RETENTION_DAYS: ${{ vars.REPORT_RETENTION_DAYS || '7' }}
+          REPORT_RETENTION_DAYS: "3"
         run: python3 scripts/build_dist_artifact.py
 
       # -----------------------------------------------------------------------
@@ -2029,13 +2051,13 @@ jobs:
       # HARD FAIL: blocks deployment if ANY check fails.
       # Pages deployment MUST NOT proceed with a corrupt/incomplete artifact.
       # -----------------------------------------------------------------------
-      - name: "STAGE 5.4.7 - Dist Artifact Verifier (v160.0 HARD FAIL)"
+      - name: "STAGE 5.4.7 - Dist Artifact Verifier (v176.0 HARD FAIL)"
         id: verify-dist
         # v162.5: blocks Pages deploy unless dist/ was fully built by 5.4.6
         if: ${{ !cancelled() && steps.build-dist.conclusion == 'success' }}
         timeout-minutes: 5
         env:
-          REPORT_RETENTION_DAYS: ${{ vars.REPORT_RETENTION_DAYS || '7' }}
+          REPORT_RETENTION_DAYS: "3"
         run: python3 scripts/dist_artifact_verifier.py
 
       # -----------------------------------------------------------------------
