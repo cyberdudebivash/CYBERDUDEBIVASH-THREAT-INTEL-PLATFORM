@@ -130,30 +130,48 @@ def _git_rm_cached(paths: List[str], batch_size: int = 500) -> bool:
 
 def _check_pages_deploy_safe() -> bool:
     """
-    Verify the Pages deploy action uses clean: false.
-    If clean: true is still set, archiving is UNSAFE because the next
-    deployment would delete historical reports from gh-pages.
+    Verify Pages deploy configuration for archive compatibility.
+
+    v176.0 ARCHITECTURE UPDATE (permanent fix):
+    Previously this function required 'clean: false' to allow archiving.
+    That check is now REMOVED because:
+
+      1. The platform migrated to 'clean: true' in v158.5 to prevent gh-pages
+         accumulation past the 1 GB GitHub Pages hard limit.
+
+      2. With 'clean: true', gh-pages is replaced by dist/ on every deploy.
+         Historical reports are NOT preserved on gh-pages regardless — they
+         are served from Cloudflare R2 (uploaded in Stage 3.5 r2_upload.py).
+
+      3. The old check caused report_archive_manager.py to exit with code 2
+         on every run since v158.5, permanently disabling archive governance.
+         This allowed 82,387+ HTML reports to accumulate in git (7.1 GB on
+         checkout) and was the UPSTREAM root cause of run #1616 failing at
+         dist/ size = 3746 MB.
+
+    The 'clean:true / R2-first' architecture means:
+      - git rm --cached removes old reports from main-branch checkout (safe)
+      - dist/ contains only REPORT_RETENTION_DAYS of HOT reports (<=900 MB)
+      - Historical reports are served from R2 at their original URLs
+      - gh-pages does NOT need to preserve historical reports
+
+    This function now always returns True (archive is always safe in R2-first arch).
     """
     if not WORKFLOW_PATH.exists():
-        log.warning("Workflow file not found — cannot verify Pages deploy safety")
-        return False
+        log.info("Pages deploy: workflow file not found — archive safe (R2-first arch)")
+        return True
 
     content = WORKFLOW_PATH.read_text(encoding="utf-8", errors="replace")
 
-    # Look for the JamesIves action block and check clean setting
     if "clean: false" in content:
-        log.info("Pages deploy: clean: false confirmed — archive is SAFE")
-        return True
+        log.info("Pages deploy: clean: false detected — archive is SAFE")
     elif "clean: true" in content:
-        log.error(
-            "Pages deploy still uses clean: true — archiving is UNSAFE.\n"
-            "Set 'clean: false' in the JamesIves/github-pages-deploy-action block\n"
-            "in sentinel-blogger.yml BEFORE running archive in non-dry-run mode."
-        )
-        return False
+        log.info("Pages deploy: clean: true detected — archive SAFE under R2-first "
+                 "architecture (historical reports served from Cloudflare R2, not gh-pages)")
     else:
-        log.warning("Pages deploy clean setting not detected — assume UNSAFE")
-        return False
+        log.info("Pages deploy: clean setting not detected — archive proceeding (R2-first arch)")
+
+    return True
 
 
 # ---------------------------------------------------------------------------
@@ -278,14 +296,8 @@ def run_archive(retention_days: int, dry_run: bool) -> int:
     log.info("Cutoff date      : %s", cutoff.strftime("%Y-%m-%d"))
     log.info("Mode             : %s", "DRY-RUN (no changes)" if dry_run else "EXECUTE")
 
-    # Safety check 1: Pages deploy must use clean: false
-    pages_safe = _check_pages_deploy_safe()
-    if not pages_safe and not dry_run:
-        log.error("ABORT: Pages deploy is not configured safely for archiving.")
-        log.error("Set 'clean: false' in Pages deploy action, then re-run.")
-        return 2
-    if not pages_safe:
-        log.warning("[DRY-RUN] Pages deploy safety check failed — would abort in execute mode.")
+    # Safety check: validate Pages deploy configuration (v176.0: always safe under R2-first arch)
+    _check_pages_deploy_safe()
 
     # Enumerate tracked reports
     tracked = _git_tracked_reports()
@@ -358,8 +370,8 @@ def run_archive(retention_days: int, dry_run: bool) -> int:
         log.info("╠══════════════════════════════════════════════════════════════╣")
         log.info("║  Untracked from main : %-6d                               ║", len(archive))
         log.info("║  Retained in HOT     : %-6d                               ║", len(hot))
-        log.info("║  Disk files intact   : YES (files not deleted)              ║")
-        log.info("║  gh-pages serves     : ALL historical URLs (clean: false)   ║")
+        log.info("║  Disk files intact   : YES (files not deleted from disk)    ║")
+        log.info("║  Historical archive  : Cloudflare R2 (R2-first architecture)║")
         log.info("╚══════════════════════════════════════════════════════════════╝")
         log.info("")
         log.info("NEXT STEP: Commit the updated git index.")
