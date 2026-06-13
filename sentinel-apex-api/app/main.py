@@ -18,7 +18,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse
 
-from app.api.v1.endpoints import auth, feed, keys, usage, soc, enterprise_ai, payment
+from app.api.v1.endpoints import auth, feed, keys, usage, soc, enterprise_ai, payment, export, compliance, intel_graph, mssp
 from app.core.config import get_settings
 from app.db.client import close_client
 from app.middleware.rate_limit import RateLimitMiddleware
@@ -56,15 +56,33 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="SENTINEL APEX API",
     description=(
-        "**CYBERDUDEBIVASH Threat Intelligence Platform API**\n\n"
+        "**CYBERDUDEBIVASH® Threat Intelligence Platform API v177.0**\n\n"
         "AI-powered cybersecurity intelligence. STIX 2.1 native. Developer-first.\n\n"
-        "- **Feed**: Paginated threat advisory feed with severity, CVSS, EPSS, KEV filters\n"
-        "- **Search**: Full-text search across all advisories (Pro+)\n"
-        "- **STIX**: Download STIX 2.1 bundles per advisory (Pro+)\n"
-        "- **MITRE**: ATT&CK technique coverage statistics\n"
-        "- **AI Analysis**: LLM-powered threat analysis (Enterprise)\n\n"
-        "Get your API key: https://app.cyberdudebivash.com\n\n"
-        "Documentation: https://docs.cyberdudebivash.com"
+        "**Core Intelligence (PRO+)**\n"
+        "- **Feed**: Paginated threat advisory feed — severity, CVSS, EPSS, KEV filters\n"
+        "- **Search**: Full-text search across all advisories\n"
+        "- **SOC**: Threat hunting, IOC lookup, campaign tracker, detection results\n\n"
+        "**Export (PRO+)**\n"
+        "- **CSV**: Bulk IOC export as RFC-4180 CSV\n"
+        "- **STIX**: STIX 2.1 bundle per advisory\n"
+        "- **Sigma**: Detection rules for all major SIEMs\n"
+        "- **YARA**: Malware detection rules\n\n"
+        "**Enterprise (ENTERPRISE+)**\n"
+        "- **MISP**: MISP 2.4 event export\n"
+        "- **SIEM Dispatch**: Push intelligence to Splunk / Sentinel / QRadar / Elastic\n"
+        "- **KQL / SPL**: Native SIEM query exports\n"
+        "- **Intel Graph**: Correlation graph — advisories, IOCs, actors, TTPs\n"
+        "- **SLA Certificate**: Signed SLA compliance certificate\n"
+        "- **Invoices**: GSTIN-compliant invoice download\n\n"
+        "**MSSP (MSSP tier)**\n"
+        "- **Multi-Tenant Portal**: Provision and manage sub-tenants\n"
+        "- **Tenant API Keys**: Scoped key issuance per tenant\n"
+        "- **White-Label**: Custom branding, subdomain, CSS\n"
+        "- **Branded Reports**: Tenant-specific intelligence reports\n\n"
+        "**Compliance**\n"
+        "- **GDPR / UK GDPR / UAE PDPL / CCPA**: Data export and deletion endpoints\n\n"
+        "Get your API key: https://intel.cyberdudebivash.com/upgrade.html\n\n"
+        "Documentation: https://intel.cyberdudebivash.com/api-docs.html"
     ),
     version=settings.APP_VERSION,
     docs_url="/docs",
@@ -159,6 +177,10 @@ app.include_router(usage.router)
 app.include_router(soc.router)
 app.include_router(enterprise_ai.router)
 app.include_router(payment.router)
+app.include_router(export.router)
+app.include_router(compliance.router)
+app.include_router(intel_graph.router)
+app.include_router(mssp.router)
 
 
 # ── Root & Health ─────────────────────────────────────────────────────
