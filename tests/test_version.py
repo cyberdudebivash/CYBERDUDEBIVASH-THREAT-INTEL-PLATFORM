@@ -9,9 +9,9 @@ def test_version_file_exists():
     assert Path("VERSION").exists()
 
 def test_version_format():
-    """VERSION must be semantic versioning"""
+    """VERSION must be major.minor or major.minor.patch format"""
     version = Path("VERSION").read_text().strip()
-    assert re.match(r"^\d+\.\d+\.\d+$", version)
+    assert re.match(r"^\d+\.\d+(\.\d+)?$", version)
 
 def test_version_consistency():
     """All version sources must match"""

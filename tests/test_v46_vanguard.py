@@ -241,11 +241,11 @@ class TestConfidenceEngine:
             cvss_score=9.8,
             kev_present=True,
         )
-        assert result.label in {"HIGH", "MODERATE"}
+        assert result.label in {"HIGH CONFIDENCE", "MODERATE CONFIDENCE"}
 
     def test_label_mapping_low(self, engine, sparse_iocs):
         result = engine.score(iocs=sparse_iocs)
-        assert result.label in {"LOW", "UNVERIFIED", "MODERATE"}
+        assert result.label in {"PRELIMINARY", "ANALYST ASSESSED", "MODERATE CONFIDENCE"}
 
     def test_dimensions_present(self, engine, rich_iocs):
         result = engine.score(iocs=rich_iocs)

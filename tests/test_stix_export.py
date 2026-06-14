@@ -13,8 +13,10 @@ Tests cover:
 - Manifest update logic
 """
 import json
+import tempfile
 import pytest
-from agent.export_stix import stix_exporter
+from pathlib import Path
+from agent.export_stix import STIXExporter, stix_exporter
 from agent.risk_engine import risk_engine
 from agent.mitre_mapper import mitre_engine
 from agent.integrations.actor_matrix import actor_matrix
@@ -23,7 +25,12 @@ from agent.integrations.actor_matrix import actor_matrix
 # ─── Helpers ─────────────────────────────────────────────────────────────────
 
 def _build_bundle(sample_text, sample_iocs):
-    """Build a real STIX bundle using the full pipeline."""
+    """Build a real STIX bundle using the full pipeline and return it as a dict.
+
+    create_bundle() writes to disk and returns a bundle_id string; we create an
+    isolated STIXExporter in a temp dir so tests are hermetic and read the
+    written JSON back as a dict for structural assertions.
+    """
     mitre_data = mitre_engine.map_threat(sample_text)
     actor_data = actor_matrix.correlate_actor(sample_text, sample_iocs)
     risk_score = risk_engine.calculate_risk_score(
@@ -34,18 +41,22 @@ def _build_bundle(sample_text, sample_iocs):
     severity = risk_engine.get_severity_label(risk_score)
     tlp = risk_engine.get_tlp_label(risk_score)
 
-    bundle = stix_exporter.create_bundle(
-        headline="Test: Malware Campaign Targeting Financial Sector",
-        iocs=sample_iocs,
-        risk_score=risk_score,
-        severity=severity,
-        tlp=tlp,
-        mitre_data=mitre_data,
-        actor_data=actor_data,
-        source_url="https://example.com/test-article",
-        content=sample_text,
-    )
-    return bundle
+    with tempfile.TemporaryDirectory() as tmpdir:
+        exporter = STIXExporter(output_dir=tmpdir)
+        exporter.create_bundle(
+            title="Test: Malware Campaign Targeting Financial Sector",
+            iocs=sample_iocs,
+            risk_score=risk_score,
+            severity=severity,
+            tlp_label=tlp.get("label", "TLP:CLEAR"),
+            actor_tag=actor_data.get("tracking_id", "UNC-CDB-99"),
+            mitre_tactics=mitre_data,
+            metadata={"source_url": "https://example.com/test-article"},
+        )
+        bundle_files = sorted(Path(tmpdir).glob("CDB-APEX-*.json"))
+        if not bundle_files:
+            raise RuntimeError(f"create_bundle wrote no file to {tmpdir}")
+        return json.loads(bundle_files[-1].read_text())
 
 
 # ─── Bundle Structure ─────────────────────────────────────────────────────────
@@ -219,22 +230,18 @@ class TestMISPExport:
             "stix_exporter must have export_to_misp() method"
 
     def test_misp_export_returns_dict(self, sample_text, sample_iocs):
-        bundle = _build_bundle(sample_text, sample_iocs)
         misp_event = stix_exporter.export_to_misp(
-            bundle=bundle,
-            headline="Test Campaign",
-            risk_score=7.5,
+            title="Test Campaign",
             iocs=sample_iocs,
+            risk_score=7.5,
         )
         assert isinstance(misp_event, dict)
 
     def test_misp_event_has_required_keys(self, sample_text, sample_iocs):
-        bundle = _build_bundle(sample_text, sample_iocs)
         misp_event = stix_exporter.export_to_misp(
-            bundle=bundle,
-            headline="Test Campaign",
-            risk_score=7.5,
+            title="Test Campaign",
             iocs=sample_iocs,
+            risk_score=7.5,
         )
         required = {"Event"}
         for key in required:

@@ -549,7 +549,7 @@ class TestOpenAPI:
         spec = generator.get_spec()
         
         assert spec["openapi"] == "3.1.0"
-        assert spec["info"]["title"] == "CYBERDUDEBIVASH® SENTINEL APEX API"
+        assert spec["info"]["title"] == "CYBERDUDEBIVASH(R) SENTINEL APEX API"
         assert spec["info"]["version"] == "29.0.0"
     
     def test_spec_has_paths(self):

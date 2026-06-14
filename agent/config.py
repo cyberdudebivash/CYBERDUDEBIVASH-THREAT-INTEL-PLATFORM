@@ -530,7 +530,7 @@ API_CACHE_TTL_PUBLIC = 300
 API_CACHE_TTL_ENTERPRISE = 60  
 
 # -- STIX 2.1 Marking Definitions --
-STIX_IDENTITY_ID = "identity--cyberdudebivash-sentinel-apex-v30"
+STIX_IDENTITY_ID = "identity--61a8943b-b27b-5e19-afff-893bb2e2fa2b"
 STIX_TLP_MARKING = {
     "GREEN": "marking-definition--34098fce-860f-479c-ad6f-e09814c4f58a",
     "AMBER": "marking-definition--f88d31f6-486f-44da-b317-01333bde0b82",
