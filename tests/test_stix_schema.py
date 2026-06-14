@@ -10,7 +10,9 @@ Falls back to structural checks when stix2 library is not installed so CI
 never hard-fails due to a missing optional dependency.
 """
 import json
+import tempfile
 import pytest
+from pathlib import Path
 
 try:
     import stix2
@@ -18,7 +20,7 @@ try:
 except ImportError:
     HAS_STIX2_LIB = False
 
-from agent.export_stix import stix_exporter
+from agent.export_stix import STIXExporter
 from agent.risk_engine import risk_engine
 from agent.mitre_mapper import mitre_engine
 from agent.integrations.actor_matrix import actor_matrix
@@ -27,6 +29,11 @@ from agent.integrations.actor_matrix import actor_matrix
 # ─── Helpers ─────────────────────────────────────────────────────────────────
 
 def _build_bundle(sample_text, sample_iocs):
+    """Build a STIX bundle dict for schema validation tests.
+
+    Uses an isolated STIXExporter in a temp dir (hermetic) and reads the
+    written JSON back so assertions work against the actual bundle structure.
+    """
     mitre_data = mitre_engine.map_threat(sample_text)
     actor_data = actor_matrix.correlate_actor(sample_text, sample_iocs)
     risk_score = risk_engine.calculate_risk_score(
@@ -35,17 +42,22 @@ def _build_bundle(sample_text, sample_iocs):
     severity = risk_engine.get_severity_label(risk_score)
     tlp = risk_engine.get_tlp_label(risk_score)
 
-    return stix_exporter.create_bundle(
-        headline="Schema Validation Test Bundle",
-        iocs=sample_iocs,
-        risk_score=risk_score,
-        severity=severity,
-        tlp=tlp,
-        mitre_data=mitre_data,
-        actor_data=actor_data,
-        source_url="https://example.com/schema-test",
-        content=sample_text,
-    )
+    with tempfile.TemporaryDirectory() as tmpdir:
+        exporter = STIXExporter(output_dir=tmpdir)
+        exporter.create_bundle(
+            title="Schema Validation Test Bundle",
+            iocs=sample_iocs,
+            risk_score=risk_score,
+            severity=severity,
+            tlp_label=tlp.get("label", "TLP:CLEAR"),
+            actor_tag=actor_data.get("tracking_id", "UNC-CDB-99"),
+            mitre_tactics=mitre_data,
+            metadata={"source_url": "https://example.com/schema-test"},
+        )
+        bundle_files = sorted(Path(tmpdir).glob("CDB-APEX-*.json"))
+        if not bundle_files:
+            raise RuntimeError(f"create_bundle wrote no file to {tmpdir}")
+        return json.loads(bundle_files[-1].read_text())
 
 
 # ─── STIX 2.1 Spec Field Compliance ──────────────────────────────────────────
@@ -194,6 +206,8 @@ class TestFeedManifestSchema:
     def _load_manifest(self, base_path):
         import os
         path = os.path.join(base_path, self.MANIFEST_PATH)
+        if not os.path.exists(path):
+            pytest.skip(f"{self.MANIFEST_PATH} not present (generated at runtime, not in VCS)")
         with open(path) as f:
             return json.load(f)
 
