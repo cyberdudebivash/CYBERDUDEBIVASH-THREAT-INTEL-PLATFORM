@@ -9687,6 +9687,25 @@
                 if (conf != null) {
                     enrichItems.push(`<span class="enrich-item">CONF <span class="e-val">${conf}%</span></span>`);
                 }
+                // Confidence label (5-level CTI taxonomy from confidence_corroboration_engine)
+                if (item.confidence_label) {
+                    const _clMap = {
+                        'CONFIRMED':         {color:'#00ffc6', bg:'rgba(0,255,198,0.10)', icon:'⬡'},
+                        'HIGH_CONFIDENCE':   {color:'#00d4aa', bg:'rgba(0,212,170,0.09)', icon:'◈'},
+                        'MEDIUM_CONFIDENCE': {color:'#f59e0b', bg:'rgba(245,158,11,0.09)', icon:'◇'},
+                        'LOW_CONFIDENCE':    {color:'#9ca3af', bg:'rgba(156,163,175,0.08)', icon:'◌'},
+                        'UNVERIFIED':        {color:'#6b7280', bg:'rgba(107,114,128,0.07)', icon:'○'},
+                    };
+                    const _cl = _clMap[item.confidence_label] || {color:'#888', bg:'transparent', icon:'?'};
+                    const _clLabel = item.confidence_label.replace('_CONFIDENCE','').replace('_',' ');
+                    enrichItems.push(`<span class="enrich-item" style="color:${_cl.color};background:${_cl.bg};border-radius:3px;padding:1px 5px;" title="CTI Confidence: ${item.confidence_label}">${_cl.icon} ${_clLabel}</span>`);
+                }
+                // SLA priority (P0-P4 from confidence engine)
+                if (item.sla_priority) {
+                    const _slaColors = {P0:'#dc2626',P1:'#ea580c',P2:'#f59e0b',P3:'#16a34a',P4:'#6b7280'};
+                    const _slaColor = _slaColors[item.sla_priority] || '#888';
+                    enrichItems.push(`<span class="enrich-item" style="color:${_slaColor};font-weight:700;" title="${item.recommended_sla_action||item.sla_priority}">${item.sla_priority}</span>`);
+                }
                 // Feed source (truncated)
                 {
                     const _srcRaw = item.source || item.feed_source || '';
