@@ -96,6 +96,22 @@ class TestGenerateIntelReportsManifestFormats(unittest.TestCase):
                     f"expected HTML report generated for list-format item at {report_path}",
                 )
                 self.assertGreater(report_path.stat().st_size, 1024)
+
+                # P0 REGRESSION GUARD: report_url/internal_report_url/validation_status
+                # must be persisted back onto the manifest item itself (not lost via
+                # enforce_schema()'s shallow-copy), otherwise the live dashboard
+                # serves 404 for a report that was actually generated on disk.
+                persisted = data[0]
+                self.assertEqual(
+                    persisted.get("report_url"),
+                    f"/reports/2026/06/{item_id}.html",
+                    f"report_url not persisted to list-format manifest item: {persisted}",
+                )
+                self.assertEqual(
+                    persisted.get("internal_report_url"),
+                    persisted.get("report_url"),
+                )
+                self.assertIn(persisted.get("validation_status"), ("ok", "enriched"))
             finally:
                 _cleanup_reports(item_id)
 
@@ -131,6 +147,22 @@ class TestGenerateIntelReportsManifestFormats(unittest.TestCase):
                     f"expected HTML report generated for dict-format item at {report_path}",
                 )
                 self.assertGreater(report_path.stat().st_size, 1024)
+
+                # P0 REGRESSION GUARD: report_url/internal_report_url/validation_status
+                # must be persisted back onto the manifest item itself (not lost via
+                # enforce_schema()'s shallow-copy), otherwise the live dashboard
+                # serves 404 for a report that was actually generated on disk.
+                persisted = data["advisories"][0]
+                self.assertEqual(
+                    persisted.get("report_url"),
+                    f"/reports/2026/06/{item_id}.html",
+                    f"report_url not persisted to dict-format manifest item: {persisted}",
+                )
+                self.assertEqual(
+                    persisted.get("internal_report_url"),
+                    persisted.get("report_url"),
+                )
+                self.assertIn(persisted.get("validation_status"), ("ok", "enriched"))
             finally:
                 _cleanup_reports(item_id)
 

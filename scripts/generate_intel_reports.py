@@ -2395,7 +2395,7 @@ def main(argv=None) -> int:
     errors = 0
     t_start = time.monotonic()
 
-    for item in items:
+    for _idx, item in enumerate(items):
         intel_id = item.get("id")
         if not intel_id:
             log(f"SKIP: entry missing id field - {item.get('title','?')[:60]}", "warning")
@@ -2420,6 +2420,10 @@ def main(argv=None) -> int:
 
         # ── SCHEMA ENFORCEMENT (MANDATORY  -  at write boundary, before render) ──
         item = _safe_enforce_schema(item)
+        # v180.1 P0 FIX: enforce_schema() returns a shallow copy, disconnecting
+        # `item` from `items[_idx]`. Re-link so later mutations (report_url,
+        # internal_report_url, validation_status) persist to the saved manifest.
+        items[_idx] = item
 
         path = rel_report_path(item)
         path.parent.mkdir(parents=True, exist_ok=True)
