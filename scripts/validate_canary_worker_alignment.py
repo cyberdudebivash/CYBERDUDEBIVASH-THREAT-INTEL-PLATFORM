@@ -33,14 +33,16 @@ else:
     errors.append("Canary B does NOT read data['preview'] -- WILL produce false-negative")
 
 # CHECK 2: Worker emits nested preview envelope
-if re.search(r'preview\s*:\s*previewPayload', worker_src):
+# Worker uses inline object: preview: { items, ... } not a named variable
+if re.search(r'preview\s*:\s*[\{\w]', worker_src):
     print("[PASS] Worker wraps payload under 'preview' key -- envelope aligned")
 else:
     errors.append("Worker may not wrap payload under 'preview' -- envelope drift")
 
 # CHECK 3: MIN_PREVIEW_ITEMS in canary <= actual preview limit in Worker
+# Worker defines PREVIEW_LIMIT as: const PREVIEW_LIMIT = 25;
 m_canary = re.search(r'MIN_PREVIEW_ITEMS\s*=\s*(\d+)', canary_src)
-m_worker = re.search(r'PREVIEW_LIMIT\s*:\s*(\d+)', worker_src)
+m_worker = re.search(r'PREVIEW_LIMIT\s*=\s*(\d+)', worker_src)
 if m_canary and m_worker:
     canary_min = int(m_canary.group(1))
     worker_limit = int(m_worker.group(1))
