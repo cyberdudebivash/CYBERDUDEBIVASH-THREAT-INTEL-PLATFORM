@@ -1067,6 +1067,40 @@ jobs:
           FEED_PATH: "api/feed.json"
         run: python3 scripts/intelligence_quality_scorer.py 2>&1
 
+      # -----------------------------------------------------------------------
+      # STAGE 3.1.18b -- CONFIDENCE & CORROBORATION ENRICHMENT (v1.0.0 PERMANENT)
+      # MUST RUN after all enrichment stages (KEV/CVSS/EPSS/IOC/actor/quality)
+      # so confidence_label reflects the final enriched state of every item.
+      #
+      # Writes to api/feed.json (in-place):
+      #   confidence_label        (CONFIRMED/HIGH_CONFIDENCE/MEDIUM/LOW/UNVERIFIED)
+      #   confidence_score_v2     (evidence point total, 17-signal weighted)
+      #   confidence_rationale    (human-readable explanation)
+      #   sla_priority            (P0/P1/P2/P3/P4 — KEV + severity driven)
+      #   recommended_sla_action  (emergency/urgent/priority/scheduled/monitor)
+      #   revenue_opportunities   (CONSULTING/IR/THREAT_HUNTING/VA/MSSP/EXEC_BRIEF)
+      #
+      # Why here (not later): STAGE 3.93 (Generate Immutable API Manifests) reads
+      # api/feed.json to produce api/v1/intel/latest.json. Enriching BEFORE 3.93
+      # ensures the primary dashboard data source carries confidence + SLA data.
+      # STAGE 3.5 (R2 upload) also runs post-this step, so R2 gets full CTI labels.
+      #
+      # Non-blocking: continue-on-error keeps pipeline safe on any edge failure.
+      # -----------------------------------------------------------------------
+      - name: "STAGE 3.1.18b -- Confidence & Corroboration Enrichment (v1.0.0)"
+        timeout-minutes: 3
+        continue-on-error: true
+        run: |
+          set +e
+          python3 scripts/confidence_corroboration_engine.py 2>&1
+          CONF_EXIT=$?
+          set -e
+          if [ "$CONF_EXIT" -eq 0 ]; then
+            CONF_ITEMS=$(jq '[.[] | select(.confidence_label != null)] | length' api/feed.json 2>/dev/null || echo "?")
+            echo "[PASS] Confidence enrichment: ${CONF_ITEMS} items enriched with confidence_label + sla_priority + revenue_opportunities"
+          else
+            echo "::warning::confidence_corroboration_engine.py exited ${CONF_EXIT} -- non-fatal, pipeline continues"
+          fi
 
       - name: "STAGE 3.2 - Generate Internal HTML Reports (report_generator)"
         timeout-minutes: 20

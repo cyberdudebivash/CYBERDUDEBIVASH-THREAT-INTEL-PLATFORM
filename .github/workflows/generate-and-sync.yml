@@ -944,6 +944,43 @@ jobs:
           fi
 
       # ─────────────────────────────────────────────────────────────────────
+      # STAGE 6.102 -- CONFIDENCE & CORROBORATION ENRICHMENT (v1.0.0 PERMANENT)
+      # Final intelligence enrichment pass before git commit.
+      # Runs AFTER all quality, attribution, and commercial readiness stages
+      # so confidence_label reflects the fully enriched state of every item.
+      #
+      # Writes to api/feed.json (in-place, non-destructive):
+      #   confidence_label        (CONFIRMED/HIGH_CONFIDENCE/MEDIUM/LOW/UNVERIFIED)
+      #   confidence_score_v2     (evidence point total, 17-signal weighted)
+      #   sla_priority            (P0/P1/P2/P3/P4)
+      #   revenue_opportunities   (CONSULTING/IR/THREAT_HUNTING/VA/MSSP/EXEC_BRIEF)
+      #   recommended_sla_action  (emergency/urgent/priority/scheduled/monitor)
+      #
+      # STAGE 9 commits api/feed.json — confidence labels are in the committed
+      # feed, STAGE 9.5 R2 upload carries them, dashboard badges render correctly.
+      # Non-blocking: exit 0 forced so CI never fails here.
+      # ─────────────────────────────────────────────────────────────────────
+      - name: "STAGE 6.102 -- Confidence & Corroboration Enrichment (v1.0.0)"
+        timeout-minutes: 3
+        continue-on-error: true
+        run: |
+          set +e
+          if [ -f "api/feed.json" ]; then
+            python3 scripts/confidence_corroboration_engine.py 2>&1
+            CONF_EXIT=$?
+            if [ "$CONF_EXIT" -eq 0 ]; then
+              CONF_ITEMS=$(jq '[.[] | select(.confidence_label != null)] | length' api/feed.json 2>/dev/null || echo "?")
+              echo "[PASS] Confidence enrichment: ${CONF_ITEMS} items enriched with confidence_label + sla_priority"
+            else
+              echo "::warning::confidence_corroboration_engine.py exited ${CONF_EXIT} -- non-fatal"
+            fi
+          else
+            echo "[SKIP] api/feed.json not found -- confidence enrichment skipped (non-fatal)"
+          fi
+          set -e
+          exit 0
+
+      # ─────────────────────────────────────────────────────────────────────
       # STAGE 7 — PIPELINE OBSERVABILITY TELEMETRY (Phase 6)
       # ─────────────────────────────────────────────────────────────────────
       # v148.0 FIX: Moved from inline python3 -c block (RULE 1 violation) to
