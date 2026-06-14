@@ -1337,6 +1337,81 @@ async function handleRequest(request, env, ctx) {
     return jsonResp({ error: "Report not found", path, suggestion: "Report may still be generating. Try again in a few minutes." }, 404);
   }
 
+  // --- /api/ingest (PRO+ only) ------------------------------------------------
+  if (path === "/api/ingest" && method === "POST") {
+    // Require authenticated PRO or ENTERPRISE tier
+    if (!auth.jwt) {
+      return jsonResp({ error: "Authentication required. POST Authorization: Bearer <token>." }, 401);
+    }
+    if (auth.tier === "FREE" || auth.tier === "PUBLIC") {
+      return jsonResp({ error: "PRO or ENTERPRISE tier required for /api/ingest", upgrade: "POST /auth/login with a PRO/ENTERPRISE API key" }, 403);
+    }
+    let body = {};
+    try { body = await request.json(); } catch (_) {
+      return jsonResp({ error: "Invalid JSON body" }, 400);
+    }
+    // Validate required fields
+    const requiredFields = ["title", "severity", "risk_score"];
+    const missing = requiredFields.filter(f => body[f] == null);
+    if (missing.length) {
+      return jsonResp({ error: `Missing required fields: ${missing.join(", ")}`, required: requiredFields }, 400);
+    }
+    const validSeverities = new Set(["CRITICAL", "HIGH", "MEDIUM", "LOW", "INFO"]);
+    const sev = (body.severity || "").toUpperCase();
+    if (!validSeverities.has(sev)) {
+      return jsonResp({ error: `Invalid severity. Must be one of: ${[...validSeverities].join(", ")}` }, 400);
+    }
+    const riskScore = parseFloat(body.risk_score);
+    if (isNaN(riskScore) || riskScore < 0 || riskScore > 10) {
+      return jsonResp({ error: "risk_score must be a number between 0 and 10" }, 400);
+    }
+    // Build canonical intel item
+    const ts = new Date().toISOString();
+    const itemId = body.stix_id || body.id || ("intel--ingest-" + crypto.randomUUID());
+    const newItem = {
+      id: itemId, stix_id: itemId,
+      title: String(body.title).slice(0, 500),
+      severity: sev,
+      risk_score: riskScore,
+      source: body.source || `ingest:${auth.sub || "api"}`,
+      feed_source: body.feed_source || "api_ingest",
+      published: body.published || ts,
+      processed_at: ts,
+      ingested_at: ts,
+      ingest_tier: auth.tier,
+      ingest_sub: auth.sub || "unknown",
+      // Optional enrichment fields (passed through if present)
+      ...(body.cve_ids        != null && { cve_ids: body.cve_ids }),
+      ...(body.cvss_score     != null && { cvss_score: body.cvss_score }),
+      ...(body.epss_score     != null && { epss_score: body.epss_score }),
+      ...(body.kev_present    != null && { kev_present: !!body.kev_present }),
+      ...(body.mitre_tactics  != null && { mitre_tactics: body.mitre_tactics }),
+      ...(body.ioc_counts     != null && { ioc_counts: body.ioc_counts }),
+      ...(body.actor_tag      != null && { actor_tag: body.actor_tag }),
+      ...(body.tlp_label      != null && { tlp_label: body.tlp_label }),
+      ...(body.tags           != null && { tags: body.tags }),
+      ...(body.description    != null && { description: String(body.description).slice(0, 2000) }),
+      ...(body.source_url     != null && { source_url: body.source_url }),
+      ...(body.confidence_score != null && { confidence_score: body.confidence_score }),
+    };
+    // Append to INTEL_R2 live feed
+    try {
+      const current = await r2Get(env, LATEST_JSON_KEY) || { schema_version: "1.0", items: [], count: 0 };
+      const items = Array.isArray(current.items) ? current.items : [];
+      // Guard: reject exact stix_id duplicate
+      if (items.some(i => (i.stix_id || i.id) === itemId)) {
+        return jsonResp({ error: "Duplicate item: stix_id already exists in feed", stix_id: itemId }, 409);
+      }
+      items.unshift(newItem); // newest first
+      const updatedFeed = { ...current, items, count: items.length, last_ingest: ts };
+      await env.INTEL_R2.put(LATEST_JSON_KEY, JSON.stringify(updatedFeed), { httpMetadata: { contentType: "application/json" } });
+      auditLog(ctx, env, { action: "ingest", sub: auth.sub, tier: auth.tier, item_id: itemId, title: newItem.title });
+      return jsonResp({ status: "created", item_id: itemId, feed_count: items.length, ingested_at: ts }, 201);
+    } catch (e) {
+      return jsonResp({ error: "Failed to write to intel feed", detail: e.message }, 500);
+    }
+  }
+
   // --- 404 --------------------------------------------------------------------
   return jsonResp({
     error: "Not found", path,
@@ -1350,6 +1425,7 @@ async function handleRequest(request, env, ctx) {
       "/api/v1/ioc/lookup", "/auth/login", "/auth/logout",
       "/taxii/", "/taxii/collections/", "/taxii/collections/{id}/objects/",
       "/api/admin/health", "/api/admin/audit", "/api/admin/keys",
+      "POST /api/ingest  (PRO+, Bearer token required)",
     ],
   }, 404);
 }

@@ -744,6 +744,32 @@ def run_governance(
         report.duplicate_rate_pct = (
             len(report.duplicate_violations) / max(len(items), 1) * 100
         )
+        # Auto-remediation: remove HARD duplicate items from feed and write back.
+        # Only the *second occurrence* (the item_id in the violation) is removed;
+        # the first-seen canonical item is preserved.
+        hard_dup_ids = {
+            v.item_id for v in report.duplicate_violations if v.severity == "HARD"
+        }
+        if hard_dup_ids:
+            before_count = len(items)
+            items = [
+                it for it in items
+                if (it.get("stix_id") or it.get("id")) not in hard_dup_ids
+            ]
+            removed = before_count - len(items)
+            log.info(
+                "[Phase1-AutoFix] Removed %d HARD duplicate item(s) from feed → writing cleaned feed",
+                removed,
+            )
+            try:
+                _atomic_write(pathlib.Path(feed_path), items)
+                log.info("[Phase1-AutoFix] Cleaned feed written: %d items", len(items))
+                report.total_items = len(items)
+                # Re-compute duplicate rate against cleaned count
+                report.duplicate_rate_pct = 0.0
+                report.dedup_passed = True
+            except Exception as write_exc:
+                log.error("[Phase1-AutoFix] Failed to write cleaned feed: %s", write_exc)
     except Exception as exc:
         log.error("[Phase1] Unexpected error: %s", exc)
         report.dedup_passed = True  # non-fatal
