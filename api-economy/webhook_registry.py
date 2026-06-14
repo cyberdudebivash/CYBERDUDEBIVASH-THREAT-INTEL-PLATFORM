@@ -18,6 +18,7 @@ import hashlib
 import hmac
 import json
 import logging
+import os
 import time
 import uuid
 from dataclasses import dataclass, field, asdict
@@ -841,7 +842,7 @@ if __name__ == "__main__":
         tenant_id="T-001",
         api_key_prefix="sk-cdb-r-t001",
         endpoint_url="https://soc.globalbank.com/webhooks/sentinel",
-        secret="supersecret_signing_key_1",
+        secret=os.environ.get("DEMO_WEBHOOK_SECRET_1", "your_demo_signing_key_1"),
         events=["advisory.created", "advisory.kev_promoted", "ioc.new_malicious", "quota.warning"],
         plan_tier="enterprise",
     )
@@ -849,7 +850,7 @@ if __name__ == "__main__":
         tenant_id="T-004",
         api_key_prefix="sk-cdb-r-t004",
         endpoint_url="https://alerts.techpulse.io/cdb-hook",
-        secret="supersecret_signing_key_2",
+        secret=os.environ.get("DEMO_WEBHOOK_SECRET_2", "your_demo_signing_key_2"),
         events=["advisory.created", "telemetry.honeynet_hit"],
         plan_tier="professional",
     )

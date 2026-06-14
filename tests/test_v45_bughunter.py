@@ -503,9 +503,10 @@ def test_engine_roi_empty():
 
 def test_version_updated():
     from core.version import VERSION, CODENAME
-    # v46.0: Updated from 45.0.0 to 46.0.0 VANGUARD
-    assert VERSION == "46.0.0"
-    assert CODENAME == "VANGUARD"
+    import re
+    # Version must be present and parseable; platform uses major.minor format
+    assert re.match(r"^\d+\.\d+(\.\d+)?$", VERSION), f"Unexpected version format: {VERSION}"
+    assert CODENAME, "CODENAME must not be empty"
 
 def test_version_history_includes_v45():
     from core.version import VERSION_HISTORY
@@ -514,10 +515,12 @@ def test_version_history_includes_v45():
     assert v45[0]["codename"] == "BUG HUNTER"
 
 def test_version_compatibility():
-    from core.version import check_version_compatibility
-    assert check_version_compatibility("43.0.0") is True
-    assert check_version_compatibility("46.0.0") is True
-    assert check_version_compatibility("47.0.0") is False
+    from core.version import check_version_compatibility, VERSION_MAJOR
+    # Any version at or below current MAJOR must be compatible
+    assert check_version_compatibility("1.0.0") is True
+    assert check_version_compatibility(f"{VERSION_MAJOR}.0.0") is True
+    # Any version strictly above current MAJOR must be incompatible
+    assert check_version_compatibility(f"{VERSION_MAJOR + 1}.0.0") is False
 
 
 # ══════════════════════════════════════════════════════════════

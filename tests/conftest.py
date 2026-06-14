@@ -10,6 +10,11 @@ import pytest
 # Ensure project root is on the path so agent.* imports work
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+# agent/config.py calls sys.exit(1) at import time when CDB_JWT_SECRET is unset.
+# In CI the real secret is injected via GitHub secrets; locally we provide a
+# dummy sentinel so collection succeeds.  setdefault() never overwrites a real value.
+os.environ.setdefault("CDB_JWT_SECRET", "pytest-dummy-secret-not-for-production")
+
 
 # ─── Shared Sample Data ────────────────────────────────────────────────────────
 
