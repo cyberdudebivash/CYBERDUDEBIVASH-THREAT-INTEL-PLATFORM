@@ -1053,6 +1053,28 @@ async function handleRequest(request, env, ctx) {
     return await handleLogout(request, env, ctx, auth);
   }
 
+  // --- /api/auth/* aliases ---------------------------------------------------
+  // The dashboard uses AUTH_ENDPOINT='/api/auth' and the /auth/* CF Worker route
+  // is not registered. These aliases under the registered /api/* route allow the
+  // dashboard login modal and API clients to reach auth functionality.
+  if (path === "/api/auth/login" && method === "POST") {
+    return await handleLogin(request, env, ctx, ip);
+  }
+  if (path === "/api/auth/logout" && method === "POST") {
+    return await handleLogout(request, env, ctx, auth);
+  }
+  if (path === "/api/auth/validate") {
+    if (!auth.key) return jsonResp({ valid: false, tier: "free" }, 200);
+    return jsonResp({ valid: true, tier: auth.tier, sub: auth.sub, jwt: auth.jwt || false }, 200);
+  }
+  if (path === "/api/auth/register" && method === "POST") {
+    return jsonResp({
+      error: "Email registration is not available. API keys are issued upon subscription.",
+      help: "Subscribe at https://intel.cyberdudebivash.com/#pricing to receive your API key.",
+      auth: "POST /api/auth/login with { \"api_key\": \"<your-key>\" } to obtain a Bearer JWT.",
+    }, 422);
+  }
+
   // --- Premium intel gate (MONETIZATION INTEGRITY v148->v180) -----------------
   if (PREMIUM_INTEL_PATHS.has(pathname)) {
     return await servePremiumIntelManifest(request, env, ctx, pathname);
@@ -1423,7 +1445,10 @@ async function handleRequest(request, env, ctx) {
       "/api/v1/intel/epss", "/api/v1/intel/defcon", "/api/v1/intel/pulse",
       "/api/v1/intel/darkweb", "/api/v1/intel/cybermap", "/api/feed.json",
       "/api/v1/news/feed", "/api/reports/index.json", "/api/reports/stats.json",
-      "/api/v1/ioc/lookup", "/auth/login", "/auth/logout",
+      "/api/v1/ioc/lookup",
+      "POST /api/auth/login (X-API-Key exchange → JWT)", "POST /api/auth/logout",
+      "GET /api/auth/validate", "POST /api/auth/register",
+      "/auth/login", "/auth/logout",
       "/taxii/", "/taxii/collections/", "/taxii/collections/{id}/objects/",
       "/api/admin/health", "/api/admin/audit", "/api/admin/keys",
       "POST /api/ingest  (PRO+, Bearer token required)",
