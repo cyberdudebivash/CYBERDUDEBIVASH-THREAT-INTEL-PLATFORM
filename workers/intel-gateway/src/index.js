@@ -52,7 +52,7 @@
  */
 
 // --- Constants ----------------------------------------------------------------
-const PLATFORM_VERSION    = "180.0";
+const PLATFORM_VERSION    = "170.0";
 const JWT_EXPIRY_SEC      = 86400;        // 24h JWT lifetime
 const BRUTE_FORCE_MAX     = 5;            // lockout after N failed auth attempts
 const BRUTE_FORCE_TTL     = 900;          // 15-minute lockout (seconds)
@@ -341,20 +341,21 @@ async function loadFeedItems(env) {
 
 function computeStats(items) {
   const sev = { CRITICAL: 0, HIGH: 0, MEDIUM: 0, LOW: 0, INFO: 0 };
-  let totalRisk = 0, totalIOCs = 0, kevCount = 0, latestSync = "N/A";
+  let totalRisk = 0, totalIOCs = 0, kevCount = 0, latestSync = "";
   for (const item of items) {
     const s = (item.severity || "INFO").toUpperCase();
     sev[s] = (sev[s] || 0) + 1;
     totalRisk += parseFloat(item.risk_score || 0);
     totalIOCs += parseInt(item.ioc_count || 0, 10);
     if (item.kev_present) kevCount++;
-    if (!latestSync || (item.published || "") > latestSync) latestSync = item.published || item.published_at || "N/A";
+    const ts = item.published || item.published_at || "";
+    if (ts && (!latestSync || ts > latestSync)) latestSync = ts;
   }
   const avgRisk = items.length > 0 ? (totalRisk / items.length).toFixed(2) : "0.00";
   return {
     total: items.length, critical: sev.CRITICAL, high: sev.HIGH, medium: sev.MEDIUM,
     low: sev.LOW, info: sev.INFO || 0, kev_confirmed: kevCount, total_iocs: totalIOCs,
-    avg_risk_score: parseFloat(avgRisk), last_sync: latestSync, generated_at: now(),
+    avg_risk_score: parseFloat(avgRisk), last_sync: latestSync || "N/A", generated_at: now(),
   };
 }
 
