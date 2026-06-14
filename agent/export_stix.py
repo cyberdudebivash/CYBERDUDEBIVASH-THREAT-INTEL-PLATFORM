@@ -715,9 +715,10 @@ class STIXExporter:
 
         # -- Write bundle --
         stix_bundle = {
-            "type":    "bundle",
-            "id":      bundle_id,
-            "objects": objects,
+            "type":         "bundle",
+            "id":           bundle_id,
+            "spec_version": "2.1",
+            "objects":      objects,
         }
 
         epoch = int(datetime.now(timezone.utc).timestamp())
