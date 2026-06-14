@@ -674,40 +674,112 @@ _REPORT_CDN_BASE = "https://intel.cyberdudebivash.com"
 
 def _enforce_metadata_fields(item: Dict) -> Dict:
     """
-    v171.2 B1/B2 FIX: Mandatory validation for report_url and published_at.
-    Any record missing either field is populated from source metadata.
-    No output record may contain null/empty values for these fields.
+    v177.0 B1/B2/B3 FIX: Mandatory validation AND correction for report_url and published_at.
+
+    B1: If report_url is missing/null → construct from id + timestamp.
+    B2: If published_at is missing/null → populate from source fields.
+    B3 (NEW): If report_url is present but malformed (directory-style: no .html, or
+              missing YYYY/MM date path) → scan disk for correct file and repair the URL.
 
     Population priority:
-      report_url:   entry field → construct from id + timestamp
+      report_url:   entry field → validate format → construct from id + timestamp
       published_at: published → timestamp → processed_at → generated_at
     """
     import re as _re
+    import os as _os
     out = dict(item)
 
     # ── report_url ──────────────────────────────────────────────────────────
     ru = (out.get("report_url") or "").strip()
+
+    def _is_malformed(url: str) -> bool:
+        """Return True if URL is set but has wrong format."""
+        if not url or url == "null":
+            return False  # missing is handled separately
+        # Directory-style: ends with "/" (no .html) e.g. "/reports/intel--abc123/"
+        if url.endswith("/"):
+            return True
+        # Missing date path: /reports/intel--{hash}.html (no YYYY/MM segment)
+        if _re.search(r"/reports/intel--[^/]+\.html$", url) and not _re.search(r"/reports/\d{4}/\d{2}/", url):
+            return True
+        return False
+
+    def _find_report_on_disk(entry_id: str) -> str:
+        """
+        Scan local reports/ directory for an HTML file matching entry_id.
+        Returns correct CDN URL or empty string if not found.
+        """
+        # Strip intel-- prefix to get the hash
+        slug = entry_id.replace("intel--", "").strip("-")
+        target_fn = f"intel--{slug}.html"
+        # Walk reports/ tree (reports/YYYY/MM/*.html)
+        reports_root = _os.path.join(
+            _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))),
+            "reports"
+        )
+        if not _os.path.isdir(reports_root):
+            return ""
+        for year_dir in sorted(_os.listdir(reports_root), reverse=True):
+            year_path = _os.path.join(reports_root, year_dir)
+            if not _os.path.isdir(year_path) or not year_dir.isdigit():
+                continue
+            for month_dir in sorted(_os.listdir(year_path), reverse=True):
+                month_path = _os.path.join(year_path, month_dir)
+                if not _os.path.isdir(month_path):
+                    continue
+                candidate = _os.path.join(month_path, target_fn)
+                if _os.path.isfile(candidate):
+                    return f"{_REPORT_CDN_BASE}/reports/{year_dir}/{month_dir}/{target_fn}"
+        return ""
+
     if not ru or ru == "null":
+        # B1: Construct from scratch
         entry_id = (out.get("id") or out.get("stix_id") or "").strip()
         ts_raw   = (out.get("timestamp") or out.get("processed_at") or
                     out.get("generated_at") or "").strip()
-        if entry_id and ts_raw:
-            # Extract YYYY/MM from ISO timestamp: "2026-06-03T10:11:31Z" → "2026/06"
-            m = _re.match(r"(\d{4})-(\d{2})", ts_raw)
-            if m:
-                year, month = m.group(1), m.group(2)
-                # Normalise id: strip "intel--" prefix for path safety
-                slug = entry_id.replace("intel--", "").strip("-")
-                out["report_url"] = (
-                    f"{_REPORT_CDN_BASE}/reports/{year}/{month}/intel--{slug}.html"
-                )
+        if entry_id:
+            # Try disk lookup first (most reliable — gives correct YYYY/MM path)
+            disk_url = _find_report_on_disk(entry_id)
+            if disk_url:
+                out["report_url"] = disk_url
+            elif ts_raw:
+                m = _re.match(r"(\d{4})-(\d{2})", ts_raw)
+                if m:
+                    year, month = m.group(1), m.group(2)
+                    slug = entry_id.replace("intel--", "").strip("-")
+                    out["report_url"] = (
+                        f"{_REPORT_CDN_BASE}/reports/{year}/{month}/intel--{slug}.html"
+                    )
+                else:
+                    # Last resort: use current year/month (better than no date)
+                    from datetime import datetime, timezone as _tz
+                    _now = datetime.now(_tz.utc)
+                    slug = entry_id.replace("intel--", "").strip("-")
+                    out["report_url"] = (
+                        f"{_REPORT_CDN_BASE}/reports/{_now.year}/{_now.month:02d}/intel--{slug}.html"
+                    )
             else:
-                out["report_url"] = f"{_REPORT_CDN_BASE}/reports/intel--{entry_id}.html"
-        elif entry_id:
-            out["report_url"] = f"{_REPORT_CDN_BASE}/reports/intel--{entry_id}.html"
-        else:
-            # Cannot construct — mark as missing rather than null
-            out["report_url"] = ""
+                out["report_url"] = ""
+    elif _is_malformed(ru):
+        # B3: URL is set but malformed — attempt repair via disk lookup
+        entry_id = (out.get("id") or out.get("stix_id") or "").strip()
+        if entry_id:
+            disk_url = _find_report_on_disk(entry_id)
+            if disk_url:
+                out["report_url"] = disk_url
+            else:
+                # Repair format using timestamp if available
+                ts_raw = (out.get("timestamp") or out.get("processed_at") or
+                          out.get("generated_at") or "").strip()
+                if ts_raw:
+                    m = _re.match(r"(\d{4})-(\d{2})", ts_raw)
+                    if m:
+                        year, month = m.group(1), m.group(2)
+                        slug = entry_id.replace("intel--", "").strip("-")
+                        out["report_url"] = (
+                            f"{_REPORT_CDN_BASE}/reports/{year}/{month}/intel--{slug}.html"
+                        )
+                # else keep original (better than breaking it further)
 
     # ── published_at ─────────────────────────────────────────────────────────
     pa = (out.get("published_at") or "").strip()

@@ -1,7 +1,7 @@
 # CYBERDUDEBIVASH® SENTINEL APEX
 ## Data Processing Agreement (DPA) Template
 **SOC 2 Control: P1.3 — GDPR / Data Residency Compliance**
-**Version:** 162.0.0 | **Effective Date:** 2026-05-26
+**Version:** 177.0.0 | **Effective Date:** 2026-06-13
 
 ---
 
@@ -36,13 +36,17 @@
 
 ## Article 4 — Data Residency and Transfers
 
-4.1 **EU Customers**: Data processed exclusively in `eu-west-1` (Ireland, AWS) — GDPR-compliant jurisdiction.
+4.1 **EU Customers (including Germany)**: Data processed exclusively in `eu-west-1` (Ireland, AWS) — GDPR-compliant jurisdiction. German subscribers may designate the BfDI as their supervisory authority.
 
-4.2 **US Customers**: Data processed in `us-east-1` (Virginia) under EU-US Data Privacy Framework.
+4.2 **UK Customers**: Data processed in `eu-west-1` (Ireland, AWS). Ireland is a UK-adequate country. Cross-border transfers to India rely on UK International Data Transfer Agreements (IDTAs) as authorised under UK GDPR and the Data Protection Act 2018. Supervisory authority: Information Commissioner's Office (ICO), ico.org.uk.
 
-4.3 **APAC Customers**: Data processed in `ap-south-1` (Mumbai) with local data residency.
+4.3 **US Customers**: Data processed in `us-east-1` (Virginia) under the EU-US Data Privacy Framework. California residents retain all CCPA/CPRA rights independent of this DPA.
 
-4.4 Cross-border transfers rely on Standard Contractual Clauses (SCCs) per GDPR Art.46.
+4.4 **UAE Customers**: Data processed in `ap-south-1` (Mumbai). Cross-border transfers from the UAE comply with PDPL Art. 22 (Federal Decree-Law No. 45 of 2021) via contractual safeguards approved by the TDRA. Supervisory authority: Telecommunications and Digital Government Regulatory Authority (TDRA), tdra.gov.ae.
+
+4.5 **APAC Customers (other)**: Data processed in `ap-south-1` (Mumbai) with local data residency.
+
+4.6 Cross-border transfers for EU/UK data rely on Standard Contractual Clauses (SCCs) per GDPR Art. 46 / UK IDTAs. UAE transfers rely on PDPL Art. 22 contractual safeguards.
 
 ---
 
@@ -133,7 +137,20 @@ This DPA is governed by the laws of India and, where applicable, the European Un
 
 ---
 
-**CONTROLLER SIGNATURE:** _________________ Date: _______
-**PROCESSOR (SENTINEL APEX):** CYBERDUDEBIVASH® Date: 2026-05-26
+## Article 12 — Jurisdiction-Specific Addenda
 
-*DPA Version 162.0.0 — Published 2026-05-26 — SOC 2 P1.3 CERTIFIED*
+### 12.1 UK GDPR Addendum
+This DPA incorporates a UK International Data Transfer Agreement (IDTA) addendum (Addendum A) for transfers of UK personal data to India, in compliance with the UK Data Protection Act 2018. Supervisory authority: ICO. UK subscribers may request Addendum A at privacy@cyberdudebivash.in.
+
+### 12.2 UAE PDPL Addendum
+For UAE subscribers, this DPA is supplemented by Addendum B setting out contractual safeguards under PDPL Art. 22. The Controller and Processor agree that Special Categories of data (Art. 1 PDPL) will not be processed without prior explicit consent. Supervisory authority: TDRA.
+
+### 12.3 CCPA Addendum
+For California (USA) subscribers, this DPA acts as a Service Provider agreement under CCPA § 1798.140(ag). SENTINEL APEX shall not: sell personal information; retain, use, or disclose personal information for purposes other than those specified herein; combine personal information with other datasets outside the permitted business purpose.
+
+---
+
+**CONTROLLER SIGNATURE:** _________________ Date: _______
+**PROCESSOR (SENTINEL APEX):** CYBERDUDEBIVASH® Date: 2026-06-13
+
+*DPA Version 177.0.0 — Published 2026-06-13 — SOC 2 P1.3 CERTIFIED | EU GDPR | UK GDPR | UAE PDPL | CCPA*
