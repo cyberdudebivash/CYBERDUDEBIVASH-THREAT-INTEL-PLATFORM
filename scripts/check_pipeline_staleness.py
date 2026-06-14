@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# v180.0 -- monetization gate wiring fix applied; sentinel-blogger re-trigger
 """
 scripts/check_pipeline_staleness.py
 CYBERDUDEBIVASH(R) SENTINEL APEX - Pipeline Staleness Monitor
