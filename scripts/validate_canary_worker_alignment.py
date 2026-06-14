@@ -56,13 +56,15 @@ if m_canary and m_worker:
 else:
     warnings.append("Could not parse MIN_PREVIEW_ITEMS or PREVIEW_LIMIT -- check manually")
 
-# CHECK 4: Health canary expects status in (healthy|ok|operational)
+# CHECK 4: Health canary accepts any of (healthy|ok|operational); Worker emits at least one
 canary_health_check = (
     'in ("healthy", "ok", "operational")' in canary_src
     or "in ('healthy', 'ok', 'operational')" in canary_src
 )
-worker_emits_healthy = '"healthy"' in worker_src and '"ok"' in worker_src
-if canary_health_check and worker_emits_healthy:
+# Worker emits "ok" for health -- canary accepts "ok" so they are aligned.
+# Do NOT require Worker to emit ALL accepted values; ANY match is sufficient.
+worker_emits_any_ok = any(v in worker_src for v in ('"healthy"', '"ok"', '"operational"'))
+if canary_health_check and worker_emits_any_ok:
     print("[PASS] Health canary status values aligned with Worker")
 else:
     warnings.append("Health canary/Worker status value alignment could not be confirmed")
