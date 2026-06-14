@@ -1,49 +1,75 @@
 {
   "schema_version": "1.0",
-  "generated_at": "2026-06-14T20:52:47Z",
+  "generated_at": "2026-06-14T22:52:04Z",
   "generator": "canary_contract_validator.py",
   "version": "146.0.0",
   "base_url": "https://intel.cyberdudebivash.com",
   "endpoints_tested": 4,
-  "pass_count": 3,
-  "fail_count": 1,
+  "pass_count": 2,
+  "fail_count": 2,
   "warn_count": 0,
-  "has_breaking_drift": false,
+  "has_breaking_drift": true,
   "overall_verdict": "FAIL",
-  "runtime_seconds": 1.962,
+  "runtime_seconds": 1.932,
   "results": [
     {
       "endpoint_id": "latest_feed",
       "path": "/api/v1/intel/latest.json",
       "url": "https://intel.cyberdudebivash.com/api/v1/intel/latest.json",
       "http_status": 200,
-      "response_ms": 516.0,
+      "response_ms": 540.2,
       "verdict": "PASS",
       "errors": [],
       "warnings": [],
       "breaking_changes": [],
       "drift_additions": [],
-      "item_count": 92
+      "item_count": 127
     },
     {
       "endpoint_id": "apex_feed",
       "path": "/api/v1/intel/apex.json",
       "url": "https://intel.cyberdudebivash.com/api/v1/intel/apex.json",
       "http_status": 200,
-      "response_ms": 853.9,
-      "verdict": "PASS",
-      "errors": [],
+      "response_ms": 788.7,
+      "verdict": "FAIL",
+      "errors": [
+        "Required field missing: 'count'",
+        "Required field missing: 'items'",
+        "Feed 'items' has 0 entries (min 1)"
+      ],
       "warnings": [],
-      "breaking_changes": [],
-      "drift_additions": [],
-      "item_count": 92
+      "breaking_changes": [
+        "FIELD REMOVED: 'apex_enriched_count' (was int)",
+        "FIELD REMOVED: 'count' (was int)",
+        "FIELD REMOVED: 'items' (was list)",
+        "FIELD REMOVED: 'sha256' (was str)"
+      ],
+      "drift_additions": [
+        "NEW FIELD: 'derivation_method' (str) — backward compatible",
+        "NEW FIELD: 'provenance' (str) — backward compatible",
+        "NEW FIELD: 'total_advisories' (int) — backward compatible",
+        "NEW FIELD: 'critical_count' (int) — backward compatible",
+        "NEW FIELD: 'high_count' (int) — backward compatible",
+        "NEW FIELD: 'medium_count' (int) — backward compatible",
+        "NEW FIELD: 'low_count' (int) — backward compatible",
+        "NEW FIELD: 'kev_confirmed' (int) — backward compatible",
+        "NEW FIELD: 'total_iocs' (int) — backward compatible",
+        "NEW FIELD: 'avg_risk_score' (int) — backward compatible",
+        "NEW FIELD: 'last_sync' (str) — backward compatible",
+        "NEW FIELD: 'global_threat_level' (int) — backward compatible",
+        "NEW FIELD: 'global_threat_label' (str) — backward compatible",
+        "NEW FIELD: 'defcon' (dict) — backward compatible",
+        "NEW FIELD: 'feeds_active' (int) — backward compatible",
+        "NEW FIELD: 'top_advisories' (list) — backward compatible"
+      ],
+      "item_count": 0
     },
     {
       "endpoint_id": "manifest_registry",
       "path": "/api/v1/intel/manifest.json",
       "url": "https://intel.cyberdudebivash.com/api/v1/intel/manifest.json",
       "http_status": 404,
-      "response_ms": 229.6,
+      "response_ms": 236.1,
       "verdict": "FAIL",
       "errors": [
         "HTTP 404: Not Found"
@@ -58,7 +84,7 @@
       "path": "/api/health",
       "url": "https://intel.cyberdudebivash.com/api/health",
       "http_status": 200,
-      "response_ms": 351.2,
+      "response_ms": 357.5,
       "verdict": "PASS",
       "errors": [],
       "warnings": [],
