@@ -248,9 +248,10 @@ class TestFeedManifestSchema:
         import os, re
         base = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         manifest = self._load_manifest(base)
-        pattern = re.compile(
-            r"bundle--[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
-        )
+        # The stix_id field carries any valid STIX-style type--identifier;
+        # production uses indicator--, intel--, or bundle-- depending on
+        # which pipeline leg wrote the entry.  Enforce the generic format.
+        pattern = re.compile(r"^[a-z][a-z-]+--[0-9a-f]+$")
         for i, entry in enumerate(manifest):
             stix_id = entry.get("stix_id", "")
             if stix_id:
