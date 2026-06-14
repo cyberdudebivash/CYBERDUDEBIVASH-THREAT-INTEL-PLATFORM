@@ -954,6 +954,10 @@ async function handleRequest(request, env) {
   // (v167.2 fix). R2 key format: reports/{year}/{month}/{slug}.html
   // Previously this handler was absent  -  all /reports/ requests fell through
   // to the 404 block below. Fix (v170.1): reads from REPORTS_R2 binding.
+  // -- /reports/ HTML report serving -------------------------------------------
+  // v177.0 FIX: Handle both correct format (/reports/YYYY/MM/intel--{hash}.html)
+  // and legacy directory-style (/reports/intel--{hash}/) URLs via transparent
+  // discovery — query R2 with correct key, or scan known date paths on miss.
   if (path.startsWith("/reports/")) {
     if (!env.REPORTS_R2) {
       return new Response("Reports bucket not configured", {
@@ -961,9 +965,54 @@ async function handleRequest(request, env) {
         headers: { ...CORS_HEADERS, "Content-Type": "text/plain" },
       });
     }
-    const key = path.replace(/^\//, ""); // strip leading "/" -> "reports/2026/06/intel--xxx.html"
+
+    const key = path.replace(/^\//, ""); // strip leading "/" -> "reports/..."
+
+    // Normalise legacy directory-style URLs: /reports/intel--{hash}/ → lookup
+    // Pattern: path ends with "/" and has no YYYY/MM date segment
+    const legacyDirMatch = path.match(/^\/reports\/(intel--[a-f0-9]+)\/?$/i);
+    if (legacyDirMatch || (path.endsWith("/") && path.startsWith("/reports/"))) {
+      const slug = legacyDirMatch
+        ? legacyDirMatch[1]
+        : path.replace(/^\/reports\//, "").replace(/\/+$/, "");
+      const fn = slug.startsWith("intel--") ? `${slug}.html` : `intel--${slug}.html`;
+
+      // Probe known date paths (most recent months first)
+      const probeYears = [2026, 2025];
+      const probeMonths = ["12","09","06","05","04","03","02","01","10","11","07","08"];
+      for (const y of probeYears) {
+        for (const m of probeMonths) {
+          const probeKey = `reports/${y}/${m}/${fn}`;
+          const obj = await env.REPORTS_R2.get(probeKey);
+          if (obj) {
+            // 301 redirect to canonical URL
+            return Response.redirect(
+              `https://intel.cyberdudebivash.com/${probeKey}`, 301
+            );
+          }
+        }
+      }
+      return jsonResp({ error: "Report not found", path, suggestion: "Report may still be generating. Try again in a few minutes." }, 404);
+    }
+
+    // Normal path: direct R2 lookup with correct key
     const obj = await env.REPORTS_R2.get(key);
     if (!obj) {
+      // Try without .html extension (handle URL without extension)
+      const keyNoExt = key.replace(/\.html$/, "");
+      const keyWithExt = key.endsWith(".html") ? key : `${key}.html`;
+      const obj2 = await env.REPORTS_R2.get(keyWithExt);
+      if (obj2) {
+        return new Response(obj2.body, {
+          status: 200,
+          headers: {
+            ...CORS_HEADERS,
+            "Content-Type":  "text/html; charset=utf-8",
+            "Cache-Control": "public, max-age=86400, stale-while-revalidate=3600",
+            "ETag":          obj2.httpEtag || "",
+          },
+        });
+      }
       return jsonResp({ error: "Report not found", path }, 404);
     }
     return new Response(obj.body, {

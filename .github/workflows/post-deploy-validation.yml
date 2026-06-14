@@ -192,6 +192,13 @@ jobs:
           fi
           echo "[GATE F] PASS: Full validation suite completed"
 
+      - name: "GATE G -- Report URL integrity"
+        timeout-minutes: 3
+        run: |
+          echo "[GATE G] Scanning all feed JSON files for malformed report_url fields..."
+          python3 scripts/report_url_integrity_gate.py
+          echo "[GATE G] Report URL integrity check complete"
+
       - name: "Run SLA engine snapshot"
         timeout-minutes: 5
         run: |
@@ -215,6 +222,7 @@ jobs:
           echo "GATE D (JWT Auth):            PASS"
           echo "GATE E (Frontend Integrity):  PASS"
           echo "GATE F (Full Validator):      PASS"
+          echo "GATE G (Report URL Integrity): PASS"
           echo "============================================================"
           echo "PLATFORM IS PRODUCTION-CERTIFIED"
           echo "============================================================"

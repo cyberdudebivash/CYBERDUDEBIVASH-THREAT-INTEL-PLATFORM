@@ -64,6 +64,21 @@ li{margin-bottom:6px}
     <a href="#taxii">TAXII Feed</a>
     <a href="#dossier">Analyst Dossier</a>
     <a href="#iocs">IOC Lookup</a>
+    <div class="sidebar-section">Export (PRO+)</div>
+    <a href="#export-csv">CSV Bulk IOC Export</a>
+    <a href="#export-sigma">Sigma Rules</a>
+    <a href="#export-yara">YARA Rules</a>
+    <div class="sidebar-section">Enterprise</div>
+    <a href="#export-misp">MISP Export</a>
+    <a href="#siem-dispatch">SIEM Dispatch</a>
+    <a href="#intel-graph">Intel Graph</a>
+    <a href="#sla-cert">SLA Certificate</a>
+    <a href="#invoices">Invoices</a>
+    <div class="sidebar-section">MSSP</div>
+    <a href="#mssp-tenants">Sub-Tenant Portal</a>
+    <a href="#whitelabel">White-Label Config</a>
+    <div class="sidebar-section">Compliance</div>
+    <a href="#gdpr">GDPR / Data Rights</a>
     <div class="sidebar-section">Integration</div>
     <a href="#splunk">Splunk</a>
     <a href="#sentinel">Microsoft Sentinel</a>
@@ -197,6 +212,139 @@ token = YOUR_API_KEY</pre>
   --collection sentinel-apex-live \
   --api-key YOUR_API_KEY \
   --output-type stix2</pre>
+
+    <h2 id="export-csv">CSV Bulk IOC Export <span class="tag req" style="font-size:.7rem">PRO+</span></h2>
+    <p>Export all Indicators of Compromise as RFC 4180-compliant CSV. Columns: <code>ioc_type</code>, <code>ioc_value</code>, <code>severity</code>, <code>confidence</code>, <code>cvss</code>, <code>epss</code>, <code>kev</code>, <code>cve_id</code>, <code>source</code>, <code>tags</code>, <code>published_at</code>.</p>
+    <div class="endpoint"><span class="method-badge get">GET</span><strong>/api/v1/export/csv</strong></div>
+    <table><tr><th>Parameter</th><th>Type</th><th>Required</th><th>Description</th></tr>
+      <tr><td>severity</td><td>string</td><td><span class="tag opt">optional</span></td><td>Filter: critical|high|medium|low|info</td></tr>
+      <tr><td>limit</td><td>integer</td><td><span class="tag opt">optional</span></td><td>Max rows (default 5000, max 50000 for ENTERPRISE)</td></tr>
+      <tr><td>kev_only</td><td>boolean</td><td><span class="tag opt">optional</span></td><td>Only KEV-listed CVEs</td></tr>
+    </table>
+    <pre>curl -H "X-API-Key: YOUR_API_KEY" \
+  "https://intel.cyberdudebivash.com/api/v1/export/csv?severity=critical" \
+  -o iocs.csv</pre>
+
+    <h2 id="export-sigma">Sigma Detection Rules <span class="tag req" style="font-size:.7rem">PRO+</span></h2>
+    <p>Download Sigma detection rules generated from threat feed IOCs and TTPs. 220+ rules covering all MITRE ATT&amp;CK techniques in the feed. Compatible with Splunk, Elastic, Sentinel, QRadar via <code>sigmac</code>.</p>
+    <div class="endpoint"><span class="method-badge get">GET</span><strong>/api/v1/export/sigma</strong></div>
+    <table><tr><th>Parameter</th><th>Type</th><th>Default</th><th>Description</th></tr>
+      <tr><td>format</td><td>string</td><td>yaml</td><td>yaml | json | list</td></tr>
+      <tr><td>limit</td><td>integer</td><td>50</td><td>Rules to return (max 500 ENTERPRISE)</td></tr>
+    </table>
+    <pre>curl -H "X-API-Key: YOUR_API_KEY" \
+  "https://intel.cyberdudebivash.com/api/v1/export/sigma?limit=100" \
+  -o rules.yml</pre>
+
+    <h2 id="export-yara">YARA Detection Rules <span class="tag req" style="font-size:.7rem">PRO+</span></h2>
+    <p>Download YARA malware detection rules generated from IOC intelligence. 170+ rules with hash patterns and string signatures. Compatible with YARA 4.x, ClamAV, VirusTotal.</p>
+    <div class="endpoint"><span class="method-badge get">GET</span><strong>/api/v1/export/yara</strong></div>
+    <pre>curl -H "X-API-Key: YOUR_API_KEY" \
+  "https://intel.cyberdudebivash.com/api/v1/export/yara" \
+  -o rules.yar</pre>
+
+    <h2 id="export-misp">MISP 2.4 Export <span class="tag req" style="font-size:.7rem">ENTERPRISE+</span></h2>
+    <p>Export threat intelligence as a MISP 2.4 compatible event collection. Returns MISP-import-ready JSON with attributes, tags, galaxy clusters, and relationship objects. Import via MISP → Import → Import from URL.</p>
+    <div class="endpoint"><span class="method-badge get">GET</span><strong>/api/v1/export/misp</strong></div>
+    <table><tr><th>Parameter</th><th>Type</th><th>Default</th><th>Description</th></tr>
+      <tr><td>limit</td><td>integer</td><td>200</td><td>Events to export (max 1000)</td></tr>
+      <tr><td>severity</td><td>string</td><td>all</td><td>Filter by severity</td></tr>
+    </table>
+    <pre>curl -H "X-API-Key: YOUR_ENT_KEY" \
+  "https://intel.cyberdudebivash.com/api/v1/export/misp?limit=500" \
+  -o misp_events.json</pre>
+
+    <h2 id="siem-dispatch">SIEM Dispatch <span class="tag req" style="font-size:.7rem">ENTERPRISE+</span></h2>
+    <p>Push advisory bundles directly to your SIEM. Supports Splunk HEC, Microsoft Sentinel Log Analytics, IBM QRadar, and Elastic Logstash HTTP input.</p>
+    <h3>Step 1 — Configure your SIEM endpoint</h3>
+    <div class="endpoint"><span class="method-badge post">POST</span><strong>/api/v1/siem/integrations</strong></div>
+    <pre>curl -X POST -H "X-API-Key: YOUR_ENT_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "siem_type": "splunk",
+    "endpoint_url": "https://splunk.yourdomain.com:8088/services/collector",
+    "api_token": "YOUR_SPLUNK_HEC_TOKEN",
+    "label": "Production Splunk"
+  }' https://intel.cyberdudebivash.com/api/v1/siem/integrations</pre>
+    <h3>Step 2 — Dispatch intelligence</h3>
+    <div class="endpoint"><span class="method-badge post">POST</span><strong>/api/v1/siem/dispatch</strong></div>
+    <pre>curl -X POST -H "X-API-Key: YOUR_ENT_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"advisory_ids": ["CDB-APEX-001","CDB-APEX-002"], "siem_target": "splunk", "format": "stix"}' \
+  https://intel.cyberdudebivash.com/api/v1/siem/dispatch</pre>
+
+    <h2 id="intel-graph">Intelligence Correlation Graph <span class="tag req" style="font-size:.7rem">ENTERPRISE+</span></h2>
+    <p>Returns a correlation graph linking advisories, IOCs, threat actors, campaigns, and MITRE ATT&amp;CK techniques. Compatible with D3.js, Cytoscape.js, Neo4j, and Gephi.</p>
+    <div class="endpoint"><span class="method-badge get">GET</span><strong>/api/v1/intel/graph/correlations</strong></div>
+    <table><tr><th>Parameter</th><th>Type</th><th>Default</th><th>Description</th></tr>
+      <tr><td>advisory_limit</td><td>integer</td><td>50</td><td>Max advisory nodes (up to 200)</td></tr>
+      <tr><td>min_confidence</td><td>float</td><td>50.0</td><td>Min confidence score 0–100</td></tr>
+      <tr><td>include_actors</td><td>boolean</td><td>true</td><td>Include threat actor nodes</td></tr>
+      <tr><td>include_techniques</td><td>boolean</td><td>true</td><td>Include ATT&amp;CK technique nodes</td></tr>
+    </table>
+    <pre>curl -H "X-API-Key: YOUR_ENT_KEY" \
+  "https://intel.cyberdudebivash.com/api/v1/intel/graph/correlations?advisory_limit=100" | \
+  jq '.graph.stats'</pre>
+
+    <h2 id="sla-cert">SLA Compliance Certificate <span class="tag req" style="font-size:.7rem">ENTERPRISE+</span></h2>
+    <p>Generate a signed SLA compliance certificate for your organisation covering uptime, incident response SLA, data residency, and compliance frameworks.</p>
+    <div class="endpoint"><span class="method-badge get">GET</span><strong>/api/v1/sla/certificate</strong></div>
+    <pre>curl -H "X-API-Key: YOUR_ENT_KEY" \
+  "https://intel.cyberdudebivash.com/api/v1/sla/certificate?period=current_month" \
+  -o sla_certificate.json</pre>
+    <div class="endpoint"><span class="method-badge get">GET</span><strong>/api/v1/sla/status</strong></div>
+
+    <h2 id="invoices">Invoices / GSTIN <span class="tag req" style="font-size:.7rem">PRO+</span></h2>
+    <p>Download GSTIN-compliant invoices for your subscription. Includes HSN/SAC code 998314, IGST calculation, and vendor GSTIN: 21ARKPN8270G1ZP.</p>
+    <div class="endpoint"><span class="method-badge get">GET</span><strong>/api/v1/invoices</strong></div>
+    <div class="endpoint"><span class="method-badge get">GET</span><strong>/api/v1/invoices/{invoice_id}</strong></div>
+    <pre>curl -H "X-API-Key: YOUR_API_KEY" \
+  "https://intel.cyberdudebivash.com/api/v1/invoices" | jq '.invoices[0]'</pre>
+
+    <h2 id="mssp-tenants">MSSP Sub-Tenant Portal <span class="tag req" style="font-size:.7rem">MSSP only</span></h2>
+    <p>Provision and manage up to 100 sub-tenants under your MSSP deployment. Each tenant receives an isolated API key, tier allocation, and daily quota.</p>
+    <div class="endpoint"><span class="method-badge get">GET</span><strong>/api/v1/mssp/portal/tenants</strong></div>
+    <div class="endpoint"><span class="method-badge post">POST</span><strong>/api/v1/mssp/tenants/provision</strong></div>
+    <pre>curl -X POST -H "X-API-Key: YOUR_MSSP_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "company_name": "ACME Security",
+    "admin_email": "admin@acmesecurity.com",
+    "country": "US",
+    "tier_allocation": "enterprise",
+    "daily_api_quota": 10000
+  }' https://intel.cyberdudebivash.com/api/v1/mssp/tenants/provision</pre>
+    <p>The response includes a plaintext <code>api_key</code> shown <strong>once only</strong>. Copy it immediately and deliver to the tenant admin.</p>
+    <div class="endpoint"><span class="method-badge post">POST</span><strong>/api/v1/mssp/keys</strong> — Issue additional tenant-scoped keys</div>
+    <div class="endpoint"><span class="method-badge get">GET</span><strong>/api/v1/mssp/reports</strong> — List branded reports</div>
+
+    <h2 id="whitelabel">White-Label Configuration <span class="tag req" style="font-size:.7rem">MSSP only</span></h2>
+    <p>Customise the platform branding for your tenants: company name, logo, color palette, support contacts, custom subdomain, and CSS.</p>
+    <div class="endpoint"><span class="method-badge post">POST</span><strong>/api/v1/whitelabel/configure</strong></div>
+    <pre>curl -X POST -H "X-API-Key: YOUR_MSSP_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "company_name": "ACME Threat Intel",
+    "company_logo_url": "https://acmesecurity.com/logo.png",
+    "primary_color": "#003366",
+    "accent_color": "#ff6600",
+    "support_email": "soc@acmesecurity.com",
+    "portal_subdomain": "acme"
+  }' https://intel.cyberdudebivash.com/api/v1/whitelabel/configure</pre>
+    <div class="endpoint"><span class="method-badge get">GET</span><strong>/api/v1/whitelabel/config</strong> — Get current branding</div>
+
+    <h2 id="gdpr">GDPR &amp; Data Subject Rights <span class="tag opt" style="font-size:.7rem;background:#0d2a1f;color:#81c784;border-color:#4caf50">All tiers</span></h2>
+    <p>GDPR Art.15/17 (EU/Germany), UK GDPR (ICO), UAE PDPL Art.13/14, and CCPA §1798.100 data subject rights endpoints.</p>
+    <h3>Personal Data Export (Art.15)</h3>
+    <div class="endpoint"><span class="method-badge get">GET</span><strong>/api/v1/gdpr/export</strong></div>
+    <pre>curl -H "X-API-Key: YOUR_API_KEY" \
+  "https://intel.cyberdudebivash.com/api/v1/gdpr/export?format=json" \
+  -o my_data.json</pre>
+    <h3>Data Deletion Request (Art.17)</h3>
+    <div class="endpoint"><span class="method-badge get" style="background:#7b1111">DELETE</span><strong>/api/v1/gdpr/delete?confirm=true</strong></div>
+    <pre>curl -X DELETE -H "X-API-Key: YOUR_API_KEY" \
+  "https://intel.cyberdudebivash.com/api/v1/gdpr/delete?confirm=true"</pre>
+    <div class="info-box warn"><p>⚠️ Deletion is irreversible. Account access will be suspended within 30 days. Compliance audit logs (7-year retention) and billing records are exempt from erasure per GDPR Art.17(3)(b).</p></div>
   </div>
 </div>
 </body>
