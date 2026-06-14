@@ -169,6 +169,60 @@ jobs:
           path: backup-manifest.json
           retention-days: 30
 
+  # ── Cloudflare KV + R2 Data Backup (v180.0 - enterprise hardening) ─────────
+  cf-data-backup:
+    name: Cloudflare KV + R2 Backup
+    needs: setup
+    runs-on: ubuntu-latest
+    if: needs.setup.outputs.backup_type == 'full'
+    timeout-minutes: 30
+    continue-on-error: true  # Don't block main backup if CF creds not configured
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6.0.2
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install boto3 requests --quiet
+
+      - name: Backup KV namespaces to R2
+        env:
+          CF_API_TOKEN:            ${{ secrets.CF_API_TOKEN }}
+          CF_ACCOUNT_ID:           ${{ secrets.CF_ACCOUNT_ID }}
+          CF_R2_ACCESS_KEY_ID:     ${{ secrets.CF_R2_ACCESS_KEY_ID }}
+          CF_R2_SECRET_ACCESS_KEY: ${{ secrets.CF_R2_SECRET_ACCESS_KEY }}
+          CF_R2_ENDPOINT:          ${{ secrets.CF_R2_ENDPOINT }}
+          CF_R2_BUCKET:            sentinel-apex-data
+        run: |
+          if [[ -z "$CF_API_TOKEN" || -z "$CF_ACCOUNT_ID" ]]; then
+            echo "SKIP: CF_API_TOKEN or CF_ACCOUNT_ID not configured"
+            exit 0
+          fi
+          python3 scripts/backup_kv_to_r2.py
+
+      - name: Backup R2 buckets (manifest + integrity check)
+        env:
+          CF_R2_ACCESS_KEY_ID:     ${{ secrets.CF_R2_ACCESS_KEY_ID }}
+          CF_R2_SECRET_ACCESS_KEY: ${{ secrets.CF_R2_SECRET_ACCESS_KEY }}
+          CF_R2_ENDPOINT:          ${{ secrets.CF_R2_ENDPOINT }}
+        run: |
+          if [[ -z "$CF_R2_ACCESS_KEY_ID" ]]; then
+            echo "SKIP: CF R2 credentials not configured"
+            exit 0
+          fi
+          python3 scripts/backup_r2.py
+
+      - name: Notify on CF backup failure
+        if: failure()
+        run: |
+          echo "::warning::Cloudflare KV/R2 backup failed. Check CF_API_TOKEN and R2 credentials."
+
   # ── Backup Integrity Verify ───────────────────────────────────────────────
   verify-backup:
     name: Verify Backup Integrity

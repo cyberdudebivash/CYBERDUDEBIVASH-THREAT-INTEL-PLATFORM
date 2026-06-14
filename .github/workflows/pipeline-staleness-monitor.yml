@@ -1,0 +1,57 @@
+name: Pipeline Staleness Monitor
+
+# CYBERDUDEBIVASH(R) SENTINEL APEX v180.0
+# Checks critical workflows for staleness every 2 hours.
+# Sends Telegram alert if sentinel-blogger or generate-and-sync
+# haven't succeeded within their expected cadence.
+
+on:
+  schedule:
+    - cron: "0 */2 * * *"
+  workflow_dispatch:
+    inputs:
+      threshold_hours:
+        description: "Override staleness threshold (hours)"
+        required: false
+        default: ""
+        type: string
+
+concurrency:
+  group: sentinel-staleness-monitor
+  cancel-in-progress: true
+
+permissions:
+  actions: read
+  contents: read
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  check-staleness:
+    name: Pipeline Staleness Check
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6.0.2
+        with:
+          fetch-depth: 1
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install requests --quiet
+
+      - name: Check pipeline staleness
+        env:
+          GITHUB_TOKEN:             ${{ secrets.GITHUB_TOKEN }}
+          TG_BOT_TOKEN:             ${{ secrets.TG_BOT_TOKEN }}
+          TG_CHAT_ID:               ${{ secrets.TG_CHAT_ID }}
+          REPO:                     ${{ github.repository }}
+          STALENESS_THRESHOLD_HOURS: ${{ github.event.inputs.threshold_hours || '' }}
+        run: python3 scripts/check_pipeline_staleness.py
