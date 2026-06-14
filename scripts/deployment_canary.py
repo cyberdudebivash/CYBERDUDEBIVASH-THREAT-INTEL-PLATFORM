@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 scripts/deployment_canary.py
-CYBERDUDEBIVASH(R) SENTINEL APEX -- Enterprise Deployment Canary v1.0
+CYBERDUDEBIVASH(R) SENTINEL APEX -- Enterprise Deployment Canary v1.0.1
 ======================================================================
 Post-deployment canary validation with automatic rollback trigger.
 
