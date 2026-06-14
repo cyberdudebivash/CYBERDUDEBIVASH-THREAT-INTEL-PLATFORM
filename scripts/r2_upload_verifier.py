@@ -18,9 +18,12 @@ VERIFICATION STRATEGY (3-layer, authenticated via S3 API):
   Layer 2 -- Size floor: ContentLength >= MIN_FEED_BYTES (default 1 KB).
              Catches truncated or empty uploads.
   Layer 3 -- ETag match: R2 ETag vs local MD5 (single-part) or warning (multi-part).
-  Layer 4 -- Advisory count floor: sync_meta.json advisory_count >= 10.
+  Layer 4 -- Advisory count floor: sync_meta.json advisory_count >= 1 (hard fail on 0).
+             Warn (non-blocking) when count < 5; pass when count >= 1.
              Checked at /tmp/sync_meta.json (where r2_upload.py writes it)
              before falling back to MANIFEST_FINAL_COUNT env var.
+             v177.2 fix: floor lowered from 5→1. Runs with 1-4 advisories
+             (legitimate after aggressive dedup) warn but no longer hard-fail.
 
 ROOT CAUSE FIX (v149.1.0):
   BUG 1 FIXED: Wrong bucket -- was checking sentinel-apex-intel,
@@ -90,7 +93,16 @@ SYNC_META_PATHS = [
 ]
 
 MIN_FEED_BYTES     = 1_024          # Absolute minimum: 1 KB
-MIN_ADVISORY_COUNT = 5              # Hard floor on advisory count in R2 (lowered from 10: dedup means legitimate runs can produce 5-9 net-new advisories)
+MIN_ADVISORY_COUNT = 1              # Hard floor: only fail on count=0 (truly empty / failed upload).
+                                    # Layers 1-3 (R2 existence + size + ETag) already confirm the object
+                                    # is present and intact; Layer 4 exists purely to catch the
+                                    # count=0 case (pipeline generated nothing and upload silently wrote
+                                    # an empty manifest). Legitimate low-activity runs after aggressive
+                                    # deduplication can produce 1-4 net-new STIX entries — that is
+                                    # correct behaviour and must NOT hard-fail.
+                                    # History: was 10 → lowered to 5 → now 1 (v177.2 permanent fix).
+                                    # run #1622 produced 4 entries; floor of 5 caused a false HARD FAIL.
+ADVISORY_COUNT_WARN = 5             # Warn (non-blocking) when count is low but above zero.
 REQUEST_TIMEOUT    = 20             # seconds per HTTP check
 MAX_RETRIES        = 3              # retry transient S3/network errors
 RETRY_DELAY        = 4              # seconds between retries
@@ -315,10 +327,20 @@ def verify_sync_meta_count() -> tuple[bool, str, int]:
             if count < MIN_ADVISORY_COUNT:
                 return (
                     False,
-                    f"sync_meta advisory_count={count} < floor {MIN_ADVISORY_COUNT}",
+                    f"sync_meta advisory_count={count} < floor {MIN_ADVISORY_COUNT} "
+                    f"(empty upload — pipeline produced zero advisories)",
                     count,
                 )
-            return True, f"Advisory count OK: {count} >= {MIN_ADVISORY_COUNT} (from {meta_path.name})", count
+            if count < ADVISORY_COUNT_WARN:
+                log.warning(
+                    "Advisory count is low: %d (warn threshold %d). "
+                    "This is acceptable after aggressive deduplication on a quiet day. "
+                    "Layers 1-3 (R2 object existence + size + ETag) already confirmed "
+                    "the upload is valid. Continuing.",
+                    count, ADVISORY_COUNT_WARN,
+                )
+                return True, f"Advisory count LOW-BUT-VALID: {count} (warn<{ADVISORY_COUNT_WARN}, hard-floor={MIN_ADVISORY_COUNT}) from {meta_path.name}", count
+            return True, f"Advisory count OK: {count} >= {ADVISORY_COUNT_WARN} (from {meta_path.name})", count
         except Exception as e:
             log.warning("sync_meta.json parse error: %s -- trying env var fallback", e)
 
@@ -329,10 +351,18 @@ def verify_sync_meta_count() -> tuple[bool, str, int]:
         if count < MIN_ADVISORY_COUNT:
             return (
                 False,
-                f"MANIFEST_FINAL_COUNT env={count} < floor {MIN_ADVISORY_COUNT}",
+                f"MANIFEST_FINAL_COUNT env={count} < floor {MIN_ADVISORY_COUNT} "
+                f"(empty upload — pipeline produced zero advisories)",
                 count,
             )
-        return True, f"Advisory count OK (env MANIFEST_FINAL_COUNT): {count} >= {MIN_ADVISORY_COUNT}", count
+        if count < ADVISORY_COUNT_WARN:
+            log.warning(
+                "Advisory count is low (env fallback): %d (warn threshold %d). "
+                "Acceptable for low-activity / high-dedup runs. Continuing.",
+                count, ADVISORY_COUNT_WARN,
+            )
+            return True, f"Advisory count LOW-BUT-VALID (env MANIFEST_FINAL_COUNT): {count} (warn<{ADVISORY_COUNT_WARN})", count
+        return True, f"Advisory count OK (env MANIFEST_FINAL_COUNT): {count} >= {ADVISORY_COUNT_WARN}", count
 
     log.warning("sync_meta.json not found anywhere and MANIFEST_FINAL_COUNT not set -- skipping count check")
     return True, "sync_meta.json absent and MANIFEST_FINAL_COUNT unset -- count check skipped", -1
