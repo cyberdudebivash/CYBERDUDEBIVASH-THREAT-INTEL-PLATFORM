@@ -1281,16 +1281,19 @@ async function handleRequest(request, env, ctx) {
     }
 
     const key = path.replace(/^\//, "");
+    const PROBE_YEARS  = [2026, 2025];
+    const PROBE_MONTHS = ["06","12","09","05","04","03","02","01","10","11","07","08"];
 
-    // Legacy directory-style URLs: /reports/intel--{hash}/
-    const legacyMatch = path.match(/^\/reports\/(intel--[a-f0-9]+)\/?$/i);
+    // Legacy URLs: /reports/intel--{hash}  OR  /reports/intel--{hash}.html  OR  /reports/intel--{hash}/
+    // All three forms have intel-- directly after /reports/ (no YYYY/MM date segment).
+    // Root cause of recurring 404: old regex only matched slug-without-extension or trailing-slash.
+    // Fix: (?:\.html)? now catches the .html-extension-without-date-path form too.
+    const legacyMatch = path.match(/^\/reports\/(intel--[a-f0-9]+)(?:\.html)?\/?$/i);
     if (legacyMatch || (path.endsWith("/") && path.startsWith("/reports/"))) {
-      const slug = legacyMatch ? legacyMatch[1] : path.replace(/^\/reports\//, "").replace(/\/+$/, "");
+      const slug = legacyMatch ? legacyMatch[1] : path.replace(/^\/reports\//, "").replace(/[./]+$/, "");
       const fn   = slug.startsWith("intel--") ? `${slug}.html` : `intel--${slug}.html`;
-      const probeYears  = [2026, 2025];
-      const probeMonths = ["12","09","06","05","04","03","02","01","10","11","07","08"];
-      for (const y of probeYears) {
-        for (const m of probeMonths) {
+      for (const y of PROBE_YEARS) {
+        for (const m of PROBE_MONTHS) {
           const obj = await env.REPORTS_R2.get(`reports/${y}/${m}/${fn}`);
           if (obj) return Response.redirect(`https://intel.cyberdudebivash.com/reports/${y}/${m}/${fn}`, 301);
         }
@@ -1298,21 +1301,40 @@ async function handleRequest(request, env, ctx) {
       return jsonResp({ error: "Report not found", path, suggestion: "Report may still be generating. Try again in a few minutes." }, 404);
     }
 
-    // Direct R2 lookup
+    // Canonical URL: /reports/YYYY/MM/intel--{hash}.html
+    // Try direct R2 lookup first. On miss, cross-month probe guards against wrong-date-path
+    // in report_url fields (e.g. report generated in May but URL says June).
     const obj = await env.REPORTS_R2.get(key);
-    const target = obj || await env.REPORTS_R2.get(key.endsWith(".html") ? key : `${key}.html`);
-    if (!target) return jsonResp({ error: "Report not found", path }, 404);
-    return new Response(target.body, {
-      status: 200,
-      headers: {
-        ...CORS_HEADERS,
-        ...SECURITY_HEADERS,
-        "Content-Security-Policy": HTML_CSP,
-        "Content-Type":  "text/html; charset=utf-8",
-        "Cache-Control": "public, max-age=86400, stale-while-revalidate=3600",
-        "ETag": target.httpEtag || "",
-      },
-    });
+    if (obj) {
+      return new Response(obj.body, {
+        status: 200,
+        headers: {
+          ...CORS_HEADERS, ...SECURITY_HEADERS,
+          "Content-Security-Policy": HTML_CSP,
+          "Content-Type":  "text/html; charset=utf-8",
+          "Cache-Control": "public, max-age=86400, stale-while-revalidate=3600",
+          "ETag": obj.httpEtag || "",
+        },
+      });
+    }
+
+    // Cross-month fallback: probe all known year/month combos for the same slug.
+    const slugMatch = path.match(/\/(intel--[a-f0-9]+)\.html$/i);
+    if (slugMatch) {
+      const fn = slugMatch[1] + ".html";
+      for (const y of PROBE_YEARS) {
+        for (const m of PROBE_MONTHS) {
+          const probeKey = `reports/${y}/${m}/${fn}`;
+          if (probeKey === key) continue;
+          const probeObj = await env.REPORTS_R2.get(probeKey);
+          if (probeObj) {
+            return Response.redirect(`https://intel.cyberdudebivash.com/${probeKey}`, 301);
+          }
+        }
+      }
+    }
+
+    return jsonResp({ error: "Report not found", path, suggestion: "Report may still be generating. Try again in a few minutes." }, 404);
   }
 
   // --- 404 --------------------------------------------------------------------
