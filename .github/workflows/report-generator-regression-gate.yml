@@ -1,0 +1,50 @@
+# SENTINEL APEX -- Report Generator Manifest-Format Regression Gate
+#
+# Guards against a regression of the P0 fixed in generate_intel_reports.py
+# where running with --manifest api/feed.json (a top-level JSON array)
+# crashed with `AttributeError: 'list' object has no attribute 'get'`.
+# That crash was swallowed by run_pipeline.py's allow_fail=True "ID format
+# migration pass", so items in api/feed.json silently never received a
+# report_url -- producing permanent 404s on /reports/<yyyy>/<mm>/<id>.html.
+#
+# Runs on every push and PR to main.
+
+name: Report Generator Regression Gate
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: report-generator-regression-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  manifest-format-regression:
+    name: "generate_intel_reports.py -- list & dict manifest formats"
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6.0.2
+        with:
+          fetch-depth: 1
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5.5.0
+        with:
+          python-version: '3.12'
+
+      - name: Install test dependencies
+        run: pip install pytest --quiet
+
+      - name: Run manifest-format regression tests
+        run: |
+          python -m pytest tests/test_generate_intel_reports_manifest_formats.py -v --tb=short
