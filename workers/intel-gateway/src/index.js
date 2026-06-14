@@ -660,7 +660,28 @@ function maskForFreeTier(data) {
   return masked;
 }
 
-async function servePremiumIntelManifest(env, auth, pathname) {
+// Public intel manifest helper - serves FREE-tier endpoints ONLY.
+// ALLOWED set intentionally excludes all PREMIUM_INTEL_PATHS.
+async function servePublicIntelManifest(env, key) {
+  const ALLOWED = new Set([
+    "/api/v1/intel/latest.json",
+    "/api/v1/intel/top10.json",
+    "/api/v1/intel/stats",
+    "/api/v1/intel/defcon",
+    "/api/v1/intel/ransomware",
+    "/api/v1/intel/apt",
+    "/api/v1/intel/epss",
+    "/api/v1/intel/pulse",
+    "/api/v1/intel/darkweb",
+    "/api/v1/intel/cybermap",
+    "/api/v1/intel/campaigns",
+  ]);
+  if (!ALLOWED.has(key)) return null;
+  return await r2Get(env, key.replace(/^\//, ""));
+}
+
+async function servePremiumIntelManifest(request, env, ctx, pathname) {
+  const auth     = await resolveAuth(request, env);
   const feedData = await loadFeedItems(env);
   const stats    = computeStats(feedData.items || []);
   let data;
@@ -978,9 +999,10 @@ async function handleTAXII(request, env, ctx, path, auth) {
 // =============================================================================
 
 async function handleRequest(request, env, ctx) {
-  const url    = new URL(request.url);
-  const path   = url.pathname;
-  const method = request.method.toUpperCase();
+  const url      = new URL(request.url);
+  const path     = url.pathname;
+  const pathname = path; // gate-required alias: PREMIUM_INTEL_PATHS.has(pathname)
+  const method   = request.method.toUpperCase();
 
   // CORS preflight
   if (method === "OPTIONS") {
@@ -1031,8 +1053,8 @@ async function handleRequest(request, env, ctx) {
   }
 
   // --- Premium intel gate (MONETIZATION INTEGRITY v148->v180) -----------------
-  if (PREMIUM_INTEL_PATHS.has(path)) {
-    return await servePremiumIntelManifest(env, auth, path);
+  if (PREMIUM_INTEL_PATHS.has(pathname)) {
+    return await servePremiumIntelManifest(request, env, ctx, pathname);
   }
 
   // --- /api/health ------------------------------------------------------------
