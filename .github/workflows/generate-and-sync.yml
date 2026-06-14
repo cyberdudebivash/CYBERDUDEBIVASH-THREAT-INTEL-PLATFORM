@@ -684,7 +684,7 @@ jobs:
         continue-on-error: true
         run: |
           set +e
-          python3 scripts/feed_health_gate.py --feed api/feed.json --report
+          python3 scripts/feed_health_gate.py --feed api/feed.json
           FHG_EXIT=$?
           set -e
           if [ -f "data/health/feed_health_gate.json" ]; then
@@ -693,10 +693,26 @@ jobs:
             FHG_TOTAL=$(jq -r '.total_items // "?"' data/health/feed_health_gate.json 2>/dev/null || echo "?")
             echo "[FEED-HEALTH] Status=$FHG_STATUS | Items=$FHG_TOTAL | Fails=$FHG_FAILS"
             if [ "$FHG_STATUS" = "FAIL" ]; then
-              echo "::warning::FEED HEALTH GATE FAIL — $FHG_FAILS. Feed quality degraded."
+              echo "::error::FEED HEALTH GATE FAIL — $FHG_FAILS. Feed quality degraded."
             fi
           fi
           echo "STAGE 6.89: Feed Health Gate complete"
+
+      # Hard-fail enforcement: block pipeline publish if feed health gate reports FAIL.
+      - name: "STAGE 6.89.1 — Feed Health Gate Hard Fail Enforcement"
+        timeout-minutes: 1
+        run: |
+          if [ -f "data/health/feed_health_gate.json" ]; then
+            FHG_STATUS=$(jq -r '.status // "UNKNOWN"' data/health/feed_health_gate.json 2>/dev/null || echo "UNKNOWN")
+            FHG_FAILS=$(jq -r '.hard_fails | join(",")' data/health/feed_health_gate.json 2>/dev/null || echo "?")
+            if [ "$FHG_STATUS" = "FAIL" ]; then
+              echo "::error::PRODUCTION BLOCK — Feed health FAIL ($FHG_FAILS). Publishing synthetic/stale/corrupt intel to customers is forbidden."
+              exit 1
+            fi
+            echo "[GATE ENFORCER] Feed health status=$FHG_STATUS — cleared for publish"
+          else
+            echo "::warning::feed_health_gate.json absent — skipping enforcement"
+          fi
 
       # ─────────────────────────────────────────────────────────────────────
       # STAGE 6.895 — ADVISORY IMMUTABILITY ENGINE (v159.0 Enterprise Hardening)
