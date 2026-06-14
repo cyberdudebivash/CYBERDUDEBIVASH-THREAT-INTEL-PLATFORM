@@ -957,7 +957,7 @@ async function handleRequest(request, env) {
   // -- /reports/ HTML report serving -------------------------------------------
   // v177.0 FIX: Handle both correct format (/reports/YYYY/MM/intel--{hash}.html)
   // and legacy directory-style (/reports/intel--{hash}/) URLs via transparent
-  // discovery — query R2 with correct key, or scan known date paths on miss.
+  // discovery  -  query R2 with correct key, or scan known date paths on miss.
   if (path.startsWith("/reports/")) {
     if (!env.REPORTS_R2) {
       return new Response("Reports bucket not configured", {
@@ -968,7 +968,7 @@ async function handleRequest(request, env) {
 
     const key = path.replace(/^\//, ""); // strip leading "/" -> "reports/..."
 
-    // Normalise legacy directory-style URLs: /reports/intel--{hash}/ → lookup
+    // Normalise legacy directory-style URLs: /reports/intel--{hash}/ -> lookup
     // Pattern: path ends with "/" and has no YYYY/MM date segment
     const legacyDirMatch = path.match(/^\/reports\/(intel--[a-f0-9]+)\/?$/i);
     if (legacyDirMatch || (path.endsWith("/") && path.startsWith("/reports/"))) {
