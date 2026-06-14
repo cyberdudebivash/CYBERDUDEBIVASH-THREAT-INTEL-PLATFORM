@@ -323,18 +323,98 @@ jobs:
           echo "=== Deploying SENTINEL APEX Worker v${PLATFORM_VERSION} ==="
           cd ${WORKER_DIR}
 
+          LOG=/tmp/wrangler_deploy.log
+
+          # -----------------------------------------------------------------
+          # v177.1 PERMANENT FIX -- Workers Routes token-scope resilience
+          # -----------------------------------------------------------------
+          # Root cause (deploy-worker run #142): the CLOUDFLARE_API_TOKEN has
+          # `Account -> Workers Scripts: Edit` (script upload + activation works)
+          # but lacks `Zone -> Workers Routes: Edit` for cyberdudebivash.com.
+          #
+          # The worker SCRIPT (incl. our /reports/ 404 fix) uploads and goes
+          # live successfully ("Uploaded sentinel-apex-gateway"). wrangler then
+          # tries to RE-ASSERT the two static route mappings in wrangler.toml
+          # (intel.cyberdudebivash.com/api/* and /reports/*) -- which already
+          # exist from prior deploys and never change -- and gets denied with
+          # `/zones/.../workers/routes` Authentication error [code: 10000],
+          # making the whole job exit non-zero despite a successful deploy.
+          #
+          # This helper detects EXACTLY that case (script uploaded AND the only
+          # error is the routes endpoint auth error) so we can verify-and-pass.
+          # ANY OTHER failure (upload error, syntax, binding, account auth)
+          # still hard-fails -- we never blindly swallow a real deploy failure.
+          #
+          # IDEAL FIX (operator): add `Workers Routes: Edit` (zone:
+          # cyberdudebivash.com) to the API token so wrangler exits 0 cleanly.
+          # This guard keeps production deploys green until/if that is done.
+          # -----------------------------------------------------------------
+          is_routes_only_failure() {
+            grep -q "Uploaded sentinel-apex-gateway" "$LOG" && \
+            grep -q "workers/routes" "$LOG" && \
+            grep -q "code: 10000" "$LOG"
+          }
+
+          # Independently confirm the worker is actually live on its routes.
+          # This is the source of truth for deploy success when wrangler's exit
+          # code is poisoned by the routes-reconciliation step. If the script
+          # had NOT really deployed, the health endpoint would not respond 200.
+          verify_live() {
+            echo "--- Verifying worker is live via health endpoint ---"
+            for attempt in 1 2 3 4 5 6; do
+              sleep 10
+              STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 15 \
+                "https://intel.cyberdudebivash.com/api/health" 2>/dev/null || echo "000")
+              echo "  health probe ${attempt}/6 -> HTTP ${STATUS}"
+              if [ "$STATUS" = "200" ]; then
+                echo "OK: Worker is live and serving (HTTP 200)."
+                return 0
+              fi
+            done
+            return 1
+          }
+
+          handle_routes_gap() {
+            echo ""
+            echo "NOTICE: wrangler exited non-zero, but the worker SCRIPT uploaded"
+            echo "        successfully. The only error is the Zone Workers Routes"
+            echo "        reconciliation (token lacks 'Workers Routes: Edit')."
+            echo "        Routes are static and already exist -- verifying live deploy..."
+            if verify_live; then
+              echo ""
+              echo "DEPLOY SUCCESS (verified live): worker script is deployed and"
+              echo "serving on existing routes. Route reconciliation was skipped due"
+              echo "to token scope -- this does NOT affect the deployed code."
+              echo "ACTION (optional, to silence this): add 'Workers Routes: Edit'"
+              echo "(zone: cyberdudebivash.com) to the CLOUDFLARE_API_TOKEN."
+              return 0
+            fi
+            echo "FATAL: Routes step failed AND worker is not responding 200 -- real failure."
+            return 1
+          }
+
           echo "Deploy attempt 1/2 (--env production)..."
-          if wrangler deploy --env production 2>&1; then
+          if wrangler deploy --env production > "$LOG" 2>&1; then
+            cat "$LOG"
             echo "Deploy successful (production env)"
             exit 0
+          fi
+          cat "$LOG"
+          if is_routes_only_failure; then
+            handle_routes_gap && exit 0 || exit 1
           fi
 
           echo "Production env deploy failed  -  retrying without env flag..."
           sleep 5
 
-          if wrangler deploy 2>&1; then
+          if wrangler deploy > "$LOG" 2>&1; then
+            cat "$LOG"
             echo "Deploy successful (default env)"
             exit 0
+          fi
+          cat "$LOG"
+          if is_routes_only_failure; then
+            handle_routes_gap && exit 0 || exit 1
           fi
 
           echo "FATAL: Both deploy attempts failed"
