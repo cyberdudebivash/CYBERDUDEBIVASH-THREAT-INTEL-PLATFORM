@@ -6,6 +6,7 @@ Streamlit-based operational dashboard for the CyberDudeBivash platform.
 
 import streamlit as st
 import json
+import logging
 import os
 
 st.set_page_config(
@@ -26,11 +27,15 @@ state_file = "data/blogger_processed.json"
 processed_count = 0
 if os.path.exists(state_file):
     try:
-        with open(state_file, "r") as f:
-            data = json.load(f)
-            processed_count = len(data) if isinstance(data, list) else 0
-    except Exception:
-        pass
+        file_size = os.path.getsize(state_file)
+        if file_size > 50 * 1024 * 1024:  # 50 MB guard — prevent UI stall on oversized state
+            logging.warning("dashboard: state file too large (%d bytes), skipping load", file_size)
+        else:
+            with open(state_file, "r") as f:
+                data = json.load(f)
+                processed_count = len(data) if isinstance(data, list) else 0
+    except Exception as e:
+        logging.warning("dashboard: could not read state file %s: %s", state_file, e)
 
 col1.metric("Processed Items", processed_count)
 col2.metric("Intel Sources", "8 RSS Feeds")

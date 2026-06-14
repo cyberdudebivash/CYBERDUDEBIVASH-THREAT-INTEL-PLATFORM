@@ -263,12 +263,17 @@ def load_dead_letter() -> List[Dict]:
         return json.loads(DEAD_LETTER.read_text(encoding="utf-8"))
     except FileNotFoundError:
         return []
-    except Exception:
+    except Exception as e:
+        log(f"ERROR reading dead-letter queue {DEAD_LETTER}: {e} — returning empty list", "ERROR")
         return []
 
 def save_dead_letter(items: List[Dict]) -> None:
     QUEUE_DIR.mkdir(parents=True, exist_ok=True)
-    DEAD_LETTER.write_text(json.dumps(items, indent=2, ensure_ascii=False), encoding="utf-8")
+    try:
+        DEAD_LETTER.write_text(json.dumps(items, indent=2, ensure_ascii=False), encoding="utf-8")
+    except Exception as e:
+        log(f"ERROR saving dead-letter queue {DEAD_LETTER}: {e} — {len(items)} items NOT persisted", "ERROR")
+        raise
 
 # ── Queue status report ────────────────────────────────────────────────────────
 def queue_status() -> Dict[str, Any]:
