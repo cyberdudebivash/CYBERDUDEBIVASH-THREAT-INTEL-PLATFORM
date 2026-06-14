@@ -9,6 +9,18 @@ compatibility_date = "2025-09-01"
 #                  through to CF Pages static hosting which had no matching files => 404.
 # Fix (v167.2): Added /reports/* route so serveHtmlIntelReport() is invoked and
 #               reports are served directly from R2 (REPORTS_R2 binding).
+#
+# REQUIRED API TOKEN SCOPE (v177.1):
+#   Deploying these routes requires the CLOUDFLARE_API_TOKEN (GH secret
+#   CF_API_TOKEN) to hold BOTH:
+#     * Account -> Workers Scripts : Edit   (upload + activate the worker script)
+#     * Zone    -> Workers Routes  : Edit   (attach/verify these route patterns)
+#                  scoped to zone cyberdudebivash.com
+#   If the Workers Routes permission is missing, wrangler uploads the script
+#   successfully but then fails re-asserting these (already-existing, static)
+#   routes with Authentication error [code: 10000]. deploy-worker.yml tolerates
+#   exactly that case by verifying the worker is live via /api/health, but the
+#   clean fix is to grant the Workers Routes: Edit permission to the token.
 routes = [
   { pattern = "intel.cyberdudebivash.com/api/*",     zone_name = "cyberdudebivash.com" },
   { pattern = "intel.cyberdudebivash.com/reports/*", zone_name = "cyberdudebivash.com" },
