@@ -81,6 +81,7 @@ on:
       - 'scripts/attack_coverage_analytics.py'
       - 'scripts/canary_contract_validator.py'
       - 'scripts/validate_canary_worker_alignment.py'
+      - 'scripts/confidence_corroboration_engine.py'
       - 'scripts/jwt_governance.py'
       - 'scripts/graph_integrity_validator.py'
       - 'scripts/repo_scale_governance.py'
@@ -162,6 +163,7 @@ jobs:
             "scripts/jwt_governance.py"
             "scripts/graph_integrity_validator.py"
             "scripts/repo_scale_governance.py"
+            "scripts/confidence_corroboration_engine.py"
           )
           ERRORS=0
           for f in "${GOVERNANCE_SCRIPTS[@]}"; do
@@ -285,6 +287,33 @@ jobs:
           else
             echo "::warning::Source trust engine exited $TRUST_EXIT (non-blocking)"
           fi
+
+      # ── PHASE 4.5: Confidence & Corroboration Enrichment ────────────────────
+      - name: "PHASE 4.5 — Confidence & Corroboration Enrichment (CTI Standard)"
+        id: confidence_enrichment
+        run: |
+          echo "[PHASE 4.5] Running confidence_corroboration_engine.py..."
+          mkdir -p data/governance
+          set +e
+          python3 scripts/confidence_corroboration_engine.py 2>&1 | tee /tmp/confidence_output.txt
+          CONF_EXIT=$?
+          set -e
+
+          CONF_STATUS="PASS"
+          if [ "$CONF_EXIT" -eq 1 ]; then
+            CONF_STATUS="FAIL"
+            echo "::error::Confidence corroboration engine FATAL: feed unreadable or schema error"
+            grep -E "FATAL|ERROR" /tmp/confidence_output.txt || true
+            # Non-blocking — enrichment failure should not halt governance pipeline
+          elif [ "$CONF_EXIT" -ne 0 ]; then
+            CONF_STATUS="WARN"
+            echo "::warning::Confidence engine exited $CONF_EXIT (non-blocking)"
+          else
+            echo "[PHASE 4.5] Confidence enrichment: COMPLETE"
+          fi
+          grep -E "CONFIRMED|HIGH_CONFIDENCE|MEDIUM_CONFIDENCE|LOW_CONFIDENCE|UNVERIFIED|items enriched|P0|P1" \
+            /tmp/confidence_output.txt | tail -15 || true
+          echo "confidence_status=$CONF_STATUS" >> $GITHUB_OUTPUT
 
       # ── PHASE 5: SLA Engine ───────────────────────────────────────────────
       - name: "PHASE 5 — Enterprise SLA Observability"
@@ -559,6 +588,7 @@ jobs:
           echo "  JWT Governance   : ${{ steps.jwt_governance.outputs.jwt_status || 'N/A' }}"
           echo "  Graph Integrity  : ${{ steps.graph_integrity.outputs.graph_status || 'N/A' }}"
           echo "  Repo Scale       : ${{ steps.repo_scale.outputs.scale_status || 'N/A' }}"
+          echo "  Confidence CTI   : ${{ steps.confidence_enrichment.outputs.confidence_status || 'N/A' }}"
           echo "========================================================"
           echo ""
           # Show full governance report if available
@@ -599,6 +629,7 @@ jobs:
             data/governance/api_baseline.json \
             data/governance/jwt_governance.json \
             data/governance/graph_integrity.json \
+            data/governance/confidence_corroboration_report.json \
             data/governance/repo_scale_governance.json \
             data/intelligence/attack_navigator.json \
             data/quality/source_trust_scores.json \
