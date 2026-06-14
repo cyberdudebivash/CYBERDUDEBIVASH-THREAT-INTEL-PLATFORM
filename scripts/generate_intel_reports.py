@@ -2360,6 +2360,10 @@ def main(argv=None) -> int:
     MANIFEST_PATH = Path(args.manifest)
     log(f"Starting {PLATFORM_VERSION} - manifest: {MANIFEST_PATH}")
 
+    # Ensure recovery directory exists so _store_write_failure() never silently drops failures
+    _recovery_dir = REPO_ROOT / "data" / "recovery" / "write_failures"
+    _recovery_dir.mkdir(parents=True, exist_ok=True)
+
     endpoint = None
     if args.upload_r2:
         acct = os.environ.get("CF_ACCOUNT_ID", "")
@@ -2564,10 +2568,28 @@ def main(argv=None) -> int:
 
     # Persist manifest -- preserve top-level array format for list-style
     # manifests (e.g. api/feed.json); dict-style manifests keep their wrapper.
+    #
+    # CUSTOMER RELEASE GATE: entries with empty report_url (render_error,
+    # write_error, file_missing, or never-processed) are EXCLUDED from the
+    # published feed so customers never receive broken intel links (404s).
+    # They remain in the recovery buffer for the next pipeline run.
+    _publishable = [
+        it for it in items
+        if it.get("report_url", "").startswith("/reports/")
+    ]
+    _excluded = len(items) - len(_publishable)
+    if _excluded:
+        log(
+            f"PUBLISH GATE: excluded {_excluded} entries with missing/invalid report_url "
+            f"from published feed (kept in recovery buffer for retry next run)",
+            "warning",
+        )
+    _save_items = _publishable if isinstance(data, list) else items
+
     if isinstance(data, list):
-        save_manifest(items)
+        save_manifest(_save_items)
     else:
-        data["advisories"] = items
+        data["advisories"] = items  # internal manifest keeps all (for recovery)
         save_manifest(data)
 
     # v152.1: enforce --fail-on-zero flag (was parsed but never checked)
