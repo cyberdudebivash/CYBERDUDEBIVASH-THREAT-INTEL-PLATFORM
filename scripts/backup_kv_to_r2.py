@@ -22,6 +22,7 @@ import hashlib
 import datetime
 import urllib.request
 import urllib.error
+import urllib.parse
 
 try:
     import boto3
@@ -68,7 +69,15 @@ def cf_get(path, params=None):
 def list_kv_keys(ns_id, prefix=None):
     keys = []
     cursor = None
+    _MAX_PAGES = 500  # hard ceiling: 500 pages × 1000 keys = 500K keys max
+    _page = 0
     while True:
+        _page += 1
+        if _page > _MAX_PAGES:
+            raise RuntimeError(
+                f"KV list exceeded {_MAX_PAGES} pages for namespace {ns_id} — "
+                "possible infinite cursor loop; aborting to prevent stall"
+            )
         params = {"limit": "1000"}
         if cursor:
             params["cursor"] = cursor
@@ -175,9 +184,6 @@ def main():
 
     today = datetime.datetime.utcnow().strftime("%Y-%m-%d")
     print(f"=== SENTINEL APEX KV Backup -> R2 | Date: {today} ===")
-
-    # Need urllib.parse for key encoding
-    import urllib.parse
 
     failed = []
     for ns_name, ns_id in KV_NAMESPACES.items():

@@ -2394,8 +2394,18 @@ def main(argv=None) -> int:
     skipped_brand = 0
     errors = 0
     t_start = time.monotonic()
+    # Absolute batch timeout: 3 hours max regardless of batch size.
+    # Prevents indefinite stalls from hanging renders or APEX module deadlocks.
+    _BATCH_TIMEOUT_S = 10800  # 3 hours
 
     for _idx, item in enumerate(items):
+        if time.monotonic() - t_start > _BATCH_TIMEOUT_S:
+            log(
+                f"BATCH TIMEOUT: exceeded {_BATCH_TIMEOUT_S}s absolute limit after "
+                f"{_idx}/{len(items)} items (written={written} errors={errors}) — aborting to prevent stall",
+                "error",
+            )
+            break
         intel_id = item.get("id")
         if not intel_id:
             log(f"SKIP: entry missing id field - {item.get('title','?')[:60]}", "warning")
@@ -2442,8 +2452,7 @@ def main(argv=None) -> int:
                 from scripts.safe_io import _store_write_failure
                 _store_write_failure(path, render_exc, payload=item)
             except Exception as _rbuf_exc:
-                # v134.1: log  -  diagnostics path must not silently swallow errors
-                _log.debug("RENDER FAIL BUFFER [%s]: could not store render failure: %s", intel_id, _rbuf_exc)
+                _log.warning("RENDER FAIL BUFFER [%s]: could not store render failure: %s", intel_id, _rbuf_exc)
             continue
 
         # ── WRITE PHASE (retry with backoff  -  genuine I/O failures) ──
@@ -2461,8 +2470,8 @@ def main(argv=None) -> int:
                 dest.write_text(html, encoding="utf-8")
                 try:
                     tmp.unlink(missing_ok=True)
-                except Exception:
-                    pass
+                except Exception as _tmp_exc:
+                    _log.debug("tmp cleanup failed (non-fatal): %s", _tmp_exc)
 
         write_succeeded = False
         write_exc_final: Optional[Exception] = None
@@ -2494,8 +2503,7 @@ def main(argv=None) -> int:
                 from scripts.safe_io import _store_write_failure
                 _store_write_failure(path, write_exc_final, payload={"html_len": len(html_text), "id": intel_id})
             except Exception as _buf_exc:
-                # v134.1: log secondary failure  -  diagnostics path must not silently swallow errors
-                _log.debug("WRITE FAIL BUFFER [%s]: could not store write failure: %s", intel_id, _buf_exc)
+                _log.warning("WRITE FAIL BUFFER [%s]: could not store write failure: %s", intel_id, _buf_exc)
             continue
 
         # ── FAIL-FAST VALIDATION (v134.1 HARDENING) ──────────────────────────
