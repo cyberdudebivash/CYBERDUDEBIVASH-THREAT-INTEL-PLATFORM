@@ -76,9 +76,13 @@ def _is_valid_ipv4(s: str) -> bool:
     return all(0 <= int(p) <= 255 for p in parts)
 
 
-def classify_ioc(indicator: str) -> tuple:
-    """Returns (type_str, is_valid, reason)."""
-    s = (indicator or "").strip()
+def classify_ioc(indicator) -> tuple:
+    """Returns (type_str, is_valid, reason).
+    Accepts string or dict-style IOC (extracts indicator/value key if dict).
+    """
+    if isinstance(indicator, dict):
+        indicator = indicator.get("indicator") or indicator.get("value") or indicator.get("ioc") or ""
+    s = (str(indicator) if indicator else "").strip()
     if not s or len(s) < 4:
         return ("UNKNOWN", False, "too short")
 
@@ -145,17 +149,22 @@ def audit_iocs(items: list) -> dict:
     for item in items:
         iocs = item.get("iocs") or []
         for ioc in iocs:
+            # Normalize dict-style IOCs {"indicator": "...", "type": "..."} to string
+            if isinstance(ioc, dict):
+                ioc_str = str(ioc.get("indicator") or ioc.get("value") or ioc.get("ioc") or "")
+            else:
+                ioc_str = str(ioc) if ioc else ""
             total += 1
-            ioc_type, is_valid, reason = classify_ioc(ioc)
+            ioc_type, is_valid, reason = classify_ioc(ioc_str)
             by_type[ioc_type] = by_type.get(ioc_type, 0) + 1
             if is_valid:
                 valid += 1
             else:
                 invalid += 1
                 if ioc_type == "ARTIFACT" and len(artifact_examples) < 20:
-                    artifact_examples.append({"ioc": ioc, "reason": reason, "item": item.get("title", "")[:50]})
+                    artifact_examples.append({"ioc": ioc_str, "reason": reason, "item": item.get("title", "")[:50]})
                 elif ioc_type == "UNKNOWN" and len(unknown_examples) < 10:
-                    unknown_examples.append({"ioc": ioc, "reason": reason, "item": item.get("title", "")[:50]})
+                    unknown_examples.append({"ioc": ioc_str, "reason": reason, "item": item.get("title", "")[:50]})
 
     false_rate = round(100 * invalid / max(total, 1), 2)
     return {
