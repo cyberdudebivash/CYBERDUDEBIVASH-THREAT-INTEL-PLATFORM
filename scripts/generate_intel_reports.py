@@ -2374,7 +2374,16 @@ def main(argv=None) -> int:
         return 1
 
     data  = load_manifest()
-    items = data.get("advisories") or data.get("reports") or []
+    # P0 FIX: api/feed.json is a top-level JSON array (not {"advisories": [...]})
+    # while data/stix/feed_manifest.json is a dict. The "ID format migration pass"
+    # (run_pipeline.py STAGE 3.6, --manifest api/feed.json) previously crashed here
+    # with AttributeError: 'list' object has no attribute 'get', silently swallowed
+    # by allow_fail=True -- meaning api/feed.json items were NEVER processed and
+    # never received report_url, causing permanent 404s on /reports/... URLs.
+    if isinstance(data, list):
+        items = data
+    else:
+        items = data.get("advisories") or data.get("reports") or []
     if args.limit:
         items = items[:args.limit]
 
@@ -2541,9 +2550,13 @@ def main(argv=None) -> int:
         f"errors={errors} total={len(items)} elapsed={elapsed:.1f}s",
     )
 
-    # Persist manifest
-    data["advisories"] = items
-    save_manifest(data)
+    # Persist manifest -- preserve top-level array format for list-style
+    # manifests (e.g. api/feed.json); dict-style manifests keep their wrapper.
+    if isinstance(data, list):
+        save_manifest(items)
+    else:
+        data["advisories"] = items
+        save_manifest(data)
 
     # v152.1: enforce --fail-on-zero flag (was parsed but never checked)
     if args.fail_on_zero and written == 0:
