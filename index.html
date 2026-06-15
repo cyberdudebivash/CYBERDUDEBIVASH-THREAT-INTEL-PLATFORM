@@ -18950,6 +18950,317 @@ a:focus-visible {
 <!-- DEPLOY-TRIGGER v172.2: re-trigger sentinel-blogger after smoke-fix -->
 
 
+<!-- ═══════════════════════════════════════════════════════════════════════════ -->
+<!-- CYBERDUDEBIVASH GLOBAL REAL-TIME CVE TRACKER JS v170.0                    -->
+<!-- ═══════════════════════════════════════════════════════════════════════════ -->
+<script>
+(function() {
+  'use strict';
+
+  // Worker API base — same origin as the dashboard
+  var API_BASE = 'https://intel.cyberdudebivash.com';
+
+  // Colour helpers
+  function severityColor(s) {
+    switch ((s || '').toUpperCase()) {
+      case 'CRITICAL': return '#ff1a1a';
+      case 'HIGH':     return '#ff6b00';
+      case 'MEDIUM':   return '#00c8ff';
+      case 'LOW':      return '#00ff88';
+      default:         return '#64748b';
+    }
+  }
+
+  function cvssColor(score) {
+    var s = parseFloat(score) || 0;
+    if (s >= 9.0) return '#ff1a1a';
+    if (s >= 7.0) return '#ff6b00';
+    if (s >= 4.0) return '#00c8ff';
+    if (s > 0)    return '#00ff88';
+    return '#64748b';
+  }
+
+  function formatDate(iso) {
+    if (!iso) return 'N/A';
+    try {
+      var d = new Date(iso);
+      var months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+      return months[d.getUTCMonth()] + ' ' + d.getUTCDate() + ', ' + d.getUTCFullYear();
+    } catch (e) { return iso.slice(0, 10); }
+  }
+
+  function esc(str) {
+    return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  // Tracker state
+  var state = {
+    cves:      [],
+    stats:     {},
+    filtered:  [],
+    page:      0,
+    limit:     25,
+    severity:  'ALL',
+    query:     '',
+    days:      7,
+    loading:   false,
+    lastUpdate: null,
+  };
+
+  // ── Load data from API ──────────────────────────────────────────────────────
+  function load() {
+    if (state.loading) return;
+    state.loading = true;
+    setRefreshSpinner(true);
+
+    var url = API_BASE + '/api/v1/cve/live?limit=200&days=' + state.days;
+    if (state.severity !== 'ALL') url += '&severity=' + state.severity;
+    if (state.query)              url += '&q=' + encodeURIComponent(state.query);
+
+    fetch(url, { cache: 'no-store' })
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        state.cves      = data.cves  || [];
+        state.stats     = data.stats || {};
+        state.lastUpdate = data.generated_at || new Date().toISOString();
+        state.loading   = false;
+        filter();
+        updateLastUpdated();
+        setRefreshSpinner(false);
+      })
+      .catch(function(err) {
+        state.loading = false;
+        setRefreshSpinner(false);
+        var tbody = document.getElementById('cve-tbody');
+        if (tbody) tbody.innerHTML = '<tr><td colspan="8" style="padding:30px;text-align:center;color:#ff1a1a;font-family:var(--font-mono);font-size:11px;">ERROR LOADING CVE DATA. CHECK NETWORK. ' + esc(err.message) + '</td></tr>';
+      });
+  }
+
+  // ── Filter ──────────────────────────────────────────────────────────────────
+  function filter() {
+    var q   = state.query.toLowerCase().trim();
+    var sev = state.severity;
+    state.filtered = state.cves.filter(function(c) {
+      if (sev !== 'ALL' && c.severity !== sev) return false;
+      if (q && !(c.id || '').toLowerCase().includes(q) && !(c.description || '').toLowerCase().includes(q)) return false;
+      return true;
+    });
+    state.page = 0;
+    render();
+  }
+
+  // ── Render stats + table ────────────────────────────────────────────────────
+  function render() {
+    // Stats cards
+    var s = state.stats;
+    setText('cve-stat-total',    s.total    != null ? s.total    : '—');
+    setText('cve-stat-critical', s.critical != null ? s.critical : '—');
+    setText('cve-stat-high',     s.high     != null ? s.high     : '—');
+    setText('cve-stat-medium',   s.medium   != null ? s.medium   : '—');
+    setText('cve-stat-low',      s.low      != null ? s.low      : '—');
+    // ── v149 CONTAINER CLEAR GUARD ──────────────────────────────────────────
+    (function() {
+      const _c = document.getElementById('threat-feed') || document.getElementById('advisories-container');
+      if (_c) _c.innerHTML = '';
+    })();
+    // ── end v149 CONTAINER CLEAR GUARD ──────────────────────────────────────
+    renderTable();
+    updateSevButtons();
+  }
+
+  function setText(id, val) {
+    var el = document.getElementById(id);
+    if (el) el.textContent = String(val);
+  }
+
+  function renderTable() {
+    var tbody = document.getElementById('cve-tbody');
+    if (!tbody) return;
+
+    var total = state.filtered.length;
+    if (total === 0) {
+      tbody.innerHTML = '<tr><td colspan="8" style="padding:40px;text-align:center;color:var(--muted);font-family:var(--font-mono);font-size:11px;">NO CVEs MATCH THE CURRENT FILTERS</td></tr>';
+      updatePagination(0, 0, 0);
+      return;
+    }
+
+    var start = state.page * state.limit;
+    var end   = Math.min(start + state.limit, total);
+    var page  = state.filtered.slice(start, end);
+
+    var rows = page.map(function(c) {
+      var sColor  = severityColor(c.severity);
+      var cColor  = cvssColor(c.cvss_score);
+      var desc    = (c.description || 'No description available.').slice(0, 120);
+      if ((c.description || '').length > 120) desc += '…';
+      var kevBadge = c.kev ? '<span style="display:inline-block;margin-left:4px;padding:1px 5px;background:rgba(255,26,26,0.2);border:1px solid #ff1a1a;border-radius:2px;font-size:8px;color:#ff1a1a;font-weight:700;">KEV</span>' : '';
+      return '<tr style="border-bottom:1px solid rgba(22,32,48,0.8);transition:background 0.15s;" onmouseover="this.style.background=\'rgba(0,212,170,0.04)\'" onmouseout="this.style.background=\'\'">'+
+        '<td style="padding:10px 12px;white-space:nowrap;"><a href="#" onclick="event.preventDefault();window.cdbCVETracker.renderDetail(\''+esc(c.id)+'\')" style="color:#00d4aa;text-decoration:none;font-weight:700;font-family:var(--font-mono);font-size:11px;">'+esc(c.id)+'</a>'+kevBadge+'</td>'+
+        '<td style="padding:10px 12px;"><span style="display:inline-block;padding:3px 8px;border-radius:2px;border:1px solid '+sColor+';color:'+sColor+';font-size:9px;font-weight:700;letter-spacing:1px;background:'+sColor+'18;">'+esc(c.severity||'NONE')+'</span></td>'+
+        '<td style="padding:10px 12px;"><span style="color:'+cColor+';font-weight:700;font-size:13px;">'+( c.cvss_score > 0 ? c.cvss_score.toFixed(1) : 'N/A' )+'</span></td>'+
+        '<td style="padding:10px 12px;color:var(--text);max-width:320px;line-height:1.4;">'+esc(desc)+'</td>'+
+        '<td style="padding:10px 12px;color:var(--muted);white-space:nowrap;">'+esc(formatDate(c.published))+'</td>'+
+        '<td style="padding:10px 12px;color:var(--muted);white-space:nowrap;">'+esc(formatDate(c.last_modified))+'</td>'+
+        '<td style="padding:10px 12px;"><span style="font-size:9px;color:var(--muted);">'+esc((c.vuln_status||'').replace(/_/g,' '))+'</span></td>'+
+        '<td style="padding:10px 12px;text-align:center;"><button onclick="window.cdbCVETracker.renderDetail(\''+esc(c.id)+'\')" style="padding:4px 10px;font-family:var(--font-mono);font-size:9px;border:1px solid rgba(0,212,170,0.4);border-radius:2px;background:rgba(0,212,170,0.08);color:#00d4aa;cursor:pointer;letter-spacing:1px;">DETAIL</button></td>'+
+        '</tr>';
+    });
+
+    tbody.innerHTML = rows.join('');
+    updatePagination(start + 1, end, total);
+  }
+
+  function updatePagination(from, to, total) {
+    var info = document.getElementById('cve-pagination-info');
+    if (info) info.textContent = total > 0 ? 'Showing ' + from + '–' + to + ' of ' + total + ' CVEs' : 'No CVEs found';
+    var prev = document.getElementById('cve-prev-btn');
+    var next = document.getElementById('cve-next-btn');
+    if (prev) prev.disabled = state.page === 0;
+    if (next) next.disabled = to >= total;
+    if (prev) prev.style.opacity = state.page === 0 ? '0.4' : '1';
+    if (next) next.style.opacity = to >= total ? '0.4' : '1';
+  }
+
+  function updateLastUpdated() {
+    var el = document.getElementById('cve-last-updated');
+    if (el && state.lastUpdate) el.textContent = 'UPDATED: ' + formatDate(state.lastUpdate);
+  }
+
+  function updateSevButtons() {
+    var sevs = ['ALL', 'CRITICAL', 'HIGH', 'MEDIUM', 'LOW'];
+    sevs.forEach(function(s) {
+      var btn = document.getElementById('cve-btn-' + s);
+      if (!btn) return;
+      var isActive = state.severity === s;
+      btn.style.fontWeight = isActive ? '900' : '600';
+      btn.style.boxShadow  = isActive ? '0 0 8px rgba(0,212,170,0.3)' : 'none';
+      btn.style.borderWidth = isActive ? '2px' : '1px';
+    });
+  }
+
+  function setRefreshSpinner(spinning) {
+    var icon = document.getElementById('cve-refresh-icon');
+    if (!icon) return;
+    if (spinning) {
+      icon.style.display = 'inline-block';
+      icon.style.animation = 'spin 0.8s linear infinite';
+    } else {
+      icon.style.animation = 'none';
+    }
+  }
+
+  // ── Detail modal ─────────────────────────────────────────────────────────────
+  function renderDetail(cveId) {
+    var modal = document.getElementById('cve-detail-modal');
+    var title = document.getElementById('cve-modal-title');
+    var body  = document.getElementById('cve-modal-body');
+    if (!modal || !body) return;
+    modal.style.display = 'block';
+    if (title) title.textContent = cveId;
+    body.innerHTML = '<div style="text-align:center;padding:40px;color:var(--muted);font-family:var(--font-mono);"><span style="display:inline-block;width:14px;height:14px;border-radius:50%;border:2px solid #00d4aa;border-top-color:transparent;animation:spin 0.8s linear infinite;margin-right:8px;vertical-align:middle;"></span>FETCHING CVE DETAIL...</div>';
+
+    fetch(API_BASE + '/api/v1/cve/detail?id=' + encodeURIComponent(cveId), { cache: 'no-store' })
+      .then(function(r) { return r.json(); })
+      .then(function(c) {
+        var sColor = severityColor(c.severity);
+        var cColor = cvssColor(c.cvss_score);
+        var affected = (c.affected_products || []).map(function(a){ return '<li style="font-size:10px;margin:3px 0;color:var(--muted);">'+esc(a)+'</li>'; }).join('');
+        var refs     = (c.references || []).map(function(r){ return '<li style="margin:4px 0;"><a href="'+esc(r)+'" target="_blank" rel="noopener" style="color:#00d4aa;font-size:10px;word-break:break-all;">'+esc(r)+'</a></li>'; }).join('');
+        var cwes     = (c.cwe_ids || []).map(function(w){ return '<span style="display:inline-block;padding:2px 8px;border:1px solid rgba(139,92,246,0.4);border-radius:2px;color:#a78bfa;font-size:10px;margin:2px;">'+esc(w)+'</span>'; }).join('');
+        var kevHtml  = c.kev ? '<span style="padding:3px 10px;background:rgba(255,26,26,0.15);border:1px solid #ff1a1a;border-radius:3px;color:#ff1a1a;font-size:11px;font-weight:700;">CONFIRMED IN CISA KEV</span>' : '<span style="color:var(--muted);font-size:11px;">Not in CISA KEV</span>';
+        if (title) title.textContent = esc(c.id || cveId);
+        body.innerHTML =
+          '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:24px;">'+
+            '<div style="background:rgba(0,0,0,0.3);border-radius:4px;padding:16px;text-align:center;border:1px solid '+sColor+'33;">'+
+              '<p style="font-family:var(--font-mono);font-size:8px;color:var(--muted);letter-spacing:2px;margin:0 0 8px;">SEVERITY</p>'+
+              '<div style="font-size:22px;font-weight:900;color:'+sColor+';font-family:var(--font-mono);">'+esc(c.severity||'NONE')+'</div>'+
+            '</div>'+
+            '<div style="background:rgba(0,0,0,0.3);border-radius:4px;padding:16px;text-align:center;border:1px solid '+cColor+'33;">'+
+              '<p style="font-family:var(--font-mono);font-size:8px;color:var(--muted);letter-spacing:2px;margin:0 0 8px;">CVSS SCORE</p>'+
+              '<div style="font-size:28px;font-weight:900;color:'+cColor+';font-family:var(--font-mono);">'+(c.cvss_score>0?c.cvss_score.toFixed(1):'N/A')+'</div>'+
+            '</div>'+
+            '<div style="background:rgba(0,0,0,0.3);border-radius:4px;padding:16px;text-align:center;border:1px solid rgba(100,116,139,0.3);">'+
+              '<p style="font-family:var(--font-mono);font-size:8px;color:var(--muted);letter-spacing:2px;margin:0 0 8px;">STATUS</p>'+
+              '<div style="font-size:12px;font-weight:700;color:var(--text);font-family:var(--font-mono);">'+esc((c.vuln_status||'UNKNOWN').replace(/_/g,' '))+'</div>'+
+            '</div>'+
+          '</div>'+
+          '<div style="margin-bottom:20px;"><p style="font-family:var(--font-mono);font-size:9px;color:var(--muted);letter-spacing:2px;margin:0 0 8px;">DESCRIPTION</p><p style="color:var(--text);line-height:1.7;font-size:13px;">'+esc(c.description||'No description available.')+'</p></div>'+
+          '<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px;">'+
+            '<div><p style="font-family:var(--font-mono);font-size:9px;color:var(--muted);letter-spacing:2px;margin:0 0 6px;">PUBLISHED</p><p style="color:var(--text);font-family:var(--font-mono);font-size:12px;">'+esc(formatDate(c.published))+'</p></div>'+
+            '<div><p style="font-family:var(--font-mono);font-size:9px;color:var(--muted);letter-spacing:2px;margin:0 0 6px;">LAST MODIFIED</p><p style="color:var(--text);font-family:var(--font-mono);font-size:12px;">'+esc(formatDate(c.last_modified))+'</p></div>'+
+          '</div>'+
+          (c.cvss_vector ? '<div style="margin-bottom:20px;"><p style="font-family:var(--font-mono);font-size:9px;color:var(--muted);letter-spacing:2px;margin:0 0 6px;">CVSS VECTOR</p><code style="font-family:var(--font-mono);font-size:10px;color:#00d4aa;background:rgba(0,212,170,0.06);padding:6px 10px;border-radius:3px;display:block;word-break:break-all;">'+esc(c.cvss_vector)+'</code></div>' : '')+
+          (cwes ? '<div style="margin-bottom:20px;"><p style="font-family:var(--font-mono);font-size:9px;color:var(--muted);letter-spacing:2px;margin:0 0 8px;">CWE WEAKNESSES</p>'+cwes+'</div>' : '')+
+          '<div style="margin-bottom:20px;"><p style="font-family:var(--font-mono);font-size:9px;color:var(--muted);letter-spacing:2px;margin:0 0 8px;">CISA KEV STATUS</p>'+kevHtml+'</div>'+
+          (affected ? '<div style="margin-bottom:20px;"><p style="font-family:var(--font-mono);font-size:9px;color:var(--muted);letter-spacing:2px;margin:0 0 8px;">AFFECTED PRODUCTS</p><ul style="margin:0;padding-left:18px;">'+affected+'</ul></div>' : '')+
+          (refs     ? '<div style="margin-bottom:20px;"><p style="font-family:var(--font-mono);font-size:9px;color:var(--muted);letter-spacing:2px;margin:0 0 8px;">REFERENCES</p><ul style="margin:0;padding-left:18px;">'+refs+'</ul></div>' : '')+
+          '<div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--border);"><a href="https://nvd.nist.gov/vuln/detail/'+esc(cveId)+'" target="_blank" rel="noopener" style="display:inline-block;padding:8px 18px;background:rgba(0,212,170,0.1);border:1px solid rgba(0,212,170,0.4);border-radius:3px;color:#00d4aa;font-family:var(--font-mono);font-size:11px;text-decoration:none;font-weight:700;letter-spacing:1px;">VIEW ON NVD NIST &#8599;</a></div>'+
+          (c._tier === 'FREE' ? '<p style="font-family:var(--font-mono);font-size:9px;color:var(--muted);margin-top:12px;padding:8px;background:rgba(255,107,0,0.05);border:1px solid rgba(255,107,0,0.2);border-radius:3px;">FREE TIER: Full CVE details available with PRO/ENTERPRISE. <a href="/upgrade.html" style="color:#ff6b00;">Upgrade &rarr;</a></p>' : '');
+      })
+      .catch(function(err) {
+        body.innerHTML = '<p style="color:#ff1a1a;font-family:var(--font-mono);text-align:center;padding:40px;">ERROR LOADING CVE DETAIL: '+esc(err.message)+'</p>';
+      });
+  }
+
+  // ── Public API ───────────────────────────────────────────────────────────────
+  window.cdbCVETracker = {
+    state: state,
+
+    init: function() {
+      load();
+      setInterval(load, 5 * 60 * 1000); // auto-refresh every 5 min
+    },
+
+    load:   load,
+    filter: filter,
+    render: render,
+
+    refresh: function() { state.page = 0; load(); },
+
+    setSeverity: function(sev) {
+      state.severity = sev;
+      // If filtering by severity, clear server-side filter but apply client-side
+      state.page = 0;
+      filter();
+    },
+
+    setQuery: function(q) {
+      state.query = (q || '').toLowerCase().trim();
+      state.page  = 0;
+      filter();
+    },
+
+    setDays: function(d) {
+      state.days = parseInt(d, 10) || 7;
+      state.page = 0;
+      load();
+    },
+
+    prevPage: function() {
+      if (state.page > 0) { state.page--; renderTable(); }
+    },
+
+    nextPage: function() {
+      var maxPage = Math.ceil(state.filtered.length / state.limit) - 1;
+      if (state.page < maxPage) { state.page++; renderTable(); }
+    },
+
+    renderDetail: renderDetail,
+    formatDate: formatDate,
+    severityColor: severityColor,
+    cvssColor: cvssColor,
+  };
+
+  // ── Boot ─────────────────────────────────────────────────────────────────────
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', function() { window.cdbCVETracker.init(); });
+  } else {
+    window.cdbCVETracker.init();
+  }
+})();
+</script>
+<!-- /CDB-CVE-TRACKER-v170.0 -->
+
 
 <!-- CDB-AI-BRAIN-INIT-v145 -->
 <script>
@@ -19837,312 +20148,6 @@ a:focus-visible {
 })();
 </script>
 <!-- /CDB-AI-BRAIN-INIT-v145 -->
-
-<!-- ═══════════════════════════════════════════════════════════════════════════ -->
-<!-- CYBERDUDEBIVASH GLOBAL REAL-TIME CVE TRACKER JS v170.0                    -->
-<!-- ═══════════════════════════════════════════════════════════════════════════ -->
-<script>
-(function() {
-  'use strict';
-
-  // Worker API base — same origin as the dashboard
-  var API_BASE = 'https://intel.cyberdudebivash.com';
-
-  // Colour helpers
-  function severityColor(s) {
-    switch ((s || '').toUpperCase()) {
-      case 'CRITICAL': return '#ff1a1a';
-      case 'HIGH':     return '#ff6b00';
-      case 'MEDIUM':   return '#00c8ff';
-      case 'LOW':      return '#00ff88';
-      default:         return '#64748b';
-    }
-  }
-
-  function cvssColor(score) {
-    var s = parseFloat(score) || 0;
-    if (s >= 9.0) return '#ff1a1a';
-    if (s >= 7.0) return '#ff6b00';
-    if (s >= 4.0) return '#00c8ff';
-    if (s > 0)    return '#00ff88';
-    return '#64748b';
-  }
-
-  function formatDate(iso) {
-    if (!iso) return 'N/A';
-    try {
-      var d = new Date(iso);
-      var months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-      return months[d.getUTCMonth()] + ' ' + d.getUTCDate() + ', ' + d.getUTCFullYear();
-    } catch (e) { return iso.slice(0, 10); }
-  }
-
-  function esc(str) {
-    return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-  }
-
-  // Tracker state
-  var state = {
-    cves:      [],
-    stats:     {},
-    filtered:  [],
-    page:      0,
-    limit:     25,
-    severity:  'ALL',
-    query:     '',
-    days:      7,
-    loading:   false,
-    lastUpdate: null,
-  };
-
-  // ── Load data from API ──────────────────────────────────────────────────────
-  function load() {
-    if (state.loading) return;
-    state.loading = true;
-    setRefreshSpinner(true);
-
-    var url = API_BASE + '/api/v1/cve/live?limit=200&days=' + state.days;
-    if (state.severity !== 'ALL') url += '&severity=' + state.severity;
-    if (state.query)              url += '&q=' + encodeURIComponent(state.query);
-
-    fetch(url, { cache: 'no-store' })
-      .then(function(r) { return r.json(); })
-      .then(function(data) {
-        state.cves      = data.cves  || [];
-        state.stats     = data.stats || {};
-        state.lastUpdate = data.generated_at || new Date().toISOString();
-        state.loading   = false;
-        filter();
-        updateLastUpdated();
-        setRefreshSpinner(false);
-      })
-      .catch(function(err) {
-        state.loading = false;
-        setRefreshSpinner(false);
-        var tbody = document.getElementById('cve-tbody');
-        if (tbody) tbody.innerHTML = '<tr><td colspan="8" style="padding:30px;text-align:center;color:#ff1a1a;font-family:var(--font-mono);font-size:11px;">ERROR LOADING CVE DATA. CHECK NETWORK. ' + esc(err.message) + '</td></tr>';
-      });
-  }
-
-  // ── Filter ──────────────────────────────────────────────────────────────────
-  function filter() {
-    var q   = state.query.toLowerCase().trim();
-    var sev = state.severity;
-    state.filtered = state.cves.filter(function(c) {
-      if (sev !== 'ALL' && c.severity !== sev) return false;
-      if (q && !(c.id || '').toLowerCase().includes(q) && !(c.description || '').toLowerCase().includes(q)) return false;
-      return true;
-    });
-    state.page = 0;
-    render();
-  }
-
-  // ── Render stats + table ────────────────────────────────────────────────────
-  function render() {
-    // Stats cards
-    var s = state.stats;
-    setText('cve-stat-total',    s.total    != null ? s.total    : '—');
-    setText('cve-stat-critical', s.critical != null ? s.critical : '—');
-    setText('cve-stat-high',     s.high     != null ? s.high     : '—');
-    setText('cve-stat-medium',   s.medium   != null ? s.medium   : '—');
-    setText('cve-stat-low',      s.low      != null ? s.low      : '—');
-    renderTable();
-    updateSevButtons();
-  }
-
-  function setText(id, val) {
-    var el = document.getElementById(id);
-    if (el) el.textContent = String(val);
-  }
-
-  function renderTable() {
-    var tbody = document.getElementById('cve-tbody');
-    if (!tbody) return;
-
-    var total = state.filtered.length;
-    if (total === 0) {
-      tbody.innerHTML = '<tr><td colspan="8" style="padding:40px;text-align:center;color:var(--muted);font-family:var(--font-mono);font-size:11px;">NO CVEs MATCH THE CURRENT FILTERS</td></tr>';
-      updatePagination(0, 0, 0);
-      return;
-    }
-
-    var start = state.page * state.limit;
-    var end   = Math.min(start + state.limit, total);
-    var page  = state.filtered.slice(start, end);
-
-    var rows = page.map(function(c) {
-      var sColor  = severityColor(c.severity);
-      var cColor  = cvssColor(c.cvss_score);
-      var desc    = (c.description || 'No description available.').slice(0, 120);
-      if ((c.description || '').length > 120) desc += '…';
-      var kevBadge = c.kev ? '<span style="display:inline-block;margin-left:4px;padding:1px 5px;background:rgba(255,26,26,0.2);border:1px solid #ff1a1a;border-radius:2px;font-size:8px;color:#ff1a1a;font-weight:700;">KEV</span>' : '';
-      return '<tr style="border-bottom:1px solid rgba(22,32,48,0.8);transition:background 0.15s;" onmouseover="this.style.background=\'rgba(0,212,170,0.04)\'" onmouseout="this.style.background=\'\'">'+
-        '<td style="padding:10px 12px;white-space:nowrap;"><a href="#" onclick="event.preventDefault();window.cdbCVETracker.renderDetail(\''+esc(c.id)+'\')" style="color:#00d4aa;text-decoration:none;font-weight:700;font-family:var(--font-mono);font-size:11px;">'+esc(c.id)+'</a>'+kevBadge+'</td>'+
-        '<td style="padding:10px 12px;"><span style="display:inline-block;padding:3px 8px;border-radius:2px;border:1px solid '+sColor+';color:'+sColor+';font-size:9px;font-weight:700;letter-spacing:1px;background:'+sColor+'18;">'+esc(c.severity||'NONE')+'</span></td>'+
-        '<td style="padding:10px 12px;"><span style="color:'+cColor+';font-weight:700;font-size:13px;">'+( c.cvss_score > 0 ? c.cvss_score.toFixed(1) : 'N/A' )+'</span></td>'+
-        '<td style="padding:10px 12px;color:var(--text);max-width:320px;line-height:1.4;">'+esc(desc)+'</td>'+
-        '<td style="padding:10px 12px;color:var(--muted);white-space:nowrap;">'+esc(formatDate(c.published))+'</td>'+
-        '<td style="padding:10px 12px;color:var(--muted);white-space:nowrap;">'+esc(formatDate(c.last_modified))+'</td>'+
-        '<td style="padding:10px 12px;"><span style="font-size:9px;color:var(--muted);">'+esc((c.vuln_status||'').replace(/_/g,' '))+'</span></td>'+
-        '<td style="padding:10px 12px;text-align:center;"><button onclick="window.cdbCVETracker.renderDetail(\''+esc(c.id)+'\')" style="padding:4px 10px;font-family:var(--font-mono);font-size:9px;border:1px solid rgba(0,212,170,0.4);border-radius:2px;background:rgba(0,212,170,0.08);color:#00d4aa;cursor:pointer;letter-spacing:1px;">DETAIL</button></td>'+
-        '</tr>';
-    });
-
-    tbody.innerHTML = rows.join('');
-    updatePagination(start + 1, end, total);
-  }
-
-  function updatePagination(from, to, total) {
-    var info = document.getElementById('cve-pagination-info');
-    if (info) info.textContent = total > 0 ? 'Showing ' + from + '–' + to + ' of ' + total + ' CVEs' : 'No CVEs found';
-    var prev = document.getElementById('cve-prev-btn');
-    var next = document.getElementById('cve-next-btn');
-    if (prev) prev.disabled = state.page === 0;
-    if (next) next.disabled = to >= total;
-    if (prev) prev.style.opacity = state.page === 0 ? '0.4' : '1';
-    if (next) next.style.opacity = to >= total ? '0.4' : '1';
-  }
-
-  function updateLastUpdated() {
-    var el = document.getElementById('cve-last-updated');
-    if (el && state.lastUpdate) el.textContent = 'UPDATED: ' + formatDate(state.lastUpdate);
-  }
-
-  function updateSevButtons() {
-    var sevs = ['ALL', 'CRITICAL', 'HIGH', 'MEDIUM', 'LOW'];
-    sevs.forEach(function(s) {
-      var btn = document.getElementById('cve-btn-' + s);
-      if (!btn) return;
-      var isActive = state.severity === s;
-      btn.style.fontWeight = isActive ? '900' : '600';
-      btn.style.boxShadow  = isActive ? '0 0 8px rgba(0,212,170,0.3)' : 'none';
-      btn.style.borderWidth = isActive ? '2px' : '1px';
-    });
-  }
-
-  function setRefreshSpinner(spinning) {
-    var icon = document.getElementById('cve-refresh-icon');
-    if (!icon) return;
-    if (spinning) {
-      icon.style.display = 'inline-block';
-      icon.style.animation = 'spin 0.8s linear infinite';
-    } else {
-      icon.style.animation = 'none';
-    }
-  }
-
-  // ── Detail modal ─────────────────────────────────────────────────────────────
-  function renderDetail(cveId) {
-    var modal = document.getElementById('cve-detail-modal');
-    var title = document.getElementById('cve-modal-title');
-    var body  = document.getElementById('cve-modal-body');
-    if (!modal || !body) return;
-    modal.style.display = 'block';
-    if (title) title.textContent = cveId;
-    body.innerHTML = '<div style="text-align:center;padding:40px;color:var(--muted);font-family:var(--font-mono);"><span style="display:inline-block;width:14px;height:14px;border-radius:50%;border:2px solid #00d4aa;border-top-color:transparent;animation:spin 0.8s linear infinite;margin-right:8px;vertical-align:middle;"></span>FETCHING CVE DETAIL...</div>';
-
-    fetch(API_BASE + '/api/v1/cve/detail?id=' + encodeURIComponent(cveId), { cache: 'no-store' })
-      .then(function(r) { return r.json(); })
-      .then(function(c) {
-        var sColor = severityColor(c.severity);
-        var cColor = cvssColor(c.cvss_score);
-        var affected = (c.affected_products || []).map(function(a){ return '<li style="font-size:10px;margin:3px 0;color:var(--muted);">'+esc(a)+'</li>'; }).join('');
-        var refs     = (c.references || []).map(function(r){ return '<li style="margin:4px 0;"><a href="'+esc(r)+'" target="_blank" rel="noopener" style="color:#00d4aa;font-size:10px;word-break:break-all;">'+esc(r)+'</a></li>'; }).join('');
-        var cwes     = (c.cwe_ids || []).map(function(w){ return '<span style="display:inline-block;padding:2px 8px;border:1px solid rgba(139,92,246,0.4);border-radius:2px;color:#a78bfa;font-size:10px;margin:2px;">'+esc(w)+'</span>'; }).join('');
-        var kevHtml  = c.kev ? '<span style="padding:3px 10px;background:rgba(255,26,26,0.15);border:1px solid #ff1a1a;border-radius:3px;color:#ff1a1a;font-size:11px;font-weight:700;">CONFIRMED IN CISA KEV</span>' : '<span style="color:var(--muted);font-size:11px;">Not in CISA KEV</span>';
-        if (title) title.textContent = esc(c.id || cveId);
-        body.innerHTML =
-          '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:24px;">'+
-            '<div style="background:rgba(0,0,0,0.3);border-radius:4px;padding:16px;text-align:center;border:1px solid '+sColor+'33;">'+
-              '<p style="font-family:var(--font-mono);font-size:8px;color:var(--muted);letter-spacing:2px;margin:0 0 8px;">SEVERITY</p>'+
-              '<div style="font-size:22px;font-weight:900;color:'+sColor+';font-family:var(--font-mono);">'+esc(c.severity||'NONE')+'</div>'+
-            '</div>'+
-            '<div style="background:rgba(0,0,0,0.3);border-radius:4px;padding:16px;text-align:center;border:1px solid '+cColor+'33;">'+
-              '<p style="font-family:var(--font-mono);font-size:8px;color:var(--muted);letter-spacing:2px;margin:0 0 8px;">CVSS SCORE</p>'+
-              '<div style="font-size:28px;font-weight:900;color:'+cColor+';font-family:var(--font-mono);">'+(c.cvss_score>0?c.cvss_score.toFixed(1):'N/A')+'</div>'+
-            '</div>'+
-            '<div style="background:rgba(0,0,0,0.3);border-radius:4px;padding:16px;text-align:center;border:1px solid rgba(100,116,139,0.3);">'+
-              '<p style="font-family:var(--font-mono);font-size:8px;color:var(--muted);letter-spacing:2px;margin:0 0 8px;">STATUS</p>'+
-              '<div style="font-size:12px;font-weight:700;color:var(--text);font-family:var(--font-mono);">'+esc((c.vuln_status||'UNKNOWN').replace(/_/g,' '))+'</div>'+
-            '</div>'+
-          '</div>'+
-          '<div style="margin-bottom:20px;"><p style="font-family:var(--font-mono);font-size:9px;color:var(--muted);letter-spacing:2px;margin:0 0 8px;">DESCRIPTION</p><p style="color:var(--text);line-height:1.7;font-size:13px;">'+esc(c.description||'No description available.')+'</p></div>'+
-          '<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px;">'+
-            '<div><p style="font-family:var(--font-mono);font-size:9px;color:var(--muted);letter-spacing:2px;margin:0 0 6px;">PUBLISHED</p><p style="color:var(--text);font-family:var(--font-mono);font-size:12px;">'+esc(formatDate(c.published))+'</p></div>'+
-            '<div><p style="font-family:var(--font-mono);font-size:9px;color:var(--muted);letter-spacing:2px;margin:0 0 6px;">LAST MODIFIED</p><p style="color:var(--text);font-family:var(--font-mono);font-size:12px;">'+esc(formatDate(c.last_modified))+'</p></div>'+
-          '</div>'+
-          (c.cvss_vector ? '<div style="margin-bottom:20px;"><p style="font-family:var(--font-mono);font-size:9px;color:var(--muted);letter-spacing:2px;margin:0 0 6px;">CVSS VECTOR</p><code style="font-family:var(--font-mono);font-size:10px;color:#00d4aa;background:rgba(0,212,170,0.06);padding:6px 10px;border-radius:3px;display:block;word-break:break-all;">'+esc(c.cvss_vector)+'</code></div>' : '')+
-          (cwes ? '<div style="margin-bottom:20px;"><p style="font-family:var(--font-mono);font-size:9px;color:var(--muted);letter-spacing:2px;margin:0 0 8px;">CWE WEAKNESSES</p>'+cwes+'</div>' : '')+
-          '<div style="margin-bottom:20px;"><p style="font-family:var(--font-mono);font-size:9px;color:var(--muted);letter-spacing:2px;margin:0 0 8px;">CISA KEV STATUS</p>'+kevHtml+'</div>'+
-          (affected ? '<div style="margin-bottom:20px;"><p style="font-family:var(--font-mono);font-size:9px;color:var(--muted);letter-spacing:2px;margin:0 0 8px;">AFFECTED PRODUCTS</p><ul style="margin:0;padding-left:18px;">'+affected+'</ul></div>' : '')+
-          (refs     ? '<div style="margin-bottom:20px;"><p style="font-family:var(--font-mono);font-size:9px;color:var(--muted);letter-spacing:2px;margin:0 0 8px;">REFERENCES</p><ul style="margin:0;padding-left:18px;">'+refs+'</ul></div>' : '')+
-          '<div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--border);"><a href="https://nvd.nist.gov/vuln/detail/'+esc(cveId)+'" target="_blank" rel="noopener" style="display:inline-block;padding:8px 18px;background:rgba(0,212,170,0.1);border:1px solid rgba(0,212,170,0.4);border-radius:3px;color:#00d4aa;font-family:var(--font-mono);font-size:11px;text-decoration:none;font-weight:700;letter-spacing:1px;">VIEW ON NVD NIST &#8599;</a></div>'+
-          (c._tier === 'FREE' ? '<p style="font-family:var(--font-mono);font-size:9px;color:var(--muted);margin-top:12px;padding:8px;background:rgba(255,107,0,0.05);border:1px solid rgba(255,107,0,0.2);border-radius:3px;">FREE TIER: Full CVE details available with PRO/ENTERPRISE. <a href="/upgrade.html" style="color:#ff6b00;">Upgrade &rarr;</a></p>' : '');
-      })
-      .catch(function(err) {
-        body.innerHTML = '<p style="color:#ff1a1a;font-family:var(--font-mono);text-align:center;padding:40px;">ERROR LOADING CVE DETAIL: '+esc(err.message)+'</p>';
-      });
-  }
-
-  // ── Public API ───────────────────────────────────────────────────────────────
-  window.cdbCVETracker = {
-    state: state,
-
-    init: function() {
-      load();
-      setInterval(load, 5 * 60 * 1000); // auto-refresh every 5 min
-    },
-
-    load:   load,
-    filter: filter,
-    render: render,
-
-    refresh: function() { state.page = 0; load(); },
-
-    setSeverity: function(sev) {
-      state.severity = sev;
-      // If filtering by severity, clear server-side filter but apply client-side
-      state.page = 0;
-      filter();
-    },
-
-    setQuery: function(q) {
-      state.query = (q || '').toLowerCase().trim();
-      state.page  = 0;
-      filter();
-    },
-
-    setDays: function(d) {
-      state.days = parseInt(d, 10) || 7;
-      state.page = 0;
-      load();
-    },
-
-    prevPage: function() {
-      if (state.page > 0) { state.page--; renderTable(); }
-    },
-
-    nextPage: function() {
-      var maxPage = Math.ceil(state.filtered.length / state.limit) - 1;
-      if (state.page < maxPage) { state.page++; renderTable(); }
-    },
-
-    renderDetail: renderDetail,
-    formatDate: formatDate,
-    severityColor: severityColor,
-    cvssColor: cvssColor,
-  };
-
-  // ── Boot ─────────────────────────────────────────────────────────────────────
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', function() { window.cdbCVETracker.init(); });
-  } else {
-    window.cdbCVETracker.init();
-  }
-})();
-</script>
-<!-- /CDB-CVE-TRACKER-v170.0 -->
-
 </body>
 </html>
 
