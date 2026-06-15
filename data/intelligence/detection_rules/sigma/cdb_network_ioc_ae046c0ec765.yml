@@ -1,0 +1,32 @@
+title: CDB SENTINEL APEX - Network Threat Intel [ae046c0ec765]
+id: cdb-net-ae046c0ec765
+status: production
+description: >
+    Auto-generated detection rule for 1 malicious IPs and 3 malicious domains
+    from CYBERDUDEBIVASH SENTINEL APEX threat intelligence feeds.
+author: CyberDudeBivash SENTINEL APEX v51
+date: 2026-06-15
+modified: 2026-06-15
+tags:
+    - attack.command_and_control
+    - attack.t1071
+    - attack.t1090
+logsource:
+    category: firewall
+    product: any
+detection:
+    selection:
+        DestinationIp:
+            - '5.5.13.0'
+        DestinationHostname|contains:
+            - 'kodak.com'
+            - 'metacpan.org'
+            - 'theorangeblowfish.com'
+    condition: selection
+level: medium
+falsepositives:
+    - Shared hosting infrastructure
+    - CDN/cloud provider IP overlap
+references:
+    - https://intel.cyberdudebivash.com
+    - https://cyberdudebivash.com/threat-intel

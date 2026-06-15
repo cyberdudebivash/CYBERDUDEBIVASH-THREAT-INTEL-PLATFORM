@@ -2,28 +2,27 @@
   "platform": "CYBERDUDEBIVASH SENTINEL APEX",
   "module": "v51_detection_engine",
   "version": "51.0.0",
-  "batch_id": "25a3f6600d81",
-  "generated_at": "2026-06-09T04:45:48.385257+00:00",
-  "ioc_count": 25,
+  "batch_id": "ae046c0ec765",
+  "generated_at": "2026-06-15T17:31:01.225315+00:00",
+  "ioc_count": 20,
   "ioc_type_breakdown": {
-    "domain": 2,
-    "cve": 18,
-    "sha1": 2,
-    "ipv4": 2,
-    "url": 1
+    "domain": 3,
+    "cve": 14,
+    "ipv4": 1,
+    "url": 2
   },
   "rules_generated": {
-    "sigma": 2,
+    "sigma": 1,
     "yara": 1,
     "suricata": 1,
-    "total": 4
+    "total": 3
   },
   "rules": [
     {
-      "rule_id": "cdb-net-25a3f6600d81",
+      "rule_id": "cdb-net-ae046c0ec765",
       "rule_type": "sigma",
-      "title": "Network IOC Detection [25a3f6600d81]",
-      "content": "title: CDB SENTINEL APEX - Network Threat Intel [25a3f6600d81]\nid: cdb-net-25a3f6600d81\nstatus: production\ndescription: >\n    Auto-generated detection rule for 2 malicious IPs and 2 malicious domains\n    from CYBERDUDEBIVASH SENTINEL APEX threat intelligence feeds.\nauthor: CyberDudeBivash SENTINEL APEX v51\ndate: 2026-06-09\nmodified: 2026-06-09\ntags:\n    - attack.command_and_control\n    - attack.t1071\n    - attack.t1090\nlogsource:\n    category: firewall\n    product: any\ndetection:\n    selection:\n        DestinationIp:\n            - '16.03.53.12'\n            - '15.03.05.19'\n        DestinationHostname|contains:\n            - 'java.net'\n            - 'rsync.samba.org'\n    condition: selection\nlevel: medium\nfalsepositives:\n    - Shared hosting infrastructure\n    - CDN/cloud provider IP overlap\nreferences:\n    - https://intel.cyberdudebivash.com\n    - https://cyberdudebivash.com/threat-intel",
+      "title": "Network IOC Detection [ae046c0ec765]",
+      "content": "title: CDB SENTINEL APEX - Network Threat Intel [ae046c0ec765]\nid: cdb-net-ae046c0ec765\nstatus: production\ndescription: >\n    Auto-generated detection rule for 1 malicious IPs and 3 malicious domains\n    from CYBERDUDEBIVASH SENTINEL APEX threat intelligence feeds.\nauthor: CyberDudeBivash SENTINEL APEX v51\ndate: 2026-06-15\nmodified: 2026-06-15\ntags:\n    - attack.command_and_control\n    - attack.t1071\n    - attack.t1090\nlogsource:\n    category: firewall\n    product: any\ndetection:\n    selection:\n        DestinationIp:\n            - '5.5.13.0'\n        DestinationHostname|contains:\n            - 'kodak.com'\n            - 'metacpan.org'\n            - 'theorangeblowfish.com'\n    condition: selection\nlevel: medium\nfalsepositives:\n    - Shared hosting infrastructure\n    - CDN/cloud provider IP overlap\nreferences:\n    - https://intel.cyberdudebivash.com\n    - https://cyberdudebivash.com/threat-intel",
       "ioc_count": 4,
       "ioc_types": [
         "ipv4",
@@ -34,43 +33,20 @@
         "T1071",
         "T1090"
       ],
-      "generated_at": "2026-06-09T04:45:48.426535+00:00",
+      "generated_at": "2026-06-15T17:31:01.306370+00:00",
       "source_advisories": [
-        "CVE-2026-11493: A weakness has been identified in Tenda AC15 15.03.05.19. The impacted element is an unknown function of the file /etc_r",
-        "Netty has an IPv6 Subnet Filter Bypass via Incorrect Comparator Masking",
-        "CVE-2026-11504: A vulnerability was detected in Tenda CX12L 16.03.53.12. The impacted element is the function setSchedWifi of the file /",
-        "rsync 3.4.4 released, regression fixes"
+        "[RANSOMWARE] Unknown: kodak.com",
+        "CVE-2026-12205: Crypt::DSA versions before 1.21 for Perl reused the nonce across signatures, leading to private-key recovery",
+        "CVE-2026-6517: Mattermost Desktop App versions <=6.1 5.5.13.0 fail to restrict the allow list of domains to which NTLM credentials were",
+        "[RANSOMWARE] Unknown: theorangeblowfish.com"
       ],
-      "filename": "cdb_network_ioc_25a3f6600d81.yml"
+      "filename": "cdb_network_ioc_ae046c0ec765.yml"
     },
     {
-      "rule_id": "cdb-hash-25a3f6600d81",
-      "rule_type": "sigma",
-      "title": "File Hash Detection [25a3f6600d81]",
-      "content": "title: CDB SENTINEL APEX - Malicious File Hash Detection [25a3f6600d81]\nid: cdb-hash-25a3f6600d81\nstatus: production\ndescription: >\n    Auto-generated detection rule for 2 malicious file hashes\n    from CYBERDUDEBIVASH SENTINEL APEX threat intelligence feeds.\nauthor: CyberDudeBivash SENTINEL APEX v51\ndate: 2026-06-09\ntags:\n    - attack.execution\n    - attack.t1204\n    - attack.defense_evasion\nlogsource:\n    category: file_event\n    product: any\ndetection:\n    selection:\n        Hashes|contains:\n            - '68e6ab3fdfc71a328b1966bad5c6aba0f7d0c2e1'\n            - '40f2cc32279f0f8a51016c3c6870a2c0c808e6c0'\n    condition: selection\nlevel: critical\nfalsepositives:\n    - Hash collision (negligible probability)\nreferences:\n    - https://intel.cyberdudebivash.com",
-      "ioc_count": 2,
-      "ioc_types": [
-        "sha256",
-        "sha1",
-        "md5"
-      ],
-      "severity": "critical",
-      "mitre_techniques": [
-        "T1204",
-        "T1059"
-      ],
-      "generated_at": "2026-06-09T04:45:48.426553+00:00",
-      "source_advisories": [
-        "CVE-2026-11500: A vulnerability was identified in Weaviate up to 1.37.7. This vulnerability affects the function validateConfig of the f",
-        "Authlib OAuth 2.0 has Open Redirect in Authorization API that allows attacker-controlled redirect_uri through unsupported response_type"
-      ],
-      "filename": "cdb_file_hash_25a3f6600d81.yml"
-    },
-    {
-      "rule_id": "yara-net-25a3f6600d81",
+      "rule_id": "yara-net-ae046c0ec765",
       "rule_type": "yara",
-      "title": "Network Intel YARA [25a3f6600d81]",
-      "content": "rule CDB_SENTINEL_Network_Intel_25a3f6600d81\n{\n    meta:\n        author = \"CyberDudeBivash SENTINEL APEX v51\"\n        description = \"Detects network IOCs from threat intelligence feeds\"\n        date = \"2026-06-09\"\n        severity = \"high\"\n        reference = \"https://intel.cyberdudebivash.com\"\n        batch_id = \"25a3f6600d81\"\n        ioc_count = 4\n\n    strings:\n        $ip_0 = \"16.03.53.12\" ascii wide nocase\n        $ip_1 = \"15.03.05.19\" ascii wide nocase\n        $dom_2 = \"java.net\" ascii wide nocase\n        $dom_3 = \"rsync.samba.org\" ascii wide nocase\n\n    condition:\n        filesize < 100MB and any of them\n}",
+      "title": "Network Intel YARA [ae046c0ec765]",
+      "content": "rule CDB_SENTINEL_Network_Intel_ae046c0ec765\n{\n    meta:\n        author = \"CyberDudeBivash SENTINEL APEX v51\"\n        description = \"Detects network IOCs from threat intelligence feeds\"\n        date = \"2026-06-15\"\n        severity = \"high\"\n        reference = \"https://intel.cyberdudebivash.com\"\n        batch_id = \"ae046c0ec765\"\n        ioc_count = 4\n\n    strings:\n        $ip_0 = \"5.5.13.0\" ascii wide nocase\n        $dom_1 = \"kodak.com\" ascii wide nocase\n        $dom_2 = \"metacpan.org\" ascii wide nocase\n        $dom_3 = \"theorangeblowfish.com\" ascii wide nocase\n\n    condition:\n        filesize < 100MB and any of them\n}",
       "ioc_count": 4,
       "ioc_types": [
         "ipv4",
@@ -81,25 +57,24 @@
         "T1071",
         "T1090"
       ],
-      "generated_at": "2026-06-09T04:45:48.426784+00:00",
+      "generated_at": "2026-06-15T17:31:01.306613+00:00",
       "source_advisories": [
-        "CVE-2026-11493: A weakness has been identified in Tenda AC15 15.03.05.19. The impacted element is an unknown function of the file /etc_r",
-        "Netty has an IPv6 Subnet Filter Bypass via Incorrect Comparator Masking",
-        "CVE-2026-11504: A vulnerability was detected in Tenda CX12L 16.03.53.12. The impacted element is the function setSchedWifi of the file /",
-        "rsync 3.4.4 released, regression fixes"
+        "[RANSOMWARE] Unknown: kodak.com",
+        "CVE-2026-12205: Crypt::DSA versions before 1.21 for Perl reused the nonce across signatures, leading to private-key recovery",
+        "CVE-2026-6517: Mattermost Desktop App versions <=6.1 5.5.13.0 fail to restrict the allow list of domains to which NTLM credentials were",
+        "[RANSOMWARE] Unknown: theorangeblowfish.com"
       ],
-      "filename": "cdb_network_intel_25a3f6600d81.yar"
+      "filename": "cdb_network_intel_ae046c0ec765.yar"
     },
     {
-      "rule_id": "suricata-25a3f6600d81",
+      "rule_id": "suricata-ae046c0ec765",
       "rule_type": "suricata",
-      "title": "Suricata Threat Intel [25a3f6600d81]",
-      "content": "# CDB SENTINEL APEX v51 - Auto-Generated Suricata Rules\n# Batch: 25a3f6600d81 | Generated: 2026-06-09\n# IOC Count: 25\n# Source: https://intel.cyberdudebivash.com\n\nalert ip any any -> 16.03.53.12 any (msg:\"CDB SENTINEL v51 - Threat Intel IP: 16.03.53.12\"; sid:9157018; rev:1; classtype:trojan-activity; metadata:created_at 2026-06-09, severity high, source CDB_SENTINEL_APEX_v51;)\nalert ip any any -> 15.03.05.19 any (msg:\"CDB SENTINEL v51 - Threat Intel IP: 15.03.05.19\"; sid:9157019; rev:1; classtype:trojan-activity; metadata:created_at 2026-06-09, severity high, source CDB_SENTINEL_APEX_v51;)\nalert dns any any -> any any (msg:\"CDB SENTINEL v51 - Threat Intel Domain: java.net\"; dns.query; content:\"java.net\"; nocase; sid:9158018; rev:1; classtype:trojan-activity; metadata:created_at 2026-06-09, severity high, source CDB_SENTINEL_APEX_v51;)\nalert dns any any -> any any (msg:\"CDB SENTINEL v51 - Threat Intel Domain: rsync.samba.org\"; dns.query; content:\"rsync.samba.org\"; nocase; sid:9158019; rev:1; classtype:trojan-activity; metadata:created_at 2026-06-09, severity high, source CDB_SENTINEL_APEX_v51;)\nalert http any any -> any any (msg:\"CDB SENTINEL v51 - Threat Intel URL\"; http.uri; content:\"\"; nocase; sid:9159018; rev:1; classtype:trojan-activity; metadata:created_at 2026-06-09, source CDB_SENTINEL_APEX_v51;)",
-      "ioc_count": 5,
+      "title": "Suricata Threat Intel [ae046c0ec765]",
+      "content": "# CDB SENTINEL APEX v51 - Auto-Generated Suricata Rules\n# Batch: ae046c0ec765 | Generated: 2026-06-15\n# IOC Count: 20\n# Source: https://intel.cyberdudebivash.com\n\nalert ip any any -> 5.5.13.0 any (msg:\"CDB SENTINEL v51 - Threat Intel IP: 5.5.13.0\"; sid:9749538; rev:1; classtype:trojan-activity; metadata:created_at 2026-06-15, severity high, source CDB_SENTINEL_APEX_v51;)\nalert dns any any -> any any (msg:\"CDB SENTINEL v51 - Threat Intel Domain: kodak.com\"; dns.query; content:\"kodak.com\"; nocase; sid:9750538; rev:1; classtype:trojan-activity; metadata:created_at 2026-06-15, severity high, source CDB_SENTINEL_APEX_v51;)\nalert dns any any -> any any (msg:\"CDB SENTINEL v51 - Threat Intel Domain: metacpan.org\"; dns.query; content:\"metacpan.org\"; nocase; sid:9750539; rev:1; classtype:trojan-activity; metadata:created_at 2026-06-15, severity high, source CDB_SENTINEL_APEX_v51;)\nalert dns any any -> any any (msg:\"CDB SENTINEL v51 - Threat Intel Domain: theorangeblowfish.com\"; dns.query; content:\"theorangeblowfish.com\"; nocase; sid:9750540; rev:1; classtype:trojan-activity; metadata:created_at 2026-06-15, severity high, source CDB_SENTINEL_APEX_v51;)\nalert http any any -> any any (msg:\"CDB SENTINEL v51 - Threat Intel URL\"; http.uri; content:\"dist/Crypt-DSA\"; nocase; sid:9751538; rev:1; classtype:trojan-activity; metadata:created_at 2026-06-15, source CDB_SENTINEL_APEX_v51;)\nalert http any any -> any any (msg:\"CDB SENTINEL v51 - Threat Intel URL\"; http.uri; content:\"perl-Crypt-OpenPGP/Crypt-DSA\"; nocase; sid:9751539; rev:1; classtype:trojan-activity; metadata:created_at 2026-06-15, source CDB_SENTINEL_APEX_v51;)",
+      "ioc_count": 6,
       "ioc_types": [
         "domain",
         "cve",
-        "sha1",
         "ipv4",
         "url"
       ],
@@ -109,20 +84,20 @@
         "T1090",
         "T1568"
       ],
-      "generated_at": "2026-06-09T04:45:48.426964+00:00",
+      "generated_at": "2026-06-15T17:31:01.306871+00:00",
       "source_advisories": [
-        "CVE-2026-11558 - CodeAstro Payroll System home_salary.php sql injection",
-        "Everest Forms Pro WordPress Flaw is Handing Attackers Admin Access",
-        "CVE-2026-11493: A weakness has been identified in Tenda AC15 15.03.05.19. The impacted element is an unknown function of the file /etc_r",
-        "Authlib OAuth 2.0 has Open Redirect in Authorization API that allows attacker-controlled redirect_uri through unsupported response_type",
-        "CVE-2026-10787 - Devolutions Server: Missing Authorization in Deleted User Groups API",
-        "offlineimap 8.0.3 fixes CVE-2020-37248 (STARTTLS stripping)",
-        "CVE-2026-11559 - CodeAstro Payroll System view_account.php sql injection",
-        "Critical Check Point VPN Zero-Day Exploited in the Wild (CVE-2026-50751)",
-        "IoT Botnet C0XMO Adds Competitor-Killing Capability",
-        "CVE-2026-10786 - Devolutions Server Improper Access Control Information Disclosure"
+        "[RANSOMWARE] Unknown: kodak.com",
+        "CVE-2026-5242 - Code Injection in Mia Technologies' Pizzy Library",
+        "CVE-2026-6517 - Mattermost Desktop App fails to restrict the allow list of domains which NTLM credentials are passed",
+        "CVE-2026-5233 - Missing Rate Limiting in Mia Technologies' Pizzy Library",
+        "CVE-2026-49064 - WordPress GetPaid plugin <= 2.8.49 - Sensitive Data Exposure vulnerability",
+        "CVE-2026-5079 - multer vulnerable to Denial of Service via deeply nested field names",
+        "CVE-2026-49062 - WordPress Faust.js plugin <= 1.8.7 - Broken Authentication vulnerability",
+        "Re: Squid CVE-2026-47729 and CVE-2026-50012",
+        "CVE-2026-12205: Crypt::DSA versions before 1.21 for Perl reused the nonce across signatures, leading to private-key recovery",
+        "CVE-2026-52704 - WordPress WooCommerce PDF Invoice Builder plugin <= 2.0.8 - Remote Code Execution (RCE) vulnerability"
       ],
-      "filename": "cdb_threat_intel_25a3f6600d81.rules"
+      "filename": "cdb_threat_intel_ae046c0ec765.rules"
     }
   ]
 }
