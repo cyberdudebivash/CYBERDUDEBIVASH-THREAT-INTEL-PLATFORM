@@ -1000,7 +1000,7 @@ async function handleTAXII(request, env, ctx, path, auth) {
 }
 
 // =============================================================================
-// CVE TRACKER  — NVD NIST live fetch + R2 cache
+// CVE TRACKER   -  NVD NIST live fetch + R2 cache
 // =============================================================================
 
 function cveSeverityFromScore(score) {
@@ -1020,7 +1020,7 @@ function mapNvdItem(vuln) {
   const descs = (cve.descriptions || []);
   const descEn = (descs.find(d => d.lang === "en") || descs[0] || {}).value || "";
 
-  // CVSS — prefer v3.1 then v3.0 then v2
+  // CVSS  -  prefer v3.1 then v3.0 then v2
   let cvss_score  = 0;
   let cvss_vector = "";
   let severity    = "NONE";
@@ -1700,7 +1700,7 @@ async function handleRequest(request, env, ctx) {
       "/api/v1/news/feed", "/api/reports/index.json", "/api/reports/stats.json",
       "/api/v1/ioc/lookup",
       "/api/v1/cve/live", "/api/v1/cve/stats", "/api/v1/cve/detail?id=CVE-XXXX-XXXXX",
-      "POST /api/auth/login (X-API-Key exchange → JWT)", "POST /api/auth/logout",
+      "POST /api/auth/login (X-API-Key exchange -> JWT)", "POST /api/auth/logout",
       "GET /api/auth/validate", "POST /api/auth/register",
       "/auth/login", "/auth/logout",
       "/taxii/", "/taxii/collections/", "/taxii/collections/{id}/objects/",
