@@ -63,6 +63,10 @@ const LATEST_JSON_KEY     = "api/v1/intel/latest.json";
 const APEX_JSON_KEY       = "api/v1/intel/apex.json";
 const AI_SUMMARY_KEY      = "api/v1/intel/ai_summary.json";
 const REPORTS_KEY         = "api/reports/index.json";
+const CVE_LIVE_KEY        = "api/v1/cve/live.json";
+const CVE_STATS_KEY       = "api/v1/cve/stats.json";
+const CVE_TTL_SEC         = 900;  // 15 min
+const NVD_API             = "https://services.nvd.nist.gov/rest/json/cves/2.0";
 const TAXII_COLLECTION_ID = "sentinel-apex-main";
 const TAXII_KEV_COLL      = "sentinel-apex-kev";
 const TAXII_CT            = "application/taxii+json;version=2.1";
@@ -996,6 +1000,144 @@ async function handleTAXII(request, env, ctx, path, auth) {
 }
 
 // =============================================================================
+// CVE TRACKER  — NVD NIST live fetch + R2 cache
+// =============================================================================
+
+function cveSeverityFromScore(score) {
+  const s = parseFloat(score) || 0;
+  if (s >= 9.0) return "CRITICAL";
+  if (s >= 7.0) return "HIGH";
+  if (s >= 4.0) return "MEDIUM";
+  if (s > 0)    return "LOW";
+  return "NONE";
+}
+
+function mapNvdItem(vuln) {
+  const cve  = vuln.cve || {};
+  const id   = cve.id || vuln.id || "";
+
+  // Description (English preferred)
+  const descs = (cve.descriptions || []);
+  const descEn = (descs.find(d => d.lang === "en") || descs[0] || {}).value || "";
+
+  // CVSS — prefer v3.1 then v3.0 then v2
+  let cvss_score  = 0;
+  let cvss_vector = "";
+  let severity    = "NONE";
+  const metrics   = cve.metrics || {};
+  if (metrics.cvssMetricV31 && metrics.cvssMetricV31.length > 0) {
+    const m = metrics.cvssMetricV31[0].cvssData || {};
+    cvss_score  = m.baseScore || 0;
+    cvss_vector = m.vectorString || "";
+    severity    = (metrics.cvssMetricV31[0].cvssData.baseSeverity || "").toUpperCase() || cveSeverityFromScore(cvss_score);
+  } else if (metrics.cvssMetricV30 && metrics.cvssMetricV30.length > 0) {
+    const m = metrics.cvssMetricV30[0].cvssData || {};
+    cvss_score  = m.baseScore || 0;
+    cvss_vector = m.vectorString || "";
+    severity    = (metrics.cvssMetricV30[0].cvssData.baseSeverity || "").toUpperCase() || cveSeverityFromScore(cvss_score);
+  } else if (metrics.cvssMetricV2 && metrics.cvssMetricV2.length > 0) {
+    const m = metrics.cvssMetricV2[0].cvssData || {};
+    cvss_score  = m.baseScore || 0;
+    cvss_vector = m.vectorString || "";
+    severity    = cveSeverityFromScore(cvss_score);
+  }
+
+  // CWE IDs
+  const weaknesses = cve.weaknesses || [];
+  const cwe_ids    = weaknesses.flatMap(w => (w.description || []).map(d => d.value)).filter(Boolean);
+
+  // Affected products (CPE criteria, up to 5)
+  const configs   = cve.configurations || [];
+  const affected  = [];
+  for (const cfg of configs) {
+    for (const node of (cfg.nodes || [])) {
+      for (const cpe of (node.cpeMatch || [])) {
+        if (affected.length >= 5) break;
+        affected.push(cpe.criteria || cpe.cpe23Uri || "");
+      }
+      if (affected.length >= 5) break;
+    }
+    if (affected.length >= 5) break;
+  }
+
+  // References (up to 5)
+  const references = (cve.references || []).slice(0, 5).map(r => r.url || "").filter(Boolean);
+
+  return {
+    id,
+    description:   descEn,
+    cvss_score:    Math.round(parseFloat(cvss_score) * 10) / 10,
+    cvss_vector,
+    severity:      severity || cveSeverityFromScore(cvss_score),
+    published:     cve.published   || vuln.published   || "",
+    last_modified: cve.lastModified || vuln.lastModified || "",
+    vuln_status:   cve.vulnStatus  || "",
+    cwe_ids,
+    affected_products: affected,
+    references,
+    kev: false,
+  };
+}
+
+async function fetchAndCacheCVEs(env) {
+  const emptyBundle = {
+    cves: [], stats: { total: 0, critical: 0, high: 0, medium: 0, low: 0, none: 0, avg_cvss: 0 },
+    generated_at: now(), source: "NVD_NIST_GOV", window: "7d", version: PLATFORM_VERSION,
+  };
+  try {
+    const endDate   = new Date();
+    const startDate = new Date(endDate.getTime() - 7 * 86400 * 1000);
+    const fmt       = d => d.toISOString().replace("Z", "").slice(0, 23);
+    const nvdUrl    = `${NVD_API}?pubStartDate=${fmt(startDate)}&pubEndDate=${fmt(endDate)}&resultsPerPage=100&startIndex=0`;
+
+    const resp = await fetch(nvdUrl, {
+      headers: { "Accept": "application/json", "User-Agent": "CyberDudeBivash-Sentinel-Apex/"+PLATFORM_VERSION },
+      cf: { cacheTtl: CVE_TTL_SEC, cacheEverything: true },
+    });
+
+    if (!resp.ok) {
+      const cached = await r2Get(env, CVE_LIVE_KEY);
+      return cached || emptyBundle;
+    }
+
+    const raw  = await resp.json();
+    const cves = (raw.vulnerabilities || []).map(mapNvdItem);
+
+    // Compute stats
+    const stats = { total: cves.length, critical: 0, high: 0, medium: 0, low: 0, none: 0, avg_cvss: 0 };
+    let scoreSum = 0;
+    for (const c of cves) {
+      const sev = c.severity;
+      if (sev === "CRITICAL") stats.critical++;
+      else if (sev === "HIGH") stats.high++;
+      else if (sev === "MEDIUM") stats.medium++;
+      else if (sev === "LOW") stats.low++;
+      else stats.none++;
+      scoreSum += c.cvss_score || 0;
+    }
+    stats.avg_cvss = cves.length > 0 ? Math.round((scoreSum / cves.length) * 10) / 10 : 0;
+
+    const bundle = {
+      cves, stats,
+      generated_at: now(),
+      source: "NVD_NIST_GOV",
+      window: "7d",
+      version: PLATFORM_VERSION,
+    };
+
+    try {
+      await env.INTEL_R2.put(CVE_LIVE_KEY, JSON.stringify(bundle), { httpMetadata: { contentType: "application/json" } });
+      await env.INTEL_R2.put(CVE_STATS_KEY, JSON.stringify({ ...stats, generated_at: bundle.generated_at, source: bundle.source, window: bundle.window }), { httpMetadata: { contentType: "application/json" } });
+    } catch (_) {}
+
+    return bundle;
+  } catch (_) {
+    const cached = await r2Get(env, CVE_LIVE_KEY);
+    return cached || emptyBundle;
+  }
+}
+
+// =============================================================================
 // MAIN REQUEST HANDLER
 // =============================================================================
 
@@ -1360,6 +1502,117 @@ async function handleRequest(request, env, ctx) {
     return jsonResp({ error: "Report not found", path, suggestion: "Report may still be generating. Try again in a few minutes." }, 404);
   }
 
+  // --- /api/v1/cve/live -------------------------------------------------------
+  if (path === "/api/v1/cve/live") {
+    const severity = (url.searchParams.get("severity") || "ALL").toUpperCase();
+    const q        = (url.searchParams.get("q") || "").toLowerCase().trim();
+    const limit    = Math.min(Math.max(parseInt(url.searchParams.get("limit") || "50", 10), 1), 200);
+    const offset   = Math.max(parseInt(url.searchParams.get("offset") || "0", 10), 0);
+
+    let bundle = await r2Get(env, CVE_LIVE_KEY);
+    const stale = !bundle || !bundle.generated_at ||
+      (Date.now() - new Date(bundle.generated_at).getTime()) > CVE_TTL_SEC * 1000;
+
+    if (stale) {
+      // Trigger background refresh; return whatever we have (may be null)
+      if (typeof ctx !== "undefined") ctx.waitUntil(fetchAndCacheCVEs(env));
+      if (!bundle) bundle = await fetchAndCacheCVEs(env);
+    }
+
+    let cves = bundle.cves || [];
+
+    // Severity filter
+    if (severity !== "ALL") cves = cves.filter(c => c.severity === severity);
+
+    // Keyword search on ID and description
+    if (q) cves = cves.filter(c =>
+      (c.id || "").toLowerCase().includes(q) ||
+      (c.description || "").toLowerCase().includes(q)
+    );
+
+    const total     = cves.length;
+    const paginated = cves.slice(offset, offset + limit);
+
+    // FREE tier: truncate description
+    const outCves = paginated.map(c => {
+      if (auth.tier !== TIERS.FREE) return c;
+      return { ...c, description: (c.description || "").slice(0, 100) + ((c.description || "").length > 100 ? "..." : "") };
+    });
+
+    return jsonResp({
+      cves: outCves,
+      stats: bundle.stats || {},
+      total, page: Math.floor(offset / limit), limit, offset,
+      generated_at: bundle.generated_at,
+      source: bundle.source,
+      window: bundle.window,
+      version: PLATFORM_VERSION,
+      _tier: auth.tier,
+    }, 200, { "Cache-Control": "public, max-age=60" });
+  }
+
+  // --- /api/v1/cve/stats ------------------------------------------------------
+  if (path === "/api/v1/cve/stats") {
+    let stats = await r2Get(env, CVE_STATS_KEY);
+    if (!stats) {
+      const bundle = await r2Get(env, CVE_LIVE_KEY);
+      stats = bundle ? { ...bundle.stats, generated_at: bundle.generated_at, source: bundle.source, window: bundle.window } : null;
+    }
+    if (!stats) {
+      if (typeof ctx !== "undefined") ctx.waitUntil(fetchAndCacheCVEs(env));
+      stats = { total: 0, critical: 0, high: 0, medium: 0, low: 0, none: 0, avg_cvss: 0,
+        generated_at: now(), source: "NVD_NIST_GOV", window: "7d" };
+    }
+    return jsonResp({ ...stats, version: PLATFORM_VERSION }, 200, { "Cache-Control": "public, max-age=60" });
+  }
+
+  // --- /api/v1/cve/detail -----------------------------------------------------
+  if (path === "/api/v1/cve/detail") {
+    const cveId = (url.searchParams.get("id") || "").trim().toUpperCase();
+    if (!cveId || !/^CVE-\d{4}-\d{4,}$/.test(cveId)) {
+      return jsonResp({ error: "Valid CVE ID required: ?id=CVE-YYYY-NNNNN" }, 400);
+    }
+
+    // 5-min KV cache
+    const cacheKey = `cve_detail:${cveId}`;
+    let detail = null;
+    try {
+      const cached = await env.RATE_LIMIT_KV.get(cacheKey, "json");
+      if (cached) detail = cached;
+    } catch (_) {}
+
+    if (!detail) {
+      try {
+        const nvdResp = await fetch(`${NVD_API}?cveId=${cveId}`, {
+          headers: { "Accept": "application/json", "User-Agent": "CyberDudeBivash-Sentinel-Apex/"+PLATFORM_VERSION },
+        });
+        if (nvdResp.ok) {
+          const raw  = await nvdResp.json();
+          const vulns = raw.vulnerabilities || [];
+          if (vulns.length > 0) {
+            detail = mapNvdItem(vulns[0]);
+            try { await env.RATE_LIMIT_KV.put(cacheKey, JSON.stringify(detail), { expirationTtl: 300 }); } catch (_) {}
+          }
+        }
+      } catch (_) {}
+    }
+
+    if (!detail) return jsonResp({ error: "CVE not found", id: cveId }, 404);
+
+    // PRO+ gets full details; FREE gets summary
+    if (auth.tier === TIERS.FREE) {
+      return jsonResp({
+        id: detail.id, severity: detail.severity, cvss_score: detail.cvss_score,
+        published: detail.published, last_modified: detail.last_modified,
+        description: (detail.description || "").slice(0, 100) + "...",
+        _tier: TIERS.FREE, _upgrade_url: "https://intel.cyberdudebivash.com/upgrade.html",
+        version: PLATFORM_VERSION,
+      }, 200, { "Cache-Control": "public, max-age=300" });
+    }
+
+    return jsonResp({ ...detail, version: PLATFORM_VERSION }, 200, { "Cache-Control": "private, max-age=300" });
+  }
+
   // --- /api/ingest (PRO+ only) ------------------------------------------------
   if (path === "/api/ingest" && method === "POST") {
     // Require authenticated PRO or ENTERPRISE tier
@@ -1446,6 +1699,7 @@ async function handleRequest(request, env, ctx) {
       "/api/v1/intel/darkweb", "/api/v1/intel/cybermap", "/api/feed.json",
       "/api/v1/news/feed", "/api/reports/index.json", "/api/reports/stats.json",
       "/api/v1/ioc/lookup",
+      "/api/v1/cve/live", "/api/v1/cve/stats", "/api/v1/cve/detail?id=CVE-XXXX-XXXXX",
       "POST /api/auth/login (X-API-Key exchange → JWT)", "POST /api/auth/logout",
       "GET /api/auth/validate", "POST /api/auth/register",
       "/auth/login", "/auth/logout",
@@ -1467,5 +1721,8 @@ export default {
         headers: { ...CORS_HEADERS, ...SECURITY_HEADERS, ...JSON_CONTENT },
       });
     }
+  },
+  async scheduled(event, env, ctx) {
+    ctx.waitUntil(fetchAndCacheCVEs(env));
   },
 };
