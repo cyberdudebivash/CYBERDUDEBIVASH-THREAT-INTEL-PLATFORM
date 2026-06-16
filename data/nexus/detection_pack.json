@@ -1,6 +1,276 @@
 {
-  "sigma_rules": [],
-  "yara_rules": [],
-  "snort_rules": [],
-  "stats": {}
+  "sigma_rules": [
+    {
+      "title": "CDB Sentinel APEX - SimpleHelp_RMM_flaw_could_give_attackers_full_access_to_mana",
+      "id": "sigma--2e972b04f2fa",
+      "status": "experimental",
+      "description": "Detects activity related to SimpleHelp RMM flaw could give attackers full access to managed endpoints (CVE-2026-48558)",
+      "references": [
+        "https://intel.cyberdudebivash.com"
+      ],
+      "author": "CyberDudeBivash GOC - Sentinel APEX v39.0",
+      "date": "2026/06/16",
+      "tags": [
+        "cve.cve-2026-48558"
+      ],
+      "logsource": {
+        "category": "process_creation",
+        "product": "windows"
+      },
+      "detection": {
+        "selection": {
+          "CommandLine|contains": [
+            "suspicious"
+          ]
+        },
+        "condition": "selection"
+      },
+      "level": "high",
+      "falsepositives": [
+        "Legitimate administrative activity"
+      ]
+    },
+    {
+      "title": "CDB Sentinel APEX - CVE202612328__Memory_safety_bugs_fixed_in_Firefox_ESR_11537",
+      "id": "sigma--69e7c8fb0057",
+      "status": "experimental",
+      "description": "Detects activity related to CVE-2026-12328 - Memory safety bugs fixed in Firefox ESR 115.37, Firefox ESR 140.12, Thunderbird ESR",
+      "references": [
+        "https://intel.cyberdudebivash.com"
+      ],
+      "author": "CyberDudeBivash GOC - Sentinel APEX v39.0",
+      "date": "2026/06/16",
+      "tags": [
+        "cve.cve-2026-12328"
+      ],
+      "logsource": {
+        "category": "process_creation",
+        "product": "windows"
+      },
+      "detection": {
+        "selection": {
+          "CommandLine|contains": [
+            "suspicious"
+          ]
+        },
+        "condition": "selection"
+      },
+      "level": "medium",
+      "falsepositives": [
+        "Legitimate administrative activity"
+      ]
+    },
+    {
+      "title": "CDB Sentinel APEX - CVE202612327__Memory_safety_bugs_fixed_in_Firefox_ESR_14012",
+      "id": "sigma--a52d9e876ac1",
+      "status": "experimental",
+      "description": "Detects activity related to CVE-2026-12327 - Memory safety bugs fixed in Firefox ESR 140.12, Thunderbird ESR 140.12, Firefox 152",
+      "references": [
+        "https://intel.cyberdudebivash.com"
+      ],
+      "author": "CyberDudeBivash GOC - Sentinel APEX v39.0",
+      "date": "2026/06/16",
+      "tags": [
+        "cve.cve-2026-12327"
+      ],
+      "logsource": {
+        "category": "process_creation",
+        "product": "windows"
+      },
+      "detection": {
+        "selection": {
+          "CommandLine|contains": [
+            "suspicious"
+          ]
+        },
+        "condition": "selection"
+      },
+      "level": "medium",
+      "falsepositives": [
+        "Legitimate administrative activity"
+      ]
+    },
+    {
+      "title": "CDB Sentinel APEX - CVE202612326__Memory_safety_bugs_fixed_in_Firefox_152_and_Th",
+      "id": "sigma--d785d83059ab",
+      "status": "experimental",
+      "description": "Detects activity related to CVE-2026-12326 - Memory safety bugs fixed in Firefox 152 and Thunderbird 152",
+      "references": [
+        "https://intel.cyberdudebivash.com"
+      ],
+      "author": "CyberDudeBivash GOC - Sentinel APEX v39.0",
+      "date": "2026/06/16",
+      "tags": [
+        "cve.cve-2026-12326"
+      ],
+      "logsource": {
+        "category": "process_creation",
+        "product": "windows"
+      },
+      "detection": {
+        "selection": {
+          "CommandLine|contains": [
+            "suspicious"
+          ]
+        },
+        "condition": "selection"
+      },
+      "level": "medium",
+      "falsepositives": [
+        "Legitimate administrative activity"
+      ]
+    }
+  ],
+  "yara_rules": [
+    {
+      "rule_name": "CDB_June_2026_Patch_Tuesday_Microsoft_Patche",
+      "rule_text": "rule CDB_June_2026_Patch_Tuesday_Microsoft_Patche {\n    meta:\n        author = \"CyberDudeBivash GOC - Sentinel APEX v39.0\"\n        description = \"Detection for June 2026 Patch Tuesday: Microsoft Patches 206 Vulnerabilities Including Three P\"\n        severity = \"high\"\n        date = \"2026-06-16\"\n    strings:\n                $actor = \"UNC-CDB-INGEST\" ascii wide nocase\n    condition:\n        any of them\n}"
+    },
+    {
+      "rule_name": "CDB_Cybercriminals_mask_malicious_communicat",
+      "rule_text": "rule CDB_Cybercriminals_mask_malicious_communicat {\n    meta:\n        author = \"CyberDudeBivash GOC - Sentinel APEX v39.0\"\n        description = \"Detection for Cybercriminals mask malicious communications through Microsoft Teams relays\"\n        severity = \"high\"\n        date = \"2026-06-16\"\n    strings:\n                $actor = \"UNC-CDB-INGEST\" ascii wide nocase\n    condition:\n        any of them\n}"
+    },
+    {
+      "rule_name": "CDB_Fortinet_Warned_as_Three_Critical_FortiS",
+      "rule_text": "rule CDB_Fortinet_Warned_as_Three_Critical_FortiS {\n    meta:\n        author = \"CyberDudeBivash GOC - Sentinel APEX v39.0\"\n        description = \"Detection for Fortinet Warned as Three Critical FortiSandbox Bugs Come Under Attack\"\n        severity = \"high\"\n        date = \"2026-06-16\"\n    strings:\n                $actor = \"UNC-CDB-INGEST\" ascii wide nocase\n        $kw0 = \"FortiSandbox\" ascii wide nocase\n    condition:\n        any of them\n}"
+    },
+    {
+      "rule_name": "CDB_hono_CORS_Middleware_reflects_any_Origin",
+      "rule_text": "rule CDB_hono_CORS_Middleware_reflects_any_Origin {\n    meta:\n        author = \"CyberDudeBivash GOC - Sentinel APEX v39.0\"\n        description = \"Detection for hono: CORS Middleware reflects any Origin with credentials when `origin` default\"\n        severity = \"high\"\n        date = \"2026-06-16\"\n    strings:\n                $actor = \"UNC-CDB-INGEST\" ascii wide nocase\n    condition:\n        any of them\n}"
+    },
+    {
+      "rule_name": "CDB_Astro_Reflected_XSS_via_unescaped_slot_n",
+      "rule_text": "rule CDB_Astro_Reflected_XSS_via_unescaped_slot_n {\n    meta:\n        author = \"CyberDudeBivash GOC - Sentinel APEX v39.0\"\n        description = \"Detection for Astro: Reflected XSS via unescaped slot name\"\n        severity = \"high\"\n        date = \"2026-06-16\"\n    strings:\n                $actor = \"UNC-CDB-INGEST\" ascii wide nocase\n    condition:\n        any of them\n}"
+    },
+    {
+      "rule_name": "CDB_Hackers_Weaponize_Microsoft_Teams_Relay_",
+      "rule_text": "rule CDB_Hackers_Weaponize_Microsoft_Teams_Relay_ {\n    meta:\n        author = \"CyberDudeBivash GOC - Sentinel APEX v39.0\"\n        description = \"Detection for Hackers Weaponize Microsoft Teams Relay to Hide Ransomware Traffic\"\n        severity = \"high\"\n        date = \"2026-06-16\"\n    strings:\n                $actor = \"UNC-CDB-INGEST\" ascii wide nocase\n    condition:\n        any of them\n}"
+    },
+    {
+      "rule_name": "CDB_SimpleHelp_RMM_flaw_could_give_attackers",
+      "rule_text": "rule CDB_SimpleHelp_RMM_flaw_could_give_attackers {\n    meta:\n        author = \"CyberDudeBivash GOC - Sentinel APEX v39.0\"\n        description = \"Detection for SimpleHelp RMM flaw could give attackers full access to managed endpoints (CVE-2\"\n        severity = \"high\"\n        date = \"2026-06-16\"\n    strings:\n                $cve0 = \"CVE-2026-48558\" ascii wide nocase\n        $actor = \"UNC-CDB-INGEST\" ascii wide nocase\n        $kw0 = \"SimpleHelp\" ascii wide nocase\n    condition:\n        any of them\n}"
+    },
+    {
+      "rule_name": "CDB_NCSC20260199_100_MH_Kwetsbaarheid_verhol",
+      "rule_text": "rule CDB_NCSC20260199_100_MH_Kwetsbaarheid_verhol {\n    meta:\n        author = \"CyberDudeBivash GOC - Sentinel APEX v39.0\"\n        description = \"Detection for NCSC-2026-0199 [1.00] [M/H] Kwetsbaarheid verholpen in Cisco Catalyst SD-WAN Man\"\n        severity = \"high\"\n        date = \"2026-06-16\"\n    strings:\n                $actor = \"UNC-CDB-INGEST\" ascii wide nocase\n    condition:\n        any of them\n}"
+    },
+    {
+      "rule_name": "CDB_RANSOMWARE_Unknown_Novo_Nordisk",
+      "rule_text": "rule CDB_RANSOMWARE_Unknown_Novo_Nordisk {\n    meta:\n        author = \"CyberDudeBivash GOC - Sentinel APEX v39.0\"\n        description = \"Detection for [RANSOMWARE] Unknown: Novo Nordisk\"\n        severity = \"high\"\n        date = \"2026-06-16\"\n    strings:\n                $actor = \"UNC-CDB-INGEST\" ascii wide nocase\n    condition:\n        any of them\n}"
+    },
+    {
+      "rule_name": "CDB_RANSOMWARE_Unknown_Allan_Brothers_Fruit",
+      "rule_text": "rule CDB_RANSOMWARE_Unknown_Allan_Brothers_Fruit {\n    meta:\n        author = \"CyberDudeBivash GOC - Sentinel APEX v39.0\"\n        description = \"Detection for [RANSOMWARE] Unknown: Allan Brothers Fruit\"\n        severity = \"high\"\n        date = \"2026-06-16\"\n    strings:\n                $actor = \"UNC-CDB-INGEST\" ascii wide nocase\n    condition:\n        any of them\n}"
+    },
+    {
+      "rule_name": "CDB_RANSOMWARE_Unknown_Diamond_Truck_Centres",
+      "rule_text": "rule CDB_RANSOMWARE_Unknown_Diamond_Truck_Centres {\n    meta:\n        author = \"CyberDudeBivash GOC - Sentinel APEX v39.0\"\n        description = \"Detection for [RANSOMWARE] Unknown: Diamond Truck Centres\"\n        severity = \"high\"\n        date = \"2026-06-16\"\n    strings:\n                $actor = \"UNC-CDB-INGEST\" ascii wide nocase\n    condition:\n        any of them\n}"
+    },
+    {
+      "rule_name": "CDB_RANSOMWARE_Unknown_Sumitomo_Electric_Bor",
+      "rule_text": "rule CDB_RANSOMWARE_Unknown_Sumitomo_Electric_Bor {\n    meta:\n        author = \"CyberDudeBivash GOC - Sentinel APEX v39.0\"\n        description = \"Detection for [RANSOMWARE] Unknown: Sumitomo Electric Bordnetze\"\n        severity = \"high\"\n        date = \"2026-06-16\"\n    strings:\n                $actor = \"UNC-CDB-INGEST\" ascii wide nocase\n    condition:\n        any of them\n}"
+    },
+    {
+      "rule_name": "CDB_CVE202612328__Memory_safety_bugs_fixed_i",
+      "rule_text": "rule CDB_CVE202612328__Memory_safety_bugs_fixed_i {\n    meta:\n        author = \"CyberDudeBivash GOC - Sentinel APEX v39.0\"\n        description = \"Detection for CVE-2026-12328 - Memory safety bugs fixed in Firefox ESR 115.37, Firefox ESR 140\"\n        severity = \"high\"\n        date = \"2026-06-16\"\n    strings:\n                $cve0 = \"CVE-2026-12328\" ascii wide nocase\n        $actor = \"UNC-CDB-INGEST\" ascii wide nocase\n    condition:\n        any of them\n}"
+    },
+    {
+      "rule_name": "CDB_CVE202612327__Memory_safety_bugs_fixed_i",
+      "rule_text": "rule CDB_CVE202612327__Memory_safety_bugs_fixed_i {\n    meta:\n        author = \"CyberDudeBivash GOC - Sentinel APEX v39.0\"\n        description = \"Detection for CVE-2026-12327 - Memory safety bugs fixed in Firefox ESR 140.12, Thunderbird ESR\"\n        severity = \"high\"\n        date = \"2026-06-16\"\n    strings:\n                $cve0 = \"CVE-2026-12327\" ascii wide nocase\n        $actor = \"UNC-CDB-INGEST\" ascii wide nocase\n    condition:\n        any of them\n}"
+    },
+    {
+      "rule_name": "CDB_CVE202612326__Memory_safety_bugs_fixed_i",
+      "rule_text": "rule CDB_CVE202612326__Memory_safety_bugs_fixed_i {\n    meta:\n        author = \"CyberDudeBivash GOC - Sentinel APEX v39.0\"\n        description = \"Detection for CVE-2026-12326 - Memory safety bugs fixed in Firefox 152 and Thunderbird 152\"\n        severity = \"high\"\n        date = \"2026-06-16\"\n    strings:\n                $cve0 = \"CVE-2026-12326\" ascii wide nocase\n        $actor = \"UNC-CDB-INGEST\" ascii wide nocase\n    condition:\n        any of them\n}"
+    },
+    {
+      "rule_name": "CDB_Teleport_adds_LLM_Proxy_and_Delegated_Id",
+      "rule_text": "rule CDB_Teleport_adds_LLM_Proxy_and_Delegated_Id {\n    meta:\n        author = \"CyberDudeBivash GOC - Sentinel APEX v39.0\"\n        description = \"Detection for Teleport adds LLM Proxy and Delegated Identity to secure AI agent actions and ac\"\n        severity = \"high\"\n        date = \"2026-06-16\"\n    strings:\n                $actor = \"UNC-CDB-INGEST\" ascii wide nocase\n    condition:\n        any of them\n}"
+    },
+    {
+      "rule_name": "CDB_RANSOMWARE_Unknown_Ralph_Lauren",
+      "rule_text": "rule CDB_RANSOMWARE_Unknown_Ralph_Lauren {\n    meta:\n        author = \"CyberDudeBivash GOC - Sentinel APEX v39.0\"\n        description = \"Detection for [RANSOMWARE] Unknown: Ralph Lauren\"\n        severity = \"high\"\n        date = \"2026-06-16\"\n    strings:\n                $actor = \"UNC-CDB-INGEST\" ascii wide nocase\n    condition:\n        any of them\n}"
+    },
+    {
+      "rule_name": "CDB_RANSOMWARE_Unknown_Tecfi_SpA",
+      "rule_text": "rule CDB_RANSOMWARE_Unknown_Tecfi_SpA {\n    meta:\n        author = \"CyberDudeBivash GOC - Sentinel APEX v39.0\"\n        description = \"Detection for [RANSOMWARE] Unknown: Tecfi SpA\"\n        severity = \"high\"\n        date = \"2026-06-16\"\n    strings:\n                $actor = \"UNC-CDB-INGEST\" ascii wide nocase\n    condition:\n        any of them\n}"
+    },
+    {
+      "rule_name": "CDB_RANSOMWARE_Unknown_Insite_Architects",
+      "rule_text": "rule CDB_RANSOMWARE_Unknown_Insite_Architects {\n    meta:\n        author = \"CyberDudeBivash GOC - Sentinel APEX v39.0\"\n        description = \"Detection for [RANSOMWARE] Unknown: Insite Architects\"\n        severity = \"high\"\n        date = \"2026-06-16\"\n    strings:\n                $actor = \"UNC-CDB-INGEST\" ascii wide nocase\n    condition:\n        any of them\n}"
+    },
+    {
+      "rule_name": "CDB_How_Orca_Traced_an_nginx_Flaw_to_145_Mil",
+      "rule_text": "rule CDB_How_Orca_Traced_an_nginx_Flaw_to_145_Mil {\n    meta:\n        author = \"CyberDudeBivash GOC - Sentinel APEX v39.0\"\n        description = \"Detection for How Orca Traced an nginx Flaw to 1.45 Million Tengine Servers All Running Vulner\"\n        severity = \"high\"\n        date = \"2026-06-16\"\n    strings:\n                $actor = \"UNC-CDB-INGEST\" ascii wide nocase\n    condition:\n        any of them\n}"
+    },
+    {
+      "rule_name": "CDB_Radware_AI_Xploit_Shield_delivers_virtua",
+      "rule_text": "rule CDB_Radware_AI_Xploit_Shield_delivers_virtua {\n    meta:\n        author = \"CyberDudeBivash GOC - Sentinel APEX v39.0\"\n        description = \"Detection for Radware AI Xploit Shield delivers virtual patching for newly identified applicat\"\n        severity = \"high\"\n        date = \"2026-06-16\"\n    strings:\n                $actor = \"UNC-CDB-INGEST\" ascii wide nocase\n    condition:\n        any of them\n}"
+    },
+    {
+      "rule_name": "CDB_RANSOMWARE_Unknown_Golfview_Developmenta",
+      "rule_text": "rule CDB_RANSOMWARE_Unknown_Golfview_Developmenta {\n    meta:\n        author = \"CyberDudeBivash GOC - Sentinel APEX v39.0\"\n        description = \"Detection for [RANSOMWARE] Unknown: Golfview Developmental Center\"\n        severity = \"high\"\n        date = \"2026-06-16\"\n    strings:\n                $actor = \"UNC-CDB-INGEST\" ascii wide nocase\n    condition:\n        any of them\n}"
+    },
+    {
+      "rule_name": "CDB_Interlock_and_Rhysida_Ransomware_Operati",
+      "rule_text": "rule CDB_Interlock_and_Rhysida_Ransomware_Operati {\n    meta:\n        author = \"CyberDudeBivash GOC - Sentinel APEX v39.0\"\n        description = \"Detection for Interlock and Rhysida Ransomware Operations Share Supper Backdoor and Malware Co\"\n        severity = \"high\"\n        date = \"2026-06-16\"\n    strings:\n                $actor = \"UNC-CDB-INGEST\" ascii wide nocase\n    condition:\n        any of them\n}"
+    },
+    {
+      "rule_name": "CDB_RANSOMWARE_Unknown_rae",
+      "rule_text": "rule CDB_RANSOMWARE_Unknown_rae {\n    meta:\n        author = \"CyberDudeBivash GOC - Sentinel APEX v39.0\"\n        description = \"Detection for [RANSOMWARE] Unknown: ra-*******e\"\n        severity = \"high\"\n        date = \"2026-06-16\"\n    strings:\n                $actor = \"UNC-CDB-INGEST\" ascii wide nocase\n    condition:\n        any of them\n}"
+    },
+    {
+      "rule_name": "CDB_RANSOMWARE_Unknown_de",
+      "rule_text": "rule CDB_RANSOMWARE_Unknown_de {\n    meta:\n        author = \"CyberDudeBivash GOC - Sentinel APEX v39.0\"\n        description = \"Detection for [RANSOMWARE] Unknown: d**********e\"\n        severity = \"high\"\n        date = \"2026-06-16\"\n    strings:\n                $actor = \"UNC-CDB-INGEST\" ascii wide nocase\n    condition:\n        any of them\n}"
+    },
+    {
+      "rule_name": "CDB_RANSOMWARE_Unknown_WSD",
+      "rule_text": "rule CDB_RANSOMWARE_Unknown_WSD {\n    meta:\n        author = \"CyberDudeBivash GOC - Sentinel APEX v39.0\"\n        description = \"Detection for [RANSOMWARE] Unknown: W******S*******D\"\n        severity = \"high\"\n        date = \"2026-06-16\"\n    strings:\n                $actor = \"UNC-CDB-INGEST\" ascii wide nocase\n    condition:\n        any of them\n}"
+    },
+    {
+      "rule_name": "CDB_Microsoft_Teams_Analyze_the_WiFi_Hotspot",
+      "rule_text": "rule CDB_Microsoft_Teams_Analyze_the_WiFi_Hotspot {\n    meta:\n        author = \"CyberDudeBivash GOC - Sentinel APEX v39.0\"\n        description = \"Detection for Microsoft Teams Analyze the Wi-Fi Hotspot Data Connected to an Employee\u2019s Device\"\n        severity = \"high\"\n        date = \"2026-06-16\"\n    strings:\n                $actor = \"UNC-CDB-INGEST\" ascii wide nocase\n    condition:\n        any of them\n}"
+    },
+    {
+      "rule_name": "CDB_RANSOMWARE_Unknown_Sunass",
+      "rule_text": "rule CDB_RANSOMWARE_Unknown_Sunass {\n    meta:\n        author = \"CyberDudeBivash GOC - Sentinel APEX v39.0\"\n        description = \"Detection for [RANSOMWARE] Unknown: Sunass\"\n        severity = \"high\"\n        date = \"2026-06-16\"\n    strings:\n                $actor = \"UNC-CDB-INGEST\" ascii wide nocase\n    condition:\n        any of them\n}"
+    },
+    {
+      "rule_name": "CDB_RANSOMWARE_Unknown_Central_Texas",
+      "rule_text": "rule CDB_RANSOMWARE_Unknown_Central_Texas {\n    meta:\n        author = \"CyberDudeBivash GOC - Sentinel APEX v39.0\"\n        description = \"Detection for [RANSOMWARE] Unknown: Central Texas ***** *****\"\n        severity = \"high\"\n        date = \"2026-06-16\"\n    strings:\n                $actor = \"UNC-CDB-INGEST\" ascii wide nocase\n    condition:\n        any of them\n}"
+    },
+    {
+      "rule_name": "CDB_RANSOMWARE_Unknown_Ri_Co_Europe_Srl",
+      "rule_text": "rule CDB_RANSOMWARE_Unknown_Ri_Co_Europe_Srl {\n    meta:\n        author = \"CyberDudeBivash GOC - Sentinel APEX v39.0\"\n        description = \"Detection for [RANSOMWARE] Unknown: Ri***** Co**** Europe S.r.l.\"\n        severity = \"high\"\n        date = \"2026-06-16\"\n    strings:\n                $actor = \"UNC-CDB-INGEST\" ascii wide nocase\n    condition:\n        any of them\n}"
+    }
+  ],
+  "snort_rules": [
+    {
+      "rule_name": "SimpleHelp_RMM_flaw_could_give_attackers_full_access_to_mana",
+      "rule_text": "alert tcp $HOME_NET any -> $EXTERNAL_NET any (msg:\"CDB SENTINEL APEX: SimpleHelp RMM flaw could give attackers full access to mana\"; content:\"CVE-2026-48558\"; nocase; sid:5727367; rev:1; classtype:trojan-activity; reference:url,intel.cyberdudebivash.com;)",
+      "sid": 5727367
+    },
+    {
+      "rule_name": "CVE202612328__Memory_safety_bugs_fixed_in_Firefox_ESR_11537",
+      "rule_text": "alert tcp $HOME_NET any -> $EXTERNAL_NET any (msg:\"CDB SENTINEL APEX: CVE-2026-12328 - Memory safety bugs fixed in Firefox ESR 115\"; content:\"CVE-2026-12328\"; nocase; sid:2726255; rev:1; classtype:trojan-activity; reference:url,intel.cyberdudebivash.com;)",
+      "sid": 2726255
+    },
+    {
+      "rule_name": "CVE202612327__Memory_safety_bugs_fixed_in_Firefox_ESR_14012",
+      "rule_text": "alert tcp $HOME_NET any -> $EXTERNAL_NET any (msg:\"CDB SENTINEL APEX: CVE-2026-12327 - Memory safety bugs fixed in Firefox ESR 140\"; content:\"CVE-2026-12327\"; nocase; sid:3252254; rev:1; classtype:trojan-activity; reference:url,intel.cyberdudebivash.com;)",
+      "sid": 3252254
+    },
+    {
+      "rule_name": "CVE202612326__Memory_safety_bugs_fixed_in_Firefox_152_and_Th",
+      "rule_text": "alert tcp $HOME_NET any -> $EXTERNAL_NET any (msg:\"CDB SENTINEL APEX: CVE-2026-12326 - Memory safety bugs fixed in Firefox 152 and\"; content:\"CVE-2026-12326\"; nocase; sid:9908029; rev:1; classtype:trojan-activity; reference:url,intel.cyberdudebivash.com;)",
+      "sid": 9908029
+    }
+  ],
+  "stats": {
+    "total_rules": 38,
+    "sigma_count": 4,
+    "yara_count": 30,
+    "snort_count": 4,
+    "coverage_techniques": 0,
+    "generated_at": "2026-06-16T17:22:30.235453+00:00"
+  }
 }
