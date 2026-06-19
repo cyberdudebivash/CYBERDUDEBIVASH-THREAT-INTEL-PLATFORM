@@ -8,6 +8,8 @@ const NAV_LINKS = [
   { href: "/cves", label: "CVE Intel" },
   { href: "/iocs", label: "IOC Feed" },
   { href: "/blog", label: "Blog" },
+  { href: "/playground", label: "Free Playground" },
+  { href: "/partners", label: "Partners" },
   { href: "/threats.html", label: "Threat Hub" },
 ];
 

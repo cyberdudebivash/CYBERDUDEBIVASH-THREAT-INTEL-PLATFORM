@@ -28,7 +28,8 @@ export function IntelPageLayout({ children, breadcrumbs }: IntelPageLayoutProps)
             <Link href="/cves" className="text-gray-400 hover:text-gray-100 transition-colors">CVE Intel</Link>
             <Link href="/iocs" className="text-gray-400 hover:text-gray-100 transition-colors">IOC Feed</Link>
             <Link href="/blog" className="text-gray-400 hover:text-gray-100 transition-colors">Blog</Link>
-            <Link href="/threats.html" className="text-gray-400 hover:text-gray-100 transition-colors">Threat Hub</Link>
+            <Link href="/playground" className="text-gray-400 hover:text-gray-100 transition-colors">Playground</Link>
+            <Link href="/partners" className="text-gray-400 hover:text-gray-100 transition-colors">Partners</Link>
             <Link
               href="/"
               className="px-3 py-1.5 rounded-lg bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 text-xs font-semibold hover:bg-cyan-500/20 transition-colors"
@@ -74,6 +75,7 @@ export function IntelPageLayout({ children, breadcrumbs }: IntelPageLayoutProps)
                 <li><Link href="/cves" className="text-gray-500 hover:text-gray-300">CVE Intelligence</Link></li>
                 <li><Link href="/iocs" className="text-gray-500 hover:text-gray-300">IOC Feed</Link></li>
                 <li><Link href="/blog" className="text-gray-500 hover:text-gray-300">Intel Blog</Link></li>
+                <li><Link href="/playground" className="text-gray-500 hover:text-gray-300">Free Playground</Link></li>
                 <li><Link href="/threats.html" className="text-gray-500 hover:text-gray-300">Threat Hub</Link></li>
               </ul>
             </div>
@@ -84,6 +86,9 @@ export function IntelPageLayout({ children, breadcrumbs }: IntelPageLayoutProps)
                 <li><Link href="/kev.html" className="text-gray-500 hover:text-gray-300">CISA KEV</Link></li>
                 <li><Link href="/advisories.html" className="text-gray-500 hover:text-gray-300">Advisories</Link></li>
                 <li><Link href="/vulnerabilities.html" className="text-gray-500 hover:text-gray-300">Vulnerabilities</Link></li>
+                <li><Link href="/partners" className="text-gray-500 hover:text-gray-300">Partner Program</Link></li>
+                <li><Link href="/changelog" className="text-gray-500 hover:text-gray-300">Changelog</Link></li>
+                <li><Link href="/newsletter" className="text-gray-500 hover:text-gray-300">Newsletter</Link></li>
               </ul>
             </div>
             <div>
