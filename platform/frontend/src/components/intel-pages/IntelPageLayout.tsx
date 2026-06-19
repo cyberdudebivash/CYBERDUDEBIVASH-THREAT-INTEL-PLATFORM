@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { MobileNav } from "./MobileNav";
 
 interface Crumb {
   label: string;
@@ -25,6 +26,8 @@ export function IntelPageLayout({ children, breadcrumbs }: IntelPageLayoutProps)
             <Link href="/threat-actors" className="text-gray-400 hover:text-gray-100 transition-colors">Threat Actors</Link>
             <Link href="/ransomware" className="text-gray-400 hover:text-gray-100 transition-colors">Ransomware</Link>
             <Link href="/cves" className="text-gray-400 hover:text-gray-100 transition-colors">CVE Intel</Link>
+            <Link href="/iocs" className="text-gray-400 hover:text-gray-100 transition-colors">IOC Feed</Link>
+            <Link href="/blog" className="text-gray-400 hover:text-gray-100 transition-colors">Blog</Link>
             <Link href="/threats.html" className="text-gray-400 hover:text-gray-100 transition-colors">Threat Hub</Link>
             <Link
               href="/"
@@ -33,6 +36,7 @@ export function IntelPageLayout({ children, breadcrumbs }: IntelPageLayoutProps)
               Launch Platform
             </Link>
           </nav>
+          <MobileNav />
         </div>
       </header>
 
@@ -68,6 +72,8 @@ export function IntelPageLayout({ children, breadcrumbs }: IntelPageLayoutProps)
                 <li><Link href="/threat-actors" className="text-gray-500 hover:text-gray-300">Threat Actors</Link></li>
                 <li><Link href="/ransomware" className="text-gray-500 hover:text-gray-300">Ransomware Groups</Link></li>
                 <li><Link href="/cves" className="text-gray-500 hover:text-gray-300">CVE Intelligence</Link></li>
+                <li><Link href="/iocs" className="text-gray-500 hover:text-gray-300">IOC Feed</Link></li>
+                <li><Link href="/blog" className="text-gray-500 hover:text-gray-300">Intel Blog</Link></li>
                 <li><Link href="/threats.html" className="text-gray-500 hover:text-gray-300">Threat Hub</Link></li>
               </ul>
             </div>
