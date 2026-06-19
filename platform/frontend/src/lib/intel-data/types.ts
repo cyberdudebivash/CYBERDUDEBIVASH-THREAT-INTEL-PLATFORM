@@ -40,3 +40,26 @@ export interface CveRecord {
   advisory_count: number;
   mitre_tactics: MitreTactic[];
 }
+
+export type IocType = "ip" | "domain" | "hash_sha256" | "url";
+export type ConfidenceLevel = "HIGH" | "MEDIUM" | "LOW";
+export type TlpLevel = "GREEN" | "AMBER" | "WHITE";
+
+export interface IocRecord {
+  id: string;
+  slug: string;
+  type: IocType;
+  value: string;
+  threat_type: string;
+  threat_actor: string | null;
+  malware_family: string | null;
+  confidence: ConfidenceLevel;
+  severity: Severity;
+  first_seen: string;
+  last_seen: string;
+  tags: readonly string[];
+  source: string;
+  mitre_tactics: MitreTactic[];
+  tlp: TlpLevel;
+  description: string;
+}
