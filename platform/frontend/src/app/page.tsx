@@ -8,7 +8,7 @@ import { IntelFeed } from "@/components/intel/IntelFeed";
 import { MetricCard } from "@/components/ui/MetricCard";
 import { useAuthStore } from "@/store/authStore";
 
-const PLATFORM_METRICS = [
+const PLATFORM_METRICS: Array<{ label: string; value: string; trend: string; status: "warning" | "success" | "info" | "danger" }> = [
   { label: "Active IOCs", value: "2.4M", trend: "+12%", status: "warning" },
   { label: "Threats Blocked (24h)", value: "47,832", trend: "+8%", status: "success" },
   { label: "AI Analyses Run", value: "284K", trend: "+23%", status: "info" },
