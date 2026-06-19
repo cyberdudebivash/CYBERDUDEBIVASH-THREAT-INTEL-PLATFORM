@@ -1296,6 +1296,29 @@ jobs:
         run: python3 scripts/r2_upload.py
 
       # -----------------------------------------------------------------------
+      # STAGE 3.5.1: R2 REPORTS INDEX INTEGRITY GATE (v1.0 P0 PERMANENT FIX)
+      # ROOT CAUSE FIX: r2_upload.py (Stage 3.5) treats HTML report upload as
+      # non-fatal -- it exits 0 even when upload to sentinel-apex-reports fails.
+      # This silently allows api/reports/index.json to accumulate ghost entries
+      # that point to report URLs with no corresponding HTML in R2, causing 404s
+      # for users clicking those links on the dashboard.
+      #
+      # This stage:
+      #   1. Verifies each entry in api/reports/index.json actually has its HTML
+      #      in the sentinel-apex-reports R2 bucket (parallel S3 head-object).
+      #   2. Purges any stale entries (confirmed missing from R2).
+      #   3. Re-uploads the cleaned api/reports/index.json to sentinel-apex-data.
+      #   4. HARD FAILS if ALL current-run reports are missing from R2 (upload
+      #      mechanism is broken -- credentials invalid or bucket unreachable).
+      # -----------------------------------------------------------------------
+      - name: "STAGE 3.5.1 - R2 Reports Index Integrity Gate (v1.0 P0 Permanent Fix)"
+        timeout-minutes: 10
+        env:
+          CF_R2_REPORTS_KEY_ID:     ${{ secrets.CF_R2_REPORTS_KEY_ID }}
+          CF_R2_REPORTS_SECRET_KEY: ${{ secrets.CF_R2_REPORTS_SECRET_KEY }}
+        run: python3 scripts/r2_reports_integrity.py
+
+      # -----------------------------------------------------------------------
       # STAGE 3.6: R2 UPLOAD INTEGRITY VERIFIER (v143.2.0 -- HARD FAIL)
       # Confirms R2 upload from Stage 3.5 landed correctly BEFORE cache bust.
       # Verifies: ETag matches local sha256, object is reachable via presigned
