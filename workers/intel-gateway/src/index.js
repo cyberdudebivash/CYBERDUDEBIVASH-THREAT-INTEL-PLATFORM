@@ -1485,10 +1485,10 @@ async function handleCopilot(request, env, auth, method, path) {
 }
 
 // =============================================================================
-// PAYMENT SYSTEM — Razorpay + Gumroad + Manual Notify
-// Razorpay: create-order → client checkout modal → verify (client) + webhook (server)
-// Gumroad:  webhook ping → auto-provision key + Telegram alert
-// Manual:   UPI/NEFT/Crypto proof → Telegram alert → admin provisions key
+// PAYMENT SYSTEM  -  Razorpay + Gumroad + Manual Notify
+// Razorpay: create-order -> client checkout modal -> verify (client) + webhook (server)
+// Gumroad:  webhook ping -> auto-provision key + Telegram alert
+// Manual:   UPI/NEFT/Crypto proof -> Telegram alert -> admin provisions key
 // =============================================================================
 
 const RAZORPAY_TIER_PRICES = {
@@ -1593,7 +1593,7 @@ async function handleRazorpayVerify(request, env, ctx, method) {
     `${razorpay_order_id}|${razorpay_payment_id}`,
     razorpay_signature, env.RAZORPAY_KEY_SECRET
   );
-  if (!valid) return jsonResp({ error: "Payment signature invalid — verification failed", code: "SIG_MISMATCH" }, 400);
+  if (!valid) return jsonResp({ error: "Payment signature invalid  -  verification failed", code: "SIG_MISMATCH" }, 400);
 
   // Idempotency guard: prevent replay of a previously verified payment_id
   const verifyIdempKey = `rzp_verified:${razorpay_payment_id}`;
@@ -1606,11 +1606,11 @@ async function handleRazorpayVerify(request, env, ctx, method) {
   const apiKey = await provisionApiKey(env, ctx, tierUp, email, "razorpay_checkout", {
     order_id: razorpay_order_id, payment_id: razorpay_payment_id,
   });
-  // Mark payment_id as consumed (1 year TTL — Razorpay IDs never expire)
+  // Mark payment_id as consumed (1 year TTL  -  Razorpay IDs never expire)
   await env.SECURITY_HUB_KV.put(verifyIdempKey, JSON.stringify({ email, tier: tierUp, ts: now() }), { expirationTtl: 86400 * 365 });
 
   ctx.waitUntil(sendTelegramAlert(env,
-    `🎉 <b>RAZORPAY PAYMENT VERIFIED</b>\n` +
+    `? <b>RAZORPAY PAYMENT VERIFIED</b>\n` +
     `Plan: <b>${tierUp}</b>\n` +
     `Email: ${email}\n` +
     `Payment ID: <code>${razorpay_payment_id}</code>\n` +
@@ -1663,8 +1663,8 @@ async function handleWebhookRazorpay(request, env, ctx) {
     });
     await env.SECURITY_HUB_KV.put(whIdempKey, JSON.stringify({ email, tier, ts: now() }), { expirationTtl: 86400 * 365 });
     ctx.waitUntil(sendTelegramAlert(env,
-      `💰 <b>RAZORPAY: ${event}</b>\n` +
-      `Plan: <b>${tier}</b> | Amount: ₹${(amount / 100).toFixed(2)}\n` +
+      `? <b>RAZORPAY: ${event}</b>\n` +
+      `Plan: <b>${tier}</b> | Amount: ?${(amount / 100).toFixed(2)}\n` +
       `Email: ${email}\n` +
       `Payment ID: <code>${pid}</code>\n` +
       `API Key: <code>${apiKey.slice(0, 16)}...</code>`
@@ -1674,7 +1674,7 @@ async function handleWebhookRazorpay(request, env, ctx) {
 
   if (event === "payment.failed") {
     ctx.waitUntil(sendTelegramAlert(env,
-      `❌ <b>RAZORPAY PAYMENT FAILED</b>\n` +
+      `[FAIL] <b>RAZORPAY PAYMENT FAILED</b>\n` +
       `Plan: ${tier} | Email: ${email}\n` +
       `Payment ID: <code>${pid}</code>\n` +
       `Error: ${entity.error_description || "unknown"}`
@@ -1685,8 +1685,8 @@ async function handleWebhookRazorpay(request, env, ctx) {
   return jsonResp({ status: "acknowledged", event });
 }
 
-// POST /api/webhooks/gumroad  (Gumroad Ping webhook — application/x-www-form-urlencoded)
-// Configure Gumroad → Settings → Webhooks URL as:
+// POST /api/webhooks/gumroad  (Gumroad Ping webhook  -  application/x-www-form-urlencoded)
+// Configure Gumroad -> Settings -> Webhooks URL as:
 //   https://intel.cyberdudebivash.com/api/webhooks/gumroad?secret=YOUR_GUMROAD_WEBHOOK_SECRET
 // Set GUMROAD_WEBHOOK_SECRET via: npx wrangler secret put GUMROAD_WEBHOOK_SECRET
 async function handleWebhookGumroad(request, env, ctx) {
@@ -1732,7 +1732,7 @@ async function handleWebhookGumroad(request, env, ctx) {
   );
 
   ctx.waitUntil(sendTelegramAlert(env,
-    `🛒 <b>GUMROAD SALE</b>\n` +
+    `? <b>GUMROAD SALE</b>\n` +
     `Product: ${product_name}\n` +
     `Plan: <b>${tier}</b> | Price: $${price}\n` +
     `Email: ${email}\n` +
@@ -1758,15 +1758,15 @@ async function handleManualNotify(request, env, ctx, method) {
   await env.SECURITY_HUB_KV.put(`manual_payment:${reviewId}`, JSON.stringify(record), { expirationTtl: 86400 * 90 });
 
   ctx.waitUntil(sendTelegramAlert(env,
-    `📋 <b>MANUAL PAYMENT NOTIFICATION</b>\n` +
+    `? <b>MANUAL PAYMENT NOTIFICATION</b>\n` +
     `Review ID: <code>${reviewId}</code>\n` +
     `Name: ${name || "N/A"} | Email: ${email}\n` +
     `Plan: <b>${(plan || "PRO").toUpperCase()}</b>\n` +
     `Method: ${payment_method || "unspecified"}\n` +
     `Amount: ${currency} ${amount || "?"}\n` +
     `Txn ID: <code>${transaction_id || "N/A"}</code>\n` +
-    `Notes: ${notes || "—"}\n` +
-    `⏰ Verify and provision via /api/admin/keys`
+    `Notes: ${notes || " - "}\n` +
+    `? Verify and provision via /api/admin/keys`
   ));
 
   auditLog(ctx, env, { action: "manual_payment_submitted", email, plan, review_id: reviewId });
@@ -1787,12 +1787,12 @@ async function handlePaymentStatus(request, env, url) {
   return jsonResp({
     review_id: reviewId, status: record.status || "pending",
     plan: record.plan, payment_method: record.payment_method, created_at: record.created_at,
-    message: record.status === "activated" ? "API key has been provisioned — check your email." : "Under review — delivery within 2 hours.",
+    message: record.status === "activated" ? "API key has been provisioned  -  check your email." : "Under review  -  delivery within 2 hours.",
   });
 }
 
 // =============================================================================
-// BRAND PROTECTION — Typosquatting & Domain Impersonation Detection
+// BRAND PROTECTION  -  Typosquatting & Domain Impersonation Detection
 // =============================================================================
 
 function levenshtein(a, b) {
@@ -1896,7 +1896,7 @@ async function handleBrandProtection(request, env, auth, method, path, url) {
       scan_summary: {
         total_variants: scored.length, critical: critical.length, high: high.length, medium: medium.length,
         low: scored.length - critical.length - high.length - medium.length,
-        risk_assessment: critical.length > 0 ? "CRITICAL — Active impersonation patterns detected" : high.length > 0 ? "HIGH — Immediate monitoring recommended" : "MEDIUM — Routine monitoring advised",
+        risk_assessment: critical.length > 0 ? "CRITICAL  -  Active impersonation patterns detected" : high.length > 0 ? "HIGH  -  Immediate monitoring recommended" : "MEDIUM  -  Routine monitoring advised",
       },
       top_threats: scored.slice(0, 20), all_variants: scored,
       recommendations: [
@@ -1919,7 +1919,7 @@ async function handleBrandProtection(request, env, auth, method, path, url) {
     return jsonResp({
       status: "ok", module: "Brand Protection", original: domain, checked: check_domain,
       ...scoring, is_threat: scoring.risk_level === "CRITICAL" || scoring.risk_level === "HIGH",
-      analysis: `Edit distance ${scoring.edit_distance} — ${scoring.risk_level} risk typosquat candidate`,
+      analysis: `Edit distance ${scoring.edit_distance}  -  ${scoring.risk_level} risk typosquat candidate`,
       generated_at: now(),
     });
   }
@@ -1928,7 +1928,7 @@ async function handleBrandProtection(request, env, auth, method, path, url) {
 }
 
 // =============================================================================
-// VENDOR RISK — FAIR-Based Third-Party Risk Assessment
+// VENDOR RISK  -  FAIR-Based Third-Party Risk Assessment
 // =============================================================================
 
 const VENDOR_RISK_FACTORS = {
@@ -1959,8 +1959,8 @@ function fairAssess(data) {
   if (breakdown.compliance?.raw_score >= 5) recs.push("Request SOC 2 Type II or ISO 27001 within 90 days");
   if (breakdown.incident_history?.raw_score >= 5) recs.push("Conduct post-mortem review of past incidents");
   if (breakdown.network_access?.raw_score >= 7) recs.push("Implement network segmentation for vendor access");
-  if (breakdown.data_access?.raw_score >= 7) recs.push("Apply data minimization — enforce least-privilege access");
-  if (rl === "CRITICAL") recs.push("URGENT: Escalate to CISO — vendor review within 48 hours");
+  if (breakdown.data_access?.raw_score >= 7) recs.push("Apply data minimization  -  enforce least-privilege access");
+  if (rl === "CRITICAL") recs.push("URGENT: Escalate to CISO  -  vendor review within 48 hours");
   if (rl === "HIGH") recs.push("Schedule formal vendor security review within 30 days");
   return {
     risk_score: rs, risk_level: rl,
@@ -2008,7 +2008,7 @@ async function handleVendorRisk(request, env, auth, method, path) {
 }
 
 // =============================================================================
-// GEOPOLITICAL RISK — Country-Level Threat Intelligence & Sanctions Screening
+// GEOPOLITICAL RISK  -  Country-Level Threat Intelligence & Sanctions Screening
 // =============================================================================
 
 const GEO_DB = {
@@ -2055,14 +2055,14 @@ function buildGeoRecs(code, data) {
     r.push("Consider geo-blocking if no legitimate business presence required");
   }
   if (data.sanctioned) {
-    r.push("OFAC/EU sanctions apply — obtain legal authorization before any engagement");
+    r.push("OFAC/EU sanctions apply  -  obtain legal authorization before any engagement");
     r.push("Screen all financial transactions against current OFAC SDN list");
   }
   if (data.apts.length > 0) {
-    r.push(`Threat hunt for TTPs of: ${data.apts.join(", ")} — review MITRE ATT&CK groups page`);
+    r.push(`Threat hunt for TTPs of: ${data.apts.join(", ")}  -  review MITRE ATT&CK groups page`);
     r.push("Subscribe to sector-specific ISAC alerts for this threat actor cluster");
   }
-  return r.length ? r : ["Standard monitoring — no elevated risk indicators"];
+  return r.length ? r : ["Standard monitoring  -  no elevated risk indicators"];
 }
 
 async function handleGeopolitical(request, env, auth, method, path, url) {
@@ -2128,7 +2128,7 @@ async function handleGeopolitical(request, env, auth, method, path, url) {
 }
 
 // =============================================================================
-// NLQ — Natural Language Queries on Live Intel Feed (PRO+)
+// NLQ  -  Natural Language Queries on Live Intel Feed (PRO+)
 // =============================================================================
 
 const NLQ_EXAMPLES = [
@@ -2250,7 +2250,7 @@ async function handleNLQ(request, env, auth, method, path, url, ctx) {
 }
 
 // =============================================================================
-// INCIDENT RESPONSE — KV-Backed CRUD (NIST SP 800-61r3 lifecycle)
+// INCIDENT RESPONSE  -  KV-Backed CRUD (NIST SP 800-61r3 lifecycle)
 // =============================================================================
 
 const IR_PHASES = ["PREPARATION","DETECTION","ANALYSIS","CONTAINMENT","ERADICATION","RECOVERY","POST_INCIDENT"];
@@ -2272,7 +2272,7 @@ async function handleIncidentResponse(request, env, auth, method, path, url, ctx
     try {
       const pfx    = auth.tier === TIERS.ENTERPRISE ? "ir:" : ownerPfx;
       const listPrefix = `${pfx}incident:`;
-      // Cursor-paginated list — fetches all keys across multiple pages (max 200 per page)
+      // Cursor-paginated list  -  fetches all keys across multiple pages (max 200 per page)
       let allKeys = [], cursor = undefined, complete = false;
       while (!complete) {
         const page = await env.SECURITY_HUB_KV.list({ prefix: listPrefix, limit: 200, cursor });
@@ -2325,7 +2325,7 @@ async function handleIncidentResponse(request, env, auth, method, path, url, ctx
       const oldPhase = existing.phase;
       const updated  = { ...existing, ...Object.fromEntries(Object.entries(body).filter(([k])=>!["id","created_at","created_by","timeline"].includes(k))), updated_at: now() };
       if (body.phase && body.phase !== oldPhase) {
-        updated.timeline = [...(existing.timeline||[]), { ts: now(), phase: body.phase, event: `Phase: ${oldPhase} → ${body.phase}`, actor: auth.sub||"api" }];
+        updated.timeline = [...(existing.timeline||[]), { ts: now(), phase: body.phase, event: `Phase: ${oldPhase} -> ${body.phase}`, actor: auth.sub||"api" }];
       }
       await env.SECURITY_HUB_KV.put(kvKey, JSON.stringify(updated), { expirationTtl: 86400*90 });
       auditLog(ctx, env, { action: "incident_updated", id: incId, sub: auth.sub });
@@ -2924,7 +2924,7 @@ async function handleRequest(request, env, ctx) {
     }
   }
 
-  // --- Razorpay Payment Endpoints (no auth required — signature verifies) -----
+  // --- Razorpay Payment Endpoints (no auth required  -  signature verifies) -----
   if (path === "/api/payment/razorpay/create-order") {
     return await handleRazorpayCreateOrder(request, env, method);
   }
@@ -2932,7 +2932,7 @@ async function handleRequest(request, env, ctx) {
     return await handleRazorpayVerify(request, env, ctx, method);
   }
 
-  // --- Webhook Endpoints (no auth — webhook secret/sig verifies) --------------
+  // --- Webhook Endpoints (no auth  -  webhook secret/sig verifies) --------------
   if (path === "/api/webhooks/razorpay") {
     return await handleWebhookRazorpay(request, env, ctx);
   }
