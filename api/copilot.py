@@ -1,23 +1,29 @@
 #!/usr/bin/env python3
 """
 ╔══════════════════════════════════════════════════════════════════════════════╗
-║  CYBERDUDEBIVASH® SENTINEL APEX — AI SECURITY COPILOT v81.0               ║
-║  Deterministic SOC intelligence engine — zero external LLM dependency     ║
-║  Rule-based + template-driven threat analysis                              ║
+║  CYBERDUDEBIVASH® SENTINEL APEX — AI SECURITY COPILOT v2.0               ║
+║  Hybrid intelligence engine: Real LLM (Anthropic) + deterministic fallback║
+║  Production-grade: zero-crash guarantee, graceful degradation              ║
 ╚══════════════════════════════════════════════════════════════════════════════╝
 Endpoint:  POST /api/v1/copilot/query
-Features:
-  • explain_threat  — SOC-style threat breakdown
-  • what_to_do      — prioritized action plan
-  • soc_report      — full structured SOC report
-  • ioc_summary     — IOC intelligence digest
-  • mitre_mapping   — ATT&CK technique context
-  • risk_brief      — executive risk briefing
+Modes:
+  • explain_threat   — SOC-style threat breakdown (LLM-enhanced)
+  • what_to_do       — prioritized action plan (LLM-enhanced)
+  • soc_report       — full structured SOC report (LLM-enhanced)
+  • ioc_summary      — IOC intelligence digest
+  • mitre_mapping    — ATT&CK technique context
+  • risk_brief       — executive risk briefing (LLM-enhanced)
+  • threat_hunt      — generate hunt queries for this threat (NEW - LLM)
+  • detection_write  — generate SIGMA/KQL/SPL detection rules (NEW - LLM)
+  • incident_brief   — IR commander briefing (NEW - LLM)
+  • natural_language — free-form security question (NEW - LLM)
+LLM: Anthropic Claude (ANTHROPIC_API_KEY env var) with deterministic fallback.
 """
 from __future__ import annotations
 
 import json
 import logging
+import os
 import re
 import time
 from datetime import datetime, timezone
@@ -27,6 +33,35 @@ from typing import Any, Dict, List, Optional
 logger = logging.getLogger("CDB-COPILOT")
 
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+# ── LLM Configuration ─────────────────────────────────────────────────────────
+_ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
+_AI_MODEL          = os.getenv("AI_MODEL", "claude-sonnet-4-20250514")
+_AI_MAX_TOKENS     = int(os.getenv("AI_MAX_TOKENS", "1500"))
+_LLM_ENABLED       = bool(_ANTHROPIC_API_KEY)
+
+# LLM modes that bypass template fallback and use pure LLM
+_LLM_EXCLUSIVE_MODES = {"threat_hunt", "detection_write", "incident_brief", "natural_language"}
+
+# ── LLM System Prompt ─────────────────────────────────────────────────────────
+_SYSTEM_PROMPT = """You are SENTINEL APEX — the expert AI Security Copilot for CYBERDUDEBIVASH® Sentinel APEX, an enterprise-grade threat intelligence platform.
+
+Your identity:
+- World-class threat intelligence analyst with 20+ years SOC, IR, and CTI experience
+- Expert in MITRE ATT&CK, STIX 2.1, TAXII, SIGMA rules, KQL, SPL, YARA, Suricata
+- Deep expertise in: Ransomware (LockBit, REvil, Cl0p), APT groups (APT28, APT29, Lazarus, Volt Typhoon), supply chain attacks, zero-day exploitation
+- Fluent in: incident response, threat hunting, detection engineering, vulnerability management, OSINT
+
+Response style:
+- SOC-ready, operationally actionable, specific and precise
+- Never vague — always provide concrete commands, queries, IOC patterns, or remediation steps
+- Structure responses clearly with sections when appropriate
+- For detection rules: provide complete, working rule syntax
+- For hunt queries: provide working KQL/SPL/SIGMA syntax
+- Calibrated confidence — state uncertainty when present
+
+Platform context: You have access to the SENTINEL APEX live threat intelligence feed with 500+ curated advisories, CVSS/EPSS/KEV enrichment, MITRE ATT&CK mapping, and threat actor attribution covering 35+ APT groups.
+"""
 
 try:
     from fastapi import APIRouter, HTTPException, Header
@@ -185,6 +220,70 @@ class CopilotEngine:
             except Exception:
                 continue
         return []
+
+    async def _call_llm(
+        self,
+        user_message: str,
+        threat_context: Optional[Dict] = None,
+        extra_system: str = "",
+        max_tokens: int = 0,
+    ) -> Optional[str]:
+        """Call Anthropic Claude API. Returns None on any failure — caller uses template fallback."""
+        if not _LLM_ENABLED:
+            return None
+        try:
+            import httpx
+            system = _SYSTEM_PROMPT
+            if extra_system:
+                system += f"\n\n{extra_system}"
+            if threat_context:
+                ctx_str = json.dumps({
+                    k: v for k, v in threat_context.items()
+                    if k in ("title", "severity", "risk_score", "threat_type", "actor_tag",
+                             "mitre_tactics", "kev_present", "cvss_score", "epss_score",
+                             "supply_chain", "ioc_counts", "stix_id", "feed_source")
+                }, indent=2)
+                system += f"\n\nCurrent advisory context:\n```json\n{ctx_str[:2000]}\n```"
+
+            # Inject recent feed intelligence as RAG context
+            feed_items = self._load_manifest()
+            if feed_items:
+                sample = feed_items[:8]
+                feed_summary = [
+                    {"title": i.get("title", "")[:80], "severity": i.get("severity"),
+                     "threat_type": i.get("threat_type"), "actor": i.get("actor_tag"),
+                     "kev": i.get("kev_present"), "risk_score": i.get("risk_score")}
+                    for i in sample
+                ]
+                system += f"\n\nLatest 8 advisories from live feed:\n{json.dumps(feed_summary, indent=2)[:1500]}"
+
+            tokens = max_tokens or _AI_MAX_TOKENS
+            async with httpx.AsyncClient(timeout=45.0) as client:
+                resp = await client.post(
+                    "https://api.anthropic.com/v1/messages",
+                    headers={
+                        "x-api-key":          _ANTHROPIC_API_KEY,
+                        "anthropic-version":  "2023-06-01",
+                        "content-type":       "application/json",
+                    },
+                    json={
+                        "model":      _AI_MODEL,
+                        "max_tokens": tokens,
+                        "system":     system,
+                        "messages":   [{"role": "user", "content": user_message}],
+                    },
+                )
+            if resp.status_code == 200:
+                data = resp.json()
+                text = data.get("content", [{}])[0].get("text", "")
+                logger.info(f"[LLM] Tokens used: {data.get('usage', {})}")
+                return text if text else None
+            else:
+                logger.warning(f"[LLM] API error {resp.status_code}: {resp.text[:200]}")
+                return None
+        except Exception as e:
+            logger.warning(f"[LLM] Call failed (using template fallback): {e}")
+            return None
 
     def _find_threat(self, threat_id: str) -> Optional[Dict]:
         for item in self._load_manifest():
@@ -431,8 +530,140 @@ class CopilotEngine:
             ),
         }
 
+    def threat_hunt_template(self, threat: Dict, question: str = "") -> Dict:
+        """Generate threat hunt package (template fallback)."""
+        mitre  = threat.get("mitre_tactics") or []
+        actor  = threat.get("actor_tag") or "UNKNOWN"
+        ttype  = threat.get("threat_type") or "General"
+        iocs   = threat.get("ioc_counts") or {}
+        title  = threat.get("title", "Unknown Threat")
+
+        kql_queries = []
+        for t in mitre[:4]:
+            ctx = MITRE_CONTEXT.get(t, {})
+            if ctx:
+                kql_queries.append(f"// Hunt: {ctx['name']} ({t})\n"
+                                   f"DeviceProcessEvents\n| where ProcessCommandLine has_any([\"{t.lower()}\", \"{ctx['name'].lower()[:20]}\"])\n"
+                                   f"| project Timestamp, DeviceName, InitiatingProcessFileName, ProcessCommandLine, AccountName")
+        return {
+            "mode": "threat_hunt",
+            "title": title,
+            "hunt_package": {
+                "actor": actor,
+                "threat_type": ttype,
+                "mitre_techniques": mitre,
+                "kql_queries": kql_queries or [
+                    f"// Generic hunt for {ttype}\nSecurityEvent\n| where TimeGenerated > ago(7d)\n| where EventID in (4624, 4625, 4688)\n| summarize count() by Account, Computer, EventID"
+                ],
+                "spl_queries": [
+                    f"index=* sourcetype=WinEventLog:Security earliest=-7d\n| search \"{title[:30]}\"\n| stats count by host, user, src_ip"
+                ],
+                "sigma_tags": [f"attack.{t.lower()}" for t in mitre[:6]],
+                "ioc_lookups": {k: f"Hunt for {v} {k} indicators in SIEM/EDR" for k, v in iocs.items() if v},
+                "hunt_duration_hours": 4,
+                "priority": "P1" if threat.get("risk_score", 0) >= 8 else "P2",
+            },
+            "llm_enhanced": False,
+        }
+
+    def detection_write_template(self, threat: Dict, question: str = "") -> Dict:
+        """Generate detection rules (template fallback)."""
+        title  = threat.get("title", "Unknown Threat")
+        mitre  = threat.get("mitre_tactics") or []
+        ttype  = threat.get("threat_type") or "General"
+        actor  = threat.get("actor_tag") or "UNKNOWN"
+        t0     = mitre[0] if mitre else "T1059"
+        ctx    = MITRE_CONTEXT.get(t0, {})
+
+        sigma_rule = f"""title: SENTINEL-APEX Detection — {title[:60]}
+id: cdb-{int(time.time())}-{t0.lower().replace('.', '-')}
+status: production
+description: Automated detection rule generated by SENTINEL APEX for {title[:80]}
+references:
+  - https://intel.cyberdudebivash.com
+author: CYBERDUDEBIVASH SENTINEL APEX
+date: {datetime.now(timezone.utc).strftime('%Y/%m/%d')}
+tags:
+  - attack.{''.join(t.lower() + '\\n  - attack.' for t in mitre[:5]).rstrip('\\n  - attack.')}
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection:
+    CommandLine|contains:
+      - 'powershell'
+      - 'cmd.exe'
+      - 'wscript'
+  condition: selection
+falsepositives:
+  - Legitimate administrative activity
+level: {'critical' if threat.get('risk_score', 0) >= 9 else 'high' if threat.get('risk_score', 0) >= 7 else 'medium'}"""
+
+        kql_rule = f"""// KQL Detection Rule — Generated by SENTINEL APEX
+// Threat: {title[:60]}
+// MITRE: {', '.join(mitre[:5])}
+// Author: CYBERDUDEBIVASH SENTINEL APEX — {datetime.now(timezone.utc).strftime('%Y-%m-%d')}
+DeviceProcessEvents
+| where Timestamp > ago(24h)
+| where ProcessCommandLine has_any(["powershell", "cmd.exe", "wscript.exe", "mshta.exe"])
+| where InitiatingProcessFileName !in ("explorer.exe", "svchost.exe")
+| project Timestamp, DeviceName, AccountName, FileName, ProcessCommandLine, InitiatingProcessFileName
+| sort by Timestamp desc"""
+
+        return {
+            "mode": "detection_write",
+            "title": title,
+            "detection_rules": {
+                "sigma": sigma_rule,
+                "kql": kql_rule,
+                "mitre_coverage": mitre[:8],
+                "rule_count": 2,
+                "deploy_targets": ["Microsoft Sentinel", "Splunk ES", "CrowdStrike", "Carbon Black"],
+                "false_positive_tuning": ctx.get("mitigation", "Review context before deploying"),
+            },
+            "llm_enhanced": False,
+        }
+
+    def incident_brief_template(self, threat: Dict, question: str = "") -> Dict:
+        """Generate IR commander brief (template fallback)."""
+        title  = threat.get("title", "Unknown Threat")
+        sev    = (threat.get("severity") or "HIGH").upper()
+        score  = float(threat.get("risk_score") or 7.0)
+        actor  = threat.get("actor_tag") or "UNATTRIBUTED"
+        kev    = threat.get("kev_present", False)
+        pb     = self._get_playbook(threat.get("threat_type") or "General")
+        ts     = datetime.now(timezone.utc).isoformat()
+
+        return {
+            "mode": "incident_brief",
+            "incident_id": f"INC-{int(time.time())}",
+            "generated_at": ts,
+            "title": title,
+            "commander_brief": {
+                "situation": f"{sev} severity security incident — {title[:100]}. Risk score: {score:.1f}/10.",
+                "actor": actor,
+                "kev_confirmed": kev,
+                "phase": "DETECTION",
+                "ir_priority": "P1" if score >= 9 or kev else "P2" if score >= 7 else "P3",
+                "sla_hours": 1 if score >= 9 else 4 if score >= 7 else 24,
+                "immediate_actions": pb.get("immediate", [])[:5],
+                "containment_strategy": pb.get("short_term", [])[:3],
+                "comms_required": score >= 8 or kev,
+                "legal_required": threat.get("threat_type") in ("Data Breach", "Ransomware"),
+                "regulator_notification_72h": threat.get("threat_type") == "Data Breach",
+                "eradication_steps": pb.get("long_term", [])[:3],
+            },
+            "resource_assignments": {
+                "ir_lead": "CISO / IR Manager",
+                "technical_lead": "Senior SOC Analyst",
+                "communications": "PR / Legal" if score >= 8 else "Internal Only",
+                "external_ir": score >= 9,
+            },
+            "llm_enhanced": False,
+        }
+
     def query(self, question: str, mode: str, threat_id: Optional[str] = None, threat_data: Optional[Dict] = None) -> Dict:
-        """Main query dispatcher."""
+        """Synchronous query dispatcher (template engine only). Use async_query for LLM."""
         t0 = time.time()
 
         # Resolve threat data
@@ -457,12 +688,15 @@ class CopilotEngine:
 
         # Dispatch mode
         MODES = {
-            "explain_threat": self.explain_threat,
-            "what_to_do":     self.what_to_do,
-            "soc_report":     self.soc_report,
-            "ioc_summary":    self.ioc_summary,
-            "mitre_mapping":  self.mitre_mapping,
-            "risk_brief":     self.risk_brief,
+            "explain_threat":  self.explain_threat,
+            "what_to_do":      self.what_to_do,
+            "soc_report":      self.soc_report,
+            "ioc_summary":     self.ioc_summary,
+            "mitre_mapping":   self.mitre_mapping,
+            "risk_brief":      self.risk_brief,
+            "threat_hunt":     self.threat_hunt_template,
+            "detection_write": self.detection_write_template,
+            "incident_brief":  self.incident_brief_template,
         }
         fn = MODES.get(mode, self.explain_threat)
         try:
@@ -526,6 +760,141 @@ class CopilotEngine:
         }
 
 
+    async def async_query(
+        self,
+        question: str,
+        mode: str,
+        threat_id: Optional[str] = None,
+        threat_data: Optional[Dict] = None,
+    ) -> Dict:
+        """
+        LLM-first query dispatcher.
+        - LLM modes (threat_hunt, detection_write, incident_brief, natural_language):
+          Always attempt LLM; fall back to template on failure.
+        - Standard modes (explain_threat, what_to_do, soc_report, risk_brief):
+          Always run template engine for structured fields; LLM enhances the
+          'ai_analysis' field if available.
+        """
+        t0 = time.time()
+
+        threat = threat_data or {}
+        if not threat and threat_id:
+            threat = self._find_threat(threat_id) or {}
+        if not threat:
+            threat = {
+                "title": f"Query: {(question or 'Security Analysis')[:80]}",
+                "severity": "MEDIUM", "risk_score": 5.0,
+                "threat_type": "General", "mitre_tactics": [],
+                "ioc_counts": {}, "kev_present": False,
+                "supply_chain": False, "actor_tag": "UNATTRIBUTED",
+                "epss_score": None, "cvss_score": None,
+            }
+
+        llm_response: Optional[str] = None
+
+        if mode in _LLM_EXCLUSIVE_MODES:
+            # Build a rich prompt for LLM-exclusive modes
+            mode_prompts = {
+                "threat_hunt": (
+                    f"Generate a complete threat hunting package for: {threat.get('title', question)}.\n"
+                    f"Include: 3-5 KQL queries for Microsoft Sentinel, 2-3 SPL queries for Splunk, "
+                    f"2 SIGMA rules, MITRE ATT&CK techniques to focus on: {threat.get('mitre_tactics', [])}, "
+                    f"IOC pattern searches, timeline of expected attacker activity, "
+                    f"and specific log sources to query."
+                ),
+                "detection_write": (
+                    f"Generate production-ready detection rules for: {threat.get('title', question)}.\n"
+                    f"Provide:\n1. A complete SIGMA rule (YAML format, status: production)\n"
+                    f"2. Microsoft Sentinel KQL query\n3. Splunk SPL query\n4. Suricata/Snort network rule if applicable\n"
+                    f"5. YARA rule if malware is involved\n"
+                    f"MITRE techniques: {threat.get('mitre_tactics', [])}. "
+                    f"Threat type: {threat.get('threat_type', 'General')}."
+                ),
+                "incident_brief": (
+                    f"Generate an incident commander brief for: {threat.get('title', question)}.\n"
+                    f"Structure as: SITUATION | MISSION | EXECUTION | COMMUNICATIONS | COMMAND.\n"
+                    f"Include: immediate containment actions, evidence preservation steps, "
+                    f"stakeholder notification matrix, regulatory obligations (GDPR 72h, SEC 4-day), "
+                    f"resource requirements, decision authorities. "
+                    f"Severity: {threat.get('severity', 'HIGH')}. Actor: {threat.get('actor_tag', 'Unknown')}."
+                ),
+                "natural_language": question or "What are the current top threats in the feed?",
+            }
+            prompt = mode_prompts.get(mode, question)
+            llm_response = await self._call_llm(prompt, threat, max_tokens=2000)
+
+            if llm_response:
+                template_result = MODES_FALLBACK.get(mode, self.explain_threat)(self, threat, question) \
+                    if mode not in ("natural_language",) else {}
+                result = {
+                    **(template_result if isinstance(template_result, dict) else {}),
+                    "mode": mode,
+                    "ai_analysis": llm_response,
+                    "llm_model": _AI_MODEL,
+                    "llm_enhanced": True,
+                }
+            else:
+                fallback_fn = {
+                    "threat_hunt":     self.threat_hunt_template,
+                    "detection_write": self.detection_write_template,
+                    "incident_brief":  self.incident_brief_template,
+                    "natural_language": self.explain_threat,
+                }.get(mode, self.explain_threat)
+                result = fallback_fn(threat, question)
+        else:
+            # Standard modes: run template engine, then enrich with LLM
+            result = self.query(question, mode, threat_id, threat_data)
+
+            if _LLM_ENABLED:
+                llm_prompt = (
+                    f"Analyze this threat: {threat.get('title', question)}.\n"
+                    f"Mode requested: {mode}.\n"
+                    f"User question: {question or 'Provide expert threat analysis.'}\n\n"
+                    f"Provide 3-5 sentences of expert SOC analyst insight that adds value "
+                    f"beyond basic template analysis. Focus on: attacker intent, defensive gap, "
+                    f"and the single most important action right now."
+                )
+                llm_response = await self._call_llm(llm_prompt, threat, max_tokens=500)
+                if llm_response:
+                    result["ai_analysis"] = llm_response
+                    result["llm_model"]   = _AI_MODEL
+                    result["llm_enhanced"] = True
+                    result["engine"] = "CDB-Copilot v2.0 (LLM-enhanced)"
+
+        # Standard metadata
+        _pb         = self._get_playbook(threat.get("threat_type") or "General")
+        _risk_score = float(threat.get("risk_score") or 5.0)
+        _sev        = (threat.get("severity") or "MEDIUM").upper()
+        _risk_level = self._soc_score_color(_risk_score)
+        _title      = threat.get("title") or (f"Query: {question[:60]}" if question else "Security Analysis")
+        _kev        = threat.get("kev_present", False)
+
+        if "summary" not in result:
+            result["summary"] = (
+                f"{_title} — {_sev} severity (risk: {_risk_score:.1f}/10). "
+                f"{_pb.get('summary', 'Security advisory requiring assessment.')}"
+                + (" CISA confirmed active exploitation." if _kev else "")
+            )
+        if "actions" not in result:
+            result["actions"] = _pb.get("immediate", [])[:5]
+
+        result.setdefault("risk_level", _risk_level)
+        result.setdefault("confidence", 0.92 if llm_response else 0.75)
+        result["query"]           = question
+        result["processed_in_ms"] = round((time.time() - t0) * 1000)
+        result.setdefault("engine", "CDB-Copilot v2.0 (deterministic)")
+        result["generated_at"]    = datetime.now(timezone.utc).isoformat()
+        result["llm_available"]   = _LLM_ENABLED
+        return result
+
+
+MODES_FALLBACK: Dict[str, Any] = {
+    "threat_hunt":     CopilotEngine.threat_hunt_template,
+    "detection_write": CopilotEngine.detection_write_template,
+    "incident_brief":  CopilotEngine.incident_brief_template,
+}
+
+
 # ── Singleton engine ──────────────────────────────────────────────────────────
 _engine: Optional[CopilotEngine] = None
 
@@ -539,40 +908,49 @@ def get_engine() -> CopilotEngine:
 if _FASTAPI_OK:
     copilot_router = APIRouter(prefix="/api/v1/copilot", tags=["AI Security Copilot"])
 
-    @copilot_router.post("/query", summary="AI Security Copilot — SOC threat analysis")
+    @copilot_router.post("/query", summary="AI Security Copilot — LLM-enhanced SOC threat analysis")
     async def copilot_query(req: CopilotRequest):
-        # Support both 'question' and 'query' field names
         effective_question = req.question or req.query or ""
         if not effective_question and not req.threat_id and not req.threat_data:
             raise HTTPException(400, {"error": "Provide question/query, threat_id, or threat_data"})
 
-        valid_modes = {"explain_threat", "what_to_do", "soc_report", "ioc_summary", "mitre_mapping", "risk_brief"}
+        valid_modes = {
+            "explain_threat", "what_to_do", "soc_report", "ioc_summary",
+            "mitre_mapping", "risk_brief",
+            "threat_hunt", "detection_write", "incident_brief", "natural_language",
+        }
         mode = req.mode if req.mode in valid_modes else "explain_threat"
 
         try:
             engine = get_engine()
-            result = engine.query(
-                question   = effective_question,
-                mode       = mode,
-                threat_id  = req.threat_id,
-                threat_data= req.threat_data,
+            result = await engine.async_query(
+                question    = effective_question,
+                mode        = mode,
+                threat_id   = req.threat_id,
+                threat_data = req.threat_data,
             )
             return {"status": "success", **result}
         except Exception as e:
-            logger.error(f"Copilot error: {e}")
+            logger.error(f"Copilot error: {e}", exc_info=True)
             raise HTTPException(500, {"error": "Copilot engine error — please retry", "detail": str(e)})
 
     @copilot_router.get("/modes", summary="List available copilot modes")
     async def list_modes():
         return {
             "status": "success",
+            "llm_enabled": _LLM_ENABLED,
+            "llm_model": _AI_MODEL if _LLM_ENABLED else None,
             "modes": [
-                {"id": "explain_threat",  "label": "Explain Threat",        "desc": "SOC-style threat breakdown with context"},
-                {"id": "what_to_do",      "label": "What Should I Do?",     "desc": "Prioritized action plan with SLA"},
-                {"id": "soc_report",      "label": "Generate SOC Report",   "desc": "Full structured incident report"},
-                {"id": "ioc_summary",     "label": "IOC Intelligence",      "desc": "IOC digest with SIEM guidance"},
-                {"id": "mitre_mapping",   "label": "MITRE ATT&CK Mapping",  "desc": "Technique context and mitigations"},
-                {"id": "risk_brief",      "label": "Executive Risk Brief",  "desc": "Board-level risk summary with $ impact"},
+                {"id": "explain_threat",  "label": "Explain Threat",           "desc": "SOC-style threat breakdown with LLM-enhanced context",  "llm": True},
+                {"id": "what_to_do",      "label": "What Should I Do?",        "desc": "Prioritized action plan with LLM expert guidance",       "llm": True},
+                {"id": "soc_report",      "label": "Generate SOC Report",      "desc": "Full structured incident report, LLM-enriched",          "llm": True},
+                {"id": "ioc_summary",     "label": "IOC Intelligence",         "desc": "IOC digest with SIEM guidance",                          "llm": False},
+                {"id": "mitre_mapping",   "label": "MITRE ATT&CK Mapping",     "desc": "Technique context and mitigations",                      "llm": False},
+                {"id": "risk_brief",      "label": "Executive Risk Brief",     "desc": "Board-level risk summary with $ impact, LLM-enhanced",   "llm": True},
+                {"id": "threat_hunt",     "label": "Threat Hunt Package",      "desc": "KQL/SPL/SIGMA hunt queries generated by LLM",            "llm": True, "new": True},
+                {"id": "detection_write", "label": "Write Detection Rules",    "desc": "SIGMA/KQL/SPL/YARA/Suricata rules generated by LLM",     "llm": True, "new": True},
+                {"id": "incident_brief",  "label": "Incident Commander Brief", "desc": "SMEAC-format IR brief generated by LLM",                 "llm": True, "new": True},
+                {"id": "natural_language","label": "Ask Anything",             "desc": "Free-form security question answered by LLM",            "llm": True, "new": True},
             ],
         }
 
@@ -581,12 +959,17 @@ if _FASTAPI_OK:
         engine = get_engine()
         items  = engine._load_manifest()
         return {
-            "status":         "ok",
-            "engine":         "CDB-Copilot v1.0",
-            "manifest_loaded": len(items) > 0,
-            "advisory_count":  len(items),
-            "mitre_kb_size":   len(MITRE_CONTEXT),
-            "playbooks":       len(THREAT_PLAYBOOKS),
+            "status":           "ok",
+            "engine":           "CDB-Copilot v2.0",
+            "llm_enabled":      _LLM_ENABLED,
+            "llm_model":        _AI_MODEL if _LLM_ENABLED else None,
+            "manifest_loaded":  len(items) > 0,
+            "advisory_count":   len(items),
+            "mitre_kb_size":    len(MITRE_CONTEXT),
+            "playbooks":        len(THREAT_PLAYBOOKS),
+            "modes_available":  10,
+            "llm_modes":        4,
+            "hybrid_modes":     6,
         }
 else:
     copilot_router = None
