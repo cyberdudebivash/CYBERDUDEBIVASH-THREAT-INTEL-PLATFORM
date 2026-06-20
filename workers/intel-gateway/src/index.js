@@ -1139,14 +1139,14 @@ async function fetchAndCacheCVEs(env) {
 }
 
 // =============================================================================
-// AI SECURITY COPILOT v3.0 — DeepSeek R1 + V3 direct, GROQ fallback
+// AI SECURITY COPILOT v3.0  -  DeepSeek R1 + V3 direct, GROQ fallback
 // POST /api/v1/copilot/query
 // GET  /api/v1/copilot/modes
 // GET  /api/v1/copilot/health
-// LLM stack: DeepSeek direct (primary) → GROQ LPU (fallback) → OpenRouter → template
+// LLM stack: DeepSeek direct (primary) -> GROQ LPU (fallback) -> OpenRouter -> template
 // =============================================================================
 
-const COPILOT_SYSTEM_PROMPT = `You are SENTINEL APEX — the expert AI Security Copilot for CYBERDUDEBIVASH® Sentinel APEX, an enterprise-grade threat intelligence platform.
+const COPILOT_SYSTEM_PROMPT = `You are SENTINEL APEX  -  the expert AI Security Copilot for CYBERDUDEBIVASH(R) Sentinel APEX, an enterprise-grade threat intelligence platform.
 
 Your identity:
 - World-class threat intelligence analyst: 20+ years SOC, IR, and CTI experience
@@ -1212,7 +1212,7 @@ User question: ${question || "Explain this threat."}`;
 
     case "what_to_do":
       return `For this threat: ${t}.
-Provide a prioritized 5-step immediate action plan. Be specific — exact commands, tools, configurations, not generic advice.
+Provide a prioritized 5-step immediate action plan. Be specific  -  exact commands, tools, configurations, not generic advice.
 User question: ${question || "What should I do?"}`;
 
     case "soc_report":
@@ -1241,13 +1241,13 @@ function copilotTemplate(mode, threat, question) {
   const iocs  = threat.ioc_counts || {};
 
   const PLAYBOOKS = {
-    Ransomware:    { urgency: "CRITICAL — isolate within 1h", immediate: ["Isolate affected systems from network", "Do NOT pay ransom without legal consultation", "Preserve forensic evidence (memory dumps, logs)", "Activate IR plan and notify stakeholders", "Check backup integrity immediately"] },
-    Vulnerability: { urgency: "HIGH — patch within SLA, WAF compensating controls now", immediate: ["Apply vendor patch immediately", "Deploy WAF virtual patch if no fix available", "Block/restrict access to vulnerable service", "Enable enhanced logging on affected systems", "Search SIEM for exploitation attempts (30 days)"] },
-    Phishing:      { urgency: "HIGH — credential reset required", immediate: ["Block malicious sender domains at email gateway", "Delete phishing emails from all inboxes", "Force password reset for affected users", "Invalidate active sessions", "Enable MFA immediately if not active"] },
-    APT:           { urgency: "CRITICAL — full scope investigation required", immediate: ["Engage specialized IR firm with APT experience", "Do NOT alert attacker — maintain visibility", "Establish out-of-band communications", "Begin systematic threat hunting", "Identify crown jewel data exposure"] },
-    "Data Breach": { urgency: "CRITICAL — GDPR 72h notification window starts now", immediate: ["Contain the breach vector immediately", "Identify what data was accessed (scope, classification)", "Engage legal counsel and DPO immediately", "Preserve all evidence with chain of custody", "Assess notification obligations (GDPR 72h, state laws)"] },
-    "Supply Chain":{ urgency: "CRITICAL — assess downstream exposure", immediate: ["Identify all instances of affected component", "Isolate systems running compromised version", "Check vendor advisory for IOCs", "Hunt IOCs across SIEM/EDR/network logs", "Contact vendor for official guidance"] },
-    General:       { urgency: "MEDIUM — assess and triage", immediate: ["Review threat details and assess relevance", "Check if affected systems exist in inventory", "Search SIEM for related indicators", "Apply relevant patches or mitigations", "Update detection rules with new IOCs"] },
+    Ransomware:    { urgency: "CRITICAL  -  isolate within 1h", immediate: ["Isolate affected systems from network", "Do NOT pay ransom without legal consultation", "Preserve forensic evidence (memory dumps, logs)", "Activate IR plan and notify stakeholders", "Check backup integrity immediately"] },
+    Vulnerability: { urgency: "HIGH  -  patch within SLA, WAF compensating controls now", immediate: ["Apply vendor patch immediately", "Deploy WAF virtual patch if no fix available", "Block/restrict access to vulnerable service", "Enable enhanced logging on affected systems", "Search SIEM for exploitation attempts (30 days)"] },
+    Phishing:      { urgency: "HIGH  -  credential reset required", immediate: ["Block malicious sender domains at email gateway", "Delete phishing emails from all inboxes", "Force password reset for affected users", "Invalidate active sessions", "Enable MFA immediately if not active"] },
+    APT:           { urgency: "CRITICAL  -  full scope investigation required", immediate: ["Engage specialized IR firm with APT experience", "Do NOT alert attacker  -  maintain visibility", "Establish out-of-band communications", "Begin systematic threat hunting", "Identify crown jewel data exposure"] },
+    "Data Breach": { urgency: "CRITICAL  -  GDPR 72h notification window starts now", immediate: ["Contain the breach vector immediately", "Identify what data was accessed (scope, classification)", "Engage legal counsel and DPO immediately", "Preserve all evidence with chain of custody", "Assess notification obligations (GDPR 72h, state laws)"] },
+    "Supply Chain":{ urgency: "CRITICAL  -  assess downstream exposure", immediate: ["Identify all instances of affected component", "Isolate systems running compromised version", "Check vendor advisory for IOCs", "Hunt IOCs across SIEM/EDR/network logs", "Contact vendor for official guidance"] },
+    General:       { urgency: "MEDIUM  -  assess and triage", immediate: ["Review threat details and assess relevance", "Check if affected systems exist in inventory", "Search SIEM for related indicators", "Apply relevant patches or mitigations", "Update detection rules with new IOCs"] },
   };
   const pb = PLAYBOOKS[ttype] || PLAYBOOKS.General;
 
@@ -1258,7 +1258,7 @@ function copilotTemplate(mode, threat, question) {
       tlp: threat.tlp_label || "TLP:CLEAR",
       analyst_note: total > 0
         ? `${total} indicators across ${Object.keys(iocs).length} types. Submit to SIEM/SOAR for blocking.`
-        : "No IOCs extracted — monitor source for updates.",
+        : "No IOCs extracted  -  monitor source for updates.",
       siem_action: total > 0 ? "Block at firewall, add to SIEM watchlist" : "Monitor source",
     };
   }
@@ -1275,7 +1275,7 @@ function copilotTemplate(mode, threat, question) {
 
   return {
     title,
-    summary: `${title} — ${sev} severity (risk: ${score.toFixed(1)}/10). ${kev}`,
+    summary: `${title}  -  ${sev} severity (risk: ${score.toFixed(1)}/10). ${kev}`,
     risk_level: level,
     urgency: pb.urgency,
     immediate_actions: pb.immediate,
@@ -1305,7 +1305,7 @@ async function callLLM(env, systemPrompt, userPrompt, useR1) {
     } catch (_) {}
   }
 
-  // 2. GROQ (ultra-fast LPU — DeepSeek R1 Distill 70B or Llama 3.3 70B)
+  // 2. GROQ (ultra-fast LPU  -  DeepSeek R1 Distill 70B or Llama 3.3 70B)
   if (env.GROQ_API_KEY) {
     try {
       const model = useR1 ? "deepseek-r1-distill-llama-70b" : "llama-3.3-70b-versatile";
@@ -1353,11 +1353,11 @@ async function handleCopilot(request, env, auth, method, path) {
       status: "success",
       llm_enabled: LLM_ENABLED && tierAllowsLLM,
       llm_stack: {
-        primary:   "DeepSeek R1 (deepseek-reasoner) — api.deepseek.com",
-        secondary: "DeepSeek V3 (deepseek-chat)     — api.deepseek.com",
-        fallback1: "GROQ LPU (deepseek-r1-distill-llama-70b) — ultra-fast",
+        primary:   "DeepSeek R1 (deepseek-reasoner)  -  api.deepseek.com",
+        secondary: "DeepSeek V3 (deepseek-chat)      -  api.deepseek.com",
+        fallback1: "GROQ LPU (deepseek-r1-distill-llama-70b)  -  ultra-fast",
         fallback2: "OpenRouter (deepseek/deepseek-r1)",
-        fallback3: "Deterministic template — always on",
+        fallback3: "Deterministic template  -  always on",
       },
       modes: [
         { id: "explain_threat",   label: "Explain Threat",           model: "deepseek-chat (V3)",          new: false },
@@ -1408,7 +1408,7 @@ async function handleCopilot(request, env, auth, method, path) {
     kev_present: false, ioc_counts: {},
   };
 
-  // Deterministic modes — no LLM needed, always fast
+  // Deterministic modes  -  no LLM needed, always fast
   if (mode === "ioc_summary" || mode === "mitre_mapping") {
     return jsonResp({
       status: "success", mode,
@@ -1426,7 +1426,7 @@ async function handleCopilot(request, env, auth, method, path) {
       ...copilotTemplate(mode, threat, question),
       llm_enhanced: false, llm_available: LLM_ENABLED,
       engine: "CDB-Copilot v3.0 (deterministic)",
-      tier_upgrade: !tierAllowsLLM ? "Upgrade to PRO for AI-powered analysis — intel.cyberdudebivash.com" : null,
+      tier_upgrade: !tierAllowsLLM ? "Upgrade to PRO for AI-powered analysis  -  intel.cyberdudebivash.com" : null,
       generated_at: new Date().toISOString(),
     });
   }
