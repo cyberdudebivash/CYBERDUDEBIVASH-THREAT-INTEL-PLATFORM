@@ -1,23 +1,28 @@
 #!/usr/bin/env python3
 """
 ╔══════════════════════════════════════════════════════════════════════════════╗
-║  CYBERDUDEBIVASH® SENTINEL APEX — AI SECURITY COPILOT v2.0               ║
-║  Hybrid intelligence engine: Real LLM (Anthropic) + deterministic fallback║
-║  Production-grade: zero-crash guarantee, graceful degradation              ║
+║  CYBERDUDEBIVASH® SENTINEL APEX — AI SECURITY COPILOT v3.0               ║
+║  Dual-model LLM: DeepSeek R1 (reasoning) + DeepSeek V3 (fast) via        ║
+║  OpenRouter · deterministic template fallback · zero-crash guarantee       ║
 ╚══════════════════════════════════════════════════════════════════════════════╝
 Endpoint:  POST /api/v1/copilot/query
 Modes:
-  • explain_threat   — SOC-style threat breakdown (LLM-enhanced)
-  • what_to_do       — prioritized action plan (LLM-enhanced)
-  • soc_report       — full structured SOC report (LLM-enhanced)
+  • explain_threat   — SOC-style threat breakdown (V3-enhanced)
+  • what_to_do       — prioritized action plan (V3-enhanced)
+  • soc_report       — full structured SOC report (V3-enhanced)
   • ioc_summary      — IOC intelligence digest
   • mitre_mapping    — ATT&CK technique context
-  • risk_brief       — executive risk briefing (LLM-enhanced)
-  • threat_hunt      — generate hunt queries for this threat (NEW - LLM)
-  • detection_write  — generate SIGMA/KQL/SPL detection rules (NEW - LLM)
-  • incident_brief   — IR commander briefing (NEW - LLM)
-  • natural_language — free-form security question (NEW - LLM)
-LLM: Anthropic Claude (ANTHROPIC_API_KEY env var) with deterministic fallback.
+  • risk_brief       — executive risk briefing (V3-enhanced)
+  • threat_hunt      — generate hunt queries for this threat (R1 reasoning)
+  • detection_write  — generate SIGMA/KQL/SPL detection rules (R1 reasoning)
+  • incident_brief   — IR commander briefing (R1 reasoning)
+  • natural_language — free-form security question (R1 reasoning)
+
+LLM stack (via OpenRouter):
+  Primary  : DeepSeek R1   (deepseek/deepseek-r1)   — chain-of-thought reasoning
+  Secondary: DeepSeek V3   (deepseek/deepseek-chat)  — fast general analysis
+  Fallback : Template engine (deterministic, zero-latency)
+Set OPENROUTER_API_KEY env var to activate LLM.
 """
 from __future__ import annotations
 
@@ -35,12 +40,21 @@ logger = logging.getLogger("CDB-COPILOT")
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 # ── LLM Configuration ─────────────────────────────────────────────────────────
-_ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
-_AI_MODEL          = os.getenv("AI_MODEL", "claude-sonnet-4-20250514")
-_AI_MAX_TOKENS     = int(os.getenv("AI_MAX_TOKENS", "1500"))
-_LLM_ENABLED       = bool(_ANTHROPIC_API_KEY)
+# Primary key: OpenRouter (gives access to DeepSeek R1 + V3 and 200+ models)
+_OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "")
+_OPENROUTER_BASE    = "https://openrouter.ai/api/v1/chat/completions"
 
-# LLM modes that bypass template fallback and use pure LLM
+# Model routing: R1 for heavy reasoning, V3 for fast general analysis
+_AI_MODEL_R1   = os.getenv("AI_MODEL_R1",   "deepseek/deepseek-r1")       # chain-of-thought reasoning
+_AI_MODEL_V3   = os.getenv("AI_MODEL_V3",   "deepseek/deepseek-chat")     # DeepSeek V3 — fast
+_AI_MAX_TOKENS = int(os.getenv("AI_MAX_TOKENS", "2000"))
+_LLM_ENABLED   = bool(_OPENROUTER_API_KEY)
+
+# HTTP-Referer + X-Title required/recommended by OpenRouter for attribution
+_OR_REFERER = "https://intel.cyberdudebivash.com"
+_OR_TITLE   = "CYBERDUDEBIVASH SENTINEL APEX"
+
+# R1 handles deep reasoning modes; V3 handles fast augmentation
 _LLM_EXCLUSIVE_MODES = {"threat_hunt", "detection_write", "incident_brief", "natural_language"}
 
 # ── LLM System Prompt ─────────────────────────────────────────────────────────
@@ -227,12 +241,20 @@ class CopilotEngine:
         threat_context: Optional[Dict] = None,
         extra_system: str = "",
         max_tokens: int = 0,
+        use_r1: bool = False,
     ) -> Optional[str]:
-        """Call Anthropic Claude API. Returns None on any failure — caller uses template fallback."""
+        """
+        Call DeepSeek via OpenRouter (OpenAI-compatible API).
+        use_r1=True  → DeepSeek R1  (chain-of-thought, max reasoning)
+        use_r1=False → DeepSeek V3  (fast, high quality general analysis)
+        Returns None on any failure — caller uses deterministic template fallback.
+        """
         if not _LLM_ENABLED:
             return None
         try:
             import httpx
+            model = _AI_MODEL_R1 if use_r1 else _AI_MODEL_V3
+
             system = _SYSTEM_PROMPT
             if extra_system:
                 system += f"\n\n{extra_system}"
@@ -245,44 +267,51 @@ class CopilotEngine:
                 }, indent=2)
                 system += f"\n\nCurrent advisory context:\n```json\n{ctx_str[:2000]}\n```"
 
-            # Inject recent feed intelligence as RAG context
+            # RAG: inject top 8 live feed advisories as system context
             feed_items = self._load_manifest()
             if feed_items:
-                sample = feed_items[:8]
                 feed_summary = [
                     {"title": i.get("title", "")[:80], "severity": i.get("severity"),
                      "threat_type": i.get("threat_type"), "actor": i.get("actor_tag"),
                      "kev": i.get("kev_present"), "risk_score": i.get("risk_score")}
-                    for i in sample
+                    for i in feed_items[:8]
                 ]
-                system += f"\n\nLatest 8 advisories from live feed:\n{json.dumps(feed_summary, indent=2)[:1500]}"
+                system += f"\n\nLatest 8 advisories from live SENTINEL APEX feed:\n{json.dumps(feed_summary, indent=2)[:1500]}"
 
             tokens = max_tokens or _AI_MAX_TOKENS
-            async with httpx.AsyncClient(timeout=45.0) as client:
+            # R1 is a reasoning model — it benefits from more tokens for chain-of-thought
+            if use_r1 and tokens < 3000:
+                tokens = 3000
+
+            async with httpx.AsyncClient(timeout=60.0) as client:
                 resp = await client.post(
-                    "https://api.anthropic.com/v1/messages",
+                    _OPENROUTER_BASE,
                     headers={
-                        "x-api-key":          _ANTHROPIC_API_KEY,
-                        "anthropic-version":  "2023-06-01",
-                        "content-type":       "application/json",
+                        "Authorization":  f"Bearer {_OPENROUTER_API_KEY}",
+                        "Content-Type":   "application/json",
+                        "HTTP-Referer":   _OR_REFERER,
+                        "X-Title":        _OR_TITLE,
                     },
                     json={
-                        "model":      _AI_MODEL,
+                        "model":      model,
                         "max_tokens": tokens,
-                        "system":     system,
-                        "messages":   [{"role": "user", "content": user_message}],
+                        "messages": [
+                            {"role": "system", "content": system},
+                            {"role": "user",   "content": user_message},
+                        ],
                     },
                 )
             if resp.status_code == 200:
-                data = resp.json()
-                text = data.get("content", [{}])[0].get("text", "")
-                logger.info(f"[LLM] Tokens used: {data.get('usage', {})}")
-                return text if text else None
+                data  = resp.json()
+                text  = data.get("choices", [{}])[0].get("message", {}).get("content", "")
+                usage = data.get("usage", {})
+                logger.info(f"[LLM] model={model} tokens={usage}")
+                return text.strip() if text else None
             else:
-                logger.warning(f"[LLM] API error {resp.status_code}: {resp.text[:200]}")
+                logger.warning(f"[LLM] OpenRouter {resp.status_code}: {resp.text[:300]}")
                 return None
         except Exception as e:
-            logger.warning(f"[LLM] Call failed (using template fallback): {e}")
+            logger.warning(f"[LLM] Call failed (template fallback active): {e}")
             return None
 
     def _find_threat(self, threat_id: str) -> Optional[Dict]:
@@ -793,73 +822,90 @@ DeviceProcessEvents
         llm_response: Optional[str] = None
 
         if mode in _LLM_EXCLUSIVE_MODES:
-            # Build a rich prompt for LLM-exclusive modes
+            # DeepSeek R1 — reasoning model for deep analytical modes
             mode_prompts = {
                 "threat_hunt": (
                     f"Generate a complete threat hunting package for: {threat.get('title', question)}.\n"
-                    f"Include: 3-5 KQL queries for Microsoft Sentinel, 2-3 SPL queries for Splunk, "
-                    f"2 SIGMA rules, MITRE ATT&CK techniques to focus on: {threat.get('mitre_tactics', [])}, "
-                    f"IOC pattern searches, timeline of expected attacker activity, "
-                    f"and specific log sources to query."
+                    f"Include:\n"
+                    f"1. 4-6 production-ready KQL queries for Microsoft Sentinel\n"
+                    f"2. 3 SPL queries for Splunk ES\n"
+                    f"3. 2 complete SIGMA rules in YAML format (status: production)\n"
+                    f"4. MITRE ATT&CK focus techniques: {threat.get('mitre_tactics', [])}\n"
+                    f"5. IOC pattern hunts (hash, domain, IP lookups)\n"
+                    f"6. Expected attacker timeline and log sources to prioritize\n"
+                    f"7. Hypothesis-driven hunt plan with 3 hypotheses\n"
+                    f"Threat actor: {threat.get('actor_tag', 'Unknown')}. "
+                    f"Severity: {threat.get('severity', 'HIGH')}. Risk: {threat.get('risk_score', 7)}/10."
                 ),
                 "detection_write": (
                     f"Generate production-ready detection rules for: {threat.get('title', question)}.\n"
-                    f"Provide:\n1. A complete SIGMA rule (YAML format, status: production)\n"
-                    f"2. Microsoft Sentinel KQL query\n3. Splunk SPL query\n4. Suricata/Snort network rule if applicable\n"
-                    f"5. YARA rule if malware is involved\n"
-                    f"MITRE techniques: {threat.get('mitre_tactics', [])}. "
-                    f"Threat type: {threat.get('threat_type', 'General')}."
+                    f"Provide complete, deployable rules:\n"
+                    f"1. SIGMA rule (full YAML, status: production, all required fields)\n"
+                    f"2. Microsoft Sentinel KQL (complete working query with comments)\n"
+                    f"3. Splunk SPL (complete search with stats)\n"
+                    f"4. Suricata network rule (if network indicators present)\n"
+                    f"5. YARA rule (if malware/file indicators)\n"
+                    f"6. False positive suppression guidance for each rule\n"
+                    f"MITRE: {threat.get('mitre_tactics', [])}. Type: {threat.get('threat_type', 'General')}."
                 ),
                 "incident_brief": (
-                    f"Generate an incident commander brief for: {threat.get('title', question)}.\n"
-                    f"Structure as: SITUATION | MISSION | EXECUTION | COMMUNICATIONS | COMMAND.\n"
-                    f"Include: immediate containment actions, evidence preservation steps, "
-                    f"stakeholder notification matrix, regulatory obligations (GDPR 72h, SEC 4-day), "
-                    f"resource requirements, decision authorities. "
-                    f"Severity: {threat.get('severity', 'HIGH')}. Actor: {threat.get('actor_tag', 'Unknown')}."
+                    f"Generate an incident commander brief (SMEAC format) for: {threat.get('title', question)}.\n"
+                    f"Structure:\n"
+                    f"SITUATION: What happened, scope, affected systems, threat actor\n"
+                    f"MISSION: Primary IR objective and success criteria\n"
+                    f"EXECUTION: Phase 1 containment (0-4h), Phase 2 eradication (4-24h), Phase 3 recovery (24-72h)\n"
+                    f"ADMINISTRATION: Evidence preservation, chain of custody, regulatory notifications\n"
+                    f"COMMAND: Decision authorities, escalation matrix, out-of-band comms\n"
+                    f"LEGAL/COMMS: Regulatory obligations (GDPR 72h, SEC 4-day rule, HIPAA 60-day), PR guidance\n"
+                    f"Severity: {threat.get('severity', 'HIGH')}. Actor: {threat.get('actor_tag', 'Unknown')}. "
+                    f"Risk score: {threat.get('risk_score', 7)}/10."
                 ),
-                "natural_language": question or "What are the current top threats in the feed?",
+                "natural_language": (
+                    question or "What are the top current threats in the feed and what should our SOC prioritize right now?"
+                ),
             }
-            prompt = mode_prompts.get(mode, question)
-            llm_response = await self._call_llm(prompt, threat, max_tokens=2000)
+            prompt       = mode_prompts.get(mode, question)
+            llm_response = await self._call_llm(prompt, threat, use_r1=True)
 
             if llm_response:
                 template_result = MODES_FALLBACK.get(mode, self.explain_threat)(self, threat, question) \
-                    if mode not in ("natural_language",) else {}
+                    if mode != "natural_language" else {}
                 result = {
                     **(template_result if isinstance(template_result, dict) else {}),
-                    "mode": mode,
-                    "ai_analysis": llm_response,
-                    "llm_model": _AI_MODEL,
+                    "mode":         mode,
+                    "ai_analysis":  llm_response,
+                    "llm_model":    _AI_MODEL_R1,
+                    "llm_provider": "OpenRouter",
                     "llm_enhanced": True,
                 }
             else:
                 fallback_fn = {
-                    "threat_hunt":     self.threat_hunt_template,
-                    "detection_write": self.detection_write_template,
-                    "incident_brief":  self.incident_brief_template,
+                    "threat_hunt":      self.threat_hunt_template,
+                    "detection_write":  self.detection_write_template,
+                    "incident_brief":   self.incident_brief_template,
                     "natural_language": self.explain_threat,
                 }.get(mode, self.explain_threat)
                 result = fallback_fn(threat, question)
         else:
-            # Standard modes: run template engine, then enrich with LLM
+            # Standard modes: template engine gives structure; DeepSeek V3 adds expert insight
             result = self.query(question, mode, threat_id, threat_data)
 
             if _LLM_ENABLED:
                 llm_prompt = (
-                    f"Analyze this threat: {threat.get('title', question)}.\n"
-                    f"Mode requested: {mode}.\n"
-                    f"User question: {question or 'Provide expert threat analysis.'}\n\n"
-                    f"Provide 3-5 sentences of expert SOC analyst insight that adds value "
-                    f"beyond basic template analysis. Focus on: attacker intent, defensive gap, "
-                    f"and the single most important action right now."
+                    f"Analyze this threat advisory: {threat.get('title', question)}.\n"
+                    f"Mode: {mode}. User question: {question or 'Provide expert SOC analysis.'}\n\n"
+                    f"As SENTINEL APEX AI, add 3-5 sentences of expert analyst insight that goes "
+                    f"beyond the structured template. Focus on: attacker intent and TTPs, "
+                    f"the single most critical defensive action right now, and any "
+                    f"environmental context that raises or lowers the risk."
                 )
-                llm_response = await self._call_llm(llm_prompt, threat, max_tokens=500)
+                llm_response = await self._call_llm(llm_prompt, threat, max_tokens=600, use_r1=False)
                 if llm_response:
-                    result["ai_analysis"] = llm_response
-                    result["llm_model"]   = _AI_MODEL
+                    result["ai_analysis"]  = llm_response
+                    result["llm_model"]    = _AI_MODEL_V3
+                    result["llm_provider"] = "OpenRouter"
                     result["llm_enhanced"] = True
-                    result["engine"] = "CDB-Copilot v2.0 (LLM-enhanced)"
+                    result["engine"]       = "CDB-Copilot v3.0 (DeepSeek V3 enhanced)"
 
         # Standard metadata
         _pb         = self._get_playbook(threat.get("threat_type") or "General")
@@ -879,12 +925,13 @@ DeviceProcessEvents
             result["actions"] = _pb.get("immediate", [])[:5]
 
         result.setdefault("risk_level", _risk_level)
-        result.setdefault("confidence", 0.92 if llm_response else 0.75)
+        result.setdefault("confidence", 0.95 if llm_response else 0.78)
         result["query"]           = question
         result["processed_in_ms"] = round((time.time() - t0) * 1000)
-        result.setdefault("engine", "CDB-Copilot v2.0 (deterministic)")
+        result.setdefault("engine", "CDB-Copilot v3.0 (deterministic)")
         result["generated_at"]    = datetime.now(timezone.utc).isoformat()
         result["llm_available"]   = _LLM_ENABLED
+        result["llm_provider"]    = "OpenRouter (DeepSeek R1 + V3)" if _LLM_ENABLED else None
         return result
 
 
@@ -937,20 +984,25 @@ if _FASTAPI_OK:
     @copilot_router.get("/modes", summary="List available copilot modes")
     async def list_modes():
         return {
-            "status": "success",
-            "llm_enabled": _LLM_ENABLED,
-            "llm_model": _AI_MODEL if _LLM_ENABLED else None,
+            "status":        "success",
+            "llm_enabled":   _LLM_ENABLED,
+            "llm_provider":  "OpenRouter" if _LLM_ENABLED else None,
+            "llm_stack": {
+                "reasoning": _AI_MODEL_R1,
+                "fast":      _AI_MODEL_V3,
+                "fallback":  "deterministic-template",
+            } if _LLM_ENABLED else None,
             "modes": [
-                {"id": "explain_threat",  "label": "Explain Threat",           "desc": "SOC-style threat breakdown with LLM-enhanced context",  "llm": True},
-                {"id": "what_to_do",      "label": "What Should I Do?",        "desc": "Prioritized action plan with LLM expert guidance",       "llm": True},
-                {"id": "soc_report",      "label": "Generate SOC Report",      "desc": "Full structured incident report, LLM-enriched",          "llm": True},
-                {"id": "ioc_summary",     "label": "IOC Intelligence",         "desc": "IOC digest with SIEM guidance",                          "llm": False},
-                {"id": "mitre_mapping",   "label": "MITRE ATT&CK Mapping",     "desc": "Technique context and mitigations",                      "llm": False},
-                {"id": "risk_brief",      "label": "Executive Risk Brief",     "desc": "Board-level risk summary with $ impact, LLM-enhanced",   "llm": True},
-                {"id": "threat_hunt",     "label": "Threat Hunt Package",      "desc": "KQL/SPL/SIGMA hunt queries generated by LLM",            "llm": True, "new": True},
-                {"id": "detection_write", "label": "Write Detection Rules",    "desc": "SIGMA/KQL/SPL/YARA/Suricata rules generated by LLM",     "llm": True, "new": True},
-                {"id": "incident_brief",  "label": "Incident Commander Brief", "desc": "SMEAC-format IR brief generated by LLM",                 "llm": True, "new": True},
-                {"id": "natural_language","label": "Ask Anything",             "desc": "Free-form security question answered by LLM",            "llm": True, "new": True},
+                {"id": "explain_threat",  "label": "Explain Threat",           "llm_model": "deepseek-v3",  "desc": "SOC-style threat breakdown with V3-enhanced context"},
+                {"id": "what_to_do",      "label": "What Should I Do?",        "llm_model": "deepseek-v3",  "desc": "Prioritized action plan with V3 expert guidance"},
+                {"id": "soc_report",      "label": "Generate SOC Report",      "llm_model": "deepseek-v3",  "desc": "Full structured incident report, V3-enriched"},
+                {"id": "ioc_summary",     "label": "IOC Intelligence",         "llm_model": None,           "desc": "IOC digest with SIEM guidance (deterministic)"},
+                {"id": "mitre_mapping",   "label": "MITRE ATT&CK Mapping",     "llm_model": None,           "desc": "Technique context and mitigations (deterministic)"},
+                {"id": "risk_brief",      "label": "Executive Risk Brief",     "llm_model": "deepseek-v3",  "desc": "Board-level risk summary with financial impact"},
+                {"id": "threat_hunt",     "label": "Threat Hunt Package",      "llm_model": "deepseek-r1",  "desc": "KQL/SPL/SIGMA hunt queries — R1 chain-of-thought reasoning", "new": True},
+                {"id": "detection_write", "label": "Write Detection Rules",    "llm_model": "deepseek-r1",  "desc": "SIGMA/KQL/SPL/YARA/Suricata rules — R1 reasoning", "new": True},
+                {"id": "incident_brief",  "label": "Incident Commander Brief", "llm_model": "deepseek-r1",  "desc": "SMEAC IR brief — R1 chain-of-thought", "new": True},
+                {"id": "natural_language","label": "Ask Anything",             "llm_model": "deepseek-r1",  "desc": "Free-form security question — R1 deep reasoning", "new": True},
             ],
         }
 
@@ -960,16 +1012,20 @@ if _FASTAPI_OK:
         items  = engine._load_manifest()
         return {
             "status":           "ok",
-            "engine":           "CDB-Copilot v2.0",
+            "engine":           "CDB-Copilot v3.0",
             "llm_enabled":      _LLM_ENABLED,
-            "llm_model":        _AI_MODEL if _LLM_ENABLED else None,
+            "llm_provider":     "OpenRouter" if _LLM_ENABLED else None,
+            "model_r1":         _AI_MODEL_R1 if _LLM_ENABLED else None,
+            "model_v3":         _AI_MODEL_V3 if _LLM_ENABLED else None,
+            "model_fallback":   "deterministic-template",
             "manifest_loaded":  len(items) > 0,
             "advisory_count":   len(items),
             "mitre_kb_size":    len(MITRE_CONTEXT),
             "playbooks":        len(THREAT_PLAYBOOKS),
             "modes_available":  10,
-            "llm_modes":        4,
-            "hybrid_modes":     6,
+            "r1_modes":         4,
+            "v3_modes":         4,
+            "deterministic_modes": 2,
         }
 else:
     copilot_router = None
