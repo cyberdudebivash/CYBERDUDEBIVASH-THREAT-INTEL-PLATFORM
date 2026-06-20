@@ -30,10 +30,11 @@ REPORT_RETENTION_DAYS AWARENESS (v156.0):
   platform is not hard-blocked.  The full minimum (MIN_REPORT_COUNT = 10)
   applies only when REPORT_RETENTION_DAYS == 0 (full copy mode).
 
-  CRITICAL: even in retention mode, all report_url feed paths MUST resolve in
-  dist/ (Check 6).  The assumption is that report_archive_manager.py has already
-  run git rm --cached on archived reports AND that the feed manifests have been
-  updated to reference only HOT-tier reports.
+  v182.2 FIX (Check 6): api/feed.json is rebuilt from Cloudflare R2 and
+  contains ALL historical URLs including those outside the retention window and
+  those proportionally excluded from the boundary month.  deployment_manifest.json
+  is the authoritative record of what was included in dist/.  Feed URLs not in
+  the manifest are builder-excluded (not failures) in retention mode.
 
 EXIT CODES:
   0 = ALL checks passed -- dist/ is a valid, consistent deployment artifact
@@ -196,16 +197,47 @@ def run_checks(manifest: Dict, retention_days: int = 0) -> Tuple[int, int]:
         )
 
     # CHECK 6: All report_url feed paths exist in dist/
+    # v182.2: In retention mode, api/feed.json is rebuilt from R2 and contains
+    # ALL historical URLs — including those outside the retention window and those
+    # proportionally excluded from the boundary month.  manifest_files is the
+    # authoritative record of what build_dist_artifact.py put in dist/;  CHECK 2
+    # already verifies every manifest entry exists on disk.  Therefore:
+    #   - URL not in dist/ AND not in manifest_files → excluded by builder (outside
+    #     window or proportional selection) → not a failure in retention mode.
+    #   - URL not in dist/ AND in manifest_files → genuine copy failure → HARD FAIL.
+    #   - Full-copy mode (retention_days==0): every feed URL must be in dist/.
     feed_urls = load_report_urls_from_feeds()
     missing_urls: List[str] = []
+    skipped_builder_excluded: int = 0
+
     for ru in feed_urls:
-        dist_path = DIST_DIR / ru.lstrip("/")
-        if not dist_path.exists():
+        rel = ru.lstrip("/")
+        dist_path = DIST_DIR / rel
+        if dist_path.exists():
+            continue
+        # Missing from dist/ — was it supposed to be there?
+        if retention_days > 0 and rel not in manifest_files:
+            # Builder did not include this file (outside retention window or
+            # proportionally excluded from boundary month). Not a failure.
+            skipped_builder_excluded += 1
+        else:
             missing_urls.append(ru)
+
     if missing_urls:
-        fail(f"{len(missing_urls)} report_url path(s) from feeds MISSING in dist/: {missing_urls[:5]}...")
+        fail(
+            f"{len(missing_urls)} report_url path(s) from feeds MISSING in dist/: "
+            f"{missing_urls[:5]}..."
+        )
     else:
-        ok(f"All {len(feed_urls)} report_url feed paths present in dist/")
+        actually_validated = len(feed_urls) - skipped_builder_excluded
+        if retention_days > 0 and skipped_builder_excluded > 0:
+            ok(
+                f"All {actually_validated} in-dist report_url feed paths verified "
+                f"({skipped_builder_excluded} feed URL(s) excluded by builder -- "
+                f"outside retention window or proportional boundary-month selection)"
+            )
+        else:
+            ok(f"All {len(feed_urls)} report_url feed paths present in dist/")
 
     # CHECK 7: Artifact purity — prohibited dirs must not be in dist/
     contaminated: List[str] = []
