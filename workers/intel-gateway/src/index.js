@@ -52,7 +52,7 @@
  */
 
 // --- Constants ----------------------------------------------------------------
-const PLATFORM_VERSION    = "181.0";
+const PLATFORM_VERSION    = "182.0";
 const JWT_EXPIRY_SEC      = 86400;        // 24h JWT lifetime
 const BRUTE_FORCE_MAX     = 5;            // lockout after N failed auth attempts
 const BRUTE_FORCE_TTL     = 900;          // 15-minute lockout (seconds)
@@ -94,7 +94,7 @@ const HTML_CSP = "default-src 'self'; script-src 'self' 'unsafe-inline' https://
 
 const JSON_CONTENT = { "Content-Type": "application/json; charset=utf-8" };
 
-const RATE_LIMITS = { FREE: 30, PRO: 120, ENTERPRISE: 600 };
+const RATE_LIMITS = { FREE: 30, PRO: 120, ENTERPRISE: 600, MSSP: 1200 };
 
 // --- Geo / threat intel static data (unchanged from v170.0) ------------------
 const GEO_ATTACK_MAP = [
@@ -253,7 +253,7 @@ async function checkRateLimit(env, ip, tier) {
 // TIER DEFINITIONS & AUTH RESOLUTION
 // =============================================================================
 
-const TIERS = { FREE: "FREE", PRO: "PRO", ENTERPRISE: "ENTERPRISE" };
+const TIERS = { FREE: "FREE", PRO: "PRO", ENTERPRISE: "ENTERPRISE", MSSP: "MSSP" };
 
 const PREMIUM_INTEL_PATHS = new Set([
   "/api/v1/intel/apex.json",
@@ -1511,14 +1511,14 @@ async function sendTelegramAlert(env, text) {
 
 async function verifyRazorpayHmac(payload, signature, secret) {
   try {
-    const encoder = new TextEncoder();
-    const key = await crypto.subtle.importKey(
+    const encoder  = new TextEncoder();
+    const key      = await crypto.subtle.importKey(
       "raw", encoder.encode(secret),
-      { name: "HMAC", hash: "SHA-256" }, false, ["sign"]
+      { name: "HMAC", hash: "SHA-256" }, false, ["verify"]
     );
-    const sigBytes = await crypto.subtle.sign("HMAC", key, encoder.encode(payload));
-    const computed = Array.from(new Uint8Array(sigBytes)).map(b => b.toString(16).padStart(2, "0")).join("");
-    return computed === signature;
+    // Decode hex signature to raw bytes; crypto.subtle.verify uses constant-time compare
+    const sigBytes = new Uint8Array(signature.match(/.{2}/g).map(b => parseInt(b, 16)));
+    return await crypto.subtle.verify("HMAC", key, sigBytes, encoder.encode(payload));
   } catch (_) { return false; }
 }
 
@@ -1580,10 +1580,19 @@ async function handleRazorpayVerify(request, env, ctx, method) {
   );
   if (!valid) return jsonResp({ error: "Payment signature invalid — verification failed", code: "SIG_MISMATCH" }, 400);
 
+  // Idempotency guard: prevent replay of a previously verified payment_id
+  const verifyIdempKey = `rzp_verified:${razorpay_payment_id}`;
+  const alreadyVerified = await env.SECURITY_HUB_KV.get(verifyIdempKey);
+  if (alreadyVerified) {
+    return jsonResp({ error: "Payment already verified and key provisioned", code: "ALREADY_PROVISIONED" }, 409);
+  }
+
   const tierUp = (tier || "PRO").toUpperCase();
   const apiKey = await provisionApiKey(env, ctx, tierUp, email, "razorpay_checkout", {
     order_id: razorpay_order_id, payment_id: razorpay_payment_id,
   });
+  // Mark payment_id as consumed (1 year TTL — Razorpay IDs never expire)
+  await env.SECURITY_HUB_KV.put(verifyIdempKey, JSON.stringify({ email, tier: tierUp, ts: now() }), { expirationTtl: 86400 * 365 });
 
   ctx.waitUntil(sendTelegramAlert(env,
     `🎉 <b>RAZORPAY PAYMENT VERIFIED</b>\n` +
@@ -1629,9 +1638,15 @@ async function handleWebhookRazorpay(request, env, ctx) {
   const pid    = entity.id || "unknown";
 
   if (event === "payment.captured" || event === "order.paid") {
+    // Idempotency guard: deduplicate across payment.captured + order.paid + webhook retries
+    const whIdempKey = `rzp_webhook:${pid}`;
+    const alreadyDone = await env.SECURITY_HUB_KV.get(whIdempKey);
+    if (alreadyDone) return jsonResp({ status: "already_provisioned", payment_id: pid });
+
     const apiKey = await provisionApiKey(env, ctx, tier, email, "razorpay_webhook", {
       payment_id: pid, amount, event,
     });
+    await env.SECURITY_HUB_KV.put(whIdempKey, JSON.stringify({ email, tier, ts: now() }), { expirationTtl: 86400 * 365 });
     ctx.waitUntil(sendTelegramAlert(env,
       `💰 <b>RAZORPAY: ${event}</b>\n` +
       `Plan: <b>${tier}</b> | Amount: ₹${(amount / 100).toFixed(2)}\n` +
@@ -1656,7 +1671,19 @@ async function handleWebhookRazorpay(request, env, ctx) {
 }
 
 // POST /api/webhooks/gumroad  (Gumroad Ping webhook — application/x-www-form-urlencoded)
+// Configure Gumroad → Settings → Webhooks URL as:
+//   https://intel.cyberdudebivash.com/api/webhooks/gumroad?secret=YOUR_GUMROAD_WEBHOOK_SECRET
+// Set GUMROAD_WEBHOOK_SECRET via: npx wrangler secret put GUMROAD_WEBHOOK_SECRET
 async function handleWebhookGumroad(request, env, ctx) {
+  // Token-based authentication: Gumroad doesn't sign payloads, so we use a shared secret in the URL
+  const urlToken = new URL(request.url).searchParams.get("secret") || "";
+  if (env.GUMROAD_WEBHOOK_SECRET) {
+    if (!urlToken || urlToken !== env.GUMROAD_WEBHOOK_SECRET) {
+      auditLog(ctx, env, { action: "webhook_auth_fail", source: "gumroad" });
+      return jsonResp({ error: "Unauthorized" }, 401);
+    }
+  }
+
   let formData = {};
   try {
     const body = await request.text();
@@ -2140,8 +2167,8 @@ function nlqFilter(items, f) {
   if (f.threat_type) r = r.filter(i => (i.threat_type||"").toLowerCase() === f.threat_type.toLowerCase());
   if (f.kev_only) r = r.filter(i => i.kev_present === true);
   if (f.zero_day) r = r.filter(i => (i.tags||[]).some(t=>t.toLowerCase().includes("zero")) || (i.title||"").toLowerCase().includes("zero-day"));
-  if (f.min_cvss) r = r.filter(i => parseFloat(i.cvss_score||0) >= f.min_cvss);
-  if (f.min_risk) r = r.filter(i => parseFloat(i.risk_score||0) >= f.min_risk);
+  if (f.min_cvss != null) r = r.filter(i => parseFloat(i.cvss_score||0) >= f.min_cvss);
+  if (f.min_risk  != null) r = r.filter(i => parseFloat(i.risk_score||0) >= f.min_risk);
   if (f.actor) {
     const al = f.actor.toLowerCase();
     r = r.filter(i => (i.actor_tag||"").toLowerCase().includes(al)||(i.title||"").toLowerCase().includes(al)||(i.description||"").toLowerCase().includes(al));
@@ -2228,9 +2255,18 @@ async function handleIncidentResponse(request, env, auth, method, path, url, ctx
   // LIST  GET /api/v1/incidents/
   if ((path === "/api/v1/incidents/" || path === "/api/v1/incidents") && method === "GET") {
     try {
-      const pfx   = auth.tier === TIERS.ENTERPRISE ? "ir:" : ownerPfx;
-      const { keys } = await env.SECURITY_HUB_KV.list({ prefix: `${pfx}incident:`, limit: 100 });
-      const rows  = await Promise.all(keys.map(async k => { try { return await env.SECURITY_HUB_KV.get(k.name, "json"); } catch { return null; } }));
+      const pfx    = auth.tier === TIERS.ENTERPRISE ? "ir:" : ownerPfx;
+      const listPrefix = `${pfx}incident:`;
+      // Cursor-paginated list — fetches all keys across multiple pages (max 200 per page)
+      let allKeys = [], cursor = undefined, complete = false;
+      while (!complete) {
+        const page = await env.SECURITY_HUB_KV.list({ prefix: listPrefix, limit: 200, cursor });
+        allKeys.push(...page.keys);
+        complete = page.list_complete;
+        cursor   = page.cursor;
+        if (allKeys.length >= 1000) break; // safety cap
+      }
+      const rows  = await Promise.all(allKeys.map(async k => { try { return await env.SECURITY_HUB_KV.get(k.name, "json"); } catch { return null; } }));
       const valid = rows.filter(Boolean).sort((a,b) => (b.created_at||"").localeCompare(a.created_at||""));
       return jsonResp({ status: "ok", incidents: valid, total: valid.length, generated_at: now() });
     } catch (e) {
