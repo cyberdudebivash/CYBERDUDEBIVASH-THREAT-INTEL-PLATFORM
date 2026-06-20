@@ -48,7 +48,7 @@
     ],
     AUTO_REFRESH_MS: 0,
     MAX_CARDS:       30,
-    VERSION:         "147.0.0",
+    VERSION:         "182.0",
     LOADING_COUNT:   4,
   };
 

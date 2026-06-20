@@ -1,6 +1,6 @@
 /**
  * retention_engine.js
- * CYBERDUDEBIVASH(R) SENTINEL APEX v171.0
+ * CYBERDUDEBIVASH(R) SENTINEL APEX v182.0
  * Intelligence Retention Engine — Main Orchestrator
  * ===================================================
  * Top-level orchestrator for the Intel Retention Worker.
@@ -22,7 +22,7 @@ import { RepositoryBuilder }     from "./repository_builder.js";
 import { RetentionPolicyEngine } from "./retention_policy_engine.js";
 import { DedupeEngine }          from "./dedupe_engine.js";
 
-const ENGINE_VERSION = "171.0";
+const ENGINE_VERSION = "182.0";
 
 /**
  * Run a full retention cycle for an incoming feed batch.
