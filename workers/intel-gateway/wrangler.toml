@@ -34,7 +34,11 @@ routes = [
 crons = ["*/15 * * * *"]
 
 [vars]
-GATEWAY_VERSION = "170.0"
+GATEWAY_VERSION = "181.0"
+# Public-facing Razorpay Key ID (NOT secret — safe in vars)
+# Get from: Razorpay Dashboard -> Settings -> API Keys
+# Format: rzp_live_XXXXXXXXXXXX
+RAZORPAY_KEY_ID = ""
 
 # -- KV Namespaces --
 # Deployed KV IDs -- verified live on intel.cyberdudebivash.com (v142.3.1)
@@ -87,6 +91,8 @@ bucket_name = "sentinel-apex-reports"
 #                                                     openssl rand -hex 32
 # npx wrangler secret put STRIPE_WEBHOOK_SECRET    -> Stripe webhook endpoint secret
 #                                                     Get from: Stripe Dashboard -> Webhooks -> Signing secret
+# npx wrangler secret put RAZORPAY_KEY_SECRET       -> Razorpay API Key Secret (private)
+#                                                     Get from: Razorpay Dashboard -> Settings -> API Keys
 # npx wrangler secret put RAZORPAY_WEBHOOK_SECRET  -> Razorpay webhook secret
 #                                                     Get from: Razorpay Dashboard -> Webhooks
 # npx wrangler secret put STRIPE_PRO_PRICE_ID      -> Stripe Price ID for PRO plan ($29/mo)
@@ -108,7 +114,8 @@ bucket_name = "sentinel-apex-reports"
 name = "sentinel-apex-gateway"
 
 [env.production.vars]
-GATEWAY_VERSION = "170.0"
+GATEWAY_VERSION = "181.0"
+RAZORPAY_KEY_ID = ""
 
 [[env.production.kv_namespaces]]
 binding = "API_KEYS_KV"

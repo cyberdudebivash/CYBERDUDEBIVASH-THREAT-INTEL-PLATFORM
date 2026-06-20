@@ -52,7 +52,7 @@
  */
 
 // --- Constants ----------------------------------------------------------------
-const PLATFORM_VERSION    = "170.0";
+const PLATFORM_VERSION    = "181.0";
 const JWT_EXPIRY_SEC      = 86400;        // 24h JWT lifetime
 const BRUTE_FORCE_MAX     = 5;            // lockout after N failed auth attempts
 const BRUTE_FORCE_TTL     = 900;          // 15-minute lockout (seconds)
@@ -90,7 +90,7 @@ const SECURITY_HEADERS = {
   "X-Sentinel-Platform": "CYBERDUDEBIVASH-SENTINEL-APEX",
 };
 
-const HTML_CSP = "default-src 'self'; script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: https:; frame-ancestors 'none'; base-uri 'self'";
+const HTML_CSP = "default-src 'self'; script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://checkout.razorpay.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self' https://api.razorpay.com https://checkout.razorpay.com; frame-src https://api.razorpay.com; frame-ancestors 'none'; base-uri 'self'";
 
 const JSON_CONTENT = { "Content-Type": "application/json; charset=utf-8" };
 
@@ -1470,6 +1470,849 @@ async function handleCopilot(request, env, auth, method, path) {
 }
 
 // =============================================================================
+// PAYMENT SYSTEM — Razorpay + Gumroad + Manual Notify
+// Razorpay: create-order → client checkout modal → verify (client) + webhook (server)
+// Gumroad:  webhook ping → auto-provision key + Telegram alert
+// Manual:   UPI/NEFT/Crypto proof → Telegram alert → admin provisions key
+// =============================================================================
+
+const RAZORPAY_TIER_PRICES = {
+  PRO:        { monthly: 399900,   annual: 3999000,   label: "Sentinel APEX PRO" },
+  ENTERPRISE: { monthly: 3999900,  annual: 39999000,  label: "Sentinel APEX ENTERPRISE" },
+  MSSP:       { monthly: 15999900, annual: 159999000, label: "Sentinel APEX MSSP" },
+};
+
+async function provisionApiKey(env, ctx, tier, email, source, metadata) {
+  const validTier = ["PRO", "ENTERPRISE", "MSSP"].includes(tier) ? tier : "PRO";
+  const prefix = validTier === "ENTERPRISE" ? "cdb_ent" : validTier === "MSSP" ? "cdb_mssp" : "cdb_pro";
+  const rand   = Array.from(crypto.getRandomValues(new Uint8Array(20))).map(b => b.toString(16).padStart(2, "0")).join("");
+  const apiKey = `${prefix}_${rand}`;
+  const record = {
+    key: apiKey, tier: validTier, customer_id: email, label: email,
+    source, created_at: now(), expires_at: null,
+    payment_metadata: metadata || {},
+  };
+  await env.API_KEYS_KV.put(apiKey, JSON.stringify(record));
+  auditLog(ctx, env, { action: "key_auto_provisioned", email, tier: validTier, source });
+  return apiKey;
+}
+
+async function sendTelegramAlert(env, text) {
+  if (!env.TG_BOT_TOKEN || !env.TG_CHAT_ID) return false;
+  try {
+    const r = await fetch(`https://api.telegram.org/bot${env.TG_BOT_TOKEN}/sendMessage`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ chat_id: env.TG_CHAT_ID, text, parse_mode: "HTML" }),
+    });
+    return r.ok;
+  } catch (_) { return false; }
+}
+
+async function verifyRazorpayHmac(payload, signature, secret) {
+  try {
+    const encoder = new TextEncoder();
+    const key = await crypto.subtle.importKey(
+      "raw", encoder.encode(secret),
+      { name: "HMAC", hash: "SHA-256" }, false, ["sign"]
+    );
+    const sigBytes = await crypto.subtle.sign("HMAC", key, encoder.encode(payload));
+    const computed = Array.from(new Uint8Array(sigBytes)).map(b => b.toString(16).padStart(2, "0")).join("");
+    return computed === signature;
+  } catch (_) { return false; }
+}
+
+// POST /api/payment/razorpay/create-order
+async function handleRazorpayCreateOrder(request, env, method) {
+  if (method !== "POST") return jsonResp({ error: "POST required" }, 405);
+  let body = {};
+  try { body = await request.json(); } catch (_) {}
+  const { tier = "PRO", email, billing = "monthly" } = body;
+  if (!email) return jsonResp({ error: "email is required" }, 400);
+  const tierUp  = tier.toUpperCase();
+  const pricing = RAZORPAY_TIER_PRICES[tierUp];
+  if (!pricing) return jsonResp({ error: "Invalid tier. Valid: PRO, ENTERPRISE, MSSP" }, 400);
+  if (!env.RAZORPAY_KEY_ID || !env.RAZORPAY_KEY_SECRET) {
+    return jsonResp({ error: "Razorpay not configured on server", fallback_url: "https://intel.cyberdudebivash.com/upgrade.html" }, 503);
+  }
+  const amount = billing === "annual" ? pricing.annual : pricing.monthly;
+  try {
+    const creds = btoa(`${env.RAZORPAY_KEY_ID}:${env.RAZORPAY_KEY_SECRET}`);
+    const resp  = await fetch("https://api.razorpay.com/v1/orders", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Authorization": `Basic ${creds}` },
+      body: JSON.stringify({
+        amount, currency: "INR",
+        receipt: `sa_${tierUp.toLowerCase()}_${Date.now()}`,
+        notes: { tier: tierUp, email, platform: "SENTINEL-APEX", billing },
+      }),
+    });
+    if (!resp.ok) {
+      const errText = await resp.text();
+      return jsonResp({ error: "Razorpay order creation failed", detail: errText }, 502);
+    }
+    const order = await resp.json();
+    return jsonResp({
+      order_id: order.id, amount: order.amount, currency: order.currency,
+      key_id: env.RAZORPAY_KEY_ID, plan: pricing.label, tier: tierUp,
+      billing, prefill: { email },
+    });
+  } catch (e) {
+    return jsonResp({ error: "Razorpay API unavailable", detail: e.message }, 503);
+  }
+}
+
+// POST /api/payment/razorpay/verify  (client calls after successful checkout modal)
+async function handleRazorpayVerify(request, env, ctx, method) {
+  if (method !== "POST") return jsonResp({ error: "POST required" }, 405);
+  let body = {};
+  try { body = await request.json(); } catch (_) {}
+  const { razorpay_order_id, razorpay_payment_id, razorpay_signature, tier = "PRO", email } = body;
+  if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
+    return jsonResp({ error: "razorpay_order_id, razorpay_payment_id, razorpay_signature required" }, 400);
+  }
+  if (!email) return jsonResp({ error: "email required" }, 400);
+  if (!env.RAZORPAY_KEY_SECRET) return jsonResp({ error: "Razorpay not configured" }, 503);
+
+  const valid = await verifyRazorpayHmac(
+    `${razorpay_order_id}|${razorpay_payment_id}`,
+    razorpay_signature, env.RAZORPAY_KEY_SECRET
+  );
+  if (!valid) return jsonResp({ error: "Payment signature invalid — verification failed", code: "SIG_MISMATCH" }, 400);
+
+  const tierUp = (tier || "PRO").toUpperCase();
+  const apiKey = await provisionApiKey(env, ctx, tierUp, email, "razorpay_checkout", {
+    order_id: razorpay_order_id, payment_id: razorpay_payment_id,
+  });
+
+  ctx.waitUntil(sendTelegramAlert(env,
+    `🎉 <b>RAZORPAY PAYMENT VERIFIED</b>\n` +
+    `Plan: <b>${tierUp}</b>\n` +
+    `Email: ${email}\n` +
+    `Payment ID: <code>${razorpay_payment_id}</code>\n` +
+    `API Key: <code>${apiKey.slice(0, 16)}...</code>`
+  ));
+
+  return jsonResp({
+    status: "activated",
+    message: "Payment verified. API key provisioned instantly.",
+    api_key: apiKey, tier: tierUp,
+    docs_url: "https://intel.cyberdudebivash.com/get-api-key.html",
+    support: { whatsapp: "+918179881447", email: "bivash@cyberdudebivash.com" },
+  }, 201);
+}
+
+// POST /api/webhooks/razorpay  (Razorpay server-to-server webhook)
+async function handleWebhookRazorpay(request, env, ctx) {
+  const rawBody = await request.text();
+  const sig     = request.headers.get("X-Razorpay-Signature") || "";
+  const secret  = env.RAZORPAY_WEBHOOK_SECRET;
+  if (!secret) return jsonResp({ error: "Webhook secret not configured" }, 500);
+
+  const valid = await verifyRazorpayHmac(rawBody, sig, secret);
+  if (!valid) {
+    auditLog(ctx, env, { action: "webhook_sig_fail", source: "razorpay" });
+    return jsonResp({ error: "Signature mismatch" }, 401);
+  }
+
+  let payload = {};
+  try { payload = JSON.parse(rawBody); } catch (_) {
+    return jsonResp({ error: "Invalid JSON payload" }, 400);
+  }
+
+  const event  = payload.event || "";
+  const entity = payload.payload?.payment?.entity || payload.payload?.subscription?.entity || {};
+  const notes  = entity.notes || {};
+  const email  = notes.email || entity.email || entity.contact || "unknown@razorpay";
+  const tier   = (notes.tier || "PRO").toUpperCase();
+  const amount = entity.amount || 0;
+  const pid    = entity.id || "unknown";
+
+  if (event === "payment.captured" || event === "order.paid") {
+    const apiKey = await provisionApiKey(env, ctx, tier, email, "razorpay_webhook", {
+      payment_id: pid, amount, event,
+    });
+    ctx.waitUntil(sendTelegramAlert(env,
+      `💰 <b>RAZORPAY: ${event}</b>\n` +
+      `Plan: <b>${tier}</b> | Amount: ₹${(amount / 100).toFixed(2)}\n` +
+      `Email: ${email}\n` +
+      `Payment ID: <code>${pid}</code>\n` +
+      `API Key: <code>${apiKey.slice(0, 16)}...</code>`
+    ));
+    return jsonResp({ status: "provisioned", tier, email });
+  }
+
+  if (event === "payment.failed") {
+    ctx.waitUntil(sendTelegramAlert(env,
+      `❌ <b>RAZORPAY PAYMENT FAILED</b>\n` +
+      `Plan: ${tier} | Email: ${email}\n` +
+      `Payment ID: <code>${pid}</code>\n` +
+      `Error: ${entity.error_description || "unknown"}`
+    ));
+    return jsonResp({ status: "noted", event });
+  }
+
+  return jsonResp({ status: "acknowledged", event });
+}
+
+// POST /api/webhooks/gumroad  (Gumroad Ping webhook — application/x-www-form-urlencoded)
+async function handleWebhookGumroad(request, env, ctx) {
+  let formData = {};
+  try {
+    const body = await request.text();
+    formData = Object.fromEntries(new URLSearchParams(body));
+  } catch (_) {
+    return jsonResp({ error: "Invalid request body" }, 400);
+  }
+
+  const { sale_id, email, product_name = "", variants = "", price = "0" } = formData;
+  if (!sale_id || !email) return jsonResp({ error: "Invalid Gumroad payload: sale_id and email required" }, 400);
+
+  // Map product/variant to tier
+  const pnl = `${product_name}${variants}`.toLowerCase();
+  let tier   = "PRO";
+  if (pnl.includes("enterprise") || pnl.includes("ent")) tier = "ENTERPRISE";
+  else if (pnl.includes("mssp") || pnl.includes("white-label")) tier = "MSSP";
+
+  // Idempotency guard: one provisioning per sale_id
+  const idempKey = `gumroad_sale:${sale_id}`;
+  const existing = await env.SECURITY_HUB_KV.get(idempKey);
+  if (existing) return jsonResp({ status: "already_provisioned", sale_id });
+
+  const apiKey = await provisionApiKey(env, ctx, tier, email, "gumroad_webhook", {
+    sale_id, product_name, price, variants,
+  });
+
+  await env.SECURITY_HUB_KV.put(
+    idempKey,
+    JSON.stringify({ key_prefix: apiKey.slice(0, 12) + "...", email, tier, ts: now() }),
+    { expirationTtl: 86400 * 365 }
+  );
+
+  ctx.waitUntil(sendTelegramAlert(env,
+    `🛒 <b>GUMROAD SALE</b>\n` +
+    `Product: ${product_name}\n` +
+    `Plan: <b>${tier}</b> | Price: $${price}\n` +
+    `Email: ${email}\n` +
+    `Sale ID: <code>${sale_id}</code>\n` +
+    `API Key: <code>${apiKey.slice(0, 16)}...</code>`
+  ));
+
+  return jsonResp({ status: "provisioned", tier, sale_id });
+}
+
+// POST /api/payment/manual-notify  (UPI / NEFT / Crypto proof of payment)
+async function handleManualNotify(request, env, ctx, method) {
+  if (method !== "POST") return jsonResp({ error: "POST required" }, 405);
+  let body = {};
+  try { body = await request.json(); } catch (_) {}
+  const { name, email, plan = "PRO", payment_method, transaction_id, amount, currency = "INR", notes = "" } = body;
+  if (!email) return jsonResp({ error: "email is required" }, 400);
+  if (!transaction_id && !notes) return jsonResp({ error: "transaction_id or notes required" }, 400);
+
+  const reviewId = `CDB-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
+  const record   = { name, email, plan, payment_method, transaction_id, amount, currency, notes, review_id: reviewId, created_at: now(), status: "pending" };
+
+  await env.SECURITY_HUB_KV.put(`manual_payment:${reviewId}`, JSON.stringify(record), { expirationTtl: 86400 * 90 });
+
+  ctx.waitUntil(sendTelegramAlert(env,
+    `📋 <b>MANUAL PAYMENT NOTIFICATION</b>\n` +
+    `Review ID: <code>${reviewId}</code>\n` +
+    `Name: ${name || "N/A"} | Email: ${email}\n` +
+    `Plan: <b>${(plan || "PRO").toUpperCase()}</b>\n` +
+    `Method: ${payment_method || "unspecified"}\n` +
+    `Amount: ${currency} ${amount || "?"}\n` +
+    `Txn ID: <code>${transaction_id || "N/A"}</code>\n` +
+    `Notes: ${notes || "—"}\n` +
+    `⏰ Verify and provision via /api/admin/keys`
+  ));
+
+  auditLog(ctx, env, { action: "manual_payment_submitted", email, plan, review_id: reviewId });
+
+  return jsonResp({
+    status: "received", review_id: reviewId,
+    message: "Payment notification received. API key delivered within 2 hours.",
+    support: { whatsapp: "+918179881447", email: "bivash@cyberdudebivash.com" },
+  }, 201);
+}
+
+// GET /api/payment/status?review_id=...
+async function handlePaymentStatus(request, env, url) {
+  const reviewId = url.searchParams.get("review_id") || url.searchParams.get("id") || "";
+  if (!reviewId) return jsonResp({ error: "review_id query param required" }, 400);
+  const record = await env.SECURITY_HUB_KV.get(`manual_payment:${reviewId}`, "json");
+  if (!record) return jsonResp({ error: "Review ID not found", review_id: reviewId }, 404);
+  return jsonResp({
+    review_id: reviewId, status: record.status || "pending",
+    plan: record.plan, payment_method: record.payment_method, created_at: record.created_at,
+    message: record.status === "activated" ? "API key has been provisioned — check your email." : "Under review — delivery within 2 hours.",
+  });
+}
+
+// =============================================================================
+// BRAND PROTECTION — Typosquatting & Domain Impersonation Detection
+// =============================================================================
+
+function levenshtein(a, b) {
+  if (!a) return b.length;
+  if (!b) return a.length;
+  const m = [];
+  for (let i = 0; i <= b.length; i++) m[i] = [i];
+  for (let j = 0; j <= a.length; j++) m[0][j] = j;
+  for (let i = 1; i <= b.length; i++) {
+    for (let j = 1; j <= a.length; j++) {
+      m[i][j] = b[i-1] === a[j-1]
+        ? m[i-1][j-1]
+        : 1 + Math.min(m[i-1][j-1], m[i][j-1], m[i-1][j]);
+    }
+  }
+  return m[b.length][a.length];
+}
+
+const BRAND_TLDS = ["com","net","org","io","co","xyz","info","biz","online","site","tech","dev","app","store","shop","ai","cloud","security","cyber","secure"];
+const BRAND_PFXS = ["get","buy","my","the","official","secure","safe","pro","try","login","account","support","help"];
+const BRAND_SFXS = ["online","app","web","site","pro","plus","hub","login","secure","pay","account","tech"];
+
+function generateTyposquatVariants(domain) {
+  const dot    = domain.indexOf(".");
+  const name   = dot === -1 ? domain : domain.slice(0, dot);
+  const tld    = dot === -1 ? "com" : domain.slice(dot + 1);
+  const n      = name.toLowerCase();
+  const v      = new Set();
+  // Missing chars
+  for (let i = 0; i < n.length; i++) v.add(`${n.slice(0,i)}${n.slice(i+1)}.${tld}`);
+  // Transpositions
+  for (let i = 0; i < n.length-1; i++) {
+    const a = n.split(""); [a[i],a[i+1]] = [a[i+1],a[i]]; v.add(`${a.join("")}.${tld}`);
+  }
+  // Double-chars
+  for (let i = 0; i < n.length; i++) v.add(`${n.slice(0,i)}${n[i]}${n[i]}${n.slice(i+1)}.${tld}`);
+  // Vowel swaps
+  for (let i = 0; i < n.length; i++) {
+    if ("aeiou".includes(n[i])) {
+      for (const vow of "aeiou") { if (vow !== n[i]) v.add(`${n.slice(0,i)}${vow}${n.slice(i+1)}.${tld}`); }
+    }
+  }
+  // Hyphen inserts
+  for (let i = 1; i < n.length-1; i++) v.add(`${n.slice(0,i)}-${n.slice(i)}.${tld}`);
+  // Char substitutions
+  const subs = { a:["4","@"], e:["3"], i:["1","l"], o:["0"], s:["5","$"], l:["1"], g:["9"] };
+  for (let i = 0; i < n.length; i++) {
+    if (subs[n[i]]) { for (const s of subs[n[i]]) v.add(`${n.slice(0,i)}${s}${n.slice(i+1)}.${tld}`); }
+  }
+  // TLD alternatives
+  for (const t of BRAND_TLDS) { if (t !== tld) v.add(`${n}.${t}`); }
+  // Prefix/suffix combos
+  for (const p of BRAND_PFXS.slice(0,6)) { v.add(`${p}-${n}.${tld}`); v.add(`${p}${n}.${tld}`); }
+  for (const s of BRAND_SFXS.slice(0,6)) { v.add(`${n}-${s}.${tld}`); v.add(`${n}${s}.${tld}`); }
+  v.delete(domain.toLowerCase());
+  return [...v].filter(x => x.length > 4 && x.includes("."));
+}
+
+function scoreDomainRisk(variant, original) {
+  const dot = original.indexOf(".");
+  const origName = dot === -1 ? original : original.slice(0, dot);
+  const origTld  = dot === -1 ? "com" : original.slice(dot+1);
+  const vdot     = variant.indexOf(".");
+  const varName  = vdot === -1 ? variant : variant.slice(0, vdot);
+  const varTld   = vdot === -1 ? "com" : variant.slice(vdot+1);
+
+  const dist = levenshtein(origName.toLowerCase(), varName.toLowerCase());
+  let score  = Math.max(0, 100 - dist * 22);
+  if (varTld === origTld) score = Math.min(100, score + 15);
+  if (["xyz","online","site","info","biz"].includes(varTld)) score = Math.min(100, score + 10);
+  if (BRAND_PFXS.some(p => varName.startsWith(p))) score = Math.min(100, score + 8);
+  if (BRAND_SFXS.some(s => varName.endsWith(s)))   score = Math.min(100, score + 5);
+
+  const risk = score >= 80 ? "CRITICAL" : score >= 60 ? "HIGH" : score >= 40 ? "MEDIUM" : "LOW";
+  return { risk_score: score, risk_level: risk, edit_distance: dist };
+}
+
+async function handleBrandProtection(request, env, auth, method, path, url) {
+  if (!auth || auth.tier === TIERS.FREE) {
+    return jsonResp({ error: "Brand Protection requires PRO or ENTERPRISE tier", upgrade_url: "https://intel.cyberdudebivash.com/upgrade.html" }, 403);
+  }
+  if (path === "/api/v1/brand/health") {
+    return jsonResp({ status: "ok", module: "Brand Protection", version: "1.0", tier_required: "PRO", capabilities: ["typosquatting","homograph","domain_variants","risk_scoring"] });
+  }
+
+  if (path === "/api/v1/brand/scan" && method === "POST") {
+    let body = {};
+    try { body = await request.json(); } catch (_) {}
+    const domain = (body.domain || "").toLowerCase().trim().replace(/^https?:\/\//, "").replace(/\/.*$/, "");
+    if (!domain || !domain.includes(".")) return jsonResp({ error: "domain required (e.g. example.com)" }, 400);
+
+    const limit    = auth.tier === TIERS.ENTERPRISE ? 200 : 100;
+    const all      = generateTyposquatVariants(domain).slice(0, limit);
+    const scored   = all.map(v => ({ domain: v, ...scoreDomainRisk(v, domain) })).sort((a,b) => b.risk_score - a.risk_score);
+    const critical = scored.filter(v => v.risk_level === "CRITICAL");
+    const high     = scored.filter(v => v.risk_level === "HIGH");
+    const medium   = scored.filter(v => v.risk_level === "MEDIUM");
+
+    return jsonResp({
+      status: "ok", module: "Brand Protection", domain,
+      scan_summary: {
+        total_variants: scored.length, critical: critical.length, high: high.length, medium: medium.length,
+        low: scored.length - critical.length - high.length - medium.length,
+        risk_assessment: critical.length > 0 ? "CRITICAL — Active impersonation patterns detected" : high.length > 0 ? "HIGH — Immediate monitoring recommended" : "MEDIUM — Routine monitoring advised",
+      },
+      top_threats: scored.slice(0, 20), all_variants: scored,
+      recommendations: [
+        "Register all CRITICAL-risk variants defensively",
+        "Enable brand monitoring via your DNS registrar",
+        "Configure Google Safe Browsing alerts for these domains",
+        "Submit active phishing domains to anti-phishing working group (APWG)",
+        "Alert CERT-In or FBI IC3 if active credential harvesting confirmed",
+      ],
+      generated_at: now(),
+    });
+  }
+
+  if (path === "/api/v1/brand/check" && method === "POST") {
+    let body = {};
+    try { body = await request.json(); } catch (_) {}
+    const { domain, check_domain } = body;
+    if (!domain || !check_domain) return jsonResp({ error: "domain and check_domain required" }, 400);
+    const scoring = scoreDomainRisk(check_domain.toLowerCase(), domain.toLowerCase());
+    return jsonResp({
+      status: "ok", module: "Brand Protection", original: domain, checked: check_domain,
+      ...scoring, is_threat: scoring.risk_level === "CRITICAL" || scoring.risk_level === "HIGH",
+      analysis: `Edit distance ${scoring.edit_distance} — ${scoring.risk_level} risk typosquat candidate`,
+      generated_at: now(),
+    });
+  }
+
+  return jsonResp({ error: "Brand Protection endpoint not found", paths: ["POST /api/v1/brand/scan", "POST /api/v1/brand/check", "GET /api/v1/brand/health"] }, 404);
+}
+
+// =============================================================================
+// VENDOR RISK — FAIR-Based Third-Party Risk Assessment
+// =============================================================================
+
+const VENDOR_RISK_FACTORS = {
+  data_access:      { w: 0.25, lvl: { none:0, read:3, write:6, admin:9, all:10, unknown:6 } },
+  network_access:   { w: 0.20, lvl: { none:0, limited:3, full:8, privileged:10, unknown:6 } },
+  auth_strength:    { w: 0.20, lvl: { mfa:0, sso:2, password_only:7, unknown:8, none:10 } },
+  patch_cadence:    { w: 0.15, lvl: { continuous:0, monthly:2, quarterly:5, unknown:7, none:10 } },
+  compliance:       { w: 0.10, lvl: { soc2_iso27001:0, soc2:2, iso27001:2, pen_tested:4, none:8, unknown:6 } },
+  incident_history: { w: 0.10, lvl: { none:0, minor:3, major:7, critical:10, unknown:4 } },
+};
+
+function fairAssess(data) {
+  let score = 0;
+  const breakdown = {};
+  for (const [factor, cfg] of Object.entries(VENDOR_RISK_FACTORS)) {
+    const val    = (data[factor] || "unknown").toLowerCase();
+    const raw    = cfg.lvl[val] ?? cfg.lvl.unknown ?? 5;
+    const contrib = raw * cfg.w;
+    score += contrib;
+    breakdown[factor] = { value: val, raw_score: raw, weight: cfg.w, contribution: Math.round(contrib * 10) / 10 };
+  }
+  const crit    = { low:1, medium:2, high:3, critical:4 }[data.business_criticality || "medium"] || 2;
+  const rs      = Math.round(score * 10);
+  const rl      = rs >= 70 ? "CRITICAL" : rs >= 50 ? "HIGH" : rs >= 30 ? "MEDIUM" : "LOW";
+  const recs    = [];
+  if (breakdown.auth_strength?.raw_score >= 7) recs.push("Mandate MFA for all vendor access immediately");
+  if (breakdown.patch_cadence?.raw_score >= 5) recs.push("Require monthly patching SLA in vendor contract");
+  if (breakdown.compliance?.raw_score >= 5) recs.push("Request SOC 2 Type II or ISO 27001 within 90 days");
+  if (breakdown.incident_history?.raw_score >= 5) recs.push("Conduct post-mortem review of past incidents");
+  if (breakdown.network_access?.raw_score >= 7) recs.push("Implement network segmentation for vendor access");
+  if (breakdown.data_access?.raw_score >= 7) recs.push("Apply data minimization — enforce least-privilege access");
+  if (rl === "CRITICAL") recs.push("URGENT: Escalate to CISO — vendor review within 48 hours");
+  if (rl === "HIGH") recs.push("Schedule formal vendor security review within 30 days");
+  return {
+    risk_score: rs, risk_level: rl,
+    fair_loss_estimate_usd: Math.round(score * crit * 10000),
+    residual_risk: rl === "CRITICAL" ? "Immediate review required" : rl === "HIGH" ? "Enhanced monitoring required" : rl === "MEDIUM" ? "Standard monitoring" : "Routine review",
+    factor_breakdown: breakdown,
+    recommendations: recs.length ? recs : ["Maintain standard monitoring cadence"],
+  };
+}
+
+async function handleVendorRisk(request, env, auth, method, path) {
+  if (!auth || auth.tier === TIERS.FREE) {
+    return jsonResp({ error: "Vendor Risk Assessment requires PRO or ENTERPRISE tier", upgrade_url: "https://intel.cyberdudebivash.com/upgrade.html" }, 403);
+  }
+  if (path === "/api/v1/vendor-risk/health") {
+    return jsonResp({ status: "ok", module: "Vendor Risk Assessment", version: "1.0", model: "FAIR (Factor Analysis of Information Risk)", tier_required: "PRO", factors: Object.keys(VENDOR_RISK_FACTORS) });
+  }
+
+  if (path === "/api/v1/vendor-risk/assess" && method === "POST") {
+    let body = {};
+    try { body = await request.json(); } catch (_) {}
+    const { vendor_name, ...vendorData } = body;
+    if (!vendor_name) return jsonResp({ error: "vendor_name is required" }, 400);
+    return jsonResp({ status: "ok", module: "Vendor Risk Assessment", vendor_name, ...fairAssess(vendorData), model: "FAIR v2.0", generated_at: now() });
+  }
+
+  if (path === "/api/v1/vendor-risk/bulk" && method === "POST") {
+    if (auth.tier !== TIERS.ENTERPRISE) return jsonResp({ error: "Bulk vendor assessment requires ENTERPRISE tier" }, 403);
+    let body = {};
+    try { body = await request.json(); } catch (_) {}
+    const vendors = body.vendors || [];
+    if (!Array.isArray(vendors) || vendors.length === 0) return jsonResp({ error: "vendors array required" }, 400);
+    if (vendors.length > 50) return jsonResp({ error: "Maximum 50 vendors per bulk request" }, 400);
+    const results = vendors.map(v => ({ vendor_name: v.vendor_name || "Unknown", ...fairAssess(v) })).sort((a,b) => b.risk_score - a.risk_score);
+    const critical = results.filter(r => r.risk_level === "CRITICAL").length;
+    const high     = results.filter(r => r.risk_level === "HIGH").length;
+    return jsonResp({
+      status: "ok", module: "Vendor Risk Assessment",
+      summary: { total: results.length, critical, high, medium: results.filter(r=>r.risk_level==="MEDIUM").length, low: results.filter(r=>r.risk_level==="LOW").length, avg_risk_score: Math.round(results.reduce((s,r)=>s+r.risk_score,0)/results.length) },
+      vendors: results, model: "FAIR v2.0", generated_at: now(),
+    });
+  }
+
+  return jsonResp({ error: "Vendor Risk endpoint not found", paths: ["POST /api/v1/vendor-risk/assess", "POST /api/v1/vendor-risk/bulk", "GET /api/v1/vendor-risk/health"] }, 404);
+}
+
+// =============================================================================
+// GEOPOLITICAL RISK — Country-Level Threat Intelligence & Sanctions Screening
+// =============================================================================
+
+const GEO_DB = {
+  RU:{ risk:95,sanctioned:true, region:"Eastern Europe",  apts:["APT28","APT29","Sandworm","Turla"],          tier:"CRITICAL", notes:"Active state-sponsored cyber operations" },
+  CN:{ risk:90,sanctioned:false,region:"East Asia",       apts:["APT41","APT40","APT10","Volt Typhoon"],      tier:"CRITICAL", notes:"Strategic espionage and IP theft campaigns" },
+  KP:{ risk:92,sanctioned:true, region:"East Asia",       apts:["Lazarus","Kimsuky","APT38","BlueNoroff"],    tier:"CRITICAL", notes:"State-sponsored cybercrime, sanctions evasion" },
+  IR:{ risk:88,sanctioned:true, region:"Middle East",     apts:["APT33","APT35","MuddyWater","OilRig"],       tier:"CRITICAL", notes:"Active OT/ICS targeting and espionage" },
+  BY:{ risk:75,sanctioned:true, region:"Eastern Europe",  apts:["UNC1151","Ghostwriter"],                    tier:"HIGH",     notes:"Aligned with RU, disinformation operations" },
+  SY:{ risk:70,sanctioned:true, region:"Middle East",     apts:["Syrian Electronic Army"],                   tier:"HIGH",     notes:"Hacktivist and espionage activity" },
+  VN:{ risk:50,sanctioned:false,region:"Southeast Asia",  apts:["APT32","OceanLotus"],                       tier:"MEDIUM",   notes:"State-sponsored targeting of foreign business" },
+  PK:{ risk:55,sanctioned:false,region:"South Asia",      apts:["APT36","Transparent Tribe"],                tier:"MEDIUM",   notes:"India-focused espionage" },
+  TR:{ risk:40,sanctioned:false,region:"Middle East",     apts:["Sea Turtle"],                               tier:"MEDIUM",   notes:"DNS hijacking, cyber espionage" },
+  NG:{ risk:55,sanctioned:false,region:"West Africa",     apts:[],                                           tier:"MEDIUM",   notes:"BEC and financial fraud ecosystem" },
+  UA:{ risk:70,sanctioned:false,region:"Eastern Europe",  apts:[],                                           tier:"HIGH",     notes:"Active wartime cyber conflict zone" },
+  AF:{ risk:60,sanctioned:false,region:"Central Asia",    apts:[],                                           tier:"HIGH",     notes:"Instability, limited oversight" },
+  MM:{ risk:65,sanctioned:true, region:"Southeast Asia",  apts:[],                                           tier:"HIGH",     notes:"Post-coup instability, sanctions" },
+  CU:{ risk:50,sanctioned:true, region:"Caribbean",       apts:[],                                           tier:"MEDIUM",   notes:"Trade sanctions, limited offensive cyber" },
+  VE:{ risk:45,sanctioned:true, region:"South America",   apts:[],                                           tier:"MEDIUM",   notes:"Financial crime, limited offensive cyber" },
+  SD:{ risk:55,sanctioned:true, region:"Africa",          apts:[],                                           tier:"MEDIUM",   notes:"OFAC sanctioned" },
+  US:{ risk: 5,sanctioned:false,region:"North America",   apts:[],                                           tier:"LOW",      notes:"Five Eyes partner, CISA oversight" },
+  GB:{ risk: 5,sanctioned:false,region:"Western Europe",  apts:[],                                           tier:"LOW",      notes:"Five Eyes partner, NCSC oversight" },
+  DE:{ risk: 8,sanctioned:false,region:"Western Europe",  apts:[],                                           tier:"LOW",      notes:"EU member, BSI oversight" },
+  FR:{ risk: 8,sanctioned:false,region:"Western Europe",  apts:[],                                           tier:"LOW",      notes:"EU member, ANSSI oversight" },
+  JP:{ risk:10,sanctioned:false,region:"East Asia",       apts:[],                                           tier:"LOW",      notes:"Allied nation, NISC oversight" },
+  AU:{ risk: 5,sanctioned:false,region:"Oceania",         apts:[],                                           tier:"LOW",      notes:"Five Eyes partner, ASD oversight" },
+  CA:{ risk: 5,sanctioned:false,region:"North America",   apts:[],                                           tier:"LOW",      notes:"Five Eyes partner, CCCS oversight" },
+  IN:{ risk:25,sanctioned:false,region:"South Asia",      apts:[],                                           tier:"LOW",      notes:"Emerging cyber power, CERT-In oversight" },
+  IL:{ risk:20,sanctioned:false,region:"Middle East",     apts:[],                                           tier:"LOW",      notes:"Advanced capability, defensive posture" },
+  BR:{ risk:30,sanctioned:false,region:"South America",   apts:[],                                           tier:"LOW",      notes:"Active cybercrime ecosystem" },
+  SA:{ risk:30,sanctioned:false,region:"Middle East",     apts:[],                                           tier:"LOW",      notes:"OT threat landscape, ARAMCO precedent" },
+  SG:{ risk:10,sanctioned:false,region:"Southeast Asia",  apts:[],                                           tier:"LOW",      notes:"Regional hub, strong cyber governance" },
+  KR:{ risk:15,sanctioned:false,region:"East Asia",       apts:[],                                           tier:"LOW",      notes:"Allied nation, KISA oversight" },
+  NL:{ risk: 8,sanctioned:false,region:"Western Europe",  apts:[],                                           tier:"LOW",      notes:"EU member, NCSC-NL oversight" },
+};
+
+const OFAC_SANCTIONED = new Set(["RU","KP","IR","SY","CU","VE","BY","MM","ZW","SD","LY","SO","YE","AL","BA","CF","CD","GW","IQ","LB","LR","MK","NI","RS","SS","UA_OCCUPIED"]);
+const EU_SANCTIONED   = new Set(["RU","BY","KP","IR","SY","MM","LY","BA","YE","SD"]);
+
+function buildGeoRecs(code, data) {
+  const r = [];
+  if (data.tier === "CRITICAL") {
+    r.push("Block or strictly monitor all inbound traffic from this country");
+    r.push("Enable enhanced logging for all auth attempts originating here");
+    r.push("Consider geo-blocking if no legitimate business presence required");
+  }
+  if (data.sanctioned) {
+    r.push("OFAC/EU sanctions apply — obtain legal authorization before any engagement");
+    r.push("Screen all financial transactions against current OFAC SDN list");
+  }
+  if (data.apts.length > 0) {
+    r.push(`Threat hunt for TTPs of: ${data.apts.join(", ")} — review MITRE ATT&CK groups page`);
+    r.push("Subscribe to sector-specific ISAC alerts for this threat actor cluster");
+  }
+  return r.length ? r : ["Standard monitoring — no elevated risk indicators"];
+}
+
+async function handleGeopolitical(request, env, auth, method, path, url) {
+  if (!auth || auth.tier === TIERS.FREE) {
+    return jsonResp({ error: "Geopolitical Risk requires PRO or ENTERPRISE tier", upgrade_url: "https://intel.cyberdudebivash.com/upgrade.html" }, 403);
+  }
+
+  if (path === "/api/v1/geopolitical/health") {
+    return jsonResp({ status: "ok", module: "Geopolitical Risk Intelligence", version: "1.0", countries_indexed: Object.keys(GEO_DB).length, sanctions_lists: ["OFAC","EU"] });
+  }
+
+  if (path === "/api/v1/geopolitical/landscape") {
+    const crit = Object.entries(GEO_DB).filter(([,v]) => v.tier==="CRITICAL").map(([k,v]) => ({ code:k,...v }));
+    const high = Object.entries(GEO_DB).filter(([,v]) => v.tier==="HIGH").map(([k,v]) => ({ code:k,...v }));
+    return jsonResp({
+      status: "ok", module: "Geopolitical Risk Intelligence",
+      threat_landscape: {
+        critical_risk_nations: crit, high_risk_nations: high,
+        sanctioned_nations: { ofac: [...OFAC_SANCTIONED], eu: [...EU_SANCTIONED] },
+        global_threat_level: "ELEVATED",
+      },
+      advisory: "Monitor all traffic from CRITICAL/HIGH risk nations. Apply OFAC/EU sanctions screening for all financial transactions.",
+      generated_at: now(),
+    });
+  }
+
+  const countryMatch = path.match(/^\/api\/v1\/geopolitical\/country\/([A-Z]{2})$/i);
+  if (countryMatch) {
+    const code = countryMatch[1].toUpperCase();
+    const data = GEO_DB[code];
+    if (!data) return jsonResp({ error: `Country code ${code} not in database`, available_codes: Object.keys(GEO_DB) }, 404);
+    return jsonResp({
+      status: "ok", module: "Geopolitical Risk Intelligence",
+      country_code: code, ...data,
+      sanctions: { ofac: OFAC_SANCTIONED.has(code), eu: EU_SANCTIONED.has(code) },
+      threat_actor_count: data.apts.length,
+      recommendations: buildGeoRecs(code, data),
+      generated_at: now(),
+    });
+  }
+
+  if (path === "/api/v1/geopolitical/sanctions-check" && method === "POST") {
+    let body = {};
+    try { body = await request.json(); } catch (_) {}
+    const { country_codes = [], entity_name = "" } = body;
+    if (!Array.isArray(country_codes) || country_codes.length === 0) return jsonResp({ error: "country_codes array required" }, 400);
+    const results = country_codes.map(c => {
+      const code = c.toUpperCase();
+      return { code, ofac: OFAC_SANCTIONED.has(code), eu: EU_SANCTIONED.has(code), sanctioned: OFAC_SANCTIONED.has(code)||EU_SANCTIONED.has(code), risk_tier: GEO_DB[code]?.tier||"UNKNOWN" };
+    });
+    const hit = results.some(r => r.sanctioned);
+    return jsonResp({
+      status: "ok", module: "Geopolitical Risk Intelligence",
+      entity: entity_name || "N/A",
+      sanctions_result: hit ? "SANCTIONS_DETECTED" : "CLEAR",
+      countries: results,
+      compliance_action: hit ? "BLOCK: Engagement requires OFAC/government authorization" : "PROCEED: No active sanctions detected",
+      generated_at: now(),
+    });
+  }
+
+  return jsonResp({ error: "Geopolitical endpoint not found", paths: ["GET /api/v1/geopolitical/country/{code}", "GET /api/v1/geopolitical/landscape", "POST /api/v1/geopolitical/sanctions-check", "GET /api/v1/geopolitical/health"] }, 404);
+}
+
+// =============================================================================
+// NLQ — Natural Language Queries on Live Intel Feed (PRO+)
+// =============================================================================
+
+const NLQ_EXAMPLES = [
+  { query: "Show me critical vulnerabilities from this week", filters: "severity=CRITICAL,hours=168" },
+  { query: "What ransomware threats are trending?", filters: "threat_type=Ransomware" },
+  { query: "Find APT threats attributed to Russia", filters: "threat_type=APT,actor=russia" },
+  { query: "Show CVEs with CVSS above 9", filters: "min_cvss=9" },
+  { query: "What are the CISA KEV confirmed vulnerabilities?", filters: "kev_only=true" },
+  { query: "Find threats targeting financial sector", filters: "sector=financial" },
+  { query: "Show zero-day exploits reported today", filters: "tags=zero-day,hours=24" },
+  { query: "High risk threats with MITRE ATT&CK coverage", filters: "severity=HIGH,min_risk=7" },
+];
+
+function nlqParse(q) {
+  const l = q.toLowerCase();
+  const f = {};
+  if (/critical/i.test(l)) f.severity = "CRITICAL";
+  else if (/\bhigh\b/i.test(l)) f.severity = "HIGH";
+  else if (/medium|moderate/i.test(l)) f.severity = "MEDIUM";
+  else if (/\blow\b/i.test(l)) f.severity = "LOW";
+  if (/ransomware/i.test(l)) f.threat_type = "Ransomware";
+  else if (/\bapt\b|nation.?state|state.?sponsor/i.test(l)) f.threat_type = "APT";
+  else if (/phish/i.test(l)) f.threat_type = "Phishing";
+  else if (/\bvuln|cve|patch\b/i.test(l)) f.threat_type = "Vulnerability";
+  else if (/\bmalware\b/i.test(l)) f.threat_type = "Malware";
+  else if (/supply.?chain/i.test(l)) f.threat_type = "Supply Chain";
+  else if (/\bbreach\b|data.?breach/i.test(l)) f.threat_type = "Data Breach";
+  else if (/zero.?day|0.?day/i.test(l)) f.zero_day = true;
+  if (/kev|cisa.*exploit|known exploit/i.test(l)) f.kev_only = true;
+  const cvsm = l.match(/cvss\s*(?:above|over|>=?|>)\s*(\d+(?:\.\d+)?)/);
+  if (cvsm) f.min_cvss = parseFloat(cvsm[1]);
+  const rism = l.match(/risk\s*(?:score\s*)?(?:above|over|>=?)\s*(\d+(?:\.\d+)?)/);
+  if (rism) f.min_risk = parseFloat(rism[1]);
+  for (const actor of ["russia","china","north korea","iran","lazarus","apt28","apt29","volt typhoon","apt41","sandworm"]) {
+    if (l.includes(actor)) { f.actor = actor; break; }
+  }
+  for (const sector of ["finance","financial","banking","healthcare","energy","government","defense","retail","telecom","critical infrastructure"]) {
+    if (l.includes(sector)) { f.sector = sector; break; }
+  }
+  if (/today|last 24|24 hours/i.test(l)) f.hours = 24;
+  else if (/this week|last 7|7 days/i.test(l)) f.hours = 168;
+  else if (/this month|last 30|30 days/i.test(l)) f.hours = 720;
+  const stop = new Set(["show","me","find","get","list","what","are","the","a","an","and","or","of","from","with","for","in","on","at","to","is","this","week","month","day","all","any","have","been","last"]);
+  f.keywords = q.split(/\s+/).map(w => w.toLowerCase().replace(/[^a-z0-9-]/g,"")).filter(w => w.length > 3 && !stop.has(w));
+  return f;
+}
+
+function nlqFilter(items, f) {
+  let r = items;
+  if (f.severity) r = r.filter(i => i.severity === f.severity);
+  if (f.threat_type) r = r.filter(i => (i.threat_type||"").toLowerCase() === f.threat_type.toLowerCase());
+  if (f.kev_only) r = r.filter(i => i.kev_present === true);
+  if (f.zero_day) r = r.filter(i => (i.tags||[]).some(t=>t.toLowerCase().includes("zero")) || (i.title||"").toLowerCase().includes("zero-day"));
+  if (f.min_cvss) r = r.filter(i => parseFloat(i.cvss_score||0) >= f.min_cvss);
+  if (f.min_risk) r = r.filter(i => parseFloat(i.risk_score||0) >= f.min_risk);
+  if (f.actor) {
+    const al = f.actor.toLowerCase();
+    r = r.filter(i => (i.actor_tag||"").toLowerCase().includes(al)||(i.title||"").toLowerCase().includes(al)||(i.description||"").toLowerCase().includes(al));
+  }
+  if (f.sector) {
+    const sl = f.sector.toLowerCase();
+    r = r.filter(i => (i.title||"").toLowerCase().includes(sl)||(i.description||"").toLowerCase().includes(sl)||(i.tags||[]).some(t=>t.toLowerCase().includes(sl)));
+  }
+  if (f.hours) {
+    const cut = Date.now() - f.hours * 3600000;
+    r = r.filter(i => { const ts = i.published||i.published_at||i.created_at||""; return ts && new Date(ts).getTime() >= cut; });
+  }
+  if (f.keywords && f.keywords.length > 0) {
+    r = r.filter(i => {
+      const hay = `${i.title||""} ${i.description||""} ${i.threat_type||""} ${i.actor_tag||""} ${(i.tags||[]).join(" ")}`.toLowerCase();
+      return f.keywords.some(k => hay.includes(k));
+    });
+  }
+  return r;
+}
+
+async function handleNLQ(request, env, auth, method, path, url, ctx) {
+  if (!auth || auth.tier === TIERS.FREE) {
+    return jsonResp({ error: "Natural Language Query requires PRO or ENTERPRISE tier", upgrade_url: "https://intel.cyberdudebivash.com/upgrade.html" }, 403);
+  }
+  if (path === "/api/v1/nlq/health") {
+    return jsonResp({ status: "ok", module: "Natural Language Query", version: "1.0", llm_available: !!(env.OPENROUTER_API_KEY||env.DEEPSEEK_API_KEY||env.GROQ_API_KEY), tier_required: "PRO" });
+  }
+  if (path === "/api/v1/nlq/examples") {
+    return jsonResp({ status: "ok", examples: NLQ_EXAMPLES, generated_at: now() });
+  }
+  if (path === "/api/v1/nlq/query" && method === "POST") {
+    let body = {};
+    try { body = await request.json(); } catch (_) {}
+    const query = (body.query || body.q || "").trim().slice(0, 500);
+    if (!query) return jsonResp({ error: "query is required" }, 400);
+
+    const feedData = await loadFeedItems(env);
+    const items    = feedData.items || [];
+    const filters  = nlqParse(query);
+    const matched  = nlqFilter(items, filters);
+    const limit    = auth.tier === TIERS.ENTERPRISE ? 100 : 25;
+    const results  = matched.slice(0, limit);
+
+    let llmSummary = null;
+    if ((env.OPENROUTER_API_KEY || env.DEEPSEEK_API_KEY || env.GROQ_API_KEY) && results.length > 0 && body.explain !== false) {
+      try {
+        const top = results.slice(0, 5).map(i => ({ title: i.title, severity: i.severity, type: i.threat_type, actor: i.actor_tag, risk: i.risk_score }));
+        const lr = await callLLM(env,
+          "You are a concise threat intelligence analyst. Summarize findings in 2-3 sentences.",
+          `Query: "${query}"\n\nTop matches:\n${JSON.stringify(top, null, 2)}\n\nProvide a 2-3 sentence analyst summary of what these results mean and what SOC teams should prioritize first.`,
+          false
+        );
+        if (lr) llmSummary = lr.text;
+      } catch (_) {}
+    }
+
+    return jsonResp({
+      status: "ok", module: "Natural Language Query", query, filters_applied: filters,
+      total_matched: matched.length, returned: results.length, results, analyst_summary: llmSummary, generated_at: now(),
+    });
+  }
+  return jsonResp({ error: "NLQ endpoint not found", paths: ["POST /api/v1/nlq/query", "GET /api/v1/nlq/examples", "GET /api/v1/nlq/health"] }, 404);
+}
+
+// =============================================================================
+// INCIDENT RESPONSE — KV-Backed CRUD (NIST SP 800-61r3 lifecycle)
+// =============================================================================
+
+const IR_PHASES = ["PREPARATION","DETECTION","ANALYSIS","CONTAINMENT","ERADICATION","RECOVERY","POST_INCIDENT"];
+const IR_SEV    = ["LOW","MEDIUM","HIGH","CRITICAL"];
+
+async function handleIncidentResponse(request, env, auth, method, path, url, ctx) {
+  if (!auth || auth.tier === TIERS.FREE) {
+    return jsonResp({ error: "Incident Response requires PRO or ENTERPRISE tier", upgrade_url: "https://intel.cyberdudebivash.com/upgrade.html" }, 403);
+  }
+
+  if (path === "/api/v1/incidents/health" || path === "/api/v1/incidents/health/") {
+    return jsonResp({ status: "ok", module: "Incident Response", version: "1.0", framework: "NIST SP 800-61r3", phases: IR_PHASES, tier_required: "PRO" });
+  }
+
+  const ownerPfx = `ir:${auth.sub || "anon"}:`;
+
+  // LIST  GET /api/v1/incidents/
+  if ((path === "/api/v1/incidents/" || path === "/api/v1/incidents") && method === "GET") {
+    try {
+      const pfx   = auth.tier === TIERS.ENTERPRISE ? "ir:" : ownerPfx;
+      const { keys } = await env.SECURITY_HUB_KV.list({ prefix: `${pfx}incident:`, limit: 100 });
+      const rows  = await Promise.all(keys.map(async k => { try { return await env.SECURITY_HUB_KV.get(k.name, "json"); } catch { return null; } }));
+      const valid = rows.filter(Boolean).sort((a,b) => (b.created_at||"").localeCompare(a.created_at||""));
+      return jsonResp({ status: "ok", incidents: valid, total: valid.length, generated_at: now() });
+    } catch (e) {
+      return jsonResp({ error: "Failed to list incidents", detail: e.message }, 500);
+    }
+  }
+
+  // CREATE  POST /api/v1/incidents/
+  if ((path === "/api/v1/incidents/" || path === "/api/v1/incidents") && method === "POST") {
+    let body = {};
+    try { body = await request.json(); } catch (_) {}
+    const { title, severity = "HIGH", phase = "DETECTION", description = "", affected_systems = [], iocs = [], mitre_tactics = [], assigned_to = "", tags = [] } = body;
+    if (!title) return jsonResp({ error: "title is required" }, 400);
+    if (!IR_SEV.includes(severity)) return jsonResp({ error: `severity must be: ${IR_SEV.join(",")}` }, 400);
+    if (!IR_PHASES.includes(phase)) return jsonResp({ error: `phase must be: ${IR_PHASES.join(",")}` }, 400);
+    const id  = `INC-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).slice(2,6).toUpperCase()}`;
+    const inc = { id, title, severity, phase, description, affected_systems, iocs, mitre_tactics, assigned_to, tags, status: "OPEN", created_at: now(), updated_at: now(), created_by: auth.sub || "api", timeline: [{ ts: now(), phase, event: "Incident created", actor: auth.sub||"api" }] };
+    await env.SECURITY_HUB_KV.put(`${ownerPfx}incident:${id}`, JSON.stringify(inc), { expirationTtl: 86400*90 });
+    auditLog(ctx, env, { action: "incident_created", id, severity, sub: auth.sub });
+    return jsonResp({ status: "created", incident: inc }, 201);
+  }
+
+  // SINGLE /api/v1/incidents/{id}[/timeline]
+  const idm = path.match(/^\/api\/v1\/incidents\/(INC-[A-Z0-9-]+)(?:\/(.+))?$/);
+  if (idm) {
+    const incId   = idm[1];
+    const subPath = idm[2] || "";
+    const kvKey   = `${ownerPfx}incident:${incId}`;
+
+    if (method === "GET" && !subPath) {
+      const inc = await env.SECURITY_HUB_KV.get(kvKey, "json");
+      if (!inc) return jsonResp({ error: "Incident not found", id: incId }, 404);
+      return jsonResp({ status: "ok", incident: inc });
+    }
+
+    if (method === "PUT" && !subPath) {
+      let body = {};
+      try { body = await request.json(); } catch (_) {}
+      const existing = await env.SECURITY_HUB_KV.get(kvKey, "json");
+      if (!existing) return jsonResp({ error: "Incident not found", id: incId }, 404);
+      const oldPhase = existing.phase;
+      const updated  = { ...existing, ...Object.fromEntries(Object.entries(body).filter(([k])=>!["id","created_at","created_by","timeline"].includes(k))), updated_at: now() };
+      if (body.phase && body.phase !== oldPhase) {
+        updated.timeline = [...(existing.timeline||[]), { ts: now(), phase: body.phase, event: `Phase: ${oldPhase} → ${body.phase}`, actor: auth.sub||"api" }];
+      }
+      await env.SECURITY_HUB_KV.put(kvKey, JSON.stringify(updated), { expirationTtl: 86400*90 });
+      auditLog(ctx, env, { action: "incident_updated", id: incId, sub: auth.sub });
+      return jsonResp({ status: "updated", incident: updated });
+    }
+
+    if (method === "DELETE" && !subPath) {
+      if (auth.tier !== TIERS.ENTERPRISE) return jsonResp({ error: "ENTERPRISE tier required to delete incidents" }, 403);
+      await env.SECURITY_HUB_KV.delete(kvKey);
+      auditLog(ctx, env, { action: "incident_deleted", id: incId, sub: auth.sub });
+      return jsonResp({ status: "deleted", id: incId });
+    }
+
+    if (subPath === "timeline") {
+      const existing = await env.SECURITY_HUB_KV.get(kvKey, "json");
+      if (!existing) return jsonResp({ error: "Incident not found", id: incId }, 404);
+      if (method === "GET") return jsonResp({ status: "ok", id: incId, timeline: existing.timeline||[] });
+      if (method === "POST") {
+        let body = {};
+        try { body = await request.json(); } catch (_) {}
+        if (!body.event) return jsonResp({ error: "event is required" }, 400);
+        const entry = { ts: now(), phase: body.phase||existing.phase, event: body.event, notes: body.notes||"", actor: auth.sub||"api" };
+        existing.timeline = [...(existing.timeline||[]), entry];
+        existing.updated_at = now();
+        if (body.phase) existing.phase = body.phase;
+        await env.SECURITY_HUB_KV.put(kvKey, JSON.stringify(existing), { expirationTtl: 86400*90 });
+        return jsonResp({ status: "added", entry, timeline_count: existing.timeline.length }, 201);
+      }
+    }
+  }
+
+  return jsonResp({
+    error: "Incident Response endpoint not found",
+    paths: ["GET|POST /api/v1/incidents/", "GET|PUT|DELETE /api/v1/incidents/{id}", "GET|POST /api/v1/incidents/{id}/timeline", "GET /api/v1/incidents/health"],
+  }, 404);
+}
+
+// =============================================================================
 // MAIN REQUEST HANDLER
 // =============================================================================
 
@@ -2030,6 +2873,55 @@ async function handleRequest(request, env, ctx) {
     }
   }
 
+  // --- Razorpay Payment Endpoints (no auth required — signature verifies) -----
+  if (path === "/api/payment/razorpay/create-order") {
+    return await handleRazorpayCreateOrder(request, env, method);
+  }
+  if (path === "/api/payment/razorpay/verify") {
+    return await handleRazorpayVerify(request, env, ctx, method);
+  }
+
+  // --- Webhook Endpoints (no auth — webhook secret/sig verifies) --------------
+  if (path === "/api/webhooks/razorpay") {
+    return await handleWebhookRazorpay(request, env, ctx);
+  }
+  if (path === "/api/webhooks/gumroad") {
+    return await handleWebhookGumroad(request, env, ctx);
+  }
+
+  // --- Manual Payment Notification & Status ----------------------------------
+  if (path === "/api/payment/manual-notify") {
+    return await handleManualNotify(request, env, ctx, method);
+  }
+  if (path === "/api/payment/status") {
+    return await handlePaymentStatus(request, env, url);
+  }
+
+  // --- God Mode: Brand Protection --------------------------------------------
+  if (path.startsWith("/api/v1/brand")) {
+    return await handleBrandProtection(request, env, auth, method, path, url);
+  }
+
+  // --- God Mode: Vendor Risk -------------------------------------------------
+  if (path.startsWith("/api/v1/vendor-risk")) {
+    return await handleVendorRisk(request, env, auth, method, path);
+  }
+
+  // --- God Mode: Geopolitical Risk -------------------------------------------
+  if (path.startsWith("/api/v1/geopolitical")) {
+    return await handleGeopolitical(request, env, auth, method, path, url);
+  }
+
+  // --- God Mode: Natural Language Query --------------------------------------
+  if (path.startsWith("/api/v1/nlq")) {
+    return await handleNLQ(request, env, auth, method, path, url, ctx);
+  }
+
+  // --- God Mode: Incident Response -------------------------------------------
+  if (path.startsWith("/api/v1/incidents")) {
+    return await handleIncidentResponse(request, env, auth, method, path, url, ctx);
+  }
+
   // --- AI Security Copilot ----------------------------------------------------
   if (path.startsWith("/api/v1/copilot")) {
     return await handleCopilot(request, env, auth, method, path);
@@ -2047,15 +2939,21 @@ async function handleRequest(request, env, ctx) {
       "/api/v1/news/feed", "/api/reports/index.json", "/api/reports/stats.json",
       "/api/v1/ioc/lookup",
       "/api/v1/cve/live", "/api/v1/cve/stats", "/api/v1/cve/detail?id=CVE-XXXX-XXXXX",
-      "POST /api/auth/login (X-API-Key exchange -> JWT)", "POST /api/auth/logout",
-      "GET /api/auth/validate", "POST /api/auth/register",
+      "POST /api/auth/login", "POST /api/auth/logout", "GET /api/auth/validate",
       "/auth/login", "/auth/logout",
       "/taxii/", "/taxii/collections/", "/taxii/collections/{id}/objects/",
       "/api/admin/health", "/api/admin/audit", "/api/admin/keys",
-      "POST /api/ingest  (PRO+, Bearer token required)",
-      "POST /api/v1/copilot/query  (PRO+, AI-powered threat analysis)",
-      "GET  /api/v1/copilot/modes  (list available AI modes)",
-      "GET  /api/v1/copilot/health (copilot engine status)",
+      "POST /api/ingest (PRO+)",
+      "POST /api/payment/razorpay/create-order", "POST /api/payment/razorpay/verify",
+      "POST /api/webhooks/razorpay", "POST /api/webhooks/gumroad",
+      "POST /api/payment/manual-notify", "GET /api/payment/status?review_id=",
+      "POST /api/v1/brand/scan (PRO+)", "POST /api/v1/brand/check (PRO+)",
+      "POST /api/v1/vendor-risk/assess (PRO+)", "POST /api/v1/vendor-risk/bulk (ENT)",
+      "GET /api/v1/geopolitical/country/{code} (PRO+)", "GET /api/v1/geopolitical/landscape",
+      "POST /api/v1/geopolitical/sanctions-check (PRO+)",
+      "POST /api/v1/nlq/query (PRO+)", "GET /api/v1/nlq/examples",
+      "GET|POST /api/v1/incidents/ (PRO+)", "GET|PUT|DELETE /api/v1/incidents/{id}",
+      "POST /api/v1/copilot/query (PRO+)", "GET /api/v1/copilot/modes", "GET /api/v1/copilot/health",
     ],
   }, 404);
 }
