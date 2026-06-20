@@ -299,6 +299,7 @@ def main() -> None:
     intel_v1_manifests = [
         ("api/feed.json",                 "api/feed.json"),                # v160.0 CRITICAL FIX
         ("api/v1/intel/latest.json",      "api/v1/intel/latest.json"),
+        ("api/v1/intel/latest_pro.json",  "api/v1/intel/latest_pro.json"),  # PRO/ENTERPRISE tier manifest (includes report_url)
         ("api/v1/intel/top10.json",       "api/v1/intel/top10.json"),
         ("api/v1/intel/apex.json",        "api/v1/intel/apex.json"),
         ("api/v1/intel/manifest.json",    "api/v1/intel/manifest.json"),

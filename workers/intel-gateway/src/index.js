@@ -60,6 +60,7 @@ const AUDIT_TTL           = 86400 * 30;   // 30-day audit log retention
 const NEWS_TTL_SEC        = 300;
 const PREVIEW_LIMIT       = 25;
 const LATEST_JSON_KEY     = "api/v1/intel/latest.json";
+const LATEST_PRO_JSON_KEY = "api/v1/intel/latest_pro.json"; // PRO/ENTERPRISE: includes report_url
 const APEX_JSON_KEY       = "api/v1/intel/apex.json";
 const AI_SUMMARY_KEY      = "api/v1/intel/ai_summary.json";
 const REPORTS_KEY         = "api/reports/index.json";
@@ -1252,8 +1253,18 @@ async function handleRequest(request, env, ctx) {
   }
 
   // --- /api/v1/intel/latest.json ----------------------------------------------
+  // FREE tier: sanitized manifest (no report_url, no premium fields)
+  // PRO/ENTERPRISE: full PRO manifest including report_url, pdf_url
   if (path === "/api/v1/intel/latest.json") {
-    const data = await r2Get(env, LATEST_JSON_KEY);
+    let data;
+    if (auth.tier === TIERS.PRO || auth.tier === TIERS.ENTERPRISE) {
+      // Try PRO manifest first; gracefully fall back to public if not yet generated
+      data = await r2Get(env, LATEST_PRO_JSON_KEY);
+      if (!data) data = await r2Get(env, LATEST_JSON_KEY);
+      if (!data) return errorResp("Feed not available", 503);
+      return jsonResp(data, 200, { "Cache-Control": "private, max-age=120" });
+    }
+    data = await r2Get(env, LATEST_JSON_KEY);
     if (!data) return errorResp("Feed not available", 503);
     return jsonResp(data, 200, { "Cache-Control": "public, max-age=120" });
   }

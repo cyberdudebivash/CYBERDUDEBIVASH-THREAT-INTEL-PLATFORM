@@ -96,6 +96,17 @@ PUBLIC_FIELDS: frozenset = frozenset([
 TIER_NOTICE = "Upgrade to PRO for full enrichment: actor attribution, kill chain, IOC hashes, AI analysis, STIX bundle."
 UPGRADE_URL = "/upgrade.html?plan=pro"
 
+# Fields unlocked for PRO tier subscribers (report links, PDF access)
+PRO_UNLOCKED_FIELDS: frozenset = frozenset([
+    "report_url",
+    "internal_report_url",
+    "pdf_url",
+    "pdf_report_url",
+])
+
+# Fields that remain gated even for PRO tier (ENTERPRISE-only)
+PRO_PREMIUM_FIELDS: frozenset = PREMIUM_FIELDS - PRO_UNLOCKED_FIELDS
+
 
 def sanitize_for_public(item: dict) -> dict:
     """Return a copy of item with all premium fields removed.
@@ -114,6 +125,21 @@ def sanitize_for_public(item: dict) -> dict:
 def sanitize_feed(items: list) -> list:
     """Sanitize a list of feed items for public API output."""
     return [sanitize_for_public(i) for i in items]
+
+
+def sanitize_for_pro(item: dict) -> dict:
+    """Return a copy of item with ENTERPRISE-only fields removed.
+    PRO subscribers get report_url, pdf_url but not STIX bundles, SIEM rules, IOC payloads."""
+    out = {}
+    for k, v in item.items():
+        if k not in PRO_PREMIUM_FIELDS:
+            out[k] = v
+    return out
+
+
+def sanitize_feed_pro(items: list) -> list:
+    """Sanitize a list of feed items for PRO tier API output."""
+    return [sanitize_for_pro(i) for i in items]
 
 
 def audit_leakage(items: list) -> dict:
