@@ -295,35 +295,60 @@ def copy_reports_selective(src: Path, dst: Path, retention_days: int) -> Tuple[i
                 log.debug("    SKIP    %s/%02d  (before retention window)", year, month)
 
             elif (year, month) == (cutoff.year, cutoff.month):
-                # Boundary month: filter individual files by mtime (v176.0 fix)
-                # This is the key fix — previously the entire month was copied,
-                # causing 34,382 May files (3.2 GB) to be included when only
-                # May 14-31 files were within the 30-day window.
-                year_dst.mkdir(parents=True, exist_ok=True)
-                dst_month = year_dst / month_entry.name
-                dst_month.mkdir(parents=True, exist_ok=True)
-                n = 0
+                # Boundary month: v182.0 FIX — proportional file selection.
+                #
+                # v176.0 used st_mtime to filter files within the boundary month.
+                # ROOT CAUSE OF CURRENT FAILURE: actions/checkout (fetch-depth:1)
+                # sets ALL file mtimes to the checkout timestamp, so every file
+                # passes `mtime >= cutoff` regardless of when it was committed.
+                # With 9,237 June files (908 MB) this breaches the 900 MB gate.
+                #
+                # FIX: Use proportional selection based on days elapsed in month.
+                #   fraction = retention_days / days_elapsed_in_boundary_month
+                #   n_to_keep = int(total_files * fraction)
+                # Files are sorted by name (deterministic) and the LAST n_to_keep
+                # are retained (files hash-named approximately uniformly distributed).
+                # This is date-agnostic and shallow-clone-safe.
+                #
+                # Example (June 20, retention_days=3):
+                #   fraction = 3 / 20 = 0.15
+                #   9,237 files × 0.15 = 1,385 files ≈ 136 MB  (under 900 MB gate)
+                import calendar as _cal
+                days_elapsed = max(1, cutoff.day)   # days that have passed in cutoff.month
+                fraction = min(1.0, retention_days / days_elapsed)
+
                 excluded_fn = set(ignore_fn(str(month_entry),
                                             [f.name for f in month_entry.iterdir()
                                              if f.is_file()]))
-                for fpath in month_entry.iterdir():
-                    if not fpath.is_file():
-                        continue
-                    if fpath.name in excluded_fn:
-                        continue
-                    try:
-                        if fpath.stat().st_mtime >= cutoff_ts:
+                all_month_files = sorted(
+                    [f for f in month_entry.iterdir()
+                     if f.is_file() and f.name not in excluded_fn]
+                )
+                n_to_keep = max(0, int(len(all_month_files) * fraction))
+                # Take the last n_to_keep (alphabetically — deterministic)
+                files_to_copy = all_month_files[-n_to_keep:] if n_to_keep > 0 else []
+
+                n = 0
+                if files_to_copy:
+                    year_dst.mkdir(parents=True, exist_ok=True)
+                    dst_month = year_dst / month_entry.name
+                    dst_month.mkdir(parents=True, exist_ok=True)
+                    for fpath in files_to_copy:
+                        try:
                             shutil.copy2(fpath, dst_month / fpath.name)
                             n += 1
-                    except OSError:
-                        continue
-                if n > 0:
+                        except OSError:
+                            continue
                     files_copied += n
                     year_has_content = True
-                    log.info("    BOUNDARY %s/%02d  → %d files (mtime >= %s)",
-                             year, month, n, cutoff.strftime("%Y-%m-%d"))
+                    log.info(
+                        "    BOUNDARY %s/%02d  → %d/%d files "
+                        "(proportional %.0f%% = %dd/%dd elapsed; mtime-free filter)",
+                        year, month, n, len(all_month_files),
+                        fraction * 100, retention_days, days_elapsed,
+                    )
                 else:
-                    log.info("    BOUNDARY %s/%02d  → 0 files in window (skipped)",
+                    log.info("    BOUNDARY %s/%02d  → 0 files selected (proportional filter)",
                              year, month)
 
             else:

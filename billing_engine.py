@@ -1,5 +1,5 @@
 """
-CYBERDUDEBIVASH SENTINEL APEX
+CYBERDUDEBIVASH SENTINEL APEX v182.0
 Billing Engine - FILE 4/10
 Invoice generation, usage metering, payment recording, overdue detection.
 Port: 8504
@@ -20,11 +20,11 @@ PAYMENTS: Dict[str, dict] = {}
 USAGE_METERS: Dict[str, dict] = {}   # keyed by org_id
 
 PLAN_PRICES = {
-    "free":         {"base": 0,    "per_seat": 0,   "per_1k_api_calls": 0,   "per_intel_request": 0},
-    "professional": {"base": 299,  "per_seat": 29,  "per_1k_api_calls": 1.5, "per_intel_request": 0.05},
-    "enterprise":   {"base": 999,  "per_seat": 9,   "per_1k_api_calls": 0.8, "per_intel_request": 0.02},
-    "mssp":         {"base": 2499, "per_seat": 5,   "per_1k_api_calls": 0.5, "per_intel_request": 0.01},
-    "oem":          {"base": 9999, "per_seat": 2,   "per_1k_api_calls": 0.2, "per_intel_request": 0.005},
+    "free":         {"base": 0,    "per_seat": 0,   "per_1k_api_calls": 0,    "per_intel_request": 0},
+    "pro":          {"base": 49,   "per_seat": 10,  "per_1k_api_calls": 0.5,  "per_intel_request": 0.02},
+    "enterprise":   {"base": 499,  "per_seat": 9,   "per_1k_api_calls": 0.25, "per_intel_request": 0.01},
+    "mssp":         {"base": 1999, "per_seat": 5,   "per_1k_api_calls": 0.1,  "per_intel_request": 0.005},
+    "oem":          {"base": 9999, "per_seat": 2,   "per_1k_api_calls": 0.05, "per_intel_request": 0.002},
 }
 
 
@@ -32,7 +32,7 @@ PLAN_PRICES = {
 # Usage metering
 # ---------------------------------------------------------------------------
 
-def init_usage_meter(org_id: str, plan: str = "professional") -> dict:
+def init_usage_meter(org_id: str, plan: str = "pro") -> dict:
     """Initialize or reset the usage meter for an organization."""
     now = datetime.now(timezone.utc)
     meter = {
@@ -72,7 +72,7 @@ def calculate_usage_charges(org_id: str) -> dict:
     if not meter:
         return {"org_id": org_id, "total": 0, "items": []}
     plan = meter["plan"]
-    prices = PLAN_PRICES.get(plan, PLAN_PRICES["professional"])
+    prices = PLAN_PRICES.get(plan, PLAN_PRICES["pro"])
     items = []
     base_charge = prices["base"]
     items.append({"description": f"{plan.title()} Plan Base Fee", "quantity": 1,
@@ -110,7 +110,7 @@ def calculate_usage_charges(org_id: str) -> dict:
 # Invoice functions
 # ---------------------------------------------------------------------------
 
-def generate_invoice(org_id: str, org_name: str, plan: str = "professional",
+def generate_invoice(org_id: str, org_name: str, plan: str = "pro",
                       due_days: int = 30) -> dict:
     """Generate an invoice from current usage meters."""
     charges = calculate_usage_charges(org_id)
@@ -232,7 +232,7 @@ def detect_overdue_invoices() -> List[dict]:
 def _seed():
     orgs = [
         ("org-acme01", "Acme Security Inc", "enterprise", 55000, 4200),
-        ("org-tech02", "TechDefense LLC", "professional", 8500, 900),
+        ("org-tech02", "TechDefense LLC", "pro", 8500, 900),
         ("org-gsoc03", "GlobalSOC Partners", "mssp", 310000, 42000),
     ]
     for org_id, name, plan, api_calls, intel_req in orgs:
@@ -310,7 +310,7 @@ def api_generate_invoice():
         if not data.get("org_id") or not data.get("org_name"):
             return jsonify({"error": "org_id and org_name are required"}), 400
         inv = generate_invoice(data["org_id"], data["org_name"],
-                                data.get("plan", "professional"), data.get("due_days", 30))
+                                data.get("plan", "pro"), data.get("due_days", 30))
         return jsonify(inv), 201
     except Exception as e:
         return jsonify({"error": str(e)}), 500
