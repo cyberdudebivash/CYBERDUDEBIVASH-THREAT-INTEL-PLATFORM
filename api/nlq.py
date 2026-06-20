@@ -453,7 +453,7 @@ if _FASTAPI_OK:
             "feed_loaded":    len(feed) > 0,
             "feed_size":      len(feed),
             "intent_patterns": len(INTENT_PATTERNS),
-            "llm_available":  bool(__import__("os").getenv("ANTHROPIC_API_KEY", "")),
+            "llm_available":  bool(__import__("os").getenv("OPENROUTER_API_KEY", "") or __import__("os").getenv("DEEPSEEK_API_KEY", "")),
         }
 
 else:
