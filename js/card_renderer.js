@@ -810,7 +810,7 @@
 
   /* ── PUBLIC API ─────────────────────────────────────────────────────────── */
   return {
-    VERSION: "147.0.0",
+    VERSION: "182.0",
 
     /* Card builders */
     buildCard:           buildCard,

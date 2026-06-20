@@ -68,19 +68,19 @@
       {
         "id": "CDB-WAF-006",
         "description": "Block requests to sensitive admin paths from non-allowlisted IPs",
-        "comment": "Set CDB_ADMIN_IP_ALLOWLIST in Cloudflare WAF IP list",
+        "comment": "Populate cdb_admin_allowlist IP list in Cloudflare dashboard before deploying",
         "expression": "(http.request.uri.path starts_with \"/api/v1/admin\") and not ip.src in $cdb_admin_allowlist",
         "action": "block",
-        "enabled": false,
+        "enabled": true,
         "priority": 600,
-        "_note": "Enable after populating the cdb_admin_allowlist IP list in Cloudflare dashboard"
+        "_note": "ENABLED v182.0: Admin endpoints now protected. Ensure cdb_admin_allowlist contains CI/CD runner IPs and admin workstation CIDRs before deployment."
       },
 
       {
         "id": "CDB-WAF-007",
         "description": "Challenge requests with suspicious header combinations",
-        "comment": "Typical automation/scraper fingerprint",
-        "expression": "not http.request.headers[\"accept\"] exists and not http.request.headers[\"user-agent\"] contains \"Go-http-client\" and http.request.uri.path starts_with \"/api/v1\"",
+        "comment": "Typical automation/scraper fingerprint. No User-Agent bypass — use IP allowlist for legitimate Go pipeline clients.",
+        "expression": "not http.request.headers[\"accept\"] exists and http.request.uri.path starts_with \"/api/v1\"",
         "action": "js_challenge",
         "enabled": true,
         "priority": 700

@@ -111,10 +111,10 @@ def _safe_load(path: Path, default: Any = None) -> Any:
 def _get_jwt_secret() -> str:
     s = os.environ.get(JWT_SECRET_ENV, "")
     if not s:
-        # Deterministic fallback from machine-specific entropy (dev only)
-        s = hashlib.sha256(
-            (str(BASE_DIR) + "cdb-sentinel-apex-jwt-fallback").encode()
-        ).hexdigest()
+        raise RuntimeError(
+            f"FATAL: {JWT_SECRET_ENV} environment variable is not set. "
+            "Generate with: openssl rand -hex 32"
+        )
     return s
 
 

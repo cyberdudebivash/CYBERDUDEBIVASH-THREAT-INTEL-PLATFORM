@@ -6,19 +6,20 @@
 // =============================================================================
 
 const ENGINE = {
-  VERSION:  "123.0.0",
+  VERSION:  "182.0",
   NAME:     "SENTINEL-REVENUE-ENGINE",
   PLANS: {
-    pro:        { name: "Pro",        inr: 2499,  usd: 29,  annual_inr: 24990,  annual_usd: 290  },
-    enterprise: { name: "Enterprise", inr: 14999, usd: 199, annual_inr: 149990, annual_usd: 1990 },
+    pro:        { name: "Pro",        inr: 4100,  usd: 49,  annual_inr: 41000,  annual_usd: 490  },
+    enterprise: { name: "Enterprise", inr: 41600, usd: 499, annual_inr: 415000, annual_usd: 4790 },
+    mssp:       { name: "MSSP",       inr: 166600, usd: 1999, annual_inr: 1600000, annual_usd: 19190 },
   },
-  TARGET_MRR_INR: 1000000,  // ₹10L/month
+  TARGET_MRR_INR: 1000000,  // Rs.10L/month
   PIPELINE_STAGES: ["new","contacted","demo_scheduled","demo_done","trial","negotiation","closed_won","closed_lost"],
   DEAL_VALUES_INR: {
-    pro_monthly:        2499,
-    pro_annual:         24990,
-    enterprise_monthly: 14999,
-    enterprise_annual:  149990,
+    pro_monthly:        4100,
+    pro_annual:         41000,
+    enterprise_monthly: 41600,
+    enterprise_annual:  415000,
     enterprise_custom:  0,  // negotiated
   },
 };
@@ -367,7 +368,7 @@ async function handleDemoRequest(request, env, rid) {
   const { email, name, company, team_size, use_case } = body;
   if (!email || !company) return json({ error: "missing_fields" }, 400);
 
-  const demoId = "demo_" + await sha256prefix(email + Date.now(), 10);
+  const demoId = "demo_" + crypto.randomUUID().replace(/-/g, "");
   const demo = {
     id: demoId, email, name, company, team_size,
     use_case, requested_at: new Date().toISOString(), status: "pending",
@@ -425,7 +426,7 @@ async function handleLiveDemoEndpoint(request, env, rid) {
     status:       "demo_active",
     demo_for:     demo.company,
     platform:     "CYBERDUDEBIVASH® SENTINEL APEX",
-    version:      "123.0.0",
+    version:      "182.0",
     demo_features: ["Real-time threat intelligence", "AI-powered IOC extraction", "STIX 2.1 export", "SIEM integration", "Actor attribution"],
     sample_threats: threatData,
     enterprise_benefits: {
