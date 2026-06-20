@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-test_severity_governance_p0.py  —  SENTINEL APEX  v180.0
+test_severity_governance_p0.py  —  SENTINEL APEX  v182.0
 =========================================================
 P0 Regression Suite: Severity Invariant Governance Policy
 
@@ -500,7 +500,7 @@ class TestPaywallTacticalFields:
 # =============================================================================
 
 class TestSREIntegration:
-    """SRE must enforce CVSS>=9.0→CRITICAL (v180.0 fix — was HIGH pre-v180)."""
+    """SRE must enforce CVSS>=9.0→CRITICAL (v182.0 fix — was HIGH pre-v180)."""
 
     def test_cvss_9_mandates_critical(self, sre):
         item = {"title": "V", "cvss_score": 9.0, "severity": "LOW"}

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 scripts/severity_invariant_interceptor.py
-CYBERDUDEBIVASH(R) SENTINEL APEX — Severity Invariant Interceptor  v180.0
+CYBERDUDEBIVASH(R) SENTINEL APEX — Severity Invariant Interceptor  v182.0
 ==========================================================================
 Server-side validation interceptor enforcing mandatory severity invariants.
 This module is the *canonical authoritative* P0 governance layer and must be
@@ -45,7 +45,7 @@ Usage (inline):
   item  = apply_invariants(item)
   items = apply_invariants_to_feed(items)
 
-Author: SENTINEL APEX Pipeline Governance v180.0
+Author: SENTINEL APEX Pipeline Governance v182.0
 """
 from __future__ import annotations
 
@@ -64,7 +64,7 @@ log = logging.getLogger("sentinel.severity_invariant")
 
 # ── Constants ─────────────────────────────────────────────────────────────────
 
-VERSION = "180.0"
+VERSION = "182.0"
 MODULE  = "SeverityInvariantInterceptor"
 
 _SEV_RANK: Dict[str, int] = {
