@@ -41,11 +41,12 @@ import traceback
 _script_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, _script_dir)
 try:
-    from public_api_sanitizer import sanitize_feed as _sanitize_feed, audit_leakage as _audit_leakage
+    from public_api_sanitizer import sanitize_feed as _sanitize_feed, audit_leakage as _audit_leakage, sanitize_feed_pro as _sanitize_feed_pro
     _SANITIZER_AVAILABLE = True
 except ImportError:
     _SANITIZER_AVAILABLE = False
     def _sanitize_feed(items): return items
+    def _sanitize_feed_pro(items): return items
     def _audit_leakage(items): return {"PASS": True, "leaking_items": 0, "field_counts": {}}
     print("[WARN] public_api_sanitizer not found", flush=True)
 
@@ -342,6 +343,30 @@ latest_str  = json.dumps(latest_payload, ensure_ascii=False, separators=(',', ':
 atomic_write(os.path.join(OUT_DIR, 'latest.json'), latest_str)
 info(f'Written: {OUT_DIR}/latest.json ({len(sorted_feed)} items, {len(latest_str):,} bytes, sha256={latest_sha[:16]}...)')
 
+# ── STEP 3b: Build /api/v1/intel/latest_pro.json (PRO/ENTERPRISE tier) ───────
+# PRO tier: includes report_url, internal_report_url, pdf_url — the core value
+# of a PRO subscription. ENTERPRISE-only fields (STIX bundles, SIEM queries,
+# IOC payloads) remain stripped. Worker serves this to PRO+ authenticated callers.
+sorted_feed_pro = _sanitize_feed_pro(sorted_feed)
+_pro_with_report_url = sum(1 for i in sorted_feed_pro if i.get('report_url', ''))
+info(f'PRO manifest: {len(sorted_feed_pro)} items, {_pro_with_report_url} have report_url '
+     f'({100 * _pro_with_report_url // max(len(sorted_feed_pro), 1)}% coverage)')
+latest_pro_payload = {
+    'schema_version': SCHEMA_VER,
+    'generated_at': timestamp_now,
+    'generator': SCRIPT_NAME,
+    'version': VERSION,
+    'tier': 'PRO',
+    'count': len(sorted_feed_pro),
+    'items': sorted_feed_pro,
+}
+latest_pro_str = json.dumps(latest_pro_payload, ensure_ascii=False, separators=(',', ':'))
+latest_pro_sha = sha256_of(latest_pro_str)
+latest_pro_payload['sha256'] = latest_pro_sha
+latest_pro_str = json.dumps(latest_pro_payload, ensure_ascii=False, separators=(',', ':'))
+atomic_write(os.path.join(OUT_DIR, 'latest_pro.json'), latest_pro_str)
+info(f'Written: {OUT_DIR}/latest_pro.json ({len(sorted_feed_pro)} items, sha256={latest_pro_sha[:16]}...)')
+
 # ── STEP 4: Build /api/v1/intel/top10.json ───────────────────────────────────
 # Sort by THREAT PRIORITY (KEV + EPSS + severity + CVSS), NOT by recency.
 # Recency sort (sorted_feed[:10]) produced LOW-severity items as "top threats"
@@ -408,6 +433,13 @@ manifest_registry = {
             'sha256': latest_sha,
             'generated_at': timestamp_now,
         },
+        'latest_pro': {
+            'path': 'api/v1/intel/latest_pro.json',
+            'count': len(sorted_feed_pro),
+            'report_url_count': _pro_with_report_url,
+            'sha256': latest_pro_sha,
+            'generated_at': timestamp_now,
+        },
         'top10': {
             'path': 'api/v1/intel/top10.json',
             'count': len(top10_items),
@@ -436,7 +468,7 @@ info(f'Written: {OUT_DIR}/manifest.json (registry with checksums)')
 print()
 print('── VERIFICATION ─────────────────────────────────────────────────', flush=True)
 all_ok = True
-for fname in ['latest.json', 'top10.json', 'apex.json', 'manifest.json']:
+for fname in ['latest.json', 'latest_pro.json', 'top10.json', 'apex.json', 'manifest.json']:
     path = os.path.join(OUT_DIR, fname)
     if os.path.exists(path):
         sz = os.path.getsize(path)
@@ -455,7 +487,8 @@ for fname in ['latest.json', 'top10.json', 'apex.json', 'manifest.json']:
 print()
 print('=' * 68, flush=True)
 print(f'SENTINEL APEX {VERSION} -- MANIFEST GENERATION COMPLETE', flush=True)
-print(f'  Items in latest.json : {len(sorted_feed_public)} (sanitized)', flush=True)
+print(f'  Items in latest.json     : {len(sorted_feed_public)} (FREE tier, sanitized)', flush=True)
+print(f'  Items in latest_pro.json : {len(sorted_feed_pro)} (PRO tier, report_url={_pro_with_report_url})', flush=True)
 print(f'  Items in top10.json  : {len(top10_items)}', flush=True)
 print(f'  Items in apex.json   : {len(apex_items)}', flush=True)
 print(f'  Apex-enriched count  : {len([i for i in sorted_feed if i.get("apex_ai")])}', flush=True)
