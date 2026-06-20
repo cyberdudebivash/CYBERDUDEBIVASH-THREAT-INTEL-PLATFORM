@@ -487,14 +487,61 @@ h1 span { color: var(--accent); }
   .gumroad-btn-row { flex-wrap: wrap; gap: 10px; }
   .gumroad-btn-price { margin: 0; }
 }
+
+/* ═══ RAZORPAY CHECKOUT ══════════════════════════════════════════════ */
+.rzp-panel {
+  background: linear-gradient(135deg, #0d1a2e 0%, #0a1526 100%);
+  border: 1px solid rgba(0, 212, 255, 0.2);
+  border-radius: 12px;
+  padding: 24px;
+  margin-bottom: 16px;
+}
+.rzp-header {
+  display: flex; align-items: center; gap: 12px; margin-bottom: 16px;
+}
+.rzp-logo {
+  font-size: 18px; font-weight: 800;
+  background: linear-gradient(135deg, #3595ff, #02b5ef);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+}
+.rzp-badge {
+  background: rgba(53, 149, 255, 0.12); border: 1px solid rgba(53, 149, 255, 0.3);
+  color: #3595ff; font-size: 10px; font-weight: 700; padding: 2px 8px;
+  border-radius: 6px; letter-spacing: 0.5px;
+}
+.rzp-amount-box {
+  background: rgba(0, 212, 255, 0.06); border: 1px solid rgba(0, 212, 255, 0.15);
+  border-radius: 10px; padding: 16px 20px; margin-bottom: 16px;
+  display: flex; justify-content: space-between; align-items: center;
+}
+.rzp-amount-label { font-size: 11px; color: var(--text-dim); margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.5px; }
+.rzp-amount-val { font-size: 32px; font-weight: 800; color: var(--green); }
+.rzp-amount-usd { font-size: 13px; color: var(--text-dim); }
+.rzp-email-row { margin-bottom: 16px; }
+.rzp-features { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 20px; }
+.rzp-feature { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-dim); }
+.rzp-feature .rzp-check { color: var(--green); font-size: 13px; }
+.rzp-btn {
+  width: 100%; padding: 16px; border: none; border-radius: 10px; cursor: pointer;
+  font-size: 16px; font-weight: 800; letter-spacing: 0.5px;
+  background: linear-gradient(135deg, #3595ff, #02b5ef);
+  color: #fff; transition: opacity 0.2s; display: flex; align-items: center; justify-content: center; gap: 10px;
+}
+.rzp-btn:hover { opacity: 0.92; }
+.rzp-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.rzp-secure-row { display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 10px; font-size: 11px; color: var(--text-dim); }
+.rzp-methods { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; margin-top: 8px; }
+.rzp-method-badge { background: var(--bg3); border: 1px solid var(--border); border-radius: 4px; padding: 2px 8px; font-size: 10px; color: var(--text-dim); }
 </style>
 <!-- v148.0.0: Gumroad overlay embed -- enables one-click checkout with automated API key delivery -->
 <script src="https://gumroad.com/js/gumroad.js" defer></script>
+<!-- Razorpay Checkout SDK -->
+<script src="https://checkout.razorpay.com/v1/checkout.js" defer></script>
 </head>
 <body>
 
 <div class="urgency-bar">
-  &#9889; DIRECT PAYMENT GATEWAY ACTIVE &nbsp;&middot;&nbsp; BNB Crypto &middot; UPI &middot; Bank NEFT &middot; PayPal &nbsp;&middot;&nbsp; API Key Delivered Within 2 Hours &nbsp;&middot;&nbsp; GSTIN: 21ARKPN8270G1ZP
+  &#9889; RAZORPAY INSTANT CHECKOUT ACTIVE &nbsp;&middot;&nbsp; UPI &middot; Cards &middot; Net Banking &middot; EMI &middot; BNB Crypto &middot; PayPal &nbsp;&middot;&nbsp; API Key Delivered Instantly &nbsp;&middot;&nbsp; GSTIN: 21ARKPN8270G1ZP
 </div>
 
 <nav>
@@ -784,6 +831,9 @@ h1 span { color: var(--accent); }
         </div>
 
         <div class="pay-tabs">
+          <div class="pay-tab" onclick="showPayTab('razorpay')" id="tab-razorpay" style="border-color:rgba(53,149,255,0.4);color:#3595ff;">
+            <span class="pay-icon">&#9889;</span>Razorpay
+          </div>
           <div class="pay-tab active" onclick="showPayTab('upi')" id="tab-upi">
             <span class="pay-icon">&#127470;&#127475;</span>UPI
           </div>
@@ -795,6 +845,66 @@ h1 span { color: var(--accent); }
           </div>
           <div class="pay-tab" onclick="showPayTab('crypto')" id="tab-crypto">
             <span class="pay-icon">&#8383;</span>Crypto
+          </div>
+        </div>
+
+        <!-- RAZORPAY PANEL -->
+        <div class="pay-panel" id="panel-razorpay">
+          <div class="rzp-panel">
+            <div class="rzp-header">
+              <span class="rzp-logo">Razorpay</span>
+              <span class="rzp-badge">&#9889; INSTANT CHECKOUT</span>
+              <span class="rzp-badge" style="background:rgba(16,185,129,0.1);border-color:rgba(16,185,129,0.3);color:var(--green);">&#127470;&#127475; INDIA</span>
+            </div>
+
+            <div class="rzp-amount-box">
+              <div>
+                <div class="rzp-amount-label">Total Amount (INR)</div>
+                <div class="rzp-amount-val" id="rzp-display-inr">&#x20B9;3,999</div>
+                <div class="rzp-amount-usd" id="rzp-display-usd">&asymp; $49 USD</div>
+              </div>
+              <div style="text-align:right">
+                <div style="font-size:11px;color:var(--text-dim);margin-bottom:4px;">PLAN</div>
+                <div style="font-size:14px;font-weight:700;color:var(--text)" id="rzp-display-plan">PRO Defense</div>
+                <div style="font-size:11px;color:var(--text-dim)">Monthly</div>
+              </div>
+            </div>
+
+            <div class="rzp-email-row">
+              <label class="form-label">Your Email <span style="color:var(--red)">*</span></label>
+              <input type="email" id="rzp-email" class="form-input" placeholder="your@email.com" autocomplete="email">
+              <div style="font-size:11px;color:var(--text-dim);margin-top:4px;">API key delivered to this email instantly after payment</div>
+            </div>
+
+            <div class="rzp-features">
+              <div class="rzp-feature"><span class="rzp-check">&#10003;</span> UPI (GPay, PhonePe, Paytm)</div>
+              <div class="rzp-feature"><span class="rzp-check">&#10003;</span> Credit / Debit Cards</div>
+              <div class="rzp-feature"><span class="rzp-check">&#10003;</span> Net Banking (50+ banks)</div>
+              <div class="rzp-feature"><span class="rzp-check">&#10003;</span> EMI (No-Cost available)</div>
+              <div class="rzp-feature"><span class="rzp-check">&#10003;</span> Wallets (Mobikwik, etc.)</div>
+              <div class="rzp-feature"><span class="rzp-check">&#10003;</span> Instant API key delivery</div>
+            </div>
+
+            <button class="rzp-btn" id="rzp-pay-btn" onclick="initiateRazorpayCheckout()">
+              <span>&#9889;</span> Pay Securely with Razorpay
+            </button>
+
+            <div class="rzp-secure-row">
+              <span>&#128274; 256-bit SSL Secured</span>
+              <span>&middot;</span>
+              <span>&#128203; GST Invoice Available</span>
+              <span>&middot;</span>
+              <span>&#9989; 7-Day Money Back</span>
+            </div>
+            <div class="rzp-methods">
+              <span class="rzp-method-badge">UPI</span>
+              <span class="rzp-method-badge">Visa</span>
+              <span class="rzp-method-badge">Mastercard</span>
+              <span class="rzp-method-badge">RuPay</span>
+              <span class="rzp-method-badge">Net Banking</span>
+              <span class="rzp-method-badge">EMI</span>
+              <span class="rzp-method-badge">Wallets</span>
+            </div>
           </div>
         </div>
 
@@ -1148,6 +1258,7 @@ h1 span { color: var(--accent); }
     <div class="trust-card">
       <div class="trust-title">&#9989; Accepted Payments</div>
       <div class="pay-badges">
+        <span class="pay-badge" style="color:#3595ff;border-color:#3595ff;">Razorpay</span>
         <span class="pay-badge" style="color:#00c853;border-color:#00c853;">GPay</span>
         <span class="pay-badge" style="color:#5c35cc;border-color:#5c35cc;">PhonePe</span>
         <span class="pay-badge" style="color:#00baf2;border-color:#00baf2;">Paytm</span>
@@ -1158,7 +1269,8 @@ h1 span { color: var(--accent); }
         <span class="pay-badge" style="color:#ef4444;border-color:#ef4444;">Bank NEFT</span>
         <span class="pay-badge" style="color:#f0b90b;border-color:#f0b90b;">BNB / USDT</span>
         <span class="pay-badge" style="color:#627eea;border-color:#627eea;">ETH</span>
-        <span class="pay-badge">QR Code</span>
+        <span class="pay-badge">Net Banking</span>
+        <span class="pay-badge">Cards EMI</span>
       </div>
     </div>
 
@@ -1208,15 +1320,141 @@ h1 span { color: var(--accent); }
 
 <script>
 /* ═══════════════════════════════════════════════════════════════════════
-   SENTINEL APEX v143.0.0 \u2014 Upgrade Page Controller
-   Features: plan select \u00b7 billing toggle \u00b7 UPI QR \u00b7 Direct Payment Gateway
-   Third-party gateways: DISABLED (2-month direct payment window)
+   SENTINEL APEX v181.0 \u2014 Upgrade Page Controller
+   Payment: Razorpay (instant) \u00b7 UPI \u00b7 Bank NEFT \u00b7 PayPal \u00b7 Crypto
    ═══════════════════════════════════════════════════════════════════════ */
 
-/* ── DIRECT PAYMENT CONFIG v143.0.0 ──────────────────────────────────
-   Stripe/Razorpay disabled for direct payment window.
-   All methods below are live and active.
-   ──────────────────────────────────────────────────────────────────── */
+/* ═══════════════════════════════════════════════════════════════════════
+   SENTINEL APEX v181.0 — Razorpay Instant Checkout + God Mode API
+   Payment stack: Razorpay (instant key) → UPI → Bank NEFT → PayPal → Crypto
+   ═══════════════════════════════════════════════════════════════════════ */
+
+var RAZORPAY_PLANS = {
+  pro:        { name:'PRO Defense',        inr_monthly:399900,   inr_annual:3999000,   usd_monthly:49,  usd_annual:490   },
+  enterprise: { name:'Enterprise SOC',     inr_monthly:3999900,  inr_annual:39999000,  usd_monthly:499, usd_annual:4990  },
+  mssp:       { name:'MSSP / White-Label', inr_monthly:15999900, inr_annual:159999000, usd_monthly:1999,usd_annual:19990 },
+};
+
+function updateRazorpayPanel() {
+  var rp = RAZORPAY_PLANS[currentPlan];
+  if (!rp) return;
+  var paise = isAnnual ? rp.inr_annual  : rp.inr_monthly;
+  var usd   = isAnnual ? rp.usd_annual  : rp.usd_monthly;
+  var inrFmt = '\u20b9' + (paise / 100).toLocaleString('en-IN');
+  var el;
+  el = document.getElementById('rzp-display-inr');  if (el) el.textContent = inrFmt;
+  el = document.getElementById('rzp-display-usd');  if (el) el.textContent = '\u2248 $' + usd.toLocaleString() + ' USD';
+  el = document.getElementById('rzp-display-plan'); if (el) el.textContent = rp.name;
+}
+
+async function initiateRazorpayCheckout() {
+  var emailEl = document.getElementById('rzp-email');
+  var email   = emailEl ? emailEl.value.trim() : '';
+  if (!email || !/\S+@\S+\.\S+/.test(email)) {
+    alert('Please enter a valid email address to receive your API key.');
+    if (emailEl) { emailEl.focus(); emailEl.style.borderColor = 'var(--red)'; }
+    return;
+  }
+  if (currentPlan === 'free') {
+    alert('Please select a paid plan (PRO, Enterprise, or MSSP).');
+    return;
+  }
+  var btn = document.getElementById('rzp-pay-btn');
+  var orig = btn ? btn.innerHTML : '';
+  if (btn) { btn.disabled = true; btn.innerHTML = '&#9203; Creating order...'; }
+
+  var tierMap = { pro:'PRO', enterprise:'ENTERPRISE', mssp:'MSSP' };
+  var tier    = tierMap[currentPlan] || 'PRO';
+  var billing = isAnnual ? 'annual' : 'monthly';
+
+  try {
+    var resp  = await fetch('/api/payment/razorpay/create-order', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tier: tier, email: email, billing: billing }),
+    });
+    var order = await resp.json();
+
+    if (!resp.ok || !order.order_id) {
+      if (btn) { btn.disabled = false; btn.innerHTML = orig; }
+      alert('Razorpay is being configured. Please use UPI — same instant delivery!\n\nWhatsApp: +91 8179881447');
+      showPayTab('upi');
+      return;
+    }
+
+    if (typeof Razorpay === 'undefined') {
+      if (btn) { btn.disabled = false; btn.innerHTML = orig; }
+      alert('Razorpay could not load. Using UPI instead — same price, same instant delivery!\n\nWhatsApp: +91 8179881447');
+      showPayTab('upi');
+      return;
+    }
+
+    var rzpOptions = {
+      key:         order.key_id,
+      amount:      order.amount,
+      currency:    order.currency || 'INR',
+      name:        'CYBERDUDEBIVASH SENTINEL APEX',
+      description: order.plan + ' — ' + billing + ' subscription',
+      order_id:    order.order_id,
+      prefill:     { email: email },
+      notes:       order.notes || {},
+      theme:       { color: '#00d4ff' },
+      modal: {
+        ondismiss: function() {
+          if (btn) { btn.disabled = false; btn.innerHTML = orig; }
+        }
+      },
+      handler: function(response) {
+        if (btn) btn.innerHTML = '&#9203; Verifying payment...';
+        fetch('/api/payment/razorpay/verify', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            razorpay_order_id:   response.razorpay_order_id,
+            razorpay_payment_id: response.razorpay_payment_id,
+            razorpay_signature:  response.razorpay_signature,
+            tier: tier, email: email,
+          }),
+        })
+        .then(function(r) { return r.json().then(function(d) { return { ok: r.ok, d: d }; }); })
+        .then(function(res) {
+          if (res.ok && res.d && res.d.api_key) {
+            showRazorpaySuccess(res.d.api_key, tier, email);
+          } else {
+            alert('\u2714 Payment received! API key delivered within 30 min.\nPayment ID: ' + response.razorpay_payment_id + '\nWhatsApp +91 8179881447 for instant help.');
+            showSuccessState(currentPlan, { review_id: response.razorpay_payment_id });
+          }
+          if (btn) { btn.disabled = false; btn.innerHTML = orig; }
+        })
+        .catch(function() {
+          alert('\u2714 Payment complete! Verifying...\nPayment ID: ' + response.razorpay_payment_id + '\nAPI key within 30 min.\nWhatsApp: +91 8179881447');
+          if (btn) { btn.disabled = false; btn.innerHTML = orig; }
+        });
+      },
+    };
+
+    var rzp = new Razorpay(rzpOptions);
+    rzp.open();
+  } catch(err) {
+    if (btn) { btn.disabled = false; btn.innerHTML = orig; }
+    alert('Network error. Please use UPI payment — same instant delivery!\n\nWhatsApp: +91 8179881447');
+    showPayTab('upi');
+  }
+}
+
+function showRazorpaySuccess(apiKey, tier, email) {
+  var fc = document.getElementById('checkout-state');
+  var ss = document.getElementById('success-state');
+  if (fc) fc.style.display = 'none';
+  if (ss) {
+    ss.style.display = 'block';
+    var planEl = document.getElementById('success-plan');
+    var revEl  = document.getElementById('success-review-id');
+    if (planEl) planEl.textContent = 'SENTINEL APEX ' + tier;
+    if (revEl)  revEl.textContent  = apiKey;
+    var tl = document.getElementById('success-timeline');
+    if (tl) tl.innerHTML = '&#9989; <strong style="color:var(--green)">API KEY PROVISIONED INSTANTLY</strong><br>Your key is shown above &#8212; copy it and use it with the X-API-Key header.<br><a href="/get-api-key.html" style="color:var(--accent)">View API documentation &#8594;</a>';
+  }
+}
+
 var DIRECT_PAYMENT = {
   bnb_wallet:   '0xa824c20158a4bfe2f3d8e80351b1906bd0ac0796',
   upi_primary:  'iambivash.bn-5@okaxis',
@@ -1402,7 +1640,8 @@ function selectPlan(key) {
   updateSummary();
   updateQR();
   updateDGW();
-  updateGumroadPanel();   // v148.0.0: sync Gumroad quick checkout panel
+  updateGumroadPanel();
+  updateRazorpayPanel();
 }
 
 function toggleBilling() {
@@ -1427,7 +1666,8 @@ function toggleBilling() {
   updateSummary();
   updateQR();
   updateDGW();
-  updateGumroadPanel();   // v148.0.0: sync Gumroad prices + URLs on billing cycle toggle
+  updateGumroadPanel();
+  updateRazorpayPanel();
 }
 
 function updateSummary() {
@@ -1482,7 +1722,7 @@ function updateQR() {
 }
 
 function showPayTab(tab) {
-  ['upi','neft','paypal','crypto'].forEach(function(t) {
+  ['razorpay','upi','neft','paypal','crypto'].forEach(function(t) {
     var tb = document.getElementById('tab-' + t);
     var pn = document.getElementById('panel-' + t);
     if (tb) tb.classList.toggle('active', t === tab);
@@ -1565,9 +1805,9 @@ function handleSubmit(e) {
     org:     org,
     country: country,
     plan:    plan === 'mssp' ? 'mssp' : plan,
-    method:  method,
-    ref:     txid,
-    txhash:  txhash,
+    payment_method:  method,
+    transaction_id:  txid,
+    txhash:          txhash,
     amount:  amt,
   };
 
@@ -1578,7 +1818,7 @@ function handleSubmit(e) {
     headers: { 'Accept': 'application/json' },
   }).catch(() => ({ ok: true }));  // Formspree failure is non-critical
 
-  var workerPromise = fetch('/api/payment/notify', {
+  var workerPromise = fetch('/api/payment/manual-notify', {
     method:  'POST',
     headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
     body:    JSON.stringify(workerPayload),
@@ -1774,8 +2014,8 @@ function startBSCPolling(txhash, reviewId) {
     }, 800);
   }
 
-// v148.0.0: Init Gumroad panel on page load
 updateGumroadPanel();
+updateRazorpayPanel();
 })();
 </script>
 </body>

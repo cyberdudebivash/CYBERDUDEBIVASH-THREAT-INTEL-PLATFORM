@@ -2449,7 +2449,7 @@ def main(argv=None) -> int:
         except Exception as render_exc:
             log(f"RENDER ERROR [{intel_id}]: {type(render_exc).__name__}: {render_exc}", "error")
             item["validation_status"] = "render_error"
-            item["report_url"] = item.get("source_url") or ""
+            item["report_url"] = ""
             errors += 1
             # Store in fail-safe buffer for post-mortem analysis
             try:
@@ -2500,7 +2500,7 @@ def main(argv=None) -> int:
         if not write_succeeded:
             log(f"WRITE HARD FAIL [{intel_id}]: all {_attempts} attempts failed: {write_exc_final}", "error")
             item["validation_status"] = "write_error"
-            item["report_url"] = item.get("source_url") or ""
+            item["report_url"] = ""
             errors += 1
             # Fail-safe buffer  -  preserve HTML payload
             try:
@@ -2556,7 +2556,7 @@ def main(argv=None) -> int:
                         uploaded += 1
         else:
             item["validation_status"] = "file_missing"
-            item["report_url"] = item.get("source_url") or ""
+            item["report_url"] = ""
             errors += 1
     # -- END MAIN LOOP --
 
