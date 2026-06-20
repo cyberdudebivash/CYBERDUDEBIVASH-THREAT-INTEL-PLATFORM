@@ -2552,7 +2552,7 @@ def stage_pipeline_consistency_check() -> None:
                     any(kw in _text_blob for kw in _active_campaign_kw)):
                 _min_rank = max(_min_rank, 4)  # CRITICAL
 
-            # v180.0 P0 INVARIANT: explicit CRITICAL gate.
+            # v182.0 P0 INVARIANT: explicit CRITICAL gate.
             # CVSS >= 9.0 alone mandates CRITICAL regardless of other signals.
             # Previous logic only promoted to CRITICAL via the R6 multi-signal gate.
             if _cvss_val >= 9.0:
@@ -2561,7 +2561,7 @@ def stage_pipeline_consistency_check() -> None:
             if _min_rank > _cur_rank:
                 _new_sev = _SEV_FROM_RANK[_min_rank]
                 item["severity"] = _new_sev
-                # v180.0: enforce priority and threat_level co-travel with severity
+                # v182.0: enforce priority and threat_level co-travel with severity
                 if _new_sev == "CRITICAL":
                     item["priority"]     = "P1"
                     item["threat_level"] = "CRITICAL_SURGE"
@@ -2586,7 +2586,7 @@ def stage_pipeline_consistency_check() -> None:
                         item["risk_score"] = round(_floor + (_rs_val * 0.1), 2)
                 auto_fixed += 1
 
-            # v180.0: final per-item invariant pass via SeverityInvariantInterceptor
+            # v182.0: final per-item invariant pass via SeverityInvariantInterceptor
             try:
                 import importlib as _il
                 _sii_mod = _il.import_module("severity_invariant_interceptor")
@@ -3518,7 +3518,7 @@ def stage_sync_root_feed_json() -> None:
         log.warning("[3.9-GOV] Severity governance post-sync skipped (non-fatal): %s", _gov_e)
     # ── End v172.0 P0 FIX ───────────────────────────────────────────────────
 
-    # ── v180.0 P0: Severity Invariant Interceptor — authoritative final pass ─
+    # ── v182.0 P0: Severity Invariant Interceptor — authoritative final pass ─
     # Enforces the master invariant policy AFTER all governance and enrichment:
     #   Rule C: CVSS>=9.0 / KEV / active_exploitation / public_exploit / RCE/auth_bypass
     #           → severity=CRITICAL, priority=P1, threat_level=CRITICAL_SURGE,
@@ -3552,7 +3552,7 @@ def stage_sync_root_feed_json() -> None:
                     log.info("[3.9-SII] %s — all severity invariants satisfied.", _sit.name)
     except Exception as _sii_e:
         log.warning("[3.9-SII] Severity invariant interceptor skipped (non-fatal): %s", _sii_e)
-    # ── End v180.0 Severity Invariant Interceptor ────────────────────────────
+    # ── End v182.0 Severity Invariant Interceptor ────────────────────────────
     log.info("[3.9] STAGE 3.9 COMPLETE — feed.json has %d entries [OK]", out_count)
 
     # v177.0 FIX: Confidence Scale Normalization (post Stage 3.9)
