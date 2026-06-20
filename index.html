@@ -4932,14 +4932,14 @@
 .intel-card.sev-low .apex-conf-fill{background:linear-gradient(90deg,#00ff88,#00d4aa) !important;box-shadow:0 0 5px rgba(0,255,136,0.3) !important;}
 .intel-card .apex-conf-track{background:rgba(255,255,255,0.05) !important;border-radius:3px !important;}
 .intel-card .apex-conf-fill{border-radius:3px !important;}
-/* ── v166.2: Heartbeat / Live-dot premium treatment ── */
+/* ── v182.0: Heartbeat / Live-dot premium treatment ── */
 @keyframes apex-hb-ring{0%{transform:scale(1);opacity:0.85;}40%{transform:scale(1.55);opacity:0.3;}100%{transform:scale(1);opacity:0.85;}}
 .intel-card .cdb-live-dot,.intel-card [class*="live-dot"]{
   position:relative !important;
   animation:cpulse 1.5s ease-in-out infinite,apex-hb-ring 2.2s ease-out infinite !important;
   box-shadow:0 0 8px #00d4aa,0 0 18px rgba(0,212,170,0.35) !important;
 }
-/* ── v166.2: Report link CTA premium hover ── */
+/* ── v182.0: Report link CTA premium hover ── */
 .intel-card a[href*="report"],.intel-card a[href*="/report"],.intel-card .cdb-report-link{
   transition:color 0.18s ease,text-shadow 0.18s ease !important;
 }
@@ -4947,9 +4947,9 @@
   color:#00d4aa !important;
   text-shadow:0 0 14px rgba(0,212,170,0.55) !important;
 }
-/* END SENTINEL APEX DESIGN SYSTEM v166.2 */
+/* END SENTINEL APEX DESIGN SYSTEM v182.0 */
 </style>
-<!-- SENTINEL APEX CARD RENDERER &mdash; enterprise glassmorphism card system v166.2 -->
+<!-- SENTINEL APEX CARD RENDERER &mdash; enterprise glassmorphism card system v182.0 -->
 <link rel="stylesheet" href="/css/card_renderer_styles.css">
 </head>
 <body>
@@ -10389,7 +10389,7 @@
                                 ${urgencyHtml}
                                 <button class="apex-toggle" onclick="(function(el){var b=document.getElementById('${_apxId}-body');var open=b.classList.toggle('expanded');b.classList.toggle('collapsed',!open);var ae=el.getAttribute('aria-expanded')==='true';el.setAttribute('aria-expanded',String(!ae));el.closest('.apex-panel').classList.toggle('open',open);})(this)" aria-expanded="true">
                                     <span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-                                        <span class="apex-badge">⬡ APEX AI v166.2</span>
+                                        <span class="apex-badge">⬡ APEX AI v182.0</span>
                                         <span style="color:var(--text-muted);font-size:7.5px;letter-spacing:0.5px;">INTELLIGENCE ENGINE</span>
                                         <span class="apex-v ${prioClass}" style="color:${prioColor};font-size:8.5px;font-weight:900;">${prio}</span>
                                         <span style="font-size:8px;color:${tlvlColor};letter-spacing:0.5px;">${tlvl.replace(/_/g,' ')}</span>
@@ -10666,7 +10666,7 @@ ${item.stix_object_count != null ? `<div class="apex-kv" style="margin-top:4px;"
              );
             const lastTs = sortedData.length ? timeSince(sortedData[0].processed_at||sortedData[0].timestamp) : '\u2014';
 
-            window._cdbMetricsComputed = true; // v166.2: computeMetrics is authoritative
+            window._cdbMetricsComputed = true; // v182.0: computeMetrics is authoritative
             window._cdbAvgRisk = avgRisk;
             document.getElementById('m-total').textContent = total;
             document.getElementById('m-critical').textContent = critical;
@@ -12437,7 +12437,7 @@ function renderTopThreats(data) {
                     var vd = document.getElementById('engine-version-display');
                     if (vd) vd.textContent = 'SENTINEL APEX ' + data.gateway;
                 }
-                    console.log('[GOC v101.1] Live data loaded:', _displayCount, 'items | source:', isApiSource ? 'api/feed.json' : manifestUrl.substring(0, 60));
+                    console.log('[GOC v182.0] Live data loaded:', _displayCount, 'items | source:', isApiSource ? 'api/feed.json' : manifestUrl.substring(0, 60));
                     try { _cdbUpdateTabCounts(); } catch(e) {}
                     return;
 
@@ -14903,7 +14903,7 @@ function renderTopThreats(data) {
                 // m-critical + m-high guarded above (computeMetrics takes priority)
                 set('m-iocs',     intel.ioc_count != null ? intel.ioc_count.toLocaleString() : null);
                 set('m-kev',      intel.kev_count);
-                // v166.2 FIX: avg-risk must come from computeMetrics (accurate per-item avg).
+                // v182.0 FIX: avg-risk must come from computeMetrics (accurate per-item avg).
                 // highest_risk_score is NOT the avg — skip this proxy. computeMetrics sets m-avg-risk.
                 // Only set stat cards from Worker API if computeMetrics hasn't populated them yet.
                 if (!window._cdbMetricsComputed) {
@@ -18895,7 +18895,7 @@ a:focus-visible {
 <!-- SENTINEL-APEX-v161-COMPONENT-UPGRADES-END -->
 <script>
 // ═══════════════════════════════════════════════════════════
-        // v166.2 ANTI-STALE GUARD — Prevents rollback to old dashboard
+        // v182.0 ANTI-STALE GUARD — Prevents rollback to old dashboard
         // Forces service worker update + hard reload if stale version detected
         // ═══════════════════════════════════════════════════════════
         (function _cdbAntiStaleGuard() {
