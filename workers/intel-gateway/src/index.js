@@ -1139,6 +1139,337 @@ async function fetchAndCacheCVEs(env) {
 }
 
 // =============================================================================
+// AI SECURITY COPILOT v3.0 — DeepSeek R1 + V3 direct, GROQ fallback
+// POST /api/v1/copilot/query
+// GET  /api/v1/copilot/modes
+// GET  /api/v1/copilot/health
+// LLM stack: DeepSeek direct (primary) → GROQ LPU (fallback) → OpenRouter → template
+// =============================================================================
+
+const COPILOT_SYSTEM_PROMPT = `You are SENTINEL APEX — the expert AI Security Copilot for CYBERDUDEBIVASH® Sentinel APEX, an enterprise-grade threat intelligence platform.
+
+Your identity:
+- World-class threat intelligence analyst: 20+ years SOC, IR, and CTI experience
+- Expert in MITRE ATT\&CK, STIX 2.1, SIGMA rules, KQL, SPL, YARA, Suricata
+- Deep expertise: Ransomware (LockBit, REvil, Cl0p), APT groups (APT28, APT29, Lazarus, Volt Typhoon), supply chain attacks, zero-day exploitation
+
+Response style: SOC-ready, operationally actionable, specific and precise. Always provide concrete commands, queries, IOC patterns, or remediation steps. Never vague.`;
+
+const COPILOT_R1_MODES  = new Set(["threat_hunt", "detection_write", "incident_brief", "natural_language"]);
+const COPILOT_ALL_MODES = new Set([
+  "explain_threat", "what_to_do", "soc_report", "ioc_summary",
+  "mitre_mapping", "risk_brief", "threat_hunt", "detection_write",
+  "incident_brief", "natural_language",
+]);
+
+function copilotBuildPrompt(mode, threat, question) {
+  const t = threat.title || question || "Unknown Threat";
+  const m = JSON.stringify(threat.mitre_tactics || []);
+  const s = threat.severity || "HIGH";
+  const a = threat.actor_tag || "Unknown";
+  const r = threat.risk_score || 7;
+  switch (mode) {
+    case "threat_hunt":
+      return `Generate a complete threat hunting package for: ${t}.
+Include:
+1. 4-6 production KQL queries for Microsoft Sentinel (with comments and time filters)
+2. 3 complete SPL queries for Splunk ES
+3. 2 full SIGMA rules in YAML format (status: production, all required fields)
+4. MITRE ATT\&CK focus techniques: ${m}
+5. IOC pattern lookups (hash/domain/IP searches)
+6. 3 hypothesis-driven hunt plans with validation logic
+7. Expected attacker timeline and prioritized log sources
+Severity: ${s}. Actor: ${a}. Risk: ${r}/10.`;
+
+    case "detection_write":
+      return `Generate production-ready detection rules for: ${t}.
+Provide complete deployable rules:
+1. SIGMA rule (full YAML, status: production, all required fields)
+2. Microsoft Sentinel KQL (complete with inline comments and 24h window)
+3. Splunk SPL (complete with stats pipeline and index directive)
+4. Suricata network rule (if network indicators likely)
+5. YARA rule (if malware/file-based indicators present)
+6. False positive suppression guidance for each rule
+MITRE: ${m}. Threat type: ${threat.threat_type || "General"}.`;
+
+    case "incident_brief":
+      return `Generate an incident commander brief (SMEAC format) for: ${t}.
+SITUATION: What happened, scope, affected systems, threat actor attribution
+MISSION: Primary IR objective and measurable success criteria
+EXECUTION: Phase 1 containment (0-4h), Phase 2 eradication (4-24h), Phase 3 recovery (24-72h) with specific steps
+ADMINISTRATION: Evidence preservation, chain of custody, regulatory notifications (GDPR 72h, SEC 4-day, HIPAA 60-day)
+COMMAND: Decision authorities, escalation matrix, out-of-band comms plan
+LEGAL/COMMS: Regulatory obligations, PR holding statement, notification timeline
+Severity: ${s}. Actor: ${a}. Risk: ${r}/10.`;
+
+    case "natural_language":
+      return question || "What are the top current threats in this feed and what should our SOC prioritize right now? Provide a prioritized action list with specific tools and commands.";
+
+    case "explain_threat":
+      return `Analyze this threat advisory: ${t}.
+Provide: 1) What it is and why it matters right now, 2) Who is being targeted and by whom, 3) How it works technically (TTPs), 4) The single most critical defensive action.
+User question: ${question || "Explain this threat."}`;
+
+    case "what_to_do":
+      return `For this threat: ${t}.
+Provide a prioritized 5-step immediate action plan. Be specific — exact commands, tools, configurations, not generic advice.
+User question: ${question || "What should I do?"}`;
+
+    case "soc_report":
+      return `Generate a complete SOC incident report for: ${t}.
+Include: executive summary (1 paragraph), threat intelligence assessment, IOC analysis, response plan, MITRE ATT\&CK coverage map, and 3 recommended detection rules.
+User question: ${question || "Generate SOC report."}`;
+
+    case "risk_brief":
+      return `Generate a C-suite risk brief for: ${t}.
+Include: business impact in plain English (no jargon), financial exposure estimate, likelihood of impact on our environment, and top 3 mitigation priorities with timelines.
+User question: ${question || "Generate risk brief."}`;
+
+    default:
+      return question || `Analyze: ${t}`;
+  }
+}
+
+function copilotTemplate(mode, threat, question) {
+  const title = threat.title || question || "Security Analysis";
+  const sev   = (threat.severity || "HIGH").toUpperCase();
+  const score = parseFloat(threat.risk_score) || 7.0;
+  const ttype = threat.threat_type || "General";
+  const mitre = threat.mitre_tactics || [];
+  const kev   = threat.kev_present ? "CISA KEV confirmed exploitation." : "";
+  const level = score >= 9 ? "CRITICAL" : score >= 7 ? "HIGH" : score >= 5 ? "MEDIUM" : "LOW";
+  const iocs  = threat.ioc_counts || {};
+
+  const PLAYBOOKS = {
+    Ransomware:    { urgency: "CRITICAL — isolate within 1h", immediate: ["Isolate affected systems from network", "Do NOT pay ransom without legal consultation", "Preserve forensic evidence (memory dumps, logs)", "Activate IR plan and notify stakeholders", "Check backup integrity immediately"] },
+    Vulnerability: { urgency: "HIGH — patch within SLA, WAF compensating controls now", immediate: ["Apply vendor patch immediately", "Deploy WAF virtual patch if no fix available", "Block/restrict access to vulnerable service", "Enable enhanced logging on affected systems", "Search SIEM for exploitation attempts (30 days)"] },
+    Phishing:      { urgency: "HIGH — credential reset required", immediate: ["Block malicious sender domains at email gateway", "Delete phishing emails from all inboxes", "Force password reset for affected users", "Invalidate active sessions", "Enable MFA immediately if not active"] },
+    APT:           { urgency: "CRITICAL — full scope investigation required", immediate: ["Engage specialized IR firm with APT experience", "Do NOT alert attacker — maintain visibility", "Establish out-of-band communications", "Begin systematic threat hunting", "Identify crown jewel data exposure"] },
+    "Data Breach": { urgency: "CRITICAL — GDPR 72h notification window starts now", immediate: ["Contain the breach vector immediately", "Identify what data was accessed (scope, classification)", "Engage legal counsel and DPO immediately", "Preserve all evidence with chain of custody", "Assess notification obligations (GDPR 72h, state laws)"] },
+    "Supply Chain":{ urgency: "CRITICAL — assess downstream exposure", immediate: ["Identify all instances of affected component", "Isolate systems running compromised version", "Check vendor advisory for IOCs", "Hunt IOCs across SIEM/EDR/network logs", "Contact vendor for official guidance"] },
+    General:       { urgency: "MEDIUM — assess and triage", immediate: ["Review threat details and assess relevance", "Check if affected systems exist in inventory", "Search SIEM for related indicators", "Apply relevant patches or mitigations", "Update detection rules with new IOCs"] },
+  };
+  const pb = PLAYBOOKS[ttype] || PLAYBOOKS.General;
+
+  if (mode === "ioc_summary") {
+    const total = Object.values(iocs).reduce((s, v) => s + (typeof v === "number" ? v : 0), 0);
+    return {
+      title, total_indicators: total, ioc_types: iocs,
+      tlp: threat.tlp_label || "TLP:CLEAR",
+      analyst_note: total > 0
+        ? `${total} indicators across ${Object.keys(iocs).length} types. Submit to SIEM/SOAR for blocking.`
+        : "No IOCs extracted — monitor source for updates.",
+      siem_action: total > 0 ? "Block at firewall, add to SIEM watchlist" : "Monitor source",
+    };
+  }
+
+  if (mode === "mitre_mapping") {
+    const MITRE_NAMES = { T1190:"Exploit Public-Facing App", T1566:"Phishing", T1078:"Valid Accounts", T1059:"Command Interpreter", T1486:"Data Encrypted for Impact", T1490:"Inhibit System Recovery", T1562:"Impair Defenses", T1055:"Process Injection", T1003:"OS Credential Dumping", T1021:"Remote Services", T1041:"Exfil Over C2", T1195:"Supply Chain Compromise", T1068:"Exploit for PrivEsc" };
+    return {
+      title, techniques: mitre.map(t => ({ id: t, name: MITRE_NAMES[t] || "See MITRE ATT\&CK" })),
+      tactic_count: mitre.length,
+      sigma_query:  mitre.slice(0,5).map(t => `"${t}"`).join(" OR ") || null,
+      detection_note: `${mitre.length} ATT\&CK techniques detected. Create SIEM detection rules for each.`,
+    };
+  }
+
+  return {
+    title,
+    summary: `${title} — ${sev} severity (risk: ${score.toFixed(1)}/10). ${kev}`,
+    risk_level: level,
+    urgency: pb.urgency,
+    immediate_actions: pb.immediate,
+    ticket_priority: score >= 9 ? "P1" : score >= 7 ? "P2" : score >= 5 ? "P3" : "P4",
+    sla_hours: score >= 9 ? 1 : score >= 7 ? 4 : score >= 5 ? 24 : 72,
+    mitre_techniques: mitre.slice(0, 8),
+    threat_type: ttype,
+    actor: threat.actor_tag || "UNATTRIBUTED",
+  };
+}
+
+async function callLLM(env, systemPrompt, userPrompt, useR1) {
+  // 1. DeepSeek direct (lowest latency, most capable)
+  if (env.DEEPSEEK_API_KEY) {
+    try {
+      const model = useR1 ? "deepseek-reasoner" : "deepseek-chat";
+      const resp  = await fetch("https://api.deepseek.com/v1/chat/completions", {
+        method: "POST",
+        headers: { "Authorization": `Bearer ${env.DEEPSEEK_API_KEY}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ model, max_tokens: useR1 ? 4096 : 1500, messages: [{ role: "system", content: systemPrompt }, { role: "user", content: userPrompt }] }),
+      });
+      if (resp.ok) {
+        const d = await resp.json();
+        const t = d?.choices?.[0]?.message?.content?.trim();
+        if (t) return { text: t, model: `deepseek/${model}` };
+      }
+    } catch (_) {}
+  }
+
+  // 2. GROQ (ultra-fast LPU — DeepSeek R1 Distill 70B or Llama 3.3 70B)
+  if (env.GROQ_API_KEY) {
+    try {
+      const model = useR1 ? "deepseek-r1-distill-llama-70b" : "llama-3.3-70b-versatile";
+      const resp  = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+        method: "POST",
+        headers: { "Authorization": `Bearer ${env.GROQ_API_KEY}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ model, max_tokens: useR1 ? 4096 : 1200, messages: [{ role: "system", content: systemPrompt }, { role: "user", content: userPrompt }] }),
+      });
+      if (resp.ok) {
+        const d = await resp.json();
+        const t = d?.choices?.[0]?.message?.content?.trim();
+        if (t) return { text: t, model: `groq/${model}` };
+      }
+    } catch (_) {}
+  }
+
+  // 3. OpenRouter (broadest model availability fallback)
+  if (env.OPENROUTER_API_KEY) {
+    try {
+      const model = useR1 ? "deepseek/deepseek-r1" : "deepseek/deepseek-chat";
+      const resp  = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+        method: "POST",
+        headers: { "Authorization": `Bearer ${env.OPENROUTER_API_KEY}`, "Content-Type": "application/json", "HTTP-Referer": "https://intel.cyberdudebivash.com", "X-Title": "CYBERDUDEBIVASH SENTINEL APEX" },
+        body: JSON.stringify({ model, max_tokens: useR1 ? 4096 : 1500, messages: [{ role: "system", content: systemPrompt }, { role: "user", content: userPrompt }] }),
+      });
+      if (resp.ok) {
+        const d = await resp.json();
+        const t = d?.choices?.[0]?.message?.content?.trim();
+        if (t) return { text: t, model: `openrouter/${model}` };
+      }
+    } catch (_) {}
+  }
+
+  return null;
+}
+
+async function handleCopilot(request, env, auth, method, path) {
+  const LLM_ENABLED   = !!(env.DEEPSEEK_API_KEY || env.GROQ_API_KEY || env.OPENROUTER_API_KEY);
+  const LLM_TIERS     = new Set([TIERS.PRO, TIERS.ENTERPRISE, TIERS.MSSP]);
+  const tierAllowsLLM = LLM_TIERS.has(auth.tier);
+
+  // GET /api/v1/copilot/modes
+  if (method === "GET" && path.includes("/modes")) {
+    return jsonResp({
+      status: "success",
+      llm_enabled: LLM_ENABLED && tierAllowsLLM,
+      llm_stack: {
+        primary:   "DeepSeek R1 (deepseek-reasoner) — api.deepseek.com",
+        secondary: "DeepSeek V3 (deepseek-chat)     — api.deepseek.com",
+        fallback1: "GROQ LPU (deepseek-r1-distill-llama-70b) — ultra-fast",
+        fallback2: "OpenRouter (deepseek/deepseek-r1)",
+        fallback3: "Deterministic template — always on",
+      },
+      modes: [
+        { id: "explain_threat",   label: "Explain Threat",           model: "deepseek-chat (V3)",          new: false },
+        { id: "what_to_do",       label: "What Should I Do?",        model: "deepseek-chat (V3)",          new: false },
+        { id: "soc_report",       label: "SOC Report",               model: "deepseek-chat (V3)",          new: false },
+        { id: "risk_brief",       label: "Executive Risk Brief",     model: "deepseek-chat (V3)",          new: false },
+        { id: "ioc_summary",      label: "IOC Intelligence",         model: "deterministic",               new: false },
+        { id: "mitre_mapping",    label: "MITRE ATT&CK Mapping",     model: "deterministic",               new: false },
+        { id: "threat_hunt",      label: "Threat Hunt Package",      model: "deepseek-reasoner (R1)",      new: true  },
+        { id: "detection_write",  label: "Write Detection Rules",    model: "deepseek-reasoner (R1)",      new: true  },
+        { id: "incident_brief",   label: "Incident Commander Brief", model: "deepseek-reasoner (R1)",      new: true  },
+        { id: "natural_language", label: "Ask Anything",             model: "deepseek-reasoner (R1)",      new: true  },
+      ],
+    });
+  }
+
+  // GET /api/v1/copilot/health
+  if (method === "GET" && path.includes("/health")) {
+    return jsonResp({
+      status:        "ok",
+      engine:        "CDB-Copilot v3.0 (Worker-native)",
+      llm_enabled:   LLM_ENABLED,
+      tier_llm:      tierAllowsLLM,
+      providers:     { deepseek: !!env.DEEPSEEK_API_KEY, groq: !!env.GROQ_API_KEY, openrouter: !!env.OPENROUTER_API_KEY },
+      modes_total:   10, r1_modes: 4, v3_modes: 4, deterministic: 2,
+    });
+  }
+
+  // POST /api/v1/copilot/query
+  if (method !== "POST") return jsonResp({ error: "Method not allowed" }, 405);
+
+  let body = {};
+  try { body = await request.json(); } catch (_) {
+    return jsonResp({ error: "Invalid JSON body" }, 400);
+  }
+
+  const question   = (body.question || body.query || "").trim().slice(0, 2000);
+  const mode       = COPILOT_ALL_MODES.has(body.mode) ? body.mode : "explain_threat";
+  const threatData = body.threat_data || null;
+
+  if (!question && !threatData) {
+    return jsonResp({ error: "Provide question or threat_data" }, 400);
+  }
+
+  const threat = threatData || {
+    title: question.slice(0, 100), severity: "HIGH", risk_score: 7.0,
+    threat_type: "General", mitre_tactics: [], actor_tag: "UNATTRIBUTED",
+    kev_present: false, ioc_counts: {},
+  };
+
+  // Deterministic modes — no LLM needed, always fast
+  if (mode === "ioc_summary" || mode === "mitre_mapping") {
+    return jsonResp({
+      status: "success", mode,
+      ...copilotTemplate(mode, threat, question),
+      llm_enhanced: false,
+      engine: "CDB-Copilot v3.0 (deterministic)",
+      generated_at: new Date().toISOString(),
+    });
+  }
+
+  // Template-only for FREE tier
+  if (!tierAllowsLLM || !LLM_ENABLED) {
+    return jsonResp({
+      status: "success", mode,
+      ...copilotTemplate(mode, threat, question),
+      llm_enhanced: false, llm_available: LLM_ENABLED,
+      engine: "CDB-Copilot v3.0 (deterministic)",
+      tier_upgrade: !tierAllowsLLM ? "Upgrade to PRO for AI-powered analysis — intel.cyberdudebivash.com" : null,
+      generated_at: new Date().toISOString(),
+    });
+  }
+
+  // Build RAG context from live R2 feed
+  let ragContext = "";
+  try {
+    const raw = await r2Get(env, LATEST_JSON_KEY);
+    if (raw) {
+      const items = (Array.isArray(raw) ? raw : (raw.items || raw.data || [])).slice(0, 8);
+      const summary = items.map(i => ({
+        title: (i.title || "").slice(0, 80), severity: i.severity,
+        threat_type: i.threat_type, actor: i.actor_tag,
+        kev: i.kev_present, risk_score: i.risk_score,
+        mitre: (i.mitre_tactics || []).slice(0, 3),
+      }));
+      ragContext = `\n\nLatest ${summary.length} advisories from live SENTINEL APEX feed:\n${JSON.stringify(summary, null, 2)}`;
+    }
+  } catch (_) {}
+
+  const systemPrompt = COPILOT_SYSTEM_PROMPT
+    + ragContext
+    + (threatData ? `\n\nCurrent advisory context:\n${JSON.stringify(threat, null, 2).slice(0, 1500)}` : "");
+
+  const userPrompt = copilotBuildPrompt(mode, threat, question);
+  const useR1      = COPILOT_R1_MODES.has(mode);
+
+  const llmResult  = await callLLM(env, systemPrompt, userPrompt, useR1);
+  const template   = copilotTemplate(mode, threat, question);
+
+  return jsonResp({
+    status: "success",
+    mode,
+    ...template,
+    ...(llmResult ? { ai_analysis: llmResult.text, llm_model: llmResult.model, llm_enhanced: true } : {}),
+    engine:       llmResult ? `CDB-Copilot v3.0 (${llmResult.model})` : "CDB-Copilot v3.0 (deterministic fallback)",
+    llm_available: LLM_ENABLED,
+    query:        question,
+    generated_at: new Date().toISOString(),
+  });
+}
+
+// =============================================================================
 // MAIN REQUEST HANDLER
 // =============================================================================
 
@@ -1699,6 +2030,11 @@ async function handleRequest(request, env, ctx) {
     }
   }
 
+  // --- AI Security Copilot ----------------------------------------------------
+  if (path.startsWith("/api/v1/copilot")) {
+    return await handleCopilot(request, env, auth, method, path);
+  }
+
   // --- 404 --------------------------------------------------------------------
   return jsonResp({
     error: "Not found", path,
@@ -1717,6 +2053,9 @@ async function handleRequest(request, env, ctx) {
       "/taxii/", "/taxii/collections/", "/taxii/collections/{id}/objects/",
       "/api/admin/health", "/api/admin/audit", "/api/admin/keys",
       "POST /api/ingest  (PRO+, Bearer token required)",
+      "POST /api/v1/copilot/query  (PRO+, AI-powered threat analysis)",
+      "GET  /api/v1/copilot/modes  (list available AI modes)",
+      "GET  /api/v1/copilot/health (copilot engine status)",
     ],
   }, 404);
 }
