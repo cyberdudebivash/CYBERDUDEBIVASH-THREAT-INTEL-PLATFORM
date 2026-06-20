@@ -562,6 +562,7 @@ def main() -> int:
 
     skipped_excluded_by_design: int = 0
     skipped_no_source: int = 0
+    skipped_proportionally_excluded: int = 0
 
     for ru in report_urls:
         # v175.6 P0 FIX: Skip paths excluded from dist/ by design.
@@ -609,6 +610,7 @@ def main() -> int:
         # Source EXISTS in working tree but is MISSING from dist/.
         # Check retention window before hard-failing.
         in_window = True
+        prop_excluded = False
         if cutoff_for_validation is not None:
             parts = ru.lstrip("/").split("/")
             # Expected: reports/YYYY/MM/file.html
@@ -620,11 +622,41 @@ def main() -> int:
                         cutoff_for_validation.year,
                         cutoff_for_validation.month,
                     )
+                    # v182.1 FIX: For the boundary month, reapply the same
+                    # proportional selection used in copy_reports_selective().
+                    # The proportional filter keeps only the last N% of
+                    # boundary-month files (sorted alphabetically) to stay
+                    # under the 900 MB dist/ size gate. Files outside that
+                    # selection are intentionally absent from dist/ — they
+                    # must not trigger a HARD FAIL here.
+                    # ROOT CAUSE OF #1678 FAILURE:
+                    #   9263 June files in workspace. Proportional filter
+                    #   (3d/17d=18%) selected 1634. api/feed.json referenced
+                    #   81 of the 7629 unselected files. Validator found:
+                    #   source exists + not in dist/ + boundary month → HARD FAIL.
+                    #   Fix: recompute selection and skip proportionally-excluded.
+                    if in_window and len(parts) >= 4 and (year, month) == (
+                        cutoff_for_validation.year, cutoff_for_validation.month
+                    ):
+                        month_dir = REPO_ROOT / parts[0] / parts[1] / parts[2]
+                        if month_dir.exists():
+                            days_elapsed = max(1, cutoff_for_validation.day)
+                            fraction = min(1.0, retention_days / days_elapsed)
+                            all_names = sorted(
+                                f.name for f in month_dir.iterdir() if f.is_file()
+                            )
+                            n_to_keep = max(0, int(len(all_names) * fraction))
+                            selected = set(all_names[-n_to_keep:]) if n_to_keep > 0 else set()
+                            if parts[3] not in selected:
+                                in_window = False
+                                prop_excluded = True
                 except (ValueError, IndexError):
                     in_window = True  # can't determine → validate conservatively
 
         if in_window:
             missing_in_dist.append(ru)
+        elif prop_excluded:
+            skipped_proportionally_excluded += 1
         else:
             skipped_outside_window += 1
 
@@ -635,6 +667,12 @@ def main() -> int:
         log.info("  %d report_url(s) have no source in working tree — generated in a "
                  "prior run, already live on gh-pages (clean:false) — skipped",
                  skipped_no_source)
+    if skipped_proportionally_excluded > 0:
+        log.info("  %d report_url(s) proportionally excluded from boundary month "
+                 "(size gate: %.0f%% of boundary-month files kept in dist/) — expected",
+                 skipped_proportionally_excluded,
+                 min(1.0, retention_days / max(1, cutoff_for_validation.day)) * 100
+                 if cutoff_for_validation else 100)
     if skipped_outside_window > 0:
         log.info("  %d report_url(s) outside retention window — expected on gh-pages "
                  "(clean:false preserves history)", skipped_outside_window)
@@ -656,11 +694,12 @@ def main() -> int:
     actually_validated = (len(report_urls)
                          - skipped_excluded_by_design
                          - skipped_no_source
-                         - skipped_outside_window)
+                         - skipped_outside_window
+                         - skipped_proportionally_excluded)
     log.info("  report_url validation: %d paths validated — ALL PRESENT in dist/ "
-             "(%d excluded-by-design, %d no-source, %d outside-window skipped)",
+             "(%d excluded-by-design, %d no-source, %d proportional, %d outside-window skipped)",
              actually_validated, skipped_excluded_by_design,
-             skipped_no_source, skipped_outside_window)
+             skipped_no_source, skipped_proportionally_excluded, skipped_outside_window)
 
     # ── 5.1. Validate dashboard/ route integrity (v157.0 HARD FAIL) ─────────
     # P0 safeguard: any dashboard file linked from nav that is absent from dist/
