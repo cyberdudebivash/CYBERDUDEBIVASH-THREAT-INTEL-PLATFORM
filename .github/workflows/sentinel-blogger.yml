@@ -1150,33 +1150,29 @@ jobs:
         run: python3 scripts/update_validation_status.py || true
 
       # -----------------------------------------------------------------------
-      # STAGE 3.3.6: SYNC REPORT URLS TO API FEED (P0 PERMANENT MANDATE v161.2)
-      # ROOT CAUSE FIX: report_generator.py writes report_url to feed_manifest.json
-      # but api/feed.json (the live dashboard/API feed) NEVER gets report_url,
-      # causing every dashboard card to show "NO DOSSIER" instead of live links.
-      # This stage:
+      # STAGE 3.3.6: SYNC REPORT URLS TO API FEED (P0 GOD-LEVEL FIX v171.0)
+      # ROOT CAUSE: report_generator.py writes report_url to feed_manifest.json
+      # but api/feed.json (the live dashboard/API feed) never gets report_url.
+      # STRATEGY (priority order):
       #   1. Reads report_url from data/stix/feed_manifest.json (post-Stage 3.2)
-      #   2. Matches items by id and syncs report_url into api/feed.json
-      #   3. Fallback: scans reports/ directory for matching HTML files by id+ts
+      #   2. Fallback: scans reports/ directory for matching HTML files by id+ts
+      #   3. Fallback: uses source_url for external advisory items (GitHub, news sites)
+      #      giving subscribers a clickable reference link instead of nothing
       #   4. Atomic write -- api/feed.json is never left in partial state
-      # Non-blocking (continue-on-error) -- pipeline proceeds even if sync fails.
+      #   5. Reports coverage % — HARD FAIL if api/feed.json write fails
+      # STAGE 3.93 (generate_api_manifests.py) runs AFTER this step and produces:
+      #   - api/v1/intel/latest.json     (FREE tier, sanitized, no report_url)
+      #   - api/v1/intel/latest_pro.json (PRO/ENTERPRISE tier, includes report_url)
+      # Worker serves latest_pro.json to PRO+ callers at /api/v1/intel/latest.json.
       # MUST RUN: after Stage 3.2 (reports generated) + before Stage 3.4.5 (schema gate).
       # -----------------------------------------------------------------------
-      - name: "STAGE 3.3.6 - Sync report_url: feed_manifest -> api/feed.json (P0 mandate)"
+      - name: "STAGE 3.3.6 - Sync report_url: feed_manifest -> api/feed.json (P0 God-Level)"
         timeout-minutes: 3
-        continue-on-error: true
         run: |
-          set +e
           python3 scripts/sync_report_urls.py
-          SYNC_EXIT=$?
-          set -e
-          if [ "$SYNC_EXIT" -eq 0 ]; then
-            WITH_URL=$(jq '[.[] | select(.report_url != null and .report_url != "")] | length' api/feed.json 2>/dev/null || echo "?")
-            TOTAL=$(jq 'length' api/feed.json 2>/dev/null || echo "?")
-            echo "[SYNC-REPORT-URLS] PASS: $WITH_URL/$TOTAL items in api/feed.json now have report_url"
-          else
-            echo "::warning::sync_report_urls.py exited $SYNC_EXIT -- report_url sync failed (pipeline continues)"
-          fi
+          WITH_URL=$(jq '[.[] | select(.report_url != null and .report_url != "")] | length' api/feed.json 2>/dev/null || echo "?")
+          TOTAL=$(jq 'length' api/feed.json 2>/dev/null || echo "?")
+          echo "[SYNC-REPORT-URLS] PASS: $WITH_URL/$TOTAL items in api/feed.json have report_url"
 
       # -----------------------------------------------------------------------
       # STAGE 3.3.7: BUILD REPORTS INDEX API ENDPOINT (P0 PERMANENT MANDATE v161.2)

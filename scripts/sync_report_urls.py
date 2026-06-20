@@ -53,6 +53,7 @@ API_FEED      = REPO_ROOT / "api" / "feed.json"
 LATEST_JSON   = REPO_ROOT / "api" / "latest.json"
 REPORTS_ROOT  = REPO_ROOT / "reports"
 BASE_URL      = os.environ.get("PLATFORM_BASE_URL", "https://intel.cyberdudebivash.com")
+REPORT_URL_COVERAGE_WARN_THRESHOLD = 50  # warn if coverage falls below 50%
 
 logging.basicConfig(
     level=logging.INFO,
@@ -242,11 +243,12 @@ def main() -> int:
     # ------------------------------------------------------------------
     # 3. Sync report_url into each api/feed.json item
     # ------------------------------------------------------------------
-    synced_from_manifest = 0
-    synced_from_disk     = 0
-    already_valid        = 0
-    not_found            = 0
-    errors               = 0
+    synced_from_manifest  = 0
+    synced_from_disk      = 0
+    synced_from_source_url = 0
+    already_valid         = 0
+    not_found             = 0
+    errors                = 0
 
     for item in feed_data:
         if not isinstance(item, dict):
@@ -287,7 +289,18 @@ def main() -> int:
                     synced_from_disk += 1
                     continue
 
-            # No report found for this item
+            # Source URL fallback: use source_url for items with no internal HTML report.
+            # Gives subscribers (GitHub Advisory, SecurityAffairs, BleepingComputer, etc.)
+            # a clickable reference link instead of an empty report_url field.
+            # Overwritten automatically in future runs if an internal HTML report is generated.
+            source_url = (item.get("source_url") or "").strip()
+            if source_url and source_url.startswith("http"):
+                item["report_url"]          = source_url
+                item["internal_report_url"] = ""  # empty: distinguishes external from internal
+                synced_from_source_url += 1
+                continue
+
+            # Genuinely no report for this item
             not_found += 1
 
         except Exception as e:
@@ -296,10 +309,10 @@ def main() -> int:
 
     elapsed = time.monotonic() - t_start
     log.info(
-        "SYNC COMPLETE: manifest=%d disk=%d already_valid=%d not_found=%d errors=%d "
+        "SYNC COMPLETE: manifest=%d disk=%d source_url=%d already_valid=%d not_found=%d errors=%d "
         "total=%d elapsed=%.1fs",
-        synced_from_manifest, synced_from_disk, already_valid,
-        not_found, errors, len(feed_data), elapsed
+        synced_from_manifest, synced_from_disk, synced_from_source_url,
+        already_valid, not_found, errors, len(feed_data), elapsed
     )
 
     # ------------------------------------------------------------------
@@ -307,13 +320,20 @@ def main() -> int:
     # ------------------------------------------------------------------
     total_with_report = sum(
         1 for it in feed_data
-        if isinstance(it, dict) and _is_valid_report_url(it.get("report_url") or "")
+        if isinstance(it, dict) and (it.get("report_url") or "").strip()
     )
+    coverage_pct = 100 * total_with_report / max(len(feed_data), 1)
     log.info(
-        "api/feed.json post-sync: %d/%d items have report_url (%.0f%%)",
-        total_with_report, len(feed_data),
-        100 * total_with_report / max(len(feed_data), 1)
+        "api/feed.json post-sync: %d/%d items have report_url (%.0f%% coverage)",
+        total_with_report, len(feed_data), coverage_pct
     )
+    if coverage_pct < REPORT_URL_COVERAGE_WARN_THRESHOLD:
+        log.warning(
+            "report_url coverage %.0f%% is below %d%% threshold — "
+            "%d items have no report link (check report generation stages)",
+            coverage_pct, REPORT_URL_COVERAGE_WARN_THRESHOLD,
+            len(feed_data) - total_with_report
+        )
 
     if not _atomic_write(API_FEED, feed_data):
         log.error("FATAL: failed to write api/feed.json — sync aborted")
