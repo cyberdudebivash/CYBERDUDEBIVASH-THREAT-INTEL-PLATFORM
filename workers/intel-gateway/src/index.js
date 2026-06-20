@@ -1394,7 +1394,7 @@ async function handleCopilot(request, env, auth, method, path) {
     return jsonResp({ error: "Invalid JSON body" }, 400);
   }
 
-  const question   = (body.question || body.query || "").trim();
+  const question   = (body.question || body.query || "").trim().slice(0, 2000);
   const mode       = COPILOT_ALL_MODES.has(body.mode) ? body.mode : "explain_threat";
   const threatData = body.threat_data || null;
 
