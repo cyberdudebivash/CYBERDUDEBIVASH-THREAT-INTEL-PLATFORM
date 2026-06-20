@@ -1492,9 +1492,9 @@ async function handleCopilot(request, env, auth, method, path) {
 // =============================================================================
 
 const RAZORPAY_TIER_PRICES = {
-  PRO:        { monthly: 399900,   annual: 3999000,   label: "Sentinel APEX PRO" },
-  ENTERPRISE: { monthly: 3999900,  annual: 39999000,  label: "Sentinel APEX ENTERPRISE" },
-  MSSP:       { monthly: 15999900, annual: 159999000, label: "Sentinel APEX MSSP" },
+  PRO:        { monthly: 410000,    annual: 4100000,    label: "Sentinel APEX PRO" },
+  ENTERPRISE: { monthly: 4160000,   annual: 41600000,   label: "Sentinel APEX ENTERPRISE" },
+  MSSP:       { monthly: 16660000,  annual: 166600000,  label: "Sentinel APEX MSSP" },
 };
 
 async function provisionApiKey(env, ctx, tier, email, source, metadata) {

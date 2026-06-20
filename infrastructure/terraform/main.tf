@@ -53,7 +53,17 @@ variable "environment" {
 variable "platform_version" {
   description = "Sentinel APEX version tag"
   type        = string
-  default     = "162.0"
+  default     = "182.0"
+}
+
+variable "allowed_admin_cidrs" {
+  description = "CIDR blocks permitted to access the EKS control plane API endpoint. Must include CI/CD runner IPs and admin workstation ranges. Never use 0.0.0.0/0 in production."
+  type        = list(string)
+  default     = []
+  validation {
+    condition     = !contains(var.allowed_admin_cidrs, "0.0.0.0/0")
+    error_message = "allowed_admin_cidrs must not contain 0.0.0.0/0 — restrict to known admin/CI CIDRs."
+  }
 }
 
 variable "primary_region"   { default = "us-east-1" }
@@ -172,7 +182,7 @@ module "eks_primary" {
   # Control plane access
   cluster_endpoint_public_access  = true
   cluster_endpoint_private_access = true
-  cluster_endpoint_public_access_cidrs = ["0.0.0.0/0"]  # Lock down in prod
+  cluster_endpoint_public_access_cidrs = var.allowed_admin_cidrs  # Defined in variables.tf — restrict to CI/CD runner IPs and admin CIDRs
 
   # Encryption
   cluster_encryption_config = {
@@ -419,28 +429,20 @@ resource "aws_wafv2_web_acl" "sentinel" {
 
   default_action { allow {} }
 
-  # Rate limiting rule: 2000 req/5min per IP for free tier
+  # Rate limiting rule: 2000 req/5min per IP — applied unconditionally (no client-header bypass)
   rule {
-    name     = "RateLimitFree"
+    name     = "RateLimitGlobal"
     priority = 10
     action { block {} }
     statement {
       rate_based_statement {
         limit              = 2000
         aggregate_key_type = "IP"
-        scope_down_statement {
-          byte_match_statement {
-            search_string = "X-APEX-Tier: free"
-            field_to_match { single_header { name = "x-apex-tier" } }
-            text_transformations { priority = 0; type = "LOWERCASE" }
-            positional_constraint = "EXACTLY"
-          }
-        }
       }
     }
     visibility_config {
       cloudwatch_metrics_enabled = true
-      metric_name                = "SentinelRateLimitFree"
+      metric_name                = "SentinelRateLimitGlobal"
       sampled_requests_enabled   = true
     }
   }

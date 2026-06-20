@@ -1,7 +1,7 @@
 # Security Policy — CYBERDUDEBIVASH(R) SENTINEL APEX
 
-**Platform Version:** v180.0 (ENTERPRISE-HARDENING)
-**Last Updated:** 2026-06-14
+**Platform Version:** v182.0 (ENTERPRISE-HARDENING)
+**Last Updated:** 2026-06-20
 **Contact:** security@cyberdudebivash.com
 
 ---
@@ -10,7 +10,7 @@
 
 | Version | Supported | Notes |
 |---------|-----------|-------|
-| 180.x   | Yes       | Current production — enterprise hardened |
+| 182.x   | Yes       | Current production — enterprise hardened |
 | 170.x   | Yes       | Supported with backport patches |
 | < 170.0 | No        | End of life |
 
@@ -43,7 +43,7 @@
 
 ---
 
-## Security Controls (v180.0)
+## Security Controls (v182.0)
 
 ### Authentication
 
@@ -86,7 +86,7 @@ X-Content-Type-Options: nosniff
 X-Frame-Options: DENY
 Referrer-Policy: strict-origin-when-cross-origin
 Permissions-Policy: geolocation=(), camera=(), microphone=(), payment=(), usb=()
-X-Sentinel-Version: 180.0
+X-Sentinel-Version: 182.0
 X-Sentinel-Platform: CYBERDUDEBIVASH-SENTINEL-APEX
 ```
 

@@ -1,6 +1,6 @@
 /**
  * dashboard_repository_adapter.js
- * CYBERDUDEBIVASH(R) SENTINEL APEX v171.0
+ * CYBERDUDEBIVASH(R) SENTINEL APEX v182.0
  * Dashboard Repository Adapter
  * ==============================
  * Intercepts dashboard metric requests and routes them to the
@@ -41,7 +41,7 @@ class DashboardRepositoryAdapter {
     this.options = options;
     this._cache  = {};
     this._cacheTs = {};
-    this.ADAPTER_VERSION = "171.0";
+    this.ADAPTER_VERSION = "182.0";
   }
 
   /**
