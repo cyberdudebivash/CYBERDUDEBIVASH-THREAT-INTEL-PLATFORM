@@ -160,11 +160,20 @@ app = FastAPI(
     openapi_url="/api/openapi.json",
 )
 
+_ALLOWED_ORIGINS = [o.strip() for o in os.getenv(
+    "CORS_ORIGINS",
+    "https://intel.cyberdudebivash.com,https://app.cyberdudebivash.com,"
+    "https://cyberdudebivash.com,https://www.cyberdudebivash.com,"
+    "https://dashboard.cyberdudebivash.com"
+).split(",") if o.strip()]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_methods=["GET", "POST"],
-    allow_headers=["*"],
+    allow_origins=_ALLOWED_ORIGINS,
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "X-API-Key", "Content-Type", "Accept", "X-Request-ID"],
+    allow_credentials=True,
+    max_age=600,
 )
 
 # ── Phase 3: Version + platform headers on every response ─────────────────
@@ -242,10 +251,18 @@ def _load_router_safe(module_name: str, file_name: str, attr: str, label: str) -
             logger.warning(f"[API] {label} registration failed: {_err}")
             _router_status[label] = False
 
-_load_router_safe("user_auth",    "user_auth.py",    "auth_router",       "auth")
-_load_router_safe("copilot",      "copilot.py",      "copilot_router",    "copilot")
-_load_router_safe("alerts",       "alerts.py",       "alerts_router",     "alerts")
-_load_router_safe("monetization", "monetization.py", "router",            "monetize")
+_load_router_safe("user_auth",         "user_auth.py",         "auth_router",          "auth")
+_load_router_safe("copilot",           "copilot.py",           "copilot_router",       "copilot")
+_load_router_safe("alerts",            "alerts.py",            "alerts_router",        "alerts")
+_load_router_safe("monetization",      "monetization.py",      "router",               "monetize")
+
+# ── God Mode — Billion-Dollar Production Modules (v2.0) ─────────────────────
+_load_router_safe("brand_protection",  "brand_protection.py",  "brand_router",         "brand-protection")
+_load_router_safe("vendor_risk",       "vendor_risk.py",       "vendor_risk_router",   "vendor-risk")
+_load_router_safe("geopolitical",      "geopolitical.py",      "geopolitical_router",  "geopolitical")
+_load_router_safe("taxii",             "taxii.py",             "taxii_router",         "taxii")
+_load_router_safe("nlq",               "nlq.py",               "nlq_router",           "nlq")
+_load_router_safe("incident_response", "incident_response.py", "incident_router",      "incidents")
 
 # ── Stability: health + metrics endpoints ────────────────────────────────────
 try:
@@ -579,14 +596,21 @@ async def root():
         "store":    STORE_URL,
         "docs":     "/api/docs",
         "endpoints": {
-            "feed":    "/api/v1/intel/feed",
-            "latest":  "/api/v1/intel/latest",
-            "search":  "/api/v1/intel/search",
-            "advisory":"/api/v1/intel/{stix_id}",
-            "iocs":    "/api/v1/iocs",
-            "stats":   "/api/v1/stats",
-            "stix":    "/api/v1/stix/{stix_id}",
-            "health":  "/api/health",
+            "feed":             "/api/v1/intel/feed",
+            "latest":           "/api/v1/intel/latest",
+            "search":           "/api/v1/intel/search",
+            "advisory":         "/api/v1/intel/{stix_id}",
+            "iocs":             "/api/v1/iocs",
+            "stats":            "/api/v1/stats",
+            "stix":             "/api/v1/stix/{stix_id}",
+            "health":           "/api/health",
+            "copilot":          "/api/v1/copilot/query",
+            "nlq":              "/api/v1/nlq/query",
+            "incidents":        "/api/v1/incidents/",
+            "brand_protection": "/api/v1/brand/scan",
+            "vendor_risk":      "/api/v1/vendor-risk/assess",
+            "geopolitical":     "/api/v1/geopolitical/landscape",
+            "taxii":            "/taxii2/",
         }
     })
 
