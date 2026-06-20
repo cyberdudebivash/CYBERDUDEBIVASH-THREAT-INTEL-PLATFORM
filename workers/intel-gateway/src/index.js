@@ -1,8 +1,23 @@
 /**
- * CYBERDUDEBIVASH(R) SENTINEL APEX  -  Cloudflare Worker v180.0
+ * CYBERDUDEBIVASH(R) SENTINEL APEX  -  Cloudflare Worker v182.0
  * intel-gateway/src/index.js
  *
- * ENTERPRISE PRODUCTION HARDENING v180.0
+ * v182.0 PAYMENT-GODMODE-HARDENING (2026-06-20)
+ * - Razorpay payment pipeline: /api/payments/razorpay/verify + webhook
+ * - HMAC-SHA256 constant-time webhook signature verification (crypto.subtle)
+ * - Idempotency guard: KV key rzp_verified:{payment_id} prevents replay attacks
+ * - Webhook dedup: rzp_webhook:{payment_id} prevents double-provisioning on
+ *   payment.captured + order.paid events
+ * - Gumroad webhook URL token auth: GUMROAD_WEBHOOK_SECRET ?secret= guard
+ * - Gumroad idempotency: gumroad_sale:{sale_id} dedup in SECURITY_HUB_KV
+ * - 5 God Mode Worker modules: Brand Protection, Vendor Risk, Geopolitical Risk,
+ *   NLP Query (NLQ), Incident Response (NIST SP 800-61r3)
+ * - NLQ falsy-zero fix: min_cvss/min_risk filters now use != null (not !f.x)
+ * - Incident Response KV pagination: cursor loop, 1000-item safety cap
+ * - MSSP tier: RATE_LIMITS.MSSP = 1200 req/15min, TIERS.MSSP added
+ * - AI Copilot v3.0: DeepSeek R1+V3 -> GROQ -> OpenRouter -> deterministic fallback
+ *
+ * ENTERPRISE PRODUCTION HARDENING v180.0 (preserved)
  * - Real JWT HS256 (crypto.subtle HMAC-SHA256) - no more fake 16-char check
  * - API key validation against API_KEYS_KV
  * - Brute-force lockout: 5 failures -> 15-min IP lockout (RATE_LIMIT_KV)
