@@ -94,7 +94,7 @@ permissions:
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-  PIPELINE_VERSION: "182.0"
+  PIPELINE_VERSION: "183.0"
   PYTHONIOENCODING: "utf-8"
   PYTHONUTF8: "1"
 
@@ -2786,14 +2786,14 @@ jobs:
         run: python3 scripts/production_release_gates.py
 
       # -----------------------------------------------------------------------
-      # STAGE 5.9.3 — PIPELINE HEALTH TERMINAL GATE (v182.0 HARD FAIL)
+      # STAGE 5.9.3 — PIPELINE HEALTH TERMINAL GATE (v183.0 HARD FAIL)
       # Fails the CI job if Stage 1-3 produced no new intel (DEGRADED).
       # Runs AFTER gh-pages deploy so existing content continues to serve.
       # A red CI run ensures PagerDuty/alerting fires; operators investigate.
       # Root-cause fix: previously DEGRADED runs showed green CI, masking
       # complete intel generation failures for up to 4-hour pipeline cycles.
       # -----------------------------------------------------------------------
-      - name: "STAGE 5.9.3 - Pipeline Health Terminal Gate (v182.0)"
+      - name: "STAGE 5.9.3 - Pipeline Health Terminal Gate (v183.0)"
         if: always()
         run: |
           if [ "${PIPELINE_HEALTH}" = "DEGRADED" ]; then

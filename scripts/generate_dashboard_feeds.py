@@ -156,6 +156,21 @@ def load_feed(paths):
     return []
 
 # ── Compute stats ──────────────────────────────────────────────────────────────
+def _get_effective_severity(item):
+    """v184.0 G7 FIX: enforce v149 False-CRITICAL rule in dashboard stats."""
+    s = str(item.get("severity") or "INFO").upper()
+    if s == "CRITICAL":
+        kev  = bool(item.get("kev_present") or item.get("kev"))
+        cvss = float(item.get("cvss_score") or 0)
+        epss = float(item.get("epss_score") or 0)
+        risk = float(item.get("risk_score") or 0)
+        if not (kev or cvss >= 9.0 or epss >= 0.70 or risk >= 8.5):
+            if risk >= 6.5: return "HIGH"
+            if risk >= 4.0: return "MEDIUM"
+            return "LOW"
+    return s
+
+
 def compute_stats(items):
     sev = Counter()
     total_risk = 0.0
@@ -164,12 +179,14 @@ def compute_stats(items):
     latest_sync = ""
 
     for item in items:
-        s = str(item.get("severity") or "INFO").upper()
+        # v184.0 G7 FIX: use validated severity (enforces v149 rule)
+        s = _get_effective_severity(item)
         sev[s] += 1
         total_risk += float(item.get("risk_score") or 0)
         # GOVERNANCE: use the ioc_count from source; never zero it ourselves
         total_iocs += int(item.get("ioc_count") or 0)
-        if item.get("kev_present"):
+        # v184.0 G4 FIX: read KEV from all possible field names
+        if item.get("kev_present") or item.get("kev") or item.get("kev_status"):
             kev_count += 1
         pub = str(item.get("published_at") or item.get("published") or "")
         if pub > latest_sync:
@@ -252,7 +269,8 @@ def build_apex(items, stats):
                 "published":   item.get("published_at") or item.get("published"),
                 "cve_ids":     item.get("cve_ids", []),
                 "ioc_count":   item.get("ioc_count", 0),
-                "kev_present": bool(item.get("kev_present")),
+                # v184.0 G4 FIX: read KEV from all field names for cross-source consistency
+                "kev_present": bool(item.get("kev_present") or item.get("kev") or item.get("kev_status")),
                 "tags":        item.get("tags", [])[:6],
                 "epss_score":  item.get("epss_score"),
                 "attck_techniques": item.get("attck_techniques", item.get("tags", []))[:4],
