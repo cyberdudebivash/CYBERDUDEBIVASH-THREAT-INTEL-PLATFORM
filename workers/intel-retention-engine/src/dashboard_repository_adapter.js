@@ -41,7 +41,7 @@ class DashboardRepositoryAdapter {
     this.options = options;
     this._cache  = {};
     this._cacheTs = {};
-    this.ADAPTER_VERSION = "182.0";
+    this.ADAPTER_VERSION = "183.0";
   }
 
   /**

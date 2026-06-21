@@ -6,7 +6,7 @@
 // =============================================================================
 
 const ENGINE = {
-  VERSION:  "182.0",
+  VERSION:  "183.0",
   NAME:     "SENTINEL-REVENUE-ENGINE",
   PLANS: {
     pro:        { name: "Pro",        inr: 4100,  usd: 49,  annual_inr: 41000,  annual_usd: 490  },
@@ -426,7 +426,7 @@ async function handleLiveDemoEndpoint(request, env, rid) {
     status:       "demo_active",
     demo_for:     demo.company,
     platform:     "CYBERDUDEBIVASH® SENTINEL APEX",
-    version:      "182.0",
+    version:      "183.0",
     demo_features: ["Real-time threat intelligence", "AI-powered IOC extraction", "STIX 2.1 export", "SIEM integration", "Actor attribution"],
     sample_threats: threatData,
     enterprise_benefits: {
