@@ -197,44 +197,54 @@ def run_checks(manifest: Dict, retention_days: int = 0) -> Tuple[int, int]:
         )
 
     # CHECK 6: All report_url feed paths exist in dist/
-    # v182.2: In retention mode, api/feed.json is rebuilt from R2 and contains
-    # ALL historical URLs — including those outside the retention window and those
-    # proportionally excluded from the boundary month.  manifest_files is the
-    # authoritative record of what build_dist_artifact.py put in dist/;  CHECK 2
-    # already verifies every manifest entry exists on disk.  Therefore:
-    #   - URL not in dist/ AND not in manifest_files → excluded by builder (outside
-    #     window or proportional selection) → not a failure in retention mode.
-    #   - URL not in dist/ AND in manifest_files → genuine copy failure → HARD FAIL.
-    #   - Full-copy mode (retention_days==0): every feed URL must be in dist/.
+    # v183.0: build_dist_artifact.py v183.0 force-includes ALL current-run
+    # feed.json report_url files that have a local source in reports/.  After
+    # that fix, ANY feed URL that has a local source AND is absent from dist/
+    # is a genuine copy failure — HARD FAIL regardless of retention mode.
+    #
+    # Files legitimately absent from dist/ are historical reports that have no
+    # local source in the current working tree (generated in a prior pipeline run
+    # and already live on gh-pages; they also lack a manifest entry).
+    #
+    # Logic:
+    #   - dist_path EXISTS                        → OK (present, pass)
+    #   - dist_path ABSENT + no local source      → historical, builder-excluded, OK
+    #   - dist_path ABSENT + local source EXISTS  → force-include should have caught
+    #     this; if we still see it here it is a genuine copy failure → HARD FAIL
     feed_urls = load_report_urls_from_feeds()
     missing_urls: List[str] = []
-    skipped_builder_excluded: int = 0
+    skipped_no_local_source: int = 0
 
     for ru in feed_urls:
         rel = ru.lstrip("/")
         dist_path = DIST_DIR / rel
         if dist_path.exists():
             continue
-        # Missing from dist/ — was it supposed to be there?
-        if retention_days > 0 and rel not in manifest_files:
-            # Builder did not include this file (outside retention window or
-            # proportionally excluded from boundary month). Not a failure.
-            skipped_builder_excluded += 1
+        # Missing from dist/.  Determine if the source file exists locally.
+        local_src = REPO_ROOT / rel
+        if not local_src.exists():
+            # No local source — this is a historical report already live on
+            # gh-pages (clean:false) from a prior run.  Not a failure.
+            skipped_no_local_source += 1
         else:
+            # Local source EXISTS but file is missing from dist/.
+            # build_dist_artifact.py v183.0 force_include_feed_reports() should
+            # have copied this.  Its absence here means the force-include step
+            # failed or was skipped — treat as a HARD FAIL.
             missing_urls.append(ru)
 
     if missing_urls:
         fail(
-            f"{len(missing_urls)} report_url path(s) from feeds MISSING in dist/: "
-            f"{missing_urls[:5]}..."
+            f"{len(missing_urls)} report_url path(s) have local source but are "
+            f"MISSING from dist/ (force-include failed): {missing_urls[:5]}..."
         )
     else:
-        actually_validated = len(feed_urls) - skipped_builder_excluded
-        if retention_days > 0 and skipped_builder_excluded > 0:
+        actually_validated = len(feed_urls) - skipped_no_local_source
+        if skipped_no_local_source > 0:
             ok(
-                f"All {actually_validated} in-dist report_url feed paths verified "
-                f"({skipped_builder_excluded} feed URL(s) excluded by builder -- "
-                f"outside retention window or proportional boundary-month selection)"
+                f"All {actually_validated} local-source report_url feed paths present "
+                f"in dist/ ({skipped_no_local_source} historical/prior-run URL(s) "
+                f"have no local source — already live on gh-pages)"
             )
         else:
             ok(f"All {len(feed_urls)} report_url feed paths present in dist/")
