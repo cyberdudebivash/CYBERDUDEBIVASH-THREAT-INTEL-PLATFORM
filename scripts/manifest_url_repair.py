@@ -35,8 +35,17 @@ def main() -> int:
             for item in items:
                 for key in ("stix_id", "id"):
                     v = item.get(key, "")
-                    if v and item.get("report_url"):
-                        url_map[v] = item["report_url"]
+                    ru = item.get("report_url", "")
+                    # V11 guard: only copy internal /reports/... URLs.
+                    # External source_url fallbacks (github.com, bleepingcomputer.com,
+                    # etc.) set by sync_report_urls.py must NOT propagate into
+                    # feed_manifest.json — validate_repo.py V11 hard-fails on them.
+                    _is_internal = (
+                        ru and "reports/" in ru and
+                        not (ru.startswith("http") and "cyberdudebivash" not in ru)
+                    )
+                    if v and _is_internal:
+                        url_map[v] = ru
         except Exception as e:
             print(f"[5.9.1] WARN: cannot parse api/feed.json: {e}", flush=True)
 
