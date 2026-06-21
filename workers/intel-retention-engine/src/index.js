@@ -21,7 +21,7 @@
 
 import { DashboardRepositoryAdapter } from "./dashboard_repository_adapter.js";
 
-const ENGINE_VERSION = "182.0";
+const ENGINE_VERSION = "183.0";
 const GITHUB_RAW_BASE =
   "https://raw.githubusercontent.com/cyberdudebivash/CYBERDUDEBIVASH-THREAT-INTEL-PLATFORM/main";
 

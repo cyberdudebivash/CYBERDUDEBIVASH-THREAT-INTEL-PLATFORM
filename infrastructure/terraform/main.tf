@@ -53,7 +53,7 @@ variable "environment" {
 variable "platform_version" {
   description = "Sentinel APEX version tag"
   type        = string
-  default     = "182.0"
+  default     = "183.0"
 }
 
 variable "allowed_admin_cidrs" {
