@@ -61,20 +61,33 @@ def main() -> int:
     m_list = (raw_m if isinstance(raw_m, list)
               else raw_m.get("advisories", raw_m.get("items", [])))
 
-    # Repair missing report_url entries
+    def _is_external(url: str) -> bool:
+        return bool(url and url.startswith("http") and "cyberdudebivash" not in url)
+
+    # Repair missing OR external report_url entries (V11 P0 REGRESSION guard)
     repaired = 0
+    cleared = 0
     for item in m_list:
-        if not item.get("report_url"):
-            for key in ("stix_id", "id"):
-                v = item.get(key, "")
-                if v and url_map.get(v):
-                    item["report_url"] = url_map[v]
-                    repaired += 1
-                    break
+        current_url = item.get("report_url", "")
+        needs_repair = (not current_url) or _is_external(current_url)
+        if not needs_repair:
+            continue
+        found_internal = False
+        for key in ("stix_id", "id"):
+            v = item.get(key, "")
+            if v and url_map.get(v):
+                item["report_url"] = url_map[v]
+                repaired += 1
+                found_internal = True
+                break
+        if not found_internal and _is_external(current_url):
+            # No internal URL available — clear the external URL to satisfy V11
+            item["report_url"] = ""
+            cleared += 1
 
-    print(f"[5.9.1] Repaired report_url on {repaired} manifest items", flush=True)
+    print(f"[5.9.1] Repaired report_url on {repaired} items, cleared external on {cleared} items", flush=True)
 
-    if repaired == 0:
+    if repaired == 0 and cleared == 0:
         print("[5.9.1] COMPLETE -- no repairs needed", flush=True)
         return 0
 
