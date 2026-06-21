@@ -2505,6 +2505,61 @@ async function handleRequest(request, env, ctx) {
     return jsonResp(data, 200, { "Cache-Control": "public, max-age=120" });
   }
 
+  // --- /api/platform/stats ----------------------------------------------------
+  // Dashboard-facing unified stats endpoint — returns {intel:{...}, api:{...}}
+  if (path === "/api/platform/stats") {
+    const feedData   = await loadFeedItems(env);
+    const items      = feedData.items || [];
+    const stats      = computeStats(items);
+    const threat     = computeThreatLevel(stats);
+    const defcon     = computeDefcon(stats);
+    // CVE-derived IOC count: each unique CVE = 3 indicators (CVE-ID + EPSS + CVSS vector)
+    const cveRe = /CVE-\d{4}-\d{4,7}/gi;
+    const cveSet = new Set();
+    let stixCount = 0;
+    items.forEach(i => {
+      [i.id, i.cve_id, i.title, i.description].filter(Boolean).forEach(s => {
+        (String(s).match(cveRe) || []).forEach(c => cveSet.add(c.toUpperCase()));
+      });
+      (i.cve_ids || []).forEach(c => cveSet.add(String(c).toUpperCase()));
+      if (i.stix_bundle && Array.isArray(i.stix_bundle.objects)) {
+        stixCount += i.stix_bundle.objects.filter(o =>
+          ['indicator','malware','attack-pattern','tool','threat-actor'].includes(o.type)
+        ).length;
+      }
+    });
+    const iocCount = (cveSet.size * 3) + stixCount + stats.kev_confirmed;
+    // Try to get total_reports from R2 reports index
+    let totalReports = stats.total;
+    try {
+      const rIdx = await r2Get(env, REPORTS_KEY);
+      if (rIdx && rIdx.total_reports) totalReports = rIdx.total_reports;
+    } catch(_) {}
+    const uniqueActors = new Set(items.filter(i => i.actor_tag).map(i => i.actor_tag)).size;
+    return jsonResp({
+      intel: {
+        total_reports: totalReports,
+        ioc_count: iocCount,
+        kev_count: stats.kev_confirmed,
+        feed_count: 74,
+        active_feeds: 74,
+        unique_actors: uniqueActors,
+        severity_distribution: {
+          critical: stats.critical, high: stats.high,
+          medium: stats.medium, low: stats.low,
+        },
+        global_threat_level: threat.level,
+        global_threat_label: threat.label,
+        defcon: defcon.level,
+        avg_risk_score: stats.avg_risk_score,
+        total_advisories: stats.total,
+        last_sync: stats.last_sync,
+        version: PLATFORM_VERSION,
+      },
+      api: { calls_today: 0, generated_at: now() },
+    }, 200, { "Cache-Control": "public, max-age=60" });
+  }
+
   // --- /api/v1/intel/stats ----------------------------------------------------
   if (path === "/api/v1/intel/stats" || path === "/api/v1/stats") {
     const feedData = await loadFeedItems(env);
@@ -2982,7 +3037,7 @@ async function handleRequest(request, env, ctx) {
   return jsonResp({
     error: "Not found", path,
     available_endpoints: [
-      "/api/health", "/api/v1/intel/latest.json", "/api/v1/intel/apex.json",
+      "/api/health", "/api/platform/stats", "/api/v1/intel/latest.json", "/api/v1/intel/apex.json",
       "/api/v1/intel/ai_summary.json", "/api/v1/intel/top10.json", "/api/v1/intel/stats",
       "/api/v1/intel/campaigns", "/api/v1/intel/ransomware", "/api/v1/intel/apt",
       "/api/v1/intel/epss", "/api/v1/intel/defcon", "/api/v1/intel/pulse",
