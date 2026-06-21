@@ -1256,8 +1256,10 @@ def build_report_sections(item: dict) -> str:
     feed        = str(item.get("feed_source") or item.get("source") or "SENTINEL-APEX")
     cvss        = item.get("cvss_score")
     epss        = item.get("epss_score")
-    kev         = bool(item.get("kev_present", False))
-    risk        = float(item.get("risk_score") or 0)
+    # v184.0 G4 FIX: read KEV from all possible field names for consistency
+    kev         = bool(item.get("kev_present") or item.get("kev") or item.get("kev_status"))
+    # v184.0 G9 FIX: use composite APEX risk_score (not CVSS) as authoritative risk metric
+    risk        = float(item.get("risk_score") or item.get("cvss_score") or 0)
     ttps        = item.get("ttps") or item.get("mitre_tactics") or []
     iocs        = item.get("iocs") or []
     # P0 FIX v134.0: IOC enforcement + confidence scoring pipeline
@@ -2036,7 +2038,8 @@ def render_report(item: dict, public_prefix: str) -> str:
     ts       = _fmt_ts(str(item.get("processed_at") or item.get("timestamp") or ""))
     intel_id = str(item.get("id") or "intel--unknown")
     tlp      = str(item.get("tlp") or "TLP:CLEAR").replace(":", "-")
-    risk     = item.get("risk_score") or 0
+    # v184.0 G9 FIX: use composite APEX risk_score as authoritative metric (not CVSS alone)
+    risk     = float(item.get("risk_score") or item.get("cvss_score") or 0)
     tags     = item.get("tags") or []
     # v166.3-FIX: include year/month in canonical report URL (was missing → 404)
     _yyyy, _mm = iso_path(item.get("processed_at") or item.get("timestamp") or utc_now_iso())
@@ -2060,7 +2063,8 @@ def render_report(item: dict, public_prefix: str) -> str:
     _cvss_disp   = str(item["cvss_score"]) if item.get("cvss_score") is not None else "N/A"
     _epss_disp   = str(item["epss_score"]) if item.get("epss_score") is not None else "N/A"
     _epss_pct    = "%" if item.get("epss_score") is not None else ""
-    _kev         = bool(item.get("kev_present"))
+    # v184.0 G4 FIX: read KEV from all possible field names for cross-source consistency
+    _kev         = bool(item.get("kev_present") or item.get("kev") or item.get("kev_status"))
     _kev_disp    = "YES &#x26A0;" if _kev else "No"
     _feed_src    = str(item.get("feed_source") or item.get("source") or "SENTINEL APEX")[:40]
     _urgency_cls = ("IMMEDIATE" if sev in ("CRITICAL", "HIGH") else
