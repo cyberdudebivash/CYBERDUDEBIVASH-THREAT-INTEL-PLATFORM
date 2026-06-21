@@ -1173,6 +1173,26 @@ def enforce_schema(entry: Dict) -> Dict:
         if not val or not str(val).strip():
             entry[field] = f"UNKNOWN_{field.upper()}"
 
+    # 7. V11 P0 REGRESSION guard: report_url MUST NEVER be an external
+    #    non-cyberdudebivash URL.  validate_repo.py V11 fires on exactly this
+    #    condition: startswith("http") AND "cyberdudebivash" not in url.
+    #    Root cause: sync_report_urls.py sets source_url (GitHub Advisories,
+    #    BleepingComputer, etc.) as fallback report_url in api/feed.json.
+    #    manifest_url_repair.py then copies those external URLs into
+    #    feed_manifest.json, which persists to R2 and re-appears next run.
+    #    Fix: clear any external report_url here so Stage 3.9's
+    #    enforce_schema_list() always produces a V11-clean feed_manifest.json.
+    _ru = entry.get("report_url", "")
+    if _ru and isinstance(_ru, str) and _ru.startswith("http") and "cyberdudebivash" not in _ru:
+        entry["report_url"] = ""
+        _iru = entry.get("internal_report_url", "")
+        if _iru and isinstance(_iru, str) and _iru.startswith("http") and "cyberdudebivash" not in _iru:
+            entry["internal_report_url"] = ""
+        log.debug(
+            "enforce_schema: V11 guard cleared external report_url '%s' on item %s",
+            _ru[:80], entry.get("id", "?"),
+        )
+
     return entry
 
 
