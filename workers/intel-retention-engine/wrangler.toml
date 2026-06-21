@@ -1,0 +1,45 @@
+name               = "sentinel-intel-retention"
+main               = "src/index.js"
+compatibility_date = "2025-09-01"
+
+# Intel Retention Engine — Cloudflare Worker
+# Exposes the Intelligence Repository as a stable metrics API.
+# Dashboard reads /api/v2/repository/* to get cumulative advisory counts.
+#
+# Route is more specific than intel-gateway's /api/* so it takes precedence.
+# Cloudflare resolves longest-match first: /api/v2/repository/* wins over /api/*
+#
+# Deploy:
+#   npx wrangler deploy
+# Required secrets (none — reads publicly-accessible R2 objects)
+
+[vars]
+ENGINE_VERSION = "182.0"
+
+# Route: more specific than intel-gateway /api/* (longest match wins)
+routes = [
+  { pattern = "intel.cyberdudebivash.com/api/v2/repository/*", zone_name = "cyberdudebivash.com" },
+]
+
+# Cron: cache warm every 4h (aligned with sentinel-blogger schedule)
+[triggers]
+crons = ["0 */4 * * *"]
+
+# INTEL_R2: Primary intel storage — same bucket as intel-gateway.
+# Both workers read from sentinel-apex-data (read-only from this worker).
+# Data is written by Python pipeline (Stage 3.5 R2 upload).
+[[r2_buckets]]
+binding     = "INTEL_R2"
+bucket_name = "sentinel-apex-data"
+
+# ── Production environment ────────────────────────────────────────────────────
+[env.production]
+name = "sentinel-intel-retention"
+
+routes = [
+  { pattern = "intel.cyberdudebivash.com/api/v2/repository/*", zone_name = "cyberdudebivash.com" },
+]
+
+[[env.production.r2_buckets]]
+binding     = "INTEL_R2"
+bucket_name = "sentinel-apex-data"
