@@ -6278,7 +6278,18 @@
                 }).slice(0,5);
                 if(!top.length) top = items.slice(0,5);
                 el.innerHTML = top.map(function(it){
-                    var sev   = (it.severity||it.risk_level||'INFO').toUpperCase();
+                    // v184.0 G13 FIX: apply v149 False-CRITICAL rule (same as getSeverity)
+                    var _rawSev = (it.severity||it.risk_level||'INFO').toUpperCase();
+                    var sev = _rawSev;
+                    if (_rawSev === 'CRITICAL') {
+                        var _kev  = !!(it.kev_present || it.kev);
+                        var _cvss = parseFloat(it.cvss_score || 0);
+                        var _epss = parseFloat(it.epss_score || 0);
+                        var _risk = parseFloat(it.risk_score || 0);
+                        if (!(_kev || _cvss >= 9.0 || _epss >= 0.70 || _risk >= 8.5)) {
+                            sev = _risk >= 6.5 ? 'HIGH' : _risk >= 4.0 ? 'MEDIUM' : 'LOW';
+                        }
+                    }
                     var c     = sevColor[sev]||'var(--accent)';
                     var bg    = sevBg[sev]||'rgba(0,212,170,0.05)';
                     var title = (it.title||it.name||it.id||'UNKNOWN').substring(0,72);
@@ -8839,7 +8850,7 @@
 
         // ── v117.0.0: Version sync from version.json ──────────────────────────
         // ── Single platform version constant (v142.3) ─────────────────────────
-        const PLATFORM_VERSION = '182.0';  // GOVERNANCE: platform version only — never inject CI pipeline version here
+        const PLATFORM_VERSION = '183.0';  // GOVERNANCE: platform version only — never inject CI pipeline version here
 
         (function syncVersion() {
             // Apply version to all version elements
@@ -11674,6 +11685,11 @@ ${item.stix_object_count != null ? `<div class="apex-kv" style="margin-top:4px;"
             return ta.value;
         }
         function exportCSV() {
+            // v184.0 G14 FIX: guard against empty data — prevents blank CSV download
+            if (!manifestData || !manifestData.length) {
+                alert('Threat feed is still loading. Please wait a moment and try again.');
+                return;
+            }
             const headers = ['Title', 'Risk Score', 'Severity', 'TLP', 'Confidence', 'Actor', 'CVSS', 'EPSS', 'KEV', 'Blog URL', 'Source URL', 'Timestamp'];
             const rows = manifestData.map(d => [
                 `"${decodeHtmlEntities(d.title || '').replace(/"/g, '""')}"`,
@@ -12161,7 +12177,7 @@ function renderTopThreats(data) {
             // Root cause of v101.0.0 regression: api/status.json non-ok response → null → hardcoded '101.0.0'
             // Fix: read version.json (always correct) first; hard fallback is CURRENT version not stale one
             (async function _syncEngineVersion() {
-                const CURRENT_VER = '182.0';
+                const CURRENT_VER = '183.0';
                 const _setVer = function(v) {
                     const el = document.getElementById('engine-version-display');
                     if (el) el.textContent = 'CYBERDUDEBIVASH APEX v' + v;
