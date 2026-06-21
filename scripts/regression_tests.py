@@ -18,6 +18,7 @@ Tests cover:
   T10  no null bytes in critical scripts
   T11  STIX bundles directory has files
   T12  CI workflow YAML parses cleanly + no inline Python heredocs regression
+  T21  v183.0 guard: all feed.json local-source report_urls present in dist/reports/
 
 Exit codes:
   0 = ALL PASS
@@ -756,6 +757,87 @@ def t20():
 
 
 # ---------------------------------------------------------------------------
+# T21: v183.0 force-include guard -- all feed.json local-source reports in dist/
+# ---------------------------------------------------------------------------
+
+@test("T21_force_include_feed_reports_in_dist")
+def t21():
+    """Regression guard for build_dist_artifact.py v183.0 force_include_feed_reports().
+
+    Root cause: copy_reports_selective() uses proportional boundary-month alphabetical
+    sort to select dist/ reports.  Current-run reports with older advisory timestamps
+    can fall BEFORE the last-N% cut-off, causing ALL current-run reports to be excluded
+    from dist/ even though they are referenced in feed.json.  force_include_feed_reports()
+    was added to unconditionally copy any feed.json report_url that has a local source
+    but is missing from dist/.
+
+    A regression here causes Stage 5.8.1b Report URL Canary to P0 FAIL-CLOSED with
+    'N missing / 0 ok'.  This test catches the regression before deployment.
+
+    Only runs when dist/reports/ exists (i.e., after Stage 5.4.6).  Skips otherwise.
+    """
+    dist_reports = REPO_ROOT / "dist" / "reports"
+    if not dist_reports.is_dir():
+        log.info("[T21] dist/reports/ not built yet — skipping (post-build gate only)")
+        return
+
+    from urllib.parse import urlparse
+
+    feed_paths = [REPO_ROOT / "api" / "feed.json", REPO_ROOT / "feed.json"]
+    feed_rels: list[str] = []
+    seen: set[str] = set()
+    for fp in feed_paths:
+        if not fp.exists():
+            continue
+        try:
+            raw = fp.read_bytes().rstrip(b"\x00")
+            data = json.loads(raw.decode("utf-8", errors="replace"))
+            items = data if isinstance(data, list) else []
+            for item in items:
+                for key in ("report_url", "internal_report_url"):
+                    ru = (item.get(key) or "").strip()
+                    if not ru:
+                        continue
+                    path = urlparse(ru).path if ru.lower().startswith("http") else ru
+                    if "/reports/" in path and path.lower().endswith(".html"):
+                        rel = path[path.index("/reports/"):]
+                        if rel not in seen:
+                            seen.add(rel)
+                            feed_rels.append(rel)
+        except Exception as exc:
+            log.warning("[T21] Could not parse %s: %s", fp.name, exc)
+        if feed_rels:
+            break  # first feed with content is authoritative (same priority as canary)
+
+    if not feed_rels:
+        log.info("[T21] No report_url values in feed.json — nothing to check (skip)")
+        return
+
+    missing_from_dist: list[str] = []
+    for rel in feed_rels:
+        # Only fail for files that have a local source.  Historical reports (from prior
+        # pipeline runs, no local file in working tree) are legitimately absent from dist/.
+        local_src = REPO_ROOT / rel.lstrip("/")
+        if not local_src.exists():
+            continue
+        dist_path = REPO_ROOT / "dist" / rel.lstrip("/")
+        if not dist_path.exists():
+            missing_from_dist.append(rel)
+
+    assert not missing_from_dist, (
+        f"v183.0 REGRESSION: {len(missing_from_dist)} feed.json report_url(s) have a "
+        f"local source but are MISSING from dist/reports/.  "
+        f"force_include_feed_reports() in build_dist_artifact.py did not run or was "
+        f"skipped.  Stage 5.8.1b Report URL Canary will P0 FAIL-CLOSED.  "
+        f"Affected paths: {missing_from_dist[:5]}"
+    )
+    local_count = len(feed_rels) - sum(
+        1 for rel in feed_rels if not (REPO_ROOT / rel.lstrip("/")).exists()
+    )
+    log.info("[T21] %d feed.json local-source report_url(s) — all present in dist/", local_count)
+
+
+# ---------------------------------------------------------------------------
 # Summary
 # ---------------------------------------------------------------------------
 
@@ -767,7 +849,7 @@ def main() -> int:
     except Exception:
         _suite_ver = "UNKNOWN"
     log.info("=" * 60)
-    log.info("SENTINEL APEX v%s -- Regression Test Suite (T01-T20)", _suite_ver)
+    log.info("SENTINEL APEX v%s -- Regression Test Suite (T01-T21)", _suite_ver)
     log.info("=" * 60)
 
     pass_count = sum(1 for r in RESULTS if r["status"] == "PASS")
