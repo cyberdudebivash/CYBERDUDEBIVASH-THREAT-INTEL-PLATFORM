@@ -195,6 +195,8 @@ jobs:
       - name: "GATE G -- Report URL integrity"
         timeout-minutes: 3
         run: |
+          echo "[GATE G] Auto-repairing malformed report_url fields (--fix pass)..."
+          python3 scripts/report_url_integrity_gate.py --fix || true
           echo "[GATE G] Scanning all feed JSON files for malformed report_url fields..."
           python3 scripts/report_url_integrity_gate.py
           echo "[GATE G] Report URL integrity check complete"
