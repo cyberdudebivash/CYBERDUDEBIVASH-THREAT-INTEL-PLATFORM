@@ -424,6 +424,52 @@ def load_report_urls_from_feeds() -> List[str]:
     return list(dict.fromkeys(urls))  # deduplicate preserving order
 
 
+def force_include_feed_reports(dist_reports_dst: Path) -> int:
+    """Force-copy all current-run feed.json report_url files that exist on disk
+    but were excluded from dist/ by the proportional boundary-month filter.
+
+    ROOT CAUSE (v183.0 FIX):
+      copy_reports_selective() selects reports by advisory publication timestamp
+      (encoded alphabetically in the filename, e.g. intel--1781842438_CVE-...).
+      It does NOT select by pipeline run timestamp.  Current-run reports that have
+      older advisory timestamps can fall BEFORE the "last N%" alphabetical cut-off,
+      causing ALL current-run reports to be absent from dist/ even though they are
+      referenced in feed.json and must be accessible to customers.
+
+    This function is the permanent correction: after copy_reports_selective, scan
+    feed.json for any report_url file that (a) has a local source in reports/ and
+    (b) is not already in dist/reports/.  Copy each such file unconditionally.
+    The size impact is negligible (typically 50-100 files × ~100 KB = ~10 MB).
+
+    Returns the number of files force-copied.
+    """
+    feed_urls = load_report_urls_from_feeds()
+    forced = 0
+    for ru in feed_urls:
+        ru_lower = ru.lower()
+        if any(ru_lower.endswith(suf) for suf in EXCLUDE_SUFFIXES):
+            continue  # PDF or other type excluded from dist/ by design
+        src_path = REPO_ROOT / ru.lstrip("/")
+        if not src_path.exists():
+            continue  # not in working tree — generated in a prior run, skip
+        dst_path = DIST_DIR / ru.lstrip("/")
+        if dst_path.exists():
+            continue  # already copied by proportional filter — OK
+        dst_path.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(src_path, dst_path)
+        forced += 1
+        log.info("  FORCE-INCLUDED (current-run feed): %s", ru)
+    if forced:
+        log.info(
+            "  %d current-run feed report(s) force-included to dist/ "
+            "(advisory-timestamp sort placed them outside proportional selection)",
+            forced,
+        )
+    else:
+        log.info("  Force-include scan: all feed.json reports already present in dist/")
+    return forced
+
+
 def build_manifest(dist_dir: Path, run_id: str, version: str) -> Dict:
     """Generate deployment manifest with SHA-256 checksums for every file in dist/."""
     files = {}
@@ -493,6 +539,14 @@ def main() -> int:
                 )
             else:
                 log.info("  Copied reports/ → dist/reports/  (%d files, full copy)", n)
+            # ── v183.0 PERMANENT FIX: force-include current-run feed.json reports ──
+            # Must run immediately after copy_reports_selective so that (a) reports/
+            # is still on disk and (b) these files are present before step 5 validates
+            # them and before the manifest is written.
+            log.info("")
+            log.info("Force-including current-run feed.json reports (v183.0 fix)...")
+            forced = force_include_feed_reports(dst)
+            total_files += forced
         else:
             n = copy_item(src, dst)
             total_files += n
