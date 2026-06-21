@@ -183,7 +183,13 @@ else:
     # Items present in both files must appear in the same relative order
     # (both sorted published_at DESC). feed.json having extra *newer* items not
     # yet propagated to api/feed.json is expected and not a violation.
-    # Overlap must be >= 25 % of api items to catch total divergence.
+    # Overlap must be >= 50% of the SMALLER feed to catch total divergence.
+    # Denominator = min(f_set, a_set): feed.json is the small leading file
+    # (sentinel-blogger, 4h cadence); api/feed.json is the larger aggregated
+    # superset. Dividing by len(a_set) produced false failures whenever
+    # feed.json had fewer items than api/feed.json (e.g. 11/48 = 22% < 25%).
+    # Using the smaller-set denominator gives the semantically correct check:
+    # "do these feeds share ≥50% of the smaller one's items?"
     f_set = set(f_ids)
     a_set = set(a_ids)
     common_in_feed = [id for id in f_ids if id in a_set]
@@ -196,13 +202,14 @@ else:
             if api_pos[a_item] > api_pos[b_item]:
                 order_violations += 1
     overlap_count = len(f_set & a_set)
-    overlap_ratio = overlap_count / max(1, len(a_set))
-    all_ok = (order_violations == 0) and (overlap_ratio >= 0.25 or len(a_set) == 0)
+    denom = max(1, min(len(f_set), len(a_set)))
+    overlap_ratio = overlap_count / denom
+    all_ok = (order_violations == 0) and (overlap_ratio >= 0.50 or len(a_set) == 0)
     check("API/feed relative ordering consistent with feed.json",
           all_ok,
-          f"order_violations={order_violations}, overlap={overlap_count}/{len(a_set)} ({overlap_ratio:.0%})"
+          f"order_violations={order_violations}, overlap={overlap_count}/{denom} ({overlap_ratio:.0%})"
           f" (feed={len(f_ids)}, api={len(a_ids)} items)",
-          f"Consistent ordering, overlap={overlap_count}/{len(a_set)} ({overlap_ratio:.0%})"
+          f"Consistent ordering, overlap={overlap_count}/{denom} ({overlap_ratio:.0%})"
           f" (feed={len(f_ids)}, api={len(a_ids)} items)")
 
 # ── Check 5: Immutable API manifest verification (v150.0 REPLACEMENT) ──────
