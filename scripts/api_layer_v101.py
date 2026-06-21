@@ -221,6 +221,17 @@ def safe_load_feed(path: Path) -> list:
 def get_severity(item: Dict) -> str:
     sev = item.get("severity", "")
     if sev in ("CRITICAL", "HIGH", "MEDIUM", "LOW"):
+        # v184.0 G7 FIX: enforce v149 False-CRITICAL rule
+        # CRITICAL requires KEV=True OR CVSS>=9.0 OR EPSS>=70% OR risk>=8.5
+        if sev == "CRITICAL":
+            kev  = bool(item.get("kev_present") or item.get("kev"))
+            cvss = float(item.get("cvss_score") or 0)
+            epss = float(item.get("epss_score") or 0)
+            risk = float(item.get("risk_score") or 0)
+            if not (kev or cvss >= 9.0 or epss >= 0.70 or risk >= 8.5):
+                if risk >= 6.5: return "HIGH"
+                if risk >= 4.0: return "MEDIUM"
+                return "LOW"
         return sev
     rs = float(item.get("risk_score", 0) or 0)
     if rs >= 8.5: return "CRITICAL"
@@ -607,6 +618,27 @@ def build_feed_json(entries: List[Dict], flags: Dict) -> Path:
         # v152.0 P0 FIX: strip residual HTML from all text fields before writing JSON
         _sanitize_entry_text_fields(entry)
 
+    # v184.0 G10 FIX: backend dedup by stix_id/id/title before writing feed.json
+    # Ensures backend count matches frontend deduplicateIntel() count (no off-by-one)
+    _seen_ids    = set()
+    _seen_titles = set()
+    _deduped = []
+    for _e in entries:
+        _eid = _e.get("stix_id") or _e.get("id") or ""
+        _etitle = (_e.get("title") or "").strip().lower()[:80]
+        if _eid and _eid in _seen_ids:
+            continue
+        if _etitle and len(_etitle) > 8 and _etitle in _seen_titles:
+            continue
+        if _eid:
+            _seen_ids.add(_eid)
+        if _etitle and len(_etitle) > 8:
+            _seen_titles.add(_etitle)
+        _deduped.append(_e)
+    if len(_deduped) < len(entries):
+        log(f"G10 dedup: removed {len(entries) - len(_deduped)} duplicate entries")
+    entries = _deduped
+
     sorted_entries = sorted(
         entries,
         key=lambda x: str(x.get("timestamp", x.get("published", x.get("created", "")))),
@@ -633,6 +665,7 @@ def build_feed_json(entries: List[Dict], flags: Dict) -> Path:
         "platform":     "CYBERDUDEBIVASH SENTINEL APEX",
         "generated_at": ts,
         "count":        total,
+        "total":        total,   # v184.0 G10 FIX: explicit "total" key for frontend consumers
         "total_count":  total,
         "metrics": {
             "critical":      critical,
@@ -965,36 +998,55 @@ def build_csv_export(entries: List[Dict]) -> Path:
                             lineterminator="\n")
     writer.writeheader()
     for e in entries:
-        row = {f: e.get(f, "") for f in fields}
-        row["severity"]    = get_severity(e)
-        row["cve_ids"]     = "|".join(e.get("cve_ids", []) or e.get("cves", []) or [])
-        row["kev_present"] = "true" if e.get("kev_present") else "false"
-        row["description"] = str(e.get("description", "") or "")[:500]
+        # v184.0 G1 FIX: enforce metadata fields so report_url/blog_url are always populated
+        e_enforced = _enforce_metadata_fields(e)
+
+        row = {f: e_enforced.get(f, "") for f in fields}
+        row["severity"]    = get_severity(e_enforced)
+        row["cve_ids"]     = "|".join(e_enforced.get("cve_ids", []) or e_enforced.get("cves", []) or [])
+        row["kev_present"] = "YES" if (e_enforced.get("kev_present") or e_enforced.get("kev")) else "NO"
+        row["description"] = str(e_enforced.get("description", "") or "")[:500]
+
+        # v184.0 G8 FIX: populate actor_tag from feed_source for news/OSS entries
+        if not row.get("actor_tag") or row["actor_tag"] in ("UNC-CDB-99", "UNC-UNKNOWN", ""):
+            fs = str(e_enforced.get("feed_source") or "")
+            if fs:
+                row["actor_tag"] = f"Source: {fs}"
+            else:
+                row["actor_tag"] = "UNATTRIBUTED"
 
         # v161.3: populate source_url — authoritative provenance link
         if not row.get("source_url"):
-            cve_ids_list = e.get("cve_ids") or e.get("cves") or []
+            cve_ids_list = e_enforced.get("cve_ids") or e_enforced.get("cves") or []
             first_cve = cve_ids_list[0] if cve_ids_list else None
             if first_cve:
                 nvd_confirmed = (
-                    e.get("nvd_status") == "CONFIRMED"
-                    or float(e.get("cvss_score") or 0) > 0
+                    e_enforced.get("nvd_status") == "CONFIRMED"
+                    or float(e_enforced.get("cvss_score") or 0) > 0
                 )
                 row["source_url"] = (
                     f"https://nvd.nist.gov/vuln/detail/{first_cve}"
                     if nvd_confirmed
                     else f"https://cve.mitre.org/cgi-bin/cvename.cgi?name={first_cve}"
                 )
-            elif e.get("feed_source"):
-                row["source_url"] = f"https://intel.cyberdudebivash.com"
+            elif e_enforced.get("feed_source"):
+                row["source_url"] = "https://intel.cyberdudebivash.com"
 
-        # v161.3: populate blog_url — the published dossier URL
+        # v184.0 G1 FIX: populate blog_url from enforced report_url (full CDN URL)
         if not row.get("blog_url"):
-            row["blog_url"] = (
-                e.get("report_url")
-                or e.get("blog_url")
-                or ""
-            )
+            ru = e_enforced.get("report_url") or ""
+            if ru and not ru.startswith("http"):
+                ru = f"{_REPORT_CDN_BASE}{ru}"
+            row["blog_url"] = ru or e_enforced.get("blog_url") or ""
+
+        # v184.0 G6 FIX: normalize confidence_score to 0-100 integer scale
+        cs = row.get("confidence_score")
+        if cs is not None and cs != "":
+            try:
+                cv = float(cs)
+                row["confidence_score"] = round(cv * 100 if cv <= 1.0 else cv)
+            except (ValueError, TypeError):
+                pass
 
         writer.writerow(row)
 
