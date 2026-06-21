@@ -2189,6 +2189,19 @@ jobs:
         run: python3 scripts/post_deploy_smoke_test.py
 
       # -----------------------------------------------------------------------
+      # STAGE 5.4.9: STIX MANIFEST URL SANITIZER (V11 PRE-GATE FIX)
+      # Root cause: STIX generator writes external source URLs into
+      # data/stix/feed_manifest.json as report_url for new items.
+      # validate_repo.py V11 hard-fails on any external report_url.
+      # This step clears external report_url values before the gate runs.
+      # Non-blocking: always exits 0.
+      # -----------------------------------------------------------------------
+      - name: "STAGE 5.4.9 - STIX Manifest URL Sanitizer (V11 Pre-Gate Fix)"
+        if: ${{ !cancelled() }}
+        timeout-minutes: 2
+        run: python3 scripts/manifest_url_repair.py
+
+      # -----------------------------------------------------------------------
       # STAGE 5.5: FINAL VALIDATION GATE
       # Verifies: encoding clean, YAML valid, Python syntax valid,
       # JSON valid, workflow has zero inline heredocs.
