@@ -1,12 +1,582 @@
 [
   {
+    "id": "intel--eca9a40586beba6ed6f14124",
+    "stix_id": "intel--eca9a40586beba6ed6f14124",
+    "title": "Mise Vulnerable to Arbitrary Code Execution via Tera Templates in .tool-versions Files (Trust Bypass)",
+    "description": "## Summary\n\nMise processes `.tool-versions` files through the Tera template engine during parsing, with the `exec()` function registered, enabling arbitrary command execution. Unlike `.mise.toml` files, `.tool-versions` files are **not subject to trust verification** in non-paranoid mode. This means an attacker can place a malicious `.tool-versions` file in a git repository, and when a victim with mise activated `cd`s into the directory, arbitrary commands execute without any trust prompt.\n\n## Vulnerability Details\n\n### Vulnerable Code\n\n**File:** `src/config/config_file/tool_versions.rs`, lines 60-63\n\n```rust\npub fn parse_str(s: &str, path: PathBuf) -> Result<Self> {\n    let mut cf = Self::init(&path);\n    let dir = path.parent();\n    let s = get_tera(dir).render_str(s, &cf.context)?;  // <-- No trust check\n    // ...\n}\n```\n\n**File:** `src/tera.rs`, lines 385-391\n\n```rust\npub fn get_tera(dir: Option<&Path>) -> Tera {\n    let mut tera = TERA.clone();\n    let dir = dir.map(PathBuf::from)",
+    "severity": "CRITICAL",
+    "risk_score": 8.5,
+    "confidence": 0.12,
+    "source": "GitHub Security Advisories",
+    "feed_source": "GitHub Security Advisories",
+    "tlp": "TLP:AMBER",
+    "threat_type": "Vulnerability",
+    "tags": [
+      "rust:mise",
+      "kev",
+      "cisa",
+      "actively-exploited"
+    ],
+    "cve_id": "CVE-2026-33646",
+    "cve_ids": [
+      "CVE-2026-33646"
+    ],
+    "ioc_count": 0,
+    "kev": "NO",
+    "timestamp": "2026-06-22T17:19:56Z",
+    "processed_at": "2026-06-22T17:19:56Z",
+    "published_at": "2026-06-22T17:19:56Z",
+    "source_url": "https://github.com/advisories/GHSA-fjj5-v948-whjj",
+    "actor": null,
+    "ghsa_id": "GHSA-fjj5-v948-whjj",
+    "cvss_score": 9.6,
+    "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:C/C:H/I:H/A:H",
+    "cvss_source": "github_advisory",
+    "exploit_maturity": "UNPROVEN",
+    "exploit_count": 0,
+    "exploit_refs": [],
+    "metasploit_available": false,
+    "poc_github_count": 0,
+    "actor_display_name": null,
+    "actor_aliases": [],
+    "actor_country": null,
+    "actor_motivation": null,
+    "actor_sectors": [],
+    "actor_ttps": [],
+    "actor_malware": [],
+    "actor_threat_level": null,
+    "actor_mitre_id": null,
+    "iq_score": 20,
+    "iq_breakdown": {
+      "source": 10,
+      "enrichment": 5,
+      "attribution": 5,
+      "corroboration": 0
+    },
+    "intelligence_age_days": 0.1,
+    "confidence_label": "MEDIUM_CONFIDENCE",
+    "confidence_score_v2": 20,
+    "confidence_rationale": "Medium confidence — CVSS score 9.6 (Critical)",
+    "confidence_factors": [
+      {
+        "factor": "cvss_critical",
+        "weight": 15,
+        "signal": "CVSS score 9.6 (Critical)"
+      },
+      {
+        "factor": "cve_referenced",
+        "weight": 5,
+        "signal": "CVE(s) referenced: CVE-2026-33646"
+      }
+    ],
+    "sources_reporting": 1,
+    "corroborating_sources": [],
+    "revenue_opportunities": [
+      "VULNERABILITY_ASSESSMENT"
+    ],
+    "sla_priority": "P1",
+    "action_deadline_hours": 72,
+    "recommended_sla_action": "URGENT PATCH — Critical severity, deploy fix within 72 hours",
+    "confidence_enriched_at": "2026-06-22T19:47:27Z",
+    "confidence_engine_version": "1.0.1",
+    "pdf_url": "/reports/pdf/intel--eca9a40586beba6ed6f14124.pdf",
+    "pdf_available": true,
+    "report_url": "https://github.com/advisories/GHSA-fjj5-v948-whjj",
+    "internal_report_url": "",
+    "apex_ai_summary": "[CRITICAL] Vulnerability advisory. Risk score 9.0/10. Full APEX AI analysis available to Pro subscribers.",
+    "apex_ai_score": 9.0,
+    "status": "active",
+    "schema_version": "stable-v1.0-apex",
+    "_risk_micro_adj": 0.005236,
+    "actor_code": "Unattributed",
+    "actor_type": "UNATTRIBUTED",
+    "actor_region": "Unknown",
+    "_quality_hardened_at": "2026-06-22T22:42:58.263385+00:00",
+    "_quality_version": "184.0",
+    "evidence_ledger": {
+      "source_count": 1,
+      "verified_sources": 0,
+      "ioc_count": 0,
+      "ttp_count": 0,
+      "cve_count": 1,
+      "confidence_score": 20,
+      "evidence_strength": "LOW",
+      "ledger_generated": true
+    },
+    "confidence_score": 12,
+    "confidence_reason": [
+      "Single unverified source — low evidence base"
+    ],
+    "cti_tier": "FREE_INFORMATIONAL",
+    "verification_status": "UNVERIFIED",
+    "attribution_status": "UNATTRIBUTED",
+    "source_reliability": "UNRATED",
+    "ioc_quality": "LOW",
+    "ttp_quality": "LOW",
+    "report_quality": "INFORMATIONAL",
+    "verified_actor": false,
+    "campaign_status": "UNVERIFIED",
+    "publication_decision": "ALLOW_WITH_WARNING",
+    "intelligence_grade": "B",
+    "evidence_count": 2,
+    "corroboration_count": 2,
+    "ioc_quality_score": 0,
+    "ioc_quality_label": "NONE",
+    "real_ioc_count": 0,
+    "attck_verification": "EVIDENCE_BASED",
+    "attck_notes": [
+      "Derived from CVE description: arbitrary code exec"
+    ],
+    "risk_score_reasoning": "{\"formula\": \"v1.0.0-deterministic\", \"inputs\": {\"cvss_score\": 9.6, \"epss_pct\": 0.0, \"kev_confirmed\": false, \"verified_actor\": false, \"real_ioc_count\": 0}, \"components\": {\"base_cvss\": 3.84, \"epss_boost\": 0.0, \"kev_boost\": 0.0, \"actor_boost\": 0.0, \"ioc_boost\": 0.0}, \"computed_score\": 3.84, \"notes\": [\"EPSS absent for CVE item \\u2014 enrich from FIRST.org API\", \"Critical CVSS without KEV confirmation \\u2014 monitor for escalation\"]}",
+    "analyst_verdict": "ALLOW — Grade B: strong CVE intelligence. Verified CVE, CVSS>=8.0, evidence-based ATT&CK, multi-source corroboration.",
+    "mitre_tactics": [],
+    "ttps": [],
+    "grade_notes": [
+      "Partial verification: CVSS 9.6"
+    ],
+    "grade_engine_version": "v2.0.0",
+    "graded_at": "2026-06-22T22:43:43.249221+00:00",
+    "actor_tag": null,
+    "actor_name": null,
+    "allowed_content_tier": "enterprise_dossier",
+    "premium_eligible": true,
+    "enterprise_eligible": true,
+    "mssp_eligible": true,
+    "governor_version": "1.0.0",
+    "governed_at": "2026-06-22T22:43:44.128496+00:00",
+    "governor_audit_log": [
+      "M2: Banned actor 'Unattributed Threat Actor' nulled — attribution_status=NONE",
+      "M4: risk_score raised 3.8→8.5 [severity=CRITICAL → floor 8.5; CVSS=9.6 ≥ 9.0 → floor 8.5; KEV=true → floor 7.0]"
+    ],
+    "actor_confidence_label": "NONE",
+    "attribution_assessment": {
+      "status": "UNATTRIBUTED",
+      "confidence": "NONE",
+      "evidence_count": 0,
+      "verdict": "No actor claimed — correct",
+      "engine_version": "1.0.0"
+    },
+    "attck_technique_ids": [
+      "T1059"
+    ],
+    "attck_techniques": [
+      {
+        "technique_id": "T1059",
+        "technique_name": "Command and Scripting Interpreter",
+        "attack_justification": "CVE confirms remote/arbitrary code execution capability",
+        "attack_evidence": "CVE-2026-33646 — mise vulnerable to arbitrary code execution via tera templates in .tool-versions files (trust bypass) ## summary\n\nmise p...",
+        "attack_source": "GitHub Security Advisories",
+        "mapping_method": "cve_description_derivation",
+        "verification_status": "EVIDENCE_BASED",
+        "matched_pattern": "arbitrary code exec",
+        "source_reference": "",
+        "mapping_reason": ""
+      }
+    ],
+    "corroboration_score": 40,
+    "corroboration_strength": "MODERATE",
+    "corroboration_sources": [
+      "GitHub Advisory",
+      "NVD/CVE-Database"
+    ],
+    "detection_quality_status": "DETECTION_NOT_PRODUCTION_READY",
+    "detection_production_ready": false,
+    "detection_rules_total": 0,
+    "detection_rules_production_ready": 0,
+    "grade_notes_v2": [
+      "Grade B: CVE verified; CVSS=9.6; 2 sources; evidence-based ATT&CK; corroboration=40"
+    ],
+    "graded_at_v2": "2026-06-22T22:43:44.002779+00:00"
+  },
+  {
+    "id": "intel--fdb4d579f2d72aecef6e3647",
+    "stix_id": "intel--fdb4d579f2d72aecef6e3647",
+    "bundle_id": "bundle--eb68767c-446a-4447-a5ee-ef1211f9b172",
+    "title": "CVE-2026-10789 - MCP Extension Code Injection Vulnerability in Autodesk Fusion Desktop",
+    "processed_at": "2026-06-22T19:26:07Z",
+    "published_at": "2026-06-22T17:15:25Z",
+    "timestamp": "2026-06-22T17:15:25Z",
+    "risk_score": 8.5,
+    "severity": "LOW",
+    "report_url": "https://intel.cyberdudebivash.com/reports/2026/06/intel--fdb4d579f2d72aecef6e3647.html",
+    "source_url": "https://cvefeed.io/vuln/detail/CVE-2026-10789",
+    "tlp": "TLP:GREEN",
+    "tags": [
+      "T1059",
+      "T1055",
+      "T1190"
+    ],
+    "generated_at": "2026-06-22T19:26:07Z",
+    "confidence_score": 25,
+    "confidence": 0.25,
+    "tlp_label": "TLP:GREEN",
+    "ioc_counts": {
+      "sha256": 0,
+      "sha1": 0,
+      "md5": 0,
+      "domain": 0,
+      "ipv4": 0,
+      "url": 0,
+      "email": 0,
+      "cve": 1,
+      "registry": 0,
+      "artifacts": 0
+    },
+    "actor_tag": null,
+    "mitre_tactics": [],
+    "ttps": [],
+    "feed_source": "CVE Feed",
+    "source": "CVE Feed",
+    "threat_type": "Vulnerability",
+    "indicator_count": 4,
+    "stix_file": "CDB-APEX-1782156367.json",
+    "cvss_score": 9.6,
+    "epss_score": null,
+    "kev_present": false,
+    "status": "active",
+    "extended_metrics": {},
+    "nvd_url": "https://nvd.nist.gov/vuln/detail/CVE-2026-10789",
+    "supply_chain": false,
+    "stix_object_count": 29,
+    "stix_version": "2.1",
+    "schema_version": "v134.0",
+    "published": "2026-06-22T17:15:25Z",
+    "validation_status": "enriched",
+    "validated_at": "2026-06-22T19:26:07Z",
+    "iocs": [
+      {
+        "type": "url",
+        "value": "https://cvefeed.io/vuln/detail/CVE-2026-10789",
+        "confidence": 31.0,
+        "confidence_factors": {
+          "ioc_type": 70.0,
+          "source_trust": 40.0,
+          "mitre_mapping": 0.0,
+          "kev_presence": 0.0,
+          "weighted_raw": 31.0,
+          "synthetic": false,
+          "kev_linked": false
+        },
+        "confidence_version": "1.0"
+      },
+      {
+        "type": "indicator",
+        "value": "CVE-2026-10789",
+        "confidence": 23.5,
+        "confidence_factors": {
+          "ioc_type": 45.0,
+          "source_trust": 40.0,
+          "mitre_mapping": 0.0,
+          "kev_presence": 0.0,
+          "weighted_raw": 23.5,
+          "synthetic": false,
+          "kev_linked": false
+        },
+        "confidence_version": "1.0"
+      },
+      {
+        "type": "indicator",
+        "value": "CVE-2026-54289",
+        "confidence": 23.5,
+        "confidence_factors": {
+          "ioc_type": 45.0,
+          "source_trust": 40.0,
+          "mitre_mapping": 0.0,
+          "kev_presence": 0.0,
+          "weighted_raw": 23.5,
+          "synthetic": false,
+          "kev_linked": false
+        },
+        "confidence_version": "1.0"
+      },
+      {
+        "type": "indicator",
+        "value": "CVE-2026-54290",
+        "confidence": 23.5,
+        "confidence_factors": {
+          "ioc_type": 45.0,
+          "source_trust": 40.0,
+          "mitre_mapping": 0.0,
+          "kev_presence": 0.0,
+          "weighted_raw": 23.5,
+          "synthetic": false,
+          "kev_linked": false
+        },
+        "confidence_version": "1.0"
+      }
+    ],
+    "iocs_by_type": {
+      "url": [
+        "https://cvefeed.io/vuln/detail/CVE-2026-10789"
+      ],
+      "cve": [
+        "CVE-2026-10789",
+        "CVE-2026-54289",
+        "CVE-2026-54290"
+      ]
+    },
+    "ioc_count": 0,
+    "ioc_confidence": 31.0,
+    "ioc_threat_level": "LOW",
+    "ioc_extraction_meta": {},
+    "stix_bundle_url": "https://intel.cyberdudebivash.com/data/stix/CDB-APEX-1782156367.json",
+    "internal_report_url": "https://intel.cyberdudebivash.com/reports/2026/06/intel--fdb4d579f2d72aecef6e3647.html",
+    "stix_bundle": "https://intel.cyberdudebivash.com/data/stix/CDB-APEX-1782156367.json",
+    "apex": {
+      "priority": "P4",
+      "threat_level": "MEDIUM",
+      "threat_category": "Remote Code Execution",
+      "predictive_score": 0.4,
+      "campaign_id": null,
+      "confidence": 0.4,
+      "behavioral_tags": [],
+      "ai_summary": "Initial access via rce",
+      "recommended_action": "Medium severity threat (score 4.2/10) — limited technical indicators in source data"
+    },
+    "description": "CVE-2026-10789 - MCP Extension Code Injection Vulnerability in Autodesk Fusion Desktop",
+    "source_domain": "nvd.nist.gov",
+    "source_trust_score": 0.6,
+    "is_published": true,
+    "cve_ids": [
+      "CVE-2026-10789"
+    ],
+    "affected_products": [],
+    "kill_chain_phases": [],
+    "is_new": false,
+    "attack_vector": "NETWORK",
+    "source_quality": "MEDIUM",
+    "enrichment_score": 60,
+    "pdf_url": "/reports/pdf/intel--fdb4d579f2d72aecef6e3647.pdf",
+    "pdf_available": true,
+    "_governance_rules": "NO_GOVERNANCE_RULES_FIRED",
+    "_score_details": {
+      "kev": false,
+      "active_exploit": false,
+      "ransomware": false,
+      "zero_day": false,
+      "cvss": 0.47,
+      "epss": null
+    },
+    "apex_ai": {
+      "soc_priority": "P4",
+      "predictive_risk": 0.2,
+      "ai_confidence": 31,
+      "ttp_density": 4.5,
+      "threat_level": "LOW",
+      "threat_category": "Remote Code Execution",
+      "ai_summary": "[P4] Remote Code Execution - low severity (Risk 0.47/10). MITRE ATT&CK mapped: T1059, T1055, T1190 (3 techniques). 4 indicators detected - upgrade to Pro for full IOC access. Actor attribution: CDB-UNATTR-CVE. AI confidence: LOW (31%) - limited source data available.",
+      "recommended_action": "LOW PRIORITY - Monitor for escalation. Apply patch in next maintenance window. Review Remote Code Execution detection coverage.",
+      "campaign_id": "UNCLASSIFIED",
+      "actor_fingerprint": "CDB-UNATTR-CVE::L::4::3",
+      "behavioral_tags": [
+        "CODE-EXECUTION"
+      ],
+      "kill_chain": [
+        "Initial Access",
+        "Execution",
+        "Privilege Escalation"
+      ],
+      "paywall": null
+    },
+    "ioc_paywall": {
+      "locked": true,
+      "count": 4,
+      "confidence": 31.0,
+      "threat_level": "LOW",
+      "primary_types": [
+        "cve"
+      ],
+      "upgrade_url": "/upgrade.html?plan=pro",
+      "message": "4 IOC(s) at 31.0% confidence - unlock with Pro tier."
+    },
+    "cve_id": "CVE-2026-10789",
+    "nvd_status": "PRELIMINARY",
+    "nvd_checked_at": "2026-06-22T19:43:43.511993+00:00",
+    "nvd_disclosure": "This CVE ID was not found in the NIST NVD database at time of enrichment. Intelligence is preliminary and unverified by NVD. CVSS score and severity are analyst-estimated until NVD confirmation.",
+    "_enriched_at": "2026-06-22T19:43:43.512011+00:00",
+    "_enriched_by": "enrich_cvss_epss_batch.py v148.1.0",
+    "blog_url": "https://intel.cyberdudebivash.com/reports/intel--fdb4d579f2d72aecef6e3647/",
+    "_quality_hardened_at": "2026-06-22T22:42:58.263430+00:00",
+    "_quality_version": "184.0",
+    "mitre_group_name": "Unattributed CVE Exploiter",
+    "mitre_group_aliases": [],
+    "actor_country": "Unknown",
+    "actor_motivation": [
+      "unknown"
+    ],
+    "sigma_rule": "title: SENTINEL APEX — CVE-2026-10789 - MCP Extension Code Injection Vulnerability in Autodesk Fusion D\nid: 46a58979-7a38-5fe9-842a-fcb9e98b88e4\nstatus: experimental\ndescription: |\n    Detects exploitation attempts related to CVE-2026-10789 (Web Application).\n    Generated by CYBERDUDEBIVASH SENTINEL APEX v166.2.\n    Severity: LOW | Class: GENERIC\nreferences:\n    - https://intel.cyberdudebivash.com\n    - https://nvd.nist.gov/vuln/detail/CVE-2026-10789\nauthor: CYBERDUDEBIVASH SENTINEL APEX Detection Engineering\ndate: 2026/06/22\nmodified: 2026/06/22\ntags:\n    - attack.initial_access\nlogsource:\n    category: network_connection\n    product: generic\ndetection:\n    selection:\n        EventID:\n            - 4625\n            - 4648\n            - 4728\n        LogonType: 3\n    condition: selection\nfalsepositives:\n    - Legitimate administrative access\n    - Service account activity\nlevel: low\n",
+    "kql_query": "// SENTINEL APEX — CVE-2026-10789 — Anomalous Activity Detection\n// Product: Web Application | Generated: 2026-06-22T19:46:33Z\nlet lookback = 1d;\nSecurityEvent\n| where TimeGenerated > ago(lookback)\n| where EventID in (4625, 4648, 4728, 4740, 4776)\n| summarize FailureCount = count(), DistinctTargets = dcount(TargetUserName)\n    by IpAddress, bin(TimeGenerated, 1h)\n| where FailureCount > 10 or DistinctTargets > 5\n| extend Severity = \"MEDIUM\", CVE = \"CVE-2026-10789\", RuleSource = \"SENTINEL-APEX\"\n| order by TimeGenerated desc",
+    "suricata_rule": "alert http $EXTERNAL_NET any -> $HTTP_SERVERS $HTTP_PORTS (msg:\"SENTINEL-APEX CVE-2026-10789 Exploitation Attempt - GENERIC\"; flow:established,to_server; content:\"|90 90 90 90|\"; rawbytes; threshold:type threshold, track by_src, count 3, seconds 60; classtype:web-application-attack; sid:9272698; rev:1; metadata:created_at 2026-06-22, source SENTINEL-APEX-v166.2;)",
+    "vuln_class": "generic",
+    "detection_generated_at": "2026-06-22T19:46:33Z",
+    "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:C/C:H/I:H/A:H",
+    "cvss_source": "github_advisory",
+    "exploit_maturity": "UNPROVEN",
+    "exploit_count": 0,
+    "exploit_refs": [],
+    "metasploit_available": false,
+    "poc_github_count": 0,
+    "actor_display_name": null,
+    "actor_aliases": [
+      "Unattributed"
+    ],
+    "actor_sectors": [],
+    "actor_ttps": [],
+    "actor_malware": [],
+    "actor_threat_level": "UNKNOWN",
+    "actor_mitre_id": null,
+    "iq_score": 25,
+    "iq_breakdown": {
+      "source": 10,
+      "enrichment": 10,
+      "attribution": 5,
+      "corroboration": 0
+    },
+    "intelligence_age_days": 0.1,
+    "attck_technique_ids": [
+      "T1059"
+    ],
+    "attck_techniques": [
+      {
+        "technique_id": "T1059",
+        "technique_name": "Command and Scripting Interpreter",
+        "attack_justification": "CVE confirms remote/arbitrary code execution capability",
+        "attack_evidence": "CVE-2026-10789 — cve-2026-10789 - mcp extension code injection vulnerability in autodesk fusion desktop cve-2026-10789 - mcp extension co...",
+        "attack_source": "CVE Feed",
+        "mapping_method": "cve_description_derivation",
+        "verification_status": "EVIDENCE_BASED",
+        "matched_pattern": "remote code exec",
+        "source_reference": "",
+        "mapping_reason": ""
+      }
+    ],
+    "confidence_label": "MEDIUM_CONFIDENCE",
+    "confidence_score_v2": 28,
+    "confidence_rationale": "Medium confidence — CVSS score 9.6 (Critical)",
+    "confidence_factors": [
+      {
+        "factor": "cvss_critical",
+        "weight": 15,
+        "signal": "CVSS score 9.6 (Critical)"
+      },
+      {
+        "factor": "cve_referenced",
+        "weight": 5,
+        "signal": "CVE(s) referenced: CVE-2026-10789"
+      },
+      {
+        "factor": "iocs_2to4",
+        "weight": 4,
+        "signal": "4 IOCs present"
+      },
+      {
+        "factor": "ttps_2to4",
+        "weight": 4,
+        "signal": "3 MITRE ATT&CK TTPs mapped"
+      }
+    ],
+    "sources_reporting": 1,
+    "corroborating_sources": [],
+    "revenue_opportunities": [
+      "VULNERABILITY_ASSESSMENT"
+    ],
+    "sla_priority": "P4",
+    "action_deadline_hours": 720,
+    "recommended_sla_action": "MONITOR — Assess in next vulnerability review cycle",
+    "confidence_enriched_at": "2026-06-22T19:47:27Z",
+    "confidence_engine_version": "1.0.1",
+    "apex_ai_summary": "[P4] Remote Code Execution - low severity (Risk 0.47/10). MITRE ATT&CK mapped: T1059, T1055, T1190 (3 techniques). 4 indicators detected - upgrade to Pro for full IOC access. Actor attribution: CDB-UNATTR-CVE. AI confidence: LOW (31%) - limited source data available.",
+    "apex_ai_score": 0.2,
+    "evidence_ledger": {
+      "source_count": 1,
+      "verified_sources": 0,
+      "ioc_count": 4,
+      "ttp_count": 3,
+      "cve_count": 1,
+      "confidence_score": 25,
+      "evidence_strength": "LOW",
+      "ledger_generated": true
+    },
+    "confidence_reason": [
+      "4 IOC(s) extracted",
+      "3 ATT&CK technique(s) mapped"
+    ],
+    "cti_tier": "FREE_INFORMATIONAL",
+    "verification_status": "UNVERIFIED",
+    "attribution_status": "UNATTRIBUTED",
+    "source_reliability": "UNRATED",
+    "ioc_quality": "MEDIUM",
+    "ttp_quality": "MEDIUM",
+    "report_quality": "INFORMATIONAL",
+    "actor": null,
+    "actor_name": null,
+    "actor_confidence": 0,
+    "verified_actor": false,
+    "campaign_name": null,
+    "campaign_id": null,
+    "campaign_status": "UNVERIFIED",
+    "publication_decision": "ALLOW_WITH_WARNING",
+    "intelligence_grade": "B",
+    "evidence_count": 2,
+    "corroboration_count": 2,
+    "ioc_quality_score": 47,
+    "ioc_quality_label": "MEDIUM",
+    "real_ioc_count": 0,
+    "attck_verification": "EVIDENCE_BASED",
+    "attck_notes": [
+      "Derived from CVE description: remote code exec"
+    ],
+    "risk_score_reasoning": "{\"formula\": \"v1.0.0-deterministic\", \"inputs\": {\"cvss_score\": 9.6, \"epss_pct\": 0.0, \"kev_confirmed\": false, \"verified_actor\": false, \"real_ioc_count\": 4}, \"components\": {\"base_cvss\": 3.84, \"epss_boost\": 0.0, \"kev_boost\": 0.0, \"actor_boost\": 0.0, \"ioc_boost\": 0.8}, \"computed_score\": 4.64, \"notes\": [\"EPSS absent for CVE item \\u2014 enrich from FIRST.org API\", \"Critical CVSS without KEV confirmation \\u2014 monitor for escalation\"]}",
+    "analyst_verdict": "ALLOW — Grade B: strong CVE intelligence. Verified CVE, CVSS>=8.0, evidence-based ATT&CK, multi-source corroboration.",
+    "grade_notes": [
+      "Partial verification: CVSS 9.6"
+    ],
+    "grade_engine_version": "v2.0.0",
+    "graded_at": "2026-06-22T22:43:43.249702+00:00",
+    "attck_tactics": [],
+    "ioc_count_raw": 4,
+    "allowed_content_tier": "enterprise_dossier",
+    "premium_eligible": true,
+    "enterprise_eligible": true,
+    "mssp_eligible": true,
+    "governor_version": "1.0.0",
+    "governed_at": "2026-06-22T22:43:44.128594+00:00",
+    "governor_audit_log": [
+      "M3: attck_technique_ids cleared — verification='NOT_VERIFIED' (no evidence)",
+      "M4: risk_score raised 4.6→8.5 [CVSS=9.6 ≥ 9.0 → floor 8.5]",
+      "M5: ioc_count zeroed (4→0) — no operational indicators found"
+    ],
+    "actor_confidence_label": "NONE",
+    "attribution_assessment": {
+      "status": "UNATTRIBUTED",
+      "confidence": "NONE",
+      "evidence_count": 0,
+      "verdict": "No actor claimed — correct",
+      "engine_version": "1.0.0"
+    },
+    "corroboration_score": 40,
+    "corroboration_strength": "MODERATE",
+    "corroboration_sources": [
+      "CVE Feed",
+      "NVD/CVE-Database"
+    ],
+    "detection_quality_status": "DETECTION_PARTIALLY_READY",
+    "detection_production_ready": true,
+    "detection_rules_total": 3,
+    "detection_rules_production_ready": 1,
+    "grade_notes_v2": [
+      "Grade B: CVE verified; CVSS=9.6; 2 sources; evidence-based ATT&CK; corroboration=40"
+    ],
+    "graded_at_v2": "2026-06-22T22:43:44.002810+00:00"
+  },
+  {
     "id": "intel--95070dfd8a92eb286faec4f2",
     "stix_id": "intel--95070dfd8a92eb286faec4f2",
     "title": "Paymenter vulnerable to Remote Code Execution via public file uploads",
     "description": "### Impact\n\nThe ticket attachments functionality in Paymenter allows a malicious authenticated user to upload arbitrary files.\n\nWith the ability to execute arbitrary code, this vulnerability can be exploited in numerous ways, including but not limited to:\n- Extracting sensitive data from the database (e.g. customer information).\n- Reading credentials from .env or other configuration files.\n- Running arbitrary system commands under the web server user context.\n\nThis issue is Critical as it allows a low-privilege authenticated user to fully compromise the application and underlying server.\n\n### Patches\nThis vulnerability was patched by https://github.com/Paymenter/Paymenter/commit/87c3db42282ada1e3cda54b9a01f846926c0669b and was released under the [v1.2.11](https://github.com/Paymenter/Paymenter/releases/tag/v1.2.11) tag without any other code modifications compared to v1.2.10.\n\n### Work arounds\nIf upgrading is not immediately possible, administrators can mitigate this vulnerability with",
     "severity": "CRITICAL",
     "risk_score": 8.5,
-    "confidence": 0.19,
+    "confidence": 0.17,
     "source": "GitHub Security Advisories",
     "feed_source": "GitHub Security Advisories",
     "tlp": "TLP:AMBER",
@@ -55,9 +625,9 @@
       "attribution": 5,
       "corroboration": 15
     },
-    "intelligence_age_days": 0.0,
+    "intelligence_age_days": 0.1,
     "confidence_label": "MEDIUM_CONFIDENCE",
-    "confidence_score_v2": 32,
+    "confidence_score_v2": 26,
     "confidence_rationale": "Medium confidence — CVSS score 9.9 (Critical)",
     "confidence_factors": [
       {
@@ -66,9 +636,9 @@
         "signal": "CVSS score 9.9 (Critical)"
       },
       {
-        "factor": "epss_very_high",
-        "weight": 12,
-        "signal": "EPSS score 37.000 (very high exploitation probability)"
+        "factor": "epss_high",
+        "weight": 6,
+        "signal": "EPSS score 0.370 (elevated exploitation probability)"
       },
       {
         "factor": "cve_referenced",
@@ -85,7 +655,7 @@
     "sla_priority": "P1",
     "action_deadline_hours": 72,
     "recommended_sla_action": "URGENT PATCH — Critical severity, deploy fix within 72 hours",
-    "confidence_enriched_at": "2026-06-22T18:05:46Z",
+    "confidence_enriched_at": "2026-06-22T19:47:27Z",
     "confidence_engine_version": "1.0.1",
     "pdf_url": "/reports/pdf/intel--95070dfd8a92eb286faec4f2.pdf",
     "pdf_available": true,
@@ -99,7 +669,7 @@
     "actor_code": "Unattributed",
     "actor_type": "UNATTRIBUTED",
     "actor_region": "Unknown",
-    "_quality_hardened_at": "2026-06-22T18:41:52.955266+00:00",
+    "_quality_hardened_at": "2026-06-22T22:42:58.263558+00:00",
     "_quality_version": "184.0",
     "evidence_ledger": {
       "source_count": 1,
@@ -111,10 +681,9 @@
       "evidence_strength": "LOW",
       "ledger_generated": true
     },
-    "confidence_score": 19,
+    "confidence_score": 17,
     "confidence_reason": [
-      "1 ATT&CK technique(s) mapped",
-      "EPSS 3700.0% exploitation probability"
+      "EPSS 37.0% exploitation probability"
     ],
     "cti_tier": "FREE_INFORMATIONAL",
     "verification_status": "UNVERIFIED",
@@ -144,7 +713,7 @@
       "Partial verification: EPSS 37.0%, CVSS 9.9"
     ],
     "grade_engine_version": "v2.0.0",
-    "graded_at": "2026-06-22T18:43:01.161817+00:00",
+    "graded_at": "2026-06-22T22:43:43.251853+00:00",
     "epss_normalized": true,
     "actor_tag": null,
     "actor_name": null,
@@ -153,9 +722,9 @@
     "enterprise_eligible": true,
     "mssp_eligible": true,
     "governor_version": "1.0.0",
-    "governed_at": "2026-06-22T18:43:01.893686+00:00",
+    "governed_at": "2026-06-22T22:43:44.128877+00:00",
     "governor_audit_log": [
-      "M3: attck_technique_ids cleared — verification='NOT_MAPPED' (no evidence)",
+      "M2: Banned actor 'Unattributed Threat Actor' nulled — attribution_status=NONE",
       "M4: risk_score raised 5.1→8.5 [severity=CRITICAL → floor 8.5; CVSS=9.9 ≥ 9.0 → floor 8.5; KEV=true → floor 7.0]"
     ],
     "actor_confidence_label": "NONE",
@@ -197,7 +766,521 @@
     "grade_notes_v2": [
       "Grade B: CVE verified; CVSS=9.9; 3 sources; evidence-based ATT&CK; corroboration=70"
     ],
-    "graded_at_v2": "2026-06-22T18:43:01.785077+00:00",
-    "attck_tactics": []
+    "graded_at_v2": "2026-06-22T22:43:44.002880+00:00"
+  },
+  {
+    "id": "intel--58d4b5f07f91bbe84912fa45",
+    "stix_id": "intel--58d4b5f07f91bbe84912fa45",
+    "bundle_id": "bundle--56599491-bbf4-4cd5-9eac-b0772cbbd790",
+    "title": "CVE-2026-55388 - piscina: Prototype Pollution Gadget  RCE via inherited options.filename",
+    "processed_at": "2026-06-22T19:26:58Z",
+    "published_at": "2026-06-22T16:50:40Z",
+    "timestamp": "2026-06-22T16:50:40Z",
+    "risk_score": 7.0,
+    "severity": "LOW",
+    "report_url": "https://intel.cyberdudebivash.com/reports/2026/06/intel--58d4b5f07f91bbe84912fa45.html",
+    "source_url": "https://cvefeed.io/vuln/detail/CVE-2026-55388",
+    "tlp": "TLP:GREEN",
+    "tags": [
+      "T1059",
+      "T1190"
+    ],
+    "generated_at": "2026-06-22T19:26:58Z",
+    "confidence_score": 35,
+    "confidence": 0.35,
+    "tlp_label": "TLP:GREEN",
+    "ioc_counts": {
+      "cve": 1
+    },
+    "actor_tag": null,
+    "mitre_tactics": [],
+    "ttps": [],
+    "feed_source": "CVE Feed",
+    "source": "CVE Feed",
+    "threat_type": "Vulnerability",
+    "indicator_count": 13,
+    "stix_file": "CDB-APEX-1782156418.json",
+    "cvss_score": 8.1,
+    "epss_score": null,
+    "kev_present": false,
+    "status": "active",
+    "extended_metrics": {},
+    "nvd_url": "https://nvd.nist.gov/vuln/detail/CVE-2026-55388",
+    "supply_chain": false,
+    "stix_object_count": 27,
+    "stix_version": "2.1",
+    "schema_version": "v134.0",
+    "published": "2026-06-22T16:50:40Z",
+    "validation_status": "enriched",
+    "validated_at": "2026-06-22T19:26:58Z",
+    "iocs": [
+      {
+        "type": "url",
+        "value": "https://cvefeed.io/vuln/detail/CVE-2026-55388",
+        "confidence": 31.0,
+        "confidence_factors": {
+          "ioc_type": 70.0,
+          "source_trust": 40.0,
+          "mitre_mapping": 0.0,
+          "kev_presence": 0.0,
+          "weighted_raw": 31.0,
+          "synthetic": false,
+          "kev_linked": false
+        },
+        "confidence_version": "1.0"
+      },
+      {
+        "type": "domain",
+        "value": "options.filename",
+        "confidence": 32.5,
+        "confidence_factors": {
+          "ioc_type": 75.0,
+          "source_trust": 40.0,
+          "mitre_mapping": 0.0,
+          "kev_presence": 0.0,
+          "weighted_raw": 32.5,
+          "synthetic": false,
+          "kev_linked": false
+        },
+        "confidence_version": "1.0"
+      },
+      {
+        "type": "indicator",
+        "value": "CVE-2026-10789",
+        "confidence": 23.5,
+        "confidence_factors": {
+          "ioc_type": 45.0,
+          "source_trust": 40.0,
+          "mitre_mapping": 0.0,
+          "kev_presence": 0.0,
+          "weighted_raw": 23.5,
+          "synthetic": false,
+          "kev_linked": false
+        },
+        "confidence_version": "1.0"
+      },
+      {
+        "type": "indicator",
+        "value": "CVE-2026-53537",
+        "confidence": 23.5,
+        "confidence_factors": {
+          "ioc_type": 45.0,
+          "source_trust": 40.0,
+          "mitre_mapping": 0.0,
+          "kev_presence": 0.0,
+          "weighted_raw": 23.5,
+          "synthetic": false,
+          "kev_linked": false
+        },
+        "confidence_version": "1.0"
+      },
+      {
+        "type": "indicator",
+        "value": "CVE-2026-53538",
+        "confidence": 23.5,
+        "confidence_factors": {
+          "ioc_type": 45.0,
+          "source_trust": 40.0,
+          "mitre_mapping": 0.0,
+          "kev_presence": 0.0,
+          "weighted_raw": 23.5,
+          "synthetic": false,
+          "kev_linked": false
+        },
+        "confidence_version": "1.0"
+      },
+      {
+        "type": "indicator",
+        "value": "CVE-2026-53539",
+        "confidence": 23.5,
+        "confidence_factors": {
+          "ioc_type": 45.0,
+          "source_trust": 40.0,
+          "mitre_mapping": 0.0,
+          "kev_presence": 0.0,
+          "weighted_raw": 23.5,
+          "synthetic": false,
+          "kev_linked": false
+        },
+        "confidence_version": "1.0"
+      },
+      {
+        "type": "indicator",
+        "value": "CVE-2026-53540",
+        "confidence": 23.5,
+        "confidence_factors": {
+          "ioc_type": 45.0,
+          "source_trust": 40.0,
+          "mitre_mapping": 0.0,
+          "kev_presence": 0.0,
+          "weighted_raw": 23.5,
+          "synthetic": false,
+          "kev_linked": false
+        },
+        "confidence_version": "1.0"
+      },
+      {
+        "type": "indicator",
+        "value": "CVE-2026-54285",
+        "confidence": 23.5,
+        "confidence_factors": {
+          "ioc_type": 45.0,
+          "source_trust": 40.0,
+          "mitre_mapping": 0.0,
+          "kev_presence": 0.0,
+          "weighted_raw": 23.5,
+          "synthetic": false,
+          "kev_linked": false
+        },
+        "confidence_version": "1.0"
+      },
+      {
+        "type": "indicator",
+        "value": "CVE-2026-54286",
+        "confidence": 23.5,
+        "confidence_factors": {
+          "ioc_type": 45.0,
+          "source_trust": 40.0,
+          "mitre_mapping": 0.0,
+          "kev_presence": 0.0,
+          "weighted_raw": 23.5,
+          "synthetic": false,
+          "kev_linked": false
+        },
+        "confidence_version": "1.0"
+      },
+      {
+        "type": "indicator",
+        "value": "CVE-2026-54287",
+        "confidence": 23.5,
+        "confidence_factors": {
+          "ioc_type": 45.0,
+          "source_trust": 40.0,
+          "mitre_mapping": 0.0,
+          "kev_presence": 0.0,
+          "weighted_raw": 23.5,
+          "synthetic": false,
+          "kev_linked": false
+        },
+        "confidence_version": "1.0"
+      },
+      {
+        "type": "indicator",
+        "value": "CVE-2026-54289",
+        "confidence": 23.5,
+        "confidence_factors": {
+          "ioc_type": 45.0,
+          "source_trust": 40.0,
+          "mitre_mapping": 0.0,
+          "kev_presence": 0.0,
+          "weighted_raw": 23.5,
+          "synthetic": false,
+          "kev_linked": false
+        },
+        "confidence_version": "1.0"
+      },
+      {
+        "type": "indicator",
+        "value": "CVE-2026-54290",
+        "confidence": 23.5,
+        "confidence_factors": {
+          "ioc_type": 45.0,
+          "source_trust": 40.0,
+          "mitre_mapping": 0.0,
+          "kev_presence": 0.0,
+          "weighted_raw": 23.5,
+          "synthetic": false,
+          "kev_linked": false
+        },
+        "confidence_version": "1.0"
+      },
+      {
+        "type": "indicator",
+        "value": "CVE-2026-55388",
+        "confidence": 23.5,
+        "confidence_factors": {
+          "ioc_type": 45.0,
+          "source_trust": 40.0,
+          "mitre_mapping": 0.0,
+          "kev_presence": 0.0,
+          "weighted_raw": 23.5,
+          "synthetic": false,
+          "kev_linked": false
+        },
+        "confidence_version": "1.0"
+      }
+    ],
+    "iocs_by_type": {
+      "domain": [
+        "options.filename"
+      ],
+      "url": [
+        "https://cvefeed.io/vuln/detail/CVE-2026-55388"
+      ],
+      "cve": [
+        "CVE-2026-10789",
+        "CVE-2026-53537",
+        "CVE-2026-53538",
+        "CVE-2026-53539",
+        "CVE-2026-53540",
+        "CVE-2026-54285",
+        "CVE-2026-54286",
+        "CVE-2026-54287",
+        "CVE-2026-54289",
+        "CVE-2026-54290",
+        "CVE-2026-55388"
+      ]
+    },
+    "ioc_count": 13,
+    "ioc_confidence": 89.0,
+    "ioc_threat_level": "CRITICAL",
+    "ioc_extraction_meta": {},
+    "stix_bundle_url": "https://intel.cyberdudebivash.com/data/stix/CDB-APEX-1782156418.json",
+    "internal_report_url": "https://intel.cyberdudebivash.com/reports/2026/06/intel--58d4b5f07f91bbe84912fa45.html",
+    "stix_bundle": "https://intel.cyberdudebivash.com/data/stix/CDB-APEX-1782156418.json",
+    "apex": {
+      "priority": "P3",
+      "threat_level": "MEDIUM",
+      "threat_category": "Remote Code Execution",
+      "predictive_score": 5.5,
+      "campaign_id": null,
+      "confidence": 5.5,
+      "behavioral_tags": [],
+      "ai_summary": "Initial access via rce",
+      "recommended_action": "Medium severity threat (score 5.5/10) — limited technical indicators in source data"
+    },
+    "description": "CVE-2026-55388 - piscina: Prototype Pollution Gadget RCE via inherited options.filename",
+    "source_domain": "nvd.nist.gov",
+    "source_trust_score": 0.6,
+    "is_published": true,
+    "cve_ids": [
+      "CVE-2026-55388"
+    ],
+    "affected_products": [],
+    "kill_chain_phases": [],
+    "is_new": false,
+    "attack_vector": "NETWORK",
+    "source_quality": "MEDIUM",
+    "enrichment_score": 60,
+    "pdf_url": "/reports/pdf/intel--58d4b5f07f91bbe84912fa45.pdf",
+    "pdf_available": true,
+    "_governance_rules": "NO_GOVERNANCE_RULES_FIRED",
+    "_score_details": {
+      "kev": false,
+      "active_exploit": false,
+      "ransomware": false,
+      "zero_day": false,
+      "cvss": 0.53,
+      "epss": null
+    },
+    "apex_ai": {
+      "soc_priority": "P4",
+      "predictive_risk": 0.5,
+      "ai_confidence": 31,
+      "ttp_density": 3.0,
+      "threat_level": "LOW",
+      "threat_category": "Remote Code Execution",
+      "ai_summary": "[P4] Remote Code Execution - low severity (Risk 0.53/10). MITRE ATT&CK mapped: T1059, T1190 (2 techniques). 13 indicators detected - upgrade to Pro for full IOC access. Actor attribution: CDB-UNATTR-CVE. AI confidence: LOW (31%) - limited source data available.",
+      "recommended_action": "LOW PRIORITY - Monitor for escalation. Apply patch in next maintenance window. Review Remote Code Execution detection coverage.",
+      "campaign_id": "UNCLASSIFIED",
+      "actor_fingerprint": "CDB-UNATTR-CVE::L::13::2",
+      "behavioral_tags": [
+        "CODE-EXECUTION",
+        "HIGH-IOC-DENSITY"
+      ],
+      "kill_chain": [
+        "Initial Access",
+        "Execution"
+      ],
+      "paywall": null
+    },
+    "ioc_paywall": {
+      "locked": true,
+      "count": 13,
+      "confidence": 89.0,
+      "threat_level": "CRITICAL",
+      "primary_types": [
+        "cve"
+      ],
+      "upgrade_url": "/upgrade.html?plan=pro",
+      "message": "13 IOC(s) at 89.0% confidence - unlock with Pro tier."
+    },
+    "cve_id": "CVE-2026-55388",
+    "nvd_status": "PRELIMINARY",
+    "nvd_checked_at": "2026-06-22T19:43:43.512166+00:00",
+    "nvd_disclosure": "This CVE ID was not found in the NIST NVD database at time of enrichment. Intelligence is preliminary and unverified by NVD. CVSS score and severity are analyst-estimated until NVD confirmation.",
+    "_enriched_at": "2026-06-22T19:43:43.512212+00:00",
+    "_enriched_by": "enrich_cvss_epss_batch.py v148.1.0",
+    "blog_url": "https://intel.cyberdudebivash.com/reports/intel--58d4b5f07f91bbe84912fa45/",
+    "_quality_hardened_at": "2026-06-22T22:42:58.263577+00:00",
+    "_quality_version": "184.0",
+    "mitre_group_name": "Unattributed CVE Exploiter",
+    "mitre_group_aliases": [],
+    "actor_country": "Unknown",
+    "actor_motivation": [
+      "unknown"
+    ],
+    "sigma_rule": "title: SENTINEL APEX — CVE-2026-55388 - piscina Prototype Pollution Gadget  RCE via inherited optionsfi\nid: 7a3cacbe-552f-52a0-9797-709ff30709be\nstatus: experimental\ndescription: |\n    Detects exploitation attempts related to CVE-2026-55388 (Web Application).\n    Generated by CYBERDUDEBIVASH SENTINEL APEX v166.2.\n    Severity: LOW | Class: RCE\nreferences:\n    - https://intel.cyberdudebivash.com\n    - https://nvd.nist.gov/vuln/detail/CVE-2026-55388\nauthor: CYBERDUDEBIVASH SENTINEL APEX Detection Engineering\ndate: 2026/06/22\nmodified: 2026/06/22\ntags:\n    - attack.initial_access\nlogsource:\n    category: process_creation\n    product: generic\ndetection:\n    selection_process:\n        CommandLine|contains:\n            - 'cmd.exe /c'\n            - 'powershell -enc'\n            - '/bin/sh -c'\n            - 'wget http'\n            - 'curl http'\n    selection_webshell:\n        Image|endswith:\n            - '\\cmd.exe'\n            - '\\powershell.exe'\n            - '/bash'\n            - '/sh'\n        ParentImage|contains:\n            - 'w3wp.exe'\n            - 'httpd'\n            - 'nginx'\n            - 'apache2'\n            - 'tomcat'\n    condition: selection_process or selection_webshell\nfalsepositives:\n    - Legitimate administrative scripts executing via web server\n    - Deployment automation tools\nlevel: low\n",
+    "kql_query": "// SENTINEL APEX — CVE-2026-55388 Remote Code Execution Detection\n// Product: Web Application | Generated: 2026-06-22T19:46:33Z\n// Deploy to: Microsoft Sentinel / Defender XDR\nlet lookback = 1d;\nDeviceProcessEvents\n| where Timestamp > ago(lookback)\n| where (InitiatingProcessFileName in~ (\"w3wp.exe\", \"httpd.exe\", \"nginx.exe\", \"tomcat.exe\", \"java.exe\")\n    and FileName in~ (\"cmd.exe\", \"powershell.exe\", \"bash\", \"sh\", \"python.exe\", \"python3\"))\n    or (ProcessCommandLine has_any (\"wget http\", \"curl http\", \"certutil -urlcache\", \"bitsadmin /transfer\"))\n| project Timestamp, DeviceName, AccountName, FileName, ProcessCommandLine,\n          InitiatingProcessFileName, InitiatingProcessCommandLine\n| where not(ProcessCommandLine has_any (\"update\", \"install\", \"backup\", \"deploy\"))  // filter known-good\n| extend Severity = \"HIGH\", CVE = \"CVE-2026-55388\", RuleSource = \"SENTINEL-APEX\"\n| order by Timestamp desc",
+    "suricata_rule": "alert http $EXTERNAL_NET any -> $HTTP_SERVERS $HTTP_PORTS (msg:\"SENTINEL-APEX CVE-2026-55388 Exploitation Attempt - RCE\"; flow:established,to_server; content:\"/bin/sh\"; nocase; content:\"cmd.exe\"; nocase; threshold:type threshold, track by_src, count 3, seconds 60; classtype:web-application-attack; sid:5369958; rev:1; metadata:created_at 2026-06-22, source SENTINEL-APEX-v166.2;)",
+    "vuln_class": "rce",
+    "detection_generated_at": "2026-06-22T19:46:33Z",
+    "cvss_vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:H/A:H",
+    "cvss_source": "github_advisory",
+    "exploit_maturity": "UNPROVEN",
+    "exploit_count": 0,
+    "exploit_refs": [],
+    "metasploit_available": false,
+    "poc_github_count": 0,
+    "actor_display_name": null,
+    "actor_aliases": [
+      "Unattributed"
+    ],
+    "actor_sectors": [],
+    "actor_ttps": [],
+    "actor_malware": [],
+    "actor_threat_level": "UNKNOWN",
+    "actor_mitre_id": null,
+    "iq_score": 25,
+    "iq_breakdown": {
+      "source": 10,
+      "enrichment": 10,
+      "attribution": 5,
+      "corroboration": 0
+    },
+    "intelligence_age_days": 0.1,
+    "attck_technique_ids": [
+      "T1059"
+    ],
+    "attck_techniques": [
+      {
+        "technique_id": "T1059",
+        "technique_name": "Command and Scripting Interpreter",
+        "attack_justification": "CVE confirms remote/arbitrary code execution capability",
+        "attack_evidence": "CVE-2026-55388 — cve-2026-55388 - piscina: prototype pollution gadget  rce via inherited options.filename cve-2026-55388 - piscina: proto...",
+        "attack_source": "CVE Feed",
+        "mapping_method": "cve_description_derivation",
+        "verification_status": "EVIDENCE_BASED",
+        "matched_pattern": "remote code exec",
+        "source_reference": "",
+        "mapping_reason": ""
+      }
+    ],
+    "confidence_label": "MEDIUM_CONFIDENCE",
+    "confidence_score_v2": 25,
+    "confidence_rationale": "Medium confidence — CVSS score 8.1 (High)",
+    "confidence_factors": [
+      {
+        "factor": "cvss_high",
+        "weight": 8,
+        "signal": "CVSS score 8.1 (High)"
+      },
+      {
+        "factor": "cve_referenced",
+        "weight": 5,
+        "signal": "CVE(s) referenced: CVE-2026-55388"
+      },
+      {
+        "factor": "iocs_5plus",
+        "weight": 8,
+        "signal": "13 IOCs extracted and verified"
+      },
+      {
+        "factor": "ttps_2to4",
+        "weight": 4,
+        "signal": "2 MITRE ATT&CK TTPs mapped"
+      }
+    ],
+    "sources_reporting": 1,
+    "corroborating_sources": [],
+    "revenue_opportunities": [
+      "VULNERABILITY_ASSESSMENT"
+    ],
+    "sla_priority": "P4",
+    "action_deadline_hours": 720,
+    "recommended_sla_action": "MONITOR — Assess in next vulnerability review cycle",
+    "confidence_enriched_at": "2026-06-22T19:47:27Z",
+    "confidence_engine_version": "1.0.1",
+    "apex_ai_summary": "[P4] Remote Code Execution - low severity (Risk 0.53/10). MITRE ATT&CK mapped: T1059, T1190 (2 techniques). 13 indicators detected - upgrade to Pro for full IOC access. Actor attribution: CDB-UNATTR-CVE. AI confidence: LOW (31%) - limited source data available.",
+    "apex_ai_score": 0.5,
+    "evidence_ledger": {
+      "source_count": 1,
+      "verified_sources": 0,
+      "ioc_count": 13,
+      "ttp_count": 2,
+      "cve_count": 1,
+      "confidence_score": 25,
+      "evidence_strength": "LOW",
+      "ledger_generated": true
+    },
+    "confidence_reason": [
+      "13 IOC(s) extracted",
+      "2 ATT&CK technique(s) mapped"
+    ],
+    "cti_tier": "FREE_INFORMATIONAL",
+    "verification_status": "UNVERIFIED",
+    "attribution_status": "UNATTRIBUTED",
+    "source_reliability": "UNRATED",
+    "ioc_quality": "MEDIUM",
+    "ttp_quality": "MEDIUM",
+    "report_quality": "INFORMATIONAL",
+    "actor": null,
+    "actor_name": null,
+    "actor_confidence": 0,
+    "verified_actor": false,
+    "campaign_name": null,
+    "campaign_id": null,
+    "campaign_status": "UNVERIFIED",
+    "publication_decision": "ALLOW_WITH_WARNING",
+    "intelligence_grade": "B",
+    "evidence_count": 2,
+    "corroboration_count": 2,
+    "ioc_quality_score": 70,
+    "ioc_quality_label": "HIGH",
+    "real_ioc_count": 1,
+    "attck_verification": "EVIDENCE_BASED",
+    "attck_notes": [
+      "Derived from CVE description: remote code exec"
+    ],
+    "risk_score_reasoning": "{\"formula\": \"v1.0.0-deterministic\", \"inputs\": {\"cvss_score\": 8.1, \"epss_pct\": 0.0, \"kev_confirmed\": false, \"verified_actor\": false, \"real_ioc_count\": 13}, \"components\": {\"base_cvss\": 3.24, \"epss_boost\": 0.0, \"kev_boost\": 0.0, \"actor_boost\": 0.0, \"ioc_boost\": 1.0}, \"computed_score\": 4.24, \"notes\": [\"EPSS absent for CVE item \\u2014 enrich from FIRST.org API\"]}",
+    "analyst_verdict": "ALLOW — Grade B: strong CVE intelligence. Verified CVE, CVSS>=8.0, evidence-based ATT&CK, multi-source corroboration.",
+    "grade_notes": [
+      "Partial verification: CVSS 8.1"
+    ],
+    "grade_engine_version": "v2.0.0",
+    "graded_at": "2026-06-22T22:43:43.252810+00:00",
+    "attck_tactics": [],
+    "allowed_content_tier": "enterprise_dossier",
+    "premium_eligible": true,
+    "enterprise_eligible": true,
+    "mssp_eligible": true,
+    "governor_version": "1.0.0",
+    "governed_at": "2026-06-22T22:43:44.129017+00:00",
+    "governor_audit_log": [
+      "M3: attck_technique_ids cleared — verification='NOT_VERIFIED' (no evidence)",
+      "M4: risk_score raised 4.2→7.0 [CVSS=8.1 ≥ 7.0 → floor 7.0]"
+    ],
+    "actor_confidence_label": "NONE",
+    "attribution_assessment": {
+      "status": "UNATTRIBUTED",
+      "confidence": "NONE",
+      "evidence_count": 0,
+      "verdict": "No actor claimed — correct",
+      "engine_version": "1.0.0"
+    },
+    "corroboration_score": 40,
+    "corroboration_strength": "MODERATE",
+    "corroboration_sources": [
+      "CVE Feed",
+      "NVD/CVE-Database"
+    ],
+    "detection_quality_status": "DETECTION_PARTIALLY_READY",
+    "detection_production_ready": true,
+    "detection_rules_total": 3,
+    "detection_rules_production_ready": 1,
+    "grade_notes_v2": [
+      "Grade B: CVE verified; CVSS=8.1; 2 sources; evidence-based ATT&CK; corroboration=40"
+    ],
+    "graded_at_v2": "2026-06-22T22:43:44.002893+00:00"
   }
 ]
