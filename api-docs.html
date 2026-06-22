@@ -3,15 +3,15 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>API Reference v184.0 — CYBERDUDEBIVASH® SENTINEL APEX | STIX 2.1 · TAXII · IOC · Threat Intelligence API</title>
-<meta name="description" content="SENTINEL APEX API v184.0 — Real-time threat intelligence API. STIX 2.1 bundles, TAXII 2.1, IOC lookup, CVE enrichment, MITRE ATT&CK mapping, SIEM dispatch. From $49/mo. Free tier available.">
-<meta property="og:title" content="SENTINEL APEX API v184.0 — Threat Intelligence API">
+<title>API Reference v185.0 — CYBERDUDEBIVASH® SENTINEL APEX | STIX 2.1 · TAXII · IOC · Threat Intelligence API</title>
+<meta name="description" content="SENTINEL APEX API v185.0 — Real-time threat intelligence API. STIX 2.1 bundles, TAXII 2.1, IOC lookup, CVE enrichment, MITRE ATT&CK mapping, SIEM dispatch. From $49/mo. Free tier available.">
+<meta property="og:title" content="SENTINEL APEX API v185.0 — Threat Intelligence API">
 <meta property="og:description" content="Real-time threat intelligence API. STIX 2.1 bundles, TAXII 2.1, IOC lookup, CVE enrichment, MITRE ATT&CK mapping, SIEM dispatch. From $49/mo. Free tier available.">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://intel.cyberdudebivash.com/api-docs.html">
 <meta property="og:image" content="https://intel.cyberdudebivash.com/assets/og-api.png">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="SENTINEL APEX API v184.0 — Threat Intelligence API">
+<meta name="twitter:title" content="SENTINEL APEX API v185.0 — Threat Intelligence API">
 <meta name="twitter:description" content="Real-time threat intelligence API. STIX 2.1, TAXII 2.1, IOC lookup, CVE enrichment, MITRE ATT&CK. Free tier available.">
 <link rel="canonical" href="https://intel.cyberdudebivash.com/api-docs.html">
 <style>
@@ -83,7 +83,7 @@ li{margin-bottom:6px}
 </head>
 <body>
 <header>
-  <div class="logo">CYBERDUDEBIVASH® SENTINEL APEX<span>API Reference v184.0 · STIX 2.1 · TAXII 2.1</span></div>
+  <div class="logo">CYBERDUDEBIVASH® SENTINEL APEX<span>API Reference v185.0 · STIX 2.1 · TAXII 2.1</span></div>
   <nav>
     <a href="/">Dashboard</a>
     <a href="/pricing.html">Pricing</a>
@@ -96,6 +96,7 @@ li{margin-bottom:6px}
 <div class="layout">
   <nav class="sidebar">
     <div class="sidebar-section">Getting Started</div>
+    <a href="#quickstart" style="color:#00d4aa;font-weight:700;">Quick Start ⚡</a>
     <a href="#overview">Overview</a>
     <a href="#authentication">Authentication</a>
     <a href="#rate-limits">Rate Limits</a>
@@ -135,12 +136,137 @@ li{margin-bottom:6px}
       </div>
       <a href="/pricing.html">Get API Key &rarr;</a>
     </div>
-    <h1>SENTINEL APEX API Reference <small style="font-size:.55em;color:#546e7a;font-weight:400">v184.0</small></h1>
+    <h1>SENTINEL APEX API Reference <small style="font-size:.55em;color:#546e7a;font-weight:400">v185.0</small></h1>
     <p>The SENTINEL APEX API provides programmatic access to real-time threat intelligence, STIX 2.1 bundles, analyst dossiers, IOC lookups, and SIEM dispatch integrations. Base URL:</p>
     <div class="endpoint"><strong>https://intel.cyberdudebivash.com/api/</strong></div>
     <div class="info-box">
       <p>📘 All API responses are JSON. STIX endpoints return STIX 2.1-compliant bundles. Authentication via <code>X-API-Key</code> header is required for all endpoints except <code>/api/health</code>. Free tier provides 100 requests/day to public endpoints.</p>
     </div>
+
+    <!-- R-04: QUICK START v185.0 -->
+    <h2 id="quickstart">Quick Start — First API Call in 60 Seconds</h2>
+    <p>Get live threat intelligence in your first call. Pick your language:</p>
+    <div style="display:flex;gap:4px;margin-bottom:-1px;flex-wrap:wrap;">
+      <button onclick="apexQsTab(this,'qs-curl')" class="qs-tab qs-tab-active">cURL</button>
+      <button onclick="apexQsTab(this,'qs-python')" class="qs-tab">Python</button>
+      <button onclick="apexQsTab(this,'qs-js')" class="qs-tab">JavaScript</button>
+      <button onclick="apexQsTab(this,'qs-go')" class="qs-tab">Go</button>
+      <button onclick="apexQsTab(this,'qs-ps')" class="qs-tab">PowerShell</button>
+    </div>
+    <div style="position:relative;border:1px solid #1e3a5f;border-radius:0 4px 4px 4px;background:#060d18;">
+      <button onclick="apexCopy(this)" style="position:absolute;top:10px;right:12px;background:rgba(79,195,247,0.1);border:1px solid rgba(79,195,247,0.3);color:#4fc3f7;font-size:10px;font-family:monospace;padding:4px 10px;border-radius:3px;cursor:pointer;letter-spacing:1px;">COPY</button>
+      <pre id="qs-curl" class="qs-panel" style="margin:0;border:none;background:transparent;"># 1. Get your API key: https://intel.cyberdudebivash.com/pricing.html
+# 2. Replace YOUR_API_KEY — Community tier is FREE (100 req/day)
+
+curl -s -H "X-API-Key: YOUR_API_KEY" \
+  "https://intel.cyberdudebivash.com/api/feed?limit=5&severity=CRITICAL" \
+  | python3 -m json.tool
+
+# Returns: JSON array of critical advisories with CVSS, EPSS, IOCs, Sigma rules</pre>
+      <pre id="qs-python" class="qs-panel" style="margin:0;border:none;background:transparent;display:none;">import requests
+
+API_KEY = "YOUR_API_KEY"  # /pricing.html for free key
+BASE    = "https://intel.cyberdudebivash.com/api"
+headers = {"X-API-Key": API_KEY}
+
+# Fetch latest CRITICAL advisories
+resp = requests.get(f"{BASE}/feed", headers=headers,
+                    params={"limit": 10, "severity": "CRITICAL"})
+resp.raise_for_status()
+
+for adv in resp.json():
+    print(f"[{adv['severity']}] {adv['title']}")
+    print(f"  CVSS: {adv.get('cvss_score')}  EPSS: {adv.get('epss_score')}%  IOCs: {adv.get('ioc_count',0)}")
+
+# Fetch Sigma rules for SIEM
+print(requests.get(f"{BASE}/feed/sigma", headers=headers).text)</pre>
+      <pre id="qs-js" class="qs-panel" style="margin:0;border:none;background:transparent;display:none;">const API_KEY = 'YOUR_API_KEY'; // /pricing.html for free key
+const BASE    = 'https://intel.cyberdudebivash.com/api';
+
+async function getThreats() {
+  const resp = await fetch(`${BASE}/feed?limit=10&severity=CRITICAL`, {
+    headers: { 'X-API-Key': API_KEY }
+  });
+  const data = await resp.json();
+  data.forEach(adv => console.log(`[${adv.severity}] ${adv.title} — CVSS:${adv.cvss_score}`));
+}
+
+// Register SIEM webhook (Enterprise+)
+async function registerWebhook(url) {
+  return fetch(`${BASE}/webhooks`, {
+    method: 'POST',
+    headers: { 'X-API-Key': API_KEY, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ url, events: ['advisory.critical'] })
+  }).then(r => r.json());
+}
+
+getThreats();</pre>
+      <pre id="qs-go" class="qs-panel" style="margin:0;border:none;background:transparent;display:none;">package main
+
+import (
+    "encoding/json"
+    "fmt"
+    "io"
+    "net/http"
+)
+
+const (
+    apiKey = "YOUR_API_KEY"
+    base   = "https://intel.cyberdudebivash.com/api"
+)
+
+func main() {
+    req, _ := http.NewRequest("GET", base+"/feed?limit=10&severity=CRITICAL", nil)
+    req.Header.Set("X-API-Key", apiKey)
+    resp, _ := http.DefaultClient.Do(req)
+    defer resp.Body.Close()
+    body, _ := io.ReadAll(resp.Body)
+    var advisories []map[string]interface{}
+    json.Unmarshal(body, &advisories)
+    for _, adv := range advisories {
+        fmt.Printf("[%s] %s — CVSS:%v\n", adv["severity"], adv["title"], adv["cvss_score"])
+    }
+}</pre>
+      <pre id="qs-ps" class="qs-panel" style="margin:0;border:none;background:transparent;display:none;"># PowerShell (Windows/macOS/Linux)
+$Key  = "YOUR_API_KEY"; $Base = "https://intel.cyberdudebivash.com/api"
+$Hdrs = @{ "X-API-Key" = $Key }
+
+# Critical advisories
+Invoke-RestMethod "$Base/feed?limit=10&severity=CRITICAL" -Headers $Hdrs |
+  ForEach-Object { Write-Host "[$($_.severity)] $($_.title) CVSS:$($_.cvss_score)" }
+
+# Save Sigma rules for Microsoft Sentinel / Splunk
+Invoke-RestMethod "$Base/feed/sigma" -Headers $Hdrs | Out-File sentinel_rules.yaml -Encoding UTF8</pre>
+    </div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;margin:16px 0 28px;">
+      <a href="/upgrade.html?plan=pro&utm_source=api-docs&utm_medium=quickstart" style="display:inline-flex;align-items:center;gap:6px;background:#00d4aa;color:#020a14;font-family:monospace;font-size:11px;font-weight:800;letter-spacing:1px;padding:8px 18px;border-radius:4px;text-decoration:none;">GET FREE API KEY</a>
+      <a href="/enterprise-procurement-pack.html" style="display:inline-flex;align-items:center;gap:6px;border:1px solid rgba(79,195,247,0.3);color:#4fc3f7;font-family:monospace;font-size:11px;font-weight:700;letter-spacing:1px;padding:8px 18px;border-radius:4px;text-decoration:none;background:rgba(79,195,247,0.06);">ENTERPRISE PACK</a>
+      <a href="/api-reference-card.html" style="display:inline-flex;align-items:center;gap:6px;border:1px solid rgba(79,195,247,0.3);color:#4fc3f7;font-family:monospace;font-size:11px;font-weight:700;letter-spacing:1px;padding:8px 18px;border-radius:4px;text-decoration:none;background:rgba(79,195,247,0.06);">POSTMAN COLLECTION</a>
+    </div>
+    <style>
+    .qs-tab{font-family:monospace;font-size:11px;padding:6px 14px;background:#060d18;border:1px solid #1e3a5f;border-bottom:none;color:#546e7a;cursor:pointer;border-radius:4px 4px 0 0;transition:background .15s,color .15s;}
+    .qs-tab-active{background:#0a1628!important;color:#4fc3f7!important;}
+    </style>
+    <script>
+    function apexQsTab(btn,panelId){
+      document.querySelectorAll('.qs-tab').forEach(function(b){b.classList.remove('qs-tab-active');});
+      btn.classList.add('qs-tab-active');
+      document.querySelectorAll('.qs-panel').forEach(function(p){p.style.display='none';});
+      var el = document.getElementById(panelId);
+      if(el) el.style.display='block';
+    }
+    function apexCopy(btn){
+      var active = null;
+      document.querySelectorAll('.qs-panel').forEach(function(p){
+        if(p.style.display !== 'none' && !p.style.display) active = p;
+        else if(!p.style.display) active = p;
+      });
+      if(!active) active = document.getElementById('qs-curl');
+      navigator.clipboard && active && navigator.clipboard.writeText(active.textContent||'').then(function(){
+        btn.textContent='COPIED!'; setTimeout(function(){btn.textContent='COPY';},1800);
+      });
+    }
+    </script>
 
     <h2 id="authentication">Authentication</h2>
     <p>All authenticated endpoints require an API key passed in the <code>X-API-Key</code> header. Request your API key at <a href="/pricing.html" style="color:#4fc3f7">pricing.html</a>.</p>
