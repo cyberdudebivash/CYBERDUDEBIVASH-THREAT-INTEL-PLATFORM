@@ -44,7 +44,7 @@ Full details: https://intel.cyberdudebivash.com/mssp.html
 Happy to jump on a 20-minute call this week to walk you through everything.
 Reply with your availability.
 
-— Bivash
+— CYBERDUDEBIVASH® SENTINEL APEX Team
 bivash@cyberdudebivash.com | +91 8179881447
 ```
 
@@ -100,7 +100,7 @@ TO START:
 
 Questions? Reply here or WhatsApp +91 8179881447.
 
-— Bivash
+— CYBERDUDEBIVASH® SENTINEL APEX Team
 ```
 
 ---
@@ -271,7 +271,7 @@ Renewal link: https://intel.cyberdudebivash.com/PAYMENT-GATEWAY.html?plan=mssp
 
 Any questions? WhatsApp the support group or reply here.
 
-— Bivash
+— CYBERDUDEBIVASH® SENTINEL APEX Team
 ```
 
 ---

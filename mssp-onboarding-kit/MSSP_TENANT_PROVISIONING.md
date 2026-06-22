@@ -109,7 +109,7 @@ https://intel.cyberdudebivash.com/docs/quickstart.html
 
 Let me know once [CLIENT_NAME] is connected.
 
-— Bivash
+— CYBERDUDEBIVASH® SENTINEL APEX Team
 ```
 
 ---

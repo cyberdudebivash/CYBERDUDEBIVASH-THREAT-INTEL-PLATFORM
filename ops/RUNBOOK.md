@@ -222,7 +222,7 @@ See: `ops/SECRETS-ROTATION.md`
 ## 9. EMERGENCY CONTACTS
 
 - Platform Operator: CYBERDUDEBIVASH (enterprise@cyberdudebivash.com)
-- Intelligence Contact: intelligence@cyberdudebivash.com
+- Intelligence Contact: enterprise@cyberdudebivash.com
 - GitHub Repository: https://github.com/cyberdudebivash/CYBERDUDEBIVASH-THREAT-INTEL-PLATFORM
 - Live Platform: https://intel.cyberdudebivash.com
 - Status Page: https://intel.cyberdudebivash.com/status.html
