@@ -28,7 +28,7 @@ SPEC = {
         ),
         "contact": {
             "name": "CYBERDUDEBIVASH® API Support",
-            "email": "iambivash.bn@gmail.com",
+            "email": "enterprise@cyberdudebivash.com",
             "url": "https://intel.cyberdudebivash.com"
         },
         "license": {"name": "CC BY-NC 4.0", "url": "https://creativecommons.org/licenses/by-nc/4.0/"},
