@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MSSP Partner Onboarding — SENTINEL APEX v185.0</title>
+<meta name="description" content="Get your MSSP multi-tenant threat intelligence portal live in 48 hours. Step-by-step onboarding for SENTINEL APEX MSSP PRO partners.">
+<link rel="canonical" href="https://intel.cyberdudebivash.com/mssp-partner-onboarding.html">
+<link rel="icon" href="/favicon.ico">
+<meta property="og:title" content="MSSP Partner Onboarding — SENTINEL APEX">
+<meta property="og:description" content="48-hour onboarding path for MSSP PRO partners. White-label portal, multi-tenant API keys, up to 25% commission.">
+<meta property="og:type" content="website">
+<style>
+:root{
+  --bg:#050c18;--bg2:#090f1e;--bg-card:#0b1422;
+  --border:#162030;--border-c:rgba(0,212,170,0.25);
+  --accent:#00d4aa;--accent2:#06b6d4;
+  --text:#e2e8f0;--muted:#64748b;
+  --green:#10b981;--amber:#f59e0b;--red:#ef4444;
+  --font-mono:'Courier New',monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,sans-serif;line-height:1.6;}
+a{color:var(--accent);text-decoration:none;}
+a:hover{text-decoration:underline;}
+
+nav{display:flex;align-items:center;justify-content:space-between;padding:14px 32px;background:rgba(5,12,24,0.97);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:100;}
+.nav-logo{font-family:var(--font-mono);font-weight:900;font-size:13px;color:var(--accent);letter-spacing:2px;text-decoration:none;}
+.nav-links a{color:var(--muted);text-decoration:none;font-size:12px;margin-left:18px;font-family:var(--font-mono);}
+.nav-cta{background:var(--accent);color:#020a14!important;padding:7px 16px;border-radius:4px;font-weight:800;font-size:11px;letter-spacing:1px;}
+
+.hero{padding:72px 24px 56px;text-align:center;border-bottom:1px solid var(--border);background:radial-gradient(ellipse 900px 400px at 50% -40px,rgba(0,212,170,0.06) 0%,transparent 60%);}
+.hero-badge{display:inline-flex;align-items:center;gap:8px;background:rgba(0,212,170,0.06);border:1px solid rgba(0,212,170,0.2);border-radius:20px;padding:5px 16px;margin-bottom:20px;font-family:var(--font-mono);font-size:9px;color:var(--accent);letter-spacing:3px;}
+.hero h1{font-size:clamp(26px,4vw,44px);font-weight:900;letter-spacing:-1.5px;margin-bottom:14px;}
+.hero h1 span{color:var(--accent);}
+.hero p{color:var(--muted);font-size:15px;max-width:600px;margin:0 auto 28px;line-height:1.7;}
+.hero-metrics{display:flex;gap:32px;justify-content:center;flex-wrap:wrap;font-family:var(--font-mono);}
+.hero-metric{text-align:center;}
+.hero-metric .val{font-size:28px;font-weight:900;color:var(--accent);}
+.hero-metric .lbl{font-size:9px;letter-spacing:2px;color:var(--muted);text-transform:uppercase;margin-top:3px;}
+
+.page-wrap{max-width:1000px;margin:0 auto;padding:56px 24px;}
+
+/* Progress timeline */
+.timeline{position:relative;padding-left:0;margin-bottom:64px;}
+.timeline::before{content:'';position:absolute;left:28px;top:0;bottom:0;width:2px;background:linear-gradient(180deg,var(--accent),rgba(0,212,170,0.1));display:none;}
+@media(min-width:640px){.timeline::before{display:block;}}
+.timeline-step{display:grid;grid-template-columns:56px 1fr;gap:24px;margin-bottom:40px;align-items:start;}
+.step-marker{width:56px;height:56px;border-radius:50%;background:var(--bg-card);border:2px solid var(--border-c);display:flex;align-items:center;justify-content:center;flex-shrink:0;position:relative;z-index:1;}
+.step-marker.done{background:rgba(0,212,170,0.1);border-color:var(--accent);}
+.step-marker .step-num{font-family:var(--font-mono);font-size:14px;font-weight:900;color:var(--accent);}
+.step-body{background:var(--bg-card);border:1px solid var(--border);border-radius:8px;padding:24px;position:relative;overflow:hidden;}
+.step-body::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,var(--accent),transparent);}
+.step-time{font-family:var(--font-mono);font-size:9px;letter-spacing:2px;color:var(--accent);text-transform:uppercase;margin-bottom:8px;}
+.step-title{font-size:18px;font-weight:800;margin-bottom:8px;}
+.step-desc{color:var(--muted);font-size:14px;line-height:1.7;margin-bottom:16px;}
+.step-items{list-style:none;padding:0;}
+.step-items li{display:flex;align-items:flex-start;gap:10px;padding:6px 0;font-size:13px;color:var(--text);border-bottom:1px solid rgba(22,32,48,0.5);}
+.step-items li:last-child{border-bottom:none;}
+.step-items li::before{content:'✓';color:var(--green);font-weight:700;flex-shrink:0;margin-top:1px;}
+.step-cta{display:inline-flex;align-items:center;gap:8px;margin-top:16px;padding:10px 20px;background:rgba(0,212,170,0.08);border:1px solid rgba(0,212,170,0.3);color:var(--accent);font-family:var(--font-mono);font-size:11px;font-weight:700;letter-spacing:1px;border-radius:4px;text-decoration:none;}
+.step-cta.primary{background:var(--accent);color:#020a14;}
+.step-cta:hover{text-decoration:none;opacity:0.9;}
+
+.code-block{background:#030e1a;border:1px solid var(--border);border-radius:6px;padding:16px 20px;font-family:var(--font-mono);font-size:11px;color:rgba(0,212,170,0.85);line-height:1.8;overflow-x:auto;margin:12px 0;}
+
+/* Commission table */
+.comm-table{width:100%;border-collapse:collapse;font-size:13px;margin-bottom:24px;}
+.comm-table th{font-family:var(--font-mono);font-size:9px;letter-spacing:2px;color:var(--muted);text-align:left;padding:10px 14px;border-bottom:1px solid var(--border);text-transform:uppercase;}
+.comm-table td{padding:12px 14px;border-bottom:1px solid rgba(22,32,48,0.5);}
+.comm-table tr:last-child td{border-bottom:none;}
+
+.info-strip{background:rgba(0,212,170,0.04);border:1px solid rgba(0,212,170,0.15);border-radius:8px;padding:20px 24px;display:flex;align-items:flex-start;gap:16px;margin:24px 0;}
+.info-strip .icon{font-size:20px;flex-shrink:0;margin-top:2px;}
+.info-strip .info-text{font-size:14px;color:var(--muted);line-height:1.7;}
+.info-strip .info-text strong{color:var(--text);}
+
+.cta-strip{background:linear-gradient(135deg,rgba(0,212,170,0.07),rgba(6,182,212,0.04));border:1px solid var(--border-c);border-radius:8px;padding:40px 32px;text-align:center;margin-top:48px;}
+.cta-strip h3{font-size:22px;font-weight:800;margin-bottom:10px;}
+.cta-strip p{color:var(--muted);font-size:14px;margin-bottom:24px;max-width:520px;margin-left:auto;margin-right:auto;}
+.cta-row{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;}
+.btn-primary{display:inline-flex;align-items:center;gap:8px;padding:13px 26px;background:var(--accent);color:#020a14;font-family:var(--font-mono);font-size:12px;font-weight:900;letter-spacing:1px;border-radius:4px;text-decoration:none;}
+.btn-secondary{display:inline-flex;align-items:center;gap:8px;padding:13px 26px;border:1px solid rgba(0,212,170,0.35);color:var(--accent);font-family:var(--font-mono);font-size:12px;font-weight:700;letter-spacing:1px;border-radius:4px;text-decoration:none;background:rgba(0,212,170,0.06);}
+.btn-primary:hover,.btn-secondary:hover{text-decoration:none;opacity:0.9;}
+
+footer{border-top:1px solid var(--border);padding:32px 24px;text-align:center;font-size:12px;color:var(--muted);}
+footer a{color:var(--muted);text-decoration:none;margin:0 10px;}
+footer a:hover{color:var(--accent);}
+
+@media(max-width:640px){
+  nav{padding:12px 16px;}
+  .nav-links{display:none;}
+  .page-wrap{padding:32px 16px;}
+  .timeline-step{grid-template-columns:1fr;}
+  .step-marker{display:none;}
+}
+</style>
+</head>
+<body>
+
+<nav>
+  <a href="/" class="nav-logo">CDB® SENTINEL APEX</a>
+  <div class="nav-links">
+    <a href="/mssp.html">MSSP Program</a>
+    <a href="/pricing.html">Pricing</a>
+    <a href="/api-docs.html">API Docs</a>
+    <a href="/enterprise-procurement-pack.html">Procurement</a>
+    <a href="/upgrade.html?plan=mssp&utm_source=mssp-onboarding&utm_medium=nav" class="nav-cta">JOIN MSSP PROGRAM</a>
+  </div>
+</nav>
+
+<div class="hero">
+  <div class="hero-badge">
+    <span style="width:6px;height:6px;border-radius:50%;background:var(--green);display:inline-block;"></span>
+    MSSP PARTNER ONBOARDING GUIDE v185.0
+  </div>
+  <h1>Your White-Label Portal<br><span>Live in 48 Hours</span></h1>
+  <p>SENTINEL APEX MSSP PRO gives you a fully white-labeled threat intelligence portal, multi-tenant API keys, and up to 25% recurring commission on every client you manage. Here's exactly how to get started.</p>
+  <div class="hero-metrics">
+    <div class="hero-metric"><div class="val">48h</div><div class="lbl">Portal Live</div></div>
+    <div class="hero-metric"><div class="val">25%</div><div class="lbl">Commission</div></div>
+    <div class="hero-metric"><div class="val">250</div><div class="lbl">Max Sub-Tenants</div></div>
+    <div class="hero-metric"><div class="val">$0</div><div class="lbl">Per-Tenant Cost</div></div>
+  </div>
+</div>
+
+<div class="page-wrap">
+
+  <!-- STEP-BY-STEP ONBOARDING -->
+  <div style="font-family:var(--font-mono);font-size:9px;letter-spacing:4px;color:var(--accent);text-transform:uppercase;margin-bottom:12px;">ONBOARDING TIMELINE</div>
+  <h2 style="font-size:26px;font-weight:900;margin-bottom:40px;">Your 48-Hour Activation Path</h2>
+
+  <div class="timeline">
+
+    <!-- STEP 1 -->
+    <div class="timeline-step">
+      <div class="step-marker done"><span class="step-num">1</span></div>
+      <div class="step-body">
+        <div class="step-time">Day 0 — Hour 0</div>
+        <div class="step-title">Activate MSSP PRO Subscription</div>
+        <div class="step-desc">Select MSSP PRO ($1,999/mo or $1,599/mo annual) and complete payment. Your MSSP account is provisioned automatically.</div>
+        <ul class="step-items">
+          <li>Go to <a href="/upgrade.html?plan=mssp">upgrade.html → MSSP PRO</a></li>
+          <li>Choose Monthly or Annual billing (20% discount annual)</li>
+          <li>Complete payment — UPI, PayPal, NEFT, or Crypto accepted</li>
+          <li>MSSP admin panel credentials sent to your email within 4 business hours</li>
+        </ul>
+        <a href="/upgrade.html?plan=mssp&utm_source=mssp-onboarding&utm_medium=step1" class="step-cta primary">Activate MSSP PRO →</a>
+      </div>
+    </div>
+
+    <!-- STEP 2 -->
+    <div class="timeline-step">
+      <div class="step-marker"><span class="step-num">2</span></div>
+      <div class="step-body">
+        <div class="step-time">Day 0 — Hours 1-4</div>
+        <div class="step-title">White-Label Configuration</div>
+        <div class="step-desc">Configure your branding so every client sees YOUR company name, not SENTINEL APEX.</div>
+        <ul class="step-items">
+          <li>Upload your company logo (PNG, min 400×120px recommended)</li>
+          <li>Set your company name and primary brand color</li>
+          <li>Configure custom domain (e.g., <code>intel.yourcompany.com</code>) — CNAME to our servers</li>
+          <li>Set custom email sender for client digest emails</li>
+          <li>Preview white-label portal before sharing with clients</li>
+        </ul>
+        <div class="code-block">
+# Custom domain setup (CNAME record):
+intel.yourcompany.com  →  CNAME  mssp-portal.intel.cyberdudebivash.com
+
+# SSL certificate: auto-provisioned via Let's Encrypt within 30 minutes of CNAME
+# Verify: curl -I https://intel.yourcompany.com/health</div>
+        <a href="mailto:enterprise@cyberdudebivash.in?subject=MSSP%20White-Label%20Config" class="step-cta">Contact MSSP Team</a>
+      </div>
+    </div>
+
+    <!-- STEP 3 -->
+    <div class="timeline-step">
+      <div class="step-marker"><span class="step-num">3</span></div>
+      <div class="step-body">
+        <div class="step-time">Day 0 — Hours 4-8</div>
+        <div class="step-title">Create Your First Client Tenant</div>
+        <div class="step-desc">Each client gets their own isolated tenant: separate API keys, separate dashboard, separate data views.</div>
+        <ul class="step-items">
+          <li>Log into MSSP Admin → Sub-Tenants → Create New</li>
+          <li>Set client name, industry, and contact email</li>
+          <li>Choose client tier (Community/PRO/Enterprise under your MSSP umbrella)</li>
+          <li>Generate scoped API key for client (read-only or read-write)</li>
+          <li>Share onboarding email with client — auto-generated from your white-label brand</li>
+        </ul>
+        <div class="code-block">
+# API: Create sub-tenant programmatically
+POST /api/v1/mssp/tenants
+Authorization: Bearer YOUR_MSSP_API_KEY
+Content-Type: application/json
+
+{
+  "name": "Client Corp",
+  "industry": "financial_services",
+  "contact_email": "soc@clientcorp.com",
+  "tier": "enterprise",
+  "custom_feeds": ["cisa", "mitre", "nvd", "otx"],
+  "alert_severity_floor": "HIGH"
+}</div>
+      </div>
+    </div>
+
+    <!-- STEP 4 -->
+    <div class="timeline-step">
+      <div class="step-marker"><span class="step-num">4</span></div>
+      <div class="step-body">
+        <div class="step-time">Day 1 — First 24 Hours</div>
+        <div class="step-title">SIEM Integration for Your Clients</div>
+        <div class="step-desc">Deploy threat intelligence directly into your clients' SIEM/SOAR. This is the key value-add that differentiates your MSSP offering.</div>
+        <ul class="step-items">
+          <li>Microsoft Sentinel: Import KQL rules from <code>/api/v1/rules/kql?tenant=CLIENT_ID</code></li>
+          <li>Splunk: Import Sigma rules and convert via <code>sigma convert -t splunk</code></li>
+          <li>IBM QRadar: STIX 2.1 / TAXII 2.1 pull endpoint per tenant</li>
+          <li>Generic SOAR: Register webhook → receive advisory.critical events in real-time</li>
+          <li>Elastic SIEM: Sigma rules auto-converted to EQL queries</li>
+        </ul>
+        <div class="code-block">
+# Register SIEM webhook per tenant
+POST /api/v1/mssp/tenants/{tenant_id}/webhooks
+Authorization: Bearer YOUR_MSSP_API_KEY
+
+{
+  "url": "https://siem.clientcorp.com/api/threat-feed",
+  "events": ["advisory.critical", "advisory.high", "ioc.new_c2"],
+  "format": "stix21",   # or "json", "sigma", "kql"
+  "secret": "HMAC_SECRET_FOR_SIGNATURE_VERIFICATION"
+}</div>
+        <div class="info-strip">
+          <span class="icon">💡</span>
+          <div class="info-text"><strong>MSSP Success Team note:</strong> SIEM integration is the #1 reason clients renew. Enterprise clients seeing detection rules deploy automatically within 6 hours of a new threat have near-zero churn. Prioritize SIEM hookup in week 1 for every new client.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- STEP 5 -->
+    <div class="timeline-step">
+      <div class="step-marker"><span class="step-num">5</span></div>
+      <div class="step-body">
+        <div class="step-time">Day 1-2 — Hours 24-48</div>
+        <div class="step-title">Client-Branded Weekly Threat Brief</div>
+        <div class="step-desc">Automate weekly threat digests sent from YOUR brand. This is what clients see — your logo, your brand, your relationship.</div>
+        <ul class="step-items">
+          <li>Enable Weekly Brief per tenant in MSSP Admin → Client Settings → Reports</li>
+          <li>Brief generated Monday 6:00 AM UTC — top 5 threats, IOC digest, detection rules</li>
+          <li>Sent from your custom email domain (e.g., <code>threats@yourcompany.com</code>)</li>
+          <li>PDF report attached — client can forward to their CISO</li>
+          <li>Executive summary tab in client portal shows last 4 weekly briefs</li>
+        </ul>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;">
+          <span style="font-family:var(--font-mono);font-size:9px;padding:4px 10px;border-radius:20px;background:rgba(16,185,129,0.1);border:1px solid rgba(16,185,129,0.3);color:var(--green);">Client sees YOUR brand</span>
+          <span style="font-family:var(--font-mono);font-size:9px;padding:4px 10px;border-radius:20px;background:rgba(16,185,129,0.1);border:1px solid rgba(16,185,129,0.3);color:var(--green);">Auto-generated Monday</span>
+          <span style="font-family:var(--font-mono);font-size:9px;padding:4px 10px;border-radius:20px;background:rgba(16,185,129,0.1);border:1px solid rgba(16,185,129,0.3);color:var(--green);">PDF + Dashboard</span>
+          <span style="font-family:var(--font-mono);font-size:9px;padding:4px 10px;border-radius:20px;background:rgba(16,185,129,0.1);border:1px solid rgba(16,185,129,0.3);color:var(--green);">STIX 2.1 Appendix</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- STEP 6 -->
+    <div class="timeline-step">
+      <div class="step-marker"><span class="step-num">6</span></div>
+      <div class="step-body">
+        <div class="step-time">Week 1 — Ongoing</div>
+        <div class="step-title">Scale: Add More Clients, Earn More Commission</div>
+        <div class="step-desc">Every additional client you onboard increases your commission. No per-tenant cost up to 250 sub-tenants.</div>
+        <ul class="step-items">
+          <li>Onboard SMB clients at $49-99/mo to your clients → earn 15% commission</li>
+          <li>Onboard Enterprise clients at $499/mo → earn up to 25% commission</li>
+          <li>Use the <a href="/mssp.html#calculator">MSSP Revenue Calculator</a> to project monthly earnings</li>
+          <li>Quarterly business review with your dedicated MSSP Success Manager</li>
+          <li>Co-marketing support: joint case studies, partner certification badge</li>
+        </ul>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- COMMISSION STRUCTURE -->
+  <div style="font-family:var(--font-mono);font-size:9px;letter-spacing:4px;color:var(--accent);text-transform:uppercase;margin-bottom:12px;">COMMISSION STRUCTURE</div>
+  <h2 style="font-size:22px;font-weight:800;margin-bottom:20px;">What You Earn</h2>
+  <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:8px;overflow:hidden;margin-bottom:40px;">
+    <table class="comm-table">
+      <thead><tr><th>Client Type</th><th>Client Monthly Spend</th><th>Your Commission (15%)</th><th>Your Commission (25%)</th><th>When</th></tr></thead>
+      <tbody>
+        <tr>
+          <td style="font-weight:600;">SMB / PRO</td>
+          <td>$49/mo</td>
+          <td>$7.35/mo</td>
+          <td>$12.25/mo</td>
+          <td>Standard</td>
+        </tr>
+        <tr>
+          <td style="font-weight:600;">Enterprise</td>
+          <td>$499/mo</td>
+          <td>$74.85/mo</td>
+          <td style="color:var(--green);font-weight:700;">$124.75/mo</td>
+          <td>Standard</td>
+        </tr>
+        <tr>
+          <td style="font-weight:600;">10x Enterprise clients</td>
+          <td>$4,990/mo</td>
+          <td>$748.50/mo</td>
+          <td style="color:var(--green);font-weight:700;">$1,247.50/mo</td>
+          <td>~Break-even point</td>
+        </tr>
+        <tr>
+          <td style="font-weight:600;">20x Enterprise clients</td>
+          <td>$9,980/mo</td>
+          <td>$1,497/mo</td>
+          <td style="color:var(--accent);font-weight:900;font-size:15px;">$2,495/mo</td>
+          <td>+$496 net profit/mo</td>
+        </tr>
+        <tr>
+          <td style="font-weight:600;">50x Enterprise clients</td>
+          <td>$24,950/mo</td>
+          <td>$3,742/mo</td>
+          <td style="color:var(--accent);font-weight:900;font-size:15px;">$6,237/mo</td>
+          <td>$4,238 net profit/mo</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  <p style="font-size:13px;color:var(--muted);margin-bottom:40px;">Commission rates are tiered based on managed client volume. 25% applies to partners managing 15+ active Enterprise clients. <a href="/mssp.html">See full commission terms →</a></p>
+
+  <!-- FAQ -->
+  <div style="font-family:var(--font-mono);font-size:9px;letter-spacing:4px;color:var(--accent);text-transform:uppercase;margin-bottom:12px;">COMMON QUESTIONS</div>
+  <h2 style="font-size:22px;font-weight:800;margin-bottom:24px;">MSSP Partner FAQ</h2>
+  <div style="display:grid;gap:12px;margin-bottom:48px;">
+    <details style="background:var(--bg-card);border:1px solid var(--border);border-radius:8px;padding:18px 22px;cursor:pointer;">
+      <summary style="font-size:14px;font-weight:700;list-style:none;">Do clients know they're using SENTINEL APEX?</summary>
+      <p style="color:var(--muted);font-size:13px;margin-top:10px;line-height:1.7;">No. The white-label configuration replaces all SENTINEL APEX branding with your company's branding — logo, name, color, email domain, and portal URL. Your clients see only your brand. The underlying intelligence quality is unchanged.</p>
+    </details>
+    <details style="background:var(--bg-card);border:1px solid var(--border);border-radius:8px;padding:18px 22px;cursor:pointer;">
+      <summary style="font-size:14px;font-weight:700;list-style:none;">How do I handle client API keys?</summary>
+      <p style="color:var(--muted);font-size:13px;margin-top:10px;line-height:1.7;">You generate sub-tenant API keys from your MSSP admin panel. Each key is scoped to a single tenant and cannot access another tenant's data. You can revoke, rotate, or restrict keys at any time without contacting us.</p>
+    </details>
+    <details style="background:var(--bg-card);border:1px solid var(--border);border-radius:8px;padding:18px 22px;cursor:pointer;">
+      <summary style="font-size:14px;font-weight:700;list-style:none;">Is there a limit on how many clients I can manage?</summary>
+      <p style="color:var(--muted);font-size:13px;margin-top:10px;line-height:1.7;">MSSP PRO supports up to 250 active sub-tenants at no additional per-tenant fee. Need more? Contact your MSSP Success Manager — we can provision higher limits for volume partners.</p>
+    </details>
+    <details style="background:var(--bg-card);border:1px solid var(--border);border-radius:8px;padding:18px 22px;cursor:pointer;">
+      <summary style="font-size:14px;font-weight:700;list-style:none;">What's my commercial model with clients?</summary>
+      <p style="color:var(--muted);font-size:13px;margin-top:10px;line-height:1.7;">You control your own commercial terms with clients. SENTINEL APEX is your backend. You can charge clients per-seat, per-month, or bundle it into your existing MSSP retainer. SENTINEL APEX pays you commission on the client's billing — you keep your own margin on top.</p>
+    </details>
+    <details style="background:var(--bg-card);border:1px solid var(--border);border-radius:8px;padding:18px 22px;cursor:pointer;">
+      <summary style="font-size:14px;font-weight:700;list-style:none;">What support do I get as an MSSP partner?</summary>
+      <p style="color:var(--muted);font-size:13px;margin-top:10px;line-height:1.7;">Dedicated MSSP Success Manager, priority support (4h SLA), quarterly business reviews, co-marketing opportunities (joint case studies, certified partner badge), and optional 1-hour onboarding call per new Enterprise client you add.</p>
+    </details>
+    <details style="background:var(--bg-card);border:1px solid var(--border);border-radius:8px;padding:18px 22px;cursor:pointer;">
+      <summary style="font-size:14px;font-weight:700;list-style:none;">How is commission paid?</summary>
+      <p style="color:var(--muted);font-size:13px;margin-top:10px;line-height:1.7;">Commission is calculated monthly on the net billing of all active clients under your MSSP account. Payment via bank transfer, PayPal, or UPI. Minimum payout threshold: $100. Paid within 15 days of month-end.</p>
+    </details>
+  </div>
+
+  <!-- CTA -->
+  <div class="cta-strip">
+    <h3>Ready to Launch Your MSSP Intelligence Practice?</h3>
+    <p>Join the SENTINEL APEX MSSP program. White-label portal live in 48 hours. Up to 25% commission. Dedicated MSSP Success Manager from day one.</p>
+    <div class="cta-row">
+      <a href="/upgrade.html?plan=mssp&utm_source=mssp-onboarding&utm_medium=bottom-cta" class="btn-primary">Join MSSP Program →</a>
+      <a href="/mssp.html" class="btn-secondary">View MSSP Program Details</a>
+      <a href="/contact-enterprise.html?intent=mssp&utm_source=mssp-onboarding" class="btn-secondary">Talk to MSSP Team</a>
+    </div>
+    <p style="color:var(--muted);font-size:12px;margin-top:20px;font-family:var(--font-mono);">Questions? WhatsApp: <strong style="color:var(--text);">+91 8179881447</strong> &nbsp;·&nbsp; Email: <strong style="color:var(--text);">enterprise@cyberdudebivash.in</strong></p>
+  </div>
+
+</div>
+
+<footer>
+  <a href="/">Home</a>
+  <a href="/mssp.html">MSSP Program</a>
+  <a href="/pricing.html">Pricing</a>
+  <a href="/api-docs.html">API Docs</a>
+  <a href="/enterprise-procurement-pack.html">Procurement</a>
+  <a href="/security-compliance.html">Security</a>
+  <a href="/privacy.html">Privacy</a>
+  <a href="/terms.html">Terms</a>
+  <p style="margin-top:16px;">© 2026 CYBERDUDEBIVASH® SENTINEL APEX v185.0 &nbsp;·&nbsp; GSTIN: 21ARKPN8270G1ZP</p>
+</footer>
+
+</body>
+</html>
