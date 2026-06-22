@@ -1,6 +1,311 @@
 {
-  "sigma_rules": [],
-  "yara_rules": [],
-  "snort_rules": [],
-  "stats": {}
+  "sigma_rules": [
+    {
+      "title": "CDB Sentinel APEX - CVE202653779__WebP_Server_Go__0150_Path_Traversal_via_Backsl",
+      "id": "sigma--3d11c9b92678",
+      "status": "experimental",
+      "description": "Detects activity related to CVE-2026-53779 - WebP Server Go < 0.15.0 Path Traversal via Backslash Encoding on Windows",
+      "references": [
+        "https://intel.cyberdudebivash.com"
+      ],
+      "author": "CyberDudeBivash GOC - Sentinel APEX v39.0",
+      "date": "2026/06/22",
+      "tags": [
+        "cve.cve-2026-53779"
+      ],
+      "logsource": {
+        "category": "process_creation",
+        "product": "windows"
+      },
+      "detection": {
+        "selection": {
+          "CommandLine|contains": [
+            "suspicious"
+          ]
+        },
+        "condition": "selection"
+      },
+      "level": "medium",
+      "falsepositives": [
+        "Legitimate administrative activity"
+      ]
+    },
+    {
+      "title": "CDB Sentinel APEX - CVE202611834__Unauthenticated_Command_Injection_via_DHCP_Opt",
+      "id": "sigma--b56efc7c8f92",
+      "status": "experimental",
+      "description": "Detects activity related to CVE-2026-11834 - Unauthenticated Command Injection via DHCP Option Handling in Multiple TP-Link Rout",
+      "references": [
+        "https://intel.cyberdudebivash.com"
+      ],
+      "author": "CyberDudeBivash GOC - Sentinel APEX v39.0",
+      "date": "2026/06/22",
+      "tags": [
+        "cve.cve-2026-11834"
+      ],
+      "logsource": {
+        "category": "process_creation",
+        "product": "windows"
+      },
+      "detection": {
+        "selection": {
+          "CommandLine|contains": [
+            "suspicious"
+          ]
+        },
+        "condition": "selection"
+      },
+      "level": "medium",
+      "falsepositives": [
+        "Legitimate administrative activity"
+      ]
+    },
+    {
+      "title": "CDB Sentinel APEX - CVE202654298__Astro_XSS_via_Unescaped_Attribute_Names_in_Spr",
+      "id": "sigma--566badc85f14",
+      "status": "experimental",
+      "description": "Detects activity related to CVE-2026-54298 - Astro: XSS via Unescaped Attribute Names in Spread Props",
+      "references": [
+        "https://intel.cyberdudebivash.com"
+      ],
+      "author": "CyberDudeBivash GOC - Sentinel APEX v39.0",
+      "date": "2026/06/22",
+      "tags": [
+        "cve.cve-2026-54298"
+      ],
+      "logsource": {
+        "category": "process_creation",
+        "product": "windows"
+      },
+      "detection": {
+        "selection": {
+          "CommandLine|contains": [
+            "suspicious"
+          ]
+        },
+        "condition": "selection"
+      },
+      "level": "medium",
+      "falsepositives": [
+        "Legitimate administrative activity"
+      ]
+    },
+    {
+      "title": "CDB Sentinel APEX - CVE202654293__NLTK_URLEncoded_Path_Traversal_in_nltkdataload",
+      "id": "sigma--29a5835f3b39",
+      "status": "experimental",
+      "description": "Detects activity related to CVE-2026-54293 - NLTK: URL-Encoded Path Traversal in nltk.data.load() Allows Arbitrary Local File Re",
+      "references": [
+        "https://intel.cyberdudebivash.com"
+      ],
+      "author": "CyberDudeBivash GOC - Sentinel APEX v39.0",
+      "date": "2026/06/22",
+      "tags": [
+        "cve.cve-2026-54293"
+      ],
+      "logsource": {
+        "category": "process_creation",
+        "product": "windows"
+      },
+      "detection": {
+        "selection": {
+          "CommandLine|contains": [
+            "suspicious"
+          ]
+        },
+        "condition": "selection"
+      },
+      "level": "medium",
+      "falsepositives": [
+        "Legitimate administrative activity"
+      ]
+    },
+    {
+      "title": "CDB Sentinel APEX - CVE202611373_NetStatsiteClient_versions_through_110_for_Perl",
+      "id": "sigma--612b29e88653",
+      "status": "experimental",
+      "description": "Detects activity related to CVE-2026-11373: Net::Statsite::Client versions through 1.1.0 for Perl allow metric injections.\n\nNet:",
+      "references": [
+        "https://intel.cyberdudebivash.com"
+      ],
+      "author": "CyberDudeBivash GOC - Sentinel APEX v39.0",
+      "date": "2026/06/22",
+      "tags": [
+        "cve.cve-2026-11373"
+      ],
+      "logsource": {
+        "category": "process_creation",
+        "product": "windows"
+      },
+      "detection": {
+        "selection": {
+          "CommandLine|contains": [
+            "suspicious"
+          ]
+        },
+        "condition": "selection"
+      },
+      "level": "high",
+      "falsepositives": [
+        "Legitimate administrative activity"
+      ]
+    }
+  ],
+  "yara_rules": [
+    {
+      "rule_name": "CDB_OpenAM_has_preauth_Reflected_XSS_in_OAut",
+      "rule_text": "rule CDB_OpenAM_has_preauth_Reflected_XSS_in_OAut {\n    meta:\n        author = \"CyberDudeBivash GOC - Sentinel APEX v39.0\"\n        description = \"Detection for OpenAM has pre-auth Reflected XSS in OAuth2 / OIDC response_mode=form_post via s\"\n        severity = \"critical\"\n        date = \"2026-06-22\"\n    strings:\n                $actor = \"UNC-CDB-INGEST\" ascii wide nocase\n        $kw0 = \"FormPostResponse\" ascii wide nocase\n    condition:\n        any of them\n}"
+    },
+    {
+      "rule_name": "CDB_xwikipromacros_has_remote_code_execution",
+      "rule_text": "rule CDB_xwikipromacros_has_remote_code_execution {\n    meta:\n        author = \"CyberDudeBivash GOC - Sentinel APEX v39.0\"\n        description = \"Detection for xwiki-pro-macros has remote code execution from page title and content via excer\"\n        severity = \"critical\"\n        date = \"2026-06-22\"\n    strings:\n                $actor = \"UNC-CDB-INGEST\" ascii wide nocase\n    condition:\n        any of them\n}"
+    },
+    {
+      "rule_name": "CDB_ComfyUIManager_has_an_Unprotected_Altern",
+      "rule_text": "rule CDB_ComfyUIManager_has_an_Unprotected_Altern {\n    meta:\n        author = \"CyberDudeBivash GOC - Sentinel APEX v39.0\"\n        description = \"Detection for ComfyUI-Manager has an Unprotected Alternate Channel (CWE-420)\"\n        severity = \"high\"\n        date = \"2026-06-22\"\n    strings:\n                $actor = \"UNC-CDB-INGEST\" ascii wide nocase\n    condition:\n        any of them\n}"
+    },
+    {
+      "rule_name": "CDB_AVideo_Vulnerable_to_Unauthenticated_env",
+      "rule_text": "rule CDB_AVideo_Vulnerable_to_Unauthenticated_env {\n    meta:\n        author = \"CyberDudeBivash GOC - Sentinel APEX v39.0\"\n        description = \"Detection for AVideo Vulnerable to Unauthenticated .env File Exposure via Official Docker Comp\"\n        severity = \"high\"\n        date = \"2026-06-22\"\n    strings:\n                $actor = \"UNC-CDB-INGEST\" ascii wide nocase\n    condition:\n        any of them\n}"
+    },
+    {
+      "rule_name": "CDB_RANSOMWARE_Unknown_eggetttaxca",
+      "rule_text": "rule CDB_RANSOMWARE_Unknown_eggetttaxca {\n    meta:\n        author = \"CyberDudeBivash GOC - Sentinel APEX v39.0\"\n        description = \"Detection for [RANSOMWARE] Unknown: eggetttax.ca\"\n        severity = \"high\"\n        date = \"2026-06-22\"\n    strings:\n                $actor = \"UNC-CDB-INGEST\" ascii wide nocase\n    condition:\n        any of them\n}"
+    },
+    {
+      "rule_name": "CDB_AryStinger_Botnet_Hijacks_4300_Routers_t",
+      "rule_text": "rule CDB_AryStinger_Botnet_Hijacks_4300_Routers_t {\n    meta:\n        author = \"CyberDudeBivash GOC - Sentinel APEX v39.0\"\n        description = \"Detection for AryStinger Botnet Hijacks 4,300+ Routers to Build Global Attack Proxy Network\"\n        severity = \"high\"\n        date = \"2026-06-22\"\n    strings:\n                $actor = \"UNC-CDB-INGEST\" ascii wide nocase\n        $kw0 = \"AryStinger\" ascii wide nocase\n    condition:\n        any of them\n}"
+    },
+    {
+      "rule_name": "CDB_RANSOMWARE_Unknown_sterlinggloballtdcom",
+      "rule_text": "rule CDB_RANSOMWARE_Unknown_sterlinggloballtdcom {\n    meta:\n        author = \"CyberDudeBivash GOC - Sentinel APEX v39.0\"\n        description = \"Detection for [RANSOMWARE] Unknown: sterlinggloballtd.com\"\n        severity = \"high\"\n        date = \"2026-06-22\"\n    strings:\n                $actor = \"UNC-CDB-INGEST\" ascii wide nocase\n    condition:\n        any of them\n}"
+    },
+    {
+      "rule_name": "CDB_CVE202653779__WebP_Server_Go__0150_Path_",
+      "rule_text": "rule CDB_CVE202653779__WebP_Server_Go__0150_Path_ {\n    meta:\n        author = \"CyberDudeBivash GOC - Sentinel APEX v39.0\"\n        description = \"Detection for CVE-2026-53779 - WebP Server Go < 0.15.0 Path Traversal via Backslash Encoding o\"\n        severity = \"high\"\n        date = \"2026-06-22\"\n    strings:\n                $cve0 = \"CVE-2026-53779\" ascii wide nocase\n        $actor = \"UNC-CDB-INGEST\" ascii wide nocase\n    condition:\n        any of them\n}"
+    },
+    {
+      "rule_name": "CDB_CVE202611834__Unauthenticated_Command_In",
+      "rule_text": "rule CDB_CVE202611834__Unauthenticated_Command_In {\n    meta:\n        author = \"CyberDudeBivash GOC - Sentinel APEX v39.0\"\n        description = \"Detection for CVE-2026-11834 - Unauthenticated Command Injection via DHCP Option Handling in M\"\n        severity = \"high\"\n        date = \"2026-06-22\"\n    strings:\n                $cve0 = \"CVE-2026-11834\" ascii wide nocase\n        $actor = \"UNC-CDB-INGEST\" ascii wide nocase\n    condition:\n        any of them\n}"
+    },
+    {
+      "rule_name": "CDB_CVE202654298__Astro_XSS_via_Unescaped_At",
+      "rule_text": "rule CDB_CVE202654298__Astro_XSS_via_Unescaped_At {\n    meta:\n        author = \"CyberDudeBivash GOC - Sentinel APEX v39.0\"\n        description = \"Detection for CVE-2026-54298 - Astro: XSS via Unescaped Attribute Names in Spread Props\"\n        severity = \"high\"\n        date = \"2026-06-22\"\n    strings:\n                $cve0 = \"CVE-2026-54298\" ascii wide nocase\n        $actor = \"UNC-CDB-INGEST\" ascii wide nocase\n    condition:\n        any of them\n}"
+    },
+    {
+      "rule_name": "CDB_CVE202654293__NLTK_URLEncoded_Path_Trave",
+      "rule_text": "rule CDB_CVE202654293__NLTK_URLEncoded_Path_Trave {\n    meta:\n        author = \"CyberDudeBivash GOC - Sentinel APEX v39.0\"\n        description = \"Detection for CVE-2026-54293 - NLTK: URL-Encoded Path Traversal in nltk.data.load() Allows Arb\"\n        severity = \"high\"\n        date = \"2026-06-22\"\n    strings:\n                $cve0 = \"CVE-2026-54293\" ascii wide nocase\n        $actor = \"UNC-CDB-INGEST\" ascii wide nocase\n    condition:\n        any of them\n}"
+    },
+    {
+      "rule_name": "CDB_Mise_Vulnerable_to_Arbitrary_Code_Execut",
+      "rule_text": "rule CDB_Mise_Vulnerable_to_Arbitrary_Code_Execut {\n    meta:\n        author = \"CyberDudeBivash GOC - Sentinel APEX v39.0\"\n        description = \"Detection for Mise Vulnerable to Arbitrary Code Execution via Tera Templates in .tool-versions\"\n        severity = \"critical\"\n        date = \"2026-06-22\"\n    strings:\n                $actor = \"UNC-CDB-INGEST\" ascii wide nocase\n    condition:\n        any of them\n}"
+    },
+    {
+      "rule_name": "CDB_OpenCTI_has_SemiBlind_SSRF_via_Unvalidat",
+      "rule_text": "rule CDB_OpenCTI_has_SemiBlind_SSRF_via_Unvalidat {\n    meta:\n        author = \"CyberDudeBivash GOC - Sentinel APEX v39.0\"\n        description = \"Detection for OpenCTI has Semi-Blind SSRF via Unvalidated External URL in Data Ingestion Featu\"\n        severity = \"high\"\n        date = \"2026-06-22\"\n    strings:\n                $actor = \"UNC-CDB-INGEST\" ascii wide nocase\n    condition:\n        any of them\n}"
+    },
+    {
+      "rule_name": "CDB_Paymenter_vulnerable_to_Remote_Code_Exec",
+      "rule_text": "rule CDB_Paymenter_vulnerable_to_Remote_Code_Exec {\n    meta:\n        author = \"CyberDudeBivash GOC - Sentinel APEX v39.0\"\n        description = \"Detection for Paymenter vulnerable to Remote Code Execution via public file uploads\"\n        severity = \"critical\"\n        date = \"2026-06-22\"\n    strings:\n                $actor = \"UNC-CDB-INGEST\" ascii wide nocase\n    condition:\n        any of them\n}"
+    },
+    {
+      "rule_name": "CDB_Microsoft_Entra_Conditional_Access_Polic",
+      "rule_text": "rule CDB_Microsoft_Entra_Conditional_Access_Polic {\n    meta:\n        author = \"CyberDudeBivash GOC - Sentinel APEX v39.0\"\n        description = \"Detection for Microsoft Entra Conditional Access Policies Can Be Bypassed Via Nested App Authe\"\n        severity = \"high\"\n        date = \"2026-06-22\"\n    strings:\n                $actor = \"UNC-CDB-INGEST\" ascii wide nocase\n    condition:\n        any of them\n}"
+    },
+    {
+      "rule_name": "CDB_AIPowered_iOS_Apps_Leaking_LLM_API_Crede",
+      "rule_text": "rule CDB_AIPowered_iOS_Apps_Leaking_LLM_API_Crede {\n    meta:\n        author = \"CyberDudeBivash GOC - Sentinel APEX v39.0\"\n        description = \"Detection for AI-Powered iOS Apps Leaking LLM API Credentials Through Network Traffic\"\n        severity = \"high\"\n        date = \"2026-06-22\"\n    strings:\n                $actor = \"UNC-CDB-INGEST\" ascii wide nocase\n    condition:\n        any of them\n}"
+    },
+    {
+      "rule_name": "CDB_Apple_Beats_Studio_Buds_Vulnerability_Al",
+      "rule_text": "rule CDB_Apple_Beats_Studio_Buds_Vulnerability_Al {\n    meta:\n        author = \"CyberDudeBivash GOC - Sentinel APEX v39.0\"\n        description = \"Detection for Apple Beats Studio Buds Vulnerability Allows Hackers to Eavesdrop on Users\"\n        severity = \"high\"\n        date = \"2026-06-22\"\n    strings:\n                $actor = \"UNC-CDB-INGEST\" ascii wide nocase\n    condition:\n        any of them\n}"
+    },
+    {
+      "rule_name": "CDB_Researchers_Detail_DifyTap_Flaws_in_Dify",
+      "rule_text": "rule CDB_Researchers_Detail_DifyTap_Flaws_in_Dify {\n    meta:\n        author = \"CyberDudeBivash GOC - Sentinel APEX v39.0\"\n        description = \"Detection for Researchers Detail DifyTap Flaws in Dify That Could Expose AI Chats Across Tenan\"\n        severity = \"high\"\n        date = \"2026-06-22\"\n    strings:\n                $actor = \"UNC-CDB-INGEST\" ascii wide nocase\n        $kw0 = \"DifyTap\" ascii wide nocase\n    condition:\n        any of them\n}"
+    },
+    {
+      "rule_name": "CDB_Klue_Hack_Leads_to_Data_Breach_Across_Mu",
+      "rule_text": "rule CDB_Klue_Hack_Leads_to_Data_Breach_Across_Mu {\n    meta:\n        author = \"CyberDudeBivash GOC - Sentinel APEX v39.0\"\n        description = \"Detection for Klue Hack Leads to Data Breach Across Multiple Cybersecurity Companies\"\n        severity = \"high\"\n        date = \"2026-06-22\"\n    strings:\n                $actor = \"UNC-CDB-INGEST\" ascii wide nocase\n    condition:\n        any of them\n}"
+    },
+    {
+      "rule_name": "CDB_Hackers_Use_RemotePC_RMM_and_PowerShell_",
+      "rule_text": "rule CDB_Hackers_Use_RemotePC_RMM_and_PowerShell_ {\n    meta:\n        author = \"CyberDudeBivash GOC - Sentinel APEX v39.0\"\n        description = \"Detection for Hackers Use RemotePC RMM and PowerShell Stagers to Deploy Prinz Eugen Ransomware\"\n        severity = \"high\"\n        date = \"2026-06-22\"\n    strings:\n                $actor = \"UNC-CDB-INGEST\" ascii wide nocase\n        $kw0 = \"PowerShell\" ascii wide nocase\n    condition:\n        any of them\n}"
+    },
+    {
+      "rule_name": "CDB_RANSOMWARE_Unknown_Ntd_Apparel",
+      "rule_text": "rule CDB_RANSOMWARE_Unknown_Ntd_Apparel {\n    meta:\n        author = \"CyberDudeBivash GOC - Sentinel APEX v39.0\"\n        description = \"Detection for [RANSOMWARE] Unknown: Ntd Apparel\"\n        severity = \"high\"\n        date = \"2026-06-22\"\n    strings:\n                $actor = \"UNC-CDB-INGEST\" ascii wide nocase\n    condition:\n        any of them\n}"
+    },
+    {
+      "rule_name": "CDB_RANSOMWARE_Unknown_NEW_PRINZ_EUGEN_SITE_",
+      "rule_text": "rule CDB_RANSOMWARE_Unknown_NEW_PRINZ_EUGEN_SITE_ {\n    meta:\n        author = \"CyberDudeBivash GOC - Sentinel APEX v39.0\"\n        description = \"Detection for [RANSOMWARE] Unknown: NEW PRINZ EUGEN SITE [NOT A CASE FILE]\"\n        severity = \"high\"\n        date = \"2026-06-22\"\n    strings:\n                $actor = \"UNC-CDB-INGEST\" ascii wide nocase\n    condition:\n        any of them\n}"
+    },
+    {
+      "rule_name": "CDB_29YearOld_Squidbleed_Vulnerability_Disco",
+      "rule_text": "rule CDB_29YearOld_Squidbleed_Vulnerability_Disco {\n    meta:\n        author = \"CyberDudeBivash GOC - Sentinel APEX v39.0\"\n        description = \"Detection for 29-Year-Old \u2018Squidbleed\u2019 Vulnerability Discovered With the Aid of Claude Mythos \"\n        severity = \"high\"\n        date = \"2026-06-22\"\n    strings:\n                $actor = \"UNC-CDB-INGEST\" ascii wide nocase\n    condition:\n        any of them\n}"
+    },
+    {
+      "rule_name": "CDB_RANSOMWARE_Unknown_Aerospace__Advanced_C",
+      "rule_text": "rule CDB_RANSOMWARE_Unknown_Aerospace__Advanced_C {\n    meta:\n        author = \"CyberDudeBivash GOC - Sentinel APEX v39.0\"\n        description = \"Detection for [RANSOMWARE] Unknown: Aerospace & Advanced Composites GmbH\"\n        severity = \"high\"\n        date = \"2026-06-22\"\n    strings:\n                $actor = \"UNC-CDB-INGEST\" ascii wide nocase\n    condition:\n        any of them\n}"
+    },
+    {
+      "rule_name": "CDB_RANSOMWARE_Unknown_bitspilaniacin",
+      "rule_text": "rule CDB_RANSOMWARE_Unknown_bitspilaniacin {\n    meta:\n        author = \"CyberDudeBivash GOC - Sentinel APEX v39.0\"\n        description = \"Detection for [RANSOMWARE] Unknown: bits-pilani.ac.in\"\n        severity = \"high\"\n        date = \"2026-06-22\"\n    strings:\n                $actor = \"UNC-CDB-INGEST\" ascii wide nocase\n    condition:\n        any of them\n}"
+    },
+    {
+      "rule_name": "CDB_RANSOMWARE_Unknown_mihanavcom",
+      "rule_text": "rule CDB_RANSOMWARE_Unknown_mihanavcom {\n    meta:\n        author = \"CyberDudeBivash GOC - Sentinel APEX v39.0\"\n        description = \"Detection for [RANSOMWARE] Unknown: mihana-v.com\"\n        severity = \"high\"\n        date = \"2026-06-22\"\n    strings:\n                $actor = \"UNC-CDB-INGEST\" ascii wide nocase\n    condition:\n        any of them\n}"
+    },
+    {
+      "rule_name": "CDB_CVE202611373_NetStatsiteClient_versions_",
+      "rule_text": "rule CDB_CVE202611373_NetStatsiteClient_versions_ {\n    meta:\n        author = \"CyberDudeBivash GOC - Sentinel APEX v39.0\"\n        description = \"Detection for CVE-2026-11373: Net::Statsite::Client versions through 1.1.0 for Perl allow metr\"\n        severity = \"critical\"\n        date = \"2026-06-22\"\n    strings:\n                $cve0 = \"CVE-2026-11373\" ascii wide nocase\n        $actor = \"UNC-CDB-INGEST\" ascii wide nocase\n    condition:\n        any of them\n}"
+    },
+    {
+      "rule_name": "CDB_Attackers_Exploit_Gravity_SMTP_Plugin_Fl",
+      "rule_text": "rule CDB_Attackers_Exploit_Gravity_SMTP_Plugin_Fl {\n    meta:\n        author = \"CyberDudeBivash GOC - Sentinel APEX v39.0\"\n        description = \"Detection for Attackers Exploit Gravity SMTP Plugin Flaw to Harvest Valuable WordPress Data\"\n        severity = \"high\"\n        date = \"2026-06-22\"\n    strings:\n                $actor = \"UNC-CDB-INGEST\" ascii wide nocase\n        $kw0 = \"WordPress\" ascii wide nocase\n    condition:\n        any of them\n}"
+    },
+    {
+      "rule_name": "CDB_Weekly_Recap_Browser_Bugs_EDR_Killers_TV",
+      "rule_text": "rule CDB_Weekly_Recap_Browser_Bugs_EDR_Killers_TV {\n    meta:\n        author = \"CyberDudeBivash GOC - Sentinel APEX v39.0\"\n        description = \"Detection for \u26a1 Weekly Recap: Browser Bugs, EDR Killers, TV Botnet, OpenBSD Flaw, Android Troj\"\n        severity = \"high\"\n        date = \"2026-06-22\"\n    strings:\n                $actor = \"UNC-CDB-INGEST\" ascii wide nocase\n    condition:\n        any of them\n}"
+    },
+    {
+      "rule_name": "CDB_RANSOMWARE_Unknown_Union_Tractor",
+      "rule_text": "rule CDB_RANSOMWARE_Unknown_Union_Tractor {\n    meta:\n        author = \"CyberDudeBivash GOC - Sentinel APEX v39.0\"\n        description = \"Detection for [RANSOMWARE] Unknown: Union Tractor\"\n        severity = \"high\"\n        date = \"2026-06-22\"\n    strings:\n                $actor = \"UNC-CDB-INGEST\" ascii wide nocase\n    condition:\n        any of them\n}"
+    }
+  ],
+  "snort_rules": [
+    {
+      "rule_name": "CVE202653779__WebP_Server_Go__0150_Path_Traversal_via_Backsl",
+      "rule_text": "alert tcp $HOME_NET any -> $EXTERNAL_NET any (msg:\"CDB SENTINEL APEX: CVE-2026-53779 - WebP Server Go < 0.15.0 Path Traversal via \"; content:\"CVE-2026-53779\"; nocase; sid:7952502; rev:1; classtype:trojan-activity; reference:url,intel.cyberdudebivash.com;)",
+      "sid": 7952502
+    },
+    {
+      "rule_name": "CVE202611834__Unauthenticated_Command_Injection_via_DHCP_Opt",
+      "rule_text": "alert tcp $HOME_NET any -> $EXTERNAL_NET any (msg:\"CDB SENTINEL APEX: CVE-2026-11834 - Unauthenticated Command Injection via DHCP \"; content:\"CVE-2026-11834\"; nocase; sid:7622999; rev:1; classtype:trojan-activity; reference:url,intel.cyberdudebivash.com;)",
+      "sid": 7622999
+    },
+    {
+      "rule_name": "CVE202654298__Astro_XSS_via_Unescaped_Attribute_Names_in_Spr",
+      "rule_text": "alert tcp $HOME_NET any -> $EXTERNAL_NET any (msg:\"CDB SENTINEL APEX: CVE-2026-54298 - Astro: XSS via Unescaped Attribute Names in\"; content:\"CVE-2026-54298\"; nocase; sid:6665218; rev:1; classtype:trojan-activity; reference:url,intel.cyberdudebivash.com;)",
+      "sid": 6665218
+    },
+    {
+      "rule_name": "CVE202654293__NLTK_URLEncoded_Path_Traversal_in_nltkdataload",
+      "rule_text": "alert tcp $HOME_NET any -> $EXTERNAL_NET any (msg:\"CDB SENTINEL APEX: CVE-2026-54293 - NLTK: URL-Encoded Path Traversal in nltk.da\"; content:\"CVE-2026-54293\"; nocase; sid:4936373; rev:1; classtype:trojan-activity; reference:url,intel.cyberdudebivash.com;)",
+      "sid": 4936373
+    },
+    {
+      "rule_name": "CVE202611373_NetStatsiteClient_versions_through_110_for_Perl",
+      "rule_text": "alert tcp $HOME_NET any -> $EXTERNAL_NET any (msg:\"CDB SENTINEL APEX: CVE-2026-11373: Net::Statsite::Client versions through 1.1.0\"; content:\"CVE-2026-11373\"; nocase; sid:3083355; rev:1; classtype:trojan-activity; reference:url,intel.cyberdudebivash.com;)",
+      "sid": 3083355
+    }
+  ],
+  "stats": {
+    "total_rules": 40,
+    "sigma_count": 5,
+    "yara_count": 30,
+    "snort_count": 5,
+    "coverage_techniques": 0,
+    "generated_at": "2026-06-22T21:14:20.802841+00:00"
+  }
 }
