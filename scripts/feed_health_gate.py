@@ -48,6 +48,12 @@ MAX_UNIFORM_RISK_RATIO   = 0.40   # >40% same exact risk_score → HARD FAIL
 MAX_STALE_CVE_RATIO      = 0.30   # >30% pre-2024 CVEs without EPSS → HARD FAIL
 MAX_SYNTHETIC_RATIO      = 0.15   # >15% synthetic (CDB-UNATTR-CVE + no CVSS/EPSS) → HARD FAIL
 
+# Minimum item count for uniform_risk check to be statistically meaningful.
+# With < MIN_ITEMS_UNIFORM_RISK items, random score collisions produce false positives
+# (e.g. 2 of 4 items sharing a score = 50% which trivially exceeds the 40% threshold
+#  even on a healthy sparse run). Skip the check on small feeds.
+MIN_ITEMS_UNIFORM_RISK   = 10
+
 # Warning thresholds
 WARN_CVSS_COVERAGE       = 0.20   # <20% CVE items have real cvss_score → WARN
 WARN_CONF_UNIFORMITY     = 0.60   # >60% items share same confidence → WARN
@@ -117,6 +123,11 @@ def check_uniform_risk(items: List[Dict]) -> Tuple[str, float, str]:
     """Check for uniform risk_score distribution (synthetic fallback symptom)."""
     if not items:
         return "PASS", 0.0, "no items"
+    if len(items) < MIN_ITEMS_UNIFORM_RISK:
+        return "PASS", 0.0, (
+            f"insufficient items for uniform_risk analysis "
+            f"({len(items)} < {MIN_ITEMS_UNIFORM_RISK} minimum) — check skipped"
+        )
     scores = [round(float(i.get("risk_score") or 0), 2) for i in items]
     counter = Counter(scores)
     most_common_score, most_common_cnt = counter.most_common(1)[0]
