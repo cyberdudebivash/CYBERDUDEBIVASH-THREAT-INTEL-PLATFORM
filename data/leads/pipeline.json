@@ -1,13 +1,76 @@
 {
   "_meta": {
-    "schema_version": "1.0",
-    "description": "SENTINEL APEX Lead Pipeline v184.0",
+    "schema_version": "2.0",
+    "description": "SENTINEL APEX Lead Pipeline v185.0 — Full Scoring Engine",
     "created": "2026-06-04",
-    "last_updated": "2026-06-04",
+    "last_updated": "2026-06-22",
     "total_leads": 0,
     "qualified_leads": 0,
     "active_trials": 0,
-    "paying_customers": 0
+    "paying_customers": 0,
+    "mrr_attributed_usd": 0
+  },
+  "scoring_config": {
+    "version": "1.0",
+    "description": "Lead scoring rules — higher score = higher priority follow-up",
+    "tiers": {
+      "hot": { "min_score": 80, "sla_hours": 2,  "action": "immediate_call" },
+      "warm": { "min_score": 50, "sla_hours": 24, "action": "email_sequence" },
+      "cold": { "min_score": 20, "sla_hours": 72, "action": "drip_nurture"  },
+      "unqualified": { "min_score": 0, "sla_hours": 168, "action": "newsletter_only" }
+    },
+    "rules": [
+      { "field": "plan", "value": "enterprise", "score": 40, "reason": "Enterprise SOC intent" },
+      { "field": "plan", "value": "mssp",       "score": 50, "reason": "MSSP / White-label intent — highest MRR" },
+      { "field": "plan", "value": "pro",         "score": 20, "reason": "PRO tier intent" },
+      { "field": "plan", "value": "community",   "score": 5,  "reason": "Free tier — nurture" },
+      { "field": "company_size", "value": "enterprise", "score": 30, "reason": "Enterprise buyer" },
+      { "field": "company_size", "value": "mid_market",  "score": 20, "reason": "Mid-market buyer" },
+      { "field": "company_size", "value": "smb",         "score": 10, "reason": "SMB buyer" },
+      { "field": "role", "contains": "CISO",    "score": 25, "reason": "Executive sponsor" },
+      { "field": "role", "contains": "CTO",     "score": 20, "reason": "Technical executive" },
+      { "field": "role", "contains": "Director", "score": 15, "reason": "Director-level" },
+      { "field": "role", "contains": "SOC",     "score": 10, "reason": "SOC practitioner" },
+      { "field": "use_case", "contains": "SIEM", "score": 15, "reason": "Active SIEM integration intent" },
+      { "field": "use_case", "contains": "compliance", "score": 12, "reason": "Compliance use case = budget holder" },
+      { "field": "use_case", "contains": "MSSP",  "score": 20, "reason": "MSSP resale intent" },
+      { "field": "domain", "type": "enterprise_email", "score": 15, "reason": "Non-free-email domain = business buyer" },
+      { "field": "phone_provided", "value": true, "score": 10, "reason": "Phone provided = higher intent" }
+    ]
+  },
+  "routing_config": {
+    "enterprise_threshold": 60,
+    "auto_email_sequences": {
+      "pro": {
+        "sequence": "pro_nurture_v1",
+        "emails": [
+          { "delay_hours": 0,  "subject": "Your SENTINEL APEX PRO trial is being activated" },
+          { "delay_hours": 24, "subject": "5 things you can do with your PRO API key today" },
+          { "delay_hours": 72, "subject": "How to integrate APEX with Microsoft Sentinel in 30 minutes" },
+          { "delay_hours": 120, "subject": "Your threat intel report is ready — Week in Review" }
+        ]
+      },
+      "enterprise": {
+        "sequence": "enterprise_vip_v1",
+        "emails": [
+          { "delay_hours": 0,  "subject": "SENTINEL APEX Enterprise SOC — Your activation is priority" },
+          { "delay_hours": 4,  "subject": "Enterprise onboarding call — let's talk" },
+          { "delay_hours": 24, "subject": "Enterprise SOC integration kit: Splunk + Sentinel + QRadar" }
+        ]
+      },
+      "mssp": {
+        "sequence": "mssp_vip_v1",
+        "emails": [
+          { "delay_hours": 0,  "subject": "SENTINEL APEX MSSP — White-label activation in progress" },
+          { "delay_hours": 2,  "subject": "MSSP onboarding call — availability?" },
+          { "delay_hours": 24, "subject": "Your MSSP partner portal and tenant management dashboard" }
+        ]
+      }
+    }
+  },
+  "conversion_funnel": {
+    "stages": ["lead_captured", "trial_active", "payment_submitted", "payment_verified", "api_key_delivered", "first_api_call", "active_subscriber", "renewal"],
+    "stage_slas_hours": [0, 2, 0.5, 4, 0.5, 48, 720, 8640]
   },
   "leads": []
 }

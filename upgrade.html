@@ -541,7 +541,7 @@ h1 span { color: var(--accent); }
 <body>
 
 <div class="urgency-bar">
-  &#9889; RAZORPAY INSTANT CHECKOUT ACTIVE &nbsp;&middot;&nbsp; UPI &middot; Cards &middot; Net Banking &middot; EMI &middot; BNB Crypto &middot; PayPal &nbsp;&middot;&nbsp; API Key Delivered Instantly &nbsp;&middot;&nbsp; GSTIN: 21ARKPN8270G1ZP
+  &#9889; RAZORPAY INSTANT CHECKOUT &nbsp;&middot;&nbsp; UPI &middot; Cards &middot; Net Banking &middot; EMI &middot; Crypto &middot; PayPal &nbsp;&middot;&nbsp; &#127381; 7-Day Free Trial Available &nbsp;&middot;&nbsp; API Key Within 2h &nbsp;&middot;&nbsp; GSTIN: 21ARKPN8270G1ZP
 </div>
 
 <nav>
@@ -1871,11 +1871,14 @@ function showSuccessState(plan, wData) {
   var waL = document.getElementById('success-wa-link');
   var tl  = document.getElementById('success-timeline');
 
+  // Generate order ID for tracking and confirmation page
+  var orderId = 'ORD-' + Date.now().toString(36).toUpperCase() + '-' + Math.random().toString(36).substr(2,4).toUpperCase();
+
   if (cs) cs.style.display = 'none';
   if (ss) ss.style.display = 'block';
   if (sp && PLANS[plan]) sp.textContent = PLANS[plan].name;
   if (rid && wData.review_id) rid.textContent = wData.review_id;
-  if (waL) waL.href = 'https://wa.me/918179881447?text=' + encodeURIComponent('Hi Bivash! Payment submitted. Review ID: ' + (wData.review_id || 'N/A') + '. Plan: ' + (PLANS[plan] ? PLANS[plan].name : plan));
+  if (waL) waL.href = 'https://wa.me/918179881447?text=' + encodeURIComponent('Hi Bivash! Payment submitted. Order ID: ' + orderId + '. Review ID: ' + (wData.review_id || 'N/A') + '. Plan: ' + (PLANS[plan] ? PLANS[plan].name : plan));
 
   var isCrypto = (wData && wData.bsc_status !== undefined && wData.bsc_status !== null);
   var cvDiv = document.getElementById('success-crypto-verify');
@@ -1887,6 +1890,24 @@ function showSuccessState(plan, wData) {
       tl.innerHTML = '&#9203; UPI / Bank / PayPal: <strong style="color:var(--green);">API key delivered within 2 hours</strong><br>&#128172; WhatsApp your Review ID to <strong>+91 8179881447</strong>';
     }
   }
+
+  // Show order confirmation link
+  var confirmUrl = '/payment-confirmation.html?plan=' + encodeURIComponent(plan)
+    + '&order_id=' + encodeURIComponent(orderId)
+    + '&review_id=' + encodeURIComponent(wData.review_id || 'PENDING')
+    + '&ts=' + Date.now();
+  if (ss) {
+    var existingLink = ss.querySelector('.order-confirm-link');
+    if (!existingLink) {
+      var linkDiv = document.createElement('div');
+      linkDiv.className = 'order-confirm-link';
+      linkDiv.style.cssText = 'margin-top:18px;padding:14px;background:rgba(0,212,255,0.06);border:1px solid rgba(0,212,255,0.2);border-radius:8px;text-align:center;';
+      linkDiv.innerHTML = '<span style="font-size:11px;font-family:monospace;color:#64748b;display:block;margin-bottom:6px;">ORDER ID: ' + orderId + '</span>'
+        + '<a href="' + confirmUrl + '" style="color:#00d4ff;font-size:13px;font-weight:700;text-decoration:none;">&#128229; View Order Confirmation &amp; Receipt &rarr;</a>';
+      ss.appendChild(linkDiv);
+    }
+  }
+
   if (ss) ss.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
