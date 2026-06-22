@@ -99,7 +99,7 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: "Python Syntax Guard (v142.4 - abort on any syntax error)"
+      - name: "Python Syntax Guard (v184.0 - abort on any syntax error)"
         run: |
           ERRORS=0
           for f in scripts/*.py; do
@@ -109,7 +109,7 @@ jobs:
           echo "Syntax errors: $ERRORS"
           [ $ERRORS -eq 0 ] || { echo "ABORTING"; exit 1; }
 
-      #  v143.1 HARD-FAIL CI GATES (added - must all PASS before any data write) 
+      #  v184.0 HARD-FAIL CI GATES (added - must all PASS before any data write) 
       - name: "GATE 1/4 - Encoding Validator (HARD FAIL on mojibake)"
         run: python3 scripts/encoding_validator.py
 
@@ -123,7 +123,7 @@ jobs:
         run: python3 scripts/regression_immunity.py
       #  END HARD-FAIL GATES 
 
-      - name: "Patch EMBEDDED_INTEL (v142.4 - writes [] to keep dashboard API-only)"
+      - name: "Patch EMBEDDED_INTEL (v184.0 - writes [] to keep dashboard API-only)"
         run: |
           echo "=== EMBEDDED_INTEL patch: writes [] so dashboard fetches live from API ==="
           python3 scripts/update_embedded_intel.py && echo "EMBEDDED_INTEL patch OK (array=[])" || {

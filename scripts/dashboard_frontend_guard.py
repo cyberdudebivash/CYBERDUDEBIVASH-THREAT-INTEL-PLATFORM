@@ -49,7 +49,7 @@ def ok(msg):
     print('[ OK] ' + msg)
 
 
-print('=== DASHBOARD FRONTEND GUARD v175.1 ===')
+print('=== DASHBOARD FRONTEND GUARD v184.0 ===')
 print('Checking: ' + os.path.abspath(INDEX_PATH))
 print()
 
@@ -168,13 +168,13 @@ else:
 
 print()
 
-# CHECK 2d: EICC engine MUST use api/feed.json as PRIMARY (v175.1 single-source mandate)
+# CHECK 2d: EICC engine MUST use api/feed.json as PRIMARY (v184.0 single-source mandate)
 # ROOT CAUSE FIXED: Stage 67 (Generate API Manifests) runs BEFORE Stage 71 (Source Diversity
 # Enforcer). When EICC_DATA_URLS[0] was api/v1/intel/latest.json, EICC fetched pre-diversity
 # data while GOC fetched post-diversity data from api/feed.json — causing cross-section item
 # count divergence and customer-visible "duplication" of intel items across dashboard sections.
 # PERMANENT MANDATE: EICC and GOC must both read exclusively from api/feed.json.
-print('CHECK 2d: EICC_DATA_URLS PRIMARY must be api/feed.json (single-source mandate v175.1)')
+print('CHECK 2d: EICC_DATA_URLS PRIMARY must be api/feed.json (single-source mandate v184.0)')
 _eicc_blocks = re.findall(r'var EICC_DATA_URLS\s*=\s*\[(.*?)\];', content, re.DOTALL)
 if _eicc_blocks:
     _eicc_block = _eicc_blocks[0]
@@ -341,7 +341,7 @@ print()
 # ── FINAL SUMMARY ──────────────────────────────────────────────────────────
 fail_count = len(ERRORS)
 warn_count = len(WARNINGS)
-pass_count = 11 - fail_count  # 11 numbered checks total (v175.1: added CHECK 2d single-source mandate)
+pass_count = 11 - fail_count  # 11 numbered checks total (v184.0: added CHECK 2d single-source mandate)
 
 print('=' * 70)
 print('DASHBOARD FRONTEND GUARD COMPLETE')

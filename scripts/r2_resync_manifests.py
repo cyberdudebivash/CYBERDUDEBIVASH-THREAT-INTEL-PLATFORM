@@ -105,7 +105,7 @@ def count_items(path: Path) -> int:
             if isinstance(d.get(k), list):
                 return len(d[k])
     except Exception as exc:
-        # v175.2: Log instead of silently swallowing — zero count returned but
+        # v184.0: Log instead of silently swallowing — zero count returned but
         # the warning surfaces JSON parse errors or encoding issues in CI logs.
         log.warning("count_items(%s): parse error — %s (uploading anyway)", path.name, exc)
     return 0
@@ -155,7 +155,7 @@ def main() -> None:
             "Worker will fall back to KV/GitHub for those endpoints.",
             failed,
         )
-        # v175.2 P1 FIX: Emit GitHub Actions error annotation so the failure is
+        # v184.0 P1 FIX: Emit GitHub Actions error annotation so the failure is
         # VISIBLE in the workflow run UI even though we do not block the pipeline.
         # Callers (Stage 3.93.6, Stage 4.1) wrap this in an if/else block that
         # catches exit(1) and emits a ::warning:: annotation, always exiting 0.

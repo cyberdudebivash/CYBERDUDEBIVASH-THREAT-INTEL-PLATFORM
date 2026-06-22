@@ -258,7 +258,7 @@ def reclaim_old_html_reports(retention_days: int = 3) -> Dict:
     retention window. This prevents the runner from holding gigabytes of old
     reports that would never be copied to dist/ anyway.
 
-    v176.0 P0 FIX: The root cause of run #1616 failure was 34,382 May 2026
+    v184.0 P0 FIX: The root cause of run #1616 failure was 34,382 May 2026
     HTML files (3.2 GB) in reports/ being copied into dist/ because
     REPORT_RETENTION_DAYS=30 included the entire boundary month. Even after
     fixing build_dist_artifact.py to use mtime-level filtering, physically
@@ -372,7 +372,7 @@ def run_full_reclaim(include_dist: bool = False) -> Dict:
     results["telemetry_removed"] = reclaim_telemetry(TELEMETRY_MAX_DAYS)
     log.info("        Removed %d stale telemetry files", results["telemetry_removed"])
 
-    # v176.0 P0 FIX: Purge old HTML reports from runner disk before dist build.
+    # v184.0 P0 FIX: Purge old HTML reports from runner disk before dist build.
     # Uses same retention window as build_dist_artifact.py (default 3 days, cap 7).
     # This prevents 3+ GB of old reports from consuming runner disk and slowing
     # the copytree operation in build_dist_artifact.py.

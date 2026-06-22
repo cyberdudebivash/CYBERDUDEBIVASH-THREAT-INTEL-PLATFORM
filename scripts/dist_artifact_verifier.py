@@ -30,7 +30,7 @@ REPORT_RETENTION_DAYS AWARENESS (v184.0):
   platform is not hard-blocked.  The full minimum (MIN_REPORT_COUNT = 10)
   applies only when REPORT_RETENTION_DAYS == 0 (full copy mode).
 
-  v182.2 FIX (Check 6): api/feed.json is rebuilt from Cloudflare R2 and
+  v184.0 FIX (Check 6): api/feed.json is rebuilt from Cloudflare R2 and
   contains ALL historical URLs including those outside the retention window and
   those proportionally excluded from the boundary month.  deployment_manifest.json
   is the authoritative record of what was included in dist/.  Feed URLs not in
@@ -197,7 +197,7 @@ def run_checks(manifest: Dict, retention_days: int = 0) -> Tuple[int, int]:
         )
 
     # CHECK 6: All report_url feed paths exist in dist/
-    # v183.0: build_dist_artifact.py v183.0 force-includes ALL current-run
+    # v184.0: build_dist_artifact.py v184.0 force-includes ALL current-run
     # feed.json report_url files that have a local source in reports/.  After
     # that fix, ANY feed URL that has a local source AND is absent from dist/
     # is a genuine copy failure — HARD FAIL regardless of retention mode.
@@ -228,7 +228,7 @@ def run_checks(manifest: Dict, retention_days: int = 0) -> Tuple[int, int]:
             skipped_no_local_source += 1
         else:
             # Local source EXISTS but file is missing from dist/.
-            # build_dist_artifact.py v183.0 force_include_feed_reports() should
+            # build_dist_artifact.py v184.0 force_include_feed_reports() should
             # have copied this.  Its absence here means the force-include step
             # failed or was skipped — treat as a HARD FAIL.
             missing_urls.append(ru)

@@ -22,7 +22,7 @@ VERIFICATION STRATEGY (3-layer, authenticated via S3 API):
              Warn (non-blocking) when count < 5; pass when count >= 1.
              Checked at /tmp/sync_meta.json (where r2_upload.py writes it)
              before falling back to MANIFEST_FINAL_COUNT env var.
-             v177.2 fix: floor lowered from 5→1. Runs with 1-4 advisories
+             v184.0 fix: floor lowered from 5→1. Runs with 1-4 advisories
              (legitimate after aggressive dedup) warn but no longer hard-fail.
 
 ROOT CAUSE FIX (v149.1.0):
@@ -100,7 +100,7 @@ MIN_ADVISORY_COUNT = 1              # Hard floor: only fail on count=0 (truly em
                                     # an empty manifest). Legitimate low-activity runs after aggressive
                                     # deduplication can produce 1-4 net-new STIX entries — that is
                                     # correct behaviour and must NOT hard-fail.
-                                    # History: was 10 → lowered to 5 → now 1 (v177.2 permanent fix).
+                                    # History: was 10 → lowered to 5 → now 1 (v184.0 permanent fix).
                                     # run #1622 produced 4 entries; floor of 5 caused a false HARD FAIL.
 ADVISORY_COUNT_WARN = 5             # Warn (non-blocking) when count is low but above zero.
 REQUEST_TIMEOUT    = 20             # seconds per HTTP check

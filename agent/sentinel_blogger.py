@@ -1118,7 +1118,7 @@ def process_entry(entry: Dict, feed_source: str = "EXTERNAL") -> bool:
         except Exception as _cve_e:
             logger.debug(f"CVE enrichment skipped: {_cve_e}")
 
-    # -- STEP 7b2: v182.0 Severity Invariant Interceptor ─────────────────────
+    # -- STEP 7b2: v184.0 Severity Invariant Interceptor ─────────────────────
     # Enforces the P0 master invariant policy after CVE enrichment has resolved
     # CVSS / KEV / active-exploitation signals.
     # Rules:
@@ -1155,7 +1155,7 @@ def process_entry(entry: Dict, feed_source: str = "EXTERNAL") -> bool:
             _sii_priority    = _sii_result.get("priority", "")
             _sii_threat_level = _sii_result.get("threat_level", "")
             logger.info(
-                "  -> [SII v182.0] Severity invariant Rule %s fired: "
+                "  -> [SII v184.0] Severity invariant Rule %s fired: "
                 "%s → %s | risk_score=%.2f | priority=%s | signals=%s",
                 _sii_result.get("_invariant_rule", "?"),
                 _old_sev, severity, risk_score,
@@ -1168,7 +1168,7 @@ def process_entry(entry: Dict, feed_source: str = "EXTERNAL") -> bool:
     except Exception as _sii_e:
         _sii_priority     = ""
         _sii_threat_level = ""
-        logger.debug(f"SII v182.0 skipped (non-blocking): {_sii_e}")
+        logger.debug(f"SII v184.0 skipped (non-blocking): {_sii_e}")
     # -- End STEP 7b2 ─────────────────────────────────────────────────────────
 
     # -- STEP 7c: VANGUARD IOC validation ------------------------------------
@@ -1649,7 +1649,7 @@ def process_entry(entry: Dict, feed_source: str = "EXTERNAL") -> bool:
             "dossier_url": _dossier_url,
             "risk_reason": risk_reason,   # v143.0: defensible score explanation
         }
-        # v182.0: Carry SII governance fields into STIX metadata
+        # v184.0: Carry SII governance fields into STIX metadata
         if _sii_priority:
             _stix_metadata["priority"] = _sii_priority
         if _sii_threat_level:

@@ -18,7 +18,7 @@ Tests cover:
   T10  no null bytes in critical scripts
   T11  STIX bundles directory has files
   T12  CI workflow YAML parses cleanly + no inline Python heredocs regression
-  T21  v183.0 guard: all feed.json local-source report_urls present in dist/reports/
+  T21  v184.0 guard: all feed.json local-source report_urls present in dist/reports/
 
 Exit codes:
   0 = ALL PASS
@@ -757,12 +757,12 @@ def t20():
 
 
 # ---------------------------------------------------------------------------
-# T21: v183.0 force-include guard -- all feed.json local-source reports in dist/
+# T21: v184.0 force-include guard -- all feed.json local-source reports in dist/
 # ---------------------------------------------------------------------------
 
 @test("T21_force_include_feed_reports_in_dist")
 def t21():
-    """Regression guard for build_dist_artifact.py v183.0 force_include_feed_reports().
+    """Regression guard for build_dist_artifact.py v184.0 force_include_feed_reports().
 
     Root cause: copy_reports_selective() uses proportional boundary-month alphabetical
     sort to select dist/ reports.  Current-run reports with older advisory timestamps
@@ -825,7 +825,7 @@ def t21():
             missing_from_dist.append(rel)
 
     assert not missing_from_dist, (
-        f"v183.0 REGRESSION: {len(missing_from_dist)} feed.json report_url(s) have a "
+        f"v184.0 REGRESSION: {len(missing_from_dist)} feed.json report_url(s) have a "
         f"local source but are MISSING from dist/reports/.  "
         f"force_include_feed_reports() in build_dist_artifact.py did not run or was "
         f"skipped.  Stage 5.8.1b Report URL Canary will P0 FAIL-CLOSED.  "

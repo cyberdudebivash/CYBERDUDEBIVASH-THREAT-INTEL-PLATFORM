@@ -1,4 +1,4 @@
-name: CDB Sovereign Intelligence Platform v140.0
+name: CDB Sovereign Intelligence Platform v184.0
 
 on:
   schedule:
@@ -10,7 +10,7 @@ permissions:
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-# v141.0 FIX (2026-06-08): Unique concurrency group prevents cancellation by
+# v184.0 FIX (2026-06-08): Unique concurrency group prevents cancellation by
 # other sentinel-data-writer workflows queuing simultaneously.
 concurrency:
   group: sentinel-data-writer-sovereign
@@ -79,8 +79,8 @@ jobs:
           git config user.email "bivash@cyberdudebivash.com"
           git remote set-url origin https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}
           git add data/nexus/ data/cortex/ data/quantum/ data/sovereign/ -f
-          git diff --cached --quiet || git commit -m " SOVEREIGN v140.0: Full platform cycle $(date -u +%Y-%m-%dT%H:%M:%SZ) [skip ci]"
-          # FIX v148.0 BUG-B+C: stash-safe 5-attempt push retry
+          git diff --cached --quiet || git commit -m " SOVEREIGN v184.0: Full platform cycle $(date -u +%Y-%m-%dT%H:%M:%SZ) [skip ci]"
+          # FIX v184.0 BUG-B+C: stash-safe 5-attempt push retry
           git stash --include-untracked --quiet 2>/dev/null || true
           git fetch origin main --quiet 2>/dev/null || true
           git rebase origin/main --quiet 2>/dev/null || { git rebase --abort 2>/dev/null || true; git merge origin/main -X ours --no-edit --quiet 2>/dev/null || true; }

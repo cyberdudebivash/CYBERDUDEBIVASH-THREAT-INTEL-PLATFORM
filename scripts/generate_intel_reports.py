@@ -2438,7 +2438,7 @@ def main(argv=None) -> int:
 
         # ── SCHEMA ENFORCEMENT (MANDATORY  -  at write boundary, before render) ──
         item = _safe_enforce_schema(item)
-        # v182.0 P0 FIX: enforce_schema() returns a shallow copy, disconnecting
+        # v184.0 P0 FIX: enforce_schema() returns a shallow copy, disconnecting
         # `item` from `items[_idx]`. Re-link so later mutations (report_url,
         # internal_report_url, validation_status) persist to the saved manifest.
         items[_idx] = item
