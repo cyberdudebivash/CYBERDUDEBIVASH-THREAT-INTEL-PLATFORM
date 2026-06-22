@@ -275,6 +275,15 @@
         <div class="success-icon">⚡</div>
         <h2>Request Received</h2>
         <p>Your API key request has been received. Your key and integration docs will be delivered to your email within <strong>2 hours</strong> (typically under 30 minutes during business hours).</p>
+
+        <!-- PAID PLAN: immediate payment CTA -->
+        <div id="paid-cta" style="display:none;margin-top:22px;padding:20px;background:rgba(0,255,198,0.06);border:1px solid rgba(0,255,198,0.25);border-radius:12px;">
+          <div style="font-size:11px;font-family:var(--font-mono);color:var(--accent);letter-spacing:1.5px;font-weight:700;margin-bottom:8px;">NEXT STEP — COMPLETE PAYMENT</div>
+          <p style="font-size:13px;color:var(--muted);margin-bottom:16px;">To activate your API key instantly, complete payment now. Supports UPI, Cards, NetBanking, PayPal, and Crypto.</p>
+          <a id="payment-cta-link" href="/upgrade.html" style="display:block;width:100%;padding:14px;background:linear-gradient(135deg,var(--accent),#00b891);color:#000;font-family:var(--font-mono);font-size:13px;font-weight:800;letter-spacing:1px;text-align:center;border-radius:8px;text-decoration:none;transition:opacity 0.2s;">⚡ COMPLETE PAYMENT &amp; ACTIVATE NOW →</a>
+          <div style="margin-top:10px;text-align:center;font-size:11px;color:var(--muted);">Or WhatsApp <strong style="color:var(--text);">+91 8179881447</strong> for assisted activation</div>
+        </div>
+
         <div class="next-steps">
           <h3>WHAT HAPPENS NEXT</h3>
           <div class="step">
@@ -546,6 +555,14 @@ function handleSubmit(e) {
     document.getElementById('api-key-form').style.display = 'none';
     document.getElementById('success-panel').style.display = 'block';
     document.getElementById('plan-selector').style.display = 'none';
+    // P0 FIX: surface payment path for paid plans — eliminate conversion leak
+    if (currentPlan !== 'community') {
+      var planMap = { pro: 'pro', team: 'enterprise', enterprise: 'mssp' };
+      var upgradePlan = planMap[currentPlan] || 'pro';
+      var payUrl = '/upgrade.html?plan=' + upgradePlan + '&email=' + encodeURIComponent(email);
+      document.getElementById('payment-cta-link').href = payUrl;
+      document.getElementById('paid-cta').style.display = 'block';
+    }
   }
 
   function mailtoFallback() {
