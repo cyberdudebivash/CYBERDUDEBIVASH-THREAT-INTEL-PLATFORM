@@ -52,7 +52,7 @@ TRIAL (Day 0) → ACTIVATED (Day 1-3) → ENGAGED (Day 7+) → HEALTHY (Day 30) 
     - API key (or confirmed in prior email)
     - Quickstart link: https://intel.cyberdudebivash.com/docs/quickstart.html
     - FAQ link: https://intel.cyberdudebivash.com/docs/faq.html
-    - Support contacts: bivash@cyberdudebivash.com | +91 8179881447
+    - Support contacts: enterprise@cyberdudebivash.com | +91 8179881447
 [ ] Customer reference logged in data/customers/active.json
 [ ] Subscription logged in data/subscriptions/ledger.json
 [ ] WhatsApp message sent (for Enterprise/MSSP): "Hi [NAME], your SENTINEL APEX key is live.

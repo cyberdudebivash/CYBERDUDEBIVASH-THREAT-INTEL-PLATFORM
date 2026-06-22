@@ -1,5 +1,5 @@
 # SENTINEL APEX — MSSP OPERATIONAL RUNBOOK
-## v176.0 | Phase 1: First 5 MSSP Clients
+## v184.0 | Phase 1: First 5 MSSP Clients
 
 ---
 
@@ -45,7 +45,7 @@ Happy to jump on a 20-minute call this week to walk you through everything.
 Reply with your availability.
 
 — CYBERDUDEBIVASH® SENTINEL APEX Team
-bivash@cyberdudebivash.com | +91 8179881447
+enterprise@cyberdudebivash.com | +91 8179881447
 ```
 
 ---
@@ -95,7 +95,7 @@ WHAT'S INCLUDED:
 TO START:
 1. Review and sign the MSSP Agreement (attached)
 2. Pay via: https://intel.cyberdudebivash.com/PAYMENT-GATEWAY.html?plan=mssp
-3. Submit your payment reference + signed agreement to bivash@cyberdudebivash.com
+3. Submit your payment reference + signed agreement to enterprise@cyberdudebivash.com
 4. Your Master Key + onboarding session scheduled within 24 hours
 
 Questions? Reply here or WhatsApp +91 8179881447.

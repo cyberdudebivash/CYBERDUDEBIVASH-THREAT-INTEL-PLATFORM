@@ -329,7 +329,7 @@ def _send_welcome_email(email: str, name: str, tier: str, api_key: str) -> None:
     try:
         import requests
         sendgrid_key  = os.environ.get("SENDGRID_API_KEY","")
-        sender        = os.environ.get("SENDER_EMAIL","bivash@cyberdudebivash.com")
+        sender        = os.environ.get("SENDER_EMAIL","enterprise@cyberdudebivash.com")
         if not sendgrid_key or not email:
             return
         price_map = {"pro": 49, "enterprise": 499, "mssp": 1999}

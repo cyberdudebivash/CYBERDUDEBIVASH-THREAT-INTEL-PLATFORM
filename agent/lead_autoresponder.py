@@ -18,7 +18,7 @@ Run:
 Required ENV:
   GUMROAD_ACCESS_TOKEN
   SENDGRID_API_KEY
-  SENDER_EMAIL               (e.g. bivash@cyberdudebivash.com)
+  SENDER_EMAIL               (e.g. enterprise@cyberdudebivash.com)
   SENDER_NAME                (optional, default: CyberDudeBivash Sentinel)
 """
 
@@ -36,14 +36,14 @@ logger = logging.getLogger("CDB-AUTORESPONDER")
 # ---------------------------------------------
 
 SENDGRID_KEY   = os.environ.get("SENDGRID_API_KEY", "")
-SENDER_EMAIL   = os.environ.get("SENDER_EMAIL", "bivash@cyberdudebivash.com")
+SENDER_EMAIL   = os.environ.get("SENDER_EMAIL", "enterprise@cyberdudebivash.com")
 SENDER_NAME    = os.environ.get("SENDER_NAME", "CyberDudeBivash SENTINEL APEX")
 
 ENTERPRISE_URL  = "https://intel.cyberdudebivash.com/pricing"
 STORE_URL       = "https://tools.cyberdudebivash.com/"
 PLATFORM_URL    = "https://intel.cyberdudebivash.com"
 WHATSAPP_URL    = "https://wa.me/918179881447"
-ENTERPRISE_EMAIL = "bivash@cyberdudebivash.com"
+ENTERPRISE_EMAIL = "enterprise@cyberdudebivash.com"
 
 DISCOUNT_CODE   = "SENTINEL20"    # 20% off Enterprise
 DISCOUNT_PCT    = "20%"

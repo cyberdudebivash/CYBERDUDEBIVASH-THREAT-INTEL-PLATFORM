@@ -110,7 +110,7 @@ WHAT'S INCLUDED
 
 PWYW — Pay what you want. Minimum $0. Your support funds daily threat intel research.
 
-Enterprise license & custom IR retainer: bivash@cyberdudebivash.com | +91 8179881447
+Enterprise license & custom IR retainer: enterprise@cyberdudebivash.com | +91 8179881447
 Platform: https://intel.cyberdudebivash.com
 """
 

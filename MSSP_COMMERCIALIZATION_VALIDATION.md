@@ -202,7 +202,7 @@ STEP 8 — Onboarding Call
 | MSSP SLA published in MSSP_AGREEMENT_TEMPLATE.md | ✅ PASS | Section 4 of agreement |
 | MSSP SLA in docs/SLA.md | ✅ PASS | docs/SLA.md MSSP tier row |
 | WhatsApp support channel defined | ✅ PASS | +91 8179881447 published |
-| Email support channel defined | ✅ PASS | bivash@cyberdudebivash.com published |
+| Email support channel defined | ✅ PASS | enterprise@cyberdudebivash.com published |
 | Sub-key provisioning request workflow | ✅ PASS | Documented in runbook |
 | Escalation path for P0 | ✅ PASS | Direct call + WhatsApp in runbook |
 

@@ -7,7 +7,7 @@
 
 **Proposed Solution:** SENTINEL APEX Enterprise Threat Intelligence Platform
 **Provider:** CYBERDUDEBIVASH | intel.cyberdudebivash.com
-**Contact:** bivash@cyberdudebivash.com | +91 8179881447
+**Contact:** enterprise@cyberdudebivash.com | +91 8179881447
 
 **Summary for [COMPANY NAME]:**
 [2-3 sentences: what problem they have, what SENTINEL APEX solves, specific value for their sector]
@@ -155,7 +155,7 @@ UPI · PayPal · NEFT/Bank Transfer · Crypto (USDT) · Amazon Pay
 
 1. **Review this proposal** (recommended: 2 business days)
 2. **Complete security questionnaire** (attached / separate document)
-3. **14-day Enterprise trial** at no cost — email bivash@cyberdudebivash.com to activate
+3. **14-day Enterprise trial** at no cost — email enterprise@cyberdudebivash.com to activate
 4. **Payment** → https://intel.cyberdudebivash.com/PAYMENT-GATEWAY.html?plan=enterprise
 5. **Onboarding call** scheduled within 24 hours of payment
 
@@ -167,7 +167,7 @@ UPI · PayPal · NEFT/Bank Transfer · Crypto (USDT) · Amazon Pay
 
 **Bivash Nayak**
 CYBERDUDEBIVASH SENTINEL APEX
-Email: bivash@cyberdudebivash.com
+Email: enterprise@cyberdudebivash.com
 WhatsApp: +91 8179881447
 Platform: https://intel.cyberdudebivash.com
 GSTIN: 21ARKPN8270G1ZP

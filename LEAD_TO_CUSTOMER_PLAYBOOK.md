@@ -87,7 +87,7 @@ To activate your trial:
 Sound good?
 
 — Bivash
-bivash@cyberdudebivash.com | +91 8179881447
+enterprise@cyberdudebivash.com | +91 8179881447
 intel.cyberdudebivash.com
 ```
 

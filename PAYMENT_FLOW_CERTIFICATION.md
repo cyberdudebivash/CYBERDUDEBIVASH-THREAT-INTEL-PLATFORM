@@ -76,7 +76,7 @@ upi://pay?pa=UPI_ID&pn=CYBERDUDEBIVASH&am=AMOUNT&cu=INR&tn=SENTINEL-APEX-PRO
 
 ### Current Implementation
 - **Status:** IMPLEMENTED — PayPal tab present
-- PayPal email displayed: `bivash@cyberdudebivash.com` (confirmed in code)
+- PayPal email displayed: `enterprise@cyberdudebivash.com` (confirmed in code)
 - "Pay via PayPal.me" button links to PayPal.me profile
 - Yellow PayPal-branded button present
 - Note shown: "Add plan name in PayPal notes field"

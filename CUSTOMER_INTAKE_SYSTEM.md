@@ -153,9 +153,9 @@ Auto-response email sent to customer:
   "Thank you, [Name]. Your request reference is: SA-[TIMESTAMP]-[RANDOM4].
    Plan: PRO Monthly | Payment: ₹4,100 via UPI | Status: Pending Verification.
    We will activate your API key within 2 hours of payment verification.
-   Questions? WhatsApp +91 8179881447 | Email: bivash@cyberdudebivash.com"
+   Questions? WhatsApp +91 8179881447 | Email: enterprise@cyberdudebivash.com"
         ↓
-Operator notification email to bivash@cyberdudebivash.com:
+Operator notification email to enterprise@cyberdudebivash.com:
   "[PRIORITY: PAID] New SA-2026-XXXX | Plan: PRO | Method: UPI | UTR: XXXXXX | Email: customer@company.com"
         ↓
 Operator verifies payment → triggers API key provisioning

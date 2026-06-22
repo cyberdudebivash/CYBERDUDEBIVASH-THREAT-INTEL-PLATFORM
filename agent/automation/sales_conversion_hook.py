@@ -37,7 +37,7 @@ logger = logging.getLogger("CDB-SALES-CONVERSION")
 # ===========================================================
 
 SENDGRID_API_KEY = os.environ.get("SENDGRID_API_KEY", "")
-SENDER_EMAIL = os.environ.get("SENDER_EMAIL", "bivash@cyberdudebivash.com")
+SENDER_EMAIL = os.environ.get("SENDER_EMAIL", "enterprise@cyberdudebivash.com")
 SENDER_NAME = os.environ.get("SENDER_NAME", "CyberDudeBivash SENTINEL APEX")
 
 PLATFORM_URL = "https://intel.cyberdudebivash.com"
