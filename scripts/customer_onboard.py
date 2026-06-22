@@ -304,7 +304,7 @@ def generate_welcome_package(
     API Docs     : https://intel.cyberdudebivash.com/api-docs.html
     Support      : intelligence@cyberdudebivash.com
     Privacy      : privacy@cyberdudebivash.com
-    Billing      : iambivash.bn@gmail.com
+    Billing      : enterprise@cyberdudebivash.com
 
     ─────────────────────────────────────────────────────────────────────
     SENTINEL APEX v184.0 | Generated: {now_utc()[:19]}Z | TLP:RED (operator only)
