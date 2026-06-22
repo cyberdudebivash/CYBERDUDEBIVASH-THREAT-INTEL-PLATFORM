@@ -3,16 +3,28 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>API Documentation — CYBERDUDEBIVASH® SENTINEL APEX</title>
-<meta name="description" content="Complete API reference for SENTINEL APEX Threat Intelligence Platform. STIX/TAXII endpoints, authentication, rate limits, and integration examples.">
+<title>API Reference v184.0 — CYBERDUDEBIVASH® SENTINEL APEX | STIX 2.1 · TAXII · IOC · Threat Intelligence API</title>
+<meta name="description" content="SENTINEL APEX API v184.0 — Real-time threat intelligence API. STIX 2.1 bundles, TAXII 2.1, IOC lookup, CVE enrichment, MITRE ATT&CK mapping, SIEM dispatch. From $49/mo. Free tier available.">
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:'Segoe UI',system-ui,sans-serif;background:#0a0e1a;color:#e8eaf6;line-height:1.7}
 header{background:linear-gradient(135deg,#0d1b2a,#1a2744);padding:20px 40px;border-bottom:2px solid #1e3a5f;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px}
 .logo{font-size:1.05rem;font-weight:700;color:#4fc3f7}
-.logo span{color:#ef5350;font-size:.7rem;display:block}
-nav a{color:#90caf9;text-decoration:none;margin-left:16px;font-size:.85rem}
+.logo span{color:#00e5c3;font-size:.7rem;display:block;letter-spacing:.08em}
+nav a{color:#90caf9;text-decoration:none;margin-left:16px;font-size:.85rem;transition:color .15s}
 nav a:hover{color:#fff}
+.get-key-btn{background:linear-gradient(135deg,#00bcd4,#00e5c3);color:#020c1b;font-weight:800;padding:9px 22px;border-radius:6px;font-size:.82rem;letter-spacing:.04em;text-decoration:none;transition:all .2s;display:inline-block;margin-left:20px}
+.get-key-btn:hover{transform:translateY(-1px);box-shadow:0 6px 20px rgba(0,212,195,0.4);color:#020c1b}
+.cta-banner{background:linear-gradient(135deg,rgba(0,188,212,0.12),rgba(0,229,195,0.08));border:1px solid rgba(0,229,195,0.3);border-radius:10px;padding:20px 28px;margin:0 0 32px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:16px}
+.cta-banner h3{color:#00e5c3;font-size:1rem;font-weight:700;margin:0 0 4px}
+.cta-banner p{color:#90a4ae;font-size:.85rem;margin:0}
+.cta-banner a{background:#00e5c3;color:#020c1b;padding:10px 24px;border-radius:6px;font-weight:800;font-size:.85rem;text-decoration:none;white-space:nowrap;transition:all .2s}
+.cta-banner a:hover{background:#00bcd4;transform:translateY(-1px)}
+.tier-badge{display:inline-block;padding:2px 8px;border-radius:4px;font-size:.72rem;font-weight:700;margin-left:8px}
+.tier-free{background:#1a3a1a;color:#81c784;border:1px solid #4caf50}
+.tier-pro{background:#1a2a3a;color:#64b5f6;border:1px solid #2196f3}
+.tier-ent{background:#2a1a3a;color:#ce93d8;border:1px solid #9c27b0}
+.tier-mssp{background:#2a2a1a;color:#ffcc02;border:1px solid #ffc107}
 .layout{display:grid;grid-template-columns:240px 1fr;min-height:calc(100vh - 64px)}
 .sidebar{background:#060d18;border-right:1px solid #1e3a5f;padding:24px 0;position:sticky;top:0;height:calc(100vh - 64px);overflow-y:auto}
 .sidebar-section{padding:8px 20px;font-size:.7rem;font-weight:700;color:#546e7a;text-transform:uppercase;letter-spacing:.1em;margin-top:16px}
@@ -47,8 +59,15 @@ li{margin-bottom:6px}
 </head>
 <body>
 <header>
-  <div class="logo">CYBERDUDEBIVASH® SENTINEL APEX<span>API Reference v1.0</span></div>
-  <nav><a href="/">Dashboard</a><a href="/pricing.html">Pricing</a><a href="/sla.html">SLA</a></nav>
+  <div class="logo">CYBERDUDEBIVASH® SENTINEL APEX<span>API Reference v184.0 · STIX 2.1 · TAXII 2.1</span></div>
+  <nav>
+    <a href="/">Dashboard</a>
+    <a href="/pricing.html">Pricing</a>
+    <a href="/enterprise.html">Enterprise</a>
+    <a href="/mssp.html">MSSP</a>
+    <a href="/sla.html">SLA</a>
+    <a href="/pricing.html#get-api-key" class="get-key-btn">⚡ Get API Key</a>
+  </nav>
 </header>
 <div class="layout">
   <nav class="sidebar">
@@ -85,11 +104,18 @@ li{margin-bottom:6px}
     <a href="#qradar">IBM QRadar</a>
   </nav>
   <div class="content">
-    <h1>SENTINEL APEX API Reference</h1>
-    <p>The SENTINEL APEX API provides programmatic access to real-time threat intelligence, STIX 2.1 bundles, analyst dossiers, and IOC lookups. The API base URL is:</p>
+    <div class="cta-banner">
+      <div>
+        <h3>⚡ Ready to integrate SENTINEL APEX intelligence?</h3>
+        <p>74 live intel feeds · STIX 2.1 · TAXII 2.1 · MITRE ATT&CK · IOC Lookup · SIEM Dispatch · 43,000+ reports</p>
+      </div>
+      <a href="/pricing.html">Get API Key &rarr;</a>
+    </div>
+    <h1>SENTINEL APEX API Reference <small style="font-size:.55em;color:#546e7a;font-weight:400">v184.0</small></h1>
+    <p>The SENTINEL APEX API provides programmatic access to real-time threat intelligence, STIX 2.1 bundles, analyst dossiers, IOC lookups, and SIEM dispatch integrations. Base URL:</p>
     <div class="endpoint"><strong>https://intel.cyberdudebivash.com/api/</strong></div>
     <div class="info-box">
-      <p>📘 All API responses are JSON. STIX endpoints additionally return STIX 2.1-compliant bundles. Authentication is required for all endpoints except <code>/api/health</code>.</p>
+      <p>📘 All API responses are JSON. STIX endpoints return STIX 2.1-compliant bundles. Authentication via <code>X-API-Key</code> header is required for all endpoints except <code>/api/health</code>. Free tier provides 100 requests/day to public endpoints.</p>
     </div>
 
     <h2 id="authentication">Authentication</h2>
@@ -97,16 +123,16 @@ li{margin-bottom:6px}
     <pre>curl -H "X-API-Key: YOUR_API_KEY" \
   https://intel.cyberdudebivash.com/api/feed</pre>
     <div class="info-box warn">
-      <p>⚠️ Keep your API key secret. Do not expose it in client-side code. Rotate compromised keys immediately by emailing iambivash.bn@gmail.com.</p>
+      <p>⚠️ Keep your API key secret. Do not expose it in client-side code. To rotate a compromised key, use your <a href="/api-key-manager.html" style="color:#ffb74d">API Key Manager</a> or contact <a href="mailto:security@cyberdudebivash.com" style="color:#ffb74d">security@cyberdudebivash.com</a>.</p>
     </div>
 
     <h2 id="rate-limits">Rate Limits</h2>
     <table>
-      <tr><th>Tier</th><th>Requests / Day</th><th>Burst (per minute)</th><th>Response on Exceed</th></tr>
-      <tr><td>Free</td><td>100</td><td>10</td><td>HTTP 429</td></tr>
-      <tr><td>Professional</td><td>10,000</td><td>100</td><td>HTTP 429</td></tr>
-      <tr><td>Enterprise</td><td>Unlimited</td><td>500</td><td>HTTP 429 (burst only)</td></tr>
-      <tr><td>MSSP</td><td>Unlimited</td><td>1,000</td><td>HTTP 429 (burst only)</td></tr>
+      <tr><th>Tier</th><th>Requests / Day</th><th>Burst (per minute)</th><th>Endpoints</th><th>Response on Exceed</th></tr>
+      <tr><td>Free <span class="tier-badge tier-free">FREE</span></td><td>100</td><td>10</td><td>Public endpoints only</td><td>HTTP 429</td></tr>
+      <tr><td>Professional <span class="tier-badge tier-pro">PRO</span></td><td>5,000</td><td>100</td><td>All endpoints</td><td>HTTP 429</td></tr>
+      <tr><td>Enterprise <span class="tier-badge tier-ent">ENT</span></td><td>Unlimited</td><td>500</td><td>All endpoints + SIEM</td><td>HTTP 429 (burst only)</td></tr>
+      <tr><td>MSSP <span class="tier-badge tier-mssp">MSSP</span></td><td>Unlimited</td><td>1,000</td><td>All + Multi-tenant</td><td>HTTP 429 (burst only)</td></tr>
     </table>
     <p>Rate limit headers are included in every response: <code>X-RateLimit-Limit</code>, <code>X-RateLimit-Remaining</code>, <code>X-RateLimit-Reset</code>.</p>
 
