@@ -484,18 +484,28 @@ try:
         _sys2.path.insert(0, _scripts_dir)
     from ioc_quality_governor import audit_iocs as _audit_iocs
     if fdata:
-        _ioc_audit = _audit_iocs(fdata if isinstance(fdata, list) else [])
+        # v185.0 FIX: match dict-feed extraction pattern from severity floor gate
+        # (previously passed [] when fdata was a dict — gave vacuous 0% FP rate)
+        if isinstance(fdata, list):
+            _ioc_items = fdata
+        elif isinstance(fdata, dict):
+            _ioc_items = (fdata.get("items") or fdata.get("advisories")
+                          or fdata.get("data") or [])
+        else:
+            _ioc_items = []
+        _ioc_audit = _audit_iocs(_ioc_items)
         _fp_rate = _ioc_audit["false_positive_rate_pct"]
         # Always PASS (non-blocking) -- reported as warning only
-        _ioc_msg = f"IOC FP rate {_fp_rate}% (WARNING-ONLY: non-blocking until Stage 3.1.8 upgraded)"
+        # v185.0: governor v1.1 adds registry, mutex, CIDR, path patterns; target now 5%
+        _ioc_msg = f"IOC FP rate {_fp_rate}% (governor v1.1)"
         check("IOC artifact contamination gate (monitoring mode)",
               True,
               _ioc_msg,
               _ioc_msg)
         if _fp_rate >= 5.0:
-            warnings.append(f"IOC FP rate {_fp_rate}% >= 5% target -- Stage 3.1.8 upgrade needed (non-blocking)")
+            warnings.append(f"IOC FP rate {_fp_rate}% >= 5% target -- review ioc_quality_governor artifact patterns (non-blocking)")
         elif _fp_rate >= 1.0:
-            warnings.append(f"IOC FP rate {_fp_rate}% exceeds 1% target (non-blocking)")
+            warnings.append(f"IOC FP rate {_fp_rate}% (acceptable — target <5%, aspirational <1%)")
     else:
         check("IOC artifact contamination gate (monitoring mode)", True, "N/A", "feed absent (non-fatal)")
 except ImportError:

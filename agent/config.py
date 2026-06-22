@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-config.py - CyberDudeBivash v33.0 (APEX SOVEREIGN CORTEX — GLOBAL EXPANSION)
+config.py - CyberDudeBivash v185.0 (APEX SOVEREIGN CORTEX — GLOBAL EXPANSION)
 Global Configuration for the Sentinel APEX Intelligence Platform.
 
 v33.0 CHANGES (P0-5 GLOBAL COVERAGE FIX — TIER 8 EXPANSION):
@@ -113,8 +113,11 @@ RSS_FEEDS = [
     # -- TIER 6: Offensive Security & Cloud Threats --
     # [v32.0-PURGE] portswigger.net/daily-swig/rss REMOVED — 0 entries confirmed run #605
     "https://aws.amazon.com/blogs/security/feed/",
-    "https://www.us-cert.gov/ncas/alerts.xml",
-    "https://advisories.ncsc.nl/rss/advisories",
+    # [v185.0-FIX] us-cert.gov is legacy; CISA unified feed below covers this
+    # [v185.0-FIX] advisories.ncsc.nl REMOVED — all 20 entries are Dutch (nl),
+    #   language filter rejects 100% of entries → 0 usable items per run.
+    #   Replaced with CISA-ICS advisory feed (English, high-authority).
+    "https://www.cisa.gov/cybersecurity-advisories/ics-advisories.xml",
     # [v32.0-PURGE] cert.gov.au/rss/alerts REMOVED — 0 entries confirmed run #605
     "https://googleprojectzero.blogspot.com/feeds/posts/default",
     # [v32.0-PURGE] github.com/advisories.atom REMOVED — requires auth token, returns 0 entries in CI run #605
@@ -175,8 +178,7 @@ RSS_FEEDS = [
     "https://www.darkreading.com/rss.xml",             # Dark Reading RSS (RSS ok, source blocked)
     # CISA Known Exploited Vulnerabilities JSON feed
     "https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json",
-    # Additional government/institutional feeds
-    "https://www.ncsc.gov.uk/api/1/services/v1/report-rss-feed.xml",  # NCSC UK
+    # [v185.0-FIX] Duplicate NCSC UK entry removed (already present at line above)
     "https://www.cert.ssi.gouv.fr/alerte/feed",       # ANSSI France
     # Additional vendor research
     "https://blog.talosintelligence.com/rss/",        # Cisco Talos
