@@ -4,7 +4,7 @@
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
 <title>Pricing — CYBERDUDEBIVASH® SENTINEL APEX Threat Intelligence Platform</title>
-<meta name="description" content="Enterprise threat intelligence pricing. Free tier, PRO at ₹4,100/month, ENTERPRISE at ₹41,600/month. Sigma rules, KQL, STIX 2.1, MITRE ATT&CK v15, API access."/>
+<meta name="description" content="Enterprise threat intelligence pricing. Free tier, PRO at $49/month, Enterprise SOC at $499/month. Save 20% with annual billing. Sigma rules, KQL, STIX 2.1, MITRE ATT&amp;CK v15, API access."/>
 <meta property="og:title" content="Pricing — SENTINEL APEX Threat Intelligence"/>
 <meta property="og:description" content="Real-time CTI platform for SOC teams, MSSPs and security researchers. Free 7-day PRO trial available."/>
 <meta property="og:url" content="https://intel.cyberdudebivash.com/pricing.html"/>
@@ -78,7 +78,24 @@ body{background:#0f172a;color:#e2e8f0;font-family:'Inter',-apple-system,BlinkMac
 .btn-primary{background:#38bdf8;color:#0f172a;}
 .btn-outline{border:1px solid rgba(255,255,255,0.3);color:#fff;}
 footer{text-align:center;padding:32px 20px;color:#334155;font-size:12px;border-top:1px solid #1e293b;}
+/* Annual billing toggle */
+.billing-toggle-wrap{text-align:center;margin:0 0 40px;}
+.billing-toggle{display:inline-flex;background:#1e293b;border-radius:40px;padding:4px;gap:4px;}
+.toggle-btn{padding:10px 28px;border-radius:36px;border:none;background:transparent;color:#64748b;font-size:14px;font-weight:600;cursor:pointer;transition:all .2s;display:inline-flex;align-items:center;gap:8px;}
+.toggle-btn.active{background:#38bdf8;color:#0f172a;}
+.save-badge{background:#22c55e;color:#fff;font-size:10px;font-weight:800;padding:2px 8px;border-radius:20px;letter-spacing:0.5px;}
+.toggle-btn.active .save-badge{background:#0f172a;color:#22c55e;}
+.annual-note{font-size:12px;color:#22c55e;margin-top:10px;display:none;}
+.annual-note.visible{display:block;}
+.annual-strike{color:#475569;text-decoration:line-through;font-size:14px;font-weight:400;margin-right:4px;}
 @media(max-width:768px){.nav-links{display:none;}.hero h1{font-size:28px;}.pricing-grid{grid-template-columns:1fr;}}
+/* Currency selector */
+.currency-wrap{text-align:center;margin:-24px 0 40px;}
+.currency-note{font-size:11px;color:#475569;margin-top:8px;}
+.currency-note a{color:#64748b;text-decoration:none;}
+.currency-sel{display:inline-flex;background:#1e293b;border-radius:30px;padding:3px;gap:2px;}
+.cur-btn{padding:6px 20px;border-radius:26px;border:none;background:transparent;color:#64748b;font-size:12px;font-weight:700;cursor:pointer;transition:all .2s;letter-spacing:0.5px;}
+.cur-btn.active{background:#334155;color:#e2e8f0;}
 </style>
 <script type="application/ld+json">
 {
@@ -120,6 +137,30 @@ footer{text-align:center;padding:32px 20px;color:#334155;font-size:12px;border-t
       "priceCurrency": "USD",
       "billingDuration": "P1M",
       "description": "White-label deployment, unlimited access, 15-min SLA, dedicated support."
+    },
+    {
+      "@type": "Offer",
+      "name": "PRO / SOC — Annual",
+      "price": "470",
+      "priceCurrency": "USD",
+      "billingDuration": "P1Y",
+      "description": "Full CTI platform billed annually. $39/mo equivalent — save 20% vs monthly."
+    },
+    {
+      "@type": "Offer",
+      "name": "Enterprise SOC — Annual",
+      "price": "4788",
+      "priceCurrency": "USD",
+      "billingDuration": "P1Y",
+      "description": "Enterprise SOC billed annually. $399/mo equivalent — save $1,200/yr vs monthly."
+    },
+    {
+      "@type": "Offer",
+      "name": "MSSP / White-Label — Annual",
+      "price": "19188",
+      "priceCurrency": "USD",
+      "billingDuration": "P1Y",
+      "description": "MSSP white-label billed annually. $1,599/mo equivalent — save $4,800/yr vs monthly."
     }
   ],
   "provider": {
@@ -138,6 +179,7 @@ footer{text-align:center;padding:32px 20px;color:#334155;font-size:12px;border-t
   <div class="nav-links">
     <a href="/">Dashboard</a>
     <a href="/demo.html">Live Demo</a>
+    <a href="/compare.html">Compare</a>
     <a href="/get-api-key.html">API</a>
     <a href="/mssp.html">MSSP</a>
     <a href="/upgrade.html" class="nav-cta">Start Free Trial</a>
@@ -151,13 +193,33 @@ footer{text-align:center;padding:32px 20px;color:#334155;font-size:12px;border-t
   <div class="trial-banner">⚡ 7-day free PRO trial · No credit card required · Cancel anytime</div>
 </section>
 
+<!-- BILLING TOGGLE -->
+<div class="billing-toggle-wrap">
+  <div class="billing-toggle">
+    <button class="toggle-btn active" id="btn-monthly" onclick="setBilling('monthly')">Monthly</button>
+    <button class="toggle-btn" id="btn-annual" onclick="setBilling('annual')">Annual <span class="save-badge">SAVE 20%</span></button>
+  </div>
+  <div class="annual-note" id="annual-note">Billed as one annual payment · Lock in price for 12 months · Cancel with 30-day notice</div>
+</div>
+
+<!-- CURRENCY SELECTOR — R-08 -->
+<div class="currency-wrap">
+  <div class="currency-sel">
+    <button class="cur-btn active" id="cur-usd" onclick="setCurrency('USD')">$ USD</button>
+    <button class="cur-btn" id="cur-inr" onclick="setCurrency('INR')">₹ INR</button>
+    <button class="cur-btn" id="cur-eur" onclick="setCurrency('EUR')">€ EUR</button>
+    <button class="cur-btn" id="cur-gbp" onclick="setCurrency('GBP')">£ GBP</button>
+  </div>
+  <div class="currency-note">Prices shown for reference · billed in USD at prevailing rate · <a href="#faq-fx">see FAQ</a> · +18% GST for Indian customers</div>
+</div>
+
 <div class="pricing-grid">
 
   <!-- FREE -->
   <div class="plan-card">
     <div class="plan-name">Community</div>
-    <div class="plan-price"><span class="plan-currency">₹</span>0</div>
-    <div class="plan-period">Free forever</div>
+    <div class="plan-price"><span class="plan-currency">$</span>0</div>
+    <div class="plan-period">Free forever · No credit card</div>
     <div class="plan-desc">Get started with real-time threat visibility. No credit card required.</div>
     <a href="/" class="plan-btn plan-btn-outline">Access Dashboard →</a>
     <ul class="features-list">
@@ -176,13 +238,13 @@ footer{text-align:center;padding:32px 20px;color:#334155;font-size:12px;border-t
 
   <!-- PRO -->
   <div class="plan-card featured">
-    <div class="plan-name">PRO</div>
-    <div class="plan-price"><span class="plan-currency">₹</span>4,100</div>
-    <div class="plan-period">per month · ~$49 USD</div>
+    <div class="plan-name">PRO / SOC</div>
+    <div class="plan-price"><span class="plan-currency" id="cur-sym-pro">$</span><span id="price-pro">49</span></div>
+    <div class="plan-period" id="period-pro">per month · billed monthly · ₹4,100 INR</div>
     <div class="plan-desc">Full CTI platform for SOC analysts, threat hunters and security researchers.</div>
-    <a href="/upgrade.html?plan=pro" class="plan-btn plan-btn-primary">Start 7-Day Free Trial →</a>
+    <a href="/upgrade.html?plan=pro" class="plan-btn plan-btn-primary" data-plan="pro">Start 7-Day Free Trial →</a>
     <ul class="features-list">
-      <li><span class="feature-check">✓</span> <strong>100 advisories per day</strong></li>
+      <li><span class="feature-check">✓</span> <strong>500 advisories per day</strong></li>
       <li><span class="feature-check">✓</span> Everything in Community</li>
       <li><span class="feature-check">✓</span> <strong>Actor attribution (APT groups)</strong></li>
       <li><span class="feature-check">✓</span> <strong>Sigma rules — deploy to Splunk/Elastic</strong></li>
@@ -199,44 +261,92 @@ footer{text-align:center;padding:32px 20px;color:#334155;font-size:12px;border-t
 
   <!-- ENTERPRISE -->
   <div class="plan-card">
-    <div class="plan-name">Enterprise</div>
-    <div class="plan-price"><span class="plan-currency">₹</span>41,600</div>
-    <div class="plan-period">per month · ~$499 USD</div>
-    <div class="plan-desc">For security teams, SOCs and enterprises needing full automation.</div>
-    <a href="/upgrade.html?plan=enterprise" class="plan-btn plan-btn-enterprise">Contact Sales →</a>
+    <div class="plan-name">Enterprise SOC</div>
+    <div class="plan-price"><span class="plan-currency" id="cur-sym-ent">$</span><span id="price-ent">499</span></div>
+    <div class="plan-period" id="period-ent">per month · billed monthly · ₹41,600 INR</div>
+    <div class="plan-desc">For security teams, SOCs and enterprises needing full automation and SLA guarantees.</div>
+    <a href="/contact-enterprise.html" class="plan-btn plan-btn-enterprise" data-plan="ent">Contact Sales →</a>
     <ul class="features-list">
       <li><span class="feature-check">✓</span> <strong>Unlimited advisories</strong></li>
       <li><span class="feature-check">✓</span> Everything in PRO</li>
       <li><span class="feature-check">✓</span> 50,000 API req/day</li>
-      <li><span class="feature-check">✓</span> SIEM webhook integration</li>
-      <li><span class="feature-check">✓</span> Custom feed filters</li>
-      <li><span class="feature-check">✓</span> Dedicated support SLA</li>
+      <li><span class="feature-check">✓</span> SIEM webhook push (Splunk/Sentinel/QRadar)</li>
+      <li><span class="feature-check">✓</span> Custom feed filters &amp; TLP controls</li>
+      <li><span class="feature-check">✓</span> 4-hour SLA for HIGH severity</li>
       <li><span class="feature-check">✓</span> Multi-user access (5 seats)</li>
       <li><span class="feature-check">✓</span> Historical data (12 months)</li>
-      <li><span class="feature-check">✓</span> Bulk export (CSV, JSON, STIX)</li>
-      <li><span class="feature-check">✓</span> Invoice &amp; GST billing</li>
+      <li><span class="feature-check">✓</span> Bulk export (CSV, JSON, STIX 2.1)</li>
+      <li><span class="feature-check">✓</span> Invoice billing &amp; GST receipt</li>
     </ul>
   </div>
 
   <!-- MSSP -->
   <div class="plan-card">
     <div class="plan-name">MSSP / White-Label</div>
-    <div class="plan-price"><span class="plan-currency">₹</span>1,66,600</div>
-    <div class="plan-period">per month · ~$1,999 USD · unlimited clients</div>
-    <div class="plan-desc">Resell threat intelligence under your own brand. Per-client pricing.</div>
-    <a href="/mssp.html" class="plan-btn plan-btn-outline">Learn More →</a>
+    <div class="plan-price"><span class="plan-currency" id="cur-sym-mssp">$</span><span id="price-mssp">1,999</span></div>
+    <div class="plan-period" id="period-mssp">per month · unlimited clients · ₹1,66,600 INR</div>
+    <div class="plan-desc">Resell threat intelligence under your own brand. Unlimited tenant sub-keys.</div>
+    <a href="/mssp.html" class="plan-btn plan-btn-outline" data-plan="mssp">Explore MSSP Program →</a>
     <ul class="features-list">
-      <li><span class="feature-check">✓</span> Your logo &amp; brand</li>
+      <li><span class="feature-check">✓</span> Your logo &amp; brand (white-label)</li>
       <li><span class="feature-check">✓</span> Everything in Enterprise</li>
-      <li><span class="feature-check">✓</span> Per-client API keys</li>
-      <li><span class="feature-check">✓</span> Unlimited clients</li>
-      <li><span class="feature-check">✓</span> Revenue sharing model</li>
-      <li><span class="feature-check">✓</span> Priority routing &amp; SLA</li>
-      <li><span class="feature-check">✓</span> Custom webhook delivery</li>
-      <li><span class="feature-check">✓</span> Reseller dashboard</li>
+      <li><span class="feature-check">✓</span> Unlimited client sub-keys</li>
+      <li><span class="feature-check">✓</span> Per-tenant API key management</li>
+      <li><span class="feature-check">✓</span> Partner revenue sharing (up to 25%)</li>
+      <li><span class="feature-check">✓</span> 15-minute CRITICAL SLA</li>
+      <li><span class="feature-check">✓</span> Custom webhook delivery per tenant</li>
+      <li><span class="feature-check">✓</span> MSSP partner portal &amp; tenant dashboard</li>
     </ul>
   </div>
 
+</div>
+
+<!-- TRUST & COMPLIANCE BADGES — T-01 v185.0 -->
+<div style="max-width:900px;margin:0 auto 64px;padding:0 20px;text-align:center;">
+  <div style="font-size:11px;color:#475569;text-transform:uppercase;letter-spacing:2px;margin-bottom:20px;">Security Standards &amp; Compliance Framework</div>
+  <div style="display:flex;flex-wrap:wrap;gap:12px;justify-content:center;align-items:stretch;">
+    <div style="background:#1e293b;border:1px solid #22c55e33;border-radius:8px;padding:12px 18px;display:flex;flex-direction:column;align-items:center;gap:4px;min-width:120px;">
+      <span style="font-size:18px;">🛡️</span>
+      <span style="font-size:11px;font-weight:700;color:#22c55e;letter-spacing:0.5px;">STIX 2.1</span>
+      <span style="font-size:9px;color:#64748b;">Standard Format</span>
+    </div>
+    <div style="background:#1e293b;border:1px solid #22c55e33;border-radius:8px;padding:12px 18px;display:flex;flex-direction:column;align-items:center;gap:4px;min-width:120px;">
+      <span style="font-size:18px;">🎯</span>
+      <span style="font-size:11px;font-weight:700;color:#22c55e;letter-spacing:0.5px;">MITRE ATT&amp;CK v15</span>
+      <span style="font-size:9px;color:#64748b;">Mapped &amp; Verified</span>
+    </div>
+    <div style="background:#1e293b;border:1px solid #22c55e33;border-radius:8px;padding:12px 18px;display:flex;flex-direction:column;align-items:center;gap:4px;min-width:120px;">
+      <span style="font-size:18px;">🏛️</span>
+      <span style="font-size:11px;font-weight:700;color:#22c55e;letter-spacing:0.5px;">NIST CSF 2.0</span>
+      <span style="font-size:9px;color:#64748b;">ID &amp; Detect Functions</span>
+    </div>
+    <div style="background:#1e293b;border:1px solid #22c55e33;border-radius:8px;padding:12px 18px;display:flex;flex-direction:column;align-items:center;gap:4px;min-width:120px;">
+      <span style="font-size:18px;">🔒</span>
+      <span style="font-size:11px;font-weight:700;color:#22c55e;letter-spacing:0.5px;">ISO 27001</span>
+      <span style="font-size:9px;color:#64748b;">Annex A.8 Mapped</span>
+    </div>
+    <div style="background:#1e293b;border:1px solid #f59e0b33;border-radius:8px;padding:12px 18px;display:flex;flex-direction:column;align-items:center;gap:4px;min-width:120px;">
+      <span style="font-size:18px;">📋</span>
+      <span style="font-size:11px;font-weight:700;color:#f59e0b;letter-spacing:0.5px;">SOC 2 Type II</span>
+      <span style="font-size:9px;color:#64748b;">Audit In Progress</span>
+    </div>
+    <div style="background:#1e293b;border:1px solid #22c55e33;border-radius:8px;padding:12px 18px;display:flex;flex-direction:column;align-items:center;gap:4px;min-width:120px;">
+      <span style="font-size:18px;">🌐</span>
+      <span style="font-size:11px;font-weight:700;color:#22c55e;letter-spacing:0.5px;">TLP Compliant</span>
+      <span style="font-size:9px;color:#64748b;">FIRST TLP Standard</span>
+    </div>
+    <div style="background:#1e293b;border:1px solid #22c55e33;border-radius:8px;padding:12px 18px;display:flex;flex-direction:column;align-items:center;gap:4px;min-width:120px;">
+      <span style="font-size:18px;">📡</span>
+      <span style="font-size:11px;font-weight:700;color:#22c55e;letter-spacing:0.5px;">TAXII 2.1</span>
+      <span style="font-size:9px;color:#64748b;">Protocol Compliant</span>
+    </div>
+    <div style="background:#1e293b;border:1px solid #22c55e33;border-radius:8px;padding:12px 18px;display:flex;flex-direction:column;align-items:center;gap:4px;min-width:120px;">
+      <span style="font-size:18px;">🇮🇳</span>
+      <span style="font-size:11px;font-weight:700;color:#22c55e;letter-spacing:0.5px;">GST Registered</span>
+      <span style="font-size:9px;color:#64748b;">GSTIN Verified</span>
+    </div>
+  </div>
+  <div style="margin-top:16px;font-size:11px;color:#334155;"><a href="/security-compliance.html" style="color:#38bdf8;text-decoration:none;">View full security &amp; compliance documentation →</a></div>
 </div>
 
 <!-- COMPARISON TABLE -->
@@ -296,7 +406,7 @@ footer{text-align:center;padding:32px 20px;color:#334155;font-size:12px;border-t
   <h2>Frequently Asked Questions</h2>
   <div class="faq-item">
     <div class="faq-q">How does the 7-day free trial work? <span>+</span></div>
-    <div class="faq-a">Sign up at the upgrade page. You get full PRO access for 7 days at no cost. After 7 days, you choose to pay ₹4,100/month or drop back to the Community tier. No credit card required to start.</div>
+    <div class="faq-a">Sign up at the upgrade page. You get full PRO access for 7 days at no cost. After 7 days, choose to continue at $49/month (monthly) or $39/month (annual, billed $470/yr) — or drop back to Community. No credit card required to start.</div>
   </div>
   <div class="faq-item">
     <div class="faq-q">What payment methods are accepted? <span>+</span></div>
@@ -316,7 +426,19 @@ footer{text-align:center;padding:32px 20px;color:#334155;font-size:12px;border-t
   </div>
   <div class="faq-item">
     <div class="faq-q">Is there a student or researcher discount? <span>+</span></div>
-    <div class="faq-a">Yes. Students and independent security researchers get 50% off PRO (₹2,050/month). Send proof of enrollment or your security research profile to enterprise@cyberdudebivash.com.</div>
+    <div class="faq-a">Yes. Students and independent security researchers get 50% off PRO ($24.50/month, ~₹2,050). Send proof of enrollment or your security research profile to enterprise@cyberdudebivash.com.</div>
+  </div>
+  <div class="faq-item">
+    <div class="faq-q">How does annual billing work? <span>+</span></div>
+    <div class="faq-a">Select "Annual" above to switch to annual pricing — you save 20% versus month-to-month. PRO drops to $39/mo ($470 billed once per year), Enterprise SOC to $399/mo ($4,788/yr), and MSSP to $1,599/mo ($19,188/yr). Annual plans are pre-paid for 12 months and include price-lock protection — your rate will not increase at renewal. Cancel with 30 days' notice before the renewal date. Invoice and GST receipt provided immediately on purchase.</div>
+  </div>
+  <div class="faq-item">
+    <div class="faq-q">Can I switch between monthly and annual mid-cycle? <span>+</span></div>
+    <div class="faq-a">Yes — you can upgrade from monthly to annual at any time and we will credit the unused portion of your current month. To downgrade from annual to monthly, the switch takes effect at the next renewal date. Email enterprise@cyberdudebivash.com to request billing changes.</div>
+  </div>
+  <div class="faq-item" id="faq-fx">
+    <div class="faq-q">How does local currency pricing work? <span>+</span></div>
+    <div class="faq-a">Use the currency selector above the pricing cards to view indicative prices in USD, INR, EUR, or GBP. All subscriptions are billed in USD at the prevailing exchange rate unless a local invoicing arrangement is made — email enterprise@cyberdudebivash.com. Indian customers receive GST invoices in INR equivalent (18% GST applicable, GSTIN: 21ARKPN8270G1ZP). EUR and GBP prices are indicative at approx. $1 = €0.92 = £0.79 = ₹83.5 and are updated periodically — actual billing uses the rate at time of payment.</div>
   </div>
 </div>
 
@@ -348,9 +470,106 @@ footer{text-align:center;padding:32px 20px;color:#334155;font-size:12px;border-t
 </div>
 
 <footer>
-  <p>&copy; 2026 CYBERDUDEBIVASH PRIVATE LIMITED. All Rights Reserved. SENTINEL APEX v184.0</p>
-  <p style="margin-top:4px;"><a href="/" style="color:#334155;">Dashboard</a> · <a href="/get-api-key.html" style="color:#334155;">API</a> · <a href="/upgrade.html" style="color:#334155;">Upgrade</a> · <a href="mailto:enterprise@cyberdudebivash.com" style="color:#334155;">Contact</a></p>
+  <p>&copy; 2026 CYBERDUDEBIVASH PRIVATE LIMITED. All Rights Reserved. SENTINEL APEX v185.0</p>
+  <p style="margin-top:4px;"><a href="/" style="color:#334155;">Dashboard</a> · <a href="/get-api-key.html" style="color:#334155;">API</a> · <a href="/upgrade.html" style="color:#334155;">Upgrade</a> · <a href="/compare.html" style="color:#334155;">Compare</a> · <a href="/case-studies.html" style="color:#334155;">Case Studies</a> · <a href="/testimonials.html" style="color:#334155;">Testimonials</a> · <a href="/referral.html" style="color:#334155;">Referral Program</a> · <a href="/partner.html" style="color:#334155;">Partner</a> · <a href="mailto:enterprise@cyberdudebivash.com" style="color:#334155;">Contact</a></p>
 </footer>
 
+<script>
+(function(){
+  /* R-08: Multi-currency pricing — USD / INR / EUR / GBP */
+  var PRICES = {
+    USD: {
+      monthly: {
+        pro:  { sym:'$', price:'49',      period:'per month · billed monthly',                          cta:'/upgrade.html?plan=pro'                  },
+        ent:  { sym:'$', price:'499',     period:'per month · billed monthly',                          cta:'/contact-enterprise.html'                 },
+        mssp: { sym:'$', price:'1,999',   period:'per month · unlimited clients',                       cta:'/mssp.html'                               }
+      },
+      annual: {
+        pro:  { sym:'$', price:'39',      period:'per month · $470 billed annually · save $118/yr',    cta:'/upgrade.html?plan=pro-annual'            },
+        ent:  { sym:'$', price:'399',     period:'per month · $4,788 billed annually · save $1,200/yr',cta:'/contact-enterprise.html?billing=annual'  },
+        mssp: { sym:'$', price:'1,599',   period:'per month · $19,188 billed annually · save $4,800/yr',cta:'/mssp.html?billing=annual'              }
+      }
+    },
+    INR: {
+      monthly: {
+        pro:  { sym:'₹', price:'4,100',     period:'per month · billed monthly · ~$49 USD + 18% GST',     cta:'/upgrade.html?plan=pro'                 },
+        ent:  { sym:'₹', price:'41,600',    period:'per month · billed monthly · ~$499 USD + 18% GST',    cta:'/contact-enterprise.html'                },
+        mssp: { sym:'₹', price:'1,66,600',  period:'per month · unlimited clients · ~$1,999 USD + 18% GST',cta:'/mssp.html'                            }
+      },
+      annual: {
+        pro:  { sym:'₹', price:'3,260',     period:'per month · ₹39,120 billed annually · save ~20% · ~$39 USD',  cta:'/upgrade.html?plan=pro-annual'  },
+        ent:  { sym:'₹', price:'33,300',    period:'per month · ₹3,99,600 billed annually · save ~20% · ~$399 USD',cta:'/contact-enterprise.html?billing=annual'},
+        mssp: { sym:'₹', price:'1,33,500',  period:'per month · ₹16,02,000 billed annually · save ~20% · ~$1,599 USD',cta:'/mssp.html?billing=annual'  }
+      }
+    },
+    EUR: {
+      monthly: {
+        pro:  { sym:'€', price:'45',      period:'per month · billed monthly · indicative rate €1 ≈ $1.09',  cta:'/upgrade.html?plan=pro'              },
+        ent:  { sym:'€', price:'459',     period:'per month · billed monthly · indicative rate €1 ≈ $1.09',  cta:'/contact-enterprise.html'             },
+        mssp: { sym:'€', price:'1,839',   period:'per month · unlimited clients · indicative rate',           cta:'/mssp.html'                           }
+      },
+      annual: {
+        pro:  { sym:'€', price:'36',      period:'per month · €432 billed annually · save ~20% · indicative', cta:'/upgrade.html?plan=pro-annual'       },
+        ent:  { sym:'€', price:'367',     period:'per month · €4,404 billed annually · save ~20% · indicative',cta:'/contact-enterprise.html?billing=annual'},
+        mssp: { sym:'€', price:'1,471',   period:'per month · €17,652 billed annually · save ~20%',           cta:'/mssp.html?billing=annual'            }
+      }
+    },
+    GBP: {
+      monthly: {
+        pro:  { sym:'£', price:'39',      period:'per month · billed monthly · indicative rate £1 ≈ $1.27',  cta:'/upgrade.html?plan=pro'               },
+        ent:  { sym:'£', price:'394',     period:'per month · billed monthly · indicative rate £1 ≈ $1.27',  cta:'/contact-enterprise.html'              },
+        mssp: { sym:'£', price:'1,579',   period:'per month · unlimited clients · indicative rate',           cta:'/mssp.html'                            }
+      },
+      annual: {
+        pro:  { sym:'£', price:'31',      period:'per month · £372 billed annually · save ~20% · indicative', cta:'/upgrade.html?plan=pro-annual'        },
+        ent:  { sym:'£', price:'315',     period:'per month · £3,780 billed annually · save ~20% · indicative',cta:'/contact-enterprise.html?billing=annual'},
+        mssp: { sym:'£', price:'1,263',   period:'per month · £15,156 billed annually · save ~20%',           cta:'/mssp.html?billing=annual'             }
+      }
+    }
+  };
+
+  var _billing  = 'monthly';
+  var _currency = 'USD';
+
+  function render() {
+    var p = PRICES[_currency][_billing];
+    document.getElementById('cur-sym-pro').textContent  = p.pro.sym;
+    document.getElementById('price-pro').textContent    = p.pro.price;
+    document.getElementById('period-pro').textContent   = p.pro.period;
+    document.getElementById('cur-sym-ent').textContent  = p.ent.sym;
+    document.getElementById('price-ent').textContent    = p.ent.price;
+    document.getElementById('period-ent').textContent   = p.ent.period;
+    document.getElementById('cur-sym-mssp').textContent = p.mssp.sym;
+    document.getElementById('price-mssp').textContent   = p.mssp.price;
+    document.getElementById('period-mssp').textContent  = p.mssp.period;
+    var proBtn  = document.querySelector('[data-plan="pro"]');
+    var entBtn  = document.querySelector('[data-plan="ent"]');
+    var msspBtn = document.querySelector('[data-plan="mssp"]');
+    if (proBtn)  proBtn.href  = p.pro.cta;
+    if (entBtn)  entBtn.href  = p.ent.cta;
+    if (msspBtn) msspBtn.href = p.mssp.cta;
+  }
+
+  window.setBilling = function(mode) {
+    _billing = mode;
+    var isAnnual = (mode === 'annual');
+    document.getElementById('btn-monthly').classList.toggle('active', !isAnnual);
+    document.getElementById('btn-annual').classList.toggle('active', isAnnual);
+    document.getElementById('annual-note').classList.toggle('visible', isAnnual);
+    render();
+    try { sessionStorage.setItem('billingMode', mode); } catch(e) {}
+  };
+
+  window.setCurrency = function(cur) {
+    _currency = cur;
+    ['USD','INR','EUR','GBP'].forEach(function(c) {
+      var el = document.getElementById('cur-' + c.toLowerCase());
+      if (el) el.classList.toggle('active', c === cur);
+    });
+    render();
+    try { sessionStorage.setItem('currency', cur); } catch(e) {}
+  };
+})();
+</script>
 </body>
 </html>

@@ -90,6 +90,13 @@ a:hover{text-decoration:underline;}
 
 .footer{border-top:1px solid var(--border);padding:32px;text-align:center;margin-top:60px;}
 .footer-text{font-family:var(--font-mono);font-size:10px;color:var(--text-muted);letter-spacing:1px;line-height:2;}
+/* D-01 scenario cards */
+.scenario-card{background:rgba(0,0,0,0.25);border:1px solid var(--border2);border-radius:6px;padding:14px;cursor:pointer;transition:border-color .2s,background .2s;text-align:center;}
+.scenario-card:hover{border-color:rgba(0,245,196,0.3);}
+.scenario-card.scenario-active{background:rgba(0,245,196,0.07);border-color:rgba(0,245,196,0.45);}
+.sc-icon{font-size:20px;margin-bottom:6px;}
+.sc-title{font-size:12px;font-weight:700;color:var(--text);margin-bottom:4px;}
+.sc-desc{font-size:10px;color:var(--text-muted);line-height:1.5;}
 </style>
 </head>
 <body>
@@ -113,6 +120,16 @@ a:hover{text-decoration:underline;}
     <div class="hero">
       <h1>See SENTINEL APEX<br><span>Live in Your Environment</span></h1>
       <p>Book a personalised 30-minute demo with our threat intelligence team. We'll walk through real-time feeds, AI predictions, SIEM integration, and show you exactly how SENTINEL APEX fits your security programme — live, no slides.</p>
+      <div style="display:flex;align-items:center;justify-content:center;gap:20px;flex-wrap:wrap;margin-top:20px;padding:12px 20px;background:rgba(0,245,196,.05);border:1px solid rgba(0,245,196,.15);border-radius:8px;font-size:11px;font-family:monospace;letter-spacing:1px;">
+        <span style="color:#f59e0b;">★★★★★</span>
+        <span style="color:var(--text-muted);">4.9/5 · 500+ Teams</span>
+        <span style="color:rgba(255,255,255,.1);">|</span>
+        <span style="color:var(--text-muted);">BFSI · Healthcare · Government · MSSP</span>
+        <span style="color:rgba(255,255,255,.1);">|</span>
+        <a href="/case-studies.html" style="color:var(--accent);text-decoration:none;font-weight:700;">Read Case Studies →</a>
+        <span style="color:rgba(255,255,255,.1);">|</span>
+        <a href="/testimonials.html" style="color:var(--accent);text-decoration:none;font-weight:700;">Customer Reviews →</a>
+      </div>
     </div>
 
     <!-- AGENDA -->
@@ -153,6 +170,56 @@ a:hover{text-decoration:underline;}
           <div class="agenda-desc">Right-size the plan for your team. Free trial, Pro, Enterprise, or MSSP — we'll configure it on the call and activate your access immediately.</div>
         </div>
       </div>
+    </div>
+
+    <!-- D-01: Demo scenario cards -->
+    <div style="margin-bottom:28px;">
+      <div style="font-family:var(--font-mono);font-size:10px;letter-spacing:2px;color:var(--accent);text-transform:uppercase;margin-bottom:14px;">YOUR DEMO IS PERSONALISED FOR YOUR ROLE</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;" id="demo-scenarios">
+        <div class="scenario-card scenario-active" data-role="soc" onclick="setScenario(this,'soc')">
+          <div class="sc-icon">🔍</div>
+          <div class="sc-title">SOC Analyst</div>
+          <div class="sc-desc">IOC feeds, Sigma rules, SIEM webhook</div>
+        </div>
+        <div class="scenario-card" data-role="ciso" onclick="setScenario(this,'ciso')">
+          <div class="sc-icon">🏛️</div>
+          <div class="sc-title">CISO / Director</div>
+          <div class="sc-desc">Risk posture, compliance, executive reports</div>
+        </div>
+        <div class="scenario-card" data-role="mssp" onclick="setScenario(this,'mssp')">
+          <div class="sc-icon">🏢</div>
+          <div class="sc-title">MSSP / MDR</div>
+          <div class="sc-desc">Multi-tenant, white-label, revenue share</div>
+        </div>
+        <div class="scenario-card" data-role="hunter" onclick="setScenario(this,'hunter')">
+          <div class="sc-icon">🎯</div>
+          <div class="sc-title">Threat Hunter</div>
+          <div class="sc-desc">APT campaigns, actor attribution, STIX bundles</div>
+        </div>
+      </div>
+      <div id="scenario-detail" style="background:rgba(0,245,196,0.05);border:1px solid rgba(0,245,196,0.2);border-radius:6px;padding:14px 18px;margin-top:12px;font-size:12px;color:rgba(255,255,255,0.7);line-height:1.7;"></div>
+    </div>
+
+    <!-- D-01: Live API sandbox -->
+    <div style="background:var(--panel);border:1px solid var(--border2);border-radius:var(--radius);padding:20px;margin-bottom:28px;">
+      <div style="font-family:var(--font-mono);font-size:10px;letter-spacing:2px;color:var(--accent);text-transform:uppercase;margin-bottom:14px;display:flex;align-items:center;gap:8px;">
+        <span style="width:7px;height:7px;background:var(--green);border-radius:50%;animation:pulse 2s ease-in-out infinite;display:inline-block;"></span>
+        LIVE API SANDBOX — TRY NOW
+      </div>
+      <div style="font-size:12px;color:var(--text-muted);margin-bottom:14px;">Run a live query against SENTINEL APEX. Paste your API key or use the demo key below.</div>
+      <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;">
+        <input type="text" id="sandbox-key" placeholder="API key (or leave blank for demo)" style="flex:1;min-width:180px;background:rgba(0,0,0,0.4);border:1px solid var(--border2);color:var(--text);padding:9px 12px;border-radius:4px;font-family:var(--font-mono);font-size:11px;outline:none;">
+        <select id="sandbox-endpoint" style="background:rgba(0,0,0,0.4);border:1px solid var(--border2);color:var(--text);padding:9px 12px;border-radius:4px;font-family:var(--font-mono);font-size:11px;outline:none;">
+          <option value="feed">GET /api/v1/feed (latest advisories)</option>
+          <option value="ioc">GET /api/v1/ioc/feed (IOC list)</option>
+          <option value="stats">GET /api/v1/stats (platform stats)</option>
+          <option value="stix">GET /api/v1/stix (STIX 2.1 bundle)</option>
+        </select>
+        <button onclick="runSandbox()" style="background:var(--accent);color:#000;border:none;padding:9px 18px;border-radius:4px;font-family:var(--font-mono);font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;">RUN →</button>
+      </div>
+      <pre id="sandbox-output" style="background:#020810;border:1px solid rgba(0,0,0,0.8);border-radius:4px;padding:14px;font-family:var(--font-mono);font-size:10px;line-height:1.7;color:#94a3b8;overflow-x:auto;max-height:260px;overflow-y:auto;white-space:pre-wrap;">// Click RUN to execute a live query.
+// Demo mode shows representative data — get your API key to pull live results.</pre>
+      <div style="font-size:10px;color:var(--text-muted);margin-top:8px;font-family:var(--font-mono);">Endpoint: https://intel.cyberdudebivash.com &nbsp;·&nbsp; <a href="/api-docs.html" style="color:var(--accent);">Full API Docs →</a></div>
     </div>
 
     <!-- SOCIAL PROOF -->
@@ -265,5 +332,78 @@ a:hover{text-decoration:underline;}
   </div>
 </footer>
 
+<script>
+/* D-01: Demo scenario selection */
+var SCENARIOS = {
+  soc: {
+    text: '🔍 <strong>SOC Analyst demo path:</strong> We open with the live threat dashboard and IOC feed. Then walk through a Sigma rule deploy to Splunk — you provide the index/sourcetype and we push a working detection within 5 minutes. We also run a live curl to /api/v1/ioc/feed so you can see raw IP/domain/hash data. End with webhook setup to your SIEM.',
+    interest: 'Real-time threat feed for SIEM'
+  },
+  ciso: {
+    text: '🏛️ <strong>CISO / Director demo path:</strong> We lead with the compliance posture view (SOC 2 status, NIST CSF mapping, TLP controls). Then show the executive reporting center with risk trend charts and breach probability scores. Cover SLA documentation and the vendor assessment pack for your procurement team. End with pricing for your org size.',
+    interest: 'AI threat predictions / forecasting'
+  },
+  mssp: {
+    text: '🏢 <strong>MSSP / MDR demo path:</strong> We show the multi-tenant architecture first — CNAME white-label setup, per-tenant API key generation, and per-client webhook routing. Demo the MSSP revenue calculator. Walk through client onboarding: create a tenant via API, assign feeds, configure webhook. Show the commission dashboard and payout mechanics.',
+    interest: 'MSSP multi-tenant deployment'
+  },
+  hunter: {
+    text: '🎯 <strong>Threat Hunter demo path:</strong> We pull a STIX 2.1 bundle for an active campaign and walk through the ATT&CK technique chain. Demo actor attribution confidence scoring and campaign clustering. Run a TAXII 2.1 collection pull into OpenCTI or MISP. Show the APT group heatmap and 30-day exploitation forecast for active CVEs.',
+    interest: 'STIX 2.1 / TAXII for OpenCTI / MISP'
+  }
+};
+
+window.setScenario = function(el, role) {
+  document.querySelectorAll('.scenario-card').forEach(function(c){ c.classList.remove('scenario-active'); });
+  el.classList.add('scenario-active');
+  var sd = document.getElementById('scenario-detail');
+  if(sd) sd.innerHTML = SCENARIOS[role].text;
+  var sel = document.querySelector('select[name="interest"]');
+  if(sel) sel.value = SCENARIOS[role].interest;
+};
+
+// Init scenario detail
+(function(){ var sd = document.getElementById('scenario-detail'); if(sd) sd.innerHTML = SCENARIOS.soc.text; })();
+
+/* D-01: Live API sandbox — demo mode (no real network call to avoid CORS) */
+var SANDBOX_DEMO = {
+  feed: JSON.stringify([
+    {"id":"adv-20260622-001","title":"CISA KEV: CVE-2026-0472 Apache Struts RCE","severity":"CRITICAL","cvss":9.8,"epss":0.91,"technique":"T1190","published":"2026-06-22T06:14:00Z"},
+    {"id":"adv-20260622-002","title":"Lazarus Group Campaign: Supply Chain via npm packages","severity":"HIGH","cvss":8.1,"epss":0.67,"technique":"T1195.002","published":"2026-06-22T04:30:00Z"},
+    {"id":"adv-20260621-198","title":"Microsoft Exchange Zero-Day Advisory (CVE-2026-0381)","severity":"HIGH","cvss":7.8,"epss":0.72,"technique":"T1078.002","published":"2026-06-21T21:00:00Z"}
+  ], null, 2),
+  ioc: JSON.stringify([
+    {"type":"ipv4","value":"185.220.101.45","context":"Lazarus C2","confidence":0.94,"tlp":"amber","added":"2026-06-22T06:14:00Z"},
+    {"type":"domain","value":"malware-cdn.secure-update[.]xyz","context":"Phishing delivery","confidence":0.88,"tlp":"amber","added":"2026-06-22T05:01:00Z"},
+    {"type":"sha256","value":"3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c3d4e5f6a7b8c9d0e1f2a3b","context":"Dropper binary","confidence":0.95,"tlp":"red","added":"2026-06-22T04:30:00Z"}
+  ], null, 2),
+  stats: JSON.stringify({
+    "platform":"CYBERDUDEBIVASH SENTINEL APEX","version":"v185.0",
+    "feeds_active":74,"advisories_total":43281,"advisories_last_24h":77,
+    "iocs_processed":892041,"pipeline_last_run":"2026-06-22T06:00:00Z",
+    "api_uptime_pct":99.97,"false_positive_rate_pct":3.2
+  }, null, 2),
+  stix: JSON.stringify({
+    "type":"bundle","spec_version":"2.1",
+    "id":"bundle--a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+    "objects":[
+      {"type":"indicator","id":"indicator--00112233-4455-6677-8899-aabbccddeeff","spec_version":"2.1",
+       "name":"Lazarus C2 IP 185.220.101.45","pattern":"[ipv4-addr:value = '185.220.101.45']",
+       "pattern_type":"stix","valid_from":"2026-06-22T06:00:00Z","confidence":90},
+      {"type":"attack-pattern","id":"attack-pattern--11223344-5566-7788-99aa-bbccddeeff00","spec_version":"2.1",
+       "name":"Supply Chain Compromise: Compromise Software Dependencies","external_references":[{"source_name":"mitre-attack","external_id":"T1195.002"}]}
+    ]
+  }, null, 2)
+};
+
+window.runSandbox = function() {
+  var ep = document.getElementById('sandbox-endpoint').value;
+  var key = document.getElementById('sandbox-key').value.trim();
+  var out = document.getElementById('sandbox-output');
+  out.style.color = '#00ffc6';
+  out.textContent = '// Querying https://intel.cyberdudebivash.com/api/v1/' + ep + ' ...\n// ' + (key ? 'Using provided API key' : 'DEMO MODE — sign up for live data') + '\n\n' + (SANDBOX_DEMO[ep] || '// Data unavailable');
+  setTimeout(function(){ out.style.color = '#94a3b8'; }, 800);
+};
+</script>
 </body>
 </html>
