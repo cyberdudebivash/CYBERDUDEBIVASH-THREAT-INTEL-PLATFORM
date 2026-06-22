@@ -360,13 +360,16 @@
     if (raw === null || raw === undefined) return null;
     const n = parseFloat(raw);
     if (isNaN(n)) return null;
-    const pct = n * 100;
+    // Normalize mixed-scale storage: pipeline may store as 0-1 fraction OR 0-100 percentage
+    const frac = n > 1.0 ? n / 100 : n;
+    const pct = frac * 100;
     let risk = "LOW";
     if (pct >= 10) risk = "CRITICAL";
     else if (pct >= 1) risk = "HIGH";
     else if (pct >= 0.1) risk = "MODERATE";
-    return { raw: n, display: pct.toFixed(2) + "%", risk: risk + " EXPLOITATION PROBABILITY",
-             color: pct >= 10 ? "#ff1a1a" : pct >= 1 ? "#ff6600" : pct >= 0.1 ? "#f59e0b" : "#00d4ff" };
+    const color = pct >= 10 ? "#ff1a1a" : pct >= 1 ? "#ff6600" : pct >= 0.1 ? "#f59e0b" : "#00d4ff";
+    return { raw: frac, display: pct.toFixed(2) + "%", risk: risk + " EXPLOITATION PROBABILITY",
+             color: color, percent: Math.min(pct, 100) };
   }
 
   function buildCvssScore(raw) {
