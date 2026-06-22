@@ -871,7 +871,7 @@ def main() -> None:
         log.error("VALIDATION FAILED -- %d check(s) did not pass.", failed)
         sys.exit(1)
 
-    log.info("ALL CHECKS PASSED -- repository is production-ready. [v134.0.0]")
+    log.info("ALL CHECKS PASSED -- repository is production-ready. [v184.0]")
     sys.exit(0)
 
 

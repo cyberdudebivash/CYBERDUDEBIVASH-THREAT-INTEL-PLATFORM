@@ -1,5 +1,5 @@
 # =============================================================================
-# CYBERDUDEBIVASH(R) SENTINEL APEX v148.0.0 - SOVEREIGN INTELLIGENCE PIPELINE
+# CYBERDUDEBIVASH(R) SENTINEL APEX v184.0 - SOVEREIGN INTELLIGENCE PIPELINE
 # Version    : v156.3.0 (GOD MODE PRODUCTION HARDENING RELEASE)
 # Rebuilt    : 2026-05-16 - v156.3.0 GOD MODE HARDENING:
 #              RULE 1:  Zero inline Python in YAML (all here-doc blocks removed)
@@ -15,7 +15,7 @@
 #                       clean and simple.
 # Author     : CYBERDUDEBIVASH Pvt. Ltd.
 # =============================================================================
-# ARCHITECTURE (v134.0.0 - canonical):
+# ARCHITECTURE (v184.0 - canonical):
 #
 #   encoding_guard.py  (Stage 0)    - strip BOM, CRLF, smart quotes, mojibake
 #   sanitize_repo.py   (Stage 0.1)  - JSON self-healing engine
@@ -222,7 +222,7 @@ jobs:
 
       # -----------------------------------------------------------------------
       # STAGE 0: CHECKOUT
-      # v156.0 PERFORMANCE GOVERNANCE — SHALLOW CLONE (fetch-depth: 1)
+      # v184.0 PERFORMANCE GOVERNANCE — SHALLOW CLONE (fetch-depth: 1)
       #
       # ARCHITECTURE (71k-file repo, large-scale):
       #   fetch-depth: 1   -- shallow clone, tip commit only
@@ -340,7 +340,7 @@ jobs:
           echo "[OK] No pipeline lock active. Proceeding."
 
       # -----------------------------------------------------------------------
-      # STAGE 0.00b - RUNNER DISK PRE-FLIGHT CHECK (v156.0 P0 HARD FAIL)
+      # STAGE 0.00b - RUNNER DISK PRE-FLIGHT CHECK (v184.0 P0 HARD FAIL)
       # Fails FAST if the runner does not have sufficient free disk space.
       # Root cause of #1199: 64K reports + dist/ copy exceeded 14GB runner disk.
       # This gate prevents that failure class from ever reaching dist-build stage.
@@ -354,7 +354,7 @@ jobs:
       #   Clears pip cache, __pycache__, apt cache, /tmp/*, Docker layers (if any)
       #   before hard-failing, to maximise reclaim before operator intervenes.
       # -----------------------------------------------------------------------
-      - name: "STAGE 0.00b - Runner Disk Pre-flight Check (v156.0 P0 HARD FAIL)"
+      - name: "STAGE 0.00b - Runner Disk Pre-flight Check (v184.0 P0 HARD FAIL)"
         timeout-minutes: 3
         env:
           STIX_MAX_BUNDLES: "50"
@@ -725,7 +725,7 @@ jobs:
         run: python3 scripts/enrich_cvss_epss_batch.py
 
       # -----------------------------------------------------------------------
-      # STAGE 3.1.3: CISA KEV FEED MARKER (v160.0 — PERMANENT)
+      # STAGE 3.1.3: CISA KEV FEED MARKER (v184.0 — PERMANENT)
       # Fetches the live CISA Known Exploited Vulnerabilities (KEV) catalog and
       # marks all matching CVEs in api/feed.json with kev=true, kev_date,
       # kev_product, severity=CRITICAL, risk_score≥9.0, confidence≥90.
@@ -733,7 +733,7 @@ jobs:
       # Non-blocking — KEV catalog unavailability is logged but does not fail CI.
       # Writes report to data/health/kev_marker_report.json.
       # -----------------------------------------------------------------------
-      - name: "STAGE 3.1.3 - CISA KEV Feed Marker (v160.0)"
+      - name: "STAGE 3.1.3 - CISA KEV Feed Marker (v184.0)"
         timeout-minutes: 5
         continue-on-error: true
         env:
@@ -758,7 +758,7 @@ jobs:
           echo "STAGE 3.1.3: CISA KEV Feed Marker complete"
 
       # -----------------------------------------------------------------------
-      # STAGE 3.1.4: INTELLIGENCE QUALITY HARDENER (v160.0 — PERMANENT)
+      # STAGE 3.1.4: INTELLIGENCE QUALITY HARDENER (v184.0 — PERMANENT)
       # Performs 8-function intelligence quality transformation on api/feed.json:
       #   [A] Flags synthetic/future CVEs (CVE-202x-* not in NVD) — sets LOW severity
       #   [B] Upgrades actor attribution (CDB-UNATTR-* → FIN9, APT41, Sandworm, etc.)
@@ -772,7 +772,7 @@ jobs:
       # Non-blocking — quality hardening failures are reported but do not halt CI.
       # Writes report to data/health/intelligence_quality_hardener_report.json.
       # -----------------------------------------------------------------------
-      - name: "STAGE 3.1.4 - Intelligence Quality Hardener (v160.0)"
+      - name: "STAGE 3.1.4 - Intelligence Quality Hardener (v184.0)"
         timeout-minutes: 5
         continue-on-error: true
         env:
@@ -798,7 +798,7 @@ jobs:
           echo "STAGE 3.1.4: Intelligence Quality Hardener complete"
 
       # -----------------------------------------------------------------------
-      # STAGE 3.1.4b: EVIDENCE SCORE ENFORCER (v160.0 -- PERMANENT INFLATION FIX)
+      # STAGE 3.1.4b: EVIDENCE SCORE ENFORCER (v184.0 -- PERMANENT INFLATION FIX)
       # Eliminates confidence inflation: items claiming risk=10 (CRITICAL) must
       # have corroborating evidence (CVE/KEV/CVSS/EPSS/IOC).
       # Tier-0 (no evidence): max risk_score=5.5. Tier-4 (KEV+exploit+EPSS>=50%): 10.0.
@@ -806,7 +806,7 @@ jobs:
       # inflated scores and flagged hard_violations -> Grade=D.
       # Non-fatal: pipeline continues even if enforcer errors.
       # -----------------------------------------------------------------------
-      - name: "STAGE 3.1.4b - Evidence Score Enforcer (v160.0 -- inflation elimination)"
+      - name: "STAGE 3.1.4b - Evidence Score Enforcer (v184.0 -- inflation elimination)"
         timeout-minutes: 3
         run: |
           python3 scripts/evidence_score_enforcer.py || true
@@ -855,7 +855,7 @@ jobs:
       # NON-BLOCKING: exit 1 logs error but does not abort pipeline.
       # Enrichment is consumed by report generator (STAGE 3.2) and API manifests.
       # -----------------------------------------------------------------------
-      - name: "STAGE 3.1.7 - Enterprise Scoring Engine (v160.0 — 10-dimension apex_score)"
+      - name: "STAGE 3.1.7 - Enterprise Scoring Engine (v184.0 — 10-dimension apex_score)"
         timeout-minutes: 5
         run: |
           set +e
@@ -1203,7 +1203,7 @@ jobs:
           fi
 
       # -----------------------------------------------------------------------
-      # STAGE 3.4: MANIFEST SANITY GUARD (v142.0.0)
+      # STAGE 3.4: MANIFEST SANITY GUARD (v184.0)
       # Validates manifest AFTER quality engine runs:
       #   - HARD FAIL on structural corruption (tuple pattern)
       #   - HARD FAIL if > 5 duplicate stix_ids remain post-dedup
@@ -1441,7 +1441,7 @@ jobs:
       # HARD FAIL: if api/feed.json is missing or empty (no data to serve).
       # ZERO HTML MUTATION: index.html read-only -- pipeline never touches it.
       # -----------------------------------------------------------------------
-      - name: "STAGE 3.93 - Generate Immutable API Manifests (v160.0 API-first)"
+      - name: "STAGE 3.93 - Generate Immutable API Manifests (v184.0 API-first)"
         timeout-minutes: 5
         run: python3 scripts/generate_api_manifests.py
 
@@ -1504,7 +1504,7 @@ jobs:
       # Guards against: synthetic CVE flood, entropy collapse, feed diversity loss,
       #   KEV enrichment gaps, manifest mutation, advisory authenticity failures.
       # -----------------------------------------------------------------------
-      - name: "STAGE 3.93.15 - P0 Intelligence Integrity Gate (v160.0)"
+      - name: "STAGE 3.93.15 - P0 Intelligence Integrity Gate (v184.0)"
         timeout-minutes: 3
         run: |
           set +e
@@ -1579,7 +1579,7 @@ jobs:
       # Non-blocking: violations surface as CI annotations + data/health/feed_health_gate.json
       # Root cause targeted: P0 uniform 7.5 HIGH scoring, synthetic flood, zero CVSS.
       # -----------------------------------------------------------------------
-      - name: "STAGE 3.93.17 - Feed Health Gate (v160.0)"
+      - name: "STAGE 3.93.17 - Feed Health Gate (v184.0)"
         timeout-minutes: 3
         continue-on-error: true
         run: |
@@ -1658,7 +1658,7 @@ jobs:
    
 
       # -----------------------------------------------------------------------
-      # STAGE 3.93.2: DAILY BRIEF GENERATOR (v148.0.0 -- NON-BLOCKING)
+      # STAGE 3.93.2: DAILY BRIEF GENERATOR (v184.0 -- NON-BLOCKING)
       # Generates daily executive PDF threat brief using ReportLab.
       # Reads api/v1/intel/ai_summary.json + api/feed.json (must run after 3.93.1).
       # Outputs:
@@ -1668,7 +1668,7 @@ jobs:
       # R2 upload is performed inside the script via wrangler (non-blocking).
       # Subscribers: cyberdudebivash.gumroad.com/l/sentinel-apex-daily-brief
       # -----------------------------------------------------------------------
-      - name: "STAGE 3.93.2 - Daily Brief Generator (v160.0)"
+      - name: "STAGE 3.93.2 - Daily Brief Generator (v184.0)"
         timeout-minutes: 4
         run: |
           set +e
@@ -1697,7 +1697,7 @@ jobs:
         run: python3 scripts/validate_api_manifests.py
 
       # -----------------------------------------------------------------------
-      # STAGE 3.93.6: R2 POST-STAGE-3.93 MANIFEST RESYNC (v160.0 CRITICAL FIX)
+      # STAGE 3.93.6: R2 POST-STAGE-3.93 MANIFEST RESYNC (v184.0 CRITICAL FIX)
       # ROOT CAUSE FIX: STAGE 3.5 (r2_upload.py) runs BEFORE STAGE 3.93 generates
       # the final api/feed.json, api/v1/intel/latest.json, and top10.json.
       # This means R2 holds PRE-generation stale manifests (25 items) while
@@ -1765,7 +1765,7 @@ jobs:
       # HARD FAIL: if any dashboard invariant is violated.
       # Final dashboard integrity checkpoint before git commit.
       # -----------------------------------------------------------------------
-      - name: "STAGE 3.94 - Stability Lock Confirmation (v160.0 Immutable)"
+      - name: "STAGE 3.94 - Stability Lock Confirmation (v184.0 Immutable)"
         timeout-minutes: 5
         run: python3 scripts/apex_stability_lock.py
 
@@ -1794,7 +1794,7 @@ jobs:
           python3 scripts/safe_git_commit.py
 
       # -----------------------------------------------------------------------
-      # STAGE 4.1: FINAL R2 FULL SYNC (v160.0 -- POST-GIT-PUSH COMPLETE FEED)
+      # STAGE 4.1: FINAL R2 FULL SYNC (v184.0 -- POST-GIT-PUSH COMPLETE FEED)
       # ROOT CAUSE FIX: STAGE 3.93.6 runs at step ~53 and uploads 51 items to R2.
       # Steps 54-87 (after 3.93.6) add ~20 more items to api/feed.json before
       # STAGE 4 commits the final 71-item version to GitHub. R2 never gets those
@@ -1828,7 +1828,7 @@ jobs:
       # GitHub Pages deploy. Confirms index.html was NOT mutated (EMBEDDED_INTEL=[]).
       # Non-blocking (exits 0 always) -- reporting/alerting only.
       # -----------------------------------------------------------------------
-      - name: "STAGE 5.1 - Post-deploy API Manifest Verifier (v160.0)"
+      - name: "STAGE 5.1 - Post-deploy API Manifest Verifier (v184.0)"
         timeout-minutes: 5
         if: always()
         run: python3 scripts/validate_api_manifests.py || true
@@ -1871,7 +1871,7 @@ jobs:
         run: python3 scripts/pipeline_audit.py || true
 
       # -----------------------------------------------------------------------
-      # STAGE 5.4.5b - REPORT ARCHIVE GOVERNANCE (v156.0 — NON-BLOCKING)
+      # STAGE 5.4.5b - REPORT ARCHIVE GOVERNANCE (v184.0 — NON-BLOCKING)
       # Runs report_archive_manager.py to prune reports older than
       # REPORT_RETENTION_DAYS from the main-branch working tree (git rm --cached).
       #
@@ -1893,7 +1893,7 @@ jobs:
       #   ARCHIVE_DRY_RUN        -- "1" forces dry-run (default: "1" for safety)
       #   ARCHIVE_MIN_REPORTS    -- minimum hot reports to retain (default: 500)
       # -----------------------------------------------------------------------
-      - name: "STAGE 5.4.5b - Report Archive Governance (v156.0 — NON-BLOCKING)"
+      - name: "STAGE 5.4.5b - Report Archive Governance (v184.0 — NON-BLOCKING)"
         timeout-minutes: 10
         env:
           # v161.5 DISK FIX: default reduced 90->30 days. At ~512 reports/day,
@@ -1915,7 +1915,7 @@ jobs:
           echo "STAGE 5.4.5b: Archive governance completed."
 
       # -----------------------------------------------------------------------
-      # STAGE 5.4.5c - PRE-DIST RUNNER DISK CLEANUP (v156.0 P0 MANDATORY)
+      # STAGE 5.4.5c - PRE-DIST RUNNER DISK CLEANUP (v184.0 P0 MANDATORY)
       # Reclaims maximum disk space BEFORE build_dist_artifact.py runs its
       # reports/ copy operation, which is the primary disk exhaustion vector.
       #
@@ -1975,7 +1975,7 @@ jobs:
       #   - Required dashboard files present
       #   - Both deployment validators present (5.1, 5.2)
       # -----------------------------------------------------------------------
-      - name: "STAGE 5.4.5d - Pre-Deploy Gate v160.0 (HARD FAIL)"
+      - name: "STAGE 5.4.5d - Pre-Deploy Gate v184.0 (HARD FAIL)"
         id: predeploy-gate
         # v162.5: depends on predist-cleanup outcome, not global success()
         # v162.6 P0-FIX: continue-on-error: true so gate failures NEVER block
@@ -1991,7 +1991,7 @@ jobs:
       # Detects regressions in fingerprints, governance grade, advisory count,
       # and source diversity BEFORE artifacts are built and deployed.
       # Non-blocking — WARN on deviation, never blocks the deploy hard gate.
-      # v160.0 FIX: Auto-seed baseline on NO_BASELINE verdict so first-run and
+      # v184.0 FIX: Auto-seed baseline on NO_BASELINE verdict so first-run and
       # post-reset states always produce a valid reference for future runs.
       # -----------------------------------------------------------------------
       - name: "STAGE 5.4.5e - Golden Baseline Pre-Deploy Validate (Phase 1A)"
@@ -2005,7 +2005,7 @@ jobs:
           VALIDATE_OUTPUT=$(python3 scripts/golden_baseline_system.py --validate 2>&1 || true)
           echo "$VALIDATE_OUTPUT" | tail -30
 
-          # v160.0: Auto-seed when NO_BASELINE — establishes first-run reference
+          # v184.0: Auto-seed when NO_BASELINE — establishes first-run reference
           if echo "$VALIDATE_OUTPUT" | grep -q "NO_BASELINE"; then
             echo "[STAGE 5.4.5e] NO_BASELINE detected — seeding golden baseline for v${PIPELINE_VERSION}"
             python3 scripts/golden_baseline_system.py --capture \
@@ -2179,7 +2179,7 @@ jobs:
       #   /dashboard/enterprise_dashboard.html, /dashboard/enterprise_dashboard_v2.html,
       #   /api/ai/tracker.json, /feed.json, /latest.json, /service-worker.js
       # -----------------------------------------------------------------------
-      - name: "STAGE 5.5.0 - Post-Deploy Smoke Tests v160.0"
+      - name: "STAGE 5.5.0 - Post-Deploy Smoke Tests v184.0"
         timeout-minutes: 5
         continue-on-error: true
         env:
@@ -2326,7 +2326,7 @@ jobs:
       # These files are consumed by sales deck generation and API endpoints.
       # Non-blocking: exit 1 logs warning but does not abort deployment.
       # -----------------------------------------------------------------------
-      - name: "STAGE 5.8.05 - Enterprise Monetization Framework (v160.0)"
+      - name: "STAGE 5.8.05 - Enterprise Monetization Framework (v184.0)"
         timeout-minutes: 3
         run: |
           set +e
@@ -2355,7 +2355,7 @@ jobs:
       # -----------------------------------------------------------------------
       # STAGE 5.8.1b - REPORT URL CANARY (v155.0 CDN-HARDENED — RETAINED)
       # Retained as a lightweight pre-convergence spot check.
-      # Non-blocking in v156.0 — full convergence governance is in STAGE 5.8.1c.
+      # Non-blocking in v184.0 — full convergence governance is in STAGE 5.8.1c.
       # -----------------------------------------------------------------------
       - name: "STAGE 5.8.1b - Report URL Canary (v155.0 — Pre-Convergence Spot Check)"
         timeout-minutes: 10
@@ -2373,7 +2373,7 @@ jobs:
           python3 scripts/report_url_canary.py --live || true
 
       # -----------------------------------------------------------------------
-      # STAGE 5.8.1c - DEPLOYMENT CONVERGENCE ENGINE (v156.0 ENTERPRISE GRADE)
+      # STAGE 5.8.1c - DEPLOYMENT CONVERGENCE ENGINE (v184.0 ENTERPRISE GRADE)
       # ═══════════════════════════════════════════════════════════════════════
       # ROOT CAUSE: GitHub Pages + CDN + custom domain propagation requires
       # 2-10 minutes after gh-pages push. Previous canary executed at ~120s,
@@ -2409,7 +2409,7 @@ jobs:
       #
       # Outputs: deployment_confidence_score.json
       # -----------------------------------------------------------------------
-      - name: "STAGE 5.8.1c - Deployment Convergence Engine (v156.0 Enterprise Grade)"
+      - name: "STAGE 5.8.1c - Deployment Convergence Engine (v184.0 Enterprise Grade)"
         timeout-minutes: 30
         if: always()  # v160.2 FIX: Run even when Stage 1-3 fails so deployment_confidence_score.json is always written and Domain 4 governance WARN is eliminated
         env:
@@ -2645,7 +2645,7 @@ jobs:
 
       # -----------------------------------------------------------------------
 
-      - name: "STAGE 5.8.4b - Governance Telemetry Persistence (v160.0)"
+      - name: "STAGE 5.8.4b - Governance Telemetry Persistence (v184.0)"
         timeout-minutes: 3
         if: always()
         continue-on-error: true

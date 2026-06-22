@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 scripts/safe_io.py
-CYBERDUDEBIVASH(R) SENTINEL APEX v134.0.0 -- Production SafeIO Foundation
+CYBERDUDEBIVASH(R) SENTINEL APEX v184.0 -- Production SafeIO Foundation
 ==========================================================================
 Centralised, production-grade I/O primitives for the entire pipeline.
 
@@ -1839,7 +1839,7 @@ class SystemHealthMonitor:
             with self._lock:
                 return {
                     "platform": "CYBERDUDEBIVASH® SENTINEL APEX",
-                    "version": "v134.0.0",
+                    "version": "v184.0",
                     "state": self._state,
                     "health_score": self.health_score(),
                     "ingestion_paused": self._ingestion_paused,

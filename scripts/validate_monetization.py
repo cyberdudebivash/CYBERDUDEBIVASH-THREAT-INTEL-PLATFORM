@@ -440,7 +440,7 @@ def validate_all_html_encoding() -> None:
 
 
 # =====================================================================
-# v148.0.0 API KEY ENFORCEMENT GATE
+# v184.0 API KEY ENFORCEMENT GATE
 # Validates that premium endpoints (apex.json, ai_summary.json) are
 # gated behind authentication in the Cloudflare Worker source code.
 # Fails the gate if these endpoints can be served without auth.
@@ -454,8 +454,8 @@ PREMIUM_ENDPOINTS = [
 ]
 
 def validate_worker_api_auth_enforcement() -> None:
-    """v148.0.0: Confirms premium intel endpoints require PRO+ auth in Worker source."""
-    print(f"\n--- Worker API auth enforcement (v148.0.0) ---")
+    """v184.0: Confirms premium intel endpoints require PRO+ auth in Worker source."""
+    print(f"\n--- Worker API auth enforcement (v184.0) ---")
 
     if not WORKER_SRC.exists():
         fail(f"Worker source not found: {WORKER_SRC}")
@@ -545,7 +545,7 @@ def validate_worker_api_auth_enforcement() -> None:
 # =====================================================================
 def main() -> None:
     print("=" * 70)
-    print("  SENTINEL APEX v148.0.0 -- MONETIZATION INTEGRITY GATE")
+    print("  SENTINEL APEX v184.0 -- MONETIZATION INTEGRITY GATE")
     print("  Validates: payment credentials, CTAs, encoding, JS syntax,")
     print("             BOM-free, mojibake-free, API auth enforcement")
     print("=" * 70)

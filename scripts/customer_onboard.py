@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-customer_onboard.py — SENTINEL APEX Customer Provisioning Tool v177.0
+customer_onboard.py — SENTINEL APEX Customer Provisioning Tool v184.0
 ======================================================================
 End-to-end operator script to onboard a new international subscriber:
   1. Validates customer details and jurisdiction compliance
@@ -240,7 +240,7 @@ def write_payment_audit(
         "payment_ref": payment_ref,
         "amount_inr":  amount_inr,
         "country":     normalize_country(country),
-        "operator":    "customer_onboard.py v177.0",
+        "operator":    "customer_onboard.py v184.0",
     })
 
 
@@ -307,7 +307,7 @@ def generate_welcome_package(
     Billing      : iambivash.bn@gmail.com
 
     ─────────────────────────────────────────────────────────────────────
-    SENTINEL APEX v177.0 | Generated: {now_utc()[:19]}Z | TLP:RED (operator only)
+    SENTINEL APEX v184.0 | Generated: {now_utc()[:19]}Z | TLP:RED (operator only)
     """).strip()
     return pkg
 
@@ -446,7 +446,7 @@ def cmd_revenue(args):
 # ─── CLI ENTRY POINT ─────────────────────────────────────────────────────────
 def main():
     parser = argparse.ArgumentParser(
-        description="SENTINEL APEX Customer Provisioning Tool v177.0",
+        description="SENTINEL APEX Customer Provisioning Tool v184.0",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=__doc__,
     )

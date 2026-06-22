@@ -577,7 +577,7 @@ class EnterpriseTrustEngine:
         return {
             "scorecard_id":     str(uuid.uuid4())[:8],
             "platform":         "SENTINEL APEX",
-            "version":          "v166",
+            "version":          "v184.0",
             "computed_at":      datetime.now(timezone.utc).isoformat(),
             "dimension_scores": scores,
             "overall_trust_score": overall,

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 scripts/repository_scale_guard.py
-CYBERDUDEBIVASH(R) SENTINEL APEX v156.0 -- Repository Scale Governance Engine
+CYBERDUDEBIVASH(R) SENTINEL APEX v184.0 -- Repository Scale Governance Engine
 ================================================================================
 PURPOSE:
   Detect and guard against repository-scale regressions that inflate CI checkout
@@ -495,7 +495,7 @@ def _write_json_report(timestamp: str) -> None:
     report = {
         "generated_at": timestamp,
         "platform": "CYBERDUDEBIVASH SENTINEL APEX",
-        "guard_version": "v156.0",
+        "guard_version": "v184.0",
         "violations": VIOLATIONS,
         "warnings": WARNINGS,
         "metrics": METRICS,
@@ -533,7 +533,7 @@ def _write_markdown_report(timestamp: str) -> None:
     cal_estimate = METRICS.get("calibrated_checkout_estimate_s", "N/A")
 
     md = f"""# REPOSITORY SCALE AUDIT
-## CYBERDUDEBIVASH SENTINEL APEX — v156.0
+## CYBERDUDEBIVASH SENTINEL APEX — v184.0
 **Generated:** {timestamp}
 **Overall Status:** {status_icon} {overall}
 
@@ -646,7 +646,7 @@ git fetch --tags --depth=1
 
 ---
 
-*CYBERDUDEBIVASH SENTINEL APEX v156.0 · Repository Scale Governance · {timestamp[:10]}*
+*CYBERDUDEBIVASH SENTINEL APEX v184.0 · Repository Scale Governance · {timestamp[:10]}*
 """
     out_path.write_text(md, encoding="utf-8")
     log.info("Repository scale audit: %s", out_path)
@@ -660,7 +660,7 @@ def main() -> int:
     timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
     log.info("╔══════════════════════════════════════════════════════════════════╗")
-    log.info("║   SENTINEL APEX — REPOSITORY SCALE GOVERNANCE ENGINE v156.0    ║")
+    log.info("║   SENTINEL APEX — REPOSITORY SCALE GOVERNANCE ENGINE v184.0    ║")
     log.info("╚══════════════════════════════════════════════════════════════════╝")
     log.info("Repo root     : %s", REPO_ROOT)
     log.info("Thresholds    : files warn=%d critical=%d | latency warn=%ds critical=%ds",

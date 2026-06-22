@@ -359,7 +359,7 @@ def generate_infrastructure_intelligence(item: Dict[str, Any]) -> str:
         # Infrastructure reuse assessment
         reuse_html = _generate_reuse_assessment(infra_results, actor, cluster_h)
 
-        # v160.0 FIX: extract to variable — f-string backslash restriction in Python <3.12
+        # v184.0 FIX: extract to variable — f-string backslash restriction in Python <3.12
         tor_overlap_html = (
             "<strong style='color:var(--crit)'>YES - TOR infrastructure detected</strong>"
             if tor_overlap else "No TOR overlap at analysis time"

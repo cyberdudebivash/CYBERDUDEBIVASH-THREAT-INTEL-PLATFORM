@@ -513,7 +513,7 @@ def integration_log():
 
 @app.route("/health", methods=["GET"])
 def health():
-    return jsonify({"status": "healthy", "engine": "phase152-action-center", "version": "v170.0"})
+    return jsonify({"status": "healthy", "engine": "phase152-action-center", "version": "v184.0"})
 
 
 # ─────────────────────────────────────────────────────────────────────────────

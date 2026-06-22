@@ -2,7 +2,7 @@
 """
 Fix mojibake in all existing HTML report files.
 One-shot remediation pass -- becomes a no-op once all reports are clean.
-CYBERDUDEBIVASH SENTINEL APEX v134.0.0
+CYBERDUDEBIVASH SENTINEL APEX v184.0
 """
 import pathlib
 import sys

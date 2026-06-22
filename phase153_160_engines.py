@@ -1054,7 +1054,7 @@ def health():
     return jsonify({
         "status":   "healthy",
         "engine":   "phases153-160-unified",
-        "version":  "v170.0",
+        "version":  "v184.0",
         "modules":  ["portal_v2", "billing_v2", "success", "integrations",
                      "value_center", "mssp_v2", "research", "dependency"],
         "timestamp": _now_iso(),
@@ -1065,7 +1065,7 @@ def health():
 def index():
     return jsonify({
         "platform": "SENTINEL APEX — Customer Value Realization",
-        "version":  "v170.0",
+        "version":  "v184.0",
         "phases":   "151-160",
         "endpoints": {
             "portal":       "/portal/v2/*",

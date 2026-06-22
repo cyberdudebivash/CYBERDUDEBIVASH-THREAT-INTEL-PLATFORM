@@ -9,7 +9,7 @@ threshold, and begins with a valid HTML signature, flip
 
 Idempotent — safe to re-run on every build.
 
-CYBERDUDEBIVASH SENTINEL APEX v134.0.0
+CYBERDUDEBIVASH SENTINEL APEX v184.0
 """
 from __future__ import annotations
 

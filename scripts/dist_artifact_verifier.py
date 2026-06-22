@@ -23,7 +23,7 @@ VERIFICATION CHECKS:
   11. dist/service-worker.js present (v158.0.2 -- PWA cache governance)
   12. dist/version.json present (v158.0.2 -- version API governance)
 
-REPORT_RETENTION_DAYS AWARENESS (v156.0):
+REPORT_RETENTION_DAYS AWARENESS (v184.0):
   When REPORT_RETENTION_DAYS > 0 (HOT-tier only deployment), dist/ will contain
   fewer reports than a full-history build.  The minimum threshold check is
   relaxed to MIN_REPORT_COUNT_RETENTION (default 1) so a recently-bootstrapped
@@ -74,7 +74,7 @@ CHECKSUM_SAMPLE_SIZE = 20
 # These directories must NOT appear in dist/
 PROHIBITED_DIST_DIRS = {".github", "scripts", "data", "config", "agent"}
 
-# ── REPORT_RETENTION_DAYS awareness (v156.0) ─────────────────────────────────
+# ── REPORT_RETENTION_DAYS awareness (v184.0) ─────────────────────────────────
 # When > 0 the dist/ artifact contains only HOT-tier reports.  The verifier
 # relaxes the minimum report count check accordingly and emits a clear INFO
 # annotation so pipeline logs are self-documenting.
@@ -305,7 +305,7 @@ def run_checks(manifest: Dict, retention_days: int = 0) -> Tuple[int, int]:
 def main() -> int:
     t0 = time.time()
     log.info("=" * 70)
-    log.info("SENTINEL APEX -- Pre-Deploy Dist Artifact Verifier v156.0")
+    log.info("SENTINEL APEX -- Pre-Deploy Dist Artifact Verifier v184.0")
     log.info("=" * 70)
 
     # ── Prerequisite: dist/ must exist ───────────────────────────────────────

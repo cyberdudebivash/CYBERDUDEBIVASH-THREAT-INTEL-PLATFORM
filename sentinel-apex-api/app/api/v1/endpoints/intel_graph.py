@@ -1,5 +1,5 @@
 """
-SENTINEL APEX — Intelligence Graph & SIEM Dispatch Endpoints v177.0
+SENTINEL APEX — Intelligence Graph & SIEM Dispatch Endpoints v184.0
 =====================================================================
 Correlation graph, threat actor relationships, and SIEM dispatch.
 
@@ -187,7 +187,7 @@ async def get_correlation_graph(
         "_meta": {
             "format": "adjacency-list",
             "compat": ["D3.js", "Cytoscape.js", "Neo4j", "Gephi"],
-            "version": "SENTINEL APEX v177.0",
+            "version": "SENTINEL APEX v184.0",
         },
     }
 
@@ -323,7 +323,7 @@ async def siem_dispatch(
             "advisory_id": adv_id,
             "siem": body.siem_target,
             "format": body.format,
-            "source": "CYBERDUDEBIVASH SENTINEL APEX v177.0",
+            "source": "CYBERDUDEBIVASH SENTINEL APEX v184.0",
             "dispatched_at": queued_at,
             "org_id": user.org_id,
         }

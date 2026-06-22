@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 scripts/validate_writes_v132.py
-CYBERDUDEBIVASH(R) SENTINEL APEX v134.0.0 -- Post-Pipeline Write Integrity Suite
+CYBERDUDEBIVASH(R) SENTINEL APEX v184.0 -- Post-Pipeline Write Integrity Suite
 =================================================================================
 27-check validation suite for v134 write hardening guarantees.
 
@@ -1108,7 +1108,7 @@ def test_write_pressure_hardening() -> None:
 
 def main(argv: Optional[List[str]] = None) -> int:
     print(_c("\n" + "=" * 60, "bold"))
-    print(_c("  SENTINEL APEX v134.0.0 -- Write Integrity Validation Suite", "bold"))
+    print(_c("  SENTINEL APEX v184.0 -- Write Integrity Validation Suite", "bold"))
     print(_c("=" * 60, "bold"))
 
     test_w_group()

@@ -2,7 +2,7 @@
 """
 ===============================================================================
 CYBERDUDEBIVASH(R) SENTINEL APEX
-AI EXPLAINABILITY ENGINE v148.0.0
+AI EXPLAINABILITY ENGINE v184.0
 ===============================================================================
 PRIORITY 2 — Enterprise AI Explainability & ATT&CK Attribution
 
@@ -508,7 +508,7 @@ def enrich_tracker_section(section: Any, now_iso: str, label: str) -> Tuple[Any,
 def main() -> int:
     now_iso = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     log.info("=" * 64)
-    log.info("SENTINEL APEX — AI Explainability Engine v148.0.0")
+    log.info("SENTINEL APEX — AI Explainability Engine v184.0")
     log.info("Tracker : %s", TRACKER_PATH)
     log.info("DryRun  : %s", DRY_RUN)
     log.info("=" * 64)
@@ -551,7 +551,7 @@ def main() -> int:
     if isinstance(tracker, dict):
         tracker["_explainability_meta"] = {
             "schema_version":      "1.0",
-            "engine":              "ai_explainability_engine.py v148.0.0",
+            "engine":              "ai_explainability_engine.py v184.0",
             "total_items_enriched": total_enriched,
             "model_freshness_hours": MODEL_FRESHNESS_HOURS,
             "generated_at":        now_iso,

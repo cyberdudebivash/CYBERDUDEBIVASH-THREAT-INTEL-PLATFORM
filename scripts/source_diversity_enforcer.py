@@ -103,7 +103,7 @@ MIN_ENTROPY        = 2.0    # bits (Shannon) — hard FAIL floor (raised from 2.
 WARN_ENTROPY       = 3.0    # bits (ideal target — WARN fires below this)
 MIN_SOURCES        = 10
 WARN_SOURCES       = 15
-# v160.0: MAX_SYNTHETIC_PCT raised 5→10 for manifest corpus.
+# v184.0: MAX_SYNTHETIC_PCT raised 5→10 for manifest corpus.
 # CDB-REBUILT markers are set during data recovery on corrupt advisories.
 # In a 497-item manifest, up to 10% rebuilt entries are acceptable — these
 # are real intelligence that needed structural repair, not fabricated data.
@@ -511,7 +511,7 @@ class DiversityEnforcerReport:
         self.HISTORY_FILE.write_text(json.dumps(history, indent=2), encoding="utf-8")
 
     def run(self, apply: bool = True, strict: bool = False) -> Dict:
-        # v160.0 FIX: bulletproof directory creation before any I/O
+        # v184.0 FIX: bulletproof directory creation before any I/O
         try:
             HEALTH_DIR.mkdir(parents=True, exist_ok=True)
         except Exception as e:
@@ -521,7 +521,7 @@ class DiversityEnforcerReport:
         except Exception as e:
             log.error("Failed to create DIVERSITY_STATE_DIR %s: %s", DIVERSITY_STATE_DIR, e)
 
-        # v160.0 FIX: wrap entire execution in try/except — always write output
+        # v184.0 FIX: wrap entire execution in try/except — always write output
         # even if a check engine crashes, so the STAGE gate never sees a missing file.
         summary = {
             "status": "UNKNOWN",
@@ -620,7 +620,7 @@ class DiversityEnforcerReport:
             summary["status"] = "UNKNOWN"
             summary["error"] = str(run_err)
 
-        # v160.0 FIX: ALWAYS write output file — this is the guarantee
+        # v184.0 FIX: ALWAYS write output file — this is the guarantee
         try:
             self.OUTPUT_FILE.write_text(
                 json.dumps(summary, indent=2, ensure_ascii=False) + "\n",

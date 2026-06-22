@@ -1,5 +1,5 @@
 """
-SENTINEL APEX — Rate Limiting Middleware v143.0.0
+SENTINEL APEX — Rate Limiting Middleware v184.0
 Dual-window sliding rate limiter: per-minute (Enterprise burst) + per-day (quota).
 
 Enterprise tier: 2,000 req/min burst + 100,000/day

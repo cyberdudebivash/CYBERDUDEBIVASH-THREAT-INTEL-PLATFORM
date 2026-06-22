@@ -3,7 +3,7 @@
 ================================================================================
 CYBERDUDEBIVASH® SENTINEL APEX — PLATFORM INTEGRITY GUARD
 ================================================================================
-Version    : v134.0.0
+Version    : v184.0
 Author     : CYBERDUDEBIVASH Pvt. Ltd.
 Purpose    : Permanent safety layer — protects the platform from:
                • Accidental corruption of index.html / EMBEDDED_INTEL

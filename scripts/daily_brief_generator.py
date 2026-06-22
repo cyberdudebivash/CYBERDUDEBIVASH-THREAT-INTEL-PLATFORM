@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 scripts/daily_brief_generator.py
-CYBERDUDEBIVASH(R) SENTINEL APEX v148.0.0 -- Daily Executive Threat Brief Generator
+CYBERDUDEBIVASH(R) SENTINEL APEX v184.0 -- Daily Executive Threat Brief Generator
 =====================================================================================
 Reads api/v1/intel/ai_summary.json + api/feed.json and generates a professional
 single-page executive PDF threat brief.
@@ -496,7 +496,7 @@ def generate_brief(output_path: pathlib.Path, report_date: str) -> None:
         title=f"SENTINEL APEX Daily Brief {report_date}",
         author="CYBERDUDEBIVASH SENTINEL APEX",
         subject="Executive Threat Intelligence Brief",
-        creator="SENTINEL APEX v148.0.0",
+        creator="SENTINEL APEX v184.0",
     )
 
     date_label = _date_label(report_date) if report_date else "Today"
@@ -547,7 +547,7 @@ def upload_to_r2(pdf_path: pathlib.Path) -> bool:
 # ---------------------------------------------------------------------------
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="SENTINEL APEX Daily Threat Brief Generator v148.0.0")
+    parser = argparse.ArgumentParser(description="SENTINEL APEX Daily Threat Brief Generator v184.0")
     parser.add_argument("--date",    default="", help="Report date YYYY-MM-DD (default: today UTC)")
     parser.add_argument("--dry-run", action="store_true", help="Generate PDF but skip R2 upload")
     parser.add_argument("--upload",  action="store_true", help="Upload to Cloudflare R2 after generating")
@@ -556,7 +556,7 @@ def main() -> None:
     report_date = args.date or datetime.now(timezone.utc).strftime("%Y-%m-%d")
 
     print("=" * 65)
-    print(f"  SENTINEL APEX DAILY BRIEF GENERATOR v148.0.0")
+    print(f"  SENTINEL APEX DAILY BRIEF GENERATOR v184.0")
     print(f"  Date: {report_date}")
     print("=" * 65)
 

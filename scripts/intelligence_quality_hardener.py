@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 scripts/intelligence_quality_hardener.py
-CYBERDUDEBIVASH(R) SENTINEL APEX v160.0 — Intelligence Quality Hardener
+CYBERDUDEBIVASH(R) SENTINEL APEX v184.0 — Intelligence Quality Hardener
 ========================================================================
 Transforms synthetic/generic intelligence output into enterprise-grade CTI.
 
@@ -348,7 +348,7 @@ def _derive_tlp(item: dict) -> bool:
 # ---------------------------------------------------------------------------
 def main() -> int:
     log.info("=" * 60)
-    log.info("SENTINEL APEX — Intelligence Quality Hardener v160.0")
+    log.info("SENTINEL APEX — Intelligence Quality Hardener v184.0")
     log.info("Feed : %s | DryRun: %s", FEED_PATH, DRY_RUN)
     log.info("=" * 60)
 
@@ -408,7 +408,7 @@ def main() -> int:
             stats["tlp_derived"] += 1
 
         item["_quality_hardened_at"] = datetime.now(timezone.utc).isoformat()
-        item["_quality_version"]     = "160.0"
+        item["_quality_version"]     = "184.0"
 
     log.info("─" * 60)
     for k, v in stats.items():
@@ -424,7 +424,7 @@ def main() -> int:
     report = {
         "generated_at":         datetime.now(timezone.utc).isoformat(),
         "script":               "intelligence_quality_hardener.py",
-        "version":              "160.0",
+        "version":              "184.0",
         "status":               report_status,
         "items_processed":      stats["total"],
         **stats,

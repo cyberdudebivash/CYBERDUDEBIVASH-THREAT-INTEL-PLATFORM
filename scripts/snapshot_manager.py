@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 scripts/snapshot_manager.py
-CYBERDUDEBIVASH® SENTINEL APEX v144.0.0 - Immutable Snapshot System
+CYBERDUDEBIVASH® SENTINEL APEX v184.0 - Immutable Snapshot System
 ====================================================================
 ARCHITECTURE: SINGLE WRITER → IMMUTABLE DATA → READ-ONLY API → DUMB UI
 
@@ -295,7 +295,7 @@ class SnapshotManager:
             "created_at":    now_utc.isoformat(),
             "pipeline_run":  run_tag,
             "total_items":   len(sorted_items),
-            "schema_version": "v144.0",
+            "schema_version": "v184.0",
             "dedup_removed": len(items) - len(deduped) if not skip_dedup else 0,
             "items":         sorted_items,
         }
@@ -483,7 +483,7 @@ class SnapshotManager:
 # ---------------------------------------------------------------------------
 def _cli():
     parser = argparse.ArgumentParser(
-        description="SENTINEL APEX Snapshot Manager v144.0.0"
+        description="SENTINEL APEX Snapshot Manager v184.0"
     )
     sub = parser.add_subparsers(dest="cmd")
 

@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 scripts/snapshot_integration.py
-CYBERDUDEBIVASH® SENTINEL APEX v144.0.0 — Pipeline Snapshot Integration
+CYBERDUDEBIVASH® SENTINEL APEX v184.0 — Pipeline Snapshot Integration
 ========================================================================
 Called by run_pipeline.py (Stage 3.95) after feed.json is finalised.
 
@@ -126,7 +126,7 @@ def create_pipeline_snapshot(
             "source_feed":    str(source.relative_to(REPO_ROOT)) if source.is_absolute() and REPO_ROOT in source.parents else str(source),
             "pipeline_run":   os.environ.get("GITHUB_RUN_ID", "local"),
             "pruned_count":   pruned,
-            "schema_version": "v144.0",
+            "schema_version": "v184.0",
         }
         SNAP_META.parent.mkdir(parents=True, exist_ok=True)
         tmp = SNAP_META.with_suffix(".tmp")
@@ -151,7 +151,7 @@ if __name__ == "__main__":
         format="%(asctime)s [snap-integration] %(levelname)s: %(message)s",
     )
 
-    parser = argparse.ArgumentParser(description="SENTINEL APEX Snapshot Integration v144.0.0")
+    parser = argparse.ArgumentParser(description="SENTINEL APEX Snapshot Integration v184.0")
     parser.add_argument("--source", type=Path, default=None,
                         help="Override source feed path")
     parser.add_argument("--skip-dedup", action="store_true",

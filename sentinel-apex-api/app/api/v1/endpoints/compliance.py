@@ -1,5 +1,5 @@
 """
-SENTINEL APEX — Compliance Endpoints v177.0
+SENTINEL APEX — Compliance Endpoints v184.0
 ============================================
 GDPR/UK-GDPR/UAE-PDPL/CCPA data subject rights, SLA certificates, and invoice generation.
 
@@ -334,7 +334,7 @@ async def sla_certificate(
         "sla_commitments": {
             "platform_uptime": f"{uptime_pct:.2f}%",
             "incident_response_minutes": sla_response_min,
-            "data_processing_agreement": "v177.0.0",
+            "data_processing_agreement": "v184.0",
             "security_standard": "SOC 2 Type II (in progress)",
             "encryption_at_rest": "AES-256",
             "encryption_in_transit": "TLS 1.3 minimum",

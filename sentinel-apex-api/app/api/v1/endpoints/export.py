@@ -1,5 +1,5 @@
 """
-SENTINEL APEX — Export Endpoints v177.0
+SENTINEL APEX — Export Endpoints v184.0
 =========================================
 Tier-gated export endpoints for bulk IOC/advisory data.
 
@@ -269,7 +269,7 @@ async def export_misp(
                 "Orgc": {"name": "CYBERDUDEBIVASH SENTINEL APEX", "uuid": "sentinel-apex-org"},
                 "Tag": [
                     {"name": "tlp:amber"},
-                    {"name": "sentinel-apex:v177"},
+                    {"name": "sentinel-apex:v184"},
                     *[{"name": str(t)} for t in (adv.get("tags") or [])],
                 ],
                 "Attribute": _build_attributes(adv),
@@ -285,7 +285,7 @@ async def export_misp(
     payload = {
         "response": events,
         "_meta": {
-            "generator": "CYBERDUDEBIVASH SENTINEL APEX v177.0",
+            "generator": "CYBERDUDEBIVASH SENTINEL APEX v184.0",
             "generated_at": datetime.now(timezone.utc).isoformat(),
             "event_count": len(events),
             "misp_version": "2.4",
@@ -362,7 +362,7 @@ async def export_sigma(
         "format": format,
         "tier": user.tier.value,
         "generated_at": datetime.now(timezone.utc).isoformat(),
-        "_meta": {"generator": "SENTINEL APEX v177.0", "platform": "Sigma v1.0"},
+        "_meta": {"generator": "SENTINEL APEX v184.0", "platform": "Sigma v1.0"},
     }
 
 
@@ -422,7 +422,7 @@ async def export_yara(
         "format": format,
         "tier": user.tier.value,
         "generated_at": datetime.now(timezone.utc).isoformat(),
-        "_meta": {"generator": "SENTINEL APEX v177.0", "platform": "YARA 4.x"},
+        "_meta": {"generator": "SENTINEL APEX v184.0", "platform": "YARA 4.x"},
     }
 
 
@@ -512,7 +512,7 @@ async def export_kql(
         "tier": user.tier.value,
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "_meta": {
-            "generator": "SENTINEL APEX v177.0",
+            "generator": "SENTINEL APEX v184.0",
             "usage": "Import via Sentinel > Analytics > Import rule query",
         }
     }
@@ -549,7 +549,7 @@ async def export_spl(
         "tier": user.tier.value,
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "_meta": {
-            "generator": "SENTINEL APEX v177.0",
+            "generator": "SENTINEL APEX v184.0",
             "usage": "Import via Splunk > Search & Reporting > Saved Searches",
         }
     }
