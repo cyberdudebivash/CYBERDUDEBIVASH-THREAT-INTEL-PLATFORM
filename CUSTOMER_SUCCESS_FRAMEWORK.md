@@ -16,8 +16,8 @@ Files audited: `support-center.html`, `sla.html`, `customer-success-center.html`
 
 | Channel | Details | Status |
 |---------|---------|--------|
-| Email — Bivash | enterprise@cyberdudebivash.com | Active |
-| Email — Intel | intelligence@cyberdudebivash.com | Active |
+| Email — Enterprise Team | enterprise@cyberdudebivash.com | Active |
+| Email — Intel | enterprise@cyberdudebivash.com | Active |
 | WhatsApp | +91 8179881447 | Active |
 | Telegram | Not confirmed in code | Unknown |
 | Discord | Not confirmed in code | Unknown |
@@ -52,7 +52,7 @@ Files audited: `support-center.html`, `sla.html`, `customer-success-center.html`
 - Community forum (future — Discord recommended)
 
 **Support:**
-- Email only: intelligence@cyberdudebivash.com
+- Email only: enterprise@cyberdudebivash.com
 - Response SLA: 72 business hours (best effort)
 - No SLA guarantee
 
@@ -106,7 +106,7 @@ Day 14: Success check-in: "How is SENTINEL APEX working for you?"
 **Onboarding:**
 ```
 Day 0:  API key + Enterprise Integration Guide
-Day 0:  Welcome call / email from Bivash (personalized)
+Day 0:  Welcome call / email from our team (personalized to your account)
 Day 1:  Technical onboarding session scheduled (video call — Google Meet / Zoom)
 Day 3:  Custom integration support (SIEM-specific walkthrough)
 Day 7:  First threat report reviewed together
@@ -279,7 +279,7 @@ Build as static HTML pages:
 
 - [ ] Set up Google Workspace / Gmail labels: `SUPPORT-COMMUNITY`, `SUPPORT-PRO`, `SUPPORT-ENTERPRISE`, `SUPPORT-MSSP`
 - [ ] Create WhatsApp Business profile for +91 8179881447 (add business hours, auto-reply)
-- [ ] Configure auto-reply on intelligence@cyberdudebivash.com (48h SLA acknowledgement)
+- [ ] Configure auto-reply on enterprise@cyberdudebivash.com (48h SLA acknowledgement)
 - [ ] Create onboarding email sequence for PRO (Day 0, 1, 3, 7, 14)
 - [ ] Create renewal reminder email templates (D-14, D-7, D-3, D+0)
 - [ ] Link sla.html from support-center.html and upgrade.html

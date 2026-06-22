@@ -302,7 +302,7 @@ def generate_welcome_package(
     ─────────────────────────────────────────────────────────────────────
     Platform     : https://intel.cyberdudebivash.com
     API Docs     : https://intel.cyberdudebivash.com/api-docs.html
-    Support      : intelligence@cyberdudebivash.com
+    Support      : enterprise@cyberdudebivash.com
     Privacy      : privacy@cyberdudebivash.com
     Billing      : enterprise@cyberdudebivash.com
 

@@ -181,7 +181,7 @@ Each action scored 1-10 on: Revenue Impact | Effort | Risk | Customer Demand | T
 >
 > Would you be open to a 15-minute demo? I can show you how it integrates with [their SIEM] in under 30 minutes.
 >
-> — Bivash | CYBERDUDEBIVASH SENTINEL APEX"
+> — CYBERDUDEBIVASH® SENTINEL APEX Team"
 
 **Expected:** 50 messages → 10 replies → 5 demos → 2 paid conversions → $198-$1,998/month
 
@@ -235,7 +235,7 @@ Each action scored 1-10 on: Revenue Impact | Effort | Risk | Customer Demand | T
 >
 > Are you open to a 20-minute intro call this week?
 >
-> — Bivash | cyberdudebivash.in"
+> — CYBERDUDEBIVASH® SENTINEL APEX Team"
 
 **Expected:** 10 emails → 3 replies → 2 demos → 1 Enterprise conversion → $999/month
 
