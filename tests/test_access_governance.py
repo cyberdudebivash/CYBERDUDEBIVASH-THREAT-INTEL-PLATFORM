@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """
-tests/test_access_governance.py — SENTINEL APEX v173.0
+tests/test_access_governance.py — SENTINEL APEX v184.0
 ACCESS GOVERNANCE REGRESSION TEST SUITE
 
 MANDATE: These tests are the permanent regression guard for MODEL_C.
          They MUST pass before any deployment.
          Failure = deployment blocked.
 
-Tests (all mandated by SENTINEL APEX v173.0 governance):
+Tests (all mandated by SENTINEL APEX v184.0 governance):
   - test_public_summary_only()
   - test_pro_full_report_access()
   - test_enterprise_api_access()
