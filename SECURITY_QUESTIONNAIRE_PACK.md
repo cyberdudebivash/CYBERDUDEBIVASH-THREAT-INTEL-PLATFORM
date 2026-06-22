@@ -16,7 +16,7 @@ This document answers common security questionnaire questions asked by enterpris
 |----------|----------|
 | Legal entity name | CYBERDUDEBIVASH |
 | Primary contact | Bivash Nayak |
-| Contact email | bivash@cyberdudebivash.com |
+| Contact email | enterprise@cyberdudebivash.com |
 | Platform URL | https://intel.cyberdudebivash.com |
 | Registered country | India |
 | GSTIN | 21ARKPN8270G1ZP |
@@ -95,7 +95,7 @@ This document answers common security questionnaire questions asked by enterpris
 |----------|----------|
 | SOC 2 certification | Not currently certified. SOC 2 roadmap: Q4 2026. |
 | ISO 27001 | Not currently certified. Roadmap: 2027. |
-| GDPR compliance | Data minimization applied. Customer data used only for service delivery. Right to erasure: contact bivash@cyberdudebivash.com. DPA available on request. |
+| GDPR compliance | Data minimization applied. Customer data used only for service delivery. Right to erasure: contact privacy@cyberdudebivash.com. DPA available on request. |
 | CCPA | Customer data not sold to third parties. |
 | PCI DSS | Not applicable — no cardholder data processed. |
 | CISA alignment | Intelligence sourced from CISA KEV, NIST NVD, and MITRE ATT&CK. |
@@ -109,7 +109,7 @@ This document answers common security questionnaire questions asked by enterpris
 |----------|----------|
 | Customer data retention | Active subscription duration + 90 days after termination |
 | API log retention | 90 days |
-| Right to erasure | Yes — submit request to bivash@cyberdudebivash.com. Processed within 30 days. |
+| Right to erasure | Yes — submit request to privacy@cyberdudebivash.com. Processed within 30 days. |
 | Data portability | Customer data available in JSON format on request |
 | Third-party data sharing | Never — customer data not shared with third parties |
 
@@ -121,7 +121,7 @@ This document answers common security questionnaire questions asked by enterpris
 |----------|----------|
 | Patch cadence | Critical: 24 hours; High: 7 days; Medium: 30 days |
 | Penetration testing | Self-assessed. Third-party pentest roadmap: Q3 2026. |
-| Bug bounty | Responsible disclosure: bivash@cyberdudebivash.com |
+| Bug bounty | Responsible disclosure: security@cyberdudebivash.com |
 | Vulnerability disclosure | Notified within 24 hours if customer data is affected |
 | Dependency scanning | Python dependencies reviewed on each release |
 
@@ -143,7 +143,7 @@ This document answers common security questionnaire questions asked by enterpris
 
 A Data Processing Addendum (DPA) aligned with GDPR Article 28 is available upon request.
 
-Contact: bivash@cyberdudebivash.com with subject "DPA Request — [COMPANY NAME]"
+Contact: privacy@cyberdudebivash.com with subject "DPA Request — [COMPANY NAME]"
 
 The DPA covers:
 - Subject matter and duration of processing
@@ -157,7 +157,7 @@ The DPA covers:
 ## ADDITIONAL QUESTIONS
 
 For questions not covered above, contact:
-- **Email:** bivash@cyberdudebivash.com
+- **Email:** enterprise@cyberdudebivash.com
 - **WhatsApp:** +91 8179881447
 - **Response SLA:** 4 hours (Enterprise customers), 24 hours (pre-sales)
 

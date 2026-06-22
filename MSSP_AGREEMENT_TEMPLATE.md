@@ -7,7 +7,7 @@
 
 **BETWEEN:**
 CYBERDUDEBIVASH SENTINEL APEX ("Provider")
-Contact: bivash@cyberdudebivash.com | +91 8179881447
+Contact: enterprise@cyberdudebivash.com | +91 8179881447
 GSTIN: 21ARKPN8270G1ZP
 
 **AND:**
@@ -145,7 +145,7 @@ This Agreement is governed by the laws of India. Disputes shall be resolved by a
 
 Name: BIVASH
 Title: Founder & Operator
-Email: bivash@cyberdudebivash.com
+Email: enterprise@cyberdudebivash.com
 Date: _______________
 Signature: _______________
 
@@ -161,6 +161,6 @@ Signature: _______________
 
 ---
 
-*To execute this agreement: print, sign, scan, and email to bivash@cyberdudebivash.com*
+*To execute this agreement: print, sign, scan, and email to enterprise@cyberdudebivash.com*
 *Subject line: MSSP AGREEMENT — [YOUR COMPANY NAME]*
 *A countersigned copy will be returned within 24 hours.*
