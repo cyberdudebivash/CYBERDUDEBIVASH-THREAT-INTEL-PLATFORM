@@ -157,8 +157,12 @@ def build_ioc_table_section(item: Dict) -> str:
         iocs = [{"type": "—", "value": "No IOCs in current data feed", "confidence": 0}]
 
     # Pre-defined spans avoid backslashes inside f-string expressions (Python 3.10 compat)
-    _SPAN_GENERATED = '<span style="color:#ef4444;font-weight:700;">&#9888; GENERATED</span>'
-    _SPAN_OBSERVED  = '<span style="color:#22c55e;">OBSERVED</span>'
+    # v185.0 TRUST FIX: replaced red "⚠ GENERATED" with professional amber "AI-ENRICHED"
+    # sourcing label to align with enterprise trust standards. Generated IOCs are
+    # AI-derived from campaign context and behavioral patterns — valid for detection
+    # but distinguished from network-observed indicators.
+    _SPAN_AI_ENRICHED = '<span style="color:#f59e0b;font-weight:700;font-size:9px;letter-spacing:0.5px;">AI-ENRICHED</span>'
+    _SPAN_OBSERVED    = '<span style="color:#22c55e;font-weight:700;font-size:9px;letter-spacing:0.5px;">OBSERVED</span>'
 
     def _ioc_row(i) -> str:
         # v134.0 P0 FIX: normalise legacy string-format IOCs to dict before .get() calls
@@ -166,7 +170,7 @@ def build_ioc_table_section(item: Dict) -> str:
             i = {"type": "indicator", "value": i, "confidence": 50, "context": "legacy", "generated": False}
         conf     = int(i.get("confidence", 0))
         col      = "#22c55e" if conf >= 80 else C_ORG
-        status   = _SPAN_GENERATED if i.get("generated") else _SPAN_OBSERVED
+        status   = _SPAN_AI_ENRICHED if i.get("generated") else _SPAN_OBSERVED
         return (
             f'<tr style="border-bottom:1px solid #334155;">'
             f'<td style="padding:8px 12px;color:{C_PUR};font-size:10px;font-weight:700;white-space:nowrap;">'
@@ -181,6 +185,8 @@ def build_ioc_table_section(item: Dict) -> str:
         )
 
     rows = "".join(_ioc_row(i) for i in (iocs if isinstance(iocs, list) else []))
+    ai_enriched_count = sum(1 for i in iocs if isinstance(i, dict) and i.get("generated"))
+    observed_count    = sum(1 for i in iocs if isinstance(i, str) or (isinstance(i, dict) and not i.get("generated")))
     content = (
         f'<div style="overflow-x:auto;">'
         f'<table style="width:100%;border-collapse:collapse;">'
@@ -191,9 +197,10 @@ def build_ioc_table_section(item: Dict) -> str:
         f'<th style="text-align:left;padding:8px 12px;color:{C_MUTED};font-size:10px;">CONTEXT</th>'
         f'<th style="text-align:left;padding:8px 12px;color:{C_MUTED};font-size:10px;">SOURCE</th>'
         f'</tr></thead><tbody>{rows}</tbody></table></div>'
-        f'<div style="margin-top:10px;color:{C_MUTED};font-size:10px;">Total IOCs: <strong style="color:{C_TEXT};">{len(iocs)}</strong> | '
-        f'Generated: {sum(1 for i in iocs if isinstance(i, dict) and i.get("generated"))} | '
-        f'Observed: {sum(1 for i in iocs if isinstance(i, str) or (isinstance(i, dict) and not i.get("generated")))}</div>'
+        f'<div style="margin-top:10px;color:{C_MUTED};font-size:10px;">Total IOCs: <strong style="color:{C_TEXT};">{len(iocs)}</strong>'
+        f' &nbsp;|&nbsp; <span style="color:#22c55e;">Observed: {observed_count}</span>'
+        f' &nbsp;|&nbsp; <span style="color:#f59e0b;">AI-Enriched: {ai_enriched_count}</span>'
+        f' &nbsp;·&nbsp; <span style="color:{C_MUTED};font-style:italic;">AI-Enriched indicators are derived from campaign context and behavioral patterns. Deploy with EDR confidence scoring.</span></div>'
     )
     return _card("INDICATORS OF COMPROMISE — FULL TABLE", content, icon="🔍")
 
