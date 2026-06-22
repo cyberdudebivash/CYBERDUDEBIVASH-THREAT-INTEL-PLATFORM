@@ -1956,7 +1956,16 @@ function startBSCPolling(txhash, reviewId) {
       if (gwEl) gwEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }, 300);
   } else {
-    selectPlan('pro');
+    // v185.0: Read plan from URL param (pricing.html annual CTA passes plan=pro-annual)
+    var planParam2 = params.get('plan') || 'pro';
+    var isAnnualParam = planParam2.endsWith('-annual');
+    var basePlan = isAnnualParam ? planParam2.replace('-annual', '') : planParam2;
+    selectPlan(['pro','enterprise','mssp'].includes(basePlan) ? basePlan : 'pro');
+
+    // Activate annual billing if URL param says so or pricing page set sessionStorage
+    if (!isAnnual && (isAnnualParam || (function(){ try{ return sessionStorage.getItem('billingMode') === 'annual'; }catch(e){ return false; } })())) {
+      toggleBilling();
+    }
   }
 
   updateDGW();

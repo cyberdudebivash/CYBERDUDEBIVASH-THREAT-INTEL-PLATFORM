@@ -9436,7 +9436,11 @@
         function getTlpLabel(item) {
             // v76.2: Evidence-based TLP \u2014 mirrors backend risk_engine.py v76.2 logic
             // Priority: use stored manifest value first (set by pipeline at ingest time)
-            if (item.tlp_label) return item.tlp_label;
+            // T-21 FIX v185.0: TLP:RED is never shown on the public dashboard (TLP spec \u00a72.4).
+            // Public dashboard caps at TLP:AMBER. TLP:RED \u2192 restricted Enterprise+ API feed.
+            if (item.tlp_label) {
+                return (item.tlp_label === 'TLP:RED') ? 'TLP:AMBER' : item.tlp_label;
+            }
 
             // Fallback calculation for items without stored TLP label
             const score  = parseFloat(item.risk_score) || 0;
@@ -9444,11 +9448,12 @@
             const kev    = !!item.kev_present;
             const hasIoc = item.ioc_counts && Object.values(item.ioc_counts).some(v => v > 0);
 
+            // T-21 TLP FIX v185.0: TLP:RED is NEVER shown on the public dashboard.
+            // TLP:RED requires person-to-person disclosure and named recipients (TLP spec §2.4).
+            // Public dashboard caps at TLP:AMBER. Full TLP:RED feed → Enterprise+ API only.
             if (score >= 9.0) {
-                if (kev) return 'TLP:RED';
-                if (cvss != null && cvss >= 9.0) return 'TLP:RED';  // CVSS 9+ = definitive RED
-                if (hasIoc) return 'TLP:AMBER';  // high score, some evidence
-                return 'TLP:AMBER';  // no CVE/KEV evidence
+                // Would be TLP:RED — downgrade to TLP:AMBER for public view
+                return 'TLP:AMBER';
             }
             if (score >= 7.0) {
                 if (kev || hasIoc || (cvss != null && cvss >= 7.0)) return 'TLP:AMBER';
@@ -14149,10 +14154,12 @@ function renderTopThreats(data) {
                     const briefEl = document.getElementById('nexus-briefing');
                     const brief = data.executive_briefing || {};
                     if (briefEl && (brief.executive_summary || brief.key_findings)) {
-                        const tlpColor = brief.tlp === 'TLP:RED' ? '#ef4444' : brief.tlp === 'TLP:AMBER' ? '#f59e0b' : '#00d4aa';
+                        // T-21 TLP FIX: cap public brief at TLP:AMBER
+                        const safeTlp = (brief.tlp === 'TLP:RED') ? 'TLP:AMBER' : (brief.tlp || 'TLP:AMBER');
+                        const tlpColor = safeTlp === 'TLP:AMBER' ? '#f59e0b' : '#00d4aa';
                         const riskColor = brief.risk_level === 'CRITICAL' ? '#ef4444' : brief.risk_level === 'HIGH' ? '#f59e0b' : '#00d4aa';
                         let html_brief = `<div style="margin-bottom:10px;display:flex;gap:10px;align-items:center;">
-                            <span style="font-size:8px;letter-spacing:2px;color:${tlpColor};font-family:var(--font-mono);background:${tlpColor}18;padding:2px 8px;border-radius:2px;">${brief.tlp||'TLP:AMBER'}</span>
+                            <span style="font-size:8px;letter-spacing:2px;color:${tlpColor};font-family:var(--font-mono);background:${tlpColor}18;padding:2px 8px;border-radius:2px;">${safeTlp}</span>
                             <span style="font-size:8px;letter-spacing:2px;color:${riskColor};font-family:var(--font-mono);background:${riskColor}18;padding:2px 8px;border-radius:2px;">RISK: ${brief.risk_level||'HIGH'}</span>
                             ${brief.exposure_index != null ? `<span style="font-size:8px;color:var(--text-muted);">EXI: ${brief.exposure_index.toFixed(1)}/10</span>` : ''}
                         </div>`;
