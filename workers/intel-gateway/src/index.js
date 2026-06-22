@@ -1,8 +1,8 @@
 /**
- * CYBERDUDEBIVASH(R) SENTINEL APEX  -  Cloudflare Worker v182.0
+ * CYBERDUDEBIVASH(R) SENTINEL APEX  -  Cloudflare Worker v184.0
  * intel-gateway/src/index.js
  *
- * v182.0 PAYMENT-GODMODE-HARDENING (2026-06-20)
+ * v184.0 GOD-MODE-GLOBAL-RELEASE (2026-06-22)
  * - Razorpay payment pipeline: /api/payments/razorpay/verify + webhook
  * - HMAC-SHA256 constant-time webhook signature verification (crypto.subtle)
  * - Idempotency guard: KV key rzp_verified:{payment_id} prevents replay attacks
@@ -17,7 +17,7 @@
  * - MSSP tier: RATE_LIMITS.MSSP = 1200 req/15min, TIERS.MSSP added
  * - AI Copilot v3.0: DeepSeek R1+V3 -> GROQ -> OpenRouter -> deterministic fallback
  *
- * ENTERPRISE PRODUCTION HARDENING v182.0 (preserved)
+ * ENTERPRISE PRODUCTION HARDENING v184.0 (preserved)
  * - Real JWT HS256 (crypto.subtle HMAC-SHA256) - no more fake 16-char check
  * - API key validation against API_KEYS_KV
  * - Brute-force lockout: 5 failures -> 15-min IP lockout (RATE_LIMIT_KV)
@@ -31,7 +31,7 @@
  * - TAXII 2.1: /taxii/ discovery, /taxii/collections/, /taxii/collections/{id}/objects/
  * - ctx passed through to handleRequest for waitUntil support
  *
- * Routes (all v182.0 routes preserved):
+ * Routes (all v184.0 routes preserved):
  *   GET  /api/health
  *   GET  /api/v1/intel/latest.json
  *   GET  /api/v1/intel/apex.json            (premium tier gate)
@@ -50,24 +50,24 @@
  *   GET  /api/reports/index.json
  *   GET  /api/reports/latest.json
  *   GET  /api/reports/stats.json
- *   POST /auth/login                        (NEW v182.0)
- *   POST /auth/logout                       (NEW v182.0)
+ *   POST /auth/login                        (NEW v184.0)
+ *   POST /auth/logout                       (NEW v184.0)
  *   POST /api/v1/ioc/lookup
  *   GET  /api/v1/ioc/lookup
  *   GET  /api/preview
  *   GET  /api/feed(.json)
  *   GET  /reports/**
- *   GET  /taxii/                            (NEW v182.0 - TAXII 2.1 server discovery)
- *   GET  /taxii/collections/               (NEW v182.0)
- *   GET  /taxii/collections/{id}/objects/  (NEW v182.0 - PRO/ENTERPRISE)
- *   GET  /api/admin/health                 (NEW v182.0 - ADMIN_SECRET)
- *   GET  /api/admin/audit                  (NEW v182.0 - ADMIN_SECRET)
- *   POST /api/admin/keys                   (NEW v182.0 - ADMIN_SECRET)
- *   DELETE /api/admin/keys/{key}           (NEW v182.0 - ADMIN_SECRET)
+ *   GET  /taxii/                            (NEW v184.0 - TAXII 2.1 server discovery)
+ *   GET  /taxii/collections/               (NEW v184.0)
+ *   GET  /taxii/collections/{id}/objects/  (NEW v184.0 - PRO/ENTERPRISE)
+ *   GET  /api/admin/health                 (NEW v184.0 - ADMIN_SECRET)
+ *   GET  /api/admin/audit                  (NEW v184.0 - ADMIN_SECRET)
+ *   POST /api/admin/keys                   (NEW v184.0 - ADMIN_SECRET)
+ *   DELETE /api/admin/keys/{key}           (NEW v184.0 - ADMIN_SECRET)
  */
 
 // --- Constants ----------------------------------------------------------------
-const PLATFORM_VERSION    = "183.0";
+const PLATFORM_VERSION    = "184.0";
 const JWT_EXPIRY_SEC      = 86400;        // 24h JWT lifetime
 const BRUTE_FORCE_MAX     = 5;            // lockout after N failed auth attempts
 const BRUTE_FORCE_TTL     = 900;          // 15-minute lockout (seconds)
@@ -111,7 +111,7 @@ const JSON_CONTENT = { "Content-Type": "application/json; charset=utf-8" };
 
 const RATE_LIMITS = { FREE: 30, PRO: 120, ENTERPRISE: 600, MSSP: 1200 };
 
-// --- Geo / threat intel static data (unchanged from v182.0) ------------------
+// --- Geo / threat intel static data (unchanged from v184.0) ------------------
 const GEO_ATTACK_MAP = [
   { code: "RU", country: "Russian Federation", attacks: 0, risk: "CRITICAL" },
   { code: "CN", country: "China",              attacks: 0, risk: "CRITICAL" },
@@ -350,7 +350,7 @@ async function r2Get(env, key) {
 }
 
 // =============================================================================
-// FEED / COMPUTE FUNCTIONS (unchanged logic from v182.0)
+// FEED / COMPUTE FUNCTIONS (unchanged logic from v184.0)
 // =============================================================================
 
 async function loadFeedItems(env) {
@@ -969,7 +969,7 @@ function buildAISummaryInline(feedData, stats) {
   const kcData    = computeKillChain(feedData.items || []);
   return {
     schema_version: "1.0", version: PLATFORM_VERSION, generated_at: now(),
-    ai_engine: "SENTINEL-AI v2", model: "APEX-GRADIENT-BOOST-v182.0",
+    ai_engine: "SENTINEL-AI v2", model: "APEX-GRADIENT-BOOST-v184.0",
     global_threat_level: threat, defcon,
     campaigns_detected: Math.max(Math.round(stats.critical / 2), 1),
     anomalies_flagged: Math.max(Math.round(stats.high / 3), 0),
