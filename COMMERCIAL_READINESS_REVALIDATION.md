@@ -53,7 +53,7 @@ Before scoring commercial readiness, verify no production regressions were intro
 | TRIAL plan available | ✅ PASS | 7-day free trial path documented |
 | Plan comparison matrix | ✅ PASS | Pricing page includes feature comparison |
 | FAQ page (docs/faq.html) | ✅ PASS | Common questions answered |
-| Contact method published | ✅ PASS | bivash@cyberdudebivash.com + WhatsApp |
+| Contact method published | ✅ PASS | enterprise@cyberdudebivash.com + WhatsApp |
 | MSSP-specific landing page | ✅ PASS | mssp.html present |
 
 **Score: 7/7**
@@ -199,7 +199,7 @@ Step 7: Transaction logged in data/transactions/ledger.json
 | FAQ page (docs/faq.html) | ✅ PASS | Published; covers payment, API, subscriptions |
 | Quick Start guide (docs/quickstart.html) | ✅ PASS | First API call in < 5 minutes |
 | docs/SLA.md | ✅ PASS | SLA matrix for all 4 tiers |
-| Email support | ✅ PASS | bivash@cyberdudebivash.com |
+| Email support | ✅ PASS | enterprise@cyberdudebivash.com |
 | WhatsApp support | ✅ PASS | +91 8179881447 |
 | Support SLAs published | ✅ PASS | Community/PRO/Enterprise/MSSP SLA in SLA.md |
 | CUSTOMER_SUCCESS_FRAMEWORK.md | ✅ PASS | Full CS lifecycle documented |
@@ -384,4 +384,4 @@ STEP 8 — ONGOING SUPPORT
 *Commercial Readiness Revalidation: 2026-06-04*
 *SENTINEL APEX v176.0 — CYBERDUDEBIVASH*
 *Sprint Branch: commercial/v176-revenue-operations*
-*Contact: bivash@cyberdudebivash.com*
+*Contact: enterprise@cyberdudebivash.com*
