@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-scripts/deployment_gate.py — SENTINEL APEX v173.0
+scripts/deployment_gate.py — SENTINEL APEX v184.0
 DEPLOYMENT GOVERNANCE GATE
 
 MANDATE: This script MUST run before every deployment.
@@ -255,8 +255,8 @@ def gate_dashboard_tier_gates():
     # Must have access governance comment
     _gate(
         "dashboard_has_governance_comment",
-        "ACCESS GOVERNANCE v173.0" in content,
-        "Dashboard must contain ACCESS GOVERNANCE v173.0 markers",
+        "ACCESS GOVERNANCE v184.0" in content,
+        "Dashboard must contain ACCESS GOVERNANCE v184.0 markers",
     )
 
     # Must have tier check for report access
@@ -401,7 +401,7 @@ def gate_audit_record():
 
 def main():
     parser = argparse.ArgumentParser(
-        description="SENTINEL APEX v173.0 — Deployment Governance Gate"
+        description="SENTINEL APEX v184.0 — Deployment Governance Gate"
     )
     parser.add_argument(
         "--strict",
@@ -416,7 +416,7 @@ def main():
     args = parser.parse_args()
 
     print("=" * 70)
-    print(f"  SENTINEL APEX v173.0 — DEPLOYMENT GOVERNANCE GATE")
+    print(f"  SENTINEL APEX v184.0 — DEPLOYMENT GOVERNANCE GATE")
     print(f"  Policy Version: {POLICY_CANONICAL_VERSION if _POLICY_IMPORTED else 'UNKNOWN'}")
     print(f"  Timestamp: {datetime.now(timezone.utc).isoformat()}")
     print("=" * 70)

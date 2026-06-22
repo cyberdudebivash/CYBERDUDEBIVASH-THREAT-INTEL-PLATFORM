@@ -38,7 +38,7 @@ import os, sys, json, argparse, hashlib, html as html_module
 import re
 from datetime import datetime, timezone
 
-SCRIPT_VERSION = "1.5.0"  # v145.0: permanent ID format migration fix
+SCRIPT_VERSION = "1.6.0"  # v184.0: manifest staleness guard (CHECK 2 demoted to WARN when manifest < 200 items)
 DEFAULT_TOP    = 50
 MAX_DELTA_SEC  = 1
 
@@ -267,6 +267,23 @@ def validate(repo_root, top_n):
     # Fix: per-item check — if the missing item has a SHORT hex ID vs the dominant
     # feed format, classify it as a migration artifact (WARN, not FAIL).
     # The ID migration in multi_source_collector.py will self-heal on next run.
+    #
+    # v184.0 FIX: Manifest staleness guard.
+    # feed_manifest.json is designed as a full-history superset (2000-3000+ items).
+    # When the manifest has fewer than MANIFEST_MIN_FULL_HISTORY items it has not
+    # yet been fully populated (e.g., fresh repo, post-merge before STIX pipeline
+    # runs). In that state "API item not in manifest" is NOT a regression — it
+    # just means the manifest hasn't caught up. Downgrade CHECK 2 to WARN until
+    # the manifest reaches its intended size.
+    MANIFEST_MIN_FULL_HISTORY = 200
+    manifest_is_full_history  = m_count >= MANIFEST_MIN_FULL_HISTORY
+    if not manifest_is_full_history:
+        warnings.append(
+            f"MANIFEST TOO SMALL ({m_count} items, expected {MANIFEST_MIN_FULL_HISTORY}+): "
+            f"feed_manifest.json has not reached full-history superset size — "
+            f"CHECK 2 (api ⊆ manifest) downgraded from ERROR to WARN until STIX pipeline repopulates."
+        )
+
     api_missing_count   = 0
     api_migration_warns = 0
     dominant_hex_len    = api_hex_len or 24  # from detect_id_format_migration
@@ -277,7 +294,7 @@ def validate(repo_root, top_n):
             api_missing_count += 1
             item_hex_len  = get_hex_len(a_entry)
             item_is_legacy = (0 < item_hex_len < dominant_hex_len)
-            effective_migration = is_migration or item_is_legacy
+            effective_migration = is_migration or item_is_legacy or not manifest_is_full_history
             msg = (
                 f"API ITEM {'ID SCHEMA MISMATCH (legacy 12-char, self-healing)' if item_is_legacy else 'NOT IN MANIFEST'}: "
                 f"{a_id[:40]} (api rank={api_rank})"
@@ -300,7 +317,8 @@ def validate(repo_root, top_n):
     stats["api_missing_from_manifest"] = api_missing_count
     stats["api_legacy_id_warnings"]    = api_migration_warns
     stats["missing_reason"] = (
-        "id_format_migration" if (is_migration or api_migration_warns > 0)
+        "id_format_migration"      if (is_migration or api_migration_warns > 0)
+        else "manifest_not_full_history" if not manifest_is_full_history
         else "genuine_regression"
     )
 
