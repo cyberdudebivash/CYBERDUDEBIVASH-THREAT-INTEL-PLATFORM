@@ -20268,6 +20268,126 @@ a:focus-visible {
 })();
 </script>
 <!-- /CDB-AI-BRAIN-INIT-v145 -->
+
+<!-- ═══════════════════════════════════════════════════════════════════════════
+     C-01: TIMED LEAD CAPTURE MODAL — v185.0
+     Shows after 30s on-page (or exit intent on desktop).
+     Suppressed for 7 days after dismiss or submit (sessionStorage + localStorage).
+     UTM: utm_source=lead-modal for attribution tracking.
+═══════════════════════════════════════════════════════════════════════════ -->
+<style>
+#apex-lead-modal{position:fixed;inset:0;background:rgba(0,0,0,0.72);z-index:99999;display:none;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(4px);}
+#apex-lead-modal.open{display:flex;}
+.apex-lead-box{background:linear-gradient(145deg,#0f172a,#1e293b);border:1px solid rgba(56,189,248,0.3);border-radius:16px;padding:40px 36px;max-width:480px;width:100%;position:relative;box-shadow:0 0 60px rgba(56,189,248,0.12);}
+.apex-lead-close{position:absolute;top:14px;right:16px;background:transparent;border:none;color:#64748b;font-size:20px;cursor:pointer;line-height:1;padding:4px 8px;}
+.apex-lead-close:hover{color:#e2e8f0;}
+.apex-lead-eyebrow{font-size:10px;color:#38bdf8;text-transform:uppercase;letter-spacing:3px;margin-bottom:12px;}
+.apex-lead-box h2{font-size:24px;font-weight:800;color:#f8fafc;margin-bottom:8px;line-height:1.3;}
+.apex-lead-box p{font-size:14px;color:#94a3b8;margin-bottom:24px;line-height:1.6;}
+.apex-lead-form{display:flex;flex-direction:column;gap:12px;}
+.apex-lead-input{background:#0f172a;border:1px solid #334155;border-radius:8px;padding:12px 16px;font-size:14px;color:#e2e8f0;outline:none;transition:border-color .2s;}
+.apex-lead-input:focus{border-color:#38bdf8;}
+.apex-lead-input::placeholder{color:#475569;}
+.apex-lead-submit{background:#38bdf8;color:#0f172a;border:none;border-radius:8px;padding:13px;font-size:14px;font-weight:800;cursor:pointer;transition:background .2s;letter-spacing:0.5px;}
+.apex-lead-submit:hover{background:#7dd3fc;}
+.apex-lead-skip{text-align:center;margin-top:12px;font-size:12px;color:#475569;}
+.apex-lead-skip a{color:#475569;text-decoration:underline;cursor:pointer;}
+.apex-lead-skip a:hover{color:#94a3b8;}
+.apex-lead-bullets{list-style:none;margin-bottom:20px;display:flex;flex-direction:column;gap:6px;}
+.apex-lead-bullets li{font-size:13px;color:#94a3b8;display:flex;gap:8px;align-items:flex-start;}
+.apex-lead-bullets li::before{content:"✓";color:#22c55e;flex-shrink:0;font-weight:700;}
+@media(max-width:480px){.apex-lead-box{padding:28px 20px;}}
+</style>
+
+<div id="apex-lead-modal" role="dialog" aria-modal="true" aria-label="Free trial offer">
+  <div class="apex-lead-box">
+    <button class="apex-lead-close" onclick="apexLeadDismiss()" aria-label="Close">✕</button>
+    <div class="apex-lead-eyebrow">7-Day Free Trial</div>
+    <h2>Get Full SOC Access — Free for 7 Days</h2>
+    <ul class="apex-lead-bullets">
+      <li>500 advisories/day + full IOC feeds</li>
+      <li>Deploy-ready Sigma, KQL &amp; Suricata rules</li>
+      <li>STIX 2.1 bundles + MITRE ATT&amp;CK v15 mapping</li>
+      <li>REST API — 5,000 req/day</li>
+    </ul>
+    <p>No credit card. No commitment. Cancel anytime.</p>
+    <form class="apex-lead-form" onsubmit="apexLeadSubmit(event)">
+      <input class="apex-lead-input" type="email" placeholder="Work email address" required autocomplete="email"/>
+      <button class="apex-lead-submit" type="submit">START FREE 7-DAY TRIAL →</button>
+    </form>
+    <div class="apex-lead-skip">
+      <a onclick="apexLeadDismiss()">No thanks, continue browsing →</a>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  var STORAGE_KEY = 'apex_lead_suppressed';
+  var SUPPRESS_DAYS = 7;
+
+  function isSuppressed(){
+    try{
+      var v = localStorage.getItem(STORAGE_KEY);
+      if(!v) return false;
+      var until = parseInt(v, 10);
+      return Date.now() < until;
+    }catch(e){ return false; }
+  }
+
+  function suppress(){
+    try{ localStorage.setItem(STORAGE_KEY, String(Date.now() + SUPPRESS_DAYS * 86400000)); }catch(e){}
+  }
+
+  window.apexLeadDismiss = function(){
+    var m = document.getElementById('apex-lead-modal');
+    if(m) m.classList.remove('open');
+    suppress();
+  };
+
+  window.apexLeadSubmit = function(e){
+    e.preventDefault();
+    var email = e.target.querySelector('input[type=email]').value.trim();
+    suppress();
+    var m = document.getElementById('apex-lead-modal');
+    if(m) m.classList.remove('open');
+    window.location.href = '/upgrade.html?plan=pro&email=' + encodeURIComponent(email) + '&utm_source=lead-modal&utm_medium=timed-popup';
+  };
+
+  function showModal(){
+    if(isSuppressed()) return;
+    var m = document.getElementById('apex-lead-modal');
+    if(m) m.classList.add('open');
+  }
+
+  if(!isSuppressed()){
+    // Timed: show after 30 seconds
+    setTimeout(showModal, 30000);
+
+    // Exit intent: mouse leaves viewport top (desktop only)
+    if(window.innerWidth > 768){
+      document.addEventListener('mouseleave', function onLeave(e){
+        if(e.clientY < 5){
+          document.removeEventListener('mouseleave', onLeave);
+          showModal();
+        }
+      });
+    }
+
+    // Scroll depth: show when user reaches 60% of page
+    var scrollShown = false;
+    window.addEventListener('scroll', function onScroll(){
+      if(scrollShown) return;
+      var pct = (window.scrollY + window.innerHeight) / document.body.scrollHeight;
+      if(pct >= 0.6){
+        scrollShown = true;
+        window.removeEventListener('scroll', onScroll);
+        showModal();
+      }
+    }, {passive: true});
+  }
+})();
+</script>
 </body>
 </html>
 
