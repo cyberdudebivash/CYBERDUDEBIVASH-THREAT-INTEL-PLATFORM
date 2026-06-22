@@ -64,7 +64,7 @@ python agent/sentinel_blogger.py
 
 # This will:
 # 1. Open browser for OAuth consent
-# 2. Sign in with iambivash.bn@gmail.com
+# 2. Sign in with enterprise@cyberdudebivash.com
 # 3. Grant permissions
 # 4. Generate credentials/token.json
 ```
@@ -138,7 +138,7 @@ Each blog post includes:
 - ✅ CyberDudeBivash logo/header
 - ✅ Company information
 - ✅ Website: www.cyberdudebivash.com
-- ✅ Email: iambivash@cyberdudebivash.com
+- ✅ Email: enterprise@cyberdudebivash.com
 - ✅ Phone: +918179881447
 - ✅ Location: Bhubaneswar, Odisha, India
 - ✅ All ecosystem links
@@ -254,7 +254,7 @@ After setup, check:
 ## 📞 Support
 
 **Issues?**
-- Email: iambivash@cyberdudebivash.com
+- Email: enterprise@cyberdudebivash.com
 - GitHub: https://github.com/cyberdudebivash
 
 ---

@@ -53,7 +53,7 @@ If it saves your team time during IR or enriches SIEM data, worth the conversati
 
 Apply here: https://intel.cyberdudebivash.com/get-api-key.html?plan=pro&utm_source=trial-offer
 
-—Bivash | bivash@cyberdudebivash.com
+—Bivash | enterprise@cyberdudebivash.com
 
 ---
 

@@ -1557,7 +1557,7 @@ class OnboardingEngine:
             sg = sendgrid.SendGridAPIClient(api_key=os.environ.get("SENDGRID_API_KEY", ""))
             from sendgrid.helpers.mail import Mail
             message = Mail(
-                from_email=("bivash@cyberdudebivash.com", "CyberDudeBivash SENTINEL APEX"),
+                from_email=("enterprise@cyberdudebivash.com", "CyberDudeBivash SENTINEL APEX"),
                 to_emails=email,
                 subject=f"🛡️ Welcome to SENTINEL APEX {tier} — Your API Key",
                 html_content=self._welcome_html(org_name, tier, api_key, org_id),
@@ -1576,7 +1576,7 @@ class OnboardingEngine:
         <p>Onboarding: <a href="https://intel.cyberdudebivash.com/onboarding?org={org_id}">Get Started</a></p>
         <hr>
         <p>Rate Limit: See tier documentation for limits.</p>
-        <p>Support: bivash@cyberdudebivash.com</p>
+        <p>Support: enterprise@cyberdudebivash.com</p>
         """
 
     def _notify_revenue(self, email, tier, org_id):
