@@ -89,6 +89,13 @@ footer{text-align:center;padding:32px 20px;color:#334155;font-size:12px;border-t
 .annual-note.visible{display:block;}
 .annual-strike{color:#475569;text-decoration:line-through;font-size:14px;font-weight:400;margin-right:4px;}
 @media(max-width:768px){.nav-links{display:none;}.hero h1{font-size:28px;}.pricing-grid{grid-template-columns:1fr;}}
+/* Currency selector */
+.currency-wrap{text-align:center;margin:-24px 0 40px;}
+.currency-note{font-size:11px;color:#475569;margin-top:8px;}
+.currency-note a{color:#64748b;text-decoration:none;}
+.currency-sel{display:inline-flex;background:#1e293b;border-radius:30px;padding:3px;gap:2px;}
+.cur-btn{padding:6px 20px;border-radius:26px;border:none;background:transparent;color:#64748b;font-size:12px;font-weight:700;cursor:pointer;transition:all .2s;letter-spacing:0.5px;}
+.cur-btn.active{background:#334155;color:#e2e8f0;}
 </style>
 <script type="application/ld+json">
 {
@@ -194,6 +201,17 @@ footer{text-align:center;padding:32px 20px;color:#334155;font-size:12px;border-t
   <div class="annual-note" id="annual-note">Billed as one annual payment · Lock in price for 12 months · Cancel with 30-day notice</div>
 </div>
 
+<!-- CURRENCY SELECTOR — R-08 -->
+<div class="currency-wrap">
+  <div class="currency-sel">
+    <button class="cur-btn active" id="cur-usd" onclick="setCurrency('USD')">$ USD</button>
+    <button class="cur-btn" id="cur-inr" onclick="setCurrency('INR')">₹ INR</button>
+    <button class="cur-btn" id="cur-eur" onclick="setCurrency('EUR')">€ EUR</button>
+    <button class="cur-btn" id="cur-gbp" onclick="setCurrency('GBP')">£ GBP</button>
+  </div>
+  <div class="currency-note">Prices shown for reference · billed in USD at prevailing rate · <a href="#faq-fx">see FAQ</a> · +18% GST for Indian customers</div>
+</div>
+
 <div class="pricing-grid">
 
   <!-- FREE -->
@@ -220,7 +238,7 @@ footer{text-align:center;padding:32px 20px;color:#334155;font-size:12px;border-t
   <!-- PRO -->
   <div class="plan-card featured">
     <div class="plan-name">PRO / SOC</div>
-    <div class="plan-price"><span class="plan-currency">$</span><span id="price-pro">49</span></div>
+    <div class="plan-price"><span class="plan-currency" id="cur-sym-pro">$</span><span id="price-pro">49</span></div>
     <div class="plan-period" id="period-pro">per month · billed monthly · ₹4,100 INR</div>
     <div class="plan-desc">Full CTI platform for SOC analysts, threat hunters and security researchers.</div>
     <a href="/upgrade.html?plan=pro" class="plan-btn plan-btn-primary" data-plan="pro">Start 7-Day Free Trial →</a>
@@ -243,7 +261,7 @@ footer{text-align:center;padding:32px 20px;color:#334155;font-size:12px;border-t
   <!-- ENTERPRISE -->
   <div class="plan-card">
     <div class="plan-name">Enterprise SOC</div>
-    <div class="plan-price"><span class="plan-currency">$</span><span id="price-ent">499</span></div>
+    <div class="plan-price"><span class="plan-currency" id="cur-sym-ent">$</span><span id="price-ent">499</span></div>
     <div class="plan-period" id="period-ent">per month · billed monthly · ₹41,600 INR</div>
     <div class="plan-desc">For security teams, SOCs and enterprises needing full automation and SLA guarantees.</div>
     <a href="/contact-enterprise.html" class="plan-btn plan-btn-enterprise" data-plan="ent">Contact Sales →</a>
@@ -264,7 +282,7 @@ footer{text-align:center;padding:32px 20px;color:#334155;font-size:12px;border-t
   <!-- MSSP -->
   <div class="plan-card">
     <div class="plan-name">MSSP / White-Label</div>
-    <div class="plan-price"><span class="plan-currency">$</span><span id="price-mssp">1,999</span></div>
+    <div class="plan-price"><span class="plan-currency" id="cur-sym-mssp">$</span><span id="price-mssp">1,999</span></div>
     <div class="plan-period" id="period-mssp">per month · unlimited clients · ₹1,66,600 INR</div>
     <div class="plan-desc">Resell threat intelligence under your own brand. Unlimited tenant sub-keys.</div>
     <a href="/mssp.html" class="plan-btn plan-btn-outline" data-plan="mssp">Explore MSSP Program →</a>
@@ -417,6 +435,10 @@ footer{text-align:center;padding:32px 20px;color:#334155;font-size:12px;border-t
     <div class="faq-q">Can I switch between monthly and annual mid-cycle? <span>+</span></div>
     <div class="faq-a">Yes — you can upgrade from monthly to annual at any time and we will credit the unused portion of your current month. To downgrade from annual to monthly, the switch takes effect at the next renewal date. Email enterprise@cyberdudebivash.com to request billing changes.</div>
   </div>
+  <div class="faq-item" id="faq-fx">
+    <div class="faq-q">How does local currency pricing work? <span>+</span></div>
+    <div class="faq-a">Use the currency selector above the pricing cards to view indicative prices in USD, INR, EUR, or GBP. All subscriptions are billed in USD at the prevailing exchange rate unless a local invoicing arrangement is made — email enterprise@cyberdudebivash.com. Indian customers receive GST invoices in INR equivalent (18% GST applicable, GSTIN: 21ARKPN8270G1ZP). EUR and GBP prices are indicative at approx. $1 = €0.92 = £0.79 = ₹83.5 and are updated periodically — actual billing uses the rate at time of payment.</div>
+  </div>
 </div>
 
 <!-- BOTTOM CTA -->
@@ -453,44 +475,98 @@ footer{text-align:center;padding:32px 20px;color:#334155;font-size:12px;border-t
 
 <script>
 (function(){
+  /* R-08: Multi-currency pricing — USD / INR / EUR / GBP */
   var PRICES = {
-    monthly: {
-      pro:  { price:'49',    period:'per month · billed monthly · ₹4,100 INR',                         cta:'/upgrade.html?plan=pro'         },
-      ent:  { price:'499',   period:'per month · billed monthly · ₹41,600 INR',                        cta:'/contact-enterprise.html'        },
-      mssp: { price:'1,999', period:'per month · unlimited clients · ₹1,66,600 INR',                   cta:'/mssp.html'                      }
+    USD: {
+      monthly: {
+        pro:  { sym:'$', price:'49',      period:'per month · billed monthly',                          cta:'/upgrade.html?plan=pro'                  },
+        ent:  { sym:'$', price:'499',     period:'per month · billed monthly',                          cta:'/contact-enterprise.html'                 },
+        mssp: { sym:'$', price:'1,999',   period:'per month · unlimited clients',                       cta:'/mssp.html'                               }
+      },
+      annual: {
+        pro:  { sym:'$', price:'39',      period:'per month · $470 billed annually · save $118/yr',    cta:'/upgrade.html?plan=pro-annual'            },
+        ent:  { sym:'$', price:'399',     period:'per month · $4,788 billed annually · save $1,200/yr',cta:'/contact-enterprise.html?billing=annual'  },
+        mssp: { sym:'$', price:'1,599',   period:'per month · $19,188 billed annually · save $4,800/yr',cta:'/mssp.html?billing=annual'              }
+      }
     },
-    annual: {
-      pro:  { price:'39',    period:'per month · $470 billed annually · save $118/yr · ₹3,270 INR',   cta:'/upgrade.html?plan=pro-annual'  },
-      ent:  { price:'399',   period:'per month · $4,788 billed annually · save $1,200/yr · ₹33,300 INR', cta:'/contact-enterprise.html?billing=annual' },
-      mssp: { price:'1,599', period:'per month · $19,188 billed annually · save $4,800/yr · ₹1,33,300 INR', cta:'/mssp.html?billing=annual'   }
+    INR: {
+      monthly: {
+        pro:  { sym:'₹', price:'4,100',     period:'per month · billed monthly · ~$49 USD + 18% GST',     cta:'/upgrade.html?plan=pro'                 },
+        ent:  { sym:'₹', price:'41,600',    period:'per month · billed monthly · ~$499 USD + 18% GST',    cta:'/contact-enterprise.html'                },
+        mssp: { sym:'₹', price:'1,66,600',  period:'per month · unlimited clients · ~$1,999 USD + 18% GST',cta:'/mssp.html'                            }
+      },
+      annual: {
+        pro:  { sym:'₹', price:'3,260',     period:'per month · ₹39,120 billed annually · save ~20% · ~$39 USD',  cta:'/upgrade.html?plan=pro-annual'  },
+        ent:  { sym:'₹', price:'33,300',    period:'per month · ₹3,99,600 billed annually · save ~20% · ~$399 USD',cta:'/contact-enterprise.html?billing=annual'},
+        mssp: { sym:'₹', price:'1,33,500',  period:'per month · ₹16,02,000 billed annually · save ~20% · ~$1,599 USD',cta:'/mssp.html?billing=annual'  }
+      }
+    },
+    EUR: {
+      monthly: {
+        pro:  { sym:'€', price:'45',      period:'per month · billed monthly · indicative rate €1 ≈ $1.09',  cta:'/upgrade.html?plan=pro'              },
+        ent:  { sym:'€', price:'459',     period:'per month · billed monthly · indicative rate €1 ≈ $1.09',  cta:'/contact-enterprise.html'             },
+        mssp: { sym:'€', price:'1,839',   period:'per month · unlimited clients · indicative rate',           cta:'/mssp.html'                           }
+      },
+      annual: {
+        pro:  { sym:'€', price:'36',      period:'per month · €432 billed annually · save ~20% · indicative', cta:'/upgrade.html?plan=pro-annual'       },
+        ent:  { sym:'€', price:'367',     period:'per month · €4,404 billed annually · save ~20% · indicative',cta:'/contact-enterprise.html?billing=annual'},
+        mssp: { sym:'€', price:'1,471',   period:'per month · €17,652 billed annually · save ~20%',           cta:'/mssp.html?billing=annual'            }
+      }
+    },
+    GBP: {
+      monthly: {
+        pro:  { sym:'£', price:'39',      period:'per month · billed monthly · indicative rate £1 ≈ $1.27',  cta:'/upgrade.html?plan=pro'               },
+        ent:  { sym:'£', price:'394',     period:'per month · billed monthly · indicative rate £1 ≈ $1.27',  cta:'/contact-enterprise.html'              },
+        mssp: { sym:'£', price:'1,579',   period:'per month · unlimited clients · indicative rate',           cta:'/mssp.html'                            }
+      },
+      annual: {
+        pro:  { sym:'£', price:'31',      period:'per month · £372 billed annually · save ~20% · indicative', cta:'/upgrade.html?plan=pro-annual'        },
+        ent:  { sym:'£', price:'315',     period:'per month · £3,780 billed annually · save ~20% · indicative',cta:'/contact-enterprise.html?billing=annual'},
+        mssp: { sym:'£', price:'1,263',   period:'per month · £15,156 billed annually · save ~20%',           cta:'/mssp.html?billing=annual'             }
+      }
     }
   };
 
-  window.setBilling = function(mode) {
-    var isAnnual = (mode === 'annual');
-    document.getElementById('btn-monthly').classList.toggle('active', !isAnnual);
-    document.getElementById('btn-annual').classList.toggle('active', isAnnual);
-    var note = document.getElementById('annual-note');
-    note.classList.toggle('visible', isAnnual);
+  var _billing  = 'monthly';
+  var _currency = 'USD';
 
-    var p = PRICES[mode];
-    document.getElementById('price-pro').textContent   = p.pro.price;
-    document.getElementById('period-pro').textContent  = p.pro.period;
-    document.getElementById('price-ent').textContent   = p.ent.price;
-    document.getElementById('period-ent').textContent  = p.ent.period;
-    document.getElementById('price-mssp').textContent  = p.mssp.price;
-    document.getElementById('period-mssp').textContent = p.mssp.period;
-
-    // Update CTAs
+  function render() {
+    var p = PRICES[_currency][_billing];
+    document.getElementById('cur-sym-pro').textContent  = p.pro.sym;
+    document.getElementById('price-pro').textContent    = p.pro.price;
+    document.getElementById('period-pro').textContent   = p.pro.period;
+    document.getElementById('cur-sym-ent').textContent  = p.ent.sym;
+    document.getElementById('price-ent').textContent    = p.ent.price;
+    document.getElementById('period-ent').textContent   = p.ent.period;
+    document.getElementById('cur-sym-mssp').textContent = p.mssp.sym;
+    document.getElementById('price-mssp').textContent   = p.mssp.price;
+    document.getElementById('period-mssp').textContent  = p.mssp.period;
     var proBtn  = document.querySelector('[data-plan="pro"]');
     var entBtn  = document.querySelector('[data-plan="ent"]');
     var msspBtn = document.querySelector('[data-plan="mssp"]');
     if (proBtn)  proBtn.href  = p.pro.cta;
     if (entBtn)  entBtn.href  = p.ent.cta;
     if (msspBtn) msspBtn.href = p.mssp.cta;
+  }
 
-    // Track toggle in sessionStorage for upgrade page handoff
+  window.setBilling = function(mode) {
+    _billing = mode;
+    var isAnnual = (mode === 'annual');
+    document.getElementById('btn-monthly').classList.toggle('active', !isAnnual);
+    document.getElementById('btn-annual').classList.toggle('active', isAnnual);
+    document.getElementById('annual-note').classList.toggle('visible', isAnnual);
+    render();
     try { sessionStorage.setItem('billingMode', mode); } catch(e) {}
+  };
+
+  window.setCurrency = function(cur) {
+    _currency = cur;
+    ['USD','INR','EUR','GBP'].forEach(function(c) {
+      var el = document.getElementById('cur-' + c.toLowerCase());
+      if (el) el.classList.toggle('active', c === cur);
+    });
+    render();
+    try { sessionStorage.setItem('currency', cur); } catch(e) {}
   };
 })();
 </script>
