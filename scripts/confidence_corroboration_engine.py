@@ -36,7 +36,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 # ── Version ───────────────────────────────────────────────────────────────────
-ENGINE_VERSION = "1.0.0"
+ENGINE_VERSION = "1.0.1"
 ENGINE_NAME    = "SENTINEL-APEX-CONFIDENCE-ENGINE"
 
 # ── Feed paths (in priority order) ────────────────────────────────────────────
@@ -145,8 +145,8 @@ def _text_blob(item: dict) -> str:
         item.get("description", ""),
         item.get("summary", ""),
         item.get("source", ""),
-        " ".join(item.get("tags", [])),
-        " ".join(item.get("ttps", [])),
+        " ".join(t if isinstance(t, str) else str(t) for t in item.get("tags", [])),
+        " ".join(t if isinstance(t, str) else " ".join(filter(None, [t.get("technique_id", ""), t.get("name", "")])) for t in item.get("ttps", [])),
     ]
     return " ".join(str(p) for p in parts).lower()
 
