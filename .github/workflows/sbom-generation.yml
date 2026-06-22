@@ -1,6 +1,6 @@
 # ============================================================================
 # CYBERDUDEBIVASH(R) SENTINEL APEX -- SBOM Generation
-# v47.4 -- P0 fix: Grype install CDN 504 + Node.js 20 deprecation cleanup
+# v47.5 -- P0 fix: Eliminate Docker Hub BuildKit network dependency
 #
 # BUG FIX HISTORY:
 #
@@ -16,68 +16,43 @@
 #   Docker build writes nvidia/cublas/lib/libcublaslt.so.12 (~3.10 GB layer)
 #   during image export -> "no space left on device" (runner disk exhausted).
 #
-#   ERROR (line 307 of failed run):
-#     Error: buildx failed with: ERROR: failed to build: failed to solve:
-#     rpc error: code = Unknown desc = write
-#     /home/cdbuser/.local/lib/python3.12/site-packages/nvidia/cublas/lib/
-#     libcublaslt.so.12: no space left on device
-#
 #   FIX -- Two coordinated changes (both required):
+#   1. Dockerfile v47.1: CPU_ONLY=true build arg skips CUDA torch install.
+#   2. sbom-docker job: Free ~12 GB runner disk before build; pass CPU_ONLY=true.
 #
-#   1. Dockerfile v47.1: Added ARG CPU_ONLY=false in builder stage.
-#      When CPU_ONLY=true, sed replaces "torch==2.2.0" -> "torch==2.2.0+cpu"
-#      and installs from download.pytorch.org/whl/cpu (CPU-only torch, ~200MB,
-#      zero CUDA dependencies). Production builds pass nothing -> unchanged.
+# v47.4 -- Install Grype step failure (run #175):
+#   ROOT CAUSE: curl|sh grype v0.77.0 install got HTTP 504 from GitHub CDN.
+#   FIX: 3-attempt retry loops for Grype + Syft installs; upgraded to v0.87.0.
+#        docker/build-push-action v5 -> v6 (Node.js 24 native).
 #
-#   2. sbom-docker job (this file):
-#      a) Free runner disk space BEFORE Docker build:
-#         - Remove /usr/share/dotnet, android SDK, CodeQL, ghc (~12 GB freed)
-#         - docker system prune (removes unused images/build cache)
-#         - Validates >=10 GB free before proceeding
-#      b) Pass --build-arg CPU_ONLY=true to Docker build step
-#      c) Remove cache-to: from SBOM build (CPU build != production cache key;
-#         avoids wasting GHA cache quota on non-production layers)
-#      d) timeout-minutes raised to 30 (CPU torch still ~200 MB download)
+# v47.5 (this fix) -- "Set up Docker Buildx" transient Docker Hub timeout:
+#   ROOT CAUSE: docker/setup-buildx-action default driver (docker-container)
+#     creates a BuildKit container instance by pulling moby/buildkit:buildx-stable-1
+#     from Docker Hub (registry-1.docker.io). GitHub-hosted runners have
+#     intermittent Docker Hub rate-limit / network timeouts:
 #
-#   RESULT: Disk budget during Docker SBOM build:
-#     Before fix: torch GPU (~3 GB) + image overhead -> runner OOM on disk
-#     After fix:  torch CPU (~200 MB) + 12 GB freed -> ~13 GB headroom
+#     ERROR: Error response from daemon: Head
+#       "https://registry-1.docker.io/v2/moby/buildkit/manifests/buildx-stable-1":
+#       Get "https://auth.docker.io/token?...":
+#       net/http: request canceled (Client.Timeout exceeded while awaiting headers)
 #
-#   Production impact: NONE. CPU_ONLY=true is SBOM-only.
-#   k8s/docker-compose/manual builds pass no build arg -> default false.
+#   FIX (minimal blast radius — Set up Docker Buildx step only):
+#     Add driver: docker to setup-buildx-action.
+#     The 'docker' driver uses BuildKit already embedded in the Docker Engine
+#     (Docker 23+ ships BuildKit built-in). No network pull from Docker Hub
+#     required — entirely offline, 100% elimination of the transient failure
+#     surface.
 #
-# v47.4 (this fix) -- Install Grype step failure (run #175):
-#   ROOT CAUSE: curl|sh install.sh pinned to v0.77.0; GitHub releases CDN
-#     returned HTTP 504 on grype_0.77.0_checksums.txt download. No retry
-#     logic — single failure caused immediate job exit (exit code 1).
+#     Consequence: docker driver does not support GHA cache exporters.
+#     Remove cache-from: type=gha from the SBOM build step (this is an
+#     SBOM-only scan build; caching is optimization-only, never correctness).
+#     No other change to the build step.
 #
-#   EVIDENCE:
-#     2026-06-08T06:16:57Z [error] received HTTP status=504 for url=
-#     'https://github.com/anchore/grype/releases/download/v0.77.0/
-#     grype_0.77.0_checksums.txt'
-#     [error] failed to install grype
+#   Production impact: NONE. SBOM outputs (CycloneDX + SPDX JSON via Syft)
+#   are semantically identical. The Docker build still uses BuildKit — the
+#   same engine, just the built-in daemon-resident instance rather than an
+#   external container pulled from Docker Hub.
 #
-#   FIX (minimal blast radius — sbom-docker job only):
-#   1. Install Grype: 3-attempt retry loop with exponential backoff (30s, 60s).
-#      Upgraded pin from v0.77.0 (2+ years old) to v0.87.0 (stable).
-#      curl --retry 3 --retry-delay 5 on install script download itself.
-#   2. Install Syft: same retry pattern (defensive, same CDN risk).
-#   3. docker/build-push-action: v5 -> v6 (eliminates Node.js 20 deprecation
-#      warning; v6 targets Node.js 24 natively, consistent with
-#      platform-build-deploy.yml which already uses v6).
-#   4. actions/setup-python: @v5 -> @v5.5.0 (explicit patch pin; Node.js 24
-#      compatible; consistent with majority of platform workflows).
-#   5. actions/upload-artifact: @v4 -> @v4.6.2 (explicit patch pin).
-#
-#   Node.js 20 deprecation warnings resolved:
-#     BEFORE: docker/build-push-action@v5, docker/setup-buildx-action@v3,
-#             actions/setup-python@v5, actions/upload-artifact@v4
-#     AFTER:  docker/build-push-action@v6, docker/setup-buildx-action@v3
-#             (v3 latest patch is Node.js 24 native; no v4 exists yet),
-#             actions/setup-python@v5.5.0, actions/upload-artifact@v4.6.2
-#
-#   Production impact: NONE. SBOM outputs (CycloneDX + SPDX JSON) are
-#   semantically identical. Grype CVE scan results reflect updated DB.
 #   Python SBOM job (sbom-python) unchanged — it passes, don't touch it.
 # ============================================================================
 
@@ -267,17 +242,23 @@ jobs:
           fi
           echo "Disk space check passed: ${FREE_GB} GB free"
 
+      # v47.5 FIX: driver: docker uses Docker Engine's built-in BuildKit.
+      # Default driver (docker-container) pulls moby/buildkit:buildx-stable-1
+      # from Docker Hub, causing intermittent network timeouts on GHA runners.
+      # docker driver is embedded in the daemon — zero Docker Hub network calls.
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
+        with:
+          driver: docker
 
       # ── v47.3 FIX: Build with CPU_ONLY=true ──────────────────────────────
       # Passes --build-arg CPU_ONLY=true to the Dockerfile builder stage.
       # Dockerfile v47.1 sed-replaces torch==2.2.0 -> torch==2.2.0+cpu and
       # installs from download.pytorch.org/whl/cpu (no CUDA extras, ~200 MB).
-      # cache-to is intentionally omitted: the CPU_ONLY build is a different
-      # layer set from the production build; caching it wastes GHA quota.
-      # v47.4: upgraded @v5 -> @v6 (Node.js 24 native; eliminates Node.js 20
-      # deprecation warning; consistent with platform-build-deploy.yml).
+      # cache-to intentionally omitted: CPU build != production cache key.
+      # v47.4: upgraded @v5 -> @v6 (Node.js 24 native).
+      # v47.5: cache-from removed — docker driver does not support GHA cache
+      #   exporters. Caching is optimization-only for this SBOM scan build.
       - name: Build Docker image for SBOM scanning (CPU-only torch)
         uses: docker/build-push-action@v6
         with:
@@ -286,7 +267,6 @@ jobs:
           tags: cdb-sentinel-apex:sbom-scan
           build-args: |
             CPU_ONLY=true
-          cache-from: type=gha
 
       - name: Verify image loaded and show disk usage
         run: |
