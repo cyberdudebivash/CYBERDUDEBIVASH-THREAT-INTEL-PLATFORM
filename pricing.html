@@ -4,7 +4,7 @@
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
 <title>Pricing — CYBERDUDEBIVASH® SENTINEL APEX Threat Intelligence Platform</title>
-<meta name="description" content="Enterprise threat intelligence pricing. Free tier, PRO at ₹4,100/month, ENTERPRISE at ₹41,600/month. Sigma rules, KQL, STIX 2.1, MITRE ATT&CK v15, API access."/>
+<meta name="description" content="Enterprise threat intelligence pricing. Free tier, PRO at $49/month, Enterprise SOC at $499/month. Save 20% with annual billing. Sigma rules, KQL, STIX 2.1, MITRE ATT&amp;CK v15, API access."/>
 <meta property="og:title" content="Pricing — SENTINEL APEX Threat Intelligence"/>
 <meta property="og:description" content="Real-time CTI platform for SOC teams, MSSPs and security researchers. Free 7-day PRO trial available."/>
 <meta property="og:url" content="https://intel.cyberdudebivash.com/pricing.html"/>
@@ -78,6 +78,16 @@ body{background:#0f172a;color:#e2e8f0;font-family:'Inter',-apple-system,BlinkMac
 .btn-primary{background:#38bdf8;color:#0f172a;}
 .btn-outline{border:1px solid rgba(255,255,255,0.3);color:#fff;}
 footer{text-align:center;padding:32px 20px;color:#334155;font-size:12px;border-top:1px solid #1e293b;}
+/* Annual billing toggle */
+.billing-toggle-wrap{text-align:center;margin:0 0 40px;}
+.billing-toggle{display:inline-flex;background:#1e293b;border-radius:40px;padding:4px;gap:4px;}
+.toggle-btn{padding:10px 28px;border-radius:36px;border:none;background:transparent;color:#64748b;font-size:14px;font-weight:600;cursor:pointer;transition:all .2s;display:inline-flex;align-items:center;gap:8px;}
+.toggle-btn.active{background:#38bdf8;color:#0f172a;}
+.save-badge{background:#22c55e;color:#fff;font-size:10px;font-weight:800;padding:2px 8px;border-radius:20px;letter-spacing:0.5px;}
+.toggle-btn.active .save-badge{background:#0f172a;color:#22c55e;}
+.annual-note{font-size:12px;color:#22c55e;margin-top:10px;display:none;}
+.annual-note.visible{display:block;}
+.annual-strike{color:#475569;text-decoration:line-through;font-size:14px;font-weight:400;margin-right:4px;}
 @media(max-width:768px){.nav-links{display:none;}.hero h1{font-size:28px;}.pricing-grid{grid-template-columns:1fr;}}
 </style>
 <script type="application/ld+json">
@@ -120,6 +130,30 @@ footer{text-align:center;padding:32px 20px;color:#334155;font-size:12px;border-t
       "priceCurrency": "USD",
       "billingDuration": "P1M",
       "description": "White-label deployment, unlimited access, 15-min SLA, dedicated support."
+    },
+    {
+      "@type": "Offer",
+      "name": "PRO / SOC — Annual",
+      "price": "470",
+      "priceCurrency": "USD",
+      "billingDuration": "P1Y",
+      "description": "Full CTI platform billed annually. $39/mo equivalent — save 20% vs monthly."
+    },
+    {
+      "@type": "Offer",
+      "name": "Enterprise SOC — Annual",
+      "price": "4788",
+      "priceCurrency": "USD",
+      "billingDuration": "P1Y",
+      "description": "Enterprise SOC billed annually. $399/mo equivalent — save $1,200/yr vs monthly."
+    },
+    {
+      "@type": "Offer",
+      "name": "MSSP / White-Label — Annual",
+      "price": "19188",
+      "priceCurrency": "USD",
+      "billingDuration": "P1Y",
+      "description": "MSSP white-label billed annually. $1,599/mo equivalent — save $4,800/yr vs monthly."
     }
   ],
   "provider": {
@@ -151,6 +185,15 @@ footer{text-align:center;padding:32px 20px;color:#334155;font-size:12px;border-t
   <div class="trial-banner">⚡ 7-day free PRO trial · No credit card required · Cancel anytime</div>
 </section>
 
+<!-- BILLING TOGGLE -->
+<div class="billing-toggle-wrap">
+  <div class="billing-toggle">
+    <button class="toggle-btn active" id="btn-monthly" onclick="setBilling('monthly')">Monthly</button>
+    <button class="toggle-btn" id="btn-annual" onclick="setBilling('annual')">Annual <span class="save-badge">SAVE 20%</span></button>
+  </div>
+  <div class="annual-note" id="annual-note">Billed as one annual payment · Lock in price for 12 months · Cancel with 30-day notice</div>
+</div>
+
 <div class="pricing-grid">
 
   <!-- FREE -->
@@ -177,10 +220,10 @@ footer{text-align:center;padding:32px 20px;color:#334155;font-size:12px;border-t
   <!-- PRO -->
   <div class="plan-card featured">
     <div class="plan-name">PRO / SOC</div>
-    <div class="plan-price"><span class="plan-currency">$</span>49</div>
-    <div class="plan-period">per month · billed monthly · ₹4,100 INR</div>
+    <div class="plan-price"><span class="plan-currency">$</span><span id="price-pro">49</span></div>
+    <div class="plan-period" id="period-pro">per month · billed monthly · ₹4,100 INR</div>
     <div class="plan-desc">Full CTI platform for SOC analysts, threat hunters and security researchers.</div>
-    <a href="/upgrade.html?plan=pro" class="plan-btn plan-btn-primary">Start 7-Day Free Trial →</a>
+    <a href="/upgrade.html?plan=pro" class="plan-btn plan-btn-primary" data-plan="pro">Start 7-Day Free Trial →</a>
     <ul class="features-list">
       <li><span class="feature-check">✓</span> <strong>500 advisories per day</strong></li>
       <li><span class="feature-check">✓</span> Everything in Community</li>
@@ -200,10 +243,10 @@ footer{text-align:center;padding:32px 20px;color:#334155;font-size:12px;border-t
   <!-- ENTERPRISE -->
   <div class="plan-card">
     <div class="plan-name">Enterprise SOC</div>
-    <div class="plan-price"><span class="plan-currency">$</span>499</div>
-    <div class="plan-period">per month · billed monthly · ₹41,600 INR</div>
+    <div class="plan-price"><span class="plan-currency">$</span><span id="price-ent">499</span></div>
+    <div class="plan-period" id="period-ent">per month · billed monthly · ₹41,600 INR</div>
     <div class="plan-desc">For security teams, SOCs and enterprises needing full automation and SLA guarantees.</div>
-    <a href="/contact-enterprise.html" class="plan-btn plan-btn-enterprise">Contact Sales →</a>
+    <a href="/contact-enterprise.html" class="plan-btn plan-btn-enterprise" data-plan="ent">Contact Sales →</a>
     <ul class="features-list">
       <li><span class="feature-check">✓</span> <strong>Unlimited advisories</strong></li>
       <li><span class="feature-check">✓</span> Everything in PRO</li>
@@ -221,10 +264,10 @@ footer{text-align:center;padding:32px 20px;color:#334155;font-size:12px;border-t
   <!-- MSSP -->
   <div class="plan-card">
     <div class="plan-name">MSSP / White-Label</div>
-    <div class="plan-price"><span class="plan-currency">$</span>1,999</div>
-    <div class="plan-period">per month · unlimited clients · ₹1,66,600 INR</div>
+    <div class="plan-price"><span class="plan-currency">$</span><span id="price-mssp">1,999</span></div>
+    <div class="plan-period" id="period-mssp">per month · unlimited clients · ₹1,66,600 INR</div>
     <div class="plan-desc">Resell threat intelligence under your own brand. Unlimited tenant sub-keys.</div>
-    <a href="/mssp.html" class="plan-btn plan-btn-outline">Explore MSSP Program →</a>
+    <a href="/mssp.html" class="plan-btn plan-btn-outline" data-plan="mssp">Explore MSSP Program →</a>
     <ul class="features-list">
       <li><span class="feature-check">✓</span> Your logo &amp; brand (white-label)</li>
       <li><span class="feature-check">✓</span> Everything in Enterprise</li>
@@ -296,7 +339,7 @@ footer{text-align:center;padding:32px 20px;color:#334155;font-size:12px;border-t
   <h2>Frequently Asked Questions</h2>
   <div class="faq-item">
     <div class="faq-q">How does the 7-day free trial work? <span>+</span></div>
-    <div class="faq-a">Sign up at the upgrade page. You get full PRO access for 7 days at no cost. After 7 days, you choose to pay ₹4,100/month or drop back to the Community tier. No credit card required to start.</div>
+    <div class="faq-a">Sign up at the upgrade page. You get full PRO access for 7 days at no cost. After 7 days, choose to continue at $49/month (monthly) or $39/month (annual, billed $470/yr) — or drop back to Community. No credit card required to start.</div>
   </div>
   <div class="faq-item">
     <div class="faq-q">What payment methods are accepted? <span>+</span></div>
@@ -316,7 +359,15 @@ footer{text-align:center;padding:32px 20px;color:#334155;font-size:12px;border-t
   </div>
   <div class="faq-item">
     <div class="faq-q">Is there a student or researcher discount? <span>+</span></div>
-    <div class="faq-a">Yes. Students and independent security researchers get 50% off PRO (₹2,050/month). Send proof of enrollment or your security research profile to enterprise@cyberdudebivash.com.</div>
+    <div class="faq-a">Yes. Students and independent security researchers get 50% off PRO ($24.50/month, ~₹2,050). Send proof of enrollment or your security research profile to enterprise@cyberdudebivash.com.</div>
+  </div>
+  <div class="faq-item">
+    <div class="faq-q">How does annual billing work? <span>+</span></div>
+    <div class="faq-a">Select "Annual" above to switch to annual pricing — you save 20% versus month-to-month. PRO drops to $39/mo ($470 billed once per year), Enterprise SOC to $399/mo ($4,788/yr), and MSSP to $1,599/mo ($19,188/yr). Annual plans are pre-paid for 12 months and include price-lock protection — your rate will not increase at renewal. Cancel with 30 days' notice before the renewal date. Invoice and GST receipt provided immediately on purchase.</div>
+  </div>
+  <div class="faq-item">
+    <div class="faq-q">Can I switch between monthly and annual mid-cycle? <span>+</span></div>
+    <div class="faq-a">Yes — you can upgrade from monthly to annual at any time and we will credit the unused portion of your current month. To downgrade from annual to monthly, the switch takes effect at the next renewal date. Email enterprise@cyberdudebivash.com to request billing changes.</div>
   </div>
 </div>
 
@@ -348,9 +399,52 @@ footer{text-align:center;padding:32px 20px;color:#334155;font-size:12px;border-t
 </div>
 
 <footer>
-  <p>&copy; 2026 CYBERDUDEBIVASH PRIVATE LIMITED. All Rights Reserved. SENTINEL APEX v184.0</p>
+  <p>&copy; 2026 CYBERDUDEBIVASH PRIVATE LIMITED. All Rights Reserved. SENTINEL APEX v185.0</p>
   <p style="margin-top:4px;"><a href="/" style="color:#334155;">Dashboard</a> · <a href="/get-api-key.html" style="color:#334155;">API</a> · <a href="/upgrade.html" style="color:#334155;">Upgrade</a> · <a href="mailto:enterprise@cyberdudebivash.com" style="color:#334155;">Contact</a></p>
 </footer>
 
+<script>
+(function(){
+  var PRICES = {
+    monthly: {
+      pro:  { price:'49',    period:'per month · billed monthly · ₹4,100 INR',                         cta:'/upgrade.html?plan=pro'         },
+      ent:  { price:'499',   period:'per month · billed monthly · ₹41,600 INR',                        cta:'/contact-enterprise.html'        },
+      mssp: { price:'1,999', period:'per month · unlimited clients · ₹1,66,600 INR',                   cta:'/mssp.html'                      }
+    },
+    annual: {
+      pro:  { price:'39',    period:'per month · $470 billed annually · save $118/yr · ₹3,270 INR',   cta:'/upgrade.html?plan=pro-annual'  },
+      ent:  { price:'399',   period:'per month · $4,788 billed annually · save $1,200/yr · ₹33,300 INR', cta:'/contact-enterprise.html?billing=annual' },
+      mssp: { price:'1,599', period:'per month · $19,188 billed annually · save $4,800/yr · ₹1,33,300 INR', cta:'/mssp.html?billing=annual'   }
+    }
+  };
+
+  window.setBilling = function(mode) {
+    var isAnnual = (mode === 'annual');
+    document.getElementById('btn-monthly').classList.toggle('active', !isAnnual);
+    document.getElementById('btn-annual').classList.toggle('active', isAnnual);
+    var note = document.getElementById('annual-note');
+    note.classList.toggle('visible', isAnnual);
+
+    var p = PRICES[mode];
+    document.getElementById('price-pro').textContent   = p.pro.price;
+    document.getElementById('period-pro').textContent  = p.pro.period;
+    document.getElementById('price-ent').textContent   = p.ent.price;
+    document.getElementById('period-ent').textContent  = p.ent.period;
+    document.getElementById('price-mssp').textContent  = p.mssp.price;
+    document.getElementById('period-mssp').textContent = p.mssp.period;
+
+    // Update CTAs
+    var proBtn  = document.querySelector('[data-plan="pro"]');
+    var entBtn  = document.querySelector('[data-plan="ent"]');
+    var msspBtn = document.querySelector('[data-plan="mssp"]');
+    if (proBtn)  proBtn.href  = p.pro.cta;
+    if (entBtn)  entBtn.href  = p.ent.cta;
+    if (msspBtn) msspBtn.href = p.mssp.cta;
+
+    // Track toggle in sessionStorage for upgrade page handoff
+    try { sessionStorage.setItem('billingMode', mode); } catch(e) {}
+  };
+})();
+</script>
 </body>
 </html>
