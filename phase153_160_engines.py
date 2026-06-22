@@ -293,7 +293,7 @@ def _generate_invoice(org_id: str, amount: float, description: str,
     payment_instructions = {}
     if payment_method == "UPI":
         payment_instructions = {
-            "upi_id":  "bivash@cyberdudebivash",
+            "upi_id":  "bivash@ybl",
             "amount":  f"₹{round(amount * 83.5, 2)} INR ({amount} USD)",
             "note":    f"Invoice {inv_id}",
             "qr_url":  f"https://intel.cyberdudebivash.com/billing/qr/{inv_id}",

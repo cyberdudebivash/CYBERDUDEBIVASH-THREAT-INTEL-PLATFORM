@@ -225,7 +225,7 @@ Each score is evidence-backed. Scores are NOT aspirational — they reflect the 
 ### SCORE 5: Customer Support Readiness
 
 **Evidence:**
-- Email support exists (bivash@cyberdudebivash.com) ✓
+- Email support exists (enterprise@cyberdudebivash.com) ✓
 - WhatsApp support exists (+91 8179881447) ✓
 - sla.html page exists ✓
 - Customer success center page exists ✓
@@ -407,4 +407,4 @@ The commercial gap is solvable in 5-7 working days of focused effort. The fixes 
 *Commercial Readiness Report: 2026-06-04*
 *SENTINEL APEX v175.0 — CYBERDUDEBIVASH*
 *Platform: intel.cyberdudebivash.com*
-*Contact: bivash@cyberdudebivash.com*
+*Contact: enterprise@cyberdudebivash.com*

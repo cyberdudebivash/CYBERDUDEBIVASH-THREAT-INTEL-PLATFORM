@@ -329,8 +329,8 @@ li {{margin-bottom:6px;}}
 </div>
 <div class="footer">
   <p><strong>CYBERDUDEBIVASH(R) SENTINEL APEX</strong> - <a href="https://intel.cyberdudebivash.com">intel.cyberdudebivash.com</a></p>
-  <p style="margin-top:8px;">(C) {year} CyberDudeBivash Pvt. Ltd. * Bhubaneswar, Odisha, India * <a href="mailto:bivash@cyberdudebivash.com">bivash@cyberdudebivash.com</a></p>
-  <p style="margin-top:8px;font-size:0.75rem;color:#334155;">TLP:GREEN - This report may be distributed without restriction. For Enterprise licensing: bivash@cyberdudebivash.com</p>
+  <p style="margin-top:8px;">(C) {year} CyberDudeBivash Pvt. Ltd. * Bhubaneswar, Odisha, India * <a href="mailto:enterprise@cyberdudebivash.com">enterprise@cyberdudebivash.com</a></p>
+  <p style="margin-top:8px;font-size:0.75rem;color:#334155;">TLP:GREEN - This report may be distributed without restriction. For Enterprise licensing: enterprise@cyberdudebivash.com</p>
 </div>
 </body>
 </html>"""

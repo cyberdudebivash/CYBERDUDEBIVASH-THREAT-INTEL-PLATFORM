@@ -147,7 +147,7 @@ This briefing is produced using SENTINEL APEX threat intelligence, processed fro
 Intelligence is STIX 2.1 compliant, MITRE ATT&CK v15 mapped, and TLP-classified.
 
 **Next briefing:** [DATE]
-**Contact:** bivash@cyberdudebivash.com | +91 8179881447
+**Contact:** enterprise@cyberdudebivash.com | +91 8179881447
 **Full platform:** https://intel.cyberdudebivash.com
 
 ---

@@ -1066,7 +1066,7 @@ async def onboarding_guide():
             "dashboard":        DASHBOARD,
             "telegram_alerts":  "https://t.me/cyberdudebivashSentinelApex",
             "docs":             "/api/docs",
-            "contact":          "bivash@cyberdudebivash.com",
+            "contact":          "enterprise@cyberdudebivash.com",
         },
     }
 

@@ -35,7 +35,7 @@ GUMROAD_PRODUCTS = {
 }
 
 ENTERPRISE_INQUIRY_URL = "https://www.cyberdudebivash.com/#contact"
-ENTERPRISE_EMAIL = "bivash@cyberdudebivash.com"
+ENTERPRISE_EMAIL = "enterprise@cyberdudebivash.com"
 WHATSAPP_URL = "https://wa.me/918179881447"
 PLATFORM_URL = "https://intel.cyberdudebivash.com"
 GUMROAD_STORE = "https://tools.cyberdudebivash.com/"

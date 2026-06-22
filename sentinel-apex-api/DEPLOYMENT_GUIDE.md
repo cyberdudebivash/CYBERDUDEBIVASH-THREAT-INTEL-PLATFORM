@@ -143,7 +143,7 @@ curl https://YOUR_RAILWAY_URL/
 curl -X POST https://YOUR_RAILWAY_URL/auth/signup \
   -H "Content-Type: application/json" \
   -d '{
-    "email": "bivash@cyberdudebivash.com",
+    "email": "enterprise@cyberdudebivash.com",
     "password": "YourStrong1Pass!",
     "full_name": "Bivash Kumar Nayak"
   }'
@@ -156,7 +156,7 @@ Expected: 201 response with access_token + user profile.
 curl -X POST https://YOUR_RAILWAY_URL/auth/signin \
   -H "Content-Type: application/json" \
   -d '{
-    "email": "bivash@cyberdudebivash.com",
+    "email": "enterprise@cyberdudebivash.com",
     "password": "YourStrong1Pass!"
   }'
 ```

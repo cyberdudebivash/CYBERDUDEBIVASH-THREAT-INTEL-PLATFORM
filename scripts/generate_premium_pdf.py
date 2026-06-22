@@ -1247,7 +1247,7 @@ def _section_appendix(report: dict, st: dict) -> list:
         "security purposes only. CYBERDUDEBIVASH accepts no liability for actions taken based "
         "on this intelligence. Redistribution, resale, or disclosure to unauthorized parties "
         "is strictly prohibited without written consent. "
-        "For licensing inquiries: bivash@cyberdudebivash.com"
+        "For licensing inquiries: enterprise@cyberdudebivash.com"
     )
     elems.append(Paragraph(legal, st["Body"]))
     return elems

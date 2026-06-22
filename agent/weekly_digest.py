@@ -28,7 +28,7 @@ GUMROAD_STORE = "https://tools.cyberdudebivash.com/"
 PLATFORM_URL  = "https://intel.cyberdudebivash.com"
 BLOG_URL      = "https://cyberbivash.blogspot.com"
 WEBSITE_URL   = "https://cyberdudebivash.com"
-ENTERPRISE_EMAIL = "bivash@cyberdudebivash.com"
+ENTERPRISE_EMAIL = "enterprise@cyberdudebivash.com"
 WHATSAPP_URL  = "https://wa.me/918179881447"
 
 # UTM params for digest links

@@ -104,7 +104,7 @@ CDB_IDENTITY = {
     "description": "CyberDudeBivash Pvt. Ltd. - Global Cybersecurity Intelligence Infrastructure",
     "identity_class": "organization",
     "sectors": ["technology"],
-    "contact_information": "bivash@cyberdudebivash.com",
+    "contact_information": "enterprise@cyberdudebivash.com",
     "created": "2024-01-01T00:00:00Z",
     "modified": "2024-01-01T00:00:00Z",
 }

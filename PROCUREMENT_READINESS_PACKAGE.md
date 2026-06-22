@@ -19,7 +19,7 @@ This package contains all documentation required by enterprise procurement teams
 | Vendor type | SaaS / API service |
 | Website | https://intel.cyberdudebivash.com |
 | Primary contact | Bivash Nayak |
-| Email | bivash@cyberdudebivash.com |
+| Email | enterprise@cyberdudebivash.com |
 | Phone/WhatsApp | +91 8179881447 |
 | GSTIN | 21ARKPN8270G1ZP |
 | Bank details | Available on signed NDA or upon payment initiation |
@@ -75,7 +75,7 @@ An MSA is available for Enterprise and MSSP customers. The MSA covers:
 - Termination conditions
 - Governing law
 
-**Request MSA:** bivash@cyberdudebivash.com — Subject: "MSA Request — [COMPANY NAME]"
+**Request MSA:** enterprise@cyberdudebivash.com — Subject: "MSA Request — [COMPANY NAME]"
 **Turnaround:** 2 business days
 
 ---
@@ -94,7 +94,7 @@ An MSA is available for Enterprise and MSSP customers. The MSA covers:
 | Cyber insurance certificate | Not currently held | — |
 | References | Available (beta users) | On request |
 
-**Note:** SENTINEL APEX is a solo-operated startup. Procurement documentation typically available within 2 business days. For documents not listed, contact bivash@cyberdudebivash.com directly.
+**Note:** SENTINEL APEX is a solo-operated startup. Procurement documentation typically available within 2 business days. For documents not listed, contact enterprise@cyberdudebivash.com directly.
 
 ---
 

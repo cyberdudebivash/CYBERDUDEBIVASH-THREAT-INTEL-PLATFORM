@@ -111,7 +111,7 @@ REAL_BANK_ACCOUNT    = b"915010024617260"
 REAL_IFSC            = b"UTIB0000052"
 REAL_GSTIN           = b"21ARKPN8270G1ZP"
 REAL_WHATSAPP        = b"8179881447"
-REAL_CONTACT_EMAIL   = b"bivash@cyberdudebivash.com"
+REAL_CONTACT_EMAIL   = b"enterprise@cyberdudebivash.com"
 REAL_FORMSPREE       = b"formspree.io"
 
 # Placeholder credentials that must NOT appear

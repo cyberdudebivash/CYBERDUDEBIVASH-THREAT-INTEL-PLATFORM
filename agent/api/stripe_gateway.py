@@ -19,7 +19,7 @@ Required ENV:
   STRIPE_SECRET_KEY      - Your Stripe secret key (sk_live_... or sk_test_...)
   STRIPE_WEBHOOK_SECRET  - Endpoint signing secret (whsec_...)
   SENDGRID_API_KEY       - For provisioning emails (reuses existing key)
-  SENDER_EMAIL           - bivash@cyberdudebivash.com
+  SENDER_EMAIL           - enterprise@cyberdudebivash.com
 
 Setup:
   1. pip install stripe
@@ -71,7 +71,7 @@ API_KEYS_DB_PATH  = os.environ.get("CDB_API_KEYS_PATH", "data/api_keys.json")
 REVENUE_LOG_PATH  = "data/revenue_log.json"
 
 # Email sender
-SENDER_EMAIL = os.environ.get("SENDER_EMAIL", "bivash@cyberdudebivash.com")
+SENDER_EMAIL = os.environ.get("SENDER_EMAIL", "enterprise@cyberdudebivash.com")
 SENDER_NAME  = os.environ.get("SENDER_NAME", "CyberDudeBivash SENTINEL APEX")
 SENDGRID_KEY = os.environ.get("SENDGRID_API_KEY", "")
 
@@ -385,7 +385,7 @@ class StripeGateway:
 
   <p style="font-size:11px;color:#334155;margin-top:28px;border-top:1px solid #1e293b;padding-top:16px;">
     CYBERDUDEBIVASH Pvt. Ltd. * Bhubaneswar, Odisha, India<br>
-    bivash@cyberdudebivash.com * intel.cyberdudebivash.com
+    enterprise@cyberdudebivash.com * intel.cyberdudebivash.com
   </p>
 </div>
 </body>

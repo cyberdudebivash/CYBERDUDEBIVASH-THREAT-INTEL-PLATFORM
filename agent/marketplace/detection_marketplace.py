@@ -398,7 +398,7 @@ body {{ background:#06080d; color:#cbd5e1; font-family:'Inter',sans-serif; max-w
 {pack_cards}
 <div style="text-align:center;padding:40px;color:#475569;font-size:0.8rem;">
   <p>CYBERDUDEBIVASH(R) SENTINEL APEX * <a href="https://intel.cyberdudebivash.com" style="color:#00d4aa;">intel.cyberdudebivash.com</a></p>
-  <p>Enterprise licensing: <a href="mailto:bivash@cyberdudebivash.com" style="color:#00d4aa;">bivash@cyberdudebivash.com</a></p>
+  <p>Enterprise licensing: <a href="mailto:enterprise@cyberdudebivash.com" style="color:#00d4aa;">enterprise@cyberdudebivash.com</a></p>
 </div>
 </body>
 </html>"""
