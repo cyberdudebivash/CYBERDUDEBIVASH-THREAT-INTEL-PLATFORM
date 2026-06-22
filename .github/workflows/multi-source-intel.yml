@@ -1,10 +1,10 @@
 # =============================================================================
-# CYBERDUDEBIVASH(R) SENTINEL APEX v142.0 - MULTI-SOURCE INTELLIGENCE ENRICHMENT
+# CYBERDUDEBIVASH(R) SENTINEL APEX v184.0 - MULTI-SOURCE INTELLIGENCE ENRICHMENT
 # Version: v184.0 - P0 TIMESTAMP INTEGRITY FIX
 # Race condition FIX: Cron unchanged - '45 1,5,9,13,17,21 * * *'
 #                     (sentinel-blogger runs at 0,4,8,12,16,20 - no overlap)
 #
-# v142.0 CHANGES (P0 Intel Ingestion Fix):
+# v184.0 CHANGES (P0 Intel Ingestion Fix):
 #   - REPLACED broken ManifestMerger (class never existed) with true_intel_ingestor.py
 #   - REPLACED broken SourceIntelligenceOrchestrator import (import path wrong)
 #   - NOW commits feed_state.json + processed_intel.json for cross-run state persistence
@@ -54,7 +54,7 @@ jobs:
         run: python3 scripts/bootstrap_critical_files.py
 
       # 
-      # TRUE INCREMENTAL INGESTION (P0 FIX v142.0)
+      # TRUE INCREMENTAL INGESTION (P0 FIX v184.0)
       # Replaces the broken ManifestMerger + SourceIntelligenceOrchestrator.
       # true_intel_ingestor.py:
       #   - Fetches CISA KEV, NVD CVE, GitHub Advisories, ransomware.live, URLhaus, RSS
@@ -104,7 +104,7 @@ jobs:
           git add -f data/processed_intel.json     2>/dev/null || true  # dedup fingerprint store
           git add -f data/stix/feed_manifest.json  2>/dev/null || true  # intel manifest (additive)
 
-          # v171.0 P0: Run Intelligence Persistence Engine after every ingest
+          # v184.0 P0: Run Intelligence Persistence Engine after every ingest
           python3 scripts/intel_persistence_engine.py 2>/dev/null || true
 
           # Stage repository files (append-only, never lose intelligence)
@@ -128,7 +128,7 @@ jobs:
           except: print('?')
           " 2>/dev/null || echo "?")
 
-          git commit -m "Intel v142.0 incremental ingest | ${NEW_COUNT} sources tracked | $(date -u +'%Y-%m-%dT%H:%M:%SZ') [skip ci]"
+          git commit -m "Intel v184.0 incremental ingest | ${NEW_COUNT} sources tracked | $(date -u +'%Y-%m-%dT%H:%M:%SZ') [skip ci]"
 
           # Push with retry + rebase strategy
           for i in 1 2 3 4; do

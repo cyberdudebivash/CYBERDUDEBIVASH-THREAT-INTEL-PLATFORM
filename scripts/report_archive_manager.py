@@ -132,7 +132,7 @@ def _check_pages_deploy_safe() -> bool:
     """
     Verify Pages deploy configuration for archive compatibility.
 
-    v176.0 ARCHITECTURE UPDATE (permanent fix):
+    v184.0 ARCHITECTURE UPDATE (permanent fix):
     Previously this function required 'clean: false' to allow archiving.
     That check is now REMOVED because:
 
@@ -296,7 +296,7 @@ def run_archive(retention_days: int, dry_run: bool) -> int:
     log.info("Cutoff date      : %s", cutoff.strftime("%Y-%m-%d"))
     log.info("Mode             : %s", "DRY-RUN (no changes)" if dry_run else "EXECUTE")
 
-    # Safety check: validate Pages deploy configuration (v176.0: always safe under R2-first arch)
+    # Safety check: validate Pages deploy configuration (v184.0: always safe under R2-first arch)
     _check_pages_deploy_safe()
 
     # Enumerate tracked reports

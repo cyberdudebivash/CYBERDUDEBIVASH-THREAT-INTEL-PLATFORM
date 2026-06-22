@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """
-SEVERITY RECALIBRATION ENGINE  v182.0  -- SENTINEL APEX
+SEVERITY RECALIBRATION ENGINE  v184.0  -- SENTINEL APEX
 =========================================================
 Applies mandatory severity floors based on threat intelligence signals.
-v182.0: Now delegates to SeverityInvariantInterceptor (severity_invariant_interceptor.py)
+v184.0: Now delegates to SeverityInvariantInterceptor (severity_invariant_interceptor.py)
 for the authoritative P0 invariant rules, then applies legacy floor logic.
 
-INVARIANT RULES (v182.0 — enforced by SeverityInvariantInterceptor):
+INVARIANT RULES (v184.0 — enforced by SeverityInvariantInterceptor):
   Rule C (CRITICAL invariant — fires regardless of current severity):
     ANY of: CVSS >= 9.0, CISA KEV, active_exploitation, public_exploit_code,
             threat_class in {rce, auth_bypass}
@@ -27,7 +27,7 @@ LEGACY FLOORS (maintained for backward compatibility):
   Active exploitation signals in title/content = HIGH minimum
   Ransomware = HIGH minimum
   Zero-Day = HIGH minimum
-  CVSS >= 9.0 = CRITICAL minimum (v182.0 — was HIGH minimum before)
+  CVSS >= 9.0 = CRITICAL minimum (v184.0 — was HIGH minimum before)
   EPSS >= 0.70 = HIGH minimum
   CISA warning = HIGH minimum
 
@@ -42,7 +42,7 @@ VERSION = "182.0"
 _SEV_RANK = {"NONE": 0, "LOW": 1, "MEDIUM": 2, "HIGH": 3, "CRITICAL": 4}
 _RANK_SEV = {v: k for k, v in _SEV_RANK.items()}
 
-# ── v182.0: Add keyword patterns for active exploitation (P0 invariant) ──────
+# ── v184.0: Add keyword patterns for active exploitation (P0 invariant) ──────
 _ACTIVE_EXPLOIT_RE = re.compile(
     r'actively exploit(?:ing|ed)?|under active attack|mass exploit(?:ation)?'
     r'|exploiting in the wild|exploited in the wild',
@@ -119,11 +119,11 @@ def compute_minimum_severity(item: dict) -> tuple:
                 except (TypeError, ValueError):
                     pass
         if cvss >= 9.0:
-            # v182.0 P0 INVARIANT: CVSS >= 9.0 mandates CRITICAL (was HIGH/CRITICAL at 9.5).
+            # v184.0 P0 INVARIANT: CVSS >= 9.0 mandates CRITICAL (was HIGH/CRITICAL at 9.5).
             # Rationale: NVD CVSS v3 "Critical" band starts at 9.0; any such score
             # means arbitrary-code-execution or equivalent impact is plausible.
             min_rank = max(min_rank, _SEV_RANK["CRITICAL"])
-            reasons.append(f"CVSS={cvss}>=9.0:CRITICAL_minimum:v182.0_invariant")
+            reasons.append(f"CVSS={cvss}>=9.0:CRITICAL_minimum:v184.0_invariant")
         elif cvss >= 7.0:
             # CVSS 7.0–8.9 → HIGH minimum (NVD HIGH band).
             min_rank = max(min_rank, _SEV_RANK["HIGH"])
@@ -157,7 +157,7 @@ def recalibrate_item(item: dict) -> tuple:
     """
     Apply severity floor to item. Returns (updated_item, was_changed, old_sev, new_sev, reasons).
 
-    v182.0: After applying legacy floor logic, delegates to SeverityInvariantInterceptor
+    v184.0: After applying legacy floor logic, delegates to SeverityInvariantInterceptor
     to enforce the full P0 invariant policy (priority, threat_level, risk_score floors).
     """
     current = (item.get("severity") or "LOW").upper()
@@ -171,7 +171,7 @@ def recalibrate_item(item: dict) -> tuple:
         out["_severity_recalibrated"] = True
         out["_severity_original"] = current
         out["_severity_reasons"] = reasons
-        # v182.0: Apply P0 invariant priority / threat_level / risk_score fields.
+        # v184.0: Apply P0 invariant priority / threat_level / risk_score fields.
         # These are mandatory governance fields that must co-travel with severity.
         _cvss_val = 0.0
         for _f in ("cvss_score", "cvss", "cvss_base", "cvss_v3", "cvss3_score"):

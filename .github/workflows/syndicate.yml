@@ -137,7 +137,7 @@ jobs:
           git config user.email "bivash@cyberdudebivash.com"
           git add -f data/syndication_state.json data/last_run_summary.json data/syndication_run.log 2>/dev/null || true
           git diff --staged --quiet || git commit -m " Syndication state update  -  $(date -u +'%Y-%m-%d %H:%M UTC')"
-          # FIX v148.0 BUG-B: stash-safe 5-attempt push retry
+          # FIX v184.0 BUG-B: stash-safe 5-attempt push retry
           git stash --include-untracked --quiet 2>/dev/null || true
           git fetch origin main --quiet 2>/dev/null || true
           git rebase origin/main --quiet 2>/dev/null || { git rebase --abort 2>/dev/null || true; git merge origin/main -X ours --no-edit --quiet 2>/dev/null || true; }
@@ -161,7 +161,7 @@ jobs:
           git config user.email "bivash@cyberdudebivash.com"
           git add -f data/syndication_queue/ 2>/dev/null || true
           git diff --staged --quiet || git commit -m " APEX Matrix state update [skip ci]"
-          # FIX v148.0 BUG-A: if-statement is set-e-immune; stash prevents exit-128
+          # FIX v184.0 BUG-A: if-statement is set-e-immune; stash prevents exit-128
           git stash --include-untracked --quiet 2>/dev/null || true
           git fetch origin main --quiet 2>/dev/null || true
           git rebase origin/main --quiet 2>/dev/null || { git rebase --abort 2>/dev/null || true; git merge origin/main -X ours --no-edit --quiet 2>/dev/null || true; }

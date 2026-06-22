@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-scripts/kev_feed_marker.py  — SENTINEL APEX v175.1 CISA KEV Feed Marker
-P0-FIX v175.1:
+scripts/kev_feed_marker.py  — SENTINEL APEX v184.0 CISA KEV Feed Marker
+P0-FIX v184.0:
   - _extract_cve() now checks cve_id/cve_ids/cves fields (was only 'cve')
   - _is_kev_true() replaces bare `if item.get('kev'):`  — handles kev="NO"
   - De-inflation pass: kev=True items whose CVE is NOT in catalog get cleared
@@ -102,7 +102,7 @@ def _extract_cve(item: dict) -> list:
 
 def main() -> int:
     log.info("=" * 60)
-    log.info("SENTINEL APEX — CISA KEV Feed Marker v175.1")
+    log.info("SENTINEL APEX — CISA KEV Feed Marker v184.0")
     log.info("Feed : %s | DryRun: %s", FEED_PATH, DRY_RUN)
     log.info("=" * 60)
 

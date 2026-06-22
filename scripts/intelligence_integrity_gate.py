@@ -571,7 +571,7 @@ _KEV_CATALOG_PATHS = [
     REPO_ROOT / "data" / "correlation" / "kev_catalog.json",
 ]
 _KEV_LIVE_URL = "https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json"
-_KEV_CATALOG_MAX_AGE_DAYS = 1    # v175.1 FIX: fetch live if catalog >1 day old.
+_KEV_CATALOG_MAX_AGE_DAYS = 1    # v184.0 FIX: fetch live if catalog >1 day old.
 # Root cause: kev_feed_marker fetches LIVE catalog; gate used 3-day-old LOCAL
 # cache -> CVE-2026-28318 (added 2026-06-05) not found -> false INFLATION HARD_FAIL.
 # Reducing from 30->1 ensures gate always validates against the same-day catalog.
@@ -641,7 +641,7 @@ def _load_kev_catalog() -> Tuple[Optional[set], str]:
       1. Local catalog file (if fresh, i.e. age <= _KEV_CATALOG_MAX_AGE_DAYS)
       2. Live CISA fetch (if local is stale or missing) — refreshes local cache
     Returns (set|None, version).
-    P0-FIX v175.0: Added live-fetch fallback so the gate never cross-validates
+    P0-FIX v184.0: Added live-fetch fallback so the gate never cross-validates
     against a stale catalog. Stale catalog was causing false INFLATION HARD_FAIL
     for legitimate KEV entries added after the local catalog's cutoff date
     (confirmed: CVE-2026-0257 added 2026-05-29, local catalog was 2026.04.02).

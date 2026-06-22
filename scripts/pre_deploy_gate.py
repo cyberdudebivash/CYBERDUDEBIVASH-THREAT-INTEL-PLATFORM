@@ -95,7 +95,7 @@ gate("404.html exists",
 
 # ── GATE 7: Service worker has a valid sentinel-apex-vXXX cache version ─────
 # v166.3 FIX: Gate previously hardcoded 'sentinel-apex-v173' which became
-# permanently stale when SW was upgraded to v175. Now checks for ANY valid
+# permanently stale when SW was upgraded to v184.0. Now checks for ANY valid
 # sentinel-apex-vNNN version string (version-agnostic, future-proof).
 sw_src = SW.read_text(encoding='utf-8') if SW.exists() else ""
 import re as _re_sw

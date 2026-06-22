@@ -1,5 +1,5 @@
 # =============================================================================
-# CYBERDUDEBIVASH(R) SENTINEL APEX v142.3.1  -  Worker Auto-Deploy
+# CYBERDUDEBIVASH(R) SENTINEL APEX v184.0  -  Worker Auto-Deploy
 # =============================================================================
 # Deploys the Cloudflare Worker whenever src/** or wrangler.toml changes.
 # Secrets required: CF_API_TOKEN, CF_ACCOUNT_ID
@@ -12,7 +12,7 @@
 #   * This workflow validates it is configured AFTER deployment
 #   * NEVER hardcode or fallback-generate the secret  -  it must be explicit
 #
-# STABILITY GUARANTEES (v142.3.1):
+# STABILITY GUARANTEES (v184.0):
 #   * PLATFORM_VERSION is auto-injected from config/version.json (SSOT)
 #   * All 5 Worker JS files checked for null bytes + non-ASCII BEFORE deploy
 #   * All 5 Worker JS files syntax-validated via node --check BEFORE deploy
@@ -21,7 +21,7 @@
 #   * Deploy retried once on transient failure
 #   * Health check is informational-only (never blocks deploy success)
 #
-# HARDENING (v149.0 - ENTERPRISE GRADE):
+# HARDENING (v184.0 - ENTERPRISE GRADE):
 #   * CI BOT GUARD: job-level if: condition blocks github-actions[bot] push
 #     triggers. sentinel-blogger commits config/version.json with [skip ci]
 #     but this guard adds defense-in-depth so bot pushes NEVER redeploy Worker.
@@ -48,7 +48,7 @@ permissions:
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
   WORKER_DIR: workers/intel-gateway
-  # v148.1.0 FIX: updated from stale 147.0.0. Note: this default is overridden
+  # v184.0 FIX: updated from stale 147.0.0. Note: this default is overridden
   # at runtime by the "Inject version from config/version.json" step (SSOT).
   PLATFORM_VERSION: "184.0"
 
@@ -63,7 +63,7 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    # CI BOT GUARD (v149.0 HARDENING):
+    # CI BOT GUARD (v184.0 HARDENING):
     # Block deploy when triggered by github-actions[bot] push events.
     # Data pipelines (sentinel-blogger etc.) commit config/version.json with
     # [skip ci] -- but this guard is defense-in-depth so no bot commit can
@@ -102,7 +102,7 @@ jobs:
           print(f'PLATFORM_VERSION injected into GITHUB_ENV: {v}')
           "
 
-      # a'a'a' v143.1 DATA INTEGRITY HARD-FAIL GATES a'a'a'a'a'a'a'a'a'a'a'a'a'a'a'a'a'a'a'a'a'a'a'a'a'a'a'a'a'a'a'a'a'a'a'
+      # a'a'a' v184.0 DATA INTEGRITY HARD-FAIL GATES a'a'a'a'a'a'a'a'a'a'a'a'a'a'a'a'a'a'a'a'a'a'a'a'a'a'a'a'a'a'a'a'a'a'a'
       # Worker serves live data a' block deploy if underlying data is corrupt.
       - name: "Setup Python for data integrity gates"
         uses: actions/setup-python@v5
@@ -127,7 +127,7 @@ jobs:
           python3 scripts/sanitize_encoding.py --fix
           echo "Encoding sanitization: OK"
 
-      - name: " Worker JS ASCII enforcement (P0 permanent fix v153.1)"
+      - name: " Worker JS ASCII enforcement (P0 permanent fix v184.0)"
         # ROOT CAUSE FIX (commit-144fc10 regression):
         # sanitize_encoding.py only handled BOM/CRLF/null, NOT Unicode chars.
         # sanitize_encoding.py now includes Worker ASCII enforcement AND this
@@ -292,7 +292,7 @@ jobs:
           echo "=== esbuild pre-flight PASSED -- deploy unblocked ==="
 
       - name: " Version governance check (HARD GATE -- prevents GATE B drift)"
-        # v153.1 PERMANENT FIX: Run version_governance --check immediately before deploy.
+        # v184.0 PERMANENT FIX: Run version_governance --check immediately before deploy.
         # This is the root cause fix for the recurring GATE B version mismatch.
         #
         # Root cause: index.js GATEWAY_VERSION was bumped manually (commit-144fc10)
@@ -350,7 +350,7 @@ jobs:
           LOG=/tmp/wrangler_deploy.log
 
           # -----------------------------------------------------------------
-          # v177.1 PERMANENT FIX -- Workers Routes token-scope resilience
+          # v184.0 PERMANENT FIX -- Workers Routes token-scope resilience
           # -----------------------------------------------------------------
           # Root cause (deploy-worker run #142): the CLOUDFLARE_API_TOKEN has
           # `Account -> Workers Scripts: Edit` (script upload + activation works)

@@ -106,7 +106,7 @@ class VanguardEngine:
                 logger.warning(f"VANGUARD IOC validation failed (non-critical): {e}")
 
         # -- 2. KEV Enrichment --
-        # P0-FIX v175.0: KEV attribution MUST be scoped to the PRIMARY advisory CVE only.
+        # P0-FIX v184.0: KEV attribution MUST be scoped to the PRIMARY advisory CVE only.
         # cve_ids contains ALL CVEs extracted from article text (primary + any referenced CVEs).
         # Iterating beyond cve_ids[0] causes cross-CVE contamination: a secondary referenced
         # CVE that happens to be KEV-listed (e.g. an old vuln mentioned for context) falsely

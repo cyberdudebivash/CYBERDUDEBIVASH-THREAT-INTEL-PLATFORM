@@ -113,7 +113,7 @@ EXCLUDE_ROOT_DIRS = {
 EXCLUDE_SUFFIXES = {
     ".py", ".pyc", ".pyo", ".sh", ".log", ".pem", ".key",
     ".bak", ".tmp", ".swp", ".db", ".sqlite",
-    # v175.3 P0 SIZE FIX: Exclude PDFs from dist/ — advisory PDFs are served
+    # v184.0 P0 SIZE FIX: Exclude PDFs from dist/ — advisory PDFs are served
     # from Cloudflare R2 via pdf_url field. Including them in GitHub Pages
     # artifact inflates dist/ by hundreds of MB and risks exceeding the 1 GB
     # GitHub Pages hard limit. R2 is the authoritative PDF delivery layer.
@@ -121,7 +121,7 @@ EXCLUDE_SUFFIXES = {
 }
 EXCLUDE_PATTERNS = {
     "__pycache__", ".git", ".env", "*.log", "dist",
-    # v175.3 P0 SIZE FIX: Exclude PDFs at copytree level — affects ALL shutil.copytree
+    # v184.0 P0 SIZE FIX: Exclude PDFs at copytree level — affects ALL shutil.copytree
     # calls in copy_reports_selective() including the non-numeric-subdir verbatim path
     # that bypasses EXCLUDE_SUFFIXES (reports/pdf/ is non-numeric → copied unconditionally
     # unless blocked here). Advisory PDFs are served from Cloudflare R2, not GitHub Pages.
@@ -154,18 +154,18 @@ HTML_EXCLUDE_PREFIXES = {
 
 
 # ─────────────────────────────────────────────────────────────────
-# REPORT RETENTION GOVERNANCE (v184.0 / v175.3 / v176.0)
+# REPORT RETENTION GOVERNANCE (v184.0 / v184.0 / v184.0)
 # REPORT_RETENTION_DAYS=0  → copy ALL reports (unlimited — NEVER use in prod)
 # REPORT_RETENTION_DAYS=N  → copy only reports from the last N days
 #   Classification uses path structure: reports/YYYY/MM/<file>.html
 #
 # v161.5 DISK FIX: Default changed 0 -> 30.
-# v175.3 SIZE FIX: Default changed 30 -> 7.
+# v184.0 SIZE FIX: Default changed 30 -> 7.
 #   ROOT CAUSE: 30 days × 512 reports/day ≈ 15,360 reports ≈ 2.3 GB in dist/.
 #   GitHub Pages HARD LIMIT is 1 GB — artifact at 1.52 GB triggers
 #   "Deployment might fail" warning and risks total Pages deploy failure.
 #
-# v176.0 PERMANENT FIX: Default changed 7 -> 3. Hard cap enforced at 7.
+# v184.0 PERMANENT FIX: Default changed 7 -> 3. Hard cap enforced at 7.
 #   ROOT CAUSE (run #1616): vars.REPORT_RETENTION_DAYS=30 overrides the
 #   workflow default of 7. Month-level boundary bug includes ALL of May 2026
 #   (34,382 files = 3.2 GB) even with 30-day retention because cutoff falls
@@ -184,7 +184,7 @@ HTML_EXCLUDE_PREFIXES = {
 REPORT_RETENTION_DAYS = min(int(os.environ.get("REPORT_RETENTION_DAYS", "3")), 7)
 
 # ─────────────────────────────────────────────────────────────────
-# GITHUB PAGES ARTIFACT SIZE LIMIT (v175.3 P0 SIZE GATE)
+# GITHUB PAGES ARTIFACT SIZE LIMIT (v184.0 P0 SIZE GATE)
 # GitHub Pages refuses artifacts > 1 GB. Hard-fail at 900 MB to provide
 # a clear error before the Pages deploy action sees the oversized artifact.
 # This gate fires AFTER dist/ is built (step 7) so the exact size is known.
@@ -207,7 +207,7 @@ def copy_reports_selective(src: Path, dst: Path, retention_days: int) -> Tuple[i
       For months entirely before cutoff: skip entirely.
       For the boundary month (cutoff month): filter individual files by mtime
         so only files modified AFTER the cutoff timestamp are included.
-        This is the v176.0 fix for the month-level granularity bug that caused
+        This is the v184.0 fix for the month-level granularity bug that caused
         entire months (e.g. all 34,382 May files = 3.2 GB) to be included even
         when only the last few days of the month were within the retention window.
 
@@ -295,9 +295,9 @@ def copy_reports_selective(src: Path, dst: Path, retention_days: int) -> Tuple[i
                 log.debug("    SKIP    %s/%02d  (before retention window)", year, month)
 
             elif (year, month) == (cutoff.year, cutoff.month):
-                # Boundary month: v182.0 FIX — proportional file selection.
+                # Boundary month: v184.0 FIX — proportional file selection.
                 #
-                # v176.0 used st_mtime to filter files within the boundary month.
+                # v184.0 used st_mtime to filter files within the boundary month.
                 # ROOT CAUSE OF CURRENT FAILURE: actions/checkout (fetch-depth:1)
                 # sets ALL file mtimes to the checkout timestamp, so every file
                 # passes `mtime >= cutoff` regardless of when it was committed.
@@ -428,7 +428,7 @@ def force_include_feed_reports(dist_reports_dst: Path) -> int:
     """Force-copy all current-run feed.json report_url files that exist on disk
     but were excluded from dist/ by the proportional boundary-month filter.
 
-    ROOT CAUSE (v183.0 FIX):
+    ROOT CAUSE (v184.0 FIX):
       copy_reports_selective() selects reports by advisory publication timestamp
       (encoded alphabetically in the filename, e.g. intel--1781842438_CVE-...).
       It does NOT select by pipeline run timestamp.  Current-run reports that have
@@ -539,12 +539,12 @@ def main() -> int:
                 )
             else:
                 log.info("  Copied reports/ → dist/reports/  (%d files, full copy)", n)
-            # ── v183.0 PERMANENT FIX: force-include current-run feed.json reports ──
+            # ── v184.0 PERMANENT FIX: force-include current-run feed.json reports ──
             # Must run immediately after copy_reports_selective so that (a) reports/
             # is still on disk and (b) these files are present before step 5 validates
             # them and before the manifest is written.
             log.info("")
-            log.info("Force-including current-run feed.json reports (v183.0 fix)...")
+            log.info("Force-including current-run feed.json reports (v184.0 fix)...")
             forced = force_include_feed_reports(dst)
             total_files += forced
         else:
@@ -590,9 +590,9 @@ def main() -> int:
         # Not a hard error if optional files don't exist
 
     # ── 5. Validate report_url paths exist in dist/ ──────────────────────────
-    # v175.5 P0 FIX: Retention-window-aware validation.
+    # v184.0 P0 FIX: Retention-window-aware validation.
     #
-    # ROOT CAUSE of v175.3/v175.4 STAGE 5.4.6 failures:
+    # ROOT CAUSE of v184.0/v184.0 STAGE 5.4.6 failures:
     #   The pipeline (STAGE 3.3.6) rebuilds api/feed.json mid-run with items
     #   from ALL months (e.g. reports/2026/05/intel--xxx.html from May 2026).
     #   With REPORT_RETENTION_DAYS=7, the retention filter correctly excludes
@@ -605,7 +605,7 @@ def main() -> int:
     #   This is the correct architecture: dist/ carries HOT reports only;
     #   gh-pages accumulates the full historical archive.
     log.info("")
-    log.info("Validating report_url paths in dist/ (v175.5 retention-aware)...")
+    log.info("Validating report_url paths in dist/ (v184.0 retention-aware)...")
     report_urls = load_report_urls_from_feeds()
     missing_in_dist: List[str] = []
     skipped_outside_window: int = 0
@@ -619,7 +619,7 @@ def main() -> int:
     skipped_proportionally_excluded: int = 0
 
     for ru in report_urls:
-        # v175.6 P0 FIX: Skip paths excluded from dist/ by design.
+        # v184.0 P0 FIX: Skip paths excluded from dist/ by design.
         # root cause: load_report_urls_from_feeds() uses
         #   report_url OR internal_report_url fallback. Items that have no
         #   report_url but have internal_report_url=/reports/pdf/xxx.pdf get
@@ -632,7 +632,7 @@ def main() -> int:
             skipped_excluded_by_design += 1
             continue
 
-        # v175.7 P0 FIX: Skip paths whose source file does not exist in the
+        # v184.0 P0 FIX: Skip paths whose source file does not exist in the
         # working tree.
         #
         # ROOT CAUSE: reports/ is gitignored. api/feed.json is rebuilt mid-pipeline
@@ -676,7 +676,7 @@ def main() -> int:
                         cutoff_for_validation.year,
                         cutoff_for_validation.month,
                     )
-                    # v182.1 FIX: For the boundary month, reapply the same
+                    # v184.0 FIX: For the boundary month, reapply the same
                     # proportional selection used in copy_reports_selective().
                     # The proportional filter keeps only the last N% of
                     # boundary-month files (sorted alphabetically) to stay
@@ -846,7 +846,7 @@ def main() -> int:
     log.info("  Manifest written: %d files, %d reports",
              manifest["total_files"], manifest["report_count"])
 
-    # ── 7b. GitHub Pages artifact size gate (v175.3 HARD FAIL) ──────────────
+    # ── 7b. GitHub Pages artifact size gate (v184.0 HARD FAIL) ──────────────
     dist_total_bytes = sum(
         f.stat().st_size for f in DIST_DIR.rglob("*") if f.is_file()
     )
@@ -856,7 +856,7 @@ def main() -> int:
     if dist_total_bytes > DIST_SIZE_LIMIT_BYTES:
         log.error("")
         log.error("=" * 70)
-        log.error("HARD FAIL -- GITHUB PAGES SIZE GATE (v176.0)")
+        log.error("HARD FAIL -- GITHUB PAGES SIZE GATE (v184.0)")
         log.error("=" * 70)
         log.error("  dist/ size : %.1f MB", dist_mb)
         log.error("  Limit      : %d MB (GitHub Pages hard limit: 1024 MB)", limit_mb)

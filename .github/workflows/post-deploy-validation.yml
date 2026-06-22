@@ -6,7 +6,7 @@ name: "SENTINEL APEX -- Post-Deploy Validation"
 
 on:
   workflow_run:
-    # v148.1.0 FIX: corrected workflow name from "SENTINEL APEX -- Worker Deploy"
+    # v184.0 FIX: corrected workflow name from "SENTINEL APEX -- Worker Deploy"
     # to "deploy-worker" (the actual name field in deploy-worker.yml).
     # Previous name caused post-deploy validation to NEVER auto-trigger.
     workflows: ["deploy-worker"]
@@ -58,7 +58,7 @@ jobs:
         timeout-minutes: 3
         run: |
           echo "[GATE A] Checking all API endpoints..."
-          # v153.1 PERMANENT FIX: Two-tier endpoint check.
+          # v184.0 PERMANENT FIX: Two-tier endpoint check.
           #
           # PUBLIC endpoints: must return HTTP 200. Hard fail on non-200.
           #   /api/health, /api/v1/intel/latest.json, /api/v1/intel/top10.json,
@@ -141,7 +141,7 @@ jobs:
             print(0)
           " 2>/dev/null || echo "0")
           echo "[GATE C] Advisory count from live Worker: $COUNT"
-          # v153.1 PERMANENT FIX: minimum threshold lowered from 50 to 10.
+          # v184.0 PERMANENT FIX: minimum threshold lowered from 50 to 10.
           #
           # Root cause: Worker serves from R2 (Cloudflare Object Storage).
           # R2 data is synced by the r2-data-sync workflow on its own schedule,

@@ -36,14 +36,14 @@ from agent.config import (
 
 logger = logging.getLogger("CDB-AUTH")
 
-# -- Tier constants (v176.0 — 6-tier commercial model) --
+# -- Tier constants (v184.0 — 6-tier commercial model) --
 TIER_FREE       = "FREE"
 TIER_STANDARD   = "STANDARD"
 TIER_PREMIUM    = "PREMIUM"
 TIER_PRO        = "PRO"        # legacy alias — treated as PREMIUM internally
 TIER_ENTERPRISE = "ENTERPRISE"
-TIER_MSSP       = "MSSP"       # v176.0: MSSP commercial tier (500k calls/day)
-TIER_TRIAL      = "TRIAL"      # v176.0: 7-day trial tier (500 calls/day)
+TIER_MSSP       = "MSSP"       # v184.0: MSSP commercial tier (500k calls/day)
+TIER_TRIAL      = "TRIAL"      # v184.0: 7-day trial tier (500 calls/day)
 
 # Tier hierarchy (higher index = higher privilege)
 TIER_HIERARCHY = [TIER_FREE, TIER_STANDARD, TIER_TRIAL, TIER_PREMIUM, TIER_PRO, TIER_ENTERPRISE, TIER_MSSP]
@@ -55,7 +55,7 @@ JWT_EXPIRY_SECS = 86400  # 24 hours
 # of tier, without requiring config reload or service restart.
 _REVOCATION_REGISTRY_PATH = "data/security/revoked_keys.json"
 
-# v176.0: Runtime key registry — keys issued via generate_key.py
+# v184.0: Runtime key registry — keys issued via generate_key.py
 # Loaded on every resolve_tier() call for zero-restart key activation
 _ACTIVE_KEYS_PATH = "data/keys/active_keys.json"
 
@@ -151,7 +151,7 @@ class AuthHandler:
     def _validate_api_key(self, key: str) -> Tuple[str, str]:
         """
         Check key against all tier sets.
-        Hierarchy (v176.0): MSSP > ENTERPRISE > PREMIUM/PRO > TRIAL > STANDARD > FREE
+        Hierarchy (v184.0): MSSP > ENTERPRISE > PREMIUM/PRO > TRIAL > STANDARD > FREE
 
         Resolution order:
         1. Revocation check (immediate reject if revoked)
@@ -178,7 +178,7 @@ class AuthHandler:
         if key in CDB_STANDARD_API_KEYS:
             return TIER_STANDARD, f"std:{key[:8]}"
 
-        # ── 2. v176.0: Runtime key registry (data/keys/active_keys.json) ──
+        # ── 2. v184.0: Runtime key registry (data/keys/active_keys.json) ──
         # Enables zero-restart key provisioning via generate_key.py
         kh = _key_hash(key)
         registry = _load_active_key_registry()

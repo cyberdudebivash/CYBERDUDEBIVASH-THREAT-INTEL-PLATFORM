@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-generate_key.py — SENTINEL APEX API Key Provisioning Tool v176.0
+generate_key.py — SENTINEL APEX API Key Provisioning Tool v184.0
 =================================================================
 Generates, activates, expires, and revokes API keys with full audit trail.
 Reads/writes: data/keys/active_keys.json
@@ -434,7 +434,7 @@ def cmd_revenue(args):
 
 def main():
     parser = argparse.ArgumentParser(
-        description="SENTINEL APEX API Key Provisioning Tool v176.0",
+        description="SENTINEL APEX API Key Provisioning Tool v184.0",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     sub = parser.add_subparsers(dest="command", required=True)

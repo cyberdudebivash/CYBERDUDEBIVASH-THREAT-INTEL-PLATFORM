@@ -72,7 +72,7 @@ on:
     # Every 6h at :00 past 3am — offset +3h from sentinel-blogger (0,4,8,12,16,20 UTC)
     # and +1:15h from multi-source-intel (1:45,5:45,... UTC).
     #
-    # P0 RACE CONDITION FIX (v175.2):
+    # P0 RACE CONDITION FIX (v184.0):
     #   PREVIOUS BUG: '0 2,8,14,20' caused simultaneous starts with sentinel-blogger
     #   at 8:00 and 20:00 UTC (sentinel-blogger runs every 4h: 0,4,8,12,16,20).
     #   Both workflows do git commit+push and R2 uploads, creating push conflicts
@@ -107,7 +107,7 @@ permissions:
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-  PIPELINE_VERSION: "183.0"
+  PIPELINE_VERSION: "184.0"
   PYTHONIOENCODING: "utf-8"
   PYTHONUTF8: "1"
   AI_TRACKER_SCHEMA: "sentinel-apex-ai-tracker-v2"
@@ -189,7 +189,7 @@ jobs:
       # ─────────────────────────────────────────────────────────────────────
       - name: "STAGE 3 — GATE 1: Python syntax guard (all scripts)"
         run: |
-          # v152.1 P0 HARDENING: py_compile (syntax) + pyflakes (undefined names / NameErrors)
+          # v184.0 P0 HARDENING: py_compile (syntax) + pyflakes (undefined names / NameErrors)
           # py_compile catches SyntaxError; pyflakes catches NameError, ImportError, unused vars
           python3 -m pip install pyflakes --quiet 2>&1 | tail -1
           ERRORS=0
@@ -307,7 +307,7 @@ jobs:
 
 
       # ─────────────────────────────────────────────────────────────────────
-      # STAGE 4.3 -- REAL OSINT IOC ENRICHMENT (v161.x P0-001 fix)
+      # STAGE 4.3 -- REAL OSINT IOC ENRICHMENT (v184.0 P0-001 fix)
       # Extracts real IOCs from AlienVault OTX, URLhaus, MalwareBazaar,
       # Abuse.ch, and ThreatFox per advisory CVE/title. Adds verified
       # ioc_list, ioc_count, ioc_types, ioc_confidence fields to feed.
@@ -327,7 +327,7 @@ jobs:
         run: |
           set +e
           STEP_START=$(date +%s%3N)
-          echo "::group::Real OSINT IOC Enricher (v161.x)"
+          echo "::group::Real OSINT IOC Enricher (v184.0)"
 
           if [ ! -f "api/feed.json" ]; then
             echo "[IOC-ENRICH] api/feed.json not present -- skipping (non-fatal)"
@@ -360,14 +360,14 @@ jobs:
           exit 0
 
       # ─────────────────────────────────────────────────────────────────────
-      # STAGE 3.1.11 — DETECTION ENGINEERING CORE (v162.0)
+      # STAGE 3.1.11 — DETECTION ENGINEERING CORE (v184.0)
       # Full 10-stage detection pipeline: validate, suppress FPs, normalize multi-SIEM,
       # generate retro-hunt packs, map telemetry deps, benchmark quality, analyze gaps,
       # and package enterprise deployment bundles.
       # Outputs: api/detections/*.json + data/audit/detection_*.json
       # Non-blocking (continue-on-error) — zero-failure architecture.
       # ─────────────────────────────────────────────────────────────────────
-      - name: "STAGE 3.1.11 - Detection Engineering Core (v162.0)"
+      - name: "STAGE 3.1.11 - Detection Engineering Core (v184.0)"
         timeout-minutes: 15
         continue-on-error: true
         env:
@@ -375,7 +375,7 @@ jobs:
         run: |
           set +e
           STEP_START=$(date +%s%3N)
-          echo "::group::Detection Engineering Core (v162.0)"
+          echo "::group::Detection Engineering Core (v184.0)"
           echo "[DET-ENG] Starting Detection Engineering Core..."
           echo "[DET-ENG] Feed: ${FEED_PATH}"
 
@@ -400,17 +400,17 @@ jobs:
           exit 0
 
       # ═════════════════════════════════════════════════════════════════════
-      # SENTINEL APEX v167.0 — ENTERPRISE CTI TRANSFORMATION STAGES
+      # SENTINEL APEX v184.0 — ENTERPRISE CTI TRANSFORMATION STAGES
       # Phases 1-6: Actor Attribution, Campaign Correlation, Malware Intel,
       # Detection Content v2, Knowledge Graph, Executive Brief
       # ═════════════════════════════════════════════════════════════════════
 
-      - name: "STAGE 3.1.18 - Threat Actor Intelligence Engine (v167.0)"
+      - name: "STAGE 3.1.18 - Threat Actor Intelligence Engine (v184.0)"
         timeout-minutes: 8
         continue-on-error: true
         run: |
           set +e
-          echo "::group::STAGE 3.1.18 — Threat Actor Intelligence Engine v167.0"
+          echo "::group::STAGE 3.1.18 — Threat Actor Intelligence Engine v184.0"
           echo "[TAIE] Starting actor attribution for all advisories..."
           python3 scripts/threat_actor_engine.py
           EXIT_CODE=$?
@@ -423,12 +423,12 @@ jobs:
           echo "::endgroup::"
           set -e; exit 0
 
-      - name: "STAGE 3.1.19 - Campaign Intelligence Engine (v167.0)"
+      - name: "STAGE 3.1.19 - Campaign Intelligence Engine (v184.0)"
         timeout-minutes: 5
         continue-on-error: true
         run: |
           set +e
-          echo "::group::STAGE 3.1.19 — Campaign Intelligence Engine v167.0"
+          echo "::group::STAGE 3.1.19 — Campaign Intelligence Engine v184.0"
           echo "[CIE] Starting campaign correlation for all advisories..."
           python3 scripts/campaign_intelligence_engine.py
           EXIT_CODE=$?
@@ -441,24 +441,24 @@ jobs:
           echo "::endgroup::"
           set -e; exit 0
 
-      - name: "STAGE 3.1.20 - Malware Intelligence Engine (v167.0)"
+      - name: "STAGE 3.1.20 - Malware Intelligence Engine (v184.0)"
         timeout-minutes: 5
         continue-on-error: true
         run: |
           set +e
-          echo "::group::STAGE 3.1.20 — Malware Intelligence Engine v167.0"
+          echo "::group::STAGE 3.1.20 — Malware Intelligence Engine v184.0"
           python3 scripts/malware_intelligence_engine.py
           EXIT_CODE=$?
           [ $EXIT_CODE -ne 0 ] && echo "::warning::MIE exited ${EXIT_CODE} -- non-fatal"
           echo "::endgroup::"
           set -e; exit 0
 
-      - name: "STAGE 3.1.21 - Detection Content Generator v2 (v167.0)"
+      - name: "STAGE 3.1.21 - Detection Content Generator v2 (v184.0)"
         timeout-minutes: 10
         continue-on-error: true
         run: |
           set +e
-          echo "::group::STAGE 3.1.21 — Detection Content Generator v2 v167.0"
+          echo "::group::STAGE 3.1.21 — Detection Content Generator v2 v184.0"
           echo "[DCG-V2] Generating threat-specific Sigma/YARA/KQL/Suricata packs..."
           python3 scripts/detection_content_generator_v2.py
           EXIT_CODE=$?
@@ -471,12 +471,12 @@ jobs:
           echo "::endgroup::"
           set -e; exit 0
 
-      - name: "STAGE 3.1.22 - Intelligence Knowledge Graph (v167.0)"
+      - name: "STAGE 3.1.22 - Intelligence Knowledge Graph (v184.0)"
         timeout-minutes: 8
         continue-on-error: true
         run: |
           set +e
-          echo "::group::STAGE 3.1.22 — Intelligence Knowledge Graph v167.0"
+          echo "::group::STAGE 3.1.22 — Intelligence Knowledge Graph v184.0"
           echo "[KG] Building actor-campaign-malware-IOC knowledge graph..."
           python3 scripts/intelligence_knowledge_graph.py
           EXIT_CODE=$?
@@ -490,12 +490,12 @@ jobs:
           echo "::endgroup::"
           set -e; exit 0
 
-      - name: "STAGE 3.2.1 - Executive Intelligence Brief Generator (v167.0)"
+      - name: "STAGE 3.2.1 - Executive Intelligence Brief Generator (v184.0)"
         timeout-minutes: 5
         continue-on-error: true
         run: |
           set +e
-          echo "::group::STAGE 3.2.1 — Executive Intelligence Brief Generator v167.0"
+          echo "::group::STAGE 3.2.1 — Executive Intelligence Brief Generator v184.0"
           python3 scripts/executive_brief_generator.py
           EXIT_CODE=$?
           [ $EXIT_CODE -eq 0 ] && echo "[EBG] Executive brief generated: data/reports/executive-briefs/latest.json"
@@ -675,7 +675,7 @@ jobs:
           echo "STAGE 6.88: Source Diversity Enforcer complete"
 
       # ─────────────────────────────────────────────────────────────────────
-      # STAGE 6.889 — RISK SCORE MICRO-DIFFERENTIATOR (v163.0 — permanent fix)
+      # STAGE 6.889 — RISK SCORE MICRO-DIFFERENTIATOR (v184.0 — permanent fix)
       # Breaks uniform risk-score clusters BEFORE the Feed Health Gate runs.
       # Root cause: enterprise_intelligence_integrator.py applies an exact
       # floor of 7.0 to all items with CVSS>=9.0 or active-exploit signals.
@@ -686,7 +686,7 @@ jobs:
       # Mirrors sentinel-blogger.yml STAGE 3.4.9 — same script, same invocation.
       # Non-blocking (continue-on-error) — pipeline never fails at this step.
       # ─────────────────────────────────────────────────────────────────────
-      - name: "STAGE 6.889 — Risk Score Micro-Differentiator (v163.0)"
+      - name: "STAGE 6.889 — Risk Score Micro-Differentiator (v184.0)"
         timeout-minutes: 2
         continue-on-error: true
         run: |
@@ -702,7 +702,7 @@ jobs:
           exit 0
 
       # ─────────────────────────────────────────────────────────────────────
-      # STAGE 6.89 — FEED HEALTH GATE (v159.0 Enterprise Hardening)
+      # STAGE 6.89 — FEED HEALTH GATE (v184.0 Enterprise Hardening)
       # Validates feed quality after enrichment but before baseline capture.
       # Checks: uniform risk-score ratio, stale CVE ratio, synthetic actor ratio,
       #         CVSS coverage, confidence uniformity.
@@ -744,7 +744,7 @@ jobs:
           fi
 
       # ─────────────────────────────────────────────────────────────────────
-      # STAGE 6.895 — ADVISORY IMMUTABILITY ENGINE (v159.0 Enterprise Hardening)
+      # STAGE 6.895 — ADVISORY IMMUTABILITY ENGINE (v184.0 Enterprise Hardening)
       # Fingerprints all advisories, detects intra-feed duplicates, tracks
       # cross-run reuse via persistent registry, flags stale CVE reuse.
       # Non-blocking — writes data/health/advisory_immutability.json.
@@ -1028,7 +1028,7 @@ jobs:
       # ─────────────────────────────────────────────────────────────────────
       # STAGE 7 — PIPELINE OBSERVABILITY TELEMETRY (Phase 6)
       # ─────────────────────────────────────────────────────────────────────
-      # v148.0 FIX: Moved from inline python3 -c block (RULE 1 violation) to
+      # v184.0 FIX: Moved from inline python3 -c block (RULE 1 violation) to
       # dedicated script: scripts/emit_ai_telemetry.py
       # All values passed via env vars — zero inline Python in YAML.
       # ─────────────────────────────────────────────────────────────────────
@@ -1162,7 +1162,7 @@ jobs:
 
       # ─────────────────────────────────────────────────────────────────────
       # STAGE 9.5 — R2 UPLOAD: AI Tracker files → Cloudflare R2
-      # v148.1.0 FIX: AI tracker files were committed to GitHub only.
+      # v184.0 FIX: AI tracker files were committed to GitHub only.
       # The Cloudflare Worker reads exclusively from R2 (private bucket).
       # Without this step the Worker had no ai/tracker.json, ai/health.json,
       # or ai/executive-brief.json in R2, causing ai-threat-tracker.html to
