@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 scripts/build_dist_artifact.py
-CYBERDUDEBIVASH(R) SENTINEL APEX v156.0 -- Deterministic Dist Artifact Builder
+CYBERDUDEBIVASH(R) SENTINEL APEX v184.0 -- Deterministic Dist Artifact Builder
 ================================================================================
 Builds a clean, validated dist/ deployment artifact from the working tree.
 
@@ -16,7 +16,7 @@ ARCHITECTURE:
        ↓  [artifact verifier gate]
   GitHub Pages gh-pages branch (customer-facing)
 
-REPORT RETENTION (v156.0 ARCHIVE GOVERNANCE):
+REPORT RETENTION (v184.0 ARCHIVE GOVERNANCE):
   REPORT_RETENTION_DAYS env var (default: 0 = ALL reports) controls which
   reports are copied to dist/. When set > 0, only reports from the last N
   days are included. Older reports are NOT in dist/ but remain accessible
@@ -154,7 +154,7 @@ HTML_EXCLUDE_PREFIXES = {
 
 
 # ─────────────────────────────────────────────────────────────────
-# REPORT RETENTION GOVERNANCE (v156.0 / v175.3 / v176.0)
+# REPORT RETENTION GOVERNANCE (v184.0 / v175.3 / v176.0)
 # REPORT_RETENTION_DAYS=0  → copy ALL reports (unlimited — NEVER use in prod)
 # REPORT_RETENTION_DAYS=N  → copy only reports from the last N days
 #   Classification uses path structure: reports/YYYY/MM/<file>.html
@@ -497,12 +497,12 @@ def build_manifest(dist_dir: Path, run_id: str, version: str) -> Dict:
 def main() -> int:
     t0 = time.time()
     log.info("=" * 70)
-    log.info("SENTINEL APEX -- Deterministic Dist Artifact Builder v156.0")
+    log.info("SENTINEL APEX -- Deterministic Dist Artifact Builder v184.0")
     log.info("=" * 70)
     log.info("Repo root : %s", REPO_ROOT)
     log.info("Dist dir  : %s", DIST_DIR)
 
-    pipeline_version = os.environ.get("PIPELINE_VERSION", "156.0.0")
+    pipeline_version = os.environ.get("PIPELINE_VERSION", "184.0")
     run_id           = os.environ.get("GITHUB_RUN_ID", "local")
 
     retention_days = REPORT_RETENTION_DAYS
@@ -528,7 +528,7 @@ def main() -> int:
             log.warning("  SKIP: %s/ not found in repo root", dirname)
             continue
         if dirname == "reports":
-            # Retention-aware selective copy (v156.0 archive governance)
+            # Retention-aware selective copy (v184.0 archive governance)
             n, skipped = copy_reports_selective(src, dst, retention_days)
             total_files += n
             if skipped > 0:

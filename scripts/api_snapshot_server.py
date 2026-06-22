@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 scripts/api_snapshot_server.py
-CYBERDUDEBIVASH® SENTINEL APEX v144.0.0 — API Snapshot Reader
+CYBERDUDEBIVASH® SENTINEL APEX v184.0 — API Snapshot Reader
 ==============================================================
 ARCHITECTURE: API reads ONLY from current snapshot — NO sorting,
 NO dedup, NO mutation. The snapshot is the single source of truth.
@@ -57,8 +57,8 @@ def _load_json(path: Path) -> Tuple[Optional[Any], Optional[str]]:
 def _get_version() -> str:
     cfg, _ = _load_json(VERSION_CFG)
     if cfg:
-        return cfg.get("platform", cfg.get("version", "144.0.0"))
-    return "144.0.0"
+        return cfg.get("platform", cfg.get("version", "184.0"))
+    return "184.0"
 
 
 def _resolve_snapshot_path() -> Tuple[Optional[Path], Optional[str]]:
@@ -266,7 +266,7 @@ if __name__ == "__main__":
         level=logging.INFO,
         format="%(asctime)s [api-snapshot] %(levelname)s: %(message)s",
     )
-    parser = argparse.ArgumentParser(description="API Snapshot Server v144.0.0")
+    parser = argparse.ArgumentParser(description="API Snapshot Server v184.0")
     parser.add_argument("cmd", choices=["health", "preview", "feed", "build-static"],
                         default="health", nargs="?")
     parser.add_argument("--limit", type=int, default=10)

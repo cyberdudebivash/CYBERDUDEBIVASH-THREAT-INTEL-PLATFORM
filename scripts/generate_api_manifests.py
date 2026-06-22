@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """
-SENTINEL APEX v160.0 — IMMUTABLE API MANIFEST GENERATOR
+SENTINEL APEX v184.0 — IMMUTABLE API MANIFEST GENERATOR
 =========================================================
 STAGE 3.93 (REPLACEMENT) — IMMUTABLE API BUNDLE GENERATION
 
-ARCHITECTURE (v160.0 — IMMUTABLE API-FIRST):
+ARCHITECTURE (v184.0 — IMMUTABLE API-FIRST):
   OLD (BROKEN): inject_embedded_intel.py mutated index.html at deploy time
   NEW (STABLE): generate_api_manifests.py generates versioned JSON bundles
                 Frontend fetches from /api/v1/intel/*.json at runtime
@@ -64,7 +64,7 @@ try:
         _vcfg = json.load(_vf)
     VERSION = 'v' + str(_vcfg.get('version', _vcfg.get('platform_version', '166.2'))).lstrip('v')
 except Exception:
-    VERSION = 'v166.2'   # safe fallback — always ahead of v160.0
+    VERSION = 'v166.2'   # safe fallback — always ahead of v184.0
 
 # ── HELPERS ─────────────────────────────────────────────────────────────────
 def fatal(msg):

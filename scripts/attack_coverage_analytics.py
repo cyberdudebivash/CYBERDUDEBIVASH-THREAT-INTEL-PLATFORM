@@ -132,7 +132,7 @@ TACTIC_COVERAGE_WARN = 0.20
 TECH_COVERAGE_PASS   = 0.10
 TECH_COVERAGE_WARN   = 0.05
 
-# v160.0 -- Reverse lookup maps: human-readable names -> IDs
+# v184.0 -- Reverse lookup maps: human-readable names -> IDs
 # The feed stores technique/tactic names (not IDs) in mitre_tactics.
 # These maps enable full ATT&CK coverage detection from name-based feeds.
 TECH_NAME_TO_ID: Dict[str, str] = {
@@ -213,7 +213,7 @@ def atomic_write(path: pathlib.Path, data: str) -> None:
 
 
 def _resolve_entry(entry: Any) -> str:
-    """v160.0: Resolve a single mitre_tactics/mitre_techniques entry to a T-ID.
+    """v184.0: Resolve a single mitre_tactics/mitre_techniques entry to a T-ID.
     Accepts: T-ID strings (T1xxx), TA-ID strings (TA0xxx), dicts with technique_id/id,
     OR human-readable technique/tactic names (looked up via reverse maps).
     Returns the T-ID string or '' if unresolvable.
@@ -235,7 +235,7 @@ def _resolve_entry(entry: Any) -> str:
             if tac_id == tid:
                 return tech_id  # register coverage for first matched technique
 
-    # Human-readable name lookup (v160.0 -- handles name-based feeds)
+    # Human-readable name lookup (v184.0 -- handles name-based feeds)
     name_key = raw_id.strip().lower()
     if name_key in TECH_NAME_TO_ID:
         return TECH_NAME_TO_ID[name_key]
@@ -252,7 +252,7 @@ def _resolve_entry(entry: Any) -> str:
 
 def extract_techniques(item: Dict[str, Any]) -> List[str]:
     """Extract all MITRE technique IDs from an item.
-    v160.0: Supports T-IDs, TA-IDs, and human-readable names from name-based feeds.
+    v184.0: Supports T-IDs, TA-IDs, and human-readable names from name-based feeds.
     """
     techs: Set[str] = set()
 

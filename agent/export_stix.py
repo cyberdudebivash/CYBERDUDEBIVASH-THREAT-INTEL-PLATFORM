@@ -1538,7 +1538,7 @@ class STIXExporter:
         # unsorted list, silently evicting the newest entries. The correct
         # order is: deduplicate -> sort DESC -> slice [:500].
         #
-        # v134.0.0 FRESHNESS FIX: processed_at is PRIMARY sort key.
+        # v184.0 FRESHNESS FIX: processed_at is PRIMARY sort key.
         # processed_at = pipeline generation time (always UTC-now when entry is created).
         # This ensures newly generated intel ALWAYS appears at the top, regardless of
         # source article's published_at date (which may be days/weeks old).

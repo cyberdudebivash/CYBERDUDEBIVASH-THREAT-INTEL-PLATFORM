@@ -2,12 +2,12 @@
 """
 Platform-wide version string unification.
 Rewrites every hardcoded legacy version (v134.0 - v134.x, v134.0, v134.0, etc.)
-to v134.0.0 / v134.0 / v134. This is the one-time rewrite executed as part of
+to v184.0 / v134.0 / v134. This is the one-time rewrite executed as part of
 the v134 hardening release. After it runs, no legacy version string should
 remain anywhere in the source tree (excluding CHANGELOG_*.md historical
 records and .git internals).
 
-CYBERDUDEBIVASH SENTINEL APEX v134.0.0
+CYBERDUDEBIVASH SENTINEL APEX v184.0
 """
 from __future__ import annotations
 
@@ -32,7 +32,7 @@ def _load_canonical() -> dict:
 
 
 _CANON = _load_canonical()
-NEW_FULL = _CANON['platform_full']          # "SENTINEL APEX v134.0.0"
+NEW_FULL = _CANON['platform_full']          # "SENTINEL APEX v184.0"
 NEW_SHORT = _CANON.get('platform_label') or 'v134.0'
 NEW_NUM = _CANON['platform']                # "134.0.0"
 NEW_MAJOR = NEW_NUM.split('.')[0]           # "134"

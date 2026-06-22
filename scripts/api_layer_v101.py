@@ -707,7 +707,7 @@ _REPORT_CDN_BASE = "https://intel.cyberdudebivash.com"
 
 def _enforce_metadata_fields(item: Dict) -> Dict:
     """
-    v177.0 B1/B2/B3 FIX: Mandatory validation AND correction for report_url and published_at.
+    v184.0 B1/B2/B3 FIX: Mandatory validation AND correction for report_url and published_at.
 
     B1: If report_url is missing/null → construct from id + timestamp.
     B2: If published_at is missing/null → populate from source fields.

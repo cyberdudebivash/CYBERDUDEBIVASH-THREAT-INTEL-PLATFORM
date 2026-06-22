@@ -56,7 +56,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="SENTINEL APEX API",
     description=(
-        "**CYBERDUDEBIVASH® Threat Intelligence Platform API v177.0**\n\n"
+        "**CYBERDUDEBIVASH® Threat Intelligence Platform API v184.0**\n\n"
         "AI-powered cybersecurity intelligence. STIX 2.1 native. Developer-first.\n\n"
         "**Core Intelligence (PRO+)**\n"
         "- **Feed**: Paginated threat advisory feed — severity, CVSS, EPSS, KEV filters\n"

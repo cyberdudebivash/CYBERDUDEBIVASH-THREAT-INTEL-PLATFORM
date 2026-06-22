@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 scripts/pipeline_lock.py
-CYBERDUDEBIVASH® SENTINEL APEX v144.0.0 — Runtime Pipeline Lock
+CYBERDUDEBIVASH® SENTINEL APEX v184.0 — Runtime Pipeline Lock
 ================================================================
 Implements Phase 6 runtime locking: .lock/pipeline.lock
 
@@ -170,7 +170,7 @@ class PipelineLock:
 # CLI
 # ---------------------------------------------------------------------------
 def _cli():
-    parser = argparse.ArgumentParser(description="SENTINEL APEX Pipeline Lock v144.0.0")
+    parser = argparse.ArgumentParser(description="SENTINEL APEX Pipeline Lock v184.0")
     parser.add_argument("cmd", choices=["status", "release", "acquire"],
                         help="status|release|acquire")
     args = parser.parse_args()

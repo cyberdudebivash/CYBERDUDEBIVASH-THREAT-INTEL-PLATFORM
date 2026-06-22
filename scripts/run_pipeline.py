@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 scripts/run_pipeline.py
-CYBERDUDEBIVASH(R) SENTINEL APEX v134.0.0 -- Master Pipeline Orchestrator
+CYBERDUDEBIVASH(R) SENTINEL APEX v184.0 -- Master Pipeline Orchestrator
 ==========================================================================
 P0 ARCHITECTURAL FIX: Replaces ALL inline PYEOF/PYEOF heredoc blocks from
 sentinel-blogger.yml.  The YAML now calls ONLY this script (plus dedicated
@@ -98,7 +98,7 @@ log = logging.getLogger("sentinel.pipeline")
 # Constants
 # ---------------------------------------------------------------------------
 REPO_ROOT = Path(__file__).resolve().parent.parent
-PIPELINE_VERSION = os.environ.get("PIPELINE_VERSION", "160.0")
+PIPELINE_VERSION = os.environ.get("PIPELINE_VERSION", "184.0")
 MIN_FRESHNESS_ENTRIES = 10   # absolute hard-fail threshold
 # v160.1 P0 FIX: MIN_ENGINE_ENTRIES lowered 50 -> 10 (= MIN_FRESHNESS_ENTRIES).
 # With DEDUP active, the enricher only writes NEW items per run. On high-overlap
@@ -111,7 +111,7 @@ MIN_ENGINE_ENTRIES = 10      # engine manifest minimum before --force-rebuild (=
 MAX_STIX_BUNDLES = 500       # cap on persisted STIX bundle files
 
 # ---------------------------------------------------------------------------
-# v160.0 ANTI-STALE INTEL CONSTANTS
+# v184.0 ANTI-STALE INTEL CONSTANTS
 # ---------------------------------------------------------------------------
 # Maximum age (days) for an advisory to be admitted to the dashboard.
 # Advisories older than this are quarantined and not surfaced.
@@ -172,7 +172,7 @@ VALID_THREAT_TYPES = {
 }
 
 # ---------------------------------------------------------------------------
-# v148.0.0: Source Name → Domain + Trust Weight mapping
+# v184.0: Source Name → Domain + Trust Weight mapping
 # Maps human-readable source names (as stored in item["source"]) to their
 # canonical domain so source_trust_engine scores can be applied per-item.
 # DEFAULT_SOURCE_TRUST is the fallback for any source not in this map.
@@ -294,7 +294,7 @@ def _load_source_trust_map() -> dict[str, float]:
 
 def apply_source_trust_enrichment(items: list[dict]) -> tuple[list[dict], int]:
     """
-    v148.0.0: Enrich each item with source_domain + source_trust_score.
+    v184.0: Enrich each item with source_domain + source_trust_score.
     Reads from data/quality/source_trust_scores.json; falls back to
     SOURCE_NAME_TO_DOMAIN → _SUPPLEMENTAL_TRUST → DEFAULT_SOURCE_TRUST.
     Returns (enriched_items, count_enriched).
@@ -822,7 +822,7 @@ def stage_pre_v70_manifest_sync() -> None:
         # Write v70-schema-compliant manifest
         gen_at = raw.get("generated_at", utc_now()) if isinstance(raw, dict) else utc_now()
         payload = {
-            "version":        raw.get("version", "v160.0") if isinstance(raw, dict) else "v160.0",  # P0 MANDATE: fallback v160.0
+            "version":        raw.get("version", "v184.0") if isinstance(raw, dict) else "v184.0",  # P0 MANDATE: fallback v184.0
             "schema_version": "v70.0",
             "platform":       "SENTINEL-APEX",
             "generated_at":   gen_at,
@@ -1058,13 +1058,13 @@ def stage_manifest_stabilisation() -> None:
             if manifest_fmt == "list":
                 log.info("[2.2] Normalising LIST -> DICT envelope (%d entries)...", engine_count)
                 payload = {
-                    "version":           "v160.0",  # P0 MANDATE: fallback v160.0
+                    "version":           "v184.0",  # P0 MANDATE: fallback v184.0
                     "platform":          "SENTINEL-APEX",
                     "generated_at":      utc_now(),
                     "normalised_at":     utc_now(),
                     "total_reports":     engine_count,
                     "entry_count":       engine_count,
-                    "schema_version":    "v160.0",  # P0 MANDATE: fallback v160.0
+                    "schema_version":    "v184.0",  # P0 MANDATE: fallback v184.0
                     "sort_order":        "timestamp DESC, risk_score DESC",
                     "source_of_truth":   "agent.sentinel_blogger (normalised by pipeline)",
                     "advisories":        engine_items,
@@ -1181,12 +1181,12 @@ def stage_freshness_gate() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Stage 2.6 -- Anti-Stale Intel Hardening (v160.0 PERMANENT PRODUCTION GUARD)
+# Stage 2.6 -- Anti-Stale Intel Hardening (v184.0 PERMANENT PRODUCTION GUARD)
 # ---------------------------------------------------------------------------
 
 def stage_anti_stale_hardening() -> None:
     """
-    v160.0 ANTI-STALE INTEL HARDENING STAGE
+    v184.0 ANTI-STALE INTEL HARDENING STAGE
     =========================================
     Permanently eliminates stalled, synthetic, and fake intel from reaching
     the live dashboard. Runs AFTER freshness gate, BEFORE schema validation.
@@ -1204,7 +1204,7 @@ def stage_anti_stale_hardening() -> None:
     import re as _re
 
     log.info("=" * 60)
-    log.info("STAGE 2.6 -- Anti-Stale Intel Hardening (v160.0 PRODUCTION GUARD)")
+    log.info("STAGE 2.6 -- Anti-Stale Intel Hardening (v184.0 PRODUCTION GUARD)")
     log.info("=" * 60)
 
     manifest_path = REPO_ROOT / "data" / "stix" / "feed_manifest.json"
@@ -1383,8 +1383,8 @@ def stage_anti_stale_hardening() -> None:
             payload = envelope
         else:
             payload = {
-                "version":                  "v160.0",
-                "schema_version":           "v160.0",
+                "version":                  "v184.0",
+                "schema_version":           "v184.0",
                 "platform":                 "SENTINEL-APEX",
                 "generated_at":             datetime.now(timezone.utc).isoformat(),
                 "anti_stale_applied_at":    datetime.now(timezone.utc).isoformat(),
@@ -1578,7 +1578,7 @@ def stage_html_reports() -> None:
     log.info("=" * 60)
     t_start = time.monotonic()
 
-    # v134.0.0: Zero-skip policy -- every intel entry generates a 16-section report.
+    # v184.0: Zero-skip policy -- every intel entry generates a 16-section report.
     r = run_script(
         [
             sys.executable, "scripts/generate_intel_reports.py",
@@ -2126,7 +2126,7 @@ def stage_prune_stix_bundles() -> None:
 
 def stage_dedup_and_enrich() -> None:
     """
-    v134.0.0 Production Hardening:
+    v184.0 Production Hardening:
     1. Load manifest from Single Source of Truth (data/stix/feed_manifest.json)
     2. Run SHA-256 dedup on (title, source, published-date) key
     3. Enforce ioc_count == len(iocs) on every item (enrich where missing)
@@ -2180,7 +2180,7 @@ def stage_dedup_and_enrich() -> None:
         if METRICS:
             METRICS.record_iocs(total_iocs)
 
-        # Step 2.5: v148.0.0 Source trust enrichment
+        # Step 2.5: v184.0 Source trust enrichment
         # Inject source_domain + source_trust_score on every item so that
         # confidence_calibrator.py can apply differential weights instead of
         # the flat DEFAULT_SOURCE_TRUST=0.60 fallback for all sources.
@@ -2235,8 +2235,8 @@ def stage_dedup_and_enrich() -> None:
             payload = envelope
         else:
             payload = {
-                "version":       "v160.0",  # P0 MANDATE: fallback v160.0
-                "schema_version": "v160.0",  # P0 MANDATE: fallback v160.0
+                "version":       "v184.0",  # P0 MANDATE: fallback v184.0
+                "schema_version": "v184.0",  # P0 MANDATE: fallback v184.0
                 "platform":      "SENTINEL-APEX",
                 "generated_at":  utc_now(),
                 "deduped_at":    utc_now(),
@@ -2272,7 +2272,7 @@ def stage_dedup_and_enrich() -> None:
 
 def stage_pipeline_consistency_check() -> None:
     """
-    v134.0.0 SENTINEL APEX CONSISTENCY GATE
+    v184.0 SENTINEL APEX CONSISTENCY GATE
     =========================================
     Validates data integrity across ALL layers AFTER all processing is complete.
     This is the final enforcement gate before data reaches the API and reports.
@@ -2420,7 +2420,7 @@ def stage_pipeline_consistency_check() -> None:
             risk_score = float(item.get("risk_score", 0.0))
 
             if severity == "CRITICAL":
-                # v148.0.0 HARDENED RISK-SCORE GATE (I-02 fix: eliminate fake risk=10)
+                # v184.0 HARDENED RISK-SCORE GATE (I-02 fix: eliminate fake risk=10)
                 # ─────────────────────────────────────────────────────────────────────
                 # Risk=10 is ONLY justified by hard external evidence:
                 #   1. KEV confirmed active exploitation, OR
@@ -2466,7 +2466,7 @@ def stage_pipeline_consistency_check() -> None:
                         or bool(item.get("kev_present"))
                         or _has_active_keyword
                     )
-                    # v148.0.0: tightened caps — 8.5 with HC evidence, 8.0 without
+                    # v184.0: tightened caps — 8.5 with HC evidence, 8.0 without
                     _cap_val = 8.5 if _has_hc_evidence else 8.0
                     item["risk_score"] = min(risk_score, _cap_val)
                     auto_fixed += 1
@@ -2653,8 +2653,8 @@ def stage_pipeline_consistency_check() -> None:
                 payload = envelope
             else:
                 payload = {
-                    "version":       "v160.0",  # P0 MANDATE: fallback v160.0
-                    "schema_version": "v160.0",  # P0 MANDATE: fallback v160.0
+                    "version":       "v184.0",  # P0 MANDATE: fallback v184.0
+                    "schema_version": "v184.0",  # P0 MANDATE: fallback v184.0
                     "platform":      "SENTINEL-APEX",
                     "generated_at":  utc_now(),
                     "consistency_checked_at": utc_now(),
@@ -3389,7 +3389,7 @@ def stage_sync_root_feed_json() -> None:
         # feed.json uses quality-filtered list; manifest keeps ALL entries.
         _manifest_write_items = list(_manifest_items_pre_quality if _manifest_items_pre_quality else manifest_items)
 
-        # v144.0 RECONCILIATION FIX: ensure every item that will be written to
+        # v184.0 RECONCILIATION FIX: ensure every item that will be written to
         # api/feed.json (payload) is ALSO present in the manifest write-back.
         # Root cause: intelligence engines can generate fresh intel--UUID items that
         # land in api/feed.json (via quality pipeline or prior-run carry-forward)
@@ -3555,7 +3555,7 @@ def stage_sync_root_feed_json() -> None:
     # ── End v182.0 Severity Invariant Interceptor ────────────────────────────
     log.info("[3.9] STAGE 3.9 COMPLETE — feed.json has %d entries [OK]", out_count)
 
-    # v177.0 FIX: Confidence Scale Normalization (post Stage 3.9)
+    # v184.0 FIX: Confidence Scale Normalization (post Stage 3.9)
     # Some sources store confidence in 0-100 scale. Normalize >1.0 values to 0-1.
     # Idempotent -- safe to run on every pipeline execution.
     try:
@@ -3598,7 +3598,7 @@ def stage_sync_root_feed_json() -> None:
                 log.info("[3.9-CNORM] All confidence values in 0-1 range -- no normalization needed.")
     except Exception as _cnorm_e:
         log.warning("[3.9-CNORM] Confidence normalization skipped (non-fatal): %s", _cnorm_e)
-    # End v177.0 FIX
+    # End v184.0 FIX
 
     # ── v173.0 P0 FIX: Post-sync Report Generation for Missing Reports ──────
     # ROOT CAUSE: Stage 3.9 rebuilds api/feed.json from STIX manifest items.
@@ -3857,7 +3857,7 @@ def main() -> None:
 
     stage_freshness_gate()               # HARD FAIL if < MIN entries
     _stage_done("freshness_gate")
-    stage_anti_stale_hardening()         # v160.0: quarantine stale/synthetic/fake intel
+    stage_anti_stale_hardening()         # v184.0: quarantine stale/synthetic/fake intel
     _stage_done("anti_stale_hardening")
     stage_schema_validation()            # HARD FAIL if schema invalid
     _stage_done("schema_validation")
@@ -3918,7 +3918,7 @@ def main() -> None:
     stage_sync_root_feed_json()          # FINAL: ensure feed.json populated (double-guarantee)
     _stage_done("feed_json_final")       # v143.4.1 FIX: mark BEFORE stage audit so it registers
 
-    # ---- Phase 3.95 — Immutable Snapshot (v144.0.0) -----------------------
+    # ---- Phase 3.95 — Immutable Snapshot (v184.0) -----------------------
     # Create an immutable timestamped snapshot from the freshly-written api/feed.json.
     # snapshot_integration.py reads api/feed.json, deduplicates, sorts, writes atomically
     # to data/snapshots/<ts>_<run_id>.json and updates data/snapshots/current.json pointer.

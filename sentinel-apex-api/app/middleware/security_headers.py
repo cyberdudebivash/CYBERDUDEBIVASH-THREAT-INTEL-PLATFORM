@@ -1,5 +1,5 @@
 """
-SENTINEL APEX — Security Headers Middleware v143.0.0
+SENTINEL APEX — Security Headers Middleware v184.0
 =====================================================
 Enforces ISO 27001 / SOC 2 / OWASP-hardened HTTP security headers
 on every response served by the SENTINEL APEX API.

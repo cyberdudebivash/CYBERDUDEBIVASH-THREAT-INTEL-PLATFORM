@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 ╔══════════════════════════════════════════════════════════════════════════════╗
-║  SENTINEL APEX — /api/payment/notify Endpoint v143.0.0                    ║
+║  SENTINEL APEX — /api/payment/notify Endpoint v184.0                    ║
 ║  Phase IV Asset 8 — Proof-of-Payment VIP Onboarding                       ║
 ║                                                                            ║
 ║  Handles payment webhooks from Gumroad / Stripe / manual upload.          ║

@@ -305,7 +305,7 @@ def sync_api_health_json(ssot: dict, dry_run: bool) -> dict:
 
 
 # =============================================================================
-# SYNC TARGET: api/version.json  (v160.0 — client-facing API version endpoint)
+# SYNC TARGET: api/version.json  (v184.0 — client-facing API version endpoint)
 # =============================================================================
 
 def sync_api_version_json(ssot: dict, dry_run: bool) -> dict:
@@ -558,7 +558,7 @@ def main() -> int:
     sync_results.append(r)
     print()
 
-    # --- Sync api/version.json (v160.0+ client-facing endpoint) ---
+    # --- Sync api/version.json (v184.0+ client-facing endpoint) ---
     log_info("Syncing: api/version.json")
     r = sync_api_version_json(ssot, dry_run=(dry_run or check_only))
     sync_results.append(r)

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 ===============================================================================
-CYBERDUDEBIVASH SENTINEL APEX v134.0.0 - ENTERPRISE INTEL REPORT GENERATOR
+CYBERDUDEBIVASH SENTINEL APEX v184.0 - ENTERPRISE INTEL REPORT GENERATOR
 ===============================================================================
 Produces one 16-section enterprise HTML Tactical Dossier per advisory.
 Every processed intel entry MUST produce a report - no entry is skipped.
@@ -212,16 +212,16 @@ def _safe_enforce_schema(item: dict) -> dict:
 
 # ─── Version loader (reads from config/version.json  -  single source of truth) ───
 def _load_platform_version() -> str:
-    """Load version from config/version.json. Falls back to v160.0.0 hardcoded if missing/truncated/invalid."""
+    """Load version from config/version.json. Falls back to v184.0 hardcoded if missing/truncated/invalid."""
     try:
         vf = REPO_ROOT / "config" / "version.json"
         if vf.exists():
             import json as _json
             data = _json.loads(vf.read_text(encoding="utf-8"))
-            return "v" + data.get("platform", data.get("version", "160.0.0"))
+            return "v" + data.get("platform", data.get("version", "184.0"))
     except Exception:
         pass
-    return "v160.0.0"  # P0 MANDATE: fallback is always v160.0.0 (never v134)
+    return "v184.0"  # P0 MANDATE: fallback is always v184.0 (never v134)
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Configuration

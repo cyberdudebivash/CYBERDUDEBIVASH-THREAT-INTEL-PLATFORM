@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 scripts/deployment_convergence_validator.py
-CYBERDUDEBIVASH(R) SENTINEL APEX v156.0 -- Enterprise Deployment Convergence Engine
+CYBERDUDEBIVASH(R) SENTINEL APEX v184.0 -- Enterprise Deployment Convergence Engine
 ======================================================================================
 MISSION:
   Convert the deployment validation layer into a FULLY ENTERPRISE-GRADE,
@@ -158,7 +158,7 @@ def _http_probe(url: str, timeout: int = HTTP_TIMEOUT) -> ProbeResult:
     t0 = time.monotonic()
     try:
         req = urllib.request.Request(url, method="HEAD")
-        req.add_header("User-Agent", "CDB-Sentinel-Convergence/156.0")
+        req.add_header("User-Agent", "CDB-Sentinel-Convergence/184.0")
         req.add_header("Cache-Control", "no-cache")
         with urllib.request.urlopen(req, timeout=timeout) as resp:
             elapsed = (time.monotonic() - t0) * 1000
@@ -836,7 +836,7 @@ def run_convergence_protocol() -> int:
     version = _get_platform_version()
 
     log.info("╔══════════════════════════════════════════════════════════════════════╗")
-    log.info("║   SENTINEL APEX  -  DEPLOYMENT CONVERGENCE ENGINE v156.0              ║")
+    log.info("║   SENTINEL APEX  -  DEPLOYMENT CONVERGENCE ENGINE v184.0              ║")
     log.info("║   EVENTUAL-CONSISTENCY-AWARE · ENTERPRISE-GRADE · P0-SAFE           ║")
     log.info("╚══════════════════════════════════════════════════════════════════════╝")
     log.info("Platform version : %s", version)

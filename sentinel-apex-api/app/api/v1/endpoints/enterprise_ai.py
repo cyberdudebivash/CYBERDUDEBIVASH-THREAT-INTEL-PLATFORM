@@ -1,6 +1,6 @@
 """
 ╔══════════════════════════════════════════════════════════════════════════════╗
-║  SENTINEL APEX — ENTERPRISE AI ENDPOINTS v143.0.0                         ║
+║  SENTINEL APEX — ENTERPRISE AI ENDPOINTS v184.0                         ║
 ║  Phase IV Asset 1 — Tier 1 Revenue API                                    ║
 ║                                                                            ║
 ║  Endpoints:                                                                ║
@@ -414,7 +414,7 @@ async def enterprise_predict(
         "tier": key_record.get("tier", "ENTERPRISE").upper(),
         "apex_ai": {
             "model": "GradientBoosting+IsolationForest",
-            "version": "v143.0.0",
+            "version": "v184.0",
             "horizon_days": body.horizon_days,
             "generated_at": raw_payload.get("generated_at",
                                              datetime.now(timezone.utc).isoformat()),
@@ -505,7 +505,7 @@ async def critical_anomalies(
         "tier": key_record.get("tier", "ENTERPRISE").upper(),
         "apex_ai": {
             "engine": "IsolationForest",
-            "version": "v143.0.0",
+            "version": "v184.0",
             "contamination_rate": 0.08,
             "n_estimators": 120,
             "hasValidApexAI": valid,

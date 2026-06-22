@@ -1,5 +1,5 @@
 """
-SENTINEL APEX — MSSP Portal & White-Label Endpoints v177.0
+SENTINEL APEX — MSSP Portal & White-Label Endpoints v184.0
 ===========================================================
 Multi-tenant MSSP operations, sub-tenant provisioning, and white-label configuration.
 
@@ -450,7 +450,7 @@ async def configure_whitelabel(
             "mssp_org_id": user.org_id,
             "configured_by": user.email or user.org_id,
             "configured_at": _now(),
-            "platform": "SENTINEL APEX v177.0",
+            "platform": "SENTINEL APEX v184.0",
         }
     })
     _save_json(_WL_CONFIG, existing)

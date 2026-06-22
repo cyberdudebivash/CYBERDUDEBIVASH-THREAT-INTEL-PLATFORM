@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 scripts/runner_disk_governor.py
-CYBERDUDEBIVASH(R) SENTINEL APEX v156.0 -- Runner Disk Governor
+CYBERDUDEBIVASH(R) SENTINEL APEX v184.0 -- Runner Disk Governor
 ================================================================================
 PURPOSE:
   Enterprise-grade runtime disk monitoring and emergency cleanup engine for
@@ -426,7 +426,7 @@ def mode_preflight() -> int:
     Fails hard if disk < THRESHOLD_CRITICAL_GB after reclaim attempt.
     """
     log.info("=" * 70)
-    log.info("RUNNER DISK PRE-FLIGHT CHECK (v156.0)")
+    log.info("RUNNER DISK PRE-FLIGHT CHECK (v184.0)")
     log.info("=" * 70)
     stats = get_disk_stats()
     log.info("Disk state: %.2f GB free / %.2f GB total (%.1f%% used)",
@@ -473,7 +473,7 @@ def mode_predist() -> int:
     This is the PRIMARY prevention for incident #1199.
     """
     log.info("=" * 70)
-    log.info("PRE-DIST RUNNER DISK CLEANUP (v156.0 P0)")
+    log.info("PRE-DIST RUNNER DISK CLEANUP (v184.0 P0)")
     log.info("=" * 70)
 
     stats_before = get_disk_stats()
@@ -563,7 +563,7 @@ def mode_monitor(interval_s: int = 60) -> int:
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="SENTINEL APEX Runner Disk Governor v156.0"
+        description="SENTINEL APEX Runner Disk Governor v184.0"
     )
     group = parser.add_mutually_exclusive_group(required=True)
     group.add_argument("--preflight",  action="store_true",

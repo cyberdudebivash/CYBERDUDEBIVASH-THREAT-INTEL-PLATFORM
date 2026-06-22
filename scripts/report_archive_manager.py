@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 scripts/report_archive_manager.py
-CYBERDUDEBIVASH(R) SENTINEL APEX v156.0 -- Report Archive Governance Engine
+CYBERDUDEBIVASH(R) SENTINEL APEX v184.0 -- Report Archive Governance Engine
 =============================================================================
 PURPOSE:
   Manages the lifecycle of HTML threat intelligence reports in the working tree.
@@ -290,7 +290,7 @@ def run_archive(retention_days: int, dry_run: bool) -> int:
     cutoff = datetime.now(timezone.utc) - timedelta(days=retention_days)
 
     log.info("╔══════════════════════════════════════════════════════════════╗")
-    log.info("║   SENTINEL APEX — REPORT ARCHIVE GOVERNANCE ENGINE v156.0  ║")
+    log.info("║   SENTINEL APEX — REPORT ARCHIVE GOVERNANCE ENGINE v184.0  ║")
     log.info("╚══════════════════════════════════════════════════════════════╝")
     log.info("Retention window : %d days", retention_days)
     log.info("Cutoff date      : %s", cutoff.strftime("%Y-%m-%d"))
@@ -391,7 +391,7 @@ def run_archive(retention_days: int, dry_run: bool) -> int:
 def main() -> int:
     global RETENTION_DAYS  # may be overridden by --days CLI arg
     parser = argparse.ArgumentParser(
-        description="SENTINEL APEX — Report Archive Governance Engine v156.0"
+        description="SENTINEL APEX — Report Archive Governance Engine v184.0"
     )
     parser.add_argument(
         "--dry-run",

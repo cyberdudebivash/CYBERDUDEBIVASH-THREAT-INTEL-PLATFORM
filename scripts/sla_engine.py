@@ -41,7 +41,7 @@ HEALTH_DIR = REPO_ROOT / "data" / "health"
 HEALTH_DIR.mkdir(parents=True, exist_ok=True)
 
 WORKER_BASE = "https://intel.cyberdudebivash.com"
-PLATFORM_VERSION = "160.0.0"  # v160.0 -- synced with SSOT config/version.json
+PLATFORM_VERSION = "160.0.0"  # v184.0 -- synced with SSOT config/version.json
 
 SLA_TIERS = {
     "platinum": {
@@ -166,7 +166,7 @@ def calculate_rollback_frequency(history: list) -> int:
 def run_api_probes() -> dict:
     """Probe all critical API endpoints.
 
-    v160.0 -- Endpoints are split into PUBLIC (counted toward availability SLA)
+    v184.0 -- Endpoints are split into PUBLIC (counted toward availability SLA)
     and AUTH_PROTECTED (probed for observability but NOT counted toward availability,
     since 401/403 responses are EXPECTED without a JWT token and do not represent
     a production outage).

@@ -159,7 +159,7 @@ def normalise_entry(item: dict) -> dict | None:
     rep = out.get("report_url") or ""
     if not isinstance(rep, str):
         rep = ""
-    # v134.0.0: Rewrite dead reports.cyberdudebivash.com (DNS NXDOMAIN) → intel domain
+    # v184.0: Rewrite dead reports.cyberdudebivash.com (DNS NXDOMAIN) → intel domain
     if "reports.cyberdudebivash.com" in rep:
         rep = rep.replace("https://reports.cyberdudebivash.com", "https://intel.cyberdudebivash.com")
     if not rep or "blogspot" in rep.lower():

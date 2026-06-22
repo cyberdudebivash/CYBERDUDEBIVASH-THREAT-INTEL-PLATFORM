@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
 scripts/r2_resync_manifests.py
-CYBERDUDEBIVASH(R) SENTINEL APEX v160.0 -- R2 Post-Stage-3.93 Manifest Resync
+CYBERDUDEBIVASH(R) SENTINEL APEX v184.0 -- R2 Post-Stage-3.93 Manifest Resync
 ==============================================================================
-ROOT CAUSE FIX (v160.0):
+ROOT CAUSE FIX (v184.0):
   STAGE 3.5 (r2_upload.py) runs BEFORE STAGE 3.93 (Generate Immutable API
   Manifests). This means R2 receives PRE-generation manifests:
     - api/v1/intel/latest.json had 25 items at STAGE 3.5 time
@@ -50,7 +50,7 @@ logging.basicConfig(
 log = logging.getLogger("sentinel.r2_resync")
 
 REPO_ROOT       = Path(__file__).resolve().parent.parent
-PIPELINE_VERSION = os.environ.get("PIPELINE_VERSION", "160.0")
+PIPELINE_VERSION = os.environ.get("PIPELINE_VERSION", "184.0")
 BUCKET_DATA     = "sentinel-apex-data"
 
 # Files to re-upload after STAGE 3.93 generates the final manifests.

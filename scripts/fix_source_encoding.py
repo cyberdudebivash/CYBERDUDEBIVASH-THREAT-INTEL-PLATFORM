@@ -4,7 +4,7 @@ Fix mojibake in platform source files (Python/JS/HTML/YAML).
 Run once to repair source code that was previously double-encoded.
 Safe to re-run: becomes a no-op after the first successful pass.
 
-CYBERDUDEBIVASH SENTINEL APEX v134.0.0
+CYBERDUDEBIVASH SENTINEL APEX v184.0
 """
 from __future__ import annotations
 

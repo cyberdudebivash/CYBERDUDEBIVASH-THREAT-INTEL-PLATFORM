@@ -611,7 +611,7 @@ def check_synchronization(ssot: Dict) -> None:
 
 def produce_governance_report(ssot: Dict) -> None:
     """Write machine-readable governance report to disk for downstream consumers."""
-    # v160.0 FIX: compute governance_state first so overall_grade can derive from it.
+    # v184.0 FIX: compute governance_state first so overall_grade can derive from it.
     # STAGE 5.8.4b reads .overall_grade and .release_blocked via jq — both must exist.
     governance_state = (
         "RELEASE_BLOCKED"  if HARD_FAIL_COUNT > 0 else

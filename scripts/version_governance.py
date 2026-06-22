@@ -2,7 +2,7 @@
 """
 ===============================================================================
 CYBERDUDEBIVASH(R) SENTINEL APEX
-VERSION GOVERNANCE ENGINE v148.0.0
+VERSION GOVERNANCE ENGINE v184.0
 ===============================================================================
 PURPOSE:
   Single-source-of-truth version authority for the SENTINEL APEX platform.
@@ -158,25 +158,25 @@ REGEX_TARGETS = [
         r'(SENTINEL APEX )v[0-9]+\.[0-9]+(?:\.[0-9]+)?',
         r'\g<1>v{VER}',
     ),
-    # observability.html -- brand navbar <span> tag (e.g. "SENTINEL APEX <span>v148.0.0</span>")
+    # observability.html -- brand navbar <span> tag (e.g. "SENTINEL APEX <span>v184.0</span>")
     (
         "observability.html",
         r'(SENTINEL APEX <span>)v[0-9]+\.[0-9]+(?:\.[0-9]+)?(</span>)',
         r'\g<1>v{VER}\g<2>',
     ),
-    # observability.html -- JS fallback version string (e.g. data.version||'v148.0.0')
+    # observability.html -- JS fallback version string (e.g. data.version||'v184.0')
     (
         "observability.html",
         r"(\|\|')v[0-9]+\.[0-9]+(?:\.[0-9]+)?(')",
         r"\g<1>v{VER}\g<2>",
     ),
-    # observability.html -- Observability Engine init log line (Engine v148.0.0 style)
+    # observability.html -- Observability Engine init log line (Engine v184.0 style)
     (
         "observability.html",
         r'(Observability Engine )v[0-9]+\.[0-9]+(?:\.[0-9]+)?',
         r'\g<1>v{VER}',
     ),
-    # observability.html -- JS comment header (Dashboard v148.0.0 style)
+    # observability.html -- JS comment header (Dashboard v184.0 style)
     (
         "observability.html",
         r'(Observability Dashboard )v[0-9]+\.[0-9]+(?:\.[0-9]+)?',
@@ -188,7 +188,7 @@ REGEX_TARGETS = [
         r'(SENTINEL APEX )v[0-9]+\.[0-9]+(?:\.[0-9]+)?',
         r'\g<1>v{VER}',
     ),
-    # trust-center.html -- brand navbar <span> tag (e.g. "SENTINEL APEX <span>v148.0.0</span>")
+    # trust-center.html -- brand navbar <span> tag (e.g. "SENTINEL APEX <span>v184.0</span>")
     (
         "trust-center.html",
         r'(SENTINEL APEX <span>)v[0-9]+\.[0-9]+(?:\.[0-9]+)?(</span>)',

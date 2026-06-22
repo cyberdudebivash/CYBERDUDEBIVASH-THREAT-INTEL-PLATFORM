@@ -54,7 +54,7 @@ WARN_CONF_UNIFORMITY     = 0.60   # >60% items share same confidence → WARN
 
 STALE_CUTOFF_YEAR        = 2024   # CVEs published before this year are "stale"
 EPSS_JUSTIFICATION_FLOOR = 0.05   # EPSS >= 5% justifies keeping an old CVE
-# v160.0: CVEs from this year or later are "recent" — NVD may not have enriched them yet.
+# v184.0: CVEs from this year or later are "recent" — NVD may not have enriched them yet.
 # Exclude recent CVEs from synthetic check to prevent false-positives on legitimate intel.
 RECENT_CVE_YEAR_FLOOR    = 2025   # CVE year >= this → exempt from synthetic flag
 
@@ -159,7 +159,7 @@ def check_stale_cves(items: List[Dict]) -> Tuple[str, float, str]:
 def check_synthetic_ratio(items: List[Dict]) -> Tuple[str, float, str]:
     """Check synthetic advisory ratio (CDB-UNATTR-CVE actor + no CVSS/EPSS).
 
-    v160.0 FIX: Excludes items with recent CVE years (>= RECENT_CVE_YEAR_FLOOR) from
+    v184.0 FIX: Excludes items with recent CVE years (>= RECENT_CVE_YEAR_FLOOR) from
     the synthetic flag. CVEs from 2025+ are legitimate intelligence items that have not
     yet been enriched by NVD (NVD ingestion lag for new CVEs can be weeks to months).
     Flagging them as synthetic causes false-positive governance failures.
@@ -196,7 +196,7 @@ def check_synthetic_ratio(items: List[Dict]) -> Tuple[str, float, str]:
 def check_cvss_coverage(items: List[Dict]) -> Tuple[str, float, str]:
     """Warn if CVSS coverage on CVE items is below floor.
 
-    v160.0 FIX: Exempt recent CVEs (year >= RECENT_CVE_YEAR_FLOOR) from the
+    v184.0 FIX: Exempt recent CVEs (year >= RECENT_CVE_YEAR_FLOOR) from the
     CVSS coverage check. NVD ingestion lag for 2025+ CVEs can be weeks to months —
     these are legitimate intelligence items without NVD CVSS records yet, not
     enrichment failures. Only older CVEs (pre-2025) should be expected to have CVSS.
@@ -309,7 +309,7 @@ def run_gate(feed_path: Path, strict: bool = False) -> Dict[str, Any]:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="SENTINEL APEX Feed Health Gate v160.0")
+    parser = argparse.ArgumentParser(description="SENTINEL APEX Feed Health Gate v184.0")
     parser.add_argument("--feed",   default=str(DEFAULT_FEED), help="Path to feed JSON")
     parser.add_argument("--strict", action="store_true",       help="Escalate WARN to FAIL")
     parser.add_argument("--report", action="store_true",       help="Always exit 0 (observability mode)")

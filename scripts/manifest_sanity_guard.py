@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 scripts/manifest_sanity_guard.py
-CYBERDUDEBIVASH(R) SENTINEL APEX v142.0.0 -- Manifest Sanity Guard (Standalone Gate)
+CYBERDUDEBIVASH(R) SENTINEL APEX v184.0 -- Manifest Sanity Guard (Standalone Gate)
 ======================================================================================
 Pipeline gate: called from sentinel-blogger.yml AFTER intel_quality_engine runs.
 
@@ -91,7 +91,7 @@ def run_sanity_check() -> int:
     Run all sanity checks. Returns exit code (0=pass, 1=hard-fail).
     """
     t_start = time.monotonic()
-    log.info("=== Manifest Sanity Guard v142.0.0 ===")
+    log.info("=== Manifest Sanity Guard v184.0 ===")
 
     items, source = _load_manifest()
     log.info("Loaded %d items from: %s", len(items), source)

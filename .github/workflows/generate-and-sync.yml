@@ -1,5 +1,5 @@
 # =============================================================================
-# CYBERDUDEBIVASH(R) SENTINEL APEX v160.0
+# CYBERDUDEBIVASH(R) SENTINEL APEX v184.0
 # GENERATE-AND-SYNC — AI TRACKER PIPELINE + PHASE 6 SCALE GOVERNANCE
 # =============================================================================
 #
@@ -28,7 +28,7 @@
 #     SCHEMA_VALID      - schema validation result
 #     PIPELINE_RUN_ID   - GitHub run ID (deterministic)
 #
-# SAFETY RULES (inherited from sentinel-blogger v134.0.0):
+# SAFETY RULES (inherited from sentinel-blogger v184.0):
 #   RULE 1:  Zero inline Python in YAML
 #   RULE 2:  All logic in dedicated scripts/ only
 #   RULE 3:  Encoding guard runs FIRST
@@ -256,11 +256,11 @@ jobs:
           echo "[OK] Output directories ready"
 
       # ─────────────────────────────────────────────────────────────────────
-      # STAGE 4.1 — CISA KEV FEED MARKER (v160.0 — non-blocking)
+      # STAGE 4.1 — CISA KEV FEED MARKER (v184.0 — non-blocking)
       # Marks any feed items matching the live CISA KEV catalog as CRITICAL.
       # Runs before AI tracker generation so tracker inherits KEV enrichment.
       # ─────────────────────────────────────────────────────────────────────
-      - name: "STAGE 4.1 — CISA KEV Feed Marker (v160.0)"
+      - name: "STAGE 4.1 — CISA KEV Feed Marker (v184.0)"
         timeout-minutes: 5
         continue-on-error: true
         run: |
@@ -280,12 +280,12 @@ jobs:
           echo "STAGE 4.1: CISA KEV Feed Marker complete"
 
       # ─────────────────────────────────────────────────────────────────────
-      # STAGE 4.2 — INTELLIGENCE QUALITY HARDENER (v160.0 — non-blocking)
+      # STAGE 4.2 — INTELLIGENCE QUALITY HARDENER (v184.0 — non-blocking)
       # Fixes actor attribution, clamps invalid scores, improves generic titles,
       # flags synthetic CVEs, adds IOC type hints, derives TLP levels.
       # Runs before AI tracker generation so tracker reflects hardened data.
       # ─────────────────────────────────────────────────────────────────────
-      - name: "STAGE 4.2 — Intelligence Quality Hardener (v160.0)"
+      - name: "STAGE 4.2 — Intelligence Quality Hardener (v184.0)"
         timeout-minutes: 5
         continue-on-error: true
         run: |
@@ -587,7 +587,7 @@ jobs:
 
       # ─────────────────────────────────────────────────────────────────────
       # STAGE 5.7 — MONETIZATION INTEGRITY GATE (HARD FAIL)
-      # v148.0.0: Validates payment credentials, API auth enforcement,
+      # v184.0: Validates payment credentials, API auth enforcement,
       #           BOM-free / encoding-clean HTML, Worker premium gating.
       #           Exit 1 blocks the deploy. Mirrors sentinel-blogger.yml gate.
       #           POSITION: pre-deploy gate — runs BEFORE commit and R2 upload.
@@ -708,7 +708,7 @@ jobs:
       #         CVSS coverage, confidence uniformity.
       # Non-blocking — violations emit CI warnings + write health report.
       # ─────────────────────────────────────────────────────────────────────
-      - name: "STAGE 6.89 — Feed Health Gate (v160.0)"
+      - name: "STAGE 6.89 — Feed Health Gate (v184.0)"
         timeout-minutes: 3
         continue-on-error: true
         run: |
@@ -749,7 +749,7 @@ jobs:
       # cross-run reuse via persistent registry, flags stale CVE reuse.
       # Non-blocking — writes data/health/advisory_immutability.json.
       # ─────────────────────────────────────────────────────────────────────
-      - name: "STAGE 6.895 — Advisory Immutability Engine (v160.0)"
+      - name: "STAGE 6.895 — Advisory Immutability Engine (v184.0)"
         timeout-minutes: 3
         continue-on-error: true
         run: |
