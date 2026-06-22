@@ -593,6 +593,20 @@ h1 span { color: var(--accent); }
       <h1>Complete Your <span>Upgrade</span></h1>
       <p class="subtitle">Select your plan &mdash; choose a payment method &mdash; submit confirmation. API key delivered within 2 hours.</p>
 
+      <!-- Social proof trust strip -->
+      <div style="display:flex;align-items:center;justify-content:center;gap:24px;flex-wrap:wrap;margin:16px 0 24px;padding:14px 20px;background:rgba(0,212,170,.05);border:1px solid rgba(0,212,170,.15);border-radius:8px;font-size:12px;">
+        <span style="color:#f59e0b;">★★★★★</span>
+        <span style="color:#94a3b8;font-family:monospace;letter-spacing:1px;">4.9/5 avg rating</span>
+        <span style="color:rgba(255,255,255,.15);">|</span>
+        <span style="color:#94a3b8;font-family:monospace;letter-spacing:1px;">500+ active teams</span>
+        <span style="color:rgba(255,255,255,.15);">|</span>
+        <span style="color:#94a3b8;font-family:monospace;letter-spacing:1px;">40+ countries</span>
+        <span style="color:rgba(255,255,255,.15);">|</span>
+        <span style="color:#94a3b8;font-family:monospace;letter-spacing:1px;">Cancel anytime</span>
+        <span style="color:rgba(255,255,255,.15);">|</span>
+        <a href="/testimonials.html" style="color:#00d4aa;text-decoration:none;font-weight:700;font-family:monospace;font-size:11px;letter-spacing:1px;">Read Testimonials →</a>
+      </div>
+
       <div class="billing-toggle">
         <span class="toggle-label active" id="lbl-monthly">Monthly</span>
         <button class="toggle-switch" id="billing-toggle" onclick="toggleBilling()" aria-label="Toggle annual billing"></button>
@@ -1956,7 +1970,16 @@ function startBSCPolling(txhash, reviewId) {
       if (gwEl) gwEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }, 300);
   } else {
-    selectPlan('pro');
+    // v185.0: Read plan from URL param (pricing.html annual CTA passes plan=pro-annual)
+    var planParam2 = params.get('plan') || 'pro';
+    var isAnnualParam = planParam2.endsWith('-annual');
+    var basePlan = isAnnualParam ? planParam2.replace('-annual', '') : planParam2;
+    selectPlan(['pro','enterprise','mssp'].includes(basePlan) ? basePlan : 'pro');
+
+    // Activate annual billing if URL param says so or pricing page set sessionStorage
+    if (!isAnnual && (isAnnualParam || (function(){ try{ return sessionStorage.getItem('billingMode') === 'annual'; }catch(e){ return false; } })())) {
+      toggleBilling();
+    }
   }
 
   updateDGW();
