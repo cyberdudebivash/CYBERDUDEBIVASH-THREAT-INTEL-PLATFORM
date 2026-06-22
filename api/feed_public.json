@@ -6,7 +6,7 @@
     "description": "### Summary\nThe OpenCTI platform’s data ingestion feature accepts user-supplied URLs without validation and uses the Axios HTTP client with its default configuration (allowAbsoluteUrls: true). This allows attackers to craft requests to arbitrary endpoints, including internal services, because Axios will accept and process absolute URLs.\n\nThis results in a semi-blind SSRF, as responses may not be fully visible but can still impact internal systems.\n\n### Impact\nOpenCTI’s data ingestion feature can allow an attacker to make the application send HTTP requests to arbitrary internal or external endpoints. This means an attacker could reach internal services that are not exposed publicly, such as Elasticsearch, Redis, or RabbitMQ, and potentially extract sensitive data or manipulate internal components. In cloud environments, the attacker could target metadata services like AWS, Azure, or GCP to obtain credentials and configuration details, which could lead to full compromise of the infrastru",
     "severity": "HIGH",
     "risk_score": 7.0,
-    "confidence": 0.17,
+    "confidence": 0.19,
     "source": "GitHub Security Advisories",
     "feed_source": "GitHub Security Advisories",
     "tlp": "TLP:AMBER",
@@ -56,14 +56,19 @@
       "corroboration": 15
     },
     "intelligence_age_days": 0.0,
-    "confidence_label": "LOW_CONFIDENCE",
-    "confidence_score_v2": 13,
-    "confidence_rationale": "Single source with minimal corroborating evidence",
+    "confidence_label": "MEDIUM_CONFIDENCE",
+    "confidence_score_v2": 25,
+    "confidence_rationale": "Medium confidence — CVSS score 7.7 (High)",
     "confidence_factors": [
       {
         "factor": "cvss_high",
         "weight": 8,
         "signal": "CVSS score 7.7 (High)"
+      },
+      {
+        "factor": "epss_very_high",
+        "weight": 12,
+        "signal": "EPSS score 21.000 (very high exploitation probability)"
       },
       {
         "factor": "cve_referenced",
@@ -81,7 +86,7 @@
     "sla_priority": "P3",
     "action_deadline_hours": 336,
     "recommended_sla_action": "SCHEDULED PATCH — Apply in next maintenance window",
-    "confidence_enriched_at": "2026-06-22T17:04:16Z",
+    "confidence_enriched_at": "2026-06-22T18:05:46Z",
     "confidence_engine_version": "1.0.1",
     "pdf_available": true,
     "apex_ai_summary": "[HIGH] Vulnerability advisory. Risk score 7.6/10. Full APEX AI analysis available to Pro subscribers.",
@@ -91,7 +96,7 @@
     "actor_code": "Unattributed",
     "actor_type": "UNATTRIBUTED",
     "actor_region": "Unknown",
-    "_quality_hardened_at": "2026-06-22T18:04:46.704904+00:00",
+    "_quality_hardened_at": "2026-06-22T18:41:52.955221+00:00",
     "_quality_version": "184.0",
     "evidence_ledger": {
       "source_count": 1,
@@ -103,9 +108,10 @@
       "evidence_strength": "LOW",
       "ledger_generated": true
     },
-    "confidence_score": 17,
+    "confidence_score": 19,
     "confidence_reason": [
-      "EPSS 21.0% exploitation probability"
+      "1 ATT&CK technique(s) mapped",
+      "EPSS 2100.0% exploitation probability"
     ],
     "cti_tier": "FREE_INFORMATIONAL",
     "verification_status": "UNVERIFIED",
@@ -135,7 +141,7 @@
       "Partial verification: EPSS 21.0%, CVSS 7.7"
     ],
     "grade_engine_version": "v2.0.0",
-    "graded_at": "2026-06-22T18:05:45.245186+00:00",
+    "graded_at": "2026-06-22T18:43:01.161741+00:00",
     "epss_normalized": true,
     "actor_tag": null,
     "actor_name": null,
@@ -144,9 +150,9 @@
     "enterprise_eligible": false,
     "mssp_eligible": true,
     "governor_version": "1.0.0",
-    "governed_at": "2026-06-22T18:05:46.025619+00:00",
+    "governed_at": "2026-06-22T18:43:01.893624+00:00",
     "governor_audit_log": [
-      "M2: Banned actor 'Unattributed Threat Actor' nulled — attribution_status=NONE",
+      "M3: attck_technique_ids cleared — verification='NOT_MAPPED' (no evidence)",
       "M4: risk_score raised 3.7→7.0 [severity=HIGH → floor 7.0; CVSS=7.7 ≥ 7.0 → floor 7.0; KEV=true → floor 7.0]"
     ],
     "actor_confidence_label": "NONE",
@@ -188,7 +194,9 @@
     "grade_notes_v2": [
       "Grade C: verified CVE; CVSS=7.7; 3 source(s)"
     ],
-    "graded_at_v2": "2026-06-22T18:05:45.913453+00:00",
+    "graded_at_v2": "2026-06-22T18:43:01.785042+00:00",
+    "_risk_micro_adj": 0.017,
+    "attck_tactics": [],
     "_tier_notice": "Upgrade to PRO for full enrichment: actor attribution, kill chain, IOC hashes, AI analysis, STIX bundle.",
     "_upgrade_url": "/upgrade.html?plan=pro"
   },
@@ -199,7 +207,7 @@
     "description": "### Impact\n\nThe ticket attachments functionality in Paymenter allows a malicious authenticated user to upload arbitrary files.\n\nWith the ability to execute arbitrary code, this vulnerability can be exploited in numerous ways, including but not limited to:\n- Extracting sensitive data from the database (e.g. customer information).\n- Reading credentials from .env or other configuration files.\n- Running arbitrary system commands under the web server user context.\n\nThis issue is Critical as it allows a low-privilege authenticated user to fully compromise the application and underlying server.\n\n### Patches\nThis vulnerability was patched by https://github.com/Paymenter/Paymenter/commit/87c3db42282ada1e3cda54b9a01f846926c0669b and was released under the [v1.2.11](https://github.com/Paymenter/Paymenter/releases/tag/v1.2.11) tag without any other code modifications compared to v1.2.10.\n\n### Work arounds\nIf upgrading is not immediately possible, administrators can mitigate this vulnerability with",
     "severity": "CRITICAL",
     "risk_score": 8.5,
-    "confidence": 0.17,
+    "confidence": 0.19,
     "source": "GitHub Security Advisories",
     "feed_source": "GitHub Security Advisories",
     "tlp": "TLP:AMBER",
@@ -250,7 +258,7 @@
     },
     "intelligence_age_days": 0.0,
     "confidence_label": "MEDIUM_CONFIDENCE",
-    "confidence_score_v2": 26,
+    "confidence_score_v2": 32,
     "confidence_rationale": "Medium confidence — CVSS score 9.9 (Critical)",
     "confidence_factors": [
       {
@@ -259,9 +267,9 @@
         "signal": "CVSS score 9.9 (Critical)"
       },
       {
-        "factor": "epss_high",
-        "weight": 6,
-        "signal": "EPSS score 0.370 (elevated exploitation probability)"
+        "factor": "epss_very_high",
+        "weight": 12,
+        "signal": "EPSS score 37.000 (very high exploitation probability)"
       },
       {
         "factor": "cve_referenced",
@@ -278,7 +286,7 @@
     "sla_priority": "P1",
     "action_deadline_hours": 72,
     "recommended_sla_action": "URGENT PATCH — Critical severity, deploy fix within 72 hours",
-    "confidence_enriched_at": "2026-06-22T17:04:16Z",
+    "confidence_enriched_at": "2026-06-22T18:05:46Z",
     "confidence_engine_version": "1.0.1",
     "pdf_available": true,
     "apex_ai_summary": "[CRITICAL] Vulnerability advisory. Risk score 9.0/10. Full APEX AI analysis available to Pro subscribers.",
@@ -289,7 +297,7 @@
     "actor_code": "Unattributed",
     "actor_type": "UNATTRIBUTED",
     "actor_region": "Unknown",
-    "_quality_hardened_at": "2026-06-22T18:04:46.704979+00:00",
+    "_quality_hardened_at": "2026-06-22T18:41:52.955266+00:00",
     "_quality_version": "184.0",
     "evidence_ledger": {
       "source_count": 1,
@@ -301,9 +309,10 @@
       "evidence_strength": "LOW",
       "ledger_generated": true
     },
-    "confidence_score": 17,
+    "confidence_score": 19,
     "confidence_reason": [
-      "EPSS 37.0% exploitation probability"
+      "1 ATT&CK technique(s) mapped",
+      "EPSS 3700.0% exploitation probability"
     ],
     "cti_tier": "FREE_INFORMATIONAL",
     "verification_status": "UNVERIFIED",
@@ -333,7 +342,7 @@
       "Partial verification: EPSS 37.0%, CVSS 9.9"
     ],
     "grade_engine_version": "v2.0.0",
-    "graded_at": "2026-06-22T18:05:45.245332+00:00",
+    "graded_at": "2026-06-22T18:43:01.161817+00:00",
     "epss_normalized": true,
     "actor_tag": null,
     "actor_name": null,
@@ -342,9 +351,9 @@
     "enterprise_eligible": true,
     "mssp_eligible": true,
     "governor_version": "1.0.0",
-    "governed_at": "2026-06-22T18:05:46.025658+00:00",
+    "governed_at": "2026-06-22T18:43:01.893686+00:00",
     "governor_audit_log": [
-      "M2: Banned actor 'Unattributed Threat Actor' nulled — attribution_status=NONE",
+      "M3: attck_technique_ids cleared — verification='NOT_MAPPED' (no evidence)",
       "M4: risk_score raised 5.1→8.5 [severity=CRITICAL → floor 8.5; CVSS=9.9 ≥ 9.0 → floor 8.5; KEV=true → floor 7.0]"
     ],
     "actor_confidence_label": "NONE",
@@ -386,7 +395,8 @@
     "grade_notes_v2": [
       "Grade B: CVE verified; CVSS=9.9; 3 sources; evidence-based ATT&CK; corroboration=70"
     ],
-    "graded_at_v2": "2026-06-22T18:05:45.913488+00:00",
+    "graded_at_v2": "2026-06-22T18:43:01.785077+00:00",
+    "attck_tactics": [],
     "_tier_notice": "Upgrade to PRO for full enrichment: actor attribution, kill chain, IOC hashes, AI analysis, STIX bundle.",
     "_upgrade_url": "/upgrade.html?plan=pro"
   },
@@ -397,7 +407,7 @@
     "description": "### Summary\n\nThe regex validation used to prevent Introspection queries can be bypassed by removing the extra whitespace, carriage return, and line feed characters from the query.\n\n### Details\n\nGraphQL Queries in OpenCTI can be validated using the `secureIntrospectionPlugin`.\n\n### Impact\nBypassing this restriction allows the attacker to gather a wealth of information about the GraphQL endpoint functionality that can be used to perform actions and/or read data without authorization.  These queries can also be weaponized to conduct a Denial of Service (DoS) attack if sent repeatedly.",
     "severity": "MEDIUM",
     "risk_score": 7.0,
-    "confidence": 0.17,
+    "confidence": 0.19,
     "source": "GitHub Security Advisories",
     "feed_source": "GitHub Security Advisories",
     "tlp": "TLP:AMBER",
@@ -448,13 +458,13 @@
     },
     "intelligence_age_days": 0.0,
     "confidence_label": "LOW_CONFIDENCE",
-    "confidence_score_v2": 11,
+    "confidence_score_v2": 17,
     "confidence_rationale": "Single source with minimal corroborating evidence",
     "confidence_factors": [
       {
-        "factor": "epss_high",
-        "weight": 6,
-        "signal": "EPSS score 0.440 (elevated exploitation probability)"
+        "factor": "epss_very_high",
+        "weight": 12,
+        "signal": "EPSS score 44.000 (very high exploitation probability)"
       },
       {
         "factor": "cve_referenced",
@@ -470,18 +480,18 @@
     "sla_priority": "P3",
     "action_deadline_hours": 336,
     "recommended_sla_action": "SCHEDULED PATCH — Apply in next maintenance window",
-    "confidence_enriched_at": "2026-06-22T17:04:16Z",
+    "confidence_enriched_at": "2026-06-22T18:05:46Z",
     "confidence_engine_version": "1.0.1",
     "pdf_available": true,
     "apex_ai_summary": "[MEDIUM] Vulnerability advisory. Risk score 5.0/10. Full APEX AI analysis available to Pro subscribers.",
     "apex_ai_score": 5.0,
     "status": "active",
     "schema_version": "stable-v1.0-apex",
-    "_risk_micro_adj": 0.024786,
+    "_risk_micro_adj": 0.017,
     "actor_code": "Unattributed",
     "actor_type": "UNATTRIBUTED",
     "actor_region": "Unknown",
-    "_quality_hardened_at": "2026-06-22T18:04:46.705002+00:00",
+    "_quality_hardened_at": "2026-06-22T18:41:52.955291+00:00",
     "_quality_version": "184.0",
     "evidence_ledger": {
       "source_count": 1,
@@ -493,9 +503,10 @@
       "evidence_strength": "LOW",
       "ledger_generated": true
     },
-    "confidence_score": 17,
+    "confidence_score": 19,
     "confidence_reason": [
-      "EPSS 44.0% exploitation probability"
+      "1 ATT&CK technique(s) mapped",
+      "EPSS 4400.0% exploitation probability"
     ],
     "cti_tier": "FREE_INFORMATIONAL",
     "verification_status": "UNVERIFIED",
@@ -525,7 +536,7 @@
       "Partial verification: EPSS 44.0%"
     ],
     "grade_engine_version": "v2.0.0",
-    "graded_at": "2026-06-22T18:05:45.245391+00:00",
+    "graded_at": "2026-06-22T18:43:01.161857+00:00",
     "epss_normalized": true,
     "actor_tag": null,
     "actor_name": null,
@@ -534,9 +545,9 @@
     "enterprise_eligible": false,
     "mssp_eligible": true,
     "governor_version": "1.0.0",
-    "governed_at": "2026-06-22T18:05:46.025679+00:00",
+    "governed_at": "2026-06-22T18:43:01.893711+00:00",
     "governor_audit_log": [
-      "M2: Banned actor 'Unattributed Threat Actor' nulled — attribution_status=NONE",
+      "M3: attck_technique_ids cleared — verification='NOT_MAPPED' (no evidence)",
       "M4: risk_score raised 3.9→7.0 [KEV=true → floor 7.0]"
     ],
     "actor_confidence_label": "NONE",
@@ -578,7 +589,8 @@
     "grade_notes_v2": [
       "Grade C: verified CVE; CVSS=6.5; 3 source(s)"
     ],
-    "graded_at_v2": "2026-06-22T18:05:45.913511+00:00",
+    "graded_at_v2": "2026-06-22T18:43:01.785101+00:00",
+    "attck_tactics": [],
     "_tier_notice": "Upgrade to PRO for full enrichment: actor attribution, kill chain, IOC hashes, AI analysis, STIX bundle.",
     "_upgrade_url": "/upgrade.html?plan=pro"
   },
@@ -599,8 +611,8 @@
       "T1059"
     ],
     "generated_at": "2026-06-22T16:48:55Z",
-    "confidence_score": 35,
-    "confidence": 0.35,
+    "confidence_score": 34,
+    "confidence": 0.34,
     "tlp_label": "TLP:GREEN",
     "ioc_counts": {
       "cve": 0
@@ -942,7 +954,7 @@
     "_enriched_at": "2026-06-22T17:00:49.286418+00:00",
     "_enriched_by": "enrich_cvss_epss_batch.py v148.1.0",
     "blog_url": "https://intel.cyberdudebivash.com/reports/intel--944c2cd4a80c7dd238842334/",
-    "_quality_hardened_at": "2026-06-22T18:04:46.705162+00:00",
+    "_quality_hardened_at": "2026-06-22T18:41:52.955315+00:00",
     "_quality_version": "184.0",
     "mitre_group_name": "Unattributed CVE Exploiter",
     "mitre_group_aliases": [],
@@ -999,7 +1011,7 @@
       }
     ],
     "confidence_label": "MEDIUM_CONFIDENCE",
-    "confidence_score_v2": 25,
+    "confidence_score_v2": 21,
     "confidence_rationale": "Medium confidence — CVSS score 7.5 (High)",
     "confidence_factors": [
       {
@@ -1016,11 +1028,6 @@
         "factor": "iocs_5plus",
         "weight": 8,
         "signal": "16 IOCs extracted and verified"
-      },
-      {
-        "factor": "ttps_2to4",
-        "weight": 4,
-        "signal": "2 MITRE ATT&CK TTPs mapped"
       }
     ],
     "sources_reporting": 1,
@@ -1031,11 +1038,11 @@
     "sla_priority": "P4",
     "action_deadline_hours": 720,
     "recommended_sla_action": "MONITOR — Assess in next vulnerability review cycle",
-    "confidence_enriched_at": "2026-06-22T17:04:16Z",
+    "confidence_enriched_at": "2026-06-22T18:05:46Z",
     "confidence_engine_version": "1.0.1",
     "apex_ai_summary": "[P4] Remote Code Execution - low severity (Risk 1.6/10). MITRE ATT&CK mapped: T1190, T1059 (2 techniques). 16 indicators detected - upgrade to Pro for full IOC access. Actor attribution: CDB-UNATTR-CVE. AI confidence: LOW (31%) - limited source data available.",
     "apex_ai_score": 0.9,
-    "_risk_micro_adj": 0.1929,
+    "_risk_micro_adj": 0.035,
     "evidence_ledger": {
       "source_count": 1,
       "verified_sources": 0,
@@ -1048,7 +1055,7 @@
     },
     "confidence_reason": [
       "16 IOC(s) extracted",
-      "2 ATT&CK technique(s) mapped"
+      "1 ATT&CK technique(s) mapped"
     ],
     "cti_tier": "FREE_INFORMATIONAL",
     "verification_status": "UNVERIFIED",
@@ -1081,7 +1088,7 @@
       "Partial verification: CVSS 7.5"
     ],
     "grade_engine_version": "v2.0.0",
-    "graded_at": "2026-06-22T18:05:45.248862+00:00",
+    "graded_at": "2026-06-22T18:43:01.162612+00:00",
     "attck_tactics": [],
     "ioc_count_raw": 16,
     "allowed_content_tier": "standard_report",
@@ -1089,11 +1096,10 @@
     "enterprise_eligible": false,
     "mssp_eligible": true,
     "governor_version": "1.0.0",
-    "governed_at": "2026-06-22T18:05:46.026812+00:00",
+    "governed_at": "2026-06-22T18:43:01.894794+00:00",
     "governor_audit_log": [
-      "M3: attck_technique_ids cleared — verification='NOT_VERIFIED' (no evidence)",
-      "M4: risk_score raised 4.0→7.0 [CVSS=7.5 ≥ 7.0 → floor 7.0]",
-      "M5: ioc_count zeroed (16→0) — no operational indicators found"
+      "M3: attck_technique_ids cleared — verification='NOT_MAPPED' (no evidence)",
+      "M4: risk_score raised 4.0→7.0 [CVSS=7.5 ≥ 7.0 → floor 7.0]"
     ],
     "actor_confidence_label": "NONE",
     "attribution_assessment": {
@@ -1117,7 +1123,7 @@
     "grade_notes_v2": [
       "Grade C: verified CVE; CVSS=7.5; 3 source(s)"
     ],
-    "graded_at_v2": "2026-06-22T18:05:45.913533+00:00",
+    "graded_at_v2": "2026-06-22T18:43:01.785118+00:00",
     "_tier_notice": "Upgrade to PRO for full enrichment: actor attribution, kill chain, IOC hashes, AI analysis, STIX bundle.",
     "_upgrade_url": "/upgrade.html?plan=pro"
   }
