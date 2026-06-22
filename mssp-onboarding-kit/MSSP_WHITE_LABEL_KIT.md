@@ -73,7 +73,7 @@ When an MSSP client needs direct API access (advanced integration), request a su
 
 **To request a sub-key:**
 ```
-Email: bivash@cyberdudebivash.com
+Email: enterprise@cyberdudebivash.com
 Subject: Sub-key request — [YOUR_COMPANY] for client [CLIENT_NAME]
 Body:
   - Client name: [NAME]
@@ -207,4 +207,4 @@ MONTH 1:
 ---
 
 *MSSP White-Label Onboarding Kit v1.0 · SENTINEL APEX v177.0 · 2026-06-04*
-*Contact: bivash@cyberdudebivash.com | +91 8179881447*
+*Contact: enterprise@cyberdudebivash.com | +91 8179881447*

@@ -16,7 +16,7 @@ Files audited: `support-center.html`, `sla.html`, `customer-success-center.html`
 
 | Channel | Details | Status |
 |---------|---------|--------|
-| Email — Bivash | bivash@cyberdudebivash.com | Active |
+| Email — Bivash | enterprise@cyberdudebivash.com | Active |
 | Email — Intel | intelligence@cyberdudebivash.com | Active |
 | WhatsApp | +91 8179881447 | Active |
 | Telegram | Not confirmed in code | Unknown |
@@ -78,7 +78,7 @@ Day 14: Success check-in: "How is SENTINEL APEX working for you?"
 ```
 
 **Support:**
-- Email: bivash@cyberdudebivash.com
+- Email: enterprise@cyberdudebivash.com
 - WhatsApp: +91 8179881447 (business hours 9am–7pm IST)
 - Response SLA: 24 business hours for email, 4 hours for WhatsApp
 - No weekend SLA (best effort)
@@ -115,7 +115,7 @@ Day 30: Success check-in: ROI assessment + QBR scheduling
 ```
 
 **Support:**
-- Email: bivash@cyberdudebivash.com (priority queue)
+- Email: enterprise@cyberdudebivash.com (priority queue)
 - WhatsApp: Dedicated WhatsApp group `SENTINEL-[COMPANY]-ENTERPRISE`
 - Video calls available on request (Google Meet)
 - Response SLA: 4 business hours

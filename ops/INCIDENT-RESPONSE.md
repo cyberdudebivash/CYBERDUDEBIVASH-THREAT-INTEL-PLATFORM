@@ -106,7 +106,7 @@ git diff HEAD~50 --name-only
 
 | Role | Contact | Priority |
 |------|---------|----------|
-| Platform Operator | bivash@cyberdudebivash.com | P0/P1/P2/P3 |
+| Platform Operator | enterprise@cyberdudebivash.com | P0/P1/P2/P3 |
 | Intel Contact | intelligence@cyberdudebivash.com | Customer-facing |
 | GitHub Support | https://support.github.com | Repository issues |
 | Cloudflare Support | https://support.cloudflare.com | CDN/Worker issues |
