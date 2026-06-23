@@ -1135,6 +1135,76 @@ jobs:
             echo "::warning::premium_feed_baseline.py exited ${BASELINE_EXIT} — non-fatal, prior baseline retained"
           fi
 
+      # -----------------------------------------------------------------------
+      # STAGE 3.1.20: TIERED PRODUCT FEED GENERATOR (v185.0 — REVENUE ENGINE)
+      # Transforms api/feed.baseline.json into 5 customer product tiers:
+      #   api/feed.gold.json      — ENTERPRISE ($999/mo)   GOLD richness ≥ 5.0
+      #   api/feed.silver.json    — PROFESSIONAL ($499/mo) GOLD + SILVER ≥ 3.0
+      #   api/feed.standard.json  — STANDARD ($199/mo)     All certified items
+      #   api/feed.executive.json — EXECUTIVE ($299/mo)    CRITICAL+HIGH brief
+      #   api/feed.trial.json     — TRIAL (FREE→CTA)       Top 10 redacted
+      # Outputs data/product_manifest.json with pricing + endpoint registry.
+      # Non-blocking: feed generation failure never fails the pipeline.
+      # -----------------------------------------------------------------------
+      - name: "STAGE 3.1.20 - Tiered Product Feed Generator (v185.0 — revenue engine)"
+        timeout-minutes: 3
+        continue-on-error: true
+        env:
+          BASELINE_PATH: "api/feed.baseline.json"
+        run: |
+          set +e
+          python3 scripts/generate_tiered_feeds.py 2>&1
+          TIER_EXIT=$?
+          set -e
+          if [ "$TIER_EXIT" -eq 0 ]; then
+            for TIER_FILE in api/feed.gold.json api/feed.silver.json api/feed.standard.json api/feed.executive.json api/feed.trial.json; do
+              if [ -f "$TIER_FILE" ]; then
+                COUNT=$(jq '.items | length' "$TIER_FILE" 2>/dev/null || echo "?")
+                echo "[PASS] ${TIER_FILE}: ${COUNT} items"
+              fi
+            done
+            echo "::notice::TIERED FEEDS: 5 customer product tiers generated successfully"
+          else
+            echo "::warning::generate_tiered_feeds.py exited ${TIER_EXIT} — non-fatal, prior tier feeds retained"
+          fi
+
+      # -----------------------------------------------------------------------
+      # STAGE 3.1.21: DETECTION PACK GENERATOR (v185.0 — ENTERPRISE SUITE)
+      # Generates detection engineering products from certified baseline:
+      #   api/detections/sigma_rules.yml     — Sigma rules (SIEM-ready)
+      #   api/detections/kql_queries.kql     — KQL queries (Sentinel/Defender)
+      #   api/detections/ioc_blocklist.txt   — IOC blocklist (firewall/EDR)
+      #   api/detections/ioc_structured.json — Structured IOCs (STIX-aligned)
+      #   api/detections/cve_watchlist.csv   — CVE watchlist (CVSS/EPSS/KEV)
+      #   api/detections/detection_pack.zip  — Bundled enterprise detection pack
+      # Non-blocking: detection pack failure never fails the pipeline.
+      # -----------------------------------------------------------------------
+      - name: "STAGE 3.1.21 - Detection Pack Generator (v185.0 — enterprise suite)"
+        timeout-minutes: 3
+        continue-on-error: true
+        env:
+          BASELINE_PATH: "api/feed.baseline.json"
+        run: |
+          set +e
+          python3 scripts/generate_detection_pack.py 2>&1
+          PACK_EXIT=$?
+          set -e
+          if [ "$PACK_EXIT" -eq 0 ]; then
+            for PACK_FILE in api/detections/sigma_rules.yml api/detections/kql_queries.kql api/detections/ioc_blocklist.txt api/detections/cve_watchlist.csv; do
+              if [ -f "$PACK_FILE" ]; then
+                LINES=$(wc -l < "$PACK_FILE" 2>/dev/null || echo "?")
+                echo "[PASS] ${PACK_FILE}: ${LINES} lines"
+              fi
+            done
+            if [ -f "api/detections/detection_pack.zip" ]; then
+              SIZE=$(du -sh api/detections/detection_pack.zip 2>/dev/null | cut -f1 || echo "?")
+              echo "[PASS] detection_pack.zip: ${SIZE}"
+            fi
+            echo "::notice::DETECTION PACK: enterprise detection suite generated successfully"
+          else
+            echo "::warning::generate_detection_pack.py exited ${PACK_EXIT} — non-fatal, prior detection pack retained"
+          fi
+
       - name: "STAGE 3.2 - Generate Internal HTML Reports (report_generator)"
         timeout-minutes: 20
         run: python3 scripts/report_generator.py --manifest data/stix/feed_manifest.json
