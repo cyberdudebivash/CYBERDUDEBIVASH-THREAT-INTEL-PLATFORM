@@ -64,6 +64,21 @@ _THROTTLE_NO_KEY   = 6.5    # 5 req/30s with buffer
 _THROTTLE_WITH_KEY = 0.7    # 50 req/30s with buffer
 _last_nvd_call     = 0.0
 
+# ── Wall-clock budget guard (P0 PERMANENT FIX v185.0) ──────────────────────────
+# Root cause of the 12-min timeout: 89 sequential NVD calls × up to 20s each
+# = up to 29 minutes, which exceeds the step timeout. The script wrote atomically
+# at the END, so ALL partial work was lost when GitHub Actions killed the process.
+# Fix: track elapsed time and flush partial results before the budget expires.
+# Default budget = 600s (10 min) so partial write completes before the 20-min
+# step timeout (raised from 12 in the workflow). Override via WALL_CLOCK_BUDGET.
+_WALL_CLOCK_BUDGET_SECONDS = int(os.environ.get("WALL_CLOCK_BUDGET", "600"))
+_PIPELINE_START_TIME       = time.monotonic()
+
+# Reduced per-request timeout: 8s instead of 20s.
+# With NVD_API_KEY throttle at 0.7s, 8s timeout catches slow NVD responses
+# without burning the full 20s on each 503/timeout (which is the timing failure).
+_NVD_REQUEST_TIMEOUT = 8
+
 # ── Logging ────────────────────────────────────────────────────────────────────
 logging.basicConfig(
     level=logging.INFO,
@@ -106,7 +121,7 @@ def extract_cve_id(item: Dict) -> Optional[str]:
 def _http_get(url: str, headers: Optional[Dict] = None, timeout: int = 15) -> Optional[Dict]:
     try:
         req = urllib.request.Request(url, headers=headers or {})
-        req.add_header("User-Agent", "CYBERDUDEBIVASH-SENTINEL-APEX/148.1.0 CVSS-Enricher")
+        req.add_header("User-Agent", "CYBERDUDEBIVASH-SENTINEL-APEX/185.0 CVSS-Enricher")
         with urllib.request.urlopen(req, timeout=timeout) as resp:
             return json.loads(resp.read().decode("utf-8", errors="replace"))
     except urllib.error.HTTPError as exc:
@@ -115,6 +130,14 @@ def _http_get(url: str, headers: Optional[Dict] = None, timeout: int = 15) -> Op
     except Exception as exc:
         log.warning("Request failed (%s): %s", url[:80], exc)
         return None
+
+def _budget_remaining() -> float:
+    """Seconds remaining in the wall-clock budget."""
+    return _WALL_CLOCK_BUDGET_SECONDS - (time.monotonic() - _PIPELINE_START_TIME)
+
+def _budget_ok(reserve: float = 30.0) -> bool:
+    """True if enough budget remains (reserve = seconds to keep for write pass)."""
+    return _budget_remaining() > reserve
 
 # ── NVD Rate Limiter ───────────────────────────────────────────────────────────
 def _nvd_throttle() -> None:
@@ -157,13 +180,18 @@ def _parse_cvss(nvd_item: Dict) -> Tuple[Optional[float], Optional[str]]:
 
 # ── NVD Fetch ──────────────────────────────────────────────────────────────────
 def fetch_nvd_cvss(cve_id: str) -> Tuple[Optional[float], Optional[str]]:
-    """Fetch CVSS score + vector from NVD API v2.0 for a single CVE."""
+    """Fetch CVSS score + vector from NVD API v2.0 for a single CVE.
+
+    P0 FIX v185.0: timeout reduced from 20s to 8s (_NVD_REQUEST_TIMEOUT).
+    The 20s timeout caused each 503/network-fail to burn 20 seconds; with
+    89 CVEs that blew past the 12-min step timeout and lost all partial work.
+    """
     _nvd_throttle()
     headers = {}
     if NVD_API_KEY:
         headers["apiKey"] = NVD_API_KEY
     url  = f"{NVD_API_BASE}?cveId={urllib.parse.quote(cve_id)}"
-    data = _http_get(url, headers=headers, timeout=20)
+    data = _http_get(url, headers=headers, timeout=_NVD_REQUEST_TIMEOUT)
     if not data or not data.get("vulnerabilities"):
         log.debug("NVD: no data for %s", cve_id)
         return None, None
@@ -217,13 +245,30 @@ def cvss_to_severity(score: float) -> str:
     if score > 0.0:   return "LOW"
     return "NONE"
 
+# ── Partial-write helper (P0 FIX v185.0) ──────────────────────────────────────
+def _write_feed(feed_data: Any, items: List[Dict], feed_path: Path, label: str = "") -> bool:
+    """Atomic write of items back to feed_path. Returns True on success."""
+    tmp_path = feed_path.with_suffix(".tmp_enrich")
+    try:
+        out_data = items if isinstance(feed_data, list) else {**feed_data, "items": items}
+        tmp_path.write_text(json.dumps(out_data, ensure_ascii=False, indent=2), encoding="utf-8")
+        tmp_path.replace(feed_path)
+        log.info("Feed written%s: %s (%d items)", f" [{label}]" if label else "", feed_path, len(items))
+        return True
+    except Exception as exc:
+        log.error("Write failed%s: %s", f" [{label}]" if label else "", exc)
+        tmp_path.unlink(missing_ok=True)
+        return False
+
+
 # ── Main Enrichment Engine ─────────────────────────────────────────────────────
 def main() -> int:
     log.info("=" * 60)
-    log.info("SENTINEL APEX — CVSS/EPSS Batch Enrichment v148.1.0")
+    log.info("SENTINEL APEX — CVSS/EPSS Batch Enrichment v185.0")
     log.info("Feed  : %s", FEED_PATH)
-    log.info("DryRun: %s | MaxEnrich: %d | NVD key: %s",
-             DRY_RUN, MAX_ENRICH, "YES" if NVD_API_KEY else "NO (rate-limited)")
+    log.info("DryRun: %s | MaxEnrich: %d | NVD key: %s | Budget: %ds",
+             DRY_RUN, MAX_ENRICH, "YES" if NVD_API_KEY else "NO (rate-limited)",
+             _WALL_CLOCK_BUDGET_SECONDS)
     log.info("=" * 60)
 
     if not FEED_PATH.exists():
@@ -306,8 +351,27 @@ def main() -> int:
     log.info("Fetching CVSS from NVD for %d CVEs...", len(cvss_needed))
     # v161.x P0-FIX: Track NVD existence per CVE — enables PRELIMINARY tagging below.
     nvd_not_found: set = set()  # CVE IDs that returned no data from NVD
+    budget_interrupted = False  # v185.0: set True when wall-clock budget triggers early exit
 
     for i, cve_id in enumerate(cvss_needed):
+        # v185.0 P0 FIX: check wall-clock budget BEFORE each NVD call.
+        # If budget is nearly exhausted, flush partial results now so work
+        # is never lost when GitHub Actions kills the process at step timeout.
+        if not _budget_ok(reserve=45):
+            log.warning(
+                "WALL-CLOCK BUDGET EXHAUSTED at item %d/%d (%.0fs elapsed / %ds budget) "
+                "— flushing partial enrichment now to preserve work done so far.",
+                i + 1, len(cvss_needed),
+                time.monotonic() - _PIPELINE_START_TIME,
+                _WALL_CLOCK_BUDGET_SECONDS,
+            )
+            budget_interrupted = True
+            # Mark remaining CVEs as not checked this run (not PRELIMINARY — we simply didn't get to them)
+            for remaining_cve in cvss_needed[i:]:
+                if remaining_cve not in cvss_map:
+                    cvss_map[remaining_cve] = (None, None)
+            break
+
         score, vec = fetch_nvd_cvss(cve_id)
         cvss_map[cve_id] = (score, vec)
         if score:
@@ -469,10 +533,12 @@ def main() -> int:
         log.info("Pass 4.7: severity realigned for %d items (label<->score mismatch fixed)",
                  sev_aligned)
 
-    # -- Pass 5: Write back ------------------------------------------------------
+    # -- Pass 5: Write back (v185.0: uses _write_feed helper; always writes partial work) ---
+    elapsed_total = time.monotonic() - _PIPELINE_START_TIME
     log.info("-" * 60)
-    log.info("Enrichment summary:")
-    log.info("  Items processed   : %d", len(needs_enrich))
+    log.info("Enrichment summary (elapsed: %.0fs / budget: %ds):", elapsed_total, _WALL_CLOCK_BUDGET_SECONDS)
+    log.info("  Items processed   : %d%s", len(needs_enrich),
+             " [BUDGET-INTERRUPTED — partial]" if budget_interrupted else "")
     log.info("  CVSS updated      : %d (NVD CONFIRMED)", cvss_count)
     log.info("  EPSS updated      : %d", epss_count)
     log.info("  PRELIMINARY tagged: %d (not in NVD -- disclosed)", preliminary_count)
@@ -481,6 +547,12 @@ def main() -> int:
     log.info("  source_url filled : %d", source_url_count)
     log.info("  blog_url filled   : %d", blog_url_count)
     log.info("  Severity aligned  : %d", sev_aligned)
+    if budget_interrupted:
+        log.warning(
+            "BUDGET-INTERRUPT: enrichment was cut short at %.0fs to protect partial work. "
+            "Remaining CVEs will be enriched on the next pipeline run.",
+            elapsed_total,
+        )
     if preliminary_count:
         log.warning(
             "NVD-PRELIMINARY GATE: %d CVE(s) not confirmed in NVD. "
@@ -498,36 +570,34 @@ def main() -> int:
         log.info("No enrichments applied -- feed unchanged")
         return 0
 
-    # Atomic write (write to .tmp then rename)
-    tmp_path = FEED_PATH.with_suffix(".tmp_enrich")
-    try:
-        out_data = items if isinstance(feed_data, list) else {**feed_data, "items": items}
-        tmp_path.write_text(json.dumps(out_data, ensure_ascii=False, indent=2), encoding="utf-8")
-        tmp_path.replace(FEED_PATH)
-        log.info("Feed written: %s (%d items)", FEED_PATH, len(items))
-    except Exception as exc:
-        log.error("Write failed: %s", exc)
-        tmp_path.unlink(missing_ok=True)
+    # v185.0: use shared _write_feed helper (atomic tmp-then-rename).
+    # This is called unconditionally — even on budget interrupt — so partial
+    # enrichment is always persisted rather than discarded by the step timeout.
+    write_label = "PARTIAL-budget-interrupt" if budget_interrupted else "FULL"
+    if not _write_feed(feed_data, items, FEED_PATH, label=write_label):
         return 1
 
     # Write enrichment report for pipeline observability
     REPORT_PATH.parent.mkdir(parents=True, exist_ok=True)
     report = {
-        "generated_at":      datetime.now(timezone.utc).isoformat(),
-        "script":            "enrich_cvss_epss_batch.py",
-        "version":           "161.1",
-        "feed_total_items":  len(items),
-        "cve_items_found":   len(needs_enrich),
-        "cvss_enriched":     cvss_count,
-        "epss_enriched":     epss_count,
+        "generated_at":       datetime.now(timezone.utc).isoformat(),
+        "script":             "enrich_cvss_epss_batch.py",
+        "version":            "185.0",
+        "elapsed_seconds":    round(elapsed_total, 1),
+        "budget_seconds":     _WALL_CLOCK_BUDGET_SECONDS,
+        "budget_interrupted": budget_interrupted,
+        "feed_total_items":   len(items),
+        "cve_items_found":    len(needs_enrich),
+        "cvss_enriched":      cvss_count,
+        "epss_enriched":      epss_count,
         "preliminary_tagged": preliminary_count,
-        "total_enriched":    enriched_count,
-        "source_url_filled": source_url_count,
-        "blog_url_filled":   blog_url_count,
-        "severity_aligned":  sev_aligned,
-        "skipped":           skipped_count,
-        "nvd_key_used":      bool(NVD_API_KEY),
-        "dry_run":           DRY_RUN,
+        "total_enriched":     enriched_count,
+        "source_url_filled":  source_url_count,
+        "blog_url_filled":    blog_url_count,
+        "severity_aligned":   sev_aligned,
+        "skipped":            skipped_count,
+        "nvd_key_used":       bool(NVD_API_KEY),
+        "dry_run":            DRY_RUN,
     }
     try:
         REPORT_PATH.write_text(json.dumps(report, indent=2, ensure_ascii=False), encoding="utf-8")
@@ -536,7 +606,8 @@ def main() -> int:
         pass  # non-fatal
 
     log.info("=" * 60)
-    log.info("CVSS/EPSS enrichment complete -- %d items updated", enriched_count)
+    log.info("CVSS/EPSS enrichment complete [%s] -- %d items updated in %.0fs",
+             write_label, enriched_count, elapsed_total)
     log.info("=" * 60)
     return 0
 

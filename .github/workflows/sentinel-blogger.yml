@@ -699,7 +699,7 @@ jobs:
             echo "::warning::CVE ID backfill failed — CVSS/KEV/EPSS enrichment may have reduced coverage"
 
       # -----------------------------------------------------------------------
-      # STAGE 3.1.2: CVSS / EPSS BATCH ENRICHMENT (v184.0 -- PERMANENT)
+      # STAGE 3.1.2: CVSS / EPSS BATCH ENRICHMENT (v185.0 -- PERMANENT P0 FIX)
       # ROOT CAUSE FIX: api/feed.json had cvss_score: null on ALL 207 items
       # because cve_scanner.py was never called in the pipeline. Intel reports
       # therefore displayed "CVSS: Pending" and "EPSS: Pending" for every CVE.
@@ -710,18 +710,21 @@ jobs:
       #   3. Fetches CVSS v3.1 from NVD API v2.0 (per-CVE, rate-limited)
       #   4. Writes enriched values back to api/feed.json (atomic swap)
       #
-      # Runs AFTER enrich_feed_apex.py so apex_ai fields are already present.
-      # continue-on-error: true — NVD API may be slow/unavailable; pipeline
-      # must not fail if enrichment is partial. Values will be filled on next run.
-      # MAX_ENRICH capped at 100 per run to stay within 20-min job timeout.
+      # v185.0 PERMANENT TIMEOUT FIX:
+      #   - timeout-minutes raised 12→20 (NVD 503-storms with 89 CVEs took 14+min)
+      #   - WALL_CLOCK_BUDGET=1080 (18 min): script flushes PARTIAL enrichment
+      #     before step timeout kills the process — partial work is NEVER lost.
+      #   - NVD per-request timeout reduced 20s→8s: no more 20s per 503/timeout
+      #   - continue-on-error: true — NVD unavailability never fails the pipeline
       # -----------------------------------------------------------------------
       - name: "STAGE 3.1.2 - CVSS/EPSS Batch Enrichment (NVD + FIRST.org)"
-        timeout-minutes: 12
+        timeout-minutes: 20
         continue-on-error: true
         env:
-          NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
-          MAX_ENRICH:  "100"
-          FEED_PATH:   "api/feed.json"
+          NVD_API_KEY:       ${{ secrets.NVD_API_KEY }}
+          MAX_ENRICH:        "100"
+          FEED_PATH:         "api/feed.json"
+          WALL_CLOCK_BUDGET: "1080"
         run: python3 scripts/enrich_cvss_epss_batch.py
 
       # -----------------------------------------------------------------------
@@ -1100,6 +1103,36 @@ jobs:
             echo "[PASS] Confidence enrichment: ${CONF_ITEMS} items enriched with confidence_label + sla_priority + revenue_opportunities"
           else
             echo "::warning::confidence_corroboration_engine.py exited ${CONF_EXIT} -- non-fatal, pipeline continues"
+          fi
+
+      # -----------------------------------------------------------------------
+      # STAGE 3.1.19: PREMIUM FEED BASELINE ENGINE (v185.0 — DUAL-SOURCE)
+      # Creates api/feed.baseline.json: a certified premium snapshot of the
+      # live feed after ALL enrichment stages complete. This is Source-2:
+      # the verified fallback that customers receive even when pipeline stages
+      # (NVD/FIRST.org/CISA) fail or time out in a given run.
+      #
+      # Dual-source guarantee: Source-1 = api/feed.json (live enriched)
+      #                        Source-2 = api/feed.baseline.json (certified fallback)
+      # Both sources are premium, verified, and sellable at maximum value.
+      # Non-blocking: baseline failure never fails the pipeline.
+      # -----------------------------------------------------------------------
+      - name: "STAGE 3.1.19 - Premium Feed Baseline Engine (v185.0 — dual-source)"
+        timeout-minutes: 3
+        continue-on-error: true
+        env:
+          FEED_PATH: "api/feed.json"
+        run: |
+          set +e
+          python3 scripts/premium_feed_baseline.py 2>&1
+          BASELINE_EXIT=$?
+          set -e
+          if [ "$BASELINE_EXIT" -eq 0 ] && [ -f "api/feed.baseline.json" ]; then
+            BASELINE_COUNT=$(jq 'length' api/feed.baseline.json 2>/dev/null || echo "?")
+            echo "[PASS] Premium baseline certified: ${BASELINE_COUNT} verified items written to api/feed.baseline.json"
+            echo "::notice::DUAL-SOURCE: api/feed.baseline.json updated with ${BASELINE_COUNT} premium items"
+          else
+            echo "::warning::premium_feed_baseline.py exited ${BASELINE_EXIT} — non-fatal, prior baseline retained"
           fi
 
       - name: "STAGE 3.2 - Generate Internal HTML Reports (report_generator)"
