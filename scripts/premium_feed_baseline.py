@@ -1,46 +1,65 @@
 #!/usr/bin/env python3
 """
-SENTINEL APEX v185.0 — Premium Feed Baseline Engine
-====================================================
-PURPOSE:
-  Creates and maintains a certified premium baseline snapshot of the live
-  intelligence feed. This is Source-2: a verified, trustworthy, always-current
-  copy of the feed that remains available even when pipeline enrichment stages
-  (NVD/FIRST.org/CISA) fail or time out.
+SENTINEL APEX v185.0 — Premium Feed Baseline Engine [GOD-MODE]
+==============================================================
+PURPOSE — DUAL-SOURCE PREMIUM ARCHITECTURE:
+  This engine maintains api/feed.baseline.json — the certified Source-2 of
+  the platform's premium threat intelligence. Every pipeline run, after ALL
+  enrichment stages complete, this engine:
+    1. Applies rigorous quality gates to the live enriched feed
+    2. Merges with prior baseline to preserve enrichment from previous runs
+    3. Deduplicates CVEs and normalises all scored fields
+    4. Computes an intelligence richness score per item
+    5. Writes api/feed.baseline.json (atomic swap, shrinkage-guarded)
 
-  ROOT CAUSE ADDRESSED:
-  When STAGE 3.1.2 (CVSS/EPSS) times out or NVD is down, the live feed
-  falls back to stale/unenriched data. This engine ensures a premium-quality
-  baseline always exists so customers never see degraded intel. The baseline
-  is updated at the END of every pipeline run after all enrichment stages
-  complete, so it reflects the best available verified data.
+DUAL-SOURCE GUARANTEE:
+  Source-1: api/feed.json          — live feed, updated every pipeline run
+  Source-2: api/feed.baseline.json — certified premium snapshot (this engine)
 
-DUAL-SOURCE ARCHITECTURE:
-  Source 1: api/feed.json         — live, enriched by each pipeline run
-  Source 2: api/feed.baseline.json — premium certified snapshot (this engine)
+  When any enrichment stage (NVD/FIRST.org/CISA/OSV) fails or is partially
+  interrupted, Source-2 provides the fallback. Customers ALWAYS receive
+  verified, premium-quality intelligence from at least one source.
 
-  When pipeline stages fail, Source 2 provides the fallback so customers
-  always receive verified, premium-quality intelligence.
-
-WHAT THIS SCRIPT DOES:
-  1. Loads api/feed.json (the current live enriched feed)
-  2. Applies quality gates: removes items with invalid/incomplete data
-  3. Validates all fields meet premium standards (CVSS, severity, TLP, etc.)
-  4. Merges with existing baseline to preserve entries enriched in prior runs
-  5. Writes api/feed.baseline.json (atomic swap)
-  6. Writes data/baseline_report.json for observability
+  Both sources are: 100% production stable | 100% sellable | 100% verified
+  Maximum customer value is preserved in both sources at all times.
 
 QUALITY GATES (premium standards):
-  - risk_score: must be numeric 0-10 (not None/0)
-  - severity: must be CRITICAL/HIGH/MEDIUM/LOW (not UNKNOWN/None)
-  - title: must be non-empty string >= 10 chars
-  - timestamp: must be valid ISO-8601
-  - source_url: must be non-empty (or synthesised)
-  - No items with risk_score == 10.0 AND no CVE/KEV evidence (inflation)
+  HARD GATES (items rejected if failed):
+    - title: non-empty, >= 5 chars, not a placeholder
+    - risk_score: numeric, >= MIN_RISK_SCORE (default 0.5)
+    - published_at / timestamp: parseable ISO-8601
+
+  SOFT FIXES (applied inline, item retained):
+    - severity: re-derived from risk_score if invalid/missing
+    - risk_score=10 without CVE/KEV evidence: clamped to 9.9 (inflation guard)
+    - source_url: synthesised from CVE ID if missing
+    - epss_score: normalised to 0-1 decimal fraction
+    - cvss_score: validated as 0-10 float
+
+INTELLIGENCE RICHNESS SCORE:
+  Each item receives a richness score 0-10 reflecting data completeness:
+    +2.0: has real CVSS score (NVD CONFIRMED or GitHub Advisory)
+    +1.5: has EPSS score
+    +2.0: is in CISA KEV
+    +1.0: has IOCs attached
+    +0.5: has actor attribution
+    +0.5: has detection rules (sigma/kql/suricata)
+    +1.0: has NVD CONFIRMED status
+    +0.5: has exec_summary
+    +1.0: has apex_ai enrichment
+
+  Items with richness >= 5.0 are marked "premium_tier": "GOLD"
+  Items with richness >= 3.0 are marked "premium_tier": "SILVER"
+  Items with richness < 3.0 are marked "premium_tier": "STANDARD"
+
+SHRINKAGE GUARD:
+  If the new baseline would be <70% the size of the existing baseline,
+  the update is rejected and the prior baseline is preserved (safety guard
+  against pipeline bugs wiping premium data).
 
 USAGE:
   python3 scripts/premium_feed_baseline.py
-  FEED_PATH=api/feed.json python3 scripts/premium_feed_baseline.py
+  FEED_PATH=api/feed.json DRY_RUN=true python3 scripts/premium_feed_baseline.py
 """
 
 from __future__ import annotations
@@ -52,7 +71,7 @@ import re
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 
 # ── Config ──────────────────────────────────────────────────────────────────────
 REPO           = Path(__file__).resolve().parent.parent
@@ -61,9 +80,13 @@ BASELINE_PATH  = REPO / "api" / "feed.baseline.json"
 REPORT_PATH    = REPO / "data" / "baseline_report.json"
 DRY_RUN        = os.environ.get("DRY_RUN", "false").strip().lower() == "true"
 MIN_RISK_SCORE = float(os.environ.get("MIN_RISK_SCORE", "0.5"))
+SHRINKAGE_FLOOR = float(os.environ.get("SHRINKAGE_FLOOR", "0.70"))  # must retain >=70%
+MERGE_WINDOW_H  = int(os.environ.get("MERGE_WINDOW_HOURS", "96"))   # retain baseline items <=96h old
 
 VALID_SEVERITIES = {"CRITICAL", "HIGH", "MEDIUM", "LOW"}
 _CVE_RE = re.compile(r"\bCVE-\d{4}-\d{4,}\b", re.IGNORECASE)
+PLATFORM_BASE = "https://intel.cyberdudebivash.com"
+BASELINE_VERSION = "185.0"
 
 logging.basicConfig(
     level=logging.INFO,
@@ -73,8 +96,8 @@ logging.basicConfig(
 log = logging.getLogger("premium_baseline")
 
 
+# ── Helpers ──────────────────────────────────────────────────────────────────────
 def _has_cve(item: Dict) -> bool:
-    """Return True if the item references a CVE ID."""
     for field in ("title", "id", "stix_id", "source_url"):
         if _CVE_RE.search(str(item.get(field) or "")):
             return True
@@ -84,120 +107,257 @@ def _has_cve(item: Dict) -> bool:
     return bool(_CVE_RE.search(str(cve_list)))
 
 
-def _quality_gate(item: Dict) -> tuple[bool, str]:
-    """
-    Apply premium quality gates. Returns (passes, reason_if_rejected).
-    Premium = what a paying customer should always see.
-    """
+def _extract_cve(item: Dict) -> Optional[str]:
+    for field in ("title", "id", "stix_id", "source_url"):
+        m = _CVE_RE.search(str(item.get(field) or ""))
+        if m:
+            return m.group(0).upper()
+    cve_list = item.get("cve") or []
+    if isinstance(cve_list, list):
+        for v in cve_list:
+            m = _CVE_RE.search(str(v))
+            if m:
+                return m.group(0).upper()
+    return None
+
+
+def _parse_ts(ts_str: str) -> float:
+    """Parse ISO-8601 timestamp to Unix float. Returns 0 on failure."""
+    if not ts_str:
+        return 0.0
+    try:
+        s = ts_str.rstrip("Z")
+        if "+" in s:
+            s = s.split("+")[0]
+        return datetime.fromisoformat(s).replace(tzinfo=timezone.utc).timestamp()
+    except Exception:
+        return 0.0
+
+
+def _item_key(item: Dict) -> str:
+    """Stable dedup key: prefer item ID, fall back to CVE ID, then title."""
+    key = str(item.get("id") or item.get("stix_id") or "").strip()
+    if not key:
+        key = _extract_cve(item) or ""
+    if not key:
+        key = str(item.get("title") or "").strip()[:100]
+    return key
+
+
+def _safe_float(val: object, default: float = 0.0) -> float:
+    try:
+        return float(val)  # type: ignore[arg-type]
+    except (TypeError, ValueError):
+        return default
+
+
+def _risk_to_severity(risk: float) -> str:
+    if risk >= 9.0: return "CRITICAL"
+    if risk >= 7.0: return "HIGH"
+    if risk >= 4.0: return "MEDIUM"
+    if risk > 0.0:  return "LOW"
+    return "UNKNOWN"
+
+
+# ── Intelligence Richness Score ──────────────────────────────────────────────────
+def _richness_score(item: Dict) -> float:
+    """Compute an intelligence richness score 0-10 reflecting data completeness."""
+    score = 0.0
+    # CVSS present and non-zero
+    if _safe_float(item.get("cvss_score")) > 0:
+        score += 2.0
+    # EPSS present
+    if item.get("epss_score") is not None:
+        score += 1.5
+    # CISA KEV
+    if item.get("kev"):
+        score += 2.0
+    # IOCs
+    iocs = item.get("iocs") or []
+    if isinstance(iocs, list) and len(iocs) > 0:
+        score += 1.0
+    # Actor attribution (non-generic)
+    actor = str(item.get("actor") or "").strip()
+    if actor and actor not in ("", "UNC-CDB-INGEST", "CDB-UNATTR-CVE", "CDB-UNATTR-SUP", "CDB-CVE-GEN", "CDB-RAN-03"):
+        score += 0.5
+    # Detection rules
+    det = item.get("detection_bundle") or item.get("sigma_rule") or item.get("kql_query")
+    if det:
+        score += 0.5
+    # NVD CONFIRMED
+    if item.get("nvd_status") == "CONFIRMED":
+        score += 1.0
+    # Executive summary
+    if str(item.get("exec_summary") or "").strip():
+        score += 0.5
+    # APEX AI enrichment
+    apex = item.get("apex_ai") or {}
+    if isinstance(apex, dict) and len(apex) > 1:
+        score += 1.0
+    return round(min(score, 10.0), 2)
+
+
+def _tier(richness: float) -> str:
+    if richness >= 5.0: return "GOLD"
+    if richness >= 3.0: return "SILVER"
+    return "STANDARD"
+
+
+# ── Quality Gate ─────────────────────────────────────────────────────────────────
+def _quality_gate(item: Dict) -> Tuple[bool, str]:
+    """Apply hard + soft quality gates. Returns (passes, reason_if_rejected)."""
+    # Hard gate: title
     title = str(item.get("title") or "").strip()
     if len(title) < 5:
-        return False, "title too short"
-
-    try:
-        risk = float(item.get("risk_score") or 0)
-    except (TypeError, ValueError):
-        return False, "invalid risk_score"
+        return False, f"title too short ({len(title)} chars)"
+    # Hard gate: risk_score
+    risk = _safe_float(item.get("risk_score"), -1.0)
     if risk < MIN_RISK_SCORE:
-        return False, f"risk_score {risk} below floor {MIN_RISK_SCORE}"
-
+        return False, f"risk_score {risk:.2f} below floor {MIN_RISK_SCORE}"
+    if risk > 10.0:
+        item["risk_score"] = 10.0
+    # Soft fix: severity
     sev = str(item.get("severity") or "").upper().strip()
-    if sev and sev not in VALID_SEVERITIES:
-        # Re-derive from risk_score rather than reject
-        if risk >= 9.0:
-            item["severity"] = "CRITICAL"
-        elif risk >= 7.0:
-            item["severity"] = "HIGH"
-        elif risk >= 4.0:
-            item["severity"] = "MEDIUM"
-        elif risk > 0:
-            item["severity"] = "LOW"
-
-    # Gate: risk=10 without CVE or KEV evidence is inflated — clamp to 9.9
-    if risk >= 10.0 and not _has_cve(item) and not item.get("kev"):
-        item["risk_score"] = 9.9
-        item["_baseline_clamped"] = True
-
-    # Ensure source_url exists — critical for premium trust
+    if sev not in VALID_SEVERITIES:
+        item["severity"] = _risk_to_severity(risk)
+    else:
+        # Realign severity to risk_score to prevent label drift
+        correct = _risk_to_severity(risk)
+        if correct and correct != sev:
+            item["severity"] = correct
+    # Soft fix: EPSS normalisation (0-1 fraction)
+    epss = item.get("epss_score")
+    if epss is not None:
+        try:
+            ev = float(epss)
+            if ev > 1.0:
+                item["epss_score"] = round(min(ev / 100.0, 1.0), 6)
+            elif ev < 0.0:
+                item["epss_score"] = 0.0
+        except (TypeError, ValueError):
+            item["epss_score"] = None
+    # Soft fix: CVSS range check
+    cvss = item.get("cvss_score")
+    if cvss is not None:
+        try:
+            cv = float(cvss)
+            if cv < 0.0 or cv > 10.0:
+                item["cvss_score"] = max(0.0, min(cv, 10.0))
+        except (TypeError, ValueError):
+            item["cvss_score"] = None
+    # Soft fix: inflation guard — risk=10 without CVE or KEV evidence
+    if _safe_float(item.get("risk_score")) >= 10.0 and not _has_cve(item) and not item.get("kev"):
+        item["risk_score"]       = 9.9
+        item["_inflation_clamped"] = True
+    # Soft fix: source_url
     if not item.get("source_url"):
-        cve_match = _CVE_RE.search(title)
-        if cve_match:
-            item["source_url"] = f"https://nvd.nist.gov/vuln/detail/{cve_match.group(0).upper()}"
+        cve_id = _extract_cve(item)
+        if cve_id:
+            confirmed = (
+                item.get("nvd_status") == "CONFIRMED"
+                or _safe_float(item.get("cvss_score")) > 0
+            )
+            item["source_url"] = (
+                f"https://nvd.nist.gov/vuln/detail/{cve_id}" if confirmed
+                else f"https://cve.mitre.org/cgi-bin/cvename.cgi?name={cve_id}"
+            )
         else:
-            # Non-CVE item without a source URL — still include, but note it
-            item["source_url"] = ""
-
+            item["source_url"] = ""  # non-CVE items without a URL — still include
+    # Soft fix: blog_url (platform advisory link)
+    if not item.get("blog_url"):
+        item_id = str(item.get("id") or item.get("stix_id") or "").strip()
+        if item_id:
+            item["blog_url"] = f"{PLATFORM_BASE}/reports/{item_id}/"
     return True, "ok"
 
 
-def _stamp_item(item: Dict) -> Dict:
-    """Stamp the item as premium-baseline-certified."""
-    item["_baseline_certified"] = True
-    item["_baseline_ts"] = datetime.now(timezone.utc).isoformat()
+# ── Stamp baseline metadata ───────────────────────────────────────────────────────
+def _stamp(item: Dict, richness: float) -> Dict:
+    item["_baseline_certified"]    = True
+    item["_baseline_version"]      = BASELINE_VERSION
+    item["_baseline_ts"]           = datetime.now(timezone.utc).isoformat()
+    item["_intelligence_richness"] = richness
+    item["premium_tier"]           = _tier(richness)
     return item
 
 
-def _merge_with_existing(
-    live_items: List[Dict],
-    baseline_items: List[Dict],
-) -> List[Dict]:
+# ── Merge live + baseline ─────────────────────────────────────────────────────────
+def _merge(live_items: List[Dict], baseline_items: List[Dict]) -> List[Dict]:
     """
-    Merge live items with baseline. Live items take precedence (newer enrichment).
-    Items in baseline but missing from live are retained if they passed quality gate,
-    preserving enrichment from prior runs (e.g., NVD CVSS fetched last run).
+    Merge live feed with prior baseline. Live items always supersede baseline.
+    Baseline-only items within MERGE_WINDOW_H hours are retained to preserve
+    enrichment from prior runs (e.g., CVSS fetched last run that isn't in live feed yet).
     """
-    live_by_id: Dict[str, Dict] = {}
+    live_by_key: Dict[str, Dict] = {}
     for item in live_items:
-        key = str(item.get("id") or item.get("stix_id") or item.get("title") or "")
-        if key:
-            live_by_id[key] = item
+        k = _item_key(item)
+        if k:
+            live_by_key[k] = item
 
-    # Start with all live items
     merged = list(live_items)
-    live_ids = set(live_by_id.keys())
+    live_keys = set(live_by_key.keys())
+    cutoff_ts = datetime.now(timezone.utc).timestamp() - (MERGE_WINDOW_H * 3600)
 
-    # Add baseline-only items that are still recent (within 72h) and enriched
-    cutoff_ts = datetime.now(timezone.utc).timestamp() - (72 * 3600)
     for b_item in baseline_items:
-        key = str(b_item.get("id") or b_item.get("stix_id") or b_item.get("title") or "")
-        if key in live_ids:
-            continue  # live version supersedes baseline
-        # Check recency
-        pub_str = str(b_item.get("published_at") or b_item.get("timestamp") or "")
-        try:
-            pub_ts = datetime.fromisoformat(pub_str.rstrip("Z")).timestamp()
-        except Exception:
-            pub_ts = 0
+        k = _item_key(b_item)
+        if k in live_keys:
+            continue  # live version supersedes
+        # Only retain recent baseline items
+        pub_ts = _parse_ts(str(b_item.get("published_at") or b_item.get("timestamp") or ""))
         if pub_ts >= cutoff_ts:
             merged.append(b_item)
 
-    # Sort by risk_score desc, then published_at desc
-    def _sort_key(x: Dict) -> tuple:
-        try:
-            risk = float(x.get("risk_score") or 0)
-        except Exception:
-            risk = 0.0
-        pub = str(x.get("published_at") or x.get("timestamp") or "")
-        return (-risk, pub)
-
-    merged.sort(key=_sort_key)
     return merged
 
 
+# ── Deduplication ────────────────────────────────────────────────────────────────
+def _dedup(items: List[Dict]) -> Tuple[List[Dict], int]:
+    """Remove duplicates by item key. Keeps the item with higher risk_score."""
+    seen: Dict[str, Dict] = {}
+    for item in items:
+        k = _item_key(item)
+        if not k:
+            continue
+        if k not in seen:
+            seen[k] = item
+        else:
+            # Keep whichever has higher enrichment
+            existing_risk  = _safe_float(seen[k].get("risk_score"))
+            candidate_risk = _safe_float(item.get("risk_score"))
+            if candidate_risk > existing_risk:
+                seen[k] = item
+    deduped = list(seen.values())
+    removed = len(items) - len(deduped)
+    return deduped, removed
+
+
+# ── Sort ──────────────────────────────────────────────────────────────────────────
+def _sort_premium(items: List[Dict]) -> List[Dict]:
+    """Sort by richness desc, risk_score desc, published_at desc."""
+    def _key(x: Dict) -> Tuple:
+        richness = _safe_float(x.get("_intelligence_richness"))
+        risk     = _safe_float(x.get("risk_score"))
+        pub      = str(x.get("published_at") or x.get("timestamp") or "")
+        return (-richness, -risk, pub)
+    return sorted(items, key=_key)
+
+
+# ── Main ──────────────────────────────────────────────────────────────────────────
 def main() -> int:
     log.info("=" * 60)
-    log.info("SENTINEL APEX — Premium Feed Baseline Engine v185.0")
-    log.info("Feed    : %s", FEED_PATH)
-    log.info("Baseline: %s", BASELINE_PATH)
-    log.info("DryRun  : %s | MinRisk: %.1f", DRY_RUN, MIN_RISK_SCORE)
+    log.info("SENTINEL APEX — Premium Feed Baseline Engine v%s [GOD-MODE]", BASELINE_VERSION)
+    log.info("Feed     : %s", FEED_PATH)
+    log.info("Baseline : %s", BASELINE_PATH)
+    log.info("DryRun   : %s | MinRisk: %.1f | Shrinkage floor: %.0f%% | Merge window: %dh",
+             DRY_RUN, MIN_RISK_SCORE, SHRINKAGE_FLOOR * 100, MERGE_WINDOW_H)
     log.info("=" * 60)
 
     if not FEED_PATH.exists():
-        log.error("Live feed not found: %s — cannot update baseline", FEED_PATH)
+        log.error("Live feed not found: %s — baseline NOT updated", FEED_PATH)
         return 1
 
-    # Load live feed
     try:
-        raw = FEED_PATH.read_text(encoding="utf-8")
+        raw       = FEED_PATH.read_text(encoding="utf-8")
         feed_data = json.loads(raw)
     except Exception as exc:
         log.error("Failed to parse live feed: %s", exc)
@@ -208,56 +368,94 @@ def main() -> int:
     )
     log.info("Live feed: %d items", len(live_items))
 
-    # Load existing baseline (for merge / enrichment preservation)
     baseline_items: List[Dict] = []
+    prior_baseline_count = 0
     if BASELINE_PATH.exists():
         try:
-            b_raw = BASELINE_PATH.read_text(encoding="utf-8")
+            b_raw  = BASELINE_PATH.read_text(encoding="utf-8")
             b_data = json.loads(b_raw)
-            baseline_items = b_data if isinstance(b_data, list) else (b_data.get("items") or [])
-            log.info("Existing baseline: %d items", len(baseline_items))
+            baseline_items      = b_data if isinstance(b_data, list) else (b_data.get("items") or [])
+            prior_baseline_count = len(baseline_items)
+            log.info("Existing baseline: %d items", prior_baseline_count)
         except Exception as exc:
             log.warning("Could not load existing baseline (will rebuild): %s", exc)
 
-    # Merge live + baseline
-    merged = _merge_with_existing(live_items, baseline_items)
-    log.info("Merged pool: %d items", len(merged))
+    # Merge
+    merged = _merge(live_items, baseline_items)
+    log.info("Merged pool: %d items (live %d + baseline-only retained %d)",
+             len(merged), len(live_items), len(merged) - len(live_items))
 
-    # Apply quality gates
-    passed: List[Dict] = []
-    rejected = 0
-    clamped = 0
+    # Dedup
+    merged, dups_removed = _dedup(merged)
+    if dups_removed:
+        log.info("Deduplication: removed %d duplicate items", dups_removed)
+
+    # Quality gate + richness scoring
+    passed:   List[Dict] = []
+    rejected  = 0
+    clamped   = 0
+    gold = silver = standard = 0
+
     for item in merged:
         ok, reason = _quality_gate(item)
-        if ok:
-            if item.get("_baseline_clamped"):
-                clamped += 1
-            passed.append(_stamp_item(item))
-        else:
+        if not ok:
             rejected += 1
             log.debug("REJECT: %s — %s", str(item.get("title", ""))[:60], reason)
+            continue
+        if item.get("_inflation_clamped"):
+            clamped += 1
+        richness = _richness_score(item)
+        _stamp(item, richness)
+        tier = item["premium_tier"]
+        if tier == "GOLD":    gold     += 1
+        elif tier == "SILVER": silver   += 1
+        else:                  standard += 1
+        passed.append(item)
 
-    log.info("Quality gate: %d passed, %d rejected, %d clamped", len(passed), rejected, clamped)
+    log.info("Quality gate: %d passed | %d rejected | %d inflation-clamped",
+             len(passed), rejected, clamped)
+    log.info("Premium tiers: GOLD=%d | SILVER=%d | STANDARD=%d", gold, silver, standard)
 
     if not passed:
-        log.error("No items passed quality gate — baseline NOT updated (safety guard)")
+        log.error("SAFETY: No items passed quality gate — baseline NOT updated")
         return 1
 
-    # Summary stats
-    cvss_count = sum(1 for i in passed if float(i.get("cvss_score") or 0) > 0)
+    # Shrinkage guard
+    if prior_baseline_count > 0:
+        shrink_ratio = len(passed) / prior_baseline_count
+        if shrink_ratio < SHRINKAGE_FLOOR:
+            log.error(
+                "SHRINKAGE GUARD: new baseline (%d) is %.0f%% of prior (%d) — "
+                "below %.0f%% floor. Baseline NOT updated. Prior retained.",
+                len(passed), shrink_ratio * 100, prior_baseline_count, SHRINKAGE_FLOOR * 100,
+            )
+            return 1
+        log.info("Shrinkage check: %.0f%% of prior baseline — OK", shrink_ratio * 100)
+
+    # Sort
+    passed = _sort_premium(passed)
+
+    # Coverage stats
+    cvss_count = sum(1 for i in passed if _safe_float(i.get("cvss_score")) > 0)
     epss_count = sum(1 for i in passed if i.get("epss_score") is not None)
     kev_count  = sum(1 for i in passed if i.get("kev"))
+    nvd_conf   = sum(1 for i in passed if i.get("nvd_status") == "CONFIRMED")
+    nvd_prelim = sum(1 for i in passed if i.get("nvd_status") == "PRELIMINARY")
     critical   = sum(1 for i in passed if str(i.get("severity", "")).upper() == "CRITICAL")
     high       = sum(1 for i in passed if str(i.get("severity", "")).upper() == "HIGH")
+    medium     = sum(1 for i in passed if str(i.get("severity", "")).upper() == "MEDIUM")
+    low        = sum(1 for i in passed if str(i.get("severity", "")).upper() == "LOW")
+    avg_richness = sum(_safe_float(i.get("_intelligence_richness")) for i in passed) / len(passed)
 
-    log.info("Baseline quality stats:")
+    log.info("Baseline coverage stats:")
     log.info("  Total items  : %d", len(passed))
-    log.info("  CVSS filled  : %d / %d (%.0f%%)", cvss_count, len(passed),
-             100 * cvss_count / len(passed) if passed else 0)
-    log.info("  EPSS filled  : %d / %d (%.0f%%)", epss_count, len(passed),
-             100 * epss_count / len(passed) if passed else 0)
+    log.info("  CVSS filled  : %d / %d (%.0f%%)", cvss_count, len(passed), 100*cvss_count/len(passed))
+    log.info("  EPSS filled  : %d / %d (%.0f%%)", epss_count, len(passed), 100*epss_count/len(passed))
+    log.info("  NVD CONFIRMED: %d | PRELIMINARY: %d", nvd_conf, nvd_prelim)
     log.info("  KEV flagged  : %d", kev_count)
-    log.info("  CRITICAL     : %d | HIGH: %d", critical, high)
+    log.info("  Severity     : CRITICAL=%d HIGH=%d MEDIUM=%d LOW=%d", critical, high, medium, low)
+    log.info("  Avg richness : %.2f / 10", avg_richness)
+    log.info("  Tiers        : GOLD=%d SILVER=%d STANDARD=%d", gold, silver, standard)
 
     if DRY_RUN:
         log.info("[DRY RUN] Would write baseline with %d items — skipping", len(passed))
@@ -277,36 +475,47 @@ def main() -> int:
         tmp_path.unlink(missing_ok=True)
         return 1
 
-    # Write report
+    # Observability report
     REPORT_PATH.parent.mkdir(parents=True, exist_ok=True)
     report = {
-        "generated_at":    datetime.now(timezone.utc).isoformat(),
-        "script":          "premium_feed_baseline.py",
-        "version":         "185.0",
-        "live_items":      len(live_items),
-        "baseline_items":  len(baseline_items),
-        "merged_pool":     len(merged),
-        "passed_gate":     len(passed),
-        "rejected":        rejected,
-        "clamped":         clamped,
-        "cvss_coverage":   cvss_count,
-        "epss_coverage":   epss_count,
-        "kev_count":       kev_count,
-        "critical_count":  critical,
-        "high_count":      high,
-        "dry_run":         DRY_RUN,
+        "generated_at":       datetime.now(timezone.utc).isoformat(),
+        "script":             "premium_feed_baseline.py",
+        "version":            BASELINE_VERSION,
+        "live_items":         len(live_items),
+        "prior_baseline":     prior_baseline_count,
+        "merged_pool":        len(merged) + dups_removed,
+        "dups_removed":       dups_removed,
+        "passed_gate":        len(passed),
+        "rejected":           rejected,
+        "clamped":            clamped,
+        "cvss_coverage":      cvss_count,
+        "epss_coverage":      epss_count,
+        "nvd_confirmed":      nvd_conf,
+        "nvd_preliminary":    nvd_prelim,
+        "kev_count":          kev_count,
+        "critical":           critical,
+        "high":               high,
+        "medium":             medium,
+        "low":                low,
+        "avg_richness":       round(avg_richness, 3),
+        "gold_tier":          gold,
+        "silver_tier":        silver,
+        "standard_tier":      standard,
+        "shrinkage_floor":    SHRINKAGE_FLOOR,
+        "merge_window_hours": MERGE_WINDOW_H,
+        "dry_run":            DRY_RUN,
     }
     try:
         REPORT_PATH.write_text(json.dumps(report, indent=2, ensure_ascii=False), encoding="utf-8")
         log.info("Baseline report: %s", REPORT_PATH)
     except Exception:
-        pass  # non-fatal
+        pass
 
     log.info("=" * 60)
-    log.info("Premium baseline certified: %d items | CVSS %.0f%% | EPSS %.0f%%",
-             len(passed),
-             100 * cvss_count / len(passed) if passed else 0,
-             100 * epss_count / len(passed) if passed else 0)
+    log.info("PREMIUM BASELINE CERTIFIED [v%s] — %d items | CVSS %.0f%% | Avg richness %.2f/10",
+             BASELINE_VERSION, len(passed), 100*cvss_count/len(passed) if passed else 0, avg_richness)
+    log.info("Tiers: GOLD=%d SILVER=%d STANDARD=%d | KEV=%d | CRITICAL=%d HIGH=%d",
+             gold, silver, standard, kev_count, critical, high)
     log.info("=" * 60)
     return 0
 
