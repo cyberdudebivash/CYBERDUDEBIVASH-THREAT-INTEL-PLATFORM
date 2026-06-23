@@ -13,8 +13,8 @@ Provides:
 
 Tiers:
   FREE       : 100 req/day, 10 advisories/req, public endpoints only
-  PRO        : 5,000 req/day, 100 advisories/req, full API
-  ENTERPRISE : 50,000 req/day, 500 advisories/req, all endpoints
+  PRO        : 10,000 req/day, 100 advisories/req, full API
+  ENTERPRISE : 100,000 req/day, 500 advisories/req, all endpoints
   MSSP       : Unlimited, white-label, webhook, priority routing
 
 Security guarantees:
@@ -77,7 +77,7 @@ TIERS: Dict[str, Dict] = {
     },
     "PRO": {
         "name": "Pro",
-        "requests_per_day": 5_000,
+        "requests_per_day": 10_000,
         "advisories_per_request": 100,
         "rate_limit_per_minute": 100,
         "endpoints": ["advisories", "status", "health", "search", "stix", "ioc", "actor"],
@@ -95,7 +95,7 @@ TIERS: Dict[str, Dict] = {
     },
     "ENTERPRISE": {
         "name": "Enterprise",
-        "requests_per_day": 50_000,
+        "requests_per_day": 100_000,
         "advisories_per_request": 500,
         "rate_limit_per_minute": 500,
         "endpoints": [
