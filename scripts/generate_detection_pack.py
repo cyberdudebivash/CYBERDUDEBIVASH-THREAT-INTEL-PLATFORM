@@ -124,16 +124,21 @@ def main() -> int:
             continue
         cve_id = _extract_cve(item)
         tier   = item.get("premium_tier", "STANDARD")
-        title  = str(item.get("title") or "")[:80]
+        # Sanitize title: replace newlines with space so YAML comment stays on one line
+        title  = str(item.get("title") or "").replace("\r", "").replace("\n", " ").strip()[:80]
         sigma_lines.append(f"# ── [{tier}] {title}")
         if cve_id:
             sigma_lines.append(f"# CVE: {cve_id}")
         sigma_lines.append(f"# Source: {item.get('source_url', '')}")
         sigma_lines.append(f"# Risk: {_safe_float(item.get('risk_score')):.2f} | Severity: {item.get('severity', 'UNKNOWN')}")
-        sigma_lines.append(sigma_raw)
-        sigma_lines.append("")  # blank separator
+        # --- MUST come BEFORE the rule body so YAML sees a proper document-start
+        # marker. Without it, every rule's `title:` is treated as a new mapping
+        # in the same document, which is a YAML parse error.
         sigma_lines.append("---")
-        sigma_lines.append("")
+        # Strip any leading --- from sigma_raw to avoid double document markers
+        sigma_clean = sigma_raw.lstrip("-").lstrip()
+        sigma_lines.append(sigma_clean)
+        sigma_lines.append("")  # blank line between rules
         sigma_count += 1
 
     sigma_header = "\n".join([
@@ -159,7 +164,7 @@ def main() -> int:
             continue
         cve_id = _extract_cve(item)
         tier   = item.get("premium_tier", "STANDARD")
-        title  = str(item.get("title") or "")[:80]
+        title  = str(item.get("title") or "").replace("\r", "").replace("\n", " ").strip()[:80]
         kql_lines.append(f"// ── [{tier}] {title}")
         if cve_id:
             kql_lines.append(f"// CVE: {cve_id}")
