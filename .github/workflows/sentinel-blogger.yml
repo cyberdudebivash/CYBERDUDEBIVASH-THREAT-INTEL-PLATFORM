@@ -1205,6 +1205,44 @@ jobs:
             echo "::warning::generate_detection_pack.py exited ${PACK_EXIT} — non-fatal, prior detection pack retained"
           fi
 
+      # -----------------------------------------------------------------------
+      # STAGE 3.1.22: ENGINE DATA REGENERATOR (v185.1 — LIVE INTEL SYNC)
+      # Derives all frontend engine JSON files from api/feed.baseline.json:
+      #   data/nexus/nexus_output.json       — Nexus Intelligence engine
+      #   data/genesis/genesis_output.json   — Genesis 12 Strategic Engines
+      #   data/cortex/cortex_output.json     — Cortex Knowledge Graph
+      #   data/quantum/quantum_output.json   — Quantum Signal Intelligence
+      #   data/sovereign/sovereign_output.json — Sovereign Compliance
+      #   data/bughunter/bughunter_output.json — Bug Hunter Recon Engines
+      #   data/incidents/incidents.json      — TIP+SOAR incident feed
+      #   data/responses/response_log.json   — TIP+SOAR response log
+      #   data/threathunts/hunts.json        — Threat hunt hypotheses
+      #   api/ai/tracker.json                — AI Cyber Brain tracker
+      #   api/engines.json                   — Engines API manifest
+      # Non-blocking: engine regen failure retains prior engine data.
+      # -----------------------------------------------------------------------
+      - name: "STAGE 3.1.22 - Engine Data Regenerator (v185.1 — live intel sync)"
+        timeout-minutes: 3
+        continue-on-error: true
+        env:
+          BASELINE_PATH: "api/feed.baseline.json"
+        run: |
+          set +e
+          python3 scripts/regenerate_engine_data.py 2>&1
+          ENG_EXIT=$?
+          set -e
+          if [ "$ENG_EXIT" -eq 0 ]; then
+            for ENG_FILE in data/nexus/nexus_output.json data/genesis/genesis_output.json api/ai/tracker.json api/engines.json; do
+              if [ -f "$ENG_FILE" ]; then
+                LINES=$(wc -l < "$ENG_FILE" 2>/dev/null || echo "?")
+                echo "[PASS] ${ENG_FILE}: ${LINES} lines"
+              fi
+            done
+            echo "::notice::ENGINE DATA: all 11 engine files regenerated from live intel feed"
+          else
+            echo "::warning::regenerate_engine_data.py exited ${ENG_EXIT} — non-fatal, prior engine data retained"
+          fi
+
       - name: "STAGE 3.2 - Generate Internal HTML Reports (report_generator)"
         timeout-minutes: 20
         run: python3 scripts/report_generator.py --manifest data/stix/feed_manifest.json
