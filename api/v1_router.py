@@ -106,15 +106,13 @@ def _validate_api_key(raw_key: str) -> Optional[Dict]:
     """
     if not raw_key or len(raw_key) < 10:
         return None
-    key_hash = "SHA256:" + hashlib.sha256(raw_key.encode()).hexdigest()
+    key_hash = hashlib.sha256(raw_key.encode()).hexdigest()
     db = _load_api_keys()
     for key_id, record in db.items():
         stored_hash = record.get("key_hash", "")
-        if stored_hash.startswith("SHA256:"):
-            # Constant-time comparison (hmac.compare_digest)
-            if hmac.compare_digest(stored_hash.encode(), key_hash.encode()):
-                if not record.get("revoked", False):
-                    return {**record, "key_id": key_id}
+        if stored_hash and hmac.compare_digest(stored_hash.encode(), key_hash.encode()):
+            if record.get("active", False):
+                return {**record, "key_id": key_id}
     return None
 
 
