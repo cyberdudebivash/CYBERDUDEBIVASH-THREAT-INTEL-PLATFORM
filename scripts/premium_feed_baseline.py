@@ -86,7 +86,12 @@ MERGE_WINDOW_H  = int(os.environ.get("MERGE_WINDOW_HOURS", "96"))   # retain bas
 VALID_SEVERITIES = {"CRITICAL", "HIGH", "MEDIUM", "LOW"}
 _CVE_RE = re.compile(r"\bCVE-\d{4}-\d{4,}\b", re.IGNORECASE)
 PLATFORM_BASE = "https://intel.cyberdudebivash.com"
-BASELINE_VERSION = "185.0"
+BASELINE_VERSION = "185.1"
+
+_GENERIC_ACTORS = {
+    "", "UNC-CDB-INGEST", "CDB-UNATTR-CVE", "CDB-UNATTR-SUP",
+    "CDB-CVE-GEN", "CDB-RAN-03", "CDB-UNATTR-APT",
+}
 
 logging.basicConfig(
     level=logging.INFO,
@@ -159,6 +164,54 @@ def _risk_to_severity(risk: float) -> str:
     return "UNKNOWN"
 
 
+# ── Executive Summary Synthesis ──────────────────────────────────────────────────
+def _synthesize_exec_summary(item: Dict) -> str:
+    """Build a structured exec_summary from rich fields so +0.5 richness is captured."""
+    parts: List[str] = []
+    title  = str(item.get("title") or "").strip()
+    cve_id = _extract_cve(item)
+    sev    = str(item.get("severity") or "").upper()
+    risk   = _safe_float(item.get("risk_score"))
+    cvss   = _safe_float(item.get("cvss_score"))
+    epss   = item.get("epss_score")
+    kev    = item.get("kev") is True
+    nvd    = str(item.get("nvd_status") or "UNVERIFIED")
+    actor  = str(item.get("actor") or item.get("actor_tag") or "").strip()
+    iocs   = [
+        x for x in (item.get("iocs") or [])
+        if not (isinstance(x, str) and x.upper().startswith("CVE-"))
+    ]
+    has_detection = bool(
+        item.get("sigma_rule") or item.get("kql_query") or item.get("detection_bundle")
+    )
+    if cve_id:
+        sev_label = sev.lower() if sev in ("CRITICAL", "HIGH", "MEDIUM", "LOW") else "notable"
+        score_part = f" (CVSS {cvss:.1f})" if cvss > 0 else ""
+        parts.append(f"{cve_id} is a {sev_label}-severity vulnerability{score_part}.")
+    else:
+        parts.append(f"{title[:100]}." if title else "Threat intelligence advisory.")
+    if cvss > 0 and nvd == "CONFIRMED":
+        parts.append(f"NVD-confirmed CVSS score of {cvss:.1f}/10.")
+    elif cvss > 0:
+        parts.append(f"Analyst-estimated risk score {risk:.1f}/10; NVD confirmation pending.")
+    else:
+        parts.append(f"Risk score: {risk:.1f}/10. NVD status: {nvd}.")
+    if kev:
+        parts.append("CISA KEV-listed: actively exploited in the wild.")
+    if epss is not None:
+        try:
+            parts.append(f"EPSS exploitation probability: {float(epss)*100:.2f}%.")
+        except (TypeError, ValueError):
+            pass
+    if actor and actor not in _GENERIC_ACTORS:
+        parts.append(f"Attribution: {actor}.")
+    if has_detection:
+        parts.append("Detection rules available (Sigma/KQL).")
+    if iocs:
+        parts.append(f"{len(iocs)} network indicator(s) available for blocking.")
+    return " ".join(parts)
+
+
 # ── Intelligence Richness Score ──────────────────────────────────────────────────
 def _richness_score(item: Dict) -> float:
     """Compute an intelligence richness score 0-10 reflecting data completeness."""
@@ -169,10 +222,10 @@ def _richness_score(item: Dict) -> float:
     # EPSS present
     if item.get("epss_score") is not None:
         score += 1.5
-    # CISA KEV — must be boolean True; "NO" string is explicitly not KEV
+    # CISA KEV — must be exactly True (not "NO" string which is truthy)
     if item.get("kev") is True:
         score += 2.0
-    # IOCs — count only real network indicators, not CVE-ID strings
+    # IOCs — exclude CVE-string entries; IOC entries may be dicts or plain strings
     iocs = item.get("iocs") or []
     real_iocs = [
         x for x in (iocs if isinstance(iocs, list) else [])
@@ -180,11 +233,7 @@ def _richness_score(item: Dict) -> float:
     ]
     if real_iocs:
         score += 1.0
-    # Actor attribution — check both actor and actor_tag fields; filter generic placeholders
-    _GENERIC_ACTORS = {
-        "", "UNC-CDB-INGEST", "CDB-UNATTR-CVE", "CDB-UNATTR-SUP",
-        "CDB-CVE-GEN", "CDB-RAN-03", "CDB-UNATTR-APT",
-    }
+    # Actor attribution — check both actor and actor_tag fields
     actor = str(item.get("actor") or item.get("actor_tag") or "").strip()
     if actor and actor not in _GENERIC_ACTORS:
         score += 0.5
@@ -279,58 +328,6 @@ def _quality_gate(item: Dict) -> Tuple[bool, str]:
     return True, "ok"
 
 
-# ── Synthetic exec_summary ───────────────────────────────────────────────────────
-def _synthesize_exec_summary(item: Dict) -> str:
-    """Generate a concise executive brief from available structured fields."""
-    parts: List[str] = []
-    title  = str(item.get("title") or "").strip()
-    cve_id = _extract_cve(item)
-    sev    = str(item.get("severity") or "").upper()
-    risk   = _safe_float(item.get("risk_score"))
-    cvss   = _safe_float(item.get("cvss_score"))
-    epss   = item.get("epss_score")
-    kev    = item.get("kev") is True
-    nvd    = item.get("nvd_status") or "UNVERIFIED"
-    actor  = str(item.get("actor") or item.get("actor_tag") or "").strip()
-    _GENERIC = {"UNC-CDB-INGEST","CDB-UNATTR-CVE","CDB-UNATTR-SUP","CDB-CVE-GEN","CDB-RAN-03","CDB-UNATTR-APT",""}
-    iocs   = [x for x in (item.get("iocs") or []) if not (isinstance(x, str) and x.upper().startswith("CVE-"))]
-    has_sigma = bool(item.get("sigma_rule") or item.get("kql_query") or item.get("detection_bundle"))
-
-    # Lead sentence
-    if cve_id:
-        sev_label = sev if sev in ("CRITICAL","HIGH","MEDIUM","LOW") else "notable"
-        score_part = f" (CVSS {cvss:.1f})" if cvss > 0 else ""
-        parts.append(f"{cve_id} is a {sev_label.lower()}-severity vulnerability{score_part}.")
-    else:
-        parts.append(f"{title[:100]}." if title else "Threat intelligence advisory.")
-
-    # Risk + NVD context
-    if cvss > 0 and nvd == "CONFIRMED":
-        parts.append(f"NVD-confirmed CVSS score of {cvss:.1f}/{10}.")
-    elif cvss > 0:
-        parts.append(f"Analyst-estimated risk score {risk:.1f}/10; NVD confirmation pending.")
-    else:
-        parts.append(f"Risk score: {risk:.1f}/10. NVD status: {nvd}.")
-
-    # Exploitation signals
-    if kev:
-        parts.append("CISA KEV-listed: actively exploited in the wild.")
-    if epss is not None:
-        parts.append(f"EPSS exploitation probability: {epss*100:.2f}%.")
-
-    # Actor
-    if actor and actor not in _GENERIC:
-        parts.append(f"Attribution: {actor}.")
-
-    # Mitigations
-    if has_sigma:
-        parts.append("Detection rules available (Sigma/KQL).")
-    if iocs:
-        parts.append(f"{len(iocs)} network indicator(s) available for blocking.")
-
-    return " ".join(parts)
-
-
 # ── Stamp baseline metadata ───────────────────────────────────────────────────────
 def _stamp(item: Dict, richness: float) -> Dict:
     item["_baseline_certified"]    = True
@@ -395,13 +392,14 @@ def _dedup(items: List[Dict]) -> Tuple[List[Dict], int]:
 def _sort_premium(items: List[Dict]) -> List[Dict]:
     """Sort by richness desc, risk_score desc, published_at desc."""
     def _pub_ts(x: Dict) -> float:
-        raw = x.get("published_at") or x.get("timestamp") or ""
-        try:
-            return datetime.fromisoformat(str(raw).rstrip("Z")).replace(tzinfo=timezone.utc).timestamp()
-        except Exception:
-            return 0.0
+        raw = str(x.get("published_at") or x.get("timestamp") or "")
+        return _parse_ts(raw)
     def _key(x: Dict) -> Tuple:
-        return (-_safe_float(x.get("_intelligence_richness")), -_safe_float(x.get("risk_score")), -_pub_ts(x))
+        return (
+            -_safe_float(x.get("_intelligence_richness")),
+            -_safe_float(x.get("risk_score")),
+            -_pub_ts(x),
+        )
     return sorted(items, key=_key)
 
 
@@ -467,7 +465,7 @@ def main() -> int:
             continue
         if item.get("_inflation_clamped"):
             clamped += 1
-        # Synthesize exec_summary BEFORE richness scoring so +0.5 is counted
+        # Synthesize exec_summary BEFORE richness scoring so +0.5 bonus is captured
         if not str(item.get("exec_summary") or "").strip():
             item["exec_summary"] = _synthesize_exec_summary(item)
         richness = _richness_score(item)
