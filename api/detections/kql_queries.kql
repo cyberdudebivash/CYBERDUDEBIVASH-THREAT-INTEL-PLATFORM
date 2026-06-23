@@ -1,7 +1,7 @@
 // CYBERDUDEBIVASH SENTINEL APEX — KQL Detection Queries Bundle
-// Version: 185.0 | Generated: 2026-06-23T07:20:33.780020+00:00
+// Version: 185.0 | Generated: 2026-06-23T07:48:18.498144+00:00
 // Platform: https://intel.cyberdudebivash.com
-// Total queries: 213
+// Total queries: 217
 // Import: Microsoft Sentinel Analytics Rules, Defender Advanced Hunting
 
 // ═══════════════════════════════════════════════════════════════════
@@ -2500,6 +2500,70 @@ SecurityEvent
     by IpAddress, bin(TimeGenerated, 1h)
 | where FailureCount > 10 or DistinctTargets > 5
 | extend Severity = "MEDIUM", CVE = "4,300+ Outdated Routers Hijacked in Stealthy Spy Infrastructure by AryStinger malware", RuleSource = "SENTINEL-APEX"
+| order by TimeGenerated desc
+
+// ── [SILVER] Low Security Vulnerability (CVE-2026-8379)
+// CVE: CVE-2026-8379
+// Risk: 1.60 | Severity: LOW
+// STIX ID: intel--cbff893851ef3bfdfd4e6233
+// SENTINEL APEX — CVE-2026-8379 — Anomalous Activity Detection
+// Product: Web Application | Generated: 2026-06-23T07:47:49Z
+let lookback = 1d;
+SecurityEvent
+| where TimeGenerated > ago(lookback)
+| where EventID in (4625, 4648, 4728, 4740, 4776)
+| summarize FailureCount = count(), DistinctTargets = dcount(TargetUserName)
+    by IpAddress, bin(TimeGenerated, 1h)
+| where FailureCount > 10 or DistinctTargets > 5
+| extend Severity = "MEDIUM", CVE = "CVE-2026-8379", RuleSource = "SENTINEL-APEX"
+| order by TimeGenerated desc
+
+// ── [SILVER] Low Security Vulnerability (CVE-2026-8378)
+// CVE: CVE-2026-8378
+// Risk: 1.60 | Severity: LOW
+// STIX ID: intel--9d91eca10797aaadeba9f110
+// SENTINEL APEX — CVE-2026-8378 — Anomalous Activity Detection
+// Product: Web Application | Generated: 2026-06-23T07:47:49Z
+let lookback = 1d;
+SecurityEvent
+| where TimeGenerated > ago(lookback)
+| where EventID in (4625, 4648, 4728, 4740, 4776)
+| summarize FailureCount = count(), DistinctTargets = dcount(TargetUserName)
+    by IpAddress, bin(TimeGenerated, 1h)
+| where FailureCount > 10 or DistinctTargets > 5
+| extend Severity = "MEDIUM", CVE = "CVE-2026-8378", RuleSource = "SENTINEL-APEX"
+| order by TimeGenerated desc
+
+// ── [SILVER] Low Security Vulnerability (CVE-2026-8172)
+// CVE: CVE-2026-8172
+// Risk: 1.60 | Severity: LOW
+// STIX ID: intel--3f9d1fa24b1fb32f91fee58e
+// SENTINEL APEX — CVE-2026-8172 — Anomalous Activity Detection
+// Product: Web Application | Generated: 2026-06-23T07:47:49Z
+let lookback = 1d;
+SecurityEvent
+| where TimeGenerated > ago(lookback)
+| where EventID in (4625, 4648, 4728, 4740, 4776)
+| summarize FailureCount = count(), DistinctTargets = dcount(TargetUserName)
+    by IpAddress, bin(TimeGenerated, 1h)
+| where FailureCount > 10 or DistinctTargets > 5
+| extend Severity = "MEDIUM", CVE = "CVE-2026-8172", RuleSource = "SENTINEL-APEX"
+| order by TimeGenerated desc
+
+// ── [SILVER] Low Security Vulnerability (CVE-2026-7842)
+// CVE: CVE-2026-7842
+// Risk: 1.60 | Severity: LOW
+// STIX ID: intel--d8b3fad76638640b79c79667
+// SENTINEL APEX — CVE-2026-7842 — Anomalous Activity Detection
+// Product: Web Application | Generated: 2026-06-23T07:47:49Z
+let lookback = 1d;
+SecurityEvent
+| where TimeGenerated > ago(lookback)
+| where EventID in (4625, 4648, 4728, 4740, 4776)
+| summarize FailureCount = count(), DistinctTargets = dcount(TargetUserName)
+    by IpAddress, bin(TimeGenerated, 1h)
+| where FailureCount > 10 or DistinctTargets > 5
+| extend Severity = "MEDIUM", CVE = "CVE-2026-7842", RuleSource = "SENTINEL-APEX"
 | order by TimeGenerated desc
 
 // ── [SILVER] CVE-2026-10651 - Bluetooth Classic SDP parser truncation bug in bt_sdp_parse_att
