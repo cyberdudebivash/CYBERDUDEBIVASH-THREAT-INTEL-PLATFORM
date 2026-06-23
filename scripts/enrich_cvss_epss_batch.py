@@ -389,9 +389,13 @@ def main() -> int:
 
     # ── Pass 3: NVD CVSS (per-CVE, rate-limited + retry + circuit-breaker) ──────
     cvss_map: Dict[str, Tuple[Optional[float], Optional[str]]] = {}
+    _cve_first_idx: Dict[str, int] = {}
+    for _idx, _cid in needs_enrich:
+        _cve_first_idx.setdefault(_cid, _idx)
     cvss_needed = [
         cid for cid in all_cve_ids
-        if float(items[next(idx for idx, c in needs_enrich if c == cid)].get("cvss_score") or 0) == 0.0
+        if cid in _cve_first_idx
+        and float(items[_cve_first_idx[cid]].get("cvss_score") or 0) == 0.0
     ]
 
     log.info("Fetching CVSS from NVD for %d CVEs...", len(cvss_needed))
@@ -412,6 +416,7 @@ def main() -> int:
             for remaining in cvss_needed[i:]:
                 if remaining not in cvss_map:
                     cvss_map[remaining] = (None, None)
+                    nvd_not_found.add(remaining)
             break
 
         # Circuit-breaker check
@@ -425,6 +430,7 @@ def main() -> int:
             for remaining in cvss_needed[i:]:
                 if remaining not in cvss_map:
                     cvss_map[remaining] = (None, None)
+                    nvd_not_found.add(remaining)
             break
 
         # v185.0 optimisation: skip NVD call for current-year CVEs already
@@ -442,7 +448,7 @@ def main() -> int:
 
         score, vec = fetch_nvd_cvss(cve_id)
         cvss_map[cve_id] = (score, vec)
-        if score:
+        if score is not None:
             log.info("[%d/%d] %s → CVSS %.1f (%.0fs elapsed)",
                      i + 1, len(cvss_needed), cve_id, score, _elapsed())
         else:
@@ -459,7 +465,7 @@ def main() -> int:
 
         # Apply CVSS
         cvss_score, cvss_vec = cvss_map.get(cve_id, (None, None))
-        if cvss_score and float(item.get("cvss_score") or 0) == 0.0:
+        if cvss_score is not None and float(item.get("cvss_score") or 0) == 0.0:
             item["cvss_score"]  = cvss_score
             item["cvss_vector"] = cvss_vec or item.get("cvss_vector")
             item["severity"]    = cvss_to_severity(cvss_score)
@@ -582,7 +588,7 @@ def main() -> int:
         log.warning(
             "BUDGET-INTERRUPT: cut short at %.0fs — %d CVEs not reached. "
             "Partial enrichment flushed. Remaining CVEs enriched on next run.",
-            elapsed_total, sum(1 for c in cvss_needed if c not in cvss_map or cvss_map[c] == (None, None) and c not in nvd_not_found),
+            elapsed_total, sum(1 for c in cvss_needed if (c not in cvss_map or cvss_map[c] == (None, None)) and c not in nvd_not_found),
         )
     if cb_tripped:
         log.warning("CIRCUIT-BREAKER: NVD appears unreachable — skipped remaining CVEs. "
