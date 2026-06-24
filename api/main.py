@@ -439,33 +439,38 @@ def get_manifest() -> List[Dict]:
 # ── Auth Dependency ────────────────────────────────────────────────────────
 # v2.0: uses new api_key_manager for persistent key validation
 _KEY_MGR_OK = False
+_get_key_manager = None
 try:
-    from agent.monetization.api_key_manager import validate_key as _validate_key
+    from api.auth import get_key_manager as _get_key_manager
     _KEY_MGR_OK = True
 except Exception:
-    _validate_key = None
+    pass
 
 def get_api_key(x_api_key: Optional[str] = Header(default=None)) -> Dict:
-    """Resolve API key to tier. No key = free tier (demo)."""
+    """Resolve API key to tier. No key = free tier (anonymous)."""
     if not x_api_key:
         return {"tier": "free", "name": "Anonymous", "key": "anon"}
 
-    # Try new key manager first (persistent DB)
-    if _KEY_MGR_OK and _validate_key:
-        info = _validate_key(x_api_key)
-        if info.get("valid"):
-            tier = info["tier"]
-            _tier_norm = tier.lower()
-            if not check_rate_limit(x_api_key, _tier_norm):
-                raise HTTPException(
-                    status_code=429,
-                    detail={"error": f"Rate limit exceeded for {_tier_norm} tier",
-                            "limit": f"{TIERS.get(_tier_norm, TIERS['free'])['rate_limit']} req/hour",
-                            "upgrade": STORE_URL},
-                )
-            return {"tier": _tier_norm, "name": info.get("name",""), "key": x_api_key}
+    # Live auth store (data/auth/api_keys.json) — primary path
+    if _KEY_MGR_OK and _get_key_manager:
+        try:
+            is_valid, record, _reason = _get_key_manager().validate_key(x_api_key)
+            if is_valid and record:
+                tier = record.get("tier", "FREE").lower()
+                if not check_rate_limit(x_api_key, tier):
+                    raise HTTPException(
+                        status_code=429,
+                        detail={"error": f"Rate limit exceeded for {tier} tier",
+                                "limit": f"{TIERS.get(tier, TIERS['free'])['rate_limit']} req/hour",
+                                "upgrade": STORE_URL},
+                    )
+                return {"tier": tier, "name": record.get("owner", ""), "key": x_api_key}
+        except HTTPException:
+            raise
+        except Exception:
+            pass
 
-    # Fallback to static DEMO_KEYS (backward compat)
+    # Fallback to static DEMO_KEYS (dev only — empty in production)
     key_info = DEMO_KEYS.get(x_api_key)
     if not key_info:
         raise HTTPException(
