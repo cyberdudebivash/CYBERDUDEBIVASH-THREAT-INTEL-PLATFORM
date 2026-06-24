@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import time
 from datetime import datetime, timezone
 from pathlib import Path
@@ -95,9 +96,9 @@ EVT_OVERAGE_CHARGED        = "overage.charged"
 # Update AUTHORISED_PAYMENT_METHODS when mandate changes.
 # ---------------------------------------------------------------------------
 AUTHORISED_PAYMENT_METHODS = ["UPI", "QR", "NEFT", "PayPal", "Crypto", "AmazonPay"]
-PAYMENT_CONTACT = "iambivash.bn@gmail.com"
-UPI_ID          = "iambivash.bn@okaxis"
-GSTIN           = "21ARKPN8270G1ZP"
+PAYMENT_CONTACT = os.environ.get("PLATFORM_PAYMENT_EMAIL", "")
+UPI_ID          = os.environ.get("PLATFORM_UPI_ID", "")
+GSTIN           = os.environ.get("PLATFORM_GSTIN", "")
 
 
 # ---------------------------------------------------------------------------
