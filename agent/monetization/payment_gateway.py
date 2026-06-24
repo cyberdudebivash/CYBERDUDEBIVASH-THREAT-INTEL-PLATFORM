@@ -80,6 +80,21 @@ def _append_event(event: Dict) -> None:
         logger.warning(f"[PAYMENT-GW] Event append failed (non-fatal): {e}")
 
 
+def _is_event_processed(payment_id: str, etype: str) -> bool:
+    """Idempotency guard: True if this exact payment_id+event was already handled."""
+    try:
+        if not EVENTS_FILE.exists():
+            return False
+        with open(EVENTS_FILE, "r", encoding="utf-8") as f:
+            events = json.load(f)
+        return any(
+            e.get("payment_id") == payment_id and e.get("type") == etype
+            for e in events
+        )
+    except Exception:
+        return False
+
+
 # ── STRIPE ──────────────────────────────────────────────────────────────────────────────────────
 
 def create_stripe_checkout_session(
@@ -236,17 +251,21 @@ def handle_razorpay_webhook(payload: bytes, sig_header: str) -> Tuple[bool, str]
         event = json.loads(payload)
         etype = event.get("event","")
         if etype in ("payment.captured", "subscription.activated"):
-            entity = event.get("payload", {}).get("payment", {}).get("entity", {})
-            notes  = entity.get("notes", {})
-            tier   = notes.get("tier", "pro")
-            email  = entity.get("email","")
-            name   = entity.get("contact","")
-            sub_id = entity.get("id","")
+            entity     = event.get("payload", {}).get("payment", {}).get("entity", {})
+            notes      = entity.get("notes", {})
+            tier       = notes.get("tier", "pro")
+            email      = entity.get("email","")
+            name       = entity.get("contact","")
+            payment_id = entity.get("id","")
+            if _is_event_processed(payment_id, etype):
+                logger.info(f"[PAYMENT-GW] Idempotency: {etype} {payment_id} already processed — skipping")
+                return True, "already_processed"
             if email and tier in ("pro","enterprise","mssp"):
                 _provision_subscriber(tier=tier, name=name or email,
-                                      email=email, stripe_sub_id=sub_id,
+                                      email=email, stripe_sub_id=payment_id,
                                       provider="razorpay")
-        _append_event({"type": etype, "provider": "razorpay"})
+        _append_event({"type": etype, "provider": "razorpay",
+                       "payment_id": event.get("payload", {}).get("payment", {}).get("entity", {}).get("id","")})
         return True, f"Event {etype} processed"
     except Exception as e:
         logger.error(f"[PAYMENT-GW] Razorpay webhook error: {e}")

@@ -1942,6 +1942,64 @@ async function sendTelegramAlert(env, text) {
   } catch (_) { return false; }
 }
 
+// P2.6.1-002: Activation email via Resend API — fails silently, never blocks provisioning
+async function sendActivationEmail(env, email, tier, apiKey) {
+  if (!env.RESEND_API_KEY) {
+    console.warn("[sendActivationEmail] RESEND_API_KEY not configured — skipping activation email");
+    return false;
+  }
+  try {
+    const tierLabel = tier === "ENTERPRISE" ? "ENTERPRISE" : tier === "MSSP" ? "MSSP" : "PRO";
+    const htmlBody = `<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><title>Your CYBERDUDEBIVASH® Sentinel APEX API Key</title></head>
+<body style="background:#0a0a0f;color:#e2e8f0;font-family:system-ui,sans-serif;margin:0;padding:32px;">
+  <div style="max-width:600px;margin:0 auto;background:#111827;border:1px solid #1e40af;border-radius:12px;padding:40px;">
+    <h1 style="color:#60a5fa;margin-top:0;">CYBERDUDEBIVASH® Sentinel APEX</h1>
+    <h2 style="color:#e2e8f0;">Your API Key is Ready</h2>
+    <p style="color:#94a3b8;">Welcome! Your <strong style="color:#60a5fa;">${tierLabel}</strong> plan is now active.</p>
+
+    <div style="background:#0f172a;border:1px solid #334155;border-radius:8px;padding:20px;margin:24px 0;">
+      <p style="color:#94a3b8;margin:0 0 8px;">Your API Key:</p>
+      <code style="color:#34d399;font-size:14px;word-break:break-all;">${apiKey}</code>
+    </div>
+
+    <div style="background:#0f172a;border:1px solid #334155;border-radius:8px;padding:20px;margin:24px 0;">
+      <p style="color:#94a3b8;margin:0 0 8px;">Quick Start:</p>
+      <code style="color:#fbbf24;font-size:13px;word-break:break-all;">curl -H "X-API-Key: ${apiKey}" https://intel.cyberdudebivash.com/api/v1/threats</code>
+    </div>
+
+    <p style="color:#94a3b8;">Need help? Contact us at <a href="mailto:support@cyberdudebivash.com" style="color:#60a5fa;">support@cyberdudebivash.com</a></p>
+    <p style="color:#475569;font-size:12px;margin-bottom:0;">CYBERDUDEBIVASH® SENTINEL APEX — Enterprise Threat Intelligence Platform</p>
+  </div>
+</body>
+</html>`;
+
+    const resp = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${env.RESEND_API_KEY}`,
+      },
+      body: JSON.stringify({
+        from: "CYBERDUDEBIVASH® Sentinel APEX <noreply@cyberdudebivash.com>",
+        to: [email],
+        subject: "Your CYBERDUDEBIVASH® Sentinel APEX API Key",
+        html: htmlBody,
+      }),
+    });
+    if (!resp.ok) {
+      const errText = await resp.text().catch(() => "");
+      console.error(`[sendActivationEmail] Resend API error ${resp.status}: ${errText}`);
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.error("[sendActivationEmail] Failed to send activation email:", err?.message || err);
+    return false;
+  }
+}
+
 async function verifyRazorpayHmac(payload, signature, secret) {
   try {
     const encoder  = new TextEncoder();
@@ -2013,7 +2071,14 @@ async function handleRazorpayVerify(request, env, ctx, method) {
   );
   if (!valid) return jsonResp({ error: "Payment signature invalid  -  verification failed", code: "SIG_MISMATCH" }, 400);
 
-  // Idempotency guard: prevent replay of a previously verified payment_id
+  // P2.6.1-001: Unified cross-path idempotency guard — checked FIRST before per-path keys
+  const unifiedIdempKey = `rzp_payment:${razorpay_payment_id}`;
+  const alreadyProvisioned = await env.SECURITY_HUB_KV.get(unifiedIdempKey);
+  if (alreadyProvisioned) {
+    return jsonResp({ error: "Payment already verified and key provisioned", code: "ALREADY_PROVISIONED" }, 409);
+  }
+
+  // Backward-compat per-path idempotency guard (kept for existing records)
   const verifyIdempKey = `rzp_verified:${razorpay_payment_id}`;
   const alreadyVerified = await env.SECURITY_HUB_KV.get(verifyIdempKey);
   if (alreadyVerified) {
@@ -2024,8 +2089,17 @@ async function handleRazorpayVerify(request, env, ctx, method) {
   const apiKey = await provisionApiKey(env, ctx, tierUp, email, "razorpay_checkout", {
     order_id: razorpay_order_id, payment_id: razorpay_payment_id,
   });
-  // Mark payment_id as consumed (1 year TTL  -  Razorpay IDs never expire)
+  // P2.6.1-001: Write unified idempotency key (1 year TTL) — prevents double-provision from webhook path
+  await env.SECURITY_HUB_KV.put(unifiedIdempKey, JSON.stringify({ email, tier: tierUp, ts: now(), source: "razorpay_checkout" }), { expirationTtl: 86400 * 365 });
+  // Mark payment_id as consumed via per-path key (backward compat — 1 year TTL)
   await env.SECURITY_HUB_KV.put(verifyIdempKey, JSON.stringify({ email, tier: tierUp, ts: now() }), { expirationTtl: 86400 * 365 });
+
+  // P2.6.1-002: Send activation email — wrapped in try/catch, never blocks provisioning
+  ctx.waitUntil((async () => {
+    try { await sendActivationEmail(env, email, tierUp, apiKey); } catch (err) {
+      console.error("[handleRazorpayVerify] sendActivationEmail error:", err?.message || err);
+    }
+  })());
 
   ctx.waitUntil(sendTelegramAlert(env,
     `? <b>RAZORPAY PAYMENT VERIFIED</b>\n` +
@@ -2071,7 +2145,12 @@ async function handleWebhookRazorpay(request, env, ctx) {
   const pid    = entity.id || "unknown";
 
   if (event === "payment.captured" || event === "order.paid") {
-    // Idempotency guard: deduplicate across payment.captured + order.paid + webhook retries
+    // P2.6.1-001: Unified cross-path idempotency guard — checked FIRST before per-path key
+    const unifiedIdempKey = `rzp_payment:${pid}`;
+    const alreadyProvisioned = await env.SECURITY_HUB_KV.get(unifiedIdempKey);
+    if (alreadyProvisioned) return jsonResp({ status: "already_provisioned", payment_id: pid });
+
+    // Backward-compat per-path idempotency guard (kept for existing records)
     const whIdempKey = `rzp_webhook:${pid}`;
     const alreadyDone = await env.SECURITY_HUB_KV.get(whIdempKey);
     if (alreadyDone) return jsonResp({ status: "already_provisioned", payment_id: pid });
@@ -2079,7 +2158,18 @@ async function handleWebhookRazorpay(request, env, ctx) {
     const apiKey = await provisionApiKey(env, ctx, tier, email, "razorpay_webhook", {
       payment_id: pid, amount, event,
     });
+    // P2.6.1-001: Write unified idempotency key (1 year TTL) — prevents double-provision from blog bridge path
+    await env.SECURITY_HUB_KV.put(unifiedIdempKey, JSON.stringify({ email, tier, ts: now(), source: "razorpay_webhook" }), { expirationTtl: 86400 * 365 });
+    // Backward-compat per-path key (1 year TTL)
     await env.SECURITY_HUB_KV.put(whIdempKey, JSON.stringify({ email, tier, ts: now() }), { expirationTtl: 86400 * 365 });
+
+    // P2.6.1-002: Send activation email — wrapped in try/catch, never blocks provisioning
+    ctx.waitUntil((async () => {
+      try { await sendActivationEmail(env, email, tier, apiKey); } catch (err) {
+        console.error("[handleWebhookRazorpay] sendActivationEmail error:", err?.message || err);
+      }
+    })());
+
     ctx.waitUntil(sendTelegramAlert(env,
       `? <b>RAZORPAY: ${event}</b>\n` +
       `Plan: <b>${tier}</b> | Amount: ?${(amount / 100).toFixed(2)}\n` +
