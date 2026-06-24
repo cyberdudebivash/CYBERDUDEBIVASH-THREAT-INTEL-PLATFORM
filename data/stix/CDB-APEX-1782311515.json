@@ -1,0 +1,234 @@
+{
+  "type": "bundle",
+  "id": "bundle--6803931a-1359-4a0b-a759-7aa02053de63",
+  "spec_version": "2.1",
+  "objects": [
+    {
+      "type": "identity",
+      "spec_version": "2.1",
+      "id": "identity--61a8943b-b27b-5e19-afff-893bb2e2fa2b",
+      "name": "CyberDudeBivash SENTINEL APEX",
+      "description": "CyberDudeBivash Pvt. Ltd. - Global Cybersecurity Intelligence Infrastructure",
+      "identity_class": "organization",
+      "sectors": [
+        "technology"
+      ],
+      "contact_information": "enterprise@cyberdudebivash.com",
+      "created": "2024-01-01T00:00:00Z",
+      "modified": "2024-01-01T00:00:00Z"
+    },
+    {
+      "type": "marking-definition",
+      "spec_version": "2.1",
+      "id": "marking-definition--f88d31f6-486f-44da-b317-01333bde0b82",
+      "created": "2017-01-20T00:00:00.000Z",
+      "definition_type": "tlp",
+      "definition": {
+        "tlp": "amber"
+      }
+    },
+    {
+      "type": "intrusion-set",
+      "spec_version": "2.1",
+      "id": "intrusion-set--f67412f1-b615-428c-9f9d-3168744a1160",
+      "name": "CDB-FIN-09 Campaign",
+      "description": "Red-Team AI Tool Vulnerabilities Let Attackers Exfiltrate API Keys and Compromise Operators Systems",
+      "created": "2026-06-24T14:31:55Z",
+      "modified": "2026-06-24T14:31:55Z",
+      "confidence": 59,
+      "aliases": [
+        "CDB-FIN-09"
+      ],
+      "extensions": {
+        "x-cdb-apex-1": {
+          "predictive_score": 7.5,
+          "campaign_id": "UNCLASSIFIED",
+          "campaign_confidence": 7.5,
+          "threat_category": "Remote Code Execution",
+          "behavioral_tags": [
+            "network_c2"
+          ],
+          "ai_summary": "Initial access via rce → execution chain: initial access → execution → persistence → privilege escalation → malware behaviors: network c2",
+          "risk_factors": [
+            "EPSS_score",
+            "IOC_density",
+            "MITRE_coverage"
+          ],
+          "soc_priority": "P2",
+          "threat_level": "MEDIUM",
+          "recommended_action": "High severity threat (score 7.5/10) — limited technical indicators in source data",
+          "x_cdb_published_at": "2026-06-24T14:26:51Z"
+        }
+      },
+      "object_marking_refs": [
+        "marking-definition--f88d31f6-486f-44da-b317-01333bde0b82"
+      ],
+      "created_by_ref": "identity--61a8943b-b27b-5e19-afff-893bb2e2fa2b"
+    },
+    {
+      "type": "indicator",
+      "spec_version": "2.1",
+      "id": "indicator--c9fd4df6-0af8-41e4-b838-fd3631ba1d48",
+      "name": "Malicious Artifact: settings.js",
+      "pattern": "[file:name = 'settings.js']",
+      "pattern_type": "stix",
+      "valid_from": "2026-06-24T14:31:55Z",
+      "created": "2026-06-24T14:31:55Z",
+      "modified": "2026-06-24T14:31:55Z",
+      "indicator_types": [
+        "malicious-activity"
+      ],
+      "confidence": 59,
+      "object_marking_refs": [
+        "marking-definition--f88d31f6-486f-44da-b317-01333bde0b82"
+      ],
+      "created_by_ref": "identity--61a8943b-b27b-5e19-afff-893bb2e2fa2b"
+    },
+    {
+      "type": "relationship",
+      "spec_version": "2.1",
+      "id": "relationship--c126f8e1-02eb-4c10-a2ed-4f2f2141c761",
+      "relationship_type": "indicates",
+      "source_ref": "indicator--c9fd4df6-0af8-41e4-b838-fd3631ba1d48",
+      "target_ref": "intrusion-set--f67412f1-b615-428c-9f9d-3168744a1160",
+      "created": "2026-06-24T14:31:55Z",
+      "modified": "2026-06-24T14:31:55Z",
+      "object_marking_refs": [
+        "marking-definition--f88d31f6-486f-44da-b317-01333bde0b82"
+      ],
+      "created_by_ref": "identity--61a8943b-b27b-5e19-afff-893bb2e2fa2b"
+    },
+    {
+      "type": "attack-pattern",
+      "spec_version": "2.1",
+      "id": "attack-pattern--9f49d67b-f5b2-4101-aa65-f435c04afcae",
+      "name": "Exfiltration Over C2 Channel",
+      "created": "2026-06-24T14:31:55Z",
+      "modified": "2026-06-24T14:31:55Z",
+      "object_marking_refs": [
+        "marking-definition--f88d31f6-486f-44da-b317-01333bde0b82"
+      ],
+      "created_by_ref": "identity--61a8943b-b27b-5e19-afff-893bb2e2fa2b",
+      "external_references": [
+        {
+          "source_name": "mitre-attack",
+          "external_id": "T1041",
+          "url": "https://attack.mitre.org/techniques/T1041/"
+        }
+      ]
+    },
+    {
+      "type": "relationship",
+      "spec_version": "2.1",
+      "id": "relationship--51793d58-4af7-4b51-ae7c-507633b7a41e",
+      "relationship_type": "uses",
+      "source_ref": "intrusion-set--f67412f1-b615-428c-9f9d-3168744a1160",
+      "target_ref": "attack-pattern--9f49d67b-f5b2-4101-aa65-f435c04afcae",
+      "created": "2026-06-24T14:31:55Z",
+      "modified": "2026-06-24T14:31:55Z",
+      "object_marking_refs": [
+        "marking-definition--f88d31f6-486f-44da-b317-01333bde0b82"
+      ],
+      "created_by_ref": "identity--61a8943b-b27b-5e19-afff-893bb2e2fa2b"
+    },
+    {
+      "type": "attack-pattern",
+      "spec_version": "2.1",
+      "id": "attack-pattern--e684c8b2-f176-4f8e-8982-be311894cef8",
+      "name": "Valid Accounts",
+      "created": "2026-06-24T14:31:55Z",
+      "modified": "2026-06-24T14:31:55Z",
+      "object_marking_refs": [
+        "marking-definition--f88d31f6-486f-44da-b317-01333bde0b82"
+      ],
+      "created_by_ref": "identity--61a8943b-b27b-5e19-afff-893bb2e2fa2b",
+      "external_references": [
+        {
+          "source_name": "mitre-attack",
+          "external_id": "T1078",
+          "url": "https://attack.mitre.org/techniques/T1078/"
+        }
+      ]
+    },
+    {
+      "type": "relationship",
+      "spec_version": "2.1",
+      "id": "relationship--7d30d3ab-76db-4d6c-9d04-99ce9c9f3b4f",
+      "relationship_type": "uses",
+      "source_ref": "intrusion-set--f67412f1-b615-428c-9f9d-3168744a1160",
+      "target_ref": "attack-pattern--e684c8b2-f176-4f8e-8982-be311894cef8",
+      "created": "2026-06-24T14:31:55Z",
+      "modified": "2026-06-24T14:31:55Z",
+      "object_marking_refs": [
+        "marking-definition--f88d31f6-486f-44da-b317-01333bde0b82"
+      ],
+      "created_by_ref": "identity--61a8943b-b27b-5e19-afff-893bb2e2fa2b"
+    },
+    {
+      "type": "attack-pattern",
+      "spec_version": "2.1",
+      "id": "attack-pattern--e2e813f7-3ef4-40f6-8cff-f751db654182",
+      "name": "Exploit Public-Facing Application",
+      "created": "2026-06-24T14:31:55Z",
+      "modified": "2026-06-24T14:31:55Z",
+      "object_marking_refs": [
+        "marking-definition--f88d31f6-486f-44da-b317-01333bde0b82"
+      ],
+      "created_by_ref": "identity--61a8943b-b27b-5e19-afff-893bb2e2fa2b",
+      "external_references": [
+        {
+          "source_name": "mitre-attack",
+          "external_id": "T1190",
+          "url": "https://attack.mitre.org/techniques/T1190/"
+        }
+      ]
+    },
+    {
+      "type": "relationship",
+      "spec_version": "2.1",
+      "id": "relationship--86d5be12-074f-47a9-bc5c-d23a09c4f5f0",
+      "relationship_type": "uses",
+      "source_ref": "intrusion-set--f67412f1-b615-428c-9f9d-3168744a1160",
+      "target_ref": "attack-pattern--e2e813f7-3ef4-40f6-8cff-f751db654182",
+      "created": "2026-06-24T14:31:55Z",
+      "modified": "2026-06-24T14:31:55Z",
+      "object_marking_refs": [
+        "marking-definition--f88d31f6-486f-44da-b317-01333bde0b82"
+      ],
+      "created_by_ref": "identity--61a8943b-b27b-5e19-afff-893bb2e2fa2b"
+    },
+    {
+      "type": "attack-pattern",
+      "spec_version": "2.1",
+      "id": "attack-pattern--b12e4d77-f7d0-4d88-8401-d1580b70ad89",
+      "name": "Command and Scripting Interpreter",
+      "created": "2026-06-24T14:31:55Z",
+      "modified": "2026-06-24T14:31:55Z",
+      "object_marking_refs": [
+        "marking-definition--f88d31f6-486f-44da-b317-01333bde0b82"
+      ],
+      "created_by_ref": "identity--61a8943b-b27b-5e19-afff-893bb2e2fa2b",
+      "external_references": [
+        {
+          "source_name": "mitre-attack",
+          "external_id": "T1059",
+          "url": "https://attack.mitre.org/techniques/T1059/"
+        }
+      ]
+    },
+    {
+      "type": "relationship",
+      "spec_version": "2.1",
+      "id": "relationship--cb084739-3cfe-47db-a90f-7bd06ed406ac",
+      "relationship_type": "uses",
+      "source_ref": "intrusion-set--f67412f1-b615-428c-9f9d-3168744a1160",
+      "target_ref": "attack-pattern--b12e4d77-f7d0-4d88-8401-d1580b70ad89",
+      "created": "2026-06-24T14:31:55Z",
+      "modified": "2026-06-24T14:31:55Z",
+      "object_marking_refs": [
+        "marking-definition--f88d31f6-486f-44da-b317-01333bde0b82"
+      ],
+      "created_by_ref": "identity--61a8943b-b27b-5e19-afff-893bb2e2fa2b"
+    }
+  ]
+}
