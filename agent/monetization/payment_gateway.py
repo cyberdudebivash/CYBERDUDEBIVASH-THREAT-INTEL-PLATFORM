@@ -36,18 +36,18 @@ from typing import Dict, Optional, Tuple
 
 logger = logging.getLogger("CDB-PAYMENT-GW")
 
-# ── Stripe config ─────────────────────────────────────────────────────────────
+# ── Stripe config ───────────────────────────────────────────────────────────────────────────────
 STRIPE_SECRET_KEY     = os.environ.get("STRIPE_SECRET_KEY", "")
 STRIPE_WEBHOOK_SECRET = os.environ.get("STRIPE_WEBHOOK_SECRET", "")
 STRIPE_PRO_PRICE_ID   = os.environ.get("CDB_STRIPE_PRO_PRICE_ID", "")
 STRIPE_ENT_PRICE_ID   = os.environ.get("CDB_STRIPE_ENT_PRICE_ID", "")
 STRIPE_MSP_PRICE_ID   = os.environ.get("CDB_STRIPE_MSP_PRICE_ID", "")
 
-# ── Razorpay config ───────────────────────────────────────────────────────────
+# ── Razorpay config ─────────────────────────────────────────────────────────────────────────────
 RAZORPAY_KEY_ID     = os.environ.get("RAZORPAY_KEY_ID", "")
 RAZORPAY_KEY_SECRET = os.environ.get("RAZORPAY_KEY_SECRET", "")
 
-# ── Pricing ───────────────────────────────────────────────────────────────────
+# ── Pricing ──────────────────────────────────────────────────────────────────────────────────
 PRICES_USD = {"free": 0, "pro": 49, "enterprise": 499, "mssp": 1999}
 PRICES_INR = {"free": 0, "pro": 4099, "enterprise": 41599, "mssp": 166599}
 
@@ -80,18 +80,16 @@ def _append_event(event: Dict) -> None:
         logger.warning(f"[PAYMENT-GW] Event append failed (non-fatal): {e}")
 
 
-# ── STRIPE ─────────────────────────────────────────────────────────────────────
+# ── STRIPE ──────────────────────────────────────────────────────────────────────────────────────
 
 def create_stripe_checkout_session(
     tier: str,
     customer_email: str,
     customer_name: str = "",
-    customer_user_id: str = "",      # v134.0 — inject for tier cascade on payment
+    customer_user_id: str = "",
 ) -> Dict:
     """
     Create Stripe checkout session for subscription.
-    customer_user_id must be passed so the webhook can cascade tier to all
-    user-owned API keys without requiring a fresh JWT (resolveAuth live KV lookup).
     Returns {"url": checkout_url, "session_id": sid} or {"error": ...}
     """
     if not STRIPE_SECRET_KEY:
@@ -111,7 +109,6 @@ def create_stripe_checkout_session(
             "platform":      "CYBERDUDEBIVASH-SENTINEL-APEX",
         }
         if customer_user_id:
-            # Required for cascadeUserTierToKeys in Cloudflare Worker webhook handler
             metadata["user_id"] = customer_user_id
         session = stripe.checkout.Session.create(
             payment_method_types=["card"],
@@ -122,7 +119,7 @@ def create_stripe_checkout_session(
             success_url=SUCCESS_URL + "&session_id={CHECKOUT_SESSION_ID}",
             cancel_url=CANCEL_URL,
         )
-        logger.info(f"[PAYMENT-GW] Stripe checkout created: {tier} for {customer_email} user_id={customer_user_id or 'anonymous'}")
+        logger.info(f"[PAYMENT-GW] Stripe checkout created: {tier} for {customer_email}")
         return {"url": session.url, "session_id": session.id, "provider": "stripe"}
     except Exception as e:
         logger.warning(f"[PAYMENT-GW] Stripe checkout error: {e}")
@@ -153,7 +150,6 @@ def handle_stripe_webhook(payload: bytes, sig_header: str) -> Tuple[bool, str]:
             email   = data.get("customer_email") or data.get("customer_details", {}).get("email","")
             name    = meta.get("customer_name", email)
             sub_id  = data.get("subscription") or data.get("id","")
-            # v134.0 — extract user_id injected at checkout creation time
             user_id = meta.get("user_id", "")
             if email and tier in ("pro","enterprise","mssp"):
                 _provision_subscriber(tier=tier, name=name, email=email,
@@ -161,7 +157,6 @@ def handle_stripe_webhook(payload: bytes, sig_header: str) -> Tuple[bool, str]:
                                       user_id=user_id)
 
         elif etype == "customer.subscription.updated":
-            # Handle plan change (upgrade / downgrade) — remap price ID to tier
             sub_id   = data.get("id","")
             items    = data.get("items", {}).get("data", [])
             new_tier = None
@@ -187,7 +182,7 @@ def handle_stripe_webhook(payload: bytes, sig_header: str) -> Tuple[bool, str]:
         return False, str(e)[:200]
 
 
-# ── RAZORPAY ───────────────────────────────────────────────────────────────────
+# ── RAZORPAY ───────────────────────────────────────────────────────────────────────────────────────
 
 def create_razorpay_subscription(tier: str, customer_email: str,
                                   customer_name: str = "") -> Dict:
@@ -203,7 +198,6 @@ def create_razorpay_subscription(tier: str, customer_email: str,
     try:
         import razorpay
         client = razorpay.Client(auth=(RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET))
-        # Create a payment link (simpler than full subscription API for launch)
         link = client.payment_link.create({
             "amount":       price_inr * 100,   # paise
             "currency":     "INR",
@@ -258,37 +252,28 @@ def handle_razorpay_webhook(payload: bytes, sig_header: str) -> Tuple[bool, str]
         logger.error(f"[PAYMENT-GW] Razorpay webhook error: {e}")
         return False, str(e)[:200]
 
-# ── Provisioning helpers ──────────────────────────────────────────────────────
+# ── Provisioning helpers ──────────────────────────────────────────────────────────────────────────
 
 def _provision_subscriber(tier: str, name: str, email: str,
                            stripe_sub_id: str, provider: str,
                            user_id: str = "") -> str:
     """
-    Generate API key + update user tier record + send welcome email.
-
-    user_id — if provided, stamps the generated key with user_id so the
-    Cloudflare Worker cascadeUserTierToKeys can resolve all keys for this user
-    when the next JWT auth arrives (live KV lookup in resolveAuth).
+    Generate API key and deliver to customer via email.
+    Writes to live auth store: data/auth/api_keys.json.
     """
-    from agent.monetization.api_key_manager import generate_key, _load, _save
-    api_key = generate_key(tier=tier, name=name, email=email,
-                            stripe_sub_id=stripe_sub_id,
-                            notes=f"auto-provisioned via {provider}")
+    from api.auth import get_key_manager
+    mgr = get_key_manager()
+    raw_key, record = mgr.create_key(
+        tier=tier.upper(),
+        owner=email,
+        label=f"{name} ({provider})"
+    )
+    api_key = raw_key
 
-    # v134.0 — stamp user_id on the key record so Cloudflare cascade can resolve
-    if user_id:
-        try:
-            keys = _load()
-            if api_key in keys:
-                keys[api_key]["user_id"] = user_id
-                _save(keys)
-        except Exception as e:
-            logger.warning(f"[PAYMENT-GW] Could not stamp user_id on key: {e}")
-
-    logger.info(f"[PAYMENT-GW] Provisioned {tier} key for {email} via {provider} user_id={user_id or 'unknown'}")
+    logger.info(f"[PAYMENT-GW] Provisioned {tier} key for {email} via {provider} prefix={api_key[:20]}")
     _send_welcome_email(email=email, name=name, tier=tier, api_key=api_key)
     _append_event({"type": "key_provisioned", "tier": tier,
-                   "email": email, "provider": provider, "user_id": user_id})
+                   "email": email, "provider": provider})
     return api_key
 
 
@@ -339,11 +324,10 @@ def _send_welcome_email(email: str, name: str, tier: str, api_key: str) -> None:
             "enterprise": "500 advisories/req, 10000 req/hr",
             "mssp": "Unlimited",
         }
-        # v134.0 — Worker is the live API endpoint (Railway decommissioned)
         api_base  = "https://intel.cyberdudebivash.com"
         price_str = "$" + str(price_map.get(tier, 0)) + "/mo"
         body = (
-            "Welcome to CYBERDUDEBIVASH\u00ae Sentinel APEX \u2014 " + tier.title() + " Plan!\n\n"
+            "Welcome to CYBERDUDEBIVASH® Sentinel APEX — " + tier.title() + " Plan!\n\n"
             "Your API Key: " + api_key + "\n\n"
             "Quick Start:\n"
             "  curl -H \"X-API-Key: " + api_key + "\" \\\n"
