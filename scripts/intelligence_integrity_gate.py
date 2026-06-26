@@ -129,6 +129,24 @@ SYNTHETIC_ACTOR_RE = re.compile(
 CVE_YEAR_RE  = re.compile(r"CVE-(\d{4})-(\d{4,7})", re.IGNORECASE)
 CVE_ID_RE    = re.compile(r"CVE-\d{4}-\d{4,7}", re.IGNORECASE)
 
+# v184.0 FIX (GAP-A-KERNEL): NVD bulk-assigns sequential CVE IDs to Linux kernel maintenance
+# patches (e.g. CVE-2026-52952 through CVE-2026-53027 are 75+ real NVD kernel bugfix entries).
+# These are genuine CVEs from kernel.org/NVD — NOT synthetic. Excluding them from the sequential
+# flood counter prevents false HARD_FAIL while still catching synthetic generators whose titles
+# are not Linux kernel maintenance strings.
+LINUX_KERNEL_CVE_RE = re.compile(
+    r"in the linux kernel.*(?:resolved|vulnerability has been resolved)|"
+    r"linux kernel.*(?:fix|fixes|fixed)\s+(?:a\s+)?(?:potential\s+)?"
+    r"(?:double.free|use.after.free|null.pointer|null-pointer-deref|"
+    r"race\s+condition|memory\s+leak|buffer\s+overflow|uaf|dangling\s+pointer|"
+    r"use-after-free|double_free|null_deref|oob\s+read|out.of.bounds)|"
+    r"(?:net|drm|mm|fs|ipc|block|crypto|usb|pci|arm|x86|powerpc|s390|"
+    r"tipc|sctp|ice|nfs|ext4|btrfs|xfs|vfs|sched|cgroup|perf|kvm|nvme|"
+    r"amdgpu|i915|nouveau|vmware|virtio|bluetooth|wifi|mac80211|cfg80211):"
+    r"\s+fix\s+",
+    re.IGNORECASE,
+)
+
 
 # ── Data Loading ──────────────────────────────────────────────────────────────
 
@@ -282,7 +300,14 @@ class SyntheticCVEDetector:
         # cve_id (one per advisory) correctly detects synthetic generators that create
         # advisories with sequential primary IDs, without false-triggering on real feeds.
         primary_cves: List[Tuple[int, int]] = []
+        kernel_excluded = 0
         for item in items:
+            # v184.0 FIX: exclude Linux kernel maintenance CVEs (NVD bulk-assigns sequential IDs)
+            item_title = _title(item)
+            item_desc  = str(item.get("description", "") or "")
+            if LINUX_KERNEL_CVE_RE.search(item_title) or LINUX_KERNEL_CVE_RE.search(item_desc):
+                kernel_excluded += 1
+                continue
             for field in ("cve_id", "cve_ids", "cves", "cve"):
                 val = item.get(field)
                 if not val:
@@ -292,6 +317,11 @@ class SyntheticCVEDetector:
                 if pm:
                     primary_cves.append((int(pm.group(1)), int(pm.group(2))))
                     break  # first structured field with a valid CVE per item only
+        if kernel_excluded:
+            findings.append(
+                f"[A] INFO: {kernel_excluded} Linux kernel maintenance CVE(s) excluded from "
+                f"sequential flood check (NVD bulk-assigns sequential IDs to kernel patches — not synthetic)."
+            )
 
         # Check sequential flood (primary CVE IDs only)
         if primary_cves:

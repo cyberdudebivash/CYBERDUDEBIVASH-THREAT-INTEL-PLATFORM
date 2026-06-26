@@ -605,8 +605,43 @@ def _score_actor(text: str, item: dict, actor_id: str, actor: dict) -> tuple[int
     return min(100, score), signals
 
 
+# v184.0 FIX: Linux kernel maintenance CVEs (double-free, use-after-free, null-pointer, etc.)
+# are NVD-published bugfix patches — they have NO threat-actor attribution. Pattern-matched
+# text like "double dragon" in a subsystem name or fix description must NOT trigger APT41.
+_KERNEL_MAINTENANCE_RE = re.compile(
+    r"in the linux kernel.*(?:resolved|vulnerability has been resolved)|"
+    r"(?:net|drm|mm|fs|ipc|block|crypto|usb|pci|tipc|sctp|ice|nfs|ext4|btrfs|xfs|"
+    r"vfs|sched|cgroup|perf|kvm|nvme|amdgpu|i915|nouveau|virtio|bluetooth|"
+    r"wifi|mac80211|cfg80211|ath|iwlwifi|md|dm|locking|rcu|hrtimer|workqueue):"
+    r"\s+fix\s+",
+    re.IGNORECASE,
+)
+_KERNEL_BUGFIX_RE = re.compile(
+    r"\bfix\s+(?:a\s+)?(?:potential\s+)?(?:double.free|use.after.free|null.pointer|"
+    r"null-pointer-deref|race\s+condition|memory\s+leak|use-after-free|double_free|"
+    r"null_deref|uaf|dangling\s+pointer|oob\s+(?:read|write)|out.of.bounds)\b",
+    re.IGNORECASE,
+)
+
+
 def attribute_actor(item: dict) -> dict:
     """Run multi-signal scoring against all actors. Return best attribution."""
+    # v184.0 FIX: short-circuit kernel maintenance CVEs before scoring
+    _title_raw = str(item.get("title", "") or "")
+    _desc_raw  = str(item.get("description", "") or "")
+    if _KERNEL_MAINTENANCE_RE.search(_title_raw) or _KERNEL_MAINTENANCE_RE.search(_desc_raw):
+        category = "Linux Kernel Security Patch"
+        return {
+            "actor_id": None, "actor_display_name": category,
+            "actor_confidence": 0, "actor_country": "Unknown",
+            "actor_threat_level": "UNKNOWN", "actor_motivation": [],
+            "actor_sectors": [], "actor_ttps": [], "actor_malware": [],
+            "actor_mitre_id": None, "actor_aliases": [],
+            "attribution_method": "kernel_maintenance_exclusion",
+            "attribution_signals": ["kernel_maintenance_cve_excluded"],
+            "attribution_category": category,
+        }
+
     text = _text(item)
 
     best_id: Optional[str] = None
