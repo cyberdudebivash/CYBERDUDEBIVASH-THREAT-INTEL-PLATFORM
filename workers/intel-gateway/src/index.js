@@ -68,6 +68,7 @@
 
 // --- Constants ----------------------------------------------------------------
 import { handleP16Workflows, handleP16Assets, handleP16Health, handleP16Analytics, handleP16Automation, handleP16Observability, buildSubsystems } from './p16-handlers.js';
+import { handleP17Orchestrator, handleP17DigitalTwin, handleP17CampaignForecast, handleP17ExecutiveCenter, handleP17Policies, handleP17Playbooks, handleP17AiOps } from './p17-handlers.js';
 const PLATFORM_VERSION    = "184.0";
 const JWT_EXPIRY_SEC      = 86400;        // 24h JWT lifetime
 const BRUTE_FORCE_MAX     = 5;            // lockout after N failed auth attempts
@@ -3655,6 +3656,14 @@ async function handleRequest(request, env, ctx) {
   if (path === "/api/v1/analytics/enterprise") return await handleP16Analytics(request, env);
   if (path === "/api/v1/automation/intelligence") return await handleP16Automation(request, env);
   if (path === "/api/v1/observability/metrics") return await handleP16Observability(request, env);
+  // --- P17: Enterprise Cyber Defense OS (additive, v17.0) -------------------
+  if (path === "/api/platform/orchestrator/state")    return await handleP17Orchestrator(request, env);
+  if (path === "/api/v1/digital-twin/state")          return await handleP17DigitalTwin(request, env);
+  if (path === "/api/v1/campaigns/forecast")          return await handleP17CampaignForecast(request, env);
+  if (path === "/api/v1/executive/command-center")    return await handleP17ExecutiveCenter(request, env);
+  if (path.startsWith("/api/v1/policies"))            return await handleP17Policies(request, env);
+  if (path.startsWith("/api/v1/playbooks"))           return await handleP17Playbooks(request, env);
+  if (path === "/api/v1/ai-ops/analytics")            return await handleP17AiOps(request, env);
 
   // --- 404 --------------------------------------------------------------------
   return jsonResp({
@@ -3690,6 +3699,15 @@ async function handleRequest(request, env, ctx) {
       "/api/v1/analytics/enterprise",
       "/api/v1/automation/intelligence",
       "/api/v1/observability/metrics",
+      "/api/platform/orchestrator/state",
+      "/api/v1/digital-twin/state",
+      "/api/v1/campaigns/forecast",
+      "/api/v1/executive/command-center",
+      "/api/v1/policies/state",
+      "POST /api/v1/policies/simulate",
+      "/api/v1/playbooks/catalog",
+      "POST /api/v1/playbooks/execute",
+      "/api/v1/ai-ops/analytics",
     ],
   }, 404);
 }
