@@ -1,5 +1,5 @@
 /**
- * CYBERDUDEBIVASH® SENTINEL APEX — P16 Extended Enterprise Handlers
+ * CYBERDUDEBIVASH(R) SENTINEL APEX -- P16 Extended Enterprise Handlers
  * workers/intel-gateway/src/p16-handlers.js
  *
  * P16.2  Cross-Platform Workflow Engine status
@@ -9,12 +9,12 @@
  * P16.7  Automation Intelligence
  * P16.8  Operational Observability
  *
- * All handlers are ADDITIVE — zero duplication of existing engine logic.
+ * All handlers are ADDITIVE -- zero duplication of existing engine logic.
  * Data is derived from KV/D1 already bound to the intel-gateway worker.
  */
 
 // ---------------------------------------------------------------------------
-// Shared helpers (mirror subset from index.js — no re-import needed)
+// Shared helpers (mirror subset from index.js -- no re-import needed)
 // ---------------------------------------------------------------------------
 const _now = () => new Date().toISOString();
 
@@ -36,7 +36,7 @@ const _kv = async (kv, key, fallback = null) => {
 };
 
 // ---------------------------------------------------------------------------
-// P16.2 — Cross-Platform Workflow Engine Status
+// P16.2 -- Cross-Platform Workflow Engine Status
 // GET /api/v1/workflows/status
 // Reuses P7 automation data stored in ANALYTICS_KV
 // ---------------------------------------------------------------------------
@@ -79,9 +79,9 @@ export async function handleP16Workflows(request, env) {
 }
 
 // ---------------------------------------------------------------------------
-// P16.3 — Unified Asset Intelligence
+// P16.3 -- Unified Asset Intelligence
 // GET /api/v1/assets/intelligence
-// Correlates Assets × Threats × CVEs × Campaigns from existing KV cache
+// Correlates Assets x Threats x CVEs x Campaigns from existing KV cache
 // ---------------------------------------------------------------------------
 export async function handleP16Assets(request, env) {
   const kv = env.ANALYTICS_KV || env.SECURITY_HUB_KV;
@@ -125,7 +125,7 @@ export async function handleP16Assets(request, env) {
 }
 
 // ---------------------------------------------------------------------------
-// P16.4 — Enterprise Health Engine
+// P16.4 -- Enterprise Health Engine
 // GET /api/v1/health/enterprise
 // Aggregates platform + business + customer + security + operational health
 // ---------------------------------------------------------------------------
@@ -171,7 +171,7 @@ export async function handleP16Health(request, env) {
 }
 
 // ---------------------------------------------------------------------------
-// P16.6 — Enterprise Analytics
+// P16.6 -- Enterprise Analytics
 // GET /api/v1/analytics/enterprise
 // Cross-platform KPIs + trend analysis (reuses existing reporting engine data)
 // ---------------------------------------------------------------------------
@@ -225,7 +225,7 @@ export async function handleP16Analytics(request, env) {
 }
 
 // ---------------------------------------------------------------------------
-// P16.7 — Automation Intelligence
+// P16.7 -- Automation Intelligence
 // GET /api/v1/automation/intelligence
 // Reuses P7 automation platform metrics
 // ---------------------------------------------------------------------------
@@ -260,7 +260,7 @@ export async function handleP16Automation(request, env) {
       optimization_suggestions: [
         bottlenecks.length > 0
           ? "Increase worker concurrency to reduce queue depth"
-          : "No optimizations required — system operating efficiently",
+          : "No optimizations required -- system operating efficiently",
       ],
       failure_prediction: failureCount > 8 ? "elevated_risk" : "normal",
     },
@@ -269,7 +269,7 @@ export async function handleP16Automation(request, env) {
 }
 
 // ---------------------------------------------------------------------------
-// P16.8 — Operational Observability
+// P16.8 -- Operational Observability
 // GET /api/v1/observability/metrics
 // Measures latencies, cache hit ratio, worker health, D1/KV performance
 // ---------------------------------------------------------------------------
@@ -324,7 +324,7 @@ export async function handleP16Observability(request, env) {
 }
 
 // ---------------------------------------------------------------------------
-// buildSubsystems — wires control-plane sections that were previously notWired
+// buildSubsystems -- wires control-plane sections that were previously notWired
 // Called from handleControlPlaneState in index.js (P16.1 enrichment)
 // ---------------------------------------------------------------------------
 export function buildSubsystems(env, threats) {
