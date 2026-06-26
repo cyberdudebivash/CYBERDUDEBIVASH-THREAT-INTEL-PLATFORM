@@ -819,6 +819,85 @@ function computeThreatLevel(stats) {
   return { level: parseFloat(level), label, generated_at: now() };
 }
 
+// =============================================================================
+// P16.1: UNIFIED ENTERPRISE CONTROL PLANE
+// Additive, read-only aggregator. Reuses existing helpers; never fabricates
+// data for capabilities that are not yet wired to a live HTTP endpoint.
+// =============================================================================
+async function handleControlPlaneState(request, env, ctx) {
+  const notWired = (reason) => ({ available: false, reason });
+
+  // --- threats: reuse existing aggregator helpers (no reimplementation) ------
+  let threats;
+  try {
+    const feedData = await loadFeedItems(env);
+    const items     = feedData.items || [];
+    const stats     = computeStats(items);
+    const threat     = computeThreatLevel(stats);
+    const defcon     = computeDefcon(stats);
+    threats = {
+      available: true,
+      stats,
+      global_threat_level: threat.level,
+      global_threat_label: threat.label,
+      defcon: defcon.level,
+      defcon_label: defcon.label,
+      defcon_status: defcon.status,
+    };
+  } catch (err) {
+    threats = notWired(`threats aggregation failed: ${err && err.message ? err.message : "unknown error"}`);
+  }
+
+  // --- operations: cross-fetch intel-retention-engine's bound route ----------
+  let operations;
+  try {
+    const controller = new AbortController();
+    const timeoutId  = setTimeout(() => controller.abort(), 4000);
+    const resp = await fetch("https://intel.cyberdudebivash.com/api/v2/repository/stats", {
+      signal: controller.signal,
+    });
+    clearTimeout(timeoutId);
+    if (resp && resp.ok) {
+      const data = await resp.json();
+      operations = { available: true, source: "intel-retention-engine", data };
+    } else {
+      operations = notWired(`intel-retention-engine returned HTTP ${resp ? resp.status : "unknown"}`);
+    }
+  } catch (err) {
+    operations = notWired(`intel-retention-engine cross-fetch failed: ${err && err.message ? err.message : "unknown error"}`);
+  }
+
+  // --- commercial: sentinel-revenue-engine has no public route binding -------
+  const commercial = notWired(
+    "sentinel-revenue-engine has no public route binding; commercial data lives in its D1 CRM_DB and is not externally fetchable from this Worker"
+  );
+
+  // --- honest gap report for capabilities not yet wired to a live endpoint ---
+  const soc            = notWired("not yet wired to a live HTTP endpoint");
+  const automation     = notWired("not yet wired to a live HTTP endpoint");
+  const mssp           = notWired("not yet wired to a live HTTP endpoint");
+  const security_fabric= notWired("not yet wired to a live HTTP endpoint");
+  const customer       = notWired("not yet wired to a live HTTP endpoint");
+
+  return jsonResp({
+    generated_at: now(),
+    version: PLATFORM_VERSION,
+    platform: {
+      name: "CYBERDUDEBIVASH SENTINEL APEX",
+      component: "intel-gateway",
+      control_plane_version: "16.1",
+    },
+    threats,
+    operations,
+    commercial,
+    soc,
+    automation,
+    mssp,
+    security_fabric,
+    customer,
+  }, 200, { "Cache-Control": "no-store" });
+}
+
 function computeKillChain(items) {
   const phases = { recon: 0, weaponize: 0, deliver: 0, exploit: 0, install: 0, c2: 0, action: 0 };
   const phaseMap = {
@@ -3565,6 +3644,11 @@ async function handleRequest(request, env, ctx) {
     return await handleCopilot(request, env, auth, method, path);
   }
 
+  // --- P16.1: Unified Enterprise Control Plane -------------------------------
+  if (path === "/api/v1/control-plane/state" || path === "/api/v1/control-plane/state/") {
+    return await handleControlPlaneState(request, env, ctx);
+  }
+
   // --- 404 --------------------------------------------------------------------
   return jsonResp({
     error: "Not found", path,
@@ -3592,6 +3676,7 @@ async function handleRequest(request, env, ctx) {
       "POST /api/v1/nlq/query (PRO+)", "GET /api/v1/nlq/examples",
       "GET|POST /api/v1/incidents/ (PRO+)", "GET|PUT|DELETE /api/v1/incidents/{id}",
       "POST /api/v1/copilot/query (PRO+)", "GET /api/v1/copilot/modes", "GET /api/v1/copilot/health",
+      "/api/v1/control-plane/state",
     ],
   }, 404);
 }
