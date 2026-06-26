@@ -70,6 +70,9 @@
 import { handleP16Workflows, handleP16Assets, handleP16Health, handleP16Analytics, handleP16Automation, handleP16Observability, buildSubsystems } from './p16-handlers.js';
 import { handleP17Orchestrator, handleP17DigitalTwin, handleP17CampaignForecast, handleP17ExecutiveCenter, handleP17Policies, handleP17Playbooks, handleP17AiOps } from './p17-handlers.js';
 import { handleP18Correlation, handleP18TrustIndicators, handleP18Validate, handleP18QualityScore, handleP18IOCEnriched, handleP18ConfidenceMethod, buildTrustIndicatorBlock } from './p18-handlers.js';
+import { buildSOCBlock, buildIOCDetailBlock, buildDetectionBlock, buildMitreTechBlock, buildExecutiveBlock, buildAnalystBlock, handleP19Certify, handleP19Scorecard, normalizeTierForEE } from './p19-handlers.js';
+import { routeEnterpriseEndpoint } from './enterprise-endpoints.js';
+import { handleSearch, handleActors, handleCVEs, handleMISPExport as handleMISPExportExt, handleCSVExport, handleCorrelate, handlePredict, handleCampaigns, handleAnomalies, handleIntelGraph, handleIntelRelations } from './api-extensions.js';
 const PLATFORM_VERSION    = "184.0";
 const JWT_EXPIRY_SEC      = 86400;        // 24h JWT lifetime
 const BRUTE_FORCE_MAX     = 5;            // lockout after N failed auth attempts
@@ -692,6 +695,9 @@ a:hover{text-decoration:underline}
     </div>
   </div>` : ""}
 
+  <!-- P19: MITRE Technique Detail Block -->
+  ${buildMitreTechBlock(item)}
+
   <!-- S6: Threat Actor Attribution -->
   <div class="sec">
     <div class="sec-title">0${kev?"6":"5"} * Threat Actor Attribution</div>
@@ -725,6 +731,9 @@ a:hover{text-decoration:underline}
     </div>
   </div>` : ""}
 
+  <!-- P19: IOC Detail Block -->
+  ${buildIOCDetailBlock(item)}
+
   <!-- S8: Recommended Actions & Remediation -->
   <div class="sec" style="border-color:rgba(0,212,170,.15);">
     <div class="sec-title">0${kev?"8":"7"} * Recommended Actions &amp; Remediation</div>
@@ -734,6 +743,15 @@ a:hover{text-decoration:underline}
       <div class="rem-text" style="color:${s.c==="#64748b"?"#64748b":"#d1d9e6"};">${s.text}</div>
     </div>`).join("")}
   </div>
+
+  <!-- P19: SOC Triage Block -->
+  ${buildSOCBlock(item)}
+
+  <!-- P19: Detection Engineering Block -->
+  ${buildDetectionBlock(item)}
+
+  <!-- P19: Executive Impact Block -->
+  ${buildExecutiveBlock(item)}
 
   <!-- S9: Intelligence Metadata -->
   <div class="sec">
@@ -775,6 +793,8 @@ a:hover{text-decoration:underline}
     This report contains threat intelligence produced by SENTINEL APEX automated analysis pipelines. Handle in accordance with ${tlp} classification guidelines.
   </div>
 </div>
+
+${buildAnalystBlock(item)}
 
 ${buildTrustIndicatorBlock(item)}
 </body>
@@ -3674,6 +3694,38 @@ async function handleRequest(request, env, ctx) {
   if (path === "/api/v1/reports/quality")             return await handleP18QualityScore(request, env);
   if (path === "/api/v1/ioc/enriched")                return await handleP18IOCEnriched(request, env);
   if (path === "/api/v1/confidence/methodology")      return await handleP18ConfidenceMethod(request, env);
+  // --- P19: Enterprise Report Excellence + Dead-code Activation (additive, v19.0) -----------
+  if (path === "/api/v1/reports/certify")           return await handleP19Certify(request, env);
+  if (path === "/api/v1/reports/scorecard")         return await handleP19Scorecard(request, env);
+
+  // --- api-extensions.js routes (previously unreachable — now wired, auth already resolved above) ---
+  if (path === "/api/search")                       return await handleSearch(request, env, auth, crypto.randomUUID());
+  if (path === "/api/actors")                       return await handleActors(request, env, auth, crypto.randomUUID());
+  if (path === "/api/cves")                         return await handleCVEs(request, env, auth, crypto.randomUUID());
+  if (path === "/api/export/misp")                  return await handleMISPExportExt(request, env, auth, crypto.randomUUID());
+  if (path === "/api/export/csv")                   return await handleCSVExport(request, env, auth, crypto.randomUUID());
+  if (path === "/api/intel/correlate")              return await handleCorrelate(request, env, auth, crypto.randomUUID());
+  if (path === "/api/v1/predict")                   return await handlePredict(request, env, auth, crypto.randomUUID());
+  if (path === "/api/v1/campaigns/intel")           return await handleCampaigns(request, env, auth, crypto.randomUUID());
+  if (path === "/api/v1/anomalies")                 return await handleAnomalies(request, env, auth, crypto.randomUUID());
+  if (path === "/api/v1/intel/graph")               return await handleIntelGraph(request, env, auth, crypto.randomUUID());
+  if (path === "/api/v1/intel/relations")           return await handleIntelRelations(request, env, auth, crypto.randomUUID());
+
+  // --- enterprise-endpoints.js routes (previously unreachable — now wired via routeEnterpriseEndpoint) ---
+  if (path.startsWith("/api/taxii") || path.startsWith("/api/misp/export") ||
+      path.startsWith("/api/sigma") || path.startsWith("/api/yara") ||
+      path.startsWith("/api/scoring") || path.startsWith("/api/siem") ||
+      path === "/api/stream" || path.startsWith("/api/mssp")) {
+    const eeTier = normalizeTierForEE(auth.tier);
+    let eeItems = [];
+    try {
+      if (env?.INTEL_R2) {
+        const obj = await env.INTEL_R2.get("feeds/feed.json");
+        if (obj) { const raw = await obj.json(); eeItems = Array.isArray(raw) ? raw : (raw?.items || []); }
+      }
+    } catch (_) {}
+    return await routeEnterpriseEndpoint(path, request, env, ctx, eeTier, eeItems, crypto.randomUUID());
+  }
 
   // --- 404 --------------------------------------------------------------------
   return jsonResp({
@@ -3724,6 +3776,32 @@ async function handleRequest(request, env, ctx) {
       "/api/v1/reports/quality",
       "/api/v1/ioc/enriched",
       "/api/v1/confidence/methodology",
+      "/api/v1/reports/certify",
+      "/api/v1/reports/scorecard",
+      "/api/search",
+      "/api/actors",
+      "/api/cves",
+      "/api/export/misp",
+      "/api/export/csv",
+      "/api/intel/correlate",
+      "/api/v1/predict",
+      "/api/v1/campaigns/intel",
+      "/api/v1/anomalies",
+      "/api/v1/intel/graph",
+      "/api/v1/intel/relations",
+      "/api/taxii/",
+      "/api/misp/export",
+      "/api/sigma/bulk",
+      "/api/yara/bulk",
+      "/api/scoring/feed",
+      "/api/scoring/kev",
+      "/api/scoring/ransomware",
+      "/api/scoring/velocity",
+      "/api/siem/splunk",
+      "/api/siem/sentinel",
+      "/api/siem/qradar",
+      "/api/stream",
+      "/api/mssp/feed",
     ],
   }, 404);
 }
