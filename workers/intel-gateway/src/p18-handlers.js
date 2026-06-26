@@ -1,5 +1,5 @@
 /**
- * P18.0 — THREAT INTELLIGENCE QUALITY & TRUST INITIATIVE
+ * P18.0  -  THREAT INTELLIGENCE QUALITY & TRUST INITIATIVE
  *
  * Additive module. Zero new KV namespaces, zero D1 changes, zero schema replacement.
  * Reads from existing INTEL_R2, ANALYTICS_KV, SECURITY_HUB_KV bindings only.
@@ -11,13 +11,13 @@
  *   handleP18QualityScore       GET  /api/v1/reports/quality
  *   handleP18IOCEnriched        GET  /api/v1/ioc/enriched
  *   handleP18ConfidenceMethod   GET  /api/v1/confidence/methodology
- *   buildTrustIndicatorBlock    Helper — injected into generateIntelReport HTML
+ *   buildTrustIndicatorBlock    Helper  -  injected into generateIntelReport HTML
  */
 
 "use strict";
 
 // ---------------------------------------------------------------------------
-// Shared helpers (local — not re-imported from index.js)
+// Shared helpers (local  -  not re-imported from index.js)
 // ---------------------------------------------------------------------------
 
 const _now  = () => new Date().toISOString();
@@ -65,13 +65,13 @@ async function _loadFeed(env) {
 }
 
 // ---------------------------------------------------------------------------
-// P18.1 — Evidence Attribution Framework
+// P18.1  -  Evidence Attribution Framework
 // ---------------------------------------------------------------------------
 
 /**
  * Build an evidence attribution block for a single feed item.
  * Every factual field is traced to its origin in the item record.
- * Nothing is fabricated — fields absent from the item are flagged as unavailable.
+ * Nothing is fabricated  -  fields absent from the item are flagged as unavailable.
  */
 export function buildEvidenceAttribution(item) {
   const now = _now();
@@ -89,11 +89,11 @@ export function buildEvidenceAttribution(item) {
 
   // Source reliability: government > vendor > OSINT > unknown
   const sourceReliability =
-    sourceCategory.startsWith("Government") ? "A — Reliable (Government-grade source)" :
-    sourceCategory.startsWith("Vendor") ? "B — Usually Reliable (Vendor advisory)" :
-    sourceCategory.startsWith("Open Source") ? "C — Fairly Reliable (Open source, cross-checked)" :
-    sourceCategory.startsWith("API Ingest") ? "D — Unknown (Customer-submitted, unverified)" :
-    "E — Unreliable (Source unknown)";
+    sourceCategory.startsWith("Government") ? "A  -  Reliable (Government-grade source)" :
+    sourceCategory.startsWith("Vendor") ? "B  -  Usually Reliable (Vendor advisory)" :
+    sourceCategory.startsWith("Open Source") ? "C  -  Fairly Reliable (Open source, cross-checked)" :
+    sourceCategory.startsWith("API Ingest") ? "D  -  Unknown (Customer-submitted, unverified)" :
+    "E  -  Unreliable (Source unknown)";
 
   // Data freshness in hours
   const publishedAt = item.published_at || item.published || item.timestamp || "";
@@ -110,7 +110,7 @@ export function buildEvidenceAttribution(item) {
     ageHours < 720 ? "Stale (< 30d)" :
     "Outdated (> 30d)";
 
-  // Evidence count — number of verifiable data points in the item
+  // Evidence count  -  number of verifiable data points in the item
   let evidenceCount = 0;
   if (item.title)        evidenceCount++;
   if (item.description || item.apex?.ai_summary) evidenceCount++;
@@ -123,7 +123,7 @@ export function buildEvidenceAttribution(item) {
   if (item.source_url)   evidenceCount++;
   if (item.actor_tag && item.actor_tag !== "UNC-CDB-99" && item.actor_tag !== "UNC-UNKNOWN") evidenceCount++;
 
-  // Cross-source validation — number of distinct sources that mention same CVEs
+  // Cross-source validation  -  number of distinct sources that mention same CVEs
   const cveArr = [...new Set((item.cve || item.cve_ids || []).filter(Boolean))];
 
   return {
@@ -150,18 +150,18 @@ export function buildEvidenceAttribution(item) {
       item.epss_score ? `EPSS score ${item.epss_score}% assigned by FIRST.org model` : null,
       cveArr.length > 0 ? `CVE references: ${cveArr.join(", ")} (traceable to NVD)` : null,
     ].filter(Boolean),
-    analyst_review_status: "Automated — Pending Human Review",
+    analyst_review_status: "Automated  -  Pending Human Review",
     limitations: [
-      evidenceCount < 4 ? "Limited evidence — fewer than 4 verifiable data points" : null,
+      evidenceCount < 4 ? "Limited evidence  -  fewer than 4 verifiable data points" : null,
       !item.source_url ? "No primary source URL available for independent verification" : null,
-      ageHours !== null && ageHours > 720 ? "Data is older than 30 days — verify current status" : null,
+      ageHours !== null && ageHours > 720 ? "Data is older than 30 days  -  verify current status" : null,
       !item.actor_tag || item.actor_tag === "UNC-CDB-99" ? "Threat actor attribution unresolved" : null,
     ].filter(Boolean),
   };
 }
 
 // ---------------------------------------------------------------------------
-// P18.5 — Transparent Confidence Engine
+// P18.5  -  Transparent Confidence Engine
 // ---------------------------------------------------------------------------
 
 /**
@@ -171,14 +171,14 @@ export function buildEvidenceAttribution(item) {
 export function computeTransparentConfidence(item) {
   const factors = {};
 
-  // Factor 1: Source quality (0–20 pts)
+  // Factor 1: Source quality (0-20 pts)
   const src = String(item.source || item.feed_source || "");
   factors.source_quality =
     src.includes("nvd") || src.includes("nist") || src.includes("cisa") ? 20 :
     src.includes("vendor") || src.includes("microsoft") || src.includes("cisco") ? 17 :
     src.includes("github") ? 14 : src ? 10 : 5;
 
-  // Factor 2: Evidence count (0–20 pts)
+  // Factor 2: Evidence count (0-20 pts)
   let evidenceCount = 0;
   if (item.title) evidenceCount++;
   if (item.description || item.apex?.ai_summary) evidenceCount++;
@@ -192,14 +192,14 @@ export function computeTransparentConfidence(item) {
   if (item.actor_tag && item.actor_tag !== "UNC-CDB-99") evidenceCount++;
   factors.evidence_count = Math.min(evidenceCount * 2, 20);
 
-  // Factor 3: Cross-validation / KEV confirmation (0–20 pts)
+  // Factor 3: Cross-validation / KEV confirmation (0-20 pts)
   factors.cross_validation =
     item.kev_present ? 20 :
     item.epss_score > 50 ? 15 :
     item.epss_score > 10 ? 10 :
     item.epss_score > 0  ? 7 : 3;
 
-  // Factor 4: Data freshness (0–15 pts)
+  // Factor 4: Data freshness (0-15 pts)
   const publishedAt = item.published_at || item.published || item.timestamp || "";
   const ageHours = publishedAt ? Math.round((Date.now() - new Date(publishedAt).getTime()) / 3_600_000) : null;
   factors.data_freshness =
@@ -209,17 +209,17 @@ export function computeTransparentConfidence(item) {
     ageHours < 168 ? 9  :
     ageHours < 720 ? 5  : 2;
 
-  // Factor 5: Consistency — CVSS vs risk score agreement (0–10 pts)
+  // Factor 5: Consistency  -  CVSS vs risk score agreement (0-10 pts)
   const cvss = parseFloat(item.cvss_score || item.cvss || 0);
   const risk  = parseFloat(item.risk_score || 0);
   const delta = Math.abs(cvss - risk);
   factors.consistency = delta < 1 ? 10 : delta < 2 ? 7 : delta < 3 ? 4 : 2;
 
-  // Factor 6: IOC quality (0–10 pts)
+  // Factor 6: IOC quality (0-10 pts)
   const iocCount = (item.iocs || []).length || item.ioc_count || 0;
   factors.ioc_quality = iocCount >= 10 ? 10 : iocCount >= 5 ? 8 : iocCount >= 1 ? 5 : 0;
 
-  // Factor 7: MITRE mapping completeness (0–5 pts)
+  // Factor 7: MITRE mapping completeness (0-5 pts)
   const ttpCount = (item.ttps || item.mitre_tactics || item.ttp_names || []).length;
   factors.mitre_completeness = ttpCount >= 5 ? 5 : ttpCount >= 3 ? 4 : ttpCount >= 1 ? 2 : 0;
 
@@ -243,13 +243,13 @@ export function computeTransparentConfidence(item) {
       ioc_quality:          { score: factors.ioc_quality,         max: 10, description: "Presence and quantity of actionable indicators" },
       mitre_completeness:   { score: factors.mitre_completeness,  max:  5, description: "MITRE ATT&CK technique coverage" },
     },
-    methodology: "SENTINEL APEX Transparent Confidence Model v1.0 — Scores derived from verifiable data points only. No synthetic inflation applied.",
+    methodology: "SENTINEL APEX Transparent Confidence Model v1.0  -  Scores derived from verifiable data points only. No synthetic inflation applied.",
     computed_at: _now(),
   };
 }
 
 // ---------------------------------------------------------------------------
-// P18.3 — IOC Intelligence Enrichment
+// P18.3  -  IOC Intelligence Enrichment
 // ---------------------------------------------------------------------------
 
 function enrichIOC(ioc, item) {
@@ -311,7 +311,7 @@ function _buildDetectionSuggestions(type, val) {
     suggestions.push(`Proxy/Gateway: block URL ${val}`);
     suggestions.push("SIEM: alert on HTTP request matching this URL");
   } else if (type.startsWith("file:hashes")) {
-    suggestions.push(`EDR: add hash to blocklist — ${val}`);
+    suggestions.push(`EDR: add hash to blocklist  -  ${val}`);
     suggestions.push("AV: create file hash-based detection rule");
     suggestions.push("Threat Hunt: search endpoint telemetry for this hash");
   } else if (type === "email-addr") {
@@ -323,7 +323,7 @@ function _buildDetectionSuggestions(type, val) {
 }
 
 // ---------------------------------------------------------------------------
-// P18.6 — Report Quality Validator
+// P18.6  -  Report Quality Validator
 // ---------------------------------------------------------------------------
 
 export function validateReportQuality(item, evidenceBlock, confidenceBlock) {
@@ -338,7 +338,7 @@ export function validateReportQuality(item, evidenceBlock, confidenceBlock) {
   checks.push({ rule: "has_timestamp",       pass: !!(item.published_at || item.published || item.timestamp), weight: 5, label: "Publication timestamp is present" });
   checks.push({ rule: "has_mitre",           pass: (item.ttps || item.mitre_tactics || []).length > 0, weight: 8,  label: "At least one MITRE ATT&CK technique mapped" });
   checks.push({ rule: "has_cve_or_ioc",      pass: (item.cve || item.cve_ids || []).length > 0 || (item.iocs || []).length > 0, weight: 8, label: "CVE reference or IOC present" });
-  checks.push({ rule: "confidence_adequate", pass: (confidenceBlock?.confidence_score || 0) >= 30,     weight: 7,  label: "Confidence score meets minimum threshold (≥30)" });
+  checks.push({ rule: "confidence_adequate", pass: (confidenceBlock?.confidence_score || 0) >= 30,     weight: 7,  label: "Confidence score meets minimum threshold (?30)" });
   checks.push({ rule: "data_fresh",          pass: (evidenceBlock?.age_hours ?? 999) < 720,             weight: 6,  label: "Intelligence is less than 30 days old" });
   checks.push({ rule: "evidence_min",        pass: (evidenceBlock?.evidence_count || 0) >= 3,           weight: 8,  label: "Minimum 3 verifiable evidence points" });
   checks.push({ rule: "no_fake_actor",       pass: !item.actor_tag || item.actor_tag !== "UNC-CDB-99", weight: 5,  label: "Actor tag is not a placeholder" });
@@ -371,7 +371,7 @@ export function validateReportQuality(item, evidenceBlock, confidenceBlock) {
 }
 
 // ---------------------------------------------------------------------------
-// P18.9 — Quality Score Breakdown
+// P18.9  -  Quality Score Breakdown
 // ---------------------------------------------------------------------------
 
 function computeQualityScore(item) {
@@ -468,7 +468,7 @@ function _mitreScore(item) {
 }
 
 // ---------------------------------------------------------------------------
-// P18.2 — Multi-Source Correlation Engine
+// P18.2  -  Multi-Source Correlation Engine
 // ---------------------------------------------------------------------------
 
 export async function handleP18Correlation(request, env) {
@@ -505,7 +505,7 @@ export async function handleP18Correlation(request, env) {
       const avgRisk      = riskScores.length ? (riskScores.reduce((s, v) => s + v, 0) / riskScores.length).toFixed(2) : null;
       const kevConfirmed = refs.some(r => r.kev);
 
-      // Detect conflicts — different sources report different severities
+      // Detect conflicts  -  different sources report different severities
       const uniqueSev = [...new Set(severities.filter(Boolean))];
       const hasConflict = uniqueSev.length > 1;
 
@@ -551,7 +551,7 @@ export async function handleP18Correlation(request, env) {
 }
 
 // ---------------------------------------------------------------------------
-// P18.3 — IOC Enriched Endpoint
+// P18.3  -  IOC Enriched Endpoint
 // ---------------------------------------------------------------------------
 
 export async function handleP18IOCEnriched(request, env) {
@@ -595,7 +595,7 @@ export async function handleP18IOCEnriched(request, env) {
 }
 
 // ---------------------------------------------------------------------------
-// P18.4 — Enterprise Threat Report Endpoint
+// P18.4  -  Enterprise Threat Report Endpoint
 // ---------------------------------------------------------------------------
 
 export async function handleP18TrustIndicators(request, env) {
@@ -632,7 +632,7 @@ export async function handleP18TrustIndicators(request, env) {
       scope:               "feed_aggregate",
       generated_at:        _now(),
       trust_indicators: {
-        verification_status:  "Automated Pipeline — Human Review Recommended for Critical Advisories",
+        verification_status:  "Automated Pipeline  -  Human Review Recommended for Critical Advisories",
         evidence_coverage:    `${Math.round((withSource / totalItems) * 100)}% of advisories have primary source URL`,
         collection_freshness: latestAgeH !== null ? `Latest data: ${latestAgeH}h ago` : "Unknown",
         confidence:           `${avgConf}/100 average confidence (transparent methodology)`,
@@ -683,7 +683,7 @@ export async function handleP18TrustIndicators(request, env) {
 }
 
 // ---------------------------------------------------------------------------
-// P18.6 — Report Quality Validator Endpoint
+// P18.6  -  Report Quality Validator Endpoint
 // ---------------------------------------------------------------------------
 
 export async function handleP18Validate(request, env) {
@@ -710,7 +710,7 @@ export async function handleP18Validate(request, env) {
   }
 
   if (!item) {
-    // Validate all items — return aggregate
+    // Validate all items  -  return aggregate
     if (items.length === 0) {
       return _jsonResp({ status: "no_data", message: "No feed data available" }, 503);
     }
@@ -766,7 +766,7 @@ export async function handleP18Validate(request, env) {
 }
 
 // ---------------------------------------------------------------------------
-// P18.9 — Quality Score Endpoint
+// P18.9  -  Quality Score Endpoint
 // ---------------------------------------------------------------------------
 
 export async function handleP18QualityScore(request, env) {
@@ -823,7 +823,7 @@ export async function handleP18QualityScore(request, env) {
 }
 
 // ---------------------------------------------------------------------------
-// P18.5 — Confidence Methodology Endpoint
+// P18.5  -  Confidence Methodology Endpoint
 // ---------------------------------------------------------------------------
 
 export async function handleP18ConfidenceMethod(request, env) {
@@ -845,10 +845,10 @@ export async function handleP18ConfidenceMethod(request, env) {
         { id: "mitre_completeness", max:  5, description: "Number of MITRE ATT&CK techniques mapped to the advisory", scoring: ">=5=5, >=3=4, >=1=2, 0=0" },
       ],
       thresholds: {
-        high:      "80–100 — Strong multi-source evidence, fresh data, KEV or EPSS confirmed",
-        moderate:  "60–79  — Adequate evidence, minor gaps in enrichment or freshness",
-        low:       "40–59  — Limited evidence, single source, aging data",
-        very_low:  "0–39   — Insufficient evidence for operational use without additional verification",
+        high:      "80-100  -  Strong multi-source evidence, fresh data, KEV or EPSS confirmed",
+        moderate:  "60-79   -  Adequate evidence, minor gaps in enrichment or freshness",
+        low:       "40-59   -  Limited evidence, single source, aging data",
+        very_low:  "0-39    -  Insufficient evidence for operational use without additional verification",
       },
       enterprise_ready_threshold: 75,
       publishable_threshold:      50,
@@ -860,7 +860,7 @@ export async function handleP18ConfidenceMethod(request, env) {
 }
 
 // ---------------------------------------------------------------------------
-// P18.8 — Trust Indicator HTML Block (injected into generateIntelReport)
+// P18.8  -  Trust Indicator HTML Block (injected into generateIntelReport)
 // ---------------------------------------------------------------------------
 
 /**
@@ -878,8 +878,8 @@ export function buildTrustIndicatorBlock(item) {
     validation.status === "PUBLISHABLE"       ? "#d97706" : "#dc2626";
 
   const statusIcon =
-    validation.status === "ENTERPRISE_READY" ? "✓" :
-    validation.status === "PUBLISHABLE"       ? "~" : "✕";
+    validation.status === "ENTERPRISE_READY" ? "[OK]" :
+    validation.status === "PUBLISHABLE"       ? "~" : "[FAIL]";
 
   const confColor =
     confidence.confidence_level === "HIGH"     ? "#00d4aa" :
@@ -910,7 +910,7 @@ export function buildTrustIndicatorBlock(item) {
   ).join("");
 
   return `
-<!-- P18.0 TRUST INDICATORS BLOCK — Evidence Attribution & Confidence Transparency -->
+<!-- P18.0 TRUST INDICATORS BLOCK  -  Evidence Attribution & Confidence Transparency -->
 <div class="wrap" style="padding-top:0;">
 
   <!-- Trust Status Banner -->
@@ -982,7 +982,7 @@ export function buildTrustIndicatorBlock(item) {
 
   <!-- Confidence Methodology -->
   <div class="sec">
-    <div class="sec-title">CONFIDENCE METHODOLOGY — TRANSPARENT SCORING</div>
+    <div class="sec-title">CONFIDENCE METHODOLOGY  -  TRANSPARENT SCORING</div>
     <p style="font-size:12px;color:#4b5563;margin-bottom:14px;">${String(confidence.methodology).replace(/&/g,"&amp;")}</p>
     <table style="width:100%;border-collapse:collapse;font-size:12px;">
       <thead><tr style="border-bottom:1px solid rgba(255,255,255,.07);">
