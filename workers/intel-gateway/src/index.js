@@ -69,6 +69,7 @@
 // --- Constants ----------------------------------------------------------------
 import { handleP16Workflows, handleP16Assets, handleP16Health, handleP16Analytics, handleP16Automation, handleP16Observability, buildSubsystems } from './p16-handlers.js';
 import { handleP17Orchestrator, handleP17DigitalTwin, handleP17CampaignForecast, handleP17ExecutiveCenter, handleP17Policies, handleP17Playbooks, handleP17AiOps } from './p17-handlers.js';
+import { handleP18Correlation, handleP18TrustIndicators, handleP18Validate, handleP18QualityScore, handleP18IOCEnriched, handleP18ConfidenceMethod, buildTrustIndicatorBlock } from './p18-handlers.js';
 const PLATFORM_VERSION    = "184.0";
 const JWT_EXPIRY_SEC      = 86400;        // 24h JWT lifetime
 const BRUTE_FORCE_MAX     = 5;            // lockout after N failed auth attempts
@@ -390,7 +391,7 @@ async function findItemBySlug(env, slug) {
   return null;
 }
 
-function generateSyntheticReport(item, reqPath) {
+function generateIntelReport(item, reqPath) {
   // --- Data extraction ---------------------------------------------------------
   const esc = s => String(s || "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
 
@@ -775,6 +776,7 @@ a:hover{text-decoration:underline}
   </div>
 </div>
 
+${buildTrustIndicatorBlock(item)}
 </body>
 </html>`;
 }
@@ -3343,7 +3345,7 @@ async function handleRequest(request, env, ctx) {
       // Synthesis fallback: generate from feed data so the report is always available
       const legacyItem = await findItemBySlug(env, slug);
       if (legacyItem) {
-        const html = generateSyntheticReport(legacyItem, path);
+        const html = generateIntelReport(legacyItem, path);
         const _lDate = new Date(legacyItem.published_at || legacyItem.timestamp || Date.now());
         const _lYr = _lDate.getFullYear();
         const _lMo = String(_lDate.getMonth() + 1).padStart(2, "0");
@@ -3394,7 +3396,7 @@ async function handleRequest(request, env, ctx) {
     const fallbackSlug = slugFromPath ? slugFromPath[1] : path.replace(/^\/reports\//, "").replace(/[./]+$/, "");
     const fallbackItem = await findItemBySlug(env, fallbackSlug);
     if (fallbackItem) {
-      const html = generateSyntheticReport(fallbackItem, path);
+      const html = generateIntelReport(fallbackItem, path);
       if (ctx) ctx.waitUntil(
         env.REPORTS_R2.put(key, html, { httpMetadata: { contentType: "text/html; charset=utf-8" } }).catch(() => {})
       );
@@ -3665,6 +3667,14 @@ async function handleRequest(request, env, ctx) {
   if (path.startsWith("/api/v1/playbooks"))           return await handleP17Playbooks(request, env);
   if (path === "/api/v1/ai-ops/analytics")            return await handleP17AiOps(request, env);
 
+  // --- P18: Threat Intelligence Quality & Trust Initiative (additive, v18.0) ---
+  if (path === "/api/v1/intel/correlation")           return await handleP18Correlation(request, env);
+  if (path === "/api/v1/intel/trust-indicators")      return await handleP18TrustIndicators(request, env);
+  if (path === "/api/v1/reports/validate")            return await handleP18Validate(request, env);
+  if (path === "/api/v1/reports/quality")             return await handleP18QualityScore(request, env);
+  if (path === "/api/v1/ioc/enriched")                return await handleP18IOCEnriched(request, env);
+  if (path === "/api/v1/confidence/methodology")      return await handleP18ConfidenceMethod(request, env);
+
   // --- 404 --------------------------------------------------------------------
   return jsonResp({
     error: "Not found", path,
@@ -3708,6 +3718,12 @@ async function handleRequest(request, env, ctx) {
       "/api/v1/playbooks/catalog",
       "POST /api/v1/playbooks/execute",
       "/api/v1/ai-ops/analytics",
+      "/api/v1/intel/correlation",
+      "/api/v1/intel/trust-indicators",
+      "POST /api/v1/reports/validate",
+      "/api/v1/reports/quality",
+      "/api/v1/ioc/enriched",
+      "/api/v1/confidence/methodology",
     ],
   }, 404);
 }
