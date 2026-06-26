@@ -1,5 +1,5 @@
 /**
- * P19.0 — Enterprise Threat Intelligence Report Excellence Program
+ * P19.0  -  Enterprise Threat Intelligence Report Excellence Program
  *
  * Additive module. Zero new KV namespaces. Zero D1 changes. Zero schema replacement.
  * Reads from existing INTEL_R2, ANALYTICS_KV, SECURITY_HUB_KV bindings only.
@@ -9,7 +9,7 @@
  *   handleP19Certify      GET  /api/v1/reports/certify
  *   handleP19Scorecard    GET  /api/v1/reports/scorecard
  *
- * Exports (HTML section builders — injected into generateIntelReport):
+ * Exports (HTML section builders  -  injected into generateIntelReport):
  *   buildSOCBlock         SOC triage, immediate actions, hunt queries
  *   buildExecutiveBlock   Business/regulatory/board/CISO impact
  *   buildAnalystBlock     Analyst summary, certification, version history, limitations
@@ -96,13 +96,13 @@ export function computeCertificationLevel(qualityScore, validationResult) {
     customer_deliverable: ["PRODUCTION_CERTIFIED","PREMIUM_INTELLIGENCE","ENTERPRISE_READY"].includes(level.id),
     rationale: blockingFailures > 0
       ? `Score reduced from ${qualityScore} to ${effectiveScore} due to ${blockingFailures} blocking quality failure(s). Resolve: ${(validationResult?.blocking_failures || []).join("; ")}`
-      : `Score ${qualityScore}/100 satisfies ${level.label} threshold (≥${level.minScore}).`,
+      : `Score ${qualityScore}/100 satisfies ${level.label} threshold (?${level.minScore}).`,
     certified_at: _now(),
   };
 }
 
 // ---------------------------------------------------------------------------
-// P19.1 — Wire dead routes: tier normalizer (lowercase → uppercase adapter)
+// P19.1  -  Wire dead routes: tier normalizer (lowercase -> uppercase adapter)
 // Used at call sites so enterprise-endpoints.js tier checks work correctly
 // ---------------------------------------------------------------------------
 
@@ -113,7 +113,7 @@ export function normalizeTierForEE(tier) {
 }
 
 // ---------------------------------------------------------------------------
-// P19.2 — HTML: SOC Triage Block
+// P19.2  -  HTML: SOC Triage Block
 // ---------------------------------------------------------------------------
 
 export function buildSOCBlock(item) {
@@ -128,11 +128,11 @@ export function buildSOCBlock(item) {
 
   // SOC Priority
   const socPriority =
-    kev ? "P1 — CRITICAL (0–4h)" :
-    sev === "CRITICAL" || risk >= 9 ? "P1 — CRITICAL (0–4h)" :
-    sev === "HIGH"     || risk >= 7 ? "P2 — HIGH (4–24h)" :
-    sev === "MEDIUM"   || risk >= 5 ? "P3 — MEDIUM (24–72h)" :
-    "P4 — LOW (72h+)";
+    kev ? "P1  -  CRITICAL (0-4h)" :
+    sev === "CRITICAL" || risk >= 9 ? "P1  -  CRITICAL (0-4h)" :
+    sev === "HIGH"     || risk >= 7 ? "P2  -  HIGH (4-24h)" :
+    sev === "MEDIUM"   || risk >= 5 ? "P3  -  MEDIUM (24-72h)" :
+    "P4  -  LOW (72h+)";
 
   const priorityColor =
     socPriority.startsWith("P1") ? "#dc2626" :
@@ -142,24 +142,24 @@ export function buildSOCBlock(item) {
   // Immediate SOC actions based on severity/type
   const immediateActions = [];
   if (kev) {
-    immediateActions.push({ window: "0–4h", action: "Identify all affected assets in your environment matching vulnerable product/version" });
-    immediateActions.push({ window: "0–4h", action: "Apply vendor patch immediately — CISA KEV mandates federal agencies remediate within defined deadlines" });
-    immediateActions.push({ window: "0–4h", action: `Block known-bad IOCs (${iocCount} indicators) at perimeter, DNS, and EDR` });
+    immediateActions.push({ window: "0-4h", action: "Identify all affected assets in your environment matching vulnerable product/version" });
+    immediateActions.push({ window: "0-4h", action: "Apply vendor patch immediately  -  CISA KEV mandates federal agencies remediate within defined deadlines" });
+    immediateActions.push({ window: "0-4h", action: `Block known-bad IOCs (${iocCount} indicators) at perimeter, DNS, and EDR` });
   } else if (sev === "CRITICAL" || risk >= 9) {
-    immediateActions.push({ window: "0–4h", action: "Identify and inventory affected systems immediately" });
-    immediateActions.push({ window: "0–4h", action: "Escalate to IR lead and CISO — CRITICAL severity requires immediate executive awareness" });
-    immediateActions.push({ window: "4–24h", action: "Deploy detection rules and increase monitoring on affected asset classes" });
+    immediateActions.push({ window: "0-4h", action: "Identify and inventory affected systems immediately" });
+    immediateActions.push({ window: "0-4h", action: "Escalate to IR lead and CISO  -  CRITICAL severity requires immediate executive awareness" });
+    immediateActions.push({ window: "4-24h", action: "Deploy detection rules and increase monitoring on affected asset classes" });
   } else if (sev === "HIGH" || risk >= 7) {
-    immediateActions.push({ window: "4–24h", action: "Triage affected assets and confirm exposure surface" });
-    immediateActions.push({ window: "4–24h", action: "Deploy available detection rules to SIEM and EDR" });
-    immediateActions.push({ window: "24–72h", action: "Apply vendor patch in next maintenance window or apply compensating control" });
+    immediateActions.push({ window: "4-24h", action: "Triage affected assets and confirm exposure surface" });
+    immediateActions.push({ window: "4-24h", action: "Deploy available detection rules to SIEM and EDR" });
+    immediateActions.push({ window: "24-72h", action: "Apply vendor patch in next maintenance window or apply compensating control" });
   } else {
-    immediateActions.push({ window: "24–72h", action: "Review advisory and assess applicability to your environment" });
+    immediateActions.push({ window: "24-72h", action: "Review advisory and assess applicability to your environment" });
     immediateActions.push({ window: "72h+", action: "Schedule patching in routine maintenance cycle" });
   }
 
   if (iocCount > 0) {
-    immediateActions.push({ window: "Detection", action: `Export ${iocCount} IOCs to threat intelligence platform — use /api/v1/ioc/enriched for enriched format` });
+    immediateActions.push({ window: "Detection", action: `Export ${iocCount} IOCs to threat intelligence platform  -  use /api/v1/ioc/enriched for enriched format` });
   }
   if (ttps.length > 0) {
     immediateActions.push({ window: "Hunting", action: `Execute threat hunt for MITRE techniques: ${ttps.slice(0,3).map(t => _esc(t)).join(", ")}` });
@@ -230,7 +230,7 @@ export function buildSOCBlock(item) {
 }
 
 // ---------------------------------------------------------------------------
-// P19.3 — HTML: Enriched IOC Detail Block (replaces count-only display)
+// P19.3  -  HTML: Enriched IOC Detail Block (replaces count-only display)
 // ---------------------------------------------------------------------------
 
 export function buildIOCDetailBlock(item) {
@@ -290,7 +290,7 @@ export function buildIOCDetailBlock(item) {
   return `
   <!-- P19: IOC DETAIL TABLE -->
   <div class="sec">
-    <div class="sec-title">INDICATORS OF COMPROMISE — ENRICHED</div>
+    <div class="sec-title">INDICATORS OF COMPROMISE  -  ENRICHED</div>
     <p style="font-size:12px;color:#4b5563;margin-bottom:14px;">Displaying ${enriched.length} of ${item.ioc_count || iocs.length} extracted indicators. Copy values for use in your threat intelligence platform, SIEM, or EDR.</p>
     <div style="overflow-x:auto;">
       <table style="width:100%;border-collapse:collapse;font-size:12px;">
@@ -304,7 +304,7 @@ export function buildIOCDetailBlock(item) {
       </table>
     </div>
     ${extraCount > 0 ? `<div style="margin-top:10px;font-size:11px;color:#4b5563;font-family:monospace;">+${extraCount} additional indicators available via <a href="/api/v1/ioc/enriched" style="color:#00d4aa;">/api/v1/ioc/enriched</a> (enriched, 16-field format) or <a href="/api/exports/feed.stix.json" style="color:#a78bfa;">/api/exports/feed.stix.json</a></div>` : ""}
-    <div style="margin-top:10px;padding:8px 12px;background:rgba(0,0,0,.2);border-radius:5px;font-family:monospace;font-size:10px;color:#374151;">Machine-readable: <a href="/api/v1/ioc/enriched" style="color:#00d4aa;">/api/v1/ioc/enriched</a> &nbsp;·&nbsp; STIX 2.1: <a href="/api/exports/feed.stix.json" style="color:#a78bfa;">/api/exports/feed.stix.json</a> &nbsp;·&nbsp; MISP: <a href="/api/misp/export" style="color:#d97706;">/api/misp/export</a> (PRO+)</div>
+    <div style="margin-top:10px;padding:8px 12px;background:rgba(0,0,0,.2);border-radius:5px;font-family:monospace;font-size:10px;color:#374151;">Machine-readable: <a href="/api/v1/ioc/enriched" style="color:#00d4aa;">/api/v1/ioc/enriched</a> &nbsp;*&nbsp; STIX 2.1: <a href="/api/exports/feed.stix.json" style="color:#a78bfa;">/api/exports/feed.stix.json</a> &nbsp;*&nbsp; MISP: <a href="/api/misp/export" style="color:#d97706;">/api/misp/export</a> (PRO+)</div>
   </div>`;
 }
 
@@ -321,7 +321,7 @@ function _inferType(val) {
 }
 
 // ---------------------------------------------------------------------------
-// P19.4 — HTML: Detection Package Block
+// P19.4  -  HTML: Detection Package Block
 // ---------------------------------------------------------------------------
 
 export function buildDetectionBlock(item) {
@@ -372,8 +372,8 @@ export function buildDetectionBlock(item) {
   const defRecommendations = [
     cveArr.length > 0 ? `Patch management: verify ${cveArr.join(", ")} remediation status across all in-scope assets` : null,
     ttps.length > 0 ? `MITRE coverage: validate detection coverage for ${ttps.slice(0,3).map(t=>_esc(t)).join(", ")}` : null,
-    item.kev_present ? "CISA KEV: prioritize patching — confirmed active exploitation in the wild" : null,
-    item.epss_score > 10 ? `EPSS: ${item.epss_score}% exploitation probability — accelerate patch schedule` : null,
+    item.kev_present ? "CISA KEV: prioritize patching  -  confirmed active exploitation in the wild" : null,
+    item.epss_score > 10 ? `EPSS: ${item.epss_score}% exploitation probability  -  accelerate patch schedule` : null,
     "Review and test all detection rules in staging environment before production deployment",
     "Enable enhanced EDR telemetry on affected asset classes during active exploitation window",
   ].filter(Boolean);
@@ -403,7 +403,7 @@ export function buildDetectionBlock(item) {
 }
 
 // ---------------------------------------------------------------------------
-// P19.5 — HTML: MITRE Technique Chips with T-IDs
+// P19.5  -  HTML: MITRE Technique Chips with T-IDs
 // ---------------------------------------------------------------------------
 
 export function buildMitreTechBlock(item) {
@@ -433,20 +433,20 @@ export function buildMitreTechBlock(item) {
     return `<a href="${url}" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:6px;padding:7px 12px;background:rgba(139,92,246,.1);border:1px solid rgba(139,92,246,.22);border-radius:5px;text-decoration:none;flex-shrink:0;">
       ${techId ? `<span style="font-family:monospace;font-size:9px;color:#7c3aed;font-weight:800;">${_esc(techId)}</span>` : ""}
       <span style="font-size:11px;color:#a78bfa;font-weight:600;">${label}</span>
-    </a>${i < ttps.length - 1 ? '<span style="color:rgba(139,92,246,.4);font-size:14px;padding:0 2px;">›</span>' : ""}`;
+    </a>${i < ttps.length - 1 ? '<span style="color:rgba(139,92,246,.4);font-size:14px;padding:0 2px;">?</span>' : ""}`;
   }).join("");
 
   return `
   <!-- P19: MITRE TECHNIQUE CHIPS -->
   <div style="margin-top:14px;">
-    <div style="font-family:monospace;font-size:9px;color:#4b5563;letter-spacing:1.5px;margin-bottom:10px;">MITRE ATT&amp;CK TECHNIQUES — CLICK TO VIEW FRAMEWORK</div>
+    <div style="font-family:monospace;font-size:9px;color:#4b5563;letter-spacing:1.5px;margin-bottom:10px;">MITRE ATT&amp;CK TECHNIQUES  -  CLICK TO VIEW FRAMEWORK</div>
     <div style="display:flex;align-items:center;flex-wrap:wrap;gap:6px;">${chips}</div>
     <div style="margin-top:10px;font-size:11px;color:#374151;">Coverage: <span style="color:#a78bfa;font-weight:600;">${ttps.length} technique${ttps.length !== 1 ? "s" : ""}</span> mapped. View full framework at <a href="https://attack.mitre.org" target="_blank" rel="noopener" style="color:#a78bfa;">attack.mitre.org</a></div>
   </div>`;
 }
 
 // ---------------------------------------------------------------------------
-// P19.6 — HTML: Executive Value Block
+// P19.6  -  HTML: Executive Value Block
 // ---------------------------------------------------------------------------
 
 export function buildExecutiveBlock(item) {
@@ -461,11 +461,11 @@ export function buildExecutiveBlock(item) {
 
   // Business impact assessment
   const businessImpact =
-    kev     ? "CRITICAL — Confirmed active exploitation. Immediate executive action required." :
-    sev === "CRITICAL" || risk >= 9  ? "HIGH — Critical-severity vulnerability with significant breach potential." :
-    sev === "HIGH"     || risk >= 7  ? "HIGH — Elevated risk requiring prioritized remediation within one business cycle." :
-    sev === "MEDIUM"   || risk >= 5  ? "MODERATE — Standard risk requiring scheduled remediation." :
-    "LOW — Minimal immediate business impact. Routine patching applies.";
+    kev     ? "CRITICAL  -  Confirmed active exploitation. Immediate executive action required." :
+    sev === "CRITICAL" || risk >= 9  ? "HIGH  -  Critical-severity vulnerability with significant breach potential." :
+    sev === "HIGH"     || risk >= 7  ? "HIGH  -  Elevated risk requiring prioritized remediation within one business cycle." :
+    sev === "MEDIUM"   || risk >= 5  ? "MODERATE  -  Standard risk requiring scheduled remediation." :
+    "LOW  -  Minimal immediate business impact. Routine patching applies.";
 
   const financialImpact =
     kev     ? "Active exploitation risk. Breach scenario costs typically $4M+ (IBM Cost of Data Breach 2024). Incident response retainer activation recommended." :
@@ -499,7 +499,7 @@ export function buildExecutiveBlock(item) {
   // Top 5 executive actions
   const execActions = [
     kev ? "IMMEDIATE: Direct IT Security to apply vendor patch or implement network isolation for affected systems" : `PRIORITY: Schedule remediation of ${_esc(sev)}-severity finding within ${risk >= 7 ? "one business cycle" : "standard maintenance window"}`,
-    "Confirm your organization's exposure — identify all systems running affected software versions",
+    "Confirm your organization's exposure  -  identify all systems running affected software versions",
     kev || risk >= 8 ? "Brief CISO and Legal on breach risk profile and regulatory notification thresholds" : "Monitor vendor advisory for patch availability and updated severity assessments",
     "Verify cyber insurance policy coverage is current and incident response retainer is activated",
     "Request post-remediation confirmation from IT Security confirming all affected assets have been patched",
@@ -554,7 +554,7 @@ export function buildExecutiveBlock(item) {
 }
 
 // ---------------------------------------------------------------------------
-// P19.7 — HTML: Analyst Block (certification, version, limitations)
+// P19.7  -  HTML: Analyst Block (certification, version, limitations)
 // ---------------------------------------------------------------------------
 
 export function buildAnalystBlock(item) {
@@ -566,10 +566,10 @@ export function buildAnalystBlock(item) {
   const aiSummary    = item.apex?.ai_summary || item.description || "";
   const analystNotes = item.analyst_notes || item.apex?.analyst_notes || null;
 
-  // Analyst summary — structured paragraph with analyst-grade language
+  // Analyst summary  -  structured paragraph with analyst-grade language
   const analystSummary = aiSummary
     ? `${aiSummary.slice(0, 600)}${aiSummary.length > 600 ? "..." : ""}`
-    : `Advisory processed by SENTINEL APEX automated analysis pipeline. Manual analyst review recommended for ${evidence.evidence_count < 4 ? "this advisory due to limited evidence points" : "critical deployments"}. Source reliability: ${evidence.source_reliability.split(" — ")[0]}.`;
+    : `Advisory processed by SENTINEL APEX automated analysis pipeline. Manual analyst review recommended for ${evidence.evidence_count < 4 ? "this advisory due to limited evidence points" : "critical deployments"}. Source reliability: ${evidence.source_reliability.split("  -  ")[0]}.`;
 
   const certColor = certLevel.certification_color;
 
@@ -610,7 +610,7 @@ export function buildAnalystBlock(item) {
       <div style="padding:12px 16px;background:rgba(255,255,255,.025);border:1px solid rgba(255,255,255,.07);border-radius:6px;">
         <div style="font-family:monospace;font-size:9px;color:#4b5563;letter-spacing:1.5px;margin-bottom:8px;">REVIEW STATUS</div>
         <div style="font-size:11.5px;color:#d97706;">${_esc(evidence.analyst_review_status)}</div>
-        <div style="margin-top:8px;font-family:monospace;font-size:9px;color:#4b5563;">Customer deliverable: <span style="color:${certLevel.customer_deliverable ? "#00d4aa" : "#dc2626"};">${certLevel.customer_deliverable ? "YES" : "NO — quality gates must pass"}</span></div>
+        <div style="margin-top:8px;font-family:monospace;font-size:9px;color:#4b5563;">Customer deliverable: <span style="color:${certLevel.customer_deliverable ? "#00d4aa" : "#dc2626"};">${certLevel.customer_deliverable ? "YES" : "NO  -  quality gates must pass"}</span></div>
       </div>
       ${failedCheckRows ? `<div style="padding:12px 16px;background:rgba(255,255,255,.025);border:1px solid rgba(255,255,255,.07);border-radius:6px;">
         <div style="font-family:monospace;font-size:9px;color:#dc2626;letter-spacing:1.5px;margin-bottom:8px;">OPEN QUALITY ISSUES (${failedCount})</div>
@@ -625,13 +625,13 @@ export function buildAnalystBlock(item) {
       <span style="font-family:monospace;font-size:9px;color:#374151;">REPORT VERSION: 1.0</span>
       <span style="font-family:monospace;font-size:9px;color:#374151;">CERTIFIED AT: ${_esc(certLevel.certified_at.replace("T"," ").slice(0,19))} UTC</span>
       <span style="font-family:monospace;font-size:9px;color:#374151;">ENGINE: SENTINEL APEX P19.0</span>
-      <a href="/api/v1/reports/certify?id=${_esc(item.id || item.stix_id || "")}" style="font-family:monospace;font-size:9px;color:#00d4aa;">CERTIFICATION API →</a>
+      <a href="/api/v1/reports/certify?id=${_esc(item.id || item.stix_id || "")}" style="font-family:monospace;font-size:9px;color:#00d4aa;">CERTIFICATION API -></a>
     </div>
   </div>`;
 }
 
 // ---------------------------------------------------------------------------
-// P19.10 — Certify API Handler
+// P19.10  -  Certify API Handler
 // ---------------------------------------------------------------------------
 
 export async function handleP19Certify(request, env) {
@@ -679,7 +679,7 @@ export async function handleP19Certify(request, env) {
 }
 
 // ---------------------------------------------------------------------------
-// P19.11 — Scorecard API Handler
+// P19.11  -  Scorecard API Handler
 // ---------------------------------------------------------------------------
 
 export async function handleP19Scorecard(request, env) {

@@ -3698,7 +3698,7 @@ async function handleRequest(request, env, ctx) {
   if (path === "/api/v1/reports/certify")           return await handleP19Certify(request, env);
   if (path === "/api/v1/reports/scorecard")         return await handleP19Scorecard(request, env);
 
-  // --- api-extensions.js routes (previously unreachable — now wired, auth already resolved above) ---
+  // --- api-extensions.js routes (previously unreachable  -  now wired, auth already resolved above) ---
   if (path === "/api/search")                       return await handleSearch(request, env, auth, crypto.randomUUID());
   if (path === "/api/actors")                       return await handleActors(request, env, auth, crypto.randomUUID());
   if (path === "/api/cves")                         return await handleCVEs(request, env, auth, crypto.randomUUID());
@@ -3711,7 +3711,7 @@ async function handleRequest(request, env, ctx) {
   if (path === "/api/v1/intel/graph")               return await handleIntelGraph(request, env, auth, crypto.randomUUID());
   if (path === "/api/v1/intel/relations")           return await handleIntelRelations(request, env, auth, crypto.randomUUID());
 
-  // --- enterprise-endpoints.js routes (previously unreachable — now wired via routeEnterpriseEndpoint) ---
+  // --- enterprise-endpoints.js routes (previously unreachable  -  now wired via routeEnterpriseEndpoint) ---
   if (path.startsWith("/api/taxii") || path.startsWith("/api/misp/export") ||
       path.startsWith("/api/sigma") || path.startsWith("/api/yara") ||
       path.startsWith("/api/scoring") || path.startsWith("/api/siem") ||

@@ -1,5 +1,5 @@
 /**
- * CYBERDUDEBIVASH® SENTINEL APEX — P17 Enterprise Cyber Defense OS Handlers
+ * CYBERDUDEBIVASH(R) SENTINEL APEX  -  P17 Enterprise Cyber Defense OS Handlers
  * workers/intel-gateway/src/p17-handlers.js
  *
  * P17.1  Unified Cyber Defense Orchestrator  GET /api/platform/orchestrator/state
@@ -12,13 +12,13 @@
  *                                            POST /api/v1/playbooks/execute
  * P17.8  AI Operations Analytics             GET /api/v1/ai-ops/analytics
  *
- * All handlers are ADDITIVE — zero duplication of P1–P16 logic.
+ * All handlers are ADDITIVE  -  zero duplication of P1-P16 logic.
  * Reads from: ANALYTICS_KV, SECURITY_HUB_KV (already bound in wrangler.toml).
  * No new KV namespaces. No D1 schema changes. No new workers.
  */
 
 // ---------------------------------------------------------------------------
-// Shared helpers — mirrors index.js subset, no re-import needed
+// Shared helpers  -  mirrors index.js subset, no re-import needed
 // ---------------------------------------------------------------------------
 const _now = () => new Date().toISOString();
 
@@ -40,9 +40,9 @@ const _kv = async (kv, key, fallback = null) => {
 };
 
 // ---------------------------------------------------------------------------
-// P17.1 — Unified Cyber Defense Orchestrator
+// P17.1  -  Unified Cyber Defense Orchestrator
 // GET /api/platform/orchestrator/state
-// Single orchestration surface for all P1–P16 subsystems.
+// Single orchestration surface for all P1-P16 subsystems.
 // Reuses: feed:stats, sla:metrics, usage:summary, ANALYTICS_KV
 // ---------------------------------------------------------------------------
 export async function handleP17Orchestrator(request, env) {
@@ -140,9 +140,9 @@ export async function handleP17Orchestrator(request, env) {
 }
 
 // ---------------------------------------------------------------------------
-// P17.2 — Enterprise Digital Twin
+// P17.2  -  Enterprise Digital Twin
 // GET /api/v1/digital-twin/state
-// Real-time enterprise representation: assets × threats × customers × workflows
+// Real-time enterprise representation: assets x threats x customers x workflows
 // ---------------------------------------------------------------------------
 export async function handleP17DigitalTwin(request, env) {
   const kv = env.ANALYTICS_KV || env.SECURITY_HUB_KV;
@@ -216,10 +216,10 @@ export async function handleP17DigitalTwin(request, env) {
 }
 
 // ---------------------------------------------------------------------------
-// P17.3 — Predictive Cyber Campaign Engine
+// P17.3  -  Predictive Cyber Campaign Engine
 // GET /api/v1/campaigns/forecast
 // Forecast emerging campaigns and attack paths from existing KV threat data.
-// NO new prediction engines — heuristic derivation only.
+// NO new prediction engines  -  heuristic derivation only.
 // ---------------------------------------------------------------------------
 export async function handleP17CampaignForecast(request, env) {
   const kv = env.ANALYTICS_KV || env.SECURITY_HUB_KV;
@@ -291,10 +291,10 @@ export async function handleP17CampaignForecast(request, env) {
       ),
       recommendations: [
         criticalCVEs.length > 0
-          ? `Prioritize patching ${criticalCVEs.length} critical CVEs (CVSS ≥ 9.0) immediately`
+          ? `Prioritize patching ${criticalCVEs.length} critical CVEs (CVSS ? 9.0) immediately`
           : "CVE backlog within acceptable limits",
         forecastLevel === "critical"
-          ? "Elevate SOC monitoring cadence — critical threat signal detected"
+          ? "Elevate SOC monitoring cadence  -  critical threat signal detected"
           : "Maintain standard threat monitoring posture",
         "Review MITRE ATT&CK coverage for top predicted attack paths",
       ],
@@ -304,7 +304,7 @@ export async function handleP17CampaignForecast(request, env) {
 }
 
 // ---------------------------------------------------------------------------
-// P17.4 — Executive Command Center
+// P17.4  -  Executive Command Center
 // GET /api/v1/executive/command-center
 // Single-pane aggregation: security + commercial + ops + MSSP + KPIs + recommendations
 // ---------------------------------------------------------------------------
@@ -384,19 +384,19 @@ export async function handleP17ExecutiveCenter(request, env) {
         priority: "P1", category: "security",
         recommendation: (feedStats.critical || 0) > 0
           ? `${feedStats.critical} critical threats require immediate triage`
-          : "Security posture strong — maintain current cadence",
+          : "Security posture strong  -  maintain current cadence",
         action: "/api/v1/intel/latest.json",
       },
       {
         priority: "P2", category: "operations",
         recommendation: queueDepth > 50
-          ? "Workflow queue elevated — consider scaling automation workers"
+          ? "Workflow queue elevated  -  consider scaling automation workers"
           : "Operational efficiency within target bounds",
         action: "/api/v1/automation/intelligence",
       },
       {
         priority: "P3", category: "commercial",
-        recommendation: "API trial conversion opportunity — review trial accounts",
+        recommendation: "API trial conversion opportunity  -  review trial accounts",
         action: "/api/v1/analytics/enterprise",
       },
     ],
@@ -405,7 +405,7 @@ export async function handleP17ExecutiveCenter(request, env) {
 }
 
 // ---------------------------------------------------------------------------
-// P17.5 — Autonomous Policy Engine
+// P17.5  -  Autonomous Policy Engine
 // GET  /api/v1/policies/state
 // POST /api/v1/policies/simulate   body: { policy_type, parameters }
 // ---------------------------------------------------------------------------
@@ -439,7 +439,7 @@ export async function handleP17Policies(request, env) {
     });
   }
 
-  // GET — current policy catalog
+  // GET  -  current policy catalog
   const [slaData, usageData, errorData] = await Promise.all([
     _kv(kv, "sla:metrics", {}),
     _kv(kv, "usage:summary", {}),
@@ -495,7 +495,7 @@ function _simulatePolicy(policyType, params) {
 }
 
 // ---------------------------------------------------------------------------
-// P17.6 — Digital Playbook Engine
+// P17.6  -  Digital Playbook Engine
 // GET  /api/v1/playbooks/catalog
 // POST /api/v1/playbooks/execute   body: { playbook_id, context }
 // ---------------------------------------------------------------------------
@@ -537,7 +537,7 @@ export async function handleP17Playbooks(request, env) {
     });
   }
 
-  // GET — full catalog
+  // GET  -  full catalog
   return _jsonResp({
     generated_at: _now(),
     component: "digital-playbook-engine",
@@ -646,7 +646,7 @@ function _executePlaybook(pb, context) {
 }
 
 // ---------------------------------------------------------------------------
-// P17.8 — AI Operations Analytics
+// P17.8  -  AI Operations Analytics
 // GET /api/v1/ai-ops/analytics
 // AI utilization, recommendation accuracy, decision confidence, automation success
 // ---------------------------------------------------------------------------
