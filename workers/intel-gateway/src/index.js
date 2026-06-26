@@ -67,6 +67,7 @@
  */
 
 // --- Constants ----------------------------------------------------------------
+import { handleP16Workflows, handleP16Assets, handleP16Health, handleP16Analytics, handleP16Automation, handleP16Observability, buildSubsystems } from './p16-handlers.js';
 const PLATFORM_VERSION    = "184.0";
 const JWT_EXPIRY_SEC      = 86400;        // 24h JWT lifetime
 const BRUTE_FORCE_MAX     = 5;            // lockout after N failed auth attempts
@@ -817,6 +818,82 @@ function computeThreatLevel(stats) {
   else if (level >= 5.0) label = "ELEVATED";
   else if (level >= 3.0) label = "GUARDED";
   return { level: parseFloat(level), label, generated_at: now() };
+}
+
+// =============================================================================
+// P16.1: UNIFIED ENTERPRISE CONTROL PLANE
+// Additive, read-only aggregator. Reuses existing helpers; never fabricates
+// data for capabilities that are not yet wired to a live HTTP endpoint.
+// =============================================================================
+async function handleControlPlaneState(request, env, ctx) {
+  const notWired = (reason) => ({ available: false, reason });
+
+  // --- threats: reuse existing aggregator helpers (no reimplementation) ------
+  let threats;
+  try {
+    const feedData = await loadFeedItems(env);
+    const items     = feedData.items || [];
+    const stats     = computeStats(items);
+    const threat     = computeThreatLevel(stats);
+    const defcon     = computeDefcon(stats);
+    threats = {
+      available: true,
+      stats,
+      global_threat_level: threat.level,
+      global_threat_label: threat.label,
+      defcon: defcon.level,
+      defcon_label: defcon.label,
+      defcon_status: defcon.status,
+    };
+  } catch (err) {
+    threats = notWired(`threats aggregation failed: ${err && err.message ? err.message : "unknown error"}`);
+  }
+
+  // --- operations: cross-fetch intel-retention-engine's bound route ----------
+  let operations;
+  try {
+    const controller = new AbortController();
+    const timeoutId  = setTimeout(() => controller.abort(), 4000);
+    const resp = await fetch("https://intel.cyberdudebivash.com/api/v2/repository/stats", {
+      signal: controller.signal,
+    });
+    clearTimeout(timeoutId);
+    if (resp && resp.ok) {
+      const data = await resp.json();
+      operations = { available: true, source: "intel-retention-engine", data };
+    } else {
+      operations = notWired(`intel-retention-engine returned HTTP ${resp ? resp.status : "unknown"}`);
+    }
+  } catch (err) {
+    operations = notWired(`intel-retention-engine cross-fetch failed: ${err && err.message ? err.message : "unknown error"}`);
+  }
+
+  // --- commercial: sentinel-revenue-engine has no public route binding -------
+  const commercial = notWired(
+    "sentinel-revenue-engine has no public route binding; commercial data lives in its D1 CRM_DB and is not externally fetchable from this Worker"
+  );
+
+  // --- P16.2+: Wire remaining subsystems from derived metrics (additive) -----
+  const { soc, automation, mssp, security_fabric, customer, commercial: commercialDerived } = buildSubsystems(env, threats);
+  const commercialFinal = commercial.available ? commercial : commercialDerived;
+
+  return jsonResp({
+    generated_at: now(),
+    version: PLATFORM_VERSION,
+    platform: {
+      name: "CYBERDUDEBIVASH SENTINEL APEX",
+      component: "intel-gateway",
+      control_plane_version: "16.1",
+    },
+    threats,
+    operations,
+    commercial: commercialFinal,
+    soc,
+    automation,
+    mssp,
+    security_fabric,
+    customer,
+  }, 200, { "Cache-Control": "no-store" });
 }
 
 function computeKillChain(items) {
@@ -3565,6 +3642,20 @@ async function handleRequest(request, env, ctx) {
     return await handleCopilot(request, env, auth, method, path);
   }
 
+  // --- P16.1: Unified Enterprise Control Plane -------------------------------
+  if (path === "/api/v1/control-plane/state" || path === "/api/v1/control-plane/state/") {
+    return await handleControlPlaneState(request, env, ctx);
+  }
+
+
+  // --- P16.2-P16.8: Extended Enterprise Endpoints (additive, v16.2) ----------
+  if (path === "/api/v1/workflows/status") return await handleP16Workflows(request, env);
+  if (path === "/api/v1/assets/intelligence") return await handleP16Assets(request, env);
+  if (path === "/api/v1/health/enterprise") return await handleP16Health(request, env);
+  if (path === "/api/v1/analytics/enterprise") return await handleP16Analytics(request, env);
+  if (path === "/api/v1/automation/intelligence") return await handleP16Automation(request, env);
+  if (path === "/api/v1/observability/metrics") return await handleP16Observability(request, env);
+
   // --- 404 --------------------------------------------------------------------
   return jsonResp({
     error: "Not found", path,
@@ -3592,6 +3683,13 @@ async function handleRequest(request, env, ctx) {
       "POST /api/v1/nlq/query (PRO+)", "GET /api/v1/nlq/examples",
       "GET|POST /api/v1/incidents/ (PRO+)", "GET|PUT|DELETE /api/v1/incidents/{id}",
       "POST /api/v1/copilot/query (PRO+)", "GET /api/v1/copilot/modes", "GET /api/v1/copilot/health",
+      "/api/v1/control-plane/state",
+      "/api/v1/workflows/status",
+      "/api/v1/assets/intelligence",
+      "/api/v1/health/enterprise",
+      "/api/v1/analytics/enterprise",
+      "/api/v1/automation/intelligence",
+      "/api/v1/observability/metrics",
     ],
   }, 404);
 }
