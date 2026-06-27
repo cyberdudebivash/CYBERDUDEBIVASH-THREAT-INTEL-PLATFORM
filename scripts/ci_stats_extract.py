@@ -45,9 +45,17 @@ _REPORTS: dict = {
             d.get("blocker_count", 0),
         ],
     ),
+    "p25": (
+        _ROOT / "data" / "quality" / "p25_enterprise_trust_gate.json",
+        lambda d: [
+            d.get("release_tier", "UNKNOWN"),
+            d.get("blocker_count", 0),
+            d.get("feed_items", 0),
+        ],
+    ),
 }
 
-_FALLBACKS = {"p21": "? ? ? ?", "p22": "? ? ? ?", "p23": "? ?", "p24": "UNKNOWN 0 0"}
+_FALLBACKS = {"p21": "? ? ? ?", "p22": "? ? ? ?", "p23": "? ?", "p24": "UNKNOWN 0 0", "p25": "UNKNOWN 0 0"}
 
 
 def main() -> None:

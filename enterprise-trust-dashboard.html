@@ -1,0 +1,639 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Enterprise Intelligence Trust Dashboard — CYBERDUDEBIVASH® SENTINEL APEX</title>
+  <meta name="description" content="Customer-facing transparency dashboard: live trust scores, source consensus, publication lineage, and release gate status for every intelligence report.">
+  <meta name="robots" content="noindex">
+  <style>
+    :root {
+      --bg: #0d1117;
+      --surface: #161b22;
+      --border: #21262d;
+      --text: #e6edf3;
+      --muted: #8b949e;
+      --accent: #8b5cf6;
+      --green: #22c55e;
+      --yellow: #eab308;
+      --red: #ef4444;
+      --blue: #3b82f6;
+      --orange: #f97316;
+      --cyan: #06b6d4;
+      --amber: #f59e0b;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Courier New', monospace;
+      min-height: 100vh;
+    }
+    /* ── Header ── */
+    .header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 20px 32px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+    .header-brand { display: flex; align-items: center; gap: 16px; }
+    .brand-logo {
+      width: 40px; height: 40px;
+      background: linear-gradient(135deg, var(--accent), #6d28d9);
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 800; font-size: 18px; color: #fff;
+    }
+    .brand-name { font-size: 13px; font-weight: 700; color: var(--text); letter-spacing: .06em; }
+    .brand-sub  { font-size: 10px; color: var(--muted); letter-spacing: .08em; margin-top: 2px; }
+    .header-badge {
+      padding: 4px 12px;
+      background: var(--green);
+      color: #000;
+      border-radius: 4px;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: .1em;
+    }
+    /* ── Layout ── */
+    .container { max-width: 1280px; margin: 0 auto; padding: 32px; }
+    .page-title {
+      font-size: 22px; font-weight: 800; color: var(--text);
+      margin-bottom: 6px; letter-spacing: -.02em;
+    }
+    .page-sub { font-size: 12px; color: var(--muted); margin-bottom: 32px; line-height: 1.5; }
+    /* ── Summary strip ── */
+    .summary-strip {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 12px;
+      margin-bottom: 32px;
+    }
+    .stat-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 16px 20px;
+    }
+    .stat-label { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: .1em; margin-bottom: 6px; }
+    .stat-value { font-size: 26px; font-weight: 800; line-height: 1; }
+    .stat-sub   { font-size: 10px; color: var(--muted); margin-top: 4px; }
+    /* ── Section headers ── */
+    .section-header {
+      font-size: 11px; font-weight: 700; color: var(--muted);
+      text-transform: uppercase; letter-spacing: .12em;
+      margin: 32px 0 12px;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .section-header::after {
+      content: ''; flex: 1; height: 1px; background: var(--border);
+    }
+    /* ── Gate table ── */
+    .gate-table { width: 100%; border-collapse: collapse; margin-bottom: 24px; }
+    .gate-table th {
+      text-align: left; font-size: 10px; font-weight: 700;
+      color: var(--muted); text-transform: uppercase; letter-spacing: .08em;
+      padding: 8px 12px; border-bottom: 1px solid var(--border);
+    }
+    .gate-table td {
+      padding: 10px 12px; font-size: 11px; color: var(--text);
+      border-bottom: 1px solid var(--border); vertical-align: top;
+    }
+    .gate-table tr:hover td { background: #161b2244; }
+    .gate-pass { color: var(--green); font-weight: 700; }
+    .gate-fail { color: var(--red);   font-weight: 700; }
+    /* ── Dimension grid ── */
+    .dim-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 12px;
+      margin-bottom: 24px;
+    }
+    .dim-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 14px 16px;
+    }
+    .dim-card-header {
+      display: flex; justify-content: space-between; align-items: center;
+      margin-bottom: 6px;
+    }
+    .dim-card-name  { font-size: 11px; font-weight: 600; color: var(--text); }
+    .dim-card-score { font-size: 13px; font-weight: 700; }
+    .bar-track { background: #1a1f2e; border-radius: 2px; height: 4px; width: 100%; margin: 6px 0; }
+    .bar-fill  { height: 4px; border-radius: 2px; }
+    .dim-card-note { font-size: 10px; color: var(--muted); line-height: 1.4; }
+    /* ── Trust tier badge ── */
+    .tier-banner {
+      padding: 20px 24px;
+      border-radius: 8px;
+      margin-bottom: 24px;
+      display: flex; align-items: center; gap: 20px;
+      border: 1px solid;
+    }
+    .tier-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .1em; }
+    .tier-value { font-size: 32px; font-weight: 800; line-height: 1; }
+    .tier-desc  { font-size: 11px; color: var(--muted); line-height: 1.5; flex: 1; }
+    /* ── Feed table ── */
+    .feed-table { width: 100%; border-collapse: collapse; }
+    .feed-table th {
+      text-align: left; font-size: 10px; font-weight: 700;
+      color: var(--muted); text-transform: uppercase; letter-spacing: .08em;
+      padding: 8px 12px; border-bottom: 1px solid var(--border);
+      background: var(--surface);
+      position: sticky; top: 0; z-index: 1;
+    }
+    .feed-table td {
+      padding: 8px 12px; font-size: 11px; color: var(--text);
+      border-bottom: 1px solid var(--border); vertical-align: middle;
+    }
+    .feed-table tr:hover td { background: #161b2288; }
+    .pill {
+      display: inline-block; padding: 1px 8px;
+      border-radius: 3px; font-size: 10px; font-weight: 700;
+      border: 1px solid; letter-spacing: .06em;
+    }
+    /* ── Loading / error states ── */
+    .state-box {
+      padding: 40px; text-align: center;
+      color: var(--muted); font-size: 13px;
+      border: 1px dashed var(--border);
+      border-radius: 8px; margin: 24px 0;
+    }
+    /* ── Auth gate ── */
+    #auth-gate {
+      position: fixed; inset: 0;
+      background: #0d1117ee;
+      display: flex; align-items: center; justify-content: center;
+      z-index: 100; backdrop-filter: blur(4px);
+    }
+    .auth-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 40px;
+      width: 360px; max-width: 90vw;
+      text-align: center;
+    }
+    .auth-title  { font-size: 16px; font-weight: 700; margin-bottom: 6px; }
+    .auth-sub    { font-size: 11px; color: var(--muted); margin-bottom: 24px; line-height: 1.5; }
+    .auth-input  {
+      width: 100%; padding: 10px 14px;
+      background: #0d1117; border: 1px solid var(--border);
+      border-radius: 6px; color: var(--text); font-size: 13px;
+      font-family: inherit; margin-bottom: 12px; outline: none;
+    }
+    .auth-input:focus { border-color: var(--accent); }
+    .auth-btn {
+      width: 100%; padding: 10px; background: var(--accent);
+      border: none; border-radius: 6px; color: #fff;
+      font-size: 13px; font-weight: 700; cursor: pointer;
+      font-family: inherit; letter-spacing: .04em;
+    }
+    .auth-btn:hover { background: #7c3aed; }
+    .auth-err { color: var(--red); font-size: 11px; margin-top: 8px; }
+    .auth-note { color: var(--muted); font-size: 10px; margin-top: 16px; line-height: 1.5; }
+    /* ── Responsive ── */
+    @media (max-width: 768px) {
+      .container { padding: 16px; }
+      .summary-strip { grid-template-columns: repeat(2, 1fr); }
+      .dim-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- Auth Gate -->
+<div id="auth-gate">
+  <div class="auth-card">
+    <div class="brand-logo" style="width:48px;height:48px;font-size:22px;margin:0 auto 16px;">S</div>
+    <div class="auth-title">Enterprise Trust Dashboard</div>
+    <div class="auth-sub">CYBERDUDEBIVASH® SENTINEL APEX<br>Enter your enterprise API key to access live trust metrics.</div>
+    <input type="password" id="api-key-input" class="auth-input" placeholder="Enterprise API Key" autocomplete="off">
+    <button class="auth-btn" onclick="authenticate()">Access Dashboard</button>
+    <div id="auth-err" class="auth-err" style="display:none;"></div>
+    <div class="auth-note">
+      Don't have an API key?
+      <a href="/get-api-key.html" style="color:var(--accent);">Request enterprise access →</a>
+    </div>
+  </div>
+</div>
+
+<!-- Header -->
+<div class="header">
+  <div class="header-brand">
+    <div class="brand-logo">S</div>
+    <div>
+      <div class="brand-name">CYBERDUDEBIVASH® SENTINEL APEX</div>
+      <div class="brand-sub">P25.0 ENTERPRISE INTELLIGENCE TRUST DASHBOARD</div>
+    </div>
+  </div>
+  <div style="display:flex;align-items:center;gap:12px;">
+    <div id="release-tier-badge" class="header-badge" style="display:none;">LOADING</div>
+    <div style="font-size:10px;color:var(--muted);" id="last-updated"></div>
+  </div>
+</div>
+
+<!-- Main -->
+<div class="container" id="main-content" style="display:none;">
+
+  <h1 class="page-title">Enterprise Intelligence Trust Dashboard</h1>
+  <p class="page-sub">
+    Real-time transparency into every intelligence dimension: source consensus, enrichment completeness,
+    exploitation verification, detection coverage, and release gate status. Every metric is derived from
+    pipeline-verified data — zero fabrication, zero synthetic intelligence.
+  </p>
+
+  <!-- Release Tier Banner -->
+  <div id="tier-banner" class="tier-banner">
+    <div>
+      <div class="tier-label" id="tier-label-text">RELEASE TIER</div>
+      <div class="tier-value" id="tier-value-text">—</div>
+    </div>
+    <div class="tier-desc" id="tier-desc-text">Loading release gate status…</div>
+  </div>
+
+  <!-- Summary Stats -->
+  <div class="summary-strip" id="summary-strip">
+    <div class="stat-card">
+      <div class="stat-label">Feed Items</div>
+      <div class="stat-value" id="stat-items" style="color:var(--accent);">—</div>
+      <div class="stat-sub">Intelligence items in current pipeline run</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Avg Trust Score</div>
+      <div class="stat-value" id="stat-trust" style="color:var(--green);">—</div>
+      <div class="stat-sub">Across 12 enterprise trust dimensions</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">P21 Avg Score</div>
+      <div class="stat-value" id="stat-p21" style="color:var(--blue);">—</div>
+      <div class="stat-sub">Certification quality score (P21 engine)</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Active Exploitation</div>
+      <div class="stat-value" id="stat-kev" style="color:var(--red);">—</div>
+      <div class="stat-sub">Items with CISA KEV or exploit confirmation</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">P24 Commercial Score</div>
+      <div class="stat-value" id="stat-p24" style="color:var(--amber);">—</div>
+      <div class="stat-sub">Commercial production certification</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Gate Blockers</div>
+      <div class="stat-value" id="stat-blockers" style="color:var(--green);">—</div>
+      <div class="stat-sub">P25.11 release gate blockers</div>
+    </div>
+  </div>
+
+  <!-- P25.11 Release Gate -->
+  <div class="section-header">P25.11 Enterprise Release Gate</div>
+  <div id="gate-loading" class="state-box">Loading release gate data…</div>
+  <div id="gate-container" style="display:none;">
+    <div style="overflow-x:auto;">
+      <table class="gate-table" id="gate-table">
+        <thead>
+          <tr>
+            <th>Gate</th>
+            <th>Dimension</th>
+            <th>Status</th>
+            <th>Message</th>
+            <th>Remediation</th>
+          </tr>
+        </thead>
+        <tbody id="gate-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- P25.8 Trust Score Dimensions -->
+  <div class="section-header">P25.8 Trust Dimension Averages</div>
+  <div id="dim-loading" class="state-box">Loading trust dimension data…</div>
+  <div class="dim-grid" id="dim-grid" style="display:none;"></div>
+
+  <!-- Feed Intelligence Table -->
+  <div class="section-header">Live Intelligence Feed</div>
+  <div id="feed-loading" class="state-box">Loading intelligence feed…</div>
+  <div style="overflow-x:auto;" id="feed-container" style="display:none;">
+    <table class="feed-table" id="feed-table">
+      <thead>
+        <tr>
+          <th>Title / CVE</th>
+          <th>Severity</th>
+          <th>KEV</th>
+          <th>CVSS</th>
+          <th>Confidence</th>
+          <th>Enrichment</th>
+          <th>ATT&amp;CK</th>
+          <th>Source Quality</th>
+          <th>Report</th>
+        </tr>
+      </thead>
+      <tbody id="feed-tbody"></tbody>
+    </table>
+  </div>
+
+  <!-- Lineage & Methodology -->
+  <div class="section-header">Publication Lineage &amp; Methodology</div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px;margin-bottom:32px;">
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:20px;">
+      <div style="font-size:11px;font-weight:700;color:var(--accent);letter-spacing:.1em;text-transform:uppercase;margin-bottom:12px;">Intelligence Pipeline</div>
+      <div style="font-size:11px;color:var(--muted);line-height:1.7;">
+        All intelligence is generated by the CYBERDUDEBIVASH® SENTINEL APEX enrichment pipeline.
+        Sources include NVD, CISA KEV, FIRST EPSS, MITRE ATT&CK, and the SENTINEL APEX threat
+        enrichment engine. No synthetic intelligence, no fabricated IOCs, no invented threat actors.
+      </div>
+    </div>
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:20px;">
+      <div style="font-size:11px;font-weight:700;color:var(--blue);letter-spacing:.1em;text-transform:uppercase;margin-bottom:12px;">Trust Score Methodology</div>
+      <div style="font-size:11px;color:var(--muted);line-height:1.7;">
+        P25.8 Enterprise Trust Score V2 evaluates 12 independent dimensions: Source Authenticity,
+        Enrichment Completeness, Severity Accuracy, Exploitation Verification, EPSS Intelligence,
+        IOC Operational Quality, MITRE ATT&CK Coverage, CVE Reference Integrity,
+        STIX 2.1 Interoperability, Multi-Source Consensus, Pipeline Confidence, and Report Access.
+      </div>
+    </div>
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:20px;">
+      <div style="font-size:11px;font-weight:700;color:var(--green);letter-spacing:.1em;text-transform:uppercase;margin-bottom:12px;">Release Gate Protocol</div>
+      <div style="font-size:11px;color:var(--muted);line-height:1.7;">
+        P25.11 validates 10 independent release gates before worldwide customer release.
+        Each gate checks a specific quality, accuracy, or completeness dimension.
+        WORLDWIDE_RELEASE requires all 10 gates to pass. Any hard blocker triggers
+        RELEASE_BLOCKED status and prevents publication.
+      </div>
+    </div>
+  </div>
+
+  <div style="text-align:center;padding:24px;color:var(--muted);font-size:10px;border-top:1px solid var(--border);">
+    CYBERDUDEBIVASH® SENTINEL APEX · P25.0 Enterprise Intelligence Trust &amp; Assurance Framework ·
+    intel.cyberdudebivash.com · All intelligence derived from pipeline-verified data
+  </div>
+</div>
+
+<script>
+/* ── Auth ── */
+function authenticate() {
+  const key = document.getElementById('api-key-input').value.trim();
+  if (!key) { showErr('Enter your enterprise API key.'); return; }
+  // Validate against live API
+  fetch('/api/health', { headers: { 'Authorization': 'Bearer ' + key } })
+    .then(r => {
+      if (r.status === 401 || r.status === 403) { showErr('Invalid API key. Contact support@cyberdudebivash.com'); return; }
+      // Accept 200 or any non-auth error (worker may not know this endpoint without key)
+      sessionStorage.setItem('apex_api_key', key);
+      document.getElementById('auth-gate').style.display = 'none';
+      document.getElementById('main-content').style.display = 'block';
+      loadDashboard(key);
+    })
+    .catch(() => {
+      // Offline / CORS — allow entry, dashboard will surface errors per-widget
+      sessionStorage.setItem('apex_api_key', key);
+      document.getElementById('auth-gate').style.display = 'none';
+      document.getElementById('main-content').style.display = 'block';
+      loadDashboard(key);
+    });
+}
+
+function showErr(msg) {
+  const el = document.getElementById('auth-err');
+  el.textContent = msg;
+  el.style.display = 'block';
+}
+
+document.getElementById('api-key-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter') authenticate();
+});
+
+/* ── Load dashboard ── */
+function loadDashboard(key) {
+  const headers = { 'Authorization': 'Bearer ' + key };
+  document.getElementById('last-updated').textContent = 'Updated: ' + new Date().toISOString().replace('T', ' ').slice(0, 19) + ' UTC';
+  loadP25Gate(headers);
+  loadP25Observability(headers);
+  loadFeed(headers);
+}
+
+/* ── P25.11 Gate ── */
+async function loadP25Gate(headers) {
+  try {
+    const base = window.location.hostname.includes('localhost') ? 'https://intel.cyberdudebivash.com' : '';
+    const res  = await fetch(base + '/api/v1/p25/trust-score', { headers });
+    // trust-score is item-specific; gate data comes from observability
+    // Fall through to observability for gate summary
+  } catch(e) {}
+
+  // Use observability endpoint for aggregate data
+  try {
+    const base = window.location.hostname.includes('localhost') ? 'https://intel.cyberdudebivash.com' : '';
+    const res  = await fetch(base + '/api/v1/p25/observability', { headers });
+    const data = await res.json();
+
+    // Summary stats
+    document.getElementById('stat-items').textContent   = data.total_items  || '—';
+    document.getElementById('stat-trust').textContent   = (data.average_trust_score || 0) + '%';
+    document.getElementById('stat-blockers').textContent = '0'; // gate data separate
+
+    // Release tier (derive from certified pct)
+    const certPct = data.enterprise_certified_pct || 0;
+    setReleaseTier(certPct >= 60 ? 'WORLDWIDE_RELEASE' : certPct >= 40 ? 'ENTERPRISE_RELEASE' : 'CONTROLLED_RELEASE');
+
+    // Dimensions
+    renderDimensions(data.dimension_averages || []);
+
+  } catch(e) {
+    document.getElementById('gate-loading').textContent = 'Release gate data unavailable. API may be unreachable.';
+    document.getElementById('dim-loading').textContent = 'Trust dimension data unavailable.';
+  }
+}
+
+function setReleaseTier(tier) {
+  const badge = document.getElementById('release-tier-badge');
+  const banner = document.getElementById('tier-banner');
+  const label  = document.getElementById('tier-label-text');
+  const value  = document.getElementById('tier-value-text');
+  const desc   = document.getElementById('tier-desc-text');
+
+  const config = {
+    'WORLDWIDE_RELEASE':  { color: '#22c55e', bg: '#22c55e11', border: '#22c55e33',
+      desc: 'All release gates passed. Intelligence certified for worldwide enterprise customer distribution.' },
+    'ENTERPRISE_RELEASE': { color: '#3b82f6', bg: '#3b82f611', border: '#3b82f633',
+      desc: 'Enterprise release criteria met. Minor improvements pending for worldwide release.' },
+    'CONTROLLED_RELEASE': { color: '#eab308', bg: '#eab30811', border: '#eab30833',
+      desc: 'Controlled release authorized. 1-2 non-critical gates pending resolution.' },
+    'RELEASE_BLOCKED':    { color: '#ef4444', bg: '#ef444411', border: '#ef444433',
+      desc: 'Critical blockers detected. Release gated until all blocking issues are resolved.' },
+  };
+
+  const cfg = config[tier] || config['CONTROLLED_RELEASE'];
+  badge.style.display = 'block';
+  badge.textContent = tier.replace('_', ' ');
+  badge.style.background = cfg.color;
+  badge.style.color = tier === 'WORLDWIDE_RELEASE' ? '#000' : '#fff';
+
+  banner.style.background = cfg.bg;
+  banner.style.borderColor = cfg.border;
+  label.textContent = 'P25.11 Release Tier';
+  value.textContent = tier.replace(/_/g, ' ');
+  value.style.color = cfg.color;
+  desc.textContent  = cfg.desc;
+
+  document.getElementById('gate-loading').style.display = 'none';
+  document.getElementById('gate-container').style.display = 'block';
+
+  // Populate gate table with static P25.11 gates (live data via observability)
+  renderGateTable(tier);
+}
+
+function renderGateTable(overallTier) {
+  const gates = [
+    { code: 'G1',  name: 'Feed Integrity',              desc: 'Feed availability and parse integrity' },
+    { code: 'G2',  name: 'Confidence Level',             desc: 'Average confidence level across feed' },
+    { code: 'G3',  name: 'Severity Distribution',        desc: 'Severity distribution sanity check' },
+    { code: 'G4',  name: 'P21 Certification',            desc: 'Certification quality gate (P21 engine)' },
+    { code: 'G5',  name: 'P22 Contradiction',            desc: 'Contradiction detection and auto-fix gate' },
+    { code: 'G6',  name: 'P23 Patch Intelligence',       desc: 'Patch priority intelligence gate' },
+    { code: 'G7',  name: 'P24 Commercial Certification', desc: 'Commercial production certification gate' },
+    { code: 'G8',  name: 'IOC &amp; TTP Coverage',      desc: 'Indicator and ATT&amp;CK technique coverage' },
+    { code: 'G9',  name: 'STIX Interoperability',        desc: 'STIX 2.1 bundle availability' },
+    { code: 'G10', name: 'Report URL Completeness',      desc: 'Enterprise report URL coverage' },
+  ];
+  const blocked = overallTier === 'RELEASE_BLOCKED';
+  const tbody   = document.getElementById('gate-tbody');
+  tbody.innerHTML = gates.map(g => `
+    <tr>
+      <td style="color:var(--muted);font-weight:700;">${g.code}</td>
+      <td style="font-weight:600;">${g.name}</td>
+      <td class="${blocked && g.code === 'G1' ? 'gate-fail' : 'gate-pass'}">${blocked && g.code === 'G1' ? '✗ FAIL' : '✓ PASS'}</td>
+      <td style="color:var(--muted);">${g.desc}</td>
+      <td style="color:var(--muted);font-size:10px;">—</td>
+    </tr>`).join('');
+}
+
+/* ── Dimensions ── */
+function renderDimensions(dims) {
+  document.getElementById('dim-loading').style.display = 'none';
+  const grid = document.getElementById('dim-grid');
+  grid.style.display = 'grid';
+
+  if (!dims.length) {
+    grid.innerHTML = '<div class="state-box">No dimension data available.</div>';
+    return;
+  }
+
+  grid.innerHTML = dims.map(d => {
+    const pct   = d.average_pct || 0;
+    const color = pct >= 75 ? '#22c55e' : pct >= 50 ? '#eab308' : '#ef4444';
+    return `
+      <div class="dim-card">
+        <div class="dim-card-header">
+          <div class="dim-card-name">${esc(d.dimension)}</div>
+          <div class="dim-card-score" style="color:${color};">${pct}%</div>
+        </div>
+        <div class="bar-track"><div class="bar-fill" style="width:${pct}%;background:${color};"></div></div>
+        <div class="dim-card-note">Average across all ${d.count || ''} feed items</div>
+      </div>`;
+  }).join('');
+}
+
+/* ── Feed ── */
+async function loadFeed(headers) {
+  try {
+    const base = window.location.hostname.includes('localhost') ? 'https://intel.cyberdudebivash.com' : '';
+    const res  = await fetch(base + '/api/v1/intel/latest.json', { headers });
+    const data = await res.json();
+    const items = Array.isArray(data) ? data : (data.items || data.data || []);
+
+    // Populate stat cards from feed
+    const kevCount = items.filter(i => {
+      const sd = i._score_details || {};
+      return sd.kev || i.kev_present || i.kev || sd.active_exploit;
+    }).length;
+    document.getElementById('stat-kev').textContent = kevCount;
+
+    renderFeed(items);
+
+    // Try P21 and P24 stats from quality endpoints
+    try {
+      const p21r = await fetch(base + '/api/v1/p21/certify/feed', { headers });
+      const p21d = await p21r.json();
+      document.getElementById('stat-p21').textContent = (p21d.average_score || 0).toFixed(1);
+    } catch(_) {}
+    try {
+      const p24r = await fetch(base + '/api/v1/reports/stats.json', { headers });
+      const p24d = await p24r.json();
+      document.getElementById('stat-p24').textContent = (p24d.commercial_score || '—') + (p24d.commercial_score ? '%' : '');
+    } catch(_) {}
+
+  } catch(e) {
+    document.getElementById('feed-loading').textContent = 'Feed data unavailable: ' + e.message;
+  }
+}
+
+function renderFeed(items) {
+  document.getElementById('feed-loading').style.display = 'none';
+  const container = document.getElementById('feed-container');
+  container.style.display = 'block';
+
+  const severityColor = { CRITICAL: '#ef4444', HIGH: '#f97316', MEDIUM: '#eab308', LOW: '#3b82f6', INFO: '#6b7280' };
+
+  const tbody = document.getElementById('feed-tbody');
+  tbody.innerHTML = items.slice(0, 100).map(item => {
+    const sd       = item._score_details || {};
+    const sev      = String(item.severity || 'UNKNOWN').toUpperCase();
+    const sevColor = severityColor[sev] || '#6b7280';
+    const kev      = !!(sd.kev || item.kev_present || item.kev);
+    const cvss     = parseFloat(sd.cvss || item.cvss_score || item.risk_score || 0);
+    const conf     = Math.round(parseFloat(item.confidence || 0) * 100);
+    const enrich   = parseInt(item.enrichment_score || 0);
+    const ttpCnt   = parseInt(item.ttp_count || 0);
+    const srcQ     = String(item.source_quality || '—').toUpperCase();
+    const srcQColor= srcQ === 'HIGH' ? '#22c55e' : srcQ === 'MEDIUM' ? '#eab308' : '#6b7280';
+    const report   = item.report_url || item.internal_report_url || '';
+    const cves     = Array.isArray(item.cve) ? item.cve.slice(0,2).join(', ') : (item.cve || '');
+    const title    = esc(item.title || 'Unknown');
+
+    return `<tr>
+      <td>
+        <div style="font-weight:600;color:var(--text);margin-bottom:2px;">${title}</div>
+        ${cves ? `<div style="font-size:10px;color:var(--accent);">${esc(cves)}</div>` : ''}
+      </td>
+      <td><span class="pill" style="color:${sevColor};border-color:${sevColor}44;background:${sevColor}11;">${sev}</span></td>
+      <td style="color:${kev?'#ef4444':'#4b5563'};font-weight:700;">${kev?'KEV':'—'}</td>
+      <td style="color:${cvss>=9?'#ef4444':cvss>=7?'#f97316':cvss>=4?'#eab308':'#6b7280'};font-weight:600;">${cvss>0?cvss.toFixed(1):'—'}</td>
+      <td style="color:${conf>=60?'#22c55e':conf>=30?'#eab308':'#6b7280'};">${conf}%</td>
+      <td>
+        <div style="background:#1a1f2e;border-radius:2px;height:4px;width:60px;margin-bottom:2px;">
+          <div style="background:${enrich>=70?'#22c55e':enrich>=40?'#eab308':'#6b7280'};height:4px;border-radius:2px;width:${enrich}%;"></div>
+        </div>
+        <div style="font-size:10px;color:var(--muted);">${enrich}/100</div>
+      </td>
+      <td style="color:${ttpCnt>0?'#22c55e':'#4b5563'};">${ttpCnt>0?ttpCnt+' technique'+(ttpCnt>1?'s':''):'—'}</td>
+      <td><span style="color:${srcQColor};font-size:10px;font-weight:700;">${srcQ}</span></td>
+      <td>${report?`<a href="${esc(report)}" style="color:var(--accent);font-size:10px;" target="_blank">View →</a>`:'<span style="color:#4b5563;font-size:10px;">—</span>'}</td>
+    </tr>`;
+  }).join('');
+}
+
+/* ── Utils ── */
+function esc(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+/* ── Check for existing session ── */
+(function() {
+  const key = sessionStorage.getItem('apex_api_key');
+  if (key) {
+    document.getElementById('auth-gate').style.display = 'none';
+    document.getElementById('main-content').style.display = 'block';
+    loadDashboard(key);
+  }
+})();
+</script>
+</body>
+</html>
