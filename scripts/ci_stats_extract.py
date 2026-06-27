@@ -72,11 +72,22 @@ _REPORTS: dict = {
             d.get("total_gates", 0),
         ],
     ),
+    "p28": (
+        _ROOT / "data" / "quality" / "p28_certification_report.json",
+        lambda d: [
+            d.get("release_tier", "UNKNOWN"),
+            d.get("blocker_count", 0),
+            d.get("warning_count", 0),
+            d.get("passed_count", 0),
+            d.get("total_gates", 0),
+        ],
+    ),
 }
 
 _FALLBACKS = {
     "p21": "? ? ? ?", "p22": "? ? ? ?", "p23": "? ?",
-    "p24": "UNKNOWN 0 0", "p25": "UNKNOWN 0 0", "p26": "UNKNOWN 0 0 0", "p27": "UNKNOWN 0 0 0 0",
+    "p24": "UNKNOWN 0 0", "p25": "UNKNOWN 0 0", "p26": "UNKNOWN 0 0 0",
+    "p27": "UNKNOWN 0 0 0 0", "p28": "UNKNOWN 0 0 0 0",
 }
 
 

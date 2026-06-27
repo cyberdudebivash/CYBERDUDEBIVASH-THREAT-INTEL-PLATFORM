@@ -78,6 +78,7 @@ import { buildThreatHuntingBlock, buildIRPackageBlock, buildPatchPriorityBlock, 
 import { buildP25TrustPackage, buildExplainableScoreBlock, buildSourceConsensusBlock, buildAnalystExplainabilityBlock, buildTrustScoreBlock, buildPublicationLineageBlock, handleP25TrustScore, handleP25Observability } from './p25-handlers.js';
 import { buildP26Package, buildP26TrustBadgesBlock, buildP26GradeCardBlock, buildP26CertificationBlock, handleP26Grade, handleP26FeedGrade, handleP26Observability } from './p26-handlers.js';
 import { buildP27Package, buildP27ExposureAnalysisBlock, buildP27MultiAudienceBlock, buildP27IntelBenchmarkBlock, buildP27StructuralIntegrityBlock, handleP27Certify, handleP27Observability } from './p27-handlers.js';
+import { buildP28Package, buildP28EnvironmentRiskBlock, buildP28BusinessImpactBlock, buildP28ActionCenterBlock, buildP28RoleGuidanceBlock, buildP28FeedbackBlock, buildP28MetricsBlock, handleP28Feedback, handleP28Certify, handleP28Observability } from './p28-handlers.js';
 import { routeEnterpriseEndpoint } from './enterprise-endpoints.js';
 import { handleSearch, handleActors, handleCVEs, handleMISPExport as handleMISPExportExt, handleCSVExport, handleCorrelate, handlePredict, handleCampaigns, handleAnomalies, handleIntelGraph, handleIntelRelations } from './api-extensions.js';
 const PLATFORM_VERSION    = "184.0";
@@ -902,6 +903,24 @@ ${buildTrustScoreBlock(item)}
 
 <!-- P25.9: Publication Lineage -->
 ${buildPublicationLineageBlock(item, env)}
+
+<!-- P28.1: Customer Environment Risk Mapping -->
+${buildP28EnvironmentRiskBlock(item)}
+
+<!-- P28.3: Executive Business Impact -->
+${buildP28BusinessImpactBlock(item)}
+
+<!-- P28.5: Customer Action Center -->
+${buildP28ActionCenterBlock(item)}
+
+<!-- P28.7: Role-Based Operational Guidance -->
+${buildP28RoleGuidanceBlock(item)}
+
+<!-- P28.10: Operational Metrics -->
+${buildP28MetricsBlock(item)}
+
+<!-- P28.9: Customer Feedback -->
+${buildP28FeedbackBlock(item)}
 </body>
 </html>`;
 }
@@ -3832,6 +3851,11 @@ async function handleRequest(request, env, ctx) {
   // --- P27: Enterprise Threat Intelligence Operations Excellence (additive, v27.0) ---
   if (path === "/api/v1/p27/certify")              return await handleP27Certify(request, env);
   if (path === "/api/v1/p27/observability")        return await handleP27Observability(request, env);
+
+  // --- P28: Enterprise Risk Intelligence & Customer Value Platform (additive, v28.0) ---
+  if (path === "/api/v1/p28/feedback")             return await handleP28Feedback(request, env);
+  if (path === "/api/v1/p28/certify")              return await handleP28Certify(request, env);
+  if (path === "/api/v1/p28/observability")        return await handleP28Observability(request, env);
 
   // --- api-extensions.js routes (previously unreachable  -  now wired, auth already resolved above) ---
   if (path === "/api/search")                       return await handleSearch(request, env, auth, crypto.randomUUID());
