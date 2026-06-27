@@ -1706,15 +1706,7 @@ jobs:
           python3 scripts/p21_certification_gate.py
           EXIT=$?
           if [ -f "data/quality/p21_certification_report.json" ]; then
-            _P21=$(python3 -c "
-import json
-try:
-    d=json.load(open('data/quality/p21_certification_report.json'))
-    ld=d.get('level_distribution',{})
-    print(d.get('total_items',0),d.get('average_score',0),ld.get('PREMIUM_CERTIFIED',0),ld.get('ENTERPRISE_READY',0))
-except Exception: print('? ? ? ?')
-" 2>/dev/null || echo "? ? ? ?")
-            read -r TOTAL AVG PREM ENT <<< "${_P21}"
+            read -r TOTAL AVG PREM ENT <<< "$(python3 scripts/ci_stats_extract.py p21 2>/dev/null || echo '? ? ? ?')"
             echo "[P21.0] Certified: ${TOTAL} items | Avg: ${AVG}/100 | Premium: ${PREM} | Enterprise: ${ENT}"
           fi
           exit 0
@@ -1741,14 +1733,7 @@ except Exception: print('? ? ? ?')
           python3 scripts/p22_contradiction_detector.py
           EXIT=$?
           if [ -f "data/quality/p22_contradiction_report.json" ]; then
-            _P22=$(python3 -c "
-import json
-try:
-    d=json.load(open('data/quality/p22_contradiction_report.json'))
-    print(d.get('items_checked',0),d.get('total_contradictions',0),d.get('error_count',0),d.get('warning_count',0))
-except Exception: print('? ? ? ?')
-" 2>/dev/null || echo "? ? ? ?")
-            read -r CHECKED TOTAL ERRORS WARNS <<< "${_P22}"
+            read -r CHECKED TOTAL ERRORS WARNS <<< "$(python3 scripts/ci_stats_extract.py p22 2>/dev/null || echo '? ? ? ?')"
             echo "[P22.3] Checked: ${CHECKED} items | Contradictions: ${TOTAL} | Errors: ${ERRORS} | Warnings: ${WARNS}"
             if [ "${ERRORS}" != "?" ] && [ "${ERRORS}" -gt "0" ] 2>/dev/null; then
               echo "::warning::P22.3 Contradiction Detector: ${ERRORS} ERROR-level contradictions detected in feed. Review data/quality/p22_contradiction_report.json."
@@ -1774,14 +1759,7 @@ except Exception: print('? ? ? ?')
         run: |
           python3 scripts/p23_patch_prioritizer.py
           if [ -f "data/quality/p23_patch_priority_report.json" ]; then
-            _P23=$(python3 -c "
-import json
-try:
-    d=json.load(open('data/quality/p23_patch_priority_report.json'))
-    print(d.get('items_processed',0),d.get('immediate_count',0))
-except Exception: print('? ?')
-" 2>/dev/null || echo "? ?")
-            read -r TOTAL IMMED <<< "${_P23}"
+            read -r TOTAL IMMED <<< "$(python3 scripts/ci_stats_extract.py p23 2>/dev/null || echo '? ?')"
             echo "[P23.5] Processed: ${TOTAL} items | PATCH IMMEDIATELY: ${IMMED}"
             if [ "${IMMED}" != "?" ] && [ "${IMMED}" -gt "0" ] 2>/dev/null; then
               echo "::warning::P23.5 Patch Prioritizer: ${IMMED} item(s) require IMMEDIATE patching — KEV confirmed or critical risk score."
