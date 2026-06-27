@@ -72,6 +72,7 @@ import { handleP17Orchestrator, handleP17DigitalTwin, handleP17CampaignForecast,
 import { handleP18Correlation, handleP18TrustIndicators, handleP18Validate, handleP18QualityScore, handleP18IOCEnriched, handleP18ConfidenceMethod, buildTrustIndicatorBlock } from './p18-handlers.js';
 import { buildSOCBlock, buildIOCDetailBlock, buildDetectionBlock, buildMitreTechBlock, buildExecutiveBlock, buildAnalystBlock, handleP19Certify, handleP19Scorecard, normalizeTierForEE } from './p19-handlers.js';
 import { stripMarkdown, filterBehavioralTags, formatConfidenceForHeader, buildEvidenceChainBlock, buildIOCQualityBlock, buildAttributionRationaleBlock, buildP20ExecutiveBlock, buildP20QualityGateBlock, buildBenchmarkBlock, handleP20QualityReport, handleP20FeedAudit } from './p20-handlers.js';
+import { buildP21CertificationBlock, buildP21ScorecardComparison, handleP21Certify, handleP21FeedCertify, handleP21Dashboard, handleP21Observability } from './p21-handlers.js';
 import { routeEnterpriseEndpoint } from './enterprise-endpoints.js';
 import { handleSearch, handleActors, handleCVEs, handleMISPExport as handleMISPExportExt, handleCSVExport, handleCorrelate, handlePredict, handleCampaigns, handleAnomalies, handleIntelGraph, handleIntelRelations } from './api-extensions.js';
 const PLATFORM_VERSION    = "184.0";
@@ -802,7 +803,12 @@ ${buildP20QualityGateBlock(item)}
 
 <!-- P20.8: Benchmark Comparison -->
 ${buildBenchmarkBlock(item)}
->>>>>>> Stashed changes
+
+<!-- P21.0: Enterprise Certification Gate -->
+${buildP21CertificationBlock(item)}
+
+<!-- P21.7: Commercial Readiness Scorecard -->
+${buildP21ScorecardComparison(item)}
 </body>
 </html>`;
 }
@@ -3708,6 +3714,11 @@ async function handleRequest(request, env, ctx) {
   // --- P20: Enterprise Threat Intelligence Trust & Quality Platform (additive, v20.0) ------
   if (path === "/api/v1/reports/p20/quality")       return await handleP20QualityReport(request, env);
   if (path === "/api/v1/reports/p20/audit")         return await handleP20FeedAudit(request, env);
+  // --- P21: Enterprise Intelligence Certification System (additive, v21.0) ----------------
+  if (path === "/api/v1/p21/certify")               return await handleP21Certify(request, env);
+  if (path === "/api/v1/p21/certify/feed")          return await handleP21FeedCertify(request, env);
+  if (path === "/api/v1/p21/dashboard")             return await handleP21Dashboard(request, env);
+  if (path === "/api/v1/p21/observability")         return await handleP21Observability(request, env);
 
   // --- api-extensions.js routes (previously unreachable — now wired, auth already resolved above) ---
   if (path === "/api/search")                       return await handleSearch(request, env, auth, crypto.randomUUID());
