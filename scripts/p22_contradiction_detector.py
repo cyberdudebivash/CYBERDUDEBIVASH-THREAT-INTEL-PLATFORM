@@ -81,7 +81,12 @@ def _parse_ts(ts: str) -> Optional[datetime]:
     if not ts:
         return None
     try:
-        return datetime.fromisoformat(ts.replace("Z", "+00:00"))
+        dt = datetime.fromisoformat(ts.replace("Z", "+00:00"))
+        # Normalize to naive UTC — avoids TypeError when one timestamp has tzinfo
+        # and the other does not (offset-naive vs offset-aware subtraction).
+        if dt.tzinfo is not None:
+            dt = dt.replace(tzinfo=None)
+        return dt
     except Exception:
         return None
 
