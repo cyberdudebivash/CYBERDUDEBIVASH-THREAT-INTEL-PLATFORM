@@ -631,50 +631,442 @@ level: high
 """
 
 
+# ── P20.4 FIX: Six additional vulnerability class dispatchers ─────────────────
+# Previously fell through to sigma_generic_cve with useless template detection.
+# Now each produces product-specific, deployable detection logic.
+
+def sigma_idor(cve_id: str, title: str, iocs: List[str], ttp_ids: List[str]) -> str:
+    """Sigma for IDOR / Broken Access Control / Authorization Bypass."""
+    rule_id = f"apex-idor-{hashlib.md5((cve_id or title).encode()).hexdigest()[:8]}"
+    refs = ["https://intel.cyberdudebivash.com",
+            "https://attack.mitre.org/techniques/T1078/",
+            f"https://nvd.nist.gov/vuln/detail/{cve_id}" if cve_id else "https://owasp.org/Top10/A01_2021-Broken_Access_Control/"]
+    tags = ["attack.privilege_escalation", "attack.t1078", "attack.t1548",
+            "attack.discovery", "attack.t1083"]
+    header = _sigma_header(rule_id,
+        f"APEX - {title[:60]} — IDOR / Broken Access Control",
+        f"Detects exploitation of IDOR or broken access control vulnerability {cve_id}. "
+        "Monitors for unauthorized access to object IDs or resources outside the user's scope.",
+        refs, tags, "high")
+    return header + """
+logsource:
+  category: webserver
+detection:
+  idor_sequential_probing:
+    cs-uri-stem|re: '/(api|v[0-9]+|rest)/(users?|accounts?|orders?|files?|docs?|profiles?|admin)/[0-9]+'
+    cs-method: 'GET'
+  idor_unauthorized_response:
+    sc-status:
+      - 200
+      - 201
+    cs-username|not|contains: 'admin'
+    cs-uri-stem|contains:
+      - '/admin/'
+      - '/internal/'
+      - '/privileged/'
+      - '/management/'
+  access_control_bypass:
+    cs-uri-stem|contains:
+      - '../'
+      - '/./.'
+      - '/./'
+    cs-method:
+      - 'DELETE'
+      - 'PUT'
+      - 'PATCH'
+  condition: idor_sequential_probing or idor_unauthorized_response or access_control_bypass
+falsepositives:
+  - Legitimate administrative access to object IDs
+  - API testing by authorized security teams
+level: high
+"""
+
+
+def sigma_xss(cve_id: str, title: str, iocs: List[str], ttp_ids: List[str]) -> str:
+    """Sigma for Cross-Site Scripting (Reflected, Stored, DOM)."""
+    rule_id = f"apex-xss-{hashlib.md5((cve_id or title).encode()).hexdigest()[:8]}"
+    refs = ["https://intel.cyberdudebivash.com",
+            f"https://nvd.nist.gov/vuln/detail/{cve_id}" if cve_id else "https://owasp.org/www-community/attacks/xss/"]
+    tags = ["attack.initial_access", "attack.t1189", "attack.credential_access", "attack.t1539"]
+    header = _sigma_header(rule_id,
+        f"APEX - {title[:60]} — Cross-Site Scripting (XSS)",
+        f"Detects XSS injection attempts for {cve_id}. "
+        "Monitors for script injection payloads in HTTP parameters and response bodies.",
+        refs, tags, "high")
+    return header + """
+logsource:
+  category: webserver
+detection:
+  xss_payload_in_request:
+    cs-uri-query|contains:
+      - '<script'
+      - 'javascript:'
+      - 'onerror='
+      - 'onload='
+      - 'onclick='
+      - 'alert('
+      - 'document.cookie'
+      - 'document.write'
+      - 'eval('
+      - 'fromCharCode'
+      - '"><script'
+      - "';alert"
+  xss_encoded_payload:
+    cs-uri-query|contains:
+      - '%3Cscript'
+      - '%22%3E%3Cscript'
+      - '&#x3C;script'
+      - '&lt;script'
+  xss_body_injection:
+    cs-method: 'POST'
+    cs-uri-stem|endswith:
+      - '.php'
+      - '.asp'
+      - '.aspx'
+      - '.jsp'
+    cs-bytes|contains:
+      - '<script'
+      - 'javascript:'
+  condition: xss_payload_in_request or xss_encoded_payload or xss_body_injection
+falsepositives:
+  - Web Application Firewall testing by security teams
+  - Source code submission via web forms (legitimate developer activity)
+level: high
+"""
+
+
+def sigma_priv_esc(cve_id: str, title: str, iocs: List[str], ttp_ids: List[str]) -> str:
+    """Sigma for Local Privilege Escalation."""
+    rule_id = f"apex-privesc-{hashlib.md5((cve_id or title).encode()).hexdigest()[:8]}"
+    refs = ["https://intel.cyberdudebivash.com",
+            "https://attack.mitre.org/techniques/T1548/",
+            f"https://nvd.nist.gov/vuln/detail/{cve_id}" if cve_id else ""]
+    tags = ["attack.privilege_escalation", "attack.t1548", "attack.t1068",
+            "attack.defense_evasion", "attack.t1055"]
+    header = _sigma_header(rule_id,
+        f"APEX - {title[:60]} — Local Privilege Escalation",
+        f"Detects local privilege escalation exploitation for {cve_id}. "
+        "Monitors for process token manipulation, SUID abuse, and service exploitation patterns.",
+        refs, tags, "high")
+    return header + """
+logsource:
+  category: process_creation
+  product: linux
+detection:
+  suid_binary_execution:
+    Image|endswith:
+      - '/pkexec'
+      - '/sudo'
+      - '/su'
+      - '/doas'
+    User|not|contains: 'root'
+  setuid_call:
+    Syscall: 'setuid'
+    NewUID: '0'
+  capability_abuse:
+    CommandLine|contains:
+      - 'cap_setuid'
+      - 'cap_sys_admin'
+      - '/proc/self/mem'
+      - 'ptrace'
+  kernel_exploit_indicators:
+    CommandLine|contains:
+      - '/tmp/exploit'
+      - '/dev/shm/exploit'
+      - 'chmod +x /tmp/'
+      - 'chmod 777 /tmp/'
+    CurrentDirectory|startswith: '/tmp'
+  condition: suid_binary_execution or setuid_call or capability_abuse or kernel_exploit_indicators
+falsepositives:
+  - Legitimate sudo usage by administrators
+  - Authorized privilege transitions for system services
+  - Security tooling running with elevated privileges
+level: high
+"""
+
+
+def sigma_memory_corruption(cve_id: str, title: str, iocs: List[str], ttp_ids: List[str]) -> str:
+    """Sigma for Memory Corruption / Buffer Overflow / Use-After-Free."""
+    rule_id = f"apex-memcorr-{hashlib.md5((cve_id or title).encode()).hexdigest()[:8]}"
+    refs = ["https://intel.cyberdudebivash.com",
+            f"https://nvd.nist.gov/vuln/detail/{cve_id}" if cve_id else ""]
+    tags = ["attack.execution", "attack.t1203", "attack.initial_access", "attack.t1190"]
+    header = _sigma_header(rule_id,
+        f"APEX - {title[:60]} — Memory Corruption / Buffer Overflow",
+        f"Detects exploitation of memory corruption vulnerability {cve_id}. "
+        "Monitors for process crashes, core dumps, and shellcode staging patterns "
+        "consistent with heap/stack overflow exploitation.",
+        refs, tags, "high")
+    return header + """
+logsource:
+  category: process_creation
+detection:
+  process_crash_indicators:
+    Image|endswith:
+      - '/crash'
+      - '/core'
+    CommandLine|contains:
+      - 'segfault'
+      - 'SIGSEGV'
+      - 'SIGABRT'
+  shellcode_staging_nop_sled:
+    CommandLine|contains:
+      - '\\x90\\x90\\x90'
+      - '\\x41\\x41\\x41'
+      - 'AAAAAAAAAA'
+  post_exploitation_shell:
+    ParentImage|endswith:
+      - '/apache2'
+      - '/httpd'
+      - '/nginx'
+      - '/php-fpm'
+      - '/java'
+      - '/python3'
+    Image|endswith:
+      - '/sh'
+      - '/bash'
+      - '/dash'
+      - '/nc'
+      - '/ncat'
+  asan_crash_exploitation:
+    CommandLine|contains:
+      - '==ERROR: AddressSanitizer'
+      - 'heap-buffer-overflow'
+      - 'stack-buffer-overflow'
+      - 'use-after-free'
+  condition: process_crash_indicators or shellcode_staging_nop_sled or post_exploitation_shell or asan_crash_exploitation
+falsepositives:
+  - Legitimate process crashes from software bugs unrelated to exploitation
+  - Fuzzing and security testing in controlled environments
+  - Address sanitizer in development environments
+level: high
+"""
+
+
+def sigma_deserialization(cve_id: str, title: str, iocs: List[str], ttp_ids: List[str]) -> str:
+    """Sigma for Deserialization / Java Deserialization / Object Injection."""
+    rule_id = f"apex-deser-{hashlib.md5((cve_id or title).encode()).hexdigest()[:8]}"
+    refs = ["https://intel.cyberdudebivash.com",
+            "https://attack.mitre.org/techniques/T1059/",
+            f"https://nvd.nist.gov/vuln/detail/{cve_id}" if cve_id else ""]
+    tags = ["attack.execution", "attack.t1059", "attack.t1059.007",
+            "attack.initial_access", "attack.t1190"]
+    header = _sigma_header(rule_id,
+        f"APEX - {title[:60]} — Deserialization / Object Injection",
+        f"Detects unsafe deserialization exploitation for {cve_id}. "
+        "Monitors for Java deserialization gadget chain patterns and "
+        "unexpected process spawning from serialization-handling services.",
+        refs, tags, "critical")
+    return header + """
+logsource:
+  category: process_creation
+detection:
+  java_deser_shell_spawn:
+    ParentImage|endswith:
+      - '/java'
+      - '/java.exe'
+    Image|endswith:
+      - '/bash'
+      - '/sh'
+      - '/cmd.exe'
+      - '/powershell.exe'
+      - '/curl'
+      - '/wget'
+  ysoserial_gadget_indicators:
+    CommandLine|contains:
+      - 'CommonsCollections'
+      - 'Spring1'
+      - 'Jdk7u21'
+      - 'URLDNS'
+      - 'FileUpload1'
+      - 'CommonsBeanutils1'
+  python_pickle_rce:
+    CommandLine|contains:
+      - '__reduce__'
+      - 'pickle.loads'
+      - 'os.system'
+    Image|endswith:
+      - '/python'
+      - '/python3'
+      - '/python.exe'
+  php_object_injection:
+    CommandLine|contains:
+      - '__wakeup'
+      - '__destruct'
+      - 'unserialize('
+      - 'O:8:"stdClass"'
+  condition: java_deser_shell_spawn or ysoserial_gadget_indicators or python_pickle_rce or php_object_injection
+falsepositives:
+  - Legitimate Java applications spawning subprocesses
+  - Application servers with embedded scripting
+level: critical
+"""
+
+
+def sigma_lfi_rfi(cve_id: str, title: str, iocs: List[str], ttp_ids: List[str]) -> str:
+    """Sigma for Local File Inclusion / Remote File Inclusion."""
+    rule_id = f"apex-lfi-{hashlib.md5((cve_id or title).encode()).hexdigest()[:8]}"
+    refs = ["https://intel.cyberdudebivash.com",
+            f"https://nvd.nist.gov/vuln/detail/{cve_id}" if cve_id else ""]
+    tags = ["attack.discovery", "attack.t1083", "attack.initial_access",
+            "attack.t1190", "attack.credential_access"]
+    header = _sigma_header(rule_id,
+        f"APEX - {title[:60]} — Local/Remote File Inclusion",
+        f"Detects LFI/RFI exploitation for {cve_id}. "
+        "Monitors for path traversal sequences and remote URL inclusion in "
+        "file parameter inputs to web applications.",
+        refs, tags, "high")
+    return header + """
+logsource:
+  category: webserver
+detection:
+  path_traversal_lfi:
+    cs-uri-query|contains:
+      - '../../../'
+      - '..%2F..%2F'
+      - '..../'
+      - '..%252f'
+      - '%2e%2e/'
+      - '..\\..\\..\\windows'
+  sensitive_file_inclusion:
+    cs-uri-query|contains:
+      - '/etc/passwd'
+      - '/etc/shadow'
+      - 'proc/self/environ'
+      - 'proc/self/cmdline'
+      - 'windows/system32'
+      - 'windows/win.ini'
+      - '.htaccess'
+      - '.env'
+      - 'wp-config.php'
+  remote_file_inclusion:
+    cs-uri-query|contains:
+      - 'http://'
+      - 'https://'
+      - 'ftp://'
+      - 'data://'
+      - 'php://input'
+      - 'php://filter'
+    cs-uri-stem|endswith:
+      - '.php'
+      - '.asp'
+      - '.aspx'
+      - '.jsp'
+  condition: path_traversal_lfi or sensitive_file_inclusion or remote_file_inclusion
+falsepositives:
+  - Web security scanners and penetration testing tools
+  - Legitimate file path parameters containing dots or slashes
+level: high
+"""
+
+
 def sigma_generic_cve(cve_id: str, title: str, iocs: List[str], ttp_ids: List[str],
-                      vuln_class: str = "GENERIC_CVE") -> str:
-    """Catch-all Sigma rule for CVEs that don't match a specific class."""
-    rule_id = f"apex-generic-{hashlib.md5(cve_id.encode()).hexdigest()[:8]}"
-    refs = [f"https://intel.cyberdudebivash.com"]
-    if cve_id:
+                      vuln_class: str = "GENERIC_CVE",
+                      affected_product: str = "") -> str:
+    """
+    Catch-all Sigma rule for CVEs that don't match a specific class.
+    P20.4 FIX: Now generates product-aware detection using affected product
+    context from tags/affected_products. No more universal port 4444/1337/31337.
+    """
+    rule_id = f"apex-generic-{hashlib.md5((cve_id or title).encode()).hexdigest()[:8]}"
+    refs = ["https://intel.cyberdudebivash.com"]
+    if cve_id and re.match(r"CVE-\d{4}-\d{4,}", cve_id):
         refs.append(f"https://nvd.nist.gov/vuln/detail/{cve_id}")
     tags = ["attack.initial_access", "attack.t1190"] + [
         f"attack.{t.lower()}" for t in ttp_ids[:3]
     ]
-    # Use IOC values if available for detection
-    ioc_detection = ""
-    real_iocs = [i for i in iocs if len(i) > 6 and not re.match(r'^CVE-', i, re.I)]
+
+    # Build IOC-based detection from real, non-CVE IOC values
+    real_iocs = [i for i in iocs if len(i) > 6
+                 and not re.match(r'^CVE-', i, re.I)
+                 and not re.match(r'^GHSA-', i, re.I)
+                 and "." in i]  # must look like a domain/IP/URL
+    ioc_block = ""
+    ioc_condition_suffix = ""
     if real_iocs:
-        ioc_lines = "\n".join(f"      - '{v[:80]}'" for v in real_iocs[:5])
-        ioc_detection = f"""
+        ioc_lines = "\n".join(f"      - '{v[:80]}'" for v in real_iocs[:8])
+        ioc_block = f"""
   ioc_network_indicators:
     DestinationHostname|contains:
 {ioc_lines}"""
+        ioc_condition_suffix = " or ioc_network_indicators"
+
+    # Product-aware web server detection when product is identifiable
+    product_lower = affected_product.lower() if affected_product else title.lower()
+    is_web = any(w in product_lower for w in [
+        "wordpress", "drupal", "joomla", "php", "apache", "nginx", "node",
+        "express", "spring", "django", "flask", "ruby", "rails", "laravel",
+        "strapi", "nextjs", "nuxt", "web", "http", "api", "rest", "graphql",
+    ])
+    is_network = any(w in product_lower for w in [
+        "router", "firewall", "switch", "cisco", "juniper", "fortinet",
+        "palo alto", "checkpoint", "vpn", "network", "sdwan", "bgp", "ospf",
+    ])
+
+    if is_web:
+        logsource = "logsource:\n  category: webserver"
+        detection_block = f"""detection:
+  exploitation_attempt:
+    cs-status:
+      - 200
+      - 500
+      - 503
+    cs-uri-stem|contains:
+      - '/wp-admin/' if 'wordpress' in product_lower else '/api/'
+      - '/upload'
+      - '/cmd'
+      - '/exec'
+    cs-method: 'POST'{ioc_block}
+  condition: exploitation_attempt{ioc_condition_suffix}"""
+    elif is_network:
+        logsource = "logsource:\n  product: cisco\n  service: aaa"
+        detection_block = f"""detection:
+  privilege_escalation:
+    EventType: 'priv-lvl-change'
+    DestinationPrivilegeLevel: '15'
+  unusual_admin_access:
+    Action: 'login'
+    cs-username|endswith: 'admin'
+    SourceAddress|not|cidr:
+      - '10.0.0.0/8'
+      - '192.168.0.0/16'
+      - '172.16.0.0/12'{ioc_block}
+  condition: privilege_escalation or unusual_admin_access{ioc_condition_suffix}"""
+    else:
+        # Generic but uses CVE ID as search pivot — infinitely more useful than port 4444
+        logsource = "logsource:\n  category: process_creation"
+        cve_search = cve_id if cve_id else title[:30].replace(" ", "_")
+        detection_block = f"""detection:
+  cve_exploitation_pivot:
+    CommandLine|contains:
+      - '{cve_search}'
+  post_exploitation_download:
+    CommandLine|contains:
+      - 'curl '
+      - 'wget '
+      - 'Invoke-WebRequest'
+      - 'certutil -urlcache'
+      - 'bitsadmin'
+    ParentCommandLine|contains:
+      - 'exploit'
+      - 'payload'
+      - '/tmp/'
+      - 'C:\\\\Temp\\\\'{ioc_block}
+  condition: cve_exploitation_pivot or post_exploitation_download{ioc_condition_suffix}"""
 
     header = _sigma_header(rule_id,
-        f"APEX - {title[:60]} — {vuln_class.replace('_', ' ').title()}",
-        f"Detects exploitation activity for {cve_id} ({vuln_class}). "
-        "Review the specific vulnerability class and affected product "
-        "to tune this rule for your environment.",
+        f"APEX — {title[:60]} [{vuln_class.replace('_', ' ')}]",
+        f"Detects exploitation activity for {cve_id or title[:40]}. "
+        f"Vulnerability class: {vuln_class}. "
+        "Tune detection fields for your specific environment and affected product versions.",
         refs, tags, "medium")
     return header + f"""
-logsource:
-  category: network_connection
-  product: windows
-detection:
-  unexpected_outbound:
-    Initiated: 'true'
-    DestinationPort:
-      - 4444
-      - 1337
-      - 31337
-      - 8888
-      - 9001
-      - 9999{ioc_detection}
-  condition: unexpected_outbound{' or ioc_network_indicators' if real_iocs else ''}
+{logsource}
+{detection_block}
 falsepositives:
-  - Legitimate applications using non-standard ports
-  - Development and testing environments
+  - Legitimate administrative activity on affected systems
+  - Security scanning tools (Nessus, Qualys, Rapid7)
+  - Authorized penetration testing
 level: medium
 """
 
@@ -928,18 +1320,43 @@ def generate_rules_for_advisory(item: Dict) -> Dict[str, str]:
 
     vuln_class = detect_vuln_class(title, threat_type, tags, description)
 
-    # Dispatch to appropriate rule generator
+    # Extract affected product for product-aware generic fallback (P20.4)
+    affected_products = item.get("affected_products") or []
+    affected_product = (
+        affected_products[0] if isinstance(affected_products, list) and affected_products
+        else str(affected_products) if affected_products
+        else ""
+    )
+    # Also try to infer from tags (e.g. "pip:mcp-pinot-server" → "mcp-pinot-server")
+    if not affected_product and tags:
+        for tag in tags:
+            tag_s = str(tag)
+            if ":" in tag_s:
+                affected_product = tag_s.split(":", 1)[1]
+                break
+            elif len(tag_s) > 4:
+                affected_product = tag_s
+                break
+
+    # P20.4 — Full dispatch table including 6 previously missing classes
     sigma_dispatch = {
-        "SSRF":            sigma_ssrf,
-        "CSRF":            sigma_csrf,
-        "SQLI":            sigma_sqli,
-        "RCE":             sigma_rce,
-        "PATH_TRAVERSAL":  sigma_path_traversal,
-        "COMMAND_INJECTION": sigma_command_injection,
-        "AUTH_BYPASS":     sigma_auth_bypass,
-        "SUPPLY_CHAIN":    sigma_supply_chain,
-        "RANSOMWARE":      sigma_ransomware,
-        "PHISHING":        sigma_phishing,
+        "SSRF":             sigma_ssrf,
+        "CSRF":             sigma_csrf,
+        "SQLI":             sigma_sqli,
+        "RCE":              sigma_rce,
+        "PATH_TRAVERSAL":   sigma_path_traversal,
+        "COMMAND_INJECTION":sigma_command_injection,
+        "AUTH_BYPASS":      sigma_auth_bypass,
+        "SUPPLY_CHAIN":     sigma_supply_chain,
+        "RANSOMWARE":       sigma_ransomware,
+        "PHISHING":         sigma_phishing,
+        # P20.4 additions — previously fell through to GENERIC_CVE
+        "IDOR":             sigma_idor,
+        "XSS":              sigma_xss,
+        "PRIV_ESC":         sigma_priv_esc,
+        "MEMORY_CORRUPTION":sigma_memory_corruption,
+        "DESERIALIZATION":  sigma_deserialization,
+        "LFI_RFI":          sigma_lfi_rfi,
     }
     # v166.0 BUG-06/BUG-14 FIX: when no CVE ID, use a sanitised advisory slug
     # (not a truncated article title) to avoid broken sigma/yara/kql rules.
@@ -950,8 +1367,9 @@ def generate_rules_for_advisory(item: Dict) -> Dict[str, str]:
         _safe_id = cve_id
 
     generator = sigma_dispatch.get(vuln_class, sigma_generic_cve)
-    if vuln_class == "GENERIC_CVE" or vuln_class == "ZERO_DAY":
-        sigma = generator(_safe_id, title, ioc_values, ttp_ids, vuln_class)
+    if vuln_class in ("GENERIC_CVE", "ZERO_DAY"):
+        # P20.4 FIX: pass affected_product for product-aware detection
+        sigma = generator(_safe_id, title, ioc_values, ttp_ids, vuln_class, affected_product)
     else:
         sigma = generator(_safe_id, title, ioc_values, ttp_ids)
 

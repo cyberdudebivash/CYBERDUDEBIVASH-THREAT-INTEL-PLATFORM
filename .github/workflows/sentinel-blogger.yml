@@ -1662,6 +1662,31 @@ jobs:
           fi
 
       # -----------------------------------------------------------------------
+      # STAGE 3.93.15b: P20.1 EVIDENCE CHAIN ENRICHER (additive, non-blocking)
+      # Writes structured evidence_chain records into every feed item using only
+      # data already present. Zero fabrication. NATO reliability scale.
+      # -----------------------------------------------------------------------
+      - name: "STAGE 3.93.15b - P20.1 Evidence Chain Enricher"
+        timeout-minutes: 3
+        continue-on-error: true
+        run: |
+          python3 scripts/p20_evidence_chain_enricher.py
+          echo "[P20.1] Evidence chain enrichment complete"
+
+      # -----------------------------------------------------------------------
+      # STAGE 3.93.15c: P20.2 IOC HARDENER (additive, non-blocking)
+      # Removes false-positive IOCs (package ecosystems, dev infra) and enriches
+      # survivors with kill-chain stage, response/detection guidance, context.
+      # Zero fabrication — all enrichment from existing item data.
+      # -----------------------------------------------------------------------
+      - name: "STAGE 3.93.15c - P20.2 IOC Hardener"
+        timeout-minutes: 3
+        continue-on-error: true
+        run: |
+          python3 scripts/p20_ioc_hardener.py
+          echo "[P20.2] IOC hardening complete"
+
+      # -----------------------------------------------------------------------
       # STAGE 3.93.16: SOURCE DIVERSITY ENFORCER (Phase 1C -- NON-BLOCKING WARN)
       # Enforces source diversity governance against the live feed manifest.
       # Detects single-source dominance (golden invariant: max 30%), Shannon
