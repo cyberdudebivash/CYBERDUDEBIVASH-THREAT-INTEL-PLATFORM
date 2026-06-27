@@ -23,17 +23,17 @@
  *   API    handleP30Certify                    /api/v1/p30/certify
  *
  * AUDIT-CONFIRMED REUSE (zero duplication):
- *   computeP20QualityScore    — quality scoring (P20)
- *   getP21CertificationLevel  — certification level (P21)
- *   computeActionabilityScore — actionability (P23)
- *   computeEnterpriseTrustScore — trust scoring (P25)
- *   computeP26Grade           — composite grade (P26)
- *   Detection drift data      — read from data/audit/detection_drift_report.json
- *   Source trust scores       — read from data/quality/source_trust_scores.json
+ *   computeP20QualityScore     -  quality scoring (P20)
+ *   getP21CertificationLevel   -  certification level (P21)
+ *   computeActionabilityScore  -  actionability (P23)
+ *   computeEnterpriseTrustScore  -  trust scoring (P25)
+ *   computeP26Grade            -  composite grade (P26)
+ *   Detection drift data       -  read from data/audit/detection_drift_report.json
+ *   Source trust scores        -  read from data/quality/source_trust_scores.json
  *
- * ZERO FABRICATION  — all values derived from pipeline-verified feed fields only.
- * ADDITIVE ONLY     — no existing handler, schema, KV key, auth, or payment modified.
- * ZERO DUPLICATION  — P20-P29 engines imported; P30 adds only audit-confirmed gaps.
+ * ZERO FABRICATION   -  all values derived from pipeline-verified feed fields only.
+ * ADDITIVE ONLY      -  no existing handler, schema, KV key, auth, or payment modified.
+ * ZERO DUPLICATION   -  P20-P29 engines imported; P30 adds only audit-confirmed gaps.
  */
 
 import { computeP20QualityScore }      from './p20-handlers.js';
@@ -44,7 +44,7 @@ import { computeP26Grade }             from './p26-handlers.js';
 
 export const P30_VERSION = "P30.0";
 
-// ── Shared helpers ────────────────────────────────────────────────────────────
+// -- Shared helpers ------------------------------------------------------------
 
 function esc(s) {
   return String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;")
@@ -94,11 +94,11 @@ function _jsonResp(obj, status = 200) {
   });
 }
 
-// ── Internal computation helpers ──────────────────────────────────────────────
+// -- Internal computation helpers ----------------------------------------------
 
 /**
- * P30.1 — Derive verification status from existing pipeline-verified fields.
- * NO new schema fields — derived entirely from feed fields.
+ * P30.1  -  Derive verification status from existing pipeline-verified fields.
+ * NO new schema fields  -  derived entirely from feed fields.
  */
 function _computeVerificationStatus(item) {
   const ts = item.processed_at || item.validated_at || item.timestamp || item.generated_at;
@@ -146,7 +146,7 @@ function _computeVerificationStatus(item) {
 }
 
 /**
- * P30.2 — Threat evolution timeline derived from item timestamps.
+ * P30.2  -  Threat evolution timeline derived from item timestamps.
  * Builds ordered sequence of intelligence lifecycle events.
  */
 function _computeTimeline(item) {
@@ -192,7 +192,7 @@ function _computeTimeline(item) {
 }
 
 /**
- * P30.3 — Intelligence change tracking signals.
+ * P30.3  -  Intelligence change tracking signals.
  * Detects enrichment deltas by inspecting field presence vs expected.
  */
 function _computeChangeTracking(item) {
@@ -222,15 +222,15 @@ function _computeChangeTracking(item) {
   }
 
   if (!item.source_url) {
-    changes.push({ type: "SOURCE_URL_MISSING", detail: "No source URL — source attribution incomplete", impact: "LOW" });
+    changes.push({ type: "SOURCE_URL_MISSING", detail: "No source URL  -  source attribution incomplete", impact: "LOW" });
   }
 
   return changes;
 }
 
 /**
- * P30.5 — IOC lifecycle derived from available timestamp + IOC fields.
- * NO new schema fields — derived from existing feed fields.
+ * P30.5  -  IOC lifecycle derived from available timestamp + IOC fields.
+ * NO new schema fields  -  derived from existing feed fields.
  */
 function _computeIOCLifecycle(item) {
   const iocCount = parseInt(item.ioc_count || 0);
@@ -264,7 +264,7 @@ function _computeIOCLifecycle(item) {
 }
 
 /**
- * P30.7 — Per-item SLA intelligence.
+ * P30.7  -  Per-item SLA intelligence.
  * Platform SLA engine is aggregate; P30 adds per-item deadline derivation.
  */
 function _computeItemSLA(item) {
@@ -307,7 +307,7 @@ function _computeItemSLA(item) {
   };
 }
 
-// ── P30.1: Continuous Evidence Verification Block ─────────────────────────────
+// -- P30.1: Continuous Evidence Verification Block -----------------------------
 
 export function buildP30VerificationBlock(item) {
   const v = _computeVerificationStatus(item);
@@ -324,7 +324,7 @@ export function buildP30VerificationBlock(item) {
   ].map(([label, ok, desc]) => {
     const color = ok ? "#22c55e" : "#4b5563";
     return `<div style="display:flex;align-items:center;gap:8px;padding:4px 0;border-bottom:1px solid #1a2030;">
-      <span style="color:${color};font-size:12px;min-width:16px;">${ok ? "✓" : "○"}</span>
+      <span style="color:${color};font-size:12px;min-width:16px;">${ok ? "[OK]" : "?"}</span>
       <span style="color:#94a3b8;font-size:11px;min-width:140px;">${esc(label)}</span>
       <span style="color:${ok ? "#6b7280" : "#374151"};font-size:10px;">${esc(desc)}</span>
     </div>`;
@@ -352,7 +352,7 @@ export function buildP30VerificationBlock(item) {
     v.verColor, body, "Live multi-signal verification status across 8 evidence dimensions");
 }
 
-// ── P30.2: Threat Evolution Timeline Block ───────────────────────────────────
+// -- P30.2: Threat Evolution Timeline Block -----------------------------------
 
 export function buildP30TimelineBlock(item) {
   const events = _computeTimeline(item);
@@ -379,10 +379,10 @@ export function buildP30TimelineBlock(item) {
   const body = `<div style="padding:4px 0;">${eventRows}</div>`;
 
   return _block(`p30-tl-${esc(item.id || "x")}`, "P30.2 Threat Evolution Timeline",
-    "#8b5cf6", body, `${events.length} lifecycle event(s) — chronological intelligence progression`);
+    "#8b5cf6", body, `${events.length} lifecycle event(s)  -  chronological intelligence progression`);
 }
 
-// ── P30.3: Intelligence Change Tracking Block ─────────────────────────────────
+// -- P30.3: Intelligence Change Tracking Block ---------------------------------
 
 export function buildP30ChangeTrackingBlock(item) {
   const changes = _computeChangeTracking(item);
@@ -390,7 +390,7 @@ export function buildP30ChangeTrackingBlock(item) {
   const impactColor = { HIGH: "#ef4444", MEDIUM: "#f59e0b", LOW: "#3b82f6" };
 
   const body = changes.length === 0
-    ? `<div style="color:#22c55e;font-size:11px;padding:8px 0;">✓ No change anomalies detected — intelligence fields consistent.</div>`
+    ? `<div style="color:#22c55e;font-size:11px;padding:8px 0;">[OK] No change anomalies detected  -  intelligence fields consistent.</div>`
     : changes.map(c => {
         const color = impactColor[c.impact] || "#6b7280";
         return `<div style="display:flex;gap:10px;padding:6px 0;border-bottom:1px solid #1a2030;align-items:flex-start;">
@@ -409,8 +409,8 @@ export function buildP30ChangeTrackingBlock(item) {
     changes.length === 0 ? "Consistency verified" : `${changes.length} change signal(s) detected`);
 }
 
-// ── P30.4: Detection Drift Analysis Block ─────────────────────────────────────
-// Reads from data/audit/detection_drift_report.json — NOT duplicated.
+// -- P30.4: Detection Drift Analysis Block -------------------------------------
+// Reads from data/audit/detection_drift_report.json  -  NOT duplicated.
 
 export function buildP30DetectionDriftBlock(item) {
   // Item-level detection coverage relative to drift
@@ -456,7 +456,7 @@ export function buildP30DetectionDriftBlock(item) {
     driftColor, body, "Per-item detection coverage drift assessment");
 }
 
-// ── P30.5: IOC Lifecycle Block ────────────────────────────────────────────────
+// -- P30.5: IOC Lifecycle Block ------------------------------------------------
 
 export function buildP30IOCLifecycleBlock(item) {
   const lc = _computeIOCLifecycle(item);
@@ -483,7 +483,7 @@ export function buildP30IOCLifecycleBlock(item) {
   </div>
   <div style="margin-top:4px;">
     ${_row("IOC Lifecycle Status", lc.lifecycleStatus, lc.lifecycleColor)}
-    ${_row("Still Active", lc.stillActive ? "YES — Active threat signal" : "NO — Historical or monitoring", lc.stillActive ? "#ef4444" : "#6b7280")}
+    ${_row("Still Active", lc.stillActive ? "YES  -  Active threat signal" : "NO  -  Historical or monitoring", lc.stillActive ? "#ef4444" : "#6b7280")}
     ${_row("IOC Count", String(lc.iocCount), "#f9fafb")}
     ${lc.iocTypeList.length > 0 ? _row("IOC Types", lc.iocTypeList.slice(0, 6).join(", "), "#94a3b8") : ""}
     ${_row("First Seen", lc.firstSeenEpoch > 0 ? new Date(lc.firstSeenEpoch).toISOString().slice(0, 10) : "Unknown", "#6b7280")}
@@ -494,7 +494,7 @@ export function buildP30IOCLifecycleBlock(item) {
     lc.lifecycleColor, body, "Indicator of Compromise lifecycle: first_seen / status / still_active");
 }
 
-// ── P30.7: Enterprise SLA Intelligence Block ──────────────────────────────────
+// -- P30.7: Enterprise SLA Intelligence Block ----------------------------------
 
 export function buildP30SLABlock(item) {
   const sla = _computeItemSLA(item);
@@ -517,15 +517,15 @@ export function buildP30SLABlock(item) {
     ${_row("Patch Window", `${sla.patchDays} days`, sla.slaColor)}
     ${_row("Detection Window", `${sla.detectionDays} hours`, sla.slaColor)}
     ${_row("Remediation Window", `${sla.remediationDays} days`, sla.slaColor)}
-    ${sla.isOverdue ? _row("Overdue By", `${sla.patchOverdue} day(s) — escalate immediately`, "#ef4444") : _row("SLA Status", "WITHIN SLA WINDOW", "#22c55e")}
+    ${sla.isOverdue ? _row("Overdue By", `${sla.patchOverdue} day(s)  -  escalate immediately`, "#ef4444") : _row("SLA Status", "WITHIN SLA WINDOW", "#22c55e")}
   </div>`;
 
   return _block(`p30-sla-${esc(item.id || "x")}`, "P30.7 Enterprise SLA Intelligence",
     sla.slaColor, body,
-    `${sla.slaTier} tier — patch: ${sla.patchDays}d / detection: ${sla.detectionDays}h / remediation: ${sla.remediationDays}d`);
+    `${sla.slaTier} tier  -  patch: ${sla.patchDays}d / detection: ${sla.detectionDays}h / remediation: ${sla.remediationDays}d`);
 }
 
-// ── P30.8: Customer Trust Timeline Block ──────────────────────────────────────
+// -- P30.8: Customer Trust Timeline Block --------------------------------------
 
 export function buildP30TrustTimelineBlock(item) {
   const v      = _computeVerificationStatus(item);
@@ -536,29 +536,29 @@ export function buildP30TrustTimelineBlock(item) {
   const trustEvents = [];
 
   if (v.verificationPct >= 87) {
-    trustEvents.push({ label: "FULLY VERIFIED", detail: `${v.passedSignals}/${v.totalSignals} signals confirmed`, color: "#22c55e", icon: "✓" });
+    trustEvents.push({ label: "FULLY VERIFIED", detail: `${v.passedSignals}/${v.totalSignals} signals confirmed`, color: "#22c55e", icon: "[OK]" });
   } else {
-    trustEvents.push({ label: "PARTIAL VERIFICATION", detail: `${v.passedSignals}/${v.totalSignals} signals — ${v.verificationPct}% verified`, color: "#f59e0b", icon: "⚠" });
+    trustEvents.push({ label: "PARTIAL VERIFICATION", detail: `${v.passedSignals}/${v.totalSignals} signals  -  ${v.verificationPct}% verified`, color: "#f59e0b", icon: "?" });
   }
 
   if (sla.isOverdue) {
-    trustEvents.push({ label: "SLA BREACH DETECTED", detail: `Patch deadline exceeded by ${sla.patchOverdue} day(s)`, color: "#ef4444", icon: "✗" });
+    trustEvents.push({ label: "SLA BREACH DETECTED", detail: `Patch deadline exceeded by ${sla.patchOverdue} day(s)`, color: "#ef4444", icon: "[FAIL]" });
   } else {
-    trustEvents.push({ label: "SLA COMPLIANT", detail: `${sla.slaTier} tier — within ${sla.patchDays}d patch window`, color: "#22c55e", icon: "✓" });
+    trustEvents.push({ label: "SLA COMPLIANT", detail: `${sla.slaTier} tier  -  within ${sla.patchDays}d patch window`, color: "#22c55e", icon: "[OK]" });
   }
 
   if (changes.length === 0) {
-    trustEvents.push({ label: "CONSISTENCY VERIFIED", detail: "No change anomalies detected across all fields", color: "#22c55e", icon: "✓" });
+    trustEvents.push({ label: "CONSISTENCY VERIFIED", detail: "No change anomalies detected across all fields", color: "#22c55e", icon: "[OK]" });
   } else {
     const highChanges = changes.filter(c => c.impact === "HIGH").length;
     const color = highChanges > 0 ? "#ef4444" : "#f59e0b";
-    trustEvents.push({ label: "CHANGE SIGNALS DETECTED", detail: `${changes.length} signal(s) — ${highChanges} HIGH impact`, color, icon: "⚠" });
+    trustEvents.push({ label: "CHANGE SIGNALS DETECTED", detail: `${changes.length} signal(s)  -  ${highChanges} HIGH impact`, color, icon: "?" });
   }
 
   if (lc.hasIOCs && lc.stillActive) {
-    trustEvents.push({ label: "ACTIVE IOC THREAT SIGNAL", detail: `${lc.iocCount} IOC(s) — status: ${lc.lifecycleStatus}`, color: "#ef4444", icon: "!" });
+    trustEvents.push({ label: "ACTIVE IOC THREAT SIGNAL", detail: `${lc.iocCount} IOC(s)  -  status: ${lc.lifecycleStatus}`, color: "#ef4444", icon: "!" });
   } else if (lc.hasIOCs) {
-    trustEvents.push({ label: "IOCs PRESENT (MONITORING)", detail: `${lc.iocCount} IOC(s) in monitoring state`, color: "#f59e0b", icon: "○" });
+    trustEvents.push({ label: "IOCs PRESENT (MONITORING)", detail: `${lc.iocCount} IOC(s) in monitoring state`, color: "#f59e0b", icon: "?" });
   }
 
   // Overall trust rating
@@ -593,7 +593,7 @@ export function buildP30TrustTimelineBlock(item) {
     trustColor, body, "Holistic trust narrative: verification + SLA + change tracking + IOC status");
 }
 
-// ── P30 Package ───────────────────────────────────────────────────────────────
+// -- P30 Package ---------------------------------------------------------------
 
 export function buildP30Package(item) {
   return (
@@ -607,7 +607,7 @@ export function buildP30Package(item) {
   );
 }
 
-// ── API: P30 Verification ─────────────────────────────────────────────────────
+// -- API: P30 Verification -----------------------------------------------------
 
 export async function handleP30Verification(request, env) {
   try {
@@ -647,7 +647,7 @@ export async function handleP30Verification(request, env) {
   }
 }
 
-// ── API: P30 Timeline ─────────────────────────────────────────────────────────
+// -- API: P30 Timeline ---------------------------------------------------------
 
 export async function handleP30Timeline(request, env) {
   try {
@@ -686,7 +686,7 @@ export async function handleP30Timeline(request, env) {
   }
 }
 
-// ── API: P30 Source Health ────────────────────────────────────────────────────
+// -- API: P30 Source Health ----------------------------------------------------
 
 export async function handleP30SourceHealth(request, env) {
   try {
@@ -732,7 +732,7 @@ export async function handleP30SourceHealth(request, env) {
   }
 }
 
-// ── API: P30 Drift ────────────────────────────────────────────────────────────
+// -- API: P30 Drift ------------------------------------------------------------
 
 export async function handleP30Drift(request, env) {
   try {
@@ -780,7 +780,7 @@ export async function handleP30Drift(request, env) {
   }
 }
 
-// ── API: P30 Report Health ────────────────────────────────────────────────────
+// -- API: P30 Report Health ----------------------------------------------------
 
 export async function handleP30ReportHealth(request, env) {
   try {
@@ -827,7 +827,7 @@ export async function handleP30ReportHealth(request, env) {
   }
 }
 
-// ── API: P30 Observability ────────────────────────────────────────────────────
+// -- API: P30 Observability ----------------------------------------------------
 
 export async function handleP30Observability(request, env) {
   try {
@@ -876,7 +876,7 @@ export async function handleP30Observability(request, env) {
   }
 }
 
-// ── API: P30 Certify ─────────────────────────────────────────────────────────
+// -- API: P30 Certify ---------------------------------------------------------
 
 export async function handleP30Certify(request, env) {
   try {
@@ -897,7 +897,7 @@ export async function handleP30Certify(request, env) {
     const highIssues  = changes.filter(c => c.impact === "HIGH").length;
 
     const gates = [
-      { id: "G_VER", label: "Avg verification ≥ 50%", pass: avgVerPct >= 50 },
+      { id: "G_VER", label: "Avg verification ? 50%", pass: avgVerPct >= 50 },
       { id: "G_SLA", label: "SLA breach < 20% of items", pass: items.length === 0 || slaBreaches / items.length < 0.2 },
       { id: "G_CHG", label: "High-impact change issues < 30% of items", pass: items.length === 0 || highIssues / items.length < 0.3 },
       { id: "G_FD",  label: "Feed data available", pass: items.length > 0 },
