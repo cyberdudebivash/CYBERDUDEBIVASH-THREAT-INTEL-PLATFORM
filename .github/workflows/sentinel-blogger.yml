@@ -1801,6 +1801,34 @@ jobs:
           exit 0
 
       # -----------------------------------------------------------------------
+      # STAGE 3.93.15h: P25.11 ENTERPRISE RELEASE GATE (NON-BLOCKING)
+      # Runs 10 gate checks across all P21-P24 quality reports + feed integrity.
+      # Produces data/quality/p25_enterprise_trust_gate.json with release tier.
+      # Tiers: WORLDWIDE_RELEASE | ENTERPRISE_RELEASE | CONTROLLED_RELEASE | RELEASE_BLOCKED
+      # continue-on-error: CI always proceeds — gate result surfaced as ::notice::
+      - name: "STAGE 3.93.15h - P25.11 Enterprise Release Gate"
+        timeout-minutes: 4
+        continue-on-error: true
+        env:
+          DRY_RUN: "false"
+        run: |
+          python3 scripts/p25_enterprise_trust_gate.py
+          if [ -f "data/quality/p25_enterprise_trust_gate.json" ]; then
+            read -r TIER BLOCKERS ITEMS <<< "$(python3 scripts/ci_stats_extract.py p25 2>/dev/null || echo 'UNKNOWN 0 0')"
+            echo "[P25.11] Release Gate: ${TIER} | Blockers: ${BLOCKERS}/10 | Items: ${ITEMS}"
+            if [ "${TIER}" = "WORLDWIDE_RELEASE" ]; then
+              echo "::notice::P25.11 WORLDWIDE RELEASE — all 10 enterprise release gates passed. Platform certified for global customer distribution."
+            elif [ "${TIER}" = "ENTERPRISE_RELEASE" ]; then
+              echo "::notice::P25.11 ENTERPRISE RELEASE — enterprise release gates passed. Minor improvements pending for worldwide release."
+            elif [ "${TIER}" = "CONTROLLED_RELEASE" ]; then
+              echo "::notice::P25.11 CONTROLLED RELEASE — ${BLOCKERS} non-critical gate(s) pending. Controlled release authorized."
+            elif [ "${TIER}" = "RELEASE_BLOCKED" ]; then
+              echo "::notice::P25.11 RELEASE BLOCKED — ${BLOCKERS} critical blocker(s) detected. See data/quality/p25_enterprise_trust_gate.json."
+            fi
+          fi
+          exit 0
+
+      # -----------------------------------------------------------------------
       # STAGE 3.93.16: SOURCE DIVERSITY ENFORCER (Phase 1C -- NON-BLOCKING WARN)
       # Enforces source diversity governance against the live feed manifest.
       # Detects single-source dominance (golden invariant: max 30%), Shannon
