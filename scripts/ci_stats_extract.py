@@ -37,9 +37,17 @@ _REPORTS: dict = {
             d.get("immediate_count", 0),
         ],
     ),
+    "p24": (
+        _ROOT / "data" / "quality" / "p24_commercial_certification.json",
+        lambda d: [
+            d.get("release_tier", "UNKNOWN"),
+            d.get("overall_pct", 0),
+            d.get("blocker_count", 0),
+        ],
+    ),
 }
 
-_FALLBACKS = {"p21": "? ? ? ?", "p22": "? ? ? ?", "p23": "? ?"}
+_FALLBACKS = {"p21": "? ? ? ?", "p22": "? ? ? ?", "p23": "? ?", "p24": "UNKNOWN 0 0"}
 
 
 def main() -> None:
