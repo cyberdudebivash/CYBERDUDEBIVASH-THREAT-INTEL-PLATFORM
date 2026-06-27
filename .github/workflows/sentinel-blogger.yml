@@ -2230,6 +2230,36 @@ jobs:
         run: python3 scripts/intel_persistence_engine.py
 
       # -----------------------------------------------------------------------
+      # STAGE 3.96: P31.26 ENTERPRISE INTELLIGENCE KNOWLEDGE GRAPH & ANALYST COPILOT (NON-BLOCKING)
+      # Runs 26-gate P31 certification (extends P30 chain with 6 P31-specific graph/copilot gates):
+      #   G21 graph derivable ≥30% (items with actor_tag or ttps);
+      #   G22 entity normalization ≥10% recognized actors;
+      #   G23 TTP coverage ≥80%; G24 enterprise-knowledge-graph.html present;
+      #   G25 relationship confidence ≥0.70 avg; G26 analyst copilot derivable ≥50%.
+      # Requires P30/P29/P28/P27/P25 cert reports in data/quality/ to validate chain.
+      # Outputs data/quality/p31_certification_report.json for observability.
+      # -----------------------------------------------------------------------
+      - name: "STAGE 3.96 - P31.26 Enterprise Intelligence Knowledge Graph & Analyst Copilot"
+        timeout-minutes: 10
+        continue-on-error: true
+        env:
+          DRY_RUN: "false"
+        run: |
+          python3 scripts/p31_production_certification.py
+          if [ -f "data/quality/p31_certification_report.json" ]; then
+            read -r TIER BLOCKERS WARNINGS PASSED TOTAL <<< "$(python3 scripts/ci_stats_extract.py p31 2>/dev/null || echo 'UNKNOWN 0 0 0 0')"
+            echo "[P31.26] Certification: ${TIER} | Gates: ${PASSED}/${TOTAL} | Blockers: ${BLOCKERS} | Warnings: ${WARNINGS}"
+            if [ "${TIER}" = "WORLDWIDE_RELEASE" ]; then
+              echo "::notice::P31.26 WORLDWIDE RELEASE CERTIFIED — Knowledge Graph + Analyst Copilot Platform + 26 gates passed. Gates: ${PASSED}/${TOTAL}."
+            elif [ "${TIER}" = "CONTROLLED_RELEASE" ]; then
+              echo "::notice::P31.26 CONTROLLED RELEASE — ${BLOCKERS} blocker(s). Gates: ${PASSED}/${TOTAL}. Review p31_certification_report.json."
+            else
+              echo "::notice::P31.26 BLOCKED — ${BLOCKERS} blocker(s). Gates: ${PASSED}/${TOTAL}. See data/quality/p31_certification_report.json."
+            fi
+          fi
+          exit 0
+
+      # -----------------------------------------------------------------------
       # STAGE 4: GIT SYNC -- ALWAYS RUNS
       # Commits non-sensitive metadata and HTML reports. 4-attempt push retry.
       # Exit 0 guaranteed - never kills pipeline.
