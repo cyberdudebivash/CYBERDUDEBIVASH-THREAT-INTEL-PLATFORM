@@ -2,10 +2,10 @@
  * workers/intel-gateway/src/p26-handlers.js
  * CYBERDUDEBIVASH(R) SENTINEL APEX  -  P26.0 Enterprise Intelligence Excellence Program
  * ========================================================================================
- * Unification and orchestration layer for P20–P25 intelligence quality engines.
+ * Unification and orchestration layer for P20-P25 intelligence quality engines.
  * Computes the definitive P26 Enterprise Grade and produces commercial certification.
  *
- * THIS IS NOT A FEATURE LAYER — it is the quality governance capstone.
+ * THIS IS NOT A FEATURE LAYER  -  it is the quality governance capstone.
  *
  * Components (all additive  -  P1-P25 unchanged):
  *   P26.6   -  Enterprise Intelligence Scoring   (computeP26Grade, buildP26GradeCardBlock)
@@ -18,8 +18,8 @@
  * ADDITIVE ONLY    -  no existing schema, API, KV, auth, scoring engine modified.
  * ZERO DUPLICATION -  P20-P25 engines reused via imports; P26 aggregates, not recomputes.
  *
- * Grade → A/B/C/D/F from composite of P20/P21/P22/P23/P25 quality signals.
- * Commercial certification → ENTERPRISE_EXCELLENT / ENTERPRISE_CERTIFIED / ENTERPRISE_READY
+ * Grade -> A/B/C/D/F from composite of P20/P21/P22/P23/P25 quality signals.
+ * Commercial certification -> ENTERPRISE_EXCELLENT / ENTERPRISE_CERTIFIED / ENTERPRISE_READY
  *                            / CONDITIONAL / REJECTED
  */
 
@@ -30,7 +30,7 @@ import { computeEnterpriseTrustScore} from './p25-handlers.js';
 
 export const P26_VERSION = "P26.0";
 
-// ── Shared helpers ────────────────────────────────────────────────────────────
+// -- Shared helpers ------------------------------------------------------------
 
 function esc(s) {
   return String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;")
@@ -45,7 +45,7 @@ function _block(id, title, color, body, subtitle) {
       <span style="color:${color};font-size:12px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;">${esc(title)}</span>
       ${subtitle ? `<div style="color:#6b7280;font-size:10px;margin-top:2px;">${esc(subtitle)}</div>` : ''}
     </div>
-    <span style="color:#333;font-size:10px;">P26.0 ✦ SENTINEL APEX ENTERPRISE</span>
+    <span style="color:#333;font-size:10px;">P26.0 ? SENTINEL APEX ENTERPRISE</span>
   </div>
   ${body}
 </div>`;
@@ -70,20 +70,20 @@ function _row(label, value, color) {
   </div>`;
 }
 
-// ── P26.6 ─ Enterprise Intelligence Scoring ───────────────────────────────────
+// -- P26.6 - Enterprise Intelligence Scoring -----------------------------------
 
 /**
  * Aggregate P20-P25 quality signals into a single P26 composite grade.
- * Each dimension reuses an existing engine — nothing is recomputed from scratch.
+ * Each dimension reuses an existing engine  -  nothing is recomputed from scratch.
  *
  * Composite weights:
- *   P20 Quality Score    (100 pts)  → 25%  of composite
- *   P21 Cert Level       (4 tiers)  → 15%  of composite
- *   P23 Actionability    (100 pts)  → 25%  of composite
- *   P25 Trust Score V2   (100 pts)  → 25%  of composite
- *   P22 Contradiction    (clean=1)  → 10%  of composite
+ *   P20 Quality Score    (100 pts)  -> 25%  of composite
+ *   P21 Cert Level       (4 tiers)  -> 15%  of composite
+ *   P23 Actionability    (100 pts)  -> 25%  of composite
+ *   P25 Trust Score V2   (100 pts)  -> 25%  of composite
+ *   P22 Contradiction    (clean=1)  -> 10%  of composite
  *
- * Total: 100%. Grade thresholds: A≥90 B≥75 C≥60 D≥45 F<45
+ * Total: 100%. Grade thresholds: A?90 B?75 C?60 D?45 F<45
  */
 export function computeP26Grade(item) {
   // P20 quality (0-100)
@@ -103,7 +103,7 @@ export function computeP26Grade(item) {
   const p25    = computeEnterpriseTrustScore(item);
   const p25pct = p25.pct;                                 // 0-100
 
-  // P22 contradiction penalty (0-100 — subtract 25 per error contradiction)
+  // P22 contradiction penalty (0-100  -  subtract 25 per error contradiction)
   // Read from _score_details or compute inline: check for obvious contradictions
   const sd      = item._score_details || {};
   const cvss    = parseFloat(sd.cvss || item.cvss_score || item.risk_score || 0);
@@ -175,34 +175,34 @@ function _computeCertFlags(item, composite, contradictions, p20, p21) {
 
   // Evidence completeness
   if (!item.evidence_chain) {
-    flags.push({ code: "C-EVI", level: "WARNING", msg: "Evidence chain not populated — enricher may not have run" });
+    flags.push({ code: "C-EVI", level: "WARNING", msg: "Evidence chain not populated  -  enricher may not have run" });
   }
 
   // MITRE completeness
   const ttpCnt = parseInt(item.ttp_count || 0);
   if (ttpCnt === 0) {
-    flags.push({ code: "C-MIT", level: "WARNING", msg: "No MITRE ATT&CK techniques mapped — behavioral detection coverage unknown" });
+    flags.push({ code: "C-MIT", level: "WARNING", msg: "No MITRE ATT&CK techniques mapped  -  behavioral detection coverage unknown" });
   }
 
   // Contradiction check
   if (contradictions > 0) {
-    flags.push({ code: "C-CON", level: "WARNING", msg: `${contradictions} data contradiction(s) detected — severity/CVSS/KEV alignment required` });
+    flags.push({ code: "C-CON", level: "WARNING", msg: `${contradictions} data contradiction(s) detected  -  severity/CVSS/KEV alignment required` });
   }
 
   // Confidence threshold
   const conf = parseFloat(item.confidence || 0);
   if (conf < 0.10) {
-    flags.push({ code: "C-CNF", level: "WARNING", msg: `Pipeline confidence critically low: ${Math.round(conf * 100)}% — corroboration needed` });
+    flags.push({ code: "C-CNF", level: "WARNING", msg: `Pipeline confidence critically low: ${Math.round(conf * 100)}%  -  corroboration needed` });
   }
 
   // P21 certification minimum
   if (p21.level === "BELOW_MINIMUM") {
-    flags.push({ code: "C-P21", level: "BLOCKER", msg: "P21 certification BELOW_MINIMUM — item does not meet enterprise release standard" });
+    flags.push({ code: "C-P21", level: "BLOCKER", msg: "P21 certification BELOW_MINIMUM  -  item does not meet enterprise release standard" });
   }
 
   // P20 score minimum
   if (p20.total < 25) {
-    flags.push({ code: "C-P20", level: "WARNING", msg: `P20 quality score critically low: ${p20.total}/100 — enrichment incomplete` });
+    flags.push({ code: "C-P20", level: "WARNING", msg: `P20 quality score critically low: ${p20.total}/100  -  enrichment incomplete` });
   }
 
   // Determine commercial tier
@@ -224,9 +224,9 @@ function _computeCertFlags(item, composite, contradictions, p20, p21) {
   return { flags, blockers, warnings, certTier, certColor };
 }
 
-// ── P26.8 ─ Enterprise Report Presentation: Grade Card ───────────────────────
+// -- P26.8 - Enterprise Report Presentation: Grade Card -----------------------
 
-/** Top-of-report enterprise grade card — the highest-signal summary block. */
+/** Top-of-report enterprise grade card  -  the highest-signal summary block. */
 export function buildP26GradeCardBlock(item) {
   const g = computeP26Grade(item);
   const now = new Date().toISOString();
@@ -237,7 +237,7 @@ export function buildP26GradeCardBlock(item) {
       <span style="color:#8b949e;font-size:10px;min-width:140px;">${esc(c.label)}</span>
       <div style="flex:1;">${_bar(c.score, color, "5px")}</div>
       <span style="color:${color};font-size:10px;font-weight:700;min-width:36px;text-align:right;">${c.score}%</span>
-      <span style="color:#4b5563;font-size:9px;">×${c.weight}%</span>
+      <span style="color:#4b5563;font-size:9px;">x${c.weight}%</span>
     </div>`;
   }).join("");
 
@@ -250,7 +250,7 @@ export function buildP26GradeCardBlock(item) {
           <span style="color:#8b949e;font-size:10px;flex:1;">${esc(f.msg)}</span>
         </div>`;
       }).join("")
-    : `<div style="color:#22c55e;font-size:10px;padding:6px 0;">✓ No commercial flags — all certification criteria met</div>`;
+    : `<div style="color:#22c55e;font-size:10px;padding:6px 0;">[OK] No commercial flags  -  all certification criteria met</div>`;
 
   const body = `
     <div style="display:grid;grid-template-columns:auto 1fr;gap:24px;margin-bottom:20px;align-items:center;">
@@ -275,21 +275,21 @@ export function buildP26GradeCardBlock(item) {
     <div style="color:#8b949e;font-size:10px;text-transform:uppercase;letter-spacing:.1em;margin:12px 0 6px;">P26.7 Commercial Certification Flags</div>
     ${certFlagRows}` : `
     <div style="margin-top:12px;">${certFlagRows}</div>`}
-    <div style="color:#4b5563;font-size:10px;margin-top:12px;text-align:right;">P26.0 Enterprise Intelligence Excellence · Graded ${now.slice(0,19).replace('T',' ')} UTC</div>`;
+    <div style="color:#4b5563;font-size:10px;margin-top:12px;text-align:right;">P26.0 Enterprise Intelligence Excellence * Graded ${now.slice(0,19).replace('T',' ')} UTC</div>`;
 
   return _block(
     "p26-grade-card",
-    "P26.6 ─ Enterprise Intelligence Grade",
+    "P26.6 - Enterprise Intelligence Grade",
     g.gradeColor,
     body,
     "Composite of P20 Quality / P21 Certification / P22 Contradictions / P23 Actionability / P25 Trust Score V2"
   );
 }
 
-// ── P26.10 ─ Customer Trust Framework ────────────────────────────────────────
+// -- P26.10 - Customer Trust Framework ----------------------------------------
 
 /**
- * Compact horizontal trust badge strip — the first thing an enterprise customer sees.
+ * Compact horizontal trust badge strip  -  the first thing an enterprise customer sees.
  * Shows live verification status for each major dimension.
  */
 export function buildP26TrustBadgesBlock(item) {
@@ -355,7 +355,7 @@ export function buildP26TrustBadgesBlock(item) {
 
   const badgeHtml = badges.map(b => {
     const color = b.ok ? "#22c55e" : "#6b7280";
-    const icon  = b.ok ? "✓" : "○";
+    const icon  = b.ok ? "[OK]" : "?";
     return `<div style="display:flex;align-items:flex-start;gap:6px;padding:8px 12px;background:${b.ok ? '#0a1a0e' : '#0a0e17'};border:1px solid ${color}33;border-radius:6px;min-width:140px;">
       <span style="color:${color};font-size:13px;font-weight:700;margin-top:1px;">${icon}</span>
       <div>
@@ -370,7 +370,7 @@ export function buildP26TrustBadgesBlock(item) {
 
   const body = `
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px;">
-      <div style="font-size:11px;color:#8b949e;">Customer-facing trust verification status — updated on each pipeline run.</div>
+      <div style="font-size:11px;color:#8b949e;">Customer-facing trust verification status  -  updated on each pipeline run.</div>
       <div style="color:${trustColor};font-size:12px;font-weight:700;">${trustPct}% verified</div>
     </div>
     <div style="display:flex;flex-wrap:wrap;gap:8px;">
@@ -379,14 +379,14 @@ export function buildP26TrustBadgesBlock(item) {
 
   return _block(
     "p26-trust-badges",
-    "P26.10 ─ Customer Trust Framework",
+    "P26.10 - Customer Trust Framework",
     "#22c55e",
     body,
     "Live verification status across all intelligence quality dimensions"
   );
 }
 
-// ── P26.7 ─ Commercial Certification Block ────────────────────────────────────
+// -- P26.7 - Commercial Certification Block ------------------------------------
 
 export function buildP26CertificationBlock(item) {
   const g = computeP26Grade(item);
@@ -412,7 +412,7 @@ export function buildP26CertificationBlock(item) {
         </tbody>
       </table>`
     : `<div style="padding:10px;background:#0a1a0e;border-radius:4px;border-left:3px solid #22c55e44;margin-top:8px;">
-        <div style="color:#22c55e;font-size:11px;font-weight:700;">✓ COMMERCIALLY CERTIFIED — No flags detected</div>
+        <div style="color:#22c55e;font-size:11px;font-weight:700;">[OK] COMMERCIALLY CERTIFIED  -  No flags detected</div>
         <div style="color:#8b949e;font-size:10px;margin-top:4px;">All commercial certification criteria satisfied. Intelligence meets enterprise publication standards.</div>
       </div>`;
 
@@ -420,7 +420,7 @@ export function buildP26CertificationBlock(item) {
     ENTERPRISE_EXCELLENT: "Highest commercial tier. Suitable for government, board, and Fortune 500 executive distribution.",
     ENTERPRISE_CERTIFIED: "Full enterprise certification. Suitable for SOC, MSSP, CISO, and compliance distribution.",
     ENTERPRISE_READY:     "Enterprise ready. Minor improvements recommended before executive distribution.",
-    CONDITIONAL:          "Conditional release. Warnings present — internal use and analyst review appropriate.",
+    CONDITIONAL:          "Conditional release. Warnings present  -  internal use and analyst review appropriate.",
     REJECTED:             "Publication rejected. Critical blockers must be resolved before customer release.",
   };
 
@@ -438,7 +438,7 @@ export function buildP26CertificationBlock(item) {
       </div>
     </div>
     ${_row("P26 Composite Score", g.composite + "/100", g.gradeColor)}
-    ${_row("P26 Grade",           g.grade + " — " + g.gradeLabel, g.gradeColor)}
+    ${_row("P26 Grade",           g.grade + "  -  " + g.gradeLabel, g.gradeColor)}
     ${_row("P21 Cert Level",      g.p21detail.level, g.p21detail.level === "PREMIUM_CERTIFIED" ? "#22c55e" : g.p21detail.level === "ENTERPRISE_READY" ? "#3b82f6" : "#6b7280")}
     ${_row("P25 Trust Tier",      g.p25detail.tier, g.p25detail.tierColor)}
     <div style="margin-top:12px;color:#8b949e;font-size:10px;text-transform:uppercase;letter-spacing:.1em;">Certification Findings</div>
@@ -446,14 +446,14 @@ export function buildP26CertificationBlock(item) {
 
   return _block(
     "p26-certification",
-    "P26.7 ─ Commercial Report Certification",
+    "P26.7 - Commercial Report Certification",
     g.certFlags.certColor,
     body,
-    "Automated commercial publication gate — P26.0 certification engine"
+    "Automated commercial publication gate  -  P26.0 certification engine"
   );
 }
 
-// ── API Handlers ──────────────────────────────────────────────────────────────
+// -- API Handlers --------------------------------------------------------------
 
 /**
  * GET /api/v1/p26/grade?id=<item-id>
@@ -593,7 +593,7 @@ export async function handleP26Observability(request, env) {
 
 /**
  * Build complete P26 HTML package for injection into each report.
- * Order: Trust Badges (top) → Grade Card → Certification Block.
+ * Order: Trust Badges (top) -> Grade Card -> Certification Block.
  */
 export function buildP26Package(item) {
   return [
