@@ -2291,6 +2291,38 @@ jobs:
           exit 0
 
       # -----------------------------------------------------------------------
+      # STAGE 3.98: P33.0 ENTERPRISE CYBER INTELLIGENCE OPERATING SYSTEM (NON-BLOCKING)
+      # Runs 26-gate P33 ECIOS certification (extends P32 chain with 6 P33-specific gates):
+      #   G21 case intelligence derivable >=80% (severity field present);
+      #   G22 campaign intelligence derivable (>=1 actor_tag or shared TTP group);
+      #   G23 coverage matrix buildable >=70% (items with ttps);
+      #   G24 enterprise-cyber-intelligence-os.html present (BLOCKER);
+      #   G25 SOC mission queues populated (>=1 CRITICAL or HIGH item);
+      #   G26 operational dashboard threat level computable.
+      # Requires P32/P31/P30/P28/P25 cert reports in data/quality/ to validate chain.
+      # Outputs data/quality/p33_certification_report.json for observability.
+      # -----------------------------------------------------------------------
+      - name: "STAGE 3.98 - P33.0 Enterprise Cyber Intelligence Operating System (ECIOS)"
+        timeout-minutes: 10
+        continue-on-error: true
+        env:
+          DRY_RUN: "false"
+        run: |
+          python3 scripts/p33_production_certification.py
+          if [ -f "data/quality/p33_certification_report.json" ]; then
+            read -r TIER BLOCKERS WARNINGS PASSED TOTAL <<< "$(python3 scripts/ci_stats_extract.py p33 2>/dev/null || echo 'UNKNOWN 0 0 0 0')"
+            echo "[P33.0] Certification: ${TIER} | Gates: ${PASSED}/${TOTAL} | Blockers: ${BLOCKERS} | Warnings: ${WARNINGS}"
+            if [ "${TIER}" = "WORLDWIDE_RELEASE" ]; then
+              echo "::notice::P33.0 WORLDWIDE RELEASE CERTIFIED — ECIOS + cross-feed intelligence + 26 gates passed. Gates: ${PASSED}/${TOTAL}."
+            elif [ "${TIER}" = "CONTROLLED_RELEASE" ]; then
+              echo "::notice::P33.0 CONTROLLED RELEASE — ${BLOCKERS} blocker(s). Gates: ${PASSED}/${TOTAL}. Review p33_certification_report.json."
+            else
+              echo "::notice::P33.0 BLOCKED — ${BLOCKERS} blocker(s). Gates: ${PASSED}/${TOTAL}. See data/quality/p33_certification_report.json."
+            fi
+          fi
+          exit 0
+
+      # -----------------------------------------------------------------------
       # STAGE 4: GIT SYNC -- ALWAYS RUNS
       # Commits non-sensitive metadata and HTML reports. 4-attempt push retry.
       # Exit 0 guaranteed - never kills pipeline.

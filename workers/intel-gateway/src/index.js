@@ -83,6 +83,7 @@ import { buildP29EINBlock, buildP29ConfidenceGraphBlock, buildP29CustomerExposur
 import { buildP30VerificationBlock, buildP30TimelineBlock, buildP30ChangeTrackingBlock, buildP30DetectionDriftBlock, buildP30IOCLifecycleBlock, buildP30SLABlock, buildP30TrustTimelineBlock, handleP30Verification, handleP30Timeline, handleP30SourceHealth, handleP30Drift, handleP30ReportHealth, handleP30Observability, handleP30Certify } from './p30-handlers.js';
 import { buildP31KnowledgeGraphBlock, buildP31EntityBlock, buildP31CampaignBlock, buildP31CopilotBlock, buildP31PlaybookBlock, buildP31RelationshipBlock, handleP31Graph, handleP31Search, handleP31Entity, handleP31Relationships, handleP31Campaign, handleP31Copilot, handleP31Observability, handleP31Certify } from './p31-handlers.js';
 import { buildP32LifecycleBlock, buildP32DecisionBlock, buildP32DeltaBlock, buildP32DetectionEffectivenessBlock, buildP32EnvironmentSimulatorBlock, buildP32DriftBlock, buildP32EvidenceTransparencyBlock, buildP32MaturityBlock, buildP32MetricsBlock, buildP32ReleaseGateBlock, handleP32Decision, handleP32Drift, handleP32Lifecycle, handleP32Metrics, handleP32Customer, handleP32Quality, handleP32Operations, handleP32Release, handleP32Dashboard, handleP32Observability } from './p32-handlers.js';
+import { buildP33CaseBlock, buildP33CampaignBlock, buildP33MissionBlock, buildP33RecommendationsBlock, buildP33CoverageMatrixBlock, buildP33HeatmapBlock, buildP33ExplorerBlock, buildP33AutomationBlock, buildP33OperationalDashboardBlock, buildP33APIGatewayBlock, handleP33Cases, handleP33Campaigns, handleP33Heatmap, handleP33Mission, handleP33Recommendations, handleP33Explorer, handleP33Dashboard, handleP33Operations, handleP33Status, handleP33Metrics, handleP33Observability } from './p33-handlers.js';
 import { routeEnterpriseEndpoint } from './enterprise-endpoints.js';
 import { handleSearch, handleActors, handleCVEs, handleMISPExport as handleMISPExportExt, handleCSVExport, handleCorrelate, handlePredict, handleCampaigns, handleAnomalies, handleIntelGraph, handleIntelRelations } from './api-extensions.js';
 const PLATFORM_VERSION    = "184.0";
@@ -984,6 +985,25 @@ ${buildP32MaturityBlock(item)}
 ${buildP32MetricsBlock(item)}
 <!-- P32.13: Production Release Gate -->
 ${buildP32ReleaseGateBlock(item)}
+<!-- P33.1: Incident Case Intelligence -->
+${buildP33CaseBlock(item)}
+<!-- P33.2: Threat Campaign Intelligence -->
+${buildP33CampaignBlock(item, items)}
+<!-- P33.3: SOC Mission Planner -->
+${buildP33MissionBlock(item, items)}
+<!-- P33.4: Enterprise Intelligence Recommendations -->
+${buildP33RecommendationsBlock(item)}
+<!-- P33.5/P33.6: Detection Coverage Matrix + Exposure Heatmap -->
+${buildP33CoverageMatrixBlock(item, items)}
+${buildP33HeatmapBlock(item, items)}
+<!-- P33.7: Intelligence Knowledge Explorer -->
+${buildP33ExplorerBlock(item)}
+<!-- P33.8: Intelligence Automation Engine -->
+${buildP33AutomationBlock(item, items)}
+<!-- P33.9: Customer Operational Dashboard -->
+${buildP33OperationalDashboardBlock(item, items)}
+<!-- P33.10: API Gateway Status -->
+${buildP33APIGatewayBlock(item)}
 </body>
 </html>`;
 }
@@ -3955,6 +3975,19 @@ async function handleRequest(request, env, ctx) {
   if (path === "/api/v1/p32/release")              return await handleP32Release(request, env);
   if (path === "/api/v1/p32/dashboard")            return await handleP32Dashboard(request, env);
   if (path === "/api/v1/p32/observability")        return await handleP32Observability(request, env);
+
+  // --- P33 routes ---
+  if (path === "/api/v1/p33/cases")               return await handleP33Cases(request, env);
+  if (path === "/api/v1/p33/campaigns")           return await handleP33Campaigns(request, env);
+  if (path === "/api/v1/p33/heatmap")             return await handleP33Heatmap(request, env);
+  if (path === "/api/v1/p33/mission")             return await handleP33Mission(request, env);
+  if (path === "/api/v1/p33/recommendations")     return await handleP33Recommendations(request, env);
+  if (path === "/api/v1/p33/explorer")            return await handleP33Explorer(request, env);
+  if (path === "/api/v1/p33/dashboard")           return await handleP33Dashboard(request, env);
+  if (path === "/api/v1/p33/operations")          return await handleP33Operations(request, env);
+  if (path === "/api/v1/p33/status")              return await handleP33Status(request, env);
+  if (path === "/api/v1/p33/metrics")             return await handleP33Metrics(request, env);
+  if (path === "/api/v1/p33/observability")       return await handleP33Observability(request, env);
 
   // --- api-extensions.js routes (previously unreachable  -  now wired, auth already resolved above) ---
   if (path === "/api/search")                       return await handleSearch(request, env, auth, crypto.randomUUID());
