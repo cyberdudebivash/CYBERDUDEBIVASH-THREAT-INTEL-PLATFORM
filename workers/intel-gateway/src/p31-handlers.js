@@ -22,16 +22,16 @@
  *   API    handleP31Certify                 /api/v1/p31/certify
  *
  * AUDIT-CONFIRMED REUSE (zero duplication):
- *   computeP20QualityScore    — quality scoring (P20)
- *   computeActionabilityScore — actionability (P23)
- *   computeEnterpriseTrustScore — trust scoring (P25)
- *   Graph engine data         — reads data derived by intelligence_knowledge_graph.py,
+ *   computeP20QualityScore     -  quality scoring (P20)
+ *   computeActionabilityScore  -  actionability (P23)
+ *   computeEnterpriseTrustScore  -  trust scoring (P25)
+ *   Graph engine data          -  reads data derived by intelligence_knowledge_graph.py,
  *                               adversary_graph_engine.py, persistent_campaign_graph_engine.py
- *   Visualization canvas      — enterprise-knowledge-graph.html extends graph-ops-center.html
+ *   Visualization canvas       -  enterprise-knowledge-graph.html extends graph-ops-center.html
  *
- * ZERO FABRICATION  — all relationships derived from feed-verified fields only.
- * ADDITIVE ONLY     — no existing handler, schema, KV key, auth, or payment modified.
- * ZERO DUPLICATION  — P23 playbooks, P28 executive/role guidance not re-implemented.
+ * ZERO FABRICATION   -  all relationships derived from feed-verified fields only.
+ * ADDITIVE ONLY      -  no existing handler, schema, KV key, auth, or payment modified.
+ * ZERO DUPLICATION   -  P23 playbooks, P28 executive/role guidance not re-implemented.
  */
 
 import { computeP20QualityScore }      from './p20-handlers.js';
@@ -41,7 +41,7 @@ import { computeP26Grade }             from './p26-handlers.js';
 
 export const P31_VERSION = "P31.0";
 
-// ── Shared helpers ────────────────────────────────────────────────────────────
+// -- Shared helpers ------------------------------------------------------------
 
 function esc(s) {
   return String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;")
@@ -91,7 +91,7 @@ function _jsonResp(obj, status = 200) {
   });
 }
 
-// ── Entity normalization dictionaries ─────────────────────────────────────────
+// -- Entity normalization dictionaries -----------------------------------------
 
 const _ACTOR_ALIASES = {
   "apt28":       { canonical: "APT28",       aliases: ["Fancy Bear", "Sofacy", "Pawn Storm", "STRONTIUM", "Sednit", "Tsar Team"], nation: "RU", motivation: "espionage" },
@@ -177,15 +177,15 @@ const _ARTIFACT_MAP = {
   "credential":    ["LSASS memory access (Sysmon Event 10)", "Kerberoasting (Event 4769 - RC4 encryption)", "Pass-the-Hash (Event 4624 Type 3)", "DCSync activity (Directory Service Access)"],
 };
 
-// ── Graph construction ────────────────────────────────────────────────────────
+// -- Graph construction --------------------------------------------------------
 
 /**
- * P31.1 — Build lightweight knowledge graph from feed corpus.
+ * P31.1  -  Build lightweight knowledge graph from feed corpus.
  * All relationships derived from pipeline-verified feed fields.
  * Returns { nodes, edges, stats }.
  */
 function _buildGraph(items) {
-  const nodes = new Map();  // id → node
+  const nodes = new Map();  // id -> node
   const edges = [];
   const edgeSet = new Set(); // dedup
 
@@ -197,7 +197,7 @@ function _buildGraph(items) {
   };
 
   const addEdge = (source, target, rel, confidence, evidence) => {
-    const key = `${source}→${rel}→${target}`;
+    const key = `${source}->${rel}->${target}`;
     if (!edgeSet.has(key)) {
       edgeSet.add(key);
       edges.push({ source, target, relation: rel, confidence, evidence, verified: confidence >= 0.75 });
@@ -326,7 +326,7 @@ function _countByField(arr, field) {
   }, {});
 }
 
-// ── Entity normalization ──────────────────────────────────────────────────────
+// -- Entity normalization ------------------------------------------------------
 
 function _normalizeActor(raw) {
   const key = raw.toLowerCase().replace(/[\s\-\.]/g, "");
@@ -344,7 +344,7 @@ function _normalizeMalware(raw) {
 }
 
 /**
- * P31.2 — Per-item entity normalization.
+ * P31.2  -  Per-item entity normalization.
  */
 function _computeEntityNormalization(item) {
   const actor = _normalizeActor(item.actor_tag || item.threat_actor || "");
@@ -360,7 +360,7 @@ function _computeEntityNormalization(item) {
 }
 
 /**
- * P31.3 — Campaign reconstruction context for a single item.
+ * P31.3  -  Campaign reconstruction context for a single item.
  * Derives campaign context from threat_type, actor, and temporal proximity.
  */
 function _computeCampaignContext(item, allItems) {
@@ -381,7 +381,7 @@ function _computeCampaignContext(item, allItems) {
   // Derive campaign name from actor + threat_type
   const actorNorm = _normalizeActor(item.actor_tag || "");
   const campaignName = actorNorm.canonical !== (item.actor_tag || "")
-    ? `${actorNorm.canonical} — ${(item.threat_type || "Intelligence").replace(/_/g, " ")} Campaign`
+    ? `${actorNorm.canonical}  -  ${(item.threat_type || "Intelligence").replace(/_/g, " ")} Campaign`
     : null;
 
   // Timeline events from timestamps
@@ -399,9 +399,9 @@ function _computeCampaignContext(item, allItems) {
 }
 
 /**
- * P31.4 — Analyst copilot: natural-language guidance.
+ * P31.4  -  Analyst copilot: natural-language guidance.
  * Answers: why matters, what changed, what first, what logs, what next.
- * NOT a duplicate of P23 (hunting/IR) or P28 (action center/role guidance) —
+ * NOT a duplicate of P23 (hunting/IR) or P28 (action center/role guidance)  - 
  * this generates narrative-form natural-language copilot output.
  */
 function _computeCopilot(item) {
@@ -417,38 +417,38 @@ function _computeCopilot(item) {
 
   // WHY THIS MATTERS
   const whyParts = [];
-  if (isKev) whyParts.push("Listed in CISA KEV — confirmed active exploitation in the wild");
-  if (cvss >= 9) whyParts.push(`Critical CVSS ${cvss} — remote code execution or critical asset impact likely`);
-  else if (cvss >= 7) whyParts.push(`High-severity CVSS ${cvss} — significant compromise potential`);
-  if (epss > 0.3) whyParts.push(`EPSS ${(epss * 100).toFixed(1)}% — high probability of exploitation within 30 days`);
+  if (isKev) whyParts.push("Listed in CISA KEV  -  confirmed active exploitation in the wild");
+  if (cvss >= 9) whyParts.push(`Critical CVSS ${cvss}  -  remote code execution or critical asset impact likely`);
+  else if (cvss >= 7) whyParts.push(`High-severity CVSS ${cvss}  -  significant compromise potential`);
+  if (epss > 0.3) whyParts.push(`EPSS ${(epss * 100).toFixed(1)}%  -  high probability of exploitation within 30 days`);
   if (actor.canonical && actor.nation) {
     const label = actor.nation === "RU" ? "Russian" : actor.nation === "CN" ? "Chinese" : actor.nation === "KP" ? "North Korean" : actor.nation === "IR" ? "Iranian" : "nation-state";
-    whyParts.push(`Attributed to ${actor.canonical} (${label} nexus) — high-sophistication persistent threat`);
+    whyParts.push(`Attributed to ${actor.canonical} (${label} nexus)  -  high-sophistication persistent threat`);
   }
-  if (threatT.includes("ransomware")) whyParts.push("Ransomware family — direct business continuity and financial risk");
-  if (threatT.includes("supply")) whyParts.push("Supply chain vector — upstream compromise risk to all downstream consumers");
-  if (whyParts.length === 0) whyParts.push(`${sev || "Unknown"} severity advisory from ${item.source || "intelligence feed"} — review for environment relevance`);
+  if (threatT.includes("ransomware")) whyParts.push("Ransomware family  -  direct business continuity and financial risk");
+  if (threatT.includes("supply")) whyParts.push("Supply chain vector  -  upstream compromise risk to all downstream consumers");
+  if (whyParts.length === 0) whyParts.push(`${sev || "Unknown"} severity advisory from ${item.source || "intelligence feed"}  -  review for environment relevance`);
 
   // WHAT CHANGED
   const whatChanged = [];
   const ts = item.processed_at || item.validated_at || item.timestamp || "";
   let ageHours = -1;
   if (ts) { try { ageHours = (Date.now() - new Date(ts).getTime()) / 3600000; } catch (_) {} }
-  if (ageHours >= 0 && ageHours < 24) whatChanged.push("Freshly processed (<24h) — initial intelligence window");
-  else if (ageHours >= 0 && ageHours < 72) whatChanged.push("Recent advisory (24-72h) — validate enrichment completeness");
-  else if (ageHours > 0) whatChanged.push(`Advisory aged ${Math.round(ageHours / 24)} days — verify current exploitation status`);
-  if (iocCnt > 0) whatChanged.push(`${iocCnt} IOC(s) in inventory — network/endpoint blocking recommended`);
-  if (hasDet) whatChanged.push(`Detection rules available — deploy to SIEM/EDR immediately`);
-  if (!hasDet && ttps.length > 0) whatChanged.push("Detection rules not yet available — detection engineering required");
-  if (isKev && cvss < 7) whatChanged.push("KEV-listed despite moderate CVSS — exploitation complexity is low");
+  if (ageHours >= 0 && ageHours < 24) whatChanged.push("Freshly processed (<24h)  -  initial intelligence window");
+  else if (ageHours >= 0 && ageHours < 72) whatChanged.push("Recent advisory (24-72h)  -  validate enrichment completeness");
+  else if (ageHours > 0) whatChanged.push(`Advisory aged ${Math.round(ageHours / 24)} days  -  verify current exploitation status`);
+  if (iocCnt > 0) whatChanged.push(`${iocCnt} IOC(s) in inventory  -  network/endpoint blocking recommended`);
+  if (hasDet) whatChanged.push(`Detection rules available  -  deploy to SIEM/EDR immediately`);
+  if (!hasDet && ttps.length > 0) whatChanged.push("Detection rules not yet available  -  detection engineering required");
+  if (isKev && cvss < 7) whatChanged.push("KEV-listed despite moderate CVSS  -  exploitation complexity is low");
 
   // WHAT TO INVESTIGATE FIRST
   const whatFirst = [];
-  if (isKev) whatFirst.push(`1. Verify patch status for all affected systems — KEV 15-day federal mandate applies`);
+  if (isKev) whatFirst.push(`1. Verify patch status for all affected systems  -  KEV 15-day federal mandate applies`);
   if (ttps.includes("T1566") || ttps.includes("T1566.001")) whatFirst.push("2. Review email gateway logs for phishing delivery vectors (last 72h)");
   if (ttps.includes("T1078") || ttps.includes("T1133")) whatFirst.push("3. Audit external-facing authentication logs for anomalous access");
   if (ttps.includes("T1059") || ttps.includes("T1059.001")) whatFirst.push("4. Review PowerShell/command execution logs on critical hosts");
-  if (ttps.some(t => t.startsWith("T1003"))) whatFirst.push("5. Monitor LSASS access via EDR — credential harvesting likely");
+  if (ttps.some(t => t.startsWith("T1003"))) whatFirst.push("5. Monitor LSASS access via EDR  -  credential harvesting likely");
   if (threatT.includes("ransomware")) whatFirst.push("6. Validate backup integrity and verify offline backup availability");
   if (iocCnt > 0) whatFirst.push(`${whatFirst.length + 1}. Block IOCs at perimeter (${iocCnt} indicators available in this advisory)`);
   if (whatFirst.length === 0) whatFirst.push(`1. Assess ${sev}-severity exposure across asset inventory`);
@@ -481,9 +481,9 @@ function _computeCopilot(item) {
 }
 
 /**
- * P31.5 — Investigation Playbook.
+ * P31.5  -  Investigation Playbook.
  * IOC pivot plan, log sources, expected artifacts, escalation criteria.
- * Different from P23 (operational readiness) — this is analyst-facing investigation workflow.
+ * Different from P23 (operational readiness)  -  this is analyst-facing investigation workflow.
  */
 function _computePlaybook(item) {
   const ttps     = Array.isArray(item.ttps) ? item.ttps : [];
@@ -533,10 +533,10 @@ function _computePlaybook(item) {
 
   // Escalation criteria
   const escalation = [];
-  if (isKev) escalation.push("ESCALATE IMMEDIATELY — CISA KEV-listed vulnerability with active exploitation");
-  if (cvss >= 9) escalation.push("ESCALATE — Critical CVSS; potential for widespread, uncontained compromise");
-  if (threatT.includes("ransomware")) escalation.push("ESCALATE — Ransomware family detected; activate BCP/DR procedures");
-  if (ttps.some(t => ["T1486","T1489","T1490"].includes(t))) escalation.push("ESCALATE — Destructive/ransomware TTPs mapped; data integrity at risk");
+  if (isKev) escalation.push("ESCALATE IMMEDIATELY  -  CISA KEV-listed vulnerability with active exploitation");
+  if (cvss >= 9) escalation.push("ESCALATE  -  Critical CVSS; potential for widespread, uncontained compromise");
+  if (threatT.includes("ransomware")) escalation.push("ESCALATE  -  Ransomware family detected; activate BCP/DR procedures");
+  if (ttps.some(t => ["T1486","T1489","T1490"].includes(t))) escalation.push("ESCALATE  -  Destructive/ransomware TTPs mapped; data integrity at risk");
   escalation.push("Escalate if IOC matches found on production or crown-jewel systems");
   escalation.push(`Escalate if SLA threshold exceeded (CVSS ${cvss >= 7 ? "7+ = 30 day" : "4-6 = 45 day"} patch window)`);
 
@@ -554,7 +554,7 @@ function _computePlaybook(item) {
   return { iocPivots, logSources, artifacts, escalation, timelineSteps };
 }
 
-// ── P31.1: Knowledge Graph Block ──────────────────────────────────────────────
+// -- P31.1: Knowledge Graph Block ----------------------------------------------
 
 export function buildP31KnowledgeGraphBlock(item) {
   const en = _computeEntityNormalization(item);
@@ -563,32 +563,32 @@ export function buildP31KnowledgeGraphBlock(item) {
 
   const actorNode = en.actor.canonical ? `
     <div style="display:inline-flex;align-items:center;gap:6px;background:#ff444411;border:1px solid #ff444433;border-radius:4px;padding:4px 10px;margin:3px;">
-      <span style="color:#ff4444;font-size:10px;">⬡ ACTOR</span>
+      <span style="color:#ff4444;font-size:10px;">? ACTOR</span>
       <span style="color:#f9fafb;font-size:11px;font-weight:600;">${esc(en.actor.canonical)}</span>
       ${en.actor.nation ? _badge(en.actor.nation, "#1a2030", "#94a3b8") : ""}
     </div>` : "";
 
   const ttpNodes = en.ttps.slice(0, 8).map(t =>
     `<div style="display:inline-flex;align-items:center;gap:4px;background:#0088ff11;border:1px solid #0088ff33;border-radius:4px;padding:3px 8px;margin:2px;">
-      <span style="color:#0088ff;font-size:9px;">▣ TTP</span>
+      <span style="color:#0088ff;font-size:9px;">? TTP</span>
       <span style="color:#93c5fd;font-size:10px;">${esc(t)}</span>
     </div>`).join("");
 
   const cveNodes = en.cves.slice(0, 4).map(c =>
     `<div style="display:inline-flex;align-items:center;gap:4px;background:#ff660011;border:1px solid #ff660033;border-radius:4px;padding:3px 8px;margin:2px;">
-      <span style="color:#ff6600;font-size:9px;">◈ CVE</span>
+      <span style="color:#ff6600;font-size:9px;">? CVE</span>
       <span style="color:#fdba74;font-size:10px;">${esc(c)}</span>
     </div>`).join("");
 
   const tacticNodes = en.tactics.slice(0, 5).map(t =>
     `<div style="display:inline-flex;align-items:center;gap:4px;background:#8b5cf611;border:1px solid #8b5cf633;border-radius:4px;padding:3px 8px;margin:2px;">
-      <span style="color:#8b5cf6;font-size:9px;">◆ TACTIC</span>
+      <span style="color:#8b5cf6;font-size:9px;">? TACTIC</span>
       <span style="color:#c4b5fd;font-size:10px;">${esc(String(t))}</span>
     </div>`).join("");
 
   const iocNodes = en.iocTypes.slice(0, 5).map(t =>
     `<div style="display:inline-flex;align-items:center;gap:4px;background:#ef444411;border:1px solid #ef444433;border-radius:4px;padding:3px 8px;margin:2px;">
-      <span style="color:#ef4444;font-size:9px;">◉ IOC</span>
+      <span style="color:#ef4444;font-size:9px;">? IOC</span>
       <span style="color:#fca5a5;font-size:10px;">${esc(t.toUpperCase())}</span>
     </div>`).join("");
 
@@ -626,10 +626,10 @@ export function buildP31KnowledgeGraphBlock(item) {
     ${cveNodes}
     ${tacticNodes}
     ${iocNodes}
-    ${!actorNode && !ttpNodes && !cveNodes ? `<div style="color:#4b5563;font-size:11px;padding:8px 0;">Limited graph entities derivable — enrich with actor/TTP metadata for richer graph.</div>` : ""}
+    ${!actorNode && !ttpNodes && !cveNodes ? `<div style="color:#4b5563;font-size:11px;padding:8px 0;">Limited graph entities derivable  -  enrich with actor/TTP metadata for richer graph.</div>` : ""}
   </div>
   <div style="margin-top:10px;padding:8px 12px;background:#0a0f1a;border-radius:4px;font-size:10px;color:#6b7280;">
-    <a href="/enterprise-knowledge-graph.html" style="color:#06b6d4;text-decoration:none;">→ Open Enterprise Knowledge Graph</a>
+    <a href="/enterprise-knowledge-graph.html" style="color:#06b6d4;text-decoration:none;">-> Open Enterprise Knowledge Graph</a>
     &nbsp;|&nbsp;
     <a href="/api/v1/p31/graph" style="color:#6b7280;text-decoration:none;">Graph API</a>
     &nbsp;|&nbsp;
@@ -638,10 +638,10 @@ export function buildP31KnowledgeGraphBlock(item) {
 
   return _block(`p31-kg-${esc(item.id || "x")}`, "P31.1 Enterprise Knowledge Graph",
     richnessColor, body,
-    `${totalEntities} entities linked — actors, techniques, CVEs, tactics, IOC types`);
+    `${totalEntities} entities linked  -  actors, techniques, CVEs, tactics, IOC types`);
 }
 
-// ── P31.2: Entity Normalization Block ─────────────────────────────────────────
+// -- P31.2: Entity Normalization Block -----------------------------------------
 
 export function buildP31EntityBlock(item) {
   const en = _computeEntityNormalization(item);
@@ -649,12 +649,12 @@ export function buildP31EntityBlock(item) {
 
   const actorSection = actorNorm.canonical ? `
     <div style="background:#0a0f1a;border-radius:4px;padding:10px 14px;margin-bottom:10px;">
-      <div style="color:#94a3b8;font-size:10px;letter-spacing:.1em;margin-bottom:6px;">THREAT ACTOR — CANONICAL IDENTITY</div>
+      <div style="color:#94a3b8;font-size:10px;letter-spacing:.1em;margin-bottom:6px;">THREAT ACTOR  -  CANONICAL IDENTITY</div>
       ${_row("Canonical Name", `<strong style="color:#ff4444;">${esc(actorNorm.canonical)}</strong>`)}
       ${_row("Nation Nexus", actorNorm.nation || "UNKNOWN", actorNorm.nation ? "#f9fafb" : "#6b7280")}
       ${_row("Motivation", actorNorm.motivation || "unknown", "#94a3b8")}
       ${actorNorm.aliases && actorNorm.aliases.length > 0 ? _row("Known Aliases", actorNorm.aliases.join(" | "), "#6b7280") : ""}
-    </div>` : `<div style="color:#4b5563;font-size:11px;padding:6px 0;">No attributed threat actor — source: ${esc(item.source || "unknown")}</div>`;
+    </div>` : `<div style="color:#4b5563;font-size:11px;padding:6px 0;">No attributed threat actor  -  source: ${esc(item.source || "unknown")}</div>`;
 
   const ttpSection = en.ttps.length > 0 ? `
     <div style="background:#0a0f1a;border-radius:4px;padding:10px 14px;margin-bottom:10px;">
@@ -677,17 +677,17 @@ export function buildP31EntityBlock(item) {
     "#a78bfa", body, "Canonical actor identity, alias resolution, TTP normalization");
 }
 
-// ── P31.3: Campaign Reconstruction Block ──────────────────────────────────────
+// -- P31.3: Campaign Reconstruction Block --------------------------------------
 
 export function buildP31CampaignBlock(item, allItems = []) {
   const ctx = _computeCampaignContext(item, allItems);
 
   const timelineRows = ctx.timeline.map(e => `
     <div style="display:flex;gap:10px;padding:5px 0;border-bottom:1px solid #1a2030;align-items:flex-start;">
-      <span style="color:${e.type === "kev" ? "#ef4444" : e.type === "publish" ? "#3b82f6" : "#22c55e"};font-size:10px;min-width:14px;">●</span>
+      <span style="color:${e.type === "kev" ? "#ef4444" : e.type === "publish" ? "#3b82f6" : "#22c55e"};font-size:10px;min-width:14px;">?</span>
       <div>
         <div style="color:#f9fafb;font-size:11px;">${esc(e.event)}</div>
-        ${e.ts && e.ts !== "active" ? `<div style="color:#6b7280;font-size:10px;">${e.ts.slice(0, 16).replace("T", " ")} UTC</div>` : `<div style="color:#ef4444;font-size:10px;">Active — ongoing exploitation</div>`}
+        ${e.ts && e.ts !== "active" ? `<div style="color:#6b7280;font-size:10px;">${e.ts.slice(0, 16).replace("T", " ")} UTC</div>` : `<div style="color:#ef4444;font-size:10px;">Active  -  ongoing exploitation</div>`}
       </div>
     </div>`).join("");
 
@@ -707,21 +707,21 @@ export function buildP31CampaignBlock(item, allItems = []) {
 
   return _block(`p31-campaign-${esc(item.id || "x")}`, "P31.3 Threat Campaign Reconstruction",
     "#f59e0b", body,
-    `${ctx.related.length} related items via actor/TTP correlation — ${ctx.timeline.length} timeline events`);
+    `${ctx.related.length} related items via actor/TTP correlation  -  ${ctx.timeline.length} timeline events`);
 }
 
-// ── P31.4: Analyst Copilot Block ──────────────────────────────────────────────
+// -- P31.4: Analyst Copilot Block ----------------------------------------------
 
 export function buildP31CopilotBlock(item) {
   const c = _computeCopilot(item);
 
-  const whyHtml = c.whyParts.map(p => `<div style="color:#f9fafb;font-size:11px;padding:4px 0;border-bottom:1px solid #1a2030;">→ ${esc(p)}</div>`).join("");
-  const changedHtml = c.whatChanged.map(p => `<div style="color:#94a3b8;font-size:11px;padding:3px 0;border-bottom:1px solid #1a2030;">• ${esc(p)}</div>`).join("");
+  const whyHtml = c.whyParts.map(p => `<div style="color:#f9fafb;font-size:11px;padding:4px 0;border-bottom:1px solid #1a2030;">-> ${esc(p)}</div>`).join("");
+  const changedHtml = c.whatChanged.map(p => `<div style="color:#94a3b8;font-size:11px;padding:3px 0;border-bottom:1px solid #1a2030;">* ${esc(p)}</div>`).join("");
   const firstHtml = c.whatFirst.map(p => `<div style="color:#f9fafb;font-size:11px;padding:3px 0;border-bottom:1px solid #1a2030;">${esc(p)}</div>`).join("");
   const logsHtml = c.logList.length > 0
-    ? c.logList.map(l => `<div style="color:#06b6d4;font-size:10px;padding:2px 0;border-bottom:1px solid #0d1117;">◈ ${esc(l)}</div>`).join("")
-    : `<div style="color:#4b5563;font-size:10px;">No specific log sources mapped — review TTP coverage</div>`;
-  const nextHtml = c.whatNext.map(p => `<div style="color:#22c55e;font-size:11px;padding:3px 0;border-bottom:1px solid #1a2030;">→ ${esc(p)}</div>`).join("");
+    ? c.logList.map(l => `<div style="color:#06b6d4;font-size:10px;padding:2px 0;border-bottom:1px solid #0d1117;">? ${esc(l)}</div>`).join("")
+    : `<div style="color:#4b5563;font-size:10px;">No specific log sources mapped  -  review TTP coverage</div>`;
+  const nextHtml = c.whatNext.map(p => `<div style="color:#22c55e;font-size:11px;padding:3px 0;border-bottom:1px solid #1a2030;">-> ${esc(p)}</div>`).join("");
 
   const section = (title, color, content) => `
     <div style="margin-bottom:12px;">
@@ -729,17 +729,17 @@ export function buildP31CopilotBlock(item) {
       ${content}
     </div>`;
 
-  const body = section("◉ WHY THIS MATTERS", "#ef4444", whyHtml)
-    + section("◉ WHAT CHANGED", "#f59e0b", changedHtml)
-    + section("◉ WHAT TO INVESTIGATE FIRST", "#3b82f6", firstHtml)
-    + section("◉ WHAT LOGS TO CHECK", "#06b6d4", logsHtml)
-    + section("◉ WHAT NEXT", "#22c55e", nextHtml);
+  const body = section("? WHY THIS MATTERS", "#ef4444", whyHtml)
+    + section("? WHAT CHANGED", "#f59e0b", changedHtml)
+    + section("? WHAT TO INVESTIGATE FIRST", "#3b82f6", firstHtml)
+    + section("? WHAT LOGS TO CHECK", "#06b6d4", logsHtml)
+    + section("? WHAT NEXT", "#22c55e", nextHtml);
 
   return _block(`p31-copilot-${esc(item.id || "x")}`, "P31.4 Analyst Copilot",
     "#a78bfa", body, "AI-assisted analyst guidance: why / what changed / investigate first / logs / next steps");
 }
 
-// ── P31.5: Investigation Playbook Block ───────────────────────────────────────
+// -- P31.5: Investigation Playbook Block ---------------------------------------
 
 export function buildP31PlaybookBlock(item) {
   const pb = _computePlaybook(item);
@@ -753,14 +753,14 @@ export function buildP31PlaybookBlock(item) {
             <div style="color:#6b7280;font-size:10px;margin-top:2px;">${esc(p.action)}</div>
           </div>
         </div>`).join("")
-    : `<div style="color:#4b5563;font-size:11px;">No IOCs present — focus on behavioral detection via TTPs.</div>`;
+    : `<div style="color:#4b5563;font-size:11px;">No IOCs present  -  focus on behavioral detection via TTPs.</div>`;
 
-  const logHtml = pb.logSources.map(l => `<div style="color:#06b6d4;font-size:10px;padding:2px 4px;border-bottom:1px solid #0a0f1a;">◈ ${esc(l)}</div>`).join("");
-  const artifactHtml = pb.artifacts.map(a => `<div style="color:#94a3b8;font-size:10px;padding:2px 4px;border-bottom:1px solid #0a0f1a;">• ${esc(a)}</div>`).join("");
-  const timelineHtml = pb.timelineSteps.map(s => `<div style="color:#f9fafb;font-size:10px;padding:3px 0;border-bottom:1px solid #1a2030;">→ ${esc(s)}</div>`).join("");
+  const logHtml = pb.logSources.map(l => `<div style="color:#06b6d4;font-size:10px;padding:2px 4px;border-bottom:1px solid #0a0f1a;">? ${esc(l)}</div>`).join("");
+  const artifactHtml = pb.artifacts.map(a => `<div style="color:#94a3b8;font-size:10px;padding:2px 4px;border-bottom:1px solid #0a0f1a;">* ${esc(a)}</div>`).join("");
+  const timelineHtml = pb.timelineSteps.map(s => `<div style="color:#f9fafb;font-size:10px;padding:3px 0;border-bottom:1px solid #1a2030;">-> ${esc(s)}</div>`).join("");
   const escalHtml = pb.escalation.map((e, i) => {
     const col = i === 0 && e.includes("IMMEDIATE") ? "#ef4444" : "#f59e0b";
-    return `<div style="color:${col};font-size:10px;padding:3px 0;border-bottom:1px solid #1a2030;">⚠ ${esc(e)}</div>`;
+    return `<div style="color:${col};font-size:10px;padding:3px 0;border-bottom:1px solid #1a2030;">? ${esc(e)}</div>`;
   }).join("");
 
   const section = (title, color, content, bg = "#0a0f1a") => `
@@ -776,10 +776,10 @@ export function buildP31PlaybookBlock(item) {
     + section("ESCALATION CRITERIA", "#f59e0b", escalHtml);
 
   return _block(`p31-playbook-${esc(item.id || "x")}`, "P31.5 Investigation Playbook",
-    "#06b6d4", body, "IOC pivot plan · log sources · expected artifacts · timeline · escalation");
+    "#06b6d4", body, "IOC pivot plan * log sources * expected artifacts * timeline * escalation");
 }
 
-// ── P31.7: Relationship Confidence Block ──────────────────────────────────────
+// -- P31.7: Relationship Confidence Block --------------------------------------
 
 export function buildP31RelationshipBlock(item) {
   const en = _computeEntityNormalization(item);
@@ -859,10 +859,10 @@ export function buildP31RelationshipBlock(item) {
 
   return _block(`p31-rel-${esc(item.id || "x")}`, "P31.7 Relationship Confidence Engine",
     avgConf >= 75 ? "#22c55e" : avgConf >= 50 ? "#3b82f6" : "#f59e0b", body,
-    `${relationships.length} evidence-backed relationships — avg ${avgConf}% confidence`);
+    `${relationships.length} evidence-backed relationships  -  avg ${avgConf}% confidence`);
 }
 
-// ── P31 Package ───────────────────────────────────────────────────────────────
+// -- P31 Package ---------------------------------------------------------------
 
 export function buildP31Package(item, allItems = []) {
   return (
@@ -875,7 +875,7 @@ export function buildP31Package(item, allItems = []) {
   );
 }
 
-// ── API helpers ───────────────────────────────────────────────────────────────
+// -- API helpers ---------------------------------------------------------------
 
 async function _loadFeed(env) {
   try {
@@ -886,7 +886,7 @@ async function _loadFeed(env) {
   } catch (_) { return []; }
 }
 
-// ── API: P31 Graph ────────────────────────────────────────────────────────────
+// -- API: P31 Graph ------------------------------------------------------------
 
 export async function handleP31Graph(request, env) {
   try {
@@ -899,7 +899,7 @@ export async function handleP31Graph(request, env) {
   }
 }
 
-// ── API: P31 Search ───────────────────────────────────────────────────────────
+// -- API: P31 Search -----------------------------------------------------------
 
 export async function handleP31Search(request, env) {
   try {
@@ -949,7 +949,7 @@ export async function handleP31Search(request, env) {
   }
 }
 
-// ── API: P31 Entity ───────────────────────────────────────────────────────────
+// -- API: P31 Entity -----------------------------------------------------------
 
 export async function handleP31Entity(request, env) {
   try {
@@ -982,7 +982,7 @@ export async function handleP31Entity(request, env) {
   }
 }
 
-// ── API: P31 Relationships ────────────────────────────────────────────────────
+// -- API: P31 Relationships ----------------------------------------------------
 
 export async function handleP31Relationships(request, env) {
   try {
@@ -1012,7 +1012,7 @@ export async function handleP31Relationships(request, env) {
   }
 }
 
-// ── API: P31 Campaign ─────────────────────────────────────────────────────────
+// -- API: P31 Campaign ---------------------------------------------------------
 
 export async function handleP31Campaign(request, env) {
   try {
@@ -1054,7 +1054,7 @@ export async function handleP31Campaign(request, env) {
   }
 }
 
-// ── API: P31 Copilot ──────────────────────────────────────────────────────────
+// -- API: P31 Copilot ----------------------------------------------------------
 
 export async function handleP31Copilot(request, env) {
   try {
@@ -1102,7 +1102,7 @@ export async function handleP31Copilot(request, env) {
   }
 }
 
-// ── API: P31 Observability ────────────────────────────────────────────────────
+// -- API: P31 Observability ----------------------------------------------------
 
 export async function handleP31Observability(request, env) {
   try {
@@ -1141,7 +1141,7 @@ export async function handleP31Observability(request, env) {
   }
 }
 
-// ── API: P31 Certify ──────────────────────────────────────────────────────────
+// -- API: P31 Certify ----------------------------------------------------------
 
 export async function handleP31Certify(request, env) {
   try {
