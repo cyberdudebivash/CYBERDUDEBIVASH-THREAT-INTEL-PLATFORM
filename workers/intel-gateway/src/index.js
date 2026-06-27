@@ -82,6 +82,7 @@ import { buildP28Package, buildP28EnvironmentRiskBlock, buildP28BusinessImpactBl
 import { buildP29EINBlock, buildP29ConfidenceGraphBlock, buildP29CustomerExposureBlock, buildP29DecisionEngineBlock, buildP29LifecycleBlock, buildP29DetectionValidationBlock, handleP29Certify, handleP29CustomerValueAnalytics, handleP29TrustCenter, handleP29ReleaseAssurance, handleP29Observability } from './p29-handlers.js';
 import { buildP30VerificationBlock, buildP30TimelineBlock, buildP30ChangeTrackingBlock, buildP30DetectionDriftBlock, buildP30IOCLifecycleBlock, buildP30SLABlock, buildP30TrustTimelineBlock, handleP30Verification, handleP30Timeline, handleP30SourceHealth, handleP30Drift, handleP30ReportHealth, handleP30Observability, handleP30Certify } from './p30-handlers.js';
 import { buildP31KnowledgeGraphBlock, buildP31EntityBlock, buildP31CampaignBlock, buildP31CopilotBlock, buildP31PlaybookBlock, buildP31RelationshipBlock, handleP31Graph, handleP31Search, handleP31Entity, handleP31Relationships, handleP31Campaign, handleP31Copilot, handleP31Observability, handleP31Certify } from './p31-handlers.js';
+import { buildP32LifecycleBlock, buildP32DecisionBlock, buildP32DeltaBlock, buildP32DetectionEffectivenessBlock, buildP32EnvironmentSimulatorBlock, buildP32DriftBlock, buildP32EvidenceTransparencyBlock, buildP32MaturityBlock, buildP32MetricsBlock, buildP32ReleaseGateBlock, handleP32Decision, handleP32Drift, handleP32Lifecycle, handleP32Metrics, handleP32Customer, handleP32Quality, handleP32Operations, handleP32Release, handleP32Dashboard, handleP32Observability } from './p32-handlers.js';
 import { routeEnterpriseEndpoint } from './enterprise-endpoints.js';
 import { handleSearch, handleActors, handleCVEs, handleMISPExport as handleMISPExportExt, handleCSVExport, handleCorrelate, handlePredict, handleCampaigns, handleAnomalies, handleIntelGraph, handleIntelRelations } from './api-extensions.js';
 const PLATFORM_VERSION    = "184.0";
@@ -963,6 +964,26 @@ ${buildP31CopilotBlock(item)}
 ${buildP31PlaybookBlock(item)}
 <!-- P31.7: Relationship Confidence -->
 ${buildP31RelationshipBlock(item)}
+<!-- P32.1: Operational Intelligence Lifecycle -->
+${buildP32LifecycleBlock(item)}
+<!-- P32.2: Enterprise Strategic Decision Engine -->
+${buildP32DecisionBlock(item)}
+<!-- P32.3: Intelligence Delta Engine -->
+${buildP32DeltaBlock(item)}
+<!-- P32.4: Detection Effectiveness Engine -->
+${buildP32DetectionEffectivenessBlock(item)}
+<!-- P32.5: Customer Environment Simulator -->
+${buildP32EnvironmentSimulatorBlock(item)}
+<!-- P32.6: Threat Intelligence Drift Engine -->
+${buildP32DriftBlock(item)}
+<!-- P32.7: Evidence Transparency Engine -->
+${buildP32EvidenceTransparencyBlock(item)}
+<!-- P32.8: Intelligence Maturity Model -->
+${buildP32MaturityBlock(item)}
+<!-- P32.9: Operational Metrics (MTTI/MTTD/MTTR) -->
+${buildP32MetricsBlock(item)}
+<!-- P32.13: Production Release Gate -->
+${buildP32ReleaseGateBlock(item)}
 </body>
 </html>`;
 }
@@ -3922,6 +3943,18 @@ async function handleRequest(request, env, ctx) {
   if (path === "/api/v1/p31/campaign")             return await handleP31Campaign(request, env);
   if (path === "/api/v1/p31/copilot")              return await handleP31Copilot(request, env);
   if (path === "/api/v1/p31/observability")        return await handleP31Observability(request, env);
+
+  // --- P32 routes ---
+  if (path === "/api/v1/p32/decision")             return await handleP32Decision(request, env);
+  if (path === "/api/v1/p32/drift")                return await handleP32Drift(request, env);
+  if (path === "/api/v1/p32/lifecycle")            return await handleP32Lifecycle(request, env);
+  if (path === "/api/v1/p32/metrics")              return await handleP32Metrics(request, env);
+  if (path === "/api/v1/p32/customer")             return await handleP32Customer(request, env);
+  if (path === "/api/v1/p32/quality")              return await handleP32Quality(request, env);
+  if (path === "/api/v1/p32/operations")           return await handleP32Operations(request, env);
+  if (path === "/api/v1/p32/release")              return await handleP32Release(request, env);
+  if (path === "/api/v1/p32/dashboard")            return await handleP32Dashboard(request, env);
+  if (path === "/api/v1/p32/observability")        return await handleP32Observability(request, env);
 
   // --- api-extensions.js routes (previously unreachable  -  now wired, auth already resolved above) ---
   if (path === "/api/search")                       return await handleSearch(request, env, auth, crypto.randomUUID());
