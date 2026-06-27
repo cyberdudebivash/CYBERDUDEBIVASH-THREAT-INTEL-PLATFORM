@@ -1729,6 +1729,7 @@ jobs:
         env:
           DRY_RUN: "false"
           FAIL_FAST: "false"
+          AUTO_FIX: "true"
         run: |
           python3 scripts/p22_contradiction_detector.py
           EXIT=$?
@@ -1736,7 +1737,9 @@ jobs:
             read -r CHECKED TOTAL ERRORS WARNS <<< "$(python3 scripts/ci_stats_extract.py p22 2>/dev/null || echo '? ? ? ?')"
             echo "[P22.3] Checked: ${CHECKED} items | Contradictions: ${TOTAL} | Errors: ${ERRORS} | Warnings: ${WARNS}"
             if [ "${ERRORS}" != "?" ] && [ "${ERRORS}" -gt "0" ] 2>/dev/null; then
-              echo "::notice::P22.3 Contradiction Detector: ${ERRORS} ERROR-level contradictions detected in feed — operational data quality signal, non-blocking. Review data/quality/p22_contradiction_report.json."
+              echo "::notice::P22.3: ${ERRORS} contradiction(s) remain after auto-fix — see data/quality/p22_contradiction_report.json."
+            else
+              echo "[P22.3] Feed contradiction-clean after auto-fix pass."
             fi
           fi
           exit 0
@@ -1763,6 +1766,36 @@ jobs:
             echo "[P23.5] Processed: ${TOTAL} items | PATCH IMMEDIATELY: ${IMMED}"
             if [ "${IMMED}" != "?" ] && [ "${IMMED}" -gt "0" ] 2>/dev/null; then
               echo "::notice::P23.5 Patch Prioritizer: ${IMMED} item(s) flagged for IMMEDIATE patching — KEV confirmed or critical risk score. See p23_patch_priority_report.json."
+            fi
+          fi
+          exit 0
+
+      # -----------------------------------------------------------------------
+      # STAGE 3.93.15g: P24.12 COMMERCIAL CERTIFICATION ENGINE (NON-BLOCKING)
+      # Final commercial certification gate — aggregates all P21/P22/P23 quality
+      # signals, regression test results, feed health, security posture, and
+      # pipeline stability into a unified release certification score.
+      # Release tiers: COMMERCIAL_CERTIFIED (≥90%) | ENTERPRISE_READY (≥75%)
+      #   | INTERNAL_RELEASE (≥55%) | RELEASE_BLOCKED (<55% or critical blocker)
+      # Non-blocking in CI — writes data/quality/p24_commercial_certification.json
+      # -----------------------------------------------------------------------
+      - name: "STAGE 3.93.15g - P24.12 Commercial Certification Engine"
+        timeout-minutes: 5
+        continue-on-error: true
+        env:
+          DRY_RUN: "false"
+        run: |
+          python3 scripts/p24_commercial_certification.py
+          EXIT=$?
+          if [ -f "data/quality/p24_commercial_certification.json" ]; then
+            read -r TIER PCT BLOCKERS <<< "$(python3 scripts/ci_stats_extract.py p24 2>/dev/null || echo 'UNKNOWN 0 0')"
+            echo "[P24.12] Certification: ${TIER} | Score: ${PCT}% | Blockers: ${BLOCKERS}"
+            if [ "${TIER}" = "COMMERCIAL_CERTIFIED" ]; then
+              echo "::notice::P24.12 COMMERCIAL CERTIFIED — platform ready for worldwide enterprise release. Score: ${PCT}%"
+            elif [ "${TIER}" = "ENTERPRISE_READY" ]; then
+              echo "::notice::P24.12 ENTERPRISE READY — platform meets enterprise release criteria. Score: ${PCT}%"
+            elif [ "${TIER}" = "RELEASE_BLOCKED" ]; then
+              echo "::notice::P24.12 RELEASE BLOCKED — ${BLOCKERS} blocker(s) must be resolved before release."
             fi
           fi
           exit 0

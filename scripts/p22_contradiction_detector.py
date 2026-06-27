@@ -53,6 +53,7 @@ log = logging.getLogger("p22-contra")
 REPO      = Path(__file__).resolve().parent.parent
 DRY_RUN   = os.environ.get("DRY_RUN",   "false").strip().lower() == "true"
 FAIL_FAST = os.environ.get("FAIL_FAST", "false").strip().lower() == "true"
+AUTO_FIX  = os.environ.get("AUTO_FIX",  "false").strip().lower() == "true"
 FEED_PATH = Path(os.environ.get("FEED_PATH", str(REPO / "api" / "feed.json")))
 OUT_PATH  = REPO / "data" / "quality" / "p22_contradiction_report.json"
 
@@ -83,6 +84,51 @@ def _parse_ts(ts: str) -> Optional[datetime]:
         return datetime.fromisoformat(ts.replace("Z", "+00:00"))
     except Exception:
         return None
+
+
+# ── AUTO-FIX: correct C1/C2 contradictions in-place ─────────────────────────
+
+def _auto_fix_items(items: List[Dict]) -> int:
+    """
+    Correct C1 (CVSS/severity mismatch) and C2 (KEV/severity mismatch) contradictions
+    in-place. Returns count of items corrected. Zero fabrication — only uses existing
+    CVSS and KEV field values that are already present on the item.
+    """
+    fixed = 0
+    BAND_ORDER = {"LOW": 0, "MEDIUM": 1, "HIGH": 2, "CRITICAL": 3}
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        cvss     = item.get("cvss_score") or item.get("cvss")
+        severity = (item.get("severity") or "").upper()
+        kev      = bool(item.get("kev_present") or item.get("kev"))
+
+        corrected = False
+
+        # C1: CVSS/severity mismatch (gap ≥ 2 bands) — align severity to CVSS
+        if cvss is not None and severity and severity not in ("UNKNOWN", "INFO", ""):
+            expected = _expected_severity_from_cvss(float(cvss))
+            exp_ord  = BAND_ORDER.get(expected, -1)
+            act_ord  = BAND_ORDER.get(severity, -1)
+            if exp_ord >= 0 and act_ord >= 0 and abs(exp_ord - act_ord) >= 2:
+                item["severity"] = expected
+                corrected = True
+                log.info("AUTO-FIX C1: %s severity %s→%s (CVSS %.1f)",
+                         item.get("stix_id") or item.get("id") or "?",
+                         severity, expected, float(cvss))
+
+        # C2: KEV=True but severity too low — escalate to CRITICAL
+        sev_now = (item.get("severity") or "").upper()
+        if kev and sev_now in ("LOW", "INFO", "UNKNOWN", ""):
+            item["severity"] = "CRITICAL"
+            corrected = True
+            log.info("AUTO-FIX C2: %s KEV=True, severity %s→CRITICAL",
+                     item.get("stix_id") or item.get("id") or "?", sev_now)
+
+        if corrected:
+            fixed += 1
+
+    return fixed
 
 
 # ── Intra-item contradiction checks ──────────────────────────────────────────
@@ -270,6 +316,22 @@ def run(path: Path) -> Dict:
     else:
         return {}
 
+    # AUTO-FIX: correct C1/C2 contradictions in-place before detection
+    fixes_applied = 0
+    if AUTO_FIX and not DRY_RUN:
+        fixes_applied = _auto_fix_items(items)
+        if fixes_applied > 0:
+            log.info("AUTO-FIX: %d item(s) corrected — writing corrected feed back", fixes_applied)
+            try:
+                tmp = path.with_suffix(".tmp_p22fix")
+                tmp.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
+                tmp.replace(path)
+                log.info("AUTO-FIX: Corrected feed written to %s", path)
+            except Exception as exc:
+                log.error("AUTO-FIX: Failed to write corrected feed: %s", exc)
+        else:
+            log.info("AUTO-FIX: No C1/C2 corrections needed — feed is consistent")
+
     now   = datetime.now(timezone.utc).isoformat()
     intra = []
     for item in items:
@@ -304,7 +366,8 @@ def run(path: Path) -> Dict:
 
 
 def main() -> int:
-    log.info("P22.3 Contradiction Detector v1.0.0 — DRY_RUN=%s FAIL_FAST=%s", DRY_RUN, FAIL_FAST)
+    log.info("P22.3 Contradiction Detector v1.0.1 — DRY_RUN=%s FAIL_FAST=%s AUTO_FIX=%s",
+             DRY_RUN, FAIL_FAST, AUTO_FIX)
 
     report = run(FEED_PATH)
     if not report:
