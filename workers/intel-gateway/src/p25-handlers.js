@@ -24,7 +24,7 @@ import { getP21CertificationLevel }  from './p21-handlers.js';
 
 export const P25_VERSION = "P25.0";
 
-// ── Shared helpers ────────────────────────────────────────────────────────────
+// -- Shared helpers ------------------------------------------------------------
 
 function esc(s) {
   return String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;")
@@ -36,7 +36,7 @@ function _block(id, title, color, body) {
 <div id="${id}" style="margin:24px 0;padding:20px 24px;background:#0d1117;border:1px solid ${color}33;border-left:3px solid ${color};border-radius:6px;font-family:'Courier New',monospace;">
   <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;">
     <span style="color:${color};font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;">${esc(title)}</span>
-    <span style="color:#333;font-size:10px;">P25.0 ✦ SENTINEL APEX</span>
+    <span style="color:#333;font-size:10px;">P25.0 ? SENTINEL APEX</span>
   </div>
   ${body}
 </div>`;
@@ -69,11 +69,11 @@ function _dim(label, earned, max, bullets, color) {
       <span style="color:${dotColor};font-size:11px;font-weight:700;">${earned}/${max}</span>
     </div>
     ${_bar(pct, dotColor)}
-    ${bullets.map(b => `<div style="color:#8b949e;font-size:10px;margin-top:3px;">• ${esc(b)}</div>`).join("")}
+    ${bullets.map(b => `<div style="color:#8b949e;font-size:10px;margin-top:3px;">* ${esc(b)}</div>`).join("")}
   </div>`;
 }
 
-// ── P25.3 ─ Explainable Intelligence Engine ───────────────────────────────────
+// -- P25.3 - Explainable Intelligence Engine -----------------------------------
 
 /**
  * Decompose all available scoring signals into human-readable explanations.
@@ -99,7 +99,7 @@ export function buildExplainableScoreBlock(item) {
   const signals = [];
   let total = 0;
 
-  // CVSS contribution (0–30 pts)
+  // CVSS contribution (0-30 pts)
   let cvssScore = 0;
   if (cvss >= 9)       { cvssScore = 30; }
   else if (cvss >= 7)  { cvssScore = 20; }
@@ -107,17 +107,17 @@ export function buildExplainableScoreBlock(item) {
   else if (cvss > 0)   { cvssScore = 5; }
   if (cvss > 0) {
     signals.push({ label: "CVSS Score", pts: cvssScore, max: 30, color: cvss >= 9 ? "#ef4444" : cvss >= 7 ? "#f97316" : "#eab308",
-      reason: `CVSS ${cvss.toFixed(1)} — ${cvss>=9?"Critical, network-exploitable":cvss>=7?"High severity":cvss>=4?"Medium severity":"Low severity"}` });
+      reason: `CVSS ${cvss.toFixed(1)}  -  ${cvss>=9?"Critical, network-exploitable":cvss>=7?"High severity":cvss>=4?"Medium severity":"Low severity"}` });
   }
   total += cvssScore;
 
-  // KEV contribution (0–25 pts)
+  // KEV contribution (0-25 pts)
   const kevScore = kev ? 25 : 0;
   signals.push({ label: "CISA KEV Status", pts: kevScore, max: 25, color: kev ? "#ef4444" : "#6b7280",
     reason: kev ? "Confirmed active exploitation in the wild (CISA KEV)" : "Not listed in CISA Known Exploited Vulnerabilities catalog" });
   total += kevScore;
 
-  // EPSS contribution (0–15 pts)
+  // EPSS contribution (0-15 pts)
   let epssScore = 0;
   if (epss >= 50)      { epssScore = 15; }
   else if (epss >= 10) { epssScore = 10; }
@@ -128,7 +128,7 @@ export function buildExplainableScoreBlock(item) {
     total += epssScore;
   }
 
-  // Active exploit / zero-day bonus (0–15 pts)
+  // Active exploit / zero-day bonus (0-15 pts)
   let exploitScore = 0;
   if (zeroday)       { exploitScore = 15; }
   else if (exploit)  { exploitScore = 10; }
@@ -139,7 +139,7 @@ export function buildExplainableScoreBlock(item) {
     total += exploitScore;
   }
 
-  // Source & enrichment quality (0–10 pts)
+  // Source & enrichment quality (0-10 pts)
   let qualScore = srcQual === "HIGH" ? 10 : srcQual === "MEDIUM" ? 6 : srcQual === "LOW" ? 3 : 0;
   if (qualScore === 0 && enrich >= 70) qualScore = 7;
   else if (qualScore === 0 && enrich >= 40) qualScore = 4;
@@ -147,22 +147,22 @@ export function buildExplainableScoreBlock(item) {
     reason: `Source quality: ${srcQual} | Enrichment score: ${enrich}/100 | Validation: ${valStatus}` });
   total += qualScore;
 
-  // IOC & TTP coverage (0–5 pts each)
+  // IOC & TTP coverage (0-5 pts each)
   const iocScore = iocCnt >= 5 ? 5 : iocCnt >= 2 ? 3 : iocCnt >= 1 ? 1 : 0;
   signals.push({ label: "IOC Coverage", pts: iocScore, max: 5, color: iocScore >= 4 ? "#22c55e" : iocScore >= 2 ? "#eab308" : "#6b7280",
-    reason: iocCnt > 0 ? `${iocCnt} indicator(s) available for threat hunting and blocking` : "No IOCs extracted — detection limited to behavioral patterns" });
+    reason: iocCnt > 0 ? `${iocCnt} indicator(s) available for threat hunting and blocking` : "No IOCs extracted  -  detection limited to behavioral patterns" });
   total += iocScore;
 
   const ttpScore = ttpCnt >= 3 ? 5 : ttpCnt >= 2 ? 3 : ttpCnt >= 1 ? 1 : 0;
   signals.push({ label: "MITRE ATT&CK Coverage", pts: ttpScore, max: 5, color: ttpScore >= 4 ? "#22c55e" : ttpScore >= 2 ? "#eab308" : "#6b7280",
-    reason: ttpCnt > 0 ? `${ttpCnt} ATT&CK technique(s): ${(item.ttps || []).slice(0,3).join(", ")}` : "No MITRE ATT&CK mappings — behavioral detection coverage unknown" });
+    reason: ttpCnt > 0 ? `${ttpCnt} ATT&CK technique(s): ${(item.ttps || []).slice(0,3).join(", ")}` : "No MITRE ATT&CK mappings  -  behavioral detection coverage unknown" });
   total += ttpScore;
 
-  // Confidence signal (0–5 pts derived from existing confidence field [0–1])
+  // Confidence signal (0-5 pts derived from existing confidence field [0-1])
   const confScore = conf >= 0.8 ? 5 : conf >= 0.5 ? 3 : conf >= 0.2 ? 1 : 0;
   const confPct   = Math.round(conf * 100);
   signals.push({ label: "AI Confidence Signal", pts: confScore, max: 5, color: confScore >= 4 ? "#22c55e" : confScore >= 2 ? "#eab308" : "#6b7280",
-    reason: `Pipeline confidence: ${confPct}% — derived from source corroboration and signal consistency` });
+    reason: `Pipeline confidence: ${confPct}%  -  derived from source corroboration and signal consistency` });
   total += confScore;
 
   const maxTotal  = signals.reduce((a, s) => a + s.max, 0);
@@ -195,10 +195,10 @@ export function buildExplainableScoreBlock(item) {
     <div style="color:#8b949e;font-size:10px;text-transform:uppercase;letter-spacing:.1em;margin:12px 0 8px;">Signal Decomposition</div>
     ${rows}`;
 
-  return _block("p25-explainable", "P25.3 ─ Explainable Intelligence Score", "#8b5cf6", body);
+  return _block("p25-explainable", "P25.3 - Explainable Intelligence Score", "#8b5cf6", body);
 }
 
-// ── P25.2 ─ Source Consensus Layer ───────────────────────────────────────────
+// -- P25.2 - Source Consensus Layer -------------------------------------------
 
 export function buildSourceConsensusBlock(item) {
   const sourcesReporting = parseInt(item.sources_reporting || 1);
@@ -224,7 +224,7 @@ export function buildSourceConsensusBlock(item) {
   }
 
   const corrList = corrSources.length > 0
-    ? corrSources.map(s => `<div style="color:#8b949e;font-size:10px;padding:3px 0;border-bottom:1px solid #1a1f2e;">• ${esc(String(s))}</div>`).join("")
+    ? corrSources.map(s => `<div style="color:#8b949e;font-size:10px;padding:3px 0;border-bottom:1px solid #1a1f2e;">* ${esc(String(s))}</div>`).join("")
     : `<div style="color:#6b7280;font-size:10px;font-style:italic;">No additional corroborating sources recorded in this pipeline run.</div>`;
 
   const body = `
@@ -242,10 +242,10 @@ export function buildSourceConsensusBlock(item) {
     <div style="color:#8b949e;font-size:10px;text-transform:uppercase;letter-spacing:.1em;margin:8px 0 4px;">Corroborating Sources</div>
     ${corrList}`;
 
-  return _block("p25-consensus", "P25.2 ─ Source Consensus Layer", "#3b82f6", body);
+  return _block("p25-consensus", "P25.2 - Source Consensus Layer", "#3b82f6", body);
 }
 
-// ── P25.7 ─ Analyst Explainability ───────────────────────────────────────────
+// -- P25.7 - Analyst Explainability -------------------------------------------
 
 export function buildAnalystExplainabilityBlock(item) {
   const sd       = item._score_details || {};
@@ -263,7 +263,7 @@ export function buildAnalystExplainabilityBlock(item) {
 
   // WHY this intelligence matters
   const whyReasons = [];
-  if (kev)       whyReasons.push("Active exploitation confirmed in CISA KEV — this is a real-world attack, not theoretical.");
+  if (kev)       whyReasons.push("Active exploitation confirmed in CISA KEV  -  this is a real-world attack, not theoretical.");
   if (zeroday)   whyReasons.push("Zero-day vulnerability: no vendor patch exists. Immediate compensating controls required.");
   if (exploit)   whyReasons.push("Active in-the-wild exploitation detected. Threat actors are currently weaponizing this.");
   if (cvss >= 9) whyReasons.push(`CVSS ${cvss.toFixed(1)} Critical: remotely exploitable, no authentication required.`);
@@ -277,7 +277,7 @@ export function buildAnalystExplainabilityBlock(item) {
     howSteps.push("Apply network-layer compensating controls (block attack vector, restrict exposure).");
     howSteps.push("Enable enhanced logging on all potentially affected assets.");
   } else if (cvss >= 7) {
-    howSteps.push("Schedule out-of-band patch deployment within 24–72 hours.");
+    howSteps.push("Schedule out-of-band patch deployment within 24-72 hours.");
     howSteps.push("Validate current detection rules cover the attack vector.");
   } else {
     howSteps.push("Include in next scheduled patch cycle.");
@@ -309,7 +309,7 @@ export function buildAnalystExplainabilityBlock(item) {
   const section = (title, color, items) => `
     <div style="margin:10px 0;">
       <div style="color:${color};font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;margin-bottom:4px;">${esc(title)}</div>
-      ${items.map(i => `<div style="color:#c9d1d9;font-size:11px;padding:3px 0 3px 10px;border-left:1px solid ${color}44;">→ ${esc(i)}</div>`).join("")}
+      ${items.map(i => `<div style="color:#c9d1d9;font-size:11px;padding:3px 0 3px 10px;border-left:1px solid ${color}44;">-> ${esc(i)}</div>`).join("")}
     </div>`;
 
   const body = `
@@ -324,14 +324,14 @@ export function buildAnalystExplainabilityBlock(item) {
     ${section("How to Respond", "#3b82f6", howSteps)}
     ${section("Expected Outcomes", "#22c55e", outcomes)}`;
 
-  return _block("p25-explainability", "P25.7 ─ Analyst Explainability Package", "#06b6d4", body);
+  return _block("p25-explainability", "P25.7 - Analyst Explainability Package", "#06b6d4", body);
 }
 
-// ── P25.8 ─ Enterprise Trust Score V2 ────────────────────────────────────────
+// -- P25.8 - Enterprise Trust Score V2 ----------------------------------------
 
 /**
  * 12-dimension transparent trust score. Each dimension uses only existing
- * verified field data from the pipeline — zero fabrication.
+ * verified field data from the pipeline  -  zero fabrication.
  */
 export function computeEnterpriseTrustScore(item) {
   const sd        = item._score_details  || {};
@@ -371,19 +371,19 @@ export function computeEnterpriseTrustScore(item) {
       rationale: epss > 0 ? `EPSS: ${epss.toFixed(1)}% (FIRST model, updated daily).` : "EPSS probability not available." },
     // D6  IOC Operational Quality (max 8)
     { name: "IOC Operational Quality",  earned: iocCnt >= 5 ? 8 : iocCnt >= 3 ? 6 : iocCnt >= 1 ? 3 : 0, max: 8,
-      rationale: iocCnt > 0 ? `${iocCnt} validated indicator(s) available for immediate deployment.` : "No IOCs extracted — detection depends on behavioral patterns only." },
+      rationale: iocCnt > 0 ? `${iocCnt} validated indicator(s) available for immediate deployment.` : "No IOCs extracted  -  detection depends on behavioral patterns only." },
     // D7  ATT&CK Coverage (max 8)
     { name: "MITRE ATT&CK Coverage",    earned: ttpCnt >= 3 ? 8 : ttpCnt >= 2 ? 6 : ttpCnt >= 1 ? 3 : 0, max: 8,
-      rationale: ttpCnt > 0 ? `${ttpCnt} ATT&CK technique(s) mapped.` : "No ATT&CK mapping — SOC detection coverage unknown." },
+      rationale: ttpCnt > 0 ? `${ttpCnt} ATT&CK technique(s) mapped.` : "No ATT&CK mapping  -  SOC detection coverage unknown." },
     // D8  CVE Linkage (max 6)
     { name: "CVE Reference Integrity",  earned: hasCve ? 6 : 0, max: 6,
-      rationale: hasCve ? `CVE reference(s) confirmed and linkable to NVD/vendor advisories.` : "No CVE identifier — ad-hoc vulnerability or behavioral threat." },
+      rationale: hasCve ? `CVE reference(s) confirmed and linkable to NVD/vendor advisories.` : "No CVE identifier  -  ad-hoc vulnerability or behavioral threat." },
     // D9  STIX Interoperability (max 6)
     { name: "STIX 2.1 Interoperability",earned: hasStix ? 6 : 0, max: 6,
-      rationale: hasStix ? "STIX 2.1 bundle available — integrates with TAXII, SOAR, and SIEM platforms." : "No STIX bundle available. Standard export via /api/export/misp or CSV." },
+      rationale: hasStix ? "STIX 2.1 bundle available  -  integrates with TAXII, SOAR, and SIEM platforms." : "No STIX bundle available. Standard export via /api/export/misp or CSV." },
     // D10 Multi-Source Consensus (max 8)
     { name: "Multi-Source Consensus",   earned: srcRep >= 3 ? 8 : srcRep === 2 ? 5 : 2, max: 8,
-      rationale: srcRep > 1 ? `${srcRep} independent source(s) reporting. Consensus reduces false positive risk.` : "Single source — corroboration pending." },
+      rationale: srcRep > 1 ? `${srcRep} independent source(s) reporting. Consensus reduces false positive risk.` : "Single source  -  corroboration pending." },
     // D11 Pipeline Confidence (max 6)
     { name: "Pipeline Confidence",       earned: conf >= 0.8 ? 6 : conf >= 0.5 ? 4 : conf >= 0.2 ? 2 : 0, max: 6,
       rationale: `Pipeline confidence: ${Math.round(conf * 100)}%. Derived from source corroboration and signal consistency checks.` },
@@ -427,10 +427,10 @@ export function buildTrustScoreBlock(item) {
     <div style="color:#8b949e;font-size:10px;text-transform:uppercase;letter-spacing:.1em;margin-bottom:8px;">Trust Dimension Breakdown</div>
     ${dimRows}`;
 
-  return _block("p25-trust", "P25.8 ─ Enterprise Trust Score V2", "#f59e0b", body);
+  return _block("p25-trust", "P25.8 - Enterprise Trust Score V2", "#f59e0b", body);
 }
 
-// ── P25.9 ─ Publication Lineage ───────────────────────────────────────────────
+// -- P25.9 - Publication Lineage -----------------------------------------------
 
 export function buildPublicationLineageBlock(item, env) {
   const now        = new Date().toISOString();
@@ -441,7 +441,7 @@ export function buildPublicationLineageBlock(item, env) {
   const stix       = esc(item.stix_bundle || "N/A");
   const valStatus  = esc(item.validation_status || "unknown");
   const govRules   = esc(item._governance_rules || "N/A");
-  const platform   = "CYBERDUDEBIVASH® SENTINEL APEX";
+  const platform   = "CYBERDUDEBIVASH(R) SENTINEL APEX";
   const workerVer  = "v184.0";
   const p25ver     = P25_VERSION;
 
@@ -463,17 +463,17 @@ export function buildPublicationLineageBlock(item, env) {
     </div>
     <div style="padding:8px 12px;background:#0a0e17;border-radius:4px;margin-top:8px;">
       <div style="color:#6b7280;font-size:10px;line-height:1.5;">
-        This intelligence report was generated by the CYBERDUDEBIVASH® SENTINEL APEX pipeline.
+        This intelligence report was generated by the CYBERDUDEBIVASH(R) SENTINEL APEX pipeline.
         All enrichment data is sourced from NVD, CISA KEV, FIRST EPSS, and the SENTINEL APEX
         threat intelligence enrichment engine. Publication lineage is retained for audit,
         compliance, and chain-of-custody verification purposes.
       </div>
     </div>`;
 
-  return _block("p25-lineage", "P25.9 ─ Publication Lineage", "#6b7280", body);
+  return _block("p25-lineage", "P25.9 - Publication Lineage", "#6b7280", body);
 }
 
-// ── API Handlers ──────────────────────────────────────────────────────────────
+// -- API Handlers --------------------------------------------------------------
 
 /**
  * GET /api/v1/p25/trust-score?id=<item-id>
