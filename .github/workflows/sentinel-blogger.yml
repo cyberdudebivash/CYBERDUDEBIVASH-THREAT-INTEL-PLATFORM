@@ -1915,6 +1915,33 @@ jobs:
           fi
           exit 0
 
+      # STAGE 3.93.15l: P29.20 ENTERPRISE INTELLIGENCE NETWORK CERTIFICATION (NON-BLOCKING)
+      # Runs 20-gate P29 EIN orchestration certification (extends P28 with 2 P29-specific gates).
+      # Gates: G01-G18 inherited from P28 chain; G19 detection coverage ≥40%;
+      #   G20 confidence graph coverage ≥80% (calibrated confidence values).
+      # Requires P28/P27/P26/P25 cert reports in data/quality/ to validate chain.
+      # Downgraded to WARNING for regression gate (authoritative run: Stage 5.6).
+      # Outputs data/quality/p29_certification_report.json for observability.
+      - name: "STAGE 3.93.15l - P29.20 Enterprise Intelligence Network Certification"
+        timeout-minutes: 10
+        continue-on-error: true
+        env:
+          DRY_RUN: "false"
+        run: |
+          python3 scripts/p29_production_certification.py
+          if [ -f "data/quality/p29_certification_report.json" ]; then
+            read -r TIER BLOCKERS WARNINGS PASSED TOTAL <<< "$(python3 scripts/ci_stats_extract.py p29 2>/dev/null || echo 'UNKNOWN 0 0 0 0')"
+            echo "[P29.20] Certification: ${TIER} | Gates: ${PASSED}/${TOTAL} | Blockers: ${BLOCKERS} | Warnings: ${WARNINGS}"
+            if [ "${TIER}" = "WORLDWIDE_RELEASE" ]; then
+              echo "::notice::P29.20 WORLDWIDE RELEASE CERTIFIED — EIN orchestration + 20 gates passed. Gates: ${PASSED}/${TOTAL}."
+            elif [ "${TIER}" = "CONDITIONAL_RELEASE" ]; then
+              echo "::notice::P29.20 CONDITIONAL RELEASE — ${BLOCKERS} blocker(s). Gates: ${PASSED}/${TOTAL}. Review p29_certification_report.json."
+            else
+              echo "::notice::P29.20 BLOCKED — ${BLOCKERS} blocker(s). Gates: ${PASSED}/${TOTAL}. See data/quality/p29_certification_report.json."
+            fi
+          fi
+          exit 0
+
       # -----------------------------------------------------------------------
       # STAGE 3.93.16: SOURCE DIVERSITY ENFORCER (Phase 1C -- NON-BLOCKING WARN)
       # Enforces source diversity governance against the live feed manifest.
