@@ -80,6 +80,7 @@ import { buildP26Package, buildP26TrustBadgesBlock, buildP26GradeCardBlock, buil
 import { buildP27Package, buildP27ExposureAnalysisBlock, buildP27MultiAudienceBlock, buildP27IntelBenchmarkBlock, buildP27StructuralIntegrityBlock, handleP27Certify, handleP27Observability } from './p27-handlers.js';
 import { buildP28Package, buildP28EnvironmentRiskBlock, buildP28BusinessImpactBlock, buildP28ActionCenterBlock, buildP28RoleGuidanceBlock, buildP28FeedbackBlock, buildP28MetricsBlock, handleP28Feedback, handleP28Certify, handleP28Observability } from './p28-handlers.js';
 import { buildP29EINBlock, buildP29ConfidenceGraphBlock, buildP29CustomerExposureBlock, buildP29DecisionEngineBlock, buildP29LifecycleBlock, buildP29DetectionValidationBlock, handleP29Certify, handleP29CustomerValueAnalytics, handleP29TrustCenter, handleP29ReleaseAssurance, handleP29Observability } from './p29-handlers.js';
+import { buildP30VerificationBlock, buildP30TimelineBlock, buildP30ChangeTrackingBlock, buildP30DetectionDriftBlock, buildP30IOCLifecycleBlock, buildP30SLABlock, buildP30TrustTimelineBlock, handleP30Verification, handleP30Timeline, handleP30SourceHealth, handleP30Drift, handleP30ReportHealth, handleP30Observability, handleP30Certify } from './p30-handlers.js';
 import { routeEnterpriseEndpoint } from './enterprise-endpoints.js';
 import { handleSearch, handleActors, handleCVEs, handleMISPExport as handleMISPExportExt, handleCSVExport, handleCorrelate, handlePredict, handleCampaigns, handleAnomalies, handleIntelGraph, handleIntelRelations } from './api-extensions.js';
 const PLATFORM_VERSION    = "184.0";
@@ -935,6 +936,20 @@ ${buildP29DecisionEngineBlock(item)}
 ${buildP29LifecycleBlock(item)}
 <!-- P29.6: Enterprise Detection Validation -->
 ${buildP29DetectionValidationBlock(item)}
+<!-- P30.1: Continuous Evidence Verification -->
+${buildP30VerificationBlock(item)}
+<!-- P30.2: Threat Evolution Timeline -->
+${buildP30TimelineBlock(item)}
+<!-- P30.3: Intelligence Change Tracking -->
+${buildP30ChangeTrackingBlock(item)}
+<!-- P30.4: Detection Drift Analysis -->
+${buildP30DetectionDriftBlock(item)}
+<!-- P30.5: IOC Lifecycle -->
+${buildP30IOCLifecycleBlock(item)}
+<!-- P30.7: Enterprise SLA Intelligence -->
+${buildP30SLABlock(item)}
+<!-- P30.8: Customer Trust Timeline -->
+${buildP30TrustTimelineBlock(item)}
 </body>
 </html>`;
 }
@@ -3877,6 +3892,15 @@ async function handleRequest(request, env, ctx) {
   if (path === "/api/v1/p29/trust-center")         return await handleP29TrustCenter(request, env);
   if (path === "/api/v1/p29/release-assurance")    return await handleP29ReleaseAssurance(request, env);
   if (path === "/api/v1/p29/observability")        return await handleP29Observability(request, env);
+
+  // --- P30: Enterprise Intelligence Accuracy & Continuous Verification (additive, v30.0) ---
+  if (path === "/api/v1/p30/certify")              return await handleP30Certify(request, env);
+  if (path === "/api/v1/p30/verification")         return await handleP30Verification(request, env);
+  if (path === "/api/v1/p30/timeline")             return await handleP30Timeline(request, env);
+  if (path === "/api/v1/p30/source-health")        return await handleP30SourceHealth(request, env);
+  if (path === "/api/v1/p30/drift")                return await handleP30Drift(request, env);
+  if (path === "/api/v1/p30/report-health")        return await handleP30ReportHealth(request, env);
+  if (path === "/api/v1/p30/observability")        return await handleP30Observability(request, env);
 
   // --- api-extensions.js routes (previously unreachable  -  now wired, auth already resolved above) ---
   if (path === "/api/search")                       return await handleSearch(request, env, auth, crypto.randomUUID());
