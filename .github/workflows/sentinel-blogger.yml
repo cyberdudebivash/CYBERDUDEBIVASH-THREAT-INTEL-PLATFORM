@@ -2260,6 +2260,37 @@ jobs:
           exit 0
 
       # -----------------------------------------------------------------------
+      # STAGE 3.97: P32.26 ENTERPRISE OPERATIONAL INTELLIGENCE & DECISION AUTOMATION (NON-BLOCKING)
+      # Runs 26-gate P32 certification (extends P31 chain with 6 P32-specific operational gates):
+      #   G21 lifecycle derivable >=60% (items with ttps or severity);
+      #   G22 strategic decision derivable (>=1 CRITICAL/KEV item triggers action);
+      #   G23 detection effectiveness scoreable >=70% (items with ttps);
+      #   G24 enterprise-operations.html present (BLOCKER);
+      #   G25 maturity model avg >= 40; G26 release gate passable >=80%.
+      # Requires P31/P30/P29/P28/P25 cert reports in data/quality/ to validate chain.
+      # Outputs data/quality/p32_certification_report.json for observability.
+      # -----------------------------------------------------------------------
+      - name: "STAGE 3.97 - P32.26 Enterprise Operational Intelligence & Decision Automation"
+        timeout-minutes: 10
+        continue-on-error: true
+        env:
+          DRY_RUN: "false"
+        run: |
+          python3 scripts/p32_production_certification.py
+          if [ -f "data/quality/p32_certification_report.json" ]; then
+            read -r TIER BLOCKERS WARNINGS PASSED TOTAL <<< "$(python3 scripts/ci_stats_extract.py p32 2>/dev/null || echo 'UNKNOWN 0 0 0 0')"
+            echo "[P32.26] Certification: ${TIER} | Gates: ${PASSED}/${TOTAL} | Blockers: ${BLOCKERS} | Warnings: ${WARNINGS}"
+            if [ "${TIER}" = "WORLDWIDE_RELEASE" ]; then
+              echo "::notice::P32.26 WORLDWIDE RELEASE CERTIFIED — Operational Intelligence + Decision Automation + 26 gates passed. Gates: ${PASSED}/${TOTAL}."
+            elif [ "${TIER}" = "CONTROLLED_RELEASE" ]; then
+              echo "::notice::P32.26 CONTROLLED RELEASE — ${BLOCKERS} blocker(s). Gates: ${PASSED}/${TOTAL}. Review p32_certification_report.json."
+            else
+              echo "::notice::P32.26 BLOCKED — ${BLOCKERS} blocker(s). Gates: ${PASSED}/${TOTAL}. See data/quality/p32_certification_report.json."
+            fi
+          fi
+          exit 0
+
+      # -----------------------------------------------------------------------
       # STAGE 4: GIT SYNC -- ALWAYS RUNS
       # Commits non-sensitive metadata and HTML reports. 4-attempt push retry.
       # Exit 0 guaranteed - never kills pipeline.
