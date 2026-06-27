@@ -11,14 +11,14 @@
  *   API     -  handleP27Certify, handleP27Observability
  *
  * AUDIT CONFIRMED P23/P25/P26 ALREADY COVER:
- *   P27.1  Evidence Ledger      → P20.1 evidence_chain + P25.9 publication lineage (REUSED)
- *   P27.2  Correlation Engine   → P23.3 hunt objectives + P22 detection verification (REUSED)
- *   P27.4  Customer Impact      → P20.5 executive + P25.7 analyst explainability (REUSED)
- *   P27.5  Detection Validation → P22.4 sigma validation (REUSED; P27 extends KQL/JSON checks)
- *   P27.6  Threat Hunting       → P23.3 buildThreatHuntingBlock (REUSED - complete)
- *   P27.7  SOC Playbook         → P22.6 SOCAnalystBlock + P23.4 IRPackageBlock (REUSED - complete)
- *   P27.10 Customer Dashboard   → customer-value-dashboard.html (separate static file)
- *   P27.12 Certification        → p27_production_certification.py (Python side)
+ *   P27.1  Evidence Ledger      -> P20.1 evidence_chain + P25.9 publication lineage (REUSED)
+ *   P27.2  Correlation Engine   -> P23.3 hunt objectives + P22 detection verification (REUSED)
+ *   P27.4  Customer Impact      -> P20.5 executive + P25.7 analyst explainability (REUSED)
+ *   P27.5  Detection Validation -> P22.4 sigma validation (REUSED; P27 extends KQL/JSON checks)
+ *   P27.6  Threat Hunting       -> P23.3 buildThreatHuntingBlock (REUSED - complete)
+ *   P27.7  SOC Playbook         -> P22.6 SOCAnalystBlock + P23.4 IRPackageBlock (REUSED - complete)
+ *   P27.10 Customer Dashboard   -> customer-value-dashboard.html (separate static file)
+ *   P27.12 Certification        -> p27_production_certification.py (Python side)
  *
  * ZERO FABRICATION  -  all intelligence derived from existing pipeline-verified feed fields.
  * ADDITIVE ONLY    -  no existing schema, API, KV, auth, or handler modified.
@@ -33,7 +33,7 @@ import { computeP26Grade }           from './p26-handlers.js';
 
 export const P27_VERSION = "P27.0";
 
-// ── Shared helpers ────────────────────────────────────────────────────────────
+// -- Shared helpers ------------------------------------------------------------
 
 function esc(s) {
   return String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;")
@@ -48,7 +48,7 @@ function _block(id, title, color, body, subtitle) {
       <span style="color:${color};font-size:12px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;">${esc(title)}</span>
       ${subtitle ? `<div style="color:#6b7280;font-size:10px;margin-top:2px;">${esc(subtitle)}</div>` : ''}
     </div>
-    <span style="color:#333;font-size:10px;">P27.0 ✦ SENTINEL APEX</span>
+    <span style="color:#333;font-size:10px;">P27.0 ? SENTINEL APEX</span>
   </div>
   ${body}
 </div>`;
@@ -73,7 +73,7 @@ function _row(label, value, color) {
   </div>`;
 }
 
-// ── P27.3 ─ Enterprise Exposure Analysis ─────────────────────────────────────
+// -- P27.3 - Enterprise Exposure Analysis -------------------------------------
 
 /**
  * Derive enterprise exposure from existing pipeline fields.
@@ -105,7 +105,7 @@ function _deriveExposure(item) {
   const dims = [
     {
       name: "Operating Systems",
-      icon: "💻",
+      icon: "?",
       exposed: true,  // CVEs always have OS exposure risk
       detail: expose(["linux", "debian", "ubuntu", "redhat", "centos", "rhel", "kernel"])
         ? "Linux/Unix" : expose(["windows", "win32", "ntfs", "active directory", "powershell", "iis"])
@@ -115,7 +115,7 @@ function _deriveExposure(item) {
     },
     {
       name: "Cloud Infrastructure",
-      icon: "☁️",
+      icon: "??",
       exposed: expose(["cloud", "aws", "azure", "gcp", "s3", "ec2", "lambda", "kubernetes", "container", "docker", "iam", "serverless", "vpc"]) || av === "NETWORK",
       detail: expose(["aws", "s3", "ec2", "lambda"]) ? "AWS"
         : expose(["azure", "entra", "intune", "exchange online"]) ? "Microsoft Azure"
@@ -125,7 +125,7 @@ function _deriveExposure(item) {
     },
     {
       name: "Containers & Kubernetes",
-      icon: "🐳",
+      icon: "?",
       exposed: expose(["docker", "kubernetes", "k8s", "container", "helm", "pod", "kubectl", "registry", "oci"]),
       detail: expose(["kubernetes", "k8s", "kubectl"]) ? "Kubernetes clusters"
         : expose(["docker", "container registry"]) ? "Docker containers"
@@ -134,7 +134,7 @@ function _deriveExposure(item) {
     },
     {
       name: "Identity & Active Directory",
-      icon: "🔐",
+      icon: "?",
       exposed: expose(["active directory", "ldap", "kerberos", "ntlm", "ad ", "domain controller", "authentication", "oauth", "saml", "sso", "credential", "password", "privilege"]),
       detail: expose(["kerberos", "ntlm", "domain controller"]) ? "Active Directory / Kerberos"
         : expose(["oauth", "saml", "sso"]) ? "Identity Federation / SSO"
@@ -144,7 +144,7 @@ function _deriveExposure(item) {
     },
     {
       name: "Network Infrastructure",
-      icon: "🌐",
+      icon: "?",
       exposed: av === "NETWORK" || av === "ADJACENT" || expose(["firewall", "vpn", "router", "switch", "dns", "proxy", "network", "tcp", "udp", "port ", "http", "tls", "ssl"]),
       detail: expose(["vpn", "tunnel"]) ? "VPN/Remote Access"
         : expose(["dns"]) ? "DNS Infrastructure"
@@ -154,7 +154,7 @@ function _deriveExposure(item) {
     },
     {
       name: "Endpoints",
-      icon: "🖥️",
+      icon: "??",
       exposed: av === "LOCAL" || expose(["endpoint", "workstation", "laptop", "desktop", "agent", "edr", "antivirus", "browser", "office", "pdf", "word", "excel"]),
       detail: expose(["browser", "chrome", "firefox", "safari"]) ? "Web browsers"
         : expose(["office", "word", "excel", "pdf", "acrobat"]) ? "Office productivity apps"
@@ -164,7 +164,7 @@ function _deriveExposure(item) {
     },
     {
       name: "Email & Communication",
-      icon: "📧",
+      icon: "?",
       exposed: expose(["email", "phishing", "smtp", "exchange", "outlook", "o365", "mail", "attachment", "spam"]),
       detail: expose(["exchange", "outlook", "o365"]) ? "Microsoft Exchange / O365"
         : expose(["gmail", "google workspace"]) ? "Google Workspace"
@@ -174,7 +174,7 @@ function _deriveExposure(item) {
     },
     {
       name: "SaaS Applications",
-      icon: "🔧",
+      icon: "?",
       exposed: expose(["saas", "salesforce", "m365", "microsoft 365", "slack", "teams", "confluence", "jira", "github", "gitlab", "okta"]),
       detail: expose(["m365", "microsoft 365", "teams"]) ? "Microsoft 365"
         : expose(["salesforce"]) ? "Salesforce CRM"
@@ -185,7 +185,7 @@ function _deriveExposure(item) {
     },
     {
       name: "Web Applications",
-      icon: "🌍",
+      icon: "?",
       exposed: expose(["web", "http", "api", "rest", "graphql", "sql injection", "xss", "csrf", "rce", "deserialization", "ssrf"]),
       detail: expose(["sql injection", "sqli"]) ? "SQL injection surface"
         : expose(["xss", "cross-site"]) ? "XSS/client-side attack surface"
@@ -251,18 +251,18 @@ export function buildP27ExposureAnalysisBlock(item) {
 
   return _block(
     "p27-exposure",
-    "P27.3 ─ Enterprise Exposure Analysis",
+    "P27.3 - Enterprise Exposure Analysis",
     criticalDims.length > 0 ? "#ef4444" : "#f97316",
     body,
-    `${exposed.length} of ${dims.length} enterprise dimensions exposed — derived from attack vector, TTPs, and threat context`
+    `${exposed.length} of ${dims.length} enterprise dimensions exposed  -  derived from attack vector, TTPs, and threat context`
   );
 }
 
-// ── P27.8 ─ Multi-Audience Executive Package ──────────────────────────────────
+// -- P27.8 - Multi-Audience Executive Package ----------------------------------
 
 /**
  * Produce audience-specific executive summaries.
- * P20.5 produces a SINGLE unified block — audit confirmed no audience variants exist.
+ * P20.5 produces a SINGLE unified block  -  audit confirmed no audience variants exist.
  * P27.8 generates 6 distinct tailored variants from the same underlying data.
  */
 function _buildAudiencePackages(item) {
@@ -288,7 +288,7 @@ function _buildAudiencePackages(item) {
     : "Standard patch compliance obligations apply under CIS Controls 7 and ISO 27001 A.8.8.";
 
   const financialImpact = kev
-    ? "Active exploitation risk carries potential for operational shutdown, ransomware deployment, and significant recovery costs ($500K–$10M+ range for enterprise incidents)."
+    ? "Active exploitation risk carries potential for operational shutdown, ransomware deployment, and significant recovery costs ($500K-$10M+ range for enterprise incidents)."
     : cvss >= 9
     ? "Unmitigated critical vulnerability creates material financial liability from breach response, regulatory fines, and customer notification obligations."
     : "Financial exposure is manageable with standard patch management; delayed remediation increases insurance premium risk.";
@@ -297,43 +297,43 @@ function _buildAudiencePackages(item) {
     {
       audience:  "CEO / Managing Director",
       color:     "#8b5cf6",
-      icon:      "👔",
+      icon:      "?",
       summary:   `${title} represents a ${urgencyWord} security matter. Our security operations team has identified ${businessRisk}. ${kev ? "Active exploitation has been confirmed by CISA. " : ""}Recommended action: authorize emergency security response budget and confirm incident response readiness. ${financialImpact} Intelligence confidence: ${conf}%.`,
       action:    kev ? "Authorize emergency IR response. Brief legal and communications teams." : `Confirm patch approval and security budget allocation within ${cvss >= 9 ? "24 hours" : "7 days"}.`,
     },
     {
       audience:  "CISO / Security Leadership",
       color:     "#ef4444",
-      icon:      "🛡️",
-      summary:   `${title} (${cves}) — CVSS ${cvss.toFixed(1)}, ${severity}. ${kev ? "CISA KEV listed — confirmed in-the-wild exploitation. " : ""}ATT&CK techniques: ${ttps.length > 0 ? ttps.join(", ") : "not mapped"}. ${iocCnt > 0 ? `${iocCnt} operational indicator(s) ready for deployment. ` : ""}Threat actor attribution: ${actor}. Detection rule validation status: ${item.sigma_rule ? "Sigma rule available" : "behavioral detection only"}. P21 certification required before board briefing.`,
+      icon:      "??",
+      summary:   `${title} (${cves})  -  CVSS ${cvss.toFixed(1)}, ${severity}. ${kev ? "CISA KEV listed  -  confirmed in-the-wild exploitation. " : ""}ATT&CK techniques: ${ttps.length > 0 ? ttps.join(", ") : "not mapped"}. ${iocCnt > 0 ? `${iocCnt} operational indicator(s) ready for deployment. ` : ""}Threat actor attribution: ${actor}. Detection rule validation status: ${item.sigma_rule ? "Sigma rule available" : "behavioral detection only"}. P21 certification required before board briefing.`,
       action:    `Deploy detection rules. ${iocCnt > 0 ? `Block ${iocCnt} IOC(s) at perimeter. ` : ""}Initiate vulnerability assessment on affected assets. ${kev ? "Activate IR procedures immediately." : `Patch within ${cvss >= 9 ? "24h" : cvss >= 7 ? "72h" : "30 days"}.`}`,
     },
     {
       audience:  "Board of Directors",
       color:     "#3b82f6",
-      icon:      "🏛️",
+      icon:      "??",
       summary:   `SENTINEL APEX has identified a ${severity} security vulnerability (${title}). ${kev ? "This vulnerability is being actively exploited by threat actors globally. " : ""}${financialImpact} Management has been briefed and security response is ${kev ? "underway" : "planned"}. ${complianceRisk} No customer data compromise has been confirmed at this stage.`,
       action:    kev ? "Approve emergency response. Request written incident status within 4 hours." : "Accept risk register update. Review next quarter's security investment allocation.",
     },
     {
       audience:  "Compliance & Legal",
       color:     "#22c55e",
-      icon:      "⚖️",
-      summary:   `${title} (${cves}) carries potential regulatory implications. ${complianceRisk} CVSS score: ${cvss.toFixed(1)}. ${kev ? "CISA Known Exploited Vulnerability — potential mandatory reporting timelines under NIS2 (72h) and DORA (initial notification within 4h) may apply. " : ""}Remediation timeline: ${kev ? "immediate" : cvss >= 7 ? "within 72 hours" : "standard maintenance window"}. Document remediation actions for audit trail and cyber insurance notification requirements.`,
+      icon:      "??",
+      summary:   `${title} (${cves}) carries potential regulatory implications. ${complianceRisk} CVSS score: ${cvss.toFixed(1)}. ${kev ? "CISA Known Exploited Vulnerability  -  potential mandatory reporting timelines under NIS2 (72h) and DORA (initial notification within 4h) may apply. " : ""}Remediation timeline: ${kev ? "immediate" : cvss >= 7 ? "within 72 hours" : "standard maintenance window"}. Document remediation actions for audit trail and cyber insurance notification requirements.`,
       action:    kev ? "Initiate regulatory notification assessment. Review incident response communication templates." : "Update risk register. Confirm patch completion evidence collection for audit purposes.",
     },
     {
       audience:  "Operations / IT Leadership",
       color:     "#f97316",
-      icon:      "⚙️",
+      icon:      "??",
       summary:   `Patch deployment required for ${title}. Affected vector: ${item.attack_vector || "see technical advisory"}. ${iocCnt > 0 ? `${iocCnt} network indicator(s) available for immediate firewall/proxy blocking. ` : ""}${item.sigma_rule ? "Sigma detection rule available for SIEM deployment. " : ""}${ttps.length > 0 ? `MITRE ATT&CK: ${ttps.join(", ")}. ` : ""}Estimated remediation effort: ${kev ? "emergency change (4-8 hours)" : cvss >= 7 ? "expedited change (1-3 days)" : "standard change (2-4 weeks)"}.`,
       action:    `Schedule ${kev ? "emergency" : cvss >= 7 ? "expedited" : "standard"} patch window. ${iocCnt > 0 ? `Deploy IOC blocklist to firewall/proxy/EDR. ` : ""}Update SIEM detection configuration.`,
     },
     {
       audience:  "MSSP / Security Partner",
       color:     "#06b6d4",
-      icon:      "🤝",
-      summary:   `Customer alert — ${title} (${cves}). Severity: ${severity}, CVSS ${cvss.toFixed(1)}. ${kev ? "KEV: YES — active exploitation confirmed. Priority: P1-CRITICAL. " : `Priority: ${cvss >= 9 ? "P1" : cvss >= 7 ? "P2" : "P3"}. `}${iocCnt} IOC(s) available. Detection: ${item.sigma_rule ? "Sigma" : ""}${item.kql_query ? "/KQL" : ""}${item.suricata_rule ? "/Suricata" : ""} ${!item.sigma_rule && !item.kql_query && !item.suricata_rule ? "behavioral only" : ""}. ATT&CK: ${ttps.length > 0 ? ttps.slice(0,2).join(", ") : "N/A"}. Confidence: ${conf}%. STIX bundle: ${item.stix_bundle ? "AVAILABLE" : "N/A"}.`,
+      icon:      "?",
+      summary:   `Customer alert  -  ${title} (${cves}). Severity: ${severity}, CVSS ${cvss.toFixed(1)}. ${kev ? "KEV: YES  -  active exploitation confirmed. Priority: P1-CRITICAL. " : `Priority: ${cvss >= 9 ? "P1" : cvss >= 7 ? "P2" : "P3"}. `}${iocCnt} IOC(s) available. Detection: ${item.sigma_rule ? "Sigma" : ""}${item.kql_query ? "/KQL" : ""}${item.suricata_rule ? "/Suricata" : ""} ${!item.sigma_rule && !item.kql_query && !item.suricata_rule ? "behavioral only" : ""}. ATT&CK: ${ttps.length > 0 ? ttps.slice(0,2).join(", ") : "N/A"}. Confidence: ${conf}%. STIX bundle: ${item.stix_bundle ? "AVAILABLE" : "N/A"}.`,
       action:    `${kev ? "Immediate customer notification. Deploy detection. Verify patch status across all customer environments." : `Schedule patch window communication. ${iocCnt > 0 ? "Push IOC feed to customer platforms." : ""}`}`,
     },
   ];
@@ -383,14 +383,14 @@ export function buildP27MultiAudienceBlock(item) {
 
   return _block(
     "p27-multi-audience",
-    "P27.8 ─ Multi-Audience Executive Package",
+    "P27.8 - Multi-Audience Executive Package",
     "#8b5cf6",
     body,
-    "CEO / CISO / Board / Legal / Operations / MSSP — audience-tailored intelligence briefs"
+    "CEO / CISO / Board / Legal / Operations / MSSP  -  audience-tailored intelligence briefs"
   );
 }
 
-// ── P27.9 ─ Own-Target Intelligence Benchmark ─────────────────────────────────
+// -- P27.9 - Own-Target Intelligence Benchmark ---------------------------------
 
 /**
  * Benchmark this report against SENTINEL APEX's own quality targets.
@@ -423,32 +423,32 @@ export function buildP27IntelBenchmarkBlock(item) {
       dimension:  "IOC Quality",
       target:     95,
       actual:     iocCnt >= 5 ? 95 : iocCnt >= 2 ? 80 : iocCnt >= 1 ? 65 : 35,
-      note:       iocCnt > 0 ? `${iocCnt} P20-hardened indicators (FP-filtered)` : "No IOCs — CVE behavioral-only item",
+      note:       iocCnt > 0 ? `${iocCnt} P20-hardened indicators (FP-filtered)` : "No IOCs  -  CVE behavioral-only item",
     },
     {
       dimension:  "Detection Validation",
       target:     100,
       actual:     hasSig ? 100 : item.kql_query ? 85 : item.suricata_rule ? 75 : 30,
       note:       hasSig ? "Sigma rule present (P22 structurally validated)"
-        : item.kql_query ? "KQL query available" : "Behavioral detection only — no signature rules",
+        : item.kql_query ? "KQL query available" : "Behavioral detection only  -  no signature rules",
     },
     {
       dimension:  "Executive Clarity",
       target:     95,
       actual:     p20.breakdown?.executive || 0,
-      note:       `P20 executive score: ${p20.breakdown?.executive || 0}/10 — P25.7 analyst explainability supplements`,
+      note:       `P20 executive score: ${p20.breakdown?.executive || 0}/10  -  P25.7 analyst explainability supplements`,
     },
     {
       dimension:  "Operational Usefulness",
       target:     95,
       actual:     p23.total,
-      note:       `P23 actionability: ${p23.total}/100 — ${p23.label}`,
+      note:       `P23 actionability: ${p23.total}/100  -  ${p23.label}`,
     },
     {
       dimension:  "MITRE Completeness",
       target:     98,
       actual:     ttpCnt >= 5 ? 98 : ttpCnt >= 3 ? 85 : ttpCnt >= 1 ? 65 : 20,
-      note:       ttpCnt > 0 ? `${ttpCnt} ATT&CK technique(s) mapped` : "No ATT&CK mapping — detection gap",
+      note:       ttpCnt > 0 ? `${ttpCnt} ATT&CK technique(s) mapped` : "No ATT&CK mapping  -  detection gap",
     },
     {
       dimension:  "Presentation Quality",
@@ -463,13 +463,13 @@ export function buildP27IntelBenchmarkBlock(item) {
         : p26.certFlags.certTier === "ENTERPRISE_CERTIFIED" ? 88
         : p26.certFlags.certTier === "ENTERPRISE_READY" ? 75
         : 50,
-      note:       `P26.7 commercial tier: ${p26.certFlags.certTier} — ${p26.certFlags.blockers} blocker(s)`,
+      note:       `P26.7 commercial tier: ${p26.certFlags.certTier}  -  ${p26.certFlags.blockers} blocker(s)`,
     },
     {
       dimension:  "Trust Score",
       target:     95,
       actual:     p25.pct,
-      note:       `P25.8 Enterprise Trust Score V2: ${p25.pct}% — ${p25.tier}`,
+      note:       `P25.8 Enterprise Trust Score V2: ${p25.pct}%  -  ${p25.tier}`,
     },
   ];
 
@@ -488,7 +488,7 @@ export function buildP27IntelBenchmarkBlock(item) {
         <div style="display:flex;gap:8px;align-items:center;">
           <span style="color:#6b7280;font-size:10px;">Target: ${b.target}%</span>
           <span style="color:${color};font-size:11px;font-weight:700;">${Math.round(b.actual)}%</span>
-          ${gap > 0 ? `<span style="color:${color};font-size:9px;">▼${gap.toFixed(0)}</span>` : `<span style="color:#22c55e;font-size:9px;">✓</span>`}
+          ${gap > 0 ? `<span style="color:${color};font-size:9px;">?${gap.toFixed(0)}</span>` : `<span style="color:#22c55e;font-size:9px;">[OK]</span>`}
         </div>
       </div>
       <div style="background:#1a1f2e;height:4px;border-radius:2px;">
@@ -526,14 +526,14 @@ export function buildP27IntelBenchmarkBlock(item) {
 
   return _block(
     "p27-benchmark",
-    "P27.9 ─ Enterprise Intelligence Benchmark",
+    "P27.9 - Enterprise Intelligence Benchmark",
     overallColor,
     body,
-    "Measured against SENTINEL APEX own quality targets — Evidence/IOC/Detection/Executive/Operations/MITRE/Presentation/Commercial/Trust"
+    "Measured against SENTINEL APEX own quality targets  -  Evidence/IOC/Detection/Executive/Operations/MITRE/Presentation/Commercial/Trust"
   );
 }
 
-// ── P27.11 ─ Structural Integrity Gate ───────────────────────────────────────
+// -- P27.11 - Structural Integrity Gate ---------------------------------------
 
 /**
  * Audit confirmed P23.10 checks operational readiness (10 gates) but does NOT check:
@@ -575,7 +575,7 @@ export function buildP27StructuralIntegrityBlock(item) {
   const conf       = parseFloat(item.confidence || 0);
   const g4LowConf  = conf < 0.05;
 
-  // G5: Cross-field consistency (CVSS vs severity — P22 auto-fix may have resolved)
+  // G5: Cross-field consistency (CVSS vs severity  -  P22 auto-fix may have resolved)
   const cvss     = parseFloat(sd.cvss || item.cvss_score || item.risk_score || 0);
   const sevBand  = { LOW: 0, MEDIUM: 1, HIGH: 2, CRITICAL: 3 };
   const sev      = String(item.severity || "").toUpperCase();
@@ -592,7 +592,7 @@ export function buildP27StructuralIntegrityBlock(item) {
     {
       code: "S2", name: "No Placeholder Content",
       passed: !g2Synthetic,
-      note: g2Synthetic ? "Synthetic or placeholder language detected — publication blocked" : "Zero synthetic or placeholder language",
+      note: g2Synthetic ? "Synthetic or placeholder language detected  -  publication blocked" : "Zero synthetic or placeholder language",
     },
     {
       code: "S3", name: "Field Completeness",
@@ -602,12 +602,12 @@ export function buildP27StructuralIntegrityBlock(item) {
     {
       code: "S4", name: "Confidence Validity",
       passed: !g4LowConf,
-      note: g4LowConf ? `Pipeline confidence critically low: ${Math.round(conf * 100)}%` : `Pipeline confidence: ${Math.round(conf * 100)}% — within acceptable range`,
+      note: g4LowConf ? `Pipeline confidence critically low: ${Math.round(conf * 100)}%` : `Pipeline confidence: ${Math.round(conf * 100)}%  -  within acceptable range`,
     },
     {
       code: "S5", name: "CVSS/Severity Consistency",
       passed: !g5Mismatch,
-      note: g5Mismatch ? `CVSS ${cvss.toFixed(1)} inconsistent with severity ${sev} (gap ≥2 bands — run P22 auto-fix)` : cvss > 0 ? `CVSS ${cvss.toFixed(1)} consistent with ${sev}` : "No CVSS score to validate",
+      note: g5Mismatch ? `CVSS ${cvss.toFixed(1)} inconsistent with severity ${sev} (gap ?2 bands  -  run P22 auto-fix)` : cvss > 0 ? `CVSS ${cvss.toFixed(1)} consistent with ${sev}` : "No CVSS score to validate",
     },
   ];
 
@@ -618,7 +618,7 @@ export function buildP27StructuralIntegrityBlock(item) {
 
   const rows = gates.map(g => `
     <div style="display:flex;gap:8px;align-items:flex-start;padding:7px 0;border-bottom:1px solid #1a1f2e;">
-      <span style="color:${g.passed ? '#22c55e' : '#ef4444'};font-size:12px;font-weight:700;min-width:18px;">${g.passed ? '✓' : '✗'}</span>
+      <span style="color:${g.passed ? '#22c55e' : '#ef4444'};font-size:12px;font-weight:700;min-width:18px;">${g.passed ? '[OK]' : '[FAIL]'}</span>
       <span style="color:#8b949e;font-size:10px;font-weight:700;min-width:60px;">${esc(g.code)}</span>
       <span style="color:${g.passed ? '#c9d1d9' : '#ef4444'};font-size:10px;font-weight:600;min-width:140px;">${esc(g.name)}</span>
       <span style="color:#8b949e;font-size:10px;flex:1;">${esc(g.note)}</span>
@@ -632,21 +632,21 @@ export function buildP27StructuralIntegrityBlock(item) {
       </div>
       <div style="padding:10px 18px;background:${pubOk ? '#0a1a0e' : '#1a0a0a'};border:1px solid ${pubOk ? '#22c55e33' : '#ef444433'};border-radius:6px;">
         <div style="color:#8b949e;font-size:10px;">Publication Status</div>
-        <div style="color:${pubOk ? '#22c55e' : '#ef4444'};font-size:12px;font-weight:800;">${pubOk ? '✓ CLEARED' : '✗ BLOCKED'}</div>
+        <div style="color:${pubOk ? '#22c55e' : '#ef4444'};font-size:12px;font-weight:800;">${pubOk ? '[OK] CLEARED' : '[FAIL] BLOCKED'}</div>
       </div>
     </div>
     ${rows}`;
 
   return _block(
     "p27-structural",
-    "P27.11 ─ Structural Integrity Gate",
+    "P27.11 - Structural Integrity Gate",
     gateColor,
     body,
     "Markdown leakage / Placeholder content / Field completeness / Confidence validity / CVSS consistency"
   );
 }
 
-// ── API Handlers ──────────────────────────────────────────────────────────────
+// -- API Handlers --------------------------------------------------------------
 
 /** GET /api/v1/p27/certify?id=<item-id>  -  P27.12 per-item certification */
 export async function handleP27Certify(request, env) {
