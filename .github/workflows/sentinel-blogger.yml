@@ -1860,6 +1860,34 @@ jobs:
           exit 0
 
       # -----------------------------------------------------------------------
+      # STAGE 3.93.15j: P27.12 PRODUCTION CERTIFICATION (NON-BLOCKING)
+      # Runs 14-gate P27 structural/operational certification audit.
+      # Gates: feed integrity, field completeness, markdown leakage,
+      #   placeholder language, confidence validity, CVSS consistency,
+      #   MITRE coverage, STIX files, HTML reports, P26 cert, P25 trust,
+      #   regression suite, IOC coverage, source URL completeness.
+      # Outputs data/quality/p27_certification_report.json for observability.
+      - name: "STAGE 3.93.15j - P27.12 Production Certification"
+        timeout-minutes: 8
+        continue-on-error: true
+        env:
+          DRY_RUN: "false"
+        run: |
+          python3 scripts/p27_production_certification.py
+          if [ -f "data/quality/p27_certification_report.json" ]; then
+            read -r TIER BLOCKERS WARNINGS PASSED TOTAL <<< "$(python3 scripts/ci_stats_extract.py p27 2>/dev/null || echo 'UNKNOWN 0 0 0 0')"
+            echo "[P27.12] Certification: ${TIER} | Gates: ${PASSED}/${TOTAL} | Blockers: ${BLOCKERS} | Warnings: ${WARNINGS}"
+            if [ "${TIER}" = "WORLDWIDE_RELEASE" ]; then
+              echo "::notice::P27.12 WORLDWIDE RELEASE CERTIFIED — All 14 structural + operational gates passed. Gates: ${PASSED}/${TOTAL}."
+            elif [ "${TIER}" = "CONDITIONAL_RELEASE" ]; then
+              echo "::notice::P27.12 CONDITIONAL RELEASE — ${BLOCKERS} blocker(s) present. Gates: ${PASSED}/${TOTAL}. Review p27_certification_report.json."
+            else
+              echo "::notice::P27.12 BLOCKED — ${BLOCKERS} blocker(s). Gates: ${PASSED}/${TOTAL}. See data/quality/p27_certification_report.json for details."
+            fi
+          fi
+          exit 0
+
+      # -----------------------------------------------------------------------
       # STAGE 3.93.16: SOURCE DIVERSITY ENFORCER (Phase 1C -- NON-BLOCKING WARN)
       # Enforces source diversity governance against the live feed manifest.
       # Detects single-source dominance (golden invariant: max 30%), Shannon
