@@ -1748,6 +1748,33 @@ jobs:
           exit 0
 
       # -----------------------------------------------------------------------
+      # STAGE 3.93.15f: P23.5 RISK-BASED PATCH PRIORITIZER (NON-BLOCKING)
+      # Computes risk-based patch deployment priority for every feed item using:
+      #   KEV (CISA Known Exploited, weight: 40pts), CVSS (up to 25pts),
+      #   EPSS exploitation probability (up to 20pts), exploit maturity (15pts).
+      # Output tiers: PATCH IMMEDIATELY / PATCH WITHIN 24H / 7D / 30D / MONITOR.
+      # Non-blocking in CI (continue-on-error) — report written to
+      # data/quality/p23_patch_priority_report.json for observability.
+      # Zero fabrication — scoring uses only existing feed field data.
+      # -----------------------------------------------------------------------
+      - name: "STAGE 3.93.15f - P23.5 Risk-Based Patch Prioritizer"
+        timeout-minutes: 4
+        continue-on-error: true
+        env:
+          DRY_RUN: "false"
+        run: |
+          python3 scripts/p23_patch_prioritizer.py
+          if [ -f "data/quality/p23_patch_priority_report.json" ]; then
+            TOTAL=$(python3 -c "import json; d=json.load(open('data/quality/p23_patch_priority_report.json')); print(d.get('items_processed',0))" 2>/dev/null || echo "?")
+            IMMED=$(python3 -c "import json; d=json.load(open('data/quality/p23_patch_priority_report.json')); print(d.get('immediate_count',0))" 2>/dev/null || echo "?")
+            echo "[P23.5] Processed: ${TOTAL} items | PATCH IMMEDIATELY: ${IMMED}"
+            if [ "${IMMED}" != "?" ] && [ "${IMMED}" -gt "0" ] 2>/dev/null; then
+              echo "::warning::P23.5 Patch Prioritizer: ${IMMED} item(s) require IMMEDIATE patching — KEV confirmed or critical risk score."
+            fi
+          fi
+          exit 0
+
+      # -----------------------------------------------------------------------
       # STAGE 3.93.16: SOURCE DIVERSITY ENFORCER (Phase 1C -- NON-BLOCKING WARN)
       # Enforces source diversity governance against the live feed manifest.
       # Detects single-source dominance (golden invariant: max 30%), Shannon
