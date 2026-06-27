@@ -1,7 +1,7 @@
 // CYBERDUDEBIVASH SENTINEL APEX — KQL Detection Queries Bundle
-// Version: 185.0 | Generated: 2026-06-27T09:26:02.168470+00:00
+// Version: 185.0 | Generated: 2026-06-27T10:54:38.553662+00:00
 // Platform: https://intel.cyberdudebivash.com
-// Total queries: 332
+// Total queries: 334
 // Import: Microsoft Sentinel Analytics Rules, Defender Advanced Hunting
 
 // ═══════════════════════════════════════════════════════════════════
@@ -1686,6 +1686,21 @@ SecurityEvent
 | extend Severity = "MEDIUM", CVE = "CVE-2026-47378", RuleSource = "SENTINEL-APEX"
 | order by TimeGenerated desc
 
+// ── [GOLD] DirtyClone: Fourth Linux Kernel Flaw in Six Weeks Escalates to Root
+// Risk: 9.00 | Severity: CRITICAL
+// STIX ID: intel--c28b0d4b73ec32e53f21781a
+// SENTINEL APEX — DirtyClone: Fourth Linux Kernel Flaw in Six Weeks Escalates to Root — Anomalous Activity Detection
+// Product: Web Application | Generated: 2026-06-27T10:54:03Z
+let lookback = 1d;
+SecurityEvent
+| where TimeGenerated > ago(lookback)
+| where EventID in (4625, 4648, 4728, 4740, 4776)
+| summarize FailureCount = count(), DistinctTargets = dcount(TargetUserName)
+    by IpAddress, bin(TimeGenerated, 1h)
+| where FailureCount > 10 or DistinctTargets > 5
+| extend Severity = "MEDIUM", CVE = "DirtyClone: Fourth Linux Kernel Flaw in Six Weeks Escalates to Root", RuleSource = "SENTINEL-APEX"
+| order by TimeGenerated desc
+
 // ── [GOLD] New DirtyClone Linux Vulnerability Allows Attackers to Gain Root Access Via Clon
 // Risk: 9.00 | Severity: CRITICAL
 // STIX ID: intel--57f16292335f886e59e18875
@@ -1970,6 +1985,22 @@ SecurityEvent
     by IpAddress, bin(TimeGenerated, 1h)
 | where FailureCount > 10 or DistinctTargets > 5
 | extend Severity = "MEDIUM", CVE = "CVE-2026-48090", RuleSource = "SENTINEL-APEX"
+| order by TimeGenerated desc
+
+// ── [GOLD] Exploit for CVE-2026-12432
+// CVE: CVE-2026-12432
+// Risk: 1.60 | Severity: LOW
+// STIX ID: intel--bc12aac43d7ec85a76cf36ce
+// SENTINEL APEX — CVE-2026-12432 — Anomalous Activity Detection
+// Product: Web Application | Generated: 2026-06-27T10:54:03Z
+let lookback = 1d;
+SecurityEvent
+| where TimeGenerated > ago(lookback)
+| where EventID in (4625, 4648, 4728, 4740, 4776)
+| summarize FailureCount = count(), DistinctTargets = dcount(TargetUserName)
+    by IpAddress, bin(TimeGenerated, 1h)
+| where FailureCount > 10 or DistinctTargets > 5
+| extend Severity = "MEDIUM", CVE = "CVE-2026-12432", RuleSource = "SENTINEL-APEX"
 | order by TimeGenerated desc
 
 // ── [GOLD] CVE-2026-33560 - Daktronics Controller Firmware Unrestricted Upload of File with
@@ -3660,21 +3691,6 @@ SecurityEvent
 | extend Severity = "MEDIUM", CVE = "Hackers Exploit Weak Credentials and Internet-Facing PLCs to Breach Water Utilities", RuleSource = "SENTINEL-APEX"
 | order by TimeGenerated desc
 
-// ── [SILVER] Recorded Future Launches Impact and Metrics Dashboard
-// Risk: 2.65 | Severity: LOW
-// STIX ID: intel--462050f7049f31e2959eb1b6
-// SENTINEL APEX — Recorded Future Launches Impact and Metrics Dashboard — Anomalous Activity Detection
-// Product: Web Application | Generated: 2026-06-27T09:25:12Z
-let lookback = 1d;
-SecurityEvent
-| where TimeGenerated > ago(lookback)
-| where EventID in (4625, 4648, 4728, 4740, 4776)
-| summarize FailureCount = count(), DistinctTargets = dcount(TargetUserName)
-    by IpAddress, bin(TimeGenerated, 1h)
-| where FailureCount > 10 or DistinctTargets > 5
-| extend Severity = "MEDIUM", CVE = "Recorded Future Launches Impact and Metrics Dashboard", RuleSource = "SENTINEL-APEX"
-| order by TimeGenerated desc
-
 // ── [SILVER] Low: jq --rawfile invalid-state reuse after String too long causes heap-buffer-o
 // CVE: CVE-2026-49839
 // Risk: 2.00 | Severity: LOW
@@ -3909,11 +3925,12 @@ SecurityEvent
 | extend Severity = "MEDIUM", CVE = "New GIFTEDCROOK Chain Abuses WinRAR ADS and Reflective Loading to Steal Browser Data", RuleSource = "SENTINEL-APEX"
 | order by TimeGenerated desc
 
-// ── [SILVER] China's Noncombatant Evacuation Operations: 20052025
-// Risk: 2.09 | Severity: LOW
-// STIX ID: intel--32d5eac88c87399f471d4c2a
-// SENTINEL APEX — China's Noncombatant Evacuation Operations: 20052025 — Anomalous Activity Detection
-// Product: Web Application | Generated: 2026-06-27T09:25:12Z
+// ── [SILVER] Low Security Vulnerability (CVE-2026-49416)
+// CVE: CVE-2026-49416
+// Risk: 1.60 | Severity: LOW
+// STIX ID: intel--d1edcb896b4ac3a98a9cc6b1
+// SENTINEL APEX — CVE-2026-49416 — Anomalous Activity Detection
+// Product: Web Application | Generated: 2026-06-27T10:54:03Z
 let lookback = 1d;
 SecurityEvent
 | where TimeGenerated > ago(lookback)
@@ -3921,7 +3938,39 @@ SecurityEvent
 | summarize FailureCount = count(), DistinctTargets = dcount(TargetUserName)
     by IpAddress, bin(TimeGenerated, 1h)
 | where FailureCount > 10 or DistinctTargets > 5
-| extend Severity = "MEDIUM", CVE = "China's Noncombatant Evacuation Operations: 20052025", RuleSource = "SENTINEL-APEX"
+| extend Severity = "MEDIUM", CVE = "CVE-2026-49416", RuleSource = "SENTINEL-APEX"
+| order by TimeGenerated desc
+
+// ── [SILVER] Low Security Vulnerability (CVE-2026-49413)
+// CVE: CVE-2026-49413
+// Risk: 1.60 | Severity: LOW
+// STIX ID: intel--4dd4564a4e71ce2610f13eb9
+// SENTINEL APEX — CVE-2026-49413 — Anomalous Activity Detection
+// Product: Web Application | Generated: 2026-06-27T10:54:03Z
+let lookback = 1d;
+SecurityEvent
+| where TimeGenerated > ago(lookback)
+| where EventID in (4625, 4648, 4728, 4740, 4776)
+| summarize FailureCount = count(), DistinctTargets = dcount(TargetUserName)
+    by IpAddress, bin(TimeGenerated, 1h)
+| where FailureCount > 10 or DistinctTargets > 5
+| extend Severity = "MEDIUM", CVE = "CVE-2026-49413", RuleSource = "SENTINEL-APEX"
+| order by TimeGenerated desc
+
+// ── [SILVER] Low Security Vulnerability (CVE-2026-45259)
+// CVE: CVE-2026-45259
+// Risk: 1.60 | Severity: LOW
+// STIX ID: intel--38d8c8c21109ac65ffd483b1
+// SENTINEL APEX — CVE-2026-45259 — Anomalous Activity Detection
+// Product: Web Application | Generated: 2026-06-27T10:54:03Z
+let lookback = 1d;
+SecurityEvent
+| where TimeGenerated > ago(lookback)
+| where EventID in (4625, 4648, 4728, 4740, 4776)
+| summarize FailureCount = count(), DistinctTargets = dcount(TargetUserName)
+    by IpAddress, bin(TimeGenerated, 1h)
+| where FailureCount > 10 or DistinctTargets > 5
+| extend Severity = "MEDIUM", CVE = "CVE-2026-45259", RuleSource = "SENTINEL-APEX"
 | order by TimeGenerated desc
 
 // ── [SILVER] Low Security Vulnerability (CVE-2026-9233)
@@ -4036,21 +4085,6 @@ SecurityEvent
     by IpAddress, bin(TimeGenerated, 1h)
 | where FailureCount > 10 or DistinctTargets > 5
 | extend Severity = "MEDIUM", CVE = "CVE-2026-9539", RuleSource = "SENTINEL-APEX"
-| order by TimeGenerated desc
-
-// ── [SILVER] Cyber-Enabled Maritime Sanctions Evasion
-// Risk: 1.60 | Severity: LOW
-// STIX ID: intel--14cf5fcb184c52efcf9e7bfa
-// SENTINEL APEX — Cyber-Enabled Maritime Sanctions Evasion — Anomalous Activity Detection
-// Product: Web Application | Generated: 2026-06-27T09:25:12Z
-let lookback = 1d;
-SecurityEvent
-| where TimeGenerated > ago(lookback)
-| where EventID in (4625, 4648, 4728, 4740, 4776)
-| summarize FailureCount = count(), DistinctTargets = dcount(TargetUserName)
-    by IpAddress, bin(TimeGenerated, 1h)
-| where FailureCount > 10 or DistinctTargets > 5
-| extend Severity = "MEDIUM", CVE = "Cyber-Enabled Maritime Sanctions Evasion", RuleSource = "SENTINEL-APEX"
 | order by TimeGenerated desc
 
 // ── [SILVER] CVE-2026-8720 - HMAC-BLAKE2 final discards message when key length exceeds block
