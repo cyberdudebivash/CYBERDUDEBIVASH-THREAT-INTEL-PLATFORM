@@ -1,13 +1,13 @@
 /**
  * p33-handlers.js
- * CYBERDUDEBIVASH(R) SENTINEL APEX — P33.0
+ * CYBERDUDEBIVASH(R) SENTINEL APEX  -  P33.0
  * Enterprise Cyber Intelligence Operating System (ECIOS)
  *
- * P33 is pure orchestration. It imports and composes P20–P32 engines.
+ * P33 is pure orchestration. It imports and composes P20-P32 engines.
  * It adds cross-feed aggregation, case packaging, and operating system
  * capabilities that do not exist at per-item scope in any prior P-layer.
  *
- * NON-NEGOTIABLE: No duplication of P20–P32 logic.
+ * NON-NEGOTIABLE: No duplication of P20-P32 logic.
  */
 
 import { computeP20QualityScore, getPublicationStage } from './p20-handlers.js';
@@ -17,7 +17,7 @@ import { computeP26Grade }                              from './p26-handlers.js'
 
 export const P33_VERSION = 'P33.0';
 
-// ── Shared utilities ──────────────────────────────────────────────────────────
+// -- Shared utilities ----------------------------------------------------------
 
 function esc(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -73,7 +73,7 @@ function _threatLevel(items) {
   return { level: 'LOW', color: '#22c55e', score: 15 };
 }
 
-// ── P33.1: Enterprise Case Intelligence ───────────────────────────────────────
+// -- P33.1: Enterprise Case Intelligence ---------------------------------------
 // Orchestrates P32.1 lifecycle + P23 IR package + P32.7 evidence into unified case
 
 function _buildCaseId(item) {
@@ -132,7 +132,7 @@ export function buildP33CaseBlock(item) {
   </div>
   <div style="background:#0a0c10;border:1px solid #1f2937;border-radius:6px;padding:10px">
     <div style="font-size:10px;color:#64748b;margin-bottom:4px">GRADE / SEVERITY</div>
-    <div style="font-size:13px;font-weight:700;color:${_sevColor(sev)}">${esc(g)} · ${esc(sev)}</div>
+    <div style="font-size:13px;font-weight:700;color:${_sevColor(sev)}">${esc(g)} * ${esc(sev)}</div>
   </div>
 </div>
 <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
@@ -143,7 +143,7 @@ export function buildP33CaseBlock(item) {
     ${_row('Trust Score', t + '/100', '#22c55e')}
     ${_row('CVSS', String(cvss), _sevColor(sev))}
     ${_row('EPSS', (epss * 100).toFixed(1) + '%', '#f97316')}
-    ${_row('KEV Listed', kev ? '✓ YES' : '✗ No', kev ? '#ef4444' : '#64748b')}
+    ${_row('KEV Listed', kev ? '[OK] YES' : '[FAIL] No', kev ? '#ef4444' : '#64748b')}
     ${_row('IOC Count', String(iocCount), '#06b6d4')}
     ${_row('Publication Stage', stage, '#94a3b8')}
   </div>
@@ -151,7 +151,7 @@ export function buildP33CaseBlock(item) {
     <div style="font-size:11px;font-weight:700;color:#94a3b8;margin-bottom:6px">INVESTIGATION PHASES (${phaseDone}/9)</div>
     ${phases.map(p => `
     <div style="display:flex;align-items:center;gap:8px;padding:4px 0;border-bottom:1px solid #0a0c10;font-size:11px">
-      <span style="color:${p.done ? '#22c55e' : '#475569'};width:14px">${p.done ? '✓' : '○'}</span>
+      <span style="color:${p.done ? '#22c55e' : '#475569'};width:14px">${p.done ? '[OK]' : '?'}</span>
       <span style="color:${p.done ? '#e2e8f0' : '#475569'}">${esc(p.name)}</span>
     </div>`).join('')}
   </div>
@@ -170,21 +170,21 @@ export function buildP33CaseBlock(item) {
     ${['Validate IOC in environment','Deploy detection rules','Patch vulnerable systems',
        'Hunt for threat actor TTPs','Notify relevant teams','Document evidence',
        'Assess business impact','Initiate recovery plan'].map(c =>
-      `<div style="color:#64748b">□ ${esc(c)}</div>`).join('')}
+      `<div style="color:#64748b">? ${esc(c)}</div>`).join('')}
   </div>
 </div>`;
 
-  return _block('p33-case', '🔴 P33.1 Enterprise Case Intelligence', html, `Case: ${caseId}`);
+  return _block('p33-case', '? P33.1 Enterprise Case Intelligence', html, `Case: ${caseId}`);
 }
 
-// ── P33.2: Threat Campaign Intelligence ──────────────────────────────────────
-// Cross-feed campaign aggregation — groups advisories by shared actor/TTP
+// -- P33.2: Threat Campaign Intelligence --------------------------------------
+// Cross-feed campaign aggregation  -  groups advisories by shared actor/TTP
 
 export function buildP33CampaignBlock(item, items = []) {
   const actor    = item.actor_tag || '';
   const itemTTPs = (item.ttps || item.mitre_tactics || []).map(t => t.id || t.name || t);
 
-  // Find related advisories sharing same actor or ≥1 TTP
+  // Find related advisories sharing same actor or ?1 TTP
   const related = (items || []).filter(other => {
     if (other.id === item.id) return false;
     if (actor && other.actor_tag === actor) return true;
@@ -229,7 +229,7 @@ export function buildP33CampaignBlock(item, items = []) {
   </div>
   <div>
     <div style="font-size:11px;font-weight:700;color:#94a3b8;margin-bottom:6px">CAMPAIGN ACTORS</div>
-    ${allActors.length ? allActors.map(a => `<div style="padding:4px;font-size:11px;color:#ef4444">● ${esc(a)}</div>`).join('') :
+    ${allActors.length ? allActors.map(a => `<div style="padding:4px;font-size:11px;color:#ef4444">? ${esc(a)}</div>`).join('') :
       '<div style="font-size:11px;color:#475569">No attributed actors</div>'}
   </div>
 </div>
@@ -246,10 +246,10 @@ ${related.slice(0, 5).map(r => `
   <span style="color:#475569">${esc(r.actor_tag || '')}</span>
 </div>`).join('')}` : '<div style="font-size:11px;color:#475569">No correlated advisories in feed.</div>'}`;
 
-  return _block('p33-campaign', '🎯 P33.2 Threat Campaign Intelligence', html, `Campaign: ${campaignId}`);
+  return _block('p33-campaign', '? P33.2 Threat Campaign Intelligence', html, `Campaign: ${campaignId}`);
 }
 
-// ── P33.3: SOC Mission Planner ────────────────────────────────────────────────
+// -- P33.3: SOC Mission Planner ------------------------------------------------
 // Feed-wide role-based work queues with volume + effort estimates
 
 export function buildP33MissionBlock(item, items = []) {
@@ -268,15 +268,15 @@ export function buildP33MissionBlock(item, items = []) {
   };
 
   const queueDefs = [
-    { key: 'critical',   label: 'Critical Queue',    icon: '🔴', color: '#ef4444', role: 'SOC Lead',              effort: '1–4h each' },
-    { key: 'high',       label: 'High Queue',         icon: '🟠', color: '#f97316', role: 'Senior Analyst',        effort: '2–8h each' },
-    { key: 'patch',      label: 'Patch Queue',        icon: '🛡️', color: '#3b82f6', role: 'Vuln Mgmt Team',       effort: '4h–2d each' },
-    { key: 'detection',  label: 'Detection Queue',    icon: '📡', color: '#8b5cf6', role: 'Detection Engineer',    effort: '2–6h each' },
-    { key: 'hunting',    label: 'Threat Hunt Queue',  icon: '🎯', color: '#06b6d4', role: 'Threat Hunter',         effort: '4–8h each' },
-    { key: 'ir',         label: 'IR Queue',           icon: '🚨', color: '#ef4444', role: 'IR Team',               effort: 'As required' },
-    { key: 'escalation', label: 'Escalation Queue',   icon: '⬆️', color: '#ef4444', role: 'CISO / SOC Manager',   effort: '30min review' },
-    { key: 'executive',  label: 'Executive Queue',    icon: '📊', color: '#22c55e', role: 'CISO / Executive',      effort: '15min brief' },
-    { key: 'compliance', label: 'Compliance Queue',   icon: '📋', color: '#eab308', role: 'Compliance Officer',    effort: '1–4h each' },
+    { key: 'critical',   label: 'Critical Queue',    icon: '?', color: '#ef4444', role: 'SOC Lead',              effort: '1-4h each' },
+    { key: 'high',       label: 'High Queue',         icon: '?', color: '#f97316', role: 'Senior Analyst',        effort: '2-8h each' },
+    { key: 'patch',      label: 'Patch Queue',        icon: '??', color: '#3b82f6', role: 'Vuln Mgmt Team',       effort: '4h-2d each' },
+    { key: 'detection',  label: 'Detection Queue',    icon: '?', color: '#8b5cf6', role: 'Detection Engineer',    effort: '2-6h each' },
+    { key: 'hunting',    label: 'Threat Hunt Queue',  icon: '?', color: '#06b6d4', role: 'Threat Hunter',         effort: '4-8h each' },
+    { key: 'ir',         label: 'IR Queue',           icon: '?', color: '#ef4444', role: 'IR Team',               effort: 'As required' },
+    { key: 'escalation', label: 'Escalation Queue',   icon: '??', color: '#ef4444', role: 'CISO / SOC Manager',   effort: '30min review' },
+    { key: 'executive',  label: 'Executive Queue',    icon: '?', color: '#22c55e', role: 'CISO / Executive',      effort: '15min brief' },
+    { key: 'compliance', label: 'Compliance Queue',   icon: '?', color: '#eab308', role: 'Compliance Officer',    effort: '1-4h each' },
   ];
 
   const totalItems = sample.length;
@@ -307,20 +307,20 @@ ${queueDefs.map(q => {
   </div>
   <div style="display:flex;gap:8px;font-size:11px;color:#64748b;margin-bottom:6px">
     <span>Role: <span style="color:#94a3b8">${esc(q.role)}</span></span>
-    <span>·</span>
+    <span>*</span>
     <span>Effort: <span style="color:#94a3b8">${esc(q.effort)}</span></span>
   </div>
   <div style="height:4px;background:#1e293b;border-radius:2px;overflow:hidden">
     <div style="height:100%;width:${pct}%;background:${q.color};border-radius:2px"></div>
   </div>
-  ${items2.length > 0 ? `<div style="margin-top:6px;font-size:10px;color:#475569">${items2.slice(0,3).map(i => esc(i.title ? i.title.slice(0,60) : i.id || '')).join(' · ')}</div>` : ''}
+  ${items2.length > 0 ? `<div style="margin-top:6px;font-size:10px;color:#475569">${items2.slice(0,3).map(i => esc(i.title ? i.title.slice(0,60) : i.id || '')).join(' * ')}</div>` : ''}
 </div>`;
 }).join('')}`;
 
-  return _block('p33-mission', '📋 P33.3 SOC Mission Planner', html, `${totalItems} advisories`);
+  return _block('p33-mission', '? P33.3 SOC Mission Planner', html, `${totalItems} advisories`);
 }
 
-// ── P33.4: Enterprise Intelligence Recommendations ────────────────────────────
+// -- P33.4: Enterprise Intelligence Recommendations ----------------------------
 // Time-horizoned action plan derived from existing decision engines
 
 const _TIME_HORIZONS = ['Immediate', '24 Hours', '72 Hours', '7 Days', '30 Days', 'Quarterly'];
@@ -354,7 +354,7 @@ export function buildP33RecommendationsBlock(item) {
   if (cvss >= 9.5)       horizons['Immediate'].push('Emergency change window for critical CVSS 9.5+');
 
   // 24 Hours
-  if (cvss >= 9)         horizons['24 Hours'].push('Deploy detection rules for CVSS ≥ 9.0 vulnerability');
+  if (cvss >= 9)         horizons['24 Hours'].push('Deploy detection rules for CVSS ? 9.0 vulnerability');
   if (hasActor)          horizons['24 Hours'].push(`Hunt for ${esc(item.actor_tag)} TTPs in environment`);
   if (a >= 70)           horizons['24 Hours'].push('Execute high-actionability IOC block and alert rules');
 
@@ -418,15 +418,15 @@ ${[..._TIME_HORIZONS, ..._IMPROVEMENT_TYPES].map(h => {
   return `
 <div style="margin-bottom:8px">
   <div style="font-size:10px;font-weight:700;padding:4px 10px;background:${color}20;color:${color};border-radius:4px;display:inline-block;margin-bottom:6px">${esc(h)}</div>
-  ${recs.map(r => `<div style="font-size:11px;color:#e2e8f0;padding:4px 0 4px 12px;border-left:2px solid ${color}40">▸ ${esc(r)}</div>`).join('')}
+  ${recs.map(r => `<div style="font-size:11px;color:#e2e8f0;padding:4px 0 4px 12px;border-left:2px solid ${color}40">? ${esc(r)}</div>`).join('')}
 </div>`;
 }).join('')}`;
 
-  return _block('p33-recommendations', '📅 P33.4 Enterprise Intelligence Recommendations', html, `${sev} · CVSS ${cvss}`);
+  return _block('p33-recommendations', '? P33.4 Enterprise Intelligence Recommendations', html, `${sev} * CVSS ${cvss}`);
 }
 
-// ── P33.5: Detection Coverage Matrix ─────────────────────────────────────────
-// Full MITRE × format matrix across feed (feed-level, not per-item)
+// -- P33.5: Detection Coverage Matrix -----------------------------------------
+// Full MITRE x format matrix across feed (feed-level, not per-item)
 
 export function buildP33CoverageMatrixBlock(item, items = []) {
   const sample = (items.length ? items : [item]).slice(0, 80);
@@ -494,12 +494,12 @@ ${topTactics.map(([tactic, info]) => `
 </table>
 </div>
 ${topTactics.length === 0 ? '<div style="font-size:11px;color:#475569;padding:8px">No MITRE TTPs in feed sample.</div>' : ''}
-<div style="margin-top:10px;font-size:10px;color:#475569">Coverage % derived from TTP prevalence × format adoption heuristics. Deploy Sigma/KQL rules for red cells.</div>`;
+<div style="margin-top:10px;font-size:10px;color:#475569">Coverage % derived from TTP prevalence x format adoption heuristics. Deploy Sigma/KQL rules for red cells.</div>`;
 
-  return _block('p33-matrix', '📊 P33.5 Detection Coverage Matrix', html, `Top ${topTactics.length} tactics`);
+  return _block('p33-matrix', '? P33.5 Detection Coverage Matrix', html, `Top ${topTactics.length} tactics`);
 }
 
-// ── P33.6: Threat Exposure Heatmap ───────────────────────────────────────────
+// -- P33.6: Threat Exposure Heatmap -------------------------------------------
 // Aggregated platform risk across full feed (feed-level, not per-item)
 
 const _PLATFORMS = [
@@ -566,10 +566,10 @@ ${scores.map(p => `
 </div>`).join('')}
 </div>`;
 
-  return _block('p33-heatmap', '🔥 P33.6 Threat Exposure Heatmap', html, `${sample.length} advisories analyzed`);
+  return _block('p33-heatmap', '? P33.6 Threat Exposure Heatmap', html, `${sample.length} advisories analyzed`);
 }
 
-// ── P33.7: Intelligence Knowledge Explorer ────────────────────────────────────
+// -- P33.7: Intelligence Knowledge Explorer ------------------------------------
 // Unified browse/search entry point referencing P31 graph APIs
 
 export function buildP33ExplorerBlock(item) {
@@ -613,10 +613,10 @@ export function buildP33ExplorerBlock(item) {
 </div>
 <div style="margin-top:10px;font-size:10px;color:#475569">Use <a href="/enterprise-knowledge-graph.html" style="color:#06b6d4">enterprise-knowledge-graph.html</a> for full interactive graph visualization.</div>`;
 
-  return _block('p33-explorer', '🔭 P33.7 Intelligence Knowledge Explorer', html, item.cve_id || item.id || '');
+  return _block('p33-explorer', '? P33.7 Intelligence Knowledge Explorer', html, item.cve_id || item.id || '');
 }
 
-// ── P33.8: Intelligence Automation Engine ─────────────────────────────────────
+// -- P33.8: Intelligence Automation Engine -------------------------------------
 // 11-step automation pipeline status derived from feed quality signals
 
 export function buildP33AutomationBlock(item, items = []) {
@@ -644,14 +644,14 @@ export function buildP33AutomationBlock(item, items = []) {
     { name: 'Package',       status: pct(withIOC) >= 50 ? 'COMPLETE' : 'PARTIAL',    pct: pct(withIOC),      desc: 'Detection + IOC + IR package assembly' },
     { name: 'Validate',      status: t >= 50 ? 'COMPLETE' : 'PARTIAL',               pct: t,                 desc: 'P22 contradiction detection + P30 drift analysis' },
     { name: 'Publish',       status: 'COMPLETE',                                       pct: 100,               desc: 'P13 release gate approval + feed publication' },
-    { name: 'Audit',         status: 'COMPLETE',                                       pct: 100,               desc: 'P20–P32 certification chain validation' },
+    { name: 'Audit',         status: 'COMPLETE',                                       pct: 100,               desc: 'P20-P32 certification chain validation' },
   ];
 
   const complete = steps.filter(s => s.status === 'COMPLETE').length;
   const avgPct   = Math.round(steps.reduce((s, st) => s + st.pct, 0) / steps.length);
 
   const statusColor = s => s === 'COMPLETE' ? '#22c55e' : s === 'PARTIAL' ? '#eab308' : '#ef4444';
-  const statusIcon  = s => s === 'COMPLETE' ? '✓' : s === 'PARTIAL' ? '◑' : '✗';
+  const statusIcon  = s => s === 'COMPLETE' ? '[OK]' : s === 'PARTIAL' ? '?' : '[FAIL]';
 
   const html = `
 <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:12px">
@@ -677,10 +677,10 @@ ${steps.map((s, idx) => `
   <div style="font-size:10px;color:#475569;width:200px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(s.desc)}</div>
 </div>`).join('')}`;
 
-  return _block('p33-automation', '⚙️ P33.8 Intelligence Automation Engine', html, `${complete}/11 steps complete`);
+  return _block('p33-automation', '?? P33.8 Intelligence Automation Engine', html, `${complete}/11 steps complete`);
 }
 
-// ── P33.9: Customer Operational Dashboard ─────────────────────────────────────
+// -- P33.9: Customer Operational Dashboard -------------------------------------
 // Real-time threat level synthesis + business risk score
 
 export function buildP33OperationalDashboardBlock(item, items = []) {
@@ -746,10 +746,10 @@ export function buildP33OperationalDashboardBlock(item, items = []) {
   </div>
 </div>`;
 
-  return _block('p33-ops-dashboard', '🖥️ P33.9 Customer Operational Dashboard', html, `Threat Level: ${tl.level}`);
+  return _block('p33-ops-dashboard', '?? P33.9 Customer Operational Dashboard', html, `Threat Level: ${tl.level}`);
 }
 
-// ── P33.10: API Gateway Status ────────────────────────────────────────────────
+// -- P33.10: API Gateway Status ------------------------------------------------
 
 export function buildP33APIGatewayBlock(item) {
   const apis = [
@@ -759,7 +759,7 @@ export function buildP33APIGatewayBlock(item) {
     { ns: 'P23', routes: ['/api/v1/p23/actionability', '/api/v1/p23/readiness'] },
     { ns: 'P25', routes: ['/api/v1/p25/trust-score'] },
     { ns: 'P26', routes: ['/api/v1/p26/grade', '/api/v1/p26/grade/feed'] },
-    { ns: 'P27–P29', routes: ['/api/v1/p27/certify', '/api/v1/p28/certify', '/api/v1/p29/certify', '/api/v1/p29/customer-value'] },
+    { ns: 'P27-P29', routes: ['/api/v1/p27/certify', '/api/v1/p28/certify', '/api/v1/p29/certify', '/api/v1/p29/customer-value'] },
     { ns: 'P30', routes: ['/api/v1/p30/verification', '/api/v1/p30/timeline', '/api/v1/p30/drift'] },
     { ns: 'P31', routes: ['/api/v1/p31/graph', '/api/v1/p31/search', '/api/v1/p31/campaign', '/api/v1/p31/copilot'] },
     { ns: 'P32', routes: ['/api/v1/p32/decision', '/api/v1/p32/lifecycle', '/api/v1/p32/metrics', '/api/v1/p32/dashboard'] },
@@ -789,13 +789,13 @@ ${apis.map(a => `
   <div style="flex:1;display:flex;flex-wrap:wrap;gap:4px">
     ${a.routes.map(r => `<span style="font-size:9px;color:#475569;background:#0d1117;padding:2px 6px;border-radius:3px;font-family:monospace">${esc(r)}</span>`).join('')}
   </div>
-  <div style="font-size:10px;color:#22c55e;flex-shrink:0">● LIVE</div>
+  <div style="font-size:10px;color:#22c55e;flex-shrink:0">? LIVE</div>
 </div>`).join('')}`;
 
-  return _block('p33-gateway', '🔌 P33.10 Intelligence API Gateway', html, `${totalRoutes} routes`);
+  return _block('p33-gateway', '? P33.10 Intelligence API Gateway', html, `${totalRoutes} routes`);
 }
 
-// ── P33 Composite package ──────────────────────────────────────────────────────
+// -- P33 Composite package ------------------------------------------------------
 
 export function buildP33Package(item, items) {
   return [
@@ -812,7 +812,7 @@ export function buildP33Package(item, items) {
   ].join('\n');
 }
 
-// ── API Handlers ──────────────────────────────────────────────────────────────
+// -- API Handlers --------------------------------------------------------------
 
 export async function handleP33Cases(request, env) {
   const items  = await _loadFeed(env);
@@ -967,7 +967,7 @@ export async function handleP33Recommendations(request, env) {
 
   const recs = {
     immediate: kev ? ['Apply KEV patch immediately (CISA binding directive)'] : [],
-    h24:       cvss >= 9 ? ['Deploy detection rules for CVSS ≥ 9.0 vulnerability'] : [],
+    h24:       cvss >= 9 ? ['Deploy detection rules for CVSS ? 9.0 vulnerability'] : [],
     h72:       ['Complete IOC deployment to SIEM and EDR'],
     d7:        ['Complete patch validation and rollout'],
     d30:       ['Review detection engineering coverage', 'Update incident response playbooks'],
@@ -1090,7 +1090,7 @@ export async function handleP33Status(request, env) {
 
   return _jsonResp({
     version: P33_VERSION, generated_at: new Date().toISOString(),
-    platform: 'CYBERDUDEBIVASH® SENTINEL APEX ECIOS',
+    platform: 'CYBERDUDEBIVASH(R) SENTINEL APEX ECIOS',
     status: 'OPERATIONAL',
     feed_items: items.length,
     p_layers_active: ['P20','P21','P22','P23','P25','P26','P27','P28','P29','P30','P31','P32','P33'],
