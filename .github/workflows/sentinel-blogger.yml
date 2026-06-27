@@ -1662,6 +1662,119 @@ jobs:
           fi
 
       # -----------------------------------------------------------------------
+      # STAGE 3.93.15b: P20.1 EVIDENCE CHAIN ENRICHER (additive, non-blocking)
+      # Writes structured evidence_chain records into every feed item using only
+      # data already present. Zero fabrication. NATO reliability scale.
+      # -----------------------------------------------------------------------
+      - name: "STAGE 3.93.15b - P20.1 Evidence Chain Enricher"
+        timeout-minutes: 3
+        continue-on-error: true
+        run: |
+          python3 scripts/p20_evidence_chain_enricher.py
+          echo "[P20.1] Evidence chain enrichment complete"
+
+      # -----------------------------------------------------------------------
+      # STAGE 3.93.15c: P20.2 IOC HARDENER (additive, non-blocking)
+      # Removes false-positive IOCs (package ecosystems, dev infra) and enriches
+      # survivors with kill-chain stage, response/detection guidance, context.
+      # Zero fabrication — all enrichment from existing item data.
+      # -----------------------------------------------------------------------
+      - name: "STAGE 3.93.15c - P20.2 IOC Hardener"
+        timeout-minutes: 3
+        continue-on-error: true
+        run: |
+          python3 scripts/p20_ioc_hardener.py
+          echo "[P20.2] IOC hardening complete"
+
+      # -----------------------------------------------------------------------
+      # STAGE 3.93.15d: P21.0 ENTERPRISE CERTIFICATION GATE (NON-BLOCKING)
+      # Runs the full 7-gate P21 certification pipeline against every feed item.
+      # Scores items on P21.7 Commercial Readiness (thresholds: ≥90 Premium,
+      # ≥75 Enterprise Ready, <75 Internal Draft, <38 Below Minimum).
+      # Non-blocking in CI (continue-on-error) — certification report is written
+      # to data/quality/p21_certification_report.json for observability and is
+      # surfaced as a CI annotation. Hard-gate mode activates via FAIL_FAST=true.
+      # Zero fabrication — scoring uses only existing item field data.
+      # -----------------------------------------------------------------------
+      - name: "STAGE 3.93.15d - P21.0 Enterprise Certification Gate"
+        timeout-minutes: 5
+        continue-on-error: true
+        env:
+          DRY_RUN: "false"
+          FAIL_FAST: "false"
+        run: |
+          python3 scripts/p21_certification_gate.py
+          EXIT=$?
+          if [ -f "data/quality/p21_certification_report.json" ]; then
+            TOTAL=$(python3 -c "import json,sys; d=json.load(open('data/quality/p21_certification_report.json')); print(d.get('total_items',0))" 2>/dev/null || echo "?")
+            AVG=$(python3 -c "import json,sys; d=json.load(open('data/quality/p21_certification_report.json')); print(d.get('average_score',0))" 2>/dev/null || echo "?")
+            PREM=$(python3 -c "import json,sys; d=json.load(open('data/quality/p21_certification_report.json')); print(d['level_distribution'].get('PREMIUM_CERTIFIED',0))" 2>/dev/null || echo "?")
+            ENT=$(python3 -c "import json,sys; d=json.load(open('data/quality/p21_certification_report.json')); print(d['level_distribution'].get('ENTERPRISE_READY',0))" 2>/dev/null || echo "?")
+            echo "[P21.0] Certified: ${TOTAL} items | Avg: ${AVG}/100 | Premium: ${PREM} | Enterprise: ${ENT}"
+          fi
+          exit 0
+
+      # -----------------------------------------------------------------------
+      # STAGE 3.93.15e: P22.3 CONTRADICTION DETECTOR (NON-BLOCKING)
+      # Scans the live feed for intra-item and cross-item contradictions:
+      # Intra: C1 CVSS/Severity mismatch, C2 KEV/Severity, C3 KEV/CVSS,
+      #   C4 EPSS/Severity, C5 Exploit/CVSS, C6 Timestamp inversion, C7 IOC conf.
+      # Cross: X1 CVSS delta >1.5, X2 Severity conflict, X3 KEV conflict,
+      #   X4 Attribution conflict — all grouped by CVE ID.
+      # Non-blocking in CI (continue-on-error) — report written to
+      # data/quality/p22_contradiction_report.json for observability.
+      # Hard-gate mode activates via FAIL_FAST=true (default: false).
+      # Zero fabrication — all checks derive from existing item field data.
+      # -----------------------------------------------------------------------
+      - name: "STAGE 3.93.15e - P22.3 Contradiction Detector"
+        timeout-minutes: 4
+        continue-on-error: true
+        env:
+          DRY_RUN: "false"
+          FAIL_FAST: "false"
+        run: |
+          python3 scripts/p22_contradiction_detector.py
+          EXIT=$?
+          if [ -f "data/quality/p22_contradiction_report.json" ]; then
+            CHECKED=$(python3 -c "import json; d=json.load(open('data/quality/p22_contradiction_report.json')); print(d.get('items_checked',0))" 2>/dev/null || echo "?")
+            TOTAL=$(python3 -c "import json; d=json.load(open('data/quality/p22_contradiction_report.json')); print(d.get('total_contradictions',0))" 2>/dev/null || echo "?")
+            ERRORS=$(python3 -c "import json; d=json.load(open('data/quality/p22_contradiction_report.json')); print(d.get('error_count',0))" 2>/dev/null || echo "?")
+            WARNS=$(python3 -c "import json; d=json.load(open('data/quality/p22_contradiction_report.json')); print(d.get('warning_count',0))" 2>/dev/null || echo "?")
+            echo "[P22.3] Checked: ${CHECKED} items | Contradictions: ${TOTAL} | Errors: ${ERRORS} | Warnings: ${WARNS}"
+            if [ "${ERRORS}" != "?" ] && [ "${ERRORS}" -gt "0" ] 2>/dev/null; then
+              echo "::warning::P22.3 Contradiction Detector: ${ERRORS} ERROR-level contradictions detected in feed. Review data/quality/p22_contradiction_report.json."
+            fi
+          fi
+          exit 0
+
+      # -----------------------------------------------------------------------
+      # STAGE 3.93.15f: P23.5 RISK-BASED PATCH PRIORITIZER (NON-BLOCKING)
+      # Computes risk-based patch deployment priority for every feed item using:
+      #   KEV (CISA Known Exploited, weight: 40pts), CVSS (up to 25pts),
+      #   EPSS exploitation probability (up to 20pts), exploit maturity (15pts).
+      # Output tiers: PATCH IMMEDIATELY / PATCH WITHIN 24H / 7D / 30D / MONITOR.
+      # Non-blocking in CI (continue-on-error) — report written to
+      # data/quality/p23_patch_priority_report.json for observability.
+      # Zero fabrication — scoring uses only existing feed field data.
+      # -----------------------------------------------------------------------
+      - name: "STAGE 3.93.15f - P23.5 Risk-Based Patch Prioritizer"
+        timeout-minutes: 4
+        continue-on-error: true
+        env:
+          DRY_RUN: "false"
+        run: |
+          python3 scripts/p23_patch_prioritizer.py
+          if [ -f "data/quality/p23_patch_priority_report.json" ]; then
+            TOTAL=$(python3 -c "import json; d=json.load(open('data/quality/p23_patch_priority_report.json')); print(d.get('items_processed',0))" 2>/dev/null || echo "?")
+            IMMED=$(python3 -c "import json; d=json.load(open('data/quality/p23_patch_priority_report.json')); print(d.get('immediate_count',0))" 2>/dev/null || echo "?")
+            echo "[P23.5] Processed: ${TOTAL} items | PATCH IMMEDIATELY: ${IMMED}"
+            if [ "${IMMED}" != "?" ] && [ "${IMMED}" -gt "0" ] 2>/dev/null; then
+              echo "::warning::P23.5 Patch Prioritizer: ${IMMED} item(s) require IMMEDIATE patching — KEV confirmed or critical risk score."
+            fi
+          fi
+          exit 0
+
+      # -----------------------------------------------------------------------
       # STAGE 3.93.16: SOURCE DIVERSITY ENFORCER (Phase 1C -- NON-BLOCKING WARN)
       # Enforces source diversity governance against the live feed manifest.
       # Detects single-source dominance (golden invariant: max 30%), Shannon
