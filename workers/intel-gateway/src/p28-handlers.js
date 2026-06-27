@@ -13,11 +13,11 @@
  *   API    handleP28Feedback, handleP28Certify, handleP28Observability
  *
  * AUDIT CONFIRMED P20-P27 ALREADY COVER (reused, not duplicated):
- *   P28.2  Operational Risk Prioritization  → P23 buildPatchPriorityBlock (REUSED)
- *   P28.4  Detection Readiness             → P22+P23 detection blocks (REUSED)
- *   P28.6  Intelligence Correlation        → P18 correlation engine (REUSED)
- *   P28.8  Intelligence Validation         → P22+P26+P27 structural integrity (REUSED)
- *   P28.11 Commercial Readiness            → P26 computeP26Grade (REUSED)
+ *   P28.2  Operational Risk Prioritization  -> P23 buildPatchPriorityBlock (REUSED)
+ *   P28.4  Detection Readiness             -> P22+P23 detection blocks (REUSED)
+ *   P28.6  Intelligence Correlation        -> P18 correlation engine (REUSED)
+ *   P28.8  Intelligence Validation         -> P22+P26+P27 structural integrity (REUSED)
+ *   P28.11 Commercial Readiness            -> P26 computeP26Grade (REUSED)
  *
  * ZERO FABRICATION  -  all intelligence derived from existing pipeline-verified feed fields.
  * ADDITIVE ONLY    -  no existing handler, schema, KV key, auth, or payment logic modified.
@@ -32,7 +32,7 @@ export const P28_VERSION = "P28.0";
 // KV key prefix for customer feedback
 const FB_PREFIX = "p28:feedback:";
 
-// ── Shared helpers ────────────────────────────────────────────────────────────
+// -- Shared helpers ------------------------------------------------------------
 
 function esc(s) {
   return String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;")
@@ -64,9 +64,9 @@ function _badge(text, bg, fg = "#fff") {
   return `<span style="display:inline-block;background:${bg};color:${fg};font-size:9px;font-weight:700;padding:2px 7px;border-radius:3px;letter-spacing:.06em;margin:2px;">${esc(text)}</span>`;
 }
 
-// ── P28.1: Customer Environment Risk Mapping ─────────────────────────────────
+// -- P28.1: Customer Environment Risk Mapping ---------------------------------
 // 12 environment types derived from attack_vector/ttps/description/tags.
-// No customer data stored — mapping is derived from feed fields only.
+// No customer data stored  -  mapping is derived from feed fields only.
 
 const _ENV_PROFILES = [
   { id: "windows",   label: "Windows",        keywords: ["windows","rdp","smb","ntlm","lsass","wmi","powershell","active directory","ad ds","kerberos","lsass dump","mimikatz"] },
@@ -135,16 +135,16 @@ export function buildP28EnvironmentRiskBlock(item) {
 
   return _block(
     "p28-env-risk",
-    "P28.1 — Customer Environment Risk Mapping",
+    "P28.1  -  Customer Environment Risk Mapping",
     "#818cf8",
     summary + rows + note,
-    "12 environment types · relevance derived from verified intelligence fields"
+    "12 environment types * relevance derived from verified intelligence fields"
   );
 }
 
-// ── P28.3: Executive Business Impact ─────────────────────────────────────────
+// -- P28.3: Executive Business Impact -----------------------------------------
 // Financial bands, operational disruption, compliance, reputation.
-// All derived from CVSS/KEV/EPSS/severity — zero fabrication.
+// All derived from CVSS/KEV/EPSS/severity  -  zero fabrication.
 
 function _deriveFinancialBand(item) {
   const cvss  = parseFloat(item.cvss_score || item.risk_score || 0);
@@ -161,7 +161,7 @@ function _deriveFinancialBand(item) {
   if (cvss >= 9.0) score += 10;
 
   if (score >= 65)  return { band: "HIGH",   label: "High Financial Impact",   color: "#ef4444", range: "$1M+" };
-  if (score >= 35)  return { band: "MEDIUM", label: "Medium Financial Impact", color: "#f59e0b", range: "$100K–$1M" };
+  if (score >= 35)  return { band: "MEDIUM", label: "Medium Financial Impact", color: "#f59e0b", range: "$100K-$1M" };
   return              { band: "LOW",    label: "Low Financial Impact",    color: "#22c55e", range: "<$100K" };
 }
 
@@ -235,7 +235,7 @@ export function buildP28BusinessImpactBlock(item) {
       <div style="background:#0a0f1a;border:1px solid ${repColor}33;border-radius:5px;padding:12px;">
         <div style="color:#6b7280;font-size:9px;letter-spacing:.1em;text-transform:uppercase;margin-bottom:6px;">Reputation Impact</div>
         <div style="color:${repColor};font-size:16px;font-weight:700;">${esc(repLevel)}</div>
-        <div style="color:#6b7280;font-size:10px;margin-top:4px;">${kev ? "Actively exploited · public breach risk" : sev === "CRITICAL" ? "Critical severity · potential media attention" : "Contained risk profile"}</div>
+        <div style="color:#6b7280;font-size:10px;margin-top:4px;">${kev ? "Actively exploited * public breach risk" : sev === "CRITICAL" ? "Critical severity * potential media attention" : "Contained risk profile"}</div>
       </div>
     </div>
     <div style="margin-bottom:12px;">
@@ -261,16 +261,16 @@ export function buildP28BusinessImpactBlock(item) {
 
   return _block(
     "p28-business-impact",
-    "P28.3 — Executive Business Impact",
+    "P28.3  -  Executive Business Impact",
     "#f59e0b",
     body,
-    "Financial · Operational · Compliance · Reputation impact derived from verified threat fields"
+    "Financial * Operational * Compliance * Reputation impact derived from verified threat fields"
   );
 }
 
-// ── P28.5: Customer Action Center ─────────────────────────────────────────────
+// -- P28.5: Customer Action Center ---------------------------------------------
 // Aggregated action queues. Imports computeActionabilityScore from P23.
-// No duplication — P23 computes; P28 packages into customer-facing queue view.
+// No duplication  -  P23 computes; P28 packages into customer-facing queue view.
 
 const _QUEUE_COLORS = {
   patch:      "#ef4444",
@@ -302,7 +302,7 @@ export function buildP28ActionCenterBlock(item) {
     patchItems.push({ priority, action: `Apply vendor patch for ${cves}`, owner: "Vulnerability Management" });
   }
   if (kev) {
-    patchItems.push({ priority: "IMMEDIATE", action: "Verify patching status — CISA KEV listed", owner: "Vulnerability Management" });
+    patchItems.push({ priority: "IMMEDIATE", action: "Verify patching status  -  CISA KEV listed", owner: "Vulnerability Management" });
   }
   if (patchItems.length === 0 && sev !== "INFO") {
     patchItems.push({ priority: "7d", action: "Review vendor security advisories for mitigations", owner: "Security Engineering" });
@@ -383,14 +383,14 @@ export function buildP28ActionCenterBlock(item) {
 
   return _block(
     "p28-action-center",
-    "P28.5 — Customer Action Center",
+    "P28.5  -  Customer Action Center",
     "#38bdf8",
     body,
-    "Patch · Hunt · Detection · Executive · Compliance queues — prioritized by KEV / EPSS / CVSS"
+    "Patch * Hunt * Detection * Executive * Compliance queues  -  prioritized by KEV / EPSS / CVSS"
   );
 }
 
-// ── P28.7: Role-Based Operational Guidance ───────────────────────────────────
+// -- P28.7: Role-Based Operational Guidance -----------------------------------
 // 7 operational roles. Distinct from P27 multi-audience (which is executive-framed).
 // P28.7 provides operational step-by-step guidance per role.
 
@@ -419,57 +419,57 @@ function _buildRoleGuidance(item) {
     soc: [
       hasIoc ? `Search EDR and SIEM for ${item.ioc_count} IOC${item.ioc_count !== 1 ? "s" : ""} from this advisory` : "Review advisory for behavioral indicators",
       hasSig  ? "Deploy Sigma detection rule to SIEM and validate alert firing" : "Create detection query based on advisory TTPs",
-      kev     ? "Flag as active exploitation — escalate immediately to threat hunter" : `Monitor for exploitation attempts — EPSS ${(epss*100).toFixed(0)}%`,
+      kev     ? "Flag as active exploitation  -  escalate immediately to threat hunter" : `Monitor for exploitation attempts  -  EPSS ${(epss*100).toFixed(0)}%`,
       `Review MITRE ATT&CK coverage for: ${tactics}`,
       "Document triage results and update case management system",
     ],
     hunter: [
       `Conduct retroactive hunt across endpoint and network telemetry for TTPs: ${tactics}`,
-      hasIoc  ? `Pivot from ${item.ioc_count} IOC${item.ioc_count !== 1 ? "s" : ""} — IP/domain/hash — across 90-day historical data` : "Build IOC hypothesis from TTP patterns in advisory",
-      kev     ? "Treat as active campaign — check for beaconing, lateral movement, persistence" : "Focus on early indicators of compromise per kill chain phases",
+      hasIoc  ? `Pivot from ${item.ioc_count} IOC${item.ioc_count !== 1 ? "s" : ""}  -  IP/domain/hash  -  across 90-day historical data` : "Build IOC hypothesis from TTP patterns in advisory",
+      kev     ? "Treat as active campaign  -  check for beaconing, lateral movement, persistence" : "Focus on early indicators of compromise per kill chain phases",
       "Cross-reference with threat actor profile and known campaign patterns",
       "Produce hunt report with positive/negative findings for analyst team",
     ],
     ir: [
-      sev === "CRITICAL" || kev ? "Activate incident response plan — classify severity per IR playbook" : "Standby readiness — monitor for initial compromise signals",
-      `Prepare forensic collection procedures for affected systems — focus on ${tactics || "advisory TTPs"}`,
+      sev === "CRITICAL" || kev ? "Activate incident response plan  -  classify severity per IR playbook" : "Standby readiness  -  monitor for initial compromise signals",
+      `Prepare forensic collection procedures for affected systems  -  focus on ${tactics || "advisory TTPs"}`,
       hasCve  ? `Confirm patch availability for ${cveList} with vendor` : "Identify mitigations and workarounds from vendor advisory",
-      "Brief CISO and legal if exploitation is detected — initiate notification procedures",
+      "Brief CISO and legal if exploitation is detected  -  initiate notification procedures",
       "Update IR runbook with this advisory's specifics and lessons learned post-incident",
     ],
     seceng: [
       hasCve  ? `Assess patch applicability for ${cveList} in your environment` : "Identify affected components and assess exposure surface",
       "Implement network-layer mitigations (firewall rules, WAF policies) pending patch",
-      hasSig  ? "Test and deploy Sigma detection rule — validate against lab environment first" : "Develop detection content based on advisory indicators",
+      hasSig  ? "Test and deploy Sigma detection rule  -  validate against lab environment first" : "Develop detection content based on advisory indicators",
       `Harden configurations per MITRE ATT&CK mitigations for: ${tactics}`,
       "Update vulnerability scanner signatures and conduct targeted scan post-patch",
     ],
     vulnmgr: [
       hasCve  ? `Add ${cveList} to vulnerability tracking system with ${kev ? "IMMEDIATE" : sev === "CRITICAL" ? "24h" : sev === "HIGH" ? "72h" : "7-day"} SLA` : "Track advisory in vulnerability management backlog",
-      `CVSS: ${cvss > 0 ? cvss.toFixed(1) : "N/A"} · EPSS: ${(epss*100).toFixed(0)}% · KEV: ${kev ? "YES — patch immediately" : "No"}`,
-      "Confirm asset inventory coverage — identify all affected systems in CMDB",
+      `CVSS: ${cvss > 0 ? cvss.toFixed(1) : "N/A"} * EPSS: ${(epss*100).toFixed(0)}% * KEV: ${kev ? "YES  -  patch immediately" : "No"}`,
+      "Confirm asset inventory coverage  -  identify all affected systems in CMDB",
       kev     ? "Escalate to engineering and operations for emergency patching" : `Schedule patch deployment per ${sev === "CRITICAL" ? "72h" : "standard"} change management cycle`,
       "Track patch completion rate and report to CISO weekly until closure",
     ],
     ciso: [
       kev || sev === "CRITICAL"
-        ? "Actively exploited or critical severity — executive briefing required within 24 hours"
+        ? "Actively exploited or critical severity  -  executive briefing required within 24 hours"
         : sev === "HIGH"
-        ? "High severity — include in weekly security briefing and track in risk register"
+        ? "High severity  -  include in weekly security briefing and track in risk register"
         : "Track in standard security operations cadence",
       `Financial exposure: ${_deriveFinancialBand(item).band} (${_deriveFinancialBand(item).range})`,
       "Assign named remediation owner with clear SLA and accountability",
-      "Assess third-party and supply chain exposure — notify as appropriate",
+      "Assess third-party and supply chain exposure  -  notify as appropriate",
       "Review cyber insurance coverage and notification obligations if exploited",
     ],
     exec: [
       kev || sev === "CRITICAL"
-        ? "Business risk: CRITICAL — review with CISO, confirm incident plan is activated"
-        : "Business risk: ELEVATED — include in next board security update",
-      `Financial impact band: ${_deriveFinancialBand(item).band} · Range: ${_deriveFinancialBand(item).range}`,
+        ? "Business risk: CRITICAL  -  review with CISO, confirm incident plan is activated"
+        : "Business risk: ELEVATED  -  include in next board security update",
+      `Financial impact band: ${_deriveFinancialBand(item).band} * Range: ${_deriveFinancialBand(item).range}`,
       "Confirm security team has remediation owner, timeline, and resources",
       "Review regulatory disclosure obligations with legal counsel",
-      "Request status update from CISO within 48 hours — track to closure",
+      "Request status update from CISO within 48 hours  -  track to closure",
     ],
   };
 }
@@ -494,7 +494,7 @@ export function buildP28RoleGuidanceBlock(item) {
       </div>`
     ).join("");
     return `<div id="${instanceId}-panel-${i}" style="display:${i === 0 ? "block" : "none"}">
-      <div style="color:#38bdf8;font-size:11px;font-weight:700;margin-bottom:8px;">${r.icon} ${esc(r.label)} — Operational Steps</div>
+      <div style="color:#38bdf8;font-size:11px;font-weight:700;margin-bottom:8px;">${r.icon} ${esc(r.label)}  -  Operational Steps</div>
       ${stepsHtml}
     </div>`;
   }).join("");
@@ -521,14 +521,14 @@ export function buildP28RoleGuidanceBlock(item) {
 
   return _block(
     `p28-role-guidance-${instanceId}`,
-    "P28.7 — Role-Based Operational Guidance",
+    "P28.7  -  Role-Based Operational Guidance",
     "#a78bfa",
     body,
-    "SOC · Threat Hunter · Incident Responder · Security Engineer · Vuln Manager · CISO · Executive"
+    "SOC * Threat Hunter * Incident Responder * Security Engineer * Vuln Manager * CISO * Executive"
   );
 }
 
-// ── P28.9: Customer Feedback Framework ───────────────────────────────────────
+// -- P28.9: Customer Feedback Framework ---------------------------------------
 // Provides feedback UI embedded in report + KV-backed storage API.
 // KV key: p28:feedback:{item_id}:{timestamp_ms}
 
@@ -601,15 +601,15 @@ export function buildP28FeedbackBlock(item) {
           comment:    (document.getElementById("${instanceId}-comment")||{}).value || "",
         };
         if (!_rating) { if (status) status.textContent = "Please select a star rating."; return; }
-        if (status) status.textContent = "Submitting…";
+        if (status) status.textContent = "Submitting...";
         fetch("${apiBase}/api/v1/p28/feedback", {
           method: "POST",
           headers: { "Content-Type": "application/json", "X-API-Key": key },
           body: JSON.stringify(payload),
         }).then(function(r) {
-          if (status) status.textContent = r.ok ? "Thank you — feedback recorded." : "Submitted (will sync when online).";
+          if (status) status.textContent = r.ok ? "Thank you  -  feedback recorded." : "Submitted (will sync when online).";
         }).catch(function() {
-          if (status) status.textContent = "Feedback noted — will retry when online.";
+          if (status) status.textContent = "Feedback noted  -  will retry when online.";
         });
       };
     })();
@@ -617,14 +617,14 @@ export function buildP28FeedbackBlock(item) {
 
   return _block(
     `p28-feedback-${instanceId}`,
-    "P28.9 — Customer Feedback",
+    "P28.9  -  Customer Feedback",
     "#34d399",
     body,
-    "Rate this advisory · improve intelligence quality for all customers"
+    "Rate this advisory * improve intelligence quality for all customers"
   );
 }
 
-// ── P28.10: Operational Metrics ───────────────────────────────────────────────
+// -- P28.10: Operational Metrics -----------------------------------------------
 // Per-item metrics summary pulled from existing feed fields + computed scores.
 
 export function buildP28MetricsBlock(item) {
@@ -648,7 +648,7 @@ export function buildP28MetricsBlock(item) {
   // ioc validation rate
   const iocTotal = item.ioc_count || 0;
   const iocConf  = parseFloat(item.ioc_confidence || 0);
-  const iocValidRate = iocTotal > 0 && iocConf > 0 ? `${Math.round(iocConf * 100)}%` : iocTotal > 0 ? "—" : "N/A";
+  const iocValidRate = iocTotal > 0 && iocConf > 0 ? `${Math.round(iocConf * 100)}%` : iocTotal > 0 ? " - " : "N/A";
 
   // detection availability
   const detAvail = Boolean(item.apex && item.apex.sigma_rule) ? "Sigma rule available"
@@ -663,8 +663,8 @@ export function buildP28MetricsBlock(item) {
     { label: "CVSS Score",              value: cvss > 0 ? cvss.toFixed(1) : "N/A",               color: cvss >= 9 ? "#ef4444" : cvss >= 7 ? "#f59e0b" : "#22c55e" },
     { label: "EPSS Probability",        value: `${(epss * 100).toFixed(1)}%`,                     color: epss > 0.7 ? "#ef4444" : epss > 0.4 ? "#f59e0b" : "#22c55e" },
     { label: "Confidence Level",        value: `${Math.round(conf * 100)}%`,                      color: conf > 0.8 ? "#22c55e" : conf > 0.5 ? "#f59e0b" : "#ef4444" },
-    { label: "Enrichment Score",        value: enrichScore > 0 ? `${Math.round(enrichScore)}/100` : "—", color: "#94a3b8" },
-    { label: "Source Quality",          value: srcQ > 0 ? `${Math.round(srcQ * 100)}%` : "—",    color: "#94a3b8" },
+    { label: "Enrichment Score",        value: enrichScore > 0 ? `${Math.round(enrichScore)}/100` : " - ", color: "#94a3b8" },
+    { label: "Source Quality",          value: srcQ > 0 ? `${Math.round(srcQ * 100)}%` : " - ",    color: "#94a3b8" },
     { label: "Publication Latency",     value: pubLatencyLabel,                                    color: "#94a3b8" },
     { label: "IOC Count",               value: String(iocTotal),                                   color: iocTotal > 0 ? "#38bdf8" : "#374151" },
     { label: "IOC Validation Rate",     value: iocValidRate,                                       color: "#94a3b8" },
@@ -678,14 +678,14 @@ export function buildP28MetricsBlock(item) {
 
   return _block(
     "p28-metrics",
-    "P28.10 — Operational Metrics",
+    "P28.10  -  Operational Metrics",
     "#64748b",
     `<div style="columns:2;column-gap:16px;">${rows}</div>`,
     "Per-advisory quality, coverage, and operational metrics"
   );
 }
 
-// ── API Handlers ──────────────────────────────────────────────────────────────
+// -- API Handlers --------------------------------------------------------------
 
 function _jsonResp(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -724,7 +724,7 @@ export async function handleP28Feedback(request, env) {
   try {
     await env.SECURITY_HUB_KV.put(kvKey, JSON.stringify(record), { expirationTtl: 7776000 }); // 90d
   } catch (_) {
-    // KV unavailable in test — still return success to client
+    // KV unavailable in test  -  still return success to client
   }
   return _jsonResp({ ok: true, recorded_at: record.recorded_at });
 }
@@ -798,10 +798,10 @@ export async function handleP28Observability(request, env) {
       const kv = await env.SECURITY_HUB_KV.get(`quality:${k}`);
       if (kv) { reports[k] = JSON.parse(kv); return; }
     } catch (_) {}
-    // fall through — report will be null
+    // fall through  -  report will be null
     reports[k] = null;
   };
-  // best-effort — don't block on failures
+  // best-effort  -  don't block on failures
   try { await Promise.all(["p27","p26","p25"].map(k => load(k, k))); } catch (_) {}
 
   // Read feed for live metrics
@@ -838,7 +838,7 @@ export async function handleP28Observability(request, env) {
   });
 }
 
-// ── Composite package ─────────────────────────────────────────────────────────
+// -- Composite package ---------------------------------------------------------
 
 export function buildP28Package(item) {
   return (
