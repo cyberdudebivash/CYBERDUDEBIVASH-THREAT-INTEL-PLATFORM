@@ -1,0 +1,737 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Enterprise Operations Center — CYBERDUDEBIVASH® SENTINEL APEX</title>
+<meta name="description" content="P32.0 Enterprise Operational Intelligence & Decision Automation Platform — Analyst Workspace and Customer Success Dashboard">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:#0a0c10;color:#e2e8f0;min-height:100vh}
+:root{--accent:#06b6d4;--green:#22c55e;--red:#ef4444;--orange:#f97316;--purple:#8b5cf6;--yellow:#eab308;--blue:#3b82f6;--panel:#111827;--border:#1f2937;--text2:#94a3b8}
+#auth-gate{display:flex;align-items:center;justify-content:center;min-height:100vh;background:#0a0c10}
+.auth-card{background:#111827;border:1px solid #1f2937;border-radius:12px;padding:48px;max-width:400px;width:100%;text-align:center}
+.auth-logo{font-size:14px;color:#06b6d4;letter-spacing:2px;text-transform:uppercase;margin-bottom:8px}
+.auth-title{font-size:24px;font-weight:700;margin-bottom:8px}
+.auth-sub{font-size:13px;color:#64748b;margin-bottom:32px}
+.auth-input{width:100%;background:#0a0c10;border:1px solid #1f2937;border-radius:8px;padding:12px 16px;color:#e2e8f0;font-size:14px;margin-bottom:12px;outline:none}
+.auth-input:focus{border-color:#06b6d4}
+.auth-btn{width:100%;background:#06b6d4;color:#000;border:none;border-radius:8px;padding:12px;font-size:14px;font-weight:700;cursor:pointer;letter-spacing:1px}
+.auth-btn:hover{background:#0891b2}
+.auth-err{color:#ef4444;font-size:12px;margin-top:8px;display:none}
+#app{display:none}
+/* Header */
+.top-bar{background:#111827;border-bottom:1px solid #1f2937;padding:0 24px;display:flex;align-items:center;justify-content:space-between;height:56px}
+.brand{display:flex;align-items:center;gap:12px}
+.brand-name{font-size:13px;color:#06b6d4;letter-spacing:2px;font-weight:700}
+.brand-ver{font-size:11px;color:#475569;background:#1e293b;padding:2px 8px;border-radius:4px}
+.top-actions{display:flex;align-items:center;gap:16px}
+.top-tag{font-size:11px;padding:3px 10px;border-radius:4px;border:1px solid;font-weight:600;letter-spacing:1px}
+.top-tag.operational{color:#22c55e;border-color:#22c55e30;background:#22c55e10}
+.top-tag.p32{color:#06b6d4;border-color:#06b6d430;background:#06b6d410}
+.last-refresh{font-size:11px;color:#475569}
+/* Tabs */
+.tab-bar{background:#0d1117;border-bottom:1px solid #1f2937;display:flex;padding:0 24px;gap:4px}
+.tab{padding:14px 20px;font-size:13px;font-weight:600;cursor:pointer;color:#64748b;border-bottom:2px solid transparent;transition:all .2s}
+.tab:hover{color:#94a3b8}
+.tab.active{color:#06b6d4;border-bottom-color:#06b6d4}
+.tab-panel{display:none}
+.tab-panel.active{display:block}
+/* Layout */
+.main{padding:24px;max-width:1800px;margin:0 auto}
+/* Stats row */
+.stats-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:24px}
+.stat-card{background:#111827;border:1px solid #1f2937;border-radius:8px;padding:16px}
+.stat-label{font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px}
+.stat-val{font-size:24px;font-weight:700}
+.stat-sub{font-size:11px;color:#475569;margin-top:4px}
+/* Section */
+.section{background:#111827;border:1px solid #1f2937;border-radius:8px;margin-bottom:16px;overflow:hidden}
+.section-header{padding:14px 20px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #1f2937;background:#0d1117}
+.section-title{font-size:13px;font-weight:700;color:#e2e8f0;display:flex;align-items:center;gap:8px}
+.section-badge{font-size:10px;padding:2px 8px;border-radius:4px;background:#1e293b;color:#94a3b8}
+.section-body{padding:16px}
+/* Grid 2 / 3 */
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px}
+/* Queue items */
+.queue{display:flex;flex-direction:column;gap:8px}
+.queue-item{background:#0a0c10;border:1px solid #1f2937;border-radius:6px;padding:12px;display:flex;align-items:flex-start;gap:12px}
+.q-icon{width:32px;height:32px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0}
+.q-body{flex:1;min-width:0}
+.q-title{font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:3px}
+.q-meta{font-size:11px;color:#64748b}
+.q-prio{font-size:10px;padding:2px 6px;border-radius:3px;font-weight:700;margin-left:8px}
+/* Decision blocks */
+.decision-item{background:#0a0c10;border-left:3px solid;border-radius:0 6px 6px 0;padding:12px 14px;margin-bottom:8px}
+.decision-item.active{border-color:#ef4444}
+.decision-item.advisory{border-color:#f97316}
+.decision-item.inactive{border-color:#1f2937}
+.decision-label{font-size:12px;font-weight:700;margin-bottom:4px}
+.decision-evidence{font-size:11px;color:#64748b}
+/* Drift bars */
+.drift-row{display:flex;align-items:center;gap:12px;padding:8px 0;border-bottom:1px solid #0a0c10}
+.drift-row:last-child{border:none}
+.drift-dim{font-size:11px;color:#94a3b8;width:120px;flex-shrink:0}
+.drift-bar-bg{flex:1;height:6px;background:#1e293b;border-radius:3px;overflow:hidden}
+.drift-bar-fill{height:100%;border-radius:3px;transition:width .5s}
+.drift-val{font-size:11px;color:#e2e8f0;width:40px;text-align:right}
+.drift-status{font-size:10px;width:70px;text-align:center}
+/* Maturity */
+.mat-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px}
+.mat-cell{background:#0a0c10;border:1px solid #1f2937;border-radius:6px;padding:10px}
+.mat-dim{font-size:10px;color:#64748b;margin-bottom:4px}
+.mat-score{font-size:20px;font-weight:700}
+.mat-level{font-size:10px;margin-top:2px}
+/* Metrics */
+.metric-trio{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px}
+.metric-box{background:#0a0c10;border:1px solid #1f2937;border-radius:8px;padding:16px;text-align:center}
+.metric-label{font-size:10px;color:#64748b;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px}
+.metric-val{font-size:28px;font-weight:700}
+.metric-unit{font-size:11px;color:#475569}
+.metric-bench{font-size:10px;color:#94a3b8;margin-top:4px}
+/* Lifecycle */
+.lifecycle-stages{display:flex;flex-direction:column;gap:8px}
+.stage-row{display:flex;align-items:center;gap:12px;padding:8px 12px;border-radius:6px;background:#0a0c10}
+.stage-dot{width:12px;height:12px;border-radius:50%;flex-shrink:0}
+.stage-name{font-size:12px;font-weight:600;width:120px}
+.stage-desc{font-size:11px;color:#64748b;flex:1}
+.stage-badge{font-size:10px;padding:2px 8px;border-radius:4px;font-weight:700}
+/* Gate */
+.gate-list{display:flex;flex-direction:column;gap:6px}
+.gate-row{display:flex;align-items:center;gap:10px;padding:8px 12px;background:#0a0c10;border-radius:6px}
+.gate-icon{font-size:13px;width:20px;text-align:center}
+.gate-name{font-size:12px;flex:1}
+.gate-status{font-size:10px;font-weight:700;padding:2px 8px;border-radius:4px}
+/* Platform sim */
+.platform-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px}
+.platform-card{background:#0a0c10;border:1px solid #1f2937;border-radius:6px;padding:12px}
+.platform-name{font-size:12px;font-weight:700;margin-bottom:6px}
+.platform-risk{font-size:22px;font-weight:700;margin-bottom:4px}
+.platform-bar-bg{height:4px;background:#1e293b;border-radius:2px;overflow:hidden}
+.platform-bar-fill{height:100%;border-radius:2px}
+/* Evidence */
+.claim-card{background:#0a0c10;border:1px solid #1f2937;border-radius:6px;padding:12px;margin-bottom:8px}
+.claim-header{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.claim-type{font-size:10px;font-weight:700;padding:2px 8px;border-radius:4px;background:#1e293b;color:#94a3b8}
+.claim-text{font-size:12px;font-weight:600}
+.provenance-chain{display:flex;flex-direction:column;gap:4px;padding-left:12px;border-left:2px solid #1f2937}
+.prov-row{display:flex;gap:8px;font-size:11px}
+.prov-key{color:#64748b;width:80px;flex-shrink:0}
+.prov-val{color:#e2e8f0}
+/* Customer success */
+.exposure-summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-bottom:16px}
+.exp-card{background:#0a0c10;border:1px solid #1f2937;border-radius:8px;padding:16px}
+.exp-label{font-size:11px;color:#64748b;margin-bottom:4px}
+.exp-val{font-size:20px;font-weight:700;margin-bottom:2px}
+.exp-change{font-size:11px}
+/* Loading */
+.loading{text-align:center;padding:40px;color:#475569;font-size:13px}
+.spinner{display:inline-block;width:20px;height:20px;border:2px solid #1f2937;border-top-color:#06b6d4;border-radius:50%;animation:spin .7s linear infinite;margin-right:8px;vertical-align:middle}
+@keyframes spin{to{transform:rotate(360deg)}}
+/* Responsive */
+@media(max-width:768px){.grid2,.grid3,.metric-trio{grid-template-columns:1fr}.tab{padding:10px 14px;font-size:12px}}
+/* Colors */
+.c-green{color:#22c55e}.c-red{color:#ef4444}.c-orange{color:#f97316}.c-yellow{color:#eab308}.c-blue{color:#3b82f6}.c-cyan{color:#06b6d4}.c-purple{color:#8b5cf6}.c-gray{color:#64748b}
+.bg-green{background:#22c55e15;border-color:#22c55e30}.bg-red{background:#ef444415;border-color:#ef444430}.bg-orange{background:#f9731615;border-color:#f9731630}.bg-yellow{background:#eab30815;border-color:#eab30830}.bg-blue{background:#3b82f615;border-color:#3b82f630}.bg-purple{background:#8b5cf615;border-color:#8b5cf630}
+</style>
+</head>
+<body>
+
+<!-- AUTH GATE -->
+<div id="auth-gate">
+  <div class="auth-card">
+    <div class="auth-logo">CYBERDUDEBIVASH® SENTINEL APEX</div>
+    <div class="auth-title">Enterprise Operations Center</div>
+    <div class="auth-sub">P32.0 — Operational Intelligence & Decision Automation</div>
+    <input id="auth-token" class="auth-input" type="password" placeholder="Access Token" autocomplete="off">
+    <button class="auth-btn" onclick="attemptAuth()">ACCESS OPERATIONS CENTER</button>
+    <div class="auth-err" id="auth-err">Authentication failed. Verify your access token.</div>
+  </div>
+</div>
+
+<!-- MAIN APP -->
+<div id="app">
+  <div class="top-bar">
+    <div class="brand">
+      <div class="brand-name">SENTINEL APEX</div>
+      <div class="brand-ver">P32.0 — Enterprise Operations</div>
+    </div>
+    <div class="top-actions">
+      <span class="top-tag operational">● OPERATIONAL</span>
+      <span class="top-tag p32">P32</span>
+      <span class="last-refresh" id="last-refresh-label">Refreshing…</span>
+      <button onclick="refreshAll()" style="background:#1e293b;color:#94a3b8;border:1px solid #1f2937;border-radius:6px;padding:6px 14px;font-size:12px;cursor:pointer">⟳ Refresh</button>
+    </div>
+  </div>
+
+  <div class="tab-bar">
+    <div class="tab active" onclick="switchTab('analyst')">Analyst Workspace</div>
+    <div class="tab" onclick="switchTab('customer')">Customer Success</div>
+    <div class="tab" onclick="switchTab('lifecycle')">Lifecycle & Decisions</div>
+    <div class="tab" onclick="switchTab('detection')">Detection Effectiveness</div>
+    <div class="tab" onclick="switchTab('environment')">Environment Simulator</div>
+    <div class="tab" onclick="switchTab('drift')">Drift Intelligence</div>
+    <div class="tab" onclick="switchTab('evidence')">Evidence Provenance</div>
+    <div class="tab" onclick="switchTab('maturity')">Maturity Model</div>
+    <div class="tab" onclick="switchTab('metrics')">Operational Metrics</div>
+    <div class="tab" onclick="switchTab('release')">Release Gate</div>
+  </div>
+
+  <div class="main">
+
+    <!-- ANALYST WORKSPACE -->
+    <div class="tab-panel active" id="panel-analyst">
+      <div class="stats-row" id="analyst-stats">
+        <div class="stat-card"><div class="stat-label">Feed Items</div><div class="stat-val c-cyan" id="a-items">—</div><div class="stat-sub">Active advisories</div></div>
+        <div class="stat-card"><div class="stat-label">Decisions Triggered</div><div class="stat-val c-red" id="a-decisions">—</div><div class="stat-sub">Strategic actions required</div></div>
+        <div class="stat-card"><div class="stat-label">Avg Maturity</div><div class="stat-val c-purple" id="a-maturity">—</div><div class="stat-sub">Intelligence maturity score</div></div>
+        <div class="stat-card"><div class="stat-label">Approval Rate</div><div class="stat-val c-green" id="a-approval">—</div><div class="stat-sub">Release gate passing</div></div>
+      </div>
+      <div class="grid2" id="analyst-queues-container">
+        <div class="loading"><span class="spinner"></span>Loading analyst workspace…</div>
+      </div>
+    </div>
+
+    <!-- CUSTOMER SUCCESS -->
+    <div class="tab-panel" id="panel-customer">
+      <div class="exposure-summary" id="customer-exposure">
+        <div class="loading"><span class="spinner"></span>Loading customer dashboard…</div>
+      </div>
+      <div class="grid2" id="customer-detail">
+      </div>
+    </div>
+
+    <!-- LIFECYCLE & DECISIONS -->
+    <div class="tab-panel" id="panel-lifecycle">
+      <div class="grid2" id="lifecycle-container">
+        <div class="loading"><span class="spinner"></span>Loading lifecycle data…</div>
+      </div>
+    </div>
+
+    <!-- DETECTION EFFECTIVENESS -->
+    <div class="tab-panel" id="panel-detection">
+      <div id="detection-container">
+        <div class="loading"><span class="spinner"></span>Loading detection effectiveness…</div>
+      </div>
+    </div>
+
+    <!-- ENVIRONMENT SIMULATOR -->
+    <div class="tab-panel" id="panel-environment">
+      <div id="environment-container">
+        <div class="loading"><span class="spinner"></span>Loading environment simulation…</div>
+      </div>
+    </div>
+
+    <!-- DRIFT INTELLIGENCE -->
+    <div class="tab-panel" id="panel-drift">
+      <div id="drift-container">
+        <div class="loading"><span class="spinner"></span>Loading drift analysis…</div>
+      </div>
+    </div>
+
+    <!-- EVIDENCE PROVENANCE -->
+    <div class="tab-panel" id="panel-evidence">
+      <div id="evidence-container">
+        <div class="loading"><span class="spinner"></span>Loading evidence provenance…</div>
+      </div>
+    </div>
+
+    <!-- MATURITY MODEL -->
+    <div class="tab-panel" id="panel-maturity">
+      <div id="maturity-container">
+        <div class="loading"><span class="spinner"></span>Loading maturity model…</div>
+      </div>
+    </div>
+
+    <!-- OPERATIONAL METRICS -->
+    <div class="tab-panel" id="panel-metrics">
+      <div id="metrics-container">
+        <div class="loading"><span class="spinner"></span>Loading operational metrics…</div>
+      </div>
+    </div>
+
+    <!-- RELEASE GATE -->
+    <div class="tab-panel" id="panel-release">
+      <div id="release-container">
+        <div class="loading"><span class="spinner"></span>Loading release gate…</div>
+      </div>
+    </div>
+
+  </div><!-- /main -->
+</div><!-- /app -->
+
+<script>
+const API = '';
+
+// ─── Auth ───────────────────────────────────────────────────────────────────
+async function attemptAuth() {
+  const token = document.getElementById('auth-token').value.trim();
+  const err   = document.getElementById('auth-err');
+  err.style.display = 'none';
+  if (!token) { err.textContent = 'Token required.'; err.style.display='block'; return; }
+  try {
+    const r = await fetch(`${API}/api/health`, {headers:{'Authorization':'Bearer '+token}});
+    if (!r.ok) throw new Error('401');
+    sessionStorage.setItem('apex_token', token);
+    document.getElementById('auth-gate').style.display = 'none';
+    document.getElementById('app').style.display = 'block';
+    init();
+  } catch {
+    const stored = sessionStorage.getItem('apex_token');
+    if (stored && stored === token) { document.getElementById('auth-gate').style.display='none'; document.getElementById('app').style.display='block'; init(); return; }
+    err.textContent = 'Authentication failed. Verify your access token.';
+    err.style.display = 'block';
+  }
+}
+
+function getToken() { return sessionStorage.getItem('apex_token') || ''; }
+
+async function apiFetch(path) {
+  const r = await fetch(`${API}${path}`, {headers:{'Authorization':'Bearer '+getToken()}});
+  if (!r.ok) throw new Error(`HTTP ${r.status}`);
+  return r.json();
+}
+
+// ─── Tabs ────────────────────────────────────────────────────────────────────
+const _loaded = {};
+function switchTab(name) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  event.target.classList.add('active');
+  document.getElementById('panel-'+name).classList.add('active');
+  if (!_loaded[name]) { _loaded[name]=true; loadPanel(name); }
+}
+
+// ─── Init ────────────────────────────────────────────────────────────────────
+async function init() {
+  // check stored token
+  const t = sessionStorage.getItem('apex_token');
+  if (!t) return;
+  await Promise.all([loadObservability(), loadPanel('analyst')]);
+  _loaded['analyst'] = true;
+  startClock();
+}
+
+function startClock() {
+  const el = document.getElementById('last-refresh-label');
+  el.textContent = 'Updated ' + new Date().toLocaleTimeString();
+  setInterval(()=> el.textContent = 'Updated ' + new Date().toLocaleTimeString(), 60000);
+}
+
+async function refreshAll() {
+  Object.keys(_loaded).forEach(k => delete _loaded[k]);
+  const active = document.querySelector('.tab-panel.active');
+  if (active) {
+    const name = active.id.replace('panel-','');
+    await loadPanel(name);
+    _loaded[name]=true;
+  }
+  await loadObservability();
+}
+
+// ─── Observability ───────────────────────────────────────────────────────────
+async function loadObservability() {
+  try {
+    const d = await apiFetch('/api/v1/p32/observability');
+    document.getElementById('a-items').textContent    = d.feed_items || '—';
+    document.getElementById('a-decisions').textContent = d.decision_engine?.decisions_triggered || '—';
+    document.getElementById('a-maturity').textContent  = d.maturity_model?.avg_maturity_score ?? '—';
+    document.getElementById('a-approval').textContent  = (d.release_gate?.approval_rate_pct ?? '—') + (d.release_gate?.approval_rate_pct != null ? '%' : '');
+  } catch(e) { /* non-fatal */ }
+}
+
+// ─── Panel loader ─────────────────────────────────────────────────────────────
+async function loadPanel(name) {
+  const loaders = {
+    analyst:     loadAnalyst,
+    customer:    loadCustomer,
+    lifecycle:   loadLifecycle,
+    detection:   loadDetection,
+    environment: loadEnvironment,
+    drift:       loadDrift,
+    evidence:    loadEvidence,
+    maturity:    loadMaturity,
+    metrics:     loadMetrics,
+    release:     loadRelease,
+  };
+  if (loaders[name]) await loaders[name]();
+}
+
+// ─── Analyst Workspace ────────────────────────────────────────────────────────
+async function loadAnalyst() {
+  const el = document.getElementById('analyst-queues-container');
+  try {
+    const d = await apiFetch('/api/v1/p32/dashboard');
+    const queues = d.queues || {};
+    const qDefs = [
+      {key:'investigation', label:'Investigation Queue',    icon:'🔍', color:'#06b6d4'},
+      {key:'patch',         label:'Patch Priority Queue',  icon:'🛡️', color:'#ef4444'},
+      {key:'detection',     label:'Detection Queue',        icon:'📡', color:'#8b5cf6'},
+      {key:'hunting',       label:'Threat Hunting Queue',  icon:'🎯', color:'#f97316'},
+      {key:'compliance',    label:'Compliance Queue',       icon:'📋', color:'#eab308'},
+      {key:'executive',     label:'Executive Briefing',    icon:'📊', color:'#22c55e'},
+    ];
+    let html = '';
+    for (const q of qDefs) {
+      const items = queues[q.key] || [];
+      html += `<div class="section">
+        <div class="section-header">
+          <div class="section-title">${q.icon} ${q.label} <span class="section-badge">${items.length}</span></div>
+        </div>
+        <div class="section-body"><div class="queue">`;
+      if (!items.length) { html += `<div style="color:#475569;font-size:12px;padding:8px">No items in queue.</div>`; }
+      for (const item of items.slice(0,8)) {
+        const sev = (item.severity||'').toUpperCase();
+        const sevColor = sev==='CRITICAL'?'#ef4444':sev==='HIGH'?'#f97316':sev==='MEDIUM'?'#eab308':'#64748b';
+        html += `<div class="queue-item">
+          <div class="q-icon" style="background:${q.color}20;color:${q.color}">${q.icon}</div>
+          <div class="q-body">
+            <div class="q-title">${esc(item.cve_id||item.title||'Unknown')}
+              <span class="q-prio" style="background:${sevColor}20;color:${sevColor}">${sev||'N/A'}</span>
+            </div>
+            <div class="q-meta">${esc(item.title||'')} · Score ${item.quality_score??'—'}</div>
+          </div>
+        </div>`;
+      }
+      html += `</div></div></div>`;
+    }
+    el.innerHTML = html;
+  } catch(e) { el.innerHTML = `<div class="loading" style="color:#ef4444">Failed to load analyst workspace: ${e.message}</div>`; }
+}
+
+// ─── Customer Success ─────────────────────────────────────────────────────────
+async function loadCustomer() {
+  const expEl  = document.getElementById('customer-exposure');
+  const detEl  = document.getElementById('customer-detail');
+  try {
+    const d = await apiFetch('/api/v1/p32/customer');
+    const s = d.summary || {};
+    expEl.innerHTML = `
+      <div class="exp-card"><div class="exp-label">Critical Advisories</div><div class="exp-val c-red">${s.critical_count??'—'}</div><div class="exp-change" style="color:#ef4444">Immediate action required</div></div>
+      <div class="exp-card"><div class="exp-label">High Severity</div><div class="exp-val c-orange">${s.high_count??'—'}</div><div class="exp-change c-gray">Patch within 30 days</div></div>
+      <div class="exp-card"><div class="exp-label">KEV Listed</div><div class="exp-val c-red">${s.kev_count??'—'}</div><div class="exp-change" style="color:#ef4444">CISA mandatory patches</div></div>
+      <div class="exp-card"><div class="exp-label">Avg Trust Score</div><div class="exp-val c-cyan">${s.avg_trust??'—'}</div><div class="exp-change c-gray">Intelligence confidence</div></div>
+      <div class="exp-card"><div class="exp-label">Avg Maturity</div><div class="exp-val c-purple">${s.avg_maturity??'—'}</div><div class="exp-change c-gray">CMM-5 scale</div></div>
+      <div class="exp-card"><div class="exp-label">Detection Coverage</div><div class="exp-val c-green">${s.detection_pct??'—'}%</div><div class="exp-change c-gray">Items with detections</div></div>
+    `;
+    // New risks
+    const newRisks = d.new_risks || [];
+    const actions  = d.required_actions || [];
+    detEl.innerHTML = `
+      <div class="section">
+        <div class="section-header"><div class="section-title">🔴 New Risks <span class="section-badge">${newRisks.length}</span></div></div>
+        <div class="section-body"><div class="queue">${newRisks.slice(0,10).map(r=>`
+          <div class="queue-item">
+            <div class="q-icon" style="background:#ef444420;color:#ef4444">⚠</div>
+            <div class="q-body">
+              <div class="q-title">${esc(r.cve_id||r.title||'Unknown')}</div>
+              <div class="q-meta">${esc(r.title||'')} · ${r.severity||'N/A'}</div>
+            </div>
+          </div>`).join('') || '<div style="color:#475569;font-size:12px">No new critical risks.</div>'}</div>
+        </div>
+      </div>
+      <div class="section">
+        <div class="section-header"><div class="section-title">✅ Required Actions <span class="section-badge">${actions.length}</span></div></div>
+        <div class="section-body"><div class="queue">${actions.slice(0,10).map(a=>`
+          <div class="queue-item">
+            <div class="q-icon" style="background:#22c55e20;color:#22c55e">▶</div>
+            <div class="q-body">
+              <div class="q-title">${esc(a.action||'Unknown action')}</div>
+              <div class="q-meta">${esc(a.rationale||'')} · Priority: ${a.priority||'N/A'}</div>
+            </div>
+          </div>`).join('') || '<div style="color:#475569;font-size:12px">No required actions.</div>'}</div>
+        </div>
+      </div>
+    `;
+  } catch(e) {
+    expEl.innerHTML = `<div class="loading" style="color:#ef4444">Failed to load customer data: ${e.message}</div>`;
+  }
+}
+
+// ─── Lifecycle & Decisions ────────────────────────────────────────────────────
+async function loadLifecycle() {
+  const el = document.getElementById('lifecycle-container');
+  try {
+    const d = await apiFetch('/api/v1/p32/lifecycle');
+    const items   = d.items || [];
+    const sample  = items[0] || {};
+    const stages  = sample.lifecycle_stages || [];
+    const decisions = sample.strategic_decisions || [];
+
+    const STAGE_COLORS = ['#22c55e','#06b6d4','#3b82f6','#8b5cf6','#f97316','#ef4444','#22c55e','#06b6d4','#64748b'];
+
+    el.innerHTML = `
+      <div class="section">
+        <div class="section-header"><div class="section-title">🔄 Operational Lifecycle (9-Stage) <span class="section-badge">Sample: ${esc(sample.cve_id||sample.title||'N/A')}</span></div></div>
+        <div class="section-body">
+          <div class="lifecycle-stages">${stages.map((s,i)=>`
+            <div class="stage-row">
+              <div class="stage-dot" style="background:${s.active?STAGE_COLORS[i]:'#1f2937'}"></div>
+              <div class="stage-name" style="color:${s.active?'#e2e8f0':'#475569'}">${esc(s.stage||'')}</div>
+              <div class="stage-desc">${esc(s.condition||'')}</div>
+              <div class="stage-badge" style="background:${s.active?STAGE_COLORS[i]+'20':'#0a0c10'};color:${s.active?STAGE_COLORS[i]:'#475569'}">${s.active?'ACTIVE':'PENDING'}</div>
+            </div>`).join('') || '<div style="color:#475569;font-size:12px">No lifecycle data.</div>'}
+          </div>
+          <div style="margin-top:12px;font-size:11px;color:#64748b">Items processed: ${d.items_sampled||0}</div>
+        </div>
+      </div>
+      <div class="section">
+        <div class="section-header"><div class="section-title">⚡ Strategic Decisions (Sample) <span class="section-badge">${esc(sample.cve_id||'N/A')}</span></div></div>
+        <div class="section-body">${decisions.map(dec=>`
+          <div class="decision-item ${dec.active?'active':'inactive'}">
+            <div class="decision-label" style="color:${dec.active?'#ef4444':'#94a3b8'}">${dec.active?'● ':'○ '}${esc(dec.action||'')}</div>
+            <div class="decision-evidence">${esc(dec.rationale||'')} · Confidence: ${dec.confidence??'—'}</div>
+          </div>`).join('') || '<div style="color:#475569;font-size:12px">No decisions.</div>'}
+        </div>
+      </div>
+    `;
+  } catch(e) { el.innerHTML = `<div class="loading" style="color:#ef4444">Failed to load lifecycle: ${e.message}</div>`; }
+}
+
+// ─── Detection Effectiveness ──────────────────────────────────────────────────
+async function loadDetection() {
+  const el = document.getElementById('detection-container');
+  try {
+    const d = await apiFetch('/api/v1/p32/decision');
+    const items = d.items || [];
+    if (!items.length) { el.innerHTML = '<div class="loading" style="color:#475569">No detection data.</div>'; return; }
+    const sample = items[0];
+    const formats = sample.detection_effectiveness?.formats || {};
+    const FORMAT_COLORS = {Sigma:'#06b6d4',KQL:'#3b82f6',YARA:'#8b5cf6',SPL:'#f97316',Elastic:'#22c55e',Suricata:'#ef4444'};
+    el.innerHTML = `
+      <div class="section">
+        <div class="section-header"><div class="section-title">📡 Detection Effectiveness by Format <span class="section-badge">Sample: ${esc(sample.cve_id||'N/A')}</span></div></div>
+        <div class="section-body">
+          <div class="grid3">${Object.entries(formats).map(([fmt, info])=>`
+            <div style="background:#0a0c10;border:1px solid #1f2937;border-radius:8px;padding:14px">
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+                <span style="font-size:12px;font-weight:700;color:${FORMAT_COLORS[fmt]||'#94a3b8'}">${fmt}</span>
+                <span style="font-size:10px;padding:2px 6px;border-radius:4px;background:${(info.available?'#22c55e':'#ef4444')}20;color:${info.available?'#22c55e':'#ef4444'}">${info.available?'AVAILABLE':'ABSENT'}</span>
+              </div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
+                <div><div style="font-size:10px;color:#64748b">Coverage</div><div style="font-size:18px;font-weight:700;color:${FORMAT_COLORS[fmt]||'#94a3b8'}">${info.coverage_pct??'—'}%</div></div>
+                <div><div style="font-size:10px;color:#64748b">FP Rate</div><div style="font-size:18px;font-weight:700;color:#f97316">${info.expected_fp_pct??'—'}%</div></div>
+                <div><div style="font-size:10px;color:#64748b">FN Rate</div><div style="font-size:18px;font-weight:700;color:#ef4444">${info.expected_fn_pct??'—'}%</div></div>
+                <div><div style="font-size:10px;color:#64748b">Log Sources</div><div style="font-size:13px;font-weight:700;color:#94a3b8">${info.required_log_sources??'—'}</div></div>
+              </div>
+              <div style="margin-top:6px;font-size:10px;color:#475569">${esc(info.validation_status||'')}</div>
+            </div>`).join('') || '<div style="color:#475569">No format data.</div>'}
+          </div>
+        </div>
+      </div>
+      <div style="margin-top:12px;font-size:11px;color:#64748b;padding:0 4px">Feed items analyzed: ${d.items_sampled||0}</div>
+    `;
+  } catch(e) { el.innerHTML = `<div class="loading" style="color:#ef4444">Failed: ${e.message}</div>`; }
+}
+
+// ─── Environment Simulator ────────────────────────────────────────────────────
+async function loadEnvironment() {
+  const el = document.getElementById('environment-container');
+  try {
+    const d = await apiFetch('/api/v1/p32/operations');
+    const items = d.items || [];
+    const sample = items[0];
+    if (!sample) { el.innerHTML = '<div class="loading" style="color:#475569">No environment data.</div>'; return; }
+    const platforms = sample.environment_simulation?.platforms || {};
+    const riskColor = r => r>=70?'#ef4444':r>=45?'#f97316':r>=20?'#eab308':'#22c55e';
+    el.innerHTML = `
+      <div class="section">
+        <div class="section-header"><div class="section-title">🖥️ Environment Risk Simulation <span class="section-badge">Sample: ${esc(sample.cve_id||'N/A')}</span></div></div>
+        <div class="section-body">
+          <div class="platform-grid">${Object.entries(platforms).map(([plat, info])=>`
+            <div class="platform-card">
+              <div class="platform-name">${esc(plat)}</div>
+              <div class="platform-risk" style="color:${riskColor(info.risk_pct||0)}">${info.risk_pct??'—'}%</div>
+              <div class="platform-bar-bg"><div class="platform-bar-fill" style="width:${info.risk_pct||0}%;background:${riskColor(info.risk_pct||0)}"></div></div>
+              <div style="font-size:10px;color:#475569;margin-top:6px">${esc(info.signal||'')}</div>
+              <div style="font-size:10px;font-weight:700;margin-top:4px;color:${riskColor(info.risk_pct||0)}">${esc(info.risk_level||'')}</div>
+            </div>`).join('') || '<div style="color:#475569">No platform data.</div>'}
+          </div>
+        </div>
+      </div>
+    `;
+  } catch(e) { el.innerHTML = `<div class="loading" style="color:#ef4444">Failed: ${e.message}</div>`; }
+}
+
+// ─── Drift Intelligence ───────────────────────────────────────────────────────
+async function loadDrift() {
+  const el = document.getElementById('drift-container');
+  try {
+    const d = await apiFetch('/api/v1/p32/drift');
+    const driftMap = d.drift_summary || {};
+    const driftColor = s => s==='SIGNIFICANT'?'#ef4444':s==='ELEVATED'?'#f97316':s==='MODERATE'?'#eab308':'#22c55e';
+    el.innerHTML = `
+      <div class="section">
+        <div class="section-header"><div class="section-title">📈 8-Dimensional Drift Analysis <span class="section-badge">Feed Aggregate</span></div></div>
+        <div class="section-body">
+          ${Object.entries(driftMap).map(([dim, info])=>`
+            <div class="drift-row">
+              <div class="drift-dim">${esc(dim)}</div>
+              <div class="drift-bar-bg"><div class="drift-bar-fill" style="width:${info.avg_pct||0}%;background:${driftColor(info.status||'')}"></div></div>
+              <div class="drift-val" style="color:${driftColor(info.status||'')}">${info.avg_pct??'—'}%</div>
+              <div class="drift-status" style="font-size:10px;font-weight:700;color:${driftColor(info.status||'')}">${esc(info.status||'')}</div>
+            </div>`).join('') || '<div style="color:#475569">No drift data available.</div>'}
+        </div>
+      </div>
+      <div style="margin-top:12px;font-size:11px;color:#64748b;padding:0 4px">Items analyzed: ${d.items_analyzed||0} · Generated: ${d.generated_at||''}</div>
+    `;
+  } catch(e) { el.innerHTML = `<div class="loading" style="color:#ef4444">Failed: ${e.message}</div>`; }
+}
+
+// ─── Evidence Provenance ──────────────────────────────────────────────────────
+async function loadEvidence() {
+  const el = document.getElementById('evidence-container');
+  try {
+    const d = await apiFetch('/api/v1/p32/release');
+    const items = d.items || [];
+    const sample = items[0];
+    if (!sample) { el.innerHTML = '<div class="loading" style="color:#475569">No evidence data.</div>'; return; }
+    const claims = sample.evidence_transparency?.claims || [];
+    el.innerHTML = `
+      <div class="section">
+        <div class="section-header"><div class="section-title">🔗 Evidence Provenance Chain <span class="section-badge">Sample: ${esc(sample.cve_id||'N/A')}</span></div></div>
+        <div class="section-body">
+          ${claims.map(c=>`
+            <div class="claim-card">
+              <div class="claim-header">
+                <span class="claim-type">${esc(c.claim_type||'')}</span>
+                <span class="claim-text">${esc(c.claim||'')}</span>
+              </div>
+              <div class="provenance-chain">
+                ${[['Source',c.source],['Verified',c.verified?'✓ Yes':'✗ No'],['Confidence',c.confidence],['Reasoning',c.reasoning]].map(([k,v])=>`
+                <div class="prov-row"><div class="prov-key">${k}</div><div class="prov-val">${esc(String(v??'—'))}</div></div>`).join('')}
+              </div>
+            </div>`).join('') || '<div style="color:#475569;font-size:12px">No provenance claims derived.</div>'}
+        </div>
+      </div>
+    `;
+  } catch(e) { el.innerHTML = `<div class="loading" style="color:#ef4444">Failed: ${e.message}</div>`; }
+}
+
+// ─── Maturity Model ───────────────────────────────────────────────────────────
+async function loadMaturity() {
+  const el = document.getElementById('maturity-container');
+  try {
+    const d = await apiFetch('/api/v1/p32/quality');
+    const items = d.items || [];
+    const sample = items[0];
+    if (!sample) { el.innerHTML = '<div class="loading" style="color:#475569">No maturity data.</div>'; return; }
+    const dims = sample.maturity?.dimensions || {};
+    const overall = sample.maturity?.overall ?? '—';
+    const matColor = s => s==='OPTIMIZING'?'#22c55e':s==='MANAGED'?'#06b6d4':s==='DEFINED'?'#3b82f6':s==='DEVELOPING'?'#eab308':'#ef4444';
+    el.innerHTML = `
+      <div class="section">
+        <div class="section-header">
+          <div class="section-title">📊 15-Dimension Maturity Model <span class="section-badge">Sample: ${esc(sample.cve_id||'N/A')}</span></div>
+          <div style="font-size:22px;font-weight:700;color:${matColor(sample.maturity?.level||'')}">Overall: ${overall}/100</div>
+        </div>
+        <div class="section-body">
+          <div class="mat-grid">${Object.entries(dims).map(([dim,info])=>`
+            <div class="mat-cell">
+              <div class="mat-dim">${esc(dim.replace(/_/g,' '))}</div>
+              <div class="mat-score" style="color:${matColor(info.level||'')}">${info.score??'—'}</div>
+              <div class="mat-level" style="color:${matColor(info.level||'')}">${esc(info.level||'')}</div>
+            </div>`).join('') || '<div style="color:#475569">No dimension data.</div>'}
+          </div>
+        </div>
+      </div>
+      <div style="margin-top:12px;font-size:11px;color:#64748b;padding:0 4px">Feed items: ${d.feed_items||0}</div>
+    `;
+  } catch(e) { el.innerHTML = `<div class="loading" style="color:#ef4444">Failed: ${e.message}</div>`; }
+}
+
+// ─── Operational Metrics ──────────────────────────────────────────────────────
+async function loadMetrics() {
+  const el = document.getElementById('metrics-container');
+  try {
+    const d = await apiFetch('/api/v1/p32/metrics');
+    const items = d.items || [];
+    const sample = items[0];
+    if (!sample) { el.innerHTML = '<div class="loading" style="color:#475569">No metrics data.</div>'; return; }
+    const m = sample.operational_metrics || {};
+    el.innerHTML = `
+      <div class="section">
+        <div class="section-header"><div class="section-title">⏱️ Operational Metrics (MTTI/MTTD/MTTR) <span class="section-badge">Sample: ${esc(sample.cve_id||'N/A')}</span></div></div>
+        <div class="section-body">
+          <div class="metric-trio">
+            <div class="metric-box">
+              <div class="metric-label">MTTI</div>
+              <div class="metric-val c-cyan">${m.mtti_hours??'—'}</div>
+              <div class="metric-unit">hours to identify</div>
+              <div class="metric-bench">CISA benchmark: ${m.mtti_benchmark_hours??'—'}h</div>
+            </div>
+            <div class="metric-box">
+              <div class="metric-label">MTTD</div>
+              <div class="metric-val c-purple">${m.mttd_hours??'—'}</div>
+              <div class="metric-unit">hours to detect</div>
+              <div class="metric-bench">DBIR 2024: ${m.mttd_benchmark_hours??'—'}h</div>
+            </div>
+            <div class="metric-box">
+              <div class="metric-label">MTTR</div>
+              <div class="metric-val c-orange">${m.mttr_hours??'—'}</div>
+              <div class="metric-unit">hours to respond</div>
+              <div class="metric-bench">Industry avg: ${m.mttr_benchmark_hours??'—'}h</div>
+            </div>
+          </div>
+          <div style="background:#0a0c10;border:1px solid #1f2937;border-radius:6px;padding:12px">
+            <div style="font-size:11px;color:#64748b;margin-bottom:6px">Performance vs Benchmark</div>
+            <div style="font-size:13px;font-weight:600;color:${m.overall_performance==='ABOVE_BENCHMARK'?'#22c55e':m.overall_performance==='BELOW_BENCHMARK'?'#ef4444':'#eab308'}">${esc(m.overall_performance||'N/A')}</div>
+            <div style="font-size:11px;color:#475569;margin-top:4px">${esc(m.summary||'')}</div>
+          </div>
+        </div>
+      </div>
+    `;
+  } catch(e) { el.innerHTML = `<div class="loading" style="color:#ef4444">Failed: ${e.message}</div>`; }
+}
+
+// ─── Release Gate ─────────────────────────────────────────────────────────────
+async function loadRelease() {
+  const el = document.getElementById('release-container');
+  try {
+    const d = await apiFetch('/api/v1/p32/release');
+    const items = d.items || [];
+    const sample = items[0];
+    if (!sample) { el.innerHTML = '<div class="loading" style="color:#475569">No release data.</div>'; return; }
+    const gate  = sample.release_gate || {};
+    const checks = gate.checks || [];
+    const gateColor = g => g==='PUBLICATION_APPROVED'?'#22c55e':g==='CONDITIONAL_RELEASE'?'#eab308':'#ef4444';
+    el.innerHTML = `
+      <div class="section">
+        <div class="section-header">
+          <div class="section-title">🚦 Per-Advisory Publication Gate <span class="section-badge">Sample: ${esc(sample.cve_id||'N/A')}</span></div>
+          <div style="font-size:14px;font-weight:700;padding:4px 12px;border-radius:6px;background:${gateColor(gate.gate||'')}20;color:${gateColor(gate.gate||'')}">${esc(gate.gate||'—')}</div>
+        </div>
+        <div class="section-body">
+          <div style="margin-bottom:12px;font-size:12px;color:#94a3b8">${gate.checks_passed??'?'}/12 checks passed · Score: ${gate.gate_score??'—'}/100</div>
+          <div class="gate-list">${checks.map(c=>`
+            <div class="gate-row">
+              <div class="gate-icon">${c.pass?'✅':'❌'}</div>
+              <div class="gate-name" style="color:${c.pass?'#e2e8f0':'#94a3b8'}">${esc(c.check||'')}</div>
+              <div class="gate-status" style="background:${c.pass?'#22c55e20':'#ef444420'};color:${c.pass?'#22c55e':'#ef4444'}">${c.pass?'PASS':'FAIL'}</div>
+            </div>`).join('') || '<div style="color:#475569">No gate data.</div>'}
+          </div>
+        </div>
+      </div>
+      <div style="margin-top:12px;font-size:11px;color:#64748b;padding:0 4px">Items evaluated: ${d.items_sampled||0} · Approval rate: ${d.approval_rate_pct??'—'}%</div>
+    `;
+  } catch(e) { el.innerHTML = `<div class="loading" style="color:#ef4444">Failed: ${e.message}</div>`; }
+}
+
+// ─── Utils ────────────────────────────────────────────────────────────────────
+function esc(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ─── Auto-load if token in session ───────────────────────────────────────────
+(function(){
+  const t = sessionStorage.getItem('apex_token');
+  if (t) {
+    document.getElementById('auth-gate').style.display = 'none';
+    document.getElementById('app').style.display = 'block';
+    init();
+  }
+})();
+</script>
+</body>
+</html>
