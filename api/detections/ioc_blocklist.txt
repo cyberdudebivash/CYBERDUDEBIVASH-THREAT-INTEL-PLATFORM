@@ -1,17 +1,85 @@
 # CYBERDUDEBIVASH SENTINEL APEX — IOC Blocklist
-# Version: 185.0 | Generated: 2026-06-27T16:45:53.202272+00:00
+# Version: 185.0 | Generated: 2026-06-27T20:01:35.887176+00:00
 # Platform: https://intel.cyberdudebivash.com
 # Format: one indicator per line (domains, IPs, hashes, URLs)
 # Import: Palo Alto, FortiGate, Pi-hole, pfSense, CrowdStrike
 
-# ── BEHAVIORAL (4 indicators)
-Shadow copy deletion: vssadmin delete shadows /all /quiet
-Suspicious parent-child: WinWord.exe > cmd.exe > powershell.exe
+# ── BEHAVIORAL (10 indicators)
+LSASS memory access via OpenProcess + ReadProcessMemory
 Large outbound data transfer to non-corporate IP over port 443
+DNS beaconing: regular 60-second interval queries to single domain
+PowerShell encoded command execution: -EncodedCommand base64
+Scheduled task creation: schtasks /create /sc minute /tn Update
 Disable Windows Defender: Set-MpPreference -DisableRealtimeMonitoring $true
+Suspicious parent-child: WinWord.exe > cmd.exe > powershell.exe
+Registry persistence: HKCU\Software\Microsoft\Windows\CurrentVersion\Run
+Shadow copy deletion: vssadmin delete shadows /all /quiet
+NTDS.dit access attempt via Volume Shadow Copy Service
 
-# ── DOMAIN (57 indicators)
+# ── DOMAIN (131 indicators)
+update-8443.net
+login-5565.xyz
+secure-4672.net
+secure-7485.io
+contenttypeutil.isparsablexml
+portal-8943.io
+api-7510.com
+update-5298.xyz
+cdn-5551.net
+portal-6801.net
+portal-1360.com
+secure-3544.xyz
+api-1226.com
+update-4613.com
+api-6607.io
+perm.create
+perm.delete
+scopedfs.removeall
+cdn-5591.xyz
+cdn-4896.io
+cdn-1600.io
+idlelib.pyshell.modifiedinterpreter.runcode
+pickle.load
+login-9534.com
+update-9007.net
+api-5874.io
+update-9385.xyz
+update-6225.com
+secure-4975.xyz
+daan.dev
+cdn-7385.xyz
+login-6601.com
+update-5318.xyz
+portal-292.io
+secure-3329.io
+glances.conf
+update-2068.com
+cdn-5549.io
+api-8985.com
 portal-6604.com
+portal-8041.net
+update-9983.xyz
+cdn-3800.net
+api-2334.net
+update-6650.io
+portal-2636.com
+login-9835.com
+cdn-876.com
+cdn-2679.com
+secure-3740.net
+portal-6864.xyz
+portal-1332.com
+login-7680.net
+portal-8682.io
+api-9660.com
+portal-8162.xyz
+cdn-9744.xyz
+update-6155.xyz
+api-7463.com
+login-8282.xyz
+cdn-4780.com
+update-1204.xyz
+login-5016.net
 api-6842.xyz
 nc.setoption
 rootfs.img
@@ -52,6 +120,7 @@ binding.gyp
 permission.allows
 self.needs
 secure-2422.io
+secure-385.io
 nginx.ingress.kubernetes.io
 backendref.namespace
 mcp.js
@@ -64,20 +133,97 @@ font.font.value
 Stripe.js
 attacker.com
 docs.metasploit.com
+portal-7515.com
+update-3816.net
+update-3010.com
+portal-5081.net
+cdn-6482.com
+api-4402.com
+api-3635.com
+cdn-2807.io
+cdn-5093.net
+secure-6626.net
+secure-2886.io
 setup.mdc
 remotev2.whpayment
 remotev2.whreceive
 text.md
 
-# ── IPV4 (9 indicators)
+# ── IPV4 (75 indicators)
+194.184.111.103
+194.184.247.182
+45.142.248.97
+185.224.215.54
+91.86.43.58
+194.210.29.165
+212.144.110.39
+193.119.99.132
+193.118.210.225
+212.56.155.186
+91.140.23.246
+193.169.55.154
+194.160.104.32
+193.123.135.21
+45.190.149.196
+185.176.187.133
+45.172.145.107
+194.8.31.111
+185.15.41.81
+212.159.162.236
+193.245.123.62
+193.141.114.146
+91.16.6.246
+91.16.17.14
+212.207.43.147
+185.236.184.160
+194.77.167.205
+193.189.50.229
+45.250.19.222
+193.81.58.70
+185.152.108.83
 193.208.150.180
+45.169.77.78
+185.72.91.109
+91.205.2.249
+185.174.234.49
+45.142.122.33
+185.108.73.50
+194.89.6.140
+194.159.45.191
+45.202.189.254
+45.174.199.120
+185.168.23.172
+45.156.184.89
+193.170.178.214
+185.203.163.47
+185.249.76.168
+45.122.248.203
+193.232.42.22
+91.18.16.57
+193.157.5.14
+194.247.37.247
+193.192.12.31
+212.116.102.117
+45.192.13.82
 45.70.96.127
 9.4.0.1
 185.181.191.82
 2.7.9.8
 194.106.11.173
+194.251.179.30
 6.0.8.6
 6.6.04.08
+193.121.232.158
+185.185.47.235
+194.43.126.162
+91.191.136.114
+185.38.71.79
+185.111.246.61
+212.103.200.249
+45.6.27.250
+185.250.70.226
+194.70.116.207
+193.50.252.76
 45.141.119.34
 
 # ── MD5 (1 indicators)
@@ -86,11 +232,75 @@ D991A7C9E2C3B269975404405A79ADBC
 # ── SHA1 (1 indicators)
 F7911F5BE3D08DA95DCDA8AFB1BEB8E462376F9D
 
-# ── SHA256 (37 indicators)
+# ── SHA256 (101 indicators)
+63c5866c757186f3b41fbe1b46f7a5d676447e950890108bee8a6fa7d9c37414
+a577be4007693bdc3b25530ef4cf3f54486fe06b741c14dc95e9479713c35dea
+0849afed79437168cad061a63cab73e9b7b1e3f6ee03e7ad1ac3f565c7e20464
+aea04adce44e70263aa337e236cfc6f561934167d4ca2fa5a03a4a283813b551
+743d8b13b9717185c4d5585830ea8a402e28b683750fb4153a03b63a57d9f314
+1166b75286b8bae7a8d0a4a08d40cf9199022d315eebd38fe4ae1bfa9ced4a92
+4d3f17e3779b6ecdb818d008b50fbd7de7874c071ee4ba0550dd60d867c40e98
+8f34151fa2086cd1d0192b3476724628088c8390cbc15002e481d72db0606836
+eebe35ca300bb50c6007c7037eb32d409d7f620aaddee7ab50617954bfa692b7
+7350e526d9b6d1d865ae63b0c3cea7b215be88cfa4062cc4ffdd7eb78fbbced5
+1b93a17691c3b79581c736527b01a7634411a63cfed6e08463a2dd65e9993f37
+dcb4bbdbbb385f24b783ab7dd127a7e81f0e1478f1b33ae9040c89fa7946e29c
+6b12d536ce09f5f9b4ca287fb1db9b2fc44cc1003126428d9dfecc87e1cd64c4
+d74c36d0a2a9681b565f4822658087a28d8738e81fc7a939de8dbaae64f10aad
+4e5397aab6f47a06e7d12ff46360e629f6f01e343000341dc468e2f05612a4c4
+1573d0b11f5a2b547445b54abcbbdc7e24a63c0a6370749d569604f0e0ead846
+6657ea0c1284339c7095da4c237610aed95767989dbcd6e1ccd3b0e081e155b1
+4bb9c8dd7d455df308598af7bc6df0fe00277e255282afa7dcbc810e1a704831
+0b86a318a388c600e914633da65eb8a9f9d8e04e1e409760f62d37f9ca5696df
+02c1f4cb78165c9c96b8caea8f8728c089e6332740924d264035874e1fdc2c38
+5477a5d2d1af958a5fda5102375413969b823b6dfdf37f5c3623a715f3cc8fbe
+6940a4f116e70a97114b0d2066bddd55f6623726535da8bcb019cc703dab66cf
+2b3d06c985c494e0cbe6191f062d2d46807f460df4c3c99363127d175cffe595
+4ed44fafde93acaa517716bd61c5dd9cfe4f3bfca58f9c3da8ec80628719b1ab
+46010177498dc02ffcf520f0fb6f2c35354ee9decfa1dbf110fdc8fa3625646f
+f17c580a7b6df0ea1f5454ae7f70eec14283e040e994454fef1482fd32ee9b6a
+26ba5022816de27c5aef60ca3d185f9377c79f0018cef8345e1a8cd769038fb1
+c81cdad70189d8788fafbb64d9681081406d0d15d033b9744509e7f6f576253a
+ee3d8bf5e9fa5749bda12093b22da5101ad3bbeea68130074c455572824be767
 5cabae814486a404e1ad37f24e1221b56ffe2371a85f86a4b464d50703f1f1d3
+10999d5dbe068cd4ebcc233fc330afb297ec3b0cc1c9a4f230cd277ad4fecd03
+9989c3fdd2892d2472ef36d11feed0e9116c699bd1e0530ef7543689319e94de
+6c3a202b1b48b70969e85c7d55deeafb6ccd48de5644df4fc3ab9cc394097f71
+de0518a26302c719abd1f000634c90695e9280aa601b9b03713911491413b117
+4e887d2765bbe1d9e02e4528cfa4c1fccf01b2d374224529acaab0bb322909e0
+2b07eeeefcd3632b91214a3f99316b9df29b93d36afa07e0f97805fd3c8dec72
+1900c3bc115d5e42cd0a1bdca55d5117f6217507b5e8fb732fc7954c347b7e0c
+fbf565c9cc975b1cd80cd070f20283a20f9d0d381d11dc6821312f3c3f2e074f
+ae360817fa598725fb80a8c2234074b0f5c357ff65928be9e1fb5e69bcac1163
+a687934384f032550f2a49ad7ecba0f85d6d202565f5893f98a40b16da2d043a
+51a93125595ea090098b75bd86c3fa68746d3f461636a112eb15c3b13b42daa4
+7c0360d1eed9a5f70dff80a3fd7b57912bcf561664e704d7994921ad9c5ae84e
+24802179bd93713dea46093978fa7021bdbd3fdb06c99a08a175f5818725d9fa
+0852f941b74b1b959ae235d407ca7a102905e9a67dacc67083756acbd801a169
+9b96ea79f106a6abc39bff8879dc9fd20a69302769de9eca3ddbc5484249ac66
+78b3601818a66bd4fdb96513a5812e1d51e44e464d96675ffa0e527d03ce245a
+a31c4eb0a1050706cf09307620334aa31e89491477b7ba0d3369592ee4fa6f0c
+c99267feda088e45fe5510b3aa2086dbce5dbb06147719f50ac87cf865cd618c
+2f310ed6423adc9cece277cc9835dbc1bd3c5094930211b5e230739028428b9c
+5bfdfc98dc2e4aba3b551ef6972afdfcaefd77de3d2160ae966c194e0b3a75a5
+231cec70c42472b7e0f5457459230203c7a429272c0a4f58feab1793a80dd744
+ae25785a3431d06260f74968646f48dee62f71b16314b1bb1788c1661d5348fd
+3157673952a855b51b0a288f7a03afc063e933299ffb3f3302525cdc0654fc18
 7dabe9c8e1b850cc48b27270e11f87b74533e2eeb7e341617bf8bb337ad90035
 0d25b6bc8e384b2ec905901f3509e4f20f30868e32cc03c33cc7327fcbcf9a94
 d1a954931497c2aa841bfae5fbbee687750e7ef4d89856eb260078925749a5d3
+af6e7582761320c37b2fde1a2d55b1cb6bf477a6094bee17da315c61987d6659
+837530ff3d4d68b513d362754a3dc3e81850e5f426ab1793c15aa7554cb32e31
+7200e066aaf789250f241c51fb89ce54ae58e395b74527dc0fe3c9a95d6dea17
+66806fa8191ea322929685568c0335088bddf5104c95f8b18a11c53b0a61d9a7
+c85e44400101e1337a4cb23dbdb251d861af30d0d16ac05cc0dec73f2188b07e
+8a38da5437ce7c2f32133901a2ac301bc22777288b47b37c313e84cfa62012d2
+a5bda037bf6b3f29c0dea5a1abc39886662c0c4c8a0aec901053ffa152d09377
+9c256bdd11921aebc45b3a236fabe729cd6d8c0198e232193682287c570123a0
+cf89972cede0b79b5e60cfb375c25611090a66c7b871aebfb98c0fbe53e8640c
+bd8b7ec38c3026ade1d15053678831ee02cae13b3f15943dcf4d5554b65aa675
+ff38610cff6501116e9ee0839ed59ebfc41d6e349da7296115c8032deba0d515
+ab967131cabbe3146effc685674547711fa743cdb40521d3ba341c604d513f98
 026588d39b7c650b5c0dfbba6c6fcc0e7ec8e3b72ba8639012e7f71c708f2c3b
 15b415ae41df72acf1f7e9e67569531d41dee62d089d34b4c0fab0c7fe5cc14f
 1a0e1daeaea87cab5610a3cc2aa72e7c6f1abfe55959a156368bcfa6585fa6ce
@@ -125,7 +335,7 @@ F91714F89616002C6C1411233470F58E74FAD7CB5A7DA6F77AA6082F5D2E8771
 b268ecbc386d32ace546dd483707fd2c923de8f091741e544f52c7f872fe0d91
 dc4c906e56ecb446cbb10b227e1fb470e428108584678314533d80e52a2b9b30
 
-# ── URL (88 indicators)
+# ── URL (99 indicators)
 https://rest.nexmo.com/sms/json?api_key=a1b2c3d4&api_secret=MyS3cr3tK3y!!&from=AnsibleBot&to=15551234567&text=Hello
 https://update-5028.com/wp-login.php
 https://cvefeed.io/vuln/detail/CVE-2026-47378
@@ -187,6 +397,17 @@ https://cvefeed.io/vuln/detail/CVE-2026-50193
 https://cvefeed.io/vuln/detail/CVE-2026-56120
 https://cvefeed.io/vuln/detail/CVE-2026-54517
 https://cvefeed.io/vuln/detail/CVE-2026-47377
+https://secure-542.net/api/config
+https://api-7258.io/api/config
+https://cdn-6352.net/wp-login.php
+https://api-8804.com/wp-login.php
+https://update-9227.com/api/config
+https://update-1750.io/update/check
+https://cdn-773.io/api/config
+https://cdn-3620.io/update/check
+https://update-7327.com/.env
+https://cdn-8796.io/api/config
+https://secure-6572.net/update/check
 https://www.python.org/
 https://cvefeed.io/vuln/detail/CVE-2026-11773
 https://cvefeed.io/vuln/detail/CVE-2026-9233
