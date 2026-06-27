@@ -1888,6 +1888,34 @@ jobs:
           exit 0
 
       # -----------------------------------------------------------------------
+      # STAGE 3.93.15k: P28.12 ENTERPRISE RISK INTELLIGENCE CERTIFICATION (NON-BLOCKING)
+      # Runs 17-gate P28 commercial readiness and customer value certification.
+      # Gates: feed integrity, field completeness, markdown/placeholder checks,
+      #   confidence validity, CVSS consistency, MITRE/IOC/source coverage,
+      #   P27/P26/P25 chain certification, regression 21/21, HTML reports,
+      #   STIX files, enrichment scores, evidence chain coverage.
+      # Outputs data/quality/p28_certification_report.json for observability.
+      - name: "STAGE 3.93.15k - P28.12 Enterprise Risk Intelligence Certification"
+        timeout-minutes: 10
+        continue-on-error: true
+        env:
+          DRY_RUN: "false"
+        run: |
+          python3 scripts/p28_production_certification.py
+          if [ -f "data/quality/p28_certification_report.json" ]; then
+            read -r TIER BLOCKERS WARNINGS PASSED TOTAL <<< "$(python3 scripts/ci_stats_extract.py p28 2>/dev/null || echo 'UNKNOWN 0 0 0 0')"
+            echo "[P28.12] Certification: ${TIER} | Gates: ${PASSED}/${TOTAL} | Blockers: ${BLOCKERS} | Warnings: ${WARNINGS}"
+            if [ "${TIER}" = "WORLDWIDE_RELEASE" ]; then
+              echo "::notice::P28.12 WORLDWIDE RELEASE CERTIFIED — All 17 commercial + customer value gates passed. Gates: ${PASSED}/${TOTAL}."
+            elif [ "${TIER}" = "CONDITIONAL_RELEASE" ]; then
+              echo "::notice::P28.12 CONDITIONAL RELEASE — ${BLOCKERS} blocker(s). Gates: ${PASSED}/${TOTAL}. Review p28_certification_report.json."
+            else
+              echo "::notice::P28.12 BLOCKED — ${BLOCKERS} blocker(s). Gates: ${PASSED}/${TOTAL}. See data/quality/p28_certification_report.json."
+            fi
+          fi
+          exit 0
+
+      # -----------------------------------------------------------------------
       # STAGE 3.93.16: SOURCE DIVERSITY ENFORCER (Phase 1C -- NON-BLOCKING WARN)
       # Enforces source diversity governance against the live feed manifest.
       # Detects single-source dominance (golden invariant: max 30%), Shannon
