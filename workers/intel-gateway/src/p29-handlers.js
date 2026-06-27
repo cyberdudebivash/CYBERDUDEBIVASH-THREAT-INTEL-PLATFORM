@@ -11,22 +11,22 @@
  *   P29.4  Operational Decision Engine              (8-action model with rationale + impact)
  *   P29.5  Continuous Intelligence Lifecycle        (per-item verification status + freshness)
  *   P29.6  Enterprise Detection Validation          (6-format detection validation block)
- *   API    handleP29CustomerValueAnalytics          (P29.7 — platform-wide value metrics)
- *   API    handleP29TrustCenter                     (P29.8 — consolidated trust data)
- *   API    handleP29ReleaseAssurance                (P29.9 — unified go/no-go gate)
- *   API    handleP29Observability                   (P29.10 — aggregated observability)
+ *   API    handleP29CustomerValueAnalytics          (P29.7  -  platform-wide value metrics)
+ *   API    handleP29TrustCenter                     (P29.8  -  consolidated trust data)
+ *   API    handleP29ReleaseAssurance                (P29.9  -  unified go/no-go gate)
+ *   API    handleP29Observability                   (P29.10  -  aggregated observability)
  *   API    handleP29Certify                         (certification endpoint)
  *
  * AUDIT-CONFIRMED REUSE (zero duplication):
  *   P29.1  computeP20QualityScore, getP21CertificationLevel, computeActionabilityScore,
- *          computeEnterpriseTrustScore, computeP26Grade  — imported, never re-implemented
+ *          computeEnterpriseTrustScore, computeP26Grade   -  imported, never re-implemented
  *   P29.3  Environment profiles derived from item corpus (P28.1 model extended, not duplicated)
  *   P29.4  Patch/Hunt/Detect actions covered by P23; P29.4 adds Monitor/Contain/Recover/
  *          Escalate/Accept-Risk + rationale narrative + impact estimates
  *
- * ZERO FABRICATION  — all values derived from pipeline-verified feed fields only.
- * ADDITIVE ONLY     — no existing handler, schema, KV key, auth, or payment logic modified.
- * ZERO DUPLICATION  — P20-P28 engines imported; P29 adds only audit-confirmed gaps.
+ * ZERO FABRICATION   -  all values derived from pipeline-verified feed fields only.
+ * ADDITIVE ONLY      -  no existing handler, schema, KV key, auth, or payment logic modified.
+ * ZERO DUPLICATION   -  P20-P28 engines imported; P29 adds only audit-confirmed gaps.
  */
 
 import { computeP20QualityScore }     from './p20-handlers.js';
@@ -37,7 +37,7 @@ import { computeP26Grade }            from './p26-handlers.js';
 
 export const P29_VERSION = "P29.0";
 
-// ── Shared helpers ────────────────────────────────────────────────────────────
+// -- Shared helpers ------------------------------------------------------------
 
 function esc(s) {
   return String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;")
@@ -87,7 +87,7 @@ function _jsonResp(obj, status = 200) {
   });
 }
 
-// ── P29.1: Enterprise Intelligence Network Status ────────────────────────────
+// -- P29.1: Enterprise Intelligence Network Status ----------------------------
 // Computes and displays the full P20-P28 engine pipeline status for one item.
 // No engine is re-implemented; all scores are imported from existing functions.
 
@@ -145,15 +145,15 @@ export function buildP29EINBlock(item) {
   <div>${rows}</div>`;
 
   return _block(`p29-ein-${esc(item.id || "x")}`, "P29.1 Enterprise Intelligence Network", "#6366f1", body,
-    "Unified pipeline status — 8 engines, zero duplication");
+    "Unified pipeline status  -  8 engines, zero duplication");
 }
 
-// ── P29.2: Intelligence Confidence Graph ─────────────────────────────────────
+// -- P29.2: Intelligence Confidence Graph -------------------------------------
 // Machine-readable 7-dimension confidence graph with per-dimension explanation.
 // All dimensions derived from feed fields; no fabrication.
 
 function _computeConfidenceGraph(item) {
-  // 1. Evidence Confidence — from P20 sub-signals
+  // 1. Evidence Confidence  -  from P20 sub-signals
   const p20 = computeP20QualityScore(item);
   const evidenceConf = Math.round((p20.total / 100) * 100);
   const evidenceWhy  = `P20 quality score ${p20.total}/100. ` +
@@ -161,7 +161,7 @@ function _computeConfidenceGraph(item) {
     (item.stix_bundle ? "STIX bundle linked. " : "") +
     ((item.mitre_tactics || []).length > 0 ? `${item.mitre_tactics.length} MITRE tactic(s). ` : "No MITRE tactics. ");
 
-  // 2. Source Confidence — from confidence / confidence_score field
+  // 2. Source Confidence  -  from confidence / confidence_score field
   let rawConf = parseFloat(item.confidence || item.confidence_score || 0.5);
   if (rawConf > 1) rawConf = rawConf / 100;
   const sourceConf = Math.round(rawConf * 100);
@@ -169,7 +169,7 @@ function _computeConfidenceGraph(item) {
     (item.tlp ? `TLP: ${item.tlp}. ` : "") +
     ((item.tags || []).length > 0 ? `${item.tags.length} source tag(s). ` : "");
 
-  // 3. Detection Confidence — from detection bundle fields
+  // 3. Detection Confidence  -  from detection bundle fields
   const db = item.detection_bundle || {};
   const fmts = ["sigma","kql","yara","spl","suricata","snort"].filter(f => db[f]);
   const detConf = Math.min(100, Math.round(fmts.length / 6 * 100) + (fmts.length > 0 ? 20 : 0));
@@ -177,20 +177,20 @@ function _computeConfidenceGraph(item) {
     ? `Detection formats: ${fmts.join(", ")}. Coverage: ${fmts.length}/6 formats.`
     : "No detection bundle present.";
 
-  // 4. IOC Confidence — from ioc_count + ioc_types
+  // 4. IOC Confidence  -  from ioc_count + ioc_types
   const iocCount = parseInt(item.ioc_count || 0);
   const iocConf  = iocCount > 10 ? 90 : iocCount > 5 ? 70 : iocCount > 0 ? 50 : 10;
   const iocWhy   = `${iocCount} IOC(s) present. ` +
-    (iocCount > 5 ? "Strong IOC coverage. " : iocCount > 0 ? "Partial IOC coverage. " : "No IOCs — confidence limited. ");
+    (iocCount > 5 ? "Strong IOC coverage. " : iocCount > 0 ? "Partial IOC coverage. " : "No IOCs  -  confidence limited. ");
 
-  // 5. Attribution Confidence — from actor + MITRE
+  // 5. Attribution Confidence  -  from actor + MITRE
   const hasActor  = Boolean(item.threat_actor || item.actor_tag || item.actor);
   const ttpCount  = (item.ttps || []).length + (item.mitre_tactics || []).length;
   const attrConf  = Math.min(100, (hasActor ? 40 : 0) + Math.min(60, ttpCount * 10));
   const attrWhy   = (hasActor ? `Threat actor attributed: ${item.threat_actor || item.actor_tag || item.actor}. ` : "No threat actor attributed. ") +
     (ttpCount > 0 ? `${ttpCount} TTP/tactic(s) mapped.` : "No TTPs mapped.");
 
-  // 6. Executive Confidence — from executive content quality
+  // 6. Executive Confidence  -  from executive content quality
   const hasExec    = Boolean((item.apex_ai || {}).executive_summary || item.exec_summary);
   const hasImpact  = Boolean(item.business_impact);
   const execConf   = (hasExec ? 60 : 15) + (hasImpact ? 20 : 0) + ((item.risk_score || 0) > 0 ? 20 : 0);
@@ -198,7 +198,7 @@ function _computeConfidenceGraph(item) {
     (hasImpact ? "Business impact documented. " : "") +
     (item.risk_score ? `Risk score: ${item.risk_score}.` : "");
 
-  // 7. Overall Confidence — P26 composite
+  // 7. Overall Confidence  -  P26 composite
   const p26       = computeP26Grade(item);
   const overallConf = p26.composite || Math.round((evidenceConf + sourceConf + detConf + iocConf + attrConf + execConf) / 6);
   const overallWhy  = `P26 composite grade: ${p26.composite || "derived"}. ` +
@@ -242,7 +242,7 @@ export function buildP29ConfidenceGraphBlock(item) {
     "7-dimension confidence breakdown with per-score rationale");
 }
 
-// ── P29.3: Customer Exposure Intelligence ────────────────────────────────────
+// -- P29.3: Customer Exposure Intelligence ------------------------------------
 // Cross-environment narrative + remediation context.
 // Extends P28.1 by deriving an exposure SUMMARY across environments,
 // identifying combined-risk scenarios and remediation entry points.
@@ -323,7 +323,7 @@ export function buildP29CustomerExposureBlock(item) {
     "Cross-environment exposure summary with remediation context");
 }
 
-// ── P29.4: Operational Decision Engine ───────────────────────────────────────
+// -- P29.4: Operational Decision Engine ---------------------------------------
 // 8-action decision model: Patch / Hunt / Detect / Monitor / Contain / Recover / Escalate / Accept Risk
 // P23 covers Patch/Hunt/Detect tiers. P29.4 adds Monitor/Contain/Recover/Escalate/Accept Risk
 // + rationale narrative + estimated impact for ALL 8 actions.
@@ -332,7 +332,7 @@ const _DECISION_CATALOG = [
   {
     id: "PATCH",
     label: "Patch",
-    icon: "🔧",
+    icon: "?",
     color: "#ef4444",
     test: item => {
       const cvss = parseFloat(item.risk_score || item.cvss_score || 0);
@@ -343,8 +343,8 @@ const _DECISION_CATALOG = [
       const kev  = Boolean(item.kev_present || (item.apex || {}).kev_listed);
       const cvss = parseFloat(item.risk_score || item.cvss_score || 0);
       return kev
-        ? `KEV-listed — active exploitation confirmed. Emergency patch deployment required.`
-        : `CVSS ${cvss.toFixed(1)} — patch within defined SLA to prevent exploitation.`;
+        ? `KEV-listed  -  active exploitation confirmed. Emergency patch deployment required.`
+        : `CVSS ${cvss.toFixed(1)}  -  patch within defined SLA to prevent exploitation.`;
     },
     impact: (item) => {
       const kev = Boolean(item.kev_present || (item.apex || {}).kev_listed);
@@ -354,7 +354,7 @@ const _DECISION_CATALOG = [
   {
     id: "HUNT",
     label: "Threat Hunt",
-    icon: "🔍",
+    icon: "?",
     color: "#f59e0b",
     test: item => {
       const hasTTPs = (item.ttps || []).length > 0 || (item.mitre_tactics || []).length > 0;
@@ -375,7 +375,7 @@ const _DECISION_CATALOG = [
   {
     id: "DETECT",
     label: "Deploy Detections",
-    icon: "📡",
+    icon: "?",
     color: "#3b82f6",
     test: item => {
       const db = item.detection_bundle || {};
@@ -394,7 +394,7 @@ const _DECISION_CATALOG = [
   {
     id: "MONITOR",
     label: "Monitor IOCs",
-    icon: "👁️",
+    icon: "??",
     color: "#06b6d4",
     test: item => {
       const iocCount = parseInt(item.ioc_count || 0);
@@ -411,7 +411,7 @@ const _DECISION_CATALOG = [
   {
     id: "CONTAIN",
     label: "Contain",
-    icon: "🚧",
+    icon: "?",
     color: "#ef4444",
     test: item => {
       const corpus = (item.description + " " + (item.ttps || []).join(" ")).toLowerCase();
@@ -433,7 +433,7 @@ const _DECISION_CATALOG = [
   {
     id: "RECOVER",
     label: "Prepare Recovery",
-    icon: "♻️",
+    icon: "??",
     color: "#22c55e",
     test: item => {
       const kev   = Boolean(item.kev_present || (item.apex || {}).kev_listed);
@@ -453,7 +453,7 @@ const _DECISION_CATALOG = [
   {
     id: "ESCALATE",
     label: "Escalate to CISO",
-    icon: "📢",
+    icon: "?",
     color: "#a855f7",
     test: item => {
       const kev  = Boolean(item.kev_present || (item.apex || {}).kev_listed);
@@ -473,7 +473,7 @@ const _DECISION_CATALOG = [
   {
     id: "ACCEPT",
     label: "Accept Risk",
-    icon: "✅",
+    icon: "[OK]",
     color: "#6b7280",
     test: item => {
       const cvss = parseFloat(item.risk_score || item.cvss_score || 0);
@@ -486,7 +486,7 @@ const _DECISION_CATALOG = [
       const cvss = parseFloat(item.risk_score || item.cvss_score || 0);
       const epss = parseFloat(item.epss_score || 0);
       return !item.kev_present && cvss < 4
-        ? `CVSS ${cvss.toFixed(1)}, EPSS ${epss.toFixed(3)} — formal risk acceptance may be appropriate. Document rationale.`
+        ? `CVSS ${cvss.toFixed(1)}, EPSS ${epss.toFixed(3)}  -  formal risk acceptance may be appropriate. Document rationale.`
         : "Risk acceptance not recommended. Higher severity or exploitation probability present.";
     },
     impact: () => "Residual risk: LOW (when formally documented). Effort: 0.5-1h.",
@@ -535,7 +535,7 @@ export function buildP29DecisionEngineBlock(item) {
     "8-action model with rationale and estimated impact");
 }
 
-// ── P29.5: Intelligence Lifecycle Status ─────────────────────────────────────
+// -- P29.5: Intelligence Lifecycle Status -------------------------------------
 // Per-item verification status and freshness derived from existing feed fields.
 // Lifecycle: VERIFIED_CURRENT / ENRICHED / ACTIVE / HISTORICAL
 
@@ -584,7 +584,7 @@ export function buildP29LifecycleBlock(item) {
   const checkRows = checks.map(([label, ok, detail]) => {
     const color = ok ? "#22c55e" : "#6b7280";
     return `<div style="display:flex;align-items:center;gap:8px;padding:4px 0;border-bottom:1px solid #1a2030;">
-      <span style="color:${color};font-size:11px;">${ok ? "✓" : "—"}</span>
+      <span style="color:${color};font-size:11px;">${ok ? "[OK]" : " - "}</span>
       <span style="color:#6b7280;font-size:11px;min-width:120px;">${esc(label)}</span>
       <span style="color:${color};font-size:11px;">${esc(detail)}</span>
     </div>`;
@@ -609,7 +609,7 @@ export function buildP29LifecycleBlock(item) {
     "Verification status and enrichment freshness tracking");
 }
 
-// ── P29.6: Enterprise Detection Validation ───────────────────────────────────
+// -- P29.6: Enterprise Detection Validation -----------------------------------
 // Validates detection rule presence and coverage for 6 formats.
 // Worker-side validation: checks structural presence of detection bundle fields.
 
@@ -672,7 +672,7 @@ export function buildP29DetectionValidationBlock(item) {
     "6-format detection rule validation: Sigma / KQL / YARA / SPL / Suricata / Snort");
 }
 
-// ── P29 Package ───────────────────────────────────────────────────────────────
+// -- P29 Package ---------------------------------------------------------------
 
 export function buildP29Package(item) {
   return (
@@ -685,7 +685,7 @@ export function buildP29Package(item) {
   );
 }
 
-// ── API: P29.7 Customer Value Analytics ──────────────────────────────────────
+// -- API: P29.7 Customer Value Analytics --------------------------------------
 // Platform-wide aggregate customer value metrics.
 // Reads live feed from KV; derives actionable metrics.
 
@@ -751,7 +751,7 @@ export async function handleP29CustomerValueAnalytics(request, env) {
   }
 }
 
-// ── API: P29.8 Enterprise Trust Center data ───────────────────────────────────
+// -- API: P29.8 Enterprise Trust Center data -----------------------------------
 // Consolidated trust data aggregating P20-P28 quality reports.
 
 export async function handleP29TrustCenter(request, env) {
@@ -818,7 +818,7 @@ export async function handleP29TrustCenter(request, env) {
   });
 }
 
-// ── API: P29.9 Release Assurance Gate ─────────────────────────────────────────
+// -- API: P29.9 Release Assurance Gate -----------------------------------------
 // Unified go/no-go orchestrator reading P20-P28 quality reports.
 
 export async function handleP29ReleaseAssurance(request, env) {
@@ -876,7 +876,7 @@ export async function handleP29ReleaseAssurance(request, env) {
   });
 }
 
-// ── API: P29.10 Unified Observability ─────────────────────────────────────────
+// -- API: P29.10 Unified Observability -----------------------------------------
 // Aggregates key metrics from all P-layer quality reports and live feed.
 
 export async function handleP29Observability(request, env) {
@@ -949,7 +949,7 @@ export async function handleP29Observability(request, env) {
   });
 }
 
-// ── API: P29 Certify ──────────────────────────────────────────────────────────
+// -- API: P29 Certify ----------------------------------------------------------
 // Returns per-item P29 confidence graph and lifecycle as JSON.
 
 export async function handleP29Certify(request, env) {
