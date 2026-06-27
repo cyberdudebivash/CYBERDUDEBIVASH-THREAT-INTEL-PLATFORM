@@ -183,6 +183,30 @@ tr:hover td{background:rgba(255,255,255,.02);}
       <div id="componentBars"><div class="loading"><span class="spinner"></span>Loading…</div></div>
     </div>
 
+    <!-- P22.9: Enterprise Trust Panel -->
+    <div class="row3" id="trustPanels">
+      <!-- Evidence Reliability -->
+      <div class="card">
+        <div class="card-title">P22.1 EVIDENCE RELIABILITY</div>
+        <div id="evidenceReliab"><div class="loading"><span class="spinner"></span></div></div>
+      </div>
+      <!-- Contradiction Status -->
+      <div class="card">
+        <div class="card-title">P22.3 CONTRADICTION STATUS</div>
+        <div id="contradictionPanel"><div class="loading"><span class="spinner"></span></div></div>
+      </div>
+      <!-- Detection Verification -->
+      <div class="card">
+        <div class="card-title">P22.4 DETECTION VERIFICATION</div>
+        <div id="detectionPanel"><div class="loading"><span class="spinner"></span></div></div>
+      </div>
+      <!-- IOC Validation -->
+      <div class="card">
+        <div class="card-title">P22.2 IOC VALIDATION STATUS</div>
+        <div id="iocValidPanel"><div class="loading"><span class="spinner"></span></div></div>
+      </div>
+    </div>
+
     <!-- Item Table -->
     <div class="card">
       <div class="card-title">
@@ -267,9 +291,10 @@ async function loadAll() {
   btn.disabled = true;
   btn.textContent = "↺ LOADING…";
   try {
-    const [feed, obs] = await Promise.all([
+    const [feed, obs, p22obs] = await Promise.all([
       apiFetch("/api/v1/p21/certify/feed?limit=500"),
       apiFetch("/api/v1/p21/observability"),
+      apiFetch("/api/v1/p22/observability").catch(() => null),
     ]);
     _allItems = feed.items || [];
     _obsData  = obs;
@@ -277,6 +302,7 @@ async function loadAll() {
     renderDistribution(obs);
     renderGateFailures(obs);
     renderComponentBars(_allItems);
+    if (p22obs) renderP22Panels(p22obs);
     renderTable();
     document.getElementById("lastUpd").textContent = "Updated " + new Date().toLocaleTimeString();
     toast("Certification data refreshed");
@@ -287,6 +313,56 @@ async function loadAll() {
     btn.disabled = false;
     btn.textContent = "↺ REFRESH";
   }
+}
+
+/* ── P22.9 Trust Panels ── */
+function renderP22Panels(obs) {
+  // Evidence Reliability
+  const relDist = obs.evidence_reliability_distribution || {};
+  const relLabels = { A: "Completely Reliable", B: "Usually Reliable", C: "Fairly Reliable", D: "Not Usually Reliable", E: "Unreliable", F: "Cannot Judge", MISSING: "No Evidence Chain" };
+  const relColors = { A: "#00ffc6", B: "#10b981", C: "#3b82f6", D: "#d97706", E: "#ea580c", F: "#ef4444", MISSING: "#4b5563" };
+  const totalRel = Object.values(relDist).reduce((a,b) => a+b, 0) || 1;
+  document.getElementById("evidenceReliab").innerHTML = Object.entries(relDist)
+    .filter(([,v]) => v > 0).sort((a,b) => b[1]-a[1])
+    .map(([k,v]) => `<div class="dist-row">
+      <span class="dist-label" style="color:${relColors[k]||'#64748b'};font-size:11px;">${k} — ${relLabels[k]||k}</span>
+      <div class="bar-outer"><div class="bar-inner" style="width:${Math.round(v/totalRel*100)}%;background:${relColors[k]||'#64748b'};"></div></div>
+      <span class="bar-val" style="color:${relColors[k]||'#64748b'};">${v}</span>
+    </div>`).join("") || '<div style="color:var(--muted);font-size:12px;">No data</div>';
+
+  // Contradiction Status
+  const ce = obs.contradiction_errors || 0, cw = obs.contradiction_warns || 0;
+  document.getElementById("contradictionPanel").innerHTML = `
+    <div style="display:flex;gap:20px;margin-bottom:14px;">
+      <div style="text-align:center;"><div style="font-size:28px;font-weight:900;font-family:monospace;color:${ce > 0 ? '#ef4444' : '#10b981'};">${ce}</div><div style="font-size:9px;color:var(--muted);letter-spacing:1px;margin-top:4px;">ERROR CONTRADICTIONS</div></div>
+      <div style="text-align:center;"><div style="font-size:28px;font-weight:900;font-family:monospace;color:${cw > 0 ? '#d97706' : '#10b981'};">${cw}</div><div style="font-size:9px;color:var(--muted);letter-spacing:1px;margin-top:4px;">WARN CONTRADICTIONS</div></div>
+    </div>
+    <div style="font-size:11.5px;color:var(--muted);">Checks: C1 CVSS/Severity · C2 KEV/Severity · C3 KEV/CVSS · C4 EPSS/Severity</div>
+    ${ce === 0 && cw === 0 ? '<div style="color:#10b981;font-size:12px;margin-top:10px;">✓ Feed internally consistent across sampled items</div>' : ''}`;
+
+  // Detection Verification
+  const sv = obs.sigma_verified || 0, sf = obs.sigma_failed || 0, svp = obs.sigma_verified_pct || 0;
+  const total = obs.sampled || 1;
+  document.getElementById("detectionPanel").innerHTML = `
+    <div style="display:flex;gap:20px;margin-bottom:14px;">
+      <div style="text-align:center;"><div style="font-size:28px;font-weight:900;font-family:monospace;color:#00ffc6;">${sv}</div><div style="font-size:9px;color:var(--muted);letter-spacing:1px;margin-top:4px;">SIGMA VERIFIED</div></div>
+      <div style="text-align:center;"><div style="font-size:28px;font-weight:900;font-family:monospace;color:#ef4444;">${sf}</div><div style="font-size:9px;color:var(--muted);letter-spacing:1px;margin-top:4px;">SIGMA FAILED</div></div>
+      <div style="text-align:center;"><div style="font-size:28px;font-weight:900;font-family:monospace;color:#3b82f6;">${svp}%</div><div style="font-size:9px;color:var(--muted);letter-spacing:1px;margin-top:4px;">VERIFIED RATE</div></div>
+    </div>
+    <div class="bar-outer" style="height:8px;"><div class="bar-inner" style="width:${svp}%;background:#00ffc6;"></div></div>
+    <div style="font-size:11px;color:var(--muted);margin-top:8px;">Structural validation: title · logsource · detection · condition · status · level</div>`;
+
+  // IOC Validation
+  const iocDist = obs.ioc_validation_distribution || {};
+  const iocCols = { HIGH_CONFIDENCE: "#00ffc6", MEDIUM_CONFIDENCE: "#d97706", LOW_CONFIDENCE: "#ef4444", UNVERIFIED: "#4b5563" };
+  const totalIOC = Object.values(iocDist).reduce((a,b) => a+b, 0) || 1;
+  document.getElementById("iocValidPanel").innerHTML = Object.entries(iocDist)
+    .filter(([,v]) => v > 0).sort((a,b) => b[1]-a[1])
+    .map(([k,v]) => `<div class="dist-row">
+      <span class="dist-label" style="color:${iocCols[k]||'#64748b'};font-size:11px;">${k.replace(/_/g,' ')}</span>
+      <div class="bar-outer"><div class="bar-inner" style="width:${Math.round(v/totalIOC*100)}%;background:${iocCols[k]||'#64748b'};"></div></div>
+      <span class="bar-val" style="color:${iocCols[k]||'#64748b'};">${v}</span>
+    </div>`).join("") || '<div style="color:var(--muted);font-size:12px;">No IOC data</div>';
 }
 
 /* ── KPIs ── */

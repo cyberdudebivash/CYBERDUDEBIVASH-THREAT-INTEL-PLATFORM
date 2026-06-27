@@ -73,6 +73,7 @@ import { handleP18Correlation, handleP18TrustIndicators, handleP18Validate, hand
 import { buildSOCBlock, buildIOCDetailBlock, buildDetectionBlock, buildMitreTechBlock, buildExecutiveBlock, buildAnalystBlock, handleP19Certify, handleP19Scorecard, normalizeTierForEE } from './p19-handlers.js';
 import { stripMarkdown, filterBehavioralTags, formatConfidenceForHeader, buildEvidenceChainBlock, buildIOCQualityBlock, buildAttributionRationaleBlock, buildP20ExecutiveBlock, buildP20QualityGateBlock, buildBenchmarkBlock, handleP20QualityReport, handleP20FeedAudit } from './p20-handlers.js';
 import { buildP21CertificationBlock, buildP21ScorecardComparison, handleP21Certify, handleP21FeedCertify, handleP21Dashboard, handleP21Observability } from './p21-handlers.js';
+import { buildP22ValidationStatusBlock, buildP22ContradictionBlock, buildP22DetectionVerificationBlock, buildSOCAnalystBlock, buildConfidenceExplanationBlock, buildP22CommercialGateBlock, handleP22Validate, handleP22ContradictionReport, handleP22Observability } from './p22-handlers.js';
 import { routeEnterpriseEndpoint } from './enterprise-endpoints.js';
 import { handleSearch, handleActors, handleCVEs, handleMISPExport as handleMISPExportExt, handleCSVExport, handleCorrelate, handlePredict, handleCampaigns, handleAnomalies, handleIntelGraph, handleIntelRelations } from './api-extensions.js';
 const PLATFORM_VERSION    = "184.0";
@@ -809,6 +810,24 @@ ${buildP21CertificationBlock(item)}
 
 <!-- P21.7: Commercial Readiness Scorecard -->
 ${buildP21ScorecardComparison(item)}
+
+<!-- P22.3: Contradiction Detection -->
+${buildP22ContradictionBlock(item)}
+
+<!-- P22.2: IOC Multi-Source Validation -->
+${buildP22ValidationStatusBlock(item)}
+
+<!-- P22.4: Detection Rule Verification -->
+${buildP22DetectionVerificationBlock(item)}
+
+<!-- P22.6: SOC Analyst Review -->
+${buildSOCAnalystBlock(item)}
+
+<!-- P22.7: Confidence Engine V2 -->
+${buildConfidenceExplanationBlock(item)}
+
+<!-- P22.8: Commercial Readiness Gate V2 -->
+${buildP22CommercialGateBlock(item)}
 </body>
 </html>`;
 }
@@ -3719,6 +3738,10 @@ async function handleRequest(request, env, ctx) {
   if (path === "/api/v1/p21/certify/feed")          return await handleP21FeedCertify(request, env);
   if (path === "/api/v1/p21/dashboard")             return await handleP21Dashboard(request, env);
   if (path === "/api/v1/p21/observability")         return await handleP21Observability(request, env);
+  // --- P22: Enterprise Intelligence Trust & Verification Framework (additive, v22.0) -----
+  if (path === "/api/v1/p22/validate")              return await handleP22Validate(request, env);
+  if (path === "/api/v1/p22/contradictions")        return await handleP22ContradictionReport(request, env);
+  if (path === "/api/v1/p22/observability")         return await handleP22Observability(request, env);
 
   // --- api-extensions.js routes (previously unreachable — now wired, auth already resolved above) ---
   if (path === "/api/search")                       return await handleSearch(request, env, auth, crypto.randomUUID());
