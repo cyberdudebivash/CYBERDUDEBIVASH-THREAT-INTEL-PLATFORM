@@ -1736,7 +1736,7 @@ jobs:
             read -r CHECKED TOTAL ERRORS WARNS <<< "$(python3 scripts/ci_stats_extract.py p22 2>/dev/null || echo '? ? ? ?')"
             echo "[P22.3] Checked: ${CHECKED} items | Contradictions: ${TOTAL} | Errors: ${ERRORS} | Warnings: ${WARNS}"
             if [ "${ERRORS}" != "?" ] && [ "${ERRORS}" -gt "0" ] 2>/dev/null; then
-              echo "::warning::P22.3 Contradiction Detector: ${ERRORS} ERROR-level contradictions detected in feed. Review data/quality/p22_contradiction_report.json."
+              echo "::notice::P22.3 Contradiction Detector: ${ERRORS} ERROR-level contradictions detected in feed — operational data quality signal, non-blocking. Review data/quality/p22_contradiction_report.json."
             fi
           fi
           exit 0
@@ -1762,7 +1762,7 @@ jobs:
             read -r TOTAL IMMED <<< "$(python3 scripts/ci_stats_extract.py p23 2>/dev/null || echo '? ?')"
             echo "[P23.5] Processed: ${TOTAL} items | PATCH IMMEDIATELY: ${IMMED}"
             if [ "${IMMED}" != "?" ] && [ "${IMMED}" -gt "0" ] 2>/dev/null; then
-              echo "::warning::P23.5 Patch Prioritizer: ${IMMED} item(s) require IMMEDIATE patching — KEV confirmed or critical risk score."
+              echo "::notice::P23.5 Patch Prioritizer: ${IMMED} item(s) flagged for IMMEDIATE patching — KEV confirmed or critical risk score. See p23_patch_priority_report.json."
             fi
           fi
           exit 0
