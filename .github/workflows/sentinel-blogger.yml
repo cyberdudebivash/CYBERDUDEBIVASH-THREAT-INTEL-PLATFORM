@@ -1687,6 +1687,34 @@ jobs:
           echo "[P20.2] IOC hardening complete"
 
       # -----------------------------------------------------------------------
+      # STAGE 3.93.15d: P21.0 ENTERPRISE CERTIFICATION GATE (NON-BLOCKING)
+      # Runs the full 7-gate P21 certification pipeline against every feed item.
+      # Scores items on P21.7 Commercial Readiness (thresholds: ≥90 Premium,
+      # ≥75 Enterprise Ready, <75 Internal Draft, <38 Below Minimum).
+      # Non-blocking in CI (continue-on-error) — certification report is written
+      # to data/quality/p21_certification_report.json for observability and is
+      # surfaced as a CI annotation. Hard-gate mode activates via FAIL_FAST=true.
+      # Zero fabrication — scoring uses only existing item field data.
+      # -----------------------------------------------------------------------
+      - name: "STAGE 3.93.15d - P21.0 Enterprise Certification Gate"
+        timeout-minutes: 5
+        continue-on-error: true
+        env:
+          DRY_RUN: "false"
+          FAIL_FAST: "false"
+        run: |
+          python3 scripts/p21_certification_gate.py
+          EXIT=$?
+          if [ -f "data/quality/p21_certification_report.json" ]; then
+            TOTAL=$(python3 -c "import json,sys; d=json.load(open('data/quality/p21_certification_report.json')); print(d.get('total_items',0))" 2>/dev/null || echo "?")
+            AVG=$(python3 -c "import json,sys; d=json.load(open('data/quality/p21_certification_report.json')); print(d.get('average_score',0))" 2>/dev/null || echo "?")
+            PREM=$(python3 -c "import json,sys; d=json.load(open('data/quality/p21_certification_report.json')); print(d['level_distribution'].get('PREMIUM_CERTIFIED',0))" 2>/dev/null || echo "?")
+            ENT=$(python3 -c "import json,sys; d=json.load(open('data/quality/p21_certification_report.json')); print(d['level_distribution'].get('ENTERPRISE_READY',0))" 2>/dev/null || echo "?")
+            echo "[P21.0] Certified: ${TOTAL} items | Avg: ${AVG}/100 | Premium: ${PREM} | Enterprise: ${ENT}"
+          fi
+          exit 0
+
+      # -----------------------------------------------------------------------
       # STAGE 3.93.16: SOURCE DIVERSITY ENFORCER (Phase 1C -- NON-BLOCKING WARN)
       # Enforces source diversity governance against the live feed manifest.
       # Detects single-source dominance (golden invariant: max 30%), Shannon
