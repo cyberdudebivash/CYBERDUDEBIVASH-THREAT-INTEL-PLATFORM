@@ -782,8 +782,6 @@ a:hover{text-decoration:underline}
   </div>
 </div>
 
-<<<<<<< Updated upstream
-=======
 ${buildAnalystBlock(item)}
 
 ${buildTrustIndicatorBlock(item)}
@@ -3740,8 +3738,6 @@ async function handleRequest(request, env, ctx) {
   if (path.startsWith("/api/v1/playbooks"))           return await handleP17Playbooks(request, env);
   if (path === "/api/v1/ai-ops/analytics")            return await handleP17AiOps(request, env);
 
-<<<<<<< Updated upstream
-=======
   // --- P18: Threat Intelligence Quality & Trust Initiative (additive, v18.0) ---
   if (path === "/api/v1/intel/correlation")           return await handleP18Correlation(request, env);
   if (path === "/api/v1/intel/trust-indicators")      return await handleP18TrustIndicators(request, env);
@@ -3799,7 +3795,6 @@ async function handleRequest(request, env, ctx) {
     return await routeEnterpriseEndpoint(path, request, env, ctx, eeTier, eeItems, crypto.randomUUID());
   }
 
->>>>>>> Stashed changes
   // --- 404 --------------------------------------------------------------------
   return jsonResp({
     error: "Not found", path,
