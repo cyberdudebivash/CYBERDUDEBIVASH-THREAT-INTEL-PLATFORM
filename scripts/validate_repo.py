@@ -59,6 +59,8 @@ YAML_PARSE_SKIP_DIRS = SKIP_DIRS | {
     "chart",         # Helm chart metadata directory
     "charts",        # Helm subchart dependencies
     "tmpcharts",     # Helm temp chart staging dir (created by helm dep update)
+    "detections",    # Sigma/YARA detection bundles use backtick notation not valid PyYAML
+    "api",           # Generated API output files (sigma_rules.yml, detection bundles) — not pipeline YAML
 }
 
 CRITICAL_JSON_FILES = [
