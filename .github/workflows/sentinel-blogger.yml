@@ -1942,6 +1942,33 @@ jobs:
           fi
           exit 0
 
+      # STAGE 3.93.15m: P30.26 ENTERPRISE INTELLIGENCE ACCURACY & CONTINUOUS VERIFICATION (NON-BLOCKING)
+      # Runs 26-gate P30 certification (extends P29 chain with 6 P30-specific accuracy gates):
+      #   G21 verification signal coverage ≥60% avg; G22 source attribution ≥90%;
+      #   G23 SLA compliance (no patch overdue >180d); G24 health dashboard HTML present;
+      #   G25 IOC lifecycle derivable ≥80%; G26 change anomaly rate <20%.
+      # Requires P29/P28/P27/P26/P25 cert reports in data/quality/ to validate chain.
+      # Outputs data/quality/p30_certification_report.json for observability.
+      - name: "STAGE 3.93.15m - P30.26 Enterprise Intelligence Accuracy & Continuous Verification"
+        timeout-minutes: 10
+        continue-on-error: true
+        env:
+          DRY_RUN: "false"
+        run: |
+          python3 scripts/p30_production_certification.py
+          if [ -f "data/quality/p30_certification_report.json" ]; then
+            read -r TIER BLOCKERS WARNINGS PASSED TOTAL <<< "$(python3 scripts/ci_stats_extract.py p30 2>/dev/null || echo 'UNKNOWN 0 0 0 0')"
+            echo "[P30.26] Certification: ${TIER} | Gates: ${PASSED}/${TOTAL} | Blockers: ${BLOCKERS} | Warnings: ${WARNINGS}"
+            if [ "${TIER}" = "WORLDWIDE_RELEASE" ]; then
+              echo "::notice::P30.26 WORLDWIDE RELEASE CERTIFIED — Continuous Verification Platform + 26 gates passed. Gates: ${PASSED}/${TOTAL}."
+            elif [ "${TIER}" = "CONTROLLED_RELEASE" ]; then
+              echo "::notice::P30.26 CONTROLLED RELEASE — ${BLOCKERS} blocker(s). Gates: ${PASSED}/${TOTAL}. Review p30_certification_report.json."
+            else
+              echo "::notice::P30.26 BLOCKED — ${BLOCKERS} blocker(s). Gates: ${PASSED}/${TOTAL}. See data/quality/p30_certification_report.json."
+            fi
+          fi
+          exit 0
+
       # -----------------------------------------------------------------------
       # STAGE 3.93.16: SOURCE DIVERSITY ENFORCER (Phase 1C -- NON-BLOCKING WARN)
       # Enforces source diversity governance against the live feed manifest.
