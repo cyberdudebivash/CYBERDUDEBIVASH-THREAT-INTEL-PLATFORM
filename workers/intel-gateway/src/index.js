@@ -76,6 +76,7 @@ import { buildP21CertificationBlock, buildP21ScorecardComparison, handleP21Certi
 import { buildP22ValidationStatusBlock, buildP22ContradictionBlock, buildP22DetectionVerificationBlock, buildSOCAnalystBlock, buildConfidenceExplanationBlock, buildP22CommercialGateBlock, handleP22Validate, handleP22ContradictionReport, handleP22Observability } from './p22-handlers.js';
 import { buildThreatHuntingBlock, buildIRPackageBlock, buildPatchPriorityBlock, buildComplianceBlock, buildDetectionCoverageBlock, buildActionabilityScoreBlock, buildOperationalReadinessGateBlock, handleP23Actionability, handleP23OperationalReadiness, handleP23Observability } from './p23-handlers.js';
 import { buildP25TrustPackage, buildExplainableScoreBlock, buildSourceConsensusBlock, buildAnalystExplainabilityBlock, buildTrustScoreBlock, buildPublicationLineageBlock, handleP25TrustScore, handleP25Observability } from './p25-handlers.js';
+import { buildP26Package, buildP26TrustBadgesBlock, buildP26GradeCardBlock, buildP26CertificationBlock, handleP26Grade, handleP26FeedGrade, handleP26Observability } from './p26-handlers.js';
 import { routeEnterpriseEndpoint } from './enterprise-endpoints.js';
 import { handleSearch, handleActors, handleCVEs, handleMISPExport as handleMISPExportExt, handleCSVExport, handleCorrelate, handlePredict, handleCampaigns, handleAnomalies, handleIntelGraph, handleIntelRelations } from './api-extensions.js';
 const PLATFORM_VERSION    = "184.0";
@@ -801,6 +802,15 @@ a:hover{text-decoration:underline}
 ${buildAnalystBlock(item)}
 
 ${buildTrustIndicatorBlock(item)}
+
+<!-- P26.10: Customer Trust Framework -->
+${buildP26TrustBadgesBlock(item)}
+
+<!-- P26.6: Enterprise Intelligence Grade Card -->
+${buildP26GradeCardBlock(item)}
+
+<!-- P26.7: Commercial Report Certification -->
+${buildP26CertificationBlock(item)}
 
 <!-- P20.1: Evidence Chain -->
 ${buildEvidenceChainBlock(item)}
@@ -3800,6 +3810,11 @@ async function handleRequest(request, env, ctx) {
   // --- P25: Enterprise Intelligence Trust & Assurance Framework (additive, v25.0) ---
   if (path === "/api/v1/p25/trust-score")           return await handleP25TrustScore(request, env);
   if (path === "/api/v1/p25/observability")         return await handleP25Observability(request, env);
+
+  // --- P26: Enterprise Intelligence Excellence Program (additive, v26.0) ---
+  if (path === "/api/v1/p26/grade")                 return await handleP26Grade(request, env);
+  if (path === "/api/v1/p26/grade/feed")            return await handleP26FeedGrade(request, env);
+  if (path === "/api/v1/p26/observability")         return await handleP26Observability(request, env);
 
   // --- api-extensions.js routes (previously unreachable  -  now wired, auth already resolved above) ---
   if (path === "/api/search")                       return await handleSearch(request, env, auth, crypto.randomUUID());

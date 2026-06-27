@@ -1829,6 +1829,37 @@ jobs:
           exit 0
 
       # -----------------------------------------------------------------------
+      # -----------------------------------------------------------------------
+      # STAGE 3.93.15i: P26.0 ENTERPRISE INTELLIGENCE EXCELLENCE (NON-BLOCKING)
+      # Orchestrates P20-P25 quality reports into final P26 Production Certification.
+      # Runs 13 audit dimensions: repository, duplicate, security, quality, evidence,
+      # detection, IOC, executive, presentation, regression, commercial, enterprise,
+      # worldwide release readiness.
+      # Produces data/quality/p26_certification_report.json with definitive release tier.
+      # continue-on-error: CI always proceeds — gate result surfaced as ::notice::
+      - name: "STAGE 3.93.15i - P26.0 Enterprise Intelligence Excellence Certification"
+        timeout-minutes: 6
+        continue-on-error: true
+        env:
+          DRY_RUN: "false"
+        run: |
+          python3 scripts/p26_intelligence_excellence.py
+          if [ -f "data/quality/p26_certification_report.json" ]; then
+            read -r TIER BLOCKERS WARNINGS COMPOSITE <<< "$(python3 scripts/ci_stats_extract.py p26 2>/dev/null || echo 'UNKNOWN 0 0 0')"
+            echo "[P26.0] Certification: ${TIER} | Composite: ${COMPOSITE}/100 | Blockers: ${BLOCKERS} | Warnings: ${WARNINGS}"
+            if [ "${TIER}" = "WORLDWIDE_RELEASE" ]; then
+              echo "::notice::P26.0 WORLDWIDE RELEASE CERTIFIED — All 13 audit gates passed. Composite: ${COMPOSITE}/100. Platform certified for worldwide enterprise customer deployment."
+            elif [ "${TIER}" = "ENTERPRISE_RELEASE" ]; then
+              echo "::notice::P26.0 ENTERPRISE RELEASE CERTIFIED — Enterprise gates passed. Composite: ${COMPOSITE}/100. Suitable for enterprise customer distribution."
+            elif [ "${TIER}" = "CONTROLLED_RELEASE" ]; then
+              echo "::notice::P26.0 CONTROLLED RELEASE — ${WARNINGS} warning(s) present. Composite: ${COMPOSITE}/100. Controlled distribution authorized."
+            elif [ "${TIER}" = "RELEASE_BLOCKED" ]; then
+              echo "::notice::P26.0 RELEASE BLOCKED — ${BLOCKERS} critical blocker(s). See data/quality/p26_certification_report.json for details."
+            fi
+          fi
+          exit 0
+
+      # -----------------------------------------------------------------------
       # STAGE 3.93.16: SOURCE DIVERSITY ENFORCER (Phase 1C -- NON-BLOCKING WARN)
       # Enforces source diversity governance against the live feed manifest.
       # Detects single-source dominance (golden invariant: max 30%), Shannon
