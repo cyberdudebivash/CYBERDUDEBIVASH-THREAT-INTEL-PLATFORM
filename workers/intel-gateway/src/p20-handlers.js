@@ -1,17 +1,17 @@
 /**
  * workers/intel-gateway/src/p20-handlers.js
- * CYBERDUDEBIVASH® SENTINEL APEX — P20.0 Enterprise Report Quality Transformation
+ * CYBERDUDEBIVASH(R) SENTINEL APEX  -  P20.0 Enterprise Report Quality Transformation
  * ================================================================================
- * P20.1 Evidence Integrity   — Evidence chain display block
- * P20.2 IOC Quality          — Operational IOC quality display, FP filtering
- * P20.3 Attribution          — Attribution rationale, confidence factors, alt hypotheses
- * P20.4 Detection            — Detection quality indicator (Sigma class awareness)
- * P20.5 Executive            — Advisory-specific executive intelligence
- * P20.6 Quality Gate         — Unified commercial quality score + publication gate
- * P20.7 Presentation         — Section numbering, confidence, markdown stripping,
+ * P20.1 Evidence Integrity    -  Evidence chain display block
+ * P20.2 IOC Quality           -  Operational IOC quality display, FP filtering
+ * P20.3 Attribution           -  Attribution rationale, confidence factors, alt hypotheses
+ * P20.4 Detection             -  Detection quality indicator (Sigma class awareness)
+ * P20.5 Executive             -  Advisory-specific executive intelligence
+ * P20.6 Quality Gate          -  Unified commercial quality score + publication gate
+ * P20.7 Presentation          -  Section numbering, confidence, markdown stripping,
  *                              behavioral indicator filtering
- * P20.8 Benchmarking         — Report quality benchmark display
- * P20.9 Publication Workflow — Draft→Analyst Review→Evidence Verified→Enterprise Ready→Published
+ * P20.8 Benchmarking          -  Report quality benchmark display
+ * P20.9 Publication Workflow  -  Draft->Analyst Review->Evidence Verified->Enterprise Ready->Published
  *
  * ZERO FABRICATION: all content derives from existing item fields only.
  * ZERO DUPLICATION: reuses P18/P19 scoring where it already exists.
@@ -20,10 +20,10 @@
 
 export const P20_VERSION = "20.0";
 
-// ── P20.6: Unified Quality Score weights ─────────────────────────────────────
+// -- P20.6: Unified Quality Score weights -------------------------------------
 const Q_WEIGHTS = {
-  evidence:        25,   // P20.1 — evidence chain present + reliability
-  ioc_quality:     20,   // P20.2 — operational IOC count, no FP
+  evidence:        25,   // P20.1  -  evidence chain present + reliability
+  ioc_quality:     20,   // P20.2  -  operational IOC count, no FP
   multi_source:    15,   // corroboration source count
   mitre:           10,   // ATT&CK technique count and specificity
   detection:       10,   // Sigma/KQL/YARA present and class-specific
@@ -32,7 +32,7 @@ const Q_WEIGHTS = {
   consistency:      5,   // internal scoring consistency
 };
 
-// ── P20.9: Publication Workflow ───────────────────────────────────────────────
+// -- P20.9: Publication Workflow -----------------------------------------------
 const PUB_STAGES = [
   { id: "PREMIUM_INTELLIGENCE", label: "Premium Intelligence",  minScore: 90, color: "#00ffc6" },
   { id: "ENTERPRISE_READY",     label: "Enterprise Ready",      minScore: 72, color: "#3b82f6" },
@@ -41,7 +41,7 @@ const PUB_STAGES = [
   { id: "DRAFT",                label: "Draft",                 minScore: 0,  color: "#6b7280" },
 ];
 
-// ── Markdown stripper ─────────────────────────────────────────────────────────
+// -- Markdown stripper ---------------------------------------------------------
 /**
  * Strip Markdown formatting to plain text suitable for HTML display.
  * Handles: headers, links, bold/italic, code blocks, tables, lists.
@@ -49,35 +49,35 @@ const PUB_STAGES = [
 export function stripMarkdown(text) {
   if (!text || typeof text !== "string") return text || "";
   let t = text;
-  // Fenced code blocks → preserve content, strip fences
+  // Fenced code blocks -> preserve content, strip fences
   t = t.replace(/```[\w]*\n?([\s\S]*?)```/g, (_, code) => code.trim());
   // Inline code
   t = t.replace(/`([^`]+)`/g, "$1");
   // Headers
   t = t.replace(/^#{1,6}\s+/gm, "");
-  // Links [text](url) → text
+  // Links [text](url) -> text
   t = t.replace(/\[([^\]]+)\]\([^)]+\)/g, "$1");
   // Bold / italic
   t = t.replace(/\*\*([^*]+)\*\*/g, "$1");
   t = t.replace(/\*([^*]+)\*/g, "$1");
   t = t.replace(/__([^_]+)__/g, "$1");
   t = t.replace(/_([^_]+)_/g, "$1");
-  // Table rows → strip pipes and align
+  // Table rows -> strip pipes and align
   t = t.replace(/\|([^|\n]+)\|/g, (_, row) => row.replace(/\|/g, " ").trim());
   t = t.replace(/^[\s|:-]+$/gm, "");
   // Blockquotes
   t = t.replace(/^>\s*/gm, "");
   // List markers
-  t = t.replace(/^[-*+]\s+/gm, "• ");
+  t = t.replace(/^[-*+]\s+/gm, "* ");
   t = t.replace(/^\d+\.\s+/gm, "");
   // HTML entities that came through the summary
-  t = t.replace(/&#8230;/g, "…").replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">");
+  t = t.replace(/&#8230;/g, "...").replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">");
   // Collapse excessive whitespace
   t = t.replace(/\n{3,}/g, "\n\n").trim();
   return t;
 }
 
-// ── Behavioral indicator filter ───────────────────────────────────────────────
+// -- Behavioral indicator filter -----------------------------------------------
 // Package dependency tags (pip:, npm:, go:, composer:, etc.) are NOT behavioral indicators
 const PACKAGE_TAG_RE = /^(pip:|npm:|gem:|cargo:|go:|composer:|nuget:|maven:|pypi:|rubygems:|crates:|docker:|helm:|apt:|yum:)/i;
 const PKG_ECOSYSTEMS = new Set([
@@ -101,7 +101,7 @@ export function filterBehavioralTags(tags) {
   });
 }
 
-// ── P20.6: Compute unified commercial quality score ───────────────────────────
+// -- P20.6: Compute unified commercial quality score ---------------------------
 export function computeP20QualityScore(item) {
   const scores = {};
 
@@ -173,7 +173,7 @@ export function computeP20QualityScore(item) {
   return { total: Math.min(100, Math.round(total)), breakdown: scores };
 }
 
-// ── P20.9: Determine publication stage ───────────────────────────────────────
+// -- P20.9: Determine publication stage ---------------------------------------
 export function getPublicationStage(score) {
   for (const stage of PUB_STAGES) {
     if (score >= stage.minScore) return stage;
@@ -181,7 +181,7 @@ export function getPublicationStage(score) {
   return PUB_STAGES[PUB_STAGES.length - 1];
 }
 
-// ── P20.1: Evidence Chain Display Block ──────────────────────────────────────
+// -- P20.1: Evidence Chain Display Block --------------------------------------
 export function buildEvidenceChainBlock(item) {
   const ec = item.evidence_chain;
   if (!ec || typeof ec !== "object") return "";
@@ -194,14 +194,14 @@ export function buildEvidenceChainBlock(item) {
 
   const custodyHtml = (ec.chain_of_custody || []).map(e =>
     `<div style="display:flex;gap:10px;align-items:flex-start;padding:5px 0;border-bottom:1px solid rgba(255,255,255,.04);">
-       <span style="font-family:monospace;font-size:10px;color:#374151;flex-shrink:0;min-width:10px;">›</span>
+       <span style="font-family:monospace;font-size:10px;color:#374151;flex-shrink:0;min-width:10px;">?</span>
        <span style="font-size:12px;color:#9ca3af;line-height:1.5;">${esc(e)}</span>
      </div>`
   ).join("");
 
   const limitationsHtml = (ec.known_limitations || []).map(l =>
     `<div style="display:flex;gap:8px;align-items:center;padding:4px 0;">
-       <span style="color:#ea580c;font-size:11px;">⚠</span>
+       <span style="color:#ea580c;font-size:11px;">?</span>
        <span style="font-size:12px;color:#9ca3af;">${esc(l)}</span>
      </div>`
   ).join("");
@@ -227,11 +227,11 @@ export function buildEvidenceChainBlock(item) {
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;">
     <div style="padding:12px 16px;background:rgba(255,255,255,.025);border:1px solid rgba(255,255,255,.07);border-radius:6px;">
       <div style="font-family:monospace;font-size:9px;color:#4b5563;letter-spacing:1.5px;margin-bottom:8px;">EVIDENCE ID</div>
-      <div style="font-family:monospace;font-size:13px;color:#00d4aa;font-weight:700;">${esc(ec.evidence_id || "—")}</div>
+      <div style="font-family:monospace;font-size:13px;color:#00d4aa;font-weight:700;">${esc(ec.evidence_id || " - ")}</div>
     </div>
     <div style="padding:12px 16px;background:rgba(255,255,255,.025);border:1px solid rgba(255,255,255,.07);border-radius:6px;">
       <div style="font-family:monospace;font-size:9px;color:#4b5563;letter-spacing:1.5px;margin-bottom:8px;">SOURCE RELIABILITY</div>
-      <div style="font-family:monospace;font-size:13px;color:${rcColor};font-weight:700;">${esc(ec.source_reliability || "F — Cannot Be Judged")}</div>
+      <div style="font-family:monospace;font-size:13px;color:${rcColor};font-weight:700;">${esc(ec.source_reliability || "F  -  Cannot Be Judged")}</div>
     </div>
     <div style="padding:12px 16px;background:rgba(255,255,255,.025);border:1px solid rgba(255,255,255,.07);border-radius:6px;">
       <div style="font-family:monospace;font-size:9px;color:#4b5563;letter-spacing:1.5px;margin-bottom:8px;">SOURCE CATEGORY</div>
@@ -239,15 +239,15 @@ export function buildEvidenceChainBlock(item) {
     </div>
     <div style="padding:12px 16px;background:rgba(255,255,255,.025);border:1px solid rgba(255,255,255,.07);border-radius:6px;">
       <div style="font-family:monospace;font-size:9px;color:#4b5563;letter-spacing:1.5px;margin-bottom:8px;">ANALYST REVIEW</div>
-      <div style="font-size:12px;color:#c4d0e3;">${esc(ec.analyst_review || "Automated — Pending Human Review")}</div>
+      <div style="font-size:12px;color:#c4d0e3;">${esc(ec.analyst_review || "Automated  -  Pending Human Review")}</div>
     </div>
     <div style="padding:12px 16px;background:rgba(255,255,255,.025);border:1px solid rgba(255,255,255,.07);border-radius:6px;">
       <div style="font-family:monospace;font-size:9px;color:#4b5563;letter-spacing:1.5px;margin-bottom:8px;">COLLECTION WINDOW</div>
-      <div style="font-family:monospace;font-size:11px;color:#64748b;">${esc(ec.collection_time || "—")} to ${esc(ec.verification_time || "—")}</div>
+      <div style="font-family:monospace;font-size:11px;color:#64748b;">${esc(ec.collection_time || " - ")} to ${esc(ec.verification_time || " - ")}</div>
     </div>
     <div style="padding:12px 16px;background:rgba(255,255,255,.025);border:1px solid rgba(255,255,255,.07);border-radius:6px;">
       <div style="font-family:monospace;font-size:9px;color:#4b5563;letter-spacing:1.5px;margin-bottom:8px;">COLLECTION TIME</div>
-      <div style="font-family:monospace;font-size:11px;color:#64748b;">${esc(ec.collection_time || "—")}</div>
+      <div style="font-family:monospace;font-size:11px;color:#64748b;">${esc(ec.collection_time || " - ")}</div>
     </div>
   </div>
 
@@ -275,7 +275,7 @@ export function buildEvidenceChainBlock(item) {
 </div>`;
 }
 
-// ── P20.2: Operational IOC Quality Display ────────────────────────────────────
+// -- P20.2: Operational IOC Quality Display ------------------------------------
 export function buildIOCQualityBlock(item) {
   const rawIocs = item.iocs || [];
   if (!rawIocs.length) return "";
@@ -297,9 +297,9 @@ export function buildIOCQualityBlock(item) {
   if (!opIocs.length) return "";
 
   const typeIcon = t => ({
-    ipv4:"🌐", ipv6:"🌐", domain:"🔗", url:"🔗", hash:"🔒", md5:"🔒",
-    sha256:"🔒", sha1:"🔒", email:"📧", cve:"⚠️",
-  }[t.toLowerCase()] || "📌");
+    ipv4:"?", ipv6:"?", domain:"?", url:"?", hash:"?", md5:"?",
+    sha256:"?", sha1:"?", email:"?", cve:"??",
+  }[t.toLowerCase()] || "?");
 
   const confColor = c => parseFloat(c) >= 70 ? "#00d4aa" : parseFloat(c) >= 40 ? "#d97706" : "#6b7280";
 
@@ -308,8 +308,8 @@ export function buildIOCQualityBlock(item) {
     const v    = esc(String(ioc.value || ""));
     const conf = parseFloat(ioc.confidence) || 0;
     const vs   = ioc.validation_status || (conf >= 70 ? "HIGH_CONFIDENCE" : conf >= 40 ? "MEDIUM_CONFIDENCE" : "LOW_CONFIDENCE");
-    const ks   = esc(ioc.kill_chain_stage || "—");
-    const fs   = esc(ioc.first_seen ? ioc.first_seen.slice(0,10) : "—");
+    const ks   = esc(ioc.kill_chain_stage || " - ");
+    const fs   = esc(ioc.first_seen ? ioc.first_seen.slice(0,10) : " - ");
     const ctx  = esc((ioc.context || "").slice(0,80));
     return `<tr>
       <td style="padding:7px 10px;font-size:11px;color:#a78bfa;font-family:monospace;">${typeIcon(t)} ${esc(t.toUpperCase())}</td>
@@ -374,7 +374,7 @@ export function buildIOCQualityBlock(item) {
 </div>`;
 }
 
-// ── P20.3: Attribution Rationale Block ────────────────────────────────────────
+// -- P20.3: Attribution Rationale Block ----------------------------------------
 export function buildAttributionRationaleBlock(item) {
   const esc = s => String(s || "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
 
@@ -384,7 +384,7 @@ export function buildAttributionRationaleBlock(item) {
   const method    = item.attribution_method || "automated_pipeline";
   const attrCat   = item.attribution_category || "";
 
-  // Always show attribution rationale — even "insufficient evidence" is valuable
+  // Always show attribution rationale  -  even "insufficient evidence" is valuable
   const isInsufficient = actorConf < 60 || !actorId || actorId.startsWith("CDB-UNATTR") || actorId === "UNC-UNKNOWN";
   const isKernelExcl   = method === "kernel_maintenance_exclusion";
 
@@ -408,18 +408,18 @@ export function buildAttributionRationaleBlock(item) {
        }</div>`
     : "";
 
-  // Alternative hypotheses — factual based on actor confidence band
+  // Alternative hypotheses  -  factual based on actor confidence band
   let altHypotheses = "";
   if (isInsufficient) {
     altHypotheses = `<div style="margin-top:12px;">
       <div style="font-family:monospace;font-size:9px;color:#4b5563;letter-spacing:1px;margin-bottom:6px;">ALTERNATIVE HYPOTHESES</div>
       <div style="display:flex;flex-direction:column;gap:6px;">
         <div style="padding:8px 12px;background:rgba(100,116,139,.06);border-left:3px solid #6b7280;border-radius:3px;font-size:12px;color:#9ca3af;">Opportunistic exploitation by automated scanning tools or criminal actors</div>
-        <div style="padding:8px 12px;background:rgba(100,116,139,.06);border-left:3px solid #6b7280;border-radius:3px;font-size:12px;color:#9ca3af;">State-sponsored reconnaissance — insufficient signals to attribute</div>
-        <div style="padding:8px 12px;background:rgba(100,116,139,.06);border-left:3px solid #6b7280;border-radius:3px;font-size:12px;color:#9ca3af;">Proof-of-concept exploitation by security researchers — not necessarily malicious</div>
+        <div style="padding:8px 12px;background:rgba(100,116,139,.06);border-left:3px solid #6b7280;border-radius:3px;font-size:12px;color:#9ca3af;">State-sponsored reconnaissance  -  insufficient signals to attribute</div>
+        <div style="padding:8px 12px;background:rgba(100,116,139,.06);border-left:3px solid #6b7280;border-radius:3px;font-size:12px;color:#9ca3af;">Proof-of-concept exploitation by security researchers  -  not necessarily malicious</div>
       </div>
       <div style="margin-top:8px;padding:8px 12px;background:rgba(234,88,12,.06);border:1px solid rgba(234,88,12,.2);border-radius:4px;font-size:12px;color:#9ca3af;">
-        <strong style="color:#ea580c;">ASSESSMENT:</strong> ${isKernelExcl ? "Linux kernel maintenance patch — threat actor attribution explicitly excluded. No attribution applicable." : "Insufficient evidence to name a specific threat actor with required confidence (threshold: 60). Human analyst review recommended before attribution."}
+        <strong style="color:#ea580c;">ASSESSMENT:</strong> ${isKernelExcl ? "Linux kernel maintenance patch  -  threat actor attribution explicitly excluded. No attribution applicable." : "Insufficient evidence to name a specific threat actor with required confidence (threshold: 60). Human analyst review recommended before attribution."}
       </div>
     </div>`;
   }
@@ -427,9 +427,9 @@ export function buildAttributionRationaleBlock(item) {
   return `
 <!-- P20.3: Attribution Rationale -->
 <div class="sec" style="border-color:rgba(139,92,246,.12);">
-  <div class="sec-title">CONFIDENCE METHODOLOGY — TRANSPARENT SCORING</div>
+  <div class="sec-title">CONFIDENCE METHODOLOGY  -  TRANSPARENT SCORING</div>
   <div style="padding:10px 14px;background:rgba(100,116,139,.04);border:1px solid rgba(100,116,139,.1);border-radius:4px;font-size:11.5px;color:#6b7280;line-height:1.65;margin-bottom:14px;">
-    SENTINEL APEX Transparent Confidence Model v${P20_VERSION} — Scores derived from verifiable data points only. No synthetic inflation applied.
+    SENTINEL APEX Transparent Confidence Model v${P20_VERSION}  -  Scores derived from verifiable data points only. No synthetic inflation applied.
   </div>
   ${cfHtml ? `
   <div style="margin-bottom:12px;">
@@ -441,7 +441,7 @@ export function buildAttributionRationaleBlock(item) {
 </div>`;
 }
 
-// ── P20.5: Advisory-Specific Executive Intelligence ───────────────────────────
+// -- P20.5: Advisory-Specific Executive Intelligence ---------------------------
 export function buildP20ExecutiveBlock(item) {
   const esc = s => String(s || "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
 
@@ -463,16 +463,16 @@ export function buildP20ExecutiveBlock(item) {
   }
   if (!productContext) productContext = threatType;
 
-  // Business impact — derived from severity, CVSS, KEV, EPSS
+  // Business impact  -  derived from severity, CVSS, KEV, EPSS
   const bizImpact = kev
-    ? `CRITICAL — ${productContext} exploitation confirmed in the wild. Treat as active breach until proven otherwise. Immediate containment required.`
+    ? `CRITICAL  -  ${productContext} exploitation confirmed in the wild. Treat as active breach until proven otherwise. Immediate containment required.`
     : cvss >= 9 || risk >= 9
-    ? `HIGH — ${productContext} carries critical-severity exploitation risk. Likely automated exploitation within 24-72h of disclosure. Immediate remediation required.`
+    ? `HIGH  -  ${productContext} carries critical-severity exploitation risk. Likely automated exploitation within 24-72h of disclosure. Immediate remediation required.`
     : cvss >= 7 || risk >= 7
-    ? `HIGH — ${productContext} presents significant breach potential. Patch before next business cycle to prevent exploitation.`
+    ? `HIGH  -  ${productContext} presents significant breach potential. Patch before next business cycle to prevent exploitation.`
     : cvss >= 4 || risk >= 4
-    ? `MODERATE — ${productContext} exposure should be remediated within standard patch cycle. Monitor for active exploitation activity.`
-    : `LOW — ${productContext} presents limited immediate risk. Address in routine maintenance cycle.`;
+    ? `MODERATE  -  ${productContext} exposure should be remediated within standard patch cycle. Monitor for active exploitation activity.`
+    : `LOW  -  ${productContext} presents limited immediate risk. Address in routine maintenance cycle.`;
 
   // Financial exposure
   const finExp = kev
@@ -483,25 +483,25 @@ export function buildP20ExecutiveBlock(item) {
     ? "High-severity vulnerability. Unpatched systems carry significant breach cost exposure. Prioritize remediation before end of business cycle."
     : "Standard patch management applies. Cost of remediation is low relative to breach risk exposure.";
 
-  // Regulatory impact — factual, not fabricated
+  // Regulatory impact  -  factual, not fabricated
   const nisImpact = sev === "CRITICAL" || sev === "HIGH"
     ? `NIS2 Art.21: Significant incidents require notification to national authority within 24h of awareness. Assess if exploitation would constitute a significant incident in your sector.`
     : `NIS2: Assess whether exploitation could constitute a significant incident requiring authority notification under Art.21.`;
   const doraImpact = `DORA Art.19: Financial entities must assess ICT-related incidents. ${kev ? "Active exploitation status triggers mandatory incident assessment." : "Evaluate this advisory against ICT incident thresholds."}`;
 
-  // Top 5 executive actions — specific to this advisory
+  // Top 5 executive actions  -  specific to this advisory
   const actions = [];
   if (kev) {
-    actions.push(`IMMEDIATE: Apply patch for ${cveId || title.slice(0,40)} — CISA KEV status mandates federal agencies act within Binding Operational Directive 22-01 deadlines`);
+    actions.push(`IMMEDIATE: Apply patch for ${cveId || title.slice(0,40)}  -  CISA KEV status mandates federal agencies act within Binding Operational Directive 22-01 deadlines`);
     actions.push(`Confirm organizational exposure: identify all systems running ${productContext} and verify patch deployment`);
-    actions.push(`Brief CISO and General Counsel immediately — active exploitation status may trigger regulatory notification obligations`);
+    actions.push(`Brief CISO and General Counsel immediately  -  active exploitation status may trigger regulatory notification obligations`);
     actions.push(`Activate incident response retainer if affected systems confirmed in production environment`);
     actions.push(`Conduct post-remediation confirmation: validate all affected assets are patched and EDR telemetry shows no exploitation activity`);
   } else {
     actions.push(`Schedule remediation of ${sev}-severity ${cveId || "advisory"} within ${sev === "CRITICAL" ? "24h" : sev === "HIGH" ? "72h" : "30 days"}`);
     actions.push(`Inventory exposure: identify all ${productContext} instances in your environment and prioritize patch deployment by asset criticality`);
     actions.push(`${sev === "CRITICAL" || sev === "HIGH" ? "Brief CISO on breach risk profile and " : "Verify "}cyber insurance coverage and incident response retainer activation status`);
-    actions.push(`Deploy SIEM detection rules for ${cveId || "this advisory"} — use SENTINEL APEX detection pack for coverage`);
+    actions.push(`Deploy SIEM detection rules for ${cveId || "this advisory"}  -  use SENTINEL APEX detection pack for coverage`);
     actions.push(`Request signed remediation confirmation from IT Security after patching all affected assets`);
   }
 
@@ -548,7 +548,7 @@ export function buildP20ExecutiveBlock(item) {
 </div>`;
 }
 
-// ── P20.6: Unified Quality Gate Block ────────────────────────────────────────
+// -- P20.6: Unified Quality Gate Block ----------------------------------------
 export function buildP20QualityGateBlock(item) {
   const esc = s => String(s || "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
 
@@ -573,7 +573,7 @@ export function buildP20QualityGateBlock(item) {
     `<div style="display:flex;align-items:center;gap:8px;padding:5px 10px;border-radius:4px;background:${s.id===stage.id?"rgba(255,255,255,.06)":"transparent"};border:${s.id===stage.id?"1px solid "+s.color+"44":"1px solid transparent"};">
        <div style="width:8px;height:8px;border-radius:50%;background:${s.id===stage.id?s.color:"rgba(255,255,255,.1)"};flex-shrink:0;"></div>
        <span style="font-family:monospace;font-size:10px;color:${s.id===stage.id?s.color:"#374151"};">${esc(s.label)}</span>
-       <span style="font-family:monospace;font-size:9px;color:#374151;">&nbsp;≥${s.minScore}</span>
+       <span style="font-family:monospace;font-size:9px;color:#374151;">&nbsp;?${s.minScore}</span>
      </div>`
   ).join("");
 
@@ -588,7 +588,7 @@ export function buildP20QualityGateBlock(item) {
         <div>
           <div style="font-family:monospace;font-size:9px;color:#4b5563;letter-spacing:1.5px;">ENTERPRISE QUALITY SCORE /100</div>
           <div style="font-family:monospace;font-size:12px;font-weight:700;color:${stage.color};margin-top:4px;">~&nbsp;${esc(stage.label.toUpperCase())}</div>
-          <div style="font-family:monospace;font-size:10px;color:${isPublishable?"#00d4aa":"#ea580c"};margin-top:4px;">${isPublishable?"✓ PUBLISHABLE":"✗ BELOW ENTERPRISE THRESHOLD (72)"}</div>
+          <div style="font-family:monospace;font-size:10px;color:${isPublishable?"#00d4aa":"#ea580c"};margin-top:4px;">${isPublishable?"[OK] PUBLISHABLE":"[FAIL] BELOW ENTERPRISE THRESHOLD (72)"}</div>
         </div>
       </div>
       ${breakdownHtml}
@@ -596,16 +596,16 @@ export function buildP20QualityGateBlock(item) {
     <div style="width:200px;flex-shrink:0;">
       <div style="font-family:monospace;font-size:9px;color:#4b5563;letter-spacing:1.5px;margin-bottom:8px;">PUBLICATION WORKFLOW</div>
       <div style="display:flex;flex-direction:column;gap:4px;">${stageFlow}</div>
-      ${!isPublishable ? `<div style="margin-top:10px;padding:8px 10px;background:rgba(234,88,12,.06);border:1px solid rgba(234,88,12,.2);border-radius:4px;font-size:11px;color:#ea580c;font-family:monospace;">Customer deliverable: NO — quality gates must pass</div>` : ""}
+      ${!isPublishable ? `<div style="margin-top:10px;padding:8px 10px;background:rgba(234,88,12,.06);border:1px solid rgba(234,88,12,.2);border-radius:4px;font-size:11px;color:#ea580c;font-family:monospace;">Customer deliverable: NO  -  quality gates must pass</div>` : ""}
     </div>
   </div>
 </div>`;
 }
 
-// ── P20.7: Confidence display for report header ───────────────────────────────
+// -- P20.7: Confidence display for report header -------------------------------
 /**
  * Returns a formatted confidence string for the report header badge.
- * Fixes the "CONFIDENCE -" blank display — uses actual confidence_score.
+ * Fixes the "CONFIDENCE -" blank display  -  uses actual confidence_score.
  */
 export function formatConfidenceForHeader(item) {
   // Use confidence_score preferentially (comes from the 7-factor P18 engine)
@@ -620,10 +620,10 @@ export function formatConfidenceForHeader(item) {
   // If stored as 0-1 fraction, convert to %
   const pct = raw > 1 ? raw : raw * 100;
   const label = pct >= 70 ? "HIGH" : pct >= 40 ? "MEDIUM" : "LOW";
-  return `${pct.toFixed(0)}% — ${label}`;
+  return `${pct.toFixed(0)}%  -  ${label}`;
 }
 
-// ── P20.8: Report Benchmark Scorecard ────────────────────────────────────────
+// -- P20.8: Report Benchmark Scorecard ----------------------------------------
 export function buildBenchmarkBlock(item) {
   const esc = s => String(s || "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
   const { total, breakdown } = computeP20QualityScore(item);
@@ -653,11 +653,11 @@ export function buildBenchmarkBlock(item) {
   <div class="sec-title">INTELLIGENCE QUALITY BENCHMARK</div>
   <div style="font-size:12px;color:#4b5563;margin-bottom:12px;line-height:1.5;">Comparison against established public CTI report quality standards. Scores based on evidence coverage, MITRE completeness, detection content, and executive usefulness.</div>
   ${bRows}
-  <div style="margin-top:10px;padding:8px 12px;background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.05);border-radius:4px;font-size:11px;color:#374151;font-family:monospace;">Benchmark methodology: P20.8 · SENTINEL APEX v184.0 · Score components: Evidence ${breakdown.evidence}/25 · IOC ${breakdown.ioc_quality}/20 · Multi-source ${breakdown.multi_source}/15 · MITRE ${breakdown.mitre}/10 · Detection ${breakdown.detection}/10 · Executive ${breakdown.executive}/10</div>
+  <div style="margin-top:10px;padding:8px 12px;background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.05);border-radius:4px;font-size:11px;color:#374151;font-family:monospace;">Benchmark methodology: P20.8 * SENTINEL APEX v184.0 * Score components: Evidence ${breakdown.evidence}/25 * IOC ${breakdown.ioc_quality}/20 * Multi-source ${breakdown.multi_source}/15 * MITRE ${breakdown.mitre}/10 * Detection ${breakdown.detection}/10 * Executive ${breakdown.executive}/10</div>
 </div>`;
 }
 
-// ── P20 Route Handlers ────────────────────────────────────────────────────────
+// -- P20 Route Handlers --------------------------------------------------------
 
 export async function handleP20QualityReport(request, env) {
   const url    = new URL(request.url);

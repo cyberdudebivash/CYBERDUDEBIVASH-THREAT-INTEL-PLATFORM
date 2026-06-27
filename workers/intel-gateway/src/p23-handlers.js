@@ -1,22 +1,22 @@
 /**
  * workers/intel-gateway/src/p23-handlers.js
- * CYBERDUDEBIVASH® SENTINEL APEX — P23.0 Enterprise Actionable Intelligence Framework
+ * CYBERDUDEBIVASH(R) SENTINEL APEX  -  P23.0 Enterprise Actionable Intelligence Framework
  * =====================================================================================
  * Transforms every threat intelligence report into an enterprise operational intelligence
  * package that a SOC analyst can immediately deploy.
  *
- * Components (all additive — P1–P22 unchanged):
- *   P23.3  — Threat Hunting Package
- *   P23.4  — Incident Response Package
- *   P23.5  — Risk-Based Patch Prioritization
- *   P23.7  — Compliance Intelligence Mapping
- *   P23.8  — Detection Coverage Analysis
- *   P23.10 — Operational Readiness Gate
- *   P23.11 — Enterprise Actionability Score
- *   API    — handleP23Actionability, handleP23OperationalReadiness, handleP23Observability
+ * Components (all additive  -  P1-P22 unchanged):
+ *   P23.3   -  Threat Hunting Package
+ *   P23.4   -  Incident Response Package
+ *   P23.5   -  Risk-Based Patch Prioritization
+ *   P23.7   -  Compliance Intelligence Mapping
+ *   P23.8   -  Detection Coverage Analysis
+ *   P23.10  -  Operational Readiness Gate
+ *   P23.11  -  Enterprise Actionability Score
+ *   API     -  handleP23Actionability, handleP23OperationalReadiness, handleP23Observability
  *
- * ZERO FABRICATION — all intelligence derived from existing item field data.
- * ADDITIVE ONLY   — no existing schema, API, KV, or handler modified.
+ * ZERO FABRICATION  -  all intelligence derived from existing item field data.
+ * ADDITIVE ONLY    -  no existing schema, API, KV, or handler modified.
  */
 
 import { computeP20QualityScore } from './p20-handlers.js';
@@ -24,37 +24,37 @@ import { getP21CertificationLevel } from './p21-handlers.js';
 
 export const P23_VERSION = "P23.0";
 
-// ── Shared HTML escape ────────────────────────────────────────────────────────
+// -- Shared HTML escape --------------------------------------------------------
 function esc(s) {
   return String(s || "").replace(/&/g, "&amp;").replace(/</g, "&lt;")
     .replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
 
-// ── Block container wrapper ───────────────────────────────────────────────────
+// -- Block container wrapper ---------------------------------------------------
 function _block(id, title, color, body) {
   return `
 <div id="${id}" style="margin:24px 0;padding:20px 24px;background:#0d1117;border:1px solid ${color}33;border-left:3px solid ${color};border-radius:6px;font-family:'Courier New',monospace;">
   <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;">
     <span style="color:${color};font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;">${esc(title)}</span>
-    <span style="color:#333;font-size:10px;">P23.0 · SENTINEL APEX</span>
+    <span style="color:#333;font-size:10px;">P23.0 * SENTINEL APEX</span>
   </div>
   ${body}
 </div>`;
 }
 
-// ── Badge ─────────────────────────────────────────────────────────────────────
+// -- Badge ---------------------------------------------------------------------
 function _badge(text, color, bg) {
   return `<span style="display:inline-block;padding:2px 8px;background:${bg || color + '22'};color:${color};border:1px solid ${color}55;border-radius:3px;font-size:10px;font-weight:700;letter-spacing:.08em;">${esc(text)}</span>`;
 }
 
-// ── Mini progress bar ─────────────────────────────────────────────────────────
+// -- Mini progress bar ---------------------------------------------------------
 function _bar(pct, color) {
   return `<div style="background:#1a1f2e;border-radius:2px;height:4px;width:100%;margin:4px 0;">
     <div style="background:${color};height:4px;border-radius:2px;width:${Math.min(100, Math.max(0, pct))}%;"></div>
   </div>`;
 }
 
-// ── Row helper ────────────────────────────────────────────────────────────────
+// -- Row helper ----------------------------------------------------------------
 function _row(label, value, color) {
   return `<div style="display:flex;justify-content:space-between;align-items:flex-start;padding:5px 0;border-bottom:1px solid #1a1f2e;">
     <span style="color:#8b949e;font-size:11px;">${esc(label)}</span>
@@ -62,9 +62,9 @@ function _row(label, value, color) {
   </div>`;
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// P23.5 — Risk-Based Patch Prioritization
-// ─────────────────────────────────────────────────────────────────────────────
+// -----------------------------------------------------------------------------
+// P23.5  -  Risk-Based Patch Prioritization
+// -----------------------------------------------------------------------------
 
 function _computePatchPriority(item) {
   const cvss    = parseFloat(item.cvss_score || item.cvss || 0);
@@ -76,13 +76,13 @@ function _computePatchPriority(item) {
   let score = 0;
   const reasons = [];
 
-  if (kev)        { score += 40; reasons.push("Listed in CISA KEV — confirmed active exploitation in the wild"); }
-  if (cvss >= 9)  { score += 25; reasons.push(`CVSS ${cvss.toFixed(1)} — Critical severity (network-exploitable, no authentication required)`); }
-  else if (cvss >= 7) { score += 15; reasons.push(`CVSS ${cvss.toFixed(1)} — High severity`); }
-  else if (cvss >= 4) { score +=  8; reasons.push(`CVSS ${cvss.toFixed(1)} — Medium severity`); }
-  if (epss >= 50) { score += 20; reasons.push(`EPSS ${epss.toFixed(1)}% — High probability of exploitation within 30 days`); }
-  else if (epss >= 10) { score += 10; reasons.push(`EPSS ${epss.toFixed(1)}% — Elevated exploitation probability`); }
-  if (hasPoc)     { score += 15; reasons.push("Public exploit code or PoC available — exploitation barrier is low"); }
+  if (kev)        { score += 40; reasons.push("Listed in CISA KEV  -  confirmed active exploitation in the wild"); }
+  if (cvss >= 9)  { score += 25; reasons.push(`CVSS ${cvss.toFixed(1)}  -  Critical severity (network-exploitable, no authentication required)`); }
+  else if (cvss >= 7) { score += 15; reasons.push(`CVSS ${cvss.toFixed(1)}  -  High severity`); }
+  else if (cvss >= 4) { score +=  8; reasons.push(`CVSS ${cvss.toFixed(1)}  -  Medium severity`); }
+  if (epss >= 50) { score += 20; reasons.push(`EPSS ${epss.toFixed(1)}%  -  High probability of exploitation within 30 days`); }
+  else if (epss >= 10) { score += 10; reasons.push(`EPSS ${epss.toFixed(1)}%  -  Elevated exploitation probability`); }
+  if (hasPoc)     { score += 15; reasons.push("Public exploit code or PoC available  -  exploitation barrier is low"); }
 
   let priority, timeframe, color, rationale;
   if (kev || score >= 55) {
@@ -117,7 +117,7 @@ export function buildPatchPriorityBlock(item) {
   const cve = item.cve_id || (item.cve_ids || [])[0] || null;
 
   const reasonsHtml = p.reasons.map(r =>
-    `<li style="color:#8b949e;font-size:11px;margin:4px 0;">✓ ${esc(r)}</li>`
+    `<li style="color:#8b949e;font-size:11px;margin:4px 0;">[OK] ${esc(r)}</li>`
   ).join("") || `<li style="color:#4b5563;font-size:11px;">No explicit risk factors scored</li>`;
 
   const body = `
@@ -135,58 +135,58 @@ export function buildPatchPriorityBlock(item) {
       ${_row("Priority Score", `${p.score}/100`, p.color)}
       ${_row("CVSS Score", cvss > 0 ? cvss.toFixed(1) : "N/A", cvss >= 9 ? "#ef4444" : cvss >= 7 ? "#f97316" : "#eab308")}
       ${_row("EPSS", item.epss_score ? `${parseFloat(item.epss_score).toFixed(1)}%` : "N/A", parseFloat(item.epss_score || 0) >= 50 ? "#ef4444" : "#8b949e")}
-      ${_row("CISA KEV", (item.kev_present || item.kev) ? "YES — Active Exploitation" : "Not Listed", (item.kev_present || item.kev) ? "#ef4444" : "#6b7280")}
+      ${_row("CISA KEV", (item.kev_present || item.kev) ? "YES  -  Active Exploitation" : "Not Listed", (item.kev_present || item.kev) ? "#ef4444" : "#6b7280")}
     </div>
     <div style="margin-top:12px;">
       <div style="color:#8b949e;font-size:10px;letter-spacing:.1em;text-transform:uppercase;margin-bottom:6px;">Risk Factors</div>
       <ul style="margin:0;padding-left:0;list-style:none;">${reasonsHtml}</ul>
     </div>`;
 
-  return _block("p23-patch", "P23.5 — Risk-Based Patch Prioritization", p.color, body);
+  return _block("p23-patch", "P23.5  -  Risk-Based Patch Prioritization", p.color, body);
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// P23.7 — Compliance Intelligence Mapping
-// ─────────────────────────────────────────────────────────────────────────────
+// -----------------------------------------------------------------------------
+// P23.7  -  Compliance Intelligence Mapping
+// -----------------------------------------------------------------------------
 
 const _COMPLIANCE_RULES = [
   {
-    frameworks: ["NIST CSF 2.0 — RS.MI (Mitigation)", "NIST CSF 2.0 — DE.CM (Continuous Monitoring)", "NIST CSF 2.0 — PR.IP (Information Protection)"],
+    frameworks: ["NIST CSF 2.0  -  RS.MI (Mitigation)", "NIST CSF 2.0  -  DE.CM (Continuous Monitoring)", "NIST CSF 2.0  -  PR.IP (Information Protection)"],
     condition: () => true,
     reason: "All threat intelligence triggers NIST CSF Identify/Protect/Detect/Respond/Recover functions requiring risk assessment, monitoring updates, and documented response procedures.",
   },
   {
-    frameworks: ["NIST SP 800-53 Rev5 — SI-2 (Flaw Remediation)", "NIST SP 800-53 Rev5 — RA-5 (Vulnerability Monitoring)", "NIST SP 800-53 Rev5 — IR-4 (Incident Handling)"],
+    frameworks: ["NIST SP 800-53 Rev5  -  SI-2 (Flaw Remediation)", "NIST SP 800-53 Rev5  -  RA-5 (Vulnerability Monitoring)", "NIST SP 800-53 Rev5  -  IR-4 (Incident Handling)"],
     condition: () => true,
     reason: "NIST 800-53 mandates flaw remediation (SI-2), continuous vulnerability monitoring (RA-5), and documented incident handling procedures (IR-4) for all federal and FedRAMP systems.",
   },
   {
-    frameworks: ["CIS Control 7 — Continuous Vulnerability Management", "CIS Control 17 — Incident Response Management"],
+    frameworks: ["CIS Control 7  -  Continuous Vulnerability Management", "CIS Control 17  -  Incident Response Management"],
     condition: () => true,
     reason: "CIS Controls require systematic vulnerability identification, prioritized remediation, and maintained incident response capability.",
   },
   {
-    frameworks: ["ISO/IEC 27001:2022 — A.8.8 (Technical Vulnerability Management)", "ISO/IEC 27001:2022 — A.5.25 (Information Security Incident Response)"],
+    frameworks: ["ISO/IEC 27001:2022  -  A.8.8 (Technical Vulnerability Management)", "ISO/IEC 27001:2022  -  A.5.25 (Information Security Incident Response)"],
     condition: () => true,
     reason: "ISO 27001 Annex A mandates timely identification and remediation of technical vulnerabilities and a documented incident response process.",
   },
   {
-    frameworks: ["SOC 2 Type II — CC7.1 (Threat & Vulnerability Management)", "SOC 2 Type II — CC7.2 (Monitoring for Malicious Activity)", "SOC 2 Type II — CC7.4 (Response to Identified Security Events)"],
+    frameworks: ["SOC 2 Type II  -  CC7.1 (Threat & Vulnerability Management)", "SOC 2 Type II  -  CC7.2 (Monitoring for Malicious Activity)", "SOC 2 Type II  -  CC7.4 (Response to Identified Security Events)"],
     condition: () => true,
     reason: "SOC 2 Common Criteria require identification and response to vulnerabilities and security events affecting the trust service categories.",
   },
   {
-    frameworks: ["PCI DSS 4.0 — Req 6.3 (Security Vulnerability Management)", "PCI DSS 4.0 — Req 11.3 (External & Internal Penetration Testing)"],
+    frameworks: ["PCI DSS 4.0  -  Req 6.3 (Security Vulnerability Management)", "PCI DSS 4.0  -  Req 11.3 (External & Internal Penetration Testing)"],
     condition: (item) => (parseFloat(item.cvss_score || 0) >= 7 || item.kev || item.kev_present),
     reason: "PCI DSS 4.0 Requirement 6.3 mandates timely remediation of critical and high vulnerabilities for all entities handling cardholder data.",
   },
   {
-    frameworks: ["DORA (EU 2022/2554) — Art. 10 (ICT Incident Classification)", "DORA — Art. 13 (Digital Operational Resilience Testing)", "DORA — Art. 17 (ICT Incident Management Process)"],
+    frameworks: ["DORA (EU 2022/2554)  -  Art. 10 (ICT Incident Classification)", "DORA  -  Art. 13 (Digital Operational Resilience Testing)", "DORA  -  Art. 17 (ICT Incident Management Process)"],
     condition: (item) => String(item.severity || "").match(/CRITICAL|HIGH/i) || item.kev || item.kev_present,
     reason: "DORA mandates EU financial entities classify, manage, and report ICT-related incidents. High severity or KEV-confirmed vulnerabilities qualify as major incidents requiring NCA notification.",
   },
   {
-    frameworks: ["NIS2 Directive (EU 2022/2555) — Art. 21 (Cybersecurity Risk-Management)", "NIS2 — Art. 23 (Significant Incident Reporting — 24h initial / 72h detailed)"],
+    frameworks: ["NIS2 Directive (EU 2022/2555)  -  Art. 21 (Cybersecurity Risk-Management)", "NIS2  -  Art. 23 (Significant Incident Reporting  -  24h initial / 72h detailed)"],
     condition: (item) => String(item.severity || "").match(/CRITICAL|HIGH/i),
     reason: "NIS2 requires essential and important entities to implement risk-management measures and report significant incidents. High/Critical advisories may trigger mandatory notification obligations.",
   },
@@ -204,7 +204,7 @@ function _buildComplianceMappings(item) {
   const mitres = item.mitre_techniques || item.apex?.mitre_techniques || [];
   if (mitres.length > 0) {
     const techList = mitres.slice(0, 5).map(t =>
-      `MITRE ATT&CK — ${typeof t === 'string' ? t : (t.technique_id || t.id || JSON.stringify(t))}`
+      `MITRE ATT&CK  -  ${typeof t === 'string' ? t : (t.technique_id || t.id || JSON.stringify(t))}`
     );
     mappings.push({
       frameworks: techList,
@@ -233,12 +233,12 @@ export function buildComplianceBlock(item) {
     </div>
     ${rows}`;
 
-  return _block("p23-compliance", "P23.7 — Compliance Intelligence Mapping", "#3b82f6", body);
+  return _block("p23-compliance", "P23.7  -  Compliance Intelligence Mapping", "#3b82f6", body);
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// P23.3 — Threat Hunting Package
-// ─────────────────────────────────────────────────────────────────────────────
+// -----------------------------------------------------------------------------
+// P23.3  -  Threat Hunting Package
+// -----------------------------------------------------------------------------
 
 function _buildHuntObjectives(item) {
   const kev    = !!(item.kev_present || item.kev);
@@ -249,46 +249,46 @@ function _buildHuntObjectives(item) {
   const epss   = parseFloat(item.epss_score || 0);
 
   const objectives = [];
-  if (kev)    objectives.push("Confirm whether this actively exploited vulnerability has been triggered in your environment — check all ingress and exploitation logs for indicators");
-  if (cve)    objectives.push(`Identify all systems affected by ${cve} — cross-reference asset inventory with affected versions and deployment scope`);
-  if (actor)  objectives.push(`Hunt for presence indicators of threat actor ${actor} — pivot on known infrastructure, TTPs, and campaign artifacts`);
+  if (kev)    objectives.push("Confirm whether this actively exploited vulnerability has been triggered in your environment  -  check all ingress and exploitation logs for indicators");
+  if (cve)    objectives.push(`Identify all systems affected by ${cve}  -  cross-reference asset inventory with affected versions and deployment scope`);
+  if (actor)  objectives.push(`Hunt for presence indicators of threat actor ${actor}  -  pivot on known infrastructure, TTPs, and campaign artifacts`);
   objectives.push("Identify post-exploitation lateral movement, persistence mechanisms, and data exfiltration patterns following initial compromise");
   objectives.push("Validate that patch deployment is complete and effective across all affected asset classes and business units");
-  if (iocs.length > 0) objectives.push(`Sweep all endpoint and network telemetry for ${iocs.length} associated indicators — include historical lookback of 90 days`);
-  if (epss >= 20) objectives.push(`EPSS ${epss.toFixed(1)}% indicates elevated exploitation probability — proactively hunt for pre-compromise scanning or reconnaissance activity`);
+  if (iocs.length > 0) objectives.push(`Sweep all endpoint and network telemetry for ${iocs.length} associated indicators  -  include historical lookback of 90 days`);
+  if (epss >= 20) objectives.push(`EPSS ${epss.toFixed(1)}% indicates elevated exploitation probability  -  proactively hunt for pre-compromise scanning or reconnaissance activity`);
 
   const logSources = [];
   const iocTypes = new Set(iocs.map(i => (i.type || "").toLowerCase()).filter(Boolean));
   if (iocTypes.has("ip") || iocTypes.has("domain") || iocTypes.has("url")) {
-    logSources.push("Firewall/proxy logs — outbound connection attempts to listed IP/domain/URL indicators");
-    logSources.push("DNS query logs — suspicious resolution patterns, DGA activity, unusual TLD queries");
+    logSources.push("Firewall/proxy logs  -  outbound connection attempts to listed IP/domain/URL indicators");
+    logSources.push("DNS query logs  -  suspicious resolution patterns, DGA activity, unusual TLD queries");
   }
   if (iocTypes.has("hash") || iocTypes.has("md5") || iocTypes.has("sha256") || iocTypes.has("sha1")) {
-    logSources.push("EDR/AV telemetry — file hash matches on endpoint devices and email gateways");
+    logSources.push("EDR/AV telemetry  -  file hash matches on endpoint devices and email gateways");
   }
-  logSources.push("Windows Security Events — 4624/4625 (auth), 4648 (explicit creds), 4672 (priv assign), 4688 (process creation)");
-  logSources.push("SIEM correlation alerts — retrospective review against existing detection rules");
+  logSources.push("Windows Security Events  -  4624/4625 (auth), 4648 (explicit creds), 4672 (priv assign), 4688 (process creation)");
+  logSources.push("SIEM correlation alerts  -  retrospective review against existing detection rules");
   if (String(item.threat_type || "").match(/web|api|sql|xss|injection/i)) {
-    logSources.push("WAF and application logs — HTTP request patterns, status 4xx/5xx spikes, unusual parameter encoding");
+    logSources.push("WAF and application logs  -  HTTP request patterns, status 4xx/5xx spikes, unusual parameter encoding");
   }
   if (mitres.some(t => String(t).match(/T1055|T1059|T1078|T1086|T1105/))) {
-    logSources.push("PowerShell / WMI / command interpreter logs — unusual parent-child process relationships");
-    logSources.push("Memory forensics — process injection, reflective loading, LSASS access");
+    logSources.push("PowerShell / WMI / command interpreter logs  -  unusual parent-child process relationships");
+    logSources.push("Memory forensics  -  process injection, reflective loading, LSASS access");
   }
-  logSources.push("Cloud audit logs (AWS CloudTrail / Azure Activity / GCP Audit) — IAM changes, unusual API calls");
-  logSources.push("Email gateway logs — phishing delivery, malicious attachments, credential harvesting URLs");
+  logSources.push("Cloud audit logs (AWS CloudTrail / Azure Activity / GCP Audit)  -  IAM changes, unusual API calls");
+  logSources.push("Email gateway logs  -  phishing delivery, malicious attachments, credential harvesting URLs");
 
   const pivots = [];
   iocs.slice(0, 6).forEach(ioc => {
     const v = String(ioc.value || "");
-    if (ioc.type === "ip")     pivots.push(`IP ${esc(v)} → expand to /24 subnet, reverse DNS, ASN lookup, BGP history`);
-    else if (ioc.type === "domain") pivots.push(`Domain ${esc(v)} → registrar, NS records, WHOIS history, passive DNS, certificate transparency`);
-    else if (ioc.type === "hash")   pivots.push(`Hash ${v.substring(0, 20)}... → VirusTotal, similar hashes, parent/child process tree, file signer`);
-    else if (ioc.type === "url")    pivots.push(`URL → extract host + path pattern, check URL shortener history, referrer chains`);
-    else if (ioc.type === "email")  pivots.push(`Email ${esc(v)} → sender infrastructure, registrar, mail exchange records, spoofing indicators`);
+    if (ioc.type === "ip")     pivots.push(`IP ${esc(v)} -> expand to /24 subnet, reverse DNS, ASN lookup, BGP history`);
+    else if (ioc.type === "domain") pivots.push(`Domain ${esc(v)} -> registrar, NS records, WHOIS history, passive DNS, certificate transparency`);
+    else if (ioc.type === "hash")   pivots.push(`Hash ${v.substring(0, 20)}... -> VirusTotal, similar hashes, parent/child process tree, file signer`);
+    else if (ioc.type === "url")    pivots.push(`URL -> extract host + path pattern, check URL shortener history, referrer chains`);
+    else if (ioc.type === "email")  pivots.push(`Email ${esc(v)} -> sender infrastructure, registrar, mail exchange records, spoofing indicators`);
   });
-  if (actor)  pivots.push(`Actor ${esc(actor)} → known infrastructure clusters, published campaigns, MITRE group profile`);
-  if (cve)    pivots.push(`${esc(cve)} → scan asset inventory for vulnerable versions, cross-reference with patch management data`);
+  if (actor)  pivots.push(`Actor ${esc(actor)} -> known infrastructure clusters, published campaigns, MITRE group profile`);
+  if (cve)    pivots.push(`${esc(cve)} -> scan asset inventory for vulnerable versions, cross-reference with patch management data`);
 
   return { objectives, logSources, pivots, mitres };
 }
@@ -306,17 +306,17 @@ export function buildThreatHuntingBlock(item) {
   ).join("");
 
   const srcHtml = hunt.logSources.map(s =>
-    `<li style="color:#8b949e;font-size:11px;margin:3px 0;">→ ${esc(s)}</li>`
+    `<li style="color:#8b949e;font-size:11px;margin:3px 0;">-> ${esc(s)}</li>`
   ).join("");
 
   const pivotHtml = hunt.pivots.map(p =>
-    `<li style="color:#8b949e;font-size:11px;margin:3px 0;">⤷ ${esc(p)}</li>`
+    `<li style="color:#8b949e;font-size:11px;margin:3px 0;">? ${esc(p)}</li>`
   ).join("");
 
   const mitreHtml = hunt.mitres.slice(0, 6).map(t => {
     const tid = typeof t === 'string' ? t : (t.technique_id || t.id || "");
     const tname = typeof t === 'object' ? (t.technique_name || t.name || "") : "";
-    return _badge(tid + (tname ? ` — ${tname.substring(0, 30)}` : ""), "#a78bfa");
+    return _badge(tid + (tname ? `  -  ${tname.substring(0, 30)}` : ""), "#a78bfa");
   }).join(" ");
 
   const body = `
@@ -341,12 +341,12 @@ export function buildThreatHuntingBlock(item) {
       <div style="display:flex;flex-wrap:wrap;gap:6px;">${mitreHtml}</div>
     </div>` : ''}`;
 
-  return _block("p23-hunting", "P23.3 — Threat Hunting Package", "#00ffc6", body);
+  return _block("p23-hunting", "P23.3  -  Threat Hunting Package", "#00ffc6", body);
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// P23.4 — Incident Response Package
-// ─────────────────────────────────────────────────────────────────────────────
+// -----------------------------------------------------------------------------
+// P23.4  -  Incident Response Package
+// -----------------------------------------------------------------------------
 
 function _buildIRChecklist(item) {
   const severity = (item.severity || "").toUpperCase();
@@ -357,11 +357,11 @@ function _buildIRChecklist(item) {
   const isCrit   = severity === "CRITICAL";
 
   const containment = [];
-  if (kev) containment.push("EMERGENCY ACTION: Apply available patch or vendor-recommended workaround immediately — CISA KEV confirms active exploitation");
+  if (kev) containment.push("EMERGENCY ACTION: Apply available patch or vendor-recommended workaround immediately  -  CISA KEV confirms active exploitation");
   containment.push("Isolate confirmed or suspected compromised systems from production network via VLAN, ACL, or physical disconnect");
-  containment.push("Block all identified IOC indicators at perimeter — firewall rules, proxy blacklist, DNS sinkhole");
+  containment.push("Block all identified IOC indicators at perimeter  -  firewall rules, proxy blacklist, DNS sinkhole");
   containment.push("Revoke and rotate all potentially compromised credentials including service accounts, API keys, and privileged users");
-  if (ipIocs > 0) containment.push(`Block ${ipIocs} IP indicator(s) at network egress — apply immediately to all perimeter devices`);
+  if (ipIocs > 0) containment.push(`Block ${ipIocs} IP indicator(s) at network egress  -  apply immediately to all perimeter devices`);
   containment.push("Suspend affected service accounts in Active Directory / IdP pending forensic review");
   containment.push("Activate incident response team and assign incident commander");
 
@@ -375,37 +375,37 @@ function _buildIRChecklist(item) {
   ];
 
   const recovery = [];
-  if (cve) recovery.push(`Apply vendor patch for ${cve} — verify patch authenticity via checksum before deployment`);
-  recovery.push("Rebuild compromised systems from verified clean baseline images — do not attempt in-place disinfection of rootkitted hosts");
-  recovery.push("Restore data from pre-incident backups — verify backup integrity and chain of custody before restoration");
+  if (cve) recovery.push(`Apply vendor patch for ${cve}  -  verify patch authenticity via checksum before deployment`);
+  recovery.push("Rebuild compromised systems from verified clean baseline images  -  do not attempt in-place disinfection of rootkitted hosts");
+  recovery.push("Restore data from pre-incident backups  -  verify backup integrity and chain of custody before restoration");
   recovery.push("Re-enable services with enhanced logging and monitoring active before returning to production");
   recovery.push("Deploy updated detection rules and IOC blocks in SIEM/EDR before service restoration");
   recovery.push("Run authenticated vulnerability scan post-patch to confirm remediation effectiveness");
   recovery.push("Conduct 24-hour enhanced monitoring period after restoration with on-call incident responder coverage");
 
   const evidence = [
-    "Capture full disk images from compromised endpoints prior to remediation — preserve for legal/forensic chain of custody",
-    "Export SIEM/SOC logs for authentication, network, and process execution — minimum 30-day window",
+    "Capture full disk images from compromised endpoints prior to remediation  -  preserve for legal/forensic chain of custody",
+    "Export SIEM/SOC logs for authentication, network, and process execution  -  minimum 30-day window",
     "Preserve firewall and proxy logs with full source/destination IP and timestamp intact",
     "Export EDR telemetry: process trees, file activity, registry changes, network connections",
-    "Record all PCAP network captures if available — focus on C2 beacon traffic and data exfiltration paths",
+    "Record all PCAP network captures if available  -  focus on C2 beacon traffic and data exfiltration paths",
     "Document all forensic evidence with chain of custody forms before sharing with legal or insurance",
     "Screenshot all attacker-controlled infrastructure before takedown requests are initiated",
   ];
 
   const communication = [];
   if (isCrit || kev) {
-    communication.push("Notify CISO, CTO, and CEO within 1 hour of confirmed compromise — provide factual incident briefing only");
-    communication.push("Engage legal counsel immediately — assess breach notification obligations under GDPR, CCPA, state laws");
+    communication.push("Notify CISO, CTO, and CEO within 1 hour of confirmed compromise  -  provide factual incident briefing only");
+    communication.push("Engage legal counsel immediately  -  assess breach notification obligations under GDPR, CCPA, state laws");
     communication.push("NIS2/DORA (EU): Submit initial incident notification to NCA within 24 hours if essential entity");
     communication.push("GDPR: File supervisory authority notification within 72 hours if personal data is compromised");
     communication.push("Prepare board-level summary for next scheduled board meeting or emergency session if material");
   } else {
     communication.push("Notify security leadership within 4 hours of confirmed impact");
     communication.push("Update incident tracking ticket with containment and investigation status every 2 hours");
-    communication.push("Brief CISO once scope and impact are understood — provide written incident summary");
+    communication.push("Brief CISO once scope and impact are understood  -  provide written incident summary");
   }
-  communication.push("Prepare customer/partner communication template — do not disclose details without legal review and executive sign-off");
+  communication.push("Prepare customer/partner communication template  -  do not disclose details without legal review and executive sign-off");
   communication.push("Coordinate with cyber insurance carrier if policy triggers are met");
 
   const postIncident = [
@@ -433,7 +433,7 @@ export function buildIRPackageBlock(item) {
   function _checkList(items, color) {
     return `<ul style="margin:0;padding:0;list-style:none;">${items.map(i =>
       `<li style="color:#8b949e;font-size:11px;margin:4px 0;display:flex;gap:8px;">
-        <span style="color:${color};flex-shrink:0;">□</span><span>${esc(i)}</span>
+        <span style="color:${color};flex-shrink:0;">?</span><span>${esc(i)}</span>
       </li>`).join("")}</ul>`;
   }
 
@@ -455,12 +455,12 @@ export function buildIRPackageBlock(item) {
         </div>`).join("")}
     </div>`;
 
-  return _block("p23-ir", "P23.4 — Incident Response Package", urgencyColor, body);
+  return _block("p23-ir", "P23.4  -  Incident Response Package", urgencyColor, body);
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// P23.8 — Detection Coverage Analysis
-// ─────────────────────────────────────────────────────────────────────────────
+// -----------------------------------------------------------------------------
+// P23.8  -  Detection Coverage Analysis
+// -----------------------------------------------------------------------------
 
 function _computeDetectionCoverage(item) {
   const detections = item.detection_bundle || item.apex?.sigma_rules || item.apex?.detections || [];
@@ -514,24 +514,24 @@ export function buildDetectionCoverageBlock(item) {
       <div>
         <div style="color:#00ffc6;font-size:10px;letter-spacing:.1em;text-transform:uppercase;margin-bottom:8px;">Covered</div>
         <ul style="margin:0;padding:0;list-style:none;">${coveredDims.map(n =>
-          `<li style="color:#8b949e;font-size:11px;margin:3px 0;">✓ ${esc(n)}</li>`).join("")}
+          `<li style="color:#8b949e;font-size:11px;margin:3px 0;">[OK] ${esc(n)}</li>`).join("")}
         </ul>
       </div>` : ''}
       ${blindSpots.length ? `
       <div>
         <div style="color:#ef4444;font-size:10px;letter-spacing:.1em;text-transform:uppercase;margin-bottom:8px;">Blind Spots</div>
         <ul style="margin:0;padding:0;list-style:none;">${blindSpots.map(n =>
-          `<li style="color:#8b949e;font-size:11px;margin:3px 0;">✗ ${esc(n)}</li>`).join("")}
+          `<li style="color:#8b949e;font-size:11px;margin:3px 0;">[FAIL] ${esc(n)}</li>`).join("")}
         </ul>
       </div>` : ''}
     </div>`;
 
-  return _block("p23-coverage", "P23.8 — Detection Coverage Analysis", cov.color, body);
+  return _block("p23-coverage", "P23.8  -  Detection Coverage Analysis", cov.color, body);
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// P23.11 — Enterprise Actionability Score
-// ─────────────────────────────────────────────────────────────────────────────
+// -----------------------------------------------------------------------------
+// P23.11  -  Enterprise Actionability Score
+// -----------------------------------------------------------------------------
 
 export function computeActionabilityScore(item) {
   if (!item || typeof item !== 'object') return { total: 0, label: "N/A", color: "#4b5563", dims: [] };
@@ -548,7 +548,7 @@ export function computeActionabilityScore(item) {
   const hasGuidance = iocs.some(i => i.response_guidance || i.detection_guidance);
   const hasNarrative = !!(item.apex?.ai_summary || item.description);
 
-  // 9 dimensions — weights sum to 100
+  // 9 dimensions  -  weights sum to 100
   const dims = [
     {
       name: "Evidence Quality",
@@ -560,13 +560,13 @@ export function computeActionabilityScore(item) {
       name: "IOC Package Quality",
       score: iocs.length >= 5 ? 11 : iocs.length >= 3 ? 8 : iocs.length >= 1 ? 5 : 0,
       max: 11,
-      note: `${iocs.length} indicator${iocs.length !== 1 ? 's' : ''} — ${hasGuidance ? 'with response guidance' : 'no response guidance'}`,
+      note: `${iocs.length} indicator${iocs.length !== 1 ? 's' : ''}  -  ${hasGuidance ? 'with response guidance' : 'no response guidance'}`,
     },
     {
       name: "Detection Readiness",
       score: detects.length >= 3 ? 12 : detects.length >= 1 ? 7 : 0,
       max: 12,
-      note: detects.length > 0 ? `${detects.length} detection rule${detects.length !== 1 ? 's' : ''} available` : "No detection rules — manual implementation required",
+      note: detects.length > 0 ? `${detects.length} detection rule${detects.length !== 1 ? 's' : ''} available` : "No detection rules  -  manual implementation required",
     },
     {
       name: "SOC Package Usefulness",
@@ -584,7 +584,7 @@ export function computeActionabilityScore(item) {
       name: "Incident Response Readiness",
       score: kev ? 11 : cvss >= 7 ? 9 : cvss >= 4 ? 6 : 3,
       max: 11,
-      note: kev ? "IR package critical — KEV-confirmed active exploitation" : cvss >= 7 ? "Full IR package applicable" : "Standard IR guidance applicable",
+      note: kev ? "IR package critical  -  KEV-confirmed active exploitation" : cvss >= 7 ? "Full IR package applicable" : "Standard IR guidance applicable",
     },
     {
       name: "Compliance Intelligence",
@@ -602,7 +602,7 @@ export function computeActionabilityScore(item) {
       name: "Deployment & Patch Readiness",
       score: (cvss > 0 || kev || epss > 0) ? 10 : 3,
       max: 10,
-      note: kev ? "Immediate deployment required — risk score calibrated" : cvss > 0 ? "Risk-based deployment timeline generated" : "No deployment scoring data",
+      note: kev ? "Immediate deployment required  -  risk score calibrated" : cvss > 0 ? "Risk-based deployment timeline generated" : "No deployment scoring data",
     },
   ];
 
@@ -644,18 +644,18 @@ export function buildActionabilityScoreBlock(item) {
         <div style="margin-top:8px;">${_badge(as.label, as.color)}</div>
         <div style="color:#8b949e;font-size:11px;margin-top:6px;">
           Composite score across 9 operational readiness dimensions.
-          A score ≥70 indicates the report is deployable in a production SOC environment.
+          A score ?70 indicates the report is deployable in a production SOC environment.
         </div>
       </div>
     </div>
     <div>${dimRows}</div>`;
 
-  return _block("p23-actionability", "P23.11 — Enterprise Actionability Score", as.color, body);
+  return _block("p23-actionability", "P23.11  -  Enterprise Actionability Score", as.color, body);
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// P23.10 — Operational Readiness Gate
-// ─────────────────────────────────────────────────────────────────────────────
+// -----------------------------------------------------------------------------
+// P23.10  -  Operational Readiness Gate
+// -----------------------------------------------------------------------------
 
 export function buildOperationalReadinessGateBlock(item) {
   if (!item || typeof item !== 'object') return '';
@@ -674,14 +674,14 @@ export function buildOperationalReadinessGateBlock(item) {
   const gates = [
     { name: "Executive Package",       pass: hasExec,               desc: "AI narrative and executive summary available" },
     { name: "SOC Package",             pass: iocs.length > 0,       desc: `${iocs.length} IOC indicators available` },
-    { name: "IOC Response Guidance",   pass: hasGuid,               desc: hasGuid ? "Per-IOC response and detection guidance" : "Missing — SOC deployment limited" },
-    { name: "Detection Package",       pass: detects.length > 0,    desc: detects.length > 0 ? `${detects.length} detection rules available` : "Missing — manual detection required" },
+    { name: "IOC Response Guidance",   pass: hasGuid,               desc: hasGuid ? "Per-IOC response and detection guidance" : "Missing  -  SOC deployment limited" },
+    { name: "Detection Package",       pass: detects.length > 0,    desc: detects.length > 0 ? `${detects.length} detection rules available` : "Missing  -  manual detection required" },
     { name: "Threat Hunting Package",  pass: iocs.length > 0 && mitres.length > 0, desc: "IOCs and MITRE techniques available for hunting" },
-    { name: "IR Package",             pass: cvss >= 4 || kev,       desc: kev ? "IR critical — KEV active exploitation" : cvss >= 4 ? "IR package applicable" : "Severity below IR threshold" },
+    { name: "IR Package",             pass: cvss >= 4 || kev,       desc: kev ? "IR critical  -  KEV active exploitation" : cvss >= 4 ? "IR package applicable" : "Severity below IR threshold" },
     { name: "Compliance Mapping",      pass: true,                  desc: "Multi-framework compliance mapping generated" },
-    { name: "Patch Priority",         pass: cvss > 0 || kev,        desc: cvss > 0 ? `CVSS ${cvss.toFixed(1)} — risk score available` : kev ? "KEV-confirmed — immediate action" : "No CVSS data available" },
+    { name: "Patch Priority",         pass: cvss > 0 || kev,        desc: cvss > 0 ? `CVSS ${cvss.toFixed(1)}  -  risk score available` : kev ? "KEV-confirmed  -  immediate action" : "No CVSS data available" },
     { name: "Evidence Chain",          pass: !!(ec && ec.source_reliability), desc: ec ? `Evidence from ${ec.source_name || 'verified source'}` : "No formal evidence chain" },
-    { name: "P21 Certification",       pass: p21cert.level !== "BELOW_MINIMUM", desc: `${p21cert.level} — score ${p21cert.score}/100` },
+    { name: "P21 Certification",       pass: p21cert.level !== "BELOW_MINIMUM", desc: `${p21cert.level}  -  score ${p21cert.score}/100` },
   ];
 
   const passed  = gates.filter(g => g.pass).length;
@@ -690,11 +690,11 @@ export function buildOperationalReadinessGateBlock(item) {
   const allPass = passed === total;
 
   const gateColor = allPass ? "#00ffc6" : pct >= 70 ? "#3b82f6" : pct >= 50 ? "#eab308" : "#ef4444";
-  const gateLabel = allPass ? "OPERATIONALLY CERTIFIED" : pct >= 70 ? "CONDITIONALLY DEPLOYABLE" : pct >= 50 ? "REVIEW REQUIRED" : "INCOMPLETE — DO NOT PUBLISH";
+  const gateLabel = allPass ? "OPERATIONALLY CERTIFIED" : pct >= 70 ? "CONDITIONALLY DEPLOYABLE" : pct >= 50 ? "REVIEW REQUIRED" : "INCOMPLETE  -  DO NOT PUBLISH";
 
   const gateRows = gates.map(g => `
     <div style="display:flex;align-items:flex-start;gap:10px;padding:6px 0;border-bottom:1px solid #1a1f2e;">
-      <span style="color:${g.pass ? '#00ffc6' : '#ef4444'};font-size:12px;flex-shrink:0;">${g.pass ? '✓' : '✗'}</span>
+      <span style="color:${g.pass ? '#00ffc6' : '#ef4444'};font-size:12px;flex-shrink:0;">${g.pass ? '[OK]' : '[FAIL]'}</span>
       <div style="flex:1;">
         <span style="color:${g.pass ? '#e6edf3' : '#8b949e'};font-size:11px;font-weight:600;">${esc(g.name)}</span>
         <span style="color:#4b5563;font-size:11px;margin-left:8px;">${esc(g.desc)}</span>
@@ -714,12 +714,12 @@ export function buildOperationalReadinessGateBlock(item) {
     </div>
     <div>${gateRows}</div>`;
 
-  return _block("p23-readiness", "P23.10 — Operational Readiness Gate", gateColor, body);
+  return _block("p23-readiness", "P23.10  -  Operational Readiness Gate", gateColor, body);
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
+// -----------------------------------------------------------------------------
 // API Handlers
-// ─────────────────────────────────────────────────────────────────────────────
+// -----------------------------------------------------------------------------
 
 export async function handleP23Actionability(request, env) {
   const url     = new URL(request.url);

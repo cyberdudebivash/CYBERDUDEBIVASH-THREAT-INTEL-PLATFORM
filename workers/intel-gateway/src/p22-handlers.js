@@ -1,21 +1,21 @@
 /**
  * workers/intel-gateway/src/p22-handlers.js
- * CYBERDUDEBIVASH® SENTINEL APEX — P22.0 Enterprise Intelligence Trust & Verification v1.0.0
+ * CYBERDUDEBIVASH(R) SENTINEL APEX  -  P22.0 Enterprise Intelligence Trust & Verification v1.0.0
  * ============================================================================================
  *
- * ADDITIVE ONLY — reuses P20/P21 scoring engines. ZERO new intelligence engines.
+ * ADDITIVE ONLY  -  reuses P20/P21 scoring engines. ZERO new intelligence engines.
  *
- * P22.2  buildP22ValidationStatusBlock() — IOC multi-source validation display
- * P22.3  buildP22ContradictionBlock()    — per-item contradiction check display
- * P22.4  _validateSigmaStructure()       — Sigma YAML structural validator
- * P22.5  buildP22PresentationBlock()     — hardened executive presentation check
- * P22.6  buildSOCAnalystBlock()          — SOC investigation aggregator
- * P22.7  buildConfidenceExplanationBlock() — transparent confidence breakdown
- * P22.8  runP22Gates()                   — Commercial Readiness Gate V2 (adds G9 contradiction)
- * P22.9  handleP22TrustDashboard()       — Enterprise Trust Dashboard API
- * P22.10 handleP22Observability()        — Extended observability metrics
- *        handleP22Validate()             — Single-item P22 validation endpoint
- *        handleP22ContradictionReport()  — Contradiction report API endpoint
+ * P22.2  buildP22ValidationStatusBlock()  -  IOC multi-source validation display
+ * P22.3  buildP22ContradictionBlock()     -  per-item contradiction check display
+ * P22.4  _validateSigmaStructure()        -  Sigma YAML structural validator
+ * P22.5  buildP22PresentationBlock()      -  hardened executive presentation check
+ * P22.6  buildSOCAnalystBlock()           -  SOC investigation aggregator
+ * P22.7  buildConfidenceExplanationBlock()  -  transparent confidence breakdown
+ * P22.8  runP22Gates()                    -  Commercial Readiness Gate V2 (adds G9 contradiction)
+ * P22.9  handleP22TrustDashboard()        -  Enterprise Trust Dashboard API
+ * P22.10 handleP22Observability()         -  Extended observability metrics
+ *        handleP22Validate()              -  Single-item P22 validation endpoint
+ *        handleP22ContradictionReport()   -  Contradiction report API endpoint
  */
 
 import { computeP20QualityScore, stripMarkdown, getPublicationStage } from './p20-handlers.js';
@@ -25,7 +25,7 @@ export const P22_VERSION = "22.0";
 
 const esc = s => String(s || "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
 
-// ── P22.4: Sigma Structural Validator ────────────────────────────────────────
+// -- P22.4: Sigma Structural Validator ----------------------------------------
 
 function _validateSigmaStructure(sigma) {
   if (!sigma || typeof sigma !== "string" || sigma.length < 50) {
@@ -44,12 +44,12 @@ function _validateSigmaStructure(sigma) {
   if (sigma.includes("EventID:\n      - 4625") &&
       sigma.includes("EventID:\n      - 4648") &&
       sigma.includes("EventID:\n      - 4728")) {
-    issues.push("Generic authentication EventID pattern detected — rule is not vulnerability-specific");
+    issues.push("Generic authentication EventID pattern detected  -  rule is not vulnerability-specific");
   }
   if (sigma.includes("DestinationPort:\n      - 4444") ||
       sigma.includes("DestinationPort:\n      - 1337") ||
       sigma.includes("DestinationPort:\n      - 31337")) {
-    issues.push("Generic attacker port detected — rule targets honeypot/CTF artifacts not production indicators");
+    issues.push("Generic attacker port detected  -  rule targets honeypot/CTF artifacts not production indicators");
   }
 
   const status = issues.length === 0 ? "VERIFIED"
@@ -78,7 +78,7 @@ function _validateDetectionRules(item) {
   };
 }
 
-// ── P22.3: Per-Item Contradiction Check ──────────────────────────────────────
+// -- P22.3: Per-Item Contradiction Check --------------------------------------
 
 function _detectContradictions(item) {
   const contradictions = [];
@@ -112,7 +112,7 @@ function _detectContradictions(item) {
   return contradictions;
 }
 
-// ── P22.2: IOC Validation Status Block ───────────────────────────────────────
+// -- P22.2: IOC Validation Status Block ---------------------------------------
 
 export function buildP22ValidationStatusBlock(item) {
   const iocs = (item.iocs || []).filter(i => i && typeof i === "object");
@@ -133,15 +133,15 @@ export function buildP22ValidationStatusBlock(item) {
     byCert[vs] = (byCert[vs] || 0) + 1;
     const vsColor = vs === "HIGH_CONFIDENCE" ? "#00ffc6" : vs === "MEDIUM_CONFIDENCE" ? "#d97706" : "#ef4444";
     const vsLabel = vs.replace(/_/g, " ");
-    const firstSeen = (ioc.first_seen || "").slice(0, 10) || "—";
-    const lastSeen  = (ioc.last_seen  || "").slice(0, 10) || "—";
+    const firstSeen = (ioc.first_seen || "").slice(0, 10) || " - ";
+    const lastSeen  = (ioc.last_seen  || "").slice(0, 10) || " - ";
     const p20h = ioc.p20_hardened ? '<span style="font-size:9px;padding:1px 5px;background:rgba(0,255,198,.08);border:1px solid rgba(0,255,198,.2);border-radius:3px;color:#00ffc6;font-family:monospace;">P20</span>' : "";
     return `
   <tr>
     <td style="font-family:monospace;font-size:10px;color:#94a3b8;">${esc(ioc.type || "?").toUpperCase()}</td>
     <td style="font-family:monospace;font-size:10.5px;word-break:break-all;max-width:180px;">${esc(ioc.value || "")}</td>
     <td><span style="padding:2px 7px;border-radius:8px;font-size:9px;font-weight:700;font-family:monospace;background:${vsColor}18;border:1px solid ${vsColor}40;color:${vsColor};">${vsLabel}</span>${p20h}</td>
-    <td style="font-family:monospace;font-size:10px;color:#64748b;">${esc(ioc.kill_chain_stage || "—")}</td>
+    <td style="font-family:monospace;font-size:10px;color:#64748b;">${esc(ioc.kill_chain_stage || " - ")}</td>
     <td style="font-family:monospace;font-size:10px;color:#64748b;">${firstSeen}</td>
     <td style="font-family:monospace;font-size:10px;color:#64748b;">${parseFloat(ioc.confidence || 0).toFixed(0)}%</td>
   </tr>`;
@@ -154,7 +154,7 @@ export function buildP22ValidationStatusBlock(item) {
 <div style="margin:20px 0;background:rgba(5,12,24,0.97);border:1px solid rgba(22,32,48,0.8);border-radius:12px;overflow:hidden;font-family:'Segoe UI',system-ui,sans-serif;">
   <div style="padding:14px 18px;background:rgba(0,0,0,.2);border-bottom:1px solid rgba(22,32,48,.6);display:flex;align-items:center;gap:12px;">
     <div>
-      <div style="font-family:monospace;font-size:9px;color:#4b5563;letter-spacing:2px;">P22.2 — IOC MULTI-SOURCE VALIDATION</div>
+      <div style="font-family:monospace;font-size:9px;color:#4b5563;letter-spacing:2px;">P22.2  -  IOC MULTI-SOURCE VALIDATION</div>
       <div style="display:flex;gap:16px;margin-top:6px;flex-wrap:wrap;">
         <span style="font-size:11px;color:#00ffc6;font-weight:700;">${totalOp} operational IOCs</span>
         ${fpCount > 0 ? `<span style="font-size:11px;color:#64748b;">${fpCount} FP removed (P20.2)</span>` : ""}
@@ -185,13 +185,13 @@ export function buildP22ValidationStatusBlock(item) {
     </table>
   </div>` : `<div style="padding:14px 18px;color:#4b5563;font-size:12px;">No operational IOCs in this advisory.</div>`}
   <div style="padding:10px 14px;background:rgba(255,255,255,.02);border-top:1px solid rgba(22,32,48,.5);font-size:10.5px;color:#4b5563;font-family:monospace;">
-    Verification Method: Automated SENTINEL APEX P20.2 IOC Hardening Pipeline — FP blocklist + confidence scoring
+    Verification Method: Automated SENTINEL APEX P20.2 IOC Hardening Pipeline  -  FP blocklist + confidence scoring
     ${item.ioc_fp_removed > 0 ? ` | ${item.ioc_fp_removed} false positives removed` : ""}
   </div>
 </div>`;
 }
 
-// ── P22.3: Contradiction Block ────────────────────────────────────────────────
+// -- P22.3: Contradiction Block ------------------------------------------------
 
 export function buildP22ContradictionBlock(item) {
   const contradictions = _detectContradictions(item);
@@ -199,8 +199,8 @@ export function buildP22ContradictionBlock(item) {
     return `
 <div style="margin:16px 0;padding:12px 16px;background:rgba(16,185,129,.04);border:1px solid rgba(16,185,129,.15);border-radius:8px;font-family:'Segoe UI',system-ui,sans-serif;">
   <div style="display:flex;align-items:center;gap:8px;">
-    <span style="color:#10b981;font-size:13px;">✓</span>
-    <span style="font-family:monospace;font-size:9px;color:#10b981;letter-spacing:1.5px;font-weight:700;">P22.3 — NO INTERNAL CONTRADICTIONS DETECTED</span>
+    <span style="color:#10b981;font-size:13px;">[OK]</span>
+    <span style="font-family:monospace;font-size:9px;color:#10b981;letter-spacing:1.5px;font-weight:700;">P22.3  -  NO INTERNAL CONTRADICTIONS DETECTED</span>
   </div>
   <div style="font-size:11.5px;color:#4b5563;margin-top:4px;">CVSS, severity, KEV status, EPSS, and timestamps are internally consistent.</div>
 </div>`;
@@ -218,8 +218,8 @@ export function buildP22ContradictionBlock(item) {
 <div style="margin:16px 0;background:rgba(5,12,24,0.97);border:1px solid rgba(${errCount > 0 ? "239,68,68" : "217,119,6"},.3);border-radius:10px;overflow:hidden;font-family:'Segoe UI',system-ui,sans-serif;">
   <div style="padding:12px 16px;background:rgba(${errCount > 0 ? "239,68,68" : "217,119,6"},.06);border-bottom:1px solid rgba(22,32,48,.6);">
     <div style="font-family:monospace;font-size:9px;color:${errCount > 0 ? "#ef4444" : "#d97706"};letter-spacing:2px;font-weight:700;">
-      P22.3 — ${contradictions.length} CONTRADICTION${contradictions.length > 1 ? "S" : ""} DETECTED
-      ${errCount > 0 ? `· ${errCount} ERROR-LEVEL` : ""}
+      P22.3  -  ${contradictions.length} CONTRADICTION${contradictions.length > 1 ? "S" : ""} DETECTED
+      ${errCount > 0 ? `* ${errCount} ERROR-LEVEL` : ""}
     </div>
     <div style="font-size:11px;color:#64748b;margin-top:3px;">These inconsistencies require analyst review before enterprise distribution.</div>
   </div>
@@ -227,7 +227,7 @@ export function buildP22ContradictionBlock(item) {
 </div>`;
 }
 
-// ── P22.4: Detection Verification Block ──────────────────────────────────────
+// -- P22.4: Detection Verification Block --------------------------------------
 
 export function buildP22DetectionVerificationBlock(item) {
   const rules  = _validateDetectionRules(item);
@@ -241,14 +241,14 @@ export function buildP22DetectionVerificationBlock(item) {
     { name: "YARA",   key: "yara",   ...rules.yara   },
   ].map(r => {
     const col = r.status === "VERIFIED" ? "#10b981" : r.status === "WARNING" ? "#d97706" : r.status === "FAILED" ? "#ef4444" : "#4b5563";
-    const icon = r.status === "VERIFIED" ? "✓" : r.status === "WARNING" ? "⚠" : r.status === "FAILED" ? "✗" : "—";
+    const icon = r.status === "VERIFIED" ? "[OK]" : r.status === "WARNING" ? "?" : r.status === "FAILED" ? "[FAIL]" : " - ";
     return `
   <div style="display:flex;align-items:flex-start;gap:12px;padding:9px 0;border-bottom:1px solid rgba(22,32,48,.4);">
     <div style="width:52px;flex-shrink:0;text-align:right;font-family:monospace;font-size:11px;font-weight:800;color:#94a3b8;">${r.name}</div>
     <div style="width:80px;flex-shrink:0;">
       <span style="padding:2px 8px;border-radius:6px;font-size:9px;font-weight:800;font-family:monospace;background:${col}12;border:1px solid ${col}30;color:${col};">${icon} ${r.status}</span>
     </div>
-    <div style="font-size:11px;color:#64748b;line-height:1.5;">${r.issues.length ? r.issues.map(i => esc(i)).join(" · ") : "All structural checks passed"}</div>
+    <div style="font-size:11px;color:#64748b;line-height:1.5;">${r.issues.length ? r.issues.map(i => esc(i)).join(" * ") : "All structural checks passed"}</div>
   </div>`;
   }).join("");
 
@@ -258,10 +258,10 @@ export function buildP22DetectionVerificationBlock(item) {
   return `
 <div style="margin:20px 0;background:rgba(5,12,24,0.97);border:1px solid rgba(22,32,48,.8);border-radius:12px;overflow:hidden;font-family:'Segoe UI',system-ui,sans-serif;">
   <div style="padding:14px 18px;background:rgba(0,0,0,.2);border-bottom:1px solid rgba(22,32,48,.6);">
-    <div style="font-family:monospace;font-size:9px;color:#4b5563;letter-spacing:2px;">P22.4 — DETECTION RULE VERIFICATION</div>
+    <div style="font-family:monospace;font-size:9px;color:#4b5563;letter-spacing:2px;">P22.4  -  DETECTION RULE VERIFICATION</div>
     <div style="margin-top:6px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
       <span style="font-size:11px;color:${allVerified ? "#10b981" : hasAny ? "#d97706" : "#ef4444"};font-weight:700;">
-        ${allVerified ? "All rules structurally verified" : hasAny ? "Rules present — warnings detected" : "No detection rules present"}
+        ${allVerified ? "All rules structurally verified" : hasAny ? "Rules present  -  warnings detected" : "No detection rules present"}
       </span>
       <span style="font-size:11px;color:#64748b;">MITRE: ${esc(ttpStr)}</span>
     </div>
@@ -270,7 +270,7 @@ export function buildP22DetectionVerificationBlock(item) {
 </div>`;
 }
 
-// ── P22.6: SOC Analyst Review Block ──────────────────────────────────────────
+// -- P22.6: SOC Analyst Review Block ------------------------------------------
 
 export function buildSOCAnalystBlock(item) {
   const esc2 = s => String(s || "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
@@ -290,7 +290,7 @@ export function buildSOCAnalystBlock(item) {
     opIOCs.map(i => i.detection_guidance).filter(Boolean)
   )].slice(0, 5);
 
-  // Investigation steps (derived from severity + KEV + TTPs — no fabrication)
+  // Investigation steps (derived from severity + KEV + TTPs  -  no fabrication)
   const invSteps = [];
   if (kev) invSteps.push("Immediately check all internet-facing systems for this CVE. CISA KEV = confirmed active exploitation.");
   if (cvss >= 9) invSteps.push(`CVSS ${cvss.toFixed(1)}: Check affected product versions in asset inventory. Escalate to IR team if unpatched.`);
@@ -321,25 +321,25 @@ export function buildSOCAnalystBlock(item) {
 
   // False positive notes per IOC type
   const fpNotes = [];
-  if (iocTypes.has("domain")) fpNotes.push("Domain IOCs: verify against CDN/shared hosting before blocking — single domain may serve multiple tenants");
-  if (iocTypes.has("ipv4") || iocTypes.has("ip")) fpNotes.push("IP IOCs: check geo-IP and ASN context — IPs may be TOR exit nodes or shared cloud infrastructure");
-  if (iocTypes.has("hash")) fpNotes.push("File hash IOCs: verify against normalized hash databases before quarantining — packed/repacked files may share code but differ in hash");
+  if (iocTypes.has("domain")) fpNotes.push("Domain IOCs: verify against CDN/shared hosting before blocking  -  single domain may serve multiple tenants");
+  if (iocTypes.has("ipv4") || iocTypes.has("ip")) fpNotes.push("IP IOCs: check geo-IP and ASN context  -  IPs may be TOR exit nodes or shared cloud infrastructure");
+  if (iocTypes.has("hash")) fpNotes.push("File hash IOCs: verify against normalized hash databases before quarantining  -  packed/repacked files may share code but differ in hash");
 
-  const invHTML = invSteps.map(s => `<div style="padding:8px 0;border-bottom:1px solid rgba(22,32,48,.3);font-size:12px;color:#c4d0e3;display:flex;gap:8px;"><span style="color:#00ffc6;font-weight:800;flex-shrink:0;">→</span><span>${esc2(s)}</span></div>`).join("");
+  const invHTML = invSteps.map(s => `<div style="padding:8px 0;border-bottom:1px solid rgba(22,32,48,.3);font-size:12px;color:#c4d0e3;display:flex;gap:8px;"><span style="color:#00ffc6;font-weight:800;flex-shrink:0;">-></span><span>${esc2(s)}</span></div>`).join("");
   const huntHTML = huntQueries.map(q => `<div style="margin-bottom:10px;padding:10px 12px;background:rgba(59,130,246,.04);border:1px solid rgba(59,130,246,.1);border-radius:6px;"><div style="font-family:monospace;font-size:9px;color:#60a5fa;font-weight:700;margin-bottom:4px;">${esc2(q.title)}</div><div style="font-size:11.5px;color:#94a3b8;line-height:1.5;">${esc2(q.query)}</div></div>`).join("");
   const guidHTML = [...responseGuidance, ...detectionGuidance].length
-    ? [...responseGuidance, ...detectionGuidance].map(g => `<div style="padding:5px 0;border-bottom:1px solid rgba(22,32,48,.2);font-size:11.5px;color:#94a3b8;">• ${esc2(g)}</div>`).join("")
+    ? [...responseGuidance, ...detectionGuidance].map(g => `<div style="padding:5px 0;border-bottom:1px solid rgba(22,32,48,.2);font-size:11.5px;color:#94a3b8;">* ${esc2(g)}</div>`).join("")
     : '<div style="font-size:11.5px;color:#4b5563;">No specific guidance derived from IOC analysis. Apply standard IR playbook.</div>';
   const fpHTML = fpNotes.length
-    ? fpNotes.map(n => `<div style="font-size:11.5px;color:#94a3b8;padding:4px 0;">• ${esc2(n)}</div>`).join("")
+    ? fpNotes.map(n => `<div style="font-size:11.5px;color:#94a3b8;padding:4px 0;">* ${esc2(n)}</div>`).join("")
     : '<div style="font-size:11.5px;color:#4b5563;">No IOC-specific false positive notes. Apply organizational baselining.</div>';
 
   return `
 <div style="margin:20px 0;background:rgba(5,12,24,0.97);border:1px solid rgba(59,130,246,.2);border-radius:12px;overflow:hidden;font-family:'Segoe UI',system-ui,sans-serif;">
   <div style="padding:14px 18px;background:rgba(59,130,246,.05);border-bottom:1px solid rgba(22,32,48,.6);">
-    <div style="font-family:monospace;font-size:9px;color:#4b5563;letter-spacing:2px;">P22.6 — SOC ANALYST REVIEW PACKAGE</div>
+    <div style="font-family:monospace;font-size:9px;color:#4b5563;letter-spacing:2px;">P22.6  -  SOC ANALYST REVIEW PACKAGE</div>
     <div style="font-size:13px;font-weight:700;color:#e2e8f0;margin-top:4px;">
-      ${sev === "CRITICAL" ? "🔴" : sev === "HIGH" ? "🟠" : "🟡"} ${sev} ${kev ? "· CISA KEV CONFIRMED" : ""} ${epss >= 50 ? `· EPSS ${epss.toFixed(0)}% (HIGH)` : ""}
+      ${sev === "CRITICAL" ? "?" : sev === "HIGH" ? "?" : "?"} ${sev} ${kev ? "* CISA KEV CONFIRMED" : ""} ${epss >= 50 ? `* EPSS ${epss.toFixed(0)}% (HIGH)` : ""}
     </div>
   </div>
   <div style="padding:16px 18px;display:grid;grid-template-columns:1fr 1fr;gap:20px;">
@@ -375,7 +375,7 @@ export function buildSOCAnalystBlock(item) {
 </div>`;
 }
 
-// ── P22.7: Confidence Explanation Block ──────────────────────────────────────
+// -- P22.7: Confidence Explanation Block --------------------------------------
 
 export function buildConfidenceExplanationBlock(item) {
   const { total: score, breakdown } = computeP20QualityScore(item);
@@ -390,7 +390,7 @@ export function buildConfidenceExplanationBlock(item) {
       score: breakdown.evidence || 0,
       max: 25,
       explain: ec.reliability_code
-        ? `Source reliability: ${ec.reliability_code} — ${ec.source_reliability || ""} | Corroboration: ${ec.corroboration_count || 0} source(s)`
+        ? `Source reliability: ${ec.reliability_code}  -  ${ec.source_reliability || ""} | Corroboration: ${ec.corroboration_count || 0} source(s)`
         : "No evidence chain present. Run p20_evidence_chain_enricher.py.",
     },
     {
@@ -425,7 +425,7 @@ export function buildConfidenceExplanationBlock(item) {
       score: breakdown.detection || 0,
       max: 10,
       explain: (item.sigma_rule || item.sigma)
-        ? `Sigma rule present — ${breakdown.detection === 10 ? "class-specific (full score)" : "generic indicators (partial score)"}`
+        ? `Sigma rule present  -  ${breakdown.detection === 10 ? "class-specific (full score)" : "generic indicators (partial score)"}`
         : "No detection rules generated for this advisory.",
     },
     {
@@ -435,7 +435,7 @@ export function buildConfidenceExplanationBlock(item) {
       explain: (() => {
         const t = item.apex?.ai_summary || item.description || "";
         const w = stripMarkdown(t).split(/\s+/).filter(Boolean).length;
-        return `Executive summary: ${w} words (≥100 required for full score)`;
+        return `Executive summary: ${w} words (?100 required for full score)`;
       })(),
     },
     {
@@ -460,9 +460,9 @@ export function buildConfidenceExplanationBlock(item) {
       score: breakdown.consistency || 0,
       max: 5,
       explain: [
-        item.cvss_score != null ? "✓ CVSS present" : "✗ CVSS absent",
-        item.epss_score != null ? "✓ EPSS present" : "✗ EPSS absent",
-        (item.cve_id || (item.cve_ids || []).length) ? "✓ CVE ID present" : "✗ CVE ID absent",
+        item.cvss_score != null ? "[OK] CVSS present" : "[FAIL] CVSS absent",
+        item.epss_score != null ? "[OK] EPSS present" : "[FAIL] EPSS absent",
+        (item.cve_id || (item.cve_ids || []).length) ? "[OK] CVE ID present" : "[FAIL] CVE ID absent",
       ].join(" | "),
     },
   ];
@@ -488,7 +488,7 @@ export function buildConfidenceExplanationBlock(item) {
 <div style="margin:20px 0;background:rgba(5,12,24,0.97);border:1px solid rgba(22,32,48,.8);border-radius:12px;overflow:hidden;font-family:'Segoe UI',system-ui,sans-serif;">
   <div style="padding:14px 18px;background:rgba(0,0,0,.2);border-bottom:1px solid rgba(22,32,48,.6);display:flex;align-items:center;gap:14px;">
     <div>
-      <div style="font-family:monospace;font-size:9px;color:#4b5563;letter-spacing:2px;">P22.7 — CONFIDENCE ENGINE V2 — TRANSPARENT SCORE BREAKDOWN</div>
+      <div style="font-family:monospace;font-size:9px;color:#4b5563;letter-spacing:2px;">P22.7  -  CONFIDENCE ENGINE V2  -  TRANSPARENT SCORE BREAKDOWN</div>
       <div style="margin-top:5px;display:flex;align-items:center;gap:10px;">
         <span style="font-family:monospace;font-size:22px;font-weight:900;color:${certL.color};">${score}<span style="font-size:11px;font-weight:400;color:#4b5563;">/100</span></span>
         <span style="padding:4px 10px;border-radius:10px;font-size:10px;font-weight:800;font-family:monospace;color:${certL.color};background:${certL.color}12;border:1px solid ${certL.color}30;">${certL.label}</span>
@@ -503,7 +503,7 @@ export function buildConfidenceExplanationBlock(item) {
 </div>`;
 }
 
-// ── P22.8: Commercial Readiness Gate V2 ─────────────────────────────────────
+// -- P22.8: Commercial Readiness Gate V2 -------------------------------------
 
 export function buildP22CommercialGateBlock(item) {
   const { total: score, breakdown } = computeP20QualityScore(item);
@@ -515,11 +515,11 @@ export function buildP22CommercialGateBlock(item) {
   const isPublishable = score >= 75 && errContras.length === 0;
 
   const gates = [
-    { id: "G7_SCORE",         label: "Commercial Score",      passed: score >= 75,             detail: `${score}/100 (≥75 required)` },
-    { id: "G8_EVIDENCE",      label: "Evidence Coverage",     passed: (breakdown.evidence||0) >= 12, detail: `${breakdown.evidence||0}/25 (≥12 required)` },
+    { id: "G7_SCORE",         label: "Commercial Score",      passed: score >= 75,             detail: `${score}/100 (?75 required)` },
+    { id: "G8_EVIDENCE",      label: "Evidence Coverage",     passed: (breakdown.evidence||0) >= 12, detail: `${breakdown.evidence||0}/25 (?12 required)` },
     { id: "G9_CONTRADICTION", label: "Contradiction Check",   passed: errContras.length === 0,  detail: errContras.length === 0 ? "No critical contradictions" : `${errContras.length} error-level contradiction(s)` },
     { id: "G10_DETECTION",    label: "Detection Validation",  passed: sigmaOk,                 detail: sigmaOk ? `Sigma ${rules.sigma.status}` : `Sigma FAILED: ${rules.sigma.issues[0] || ""}` },
-    { id: "G11_EXECUTIVE",    label: "Executive Quality",     passed: (breakdown.executive||0) >= 4, detail: `${breakdown.executive||0}/10 (≥4 required)` },
+    { id: "G11_EXECUTIVE",    label: "Executive Quality",     passed: (breakdown.executive||0) >= 4, detail: `${breakdown.executive||0}/10 (?4 required)` },
     { id: "G12_FRESHNESS",    label: "Freshness Gate",        passed: (breakdown.freshness||0) >= 1, detail: `${breakdown.freshness||0}/5 (>0 required)` },
   ];
 
@@ -530,7 +530,7 @@ export function buildP22CommercialGateBlock(item) {
   <div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid rgba(22,32,48,.3);">
     <span style="font-family:monospace;font-size:9px;min-width:130px;color:#64748b;">${esc(g.id)}</span>
     <span style="width:16px;height:16px;border-radius:50%;background:${g.passed ? "rgba(16,185,129,.12)" : "rgba(239,68,68,.12)"};border:1.5px solid ${g.passed ? "#10b981" : "#ef4444"};display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;">
-      <span style="font-size:9px;color:${g.passed ? "#10b981" : "#ef4444"};">${g.passed ? "✓" : "✗"}</span>
+      <span style="font-size:9px;color:${g.passed ? "#10b981" : "#ef4444"};">${g.passed ? "[OK]" : "[FAIL]"}</span>
     </span>
     <span style="flex:1;font-size:11.5px;color:#c4d0e3;">${esc(g.label)}</span>
     <span style="font-family:monospace;font-size:10px;color:#64748b;">${esc(g.detail)}</span>
@@ -541,11 +541,11 @@ export function buildP22CommercialGateBlock(item) {
 <div style="margin:20px 0;background:rgba(5,12,24,0.97);border:1.5px solid rgba(${isPublishable ? "0,255,198" : "239,68,68"},.25);border-radius:12px;overflow:hidden;font-family:'Segoe UI',system-ui,sans-serif;">
   <div style="padding:14px 18px;background:rgba(${isPublishable ? "0,255,198" : "239,68,68"},.04);border-bottom:1px solid rgba(22,32,48,.6);display:flex;align-items:center;justify-content:space-between;">
     <div>
-      <div style="font-family:monospace;font-size:9px;color:#4b5563;letter-spacing:2px;">P22.8 — COMMERCIAL READINESS GATE V2</div>
+      <div style="font-family:monospace;font-size:9px;color:#4b5563;letter-spacing:2px;">P22.8  -  COMMERCIAL READINESS GATE V2</div>
       <div style="display:flex;align-items:center;gap:10px;margin-top:6px;">
         <span style="font-family:monospace;font-size:18px;font-weight:900;color:${certL.color};">${score}/100</span>
         <span style="padding:3px 10px;border-radius:10px;font-size:10px;font-weight:800;font-family:monospace;color:${certL.color};background:${certL.color}12;border:1px solid ${certL.color}30;">${certL.label}</span>
-        <span style="font-size:11px;color:${isPublishable ? "#10b981" : "#ef4444"};font-weight:700;">${isPublishable ? "✓ CLEARED FOR ENTERPRISE DISTRIBUTION" : "✗ NOT CLEARED — RESOLVE GATE FAILURES"}</span>
+        <span style="font-size:11px;color:${isPublishable ? "#10b981" : "#ef4444"};font-weight:700;">${isPublishable ? "[OK] CLEARED FOR ENTERPRISE DISTRIBUTION" : "[FAIL] NOT CLEARED  -  RESOLVE GATE FAILURES"}</span>
       </div>
     </div>
     <div style="font-family:monospace;font-size:10px;color:#4b5563;">${passed}/${all} GATES</div>
@@ -554,7 +554,7 @@ export function buildP22CommercialGateBlock(item) {
 </div>`;
 }
 
-// ── P22.9/P22.10: API Handlers ────────────────────────────────────────────────
+// -- P22.9/P22.10: API Handlers ------------------------------------------------
 
 function _jsonRes(data, status = 200) {
   return new Response(JSON.stringify(data, null, 2), {

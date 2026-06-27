@@ -1,10 +1,10 @@
 /**
  * workers/intel-gateway/src/p21-handlers.js
- * CYBERDUDEBIVASH® SENTINEL APEX — P21.0 Enterprise Intelligence Certification System v1.0.0
+ * CYBERDUDEBIVASH(R) SENTINEL APEX  -  P21.0 Enterprise Intelligence Certification System v1.0.0
  * ============================================================================================
  *
  * P21 certification orchestrates all existing P20 engines under a unified
- * gate-by-gate audit framework. ZERO new scoring engines — reuses computeP20QualityScore()
+ * gate-by-gate audit framework. ZERO new scoring engines  -  reuses computeP20QualityScore()
  * and all existing block builders. Adds:
  *
  *   P21.1  Evidence gate: validates evidence_chain completeness
@@ -13,12 +13,12 @@
  *   P21.4  Detection gate: validates rule presence + MITRE mapping
  *   P21.5  Executive gate: validates executive block completeness
  *   P21.6  Presentation gate: validates title, description, HTML fields
- *   P21.7  Commercial Readiness: P21 thresholds (75/90 — stricter than P20 72/90)
+ *   P21.7  Commercial Readiness: P21 thresholds (75/90  -  stricter than P20 72/90)
  *   P21.8  Analyst QA Dashboard API handler
  *   P21.9  Observability: gate latency + pass/fail telemetry
  *   P21.10 Regression feed audit
  *
- * ADDITIVE ONLY — no existing API, auth, KV, D1, or payment system changed.
+ * ADDITIVE ONLY  -  no existing API, auth, KV, D1, or payment system changed.
  */
 
 import { computeP20QualityScore, getPublicationStage, stripMarkdown,
@@ -27,19 +27,19 @@ import { computeP20QualityScore, getPublicationStage, stripMarkdown,
 
 export const P21_VERSION = "21.0";
 
-// ── P21.7 Certification Thresholds (stricter than P20) ─────────────────────
+// -- P21.7 Certification Thresholds (stricter than P20) ---------------------
 const CERT_LEVELS = [
-  { id: "PREMIUM_CERTIFIED", label: "Premium Certified",  minScore: 90, color: "#00ffc6",  badge: "★ PREMIUM CERTIFIED" },
-  { id: "ENTERPRISE_READY",  label: "Enterprise Ready",   minScore: 75, color: "#3b82f6",  badge: "✓ ENTERPRISE READY"  },
-  { id: "INTERNAL_DRAFT",    label: "Internal Draft",     minScore: 38, color: "#d97706",  badge: "⚠ INTERNAL DRAFT"    },
-  { id: "BELOW_MINIMUM",     label: "Below Minimum",      minScore: 0,  color: "#ef4444",  badge: "✗ BELOW MINIMUM"     },
+  { id: "PREMIUM_CERTIFIED", label: "Premium Certified",  minScore: 90, color: "#00ffc6",  badge: "? PREMIUM CERTIFIED" },
+  { id: "ENTERPRISE_READY",  label: "Enterprise Ready",   minScore: 75, color: "#3b82f6",  badge: "[OK] ENTERPRISE READY"  },
+  { id: "INTERNAL_DRAFT",    label: "Internal Draft",     minScore: 38, color: "#d97706",  badge: "? INTERNAL DRAFT"    },
+  { id: "BELOW_MINIMUM",     label: "Below Minimum",      minScore: 0,  color: "#ef4444",  badge: "[FAIL] BELOW MINIMUM"     },
 ];
 
 export function getP21CertificationLevel(score) {
   return CERT_LEVELS.find(l => score >= l.minScore) || CERT_LEVELS[CERT_LEVELS.length - 1];
 }
 
-// ── P21 Gate Definitions ────────────────────────────────────────────────────
+// -- P21 Gate Definitions ----------------------------------------------------
 
 const PACKAGE_TAG_RE = /^(npm|pip|gem|cargo|go|composer|nuget|maven):|^(golang\.org|go\.dev|npmjs\.com|pypi\.org)$/i;
 
@@ -59,7 +59,7 @@ function _runGates(item) {
   gate("G1_EVIDENCE", "Evidence Chain",
     hasEC && ecCode !== "F",
     hasEC
-      ? `Reliability: ${ecCode} — ${ec.source_reliability || "Unknown"} | Corroboration: ${ec.corroboration_count || 0} | Accuracy: ${ec.accuracy_code || "?"} — ${ec.accuracy_label || ""}`
+      ? `Reliability: ${ecCode}  -  ${ec.source_reliability || "Unknown"} | Corroboration: ${ec.corroboration_count || 0} | Accuracy: ${ec.accuracy_code || "?"}  -  ${ec.accuracy_label || ""}`
       : "evidence_chain field absent. Run p20_evidence_chain_enricher.py.",
     !hasEC ? "Run: python3 scripts/p20_evidence_chain_enricher.py" :
     ecCode === "F" ? "Add source_url to item so reliability can be scored" :
@@ -122,9 +122,9 @@ function _runGates(item) {
   const ttps        = (item.ttps || item.mitre_tactics || []).filter(Boolean);
   gate("G4_DETECTION", "Detection Certification",
     detectPass,
-    `Sigma: ${hasSigma ? (sigmaSpecific ? "✓ Specific" : "⚠ Generic") : "✗"} | KQL: ${hasKQL ? "✓" : "✗"} | SPL: ${hasSPL ? "✓" : "✗"} | YARA: ${hasYARA ? "✓" : "✗"} | Rules: ${ruleCount} | MITRE TTPs: ${ttps.length}`,
+    `Sigma: ${hasSigma ? (sigmaSpecific ? "[OK] Specific" : "? Generic") : "[FAIL]"} | KQL: ${hasKQL ? "[OK]" : "[FAIL]"} | SPL: ${hasSPL ? "[OK]" : "[FAIL]"} | YARA: ${hasYARA ? "[OK]" : "[FAIL]"} | Rules: ${ruleCount} | MITRE TTPs: ${ttps.length}`,
     !detectPass ? "Run apex_real_detection_engine.py to generate class-aware Sigma rules" :
-    !sigmaSpecific ? "Sigma rule uses generic indicators — regenerate with apex_real_detection_engine.py" :
+    !sigmaSpecific ? "Sigma rule uses generic indicators  -  regenerate with apex_real_detection_engine.py" :
     ruleCount < 2 ? "Consider generating KQL + SPL rules for multi-SIEM coverage" : ""
   );
 
@@ -135,9 +135,9 @@ function _runGates(item) {
   const hasMarkdown = /#{1,6}\s+|\*{2}|_{2}|\[.*\]\(.*\)/.test(execText);
   gate("G5_EXECUTIVE", "Executive Intelligence",
     execPass,
-    `${execWords} words | Markdown leak: ${hasMarkdown ? "YES — stripped at render" : "No"} | KEV context: ${item.kev_present ? "✓" : "N/A"}`,
+    `${execWords} words | Markdown leak: ${hasMarkdown ? "YES  -  stripped at render" : "No"} | KEV context: ${item.kev_present ? "[OK]" : "N/A"}`,
     !execPass ? `Executive summary too short (${execWords} words). Minimum 50 words required.` :
-    hasMarkdown ? "Raw markdown detected in ai_summary — stripped at render (P20.7 active)" : ""
+    hasMarkdown ? "Raw markdown detected in ai_summary  -  stripped at render (P20.7 active)" : ""
   );
 
   // G6: Presentation (P21.6)
@@ -151,12 +151,12 @@ function _runGates(item) {
   const presPass = hasTitle;
   gate("G6_PRESENTATION", "Presentation Quality",
     presPass,
-    `Title: ${hasTitle ? "✓" : "✗ (too short)"} | CVSS: ${hasCVSS ? "✓" : "✗"} | EPSS: ${hasEPSS ? "✓" : "✗"} | CVE: ${hasCVE ? "✓" : "✗"} | Source: ${hasSrc ? "✓" : "✗"} | TLP: ${hasTLP ? "✓" : "✗"}`,
+    `Title: ${hasTitle ? "[OK]" : "[FAIL] (too short)"} | CVSS: ${hasCVSS ? "[OK]" : "[FAIL]"} | EPSS: ${hasEPSS ? "[OK]" : "[FAIL]"} | CVE: ${hasCVE ? "[OK]" : "[FAIL]"} | Source: ${hasSrc ? "[OK]" : "[FAIL]"} | TLP: ${hasTLP ? "[OK]" : "[FAIL]"}`,
     !hasTitle ? "Advisory title is missing or too short (< 10 chars)" :
-    !hasCVSS ? "CVSS score absent — enrichment incomplete" : ""
+    !hasCVSS ? "CVSS score absent  -  enrichment incomplete" : ""
   );
 
-  // G7: Commercial Readiness (P21.7) — uses P20 score engine
+  // G7: Commercial Readiness (P21.7)  -  uses P20 score engine
   const { total: score, breakdown } = computeP20QualityScore(item);
   const certLevel = getP21CertificationLevel(score);
   const isPublishable = score >= 75;
@@ -173,7 +173,7 @@ function _runGates(item) {
   return { gates, passed, total: gates.length, score, breakdown, certLevel, latencyMs };
 }
 
-// ── P21 HTML Certification Card (injected into report) ─────────────────────
+// -- P21 HTML Certification Card (injected into report) ---------------------
 export function buildP21CertificationBlock(item) {
   const esc = s => String(s || "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
   const { gates, passed, total, score, certLevel, latencyMs } = _runGates(item);
@@ -186,7 +186,7 @@ export function buildP21CertificationBlock(item) {
   const gateRows = gates.map(g => `
   <div style="display:flex;align-items:flex-start;gap:12px;padding:10px 0;border-bottom:1px solid rgba(22,32,48,0.5);">
     <div style="width:20px;height:20px;border-radius:50%;background:${g.passed ? "rgba(16,185,129,.15)" : "rgba(239,68,68,.15)"};border:1.5px solid ${g.passed ? "#10b981" : "#ef4444"};display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px;">
-      <span style="font-size:10px;color:${g.passed ? "#10b981" : "#ef4444"};">${g.passed ? "✓" : "✗"}</span>
+      <span style="font-size:10px;color:${g.passed ? "#10b981" : "#ef4444"};">${g.passed ? "[OK]" : "[FAIL]"}</span>
     </div>
     <div style="flex:1;">
       <div style="display:flex;align-items:center;gap:8px;">
@@ -195,7 +195,7 @@ export function buildP21CertificationBlock(item) {
         <span style="margin-left:auto;font-family:monospace;font-size:10px;font-weight:800;color:${g.passed ? "#10b981" : "#ef4444"};">${g.passed ? "PASS" : "FAIL"}</span>
       </div>
       <div style="font-size:11.5px;color:#94a3b8;margin-top:3px;line-height:1.5;">${esc(g.detail)}</div>
-      ${g.guidance ? `<div style="font-size:11px;color:#d97706;margin-top:3px;padding:4px 8px;background:rgba(217,119,6,.06);border-radius:4px;border-left:2px solid rgba(217,119,6,.4);">▶ ${esc(g.guidance)}</div>` : ""}
+      ${g.guidance ? `<div style="font-size:11px;color:#d97706;margin-top:3px;padding:4px 8px;background:rgba(217,119,6,.06);border-radius:4px;border-left:2px solid rgba(217,119,6,.4);">? ${esc(g.guidance)}</div>` : ""}
     </div>
   </div>`).join("");
 
@@ -203,7 +203,7 @@ export function buildP21CertificationBlock(item) {
 <div style="margin:24px 0;background:linear-gradient(135deg,rgba(5,12,24,0.97),rgba(9,15,30,0.97));border:1.5px solid rgba(${score >= 90 ? "0,255,198" : score >= 75 ? "59,130,246" : score >= 38 ? "217,119,6" : "239,68,68"},.3);border-radius:14px;overflow:hidden;font-family:'Segoe UI',system-ui,sans-serif;">
   <div style="padding:16px 20px;background:rgba(${score >= 90 ? "0,255,198" : score >= 75 ? "59,130,246" : score >= 38 ? "217,119,6" : "239,68,68"},.06);border-bottom:1px solid rgba(22,32,48,0.7);display:flex;align-items:center;gap:16px;">
     <div>
-      <div style="font-family:monospace;font-size:9px;color:#4b5563;letter-spacing:2px;margin-bottom:4px;">SENTINEL APEX P21.0 — ENTERPRISE INTELLIGENCE CERTIFICATION</div>
+      <div style="font-family:monospace;font-size:9px;color:#4b5563;letter-spacing:2px;margin-bottom:4px;">SENTINEL APEX P21.0  -  ENTERPRISE INTELLIGENCE CERTIFICATION</div>
       <div style="display:flex;align-items:center;gap:10px;">
         <span style="font-family:monospace;font-size:22px;font-weight:900;color:${levelColor};">${score}</span>
         <span style="font-size:10px;color:#4b5563;margin-top:4px;">/100</span>
@@ -224,30 +224,30 @@ export function buildP21CertificationBlock(item) {
   </div>
   <div style="padding:12px 20px;background:rgba(255,255,255,.02);border-top:1px solid rgba(22,32,48,0.5);display:flex;gap:24px;flex-wrap:wrap;">
     <div style="font-size:10px;color:#4b5563;font-family:monospace;">
-      ${score >= 90 ? "★ Certified for PREMIUM distribution to enterprise customers" :
-        score >= 75 ? "✓ Cleared for enterprise distribution and commercial delivery" :
-        score >= 38 ? "⚠ Internal draft — improve score before commercial delivery" :
-        "✗ Below minimum quality threshold — not suitable for publication"}
+      ${score >= 90 ? "? Certified for PREMIUM distribution to enterprise customers" :
+        score >= 75 ? "[OK] Cleared for enterprise distribution and commercial delivery" :
+        score >= 38 ? "? Internal draft  -  improve score before commercial delivery" :
+        "[FAIL] Below minimum quality threshold  -  not suitable for publication"}
     </div>
     <div style="margin-left:auto;font-size:9px;color:#374151;font-family:monospace;">P21.0 | ${new Date().toISOString().slice(0,19)}Z</div>
   </div>
 </div>`;
 }
 
-// ── P21 Scorecard Comparison Block ─────────────────────────────────────────
+// -- P21 Scorecard Comparison Block -----------------------------------------
 export function buildP21ScorecardComparison(item) {
   const esc = s => String(s || "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
   const { score, breakdown, certLevel } = _runGates(item);
 
   const components = [
-    { key: "evidence",     label: "Evidence Chain",     max: 25, icon: "📋" },
-    { key: "ioc_quality",  label: "IOC Quality",        max: 20, icon: "🎯" },
-    { key: "multi_source", label: "Multi-source Valid.", max: 15, icon: "🔗" },
-    { key: "mitre",        label: "MITRE ATT&CK",       max: 10, icon: "⚔" },
-    { key: "detection",    label: "Detection Rules",     max: 10, icon: "🔍" },
-    { key: "executive",    label: "Executive Quality",   max: 10, icon: "📊" },
-    { key: "freshness",    label: "Intelligence Fresh.", max:  5, icon: "⏱" },
-    { key: "consistency",  label: "Internal Consist.",   max:  5, icon: "✅" },
+    { key: "evidence",     label: "Evidence Chain",     max: 25, icon: "?" },
+    { key: "ioc_quality",  label: "IOC Quality",        max: 20, icon: "?" },
+    { key: "multi_source", label: "Multi-source Valid.", max: 15, icon: "?" },
+    { key: "mitre",        label: "MITRE ATT&CK",       max: 10, icon: "?" },
+    { key: "detection",    label: "Detection Rules",     max: 10, icon: "?" },
+    { key: "executive",    label: "Executive Quality",   max: 10, icon: "?" },
+    { key: "freshness",    label: "Intelligence Fresh.", max:  5, icon: "?" },
+    { key: "consistency",  label: "Internal Consist.",   max:  5, icon: "[OK]" },
   ];
 
   const rows = components.map(c => {
@@ -282,7 +282,7 @@ export function buildP21ScorecardComparison(item) {
 </div>`;
 }
 
-// ── P21.8: API Handlers ─────────────────────────────────────────────────────
+// -- P21.8: API Handlers -----------------------------------------------------
 
 function _jsonRes(data, status = 200) {
   return new Response(JSON.stringify(data, null, 2), {
