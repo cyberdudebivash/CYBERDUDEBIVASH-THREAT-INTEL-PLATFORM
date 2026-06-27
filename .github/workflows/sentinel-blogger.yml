@@ -1715,6 +1715,39 @@ jobs:
           exit 0
 
       # -----------------------------------------------------------------------
+      # STAGE 3.93.15e: P22.3 CONTRADICTION DETECTOR (NON-BLOCKING)
+      # Scans the live feed for intra-item and cross-item contradictions:
+      # Intra: C1 CVSS/Severity mismatch, C2 KEV/Severity, C3 KEV/CVSS,
+      #   C4 EPSS/Severity, C5 Exploit/CVSS, C6 Timestamp inversion, C7 IOC conf.
+      # Cross: X1 CVSS delta >1.5, X2 Severity conflict, X3 KEV conflict,
+      #   X4 Attribution conflict — all grouped by CVE ID.
+      # Non-blocking in CI (continue-on-error) — report written to
+      # data/quality/p22_contradiction_report.json for observability.
+      # Hard-gate mode activates via FAIL_FAST=true (default: false).
+      # Zero fabrication — all checks derive from existing item field data.
+      # -----------------------------------------------------------------------
+      - name: "STAGE 3.93.15e - P22.3 Contradiction Detector"
+        timeout-minutes: 4
+        continue-on-error: true
+        env:
+          DRY_RUN: "false"
+          FAIL_FAST: "false"
+        run: |
+          python3 scripts/p22_contradiction_detector.py
+          EXIT=$?
+          if [ -f "data/quality/p22_contradiction_report.json" ]; then
+            CHECKED=$(python3 -c "import json; d=json.load(open('data/quality/p22_contradiction_report.json')); print(d.get('items_checked',0))" 2>/dev/null || echo "?")
+            TOTAL=$(python3 -c "import json; d=json.load(open('data/quality/p22_contradiction_report.json')); print(d.get('total_contradictions',0))" 2>/dev/null || echo "?")
+            ERRORS=$(python3 -c "import json; d=json.load(open('data/quality/p22_contradiction_report.json')); print(d.get('error_count',0))" 2>/dev/null || echo "?")
+            WARNS=$(python3 -c "import json; d=json.load(open('data/quality/p22_contradiction_report.json')); print(d.get('warning_count',0))" 2>/dev/null || echo "?")
+            echo "[P22.3] Checked: ${CHECKED} items | Contradictions: ${TOTAL} | Errors: ${ERRORS} | Warnings: ${WARNS}"
+            if [ "${ERRORS}" != "?" ] && [ "${ERRORS}" -gt "0" ] 2>/dev/null; then
+              echo "::warning::P22.3 Contradiction Detector: ${ERRORS} ERROR-level contradictions detected in feed. Review data/quality/p22_contradiction_report.json."
+            fi
+          fi
+          exit 0
+
+      # -----------------------------------------------------------------------
       # STAGE 3.93.16: SOURCE DIVERSITY ENFORCER (Phase 1C -- NON-BLOCKING WARN)
       # Enforces source diversity governance against the live feed manifest.
       # Detects single-source dominance (golden invariant: max 30%), Shannon

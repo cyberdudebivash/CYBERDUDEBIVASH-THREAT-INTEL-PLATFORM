@@ -43,7 +43,7 @@ import re
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
-PLATFORM_VERSION = "161.0"
+PLATFORM_VERSION = "184.0"
 TODAY = datetime.now(timezone.utc).strftime("%Y/%m/%d")
 TODAY_ISO = datetime.now(timezone.utc).strftime("%Y-%m-%d")
 
