@@ -31,20 +31,20 @@
  *   API    handleP32Observability                 /api/v1/p32/observability
  *
  * AUDIT-CONFIRMED REUSE (zero duplication):
- *   computeP20QualityScore    — quality scoring (P20) - reused in P32.8 maturity
- *   computeActionabilityScore — actionability (P23)   - reused in P32.2 decisions
- *   computeEnterpriseTrustScore — trust (P25)         - reused in P32.13 release gate
- *   computeP26Grade           — composite grade (P26) - reused in P32.8 maturity
- *   P29.4 decisions           — tactical 8-action     - P32.2 adds STRATEGIC layer above
- *   P29.5 lifecycle           — enrichment status     - P32.1 adds OPERATIONAL process
- *   P29.6 detection presence  — format presence       - P32.4 adds EFFECTIVENESS scoring
- *   P28.1 environment risk    — environment profiles  - P32.5 adds SIMULATION estimates
- *   P30.4 detection drift     — detection drift only  - P32.6 expands to 8 dimensions
- *   P25 explainability        — score explanation     - P32.7 adds PER-CLAIM provenance
+ *   computeP20QualityScore     -  quality scoring (P20) - reused in P32.8 maturity
+ *   computeActionabilityScore  -  actionability (P23)   - reused in P32.2 decisions
+ *   computeEnterpriseTrustScore  -  trust (P25)         - reused in P32.13 release gate
+ *   computeP26Grade            -  composite grade (P26) - reused in P32.8 maturity
+ *   P29.4 decisions            -  tactical 8-action     - P32.2 adds STRATEGIC layer above
+ *   P29.5 lifecycle            -  enrichment status     - P32.1 adds OPERATIONAL process
+ *   P29.6 detection presence   -  format presence       - P32.4 adds EFFECTIVENESS scoring
+ *   P28.1 environment risk     -  environment profiles  - P32.5 adds SIMULATION estimates
+ *   P30.4 detection drift      -  detection drift only  - P32.6 expands to 8 dimensions
+ *   P25 explainability         -  score explanation     - P32.7 adds PER-CLAIM provenance
  *
- * ZERO FABRICATION  — all scores derived from real feed fields only.
- * ADDITIVE ONLY     — no existing handler, schema, KV key, auth, or payment modified.
- * ZERO DUPLICATION  — P20-P31 engines imported; P32 adds only audit-confirmed gaps.
+ * ZERO FABRICATION   -  all scores derived from real feed fields only.
+ * ADDITIVE ONLY      -  no existing handler, schema, KV key, auth, or payment modified.
+ * ZERO DUPLICATION   -  P20-P31 engines imported; P32 adds only audit-confirmed gaps.
  */
 
 import { computeP20QualityScore }      from './p20-handlers.js';
@@ -54,7 +54,7 @@ import { computeP26Grade }             from './p26-handlers.js';
 
 export const P32_VERSION = "P32.0";
 
-// ── Shared helpers ────────────────────────────────────────────────────────────
+// -- Shared helpers ------------------------------------------------------------
 
 function esc(s) {
   return String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;")
@@ -112,21 +112,21 @@ function _ageHours(ts) {
   } catch { return -1; }
 }
 
-// ── P32.1: Operational Intelligence Lifecycle ─────────────────────────────────
+// -- P32.1: Operational Intelligence Lifecycle ---------------------------------
 // 9-stage operational process lifecycle. DIFFERENT from P29.5 enrichment status.
 // P29.5 tracks data completeness (VERIFIED_CURRENT/ENRICHED/ACTIVE/HISTORICAL).
 // P32.1 tracks the operational process: where is this advisory in the analyst workflow?
 
 const _LIFECYCLE_STAGES = [
-  { id: "discovery",    label: "Discovery",    icon: "🔍", desc: "Advisory ingested and initially classified" },
-  { id: "validation",   label: "Validation",   icon: "✅", desc: "Intelligence sources and claims verified" },
-  { id: "correlation",  label: "Correlation",  icon: "🔗", desc: "Related advisories and campaigns identified" },
-  { id: "enrichment",   label: "Enrichment",   icon: "⚙️",  desc: "CVSS/EPSS/KEV/IOC/Actor data populated" },
-  { id: "detection",    label: "Detection",    icon: "🎯", desc: "Detection rules created and validated" },
-  { id: "response",     label: "Response",     icon: "🚨", desc: "Response playbooks and IR packages ready" },
-  { id: "recovery",     label: "Recovery",     icon: "🔄", desc: "Patch/mitigation guidance published" },
-  { id: "monitoring",   label: "Monitoring",   icon: "📊", desc: "Ongoing threat landscape tracking active" },
-  { id: "retirement",   label: "Retirement",   icon: "📦", desc: "Advisory archived — threat remediated" },
+  { id: "discovery",    label: "Discovery",    icon: "?", desc: "Advisory ingested and initially classified" },
+  { id: "validation",   label: "Validation",   icon: "[OK]", desc: "Intelligence sources and claims verified" },
+  { id: "correlation",  label: "Correlation",  icon: "?", desc: "Related advisories and campaigns identified" },
+  { id: "enrichment",   label: "Enrichment",   icon: "??",  desc: "CVSS/EPSS/KEV/IOC/Actor data populated" },
+  { id: "detection",    label: "Detection",    icon: "?", desc: "Detection rules created and validated" },
+  { id: "response",     label: "Response",     icon: "?", desc: "Response playbooks and IR packages ready" },
+  { id: "recovery",     label: "Recovery",     icon: "?", desc: "Patch/mitigation guidance published" },
+  { id: "monitoring",   label: "Monitoring",   icon: "?", desc: "Ongoing threat landscape tracking active" },
+  { id: "retirement",   label: "Retirement",   icon: "?", desc: "Advisory archived  -  threat remediated" },
 ];
 
 function _computeOperationalLifecycle(item) {
@@ -196,22 +196,22 @@ export function buildP32LifecycleBlock(item) {
   <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:6px;">${stageCards}</div>`;
 
   return _block(`p32-lifecycle-${esc(item.id || "x")}`,
-    "P32.1 — Operational Intelligence Lifecycle", "#f59e0b", body,
-    "9-stage operational process: Discovery → Validation → Correlation → Enrichment → Detection → Response → Recovery → Monitoring → Retirement");
+    "P32.1  -  Operational Intelligence Lifecycle", "#f59e0b", body,
+    "9-stage operational process: Discovery -> Validation -> Correlation -> Enrichment -> Detection -> Response -> Recovery -> Monitoring -> Retirement");
 }
 
-// ── P32.2: Enterprise Decision Engine ─────────────────────────────────────────
+// -- P32.2: Enterprise Decision Engine -----------------------------------------
 // STRATEGIC GOVERNANCE decisions. DIFFERENT from:
 //   P29.4 (tactical: Patch/Hunt/Detect/Monitor/Contain/Recover/Escalate)
 //   P28.5 (operational queues: Patch/Hunt/Detection/Executive/Compliance)
 // P32.2 adds the STRATEGIC layer: Accept Risk, Escalate Board, Legal Review,
-// Compliance Review, Vendor Coordination, Monitor Only — with required evidence.
+// Compliance Review, Vendor Coordination, Monitor Only  -  with required evidence.
 
 const _STRATEGIC_DECISIONS = [
   {
     id: "immediate_action",
     label: "Immediate Action Required",
-    icon: "🚨",
+    icon: "?",
     color: "#ef4444",
     test: (item) => {
       const kev = Boolean(item.kev_present || (item.apex || {}).kev_listed);
@@ -222,14 +222,14 @@ const _STRATEGIC_DECISIONS = [
     evidence: (item) => {
       const kev = Boolean(item.kev_present || (item.apex || {}).kev_listed);
       const cvss = parseFloat(item.risk_score || item.cvss_score || 0);
-      return kev ? `CISA KEV listed — actively exploited in the wild. CVSS ${cvss}.`
-        : `CVSS ${cvss} — critical severity with remote exploitation confirmed.`;
+      return kev ? `CISA KEV listed  -  actively exploited in the wild. CVSS ${cvss}.`
+        : `CVSS ${cvss}  -  critical severity with remote exploitation confirmed.`;
     },
   },
   {
     id: "vendor_coordination",
     label: "Vendor Coordination Required",
-    icon: "🤝",
+    icon: "?",
     color: "#f97316",
     test: (item) => {
       const hasCVE = (item.cve_ids || []).length > 0 || String(item.title || "").includes("CVE-");
@@ -239,13 +239,13 @@ const _STRATEGIC_DECISIONS = [
     evidence: (item) => {
       const cves = (item.cve_ids || []).join(", ") || "CVE in title";
       const epss = parseFloat(item.epss_score || 0);
-      return `${cves} — EPSS ${(epss * 100).toFixed(1)}% exploitation probability. Vendor patch timeline needed.`;
+      return `${cves}  -  EPSS ${(epss * 100).toFixed(1)}% exploitation probability. Vendor patch timeline needed.`;
     },
   },
   {
     id: "compliance_review",
     label: "Compliance Review Required",
-    icon: "📋",
+    icon: "?",
     color: "#a78bfa",
     test: (item) => {
       const sev = String(item.severity || "").toUpperCase();
@@ -262,7 +262,7 @@ const _STRATEGIC_DECISIONS = [
   {
     id: "legal_review",
     label: "Legal Review Required",
-    icon: "⚖️",
+    icon: "??",
     color: "#ec4899",
     test: (item) => {
       const ttps = Array.isArray(item.ttps) ? item.ttps : [];
@@ -277,13 +277,13 @@ const _STRATEGIC_DECISIONS = [
       const ttps = Array.isArray(item.ttps) ? item.ttps : [];
       const destructive = ttps.filter(t => ["T1485","T1486","T1499","T1561","T1491"].includes(t));
       if (destructive.length) return `Destructive TTPs confirmed (${destructive.join(", ")}). Review cyberwarfare/critical infrastructure obligations.`;
-      return `Nation-state actor attribution (${actor}) — potential geopolitical/liability implications.`;
+      return `Nation-state actor attribution (${actor})  -  potential geopolitical/liability implications.`;
     },
   },
   {
     id: "escalate_board",
     label: "Board-Level Escalation",
-    icon: "🏛️",
+    icon: "??",
     color: "#f59e0b",
     test: (item) => {
       const kev = Boolean(item.kev_present || (item.apex || {}).kev_listed);
@@ -302,7 +302,7 @@ const _STRATEGIC_DECISIONS = [
   {
     id: "accept_risk",
     label: "Accept Risk (Monitor Only)",
-    icon: "📊",
+    icon: "?",
     color: "#6b7280",
     test: (item) => {
       const sev = String(item.severity || "").toUpperCase();
@@ -314,13 +314,13 @@ const _STRATEGIC_DECISIONS = [
     evidence: (item) => {
       const cvss = parseFloat(item.risk_score || item.cvss_score || 0);
       const epss = parseFloat(item.epss_score || 0);
-      return `CVSS ${cvss} (low severity), EPSS ${(epss * 100).toFixed(2)}% exploitation probability. Risk acceptance criteria met — document and monitor.`;
+      return `CVSS ${cvss} (low severity), EPSS ${(epss * 100).toFixed(2)}% exploitation probability. Risk acceptance criteria met  -  document and monitor.`;
     },
   },
   {
     id: "monitor_only",
-    label: "Monitor — No Immediate Action",
-    icon: "👁️",
+    label: "Monitor  -  No Immediate Action",
+    icon: "??",
     color: "#22c55e",
     test: (item) => {
       const sev = String(item.severity || "").toUpperCase();
@@ -330,7 +330,7 @@ const _STRATEGIC_DECISIONS = [
     },
     evidence: (item) => {
       const sev = String(item.severity || "MEDIUM");
-      return `${sev} severity, no active IOCs, no KEV listing. Add to threat watch list — re-evaluate if EPSS rises or KEV status changes.`;
+      return `${sev} severity, no active IOCs, no KEV listing. Add to threat watch list  -  re-evaluate if EPSS rises or KEV status changes.`;
     },
   },
 ];
@@ -375,11 +375,11 @@ export function buildP32DecisionBlock(item) {
   ${inactive.length ? `<div style="color:#374151;font-size:10px;font-weight:700;margin:10px 0 4px;letter-spacing:.08em;">NOT REQUIRED</div>${inactive.map(_card).join("")}` : ""}`;
 
   return _block(`p32-decision-${esc(item.id || "x")}`,
-    "P32.2 — Enterprise Strategic Decision Engine", "#ef4444", body,
-    "Strategic governance layer: Accept Risk · Escalate Board · Legal Review · Compliance Review · Vendor Coordination — evidence required");
+    "P32.2  -  Enterprise Strategic Decision Engine", "#ef4444", body,
+    "Strategic governance layer: Accept Risk * Escalate Board * Legal Review * Compliance Review * Vendor Coordination  -  evidence required");
 }
 
-// ── P32.3: Intelligence Delta Engine ──────────────────────────────────────────
+// -- P32.3: Intelligence Delta Engine ------------------------------------------
 // Per-item delta showing changes from previous state.
 // DIFFERENT from P30.3 (field-level change signals within one item).
 // P32.3 generates structured delta: what changed, why it matters, operational impact.
@@ -398,18 +398,18 @@ function _computeDelta(item) {
   // KEV status change (high-impact delta)
   if (kev) {
     deltas.push({ field: "KEV Status", change: "ADDED", impact: "CRITICAL",
-      detail: "Advisory added to CISA Known Exploited Vulnerabilities — active exploitation confirmed",
+      detail: "Advisory added to CISA Known Exploited Vulnerabilities  -  active exploitation confirmed",
       color: "#ef4444" });
   }
 
   // EPSS movement (significant delta)
   if (epss > 0.5) {
     deltas.push({ field: "EPSS Score", change: `${(epss * 100).toFixed(1)}% exploitation probability`,
-      impact: "HIGH", detail: "EPSS threshold crossed 50% — imminent exploitation in the wild highly likely",
+      impact: "HIGH", detail: "EPSS threshold crossed 50%  -  imminent exploitation in the wild highly likely",
       color: "#f97316" });
   } else if (epss > 0.1) {
     deltas.push({ field: "EPSS Score", change: `${(epss * 100).toFixed(1)}%`,
-      impact: "MEDIUM", detail: "Elevated EPSS — monitor for exploitation evidence",
+      impact: "MEDIUM", detail: "Elevated EPSS  -  monitor for exploitation evidence",
       color: "#f59e0b" });
   }
 
@@ -433,22 +433,22 @@ function _computeDelta(item) {
   const hasDet = Boolean(apex.sigma_rule || apex.kql_query || (item.detection_bundle || []).length > 0);
   if (hasDet) {
     deltas.push({ field: "Detection Status", change: "RULES AVAILABLE",
-      impact: "HIGH", detail: "Detection rules confirmed present — deploy to SIEM within SLA",
+      impact: "HIGH", detail: "Detection rules confirmed present  -  deploy to SIEM within SLA",
       color: "#22c55e" });
   } else {
     deltas.push({ field: "Detection Status", change: "NO RULES YET",
-      impact: "MEDIUM", detail: "Detection engineering required — no validated rules available",
+      impact: "MEDIUM", detail: "Detection engineering required  -  no validated rules available",
       color: "#6b7280" });
   }
 
   // CVSS level
   if (cvss >= 9.0) {
-    deltas.push({ field: "CVSS Score", change: `${cvss} — CRITICAL`,
-      impact: "CRITICAL", detail: "Critical CVSS rating — maximum attack impact with high exploitability",
+    deltas.push({ field: "CVSS Score", change: `${cvss}  -  CRITICAL`,
+      impact: "CRITICAL", detail: "Critical CVSS rating  -  maximum attack impact with high exploitability",
       color: "#ef4444" });
   } else if (cvss >= 7.0) {
-    deltas.push({ field: "CVSS Score", change: `${cvss} — HIGH`,
-      impact: "HIGH", detail: "High severity — significant privilege escalation or RCE potential",
+    deltas.push({ field: "CVSS Score", change: `${cvss}  -  HIGH`,
+      impact: "HIGH", detail: "High severity  -  significant privilege escalation or RCE potential",
       color: "#f97316" });
   }
 
@@ -478,14 +478,14 @@ export function buildP32DeltaBlock(item) {
   ${deltas.map(_deltaRow).join("")}`;
 
   return _block(`p32-delta-${esc(item.id || "x")}`,
-    "P32.3 — Intelligence Delta Engine", "#06b6d4", body,
-    "Intelligence signal changes: KEV movement · EPSS delta · IOC additions · Detection updates · CVSS changes");
+    "P32.3  -  Intelligence Delta Engine", "#06b6d4", body,
+    "Intelligence signal changes: KEV movement * EPSS delta * IOC additions * Detection updates * CVSS changes");
 }
 
-// ── P32.4: Detection Effectiveness Engine ─────────────────────────────────────
+// -- P32.4: Detection Effectiveness Engine -------------------------------------
 // DIFFERENT from P29.6 (presence check only).
 // P32.4 scores effectiveness: coverage %, expected FP rate, expected FN rate,
-// required log sources, validation status — per format.
+// required log sources, validation status  -  per format.
 
 const _DET_EFFECTIVENESS = [
   {
@@ -567,7 +567,7 @@ export function buildP32DetectionEffectivenessBlock(item) {
         <div style="font-size:10px;"><span style="color:#6b7280;">Est. FN: </span><span style="color:#f97316;">${f.fnRate}%</span></div>
       </div>
       <div style="color:#4b5563;font-size:9px;margin-top:3px;">Log sources: ${f.logSources.slice(0, 2).join(", ")}</div>` :
-      `<div style="color:#374151;font-size:10px;">Rule not available — detection engineering required</div>`}
+      `<div style="color:#374151;font-size:10px;">Rule not available  -  detection engineering required</div>`}
     </div>`;
   }).join("");
 
@@ -585,27 +585,27 @@ export function buildP32DetectionEffectivenessBlock(item) {
   ${rows}`;
 
   return _block(`p32-detection-${esc(item.id || "x")}`,
-    "P32.4 — Detection Effectiveness Engine", "#22c55e", body,
-    "Coverage % · Expected FP/FN rates · Required log sources · Validation status — per detection format");
+    "P32.4  -  Detection Effectiveness Engine", "#22c55e", body,
+    "Coverage % * Expected FP/FN rates * Required log sources * Validation status  -  per detection format");
 }
 
-// ── P32.5: Customer Environment Simulator ─────────────────────────────────────
-// DIFFERENT from P28.1 (environment risk profiles — mapping which environments affected).
+// -- P32.5: Customer Environment Simulator -------------------------------------
+// DIFFERENT from P28.1 (environment risk profiles  -  mapping which environments affected).
 // P32.5 simulates per-platform exposure with quantified risk estimates.
 
 const _ENV_PLATFORMS = [
-  { id: "windows",   label: "Windows Endpoints",  icon: "🖥️",  weight: 1.0 },
-  { id: "linux",     label: "Linux Servers",       icon: "🐧",  weight: 0.9 },
-  { id: "azure",     label: "Azure Cloud",         icon: "☁️",  weight: 0.85 },
-  { id: "aws",       label: "AWS Cloud",           icon: "🟠",  weight: 0.85 },
-  { id: "gcp",       label: "GCP Cloud",           icon: "🔵",  weight: 0.8 },
-  { id: "k8s",       label: "Kubernetes",          icon: "⚙️",  weight: 0.75 },
-  { id: "o365",      label: "Microsoft 365",       icon: "📧",  weight: 0.9 },
-  { id: "identity",  label: "Identity (AD/AAD)",   icon: "🔑",  weight: 1.0 },
-  { id: "email",     label: "Email Gateway",       icon: "📨",  weight: 0.8 },
-  { id: "network",   label: "Network/Firewall",    icon: "🌐",  weight: 0.7 },
-  { id: "container", label: "Container/Docker",    icon: "🐋",  weight: 0.75 },
-  { id: "saas",      label: "SaaS Applications",   icon: "📱",  weight: 0.65 },
+  { id: "windows",   label: "Windows Endpoints",  icon: "??",  weight: 1.0 },
+  { id: "linux",     label: "Linux Servers",       icon: "?",  weight: 0.9 },
+  { id: "azure",     label: "Azure Cloud",         icon: "??",  weight: 0.85 },
+  { id: "aws",       label: "AWS Cloud",           icon: "?",  weight: 0.85 },
+  { id: "gcp",       label: "GCP Cloud",           icon: "?",  weight: 0.8 },
+  { id: "k8s",       label: "Kubernetes",          icon: "??",  weight: 0.75 },
+  { id: "o365",      label: "Microsoft 365",       icon: "?",  weight: 0.9 },
+  { id: "identity",  label: "Identity (AD/AAD)",   icon: "?",  weight: 1.0 },
+  { id: "email",     label: "Email Gateway",       icon: "?",  weight: 0.8 },
+  { id: "network",   label: "Network/Firewall",    icon: "?",  weight: 0.7 },
+  { id: "container", label: "Container/Docker",    icon: "?",  weight: 0.75 },
+  { id: "saas",      label: "SaaS Applications",   icon: "?",  weight: 0.65 },
 ];
 
 function _computeEnvSimulation(item) {
@@ -659,7 +659,7 @@ export function buildP32EnvironmentSimulatorBlock(item) {
         </div>
         <span style="color:${p.prColor};font-size:10px;font-weight:700;min-width:60px;text-align:right;">${p.riskPct}%</span>
         ${_badge(p.priority, `${p.prColor}22`, p.prColor)}` :
-      `<span style="color:#374151;font-size:10px;">— NOT EXPOSED —</span>`}
+      `<span style="color:#374151;font-size:10px;"> -  NOT EXPOSED  - </span>`}
     </div>`;
   }).join("");
 
@@ -678,11 +678,11 @@ export function buildP32EnvironmentSimulatorBlock(item) {
   <div style="color:#4b5563;font-size:9px;margin-top:8px;line-height:1.4;">Simulation derived from attack vector, MITRE TTPs, and advisory description. Validate against your asset inventory and compensating controls before operational use.</div>`;
 
   return _block(`p32-env-${esc(item.id || "x")}`,
-    "P32.5 — Customer Environment Simulator", "#06b6d4", body,
-    "Per-platform exposure simulation: Windows · Linux · Azure · AWS · GCP · Kubernetes · M365 · Identity · Email · Network · Container · SaaS");
+    "P32.5  -  Customer Environment Simulator", "#06b6d4", body,
+    "Per-platform exposure simulation: Windows * Linux * Azure * AWS * GCP * Kubernetes * M365 * Identity * Email * Network * Container * SaaS");
 }
 
-// ── P32.6: Threat Intelligence Drift Engine ───────────────────────────────────
+// -- P32.6: Threat Intelligence Drift Engine -----------------------------------
 // DIFFERENT from P30.4 (detection drift only).
 // P32.6 tracks 8 intelligence dimensions for drift signals with causal explanations.
 
@@ -700,44 +700,44 @@ function _computeDriftSignals(item) {
   const confNorm = conf > 1 ? conf / 100 : conf;
   if (confNorm > 0 && confNorm < 0.5) {
     signals.push({ dim: "Confidence", status: "DEGRADED", color: "#ef4444",
-      explanation: `Confidence at ${(confNorm * 100).toFixed(0)}% — below enterprise threshold. Review source reliability and corroboration count.` });
+      explanation: `Confidence at ${(confNorm * 100).toFixed(0)}%  -  below enterprise threshold. Review source reliability and corroboration count.` });
   } else if (confNorm >= 0.5) {
     signals.push({ dim: "Confidence", status: "STABLE", color: "#22c55e",
-      explanation: `Confidence at ${(confNorm * 100).toFixed(0)}% — above operational threshold.` });
+      explanation: `Confidence at ${(confNorm * 100).toFixed(0)}%  -  above operational threshold.` });
   }
 
   // Evidence drift
   const hasEvChain = Array.isArray(item.evidence_chain) && item.evidence_chain.length > 0;
   signals.push({ dim: "Evidence", status: hasEvChain ? "STABLE" : "DEGRADED",
     color: hasEvChain ? "#22c55e" : "#f59e0b",
-    explanation: hasEvChain ? "Evidence chain populated — provenance tracked."
-      : "Evidence chain absent — no provenance record for intelligence claims." });
+    explanation: hasEvChain ? "Evidence chain populated  -  provenance tracked."
+      : "Evidence chain absent  -  no provenance record for intelligence claims." });
 
   // Detection drift
   const hasDet = Boolean((item.apex || {}).sigma_rule || (item.detection_bundle || []).length > 0);
   signals.push({ dim: "Detection", status: hasDet ? "STABLE" : "DEGRADED",
     color: hasDet ? "#22c55e" : "#ef4444",
-    explanation: hasDet ? "Detection rules present — threat is covered by SIEM rules."
-      : "No detection rules available — detection engineering gap." });
+    explanation: hasDet ? "Detection rules present  -  threat is covered by SIEM rules."
+      : "No detection rules available  -  detection engineering gap." });
 
   // IOC drift
   signals.push({ dim: "IOC", status: iocCnt > 0 ? "STABLE" : "DEGRADED",
     color: iocCnt > 0 ? "#22c55e" : "#6b7280",
-    explanation: iocCnt > 0 ? `${iocCnt} IOC(s) active — operationally applicable.`
-      : "No IOCs available — threat hunting without indicators." });
+    explanation: iocCnt > 0 ? `${iocCnt} IOC(s) active  -  operationally applicable.`
+      : "No IOCs available  -  threat hunting without indicators." });
 
   // MITRE drift
   signals.push({ dim: "MITRE", status: ttps.length > 0 ? "STABLE" : "DEGRADED",
     color: ttps.length > 0 ? "#22c55e" : "#f59e0b",
-    explanation: ttps.length > 0 ? `${ttps.length} technique(s) mapped — ATT&CK coverage confirmed.`
-      : "No ATT&CK techniques mapped — detection and hunting gap." });
+    explanation: ttps.length > 0 ? `${ttps.length} technique(s) mapped  -  ATT&CK coverage confirmed.`
+      : "No ATT&CK techniques mapped  -  detection and hunting gap." });
 
   // Source drift
   const hasSrc = Boolean(item.source_url);
   signals.push({ dim: "Source", status: hasSrc ? "STABLE" : "DEGRADED",
     color: hasSrc ? "#22c55e" : "#ef4444",
-    explanation: hasSrc ? "Source URL verified — primary attribution traceable."
-      : "Source URL absent — attribution cannot be independently verified." });
+    explanation: hasSrc ? "Source URL verified  -  primary attribution traceable."
+      : "Source URL absent  -  attribution cannot be independently verified." });
 
   // Narrative drift (EPSS vs severity alignment)
   const sev = String(item.severity || "").toUpperCase();
@@ -746,15 +746,15 @@ function _computeDriftSignals(item) {
   const narrativeDrift = Math.abs(sevScore - epssScore) > 1;
   signals.push({ dim: "Narrative", status: narrativeDrift ? "DRIFTED" : "STABLE",
     color: narrativeDrift ? "#f59e0b" : "#22c55e",
-    explanation: narrativeDrift ? `Severity (${sev}) and EPSS (${(epss * 100).toFixed(1)}%) narrative misaligned — review classification.`
+    explanation: narrativeDrift ? `Severity (${sev}) and EPSS (${(epss * 100).toFixed(1)}%) narrative misaligned  -  review classification.`
       : "Severity label and EPSS probability aligned." });
 
   // Priority drift (freshness)
   const stale = ageH > 168; // > 7 days
   signals.push({ dim: "Priority", status: stale ? "DEGRADED" : "STABLE",
     color: stale ? "#6b7280" : "#22c55e",
-    explanation: stale ? `Advisory ${Math.round(ageH / 24)}d old — re-evaluate patch priority in light of current threat landscape.`
-      : `Advisory ${ageH < 24 ? Math.round(ageH) + "h" : Math.round(ageH / 24) + "d"} old — within operational freshness window.` });
+    explanation: stale ? `Advisory ${Math.round(ageH / 24)}d old  -  re-evaluate patch priority in light of current threat landscape.`
+      : `Advisory ${ageH < 24 ? Math.round(ageH) + "h" : Math.round(ageH / 24) + "d"} old  -  within operational freshness window.` });
 
   return signals;
 }
@@ -786,11 +786,11 @@ export function buildP32DriftBlock(item) {
   ${rows}`;
 
   return _block(`p32-drift-${esc(item.id || "x")}`,
-    "P32.6 — Threat Intelligence Drift Engine", "#8b5cf6", body,
-    "8-dimensional drift detection: Confidence · Evidence · Detection · IOC · MITRE · Source · Narrative · Priority");
+    "P32.6  -  Threat Intelligence Drift Engine", "#8b5cf6", body,
+    "8-dimensional drift detection: Confidence * Evidence * Detection * IOC * MITRE * Source * Narrative * Priority");
 }
 
-// ── P32.7: Evidence Transparency Engine ───────────────────────────────────────
+// -- P32.7: Evidence Transparency Engine ---------------------------------------
 // DIFFERENT from P25 (score explanation). P32.7 shows per-claim provenance chain.
 
 export function buildP32EvidenceTransparencyBlock(item) {
@@ -802,7 +802,7 @@ export function buildP32EvidenceTransparencyBlock(item) {
     claims.push({
       claim: "Active exploitation confirmed",
       source: "CISA Known Exploited Vulnerabilities (KEV) Catalog",
-      verification: "AUTOMATED — live KEV feed synchronization",
+      verification: "AUTOMATED  -  live KEV feed synchronization",
       confidence: 99,
       reasoning: "CISA requires confirmed evidence of active exploitation before KEV listing. Independent verification.",
       color: "#ef4444",
@@ -813,9 +813,9 @@ export function buildP32EvidenceTransparencyBlock(item) {
   const cvss = parseFloat(item.risk_score || item.cvss_score || 0);
   if (cvss > 0) {
     claims.push({
-      claim: `CVSS score ${cvss} — ${cvss >= 9 ? "Critical" : cvss >= 7 ? "High" : cvss >= 4 ? "Medium" : "Low"} severity`,
+      claim: `CVSS score ${cvss}  -  ${cvss >= 9 ? "Critical" : cvss >= 7 ? "High" : cvss >= 4 ? "Medium" : "Low"} severity`,
       source: "NVD / Vendor Security Advisory",
-      verification: "AUTOMATED — NVD API batch enrichment (STAGE 3.1.2)",
+      verification: "AUTOMATED  -  NVD API batch enrichment (STAGE 3.1.2)",
       confidence: 95,
       reasoning: `CVSS v3.1 base score derived from AV/AC/PR/UI/S/C/I/A metrics. ${item.source || "Primary source"} advisory cross-referenced.`,
       color: cvss >= 9 ? "#ef4444" : cvss >= 7 ? "#f97316" : "#f59e0b",
@@ -828,7 +828,7 @@ export function buildP32EvidenceTransparencyBlock(item) {
     claims.push({
       claim: `${(epss * 100).toFixed(1)}% probability of exploitation within 30 days`,
       source: "FIRST.org EPSS Model (Exploit Prediction Scoring System)",
-      verification: "AUTOMATED — FIRST.org API batch query (STAGE 3.1.2)",
+      verification: "AUTOMATED  -  FIRST.org API batch query (STAGE 3.1.2)",
       confidence: 85,
       reasoning: "EPSS is a ML model trained on vulnerability characteristics and exploitation history. Score reflects exploitation probability vs. peer vulnerabilities.",
       color: epss > 0.5 ? "#ef4444" : epss > 0.1 ? "#f97316" : "#22c55e",
@@ -841,7 +841,7 @@ export function buildP32EvidenceTransparencyBlock(item) {
     claims.push({
       claim: `Attributed to threat actor: ${actor}`,
       source: item.source || "OSINT / Threat Intelligence Vendor",
-      verification: "AUTOMATED — Actor attribution enricher (STAGE 3.1.10)",
+      verification: "AUTOMATED  -  Actor attribution enricher (STAGE 3.1.10)",
       confidence: Math.min(80, Math.round(parseFloat(item.actor_confidence || 60))),
       reasoning: "Attribution derived from TTP fingerprint matching, infrastructure overlap, and MITRE ATT&CK group profile. Confirm via independent vendor feed.",
       color: "#8b5cf6",
@@ -854,7 +854,7 @@ export function buildP32EvidenceTransparencyBlock(item) {
     claims.push({
       claim: `${iocCnt} actionable threat indicator(s) verified`,
       source: "OSINT IOC Enrichment (VirusTotal / Shodan / RiskIQ)",
-      verification: "AUTOMATED — P20.2 IOC Hardener + OSINT enricher (STAGE 3.1.9)",
+      verification: "AUTOMATED  -  P20.2 IOC Hardener + OSINT enricher (STAGE 3.1.9)",
       confidence: 78,
       reasoning: "IOCs validated against external threat intelligence platforms. P20-hardened indicators have FP filtering applied.",
       color: "#22c55e",
@@ -863,9 +863,9 @@ export function buildP32EvidenceTransparencyBlock(item) {
 
   if (claims.length === 0) {
     claims.push({
-      claim: "Advisory published — no high-confidence claims verified",
+      claim: "Advisory published  -  no high-confidence claims verified",
       source: item.source || "Feed source",
-      verification: "PENDING — enrichment pipeline",
+      verification: "PENDING  -  enrichment pipeline",
       confidence: 40,
       reasoning: "Advisory entered pipeline but enrichment data not yet available. Confidence will increase as CVSS/EPSS/KEV data is populated.",
       color: "#6b7280",
@@ -885,12 +885,12 @@ export function buildP32EvidenceTransparencyBlock(item) {
   ${rows}`;
 
   return _block(`p32-evidence-${esc(item.id || "x")}`,
-    "P32.7 — Evidence Transparency Engine", "#f97316", body,
-    "Per-claim provenance: Claim → Source → Verification → Confidence → Reasoning — no hidden intelligence");
+    "P32.7  -  Evidence Transparency Engine", "#f97316", body,
+    "Per-claim provenance: Claim -> Source -> Verification -> Confidence -> Reasoning  -  no hidden intelligence");
 }
 
-// ── P32.8: Intelligence Maturity Model ────────────────────────────────────────
-// NEW — 15-dimension maturity model. No equivalent exists in P20-P31.
+// -- P32.8: Intelligence Maturity Model ----------------------------------------
+// NEW  -  15-dimension maturity model. No equivalent exists in P20-P31.
 
 function _computeMaturity(item) {
   let q = 0;
@@ -938,11 +938,11 @@ function _computeMaturity(item) {
   const weightedScore = dims.reduce((s, d) => s + d.score * d.weight, 0) / totalWeight;
   const overall = Math.round(weightedScore);
 
-  const level = overall >= 85 ? { label: "LEVEL 5 — OPTIMIZED",   color: "#22c55e" }
-    : overall >= 70           ? { label: "LEVEL 4 — MANAGED",      color: "#3b82f6" }
-    : overall >= 55           ? { label: "LEVEL 3 — DEFINED",      color: "#f59e0b" }
-    : overall >= 40           ? { label: "LEVEL 2 — DEVELOPING",   color: "#f97316" }
-    :                           { label: "LEVEL 1 — INITIAL",       color: "#ef4444" };
+  const level = overall >= 85 ? { label: "LEVEL 5  -  OPTIMIZED",   color: "#22c55e" }
+    : overall >= 70           ? { label: "LEVEL 4  -  MANAGED",      color: "#3b82f6" }
+    : overall >= 55           ? { label: "LEVEL 3  -  DEFINED",      color: "#f59e0b" }
+    : overall >= 40           ? { label: "LEVEL 2  -  DEVELOPING",   color: "#f97316" }
+    :                           { label: "LEVEL 1  -  INITIAL",       color: "#ef4444" };
 
   return { dims, overall, level };
 }
@@ -976,11 +976,11 @@ export function buildP32MaturityBlock(item) {
   <div style="margin-top:10px;">${rows}</div>`;
 
   return _block(`p32-maturity-${esc(item.id || "x")}`,
-    "P32.8 — Intelligence Maturity Model", "#a78bfa", body,
-    "15-dimension maturity: Data Quality · Evidence · Detection · IOC · Executive · Operational · Commercial · Automation · Lifecycle · Governance · Customer/Analyst/SOC Readiness");
+    "P32.8  -  Intelligence Maturity Model", "#a78bfa", body,
+    "15-dimension maturity: Data Quality * Evidence * Detection * IOC * Executive * Operational * Commercial * Automation * Lifecycle * Governance * Customer/Analyst/SOC Readiness");
 }
 
-// ── P32.9: Operational Metrics ────────────────────────────────────────────────
+// -- P32.9: Operational Metrics ------------------------------------------------
 // DIFFERENT from P30.7 (SLA deadlines).
 // P32.9 computes MTTI/MTTD/MTTR per advisory derived from timestamps.
 
@@ -1041,24 +1041,24 @@ export function buildP32MetricsBlock(item) {
         <span style="color:#6b7280;font-size:11px;">${esc(label)}</span>
         <span style="color:${color};font-size:14px;font-weight:800;">${display}</span>
       </div>
-      ${value != null ? `<div style="color:${better ? "#22c55e" : "#f59e0b"};font-size:9px;margin-top:2px;">${better ? "↑ BETTER" : "↓ BELOW"} INDUSTRY AVG — ${bDisplay}</div>` : ""}
+      ${value != null ? `<div style="color:${better ? "#22c55e" : "#f59e0b"};font-size:9px;margin-top:2px;">${better ? "? BETTER" : "? BELOW"} INDUSTRY AVG  -  ${bDisplay}</div>` : ""}
     </div>`;
   };
 
   const body = `
-  ${_metric("MTTI — Mean Time To Intelligence", m.mtti, "h", m.benchmarks.mtti, "#06b6d4")}
-  ${_metric("MTTD — Mean Time To Detection", m.mttd, "h", m.benchmarks.mttd, "#22c55e")}
+  ${_metric("MTTI  -  Mean Time To Intelligence", m.mtti, "h", m.benchmarks.mtti, "#06b6d4")}
+  ${_metric("MTTD  -  Mean Time To Detection", m.mttd, "h", m.benchmarks.mttd, "#22c55e")}
   ${_row("MTTR (SLA Target)", `${m.patchDays} days (${m.mttr}h)`, "#f59e0b")}
   ${_row("Time In Pipeline", m.ttop != null ? (m.ttop < 24 ? m.ttop.toFixed(1) + "h" : Math.round(m.ttop / 24) + "d") : "N/A", "#94a3b8")}
   ${_row("Detection Available", m.hasDet ? "YES" : "PENDING", m.hasDet ? "#22c55e" : "#ef4444")}
   <div style="color:#4b5563;font-size:9px;margin-top:8px;">MTTR is SLA target derived from severity/KEV status. MTTI/MTTD computed from pipeline timestamps. Industry benchmarks from CISA/DBIR 2024.</div>`;
 
   return _block(`p32-metrics-${esc(item.id || "x")}`,
-    "P32.9 — Operational Metrics", "#3b82f6", body,
-    "MTTI · MTTD · MTTR per advisory — compared against CISA/DBIR 2024 industry benchmarks");
+    "P32.9  -  Operational Metrics", "#3b82f6", body,
+    "MTTI * MTTD * MTTR per advisory  -  compared against CISA/DBIR 2024 industry benchmarks");
 }
 
-// ── P32.13: Production Release Gate ───────────────────────────────────────────
+// -- P32.13: Production Release Gate -------------------------------------------
 // Per-advisory publication gate. DIFFERENT from P25 (enterprise trust gate for feed).
 // P32.13 is a per-advisory gate: 12 checks must pass before the advisory is published.
 
@@ -1110,7 +1110,7 @@ export function buildP32ReleaseGateBlock(item) {
 
   const rows = checks.map(c => {
     const color = c.pass ? "#22c55e" : c.blocker ? "#ef4444" : "#f59e0b";
-    const icon  = c.pass ? "✓" : c.blocker ? "✗" : "⚠";
+    const icon  = c.pass ? "[OK]" : c.blocker ? "[FAIL]" : "?";
     return `<div style="display:flex;align-items:center;gap:7px;padding:4px 0;border-bottom:1px solid #1a2030;">
       <span style="color:${color};font-size:11px;min-width:12px;">${icon}</span>
       <span style="color:#6b7280;font-size:10px;min-width:40px;">${esc(c.gate)}</span>
@@ -1122,16 +1122,16 @@ export function buildP32ReleaseGateBlock(item) {
   const body = `
   <div style="padding:12px 18px;background:${gate === "PUBLICATION_APPROVED" ? "#0a1a0e" : "#1a0a0a"};border:2px solid ${gateColor}44;border-radius:5px;margin-bottom:12px;text-align:center;">
     <div style="color:${gateColor};font-size:13px;font-weight:800;">${gate.replace(/_/g, " ")}</div>
-    <div style="color:#6b7280;font-size:10px;margin-top:3px;">${passed.length}/12 gates passed · ${blockers.length} blockers · ${warnings.length} warnings</div>
+    <div style="color:#6b7280;font-size:10px;margin-top:3px;">${passed.length}/12 gates passed * ${blockers.length} blockers * ${warnings.length} warnings</div>
   </div>
   ${rows}`;
 
   return _block(`p32-release-${esc(item.id || "x")}`,
-    "P32.13 — Production Release Gate", gateColor, body,
-    "Per-advisory publication gate — 12 checks required before advisory is published to customers");
+    "P32.13  -  Production Release Gate", gateColor, body,
+    "Per-advisory publication gate  -  12 checks required before advisory is published to customers");
 }
 
-// ── P32 Package builder ───────────────────────────────────────────────────────
+// -- P32 Package builder -------------------------------------------------------
 
 export function buildP32Package(item) {
   return {
@@ -1147,7 +1147,7 @@ export function buildP32Package(item) {
   };
 }
 
-// ── API Handlers ──────────────────────────────────────────────────────────────
+// -- API Handlers --------------------------------------------------------------
 
 async function _loadFeed(env) {
   try {
