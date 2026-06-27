@@ -1,0 +1,780 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CYBERDUDEBIVASH® SENTINEL APEX — Enterprise Cyber Intelligence OS</title>
+<meta name="description" content="Enterprise Cyber Intelligence Operating System — Unified threat intelligence, SOC operations, campaign intelligence, and business risk management.">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#080c14;--bg2:#0d1421;--bg3:#111827;--border:#1e2d45;--border2:#243352;
+  --accent:#0ea5e9;--accent2:#6366f1;--red:#ef4444;--orange:#f97316;--yellow:#eab308;
+  --green:#22c55e;--teal:#14b8a6;--purple:#a855f7;
+  --text:#e2e8f0;--muted:#64748b;--dim:#94a3b8;
+  --critical:#ef4444;--high:#f97316;--elevated:#eab308;--moderate:#3b82f6;--low:#22c55e;
+}
+body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,sans-serif;min-height:100vh}
+/* --- layout --- */
+#auth-gate{display:flex;align-items:center;justify-content:center;min-height:100vh;background:var(--bg)}
+.auth-box{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:48px;width:420px;text-align:center}
+.auth-logo{font-size:13px;letter-spacing:4px;color:var(--accent);margin-bottom:8px;text-transform:uppercase}
+.auth-title{font-size:22px;font-weight:700;margin-bottom:8px}
+.auth-sub{color:var(--muted);font-size:13px;margin-bottom:32px}
+.auth-input{width:100%;background:var(--bg3);border:1px solid var(--border2);border-radius:8px;padding:12px 16px;color:var(--text);font-size:14px;margin-bottom:12px;outline:none}
+.auth-input:focus{border-color:var(--accent)}
+.auth-btn{width:100%;background:var(--accent);color:#fff;border:none;border-radius:8px;padding:13px;font-size:14px;font-weight:600;cursor:pointer;letter-spacing:.5px}
+.auth-btn:hover{background:#0284c7}
+.auth-err{color:var(--red);font-size:12px;margin-top:8px;display:none}
+#app{display:none}
+/* --- header --- */
+.header{background:var(--bg2);border-bottom:1px solid var(--border);padding:0 24px;display:flex;align-items:center;height:56px;gap:16px;position:sticky;top:0;z-index:100}
+.header-brand{font-size:11px;letter-spacing:3px;color:var(--accent);text-transform:uppercase;font-weight:700;white-space:nowrap}
+.header-title{font-size:14px;font-weight:600;color:var(--text)}
+.header-spacer{flex:1}
+.threat-badge{display:flex;align-items:center;gap:8px;background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:6px 12px;font-size:12px;font-weight:700}
+.threat-dot{width:8px;height:8px;border-radius:50%;animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.logout-btn{background:transparent;border:1px solid var(--border);color:var(--muted);border-radius:6px;padding:6px 12px;font-size:12px;cursor:pointer}
+.logout-btn:hover{border-color:var(--accent);color:var(--accent)}
+/* --- stats bar --- */
+.stats-bar{background:var(--bg2);border-bottom:1px solid var(--border);padding:10px 24px;display:flex;gap:24px;overflow-x:auto}
+.stat-chip{display:flex;align-items:center;gap:8px;white-space:nowrap}
+.stat-label{color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.5px}
+.stat-val{font-size:13px;font-weight:700}
+.stat-sep{color:var(--border);font-size:16px}
+/* --- nav tabs --- */
+.nav{background:var(--bg2);border-bottom:1px solid var(--border);padding:0 24px;display:flex;gap:0;overflow-x:auto}
+.nav-tab{background:transparent;border:none;border-bottom:2px solid transparent;padding:14px 16px;color:var(--muted);font-size:13px;font-weight:500;cursor:pointer;white-space:nowrap;transition:color .2s}
+.nav-tab:hover{color:var(--dim)}
+.nav-tab.active{color:var(--accent);border-bottom-color:var(--accent)}
+/* --- content --- */
+.content{padding:24px;max-width:1600px;margin:0 auto}
+.panel{display:none}
+.panel.active{display:block}
+/* --- cards --- */
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:20px;margin-bottom:16px}
+.card-title{font-size:13px;font-weight:700;color:var(--dim);text-transform:uppercase;letter-spacing:.5px;margin-bottom:16px;display:flex;align-items:center;gap:8px}
+.card-title .badge{font-size:10px;background:var(--bg3);border:1px solid var(--border);border-radius:4px;padding:2px 6px;color:var(--muted);text-transform:none;letter-spacing:0;font-weight:500}
+/* --- grid --- */
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px}
+.grid-4{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+@media(max-width:1024px){.grid-4{grid-template-columns:repeat(2,1fr)}.grid-3{grid-template-columns:1fr 1fr}}
+@media(max-width:768px){.grid-2,.grid-3,.grid-4{grid-template-columns:1fr}}
+/* --- kpi --- */
+.kpi{background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:16px;text-align:center}
+.kpi-val{font-size:28px;font-weight:800;line-height:1}
+.kpi-label{font-size:11px;color:var(--muted);margin-top:6px;text-transform:uppercase;letter-spacing:.5px}
+/* --- table --- */
+.tbl{width:100%;border-collapse:collapse;font-size:13px}
+.tbl th{background:var(--bg3);color:var(--muted);padding:8px 12px;text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid var(--border)}
+.tbl td{padding:10px 12px;border-bottom:1px solid var(--border);vertical-align:top}
+.tbl tr:hover td{background:rgba(14,165,233,.03)}
+/* --- badges --- */
+.sev{display:inline-block;border-radius:4px;padding:2px 7px;font-size:11px;font-weight:700;text-transform:uppercase}
+.sev-CRITICAL{background:rgba(239,68,68,.15);color:#ef4444;border:1px solid rgba(239,68,68,.3)}
+.sev-HIGH{background:rgba(249,115,22,.15);color:#f97316;border:1px solid rgba(249,115,22,.3)}
+.sev-MEDIUM{background:rgba(234,179,8,.15);color:#eab308;border:1px solid rgba(234,179,8,.3)}
+.sev-LOW{background:rgba(34,197,94,.15);color:#22c55e;border:1px solid rgba(34,197,94,.3)}
+.tag{display:inline-block;background:var(--bg3);border:1px solid var(--border);border-radius:4px;padding:2px 6px;font-size:11px;color:var(--dim);margin:2px}
+/* --- threat level --- */
+.threat-level-block{border-radius:10px;padding:24px;text-align:center;border:2px solid}
+.threat-level-label{font-size:11px;text-transform:uppercase;letter-spacing:2px;margin-bottom:8px}
+.threat-level-name{font-size:36px;font-weight:900;letter-spacing:2px}
+.threat-level-score{font-size:13px;margin-top:8px;opacity:.7}
+/* --- progress bar --- */
+.prog-row{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.prog-label{font-size:12px;color:var(--dim);width:160px;flex-shrink:0}
+.prog-bar{flex:1;background:var(--bg3);border-radius:4px;height:8px;overflow:hidden}
+.prog-fill{height:100%;border-radius:4px;transition:width .6s}
+.prog-val{font-size:12px;font-weight:700;width:40px;text-align:right}
+/* --- heatmap --- */
+.heatmap-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+@media(max-width:768px){.heatmap-grid{grid-template-columns:repeat(2,1fr)}}
+.heatmap-cell{border-radius:8px;padding:12px;text-align:center;border:1px solid rgba(255,255,255,.08)}
+.heatmap-cell-label{font-size:11px;color:var(--muted);margin-top:4px}
+.heatmap-cell-score{font-size:22px;font-weight:800}
+/* --- pipeline steps --- */
+.pipeline{display:flex;gap:0;overflow-x:auto;padding-bottom:8px}
+.pipe-step{flex-shrink:0;text-align:center;position:relative}
+.pipe-step+.pipe-step::before{content:'';position:absolute;left:-1px;top:16px;width:2px;height:calc(100% - 32px);background:var(--border)}
+.pipe-box{background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:10px 14px;min-width:110px;margin:0 4px}
+.pipe-num{font-size:10px;color:var(--muted);margin-bottom:4px}
+.pipe-name{font-size:12px;font-weight:600;margin-bottom:4px}
+.pipe-pct{font-size:16px;font-weight:800}
+/* --- queue items --- */
+.queue-item{background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:8px;display:flex;align-items:center;gap:12px}
+.queue-num{font-size:20px;font-weight:800;min-width:48px;text-align:center}
+.queue-info{flex:1}
+.queue-title{font-size:13px;font-weight:600}
+.queue-meta{font-size:11px;color:var(--muted);margin-top:3px}
+/* --- coverage matrix --- */
+.matrix-wrap{overflow-x:auto}
+.matrix{border-collapse:collapse;font-size:12px;width:100%}
+.matrix th{background:var(--bg3);color:var(--muted);padding:8px;text-align:center;border:1px solid var(--border);font-size:10px;text-transform:uppercase;letter-spacing:.3px}
+.matrix td{border:1px solid var(--border);padding:8px;text-align:center;font-weight:700;font-size:12px}
+.matrix .tactic-cell{text-align:left;font-weight:500;color:var(--dim);font-size:11px;white-space:nowrap;padding:8px 12px}
+/* --- marketplace tiers --- */
+.tier-card{background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:20px;text-align:center}
+.tier-card.featured{border-color:var(--accent);background:rgba(14,165,233,.05)}
+.tier-name{font-size:14px;font-weight:700;margin-bottom:4px}
+.tier-price{font-size:28px;font-weight:900;color:var(--accent);margin:8px 0 4px}
+.tier-period{font-size:11px;color:var(--muted)}
+.tier-features{list-style:none;text-align:left;margin-top:16px}
+.tier-features li{font-size:12px;color:var(--dim);padding:4px 0;border-bottom:1px solid var(--border);display:flex;gap:8px}
+.tier-features li::before{content:'✓';color:var(--green)}
+.tier-btn{display:block;margin-top:16px;background:var(--accent);color:#fff;border:none;border-radius:6px;padding:10px;font-size:13px;font-weight:600;cursor:pointer;width:100%}
+.tier-btn.secondary{background:transparent;border:1px solid var(--border);color:var(--dim)}
+/* --- loading --- */
+.loading{text-align:center;padding:48px;color:var(--muted);font-size:13px}
+.spin{display:inline-block;width:20px;height:20px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite;margin-bottom:12px}
+@keyframes spin{to{transform:rotate(360deg)}}
+/* --- error --- */
+.error-box{background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.2);border-radius:8px;padding:16px;color:var(--red);font-size:13px}
+/* --- explorer --- */
+.explorer-search{display:flex;gap:8px;margin-bottom:16px}
+.explorer-input{flex:1;background:var(--bg3);border:1px solid var(--border2);border-radius:8px;padding:10px 14px;color:var(--text);font-size:14px;outline:none}
+.explorer-input:focus{border-color:var(--accent)}
+.explorer-btn{background:var(--accent);color:#fff;border:none;border-radius:8px;padding:10px 20px;font-size:13px;font-weight:600;cursor:pointer}
+.entity-card{background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:16px;margin-bottom:8px}
+</style>
+</head>
+<body>
+
+<!-- AUTH GATE -->
+<div id="auth-gate">
+  <div class="auth-box">
+    <div class="auth-logo">CYBERDUDEBIVASH® SENTINEL APEX</div>
+    <div class="auth-title">Enterprise Cyber Intelligence OS</div>
+    <div class="auth-sub">ECIOS v1.0 — Authorized Personnel Only</div>
+    <input type="text" id="auth-key" class="auth-input" placeholder="API Key or Bearer Token" autocomplete="off">
+    <button class="auth-btn" onclick="doAuth()">Access Intelligence Platform</button>
+    <div id="auth-err" class="auth-err">Authentication failed. Verify API key and retry.</div>
+  </div>
+</div>
+
+<!-- MAIN APP -->
+<div id="app">
+
+  <!-- HEADER -->
+  <div class="header">
+    <div class="header-brand">SENTINEL APEX</div>
+    <div class="header-title">Enterprise Cyber Intelligence OS</div>
+    <div class="header-spacer"></div>
+    <div class="threat-badge" id="header-threat">
+      <div class="threat-dot" id="threat-dot" style="background:var(--muted)"></div>
+      <span id="threat-level-text">Loading…</span>
+    </div>
+    <button class="logout-btn" onclick="doLogout()">Sign Out</button>
+  </div>
+
+  <!-- STATS BAR -->
+  <div class="stats-bar" id="stats-bar">
+    <div class="stat-chip"><span class="stat-label">Stage</span><span class="stat-val" style="color:var(--accent)">P33 ECIOS</span></div>
+    <div class="stat-sep">|</div>
+    <div class="stat-chip"><span class="stat-label">Feed Items</span><span class="stat-val" id="sb-items">—</span></div>
+    <div class="stat-sep">|</div>
+    <div class="stat-chip"><span class="stat-label">Critical</span><span class="stat-val" style="color:var(--critical)" id="sb-crit">—</span></div>
+    <div class="stat-sep">|</div>
+    <div class="stat-chip"><span class="stat-label">High</span><span class="stat-val" style="color:var(--high)" id="sb-high">—</span></div>
+    <div class="stat-sep">|</div>
+    <div class="stat-chip"><span class="stat-label">Campaigns</span><span class="stat-val" id="sb-camp">—</span></div>
+    <div class="stat-sep">|</div>
+    <div class="stat-chip"><span class="stat-label">Avg Quality</span><span class="stat-val" id="sb-qual">—</span></div>
+    <div class="stat-sep">|</div>
+    <div class="stat-chip"><span class="stat-label">Avg Trust</span><span class="stat-val" id="sb-trust">—</span></div>
+    <div class="stat-sep">|</div>
+    <div class="stat-chip"><span class="stat-label">Business Risk</span><span class="stat-val" id="sb-risk">—</span></div>
+  </div>
+
+  <!-- NAV TABS -->
+  <div class="nav">
+    <button class="nav-tab active" onclick="switchTab('dashboard',this)">Ops Dashboard</button>
+    <button class="nav-tab" onclick="switchTab('cases',this)">Case Intelligence</button>
+    <button class="nav-tab" onclick="switchTab('campaigns',this)">Campaign Intelligence</button>
+    <button class="nav-tab" onclick="switchTab('mission',this)">SOC Mission Planner</button>
+    <button class="nav-tab" onclick="switchTab('heatmap',this)">Exposure Heatmap</button>
+    <button class="nav-tab" onclick="switchTab('coverage',this)">Detection Coverage</button>
+    <button class="nav-tab" onclick="switchTab('automation',this)">Automation Engine</button>
+    <button class="nav-tab" onclick="switchTab('explorer',this)">Knowledge Explorer</button>
+    <button class="nav-tab" onclick="switchTab('metrics',this)">Customer & Marketplace</button>
+    <button class="nav-tab" onclick="switchTab('status',this)">Platform Status</button>
+  </div>
+
+  <!-- CONTENT -->
+  <div class="content">
+
+    <!-- DASHBOARD -->
+    <div class="panel active" id="panel-dashboard">
+      <div id="dashboard-content"><div class="loading"><div class="spin"></div><br>Loading operational dashboard…</div></div>
+    </div>
+
+    <!-- CASES -->
+    <div class="panel" id="panel-cases">
+      <div id="cases-content"><div class="loading"><div class="spin"></div><br>Loading case intelligence…</div></div>
+    </div>
+
+    <!-- CAMPAIGNS -->
+    <div class="panel" id="panel-campaigns">
+      <div id="campaigns-content"><div class="loading"><div class="spin"></div><br>Loading campaign intelligence…</div></div>
+    </div>
+
+    <!-- SOC MISSION -->
+    <div class="panel" id="panel-mission">
+      <div id="mission-content"><div class="loading"><div class="spin"></div><br>Loading SOC mission planner…</div></div>
+    </div>
+
+    <!-- HEATMAP -->
+    <div class="panel" id="panel-heatmap">
+      <div id="heatmap-content"><div class="loading"><div class="spin"></div><br>Loading exposure heatmap…</div></div>
+    </div>
+
+    <!-- COVERAGE -->
+    <div class="panel" id="panel-coverage">
+      <div id="coverage-content"><div class="loading"><div class="spin"></div><br>Loading detection coverage matrix…</div></div>
+    </div>
+
+    <!-- AUTOMATION -->
+    <div class="panel" id="panel-automation">
+      <div id="automation-content"><div class="loading"><div class="spin"></div><br>Loading automation engine…</div></div>
+    </div>
+
+    <!-- EXPLORER -->
+    <div class="panel" id="panel-explorer">
+      <div class="card">
+        <div class="card-title">Intelligence Knowledge Explorer</div>
+        <div class="explorer-search">
+          <input type="text" id="explorer-query" class="explorer-input" placeholder="Search threat actors, CVEs, TTPs, campaigns…" onkeydown="if(event.key==='Enter')doSearch()">
+          <button class="explorer-btn" onclick="doSearch()">Search</button>
+        </div>
+        <div id="explorer-content"><div style="color:var(--muted);font-size:13px;text-align:center;padding:32px">Enter a search query to explore the intelligence knowledge graph.</div></div>
+      </div>
+    </div>
+
+    <!-- METRICS / MARKETPLACE -->
+    <div class="panel" id="panel-metrics">
+      <div id="metrics-content"><div class="loading"><div class="spin"></div><br>Loading customer metrics and marketplace…</div></div>
+    </div>
+
+    <!-- STATUS -->
+    <div class="panel" id="panel-status">
+      <div id="status-content"><div class="loading"><div class="spin"></div><br>Loading platform status…</div></div>
+    </div>
+
+  </div><!-- /content -->
+</div><!-- /app -->
+
+<script>
+const API = '';
+let _token = '';
+const _loaded = {};
+
+/* ---- auth ---- */
+async function doAuth() {
+  const key = document.getElementById('auth-key').value.trim();
+  if (!key) { showAuthErr('Please enter an API key.'); return; }
+  try {
+    const r = await fetch(API + '/api/health', { headers: { Authorization: 'Bearer ' + key } });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    _token = key;
+    sessionStorage.setItem('ecios_token', key);
+    document.getElementById('auth-gate').style.display = 'none';
+    document.getElementById('app').style.display = 'block';
+    initApp();
+  } catch(e) {
+    showAuthErr('Authentication failed. Verify API key and retry.');
+  }
+}
+
+function showAuthErr(m) {
+  const el = document.getElementById('auth-err');
+  el.textContent = m;
+  el.style.display = 'block';
+}
+
+function doLogout() {
+  sessionStorage.removeItem('ecios_token');
+  location.reload();
+}
+
+window.addEventListener('DOMContentLoaded', () => {
+  const t = sessionStorage.getItem('ecios_token');
+  if (t) {
+    _token = t;
+    document.getElementById('auth-key').value = t;
+    doAuth();
+  }
+  document.getElementById('auth-key').addEventListener('keydown', e => { if (e.key === 'Enter') doAuth(); });
+});
+
+/* ---- fetch helper ---- */
+async function apiFetch(path) {
+  const r = await fetch(API + path, { headers: { Authorization: 'Bearer ' + _token, 'Content-Type': 'application/json' } });
+  if (!r.ok) throw new Error('HTTP ' + r.status);
+  return r.json();
+}
+
+/* ---- tab switching ---- */
+function switchTab(name, btn) {
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach(b => b.classList.remove('active'));
+  document.getElementById('panel-' + name).classList.add('active');
+  btn.classList.add('active');
+  if (!_loaded[name]) { _loaded[name] = true; loadPanel(name); }
+}
+
+/* ---- init ---- */
+async function initApp() {
+  loadDashboard();
+  loadStats();
+}
+
+/* ---- stats bar ---- */
+async function loadStats() {
+  try {
+    const d = await apiFetch('/api/v1/p33/observability');
+    const s = d.stats || d;
+    set('sb-items', s.total_items || '—');
+    set('sb-crit', s.critical_count || '—');
+    set('sb-high', s.high_count || '—');
+    set('sb-camp', s.campaign_count || '—');
+    set('sb-qual', s.avg_quality ? s.avg_quality.toFixed(1) : '—');
+    set('sb-trust', s.avg_trust ? s.avg_trust.toFixed(1) : '—');
+    set('sb-risk', s.business_risk_score ? s.business_risk_score.toFixed(0) + '/100' : '—');
+  } catch(e) { /* non-blocking */ }
+}
+
+function set(id, val) {
+  const el = document.getElementById(id);
+  if (el) el.textContent = val;
+}
+
+function colorForLevel(lvl) {
+  return { CRITICAL: '#ef4444', HIGH: '#f97316', ELEVATED: '#eab308', MODERATE: '#3b82f6', LOW: '#22c55e' }[lvl] || '#64748b';
+}
+
+/* ---- panel loader ---- */
+function loadPanel(name) {
+  switch(name) {
+    case 'cases':      loadCases(); break;
+    case 'campaigns':  loadCampaigns(); break;
+    case 'mission':    loadMission(); break;
+    case 'heatmap':    loadHeatmap(); break;
+    case 'coverage':   loadCoverage(); break;
+    case 'automation': loadAutomation(); break;
+    case 'metrics':    loadMetrics(); break;
+    case 'status':     loadStatus(); break;
+  }
+}
+
+/* ---- dashboard ---- */
+async function loadDashboard() {
+  try {
+    const d = await apiFetch('/api/v1/p33/dashboard');
+    const lvl = d.threat_level || 'MODERATE';
+    const c = colorForLevel(lvl);
+    set('threat-level-text', lvl);
+    const dot = document.getElementById('threat-dot');
+    if (dot) dot.style.background = c;
+
+    let html = `<div class="grid-2" style="margin-bottom:16px">
+      <div class="card" style="text-align:center">
+        <div class="threat-level-block" style="border-color:${c};background:${c}18">
+          <div class="threat-level-label" style="color:${c}">Current Threat Level</div>
+          <div class="threat-level-name" style="color:${c}">${esc(lvl)}</div>
+          <div class="threat-level-score">Business Risk Score: ${d.business_risk_score !== undefined ? d.business_risk_score : '—'}/100</div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">Operational Summary</div>
+        <div class="grid-2">
+          ${kpiHtml(d.summary?.total_items, 'Feed Items', '#94a3b8')}
+          ${kpiHtml(d.summary?.critical_count, 'Critical', '#ef4444')}
+          ${kpiHtml(d.summary?.high_count, 'High', '#f97316')}
+          ${kpiHtml(d.summary?.kev_count, 'KEV Active', '#a855f7')}
+        </div>
+      </div>
+    </div>`;
+
+    if (d.campaign_activity && d.campaign_activity.length) {
+      html += `<div class="card"><div class="card-title">Active Campaigns <span class="badge">${d.campaign_activity.length}</span></div>
+        <table class="tbl"><thead><tr><th>Campaign</th><th>Actor</th><th>Items</th><th>Severity</th><th>Avg Risk</th></tr></thead><tbody>`;
+      d.campaign_activity.slice(0,8).forEach(c => {
+        html += `<tr><td style="font-weight:600">${esc(c.campaign_id)}</td><td>${esc(c.actor)}</td><td>${c.item_count}</td>
+          <td><span class="sev sev-${esc(c.peak_severity)}">${esc(c.peak_severity)}</span></td><td>${c.avg_risk?.toFixed(1) || '—'}</td></tr>`;
+      });
+      html += `</tbody></table></div>`;
+    }
+
+    if (d.executive_summary) {
+      html += `<div class="card"><div class="card-title">Executive Summary</div>
+        <p style="font-size:13px;color:var(--dim);line-height:1.7">${esc(d.executive_summary)}</p></div>`;
+    }
+
+    document.getElementById('dashboard-content').innerHTML = html;
+  } catch(e) {
+    document.getElementById('dashboard-content').innerHTML = errHtml(e);
+  }
+}
+
+/* ---- cases ---- */
+async function loadCases() {
+  try {
+    const d = await apiFetch('/api/v1/p33/cases');
+    const cases = d.cases || [];
+    let html = `<div class="card"><div class="card-title">Incident Case Intelligence <span class="badge">${cases.length} cases</span></div>`;
+    if (!cases.length) { html += '<div class="loading">No cases generated — feed may be empty.</div></div>'; }
+    else {
+      cases.forEach(c => {
+        const col = {CRITICAL:'#ef4444',HIGH:'#f97316',MEDIUM:'#eab308',LOW:'#22c55e'}[c.severity] || '#64748b';
+        html += `<div class="card" style="border-left:3px solid ${col};margin-bottom:12px">
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">
+            <span class="sev sev-${esc(c.severity)}">${esc(c.severity)}</span>
+            <strong style="font-size:14px">${esc(c.case_id)}</strong>
+            <span style="color:var(--muted);font-size:12px">${esc(c.title || '')}</span>
+          </div>
+          <div class="grid-3" style="margin-bottom:12px">
+            ${kpiHtml(c.quality_score?.toFixed(0), 'Quality', '#0ea5e9')}
+            ${kpiHtml(c.trust_score?.toFixed(0), 'Trust', '#6366f1')}
+            ${kpiHtml(c.actionability_score?.toFixed(0), 'Actionability', '#22c55e')}
+          </div>`;
+        if (c.phases && c.phases.length) {
+          html += `<div style="margin-bottom:8px"><div class="card-title" style="margin-bottom:8px">Investigation Phases</div>
+            <div style="display:flex;flex-wrap:wrap;gap:6px">`;
+          c.phases.forEach(p => {
+            html += `<div class="tag" style="background:var(--bg3);border-color:var(--border2)">${esc(p)}</div>`;
+          });
+          html += `</div></div>`;
+        }
+        if (c.actors && c.actors.length) {
+          html += `<div><span style="font-size:11px;color:var(--muted)">Threat Actors: </span>`;
+          c.actors.forEach(a => html += `<span class="tag" style="color:var(--red)">${esc(a)}</span>`);
+          html += `</div>`;
+        }
+        if (c.ttps && c.ttps.length) {
+          html += `<div style="margin-top:6px"><span style="font-size:11px;color:var(--muted)">TTPs: </span>`;
+          c.ttps.slice(0,6).forEach(t => html += `<span class="tag">${esc(t)}</span>`);
+          html += `</div>`;
+        }
+        html += `</div>`;
+      });
+    }
+    html += `</div>`;
+    document.getElementById('cases-content').innerHTML = html;
+  } catch(e) {
+    document.getElementById('cases-content').innerHTML = errHtml(e);
+  }
+}
+
+/* ---- campaigns ---- */
+async function loadCampaigns() {
+  try {
+    const d = await apiFetch('/api/v1/p33/campaigns');
+    const camps = d.campaigns || [];
+    let html = `<div class="card"><div class="card-title">Threat Campaign Intelligence <span class="badge">${camps.length} campaigns</span></div>`;
+    if (!camps.length) { html += '<div class="loading">No cross-feed campaigns detected.</div></div>'; }
+    else {
+      html += `<table class="tbl"><thead><tr><th>Campaign</th><th>Actor</th><th>Items</th><th>Peak Severity</th><th>Shared TTPs</th><th>Avg Trust</th><th>Confidence</th></tr></thead><tbody>`;
+      camps.forEach(c => {
+        html += `<tr><td style="font-weight:700;font-size:12px">${esc(c.campaign_id)}</td>
+          <td style="color:var(--red);font-weight:600">${esc(c.actor)}</td>
+          <td>${c.item_count}</td>
+          <td><span class="sev sev-${esc(c.peak_severity)}">${esc(c.peak_severity)}</span></td>
+          <td>${(c.shared_ttps || []).slice(0,3).join(', ') || '—'}</td>
+          <td>${c.avg_trust?.toFixed(1) || '—'}</td>
+          <td style="font-weight:700;color:var(--green)">${c.campaign_confidence || '—'}%</td>
+        </tr>`;
+      });
+      html += `</tbody></table>`;
+    }
+    html += `</div>`;
+    document.getElementById('campaigns-content').innerHTML = html;
+  } catch(e) {
+    document.getElementById('campaigns-content').innerHTML = errHtml(e);
+  }
+}
+
+/* ---- mission ---- */
+async function loadMission() {
+  try {
+    const d = await apiFetch('/api/v1/p33/mission');
+    const queues = d.queues || {};
+    let html = `<div class="card"><div class="card-title">SOC Mission Planner — Role-Based Work Queues</div>`;
+    const qColors = {CRITICAL_RESPONSE:'#ef4444',HIGH_PRIORITY:'#f97316',PATCH_PRIORITY:'#eab308',
+      DETECTION_ENGINEERING:'#0ea5e9',THREAT_HUNTING:'#6366f1',INCIDENT_RESPONSE:'#a855f7',
+      ESCALATION:'#ef4444',EXECUTIVE_BRIEFING:'#14b8a6',COMPLIANCE:'#22c55e'};
+    Object.entries(queues).forEach(([role, items]) => {
+      if (!items || !items.length) return;
+      const col = qColors[role] || '#64748b';
+      html += `<div style="margin-bottom:16px"><div style="font-size:12px;font-weight:700;color:${col};text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">${esc(role.replace(/_/g,' '))} <span style="font-weight:400;color:var(--muted)">(${items.length})</span></div>`;
+      items.slice(0,3).forEach(item => {
+        html += `<div class="queue-item">
+          <div class="queue-num" style="color:${col}">${esc(item.severity?.charAt(0)||'?')}</div>
+          <div class="queue-info">
+            <div class="queue-title">${esc(item.title || item.id || 'Advisory')}</div>
+            <div class="queue-meta">Score: ${item.risk_score || '—'} | Source: ${esc(item.source || '—')} | ${esc(item.timestamp?.slice(0,10) || '')}</div>
+          </div>
+          <span class="sev sev-${esc(item.severity)}">${esc(item.severity)}</span>
+        </div>`;
+      });
+      if (items.length > 3) html += `<div style="font-size:11px;color:var(--muted);text-align:right">+${items.length-3} more</div>`;
+      html += `</div>`;
+    });
+    html += `</div>`;
+    document.getElementById('mission-content').innerHTML = html;
+  } catch(e) {
+    document.getElementById('mission-content').innerHTML = errHtml(e);
+  }
+}
+
+/* ---- heatmap ---- */
+async function loadHeatmap() {
+  try {
+    const d = await apiFetch('/api/v1/p33/heatmap');
+    const platforms = d.platforms || [];
+    let html = `<div class="card"><div class="card-title">Platform Exposure Heatmap — ${platforms.length} Environments</div>
+      <div class="heatmap-grid">`;
+    platforms.forEach(p => {
+      const score = p.risk_score || 0;
+      const col = score >= 75 ? '#ef4444' : score >= 50 ? '#f97316' : score >= 25 ? '#eab308' : '#22c55e';
+      html += `<div class="heatmap-cell" style="background:${col}18;border-color:${col}40">
+        <div class="heatmap-cell-score" style="color:${col}">${score.toFixed(0)}</div>
+        <div class="heatmap-cell-label">${esc(p.label)}</div>
+        <div style="font-size:10px;color:var(--muted);margin-top:4px">${p.item_count} advisories</div>
+      </div>`;
+    });
+    html += `</div></div>`;
+
+    if (d.coverage_matrix) {
+      const m = d.coverage_matrix;
+      const formats = ['Sigma','KQL','YARA','SPL','Elastic','Suricata'];
+      html += `<div class="card"><div class="card-title">MITRE ATT&CK × Detection Format Coverage Matrix</div>
+        <div class="matrix-wrap"><table class="matrix"><thead><tr>
+          <th>Tactic</th>${formats.map(f=>`<th>${f}</th>`).join('')}
+        </tr></thead><tbody>`;
+      Object.entries(m).forEach(([tactic, row]) => {
+        html += `<tr><td class="tactic-cell">${esc(tactic)}</td>`;
+        formats.forEach(f => {
+          const v = row[f] || 0;
+          const col = v >= 70 ? '#22c55e' : v >= 40 ? '#eab308' : v >= 10 ? '#f97316' : '#ef4444';
+          html += `<td style="color:${col}">${v}%</td>`;
+        });
+        html += `</tr>`;
+      });
+      html += `</tbody></table></div></div>`;
+    }
+
+    document.getElementById('heatmap-content').innerHTML = html;
+  } catch(e) {
+    document.getElementById('heatmap-content').innerHTML = errHtml(e);
+  }
+}
+
+/* ---- coverage ---- */
+async function loadCoverage() {
+  try {
+    const d = await apiFetch('/api/v1/p33/heatmap');
+    const m = d.coverage_matrix || {};
+    const formats = ['Sigma','KQL','YARA','SPL','Elastic','Suricata'];
+    let html = `<div class="card"><div class="card-title">MITRE ATT&CK × Detection Format Coverage Matrix</div>
+      <div class="matrix-wrap"><table class="matrix"><thead><tr>
+        <th style="text-align:left">Tactic</th>${formats.map(f=>`<th>${f}</th>`).join('')}
+      </tr></thead><tbody>`;
+    Object.entries(m).forEach(([tactic, row]) => {
+      html += `<tr><td class="tactic-cell">${esc(tactic)}</td>`;
+      formats.forEach(f => {
+        const v = row[f] || 0;
+        const col = v >= 70 ? '#22c55e' : v >= 40 ? '#eab308' : v >= 10 ? '#f97316' : '#ef4444';
+        html += `<td style="color:${col}">${v}%</td>`;
+      });
+      html += `</tr>`;
+    });
+    html += `</tbody></table></div>`;
+    html += `<div style="margin-top:12px;display:flex;gap:16px;font-size:11px">
+      <span style="color:#22c55e">■ ≥70% — Strong coverage</span>
+      <span style="color:#eab308">■ 40–69% — Partial coverage</span>
+      <span style="color:#f97316">■ 10–39% — Limited coverage</span>
+      <span style="color:#ef4444">■ &lt;10% — Blind spot</span>
+    </div></div>`;
+    document.getElementById('coverage-content').innerHTML = html;
+  } catch(e) {
+    document.getElementById('coverage-content').innerHTML = errHtml(e);
+  }
+}
+
+/* ---- automation ---- */
+async function loadAutomation() {
+  try {
+    const d = await apiFetch('/api/v1/p33/operations');
+    const steps = d.pipeline_steps || [];
+    const rel = d.reliability || {};
+    let html = `<div class="card"><div class="card-title">Intelligence Automation Pipeline — 11-Step Status</div>
+      <div class="pipeline">`;
+    steps.forEach(s => {
+      const col = s.completion >= 80 ? '#22c55e' : s.completion >= 50 ? '#eab308' : '#ef4444';
+      html += `<div class="pipe-step"><div class="pipe-box">
+        <div class="pipe-num">STEP ${s.step}</div>
+        <div class="pipe-name">${esc(s.name)}</div>
+        <div class="pipe-pct" style="color:${col}">${s.completion}%</div>
+      </div></div>`;
+    });
+    html += `</div></div>`;
+
+    html += `<div class="card"><div class="card-title">Production Reliability Metrics</div><div class="grid-4">
+      ${kpiHtml(rel.total_items, 'Items Scanned', '#0ea5e9')}
+      ${kpiHtml(rel.healthy_items, 'Healthy', '#22c55e')}
+      ${kpiHtml(rel.issues_found, 'Issues Found', '#ef4444')}
+      ${kpiHtml(rel.feed_health_score !== undefined ? rel.feed_health_score.toFixed(0) + '%' : '—', 'Health Score', '#6366f1')}
+    </div></div>`;
+
+    if (d.reliability_checks) {
+      html += `<div class="card"><div class="card-title">Reliability Checks</div>`;
+      Object.entries(d.reliability_checks).forEach(([k, v]) => {
+        const col = v === 0 ? '#22c55e' : '#ef4444';
+        html += `<div class="prog-row">
+          <div class="prog-label">${esc(k.replace(/_/g,' '))}</div>
+          <div class="prog-bar"><div class="prog-fill" style="width:${Math.min(100,v*10)}%;background:${col}"></div></div>
+          <div class="prog-val" style="color:${col}">${v}</div>
+        </div>`;
+      });
+      html += `</div>`;
+    }
+
+    document.getElementById('automation-content').innerHTML = html;
+  } catch(e) {
+    document.getElementById('automation-content').innerHTML = errHtml(e);
+  }
+}
+
+/* ---- explorer ---- */
+async function doSearch() {
+  const q = document.getElementById('explorer-query').value.trim();
+  if (!q) return;
+  document.getElementById('explorer-content').innerHTML = '<div class="loading"><div class="spin"></div><br>Searching intelligence graph…</div>';
+  try {
+    const d = await apiFetch('/api/v1/p33/explorer?q=' + encodeURIComponent(q) + '&limit=20');
+    const results = d.results || [];
+    if (!results.length) {
+      document.getElementById('explorer-content').innerHTML = '<div style="color:var(--muted);text-align:center;padding:24px;font-size:13px">No results found for "' + esc(q) + '"</div>';
+      return;
+    }
+    let html = `<div style="font-size:12px;color:var(--muted);margin-bottom:12px">${results.length} result(s) for "${esc(q)}"</div>`;
+    results.forEach(r => {
+      html += `<div class="entity-card">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+          <span class="sev sev-${esc(r.severity)}">${esc(r.severity)}</span>
+          <strong style="font-size:13px">${esc(r.title || r.id || '')}</strong>
+        </div>
+        <div style="font-size:12px;color:var(--muted)">Source: ${esc(r.source || '—')} | ${esc(r.timestamp?.slice(0,10) || '')}</div>
+        ${r.actor_tag ? `<div style="margin-top:4px"><span class="tag" style="color:var(--red)">${esc(r.actor_tag)}</span></div>` : ''}
+        ${r.ttps?.length ? `<div>${r.ttps.slice(0,4).map(t=>`<span class="tag">${esc(t)}</span>`).join('')}</div>` : ''}
+      </div>`;
+    });
+    document.getElementById('explorer-content').innerHTML = html;
+  } catch(e) {
+    document.getElementById('explorer-content').innerHTML = errHtml(e);
+  }
+}
+
+/* ---- metrics / marketplace ---- */
+async function loadMetrics() {
+  try {
+    const d = await apiFetch('/api/v1/p33/metrics');
+    const cs = d.customer_success || {};
+    const mp = d.marketplace_tiers || [];
+    let html = `<div class="card"><div class="card-title">Customer Success Metrics</div><div class="grid-4">
+      ${kpiHtml(cs.detection_adoption_rate !== undefined ? cs.detection_adoption_rate + '%' : '—', 'Detection Adoption', '#22c55e')}
+      ${kpiHtml(cs.patch_completion_rate !== undefined ? cs.patch_completion_rate + '%' : '—', 'Patch Completion', '#0ea5e9')}
+      ${kpiHtml(cs.ioc_deployment_rate !== undefined ? cs.ioc_deployment_rate + '%' : '—', 'IOC Deployment', '#6366f1')}
+      ${kpiHtml(cs.operational_maturity_score !== undefined ? cs.operational_maturity_score + '/100' : '—', 'Op Maturity', '#f97316')}
+    </div></div>`;
+
+    if (d.platform_quality) {
+      const q = d.platform_quality;
+      html += `<div class="card"><div class="card-title">Platform Quality Averages</div><div class="grid-3">
+        ${kpiHtml(q.avg_quality?.toFixed(1), 'Avg Quality', '#0ea5e9')}
+        ${kpiHtml(q.avg_trust?.toFixed(1), 'Avg Trust', '#6366f1')}
+        ${kpiHtml(q.avg_actionability?.toFixed(1), 'Avg Actionability', '#22c55e')}
+      </div></div>`;
+    }
+
+    if (mp.length) {
+      html += `<div class="card"><div class="card-title">Intelligence Marketplace</div><div class="grid-4">`;
+      mp.forEach(t => {
+        html += `<div class="tier-card ${t.featured ? 'featured' : ''}">
+          <div class="tier-name">${esc(t.name)}</div>
+          <div class="tier-price">$${esc(String(t.price_monthly))}</div>
+          <div class="tier-period">per month</div>
+          <ul class="tier-features">
+            ${(t.features || []).map(f => `<li>${esc(f)}</li>`).join('')}
+          </ul>
+          <button class="${t.featured ? 'tier-btn' : 'tier-btn secondary'}" onclick="window.open('mailto:sales@cyberdudebivash.com?subject=Inquiry: ${encodeURIComponent(t.name)}')">
+            ${t.featured ? 'Request Demo' : 'Get Started'}
+          </button>
+        </div>`;
+      });
+      html += `</div></div>`;
+    }
+
+    document.getElementById('metrics-content').innerHTML = html;
+  } catch(e) {
+    document.getElementById('metrics-content').innerHTML = errHtml(e);
+  }
+}
+
+/* ---- status ---- */
+async function loadStatus() {
+  try {
+    const d = await apiFetch('/api/v1/p33/status');
+    const layers = d.p_layers || [];
+    const caps = d.capabilities || [];
+    let html = `<div class="grid-2" style="margin-bottom:16px">
+      <div class="card"><div class="card-title">Platform Status</div>
+        <div class="grid-2">
+          ${kpiHtml(d.total_items, 'Feed Items', '#0ea5e9')}
+          ${kpiHtml(layers.length, 'P-Layers', '#6366f1')}
+          ${kpiHtml(caps.length, 'Capabilities', '#22c55e')}
+          ${kpiHtml(d.ci_stage, 'CI Stage', '#f97316')}
+        </div>
+      </div>
+      <div class="card"><div class="card-title">P-Layer Health</div>`;
+    layers.forEach(l => {
+      const col = l.status === 'OPERATIONAL' ? '#22c55e' : '#ef4444';
+      html += `<div style="display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border)">
+        <span style="font-size:13px;font-weight:600">${esc(l.id)}</span>
+        <span style="font-size:12px;color:var(--muted)">${esc(l.name)}</span>
+        <span style="font-size:11px;font-weight:700;color:${col}">${esc(l.status)}</span>
+      </div>`;
+    });
+    html += `</div></div>`;
+
+    if (caps.length) {
+      html += `<div class="card"><div class="card-title">ECIOS Capabilities</div>
+        <div style="display:flex;flex-wrap:wrap;gap:8px">`;
+      caps.forEach(c => {
+        html += `<div class="tag" style="font-size:12px;padding:4px 10px">${esc(c)}</div>`;
+      });
+      html += `</div></div>`;
+    }
+
+    document.getElementById('status-content').innerHTML = html;
+  } catch(e) {
+    document.getElementById('status-content').innerHTML = errHtml(e);
+  }
+}
+
+/* ---- utils ---- */
+function esc(s) {
+  if (s === undefined || s === null) return '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function kpiHtml(val, label, color) {
+  return `<div class="kpi"><div class="kpi-val" style="color:${color}">${val !== undefined && val !== null ? esc(String(val)) : '—'}</div><div class="kpi-label">${esc(label)}</div></div>`;
+}
+function errHtml(e) {
+  return `<div class="error-box">Failed to load data: ${esc(String(e.message || e))}. Check API connectivity and credentials.</div>`;
+}
+</script>
+</body>
+</html>
