@@ -88,6 +88,7 @@ import { buildP34AssuranceSummaryBlock, buildP34SecurityPostureBlock, buildP34Re
 import { handleP35Quality, handleP35Freshness, handleP35Evidence, handleP35Confidence, handleP35Diversity, handleP35Drift, handleP35Metrics, handleP35Scorecard, handleP35Trend, handleP35Improvements, handleP35Dashboard, handleP35Observability } from './p35-handlers.js';
 import { handleP36Quality, handleP36Maturity, handleP36Targets, handleP36Gaps, handleP36CustomerValue, handleP36Competitive, handleP36Detection, handleP36Reliability, handleP36Metrics, handleP36Roadmap, handleP36Dashboard, handleP36Observability } from './p36-handlers.js';
 import { handleP37Hardening, handleP37FeedAudit, handleP37Enrichment, handleP37IQScore, handleP37Detection, handleP37SourceDiversity, handleP37Reliability, handleP37Debt, handleP37Metrics, handleP37Certification, handleP37Dashboard, handleP37Observability } from './p37-handlers.js';
+import { handleP38SchemaRegistry, handleP38FeedGovernance, handleP38SchemaDrift, handleP38EnrichmentAudit, handleP38ConfidenceAudit, handleP38IQIndex, handleP38SourceDiversity, handleP38Certification, handleP38Executive, handleP38Reliability, handleP38Metrics, handleP38Observability } from './p38-handlers.js';
 import { routeEnterpriseEndpoint } from './enterprise-endpoints.js';
 import { handleSearch, handleActors, handleCVEs, handleMISPExport as handleMISPExportExt, handleCSVExport, handleCorrelate, handlePredict, handleCampaigns, handleAnomalies, handleIntelGraph, handleIntelRelations } from './api-extensions.js';
 const PLATFORM_VERSION    = "184.0";
@@ -4048,6 +4049,19 @@ async function handleRequest(request, env, ctx) {
   if (path === "/api/v1/p37/certification")      return await handleP37Certification(request, env);
   if (path === "/api/v1/p37/dashboard")          return await handleP37Dashboard(request, env);
   if (path === "/api/v1/p37/observability")      return await handleP37Observability(request, env);
+
+  if (path === "/api/v1/p38/schema-registry")    return await handleP38SchemaRegistry(request, env);
+  if (path === "/api/v1/p38/feed-governance")    return await handleP38FeedGovernance(request, env);
+  if (path === "/api/v1/p38/schema-drift")       return await handleP38SchemaDrift(request, env);
+  if (path === "/api/v1/p38/enrichment-audit")   return await handleP38EnrichmentAudit(request, env);
+  if (path === "/api/v1/p38/confidence-audit")   return await handleP38ConfidenceAudit(request, env);
+  if (path === "/api/v1/p38/iq-index")           return await handleP38IQIndex(request, env);
+  if (path === "/api/v1/p38/source-diversity")   return await handleP38SourceDiversity(request, env);
+  if (path === "/api/v1/p38/certification")      return await handleP38Certification(request, env);
+  if (path === "/api/v1/p38/executive")          return await handleP38Executive(request, env);
+  if (path === "/api/v1/p38/reliability")        return await handleP38Reliability(request, env);
+  if (path === "/api/v1/p38/metrics")            return await handleP38Metrics(request, env);
+  if (path === "/api/v1/p38/observability")      return await handleP38Observability(request, env);
 
   // --- api-extensions.js routes (previously unreachable  -  now wired, auth already resolved above) ---
   if (path === "/api/search")                       return await handleSearch(request, env, auth, crypto.randomUUID());
