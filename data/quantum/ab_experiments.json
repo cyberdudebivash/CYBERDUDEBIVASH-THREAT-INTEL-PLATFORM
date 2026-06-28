@@ -1,9 +1,9 @@
 {
-  "total_experiments": 2,
+  "total_experiments": 3,
   "experiments": [
     {
-      "experiment_id": "abtest--ecd88d8e854c",
-      "name": "Detection Optimization: Exploit for CVE-2026-12432 exploit",
+      "experiment_id": "abtest--d4b704c6efff",
+      "name": "Detection Optimization: CVE-2026-13482 - skypilot-org skypilot User ID ser",
       "hypothesis": "Narrow detection rules reduce false positives without missing true threats",
       "variant_a": {
         "name": "Broad Detection",
@@ -30,17 +30,17 @@
       "duration_days": 14,
       "status": "PROPOSED",
       "advisory_context": {
-        "title": "Exploit for CVE-2026-12432 exploit",
+        "title": "CVE-2026-13482 - skypilot-org skypilot User ID server.py username.encode weak ha",
         "risk_score": 7.0,
         "cves": [
-          "CVE-2026-12432"
+          "CVE-2026-13482"
         ],
         "techniques": []
       }
     },
     {
-      "experiment_id": "abtest--1aa5b60fdce4",
-      "name": "Detection Optimization: Exploit for CVE-2026-46331 exploit",
+      "experiment_id": "abtest--25c7fb29740b",
+      "name": "Detection Optimization: CVE-2026-58053 - Gitea act_runner - Container Hard",
       "hypothesis": "Narrow detection rules reduce false positives without missing true threats",
       "variant_a": {
         "name": "Broad Detection",
@@ -67,10 +67,47 @@
       "duration_days": 14,
       "status": "PROPOSED",
       "advisory_context": {
-        "title": "Exploit for CVE-2026-46331 exploit",
+        "title": "CVE-2026-58053 - Gitea act_runner - Container Hardening Bypass via Workflow Cont",
         "risk_score": 7.0,
         "cves": [
-          "CVE-2026-46331"
+          "CVE-2026-58053"
+        ],
+        "techniques": []
+      }
+    },
+    {
+      "experiment_id": "abtest--2a6d06bf1fd6",
+      "name": "Detection Optimization: Exploit for CVE-2026-5366 exploit",
+      "hypothesis": "Narrow detection rules reduce false positives without missing true threats",
+      "variant_a": {
+        "name": "Broad Detection",
+        "description": "Matches any related IOC or technique indicator",
+        "expected_recall": 0.95,
+        "expected_precision": 0.6,
+        "rule_type": "sigma",
+        "detection_logic": "selection: any technique OR any CVE mention"
+      },
+      "variant_b": {
+        "name": "Precise Detection",
+        "description": "Requires multiple correlated indicators",
+        "expected_recall": 0.75,
+        "expected_precision": 0.9,
+        "rule_type": "sigma",
+        "detection_logic": "selection: (technique AND CVE) OR (IOC AND actor_tag)"
+      },
+      "metrics": [
+        "true_positive_rate",
+        "false_positive_rate",
+        "mean_time_to_detect",
+        "analyst_triage_time"
+      ],
+      "duration_days": 14,
+      "status": "PROPOSED",
+      "advisory_context": {
+        "title": "Exploit for CVE-2026-5366 exploit",
+        "risk_score": 7.0,
+        "cves": [
+          "CVE-2026-5366"
         ],
         "techniques": []
       }
@@ -82,5 +119,5 @@
     "statistical_test": "chi_squared",
     "rollout_strategy": "gradual"
   },
-  "generated_at": "2026-06-28T04:52:28.599868+00:00"
+  "generated_at": "2026-06-28T09:34:07.788513+00:00"
 }
