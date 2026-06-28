@@ -1,5 +1,5 @@
 // P37.0 - Enterprise Platform Hardening & Intelligence Excellence Program
-// Additive layer composing from P20/P25/P26 engines — never re-implements their logic.
+// Additive layer composing from P20/P25/P26 engines  -  never re-implements their logic.
 //
 // Phase 0 forensic audit findings addressed:
 //  - Dual-feed architecture: live production feed (api/feed.json, CVE-enriched)
@@ -21,7 +21,7 @@ import { computeP20QualityScore }      from './p20-handlers.js';
 import { computeEnterpriseTrustScore } from './p25-handlers.js';
 import { computeP26Grade }             from './p26-handlers.js';
 
-// ─── helpers ──────────────────────────────────────────────────────────────────
+// --- helpers ------------------------------------------------------------------
 
 function _ts() { return new Date().toISOString(); }
 function _json(data, status = 200) {
@@ -42,7 +42,7 @@ async function _loadQuality(env, key) {
   return raw ? JSON.parse(raw) : null;
 }
 
-// ─── P37.1 Source Diversity ───────────────────────────────────────────────────
+// --- P37.1 Source Diversity ---------------------------------------------------
 // Correct classification: CVE-centric feeds are expected to be source-dominated.
 // Threshold policy: CVE feed dominance < 98% (by design); broad feed dominance < 75%.
 
@@ -84,7 +84,7 @@ function _sourceDiversityAudit(feed) {
   };
 }
 
-// ─── P37.2 Enrichment Excellence ─────────────────────────────────────────────
+// --- P37.2 Enrichment Excellence ---------------------------------------------
 
 function _enrichmentAudit(feed) {
   const n = feed.length || 1;
@@ -147,7 +147,7 @@ function _enrichmentAudit(feed) {
   return { n, coverage, enrichment_score, tier, known_defects };
 }
 
-// ─── P37.3 Confidence Calibration ────────────────────────────────────────────
+// --- P37.3 Confidence Calibration --------------------------------------------
 
 function _confidenceAudit(feed) {
   const sample = feed.slice(0, 80);
@@ -192,12 +192,12 @@ function _confidenceAudit(feed) {
     distribution,
     engine_trust_avg,
     assessment: calibration_tier === 'COVERAGE_GAP'
-      ? 'Confidence field absent — run confidence_calibrator.py to populate'
-      : `avg_conf=${avg_conf} — ${calibration_tier}`,
+      ? 'Confidence field absent  -  run confidence_calibrator.py to populate'
+      : `avg_conf=${avg_conf}  -  ${calibration_tier}`,
   };
 }
 
-// ─── P37.4 Evidence Completeness ─────────────────────────────────────────────
+// --- P37.4 Evidence Completeness ---------------------------------------------
 
 function _evidenceAudit(feed) {
   const n = feed.length || 1;
@@ -247,7 +247,7 @@ function _evidenceAudit(feed) {
   };
 }
 
-// ─── P37.5 Intelligence Quality Score ────────────────────────────────────────
+// --- P37.5 Intelligence Quality Score ----------------------------------------
 // Composite IQ Score from multiple dimensions, composing P20/P25/P26 engines.
 
 function _computeIQScore(feed, enrichAudit, confAudit, evidAudit, diversityAudit, p36cert) {
@@ -337,7 +337,7 @@ function _computeIQScore(feed, enrichAudit, confAudit, evidAudit, diversityAudit
   };
 }
 
-// ─── P37.6 Detection Quality ──────────────────────────────────────────────────
+// --- P37.6 Detection Quality --------------------------------------------------
 
 function _detectionQuality(feed) {
   const n = feed.length || 1;
@@ -370,7 +370,7 @@ function _detectionQuality(feed) {
   };
 }
 
-// ─── P37.7 Platform Reliability ───────────────────────────────────────────────
+// --- P37.7 Platform Reliability -----------------------------------------------
 
 function _reliabilityAudit(feed, p36cert, p35cert, p34cert) {
   const n = feed.length;
@@ -412,7 +412,7 @@ function _reliabilityAudit(feed, p36cert, p35cert, p34cert) {
   };
 }
 
-// ─── P37.8 Engineering Excellence / Technical Debt ───────────────────────────
+// --- P37.8 Engineering Excellence / Technical Debt ---------------------------
 
 function _debtAudit(enrichAudit) {
   const debts = [];
@@ -427,7 +427,7 @@ function _debtAudit(enrichAudit) {
       description: d.description,
       remediation: 'P35 G16: update field check to include actor_tag in addition to actor/threat_actor',
       verified:    d.verified,
-      impact:      'FALSE_WARNING — P35 gate reports 0% actor attribution when actual coverage is actor_tag=100%',
+      impact:      'FALSE_WARNING  -  P35 gate reports 0% actor attribution when actual coverage is actor_tag=100%',
     });
   }
 
@@ -440,7 +440,7 @@ function _debtAudit(enrichAudit) {
     description: 'Three feed files exist: feed.json (root, 72 items), api/feed.json (58 live CVE items), data/feed.json (159 aggregate). Cert scripts read different files causing metric divergence.',
     remediation: 'Establish canonical feed path policy; P37 cert gates on api/feed.json (live production)',
     verified:    true,
-    impact:      'MEDIUM — cert metrics differ from production reality; P35 rates from stale root feed.json',
+    impact:      'MEDIUM  -  cert metrics differ from production reality; P35 rates from stale root feed.json',
   });
 
   const score = Math.max(0, 100 - debts.length * 10);
@@ -454,7 +454,7 @@ function _debtAudit(enrichAudit) {
   };
 }
 
-// ─── exported route handlers ──────────────────────────────────────────────────
+// --- exported route handlers --------------------------------------------------
 
 export async function handleP37Hardening(request, env) {
   const feed = await _loadFeed(env);
@@ -671,7 +671,7 @@ export async function handleP37Observability(request, env) {
     schema_version: 'p37.0', timestamp: _ts(), layer: 'P37',
     capability: 'observability',
     p_layer_version: 'P37.0',
-    platform:  'CYBERDUDEBIVASH® SENTINEL APEX',
+    platform:  'CYBERDUDEBIVASH(R) SENTINEL APEX',
     health:    iq.iq_score >= 60 ? 'GREEN' : iq.iq_score >= 40 ? 'AMBER' : 'RED',
     metrics: {
       feed_item_count:    feed.length,
