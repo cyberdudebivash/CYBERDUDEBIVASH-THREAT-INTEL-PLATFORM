@@ -1,32 +1,32 @@
 {
   "schema_version": "p37.0",
-  "generated_at": "2026-06-28T05:31:24.995774+00:00",
+  "generated_at": "2026-06-28T06:12:17.746188+00:00",
   "layer": "P37",
   "scope": "enterprise_platform_hardening_intelligence_excellence",
   "release_tier": "WORLDWIDE_RELEASE",
-  "passed_count": 23,
+  "passed_count": 25,
   "blocker_count": 0,
-  "warning_count": 3,
+  "warning_count": 1,
   "total_gates": 26,
-  "feed_item_count": 58,
+  "feed_item_count": 109,
   "feed_path_used": "api/feed.json",
   "p36_tier": "WORLDWIDE_RELEASE",
   "phase0_findings": {
     "feed_architecture": "3-feed system: api/feed.json (live CVE, enriched), data/feed.json (aggregate), feed.json (root stale snapshot)",
     "p35_g16_defect": "P35 G16 checks `actor`/`threat_actor` fields (0%) but canonical field is `actor_tag` (verified 100% on live data). False warning.",
-    "source_diversity": "CVE feed (NVD-centric by design): 4 sources, top=93.1%",
-    "enrichment_status": "CVSS=62.1% EPSS=100.0% CVE_IDs=100.0% KEV=1.7%"
+    "source_diversity": "CVE feed (NVD-centric by design): 7 sources, top=50.5%",
+    "enrichment_status": "CVSS=70.6% EPSS=65.1% CVE_IDs=76.1% KEV=0.9%"
   },
   "quality_summary": {
-    "cvss_pct": 62.1,
-    "epss_pct": 100.0,
-    "cve_ids_pct": 100.0,
-    "kev_pct": 1.7,
+    "cvss_pct": 70.6,
+    "epss_pct": 65.1,
+    "cve_ids_pct": 76.1,
+    "kev_pct": 0.9,
     "confidence_pct": 100.0,
-    "actor_pct_correct": 0.0,
-    "sigma_ready_pct": 0.0,
-    "source_count": 4,
-    "top_source_dom_pct": 93.1,
+    "actor_pct_correct": 100.0,
+    "sigma_ready_pct": 13.8,
+    "source_count": 7,
+    "top_source_dom_pct": 50.5,
     "is_cve_feed": true
   },
   "gates": [
@@ -70,14 +70,14 @@
       "label": "Live feed non-empty",
       "severity": "BLOCKER",
       "status": "PASS",
-      "detail": "items=58 source=api/feed.json"
+      "detail": "items=109 source=api/feed.json"
     },
     {
       "gate_id": "G07",
       "label": "Live feed item count >= 10",
       "severity": "BLOCKER",
       "status": "PASS",
-      "detail": "items=58"
+      "detail": "items=109"
     },
     {
       "gate_id": "G08",
@@ -91,7 +91,7 @@
       "label": "No duplicate IDs in live feed",
       "severity": "BLOCKER",
       "status": "PASS",
-      "detail": "unique=58 total=58"
+      "detail": "unique=109 total=109"
     },
     {
       "gate_id": "G10",
@@ -105,21 +105,21 @@
       "label": "CVSS coverage >= 50% (feed-type-aware: CVE)",
       "severity": "WARNING",
       "status": "PASS",
-      "detail": "cvss_pct=62.1% (top_src=nvd_cve, is_cve_feed=True)"
+      "detail": "cvss_pct=70.6% (top_src=nvd_cve, is_cve_feed=True)"
     },
     {
       "gate_id": "G12",
       "label": "EPSS coverage >= 30%",
       "severity": "WARNING",
       "status": "PASS",
-      "detail": "epss_pct=100.0%"
+      "detail": "epss_pct=65.1%"
     },
     {
       "gate_id": "G13",
       "label": "CVE ID coverage >= 50% (feed-type-aware)",
       "severity": "WARNING",
       "status": "PASS",
-      "detail": "cve_pct=100.0%"
+      "detail": "cve_pct=76.1%"
     },
     {
       "gate_id": "G14",
@@ -132,43 +132,43 @@
       "gate_id": "G15",
       "label": "Actor attribution present (actor_tag OR actor OR threat_actor)",
       "severity": "WARNING",
-      "status": "FAIL_WARNING",
-      "detail": "actor_pct=0.0% (P37 fix: checks actor_tag canonical field + legacy fields; P35 G16 only checked legacy actor/threat_actor causing false 0%)"
+      "status": "PASS",
+      "detail": "actor_pct=100.0% (P37 fix: checks actor_tag canonical field + legacy fields; P35 G16 only checked legacy actor/threat_actor causing false 0%)"
     },
     {
       "gate_id": "G16",
       "label": "Source dominance < 98% (feed-type-aware: CVE feed allows concentration)",
       "severity": "WARNING",
       "status": "PASS",
-      "detail": "top_src=nvd_cve dominance=93.1% threshold=98%"
+      "detail": "top_src=nvd_cve dominance=50.5% threshold=98%"
     },
     {
       "gate_id": "G17",
       "label": "Distinct sources >= 1 (feed-type-aware)",
       "severity": "WARNING",
       "status": "PASS",
-      "detail": "distinct_sources=4"
+      "detail": "distinct_sources=7"
     },
     {
       "gate_id": "G18",
       "label": "Enrichment pipeline active (CVSS or EPSS > 0, EPSS >= 30%)",
       "severity": "WARNING",
       "status": "PASS",
-      "detail": "enrichment_active=YES cvss=62.1% epss=100.0%"
+      "detail": "enrichment_active=YES cvss=70.6% epss=65.1%"
     },
     {
       "gate_id": "G19",
       "label": "Detection-ready items (sigma >= 15% OR hunt >= 50%)",
       "severity": "WARNING",
       "status": "FAIL_WARNING",
-      "detail": "sigma_pct=0.0% hunt_pct=0.0%"
+      "detail": "sigma_pct=13.8% hunt_pct=26.6%"
     },
     {
       "gate_id": "G20",
       "label": "MITRE ATT&CK mapping present",
       "severity": "WARNING",
-      "status": "FAIL_WARNING",
-      "detail": "mitre_valid_pct=0.0% (0/58 with T#### format)"
+      "status": "PASS",
+      "detail": "mitre_valid_pct=15.6% (17/109 with T#### format)"
     },
     {
       "gate_id": "G21",
@@ -182,14 +182,14 @@
       "label": "Evidence coverage >= 30% (cvss|cve_ids|iocs|kev|epss|ttps)",
       "severity": "WARNING",
       "status": "PASS",
-      "detail": "evidence_pct=100.0% (58/58)"
+      "detail": "evidence_pct=76.1% (83/109)"
     },
     {
       "gate_id": "G23",
       "label": "Freshness metadata >= 80% of items",
       "severity": "WARNING",
       "status": "PASS",
-      "detail": "timestamped=58/58 (100.0%)"
+      "detail": "timestamped=109/109 (100.0%)"
     },
     {
       "gate_id": "G24",
