@@ -1007,7 +1007,7 @@ ${buildP33OperationalDashboardBlock(item, items)}
 <!-- P33.10: API Gateway Status -->
 ${buildP33APIGatewayBlock(item)}
 <!-- P34.1: Engineering Assurance Summary -->
-<!-- P34 blocks require async gate evaluation — rendered via /api/v1/p34/dashboard -->
+<!-- P34 blocks require async gate evaluation  -  rendered via /api/v1/p34/dashboard -->
 </body>
 </html>`;
 }
