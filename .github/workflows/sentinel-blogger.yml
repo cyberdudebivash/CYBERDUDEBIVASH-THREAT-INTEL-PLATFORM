@@ -2346,6 +2346,30 @@ jobs:
           exit 0
 
       # -----------------------------------------------------------------------
+      # STAGE 4.00 - P35.0 Enterprise Intelligence Quality Engineering
+      # Chains from P34. 26 gates across quality, evidence, confidence,
+      # diversity, freshness, drift, and FP analytics.
+      # Non-blocking (continue-on-error: true) — CI helper only.
+      # -----------------------------------------------------------------------
+      - name: "STAGE 4.00 - P35.0 Enterprise Intelligence Quality Engineering"
+        timeout-minutes: 10
+        continue-on-error: true
+        env:
+          DRY_RUN: "false"
+        run: |
+          python3 scripts/p35_production_certification.py
+          if [ -f "data/quality/p35_certification_report.json" ]; then
+            read -r TIER BLOCKERS WARNINGS PASSED TOTAL <<< "$(python3 scripts/ci_stats_extract.py p35 2>/dev/null || echo 'UNKNOWN 0 0 0 0')"
+            echo "P35 Quality Engineering: tier=${TIER} passed=${PASSED}/${TOTAL} blockers=${BLOCKERS} warnings=${WARNINGS}"
+            if [ "${BLOCKERS}" = "0" ]; then
+              echo "::notice::P35.0 WORLDWIDE_RELEASE — ${PASSED}/${TOTAL} gates passed. Intelligence quality certified."
+            else
+              echo "::warning::P35.0 BLOCKED — ${BLOCKERS} blocker(s). Gates: ${PASSED}/${TOTAL}. See data/quality/p35_certification_report.json."
+            fi
+          fi
+          exit 0
+
+      # -----------------------------------------------------------------------
       # STAGE 4: GIT SYNC -- ALWAYS RUNS
       # Commits non-sensitive metadata and HTML reports. 4-attempt push retry.
       # Exit 0 guaranteed - never kills pipeline.

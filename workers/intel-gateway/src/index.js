@@ -85,6 +85,7 @@ import { buildP31KnowledgeGraphBlock, buildP31EntityBlock, buildP31CampaignBlock
 import { buildP32LifecycleBlock, buildP32DecisionBlock, buildP32DeltaBlock, buildP32DetectionEffectivenessBlock, buildP32EnvironmentSimulatorBlock, buildP32DriftBlock, buildP32EvidenceTransparencyBlock, buildP32MaturityBlock, buildP32MetricsBlock, buildP32ReleaseGateBlock, handleP32Decision, handleP32Drift, handleP32Lifecycle, handleP32Metrics, handleP32Customer, handleP32Quality, handleP32Operations, handleP32Release, handleP32Dashboard, handleP32Observability } from './p32-handlers.js';
 import { buildP33CaseBlock, buildP33CampaignBlock, buildP33MissionBlock, buildP33RecommendationsBlock, buildP33CoverageMatrixBlock, buildP33HeatmapBlock, buildP33ExplorerBlock, buildP33AutomationBlock, buildP33OperationalDashboardBlock, buildP33APIGatewayBlock, handleP33Cases, handleP33Campaigns, handleP33Heatmap, handleP33Mission, handleP33Recommendations, handleP33Explorer, handleP33Dashboard, handleP33Operations, handleP33Status, handleP33Metrics, handleP33Observability } from './p33-handlers.js';
 import { buildP34AssuranceSummaryBlock, buildP34SecurityPostureBlock, buildP34ReliabilityBlock, buildP34ObservabilityBlock, buildP34ComplianceBlock, handleP34Assurance, handleP34Security, handleP34Reliability, handleP34Performance, handleP34Compliance, handleP34Sbom, handleP34Contracts, handleP34Status, handleP34Metrics, handleP34Dashboard, handleP34Certification, handleP34Observability } from './p34-handlers.js';
+import { handleP35Quality, handleP35Freshness, handleP35Evidence, handleP35Confidence, handleP35Diversity, handleP35Drift, handleP35Metrics, handleP35Scorecard, handleP35Trend, handleP35Improvements, handleP35Dashboard, handleP35Observability } from './p35-handlers.js';
 import { routeEnterpriseEndpoint } from './enterprise-endpoints.js';
 import { handleSearch, handleActors, handleCVEs, handleMISPExport as handleMISPExportExt, handleCSVExport, handleCorrelate, handlePredict, handleCampaigns, handleAnomalies, handleIntelGraph, handleIntelRelations } from './api-extensions.js';
 const PLATFORM_VERSION    = "184.0";
@@ -4005,6 +4006,20 @@ async function handleRequest(request, env, ctx) {
   if (path === "/api/v1/p34/dashboard")          return await handleP34Dashboard(request, env);
   if (path === "/api/v1/p34/certification")      return await handleP34Certification(request, env);
   if (path === "/api/v1/p34/observability")      return await handleP34Observability(request, env);
+
+  // --- P35 routes ---
+  if (path === "/api/v1/p35/quality")            return await handleP35Quality(request, env);
+  if (path === "/api/v1/p35/freshness")          return await handleP35Freshness(request, env);
+  if (path === "/api/v1/p35/evidence")           return await handleP35Evidence(request, env);
+  if (path === "/api/v1/p35/confidence")         return await handleP35Confidence(request, env);
+  if (path === "/api/v1/p35/diversity")          return await handleP35Diversity(request, env);
+  if (path === "/api/v1/p35/drift")              return await handleP35Drift(request, env);
+  if (path === "/api/v1/p35/metrics")            return await handleP35Metrics(request, env);
+  if (path === "/api/v1/p35/scorecard")          return await handleP35Scorecard(request, env);
+  if (path === "/api/v1/p35/trend")              return await handleP35Trend(request, env);
+  if (path === "/api/v1/p35/improvements")       return await handleP35Improvements(request, env);
+  if (path === "/api/v1/p35/dashboard")          return await handleP35Dashboard(request, env);
+  if (path === "/api/v1/p35/observability")      return await handleP35Observability(request, env);
 
   // --- api-extensions.js routes (previously unreachable  -  now wired, auth already resolved above) ---
   if (path === "/api/search")                       return await handleSearch(request, env, auth, crypto.randomUUID());
