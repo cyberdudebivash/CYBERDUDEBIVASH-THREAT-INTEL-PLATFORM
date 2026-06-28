@@ -4,13 +4,13 @@
  *
  * ADR-P38-002: This handler layer exposes the governance framework
  * as queryable API endpoints.  All heavy computation is delegated
- * to existing P20/P25/P26 engines via import — no business logic
+ * to existing P20/P25/P26 engines via import  -  no business logic
  * is re-implemented here.
  *
  * Reuse map:
- *   computeP20QualityScore      → p20-handlers.js (unchanged)
- *   computeEnterpriseTrustScore → p25-handlers.js (unchanged)
- *   computeP26Grade             → p26-handlers.js (unchanged)
+ *   computeP20QualityScore      -> p20-handlers.js (unchanged)
+ *   computeEnterpriseTrustScore -> p25-handlers.js (unchanged)
+ *   computeP26Grade             -> p26-handlers.js (unchanged)
  *
  * 12 exported handlers / 12 API routes:
  *   /api/v1/p38/schema-registry   - canonical field definitions
@@ -32,9 +32,9 @@ import { computeEnterpriseTrustScore } from './p25-handlers.js';
 import { computeP26Grade }             from './p26-handlers.js';
 
 // ---------------------------------------------------------------------------
-// Internal helpers — feed loading, field coverage, diversity
+// Internal helpers  -  feed loading, field coverage, diversity
 // These mirror the Python canonical validators in p38_shared_validators.py
-// but are scoped to the Worker runtime (no filesystem access — reads KV/R2).
+// but are scoped to the Worker runtime (no filesystem access  -  reads KV/R2).
 // ---------------------------------------------------------------------------
 
 const REQUIRED_FIELDS = ['id', 'title', 'severity'];
@@ -208,7 +208,7 @@ function _reliabilityMetrics(items) {
 }
 
 // ---------------------------------------------------------------------------
-// FEED REGISTRY — mirrors Python FEED_REGISTRY for JS consumption
+// FEED REGISTRY  -  mirrors Python FEED_REGISTRY for JS consumption
 // ---------------------------------------------------------------------------
 const FEED_REGISTRY = {
   root:       { label: 'Root Snapshot Feed',       purpose: 'CI snapshot; NOT live production', feed_type: 'SNAPSHOT',      items_expected: 72,  enrichment: false, commercial: false },
@@ -399,7 +399,7 @@ export async function handleP38SourceDiversity(request, env) {
       sources_ok:    srcOk,
       overall:       domOk && srcOk ? 'HEALTHY' : 'NEEDS_ATTENTION',
     },
-    governance_note: 'Thresholds are feed-type-aware. NVD-heavy CVE feeds are expected to show high concentration — this is not a defect.',
+    governance_note: 'Thresholds are feed-type-aware. NVD-heavy CVE feeds are expected to show high concentration  -  this is not a defect.',
   });
 }
 
@@ -412,7 +412,7 @@ export async function handleP38Certification(request, env) {
     layer:             'P38',
     scope:             'enterprise_platform_governance',
     certification_source: 'data/quality/p38_certification_report.json',
-    chain: ['P38→P37→P36→P35→P34→P33 (all WORLDWIDE_RELEASE)'],
+    chain: ['P38->P37->P36->P35->P34->P33 (all WORLDWIDE_RELEASE)'],
     governance_note:   'Full certification is run by scripts/p38_production_certification.py. This endpoint surfaces chain metadata for API consumers.',
   });
 }
@@ -452,7 +452,7 @@ export async function handleP38Executive(request, env) {
       schema_registry:   'p38_shared_validators.py:SCHEMA_REGISTRY',
       feed_registry:     'p38_shared_validators.py:FEED_REGISTRY',
       shared_validators: 'scripts/p38_shared_validators.py',
-      cert_chain:        'P38→P37→P36→P35→P34→P33',
+      cert_chain:        'P38->P37->P36->P35->P34->P33',
     },
   });
 }
