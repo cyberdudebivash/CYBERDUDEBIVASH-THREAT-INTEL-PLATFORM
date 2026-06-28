@@ -127,17 +127,16 @@ def compute_micro(item: Dict[str, Any]) -> float:
 
     micro = (ioc_count * IOC_WEIGHT) + (confidence / CONF_DIVISOR) + (ttp_count * TTP_WEIGHT)
 
-    # v166.14 FIX: when all signals are zero (no IOCs, no TTPs, near-zero confidence),
-    # the cluster is never broken — all items produce identical micro=0.
-    # Add deterministic stix_id-based entropy as guaranteed tiebreaker.
-    # Uses first 4 hex chars of SHA-256(stix_id) → 0-65535 → scaled to [0.001, 0.049]
-    # This ensures every item in a cluster gets a unique micro without crossing
-    # severity tier boundaries (max bump stays within MAX_MICRO_BUMP).
-    if micro < 0.001:
-        item_id = str(item.get("stix_id") or item.get("id") or "")
-        if item_id:
-            id_hash = int(hashlib.sha256(item_id.encode()).hexdigest()[:4], 16)
-            micro += round((id_hash / 65535) * 0.049, 6)
+    # v184.1 FIX: always apply id-hash entropy as a tiebreaker, not only when
+    # micro < 0.001. Items with identical enrichment signals (same confidence_score,
+    # ioc_count, ttp_count) produce identical signal-based micro values, leaving
+    # clusters intact at the 2dp precision used by feed_health_gate.py uniform_risk.
+    # Always adding hash entropy [0.001, 0.049] ensures every item in a cluster
+    # diverges at 2dp while staying within MAX_MICRO_BUMP and severity tier bounds.
+    item_id = str(item.get("stix_id") or item.get("id") or "")
+    if item_id:
+        id_hash = int(hashlib.sha256(item_id.encode()).hexdigest()[:4], 16)
+        micro += round((id_hash / 65535) * 0.049, 6)
 
     return round(min(micro, MAX_MICRO_BUMP), 6)
 
