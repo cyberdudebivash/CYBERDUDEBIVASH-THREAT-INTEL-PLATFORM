@@ -86,6 +86,7 @@ import { buildP32LifecycleBlock, buildP32DecisionBlock, buildP32DeltaBlock, buil
 import { buildP33CaseBlock, buildP33CampaignBlock, buildP33MissionBlock, buildP33RecommendationsBlock, buildP33CoverageMatrixBlock, buildP33HeatmapBlock, buildP33ExplorerBlock, buildP33AutomationBlock, buildP33OperationalDashboardBlock, buildP33APIGatewayBlock, handleP33Cases, handleP33Campaigns, handleP33Heatmap, handleP33Mission, handleP33Recommendations, handleP33Explorer, handleP33Dashboard, handleP33Operations, handleP33Status, handleP33Metrics, handleP33Observability } from './p33-handlers.js';
 import { buildP34AssuranceSummaryBlock, buildP34SecurityPostureBlock, buildP34ReliabilityBlock, buildP34ObservabilityBlock, buildP34ComplianceBlock, handleP34Assurance, handleP34Security, handleP34Reliability, handleP34Performance, handleP34Compliance, handleP34Sbom, handleP34Contracts, handleP34Status, handleP34Metrics, handleP34Dashboard, handleP34Certification, handleP34Observability } from './p34-handlers.js';
 import { handleP35Quality, handleP35Freshness, handleP35Evidence, handleP35Confidence, handleP35Diversity, handleP35Drift, handleP35Metrics, handleP35Scorecard, handleP35Trend, handleP35Improvements, handleP35Dashboard, handleP35Observability } from './p35-handlers.js';
+import { handleP36Quality, handleP36Maturity, handleP36Targets, handleP36Gaps, handleP36CustomerValue, handleP36Competitive, handleP36Detection, handleP36Reliability, handleP36Metrics, handleP36Roadmap, handleP36Dashboard, handleP36Observability } from './p36-handlers.js';
 import { routeEnterpriseEndpoint } from './enterprise-endpoints.js';
 import { handleSearch, handleActors, handleCVEs, handleMISPExport as handleMISPExportExt, handleCSVExport, handleCorrelate, handlePredict, handleCampaigns, handleAnomalies, handleIntelGraph, handleIntelRelations } from './api-extensions.js';
 const PLATFORM_VERSION    = "184.0";
@@ -4020,6 +4021,19 @@ async function handleRequest(request, env, ctx) {
   if (path === "/api/v1/p35/improvements")       return await handleP35Improvements(request, env);
   if (path === "/api/v1/p35/dashboard")          return await handleP35Dashboard(request, env);
   if (path === "/api/v1/p35/observability")      return await handleP35Observability(request, env);
+
+  if (path === "/api/v1/p36/quality")            return await handleP36Quality(request, env);
+  if (path === "/api/v1/p36/maturity")           return await handleP36Maturity(request, env);
+  if (path === "/api/v1/p36/targets")            return await handleP36Targets(request, env);
+  if (path === "/api/v1/p36/gaps")               return await handleP36Gaps(request, env);
+  if (path === "/api/v1/p36/customer-value")     return await handleP36CustomerValue(request, env);
+  if (path === "/api/v1/p36/competitive")        return await handleP36Competitive(request, env);
+  if (path === "/api/v1/p36/detection")          return await handleP36Detection(request, env);
+  if (path === "/api/v1/p36/reliability")        return await handleP36Reliability(request, env);
+  if (path === "/api/v1/p36/metrics")            return await handleP36Metrics(request, env);
+  if (path === "/api/v1/p36/roadmap")            return await handleP36Roadmap(request, env);
+  if (path === "/api/v1/p36/dashboard")          return await handleP36Dashboard(request, env);
+  if (path === "/api/v1/p36/observability")      return await handleP36Observability(request, env);
 
   // --- api-extensions.js routes (previously unreachable  -  now wired, auth already resolved above) ---
   if (path === "/api/search")                       return await handleSearch(request, env, auth, crypto.randomUUID());
