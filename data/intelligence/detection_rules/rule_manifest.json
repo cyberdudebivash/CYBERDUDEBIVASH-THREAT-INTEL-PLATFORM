@@ -2,14 +2,14 @@
   "platform": "CYBERDUDEBIVASH SENTINEL APEX",
   "module": "v51_detection_engine",
   "version": "51.0.0",
-  "batch_id": "ae046c0ec765",
-  "generated_at": "2026-06-15T17:31:01.225315+00:00",
-  "ioc_count": 20,
+  "batch_id": "59fba5608107",
+  "generated_at": "2026-06-28T05:05:28.000377+00:00",
+  "ioc_count": 13,
   "ioc_type_breakdown": {
-    "domain": 3,
-    "cve": 14,
-    "ipv4": 1,
-    "url": 2
+    "ipv4": 7,
+    "url": 3,
+    "cve": 1,
+    "domain": 2
   },
   "rules_generated": {
     "sigma": 1,
@@ -19,11 +19,11 @@
   },
   "rules": [
     {
-      "rule_id": "cdb-net-ae046c0ec765",
+      "rule_id": "cdb-net-59fba5608107",
       "rule_type": "sigma",
-      "title": "Network IOC Detection [ae046c0ec765]",
-      "content": "title: CDB SENTINEL APEX - Network Threat Intel [ae046c0ec765]\nid: cdb-net-ae046c0ec765\nstatus: production\ndescription: >\n    Auto-generated detection rule for 1 malicious IPs and 3 malicious domains\n    from CYBERDUDEBIVASH SENTINEL APEX threat intelligence feeds.\nauthor: CyberDudeBivash SENTINEL APEX v51\ndate: 2026-06-15\nmodified: 2026-06-15\ntags:\n    - attack.command_and_control\n    - attack.t1071\n    - attack.t1090\nlogsource:\n    category: firewall\n    product: any\ndetection:\n    selection:\n        DestinationIp:\n            - '5.5.13.0'\n        DestinationHostname|contains:\n            - 'kodak.com'\n            - 'metacpan.org'\n            - 'theorangeblowfish.com'\n    condition: selection\nlevel: medium\nfalsepositives:\n    - Shared hosting infrastructure\n    - CDN/cloud provider IP overlap\nreferences:\n    - https://intel.cyberdudebivash.com\n    - https://cyberdudebivash.com/threat-intel",
-      "ioc_count": 4,
+      "title": "Network IOC Detection [59fba5608107]",
+      "content": "title: CDB SENTINEL APEX - Network Threat Intel [59fba5608107]\nid: cdb-net-59fba5608107\nstatus: production\ndescription: >\n    Auto-generated detection rule for 7 malicious IPs and 2 malicious domains\n    from CYBERDUDEBIVASH SENTINEL APEX threat intelligence feeds.\nauthor: CyberDudeBivash SENTINEL APEX v51\ndate: 2026-06-28\nmodified: 2026-06-28\ntags:\n    - attack.command_and_control\n    - attack.t1071\n    - attack.t1090\nlogsource:\n    category: firewall\n    product: any\ndetection:\n    selection:\n        DestinationIp:\n            - '4.0.4.1'\n            - '1.0.0.41'\n            - '1.0.9.4'\n            - '1.3.4.3'\n            - '169.254.169.254'\n            - '2.7.9.8'\n            - '0.0.0.0'\n        DestinationHostname|contains:\n            - 'kubevirt.io'\n            - 'evil.com'\n    condition: selection\nlevel: medium\nfalsepositives:\n    - Shared hosting infrastructure\n    - CDN/cloud provider IP overlap\nreferences:\n    - https://intel.cyberdudebivash.com\n    - https://cyberdudebivash.com/threat-intel",
+      "ioc_count": 9,
       "ioc_types": [
         "ipv4",
         "domain"
@@ -33,21 +33,26 @@
         "T1071",
         "T1090"
       ],
-      "generated_at": "2026-06-15T17:31:01.306370+00:00",
+      "generated_at": "2026-06-28T05:05:28.065051+00:00",
       "source_advisories": [
-        "[RANSOMWARE] Unknown: kodak.com",
-        "CVE-2026-12205: Crypt::DSA versions before 1.21 for Perl reused the nonce across signatures, leading to private-key recovery",
-        "CVE-2026-6517: Mattermost Desktop App versions <=6.1 5.5.13.0 fail to restrict the allow list of domains to which NTLM credentials were",
-        "[RANSOMWARE] Unknown: theorangeblowfish.com"
+        "CVE-2026-13325: A flaw was found in KubeVirt's migration proxy. When spec.configuration.migrations.disableTLS is set to true on the Kube",
+        "CVE-2025-68052: Unauthenticated Cross Site Request Forgery (CSRF) in Eagle Booking <= 1.3.4.3 versions.",
+        "CVE-2026-57620: Improper Neutralization of Input During Web Page Generation ('Cross-site Scripting') vulnerability in Tim Strifler Exclu",
+        "CVE-2026-40080: Cacti is an open source performance and fault management framework. Versions 1.2.30 and prior are vulnerable to Open Red",
+        "CVE-2026-57940: HTMLy 3.1.1 contains a Server-Side Request Forgery (SSRF) vulnerability in the RSS feed import functionality. The functi",
+        "CVE-2026-13318: A server-side request forgery (SSRF) flaw was found in KubeVirt's virt-api port-forward handler. When processing a port-",
+        "CVE-2026-54820: Unauthenticated SQL Injection in JetBooking <= 4.0.4.1 versions.",
+        "CVE-2025-68074: Contributor Cross Site Scripting (XSS) in Image Carousel <= 1.0.0.41 versions.",
+        "CVE-2025-68064: Contributor Local File Inclusion in Goya Core < 1.0.9.4 versions."
       ],
-      "filename": "cdb_network_ioc_ae046c0ec765.yml"
+      "filename": "cdb_network_ioc_59fba5608107.yml"
     },
     {
-      "rule_id": "yara-net-ae046c0ec765",
+      "rule_id": "yara-net-59fba5608107",
       "rule_type": "yara",
-      "title": "Network Intel YARA [ae046c0ec765]",
-      "content": "rule CDB_SENTINEL_Network_Intel_ae046c0ec765\n{\n    meta:\n        author = \"CyberDudeBivash SENTINEL APEX v51\"\n        description = \"Detects network IOCs from threat intelligence feeds\"\n        date = \"2026-06-15\"\n        severity = \"high\"\n        reference = \"https://intel.cyberdudebivash.com\"\n        batch_id = \"ae046c0ec765\"\n        ioc_count = 4\n\n    strings:\n        $ip_0 = \"5.5.13.0\" ascii wide nocase\n        $dom_1 = \"kodak.com\" ascii wide nocase\n        $dom_2 = \"metacpan.org\" ascii wide nocase\n        $dom_3 = \"theorangeblowfish.com\" ascii wide nocase\n\n    condition:\n        filesize < 100MB and any of them\n}",
-      "ioc_count": 4,
+      "title": "Network Intel YARA [59fba5608107]",
+      "content": "rule CDB_SENTINEL_Network_Intel_59fba5608107\n{\n    meta:\n        author = \"CyberDudeBivash SENTINEL APEX v51\"\n        description = \"Detects network IOCs from threat intelligence feeds\"\n        date = \"2026-06-28\"\n        severity = \"high\"\n        reference = \"https://intel.cyberdudebivash.com\"\n        batch_id = \"59fba5608107\"\n        ioc_count = 9\n\n    strings:\n        $ip_0 = \"4.0.4.1\" ascii wide nocase\n        $ip_1 = \"1.0.0.41\" ascii wide nocase\n        $ip_2 = \"1.0.9.4\" ascii wide nocase\n        $ip_3 = \"1.3.4.3\" ascii wide nocase\n        $ip_4 = \"169.254.169.254\" ascii wide nocase\n        $ip_5 = \"2.7.9.8\" ascii wide nocase\n        $ip_6 = \"0.0.0.0\" ascii wide nocase\n        $dom_7 = \"kubevirt.io\" ascii wide nocase\n        $dom_8 = \"evil.com\" ascii wide nocase\n\n    condition:\n        filesize < 100MB and any of them\n}",
+      "ioc_count": 9,
       "ioc_types": [
         "ipv4",
         "domain"
@@ -57,26 +62,31 @@
         "T1071",
         "T1090"
       ],
-      "generated_at": "2026-06-15T17:31:01.306613+00:00",
+      "generated_at": "2026-06-28T05:05:28.065351+00:00",
       "source_advisories": [
-        "[RANSOMWARE] Unknown: kodak.com",
-        "CVE-2026-12205: Crypt::DSA versions before 1.21 for Perl reused the nonce across signatures, leading to private-key recovery",
-        "CVE-2026-6517: Mattermost Desktop App versions <=6.1 5.5.13.0 fail to restrict the allow list of domains to which NTLM credentials were",
-        "[RANSOMWARE] Unknown: theorangeblowfish.com"
+        "CVE-2026-13325: A flaw was found in KubeVirt's migration proxy. When spec.configuration.migrations.disableTLS is set to true on the Kube",
+        "CVE-2025-68052: Unauthenticated Cross Site Request Forgery (CSRF) in Eagle Booking <= 1.3.4.3 versions.",
+        "CVE-2026-57620: Improper Neutralization of Input During Web Page Generation ('Cross-site Scripting') vulnerability in Tim Strifler Exclu",
+        "CVE-2026-40080: Cacti is an open source performance and fault management framework. Versions 1.2.30 and prior are vulnerable to Open Red",
+        "CVE-2026-57940: HTMLy 3.1.1 contains a Server-Side Request Forgery (SSRF) vulnerability in the RSS feed import functionality. The functi",
+        "CVE-2026-13318: A server-side request forgery (SSRF) flaw was found in KubeVirt's virt-api port-forward handler. When processing a port-",
+        "CVE-2026-54820: Unauthenticated SQL Injection in JetBooking <= 4.0.4.1 versions.",
+        "CVE-2025-68074: Contributor Cross Site Scripting (XSS) in Image Carousel <= 1.0.0.41 versions.",
+        "CVE-2025-68064: Contributor Local File Inclusion in Goya Core < 1.0.9.4 versions."
       ],
-      "filename": "cdb_network_intel_ae046c0ec765.yar"
+      "filename": "cdb_network_intel_59fba5608107.yar"
     },
     {
-      "rule_id": "suricata-ae046c0ec765",
+      "rule_id": "suricata-59fba5608107",
       "rule_type": "suricata",
-      "title": "Suricata Threat Intel [ae046c0ec765]",
-      "content": "# CDB SENTINEL APEX v51 - Auto-Generated Suricata Rules\n# Batch: ae046c0ec765 | Generated: 2026-06-15\n# IOC Count: 20\n# Source: https://intel.cyberdudebivash.com\n\nalert ip any any -> 5.5.13.0 any (msg:\"CDB SENTINEL v51 - Threat Intel IP: 5.5.13.0\"; sid:9749538; rev:1; classtype:trojan-activity; metadata:created_at 2026-06-15, severity high, source CDB_SENTINEL_APEX_v51;)\nalert dns any any -> any any (msg:\"CDB SENTINEL v51 - Threat Intel Domain: kodak.com\"; dns.query; content:\"kodak.com\"; nocase; sid:9750538; rev:1; classtype:trojan-activity; metadata:created_at 2026-06-15, severity high, source CDB_SENTINEL_APEX_v51;)\nalert dns any any -> any any (msg:\"CDB SENTINEL v51 - Threat Intel Domain: metacpan.org\"; dns.query; content:\"metacpan.org\"; nocase; sid:9750539; rev:1; classtype:trojan-activity; metadata:created_at 2026-06-15, severity high, source CDB_SENTINEL_APEX_v51;)\nalert dns any any -> any any (msg:\"CDB SENTINEL v51 - Threat Intel Domain: theorangeblowfish.com\"; dns.query; content:\"theorangeblowfish.com\"; nocase; sid:9750540; rev:1; classtype:trojan-activity; metadata:created_at 2026-06-15, severity high, source CDB_SENTINEL_APEX_v51;)\nalert http any any -> any any (msg:\"CDB SENTINEL v51 - Threat Intel URL\"; http.uri; content:\"dist/Crypt-DSA\"; nocase; sid:9751538; rev:1; classtype:trojan-activity; metadata:created_at 2026-06-15, source CDB_SENTINEL_APEX_v51;)\nalert http any any -> any any (msg:\"CDB SENTINEL v51 - Threat Intel URL\"; http.uri; content:\"perl-Crypt-OpenPGP/Crypt-DSA\"; nocase; sid:9751539; rev:1; classtype:trojan-activity; metadata:created_at 2026-06-15, source CDB_SENTINEL_APEX_v51;)",
-      "ioc_count": 6,
+      "title": "Suricata Threat Intel [59fba5608107]",
+      "content": "# CDB SENTINEL APEX v51 - Auto-Generated Suricata Rules\n# Batch: 59fba5608107 | Generated: 2026-06-28\n# IOC Count: 13\n# Source: https://intel.cyberdudebivash.com\n\nalert ip any any -> 4.0.4.1 any (msg:\"CDB SENTINEL v51 - Threat Intel IP: 4.0.4.1\"; sid:9891205; rev:1; classtype:trojan-activity; metadata:created_at 2026-06-28, severity high, source CDB_SENTINEL_APEX_v51;)\nalert ip any any -> 1.0.0.41 any (msg:\"CDB SENTINEL v51 - Threat Intel IP: 1.0.0.41\"; sid:9891206; rev:1; classtype:trojan-activity; metadata:created_at 2026-06-28, severity high, source CDB_SENTINEL_APEX_v51;)\nalert ip any any -> 1.0.9.4 any (msg:\"CDB SENTINEL v51 - Threat Intel IP: 1.0.9.4\"; sid:9891207; rev:1; classtype:trojan-activity; metadata:created_at 2026-06-28, severity high, source CDB_SENTINEL_APEX_v51;)\nalert ip any any -> 1.3.4.3 any (msg:\"CDB SENTINEL v51 - Threat Intel IP: 1.3.4.3\"; sid:9891208; rev:1; classtype:trojan-activity; metadata:created_at 2026-06-28, severity high, source CDB_SENTINEL_APEX_v51;)\nalert ip any any -> 169.254.169.254 any (msg:\"CDB SENTINEL v51 - Threat Intel IP: 169.254.169.254\"; sid:9891209; rev:1; classtype:trojan-activity; metadata:created_at 2026-06-28, severity high, source CDB_SENTINEL_APEX_v51;)\nalert ip any any -> 2.7.9.8 any (msg:\"CDB SENTINEL v51 - Threat Intel IP: 2.7.9.8\"; sid:9891210; rev:1; classtype:trojan-activity; metadata:created_at 2026-06-28, severity high, source CDB_SENTINEL_APEX_v51;)\nalert ip any any -> 0.0.0.0 any (msg:\"CDB SENTINEL v51 - Threat Intel IP: 0.0.0.0\"; sid:9891211; rev:1; classtype:trojan-activity; metadata:created_at 2026-06-28, severity high, source CDB_SENTINEL_APEX_v51;)\nalert dns any any -> any any (msg:\"CDB SENTINEL v51 - Threat Intel Domain: kubevirt.io\"; dns.query; content:\"kubevirt.io\"; nocase; sid:9892205; rev:1; classtype:trojan-activity; metadata:created_at 2026-06-28, severity high, source CDB_SENTINEL_APEX_v51;)\nalert dns any any -> any any (msg:\"CDB SENTINEL v51 - Threat Intel Domain: evil.com\"; dns.query; content:\"evil.com\"; nocase; sid:9892206; rev:1; classtype:trojan-activity; metadata:created_at 2026-06-28, severity high, source CDB_SENTINEL_APEX_v51;)\nalert http any any -> any any (msg:\"CDB SENTINEL v51 - Threat Intel URL\"; http.uri; content:\"dnslog.example.com,\"; nocase; sid:9893205; rev:1; classtype:trojan-activity; metadata:created_at 2026-06-28, source CDB_SENTINEL_APEX_v51;)\nalert http any any -> any any (msg:\"CDB SENTINEL v51 - Threat Intel URL\"; http.uri; content:\"169.254.169.254\"; nocase; sid:9893206; rev:1; classtype:trojan-activity; metadata:created_at 2026-06-28, source CDB_SENTINEL_APEX_v51;)\nalert http any any -> any any (msg:\"CDB SENTINEL v51 - Threat Intel URL\"; http.uri; content:\"cacti/.\"; nocase; sid:9893207; rev:1; classtype:trojan-activity; metadata:created_at 2026-06-28, source CDB_SENTINEL_APEX_v51;)",
+      "ioc_count": 12,
       "ioc_types": [
-        "domain",
-        "cve",
         "ipv4",
-        "url"
+        "url",
+        "cve",
+        "domain"
       ],
       "severity": "high",
       "mitre_techniques": [
@@ -84,20 +94,20 @@
         "T1090",
         "T1568"
       ],
-      "generated_at": "2026-06-15T17:31:01.306871+00:00",
+      "generated_at": "2026-06-28T05:05:28.065634+00:00",
       "source_advisories": [
-        "[RANSOMWARE] Unknown: kodak.com",
-        "CVE-2026-5242 - Code Injection in Mia Technologies' Pizzy Library",
-        "CVE-2026-6517 - Mattermost Desktop App fails to restrict the allow list of domains which NTLM credentials are passed",
-        "CVE-2026-5233 - Missing Rate Limiting in Mia Technologies' Pizzy Library",
-        "CVE-2026-49064 - WordPress GetPaid plugin <= 2.8.49 - Sensitive Data Exposure vulnerability",
-        "CVE-2026-5079 - multer vulnerable to Denial of Service via deeply nested field names",
-        "CVE-2026-49062 - WordPress Faust.js plugin <= 1.8.7 - Broken Authentication vulnerability",
-        "Re: Squid CVE-2026-47729 and CVE-2026-50012",
-        "CVE-2026-12205: Crypt::DSA versions before 1.21 for Perl reused the nonce across signatures, leading to private-key recovery",
-        "CVE-2026-52704 - WordPress WooCommerce PDF Invoice Builder plugin <= 2.0.8 - Remote Code Execution (RCE) vulnerability"
+        "CVE-2026-13325: A flaw was found in KubeVirt's migration proxy. When spec.configuration.migrations.disableTLS is set to true on the Kube",
+        "CVE-2025-68052: Unauthenticated Cross Site Request Forgery (CSRF) in Eagle Booking <= 1.3.4.3 versions.",
+        "CVE-2026-57620: Improper Neutralization of Input During Web Page Generation ('Cross-site Scripting') vulnerability in Tim Strifler Exclu",
+        "CVE-2026-50741: Bypass to the fix for CVE-2026-34916. Variants of such vectors have been also reported by phucrio and offsetmd. The fix",
+        "CVE-2026-40080: Cacti is an open source performance and fault management framework. Versions 1.2.30 and prior are vulnerable to Open Red",
+        "CVE-2026-57940: HTMLy 3.1.1 contains a Server-Side Request Forgery (SSRF) vulnerability in the RSS feed import functionality. The functi",
+        "CVE-2026-13318: A server-side request forgery (SSRF) flaw was found in KubeVirt's virt-api port-forward handler. When processing a port-",
+        "CVE-2026-54820: Unauthenticated SQL Injection in JetBooking <= 4.0.4.1 versions.",
+        "CVE-2025-68074: Contributor Cross Site Scripting (XSS) in Image Carousel <= 1.0.0.41 versions.",
+        "CVE-2025-68064: Contributor Local File Inclusion in Goya Core < 1.0.9.4 versions."
       ],
-      "filename": "cdb_threat_intel_ae046c0ec765.rules"
+      "filename": "cdb_threat_intel_59fba5608107.rules"
     }
   ]
 }
