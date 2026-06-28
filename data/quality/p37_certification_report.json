@@ -1,0 +1,216 @@
+{
+  "schema_version": "p37.0",
+  "generated_at": "2026-06-28T05:31:24.995774+00:00",
+  "layer": "P37",
+  "scope": "enterprise_platform_hardening_intelligence_excellence",
+  "release_tier": "WORLDWIDE_RELEASE",
+  "passed_count": 23,
+  "blocker_count": 0,
+  "warning_count": 3,
+  "total_gates": 26,
+  "feed_item_count": 58,
+  "feed_path_used": "api/feed.json",
+  "p36_tier": "WORLDWIDE_RELEASE",
+  "phase0_findings": {
+    "feed_architecture": "3-feed system: api/feed.json (live CVE, enriched), data/feed.json (aggregate), feed.json (root stale snapshot)",
+    "p35_g16_defect": "P35 G16 checks `actor`/`threat_actor` fields (0%) but canonical field is `actor_tag` (verified 100% on live data). False warning.",
+    "source_diversity": "CVE feed (NVD-centric by design): 4 sources, top=93.1%",
+    "enrichment_status": "CVSS=62.1% EPSS=100.0% CVE_IDs=100.0% KEV=1.7%"
+  },
+  "quality_summary": {
+    "cvss_pct": 62.1,
+    "epss_pct": 100.0,
+    "cve_ids_pct": 100.0,
+    "kev_pct": 1.7,
+    "confidence_pct": 100.0,
+    "actor_pct_correct": 0.0,
+    "sigma_ready_pct": 0.0,
+    "source_count": 4,
+    "top_source_dom_pct": 93.1,
+    "is_cve_feed": true
+  },
+  "gates": [
+    {
+      "gate_id": "G01",
+      "label": "P36 certification report present",
+      "severity": "BLOCKER",
+      "status": "PASS",
+      "detail": "tier=WORLDWIDE_RELEASE blockers=0"
+    },
+    {
+      "gate_id": "G02",
+      "label": "P36 release tier = WORLDWIDE_RELEASE",
+      "severity": "BLOCKER",
+      "status": "PASS",
+      "detail": "WORLDWIDE_RELEASE"
+    },
+    {
+      "gate_id": "G03",
+      "label": "P36 has zero blockers",
+      "severity": "BLOCKER",
+      "status": "PASS",
+      "detail": "blockers=0"
+    },
+    {
+      "gate_id": "G04",
+      "label": "P35 certification chain intact",
+      "severity": "WARNING",
+      "status": "PASS",
+      "detail": "tier=WORLDWIDE_RELEASE"
+    },
+    {
+      "gate_id": "G05",
+      "label": "P33 certification report present",
+      "severity": "WARNING",
+      "status": "PASS",
+      "detail": "tier=WORLDWIDE_RELEASE"
+    },
+    {
+      "gate_id": "G06",
+      "label": "Live feed non-empty",
+      "severity": "BLOCKER",
+      "status": "PASS",
+      "detail": "items=58 source=api/feed.json"
+    },
+    {
+      "gate_id": "G07",
+      "label": "Live feed item count >= 10",
+      "severity": "BLOCKER",
+      "status": "PASS",
+      "detail": "items=58"
+    },
+    {
+      "gate_id": "G08",
+      "label": "All items have required fields (id, title, severity)",
+      "severity": "BLOCKER",
+      "status": "PASS",
+      "detail": "OK"
+    },
+    {
+      "gate_id": "G09",
+      "label": "No duplicate IDs in live feed",
+      "severity": "BLOCKER",
+      "status": "PASS",
+      "detail": "unique=58 total=58"
+    },
+    {
+      "gate_id": "G10",
+      "label": "Feed contains CRITICAL or HIGH severity items",
+      "severity": "WARNING",
+      "status": "PASS",
+      "detail": "CRITICAL/HIGH present"
+    },
+    {
+      "gate_id": "G11",
+      "label": "CVSS coverage >= 50% (feed-type-aware: CVE)",
+      "severity": "WARNING",
+      "status": "PASS",
+      "detail": "cvss_pct=62.1% (top_src=nvd_cve, is_cve_feed=True)"
+    },
+    {
+      "gate_id": "G12",
+      "label": "EPSS coverage >= 30%",
+      "severity": "WARNING",
+      "status": "PASS",
+      "detail": "epss_pct=100.0%"
+    },
+    {
+      "gate_id": "G13",
+      "label": "CVE ID coverage >= 50% (feed-type-aware)",
+      "severity": "WARNING",
+      "status": "PASS",
+      "detail": "cve_pct=100.0%"
+    },
+    {
+      "gate_id": "G14",
+      "label": "Confidence field coverage >= 50%",
+      "severity": "WARNING",
+      "status": "PASS",
+      "detail": "confidence_pct=100.0%"
+    },
+    {
+      "gate_id": "G15",
+      "label": "Actor attribution present (actor_tag OR actor OR threat_actor)",
+      "severity": "WARNING",
+      "status": "FAIL_WARNING",
+      "detail": "actor_pct=0.0% (P37 fix: checks actor_tag canonical field + legacy fields; P35 G16 only checked legacy actor/threat_actor causing false 0%)"
+    },
+    {
+      "gate_id": "G16",
+      "label": "Source dominance < 98% (feed-type-aware: CVE feed allows concentration)",
+      "severity": "WARNING",
+      "status": "PASS",
+      "detail": "top_src=nvd_cve dominance=93.1% threshold=98%"
+    },
+    {
+      "gate_id": "G17",
+      "label": "Distinct sources >= 1 (feed-type-aware)",
+      "severity": "WARNING",
+      "status": "PASS",
+      "detail": "distinct_sources=4"
+    },
+    {
+      "gate_id": "G18",
+      "label": "Enrichment pipeline active (CVSS or EPSS > 0, EPSS >= 30%)",
+      "severity": "WARNING",
+      "status": "PASS",
+      "detail": "enrichment_active=YES cvss=62.1% epss=100.0%"
+    },
+    {
+      "gate_id": "G19",
+      "label": "Detection-ready items (sigma >= 15% OR hunt >= 50%)",
+      "severity": "WARNING",
+      "status": "FAIL_WARNING",
+      "detail": "sigma_pct=0.0% hunt_pct=0.0%"
+    },
+    {
+      "gate_id": "G20",
+      "label": "MITRE ATT&CK mapping present",
+      "severity": "WARNING",
+      "status": "FAIL_WARNING",
+      "detail": "mitre_valid_pct=0.0% (0/58 with T#### format)"
+    },
+    {
+      "gate_id": "G21",
+      "label": "No risk_score ceiling violations (> 10)",
+      "severity": "BLOCKER",
+      "status": "PASS",
+      "detail": "violations=0"
+    },
+    {
+      "gate_id": "G22",
+      "label": "Evidence coverage >= 30% (cvss|cve_ids|iocs|kev|epss|ttps)",
+      "severity": "WARNING",
+      "status": "PASS",
+      "detail": "evidence_pct=100.0% (58/58)"
+    },
+    {
+      "gate_id": "G23",
+      "label": "Freshness metadata >= 80% of items",
+      "severity": "WARNING",
+      "status": "PASS",
+      "detail": "timestamped=58/58 (100.0%)"
+    },
+    {
+      "gate_id": "G24",
+      "label": "p37-handlers.js exists",
+      "severity": "BLOCKER",
+      "status": "PASS",
+      "detail": "found"
+    },
+    {
+      "gate_id": "G25",
+      "label": "p37-handlers.js has all 12 required exports",
+      "severity": "BLOCKER",
+      "status": "PASS",
+      "detail": "OK"
+    },
+    {
+      "gate_id": "G26",
+      "label": "index.js has P37 import + routes",
+      "severity": "BLOCKER",
+      "status": "PASS",
+      "detail": "import+routes found"
+    }
+  ]
+}

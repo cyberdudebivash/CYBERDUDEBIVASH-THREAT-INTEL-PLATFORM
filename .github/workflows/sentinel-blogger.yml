@@ -2394,6 +2394,30 @@ jobs:
           exit 0
 
       # -----------------------------------------------------------------------
+      # STAGE 4.02 - P37.0 Enterprise Platform Hardening & Intelligence Excellence
+      # Chains from P36. 26 gates covering feed-type-aware diversity, enrichment
+      # pipeline, IQ score, detection quality, reliability, and debt audit.
+      # Non-blocking (continue-on-error: true) — CI helper only.
+      # -----------------------------------------------------------------------
+      - name: "STAGE 4.02 - P37.0 Enterprise Platform Hardening"
+        timeout-minutes: 10
+        continue-on-error: true
+        env:
+          DRY_RUN: "false"
+        run: |
+          python3 scripts/p37_production_certification.py
+          if [ -f "data/quality/p37_certification_report.json" ]; then
+            read -r TIER BLOCKERS WARNINGS PASSED TOTAL <<< "$(python3 scripts/ci_stats_extract.py p37 2>/dev/null || echo 'UNKNOWN 0 0 0 0')"
+            echo "P37 Platform Hardening: tier=${TIER} passed=${PASSED}/${TOTAL} blockers=${BLOCKERS} warnings=${WARNINGS}"
+            if [ "${BLOCKERS}" = "0" ]; then
+              echo "::notice::P37.0 WORLDWIDE_RELEASE — ${PASSED}/${TOTAL} gates passed. Platform hardening certified."
+            else
+              echo "::warning::P37.0 BLOCKED — ${BLOCKERS} blocker(s). Gates: ${PASSED}/${TOTAL}. See data/quality/p37_certification_report.json."
+            fi
+          fi
+          exit 0
+
+      # -----------------------------------------------------------------------
       # STAGE 4: GIT SYNC -- ALWAYS RUNS
       # Commits non-sensitive metadata and HTML reports. 4-attempt push retry.
       # Exit 0 guaranteed - never kills pipeline.
