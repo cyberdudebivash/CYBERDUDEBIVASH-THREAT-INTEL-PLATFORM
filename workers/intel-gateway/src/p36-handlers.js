@@ -8,7 +8,7 @@ import { computeP20QualityScore }      from './p20-handlers.js';
 import { computeEnterpriseTrustScore } from './p25-handlers.js';
 import { computeP26Grade }             from './p26-handlers.js';
 
-// ─── helpers ──────────────────────────────────────────────────────────────────
+// --- helpers ------------------------------------------------------------------
 
 function _ts() { return new Date().toISOString(); }
 function _json(data, status = 200) {
@@ -28,7 +28,7 @@ async function _loadQuality(env, key) {
   return raw ? JSON.parse(raw) : null;
 }
 
-// ─── maturity scale ───────────────────────────────────────────────────────────
+// --- maturity scale -----------------------------------------------------------
 
 const MATURITY = { MISSING: 0, EXPERIMENTAL: 1, BASIC: 2, MATURE: 3, ENTERPRISE_READY: 4, WORLD_CLASS: 5 };
 
@@ -41,7 +41,7 @@ function _maturityLabel(score) {
   return 'MISSING';
 }
 
-// ─── field coverage audit ─────────────────────────────────────────────────────
+// --- field coverage audit -----------------------------------------------------
 
 function _auditFieldCoverage(feed) {
   const n = feed.length || 1;
@@ -65,7 +65,7 @@ function _auditFieldCoverage(feed) {
   return { ...stats, ...pct };
 }
 
-// ─── quality targets ─────────────────────────────────────────────────────────
+// --- quality targets ---------------------------------------------------------
 
 const QUALITY_TARGETS = {
   cvss_pct:       { target: 80, label: 'CVSS Score Coverage',      priority: 'P1' },
@@ -98,7 +98,7 @@ function _evaluateTargets(coverage) {
   return { targets: results, met, total, pct_met: +(100 * met / total).toFixed(1) };
 }
 
-// ─── capability maturity matrix ───────────────────────────────────────────────
+// --- capability maturity matrix -----------------------------------------------
 
 function _assessMaturity(feed, coverage, p35cert) {
   const n = feed.length || 1;
@@ -179,7 +179,7 @@ function _assessMaturity(feed, coverage, p35cert) {
   return { capabilities, avg_maturity_score: avg, avg_maturity_label: _maturityLabel(Math.round(avg)), missing_count: missing, at_target_count: at_target, total: capabilities.length };
 }
 
-// ─── customer value scoring ───────────────────────────────────────────────────
+// --- customer value scoring ---------------------------------------------------
 
 function _computeCustomerValueScores(coverage, maturity) {
   // CVS = (detection_enablement * 0.35) + (risk_reduction * 0.30) + (operational_efficiency * 0.20) + (trust_signal * 0.15)
@@ -249,7 +249,7 @@ function _computeCustomerValueScores(coverage, maturity) {
   return { features, avg_customer_value_score: avg_cvs, live_count, gap_count: features.length - live_count, total: features.length };
 }
 
-// ─── improvement roadmap ──────────────────────────────────────────────────────
+// --- improvement roadmap ------------------------------------------------------
 
 function _buildRoadmap(targetEval, maturity) {
   const items = [];
@@ -287,7 +287,7 @@ function _buildRoadmap(targetEval, maturity) {
   return { roadmap: items, total_items: items.length, high_priority: items.filter(i => i.priority === 'P1').length };
 }
 
-// ─── P36 scorecard ────────────────────────────────────────────────────────────
+// --- P36 scorecard ------------------------------------------------------------
 
 function _computeP36Scorecard(feed, coverage, maturity, targetEval, p35cert) {
   // Compose from existing engine: computeP26Grade on synthetic aggregate
@@ -323,7 +323,7 @@ function _computeP36Scorecard(feed, coverage, maturity, targetEval, p35cert) {
   };
 }
 
-// ─── competitive analysis ─────────────────────────────────────────────────────
+// --- competitive analysis -----------------------------------------------------
 
 function _competitiveAnalysis(coverage, maturity) {
   const benchmarks = [
@@ -353,7 +353,7 @@ function _competitiveAnalysis(coverage, maturity) {
   return { our_avg, comparisons, ahead_of: `${ahead_count}/${comparisons.length} benchmarks`, advantage_areas: fields.filter(f => us[f] >= 70).map(f => f.replace('_pct','')) };
 }
 
-// ─── detection excellence ─────────────────────────────────────────────────────
+// --- detection excellence -----------------------------------------------------
 
 function _detectionExcellence(feed, coverage) {
   const sigma_ready   = feed.filter(x => (x.ttps && x.ttps.length > 0) && x.iocs && x.iocs.length > 0).length;
@@ -371,7 +371,7 @@ function _detectionExcellence(feed, coverage) {
   };
 }
 
-// ─── reliability metrics ──────────────────────────────────────────────────────
+// --- reliability metrics ------------------------------------------------------
 
 function _reliabilityMetrics(feed, p35cert, p34cert) {
   const dedup_ids = new Set(feed.map(x => x.id)).size;
@@ -397,7 +397,7 @@ function _reliabilityMetrics(feed, p35cert, p34cert) {
   };
 }
 
-// ─── aggregate quality scores via engine composition ─────────────────────────
+// --- aggregate quality scores via engine composition -------------------------
 
 function _sampleQuality(feed) {
   const sample = feed.slice(0, 30);
@@ -418,7 +418,7 @@ function _sampleQuality(feed) {
   };
 }
 
-// ─── exported route handlers ──────────────────────────────────────────────────
+// --- exported route handlers --------------------------------------------------
 
 export async function handleP36Quality(request, env) {
   const feed = await _loadFeed(env);
@@ -475,7 +475,7 @@ export async function handleP36Gaps(request, env) {
     gap_count: failing.length,
     gaps: failing,
     field_coverage: coverage,
-    summary: `${failing.length}/${targetEval.total} targets unmet — ${failing.filter(f=>f.priority==='P1').length} critical gaps`,
+    summary: `${failing.length}/${targetEval.total} targets unmet  -  ${failing.filter(f=>f.priority==='P1').length} critical gaps`,
   });
 }
 
@@ -620,7 +620,7 @@ export async function handleP36Observability(request, env) {
     schema_version: 'p36.0', timestamp: _ts(), layer: 'P36',
     capability: 'observability',
     p_layer_version: 'P36.0',
-    platform: 'CYBERDUDEBIVASH® SENTINEL APEX',
+    platform: 'CYBERDUDEBIVASH(R) SENTINEL APEX',
     health: targetEval.pct_met >= 60 ? 'GREEN' : 'AMBER',
     metrics: {
       feed_item_count:   feed.length,
