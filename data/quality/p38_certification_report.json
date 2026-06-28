@@ -1,0 +1,251 @@
+{
+  "schema_version": "p38.0",
+  "generated_at": "2026-06-28T06:33:19.345182+00:00",
+  "layer": "P38",
+  "scope": "enterprise_platform_governance",
+  "release_tier": "WORLDWIDE_RELEASE",
+  "passed_count": 24,
+  "blocker_count": 0,
+  "warning_count": 2,
+  "total_gates": 26,
+  "p37_tier": "WORLDWIDE_RELEASE",
+  "shared_validators": "scripts/p38_shared_validators.py",
+  "shared_import_ok": true,
+  "feed_registry_count": 12,
+  "schema_field_count": 179,
+  "feed_type_rules": 9,
+  "live_feed": {
+    "path": "/home/user/CYBERDUDEBIVASH-THREAT-INTEL-PLATFORM/api/feed.json",
+    "item_count": 58,
+    "enrichment": {
+      "cvss_pct": 62.1,
+      "epss_pct": 5.2,
+      "kev_pct": 5.2,
+      "conf_pct": 100.0,
+      "actor_pct": 0.0,
+      "ioc_pct": 13.8,
+      "ttp_pct": 0.0,
+      "sigma_pct": 94.8,
+      "desc_pct": 98.3,
+      "cve_ids_pct": 100.0
+    }
+  },
+  "governance_deliverables": {
+    "canonical_schema_registry": "scripts/p38_shared_validators.py:SCHEMA_REGISTRY",
+    "canonical_feed_registry": "scripts/p38_shared_validators.py:FEED_REGISTRY",
+    "feed_type_rules": "scripts/p38_shared_validators.py:FEED_TYPE_RULES",
+    "shared_gate_fn": "scripts/p38_shared_validators.py:gate()",
+    "shared_field_pct_fn": "scripts/p38_shared_validators.py:field_pct()",
+    "shared_enrichment_summary_fn": "scripts/p38_shared_validators.py:enrichment_summary()",
+    "shared_drift_fn": "scripts/p38_shared_validators.py:detect_schema_drift()",
+    "handler_js": "workers/intel-gateway/src/p38-handlers.js",
+    "executive_dashboard": "/api/v1/p38/executive"
+  },
+  "adr": [
+    {
+      "id": "ADR-P38-001",
+      "decision": "Introduce p38_shared_validators.py as canonical shared validator library",
+      "rationale": "Phase 0 audit found _field_pct and _gate re-implemented independently in p36 and p37 cert scripts. Single Source of Truth eliminates future drift.",
+      "approach": "Additive — p36/p37 scripts unchanged. New p38 cert imports from shared module.",
+      "risk": "LOW"
+    },
+    {
+      "id": "ADR-P38-002",
+      "decision": "Define canonical SCHEMA_REGISTRY with 153 fields and FEED_REGISTRY with 12 feeds",
+      "rationale": "Phase 0 audit found zero documented feed purpose registry and zero canonical schema. This is the governance gap P38 closes.",
+      "approach": "New module p38_shared_validators.py. No existing file modified.",
+      "risk": "LOW"
+    },
+    {
+      "id": "ADR-P38-003",
+      "decision": "Feed-type-aware thresholds in FEED_TYPE_RULES rather than per-cert hardcoding",
+      "rationale": "P37 Phase 0 found CVE-feed vs broad-feed required different diversity/enrichment thresholds. Centralising rules prevents future divergence.",
+      "approach": "FEED_TYPE_RULES dict in p38_shared_validators.py consumed by p38 cert and future layers.",
+      "risk": "LOW"
+    }
+  ],
+  "gates": [
+    {
+      "gate_id": "G01",
+      "label": "P37 certification report present",
+      "severity": "BLOCKER",
+      "status": "PASS",
+      "detail": "tier=WORLDWIDE_RELEASE blockers=0"
+    },
+    {
+      "gate_id": "G02",
+      "label": "P37 release tier = WORLDWIDE_RELEASE",
+      "severity": "BLOCKER",
+      "status": "PASS",
+      "detail": "WORLDWIDE_RELEASE"
+    },
+    {
+      "gate_id": "G03",
+      "label": "P37 has zero blockers",
+      "severity": "BLOCKER",
+      "status": "PASS",
+      "detail": "blockers=0"
+    },
+    {
+      "gate_id": "G04",
+      "label": "P36 certification chain intact",
+      "severity": "WARNING",
+      "status": "PASS",
+      "detail": "tier=WORLDWIDE_RELEASE"
+    },
+    {
+      "gate_id": "G05",
+      "label": "p38_shared_validators.py imports successfully",
+      "severity": "BLOCKER",
+      "status": "PASS",
+      "detail": "OK"
+    },
+    {
+      "gate_id": "G06",
+      "label": "Feed registry has >= 10 documented feeds",
+      "severity": "BLOCKER",
+      "status": "PASS",
+      "detail": "registered_feeds=12"
+    },
+    {
+      "gate_id": "G07",
+      "label": "Feed registry >= 8 feed files present on disk",
+      "severity": "WARNING",
+      "status": "PASS",
+      "detail": "present=12/12: ['root', 'live', 'research', 'baseline', 'gold', 'silver', 'standard', 'executive', 'trial', 'enterprise', 'mssp', 'public']"
+    },
+    {
+      "gate_id": "G08",
+      "label": "All registered feeds have purpose and feed_type",
+      "severity": "BLOCKER",
+      "status": "PASS",
+      "detail": "OK"
+    },
+    {
+      "gate_id": "G09",
+      "label": "Schema registry has >= 100 canonical fields",
+      "severity": "BLOCKER",
+      "status": "PASS",
+      "detail": "schema_fields=179"
+    },
+    {
+      "gate_id": "G10",
+      "label": "All schema fields have required/type/domain defined",
+      "severity": "BLOCKER",
+      "status": "PASS",
+      "detail": "OK"
+    },
+    {
+      "gate_id": "G11",
+      "label": "Deprecated fields are documented in schema registry",
+      "severity": "WARNING",
+      "status": "PASS",
+      "detail": "deprecated_count=5: ['cves', 'epss_score', 'actor', 'confidence_score', 'corroboration_sources']"
+    },
+    {
+      "gate_id": "G12",
+      "label": "Feed-type validation rules cover all primary feed types",
+      "severity": "BLOCKER",
+      "status": "PASS",
+      "detail": "covered=['BROAD_THREAT_INTEL', 'COMMERCIAL_CVE', 'CVE_FEED', 'ENTERPRISE', 'EXECUTIVE', 'MSSP', 'PUBLIC', 'SNAPSHOT', 'TRIAL']"
+    },
+    {
+      "gate_id": "G13",
+      "label": "Canonical gate() function produces correct structure",
+      "severity": "BLOCKER",
+      "status": "PASS",
+      "detail": "OK"
+    },
+    {
+      "gate_id": "G14",
+      "label": "Canonical field_pct() computes correctly (66.7% expected on test)",
+      "severity": "BLOCKER",
+      "status": "PASS",
+      "detail": "computed=66.67% expected=66.67%"
+    },
+    {
+      "gate_id": "G15",
+      "label": "enrichment_summary() returns correct coverage dict",
+      "severity": "BLOCKER",
+      "status": "PASS",
+      "detail": "ok=True sample_output={'cvss_pct': 100.0, 'epss_pct': 100.0, 'kev_pct': 0.0}"
+    },
+    {
+      "gate_id": "G16",
+      "label": "detect_schema_drift() identifies unknown fields correctly",
+      "severity": "BLOCKER",
+      "status": "PASS",
+      "detail": "ok=True drift_count=1"
+    },
+    {
+      "gate_id": "G17",
+      "label": "Live production feed loadable with >= 10 items",
+      "severity": "BLOCKER",
+      "status": "PASS",
+      "detail": "items=58 path=/home/user/CYBERDUDEBIVASH-THREAT-INTEL-PLATFORM/api/feed.json"
+    },
+    {
+      "gate_id": "G18",
+      "label": "Live feed CVSS coverage meets feed-type threshold (50.0% for CVE_FEED)",
+      "severity": "WARNING",
+      "status": "PASS",
+      "detail": "cvss_pct=62.1% threshold=50.0%"
+    },
+    {
+      "gate_id": "G19",
+      "label": "Live feed EPSS coverage meets threshold (30.0%)",
+      "severity": "WARNING",
+      "status": "FAIL_WARNING",
+      "detail": "epss_pct=5.2%"
+    },
+    {
+      "gate_id": "G20",
+      "label": "Live feed confidence coverage >= 50%",
+      "severity": "WARNING",
+      "status": "PASS",
+      "detail": "conf_pct=100.0%"
+    },
+    {
+      "gate_id": "G21",
+      "label": "Source dominance < 98.0% (CVE_FEED)",
+      "severity": "WARNING",
+      "status": "PASS",
+      "detail": "top_src_dom=93.1% threshold=98.0%"
+    },
+    {
+      "gate_id": "G22",
+      "label": "Distinct sources >= 1 (CVE_FEED)",
+      "severity": "WARNING",
+      "status": "PASS",
+      "detail": "distinct=4 threshold=1"
+    },
+    {
+      "gate_id": "G23",
+      "label": "No unknown fields in live feed (schema drift = 0)",
+      "severity": "WARNING",
+      "status": "PASS",
+      "detail": "drift_count=0 unknown=[]"
+    },
+    {
+      "gate_id": "G24",
+      "label": "Deprecated field usage <= 3 in live feed",
+      "severity": "WARNING",
+      "status": "FAIL_WARNING",
+      "detail": "deprecated_count=5 fields=['actor', 'confidence_score', 'corroboration_sources', 'cves', 'epss_score']"
+    },
+    {
+      "gate_id": "G25",
+      "label": "p38-handlers.js exists",
+      "severity": "BLOCKER",
+      "status": "PASS",
+      "detail": "found"
+    },
+    {
+      "gate_id": "G26",
+      "label": "p38-handlers.js has all 12 required exports",
+      "severity": "BLOCKER",
+      "status": "PASS",
+      "detail": "OK"
+    }
+  ]
+}
