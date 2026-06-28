@@ -1,15 +1,15 @@
 /**
- * P35 — Enterprise Intelligence Quality Engineering & Platform Hardening
- * CYBERDUDEBIVASH® SENTINEL APEX v1.0.0
+ * P35  -  Enterprise Intelligence Quality Engineering & Platform Hardening
+ * CYBERDUDEBIVASH(R) SENTINEL APEX v1.0.0
  *
  * Architecture: ADDITIVE ONLY.
  * This layer imports and composes from P20/P25/P26 engines.
  * It NEVER re-implements their logic.
  *
  * Reuse registry (must not duplicate):
- *   computeP20QualityScore(item)      → p20-handlers.js
- *   computeEnterpriseTrustScore(item) → p25-handlers.js
- *   computeP26Grade(item)             → p26-handlers.js
+ *   computeP20QualityScore(item)      -> p20-handlers.js
+ *   computeEnterpriseTrustScore(item) -> p25-handlers.js
+ *   computeP26Grade(item)             -> p26-handlers.js
  *
  * Scope:
  *   P35.1  Intelligence Quality Scoring (aggregates computeP20QualityScore)
@@ -26,13 +26,13 @@
  *   P35.12 Observability endpoint
  */
 
-// ─── Re-use: import from canonical engine files ──────────────────────────────
+// --- Re-use: import from canonical engine files ------------------------------
 
 import { computeP20QualityScore } from './p20-handlers.js';
 import { computeEnterpriseTrustScore } from './p25-handlers.js';
 import { computeP26Grade } from './p26-handlers.js';
 
-// ─── helpers ─────────────────────────────────────────────────────────────────
+// --- helpers -----------------------------------------------------------------
 
 function _json(body, status = 200) {
   return new Response(JSON.stringify(body, null, 2), {
@@ -66,7 +66,7 @@ function _avg(arr) {
   return arr.reduce((s, v) => s + v, 0) / arr.length;
 }
 
-// ─── P35.1 Intelligence Quality Scoring ─────────────────────────────────────
+// --- P35.1 Intelligence Quality Scoring -------------------------------------
 // Aggregates computeP20QualityScore across the feed. Does NOT re-implement scoring.
 
 function _aggregateQualityScores(feed) {
@@ -108,7 +108,7 @@ function _aggregateQualityScores(feed) {
   };
 }
 
-// ─── P35.2 Source Diversity ───────────────────────────────────────────────────
+// --- P35.2 Source Diversity ---------------------------------------------------
 // Reads data artifact and derives diversity metrics from feed.
 
 function _computeSourceDiversity(feed, sourceTrustReport) {
@@ -146,7 +146,7 @@ function _computeSourceDiversity(feed, sourceTrustReport) {
   };
 }
 
-// ─── P35.4 Confidence Calibration ────────────────────────────────────────────
+// --- P35.4 Confidence Calibration --------------------------------------------
 // Composes computeEnterpriseTrustScore across feed. Does NOT re-implement it.
 
 function _aggregateConfidence(feed) {
@@ -174,7 +174,7 @@ function _aggregateConfidence(feed) {
   };
 }
 
-// ─── P35.7 False Positive Analytics ──────────────────────────────────────────
+// --- P35.7 False Positive Analytics ------------------------------------------
 // Derives FP risk signals from IOC quality + evidence scores.
 
 function _computeFPAnalytics(feed) {
@@ -207,7 +207,7 @@ function _computeFPAnalytics(feed) {
   };
 }
 
-// ─── P35.8 Engineering KPIs ──────────────────────────────────────────────────
+// --- P35.8 Engineering KPIs --------------------------------------------------
 // Aggregate all quality dimensions into platform KPIs.
 
 function _computeKPIs(feed, qualAgg, confAgg, diversityAgg, fpAgg) {
@@ -249,7 +249,7 @@ function _computeKPIs(feed, qualAgg, confAgg, diversityAgg, fpAgg) {
   };
 }
 
-// ─── P35.11 Engineering Scorecard ────────────────────────────────────────────
+// --- P35.11 Engineering Scorecard --------------------------------------------
 // Applies computeP26Grade to derive release-grade across feed. Reuses P26 engine.
 
 function _computeScorecard(feed, qualAgg, confAgg, diversityAgg, fpAgg, p34cert) {
@@ -296,24 +296,24 @@ function _computeScorecard(feed, qualAgg, confAgg, diversityAgg, fpAgg, p34cert)
   };
 }
 
-// ─── P35.10 Continuous Improvement ───────────────────────────────────────────
+// --- P35.10 Continuous Improvement -------------------------------------------
 
 function _generateImprovements(qualAgg, confAgg, diversityAgg, fpAgg) {
   const recs = [];
   if (qualAgg.avg_quality_score < 75)
     recs.push({ priority: 'HIGH',   area: 'quality',    recommendation: `Increase avg quality score from ${qualAgg.avg_quality_score} to 75+ via evidence enrichment` });
   if (qualAgg.avg_mitre_coverage < 60)
-    recs.push({ priority: 'HIGH',   area: 'mitre',      recommendation: 'Increase MITRE ATT&CK TTP coverage — current average below enterprise threshold' });
+    recs.push({ priority: 'HIGH',   area: 'mitre',      recommendation: 'Increase MITRE ATT&CK TTP coverage  -  current average below enterprise threshold' });
   if (qualAgg.avg_ioc_quality < 50)
-    recs.push({ priority: 'MEDIUM', area: 'ioc',        recommendation: 'Improve IOC quality score — add IOC count, type classification, and validity metadata' });
+    recs.push({ priority: 'MEDIUM', area: 'ioc',        recommendation: 'Improve IOC quality score  -  add IOC count, type classification, and validity metadata' });
   if (confAgg.avg_confidence_pct < 60)
     recs.push({ priority: 'MEDIUM', area: 'confidence', recommendation: 'Run confidence_calibrator.py to normalize confidence scoring across feed' });
   if (diversityAgg.top_source_dominance_pct > 50)
     recs.push({ priority: 'HIGH',   area: 'diversity',  recommendation: `Reduce single-source dominance (${diversityAgg.top_source} at ${diversityAgg.top_source_dominance_pct}%)` });
   if (fpAgg.fp_risk_rate_pct > 10)
-    recs.push({ priority: 'HIGH',   area: 'fp_risk',    recommendation: `High FP risk rate (${fpAgg.fp_risk_rate_pct}%) — run evidence_score_enforcer.py to tighten score ceilings` });
+    recs.push({ priority: 'HIGH',   area: 'fp_risk',    recommendation: `High FP risk rate (${fpAgg.fp_risk_rate_pct}%)  -  run evidence_score_enforcer.py to tighten score ceilings` });
   if (fpAgg.high_score_no_evidence > 0)
-    recs.push({ priority: 'CRITICAL', area: 'evidence', recommendation: `${fpAgg.high_score_no_evidence} CRITICAL/HIGH items have no supporting evidence — must be remediated before release` });
+    recs.push({ priority: 'CRITICAL', area: 'evidence', recommendation: `${fpAgg.high_score_no_evidence} CRITICAL/HIGH items have no supporting evidence  -  must be remediated before release` });
   if (recs.length === 0)
     recs.push({ priority: 'LOW', area: 'general', recommendation: 'Platform metrics within acceptable thresholds. Continue monitoring trend data.' });
   return recs.sort((a, b) => {
@@ -322,7 +322,7 @@ function _generateImprovements(qualAgg, confAgg, diversityAgg, fpAgg) {
   });
 }
 
-// ─── Route handlers ──────────────────────────────────────────────────────────
+// --- Route handlers ----------------------------------------------------------
 
 export async function handleP35Quality(request, env) {
   const feed = await _loadFeed(env);
@@ -531,7 +531,7 @@ export async function handleP35Dashboard(request, env) {
   return _json({
     schema_version: 'p35.0', timestamp: _ts(), layer: 'P35',
     capability: 'enterprise_quality_dashboard',
-    platform: 'CYBERDUDEBIVASH® SENTINEL APEX',
+    platform: 'CYBERDUDEBIVASH(R) SENTINEL APEX',
     overall_health: kpis.platform_health_score >= 75 ? 'GREEN' : kpis.platform_health_score >= 55 ? 'AMBER' : 'RED',
     kpis,
     quality:        { tier: qualAgg.quality_tier,    avg_score: qualAgg.avg_quality_score },
@@ -552,7 +552,7 @@ export async function handleP35Observability(request, env) {
     schema_version: 'p35.0', timestamp: _ts(), layer: 'P35',
     capability: 'observability',
     p_layer_version: 'P35.0',
-    platform: 'CYBERDUDEBIVASH® SENTINEL APEX',
+    platform: 'CYBERDUDEBIVASH(R) SENTINEL APEX',
     health: qualAgg.avg_quality_score >= 55 ? 'GREEN' : 'AMBER',
     metrics: {
       feed_item_count:        Array.isArray(feed) ? feed.length : 0,
