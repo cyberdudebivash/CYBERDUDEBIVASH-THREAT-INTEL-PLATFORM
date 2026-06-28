@@ -5,6 +5,228 @@
 ---
 
 # ════════════════════════════════════════════════════
+# SECTION 0 — ENGINEERING DECISION ORDER
+# HIGHEST AUTHORITY IN THIS REPOSITORY
+# ════════════════════════════════════════════════════
+
+Every engineering decision MUST follow this priority order. When principles conflict, the higher level always wins. No implementation may advance a lower-level objective at the cost of a higher-level one.
+
+```
+LEVEL 1 → CORRECTNESS
+          The implementation must be technically correct.
+          A fast, backward-compatible, minimal-change incorrect solution is worthless.
+          ↓
+LEVEL 2 → PRODUCTION STABILITY
+          Never reduce production stability.
+          A new feature that breaks existing behaviour is a regression, not a release.
+          ↓
+LEVEL 3 → BACKWARD COMPATIBILITY
+          Existing behaviour must continue to work.
+          Consumers of existing interfaces are always protected.
+          ↓
+LEVEL 4 → REUSE
+          Reuse existing engines before creating new ones.
+          Calling an existing function is always preferred over re-implementing its logic.
+          ↓
+LEVEL 5 → MINIMAL CHANGE SURFACE
+          Modify the smallest amount of production code possible.
+          Every line changed is a line that could introduce a regression.
+          ↓
+LEVEL 6 → PERFORMANCE
+          Avoid unnecessary computational cost.
+          New capabilities must not degrade existing response times.
+          ↓
+LEVEL 7 → COMMERCIAL VALUE
+          Deliver measurable customer or platform value.
+          Implementations that cannot articulate value are deprioritized.
+          ↓
+LEVEL 8 → DEVELOPER EXPERIENCE
+          Improve maintainability where it does not conflict with Levels 1–7.
+          Cleanliness for its own sake is never a justification for change.
+```
+
+---
+
+# ════════════════════════════════════════════════════
+# PROOF BEFORE CHANGE — MANDATORY EVIDENCE TABLE
+# ════════════════════════════════════════════════════
+
+**Every implementation MUST begin by completing this table before writing a single line of code.**
+
+If any row cannot be completed with documented evidence, the implementation does not begin.
+
+| Field | Required Entry |
+|---|---|
+| **Objective** | What specific outcome does this implementation achieve? |
+| **Affected Files** | Exhaustive list of every file that will be modified |
+| **Existing Engine Reused** | Which P-layer engine functions are called (not re-implemented) |
+| **Evidence Modification Is Required** | Explicit requirement, defect ID, or constraint that mandates the change |
+| **Risk Classification** | LOW / MEDIUM / HIGH — based on blast radius and consumer count |
+| **Expected Regression Risk** | Which existing capabilities could be affected and why |
+| **Rollback Plan** | Concrete steps to restore prior state if the change must be reverted |
+
+**This table is not optional.** An implementation without it violates the Engineering Constitution.
+
+---
+
+# ════════════════════════════════════════════════════
+# PRODUCTION BLAST RADIUS — MANDATORY ASSESSMENT
+# ════════════════════════════════════════════════════
+
+Before changing any existing component, document the expected blast radius across all nine dimensions:
+
+| Dimension | Assessment Required |
+|---|---|
+| **Files** | List every file that changes |
+| **Imports** | List every module that imports the changed component |
+| **Routes** | List every API route affected |
+| **Dashboards** | List every HTML dashboard that renders the changed output |
+| **CI Stages** | List every CI gate that touches the changed component |
+| **Certification Reports** | List every `data/quality/*.json` that chains through this component |
+| **APIs** | List every `/api/v1/p*` endpoint whose response shape may change |
+| **Data Schema** | Identify any KV, D1, or R2 structure that could be affected |
+| **Workflows** | List any GitHub Actions workflow step that runs the changed script |
+| **Expected Risk** | LOW / MEDIUM / HIGH based on the above |
+
+**If the blast radius assessment produces a HIGH risk classification, the implementation must be re-scoped to reduce surface area before proceeding.**
+
+---
+
+# ════════════════════════════════════════════════════
+# ARCHITECTURE PRESERVATION RULE
+# ════════════════════════════════════════════════════
+
+**Architecture is a production asset. It is not a variable.**
+
+Adding a new capability is a feature. Changing the architecture is an architectural event. These require different levels of evidence and review.
+
+**Feature changes** require: Proof Before Change table + blast radius assessment.
+
+**Architectural changes** require all of the above, PLUS:
+
+| Required Documentation | Description |
+|---|---|
+| **Current Architecture** | Diagram or description of the existing design |
+| **Proposed Architecture** | Diagram or description of what will change |
+| **Reason** | Why the current architecture is insufficient for the stated objective |
+| **Expected Benefits** | Measurable outcomes the new architecture enables |
+| **Compatibility Assessment** | Which consumers are affected and how |
+| **Migration Plan** | Step-by-step path for affected consumers |
+| **Rollback Plan** | How to restore the current architecture if the change fails |
+
+**Architectural modifications require substantially stronger evidence than feature additions.**
+
+When in doubt: add, don't replace.
+
+---
+
+# ════════════════════════════════════════════════════
+# DEPRECATION INSTEAD OF DELETION POLICY
+# ════════════════════════════════════════════════════
+
+**Do not remove production capabilities. Deprecate them.**
+
+Deleting a production function, route, or export is a breaking change to every consumer that has not yet migrated. The safer path is always deprecation first.
+
+**Deprecation protocol:**
+
+1. **Mark deprecated** — add a deprecation notice in code comments and documentation
+2. **Document replacement** — specify exactly what replaces the deprecated capability
+3. **Maintain compatibility** — keep the deprecated interface working during the migration period
+4. **Set a migration deadline** — document when removal will occur (next major P-layer or explicit milestone)
+5. **Remove only after** — confirmed migration of all known consumers AND documented migration period elapsed
+
+**This policy applies to:**
+- Exported functions in any P-layer handler
+- API routes in `index.js`
+- Template blocks in the HTML report builder
+- CI stage definitions in `sentinel-blogger.yml`
+- Keys in `ci_stats_extract.py`
+- Certification gate IDs in any `p*_production_certification.py`
+
+**Silent removal is prohibited.**
+
+---
+
+# ════════════════════════════════════════════════════
+# REUSE REPORT — MANDATORY IMPLEMENTATION CONCLUSION
+# ════════════════════════════════════════════════════
+
+**Every implementation must conclude with a Reuse Report** that makes architectural discipline visible and auditable.
+
+| Metric | Result |
+|---|---|
+| Existing P-layer engines reused (called, not re-implemented) | — |
+| Existing API routes extended (not duplicated) | — |
+| Existing dashboards extended (not replaced) | — |
+| New engines introduced (justified by gap analysis) | — |
+| Duplicate engines introduced | MUST BE 0 |
+| Duplicate routes introduced | MUST BE 0 |
+| Backward compatibility preserved | PASS / FAIL |
+| Certification chain intact | PASS / FAIL |
+| Regression suite result | — / 21 PASS |
+
+**A Reuse Report with Duplicate engines > 0 or Duplicate routes > 0 indicates an architectural violation that must be corrected before the implementation is considered complete.**
+
+---
+
+# ════════════════════════════════════════════════════
+# ENGINEERING CONSTITUTION COMPLIANCE CHECKLIST
+# ════════════════════════════════════════════════════
+
+**Every implementation must actively verify compliance with all ten principles before marking work complete.**
+
+This is not a retrospective checklist — it is a gate. If any item cannot be checked, the implementation is incomplete.
+
+```
+Engineering Constitution Compliance
+
+  □ Principle 1 — Zero Unnecessary Modification
+      Evidence table completed. Modification justified with documented evidence.
+
+  □ Principle 2 — Additive First Architecture
+      New capability imports from existing P-layers. No existing logic re-implemented.
+
+  □ Principle 3 — Single Source of Truth
+      No duplicate implementations introduced. Canonical source identified and called.
+
+  □ Principle 4 — Reuse Before Build
+      Existing engines searched before building. Reuse report completed.
+
+  □ Principle 5 — Backward Compatibility
+      All existing API routes, exported functions, and response shapes preserved.
+
+  □ Principle 6 — Production Stability First
+      Regression suite passing. Certification chain intact. No conflict markers.
+
+  □ Principle 7 — Observable Everything
+      Certification report generated. CI gate added. Observability endpoint present.
+
+  □ Principle 8 — Commercial Readiness
+      Commercial value articulated. Customer-facing capability or reliability gain confirmed.
+
+  □ Principle 9 — Security First
+      Zero hardcoded secrets. No weakened auth paths. Input validation at boundaries.
+
+  □ Principle 10 — Performance Before Features
+      No response time regression. No cold-start regression. Bundle size unchanged.
+
+  □ Section 0 — Engineering Decision Order followed (Levels 1–8)
+  □ Proof Before Change table completed before first line of code
+  □ Production Blast Radius assessed and documented
+  □ Architecture Preservation Rule satisfied (or architectural event documented)
+  □ Deprecation Instead of Deletion policy applied where applicable
+  □ Reuse Report completed at implementation conclusion
+  □ Git author: noreply@anthropic.com
+  □ Regression suite: 21/21 PASS
+  □ Certification: WORLDWIDE_RELEASE, 0 blockers
+```
+
+All boxes must be checkable. Any unchecked box is a blocker.
+
+---
+
+# ════════════════════════════════════════════════════
 # CORE ENGINEERING PRINCIPLES — GOVERNING CONSTITUTION
 # ════════════════════════════════════════════════════
 
@@ -355,5 +577,12 @@ Before any push to the feature branch or main:
 
 ---
 
-*CYBERDUDEBIVASH® SENTINEL APEX — Threat Intelligence Platform Governance Constitution v1.0*
-*Surgical Change Governance — Active*
+*CYBERDUDEBIVASH® SENTINEL APEX — Threat Intelligence Platform Governance Constitution v2.0*
+*Section 0 Engineering Decision Order — Active*
+*10-Principle Engineering Constitution — Active*
+*Proof Before Change Requirement — Active*
+*Production Blast Radius Assessment — Active*
+*Architecture Preservation Rule — Active*
+*Deprecation Instead of Deletion Policy — Active*
+*Reuse Report Requirement — Active*
+*Self-Enforcing Compliance Checklist — Active*
