@@ -84,6 +84,7 @@ import { buildP30VerificationBlock, buildP30TimelineBlock, buildP30ChangeTrackin
 import { buildP31KnowledgeGraphBlock, buildP31EntityBlock, buildP31CampaignBlock, buildP31CopilotBlock, buildP31PlaybookBlock, buildP31RelationshipBlock, handleP31Graph, handleP31Search, handleP31Entity, handleP31Relationships, handleP31Campaign, handleP31Copilot, handleP31Observability, handleP31Certify } from './p31-handlers.js';
 import { buildP32LifecycleBlock, buildP32DecisionBlock, buildP32DeltaBlock, buildP32DetectionEffectivenessBlock, buildP32EnvironmentSimulatorBlock, buildP32DriftBlock, buildP32EvidenceTransparencyBlock, buildP32MaturityBlock, buildP32MetricsBlock, buildP32ReleaseGateBlock, handleP32Decision, handleP32Drift, handleP32Lifecycle, handleP32Metrics, handleP32Customer, handleP32Quality, handleP32Operations, handleP32Release, handleP32Dashboard, handleP32Observability } from './p32-handlers.js';
 import { buildP33CaseBlock, buildP33CampaignBlock, buildP33MissionBlock, buildP33RecommendationsBlock, buildP33CoverageMatrixBlock, buildP33HeatmapBlock, buildP33ExplorerBlock, buildP33AutomationBlock, buildP33OperationalDashboardBlock, buildP33APIGatewayBlock, handleP33Cases, handleP33Campaigns, handleP33Heatmap, handleP33Mission, handleP33Recommendations, handleP33Explorer, handleP33Dashboard, handleP33Operations, handleP33Status, handleP33Metrics, handleP33Observability } from './p33-handlers.js';
+import { buildP34AssuranceSummaryBlock, buildP34SecurityPostureBlock, buildP34ReliabilityBlock, buildP34ObservabilityBlock, buildP34ComplianceBlock, handleP34Assurance, handleP34Security, handleP34Reliability, handleP34Performance, handleP34Compliance, handleP34Sbom, handleP34Contracts, handleP34Status, handleP34Metrics, handleP34Dashboard, handleP34Certification, handleP34Observability } from './p34-handlers.js';
 import { routeEnterpriseEndpoint } from './enterprise-endpoints.js';
 import { handleSearch, handleActors, handleCVEs, handleMISPExport as handleMISPExportExt, handleCSVExport, handleCorrelate, handlePredict, handleCampaigns, handleAnomalies, handleIntelGraph, handleIntelRelations } from './api-extensions.js';
 const PLATFORM_VERSION    = "184.0";
@@ -1004,6 +1005,8 @@ ${buildP33AutomationBlock(item, items)}
 ${buildP33OperationalDashboardBlock(item, items)}
 <!-- P33.10: API Gateway Status -->
 ${buildP33APIGatewayBlock(item)}
+<!-- P34.1: Engineering Assurance Summary -->
+<!-- P34 blocks require async gate evaluation — rendered via /api/v1/p34/dashboard -->
 </body>
 </html>`;
 }
@@ -3988,6 +3991,20 @@ async function handleRequest(request, env, ctx) {
   if (path === "/api/v1/p33/status")              return await handleP33Status(request, env);
   if (path === "/api/v1/p33/metrics")             return await handleP33Metrics(request, env);
   if (path === "/api/v1/p33/observability")       return await handleP33Observability(request, env);
+
+  // --- P34 routes ---
+  if (path === "/api/v1/p34/assurance")          return await handleP34Assurance(request, env);
+  if (path === "/api/v1/p34/security")           return await handleP34Security(request, env);
+  if (path === "/api/v1/p34/reliability")        return await handleP34Reliability(request, env);
+  if (path === "/api/v1/p34/performance")        return await handleP34Performance(request, env);
+  if (path === "/api/v1/p34/compliance")         return await handleP34Compliance(request, env);
+  if (path === "/api/v1/p34/sbom")               return await handleP34Sbom(request, env);
+  if (path === "/api/v1/p34/contracts")          return await handleP34Contracts(request, env);
+  if (path === "/api/v1/p34/status")             return await handleP34Status(request, env);
+  if (path === "/api/v1/p34/metrics")            return await handleP34Metrics(request, env);
+  if (path === "/api/v1/p34/dashboard")          return await handleP34Dashboard(request, env);
+  if (path === "/api/v1/p34/certification")      return await handleP34Certification(request, env);
+  if (path === "/api/v1/p34/observability")      return await handleP34Observability(request, env);
 
   // --- api-extensions.js routes (previously unreachable  -  now wired, auth already resolved above) ---
   if (path === "/api/search")                       return await handleSearch(request, env, auth, crypto.randomUUID());
