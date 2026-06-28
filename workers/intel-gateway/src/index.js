@@ -87,6 +87,7 @@ import { buildP33CaseBlock, buildP33CampaignBlock, buildP33MissionBlock, buildP3
 import { buildP34AssuranceSummaryBlock, buildP34SecurityPostureBlock, buildP34ReliabilityBlock, buildP34ObservabilityBlock, buildP34ComplianceBlock, handleP34Assurance, handleP34Security, handleP34Reliability, handleP34Performance, handleP34Compliance, handleP34Sbom, handleP34Contracts, handleP34Status, handleP34Metrics, handleP34Dashboard, handleP34Certification, handleP34Observability } from './p34-handlers.js';
 import { handleP35Quality, handleP35Freshness, handleP35Evidence, handleP35Confidence, handleP35Diversity, handleP35Drift, handleP35Metrics, handleP35Scorecard, handleP35Trend, handleP35Improvements, handleP35Dashboard, handleP35Observability } from './p35-handlers.js';
 import { handleP36Quality, handleP36Maturity, handleP36Targets, handleP36Gaps, handleP36CustomerValue, handleP36Competitive, handleP36Detection, handleP36Reliability, handleP36Metrics, handleP36Roadmap, handleP36Dashboard, handleP36Observability } from './p36-handlers.js';
+import { handleP37Hardening, handleP37FeedAudit, handleP37Enrichment, handleP37IQScore, handleP37Detection, handleP37SourceDiversity, handleP37Reliability, handleP37Debt, handleP37Metrics, handleP37Certification, handleP37Dashboard, handleP37Observability } from './p37-handlers.js';
 import { routeEnterpriseEndpoint } from './enterprise-endpoints.js';
 import { handleSearch, handleActors, handleCVEs, handleMISPExport as handleMISPExportExt, handleCSVExport, handleCorrelate, handlePredict, handleCampaigns, handleAnomalies, handleIntelGraph, handleIntelRelations } from './api-extensions.js';
 const PLATFORM_VERSION    = "184.0";
@@ -4034,6 +4035,19 @@ async function handleRequest(request, env, ctx) {
   if (path === "/api/v1/p36/roadmap")            return await handleP36Roadmap(request, env);
   if (path === "/api/v1/p36/dashboard")          return await handleP36Dashboard(request, env);
   if (path === "/api/v1/p36/observability")      return await handleP36Observability(request, env);
+
+  if (path === "/api/v1/p37/hardening")          return await handleP37Hardening(request, env);
+  if (path === "/api/v1/p37/feed-audit")         return await handleP37FeedAudit(request, env);
+  if (path === "/api/v1/p37/enrichment")         return await handleP37Enrichment(request, env);
+  if (path === "/api/v1/p37/iq-score")           return await handleP37IQScore(request, env);
+  if (path === "/api/v1/p37/detection")          return await handleP37Detection(request, env);
+  if (path === "/api/v1/p37/source-diversity")   return await handleP37SourceDiversity(request, env);
+  if (path === "/api/v1/p37/reliability")        return await handleP37Reliability(request, env);
+  if (path === "/api/v1/p37/debt")               return await handleP37Debt(request, env);
+  if (path === "/api/v1/p37/metrics")            return await handleP37Metrics(request, env);
+  if (path === "/api/v1/p37/certification")      return await handleP37Certification(request, env);
+  if (path === "/api/v1/p37/dashboard")          return await handleP37Dashboard(request, env);
+  if (path === "/api/v1/p37/observability")      return await handleP37Observability(request, env);
 
   // --- api-extensions.js routes (previously unreachable  -  now wired, auth already resolved above) ---
   if (path === "/api/search")                       return await handleSearch(request, env, auth, crypto.randomUUID());
