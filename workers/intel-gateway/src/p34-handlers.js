@@ -1,18 +1,18 @@
 /**
- * P34 — Engineering Assurance & Platform Excellence
- * CYBERDUDEBIVASH® SENTINEL APEX v1.0.0
+ * P34  -  Engineering Assurance & Platform Excellence
+ * CYBERDUDEBIVASH(R) SENTINEL APEX v1.0.0
  *
  * Scope: unified engineering assurance API surface.
  * This layer does NOT implement intelligence scoring (P20-P33 scope).
  * It surfaces platform health, assurance gate results, security posture,
  * reliability metrics, API contract health, SBOM status, and compliance
- * posture — all derived from existing engine outputs in data/.
+ * posture  -  all derived from existing engine outputs in data/.
  *
  * Architecture: additive only. Calls existing data artefacts and engines.
  * No P20-P33 engine logic is re-implemented here.
  */
 
-// ─── helpers ────────────────────────────────────────────────────────────────
+// --- helpers ----------------------------------------------------------------
 
 function _json(body, status = 200) {
   return new Response(JSON.stringify(body, null, 2), {
@@ -30,7 +30,7 @@ function _ts() {
 }
 
 /**
- * Load the P33 cert report — P34 chains from P33.
+ * Load the P33 cert report  -  P34 chains from P33.
  * Returns null if absent (non-fatal; gate will warn).
  */
 async function _loadP33Cert(env) {
@@ -65,7 +65,7 @@ async function _loadQualityReport(env, key) {
   }
 }
 
-// ─── assurance gate engine ───────────────────────────────────────────────────
+// --- assurance gate engine ---------------------------------------------------
 
 /**
  * Evaluate all P34 assurance dimensions against available artefacts.
@@ -148,7 +148,7 @@ async function _evaluateAssuranceGates(env) {
     p31 !== null && (p31.blocker_count ?? 1) === 0,
     p31 ? `tier=${p31.release_tier} blockers=${p31.blocker_count}` : 'P31 cert not found (non-fatal)');
 
-  // A09: Feed freshness — at least one item with a timestamp-like field
+  // A09: Feed freshness  -  at least one item with a timestamp-like field
   let freshOk = false;
   if (Array.isArray(feed) && feed.length > 0) {
     const tsFields = ['published', 'updated', 'timestamp', 'date'];
@@ -312,7 +312,7 @@ async function _evaluateAssuranceGates(env) {
     confCoverage >= 50,
     `confidence_coverage=${confCoverage.toFixed(1)}%`);
 
-  // A26: Platform observability — P33 observability metrics accessible
+  // A26: Platform observability  -  P33 observability metrics accessible
   gate('A26', 'P33 observability endpoint data accessible (cert chain)', 'WARNING',
     p33 !== null && p33.schema_version !== undefined,
     p33 ? `schema_version=${p33.schema_version}` : 'P33 cert unavailable');
@@ -320,7 +320,7 @@ async function _evaluateAssuranceGates(env) {
   return { gates, passed, total: gates.length, blockers, warnings };
 }
 
-// ─── template blocks ─────────────────────────────────────────────────────────
+// --- template blocks ---------------------------------------------------------
 
 export function buildP34AssuranceSummaryBlock(assurance) {
   const { passed, total, blockers, warnings } = assurance;
@@ -330,7 +330,7 @@ export function buildP34AssuranceSummaryBlock(assurance) {
 <div style="background:#0d1117;border:1px solid #30363d;border-radius:8px;padding:16px;margin:8px 0;">
   <div style="font-size:11px;color:#8b949e;letter-spacing:1px;margin-bottom:8px;">P34 ENGINEERING ASSURANCE</div>
   <div style="font-size:20px;font-weight:700;color:${color};">${tier}</div>
-  <div style="font-size:12px;color:#8b949e;margin-top:4px;">${passed}/${total} gates passed · ${blockers} blockers · ${warnings} warnings</div>
+  <div style="font-size:12px;color:#8b949e;margin-top:4px;">${passed}/${total} gates passed * ${blockers} blockers * ${warnings} warnings</div>
 </div>`;
 }
 
@@ -357,7 +357,7 @@ export function buildP34ReliabilityBlock(gateResults) {
 <div style="background:#0d1117;border:1px solid #30363d;border-radius:8px;padding:16px;margin:8px 0;">
   <div style="font-size:11px;color:#8b949e;letter-spacing:1px;margin-bottom:8px;">P34 PLATFORM RELIABILITY</div>
   <div style="font-size:28px;font-weight:700;color:${color};">${pct}%</div>
-  <div style="font-size:12px;color:#8b949e;">Gate pass rate · ${blockers === 0 ? 'Production-stable' : `${blockers} blocker(s) present`}</div>
+  <div style="font-size:12px;color:#8b949e;">Gate pass rate * ${blockers === 0 ? 'Production-stable' : `${blockers} blocker(s) present`}</div>
 </div>`;
 }
 
@@ -369,7 +369,7 @@ export function buildP34ObservabilityBlock(p33cert) {
 <div style="background:#0d1117;border:1px solid #30363d;border-radius:8px;padding:16px;margin:8px 0;">
   <div style="font-size:11px;color:#8b949e;letter-spacing:1px;margin-bottom:8px;">P34 OBSERVABILITY CHAIN</div>
   <div style="font-size:16px;font-weight:700;color:${color};">${tier}</div>
-  <div style="font-size:12px;color:#8b949e;margin-top:4px;">Cert chain: p33→p32→p31→p30→p29→p28→p25 · schema ${schema}</div>
+  <div style="font-size:12px;color:#8b949e;margin-top:4px;">Cert chain: p33->p32->p31->p30->p29->p28->p25 * schema ${schema}</div>
 </div>`;
 }
 
@@ -385,7 +385,7 @@ export function buildP34ComplianceBlock(gateResults) {
 </div>`;
 }
 
-// ─── route handlers ───────────────────────────────────────────────────────────
+// --- route handlers -----------------------------------------------------------
 
 export async function handleP34Assurance(request, env) {
   const gates = await _evaluateAssuranceGates(env);
@@ -531,7 +531,7 @@ export async function handleP34Status(request, env) {
     assurance_gates: { passed: gates.passed, total: gates.total, blockers: gates.blockers, warnings: gates.warnings },
     feed_item_count: Array.isArray(feed) ? feed.length : 0,
     p_layer: 'P34',
-    platform: 'CYBERDUDEBIVASH® SENTINEL APEX',
+    platform: 'CYBERDUDEBIVASH(R) SENTINEL APEX',
   });
 }
 
@@ -580,7 +580,7 @@ export async function handleP34Dashboard(request, env) {
     timestamp: _ts(),
     layer: 'P34',
     capability: 'engineering_assurance_dashboard',
-    platform: 'CYBERDUDEBIVASH® SENTINEL APEX',
+    platform: 'CYBERDUDEBIVASH(R) SENTINEL APEX',
     release_tier: gates.blockers === 0 ? 'WORLDWIDE_RELEASE' : 'BLOCKED',
     platform_status: gates.blockers === 0 ? 'OPERATIONAL' : 'DEGRADED',
     assurance: {
@@ -620,7 +620,7 @@ export async function handleP34Certification(request, env) {
     warning_count: gates.warnings,
     feed_item_count: Array.isArray(feed) ? feed.length : 0,
     gates: gates.gates,
-    certification_note: 'P34 Engineering Assurance — runtime certification via live KV data.',
+    certification_note: 'P34 Engineering Assurance  -  runtime certification via live KV data.',
   });
 }
 
@@ -635,7 +635,7 @@ export async function handleP34Observability(request, env) {
     timestamp: _ts(),
     layer: 'P34',
     capability: 'observability',
-    platform: 'CYBERDUDEBIVASH® SENTINEL APEX',
+    platform: 'CYBERDUDEBIVASH(R) SENTINEL APEX',
     p_layer_version: 'P34.0',
     release_tier: gates.blockers === 0 ? 'WORLDWIDE_RELEASE' : 'BLOCKED',
     metrics: {
