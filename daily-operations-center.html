@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Daily Operations Center — Sentinel APEX</title>
+<style>
+:root{--bg:#070b14;--surface:#0f1724;--surface2:#162030;--border:#1a2840;--accent:#00d4ff;--green:#00ff88;--yellow:#ffd700;--red:#ff4444;--orange:#ff8800;--purple:#a855f7;--text:#e2e8f0;--muted:#4a6080;}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:var(--bg);color:var(--text);font-family:'Segoe UI',sans-serif;min-height:100vh;overflow-x:hidden;}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:10px 24px;display:flex;align-items:center;justify-content:space-between;}
+.brand{display:flex;align-items:center;gap:10px;}
+.logo{width:34px;height:34px;background:linear-gradient(135deg,#00d4ff,#00ff88);border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:14px;color:#000;}
+.brand-text .name{font-size:16px;font-weight:800;}
+.brand-text .sub{font-size:10px;color:var(--muted);}
+.topbar-right{display:flex;align-items:center;gap:14px;font-size:12px;}
+.live{display:flex;align-items:center;gap:5px;color:var(--green);}
+.live-dot{width:7px;height:7px;border-radius:50%;background:var(--green);animation:pulse 2s infinite;}
+@keyframes pulse{0%,100%{opacity:1;}50%{opacity:0.2;}}
+.ws-tabs{display:flex;gap:2px;background:var(--surface2);border-radius:10px;padding:4px;}
+.ws-tab{padding:6px 16px;border-radius:7px;font-size:12px;font-weight:600;cursor:pointer;color:var(--muted);transition:all 0.2s;}
+.ws-tab.active{background:var(--surface);color:var(--accent);}
+
+/* Grid layout */
+.workspace{padding:20px;display:none;}
+.workspace.active{display:block;}
+.grid-4{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:16px;}
+.grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:16px;}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px;}
+.col-2{grid-column:span 2;}
+
+.card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:18px;}
+.card-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;}
+.card-title{font-size:13px;font-weight:700;color:var(--text);}
+.card-sub{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;}
+.card-action{font-size:11px;color:var(--accent);cursor:pointer;padding:3px 8px;border:1px solid rgba(0,212,255,0.3);border-radius:5px;}
+
+.kpi{text-align:center;padding:14px 10px;}
+.kpi-val{font-size:28px;font-weight:900;}
+.kpi-label{font-size:11px;color:var(--muted);margin-top:4px;}
+.kpi-delta{font-size:11px;margin-top:3px;}
+
+.feed-item{display:flex;gap:10px;padding:8px 0;border-bottom:1px solid rgba(26,40,64,0.6);}
+.feed-item:last-child{border-bottom:none;}
+.feed-dot{width:8px;height:8px;border-radius:50%;margin-top:5px;flex-shrink:0;}
+.feed-text{font-size:12px;line-height:1.4;}
+.feed-time{font-size:10px;color:var(--muted);margin-top:2px;}
+
+.ioc-item{display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid rgba(26,40,64,0.5);font-size:12px;}
+.ioc-item:last-child{border-bottom:none;}
+.ioc-type{padding:2px 7px;border-radius:4px;font-size:10px;font-weight:700;flex-shrink:0;}
+.ioc-val{font-family:monospace;flex:1;color:var(--accent);}
+.ioc-risk{font-size:11px;font-weight:700;}
+
+.rule-item{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid rgba(26,40,64,0.5);}
+.rule-item:last-child{border-bottom:none;}
+.rule-info{flex:1;}
+.rule-name{font-size:12px;font-weight:600;}
+.rule-meta{font-size:10px;color:var(--muted);}
+.rule-badge{padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;}
+.deploy-btn{padding:4px 10px;background:rgba(0,255,136,0.15);color:var(--green);border:1px solid rgba(0,255,136,0.3);border-radius:5px;font-size:11px;font-weight:600;cursor:pointer;}
+
+.advisory-card{background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:14px;margin-bottom:10px;}
+.advisory-card:last-child{margin-bottom:0;}
+.adv-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;}
+.adv-title{font-size:13px;font-weight:700;}
+.adv-meta{font-size:11px;color:var(--muted);margin-top:2px;}
+.adv-tags{display:flex;gap:6px;flex-wrap:wrap;}
+.adv-tag{padding:2px 8px;border-radius:4px;font-size:10px;font-weight:600;background:rgba(168,85,247,0.15);color:var(--purple);}
+.sev-badge{padding:3px 8px;border-radius:4px;font-size:10px;font-weight:700;flex-shrink:0;}
+.sev-critical{background:rgba(255,68,68,0.2);color:var(--red);}
+.sev-high{background:rgba(255,136,0,0.2);color:var(--orange);}
+.sev-medium{background:rgba(255,215,0,0.2);color:var(--yellow);}
+.adv-actions{display:flex;gap:8px;margin-top:10px;}
+.adv-btn{padding:5px 12px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;}
+.btn-action{background:rgba(0,212,255,0.15);color:var(--accent);border:1px solid rgba(0,212,255,0.3);}
+.btn-detect{background:rgba(0,255,136,0.15);color:var(--green);border:1px solid rgba(0,255,136,0.3);}
+.btn-ticket{background:rgba(168,85,247,0.15);color:var(--purple);border:1px solid rgba(168,85,247,0.3);}
+
+.metric-row{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid rgba(26,40,64,0.5);}
+.metric-row:last-child{border-bottom:none;}
+.metric-label{flex:1;font-size:12px;color:var(--muted);}
+.metric-bar-wrap{width:100px;height:5px;background:var(--border);border-radius:3px;}
+.metric-bar-fill{height:100%;border-radius:3px;}
+.metric-val{width:40px;text-align:right;font-size:12px;font-weight:700;}
+
+.hunt-item{padding:10px 0;border-bottom:1px solid rgba(26,40,64,0.5);}
+.hunt-item:last-child{border-bottom:none;}
+.hunt-name{font-size:12px;font-weight:600;}
+.hunt-desc{font-size:11px;color:var(--muted);}
+.hunt-result{font-size:11px;margin-top:4px;}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="brand">
+    <div class="logo">SA</div>
+    <div class="brand-text"><div class="name">Sentinel APEX — Daily Operations Center</div><div class="sub">Phase 101 · Customer Dependency Engine</div></div>
+  </div>
+  <div class="topbar-right">
+    <div class="ws-tabs">
+      <div class="ws-tab active" onclick="switchWS('intel',this)">🛡️ Intel</div>
+      <div class="ws-tab" onclick="switchWS('soc',this)">🔍 SOC</div>
+      <div class="ws-tab" onclick="switchWS('exec',this)">📊 Executive</div>
+      <div class="ws-tab" onclick="switchWS('api',this)">🔌 API</div>
+    </div>
+    <div class="live"><div class="live-dot"></div>LIVE</div>
+    <span style="color:var(--muted)" id="ts"></span>
+  </div>
+</div>
+
+<!-- INTEL WORKSPACE -->
+<div class="workspace active" id="ws-intel">
+  <div class="grid-4">
+    <div class="card"><div class="kpi"><div class="kpi-val" style="color:var(--red)">3</div><div class="kpi-label">Critical Advisories</div><div class="kpi-delta" style="color:var(--red)">Requires action</div></div></div>
+    <div class="card"><div class="kpi"><div class="kpi-val" style="color:var(--accent)">847</div><div class="kpi-label">New IOCs Today</div><div class="kpi-delta" style="color:var(--green)">↑ +12%</div></div></div>
+    <div class="card"><div class="kpi"><div class="kpi-val" style="color:var(--green)">124</div><div class="kpi-label">Detection Rules</div><div class="kpi-delta" style="color:var(--green)">Active in SIEM</div></div></div>
+    <div class="card"><div class="kpi"><div class="kpi-val" style="color:var(--purple)">18</div><div class="kpi-label">ATT&CK Techniques</div><div class="kpi-delta" style="color:var(--muted)">New this week</div></div></div>
+  </div>
+
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-header"><div><div class="card-title">🚨 Today's Critical Advisories</div><div class="card-sub">Requires immediate action</div></div><div class="card-action" onclick="alert('Running auto-triage pipeline...')">Auto-Triage</div></div>
+      <div id="advisories"></div>
+    </div>
+    <div class="card">
+      <div class="card-header"><div class="card-title">🔴 Live IOC Feed</div><div class="card-action">Export STIX</div></div>
+      <div id="ioc-feed"></div>
+    </div>
+  </div>
+
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-header"><div class="card-title">📋 Detection Rules Awaiting Deployment</div><div class="card-action" onclick="deployAll()">Deploy All</div></div>
+      <div id="pending-rules"></div>
+    </div>
+    <div class="card">
+      <div class="card-header"><div class="card-title">⚡ Intelligence Feed Activity</div></div>
+      <div id="intel-feed"></div>
+    </div>
+  </div>
+</div>
+
+<!-- SOC WORKSPACE -->
+<div class="workspace" id="ws-soc">
+  <div class="grid-4">
+    <div class="card"><div class="kpi"><div class="kpi-val" style="color:var(--red)">7</div><div class="kpi-label">Open P1 Incidents</div><div class="kpi-delta" style="color:var(--red)">SLA: 4h</div></div></div>
+    <div class="card"><div class="kpi"><div class="kpi-val" style="color:var(--yellow)">23</div><div class="kpi-label">Active Investigations</div><div class="kpi-delta" style="color:var(--muted)">Analyst queue</div></div></div>
+    <div class="card"><div class="kpi"><div class="kpi-val" style="color:var(--green)">94.7%</div><div class="kpi-label">SLA Compliance</div><div class="kpi-delta" style="color:var(--green)">↑ Above target</div></div></div>
+    <div class="card"><div class="kpi"><div class="kpi-val" style="color:var(--accent)">3.2h</div><div class="kpi-label">Avg MTTR</div><div class="kpi-delta" style="color:var(--green)">↓ 40min faster</div></div></div>
+  </div>
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-header"><div class="card-title">🔍 Active Threat Hunts</div><div class="card-action">New Hunt</div></div>
+      <div id="hunts"></div>
+    </div>
+    <div class="card">
+      <div class="card-header"><div class="card-title">📊 Detection Performance Today</div></div>
+      <div id="soc-metrics"></div>
+    </div>
+  </div>
+</div>
+
+<!-- EXECUTIVE WORKSPACE -->
+<div class="workspace" id="ws-exec">
+  <div class="grid-4">
+    <div class="card"><div class="kpi"><div class="kpi-val" style="color:var(--green)">68%</div><div class="kpi-label">Risk Reduction</div><div class="kpi-delta" style="color:var(--green)">vs 3 months ago</div></div></div>
+    <div class="card"><div class="kpi"><div class="kpi-val" style="color:var(--accent)">$4.2M</div><div class="kpi-label">Breach Cost Avoided</div><div class="kpi-delta" style="color:var(--green)">This quarter</div></div></div>
+    <div class="card"><div class="kpi"><div class="kpi-val" style="color:var(--purple)">49x</div><div class="kpi-label">Platform ROI</div><div class="kpi-delta" style="color:var(--muted)">vs subscription cost</div></div></div>
+    <div class="card"><div class="kpi"><div class="kpi-val" style="color:var(--yellow)">87%</div><div class="kpi-label">ATT&CK Coverage</div><div class="kpi-delta" style="color:var(--green)">↑ +12pts this month</div></div></div>
+  </div>
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-header"><div class="card-title">📈 Risk Score Trend</div><div class="card-action">Full Report</div></div>
+      <div id="risk-trend"></div>
+    </div>
+    <div class="card">
+      <div class="card-header"><div class="card-title">💼 Board-Ready Summary</div><div class="card-action">Export PDF</div></div>
+      <div id="board-summary"></div>
+    </div>
+  </div>
+</div>
+
+<!-- API WORKSPACE -->
+<div class="workspace" id="ws-api">
+  <div class="grid-4">
+    <div class="card"><div class="kpi"><div class="kpi-val" style="color:var(--accent)">67,842</div><div class="kpi-label">API Calls Today</div><div class="kpi-delta" style="color:var(--green)">68% of limit</div></div></div>
+    <div class="card"><div class="kpi"><div class="kpi-val" style="color:var(--green)">99.7%</div><div class="kpi-label">Success Rate</div><div class="kpi-delta" style="color:var(--green)">SLA met</div></div></div>
+    <div class="card"><div class="kpi"><div class="kpi-val" style="color:var(--yellow)">142ms</div><div class="kpi-label">P99 Latency</div><div class="kpi-delta" style="color:var(--muted)">Target: <200ms</div></div></div>
+    <div class="card"><div class="kpi"><div class="kpi-val" style="color:var(--purple)">8</div><div class="kpi-label">Active Webhooks</div><div class="kpi-delta" style="color:var(--muted)">All healthy</div></div></div>
+  </div>
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-header"><div class="card-title">🔌 API Endpoint Usage</div></div>
+      <div id="api-endpoints"></div>
+    </div>
+    <div class="card">
+      <div class="card-header"><div class="card-title">🪝 Webhook Event Log</div></div>
+      <div id="webhook-log"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+document.getElementById('ts').textContent = new Date().toLocaleTimeString();
+setInterval(()=>document.getElementById('ts').textContent = new Date().toLocaleTimeString(), 1000);
+
+function switchWS(id, el) {
+  document.querySelectorAll('.workspace').forEach(w=>w.classList.remove('active'));
+  document.querySelectorAll('.ws-tab').forEach(t=>t.classList.remove('active'));
+  document.getElementById('ws-'+id).classList.add('active');
+  el.classList.add('active');
+}
+
+// === INTEL WORKSPACE ===
+const advisories = [
+  {title:'CVE-2025-21334 — Windows Hyper-V RCE',sev:'critical',cvss:9.8,cve:'CVE-2025-21334',tags:['windows','hyper-v','rce'],affected:true},
+  {title:'APT29 Finance Sector Active Campaign',sev:'critical',cvss:null,cve:null,tags:['apt29','phishing','finance'],affected:true},
+  {title:'CVE-2025-29824 — CLFS Driver Escalation',sev:'high',cvss:8.8,cve:'CVE-2025-29824',tags:['windows','privilege-escalation'],affected:true},
+];
+const advEl = document.getElementById('advisories');
+advisories.forEach(a => {
+  const sevCls = a.sev==='critical'?'sev-critical':'sev-high';
+  advEl.innerHTML += `<div class="advisory-card">
+    <div class="adv-header">
+      <div><div class="adv-title">${a.title}</div><div class="adv-meta">${a.cve||'Campaign Advisory'} ${a.cvss?'· CVSS '+a.cvss:''}</div></div>
+      <span class="sev-badge ${sevCls}">${a.sev.toUpperCase()}</span>
+    </div>
+    <div class="adv-tags">${a.tags.map(t=>`<span class="adv-tag">${t}</span>`).join('')}</div>
+    <div class="adv-actions">
+      <button class="adv-btn btn-action" onclick="alert('Running exposure assessment...')">Assess Exposure</button>
+      <button class="adv-btn btn-detect" onclick="alert('Generating Sigma/KQL/YARA rules...')">Generate Detection</button>
+      <button class="adv-btn btn-ticket" onclick="alert('Creating P1 ticket in Jira/ServiceNow...')">Create Ticket</button>
+    </div>
+  </div>`;
+});
+
+const iocs = [
+  {type:'IP',val:'185.220.101.47',risk:95,color:'var(--red)'},
+  {type:'DOMAIN',val:'c2-apt29-fin.example.com',risk:98,color:'var(--red)'},
+  {type:'HASH',val:'4d9556b9b68a61b9...',risk:90,color:'var(--orange)'},
+  {type:'URL',val:'https://malicious-loader.io/stage2',risk:97,color:'var(--red)'},
+  {type:'EMAIL',val:'ceo-spoof@trusted-domain.info',risk:85,color:'var(--orange)'},
+  {type:'IP',val:'91.108.4.168',risk:88,color:'var(--orange)'},
+];
+const iocEl = document.getElementById('ioc-feed');
+iocs.forEach(i => {
+  const tc = i.type==='IP'?'background:rgba(0,212,255,0.15);color:var(--accent)':
+             i.type==='DOMAIN'?'background:rgba(168,85,247,0.15);color:var(--purple)':
+             i.type==='HASH'?'background:rgba(255,215,0,0.15);color:var(--yellow)':
+             'background:rgba(255,136,0,0.15);color:var(--orange)';
+  iocEl.innerHTML += `<div class="ioc-item">
+    <span class="ioc-type" style="${tc}">${i.type}</span>
+    <span class="ioc-val">${i.val}</span>
+    <span class="ioc-risk" style="color:${i.color}">${i.risk}</span>
+    <button onclick="alert('Blocking IOC: ${i.val}')" style="padding:3px 8px;background:rgba(255,68,68,0.1);color:var(--red);border:1px solid rgba(255,68,68,0.3);border-radius:4px;font-size:10px;cursor:pointer">Block</button>
+  </div>`;
+});
+
+const rules = [
+  {name:'APT29 LSASS Memory Access',format:'Sigma',confidence:96,technique:'T1003.001'},
+  {name:'Hyper-V CVE-2025-21334 Exploit Pattern',format:'Sigma+YARA',confidence:94,technique:'T1068'},
+  {name:'CLFS Driver Exploitation',format:'Sigma',confidence:89,technique:'T1068'},
+  {name:'Finance Sector Spearphishing Pattern',format:'KQL',confidence:87,technique:'T1566.001'},
+];
+const ruleEl = document.getElementById('pending-rules');
+rules.forEach(r => {
+  ruleEl.innerHTML += `<div class="rule-item">
+    <div class="rule-info">
+      <div class="rule-name">${r.name}</div>
+      <div class="rule-meta">${r.format} · ${r.technique} · Confidence: ${r.confidence}%</div>
+    </div>
+    <span class="rule-badge" style="background:rgba(168,85,247,0.15);color:var(--purple)">${r.format}</span>
+    <button class="deploy-btn" onclick="alert('Deploying rule to SIEM: ${r.name}')">Deploy →</button>
+  </div>`;
+});
+
+const intelFeed = [
+  {c:'var(--red)',t:'New APT29 C2 infrastructure identified — 12 IPs blocked',time:'3m ago'},
+  {c:'var(--orange)',t:'LockBit 4.0 campaign targeting finance sector confirmed',time:'18m ago'},
+  {c:'var(--accent)',t:'CVE-2025-21334 PoC published — detection rules auto-generated',time:'34m ago'},
+  {c:'var(--green)',t:'SIEM push complete — 47 rules deployed to Splunk',time:'52m ago'},
+  {c:'var(--purple)',t:'ATT&CK Navigator layer updated — 3 new technique mappings',time:'1h ago'},
+  {c:'var(--yellow)',t:'Scheduled IOC feed delivered to 34 API consumers',time:'2h ago'},
+];
+const ifEl = document.getElementById('intel-feed');
+intelFeed.forEach(f => {
+  ifEl.innerHTML += `<div class="feed-item"><div class="feed-dot" style="background:${f.c}"></div><div><div class="feed-text">${f.t}</div><div class="feed-time">${f.time}</div></div></div>`;
+});
+
+// === SOC WORKSPACE ===
+const hunts = [
+  {name:'LSASS Memory Dump Hunt',desc:'Hunting for LSASS access across all endpoints',result:'2 detections in progress'},
+  {name:'Lateral Movement via RDP',desc:'Scanning for unusual RDP authentication patterns',result:'Clean — 0 hits'},
+  {name:'APT29 TTPs — Finance Endpoints',desc:'Correlating APT29 indicators with endpoint telemetry',result:'⚠ 3 suspicious matches'},
+  {name:'PowerShell Encoded Command Sweep',desc:'Baseline deviation analysis across all Windows hosts',result:'14 matches — reviewing'},
+];
+const huntEl = document.getElementById('hunts');
+hunts.forEach(h => {
+  const resultColor = h.result.includes('Clean')?'var(--green)':h.result.includes('⚠')?'var(--yellow)':'var(--muted)';
+  huntEl.innerHTML += `<div class="hunt-item">
+    <div class="hunt-name">${h.name}</div>
+    <div class="hunt-desc">${h.desc}</div>
+    <div class="hunt-result" style="color:${resultColor}">→ ${h.result}</div>
+  </div>`;
+});
+
+const socMetrics = [
+  {label:'True Positive Rate',val:'89%',pct:89,color:'var(--green)'},
+  {label:'False Positive Rate',val:'11%',pct:11,color:'var(--yellow)'},
+  {label:'Detection Coverage',val:'87%',pct:87,color:'var(--accent)'},
+  {label:'SIEM Rule Efficiency',val:'94%',pct:94,color:'var(--green)'},
+  {label:'Playbook Automation',val:'72%',pct:72,color:'var(--purple)'},
+];
+const socEl = document.getElementById('soc-metrics');
+socMetrics.forEach(m => {
+  socEl.innerHTML += `<div class="metric-row">
+    <span class="metric-label">${m.label}</span>
+    <div class="metric-bar-wrap"><div class="metric-bar-fill" style="width:${m.pct}%;background:${m.color}"></div></div>
+    <span class="metric-val" style="color:${m.color}">${m.val}</span>
+  </div>`;
+});
+
+// === EXEC WORKSPACE ===
+const months = ['Dec','Jan','Feb','Mar','Apr','May'];
+const riskScores = [82, 76, 70, 60, 48, 34];
+const riskEl = document.getElementById('risk-trend');
+riskEl.innerHTML = '<div style="display:flex;align-items:flex-end;gap:8px;height:80px;margin-top:8px">';
+months.forEach((m,i) => {
+  const h = Math.round((riskScores[i]/100)*70);
+  const c = riskScores[i]>60?'var(--red)':riskScores[i]>40?'var(--yellow)':'var(--green)';
+  riskEl.innerHTML += `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px">
+    <div style="background:${c};height:${h}px;width:100%;border-radius:4px 4px 0 0"></div>
+    <div style="font-size:10px;color:var(--muted)">${m}</div>
+    <div style="font-size:10px;color:${c};font-weight:700">${riskScores[i]}</div>
+  </div>`;
+});
+riskEl.innerHTML += '</div>';
+
+const boardEl = document.getElementById('board-summary');
+const boardItems = [
+  {label:'Security Posture',val:'Significantly Improved',c:'var(--green)'},
+  {label:'Threat Exposure',val:'↓ 68% reduction',c:'var(--green)'},
+  {label:'Incident Response',val:'MTTR 3.2h (target 4h)',c:'var(--green)'},
+  {label:'Compliance Status',val:'97.3% controls met',c:'var(--green)'},
+  {label:'Cyber Insurance',val:'Premium ↓ 22%',c:'var(--accent)'},
+  {label:'Board Risk Rating',val:'MEDIUM (was HIGH)',c:'var(--yellow)'},
+];
+boardItems.forEach(b => {
+  boardEl.innerHTML += `<div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--border);font-size:13px">
+    <span style="color:var(--muted)">${b.label}</span>
+    <span style="color:${b.c};font-weight:700">${b.val}</span>
+  </div>`;
+});
+
+// === API WORKSPACE ===
+const endpoints = [
+  {ep:'/api/intel/ioc',calls:24812,pct:87},
+  {ep:'/api/detections/sigma',calls:18440,pct:74},
+  {ep:'/api/attck/coverage',calls:12300,pct:58},
+  {ep:'/api/exposure/assess',calls:8920,pct:42},
+  {ep:'/api/reports/executive',calls:3370,pct:21},
+];
+const apiEl = document.getElementById('api-endpoints');
+endpoints.forEach(e => {
+  apiEl.innerHTML += `<div class="metric-row">
+    <span class="metric-label" style="font-family:monospace;font-size:11px">${e.ep}</span>
+    <div class="metric-bar-wrap"><div class="metric-bar-fill" style="width:${e.pct}%;background:var(--accent)"></div></div>
+    <span class="metric-val" style="color:var(--accent)">${(e.calls/1000).toFixed(1)}K</span>
+  </div>`;
+});
+
+const wh = [
+  {c:'var(--green)',t:'IOC feed → Splunk HEC — 847 events',time:'2m ago'},
+  {c:'var(--accent)',t:'Threat alert → PagerDuty — P1 incident created',time:'8m ago'},
+  {c:'var(--purple)',t:'Detection rules → XSOAR — playbook triggered',time:'22m ago'},
+  {c:'var(--yellow)',t:'Advisory → ServiceNow — ticket TKT-2847 created',time:'41m ago'},
+  {c:'var(--green)',t:'ATT&CK layer → customer webhook — 3 tenants notified',time:'1h ago'},
+];
+const whEl = document.getElementById('webhook-log');
+wh.forEach(w => {
+  whEl.innerHTML += `<div class="feed-item"><div class="feed-dot" style="background:${w.c}"></div><div><div class="feed-text">${w.t}</div><div class="feed-time">${w.time}</div></div></div>`;
+});
+
+function deployAll() { alert('Deploying all pending rules to SIEM...\nPOST /api/detections/deploy-batch\n4 rules queued for deployment.'); }
+</script>
+</body>
+</html>

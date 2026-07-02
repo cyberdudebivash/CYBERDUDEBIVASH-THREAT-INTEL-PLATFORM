@@ -1,0 +1,913 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>CYBERDUDEBIVASH® — Enterprise Cyber Defense Command Center</title>
+<style>
+:root{
+  --bg-void:#050a14;--bg-panel:#0a1628;--bg-card:#0f1f3a;--bg-hover:#152440;
+  --accent:#00ffc6;--accent2:#7c3aed;--accent3:#f59e0b;--accent4:#38bdf8;
+  --red:#ff4757;--orange:#ff9040;--green:#00ffc6;--blue:#38bdf8;--purple:#a78bfa;
+  --text:#e0eaf4;--muted:#6b7a99;--dim:#3d4a66;
+  --border:rgba(0,255,198,.12);--border2:rgba(56,189,248,.10);
+  --glow-c:0 0 12px rgba(0,255,198,.3);--glow-b:0 0 12px rgba(56,189,248,.3);
+  --font:'Segoe UI',system-ui,sans-serif;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+html,body{height:100%;background:var(--bg-void);color:var(--text);font-family:var(--font);font-size:13px;overflow:hidden;}
+body{display:flex;flex-direction:column;}
+
+/* --- TOP BAR --- */
+.topbar{display:flex;align-items:center;justify-content:space-between;
+  padding:0 20px;height:48px;background:var(--bg-panel);
+  border-bottom:1px solid var(--border);flex-shrink:0;z-index:10;}
+.brand{display:flex;align-items:center;gap:10px;}
+.brand-logo{font-size:13px;font-weight:800;color:var(--accent);
+  text-shadow:var(--glow-c);letter-spacing:.5px;white-space:nowrap;}
+.brand-sub{font-size:10px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;}
+.topbar-right{display:flex;align-items:center;gap:16px;}
+.badge{font-size:10px;font-weight:700;padding:3px 8px;border-radius:4px;
+  background:rgba(0,255,198,.08);color:var(--accent);border:1px solid var(--border);letter-spacing:.8px;}
+.status-dot{width:7px;height:7px;border-radius:50%;background:var(--accent);
+  box-shadow:0 0 6px var(--accent);animation:pulse 2s infinite;}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+#ts{font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums;}
+
+/* --- MAIN LAYOUT --- */
+.main{display:flex;flex:1;overflow:hidden;}
+
+/* --- LEFT NAV --- */
+.nav{width:190px;background:var(--bg-panel);border-right:1px solid var(--border);
+  flex-shrink:0;padding:12px 0;overflow-y:auto;display:flex;flex-direction:column;gap:2px;}
+.nav-section{font-size:9px;font-weight:700;color:var(--dim);
+  text-transform:uppercase;letter-spacing:1.5px;padding:10px 16px 4px;}
+.nav-item{display:flex;align-items:center;gap:9px;padding:7px 16px;cursor:pointer;
+  color:var(--muted);transition:.15s;border-left:2px solid transparent;font-size:12px;}
+.nav-item:hover{color:var(--text);background:rgba(255,255,255,.02);}
+.nav-item.active{color:var(--accent);border-left-color:var(--accent);
+  background:rgba(0,255,198,.04);}
+.nav-icon{font-size:14px;width:16px;text-align:center;}
+
+/* --- CONTENT --- */
+.content{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:14px;}
+
+/* --- CARDS --- */
+.row{display:grid;gap:12px;}
+.row-4{grid-template-columns:repeat(4,1fr);}
+.row-3{grid-template-columns:repeat(3,1fr);}
+.row-2{grid-template-columns:repeat(2,1fr);}
+.row-1{grid-template-columns:1fr;}
+.card{background:var(--bg-card);border:1px solid var(--border);border-radius:8px;
+  padding:14px 16px;position:relative;overflow:hidden;transition:.2s;}
+.card:hover{border-color:rgba(0,255,198,.2);background:var(--bg-hover);}
+.card::before{content:'';position:absolute;inset:0;
+  background:linear-gradient(135deg,rgba(0,255,198,.02) 0%,transparent 60%);pointer-events:none;}
+.card-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}
+.card-title{font-size:10px;font-weight:700;color:var(--muted);
+  text-transform:uppercase;letter-spacing:1px;}
+.card-badge{font-size:9px;padding:2px 6px;border-radius:3px;font-weight:700;}
+.badge-ok{background:rgba(0,255,198,.1);color:var(--green);}
+.badge-warn{background:rgba(245,158,11,.1);color:var(--orange);}
+.badge-err{background:rgba(255,71,87,.1);color:var(--red);}
+.badge-info{background:rgba(56,189,248,.1);color:var(--blue);}
+
+/* --- KPI --- */
+.kpi-value{font-size:28px;font-weight:800;line-height:1;letter-spacing:-1px;color:var(--text);}
+.kpi-label{font-size:10px;color:var(--muted);margin-top:4px;}
+.kpi-delta{font-size:10px;font-weight:700;margin-top:2px;}
+.kpi-up{color:var(--green);}
+.kpi-down{color:var(--red);}
+.kpi-flat{color:var(--muted);}
+.kpi-accent{color:var(--accent);}
+.kpi-blue{color:var(--accent4);}
+.kpi-orange{color:var(--orange);}
+
+/* --- SUBSYSTEM GRID --- */
+.subsystem-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;}
+.sub-item{background:var(--bg-panel);border:1px solid var(--border);border-radius:6px;
+  padding:10px 12px;display:flex;align-items:center;gap:8px;cursor:default;}
+.sub-icon{font-size:18px;}
+.sub-name{font-size:11px;font-weight:700;color:var(--text);}
+.sub-status{font-size:9px;font-weight:700;margin-top:2px;}
+.sub-ok{color:var(--green);}
+.sub-warn{color:var(--orange);}
+.sub-err{color:var(--red);}
+
+/* --- THREAT LEVEL BADGE --- */
+.threat-level{display:inline-flex;align-items:center;gap:6px;
+  font-size:11px;font-weight:700;padding:4px 10px;border-radius:4px;letter-spacing:.5px;}
+.tl-critical{background:rgba(255,71,87,.15);color:var(--red);border:1px solid rgba(255,71,87,.3);}
+.tl-high{background:rgba(255,144,64,.15);color:var(--orange);border:1px solid rgba(255,144,64,.3);}
+.tl-elevated{background:rgba(245,158,11,.15);color:var(--accent3);border:1px solid rgba(245,158,11,.3);}
+.tl-moderate{background:rgba(0,255,198,.1);color:var(--accent);border:1px solid var(--border);}
+
+/* --- TABLES --- */
+.mini-table{width:100%;border-collapse:collapse;}
+.mini-table th{font-size:9px;font-weight:700;color:var(--dim);text-transform:uppercase;
+  letter-spacing:.8px;padding:4px 6px;text-align:left;border-bottom:1px solid var(--dim);}
+.mini-table td{padding:5px 6px;font-size:11px;border-bottom:1px solid rgba(61,74,102,.3);}
+.mini-table tr:last-child td{border-bottom:none;}
+.mini-table tr:hover td{background:rgba(255,255,255,.02);}
+
+/* --- PROGRESS BAR --- */
+.prog-bar{height:5px;background:var(--dim);border-radius:3px;overflow:hidden;margin-top:6px;}
+.prog-fill{height:100%;border-radius:3px;transition:width .5s;}
+.prog-green{background:var(--green);}
+.prog-orange{background:var(--orange);}
+.prog-red{background:var(--red);}
+.prog-blue{background:var(--blue);}
+
+/* --- RECOMMENDATIONS --- */
+.rec-item{display:flex;align-items:flex-start;gap:10px;padding:8px 10px;
+  background:var(--bg-panel);border-radius:6px;border:1px solid var(--border);margin-bottom:6px;}
+.rec-item:last-child{margin-bottom:0;}
+.rec-priority{font-size:9px;font-weight:800;padding:2px 5px;border-radius:3px;
+  background:rgba(0,255,198,.1);color:var(--accent);flex-shrink:0;margin-top:1px;}
+.rec-text{font-size:11px;color:var(--text);line-height:1.5;}
+.rec-cat{font-size:9px;color:var(--muted);margin-top:2px;text-transform:uppercase;letter-spacing:.8px;}
+
+/* --- PLAYBOOK LIST --- */
+.pb-item{display:flex;align-items:center;justify-content:space-between;
+  padding:7px 0;border-bottom:1px solid rgba(61,74,102,.3);}
+.pb-item:last-child{border-bottom:none;}
+.pb-name{font-size:11px;color:var(--text);}
+.pb-meta{font-size:10px;color:var(--muted);}
+.pb-badge{font-size:9px;padding:2px 6px;border-radius:3px;font-weight:700;}
+.sev-critical{background:rgba(255,71,87,.1);color:var(--red);}
+.sev-high{background:rgba(255,144,64,.1);color:var(--orange);}
+.sev-medium{background:rgba(245,158,11,.1);color:var(--accent3);}
+
+/* --- POLICY LIST --- */
+.pol-row{display:flex;align-items:center;justify-content:space-between;
+  padding:6px 0;border-bottom:1px solid rgba(61,74,102,.3);}
+.pol-row:last-child{border-bottom:none;}
+.pol-name{font-size:11px;color:var(--text);}
+.pol-type{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;}
+.pol-status{font-size:9px;font-weight:700;padding:2px 6px;border-radius:3px;}
+.pol-active{background:rgba(0,255,198,.1);color:var(--green);}
+.pol-monitor{background:rgba(245,158,11,.1);color:var(--orange);}
+
+/* --- SECTION HEADING --- */
+.section-heading{font-size:11px;font-weight:700;color:var(--accent);
+  text-transform:uppercase;letter-spacing:1.2px;margin-bottom:10px;display:flex;align-items:center;gap:6px;}
+
+/* --- SCORE RING --- */
+.score-ring{display:flex;align-items:center;gap:14px;}
+.ring-val{font-size:36px;font-weight:800;color:var(--accent);text-shadow:var(--glow-c);line-height:1;}
+.ring-label{font-size:10px;color:var(--muted);margin-top:2px;}
+
+/* --- META ROW --- */
+.meta-row{display:flex;align-items:center;justify-content:space-between;
+  padding:4px 0;border-bottom:1px solid rgba(61,74,102,.2);}
+.meta-row:last-child{border-bottom:none;}
+.meta-key{font-size:10px;color:var(--muted);}
+.meta-val{font-size:11px;font-weight:600;color:var(--text);}
+
+/* --- LOADING --- */
+.loading{color:var(--muted);font-size:11px;padding:16px 0;text-align:center;}
+.err-txt{color:var(--red);font-size:11px;}
+
+/* --- AUTH BAR --- */
+.auth-bar{display:flex;align-items:center;gap:10px;
+  background:var(--bg-panel);border-bottom:1px solid var(--border);
+  padding:8px 20px;flex-shrink:0;}
+.auth-bar label{font-size:11px;color:var(--muted);}
+.auth-bar input{background:var(--bg-card);border:1px solid var(--border);border-radius:4px;
+  padding:4px 10px;color:var(--text);font-size:11px;width:260px;outline:none;}
+.auth-bar input:focus{border-color:var(--accent);}
+.auth-bar button{background:rgba(0,255,198,.08);border:1px solid var(--border);border-radius:4px;
+  color:var(--accent);font-size:11px;padding:4px 12px;cursor:pointer;transition:.15s;}
+.auth-bar button:hover{background:rgba(0,255,198,.16);}
+#auth-status{font-size:11px;}
+.auth-ok{color:var(--green);}
+.auth-err{color:var(--red);}
+.auth-loading{color:var(--muted);}
+
+/* --- REFRESH BAR --- */
+.refresh-bar{display:flex;align-items:center;gap:10px;padding:4px 20px;
+  background:rgba(0,255,198,.03);border-bottom:1px solid var(--border);flex-shrink:0;}
+.refresh-bar span{font-size:10px;color:var(--muted);}
+.refresh-bar button{font-size:10px;color:var(--accent);background:none;border:none;cursor:pointer;text-decoration:underline;}
+</style>
+</head>
+<body>
+
+<!-- TOP BAR -->
+<div class="topbar">
+  <div class="brand">
+    <div>
+      <div class="brand-logo">CYBERDUDEBIVASH® SENTINEL APEX</div>
+      <div class="brand-sub">Enterprise Cyber Defense Command Center — P17.0</div>
+    </div>
+  </div>
+  <div class="topbar-right">
+    <div class="badge">v184.0</div>
+    <div style="display:flex;align-items:center;gap:6px;">
+      <div class="status-dot"></div>
+      <span style="font-size:10px;color:var(--muted);">LIVE</span>
+    </div>
+    <div id="ts" style="font-size:11px;color:var(--muted);">--</div>
+  </div>
+</div>
+
+<!-- AUTH BAR -->
+<div class="auth-bar">
+  <label>API Key:</label>
+  <input type="password" id="api-key" placeholder="Enter Sentinel APEX API key…">
+  <button onclick="loadAll()">Connect</button>
+  <span id="auth-status" class="auth-loading">Enter API key to connect</span>
+</div>
+
+<!-- REFRESH BAR -->
+<div class="refresh-bar">
+  <span>Auto-refresh: 60s</span>
+  <button onclick="loadAll()">↺ Refresh Now</button>
+  <span id="last-refresh"></span>
+</div>
+
+<!-- MAIN -->
+<div class="main">
+
+  <!-- LEFT NAV -->
+  <nav class="nav">
+    <div class="nav-section">Enterprise</div>
+    <div class="nav-item active" onclick="showSection('overview')">
+      <span class="nav-icon">🌐</span> Overview
+    </div>
+    <div class="nav-item" onclick="showSection('orchestrator')">
+      <span class="nav-icon">⚙️</span> Orchestrator
+    </div>
+    <div class="nav-item" onclick="showSection('digital-twin')">
+      <span class="nav-icon">🔵</span> Digital Twin
+    </div>
+    <div class="nav-section">Security</div>
+    <div class="nav-item" onclick="showSection('security')">
+      <span class="nav-icon">🛡️</span> Security Fabric
+    </div>
+    <div class="nav-item" onclick="showSection('campaigns')">
+      <span class="nav-icon">📡</span> Campaign Forecast
+    </div>
+    <div class="nav-item" onclick="showSection('playbooks')">
+      <span class="nav-icon">📋</span> Playbooks
+    </div>
+    <div class="nav-section">Operations</div>
+    <div class="nav-item" onclick="showSection('soc')">
+      <span class="nav-icon">🎯</span> SOC / Automation
+    </div>
+    <div class="nav-item" onclick="showSection('policies')">
+      <span class="nav-icon">📜</span> Policies
+    </div>
+    <div class="nav-section">Business</div>
+    <div class="nav-item" onclick="showSection('commercial')">
+      <span class="nav-icon">💰</span> Commercial
+    </div>
+    <div class="nav-item" onclick="showSection('customers')">
+      <span class="nav-icon">👥</span> Customers / MSSP
+    </div>
+    <div class="nav-section">Intelligence</div>
+    <div class="nav-item" onclick="showSection('executive')">
+      <span class="nav-icon">👔</span> Executive KPIs
+    </div>
+    <div class="nav-item" onclick="showSection('ai-ops')">
+      <span class="nav-icon">🤖</span> AI Ops
+    </div>
+    <div class="nav-item" onclick="showSection('health')">
+      <span class="nav-icon">💊</span> System Health
+    </div>
+  </nav>
+
+  <!-- CONTENT -->
+  <div class="content" id="content">
+    <!-- Sections rendered by JS -->
+  </div>
+
+</div>
+
+<script>
+const BASE = 'https://intel.cyberdudebivash.com';
+let apiKey = '';
+let _data = {};
+let _section = 'overview';
+
+// ---- Auth & fetch helpers ----
+function headers() {
+  return { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' };
+}
+
+async function fetchJson(path) {
+  try {
+    const r = await fetch(BASE + path, { headers: headers(), signal: AbortSignal.timeout(8000) });
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    return await r.json();
+  } catch(e) {
+    return { _error: e.message };
+  }
+}
+
+// ---- Clock ----
+function updateClock() {
+  document.getElementById('ts').textContent = new Date().toISOString().replace('T',' ').slice(0,19) + ' UTC';
+}
+setInterval(updateClock, 1000); updateClock();
+
+// ---- Load all data ----
+async function loadAll() {
+  apiKey = document.getElementById('api-key').value.trim();
+  if (!apiKey) { setAuthStatus('Enter API key', 'auth-loading'); return; }
+  setAuthStatus('Connecting…', 'auth-loading');
+
+  const [orch, twin, forecast, exec, policies, playbooks, aiops, health, analytics] = await Promise.all([
+    fetchJson('/api/platform/orchestrator/state'),
+    fetchJson('/api/v1/digital-twin/state'),
+    fetchJson('/api/v1/campaigns/forecast'),
+    fetchJson('/api/v1/executive/command-center'),
+    fetchJson('/api/v1/policies/state'),
+    fetchJson('/api/v1/playbooks/catalog'),
+    fetchJson('/api/v1/ai-ops/analytics'),
+    fetchJson('/api/v1/health/enterprise'),
+    fetchJson('/api/v1/analytics/enterprise'),
+  ]);
+
+  _data = { orch, twin, forecast, exec, policies, playbooks, aiops, health, analytics };
+
+  if (orch._error && twin._error) {
+    setAuthStatus('Connection failed — check API key', 'auth-err');
+  } else {
+    setAuthStatus('Connected ✓', 'auth-ok');
+  }
+
+  document.getElementById('last-refresh').textContent = 'Last: ' + new Date().toLocaleTimeString();
+  render();
+}
+
+function setAuthStatus(msg, cls) {
+  const el = document.getElementById('auth-status');
+  el.textContent = msg;
+  el.className = cls;
+}
+
+// ---- Nav ----
+function showSection(s) {
+  _section = s;
+  document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+  event.currentTarget.classList.add('active');
+  render();
+}
+
+// ---- Main render ----
+function render() {
+  const c = document.getElementById('content');
+  switch(_section) {
+    case 'overview':     c.innerHTML = renderOverview();     break;
+    case 'orchestrator': c.innerHTML = renderOrchestrator(); break;
+    case 'digital-twin': c.innerHTML = renderDigitalTwin();  break;
+    case 'security':     c.innerHTML = renderSecurity();     break;
+    case 'campaigns':    c.innerHTML = renderCampaigns();    break;
+    case 'playbooks':    c.innerHTML = renderPlaybooks();    break;
+    case 'soc':          c.innerHTML = renderSOC();          break;
+    case 'policies':     c.innerHTML = renderPolicies();     break;
+    case 'commercial':   c.innerHTML = renderCommercial();   break;
+    case 'customers':    c.innerHTML = renderCustomers();    break;
+    case 'executive':    c.innerHTML = renderExecutive();    break;
+    case 'ai-ops':       c.innerHTML = renderAiOps();        break;
+    case 'health':       c.innerHTML = renderHealth();       break;
+    default:             c.innerHTML = renderOverview();
+  }
+}
+
+// ---- Helpers ----
+const safe = (v, fb='—') => v != null && v !== undefined ? v : fb;
+const pct  = v => `${safe(v, 0)}%`;
+const num  = v => Number(v || 0).toLocaleString();
+const badge = (label, cls) => `<span class="card-badge ${cls}">${label}</span>`;
+const progBar = (val, cls='prog-green') =>
+  `<div class="prog-bar"><div class="prog-fill ${cls}" style="width:${Math.min(100,val||0)}%"></div></div>`;
+const errCard = msg => `<div class="card"><p class="err-txt">⚠ ${msg}</p></div>`;
+
+// ---- OVERVIEW ----
+function renderOverview() {
+  const e = _data.exec || {};
+  const sum = e.executive_summary || {};
+  const sec = e.security_kpis || {};
+  const com = e.commercial_kpis || {};
+  const ops = e.operations_kpis || {};
+  const orch = (_data.orch || {}).orchestrator || {};
+  const recs = e.executive_recommendations || [];
+
+  const posture = sum.overall_posture || 'loading';
+  const score = safe(sum.security_score, '—');
+  const threatLevel = orch.global_threat_level || 'MODERATE';
+  const tl_cls = threatLevel === 'CRITICAL' ? 'tl-critical' : threatLevel === 'HIGH' ? 'tl-high' : threatLevel === 'ELEVATED' ? 'tl-elevated' : 'tl-moderate';
+
+  return `
+  <div class="row row-4">
+    <div class="card">
+      <div class="card-header"><div class="card-title">Security Score</div>${badge(posture.toUpperCase(), posture==='strong'?'badge-ok':posture==='moderate'?'badge-warn':'badge-err')}</div>
+      <div class="score-ring"><div class="ring-val">${score}</div><div><div class="ring-label">/ 100</div><div class="ring-label">Overall Posture</div></div></div>
+    </div>
+    <div class="card">
+      <div class="card-header"><div class="card-title">Global Threat Level</div></div>
+      <div class="threat-level ${tl_cls}">&bull; ${threatLevel}</div>
+      <div style="margin-top:10px;" class="meta-row"><span class="meta-key">Critical Alerts</span><span class="meta-val" style="color:var(--red)">${num(sec.critical_alerts)}</span></div>
+      <div class="meta-row"><span class="meta-key">Total Indicators</span><span class="meta-val">${num(sec.threat_indicators)}</span></div>
+    </div>
+    <div class="card">
+      <div class="card-header"><div class="card-title">Platform</div>${badge('OPERATIONAL','badge-ok')}</div>
+      <div class="meta-row"><span class="meta-key">Uptime</span><span class="meta-val kpi-accent">${pct(sum.platform_uptime_pct)}</span></div>
+      <div class="meta-row"><span class="meta-key">SLA Compliance</span><span class="meta-val">${pct(sec.sla_compliance_pct)}</span></div>
+      <div class="meta-row"><span class="meta-key">Mean TTR (min)</span><span class="meta-val">${safe(sec.mean_response_time_min)}</span></div>
+    </div>
+    <div class="card">
+      <div class="card-header"><div class="card-title">Commercial</div></div>
+      <div class="meta-row"><span class="meta-key">API Calls 24h</span><span class="meta-val kpi-blue">${num(com.api_calls_24h)}</span></div>
+      <div class="meta-row"><span class="meta-key">Active API Keys</span><span class="meta-val">${num(com.active_api_keys)}</span></div>
+      <div class="meta-row"><span class="meta-key">MRR Trend</span><span class="meta-val kpi-accent">${safe(com.mrr_trend)}</span></div>
+    </div>
+  </div>
+
+  <div class="row row-4">
+    <div class="card">
+      <div class="card-header"><div class="card-title">Automation Rate</div></div>
+      <div class="kpi-value kpi-accent">${pct(sec.automation_rate_pct)}</div>
+      <div class="kpi-label">Workflow automation efficiency</div>
+      ${progBar(sec.automation_rate_pct)}
+    </div>
+    <div class="card">
+      <div class="card-header"><div class="card-title">Mean Detection (min)</div></div>
+      <div class="kpi-value kpi-blue">${safe(sec.mean_detection_time_min)}</div>
+      <div class="kpi-label">Mean time to detect</div>
+    </div>
+    <div class="card">
+      <div class="card-header"><div class="card-title">Worker Health</div>${badge(ops.worker_status==='healthy'?'HEALTHY':'DEGRADED', ops.worker_status==='healthy'?'badge-ok':'badge-warn')}</div>
+      <div class="meta-row"><span class="meta-key">Error Rate 24h</span><span class="meta-val">${num(ops.error_rate_24h)}</span></div>
+      <div class="meta-row"><span class="meta-key">Queue Depth</span><span class="meta-val">${num(ops.queue_depth)}</span></div>
+    </div>
+    <div class="card">
+      <div class="card-header"><div class="card-title">Orchestrator Health</div></div>
+      <div class="kpi-value kpi-accent">${pct(orch.health_pct)}</div>
+      <div class="kpi-label">${safe(orch.operational_subsystems)} / ${safe(orch.total_subsystems)} subsystems operational</div>
+      ${progBar(orch.health_pct)}
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="section-heading">🎯 Executive Recommendations</div>
+    ${recs.map(r=>`
+      <div class="rec-item">
+        <div class="rec-priority">${r.priority}</div>
+        <div><div class="rec-text">${r.recommendation}</div><div class="rec-cat">${r.category} · ${r.action}</div></div>
+      </div>`).join('') || '<p class="loading">Loading recommendations…</p>'}
+  </div>`;
+}
+
+// ---- ORCHESTRATOR ----
+function renderOrchestrator() {
+  const o = (_data.orch || {}).orchestrator || {};
+  const subs = o.subsystems || {};
+  const keys = Object.keys(subs);
+  if (!keys.length) return errCard('Orchestrator data unavailable. Connect with API key.');
+
+  return `
+  <div class="card">
+    <div class="card-header">
+      <div class="section-heading">⚙️ Unified Cyber Defense Orchestrator</div>
+      ${badge(o.status || 'loading', o.status === 'fully_operational' ? 'badge-ok' : 'badge-warn')}
+    </div>
+    <div class="row row-4" style="margin-bottom:12px;">
+      <div><div class="kpi-value kpi-accent">${pct(o.health_pct)}</div><div class="kpi-label">Orchestrator Health</div></div>
+      <div><div class="kpi-value">${safe(o.operational_subsystems)} / ${safe(o.total_subsystems)}</div><div class="kpi-label">Subsystems Operational</div></div>
+      <div><div class="threat-level ${(o.global_threat_level||'MODERATE')==='CRITICAL'?'tl-critical':(o.global_threat_level||'MODERATE')==='HIGH'?'tl-high':'tl-moderate'}">&bull; ${safe(o.global_threat_level,'MODERATE')}</div><div class="kpi-label" style="margin-top:6px;">Global Threat Level</div></div>
+      <div><div class="kpi-value kpi-blue">${safe(o.last_sync,'—').slice(11,19)}</div><div class="kpi-label">Last Sync (UTC)</div></div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="section-heading">Subsystem Status</div>
+    <div class="subsystem-grid">
+      ${keys.map(k => {
+        const s = subs[k];
+        const ok = s.status === 'operational';
+        return `<div class="sub-item">
+          <div class="sub-icon">${{threat_intelligence:'🔍',radar:'📡',ai_decision_platform:'🤖',security_fabric:'🛡️',soc_command:'🎯',autonomous_operations:'⚡',commercial_platform:'💰',customer_intelligence:'👥'}[k]||'●'}</div>
+          <div>
+            <div class="sub-name">${k.replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase())}</div>
+            <div class="sub-status ${ok?'sub-ok':'sub-warn'}">${s.status||'unknown'}</div>
+          </div>
+        </div>`;
+      }).join('')}
+    </div>
+  </div>
+  <div class="row row-3">
+    ${['threat_intelligence','soc_command','commercial_platform'].map(k=>{
+      const s = subs[k] || {};
+      return `<div class="card">
+        <div class="card-header"><div class="card-title">${k.replace(/_/g,' ')}</div></div>
+        ${Object.entries(s).filter(([k2])=>!['status','endpoint'].includes(k2)).slice(0,4).map(([k2,v])=>`
+          <div class="meta-row"><span class="meta-key">${k2.replace(/_/g,' ')}</span><span class="meta-val">${typeof v==='boolean'?v?'Yes':'No':safe(v)}</span></div>`).join('')}
+      </div>`;
+    }).join('')}
+  </div>`;
+}
+
+// ---- DIGITAL TWIN ----
+function renderDigitalTwin() {
+  const dt = (_data.twin || {}).digital_twin || {};
+  const rt = dt.risk_topology || {};
+  const bt = dt.business_topology || {};
+  const sd = dt.service_dependencies || {};
+  const ag = dt.critical_asset_graph || {};
+  const wf = dt.workflow_state || {};
+  if (!rt.risk_level) return errCard('Digital Twin data unavailable.');
+
+  return `
+  <div class="row row-4">
+    <div class="card">
+      <div class="card-header"><div class="card-title">Business Impact Score</div>${badge(rt.risk_level||'—',rt.risk_level==='critical'?'badge-err':rt.risk_level==='high'?'badge-warn':'badge-ok')}</div>
+      <div class="kpi-value kpi-orange">${safe(rt.business_impact_score)}</div>
+      <div class="kpi-label">/ 100</div>
+      ${progBar(rt.business_impact_score, rt.business_impact_score>=70?'prog-red':rt.business_impact_score>=40?'prog-orange':'prog-green')}
+    </div>
+    <div class="card">
+      <div class="card-header"><div class="card-title">Threat Topology</div></div>
+      <div class="meta-row"><span class="meta-key">Critical CVEs</span><span class="meta-val" style="color:var(--red)">${num(rt.critical_cve_count)}</span></div>
+      <div class="meta-row"><span class="meta-key">Active Campaigns</span><span class="meta-val">${num(rt.active_campaigns)}</span></div>
+      <div class="meta-row"><span class="meta-key">Threat Velocity</span><span class="meta-val">${safe(rt.threat_velocity)}</span></div>
+    </div>
+    <div class="card">
+      <div class="card-header"><div class="card-title">Business Topology</div></div>
+      <div class="meta-row"><span class="meta-key">API Consumers</span><span class="meta-val kpi-blue">${num(bt.api_consumers)}</span></div>
+      <div class="meta-row"><span class="meta-key">MSSP Tenants</span><span class="meta-val">${num(bt.mssp_tenants)}</span></div>
+      <div class="meta-row"><span class="meta-key">SLA Compliance</span><span class="meta-val kpi-accent">${pct(bt.sla_compliance_pct)}</span></div>
+    </div>
+    <div class="card">
+      <div class="card-header"><div class="card-title">Twin Fidelity</div></div>
+      <div class="kpi-value kpi-blue">${pct(dt.twin_fidelity_pct)}</div>
+      <div class="kpi-label">Data completeness</div>
+      ${progBar(dt.twin_fidelity_pct,'prog-blue')}
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="section-heading">Critical Asset Graph</div>
+    <table class="mini-table">
+      <thead><tr><th>Asset</th><th>Type</th><th>Criticality</th><th>Status</th></tr></thead>
+      <tbody>
+        ${(ag.nodes||[]).map(n=>`<tr>
+          <td>${n.id}</td><td>${n.type}</td>
+          <td>${badge(n.criticality, n.criticality==='critical'?'badge-err':n.criticality==='high'?'badge-warn':'badge-info')}</td>
+          <td>${badge(n.status,'badge-ok')}</td>
+        </tr>`).join('')}
+      </tbody>
+    </table>
+  </div>
+
+  <div class="card">
+    <div class="section-heading">Service Dependencies</div>
+    <div class="row row-3">
+      ${Object.entries(sd).map(([name,dep])=>`
+        <div style="background:var(--bg-panel);border:1px solid var(--border);border-radius:6px;padding:10px;">
+          <div style="font-size:11px;font-weight:700;color:var(--text);margin-bottom:4px;">${name.replace(/_/g,' ')}</div>
+          <div>${badge(dep.status,'badge-ok')}</div>
+          ${dep.latency_target_ms?`<div class="meta-row" style="margin-top:6px;"><span class="meta-key">Target</span><span class="meta-val">${dep.latency_target_ms}ms</span></div>`:''}
+        </div>`).join('')}
+    </div>
+  </div>`;
+}
+
+// ---- SECURITY FABRIC ----
+function renderSecurity() {
+  const h = (_data.health || {}).enterprise_health || {};
+  const dims = h.dimensions || {};
+  return `
+  <div class="row row-3">
+    <div class="card">
+      <div class="card-header"><div class="card-title">Enterprise Health Score</div>${badge(h.status||'—',h.status==='healthy'?'badge-ok':h.status==='degraded'?'badge-warn':'badge-err')}</div>
+      <div class="kpi-value kpi-accent">${safe(h.composite_score)}</div>
+      <div class="kpi-label">Composite / 100 · Trend: ${safe(h.trend)}</div>
+      ${progBar(h.composite_score)}
+    </div>
+    ${Object.entries(dims).slice(0,2).map(([k,v])=>`
+      <div class="card">
+        <div class="card-header"><div class="card-title">${k.replace(/_/g,' ')}</div>${badge(v.status,v.status==='healthy'?'badge-ok':'badge-warn')}</div>
+        <div class="kpi-value">${safe(v.score)}</div>
+        ${progBar(v.score,v.score>=85?'prog-green':v.score>=70?'prog-orange':'prog-red')}
+      </div>`).join('')}
+  </div>
+  <div class="card">
+    <div class="section-heading">Health Dimensions</div>
+    <table class="mini-table">
+      <thead><tr><th>Dimension</th><th>Score</th><th>Status</th><th>Bar</th></tr></thead>
+      <tbody>
+        ${Object.entries(dims).map(([k,v])=>`<tr>
+          <td>${k.replace(/_/g,' ')}</td>
+          <td><strong>${safe(v.score)}</strong></td>
+          <td>${badge(v.status,v.status==='healthy'?'badge-ok':'badge-warn')}</td>
+          <td style="min-width:80px">${progBar(v.score,v.score>=85?'prog-green':v.score>=70?'prog-orange':'prog-red')}</td>
+        </tr>`).join('')}
+      </tbody>
+    </table>
+  </div>`;
+}
+
+// ---- CAMPAIGNS ----
+function renderCampaigns() {
+  const f = (_data.forecast || {}).forecast || {};
+  const paths = f.predicted_attack_paths || [];
+  const sectors = f.sector_exposure || [];
+  const recs = f.recommendations || [];
+
+  return `
+  <div class="row row-4">
+    <div class="card">
+      <div class="card-header"><div class="card-title">Forecast Level</div>${badge(f.emerging_threat_level||'—',(f.emerging_threat_level||'moderate')==='critical'?'badge-err':(f.emerging_threat_level==='high'?'badge-warn':'badge-ok'))}</div>
+      <div class="kpi-value" style="color:var(--accent3)">${f.emerging_threat_level||'—'}</div>
+      <div class="kpi-label">30-day horizon</div>
+    </div>
+    <div class="card">
+      <div class="card-header"><div class="card-title">Confidence</div></div>
+      <div class="kpi-value kpi-accent">${pct(f.confidence_pct)}</div>
+      ${progBar(f.confidence_pct)}
+    </div>
+    <div class="card">
+      <div class="card-header"><div class="card-title">Campaign Signals</div></div>
+      <div class="meta-row"><span class="meta-key">Active Campaigns</span><span class="meta-val">${num((f.campaign_signals||{}).active_campaigns)}</span></div>
+      <div class="meta-row"><span class="meta-key">Critical CVE Backlog</span><span class="meta-val" style="color:var(--red)">${num((f.campaign_signals||{}).critical_cve_backlog)}</span></div>
+      <div class="meta-row"><span class="meta-key">Threat Velocity</span><span class="meta-val">${safe((f.campaign_signals||{}).threat_velocity)}</span></div>
+    </div>
+    <div class="card">
+      <div class="card-header"><div class="card-title">Business Exposure</div></div>
+      <div class="kpi-value kpi-orange">${safe(f.business_exposure_score)}</div>
+      <div class="kpi-label">/ 100</div>
+      ${progBar(f.business_exposure_score,(f.business_exposure_score||0)>=70?'prog-red':'prog-orange')}
+    </div>
+  </div>
+  <div class="row row-2">
+    <div class="card">
+      <div class="section-heading">Predicted Attack Paths</div>
+      <table class="mini-table">
+        <thead><tr><th>Attack Path</th><th>Frequency</th><th>Likelihood</th></tr></thead>
+        <tbody>${paths.map(p=>`<tr><td>${p.attack_path}</td><td>${p.frequency}</td><td>${badge(p.likelihood,p.likelihood==='high'?'badge-err':p.likelihood==='medium'?'badge-warn':'badge-info')}</td></tr>`).join('')||'<tr><td colspan="3">No data</td></tr>'}</tbody>
+      </table>
+    </div>
+    <div class="card">
+      <div class="section-heading">Sector Exposure</div>
+      <table class="mini-table">
+        <thead><tr><th>Sector</th><th>Exposure</th><th>Primary Vector</th></tr></thead>
+        <tbody>${sectors.map(s=>`<tr><td>${s.sector}</td><td>${badge(s.exposure,s.exposure==='high'?'badge-err':s.exposure==='elevated'?'badge-warn':'badge-ok')}</td><td>${s.primary_vector}</td></tr>`).join('')}</tbody>
+      </table>
+    </div>
+  </div>
+  <div class="card">
+    <div class="section-heading">Forecast Recommendations</div>
+    ${recs.map((r,i)=>`<div class="rec-item"><div class="rec-priority">R${i+1}</div><div class="rec-text">${r}</div></div>`).join('')}
+  </div>`;
+}
+
+// ---- PLAYBOOKS ----
+function renderPlaybooks() {
+  const cat = (_data.playbooks || {}).catalog || {};
+  const pbs = cat.playbooks || [];
+  return `
+  <div class="row row-3">
+    <div class="card">
+      <div class="card-header"><div class="card-title">Total Playbooks</div></div>
+      <div class="kpi-value kpi-accent">${safe(cat.total,'—')}</div>
+      <div class="kpi-label">Active in catalog</div>
+    </div>
+    <div class="card">
+      <div class="card-header"><div class="card-title">Categories</div></div>
+      ${(cat.categories||[]).map(c=>`<span class="card-badge badge-info" style="margin:2px">${c}</span>`).join('')||'—'}
+    </div>
+    <div class="card">
+      <div class="card-header"><div class="card-title">Top MITRE Coverage</div></div>
+      ${[...new Set((pbs.flatMap(p=>p.mitre_techniques||[])))].slice(0,6).map(t=>`<span class="card-badge badge-err" style="margin:2px">${t}</span>`).join('')||'—'}
+    </div>
+  </div>
+  <div class="card">
+    <div class="section-heading">Playbook Catalog</div>
+    ${pbs.map(p=>`
+      <div class="pb-item">
+        <div>
+          <div class="pb-name">${p.name}</div>
+          <div class="pb-meta">${p.steps.length} steps · MTTR ${p.estimated_mttr_min}min · ${p.category}</div>
+        </div>
+        <div style="display:flex;gap:6px;align-items:center">
+          ${badge(p.business_impact,p.business_impact==='critical'||p.business_impact==='high'?'badge-err':'badge-warn')}
+          <span class="pb-badge sev-${p.severity}">${p.severity}</span>
+        </div>
+      </div>`).join('')||'<p class="loading">No playbooks loaded.</p>'}
+  </div>`;
+}
+
+// ---- SOC / AUTOMATION ----
+function renderSOC() {
+  const a = (_data.analytics || {}).analytics || {};
+  const ai = (_data.aiops || {}).ai_ops || {};
+  const soc = a.soc_kpis || {};
+  const auto = ai.automation_success || {};
+  return `
+  <div class="row row-4">
+    <div class="card"><div class="card-header"><div class="card-title">Open Incidents</div></div><div class="kpi-value kpi-orange">${num(soc.incidents_open)}</div></div>
+    <div class="card"><div class="card-header"><div class="card-title">Closed 24h</div></div><div class="kpi-value kpi-accent">${num(soc.incidents_closed_24h)}</div></div>
+    <div class="card"><div class="card-header"><div class="card-title">Escalation Rate</div></div><div class="kpi-value kpi-blue">${pct(soc.escalation_rate_pct)}</div></div>
+    <div class="card"><div class="card-header"><div class="card-title">Automation Rate</div></div><div class="kpi-value kpi-accent">${pct(soc.automation_rate_pct)}</div>${progBar(soc.automation_rate_pct)}</div>
+  </div>
+  <div class="row row-3">
+    <div class="card">
+      <div class="section-heading">Automation Success</div>
+      <div class="meta-row"><span class="meta-key">Total Runs 24h</span><span class="meta-val">${num(auto.total_runs_24h)}</span></div>
+      <div class="meta-row"><span class="meta-key">Success Rate</span><span class="meta-val kpi-accent">${pct(auto.success_rate_pct)}</span></div>
+      <div class="meta-row"><span class="meta-key">Failures 24h</span><span class="meta-val" style="color:var(--red)">${num(auto.failure_runs_24h)}</span></div>
+      <div class="meta-row"><span class="meta-key">MTTR (min)</span><span class="meta-val">${safe(auto.mttr_automation_min)}</span></div>
+      ${progBar(auto.success_rate_pct)}
+    </div>
+    <div class="card">
+      <div class="section-heading">Playbook Performance</div>
+      ${Object.entries((_data.aiops||{}).ai_ops?.playbook_success||{}).map(([k,v])=>`
+        <div class="meta-row"><span class="meta-key">${k.replace(/_/g,' ')}</span><span class="meta-val">${typeof v==='number'&&k.includes('pct')?pct(v):safe(v)}</span></div>`).join('')}
+    </div>
+    <div class="card">
+      <div class="section-heading">Investigation Success</div>
+      ${Object.entries((_data.aiops||{}).ai_ops?.investigation_success||{}).map(([k,v])=>`
+        <div class="meta-row"><span class="meta-key">${k.replace(/_/g,' ')}</span><span class="meta-val">${typeof v==='number'&&k.includes('pct')?pct(v):safe(v)}</span></div>`).join('')}
+    </div>
+  </div>`;
+}
+
+// ---- POLICIES ----
+function renderPolicies() {
+  const ps = (_data.policies || {}).policy_state || {};
+  const pols = ps.policies || [];
+  return `
+  <div class="row row-4">
+    <div class="card"><div class="card-header"><div class="card-title">Total</div></div><div class="kpi-value">${safe(ps.total_policies,'—')}</div></div>
+    <div class="card"><div class="card-header"><div class="card-title">Active</div></div><div class="kpi-value kpi-accent">${safe(ps.active,'—')}</div></div>
+    <div class="card"><div class="card-header"><div class="card-title">Monitoring</div></div><div class="kpi-value kpi-orange">${safe(ps.monitoring,'—')}</div></div>
+    <div class="card"><div class="card-header"><div class="card-title">Governance</div>${badge(ps.governance_status||'—','badge-ok')}</div><div class="kpi-value kpi-blue">✓</div></div>
+  </div>
+  <div class="card">
+    <div class="section-heading">Policy Catalog</div>
+    ${pols.map(p=>`
+      <div class="pol-row">
+        <div><div class="pol-name">${p.name}</div><div class="pol-type">${p.type} · ${p.scope} · ${p.enforcement}</div></div>
+        <span class="pol-status ${p.status==='active'?'pol-active':'pol-monitor'}">${p.status}</span>
+      </div>`).join('')||'<p class="loading">No policy data.</p>'}
+  </div>`;
+}
+
+// ---- COMMERCIAL ----
+function renderCommercial() {
+  const a = (_data.analytics || {}).analytics || {};
+  const com = a.commercial_kpis || {};
+  const conv = (_data.aiops||{}).ai_ops?.commercial_conversion||{};
+  return `
+  <div class="row row-4">
+    <div class="card"><div class="card-header"><div class="card-title">API Calls 24h</div></div><div class="kpi-value kpi-blue">${num(com.api_calls_24h)}</div></div>
+    <div class="card"><div class="card-header"><div class="card-title">Active API Keys</div></div><div class="kpi-value kpi-accent">${num(com.active_api_keys)}</div></div>
+    <div class="card"><div class="card-header"><div class="card-title">Trial Conversions 7d</div></div><div class="kpi-value">${num(com.trial_conversions_7d)}</div></div>
+    <div class="card"><div class="card-header"><div class="card-title">MRR Trend</div></div><div class="kpi-value kpi-accent">${safe(com.mrr_trend)}</div></div>
+  </div>
+  <div class="row row-3">
+    <div class="card">
+      <div class="section-heading">Conversion Metrics</div>
+      <div class="meta-row"><span class="meta-key">Trial → Paid</span><span class="meta-val kpi-accent">${pct(conv.trial_to_paid_pct)}</span></div>
+      <div class="meta-row"><span class="meta-key">API Retention</span><span class="meta-val kpi-accent">${pct(conv.api_retention_pct)}</span></div>
+      <div class="meta-row"><span class="meta-key">Upsell Opportunities</span><span class="meta-val">${num(conv.upsell_opportunities)}</span></div>
+    </div>
+    <div class="card">
+      <div class="section-heading">Financial KPIs</div>
+      ${Object.entries((_data.exec||{}).financial_kpis||{}).map(([k,v])=>`
+        <div class="meta-row"><span class="meta-key">${k.replace(/_/g,' ')}</span><span class="meta-val">${safe(v)}</span></div>`).join('')}
+    </div>
+    <div class="card">
+      <div class="section-heading">Risk KPIs</div>
+      ${Object.entries((_data.exec||{}).risk_kpis||{}).map(([k,v])=>`
+        <div class="meta-row"><span class="meta-key">${k.replace(/_/g,' ')}</span><span class="meta-val">${safe(v)}</span></div>`).join('')}
+    </div>
+  </div>`;
+}
+
+// ---- CUSTOMERS / MSSP ----
+function renderCustomers() {
+  const mssp = (_data.analytics||{}).analytics?.mssp_kpis||{};
+  const cust = (_data.exec||{}).customer_health||{};
+  const chtrend = (_data.aiops||{}).ai_ops?.customer_health_trend||{};
+  return `
+  <div class="row row-4">
+    <div class="card"><div class="card-header"><div class="card-title">Customer Health</div></div><div class="kpi-value kpi-accent">${safe(cust.health_score,'—')}</div><div class="kpi-label">/ 100</div>${progBar(cust.health_score)}</div>
+    <div class="card"><div class="card-header"><div class="card-title">Trend</div></div><div class="kpi-value">${safe(cust.satisfaction_trend,'—')}</div></div>
+    <div class="card"><div class="card-header"><div class="card-title">Managed Tenants (MSSP)</div></div><div class="kpi-value kpi-blue">${num(mssp.managed_tenants)}</div></div>
+    <div class="card"><div class="card-header"><div class="card-title">MSSP SLA</div></div><div class="kpi-value kpi-accent">${pct(mssp.sla_compliance_pct)}</div></div>
+  </div>
+  <div class="row row-2">
+    <div class="card">
+      <div class="section-heading">MSSP KPIs</div>
+      ${Object.entries(mssp).map(([k,v])=>`<div class="meta-row"><span class="meta-key">${k.replace(/_/g,' ')}</span><span class="meta-val">${typeof v==='number'&&k.includes('pct')?pct(v):safe(v)}</span></div>`).join('')}
+    </div>
+    <div class="card">
+      <div class="section-heading">Customer Health Trend</div>
+      <div class="meta-row"><span class="meta-key">Current Score</span><span class="meta-val kpi-accent">${safe(chtrend.current_score)}</span></div>
+      <div class="meta-row"><span class="meta-key">Trend</span><span class="meta-val">${safe(chtrend.trend)}</span></div>
+      <div class="meta-row"><span class="meta-key">At-Risk Accounts</span><span class="meta-val" style="color:var(--red)">${num(chtrend.at_risk_accounts)}</span></div>
+      <div class="meta-row"><span class="meta-key">Healthy %</span><span class="meta-val kpi-accent">${pct(chtrend.healthy_pct)}</span></div>
+    </div>
+  </div>`;
+}
+
+// ---- EXECUTIVE ----
+function renderExecutive() {
+  const e = _data.exec || {};
+  const sum = e.executive_summary || {};
+  const recs = e.executive_recommendations || [];
+  return `
+  <div class="card">
+    <div class="card-header">
+      <div class="section-heading">👔 Executive Command Center — Single Pane of Glass</div>
+      ${badge(sum.overall_posture||'—',sum.overall_posture==='strong'?'badge-ok':sum.overall_posture==='moderate'?'badge-warn':'badge-err')}
+    </div>
+  </div>
+  <div class="row row-3">
+    ${[['security_kpis','Security KPIs'],['commercial_kpis','Commercial KPIs'],['operations_kpis','Operations KPIs']].map(([key,label])=>`
+      <div class="card">
+        <div class="section-heading">${label}</div>
+        ${Object.entries(e[key]||{}).map(([k,v])=>`
+          <div class="meta-row"><span class="meta-key">${k.replace(/_/g,' ')}</span>
+          <span class="meta-val">${typeof v==='number'&&k.includes('pct')?pct(v):safe(v)}</span></div>`).join('')}
+      </div>`).join('')}
+  </div>
+  <div class="row row-2">
+    <div class="card">
+      <div class="section-heading">Financial & Risk KPIs</div>
+      ${['financial_kpis','risk_kpis'].flatMap(k=>Object.entries(e[k]||{}).map(([kk,v])=>`
+        <div class="meta-row"><span class="meta-key">${kk.replace(/_/g,' ')}</span><span class="meta-val">${safe(v)}</span></div>`)).join('')}
+    </div>
+    <div class="card">
+      <div class="section-heading">Executive Recommendations</div>
+      ${recs.map(r=>`<div class="rec-item"><div class="rec-priority">${r.priority}</div><div><div class="rec-text">${r.recommendation}</div><div class="rec-cat">${r.category}</div></div></div>`).join('')||'<p class="loading">No recommendations.</p>'}
+    </div>
+  </div>`;
+}
+
+// ---- AI OPS ----
+function renderAiOps() {
+  const ai = (_data.aiops||{}).ai_ops||{};
+  const util = ai.ai_utilization||{};
+  const acc  = ai.recommendation_accuracy||{};
+  const conf = ai.decision_confidence||{};
+  return `
+  <div class="row row-4">
+    <div class="card"><div class="card-header"><div class="card-title">AI Utilization</div></div><div class="kpi-value kpi-blue">${pct(util.utilization_pct)}</div>${progBar(util.utilization_pct,'prog-blue')}</div>
+    <div class="card"><div class="card-header"><div class="card-title">Decision Confidence</div></div><div class="kpi-value kpi-accent">${pct(conf.mean_confidence_pct)}</div></div>
+    <div class="card"><div class="card-header"><div class="card-title">Recommendation Accept</div></div><div class="kpi-value kpi-accent">${pct(acc.accepted_pct)}</div></div>
+    <div class="card"><div class="card-header"><div class="card-title">Automation Success</div></div><div class="kpi-value kpi-accent">${pct((ai.automation_success||{}).success_rate_pct)}</div></div>
+  </div>
+  <div class="row row-3">
+    <div class="card">
+      <div class="section-heading">AI Utilization</div>
+      ${Object.entries(util).map(([k,v])=>`<div class="meta-row"><span class="meta-key">${k.replace(/_/g,' ')}</span><span class="meta-val">${typeof v==='number'&&k.includes('pct')?pct(v):num(v)}</span></div>`).join('')}
+    </div>
+    <div class="card">
+      <div class="section-heading">Recommendation Accuracy</div>
+      ${Object.entries(acc).map(([k,v])=>`<div class="meta-row"><span class="meta-key">${k.replace(/_/g,' ')}</span><span class="meta-val">${typeof v==='number'&&k.includes('pct')?pct(v):safe(v)}</span></div>`).join('')}
+    </div>
+    <div class="card">
+      <div class="section-heading">Decision Confidence</div>
+      ${Object.entries(conf).map(([k,v])=>`<div class="meta-row"><span class="meta-key">${k.replace(/_/g,' ')}</span><span class="meta-val">${typeof v==='number'&&k.includes('pct')?pct(v):safe(v)}</span></div>`).join('')}
+    </div>
+  </div>`;
+}
+
+// ---- HEALTH ----
+function renderHealth() {
+  const obs = (_data.twin||{}).digital_twin?.service_dependencies||{};
+  const health = (_data.health||{}).enterprise_health||{};
+  return `
+  <div class="row row-4">
+    <div class="card"><div class="card-header"><div class="card-title">Composite Score</div></div><div class="kpi-value kpi-accent">${safe(health.composite_score,'—')}</div><div class="kpi-label">/ 100</div>${progBar(health.composite_score)}</div>
+    <div class="card"><div class="card-header"><div class="card-title">Status</div>${badge(health.status||'—',health.status==='healthy'?'badge-ok':'badge-warn')}</div><div class="kpi-value">✓</div></div>
+    <div class="card"><div class="card-header"><div class="card-title">Trend</div></div><div class="kpi-value">${safe(health.trend,'—')}</div></div>
+    <div class="card"><div class="card-header"><div class="card-title">Last Incident</div></div><div style="font-size:11px;color:var(--muted)">${safe(health.last_incident,'None')}</div></div>
+  </div>
+  <div class="card">
+    <div class="section-heading">Service Health</div>
+    <table class="mini-table">
+      <thead><tr><th>Service</th><th>Status</th><th>Detail</th></tr></thead>
+      <tbody>
+        ${Object.entries(obs).map(([name,dep])=>`<tr>
+          <td>${name.replace(/_/g,' ')}</td>
+          <td>${badge(dep.status,'badge-ok')}</td>
+          <td style="color:var(--muted)">${dep.latency_target_ms?`Target ${dep.latency_target_ms}ms`:dep.purpose||''}</td>
+        </tr>`).join('')||'<tr><td colspan="3">No data</td></tr>'}
+      </tbody>
+    </table>
+  </div>`;
+}
+
+// ---- Auto-refresh ----
+setInterval(() => { if(apiKey) loadAll(); }, 60000);
+
+// Initial render (empty state)
+render();
+</script>
+</body>
+</html>

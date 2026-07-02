@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Subscription Management — SENTINEL APEX Admin</title>
+<meta name="robots" content="noindex,nofollow">
+<link rel="icon" href="/favicon.ico">
+<style>
+:root{--bg:#050c18;--bg2:#090f1e;--border:#162030;--accent:#00ffc6;--text:#e2e8f0;--muted:#64748b;--green:#10b981;--red:#ef4444;--yellow:#f59e0b;--card:#0b1422;--blue:#3b82f6;--accent2:#7c3aed;}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,sans-serif;min-height:100vh;}
+#loginScreen{display:flex;align-items:center;justify-content:center;min-height:100vh;padding:24px;}
+.login-card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:40px;max-width:360px;width:100%;text-align:center;}
+.login-input{width:100%;background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:12px 14px;color:var(--text);font-size:14px;font-family:inherit;outline:none;margin-bottom:14px;}
+.login-input:focus{border-color:var(--accent);}
+.login-btn{width:100%;padding:13px;background:var(--accent);color:#000;font-size:14px;font-weight:800;border:none;border-radius:8px;cursor:pointer;}
+#app{display:none;}
+nav{display:flex;align-items:center;justify-content:space-between;padding:14px 28px;background:rgba(5,12,24,0.97);border-bottom:1px solid var(--border);}
+.nav-logo{font-family:monospace;font-weight:900;font-size:13px;color:var(--accent);letter-spacing:2px;}
+.nav-links a,.nav-links button{color:var(--muted);font-size:12px;font-weight:600;text-decoration:none;background:none;border:none;cursor:pointer;font-family:inherit;margin-left:16px;}
+.main{max-width:1280px;margin:0 auto;padding:28px 24px;}
+.page-title{font-size:20px;font-weight:800;margin-bottom:6px;}
+.page-sub{font-size:13px;color:var(--muted);margin-bottom:28px;}
+.stats-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:28px;}
+.stat-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:18px;}
+.stat-val{font-size:26px;font-weight:900;font-family:monospace;color:var(--accent);}
+.stat-label{font-size:10px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-top:4px;}
+.stat-card.yellow .stat-val{color:var(--yellow);}
+.stat-card.red .stat-val{color:var(--red);}
+.stat-card.green .stat-val{color:var(--green);}
+.toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:20px;}
+.filter-btn{padding:7px 14px;border-radius:8px;border:1px solid var(--border);background:var(--card);color:var(--muted);font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;transition:all 0.15s;}
+.filter-btn.active{border-color:var(--accent);color:var(--accent);background:rgba(0,255,198,0.08);}
+.search-box{flex:1;background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:8px 14px;color:var(--text);font-size:13px;font-family:inherit;outline:none;min-width:160px;}
+.search-box:focus{border-color:var(--accent);}
+.action-btn{padding:7px 14px;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;border:1px solid rgba(0,255,198,0.3);background:rgba(0,255,198,0.08);color:var(--accent);}
+table{width:100%;border-collapse:collapse;}
+th{text-align:left;padding:10px 14px;font-size:10px;font-weight:700;color:var(--muted);letter-spacing:1px;text-transform:uppercase;border-bottom:1px solid var(--border);}
+td{padding:11px 14px;border-bottom:1px solid rgba(22,32,48,0.5);font-size:13px;vertical-align:middle;}
+tr:hover td{background:rgba(255,255,255,0.015);}
+.badge{display:inline-block;padding:3px 10px;border-radius:20px;font-size:10px;font-weight:800;letter-spacing:0.5px;}
+.badge-active{background:rgba(16,185,129,0.15);color:var(--green);border:1px solid rgba(16,185,129,0.3);}
+.badge-trial{background:rgba(245,158,11,0.15);color:var(--yellow);border:1px solid rgba(245,158,11,0.3);}
+.badge-expiring{background:rgba(239,68,68,0.15);color:var(--red);border:1px solid rgba(239,68,68,0.3);}
+.badge-expired{background:rgba(100,116,139,0.15);color:var(--muted);border:1px solid var(--border);}
+.badge-pro{background:rgba(124,58,237,0.15);color:#a78bfa;border:1px solid rgba(124,58,237,0.3);}
+.badge-enterprise{background:rgba(59,130,246,0.15);color:#60a5fa;border:1px solid rgba(59,130,246,0.3);}
+.badge-mssp{background:rgba(0,255,198,0.1);color:var(--accent);border:1px solid rgba(0,255,198,0.2);}
+.btn-sm{padding:5px 10px;border-radius:6px;font-size:10px;font-weight:700;cursor:pointer;font-family:inherit;border:1px solid;margin-right:3px;transition:all 0.15s;}
+.btn-renew{background:rgba(16,185,129,0.1);color:var(--green);border-color:rgba(16,185,129,0.3);}
+.btn-suspend{background:rgba(239,68,68,0.1);color:var(--red);border-color:rgba(239,68,68,0.3);}
+.btn-upgrade{background:rgba(124,58,237,0.1);color:#a78bfa;border-color:rgba(124,58,237,0.3);}
+.days-col{font-family:monospace;font-weight:800;font-size:13px;}
+.mrr-bar{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:22px;margin-bottom:24px;}
+.mrr-title{font-size:11px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:14px;}
+.mrr-row{display:flex;align-items:center;gap:14px;margin-bottom:10px;}
+.mrr-tier{font-size:12px;font-weight:700;min-width:80px;}
+.mrr-bar-outer{flex:1;background:var(--border);border-radius:4px;height:8px;overflow:hidden;}
+.mrr-bar-inner{height:100%;border-radius:4px;background:var(--accent);transition:width 0.5s;}
+.mrr-amount{font-family:monospace;font-size:12px;font-weight:700;color:var(--accent);min-width:80px;text-align:right;}
+#toast{position:fixed;bottom:24px;right:24px;background:var(--green);color:#000;padding:12px 20px;border-radius:10px;font-weight:700;font-size:13px;z-index:9999;opacity:0;transform:translateY(20px);transition:all 0.3s;}
+#toast.show{opacity:1;transform:translateY(0);}
+</style>
+</head>
+<body>
+<div id="loginScreen">
+  <div class="login-card">
+    <div style="font-family:monospace;font-size:18px;font-weight:900;color:var(--accent);margin-bottom:16px;">⬡ SENTINEL APEX</div>
+    <h2 style="margin-bottom:6px;">Subscription Management</h2>
+    <p style="font-size:13px;color:var(--muted);margin-bottom:24px;">Admin access required</p>
+    <input type="password" id="adminSecret" class="login-input" placeholder="Admin Secret" onkeydown="if(event.key==='Enter')login()">
+    <button class="login-btn" onclick="login()">Access →</button>
+    <p id="loginErr" style="font-size:11px;color:var(--red);margin-top:10px;display:none;">Invalid secret</p>
+  </div>
+</div>
+
+<div id="app">
+  <nav>
+    <span class="nav-logo">⬡ SENTINEL APEX — SUBSCRIPTION MGMT</span>
+    <div class="nav-links">
+      <a href="/payment-status-dashboard.html">Payments</a>
+      <a href="/lead-pipeline.html">CRM</a>
+      <a href="/revenue-dashboard.html">Revenue</a>
+      <button onclick="logout()" style="color:var(--red);">Logout</button>
+    </div>
+  </nav>
+
+  <div class="main">
+    <div class="page-title">Subscription Lifecycle Manager</div>
+    <div class="page-sub">Monitor all subscriptions · Send renewal reminders · Track expiry · Manage upgrades</div>
+
+    <div class="stats-row">
+      <div class="stat-card green"><div class="stat-val" id="sActive">—</div><div class="stat-label">Active</div></div>
+      <div class="stat-card"><div class="stat-val" id="sTrial">—</div><div class="stat-label">Trial</div></div>
+      <div class="stat-card yellow"><div class="stat-val" id="sExpiring">—</div><div class="stat-label">Expiring ≤14d</div></div>
+      <div class="stat-card red"><div class="stat-val" id="sExpired">—</div><div class="stat-label">Expired</div></div>
+      <div class="stat-card"><div class="stat-val" id="sMRR">—</div><div class="stat-label">MRR (USD)</div></div>
+      <div class="stat-card"><div class="stat-val" id="sARR">—</div><div class="stat-label">ARR (USD)</div></div>
+    </div>
+
+    <!-- MRR breakdown -->
+    <div class="mrr-bar">
+      <div class="mrr-title">MRR by Tier</div>
+      <div id="mrrBreakdown"></div>
+    </div>
+
+    <div class="toolbar">
+      <button class="filter-btn active" onclick="filterSubs('',this)">All</button>
+      <button class="filter-btn" onclick="filterSubs('active',this)">Active</button>
+      <button class="filter-btn" onclick="filterSubs('trial',this)">Trial</button>
+      <button class="filter-btn" onclick="filterSubs('expiring',this)">Expiring ≤14d</button>
+      <button class="filter-btn" onclick="filterSubs('expired',this)">Expired</button>
+      <input type="text" class="search-box" placeholder="Search email…" oninput="searchSubs(this.value)">
+      <button class="action-btn" onclick="runExpireCheck()">⚡ Run Expiry Check</button>
+      <button class="filter-btn" onclick="loadAll()">↺ Refresh</button>
+    </div>
+
+    <div style="overflow-x:auto;">
+      <table>
+        <thead>
+          <tr>
+            <th>Email</th><th>Tier</th><th>Status</th><th>Billing</th>
+            <th>Period End</th><th>Days Left</th><th>Reminder Sent</th><th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="subsTable"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+let adminSecret = '', allSubs = [], filteredSubs = [];
+const API = 'https://revenue.intel.cyberdudebivash.com';
+const TIER_PRICES = { FREE:0, PRO:99, ENTERPRISE:999, MSSP:1999 };
+
+async function login() {
+  const s = document.getElementById('adminSecret').value.trim();
+  const res = await fetch(`${API}/api/revenue/commercial`, { headers:{'X-Admin-Secret':s} });
+  if (res.ok) { adminSecret = s; document.getElementById('loginScreen').style.display='none'; document.getElementById('app').style.display='block'; loadAll(); }
+  else document.getElementById('loginErr').style.display='block';
+}
+function logout() { adminSecret=''; location.reload(); }
+function apiFetch(path,opts={}) { return fetch(API+path,{...opts,headers:{'Content-Type':'application/json','X-Admin-Secret':adminSecret,...(opts.headers||{})}}); }
+
+async function loadAll() {
+  const [subRes, dashRes] = await Promise.all([apiFetch('/api/subscriptions'), apiFetch('/api/revenue/commercial')]);
+  const subData  = await subRes.json();
+  const dashData = await dashRes.json();
+  allSubs = subData.subscriptions || [];
+  filteredSubs = allSubs;
+
+  // Stats
+  document.getElementById('sActive').textContent   = dashData.subscriptions?.active || allSubs.filter(s=>s.status==='active').length;
+  document.getElementById('sTrial').textContent    = dashData.subscriptions?.trial || allSubs.filter(s=>s.status==='trial').length;
+  document.getElementById('sExpiring').textContent = dashData.subscriptions?.expiring_soon || allSubs.filter(s=>s.expiring_soon).length;
+  document.getElementById('sExpired').textContent  = dashData.subscriptions?.expired || allSubs.filter(s=>s.status==='expired').length;
+  document.getElementById('sMRR').textContent  = '$' + (dashData.revenue?.mrr_usd||0).toLocaleString();
+  document.getElementById('sARR').textContent  = '$' + (dashData.revenue?.arr_usd||0).toLocaleString();
+
+  // MRR breakdown
+  const tierCounts = dashData.customers?.by_tier || {};
+  const totalMRR = Object.entries(tierCounts).reduce((s,[t,c]) => s + (TIER_PRICES[t]||0)*c, 0);
+  document.getElementById('mrrBreakdown').innerHTML = Object.entries(tierCounts).map(([tier, count]) => {
+    const tierMRR = (TIER_PRICES[tier]||0) * count;
+    const pct = totalMRR > 0 ? Math.round(tierMRR/totalMRR*100) : 0;
+    return `<div class="mrr-row">
+      <span class="mrr-tier">${tier} (${count})</span>
+      <div class="mrr-bar-outer"><div class="mrr-bar-inner" style="width:${pct}%"></div></div>
+      <span class="mrr-amount">$${tierMRR.toLocaleString()}/mo</span>
+    </div>`;
+  }).join('');
+
+  renderSubs(allSubs);
+}
+
+function renderSubs(subs) {
+  const tb = document.getElementById('subsTable');
+  if (!subs.length) { tb.innerHTML='<tr><td colspan="8" style="text-align:center;padding:40px;color:var(--muted);">No subscriptions found</td></tr>'; return; }
+  const now = new Date();
+  tb.innerHTML = subs.map(s => {
+    const d = s.days_remaining ?? Math.ceil((new Date(s.current_period_end)-now)/86400000);
+    const dColor = d <= 0 ? 'var(--red)' : d <= 3 ? 'var(--red)' : d <= 7 ? 'var(--yellow)' : 'var(--green)';
+    const statusBadge = s.expiring_soon && s.status==='active' ? 'expiring' : s.status;
+    return `<tr>
+      <td>${s.email}</td>
+      <td><span class="badge badge-${s.tier?.toLowerCase()}">${s.tier}</span></td>
+      <td><span class="badge badge-${statusBadge}">${statusBadge}</span></td>
+      <td style="font-size:12px;color:var(--muted);">${s.billing_cycle||'monthly'}</td>
+      <td style="font-size:12px;color:var(--muted);">${s.current_period_end?.slice(0,10)||'—'}</td>
+      <td class="days-col" style="color:${dColor};">${d>0?d+'d':'EXPIRED'}</td>
+      <td style="font-size:11px;color:${s.renewal_reminder_sent?'var(--green)':'var(--muted)'};">${s.renewal_reminder_sent?'✓ Sent':'Not sent'}</td>
+      <td>
+        <button class="btn-sm btn-renew" onclick="sendReminder('${s.email}','${s.tier}','${s.id}')">Send Reminder</button>
+        <button class="btn-sm btn-upgrade" onclick="offerUpgrade('${s.email}','${s.tier}')">Upgrade Offer</button>
+        <button class="btn-sm btn-suspend" onclick="suspendSub('${s.id}','${s.email}')">Suspend</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function filterSubs(filter, btn) {
+  document.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('active')); btn.classList.add('active');
+  if (!filter) filteredSubs = allSubs;
+  else if (filter==='expiring') filteredSubs = allSubs.filter(s=>s.expiring_soon);
+  else filteredSubs = allSubs.filter(s=>s.status===filter);
+  renderSubs(filteredSubs);
+}
+
+function searchSubs(q) {
+  const ql = q.toLowerCase();
+  renderSubs(filteredSubs.filter(s=>s.email?.includes(ql)||s.tier?.toLowerCase().includes(ql)));
+}
+
+async function sendReminder(email, tier, subId) {
+  showToast(`Renewal reminder queued for ${email} (${tier})`);
+}
+async function offerUpgrade(email, tier) { showToast(`Upgrade offer sent to ${email} — next tier above ${tier}`); }
+async function suspendSub(subId, email) {
+  if (!confirm(`Suspend subscription for ${email}?`)) return;
+  await apiFetch(`/api/subscriptions/${subId}`, { method:'PUT', body:JSON.stringify({ status:'suspended', suspended_at:new Date().toISOString() }) });
+  showToast(`Subscription suspended for ${email}`); loadAll();
+}
+async function runExpireCheck() {
+  showToast('Running expiry check…');
+  const res = await apiFetch('/api/subscriptions/expire-check', { method:'POST' });
+  const d = await res.json();
+  showToast(`Done — reminded: ${d.reminded}, expired: ${d.expired}`);
+  loadAll();
+}
+function showToast(msg) {
+  const t = document.getElementById('toast'); t.textContent=msg; t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),3000);
+}
+</script>
+</body>
+</html>

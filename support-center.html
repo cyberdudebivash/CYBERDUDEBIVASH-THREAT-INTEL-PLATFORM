@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SENTINEL APEX — Support Center</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0a0e1a;--card:#0f1629;--accent:#00d4ff;--danger:#ff3366;--success:#00ff88;--warning:#ffaa00;--text:#e2e8f0;--muted:#64748b;--border:#1e2d4a}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text)}
+.header{background:var(--card);border-bottom:1px solid var(--border);padding:0 24px;height:60px;display:flex;align-items:center;justify-content:space-between}
+.logo{font-weight:700;color:var(--accent);font-size:1.1rem;display:flex;align-items:center;gap:8px}
+.logo-icon{width:30px;height:30px;background:linear-gradient(135deg,var(--accent),#0066ff);border-radius:7px}
+.content{padding:24px;max-width:1200px;margin:0 auto}
+.page-title{font-size:1.4rem;font-weight:700;margin-bottom:4px}
+.page-sub{color:var(--muted);font-size:13px;margin-bottom:24px}
+.stats-row{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:24px}
+.stat-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:18px;text-align:center}
+.stat-val{font-size:2rem;font-weight:700}
+.stat-lbl{font-size:12px;color:var(--muted);margin-top:4px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:24px;margin-bottom:24px}
+.section-title{font-size:1rem;font-weight:600;margin-bottom:16px}
+.btn{display:inline-flex;align-items:center;gap:5px;padding:8px 18px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;border:none;transition:all .2s}
+.btn-primary{background:linear-gradient(135deg,var(--accent),#0066ff);color:#0a0e1a}
+.btn-primary:hover{opacity:.85}
+.btn-outline{background:transparent;border:1px solid var(--accent);color:var(--accent)}
+.btn-outline:hover{background:rgba(0,212,255,.1)}
+.btn-danger{background:transparent;border:1px solid var(--danger);color:var(--danger);font-size:12px;padding:5px 12px}
+.btn-warning{background:transparent;border:1px solid var(--warning);color:var(--warning);font-size:12px;padding:5px 12px}
+/* TICKET FORM */
+.ticket-form{display:none;background:rgba(0,0,0,.2);border:1px solid var(--border);border-radius:10px;padding:20px;margin-bottom:20px}
+.ticket-form.open{display:block}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:14px}
+.form-group{display:flex;flex-direction:column;gap:6px}
+.form-group label{font-size:12px;color:var(--muted);font-weight:500;text-transform:uppercase;letter-spacing:.05em}
+.form-control{background:rgba(255,255,255,.04);border:1px solid var(--border);border-radius:8px;padding:9px 12px;color:var(--text);font-size:13px;font-family:inherit;width:100%;outline:none;transition:border-color .2s}
+.form-control:focus{border-color:var(--accent)}
+textarea.form-control{resize:vertical;min-height:80px}
+select.form-control option{background:#0f1629;color:var(--text)}
+/* TABLE */
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:left;padding:10px 12px;background:rgba(0,212,255,.05);color:var(--muted);font-size:11px;text-transform:uppercase;border-bottom:1px solid var(--border)}
+td{padding:10px 12px;border-bottom:1px solid rgba(30,45,74,.4);vertical-align:middle}
+tr:hover td{background:rgba(0,212,255,.02)}
+.badge{display:inline-flex;padding:2px 10px;border-radius:20px;font-size:11px;font-weight:700}
+.p1{background:rgba(255,51,102,.18);color:var(--danger)}
+.p2{background:rgba(255,170,0,.18);color:var(--warning)}
+.p3{background:rgba(255,213,0,.15);color:#ffd700}
+.p4{background:rgba(100,116,139,.2);color:var(--muted)}
+.s-open{background:rgba(0,212,255,.12);color:var(--accent)}
+.s-progress{background:rgba(255,170,0,.12);color:var(--warning)}
+.s-resolved{background:rgba(0,255,136,.12);color:var(--success)}
+.s-closed{background:rgba(100,116,139,.15);color:var(--muted)}
+.sla-countdown{font-size:12px;font-weight:700;color:var(--danger);font-variant-numeric:tabular-nums}
+.sla-ok{color:var(--muted)}
+/* SLA MATRIX */
+.sla-matrix table th,.sla-matrix table td{text-align:center}
+.sla-matrix table td:first-child{text-align:left;font-weight:600}
+/* TOAST */
+.toast{position:fixed;bottom:24px;right:24px;background:var(--success);color:#0a0e1a;padding:12px 20px;border-radius:10px;font-weight:600;font-size:14px;z-index:999;transform:translateY(80px);opacity:0;transition:all .3s}
+.toast.show{transform:translateY(0);opacity:1}
+@media(max-width:768px){.stats-row{grid-template-columns:repeat(2,1fr)}.form-row{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="header">
+  <div class="logo"><div class="logo-icon"></div>SENTINEL APEX — Support Center</div>
+  <div style="font-size:13px;color:var(--muted)">AcmeCorp Security &nbsp;·&nbsp; Enterprise SLA</div>
+</div>
+<div class="content">
+  <div class="page-title">Enterprise Support Center</div>
+  <div class="page-sub">Track, manage and escalate support tickets with full SLA visibility.</div>
+
+  <div class="stats-row">
+    <div class="stat-card"><div class="stat-val" style="color:var(--warning)">7</div><div class="stat-lbl">Open Tickets</div></div>
+    <div class="stat-card"><div class="stat-val" style="color:var(--danger)">1</div><div class="stat-lbl">P1 Critical</div></div>
+    <div class="stat-card"><div class="stat-val" style="color:var(--accent)">2.3hr</div><div class="stat-lbl">Avg Response Time</div></div>
+    <div class="stat-card"><div class="stat-val" style="color:var(--success)">94%</div><div class="stat-lbl">SLA Compliance</div></div>
+  </div>
+
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:16px">
+      <div class="section-title" style="margin:0">Support Tickets</div>
+      <button class="btn btn-primary" onclick="toggleForm()">+ New Ticket</button>
+    </div>
+
+    <div class="ticket-form" id="ticket-form">
+      <div class="form-row">
+        <div class="form-group" style="grid-column:1/-1">
+          <label>Subject</label>
+          <input class="form-control" type="text" placeholder="Brief description of the issue..." id="ticket-subject">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group" style="grid-column:1/-1">
+          <label>Description</label>
+          <textarea class="form-control" placeholder="Provide detailed information about the issue, steps to reproduce, impact..." id="ticket-desc"></textarea>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Priority</label>
+          <select class="form-control" id="ticket-priority">
+            <option value="P1">P1 — Critical (Service Down)</option>
+            <option value="P2">P2 — High (Major Degradation)</option>
+            <option value="P3" selected>P3 — Medium (Minor Issue)</option>
+            <option value="P4">P4 — Low (Question/Enhancement)</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Category</label>
+          <select class="form-control" id="ticket-category">
+            <option>Technical Issue</option>
+            <option>Integration Problem</option>
+            <option>False Positive</option>
+            <option>Billing Question</option>
+            <option>Feature Request</option>
+            <option>Data Quality</option>
+          </select>
+        </div>
+      </div>
+      <div style="display:flex;gap:10px">
+        <button class="btn btn-primary" onclick="submitTicket()">Submit Ticket</button>
+        <button class="btn btn-outline" onclick="toggleForm()">Cancel</button>
+      </div>
+    </div>
+
+    <div style="overflow-x:auto">
+      <table>
+        <thead><tr><th>Ticket #</th><th>Subject</th><th>Priority</th><th>Status</th><th>Created</th><th>SLA Timer</th><th>Actions</th></tr></thead>
+        <tbody id="tickets-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="card sla-matrix">
+    <div class="section-title">SLA Matrix</div>
+    <div style="overflow-x:auto">
+      <table>
+        <thead><tr><th>Priority</th><th>Severity</th><th>First Response</th><th>Update Frequency</th><th>Resolution Target</th><th>Coverage</th></tr></thead>
+        <tbody>
+          <tr><td><span class="badge p1">P1</span></td><td>Critical</td><td style="color:var(--danger)">15 minutes</td><td>Every 30 min</td><td>4 hours</td><td>24/7/365</td></tr>
+          <tr><td><span class="badge p2">P2</span></td><td>High</td><td style="color:var(--warning)">1 hour</td><td>Every 2 hours</td><td>8 hours</td><td>24/7/365</td></tr>
+          <tr><td><span class="badge p3">P3</span></td><td>Medium</td><td>4 hours</td><td>Daily</td><td>3 business days</td><td>Business hours</td></tr>
+          <tr><td><span class="badge p4">P4</span></td><td>Low</td><td>8 hours</td><td>Weekly</td><td>10 business days</td><td>Business hours</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+const tickets=[
+  {id:'TKT-2026-0892',subject:'C2 detection alert not firing in SIEM integration',priority:'P1',status:'In Progress',created:'2026-05-29 07:15',slaRemain:7240,slaMax:14400},
+  {id:'TKT-2026-0891',subject:'API rate limit errors on IOC bulk download',priority:'P2',status:'Open',created:'2026-05-29 05:30',slaRemain:3600,slaMax:3600},
+  {id:'TKT-2026-0887',subject:'False positive on IP 192.168.1.50 in threat feed',priority:'P3',status:'Resolved',created:'2026-05-28 14:00',slaRemain:null},
+  {id:'TKT-2026-0883',subject:'Webhook delivery failure to Splunk endpoint',priority:'P2',status:'In Progress',created:'2026-05-28 09:22',slaRemain:1800,slaMax:3600},
+  {id:'TKT-2026-0879',subject:'Monthly report PDF not generating correctly',priority:'P3',status:'Open',created:'2026-05-27 16:45',slaRemain:null},
+];
+
+const pclass={P1:'p1',P2:'p2',P3:'p3',P4:'p4'};
+const sclass={'Open':'s-open','In Progress':'s-progress','Resolved':'s-resolved','Closed':'s-closed'};
+const tbody=document.getElementById('tickets-tbody');
+
+function renderTickets(){
+  tbody.innerHTML='';
+  tickets.forEach((t,idx)=>{
+    const sla=t.slaRemain!==null
+      ?`<span class="sla-countdown" id="sla-${idx}">${formatTime(t.slaRemain)}</span>`
+      :`<span class="sla-ok">—</span>`;
+    tbody.innerHTML+=`<tr>
+      <td style="font-family:monospace;font-size:12px">${t.id}</td>
+      <td>${t.subject}</td>
+      <td><span class="badge ${pclass[t.priority]}">${t.priority}</span></td>
+      <td><span class="badge ${sclass[t.status]}">${t.status}</span></td>
+      <td style="color:var(--muted);font-size:12px">${t.created}</td>
+      <td>${sla}</td>
+      <td style="display:flex;gap:6px;flex-wrap:wrap">
+        <button class="btn btn-outline" style="font-size:11px;padding:4px 10px" onclick="showToast('Opening ${t.id}...')">View</button>
+        ${t.priority==='P1'||t.priority==='P2'?`<button class="btn btn-danger" onclick="showToast('${t.id} escalated to P1!')">Escalate</button>`:''}
+      </td>
+    </tr>`;
+  });
+}
+
+function formatTime(s){
+  if(s<=0) return <span style="color:var(--danger)">BREACHED</span>;
+  const h=Math.floor(s/3600),m=Math.floor((s%3600)/60),sec=s%60;
+  return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}`;
+}
+
+renderTickets();
+
+// Countdown timer
+setInterval(()=>{
+  tickets.forEach((t,idx)=>{
+    if(t.slaRemain!==null && t.slaRemain>0){
+      t.slaRemain--;
+      const el=document.getElementById(`sla-${idx}`);
+      if(el) el.textContent=formatTime(t.slaRemain);
+    }
+  });
+},1000);
+
+let formOpen=false;
+function toggleForm(){
+  formOpen=!formOpen;
+  document.getElementById('ticket-form').classList.toggle('open',formOpen);
+}
+function submitTicket(){
+  const subj=document.getElementById('ticket-subject').value.trim();
+  if(!subj){showToast('Please enter a subject');return;}
+  const pri=document.getElementById('ticket-priority').value;
+  const newTicket={id:`TKT-2026-${Math.floor(Math.random()*1000+900)}`,subject:subj,priority:pri,status:'Open',created:'2026-05-29 (now)',slaRemain:pri==='P1'?900:pri==='P2'?3600:null,slaMax:pri==='P1'?900:3600};
+  tickets.unshift(newTicket);
+  renderTickets();
+  toggleForm();
+  showToast('Ticket submitted successfully!');
+}
+function showToast(msg){
+  const t=document.getElementById('toast');
+  t.textContent=msg;t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),2800);
+}
+</script>
+</body>
+</html>

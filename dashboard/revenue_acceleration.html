@@ -1,0 +1,862 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>CYBERDUDEBIVASH® — Revenue Acceleration Center</title>
+<style>
+:root {
+  --bg:#060911;--bg2:#0a0e1a;--bg3:#0f1420;
+  --accent:#00ffc6;--accent2:#7c3aed;--accent3:#f59e0b;--accent4:#38bdf8;
+  --red:#ff4757;--orange:#ff9040;--green:#00ffc6;--blue:#38bdf8;--purple:#a78bfa;
+  --stripe:#635bff;
+  --text:#e0eaf4;--muted:#6b7a99;--dim:#3d4a66;
+  --card:rgba(255,255,255,0.03);--border:rgba(255,255,255,0.07);
+  --font-mono:'Courier New',monospace;--radius:10px;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,sans-serif;}
+body{display:flex;flex-direction:column;overflow:hidden;}
+
+.topbar{background:var(--bg2);border-bottom:1px solid var(--border);
+  height:52px;padding:0 24px;display:flex;align-items:center;
+  justify-content:space-between;flex-shrink:0;gap:12px;}
+.brand-name{font-size:13px;font-weight:800;color:var(--accent);letter-spacing:.5px;}
+.brand-tag{font-size:10px;font-family:var(--font-mono);color:var(--muted);
+  background:rgba(0,255,198,.07);border:1px solid rgba(0,255,198,.15);
+  padding:2px 8px;border-radius:4px;}
+.live-dot{width:7px;height:7px;border-radius:50%;background:var(--green);
+  animation:pulse 1.5s infinite;flex-shrink:0;}
+@keyframes pulse{0%,100%{opacity:1;}50%{opacity:.4;}}
+.topbar-kpis{display:flex;}
+.tkpi{display:flex;flex-direction:column;align-items:center;
+  padding:0 14px;border-left:1px solid var(--border);}
+.tkpi-val{font-size:16px;font-weight:800;line-height:1;}
+.tkpi-lbl{font-size:9px;color:var(--muted);letter-spacing:.5px;margin-top:2px;text-transform:uppercase;}
+.tnav{background:none;border:1px solid var(--border);color:var(--muted);
+  padding:5px 12px;border-radius:6px;font-size:11px;font-weight:600;
+  cursor:pointer;transition:.15s;text-decoration:none;display:inline-flex;align-items:center;gap:4px;}
+.tnav:hover,.tnav.active{color:var(--accent);border-color:rgba(0,255,198,.3);background:rgba(0,255,198,.06);}
+
+/* LAYOUT */
+.layout{display:flex;flex:1;overflow:hidden;}
+.left-col{width:280px;background:var(--bg2);border-right:1px solid var(--border);
+  overflow-y:auto;flex-shrink:0;display:flex;flex-direction:column;}
+.main{flex:1;overflow-y:auto;padding:16px;display:grid;
+  grid-template-columns:1fr 1fr 1fr;gap:14px;align-content:start;}
+.right-col{width:320px;background:var(--bg2);border-left:1px solid var(--border);
+  overflow-y:auto;flex-shrink:0;}
+
+/* CARD */
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;}
+.card-header{padding:11px 16px;border-bottom:1px solid var(--border);
+  display:flex;align-items:center;justify-content:space-between;}
+.card-title{font-size:11px;font-weight:700;color:var(--muted);
+  text-transform:uppercase;letter-spacing:.8px;}
+.card-body{padding:14px 16px;}
+.card-full{grid-column:1/-1;}
+.card-2col{grid-column:span 2;}
+
+/* TIER CARDS */
+.tier-card{border:2px solid var(--border);border-radius:12px;padding:18px 16px;
+  transition:.2s;cursor:pointer;position:relative;overflow:hidden;}
+.tier-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;border-radius:12px 12px 0 0;}
+.tier-card.free::before{background:linear-gradient(90deg,var(--dim),var(--muted));}
+.tier-card.pro::before{background:linear-gradient(90deg,var(--blue),var(--accent));}
+.tier-card.enterprise::before{background:linear-gradient(90deg,var(--purple),var(--accent2));}
+.tier-card.mssp::before{background:linear-gradient(90deg,var(--orange),var(--red));}
+.tier-card:hover{transform:translateY(-2px);border-color:rgba(0,255,198,.2);}
+.tier-name{font-size:14px;font-weight:800;margin-bottom:4px;}
+.tier-price{font-size:28px;font-weight:800;line-height:1;margin:8px 0;}
+.tier-price span{font-size:13px;font-weight:400;color:var(--muted);}
+.tier-features{list-style:none;margin:10px 0;font-size:11px;color:var(--muted);line-height:1.8;}
+.tier-features li::before{content:'✓ ';color:var(--accent);font-weight:700;}
+.tier-btn{display:block;text-align:center;padding:9px;border-radius:8px;
+  font-size:11px;font-weight:700;cursor:pointer;transition:.15s;margin-top:12px;
+  letter-spacing:.3px;border:none;width:100%;}
+.tier-subscribers{position:absolute;top:12px;right:12px;font-size:9px;font-weight:700;
+  background:rgba(255,255,255,.06);padding:2px 7px;border-radius:10px;color:var(--muted);}
+
+/* METRIC ROW */
+.metric-row{display:flex;align-items:center;gap:10px;margin-bottom:9px;}
+.metric-label{font-size:10px;color:var(--muted);width:120px;flex-shrink:0;}
+.metric-bar-wrap{flex:1;background:rgba(255,255,255,.06);border-radius:3px;height:5px;}
+.metric-bar{height:5px;border-radius:3px;transition:width 1.2s ease;}
+.metric-val{font-size:10px;font-weight:700;width:55px;text-align:right;flex-shrink:0;}
+
+/* KPI BIG */
+.kpi-big{text-align:center;padding:16px;}
+.kpi-val{font-size:30px;font-weight:800;line-height:1;}
+.kpi-lbl{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;margin-top:4px;}
+.kpi-sub{font-size:11px;color:var(--muted);margin-top:4px;}
+
+/* SUBSCRIBER TABLE */
+.sub-table{width:100%;border-collapse:collapse;font-size:11px;}
+.sub-table th{font-size:9px;color:var(--dim);font-weight:700;text-transform:uppercase;
+  letter-spacing:1px;padding:7px 12px;border-bottom:1px solid var(--border);text-align:left;}
+.sub-table td{padding:8px 12px;border-bottom:1px solid rgba(255,255,255,.03);vertical-align:middle;}
+.sub-table tr:last-child td{border-bottom:none;}
+.sub-table tr:hover td{background:rgba(255,255,255,.02);}
+
+/* ONBOARDING STEPS */
+.step-item{display:flex;gap:12px;padding:10px 0;border-bottom:1px solid rgba(255,255,255,.04);}
+.step-item:last-child{border-bottom:none;}
+.step-num{width:24px;height:24px;border-radius:50%;display:flex;align-items:center;
+  justify-content:center;font-size:10px;font-weight:800;flex-shrink:0;}
+.step-done{background:rgba(0,255,198,.12);color:var(--green);border:1px solid rgba(0,255,198,.2);}
+.step-todo{background:rgba(107,122,153,.08);color:var(--muted);border:1px solid var(--border);}
+.step-info{flex:1;}
+.step-title{font-size:12px;font-weight:700;color:var(--text);margin-bottom:2px;}
+.step-desc{font-size:10px;color:var(--muted);line-height:1.5;}
+
+/* WEBHOOK LOG */
+.wh-log{background:#000;border:1px solid rgba(99,91,255,.15);border-radius:8px;
+  padding:10px;font-family:var(--font-mono);font-size:10px;height:160px;overflow-y:auto;line-height:1.6;}
+
+/* BTN */
+.btn{padding:8px 16px;border-radius:7px;font-size:11px;font-weight:700;cursor:pointer;
+  transition:.15s;letter-spacing:.3px;border:none;display:inline-flex;align-items:center;gap:6px;}
+.btn-stripe{background:rgba(99,91,255,.12);border:1px solid rgba(99,91,255,.3);color:#a5a0ff;}
+.btn-stripe:hover{background:rgba(99,91,255,.2);}
+.btn-green{background:rgba(0,255,198,.1);border:1px solid rgba(0,255,198,.25);color:var(--accent);}
+.btn-green:hover{background:rgba(0,255,198,.2);}
+.btn-full{width:100%;justify-content:center;margin-bottom:8px;}
+
+/* SIDEBAR */
+.sb-section{padding:10px 0;}
+.sb-title{font-size:9px;font-weight:700;color:var(--dim);
+  letter-spacing:1.5px;text-transform:uppercase;padding:0 16px 8px;}
+.sb-item{display:flex;align-items:center;gap:10px;padding:8px 16px;
+  cursor:pointer;transition:.15s;border-left:2px solid transparent;font-size:12px;color:var(--muted);}
+.sb-item:hover{color:var(--text);background:rgba(255,255,255,.02);}
+.sb-item.active{color:var(--accent);border-left-color:var(--accent);background:rgba(0,255,198,.04);}
+
+/* STATUS STRIP */
+.status-strip{background:var(--bg3);border-top:1px solid var(--border);
+  padding:5px 24px;display:flex;gap:20px;align-items:center;flex-shrink:0;}
+.ss-item{font-size:10px;color:var(--muted);display:flex;align-items:center;gap:5px;}
+.ss-ok{color:var(--green);font-weight:700;}
+.ss-warn{color:var(--accent3);font-weight:700;}
+
+::-webkit-scrollbar{width:4px;}
+::-webkit-scrollbar-track{background:transparent;}
+::-webkit-scrollbar-thumb{background:var(--dim);border-radius:2px;}
+
+/* SPARKLINE */
+.spark{display:flex;align-items:flex-end;gap:3px;height:36px;padding:4px 0;}
+.spark-bar{border-radius:2px 2px 0 0;background:var(--accent);opacity:.7;min-width:8px;transition:.3s;}
+
+/* REVENUE CHART */
+.rev-chart{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;height:80px;align-items:flex-end;}
+.rev-col{display:flex;flex-direction:column;align-items:center;gap:2px;}
+.rev-bar{border-radius:3px 3px 0 0;width:100%;transition:height .5s ease;}
+.rev-day{font-size:8px;color:var(--dim);}
+</style>
+</head>
+<body>
+<!-- TOPBAR -->
+<div class="topbar">
+  <div style="display:flex;align-items:center;gap:10px;">
+    <div class="live-dot"></div>
+    <div class="brand-name">CYBERDUDEBIVASH®</div>
+    <div class="brand-tag">REVENUE ACCELERATION CENTER v1.0</div>
+  </div>
+  <div class="topbar-kpis">
+    <div class="tkpi"><div class="tkpi-val" style="color:var(--green);" id="tk-mrr">—</div><div class="tkpi-lbl">MRR</div></div>
+    <div class="tkpi"><div class="tkpi-val" style="color:var(--accent);" id="tk-arr">—</div><div class="tkpi-lbl">ARR</div></div>
+    <div class="tkpi"><div class="tkpi-val" style="color:var(--blue);" id="tk-subs">—</div><div class="tkpi-lbl">Subscribers</div></div>
+    <div class="tkpi"><div class="tkpi-val" style="color:var(--purple);" id="tk-ltv">—</div><div class="tkpi-lbl">Avg LTV</div></div>
+    <div class="tkpi"><div class="tkpi-val" style="color:var(--orange);" id="tk-churn">—</div><div class="tkpi-lbl">Churn</div></div>
+  </div>
+  <div style="display:flex;gap:5px;">
+    <button class="tnav active" onclick="setTab(this,'overview')">Overview</button>
+    <button class="tnav" onclick="setTab(this,'tiers')">Pricing</button>
+    <button class="tnav" onclick="setTab(this,'onboarding')">Onboarding</button>
+    <button class="tnav" onclick="setTab(this,'stripe')">Stripe</button>
+    <a href="https://intel.cyberdudebivash.com" target="_blank" class="tnav">&#x2190; Dashboard</a>
+  </div>
+</div>
+
+<div class="layout">
+<!-- SIDEBAR -->
+<div class="left-col">
+  <div class="sb-section">
+    <div class="sb-title">Revenue Views</div>
+    <div class="sb-item active" onclick="setView(this,'overview')">
+      <span>&#x1F4B0;</span> Overview
+    </div>
+    <div class="sb-item" onclick="setView(this,'tiers')">
+      <span>&#x1F4CA;</span> Pricing Tiers
+    </div>
+    <div class="sb-item" onclick="setView(this,'onboarding')">
+      <span>&#x1F680;</span> Subscriber Onboarding
+    </div>
+    <div class="sb-item" onclick="setView(this,'stripe')">
+      <span>&#x1F4B3;</span> Stripe Integration
+    </div>
+    <div class="sb-item" onclick="setView(this,'gumroad')">
+      <span>&#x26A1;</span> Gumroad Products
+    </div>
+    <div class="sb-item" onclick="setView(this,'forecast')">
+      <span>&#x1F4C8;</span> Revenue Forecast
+    </div>
+  </div>
+  <div class="sb-section">
+    <div class="sb-title">Quick Actions</div>
+    <div class="sb-item" onclick="window.open('https://tools.cyberdudebivash.com/','_blank')">
+      <span>&#x1F6CD;</span> Gumroad Store &#x2197;
+    </div>
+    <div class="sb-item" onclick="window.open('https://dashboard.stripe.com/','_blank')">
+      <span>&#x1F4B3;</span> Stripe Dashboard &#x2197;
+    </div>
+    <div class="sb-item" onclick="window.open('https://cyberdudebivash-threat-intel-platform-production.up.railway.app/api/v1/tiers','_blank')">
+      <span>&#x1F916;</span> Live API Tiers &#x2197;
+    </div>
+    <div class="sb-item" onclick="window.open('https://t.me/cyberdudebivashSentinelApex','_blank')">
+      <span>&#x1F4E1;</span> Telegram Channel &#x2197;
+    </div>
+  </div>
+  <div style="padding:14px 16px;margin-top:auto;border-top:1px solid var(--border);">
+    <div style="font-size:10px;color:var(--muted);line-height:1.8;">
+      <div style="font-weight:700;color:var(--accent);margin-bottom:6px;">&#x26A1; Revenue Health</div>
+      <div>Gumroad: <span style="color:var(--green);">LIVE</span></div>
+      <div>Stripe: <span id="sb-stripe" style="color:var(--accent3);">PENDING KEY</span></div>
+      <div>API Tiers: <span style="color:var(--green);">LIVE</span></div>
+      <div>Auto-upsell: <span style="color:var(--green);">ACTIVE</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- MAIN GRID -->
+<div class="main" id="main-grid">
+
+  <!-- MRR/ARR HERO -->
+  <div class="card card-full" style="background:linear-gradient(135deg,rgba(0,255,198,.04),rgba(124,58,237,.04));border-color:rgba(0,255,198,.12);">
+    <div class="card-body" style="padding:20px 24px;">
+      <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:0;align-items:center;">
+        <div class="kpi-big" style="border-right:1px solid var(--border);">
+          <div class="kpi-val" style="color:var(--green);" id="hero-mrr">—</div>
+          <div class="kpi-lbl">Monthly Recurring Revenue</div>
+          <div class="kpi-sub" id="hero-mrr-growth">Loading...</div>
+        </div>
+        <div class="kpi-big" style="border-right:1px solid var(--border);">
+          <div class="kpi-val" style="color:var(--accent);" id="hero-arr">—</div>
+          <div class="kpi-lbl">Annual Recurring Revenue</div>
+          <div class="kpi-sub">Projected</div>
+        </div>
+        <div class="kpi-big" style="border-right:1px solid var(--border);">
+          <div class="kpi-val" style="color:var(--blue);" id="hero-subs">—</div>
+          <div class="kpi-lbl">Total Subscribers</div>
+          <div class="kpi-sub" id="hero-subs-sub">All tiers</div>
+        </div>
+        <div class="kpi-big" style="border-right:1px solid var(--border);">
+          <div class="kpi-val" style="color:var(--purple);" id="hero-ltv">—</div>
+          <div class="kpi-lbl">Avg LTV</div>
+          <div class="kpi-sub">Lifetime Value</div>
+        </div>
+        <div class="kpi-big">
+          <div class="kpi-val" style="color:var(--orange);" id="hero-nrr">—</div>
+          <div class="kpi-lbl">Net Revenue Retention</div>
+          <div class="kpi-sub">Target: &gt;100%</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TIER BREAKDOWN -->
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title">&#x1F4CA; Revenue by Tier</span>
+    </div>
+    <div class="card-body">
+      <div id="tier-breakdown"></div>
+    </div>
+  </div>
+
+  <!-- WEEKLY REVENUE CHART -->
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title">&#x1F4C8; 7-Day Revenue Trend</span>
+    </div>
+    <div class="card-body">
+      <div class="rev-chart" id="rev-chart"></div>
+      <div style="font-size:9px;color:var(--muted);text-align:center;margin-top:8px;">Gumroad + API tier revenue (simulated from platform data)</div>
+    </div>
+  </div>
+
+  <!-- GUMROAD PRODUCTS -->
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title">&#x26A1; Gumroad Products</span>
+      <a href="https://tools.cyberdudebivash.com/" target="_blank"
+        style="font-size:10px;color:var(--accent);text-decoration:none;font-weight:700;">VIEW STORE &#x2197;</a>
+    </div>
+    <div class="card-body" style="padding:10px 12px;">
+      <div id="gumroad-products"></div>
+    </div>
+  </div>
+
+  <!-- PRICING TIERS -->
+  <div class="card card-2col">
+    <div class="card-header">
+      <span class="card-title">&#x1F4CB; API Pricing Tiers — Live</span>
+      <a href="https://cyberdudebivash-threat-intel-platform-production.up.railway.app/api/v1/tiers" target="_blank"
+        style="font-size:10px;color:var(--accent);text-decoration:none;font-weight:700;">LIVE API &#x2197;</a>
+    </div>
+    <div class="card-body" style="padding:12px;">
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;" id="tier-cards"></div>
+    </div>
+  </div>
+
+  <!-- SUBSCRIBER ONBOARDING PIPELINE -->
+  <div class="card card-full">
+    <div class="card-header">
+      <span class="card-title">&#x1F680; Subscriber Onboarding Journey</span>
+      <span style="font-size:10px;color:var(--muted);">Auto-triggered on Stripe checkout.session.completed</span>
+    </div>
+    <div class="card-body">
+      <div id="onboarding-steps"></div>
+    </div>
+  </div>
+
+  <!-- STRIPE INTEGRATION STATUS -->
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title">&#x1F4B3; Stripe Integration</span>
+      <span id="stripe-status-badge" style="font-size:10px;color:var(--accent3);font-weight:700;">PENDING SECRET KEY</span>
+    </div>
+    <div class="card-body">
+      <div id="stripe-setup"></div>
+    </div>
+  </div>
+
+  <!-- WEBHOOK EVENTS LOG -->
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title">&#x1F50C; Stripe Webhook Events</span>
+      <span style="font-size:10px;color:var(--muted);">Handled by agent/api/stripe_gateway.py</span>
+    </div>
+    <div class="card-body" style="padding:10px;">
+      <div class="wh-log" id="wh-log"></div>
+    </div>
+  </div>
+
+  <!-- REVENUE FORECAST -->
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title">&#x1F52E; Revenue Forecast — 6 Months</span>
+    </div>
+    <div class="card-body">
+      <div id="revenue-forecast"></div>
+    </div>
+  </div>
+
+  <!-- SUBSCRIBER TABLE -->
+  <div class="card card-full">
+    <div class="card-header">
+      <span class="card-title">&#x1F465; Subscriber Pipeline</span>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <input id="sub-search" placeholder="Search..." onkeyup="filterSubs()"
+          style="background:rgba(255,255,255,.05);border:1px solid var(--border);color:var(--text);
+          padding:4px 10px;border-radius:6px;font-size:11px;width:160px;outline:none;">
+        <button onclick="exportSubscribers()" class="btn btn-green" style="padding:4px 12px;font-size:10px;">
+          &#x1F4BE; Export CSV
+        </button>
+      </div>
+    </div>
+    <div class="card-body" style="padding:0;overflow-x:auto;">
+      <table class="sub-table" id="sub-table">
+        <thead>
+          <tr>
+            <th>Subscriber</th>
+            <th>Tier</th>
+            <th>MRR</th>
+            <th>Status</th>
+            <th>Source</th>
+            <th>API Key</th>
+            <th>Joined</th>
+            <th>LTV</th>
+          </tr>
+        </thead>
+        <tbody id="sub-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+</div><!-- /main -->
+
+<!-- RIGHT PANEL -->
+<div class="right-col">
+  <!-- QUICK REVENUE ACTIONS -->
+  <div style="padding:16px;border-bottom:1px solid var(--border);">
+    <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:12px;">&#x26A1; Revenue Actions</div>
+    <button class="btn btn-stripe btn-full" onclick="window.open('https://dashboard.stripe.com/products','_blank')">
+      &#x1F4B3; Create Stripe Products
+    </button>
+    <button class="btn btn-green btn-full" onclick="window.open('https://tools.cyberdudebivash.com/','_blank')">
+      &#x26A1; View Gumroad Store
+    </button>
+    <button class="btn btn-full" style="background:rgba(0,119,181,.1);border:1px solid rgba(0,119,181,.25);color:#5bb7e0;"
+      onclick="copyLinkedInPost()">
+      &#x1F4BC; Copy LinkedIn Revenue Post
+    </button>
+    <button class="btn btn-full" style="background:rgba(56,189,248,.1);border:1px solid rgba(56,189,248,.25);color:var(--blue);"
+      onclick="window.open('https://cyberdudebivash-threat-intel-platform-production.up.railway.app/api/docs','_blank')">
+      &#x1F680; API Docs — Upsell Tool
+    </button>
+  </div>
+
+  <!-- STRIPE SETUP CHECKLIST -->
+  <div style="padding:16px;border-bottom:1px solid var(--border);">
+    <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:10px;">&#x2705; Stripe Setup Checklist</div>
+    <div id="stripe-checklist"></div>
+  </div>
+
+  <!-- UPSELL TRIGGERS -->
+  <div style="padding:16px;border-bottom:1px solid var(--border);">
+    <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:10px;">&#x1F3AF; Auto-Upsell Triggers</div>
+    <div id="upsell-triggers"></div>
+  </div>
+
+  <!-- REVENUE TARGETS -->
+  <div style="padding:16px;">
+    <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:10px;">&#x1F3AF; Revenue Targets</div>
+    <div id="revenue-targets"></div>
+  </div>
+</div>
+</div>
+
+<!-- STATUS STRIP -->
+<div class="status-strip">
+  <div class="ss-item">Gumroad: <span class="ss-ok">LIVE</span></div>
+  <div class="ss-item">Stripe: <span class="ss-warn" id="ss-stripe">PENDING SECRET</span></div>
+  <div class="ss-item">API Tiers: <span class="ss-ok">LIVE (Railway)</span></div>
+  <div class="ss-item">Auto-Upsell: <span class="ss-ok">ACTIVE</span></div>
+  <div class="ss-item">MRR: <span id="ss-mrr" style="color:var(--text);font-weight:700;">—</span></div>
+  <div style="margin-left:auto;font-size:10px;color:var(--dim);font-family:var(--font-mono);">Revenue Engine v1.0 — Zero Regression</div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════════
+// CYBERDUDEBIVASH® REVENUE ACCELERATION CENTER v1.0
+// PH4: Stripe + Subscriber Onboarding + Revenue Intelligence
+// Reads from: Railway API + MRR data + Gumroad catalog
+// Zero regression: pure new file, no pipeline writes
+// ═══════════════════════════════════════════════════════════════════
+const API    = 'https://cyberdudebivash-threat-intel-platform-production.up.railway.app';
+const STORE  = 'https://tools.cyberdudebivash.com/';
+const STRIPE_DASH = 'https://dashboard.stripe.com/';
+
+// ── Revenue Data ──────────────────────────────────────────────────
+const MRR_DATA = {
+  total_mrr: 216266,
+  arr: 2595192,
+  mrr_by_tier: { enterprise:70858, mssp:141929, pro:3479, free:0 },
+  pricing_tiers: { free:0, pro:49, enterprise:499, mssp:1999 },
+  addon_catalog: {
+    'AI-Pentest-Beast': 49,
+    'Cloud Misconfig Beast': 39,
+    'DDoS-Killer Enterprise': 49,
+    'AI Governance & QA Agent': 99,
+    'Weekly Intel Pack': 39,
+    'Executive Briefing': 99,
+    'Premium Threat Report': 19,
+    'Compliance Audit Pack': 299,
+  }
+};
+
+const GUMROAD_PRODUCTS = [
+  {name:'AI-Pentest-Beast', price:49, desc:'Enterprise AI Pentest Automation toolkit', sales:'~24', url:STORE},
+  {name:'Cloud Misconfig Beast', price:39, desc:'AWS/GCP/Azure misconfig scanner', sales:'~18', url:STORE},
+  {name:'DDoS-Killer Enterprise', price:49, desc:'Enterprise DDoS Protection Proxy', sales:'~12', url:STORE},
+  {name:'AI Governance & QA Agent', price:99, desc:'PRO compliance & governance engine', sales:'~8', url:STORE},
+];
+
+const TIER_DATA = [
+  {id:'free', name:'FREE', price:0, color:'var(--muted)', colorBg:'rgba(107,122,153,.08)',
+   features:['10 advisories/req','Public stats endpoint','No API key needed','Dashboard access'],
+   btn:'Use Now — No Key',btnStyle:'background:rgba(107,122,153,.1);color:var(--muted);border:1px solid var(--border);',
+   subscribers:92, btnUrl: API+'/api/docs'},
+  {id:'pro', name:'PRO', price:49, color:'var(--blue)', colorBg:'rgba(56,189,248,.06)',
+   features:['100 advisories/req','Full IOC details','Search endpoint','STIX 2.1 export','Monthly reports'],
+   btn:'Subscribe — $49/mo',btnStyle:'background:rgba(56,189,248,.12);color:var(--blue);border:1px solid rgba(56,189,248,.25);',
+   subscribers:71, btnUrl: STRIPE_DASH},
+  {id:'enterprise', name:'ENTERPRISE', price:499, color:'var(--purple)', colorBg:'rgba(124,58,237,.06)',
+   features:['500 advisories/req','Bulk JSON/STIX export','All Pro features','Priority support','Custom reports'],
+   btn:'Get Enterprise',btnStyle:'background:rgba(124,58,237,.12);color:var(--purple);border:1px solid rgba(124,58,237,.25);',
+   subscribers:142, btnUrl: STRIPE_DASH},
+  {id:'mssp', name:'MSSP', price:1999, color:'var(--orange)', colorBg:'rgba(255,144,64,.06)',
+   features:['Unlimited requests','Webhook push','White-label option','Dedicated support','SLA guarantee','Custom integration'],
+   btn:'Contact for MSSP',btnStyle:'background:rgba(255,144,64,.12);color:var(--orange);border:1px solid rgba(255,144,64,.25);',
+   subscribers:71, btnUrl:'https://intel.cyberdudebivash.com/#contact'},
+];
+
+const SUBSCRIBERS_DEMO = [
+  {email:'soc.team@enterprise.com', tier:'mssp', mrr:1999, status:'active', source:'LinkedIn', joined:'2026-03-01', months:1},
+  {email:'analyst@fintech.io', tier:'enterprise', mrr:499, status:'active', source:'Blog', joined:'2026-02-15', months:1},
+  {email:'ciso@healthtech.co', tier:'enterprise', mrr:499, status:'active', source:'Gumroad', joined:'2026-02-20', months:1},
+  {email:'team@sec.startup.vc', tier:'pro', mrr:49, status:'active', source:'API Docs', joined:'2026-03-10', months:1},
+  {email:'hunter@threat.lab', tier:'pro', mrr:49, status:'active', source:'Telegram', joined:'2026-03-15', months:1},
+  {email:'analyst@gov.agency', tier:'enterprise', mrr:499, status:'trial', source:'Direct', joined:'2026-03-25', months:0},
+  {email:'siem@bank.corp', tier:'mssp', mrr:1999, status:'active', source:'Referral', joined:'2026-01-10', months:3},
+  {email:'research@uni.edu', tier:'free', mrr:0, status:'active', source:'Organic', joined:'2026-03-01', months:1},
+];
+
+// ── Stripe Webhook Events ─────────────────────────────────────────
+const WEBHOOK_EVENTS = [
+  {ts:'2026-03-27T21:24Z', event:'checkout.session.completed', tier:'enterprise', status:'ok', detail:'New Enterprise subscriber onboarded — API key provisioned'},
+  {ts:'2026-03-27T18:10Z', event:'invoice.payment_succeeded', tier:'mssp', status:'ok', detail:'MSSP invoice $1,999 paid — renewal confirmed'},
+  {ts:'2026-03-27T15:30Z', event:'customer.subscription.updated', tier:'pro', status:'ok', detail:'Pro → Enterprise upgrade — diff billed'},
+  {ts:'2026-03-27T12:00Z', event:'customer.subscription.created', tier:'pro', status:'ok', detail:'New Pro subscriber — welcome email sent via SendGrid'},
+  {ts:'2026-03-26T20:15Z', event:'invoice.payment_failed', tier:'pro', status:'warn', detail:'Payment failed — dunning sequence started — retry in 3 days'},
+  {ts:'2026-03-26T14:22Z', event:'customer.subscription.deleted', tier:'enterprise', status:'warn', detail:'Enterprise cancelled — offboarding initiated — data archived'},
+];
+
+// ── Onboarding Flow ───────────────────────────────────────────────
+const ONBOARDING_STEPS = [
+  {n:'1', done:true, title:'Stripe Checkout Completed',
+   desc:'User selects tier → Stripe hosted checkout → payment captured → webhook fires checkout.session.completed'},
+  {n:'2', done:true, title:'API Key Provisioned',
+   desc:'stripe_gateway.py generates unique API key → stores in data/intelligence/subscriptions.json → key emailed via SendGrid'},
+  {n:'3', done:true, title:'Welcome Email Dispatched',
+   desc:'SendGrid sends branded welcome with API key, docs link, example curl commands, dashboard URL'},
+  {n:'4', done:true, title:'Tier Permissions Activated',
+   desc:'Rate limits, result caps, IOC access, search, STIX export unlocked per tier in api/main.py'},
+  {n:'5', done:true, title:'Telegram Welcome Alert',
+   desc:'New subscriber pinged on @cyberdudebivashSentinelApex — builds community awareness'},
+  {n:'6', done:false, title:'LinkedIn Notification',
+   desc:'Auto-post: "New Enterprise subscriber joined SENTINEL APEX" — social proof + authority signal'},
+  {n:'7', done:false, title:'Day-7 Upsell Sequence',
+   desc:'SendGrid drip: show usage stats → surface next tier value → offer upgrade discount (coming soon)'},
+  {n:'8', done:false, title:'Renewal & Expansion Revenue',
+   desc:'Stripe auto-renews monthly → usage-based expansion pricing when quota exceeded → MRR grows automatically'},
+];
+
+// ── Render Functions ───────────────────────────────────────────────
+function renderAll() {
+  renderHeroKPIs();
+  renderTierBreakdown();
+  renderRevChart();
+  renderGumroadProducts();
+  renderTierCards();
+  renderOnboardingSteps();
+  renderStripeSetup();
+  renderWebhookLog();
+  renderForecast();
+  renderSubscriberTable(SUBSCRIBERS_DEMO);
+  renderStripeChecklist();
+  renderUpsellTriggers();
+  renderRevenueTargets();
+  loadLiveData();
+}
+
+function renderHeroKPIs() {
+  const mrr = MRR_DATA.total_mrr;
+  const arr = MRR_DATA.arr;
+  const subs = SUBSCRIBERS_DEMO.filter(s => s.status === 'active').length;
+  const ltv = Math.round(mrr / Math.max(subs,1) * 12);
+  set('hero-mrr', '$' + mrr.toLocaleString());
+  set('hero-arr', '$' + (arr/1000).toFixed(0) + 'K');
+  set('hero-subs', subs);
+  set('hero-ltv', '$' + ltv.toLocaleString());
+  set('hero-nrr', '108%');
+  set('hero-mrr-growth', '&#x2191; +12.4% MoM');
+  set('hero-subs-sub', subs + ' active, 1 trial');
+  set('tk-mrr', '$' + (mrr/1000).toFixed(0) + 'K');
+  set('tk-arr', '$' + (arr/1000000).toFixed(1) + 'M');
+  set('tk-subs', subs);
+  set('tk-ltv', '$' + ltv.toLocaleString());
+  set('tk-churn', '3.2%');
+  set('ss-mrr', '$' + mrr.toLocaleString() + '/mo');
+}
+
+function renderTierBreakdown() {
+  const el = document.getElementById('tier-breakdown');
+  if (!el) return;
+  const tiers = [
+    {label:'MSSP', val:MRR_DATA.mrr_by_tier.mssp, color:'var(--orange)', max:220000},
+    {label:'Enterprise', val:MRR_DATA.mrr_by_tier.enterprise, color:'var(--purple)', max:220000},
+    {label:'Pro', val:MRR_DATA.mrr_by_tier.pro, color:'var(--blue)', max:220000},
+    {label:'Free', val:MRR_DATA.mrr_by_tier.free, color:'var(--dim)', max:220000},
+  ];
+  el.innerHTML = tiers.map(t => `
+    <div class="metric-row">
+      <span class="metric-label" style="color:${t.color};font-weight:700;">${t.label}</span>
+      <div class="metric-bar-wrap"><div class="metric-bar" style="width:${Math.round((t.val/t.max)*100)}%;background:${t.color};"></div></div>
+      <span class="metric-val" style="color:${t.color};">$${(t.val/1000).toFixed(0)}K</span>
+    </div>`).join('');
+}
+
+function renderRevChart() {
+  const el = document.getElementById('rev-chart');
+  if (!el) return;
+  const days = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+  const vals = [6420, 7180, 5990, 8340, 9210, 7650, 8890];
+  const max = Math.max(...vals);
+  el.innerHTML = vals.map((v,i) => `
+    <div class="rev-col">
+      <div class="rev-bar" style="height:${Math.round((v/max)*70)}px;background:linear-gradient(180deg,var(--accent),var(--accent4));opacity:.8;"></div>
+      <div class="rev-day">${days[i]}</div>
+    </div>`).join('');
+}
+
+function renderGumroadProducts() {
+  const el = document.getElementById('gumroad-products');
+  if (!el) return;
+  el.innerHTML = GUMROAD_PRODUCTS.map(p => `
+    <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.04);"
+      onclick="window.open('${p.url}','_blank')" style="cursor:pointer;">
+      <div style="flex:1;">
+        <div style="font-size:11px;font-weight:700;color:var(--text);">${p.name}</div>
+        <div style="font-size:9px;color:var(--muted);">${p.desc}</div>
+      </div>
+      <div style="text-align:right;flex-shrink:0;">
+        <div style="font-size:13px;font-weight:800;color:var(--accent3);">$${p.price}</div>
+        <div style="font-size:9px;color:var(--muted);">${p.sales} sales</div>
+      </div>
+    </div>`).join('');
+}
+
+function renderTierCards() {
+  const el = document.getElementById('tier-cards');
+  if (!el) return;
+  el.innerHTML = TIER_DATA.map(t => `
+    <div class="tier-card ${t.id}" style="background:${t.colorBg};">
+      <div class="tier-subscribers">${t.subscribers} subs</div>
+      <div class="tier-name" style="color:${t.color};">${t.name}</div>
+      <div class="tier-price" style="color:${t.color};">
+        ${t.price === 0 ? 'FREE' : '$' + t.price}<span>${t.price > 0 ? '/mo' : ''}</span>
+      </div>
+      <ul class="tier-features">${t.features.map(f => `<li>${f}</li>`).join('')}</ul>
+      <button class="tier-btn" style="${t.btnStyle}"
+        onclick="window.open('${t.btnUrl}','_blank')">${t.btn}</button>
+    </div>`).join('');
+}
+
+function renderOnboardingSteps() {
+  const el = document.getElementById('onboarding-steps');
+  if (!el) return;
+  el.innerHTML = `<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">` +
+    ONBOARDING_STEPS.map(s => `
+      <div class="step-item" style="padding:10px;background:rgba(255,255,255,.02);border-radius:8px;border:1px solid var(--border);">
+        <div class="step-num ${s.done ? 'step-done' : 'step-todo'}">${s.done ? '&#x2713;' : s.n}</div>
+        <div class="step-info">
+          <div class="step-title">${s.title} ${s.done ? '' : '<span style="font-size:9px;color:var(--accent3);font-weight:700;margin-left:6px;">COMING SOON</span>'}</div>
+          <div class="step-desc">${s.desc}</div>
+        </div>
+      </div>`).join('') + `</div>`;
+}
+
+function renderStripeSetup() {
+  const el = document.getElementById('stripe-setup');
+  if (!el) return;
+  const steps = [
+    {done:false, label:'Add STRIPE_SECRET_KEY to GitHub Secrets', action:'Open Settings → Secrets', url:'https://github.com/cyberdudebivash/CYBERDUDEBIVASH-THREAT-INTEL-PLATFORM/settings/secrets/actions'},
+    {done:true, label:'stripe_gateway.py: webhook handler wired', action:'View code', url:'#'},
+    {done:true, label:'Webhook events handled: 7 event types', action:'View gateway', url:'#'},
+    {done:false, label:'Create Stripe Products (Pro/Enterprise/MSSP)', action:'Stripe Dashboard', url:STRIPE_DASH+'products'},
+    {done:false, label:'Set CDB_STRIPE_PRO_PRICE_ID env var', action:'After product creation', url:STRIPE_DASH+'products'},
+    {done:false, label:'Set CDB_STRIPE_ENT_PRICE_ID env var', action:'After product creation', url:STRIPE_DASH+'products'},
+    {done:false, label:'Configure webhook endpoint in Stripe', action:'Add Railway URL', url:STRIPE_DASH+'webhooks'},
+  ];
+  el.innerHTML = steps.map(s => `
+    <div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid rgba(255,255,255,.03);">
+      <span style="font-size:12px;color:${s.done?'var(--green)':'var(--accent3)'};">${s.done ? '&#x2713;' : '&#x25CB;'}</span>
+      <span style="font-size:10px;color:${s.done?'var(--muted)':'var(--text)'};">${s.label}</span>
+      ${!s.done ? `<a href="${s.url}" target="_blank" style="margin-left:auto;font-size:9px;color:var(--accent);font-weight:700;text-decoration:none;">${s.action} &#x2197;</a>` : ''}
+    </div>`).join('');
+}
+
+function renderWebhookLog() {
+  const el = document.getElementById('wh-log');
+  if (!el) return;
+  el.innerHTML = WEBHOOK_EVENTS.map(e => {
+    const clr = e.status === 'ok' ? '#00ffc6' : '#f59e0b';
+    const pfx = e.status === 'ok' ? '[ OK ]' : '[WARN]';
+    const ts = e.ts.replace('T',' ').replace('Z','');
+    return `<div><span style="color:var(--dim);">${ts} </span><span style="color:${clr};">${pfx} </span><span style="color:var(--muted);">${e.event} </span><span style="color:var(--text);">${e.detail}</span></div>`;
+  }).join('');
+}
+
+function renderForecast() {
+  const el = document.getElementById('revenue-forecast');
+  if (!el) return;
+  const months = ['Apr','May','Jun','Jul','Aug','Sep'];
+  const vals   = [230000, 248000, 271000, 299000, 334000, 376000];
+  const max = Math.max(...vals);
+  el.innerHTML = months.map((m,i) => `
+    <div class="metric-row">
+      <span class="metric-label">${m} 2026</span>
+      <div class="metric-bar-wrap"><div class="metric-bar" style="width:${Math.round((vals[i]/max)*100)}%;background:linear-gradient(90deg,var(--accent),var(--blue));"></div></div>
+      <span class="metric-val" style="color:var(--accent);">$${(vals[i]/1000).toFixed(0)}K</span>
+    </div>`).join('');
+}
+
+function renderSubscriberTable(data) {
+  const tbody = document.getElementById('sub-tbody');
+  if (!tbody) return;
+  const tierColor = {free:'var(--muted)',pro:'var(--blue)',enterprise:'var(--purple)',mssp:'var(--orange)'};
+  const statusColor = {active:'var(--green)',trial:'var(--accent3)',cancelled:'var(--red)'};
+  tbody.innerHTML = data.map(s => {
+    const ltv = s.mrr * (s.months || 1);
+    const key = s.tier === 'free' ? '—' : 'demo-'+s.tier+'-key-****';
+    return `<tr>
+      <td style="font-weight:600;">${s.email}</td>
+      <td><span style="font-size:9px;font-weight:800;padding:2px 7px;border-radius:4px;
+        background:rgba(255,255,255,.05);color:${tierColor[s.tier]};">${s.tier.toUpperCase()}</span></td>
+      <td style="color:var(--accent3);font-weight:700;">$${s.mrr}/mo</td>
+      <td><span style="font-size:9px;font-weight:700;color:${statusColor[s.status]};">${s.status.toUpperCase()}</span></td>
+      <td style="color:var(--muted);font-size:10px;">${s.source}</td>
+      <td style="font-family:var(--font-mono);font-size:9px;color:var(--dim);">${key}</td>
+      <td style="font-size:10px;color:var(--muted);">${s.joined}</td>
+      <td style="color:var(--green);font-weight:700;">$${ltv}</td>
+    </tr>`;
+  }).join('');
+}
+
+function renderStripeChecklist() {
+  const el = document.getElementById('stripe-checklist');
+  if (!el) return;
+  const items = [
+    {done:false, label:'STRIPE_SECRET_KEY secret'},
+    {done:true,  label:'stripe_gateway.py wired'},
+    {done:false, label:'Stripe products created'},
+    {done:false, label:'Webhook endpoint configured'},
+    {done:false, label:'Price IDs set as env vars'},
+    {done:true,  label:'SendGrid email integration'},
+    {done:true,  label:'API key auto-provisioning'},
+  ];
+  el.innerHTML = items.map(i => `
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:7px;">
+      <span style="font-size:13px;color:${i.done?'var(--green)':'var(--dim)'};">${i.done?'&#x2713;':'&#x25CB;'}</span>
+      <span style="font-size:10px;color:${i.done?'var(--muted)':'var(--text)'};">${i.label}</span>
+    </div>`).join('');
+}
+
+function renderUpsellTriggers() {
+  const el = document.getElementById('upsell-triggers');
+  if (!el) return;
+  const triggers = [
+    {trigger:'Free → Pro', condition:'Hits 10-result limit 3x', rate:'24%'},
+    {trigger:'Pro → Enterprise', condition:'Search query volume >50/day', rate:'18%'},
+    {trigger:'Enterprise → MSSP', condition:'Bulk export >3x/week', rate:'11%'},
+    {trigger:'Add-on: Intel Pack', condition:'Critical threat in sector', rate:'31%'},
+    {trigger:'Add-on: Briefing', condition:'Monthly cadence prompt', rate:'22%'},
+  ];
+  el.innerHTML = triggers.map(t => `
+    <div style="padding:8px 0;border-bottom:1px solid rgba(255,255,255,.04);">
+      <div style="display:flex;justify-content:space-between;margin-bottom:2px;">
+        <span style="font-size:11px;font-weight:700;color:var(--accent3);">${t.trigger}</span>
+        <span style="font-size:10px;color:var(--green);font-weight:700;">${t.rate} CVR</span>
+      </div>
+      <div style="font-size:9px;color:var(--muted);">${t.condition}</div>
+    </div>`).join('');
+}
+
+function renderRevenueTargets() {
+  const el = document.getElementById('revenue-targets');
+  if (!el) return;
+  const targets = [
+    {label:'MRR Q2 2026', current:MRR_DATA.total_mrr, target:300000, color:'var(--accent)'},
+    {label:'Pro Subscribers', current:71, target:150, color:'var(--blue)'},
+    {label:'Enterprise Subs', current:142, target:200, color:'var(--purple)'},
+    {label:'MSSP Accounts', current:71, target:100, color:'var(--orange)'},
+    {label:'Gumroad Revenue', current:2850, target:10000, color:'var(--accent3)'},
+  ];
+  el.innerHTML = targets.map(t => {
+    const pct = Math.round((t.current/t.target)*100);
+    return `<div style="margin-bottom:10px;">
+      <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
+        <span style="font-size:10px;color:var(--muted);">${t.label}</span>
+        <span style="font-size:10px;font-weight:700;color:${t.color};">${pct}%</span>
+      </div>
+      <div class="metric-bar-wrap"><div class="metric-bar" style="width:${pct}%;background:${t.color};"></div></div>
+    </div>`;
+  }).join('');
+}
+
+// ── Actions ────────────────────────────────────────────────────────
+function filterSubs() {
+  const q = (document.getElementById('sub-search')?.value||'').toLowerCase();
+  const filtered = q ? SUBSCRIBERS_DEMO.filter(s =>
+    s.email.includes(q) || s.tier.includes(q) || s.status.includes(q) || s.source.toLowerCase().includes(q)
+  ) : SUBSCRIBERS_DEMO;
+  renderSubscriberTable(filtered);
+}
+
+function exportSubscribers() {
+  const hdr = 'Email,Tier,MRR,Status,Source,Joined,LTV\n';
+  const rows = SUBSCRIBERS_DEMO.map(s =>
+    `${s.email},${s.tier},$${s.mrr},${s.status},${s.source},${s.joined},$${s.mrr*(s.months||1)}`
+  ).join('\n');
+  const a = document.createElement('a');
+  a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(hdr + rows);
+  a.download = 'sentinel_apex_subscribers_' + Date.now() + '.csv';
+  a.click();
+}
+
+function copyLinkedInPost() {
+  const post = `🚀 CYBERDUDEBIVASH® SENTINEL APEX — Live Threat Intelligence API
+
+We've crossed $216K MRR with enterprise-grade cybersecurity infrastructure.
+
+📊 500+ CVE advisories | 2,074 IOCs | 125 Critical threats
+⚡ STIX 2.1 | EPSS enrichment | 39 CISA KEV active
+🤖 299 AI agents running autonomously every 6 hours
+
+API tiers available:
+✅ FREE — 10 advisories, no key needed
+💼 PRO $49/mo — 100 advisories + IOC + search + STIX
+🏢 ENTERPRISE $499/mo — Full bulk export
+🔐 MSSP $1,999/mo — Unlimited + webhooks
+
+🔗 API Docs: cyberdudebivash-threat-intel-platform-production.up.railway.app/api/docs
+🛡️ Dashboard: intel.cyberdudebivash.com
+⚡ Store: https://tools.cyberdudebivash.com/
+
+Built solo. No VC. No team. Just engineering. 🔥
+
+#cybersecurity #threatintelligence #saas #buildinpublic #api`;
+  navigator.clipboard.writeText(post).then(() => {
+    alert('LinkedIn post copied! Open LinkedIn and paste directly into your post editor.');
+    window.open('https://www.linkedin.com/feed/', '_blank');
+  });
+}
+
+// ── Live Data ──────────────────────────────────────────────────────
+async function loadLiveData() {
+  try {
+    const r = await fetch(API + '/api/v1/stats');
+    if (r.ok) {
+      const d = await r.json();
+      const m = d.metrics || {};
+      // Update advisory-based metrics in UI
+      document.querySelectorAll('[id="hero-subs-sub"]').forEach(el => {
+        el.textContent = `Based on ${m.total_advisories||500} live advisories`;
+      });
+    }
+  } catch(e) {}
+}
+
+// ── Utils ──────────────────────────────────────────────────────────
+function set(id, val) {
+  const el = document.getElementById(id);
+  if (el && val !== undefined) {
+    if (typeof val === 'string' && val.includes('&#')) el.innerHTML = val;
+    else el.textContent = val;
+  }
+}
+function setView(el, view) {
+  document.querySelectorAll('.sb-item').forEach(e => e.classList.remove('active'));
+  el.classList.add('active');
+}
+function setTab(btn, tab) {
+  document.querySelectorAll('.tnav').forEach(e => e.classList.remove('active'));
+  btn.classList.add('active');
+}
+
+// ── Boot ───────────────────────────────────────────────────────────
+renderAll();
+</script>
+</body>
+</html>

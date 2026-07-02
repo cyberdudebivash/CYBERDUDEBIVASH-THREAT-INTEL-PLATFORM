@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>SENTINEL APEX API — Free Threat Intelligence API | CyberDudeBivash</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="Free Threat Intelligence API by CyberDudeBivash SENTINEL APEX. Access 480+ live advisories, CVE data, MITRE ATT&CK mapping, STIX 2.1 bundles, and risk scoring via JSON API.">
+<meta name="keywords" content="threat intelligence API, free cybersecurity API, CVE API, STIX API, MITRE ATT&CK API, IOC feed, risk scoring API">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://intel.cyberdudebivash.com/api/">
+<meta property="og:title" content="SENTINEL APEX — Free Threat Intelligence API">
+<meta property="og:description" content="Access 480+ live advisories with CVE, MITRE, risk scoring, and STIX 2.1 data via JSON API.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://intel.cyberdudebivash.com/api/">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"WebAPI","name":"SENTINEL APEX Threat Intelligence API","description":"Free JSON API providing real-time threat advisories, CVE intelligence, MITRE ATT&CK mapping, and risk scoring.","provider":{"@type":"Organization","name":"CyberDudeBivash Pvt. Ltd.","url":"https://cyberdudebivash.com"},"url":"https://intel.cyberdudebivash.com/api/","documentation":"https://intel.cyberdudebivash.com/api/"}
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Space+Grotesk:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#060a10;--card:#0d1117;--border:rgba(255,255,255,0.06);--accent:#00FFC6;--text:#C9D1D9;--muted:#6B7C93;--code-bg:#161b22}
+body{font-family:'Space Grotesk',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+a{color:var(--accent);text-decoration:none}
+a:hover{text-decoration:underline}
+.topbar{background:rgba(0,255,198,0.06);border-bottom:1px solid rgba(0,255,198,0.15);padding:12px 24px;display:flex;justify-content:space-between;align-items:center;font-size:13px;letter-spacing:2px;color:var(--muted)}
+.topbar a{color:var(--accent);font-weight:600}
+.wrap{max-width:880px;margin:0 auto;padding:24px}
+.hero{padding:50px 0 40px;text-align:center;border-bottom:1px solid var(--border)}
+.hero h1{font-size:clamp(28px,4vw,42px);color:#E6EDF3;font-weight:700;margin-bottom:12px}
+.hero .badge{display:inline-block;padding:4px 14px;border:1px solid var(--accent);color:var(--accent);border-radius:20px;font-size:12px;letter-spacing:2px;margin-bottom:20px}
+.hero p{color:var(--muted);font-size:16px;max-width:600px;margin:0 auto}
+.endpoints{margin:40px 0}
+.ep{background:var(--card);border:1px solid var(--border);border-radius:12px;margin-bottom:16px;overflow:hidden}
+.ep-header{padding:16px 20px;display:flex;align-items:center;gap:12px;cursor:pointer;border-bottom:1px solid var(--border)}
+.ep-method{padding:4px 12px;border-radius:4px;font-size:12px;font-weight:700;letter-spacing:1px;font-family:'JetBrains Mono',monospace}
+.ep-method.get{background:rgba(0,255,198,0.12);color:#00FFC6}
+.ep-path{font-family:'JetBrains Mono',monospace;font-size:14px;color:#E6EDF3}
+.ep-desc{color:var(--muted);font-size:13px;margin-left:auto}
+.ep-body{padding:20px;background:var(--code-bg)}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px;overflow-x:auto;font-family:'JetBrains Mono',monospace;font-size:13px;line-height:1.6;color:#C9D1D9}
+.field-table{width:100%;border-collapse:collapse;margin:16px 0;font-size:14px}
+.field-table th{text-align:left;padding:8px 12px;color:var(--accent);border-bottom:1px solid var(--border);font-size:12px;letter-spacing:1px}
+.field-table td{padding:8px 12px;border-bottom:1px solid var(--border);vertical-align:top}
+.field-table code{background:rgba(0,255,198,0.08);padding:2px 6px;border-radius:3px;font-size:12px;color:var(--accent)}
+.section{margin:40px 0;padding-top:30px;border-top:1px solid var(--border)}
+.section h2{font-size:20px;color:#E6EDF3;margin-bottom:16px;letter-spacing:1px}
+.cta-box{background:linear-gradient(135deg,rgba(0,255,198,0.08),rgba(88,166,255,0.08));border:1px solid rgba(0,255,198,0.2);border-radius:12px;padding:32px;text-align:center;margin:40px 0}
+.cta-btn{display:inline-block;padding:14px 36px;background:var(--accent);color:#060a10;font-weight:700;border-radius:8px;font-size:15px;letter-spacing:1px;margin-top:12px;transition:transform 0.2s}
+.cta-btn:hover{transform:translateY(-2px);text-decoration:none}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:12px;margin:24px 0}
+.stat{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:16px;text-align:center}
+.stat-val{font-size:24px;font-weight:700;font-family:'JetBrains Mono',monospace;color:var(--accent)}
+.stat-label{font-size:11px;color:var(--muted);letter-spacing:1px;margin-top:4px}
+.footer{padding:40px 0;text-align:center;font-size:13px;color:var(--muted);border-top:1px solid var(--border);margin-top:40px}
+@media(max-width:600px){.ep-desc{display:none}.stats{grid-template-columns:1fr 1fr}}
+</style>
+</head>
+<body>
+<div class="topbar">
+<span>SENTINEL APEX API</span>
+<a href="/">&larr; DASHBOARD</a>
+</div>
+<div class="wrap">
+
+<div class="hero">
+<div class="badge">FREE &middot; NO AUTH REQUIRED</div>
+<h1>Threat Intelligence API</h1>
+<p>Access real-time cybersecurity advisories, CVE intelligence, MITRE ATT&CK mapping, risk scoring, and STIX 2.1 data — all via simple JSON endpoints.</p>
+</div>
+
+<div class="stats" id="api-stats">
+<div class="stat"><div class="stat-val" id="s-total">—</div><div class="stat-label">ADVISORIES</div></div>
+<div class="stat"><div class="stat-val" id="s-cve">—</div><div class="stat-label">CVEs TRACKED</div></div>
+<div class="stat"><div class="stat-val" id="s-kev">—</div><div class="stat-label">CISA KEV</div></div>
+<div class="stat"><div class="stat-val" id="s-refresh">4h</div><div class="stat-label">REFRESH CYCLE</div></div>
+</div>
+
+<div class="endpoints">
+<h2 style="color:#E6EDF3;margin-bottom:16px;letter-spacing:1px;">ENDPOINTS</h2>
+
+<div class="ep">
+<div class="ep-header">
+<span class="ep-method get">GET</span>
+<span class="ep-path">/api/feed.json</span>
+<span class="ep-desc">Full intelligence feed</span>
+</div>
+<div class="ep-body">
+<p style="margin-bottom:12px;font-size:14px;">Returns all advisories with full enrichment data. Updated every 4 hours.</p>
+<pre><code>curl https://intel.cyberdudebivash.com/api/feed.json</code></pre>
+<p style="margin-top:16px;font-size:13px;color:var(--muted);">Response: ~500KB JSON with envelope:</p>
+<pre><code>{
+  "version": "v74.3",
+  "generated": "2026-03-23T05:49:39+00:00",
+  "count": 487,
+  "data": [
+    {
+      "title": "CVE-2026-4569 - SQL Injection in ...",
+      "risk_score": 6.3,
+      "severity": "MEDIUM",
+      "threat_type": "Vulnerability",
+      "exploit_probability": "Medium",
+      "mitre_tactics": ["T1190", "T1059"],
+      "actor_tag": "UNC-CDB-99",
+      "kev_present": false,
+      "cvss_score": 6.3,
+      "epss_score": 0.04,
+      "openclaw": {
+        "score": 25,
+        "patterns": ["kill_chain:deliver+exploit"],
+        "anomaly": false,
+        "velocity": "rising",
+        "attack_surface": ["web_wordpress"],
+        "fingerprint": "a1b2c3d4e5f6"
+      },
+      "correlation": { ... },
+      "campaign": { ... },
+      "alert": { ... },
+      "timestamp": "2026-03-23T05:43:49+00:00",
+      "blog_url": "https://blog.cyberdudebivash.com/...",
+      "stix_id": "bundle--...",
+      ...
+    }
+  ]
+}</code></pre>
+</div>
+</div>
+
+<div class="ep">
+<div class="ep-header">
+<span class="ep-method get">GET</span>
+<span class="ep-path">/api/latest.json</span>
+<span class="ep-desc">Latest 20 advisories</span>
+</div>
+<div class="ep-body">
+<p style="margin-bottom:12px;font-size:14px;">Returns the 20 most recent advisories. Lightweight endpoint for dashboards and integrations.</p>
+<pre><code>curl https://intel.cyberdudebivash.com/api/latest.json</code></pre>
+</div>
+</div>
+
+</div>
+
+<div class="section">
+<h2>DATA FIELDS</h2>
+<table class="field-table">
+<tr><th>FIELD</th><th>TYPE</th><th>DESCRIPTION</th></tr>
+<tr><td><code>title</code></td><td>string</td><td>Advisory headline</td></tr>
+<tr><td><code>risk_score</code></td><td>float</td><td>0–10 composite risk score</td></tr>
+<tr><td><code>threat_type</code></td><td>string</td><td>Vulnerability, Malware, Ransomware, APT, Phishing, Data Breach, Supply Chain</td></tr>
+<tr><td><code>exploit_probability</code></td><td>string</td><td>Critical, High, Medium, Low</td></tr>
+<tr><td><code>mitre_tactics</code></td><td>array</td><td>MITRE ATT&CK technique IDs</td></tr>
+<tr><td><code>actor_tag</code></td><td>string</td><td>Attributed threat actor</td></tr>
+<tr><td><code>kev_present</code></td><td>boolean</td><td>CISA Known Exploited Vulnerability</td></tr>
+<tr><td><code>cvss_score</code></td><td>float</td><td>CVSS 3.1 base score (CVE items)</td></tr>
+<tr><td><code>epss_score</code></td><td>float</td><td>EPSS exploit prediction score</td></tr>
+<tr><td><code>openclaw</code></td><td>object</td><td>Behavioral analysis: score, patterns, anomaly, velocity, attack_surface, fingerprint</td></tr>
+<tr><td><code>correlation</code></td><td>object</td><td>Cluster ID, type, related count, confidence</td></tr>
+<tr><td><code>campaign</code></td><td>object</td><td>Campaign name, threat count, risk level</td></tr>
+<tr><td><code>alert</code></td><td>object</td><td>Alert severity, score, trigger reasons</td></tr>
+<tr><td><code>blog_url</code></td><td>string</td><td>Link to full analyst report</td></tr>
+<tr><td><code>stix_id</code></td><td>string</td><td>STIX 2.1 bundle identifier</td></tr>
+</table>
+</div>
+
+<div class="section">
+<h2>QUICK START</h2>
+<p style="margin-bottom:16px;">Integrate in under 5 minutes with any language:</p>
+<pre><code># Python
+import requests
+data = requests.get("https://intel.cyberdudebivash.com/api/feed.json").json()
+critical = [d for d in data["data"] if d["risk_score"] >= 9]
+print(f"{len(critical)} critical threats found")</code></pre>
+<pre style="margin-top:12px;"><code>// JavaScript
+const res = await fetch("https://intel.cyberdudebivash.com/api/feed.json");
+const { data } = await res.json();
+const kev = data.filter(d => d.kev_present);
+console.log(`${kev.length} CISA KEV items`);</code></pre>
+</div>
+
+<div class="cta-box">
+<h3 style="font-size:20px;color:#E6EDF3;">Need Premium Intelligence?</h3>
+<p style="color:#9FB3C8;font-size:14px;margin-top:8px;">Get STIX 2.1 bundles, Sigma/YARA/Suricata detection rules, IOC export packs, and priority support.</p>
+<a href="https://cyberdudebivash.gumroad.com/?utm_source=api-docs&utm_medium=cta&utm_campaign=premium" class="cta-btn" target="_blank" rel="noopener">VIEW PREMIUM PRODUCTS</a>
+</div>
+
+<div class="footer">
+<p>&copy; 2026 CyberDudeBivash Pvt. Ltd. &middot; <a href="/">Dashboard</a> &middot; <a href="/threat/">SOC 3.0</a> &middot; <a href="https://cyberdudebivash.gumroad.com" target="_blank">Products</a> &middot; <a href="https://twitter.com/cyberbivash" target="_blank">@cyberbivash</a></p>
+</div>
+</div>
+
+<script>
+(async()=>{try{const r=await fetch("/api/feed.json");const d=await r.json();document.getElementById("s-total").textContent=d.count;const cves=d.data.filter(i=>i.title&&i.title.includes("CVE-")).length;document.getElementById("s-cve").textContent=cves;const kev=d.data.filter(i=>i.kev_present).length;document.getElementById("s-kev").textContent=kev;}catch(e){console.debug(e);}})();
+</script>
+</body>
+</html>

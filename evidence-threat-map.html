@@ -1,0 +1,670 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Evidence-Backed Threat Map — CYBERDUDEBIVASH® SENTINEL APEX</title>
+<style>
+:root{
+  --bg:#050810;--surface:#08101f;--surface2:#0d1428;--surface3:#111c35;
+  --border:#1a2040;--border2:#1e2d50;--accent:#00d4aa;--accent2:#6366f1;
+  --accent3:#00b4ff;--red:#ef4444;--orange:#f97316;--yellow:#f59e0b;
+  --text:#e2e8f0;--text2:#94a3b8;--muted:#64748b;--green:#22c55e;
+  --gold:#ffd700;--mono:'JetBrains Mono',Menlo,Consolas,monospace;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:var(--bg);color:var(--text);font-family:'Inter',system-ui,sans-serif;font-size:13px;min-height:100vh;overflow-x:hidden;}
+/* NAV */
+.nav{display:flex;align-items:center;justify-content:space-between;padding:12px 24px;background:var(--surface);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:100;}
+.nav-logo{display:flex;align-items:center;gap:10px;font-weight:700;font-size:14px;color:var(--accent);}
+.nav-logo .badge{background:#ef444420;color:#ef4444;border:1px solid #ef444440;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;}
+.nav-tabs{display:flex;gap:4px;}
+.nav-tab{padding:6px 14px;border-radius:6px;cursor:pointer;color:var(--text2);font-size:12px;transition:.15s;border:none;background:none;}
+.nav-tab:hover{background:var(--surface2);color:var(--text);}
+.nav-tab.active{background:var(--accent)20;color:var(--accent);border:1px solid var(--accent)40;}
+.nav-right{display:flex;align-items:center;gap:10px;}
+.live-pulse{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--green);}
+.live-dot{width:7px;height:7px;background:var(--green);border-radius:50%;animation:pulse 1.5s infinite;}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1);}50%{opacity:.5;transform:scale(1.3);}}
+/* LAYOUT */
+.layout{display:grid;grid-template-columns:280px 1fr 320px;height:calc(100vh - 49px);}
+/* LEFT PANEL */
+.left-panel{background:var(--surface);border-right:1px solid var(--border);overflow-y:auto;display:flex;flex-direction:column;}
+.panel-section{padding:14px;border-bottom:1px solid var(--border);}
+.panel-title{font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:10px;}
+/* EVIDENCE FILTER */
+.evidence-filter{display:flex;flex-direction:column;gap:6px;}
+.filter-row{display:flex;align-items:center;justify-content:space-between;padding:7px 10px;background:var(--surface2);border-radius:6px;border:1px solid var(--border);cursor:pointer;transition:.15s;}
+.filter-row:hover{border-color:var(--accent)40;}
+.filter-row.active{border-color:var(--accent);background:var(--accent)10;}
+.filter-left{display:flex;align-items:center;gap:8px;}
+.filter-dot{width:8px;height:8px;border-radius:50%;}
+.filter-label{font-size:11px;color:var(--text);}
+.filter-count{font-size:10px;color:var(--muted);background:var(--surface3);padding:2px 7px;border-radius:10px;}
+/* CAMPAIGN LIST */
+.campaign-list{display:flex;flex-direction:column;gap:5px;}
+.campaign-item{padding:8px 10px;background:var(--surface2);border-radius:6px;border:1px solid var(--border);cursor:pointer;transition:.15s;}
+.campaign-item:hover{border-color:var(--accent)50;}
+.campaign-item.selected{border-color:var(--accent);background:var(--accent)08;}
+.c-name{font-size:11px;font-weight:600;color:var(--text);margin-bottom:3px;}
+.c-meta{display:flex;gap:6px;align-items:center;}
+.c-badge{font-size:9px;padding:1px 6px;border-radius:3px;font-weight:700;}
+.c-badge.critical{background:#ef444420;color:#ef4444;border:1px solid #ef444430;}
+.c-badge.high{background:#f9731620;color:#f97316;border:1px solid #f9731630;}
+.c-badge.medium{background:#f59e0b20;color:#f59e0b;border:1px solid #f59e0b30;}
+.c-conf{font-size:9px;color:var(--muted);}
+/* MAP AREA */
+.map-area{position:relative;overflow:hidden;background:#020a18;}
+#threat-map-canvas{width:100%;height:100%;display:block;}
+.map-overlay{position:absolute;top:14px;left:14px;display:flex;flex-direction:column;gap:8px;pointer-events:none;}
+.map-stat-chip{background:rgba(5,8,16,.85);border:1px solid var(--border2);border-radius:6px;padding:6px 12px;backdrop-filter:blur(8px);}
+.map-stat-label{font-size:9px;color:var(--muted);text-transform:uppercase;}
+.map-stat-value{font-size:16px;font-weight:700;color:var(--accent);}
+.map-controls{position:absolute;bottom:14px;left:50%;transform:translateX(-50%);display:flex;gap:8px;pointer-events:all;}
+.map-ctrl-btn{background:rgba(8,16,31,.9);border:1px solid var(--border2);color:var(--text2);padding:6px 14px;border-radius:6px;cursor:pointer;font-size:11px;transition:.15s;backdrop-filter:blur(8px);}
+.map-ctrl-btn:hover,.map-ctrl-btn.active{border-color:var(--accent);color:var(--accent);}
+.evidence-legend{position:absolute;bottom:54px;right:14px;background:rgba(5,8,16,.9);border:1px solid var(--border2);border-radius:8px;padding:12px;backdrop-filter:blur(8px);min-width:170px;}
+.legend-title{font-size:9px;color:var(--muted);text-transform:uppercase;margin-bottom:8px;}
+.legend-row{display:flex;align-items:center;gap:8px;margin-bottom:5px;font-size:10px;color:var(--text2);}
+.legend-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;}
+/* RIGHT PANEL */
+.right-panel{background:var(--surface);border-left:1px solid var(--border);overflow-y:auto;display:flex;flex-direction:column;}
+/* ATTACK PATH DETAIL */
+.attack-path{padding:14px;border-bottom:1px solid var(--border);}
+.path-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}
+.path-title{font-size:12px;font-weight:700;color:var(--text);}
+.path-evidence-score{display:flex;align-items:center;gap:5px;font-size:10px;color:var(--accent);}
+.evidence-bar-wrap{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px;margin-bottom:8px;}
+.ev-row{display:flex;align-items:center;gap:8px;margin-bottom:7px;}
+.ev-label{font-size:10px;color:var(--text2);width:90px;flex-shrink:0;}
+.ev-bar{flex:1;height:4px;background:var(--surface3);border-radius:2px;}
+.ev-bar-fill{height:100%;border-radius:2px;transition:width .4s;}
+.ev-val{font-size:10px;color:var(--muted);width:32px;text-align:right;}
+/* IOC EVIDENCE TABLE */
+.ioc-table{width:100%;border-collapse:collapse;font-size:10px;}
+.ioc-table th{padding:5px 8px;text-align:left;color:var(--muted);font-weight:600;font-size:9px;text-transform:uppercase;border-bottom:1px solid var(--border);}
+.ioc-table td{padding:5px 8px;border-bottom:1px solid var(--border)08;color:var(--text2);}
+.ioc-table tr:hover td{background:var(--surface2);}
+.ioc-type{font-size:9px;padding:1px 5px;border-radius:3px;font-weight:700;}
+.ioc-type.ip{background:#6366f120;color:#6366f1;}
+.ioc-type.domain{background:#00d4aa20;color:#00d4aa;}
+.ioc-type.hash{background:#f59e0b20;color:#f59e0b;}
+.ioc-type.url{background:#f9731620;color:#f97316;}
+.conf-pill{display:inline-flex;align-items:center;gap:3px;font-size:9px;font-weight:700;}
+.conf-high{color:#22c55e;}
+.conf-med{color:#f59e0b;}
+.conf-low{color:#ef4444;}
+/* INFRA OVERLAP */
+.overlap-card{padding:10px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;margin-bottom:6px;}
+.overlap-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;}
+.overlap-actor{font-size:11px;font-weight:600;color:var(--text);}
+.overlap-pct{font-size:12px;font-weight:700;color:var(--accent);}
+.overlap-infra-list{display:flex;flex-wrap:wrap;gap:4px;}
+.infra-tag{font-size:9px;padding:2px 6px;background:var(--surface3);border:1px solid var(--border);border-radius:3px;color:var(--muted);}
+/* SINKHOLE STREAM */
+.sinkhole-stream{display:flex;flex-direction:column;gap:4px;}
+.sink-entry{display:flex;align-items:center;gap:8px;padding:6px 8px;background:var(--surface2);border-radius:4px;border-left:2px solid;}
+.sink-entry.active{border-color:var(--red);}
+.sink-entry.sinkholed{border-color:var(--green);}
+.sink-time{font-size:9px;color:var(--muted);width:44px;flex-shrink:0;font-family:var(--mono);}
+.sink-domain{font-size:10px;color:var(--text);font-family:var(--mono);}
+.sink-status{margin-left:auto;font-size:9px;font-weight:700;}
+.sink-status.active{color:var(--red);}
+.sink-status.sinkholed{color:var(--green);}
+/* HONEYNET FEED */
+.honeynet-feed{display:flex;flex-direction:column;gap:4px;}
+.honey-event{padding:6px 8px;background:var(--surface2);border-radius:4px;border:1px solid var(--border);border-left:2px solid var(--accent2);}
+.honey-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:3px;}
+.honey-type{font-size:9px;color:var(--accent2);font-weight:700;}
+.honey-time{font-size:9px;color:var(--muted);font-family:var(--mono);}
+.honey-detail{font-size:10px;color:var(--text2);}
+/* SCROLLBAR */
+::-webkit-scrollbar{width:4px;height:4px;}
+::-webkit-scrollbar-track{background:transparent;}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px;}
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav class="nav">
+  <div class="nav-logo">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><polygon points="12,2 22,20 2,20" fill="none" stroke="#00d4aa" stroke-width="2"/><circle cx="12" cy="13" r="3" fill="#00d4aa"/></svg>
+    SENTINEL APEX
+    <span class="badge">THREAT MAP</span>
+  </div>
+  <div class="nav-tabs">
+    <button class="nav-tab active">Evidence Map</button>
+    <button class="nav-tab">Attack Paths</button>
+    <button class="nav-tab">Infrastructure</button>
+    <button class="nav-tab">Sinkhole Intel</button>
+    <button class="nav-tab">Honeynet</button>
+    <button class="nav-tab">Graph Geography</button>
+  </div>
+  <div class="nav-right">
+    <div class="live-pulse"><div class="live-dot"></div>LIVE TELEMETRY</div>
+    <span style="font-size:11px;color:var(--muted)">Phase 42 · Evidence-Backed</span>
+  </div>
+</nav>
+
+<div class="layout">
+
+  <!-- LEFT PANEL -->
+  <div class="left-panel">
+
+    <!-- KPI -->
+    <div class="panel-section">
+      <div class="panel-title">Evidence Metrics</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
+        <div style="padding:10px;background:var(--surface2);border-radius:6px;border:1px solid var(--border);text-align:center;">
+          <div style="font-size:20px;font-weight:700;color:#ef4444;">47</div>
+          <div style="font-size:9px;color:var(--muted);">Active Paths</div>
+        </div>
+        <div style="padding:10px;background:var(--surface2);border-radius:6px;border:1px solid var(--border);text-align:center;">
+          <div style="font-size:20px;font-weight:700;color:var(--accent);">1,284</div>
+          <div style="font-size:9px;color:var(--muted);">IOC Nodes</div>
+        </div>
+        <div style="padding:10px;background:var(--surface2);border-radius:6px;border:1px solid var(--border);text-align:center;">
+          <div style="font-size:20px;font-weight:700;color:#f97316;">23</div>
+          <div style="font-size:9px;color:var(--muted);">Infra Overlaps</div>
+        </div>
+        <div style="padding:10px;background:var(--surface2);border-radius:6px;border:1px solid var(--border);text-align:center;">
+          <div style="font-size:20px;font-weight:700;color:#6366f1;">89%</div>
+          <div style="font-size:9px;color:var(--muted);">Graph Backed</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- EVIDENCE FILTERS -->
+    <div class="panel-section">
+      <div class="panel-title">Evidence Type Filter</div>
+      <div class="evidence-filter">
+        <div class="filter-row active">
+          <div class="filter-left"><div class="filter-dot" style="background:#ef4444;"></div><span class="filter-label">Telemetry-Backed</span></div>
+          <span class="filter-count">312</span>
+        </div>
+        <div class="filter-row active">
+          <div class="filter-left"><div class="filter-dot" style="background:#f97316;"></div><span class="filter-label">Infra Overlap</span></div>
+          <span class="filter-count">89</span>
+        </div>
+        <div class="filter-row active">
+          <div class="filter-left"><div class="filter-dot" style="background:#6366f1;"></div><span class="filter-label">Graph Evidence</span></div>
+          <span class="filter-count">214</span>
+        </div>
+        <div class="filter-row active">
+          <div class="filter-left"><div class="filter-dot" style="background:#22c55e;"></div><span class="filter-label">Sinkhole Validated</span></div>
+          <span class="filter-count">47</span>
+        </div>
+        <div class="filter-row active">
+          <div class="filter-left"><div class="filter-dot" style="background:#00d4aa;"></div><span class="filter-label">Honeynet Derived</span></div>
+          <span class="filter-count">156</span>
+        </div>
+        <div class="filter-row">
+          <div class="filter-left"><div class="filter-dot" style="background:#f59e0b;"></div><span class="filter-label">Replay Validated</span></div>
+          <span class="filter-count">78</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ACTIVE CAMPAIGNS -->
+    <div class="panel-section" style="flex:1;">
+      <div class="panel-title">Active Campaigns</div>
+      <div class="campaign-list">
+        <div class="campaign-item selected">
+          <div class="c-name">APT29 · COZY BEAR INFRA</div>
+          <div class="c-meta">
+            <span class="c-badge critical">CRITICAL</span>
+            <span class="c-conf">Conf: 91%</span>
+          </div>
+        </div>
+        <div class="campaign-item">
+          <div class="c-name">LAZARUS GROUP · SUPPLY CHAIN</div>
+          <div class="c-meta">
+            <span class="c-badge critical">CRITICAL</span>
+            <span class="c-conf">Conf: 87%</span>
+          </div>
+        </div>
+        <div class="campaign-item">
+          <div class="c-name">ALPHV BLACKCAT · RANSOMWARE</div>
+          <div class="c-meta">
+            <span class="c-badge high">HIGH</span>
+            <span class="c-conf">Conf: 84%</span>
+          </div>
+        </div>
+        <div class="campaign-item">
+          <div class="c-name">HAFNIUM · EXCHANGE EXPLOIT</div>
+          <div class="c-meta">
+            <span class="c-badge high">HIGH</span>
+            <span class="c-conf">Conf: 79%</span>
+          </div>
+        </div>
+        <div class="campaign-item">
+          <div class="c-name">MUDDYWATER · SPEARPHISH</div>
+          <div class="c-meta">
+            <span class="c-badge medium">MEDIUM</span>
+            <span class="c-conf">Conf: 72%</span>
+          </div>
+        </div>
+        <div class="campaign-item">
+          <div class="c-name">UNC2452 · IDENTITY ATTACKS</div>
+          <div class="c-meta">
+            <span class="c-badge high">HIGH</span>
+            <span class="c-conf">Conf: 81%</span>
+          </div>
+        </div>
+        <div class="campaign-item">
+          <div class="c-name">SCATTERED SPIDER · MFA</div>
+          <div class="c-meta">
+            <span class="c-badge critical">CRITICAL</span>
+            <span class="c-conf">Conf: 88%</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MAP AREA -->
+  <div class="map-area">
+    <canvas id="threat-map-canvas"></canvas>
+
+    <!-- Overlay stats -->
+    <div class="map-overlay">
+      <div class="map-stat-chip">
+        <div class="map-stat-label">Evidence-Backed Paths</div>
+        <div class="map-stat-value" id="path-counter">47</div>
+      </div>
+      <div class="map-stat-chip">
+        <div class="map-stat-label">Graph Nodes Active</div>
+        <div class="map-stat-value" style="color:#6366f1;" id="node-counter">1,284</div>
+      </div>
+      <div class="map-stat-chip">
+        <div class="map-stat-label">Telemetry Events/min</div>
+        <div class="map-stat-value" style="color:#f97316;" id="telem-counter">3,847</div>
+      </div>
+    </div>
+
+    <!-- Controls -->
+    <div class="map-controls">
+      <button class="map-ctrl-btn active">All Paths</button>
+      <button class="map-ctrl-btn">APT Only</button>
+      <button class="map-ctrl-btn">Ransomware</button>
+      <button class="map-ctrl-btn">Supply Chain</button>
+      <button class="map-ctrl-btn">Identity Attacks</button>
+    </div>
+
+    <!-- Legend -->
+    <div class="evidence-legend">
+      <div class="legend-title">Evidence Source</div>
+      <div class="legend-row"><div class="legend-dot" style="background:#ef4444;"></div>Telemetry-Backed Path</div>
+      <div class="legend-row"><div class="legend-dot" style="background:#f97316;"></div>Infrastructure Overlap</div>
+      <div class="legend-row"><div class="legend-dot" style="background:#6366f1;"></div>Graph Correlation</div>
+      <div class="legend-row"><div class="legend-dot" style="background:#22c55e;"></div>Sinkhole Validated</div>
+      <div class="legend-row"><div class="legend-dot" style="background:#00d4aa;"></div>Honeynet Derived</div>
+      <div class="legend-row"><div class="legend-dot" style="background:#f59e0b;"></div>Replay Confirmed</div>
+    </div>
+  </div>
+
+  <!-- RIGHT PANEL -->
+  <div class="right-panel">
+
+    <!-- ATTACK PATH DETAIL -->
+    <div class="attack-path">
+      <div class="path-header">
+        <div class="path-title">APT29 · Attack Path Detail</div>
+        <div class="path-evidence-score">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="#00d4aa"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+          91% Evidence Score
+        </div>
+      </div>
+
+      <div class="evidence-bar-wrap">
+        <div class="ev-row">
+          <span class="ev-label">Telemetry Hits</span>
+          <div class="ev-bar"><div class="ev-bar-fill" style="width:88%;background:#ef4444;"></div></div>
+          <span class="ev-val">312</span>
+        </div>
+        <div class="ev-row">
+          <span class="ev-label">Graph Evidence</span>
+          <div class="ev-bar"><div class="ev-bar-fill" style="width:91%;background:#6366f1;"></div></div>
+          <span class="ev-val">89%</span>
+        </div>
+        <div class="ev-row">
+          <span class="ev-label">Infra Overlap</span>
+          <div class="ev-bar"><div class="ev-bar-fill" style="width:76%;background:#f97316;"></div></div>
+          <span class="ev-val">76%</span>
+        </div>
+        <div class="ev-row">
+          <span class="ev-label">Replay Validated</span>
+          <div class="ev-bar"><div class="ev-bar-fill" style="width:84%;background:#22c55e;"></div></div>
+          <span class="ev-val">84%</span>
+        </div>
+        <div class="ev-row">
+          <span class="ev-label">Sinkhole Hits</span>
+          <div class="ev-bar"><div class="ev-bar-fill" style="width:62%;background:#00d4aa;"></div></div>
+          <span class="ev-val">47</span>
+        </div>
+      </div>
+
+      <!-- IOC TABLE -->
+      <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px;">Supporting IOCs</div>
+      <table class="ioc-table">
+        <thead>
+          <tr><th>Type</th><th>Indicator</th><th>Conf</th><th>Hits</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><span class="ioc-type ip">IP</span></td><td style="font-family:var(--mono);">185.220.101.47</td><td><span class="conf-pill conf-high">91%</span></td><td>47</td></tr>
+          <tr><td><span class="ioc-type domain">DOM</span></td><td style="font-family:var(--mono);">update-srv.cozy[.]io</td><td><span class="conf-pill conf-high">88%</span></td><td>23</td></tr>
+          <tr><td><span class="ioc-type hash">HASH</span></td><td style="font-family:var(--mono);">a3f4b7c1…e9d2</td><td><span class="conf-pill conf-high">95%</span></td><td>12</td></tr>
+          <tr><td><span class="ioc-type ip">IP</span></td><td style="font-family:var(--mono);">91.108.4.119</td><td><span class="conf-pill conf-med">77%</span></td><td>8</td></tr>
+          <tr><td><span class="ioc-type url">URL</span></td><td style="font-family:var(--mono);">/api/v2/beacon</td><td><span class="conf-pill conf-high">82%</span></td><td>34</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- INFRASTRUCTURE OVERLAP -->
+    <div class="panel-section">
+      <div class="panel-title">Infrastructure Overlap</div>
+      <div class="overlap-card">
+        <div class="overlap-header">
+          <span class="overlap-actor">APT29 ↔ UNC2452</span>
+          <span class="overlap-pct">76%</span>
+        </div>
+        <div class="overlap-infra-list">
+          <span class="infra-tag">AS: 209882</span>
+          <span class="infra-tag">PTR pattern</span>
+          <span class="infra-tag">cert issuer</span>
+          <span class="infra-tag">JA3: a3f</span>
+        </div>
+      </div>
+      <div class="overlap-card">
+        <div class="overlap-header">
+          <span class="overlap-actor">LAZARUS ↔ BLUENOROFF</span>
+          <span class="overlap-pct">68%</span>
+        </div>
+        <div class="overlap-infra-list">
+          <span class="infra-tag">AS: 131293</span>
+          <span class="infra-tag">WHOIS cluster</span>
+          <span class="infra-tag">TLS SAN</span>
+        </div>
+      </div>
+      <div class="overlap-card">
+        <div class="overlap-header">
+          <span class="overlap-actor">ALPHV ↔ BLACKMATTER</span>
+          <span class="overlap-pct">83%</span>
+        </div>
+        <div class="overlap-infra-list">
+          <span class="infra-tag">onion cluster</span>
+          <span class="infra-tag">chat panel</span>
+          <span class="infra-tag">locker code</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- SINKHOLE STREAM -->
+    <div class="panel-section">
+      <div class="panel-title">Sinkhole Intel Stream</div>
+      <div class="sinkhole-stream" id="sinkhole-stream">
+        <div class="sink-entry active"><span class="sink-time">00:04</span><span class="sink-domain">c2-beacon.cozy.io</span><span class="sink-status active">LIVE C2</span></div>
+        <div class="sink-entry sinkholed"><span class="sink-time">00:11</span><span class="sink-domain">malware-drop.lazarus.net</span><span class="sink-status sinkholed">SINKHOLED</span></div>
+        <div class="sink-entry sinkholed"><span class="sink-time">00:23</span><span class="sink-domain">rsdns.muddywater.cc</span><span class="sink-status sinkholed">SINKHOLED</span></div>
+        <div class="sink-entry active"><span class="sink-time">00:31</span><span class="sink-domain">update-relay.hafnium.biz</span><span class="sink-status active">LIVE C2</span></div>
+        <div class="sink-entry sinkholed"><span class="sink-time">00:47</span><span class="sink-domain">payload.alphv-cdn.io</span><span class="sink-status sinkholed">SINKHOLED</span></div>
+      </div>
+    </div>
+
+    <!-- HONEYNET FEED -->
+    <div class="panel-section">
+      <div class="panel-title">Honeynet Attack Routes</div>
+      <div class="honeynet-feed">
+        <div class="honey-event">
+          <div class="honey-header"><span class="honey-type">SSH BRUTEFORCE</span><span class="honey-time">00:02:11</span></div>
+          <div class="honey-detail">185.220.101.47 → HN-TRAP-03 · 847 attempts/min · AS209882</div>
+        </div>
+        <div class="honey-event">
+          <div class="honey-header"><span class="honey-type">HTTP EXPLOIT</span><span class="honey-time">00:04:33</span></div>
+          <div class="honey-detail">CVE-2021-34527 · PrintNightmare · 91.108.4.119</div>
+        </div>
+        <div class="honey-event">
+          <div class="honey-header"><span class="honey-type">C2 CALLBACK</span><span class="honey-time">00:07:14</span></div>
+          <div class="honey-detail">COBALT STRIKE beacon · 4h dwell · HN-TRAP-07</div>
+        </div>
+        <div class="honey-event">
+          <div class="honey-header"><span class="honey-type">CRED HARVEST</span><span class="honey-time">00:11:52</span></div>
+          <div class="honey-detail">LDAP enum · MFA bypass attempt · service acct</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+// ─── WORLD MAP SVG-CANVAS RENDERER ───────────────────────────────────
+const canvas = document.getElementById('threat-map-canvas');
+const ctx = canvas.getContext('2d');
+
+function resize(){
+  canvas.width = canvas.offsetWidth;
+  canvas.height = canvas.offsetHeight;
+}
+resize();
+window.addEventListener('resize', ()=>{ resize(); });
+
+// Evidence-backed attack nodes (lat/lon → x/y projection)
+const nodes = [
+  {lat:55.7,lon:37.6,actor:'APT29',color:'#ef4444',size:10,type:'source'},
+  {lat:39.0,lon:125.7,actor:'LAZARUS',color:'#f97316',size:9,type:'source'},
+  {lat:40.7,lon:-74.0,actor:'TARGET-NYC',color:'#6366f1',size:7,type:'target'},
+  {lat:51.5,lon:-0.1,actor:'TARGET-LON',color:'#6366f1',size:7,type:'target'},
+  {lat:48.8,lon:2.35,actor:'TARGET-PAR',color:'#6366f1',size:7,type:'target'},
+  {lat:35.7,lon:139.7,actor:'TARGET-TYO',color:'#6366f1',size:6,type:'target'},
+  {lat:1.35,lon:103.8,actor:'RELAY-SG',color:'#f59e0b',size:6,type:'relay'},
+  {lat:50.1,lon:8.7,actor:'RELAY-FRA',color:'#f59e0b',size:6,type:'relay'},
+  {lat:-33.9,lon:18.4,actor:'RELAY-CPT',color:'#f59e0b',size:5,type:'relay'},
+  {lat:37.8,lon:-122.4,actor:'TARGET-SF',color:'#6366f1',size:7,type:'target'},
+  {lat:52.5,lon:13.4,actor:'RELAY-BER',color:'#f59e0b',size:5,type:'relay'},
+  {lat:28.6,lon:77.2,actor:'TARGET-DEL',color:'#6366f1',size:6,type:'target'},
+  {lat:25.2,lon:55.3,actor:'RELAY-DXB',color:'#f59e0b',size:5,type:'relay'},
+  {lat:-23.5,lon:-46.6,actor:'TARGET-SAO',color:'#6366f1',size:6,type:'target'},
+];
+
+// Attack paths (evidence-backed only)
+const paths = [
+  {from:0,to:2,evidence:'telemetry',color:'#ef4444',conf:0.91},
+  {from:0,to:3,evidence:'graph',color:'#6366f1',conf:0.87},
+  {from:0,to:6,evidence:'infra',color:'#f97316',conf:0.76},
+  {from:6,to:4,evidence:'relay',color:'#f59e0b',conf:0.82},
+  {from:1,to:9,evidence:'telemetry',color:'#ef4444',conf:0.85},
+  {from:1,to:11,evidence:'sinkhole',color:'#22c55e',conf:0.78},
+  {from:10,to:3,evidence:'honeynet',color:'#00d4aa',conf:0.73},
+  {from:7,to:4,evidence:'relay',color:'#f59e0b',conf:0.80},
+  {from:12,to:7,evidence:'infra',color:'#f97316',conf:0.69},
+  {from:0,to:13,evidence:'graph',color:'#6366f1',conf:0.74},
+];
+
+// Mercator projection
+function latLonToXY(lat, lon, w, h){
+  const x = (lon + 180) / 360 * w;
+  const latRad = lat * Math.PI / 180;
+  const mercN = Math.log(Math.tan(Math.PI/4 + latRad/2));
+  const y = (h/2) - (w * mercN / (2 * Math.PI));
+  return {x, y};
+}
+
+// Animate paths
+let frame = 0;
+const particles = paths.map(p=>({progress:Math.random(), speed:0.003+Math.random()*0.003}));
+
+function drawMap(){
+  const W = canvas.width, H = canvas.height;
+  ctx.clearRect(0,0,W,H);
+
+  // Dark ocean background
+  ctx.fillStyle = '#020a18';
+  ctx.fillRect(0,0,W,H);
+
+  // Grid lines (lat/lon)
+  ctx.strokeStyle = '#0d1a2e';
+  ctx.lineWidth = 0.5;
+  for(let lon=-180;lon<=180;lon+=30){
+    const {x} = latLonToXY(0,lon,W,H);
+    ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke();
+  }
+  for(let lat=-60;lat<=80;lat+=30){
+    const {y} = latLonToXY(lat,0,W,H);
+    ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();
+  }
+
+  // Draw attack paths with animated particles
+  paths.forEach((p,i)=>{
+    const from = latLonToXY(nodes[p.from].lat, nodes[p.from].lon, W, H);
+    const to   = latLonToXY(nodes[p.to].lat,   nodes[p.to].lon,   W, H);
+
+    // Curved path
+    const cx = (from.x+to.x)/2;
+    const cy = Math.min(from.y,to.y) - 40;
+
+    // Path line
+    ctx.beginPath();
+    ctx.moveTo(from.x, from.y);
+    ctx.quadraticCurveTo(cx, cy, to.x, to.y);
+    ctx.strokeStyle = p.color+'40';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    // Animated particle
+    const t = particles[i].progress;
+    const px = (1-t)*(1-t)*from.x + 2*(1-t)*t*cx + t*t*to.x;
+    const py = (1-t)*(1-t)*from.y + 2*(1-t)*t*cy + t*t*to.y;
+
+    // Particle glow
+    const grd = ctx.createRadialGradient(px,py,0,px,py,8);
+    grd.addColorStop(0, p.color+'ff');
+    grd.addColorStop(1, p.color+'00');
+    ctx.beginPath();
+    ctx.arc(px, py, 8, 0, Math.PI*2);
+    ctx.fillStyle = grd;
+    ctx.fill();
+
+    ctx.beginPath();
+    ctx.arc(px, py, 3, 0, Math.PI*2);
+    ctx.fillStyle = p.color;
+    ctx.fill();
+
+    particles[i].progress += particles[i].speed;
+    if(particles[i].progress > 1) particles[i].progress = 0;
+  });
+
+  // Draw nodes
+  nodes.forEach(n=>{
+    const {x,y} = latLonToXY(n.lat, n.lon, W, H);
+
+    // Glow
+    const grd = ctx.createRadialGradient(x,y,0,x,y,n.size*3);
+    grd.addColorStop(0, n.color+'60');
+    grd.addColorStop(1, n.color+'00');
+    ctx.beginPath();
+    ctx.arc(x, y, n.size*3, 0, Math.PI*2);
+    ctx.fillStyle = grd;
+    ctx.fill();
+
+    // Ring (for sources)
+    if(n.type === 'source'){
+      ctx.beginPath();
+      ctx.arc(x, y, n.size+3, 0, Math.PI*2);
+      ctx.strokeStyle = n.color+'80';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+    }
+
+    // Node dot
+    ctx.beginPath();
+    ctx.arc(x, y, n.size, 0, Math.PI*2);
+    ctx.fillStyle = n.color;
+    ctx.fill();
+
+    // Label
+    ctx.fillStyle = n.color+'cc';
+    ctx.font = '9px Inter, sans-serif';
+    ctx.fillText(n.actor, x+n.size+3, y+3);
+  });
+
+  frame++;
+  requestAnimationFrame(drawMap);
+}
+drawMap();
+
+// ─── LIVE COUNTERS ───────────────────────────────────
+function liveCounters(){
+  const pEl = document.getElementById('path-counter');
+  const nEl = document.getElementById('node-counter');
+  const tEl = document.getElementById('telem-counter');
+
+  setInterval(()=>{
+    const paths = 45 + Math.floor(Math.random()*5);
+    pEl.textContent = paths;
+    const nodes = 1280 + Math.floor(Math.random()*20);
+    nEl.textContent = nodes.toLocaleString();
+    const telem = 3800 + Math.floor(Math.random()*200);
+    tEl.textContent = telem.toLocaleString();
+  }, 2000);
+}
+liveCounters();
+
+// ─── SINKHOLE STREAM UPDATE ───────────────────────────────────
+const sinkholeData = [
+  {time:'00:04', domain:'c2-beacon.cozy.io', status:'LIVE C2', type:'active'},
+  {time:'00:11', domain:'malware-drop.lazarus.net', status:'SINKHOLED', type:'sinkholed'},
+  {time:'00:23', domain:'rsdns.muddywater.cc', status:'SINKHOLED', type:'sinkholed'},
+  {time:'00:31', domain:'update-relay.hafnium.biz', status:'LIVE C2', type:'active'},
+  {time:'00:47', domain:'payload.alphv-cdn.io', status:'SINKHOLED', type:'sinkholed'},
+  {time:'00:53', domain:'cmd-ctrl.scattersp.net', status:'LIVE C2', type:'active'},
+  {time:'01:02', domain:'stage2-drop.apt29.ru', status:'SINKHOLED', type:'sinkholed'},
+  {time:'01:14', domain:'beacon-fallback.unc24.com', status:'LIVE C2', type:'active'},
+];
+let sinkIdx = 5;
+setInterval(()=>{
+  const container = document.getElementById('sinkhole-stream');
+  const item = sinkholeData[sinkIdx % sinkholeData.length];
+  const div = document.createElement('div');
+  div.className = `sink-entry ${item.type}`;
+  // Update time
+  const now = new Date();
+  const t = `${String(now.getMinutes()).padStart(2,'0')}:${String(now.getSeconds()).padStart(2,'0')}`;
+  div.innerHTML = `<span class="sink-time">${t}</span><span class="sink-domain">${item.domain}</span><span class="sink-status ${item.type}">${item.status}</span>`;
+  container.insertBefore(div, container.firstChild);
+  if(container.children.length > 7) container.removeChild(container.lastChild);
+  sinkIdx++;
+}, 4000);
+
+// Nav tab switching
+document.querySelectorAll('.nav-tab').forEach(tab=>{
+  tab.addEventListener('click',()=>{
+    document.querySelectorAll('.nav-tab').forEach(t=>t.classList.remove('active'));
+    tab.classList.add('active');
+  });
+});
+
+// Map control buttons
+document.querySelectorAll('.map-ctrl-btn').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    document.querySelectorAll('.map-ctrl-btn').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+  });
+});
+
+// Campaign item selection
+document.querySelectorAll('.campaign-item').forEach(item=>{
+  item.addEventListener('click',()=>{
+    document.querySelectorAll('.campaign-item').forEach(i=>i.classList.remove('selected'));
+    item.classList.add('selected');
+  });
+});
+
+// Filter row toggle
+document.querySelectorAll('.filter-row').forEach(row=>{
+  row.addEventListener('click',()=>row.classList.toggle('active'));
+});
+</script>
+</body>
+</html>

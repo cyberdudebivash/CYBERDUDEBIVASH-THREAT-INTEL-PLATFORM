@@ -1,0 +1,654 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Get API Key &mdash; SENTINEL APEX Threat Intelligence Platform</title>
+<meta name="description" content="Request API access to the SENTINEL APEX threat intelligence platform. Real-time CVE feeds, STIX 2.1 bundles, IOC exports, and Sigma/YARA rules. Instant provisioning.">
+<meta property="og:title" content="Get API Key — SENTINEL APEX">
+<meta property="og:description" content="Request API access. Real-time CVE feeds, STIX 2.1 bundles, IOC exports. Free tier available.">
+<meta property="og:url" content="https://intel.cyberdudebivash.com/get-api-key.html">
+<meta property="og:type" content="website">
+<link rel="canonical" href="https://intel.cyberdudebivash.com/get-api-key.html">
+<meta name="robots" content="index, follow">
+<style>
+  :root {
+    --bg: #0a0e1a; --bg2: #0f1628; --bg3: #141c35;
+    --accent: #00FFC6; --accent2: #7C3AED; --accent3: #F59E0B;
+    --red: #EF4444; --blue: #3B82F6; --text: #E2E8F0; --muted: #64748B;
+    --border: rgba(0,255,198,0.12); --border2: rgba(0,255,198,0.22);
+    --font-mono: 'JetBrains Mono','Fira Code','Courier New',monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: 'Inter',system-ui,sans-serif; min-height:100vh; }
+
+  /* NAV */
+  nav { display:flex; align-items:center; justify-content:space-between; padding:16px 40px; border-bottom:1px solid var(--border); background:rgba(10,14,26,0.97); position:sticky; top:0; z-index:100; backdrop-filter:blur(12px); }
+  .nav-logo { font-family:var(--font-mono); font-weight:800; font-size:14px; color:var(--accent); letter-spacing:2px; text-decoration:none; }
+  .nav-links { display:flex; gap:24px; align-items:center; }
+  .nav-links a { color:var(--muted); text-decoration:none; font-size:13px; letter-spacing:0.5px; transition:color 0.2s; }
+  .nav-links a:hover { color:var(--accent); }
+  .nav-cta { background:var(--accent); color:#000 !important; padding:8px 18px; border-radius:6px; font-weight:700; font-size:12px; letter-spacing:1px; text-decoration:none; transition:opacity 0.2s; }
+  .nav-cta:hover { opacity:0.85; }
+
+  /* HERO */
+  .hero { text-align:center; padding:60px 24px 40px; }
+  .hero-badge { display:inline-flex; align-items:center; gap:8px; background:rgba(0,255,198,0.08); border:1px solid rgba(0,255,198,0.2); border-radius:20px; padding:6px 16px; font-size:11px; font-family:var(--font-mono); color:var(--accent); letter-spacing:1px; margin-bottom:20px; }
+  .hero h1 { font-size:clamp(28px,4vw,44px); font-weight:800; line-height:1.2; margin-bottom:12px; }
+  .hero h1 span { color:var(--accent); }
+  .hero p { color:var(--muted); font-size:15px; max-width:520px; margin:0 auto; line-height:1.6; }
+
+  /* LAYOUT */
+  .page-layout { display:grid; grid-template-columns:1fr 380px; gap:48px; max-width:1080px; margin:0 auto; padding:40px 24px 80px; align-items:start; }
+  @media(max-width:900px) { .page-layout { grid-template-columns:1fr; } }
+
+  /* PLAN SELECTOR */
+  .plan-selector { display:flex; gap:12px; margin-bottom:32px; flex-wrap:wrap; }
+  .plan-pill { flex:1; min-width:120px; padding:14px 16px; border:1px solid var(--border2); border-radius:10px; cursor:pointer; text-align:center; transition:all 0.2s; background:var(--bg2); }
+  .plan-pill:hover { border-color:var(--accent); }
+  .plan-pill.active { border-color:var(--accent); background:rgba(0,255,198,0.07); }
+  .plan-pill .pill-name { font-family:var(--font-mono); font-size:11px; letter-spacing:1px; color:var(--accent); font-weight:700; margin-bottom:4px; }
+  .plan-pill .pill-price { font-size:20px; font-weight:800; color:var(--text); }
+  .plan-pill .pill-period { font-size:10px; color:var(--muted); }
+  .plan-pill.enterprise-pill .pill-price { font-size:16px; color:var(--accent2); }
+
+  /* FORM */
+  .form-card { background:var(--bg2); border:1px solid var(--border2); border-radius:16px; padding:36px; }
+  .form-card h2 { font-size:20px; font-weight:700; margin-bottom:6px; }
+  .form-card .sub { color:var(--muted); font-size:13px; margin-bottom:28px; }
+  .form-group { margin-bottom:20px; }
+  .form-group label { display:block; font-size:12px; font-family:var(--font-mono); color:var(--accent); letter-spacing:0.8px; margin-bottom:6px; text-transform:uppercase; }
+  .form-group input, .form-group select, .form-group textarea {
+    width:100%; padding:12px 14px; background:var(--bg3); border:1px solid var(--border); border-radius:8px;
+    color:var(--text); font-size:14px; font-family:inherit; outline:none; transition:border-color 0.2s;
+  }
+  .form-group input:focus, .form-group select:focus, .form-group textarea:focus { border-color:var(--accent); }
+  .form-group textarea { resize:vertical; min-height:80px; }
+  .form-group select option { background:var(--bg3); }
+  .form-row { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+  @media(max-width:600px) { .form-row { grid-template-columns:1fr; } }
+
+  .plan-hidden { display:none; }
+
+  .submit-btn {
+    width:100%; padding:16px; background:var(--accent); color:#000; border:none;
+    border-radius:10px; font-size:14px; font-weight:800; letter-spacing:1px; cursor:pointer;
+    font-family:var(--font-mono); transition:opacity 0.2s; margin-top:8px;
+  }
+  .submit-btn:hover { opacity:0.88; }
+  .submit-btn:disabled { opacity:0.5; cursor:not-allowed; }
+
+  .enterprise-submit {
+    background:var(--accent2);
+  }
+
+  .privacy-note { font-size:11px; color:var(--muted); text-align:center; margin-top:12px; line-height:1.5; }
+  .privacy-note a { color:var(--accent); text-decoration:none; }
+
+  /* SUCCESS STATE */
+  #success-panel { display:none; text-align:center; padding:48px 32px; }
+  #success-panel .success-icon { font-size:56px; margin-bottom:16px; }
+  #success-panel h2 { font-size:24px; font-weight:800; margin-bottom:8px; color:var(--accent); }
+  #success-panel p { color:var(--muted); font-size:14px; line-height:1.7; max-width:400px; margin:0 auto 24px; }
+  #success-panel .next-steps { background:var(--bg3); border:1px solid var(--border); border-radius:10px; padding:20px; text-align:left; margin-top:20px; }
+  #success-panel .next-steps h3 { font-family:var(--font-mono); font-size:11px; color:var(--accent); letter-spacing:1px; margin-bottom:14px; }
+  #success-panel .step { display:flex; gap:12px; align-items:flex-start; margin-bottom:12px; font-size:13px; color:var(--text); }
+  #success-panel .step-num { min-width:22px; height:22px; background:var(--accent); color:#000; border-radius:50%; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:11px; font-family:var(--font-mono); }
+  .back-btn { color:var(--accent); font-size:13px; text-decoration:none; border:none; background:none; cursor:pointer; font-family:inherit; }
+
+  /* SIDEBAR */
+  .sidebar { display:flex; flex-direction:column; gap:20px; }
+  .sidebar-card { background:var(--bg2); border:1px solid var(--border); border-radius:12px; padding:22px; }
+  .sidebar-card h3 { font-family:var(--font-mono); font-size:11px; color:var(--accent); letter-spacing:1px; text-transform:uppercase; margin-bottom:14px; }
+  .feature-row { display:flex; gap:10px; align-items:flex-start; margin-bottom:10px; font-size:13px; color:var(--text); }
+  .feature-row .fcheck { color:var(--accent); font-weight:900; min-width:16px; }
+  .timeline-item { display:flex; gap:12px; align-items:flex-start; margin-bottom:14px; }
+  .timeline-dot { min-width:28px; height:28px; background:rgba(0,255,198,0.12); border:1px solid var(--accent); border-radius:50%; display:flex; align-items:center; justify-content:center; font-family:var(--font-mono); font-size:11px; font-weight:700; color:var(--accent); }
+  .timeline-text { font-size:13px; color:var(--text); padding-top:4px; }
+  .timeline-text strong { display:block; margin-bottom:2px; }
+  .timeline-text span { color:var(--muted); font-size:11px; }
+  .trust-list { list-style:none; }
+  .trust-list li { display:flex; align-items:center; gap:8px; font-size:12px; color:var(--muted); margin-bottom:8px; font-family:var(--font-mono); }
+  .trust-list li::before { content:''; width:7px; height:7px; background:var(--accent); border-radius:50%; box-shadow:0 0 6px var(--accent); display:inline-block; flex-shrink:0; }
+  .code-block { background:var(--bg); border:1px solid var(--border); border-radius:6px; padding:14px; font-family:var(--font-mono); font-size:11px; color:#94A3B8; overflow-x:auto; margin-top:10px; }
+  .code-block .hl { color:var(--accent); }
+  .code-block .key { color:#F59E0B; }
+  .code-block .str { color:#86EFAC; }
+
+  /* TRUST BAR */
+  .trust-bar { display:flex; gap:32px; justify-content:center; flex-wrap:wrap; padding:24px 40px; border-top:1px solid var(--border); background:var(--bg2); }
+  .trust-item { display:flex; align-items:center; gap:8px; font-size:12px; color:var(--muted); font-family:var(--font-mono); letter-spacing:0.5px; }
+  .trust-item .dot { width:8px; height:8px; border-radius:50%; background:var(--accent); display:inline-block; box-shadow:0 0 8px var(--accent); }
+
+  /* FOOTER */
+  footer { background:var(--bg2); border-top:1px solid var(--border); padding:36px 40px; text-align:center; }
+  footer .footer-links { display:flex; gap:24px; justify-content:center; margin-bottom:14px; flex-wrap:wrap; }
+  footer .footer-links a { color:var(--muted); font-size:12px; text-decoration:none; transition:color 0.2s; }
+  footer .footer-links a:hover { color:var(--accent); }
+  footer p { color:var(--muted); font-size:11px; font-family:var(--font-mono); }
+</style>
+</head>
+<body>
+
+<nav>
+  <a href="/" class="nav-logo">⚡ SENTINEL APEX</a>
+  <div class="nav-links">
+    <a href="/">Dashboard</a>
+    <a href="/api-docs.html">API Docs</a>
+    <a href="/pricing.html">Pricing</a>
+    <a href="/dashboard/">SOC V2</a>
+    <a href="/get-api-key.html" class="nav-cta">GET API KEY →</a>
+  </div>
+</nav>
+
+<div class="hero">
+  <div class="hero-badge">⚡ INSTANT PROVISIONING &middot; NO APPROVAL DELAY</div>
+  <h1>Request Your <span>SENTINEL APEX</span><br>API Key</h1>
+  <p>Production-grade threat intelligence for your SOC, SIEM, or security toolchain. Provisioned within 2 hours (typically under 30 minutes during business hours).</p>
+</div>
+
+<div class="page-layout">
+
+  <!-- MAIN FORM COLUMN -->
+  <div>
+    <!-- PLAN SELECTOR -->
+    <div class="plan-selector" id="plan-selector">
+      <div class="plan-pill" data-plan="community" onclick="selectPlan('community')">
+        <div class="pill-name">COMMUNITY</div>
+        <div class="pill-price">$0</div>
+        <div class="pill-period">forever free</div>
+      </div>
+      <div class="plan-pill" data-plan="pro" onclick="selectPlan('pro')">
+        <div class="pill-name">PRO / SOC</div>
+        <div class="pill-price">$49</div>
+        <div class="pill-period">/month &nbsp;·&nbsp; ₹4,100</div>
+      </div>
+      <div class="plan-pill" data-plan="team" onclick="selectPlan('team')">
+        <div class="pill-name">ENTERPRISE SOC</div>
+        <div class="pill-price">$499</div>
+        <div class="pill-period">/month &nbsp;·&nbsp; ₹41,600</div>
+      </div>
+      <div class="plan-pill enterprise-pill" data-plan="enterprise" onclick="selectPlan('enterprise')">
+        <div class="pill-name">MSSP / SOVEREIGN</div>
+        <div class="pill-price">$1,999</div>
+        <div class="pill-period">/month &nbsp;·&nbsp; ₹1,66,600</div>
+      </div>
+    </div>
+
+    <!-- FORM CARD -->
+    <div class="form-card" id="form-card">
+      <h2 id="form-title">Request API Access</h2>
+      <p class="sub" id="form-sub">Fill in your details and you'll receive your API key and documentation within 2 hours (typically under 30 minutes during business hours).</p>
+
+      <form id="api-key-form" onsubmit="handleSubmit(event)">
+        <input type="hidden" id="selected-plan" name="plan" value="community">
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="fname">First Name *</label>
+            <input type="text" id="fname" name="first_name" placeholder="Bivash" required autocomplete="given-name">
+          </div>
+          <div class="form-group">
+            <label for="lname">Last Name *</label>
+            <input type="text" id="lname" name="last_name" placeholder="Kumar" required autocomplete="family-name">
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="email">Work Email *</label>
+          <input type="email" id="email" name="email" placeholder="soc-analyst@company.com" required autocomplete="email">
+        </div>
+
+        <div class="form-group">
+          <label for="company">Company / Organization *</label>
+          <input type="text" id="company" name="company" placeholder="Acme Corp Security" required autocomplete="organization">
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="role">Your Role *</label>
+            <select id="role" name="role" required>
+              <option value="" disabled selected>Select role</option>
+              <option value="SOC Analyst">SOC Analyst</option>
+              <option value="Threat Intelligence Analyst">Threat Intel Analyst</option>
+              <option value="Security Engineer">Security Engineer</option>
+              <option value="Security Architect">Security Architect</option>
+              <option value="CISO / Security Manager">CISO / Security Manager</option>
+              <option value="Penetration Tester">Penetration Tester</option>
+              <option value="Incident Responder">Incident Responder</option>
+              <option value="MSSP / Managed Services">MSSP / Managed Services</option>
+              <option value="Developer / Researcher">Developer / Researcher</option>
+              <option value="Other">Other</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="team-size">Security Team Size</label>
+            <select id="team-size" name="team_size">
+              <option value="" disabled selected>Select size</option>
+              <option value="Solo (1)">Solo (1)</option>
+              <option value="Small (2-10)">Small (2&ndash;10)</option>
+              <option value="Mid (11-50)">Mid (11&ndash;50)</option>
+              <option value="Large (51-200)">Large (51&ndash;200)</option>
+              <option value="Enterprise (200+)">Enterprise (200+)</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-group" id="usecase-group">
+          <label for="usecase">Primary Use Case *</label>
+          <select id="usecase" name="use_case" required>
+            <option value="" disabled selected>Select use case</option>
+            <option value="SIEM Integration (Splunk / QRadar / Elastic)">SIEM Integration (Splunk / QRadar / Elastic)</option>
+            <option value="Threat Hunting">Threat Hunting</option>
+            <option value="IOC Enrichment Pipeline">IOC Enrichment Pipeline</option>
+            <option value="Vulnerability Management">Vulnerability Management</option>
+            <option value="Incident Response">Incident Response</option>
+            <option value="Automated Detection Rules">Automated Detection Rules (Sigma/YARA)</option>
+            <option value="SOAR Playbook Integration">SOAR Playbook Integration</option>
+            <option value="Research / Academic">Research / Academic</option>
+            <option value="MSSP Client Feeds">MSSP Client Feeds</option>
+            <option value="Custom / Other">Custom / Other</option>
+          </select>
+        </div>
+
+        <div class="form-group" id="notes-group">
+          <label for="notes">Additional Notes <span style="color:var(--muted);font-weight:400;">(optional)</span></label>
+          <textarea id="notes" name="notes" placeholder="Describe your integration requirements, expected query volume, or any special requests..."></textarea>
+        </div>
+
+        <div class="form-group" id="enterprise-contact-group" style="display:none;">
+          <label for="phone">Phone / Signal (optional)</label>
+          <input type="tel" id="phone" name="phone" placeholder="+1 555 000 0000" autocomplete="tel">
+        </div>
+
+        <button type="submit" class="submit-btn" id="submit-btn">
+          REQUEST API ACCESS →
+        </button>
+        <p class="privacy-note">
+          By requesting access you agree to our <a href="#">Terms of Service</a> and <a href="#">Privacy Policy</a>.<br>
+          We never sell your data. API keys are revokable at any time.
+        </p>
+      </form>
+
+      <!-- SUCCESS STATE -->
+      <div id="success-panel">
+        <div class="success-icon">⚡</div>
+        <h2>Request Received</h2>
+        <p>Your API key request has been received. Your key and integration docs will be delivered to your email within <strong>2 hours</strong> (typically under 30 minutes during business hours).</p>
+
+        <!-- PAID PLAN: immediate payment CTA -->
+        <div id="paid-cta" style="display:none;margin-top:22px;padding:20px;background:rgba(0,255,198,0.06);border:1px solid rgba(0,255,198,0.25);border-radius:12px;">
+          <div style="font-size:11px;font-family:var(--font-mono);color:var(--accent);letter-spacing:1.5px;font-weight:700;margin-bottom:8px;">NEXT STEP — COMPLETE PAYMENT</div>
+          <p style="font-size:13px;color:var(--muted);margin-bottom:16px;">To activate your API key instantly, complete payment now. Supports UPI, Cards, NetBanking, PayPal, and Crypto.</p>
+          <a id="payment-cta-link" href="/upgrade.html" style="display:block;width:100%;padding:14px;background:linear-gradient(135deg,var(--accent),#00b891);color:#000;font-family:var(--font-mono);font-size:13px;font-weight:800;letter-spacing:1px;text-align:center;border-radius:8px;text-decoration:none;transition:opacity 0.2s;">⚡ COMPLETE PAYMENT &amp; ACTIVATE NOW →</a>
+          <div style="margin-top:10px;text-align:center;font-size:11px;color:var(--muted);">Or WhatsApp <strong style="color:var(--text);">+91 8179881447</strong> for assisted activation</div>
+        </div>
+
+        <div class="next-steps">
+          <h3>WHAT HAPPENS NEXT</h3>
+          <div class="step">
+            <div class="step-num">1</div>
+            <div>Check your inbox at <strong id="confirm-email"></strong> — API key delivered within 2 hours</div>
+          </div>
+          <div class="step">
+            <div class="step-num">2</div>
+            <div>Review the <a href="/api-docs.html" style="color:var(--accent);">API documentation</a> — first integration takes under 5 minutes</div>
+          </div>
+          <div class="step">
+            <div class="step-num">3</div>
+            <div>Contact <a href="mailto:enterprise@cyberdudebivash.com" style="color:var(--accent);">enterprise@cyberdudebivash.com</a> for urgent activation or Enterprise onboarding</div>
+          </div>
+        </div>
+        <br>
+        <button class="back-btn" onclick="resetForm()">← Submit another request</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- SIDEBAR -->
+  <div class="sidebar">
+
+    <!-- WHAT YOU GET -->
+    <div class="sidebar-card">
+      <h3 id="sidebar-plan-title">WHAT YOU GET</h3>
+      <div id="sidebar-features">
+        <div class="feature-row"><span class="fcheck">✓</span> Live threat intelligence dashboard</div>
+        <div class="feature-row"><span class="fcheck">✓</span> 77+ advisories, refreshed every 6 hours</div>
+        <div class="feature-row"><span class="fcheck">✓</span> APEX AI risk scoring on every advisory</div>
+        <div class="feature-row"><span class="fcheck">✓</span> STIX 2.1 public bundle access</div>
+        <div class="feature-row"><span class="fcheck">✓</span> CVE & CISA KEV cross-reference</div>
+      </div>
+    </div>
+
+    <!-- TIMELINE -->
+    <div class="sidebar-card">
+      <h3>PROVISIONING TIMELINE</h3>
+      <div class="timeline-item">
+        <div class="timeline-dot">0s</div>
+        <div class="timeline-text"><strong>Form submitted</strong><span>Request received & queued</span></div>
+      </div>
+      <div class="timeline-item">
+        <div class="timeline-dot">~1m</div>
+        <div class="timeline-text"><strong>Email delivered</strong><span>API key + docs link sent</span></div>
+      </div>
+      <div class="timeline-item">
+        <div class="timeline-dot">~5m</div>
+        <div class="timeline-text"><strong>First API call</strong><span>Query the live feed</span></div>
+      </div>
+      <div class="timeline-item">
+        <div class="timeline-dot">~1h</div>
+        <div class="timeline-text"><strong>SIEM integrated</strong><span>Splunk / Elastic / QRadar live</span></div>
+      </div>
+    </div>
+
+    <!-- API PREVIEW -->
+    <div class="sidebar-card">
+      <h3>SAMPLE API RESPONSE</h3>
+      <div class="code-block">
+<span class="hl">GET</span> /api/intel?severity=critical<br>
+&nbsp;&nbsp;<span class="key">Authorization</span>: <span class="str">Bearer YOUR_KEY</span><br><br>
+{<br>
+&nbsp;&nbsp;<span class="key">"status"</span>: <span class="str">"ok"</span>,<br>
+&nbsp;&nbsp;<span class="key">"count"</span>: 6,<br>
+&nbsp;&nbsp;<span class="key">"items"</span>: [<br>
+&nbsp;&nbsp;&nbsp;&nbsp;{<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="key">"id"</span>: <span class="str">"intel--96f0..."</span>,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="key">"severity"</span>: <span class="str">"CRITICAL"</span>,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="key">"cvss_score"</span>: 9.8,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="key">"kev"</span>: <span class="hl">true</span>,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="key">"ioc_count"</span>: 14,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="key">"stix_id"</span>: <span class="str">"bundle--..."</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;}<br>
+&nbsp;&nbsp;]<br>
+}
+      </div>
+    </div>
+
+    <!-- TRUST SIGNALS -->
+    <div class="sidebar-card">
+      <h3>SECURITY & COMPLIANCE</h3>
+      <ul class="trust-list">
+        <li>STIX 2.1 compliant output</li>
+        <li>TLP:RED / AMBER / GREEN / CLEAR</li>
+        <li>MITRE ATT&amp;CK framework mapped</li>
+        <li>CISA KEV cross-referenced</li>
+        <li>NVD + EPSS enriched CVEs</li>
+        <li>API keys revokable instantly</li>
+        <li>No data resale. Ever.</li>
+      </ul>
+    </div>
+
+  </div>
+</div>
+
+<div class="trust-bar">
+  <div class="trust-item"><span class="dot"></span> STIX 2.1 Compliant</div>
+  <div class="trust-item"><span class="dot"></span> MITRE ATT&amp;CK Mapped</div>
+  <div class="trust-item"><span class="dot"></span> CISA KEV Integrated</div>
+  <div class="trust-item"><span class="dot"></span> TLP:RED / AMBER / GREEN / CLEAR</div>
+  <div class="trust-item"><span class="dot"></span> 77+ Active Advisories</div>
+  <div class="trust-item"><span class="dot"></span> 74-Feed Live Pipeline</div>
+</div>
+
+<footer>
+  <div class="footer-links">
+    <a href="/">Dashboard</a>
+    <a href="/api-docs.html">API Docs</a>
+    <a href="/pricing.html">Pricing</a>
+    <a href="/get-api-key.html">Get API Key</a>
+    <a href="/dashboard/">SOC V2</a>
+    <a href="mailto:enterprise@cyberdudebivash.com">Contact</a>
+  </div>
+  <p>&copy; 2026 CYBERDUDEBIVASH &middot; SENTINEL APEX Threat Intelligence Platform &middot; All rights reserved</p>
+</footer>
+
+<script>
+// ── Plan feature sets ────────────────────────────────────────────────────────
+var PLAN_META = {
+  community: {
+    title: 'Request Free API Access',
+    sub: 'Community tier is free forever. Dashboard access with public STIX bundles. No credit card.',
+    submitLabel: 'REQUEST FREE ACCESS →',
+    submitClass: 'submit-btn',
+    sidebarTitle: 'COMMUNITY \u2014 WHAT YOU GET',
+    features: [
+      'Live threat intelligence dashboard',
+      '77+ advisories, refreshed every 6h',
+      'APEX AI risk scoring (visual)',
+      'CVE tracking & KEV alerts',
+      'STIX 2.1 public bundles',
+      'SOC V2 dashboard access'
+    ]
+  },
+  pro: {
+    title: 'Request Professional API Key',
+    sub: 'Full API access — IOC exports, STIX 2.1, Sigma/YARA rules. $49/mo (₹4,100). Pay via UPI, NEFT, PayPal, or Crypto. Key within 2 hrs.',
+    submitLabel: 'START FREE TRIAL →',
+    submitClass: 'submit-btn',
+    sidebarTitle: 'PRO \u2014 WHAT YOU GET',
+    features: [
+      'Everything in Community',
+      'REST API \u2014 10,000 req/month',
+      'Full IOC exports (IPs, hashes, domains)',
+      'Sigma rule downloads (50+ rules)',
+      'YARA rule library access',
+      'STIX 2.1 API endpoint',
+      'Threat actor attribution data',
+      'Daily email threat digests'
+    ]
+  },
+  team: {
+    title: 'Request Enterprise SOC Access',
+    sub: 'Enterprise SOC — unlimited API calls, full AI engine. $499/mo (₹41,600). Pay via UPI, NEFT, PayPal or Crypto. Key within 2 hrs.',
+    submitLabel: 'REQUEST ENTERPRISE ACCESS →',
+    submitClass: 'submit-btn',
+    sidebarTitle: 'ENTERPRISE SOC \u2014 WHAT YOU GET',
+    features: [
+      'Everything in Pro / SOC',
+      'Unlimited API calls/day',
+      'Webhook push alerts (real-time)',
+      'Custom feed filters by TLP/severity',
+      'SIEM integration (Splunk, QRadar, Elastic)',
+      'Full AI threat scoring engine',
+      'Dedicated support \u2014 priority SLA',
+      'Historical data access (90 days)'
+    ]
+  },
+  enterprise: {
+    title: 'MSSP / Sovereign Access Request',
+    sub: 'White-label, multi-tenant, 15-min SLA. $1,999/mo (₹1,66,600). Pay via UPI, NEFT, PayPal or Crypto. Contact for onboarding.',
+    submitLabel: 'CONTACT MSSP SALES →',
+    submitClass: 'submit-btn enterprise-submit',
+    sidebarTitle: 'MSSP / SOVEREIGN \u2014 WHAT YOU GET',
+    features: [
+      'Everything in Enterprise SOC',
+      'Unlimited API requests',
+      'White-label branding & custom domain',
+      'Dedicated Intel Gateway instance',
+      'Custom threat actor tracking',
+      '1-hour SLA for critical CVEs',
+      'Onboarding & integration support',
+      'MSP/MSSP reseller program',
+      '99.9% uptime SLA (contractual)',
+      'Custom data retention (up to 5 yrs)'
+    ]
+  }
+};
+
+// ── Init ─────────────────────────────────────────────────────────────────────
+var currentPlan = 'community';
+
+function selectPlan(plan) {
+  currentPlan = plan;
+  document.querySelectorAll('.plan-pill').forEach(function(p) {
+    p.classList.toggle('active', p.dataset.plan === plan);
+  });
+
+  var meta = PLAN_META[plan];
+  document.getElementById('form-title').textContent = meta.title;
+  document.getElementById('form-sub').textContent = meta.sub;
+  document.getElementById('selected-plan').value = plan;
+  document.getElementById('submit-btn').textContent = meta.submitLabel;
+  document.getElementById('submit-btn').className = meta.submitClass;
+  document.getElementById('sidebar-plan-title').textContent = meta.sidebarTitle;
+
+  // Rebuild sidebar features
+  var sf = document.getElementById('sidebar-features');
+  sf.innerHTML = meta.features.map(function(f) {
+    return '<div class="feature-row"><span class="fcheck">✓</span> ' + f + '</div>';
+  }).join('');
+
+  // Enterprise extras
+  var eGroup = document.getElementById('enterprise-contact-group');
+  eGroup.style.display = plan === 'enterprise' ? 'block' : 'none';
+}
+
+// Read URL params on load \u2014 pre-fill plan + email if passed from subscribe form
+(function() {
+  var params = new URLSearchParams(window.location.search);
+  var plan = params.get('plan') || 'community';
+  if (!PLAN_META[plan]) plan = 'community';
+  selectPlan(plan);
+
+  // Pre-fill email if passed (e.g. from subscribe form redirect)
+  var emailParam = params.get('email');
+  if (emailParam) {
+    var emailField = document.getElementById('email');
+    if (emailField) emailField.value = decodeURIComponent(emailParam);
+  }
+})();
+
+// ── Form Submission \u2014 Formspree Primary + mailto Fallback ──────────────────
+function handleSubmit(e) {
+  e.preventDefault();
+  var btn = document.getElementById('submit-btn');
+  btn.disabled = true;
+  btn.textContent = 'SENDING...';
+
+  var fname = document.getElementById('fname').value.trim();
+  var lname = document.getElementById('lname').value.trim();
+  var email = document.getElementById('email').value.trim();
+  var company = document.getElementById('company').value.trim();
+  var role = document.getElementById('role').value;
+  var teamSize = document.getElementById('team-size').value;
+  var usecase = document.getElementById('usecase').value;
+  var notes = document.getElementById('notes').value.trim();
+  var phone = document.getElementById('phone').value.trim();
+  var plan = currentPlan;
+
+  // Build payload for Formspree
+  var formData = new FormData();
+  formData.append('_subject', '[SENTINEL APEX] API Key Request \u2014 ' + plan.toUpperCase() + ' \u2014 ' + company);
+  formData.append('plan', plan.toUpperCase());
+  formData.append('name', fname + ' ' + lname);
+  formData.append('email', email);
+  formData.append('company', company);
+  formData.append('role', role);
+  formData.append('team_size', teamSize);
+  formData.append('use_case', usecase);
+  if (phone) formData.append('phone', phone);
+  if (notes) formData.append('notes', notes);
+  formData.append('submitted_at', new Date().toISOString());
+
+  function showSuccess() {
+    document.getElementById('confirm-email').textContent = email;
+    document.getElementById('api-key-form').style.display = 'none';
+    document.getElementById('success-panel').style.display = 'block';
+    document.getElementById('plan-selector').style.display = 'none';
+    // P0 FIX: surface payment path for paid plans — eliminate conversion leak
+    if (currentPlan !== 'community') {
+      var planMap = { pro: 'pro', team: 'enterprise', enterprise: 'mssp' };
+      var upgradePlan = planMap[currentPlan] || 'pro';
+      var payUrl = '/upgrade.html?plan=' + upgradePlan + '&email=' + encodeURIComponent(email);
+      document.getElementById('payment-cta-link').href = payUrl;
+      document.getElementById('paid-cta').style.display = 'block';
+    }
+  }
+
+  function mailtoFallback() {
+    var subject = '[SENTINEL APEX] API Key Request \u2014 ' + plan.toUpperCase() + ' \u2014 ' + company;
+    var body = [
+      'API KEY REQUEST \u2014 SENTINEL APEX',
+      '================================',
+      'Plan: ' + plan.toUpperCase(),
+      'Name: ' + fname + ' ' + lname,
+      'Email: ' + email,
+      'Company: ' + company,
+      'Role: ' + role,
+      'Team Size: ' + teamSize,
+      'Use Case: ' + usecase,
+      phone ? 'Phone: ' + phone : '',
+      notes ? 'Notes: ' + notes : '',
+      '================================',
+      'Submitted: ' + new Date().toISOString()
+    ].filter(Boolean).join('\n');
+    var link = document.createElement('a');
+    link.href = 'mailto:enterprise@cyberdudebivash.com'
+      + '?subject=' + encodeURIComponent(subject)
+      + '&body=' + encodeURIComponent(body);
+    link.style.display = 'none';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }
+
+  // Primary: Formspree
+  fetch('https://formspree.io/f/xpzgdkoe', {
+    method: 'POST',
+    body: formData,
+    headers: { 'Accept': 'application/json' }
+  })
+  .then(function(r) {
+    showSuccess();
+    if (!r.ok) { mailtoFallback(); } // also fire mailto on server error as backup
+  })
+  .catch(function() {
+    // Network failure \u2014 fall back to mailto so no lead is ever lost
+    mailtoFallback();
+    showSuccess();
+  });
+}
+
+function resetForm() {
+  document.getElementById('api-key-form').style.display = 'block';
+  document.getElementById('success-panel').style.display = 'none';
+  document.getElementById('plan-selector').style.display = 'flex';
+  document.getElementById('submit-btn').disabled = false;
+  document.getElementById('api-key-form').reset();
+  selectPlan('community');
+}
+</script>
+<!-- CDB-UPGRADE-BANNER-v141 -->
+<!-- ═══════════════════════════════════════════════════════════════════
+     v184.0: REVENUE ACTIVATION -- Persistent Upgrade CTA Banner
+     Shown to free/unauthenticated users. Hides automatically for paid tiers.
+     ═══════════════════════════════════════════════════════════════════ -->
+<div id="cdb-upgrade-banner" style="display:none;position:fixed;bottom:0;left:0;right:0;z-index:9999;background:linear-gradient(90deg,#0a0d14 0%,#0f1420 100%);border-top:1px solid rgba(0,212,255,0.25);padding:12px 24px;display:flex;align-items:center;justify-content:space-between;gap:12px;box-shadow:0 -4px 24px rgba(0,212,255,0.08);">
+  <div style="display:flex;align-items:center;gap:12px;flex:1;min-width:0;"><span style="font-size:18px;flex-shrink:0;">&#128308;</span><div style="min-width:0;"><div id="cdb-banner-msg" style="font-size:13px;font-weight:700;color:#e2e8f0;">Free tier active &mdash; IOCs, STIX bundles &amp; kill-chain attribution locked.</div><div style="font-size:11px;color:#6b7280;margin-top:2px;"><span id="cdb-live-threat-count" style="color:#00d4ff;font-weight:700;font-family:monospace;">0</span> live threats tracked &mdash; upgrade to access full intelligence.</div></div></div>
+  <div style="display:flex;gap:8px;flex-shrink:0;align-items:center;"><a href="/upgrade.html?plan=pro&amp;ref=banner" style="display:inline-block;background:linear-gradient(135deg,#00d4ff,#7c3aed);color:#000;font-weight:800;font-size:12px;padding:8px 18px;border-radius:6px;text-decoration:none;letter-spacing:0.5px;white-space:nowrap;">&#128275; Unlock Full Intel</a><a href="/pricing.html?ref=banner" style="display:inline-block;border:1px solid rgba(0,212,255,0.3);color:#00d4ff;font-size:11px;padding:8px 14px;border-radius:6px;text-decoration:none;white-space:nowrap;">View Plans</a><button onclick="document.getElementById('cdb-upgrade-banner').style.display='none';localStorage.setItem('cdb_banner_dismissed',Date.now());" style="background:none;border:none;color:#4b5563;cursor:pointer;font-size:18px;padding:0 4px;line-height:1;" title="Dismiss">&times;</button></div>
+</div>
+<script>
+(function(){
+  var b=document.getElementById('cdb-upgrade-banner');if(!b)return;
+  var dismissed=parseInt(localStorage.getItem('cdb_banner_dismissed')||'0');
+  if(dismissed&&(Date.now()-dismissed)<86400000)return;
+  try{
+    var j=localStorage.getItem('cdb_jwt')||sessionStorage.getItem('cdb_jwt')||'';
+    if(j){var p=j.split('.');if(p.length===3){
+      var pl=JSON.parse(atob(p[1].replace(/-/g,'+').replace(/_/g,'/')));
+      var t=(pl.tier||'free').toLowerCase();
+      if(t==='premium'||t==='enterprise'||t==='pro')return;
+    }}
+  }catch(e){}
+  fetch('https://intel.cyberdudebivash.com/api/platform/stats',{signal:AbortSignal.timeout(3000)})
+    .then(function(r){return r.json()})
+    .then(function(d){
+      var c=d&&d.total_advisories?d.total_advisories:0;
+      if(c>0){
+        var el=document.getElementById('cdb-live-threat-count');if(el)el.textContent=c.toLocaleString();
+        var m=document.getElementById('cdb-banner-msg');
+        if(m)m.textContent=c.toLocaleString()+' active threats \u2014 IOCs, STIX bundles & kill-chain attribution locked.';
+      }
+    }).catch(function(){});
+  b.style.display='flex';
+  document.body.style.padding

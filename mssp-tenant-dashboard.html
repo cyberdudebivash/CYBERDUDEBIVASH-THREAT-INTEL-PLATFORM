@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MSSP Tenant Console — SENTINEL APEX</title>
+<meta name="robots" content="noindex,nofollow">
+<link rel="icon" href="/favicon.ico">
+<style>
+:root{--bg:#050c18;--bg2:#090f1e;--border:#162030;--accent:#00ffc6;--text:#e2e8f0;--muted:#64748b;--green:#10b981;--red:#ef4444;--yellow:#f59e0b;--card:#0b1422;--blue:#3b82f6;--accent2:#7c3aed;}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,sans-serif;min-height:100vh;}
+#loginScreen{display:flex;align-items:center;justify-content:center;min-height:100vh;}
+.login-card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:36px;max-width:360px;width:90%;text-align:center;}
+.login-input{width:100%;background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:11px 14px;color:var(--text);font-size:13px;font-family:inherit;outline:none;margin-bottom:12px;}
+.login-input:focus{border-color:var(--accent);}
+.login-btn{width:100%;padding:12px;background:var(--accent);color:#000;font-weight:800;border:none;border-radius:8px;cursor:pointer;font-size:13px;}
+#app{display:none;}
+nav{display:flex;align-items:center;justify-content:space-between;padding:14px 28px;background:rgba(5,12,24,0.97);border-bottom:1px solid var(--border);}
+.nav-logo{font-family:monospace;font-weight:900;font-size:12px;color:var(--accent);letter-spacing:2px;}
+.main{max-width:1280px;margin:0 auto;padding:28px 24px;}
+.page-title{font-size:20px;font-weight:800;margin-bottom:6px;}
+.page-sub{font-size:13px;color:var(--muted);margin-bottom:24px;}
+.tabs{display:flex;gap:4px;margin-bottom:24px;border-bottom:1px solid var(--border);padding-bottom:0;}
+.tab-btn{padding:10px 18px;background:none;border:none;border-bottom:2px solid transparent;color:var(--muted);font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;transition:all 0.15s;margin-bottom:-1px;}
+.tab-btn.active{color:var(--accent);border-bottom-color:var(--accent);}
+.tab-panel{display:none;}
+.tab-panel.active{display:block;}
+.stats-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:24px;}
+.stat-card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px;}
+.stat-val{font-size:22px;font-weight:900;font-family:monospace;color:var(--accent);}
+.stat-label{font-size:9px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-top:3px;}
+.toolbar{display:flex;gap:8px;align-items:center;margin-bottom:18px;flex-wrap:wrap;}
+.search-box{flex:1;background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:8px 12px;color:var(--text);font-size:13px;font-family:inherit;outline:none;min-width:150px;}
+.search-box:focus{border-color:var(--accent);}
+.primary-btn{padding:9px 18px;background:var(--accent);color:#000;font-size:12px;font-weight:800;border:none;border-radius:8px;cursor:pointer;white-space:nowrap;}
+.secondary-btn{padding:9px 18px;background:none;color:var(--muted);font-size:12px;font-weight:700;border:1px solid var(--border);border-radius:8px;cursor:pointer;font-family:inherit;}
+table{width:100%;border-collapse:collapse;}
+th{text-align:left;padding:10px 12px;font-size:9px;font-weight:700;color:var(--muted);letter-spacing:1px;text-transform:uppercase;border-bottom:1px solid var(--border);}
+td{padding:10px 12px;border-bottom:1px solid rgba(22,32,48,0.5);font-size:12px;vertical-align:middle;}
+.badge{display:inline-block;padding:2px 8px;border-radius:12px;font-size:9px;font-weight:800;letter-spacing:0.5px;}
+.badge-active{background:rgba(16,185,129,0.15);color:var(--green);border:1px solid rgba(16,185,129,0.3);}
+.badge-revoked{background:rgba(239,68,68,0.15);color:var(--red);border:1px solid rgba(239,68,68,0.3);}
+.badge-ent{background:rgba(59,130,246,0.15);color:#60a5fa;border:1px solid rgba(59,130,246,0.3);}
+.btn-sm{padding:4px 9px;border-radius:5px;font-size:9px;font-weight:700;cursor:pointer;font-family:inherit;border:1px solid;transition:all 0.15s;margin-right:3px;}
+.btn-edit{border-color:rgba(0,255,198,0.3);color:var(--accent);background:rgba(0,255,198,0.05);}
+.btn-revoke{border-color:rgba(239,68,68,0.3);color:var(--red);background:rgba(239,68,68,0.05);}
+.btn-rotate{border-color:rgba(245,158,11,0.3);color:var(--yellow);background:rgba(245,158,11,0.05);}
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:1000;align-items:center;justify-content:center;}
+.modal-overlay.show{display:flex;}
+.modal{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:26px;max-width:500px;width:90%;max-height:90vh;overflow-y:auto;}
+.modal h3{font-size:16px;font-weight:800;margin-bottom:14px;padding-bottom:10px;border-bottom:1px solid var(--border);}
+.form-group{margin-bottom:13px;}
+.form-label{font-size:10px;font-weight:700;color:var(--muted);letter-spacing:1px;text-transform:uppercase;display:block;margin-bottom:5px;}
+.form-input,.form-select{width:100%;background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;color:var(--text);font-size:13px;font-family:inherit;outline:none;}
+.form-input:focus,.form-select:focus{border-color:var(--accent);}
+.form-select option{background:var(--bg2);}
+.modal-actions{display:flex;gap:10px;margin-top:14px;}
+.provision-result{background:rgba(16,185,129,0.06);border:1px solid rgba(16,185,129,0.2);border-radius:10px;padding:14px;margin-top:14px;font-size:12px;line-height:1.7;}
+.key-display{font-family:monospace;font-size:13px;font-weight:700;color:var(--accent);word-break:break-all;padding:10px;background:var(--bg2);border-radius:6px;margin-top:6px;}
+.mssp-selector{background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:8px 12px;color:var(--text);font-size:13px;font-family:inherit;outline:none;}
+.mssp-selector:focus{border-color:var(--accent);}
+.mssp-selector option{background:var(--bg2);}
+.quota-bar{background:var(--border);border-radius:3px;height:5px;overflow:hidden;margin-top:4px;}
+.quota-fill{height:100%;border-radius:3px;background:var(--accent);}
+#toast{position:fixed;bottom:24px;right:24px;background:var(--green);color:#000;padding:12px 20px;border-radius:10px;font-weight:700;font-size:13px;z-index:9999;opacity:0;transform:translateY(20px);transition:all 0.3s;}
+#toast.show{opacity:1;transform:translateY(0);}
+</style>
+</head>
+<body>
+<div id="loginScreen">
+  <div class="login-card">
+    <div style="font-family:monospace;font-size:16px;font-weight:900;color:var(--accent);margin-bottom:14px;">⬡ SENTINEL APEX</div>
+    <h2 style="font-size:17px;margin-bottom:14px;">MSSP Tenant Console</h2>
+    <p style="font-size:12px;color:var(--muted);margin-bottom:20px;">MSSP Partner Email + Admin Secret</p>
+    <input type="email" id="msspEmail" class="login-input" placeholder="partner@yourmssp.com">
+    <input type="password" id="adminSecret" class="login-input" placeholder="Admin Secret" onkeydown="if(event.key==='Enter')login()">
+    <button class="login-btn" onclick="login()">Access Console →</button>
+    <p id="loginErr" style="font-size:11px;color:var(--red);margin-top:8px;display:none;">Invalid credentials</p>
+  </div>
+</div>
+
+<div id="app">
+  <nav>
+    <span class="nav-logo">⬡ SENTINEL APEX — MSSP CONSOLE</span>
+    <div style="display:flex;gap:12px;align-items:center;">
+      <span id="msspLabel" style="font-size:11px;color:var(--muted);font-family:monospace;"></span>
+      <button onclick="openAddTenant()" class="primary-btn">+ Add Tenant</button>
+      <button onclick="logout()" style="color:var(--red);background:none;border:none;cursor:pointer;font-size:12px;font-family:inherit;">Logout</button>
+    </div>
+  </nav>
+
+  <div class="main">
+    <div class="page-title">MSSP Tenant Management</div>
+    <div class="page-sub">Provision, manage, and monitor white-label tenant API keys under your MSSP account.</div>
+
+    <div class="stats-row">
+      <div class="stat-card"><div class="stat-val" id="sTotalTenants">—</div><div class="stat-label">Total Tenants</div></div>
+      <div class="stat-card"><div class="stat-val" id="sActiveTenants">—</div><div class="stat-label">Active</div></div>
+      <div class="stat-card"><div class="stat-val" id="sRevokedTenants">—</div><div class="stat-label">Revoked</div></div>
+      <div class="stat-card"><div class="stat-val" id="sTenantQuota">—</div><div class="stat-label">Total Quota/Day</div></div>
+    </div>
+
+    <div class="tabs">
+      <button class="tab-btn active" onclick="showTab('tenants',this)">Tenants</button>
+      <button class="tab-btn" onclick="showTab('keys',this)">API Keys</button>
+      <button class="tab-btn" onclick="showTab('usage',this)">Usage</button>
+    </div>
+
+    <!-- Tenants Tab -->
+    <div class="tab-panel active" id="tab-tenants">
+      <div class="toolbar">
+        <input type="text" class="search-box" placeholder="Search tenant…" oninput="searchTenants(this.value)">
+        <button class="secondary-btn" onclick="loadTenants()">↺ Refresh</button>
+      </div>
+      <div style="overflow-x:auto;">
+        <table>
+          <thead><tr><th>Tenant</th><th>Email</th><th>Tier</th><th>Sector</th><th>Quota/Day</th><th>Status</th><th>Created</th><th>Actions</th></tr></thead>
+          <tbody id="tenantsTable"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- API Keys Tab -->
+    <div class="tab-panel" id="tab-keys">
+      <p style="color:var(--muted);font-size:13px;margin-bottom:16px;">API keys for your tenants. Keys are scoped to each tenant's quota and tier.</p>
+      <div id="keysContent" style="overflow-x:auto;">
+        <table>
+          <thead><tr><th>Tenant</th><th>Email</th><th>Key (masked)</th><th>Tier</th><th>Req/Day</th><th>Expires</th><th>Status</th><th>Actions</th></tr></thead>
+          <tbody id="keysTable"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Usage Tab -->
+    <div class="tab-panel" id="tab-usage">
+      <div id="usageContent">
+        <div style="text-align:center;padding:48px;color:var(--muted);">
+          <div style="font-size:36px;margin-bottom:12px;">📊</div>
+          <p>Usage data aggregated daily. Each tenant's API call count is tracked automatically.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Add Tenant Modal -->
+<div class="modal-overlay" id="addTenantModal">
+  <div class="modal">
+    <h3>+ Add Tenant</h3>
+    <div class="form-group"><label class="form-label">Client / Tenant Name *</label><input type="text" id="tName" class="form-input" placeholder="Acme Bank Security Team"></div>
+    <div class="form-group"><label class="form-label">Client Email *</label><input type="email" id="tEmail" class="form-input" placeholder="soc@acmebank.com"></div>
+    <div class="form-group"><label class="form-label">Intelligence Tier</label>
+      <select id="tTier" class="form-select">
+        <option value="ENTERPRISE">Enterprise (Full feature set)</option>
+        <option value="PRO">PRO (IOC + Detection rules)</option>
+      </select>
+    </div>
+    <div class="form-group"><label class="form-label">Industry / Sector</label><input type="text" id="tSector" class="form-input" placeholder="Banking / Healthcare / Technology"></div>
+    <div class="form-group"><label class="form-label">Daily API Quota (req/day)</label><input type="number" id="tQuota" class="form-input" placeholder="5000" value="5000" min="100" max="50000"></div>
+    <div class="form-group"><label class="form-label">White-Label Slug (optional)</label><input type="text" id="tSlug" class="form-input" placeholder="acmebank (used in API key prefix)"></div>
+    <div id="provResult" class="provision-result" style="display:none;"></div>
+    <div class="modal-actions">
+      <button class="primary-btn" onclick="addTenant()" id="addTenantBtn">Provision Tenant</button>
+      <button class="secondary-btn" onclick="closeModal('addTenantModal')">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- Edit Tenant Modal -->
+<div class="modal-overlay" id="editTenantModal">
+  <div class="modal">
+    <h3>Edit Tenant</h3>
+    <input type="hidden" id="editTenantId">
+    <div class="form-group"><label class="form-label">Tenant Name</label><input type="text" id="eTName" class="form-input"></div>
+    <div class="form-group"><label class="form-label">Daily Quota (req/day)</label><input type="number" id="eTQuota" class="form-input"></div>
+    <div class="form-group"><label class="form-label">Sector</label><input type="text" id="eTSector" class="form-input"></div>
+    <div class="form-group"><label class="form-label">Status</label>
+      <select id="eTStatus" class="form-select"><option value="active">Active</option><option value="suspended">Suspended</option></select>
+    </div>
+    <div class="modal-actions">
+      <button class="primary-btn" onclick="saveTenant()">Save Changes</button>
+      <button class="secondary-btn" onclick="closeModal('editTenantModal')">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+let adminSecret='', msspEmail='', allTenants=[];
+const API = 'https://revenue.intel.cyberdudebivash.com';
+
+async function login() {
+  const s = document.getElementById('adminSecret').value.trim();
+  const m = document.getElementById('msspEmail').value.trim();
+  const res = await fetch(`${API}/api/mssp/tenants?mssp_email=${encodeURIComponent(m)}`, { headers:{'X-Admin-Secret':s} });
+  if (res.ok) {
+    adminSecret=s; msspEmail=m;
+    document.getElementById('loginScreen').style.display='none';
+    document.getElementById('app').style.display='block';
+    document.getElementById('msspLabel').textContent = m;
+    loadTenants();
+  } else document.getElementById('loginErr').style.display='block';
+}
+function logout() { adminSecret=''; msspEmail=''; location.reload(); }
+function apiFetch(p,o={}) { return fetch(API+p,{...o,headers:{'Content-Type':'application/json','X-Admin-Secret':adminSecret,...(o.headers||{})}}); }
+
+async function loadTenants() {
+  const res = await apiFetch(`/api/mssp/tenants?mssp_email=${encodeURIComponent(msspEmail)}`);
+  const data = await res.json();
+  allTenants = data.tenants || [];
+  // Stats
+  document.getElementById('sTotalTenants').textContent = allTenants.length;
+  document.getElementById('sActiveTenants').textContent = allTenants.filter(t=>t.status==='active').length;
+  document.getElementById('sRevokedTenants').textContent = allTenants.filter(t=>t.status==='revoked').length;
+  const totalQuota = allTenants.reduce((s,t)=>s+(t.quota_req_day||0),0);
+  document.getElementById('sTenantQuota').textContent = totalQuota.toLocaleString();
+  renderTenants(allTenants);
+  renderKeys(allTenants);
+}
+
+function renderTenants(tenants) {
+  const tb = document.getElementById('tenantsTable');
+  if (!tenants.length) { tb.innerHTML='<tr><td colspan="8" style="text-align:center;padding:32px;color:var(--muted);">No tenants yet. Click "+ Add Tenant" to get started.</td></tr>'; return; }
+  tb.innerHTML = tenants.map(t => {
+    const pct = Math.min(Math.round(((t.api_calls_today||0)/t.quota_req_day)*100),100);
+    return `<tr>
+      <td style="font-weight:700;">${t.tenant_name}</td>
+      <td style="color:var(--muted);">${t.tenant_email}</td>
+      <td><span class="badge badge-ent">${t.tenant_tier}</span></td>
+      <td style="color:var(--muted);font-size:11px;">${t.sector||'—'}</td>
+      <td>
+        <div style="font-family:monospace;font-size:11px;">${(t.quota_req_day||0).toLocaleString()}</div>
+        <div class="quota-bar"><div class="quota-fill" style="width:${pct}%"></div></div>
+      </td>
+      <td><span class="badge badge-${t.status}">${t.status}</span></td>
+      <td style="font-size:11px;color:var(--muted);">${t.created_at?.slice(0,10)||'—'}</td>
+      <td>
+        <button class="btn-sm btn-edit" onclick="openEditTenant('${t.id}')">Edit</button>
+        <button class="btn-sm btn-rotate" onclick="rotateTenantKey('${t.id}','${t.tenant_email}')">Rotate Key</button>
+        ${t.status==='active'?`<button class="btn-sm btn-revoke" onclick="revokeTenant('${t.id}')">Revoke</button>`:''}
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function renderKeys(tenants) {
+  const tb = document.getElementById('keysTable');
+  if (!tenants.length) { tb.innerHTML='<tr><td colspan="8" style="text-align:center;padding:28px;color:var(--muted);">No tenants provisioned</td></tr>'; return; }
+  tb.innerHTML = tenants.map(t => `<tr>
+    <td style="font-weight:700;">${t.tenant_name}</td>
+    <td style="color:var(--muted);font-size:11px;">${t.tenant_email}</td>
+    <td style="font-family:monospace;font-size:11px;color:var(--accent);">${t.api_key_preview||'—'}</td>
+    <td><span class="badge badge-ent">${t.tenant_tier}</span></td>
+    <td style="font-family:monospace;font-size:11px;">${(t.quota_req_day||0).toLocaleString()}</td>
+    <td style="font-size:11px;color:var(--muted);">—</td>
+    <td><span class="badge badge-${t.status}">${t.status}</span></td>
+    <td>
+      <button class="btn-sm btn-rotate" onclick="rotateTenantKey('${t.id}','${t.tenant_email}')">Rotate</button>
+      ${t.status==='active'?`<button class="btn-sm btn-revoke" onclick="revokeTenant('${t.id}')">Revoke</button>`:''}
+    </td>
+  </tr>`).join('');
+}
+
+function searchTenants(q) {
+  const ql = q.toLowerCase();
+  renderTenants(allTenants.filter(t=>t.tenant_name?.toLowerCase().includes(ql)||t.tenant_email?.toLowerCase().includes(ql)||t.sector?.toLowerCase().includes(ql)));
+}
+
+function openAddTenant() { document.getElementById('addTenantModal').classList.add('show'); document.getElementById('provResult').style.display='none'; }
+
+async function addTenant() {
+  const name = document.getElementById('tName').value.trim();
+  const email = document.getElementById('tEmail').value.trim();
+  const tier = document.getElementById('tTier').value;
+  const sector = document.getElementById('tSector').value.trim();
+  const quota = parseInt(document.getElementById('tQuota').value) || 5000;
+  const slug = document.getElementById('tSlug').value.trim();
+  if (!name || !email) { showToast('Fill required fields','err'); return; }
+  const btn = document.getElementById('addTenantBtn');
+  btn.textContent = 'Provisioning…'; btn.disabled = true;
+  const body = { mssp_email:msspEmail, tenant_name:name, tenant_email:email, tenant_tier:tier, sector, quota_req_day:quota, white_label_slug:slug||null };
+  const res = await apiFetch('/api/mssp/tenants', { method:'POST', body:JSON.stringify(body) });
+  const data = await res.json();
+  if (data.success) {
+    document.getElementById('provResult').innerHTML = `
+      <strong style="color:var(--green);">✅ Tenant Provisioned</strong><br>
+      API Key: <div class="key-display">${data.api_key}</div>
+      Quota: ${quota.toLocaleString()} req/day | Tier: ${tier}<br>
+      <span style="color:var(--muted);">Welcome email sent to ${email}</span>
+    `;
+    document.getElementById('provResult').style.display = 'block';
+    showToast('Tenant provisioned'); loadTenants();
+  } else { showToast('Error: '+(data.error||'failed'),'err'); }
+  btn.textContent = 'Provision Tenant'; btn.disabled = false;
+}
+
+function openEditTenant(id) {
+  const t = allTenants.find(t=>t.id===id);
+  if (!t) return;
+  document.getElementById('editTenantId').value = id;
+  document.getElementById('eTName').value = t.tenant_name;
+  document.getElementById('eTQuota').value = t.quota_req_day;
+  document.getElementById('eTSector').value = t.sector||'';
+  document.getElementById('eTStatus').value = t.status;
+  document.getElementById('editTenantModal').classList.add('show');
+}
+async function saveTenant() {
+  const id = document.getElementById('editTenantId').value;
+  const body = { tenant_name:document.getElementById('eTName').value.trim(), quota_req_day:parseInt(document.getElementById('eTQuota').value)||5000, sector:document.getElementById('eTSector').value.trim(), status:document.getElementById('eTStatus').value };
+  await apiFetch(`/api/mssp/tenants/${id}`, { method:'PUT', body:JSON.stringify(body) });
+  closeModal('editTenantModal'); showToast('Tenant updated'); loadTenants();
+}
+async function rotateTenantKey(id, email) {
+  if (!confirm(`Rotate API key for ${email}?`)) return;
+  await apiFetch('/api/apikeys/rotate', { method:'POST', body:JSON.stringify({ email }) });
+  showToast('Key rotated — new key emailed to tenant'); loadTenants();
+}
+async function revokeTenant(id) {
+  if (!confirm('Revoke this tenant? Their API key will stop working immediately.')) return;
+  await apiFetch(`/api/mssp/tenants/${id}`, { method:'DELETE', body:'{}' });
+  showToast('Tenant revoked'); loadTenants();
+}
+
+function showTab(tab, btn) {
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
+  btn.classList.add('active'); document.getElementById('tab-'+tab).classList.add('active');
+}
+function closeModal(id) { document.getElementById(id).classList.remove('show'); }
+window.onclick = e => { if(e.target.classList.contains('modal-overlay')) e.target.classList.remove('show'); };
+function showToast(msg,type) {
+  const t=document.getElementById('toast'); t.textContent=msg; t.style.background=type==='err'?'var(--red)':'var(--green)'; t.style.color=type==='err'?'#fff':'#000';
+  t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),3000);
+}
+</script>
+</body>
+</html>

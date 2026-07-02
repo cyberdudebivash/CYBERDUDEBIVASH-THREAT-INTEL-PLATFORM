@@ -1,0 +1,1332 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SENTINEL APEX — SOC Workspace | CYBERDUDEBIVASH®</title>
+<meta name="description" content="CYBERDUDEBIVASH SENTINEL APEX SOC Workspace — Real-time analyst workspaces, incident queues, ATT&CK navigation, adversary graph workbench, and replay-driven investigations.">
+<style>
+:root {
+  --bg-primary:    #0a0c10;
+  --bg-secondary:  #0f1117;
+  --bg-panel:      #13161e;
+  --bg-card:       #181c26;
+  --border:        #1e2433;
+  --border-accent: #2a3147;
+  --text-primary:  #e2e8f0;
+  --text-secondary:#94a3b8;
+  --text-muted:    #475569;
+  --accent-blue:   #3b82f6;
+  --accent-cyan:   #06b6d4;
+  --accent-green:  #10b981;
+  --accent-yellow: #f59e0b;
+  --accent-orange: #f97316;
+  --accent-red:    #ef4444;
+  --accent-purple: #8b5cf6;
+  --accent-pink:   #ec4899;
+  --critical:      #dc2626;
+  --high:          #ea580c;
+  --medium:        #d97706;
+  --low:           #3b82f6;
+  --soc-green:     #059669;
+  --font-mono:     'Courier New', Courier, monospace;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { font-size: 13px; }
+
+body {
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* ── TOP BAR ──────────────────────────────────────────────────────── */
+.topbar {
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 16px;
+  height: 44px;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  gap: 16px;
+}
+.topbar-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  color: var(--accent-cyan);
+  white-space: nowrap;
+}
+.topbar-brand .shield { font-size: 16px; }
+.topbar-nav {
+  display: flex;
+  gap: 2px;
+  overflow-x: auto;
+}
+.topbar-nav a {
+  color: var(--text-secondary);
+  text-decoration: none;
+  font-size: 11px;
+  padding: 4px 10px;
+  border-radius: 4px;
+  white-space: nowrap;
+  transition: all 0.15s;
+}
+.topbar-nav a:hover, .topbar-nav a.active {
+  background: var(--bg-card);
+  color: var(--text-primary);
+}
+.topbar-status {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+}
+.status-pill {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  padding: 3px 8px;
+  border-radius: 20px;
+  border: 1px solid;
+}
+.status-pill.live  { color: var(--accent-green); border-color: var(--accent-green); background: rgba(16,185,129,0.08); }
+.status-pill.alert { color: var(--accent-orange); border-color: var(--accent-orange); background: rgba(249,115,22,0.08); }
+.pulse { width: 6px; height: 6px; border-radius: 50%; animation: pulse 1.5s infinite; }
+.pulse.green  { background: var(--accent-green); box-shadow: 0 0 0 0 rgba(16,185,129,0.7); }
+.pulse.orange { background: var(--accent-orange); }
+.pulse.red    { background: var(--accent-red); }
+@keyframes pulse {
+  0%   { box-shadow: 0 0 0 0 rgba(16,185,129,0.7); }
+  70%  { box-shadow: 0 0 0 6px transparent; }
+  100% { box-shadow: 0 0 0 0 transparent; }
+}
+
+/* ── LAYOUT ───────────────────────────────────────────────────────── */
+.workspace {
+  display: grid;
+  grid-template-columns: 220px 1fr 280px;
+  grid-template-rows: auto;
+  min-height: calc(100vh - 44px);
+}
+
+/* ── LEFT SIDEBAR ─────────────────────────────────────────────────── */
+.sidebar {
+  background: var(--bg-secondary);
+  border-right: 1px solid var(--border);
+  padding: 12px 0;
+  overflow-y: auto;
+  position: sticky;
+  top: 44px;
+  height: calc(100vh - 44px);
+}
+.sidebar-section { padding: 0 12px; margin-bottom: 20px; }
+.sidebar-section-title {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  padding: 0 4px;
+  margin-bottom: 6px;
+}
+.sidebar-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s;
+  margin-bottom: 2px;
+  color: var(--text-secondary);
+  font-size: 12px;
+  text-decoration: none;
+}
+.sidebar-item:hover { background: var(--bg-card); color: var(--text-primary); }
+.sidebar-item.active { background: rgba(59,130,246,0.12); color: var(--accent-blue); }
+.sidebar-item .icon { width: 16px; text-align: center; font-size: 12px; }
+.sidebar-badge {
+  margin-left: auto;
+  background: var(--bg-card);
+  border: 1px solid var(--border-accent);
+  color: var(--text-secondary);
+  font-size: 9px;
+  font-weight: 700;
+  padding: 1px 5px;
+  border-radius: 10px;
+}
+.sidebar-badge.critical { background: rgba(220,38,38,0.15); border-color: var(--critical); color: var(--critical); }
+.sidebar-badge.high     { background: rgba(234,88,12,0.15); border-color: var(--high); color: var(--high); }
+.sidebar-badge.live     { background: rgba(16,185,129,0.15); border-color: var(--accent-green); color: var(--accent-green); }
+
+/* ── MAIN CONTENT ─────────────────────────────────────────────────── */
+.main { overflow-y: auto; height: calc(100vh - 44px); }
+
+.tab-bar {
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 0;
+  padding: 0 16px;
+  overflow-x: auto;
+  position: sticky;
+  top: 0;
+  z-index: 50;
+}
+.tab-btn {
+  padding: 10px 14px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  white-space: nowrap;
+  transition: all 0.15s;
+  background: none;
+  border-top: none;
+  border-left: none;
+  border-right: none;
+}
+.tab-btn:hover { color: var(--text-primary); }
+.tab-btn.active { color: var(--accent-blue); border-bottom-color: var(--accent-blue); }
+
+.content { padding: 16px; }
+
+/* ── PANELS ───────────────────────────────────────────────────────── */
+.panel {
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  margin-bottom: 12px;
+  overflow: hidden;
+}
+.panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-card);
+}
+.panel-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  color: var(--text-primary);
+  text-transform: uppercase;
+}
+.panel-actions { display: flex; gap: 6px; }
+.btn-xs {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  border: 1px solid;
+  background: none;
+  transition: all 0.15s;
+  letter-spacing: 0.03em;
+}
+.btn-xs.primary { color: var(--accent-blue); border-color: var(--accent-blue); }
+.btn-xs.primary:hover { background: rgba(59,130,246,0.12); }
+.btn-xs.danger  { color: var(--accent-red); border-color: var(--accent-red); }
+.btn-xs.success { color: var(--accent-green); border-color: var(--accent-green); }
+
+/* ── SOC QUEUE ────────────────────────────────────────────────────── */
+.queue-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  padding: 14px;
+}
+.queue-stat {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 12px 14px;
+  text-align: center;
+}
+.queue-stat-num {
+  font-size: 28px;
+  font-weight: 800;
+  line-height: 1;
+  margin-bottom: 4px;
+}
+.queue-stat-label { font-size: 10px; color: var(--text-secondary); letter-spacing: 0.05em; }
+.queue-stat.critical .queue-stat-num { color: var(--critical); }
+.queue-stat.high .queue-stat-num { color: var(--high); }
+.queue-stat.medium .queue-stat-num { color: var(--medium); }
+.queue-stat.ok .queue-stat-num { color: var(--accent-green); }
+
+.incident-table { width: 100%; border-collapse: collapse; font-size: 11px; }
+.incident-table th {
+  background: var(--bg-card);
+  padding: 8px 12px;
+  text-align: left;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  border-bottom: 1px solid var(--border);
+}
+.incident-table td {
+  padding: 9px 12px;
+  border-bottom: 1px solid rgba(30,36,51,0.5);
+  vertical-align: middle;
+}
+.incident-table tr:hover td { background: rgba(255,255,255,0.02); }
+.incident-table tr:last-child td { border-bottom: none; }
+
+.sev-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 9px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 3px;
+  letter-spacing: 0.05em;
+}
+.sev-badge.critical { background: rgba(220,38,38,0.2); color: var(--critical); border: 1px solid rgba(220,38,38,0.4); }
+.sev-badge.high     { background: rgba(234,88,12,0.2); color: var(--high); border: 1px solid rgba(234,88,12,0.4); }
+.sev-badge.medium   { background: rgba(217,119,6,0.2); color: var(--medium); border: 1px solid rgba(217,119,6,0.4); }
+.sev-badge.low      { background: rgba(59,130,246,0.15); color: var(--low); border: 1px solid rgba(59,130,246,0.3); }
+
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 9px;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 10px;
+}
+.status-badge.new      { background: rgba(239,68,68,0.1); color: #f87171; }
+.status-badge.active   { background: rgba(245,158,11,0.1); color: #fbbf24; }
+.status-badge.review   { background: rgba(139,92,246,0.1); color: #a78bfa; }
+.status-badge.resolved { background: rgba(16,185,129,0.1); color: #34d399; }
+
+.analyst-avatar {
+  width: 22px; height: 22px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 9px;
+  font-weight: 700;
+  color: #fff;
+}
+
+/* ── ATTACK TIMELINE ──────────────────────────────────────────────── */
+.timeline { padding: 14px; }
+.timeline-item {
+  display: grid;
+  grid-template-columns: 80px 20px 1fr;
+  gap: 12px;
+  margin-bottom: 0;
+  align-items: stretch;
+}
+.timeline-time {
+  font-size: 10px;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  padding-top: 2px;
+  text-align: right;
+}
+.timeline-connector { display: flex; flex-direction: column; align-items: center; }
+.timeline-dot {
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  border: 2px solid;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+.timeline-line { flex: 1; width: 2px; background: var(--border); margin: 2px auto; min-height: 30px; }
+.timeline-content {
+  padding-bottom: 16px;
+}
+.timeline-phase {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  margin-bottom: 3px;
+}
+.timeline-desc { font-size: 11px; color: var(--text-secondary); line-height: 1.5; }
+.timeline-ttp {
+  display: inline-block;
+  font-size: 9px;
+  font-family: var(--font-mono);
+  background: rgba(59,130,246,0.1);
+  color: var(--accent-blue);
+  border: 1px solid rgba(59,130,246,0.2);
+  padding: 1px 5px;
+  border-radius: 3px;
+  margin: 3px 2px 0 0;
+}
+
+/* ── ATT&CK HEATMAP ───────────────────────────────────────────────── */
+.attck-grid { padding: 14px; display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
+.attck-tactic { }
+.attck-tactic-name {
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+  text-align: center;
+}
+.attck-technique {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 5px 4px;
+  font-size: 8px;
+  font-family: var(--font-mono);
+  color: var(--text-secondary);
+  text-align: center;
+  margin-bottom: 3px;
+  cursor: pointer;
+  transition: all 0.15s;
+  position: relative;
+}
+.attck-technique:hover { border-color: var(--accent-blue); color: var(--text-primary); }
+.attck-technique.hit-1 { background: rgba(234,88,12,0.15); border-color: var(--high); color: var(--high); }
+.attck-technique.hit-2 { background: rgba(220,38,38,0.2); border-color: var(--critical); color: var(--critical); }
+.attck-technique .hit-count {
+  position: absolute;
+  top: -5px; right: -5px;
+  background: var(--critical);
+  color: #fff;
+  font-size: 8px;
+  font-weight: 800;
+  width: 14px; height: 14px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ── ADVERSARY GRAPH ──────────────────────────────────────────────── */
+.graph-canvas {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  height: 300px;
+  margin: 14px;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.graph-svg { width: 100%; height: 100%; }
+.graph-node {
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.graph-node circle { transition: all 0.2s; }
+.graph-node:hover circle { stroke-width: 3; filter: brightness(1.2); }
+.graph-controls {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.graph-control-btn {
+  width: 26px; height: 26px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text-secondary);
+  font-size: 12px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+}
+.graph-control-btn:hover { background: var(--bg-card); color: var(--text-primary); }
+.graph-legend {
+  display: flex;
+  gap: 14px;
+  padding: 8px 14px;
+  font-size: 10px;
+  color: var(--text-muted);
+  border-top: 1px solid var(--border);
+}
+.legend-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+  margin-right: 4px;
+}
+
+/* ── TELEMETRY HEATMAP ────────────────────────────────────────────── */
+.heatmap-grid {
+  display: grid;
+  grid-template-columns: repeat(24, 1fr);
+  gap: 2px;
+  padding: 14px;
+}
+.heatmap-cell {
+  aspect-ratio: 1;
+  border-radius: 2px;
+  background: var(--bg-card);
+  transition: all 0.15s;
+  cursor: pointer;
+  position: relative;
+}
+.heatmap-cell:hover::after {
+  content: attr(data-tip);
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  color: var(--text-primary);
+  font-size: 9px;
+  padding: 3px 6px;
+  border-radius: 3px;
+  white-space: nowrap;
+  z-index: 999;
+}
+.heatmap-cell.l1 { background: rgba(239,68,68,0.15); }
+.heatmap-cell.l2 { background: rgba(239,68,68,0.35); }
+.heatmap-cell.l3 { background: rgba(239,68,68,0.60); }
+.heatmap-cell.l4 { background: rgba(239,68,68,0.85); }
+.heatmap-labels {
+  display: grid;
+  grid-template-columns: repeat(24, 1fr);
+  padding: 0 14px 6px;
+  gap: 2px;
+}
+.heatmap-label { font-size: 8px; color: var(--text-muted); text-align: center; }
+
+/* ── RIGHT PANEL ──────────────────────────────────────────────────── */
+.right-panel {
+  background: var(--bg-secondary);
+  border-left: 1px solid var(--border);
+  overflow-y: auto;
+  height: calc(100vh - 44px);
+  position: sticky;
+  top: 44px;
+}
+.right-section { border-bottom: 1px solid var(--border); }
+.right-section-header {
+  padding: 10px 14px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  background: var(--bg-card);
+}
+.right-section-body { padding: 10px 14px; }
+
+/* Analyst workspace */
+.analyst-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 0;
+  border-bottom: 1px solid rgba(30,36,51,0.5);
+}
+.analyst-card:last-child { border-bottom: none; }
+.analyst-info { flex: 1; }
+.analyst-name { font-size: 11px; font-weight: 600; }
+.analyst-role { font-size: 9px; color: var(--text-muted); }
+.analyst-load { font-size: 10px; font-weight: 600; }
+
+/* Quick stats */
+.quick-stat { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; }
+.quick-stat-label { font-size: 11px; color: var(--text-secondary); }
+.quick-stat-val { font-size: 12px; font-weight: 700; font-family: var(--font-mono); }
+
+/* IOC lookup */
+.ioc-input-wrap { display: flex; gap: 6px; margin-bottom: 10px; }
+.ioc-input {
+  flex: 1;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text-primary);
+  padding: 6px 10px;
+  font-size: 11px;
+  font-family: var(--font-mono);
+  outline: none;
+}
+.ioc-input:focus { border-color: var(--accent-blue); }
+.btn-scan {
+  background: var(--accent-blue);
+  border: none;
+  border-radius: 4px;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 6px 10px;
+  cursor: pointer;
+  letter-spacing: 0.05em;
+}
+
+/* Feed health */
+.feed-row { display: flex; align-items: center; justify-content: space-between; padding: 5px 0; }
+.feed-name { font-size: 10px; }
+.feed-health { font-size: 9px; font-weight: 700; }
+.feed-health.ok   { color: var(--accent-green); }
+.feed-health.warn { color: var(--medium); }
+.feed-health.err  { color: var(--critical); }
+.feed-dot { width: 6px; height: 6px; border-radius: 50%; margin-right: 5px; display: inline-block; }
+.feed-dot.green  { background: var(--accent-green); }
+.feed-dot.yellow { background: var(--medium); }
+.feed-dot.red    { background: var(--critical); }
+
+/* Responsive */
+@media (max-width: 1024px) {
+  .workspace { grid-template-columns: 0 1fr 0; }
+  .sidebar, .right-panel { display: none; }
+}
+@media (max-width: 768px) {
+  .queue-grid { grid-template-columns: repeat(2, 1fr); }
+  .attck-grid { grid-template-columns: repeat(4, 1fr); }
+  .heatmap-grid { grid-template-columns: repeat(12, 1fr); }
+}
+</style>
+</head>
+<body>
+
+<!-- TOP BAR -->
+<nav class="topbar">
+  <div class="topbar-brand">
+    <span class="shield">🛡</span>
+    SENTINEL APEX · SOC WORKSPACE
+  </div>
+  <nav class="topbar-nav">
+    <a href="index.html">PLATFORM</a>
+    <a href="soc-workspace.html" class="active">SOC WORKSPACE</a>
+    <a href="mssp-console.html">MSSP CONSOLE</a>
+    <a href="ai-security-ops.html">AI SECURITY</a>
+    <a href="api-economy.html">API ECONOMY</a>
+    <a href="intel.cyberdudebivash.com" target="_blank">THREAT INTEL</a>
+  </nav>
+  <div class="topbar-status">
+    <div class="status-pill live"><span class="pulse green"></span>SOC LIVE</div>
+    <div class="status-pill alert"><span class="pulse orange"></span>3 CRITICAL</div>
+    <div style="font-size:10px;color:var(--text-muted)" id="topbar-time">--:--:-- UTC</div>
+  </div>
+</nav>
+
+<!-- WORKSPACE LAYOUT -->
+<div class="workspace">
+
+  <!-- LEFT SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sidebar-section">
+      <div class="sidebar-section-title">SOC Queues</div>
+      <a class="sidebar-item active" href="#queues">
+        <span class="icon">🚨</span> Incident Queue
+        <span class="sidebar-badge critical">3</span>
+      </a>
+      <a class="sidebar-item" href="#queues">
+        <span class="icon">🔍</span> Hunt Queue
+        <span class="sidebar-badge high">8</span>
+      </a>
+      <a class="sidebar-item" href="#queues">
+        <span class="icon">📋</span> Investigation
+        <span class="sidebar-badge">12</span>
+      </a>
+      <a class="sidebar-item" href="#queues">
+        <span class="icon">✅</span> Closed Today
+        <span class="sidebar-badge">47</span>
+      </a>
+    </div>
+    <div class="sidebar-section">
+      <div class="sidebar-section-title">Workspaces</div>
+      <a class="sidebar-item" href="#timeline">
+        <span class="icon">⏱</span> Attack Timelines
+      </a>
+      <a class="sidebar-item" href="#attck">
+        <span class="icon">⚔</span> ATT&CK Navigator
+      </a>
+      <a class="sidebar-item" href="#graph">
+        <span class="icon">🕸</span> Adversary Graph
+      </a>
+      <a class="sidebar-item" href="#heatmap">
+        <span class="icon">🔥</span> Telemetry Heatmap
+      </a>
+      <a class="sidebar-item" href="#replay">
+        <span class="icon">▶</span> Replay Engine
+        <span class="sidebar-badge live">LIVE</span>
+      </a>
+    </div>
+    <div class="sidebar-section">
+      <div class="sidebar-section-title">Intelligence</div>
+      <a class="sidebar-item" href="#ioc">
+        <span class="icon">🎯</span> IOC Workbench
+      </a>
+      <a class="sidebar-item" href="index.html">
+        <span class="icon">📊</span> Threat Feed
+      </a>
+      <a class="sidebar-item" href="#">
+        <span class="icon">🎭</span> Actor Profiles
+      </a>
+      <a class="sidebar-item" href="#">
+        <span class="icon">📡</span> Campaign Intel
+      </a>
+    </div>
+    <div class="sidebar-section">
+      <div class="sidebar-section-title">Operations</div>
+      <a class="sidebar-item" href="#">
+        <span class="icon">📝</span> Playbooks
+      </a>
+      <a class="sidebar-item" href="#">
+        <span class="icon">🔔</span> Alerts
+        <span class="sidebar-badge high">5</span>
+      </a>
+      <a class="sidebar-item" href="#">
+        <span class="icon">📈</span> SOC Metrics
+      </a>
+      <a class="sidebar-item" href="#">
+        <span class="icon">⚙</span> Integrations
+      </a>
+    </div>
+  </aside>
+
+  <!-- MAIN CONTENT -->
+  <main class="main">
+    <div class="tab-bar">
+      <button class="tab-btn active" onclick="showTab('queues', this)">INCIDENT QUEUE</button>
+      <button class="tab-btn" onclick="showTab('timeline', this)">ATTACK TIMELINE</button>
+      <button class="tab-btn" onclick="showTab('attck', this)">ATT&CK MAP</button>
+      <button class="tab-btn" onclick="showTab('graph', this)">ADVERSARY GRAPH</button>
+      <button class="tab-btn" onclick="showTab('heatmap', this)">TELEMETRY HEATMAP</button>
+      <button class="tab-btn" onclick="showTab('replay', this)">REPLAY ENGINE</button>
+    </div>
+
+    <div class="content">
+
+      <!-- TAB: INCIDENT QUEUE -->
+      <div id="tab-queues">
+
+        <!-- Queue Stats -->
+        <div class="panel" id="queues">
+          <div class="panel-header">
+            <div class="panel-title">🚨 SOC QUEUE STATUS</div>
+            <div class="panel-actions">
+              <button class="btn-xs primary">AUTO-ASSIGN</button>
+              <button class="btn-xs success">REFRESH</button>
+            </div>
+          </div>
+          <div class="queue-grid">
+            <div class="queue-stat critical">
+              <div class="queue-stat-num">3</div>
+              <div class="queue-stat-label">CRITICAL · P0</div>
+            </div>
+            <div class="queue-stat high">
+              <div class="queue-stat-num">8</div>
+              <div class="queue-stat-label">HIGH · P1/P2</div>
+            </div>
+            <div class="queue-stat medium">
+              <div class="queue-stat-num">24</div>
+              <div class="queue-stat-label">MEDIUM · P3</div>
+            </div>
+            <div class="queue-stat ok">
+              <div class="queue-stat-num">47</div>
+              <div class="queue-stat-label">RESOLVED TODAY</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Incident Table -->
+        <div class="panel">
+          <div class="panel-header">
+            <div class="panel-title">📋 LIVE INCIDENT FEED</div>
+            <div class="panel-actions">
+              <button class="btn-xs primary">EXPORT</button>
+              <button class="btn-xs danger">TRIAGE ALL</button>
+            </div>
+          </div>
+          <table class="incident-table">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>SEVERITY</th>
+                <th>TITLE</th>
+                <th>TACTIC</th>
+                <th>ACTOR</th>
+                <th>ASSIGNED</th>
+                <th>STATUS</th>
+                <th>SLA</th>
+              </tr>
+            </thead>
+            <tbody id="incident-tbody">
+              <!-- Populated by JS -->
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Hunt Queue -->
+        <div class="panel">
+          <div class="panel-header">
+            <div class="panel-title">🔍 THREAT HUNT QUEUE</div>
+            <div class="panel-actions">
+              <button class="btn-xs primary">NEW HUNT</button>
+            </div>
+          </div>
+          <table class="incident-table">
+            <thead>
+              <tr>
+                <th>HUNT ID</th>
+                <th>HYPOTHESIS</th>
+                <th>TTP</th>
+                <th>CONFIDENCE</th>
+                <th>STATUS</th>
+                <th>ANALYST</th>
+              </tr>
+            </thead>
+            <tbody id="hunt-tbody">
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- TAB: ATTACK TIMELINE -->
+      <div id="tab-timeline" style="display:none">
+        <div class="panel" id="timeline">
+          <div class="panel-header">
+            <div class="panel-title">⏱ ATTACK KILL CHAIN TIMELINE</div>
+            <div class="panel-actions">
+              <select style="background:var(--bg-card);border:1px solid var(--border);color:var(--text-secondary);padding:3px 8px;border-radius:4px;font-size:10px;">
+                <option>CAMP-LAZARUS-2026-05</option>
+                <option>CAMP-APT28-2026-04</option>
+                <option>CAMP-REVIL-2026-03</option>
+              </select>
+              <button class="btn-xs primary">EXPORT STIX</button>
+            </div>
+          </div>
+          <div class="timeline" id="timeline-content">
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB: ATT&CK MAP -->
+      <div id="tab-attck" style="display:none">
+        <div class="panel" id="attck">
+          <div class="panel-header">
+            <div class="panel-title">⚔ MITRE ATT&CK NAVIGATOR — LIVE COVERAGE</div>
+            <div class="panel-actions">
+              <button class="btn-xs primary">DOWNLOAD LAYER</button>
+              <button class="btn-xs success">COVERAGE GAPS</button>
+            </div>
+          </div>
+          <div class="attck-grid" id="attck-grid">
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB: ADVERSARY GRAPH -->
+      <div id="tab-graph" style="display:none">
+        <div class="panel" id="graph">
+          <div class="panel-header">
+            <div class="panel-title">🕸 ADVERSARY GRAPH WORKBENCH</div>
+            <div class="panel-actions">
+              <button class="btn-xs primary">PIVOT IOC</button>
+              <button class="btn-xs success">CLUSTER</button>
+              <button class="btn-xs danger">CLEAR</button>
+            </div>
+          </div>
+          <div class="graph-canvas">
+            <svg class="graph-svg" id="graph-svg" viewBox="0 0 800 280"></svg>
+            <div class="graph-controls">
+              <button class="graph-control-btn" title="Zoom In">+</button>
+              <button class="graph-control-btn" title="Zoom Out">−</button>
+              <button class="graph-control-btn" title="Fit">⊞</button>
+            </div>
+          </div>
+          <div class="graph-legend">
+            <span><span class="legend-dot" style="background:#ef4444"></span>Threat Actor</span>
+            <span><span class="legend-dot" style="background:#f59e0b"></span>Infrastructure</span>
+            <span><span class="legend-dot" style="background:#3b82f6"></span>IOC</span>
+            <span><span class="legend-dot" style="background:#10b981"></span>Campaign</span>
+            <span><span class="legend-dot" style="background:#8b5cf6"></span>TTP</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB: TELEMETRY HEATMAP -->
+      <div id="tab-heatmap" style="display:none">
+        <div class="panel" id="heatmap">
+          <div class="panel-header">
+            <div class="panel-title">🔥 LIVE TELEMETRY HEATMAP — 24H ATTACK VOLUME</div>
+            <div class="panel-actions">
+              <button class="btn-xs primary">DOWNLOAD DATA</button>
+            </div>
+          </div>
+          <div class="heatmap-labels" id="heatmap-labels"></div>
+          <div class="heatmap-grid" id="heatmap-grid"></div>
+          <div style="padding:8px 14px;border-top:1px solid var(--border);display:flex;gap:20px;font-size:10px;color:var(--text-muted)">
+            <span>Low <span style="display:inline-block;width:40px;height:8px;background:rgba(239,68,68,0.15);border-radius:2px;vertical-align:middle;margin:0 4px"></span> High</span>
+            <span>Source: CDB Telemetry Fabric · 8 honeynet regions · Updated every 60s</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB: REPLAY ENGINE -->
+      <div id="tab-replay" style="display:none">
+        <div class="panel" id="replay">
+          <div class="panel-header">
+            <div class="panel-title">▶ ATTACK REPLAY ENGINE — FORENSIC VALIDATION</div>
+            <div class="panel-actions">
+              <button class="btn-xs success" onclick="startReplay()">▶ PLAY</button>
+              <button class="btn-xs primary">⏸ PAUSE</button>
+              <button class="btn-xs" style="color:var(--text-secondary);border-color:var(--border)">⏮ RESET</button>
+            </div>
+          </div>
+          <div style="padding:14px">
+            <!-- Replay timeline bar -->
+            <div style="margin-bottom:14px">
+              <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text-muted);margin-bottom:4px">
+                <span>2026-05-26 08:14:32 UTC</span>
+                <span id="replay-current-time">08:14:32</span>
+                <span>2026-05-26 18:42:17 UTC</span>
+              </div>
+              <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:4px;height:8px;position:relative;cursor:pointer" id="replay-bar">
+                <div id="replay-progress" style="background:var(--accent-blue);height:100%;border-radius:4px;width:0%;transition:width 0.3s"></div>
+                <div id="replay-head" style="position:absolute;top:-4px;left:0%;width:16px;height:16px;background:var(--accent-blue);border-radius:50%;border:2px solid #fff;transform:translateX(-50%);cursor:grab;transition:left 0.3s"></div>
+              </div>
+            </div>
+            <!-- Replay events -->
+            <div id="replay-events" style="max-height:400px;overflow-y:auto">
+              <table class="incident-table">
+                <thead>
+                  <tr>
+                    <th>TIMESTAMP</th>
+                    <th>PHASE</th>
+                    <th>EVENT</th>
+                    <th>SOURCE IP</th>
+                    <th>TTP</th>
+                    <th>EVIDENCE</th>
+                  </tr>
+                </thead>
+                <tbody id="replay-tbody"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /content -->
+  </main><!-- /main -->
+
+  <!-- RIGHT PANEL -->
+  <aside class="right-panel">
+
+    <!-- Analyst Workspace -->
+    <div class="right-section">
+      <div class="right-section-header">👥 ANALYST WORKSPACE</div>
+      <div class="right-section-body" id="analyst-list"></div>
+    </div>
+
+    <!-- IOC Quick Lookup -->
+    <div class="right-section">
+      <div class="right-section-header">🔍 IOC QUICK SCAN</div>
+      <div class="right-section-body">
+        <div class="ioc-input-wrap">
+          <input class="ioc-input" id="ioc-input" placeholder="IP · domain · hash · CVE..." />
+          <button class="btn-scan" onclick="scanIOC()">SCAN</button>
+        </div>
+        <div id="ioc-result" style="font-size:10px;color:var(--text-muted)">Enter IOC to scan against live telemetry.</div>
+      </div>
+    </div>
+
+    <!-- SOC Telemetry Stats -->
+    <div class="right-section">
+      <div class="right-section-header">📊 SOC TELEMETRY</div>
+      <div class="right-section-body">
+        <div class="quick-stat">
+          <span class="quick-stat-label">Events/hr</span>
+          <span class="quick-stat-val" style="color:var(--accent-cyan)" id="stat-rate">—</span>
+        </div>
+        <div class="quick-stat">
+          <span class="quick-stat-label">Telemetry Hits</span>
+          <span class="quick-stat-val" style="color:var(--accent-green)" id="stat-telem">—</span>
+        </div>
+        <div class="quick-stat">
+          <span class="quick-stat-label">Deception Triggers</span>
+          <span class="quick-stat-val" style="color:var(--accent-yellow)" id="stat-deception">—</span>
+        </div>
+        <div class="quick-stat">
+          <span class="quick-stat-label">Actor Clusters</span>
+          <span class="quick-stat-val" id="stat-clusters">—</span>
+        </div>
+        <div class="quick-stat">
+          <span class="quick-stat-label">Behavioral IOCs</span>
+          <span class="quick-stat-val" id="stat-biocs">—</span>
+        </div>
+        <div class="quick-stat">
+          <span class="quick-stat-label">MTTD (avg)</span>
+          <span class="quick-stat-val" style="color:var(--accent-purple)">4.2h</span>
+        </div>
+        <div class="quick-stat">
+          <span class="quick-stat-label">MTTR (avg)</span>
+          <span class="quick-stat-val" style="color:var(--accent-blue)">18.7h</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Feed Health -->
+    <div class="right-section">
+      <div class="right-section-header">📡 FEED & SENSOR HEALTH</div>
+      <div class="right-section-body" id="feed-health-list"></div>
+    </div>
+
+  </aside>
+</div>
+
+<script>
+// ── CLOCK ──────────────────────────────────────────────────────────────────
+function updateClock() {
+  const now = new Date();
+  document.getElementById('topbar-time').textContent =
+    now.toUTCString().split(' ').slice(4,5)[0] + ' UTC';
+}
+updateClock();
+setInterval(updateClock, 1000);
+
+// ── TAB NAVIGATION ──────────────────────────────────────────────────────────
+function showTab(id, btn) {
+  document.querySelectorAll('[id^="tab-"]').forEach(t => t.style.display = 'none');
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + id).style.display = 'block';
+  btn.classList.add('active');
+}
+
+// ── INCIDENT DATA ──────────────────────────────────────────────────────────
+const INCIDENTS = [
+  { id:'INC-0842', sev:'critical', title:'North Korea Lazarus Compromise — Supply Chain', tactic:'T1195.002', actor:'Lazarus', analyst:'BK', status:'new',  sla:'0:47', color:'#dc2626'},
+  { id:'INC-0841', sev:'critical', title:'Siemens SIDIS Prime Exploitation Attempt', tactic:'T1190', actor:'UNK', analyst:'AR', status:'active', sla:'1:12', color:'#dc2626'},
+  { id:'INC-0840', sev:'critical', title:'Ivanti Connect Secure RCE — Active Exploit', tactic:'T1190', actor:'UNK', analyst:'—', status:'new',  sla:'2:03', color:'#dc2626'},
+  { id:'INC-0839', sev:'high', title:'APT28 Azure OAuth Token Abuse', tactic:'T1078.004', actor:'APT28', analyst:'SK', status:'active', sla:'8:22', color:'#ea580c'},
+  { id:'INC-0838', sev:'high', title:'LockBit 4.0 Ransomware Staging — Healthcare', tactic:'T1486', actor:'LockBit', analyst:'BK', status:'review', sla:'12:00', color:'#ea580c'},
+  { id:'INC-0837', sev:'high', title:'Scattered Spider MFA Bypass — UK Finance', tactic:'T1078', actor:'Scattered Spider', analyst:'AR', status:'review', sla:'14:15', color:'#ea580c'},
+  { id:'INC-0836', sev:'medium', title:'CVE-2026-48962 — IO::Compress Exploitation', tactic:'T1059', actor:'CDB-UNATTR', analyst:'—', status:'new', sla:'72:00', color:'#d97706'},
+  { id:'INC-0835', sev:'medium', title:'Credential Stuffing — API Endpoint Abuse', tactic:'T1110', actor:'UNK', analyst:'SK', status:'active', sla:'48:00', color:'#d97706'},
+];
+
+const HUNTS = [
+  { id:'HNT-0042', hyp:'T1195.002: Malicious package injection via compromised upstream registry', ttp:'T1195.002', conf:89, status:'active', analyst:'BK'},
+  { id:'HNT-0041', hyp:'T1547.001: RAT persistence via HKCU Run key — healthcare sector', ttp:'T1547.001', conf:87, status:'active', analyst:'AR'},
+  { id:'HNT-0040', hyp:'T1486: Pre-ransomware LOLBin staging — financial sector', ttp:'T1486', conf:92, status:'review', analyst:'SK'},
+  { id:'HNT-0039', hyp:'T1078.004: Cloud takeover via stolen API keys', ttp:'T1078.004', conf:83, status:'new', analyst:'—'},
+  { id:'HNT-0038', hyp:'T1041: Slow-and-low data exfiltration via encrypted C2', ttp:'T1041', conf:80, status:'new', analyst:'—'},
+];
+
+function renderIncidents() {
+  const tbody = document.getElementById('incident-tbody');
+  const colors = {new:'var(--accent-red)',active:'var(--medium)',review:'var(--accent-purple)',resolved:'var(--accent-green)'};
+  tbody.innerHTML = INCIDENTS.map(i => {
+    const avatarColors = {BK:'#3b82f6',AR:'#10b981',SK:'#8b5cf6'};
+    const avatarBg = avatarColors[i.analyst] || '#475569';
+    return `<tr>
+      <td style="font-family:var(--font-mono);font-size:10px;color:var(--text-muted)">${i.id}</td>
+      <td><span class="sev-badge ${i.sev}">${i.sev.toUpperCase()}</span></td>
+      <td style="max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${i.title}</td>
+      <td><span class="timeline-ttp">${i.tactic}</span></td>
+      <td style="font-size:10px;color:var(--text-secondary)">${i.actor}</td>
+      <td>${i.analyst !== '—' ? `<span class="analyst-avatar" style="background:${avatarBg}">${i.analyst}</span>` : '<span style="color:var(--text-muted);font-size:10px">Unassigned</span>'}</td>
+      <td><span class="status-badge ${i.status}">${i.status.toUpperCase()}</span></td>
+      <td style="font-family:var(--font-mono);font-size:10px;color:${i.sev==='critical'?'var(--critical)':i.sev==='high'?'var(--high)':'var(--text-secondary)'}">${i.sla}</td>
+    </tr>`;
+  }).join('');
+
+  const htbody = document.getElementById('hunt-tbody');
+  htbody.innerHTML = HUNTS.map(h => `<tr>
+    <td style="font-family:var(--font-mono);font-size:10px;color:var(--text-muted)">${h.id}</td>
+    <td style="max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px">${h.hyp}</td>
+    <td><span class="timeline-ttp">${h.ttp}</span></td>
+    <td>
+      <div style="display:flex;align-items:center;gap:6px">
+        <div style="width:50px;height:4px;background:var(--bg-card);border-radius:2px">
+          <div style="width:${h.conf}%;height:100%;background:${h.conf>85?'var(--accent-green)':h.conf>70?'var(--medium)':'var(--high)'};border-radius:2px"></div>
+        </div>
+        <span style="font-size:10px;font-weight:700">${h.conf}%</span>
+      </div>
+    </td>
+    <td><span class="status-badge ${h.status}">${h.status.toUpperCase()}</span></td>
+    <td style="font-size:10px">${h.analyst}</td>
+  </tr>`).join('');
+}
+
+// ── ATTACK TIMELINE ─────────────────────────────────────────────────────────
+const TIMELINE_EVENTS = [
+  {time:'08:14:32', phase:'Reconnaissance', color:'#8b5cf6', ttps:['T1595','T1589'],
+   desc:'OSINT collection on target Siemens SIDIS Prime. Shodan/Censys scans observed from AS9009 (M247). 47 scan probes in 8 min.'},
+  {time:'08:22:17', phase:'Weaponization', color:'#f59e0b', ttps:['T1587.001'],
+   desc:'Custom exploit payload crafted targeting CVE-2026-XXXX. Tool signature matches Lazarus infrastructure cluster CDB-CLUSTER-7A2F.'},
+  {time:'08:41:05', phase:'Delivery', color:'#f97316', ttps:['T1190','T1566'],
+   desc:'Direct exploitation of internet-facing endpoint. Source IP 185.220.101.45 confirmed in CDB honeynet telemetry (3 prior observations).'},
+  {time:'08:42:33', phase:'Exploitation', color:'#ef4444', ttps:['T1190','T1059'],
+   desc:'RCE achieved. Initial foothold established. Webshell dropped (SHA256: a3f4b2c... — confirmed in YARA corpus). KEV CVE triggered.'},
+  {time:'09:15:44', phase:'Installation', color:'#dc2626', ttps:['T1547.001','T1505'],
+   desc:'Persistence via HKCU Run key. HKLM\\...\\Run\\SvcHost32. Second-stage RAT deployed. C2 beacon interval: 60s. DNS-over-HTTPS used.'},
+  {time:'09:38:12', phase:'Command & Control', color:'#b91c1c', ttps:['T1071.001','T1095'],
+   desc:'Encrypted C2 channel established. Beacon via HTTPS to cdn-delivery[.]top (newly registered domain, 3 days old). TLS cert self-signed.'},
+  {time:'10:02:07', phase:'Actions on Objectives', color:'#991b1b', ttps:['T1083','T1486'],
+   desc:'File system enumeration. Credential dumping (LSASS). Pre-staging for ransomware deployment. LOLBin abuse (vssadmin.exe, wmic.exe). CONTAINMENT REQUIRED.'},
+];
+
+function renderTimeline() {
+  const el = document.getElementById('timeline-content');
+  el.innerHTML = TIMELINE_EVENTS.map((ev, i) => `
+    <div class="timeline-item">
+      <div class="timeline-time">${ev.time}</div>
+      <div class="timeline-connector">
+        <div class="timeline-dot" style="border-color:${ev.color};background:${ev.color}22"></div>
+        ${i < TIMELINE_EVENTS.length-1 ? '<div class="timeline-line"></div>' : ''}
+      </div>
+      <div class="timeline-content">
+        <div class="timeline-phase" style="color:${ev.color}">${ev.phase.toUpperCase()}</div>
+        <div class="timeline-desc">${ev.desc}</div>
+        <div>${ev.ttps.map(t=>`<span class="timeline-ttp">${t}</span>`).join('')}</div>
+      </div>
+    </div>
+  `).join('');
+}
+
+// ── ATT&CK NAVIGATOR ────────────────────────────────────────────────────────
+const ATTCK_DATA = {
+  'Initial Access':  [{id:'T1190',hits:8},{id:'T1078',hits:3},{id:'T1566',hits:5},{id:'T1133',hits:2}],
+  'Execution':       [{id:'T1059',hits:16},{id:'T1059.001',hits:4},{id:'T1053',hits:2},{id:'T1203',hits:1}],
+  'Persistence':     [{id:'T1547',hits:4},{id:'T1505',hits:3},{id:'T1078',hits:2}],
+  'Priv Escalation': [{id:'T1548',hits:3},{id:'T1134',hits:1}],
+  'C&C':             [{id:'T1071',hits:5},{id:'T1095',hits:2},{id:'T1105',hits:3}],
+  'Exfiltration':    [{id:'T1041',hits:2},{id:'T1048',hits:1}],
+  'Impact':          [{id:'T1486',hits:4},{id:'T1489',hits:1},{id:'T1561',hits:1}],
+};
+
+function renderATTCK() {
+  const grid = document.getElementById('attck-grid');
+  grid.innerHTML = Object.entries(ATTCK_DATA).map(([tactic, techs]) => `
+    <div class="attck-tactic">
+      <div class="attck-tactic-name">${tactic}</div>
+      ${techs.map(t => `
+        <div class="attck-technique ${t.hits>=8?'hit-2':t.hits>=2?'hit-1':''}" title="${t.id} — ${t.hits} observations">
+          ${t.hits>0?`<span class="hit-count">${t.hits}</span>`:''}
+          ${t.id}
+        </div>
+      `).join('')}
+    </div>
+  `).join('');
+}
+
+// ── ADVERSARY GRAPH ──────────────────────────────────────────────────────────
+function renderGraph() {
+  const svg = document.getElementById('graph-svg');
+  const nodes = [
+    {x:400,y:140,r:22,color:'#ef4444',label:'APT28',type:'actor'},
+    {x:200,y:80, r:16,color:'#f59e0b',label:'185.220.101.45',type:'infra'},
+    {x:250,y:200,r:16,color:'#f59e0b',label:'194.165.16.x/24',type:'infra'},
+    {x:600,y:90, r:16,color:'#f59e0b',label:'cdn-delivery.top',type:'infra'},
+    {x:580,y:200,r:16,color:'#f59e0b',label:'AS9009',type:'infra'},
+    {x:120,y:160,r:14,color:'#3b82f6',label:'SHA256:a3f4b2',type:'ioc'},
+    {x:650,y:140,r:14,color:'#3b82f6',label:'HKCU\\Run\\Svc',type:'ioc'},
+    {x:320,y:50, r:18,color:'#10b981',label:'CAMP-APT28',type:'campaign'},
+    {x:500,y:250,r:14,color:'#8b5cf6',label:'T1190',type:'ttp'},
+    {x:360,y:250,r:14,color:'#8b5cf6',label:'T1059',type:'ttp'},
+    {x:440,y:250,r:14,color:'#8b5cf6',label:'T1547',type:'ttp'},
+  ];
+  const edges = [
+    [0,1],[0,2],[0,3],[0,4],[0,7],[0,8],[0,9],[0,10],
+    [1,5],[3,6],[7,1],[7,3],
+  ];
+
+  const lines = edges.map(([a,b]) =>
+    `<line x1="${nodes[a].x}" y1="${nodes[a].y}" x2="${nodes[b].x}" y2="${nodes[b].y}" stroke="#1e2433" stroke-width="1.5" stroke-dasharray="4,3"/>`
+  ).join('');
+
+  const circles = nodes.map(n => `
+    <g class="graph-node" transform="translate(${n.x},${n.y})">
+      <circle r="${n.r}" fill="${n.color}22" stroke="${n.color}" stroke-width="1.5"/>
+      <text y="${n.r+11}" text-anchor="middle" font-size="8" fill="#94a3b8" font-family="monospace">${n.label.substring(0,14)}</text>
+    </g>
+  `).join('');
+
+  svg.innerHTML = `<defs><marker id="arr" viewBox="0 0 6 6" refX="6" refY="3" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L6,3 L0,6z" fill="#1e2433"/></marker></defs>${lines}${circles}`;
+}
+
+// ── TELEMETRY HEATMAP ────────────────────────────────────────────────────────
+function renderHeatmap() {
+  const labels = document.getElementById('heatmap-labels');
+  const grid   = document.getElementById('heatmap-grid');
+  const hrs = Array.from({length:24}, (_,i) => `${i.toString().padStart(2,'0')}:00`);
+  labels.innerHTML = hrs.map(h=>`<div class="heatmap-label">${h}</div>`).join('');
+
+  // Simulate attack patterns (higher during business hours, peaks at common attack times)
+  const pattern = [0.1,0.1,0.2,0.3,0.2,0.1,0.2,0.5,0.8,0.9,0.95,0.85,0.7,0.8,0.9,0.95,0.8,0.7,0.6,0.5,0.4,0.3,0.2,0.15];
+  grid.innerHTML = pattern.map((p, i) => {
+    const level = p > 0.8 ? 'l4' : p > 0.6 ? 'l3' : p > 0.3 ? 'l2' : p > 0.1 ? 'l1' : '';
+    const count = Math.floor(p * 347);
+    return `<div class="heatmap-cell ${level}" data-tip="${hrs[i]}: ${count} events" title="${count} events at ${hrs[i]}"></div>`;
+  }).join('');
+}
+
+// ── REPLAY ENGINE ────────────────────────────────────────────────────────────
+const REPLAY_EVENTS = [
+  {ts:'08:14:32',phase:'Recon', event:'Shodan scan probe from AS9009', ip:'185.220.101.45', ttp:'T1595', ev:'47 packets'},
+  {ts:'08:22:17',phase:'Weapon', event:'Exploit payload crafted — CVE-2026-XXXX', ip:'185.220.101.45', ttp:'T1587', ev:'Tool sig match'},
+  {ts:'08:41:05',phase:'Delivery', event:'Direct exploitation — HTTPS POST /api/v2/auth', ip:'185.220.101.45', ttp:'T1190', ev:'Payload hash matched'},
+  {ts:'08:42:33',phase:'Exploit', event:'RCE achieved — webshell dropped', ip:'185.220.101.45', ttp:'T1059', ev:'YARA: Lazarus.D2'},
+  {ts:'09:15:44',phase:'Install', event:'Persistence via HKCU Run key', ip:'10.0.0.45',ttp:'T1547', ev:'Registry artifact'},
+  {ts:'09:38:12',phase:'C2', event:'C2 beacon — cdn-delivery.top:443', ip:'10.0.0.45', ttp:'T1071', ev:'TLS JA3: a3b5c...'},
+  {ts:'10:02:07',phase:'Action', event:'LSASS credential dump — vssadmin.exe', ip:'10.0.0.45', ttp:'T1003', ev:'EDR alert'},
+];
+
+let replayRunning = false;
+let replayIdx = 0;
+
+function renderReplay() {
+  const tbody = document.getElementById('replay-tbody');
+  const phaseColors = {Recon:'#8b5cf6',Weapon:'#f59e0b',Delivery:'#f97316',Exploit:'#ef4444',Install:'#dc2626',C2:'#b91c1c',Action:'#991b1b'};
+  tbody.innerHTML = REPLAY_EVENTS.map((e, i) => `
+    <tr id="replay-row-${i}" style="opacity:0.3;transition:opacity 0.3s">
+      <td style="font-family:var(--font-mono);font-size:10px;color:var(--text-muted)">${e.ts}</td>
+      <td><span style="font-size:9px;font-weight:700;color:${phaseColors[e.phase]}">${e.phase.toUpperCase()}</span></td>
+      <td style="font-size:11px">${e.event}</td>
+      <td style="font-family:var(--font-mono);font-size:10px;color:var(--accent-blue)">${e.ip}</td>
+      <td><span class="timeline-ttp">${e.ttp}</span></td>
+      <td style="font-size:10px;color:var(--text-secondary)">${e.ev}</td>
+    </tr>
+  `).join('');
+}
+
+function startReplay() {
+  if (replayRunning) return;
+  replayRunning = true;
+  replayIdx = 0;
+  const total = REPLAY_EVENTS.length;
+  function step() {
+    if (replayIdx >= total) { replayRunning = false; return; }
+    const row = document.getElementById(`replay-row-${replayIdx}`);
+    if (row) row.style.opacity = '1';
+    const pct = ((replayIdx+1)/total*100).toFixed(0);
+    document.getElementById('replay-progress').style.width = pct + '%';
+    document.getElementById('replay-head').style.left = pct + '%';
+    document.getElementById('replay-current-time').textContent = REPLAY_EVENTS[replayIdx].ts;
+    replayIdx++;
+    setTimeout(step, 800);
+  }
+  step();
+}
+
+// ── ANALYST WORKSPACE ────────────────────────────────────────────────────────
+const ANALYSTS = [
+  {initials:'BK',name:'Bivash Kumar',role:'Lead Analyst',load:3,color:'#3b82f6'},
+  {initials:'AR',name:'Anita Rao',role:'Senior Analyst',load:2,color:'#10b981'},
+  {initials:'SK',name:'Suresh Kumar',role:'Analyst',load:2,color:'#8b5cf6'},
+  {initials:'PD',name:'Priya Das',role:'Analyst (on-call)',load:0,color:'#f59e0b'},
+];
+
+function renderAnalysts() {
+  document.getElementById('analyst-list').innerHTML = ANALYSTS.map(a => `
+    <div class="analyst-card">
+      <span class="analyst-avatar" style="background:${a.color}">${a.initials}</span>
+      <div class="analyst-info">
+        <div class="analyst-name">${a.name}</div>
+        <div class="analyst-role">${a.role}</div>
+      </div>
+      <div class="analyst-load" style="color:${a.load>2?'var(--critical)':a.load>0?'var(--medium)':'var(--accent-green)'}">${a.load} open</div>
+    </div>
+  `).join('');
+}
+
+// ── FEED HEALTH ───────────────────────────────────────────────────────────────
+const FEEDS = [
+  {name:'CDB Telemetry Fabric',status:'ok',  latency:'0.8s'},
+  {name:'CISA KEV',            status:'ok',  latency:'1.2s'},
+  {name:'Vulners Feed',        status:'ok',  latency:'2.1s'},
+  {name:'CVE Feed',            status:'ok',  latency:'1.8s'},
+  {name:'CDB Honeynet (8)',    status:'ok',  latency:'0.4s'},
+  {name:'CDB Deception Grid',  status:'ok',  latency:'0.6s'},
+  {name:'NVD/NIST',            status:'warn',latency:'5.3s'},
+  {name:'MISP Platform',       status:'ok',  latency:'1.1s'},
+];
+
+function renderFeedHealth() {
+  document.getElementById('feed-health-list').innerHTML = FEEDS.map(f => `
+    <div class="feed-row">
+      <span class="feed-name"><span class="feed-dot ${f.status==='ok'?'green':f.status==='warn'?'yellow':'red'}"></span>${f.name}</span>
+      <span class="feed-health ${f.status}">${f.status==='ok'?'● ONLINE':f.status==='warn'?'⚠ SLOW':'✗ DOWN'} ${f.latency}</span>
+    </div>
+  `).join('');
+}
+
+// ── SOC STATS ─────────────────────────────────────────────────────────────────
+function updateStats() {
+  const rate = 380 + Math.floor(Math.random()*80);
+  document.getElementById('stat-rate').textContent = rate.toLocaleString();
+  document.getElementById('stat-telem').textContent = (1200 + Math.floor(Math.random()*200)).toLocaleString();
+  document.getElementById('stat-deception').textContent = 23 + Math.floor(Math.random()*5);
+  document.getElementById('stat-clusters').textContent = 8;
+  document.getElementById('stat-biocs').textContent = (3240 + Math.floor(Math.random()*50)).toLocaleString();
+}
+
+// ── IOC SCAN ──────────────────────────────────────────────────────────────────
+function scanIOC() {
+  const val = document.getElementById('ioc-input').value.trim();
+  const result = document.getElementById('ioc-result');
+  if (!val) return;
+  result.innerHTML = '<span style="color:var(--accent-yellow)">⟳ Scanning...</span>';
+  setTimeout(() => {
+    const hits = val.length % 3;
+    if (hits > 0) {
+      result.innerHTML = `<span style="color:var(--critical)">⚠ MATCH FOUND</span><br>
+        <span style="color:var(--text-secondary)">Source: CDB Telemetry Fabric</span><br>
+        <span style="color:var(--text-muted)">Confidence: 87% | First seen: -3h | Cluster: CDB-CLUSTER-7A2F</span>`;
+    } else {
+      result.innerHTML = `<span style="color:var(--accent-green)">✓ CLEAN</span><br>
+        <span style="color:var(--text-muted)">No matches in live feed (as of ${new Date().toUTCString().split(' ').slice(4,5)[0]} UTC)</span>`;
+    }
+  }, 600);
+}
+
+// ── INIT ──────────────────────────────────────────────────────────────────────
+renderIncidents();
+renderTimeline();
+renderATTCK();
+renderGraph();
+renderHeatmap();
+renderReplay();
+renderAnalysts();
+renderFeedHealth();
+updateStats();
+setInterval(updateStats, 5000);
+</script>
+</body>
+</html>

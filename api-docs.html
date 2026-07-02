@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>API Reference v185.0 — CYBERDUDEBIVASH® SENTINEL APEX | STIX 2.1 · TAXII · IOC · Threat Intelligence API</title>
+<meta name="description" content="SENTINEL APEX API v185.0 — Real-time threat intelligence API. STIX 2.1 bundles, TAXII 2.1, IOC lookup, CVE enrichment, MITRE ATT&CK mapping, SIEM dispatch. From $49/mo. Free tier available.">
+<meta property="og:title" content="SENTINEL APEX API v185.0 — Threat Intelligence API">
+<meta property="og:description" content="Real-time threat intelligence API. STIX 2.1 bundles, TAXII 2.1, IOC lookup, CVE enrichment, MITRE ATT&CK mapping, SIEM dispatch. From $49/mo. Free tier available.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://intel.cyberdudebivash.com/api-docs.html">
+<meta property="og:image" content="https://intel.cyberdudebivash.com/assets/og-api.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="SENTINEL APEX API v185.0 — Threat Intelligence API">
+<meta name="twitter:description" content="Real-time threat intelligence API. STIX 2.1, TAXII 2.1, IOC lookup, CVE enrichment, MITRE ATT&CK. Free tier available.">
+<link rel="canonical" href="https://intel.cyberdudebivash.com/api-docs.html">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:#0a0e1a;color:#e8eaf6;line-height:1.7}
+header{background:linear-gradient(135deg,#0d1b2a,#1a2744);padding:20px 40px;border-bottom:2px solid #1e3a5f;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px}
+.logo{font-size:1.05rem;font-weight:700;color:#4fc3f7}
+.logo span{color:#00e5c3;font-size:.7rem;display:block;letter-spacing:.08em}
+nav a{color:#90caf9;text-decoration:none;margin-left:16px;font-size:.85rem;transition:color .15s}
+nav a:hover{color:#fff}
+.get-key-btn{background:linear-gradient(135deg,#00bcd4,#00e5c3);color:#020c1b;font-weight:800;padding:9px 22px;border-radius:6px;font-size:.82rem;letter-spacing:.04em;text-decoration:none;transition:all .2s;display:inline-block;margin-left:20px}
+.get-key-btn:hover{transform:translateY(-1px);box-shadow:0 6px 20px rgba(0,212,195,0.4);color:#020c1b}
+.cta-banner{background:linear-gradient(135deg,rgba(0,188,212,0.12),rgba(0,229,195,0.08));border:1px solid rgba(0,229,195,0.3);border-radius:10px;padding:20px 28px;margin:0 0 32px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:16px}
+.cta-banner h3{color:#00e5c3;font-size:1rem;font-weight:700;margin:0 0 4px}
+.cta-banner p{color:#90a4ae;font-size:.85rem;margin:0}
+.cta-banner a{background:#00e5c3;color:#020c1b;padding:10px 24px;border-radius:6px;font-weight:800;font-size:.85rem;text-decoration:none;white-space:nowrap;transition:all .2s}
+.cta-banner a:hover{background:#00bcd4;transform:translateY(-1px)}
+.tier-badge{display:inline-block;padding:2px 8px;border-radius:4px;font-size:.72rem;font-weight:700;margin-left:8px}
+.tier-free{background:#1a3a1a;color:#81c784;border:1px solid #4caf50}
+.tier-pro{background:#1a2a3a;color:#64b5f6;border:1px solid #2196f3}
+.tier-ent{background:#2a1a3a;color:#ce93d8;border:1px solid #9c27b0}
+.tier-mssp{background:#2a2a1a;color:#ffcc02;border:1px solid #ffc107}
+.layout{display:grid;grid-template-columns:240px 1fr;min-height:calc(100vh - 64px)}
+.sidebar{background:#060d18;border-right:1px solid #1e3a5f;padding:24px 0;position:sticky;top:0;height:calc(100vh - 64px);overflow-y:auto}
+.sidebar-section{padding:8px 20px;font-size:.7rem;font-weight:700;color:#546e7a;text-transform:uppercase;letter-spacing:.1em;margin-top:16px}
+.sidebar a{display:block;padding:8px 20px;color:#90caf9;text-decoration:none;font-size:.85rem;border-left:2px solid transparent;transition:all .15s}
+.sidebar a:hover,.sidebar a.active{color:#fff;border-left-color:#2196f3;background:#0d1929}
+.content{padding:40px 48px;max-width:900px}
+h1{font-size:2rem;font-weight:800;color:#fff;margin-bottom:8px}
+h2{font-size:1.3rem;font-weight:700;color:#4fc3f7;margin:36px 0 16px;padding-bottom:10px;border-bottom:1px solid #1e3a5f}
+h3{font-size:1rem;font-weight:600;color:#81d4fa;margin:24px 0 10px}
+p{color:#b0bec5;font-size:.93rem;margin-bottom:14px}
+.method-badge{display:inline-block;padding:3px 10px;border-radius:4px;font-size:.75rem;font-weight:700;margin-right:8px}
+.get{background:#1565c0;color:#e3f2fd}
+.post{background:#1b5e20;color:#e8f5e9}
+.endpoint{background:#0a1628;border:1px solid #1e3a5f;border-radius:8px;padding:16px 20px;margin:12px 0 20px;font-family:'Courier New',monospace;font-size:.9rem;color:#80cbc4}
+.endpoint strong{color:#4fc3f7}
+pre{background:#060d18;border:1px solid #1e3a5f;border-radius:8px;padding:20px;overflow-x:auto;font-size:.82rem;line-height:1.6;color:#a5d6a7;margin:12px 0 20px}
+code{background:#0d1929;padding:2px 6px;border-radius:3px;font-size:.85rem;color:#80cbc4;font-family:'Courier New',monospace}
+table{width:100%;border-collapse:collapse;font-size:.88rem;margin:12px 0 20px}
+th{background:#0a1628;color:#4fc3f7;padding:10px 14px;text-align:left;font-weight:600;border-bottom:1px solid #1e3a5f}
+td{padding:10px 14px;border-bottom:1px solid #0d2035;color:#b0bec5;vertical-align:top}
+.tag{display:inline-block;padding:2px 8px;border-radius:4px;font-size:.75rem;font-weight:600}
+.req{background:#2d1515;color:#ef9a9a;border:1px solid #ef5350}
+.opt{background:#0d2a0f;color:#81c784;border:1px solid #4caf50}
+.info-box{background:#0a2040;border:1px solid #1565c0;border-radius:8px;padding:16px 20px;margin:16px 0}
+.info-box.warn{background:#2a1a0a;border-color:#f57c00}
+.info-box p{margin:0;font-size:.88rem;color:#90caf9}
+.info-box.warn p{color:#ffb74d}
+ul{padding-left:20px;color:#b0bec5;font-size:.9rem;margin-bottom:12px}
+li{margin-bottom:6px}
+@media(max-width:768px){.layout{grid-template-columns:1fr}.sidebar{display:none}.content{padding:24px 16px}}
+</style>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "TechArticle",
+  "name": "SENTINEL APEX Threat Intelligence API v184.0",
+  "description": "Complete API reference for SENTINEL APEX. STIX 2.1, TAXII 2.1, IOC lookup, CVE enrichment, MITRE ATT&CK mapping.",
+  "url": "https://intel.cyberdudebivash.com/api-docs.html",
+  "author": {
+    "@type": "Organization",
+    "name": "CYBERDUDEBIVASH Pvt. Ltd.",
+    "url": "https://intel.cyberdudebivash.com"
+  },
+  "mentions": ["STIX 2.1", "TAXII 2.1", "MITRE ATT&CK", "CVE", "IOC", "Threat Intelligence"]
+}
+</script>
+</head>
+<body>
+<header>
+  <div class="logo">CYBERDUDEBIVASH® SENTINEL APEX<span>API Reference v185.0 · STIX 2.1 · TAXII 2.1</span></div>
+  <nav>
+    <a href="/">Dashboard</a>
+    <a href="/pricing.html">Pricing</a>
+    <a href="/enterprise.html">Enterprise</a>
+    <a href="/mssp.html">MSSP</a>
+    <a href="/sla.html">SLA</a>
+    <a href="/pricing.html#get-api-key" class="get-key-btn">⚡ Get API Key</a>
+  </nav>
+</header>
+<div class="layout">
+  <nav class="sidebar">
+    <div class="sidebar-section">Getting Started</div>
+    <a href="#quickstart" style="color:#00d4aa;font-weight:700;">Quick Start ⚡</a>
+    <a href="#overview">Overview</a>
+    <a href="#authentication">Authentication</a>
+    <a href="#rate-limits">Rate Limits</a>
+    <a href="#errors">Error Codes</a>
+    <div class="sidebar-section">Endpoints</div>
+    <a href="#feed">Intelligence Feed</a>
+    <a href="#advisory">Advisory Detail</a>
+    <a href="#stix">STIX Bundle</a>
+    <a href="#taxii">TAXII Feed</a>
+    <a href="#dossier">Analyst Dossier</a>
+    <a href="#iocs">IOC Lookup</a>
+    <div class="sidebar-section">Export (PRO+)</div>
+    <a href="#export-csv">CSV Bulk IOC Export</a>
+    <a href="#export-sigma">Sigma Rules</a>
+    <a href="#export-yara">YARA Rules</a>
+    <div class="sidebar-section">Enterprise</div>
+    <a href="#export-misp">MISP Export</a>
+    <a href="#siem-dispatch">SIEM Dispatch</a>
+    <a href="#intel-graph">Intel Graph</a>
+    <a href="#sla-cert">SLA Certificate</a>
+    <a href="#invoices">Invoices</a>
+    <div class="sidebar-section">MSSP</div>
+    <a href="#mssp-tenants">Sub-Tenant Portal</a>
+    <a href="#whitelabel">White-Label Config</a>
+    <div class="sidebar-section">Compliance</div>
+    <a href="#gdpr">GDPR / Data Rights</a>
+    <div class="sidebar-section">Integration</div>
+    <a href="#splunk">Splunk</a>
+    <a href="#sentinel">Microsoft Sentinel</a>
+    <a href="#qradar">IBM QRadar</a>
+  </nav>
+  <div class="content">
+    <div class="cta-banner">
+      <div>
+        <h3>⚡ Ready to integrate SENTINEL APEX intelligence?</h3>
+        <p>74 live intel feeds · STIX 2.1 · TAXII 2.1 · MITRE ATT&CK · IOC Lookup · SIEM Dispatch · 43,000+ reports</p>
+      </div>
+      <a href="/pricing.html">Get API Key &rarr;</a>
+    </div>
+    <h1>SENTINEL APEX API Reference <small style="font-size:.55em;color:#546e7a;font-weight:400">v185.0</small></h1>
+    <p>The SENTINEL APEX API provides programmatic access to real-time threat intelligence, STIX 2.1 bundles, analyst dossiers, IOC lookups, and SIEM dispatch integrations. Base URL:</p>
+    <div class="endpoint"><strong>https://intel.cyberdudebivash.com/api/</strong></div>
+    <div class="info-box">
+      <p>📘 All API responses are JSON. STIX endpoints return STIX 2.1-compliant bundles. Authentication via <code>X-API-Key</code> header is required for all endpoints except <code>/api/health</code>. Free tier provides 100 requests/day to public endpoints.</p>
+    </div>
+
+    <!-- R-04: QUICK START v185.0 -->
+    <h2 id="quickstart">Quick Start — First API Call in 60 Seconds</h2>
+    <p>Get live threat intelligence in your first call. Pick your language:</p>
+    <div style="display:flex;gap:4px;margin-bottom:-1px;flex-wrap:wrap;">
+      <button onclick="apexQsTab(this,'qs-curl')" class="qs-tab qs-tab-active">cURL</button>
+      <button onclick="apexQsTab(this,'qs-python')" class="qs-tab">Python</button>
+      <button onclick="apexQsTab(this,'qs-js')" class="qs-tab">JavaScript</button>
+      <button onclick="apexQsTab(this,'qs-go')" class="qs-tab">Go</button>
+      <button onclick="apexQsTab(this,'qs-ps')" class="qs-tab">PowerShell</button>
+    </div>
+    <div style="position:relative;border:1px solid #1e3a5f;border-radius:0 4px 4px 4px;background:#060d18;">
+      <button onclick="apexCopy(this)" style="position:absolute;top:10px;right:12px;background:rgba(79,195,247,0.1);border:1px solid rgba(79,195,247,0.3);color:#4fc3f7;font-size:10px;font-family:monospace;padding:4px 10px;border-radius:3px;cursor:pointer;letter-spacing:1px;">COPY</button>
+      <pre id="qs-curl" class="qs-panel" style="margin:0;border:none;background:transparent;"># 1. Get your API key: https://intel.cyberdudebivash.com/pricing.html
+# 2. Replace YOUR_API_KEY — Community tier is FREE (100 req/day)
+
+curl -s -H "X-API-Key: YOUR_API_KEY" \
+  "https://intel.cyberdudebivash.com/api/feed?limit=5&severity=CRITICAL" \
+  | python3 -m json.tool
+
+# Returns: JSON array of critical advisories with CVSS, EPSS, IOCs, Sigma rules</pre>
+      <pre id="qs-python" class="qs-panel" style="margin:0;border:none;background:transparent;display:none;">import requests
+
+API_KEY = "YOUR_API_KEY"  # /pricing.html for free key
+BASE    = "https://intel.cyberdudebivash.com/api"
+headers = {"X-API-Key": API_KEY}
+
+# Fetch latest CRITICAL advisories
+resp = requests.get(f"{BASE}/feed", headers=headers,
+                    params={"limit": 10, "severity": "CRITICAL"})
+resp.raise_for_status()
+
+for adv in resp.json():
+    print(f"[{adv['severity']}] {adv['title']}")
+    print(f"  CVSS: {adv.get('cvss_score')}  EPSS: {adv.get('epss_score')}%  IOCs: {adv.get('ioc_count',0)}")
+
+# Fetch Sigma rules for SIEM
+print(requests.get(f"{BASE}/feed/sigma", headers=headers).text)</pre>
+      <pre id="qs-js" class="qs-panel" style="margin:0;border:none;background:transparent;display:none;">const API_KEY = 'YOUR_API_KEY'; // /pricing.html for free key
+const BASE    = 'https://intel.cyberdudebivash.com/api';
+
+async function getThreats() {
+  const resp = await fetch(`${BASE}/feed?limit=10&severity=CRITICAL`, {
+    headers: { 'X-API-Key': API_KEY }
+  });
+  const data = await resp.json();
+  data.forEach(adv => console.log(`[${adv.severity}] ${adv.title} — CVSS:${adv.cvss_score}`));
+}
+
+// Register SIEM webhook (Enterprise+)
+async function registerWebhook(url) {
+  return fetch(`${BASE}/webhooks`, {
+    method: 'POST',
+    headers: { 'X-API-Key': API_KEY, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ url, events: ['advisory.critical'] })
+  }).then(r => r.json());
+}
+
+getThreats();</pre>
+      <pre id="qs-go" class="qs-panel" style="margin:0;border:none;background:transparent;display:none;">package main
+
+import (
+    "encoding/json"
+    "fmt"
+    "io"
+    "net/http"
+)
+
+const (
+    apiKey = "YOUR_API_KEY"
+    base   = "https://intel.cyberdudebivash.com/api"
+)
+
+func main() {
+    req, _ := http.NewRequest("GET", base+"/feed?limit=10&severity=CRITICAL", nil)
+    req.Header.Set("X-API-Key", apiKey)
+    resp, _ := http.DefaultClient.Do(req)
+    defer resp.Body.Close()
+    body, _ := io.ReadAll(resp.Body)
+    var advisories []map[string]interface{}
+    json.Unmarshal(body, &advisories)
+    for _, adv := range advisories {
+        fmt.Printf("[%s] %s — CVSS:%v\n", adv["severity"], adv["title"], adv["cvss_score"])
+    }
+}</pre>
+      <pre id="qs-ps" class="qs-panel" style="margin:0;border:none;background:transparent;display:none;"># PowerShell (Windows/macOS/Linux)
+$Key  = "YOUR_API_KEY"; $Base = "https://intel.cyberdudebivash.com/api"
+$Hdrs = @{ "X-API-Key" = $Key }
+
+# Critical advisories
+Invoke-RestMethod "$Base/feed?limit=10&severity=CRITICAL" -Headers $Hdrs |
+  ForEach-Object { Write-Host "[$($_.severity)] $($_.title) CVSS:$($_.cvss_score)" }
+
+# Save Sigma rules for Microsoft Sentinel / Splunk
+Invoke-RestMethod "$Base/feed/sigma" -Headers $Hdrs | Out-File sentinel_rules.yaml -Encoding UTF8</pre>
+    </div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;margin:16px 0 28px;">
+      <a href="/upgrade.html?plan=pro&utm_source=api-docs&utm_medium=quickstart" style="display:inline-flex;align-items:center;gap:6px;background:#00d4aa;color:#020a14;font-family:monospace;font-size:11px;font-weight:800;letter-spacing:1px;padding:8px 18px;border-radius:4px;text-decoration:none;">GET FREE API KEY</a>
+      <a href="/enterprise-procurement-pack.html" style="display:inline-flex;align-items:center;gap:6px;border:1px solid rgba(79,195,247,0.3);color:#4fc3f7;font-family:monospace;font-size:11px;font-weight:700;letter-spacing:1px;padding:8px 18px;border-radius:4px;text-decoration:none;background:rgba(79,195,247,0.06);">ENTERPRISE PACK</a>
+      <a href="/api-reference-card.html" style="display:inline-flex;align-items:center;gap:6px;border:1px solid rgba(79,195,247,0.3);color:#4fc3f7;font-family:monospace;font-size:11px;font-weight:700;letter-spacing:1px;padding:8px 18px;border-radius:4px;text-decoration:none;background:rgba(79,195,247,0.06);">POSTMAN COLLECTION</a>
+    </div>
+    <style>
+    .qs-tab{font-family:monospace;font-size:11px;padding:6px 14px;background:#060d18;border:1px solid #1e3a5f;border-bottom:none;color:#546e7a;cursor:pointer;border-radius:4px 4px 0 0;transition:background .15s,color .15s;}
+    .qs-tab-active{background:#0a1628!important;color:#4fc3f7!important;}
+    </style>
+    <script>
+    function apexQsTab(btn,panelId){
+      document.querySelectorAll('.qs-tab').forEach(function(b){b.classList.remove('qs-tab-active');});
+      btn.classList.add('qs-tab-active');
+      document.querySelectorAll('.qs-panel').forEach(function(p){p.style.display='none';});
+      var el = document.getElementById(panelId);
+      if(el) el.style.display='block';
+    }
+    function apexCopy(btn){
+      var active = null;
+      document.querySelectorAll('.qs-panel').forEach(function(p){
+        if(p.style.display !== 'none' && !p.style.display) active = p;
+        else if(!p.style.display) active = p;
+      });
+      if(!active) active = document.getElementById('qs-curl');
+      navigator.clipboard && active && navigator.clipboard.writeText(active.textContent||'').then(function(){
+        btn.textContent='COPIED!'; setTimeout(function(){btn.textContent='COPY';},1800);
+      });
+    }
+    </script>
+
+    <h2 id="authentication">Authentication</h2>
+    <p>All authenticated endpoints require an API key passed in the <code>X-API-Key</code> header. Request your API key at <a href="/pricing.html" style="color:#4fc3f7">pricing.html</a>.</p>
+    <pre>curl -H "X-API-Key: YOUR_API_KEY" \
+  https://intel.cyberdudebivash.com/api/feed</pre>
+    <div class="info-box warn">
+      <p>⚠️ Keep your API key secret. Do not expose it in client-side code. To rotate a compromised key, use your <a href="/api-key-manager.html" style="color:#ffb74d">API Key Manager</a> or contact <a href="mailto:security@cyberdudebivash.com" style="color:#ffb74d">security@cyberdudebivash.com</a>.</p>
+    </div>
+
+    <h2 id="rate-limits">Rate Limits</h2>
+    <table>
+      <tr><th>Tier</th><th>Requests / Day</th><th>Burst (per minute)</th><th>Endpoints</th><th>Response on Exceed</th></tr>
+      <tr><td>Free <span class="tier-badge tier-free">FREE</span></td><td>100</td><td>10</td><td>Public endpoints only</td><td>HTTP 429</td></tr>
+      <tr><td>Professional <span class="tier-badge tier-pro">PRO</span></td><td>5,000</td><td>100</td><td>All endpoints</td><td>HTTP 429</td></tr>
+      <tr><td>Enterprise <span class="tier-badge tier-ent">ENT</span></td><td>Unlimited</td><td>500</td><td>All endpoints + SIEM</td><td>HTTP 429 (burst only)</td></tr>
+      <tr><td>MSSP <span class="tier-badge tier-mssp">MSSP</span></td><td>Unlimited</td><td>1,000</td><td>All + Multi-tenant</td><td>HTTP 429 (burst only)</td></tr>
+    </table>
+    <p>Rate limit headers are included in every response: <code>X-RateLimit-Limit</code>, <code>X-RateLimit-Remaining</code>, <code>X-RateLimit-Reset</code>.</p>
+
+    <h2 id="errors">Error Codes</h2>
+    <table>
+      <tr><th>Code</th><th>Meaning</th><th>Action</th></tr>
+      <tr><td>401</td><td>Invalid or missing API key</td><td>Check X-API-Key header</td></tr>
+      <tr><td>403</td><td>Tier access denied</td><td>Upgrade subscription</td></tr>
+      <tr><td>429</td><td>Rate limit exceeded</td><td>Retry after X-RateLimit-Reset</td></tr>
+      <tr><td>404</td><td>Advisory not found</td><td>Check advisory ID</td></tr>
+      <tr><td>500</td><td>Internal server error</td><td>Contact support</td></tr>
+    </table>
+
+    <h2 id="feed">GET /api/feed</h2>
+    <p>Returns the latest threat intelligence feed as a JSON array of advisories.</p>
+    <div class="endpoint"><span class="method-badge get">GET</span><strong>/api/feed</strong></div>
+    <h3>Query Parameters</h3>
+    <table>
+      <tr><th>Parameter</th><th>Type</th><th>Required</th><th>Description</th></tr>
+      <tr><td>limit</td><td>integer</td><td><span class="tag opt">optional</span></td><td>Max results (default: 20, max: 100)</td></tr>
+      <tr><td>severity</td><td>string</td><td><span class="tag opt">optional</span></td><td>Filter: CRITICAL, HIGH, MEDIUM, LOW</td></tr>
+      <tr><td>since</td><td>ISO-8601</td><td><span class="tag opt">optional</span></td><td>Return advisories after this timestamp</td></tr>
+      <tr><td>actor</td><td>string</td><td><span class="tag opt">optional</span></td><td>Filter by threat actor name</td></tr>
+    </table>
+    <h3>Example Response</h3>
+    <pre>[
+  {
+    "id": "advisory-20260523-001",
+    "title": "Critical RCE in Apache HTTP Server 2.4.x",
+    "severity": "CRITICAL",
+    "risk_score": 9.1,
+    "cvss_score": 9.8,
+    "epss_score": 73.4,
+    "cve_ids": ["CVE-2026-5194"],
+    "threat_actor": "APT29",
+    "published_at": "2026-05-23T08:00:00Z",
+    "source_url": "https://cisa.gov/...",
+    "blog_url": "https://blog.cyberdudebivash.in/...",
+    "dossier_url": "https://intel.cyberdudebivash.com/dossiers/...",
+    "report_url": "https://intel.cyberdudebivash.com/reports/...",
+    "mitre_techniques": ["T1190", "T1059"],
+    "ioc_count": 14,
+    "tlp": "TLP:CLEAR"
+  }
+]</pre>
+
+    <h2 id="stix">GET /api/stix/bundle</h2>
+    <p>Returns a STIX 2.1 compliant bundle of all current threat intelligence. Compatible with all STIX-aware SIEMs.</p>
+    <div class="endpoint"><span class="method-badge get">GET</span><strong>/api/stix/bundle</strong></div>
+    <pre>curl -H "X-API-Key: YOUR_API_KEY" \
+  https://intel.cyberdudebivash.com/api/stix/bundle \
+  -o stix_bundle.json</pre>
+
+    <h2 id="taxii">TAXII 2.1 Feed</h2>
+    <p>Enterprise and MSSP subscribers receive push-on-update TAXII feeds. Configure your SIEM with:</p>
+    <table>
+      <tr><th>Setting</th><th>Value</th></tr>
+      <tr><td>TAXII Server URL</td><td><code>https://intel.cyberdudebivash.com/taxii/</code></td></tr>
+      <tr><td>API Root</td><td><code>https://intel.cyberdudebivash.com/taxii/cdb-apex/</code></td></tr>
+      <tr><td>Collection ID</td><td><code>sentinel-apex-live</code></td></tr>
+      <tr><td>Auth Type</td><td>HTTP Bearer (API Key)</td></tr>
+    </table>
+
+    <h2 id="dossier">GET /api/dossier/{id}</h2>
+    <p>Returns the analyst dossier for a specific advisory (Professional tier and above).</p>
+    <div class="endpoint"><span class="method-badge get">GET</span><strong>/api/dossier/{advisory_id}</strong></div>
+    <pre>{
+  "advisory_id": "advisory-20260523-001",
+  "intelligence_tier": "CVE_ADVISORY",
+  "executive_summary": "...",
+  "threat_actor_profile": { ... },
+  "ttp_analysis": [ ... ],
+  "indicator_context": [ ... ],
+  "detection_guidance": { ... },
+  "recommended_actions": [ ... ],
+  "mitre_heatmap": { ... }
+}</pre>
+
+    <h2 id="splunk">Splunk Integration</h2>
+    <p>Install the SENTINEL APEX Technology Add-on for Splunk from Splunkbase (submission in progress) or configure manually:</p>
+    <pre>[sentinel_apex_feed]
+interval = 3600
+sourcetype = stix
+url = https://intel.cyberdudebivash.com/api/stix/bundle
+http_method = GET
+auth_type = bearer
+token = YOUR_API_KEY</pre>
+
+    <h2 id="sentinel">Microsoft Sentinel Integration</h2>
+    <p>Use the TAXII Data Connector in Microsoft Sentinel:</p>
+    <ol style="padding-left:20px;color:#b0bec5;font-size:.9rem;margin-bottom:16px">
+      <li style="margin-bottom:8px">In Sentinel → Data Connectors → search "TAXII"</li>
+      <li style="margin-bottom:8px">Add connector: Server URL = <code>https://intel.cyberdudebivash.com/taxii/</code></li>
+      <li style="margin-bottom:8px">API Root: <code>https://intel.cyberdudebivash.com/taxii/cdb-apex/</code></li>
+      <li style="margin-bottom:8px">Collection ID: <code>sentinel-apex-live</code></li>
+      <li style="margin-bottom:8px">Authentication: HTTP Header — <code>Authorization: Bearer YOUR_API_KEY</code></li>
+    </ol>
+
+    <h2 id="qradar">IBM QRadar Integration</h2>
+    <p>Configure a STIX-TAXII reference set source in QRadar:</p>
+    <pre>qradar-taxii-client \
+  --server https://intel.cyberdudebivash.com/taxii/cdb-apex/ \
+  --collection sentinel-apex-live \
+  --api-key YOUR_API_KEY \
+  --output-type stix2</pre>
+
+    <h2 id="export-csv">CSV Bulk IOC Export <span class="tag req" style="font-size:.7rem">PRO+</span></h2>
+    <p>Export all Indicators of Compromise as RFC 4180-compliant CSV. Columns: <code>ioc_type</code>, <code>ioc_value</code>, <code>severity</code>, <code>confidence</code>, <code>cvss</code>, <code>epss</code>, <code>kev</code>, <code>cve_id</code>, <code>source</code>, <code>tags</code>, <code>published_at</code>.</p>
+    <div class="endpoint"><span class="method-badge get">GET</span><strong>/api/v1/export/csv</strong></div>
+    <table><tr><th>Parameter</th><th>Type</th><th>Required</th><th>Description</th></tr>
+      <tr><td>severity</td><td>string</td><td><span class="tag opt">optional</span></td><td>Filter: critical|high|medium|low|info</td></tr>
+      <tr><td>limit</td><td>integer</td><td><span class="tag opt">optional</span></td><td>Max rows (default 5000, max 50000 for ENTERPRISE)</td></tr>
+      <tr><td>kev_only</td><td>boolean</td><td><span class="tag opt">optional</span></td><td>Only KEV-listed CVEs</td></tr>
+    </table>
+    <pre>curl -H "X-API-Key: YOUR_API_KEY" \
+  "https://intel.cyberdudebivash.com/api/v1/export/csv?severity=critical" \
+  -o iocs.csv</pre>
+
+    <h2 id="export-sigma">Sigma Detection Rules <span class="tag req" style="font-size:.7rem">PRO+</span></h2>
+    <p>Download Sigma detection rules generated from threat feed IOCs and TTPs. 220+ rules covering all MITRE ATT&amp;CK techniques in the feed. Compatible with Splunk, Elastic, Sentinel, QRadar via <code>sigmac</code>.</p>
+    <div class="endpoint"><span class="method-badge get">GET</span><strong>/api/v1/export/sigma</strong></div>
+    <table><tr><th>Parameter</th><th>Type</th><th>Default</th><th>Description</th></tr>
+      <tr><td>format</td><td>string</td><td>yaml</td><td>yaml | json | list</td></tr>
+      <tr><td>limit</td><td>integer</td><td>50</td><td>Rules to return (max 500 ENTERPRISE)</td></tr>
+    </table>
+    <pre>curl -H "X-API-Key: YOUR_API_KEY" \
+  "https://intel.cyberdudebivash.com/api/v1/export/sigma?limit=100" \
+  -o rules.yml</pre>
+
+    <h2 id="export-yara">YARA Detection Rules <span class="tag req" style="font-size:.7rem">PRO+</span></h2>
+    <p>Download YARA malware detection rules generated from IOC intelligence. 170+ rules with hash patterns and string signatures. Compatible with YARA 4.x, ClamAV, VirusTotal.</p>
+    <div class="endpoint"><span class="method-badge get">GET</span><strong>/api/v1/export/yara</strong></div>
+    <pre>curl -H "X-API-Key: YOUR_API_KEY" \
+  "https://intel.cyberdudebivash.com/api/v1/export/yara" \
+  -o rules.yar</pre>
+
+    <h2 id="export-misp">MISP 2.4 Export <span class="tag req" style="font-size:.7rem">ENTERPRISE+</span></h2>
+    <p>Export threat intelligence as a MISP 2.4 compatible event collection. Returns MISP-import-ready JSON with attributes, tags, galaxy clusters, and relationship objects. Import via MISP → Import → Import from URL.</p>
+    <div class="endpoint"><span class="method-badge get">GET</span><strong>/api/v1/export/misp</strong></div>
+    <table><tr><th>Parameter</th><th>Type</th><th>Default</th><th>Description</th></tr>
+      <tr><td>limit</td><td>integer</td><td>200</td><td>Events to export (max 1000)</td></tr>
+      <tr><td>severity</td><td>string</td><td>all</td><td>Filter by severity</td></tr>
+    </table>
+    <pre>curl -H "X-API-Key: YOUR_ENT_KEY" \
+  "https://intel.cyberdudebivash.com/api/v1/export/misp?limit=500" \
+  -o misp_events.json</pre>
+
+    <h2 id="siem-dispatch">SIEM Dispatch <span class="tag req" style="font-size:.7rem">ENTERPRISE+</span></h2>
+    <p>Push advisory bundles directly to your SIEM. Supports Splunk HEC, Microsoft Sentinel Log Analytics, IBM QRadar, and Elastic Logstash HTTP input.</p>
+    <h3>Step 1 — Configure your SIEM endpoint</h3>
+    <div class="endpoint"><span class="method-badge post">POST</span><strong>/api/v1/siem/integrations</strong></div>
+    <pre>curl -X POST -H "X-API-Key: YOUR_ENT_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "siem_type": "splunk",
+    "endpoint_url": "https://splunk.yourdomain.com:8088/services/collector",
+    "api_token": "YOUR_SPLUNK_HEC_TOKEN",
+    "label": "Production Splunk"
+  }' https://intel.cyberdudebivash.com/api/v1/siem/integrations</pre>
+    <h3>Step 2 — Dispatch intelligence</h3>
+    <div class="endpoint"><span class="method-badge post">POST</span><strong>/api/v1/siem/dispatch</strong></div>
+    <pre>curl -X POST -H "X-API-Key: YOUR_ENT_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"advisory_ids": ["CDB-APEX-001","CDB-APEX-002"], "siem_target": "splunk", "format": "stix"}' \
+  https://intel.cyberdudebivash.com/api/v1/siem/dispatch</pre>
+
+    <h2 id="intel-graph">Intelligence Correlation Graph <span class="tag req" style="font-size:.7rem">ENTERPRISE+</span></h2>
+    <p>Returns a correlation graph linking advisories, IOCs, threat actors, campaigns, and MITRE ATT&amp;CK techniques. Compatible with D3.js, Cytoscape.js, Neo4j, and Gephi.</p>
+    <div class="endpoint"><span class="method-badge get">GET</span><strong>/api/v1/intel/graph/correlations</strong></div>
+    <table><tr><th>Parameter</th><th>Type</th><th>Default</th><th>Description</th></tr>
+      <tr><td>advisory_limit</td><td>integer</td><td>50</td><td>Max advisory nodes (up to 200)</td></tr>
+      <tr><td>min_confidence</td><td>float</td><td>50.0</td><td>Min confidence score 0–100</td></tr>
+      <tr><td>include_actors</td><td>boolean</td><td>true</td><td>Include threat actor nodes</td></tr>
+      <tr><td>include_techniques</td><td>boolean</td><td>true</td><td>Include ATT&amp;CK technique nodes</td></tr>
+    </table>
+    <pre>curl -H "X-API-Key: YOUR_ENT_KEY" \
+  "https://intel.cyberdudebivash.com/api/v1/intel/graph/correlations?advisory_limit=100" | \
+  jq '.graph.stats'</pre>
+
+    <h2 id="sla-cert">SLA Compliance Certificate <span class="tag req" style="font-size:.7rem">ENTERPRISE+</span></h2>
+    <p>Generate a signed SLA compliance certificate for your organisation covering uptime, incident response SLA, data residency, and compliance frameworks.</p>
+    <div class="endpoint"><span class="method-badge get">GET</span><strong>/api/v1/sla/certificate</strong></div>
+    <pre>curl -H "X-API-Key: YOUR_ENT_KEY" \
+  "https://intel.cyberdudebivash.com/api/v1/sla/certificate?period=current_month" \
+  -o sla_certificate.json</pre>
+    <div class="endpoint"><span class="method-badge get">GET</span><strong>/api/v1/sla/status</strong></div>
+
+    <h2 id="invoices">Invoices / GSTIN <span class="tag req" style="font-size:.7rem">PRO+</span></h2>
+    <p>Download GSTIN-compliant invoices for your subscription. Includes HSN/SAC code 998314, IGST calculation, and vendor GSTIN: 21ARKPN8270G1ZP.</p>
+    <div class="endpoint"><span class="method-badge get">GET</span><strong>/api/v1/invoices</strong></div>
+    <div class="endpoint"><span class="method-badge get">GET</span><strong>/api/v1/invoices/{invoice_id}</strong></div>
+    <pre>curl -H "X-API-Key: YOUR_API_KEY" \
+  "https://intel.cyberdudebivash.com/api/v1/invoices" | jq '.invoices[0]'</pre>
+
+    <h2 id="mssp-tenants">MSSP Sub-Tenant Portal <span class="tag req" style="font-size:.7rem">MSSP only</span></h2>
+    <p>Provision and manage up to 100 sub-tenants under your MSSP deployment. Each tenant receives an isolated API key, tier allocation, and daily quota.</p>
+    <div class="endpoint"><span class="method-badge get">GET</span><strong>/api/v1/mssp/portal/tenants</strong></div>
+    <div class="endpoint"><span class="method-badge post">POST</span><strong>/api/v1/mssp/tenants/provision</strong></div>
+    <pre>curl -X POST -H "X-API-Key: YOUR_MSSP_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "company_name": "ACME Security",
+    "admin_email": "admin@acmesecurity.com",
+    "country": "US",
+    "tier_allocation": "enterprise",
+    "daily_api_quota": 10000
+  }' https://intel.cyberdudebivash.com/api/v1/mssp/tenants/provision</pre>
+    <p>The response includes a plaintext <code>api_key</code> shown <strong>once only</strong>. Copy it immediately and deliver to the tenant admin.</p>
+    <div class="endpoint"><span class="method-badge post">POST</span><strong>/api/v1/mssp/keys</strong> — Issue additional tenant-scoped keys</div>
+    <div class="endpoint"><span class="method-badge get">GET</span><strong>/api/v1/mssp/reports</strong> — List branded reports</div>
+
+    <h2 id="whitelabel">White-Label Configuration <span class="tag req" style="font-size:.7rem">MSSP only</span></h2>
+    <p>Customise the platform branding for your tenants: company name, logo, color palette, support contacts, custom subdomain, and CSS.</p>
+    <div class="endpoint"><span class="method-badge post">POST</span><strong>/api/v1/whitelabel/configure</strong></div>
+    <pre>curl -X POST -H "X-API-Key: YOUR_MSSP_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "company_name": "ACME Threat Intel",
+    "company_logo_url": "https://acmesecurity.com/logo.png",
+    "primary_color": "#003366",
+    "accent_color": "#ff6600",
+    "support_email": "soc@acmesecurity.com",
+    "portal_subdomain": "acme"
+  }' https://intel.cyberdudebivash.com/api/v1/whitelabel/configure</pre>
+    <div class="endpoint"><span class="method-badge get">GET</span><strong>/api/v1/whitelabel/config</strong> — Get current branding</div>
+
+    <h2 id="gdpr">GDPR &amp; Data Subject Rights <span class="tag opt" style="font-size:.7rem;background:#0d2a1f;color:#81c784;border-color:#4caf50">All tiers</span></h2>
+    <p>GDPR Art.15/17 (EU/Germany), UK GDPR (ICO), UAE PDPL Art.13/14, and CCPA §1798.100 data subject rights endpoints.</p>
+    <h3>Personal Data Export (Art.15)</h3>
+    <div class="endpoint"><span class="method-badge get">GET</span><strong>/api/v1/gdpr/export</strong></div>
+    <pre>curl -H "X-API-Key: YOUR_API_KEY" \
+  "https://intel.cyberdudebivash.com/api/v1/gdpr/export?format=json" \
+  -o my_data.json</pre>
+    <h3>Data Deletion Request (Art.17)</h3>
+    <div class="endpoint"><span class="method-badge get" style="background:#7b1111">DELETE</span><strong>/api/v1/gdpr/delete?confirm=true</strong></div>
+    <pre>curl -X DELETE -H "X-API-Key: YOUR_API_KEY" \
+  "https://intel.cyberdudebivash.com/api/v1/gdpr/delete?confirm=true"</pre>
+    <div class="info-box warn"><p>⚠️ Deletion is irreversible. Account access will be suspended within 30 days. Compliance audit logs (7-year retention) and billing records are exempt from erasure per GDPR Art.17(3)(b).</p></div>
+
+    <!-- API TIER UPGRADE CTA -->
+    <div style="margin-top:48px;background:linear-gradient(135deg,rgba(0,229,195,.1),rgba(79,195,247,.07));border:1px solid rgba(0,229,195,.3);border-radius:12px;padding:32px 36px;">
+      <div style="font-size:11px;color:#00e5c3;letter-spacing:3px;text-transform:uppercase;font-weight:700;margin-bottom:12px;font-family:monospace;">UNLOCK MORE API POWER</div>
+      <h2 style="font-size:22px;color:#fff;font-weight:800;letter-spacing:-.5px;margin-bottom:8px;border:none;padding:0;">Need More Rate Limits, MSSP Endpoints, or White-Label Access?</h2>
+      <p style="margin-bottom:24px;">Free tier: 100 req/day. PRO: 5,000 req/day. Enterprise: 10,000 req/day + SIEM push. MSSP: unlimited tenant provisioning + white-label API.</p>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-bottom:24px;">
+        <div style="background:#060d18;border:1px solid #1e3a5f;border-radius:8px;padding:16px;">
+          <div style="color:#81c784;font-size:11px;font-weight:700;letter-spacing:2px;font-family:monospace;margin-bottom:8px;">FREE</div>
+          <div style="font-size:22px;font-weight:900;color:#fff;margin-bottom:4px;">$0</div>
+          <div style="font-size:12px;color:#546e7a;">100 req/day · Basic IOC · No STIX export</div>
+        </div>
+        <div style="background:#0a1628;border:1px solid #2196f3;border-radius:8px;padding:16px;">
+          <div style="color:#64b5f6;font-size:11px;font-weight:700;letter-spacing:2px;font-family:monospace;margin-bottom:8px;">PRO</div>
+          <div style="font-size:22px;font-weight:900;color:#fff;margin-bottom:4px;">$49<span style="font-size:14px;font-weight:400;color:#546e7a;">/mo</span></div>
+          <div style="font-size:12px;color:#546e7a;">5,000 req/day · STIX 2.1 · Sigma rules · TAXII</div>
+        </div>
+        <div style="background:#0e0a20;border:1px solid #9c27b0;border-radius:8px;padding:16px;">
+          <div style="color:#ce93d8;font-size:11px;font-weight:700;letter-spacing:2px;font-family:monospace;margin-bottom:8px;">ENTERPRISE</div>
+          <div style="font-size:22px;font-weight:900;color:#fff;margin-bottom:4px;">$499<span style="font-size:14px;font-weight:400;color:#546e7a;">/mo</span></div>
+          <div style="font-size:12px;color:#546e7a;">10,000 req/day · SIEM push · Priority support</div>
+        </div>
+        <div style="background:#1a1600;border:1px solid #ffc107;border-radius:8px;padding:16px;">
+          <div style="color:#ffcc02;font-size:11px;font-weight:700;letter-spacing:2px;font-family:monospace;margin-bottom:8px;">MSSP</div>
+          <div style="font-size:22px;font-weight:900;color:#fff;margin-bottom:4px;">$1,999<span style="font-size:14px;font-weight:400;color:#546e7a;">/mo</span></div>
+          <div style="font-size:12px;color:#546e7a;">Unlimited tenants · White-label · 25% rev-share</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:14px;flex-wrap:wrap;">
+        <a href="/upgrade.html?plan=pro&utm_source=api-docs" style="background:#00e5c3;color:#020c1b;padding:12px 28px;border-radius:6px;font-weight:800;font-size:14px;text-decoration:none;display:inline-flex;align-items:center;gap:8px;">🚀 Start Free PRO Trial</a>
+        <a href="/pricing.html" style="border:1px solid rgba(0,229,195,.4);color:#00e5c3;padding:12px 24px;border-radius:6px;font-size:13px;font-weight:600;text-decoration:none;">Compare All Plans</a>
+        <a href="/contact-enterprise.html" style="border:1px solid rgba(245,158,11,.4);color:#f59e0b;padding:12px 24px;border-radius:6px;font-size:13px;font-weight:600;text-decoration:none;">Enterprise Sales</a>
+        <a href="/mssp.html" style="border:1px solid rgba(255,193,7,.4);color:#ffcc02;padding:12px 24px;border-radius:6px;font-size:13px;font-weight:600;text-decoration:none;">MSSP Program</a>
+      </div>
+    </div>
+
+    <!-- BOTTOM NAV -->
+    <div style="margin-top:40px;padding:24px 0;border-top:1px solid #1e3a5f;display:flex;gap:20px;flex-wrap:wrap;font-size:12px;">
+      <a href="/case-studies.html" style="color:#90caf9;text-decoration:none;">📖 Case Studies</a>
+      <a href="/testimonials.html" style="color:#90caf9;text-decoration:none;">⭐ Testimonials</a>
+      <a href="/security-compliance.html" style="color:#90caf9;text-decoration:none;">✅ Security &amp; Compliance</a>
+      <a href="/enterprise-procurement-pack.html" style="color:#90caf9;text-decoration:none;">📋 Enterprise Pack</a>
+      <a href="/compare.html" style="color:#90caf9;text-decoration:none;">⚖️ Compare Platforms</a>
+      <a href="/referral.html" style="color:#90caf9;text-decoration:none;">💰 Referral Program</a>
+      <a href="/" style="color:#90caf9;text-decoration:none;">🏠 Dashboard</a>
+    </div>
+    <div style="padding:12px 0;font-size:10px;color:#37474f;font-family:monospace;letter-spacing:1px;">
+      &copy; 2026 CYBERDUDEBIVASH PRIVATE LIMITED · GSTIN: 21ARKPN8270G1ZP · SENTINEL APEX API v185.0
+    </div>
+
+  </div>
+</div>
+</body>
+</html>

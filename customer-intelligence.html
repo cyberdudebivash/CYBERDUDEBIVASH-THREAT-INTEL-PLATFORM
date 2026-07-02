@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Customer Intelligence Engine — SENTINEL APEX Revenue Operations</title>
+<meta name="description" content="Customer health scoring, expansion scoring, churn risk, renewal probability, and feature adoption tracking for SENTINEL APEX accounts.">
+<link rel="canonical" href="https://intel.cyberdudebivash.com/customer-intelligence.html">
+<link rel="icon" href="/favicon.ico">
+<style>
+:root{--bg:#050c18;--bg2:#090f1e;--border:#162030;--accent:#00ffc6;--accent2:#7c3aed;--text:#e2e8f0;--muted:#64748b;--green:#10b981;--red:#ef4444;--yellow:#f59e0b;--card:#0b1422;--blue:#3b82f6;}
+*{box-sizing:border-box;margin:0;padding:0;}body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,sans-serif;line-height:1.6;}
+nav{display:flex;align-items:center;justify-content:space-between;padding:14px 32px;background:rgba(5,12,24,0.97);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:100;}
+.nav-logo{font-family:monospace;font-weight:900;font-size:13px;color:var(--accent);letter-spacing:2px;text-decoration:none;}
+.nav-links a{color:var(--muted);text-decoration:none;font-size:12px;margin-left:16px;}
+.cta-btn{background:var(--accent);color:#000;padding:8px 18px;border-radius:8px;font-weight:800;font-size:12px;text-decoration:none;margin-left:16px;}
+.page-header{padding:32px;border-bottom:1px solid var(--border);background:var(--bg2);}
+.page-header h1{font-size:22px;font-weight:900;}
+.page-header p{color:var(--muted);font-size:13px;margin-top:6px;}
+.main{max-width:1300px;margin:0 auto;padding:32px 24px;}
+.kpi-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px;margin-bottom:32px;}
+.kpi{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px;}
+.kpi-val{font-size:28px;font-weight:900;font-family:monospace;color:var(--accent);}
+.kpi-label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-top:4px;}
+.kpi-change{font-size:12px;margin-top:6px;}
+.kpi-change.up{color:var(--green);}
+.kpi-change.down{color:var(--red);}
+.section-h3{font-size:16px;font-weight:800;margin-bottom:16px;display:flex;align-items:center;gap:10px;}
+.customer-grid{display:grid;gap:16px;margin-bottom:40px;}
+.cust-card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:24px;transition:border-color 0.2s;}
+.cust-card:hover{border-color:rgba(0,255,198,0.2);}
+.cust-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:18px;flex-wrap:wrap;gap:12px;}
+.cust-info h3{font-size:15px;font-weight:800;}
+.cust-info p{font-size:12px;color:var(--muted);margin-top:2px;}
+.score-cluster{display:flex;gap:12px;flex-wrap:wrap;}
+.score-item{text-align:center;min-width:70px;}
+.score-ring{width:56px;height:56px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:900;font-family:monospace;margin:0 auto 4px;border:2px solid;}
+.ring-green{border-color:var(--green);color:var(--green);background:rgba(16,185,129,0.08);}
+.ring-yellow{border-color:var(--yellow);color:var(--yellow);background:rgba(245,158,11,0.08);}
+.ring-red{border-color:var(--red);color:var(--red);background:rgba(239,68,68,0.08);}
+.ring-blue{border-color:var(--blue);color:#93c5fd;background:rgba(59,130,246,0.08);}
+.ring-accent{border-color:var(--accent);color:var(--accent);background:rgba(0,255,198,0.08);}
+.score-label{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:0.8px;}
+.usage-bar-section{margin:16px 0;}
+.usage-metric{display:flex;align-items:center;gap:12px;margin-bottom:8px;}
+.usage-name{font-size:11px;color:var(--muted);width:130px;flex-shrink:0;}
+.usage-bar{flex:1;height:6px;background:var(--border);border-radius:3px;}
+.usage-fill{height:6px;border-radius:3px;background:var(--accent);}
+.usage-val{font-size:11px;color:var(--text);width:60px;text-align:right;font-family:monospace;}
+.tags-row{display:flex;gap:6px;flex-wrap:wrap;margin-top:12px;}
+.tag{font-size:10px;padding:2px 8px;border-radius:6px;background:rgba(255,255,255,0.04);border:1px solid var(--border);color:var(--muted);}
+.risk-badge{display:inline-block;padding:3px 10px;border-radius:10px;font-size:10px;font-weight:700;font-family:monospace;}
+.risk-low{background:rgba(16,185,129,0.1);color:var(--green);border:1px solid rgba(16,185,129,0.2);}
+.risk-med{background:rgba(245,158,11,0.1);color:var(--yellow);border:1px solid rgba(245,158,11,0.2);}
+.risk-high{background:rgba(239,68,68,0.1);color:var(--red);border:1px solid rgba(239,68,68,0.2);}
+.expand-badge{display:inline-block;padding:3px 10px;border-radius:10px;font-size:10px;font-weight:700;font-family:monospace;background:rgba(124,58,237,0.1);color:#a78bfa;border:1px solid rgba(124,58,237,0.2);}
+footer{border-top:1px solid var(--border);padding:32px;text-align:center;font-size:12px;color:var(--muted);}
+footer a{color:var(--muted);text-decoration:none;margin:0 12px;}
+</style>
+</head>
+<body>
+<nav>
+  <a href="/" class="nav-logo">CDB® SENTINEL APEX</a>
+  <div class="nav-links">
+    <a href="/revenue-intelligence.html">Revenue</a>
+    <a href="/lead-intelligence.html">Leads</a>
+    <a href="/conversion-analytics.html">Funnel</a>
+    <a href="/mssp-partner-portal.html">MSSP</a>
+    <a href="/admin.html" class="cta-btn">Admin</a>
+  </div>
+</nav>
+
+<div class="page-header">
+  <h1>🧠 Customer Intelligence Engine</h1>
+  <p>Health Score · Expansion Score · Renewal Probability · Churn Risk · Feature Adoption</p>
+</div>
+
+<div class="main">
+  <div class="kpi-row">
+    <div class="kpi"><div class="kpi-val" id="avg-health">—</div><div class="kpi-label">Avg Health Score</div><div class="kpi-change up" id="health-change">—</div></div>
+    <div class="kpi"><div class="kpi-val" id="at-risk-count">—</div><div class="kpi-label">At-Risk Customers</div><div class="kpi-change down" id="risk-note">—</div></div>
+    <div class="kpi"><div class="kpi-val" id="expand-ready">—</div><div class="kpi-label">Expansion Ready</div><div class="kpi-change up" id="expand-note">—</div></div>
+    <div class="kpi"><div class="kpi-val" id="renew-prob">—</div><div class="kpi-label">Avg Renewal Prob</div><div class="kpi-change up" id="renew-note">—</div></div>
+    <div class="kpi"><div class="kpi-val" id="total-customers">—</div><div class="kpi-label">Total Customers</div></div>
+    <div class="kpi"><div class="kpi-val" id="feature-adoption">—</div><div class="kpi-label">Avg Feature Adoption</div></div>
+  </div>
+
+  <div class="section-h3">👥 Customer Health Overview</div>
+  <div id="customer-grid" class="customer-grid"></div>
+</div>
+
+<footer>
+  <a href="/revenue-intelligence.html">Revenue Intel</a>
+  <a href="/lead-intelligence.html">Lead Intel</a>
+  <a href="/conversion-analytics.html">Conversion</a>
+  <a href="/customer-success-center.html">Success Center</a>
+  <p style="margin-top:16px;color:var(--muted)">© 2026 CYBERDUDEBIVASH® SENTINEL APEX — Customer Intelligence v1.0</p>
+</footer>
+
+<script>
+const CUSTOMERS = [
+  { id:'C001', name:'SecureBank Ltd', tier:'ENTERPRISE', industry:'Financial Services', mrr:4200,
+    usage:{ api_calls:8420, dashboard_sessions:48, reports:32, feed_accesses:180, stix_exports:15, siem_connected:true },
+    renewal_in_days:45, features_adopted:8, total_features:10 },
+  { id:'C002', name:'EuroMSSP GmbH', tier:'MSSP', industry:'MSSP / MDR', mrr:6800,
+    usage:{ api_calls:24000, dashboard_sessions:120, reports:85, feed_accesses:720, stix_exports:42, siem_connected:true },
+    renewal_in_days:120, features_adopted:10, total_features:10 },
+  { id:'C003', name:'HealthGuard Systems', tier:'ENTERPRISE', industry:'Healthcare', mrr:3600,
+    usage:{ api_calls:1200, dashboard_sessions:12, reports:8, feed_accesses:45, stix_exports:2, siem_connected:false },
+    renewal_in_days:30, features_adopted:4, total_features:10 },
+  { id:'C004', name:'TechCorp India', tier:'PRO', industry:'Technology', mrr:890,
+    usage:{ api_calls:3800, dashboard_sessions:22, reports:18, feed_accesses:95, stix_exports:8, siem_connected:true },
+    renewal_in_days:88, features_adopted:7, total_features:8 },
+  { id:'C005', name:'FinSec Partners', tier:'ENTERPRISE', industry:'Financial Services', mrr:5100,
+    usage:{ api_calls:12400, dashboard_sessions:72, reports:56, feed_accesses:380, stix_exports:28, siem_connected:true },
+    renewal_in_days:200, features_adopted:9, total_features:10 },
+];
+
+function computeHealthScore(c) {
+  const u = c.usage;
+  let score = 0;
+  const expectedAPI = c.tier === 'MSSP' ? 15000 : c.tier === 'ENTERPRISE' ? 5000 : 2000;
+  score += Math.min(30, (u.api_calls / expectedAPI) * 30);
+  score += Math.min(20, (u.dashboard_sessions / 40) * 20);
+  score += Math.min(20, (u.reports / 30) * 20);
+  score += Math.min(15, (u.feed_accesses / 150) * 15);
+  score += u.siem_connected ? 15 : 0;
+  return Math.min(100, Math.round(score));
+}
+
+function computeExpansionScore(c) {
+  const health = computeHealthScore(c);
+  const adoption = (c.features_adopted / c.total_features) * 100;
+  if (health > 80 && adoption > 85) return 90;
+  if (health > 70 && adoption > 70) return 72;
+  if (health > 50 && adoption > 60) return 55;
+  return 30;
+}
+
+function computeRenewalProbability(c) {
+  const health = computeHealthScore(c);
+  if (health >= 80) return 95;
+  if (health >= 60) return 80;
+  if (health >= 40) return 60;
+  return 35;
+}
+
+function computeChurnRisk(c) {
+  const health = computeHealthScore(c);
+  const daysLeft = c.renewal_in_days;
+  if (health < 40 && daysLeft < 60) return 'HIGH';
+  if (health < 55 || daysLeft < 35) return 'MEDIUM';
+  return 'LOW';
+}
+
+function ringClass(score) {
+  if (score >= 75) return 'ring-green';
+  if (score >= 50) return 'ring-yellow';
+  return 'ring-red';
+}
+
+function riskBadgeClass(risk) {
+  return risk === 'HIGH' ? 'risk-high' : risk === 'MEDIUM' ? 'risk-med' : 'risk-low';
+}
+
+function pct(used, max) { return Math.min(100, Math.round((used / max) * 100)); }
+
+function renderCustomers() {
+  const processed = CUSTOMERS.map(c => ({
+    ...c,
+    health: computeHealthScore(c),
+    expansion: computeExpansionScore(c),
+    renewal_prob: computeRenewalProbability(c),
+    churn_risk: computeChurnRisk(c),
+    adoption_pct: Math.round((c.features_adopted / c.total_features) * 100),
+  }));
+
+  // KPIs
+  const avgHealth = Math.round(processed.reduce((s,c) => s+c.health, 0) / processed.length);
+  const atRisk = processed.filter(c => c.churn_risk === 'HIGH').length;
+  const expandReady = processed.filter(c => c.expansion >= 70).length;
+  const avgRenew = Math.round(processed.reduce((s,c) => s+c.renewal_prob, 0) / processed.length);
+  const avgAdopt = Math.round(processed.reduce((s,c) => s+c.adoption_pct, 0) / processed.length);
+
+  document.getElementById('avg-health').textContent = avgHealth;
+  document.getElementById('at-risk-count').textContent = atRisk;
+  document.getElementById('expand-ready').textContent = expandReady;
+  document.getElementById('renew-prob').textContent = avgRenew + '%';
+  document.getElementById('total-customers').textContent = processed.length;
+  document.getElementById('feature-adoption').textContent = avgAdopt + '%';
+  document.getElementById('health-change').textContent = avgHealth >= 70 ? '▲ Healthy Portfolio' : '▼ Needs Attention';
+  document.getElementById('risk-note').textContent = atRisk > 0 ? `${atRisk} require urgent outreach` : 'No critical risk';
+  document.getElementById('expand-note').textContent = `${expandReady} expansion opportunities`;
+  document.getElementById('renew-note').textContent = avgRenew >= 80 ? 'Strong renewal outlook' : 'Monitor closely';
+
+  const grid = document.getElementById('customer-grid');
+  grid.innerHTML = processed.sort((a,b) => b.health - a.health).map(c => {
+    const apiMax = c.tier === 'MSSP' ? 20000 : c.tier === 'ENTERPRISE' ? 10000 : 5000;
+    return `<div class="cust-card">
+      <div class="cust-header">
+        <div class="cust-info">
+          <h3>${c.name}</h3>
+          <p>${c.tier} · ${c.industry} · $${c.mrr.toLocaleString()}/mo · Renewal in ${c.renewal_in_days}d</p>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <span class="risk-badge ${riskBadgeClass(c.churn_risk)}">Churn: ${c.churn_risk}</span>
+          ${c.expansion >= 70 ? '<span class="expand-badge">⬆ Expansion Ready</span>' : ''}
+        </div>
+      </div>
+      <div class="score-cluster">
+        <div class="score-item">
+          <div class="score-ring ${ringClass(c.health)}">${c.health}</div>
+          <div class="score-label">Health</div>
+        </div>
+        <div class="score-item">
+          <div class="score-ring ${ringClass(c.expansion)}">${c.expansion}</div>
+          <div class="score-label">Expansion</div>
+        </div>
+        <div class="score-item">
+          <div class="score-ring ${ringClass(c.renewal_prob)}">${c.renewal_prob}%</div>
+          <div class="score-label">Renewal</div>
+        </div>
+        <div class="score-item">
+          <div class="score-ring ${ringClass(c.adoption_pct)}">${c.adoption_pct}%</div>
+          <div class="score-label">Adoption</div>
+        </div>
+      </div>
+      <div class="usage-bar-section">
+        <div class="usage-metric">
+          <span class="usage-name">API Calls</span>
+          <div class="usage-bar"><div class="usage-fill" style="width:${pct(c.usage.api_calls, apiMax)}%"></div></div>
+          <span class="usage-val">${c.usage.api_calls.toLocaleString()}</span>
+        </div>
+        <div class="usage-metric">
+          <span class="usage-name">Dashboard Sessions</span>
+          <div class="usage-bar"><div class="usage-fill" style="width:${pct(c.usage.dashboard_sessions, 100)}%"></div></div>
+          <span class="usage-val">${c.usage.dashboard_sessions}</span>
+        </div>
+        <div class="usage-metric">
+          <span class="usage-name">Reports Downloaded</span>
+          <div class="usage-bar"><div class="usage-fill" style="width:${pct(c.usage.reports, 60)}%"></div></div>
+          <span class="usage-val">${c.usage.reports}</span>
+        </div>
+        <div class="usage-metric">
+          <span class="usage-name">STIX Exports</span>
+          <div class="usage-bar"><div class="usage-fill" style="width:${pct(c.usage.stix_exports, 50)}%"></div></div>
+          <span class="usage-val">${c.usage.stix_exports}</span>
+        </div>
+      </div>
+      <div class="tags-row">
+        <span class="tag">${c.usage.siem_connected ? '✓ SIEM Connected' : '✗ No SIEM'}</span>
+        <span class="tag">Features: ${c.features_adopted}/${c.total_features}</span>
+        <span class="tag">Feed Accesses: ${c.usage.feed_accesses}</span>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+renderCustomers();
+</script>
+</body>
+</html>

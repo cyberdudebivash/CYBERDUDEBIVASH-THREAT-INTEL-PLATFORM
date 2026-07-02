@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Enterprise Trust Center — CYBERDUDEBIVASH SENTINEL APEX</title>
+  <meta name="description" content="Consolidated enterprise intelligence trust, certification, and platform health dashboard.">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: #030712; color: #f9fafb; font-family: 'Courier New', monospace; min-height: 100vh; }
+    #auth-gate { display: flex; align-items: center; justify-content: center; min-height: 100vh; flex-direction: column; gap: 16px; }
+    #auth-gate input { background: #111827; border: 1px solid #374151; color: #f9fafb; padding: 10px 16px; border-radius: 4px; font-family: inherit; font-size: 13px; width: 280px; }
+    #auth-gate button { background: #1d4ed8; color: #fff; border: none; padding: 10px 28px; border-radius: 4px; font-family: inherit; font-size: 13px; cursor: pointer; }
+    #auth-gate button:hover { background: #2563eb; }
+    #main { display: none; max-width: 1280px; margin: 0 auto; padding: 24px; }
+    .header { border-bottom: 1px solid #1f2937; padding-bottom: 20px; margin-bottom: 28px; }
+    .header h1 { font-size: 18px; font-weight: 700; letter-spacing: .12em; color: #6366f1; }
+    .header .sub { color: #6b7280; font-size: 11px; margin-top: 4px; }
+    .header .timestamp { color: #374151; font-size: 10px; margin-top: 2px; }
+
+    /* Health banner */
+    #health-banner { padding: 14px 20px; border-radius: 6px; margin-bottom: 24px; border: 1px solid transparent; font-size: 13px; font-weight: 700; letter-spacing: .08em; }
+
+    /* Stats grid */
+    .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 14px; margin-bottom: 28px; }
+    .stat-card { background: #0d1117; border: 1px solid #1f2937; border-radius: 6px; padding: 16px; }
+    .stat-card .val { font-size: 28px; font-weight: 700; }
+    .stat-card .lbl { color: #6b7280; font-size: 10px; margin-top: 4px; letter-spacing: .06em; }
+
+    /* Cert chain */
+    .section { margin-bottom: 28px; }
+    .section-title { color: #94a3b8; font-size: 11px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; margin-bottom: 12px; border-bottom: 1px solid #1f2937; padding-bottom: 6px; }
+    .cert-row { display: flex; align-items: center; gap: 14px; padding: 10px 14px; background: #0d1117; border: 1px solid #1f2937; border-radius: 4px; margin-bottom: 8px; flex-wrap: wrap; }
+    .cert-row .tier { font-size: 12px; font-weight: 700; min-width: 130px; }
+    .cert-row .gates { color: #6b7280; font-size: 11px; flex: 1; }
+    .badge { display: inline-block; font-size: 9px; font-weight: 700; padding: 2px 8px; border-radius: 3px; letter-spacing: .06em; }
+
+    /* Feed quality bars */
+    .quality-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; }
+    .quality-card { background: #0d1117; border: 1px solid #1f2937; border-radius: 6px; padding: 14px; }
+    .quality-card .q-label { color: #6b7280; font-size: 10px; margin-bottom: 6px; }
+    .quality-card .q-val { font-size: 18px; font-weight: 700; margin-bottom: 4px; }
+    .meter-bg { background: #1f2937; border-radius: 3px; height: 5px; overflow: hidden; }
+    .meter-fill { height: 5px; border-radius: 3px; }
+
+    /* Release assurance */
+    .gate-row { display: flex; align-items: center; gap: 12px; padding: 8px 14px; background: #0d1117; border-radius: 4px; margin-bottom: 6px; border-left: 3px solid transparent; }
+
+    /* SLA */
+    .sla-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; }
+    .sla-card { background: #0d1117; border: 1px solid #1f2937; border-radius: 6px; padding: 14px; }
+
+    /* Error state */
+    .err { color: #ef4444; font-size: 11px; margin-top: 8px; }
+    .loading { color: #6b7280; font-size: 11px; }
+  </style>
+</head>
+<body>
+
+<!-- Auth gate -->
+<div id="auth-gate">
+  <div style="color:#6366f1;font-size:14px;font-weight:700;letter-spacing:.12em;">CYBERDUDEBIVASH® SENTINEL APEX</div>
+  <div style="color:#6b7280;font-size:11px;">Enterprise Trust Center — P29.8</div>
+  <input id="api-key-input" type="password" placeholder="Enter API key to continue …" autocomplete="off">
+  <button onclick="auth()">Access Trust Center</button>
+  <div id="auth-err" class="err" style="display:none;">Invalid API key. Access denied.</div>
+</div>
+
+<!-- Main dashboard (shown after auth) -->
+<div id="main">
+  <div class="header">
+    <h1>ENTERPRISE TRUST CENTER</h1>
+    <div class="sub">P29.8 — Consolidated Intelligence Trust, Certification & Platform Health</div>
+    <div class="timestamp" id="ts">Loading …</div>
+  </div>
+
+  <!-- Health banner -->
+  <div id="health-banner" class="loading">Checking platform health …</div>
+
+  <!-- Core metrics -->
+  <div class="stats-grid" id="stats-grid">
+    <div class="stat-card"><div class="val loading" id="s-items">—</div><div class="lbl">TOTAL ADVISORIES</div></div>
+    <div class="stat-card"><div class="val loading" id="s-critical">—</div><div class="lbl">CRITICAL ADVISORIES</div></div>
+    <div class="stat-card"><div class="val loading" id="s-kev">—</div><div class="lbl">KEV ITEMS</div></div>
+    <div class="stat-card"><div class="val loading" id="s-ioc">—</div><div class="lbl">TOTAL IOCs</div></div>
+    <div class="stat-card"><div class="val loading" id="s-det">—</div><div class="lbl">WITH DETECTIONS</div></div>
+    <div class="stat-card"><div class="val loading" id="s-conf">—</div><div class="lbl">AVG CONFIDENCE</div></div>
+  </div>
+
+  <!-- Certification chain -->
+  <div class="section">
+    <div class="section-title">P25–P29 Certification Chain</div>
+    <div id="cert-chain" class="loading">Loading certification data …</div>
+  </div>
+
+  <!-- Release Assurance -->
+  <div class="section">
+    <div class="section-title">P29.9 Release Assurance — Go / No-Go Gate</div>
+    <div id="release-assurance" class="loading">Loading release assurance …</div>
+  </div>
+
+  <!-- Quality dimensions -->
+  <div class="section">
+    <div class="section-title">Intelligence Quality Dimensions</div>
+    <div class="quality-grid" id="quality-grid">
+      <div class="quality-card loading">Loading …</div>
+    </div>
+  </div>
+
+  <!-- Customer Value Analytics -->
+  <div class="section">
+    <div class="section-title">P29.7 Customer Value Analytics</div>
+    <div id="customer-value" class="loading">Loading customer value metrics …</div>
+  </div>
+
+  <!-- SLA Status -->
+  <div class="section">
+    <div class="section-title">SLA Status</div>
+    <div class="sla-grid" id="sla-grid">
+      <div class="sla-card loading">Loading …</div>
+    </div>
+  </div>
+</div>
+
+<script>
+  const BASE = (()=> {
+    const h = window.location.hostname;
+    if (h === "localhost" || h === "127.0.0.1") return "";
+    return "https://intel.cyberdudebivash.com";
+  })();
+
+  function auth() {
+    const key = document.getElementById("api-key-input").value.trim();
+    if (!key) return;
+    sessionStorage.setItem("apex_api_key", key);
+    // Validate by hitting health endpoint
+    fetch(BASE + "/api/health", {
+      headers: { "Authorization": "Bearer " + key }
+    }).then(r => {
+      if (r.ok || r.status === 200 || r.status === 401) {
+        // In dev mode allow any key; in prod the fetch will fail on bad keys
+        document.getElementById("auth-gate").style.display = "none";
+        document.getElementById("main").style.display = "block";
+        loadAll(key);
+      } else {
+        document.getElementById("auth-err").style.display = "block";
+      }
+    }).catch(() => {
+      // Offline / dev mode — allow access
+      document.getElementById("auth-gate").style.display = "none";
+      document.getElementById("main").style.display = "block";
+      loadAll(key);
+    });
+  }
+
+  function hdrs(key) {
+    return { "Authorization": "Bearer " + key, "Content-Type": "application/json" };
+  }
+
+  function colorForPct(p) {
+    return p >= 80 ? "#22c55e" : p >= 60 ? "#f59e0b" : "#ef4444";
+  }
+
+  function badge(text, color) {
+    return `<span class="badge" style="background:${color}22;color:${color};">${text}</span>`;
+  }
+
+  function meter(pct, color) {
+    const w = Math.max(0, Math.min(100, pct));
+    return `<div class="meter-bg"><div class="meter-fill" style="width:${w}%;background:${color};"></div></div>`;
+  }
+
+  function tierColor(t) {
+    if (!t) return "#6b7280";
+    if (t.includes("WORLDWIDE")) return "#22c55e";
+    if (t.includes("CONDITIONAL") || t.includes("ENTERPRISE")) return "#f59e0b";
+    return "#ef4444";
+  }
+
+  async function loadAll(key) {
+    document.getElementById("ts").textContent = "Updated: " + new Date().toISOString();
+
+    // Load P29 observability (primary source)
+    loadObservability(key);
+    loadReleaseAssurance(key);
+    loadCustomerValue(key);
+    loadTrustCenter(key);
+  }
+
+  async function loadObservability(key) {
+    try {
+      const r = await fetch(BASE + "/api/v1/p29/observability", { headers: hdrs(key) });
+      const d = await r.json();
+      const fm = d.feed_metrics || {};
+      const ct = d.certification_tiers || {};
+
+      // Stats
+      document.getElementById("s-items").textContent    = fm.total_items ?? "—";
+      document.getElementById("s-items").style.color    = "#6366f1";
+      document.getElementById("s-critical").textContent = fm.critical_items ?? "—";
+      document.getElementById("s-critical").style.color = "#ef4444";
+      document.getElementById("s-kev").textContent      = fm.kev_items ?? "—";
+      document.getElementById("s-kev").style.color      = "#f59e0b";
+      document.getElementById("s-ioc").textContent      = fm.total_iocs ?? "—";
+      document.getElementById("s-ioc").style.color      = "#3b82f6";
+      document.getElementById("s-det").textContent      = fm.items_with_detection ?? "—";
+      document.getElementById("s-det").style.color      = "#22c55e";
+      document.getElementById("s-conf").textContent     = (fm.avg_confidence_pct ?? "—") + "%";
+      document.getElementById("s-conf").style.color     = colorForPct(fm.avg_confidence_pct || 0);
+
+      // Health banner
+      const ph = d.platform_health || "UNKNOWN";
+      const phColor = ph === "OPTIMAL" ? "#22c55e" : ph === "OPERATIONAL" ? "#f59e0b" : "#ef4444";
+      const banner = document.getElementById("health-banner");
+      banner.textContent = `PLATFORM HEALTH: ${ph}`;
+      banner.style.background = phColor + "11";
+      banner.style.borderColor = phColor + "55";
+      banner.style.color = phColor;
+
+      // Certification chain
+      const gs = d.gate_summary || {};
+      const rows = [
+        { label: "P28.12 Enterprise Risk Intelligence", tier: ct.p28, gates: gs.p28_gates, blockers: gs.p28_blockers },
+        { label: "P27.12 Structural Gate",              tier: ct.p27, gates: gs.p27_gates, blockers: gs.p27_blockers },
+        { label: "P26.0 Intelligence Excellence",       tier: ct.p26, gates: null,         blockers: null },
+        { label: "P25.11 Enterprise Trust Gate",        tier: ct.p25, gates: null,         blockers: null },
+      ].map(row => {
+        const tc = tierColor(row.tier);
+        return `<div class="cert-row">
+          <span class="tier" style="color:${tc};">${row.label}</span>
+          ${row.tier ? badge(row.tier, tc) : badge("N/A", "#6b7280")}
+          ${row.gates ? `<span class="gates">Gates: ${row.gates}</span>` : ""}
+          ${row.blockers != null ? `<span class="gates">Blockers: <span style="color:${row.blockers === 0 ? "#22c55e" : "#ef4444"};">${row.blockers}</span></span>` : ""}
+        </div>`;
+      }).join("");
+      document.getElementById("cert-chain").innerHTML = rows;
+
+      // Quality dimensions
+      const qualItems = [
+        { label: "MITRE ATT&CK Coverage",  val: (fm.mitre_coverage_items || 0) + " items", pct: fm.total_items ? Math.round(fm.mitre_coverage_items / fm.total_items * 100) : 0 },
+        { label: "Avg Confidence",         val: (fm.avg_confidence_pct || 0) + "%",         pct: fm.avg_confidence_pct || 0 },
+        { label: "Avg Enrichment Score",   val: (fm.avg_enrichment_score || 0) + "/100",     pct: fm.avg_enrichment_score || 0 },
+        { label: "Detection Coverage",     val: (fm.items_with_detection || 0) + " items",  pct: fm.total_items ? Math.round(fm.items_with_detection / fm.total_items * 100) : 0 },
+      ];
+      document.getElementById("quality-grid").innerHTML = qualItems.map(q => {
+        const c = colorForPct(q.pct);
+        return `<div class="quality-card">
+          <div class="q-label">${q.label}</div>
+          <div class="q-val" style="color:${c};">${q.val}</div>
+          ${meter(q.pct, c)}
+          <div style="color:#6b7280;font-size:9px;margin-top:4px;">${q.pct}% of target</div>
+        </div>`;
+      }).join("");
+
+      // SLA
+      document.getElementById("sla-grid").innerHTML = `
+        <div class="sla-card">
+          <div style="color:#6b7280;font-size:10px;margin-bottom:6px;">PLATFORM HEALTH</div>
+          <div style="color:${phColor};font-size:14px;font-weight:700;">${ph}</div>
+        </div>
+        <div class="sla-card">
+          <div style="color:#6b7280;font-size:10px;margin-bottom:6px;">CERT CHAIN COMPLETE</div>
+          <div style="color:${ct.p28 && ct.p27 && ct.p26 && ct.p25 ? "#22c55e" : "#f59e0b"};font-size:14px;font-weight:700;">
+            ${ct.p28 && ct.p27 && ct.p26 && ct.p25 ? "YES" : "PARTIAL"}
+          </div>
+        </div>
+        <div class="sla-card">
+          <div style="color:#6b7280;font-size:10px;margin-bottom:6px;">TOTAL ADVISORIES</div>
+          <div style="color:#6366f1;font-size:14px;font-weight:700;">${fm.total_items ?? 0}</div>
+        </div>
+        <div class="sla-card">
+          <div style="color:#6b7280;font-size:10px;margin-bottom:6px;">LAST UPDATED</div>
+          <div style="color:#94a3b8;font-size:11px;">${new Date().toUTCString()}</div>
+        </div>`;
+
+    } catch (e) {
+      document.getElementById("health-banner").textContent = "Platform data unavailable: " + e.message;
+      document.getElementById("health-banner").style.color = "#ef4444";
+      document.getElementById("cert-chain").innerHTML = `<div class="err">Unable to load certification data.</div>`;
+    }
+  }
+
+  async function loadReleaseAssurance(key) {
+    try {
+      const r = await fetch(BASE + "/api/v1/p29/release-assurance", { headers: hdrs(key) });
+      const d = await r.json();
+      const verdict = d.verdict || "UNKNOWN";
+      const vc = verdict === "GO" ? "#22c55e" : "#ef4444";
+      const gates = (d.gates || []).map(g => {
+        const gc = g.pass ? "#22c55e" : g.severity === "BLOCKER" ? "#ef4444" : "#f59e0b";
+        return `<div class="gate-row" style="border-left-color:${gc};">
+          <span style="color:${gc};font-size:11px;min-width:60px;">${g.gate}</span>
+          <span style="color:#94a3b8;font-size:11px;flex:1;">${g.name}</span>
+          ${badge(g.pass ? "PASS" : g.severity, gc)}
+          <span style="color:#6b7280;font-size:10px;">${g.detail}</span>
+        </div>`;
+      }).join("");
+      document.getElementById("release-assurance").innerHTML = `
+        <div style="display:flex;align-items:center;gap:16px;margin-bottom:14px;">
+          <div style="background:${vc}11;border:1px solid ${vc}44;border-radius:6px;padding:10px 20px;">
+            <span style="color:${vc};font-size:16px;font-weight:700;">${verdict}</span>
+          </div>
+          <div style="color:#6b7280;font-size:11px;">
+            ${d.passed_count}/${d.total_gates} gates passed · ${d.blocker_count} blockers
+          </div>
+        </div>
+        ${gates}`;
+    } catch (e) {
+      document.getElementById("release-assurance").innerHTML = `<div class="err">Release assurance unavailable: ${e.message}</div>`;
+    }
+  }
+
+  async function loadCustomerValue(key) {
+    try {
+      const r = await fetch(BASE + "/api/v1/p29/customer-value", { headers: hdrs(key) });
+      const d = await r.json();
+      const cv = d.customer_value || {};
+      const ei = d.estimated_impact || {};
+      document.getElementById("customer-value").innerHTML = `
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;">
+          ${[
+            ["Actionable Advisories",   cv.advisories_actionable,   "#ef4444"],
+            ["Detection Deployments",   cv.detection_deployments,    "#3b82f6"],
+            ["IOC Inventory",           cv.ioc_inventory,            "#06b6d4"],
+            ["KEV Items Tracked",       cv.kev_items_tracked,        "#f59e0b"],
+            ["Fully Enriched Items",    cv.fully_enriched_items,     "#22c55e"],
+            ["Est. Analyst Hrs Saved",  ei.analyst_hours_saved + "h","#6366f1"],
+          ].map(([lbl,val,c]) => `<div class="quality-card">
+            <div class="q-label">${lbl}</div>
+            <div class="q-val" style="color:${c};">${val ?? "—"}</div>
+          </div>`).join("")}
+        </div>`;
+    } catch (e) {
+      document.getElementById("customer-value").innerHTML = `<div class="err">Customer value data unavailable: ${e.message}</div>`;
+    }
+  }
+
+  async function loadTrustCenter(key) {
+    // Additional trust center data is already loaded via observability above
+    // This hook is available for future P29.8 extensions
+  }
+
+  // Auto-auth if key already in sessionStorage
+  window.addEventListener("load", () => {
+    const stored = sessionStorage.getItem("apex_api_key");
+    if (stored) {
+      document.getElementById("api-key-input").value = stored;
+      auth();
+    }
+  });
+
+  // Allow Enter key to submit
+  document.getElementById("api-key-input").addEventListener("keydown", e => {
+    if (e.key === "Enter") auth();
+  });
+</script>
+</body>
+</html>

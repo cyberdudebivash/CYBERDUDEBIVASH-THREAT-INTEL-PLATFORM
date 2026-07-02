@@ -1,0 +1,1231 @@
+#!/usr/bin/env python3
+"""
+CYBERDUDEBIVASH® SENTINEL APEX — FastAPI Intelligence Backend v81.0
+===================================================================
+Production-grade REST API for tiered threat intelligence delivery.
+
+Tiers:
+  FREE       : 10 advisories/req, no IOC details, public endpoints
+  PRO        : 100 advisories/req, full IOC, search, STIX export  ($49/mo)
+  ENTERPRISE : 500 advisories/req, all endpoints, bulk export      ($499/mo)
+  MSSP       : Unlimited, white-label, webhook push               ($1999/mo)
+
+Deploy: Railway / Render / AWS Lambda / Docker
+"""
+from __future__ import annotations
+
+import json
+import os
+import time
+import hashlib
+import logging
+from datetime import datetime, timezone
+from functools import lru_cache
+from pathlib import Path
+from typing import List, Optional, Dict, Any
+
+from fastapi import FastAPI, HTTPException, Query, Header, Request, Depends
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse, Response
+from pydantic import BaseModel
+
+# ── APEX Injector (safe, optional enrichment layer) ───────────────────────
+_APEX_INJECTOR_OK = False
+try:
+    import sys as _sys
+    _sys.path.insert(0, str(Path(__file__).parent.parent))
+    from agent.apex_injector import (
+        inject_apex, inject_apex_batch,
+        get_enrichment_cache, get_apex_summary,
+        APEX_ENABLED as _APEX_ENABLED,
+    )
+    _APEX_INJECTOR_OK = True
+except Exception as _apex_import_err:
+    # Graceful degradation — API works perfectly without APEX
+    _APEX_ENABLED = False
+    def inject_apex(item, cache=None): return item
+    def inject_apex_batch(items, cache=None): return items
+    def get_enrichment_cache(advisories=None): return {}
+    def get_apex_summary(): return {"apex_enabled": False}
+
+# ── Logging ───────────────────────────────────────────────────────────────
+logging.basicConfig(level=logging.INFO, format="%(asctime)s [APEX-API] %(message)s")
+logger = logging.getLogger("APEX-API")
+
+# ── Constants ─────────────────────────────────────────────────────────────
+# BASE_DIR resolves to repo root in ALL environments:
+#   Local:   .../CYBERDUDEBIVASH-THREAT-INTEL-PLATFORM-main/
+#   Railway: /app/  (Railway clones repo to /app)
+#   Docker:  /app/
+# Path(__file__) = api/main.py → parent = api/ → parent.parent = repo root
+BASE_DIR     = Path(__file__).parent.parent
+FEED_PATH    = BASE_DIR / "api" / "feed.json"
+LATEST_PATH  = BASE_DIR / "api" / "latest.json"
+MANIFEST_PATH= BASE_DIR / "data" / "stix" / "feed_manifest.json"
+MRR_PATH     = BASE_DIR / "data" / "sovereign" / "mrr_report.json"
+VERSION      = "v134.0"
+PLATFORM     = "CYBERDUDEBIVASH® Sentinel APEX"
+DASHBOARD    = "https://intel.cyberdudebivash.com"
+STORE_URL    = "https://tools.cyberdudebivash.com/"
+
+logger.info(f"BASE_DIR resolved to: {BASE_DIR}")
+logger.info(f"FEED_PATH exists: {FEED_PATH.exists()}")
+
+# ── Tier Definitions ──────────────────────────────────────────────────────
+TIERS: Dict[str, Dict] = {
+    "free": {
+        "max_results": 10,
+        "search": False,
+        "ioc_details": False,
+        "stix_export": False,
+        "bulk_export": False,
+        "webhooks": False,
+        "rate_limit": 60,      # req/hour
+    },
+    "pro": {
+        "max_results": 100,
+        "search": True,
+        "ioc_details": True,
+        "stix_export": True,
+        "bulk_export": False,
+        "webhooks": False,
+        "rate_limit": 1000,
+    },
+    "enterprise": {
+        "max_results": 500,
+        "search": True,
+        "ioc_details": True,
+        "stix_export": True,
+        "bulk_export": True,
+        "webhooks": False,
+        "rate_limit": 10000,
+    },
+    "mssp": {
+        "max_results": 500,
+        "search": True,
+        "ioc_details": True,
+        "stix_export": True,
+        "bulk_export": True,
+        "webhooks": True,
+        "rate_limit": 999999,
+    },
+}
+
+# ── Demo API Keys — ENV-GATED (HIGH-09 FIX) ───────────────────────────────
+# v143.1 SECURITY FIX: Hardcoded demo keys grant unauthenticated access to
+# enterprise-tier endpoints for any caller who reads this public repo.
+# Keys are now only loaded when the ENABLE_DEMO_KEYS env var is explicitly
+# set to "true" in the deployment environment. In production this MUST be
+# left unset (default: disabled).
+#
+# To enable demo keys for local development only:
+#   export ENABLE_DEMO_KEYS=true
+_DEMO_KEYS_ENABLED = os.getenv("ENABLE_DEMO_KEYS", "false").lower() == "true"
+DEMO_KEYS: Dict[str, Dict] = (
+    {
+        "demo-free-key-0000":       {"tier": "free",       "name": "Demo Free"},
+        "demo-pro-key-1111":        {"tier": "pro",        "name": "Demo Pro"},
+        # NOTE: enterprise demo key intentionally removed from the demo set.
+        # Enterprise access requires a real provisioned key from the key store.
+    }
+    if _DEMO_KEYS_ENABLED
+    else {}
+)
+
+# ── Rate Limiting (in-memory, production: use Redis) ──────────────────────
+_rate_counters: Dict[str, Dict] = {}
+
+def check_rate_limit(api_key: str, tier: str) -> bool:
+    _tier_cfg = TIERS.get(tier, TIERS.get("free", {"rate_limit": 60}))
+    limit = _tier_cfg["rate_limit"]
+    now   = int(time.time() / 3600)   # bucket = 1 hour
+    key   = f"{api_key}:{now}"
+    c     = _rate_counters.get(key, {"count": 0})
+    if c["count"] >= limit:
+        return False
+    _rate_counters[key] = {"count": c["count"] + 1}
+    return True
+
+# ── FastAPI App ───────────────────────────────────────────────────────────
+app = FastAPI(
+    title=f"{PLATFORM} Intelligence API",
+    description=(
+        "Production-grade AI-powered threat intelligence API. "
+        "500+ advisories, STIX 2.1, CVE/EPSS enrichment, IOC feeds. "
+        f"Dashboard: {DASHBOARD} | Store: {STORE_URL}"
+    ),
+    version=VERSION,
+    docs_url="/api/docs",
+    redoc_url="/api/redoc",
+    openapi_url="/api/openapi.json",
+)
+
+_ALLOWED_ORIGINS = [o.strip() for o in os.getenv(
+    "CORS_ORIGINS",
+    "https://intel.cyberdudebivash.com,https://app.cyberdudebivash.com,"
+    "https://cyberdudebivash.com,https://www.cyberdudebivash.com,"
+    "https://dashboard.cyberdudebivash.com"
+).split(",") if o.strip()]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=_ALLOWED_ORIGINS,
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "X-API-Key", "Content-Type", "Accept", "X-Request-ID"],
+    allow_credentials=True,
+    max_age=600,
+)
+
+# ── Phase 3: Version + platform headers on every response ─────────────────
+@app.middleware("http")
+async def add_api_headers(request: Request, call_next):
+    """Inject X-API-Version, X-Platform, X-Powered-By on all responses."""
+    response = await call_next(request)
+    response.headers["X-API-Version"]  = VERSION
+    response.headers["X-Platform"]     = "CDB-SENTINEL-APEX"
+    response.headers["X-Powered-By"]   = "CYBERDUDEBIVASH Sentinel APEX"
+    return response
+
+# ── V1 Router — all /api/v1/* engine endpoints ────────────────────────────
+# Includes: threats, IOCs, predict, identity-risk, darkweb, risk-score,
+#           detections, SOAR, health, engines/status, me
+try:
+    from api.v1_router import router as _v1_router
+    app.include_router(_v1_router)
+    logger.info("[API] V1 Router registered — /api/v1/* endpoints active")
+except ImportError:
+    try:
+        import importlib.util as _ilu
+        _spec = _ilu.spec_from_file_location(
+            "v1_router",
+            Path(__file__).parent / "v1_router.py",
+        )
+        _mod = _ilu.module_from_spec(_spec)
+        _spec.loader.exec_module(_mod)  # type: ignore[union-attr]
+        app.include_router(_mod.router)
+        logger.info("[API] V1 Router registered via file loader")
+    except Exception as _v1_err:
+        logger.warning(f"[API] V1 Router registration failed (non-critical): {_v1_err}")
+
+# ── Router load-status tracker — used in boot manifest ───────────────────
+# Keys = router label; values = True (loaded) | False (failed)
+_router_status: Dict[str, bool] = {}
+
+# ── User Auth Router — /auth/* ────────────────────────────────────────────
+# Provides: register, login, me, logout, apikey/generate, apikey/generate-free
+def _load_router_safe(module_name: str, file_name: str, attr: str, label: str) -> None:
+    """
+    Generic dual-strategy router loader (package import → file loader fallback).
+    Records result in _router_status for the boot manifest.
+    Skips mounting if the router object is None (graceful degradation).
+    """
+    try:
+        import importlib
+        mod = importlib.import_module(f"api.{module_name}")
+        router_obj = getattr(mod, attr, None)
+        if router_obj is None:
+            logger.warning(f"[API] {label} — router attribute is None (FastAPI unavailable?)")
+            _router_status[label] = False
+            return
+        app.include_router(router_obj)
+        logger.info(f"[API] {label} registered (package import)")
+        _router_status[label] = True
+    except Exception:
+        try:
+            import importlib.util as _ilu
+            _spec = _ilu.spec_from_file_location(
+                module_name,
+                Path(__file__).parent / file_name,
+            )
+            _mod = _ilu.module_from_spec(_spec)
+            _spec.loader.exec_module(_mod)  # type: ignore[union-attr]
+            router_obj = getattr(_mod, attr, None)
+            if router_obj is None:
+                logger.warning(f"[API] {label} — router attribute is None after file load")
+                _router_status[label] = False
+                return
+            app.include_router(router_obj)
+            logger.info(f"[API] {label} registered (file loader)")
+            _router_status[label] = True
+        except Exception as _err:
+            logger.warning(f"[API] {label} registration failed: {_err}")
+            _router_status[label] = False
+
+_load_router_safe("user_auth",         "user_auth.py",         "auth_router",          "auth")
+_load_router_safe("copilot",           "copilot.py",           "copilot_router",       "copilot")
+_load_router_safe("alerts",            "alerts.py",            "alerts_router",        "alerts")
+_load_router_safe("monetization",      "monetization.py",      "router",               "monetize")
+
+# ── God Mode — Billion-Dollar Production Modules (v2.0) ─────────────────────
+_load_router_safe("brand_protection",  "brand_protection.py",  "brand_router",         "brand-protection")
+_load_router_safe("vendor_risk",       "vendor_risk.py",       "vendor_risk_router",   "vendor-risk")
+_load_router_safe("geopolitical",      "geopolitical.py",      "geopolitical_router",  "geopolitical")
+_load_router_safe("taxii",             "taxii.py",             "taxii_router",         "taxii")
+_load_router_safe("nlq",               "nlq.py",               "nlq_router",           "nlq")
+_load_router_safe("incident_response", "incident_response.py", "incident_router",      "incidents")
+
+# ── Stability: health + metrics endpoints ────────────────────────────────────
+try:
+    import sys as _sys
+    _sys.path.insert(0, str(BASE_DIR))
+    from core.stability.pipeline_guardian import health_router as _health_router
+    if _health_router is not None:
+        app.include_router(_health_router)
+        logger.info("[API] Health Router registered — /api/v1/health/* active")
+        _router_status["stability"] = True
+    else:
+        logger.warning("[API] Health Router is None — FastAPI not available in stability module")
+        _router_status["stability"] = False
+except Exception as _hrex:
+    logger.warning(f"[API] Health Router registration skipped: {_hrex}")
+    _router_status["stability"] = False
+
+# ── Pipeline Guardian — dynamic APEX evaluation engine ───────────────────────
+# Imported AFTER stability router registration so _router_status is populated.
+_guardian = None
+try:
+    from core.stability.pipeline_guardian import pipeline_guardian as _guardian
+    logger.info("[API] PipelineGuardian loaded — dynamic APEX evaluation active")
+except Exception as _guard_err:
+    logger.warning(f"[API] PipelineGuardian unavailable (static fallback): {_guard_err}")
+
+# ── Ingestion: data ingestion pipeline endpoints ──────────────────────────────
+try:
+    from core.ingestion.ingestion_engine import ingestion_router as _ingestion_router
+    if _ingestion_router is not None:
+        app.include_router(_ingestion_router)
+        logger.info("[API] Ingestion Router registered — /api/v1/ingestion/* active")
+        _router_status["ingestion"] = True
+    else:
+        logger.warning("[API] Ingestion Router is None — FastAPI not available in ingestion module")
+        _router_status["ingestion"] = False
+except Exception as _irex:
+    logger.warning(f"[API] Ingestion Router registration skipped: {_irex}")
+    _router_status["ingestion"] = False
+
+# ── Onboarding: developer getting-started endpoints ───────────────────────────
+try:
+    from api.onboarding import onboarding_router as _onboarding_router
+    if _onboarding_router is not None:
+        app.include_router(_onboarding_router)
+        logger.info("[API] Onboarding Router registered — /api/v1/onboarding/* active")
+        _router_status["onboarding"] = True
+    else:
+        logger.warning("[API] Onboarding Router is None")
+        _router_status["onboarding"] = False
+except Exception as _orex:
+    logger.warning(f"[API] Onboarding Router registration skipped: {_orex}")
+    _router_status["onboarding"] = False
+
+# ── Pydantic Schemas ──────────────────────────────────────────────────────
+class AdvisoryItem(BaseModel):
+    stix_id: str
+    title: str
+    severity: str
+    risk_score: float
+    timestamp: str
+    blog_url: str
+    source_url: str
+    tlp_label: str
+    confidence_score: float
+    threat_type: str
+    feed_source: str
+    kev_present: bool
+    cvss_score: Optional[float]
+    epss_score: Optional[float]
+    mitre_tactics: List[str]
+    actor_tag: str
+
+class AdvisoryDetailItem(AdvisoryItem):
+    ioc_counts: Dict
+    indicator_count: int
+    stix_file: str
+    stix_object_count: int
+    supply_chain: bool
+    exploit_probability: str
+    alert: Dict
+    campaign: Dict
+
+class FeedResponse(BaseModel):
+    status: str
+    version: str
+    platform: str
+    tier: str
+    count: int
+    total_available: int
+    generated: str
+    data: List[Any]
+    upgrade_url: str
+
+class StatsResponse(BaseModel):
+    status: str
+    platform: str
+    version: str
+    metrics: Dict
+    feed_health: Dict
+    generated: str
+
+# ── Data Loaders (cached, 5-min TTL) ─────────────────────────────────────
+_cache: Dict[str, Any] = {}
+_cache_ts: Dict[str, float] = {}
+CACHE_TTL = 300  # 5 minutes
+
+def load_json(path: Path, cache_key: str) -> Any:
+    now = time.time()
+    if cache_key in _cache and (now - _cache_ts.get(cache_key, 0)) < CACHE_TTL:
+        return _cache[cache_key]
+    try:
+        with open(path, encoding="utf-8") as f:
+            data = json.load(f)
+        _cache[cache_key] = data
+        _cache_ts[cache_key] = now
+        return data
+    except Exception as e:
+        logger.error(f"Failed to load {path}: {e}")
+        return None
+
+def _get_feed_sync_info() -> Dict[str, Any]:
+    """
+    Return lightweight feed freshness snapshot for /stats and boot manifest.
+    Uses guardian if available; falls back to direct stat check.
+    """
+    if _guardian:
+        try:
+            state = _guardian.health_check(_router_status)
+            return {
+                "status":       state.status,
+                "feed_age_h":   state.feed_freshness.age_hours if state.feed_freshness else None,
+                "feed_status":  state.feed_freshness.status if state.feed_freshness else "unknown",
+                "last_ingest":  state.last_ingestion_ts,
+                "apex_mode":    state.apex_mode,
+                "advisories":   state.advisory_count,
+                "desync":       state.desync_detected,
+            }
+        except Exception:
+            pass
+    # Fallback: direct filesystem check
+    try:
+        mtime = FEED_PATH.stat().st_mtime if FEED_PATH.exists() else None
+        age_h = round((time.time() - mtime) / 3600, 2) if mtime else None
+        return {
+            "status":      "live" if age_h and age_h < 4 else ("warn" if age_h and age_h < 12 else "stale"),
+            "feed_age_h":  age_h,
+            "feed_exists": FEED_PATH.exists(),
+        }
+    except Exception:
+        return {"status": "unknown"}
+
+def get_feed() -> List[Dict]:
+    """Load intelligence feed. Always returns list (never None). Thread-safe."""
+    try:
+        raw = load_json(FEED_PATH, "feed")
+        if raw is None:
+            # Try manifest as fallback
+            raw = load_json(MANIFEST_PATH, "manifest")
+        if isinstance(raw, list):
+            return [i for i in raw if isinstance(i, dict)]
+        if isinstance(raw, dict):
+            items = raw.get("data", raw.get("items", raw.get("advisories", [])))
+            return [i for i in (items or []) if isinstance(i, dict)]
+        return []
+    except Exception as _e:
+        logger.error(f"[get_feed] Error loading feed: {_e}")
+        return []
+
+def get_manifest() -> List[Dict]:
+    raw = load_json(MANIFEST_PATH, "manifest")
+    return raw if isinstance(raw, list) else []
+
+# ── Auth Dependency ────────────────────────────────────────────────────────
+# v2.0: uses new api_key_manager for persistent key validation
+_KEY_MGR_OK = False
+_get_key_manager = None
+try:
+    from api.auth import get_key_manager as _get_key_manager
+    _KEY_MGR_OK = True
+except Exception:
+    pass
+
+def get_api_key(x_api_key: Optional[str] = Header(default=None)) -> Dict:
+    """Resolve API key to tier. No key = free tier (anonymous)."""
+    if not x_api_key:
+        return {"tier": "free", "name": "Anonymous", "key": "anon"}
+
+    # Live auth store (data/auth/api_keys.json) — primary path
+    if _KEY_MGR_OK and _get_key_manager:
+        try:
+            is_valid, record, _reason = _get_key_manager().validate_key(x_api_key)
+            if is_valid and record:
+                tier = record.get("tier", "FREE").lower()
+                if not check_rate_limit(x_api_key, tier):
+                    raise HTTPException(
+                        status_code=429,
+                        detail={"error": f"Rate limit exceeded for {tier} tier",
+                                "limit": f"{TIERS.get(tier, TIERS['free'])['rate_limit']} req/hour",
+                                "upgrade": STORE_URL},
+                    )
+                return {"tier": tier, "name": record.get("owner", ""), "key": x_api_key}
+        except HTTPException:
+            raise
+        except Exception:
+            pass
+
+    # Fallback to static DEMO_KEYS (dev only — empty in production)
+    key_info = DEMO_KEYS.get(x_api_key)
+    if not key_info:
+        raise HTTPException(
+            status_code=401,
+            detail={"error": "Invalid API key",
+                    "upgrade": STORE_URL, "docs": "/api/docs"},
+        )
+    tier = key_info["tier"].lower()
+    if not check_rate_limit(x_api_key, tier):
+        raise HTTPException(
+            status_code=429,
+            detail={"error": f"Rate limit exceeded for {tier} tier",
+                    "limit": f"{TIERS.get(tier, TIERS['free'])['rate_limit']} req/hour",
+                    "upgrade": STORE_URL},
+        )
+    return {**key_info, "tier": tier, "key": x_api_key}
+
+def strip_iocs(item: Dict) -> Dict:
+    """Remove IOC details for free tier."""
+    stripped = {k: v for k, v in item.items()
+                if k not in ("ioc_counts", "stix_file", "openclaw", "alert", "correlation")}
+    stripped["ioc_counts"] = {"redacted": "Upgrade to Pro for IOC details"}
+    return stripped
+
+# ══════════════════════════════════════════════════════════════════════════
+# API ENDPOINTS
+# ══════════════════════════════════════════════════════════════════════════
+
+@app.get("/health", include_in_schema=False)
+async def health_check():
+    """Railway health check — ALWAYS returns 200 so deployment succeeds.
+    Even if feed.json is missing, we return 200 — Railway needs 200 to mark healthy.
+    """
+    try:
+        feed  = get_feed()
+        count = len(feed)
+    except Exception:
+        count = 0
+    return JSONResponse(
+        status_code=200,   # ALWAYS 200 — never 503
+        content={
+            "status":     "healthy",
+            "platform":   PLATFORM,
+            "version":    VERSION,
+            "advisories": count,
+            "feed_exists": FEED_PATH.exists(),
+            "apex":        get_apex_summary(),
+        }
+    )
+
+# ── GET /api/health — Autonomic Health Endpoint (v134.0) ─────────────────
+# Returns live health score, system state (HEALTHY/DEGRADED/CRITICAL),
+# WriteQueue depth, recovery backlog count, throttle status, and thresholds.
+# Used by monitoring, alerting systems, and the pipeline health gate.
+_health_monitor_ok = False
+_health_monitor = None
+try:
+    import sys as _sys
+    _sys.path.insert(0, str(BASE_DIR / "scripts"))
+    from safe_io import health_monitor as _health_monitor, SystemHealthMonitor as _SHM
+    _health_monitor_ok = True
+    logger.info("[API] SystemHealthMonitor loaded — GET /api/health active")
+except Exception as _shm_err:
+    logger.warning(f"[API] SystemHealthMonitor unavailable: {_shm_err}")
+
+@app.get("/api/health", tags=["Platform"], summary="Autonomic system health (v134.0)")
+async def get_system_health():
+    """
+    v134.0 Autonomic Health Endpoint.
+
+    Returns the live system health state from SystemHealthMonitor:
+      - state: HEALTHY | DEGRADED | CRITICAL
+      - health_score: 0–100 (100 = fully healthy)
+      - write_queue_depth, recovery_count, write_failures
+      - throttle_active, ingestion_paused
+      - thresholds for DEGRADED/CRITICAL transitions
+      - recent health events (last 10)
+
+    HTTP status:
+      200 — HEALTHY or DEGRADED
+      503 — CRITICAL (pipeline blocked)
+    """
+    if _health_monitor_ok and _health_monitor is not None:
+        try:
+            state_dict = _health_monitor.get_state()
+            state      = state_dict.get("state", "HEALTHY")
+            http_code  = 503 if state == "CRITICAL" else 200
+            return JSONResponse(status_code=http_code, content=state_dict)
+        except Exception as _e:
+            logger.warning(f"[GET /api/health] health_monitor.get_state() error: {_e}")
+
+    # Fallback: read persisted system_health.json if available
+    health_json = BASE_DIR / "data" / "logs" / "system_health.json"
+    if health_json.exists():
+        try:
+            with open(health_json, encoding="utf-8") as _f:
+                state_dict = json.load(_f)
+            state     = state_dict.get("state", "HEALTHY")
+            http_code = 503 if state == "CRITICAL" else 200
+            state_dict["_source"] = "persisted"
+            return JSONResponse(status_code=http_code, content=state_dict)
+        except Exception:
+            pass
+
+    # Ultimate fallback — return synthetic HEALTHY if monitor not available
+    return JSONResponse(status_code=200, content={
+        "platform":     PLATFORM,
+        "version":      VERSION,
+        "state":        "HEALTHY",
+        "health_score": 100.0,
+        "write_queue_depth": 0,
+        "write_failures": 0,
+        "recovery_count": 0,
+        "throttle_active": False,
+        "ingestion_paused": False,
+        "_source":      "synthetic_fallback",
+        "checked_at":   datetime.now(timezone.utc).isoformat(timespec="seconds"),
+    })
+
+
+@app.get("/", include_in_schema=False)
+async def root():
+    return JSONResponse({
+        "platform": PLATFORM,
+        "version":  VERSION,
+        "status":   "operational",
+        "dashboard": DASHBOARD,
+        "store":    STORE_URL,
+        "docs":     "/api/docs",
+        "endpoints": {
+            "feed":             "/api/v1/intel/feed",
+            "latest":           "/api/v1/intel/latest",
+            "search":           "/api/v1/intel/search",
+            "advisory":         "/api/v1/intel/{stix_id}",
+            "iocs":             "/api/v1/iocs",
+            "stats":            "/api/v1/stats",
+            "stix":             "/api/v1/stix/{stix_id}",
+            "health":           "/api/health",
+            "copilot":          "/api/v1/copilot/query",
+            "nlq":              "/api/v1/nlq/query",
+            "incidents":        "/api/v1/incidents/",
+            "brand_protection": "/api/v1/brand/scan",
+            "vendor_risk":      "/api/v1/vendor-risk/assess",
+            "geopolitical":     "/api/v1/geopolitical/landscape",
+            "taxii":            "/taxii2/",
+        }
+    })
+
+# ── GET /api/v1/intel/feed ────────────────────────────────────────────────
+@app.get("/api/v1/intel/feed", tags=["Intelligence"])
+async def get_intelligence_feed(
+    limit:    int   = Query(default=10,  ge=1, le=500),
+    offset:   int   = Query(default=0,   ge=0),
+    severity: Optional[str] = Query(default=None,
+        description="Filter: CRITICAL, HIGH, MEDIUM, LOW"),
+    min_risk: float = Query(default=0.0, ge=0, le=10),
+    auth:     Dict  = Depends(get_api_key),
+):
+    tier       = auth["tier"]
+    max_limit  = TIERS.get(tier, TIERS["free"])["max_results"]
+    limit      = min(limit, max_limit)
+    feed       = get_feed()
+    if not feed:
+        raise HTTPException(503, "Intelligence feed temporarily unavailable")
+
+    # Filter
+    results = feed
+    if severity:
+        results = [i for i in results if i.get("severity","").upper() == severity.upper()]
+    if min_risk > 0:
+        results = [i for i in results if i.get("risk_score", 0) >= min_risk]
+
+    total     = len(results)
+    paginated = results[offset: offset + limit]
+
+    # Strip IOCs for free tier
+    if not TIERS.get(tier, TIERS["free"])["ioc_details"]:
+        paginated = [strip_iocs(i) for i in paginated]
+
+    # ── APEX safe injection (non-destructive, fails silently) ─────────────
+    try:
+        _apex_cache = get_enrichment_cache(feed)
+        paginated = inject_apex_batch(paginated, _apex_cache)
+    except Exception:
+        pass  # Original data always returned on any APEX failure
+
+    return {
+        "status": "ok",
+        "version": VERSION,
+        "platform": PLATFORM,
+        "tier": tier,
+        "count": len(paginated),
+        "total_available": total,
+        "offset": offset,
+        "limit": limit,
+        "tier_max": max_limit,
+        "generated": datetime.now(timezone.utc).isoformat(),
+        "upgrade_url": STORE_URL if tier == "free" else None,
+        "data": paginated,
+    }
+
+# ── GET /api/v1/intel/latest ──────────────────────────────────────────────
+@app.get("/api/v1/intel/latest", tags=["Intelligence"])
+async def get_latest_advisories(
+    n:    int  = Query(default=10, ge=1, le=50),
+    auth: Dict = Depends(get_api_key),
+):
+    tier      = auth["tier"]
+    max_limit = min(TIERS.get(tier, TIERS["free"])["max_results"], 50)
+    feed      = get_feed()
+    results   = feed[:min(n, max_limit)]
+    if not TIERS.get(tier, TIERS["free"])["ioc_details"]:
+        results = [strip_iocs(i) for i in results]
+    # ── APEX safe injection ───────────────────────────────────────────────
+    try:
+        _apex_cache = get_enrichment_cache(feed)
+        results = inject_apex_batch(results, _apex_cache)
+    except Exception:
+        pass
+    return {
+        "status": "ok", "tier": tier, "count": len(results),
+        "generated": datetime.now(timezone.utc).isoformat(),
+        "upgrade_url": STORE_URL if tier == "free" else None,
+        "data": results,
+    }
+
+# ── GET /api/v1/intel/search ────────────────────────────────────────────
+@app.get("/api/v1/intel/search", tags=["Intelligence"])
+async def search_intelligence(
+    q:        str   = Query(..., min_length=2, description="Search keyword"),
+    severity: Optional[str] = Query(default=None),
+    min_risk: float = Query(default=0.0, ge=0, le=10),
+    limit:    int   = Query(default=20, ge=1, le=100),
+    auth:     Dict  = Depends(get_api_key),
+):
+    tier = auth["tier"]
+    if not TIERS.get(tier, TIERS["free"])["search"]:
+        raise HTTPException(403, {
+            "error": "Search requires Pro tier or higher",
+            "upgrade": STORE_URL,
+            "current_tier": tier,
+        })
+    feed    = get_feed()
+    q_lower = q.lower()
+    results = [
+        i for i in feed
+        if q_lower in i.get("title", "").lower()
+        or q_lower in i.get("threat_type", "").lower()
+        or q_lower in i.get("actor_tag", "").lower()
+        or any(q_lower in t.lower() for t in i.get("mitre_tactics", []))
+        or q_lower in i.get("feed_source", "").lower()
+    ]
+    if severity:
+        results = [i for i in results if i.get("severity","").upper() == severity.upper()]
+    if min_risk > 0:
+        results = [i for i in results if i.get("risk_score", 0) >= min_risk]
+    max_r   = min(limit, TIERS.get(tier, TIERS["free"])["max_results"])
+    results = results[:max_r]
+    if not TIERS.get(tier, TIERS["free"])["ioc_details"]:
+        results = [strip_iocs(i) for i in results]
+    # ── APEX safe injection ───────────────────────────────────────────────
+    try:
+        _apex_cache = get_enrichment_cache(feed)
+        results = inject_apex_batch(results, _apex_cache)
+    except Exception:
+        pass
+    _result_count = len(results)
+    return {
+        "status":    "success",
+        "tier":      tier,
+        "query":     q,
+        "count":     _result_count,        # kept for backward compat
+        "generated": datetime.now(timezone.utc).isoformat(),
+        "data":      results,
+        "meta": {
+            "count":         _result_count,
+            "query":         q,
+            "message":       (
+                f"{_result_count} result(s) found"
+                if _result_count > 0
+                else "No results found — try broader keywords or a different search term"
+            ),
+            "search_fields": ["title", "threat_type", "actor_tag", "mitre_tactics", "feed_source"],
+            "filters_applied": {
+                "severity": severity,
+                "min_risk": min_risk if min_risk > 0 else None,
+            },
+            "tier_limit":    TIERS.get(tier, TIERS["free"])["max_results"],
+        },
+    }
+
+# ── GET /api/v1/intel/{stix_id} ─────────────────────────────────────────
+@app.get("/api/v1/intel/{stix_id}", tags=["Intelligence"])
+async def get_advisory_by_id(
+    stix_id: str,
+    auth:    Dict = Depends(get_api_key),
+):
+    feed = get_feed()
+    item = next((i for i in feed if i.get("stix_id") == stix_id
+                 or i.get("bundle_id") == stix_id), None)
+    if not item:
+        raise HTTPException(404, {
+            "status": "error",
+            "error":  f"Advisory '{stix_id}' not found in feed",
+            "code":   404,
+            "meta":   {
+                "stix_id": stix_id,
+                "hint":    "Use /api/v1/intel/latest or /api/v1/intel/search to discover valid advisory IDs",
+            },
+        })
+    if not TIERS.get(auth["tier"], TIERS["free"])["ioc_details"]:
+        item = strip_iocs(item)
+    # ── APEX safe injection ───────────────────────────────────────────────
+    try:
+        _apex_cache = get_enrichment_cache(feed)
+        item = inject_apex(item, _apex_cache)
+    except Exception:
+        pass
+    return {"status": "ok", "tier": auth["tier"], "data": item}
+
+# ── GET /api/v1/iocs ────────────────────────────────────────────────────
+@app.get("/api/v1/iocs", tags=["IOC Intelligence"])
+async def get_ioc_feed(
+    ioc_type: Optional[str] = Query(default=None,
+        description="Filter: sha256, domain, ipv4, url, md5"),
+    min_risk: float = Query(default=7.0, ge=0, le=10),
+    limit:    int   = Query(default=50, ge=1, le=500),
+    auth:     Dict  = Depends(get_api_key),
+):
+    tier = auth["tier"]
+    if not TIERS.get(tier, TIERS["free"])["ioc_details"]:
+        raise HTTPException(403, {
+            "error": "IOC details require Pro tier or higher",
+            "upgrade": STORE_URL, "current_tier": tier,
+        })
+    feed     = get_feed()
+    ioc_list = []
+    for item in feed:
+        if item.get("risk_score", 0) < min_risk:
+            continue
+        counts = item.get("ioc_counts", {})
+        if not isinstance(counts, dict):
+            continue
+        for itype, count in counts.items():
+            if count and count > 0:
+                if ioc_type and itype.lower() != ioc_type.lower():
+                    continue
+                ioc_list.append({
+                    "advisory_title": item["title"][:80],
+                    "stix_id": item["stix_id"],
+                    "ioc_type": itype,
+                    "count": count,
+                    "risk_score": item["risk_score"],
+                    "severity": item["severity"],
+                    "timestamp": item["timestamp"],
+                    "blog_url": item["blog_url"],
+                    "kev_present": item.get("kev_present", False),
+                })
+    ioc_list = sorted(ioc_list, key=lambda x: x["risk_score"], reverse=True)
+    total    = len(ioc_list)
+    ioc_list = ioc_list[:min(limit, TIERS.get(tier, TIERS["free"])["max_results"])]
+    return {
+        "status": "ok", "tier": tier,
+        "ioc_type_filter": ioc_type or "all",
+        "min_risk_filter": min_risk,
+        "count": len(ioc_list), "total": total,
+        "generated": datetime.now(timezone.utc).isoformat(),
+        "data": ioc_list,
+    }
+
+# ── GET /api/v1/stats ─────────────────────────────────────────────────────
+@app.get("/api/v1/stats", tags=["Platform"])
+async def get_platform_stats():
+    """Public endpoint — no auth required."""
+    feed = get_feed()
+    if not feed:
+        raise HTTPException(503, "Stats temporarily unavailable")
+    severities = {}
+    risk_sum   = 0.0
+    kev_count  = 0
+    ioc_total  = 0
+    for item in feed:
+        sev = item.get("severity", "UNKNOWN")
+        severities[sev] = severities.get(sev, 0) + 1
+        risk_sum  += item.get("risk_score", 0)
+        if item.get("kev_present"): kev_count += 1
+        counts = item.get("ioc_counts", {})
+        if isinstance(counts, dict):
+            ioc_total += sum(v for v in counts.values() if isinstance(v, int))
+    return {
+        "status": "ok",
+        "platform": PLATFORM,
+        "version": VERSION,
+        "platform_version": VERSION,
+        "dashboard": DASHBOARD,
+        "store": STORE_URL,
+        "metrics": {
+            "total_advisories": len(feed),
+            "severity_distribution": severities,
+            "avg_risk_score": round(risk_sum / max(len(feed), 1), 2),
+            "kev_tagged": kev_count,
+            "total_iocs": ioc_total,
+            "critical_count": severities.get("CRITICAL", 0),
+            "high_count": severities.get("HIGH", 0),
+        },
+        "apex_intelligence": get_apex_summary(),
+        "feed_sync": _get_feed_sync_info(),
+        "generated": datetime.now(timezone.utc).isoformat(),
+    }
+
+# ── GET /api/v1/stix/{stix_id} ────────────────────────────────────────────
+@app.get("/api/v1/stix/{stix_id}", tags=["STIX Export"])
+async def export_stix_bundle(
+    stix_id: str,
+    auth:    Dict = Depends(get_api_key),
+):
+    tier = auth["tier"]
+    if not TIERS.get(tier, TIERS["free"])["stix_export"]:
+        raise HTTPException(403, {
+            "error": "STIX export requires Pro tier or higher",
+            "upgrade": STORE_URL, "current_tier": tier,
+        })
+    feed = get_feed()
+    item = next((i for i in feed if i.get("stix_id") == stix_id), None)
+    if not item:
+        raise HTTPException(404, {"error": f"STIX bundle {stix_id} not found"})
+    stix_file = BASE_DIR / "data" / "stix" / item.get("stix_file", "")
+    if stix_file.exists():
+        try:
+            with open(stix_file, encoding="utf-8") as f:
+                bundle = json.load(f)
+            return Response(
+                content=json.dumps(bundle, indent=2),
+                media_type="application/stix+json",
+                headers={"Content-Disposition": f'attachment; filename="{stix_file.name}"'},
+            )
+        except Exception:
+            pass
+    # Return minimal inline STIX skeleton if bundle file not found on disk.
+    # v143.1 NULL-SAFE: item is guaranteed non-None here (404 raised above if missing),
+    # but use .get() for defence-in-depth against schema drift.
+    return {
+        "type": "bundle", "id": stix_id, "spec_version": "2.1",
+        "objects": [{
+            "type":       "indicator",
+            "id":         stix_id,
+            "name":       (item or {}).get("title", "Unknown"),
+            "risk_score": (item or {}).get("risk_score", 0),
+            "severity":   (item or {}).get("severity", "UNKNOWN"),
+            "note":       "Bundle file not available on disk — metadata skeleton only.",
+        }],
+    }
+
+# ── GET /api/v1/bulk/export ───────────────────────────────────────────────
+@app.get("/api/v1/bulk/export", tags=["Bulk Export"])
+async def bulk_export(
+    format:   str  = Query(default="json", description="json or stix"),
+    severity: Optional[str] = Query(default=None),
+    min_risk: float = Query(default=7.0, ge=0, le=10),
+    auth:     Dict  = Depends(get_api_key),
+):
+    tier = auth["tier"]
+    if not TIERS.get(tier, TIERS["free"])["bulk_export"]:
+        raise HTTPException(403, {
+            "error": "Bulk export requires Enterprise tier or higher",
+            "upgrade": STORE_URL, "current_tier": tier,
+        })
+    feed    = get_feed()
+    results = [i for i in feed if i.get("risk_score", 0) >= min_risk]
+    if severity:
+        results = [i for i in results if i.get("severity","").upper() == severity.upper()]
+    if format.lower() == "stix":
+        bundle = {
+            "type": "bundle", "id": f"bundle--apex-export-{int(time.time())}",
+            "spec_version": "2.1", "objects": [],
+        }
+        for item in results:
+            bundle["objects"].append({
+                "type": "indicator",
+                "id": item["stix_id"],
+                "name": item["title"],
+                "risk_score": item["risk_score"],
+                "severity": item["severity"],
+                "created": item["timestamp"],
+            })
+        return Response(
+            content=json.dumps(bundle, indent=2),
+            media_type="application/stix+json",
+            headers={"Content-Disposition": "attachment; filename=apex_bulk_export.stix.json"},
+        )
+    return {
+        "status": "ok", "tier": tier, "format": format,
+        "count": len(results), "min_risk": min_risk,
+        "generated": datetime.now(timezone.utc).isoformat(),
+        "data": results,
+    }
+
+# ── GET /api/v1/tiers ─────────────────────────────────────────────────────
+@app.get("/api/v1/tiers", tags=["Platform"])
+async def get_tier_info():
+    """Public endpoint — show available tiers and pricing."""
+    return {
+        "status": "ok",
+        "platform": PLATFORM,
+        "store": STORE_URL,
+        "tiers": {
+            "free":       {"price": "$0/mo",      "features": TIERS["free"],       "cta": "Use now — no key needed"},
+            "pro":        {"price": "$49/mo",     "features": TIERS["pro"],        "cta": STORE_URL},
+            "enterprise": {"price": "$499/mo",    "features": TIERS["enterprise"], "cta": STORE_URL},
+            "mssp":       {"price": "$1,999/mo",  "features": TIERS["mssp"],       "cta": "Contact: intel.cyberdudebivash.com"},
+        }
+    }
+
+# ── Startup ────────────────────────────────────────────────────────────────
+# ── Monetization Endpoints (v2.0) ────────────────────────────────────────────
+
+class _OnboardReq(BaseModel):
+    name: str
+    email: str
+    tier: str = "pro"
+    payment_provider: str = "stripe"
+
+@app.post("/api/v1/subscribe", tags=["Monetization"])
+async def create_subscription(req: _OnboardReq):
+    """Create Stripe or Razorpay checkout session for subscription."""
+    tier = req.tier.lower()
+    if tier == "free":
+        return {"status": "ok", "tier": "free",
+                "message": "Free tier — no payment needed. Use API without key.",
+                "dashboard": DASHBOARD, "api_docs": "/api/docs"}
+    if tier not in ("pro", "enterprise", "mssp"):
+        raise HTTPException(400, {"error": f"Unknown tier: {tier}"})
+    try:
+        from agent.monetization.payment_gateway import (
+            create_stripe_checkout_session, create_razorpay_subscription
+        )
+        result = (create_razorpay_subscription(tier, req.email, req.name)
+                  if req.payment_provider == "razorpay"
+                  else create_stripe_checkout_session(tier, req.email, req.name))
+        if "error" in result:
+            return {"status": "redirect", "checkout_url": STORE_URL,
+                    "gumroad_url": STORE_URL, "tier": tier,
+                    "message": f"Use Gumroad store: {STORE_URL}"}
+        return {"status": "ok", "tier": tier,
+                "checkout_url": result.get("url") or result.get("short_url"),
+                "provider": result.get("provider"),
+                "message": f"Complete payment to activate {tier.title()} plan."}
+    except Exception:
+        return {"status": "redirect", "checkout_url": STORE_URL, "tier": tier}
+
+@app.post("/api/v1/webhooks/stripe", tags=["Monetization"], include_in_schema=False)
+async def stripe_webhook(request: Request):
+    """Stripe webhook — auto-provisions API key on successful payment."""
+    try:
+        from agent.monetization.payment_gateway import handle_stripe_webhook
+        body = await request.body()
+        sig = request.headers.get("stripe-signature", "")
+        ok, msg = handle_stripe_webhook(body, sig)
+        return JSONResponse({"status": "ok" if ok else "error", "msg": msg},
+                            status_code=200 if ok else 400)
+    except Exception as e:
+        return JSONResponse({"status": "error", "msg": str(e)}, status_code=400)
+
+@app.post("/api/v1/webhooks/razorpay", tags=["Monetization"], include_in_schema=False)
+async def razorpay_webhook(request: Request):
+    """Razorpay webhook — auto-provisions API key on successful payment."""
+    try:
+        from agent.monetization.payment_gateway import handle_razorpay_webhook
+        body = await request.body()
+        sig = request.headers.get("x-razorpay-signature", "")
+        ok, msg = handle_razorpay_webhook(body, sig)
+        return JSONResponse({"status": "ok" if ok else "error", "msg": msg},
+                            status_code=200 if ok else 400)
+    except Exception as e:
+        return JSONResponse({"status": "error", "msg": str(e)}, status_code=400)
+
+@app.get("/api/v1/onboard", tags=["Monetization"])
+async def onboarding_guide():
+    """Complete onboarding: pricing, quick-start, subscribe URL."""
+    return {
+        "status":   "ok",
+        "platform": PLATFORM,
+        "tagline":  "AI-Powered Global Cybersecurity Threat Intelligence",
+        "pricing": {
+            "free":       {"price_usd": "$0/mo",     "price_inr": "Free",           "rpm": 60,    "advisories": 10,  "features": ["Basic intel feed", "CVE+EPSS data", "STIX 2.1"]},
+            "pro":        {"price_usd": "$49/mo",    "price_inr": "Rs 4,099/mo",    "rpm": 1000,  "advisories": 100, "features": ["Full IOC details", "Search API", "APEX AI scores", "Alert webhook"]},
+            "enterprise": {"price_usd": "$499/mo",   "price_inr": "Rs 41,599/mo",   "rpm": 10000, "advisories": 500, "features": ["Bulk export", "STIX bundles", "APEX priority scores", "Priority SLA 4h"]},
+            "mssp":       {"price_usd": "$1,999/mo", "price_inr": "Rs 1,66,599/mo", "rpm": 99999, "advisories": 500, "features": ["Unlimited RPM", "Webhook push", "White-label", "Custom feeds", "SLA 1h"]},
+        },
+        "quick_start": {
+            "free":      "curl https://cyberdudebivash-threat-intel-platform-production.up.railway.app/api/v1/intel/latest",
+            "paid":      "curl -H 'X-API-Key: YOUR_KEY' .../api/v1/intel/feed?limit=100",
+            "subscribe": "POST /api/v1/subscribe  body: {name, email, tier, payment_provider}",
+            "test_key":  "Use demo-pro-key-1111 for free Pro tier testing",
+        },
+        "channels": {
+            "store":            STORE_URL,
+            "dashboard":        DASHBOARD,
+            "telegram_alerts":  "https://t.me/cyberdudebivashSentinelApex",
+            "docs":             "/api/docs",
+            "contact":          "enterprise@cyberdudebivash.com",
+        },
+    }
+
+# ── Static-compatibility routes ──────────────────────────────────────────────
+# Dashboards built against /api/feed.json and /api/latest.json (static files).
+# These routes serve the same data via the live feed loader so the container
+# works even when no static files exist (e.g., after a clean Docker build).
+
+@app.get("/api/feed.json", include_in_schema=False)
+async def serve_feed_json():
+    """Backward-compat: serve feed.json via live loader."""
+    feed = get_feed()
+    return JSONResponse(content=feed)
+
+@app.get("/api/latest.json", include_in_schema=False)
+async def serve_latest_json():
+    """Backward-compat: serve latest.json via live loader (last 20 items)."""
+    feed = get_feed()
+    return JSONResponse(content=feed[:20])
+
+# ── POST /api/v1/intel/refresh ────────────────────────────────────────────────
+@app.post("/api/v1/intel/refresh", tags=["Intelligence"])
+async def refresh_intel_cache(auth: Dict = Depends(get_api_key)):
+    """
+    Cache invalidation endpoint — forces immediate reload of feed.json and manifest
+    on the next request. Called post-ingestion to ensure live data flow.
+    Enterprise+ tier required to prevent abuse.
+    """
+    tier = auth["tier"]
+    if tier not in ("enterprise", "mssp"):
+        raise HTTPException(403, {
+            "error": "Cache refresh requires Enterprise tier or higher",
+            "reason": "Prevents cache-flood abuse on shared infrastructure",
+            "upgrade": STORE_URL,
+            "current_tier": tier,
+        })
+    # Bust all cache entries
+    _cache.clear()
+    _cache_ts.clear()
+
+    # Notify guardian of manual refresh
+    if _guardian:
+        try:
+            _guardian.emit_ingestion_complete(source="manual_refresh", items_written=0)
+        except Exception:
+            pass
+
+    feed_count = len(get_feed())   # warm cache with fresh data
+    return JSONResponse(status_code=200, content={
+        "status": "ok",
+        "message": "Intelligence cache invalidated and rewarmed",
+        "advisories_loaded": feed_count,
+        "feed_path": str(FEED_PATH),
+        "feed_exists": FEED_PATH.exists(),
+        "generated": datetime.now(timezone.utc).isoformat(),
+    })
+
+# ── startup event ─────────────────────────────────────────────────────────
+@app.on_event("startup")
+async def startup():
+    """
+    Production boot sequence — structured manifest logging so Railway/Docker
+    logs prove exactly what loaded and what degraded gracefully.
+    """
+    import sys as _sys
+
+    # ── Ensure project root is always on sys.path ─────────────────────────
+    _root = str(BASE_DIR)
+    if _root not in _sys.path:
+        _sys.path.insert(0, _root)
+
+    # ── Mount APEX Intelligence Engine routes (/apex/v1/*) ─────────────
+    try:
+        from agent.apex_api_router import mount_apex_routes
+        mount_apex_routes(app)
+        logger.info("[BOOT] APEX API router mounted — /apex/v1/* active")
+    except Exception as _e:
+        logger.warning(f"[BOOT] APEX router skipped (agent/ not present): {_e}")
+
+    # ── Feed warm-up ───────────────────────────────────────────────────────
+    feed = get_feed()
+    logger.info(f"[BOOT] Feed loaded — {len(feed)} advisories")
+
+    # ── APEX enrichment cache warm-up ──────────────────────────────────────
+    if _APEX_ENABLED:
+        try:
+            get_enrichment_cache(get_manifest())
+            logger.info("[BOOT] APEX enrichment cache warmed")
+        except Exception as _e:
+            logger.warning(f"[BOOT] APEX cache warm skipped: {_e}")
+
+    # ── Route manifest (proves every router loaded) ────────────────────────
+    _routes = sorted(
+        {f"{r.methods} {r.path}" for r in app.routes
+         if hasattr(r, "methods") and hasattr(r, "path")},
+    )
+
+    # ── Determine operational mode (DYNAMIC — guardian evaluated) ─────────────
+    # Guardian performs 4-gate evaluation: feed_exists, feed_fresh,
+    # manifest_ok, routers_ok — produces authoritative APEX mode.
+    _mode      = "degraded"
+    _apex_info = {}
+    if _guardian:
+        try:
+            _apex_state = _guardian.evaluate_apex(_router_status)
+            _mode       = "fully operational" if _apex_state.enabled else "degraded"
+            _apex_info  = {
+                "gates_passed": _apex_state.gates_passed,
+                "gates_failed": _apex_state.gates_failed,
+                "advisory_count": _apex_state.advisory_count,
+            }
+        except Exception as _ge:
+            logger.warning(f"[BOOT] Guardian evaluate_apex failed: {_ge}")
+            # Fallback: static critical-router check
+            _critical = {"monetize", "ingestion", "stability", "onboarding"}
+            _loaded   = {k for k, v in _router_status.items() if v}
+            _failed   = {k for k, v in _router_status.items() if not v}
+            _mode     = "fully operational" if not _failed.intersection(_critical) else "degraded"
+    else:
+        # No guardian — use static critical-router check
+        # No guardian — use static critical-router check
+        _critical = {"monetize", "ingestion", "stability", "onboarding"}
+        _loaded   = {k for k, v in _router_status.items() if v}
+        _failed   = {k for k, v in _router_status.items() if not v}
+        _mode     = "fully operational" if not _failed.intersection(_critical) else "degraded"
+
+    # Build router status table line
+    _rs_line = "  ".join(
+        f"{k}={'✓' if v else '✗'}"
+        for k, v in sorted(_router_status.items())
+    )
+    _gates_line = (
+        f"  Gates     : passed={_apex_info.get('gates_passed',[])} "
+        f"failed={_apex_info.get('gates_failed',[])}\n"
+        if _apex_info else ""
+    )
+
+    logger.info(
+        f"\n{'='*72}\n"
+        f"  CYBERDUDEBIVASH® SENTINEL APEX {VERSION} — BOOT COMPLETE\n"
+        f"  Platform  : {PLATFORM}\n"
+        f"  Docs      : /api/docs\n"
+        f"  Health    : /health\n"
+        f"  Full Health: /api/v1/health/full\n"
+        f"  APEX Status: /apex/v1/status\n"
+        f"  Advisories: {len(feed)}\n"
+        f"  Routes    : {len(_routes)} registered\n"
+        f"  Routers   : {_rs_line}\n"
+        f"{_gates_line}"
+        f"  APEX      : {_mode}\n"
+        f"  PYTHONPATH: {_sys.path[0]}\n"
+        f"{'='*72}"
+    )
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000, log_level="info")

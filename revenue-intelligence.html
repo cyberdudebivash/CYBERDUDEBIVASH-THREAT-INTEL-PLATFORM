@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Revenue Intelligence Engine — SENTINEL APEX</title>
+<meta name="description" content="MRR, ARR, revenue by tier/type/payment method, expansion revenue, renewal revenue, and 30/90/180/365-day forecasts.">
+<link rel="canonical" href="https://intel.cyberdudebivash.com/revenue-intelligence.html">
+<link rel="icon" href="/favicon.ico">
+<style>
+:root{--bg:#050c18;--bg2:#090f1e;--border:#162030;--accent:#00ffc6;--accent2:#7c3aed;--text:#e2e8f0;--muted:#64748b;--green:#10b981;--red:#ef4444;--yellow:#f59e0b;--card:#0b1422;--blue:#3b82f6;}
+*{box-sizing:border-box;margin:0;padding:0;}body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,sans-serif;line-height:1.6;}
+nav{display:flex;align-items:center;justify-content:space-between;padding:14px 32px;background:rgba(5,12,24,0.97);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:100;}
+.nav-logo{font-family:monospace;font-weight:900;font-size:13px;color:var(--accent);letter-spacing:2px;text-decoration:none;}
+.nav-links a{color:var(--muted);text-decoration:none;font-size:12px;margin-left:16px;}
+.cta-btn{background:var(--accent);color:#000;padding:8px 18px;border-radius:8px;font-weight:800;font-size:12px;text-decoration:none;margin-left:16px;}
+.page-header{padding:32px;border-bottom:1px solid var(--border);background:var(--bg2);}
+.page-header h1{font-size:22px;font-weight:900;}
+.page-header p{color:var(--muted);font-size:13px;margin-top:6px;}
+.main{max-width:1300px;margin:0 auto;padding:32px 24px;}
+.mrr-banner{background:linear-gradient(135deg,rgba(0,255,198,0.08),rgba(124,58,237,0.08));border:1px solid rgba(0,255,198,0.15);border-radius:16px;padding:32px;display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:28px;margin-bottom:32px;}
+.mrr-stat{text-align:center;}
+.mrr-val{font-size:36px;font-weight:900;font-family:monospace;color:var(--accent);}
+.mrr-label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-top:6px;}
+.mrr-change{font-size:13px;color:var(--green);margin-top:4px;}
+.section-h3{font-size:16px;font-weight:800;margin:28px 0 16px;display:flex;align-items:center;gap:10px;}
+.grid-3{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;margin-bottom:32px;}
+.grid-2{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:20px;margin-bottom:32px;}
+.rev-card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:24px;}
+.rev-card h4{font-size:13px;font-weight:700;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:16px;font-family:monospace;}
+.bar-item{display:flex;align-items:center;gap:12px;margin-bottom:10px;}
+.bar-label{font-size:12px;color:var(--muted);width:110px;flex-shrink:0;}
+.bar-track{flex:1;height:8px;background:var(--border);border-radius:4px;}
+.bar-fill{height:8px;border-radius:4px;}
+.bar-val{font-size:12px;font-family:monospace;color:var(--text);width:60px;text-align:right;}
+.forecast-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px;margin-bottom:40px;}
+.forecast-card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:22px;text-align:center;}
+.forecast-period{font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin-bottom:10px;font-family:monospace;}
+.forecast-arr{font-size:26px;font-weight:900;font-family:monospace;color:var(--accent);}
+.forecast-mrr{font-size:14px;color:var(--muted);margin-top:4px;}
+.forecast-growth{font-size:12px;color:var(--green);margin-top:6px;}
+.payment-list{list-style:none;}
+.payment-item{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid rgba(22,32,48,0.6);}
+.payment-item:last-child{border-bottom:none;}
+.payment-method{font-size:13px;}
+.payment-share{font-size:13px;font-family:monospace;color:var(--accent);}
+.payment-amount{font-size:12px;color:var(--muted);}
+footer{border-top:1px solid var(--border);padding:32px;text-align:center;font-size:12px;color:var(--muted);}
+footer a{color:var(--muted);text-decoration:none;margin:0 12px;}
+</style>
+</head>
+<body>
+<nav>
+  <a href="/" class="nav-logo">CDB® SENTINEL APEX</a>
+  <div class="nav-links">
+    <a href="/customer-intelligence.html">Customers</a>
+    <a href="/lead-intelligence.html">Leads</a>
+    <a href="/conversion-analytics.html">Funnel</a>
+    <a href="/revenue-dashboard.html">Rev Dashboard</a>
+    <a href="/admin.html" class="cta-btn">Admin</a>
+  </div>
+</nav>
+
+<div class="page-header">
+  <h1>💹 Revenue Intelligence Engine</h1>
+  <p>MRR · ARR · Revenue by Tier · Revenue by Type · Forecasts: 30 / 90 / 180 / 365 Day</p>
+</div>
+
+<div class="main">
+  <div id="mrr-banner" class="mrr-banner"></div>
+
+  <div class="grid-2">
+    <div class="rev-card">
+      <h4>Revenue by Tier</h4>
+      <div id="tier-bars"></div>
+    </div>
+    <div class="rev-card">
+      <h4>Revenue by Customer Type</h4>
+      <div id="type-bars"></div>
+    </div>
+  </div>
+
+  <div class="grid-2">
+    <div class="rev-card">
+      <h4>Payment Method Distribution</h4>
+      <ul class="payment-list" id="payment-list"></ul>
+    </div>
+    <div class="rev-card">
+      <h4>Revenue by Category</h4>
+      <div id="category-bars"></div>
+    </div>
+  </div>
+
+  <div class="section-h3">📈 Revenue Forecast</div>
+  <div class="forecast-grid" id="forecast-grid"></div>
+</div>
+
+<footer>
+  <a href="/customer-intelligence.html">Customer Intel</a>
+  <a href="/lead-intelligence.html">Lead Intel</a>
+  <a href="/conversion-analytics.html">Conversion</a>
+  <a href="/revenue-dashboard.html">Revenue Dashboard</a>
+  <p style="margin-top:16px;color:var(--muted)">© 2026 CYBERDUDEBIVASH® SENTINEL APEX — Revenue Intelligence v1.0</p>
+</footer>
+
+<script>
+// Seeded revenue data (in production: fetched from revenue registry API)
+const REVENUE_DATA = {
+  current_mrr: 20590,
+  mrr_growth_pct: 12.4,
+  arr: 247080,
+  customer_count: 5,
+  avg_mrr_per_customer: 4118,
+  nrr: 118, // net revenue retention %
+  by_tier: { ENTERPRISE: 12900, MSSP: 6800, PRO: 890 },
+  by_type: { 'Enterprise Direct': 12900, 'MSSP Partner': 6800, 'SMB / Pro': 890 },
+  by_category: { 'Subscription (New)': 9200, 'Renewal Revenue': 8700, 'Expansion Revenue': 2690 },
+  by_payment: [
+    { method: 'UPI / NEFT', share: 42, mrr: 8648 },
+    { method: 'PayPal', share: 28, mrr: 5765 },
+    { method: 'Amazon Pay', share: 18, mrr: 3706 },
+    { method: 'QR Payments', share: 8, mrr: 1647 },
+    { method: 'Crypto Wallet', share: 4, mrr: 824 },
+  ],
+  monthly_growth_rate: 0.124,
+};
+
+function fmt(n) { return '$' + Math.round(n).toLocaleString(); }
+
+function renderBanner() {
+  const d = REVENUE_DATA;
+  document.getElementById('mrr-banner').innerHTML = `
+    <div class="mrr-stat"><div class="mrr-val">${fmt(d.current_mrr)}</div><div class="mrr-label">Monthly Recurring Revenue</div><div class="mrr-change">▲ ${d.mrr_growth_pct}% MoM</div></div>
+    <div class="mrr-stat"><div class="mrr-val">${fmt(d.arr)}</div><div class="mrr-label">Annual Recurring Revenue</div><div class="mrr-change">▲ Annualised</div></div>
+    <div class="mrr-stat"><div class="mrr-val">${d.customer_count}</div><div class="mrr-label">Active Customers</div><div class="mrr-change">▲ +1 this month</div></div>
+    <div class="mrr-stat"><div class="mrr-val">${fmt(d.avg_mrr_per_customer)}</div><div class="mrr-label">Avg MRR / Customer</div></div>
+    <div class="mrr-stat"><div class="mrr-val">${d.nrr}%</div><div class="mrr-label">Net Revenue Retention</div><div class="mrr-change">▲ Healthy expansion</div></div>
+  `;
+}
+
+function renderBars(containerId, data, colorFn) {
+  const total = Object.values(data).reduce((s,v) => s+v, 0);
+  const colors = ['#00ffc6','#7c3aed','#3b82f6','#f59e0b','#10b981'];
+  document.getElementById(containerId).innerHTML = Object.entries(data)
+    .sort((a,b) => b[1] - a[1])
+    .map(([label, val], i) => {
+      const pct = Math.round((val / total) * 100);
+      return `<div class="bar-item">
+        <span class="bar-label">${label}</span>
+        <div class="bar-track"><div class="bar-fill" style="width:${pct}%;background:${colors[i % colors.length]}"></div></div>
+        <span class="bar-val">${fmt(val)}</span>
+      </div>`;
+    }).join('');
+}
+
+function renderPayments() {
+  document.getElementById('payment-list').innerHTML = REVENUE_DATA.by_payment
+    .sort((a,b) => b.share - a.share)
+    .map(p => `<li class="payment-item">
+      <span class="payment-method">${p.method}</span>
+      <span class="payment-amount">${fmt(p.mrr)}/mo</span>
+      <span class="payment-share">${p.share}%</span>
+    </li>`).join('');
+}
+
+function renderForecasts() {
+  const mrr = REVENUE_DATA.current_mrr;
+  const g = REVENUE_DATA.monthly_growth_rate;
+  const periods = [
+    { label: '30-Day', months: 1 },
+    { label: '90-Day', months: 3 },
+    { label: '180-Day', months: 6 },
+    { label: '365-Day', months: 12 },
+  ];
+  document.getElementById('forecast-grid').innerHTML = periods.map(p => {
+    const fMRR = mrr * Math.pow(1 + g, p.months);
+    const fARR = fMRR * 12;
+    const growth = ((fMRR - mrr) / mrr * 100).toFixed(0);
+    return `<div class="forecast-card">
+      <div class="forecast-period">${p.label} Forecast</div>
+      <div class="forecast-arr">${fmt(fARR)}</div>
+      <div class="forecast-mrr">MRR: ${fmt(fMRR)}</div>
+      <div class="forecast-growth">▲ ${growth}% from today</div>
+    </div>`;
+  }).join('');
+}
+
+renderBanner();
+renderBars('tier-bars', REVENUE_DATA.by_tier);
+renderBars('type-bars', REVENUE_DATA.by_type);
+renderBars('category-bars', REVENUE_DATA.by_category);
+renderPayments();
+renderForecasts();
+</script>
+</body>
+</html>

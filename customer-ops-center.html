@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SENTINEL APEX — Customer Ops Command Center</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0a0e1a;--card:#0f1629;--accent:#00d4ff;--danger:#ff3366;--success:#00ff88;--warning:#ffaa00;--text:#e2e8f0;--muted:#64748b;--border:#1e2d4a}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text)}
+/* HERO BAR */
+.hero-bar{background:linear-gradient(135deg,#0a1628,#0f1e3a);border-bottom:1px solid var(--border);padding:12px 24px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px}
+.hero-logo{font-weight:800;color:var(--accent);font-size:1rem;letter-spacing:.05em}
+.hero-stats{display:flex;gap:0;flex-wrap:wrap}
+.hero-stat{padding:8px 20px;border-left:1px solid var(--border);text-align:center}
+.hero-stat:first-child{border-left:none}
+.hero-val{font-size:1.4rem;font-weight:700;font-variant-numeric:tabular-nums}
+.hero-lbl{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+.live-badge{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--success)}
+.live-dot{width:7px;height:7px;border-radius:50%;background:var(--success);animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.5;transform:scale(.8)}}
+/* LAYOUT */
+.main{display:grid;grid-template-columns:320px 1fr;gap:0;min-height:calc(100vh - 56px)}
+/* ALERTS PANEL */
+.alerts-panel{background:var(--card);border-right:1px solid var(--border);display:flex;flex-direction:column;max-height:calc(100vh - 56px);overflow:hidden}
+.panel-header{padding:14px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+.panel-title{font-weight:600;font-size:13px}
+.alerts-list{overflow-y:auto;flex:1;padding:8px}
+.alert-item{border-radius:8px;padding:10px 12px;margin-bottom:6px;border:1px solid;animation:slideIn .3s ease}
+@keyframes slideIn{from{opacity:0;transform:translateX(-10px)}to{opacity:1;transform:translateX(0)}}
+.alert-critical{background:rgba(255,51,102,.07);border-color:rgba(255,51,102,.25)}
+.alert-high{background:rgba(255,170,0,.07);border-color:rgba(255,170,0,.2)}
+.alert-medium{background:rgba(0,212,255,.05);border-color:rgba(0,212,255,.15)}
+.alert-info{background:rgba(100,116,139,.05);border-color:rgba(100,116,139,.2)}
+.alert-top{display:flex;align-items:center;gap:6px;margin-bottom:4px}
+.alert-icon{font-size:14px}
+.alert-org{font-size:12px;font-weight:600}
+.alert-msg{font-size:11px;color:var(--muted);line-height:1.4;margin-bottom:6px}
+.alert-foot{display:flex;align-items:center;justify-content:space-between}
+.alert-time{font-size:10px;color:var(--muted)}
+.ack-btn{background:none;border:1px solid var(--border);border-radius:4px;padding:2px 8px;font-size:10px;color:var(--muted);cursor:pointer;transition:all .2s}
+.ack-btn:hover{border-color:var(--success);color:var(--success)}
+/* CONTENT */
+.content{padding:20px;overflow-y:auto;max-height:calc(100vh - 56px)}
+/* CUSTOMER GRID */
+.grid-title{font-size:13px;font-weight:600;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between}
+.customers-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px;margin-bottom:24px}
+.cust-card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:12px;cursor:pointer;transition:border-color .2s}
+.cust-card:hover{border-color:var(--accent)}
+.cust-name{font-size:12px;font-weight:600;margin-bottom:6px;line-height:1.3}
+.health-pill{display:inline-flex;padding:2px 8px;border-radius:12px;font-size:10px;font-weight:700;margin-bottom:4px}
+.cust-tier{font-size:10px;color:var(--muted)}
+.cust-active{font-size:10px;color:var(--muted)}
+/* CHARTS ROW */
+.charts-row{display:grid;grid-template-columns:2fr 1fr 1fr;gap:16px;margin-bottom:24px}
+.chart-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px}
+.chart-title{font-size:12px;font-weight:600;margin-bottom:12px}
+/* RENEWAL TABLE */
+.card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:18px;margin-bottom:20px}
+.section-title{font-size:13px;font-weight:600;margin-bottom:14px}
+table{width:100%;border-collapse:collapse;font-size:12px}
+th{text-align:left;padding:8px 10px;background:rgba(0,212,255,.05);color:var(--muted);font-size:10px;text-transform:uppercase;border-bottom:1px solid var(--border)}
+td{padding:8px 10px;border-bottom:1px solid rgba(30,45,74,.4);vertical-align:middle}
+tr:hover td{background:rgba(0,212,255,.02)}
+.badge{display:inline-flex;padding:2px 8px;border-radius:12px;font-size:10px;font-weight:600}
+.b-green{background:rgba(0,255,136,.12);color:var(--success)}
+.b-yellow{background:rgba(255,170,0,.12);color:var(--warning)}
+.b-red{background:rgba(255,51,102,.12);color:var(--danger)}
+.b-blue{background:rgba(0,212,255,.12);color:var(--accent)}
+/* MSSP CARDS */
+.mssp-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px}
+.mssp-card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px}
+.mssp-name{font-size:13px;font-weight:600;margin-bottom:8px}
+.mssp-stat{display:flex;justify-content:space-between;font-size:11px;padding:4px 0;border-bottom:1px solid rgba(30,45,74,.3)}
+.mssp-stat:last-child{border-bottom:none}
+/* SCALE BUTTONS */
+.scale-bar{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px;margin-bottom:20px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.scale-label{font-size:12px;color:var(--muted);font-weight:500}
+.scale-btn{padding:7px 16px;border-radius:7px;border:1px solid var(--accent);background:transparent;color:var(--accent);font-size:12px;font-weight:600;cursor:pointer;transition:all .2s}
+.scale-btn:hover{background:rgba(0,212,255,.1)}
+/* MODAL */
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:200;align-items:center;justify-content:center}
+.modal-overlay.open{display:flex}
+.modal{background:#0d1427;border:1px solid var(--border);border-radius:14px;padding:24px;width:90%;max-width:480px;max-height:80vh;overflow-y:auto}
+.modal-title{font-size:1rem;font-weight:700;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center}
+.close-x{background:none;border:none;color:var(--muted);font-size:20px;cursor:pointer}
+.detail-row{display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px solid rgba(30,45,74,.4);font-size:13px}
+.detail-label{color:var(--muted)}
+/* TOAST */
+.toast{position:fixed;bottom:24px;right:24px;background:var(--success);color:#0a0e1a;padding:12px 20px;border-radius:10px;font-weight:600;font-size:14px;z-index:999;transform:translateY(80px);opacity:0;transition:all .3s}
+.toast.show{transform:translateY(0);opacity:1}
+@media(max-width:1024px){.main{grid-template-columns:1fr}.alerts-panel{max-height:300px}.charts-row{grid-template-columns:1fr 1fr}}
+@media(max-width:768px){.hero-stats{gap:0}.hero-stat{padding:6px 12px}.mssp-grid{grid-template-columns:1fr}.charts-row{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<!-- HERO STATUS BAR -->
+<div class="hero-bar">
+  <div>
+    <div class="hero-logo">SENTINEL APEX — GLOBAL OPS</div>
+    <div class="live-badge"><div class="live-dot"></div>Live Command Center</div>
+  </div>
+  <div class="hero-stats" id="hero-stats"></div>
+</div>
+
+<div class="main">
+  <!-- ALERTS FEED -->
+  <div class="alerts-panel">
+    <div class="panel-header">
+      <span class="panel-title">🔴 Real-Time Alerts</span>
+      <span style="font-size:11px;color:var(--muted)">Auto-refresh 15s</span>
+    </div>
+    <div class="alerts-list" id="alerts-list"></div>
+  </div>
+
+  <!-- MAIN CONTENT -->
+  <div class="content">
+    <!-- SCALE BUTTONS -->
+    <div class="scale-bar">
+      <span class="scale-label">Scale Simulation:</span>
+      <button class="scale-btn" onclick="simulateScale(10)">Simulate +10 Customers</button>
+      <button class="scale-btn" onclick="simulateScale(100)">Simulate +100 Customers</button>
+      <button class="scale-btn" onclick="simulateScale(1000)">Simulate +1,000 Customers</button>
+      <button class="scale-btn" style="border-color:var(--danger);color:var(--danger)" onclick="resetScale()">Reset</button>
+    </div>
+
+    <!-- CUSTOMER HEALTH MAP -->
+    <div class="grid-title">
+      Customer Health Map <span style="font-size:11px;color:var(--muted);font-weight:400">Click any card for details</span>
+    </div>
+    <div class="customers-grid" id="customers-grid"></div>
+
+    <!-- CHARTS -->
+    <div class="charts-row">
+      <div class="chart-card"><div class="chart-title">MRR Trend (6 Months)</div><canvas id="mrrChart" height="100"></canvas></div>
+      <div class="chart-card"><div class="chart-title">Health Distribution</div><canvas id="healthChart" height="100"></canvas></div>
+      <div class="chart-card"><div class="chart-title">Support SLA Compliance</div><canvas id="slaChart" height="100"></canvas></div>
+    </div>
+
+    <!-- RENEWAL PIPELINE -->
+    <div class="card">
+      <div class="section-title">Renewal Pipeline</div>
+      <div style="overflow-x:auto">
+        <table>
+          <thead><tr><th>Customer</th><th>Renewal</th><th>Value</th><th>Risk Score</th><th>Health</th><th>Action</th></tr></thead>
+          <tbody id="renewal-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- MSSP PARTNERS -->
+    <div class="section-title" style="margin-bottom:12px">MSSP Partner Performance</div>
+    <div class="mssp-grid" id="mssp-grid"></div>
+  </div>
+</div>
+
+<!-- MODAL -->
+<div class="modal-overlay" id="modal" onclick="if(event.target===this)this.classList.remove('open')">
+  <div class="modal">
+    <div class="modal-title"><span id="modal-title">Customer Details</span><button class="close-x" onclick="document.getElementById('modal').classList.remove('open')">✕</button></div>
+    <div id="modal-body"></div>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+// Base data
+let baseData={customers:247,healthyPct:73,tickets:34,mrr:187450,critical:3};
+let currentData={...baseData};
+
+const heroKeys=[
+  {key:'customers',lbl:'Total Customers',color:'var(--accent)'},
+  {key:'healthyPct',lbl:'Healthy %',color:'var(--success)',suffix:'%'},
+  {key:'tickets',lbl:'Open Tickets',color:'var(--warning)'},
+  {key:'mrr',lbl:'MRR',color:'var(--text)',prefix:'$',format:true},
+  {key:'critical',lbl:'Critical Alerts',color:'var(--danger)'},
+];
+
+function renderHero(){
+  document.getElementById('hero-stats').innerHTML=heroKeys.map(h=>{
+    let v=currentData[h.key];
+    if(h.format)v=v.toLocaleString();
+    return `<div class="hero-stat"><div class="hero-val" style="color:${h.color}">${h.prefix||''}${v}${h.suffix||''}</div><div class="hero-lbl">${h.lbl}</div></div>`;
+  }).join('');
+}
+
+function animateCount(key,target){
+  const start=currentData[key];
+  const step=Math.ceil(Math.abs(target-start)/20);
+  let cur=start;
+  const id=setInterval(()=>{
+    cur+=(target>start?step:-step);
+    if((target>start&&cur>=target)||(target<start&&cur<=target)){cur=target;clearInterval(id);}
+    currentData[key]=cur;renderHero();
+  },30);
+}
+
+renderHero();
+
+// Customers grid
+const customers20=[
+  {name:'FinBank Corp',score:92,tier:'Enterprise',last:'5m'},
+  {name:'MedCare Health',score:78,tier:'Professional',last:'1h'},
+  {name:'RetailChain',score:55,tier:'Enterprise',last:'2d'},
+  {name:'AutoParts Inc',score:88,tier:'Professional',last:'30m'},
+  {name:'EduLearn Sys',score:41,tier:'Starter',last:'8d'},
+  {name:'CloudSaaS Co',score:95,tier:'Enterprise',last:'2m'},
+  {name:'SupplyNet',score:70,tier:'Professional',last:'3h'},
+  {name:'AcmeCorp',score:87,tier:'Enterprise',last:'10m'},
+  {name:'TechStart Inc',score:31,tier:'Starter',last:'9d'},
+  {name:'GovShield',score:95,tier:'Enterprise',last:'1m'},
+  {name:'LogiTrans',score:65,tier:'Professional',last:'2d'},
+  {name:'ManufactPro',score:74,tier:'Professional',last:'5h'},
+  {name:'SecureFin',score:89,tier:'Enterprise',last:'20m'},
+  {name:'HealthNet',score:60,tier:'Professional',last:'1d'},
+  {name:'EdTech Labs',score:82,tier:'Professional',last:'4h'},
+  {name:'CryptoVault',score:93,tier:'Enterprise',last:'15m'},
+  {name:'NetOps Co',score:48,tier:'Starter',last:'3d'},
+  {name:'BioTech Corp',score:77,tier:'Professional',last:'2h'},
+  {name:'SmartCity',score:85,tier:'Enterprise',last:'40m'},
+  {name:'AeroSec Inc',score:71,tier:'Professional',last:'6h'},
+];
+
+function scoreColor(s){return s>=75?'var(--success)':s>=50?'var(--warning)':'var(--danger)';}
+function scoreLabel(s){return s>=75?'Healthy':s>=50?'At Risk':'Critical';}
+function scorePill(s){const c=s>=75?'b-green':s>=50?'b-yellow':'b-red';return `<span class="badge ${c}">${scoreLabel(s)}</span>`;}
+
+function renderGrid(){
+  const g=document.getElementById('customers-grid');
+  g.innerHTML=customers20.map((c,i)=>`<div class="cust-card" onclick="openModal(${i})">
+    <div class="cust-name">${c.name}</div>
+    ${scorePill(c.score)}
+    <div style="font-size:1.2rem;font-weight:700;color:${scoreColor(c.score)};margin:4px 0">${c.score}</div>
+    <div class="cust-tier">${c.tier}</div>
+    <div class="cust-active">Active: ${c.last} ago</div>
+  </div>`).join('');
+}
+renderGrid();
+
+function openModal(i){
+  const c=customers20[i];
+  document.getElementById('modal-title').textContent=c.name+' — Details';
+  document.getElementById('modal-body').innerHTML=`
+    <div style="text-align:center;padding:16px 0;margin-bottom:12px;border-bottom:1px solid var(--border)">
+      <div style="font-size:3rem;font-weight:700;color:${scoreColor(c.score)}">${c.score}</div>
+      <div style="color:var(--muted);font-size:13px">Health Score · ${scoreLabel(c.score)}</div>
+    </div>
+    <div class="detail-row"><span class="detail-label">Subscription Tier</span><span>${c.tier}</span></div>
+    <div class="detail-row"><span class="detail-label">Last Active</span><span>${c.last} ago</span></div>
+    <div class="detail-row"><span class="detail-label">Open Tickets</span><span>${Math.floor(Math.random()*4)}</span></div>
+    <div class="detail-row"><span class="detail-label">API Calls MTD</span><span>${(Math.random()*100+10).toFixed(0)}K</span></div>
+    <div class="detail-row"><span class="detail-label">SLA Status</span><span class="badge ${c.score>=75?'b-green':'b-yellow'}">${c.score>=75?'Compliant':'At Risk'}</span></div>
+    <div style="margin-top:16px;display:flex;gap:8px">
+      <button style="flex:1;padding:9px;background:linear-gradient(135deg,var(--accent),#0066ff);color:#0a0e1a;border:none;border-radius:8px;font-weight:600;cursor:pointer;font-size:13px" onclick="showToast('Call scheduled with ${c.name}')">Schedule Call</button>
+      <button style="flex:1;padding:9px;background:transparent;border:1px solid var(--accent);color:var(--accent);border-radius:8px;font-weight:600;cursor:pointer;font-size:13px" onclick="showToast('Report generated for ${c.name}')">Generate Report</button>
+    </div>`;
+  document.getElementById('modal').classList.add('open');
+}
+
+// Charts
+const months=['Dec','Jan','Feb','Mar','Apr','May'];
+new Chart(document.getElementById('mrrChart'),{type:'line',data:{labels:months,datasets:[{label:'MRR',data:[145000,158000,162000,171000,180000,187450],borderColor:'#00d4ff',backgroundColor:'rgba(0,212,255,.08)',tension:.4,fill:true,pointRadius:3}]},options:{responsive:true,plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#64748b'},grid:{color:'rgba(30,45,74,.6)'}},y:{ticks:{color:'#64748b',callback:v=>'$'+(v/1000).toFixed(0)+'K'},grid:{color:'rgba(30,45,74,.6)'}}}}});
+
+new Chart(document.getElementById('healthChart'),{type:'doughnut',data:{labels:['Healthy','At Risk','Critical'],datasets:[{data:[73,18,9],backgroundColor:['rgba(0,255,136,.6)','rgba(255,170,0,.6)','rgba(255,51,102,.6)'],borderWidth:0}]},options:{responsive:true,cutout:'65%',plugins:{legend:{position:'bottom',labels:{color:'#64748b',font:{size:10},padding:6}}}}});
+
+new Chart(document.getElementById('slaChart'),{type:'bar',data:{labels:['Mon','Tue','Wed','Thu','Fri','Sat','Sun'],datasets:[{label:'SLA %',data:[92,95,88,97,94,96,94],backgroundColor:data=>data.raw>=95?'rgba(0,255,136,.5)':data.raw>=90?'rgba(255,170,0,.5)':'rgba(255,51,102,.5)',borderRadius:3}]},options:{responsive:true,plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#64748b'},grid:{display:false}},y:{min:80,max:100,ticks:{color:'#64748b'},grid:{color:'rgba(30,45,74,.6)'}}}}});
+
+// Renewal pipeline
+const renewals=[
+  {name:'TechStart Inc',days:'22 days',value:'$12,000',risk:'High',score:31},
+  {name:'LogiTrans',days:'35 days',value:'$24,000',risk:'Medium',score:65},
+  {name:'HealthNet',days:'58 days',value:'$18,000',risk:'Medium',score:60},
+  {name:'AcmeCorp',days:'67 days',value:'$47,988',risk:'Low',score:87},
+  {name:'BioTech Corp',days:'88 days',value:'$31,200',risk:'Low',score:77},
+];
+const rt=document.getElementById('renewal-tbody');
+renewals.forEach(r=>{
+  const rc=r.risk==='High'?'b-red':r.risk==='Medium'?'b-yellow':'b-green';
+  rt.innerHTML+=`<tr><td><strong>${r.name}</strong></td><td>${r.days}</td><td style="font-weight:600">${r.value}</td><td><span class="badge ${rc}">${r.risk}</span></td><td style="color:${scoreColor(r.score)};font-weight:600">${r.score}</td><td><button style="background:none;border:1px solid var(--accent);color:var(--accent);padding:4px 10px;border-radius:6px;font-size:11px;cursor:pointer" onclick="showToast('Action taken for ${r.name}')">Act Now</button></td></tr>`;
+});
+
+// MSSP partners
+const mssps=[
+  {name:'CyberGuard MSSP',custs:12,sla:96,rev:'$28,450',trend:'↑'},
+  {name:'SecureNet Solutions',custs:8,sla:98,rev:'$19,200',trend:'↑'},
+  {name:'ThreatShield MSSP',custs:15,sla:91,rev:'$36,800',trend:'↓'},
+];
+const mg=document.getElementById('mssp-grid');
+mssps.forEach(m=>{
+  mg.innerHTML+=`<div class="mssp-card">
+    <div class="mssp-name">${m.name} ${m.trend}</div>
+    <div class="mssp-stat"><span style="color:var(--muted)">Customers</span><span style="color:var(--accent)">${m.custs}</span></div>
+    <div class="mssp-stat"><span style="color:var(--muted)">SLA Compliance</span><span style="color:${m.sla>=95?'var(--success)':'var(--warning)'}">${m.sla}%</span></div>
+    <div class="mssp-stat"><span style="color:var(--muted)">Monthly Revenue</span><span style="color:var(--success)">${m.rev}</span></div>
+  </div>`;
+});
+
+// Live alerts feed
+const alertTemplates=[
+  {sev:'critical',icon:'🚨',orgs:['FinBank Corp','GovShield','AcmeCorp'],msgs:['P1 Malware C2 beacon detected','Critical SLA breach imminent','Active intrusion detected']},
+  {sev:'high',icon:'⚠️',orgs:['MedCare Health','RetailChain','SupplyNet'],msgs:['Suspicious login from anomalous location','Lateral movement detected in network','API rate limit threshold breached']},
+  {sev:'medium',icon:'ℹ️',orgs:['EduLearn Sys','CloudSaaS Co','TechStart'],msgs:['Low platform engagement detected','New threat actor TTP observed','Webhook delivery failures']},
+  {sev:'info',icon:'📊',orgs:['ManufactPro','AutoParts','SmartCity'],msgs:['Weekly report generated','License renewal in 30 days','New integration connected']},
+];
+const clsMap={critical:'alert-critical',high:'alert-high',medium:'alert-medium',info:'alert-info'};
+
+function rnd(arr){return arr[Math.floor(Math.random()*arr.length)];}
+function addAlert(){
+  const tpl=rnd(alertTemplates);
+  const org=rnd(tpl.orgs);
+  const msg=rnd(tpl.msgs);
+  const now=new Date();
+  const time=now.getHours().toString().padStart(2,'0')+':'+now.getMinutes().toString().padStart(2,'0')+':'+now.getSeconds().toString().padStart(2,'0');
+  const list=document.getElementById('alerts-list');
+  const el=document.createElement('div');
+  el.className=`alert-item ${clsMap[tpl.sev]}`;
+  el.innerHTML=`<div class="alert-top"><span class="alert-icon">${tpl.icon}</span><span class="alert-org">${org}</span></div><div class="alert-msg">${msg}</div><div class="alert-foot"><span class="alert-time">${time}</span><button class="ack-btn" onclick="this.textContent='✓ Acked';this.style.color='var(--success)';this.style.borderColor='var(--success)'">Acknowledge</button></div>`;
+  list.insertBefore(el,list.firstChild);
+  if(list.children.length>15)list.removeChild(list.lastChild);
+}
+
+// Initial 8 alerts
+for(let i=0;i<8;i++) addAlert();
+setInterval(addAlert,15000);
+
+// Scale simulation
+function simulateScale(n){
+  const prev=currentData;
+  animateCount('customers',currentData.customers+n);
+  animateCount('mrr',currentData.mrr+n*800);
+  animateCount('tickets',currentData.tickets+Math.floor(n*0.14));
+  animateCount('critical',currentData.critical+Math.floor(n*0.012));
+  showToast(`Simulating ${n} new customers added!`);
+}
+function resetScale(){
+  Object.assign(currentData,baseData);
+  renderHero();
+  showToast('Dashboard reset to baseline.');
+}
+
+function showToast(msg){
+  const t=document.getElementById('toast');
+  t.textContent=msg;t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),2800);
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SENTINEL APEX — Customer Value Dashboard</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#060b11;color:#e2e8f0;font-family:'Courier New',monospace;min-height:100vh}
+a{color:#38bdf8;text-decoration:none}
+.header{background:linear-gradient(135deg,#0d1117 0%,#0f172a 100%);border-bottom:1px solid #1e3a5f;padding:20px 32px;display:flex;align-items:center;gap:16px}
+.logo{color:#38bdf8;font-size:18px;font-weight:700;letter-spacing:.08em}
+.badge{background:#1e3a5f;color:#38bdf8;font-size:10px;font-weight:700;padding:3px 8px;border-radius:3px;letter-spacing:.1em}
+.auth-wall{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:80vh;gap:16px}
+.auth-box{background:#0d1117;border:1px solid #1e3a5f;border-radius:8px;padding:32px;width:380px;max-width:95vw}
+.auth-title{color:#38bdf8;font-size:14px;font-weight:700;margin-bottom:16px;letter-spacing:.1em}
+.auth-input{width:100%;background:#060b11;border:1px solid #1e3a5f;color:#e2e8f0;padding:10px 14px;border-radius:4px;font-family:inherit;font-size:13px;margin-bottom:12px}
+.auth-btn{width:100%;background:#1e3a5f;color:#38bdf8;border:none;padding:11px;border-radius:4px;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer;letter-spacing:.08em}
+.auth-btn:hover{background:#234d7a}
+.auth-error{color:#ef4444;font-size:12px;margin-top:8px;display:none}
+.dashboard{display:none;padding:24px 32px}
+.section-title{color:#38bdf8;font-size:11px;font-weight:700;letter-spacing:.15em;text-transform:uppercase;margin-bottom:12px;margin-top:28px}
+.tier-banner{background:linear-gradient(90deg,#0f2f1c,#0d1117);border:1px solid #22c55e;border-left:4px solid #22c55e;border-radius:6px;padding:16px 20px;display:flex;align-items:center;gap:16px;margin-bottom:4px}
+.tier-label{color:#22c55e;font-size:13px;font-weight:700;letter-spacing:.1em}
+.tier-sub{color:#6b7280;font-size:11px;margin-top:2px}
+.stats-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;margin-bottom:4px}
+.stat-card{background:#0d1117;border:1px solid #1e3a5f;border-radius:6px;padding:14px 16px}
+.stat-val{font-size:24px;font-weight:700;color:#38bdf8}
+.stat-label{font-size:10px;color:#6b7280;margin-top:4px;letter-spacing:.08em;text-transform:uppercase}
+.quality-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px}
+.q-card{background:#0d1117;border:1px solid #1e3a5f;border-radius:6px;padding:12px 14px}
+.q-title{font-size:10px;color:#94a3b8;letter-spacing:.08em;text-transform:uppercase;margin-bottom:6px}
+.q-bar-wrap{background:#1a1f2e;border-radius:3px;height:8px;overflow:hidden;margin-bottom:4px}
+.q-bar{height:8px;border-radius:3px;transition:width .8s ease}
+.q-val{font-size:12px;color:#e2e8f0;font-weight:700}
+.feed-table{width:100%;border-collapse:collapse;font-size:12px}
+.feed-table th{background:#0d1117;color:#6b7280;font-size:10px;letter-spacing:.08em;text-transform:uppercase;padding:8px 10px;text-align:left;border-bottom:1px solid #1e3a5f}
+.feed-table td{padding:8px 10px;border-bottom:1px solid #0d1117;color:#c9d1d9;vertical-align:middle}
+.feed-table tr:hover td{background:#0d1117}
+.sev-badge{display:inline-block;font-size:9px;font-weight:700;padding:2px 6px;border-radius:3px;letter-spacing:.06em}
+.sev-CRITICAL{background:#7f1d1d;color:#fca5a5}
+.sev-HIGH{background:#7c2d12;color:#fdba74}
+.sev-MEDIUM{background:#78350f;color:#fcd34d}
+.sev-LOW{background:#14532d;color:#86efac}
+.sev-INFO{background:#1e3a5f;color:#7dd3fc}
+.trend-row{display:flex;gap:3px;align-items:flex-end;height:32px}
+.trend-bar{width:8px;background:#1e3a5f;border-radius:2px 2px 0 0;min-height:4px}
+.freshness-dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px}
+.gate-table{width:100%;border-collapse:collapse;font-size:12px}
+.gate-table th{background:#0d1117;color:#6b7280;font-size:10px;letter-spacing:.08em;text-transform:uppercase;padding:8px 10px;text-align:left;border-bottom:1px solid #1e3a5f}
+.gate-table td{padding:7px 10px;border-bottom:1px solid #0d1117;color:#c9d1d9}
+.pass-icon{color:#22c55e;font-weight:700}
+.fail-icon{color:#ef4444;font-weight:700}
+.warn-icon{color:#f59e0b;font-weight:700}
+.loading{color:#6b7280;font-size:12px;padding:12px 0}
+@media(max-width:600px){.dashboard{padding:12px 10px}.header{padding:14px 12px}.stats-grid{grid-template-columns:1fr 1fr}}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="logo">&#9632; SENTINEL APEX</div>
+  <div class="badge">CUSTOMER VALUE DASHBOARD</div>
+  <div class="badge" style="margin-left:auto;color:#22c55e;border-color:#22c55e33;background:#0f2f1c" id="hdr-tier">P27.10</div>
+</div>
+
+<!-- Auth Gate -->
+<div class="auth-wall" id="auth-wall">
+  <div class="auth-box">
+    <div class="auth-title">&#128274; ENTERPRISE ACCESS REQUIRED</div>
+    <p style="color:#6b7280;font-size:12px;margin-bottom:16px">Enter your SENTINEL APEX API key to access the Customer Value Dashboard.</p>
+    <input class="auth-input" id="api-key-input" type="password" placeholder="sk-sentinel-...">
+    <button class="auth-btn" onclick="doAuth()">AUTHENTICATE</button>
+    <div class="auth-error" id="auth-error">Invalid API key. Please try again.</div>
+  </div>
+</div>
+
+<!-- Dashboard (shown post-auth) -->
+<div class="dashboard" id="dashboard">
+
+  <div class="section-title">Platform Release Status</div>
+  <div class="tier-banner" id="tier-banner">
+    <div>
+      <div class="tier-label" id="tier-label">Loading…</div>
+      <div class="tier-sub" id="tier-sub"></div>
+    </div>
+    <div style="margin-left:auto;text-align:right">
+      <div style="color:#6b7280;font-size:10px;letter-spacing:.08em">LAST UPDATED</div>
+      <div style="color:#94a3b8;font-size:12px;margin-top:2px" id="last-updated">—</div>
+    </div>
+  </div>
+
+  <div class="section-title" style="margin-top:24px">Intelligence Overview</div>
+  <div class="stats-grid" id="stats-grid">
+    <div class="stat-card"><div class="stat-val" id="stat-total">—</div><div class="stat-label">Total Advisories</div></div>
+    <div class="stat-card"><div class="stat-val" id="stat-critical">—</div><div class="stat-label">Critical</div></div>
+    <div class="stat-card"><div class="stat-val" id="stat-high">—</div><div class="stat-label">High</div></div>
+    <div class="stat-card"><div class="stat-val" id="stat-mitre">—</div><div class="stat-label">MITRE Coverage</div></div>
+    <div class="stat-card"><div class="stat-val" id="stat-ioc">—</div><div class="stat-label">IOC Records</div></div>
+    <div class="stat-card"><div class="stat-val" id="stat-stix">—</div><div class="stat-label">STIX Bundles</div></div>
+  </div>
+
+  <div class="section-title">Quality Dimensions</div>
+  <div class="quality-grid" id="quality-grid">
+    <div class="loading">Loading quality metrics…</div>
+  </div>
+
+  <div class="section-title">Platform Health &amp; Trust Gates</div>
+  <table class="gate-table" id="gate-table">
+    <thead><tr><th>Gate</th><th>Dimension</th><th>Status</th><th>Detail</th></tr></thead>
+    <tbody id="gate-body"><tr><td colspan="4" class="loading">Loading gate results…</td></tr></tbody>
+  </table>
+
+  <div class="section-title">Latest Intelligence Feed</div>
+  <div style="overflow-x:auto">
+    <table class="feed-table" id="feed-table">
+      <thead><tr><th>ID</th><th>Title</th><th>Severity</th><th>Confidence</th><th>IOCs</th><th>TTPs</th><th>Source</th></tr></thead>
+      <tbody id="feed-body"><tr><td colspan="7" class="loading">Loading intelligence feed…</td></tr></tbody>
+    </table>
+  </div>
+
+  <div class="section-title">Intelligence Freshness</div>
+  <div id="freshness-block" style="color:#6b7280;font-size:12px">Loading…</div>
+
+  <div style="margin-top:40px;padding-top:20px;border-top:1px solid #1e3a5f;color:#374151;font-size:10px;letter-spacing:.08em">
+    CYBERDUDEBIVASH&#174; SENTINEL APEX &mdash; P27.10 Customer Value Dashboard &mdash;
+    <span style="color:#1e3a5f">intel.cyberdudebivash.com</span>
+  </div>
+</div>
+
+<script>
+const API_BASE = "https://intel.cyberdudebivash.com";
+
+function doAuth() {
+  const key = document.getElementById("api-key-input").value.trim();
+  if (!key) return;
+  sessionStorage.setItem("sentinel_api_key", key);
+  verifyAndLoad(key);
+}
+
+function verifyAndLoad(key) {
+  fetch(`${API_BASE}/api/health`, {
+    headers: { "X-API-Key": key }
+  }).then(r => {
+    if (r.ok || r.status === 200) {
+      document.getElementById("auth-wall").style.display = "none";
+      document.getElementById("dashboard").style.display = "block";
+      loadDashboard(key);
+    } else {
+      document.getElementById("auth-error").style.display = "block";
+      sessionStorage.removeItem("sentinel_api_key");
+    }
+  }).catch(() => {
+    // allow dashboard load in offline/dev context if key looks valid
+    if (key.length >= 8) {
+      document.getElementById("auth-wall").style.display = "none";
+      document.getElementById("dashboard").style.display = "block";
+      loadDashboard(key);
+    } else {
+      document.getElementById("auth-error").style.display = "block";
+    }
+  });
+}
+
+function loadDashboard(key) {
+  const headers = { "X-API-Key": key };
+  Promise.all([
+    fetch(`${API_BASE}/api/v1/p27/observability`, { headers }).then(r => r.json()).catch(() => null),
+    fetch(`${API_BASE}/api/v1/intel/latest.json`, { headers }).then(r => r.json()).catch(() => null),
+    fetch(`${API_BASE}/api/v1/p26/observability`, { headers }).then(r => r.json()).catch(() => null),
+  ]).then(([p27obs, feed, p26obs]) => {
+    renderTier(p27obs || p26obs);
+    renderFeed(Array.isArray(feed) ? feed : (feed && feed.items ? feed.items : []));
+    renderQuality(p27obs, p26obs);
+    renderGates(p27obs);
+  });
+}
+
+function renderTier(obs) {
+  const tier = obs && obs.release_tier ? obs.release_tier : "OPERATIONAL";
+  const lbl  = document.getElementById("tier-label");
+  const sub  = document.getElementById("tier-sub");
+  const ban  = document.getElementById("tier-banner");
+  const hdr  = document.getElementById("hdr-tier");
+  lbl.textContent = tier.replace(/_/g," ");
+  sub.textContent  = `P27 Certification | ${obs && obs.generated_at ? obs.generated_at.slice(0,10) : new Date().toISOString().slice(0,10)}`;
+  document.getElementById("last-updated").textContent = obs && obs.generated_at ? obs.generated_at.slice(0,19).replace("T"," ") + " UTC" : "—";
+  hdr.textContent = tier;
+  const green = tier === "WORLDWIDE_RELEASE" || tier === "OPERATIONAL";
+  ban.style.borderColor  = green ? "#22c55e" : "#f59e0b";
+  ban.style.borderLeftColor = green ? "#22c55e" : "#f59e0b";
+  ban.style.background   = green ? "linear-gradient(90deg,#0f2f1c,#0d1117)" : "linear-gradient(90deg,#292219,#0d1117)";
+  lbl.style.color = green ? "#22c55e" : "#f59e0b";
+  hdr.style.color = green ? "#22c55e" : "#f59e0b";
+}
+
+function renderFeed(items) {
+  const body = document.getElementById("feed-body");
+  if (!items.length) { body.innerHTML = "<tr><td colspan='7' style='color:#6b7280;padding:12px'>No items loaded</td></tr>"; return; }
+  let critical=0, high=0, totalIoc=0, totalTtp=0, mitreCount=0;
+  items.forEach(i => {
+    const sev = (i.severity||"").toUpperCase();
+    if (sev==="CRITICAL") critical++;
+    if (sev==="HIGH") high++;
+    totalIoc += parseInt(i.ioc_count||0);
+    totalTtp += parseInt(i.ttp_count||0);
+    if ((i.mitre_tactics&&i.mitre_tactics.length)||(i.ttps&&i.ttps.length)) mitreCount++;
+  });
+  document.getElementById("stat-total").textContent   = items.length;
+  document.getElementById("stat-critical").textContent = critical;
+  document.getElementById("stat-high").textContent    = high;
+  document.getElementById("stat-mitre").textContent   = Math.round(mitreCount/items.length*100)+"%";
+  document.getElementById("stat-ioc").textContent     = totalIoc;
+  document.getElementById("stat-stix").textContent    = items.filter(i=>i.stix_bundle).length;
+
+  const rows = items.slice(0,20).map(i => {
+    const sev=(i.severity||"INFO").toUpperCase();
+    const conf=Math.round((i.confidence||0.5)*100);
+    return `<tr>
+      <td style="color:#6b7280;font-size:10px">${esc(String(i.id||"").slice(-8))}</td>
+      <td style="max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(i.title||"")}</td>
+      <td><span class="sev-badge sev-${sev}">${sev}</span></td>
+      <td>${conf}%</td>
+      <td>${i.ioc_count||0}</td>
+      <td>${i.ttp_count||0}</td>
+      <td style="color:#6b7280;font-size:10px">${esc(i.source||"")}</td>
+    </tr>`;
+  }).join("");
+  body.innerHTML = rows;
+
+  // freshness
+  const now = Date.now();
+  const fresh = items.filter(i => (now - new Date(i.timestamp||i.processed_at||0).getTime()) < 86400000*7);
+  const old   = items.filter(i => (now - new Date(i.timestamp||i.processed_at||0).getTime()) >= 86400000*30);
+  document.getElementById("freshness-block").innerHTML =
+    `<span><span class="freshness-dot" style="background:#22c55e"></span>${fresh.length} advisories updated within 7 days</span> &nbsp;|&nbsp;
+     <span><span class="freshness-dot" style="background:#f59e0b"></span>${items.length - fresh.length - old.length} between 7–30 days</span> &nbsp;|&nbsp;
+     <span><span class="freshness-dot" style="background:#ef4444"></span>${old.length} older than 30 days</span>`;
+}
+
+function renderQuality(p27obs, p26obs) {
+  const dims = [
+    { label: "Evidence Coverage",     val: p27obs && p27obs.quality_summary ? p27obs.quality_summary.evidence_pct : (p26obs&&p26obs.quality_summary ? p26obs.quality_summary.evidence_pct : null), color: "#22c55e" },
+    { label: "IOC Quality",           val: p27obs&&p27obs.quality_summary ? p27obs.quality_summary.ioc_pct : null, color: "#38bdf8" },
+    { label: "MITRE Coverage",        val: p27obs&&p27obs.quality_summary ? p27obs.quality_summary.mitre_pct : (p26obs&&p26obs.quality_summary ? p26obs.quality_summary.mitre_coverage_pct : null), color: "#818cf8" },
+    { label: "P26 Composite Grade",   val: p26obs&&p26obs.quality_summary ? p26obs.quality_summary.p26_avg_composite : null, color: "#f59e0b" },
+    { label: "STIX Completeness",     val: p27obs&&p27obs.quality_summary ? p27obs.quality_summary.stix_pct : null, color: "#a78bfa" },
+    { label: "Source URL Coverage",   val: p27obs&&p27obs.quality_summary ? p27obs.quality_summary.source_url_pct : null, color: "#34d399" },
+  ];
+  const grid = document.getElementById("quality-grid");
+  grid.innerHTML = dims.map(d => {
+    const v = d.val != null ? Math.round(d.val) : null;
+    const w = v != null ? Math.min(100, Math.max(0, v)) : 0;
+    return `<div class="q-card">
+      <div class="q-title">${d.label}</div>
+      <div class="q-bar-wrap"><div class="q-bar" style="width:${w}%;background:${d.color}"></div></div>
+      <div class="q-val" style="color:${d.color}">${v != null ? v : "—"}${v != null && d.label !== "P26 Composite Grade" ? "%" : ""}</div>
+    </div>`;
+  }).join("");
+}
+
+function renderGates(obs) {
+  if (!obs || !obs.gates) {
+    document.getElementById("gate-body").innerHTML =
+      "<tr><td colspan='4' style='color:#6b7280'>Gate data not available — run p27_production_certification.py</td></tr>";
+    return;
+  }
+  const rows = obs.gates.map(g => {
+    const icon = g.pass ? '<span class="pass-icon">&#10003; PASS</span>'
+               : (g.severity === "WARNING" ? '<span class="warn-icon">&#9651; WARN</span>'
+               : '<span class="fail-icon">&#10007; BLOCK</span>');
+    return `<tr>
+      <td style="color:#6b7280">${esc(g.gate)}</td>
+      <td>${esc(g.name)}</td>
+      <td>${icon}</td>
+      <td style="color:#6b7280;font-size:11px">${esc(g.detail)}</td>
+    </tr>`;
+  }).join("");
+  document.getElementById("gate-body").innerHTML = rows;
+}
+
+function esc(s) {
+  return String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+}
+
+// auto-auth if key in session
+window.addEventListener("load", () => {
+  const key = sessionStorage.getItem("sentinel_api_key");
+  if (key) verifyAndLoad(key);
+});
+</script>
+</body>
+</html>

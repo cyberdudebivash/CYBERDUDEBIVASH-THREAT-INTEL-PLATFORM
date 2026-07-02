@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Customer Health & Success Platform — Sentinel APEX</title>
+<style>
+:root{--bg:#0a0e1a;--surface:#111827;--surface2:#1a2235;--border:#1e2d45;--accent:#00d4ff;--green:#00ff88;--yellow:#ffd700;--red:#ff4444;--orange:#ff8800;--purple:#a855f7;--text:#e2e8f0;--muted:#64748b;}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:var(--bg);color:var(--text);font-family:'Segoe UI',sans-serif;min-height:100vh;}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 28px;display:flex;align-items:center;justify-content:space-between;}
+.brand{display:flex;align-items:center;gap:12px;}
+.logo{width:36px;height:36px;background:linear-gradient(135deg,#00ff88,#a855f7);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:16px;}
+.title{font-size:18px;font-weight:700;}
+.subtitle{font-size:11px;color:var(--muted);}
+.layout{display:grid;grid-template-columns:230px 1fr;min-height:calc(100vh - 65px);}
+nav{background:var(--surface);border-right:1px solid var(--border);padding:20px 0;}
+.nav-section{padding:8px 20px 4px;font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;}
+.nav-item{display:flex;align-items:center;gap:10px;padding:10px 20px;font-size:13px;color:var(--muted);cursor:pointer;border-left:3px solid transparent;}
+.nav-item:hover{background:var(--surface2);color:var(--text);}
+.nav-item.active{background:var(--surface2);color:var(--green);border-left-color:var(--green);}
+main{padding:28px;overflow-y:auto;}
+.page-header{margin-bottom:24px;}
+.page-header h1{font-size:24px;font-weight:800;}
+.page-header p{color:var(--muted);font-size:13px;margin-top:4px;}
+.kpi-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:16px;margin-bottom:24px;}
+.kpi-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:18px;position:relative;overflow:hidden;}
+.kpi-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;}
+.kpi-label{font-size:11px;color:var(--muted);text-transform:uppercase;}
+.kpi-value{font-size:26px;font-weight:800;margin:6px 0 2px;}
+.kpi-delta{font-size:11px;}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px;}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px;}
+.card-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;}
+.card-title{font-size:14px;font-weight:700;}
+.card-action{font-size:11px;color:var(--accent);cursor:pointer;padding:4px 10px;border:1px solid var(--accent);border-radius:6px;}
+table{width:100%;border-collapse:collapse;font-size:13px;}
+thead tr{background:var(--surface2);}
+th{padding:10px 14px;text-align:left;font-size:11px;color:var(--muted);text-transform:uppercase;}
+td{padding:10px 14px;border-bottom:1px solid var(--border);}
+tr:last-child td{border-bottom:none;}
+.pill{padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;display:inline-block;}
+.pill-healthy{background:rgba(0,255,136,0.15);color:var(--green);}
+.pill-risk{background:rgba(255,215,0,0.15);color:var(--yellow);}
+.pill-churn{background:rgba(255,68,68,0.15);color:var(--red);}
+.pill-expand{background:rgba(0,212,255,0.15);color:var(--accent);}
+
+.health-gauge{display:flex;flex-direction:column;align-items:center;padding:20px 0;}
+.gauge-wrap{position:relative;width:140px;height:140px;}
+.gauge-svg{width:140px;height:140px;}
+.gauge-text{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;}
+.gauge-score{font-size:32px;font-weight:900;}
+.gauge-label{font-size:11px;color:var(--muted);}
+
+.customer-card{background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:16px;margin-bottom:10px;display:grid;grid-template-columns:1fr auto;gap:12px;}
+.cc-name{font-size:14px;font-weight:700;}
+.cc-plan{font-size:11px;color:var(--muted);}
+.cc-metrics{display:flex;gap:16px;margin-top:8px;}
+.cc-metric{font-size:12px;color:var(--muted);}
+.cc-metric span{color:var(--text);font-weight:600;}
+.cc-score{font-size:28px;font-weight:900;text-align:right;}
+.cc-state{font-size:11px;text-align:right;margin-top:4px;}
+
+.signal-item{display:flex;align-items:flex-start;gap:12px;padding:10px 0;border-bottom:1px solid var(--border);}
+.signal-item:last-child{border-bottom:none;}
+.signal-dot{width:10px;height:10px;border-radius:50%;margin-top:4px;flex-shrink:0;}
+.signal-info{flex:1;}
+.signal-title{font-size:13px;font-weight:600;}
+.signal-meta{font-size:11px;color:var(--muted);margin-top:2px;}
+.signal-action{padding:5px 12px;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap;}
+.sa-green{background:rgba(0,255,136,0.15);color:var(--green);border:1px solid rgba(0,255,136,0.3);}
+.sa-yellow{background:rgba(255,215,0,0.15);color:var(--yellow);border:1px solid rgba(255,215,0,0.3);}
+.sa-red{background:rgba(255,68,68,0.15);color:var(--red);border:1px solid rgba(255,68,68,0.3);}
+.sa-accent{background:rgba(0,212,255,0.15);color:var(--accent);border:1px solid rgba(0,212,255,0.3);}
+
+.playbook-item{padding:14px;background:var(--surface2);border-radius:10px;margin-bottom:10px;display:flex;align-items:center;gap:14px;}
+.playbook-icon{font-size:22px;flex-shrink:0;}
+.playbook-info{flex:1;}
+.playbook-name{font-size:13px;font-weight:700;}
+.playbook-desc{font-size:12px;color:var(--muted);}
+.playbook-status{font-size:11px;font-weight:700;}
+.run-btn{padding:6px 14px;border-radius:6px;font-size:12px;font-weight:700;background:rgba(0,212,255,0.15);color:var(--accent);border:1px solid rgba(0,212,255,0.3);cursor:pointer;}
+
+.score-bar-wrap{height:6px;background:var(--border);border-radius:3px;margin-top:6px;}
+.score-bar-fill{height:100%;border-radius:3px;}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <div class="brand"><div class="logo">💚</div><div><div class="title">Customer Health & Success Platform</div><div class="subtitle">Sentinel APEX · Customer Success Operations</div></div></div>
+  <div style="display:flex;gap:12px;align-items:center">
+    <span style="background:rgba(0,255,136,0.15);color:var(--green);border:1px solid rgba(0,255,136,0.3);padding:4px 12px;border-radius:20px;font-size:11px;font-weight:700">● 412 Healthy</span>
+    <span style="background:rgba(255,215,0,0.15);color:var(--yellow);border:1px solid rgba(255,215,0,0.3);padding:4px 12px;border-radius:20px;font-size:11px;font-weight:700">⚠ 61 At Risk</span>
+    <span style="background:rgba(255,68,68,0.15);color:var(--red);border:1px solid rgba(255,68,68,0.3);padding:4px 12px;border-radius:20px;font-size:11px;font-weight:700">🔴 27 Churn Risk</span>
+    <span style="font-size:12px;color:var(--muted)" id="ts"></span>
+  </div>
+</div>
+
+<div class="layout">
+  <nav>
+    <div class="nav-section">Success</div>
+    <div class="nav-item active">💚 Health Overview</div>
+    <div class="nav-item">🔴 Churn Risk</div>
+    <div class="nav-item">⬆️ Expansion Signals</div>
+    <div class="nav-item">📊 Usage Analytics</div>
+    <div class="nav-section">Workflows</div>
+    <div class="nav-item">▶️ Success Playbooks</div>
+    <div class="nav-item">📧 Outreach Sequences</div>
+    <div class="nav-item">📅 QBR Scheduler</div>
+    <div class="nav-section">Scoring</div>
+    <div class="nav-item">🧠 Health Model</div>
+    <div class="nav-item">🎯 Expansion Score</div>
+    <div class="nav-item">📈 Renewal Predictor</div>
+  </nav>
+
+  <main>
+    <div class="page-header">
+      <h1>💚 Customer Health & Success Platform</h1>
+      <p>Real-time health scoring, churn prediction, expansion signals, and automated success workflows</p>
+    </div>
+
+    <div class="kpi-grid">
+      <div class="kpi-card" style="border-top:3px solid var(--green)"><div class="kpi-label">Total Customers</div><div class="kpi-value" style="color:var(--green)">500</div><div class="kpi-delta" style="color:var(--green)">↑ +22 this month</div></div>
+      <div class="kpi-card" style="border-top:3px solid var(--accent)"><div class="kpi-label">Avg Health Score</div><div class="kpi-value" style="color:var(--accent)">78.4</div><div class="kpi-delta" style="color:var(--green)">↑ +4.2 vs last month</div></div>
+      <div class="kpi-card" style="border-top:3px solid var(--yellow)"><div class="kpi-label">At Risk (30d)</div><div class="kpi-value" style="color:var(--yellow)">61</div><div class="kpi-delta" style="color:var(--yellow)">Needs intervention</div></div>
+      <div class="kpi-card" style="border-top:3px solid var(--red)"><div class="kpi-label">Churn Risk</div><div class="kpi-value" style="color:var(--red)">27</div><div class="kpi-delta" style="color:var(--red)">~$2.8M ARR at risk</div></div>
+      <div class="kpi-card" style="border-top:3px solid var(--purple)"><div class="kpi-label">Expansion Ready</div><div class="kpi-value" style="color:var(--purple)">89</div><div class="kpi-delta" style="color:var(--purple)">~$4.1M upsell potential</div></div>
+    </div>
+
+    <div class="grid-2">
+      <!-- Health Distribution -->
+      <div class="card">
+        <div class="card-header"><div class="card-title">📊 Health Score Distribution</div><div class="card-action">Export</div></div>
+        <div id="health-dist"></div>
+      </div>
+
+      <!-- Top At-Risk Accounts -->
+      <div class="card">
+        <div class="card-header"><div class="card-title">🔴 Top Churn Risk Accounts</div><div class="card-action">Run Playbook</div></div>
+        <div id="churn-risk"></div>
+      </div>
+    </div>
+
+    <!-- Full Customer Health Table -->
+    <div class="card" style="margin-bottom:20px">
+      <div class="card-header">
+        <div class="card-title">🏢 All Customer Health Scores</div>
+        <div style="display:flex;gap:8px">
+          <select id="health-filter" onchange="filterHealth()" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:4px 10px;border-radius:6px;font-size:12px;">
+            <option value="all">All Customers</option>
+            <option value="healthy">Healthy (80+)</option>
+            <option value="risk">At Risk (50-79)</option>
+            <option value="churn">Churn Risk (<50)</option>
+            <option value="expand">Expansion Ready</option>
+          </select>
+          <div class="card-action" onclick="exportHealth()">Export CSV</div>
+        </div>
+      </div>
+      <table>
+        <thead><tr><th>Organization</th><th>Plan</th><th>Health Score</th><th>Logins (7d)</th><th>API Usage</th><th>Feed Consumption</th><th>State</th><th>CSM Action</th></tr></thead>
+        <tbody id="health-table"></tbody>
+      </table>
+    </div>
+
+    <!-- Success Playbooks -->
+    <div class="card" style="margin-bottom:20px">
+      <div class="card-header"><div class="card-title">▶️ Automated Success Playbooks</div><div class="card-action">+ New Playbook</div></div>
+      <div id="playbooks"></div>
+    </div>
+
+    <!-- Early Warning Signals -->
+    <div class="card">
+      <div class="card-header"><div class="card-title">⚡ Early Warning Signals — Last 24h</div><div class="card-action">Configure Alerts</div></div>
+      <div id="signals"></div>
+    </div>
+  </main>
+</div>
+
+<script>
+document.getElementById('ts').textContent = new Date().toLocaleString();
+
+const healthDist = [
+  {label:'Healthy (90-100)',count:187,pct:37.4,color:'var(--green)'},
+  {label:'Good (80-89)',count:225,pct:45,color:'var(--accent)'},
+  {label:'At Risk (65-79)',count:48,pct:9.6,color:'var(--yellow)'},
+  {label:'Declining (50-64)',count:13,pct:2.6,color:'var(--orange)'},
+  {label:'Churn Risk (<50)',count:27,pct:5.4,color:'var(--red)'},
+];
+const hd = document.getElementById('health-dist');
+healthDist.forEach(h => {
+  hd.innerHTML += `<div style="margin-bottom:14px">
+    <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:5px">
+      <span>${h.label}</span>
+      <span style="color:${h.color};font-weight:700">${h.count} customers (${h.pct}%)</span>
+    </div>
+    <div class="score-bar-wrap"><div class="score-bar-fill" style="width:${h.pct*2}%;background:${h.color}"></div></div>
+  </div>`;
+});
+
+const churnRisk = [
+  {org:'Meridian Analytics',plan:'Professional',score:28,issue:'0 logins 14d, API silent',arr:36000},
+  {org:'Vertex Security',plan:'Enterprise',score:31,issue:'Support ticket escalation, low usage',arr:84000},
+  {org:'NexGen Systems',plan:'Starter',score:38,issue:'No report downloads in 30d',arr:12000},
+  {org:'PacificSOC Ltd',plan:'Professional',score:42,issue:'Billing dispute, low engagement',arr:36000},
+  {org:'Ironstone Corp',plan:'Enterprise',score:44,issue:'SIEM integration broken 7d',arr:84000},
+];
+const cr = document.getElementById('churn-risk');
+churnRisk.forEach(c => {
+  const scoreColor = c.score < 40 ? 'var(--red)' : 'var(--orange)';
+  cr.innerHTML += `<div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--border)">
+    <div style="font-size:24px;font-weight:900;color:${scoreColor};width:40px">${c.score}</div>
+    <div style="flex:1">
+      <div style="font-size:13px;font-weight:700">${c.org}</div>
+      <div style="font-size:11px;color:var(--muted)">${c.plan} · ₹${c.arr.toLocaleString('en-IN')}/mo · ${c.issue}</div>
+    </div>
+    <button onclick="runPlaybook('${c.org}')" style="padding:5px 12px;background:rgba(255,68,68,0.15);color:var(--red);border:1px solid rgba(255,68,68,0.3);border-radius:6px;font-size:12px;font-weight:600;cursor:pointer">Intervene</button>
+  </div>`;
+});
+cr.lastChild && (cr.lastChild.style.borderBottom = 'none');
+
+const customers = [
+  {org:'TechCorp Global',plan:'Enterprise',score:92,logins:34,api:88,feed:94,state:'healthy'},
+  {org:'SecureBank Ltd',plan:'Professional',score:78,logins:18,api:65,feed:72,state:'risk'},
+  {org:'DataSystems Inc',plan:'MSSP',score:95,logins:67,api:97,feed:98,state:'expand'},
+  {org:'CloudVentures',plan:'Enterprise',score:85,logins:22,api:79,feed:81,state:'healthy'},
+  {org:'GlobalSOC Corp',plan:'MSSP',score:88,logins:41,api:91,feed:89,state:'expand'},
+  {org:'NovaSecurity',plan:'Professional',score:94,logins:28,api:86,feed:93,state:'expand'},
+  {org:'Apex FinTech',plan:'Professional',score:61,logins:7,api:42,feed:38,state:'risk'},
+  {org:'InfoSec Partners',plan:'Enterprise',score:72,logins:11,api:58,feed:64,state:'risk'},
+  {org:'Meridian Analytics',plan:'Professional',score:28,logins:0,api:3,feed:5,state:'churn'},
+  {org:'Vertex Security',plan:'Enterprise',score:31,logins:2,api:12,feed:18,state:'churn'},
+];
+
+const ht = document.getElementById('health-table');
+customers.forEach(c => {
+  const sc = c.state==='healthy'?'pill-healthy':c.state==='risk'?'pill-risk':c.state==='churn'?'pill-churn':'pill-expand';
+  const sl = c.state.charAt(0).toUpperCase()+c.state.slice(1);
+  const hColor = c.score>=80?'var(--green)':c.score>=60?'var(--yellow)':c.score>=45?'var(--orange)':'var(--red)';
+  const csmAction = c.state==='churn'?'🚨 Emergency Call':c.state==='risk'?'📧 Re-engagement':c.state==='expand'?'💰 Upsell':'✓ Check-in';
+  ht.innerHTML += `<tr>
+    <td style="font-weight:700">${c.org}</td>
+    <td>${c.plan}</td>
+    <td><span style="font-size:16px;font-weight:900;color:${hColor}">${c.score}</span>
+      <div class="score-bar-wrap" style="width:80px;display:inline-block;vertical-align:middle;margin-left:8px">
+        <div class="score-bar-fill" style="width:${c.score}%;background:${hColor}"></div>
+      </div></td>
+    <td style="color:${c.logins===0?'var(--red)':c.logins<10?'var(--yellow)':'var(--green)'};font-weight:600">${c.logins}</td>
+    <td>${c.api}%</td>
+    <td>${c.feed}%</td>
+    <td><span class="pill ${sc}">${sl.toUpperCase()}</span></td>
+    <td><button onclick="triggerCSM('${c.org}','${csmAction}')" style="font-size:12px;padding:5px 10px;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;cursor:pointer">${csmAction}</button></td>
+  </tr>`;
+});
+
+const playbooks = [
+  {icon:'🚨',name:'Emergency Churn Intervention',desc:'Triggered when score < 35. Auto-emails CSM + schedules executive call within 24h.',status:'Active · 3 triggered today',color:'var(--red)'},
+  {icon:'⚠️',name:'At-Risk Re-engagement Sequence',desc:'7-email drip when score drops below 65. Includes health report, feature tutorials.',status:'Active · 12 in-progress',color:'var(--yellow)'},
+  {icon:'💰',name:'Expansion Opportunity Playbook',desc:'Triggered when usage > 80% and health > 85. Auto-sends upgrade proposal.',status:'Active · 8 sent this month',color:'var(--green)'},
+  {icon:'🎉',name:'Onboarding Success Sequence',desc:'30-day automated onboarding emails, setup checklists, first value milestone.',status:'Active · 22 new this month',color:'var(--accent)'},
+  {icon:'📅',name:'Quarterly Business Review (QBR)',desc:'Auto-schedules QBR at 90/180/270 days. Generates value report for exec deck.',status:'Active · 6 scheduled',color:'var(--purple)'},
+  {icon:'🔄',name:'Renewal Nurture (90 days out)',desc:'Renewal campaign starts 90d before renewal date. ROI data + success metrics.',status:'Active · 34 in pipeline',color:'var(--orange)'},
+];
+const pb = document.getElementById('playbooks');
+playbooks.forEach(p => {
+  pb.innerHTML += `<div class="playbook-item">
+    <div class="playbook-icon">${p.icon}</div>
+    <div class="playbook-info">
+      <div class="playbook-name">${p.name}</div>
+      <div class="playbook-desc">${p.desc}</div>
+    </div>
+    <div style="text-align:right">
+      <div class="playbook-status" style="color:${p.color}">${p.status}</div>
+      <button class="run-btn" style="margin-top:6px" onclick="alert('Running playbook: ${p.name}')">▶ Run</button>
+    </div>
+  </div>`;
+});
+
+const signals = [
+  {color:'var(--red)',title:'Vertex Security — No API activity for 5 days',meta:'Enterprise · ₹84,000 ARR · SIEM integration may be broken',action:'🔧 Investigate','acls':'sa-red'},
+  {color:'var(--red)',title:'Meridian Analytics — Admin login 15 days ago',meta:'Professional · ₹36,000 ARR · Re-engagement needed immediately',action:'📞 Call Now','acls':'sa-red'},
+  {color:'var(--yellow)',title:'Apex FinTech — IOC feed consumption dropped 60%',meta:'Professional · ₹36,000 ARR · Possible integration failure or disengagement',action:'📧 Email','acls':'sa-yellow'},
+  {color:'var(--green)',title:'DataSystems Inc — API usage at 97% of limit',meta:'MSSP · ₹1,50,000 ARR · Strong expansion signal — upgrade opportunity',action:'💰 Upsell','acls':'sa-green'},
+  {color:'var(--accent)',title:'NovaSecurity — Downloaded 47 detection rules this week',meta:'Professional · ₹36,000 ARR · High engagement — expansion candidate',action:'💰 Expand','acls':'sa-accent'},
+  {color:'var(--purple)',title:'GlobalSOC Corp — Executive report opened 12 times',meta:'MSSP · ₹1,50,000 ARR · Strong CISO engagement — renewal low risk',action:'📞 QBR','acls':'sa-accent'},
+];
+const sig = document.getElementById('signals');
+signals.forEach(s => {
+  sig.innerHTML += `<div class="signal-item">
+    <div class="signal-dot" style="background:${s.color}"></div>
+    <div class="signal-info">
+      <div class="signal-title">${s.title}</div>
+      <div class="signal-meta">${s.meta}</div>
+    </div>
+    <button class="signal-action ${s.acls}" onclick="alert('Triggering: ${s.action} for this account')">${s.action}</button>
+  </div>`;
+});
+
+function triggerCSM(org, action) { alert(`Triggering: ${action}\nAccount: ${org}\nPOST /api/customer-success/trigger`); }
+function runPlaybook(org) { alert(`Running emergency churn intervention for ${org}\nPOST /api/playbooks/churn-intervention/run`); }
+function filterHealth() { alert('Filtering health table by: '+document.getElementById('health-filter').value+'\nGET /api/customers/health?filter='+document.getElementById('health-filter').value); }
+function exportHealth() { alert('Exporting customer health data...\nGET /api/customers/health/export'); }
+</script>
+</body>
+</html>

@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SENTINEL APEX — API Management Center</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0a0e1a;--card:#0f1629;--accent:#00d4ff;--danger:#ff3366;--success:#00ff88;--warning:#ffaa00;--text:#e2e8f0;--muted:#64748b;--border:#1e2d4a}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text)}
+.header{background:var(--card);border-bottom:1px solid var(--border);padding:0 24px;height:60px;display:flex;align-items:center;justify-content:space-between}
+.logo{font-weight:700;color:var(--accent);font-size:1.1rem;display:flex;align-items:center;gap:8px}
+.logo-icon{width:30px;height:30px;background:linear-gradient(135deg,var(--accent),#0066ff);border-radius:7px}
+.content{padding:24px;max-width:1200px;margin:0 auto}
+.page-title{font-size:1.4rem;font-weight:700;margin-bottom:4px}
+.page-sub{color:var(--muted);font-size:13px;margin-bottom:24px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:24px}
+.section-title{font-size:1rem;font-weight:600;margin-bottom:16px}
+.btn{display:inline-flex;align-items:center;gap:5px;padding:7px 16px;border-radius:7px;font-size:12px;font-weight:600;cursor:pointer;border:none;transition:all .2s}
+.btn-primary{background:linear-gradient(135deg,var(--accent),#0066ff);color:#0a0e1a}
+.btn-primary:hover{opacity:.85}
+.btn-outline{background:transparent;border:1px solid var(--accent);color:var(--accent)}
+.btn-outline:hover{background:rgba(0,212,255,.1)}
+.btn-danger{background:transparent;border:1px solid var(--danger);color:var(--danger)}
+.btn-danger:hover{background:rgba(255,51,102,.08)}
+/* API KEY CARDS */
+.key-card{background:rgba(0,0,0,.2);border:1px solid var(--border);border-radius:10px;padding:16px;margin-bottom:12px}
+.key-header{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:10px}
+.key-name{font-weight:600;font-size:14px}
+.key-status{display:inline-flex;padding:2px 10px;border-radius:20px;font-size:11px;font-weight:600;background:rgba(0,255,136,.12);color:var(--success)}
+.key-value{font-family:monospace;font-size:13px;background:rgba(0,0,0,.3);border:1px solid var(--border);border-radius:6px;padding:8px 12px;display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px;word-break:break-all}
+.key-meta{display:flex;gap:16px;font-size:11px;color:var(--muted);flex-wrap:wrap}
+.key-actions{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+/* STATS ROW */
+.stats-row{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:24px}
+.stat-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;text-align:center}
+.stat-val{font-size:1.8rem;font-weight:700}
+.stat-lbl{font-size:12px;color:var(--muted);margin-top:4px}
+/* WEBHOOKS */
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:left;padding:9px 12px;background:rgba(0,212,255,.05);color:var(--muted);font-size:11px;text-transform:uppercase;border-bottom:1px solid var(--border)}
+td{padding:9px 12px;border-bottom:1px solid rgba(30,45,74,.4);vertical-align:middle}
+tr:hover td{background:rgba(0,212,255,.02)}
+/* TOGGLE */
+.toggle{position:relative;width:38px;height:20px}
+.toggle input{opacity:0;width:0;height:0}
+.toggle-slider{position:absolute;inset:0;background:rgba(255,255,255,.1);border-radius:20px;cursor:pointer;transition:.3s}
+.toggle-slider::before{content:'';position:absolute;width:14px;height:14px;left:3px;bottom:3px;background:#fff;border-radius:50%;transition:.3s}
+.toggle input:checked+.toggle-slider{background:var(--success)}
+.toggle input:checked+.toggle-slider::before{transform:translateX(18px)}
+/* CODE TABS */
+.code-tabs{display:flex;gap:0;margin-bottom:0;border-bottom:1px solid var(--border)}
+.code-tab{padding:8px 18px;border:none;background:transparent;color:var(--muted);font-size:12px;font-weight:600;cursor:pointer;border-bottom:2px solid transparent;transition:all .2s}
+.code-tab.active{color:var(--accent);border-bottom-color:var(--accent)}
+.code-tab:hover:not(.active){color:var(--text)}
+pre{background:rgba(0,0,0,.4);border:1px solid var(--border);border-radius:0 0 10px 10px;padding:16px;font-size:12px;line-height:1.7;overflow-x:auto;color:#e2e8f0;margin:0}
+.kw{color:#ff79c6}.fn{color:#50fa7b}.str{color:#f1fa8c}.cm{color:#6272a4;font-style:italic}.var{color:#8be9fd}
+/* SDK CARDS */
+.sdk-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.sdk-card{background:rgba(0,0,0,.2);border:1px solid var(--border);border-radius:10px;padding:16px;text-align:center}
+.sdk-icon{font-size:2rem;margin-bottom:8px}
+.sdk-name{font-weight:600;margin-bottom:4px}
+.sdk-version{font-size:11px;color:var(--muted);margin-bottom:10px}
+/* MODAL */
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:200;align-items:center;justify-content:center}
+.modal-overlay.open{display:flex}
+.modal{background:#0d1427;border:1px solid var(--border);border-radius:14px;padding:24px;width:90%;max-width:480px}
+.modal-title{font-size:1rem;font-weight:700;margin-bottom:20px}
+.form-group{margin-bottom:14px}
+.form-label{font-size:12px;color:var(--muted);text-transform:uppercase;font-weight:500;margin-bottom:6px;display:block}
+.form-control{background:rgba(255,255,255,.04);border:1px solid var(--border);border-radius:8px;padding:9px 12px;color:var(--text);font-size:13px;font-family:inherit;width:100%;outline:none}
+.form-control:focus{border-color:var(--accent)}
+.checkbox-group{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.checkbox-item{display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer}
+.checkbox-item input{accent-color:var(--accent);width:15px;height:15px}
+/* TOAST */
+.toast{position:fixed;bottom:24px;right:24px;background:var(--success);color:#0a0e1a;padding:12px 20px;border-radius:10px;font-weight:600;font-size:14px;z-index:999;transform:translateY(80px);opacity:0;transition:all .3s}
+.toast.show{transform:translateY(0);opacity:1}
+@media(max-width:768px){.stats-row{grid-template-columns:repeat(2,1fr)}.sdk-grid{grid-template-columns:1fr 1fr}}
+</style>
+</head>
+<body>
+<div class="header">
+  <div class="logo"><div class="logo-icon"></div>SENTINEL APEX — API Management</div>
+  <div style="font-size:13px;color:var(--muted)">Developer Portal &nbsp;·&nbsp; v3.2 API</div>
+</div>
+<div class="content">
+  <div class="page-title">API Management Center</div>
+  <div class="page-sub">Manage API keys, webhooks, usage analytics, and integrations.</div>
+
+  <div class="stats-row">
+    <div class="stat-card"><div class="stat-val" style="color:var(--accent)">8,420</div><div class="stat-lbl">Total Calls Today</div></div>
+    <div class="stat-card"><div class="stat-val" style="color:var(--success)">99.2%</div><div class="stat-lbl">Success Rate</div></div>
+    <div class="stat-card"><div class="stat-val" style="color:var(--warning)">142ms</div><div class="stat-lbl">Avg Latency</div></div>
+    <div class="stat-card"><div class="stat-val" style="color:var(--danger)">67</div><div class="stat-lbl">Errors Today</div></div>
+  </div>
+
+  <!-- API KEYS -->
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:16px">
+      <div class="section-title" style="margin:0">API Keys</div>
+      <button class="btn btn-primary" onclick="document.getElementById('modal').classList.add('open')">+ Create New Key</button>
+    </div>
+    <div id="api-keys"></div>
+  </div>
+
+  <!-- USAGE CHART -->
+  <div class="card">
+    <div class="section-title">API Usage — Last 7 Days</div>
+    <canvas id="usageChart" height="80"></canvas>
+  </div>
+
+  <!-- WEBHOOKS -->
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:16px">
+      <div class="section-title" style="margin:0">Webhooks</div>
+      <button class="btn btn-outline" onclick="showToast('Webhook configuration opened!')">+ Add Webhook</button>
+    </div>
+    <div style="overflow-x:auto">
+      <table>
+        <thead><tr><th>Endpoint URL</th><th>Events</th><th>Status</th><th>Actions</th></tr></thead>
+        <tbody id="webhooks-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- CODE SNIPPETS -->
+  <div class="card">
+    <div class="section-title">Quick Integration · GET /api/intel/feeds</div>
+    <div class="code-tabs">
+      <button class="code-tab active" onclick="showCode('python',this)">Python</button>
+      <button class="code-tab" onclick="showCode('curl',this)">cURL</button>
+      <button class="code-tab" onclick="showCode('node',this)">Node.js</button>
+    </div>
+    <pre id="code-block"></pre>
+  </div>
+
+  <!-- SDK DOWNLOADS -->
+  <div class="card">
+    <div class="section-title">SDK Downloads</div>
+    <div class="sdk-grid">
+      <div class="sdk-card"><div class="sdk-icon">🐍</div><div class="sdk-name">Python SDK</div><div class="sdk-version">v2.4.1 · pip install sentinel-apex</div><button class="btn btn-outline" onclick="showToast('sentinel-apex-python-sdk-2.4.1.tar.gz downloading...')">⬇ Download</button></div>
+      <div class="sdk-card"><div class="sdk-icon">🟨</div><div class="sdk-name">JavaScript SDK</div><div class="sdk-version">v2.1.0 · npm i @sentinel-apex/sdk</div><button class="btn btn-outline" onclick="showToast('@sentinel-apex/sdk-2.1.0.tgz downloading...')">⬇ Download</button></div>
+      <div class="sdk-card"><div class="sdk-icon">🔵</div><div class="sdk-name">Go SDK</div><div class="sdk-version">v1.8.3 · go get sentinel-apex-go</div><button class="btn btn-outline" onclick="showToast('sentinel-apex-go-1.8.3.tar.gz downloading...')">⬇ Download</button></div>
+    </div>
+    <div style="margin-top:16px">
+      <a href="#" onclick="showToast('Opening API documentation...');return false" style="display:inline-flex;align-items:center;gap:8px;background:rgba(0,212,255,.05);border:1px solid var(--border);border-radius:10px;padding:14px 20px;color:var(--accent);font-size:13px;font-weight:600;text-decoration:none">📖 Full API Reference Documentation →</a>
+    </div>
+  </div>
+</div>
+
+<!-- CREATE KEY MODAL -->
+<div class="modal-overlay" id="modal" onclick="if(event.target===this)this.classList.remove('open')">
+  <div class="modal">
+    <div class="modal-title">Create New API Key</div>
+    <div class="form-group"><label class="form-label">Key Name</label><input class="form-control" type="text" placeholder="e.g. SIEM Integration, SOC Automation" id="key-name"></div>
+    <div class="form-group">
+      <label class="form-label">Permissions</label>
+      <div class="checkbox-group">
+        <label class="checkbox-item"><input type="checkbox" checked> read_intel</label>
+        <label class="checkbox-item"><input type="checkbox"> write_detections</label>
+        <label class="checkbox-item"><input type="checkbox"> manage_webhooks</label>
+        <label class="checkbox-item"><input type="checkbox"> admin</label>
+      </div>
+    </div>
+    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:20px">
+      <button class="btn btn-outline" onclick="document.getElementById('modal').classList.remove('open')">Cancel</button>
+      <button class="btn btn-primary" onclick="createKey()">Create Key</button>
+    </div>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+const keys=[
+  {name:'Production SIEM',key:'sk-apex-••••••••••••••••••••4a2f',created:'2026-01-15',used:'2 min ago',calls:'67,432',perms:['read_intel','write_detections']},
+  {name:'Dev / Staging',key:'sk-apex-••••••••••••••••••••8d91',created:'2026-03-02',used:'1 day ago',calls:'4,218',perms:['read_intel']},
+];
+const keysDiv=document.getElementById('api-keys');
+keys.forEach((k,i)=>{
+  keysDiv.innerHTML+=`<div class="key-card">
+    <div class="key-header"><div class="key-name">${k.name}</div><span class="key-status">Active</span></div>
+    <div class="key-value"><span id="kv-${i}">${k.key}</span><button class="btn btn-outline" style="font-size:11px;padding:4px 10px;flex-shrink:0" onclick="copyKey(${i})">Copy</button></div>
+    <div class="key-meta">
+      <span>Created: ${k.created}</span>
+      <span>Last used: ${k.used}</span>
+      <span>Calls MTD: ${k.calls}</span>
+      <span>Perms: ${k.perms.join(', ')}</span>
+    </div>
+    <div class="key-actions">
+      <button class="btn btn-outline" onclick="showToast('Revealing key...')">👁 Reveal</button>
+      <button class="btn btn-danger" onclick="showToast('Key ${k.name} revoked!')">🗑 Revoke</button>
+    </div>
+  </div>`;
+});
+
+// Usage chart
+const days=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+new Chart(document.getElementById('usageChart'),{type:'line',data:{labels:days,datasets:[
+  {label:'API Calls',data:[7200,8800,6900,9400,8200,7600,8420],borderColor:'#00d4ff',backgroundColor:'rgba(0,212,255,.08)',tension:.4,fill:true,pointRadius:4,pointBackgroundColor:'#00d4ff'},
+  {label:'Errors',data:[52,71,45,88,61,55,67],borderColor:'#ff3366',backgroundColor:'rgba(255,51,102,.06)',tension:.4,fill:true,pointRadius:3,yAxisID:'y2'}
+]},options:{responsive:true,plugins:{legend:{labels:{color:'#64748b',font:{size:11}}}},scales:{x:{ticks:{color:'#64748b'},grid:{color:'rgba(30,45,74,.6)'}},y:{ticks:{color:'#64748b'},grid:{color:'rgba(30,45,74,.6)'}},y2:{position:'right',ticks:{color:'#64748b'},grid:{display:false}}}}});
+
+// Webhooks
+const webhooks=[
+  {url:'https://splunk.acme.corp/api/sentinel/***',events:'threat.new, detection.fired',active:true},
+  {url:'https://pagerduty.com/svc/apex-prod/***',events:'incident.critical',active:true},
+  {url:'https://slack.acme.corp/webhook/security/***',events:'alert.new, report.ready',active:false},
+];
+const wt=document.getElementById('webhooks-tbody');
+webhooks.forEach((w,i)=>{
+  wt.innerHTML+=`<tr>
+    <td style="font-family:monospace;font-size:12px">${w.url}</td>
+    <td style="font-size:12px;color:var(--muted)">${w.events}</td>
+    <td><label class="toggle"><input type="checkbox" ${w.active?'checked':''} onchange="showToast(this.checked?'Webhook enabled':'Webhook disabled')"><span class="toggle-slider"></span></label></td>
+    <td style="display:flex;gap:6px">
+      <button class="btn btn-outline" style="font-size:11px;padding:4px 10px" onclick="showToast('Test payload sent to ${w.url.split('/')[2]}!')">Test</button>
+      <button class="btn btn-danger" style="font-size:11px;padding:4px 10px" onclick="showToast('Webhook deleted!')">Delete</button>
+    </td>
+  </tr>`;
+});
+
+// Code snippets
+const codes={
+  python:`<span class="kw">import</span> requests
+
+<span class="var">API_KEY</span> <span class="kw">=</span> <span class="str">"sk-apex-your-api-key-here"</span>
+<span class="var">BASE_URL</span> <span class="kw">=</span> <span class="str">"https://api.sentinel-apex.io/v3"</span>
+
+<span class="kw">def</span> <span class="fn">get_intel_feeds</span>(<span class="var">feed_type</span><span class="kw">=</span><span class="str">"ioc"</span>, <span class="var">limit</span><span class="kw">=</span>100):
+    <span class="var">headers</span> <span class="kw">=</span> {
+        <span class="str">"Authorization"</span>: <span class="fn">f</span><span class="str">"Bearer {API_KEY}"</span>,
+        <span class="str">"Content-Type"</span>: <span class="str">"application/json"</span>
+    }
+    <span class="var">params</span> <span class="kw">=</span> {<span class="str">"type"</span>: <span class="var">feed_type</span>, <span class="str">"limit"</span>: <span class="var">limit</span>}
+    <span class="var">response</span> <span class="kw">=</span> requests.<span class="fn">get</span>(
+        <span class="fn">f</span><span class="str">"{BASE_URL}/intel/feeds"</span>,
+        <span class="var">headers</span><span class="kw">=</span><span class="var">headers</span>, <span class="var">params</span><span class="kw">=</span><span class="var">params</span>
+    )
+    <span class="kw">return</span> <span class="var">response</span>.<span class="fn">json</span>()
+
+<span class="var">feeds</span> <span class="kw">=</span> <span class="fn">get_intel_feeds</span>()
+<span class="fn">print</span>(<span class="fn">f</span><span class="str">"Received {len(feeds['data'])} threat indicators"</span>)`,
+  curl:`<span class="cm"># Get intelligence feeds</span>
+curl -X GET <span class="str">"https://api.sentinel-apex.io/v3/intel/feeds"</span> \\
+  -H <span class="str">"Authorization: Bearer sk-apex-your-api-key-here"</span> \\
+  -H <span class="str">"Content-Type: application/json"</span> \\
+  -G \\
+  --data-urlencode <span class="str">"type=ioc"</span> \\
+  --data-urlencode <span class="str">"limit=100"</span> \\
+  --data-urlencode <span class="str">"format=stix2"</span>
+
+<span class="cm"># Response: {"status":"ok","count":100,"data":[...]}</span>`,
+  node:`<span class="kw">const</span> <span class="var">axios</span> <span class="kw">=</span> <span class="fn">require</span>(<span class="str">'axios'</span>);
+
+<span class="kw">const</span> <span class="var">client</span> <span class="kw">=</span> <span class="var">axios</span>.<span class="fn">create</span>({
+  <span class="var">baseURL</span>: <span class="str">'https://api.sentinel-apex.io/v3'</span>,
+  <span class="var">headers</span>: {
+    <span class="str">'Authorization'</span>: <span class="str">\`Bearer \${process.env.APEX_API_KEY}\`</span>,
+    <span class="str">'Content-Type'</span>: <span class="str">'application/json'</span>
+  }
+});
+
+<span class="kw">async function</span> <span class="fn">getIntelFeeds</span>() {
+  <span class="kw">const</span> { <span class="var">data</span> } <span class="kw">=</span> <span class="kw">await</span> <span class="var">client</span>.<span class="fn">get</span>(<span class="str">'/intel/feeds'</span>, {
+    <span class="var">params</span>: { <span class="var">type</span>: <span class="str">'ioc'</span>, <span class="var">limit</span>: 100 }
+  });
+  <span class="var">console</span>.<span class="fn">log</span>(<span class="str">\`Received \${data.count} indicators\`</span>);
+  <span class="kw">return</span> <span class="var">data</span>;
+}
+<span class="fn">getIntelFeeds</span>();`
+};
+
+function showCode(lang,btn){
+  document.querySelectorAll('.code-tab').forEach(t=>t.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('code-block').innerHTML=codes[lang];
+}
+showCode('python',document.querySelector('.code-tab.active'));
+
+function copyKey(i){showToast('API key copied!');}
+function createKey(){
+  const name=document.getElementById('key-name').value.trim()||'New Key';
+  document.getElementById('modal').classList.remove('open');
+  showToast('API key "'+name+'" created successfully!');
+}
+function showToast(msg){
+  const t=document.getElementById('toast');
+  t.textContent=msg;t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),2800);
+}
+</script>
+</body>
+</html>
