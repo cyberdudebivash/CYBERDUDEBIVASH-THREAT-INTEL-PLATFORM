@@ -1,0 +1,169 @@
+{
+  "type": "bundle",
+  "id": "bundle--1ba048c0-dbb6-48a6-813c-0885e09fd387",
+  "spec_version": "2.1",
+  "objects": [
+    {
+      "type": "identity",
+      "spec_version": "2.1",
+      "id": "identity--61a8943b-b27b-5e19-afff-893bb2e2fa2b",
+      "name": "CyberDudeBivash SENTINEL APEX",
+      "description": "CyberDudeBivash Pvt. Ltd. - Global Cybersecurity Intelligence Infrastructure",
+      "identity_class": "organization",
+      "sectors": [
+        "technology"
+      ],
+      "contact_information": "enterprise@cyberdudebivash.com",
+      "created": "2024-01-01T00:00:00Z",
+      "modified": "2024-01-01T00:00:00Z"
+    },
+    {
+      "type": "marking-definition",
+      "spec_version": "2.1",
+      "id": "marking-definition--f88d31f6-486f-44da-b317-01333bde0b82",
+      "created": "2017-01-20T00:00:00.000Z",
+      "definition_type": "tlp",
+      "definition": {
+        "tlp": "amber"
+      }
+    },
+    {
+      "type": "intrusion-set",
+      "spec_version": "2.1",
+      "id": "intrusion-set--7c5f848f-bd4c-42de-bbfb-1be5449e9214",
+      "name": "CDB-UNATTR-RAN Campaign",
+      "description": "JADEPUFFER: First End-to-End AI-Driven Ransomware Operation",
+      "created": "2026-07-03T13:36:49Z",
+      "modified": "2026-07-03T13:36:49Z",
+      "confidence": 57,
+      "aliases": [
+        "CDB-UNATTR-RAN"
+      ],
+      "extensions": {
+        "x-cdb-apex-1": {
+          "predictive_score": 7.5,
+          "campaign_id": "CDB-CONTI",
+          "campaign_confidence": 7.5,
+          "threat_category": "Remote Code Execution",
+          "behavioral_tags": [
+            "network_c2"
+          ],
+          "ai_summary": "Initial access via rce → execution chain: initial access → persistence → lateral movement → command and control → malware behaviors: network c2",
+          "risk_factors": [
+            "EPSS_score",
+            "IOC_density",
+            "MITRE_coverage",
+            "exploitation_context"
+          ],
+          "soc_priority": "P2",
+          "threat_level": "HIGH",
+          "recommended_action": "Risk 7.5/10 — 75% EPSS exploitation probability",
+          "x_cdb_published_at": "2026-07-03T11:29:03Z"
+        }
+      },
+      "object_marking_refs": [
+        "marking-definition--f88d31f6-486f-44da-b317-01333bde0b82"
+      ],
+      "created_by_ref": "identity--61a8943b-b27b-5e19-afff-893bb2e2fa2b"
+    },
+    {
+      "type": "indicator",
+      "spec_version": "2.1",
+      "id": "indicator--a81b86c0-f255-4705-a56e-46f1addcb5d2",
+      "name": "Malicious Artifact: credentials.js",
+      "pattern": "[file:name = 'credentials.js']",
+      "pattern_type": "stix",
+      "valid_from": "2026-07-03T13:36:49Z",
+      "created": "2026-07-03T13:36:49Z",
+      "modified": "2026-07-03T13:36:49Z",
+      "indicator_types": [
+        "malicious-activity"
+      ],
+      "confidence": 57,
+      "object_marking_refs": [
+        "marking-definition--f88d31f6-486f-44da-b317-01333bde0b82"
+      ],
+      "created_by_ref": "identity--61a8943b-b27b-5e19-afff-893bb2e2fa2b"
+    },
+    {
+      "type": "relationship",
+      "spec_version": "2.1",
+      "id": "relationship--e9858b52-a6d6-4742-9976-a17cc874b884",
+      "relationship_type": "indicates",
+      "source_ref": "indicator--a81b86c0-f255-4705-a56e-46f1addcb5d2",
+      "target_ref": "intrusion-set--7c5f848f-bd4c-42de-bbfb-1be5449e9214",
+      "created": "2026-07-03T13:36:49Z",
+      "modified": "2026-07-03T13:36:49Z",
+      "object_marking_refs": [
+        "marking-definition--f88d31f6-486f-44da-b317-01333bde0b82"
+      ],
+      "created_by_ref": "identity--61a8943b-b27b-5e19-afff-893bb2e2fa2b"
+    },
+    {
+      "type": "attack-pattern",
+      "spec_version": "2.1",
+      "id": "attack-pattern--e9d45613-227f-4641-a5c7-b7edcdc744fa",
+      "name": "Data Encrypted for Impact",
+      "created": "2026-07-03T13:36:49Z",
+      "modified": "2026-07-03T13:36:49Z",
+      "object_marking_refs": [
+        "marking-definition--f88d31f6-486f-44da-b317-01333bde0b82"
+      ],
+      "created_by_ref": "identity--61a8943b-b27b-5e19-afff-893bb2e2fa2b",
+      "external_references": [
+        {
+          "source_name": "mitre-attack",
+          "external_id": "T1486",
+          "url": "https://attack.mitre.org/techniques/T1486/"
+        }
+      ]
+    },
+    {
+      "type": "relationship",
+      "spec_version": "2.1",
+      "id": "relationship--850758f7-8e26-4bef-9166-40450bab31d1",
+      "relationship_type": "uses",
+      "source_ref": "intrusion-set--7c5f848f-bd4c-42de-bbfb-1be5449e9214",
+      "target_ref": "attack-pattern--e9d45613-227f-4641-a5c7-b7edcdc744fa",
+      "created": "2026-07-03T13:36:49Z",
+      "modified": "2026-07-03T13:36:49Z",
+      "object_marking_refs": [
+        "marking-definition--f88d31f6-486f-44da-b317-01333bde0b82"
+      ],
+      "created_by_ref": "identity--61a8943b-b27b-5e19-afff-893bb2e2fa2b"
+    },
+    {
+      "type": "attack-pattern",
+      "spec_version": "2.1",
+      "id": "attack-pattern--46c855d1-5d43-42cc-8670-a1e8bce9753c",
+      "name": "Valid Accounts",
+      "created": "2026-07-03T13:36:49Z",
+      "modified": "2026-07-03T13:36:49Z",
+      "object_marking_refs": [
+        "marking-definition--f88d31f6-486f-44da-b317-01333bde0b82"
+      ],
+      "created_by_ref": "identity--61a8943b-b27b-5e19-afff-893bb2e2fa2b",
+      "external_references": [
+        {
+          "source_name": "mitre-attack",
+          "external_id": "T1078",
+          "url": "https://attack.mitre.org/techniques/T1078/"
+        }
+      ]
+    },
+    {
+      "type": "relationship",
+      "spec_version": "2.1",
+      "id": "relationship--79a0156b-c734-4c0b-b07b-b390ec3c2932",
+      "relationship_type": "uses",
+      "source_ref": "intrusion-set--7c5f848f-bd4c-42de-bbfb-1be5449e9214",
+      "target_ref": "attack-pattern--46c855d1-5d43-42cc-8670-a1e8bce9753c",
+      "created": "2026-07-03T13:36:49Z",
+      "modified": "2026-07-03T13:36:49Z",
+      "object_marking_refs": [
+        "marking-definition--f88d31f6-486f-44da-b317-01333bde0b82"
+      ],
+      "created_by_ref": "identity--61a8943b-b27b-5e19-afff-893bb2e2fa2b"
+    }
+  ]
+}

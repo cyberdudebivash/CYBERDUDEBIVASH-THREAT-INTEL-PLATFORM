@@ -1,0 +1,234 @@
+{
+  "type": "bundle",
+  "id": "bundle--5c277613-10dd-4ebe-920d-b883a17727da",
+  "spec_version": "2.1",
+  "objects": [
+    {
+      "type": "identity",
+      "spec_version": "2.1",
+      "id": "identity--61a8943b-b27b-5e19-afff-893bb2e2fa2b",
+      "name": "CyberDudeBivash SENTINEL APEX",
+      "description": "CyberDudeBivash Pvt. Ltd. - Global Cybersecurity Intelligence Infrastructure",
+      "identity_class": "organization",
+      "sectors": [
+        "technology"
+      ],
+      "contact_information": "enterprise@cyberdudebivash.com",
+      "created": "2024-01-01T00:00:00Z",
+      "modified": "2024-01-01T00:00:00Z"
+    },
+    {
+      "type": "marking-definition",
+      "spec_version": "2.1",
+      "id": "marking-definition--34098fce-860f-479c-ad6f-e09814c4f58a",
+      "created": "2017-01-20T00:00:00.000Z",
+      "definition_type": "tlp",
+      "definition": {
+        "tlp": "green"
+      }
+    },
+    {
+      "type": "intrusion-set",
+      "spec_version": "2.1",
+      "id": "intrusion-set--a0b2a4b2-2dd5-4c9d-bc8a-aecf65ad6bb7",
+      "name": "CDB-CYB-01 Campaign",
+      "description": "Hackers Use Fake Cisco AnyConnect and Google Update Installers to Drop SharkLoader",
+      "created": "2026-07-03T13:35:40Z",
+      "modified": "2026-07-03T13:35:40Z",
+      "confidence": 54,
+      "aliases": [
+        "CDB-CYB-01"
+      ],
+      "extensions": {
+        "x-cdb-apex-1": {
+          "predictive_score": 5.5,
+          "campaign_id": "CDB-CONTI",
+          "campaign_confidence": 5.5,
+          "threat_category": "Remote Code Execution",
+          "behavioral_tags": [
+            "registry_persistence",
+            "network_c2"
+          ],
+          "ai_summary": "Initial access via rce → execution chain: execution → persistence → credential access → command and control → malware behaviors: registry persistence, network c2",
+          "risk_factors": [
+            "IOC_density",
+            "MITRE_coverage"
+          ],
+          "soc_priority": "P3",
+          "threat_level": "MEDIUM",
+          "recommended_action": "Medium severity threat (score 5.5/10) — limited technical indicators in source data",
+          "x_cdb_published_at": "2026-07-03T11:31:10Z"
+        }
+      },
+      "object_marking_refs": [
+        "marking-definition--34098fce-860f-479c-ad6f-e09814c4f58a"
+      ],
+      "created_by_ref": "identity--61a8943b-b27b-5e19-afff-893bb2e2fa2b"
+    },
+    {
+      "type": "indicator",
+      "spec_version": "2.1",
+      "id": "indicator--f1572cdc-0818-4fbc-aadc-5241eacdcfa9",
+      "name": "Malicious Artifact: SystemSettings.dll",
+      "pattern": "[file:name = 'SystemSettings.dll']",
+      "pattern_type": "stix",
+      "valid_from": "2026-07-03T13:35:40Z",
+      "created": "2026-07-03T13:35:40Z",
+      "modified": "2026-07-03T13:35:40Z",
+      "indicator_types": [
+        "malicious-activity"
+      ],
+      "confidence": 54,
+      "object_marking_refs": [
+        "marking-definition--34098fce-860f-479c-ad6f-e09814c4f58a"
+      ],
+      "created_by_ref": "identity--61a8943b-b27b-5e19-afff-893bb2e2fa2b"
+    },
+    {
+      "type": "indicator",
+      "spec_version": "2.1",
+      "id": "indicator--b5bd57f7-af66-40c6-b710-057d7f5fd5b2",
+      "name": "Malicious Artifact: SystemSettings.exe",
+      "pattern": "[file:name = 'SystemSettings.exe']",
+      "pattern_type": "stix",
+      "valid_from": "2026-07-03T13:35:40Z",
+      "created": "2026-07-03T13:35:40Z",
+      "modified": "2026-07-03T13:35:40Z",
+      "indicator_types": [
+        "malicious-activity"
+      ],
+      "confidence": 54,
+      "object_marking_refs": [
+        "marking-definition--34098fce-860f-479c-ad6f-e09814c4f58a"
+      ],
+      "created_by_ref": "identity--61a8943b-b27b-5e19-afff-893bb2e2fa2b"
+    },
+    {
+      "type": "relationship",
+      "spec_version": "2.1",
+      "id": "relationship--a7d78f66-fbde-46b2-872e-f6dd1c99208b",
+      "relationship_type": "indicates",
+      "source_ref": "indicator--f1572cdc-0818-4fbc-aadc-5241eacdcfa9",
+      "target_ref": "intrusion-set--a0b2a4b2-2dd5-4c9d-bc8a-aecf65ad6bb7",
+      "created": "2026-07-03T13:35:40Z",
+      "modified": "2026-07-03T13:35:40Z",
+      "object_marking_refs": [
+        "marking-definition--34098fce-860f-479c-ad6f-e09814c4f58a"
+      ],
+      "created_by_ref": "identity--61a8943b-b27b-5e19-afff-893bb2e2fa2b"
+    },
+    {
+      "type": "relationship",
+      "spec_version": "2.1",
+      "id": "relationship--85a80b69-411c-4e40-b9c4-37d1a6e31453",
+      "relationship_type": "indicates",
+      "source_ref": "indicator--b5bd57f7-af66-40c6-b710-057d7f5fd5b2",
+      "target_ref": "intrusion-set--a0b2a4b2-2dd5-4c9d-bc8a-aecf65ad6bb7",
+      "created": "2026-07-03T13:35:40Z",
+      "modified": "2026-07-03T13:35:40Z",
+      "object_marking_refs": [
+        "marking-definition--34098fce-860f-479c-ad6f-e09814c4f58a"
+      ],
+      "created_by_ref": "identity--61a8943b-b27b-5e19-afff-893bb2e2fa2b"
+    },
+    {
+      "type": "attack-pattern",
+      "spec_version": "2.1",
+      "id": "attack-pattern--83253f89-3732-4ac2-8bb9-d31862616659",
+      "name": "PowerShell",
+      "created": "2026-07-03T13:35:40Z",
+      "modified": "2026-07-03T13:35:40Z",
+      "object_marking_refs": [
+        "marking-definition--34098fce-860f-479c-ad6f-e09814c4f58a"
+      ],
+      "created_by_ref": "identity--61a8943b-b27b-5e19-afff-893bb2e2fa2b",
+      "external_references": [
+        {
+          "source_name": "mitre-attack",
+          "external_id": "T1059.001",
+          "url": "https://attack.mitre.org/techniques/T1059/001/"
+        }
+      ]
+    },
+    {
+      "type": "relationship",
+      "spec_version": "2.1",
+      "id": "relationship--13c30bd5-14f2-4ada-b8ba-32ffa5a5358a",
+      "relationship_type": "uses",
+      "source_ref": "intrusion-set--a0b2a4b2-2dd5-4c9d-bc8a-aecf65ad6bb7",
+      "target_ref": "attack-pattern--83253f89-3732-4ac2-8bb9-d31862616659",
+      "created": "2026-07-03T13:35:40Z",
+      "modified": "2026-07-03T13:35:40Z",
+      "object_marking_refs": [
+        "marking-definition--34098fce-860f-479c-ad6f-e09814c4f58a"
+      ],
+      "created_by_ref": "identity--61a8943b-b27b-5e19-afff-893bb2e2fa2b"
+    },
+    {
+      "type": "attack-pattern",
+      "spec_version": "2.1",
+      "id": "attack-pattern--74676e7f-8911-4b16-8c90-c3b2e7de48a8",
+      "name": "Application Layer Protocol",
+      "created": "2026-07-03T13:35:40Z",
+      "modified": "2026-07-03T13:35:40Z",
+      "object_marking_refs": [
+        "marking-definition--34098fce-860f-479c-ad6f-e09814c4f58a"
+      ],
+      "created_by_ref": "identity--61a8943b-b27b-5e19-afff-893bb2e2fa2b",
+      "external_references": [
+        {
+          "source_name": "mitre-attack",
+          "external_id": "T1071",
+          "url": "https://attack.mitre.org/techniques/T1071/"
+        }
+      ]
+    },
+    {
+      "type": "relationship",
+      "spec_version": "2.1",
+      "id": "relationship--50338a28-d390-4d8f-9167-cb6ec914f225",
+      "relationship_type": "uses",
+      "source_ref": "intrusion-set--a0b2a4b2-2dd5-4c9d-bc8a-aecf65ad6bb7",
+      "target_ref": "attack-pattern--74676e7f-8911-4b16-8c90-c3b2e7de48a8",
+      "created": "2026-07-03T13:35:40Z",
+      "modified": "2026-07-03T13:35:40Z",
+      "object_marking_refs": [
+        "marking-definition--34098fce-860f-479c-ad6f-e09814c4f58a"
+      ],
+      "created_by_ref": "identity--61a8943b-b27b-5e19-afff-893bb2e2fa2b"
+    },
+    {
+      "type": "attack-pattern",
+      "spec_version": "2.1",
+      "id": "attack-pattern--1dbefc52-ff86-47bf-a724-7508c1725b43",
+      "name": "Exploitation for Client Execution",
+      "created": "2026-07-03T13:35:40Z",
+      "modified": "2026-07-03T13:35:40Z",
+      "object_marking_refs": [
+        "marking-definition--34098fce-860f-479c-ad6f-e09814c4f58a"
+      ],
+      "created_by_ref": "identity--61a8943b-b27b-5e19-afff-893bb2e2fa2b",
+      "external_references": [
+        {
+          "source_name": "mitre-attack",
+          "external_id": "T1203",
+          "url": "https://attack.mitre.org/techniques/T1203/"
+        }
+      ]
+    },
+    {
+      "type": "relationship",
+      "spec_version": "2.1",
+      "id": "relationship--1b92d08e-d45a-4e1b-b89b-89b4a1a46a9a",
+      "relationship_type": "uses",
+      "source_ref": "intrusion-set--a0b2a4b2-2dd5-4c9d-bc8a-aecf65ad6bb7",
+      "target_ref": "attack-pattern--1dbefc52-ff86-47bf-a724-7508c1725b43",
+      "created": "2026-07-03T13:35:40Z",
+      "modified": "2026-07-03T13:35:40Z",
+      "object_marking_refs": [
+        "marking-definition--34098fce-860f-479c-ad6f-e09814c4f58a"
+      ],
+      "created_by_ref": "identity--61a8943b-b27b-5e19-afff-893bb2e2fa2b"
+    }
+  ]
+}
