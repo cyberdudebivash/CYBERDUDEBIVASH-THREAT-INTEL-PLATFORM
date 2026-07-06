@@ -1,0 +1,10 @@
+{
+  "threat_id": "thr-ae30805c6b3a",
+  "title": "Windows 11 24H2 and 25H2 Issue Causes Black Screen, Start Menu Failure, and Task",
+  "scripts": [
+    {
+      "type": "hardening_bash",
+      "content": "#!/bin/bash\n# CDB APEX v37.0 - Emergency Hardening Script\n# Threat: Windows 11 24H2 and 25H2 Issue Causes Black Screen, Start Me\n# Generated: 2026-07-06T18:28:16.729415+00:00\n\necho \"[*] Updating system packages...\"\napt-get update && apt-get upgrade -y 2>/dev/null || yum update -y 2>/dev/null\n\necho \"[*] Enabling firewall...\"\nufw enable 2>/dev/null || firewall-cmd --set-default-zone=drop 2>/dev/null\n\necho \"[*] Disabling unnecessary services...\"\nsystemctl disable --now telnet.socket 2>/dev/null\nsystemctl disable --now rsh.socket 2>/dev/null\n\necho \"[*] Setting secure SSH configuration...\"\nsed -i 's/#PermitRootLogin yes/PermitRootLogin no/' /etc/ssh/sshd_config\nsed -i 's/#PasswordAuthentication yes/PasswordAuthentication no/' /etc/ssh/sshd_config\nsystemctl restart sshd\n\necho \"[+] Hardening complete for threat: thr-ae30805c6b3a\"\n"
+    }
+  ]
+}
