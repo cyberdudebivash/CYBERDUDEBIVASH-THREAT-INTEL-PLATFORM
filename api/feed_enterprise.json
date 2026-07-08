@@ -1,9 +1,9 @@
 [
   {
-    "id": "intel--d3d551edca60694ef821c7dd",
-    "stix_id": "intel--d3d551edca60694ef821c7dd",
-    "title": "@better-auth/sso provider registration has server-side request forgery via unvalidated OIDC endpoints",
-    "description": "### Am I affected?\n\nUsers are affected if all of the following are true:\n\n- Their application uses `@better-auth/sso` at a version `>= 0.1.0, < 1.6.11` on the stable line, or any `1.7.0-beta.x` on the pre-release line.\n- The `sso()` plugin is added to their application's `betterAuth({ plugins: [...] })` array.\n- Any user with a valid Better Auth session can reach `POST /sso/register` (the plugin's default gate accepts any session).\n\nFor the non-blind SSRF impact (full IAM credential or internal HTTP body exfiltration), no further configuration is required.\n\nFor the account takeover escalation, additionally:\n\n- Developers set `sso({ trustEmailVerified: true, ... })`.\n- The developer's application deployment has accounts whose `email` overlaps with attacker-chosen domains.\n\nIf developers do not enable the SSO plugin, their application is not affected.\n\nFix:\n\n1. Upgrade to `@better-auth/sso@1.6.11` or later.\n2. If developers cannot upgrade, see workarounds below.\n\n### Summary\n\nThe `@bette",
+    "id": "intel--23fac7026c562b30801e946a",
+    "stix_id": "intel--23fac7026c562b30801e946a",
+    "title": "Goploy: Cross-namespace IDOR and RCE via body-supplied row id in project and project_file handlers",
+    "description": "### Summary\n\n`Project.AddFile`, `Project.EditFile`, `Project.RemoveFile`, and `Project.Edit` in `cmd/server/api/project/handler.go` accept a project or project-file row id from the JSON body and act on it without checking that the project belongs to the caller's namespace. The corresponding `model.ProjectFile.GetData` and `model.Project.GetData` queries filter only by row id. A user holding the `manager` role (or any role that includes the `FileSync` / `EditProject` permission) in their own namespace can read, write, or delete files in any project across the install, and can rewrite any project's git remote URL by submitting the foreign id in the body. The git-URL primitive escalates to RCE on the next deploy because `Edit` runs `git remote set-url` on the project's working tree.\n\n### Affected\n\n`zhenorzz/goploy` `develop` HEAD as of 2026-05-27. Verified against the `zhenorzz/goploy:1.17.5` Docker image (`docker.io/zhenorzz/goploy@sha256:69d08e1d16d7a7167426c89456c4bcef8e077a16554a4067f",
     "severity": "CRITICAL",
     "risk_score": 8.5,
     "confidence": 0.12,
@@ -12,23 +12,23 @@
     "tlp": "TLP:AMBER",
     "threat_type": "Vulnerability",
     "tags": [
-      "npm:@better-auth/sso",
+      "go:github.com/zhenorzz/goploy",
       "kev",
       "cisa",
       "actively-exploited"
     ],
-    "cve_id": "CVE-2026-53513",
+    "cve_id": "CVE-2026-53552",
     "cve_ids": [
-      "CVE-2026-53513"
+      "CVE-2026-53552"
     ],
     "ioc_count": 0,
     "kev": "NO",
-    "timestamp": "2026-07-07T20:56:19Z",
-    "processed_at": "2026-07-07T20:56:19Z",
-    "published_at": "2026-07-07T20:56:19Z",
-    "source_url": "https://github.com/advisories/GHSA-5rr4-8452-hf4v",
+    "timestamp": "2026-07-07T23:42:12Z",
+    "processed_at": "2026-07-07T23:42:12Z",
+    "published_at": "2026-07-07T23:42:12Z",
+    "source_url": "https://github.com/advisories/GHSA-26rh-24rg-j3vv",
     "actor": null,
-    "ghsa_id": "GHSA-5rr4-8452-hf4v",
+    "ghsa_id": "GHSA-26rh-24rg-j3vv",
     "cvss_score": 9.6,
     "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:C/C:H/I:H/A:N",
     "cvss_source": "github_advisory",
@@ -53,7 +53,7 @@
       "attribution": 5,
       "corroboration": 0
     },
-    "intelligence_age_days": 0.0,
+    "intelligence_age_days": 0.1,
     "confidence_label": "MEDIUM_CONFIDENCE",
     "confidence_score_v2": 20,
     "confidence_rationale": "Medium confidence — CVSS score 9.6 (Critical)",
@@ -66,40 +66,39 @@
       {
         "factor": "cve_referenced",
         "weight": 5,
-        "signal": "CVE(s) referenced: CVE-2026-53513"
+        "signal": "CVE(s) referenced: CVE-2026-53552"
       }
     ],
     "sources_reporting": 1,
     "corroborating_sources": [],
     "revenue_opportunities": [
-      "THREAT_HUNTING",
       "VULNERABILITY_ASSESSMENT"
     ],
     "sla_priority": "P1",
     "action_deadline_hours": 72,
     "recommended_sla_action": "URGENT PATCH — Critical severity, deploy fix within 72 hours",
-    "confidence_enriched_at": "2026-07-07T21:39:57Z",
+    "confidence_enriched_at": "2026-07-08T01:51:18Z",
     "confidence_engine_version": "1.0.1",
-    "pdf_url": "/reports/pdf/intel--d3d551edca60694ef821c7dd.pdf",
+    "pdf_url": "/reports/pdf/intel--23fac7026c562b30801e946a.pdf",
     "pdf_available": true,
-    "report_url": "https://github.com/advisories/GHSA-5rr4-8452-hf4v",
+    "report_url": "https://github.com/advisories/GHSA-26rh-24rg-j3vv",
     "internal_report_url": "",
     "apex_ai_summary": "[CRITICAL] Vulnerability advisory. Risk score 9.0/10. Full APEX AI analysis available to Pro subscribers.",
     "apex_ai_score": 9.0,
     "status": "active",
     "schema_version": "stable-v1.0-apex",
-    "_risk_micro_adj": 0.005079,
+    "_risk_micro_adj": 0.00099,
     "evidence_chain": {
-      "evidence_id": "EVD-D3D551EDCA60",
-      "source_url": "https://github.com/advisories/GHSA-5rr4-8452-hf4v",
+      "evidence_id": "EVD-23FAC7026C56",
+      "source_url": "https://github.com/advisories/GHSA-26rh-24rg-j3vv",
       "source_name": "GitHub Security Advisories",
       "source_category": "GitHub Security Advisories",
       "source_reliability": "B — Usually Reliable",
       "reliability_code": "B",
       "accuracy_code": "1",
       "accuracy_label": "Confirmed by other sources",
-      "collection_time": "2026-07-07T20:56:19Z",
-      "verification_time": "2026-07-07T20:56:19Z",
+      "collection_time": "2026-07-07T23:42:12Z",
+      "verification_time": "2026-07-07T23:42:12Z",
       "collection_method": "Automated OSINT Pipeline (SENTINEL APEX v184.0)",
       "analyst_review": "Automated — Pending Human Review",
       "corroboration_count": 0,
@@ -107,10 +106,10 @@
       "intelligence_freshness": "Very Fresh (<6h)",
       "confidence_pct": 20.0,
       "chain_of_custody": [
-        "[2026-07-07T20:56:19Z] Item ingested by SENTINEL APEX ingest pipeline",
-        "Source URL verified: https://github.com/advisories/GHSA-5rr4-8452-hf4v",
-        "GitHub Security Advisory: GHSA-5rr4-8452-hf4v",
-        "CVE references: CVE-2026-53513 (traceable to NVD)",
+        "[2026-07-07T23:42:12Z] Item ingested by SENTINEL APEX ingest pipeline",
+        "Source URL verified: https://github.com/advisories/GHSA-26rh-24rg-j3vv",
+        "GitHub Security Advisory: GHSA-26rh-24rg-j3vv",
+        "CVE references: CVE-2026-53552 (traceable to NVD)",
         "CISA KEV status: CONFIRMED active exploitation"
       ],
       "known_limitations": [
@@ -128,7 +127,7 @@
     "actor_code": "Unattributed",
     "actor_type": "UNATTRIBUTED",
     "actor_region": "Unknown",
-    "_quality_hardened_at": "2026-07-07T22:06:24.777671+00:00",
+    "_quality_hardened_at": "2026-07-08T05:42:49.021085+00:00",
     "_quality_version": "184.0",
     "evidence_ledger": {
       "source_count": 1,
@@ -162,7 +161,7 @@
     "real_ioc_count": 0,
     "attck_verification": "EVIDENCE_BASED",
     "attck_notes": [
-      "Derived from CVE description: ssrf"
+      "Derived from CVE description: idor"
     ],
     "risk_score_reasoning": "{\"formula\": \"v1.0.0-deterministic\", \"inputs\": {\"cvss_score\": 9.6, \"epss_pct\": 0.0, \"kev_confirmed\": false, \"verified_actor\": false, \"real_ioc_count\": 0}, \"components\": {\"base_cvss\": 3.84, \"epss_boost\": 0.0, \"kev_boost\": 0.0, \"actor_boost\": 0.0, \"ioc_boost\": 0.0}, \"computed_score\": 3.84, \"notes\": [\"EPSS absent for CVE item \\u2014 enrich from FIRST.org API\", \"Critical CVSS without KEV confirmation \\u2014 monitor for escalation\"]}",
     "analyst_verdict": "ALLOW — Grade B: strong CVE intelligence. Verified CVE, CVSS>=8.0, evidence-based ATT&CK, multi-source corroboration.",
@@ -172,7 +171,7 @@
       "Partial verification: CVSS 9.6"
     ],
     "grade_engine_version": "v2.0.0",
-    "graded_at": "2026-07-07T22:07:36.469268+00:00",
+    "graded_at": "2026-07-08T05:43:59.565555+00:00",
     "actor_tag": null,
     "actor_name": null,
     "allowed_content_tier": "enterprise_dossier",
@@ -180,7 +179,7 @@
     "enterprise_eligible": true,
     "mssp_eligible": true,
     "governor_version": "1.0.0",
-    "governed_at": "2026-07-07T22:07:37.232728+00:00",
+    "governed_at": "2026-07-08T05:44:00.423652+00:00",
     "governor_audit_log": [
       "M2: Banned actor 'Unattributed Threat Actor' nulled — attribution_status=NONE",
       "M4: risk_score raised 3.8→8.5 [severity=CRITICAL → floor 8.5; CVSS=9.6 ≥ 9.0 → floor 8.5; KEV=true → floor 7.0]"
@@ -194,18 +193,18 @@
       "engine_version": "1.0.0"
     },
     "attck_technique_ids": [
-      "T1090.002"
+      "T1565.001"
     ],
     "attck_techniques": [
       {
-        "technique_id": "T1090.002",
-        "technique_name": "Proxy: External Proxy",
-        "attack_justification": "CVE confirms SSRF allowing requests to internal resources via server-side forgery",
-        "attack_evidence": "CVE-2026-53513 — @better-auth/sso provider registration has server-side request forgery via unvalidated oidc endpoints ### am i affected?...",
+        "technique_id": "T1565.001",
+        "technique_name": "Data Manipulation: Stored Data Manipulation",
+        "attack_justification": "CVE describes unauthorized cross-object data access via missing access control checks",
+        "attack_evidence": "CVE-2026-53552 — goploy: cross-namespace idor and rce via body-supplied row id in project and project_file handlers ### summary\n\n`project...",
         "attack_source": "GitHub Security Advisories",
         "mapping_method": "cve_description_derivation",
         "verification_status": "EVIDENCE_BASED",
-        "matched_pattern": "ssrf",
+        "matched_pattern": "idor",
         "source_reference": "",
         "mapping_reason": ""
       }
@@ -223,614 +222,29 @@
     "grade_notes_v2": [
       "Grade B: CVE verified; CVSS=9.6; 2 sources; evidence-based ATT&CK; corroboration=40"
     ],
-    "graded_at_v2": "2026-07-07T22:07:37.126066+00:00"
+    "graded_at_v2": "2026-07-08T05:44:00.301005+00:00"
   },
   {
-    "id": "intel--e6f2b5d24df9843023e662cc",
-    "stix_id": "intel--e6f2b5d24df9843023e662cc",
-    "bundle_id": "bundle--9a1e2148-d253-49ca-8c4a-0ae6600daec1",
-    "title": "CVE-2026-49471 Serena: Unauthenticated Flask dashboard on fixed port enables DNS rebinding  memory poisoning  RCE",
-    "processed_at": "2026-07-07T21:24:19Z",
-    "published_at": "2026-07-07T20:50:50Z",
-    "timestamp": "2026-07-07T20:50:50Z",
+    "id": "intel--9f145343fdcebe0385fea829",
+    "stix_id": "intel--9f145343fdcebe0385fea829",
+    "bundle_id": "bundle--20d497d6-e049-48b9-808c-1860a4469547",
+    "title": "CVE-2026-59705 - mem0 - OpenMemory API Unauthenticated Access via Memory Endpoints",
+    "processed_at": "2026-07-08T01:34:01Z",
+    "published_at": "2026-07-07T23:16:55Z",
+    "timestamp": "2026-07-07T23:16:55Z",
     "risk_score": 8.5,
     "severity": "CRITICAL",
-    "report_url": "https://intel.cyberdudebivash.com/reports/2026/07/intel--e6f2b5d24df9843023e662cc.html",
-    "source_url": "https://vulners.com/cve/CVE-2026-49471?utm_source=rss&utm_medium=rss&utm_campaign=rss",
+    "report_url": "https://intel.cyberdudebivash.com/reports/2026/07/intel--9f145343fdcebe0385fea829.html",
+    "source_url": "https://cvefeed.io/vuln/detail/CVE-2026-59705",
     "tlp": "TLP:CLEAR",
     "tags": [
       "T1059",
-      "T1190",
-      "T1203"
+      "T1190"
     ],
-    "generated_at": "2026-07-07T21:24:19Z",
+    "generated_at": "2026-07-08T01:34:01Z",
     "confidence_score": 17,
     "confidence": 0.17,
     "tlp_label": "TLP:CLEAR",
-    "ioc_counts": {},
-    "actor_tag": null,
-    "mitre_tactics": [],
-    "ttps": [],
-    "feed_source": "Vulners",
-    "source": "Vulners",
-    "threat_type": "Vulnerability",
-    "indicator_count": 21,
-    "stix_file": "CDB-APEX-1783459459.json",
-    "cvss_score": 9.8,
-    "epss_score": null,
-    "kev_present": false,
-    "status": "active",
-    "extended_metrics": {},
-    "nvd_url": null,
-    "supply_chain": false,
-    "stix_object_count": 34,
-    "stix_version": "2.1",
-    "schema_version": "v134.0",
-    "published": "2026-07-07T20:50:50Z",
-    "validation_status": "enriched",
-    "validated_at": "2026-07-07T21:24:19Z",
-    "iocs": [],
-    "iocs_by_type": {
-      "cve": [
-        "CVE-2026-44877",
-        "CVE-2026-46672",
-        "CVE-2026-46700",
-        "CVE-2026-48947",
-        "CVE-2026-48948",
-        "CVE-2026-48949",
-        "CVE-2026-48950",
-        "CVE-2026-48951",
-        "CVE-2026-48952",
-        "CVE-2026-48953",
-        "CVE-2026-48954",
-        "CVE-2026-48955",
-        "CVE-2026-48956",
-        "CVE-2026-48957",
-        "CVE-2026-48958",
-        "CVE-2026-49471",
-        "CVE-2026-50007",
-        "CVE-2026-55435",
-        "CVE-2026-58468",
-        "CVE-2026-59708",
-        "CVE-2026-59800"
-      ]
-    },
-    "ioc_count": 0,
-    "ioc_confidence": 70.0,
-    "ioc_threat_level": "HIGH",
-    "ioc_extraction_meta": {},
-    "stix_bundle_url": "https://intel.cyberdudebivash.com/data/stix/CDB-APEX-1783459459.json",
-    "internal_report_url": "https://intel.cyberdudebivash.com/reports/2026/07/intel--e6f2b5d24df9843023e662cc.html",
-    "stix_bundle": "https://intel.cyberdudebivash.com/data/stix/CDB-APEX-1783459459.json",
-    "apex": {
-      "priority": "P4",
-      "threat_level": "LOW",
-      "threat_category": "Remote Code Execution",
-      "predictive_score": 0.0,
-      "campaign_id": null,
-      "confidence": 34.0,
-      "behavioral_tags": [],
-      "ai_summary": "Initial access via rce",
-      "recommended_action": "Low severity threat (score 3.5/10) — limited technical indicators in source data"
-    },
-    "description": "CVE-2026-49471 Serena: Unauthenticated Flask dashboard on fixed port enables DNS rebinding memory poisoning RCE",
-    "source_domain": "vulners.com",
-    "source_trust_score": 0.72,
-    "is_published": true,
-    "cve_ids": [
-      "CVE-2026-49471"
-    ],
-    "affected_products": [],
-    "kill_chain_phases": [],
-    "is_new": false,
-    "attack_vector": "NETWORK",
-    "source_quality": "LOW",
-    "enrichment_score": 60,
-    "threat_priority": "MEDIUM",
-    "pdf_url": "/reports/pdf/intel--e6f2b5d24df9843023e662cc.pdf",
-    "pdf_available": true,
-    "_governance_rules": "NO_GOVERNANCE_RULES_FIRED",
-    "_score_details": {
-      "kev": false,
-      "active_exploit": false,
-      "ransomware": false,
-      "zero_day": false,
-      "cvss": 1.16,
-      "epss": null
-    },
-    "apex_ai": {
-      "soc_priority": "P4",
-      "predictive_risk": 0.8,
-      "ai_confidence": 34,
-      "ttp_density": 4.5,
-      "threat_level": "LOW",
-      "threat_category": "Remote Code Execution",
-      "ai_summary": "[P4] Remote Code Execution - low severity (Risk 1.16/10). MITRE ATT&CK mapped: T1059, T1190, T1203 (3 techniques). 21 indicators detected - upgrade to Pro for full IOC access. Actor attribution: CDB-UNATTR-CVE. AI confidence: LOW (34%) - limited source data available.",
-      "recommended_action": "LOW PRIORITY - Monitor for escalation. Apply patch in next maintenance window. Review Remote Code Execution detection coverage.",
-      "campaign_id": "UNCLASSIFIED",
-      "actor_fingerprint": "CDB-UNATTR-CVE::L::21::3",
-      "behavioral_tags": [
-        "CODE-EXECUTION",
-        "INITIAL-ACCESS",
-        "HIGH-IOC-DENSITY"
-      ],
-      "kill_chain": [
-        "Initial Access",
-        "Execution"
-      ],
-      "paywall": null
-    },
-    "ioc_paywall": {
-      "locked": true,
-      "count": 21,
-      "confidence": 70.0,
-      "threat_level": "HIGH",
-      "primary_types": [],
-      "upgrade_url": "/upgrade.html?plan=pro",
-      "message": "21 IOC(s) at 70.0% confidence - unlock with Pro tier."
-    },
-    "cve_id": "CVE-2026-49471",
-    "nvd_status": "PRELIMINARY",
-    "nvd_checked_at": "2026-07-07T21:37:37.153726+00:00",
-    "nvd_disclosure": "This CVE ID was not found in the NIST NVD database at time of enrichment. Intelligence is preliminary and unverified by NVD. CVSS score and severity are analyst-estimated until NVD confirmation.",
-    "_enriched_at": "2026-07-07T21:37:37.153732+00:00",
-    "_enriched_by": "enrich_cvss_epss_batch.py v185.0",
-    "blog_url": "https://intel.cyberdudebivash.com/reports/intel--e6f2b5d24df9843023e662cc/",
-    "_quality_hardened_at": "2026-07-07T22:06:24.777822+00:00",
-    "_quality_version": "184.0",
-    "mitre_group_name": "Unattributed CVE Exploiter",
-    "mitre_group_aliases": [],
-    "actor_country": "Unknown",
-    "actor_motivation": [
-      "unknown"
-    ],
-    "sigma_rule": "title: SENTINEL APEX — CVE-2026-49471 Serena Unauthenticated Flask dashboard on fixed port enables DNS \nid: b3e35167-85cf-55bb-b4e2-a3b081f898d5\nstatus: experimental\ndescription: |\n    Detects exploitation attempts related to CVE-2026-49471 (Web Application).\n    Generated by CYBERDUDEBIVASH SENTINEL APEX v166.2.\n    Severity: LOW | Class: RCE\nreferences:\n    - https://intel.cyberdudebivash.com\n    - https://nvd.nist.gov/vuln/detail/CVE-2026-49471\nauthor: CYBERDUDEBIVASH SENTINEL APEX Detection Engineering\ndate: 2026/07/07\nmodified: 2026/07/07\ntags:\n    - attack.initial_access\nlogsource:\n    category: process_creation\n    product: generic\ndetection:\n    selection_process:\n        CommandLine|contains:\n            - 'cmd.exe /c'\n            - 'powershell -enc'\n            - '/bin/sh -c'\n            - 'wget http'\n            - 'curl http'\n    selection_webshell:\n        Image|endswith:\n            - '\\cmd.exe'\n            - '\\powershell.exe'\n            - '/bash'\n            - '/sh'\n        ParentImage|contains:\n            - 'w3wp.exe'\n            - 'httpd'\n            - 'nginx'\n            - 'apache2'\n            - 'tomcat'\n    condition: selection_process or selection_webshell\nfalsepositives:\n    - Legitimate administrative scripts executing via web server\n    - Deployment automation tools\nlevel: low\n",
-    "kql_query": "// SENTINEL APEX — CVE-2026-49471 Remote Code Execution Detection\n// Product: Web Application | Generated: 2026-07-07T21:38:49Z\n// Deploy to: Microsoft Sentinel / Defender XDR\nlet lookback = 1d;\nDeviceProcessEvents\n| where Timestamp > ago(lookback)\n| where (InitiatingProcessFileName in~ (\"w3wp.exe\", \"httpd.exe\", \"nginx.exe\", \"tomcat.exe\", \"java.exe\")\n    and FileName in~ (\"cmd.exe\", \"powershell.exe\", \"bash\", \"sh\", \"python.exe\", \"python3\"))\n    or (ProcessCommandLine has_any (\"wget http\", \"curl http\", \"certutil -urlcache\", \"bitsadmin /transfer\"))\n| project Timestamp, DeviceName, AccountName, FileName, ProcessCommandLine,\n          InitiatingProcessFileName, InitiatingProcessCommandLine\n| where not(ProcessCommandLine has_any (\"update\", \"install\", \"backup\", \"deploy\"))  // filter known-good\n| extend Severity = \"HIGH\", CVE = \"CVE-2026-49471\", RuleSource = \"SENTINEL-APEX\"\n| order by Timestamp desc",
-    "suricata_rule": "alert http $EXTERNAL_NET any -> $HTTP_SERVERS $HTTP_PORTS (msg:\"SENTINEL-APEX CVE-2026-49471 Exploitation Attempt - RCE\"; flow:established,to_server; content:\"/bin/sh\"; nocase; content:\"cmd.exe\"; nocase; threshold:type threshold, track by_src, count 3, seconds 60; classtype:web-application-attack; sid:8204128; rev:1; metadata:created_at 2026-07-07, source SENTINEL-APEX-v166.2;)",
-    "vuln_class": "rce",
-    "detection_generated_at": "2026-07-07T21:38:49Z",
-    "cvss_vector": "",
-    "cvss_source": "keyword_estimate",
-    "cvss_estimated": true,
-    "exploit_maturity": "UNPROVEN",
-    "exploit_count": 0,
-    "exploit_refs": [],
-    "metasploit_available": false,
-    "poc_github_count": 0,
-    "actor_display_name": null,
-    "actor_aliases": [
-      "Unattributed"
-    ],
-    "actor_sectors": [],
-    "actor_ttps": [],
-    "actor_malware": [],
-    "actor_threat_level": "UNKNOWN",
-    "actor_mitre_id": null,
-    "iq_score": 33,
-    "iq_breakdown": {
-      "source": 18,
-      "enrichment": 10,
-      "attribution": 5,
-      "corroboration": 0
-    },
-    "intelligence_age_days": 0.0,
-    "attck_technique_ids": [
-      "T1059"
-    ],
-    "attck_techniques": [
-      {
-        "technique_id": "T1059",
-        "technique_name": "Command and Scripting Interpreter",
-        "attack_justification": "CVE confirms remote/arbitrary code execution capability",
-        "attack_evidence": "CVE-2026-49471 — cve-2026-49471 serena: unauthenticated flask dashboard on fixed port enables dns rebinding  memory poisoning  rce cve-20...",
-        "attack_source": "Vulners",
-        "mapping_method": "cve_description_derivation",
-        "verification_status": "EVIDENCE_BASED",
-        "matched_pattern": "remote code exec",
-        "source_reference": "",
-        "mapping_reason": ""
-      }
-    ],
-    "confidence_label": "MEDIUM_CONFIDENCE",
-    "confidence_score_v2": 32,
-    "confidence_rationale": "Medium confidence — CVSS score 9.8 (Critical)",
-    "confidence_factors": [
-      {
-        "factor": "cvss_critical",
-        "weight": 15,
-        "signal": "CVSS score 9.8 (Critical)"
-      },
-      {
-        "factor": "cve_referenced",
-        "weight": 5,
-        "signal": "CVE(s) referenced: CVE-2026-49471"
-      },
-      {
-        "factor": "iocs_5plus",
-        "weight": 8,
-        "signal": "21 IOCs extracted and verified"
-      },
-      {
-        "factor": "ttps_2to4",
-        "weight": 4,
-        "signal": "3 MITRE ATT&CK TTPs mapped"
-      }
-    ],
-    "sources_reporting": 1,
-    "corroborating_sources": [],
-    "revenue_opportunities": [
-      "VULNERABILITY_ASSESSMENT"
-    ],
-    "sla_priority": "P4",
-    "action_deadline_hours": 720,
-    "recommended_sla_action": "MONITOR — Assess in next vulnerability review cycle",
-    "confidence_enriched_at": "2026-07-07T21:39:57Z",
-    "confidence_engine_version": "1.0.1",
-    "apex_ai_summary": "[P4] Remote Code Execution - low severity (Risk 1.16/10). MITRE ATT&CK mapped: T1059, T1190, T1203 (3 techniques). 21 indicators detected - upgrade to Pro for full IOC access. Actor attribution: CDB-UNATTR-CVE. AI confidence: LOW (34%) - limited source data available.",
-    "apex_ai_score": 0.8,
-    "evidence_chain": {
-      "evidence_id": "EVD-E6F2B5D24DF9",
-      "source_url": "https://vulners.com/cve/CVE-2026-49471?utm_source=rss&utm_medium=rss&utm_campaign=rss",
-      "source_name": "Vulners",
-      "source_category": "Vulners Intelligence",
-      "source_reliability": "B — Usually Reliable",
-      "reliability_code": "B",
-      "accuracy_code": "3",
-      "accuracy_label": "Possibly true",
-      "collection_time": "2026-07-07T20:50:50Z",
-      "verification_time": "2026-07-07T21:24:19Z",
-      "collection_method": "Automated OSINT Pipeline (SENTINEL APEX v184.0)",
-      "analyst_review": "Automated — Pending Human Review",
-      "corroboration_count": 0,
-      "corroborating_sources": [],
-      "intelligence_freshness": "Very Fresh (<6h)",
-      "confidence_pct": 15.6,
-      "chain_of_custody": [
-        "[2026-07-07T21:24:19Z] Item ingested by SENTINEL APEX ingest pipeline",
-        "[2026-07-07T20:50:50Z] Advisory published by Vulners",
-        "Source URL verified: https://vulners.com/cve/CVE-2026-49471?utm_source=rss&utm_medium=rss&utm_campaign=rss",
-        "CVE references: CVE-2026-49471 (traceable to NVD)",
-        "NVD status: PRELIMINARY"
-      ],
-      "known_limitations": [
-        "No independent corroboration sources identified",
-        "Threat actor attribution unresolved"
-      ],
-      "iq_breakdown": {
-        "source": 18,
-        "enrichment": 10,
-        "attribution": 5,
-        "corroboration": 0
-      },
-      "evidence_version": "P20.1"
-    },
-    "ioc_fp_removed": 21,
-    "evidence_ledger": {
-      "source_count": 1,
-      "verified_sources": 0,
-      "ioc_count": 0,
-      "ttp_count": 3,
-      "cve_count": 1,
-      "confidence_score": 33,
-      "evidence_strength": "LOW",
-      "ledger_generated": true
-    },
-    "confidence_reason": [
-      "3 ATT&CK technique(s) mapped"
-    ],
-    "cti_tier": "FREE_INFORMATIONAL",
-    "verification_status": "UNVERIFIED",
-    "attribution_status": "UNATTRIBUTED",
-    "source_reliability": "UNRATED",
-    "ioc_quality": "LOW",
-    "ttp_quality": "MEDIUM",
-    "report_quality": "INFORMATIONAL",
-    "actor": null,
-    "actor_name": null,
-    "actor_confidence": 0,
-    "verified_actor": false,
-    "campaign_name": null,
-    "campaign_id": null,
-    "campaign_status": "UNVERIFIED",
-    "publication_decision": "ALLOW_WITH_WARNING",
-    "intelligence_grade": "B",
-    "evidence_count": 2,
-    "corroboration_count": 2,
-    "ioc_quality_score": 0,
-    "ioc_quality_label": "NONE",
-    "real_ioc_count": 0,
-    "attck_verification": "EVIDENCE_BASED",
-    "attck_notes": [
-      "Derived from CVE description: remote code exec"
-    ],
-    "risk_score_reasoning": "{\"formula\": \"v1.0.0-deterministic\", \"inputs\": {\"cvss_score\": 9.8, \"epss_pct\": 0.0, \"kev_confirmed\": false, \"verified_actor\": false, \"real_ioc_count\": 0}, \"components\": {\"base_cvss\": 3.92, \"epss_boost\": 0.0, \"kev_boost\": 0.0, \"actor_boost\": 0.0, \"ioc_boost\": 0.0}, \"computed_score\": 3.92, \"notes\": [\"EPSS absent for CVE item \\u2014 enrich from FIRST.org API\", \"Critical CVSS without KEV confirmation \\u2014 monitor for escalation\"]}",
-    "analyst_verdict": "ALLOW — Grade B: strong CVE intelligence. Verified CVE, CVSS>=8.0, evidence-based ATT&CK, multi-source corroboration.",
-    "grade_notes": [
-      "Partial verification: CVSS 9.8"
-    ],
-    "grade_engine_version": "v2.0.0",
-    "graded_at": "2026-07-07T22:07:36.469563+00:00",
-    "attck_tactics": [],
-    "allowed_content_tier": "enterprise_dossier",
-    "premium_eligible": true,
-    "enterprise_eligible": true,
-    "mssp_eligible": true,
-    "governor_version": "1.0.0",
-    "governed_at": "2026-07-07T22:07:37.232802+00:00",
-    "governor_audit_log": [
-      "M3: attck_technique_ids cleared — verification='NOT_VERIFIED' (no evidence)",
-      "M4: risk_score raised 3.9→8.5 [severity=CRITICAL → floor 8.5; CVSS=9.8 ≥ 9.0 → floor 8.5]"
-    ],
-    "actor_confidence_label": "NONE",
-    "attribution_assessment": {
-      "status": "UNATTRIBUTED",
-      "confidence": "NONE",
-      "evidence_count": 0,
-      "verdict": "No actor claimed — correct",
-      "engine_version": "1.0.0"
-    },
-    "corroboration_score": 40,
-    "corroboration_strength": "MODERATE",
-    "corroboration_sources": [
-      "NVD/CVE-Database",
-      "Vulners"
-    ],
-    "detection_quality_status": "DETECTION_PARTIALLY_READY",
-    "detection_production_ready": true,
-    "detection_rules_total": 3,
-    "detection_rules_production_ready": 1,
-    "grade_notes_v2": [
-      "Grade B: CVE verified; CVSS=9.8; 2 sources; evidence-based ATT&CK; corroboration=40"
-    ],
-    "graded_at_v2": "2026-07-07T22:07:37.126128+00:00"
-  },
-  {
-    "id": "intel--4324490d697b13b0d00719d3",
-    "stix_id": "intel--4324490d697b13b0d00719d3",
-    "title": "Better Auth: OAuth refresh-token replay via missing client authentication on oidc-provider and mcp plugins",
-    "description": "### Am I affected?\n\nUsers are affected if all of the following are true:\n\n- Their application uses `better-auth` and has enabled at least one of: `oidcProvider()` (imported from `better-auth/plugins/oidc-provider`), or `mcp()` (imported from `better-auth/plugins/mcp`).\n- Their application has at least one confidential OAuth client registered (any client with `type: \"web\" | \"native\" | \"user-agent-based\"` in the `oauthApplication` table, or any `trustedClients` entry without `type: \"public\"`). Public clients with PKCE are not affected.\n- Their application uses `better-auth` at a version below the patched release.\n\nIf an application only uses `@better-auth/oauth-provider` (the canonical replacement for `oidc-provider`) and the `mcp` plugin is not enabled, it is not affected.\n\nFix:\n\n1. Upgrade to `better-auth@1.6.11` or later.\n2. Migrate from the deprecated `oidcProvider()` to `@better-auth/oauth-provider` when feasible. The new package enforces client authentication on both grants by defa",
-    "severity": "CRITICAL",
-    "risk_score": 8.5,
-    "confidence": 0.12,
-    "source": "GitHub Security Advisories",
-    "feed_source": "GitHub Security Advisories",
-    "tlp": "TLP:AMBER",
-    "threat_type": "Vulnerability",
-    "tags": [
-      "npm:better-auth",
-      "kev",
-      "cisa",
-      "actively-exploited"
-    ],
-    "cve_id": "CVE-2026-53512",
-    "cve_ids": [
-      "CVE-2026-53512"
-    ],
-    "ioc_count": 0,
-    "kev": "NO",
-    "timestamp": "2026-07-07T20:11:50Z",
-    "processed_at": "2026-07-07T20:11:50Z",
-    "published_at": "2026-07-07T20:11:50Z",
-    "source_url": "https://github.com/advisories/GHSA-pw9m-5jxm-xr6h",
-    "actor": null,
-    "ghsa_id": "GHSA-pw9m-5jxm-xr6h",
-    "cvss_score": 9.1,
-    "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:N",
-    "cvss_source": "github_advisory",
-    "exploit_maturity": "UNPROVEN",
-    "exploit_count": 0,
-    "exploit_refs": [],
-    "metasploit_available": false,
-    "poc_github_count": 0,
-    "actor_display_name": null,
-    "actor_aliases": [],
-    "actor_country": null,
-    "actor_motivation": null,
-    "actor_sectors": [],
-    "actor_ttps": [],
-    "actor_malware": [],
-    "actor_threat_level": null,
-    "actor_mitre_id": null,
-    "iq_score": 20,
-    "iq_breakdown": {
-      "source": 10,
-      "enrichment": 5,
-      "attribution": 5,
-      "corroboration": 0
-    },
-    "intelligence_age_days": 0.1,
-    "confidence_label": "MEDIUM_CONFIDENCE",
-    "confidence_score_v2": 20,
-    "confidence_rationale": "Medium confidence — CVSS score 9.1 (Critical)",
-    "confidence_factors": [
-      {
-        "factor": "cvss_critical",
-        "weight": 15,
-        "signal": "CVSS score 9.1 (Critical)"
-      },
-      {
-        "factor": "cve_referenced",
-        "weight": 5,
-        "signal": "CVE(s) referenced: CVE-2026-53512"
-      }
-    ],
-    "sources_reporting": 1,
-    "corroborating_sources": [],
-    "revenue_opportunities": [
-      "VULNERABILITY_ASSESSMENT"
-    ],
-    "sla_priority": "P1",
-    "action_deadline_hours": 72,
-    "recommended_sla_action": "URGENT PATCH — Critical severity, deploy fix within 72 hours",
-    "confidence_enriched_at": "2026-07-07T21:39:57Z",
-    "confidence_engine_version": "1.0.1",
-    "pdf_url": "/reports/pdf/intel--4324490d697b13b0d00719d3.pdf",
-    "pdf_available": true,
-    "report_url": "https://github.com/advisories/GHSA-pw9m-5jxm-xr6h",
-    "internal_report_url": "",
-    "apex_ai_summary": "[CRITICAL] Vulnerability advisory. Risk score 9.0/10. Full APEX AI analysis available to Pro subscribers.",
-    "apex_ai_score": 9.0,
-    "status": "active",
-    "schema_version": "stable-v1.0-apex",
-    "_risk_micro_adj": 0.016272,
-    "evidence_chain": {
-      "evidence_id": "EVD-4324490D697B",
-      "source_url": "https://github.com/advisories/GHSA-pw9m-5jxm-xr6h",
-      "source_name": "GitHub Security Advisories",
-      "source_category": "GitHub Security Advisories",
-      "source_reliability": "B — Usually Reliable",
-      "reliability_code": "B",
-      "accuracy_code": "1",
-      "accuracy_label": "Confirmed by other sources",
-      "collection_time": "2026-07-07T20:11:50Z",
-      "verification_time": "2026-07-07T20:11:50Z",
-      "collection_method": "Automated OSINT Pipeline (SENTINEL APEX v184.0)",
-      "analyst_review": "Automated — Pending Human Review",
-      "corroboration_count": 0,
-      "corroborating_sources": [],
-      "intelligence_freshness": "Very Fresh (<6h)",
-      "confidence_pct": 20.0,
-      "chain_of_custody": [
-        "[2026-07-07T20:11:50Z] Item ingested by SENTINEL APEX ingest pipeline",
-        "Source URL verified: https://github.com/advisories/GHSA-pw9m-5jxm-xr6h",
-        "GitHub Security Advisory: GHSA-pw9m-5jxm-xr6h",
-        "CVE references: CVE-2026-53512 (traceable to NVD)",
-        "CISA KEV status: CONFIRMED active exploitation"
-      ],
-      "known_limitations": [
-        "No independent corroboration sources identified",
-        "Threat actor attribution unresolved"
-      ],
-      "iq_breakdown": {
-        "source": 10,
-        "enrichment": 5,
-        "attribution": 5,
-        "corroboration": 0
-      },
-      "evidence_version": "P20.1"
-    },
-    "actor_code": "Unattributed",
-    "actor_type": "UNATTRIBUTED",
-    "actor_region": "Unknown",
-    "_quality_hardened_at": "2026-07-07T22:06:24.777854+00:00",
-    "_quality_version": "184.0",
-    "evidence_ledger": {
-      "source_count": 1,
-      "verified_sources": 0,
-      "ioc_count": 0,
-      "ttp_count": 0,
-      "cve_count": 1,
-      "confidence_score": 20,
-      "evidence_strength": "LOW",
-      "ledger_generated": true
-    },
-    "confidence_score": 12,
-    "confidence_reason": [
-      "Single unverified source — low evidence base"
-    ],
-    "cti_tier": "FREE_INFORMATIONAL",
-    "verification_status": "UNVERIFIED",
-    "attribution_status": "UNATTRIBUTED",
-    "source_reliability": "UNRATED",
-    "ioc_quality": "LOW",
-    "ttp_quality": "LOW",
-    "report_quality": "INFORMATIONAL",
-    "verified_actor": false,
-    "campaign_status": "UNVERIFIED",
-    "publication_decision": "ALLOW_WITH_WARNING",
-    "intelligence_grade": "B",
-    "evidence_count": 2,
-    "corroboration_count": 2,
-    "ioc_quality_score": 0,
-    "ioc_quality_label": "NONE",
-    "real_ioc_count": 0,
-    "attck_verification": "EVIDENCE_BASED",
-    "attck_notes": [
-      "Derived from CVE description: rce"
-    ],
-    "risk_score_reasoning": "{\"formula\": \"v1.0.0-deterministic\", \"inputs\": {\"cvss_score\": 9.1, \"epss_pct\": 0.0, \"kev_confirmed\": false, \"verified_actor\": false, \"real_ioc_count\": 0}, \"components\": {\"base_cvss\": 3.64, \"epss_boost\": 0.0, \"kev_boost\": 0.0, \"actor_boost\": 0.0, \"ioc_boost\": 0.0}, \"computed_score\": 3.64, \"notes\": [\"EPSS absent for CVE item \\u2014 enrich from FIRST.org API\", \"Critical CVSS without KEV confirmation \\u2014 monitor for escalation\"]}",
-    "analyst_verdict": "ALLOW — Grade B: strong CVE intelligence. Verified CVE, CVSS>=8.0, evidence-based ATT&CK, multi-source corroboration.",
-    "mitre_tactics": [],
-    "ttps": [],
-    "grade_notes": [
-      "Partial verification: CVSS 9.1"
-    ],
-    "grade_engine_version": "v2.0.0",
-    "graded_at": "2026-07-07T22:07:36.469673+00:00",
-    "actor_tag": null,
-    "actor_name": null,
-    "allowed_content_tier": "enterprise_dossier",
-    "premium_eligible": true,
-    "enterprise_eligible": true,
-    "mssp_eligible": true,
-    "governor_version": "1.0.0",
-    "governed_at": "2026-07-07T22:07:37.232818+00:00",
-    "governor_audit_log": [
-      "M2: Banned actor 'Unattributed Threat Actor' nulled — attribution_status=NONE",
-      "M4: risk_score raised 3.6→8.5 [severity=CRITICAL → floor 8.5; CVSS=9.1 ≥ 9.0 → floor 8.5; KEV=true → floor 7.0]"
-    ],
-    "actor_confidence_label": "NONE",
-    "attribution_assessment": {
-      "status": "UNATTRIBUTED",
-      "confidence": "NONE",
-      "evidence_count": 0,
-      "verdict": "No actor claimed — correct",
-      "engine_version": "1.0.0"
-    },
-    "attck_technique_ids": [
-      "T1059"
-    ],
-    "attck_techniques": [
-      {
-        "technique_id": "T1059",
-        "technique_name": "Command and Scripting Interpreter",
-        "attack_justification": "CVE confirms remote/arbitrary code execution capability",
-        "attack_evidence": "CVE-2026-53512 — better auth: oauth refresh-token replay via missing client authentication on oidc-provider and mcp plugins ### am i affe...",
-        "attack_source": "GitHub Security Advisories",
-        "mapping_method": "cve_description_derivation",
-        "verification_status": "EVIDENCE_BASED",
-        "matched_pattern": "rce",
-        "source_reference": "",
-        "mapping_reason": ""
-      }
-    ],
-    "corroboration_score": 40,
-    "corroboration_strength": "MODERATE",
-    "corroboration_sources": [
-      "GitHub Advisory",
-      "NVD/CVE-Database"
-    ],
-    "detection_quality_status": "DETECTION_NOT_PRODUCTION_READY",
-    "detection_production_ready": false,
-    "detection_rules_total": 0,
-    "detection_rules_production_ready": 0,
-    "grade_notes_v2": [
-      "Grade B: CVE verified; CVSS=9.1; 2 sources; evidence-based ATT&CK; corroboration=40"
-    ],
-    "graded_at_v2": "2026-07-07T22:07:37.126140+00:00"
-  },
-  {
-    "id": "intel--fd3e28aec75e44bc7bfd66db",
-    "stix_id": "intel--fd3e28aec75e44bc7bfd66db",
-    "bundle_id": "bundle--ff402911-5294-4351-bf19-8c79695519c2",
-    "title": "CVE-2026-59800 - 9Router < 0.4.44 - OS Command Injection via sudoPassword Parameter in Tailscale Install Endpoint",
-    "processed_at": "2026-07-07T21:22:28Z",
-    "published_at": "2026-07-07T19:16:55Z",
-    "timestamp": "2026-07-07T19:16:55Z",
-    "risk_score": 8.5,
-    "severity": "CRITICAL",
-    "report_url": "https://intel.cyberdudebivash.com/reports/2026/07/intel--fd3e28aec75e44bc7bfd66db.html",
-    "source_url": "https://cvefeed.io/vuln/detail/CVE-2026-59800",
-    "tlp": "TLP:GREEN",
-    "tags": [
-      "T1059",
-      "T1190",
-      "T1548"
-    ],
-    "generated_at": "2026-07-07T21:22:28Z",
-    "confidence_score": 19,
-    "confidence": 0.19,
-    "tlp_label": "TLP:GREEN",
     "ioc_counts": {
       "url": 1
     },
@@ -840,25 +254,25 @@
     "feed_source": "CVE Feed",
     "source": "CVE Feed",
     "threat_type": "Vulnerability",
-    "indicator_count": 3,
-    "stix_file": "CDB-APEX-1783459348.json",
-    "cvss_score": 9.5,
+    "indicator_count": 2,
+    "stix_file": "CDB-APEX-1783474441.json",
+    "cvss_score": 9.8,
     "epss_score": null,
     "kev_present": false,
     "status": "active",
     "extended_metrics": {},
-    "nvd_url": "https://nvd.nist.gov/vuln/detail/CVE-2026-59800",
+    "nvd_url": "https://nvd.nist.gov/vuln/detail/CVE-2026-59705",
     "supply_chain": false,
-    "stix_object_count": 24,
+    "stix_object_count": 15,
     "stix_version": "2.1",
     "schema_version": "v134.0",
-    "published": "2026-07-07T19:16:55Z",
+    "published": "2026-07-07T23:16:55Z",
     "validation_status": "enriched",
-    "validated_at": "2026-07-07T21:22:28Z",
+    "validated_at": "2026-07-08T01:34:01Z",
     "iocs": [
       {
         "type": "url",
-        "value": "https://cvefeed.io/vuln/detail/CVE-2026-59800",
+        "value": "https://cvefeed.io/vuln/detail/CVE-2026-59705",
         "confidence": 31.0,
         "confidence_factors": {
           "ioc_type": 70.0,
@@ -870,49 +284,48 @@
           "kev_linked": false
         },
         "confidence_version": "1.0",
-        "first_seen": "2026-07-07T19:16:55Z",
-        "last_seen": "2026-07-07T21:22:28Z",
+        "first_seen": "2026-07-07T23:16:55Z",
+        "last_seen": "2026-07-08T01:34:01Z",
         "kill_chain_stage": "Delivery / Initial Access",
         "response_guidance": "Block at web proxy. Search for access in web/proxy logs. Add to SIEM correlation rule.",
         "detection_guidance": "Monitor proxy/web filter logs, browser history, and HTTP inspection rules.",
-        "context": "URL indicator associated with advisory: CVE-2026-59800 - 9Router < 0.4.44 - OS Command Injection via (CVE-2026-59800). Confidence: 31.0%",
+        "context": "URL indicator associated with advisory: CVE-2026-59705 - mem0 - OpenMemory API Unauthenticated Acces (CVE-2026-59705). Confidence: 31.0%",
         "validation_status": "LOW_CONFIDENCE",
         "p20_hardened": true
       }
     ],
     "iocs_by_type": {
       "url": [
-        "https://cvefeed.io/vuln/detail/CVE-2026-59800"
+        "https://cvefeed.io/vuln/detail/CVE-2026-59705"
       ],
       "cve": [
-        "CVE-2026-58468",
-        "CVE-2026-59800"
+        "CVE-2026-59705"
       ]
     },
     "ioc_count": 0,
-    "ioc_confidence": 24.0,
+    "ioc_confidence": 17.0,
     "ioc_threat_level": "LOW",
     "ioc_extraction_meta": {},
-    "stix_bundle_url": "https://intel.cyberdudebivash.com/data/stix/CDB-APEX-1783459348.json",
-    "internal_report_url": "https://intel.cyberdudebivash.com/reports/2026/07/intel--fd3e28aec75e44bc7bfd66db.html",
-    "stix_bundle": "https://intel.cyberdudebivash.com/data/stix/CDB-APEX-1783459348.json",
+    "stix_bundle_url": "https://intel.cyberdudebivash.com/data/stix/CDB-APEX-1783474441.json",
+    "internal_report_url": "https://intel.cyberdudebivash.com/reports/2026/07/intel--9f145343fdcebe0385fea829.html",
+    "stix_bundle": "https://intel.cyberdudebivash.com/data/stix/CDB-APEX-1783474441.json",
     "apex": {
       "priority": "P4",
       "threat_level": "MEDIUM",
-      "threat_category": "Remote Code Execution",
-      "predictive_score": 0.4,
+      "threat_category": "Threat Intel",
+      "predictive_score": 0.2,
       "campaign_id": null,
-      "confidence": 0.4,
+      "confidence": 0.2,
       "behavioral_tags": [],
-      "ai_summary": "Initial access via rce",
-      "recommended_action": "Medium severity threat (score 4.2/10) — limited technical indicators in source data"
+      "ai_summary": "Insufficient technical data for attack narrative",
+      "recommended_action": "Low severity threat (score 3.8/10) — limited technical indicators in source data"
     },
-    "description": "CVE-2026-59800 - 9Router < 0.4.44 - OS Command Injection via sudoPassword Parameter in Tailscale Install Endpoint",
+    "description": "CVE-2026-59705 - mem0 - OpenMemory API Unauthenticated Access via Memory Endpoints",
     "source_domain": "nvd.nist.gov",
     "source_trust_score": 0.6,
     "is_published": true,
     "cve_ids": [
-      "CVE-2026-59800"
+      "CVE-2026-59705"
     ],
     "affected_products": [],
     "kill_chain_phases": [],
@@ -920,7 +333,7 @@
     "attack_vector": "NETWORK",
     "source_quality": "MEDIUM",
     "enrichment_score": 60,
-    "pdf_url": "/reports/pdf/intel--fd3e28aec75e44bc7bfd66db.pdf",
+    "pdf_url": "/reports/pdf/intel--9f145343fdcebe0385fea829.pdf",
     "pdf_available": true,
     "_governance_rules": "NO_GOVERNANCE_RULES_FIRED",
     "_score_details": {
@@ -928,20 +341,20 @@
       "active_exploit": false,
       "ransomware": false,
       "zero_day": false,
-      "cvss": 1.6,
+      "cvss": 0.74,
       "epss": null
     },
     "apex_ai": {
       "soc_priority": "P4",
-      "predictive_risk": 0.6,
-      "ai_confidence": 31,
-      "ttp_density": 4.5,
+      "predictive_risk": 0.3,
+      "ai_confidence": 25,
+      "ttp_density": 3.0,
       "threat_level": "LOW",
-      "threat_category": "Remote Code Execution",
-      "ai_summary": "[P4] Remote Code Execution - low severity (Risk 1.6/10). MITRE ATT&CK mapped: T1059, T1190, T1548 (3 techniques). 3 indicators detected - upgrade to Pro for full IOC access. Actor attribution: CDB-UNATTR-CVE. AI confidence: LOW (31%) - limited source data available.",
-      "recommended_action": "LOW PRIORITY - Monitor for escalation. Apply patch in next maintenance window. Review Remote Code Execution detection coverage.",
+      "threat_category": "Vulnerability",
+      "ai_summary": "[P4] Vulnerability - low severity (Risk 0.74/10). MITRE ATT&CK mapped: T1059, T1190 (2 techniques). 2 indicators detected - upgrade to Pro for full IOC access. Actor attribution: CDB-UNATTR-CVE. AI confidence: LOW (25%) - limited source data available.",
+      "recommended_action": "LOW PRIORITY - Monitor for escalation. Apply patch in next maintenance window. Review Vulnerability detection coverage.",
       "campaign_id": "UNCLASSIFIED",
-      "actor_fingerprint": "CDB-UNATTR-CVE::L::3::3",
+      "actor_fingerprint": "CDB-UNATTR-CVE::L::2::2",
       "behavioral_tags": [
         "CODE-EXECUTION"
       ],
@@ -953,23 +366,23 @@
     },
     "ioc_paywall": {
       "locked": true,
-      "count": 3,
-      "confidence": 24.0,
+      "count": 2,
+      "confidence": 17.0,
       "threat_level": "LOW",
       "primary_types": [
         "cve"
       ],
       "upgrade_url": "/upgrade.html?plan=pro",
-      "message": "3 IOC(s) at 24.0% confidence - unlock with Pro tier."
+      "message": "2 IOC(s) at 17.0% confidence - unlock with Pro tier."
     },
-    "cve_id": "CVE-2026-59800",
+    "cve_id": "CVE-2026-59705",
     "nvd_status": "PRELIMINARY",
-    "nvd_checked_at": "2026-07-07T21:37:37.153796+00:00",
+    "nvd_checked_at": "2026-07-08T01:49:15.736757+00:00",
     "nvd_disclosure": "This CVE ID was not found in the NIST NVD database at time of enrichment. Intelligence is preliminary and unverified by NVD. CVSS score and severity are analyst-estimated until NVD confirmation.",
-    "_enriched_at": "2026-07-07T21:37:37.153802+00:00",
+    "_enriched_at": "2026-07-08T01:49:15.736759+00:00",
     "_enriched_by": "enrich_cvss_epss_batch.py v185.0",
-    "blog_url": "https://intel.cyberdudebivash.com/reports/intel--fd3e28aec75e44bc7bfd66db/",
-    "_quality_hardened_at": "2026-07-07T22:06:24.777930+00:00",
+    "blog_url": "https://intel.cyberdudebivash.com/reports/intel--9f145343fdcebe0385fea829/",
+    "_quality_hardened_at": "2026-07-08T05:42:49.021203+00:00",
     "_quality_version": "184.0",
     "mitre_group_name": "Unattributed CVE Exploiter",
     "mitre_group_aliases": [],
@@ -977,12 +390,12 @@
     "actor_motivation": [
       "unknown"
     ],
-    "sigma_rule": "title: SENTINEL APEX — CVE-2026-59800 - 9Router  0444 - OS Command Injection via sudoPassword Parameter\nid: 9baf8530-73b0-534f-9928-42174cd5aa79\nstatus: experimental\ndescription: |\n    Detects exploitation attempts related to CVE-2026-59800 (Web Application).\n    Generated by CYBERDUDEBIVASH SENTINEL APEX v166.2.\n    Severity: LOW | Class: CMDINJECT\nreferences:\n    - https://intel.cyberdudebivash.com\n    - https://nvd.nist.gov/vuln/detail/CVE-2026-59800\nauthor: CYBERDUDEBIVASH SENTINEL APEX Detection Engineering\ndate: 2026/07/07\nmodified: 2026/07/07\ntags:\n    - attack.initial_access\nlogsource:\n    category: network_connection\n    product: generic\ndetection:\n    selection:\n        EventID:\n            - 4625\n            - 4648\n            - 4728\n        LogonType: 3\n    condition: selection\nfalsepositives:\n    - Legitimate administrative access\n    - Service account activity\nlevel: low\n",
-    "kql_query": "// SENTINEL APEX — CVE-2026-59800 — Anomalous Activity Detection\n// Product: Web Application | Generated: 2026-07-07T21:38:49Z\nlet lookback = 1d;\nSecurityEvent\n| where TimeGenerated > ago(lookback)\n| where EventID in (4625, 4648, 4728, 4740, 4776)\n| summarize FailureCount = count(), DistinctTargets = dcount(TargetUserName)\n    by IpAddress, bin(TimeGenerated, 1h)\n| where FailureCount > 10 or DistinctTargets > 5\n| extend Severity = \"MEDIUM\", CVE = \"CVE-2026-59800\", RuleSource = \"SENTINEL-APEX\"\n| order by TimeGenerated desc",
-    "suricata_rule": "alert http $EXTERNAL_NET any -> $HTTP_SERVERS $HTTP_PORTS (msg:\"SENTINEL-APEX CVE-2026-59800 Exploitation Attempt - CMDINJECT\"; flow:established,to_server; content:\"|90 90 90 90|\"; rawbytes; threshold:type threshold, track by_src, count 3, seconds 60; classtype:web-application-attack; sid:1755391; rev:1; metadata:created_at 2026-07-07, source SENTINEL-APEX-v166.2;)",
-    "vuln_class": "cmdinject",
-    "detection_generated_at": "2026-07-07T21:38:49Z",
-    "cvss_vector": null,
+    "sigma_rule": "title: SENTINEL APEX — CVE-2026-59705 - mem0 - OpenMemory API Unauthenticated Access via Memory Endpoin\nid: a0d75bd0-7d08-5fed-b7ac-1426166be4bb\nstatus: experimental\ndescription: |\n    Detects exploitation attempts related to CVE-2026-59705 (Web Application).\n    Generated by CYBERDUDEBIVASH SENTINEL APEX v166.2.\n    Severity: LOW | Class: GENERIC\nreferences:\n    - https://intel.cyberdudebivash.com\n    - https://nvd.nist.gov/vuln/detail/CVE-2026-59705\nauthor: CYBERDUDEBIVASH SENTINEL APEX Detection Engineering\ndate: 2026/07/08\nmodified: 2026/07/08\ntags:\n    - attack.initial_access\nlogsource:\n    category: network_connection\n    product: generic\ndetection:\n    selection:\n        EventID:\n            - 4625\n            - 4648\n            - 4728\n        LogonType: 3\n    condition: selection\nfalsepositives:\n    - Legitimate administrative access\n    - Service account activity\nlevel: low\n",
+    "kql_query": "// SENTINEL APEX — CVE-2026-59705 — Anomalous Activity Detection\n// Product: Web Application | Generated: 2026-07-08T01:50:21Z\nlet lookback = 1d;\nSecurityEvent\n| where TimeGenerated > ago(lookback)\n| where EventID in (4625, 4648, 4728, 4740, 4776)\n| summarize FailureCount = count(), DistinctTargets = dcount(TargetUserName)\n    by IpAddress, bin(TimeGenerated, 1h)\n| where FailureCount > 10 or DistinctTargets > 5\n| extend Severity = \"MEDIUM\", CVE = \"CVE-2026-59705\", RuleSource = \"SENTINEL-APEX\"\n| order by TimeGenerated desc",
+    "suricata_rule": "alert http $EXTERNAL_NET any -> $HTTP_SERVERS $HTTP_PORTS (msg:\"SENTINEL-APEX CVE-2026-59705 Exploitation Attempt - GENERIC\"; flow:established,to_server; content:\"|90 90 90 90|\"; rawbytes; threshold:type threshold, track by_src, count 3, seconds 60; classtype:web-application-attack; sid:8107238; rev:1; metadata:created_at 2026-07-08, source SENTINEL-APEX-v166.2;)",
+    "vuln_class": "generic",
+    "detection_generated_at": "2026-07-08T01:50:21Z",
+    "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H",
     "cvss_source": "github_advisory",
     "exploit_maturity": "UNPROVEN",
     "exploit_count": 0,
@@ -1007,45 +420,45 @@
     },
     "intelligence_age_days": 0.1,
     "attck_technique_ids": [
-      "T1059"
+      "T1190"
     ],
     "attck_techniques": [
       {
-        "technique_id": "T1059",
-        "technique_name": "Command and Scripting Interpreter",
-        "attack_justification": "CVE confirms remote/arbitrary code execution capability",
-        "attack_evidence": "CVE-2026-59800 — cve-2026-59800 - 9router < 0.4.44 - os command injection via sudopassword parameter in tailscale install endpoint cve-20...",
+        "technique_id": "T1190",
+        "technique_name": "Exploit Public-Facing Application",
+        "attack_justification": "CVE description confirms exploitation of a public-facing application without authentication",
+        "attack_evidence": "CVE-2026-59705 — cve-2026-59705 - mem0 - openmemory api unauthenticated access via memory endpoints cve-2026-59705 - mem0 - openmemory ap...",
         "attack_source": "CVE Feed",
         "mapping_method": "cve_description_derivation",
         "verification_status": "EVIDENCE_BASED",
-        "matched_pattern": "remote code exec",
+        "matched_pattern": "unauthenticated access",
         "source_reference": "",
         "mapping_reason": ""
       }
     ],
     "confidence_label": "MEDIUM_CONFIDENCE",
     "confidence_score_v2": 28,
-    "confidence_rationale": "Medium confidence — CVSS score 9.5 (Critical)",
+    "confidence_rationale": "Medium confidence — CVSS score 9.8 (Critical)",
     "confidence_factors": [
       {
         "factor": "cvss_critical",
         "weight": 15,
-        "signal": "CVSS score 9.5 (Critical)"
+        "signal": "CVSS score 9.8 (Critical)"
       },
       {
         "factor": "cve_referenced",
         "weight": 5,
-        "signal": "CVE(s) referenced: CVE-2026-59800"
+        "signal": "CVE(s) referenced: CVE-2026-59705"
       },
       {
         "factor": "iocs_2to4",
         "weight": 4,
-        "signal": "3 IOCs present"
+        "signal": "2 IOCs present"
       },
       {
         "factor": "ttps_2to4",
         "weight": 4,
-        "signal": "3 MITRE ATT&CK TTPs mapped"
+        "signal": "2 MITRE ATT&CK TTPs mapped"
       }
     ],
     "sources_reporting": 1,
@@ -1056,22 +469,22 @@
     "sla_priority": "P4",
     "action_deadline_hours": 720,
     "recommended_sla_action": "MONITOR — Assess in next vulnerability review cycle",
-    "confidence_enriched_at": "2026-07-07T21:39:57Z",
+    "confidence_enriched_at": "2026-07-08T01:51:18Z",
     "confidence_engine_version": "1.0.1",
-    "apex_ai_summary": "[P4] Remote Code Execution - low severity (Risk 1.6/10). MITRE ATT&CK mapped: T1059, T1190, T1548 (3 techniques). 3 indicators detected - upgrade to Pro for full IOC access. Actor attribution: CDB-UNATTR-CVE. AI confidence: LOW (31%) - limited source data available.",
-    "apex_ai_score": 0.6,
-    "_risk_micro_adj": 0.072335,
+    "apex_ai_summary": "[P4] Vulnerability - low severity (Risk 0.74/10). MITRE ATT&CK mapped: T1059, T1190 (2 techniques). 2 indicators detected - upgrade to Pro for full IOC access. Actor attribution: CDB-UNATTR-CVE. AI confidence: LOW (25%) - limited source data available.",
+    "apex_ai_score": 0.3,
+    "_risk_micro_adj": 0.079603,
     "evidence_chain": {
-      "evidence_id": "EVD-FD3E28AEC75E",
-      "source_url": "https://cvefeed.io/vuln/detail/CVE-2026-59800",
+      "evidence_id": "EVD-9F145343FDCE",
+      "source_url": "https://cvefeed.io/vuln/detail/CVE-2026-59705",
       "source_name": "CVE Feed",
       "source_category": "Unclassified source: cvefeed.io",
       "source_reliability": "D — Not Usually Reliable",
       "reliability_code": "D",
       "accuracy_code": "3",
       "accuracy_label": "Possibly true",
-      "collection_time": "2026-07-07T19:16:55Z",
-      "verification_time": "2026-07-07T21:22:28Z",
+      "collection_time": "2026-07-07T23:16:55Z",
+      "verification_time": "2026-07-08T01:34:01Z",
       "collection_method": "Automated OSINT Pipeline (SENTINEL APEX v184.0)",
       "analyst_review": "Automated — Pending Human Review",
       "corroboration_count": 0,
@@ -1079,11 +492,11 @@
       "intelligence_freshness": "Very Fresh (<6h)",
       "confidence_pct": 21.3,
       "chain_of_custody": [
-        "[2026-07-07T21:22:28Z] Item ingested by SENTINEL APEX ingest pipeline",
-        "[2026-07-07T19:16:55Z] Advisory published by CVE Feed",
-        "Source URL verified: https://cvefeed.io/vuln/detail/CVE-2026-59800",
-        "CVE references: CVE-2026-59800 (traceable to NVD)",
-        "NVD record: https://nvd.nist.gov/vuln/detail/CVE-2026-59800",
+        "[2026-07-08T01:34:01Z] Item ingested by SENTINEL APEX ingest pipeline",
+        "[2026-07-07T23:16:55Z] Advisory published by CVE Feed",
+        "Source URL verified: https://cvefeed.io/vuln/detail/CVE-2026-59705",
+        "CVE references: CVE-2026-59705 (traceable to NVD)",
+        "NVD record: https://nvd.nist.gov/vuln/detail/CVE-2026-59705",
         "NVD status: PRELIMINARY"
       ],
       "known_limitations": [
@@ -1099,7 +512,788 @@
       },
       "evidence_version": "P20.1"
     },
-    "ioc_fp_removed": 2,
+    "ioc_fp_removed": 1,
+    "evidence_ledger": {
+      "source_count": 1,
+      "verified_sources": 0,
+      "ioc_count": 1,
+      "ttp_count": 2,
+      "cve_count": 1,
+      "confidence_score": 25,
+      "evidence_strength": "LOW",
+      "ledger_generated": true
+    },
+    "confidence_reason": [
+      "1 IOC(s) extracted",
+      "2 ATT&CK technique(s) mapped"
+    ],
+    "cti_tier": "FREE_INFORMATIONAL",
+    "verification_status": "UNVERIFIED",
+    "attribution_status": "UNATTRIBUTED",
+    "source_reliability": "UNRATED",
+    "ioc_quality": "MEDIUM",
+    "ttp_quality": "MEDIUM",
+    "report_quality": "INFORMATIONAL",
+    "actor": null,
+    "actor_name": null,
+    "actor_confidence": 0,
+    "verified_actor": false,
+    "campaign_name": null,
+    "campaign_id": null,
+    "campaign_status": "UNVERIFIED",
+    "publication_decision": "ALLOW_WITH_WARNING",
+    "intelligence_grade": "B",
+    "evidence_count": 2,
+    "corroboration_count": 2,
+    "ioc_quality_score": 23,
+    "ioc_quality_label": "LOW",
+    "real_ioc_count": 0,
+    "attck_verification": "EVIDENCE_BASED",
+    "attck_notes": [
+      "Derived from CVE description: unauthenticated access"
+    ],
+    "risk_score_reasoning": "{\"formula\": \"v1.0.0-deterministic\", \"inputs\": {\"cvss_score\": 9.8, \"epss_pct\": 0.0, \"kev_confirmed\": false, \"verified_actor\": false, \"real_ioc_count\": 1}, \"components\": {\"base_cvss\": 3.92, \"epss_boost\": 0.0, \"kev_boost\": 0.0, \"actor_boost\": 0.0, \"ioc_boost\": 0.2}, \"computed_score\": 4.12, \"notes\": [\"EPSS absent for CVE item \\u2014 enrich from FIRST.org API\", \"Critical CVSS without KEV confirmation \\u2014 monitor for escalation\"]}",
+    "analyst_verdict": "ALLOW — Grade B: strong CVE intelligence. Verified CVE, CVSS>=8.0, evidence-based ATT&CK, multi-source corroboration.",
+    "grade_notes": [
+      "Partial verification: CVSS 9.8"
+    ],
+    "grade_engine_version": "v2.0.0",
+    "graded_at": "2026-07-08T05:43:59.566266+00:00",
+    "attck_tactics": [],
+    "ioc_count_raw": 1,
+    "allowed_content_tier": "enterprise_dossier",
+    "premium_eligible": true,
+    "enterprise_eligible": true,
+    "mssp_eligible": true,
+    "governor_version": "1.0.0",
+    "governed_at": "2026-07-08T05:44:00.423928+00:00",
+    "governor_audit_log": [
+      "M3: attck_technique_ids cleared — verification='NOT_VERIFIED' (no evidence)",
+      "M4: risk_score raised 4.1→8.5 [severity=CRITICAL → floor 8.5; CVSS=9.8 ≥ 9.0 → floor 8.5]",
+      "M5: ioc_count zeroed (1→0) — no operational indicators found"
+    ],
+    "actor_confidence_label": "NONE",
+    "attribution_assessment": {
+      "status": "UNATTRIBUTED",
+      "confidence": "NONE",
+      "evidence_count": 0,
+      "verdict": "No actor claimed — correct",
+      "engine_version": "1.0.0"
+    },
+    "corroboration_score": 40,
+    "corroboration_strength": "MODERATE",
+    "corroboration_sources": [
+      "CVE Feed",
+      "NVD/CVE-Database"
+    ],
+    "detection_quality_status": "DETECTION_PARTIALLY_READY",
+    "detection_production_ready": true,
+    "detection_rules_total": 3,
+    "detection_rules_production_ready": 1,
+    "grade_notes_v2": [
+      "Grade B: CVE verified; CVSS=9.8; 2 sources; evidence-based ATT&CK; corroboration=40"
+    ],
+    "graded_at_v2": "2026-07-08T05:44:00.301062+00:00"
+  },
+  {
+    "id": "intel--f0e37e93d2a46e11c0ab6284",
+    "stix_id": "intel--f0e37e93d2a46e11c0ab6284",
+    "bundle_id": "bundle--e1d05705-22b7-4642-ac89-8a8d9fda5be4",
+    "title": "CVE-2026-55490 - OpenWrt: EAD Integer Underflow  Pre-Auth Denial of Service",
+    "processed_at": "2026-07-08T01:35:03Z",
+    "published_at": "2026-07-07T22:16:54Z",
+    "timestamp": "2026-07-07T22:16:54Z",
+    "risk_score": 8.5,
+    "severity": "CRITICAL",
+    "report_url": "https://intel.cyberdudebivash.com/reports/2026/07/intel--f0e37e93d2a46e11c0ab6284.html",
+    "source_url": "https://cvefeed.io/vuln/detail/CVE-2026-55490",
+    "tlp": "TLP:GREEN",
+    "tags": [
+      "T1190",
+      "T1059"
+    ],
+    "generated_at": "2026-07-08T01:35:03Z",
+    "confidence_score": 17,
+    "confidence": 0.17,
+    "tlp_label": "TLP:GREEN",
+    "ioc_counts": {
+      "url": 1
+    },
+    "actor_tag": null,
+    "mitre_tactics": [],
+    "ttps": [],
+    "feed_source": "CVE Feed",
+    "source": "CVE Feed",
+    "threat_type": "Vulnerability",
+    "indicator_count": 21,
+    "stix_file": "CDB-APEX-1783474503.json",
+    "cvss_score": 9.1,
+    "epss_score": null,
+    "kev_present": false,
+    "status": "active",
+    "extended_metrics": {},
+    "nvd_url": "https://nvd.nist.gov/vuln/detail/CVE-2026-55490",
+    "supply_chain": false,
+    "stix_object_count": 27,
+    "stix_version": "2.1",
+    "schema_version": "v134.0",
+    "published": "2026-07-07T22:16:54Z",
+    "validation_status": "enriched",
+    "validated_at": "2026-07-08T01:35:03Z",
+    "iocs": [
+      {
+        "type": "url",
+        "value": "https://cvefeed.io/vuln/detail/CVE-2026-55490",
+        "confidence": 31.0,
+        "confidence_factors": {
+          "ioc_type": 70.0,
+          "source_trust": 40.0,
+          "mitre_mapping": 0.0,
+          "kev_presence": 0.0,
+          "weighted_raw": 31.0,
+          "synthetic": false,
+          "kev_linked": false
+        },
+        "confidence_version": "1.0",
+        "first_seen": "2026-07-07T22:16:54Z",
+        "last_seen": "2026-07-08T01:35:03Z",
+        "kill_chain_stage": "Delivery / Initial Access",
+        "response_guidance": "Block at web proxy. Search for access in web/proxy logs. Add to SIEM correlation rule.",
+        "detection_guidance": "Monitor proxy/web filter logs, browser history, and HTTP inspection rules.",
+        "context": "URL indicator associated with advisory: CVE-2026-55490 - OpenWrt: EAD Integer Underflow  Pre-Auth De (CVE-2026-55490). Confidence: 31.0%",
+        "validation_status": "LOW_CONFIDENCE",
+        "p20_hardened": true
+      }
+    ],
+    "iocs_by_type": {
+      "url": [
+        "https://cvefeed.io/vuln/detail/CVE-2026-55490"
+      ],
+      "cve": [
+        "CVE-2026-14380",
+        "CVE-2026-14739",
+        "CVE-2026-14740",
+        "CVE-2026-14895",
+        "CVE-2026-36162",
+        "CVE-2026-36163",
+        "CVE-2026-37270",
+        "CVE-2026-37271",
+        "CVE-2026-50810",
+        "CVE-2026-50811",
+        "CVE-2026-51937",
+        "CVE-2026-55076",
+        "CVE-2026-55077",
+        "CVE-2026-55078",
+        "CVE-2026-55490",
+        "CVE-2026-58266",
+        "CVE-2026-59153",
+        "CVE-2026-59704",
+        "CVE-2026-59705",
+        "CVE-2026-59706"
+      ]
+    },
+    "ioc_count": 0,
+    "ioc_confidence": 80.0,
+    "ioc_threat_level": "CRITICAL",
+    "ioc_extraction_meta": {},
+    "stix_bundle_url": "https://intel.cyberdudebivash.com/data/stix/CDB-APEX-1783474503.json",
+    "internal_report_url": "https://intel.cyberdudebivash.com/reports/2026/07/intel--f0e37e93d2a46e11c0ab6284.html",
+    "stix_bundle": "https://intel.cyberdudebivash.com/data/stix/CDB-APEX-1783474503.json",
+    "apex": {
+      "priority": "P4",
+      "threat_level": "MEDIUM",
+      "threat_category": "Threat Intel",
+      "predictive_score": 0.4,
+      "campaign_id": null,
+      "confidence": 0.4,
+      "behavioral_tags": [],
+      "ai_summary": "execution chain: impact",
+      "recommended_action": "Medium severity threat (score 4.9/10) — limited technical indicators in source data"
+    },
+    "description": "CVE-2026-55490 - OpenWrt: EAD Integer Underflow Pre-Auth Denial of Service",
+    "source_domain": "nvd.nist.gov",
+    "source_trust_score": 0.6,
+    "is_published": true,
+    "cve_ids": [
+      "CVE-2026-55490"
+    ],
+    "affected_products": [],
+    "kill_chain_phases": [],
+    "is_new": false,
+    "kill_chain_phase": "Impact",
+    "attack_vector": "NETWORK",
+    "source_quality": "MEDIUM",
+    "enrichment_score": 75,
+    "pdf_url": "/reports/pdf/intel--f0e37e93d2a46e11c0ab6284.pdf",
+    "pdf_available": true,
+    "_governance_rules": "NO_GOVERNANCE_RULES_FIRED",
+    "_score_details": {
+      "kev": false,
+      "active_exploit": false,
+      "ransomware": false,
+      "zero_day": false,
+      "cvss": 0.74,
+      "epss": null
+    },
+    "apex_ai": {
+      "soc_priority": "P4",
+      "predictive_risk": 0.6,
+      "ai_confidence": 31,
+      "ttp_density": 3.0,
+      "threat_level": "LOW",
+      "threat_category": "Vulnerability",
+      "ai_summary": "[P4] Vulnerability - low severity (Risk 0.74/10). MITRE ATT&CK mapped: T1190, T1059 (2 techniques). 21 indicators detected - upgrade to Pro for full IOC access. Actor attribution: CDB-UNATTR-CVE. AI confidence: LOW (31%) - limited source data available.",
+      "recommended_action": "LOW PRIORITY - Monitor for escalation. Apply patch in next maintenance window. Review Vulnerability detection coverage.",
+      "campaign_id": "UNCLASSIFIED",
+      "actor_fingerprint": "CDB-UNATTR-CVE::L::21::2",
+      "behavioral_tags": [
+        "CODE-EXECUTION",
+        "HIGH-IOC-DENSITY"
+      ],
+      "kill_chain": [
+        "Initial Access",
+        "Execution"
+      ],
+      "paywall": null
+    },
+    "ioc_paywall": {
+      "locked": true,
+      "count": 21,
+      "confidence": 80.0,
+      "threat_level": "CRITICAL",
+      "primary_types": [
+        "cve"
+      ],
+      "upgrade_url": "/upgrade.html?plan=pro",
+      "message": "21 IOC(s) at 80.0% confidence - unlock with Pro tier."
+    },
+    "cve_id": "CVE-2026-55490",
+    "nvd_status": "PRELIMINARY",
+    "nvd_checked_at": "2026-07-08T01:49:15.736818+00:00",
+    "nvd_disclosure": "This CVE ID was not found in the NIST NVD database at time of enrichment. Intelligence is preliminary and unverified by NVD. CVSS score and severity are analyst-estimated until NVD confirmation.",
+    "_enriched_at": "2026-07-08T01:49:15.736819+00:00",
+    "_enriched_by": "enrich_cvss_epss_batch.py v185.0",
+    "blog_url": "https://intel.cyberdudebivash.com/reports/intel--f0e37e93d2a46e11c0ab6284/",
+    "_quality_hardened_at": "2026-07-08T05:42:49.021325+00:00",
+    "_quality_version": "184.0",
+    "mitre_group_name": "Unattributed CVE Exploiter",
+    "mitre_group_aliases": [],
+    "actor_country": "Unknown",
+    "actor_motivation": [
+      "unknown"
+    ],
+    "sigma_rule": "title: SENTINEL APEX — CVE-2026-55490 - OpenWrt EAD Integer Underflow  Pre-Auth Denial of Service\nid: e1ba77f0-5848-5869-8db1-65975344c150\nstatus: experimental\ndescription: |\n    Detects exploitation attempts related to CVE-2026-55490 (Web Application).\n    Generated by CYBERDUDEBIVASH SENTINEL APEX v166.2.\n    Severity: LOW | Class: DOS\nreferences:\n    - https://intel.cyberdudebivash.com\n    - https://nvd.nist.gov/vuln/detail/CVE-2026-55490\nauthor: CYBERDUDEBIVASH SENTINEL APEX Detection Engineering\ndate: 2026/07/08\nmodified: 2026/07/08\ntags:\n    - attack.initial_access\nlogsource:\n    category: network_connection\n    product: generic\ndetection:\n    selection:\n        EventID:\n            - 4625\n            - 4648\n            - 4728\n        LogonType: 3\n    condition: selection\nfalsepositives:\n    - Legitimate administrative access\n    - Service account activity\nlevel: low\n",
+    "kql_query": "// SENTINEL APEX — CVE-2026-55490 — Anomalous Activity Detection\n// Product: Web Application | Generated: 2026-07-08T01:50:21Z\nlet lookback = 1d;\nSecurityEvent\n| where TimeGenerated > ago(lookback)\n| where EventID in (4625, 4648, 4728, 4740, 4776)\n| summarize FailureCount = count(), DistinctTargets = dcount(TargetUserName)\n    by IpAddress, bin(TimeGenerated, 1h)\n| where FailureCount > 10 or DistinctTargets > 5\n| extend Severity = \"MEDIUM\", CVE = \"CVE-2026-55490\", RuleSource = \"SENTINEL-APEX\"\n| order by TimeGenerated desc",
+    "suricata_rule": "alert http $EXTERNAL_NET any -> $HTTP_SERVERS $HTTP_PORTS (msg:\"SENTINEL-APEX CVE-2026-55490 Exploitation Attempt - DOS\"; flow:established,to_server; content:\"|90 90 90 90|\"; rawbytes; threshold:type threshold, track by_src, count 3, seconds 60; classtype:web-application-attack; sid:4239450; rev:1; metadata:created_at 2026-07-08, source SENTINEL-APEX-v166.2;)",
+    "vuln_class": "dos",
+    "detection_generated_at": "2026-07-08T01:50:21Z",
+    "cvss_vector": "",
+    "cvss_source": "keyword_estimate",
+    "cvss_estimated": true,
+    "exploit_maturity": "UNPROVEN",
+    "exploit_count": 0,
+    "exploit_refs": [],
+    "metasploit_available": false,
+    "poc_github_count": 0,
+    "actor_display_name": null,
+    "actor_aliases": [
+      "Unattributed"
+    ],
+    "actor_sectors": [],
+    "actor_ttps": [],
+    "actor_malware": [],
+    "actor_threat_level": "UNKNOWN",
+    "actor_mitre_id": null,
+    "iq_score": 25,
+    "iq_breakdown": {
+      "source": 10,
+      "enrichment": 10,
+      "attribution": 5,
+      "corroboration": 0
+    },
+    "intelligence_age_days": 0.1,
+    "attck_technique_ids": [
+      "T1190"
+    ],
+    "attck_techniques": [
+      {
+        "technique_id": "T1190",
+        "technique_name": "Exploit Public-Facing Application",
+        "attack_justification": "CVE description confirms exploitation of a public-facing application without authentication",
+        "attack_evidence": "CVE-2026-55490 — cve-2026-55490 - openwrt: ead integer underflow  pre-auth denial of service cve-2026-55490 - openwrt: ead integer underf...",
+        "attack_source": "CVE Feed",
+        "mapping_method": "cve_description_derivation",
+        "verification_status": "EVIDENCE_BASED",
+        "matched_pattern": "pre.auth",
+        "source_reference": "",
+        "mapping_reason": ""
+      }
+    ],
+    "confidence_label": "MEDIUM_CONFIDENCE",
+    "confidence_score_v2": 32,
+    "confidence_rationale": "Medium confidence — CVSS score 9.1 (Critical)",
+    "confidence_factors": [
+      {
+        "factor": "cvss_critical",
+        "weight": 15,
+        "signal": "CVSS score 9.1 (Critical)"
+      },
+      {
+        "factor": "cve_referenced",
+        "weight": 5,
+        "signal": "CVE(s) referenced: CVE-2026-55490"
+      },
+      {
+        "factor": "iocs_5plus",
+        "weight": 8,
+        "signal": "21 IOCs extracted and verified"
+      },
+      {
+        "factor": "ttps_2to4",
+        "weight": 4,
+        "signal": "2 MITRE ATT&CK TTPs mapped"
+      }
+    ],
+    "sources_reporting": 1,
+    "corroborating_sources": [],
+    "revenue_opportunities": [
+      "VULNERABILITY_ASSESSMENT"
+    ],
+    "sla_priority": "P4",
+    "action_deadline_hours": 720,
+    "recommended_sla_action": "MONITOR — Assess in next vulnerability review cycle",
+    "confidence_enriched_at": "2026-07-08T01:51:18Z",
+    "confidence_engine_version": "1.0.1",
+    "apex_ai_summary": "[P4] Vulnerability - low severity (Risk 0.74/10). MITRE ATT&CK mapped: T1190, T1059 (2 techniques). 21 indicators detected - upgrade to Pro for full IOC access. Actor attribution: CDB-UNATTR-CVE. AI confidence: LOW (31%) - limited source data available.",
+    "apex_ai_score": 0.6,
+    "_risk_micro_adj": 0.25,
+    "evidence_chain": {
+      "evidence_id": "EVD-F0E37E93D2A4",
+      "source_url": "https://cvefeed.io/vuln/detail/CVE-2026-55490",
+      "source_name": "CVE Feed",
+      "source_category": "Unclassified source: cvefeed.io",
+      "source_reliability": "D — Not Usually Reliable",
+      "reliability_code": "D",
+      "accuracy_code": "3",
+      "accuracy_label": "Possibly true",
+      "collection_time": "2026-07-07T22:16:54Z",
+      "verification_time": "2026-07-08T01:35:03Z",
+      "collection_method": "Automated OSINT Pipeline (SENTINEL APEX v184.0)",
+      "analyst_review": "Automated — Pending Human Review",
+      "corroboration_count": 0,
+      "corroborating_sources": [],
+      "intelligence_freshness": "Very Fresh (<6h)",
+      "confidence_pct": 21.3,
+      "chain_of_custody": [
+        "[2026-07-08T01:35:03Z] Item ingested by SENTINEL APEX ingest pipeline",
+        "[2026-07-07T22:16:54Z] Advisory published by CVE Feed",
+        "Source URL verified: https://cvefeed.io/vuln/detail/CVE-2026-55490",
+        "CVE references: CVE-2026-55490 (traceable to NVD)",
+        "NVD record: https://nvd.nist.gov/vuln/detail/CVE-2026-55490",
+        "NVD status: PRELIMINARY"
+      ],
+      "known_limitations": [
+        "Source reliability not independently verified",
+        "No independent corroboration sources identified",
+        "Threat actor attribution unresolved"
+      ],
+      "iq_breakdown": {
+        "source": 10,
+        "enrichment": 10,
+        "attribution": 5,
+        "corroboration": 0
+      },
+      "evidence_version": "P20.1"
+    },
+    "ioc_fp_removed": 20,
+    "evidence_ledger": {
+      "source_count": 1,
+      "verified_sources": 0,
+      "ioc_count": 1,
+      "ttp_count": 2,
+      "cve_count": 1,
+      "confidence_score": 25,
+      "evidence_strength": "LOW",
+      "ledger_generated": true
+    },
+    "confidence_reason": [
+      "1 IOC(s) extracted",
+      "2 ATT&CK technique(s) mapped"
+    ],
+    "cti_tier": "FREE_INFORMATIONAL",
+    "verification_status": "UNVERIFIED",
+    "attribution_status": "UNATTRIBUTED",
+    "source_reliability": "UNRATED",
+    "ioc_quality": "MEDIUM",
+    "ttp_quality": "MEDIUM",
+    "report_quality": "INFORMATIONAL",
+    "actor": null,
+    "actor_name": null,
+    "actor_confidence": 0,
+    "verified_actor": false,
+    "campaign_name": null,
+    "campaign_id": null,
+    "campaign_status": "UNVERIFIED",
+    "publication_decision": "ALLOW_WITH_WARNING",
+    "intelligence_grade": "B",
+    "evidence_count": 2,
+    "corroboration_count": 2,
+    "ioc_quality_score": 23,
+    "ioc_quality_label": "LOW",
+    "real_ioc_count": 0,
+    "attck_verification": "EVIDENCE_BASED",
+    "attck_notes": [
+      "Derived from CVE description: pre.auth"
+    ],
+    "risk_score_reasoning": "{\"formula\": \"v1.0.0-deterministic\", \"inputs\": {\"cvss_score\": 9.1, \"epss_pct\": 0.0, \"kev_confirmed\": false, \"verified_actor\": false, \"real_ioc_count\": 1}, \"components\": {\"base_cvss\": 3.64, \"epss_boost\": 0.0, \"kev_boost\": 0.0, \"actor_boost\": 0.0, \"ioc_boost\": 0.2}, \"computed_score\": 3.84, \"notes\": [\"EPSS absent for CVE item \\u2014 enrich from FIRST.org API\", \"Critical CVSS without KEV confirmation \\u2014 monitor for escalation\"]}",
+    "analyst_verdict": "ALLOW — Grade B: strong CVE intelligence. Verified CVE, CVSS>=8.0, evidence-based ATT&CK, multi-source corroboration.",
+    "grade_notes": [
+      "Partial verification: CVSS 9.1"
+    ],
+    "grade_engine_version": "v2.0.0",
+    "graded_at": "2026-07-08T05:43:59.567406+00:00",
+    "attck_tactics": [],
+    "ioc_count_raw": 1,
+    "allowed_content_tier": "enterprise_dossier",
+    "premium_eligible": true,
+    "enterprise_eligible": true,
+    "mssp_eligible": true,
+    "governor_version": "1.0.0",
+    "governed_at": "2026-07-08T05:44:00.424026+00:00",
+    "governor_audit_log": [
+      "M3: attck_technique_ids cleared — verification='NOT_VERIFIED' (no evidence)",
+      "M4: risk_score raised 3.8→8.5 [severity=CRITICAL → floor 8.5; CVSS=9.1 ≥ 9.0 → floor 8.5]",
+      "M5: ioc_count zeroed (1→0) — no operational indicators found"
+    ],
+    "actor_confidence_label": "NONE",
+    "attribution_assessment": {
+      "status": "UNATTRIBUTED",
+      "confidence": "NONE",
+      "evidence_count": 0,
+      "verdict": "No actor claimed — correct",
+      "engine_version": "1.0.0"
+    },
+    "corroboration_score": 40,
+    "corroboration_strength": "MODERATE",
+    "corroboration_sources": [
+      "CVE Feed",
+      "NVD/CVE-Database"
+    ],
+    "detection_quality_status": "DETECTION_PARTIALLY_READY",
+    "detection_production_ready": true,
+    "detection_rules_total": 3,
+    "detection_rules_production_ready": 1,
+    "grade_notes_v2": [
+      "Grade B: CVE verified; CVSS=9.1; 2 sources; evidence-based ATT&CK; corroboration=40"
+    ],
+    "graded_at_v2": "2026-07-08T05:44:00.301128+00:00"
+  },
+  {
+    "id": "intel--e1cf8f88ce884cd6d95215e8",
+    "stix_id": "intel--e1cf8f88ce884cd6d95215e8",
+    "bundle_id": "bundle--14f40d3a-48b2-4db9-a696-91ce562d8a86",
+    "title": "CVE-2026-59706 - mem0 - Server-Side Request Forgery and Plaintext API Key Exposure via Unauthenticated Config Endpoints",
+    "processed_at": "2026-07-08T01:34:53Z",
+    "published_at": "2026-07-07T22:16:54Z",
+    "timestamp": "2026-07-07T22:16:54Z",
+    "risk_score": 8.5,
+    "severity": "CRITICAL",
+    "report_url": "https://intel.cyberdudebivash.com/reports/2026/07/intel--e1cf8f88ce884cd6d95215e8.html",
+    "source_url": "https://cvefeed.io/vuln/detail/CVE-2026-59706",
+    "tlp": "TLP:CLEAR",
+    "tags": [
+      "T1190",
+      "T1210",
+      "T1059"
+    ],
+    "generated_at": "2026-07-08T01:34:53Z",
+    "confidence_score": 19,
+    "confidence": 0.19,
+    "tlp_label": "TLP:CLEAR",
+    "ioc_counts": {
+      "url": 1
+    },
+    "actor_tag": null,
+    "mitre_tactics": [],
+    "ttps": [],
+    "feed_source": "CVE Feed",
+    "source": "CVE Feed",
+    "threat_type": "Vulnerability",
+    "indicator_count": 18,
+    "stix_file": "CDB-APEX-1783474493.json",
+    "cvss_score": 9.3,
+    "epss_score": null,
+    "kev_present": false,
+    "status": "active",
+    "extended_metrics": {},
+    "nvd_url": "https://nvd.nist.gov/vuln/detail/CVE-2026-59706",
+    "supply_chain": false,
+    "stix_object_count": 34,
+    "stix_version": "2.1",
+    "schema_version": "v134.0",
+    "published": "2026-07-07T22:16:54Z",
+    "validation_status": "enriched",
+    "validated_at": "2026-07-08T01:34:53Z",
+    "iocs": [
+      {
+        "type": "url",
+        "value": "https://cvefeed.io/vuln/detail/CVE-2026-59706",
+        "confidence": 31.0,
+        "confidence_factors": {
+          "ioc_type": 70.0,
+          "source_trust": 40.0,
+          "mitre_mapping": 0.0,
+          "kev_presence": 0.0,
+          "weighted_raw": 31.0,
+          "synthetic": false,
+          "kev_linked": false
+        },
+        "confidence_version": "1.0",
+        "first_seen": "2026-07-07T22:16:54Z",
+        "last_seen": "2026-07-08T01:34:53Z",
+        "kill_chain_stage": "Delivery / Initial Access",
+        "response_guidance": "Block at web proxy. Search for access in web/proxy logs. Add to SIEM correlation rule.",
+        "detection_guidance": "Monitor proxy/web filter logs, browser history, and HTTP inspection rules.",
+        "context": "URL indicator associated with advisory: CVE-2026-59706 - mem0 - Server-Side Request Forgery and Plai (CVE-2026-59706). Confidence: 31.0%",
+        "validation_status": "LOW_CONFIDENCE",
+        "p20_hardened": true
+      }
+    ],
+    "iocs_by_type": {
+      "url": [
+        "https://cvefeed.io/vuln/detail/CVE-2026-59706"
+      ],
+      "cve": [
+        "CVE-2026-14380",
+        "CVE-2026-14739",
+        "CVE-2026-14740",
+        "CVE-2026-14895",
+        "CVE-2026-36162",
+        "CVE-2026-36163",
+        "CVE-2026-37270",
+        "CVE-2026-37271",
+        "CVE-2026-50810",
+        "CVE-2026-50811",
+        "CVE-2026-51937",
+        "CVE-2026-55076",
+        "CVE-2026-55077",
+        "CVE-2026-55078",
+        "CVE-2026-59704",
+        "CVE-2026-59705",
+        "CVE-2026-59706"
+      ]
+    },
+    "ioc_count": 0,
+    "ioc_confidence": 80.0,
+    "ioc_threat_level": "CRITICAL",
+    "ioc_extraction_meta": {},
+    "stix_bundle_url": "https://intel.cyberdudebivash.com/data/stix/CDB-APEX-1783474493.json",
+    "internal_report_url": "https://intel.cyberdudebivash.com/reports/2026/07/intel--e1cf8f88ce884cd6d95215e8.html",
+    "stix_bundle": "https://intel.cyberdudebivash.com/data/stix/CDB-APEX-1783474493.json",
+    "apex": {
+      "priority": "P4",
+      "threat_level": "MEDIUM",
+      "threat_category": "Web Application Attack",
+      "predictive_score": 0.4,
+      "campaign_id": null,
+      "confidence": 0.4,
+      "behavioral_tags": [],
+      "ai_summary": "Initial access via web app",
+      "recommended_action": "Low severity threat (score 3.1/10) — limited technical indicators in source data"
+    },
+    "description": "CVE-2026-59706 - mem0 - Server-Side Request Forgery and Plaintext API Key Exposure via Unauthenticated Config Endpoints",
+    "source_domain": "nvd.nist.gov",
+    "source_trust_score": 0.6,
+    "is_published": true,
+    "cve_ids": [
+      "CVE-2026-59706"
+    ],
+    "affected_products": [],
+    "kill_chain_phases": [],
+    "is_new": false,
+    "attack_vector": "NETWORK",
+    "source_quality": "MEDIUM",
+    "enrichment_score": 60,
+    "pdf_url": "/reports/pdf/intel--e1cf8f88ce884cd6d95215e8.pdf",
+    "pdf_available": true,
+    "_governance_rules": "NO_GOVERNANCE_RULES_FIRED",
+    "_score_details": {
+      "kev": false,
+      "active_exploit": false,
+      "ransomware": false,
+      "zero_day": false,
+      "cvss": 0.89,
+      "epss": null
+    },
+    "apex_ai": {
+      "soc_priority": "P4",
+      "predictive_risk": 0.7,
+      "ai_confidence": 34,
+      "ttp_density": 4.5,
+      "threat_level": "LOW",
+      "threat_category": "Web Application Attack",
+      "ai_summary": "[P4] Web Application Attack - low severity (Risk 0.89/10). MITRE ATT&CK mapped: T1190, T1210, T1059 (3 techniques). 18 indicators detected - upgrade to Pro for full IOC access. Actor attribution: CDB-UNATTR-CVE. AI confidence: LOW (34%) - limited source data available.",
+      "recommended_action": "LOW PRIORITY - Monitor for escalation. Apply patch in next maintenance window. Review Web Application Attack detection coverage.",
+      "campaign_id": "UNCLASSIFIED",
+      "actor_fingerprint": "CDB-UNATTR-CVE::L::18::3",
+      "behavioral_tags": [
+        "CODE-EXECUTION",
+        "HIGH-IOC-DENSITY"
+      ],
+      "kill_chain": [
+        "Initial Access",
+        "Execution"
+      ],
+      "paywall": null
+    },
+    "ioc_paywall": {
+      "locked": true,
+      "count": 18,
+      "confidence": 80.0,
+      "threat_level": "CRITICAL",
+      "primary_types": [
+        "cve"
+      ],
+      "upgrade_url": "/upgrade.html?plan=pro",
+      "message": "18 IOC(s) at 80.0% confidence - unlock with Pro tier."
+    },
+    "cve_id": "CVE-2026-59706",
+    "nvd_status": "PRELIMINARY",
+    "nvd_checked_at": "2026-07-08T01:49:15.736821+00:00",
+    "nvd_disclosure": "This CVE ID was not found in the NIST NVD database at time of enrichment. Intelligence is preliminary and unverified by NVD. CVSS score and severity are analyst-estimated until NVD confirmation.",
+    "_enriched_at": "2026-07-08T01:49:15.736823+00:00",
+    "_enriched_by": "enrich_cvss_epss_batch.py v185.0",
+    "blog_url": "https://intel.cyberdudebivash.com/reports/intel--e1cf8f88ce884cd6d95215e8/",
+    "_quality_hardened_at": "2026-07-08T05:42:49.021334+00:00",
+    "_quality_version": "184.0",
+    "mitre_group_name": "Unattributed CVE Exploiter",
+    "mitre_group_aliases": [],
+    "actor_country": "Unknown",
+    "actor_motivation": [
+      "unknown"
+    ],
+    "sigma_rule": "title: SENTINEL APEX — CVE-2026-59706 - mem0 - Server-Side Request Forgery and Plaintext API Key Exposu\nid: fe46e0b7-c806-5035-b23d-535d439d5e73\nstatus: experimental\ndescription: |\n    Detects exploitation attempts related to CVE-2026-59706 (Web Application).\n    Generated by CYBERDUDEBIVASH SENTINEL APEX v166.2.\n    Severity: LOW | Class: GENERIC\nreferences:\n    - https://intel.cyberdudebivash.com\n    - https://nvd.nist.gov/vuln/detail/CVE-2026-59706\nauthor: CYBERDUDEBIVASH SENTINEL APEX Detection Engineering\ndate: 2026/07/08\nmodified: 2026/07/08\ntags:\n    - attack.initial_access\nlogsource:\n    category: network_connection\n    product: generic\ndetection:\n    selection:\n        EventID:\n            - 4625\n            - 4648\n            - 4728\n        LogonType: 3\n    condition: selection\nfalsepositives:\n    - Legitimate administrative access\n    - Service account activity\nlevel: low\n",
+    "kql_query": "// SENTINEL APEX — CVE-2026-59706 — Anomalous Activity Detection\n// Product: Web Application | Generated: 2026-07-08T01:50:21Z\nlet lookback = 1d;\nSecurityEvent\n| where TimeGenerated > ago(lookback)\n| where EventID in (4625, 4648, 4728, 4740, 4776)\n| summarize FailureCount = count(), DistinctTargets = dcount(TargetUserName)\n    by IpAddress, bin(TimeGenerated, 1h)\n| where FailureCount > 10 or DistinctTargets > 5\n| extend Severity = \"MEDIUM\", CVE = \"CVE-2026-59706\", RuleSource = \"SENTINEL-APEX\"\n| order by TimeGenerated desc",
+    "suricata_rule": "alert http $EXTERNAL_NET any -> $HTTP_SERVERS $HTTP_PORTS (msg:\"SENTINEL-APEX CVE-2026-59706 Exploitation Attempt - GENERIC\"; flow:established,to_server; content:\"|90 90 90 90|\"; rawbytes; threshold:type threshold, track by_src, count 3, seconds 60; classtype:web-application-attack; sid:4140681; rev:1; metadata:created_at 2026-07-08, source SENTINEL-APEX-v166.2;)",
+    "vuln_class": "generic",
+    "detection_generated_at": "2026-07-08T01:50:21Z",
+    "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:C/C:H/I:L/A:N",
+    "cvss_source": "github_advisory",
+    "exploit_maturity": "UNPROVEN",
+    "exploit_count": 0,
+    "exploit_refs": [],
+    "metasploit_available": false,
+    "poc_github_count": 0,
+    "actor_display_name": null,
+    "actor_aliases": [
+      "Unattributed"
+    ],
+    "actor_sectors": [],
+    "actor_ttps": [],
+    "actor_malware": [],
+    "actor_threat_level": "UNKNOWN",
+    "actor_mitre_id": null,
+    "iq_score": 25,
+    "iq_breakdown": {
+      "source": 10,
+      "enrichment": 10,
+      "attribution": 5,
+      "corroboration": 0
+    },
+    "intelligence_age_days": 0.1,
+    "attck_technique_ids": [
+      "T1090.002"
+    ],
+    "attck_techniques": [
+      {
+        "technique_id": "T1090.002",
+        "technique_name": "Proxy: External Proxy",
+        "attack_justification": "CVE confirms SSRF allowing requests to internal resources via server-side forgery",
+        "attack_evidence": "CVE-2026-59706 — cve-2026-59706 - mem0 - server-side request forgery and plaintext api key exposure via unauthenticated config endpoints...",
+        "attack_source": "CVE Feed",
+        "mapping_method": "cve_description_derivation",
+        "verification_status": "EVIDENCE_BASED",
+        "matched_pattern": "server.side request forgery",
+        "source_reference": "",
+        "mapping_reason": ""
+      }
+    ],
+    "confidence_label": "MEDIUM_CONFIDENCE",
+    "confidence_score_v2": 32,
+    "confidence_rationale": "Medium confidence — CVSS score 9.3 (Critical)",
+    "confidence_factors": [
+      {
+        "factor": "cvss_critical",
+        "weight": 15,
+        "signal": "CVSS score 9.3 (Critical)"
+      },
+      {
+        "factor": "cve_referenced",
+        "weight": 5,
+        "signal": "CVE(s) referenced: CVE-2026-59706"
+      },
+      {
+        "factor": "iocs_5plus",
+        "weight": 8,
+        "signal": "18 IOCs extracted and verified"
+      },
+      {
+        "factor": "ttps_2to4",
+        "weight": 4,
+        "signal": "3 MITRE ATT&CK TTPs mapped"
+      }
+    ],
+    "sources_reporting": 1,
+    "corroborating_sources": [],
+    "revenue_opportunities": [
+      "VULNERABILITY_ASSESSMENT"
+    ],
+    "sla_priority": "P4",
+    "action_deadline_hours": 720,
+    "recommended_sla_action": "MONITOR — Assess in next vulnerability review cycle",
+    "confidence_enriched_at": "2026-07-08T01:51:18Z",
+    "confidence_engine_version": "1.0.1",
+    "apex_ai_summary": "[P4] Web Application Attack - low severity (Risk 0.89/10). MITRE ATT&CK mapped: T1190, T1210, T1059 (3 techniques). 18 indicators detected - upgrade to Pro for full IOC access. Actor attribution: CDB-UNATTR-CVE. AI confidence: LOW (34%) - limited source data available.",
+    "apex_ai_score": 0.7,
+    "evidence_chain": {
+      "evidence_id": "EVD-E1CF8F88CE88",
+      "source_url": "https://cvefeed.io/vuln/detail/CVE-2026-59706",
+      "source_name": "CVE Feed",
+      "source_category": "Unclassified source: cvefeed.io",
+      "source_reliability": "D — Not Usually Reliable",
+      "reliability_code": "D",
+      "accuracy_code": "3",
+      "accuracy_label": "Possibly true",
+      "collection_time": "2026-07-07T22:16:54Z",
+      "verification_time": "2026-07-08T01:34:53Z",
+      "collection_method": "Automated OSINT Pipeline (SENTINEL APEX v184.0)",
+      "analyst_review": "Automated — Pending Human Review",
+      "corroboration_count": 0,
+      "corroborating_sources": [],
+      "intelligence_freshness": "Very Fresh (<6h)",
+      "confidence_pct": 21.3,
+      "chain_of_custody": [
+        "[2026-07-08T01:34:53Z] Item ingested by SENTINEL APEX ingest pipeline",
+        "[2026-07-07T22:16:54Z] Advisory published by CVE Feed",
+        "Source URL verified: https://cvefeed.io/vuln/detail/CVE-2026-59706",
+        "CVE references: CVE-2026-59706 (traceable to NVD)",
+        "NVD record: https://nvd.nist.gov/vuln/detail/CVE-2026-59706",
+        "NVD status: PRELIMINARY"
+      ],
+      "known_limitations": [
+        "Source reliability not independently verified",
+        "No independent corroboration sources identified",
+        "Threat actor attribution unresolved"
+      ],
+      "iq_breakdown": {
+        "source": 10,
+        "enrichment": 10,
+        "attribution": 5,
+        "corroboration": 0
+      },
+      "evidence_version": "P20.1"
+    },
+    "ioc_fp_removed": 17,
     "evidence_ledger": {
       "source_count": 1,
       "verified_sources": 0,
@@ -1137,15 +1331,15 @@
     "real_ioc_count": 0,
     "attck_verification": "EVIDENCE_BASED",
     "attck_notes": [
-      "Derived from CVE description: remote code exec"
+      "Derived from CVE description: server.side request forgery"
     ],
-    "risk_score_reasoning": "{\"formula\": \"v1.0.0-deterministic\", \"inputs\": {\"cvss_score\": 9.5, \"epss_pct\": 0.0, \"kev_confirmed\": false, \"verified_actor\": false, \"real_ioc_count\": 1}, \"components\": {\"base_cvss\": 3.8, \"epss_boost\": 0.0, \"kev_boost\": 0.0, \"actor_boost\": 0.0, \"ioc_boost\": 0.2}, \"computed_score\": 4.0, \"notes\": [\"EPSS absent for CVE item \\u2014 enrich from FIRST.org API\", \"Critical CVSS without KEV confirmation \\u2014 monitor for escalation\"]}",
+    "risk_score_reasoning": "{\"formula\": \"v1.0.0-deterministic\", \"inputs\": {\"cvss_score\": 9.3, \"epss_pct\": 0.0, \"kev_confirmed\": false, \"verified_actor\": false, \"real_ioc_count\": 1}, \"components\": {\"base_cvss\": 3.72, \"epss_boost\": 0.0, \"kev_boost\": 0.0, \"actor_boost\": 0.0, \"ioc_boost\": 0.2}, \"computed_score\": 3.92, \"notes\": [\"EPSS absent for CVE item \\u2014 enrich from FIRST.org API\", \"Critical CVSS without KEV confirmation \\u2014 monitor for escalation\"]}",
     "analyst_verdict": "ALLOW — Grade B: strong CVE intelligence. Verified CVE, CVSS>=8.0, evidence-based ATT&CK, multi-source corroboration.",
     "grade_notes": [
-      "Partial verification: CVSS 9.5"
+      "Partial verification: CVSS 9.3"
     ],
     "grade_engine_version": "v2.0.0",
-    "graded_at": "2026-07-07T22:07:36.470082+00:00",
+    "graded_at": "2026-07-08T05:43:59.567487+00:00",
     "attck_tactics": [],
     "ioc_count_raw": 1,
     "allowed_content_tier": "enterprise_dossier",
@@ -1153,10 +1347,10 @@
     "enterprise_eligible": true,
     "mssp_eligible": true,
     "governor_version": "1.0.0",
-    "governed_at": "2026-07-07T22:07:37.232980+00:00",
+    "governed_at": "2026-07-08T05:44:00.424044+00:00",
     "governor_audit_log": [
       "M3: attck_technique_ids cleared — verification='NOT_VERIFIED' (no evidence)",
-      "M4: risk_score raised 4.0→8.5 [severity=CRITICAL → floor 8.5; CVSS=9.5 ≥ 9.0 → floor 8.5]",
+      "M4: risk_score raised 3.9→8.5 [severity=CRITICAL → floor 8.5; CVSS=9.3 ≥ 9.0 → floor 8.5]",
       "M5: ioc_count zeroed (1→0) — no operational indicators found"
     ],
     "actor_confidence_label": "NONE",
@@ -1178,855 +1372,53 @@
     "detection_rules_total": 3,
     "detection_rules_production_ready": 1,
     "grade_notes_v2": [
-      "Grade B: CVE verified; CVSS=9.5; 2 sources; evidence-based ATT&CK; corroboration=40"
+      "Grade B: CVE verified; CVSS=9.3; 2 sources; evidence-based ATT&CK; corroboration=40"
     ],
-    "graded_at_v2": "2026-07-07T22:07:37.126152+00:00"
+    "graded_at_v2": "2026-07-08T05:44:00.301138+00:00"
   },
   {
-    "id": "intel--6f1d9a16b3c7abb3",
-    "stix_id": "intel--6f1d9a16b3c7abb3",
-    "title": "Exploit for CVE-2026-23697 exploit",
-    "description": "Exploit for CVE-2026-23697 exploit",
-    "source_url": "https://sploitus.com/exploit?id=1870CB5D-0489-53DE-9322-1CFCFA00D128&utm_source=rss&utm_medium=rss",
-    "feed_source": "rss_sploitus_com_rss",
-    "published_at": "2026-07-07T16:26:04Z",
-    "processed_at": "2026-07-07T19:31:47Z",
-    "timestamp": "2026-07-07T16:26:04Z",
-    "severity": "HIGH",
-    "risk_score": 7.0,
-    "threat_type": "Threat Intelligence",
-    "tags": [
-      "CVE-2026-23697",
-      "rss",
-      "sploitus.com"
-    ],
-    "cves": [
-      "CVE-2026-23697"
-    ],
-    "iocs": [],
-    "ioc_count": 0,
-    "tlp": "TLP:CLEAR",
-    "actor_tag": null,
-    "apex_ai_summary": "[HIGH] THREAT-INTEL advisory. Risk score 7.0/10. Full APEX AI analysis available to Pro subscribers.",
-    "apex_ai_score": 7.0,
-    "status": "active",
-    "schema_version": "v134.0",
-    "threat_level": "MEDIUM",
-    "threat_category": "Threat Intelligence",
-    "source_trust_score": 0.6,
-    "published": "2026-07-07T16:26:04Z",
-    "report_url": "https://intel.cyberdudebivash.com/reports/2026/07/intel--6f1d9a16b3c7abb3.html",
-    "validation_status": "enriched",
-    "iocs_by_type": {
-      "cve": [
-        "CVE-2026-23697"
-      ]
-    },
-    "ioc_confidence": 7.0,
-    "ioc_threat_level": "LOW",
-    "ioc_extraction_meta": {
-      "types_found": [
-        "cve"
-      ],
-      "counts_by_type": {
-        "cve": 1
-      },
-      "text_length": 70,
-      "had_existing": false
-    },
-    "is_published": true,
-    "source": "rss_sploitus_com_rss",
-    "cve_ids": [
-      "CVE-2026-23697"
-    ],
-    "ttps": [],
-    "mitre_tactics": [],
-    "affected_products": [],
-    "kill_chain_phases": [],
-    "is_new": false,
-    "attack_vector": "NETWORK",
-    "source_quality": "MEDIUM",
-    "enrichment_score": 25,
-    "indicator_count": 1,
-    "internal_report_url": "https://intel.cyberdudebivash.com/reports/2026/07/intel--6f1d9a16b3c7abb3.html",
-    "research_based": true,
-    "ioc_note": "Actor-attribution campaign — IOC set derived from threat actor research, not automated feed extraction.",
-    "pdf_url": "/reports/pdf/intel--6f1d9a16b3c7abb3.pdf",
-    "pdf_available": true,
-    "_governance_rules": "CVSS=7.0>=7.0→MEDIUM_FLOOR",
-    "_score_details": {
-      "kev": false,
-      "active_exploit": false,
-      "ransomware": false,
-      "zero_day": false,
-      "cvss": 7.0,
-      "epss": null
-    },
-    "apex_ai": {
-      "soc_priority": "P2",
-      "predictive_risk": 2.8,
-      "ai_confidence": 22,
-      "ttp_density": 0.0,
-      "threat_level": "ELEVATED",
-      "threat_category": "CVE / Vulnerability",
-      "ai_summary": "[P2] CVE / Vulnerability - high severity (Risk 7.0/10). No MITRE ATT&CK techniques mapped - limited adversarial context. 1 indicator detected - upgrade to Pro for full IOC access. AI confidence: LOW (22%) - limited source data available.",
-      "recommended_action": "HIGH PRIORITY - Patch within 72 hours. Monitor affected assets. Review threat hunting queries for related TTPs.",
-      "campaign_id": "UNCLASSIFIED",
-      "actor_fingerprint": "UNC-CDB-INGEST::H::1::0",
-      "behavioral_tags": [],
-      "kill_chain": [
-        "Initial Access",
-        "Execution"
-      ],
-      "paywall": {
-        "message": "Upgrade to Pro for full kill chain analysis, actor attribution, and 30-day threat forecast.",
-        "upgrade_url": "/upgrade.html?plan=pro",
-        "urgency": "[SOC P2] CVE / Vulnerability - HIGH severity threat detected."
-      }
-    },
-    "apex": {
-      "priority": "P2",
-      "threat_level": "ELEVATED",
-      "threat_category": "CVE / Vulnerability",
-      "predictive_score": 2.8,
-      "campaign_id": null,
-      "confidence": 22.0,
-      "behavioral_tags": [],
-      "ai_summary": "[P2] CVE / Vulnerability - high severity (Risk 7.0/10). No MITRE ATT&CK techniques mapped - limited adversarial context. 1 indicator detected - upgrade to Pro for full IOC access. AI confidence: LOW (22%) - limited source data available.",
-      "recommended_action": "HIGH PRIORITY - Patch within 72 hours. Monitor affected assets. Review threat hunting queries for related TTPs."
-    },
-    "ioc_paywall": {
-      "locked": true,
-      "count": 1,
-      "confidence": 7.0,
-      "threat_level": "LOW",
-      "primary_types": [],
-      "upgrade_url": "/upgrade.html?plan=pro",
-      "message": "1 IOC(s) at 7.0% confidence - unlock with Pro tier."
-    },
-    "confidence_score": 12,
-    "confidence": 0.12,
-    "cve_id": "CVE-2026-23697",
-    "nvd_status": "PRELIMINARY",
-    "nvd_checked_at": "2026-07-07T21:37:37.154007+00:00",
-    "nvd_disclosure": "This CVE ID was not found in the NIST NVD database at time of enrichment. Intelligence is preliminary and unverified by NVD. CVSS score and severity are analyst-estimated until NVD confirmation.",
-    "_enriched_at": "2026-07-07T21:37:37.154011+00:00",
-    "_enriched_by": "enrich_cvss_epss_batch.py v185.0",
-    "blog_url": "https://intel.cyberdudebivash.com/reports/intel--6f1d9a16b3c7abb3/",
-    "ioc_types": [
-      "ip_address",
-      "domain"
-    ],
-    "_quality_hardened_at": "2026-07-07T22:06:24.778286+00:00",
-    "_quality_version": "184.0",
-    "kev_present": false,
-    "sigma_rule": "title: SENTINEL APEX — Exploit for CVE-2026-23697 exploit\nid: ca9c1579-4dcd-5a89-9a1c-6d3339e15715\nstatus: experimental\ndescription: |\n    Detects exploitation attempts related to CVE-2026-23697 (Web Application).\n    Generated by CYBERDUDEBIVASH SENTINEL APEX v166.2.\n    Severity: HIGH | Class: GENERIC\nreferences:\n    - https://intel.cyberdudebivash.com\n    - https://nvd.nist.gov/vuln/detail/CVE-2026-23697\nauthor: CYBERDUDEBIVASH SENTINEL APEX Detection Engineering\ndate: 2026/07/07\nmodified: 2026/07/07\ntags:\n    - attack.initial_access\nlogsource:\n    category: network_connection\n    product: generic\ndetection:\n    selection:\n        EventID:\n            - 4625\n            - 4648\n            - 4728\n        LogonType: 3\n    condition: selection\nfalsepositives:\n    - Legitimate administrative access\n    - Service account activity\nlevel: high\n",
-    "kql_query": "// SENTINEL APEX — CVE-2026-23697 — Anomalous Activity Detection\n// Product: Web Application | Generated: 2026-07-07T21:38:49Z\nlet lookback = 1d;\nSecurityEvent\n| where TimeGenerated > ago(lookback)\n| where EventID in (4625, 4648, 4728, 4740, 4776)\n| summarize FailureCount = count(), DistinctTargets = dcount(TargetUserName)\n    by IpAddress, bin(TimeGenerated, 1h)\n| where FailureCount > 10 or DistinctTargets > 5\n| extend Severity = \"MEDIUM\", CVE = \"CVE-2026-23697\", RuleSource = \"SENTINEL-APEX\"\n| order by TimeGenerated desc",
-    "suricata_rule": "alert http $EXTERNAL_NET any -> $HTTP_SERVERS $HTTP_PORTS (msg:\"SENTINEL-APEX CVE-2026-23697 Exploitation Attempt - GENERIC\"; flow:established,to_server; content:\"|90 90 90 90|\"; rawbytes; threshold:type threshold, track by_src, count 3, seconds 60; classtype:web-application-attack; sid:7209895; rev:1; metadata:created_at 2026-07-07, source SENTINEL-APEX-v166.2;)",
-    "vuln_class": "generic",
-    "detection_generated_at": "2026-07-07T21:38:49Z",
-    "cvss_score": 8.8,
-    "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H",
-    "cvss_source": "github_advisory",
-    "exploit_maturity": "POC",
-    "exploit_count": 1,
-    "exploit_refs": [
-      "https://github.com/JivaSecurity/VTIGER-CRM-RCE-CVE-2026-23697"
-    ],
-    "metasploit_available": false,
-    "poc_github_count": 1,
-    "actor_display_name": null,
-    "actor_aliases": [],
-    "actor_country": null,
-    "actor_motivation": null,
-    "actor_sectors": [],
-    "actor_ttps": [],
-    "actor_malware": [],
-    "actor_threat_level": null,
-    "actor_mitre_id": null,
-    "iq_score": 45,
-    "iq_breakdown": {
-      "source": 10,
-      "enrichment": 15,
-      "attribution": 5,
-      "corroboration": 15
-    },
-    "intelligence_age_days": 0.2,
-    "confidence_label": "LOW_CONFIDENCE",
-    "confidence_score_v2": 13,
-    "confidence_rationale": "Single source with minimal corroborating evidence",
-    "confidence_factors": [
-      {
-        "factor": "cvss_high",
-        "weight": 8,
-        "signal": "CVSS score 8.8 (High)"
-      },
-      {
-        "factor": "cve_referenced",
-        "weight": 5,
-        "signal": "CVE(s) referenced: CVE-2026-23697"
-      }
-    ],
-    "sources_reporting": 1,
-    "corroborating_sources": [],
-    "revenue_opportunities": [
-      "VULNERABILITY_ASSESSMENT"
-    ],
-    "sla_priority": "P3",
-    "action_deadline_hours": 336,
-    "recommended_sla_action": "SCHEDULED PATCH — Apply in next maintenance window",
-    "confidence_enriched_at": "2026-07-07T21:39:57Z",
-    "confidence_engine_version": "1.0.1",
-    "_risk_micro_adj": 0.056001,
-    "evidence_chain": {
-      "evidence_id": "EVD-6F1D9A16B3C7",
-      "source_url": "https://sploitus.com/exploit?id=1870CB5D-0489-53DE-9322-1CFCFA00D128&utm_source=rss&utm_medium=rss",
-      "source_name": "rss_sploitus_com_rss",
-      "source_category": "Unclassified source: sploitus.com",
-      "source_reliability": "D — Not Usually Reliable",
-      "reliability_code": "D",
-      "accuracy_code": "3",
-      "accuracy_label": "Possibly true",
-      "collection_time": "2026-07-07T16:26:04Z",
-      "verification_time": "2026-07-07T19:31:47Z",
-      "collection_method": "Automated OSINT Pipeline (SENTINEL APEX v184.0)",
-      "analyst_review": "Automated — Pending Human Review",
-      "corroboration_count": 0,
-      "corroborating_sources": [],
-      "intelligence_freshness": "Very Fresh (<6h)",
-      "confidence_pct": 22.0,
-      "chain_of_custody": [
-        "[2026-07-07T19:31:47Z] Item ingested by SENTINEL APEX ingest pipeline",
-        "[2026-07-07T16:26:04Z] Advisory published by rss_sploitus_com_rss",
-        "Source URL verified: https://sploitus.com/exploit?id=1870CB5D-0489-53DE-9322-1CFCFA00D128&utm_source=rss&utm_medium=rss",
-        "CVE references: CVE-2026-23697 (traceable to NVD)",
-        "NVD status: PRELIMINARY"
-      ],
-      "known_limitations": [
-        "Source reliability not independently verified",
-        "No independent corroboration sources identified",
-        "Threat actor attribution unresolved"
-      ],
-      "iq_breakdown": {
-        "source": 10,
-        "enrichment": 15,
-        "attribution": 5,
-        "corroboration": 15
-      },
-      "evidence_version": "P20.1"
-    },
-    "ioc_fp_removed": 1,
-    "ioc_counts": {},
-    "evidence_ledger": {
-      "source_count": 1,
-      "verified_sources": 0,
-      "ioc_count": 0,
-      "ttp_count": 0,
-      "cve_count": 1,
-      "confidence_score": 45,
-      "evidence_strength": "LOW",
-      "ledger_generated": true
-    },
-    "confidence_reason": [
-      "Single unverified source — low evidence base"
-    ],
-    "cti_tier": "FREE_INFORMATIONAL",
-    "verification_status": "UNVERIFIED",
-    "attribution_status": "UNATTRIBUTED",
-    "source_reliability": "UNRATED",
-    "ioc_quality": "LOW",
-    "ttp_quality": "LOW",
-    "report_quality": "INFORMATIONAL",
-    "verified_actor": false,
-    "campaign_name": null,
-    "campaign_id": null,
-    "campaign_status": "UNVERIFIED",
-    "publication_decision": "ALLOW_WITH_WARNING",
-    "intelligence_grade": "B",
-    "evidence_count": 2,
-    "corroboration_count": 3,
-    "ioc_quality_score": 0,
-    "ioc_quality_label": "NONE",
-    "real_ioc_count": 0,
-    "attck_verification": "NOT_VERIFIED",
-    "attck_notes": "No ATT&CK techniques present",
-    "risk_score_reasoning": "{\"formula\": \"v1.0.0-deterministic\", \"inputs\": {\"cvss_score\": 8.8, \"epss_pct\": 0.0, \"kev_confirmed\": false, \"verified_actor\": true, \"real_ioc_count\": 0}, \"components\": {\"base_cvss\": 3.52, \"epss_boost\": 0.0, \"kev_boost\": 0.0, \"actor_boost\": 0.5, \"ioc_boost\": 0.0}, \"computed_score\": 4.02, \"notes\": [\"EPSS absent for CVE item \\u2014 enrich from FIRST.org API\"]}",
-    "analyst_verdict": "ALLOW — Grade B: strong CVE intelligence. Verified CVE, CVSS>=8.0, evidence-based ATT&CK, multi-source corroboration.",
-    "grade_notes": [
-      "Partial verification: CVSS 8.8"
-    ],
-    "grade_engine_version": "v2.0.0",
-    "graded_at": "2026-07-07T22:07:36.472410+00:00",
-    "actor": null,
-    "actor_name": null,
-    "allowed_content_tier": "enterprise_dossier",
-    "premium_eligible": true,
-    "enterprise_eligible": true,
-    "mssp_eligible": true,
-    "governor_version": "1.0.0",
-    "governed_at": "2026-07-07T22:07:37.233985+00:00",
-    "governor_audit_log": [
-      "M2: Banned actor 'Unknown Threat Actor' nulled — attribution_status=NONE",
-      "M4: risk_score raised 4.0→7.0 [severity=HIGH → floor 7.0; CVSS=8.8 ≥ 7.0 → floor 7.0]"
-    ],
-    "actor_confidence_label": "NONE",
-    "attribution_assessment": {
-      "status": "UNATTRIBUTED",
-      "confidence": "NONE",
-      "evidence_count": 0,
-      "verdict": "No actor claimed — correct",
-      "engine_version": "1.0.0"
-    },
-    "corroboration_score": 70,
-    "corroboration_strength": "STRONG",
-    "corroboration_sources": [
-      "rss_sploitus_com_rss",
-      "NVD/CVE-Database",
-      "PublicExploitConfirmed"
-    ],
-    "detection_quality_status": "DETECTION_PARTIALLY_READY",
-    "detection_production_ready": true,
-    "detection_rules_total": 3,
-    "detection_rules_production_ready": 1,
-    "grade_notes_v2": [
-      "Grade B: CVE verified; CVSS=8.8; 3 sources; exploit evidence; corroboration=70"
-    ],
-    "graded_at_v2": "2026-07-07T22:07:37.126276+00:00"
-  },
-  {
-    "id": "intel--a51a624513650768",
-    "stix_id": "intel--a51a624513650768",
-    "title": "CVE-2026-48908: JoomShaper SP Page Builder Unrestricted Upload of File with Dangerous Type Vulnerability",
-    "description": "JoomShaper SP Page Builder contains an unrestricted upload of file with dangerous type vulnerability that allows unauthenticated users to upload arbitrary files, ultimately resulting in the upload and execution of PHP code. | Vendor: JoomShaper | Product: SP Page Builder | Action: Apply mitigations in accordance with vendor instructions, ensuring compliance with CISAs BOD 26-04 Prioritizing Security Updates Based on Risk (see URL in Notes) guidance and CISAs Forensics Triage Requirements (see URL in Notes). Follow applicable BOD 26-04 guidance for cloud services or discontinue use of the product if mitigations are unavailable. Stakeholders are responsible for evaluating each asset's internet exposure and ensuring adherence to BOD 26-04 patching guidelines.",
-    "source_url": "https://nvd.nist.gov/vuln/detail/CVE-2026-48908",
-    "feed_source": "cisa_kev",
-    "published_at": "2026-07-07",
-    "processed_at": "2026-07-07T19:25:50Z",
-    "timestamp": "2026-07-07T19:25:50Z",
-    "severity": "CRITICAL",
-    "risk_score": 9.329,
-    "threat_type": "Threat Intelligence",
-    "tags": [
-      "kev",
-      "cisa",
-      "exploitation",
-      "joomshaper",
-      "sp page builder"
-    ],
-    "cves": [
-      "CVE-2026-48908"
-    ],
-    "iocs": [],
-    "ioc_count": 0,
-    "tlp": "TLP:RED",
-    "actor_tag": null,
-    "kev_present": true,
-    "kev_date": "2026-07-07",
-    "kev_product": "JoomShaper SP Page Builder",
-    "apex_ai_summary": "[CRITICAL] KEV advisory. Risk score 9.5/10. Full APEX AI analysis available to Pro subscribers.",
-    "apex_ai_score": 9.5,
-    "status": "active",
-    "schema_version": "v134.0",
-    "threat_level": "CRITICAL_SURGE",
-    "threat_category": "Threat Intelligence",
-    "source_trust_score": 0.6,
-    "published": "2026-07-07T19:25:50Z",
-    "report_url": "https://intel.cyberdudebivash.com/reports/2026/07/intel--a51a624513650768.html",
-    "validation_status": "ok",
-    "iocs_by_type": {
-      "cve": [
-        "CVE-2026-48908"
-      ]
-    },
-    "ioc_confidence": 7.0,
-    "ioc_threat_level": "LOW",
-    "ioc_extraction_meta": {
-      "types_found": [
-        "cve"
-      ],
-      "counts_by_type": {
-        "cve": 1
-      },
-      "text_length": 876,
-      "had_existing": false
-    },
-    "is_published": true,
-    "source": "cisa_kev",
-    "cve_ids": [
-      "CVE-2026-48908"
-    ],
-    "ttps": [],
-    "mitre_tactics": [],
-    "affected_products": [],
-    "kill_chain_phases": [],
-    "is_new": false,
-    "attack_vector": "NETWORK",
-    "source_quality": "LOW",
-    "enrichment_score": 30,
-    "threat_priority": "MEDIUM",
-    "indicator_count": 1,
-    "internal_report_url": "https://intel.cyberdudebivash.com/reports/2026/07/intel--a51a624513650768.html",
-    "research_based": true,
-    "ioc_note": "Actor-attribution campaign — IOC set derived from threat actor research, not automated feed extraction.",
-    "pdf_url": "/reports/pdf/intel--a51a624513650768.pdf",
-    "pdf_available": true,
-    "priority": "P1",
-    "_invariant_rule": "C",
-    "_invariant_signals": [
-      "CISA_KEV=TRUE"
-    ],
-    "_invariant_version": "182.0",
-    "_governance_rules": "KEV→HIGH_FLOOR; CVSS=9.5>=9.0→HIGH_FLOOR",
-    "_score_details": {
-      "kev": true,
-      "active_exploit": false,
-      "ransomware": false,
-      "zero_day": false,
-      "cvss": 9.5,
-      "epss": null
-    },
-    "apex_ai": {
-      "soc_priority": "P1",
-      "predictive_risk": 6.8,
-      "ai_confidence": 57,
-      "ttp_density": 0.0,
-      "threat_level": "CRITICAL_SURGE",
-      "threat_category": "Vulnerability",
-      "ai_summary": "[P1] Vulnerability - critical severity (Risk 9.5/10). [ALERT] CISA KEV CONFIRMED - actively exploited in the wild. Patch immediately. No MITRE ATT&CK techniques mapped - limited adversarial context. 1 indicator detected - upgrade to Pro for full IOC access. AI confidence: MODERATE (57%) - partial intelligence corroboration.",
-      "recommended_action": "IMMEDIATE ACTION REQUIRED - CISA KEV confirmed. Apply vendor patch within 24 hours. Isolate affected systems. Enable enhanced logging.",
-      "campaign_id": "UNCLASSIFIED",
-      "actor_fingerprint": "UNC-CDB-INGEST::C::1::0",
-      "behavioral_tags": [
-        "KEV-CONFIRMED"
-      ],
-      "kill_chain": [
-        "Initial Access",
-        "Execution"
-      ],
-      "paywall": {
-        "message": "Upgrade to Pro for full kill chain analysis, actor attribution, and 30-day threat forecast.",
-        "upgrade_url": "/upgrade.html?plan=pro",
-        "urgency": "[SOC P1] Vulnerability - CRITICAL severity threat detected."
-      }
-    },
-    "apex": {
-      "priority": "P1",
-      "threat_level": "CRITICAL_SURGE",
-      "threat_category": "Vulnerability",
-      "predictive_score": 6.8,
-      "campaign_id": null,
-      "confidence": 57.0,
-      "behavioral_tags": [],
-      "ai_summary": "[P1] Vulnerability - critical severity (Risk 9.5/10). [ALERT] CISA KEV CONFIRMED - actively exploited in the wild. Patch immediately. No MITRE ATT&CK techniques mapped - limited adversarial context. 1 indicator detected - upgrade to Pro for full IOC access. AI confidence: MODERATE (57%) - partial intelligence corroboration.",
-      "recommended_action": "IMMEDIATE ACTION REQUIRED - CISA KEV confirmed. Apply vendor patch within 24 hours. Isolate affected systems. Enable enhanced logging."
-    },
-    "ioc_paywall": {
-      "locked": true,
-      "count": 1,
-      "confidence": 7.0,
-      "threat_level": "LOW",
-      "primary_types": [],
-      "upgrade_url": "/upgrade.html?plan=pro",
-      "message": "1 IOC(s) at 7.0% confidence - unlock with Pro tier."
-    },
-    "confidence_score": 22,
-    "confidence": 0.22,
-    "cve_id": "CVE-2026-48908",
-    "nvd_status": "PRELIMINARY",
-    "nvd_checked_at": "2026-07-07T21:37:37.154016+00:00",
-    "nvd_disclosure": "This CVE ID was not found in the NIST NVD database at time of enrichment. Intelligence is preliminary and unverified by NVD. CVSS score and severity are analyst-estimated until NVD confirmation.",
-    "epss_score": 80.3,
-    "_enriched_at": "2026-07-07T21:37:37.154029+00:00",
-    "_enriched_by": "enrich_cvss_epss_batch.py v185.0",
-    "blog_url": "https://intel.cyberdudebivash.com/reports/intel--a51a624513650768/",
-    "ioc_types": [
-      "ip_address",
-      "domain"
-    ],
-    "_quality_hardened_at": "2026-07-07T22:06:24.778556+00:00",
-    "_quality_version": "184.0",
-    "sigma_rule": "title: SENTINEL APEX — CVE-2026-48908 JoomShaper SP Page Builder Unrestricted Upload of File with Dange\nid: 3a39f7b2-ff9d-5280-aa35-3c0a03dd3462\nstatus: experimental\ndescription: |\n    Detects exploitation attempts related to CVE-2026-48908 (Web Application).\n    Generated by CYBERDUDEBIVASH SENTINEL APEX v166.2.\n    Severity: CRITICAL | Class: KEV_EXPLOIT\nreferences:\n    - https://intel.cyberdudebivash.com\n    - https://nvd.nist.gov/vuln/detail/CVE-2026-48908\nauthor: CYBERDUDEBIVASH SENTINEL APEX Detection Engineering\ndate: 2026/07/07\nmodified: 2026/07/07\ntags:\n    - attack.initial_access\nlogsource:\n    category: network_connection\n    product: generic\ndetection:\n    selection:\n        EventID:\n            - 4625\n            - 4648\n            - 4728\n        LogonType: 3\n    condition: selection\nfalsepositives:\n    - Legitimate administrative access\n    - Service account activity\nlevel: critical\n",
-    "kql_query": "// SENTINEL APEX — CVE-2026-48908 — Anomalous Activity Detection\n// Product: Web Application | Generated: 2026-07-07T21:38:49Z\nlet lookback = 1d;\nSecurityEvent\n| where TimeGenerated > ago(lookback)\n| where EventID in (4625, 4648, 4728, 4740, 4776)\n| summarize FailureCount = count(), DistinctTargets = dcount(TargetUserName)\n    by IpAddress, bin(TimeGenerated, 1h)\n| where FailureCount > 10 or DistinctTargets > 5\n| extend Severity = \"MEDIUM\", CVE = \"CVE-2026-48908\", RuleSource = \"SENTINEL-APEX\"\n| order by TimeGenerated desc",
-    "suricata_rule": "alert http $EXTERNAL_NET any -> $HTTP_SERVERS $HTTP_PORTS (msg:\"SENTINEL-APEX CVE-2026-48908 Exploitation Attempt - KEV_EXPLOIT\"; flow:established,to_server; content:\"|90 90 90 90|\"; rawbytes; threshold:type threshold, track by_src, count 3, seconds 60; classtype:web-application-attack; sid:1029585; rev:1; metadata:created_at 2026-07-07, source SENTINEL-APEX-v166.2;)",
-    "vuln_class": "kev_exploit",
-    "detection_generated_at": "2026-07-07T21:38:49Z",
-    "cvss_score": 9.8,
-    "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H",
-    "cvss_source": "github_advisory",
-    "exploit_maturity": "POC",
-    "exploit_count": 7,
-    "exploit_refs": [
-      "https://github.com/webshellseo8/CVE-2026-48908-POC",
-      "https://github.com/papageo75/CVE-2026-48908-PoC",
-      "https://github.com/gagaltotal/CVE-2026-48908-SP-Page-Builder-Joomla"
-    ],
-    "metasploit_available": false,
-    "poc_github_count": 7,
-    "actor_display_name": null,
-    "actor_aliases": [],
-    "actor_country": null,
-    "actor_motivation": null,
-    "actor_sectors": [],
-    "actor_ttps": [],
-    "actor_malware": [],
-    "actor_threat_level": null,
-    "actor_mitre_id": null,
-    "iq_score": 70,
-    "iq_breakdown": {
-      "source": 25,
-      "enrichment": 20,
-      "attribution": 5,
-      "corroboration": 20
-    },
-    "intelligence_age_days": 0.1,
-    "confidence_label": "CONFIRMED",
-    "confidence_score_v2": 77,
-    "confidence_rationale": "Intelligence confirmed: Item is listed in CISA Known Exploited Vulnerabilities; CVSS score 9.8 (Critical); EPSS score 0.803 (very high exploitation probability)",
-    "confidence_factors": [
-      {
-        "factor": "kev_present",
-        "weight": 30,
-        "signal": "Item is listed in CISA Known Exploited Vulnerabilities"
-      },
-      {
-        "factor": "cvss_critical",
-        "weight": 15,
-        "signal": "CVSS score 9.8 (Critical)"
-      },
-      {
-        "factor": "epss_very_high",
-        "weight": 12,
-        "signal": "EPSS score 0.803 (very high exploitation probability)"
-      },
-      {
-        "factor": "authoritative_source",
-        "weight": 15,
-        "signal": "Source 'cisa_kev' is authoritative (government/standards body)"
-      },
-      {
-        "factor": "cve_referenced",
-        "weight": 5,
-        "signal": "CVE(s) referenced: CVE-2026-48908"
-      }
-    ],
-    "sources_reporting": 1,
-    "corroborating_sources": [],
-    "revenue_opportunities": [
-      "CONSULTING_OPPORTUNITY",
-      "VULNERABILITY_ASSESSMENT"
-    ],
-    "sla_priority": "P0",
-    "action_deadline_hours": 24,
-    "recommended_sla_action": "EMERGENCY PATCH — Active exploitation confirmed or KEV listed",
-    "confidence_enriched_at": "2026-07-07T21:39:57Z",
-    "confidence_engine_version": "1.0.1",
-    "_risk_micro_adj": 0.094124,
-    "evidence_chain": {
-      "evidence_id": "EVD-A51A62451365",
-      "source_url": "https://nvd.nist.gov/vuln/detail/CVE-2026-48908",
-      "source_name": "cisa_kev",
-      "source_category": "NVD CVE Database",
-      "source_reliability": "A — Completely Reliable",
-      "reliability_code": "A",
-      "accuracy_code": "1",
-      "accuracy_label": "Confirmed by other sources",
-      "collection_time": "2026-07-07",
-      "verification_time": "2026-07-07T19:25:50Z",
-      "collection_method": "Automated OSINT Pipeline (SENTINEL APEX v184.0)",
-      "analyst_review": "Automated — Pending Human Review",
-      "corroboration_count": 0,
-      "corroborating_sources": [],
-      "intelligence_freshness": "Very Fresh (<6h)",
-      "confidence_pct": 57.0,
-      "chain_of_custody": [
-        "[2026-07-07T19:25:50Z] Item ingested by SENTINEL APEX ingest pipeline",
-        "[2026-07-07] Advisory published by cisa_kev",
-        "Source URL verified: https://nvd.nist.gov/vuln/detail/CVE-2026-48908",
-        "CVE references: CVE-2026-48908 (traceable to NVD)",
-        "EPSS score 80.3% assigned by FIRST.org model",
-        "NVD status: PRELIMINARY",
-        "CISA KEV status: CONFIRMED active exploitation"
-      ],
-      "known_limitations": [
-        "No independent corroboration sources identified",
-        "Threat actor attribution unresolved"
-      ],
-      "iq_breakdown": {
-        "source": 25,
-        "enrichment": 20,
-        "attribution": 5,
-        "corroboration": 20
-      },
-      "evidence_version": "P20.1"
-    },
-    "ioc_fp_removed": 1,
-    "ioc_counts": {},
-    "evidence_ledger": {
-      "source_count": 1,
-      "verified_sources": 0,
-      "ioc_count": 0,
-      "ttp_count": 0,
-      "cve_count": 1,
-      "confidence_score": 70,
-      "evidence_strength": "LOW",
-      "ledger_generated": true
-    },
-    "confidence_reason": [
-      "CISA KEV confirmed",
-      "EPSS 80.3% exploitation probability"
-    ],
-    "cti_tier": "FREE_INFORMATIONAL",
-    "verification_status": "UNVERIFIED",
-    "attribution_status": "UNATTRIBUTED",
-    "source_reliability": "UNRATED",
-    "ioc_quality": "LOW",
-    "ttp_quality": "LOW",
-    "report_quality": "INFORMATIONAL",
-    "verified_actor": false,
-    "campaign_name": null,
-    "campaign_id": null,
-    "campaign_status": "UNVERIFIED",
-    "publication_decision": "ALLOW_WITH_WARNING",
-    "intelligence_grade": "B",
-    "evidence_count": 4,
-    "corroboration_count": 6,
-    "ioc_quality_score": 0,
-    "ioc_quality_label": "NONE",
-    "real_ioc_count": 0,
-    "attck_verification": "EVIDENCE_BASED",
-    "attck_notes": [
-      "Derived from CVE description: ics"
-    ],
-    "risk_score_reasoning": "{\"formula\": \"v1.0.0-deterministic\", \"inputs\": {\"cvss_score\": 9.8, \"epss_pct\": 80.3, \"kev_confirmed\": true, \"verified_actor\": true, \"real_ioc_count\": 0}, \"components\": {\"base_cvss\": 3.92, \"epss_boost\": 2.409, \"kev_boost\": 2.5, \"actor_boost\": 0.5, \"ioc_boost\": 0.0}, \"computed_score\": 9.329, \"notes\": []}",
-    "analyst_verdict": "ALLOW — Grade B: strong CVE intelligence. Verified CVE, CVSS>=8.0, evidence-based ATT&CK, multi-source corroboration.",
-    "grade_notes": [
-      "Partial verification: KEV confirmed, EPSS 80.3%, CVSS 9.8"
-    ],
-    "grade_engine_version": "v2.0.0",
-    "graded_at": "2026-07-07T22:07:36.472933+00:00",
-    "epss_normalized": true,
-    "actor": null,
-    "actor_name": null,
-    "allowed_content_tier": "enterprise_dossier",
-    "premium_eligible": true,
-    "enterprise_eligible": true,
-    "mssp_eligible": true,
-    "governor_version": "1.0.0",
-    "governed_at": "2026-07-07T22:07:37.234014+00:00",
-    "governor_audit_log": [
-      "M2: Banned actor 'Unknown Threat Actor' nulled — attribution_status=NONE"
-    ],
-    "actor_confidence_label": "NONE",
-    "attribution_assessment": {
-      "status": "UNATTRIBUTED",
-      "confidence": "NONE",
-      "evidence_count": 0,
-      "verdict": "No actor claimed — correct",
-      "engine_version": "1.0.0"
-    },
-    "attck_technique_ids": [
-      "T0819"
-    ],
-    "attck_techniques": [
-      {
-        "technique_id": "T0819",
-        "technique_name": "Exploit Public-Facing Application (ICS)",
-        "attack_justification": "ICS advisory describes exploitation of industrial control system interface",
-        "attack_evidence": "CVE-2026-48908 — cve-2026-48908: joomshaper sp page builder unrestricted upload of file with dangerous type vulnerability joomshaper sp p...",
-        "attack_source": "cisa_kev",
-        "mapping_method": "cve_description_derivation",
-        "verification_status": "EVIDENCE_BASED",
-        "matched_pattern": "ics",
-        "source_reference": "",
-        "mapping_reason": ""
-      }
-    ],
-    "corroboration_score": 94,
-    "corroboration_strength": "STRONG",
-    "corroboration_sources": [
-      "CISA",
-      "NIST/NVD",
-      "EPSS/FIRST",
-      "ExploitDB/Metasploit",
-      "NVD/CVE-Database",
-      "PublicExploitConfirmed"
-    ],
-    "detection_quality_status": "DETECTION_PARTIALLY_READY",
-    "detection_production_ready": true,
-    "detection_rules_total": 3,
-    "detection_rules_production_ready": 1,
-    "grade_notes_v2": [
-      "Grade B: CVE verified; CVSS=9.8; 6 sources; evidence-based ATT&CK; exploit evidence; corroboration=94"
-    ],
-    "graded_at_v2": "2026-07-07T22:07:37.126299+00:00"
-  },
-  {
-    "id": "intel--28295cac6cc9d6d4",
-    "stix_id": "intel--28295cac6cc9d6d4",
-    "title": "CVE-2026-48282: Adobe ColdFusion Path Traversal Vulnerability",
-    "description": "Adobe ColdFusion contains a path traversal vulnerability that could lead to arbitrary code execution in the context of the current user. | Vendor: Adobe | Product: ColdFusion | Action: Apply mitigations in accordance with vendor instructions, ensuring compliance with CISAs BOD 26-04 Prioritizing Security Updates Based on Risk (see URL in Notes) guidance and CISAs Forensics Triage Requirements (see URL in Notes). Follow applicable BOD 26-04 guidance for cloud services or discontinue use of the product if mitigations are unavailable. Stakeholders are responsible for evaluating each asset's internet exposure and ensuring adherence to BOD 26-04 patching guidelines.",
-    "source_url": "https://nvd.nist.gov/vuln/detail/CVE-2026-48282",
-    "feed_source": "cisa_kev",
-    "published_at": "2026-07-07",
-    "processed_at": "2026-07-07T19:25:50Z",
-    "timestamp": "2026-07-07T19:25:50Z",
+    "id": "intel--1cc18d98babeebe58f720459",
+    "stix_id": "intel--1cc18d98babeebe58f720459",
+    "title": "Max severity Adobe ColdFusion flaw now exploited in attacks",
+    "description": "Attackers are now exploiting a maximum-severity Adobe ColdFusion vulnerability tracked as CVE-2026-48282, according to vulnerability intelligence company KEVIntel. [...]",
     "severity": "CRITICAL",
     "risk_score": 8.5,
-    "threat_type": "Threat Intelligence",
+    "confidence": 27,
+    "source": "BleepingComputer",
+    "feed_source": "BleepingComputer",
+    "tlp": "TLP:AMBER",
+    "threat_type": "Threat Intel",
     "tags": [
+      "Security News",
+      "Threat Intelligence",
       "kev",
       "cisa",
-      "exploitation",
-      "adobe",
-      "coldfusion"
+      "actively-exploited"
     ],
-    "cves": [
-      "CVE-2026-48282"
-    ],
-    "iocs": [],
-    "ioc_count": 0,
-    "tlp": "TLP:RED",
-    "actor_tag": null,
-    "kev_present": true,
-    "kev_date": "2026-07-07",
-    "kev_product": "Adobe ColdFusion",
-    "apex_ai_summary": "[CRITICAL] KEV advisory. Risk score 9.5/10. Full APEX AI analysis available to Pro subscribers.",
-    "apex_ai_score": 9.5,
-    "status": "active",
-    "schema_version": "v134.0",
-    "threat_level": "CRITICAL_SURGE",
-    "threat_category": "Threat Intelligence",
-    "source_trust_score": 0.6,
-    "published": "2026-07-07T19:25:50Z",
-    "report_url": "https://intel.cyberdudebivash.com/reports/2026/07/intel--28295cac6cc9d6d4.html",
-    "validation_status": "ok",
-    "iocs_by_type": {
-      "cve": [
-        "CVE-2026-48282"
-      ]
-    },
-    "ioc_confidence": 7.0,
-    "ioc_threat_level": "LOW",
-    "ioc_extraction_meta": {
-      "types_found": [
-        "cve"
-      ],
-      "counts_by_type": {
-        "cve": 1
-      },
-      "text_length": 736,
-      "had_existing": false
-    },
-    "is_published": true,
-    "source": "cisa_kev",
+    "cve_id": "CVE-2026-48282",
     "cve_ids": [
       "CVE-2026-48282"
     ],
-    "ttps": [],
-    "mitre_tactics": [],
-    "affected_products": [],
-    "kill_chain_phases": [],
-    "is_new": false,
-    "attack_vector": "NETWORK",
-    "source_quality": "LOW",
-    "enrichment_score": 30,
-    "threat_priority": "MEDIUM",
-    "indicator_count": 1,
-    "internal_report_url": "https://intel.cyberdudebivash.com/reports/2026/07/intel--28295cac6cc9d6d4.html",
-    "research_based": true,
-    "ioc_note": "Actor-attribution campaign — IOC set derived from threat actor research, not automated feed extraction.",
-    "pdf_url": "/reports/pdf/intel--28295cac6cc9d6d4.pdf",
-    "pdf_available": true,
-    "priority": "P1",
-    "_invariant_rule": "C",
-    "_invariant_signals": [
-      "CISA_KEV=TRUE"
-    ],
-    "_invariant_version": "182.0",
-    "_governance_rules": "KEV→HIGH_FLOOR; CVSS=9.5>=9.0→HIGH_FLOOR",
-    "_score_details": {
-      "kev": true,
-      "active_exploit": false,
-      "ransomware": false,
-      "zero_day": false,
-      "cvss": 9.5,
-      "epss": null
-    },
-    "apex_ai": {
-      "soc_priority": "P1",
-      "predictive_risk": 6.8,
-      "ai_confidence": 57,
-      "ttp_density": 0.0,
-      "threat_level": "CRITICAL_SURGE",
-      "threat_category": "Vulnerability",
-      "ai_summary": "[P1] Vulnerability - critical severity (Risk 9.5/10). [ALERT] CISA KEV CONFIRMED - actively exploited in the wild. Patch immediately. No MITRE ATT&CK techniques mapped - limited adversarial context. 1 indicator detected - upgrade to Pro for full IOC access. AI confidence: MODERATE (57%) - partial intelligence corroboration.",
-      "recommended_action": "IMMEDIATE ACTION REQUIRED - CISA KEV confirmed. Apply vendor patch within 24 hours. Isolate affected systems. Enable enhanced logging.",
-      "campaign_id": "UNCLASSIFIED",
-      "actor_fingerprint": "UNC-CDB-INGEST::C::1::0",
-      "behavioral_tags": [
-        "KEV-CONFIRMED"
-      ],
-      "kill_chain": [
-        "Initial Access",
-        "Execution"
-      ],
-      "paywall": {
-        "message": "Upgrade to Pro for full kill chain analysis, actor attribution, and 30-day threat forecast.",
-        "upgrade_url": "/upgrade.html?plan=pro",
-        "urgency": "[SOC P1] Vulnerability - CRITICAL severity threat detected."
-      }
-    },
-    "apex": {
-      "priority": "P1",
-      "threat_level": "CRITICAL_SURGE",
-      "threat_category": "Vulnerability",
-      "predictive_score": 6.8,
-      "campaign_id": null,
-      "confidence": 57.0,
-      "behavioral_tags": [],
-      "ai_summary": "[P1] Vulnerability - critical severity (Risk 9.5/10). [ALERT] CISA KEV CONFIRMED - actively exploited in the wild. Patch immediately. No MITRE ATT&CK techniques mapped - limited adversarial context. 1 indicator detected - upgrade to Pro for full IOC access. AI confidence: MODERATE (57%) - partial intelligence corroboration.",
-      "recommended_action": "IMMEDIATE ACTION REQUIRED - CISA KEV confirmed. Apply vendor patch within 24 hours. Isolate affected systems. Enable enhanced logging."
-    },
-    "ioc_paywall": {
-      "locked": true,
-      "count": 1,
-      "confidence": 7.0,
-      "threat_level": "LOW",
-      "primary_types": [],
-      "upgrade_url": "/upgrade.html?plan=pro",
-      "message": "1 IOC(s) at 7.0% confidence - unlock with Pro tier."
-    },
-    "confidence_score": 22,
-    "confidence": 0.22,
-    "cve_id": "CVE-2026-48282",
-    "nvd_status": "PRELIMINARY",
-    "nvd_checked_at": "2026-07-07T21:37:37.154034+00:00",
-    "nvd_disclosure": "This CVE ID was not found in the NIST NVD database at time of enrichment. Intelligence is preliminary and unverified by NVD. CVSS score and severity are analyst-estimated until NVD confirmation.",
+    "ioc_count": 0,
+    "kev": true,
+    "timestamp": "2026-07-06T09:18:37Z",
+    "processed_at": "2026-07-06T09:18:37Z",
+    "published_at": "2026-07-06T09:18:37Z",
+    "source_url": "https://www.bleepingcomputer.com/news/security/max-severity-adobe-coldfusion-flaw-now-exploited-in-attacks/",
+    "actor": null,
     "epss_score": 1.02,
-    "_enriched_at": "2026-07-07T21:37:37.154042+00:00",
-    "_enriched_by": "enrich_cvss_epss_batch.py v185.0",
-    "blog_url": "https://intel.cyberdudebivash.com/reports/intel--28295cac6cc9d6d4/",
-    "ioc_types": [
-      "ip_address",
-      "domain"
-    ],
-    "_quality_hardened_at": "2026-07-07T22:06:24.778566+00:00",
-    "_quality_version": "184.0",
-    "sigma_rule": "title: SENTINEL APEX — CVE-2026-48282 Adobe ColdFusion Path Traversal Vulnerability\nid: 76ed8717-ec87-536d-946d-83e99b7fbcdd\nstatus: experimental\ndescription: |\n    Detects exploitation attempts related to CVE-2026-48282 (Web Application).\n    Generated by CYBERDUDEBIVASH SENTINEL APEX v166.2.\n    Severity: CRITICAL | Class: PATHTRAVERSAL\nreferences:\n    - https://intel.cyberdudebivash.com\n    - https://nvd.nist.gov/vuln/detail/CVE-2026-48282\nauthor: CYBERDUDEBIVASH SENTINEL APEX Detection Engineering\ndate: 2026/07/07\nmodified: 2026/07/07\ntags:\n    - attack.initial_access\nlogsource:\n    category: network_connection\n    product: generic\ndetection:\n    selection:\n        EventID:\n            - 4625\n            - 4648\n            - 4728\n        LogonType: 3\n    condition: selection\nfalsepositives:\n    - Legitimate administrative access\n    - Service account activity\nlevel: critical\n",
-    "kql_query": "// SENTINEL APEX — CVE-2026-48282 — Anomalous Activity Detection\n// Product: Web Application | Generated: 2026-07-07T21:38:49Z\nlet lookback = 1d;\nSecurityEvent\n| where TimeGenerated > ago(lookback)\n| where EventID in (4625, 4648, 4728, 4740, 4776)\n| summarize FailureCount = count(), DistinctTargets = dcount(TargetUserName)\n    by IpAddress, bin(TimeGenerated, 1h)\n| where FailureCount > 10 or DistinctTargets > 5\n| extend Severity = \"MEDIUM\", CVE = \"CVE-2026-48282\", RuleSource = \"SENTINEL-APEX\"\n| order by TimeGenerated desc",
-    "suricata_rule": "alert http $EXTERNAL_NET any -> $HTTP_SERVERS $HTTP_PORTS (msg:\"SENTINEL-APEX CVE-2026-48282 Exploitation Attempt - PATHTRAVERSAL\"; flow:established,to_server; content:\"|90 90 90 90|\"; rawbytes; threshold:type threshold, track by_src, count 3, seconds 60; classtype:web-application-attack; sid:8433280; rev:1; metadata:created_at 2026-07-07, source SENTINEL-APEX-v166.2;)",
-    "vuln_class": "pathtraversal",
-    "detection_generated_at": "2026-07-07T21:38:49Z",
+    "epss": "1.02%",
     "cvss_score": 10.0,
     "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:C/C:H/I:H/A:H",
     "cvss_source": "github_advisory",
     "exploit_maturity": "POC",
-    "exploit_count": 1,
+    "exploit_count": 2,
     "exploit_refs": [
-      "https://github.com/imbas007/CVE-2026-48282"
+      "https://github.com/imbas007/CVE-2026-48282",
+      "https://github.com/g0thamRabb1t/cve-2026-48282-coldfusion-rds-detection"
     ],
     "metasploit_available": false,
-    "poc_github_count": 1,
+    "poc_github_count": 2,
     "actor_display_name": null,
     "actor_aliases": [],
     "actor_country": null,
@@ -2036,23 +1428,18 @@
     "actor_malware": [],
     "actor_threat_level": null,
     "actor_mitre_id": null,
-    "iq_score": 65,
+    "iq_score": 55,
     "iq_breakdown": {
-      "source": 25,
-      "enrichment": 20,
+      "source": 20,
+      "enrichment": 15,
       "attribution": 5,
       "corroboration": 15
     },
-    "intelligence_age_days": 0.1,
-    "confidence_label": "CONFIRMED",
-    "confidence_score_v2": 77,
-    "confidence_rationale": "Intelligence confirmed: Item is listed in CISA Known Exploited Vulnerabilities; CVSS score 10.0 (Critical); EPSS score 1.021 (very high exploitation probability)",
+    "intelligence_age_days": 1.7,
+    "confidence_label": "MEDIUM_CONFIDENCE",
+    "confidence_score_v2": 32,
+    "confidence_rationale": "Medium confidence — CVSS score 10.0 (Critical)",
     "confidence_factors": [
-      {
-        "factor": "kev_present",
-        "weight": 30,
-        "signal": "Item is listed in CISA Known Exploited Vulnerabilities"
-      },
       {
         "factor": "cvss_critical",
         "weight": 15,
@@ -2061,12 +1448,7 @@
       {
         "factor": "epss_very_high",
         "weight": 12,
-        "signal": "EPSS score 1.021 (very high exploitation probability)"
-      },
-      {
-        "factor": "authoritative_source",
-        "weight": 15,
-        "signal": "Source 'cisa_kev' is authoritative (government/standards body)"
+        "signal": "EPSS score 1.020 (very high exploitation probability)"
       },
       {
         "factor": "cve_referenced",
@@ -2077,39 +1459,52 @@
     "sources_reporting": 1,
     "corroborating_sources": [],
     "revenue_opportunities": [
-      "CONSULTING_OPPORTUNITY",
       "VULNERABILITY_ASSESSMENT"
     ],
-    "sla_priority": "P0",
-    "action_deadline_hours": 24,
-    "recommended_sla_action": "EMERGENCY PATCH — Active exploitation confirmed or KEV listed",
-    "confidence_enriched_at": "2026-07-07T21:39:57Z",
+    "sla_priority": "P3",
+    "action_deadline_hours": 336,
+    "recommended_sla_action": "SCHEDULED PATCH — Apply in next maintenance window",
+    "confidence_enriched_at": "2026-07-08T01:51:18Z",
     "confidence_engine_version": "1.0.1",
-    "_risk_micro_adj": 0.088447,
+    "pdf_url": "/reports/pdf/intel--1cc18d98babeebe58f720459.pdf",
+    "pdf_available": true,
+    "report_url": "https://www.bleepingcomputer.com/news/security/max-severity-adobe-coldfusion-flaw-now-exploited-in-attacks/",
+    "internal_report_url": "",
+    "apex_ai_summary": "[HIGH] Threat Intel advisory. Risk score 7.5/10. Full APEX AI analysis available to Pro subscribers.",
+    "apex_ai_score": 7.5,
+    "status": "active",
+    "schema_version": "stable-v1.0-apex",
+    "kev_confirmed": true,
+    "kev_present": true,
+    "kev_date": "2026-07-07",
+    "kev_product": "Adobe ColdFusion",
+    "kev_name": "Adobe ColdFusion Path Traversal Vulnerability",
+    "kev_action": "Apply mitigations in accordance with vendor instructions, ensuring compliance with CISA’s BOD 26-04 Prioritizing Security Updates Based on Risk (see URL in Notes) guidance and CISA’s “Forensics Triage Requirements” (see URL in Notes). Follow applicable BOD 26-04 guidance for cloud services or discontinue use of the product if mitigations are unavailable. Stakeholders are responsible for evaluating each asset's internet exposure and ensuring adherence to BOD 26-04 patching guidelines.",
+    "kev_due": "2026-07-10",
+    "_kev_marked_at": "2026-07-08T01:58:39.838234+00:00",
+    "_kev_source": "CISA-KEV-v2",
     "evidence_chain": {
-      "evidence_id": "EVD-28295CAC6CC9",
-      "source_url": "https://nvd.nist.gov/vuln/detail/CVE-2026-48282",
-      "source_name": "cisa_kev",
-      "source_category": "NVD CVE Database",
-      "source_reliability": "A — Completely Reliable",
-      "reliability_code": "A",
+      "evidence_id": "EVD-1CC18D98BABE",
+      "source_url": "https://www.bleepingcomputer.com/news/security/max-severity-adobe-coldfusion-flaw-now-exploited-in-attacks/",
+      "source_name": "BleepingComputer",
+      "source_category": "BleepingComputer",
+      "source_reliability": "C — Fairly Reliable",
+      "reliability_code": "C",
       "accuracy_code": "1",
       "accuracy_label": "Confirmed by other sources",
-      "collection_time": "2026-07-07",
-      "verification_time": "2026-07-07T19:25:50Z",
+      "collection_time": "2026-07-06T09:18:37Z",
+      "verification_time": "2026-07-06T09:18:37Z",
       "collection_method": "Automated OSINT Pipeline (SENTINEL APEX v184.0)",
       "analyst_review": "Automated — Pending Human Review",
       "corroboration_count": 0,
       "corroborating_sources": [],
-      "intelligence_freshness": "Very Fresh (<6h)",
-      "confidence_pct": 57.0,
+      "intelligence_freshness": "Recent (<72h)",
+      "confidence_pct": 90.0,
       "chain_of_custody": [
-        "[2026-07-07T19:25:50Z] Item ingested by SENTINEL APEX ingest pipeline",
-        "[2026-07-07] Advisory published by cisa_kev",
-        "Source URL verified: https://nvd.nist.gov/vuln/detail/CVE-2026-48282",
+        "[2026-07-06T09:18:37Z] Item ingested by SENTINEL APEX ingest pipeline",
+        "Source URL verified: https://www.bleepingcomputer.com/news/security/max-severity-adobe-coldfusion-flaw-now-exploited-in-attacks/",
         "CVE references: CVE-2026-48282 (traceable to NVD)",
-        "EPSS score 102.1% assigned by FIRST.org model",
-        "NVD status: PRELIMINARY",
+        "EPSS score 102.0% assigned by FIRST.org model",
         "CISA KEV status: CONFIRMED active exploitation"
       ],
       "known_limitations": [
@@ -2117,28 +1512,36 @@
         "Threat actor attribution unresolved"
       ],
       "iq_breakdown": {
-        "source": 25,
-        "enrichment": 20,
+        "source": 20,
+        "enrichment": 15,
         "attribution": 5,
         "corroboration": 15
       },
       "evidence_version": "P20.1"
     },
-    "ioc_fp_removed": 1,
-    "ioc_counts": {},
+    "actor_code": "Unattributed",
+    "actor_type": "UNATTRIBUTED",
+    "actor_region": "Unknown",
+    "ioc_types": [
+      "ip_address",
+      "domain"
+    ],
+    "_quality_hardened_at": "2026-07-08T05:42:49.021585+00:00",
+    "_quality_version": "184.0",
     "evidence_ledger": {
       "source_count": 1,
-      "verified_sources": 0,
+      "verified_sources": 1,
       "ioc_count": 0,
       "ttp_count": 0,
       "cve_count": 1,
-      "confidence_score": 65,
+      "confidence_score": 90,
       "evidence_strength": "LOW",
       "ledger_generated": true
     },
+    "confidence_score": 27,
     "confidence_reason": [
       "CISA KEV confirmed",
-      "EPSS 102.1% exploitation probability"
+      "EPSS 102.0% exploitation probability"
     ],
     "cti_tier": "FREE_INFORMATIONAL",
     "verification_status": "UNVERIFIED",
@@ -2148,8 +1551,6 @@
     "ttp_quality": "LOW",
     "report_quality": "INFORMATIONAL",
     "verified_actor": false,
-    "campaign_name": null,
-    "campaign_id": null,
     "campaign_status": "UNVERIFIED",
     "publication_decision": "ALLOW_WITH_WARNING",
     "intelligence_grade": "B",
@@ -2158,29 +1559,29 @@
     "ioc_quality_score": 0,
     "ioc_quality_label": "NONE",
     "real_ioc_count": 0,
-    "attck_verification": "EVIDENCE_BASED",
-    "attck_notes": [
-      "Derived from CVE description: arbitrary code exec"
-    ],
-    "risk_score_reasoning": "{\"formula\": \"v1.0.0-deterministic\", \"inputs\": {\"cvss_score\": 10.0, \"epss_pct\": 1.02, \"kev_confirmed\": true, \"verified_actor\": true, \"real_ioc_count\": 0}, \"components\": {\"base_cvss\": 4.0, \"epss_boost\": 0.0306, \"kev_boost\": 2.5, \"actor_boost\": 0.5, \"ioc_boost\": 0.0}, \"computed_score\": 7.0306, \"notes\": []}",
+    "attck_verification": "NOT_VERIFIED",
+    "attck_notes": "No ATT&CK techniques present",
+    "risk_score_reasoning": "{\"formula\": \"v1.0.0-deterministic\", \"inputs\": {\"cvss_score\": 10.0, \"epss_pct\": 1.02, \"kev_confirmed\": true, \"verified_actor\": false, \"real_ioc_count\": 0}, \"components\": {\"base_cvss\": 4.0, \"epss_boost\": 0.0306, \"kev_boost\": 2.5, \"actor_boost\": 0.0, \"ioc_boost\": 0.0}, \"computed_score\": 6.5306, \"notes\": []}",
     "analyst_verdict": "ALLOW — Grade B: strong CVE intelligence. Verified CVE, CVSS>=8.0, evidence-based ATT&CK, multi-source corroboration.",
+    "mitre_tactics": [],
+    "ttps": [],
     "grade_notes": [
       "Partial verification: KEV confirmed, CVSS 10.0"
     ],
     "grade_engine_version": "v2.0.0",
-    "graded_at": "2026-07-07T22:07:36.472960+00:00",
+    "graded_at": "2026-07-08T05:43:59.568410+00:00",
     "epss_normalized": true,
-    "actor": null,
+    "actor_tag": null,
     "actor_name": null,
     "allowed_content_tier": "enterprise_dossier",
     "premium_eligible": true,
     "enterprise_eligible": true,
     "mssp_eligible": true,
     "governor_version": "1.0.0",
-    "governed_at": "2026-07-07T22:07:37.234027+00:00",
+    "governed_at": "2026-07-08T05:44:00.424837+00:00",
     "governor_audit_log": [
-      "M2: Banned actor 'Unknown Threat Actor' nulled — attribution_status=NONE",
-      "M4: risk_score raised 7.0→8.5 [severity=CRITICAL → floor 8.5; CVSS=10.0 ≥ 9.0 → floor 8.5]"
+      "M2: Banned actor 'Unattributed Threat Actor' nulled — attribution_status=NONE",
+      "M4: risk_score raised 6.5→8.5 [severity=CRITICAL → floor 8.5; CVSS=10.0 ≥ 9.0 → floor 8.5; KEV=true → floor 7.0]"
     ],
     "actor_confidence_label": "NONE",
     "attribution_assessment": {
@@ -2190,1185 +1591,22 @@
       "verdict": "No actor claimed — correct",
       "engine_version": "1.0.0"
     },
-    "attck_technique_ids": [
-      "T1059"
-    ],
-    "attck_techniques": [
-      {
-        "technique_id": "T1059",
-        "technique_name": "Command and Scripting Interpreter",
-        "attack_justification": "CVE confirms remote/arbitrary code execution capability",
-        "attack_evidence": "CVE-2026-48282 — cve-2026-48282: adobe coldfusion path traversal vulnerability adobe coldfusion contains a path traversal vulnerability t...",
-        "attack_source": "cisa_kev",
-        "mapping_method": "cve_description_derivation",
-        "verification_status": "EVIDENCE_BASED",
-        "matched_pattern": "arbitrary code exec",
-        "source_reference": "",
-        "mapping_reason": ""
-      }
-    ],
-    "corroboration_score": 94,
+    "corroboration_score": 92,
     "corroboration_strength": "STRONG",
     "corroboration_sources": [
-      "CISA",
-      "NIST/NVD",
+      "CISA-KEV",
       "EPSS/FIRST",
       "NVD/CVE-Database",
-      "PublicExploitConfirmed"
+      "PublicExploitConfirmed",
+      "BleepingComputer"
     ],
-    "detection_quality_status": "DETECTION_PARTIALLY_READY",
-    "detection_production_ready": true,
-    "detection_rules_total": 3,
-    "detection_rules_production_ready": 1,
+    "detection_quality_status": "DETECTION_NOT_PRODUCTION_READY",
+    "detection_production_ready": false,
+    "detection_rules_total": 0,
+    "detection_rules_production_ready": 0,
     "grade_notes_v2": [
-      "Grade B: CVE verified; CVSS=10.0; 5 sources; evidence-based ATT&CK; exploit evidence; corroboration=94"
+      "Grade B: CVE verified; CVSS=10.0; 5 sources; exploit evidence; corroboration=92"
     ],
-    "graded_at_v2": "2026-07-07T22:07:37.126313+00:00"
-  },
-  {
-    "id": "intel--f1c3cca60092ffb9",
-    "stix_id": "intel--f1c3cca60092ffb9",
-    "title": "CVE-2026-58226: Inefficient Algorithmic Complexity vulnerability in elixir-mint hpax allows unauthenticated denial-of-service via unboun",
-    "description": "Inefficient Algorithmic Complexity vulnerability in elixir-mint hpax allows unauthenticated denial-of-service via unbounded HPACK integer decoding.\n\nhpax decodes HPACK variable-length integers with no upper bound on the decoded value or the number of continuation octets. 'Elixir.HPAX.Types':decode_remaining_integer/3 accumulates the integer as int + (value <<< m), shifting by 7 more bits for each continuation octet and stopping only on a terminating octet or truncated input, never because the integer grew too large. Because BEAM integers are arbitrary precision, a run of N continuation octets builds an O(N)-bit bignum and re-adds into an ever-larger bignum on each step, so the total decoding cost is superlinear (about O(N^2)). An unauthenticated attacker who can send an HTTP/2 header block to a server using this decoder (reached through the 'Elixir.HPAX':decode/2 entry point) can supply a small header block that forces a large, attacker-controlled amount of CPU (and transient memory),",
-    "source_url": "https://nvd.nist.gov/vuln/detail/CVE-2026-58226",
-    "feed_source": "nvd_cve",
-    "published_at": "2026-07-06T11:16:31.143",
-    "processed_at": "2026-07-07T19:25:57Z",
-    "timestamp": "2026-07-06T11:16:31.143",
-    "severity": "CRITICAL",
-    "risk_score": 8.5,
-    "threat_type": "Threat Intelligence",
-    "tags": [
-      "nvd",
-      "cve",
-      "medium"
-    ],
-    "cves": [
-      "CVE-2026-58226"
-    ],
-    "iocs": [
-      {
-        "type": "domain",
-        "value": "elixir.hpax",
-        "confidence": 32.5,
-        "confidence_factors": {
-          "ioc_type": 75.0,
-          "source_trust": 40.0,
-          "mitre_mapping": 0.0,
-          "kev_presence": 0.0,
-          "weighted_raw": 32.5,
-          "synthetic": false,
-          "kev_linked": false
-        },
-        "confidence_version": "1.0",
-        "first_seen": "2026-07-06T11:16:31.143",
-        "last_seen": "2026-07-07T19:25:57Z",
-        "kill_chain_stage": "C2 / Initial Access",
-        "response_guidance": "Block via DNS RPZ or Secure DNS. Search proxy logs. Submit to threat intel sharing platform.",
-        "detection_guidance": "Monitor DNS query logs, proxy logs, and certificate transparency logs for domain resolution.",
-        "context": "DOMAIN indicator associated with advisory: CVE-2026-58226: Inefficient Algorithmic Complexity vulnerabi (CVE-2026-58226). Confidence: 32.5%",
-        "validation_status": "LOW_CONFIDENCE",
-        "p20_hardened": true
-      },
-      {
-        "type": "domain",
-        "value": "elixir.hpax.types",
-        "confidence": 32.5,
-        "confidence_factors": {
-          "ioc_type": 75.0,
-          "source_trust": 40.0,
-          "mitre_mapping": 0.0,
-          "kev_presence": 0.0,
-          "weighted_raw": 32.5,
-          "synthetic": false,
-          "kev_linked": false
-        },
-        "confidence_version": "1.0",
-        "first_seen": "2026-07-06T11:16:31.143",
-        "last_seen": "2026-07-07T19:25:57Z",
-        "kill_chain_stage": "C2 / Initial Access",
-        "response_guidance": "Block via DNS RPZ or Secure DNS. Search proxy logs. Submit to threat intel sharing platform.",
-        "detection_guidance": "Monitor DNS query logs, proxy logs, and certificate transparency logs for domain resolution.",
-        "context": "DOMAIN indicator associated with advisory: CVE-2026-58226: Inefficient Algorithmic Complexity vulnerabi (CVE-2026-58226). Confidence: 32.5%",
-        "validation_status": "LOW_CONFIDENCE",
-        "p20_hardened": true
-      }
-    ],
-    "ioc_count": 2,
-    "tlp": "TLP:CLEAR",
-    "actor_tag": null,
-    "apex_ai_summary": "[MEDIUM] CVE advisory. Risk score 5.0/10. Full APEX AI analysis available to Pro subscribers.",
-    "apex_ai_score": 5.0,
-    "status": "active",
-    "schema_version": "v134.0",
-    "threat_level": "MEDIUM",
-    "threat_category": "Threat Intelligence",
-    "source_trust_score": 0.6,
-    "published": "2026-07-06T11:16:31.143",
-    "report_url": "https://intel.cyberdudebivash.com/reports/2026/07/intel--f1c3cca60092ffb9.html",
-    "validation_status": "ok",
-    "iocs_by_type": {
-      "domain": [
-        "elixir.hpax",
-        "elixir.hpax.types"
-      ],
-      "cve": [
-        "CVE-2026-58226"
-      ]
-    },
-    "ioc_confidence": 20.0,
-    "ioc_threat_level": "LOW",
-    "ioc_extraction_meta": {
-      "types_found": [
-        "domain",
-        "cve"
-      ],
-      "counts_by_type": {
-        "domain": 2,
-        "cve": 1
-      },
-      "text_length": 1138,
-      "had_existing": false
-    },
-    "is_published": true,
-    "source": "nvd_cve",
-    "cve_ids": [
-      "CVE-2026-58226"
-    ],
-    "ttps": [],
-    "mitre_tactics": [],
-    "affected_products": [],
-    "kill_chain_phases": [],
-    "is_new": false,
-    "attack_vector": "NETWORK",
-    "ttp_count": 1,
-    "source_quality": "LOW",
-    "enrichment_score": 45,
-    "threat_priority": "MEDIUM",
-    "indicator_count": 3,
-    "internal_report_url": "https://intel.cyberdudebivash.com/reports/2026/07/intel--f1c3cca60092ffb9.html",
-    "pdf_url": "/reports/pdf/intel--f1c3cca60092ffb9.pdf",
-    "pdf_available": true,
-    "_governance_rules": "NO_GOVERNANCE_RULES_FIRED",
-    "_score_details": {
-      "kev": false,
-      "active_exploit": false,
-      "ransomware": false,
-      "zero_day": false,
-      "cvss": 5.0,
-      "epss": null
-    },
-    "apex_ai": {
-      "soc_priority": "P3",
-      "predictive_risk": 2.0,
-      "ai_confidence": 28,
-      "ttp_density": 1.5,
-      "threat_level": "MEDIUM",
-      "threat_category": "Vulnerability",
-      "ai_summary": "[P3] Vulnerability - moderate severity (Risk 5.0/10). MITRE ATT&CK mapped: T1190 (1 technique). 3 indicators detected - upgrade to Pro for full IOC access. AI confidence: LOW (28%) - limited source data available.",
-      "recommended_action": "STANDARD PRIORITY - Schedule patch within 7 days. Deploy detection rules. Monitor SIEM for related indicators.",
-      "campaign_id": "UNCLASSIFIED",
-      "actor_fingerprint": "UNC-CDB-INGEST::M::3::1",
-      "behavioral_tags": [],
-      "kill_chain": "PRO_REQUIRED",
-      "paywall": {
-        "message": "Upgrade to Pro for full kill chain analysis, actor attribution, and 30-day threat forecast.",
-        "upgrade_url": "/upgrade.html?plan=pro",
-        "urgency": null
-      }
-    },
-    "apex": {
-      "priority": "P3",
-      "threat_level": "MEDIUM",
-      "threat_category": "Vulnerability",
-      "predictive_score": 2.0,
-      "campaign_id": null,
-      "confidence": 28.0,
-      "behavioral_tags": [],
-      "ai_summary": "[P3] Vulnerability - moderate severity (Risk 5.0/10). MITRE ATT&CK mapped: T1190 (1 technique). 3 indicators detected - upgrade to Pro for full IOC access. AI confidence: LOW (28%) - limited source data available.",
-      "recommended_action": "STANDARD PRIORITY - Schedule patch within 7 days. Deploy detection rules. Monitor SIEM for related indicators."
-    },
-    "ioc_paywall": {
-      "locked": true,
-      "count": 3,
-      "confidence": 20.0,
-      "threat_level": "LOW",
-      "primary_types": [],
-      "upgrade_url": "/upgrade.html?plan=pro",
-      "message": "3 IOC(s) at 20.0% confidence - unlock with Pro tier."
-    },
-    "confidence_score": 23,
-    "confidence": 0.23,
-    "cve_id": "CVE-2026-58226",
-    "nvd_status": "PRELIMINARY",
-    "nvd_checked_at": "2026-07-07T21:37:37.154101+00:00",
-    "nvd_disclosure": "This CVE ID was not found in the NIST NVD database at time of enrichment. Intelligence is preliminary and unverified by NVD. CVSS score and severity are analyst-estimated until NVD confirmation.",
-    "epss_score": 43.8,
-    "_enriched_at": "2026-07-07T21:37:37.154107+00:00",
-    "_enriched_by": "enrich_cvss_epss_batch.py v185.0",
-    "blog_url": "https://intel.cyberdudebivash.com/reports/intel--f1c3cca60092ffb9/",
-    "ioc_types": [
-      "ip_address",
-      "domain"
-    ],
-    "_quality_hardened_at": "2026-07-07T22:06:24.778648+00:00",
-    "_quality_version": "184.0",
-    "kev_present": false,
-    "sigma_rule": "title: SENTINEL APEX — CVE-2026-58226 Inefficient Algorithmic Complexity vulnerability in elixir-mint h\nid: 345b3fb7-aad0-594d-9b0f-30251106cba4\nstatus: experimental\ndescription: |\n    Detects exploitation attempts related to CVE-2026-58226 (Web Application).\n    Generated by CYBERDUDEBIVASH SENTINEL APEX v166.2.\n    Severity: MEDIUM | Class: GENERIC\nreferences:\n    - https://intel.cyberdudebivash.com\n    - https://nvd.nist.gov/vuln/detail/CVE-2026-58226\nauthor: CYBERDUDEBIVASH SENTINEL APEX Detection Engineering\ndate: 2026/07/07\nmodified: 2026/07/07\ntags:\n    - attack.initial_access\nlogsource:\n    category: network_connection\n    product: generic\ndetection:\n    selection:\n        EventID:\n            - 4625\n            - 4648\n            - 4728\n        LogonType: 3\n    condition: selection\nfalsepositives:\n    - Legitimate administrative access\n    - Service account activity\nlevel: medium\n",
-    "kql_query": "// SENTINEL APEX — CVE-2026-58226 — Anomalous Activity Detection\n// Product: Web Application | Generated: 2026-07-07T21:38:49Z\nlet lookback = 1d;\nSecurityEvent\n| where TimeGenerated > ago(lookback)\n| where EventID in (4625, 4648, 4728, 4740, 4776)\n| summarize FailureCount = count(), DistinctTargets = dcount(TargetUserName)\n    by IpAddress, bin(TimeGenerated, 1h)\n| where FailureCount > 10 or DistinctTargets > 5\n| extend Severity = \"MEDIUM\", CVE = \"CVE-2026-58226\", RuleSource = \"SENTINEL-APEX\"\n| order by TimeGenerated desc",
-    "suricata_rule": "alert http $EXTERNAL_NET any -> $HTTP_SERVERS $HTTP_PORTS (msg:\"SENTINEL-APEX CVE-2026-58226 Exploitation Attempt - GENERIC\"; flow:established,to_server; content:\"|90 90 90 90|\"; rawbytes; threshold:type threshold, track by_src, count 3, seconds 60; classtype:web-application-attack; sid:4500816; rev:1; metadata:created_at 2026-07-07, source SENTINEL-APEX-v166.2;)",
-    "vuln_class": "generic",
-    "detection_generated_at": "2026-07-07T21:38:49Z",
-    "cvss_score": 9.8,
-    "cvss_vector": "",
-    "cvss_source": "keyword_estimate",
-    "cvss_estimated": true,
-    "exploit_maturity": "POC",
-    "exploit_count": 0,
-    "exploit_refs": [],
-    "metasploit_available": false,
-    "poc_github_count": 0,
-    "actor_display_name": null,
-    "actor_aliases": [],
-    "actor_country": null,
-    "actor_motivation": null,
-    "actor_sectors": [],
-    "actor_ttps": [],
-    "actor_malware": [],
-    "actor_threat_level": null,
-    "actor_mitre_id": null,
-    "iq_score": 62,
-    "iq_breakdown": {
-      "source": 22,
-      "enrichment": 20,
-      "attribution": 5,
-      "corroboration": 15
-    },
-    "intelligence_age_days": 0.0,
-    "confidence_label": "HIGH_CONFIDENCE",
-    "confidence_score_v2": 45,
-    "confidence_rationale": "High confidence based on: CVSS score 9.8 (Critical); EPSS score 0.438 (elevated exploitation probability)",
-    "confidence_factors": [
-      {
-        "factor": "cvss_critical",
-        "weight": 15,
-        "signal": "CVSS score 9.8 (Critical)"
-      },
-      {
-        "factor": "epss_high",
-        "weight": 6,
-        "signal": "EPSS score 0.438 (elevated exploitation probability)"
-      },
-      {
-        "factor": "authoritative_source",
-        "weight": 15,
-        "signal": "Source 'nvd_cve' is authoritative (government/standards body)"
-      },
-      {
-        "factor": "cve_referenced",
-        "weight": 5,
-        "signal": "CVE(s) referenced: CVE-2026-58226"
-      },
-      {
-        "factor": "iocs_2to4",
-        "weight": 4,
-        "signal": "3 IOCs present"
-      }
-    ],
-    "sources_reporting": 1,
-    "corroborating_sources": [],
-    "revenue_opportunities": [
-      "THREAT_HUNTING",
-      "VULNERABILITY_ASSESSMENT"
-    ],
-    "sla_priority": "P3",
-    "action_deadline_hours": 336,
-    "recommended_sla_action": "SCHEDULED PATCH — Apply in next maintenance window",
-    "confidence_enriched_at": "2026-07-07T21:39:57Z",
-    "confidence_engine_version": "1.0.1",
-    "_risk_micro_adj": 0.103394,
-    "evidence_chain": {
-      "evidence_id": "EVD-F1C3CCA60092",
-      "source_url": "https://nvd.nist.gov/vuln/detail/CVE-2026-58226",
-      "source_name": "nvd_cve",
-      "source_category": "NVD CVE Database",
-      "source_reliability": "A — Completely Reliable",
-      "reliability_code": "A",
-      "accuracy_code": "2",
-      "accuracy_label": "Probably true",
-      "collection_time": "2026-07-06T11:16:31.143",
-      "verification_time": "2026-07-07T19:25:57Z",
-      "collection_method": "Automated OSINT Pipeline (SENTINEL APEX v184.0)",
-      "analyst_review": "Automated — Pending Human Review",
-      "corroboration_count": 0,
-      "corroborating_sources": [],
-      "intelligence_freshness": "Very Fresh (<6h)",
-      "confidence_pct": 28.0,
-      "chain_of_custody": [
-        "[2026-07-07T19:25:57Z] Item ingested by SENTINEL APEX ingest pipeline",
-        "[2026-07-06T11:16:31.143] Advisory published by nvd_cve",
-        "Source URL verified: https://nvd.nist.gov/vuln/detail/CVE-2026-58226",
-        "CVE references: CVE-2026-58226 (traceable to NVD)",
-        "EPSS score 43.8% assigned by FIRST.org model",
-        "NVD status: PRELIMINARY"
-      ],
-      "known_limitations": [
-        "No independent corroboration sources identified",
-        "Threat actor attribution unresolved"
-      ],
-      "iq_breakdown": {
-        "source": 22,
-        "enrichment": 20,
-        "attribution": 5,
-        "corroboration": 15
-      },
-      "evidence_version": "P20.1"
-    },
-    "ioc_fp_removed": 1,
-    "ioc_counts": {
-      "domain": 2
-    },
-    "evidence_ledger": {
-      "source_count": 1,
-      "verified_sources": 0,
-      "ioc_count": 2,
-      "ttp_count": 1,
-      "cve_count": 1,
-      "confidence_score": 62,
-      "evidence_strength": "LOW",
-      "ledger_generated": true
-    },
-    "confidence_reason": [
-      "2 IOC(s) extracted",
-      "1 ATT&CK technique(s) mapped",
-      "EPSS 43.8% exploitation probability"
-    ],
-    "cti_tier": "FREE_INFORMATIONAL",
-    "verification_status": "UNVERIFIED",
-    "attribution_status": "UNATTRIBUTED",
-    "source_reliability": "UNRATED",
-    "ioc_quality": "MEDIUM",
-    "ttp_quality": "MEDIUM",
-    "report_quality": "INFORMATIONAL",
-    "verified_actor": false,
-    "campaign_name": null,
-    "campaign_id": null,
-    "campaign_status": "UNVERIFIED",
-    "publication_decision": "ALLOW_WITH_WARNING",
-    "intelligence_grade": "B",
-    "evidence_count": 3,
-    "corroboration_count": 3,
-    "ioc_quality_score": 31,
-    "ioc_quality_label": "LOW",
-    "real_ioc_count": 2,
-    "attck_verification": "EVIDENCE_BASED",
-    "attck_notes": [
-      "Derived from CVE description: rce"
-    ],
-    "risk_score_reasoning": "{\"formula\": \"v1.0.0-deterministic\", \"inputs\": {\"cvss_score\": 9.8, \"epss_pct\": 43.8, \"kev_confirmed\": false, \"verified_actor\": true, \"real_ioc_count\": 2}, \"components\": {\"base_cvss\": 3.92, \"epss_boost\": 1.314, \"kev_boost\": 0.0, \"actor_boost\": 0.5, \"ioc_boost\": 0.4}, \"computed_score\": 6.134, \"notes\": [\"Critical CVSS without KEV confirmation \\u2014 monitor for escalation\"]}",
-    "analyst_verdict": "ALLOW — Grade B: strong CVE intelligence. Verified CVE, CVSS>=8.0, evidence-based ATT&CK, multi-source corroboration.",
-    "grade_notes": [
-      "Partial verification: EPSS 43.8%, CVSS 9.8"
-    ],
-    "grade_engine_version": "v2.0.0",
-    "graded_at": "2026-07-07T22:07:36.473397+00:00",
-    "epss_normalized": true,
-    "actor": null,
-    "actor_name": null,
-    "allowed_content_tier": "enterprise_dossier",
-    "premium_eligible": true,
-    "enterprise_eligible": true,
-    "mssp_eligible": true,
-    "governor_version": "1.0.0",
-    "governed_at": "2026-07-07T22:07:37.234155+00:00",
-    "governor_audit_log": [
-      "M2: Banned actor 'Unknown Threat Actor' nulled — attribution_status=NONE",
-      "M4: risk_score raised 6.1→8.5 [severity=CRITICAL → floor 8.5; CVSS=9.8 ≥ 9.0 → floor 8.5]"
-    ],
-    "actor_confidence_label": "NONE",
-    "attribution_assessment": {
-      "status": "UNATTRIBUTED",
-      "confidence": "NONE",
-      "evidence_count": 0,
-      "verdict": "No actor claimed — correct",
-      "engine_version": "1.0.0"
-    },
-    "attck_technique_ids": [
-      "T1059"
-    ],
-    "attck_techniques": [
-      {
-        "technique_id": "T1059",
-        "technique_name": "Command and Scripting Interpreter",
-        "attack_justification": "CVE confirms remote/arbitrary code execution capability",
-        "attack_evidence": "CVE-2026-58226 — cve-2026-58226: inefficient algorithmic complexity vulnerability in elixir-mint hpax allows unauthenticated denial-of-se...",
-        "attack_source": "nvd_cve",
-        "mapping_method": "cve_description_derivation",
-        "verification_status": "EVIDENCE_BASED",
-        "matched_pattern": "rce",
-        "source_reference": "",
-        "mapping_reason": ""
-      }
-    ],
-    "corroboration_score": 75,
-    "corroboration_strength": "STRONG",
-    "corroboration_sources": [
-      "NIST/NVD",
-      "EPSS/FIRST",
-      "NVD/CVE-Database"
-    ],
-    "detection_quality_status": "DETECTION_PARTIALLY_READY",
-    "detection_production_ready": true,
-    "detection_rules_total": 3,
-    "detection_rules_production_ready": 1,
-    "grade_notes_v2": [
-      "Grade B: CVE verified; CVSS=9.8; 3 sources; evidence-based ATT&CK; corroboration=75"
-    ],
-    "graded_at_v2": "2026-07-07T22:07:37.126397+00:00"
-  },
-  {
-    "id": "intel--813b08e680d1cb0e",
-    "stix_id": "intel--813b08e680d1cb0e",
-    "title": "CVE-2026-56810: Allocation of Resources Without Limits or Throttling vulnerability in elixir-mint mint (Mint.HTTP1 module) allows a deni",
-    "description": "Allocation of Resources Without Limits or Throttling vulnerability in elixir-mint mint (Mint.HTTP1 module) allows a denial of service via an oversized chunked transfer-encoded response.\n\nThis vulnerability is associated with program files lib/mint/http1.ex and program routines 'Elixir.Mint.HTTP1':decode_body/5, 'Elixir.Mint.HTTP1':add_body_to_buffer/2.\n\nWhen Mint decodes a chunked HTTP response body, it accumulates each partial fragment of the current chunk in the connection's data_buffer (an unbounded iolist) via add_body_to_buffer/2 and does not emit the data to the caller until the full declared chunk length has been received. The chunk size is taken directly from the server and parsed with no upper bound, so a malicious or compromised server can announce one enormous chunk (for example a size line of 7FFFFFFF, about 2 GiB) and then send the body bytes slowly without ever completing the chunk. The client buffers every received byte while it waits for a completion that never arrives,",
-    "source_url": "https://nvd.nist.gov/vuln/detail/CVE-2026-56810",
-    "feed_source": "nvd_cve",
-    "published_at": "2026-07-06T11:16:30.983",
-    "processed_at": "2026-07-07T19:25:57Z",
-    "timestamp": "2026-07-06T11:16:30.983",
-    "severity": "CRITICAL",
-    "risk_score": 8.5,
-    "threat_type": "Threat Intelligence",
-    "tags": [
-      "nvd",
-      "cve",
-      "medium"
-    ],
-    "cves": [
-      "CVE-2026-56810"
-    ],
-    "iocs": [
-      {
-        "type": "domain",
-        "value": "elixir.mint",
-        "confidence": 32.5,
-        "confidence_factors": {
-          "ioc_type": 75.0,
-          "source_trust": 40.0,
-          "mitre_mapping": 0.0,
-          "kev_presence": 0.0,
-          "weighted_raw": 32.5,
-          "synthetic": false,
-          "kev_linked": false
-        },
-        "confidence_version": "1.0",
-        "first_seen": "2026-07-06T11:16:30.983",
-        "last_seen": "2026-07-07T19:25:57Z",
-        "kill_chain_stage": "C2 / Initial Access",
-        "response_guidance": "Block via DNS RPZ or Secure DNS. Search proxy logs. Submit to threat intel sharing platform.",
-        "detection_guidance": "Monitor DNS query logs, proxy logs, and certificate transparency logs for domain resolution.",
-        "context": "DOMAIN indicator associated with advisory: CVE-2026-56810: Allocation of Resources Without Limits or Th (CVE-2026-56810). Confidence: 32.5%",
-        "validation_status": "LOW_CONFIDENCE",
-        "p20_hardened": true
-      },
-      {
-        "type": "domain",
-        "value": "http1.ex",
-        "confidence": 32.5,
-        "confidence_factors": {
-          "ioc_type": 75.0,
-          "source_trust": 40.0,
-          "mitre_mapping": 0.0,
-          "kev_presence": 0.0,
-          "weighted_raw": 32.5,
-          "synthetic": false,
-          "kev_linked": false
-        },
-        "confidence_version": "1.0",
-        "first_seen": "2026-07-06T11:16:30.983",
-        "last_seen": "2026-07-07T19:25:57Z",
-        "kill_chain_stage": "C2 / Initial Access",
-        "response_guidance": "Block via DNS RPZ or Secure DNS. Search proxy logs. Submit to threat intel sharing platform.",
-        "detection_guidance": "Monitor DNS query logs, proxy logs, and certificate transparency logs for domain resolution.",
-        "context": "DOMAIN indicator associated with advisory: CVE-2026-56810: Allocation of Resources Without Limits or Th (CVE-2026-56810). Confidence: 32.5%",
-        "validation_status": "LOW_CONFIDENCE",
-        "p20_hardened": true
-      }
-    ],
-    "ioc_count": 2,
-    "tlp": "TLP:CLEAR",
-    "actor_tag": null,
-    "apex_ai_summary": "[MEDIUM] CVE advisory. Risk score 5.0/10. Full APEX AI analysis available to Pro subscribers.",
-    "apex_ai_score": 5.0,
-    "status": "active",
-    "schema_version": "v134.0",
-    "threat_level": "MEDIUM",
-    "threat_category": "Threat Intelligence",
-    "source_trust_score": 0.6,
-    "published": "2026-07-06T11:16:30.983",
-    "report_url": "https://intel.cyberdudebivash.com/reports/2026/07/intel--813b08e680d1cb0e.html",
-    "validation_status": "ok",
-    "iocs_by_type": {
-      "domain": [
-        "elixir.mint",
-        "http1.ex"
-      ],
-      "cve": [
-        "CVE-2026-56810"
-      ]
-    },
-    "ioc_confidence": 20.0,
-    "ioc_threat_level": "LOW",
-    "ioc_extraction_meta": {
-      "types_found": [
-        "domain",
-        "cve"
-      ],
-      "counts_by_type": {
-        "domain": 2,
-        "cve": 1
-      },
-      "text_length": 1138,
-      "had_existing": false
-    },
-    "is_published": true,
-    "source": "nvd_cve",
-    "cve_ids": [
-      "CVE-2026-56810"
-    ],
-    "ttps": [],
-    "mitre_tactics": [],
-    "affected_products": [],
-    "kill_chain_phases": [],
-    "is_new": false,
-    "kill_chain_phase": "Impact",
-    "attack_vector": "NETWORK",
-    "ttp_count": 1,
-    "source_quality": "LOW",
-    "enrichment_score": 60,
-    "threat_priority": "MEDIUM",
-    "indicator_count": 3,
-    "internal_report_url": "https://intel.cyberdudebivash.com/reports/2026/07/intel--813b08e680d1cb0e.html",
-    "pdf_url": "/reports/pdf/intel--813b08e680d1cb0e.pdf",
-    "pdf_available": true,
-    "_governance_rules": "NO_GOVERNANCE_RULES_FIRED",
-    "_score_details": {
-      "kev": false,
-      "active_exploit": false,
-      "ransomware": false,
-      "zero_day": false,
-      "cvss": 5.0,
-      "epss": null
-    },
-    "apex_ai": {
-      "soc_priority": "P3",
-      "predictive_risk": 2.0,
-      "ai_confidence": 28,
-      "ttp_density": 1.5,
-      "threat_level": "MEDIUM",
-      "threat_category": "Vulnerability",
-      "ai_summary": "[P3] Vulnerability - moderate severity (Risk 5.0/10). MITRE ATT&CK mapped: T1190 (1 technique). 3 indicators detected - upgrade to Pro for full IOC access. AI confidence: LOW (28%) - limited source data available.",
-      "recommended_action": "STANDARD PRIORITY - Schedule patch within 7 days. Deploy detection rules. Monitor SIEM for related indicators.",
-      "campaign_id": "UNCLASSIFIED",
-      "actor_fingerprint": "UNC-CDB-INGEST::M::3::1",
-      "behavioral_tags": [],
-      "kill_chain": "PRO_REQUIRED",
-      "paywall": {
-        "message": "Upgrade to Pro for full kill chain analysis, actor attribution, and 30-day threat forecast.",
-        "upgrade_url": "/upgrade.html?plan=pro",
-        "urgency": null
-      }
-    },
-    "apex": {
-      "priority": "P3",
-      "threat_level": "MEDIUM",
-      "threat_category": "Vulnerability",
-      "predictive_score": 2.0,
-      "campaign_id": null,
-      "confidence": 28.0,
-      "behavioral_tags": [],
-      "ai_summary": "[P3] Vulnerability - moderate severity (Risk 5.0/10). MITRE ATT&CK mapped: T1190 (1 technique). 3 indicators detected - upgrade to Pro for full IOC access. AI confidence: LOW (28%) - limited source data available.",
-      "recommended_action": "STANDARD PRIORITY - Schedule patch within 7 days. Deploy detection rules. Monitor SIEM for related indicators."
-    },
-    "ioc_paywall": {
-      "locked": true,
-      "count": 3,
-      "confidence": 20.0,
-      "threat_level": "LOW",
-      "primary_types": [],
-      "upgrade_url": "/upgrade.html?plan=pro",
-      "message": "3 IOC(s) at 20.0% confidence - unlock with Pro tier."
-    },
-    "confidence_score": 23,
-    "confidence": 0.23,
-    "cve_id": "CVE-2026-56810",
-    "nvd_status": "PRELIMINARY",
-    "nvd_checked_at": "2026-07-07T21:37:37.154111+00:00",
-    "nvd_disclosure": "This CVE ID was not found in the NIST NVD database at time of enrichment. Intelligence is preliminary and unverified by NVD. CVSS score and severity are analyst-estimated until NVD confirmation.",
-    "epss_score": 34.4,
-    "_enriched_at": "2026-07-07T21:37:37.154117+00:00",
-    "_enriched_by": "enrich_cvss_epss_batch.py v185.0",
-    "blog_url": "https://intel.cyberdudebivash.com/reports/intel--813b08e680d1cb0e/",
-    "ioc_types": [
-      "ip_address",
-      "domain"
-    ],
-    "_quality_hardened_at": "2026-07-07T22:06:24.778657+00:00",
-    "_quality_version": "184.0",
-    "kev_present": false,
-    "sigma_rule": "title: SENTINEL APEX — CVE-2026-56810 Allocation of Resources Without Limits or Throttling vulnerabilit\nid: bb779d14-d7d0-5285-99c6-a670dbda81a3\nstatus: experimental\ndescription: |\n    Detects exploitation attempts related to CVE-2026-56810 (Web Application).\n    Generated by CYBERDUDEBIVASH SENTINEL APEX v166.2.\n    Severity: MEDIUM | Class: RCE\nreferences:\n    - https://intel.cyberdudebivash.com\n    - https://nvd.nist.gov/vuln/detail/CVE-2026-56810\nauthor: CYBERDUDEBIVASH SENTINEL APEX Detection Engineering\ndate: 2026/07/07\nmodified: 2026/07/07\ntags:\n    - attack.initial_access\nlogsource:\n    category: process_creation\n    product: generic\ndetection:\n    selection_process:\n        CommandLine|contains:\n            - 'cmd.exe /c'\n            - 'powershell -enc'\n            - '/bin/sh -c'\n            - 'wget http'\n            - 'curl http'\n    selection_webshell:\n        Image|endswith:\n            - '\\cmd.exe'\n            - '\\powershell.exe'\n            - '/bash'\n            - '/sh'\n        ParentImage|contains:\n            - 'w3wp.exe'\n            - 'httpd'\n            - 'nginx'\n            - 'apache2'\n            - 'tomcat'\n    condition: selection_process or selection_webshell\nfalsepositives:\n    - Legitimate administrative scripts executing via web server\n    - Deployment automation tools\nlevel: medium\n",
-    "kql_query": "// SENTINEL APEX — CVE-2026-56810 Remote Code Execution Detection\n// Product: Web Application | Generated: 2026-07-07T21:38:49Z\n// Deploy to: Microsoft Sentinel / Defender XDR\nlet lookback = 1d;\nDeviceProcessEvents\n| where Timestamp > ago(lookback)\n| where (InitiatingProcessFileName in~ (\"w3wp.exe\", \"httpd.exe\", \"nginx.exe\", \"tomcat.exe\", \"java.exe\")\n    and FileName in~ (\"cmd.exe\", \"powershell.exe\", \"bash\", \"sh\", \"python.exe\", \"python3\"))\n    or (ProcessCommandLine has_any (\"wget http\", \"curl http\", \"certutil -urlcache\", \"bitsadmin /transfer\"))\n| project Timestamp, DeviceName, AccountName, FileName, ProcessCommandLine,\n          InitiatingProcessFileName, InitiatingProcessCommandLine\n| where not(ProcessCommandLine has_any (\"update\", \"install\", \"backup\", \"deploy\"))  // filter known-good\n| extend Severity = \"HIGH\", CVE = \"CVE-2026-56810\", RuleSource = \"SENTINEL-APEX\"\n| order by Timestamp desc",
-    "suricata_rule": "alert http $EXTERNAL_NET any -> $HTTP_SERVERS $HTTP_PORTS (msg:\"SENTINEL-APEX CVE-2026-56810 Exploitation Attempt - RCE\"; flow:established,to_server; content:\"/bin/sh\"; nocase; content:\"cmd.exe\"; nocase; threshold:type threshold, track by_src, count 3, seconds 60; classtype:web-application-attack; sid:6836089; rev:1; metadata:created_at 2026-07-07, source SENTINEL-APEX-v166.2;)",
-    "vuln_class": "rce",
-    "detection_generated_at": "2026-07-07T21:38:49Z",
-    "cvss_score": 9.8,
-    "cvss_vector": "",
-    "cvss_source": "keyword_estimate",
-    "cvss_estimated": true,
-    "exploit_maturity": "POC",
-    "exploit_count": 0,
-    "exploit_refs": [],
-    "metasploit_available": false,
-    "poc_github_count": 0,
-    "actor_display_name": null,
-    "actor_aliases": [],
-    "actor_country": null,
-    "actor_motivation": null,
-    "actor_sectors": [],
-    "actor_ttps": [],
-    "actor_malware": [],
-    "actor_threat_level": null,
-    "actor_mitre_id": null,
-    "iq_score": 62,
-    "iq_breakdown": {
-      "source": 22,
-      "enrichment": 20,
-      "attribution": 5,
-      "corroboration": 15
-    },
-    "intelligence_age_days": 0.0,
-    "confidence_label": "HIGH_CONFIDENCE",
-    "confidence_score_v2": 45,
-    "confidence_rationale": "High confidence based on: CVSS score 9.8 (Critical); EPSS score 0.344 (elevated exploitation probability)",
-    "confidence_factors": [
-      {
-        "factor": "cvss_critical",
-        "weight": 15,
-        "signal": "CVSS score 9.8 (Critical)"
-      },
-      {
-        "factor": "epss_high",
-        "weight": 6,
-        "signal": "EPSS score 0.344 (elevated exploitation probability)"
-      },
-      {
-        "factor": "authoritative_source",
-        "weight": 15,
-        "signal": "Source 'nvd_cve' is authoritative (government/standards body)"
-      },
-      {
-        "factor": "cve_referenced",
-        "weight": 5,
-        "signal": "CVE(s) referenced: CVE-2026-56810"
-      },
-      {
-        "factor": "iocs_2to4",
-        "weight": 4,
-        "signal": "3 IOCs present"
-      }
-    ],
-    "sources_reporting": 1,
-    "corroborating_sources": [],
-    "revenue_opportunities": [
-      "INCIDENT_RESPONSE",
-      "MSSP_UPSELL",
-      "THREAT_HUNTING",
-      "VULNERABILITY_ASSESSMENT"
-    ],
-    "sla_priority": "P3",
-    "action_deadline_hours": 336,
-    "recommended_sla_action": "SCHEDULED PATCH — Apply in next maintenance window",
-    "confidence_enriched_at": "2026-07-07T21:39:57Z",
-    "confidence_engine_version": "1.0.1",
-    "_risk_micro_adj": 0.067544,
-    "evidence_chain": {
-      "evidence_id": "EVD-813B08E680D1",
-      "source_url": "https://nvd.nist.gov/vuln/detail/CVE-2026-56810",
-      "source_name": "nvd_cve",
-      "source_category": "NVD CVE Database",
-      "source_reliability": "A — Completely Reliable",
-      "reliability_code": "A",
-      "accuracy_code": "2",
-      "accuracy_label": "Probably true",
-      "collection_time": "2026-07-06T11:16:30.983",
-      "verification_time": "2026-07-07T19:25:57Z",
-      "collection_method": "Automated OSINT Pipeline (SENTINEL APEX v184.0)",
-      "analyst_review": "Automated — Pending Human Review",
-      "corroboration_count": 0,
-      "corroborating_sources": [],
-      "intelligence_freshness": "Very Fresh (<6h)",
-      "confidence_pct": 28.0,
-      "chain_of_custody": [
-        "[2026-07-07T19:25:57Z] Item ingested by SENTINEL APEX ingest pipeline",
-        "[2026-07-06T11:16:30.983] Advisory published by nvd_cve",
-        "Source URL verified: https://nvd.nist.gov/vuln/detail/CVE-2026-56810",
-        "CVE references: CVE-2026-56810 (traceable to NVD)",
-        "EPSS score 34.4% assigned by FIRST.org model",
-        "NVD status: PRELIMINARY"
-      ],
-      "known_limitations": [
-        "No independent corroboration sources identified",
-        "Threat actor attribution unresolved"
-      ],
-      "iq_breakdown": {
-        "source": 22,
-        "enrichment": 20,
-        "attribution": 5,
-        "corroboration": 15
-      },
-      "evidence_version": "P20.1"
-    },
-    "ioc_fp_removed": 1,
-    "ioc_counts": {
-      "domain": 2
-    },
-    "evidence_ledger": {
-      "source_count": 1,
-      "verified_sources": 0,
-      "ioc_count": 2,
-      "ttp_count": 1,
-      "cve_count": 1,
-      "confidence_score": 62,
-      "evidence_strength": "LOW",
-      "ledger_generated": true
-    },
-    "confidence_reason": [
-      "2 IOC(s) extracted",
-      "1 ATT&CK technique(s) mapped",
-      "EPSS 34.4% exploitation probability"
-    ],
-    "cti_tier": "FREE_INFORMATIONAL",
-    "verification_status": "UNVERIFIED",
-    "attribution_status": "UNATTRIBUTED",
-    "source_reliability": "UNRATED",
-    "ioc_quality": "MEDIUM",
-    "ttp_quality": "MEDIUM",
-    "report_quality": "INFORMATIONAL",
-    "verified_actor": false,
-    "campaign_name": null,
-    "campaign_id": null,
-    "campaign_status": "UNVERIFIED",
-    "publication_decision": "ALLOW_WITH_WARNING",
-    "intelligence_grade": "B",
-    "evidence_count": 3,
-    "corroboration_count": 3,
-    "ioc_quality_score": 31,
-    "ioc_quality_label": "LOW",
-    "real_ioc_count": 2,
-    "attck_verification": "EVIDENCE_BASED",
-    "attck_notes": [
-      "Derived from CVE description: rce"
-    ],
-    "risk_score_reasoning": "{\"formula\": \"v1.0.0-deterministic\", \"inputs\": {\"cvss_score\": 9.8, \"epss_pct\": 34.4, \"kev_confirmed\": false, \"verified_actor\": true, \"real_ioc_count\": 2}, \"components\": {\"base_cvss\": 3.92, \"epss_boost\": 1.032, \"kev_boost\": 0.0, \"actor_boost\": 0.5, \"ioc_boost\": 0.4}, \"computed_score\": 5.852, \"notes\": [\"Critical CVSS without KEV confirmation \\u2014 monitor for escalation\"]}",
-    "analyst_verdict": "ALLOW — Grade B: strong CVE intelligence. Verified CVE, CVSS>=8.0, evidence-based ATT&CK, multi-source corroboration.",
-    "grade_notes": [
-      "Partial verification: EPSS 34.4%, CVSS 9.8"
-    ],
-    "grade_engine_version": "v2.0.0",
-    "graded_at": "2026-07-07T22:07:36.473524+00:00",
-    "epss_normalized": true,
-    "actor": null,
-    "actor_name": null,
-    "allowed_content_tier": "enterprise_dossier",
-    "premium_eligible": true,
-    "enterprise_eligible": true,
-    "mssp_eligible": true,
-    "governor_version": "1.0.0",
-    "governed_at": "2026-07-07T22:07:37.234186+00:00",
-    "governor_audit_log": [
-      "M2: Banned actor 'Unknown Threat Actor' nulled — attribution_status=NONE",
-      "M4: risk_score raised 5.9→8.5 [severity=CRITICAL → floor 8.5; CVSS=9.8 ≥ 9.0 → floor 8.5]"
-    ],
-    "actor_confidence_label": "NONE",
-    "attribution_assessment": {
-      "status": "UNATTRIBUTED",
-      "confidence": "NONE",
-      "evidence_count": 0,
-      "verdict": "No actor claimed — correct",
-      "engine_version": "1.0.0"
-    },
-    "attck_technique_ids": [
-      "T1059"
-    ],
-    "attck_techniques": [
-      {
-        "technique_id": "T1059",
-        "technique_name": "Command and Scripting Interpreter",
-        "attack_justification": "CVE confirms remote/arbitrary code execution capability",
-        "attack_evidence": "CVE-2026-56810 — cve-2026-56810: allocation of resources without limits or throttling vulnerability in elixir-mint mint (mint.http1 modul...",
-        "attack_source": "nvd_cve",
-        "mapping_method": "cve_description_derivation",
-        "verification_status": "EVIDENCE_BASED",
-        "matched_pattern": "rce",
-        "source_reference": "",
-        "mapping_reason": ""
-      }
-    ],
-    "corroboration_score": 75,
-    "corroboration_strength": "STRONG",
-    "corroboration_sources": [
-      "NIST/NVD",
-      "EPSS/FIRST",
-      "NVD/CVE-Database"
-    ],
-    "detection_quality_status": "DETECTION_PARTIALLY_READY",
-    "detection_production_ready": true,
-    "detection_rules_total": 3,
-    "detection_rules_production_ready": 1,
-    "grade_notes_v2": [
-      "Grade B: CVE verified; CVSS=9.8; 3 sources; evidence-based ATT&CK; corroboration=75"
-    ],
-    "graded_at_v2": "2026-07-07T22:07:37.126406+00:00"
-  },
-  {
-    "id": "intel--dfcdb443e03b9e62",
-    "stix_id": "intel--dfcdb443e03b9e62",
-    "title": "CVE-2026-4249: The throttling event handling mechanism in multiple WSO2 products accepts user-supplied JSON payloads without sufficient",
-    "description": "The throttling event handling mechanism in multiple WSO2 products accepts user-supplied JSON payloads without sufficient validation of their structure and content. This allows an unauthenticated remote attacker to inject malicious JSON data that can lead to a persistent denial of service condition.\n\nSuccessful exploitation of this vulnerability can disrupt the API Gateway, preventing legitimate API traffic from being processed and impacting complete service availability. The denial of service is persistent, requiring manual intervention to restore normal operations.",
-    "source_url": "https://nvd.nist.gov/vuln/detail/CVE-2026-4249",
-    "feed_source": "nvd_cve",
-    "published_at": "2026-07-06T11:16:30.433",
-    "processed_at": "2026-07-07T19:25:57Z",
-    "timestamp": "2026-07-06T11:16:30.433",
-    "severity": "HIGH",
-    "risk_score": 7.0,
-    "threat_type": "Threat Intelligence",
-    "tags": [
-      "nvd",
-      "cve",
-      "high"
-    ],
-    "cves": [
-      "CVE-2026-4249"
-    ],
-    "iocs": [],
-    "ioc_count": 0,
-    "tlp": "TLP:CLEAR",
-    "actor_tag": null,
-    "apex_ai_summary": "[HIGH] CVE advisory. Risk score 8.6/10. Full APEX AI analysis available to Pro subscribers.",
-    "apex_ai_score": 8.6,
-    "status": "active",
-    "schema_version": "v134.0",
-    "threat_level": "HIGH",
-    "threat_category": "Threat Intelligence",
-    "source_trust_score": 0.6,
-    "published": "2026-07-06T11:16:30.433",
-    "report_url": "https://intel.cyberdudebivash.com/reports/2026/07/intel--dfcdb443e03b9e62.html",
-    "validation_status": "ok",
-    "iocs_by_type": {
-      "cve": [
-        "CVE-2026-4249"
-      ]
-    },
-    "ioc_confidence": 7.0,
-    "ioc_threat_level": "LOW",
-    "ioc_extraction_meta": {
-      "types_found": [
-        "cve"
-      ],
-      "counts_by_type": {
-        "cve": 1
-      },
-      "text_length": 709,
-      "had_existing": false
-    },
-    "is_published": true,
-    "source": "nvd_cve",
-    "cve_ids": [
-      "CVE-2026-4249"
-    ],
-    "ttps": [],
-    "mitre_tactics": [],
-    "affected_products": [],
-    "kill_chain_phases": [],
-    "is_new": false,
-    "kill_chain_phase": "Impact",
-    "attack_vector": "NETWORK",
-    "source_quality": "LOW",
-    "enrichment_score": 45,
-    "threat_priority": "MEDIUM",
-    "indicator_count": 1,
-    "internal_report_url": "https://intel.cyberdudebivash.com/reports/2026/07/intel--dfcdb443e03b9e62.html",
-    "research_based": true,
-    "ioc_note": "Actor-attribution campaign — IOC set derived from threat actor research, not automated feed extraction.",
-    "pdf_url": "/reports/pdf/intel--dfcdb443e03b9e62.pdf",
-    "pdf_available": true,
-    "_governance_rules": "CVSS=8.6>=7.0→MEDIUM_FLOOR",
-    "_score_details": {
-      "kev": false,
-      "active_exploit": false,
-      "ransomware": false,
-      "zero_day": false,
-      "cvss": 8.6,
-      "epss": null
-    },
-    "apex_ai": {
-      "soc_priority": "P1",
-      "predictive_risk": 3.4,
-      "ai_confidence": 22,
-      "ttp_density": 0.0,
-      "threat_level": "HIGH_ALERT",
-      "threat_category": "CVE / Vulnerability",
-      "ai_summary": "[P1] CVE / Vulnerability - high severity (Risk 8.6/10). No MITRE ATT&CK techniques mapped - limited adversarial context. 1 indicator detected - upgrade to Pro for full IOC access. AI confidence: LOW (22%) - limited source data available.",
-      "recommended_action": "CRITICAL PRIORITY - Patch within 24-48 hours. Activate IR playbook. Notify SOC lead and CISO.",
-      "campaign_id": "UNCLASSIFIED",
-      "actor_fingerprint": "UNC-CDB-INGEST::H::1::0",
-      "behavioral_tags": [],
-      "kill_chain": [
-        "Initial Access",
-        "Execution"
-      ],
-      "paywall": {
-        "message": "Upgrade to Pro for full kill chain analysis, actor attribution, and 30-day threat forecast.",
-        "upgrade_url": "/upgrade.html?plan=pro",
-        "urgency": "[SOC P1] CVE / Vulnerability - HIGH severity threat detected."
-      }
-    },
-    "apex": {
-      "priority": "P1",
-      "threat_level": "HIGH_ALERT",
-      "threat_category": "CVE / Vulnerability",
-      "predictive_score": 3.4,
-      "campaign_id": null,
-      "confidence": 22.0,
-      "behavioral_tags": [],
-      "ai_summary": "[P1] CVE / Vulnerability - high severity (Risk 8.6/10). No MITRE ATT&CK techniques mapped - limited adversarial context. 1 indicator detected - upgrade to Pro for full IOC access. AI confidence: LOW (22%) - limited source data available.",
-      "recommended_action": "CRITICAL PRIORITY - Patch within 24-48 hours. Activate IR playbook. Notify SOC lead and CISO."
-    },
-    "ioc_paywall": {
-      "locked": true,
-      "count": 1,
-      "confidence": 7.0,
-      "threat_level": "LOW",
-      "primary_types": [],
-      "upgrade_url": "/upgrade.html?plan=pro",
-      "message": "1 IOC(s) at 7.0% confidence - unlock with Pro tier."
-    },
-    "confidence_score": 17,
-    "confidence": 0.17,
-    "cve_id": "CVE-2026-4249",
-    "nvd_status": "PRELIMINARY",
-    "nvd_checked_at": "2026-07-07T21:37:37.154122+00:00",
-    "nvd_disclosure": "This CVE ID was not found in the NIST NVD database at time of enrichment. Intelligence is preliminary and unverified by NVD. CVSS score and severity are analyst-estimated until NVD confirmation.",
-    "epss_score": 33.9,
-    "_enriched_at": "2026-07-07T21:37:37.154127+00:00",
-    "_enriched_by": "enrich_cvss_epss_batch.py v185.0",
-    "blog_url": "https://intel.cyberdudebivash.com/reports/intel--dfcdb443e03b9e62/",
-    "ioc_types": [
-      "ip_address",
-      "domain"
-    ],
-    "_quality_hardened_at": "2026-07-07T22:06:24.778666+00:00",
-    "_quality_version": "184.0",
-    "kev_present": false,
-    "sigma_rule": "title: SENTINEL APEX — CVE-2026-4249 The throttling event handling mechanism in multiple WSO2 products \nid: dbb549de-a12a-53c1-9cdc-1d34e19c7b4d\nstatus: experimental\ndescription: |\n    Detects exploitation attempts related to CVE-2026-4249 (Web Application).\n    Generated by CYBERDUDEBIVASH SENTINEL APEX v166.2.\n    Severity: HIGH | Class: GENERIC\nreferences:\n    - https://intel.cyberdudebivash.com\n    - https://nvd.nist.gov/vuln/detail/CVE-2026-4249\nauthor: CYBERDUDEBIVASH SENTINEL APEX Detection Engineering\ndate: 2026/07/07\nmodified: 2026/07/07\ntags:\n    - attack.initial_access\nlogsource:\n    category: network_connection\n    product: generic\ndetection:\n    selection:\n        EventID:\n            - 4625\n            - 4648\n            - 4728\n        LogonType: 3\n    condition: selection\nfalsepositives:\n    - Legitimate administrative access\n    - Service account activity\nlevel: high\n",
-    "kql_query": "// SENTINEL APEX — CVE-2026-4249 — Anomalous Activity Detection\n// Product: Web Application | Generated: 2026-07-07T21:38:49Z\nlet lookback = 1d;\nSecurityEvent\n| where TimeGenerated > ago(lookback)\n| where EventID in (4625, 4648, 4728, 4740, 4776)\n| summarize FailureCount = count(), DistinctTargets = dcount(TargetUserName)\n    by IpAddress, bin(TimeGenerated, 1h)\n| where FailureCount > 10 or DistinctTargets > 5\n| extend Severity = \"MEDIUM\", CVE = \"CVE-2026-4249\", RuleSource = \"SENTINEL-APEX\"\n| order by TimeGenerated desc",
-    "suricata_rule": "alert http $EXTERNAL_NET any -> $HTTP_SERVERS $HTTP_PORTS (msg:\"SENTINEL-APEX CVE-2026-4249 Exploitation Attempt - GENERIC\"; flow:established,to_server; content:\"|90 90 90 90|\"; rawbytes; threshold:type threshold, track by_src, count 3, seconds 60; classtype:web-application-attack; sid:1260356; rev:1; metadata:created_at 2026-07-07, source SENTINEL-APEX-v166.2;)",
-    "vuln_class": "generic",
-    "detection_generated_at": "2026-07-07T21:38:49Z",
-    "cvss_score": 8.6,
-    "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:C/C:N/I:N/A:H",
-    "cvss_source": "github_advisory",
-    "exploit_maturity": "POC",
-    "exploit_count": 0,
-    "exploit_refs": [],
-    "metasploit_available": false,
-    "poc_github_count": 0,
-    "actor_display_name": null,
-    "actor_aliases": [],
-    "actor_country": null,
-    "actor_motivation": null,
-    "actor_sectors": [],
-    "actor_ttps": [],
-    "actor_malware": [],
-    "actor_threat_level": null,
-    "actor_mitre_id": null,
-    "iq_score": 62,
-    "iq_breakdown": {
-      "source": 22,
-      "enrichment": 20,
-      "attribution": 5,
-      "corroboration": 15
-    },
-    "intelligence_age_days": 0.0,
-    "confidence_label": "MEDIUM_CONFIDENCE",
-    "confidence_score_v2": 34,
-    "confidence_rationale": "Medium confidence — CVSS score 8.6 (High)",
-    "confidence_factors": [
-      {
-        "factor": "cvss_high",
-        "weight": 8,
-        "signal": "CVSS score 8.6 (High)"
-      },
-      {
-        "factor": "epss_high",
-        "weight": 6,
-        "signal": "EPSS score 0.339 (elevated exploitation probability)"
-      },
-      {
-        "factor": "authoritative_source",
-        "weight": 15,
-        "signal": "Source 'nvd_cve' is authoritative (government/standards body)"
-      },
-      {
-        "factor": "cve_referenced",
-        "weight": 5,
-        "signal": "CVE(s) referenced: CVE-2026-4249"
-      }
-    ],
-    "sources_reporting": 1,
-    "corroborating_sources": [],
-    "revenue_opportunities": [
-      "VULNERABILITY_ASSESSMENT"
-    ],
-    "sla_priority": "P1",
-    "action_deadline_hours": 72,
-    "recommended_sla_action": "URGENT PATCH — Critical severity, deploy fix within 72 hours",
-    "confidence_enriched_at": "2026-07-07T21:39:57Z",
-    "confidence_engine_version": "1.0.1",
-    "evidence_chain": {
-      "evidence_id": "EVD-DFCDB443E03B",
-      "source_url": "https://nvd.nist.gov/vuln/detail/CVE-2026-4249",
-      "source_name": "nvd_cve",
-      "source_category": "NVD CVE Database",
-      "source_reliability": "A — Completely Reliable",
-      "reliability_code": "A",
-      "accuracy_code": "2",
-      "accuracy_label": "Probably true",
-      "collection_time": "2026-07-06T11:16:30.433",
-      "verification_time": "2026-07-07T19:25:57Z",
-      "collection_method": "Automated OSINT Pipeline (SENTINEL APEX v184.0)",
-      "analyst_review": "Automated — Pending Human Review",
-      "corroboration_count": 0,
-      "corroborating_sources": [],
-      "intelligence_freshness": "Very Fresh (<6h)",
-      "confidence_pct": 22.0,
-      "chain_of_custody": [
-        "[2026-07-07T19:25:57Z] Item ingested by SENTINEL APEX ingest pipeline",
-        "[2026-07-06T11:16:30.433] Advisory published by nvd_cve",
-        "Source URL verified: https://nvd.nist.gov/vuln/detail/CVE-2026-4249",
-        "CVE references: CVE-2026-4249 (traceable to NVD)",
-        "EPSS score 33.9% assigned by FIRST.org model",
-        "NVD status: PRELIMINARY"
-      ],
-      "known_limitations": [
-        "No independent corroboration sources identified",
-        "Threat actor attribution unresolved"
-      ],
-      "iq_breakdown": {
-        "source": 22,
-        "enrichment": 20,
-        "attribution": 5,
-        "corroboration": 15
-      },
-      "evidence_version": "P20.1"
-    },
-    "ioc_fp_removed": 1,
-    "ioc_counts": {},
-    "evidence_ledger": {
-      "source_count": 1,
-      "verified_sources": 0,
-      "ioc_count": 0,
-      "ttp_count": 0,
-      "cve_count": 1,
-      "confidence_score": 62,
-      "evidence_strength": "LOW",
-      "ledger_generated": true
-    },
-    "confidence_reason": [
-      "EPSS 33.9% exploitation probability"
-    ],
-    "cti_tier": "FREE_INFORMATIONAL",
-    "verification_status": "UNVERIFIED",
-    "attribution_status": "UNATTRIBUTED",
-    "source_reliability": "UNRATED",
-    "ioc_quality": "LOW",
-    "ttp_quality": "LOW",
-    "report_quality": "INFORMATIONAL",
-    "verified_actor": false,
-    "campaign_name": null,
-    "campaign_id": null,
-    "campaign_status": "UNVERIFIED",
-    "publication_decision": "ALLOW_WITH_WARNING",
-    "intelligence_grade": "B",
-    "evidence_count": 3,
-    "corroboration_count": 3,
-    "ioc_quality_score": 0,
-    "ioc_quality_label": "NONE",
-    "real_ioc_count": 0,
-    "attck_verification": "EVIDENCE_BASED",
-    "attck_notes": [
-      "Derived from CVE description: denial.of.service"
-    ],
-    "risk_score_reasoning": "{\"formula\": \"v1.0.0-deterministic\", \"inputs\": {\"cvss_score\": 8.6, \"epss_pct\": 33.9, \"kev_confirmed\": false, \"verified_actor\": true, \"real_ioc_count\": 0}, \"components\": {\"base_cvss\": 3.44, \"epss_boost\": 1.017, \"kev_boost\": 0.0, \"actor_boost\": 0.5, \"ioc_boost\": 0.0}, \"computed_score\": 4.957, \"notes\": []}",
-    "analyst_verdict": "ALLOW — Grade B: strong CVE intelligence. Verified CVE, CVSS>=8.0, evidence-based ATT&CK, multi-source corroboration.",
-    "grade_notes": [
-      "Partial verification: EPSS 33.9%, CVSS 8.6"
-    ],
-    "grade_engine_version": "v2.0.0",
-    "graded_at": "2026-07-07T22:07:36.473556+00:00",
-    "epss_normalized": true,
-    "actor": null,
-    "actor_name": null,
-    "allowed_content_tier": "enterprise_dossier",
-    "premium_eligible": true,
-    "enterprise_eligible": true,
-    "mssp_eligible": true,
-    "governor_version": "1.0.0",
-    "governed_at": "2026-07-07T22:07:37.234201+00:00",
-    "governor_audit_log": [
-      "M2: Banned actor 'Unknown Threat Actor' nulled — attribution_status=NONE",
-      "M4: risk_score raised 5.0→7.0 [severity=HIGH → floor 7.0; CVSS=8.6 ≥ 7.0 → floor 7.0]"
-    ],
-    "actor_confidence_label": "NONE",
-    "attribution_assessment": {
-      "status": "UNATTRIBUTED",
-      "confidence": "NONE",
-      "evidence_count": 0,
-      "verdict": "No actor claimed — correct",
-      "engine_version": "1.0.0"
-    },
-    "attck_technique_ids": [
-      "T1499"
-    ],
-    "attck_techniques": [
-      {
-        "technique_id": "T1499",
-        "technique_name": "Endpoint Denial of Service",
-        "attack_justification": "CVE describes denial-of-service condition exploitable remotely",
-        "attack_evidence": "CVE-2026-4249 — cve-2026-4249: the throttling event handling mechanism in multiple wso2 products accepts user-supplied json payloads wit...",
-        "attack_source": "nvd_cve",
-        "mapping_method": "cve_description_derivation",
-        "verification_status": "EVIDENCE_BASED",
-        "matched_pattern": "denial.of.service",
-        "source_reference": "",
-        "mapping_reason": ""
-      }
-    ],
-    "corroboration_score": 75,
-    "corroboration_strength": "STRONG",
-    "corroboration_sources": [
-      "NIST/NVD",
-      "EPSS/FIRST",
-      "NVD/CVE-Database"
-    ],
-    "detection_quality_status": "DETECTION_PARTIALLY_READY",
-    "detection_production_ready": true,
-    "detection_rules_total": 3,
-    "detection_rules_production_ready": 1,
-    "grade_notes_v2": [
-      "Grade B: CVE verified; CVSS=8.6; 3 sources; evidence-based ATT&CK; corroboration=75"
-    ],
-    "graded_at_v2": "2026-07-07T22:07:37.126417+00:00"
+    "graded_at_v2": "2026-07-08T05:44:00.301181+00:00"
   }
 ]
