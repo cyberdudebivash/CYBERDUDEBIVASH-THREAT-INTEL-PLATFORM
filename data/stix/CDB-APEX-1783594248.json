@@ -1,0 +1,232 @@
+{
+  "type": "bundle",
+  "id": "bundle--c309a980-a4e9-418b-a018-bbb290a24c3b",
+  "spec_version": "2.1",
+  "objects": [
+    {
+      "type": "identity",
+      "spec_version": "2.1",
+      "id": "identity--61a8943b-b27b-5e19-afff-893bb2e2fa2b",
+      "name": "CyberDudeBivash SENTINEL APEX",
+      "description": "CyberDudeBivash Pvt. Ltd. - Global Cybersecurity Intelligence Infrastructure",
+      "identity_class": "organization",
+      "sectors": [
+        "technology"
+      ],
+      "contact_information": "enterprise@cyberdudebivash.com",
+      "created": "2024-01-01T00:00:00Z",
+      "modified": "2024-01-01T00:00:00Z"
+    },
+    {
+      "type": "marking-definition",
+      "spec_version": "2.1",
+      "id": "marking-definition--f88d31f6-486f-44da-b317-01333bde0b82",
+      "created": "2017-01-20T00:00:00.000Z",
+      "definition_type": "tlp",
+      "definition": {
+        "tlp": "amber"
+      }
+    },
+    {
+      "type": "intrusion-set",
+      "spec_version": "2.1",
+      "id": "intrusion-set--e4c3cebf-f7ea-4b6a-8a7a-ddc88082fa37",
+      "name": "CDB-UNATTR-CVE Campaign",
+      "description": "Microsoft fixed Defender flaw RoguePlanet (CVE-2026-50656)",
+      "created": "2026-07-09T10:50:48Z",
+      "modified": "2026-07-09T10:50:48Z",
+      "confidence": 52,
+      "aliases": [
+        "CDB-UNATTR-CVE"
+      ],
+      "extensions": {
+        "x-cdb-apex-1": {
+          "predictive_score": 7.5,
+          "campaign_id": "CDB-CONTI",
+          "campaign_confidence": 7.5,
+          "threat_category": "Zero Day Exploit",
+          "behavioral_tags": [],
+          "ai_summary": "Initial access via zero day → execution chain: privilege escalation → lateral movement",
+          "risk_factors": [
+            "EPSS_score",
+            "IOC_density",
+            "MITRE_coverage",
+            "exploitation_context"
+          ],
+          "soc_priority": "P2",
+          "threat_level": "MEDIUM",
+          "recommended_action": "High severity threat (score 7.5/10) — limited technical indicators in source data",
+          "x_cdb_published_at": "2026-07-09T10:17:24Z"
+        }
+      },
+      "object_marking_refs": [
+        "marking-definition--f88d31f6-486f-44da-b317-01333bde0b82"
+      ],
+      "created_by_ref": "identity--61a8943b-b27b-5e19-afff-893bb2e2fa2b"
+    },
+    {
+      "type": "indicator",
+      "spec_version": "2.1",
+      "id": "indicator--d57c7ad7-cb62-461b-a9d2-074da64d032c",
+      "name": "Malicious Artifact: mpengine.dll",
+      "pattern": "[file:name = 'mpengine.dll']",
+      "pattern_type": "stix",
+      "valid_from": "2026-07-09T10:50:48Z",
+      "created": "2026-07-09T10:50:48Z",
+      "modified": "2026-07-09T10:50:48Z",
+      "indicator_types": [
+        "malicious-activity"
+      ],
+      "confidence": 52,
+      "object_marking_refs": [
+        "marking-definition--f88d31f6-486f-44da-b317-01333bde0b82"
+      ],
+      "created_by_ref": "identity--61a8943b-b27b-5e19-afff-893bb2e2fa2b"
+    },
+    {
+      "type": "relationship",
+      "spec_version": "2.1",
+      "id": "relationship--91e6a9fa-fa2a-4ea8-b816-b49e3deb16ad",
+      "relationship_type": "indicates",
+      "source_ref": "indicator--d57c7ad7-cb62-461b-a9d2-074da64d032c",
+      "target_ref": "intrusion-set--e4c3cebf-f7ea-4b6a-8a7a-ddc88082fa37",
+      "created": "2026-07-09T10:50:48Z",
+      "modified": "2026-07-09T10:50:48Z",
+      "object_marking_refs": [
+        "marking-definition--f88d31f6-486f-44da-b317-01333bde0b82"
+      ],
+      "created_by_ref": "identity--61a8943b-b27b-5e19-afff-893bb2e2fa2b"
+    },
+    {
+      "type": "attack-pattern",
+      "spec_version": "2.1",
+      "id": "attack-pattern--c91c4d11-cd39-4b9d-859f-9d207470a5d1",
+      "name": "Abuse Elevation Control Mechanism",
+      "created": "2026-07-09T10:50:48Z",
+      "modified": "2026-07-09T10:50:48Z",
+      "object_marking_refs": [
+        "marking-definition--f88d31f6-486f-44da-b317-01333bde0b82"
+      ],
+      "created_by_ref": "identity--61a8943b-b27b-5e19-afff-893bb2e2fa2b",
+      "external_references": [
+        {
+          "source_name": "mitre-attack",
+          "external_id": "T1548",
+          "url": "https://attack.mitre.org/techniques/T1548/"
+        }
+      ]
+    },
+    {
+      "type": "relationship",
+      "spec_version": "2.1",
+      "id": "relationship--4dac6991-1e8a-4706-8535-6a3bd9111530",
+      "relationship_type": "uses",
+      "source_ref": "intrusion-set--e4c3cebf-f7ea-4b6a-8a7a-ddc88082fa37",
+      "target_ref": "attack-pattern--c91c4d11-cd39-4b9d-859f-9d207470a5d1",
+      "created": "2026-07-09T10:50:48Z",
+      "modified": "2026-07-09T10:50:48Z",
+      "object_marking_refs": [
+        "marking-definition--f88d31f6-486f-44da-b317-01333bde0b82"
+      ],
+      "created_by_ref": "identity--61a8943b-b27b-5e19-afff-893bb2e2fa2b"
+    },
+    {
+      "type": "vulnerability",
+      "spec_version": "2.1",
+      "id": "vulnerability--b2f80fb5-94af-4c8f-8ad9-5cf71f569959",
+      "name": "CVE-2026-50656",
+      "created": "2026-07-09T10:50:48Z",
+      "modified": "2026-07-09T10:50:48Z",
+      "external_references": [
+        {
+          "source_name": "cve",
+          "external_id": "CVE-2026-50656",
+          "url": "https://nvd.nist.gov/vuln/detail/CVE-2026-50656"
+        }
+      ],
+      "object_marking_refs": [
+        "marking-definition--f88d31f6-486f-44da-b317-01333bde0b82"
+      ],
+      "created_by_ref": "identity--61a8943b-b27b-5e19-afff-893bb2e2fa2b",
+      "x_cdb_epss_score": 3.39
+    },
+    {
+      "type": "relationship",
+      "spec_version": "2.1",
+      "id": "relationship--23e18350-2dae-4604-81ba-92c94dab1056",
+      "relationship_type": "exploits",
+      "source_ref": "intrusion-set--e4c3cebf-f7ea-4b6a-8a7a-ddc88082fa37",
+      "target_ref": "vulnerability--b2f80fb5-94af-4c8f-8ad9-5cf71f569959",
+      "created": "2026-07-09T10:50:48Z",
+      "modified": "2026-07-09T10:50:48Z",
+      "object_marking_refs": [
+        "marking-definition--f88d31f6-486f-44da-b317-01333bde0b82"
+      ],
+      "created_by_ref": "identity--61a8943b-b27b-5e19-afff-893bb2e2fa2b"
+    },
+    {
+      "type": "relationship",
+      "spec_version": "2.1",
+      "id": "relationship--04ea3912-a0e9-41ba-995d-3b4a82a33107",
+      "relationship_type": "targets",
+      "source_ref": "vulnerability--b2f80fb5-94af-4c8f-8ad9-5cf71f569959",
+      "target_ref": "attack-pattern--c91c4d11-cd39-4b9d-859f-9d207470a5d1",
+      "created": "2026-07-09T10:50:48Z",
+      "modified": "2026-07-09T10:50:48Z",
+      "description": "CVE exploited via mapped ATT&CK technique",
+      "object_marking_refs": [
+        "marking-definition--f88d31f6-486f-44da-b317-01333bde0b82"
+      ],
+      "created_by_ref": "identity--61a8943b-b27b-5e19-afff-893bb2e2fa2b"
+    },
+    {
+      "type": "vulnerability",
+      "spec_version": "2.1",
+      "id": "vulnerability--235a658a-ac73-4ac4-8800-bd6313b4ace0",
+      "name": "CVE-2026-50656",
+      "created": "2026-07-09T10:50:48Z",
+      "modified": "2026-07-09T10:50:48Z",
+      "external_references": [
+        {
+          "source_name": "cve",
+          "external_id": "CVE-2026-50656",
+          "url": "https://nvd.nist.gov/vuln/detail/CVE-2026-50656"
+        }
+      ],
+      "object_marking_refs": [
+        "marking-definition--f88d31f6-486f-44da-b317-01333bde0b82"
+      ],
+      "created_by_ref": "identity--61a8943b-b27b-5e19-afff-893bb2e2fa2b",
+      "x_cdb_epss_score": 3.39
+    },
+    {
+      "type": "relationship",
+      "spec_version": "2.1",
+      "id": "relationship--70666b3e-c7a7-4def-8cc3-68cbd89ce46a",
+      "relationship_type": "exploits",
+      "source_ref": "intrusion-set--e4c3cebf-f7ea-4b6a-8a7a-ddc88082fa37",
+      "target_ref": "vulnerability--235a658a-ac73-4ac4-8800-bd6313b4ace0",
+      "created": "2026-07-09T10:50:48Z",
+      "modified": "2026-07-09T10:50:48Z",
+      "object_marking_refs": [
+        "marking-definition--f88d31f6-486f-44da-b317-01333bde0b82"
+      ],
+      "created_by_ref": "identity--61a8943b-b27b-5e19-afff-893bb2e2fa2b"
+    },
+    {
+      "type": "relationship",
+      "spec_version": "2.1",
+      "id": "relationship--a186e7b0-4a2e-4f4c-8a5f-1b4a3c556946",
+      "relationship_type": "targets",
+      "source_ref": "vulnerability--235a658a-ac73-4ac4-8800-bd6313b4ace0",
+      "target_ref": "attack-pattern--c91c4d11-cd39-4b9d-859f-9d207470a5d1",
+      "created": "2026-07-09T10:50:48Z",
+      "modified": "2026-07-09T10:50:48Z",
+      "description": "CVE exploited via mapped ATT&CK technique",
+      "object_marking_refs": [
+        "marking-definition--f88d31f6-486f-44da-b317-01333bde0b82"
+      ],
+      "created_by_ref": "identity--61a8943b-b27b-5e19-afff-893bb2e2fa2b"
+    }
+  ]
+}
