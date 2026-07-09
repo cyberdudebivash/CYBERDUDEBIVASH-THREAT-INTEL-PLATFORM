@@ -1,0 +1,165 @@
+{
+  "type": "bundle",
+  "id": "bundle--8fe16686-1360-49ad-b051-cc3dbc883871",
+  "spec_version": "2.1",
+  "objects": [
+    {
+      "type": "identity",
+      "spec_version": "2.1",
+      "id": "identity--61a8943b-b27b-5e19-afff-893bb2e2fa2b",
+      "name": "CyberDudeBivash SENTINEL APEX",
+      "description": "CyberDudeBivash Pvt. Ltd. - Global Cybersecurity Intelligence Infrastructure",
+      "identity_class": "organization",
+      "sectors": [
+        "technology"
+      ],
+      "contact_information": "enterprise@cyberdudebivash.com",
+      "created": "2024-01-01T00:00:00Z",
+      "modified": "2024-01-01T00:00:00Z"
+    },
+    {
+      "type": "marking-definition",
+      "spec_version": "2.1",
+      "id": "marking-definition--34098fce-860f-479c-ad6f-e09814c4f58a",
+      "created": "2017-01-20T00:00:00.000Z",
+      "definition_type": "tlp",
+      "definition": {
+        "tlp": "green"
+      }
+    },
+    {
+      "type": "intrusion-set",
+      "spec_version": "2.1",
+      "id": "intrusion-set--94026b84-207d-429a-befd-0bc415c98a15",
+      "name": "CDB-TA-02 Campaign",
+      "description": "Palo Alto PAN-OS Vulnerability Allows Arbitrary Code Execution Through Malicious Network Traffic",
+      "created": "2026-07-09T07:35:31Z",
+      "modified": "2026-07-09T07:35:31Z",
+      "confidence": 50,
+      "aliases": [
+        "CDB-TA-02"
+      ],
+      "extensions": {
+        "x-cdb-apex-1": {
+          "predictive_score": 5.5,
+          "campaign_id": "UNCLASSIFIED",
+          "campaign_confidence": 5.5,
+          "threat_category": "Remote Code Execution",
+          "behavioral_tags": [],
+          "ai_summary": "Initial access via rce → execution chain: execution → defense evasion",
+          "risk_factors": [
+            "IOC_density",
+            "MITRE_coverage"
+          ],
+          "soc_priority": "P3",
+          "threat_level": "MEDIUM",
+          "recommended_action": "Medium severity threat (score 5.5/10) — limited technical indicators in source data",
+          "x_cdb_published_at": "2026-07-09T04:15:42Z"
+        }
+      },
+      "object_marking_refs": [
+        "marking-definition--34098fce-860f-479c-ad6f-e09814c4f58a"
+      ],
+      "created_by_ref": "identity--61a8943b-b27b-5e19-afff-893bb2e2fa2b"
+    },
+    {
+      "type": "indicator",
+      "spec_version": "2.1",
+      "id": "indicator--05d3100d-57e4-45ab-86d3-7218f5353ef0",
+      "name": "Malicious Artifact: libvlc.dll",
+      "pattern": "[file:name = 'libvlc.dll']",
+      "pattern_type": "stix",
+      "valid_from": "2026-07-09T07:35:31Z",
+      "created": "2026-07-09T07:35:31Z",
+      "modified": "2026-07-09T07:35:31Z",
+      "indicator_types": [
+        "malicious-activity"
+      ],
+      "confidence": 50,
+      "object_marking_refs": [
+        "marking-definition--34098fce-860f-479c-ad6f-e09814c4f58a"
+      ],
+      "created_by_ref": "identity--61a8943b-b27b-5e19-afff-893bb2e2fa2b"
+    },
+    {
+      "type": "relationship",
+      "spec_version": "2.1",
+      "id": "relationship--c2571b1b-7fbe-4fb1-98a0-46c04b02feed",
+      "relationship_type": "indicates",
+      "source_ref": "indicator--05d3100d-57e4-45ab-86d3-7218f5353ef0",
+      "target_ref": "intrusion-set--94026b84-207d-429a-befd-0bc415c98a15",
+      "created": "2026-07-09T07:35:31Z",
+      "modified": "2026-07-09T07:35:31Z",
+      "object_marking_refs": [
+        "marking-definition--34098fce-860f-479c-ad6f-e09814c4f58a"
+      ],
+      "created_by_ref": "identity--61a8943b-b27b-5e19-afff-893bb2e2fa2b"
+    },
+    {
+      "type": "attack-pattern",
+      "spec_version": "2.1",
+      "id": "attack-pattern--59299b66-c549-4ed5-a769-0f71aab83f68",
+      "name": "Exploit Public-Facing Application",
+      "created": "2026-07-09T07:35:31Z",
+      "modified": "2026-07-09T07:35:31Z",
+      "object_marking_refs": [
+        "marking-definition--34098fce-860f-479c-ad6f-e09814c4f58a"
+      ],
+      "created_by_ref": "identity--61a8943b-b27b-5e19-afff-893bb2e2fa2b",
+      "external_references": [
+        {
+          "source_name": "mitre-attack",
+          "external_id": "T1190",
+          "url": "https://attack.mitre.org/techniques/T1190/"
+        }
+      ]
+    },
+    {
+      "type": "relationship",
+      "spec_version": "2.1",
+      "id": "relationship--6c53bd3c-362f-4e2d-b088-25173262dea8",
+      "relationship_type": "uses",
+      "source_ref": "intrusion-set--94026b84-207d-429a-befd-0bc415c98a15",
+      "target_ref": "attack-pattern--59299b66-c549-4ed5-a769-0f71aab83f68",
+      "created": "2026-07-09T07:35:31Z",
+      "modified": "2026-07-09T07:35:31Z",
+      "object_marking_refs": [
+        "marking-definition--34098fce-860f-479c-ad6f-e09814c4f58a"
+      ],
+      "created_by_ref": "identity--61a8943b-b27b-5e19-afff-893bb2e2fa2b"
+    },
+    {
+      "type": "attack-pattern",
+      "spec_version": "2.1",
+      "id": "attack-pattern--bd7376bd-10da-4a59-b166-8da6aa2ff772",
+      "name": "Command and Scripting Interpreter",
+      "created": "2026-07-09T07:35:31Z",
+      "modified": "2026-07-09T07:35:31Z",
+      "object_marking_refs": [
+        "marking-definition--34098fce-860f-479c-ad6f-e09814c4f58a"
+      ],
+      "created_by_ref": "identity--61a8943b-b27b-5e19-afff-893bb2e2fa2b",
+      "external_references": [
+        {
+          "source_name": "mitre-attack",
+          "external_id": "T1059",
+          "url": "https://attack.mitre.org/techniques/T1059/"
+        }
+      ]
+    },
+    {
+      "type": "relationship",
+      "spec_version": "2.1",
+      "id": "relationship--6c4acb3e-7557-4f24-9735-f593eea754f1",
+      "relationship_type": "uses",
+      "source_ref": "intrusion-set--94026b84-207d-429a-befd-0bc415c98a15",
+      "target_ref": "attack-pattern--bd7376bd-10da-4a59-b166-8da6aa2ff772",
+      "created": "2026-07-09T07:35:31Z",
+      "modified": "2026-07-09T07:35:31Z",
+      "object_marking_refs": [
+        "marking-definition--34098fce-860f-479c-ad6f-e09814c4f58a"
+      ],
+      "created_by_ref": "identity--61a8943b-b27b-5e19-afff-893bb2e2fa2b"
+    }
+  ]
+}
