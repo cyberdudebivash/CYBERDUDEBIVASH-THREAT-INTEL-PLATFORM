@@ -1349,6 +1349,26 @@ var RAZORPAY_PLANS = {
   mssp:       { name:'MSSP / White-Label', inr_monthly:15999900, inr_annual:153600000, usd_monthly:1999,usd_annual:19188 },
 };
 
+/* Phase 1 architecture consolidation: sync the INR figures above (the ones
+   that actually determine the Razorpay charge) from the canonical pricing
+   endpoint. USD display figures are left as-is here - cross-currency/annual
+   reconciliation is a separate, pending business pricing decision, not an
+   architecture change. Fails silently to the values above if unreachable. */
+(function syncCanonicalPricing() {
+  var TIER_MAP = { pro: 'PRO', enterprise: 'ENTERPRISE', mssp: 'MSSP' };
+  fetch('/api/pricing').then(function (r) { return r.ok ? r.json() : null; }).then(function (data) {
+    if (!data || !data.tiers) return;
+    Object.keys(TIER_MAP).forEach(function (key) {
+      var canon = data.tiers[TIER_MAP[key]];
+      if (canon && RAZORPAY_PLANS[key]) {
+        RAZORPAY_PLANS[key].inr_monthly = canon.monthly;
+        RAZORPAY_PLANS[key].inr_annual = canon.annual;
+      }
+    });
+    if (typeof updateRazorpayPanel === 'function') updateRazorpayPanel();
+  }).catch(function () { /* keep fallback values above */ });
+})();
+
 function updateRazorpayPanel() {
   var rp = RAZORPAY_PLANS[currentPlan];
   if (!rp) return;

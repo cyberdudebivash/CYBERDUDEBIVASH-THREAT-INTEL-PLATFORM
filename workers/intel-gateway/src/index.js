@@ -91,6 +91,7 @@ import { handleP37Hardening, handleP37FeedAudit, handleP37Enrichment, handleP37I
 import { handleP38SchemaRegistry, handleP38FeedGovernance, handleP38SchemaDrift, handleP38EnrichmentAudit, handleP38ConfidenceAudit, handleP38IQIndex, handleP38SourceDiversity, handleP38Certification, handleP38Executive, handleP38Reliability, handleP38Metrics, handleP38Observability } from './p38-handlers.js';
 import { routeEnterpriseEndpoint } from './enterprise-endpoints.js';
 import { handleSearch, handleActors, handleCVEs, handleMISPExport as handleMISPExportExt, handleCSVExport, handleCorrelate, handlePredict, handleCampaigns, handleAnomalies, handleIntelGraph, handleIntelRelations } from './api-extensions.js';
+import { RAZORPAY_TIER_PRICES, getPricingSnapshot } from './pricing.js';
 const PLATFORM_VERSION    = "184.0";
 const JWT_EXPIRY_SEC      = 86400;        // 24h JWT lifetime
 const BRUTE_FORCE_MAX     = 5;            // lockout after N failed auth attempts
@@ -2223,11 +2224,10 @@ async function handleCopilot(request, env, auth, method, path) {
 // Manual:   UPI/NEFT/Crypto proof -> Telegram alert -> admin provisions key
 // =============================================================================
 
-const RAZORPAY_TIER_PRICES = {
-  PRO:        { monthly: 410000,    annual: 4100000,    label: "Sentinel APEX PRO" },
-  ENTERPRISE: { monthly: 4160000,   annual: 41600000,   label: "Sentinel APEX ENTERPRISE" },
-  MSSP:       { monthly: 16660000,  annual: 166600000,  label: "Sentinel APEX MSSP" },
-};
+// RAZORPAY_TIER_PRICES now lives in ./pricing.js (Phase 1 architecture
+// consolidation - imported above). TRANSITIONAL values, unchanged from what
+// was previously hardcoded here; see pricing-data.json's "_note" before
+// changing any figure.
 
 async function provisionApiKey(env, ctx, tier, email, source, metadata) {
   const validTier = ["PRO", "ENTERPRISE", "MSSP"].includes(tier) ? tier : "PRO";
@@ -3847,6 +3847,14 @@ async function handleRequest(request, env, ctx) {
   }
   if (path === "/api/payment/status") {
     return await handlePaymentStatus(request, env, url);
+  }
+
+  // --- Canonical Pricing (Phase 1 architecture consolidation) ----------------
+  // TRANSITIONAL values - see pricing.js / pricing-data.json. Reflects exactly
+  // what Razorpay actually charges today; not yet the final business-approved
+  // commercial pricing (that decision is tracked separately, not inferred here).
+  if (path === "/api/pricing") {
+    return jsonResp(getPricingSnapshot());
   }
 
   // --- God Mode: Brand Protection --------------------------------------------
