@@ -122,6 +122,15 @@ jobs:
         run: python3 scripts/regression_immunity.py
       # a'a'a' END DATA INTEGRITY GATES a'a'a'a'a'a'a'a'a'a'a'a'a'a'a'a'a'a'a'a'a'a'a'a'a'a'a'a'a'a'a'a'a'a'a'a'a'a'a'a'a'a'a'a'a'a'a'a'a'a'a'
 
+      - name: "PRICING GATE - Consistency Check (Phase 1 architecture consolidation)"
+        # Non-blocking on the known, already-flagged ENTERPRISE/MSSP annual
+        # discrepancy against config/pricing.json (pending a business-approved
+        # figure); hard-fails on any OTHER drift between the canonical
+        # workers/intel-gateway/src/pricing-data.json and its consumers
+        # (pricing.html, upgrade.html, PAYMENT-GATEWAY.html).
+        # See scripts/pricing_consistency_gate.py.
+        run: python3 scripts/pricing_consistency_gate.py
+
       - name: " Sanitize encoding (strip BOM + normalize CRLF)"
         run: |
           python3 scripts/sanitize_encoding.py --fix

@@ -748,6 +748,26 @@ var PLANS = {
   mssp:       { monthly_inr: 166600, annual_inr: 1665000, monthly_usd: 1999, annual_usd: 19990 }
 };
 var selectedPlan = 'pro';
+
+/* Phase 1 architecture consolidation: sync monthly_inr/annual_inr above (the
+   figures tied to the actual Razorpay/UPI amount a reviewer checks a
+   submitted UTR against) from the canonical pricing endpoint. USD figures
+   are left as-is - a separate, pending business pricing decision, not an
+   architecture change. Fails silently to the values above if unreachable. */
+(function syncCanonicalPricing() {
+  var TIER_MAP = { pro: 'PRO', enterprise: 'ENTERPRISE', mssp: 'MSSP' };
+  fetch('/api/pricing').then(function (r) { return r.ok ? r.json() : null; }).then(function (data) {
+    if (!data || !data.tiers) return;
+    Object.keys(TIER_MAP).forEach(function (key) {
+      var canon = data.tiers[TIER_MAP[key]];
+      if (canon && PLANS[key]) {
+        PLANS[key].monthly_inr = Math.round(canon.monthly / 100);
+        PLANS[key].annual_inr = Math.round(canon.annual / 100);
+      }
+    });
+    if (typeof updateAmounts === 'function') updateAmounts();
+  }).catch(function () { /* keep fallback values above */ });
+})();
 var isAnnual = false;
 var currentUpiId = 'iambivash.bn-5@okaxis';
 var toastTimer = null;
