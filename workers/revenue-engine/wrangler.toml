@@ -2,6 +2,24 @@ name              = "sentinel-revenue-engine"
 main              = "src/index.js"
 compatibility_date = "2025-09-01"
 
+# Worker Routes -- intel.cyberdudebivash.com/api/v2/billing/*
+# More specific than intel-gateway's "intel.cyberdudebivash.com/api/*" catch-all
+# (Cloudflare Workers routing is most-specific-match-wins), so this Worker
+# handles only this one path prefix without touching intel-gateway's route
+# table at all. Same proven pattern already used by intel-retention-engine's
+# "intel.cyberdudebivash.com/api/v2/repository/*" (see
+# workers/intel-retention-engine/wrangler.toml).
+#
+# NOTE: this Worker has no CI/CD deploy workflow today (unlike intel-gateway,
+# which deploy-worker.yml handles) — this route will not go live until either
+# `wrangler deploy` is run manually with Cloudflare credentials, or a deploy
+# workflow scoped to workers/revenue-engine is added. That is a deliberate,
+# separate follow-up (see Production Readiness Report), not silently bundled
+# into this change.
+routes = [
+  { pattern = "intel.cyberdudebivash.com/api/v2/billing/*", zone_name = "cyberdudebivash.com" },
+]
+
 [vars]
 ENGINE_VERSION = "183.0"
 
@@ -16,6 +34,17 @@ id      = "1740d5dba5e74c3aafff1c683588395b"
 [[kv_namespaces]]
 binding = "EMAIL_QUEUE_KV"
 id      = "769edd785fbe4c67b878c113d46ff895"
+
+# API_KEYS_KV: same namespace intel-gateway's live auth path (resolveAuth() in
+# workers/intel-gateway/src/index.js) reads on every request. Bound here so
+# provisionCustomer() and the Razorpay Subscriptions webhook handler can write
+# real entitlement records directly into the namespace the live auth check
+# actually consumes — closing the gap where provisionCustomer() previously
+# wrote only to REVENUE_CRM_KV, a namespace intel-gateway never reads.
+# Zero change to the namespace's structure/keys — additive binding only.
+[[kv_namespaces]]
+binding = "API_KEYS_KV"
+id      = "ca786702c6df47b7a95d9777536c7cfb"
 
 # ── D1 Database (CRM) ─────────────────────────────────────────────────────────
 # Create: npx wrangler d1 create sentinel-crm
@@ -35,6 +64,22 @@ database_id  = "76bd245d-3c30-4e7f-b33d-9f643c0c3fa5"
 # npx wrangler secret put SLACK_WEBHOOK_URL      → deal alerts to Slack
 # npx wrangler secret put AIRTABLE_API_KEY       → optional Airtable CRM sync
 # npx wrangler secret put AIRTABLE_BASE_ID
+#
+# Razorpay Subscriptions (subscription-engine.js) — additive, only required to
+# actually create/verify subscriptions; the routes 503 cleanly if unset.
+# npx wrangler secret put RAZORPAY_WEBHOOK_SECRET     → Subscriptions webhook signing secret
+#                                                        (Razorpay Dashboard -> Webhooks; separate
+#                                                        from the payment webhook secret already
+#                                                        used by workers/intel-gateway)
+# Razorpay Plans must be created ahead of time (Dashboard -> Subscriptions ->
+# Plans, or the Plans API) — a one-time manual step outside what this session
+# can do without live Razorpay credentials. One plan_id per tier/cycle:
+# npx wrangler secret put RAZORPAY_PLAN_ID_PRO_MONTHLY
+# npx wrangler secret put RAZORPAY_PLAN_ID_PRO_ANNUAL
+# npx wrangler secret put RAZORPAY_PLAN_ID_ENTERPRISE_MONTHLY
+# npx wrangler secret put RAZORPAY_PLAN_ID_ENTERPRISE_ANNUAL
+# npx wrangler secret put RAZORPAY_PLAN_ID_MSSP_MONTHLY
+# npx wrangler secret put RAZORPAY_PLAN_ID_MSSP_ANNUAL
 
 [env.production]
 name = "sentinel-revenue-engine"
@@ -46,6 +91,10 @@ id      = "1740d5dba5e74c3aafff1c683588395b"
 [[env.production.kv_namespaces]]
 binding = "EMAIL_QUEUE_KV"
 id      = "769edd785fbe4c67b878c113d46ff895"
+
+[[env.production.kv_namespaces]]
+binding = "API_KEYS_KV"
+id      = "ca786702c6df47b7a95d9777536c7cfb"
 
 [[env.production.d1_databases]]
 binding      = "CRM_DB"
