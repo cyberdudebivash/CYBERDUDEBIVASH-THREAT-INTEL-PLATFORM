@@ -1,0 +1,215 @@
+# =============================================================================
+# CYBERDUDEBIVASH(R) SENTINEL APEX -- Revenue Engine Auto-Deploy
+# =============================================================================
+# Deploys workers/revenue-engine whenever its source or wrangler.toml changes.
+# Secrets required: CF_API_TOKEN, CF_ACCOUNT_ID (same Cloudflare account/token
+# already used by deploy-worker.yml for workers/intel-gateway -- no new
+# secrets needed).
+#
+# Why this file exists: workers/revenue-engine had NO deploy workflow at all
+# before this -- deploy-worker.yml is scoped exclusively to
+# workers/intel-gateway (see its `paths:` filter). That gap meant this Worker
+# could only ever reach production via a manual `wrangler deploy` run from an
+# operator's machine (see revenue-crm/DEPLOY.md), with no syntax/bundle
+# safety net -- which is how a duplicate top-level function declaration sat
+# in this file undetected (it made the Worker fail to bundle entirely).
+#
+# Scoped deliberately smaller than deploy-worker.yml: this Worker has no
+# config/version.json SSOT scheme, no threat-intel data-integrity concerns,
+# and no ASCII-enforcement history to carry over. The gates below are the
+# ones that are actually meaningful here: syntax validation, a real esbuild
+# bundle pre-flight (the exact gate that would have caught the duplicate-
+# declaration bug), deploy with the same routes-permission tolerance
+# deploy-worker.yml already documents as a known condition on this account,
+# and a smoke test against the new /api/health endpoint.
+# =============================================================================
+
+name: deploy-revenue-engine
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'workers/revenue-engine/src/**'
+      - 'workers/revenue-engine/wrangler.toml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  WORKER_DIR: workers/revenue-engine
+
+concurrency:
+  group: revenue-engine-deploy
+  # Deploys are idempotent; if a newer one queues while one is running,
+  # cancel the stale one so the latest commit is always what ships.
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'push' && github.actor != 'github-actions[bot]')
+
+    steps:
+      - name: "Checkout repository"
+        uses: actions/checkout@v6.0.2
+
+      - name: "Setup Node.js 22"
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: "Pre-flight: syntax validation (all Worker JS files)"
+        run: |
+          echo "=== Revenue Engine pre-flight ==="
+          echo "--- wrangler.toml ---"
+          cat ${WORKER_DIR}/wrangler.toml
+          echo ""
+          echo "--- node --check ---"
+          SYNTAX_FAILED=0
+          for jsfile in ${WORKER_DIR}/src/*.js; do
+            fname=$(basename "$jsfile")
+            node --check "$jsfile" 2>&1 && echo "  OK: $fname syntax valid" || {
+              echo "  FATAL: $fname has syntax errors"
+              SYNTAX_FAILED=1
+            }
+          done
+          if [ "$SYNTAX_FAILED" -ne 0 ]; then
+            echo "FATAL: JS syntax errors found -- aborting deploy"
+            exit 1
+          fi
+          echo "OK: all Worker JS files passed syntax check"
+
+      - name: "esbuild bundle pre-flight (HARD GATE)"
+        # This is the exact check that would have caught the duplicate
+        # top-level `getEmailTemplate` declaration that made this Worker
+        # unbundleable before this workflow existed. node --check alone does
+        # NOT catch this class of error under Node's default module-type
+        # detection; esbuild (the real bundler Wrangler uses) does.
+        run: |
+          echo "=== esbuild bundle pre-flight -- HARD GATE ==="
+          npm install -g esbuild
+          esbuild --version
+          cd ${WORKER_DIR}
+          esbuild src/index.js \
+            --bundle \
+            --platform=browser \
+            --target=es2022 \
+            --format=esm \
+            --outfile=/tmp/revenue_engine_bundle_preflight.js \
+            --log-level=warning
+          BUNDLE_SIZE=$(wc -c < /tmp/revenue_engine_bundle_preflight.js)
+          echo "Bundle size: ${BUNDLE_SIZE} bytes"
+          if [ "$BUNDLE_SIZE" -lt 5000 ]; then
+            echo "FATAL: Bundle suspiciously small (${BUNDLE_SIZE} bytes) -- possible truncation"
+            exit 1
+          fi
+          rm -f /tmp/revenue_engine_bundle_preflight.js
+          echo "=== esbuild pre-flight PASSED -- deploy unblocked ==="
+
+      - name: "Install Wrangler (stable)"
+        run: |
+          npm install -g wrangler@3
+          wrangler --version
+
+      - name: "Deploy Worker to Cloudflare (with retry)"
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
+        run: |
+          echo "=== Deploying sentinel-revenue-engine ==="
+          cd ${WORKER_DIR}
+          LOG=/tmp/wrangler_deploy.log
+
+          # Same tolerance as deploy-worker.yml: on this account, the
+          # CLOUDFLARE_API_TOKEN has previously lacked "Zone -> Workers
+          # Routes: Edit", causing wrangler to upload the script successfully
+          # but fail while re-asserting static route/custom-domain bindings.
+          # Verify the script is actually live via /api/health (source of
+          # truth) rather than trust wrangler's exit code alone in that one
+          # specific, already-documented failure mode. Any OTHER failure
+          # still hard-fails.
+          is_routes_only_failure() {
+            grep -q "Uploaded sentinel-revenue-engine" "$LOG" && \
+            (grep -q "workers/routes" "$LOG" || grep -q "custom_domain" "$LOG" || grep -qi "custom domain" "$LOG")
+          }
+
+          verify_live() {
+            echo "--- Verifying worker is live via /api/health ---"
+            for attempt in 1 2 3 4 5 6; do
+              sleep 10
+              STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 15 \
+                "https://revenue.intel.cyberdudebivash.com/api/health" 2>/dev/null || echo "000")
+              echo "  health probe ${attempt}/6 -> HTTP ${STATUS}"
+              if [ "$STATUS" = "200" ]; then
+                echo "OK: worker is live and serving (HTTP 200)."
+                return 0
+              fi
+            done
+            return 1
+          }
+
+          handle_routes_gap() {
+            echo ""
+            echo "NOTICE: wrangler exited non-zero, but the worker SCRIPT uploaded"
+            echo "        successfully. The only error is route/custom-domain"
+            echo "        reconciliation -- verifying live deploy independently..."
+            if verify_live; then
+              echo "DEPLOY SUCCESS (verified live): route/custom-domain reconciliation"
+              echo "was skipped due to token scope -- this does NOT affect the deployed"
+              echo "code. ACTION (optional): add 'Workers Routes: Edit' (zone:"
+              echo "cyberdudebivash.com) to CLOUDFLARE_API_TOKEN to silence this."
+              return 0
+            fi
+            echo "FATAL: routes step failed AND worker is not responding 200 -- real failure."
+            return 1
+          }
+
+          echo "Deploy attempt 1/2 (--env production)..."
+          if wrangler deploy --env production > "$LOG" 2>&1; then
+            cat "$LOG"
+            echo "Deploy successful (production env)"
+            exit 0
+          fi
+          cat "$LOG"
+          if is_routes_only_failure; then
+            handle_routes_gap && exit 0 || exit 1
+          fi
+
+          echo "Production env deploy failed -- retrying without env flag..."
+          sleep 5
+          if wrangler deploy > "$LOG" 2>&1; then
+            cat "$LOG"
+            echo "Deploy successful (default env)"
+            exit 0
+          fi
+          cat "$LOG"
+          if is_routes_only_failure; then
+            handle_routes_gap && exit 0 || exit 1
+          fi
+
+          echo "FATAL: both deploy attempts failed"
+          exit 1
+
+      - name: "Post-deploy smoke test"
+        continue-on-error: true
+        run: |
+          echo "=== Revenue Engine Post-Deploy Smoke Test ==="
+          echo "Waiting 15s for global Cloudflare propagation..."
+          sleep 15
+          HEALTH=$(curl -sf --max-time 15 "https://revenue.intel.cyberdudebivash.com/api/health" 2>/dev/null || echo '{}')
+          echo "Health response: ${HEALTH}"
+          echo "$HEALTH" | python3 -c "
+          import json, sys
+          try:
+              d = json.load(sys.stdin)
+          except Exception:
+              print('NOTE: could not parse health response -- worker may still be propagating')
+              sys.exit(0)
+          print('status:', d.get('status'), '| version:', d.get('version'))
+          print('checks:', json.dumps(d.get('checks', {}), indent=2))
+          " || echo "Smoke test skipped -- worker still propagating"

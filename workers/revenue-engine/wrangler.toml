@@ -2,21 +2,34 @@ name              = "sentinel-revenue-engine"
 main              = "src/index.js"
 compatibility_date = "2025-09-01"
 
-# Worker Routes -- intel.cyberdudebivash.com/api/v2/billing/*
-# More specific than intel-gateway's "intel.cyberdudebivash.com/api/*" catch-all
-# (Cloudflare Workers routing is most-specific-match-wins), so this Worker
-# handles only this one path prefix without touching intel-gateway's route
-# table at all. Same proven pattern already used by intel-retention-engine's
-# "intel.cyberdudebivash.com/api/v2/repository/*" (see
-# workers/intel-retention-engine/wrangler.toml).
+# Worker Routes
 #
-# NOTE: this Worker has no CI/CD deploy workflow today (unlike intel-gateway,
-# which deploy-worker.yml handles) — this route will not go live until either
-# `wrangler deploy` is run manually with Cloudflare credentials, or a deploy
-# workflow scoped to workers/revenue-engine is added. That is a deliberate,
-# separate follow-up (see Production Readiness Report), not silently bundled
-# into this change.
+# 1) revenue.intel.cyberdudebivash.com (Custom Domain -- whole subdomain,
+#    dedicated to this Worker). This is the domain this Worker's OWN code
+#    header, revenue-crm/DEPLOY.md, and 14 existing customer-facing pages
+#    (payment-submission.html, customer/api-keys.html, subscription-
+#    management.html, revenue-dashboard.html, etc.) already assume as its
+#    base URL -- but nothing in this repo ever actually declared it, and
+#    DEPLOY.md documents it as a manual "configure DNS" step. Verified live
+#    (2026-07-17): intel.cyberdudebivash.com resolves (HTTP 200); this
+#    subdomain does not resolve at all (proxy CONNECT failure) -- meaning
+#    every one of those customer-facing pages has been calling a hostname
+#    with no DNS record. `custom_domain = true` auto-provisions the DNS
+#    record and certificate on deploy (Cloudflare's documented behavior:
+#    "without having to make changes to your DNS settings"), fixing this
+#    without any manual dashboard step.
+# 2) intel.cyberdudebivash.com/api/v2/billing/* -- more specific than
+#    intel-gateway's "intel.cyberdudebivash.com/api/*" catch-all
+#    (Cloudflare Workers routing is most-specific-match-wins), so this
+#    Worker's new Razorpay Subscriptions routes live on the same primary
+#    domain intel-gateway already uses, without touching intel-gateway's
+#    route table. Same proven pattern already used by intel-retention-
+#    engine's "intel.cyberdudebivash.com/api/v2/repository/*" (see
+#    workers/intel-retention-engine/wrangler.toml). Both routes are
+#    additive and target different hostnames, so they cannot conflict with
+#    each other.
 routes = [
+  { pattern = "revenue.intel.cyberdudebivash.com/*", custom_domain = true },
   { pattern = "intel.cyberdudebivash.com/api/v2/billing/*", zone_name = "cyberdudebivash.com" },
 ]
 
