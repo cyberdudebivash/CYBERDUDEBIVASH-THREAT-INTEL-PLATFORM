@@ -5,6 +5,11 @@
 // Deployed at: https://revenue.intel.cyberdudebivash.com
 // =============================================================================
 
+// Phase 2 (foundational pass): Razorpay Subscriptions -- subscription
+// creation, webhook lifecycle, entitlement sync. See subscription-engine.js
+// for scope notes (refunds/upgrades/downgrades/checkout-cutover deferred).
+import { handleBillingSubscriptionCreate, handleBillingWebhook } from "./subscription-engine.js";
+
 const ENGINE = {
   VERSION:  "183.0",
   NAME:     "SENTINEL-REVENUE-ENGINE",
@@ -46,6 +51,20 @@ export default {
         return await handleDemoRequest(request, env, rid);
       if (path === "/api/demo/live"     && method === "GET")
         return await handleLiveDemoEndpoint(request, env, rid);
+
+      // ── Public: Razorpay Subscriptions (Phase 2 foundational pass) ─────────
+      // Dispatched here, before the isAdmin() gate below -- these must be
+      // reachable by real customers and by Razorpay's webhook caller, neither
+      // of which send X-Admin-Secret. (Contrast with the existing
+      // dispatchCommercialRoutes() routes further below, which are only
+      // reached *after* this gate and are therefore unreachable by non-admin
+      // callers today despite being coded as "public" within that function --
+      // a separate, pre-existing gap this pass does not change; see
+      // Production Readiness Report.)
+      if (path === "/api/v2/billing/subscriptions/create" && method === "POST")
+        return await handleBillingSubscriptionCreate(request, env, ctx, rid);
+      if (path === "/api/v2/billing/webhooks/razorpay" && method === "POST")
+        return await handleBillingWebhook(request, env, ctx, rid);
 
       // ── Admin-secured CRM endpoints ────────────────────────────────────────
       if (!await isAdmin(request, env)) {
@@ -1000,7 +1019,7 @@ async function outreachQueueDirect(env, email, sequenceName, vars) {
 
 async function sendEmailViaProvider(env, msg) {
   if (!env?.SENDGRID_API_KEY) return; // Skip if no key
-  const tpl = getEmailTemplate(msg.template, msg.vars);
+  const tpl = getCommercialEmailTemplate(msg.template, msg.vars);
 
   await fetch("https://api.sendgrid.com/v3/mail/send", {
     method: "POST",
@@ -1315,7 +1334,7 @@ const TIERS = {
 
 const PAYMENT_METHODS = ["upi","qr","paypal","neft","crypto_usdt_bep20","crypto_usdt_erc20","amazon_pay","bank_wire"];
 const PAYMENT_STATUS  = { PENDING:"pending", VERIFIED:"verified", APPROVED:"approved", REJECTED:"rejected", REFUNDED:"refunded" };
-const SUB_STATUS      = { TRIAL:"trial", ACTIVE:"active", EXPIRING:"expiring", EXPIRED:"expired", SUSPENDED:"suspended", CANCELLED:"cancelled", RENEWED:"renewed" };
+const SUB_STATUS      = { TRIAL:"trial", ACTIVE:"active", EXPIRING:"expiring", EXPIRED:"expired", SUSPENDED:"suspended", CANCELLED:"cancelled", RENEWED:"renewed", PAST_DUE:"past_due" };
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ROUTER EXTENSION — inject into main fetch() by pattern
@@ -1613,6 +1632,28 @@ async function provisionCustomer(env, { email, tier, billing_cycle, payment_id, 
     }
   }
   await env.REVENUE_CRM_KV.put(`apikeys:${email}`, JSON.stringify([keyRecord]));
+
+  // 2b. Entitlement sync — mirror the key into API_KEYS_KV, the namespace
+  // intel-gateway's live auth path (resolveAuth()) actually reads on every
+  // request. Without this, every customer provisioned here (manual payment
+  // approval, trial activation, MSSP tenants, and now Razorpay Subscriptions)
+  // received a key intel-gateway could never recognize — REVENUE_CRM_KV and
+  // API_KEYS_KV are different namespaces intel-gateway never cross-reads.
+  // Guarded so this is a no-op wherever the binding isn't configured.
+  // Unprefixed key (the literal API key string), matching exactly how
+  // intel-gateway's own provisionApiKey()/admin key issuance write this
+  // namespace — required for resolveAuth()'s env.API_KEYS_KV.get(raw) lookup
+  // to find it. real expires_at (currentPeriodEnd), not the null intel-gateway's
+  // own one-time-order path issues today (a separate, pre-existing, and
+  // out-of-scope-for-this-pass gap — see Production Readiness Report).
+  if (env.API_KEYS_KV) {
+    await env.API_KEYS_KV.put(key, JSON.stringify({
+      key, tier, customer_id: custRecord.id, email,
+      source: trial ? "trial" : "revenue_engine",
+      created_at: now, expires_at: currentPeriodEnd,
+      payment_metadata: { payment_id: payment_id || null, billing_cycle },
+    }));
+  }
 
   // 3. Create subscription record
   const subRecord = {
@@ -2057,16 +2098,38 @@ const COMMERCIAL_EMAIL_TEMPLATES = {
   mssp_tenant_welcome: (v) => ({ subject:`Welcome to ${v.mssp_name} Threat Intelligence (Powered by SENTINEL APEX)`, html:`<h2>Welcome, ${v.tenant_name}</h2><p>Your threat intelligence API key: <code>${v.api_key}</code></p><p>Rate limit: ${v.req_day} requests/day</p>` }),
 };
 
-// Patch getEmailTemplate to include commercial templates
-const _origGetEmailTemplate = typeof getEmailTemplate === "function" ? getEmailTemplate : (name, vars) => null;
-function getEmailTemplate(name, vars) {
+// Commercial template lookup, falling back to the cold-outreach template set
+// (getEmailTemplate, declared above). Previously this re-declared
+// getEmailTemplate itself (same name, same top-level scope) — harmless under
+// permissive script parsing but a hard "Identifier has already been declared"
+// SyntaxError the moment this file is parsed as an ECMAScript module (which it
+// already is, per the `export default` below), and would have infinitely
+// recursed even if it had parsed, since the hoisted duplicate declaration
+// meant _origGetEmailTemplate captured a reference to itself, not to the
+// original template function. Renamed and fixed; queueEmail() (its one
+// caller) updated accordingly.
+function getCommercialEmailTemplate(name, vars) {
   if (COMMERCIAL_EMAIL_TEMPLATES[name]) {
     const t = COMMERCIAL_EMAIL_TEMPLATES[name](vars);
     return { subject:t.subject, html:t.html, text:t.html.replace(/<[^>]+>/g,"") };
   }
-  return _origGetEmailTemplate(name, vars);
+  return getEmailTemplate(name, vars);
 }
 
 // =============================================================================
 // END PHASE 2 COMMERCIAL OPERATIONS
 // =============================================================================
+
+// =============================================================================
+// NAMED EXPORTS — for subscription-engine.js (Razorpay Subscriptions, Phase 2
+// foundational subsystem). Purely additive: the existing `export default`
+// entry point above is unchanged, and nothing previously imported named
+// exports from this file (it had none), so this introduces zero backward-
+// compatibility risk. Exposes the canonical implementations so
+// subscription-engine.js calls them rather than re-implementing customer
+// provisioning, tier config, or subscription status logic in parallel.
+// =============================================================================
+export {
+  json, sanitizeEmail, genId, TIERS, SUB_STATUS,
+  provisionCustomer, trackEvent, isAdmin,
+};
