@@ -1,0 +1,11 @@
+{
+  "_status": "TRANSITIONAL - pending business-approved commercial pricing decision",
+  "_note": "These INR (paise) values are carried over unchanged from the pre-existing RAZORPAY_TIER_PRICES constant that used to live inline in index.js. This file is now the single edit point for what workers/intel-gateway actually charges via Razorpay, but the numbers themselves are NOT a business approval - this refactor is architecture-only and introduces zero commercial behavior change. config/pricing.json and config/subscription_tiers.json currently state different ENTERPRISE and MSSP annual figures (ENTERPRISE annual: this file says 41600000 paise / INR 41,600 vs config/pricing.json's 41500000 paise / INR 41,500; MSSP annual: this file says 166600000 paise / INR 166,600 vs config/pricing.json's 160000000 paise / INR 160,000). Do not resolve that discrepancy by editing the numbers in this file based on inference - it must be resolved by a supplied, business-approved figure. Once that figure is supplied, update ONLY the relevant field(s) below; every runtime consumer (Worker checkout, /api/pricing, and the customer-facing pages that fetch it) picks up the change automatically.",
+  "currency": "INR",
+  "unit": "paise",
+  "tiers": {
+    "PRO":        { "monthly": 410000,    "annual": 4100000,    "label": "Sentinel APEX PRO" },
+    "ENTERPRISE": { "monthly": 4160000,   "annual": 41600000,   "label": "Sentinel APEX ENTERPRISE" },
+    "MSSP":       { "monthly": 16660000,  "annual": 166600000,  "label": "Sentinel APEX MSSP" }
+  }
+}
