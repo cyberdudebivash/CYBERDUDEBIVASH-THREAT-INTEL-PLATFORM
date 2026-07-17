@@ -413,7 +413,7 @@ async function findItemBySlug(env, slug) {
   return null;
 }
 
-function generateIntelReport(item, reqPath) {
+function generateIntelReport(item, reqPath, items = []) {
   // --- Data extraction ---------------------------------------------------------
   const esc = s => String(s || "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
 
@@ -913,7 +913,7 @@ ${buildAnalystExplainabilityBlock(item)}
 ${buildTrustScoreBlock(item)}
 
 <!-- P25.9: Publication Lineage -->
-${buildPublicationLineageBlock(item, env)}
+${buildPublicationLineageBlock(item)}
 
 <!-- P28.1: Customer Environment Risk Mapping -->
 ${buildP28EnvironmentRiskBlock(item)}
@@ -3579,7 +3579,8 @@ async function handleRequest(request, env, ctx) {
       // Synthesis fallback: generate from feed data so the report is always available
       const legacyItem = await findItemBySlug(env, slug);
       if (legacyItem) {
-        const html = generateIntelReport(legacyItem, path);
+        const legacyFeed = await loadFeedItems(env);
+        const html = generateIntelReport(legacyItem, path, legacyFeed.items || []);
         const _lDate = new Date(legacyItem.published_at || legacyItem.timestamp || Date.now());
         const _lYr = _lDate.getFullYear();
         const _lMo = String(_lDate.getMonth() + 1).padStart(2, "0");
@@ -3630,7 +3631,8 @@ async function handleRequest(request, env, ctx) {
     const fallbackSlug = slugFromPath ? slugFromPath[1] : path.replace(/^\/reports\//, "").replace(/[./]+$/, "");
     const fallbackItem = await findItemBySlug(env, fallbackSlug);
     if (fallbackItem) {
-      const html = generateIntelReport(fallbackItem, path);
+      const fallbackFeed = await loadFeedItems(env);
+      const html = generateIntelReport(fallbackItem, path, fallbackFeed.items || []);
       if (ctx) ctx.waitUntil(
         env.REPORTS_R2.put(key, html, { httpMetadata: { contentType: "text/html; charset=utf-8" } }).catch(() => {})
       );

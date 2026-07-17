@@ -66,6 +66,36 @@ export default {
       if (path === "/api/v2/billing/webhooks/razorpay" && method === "POST")
         return await handleBillingWebhook(request, env, ctx, rid);
 
+      // ── Public: customer-facing commercial routes ──────────────────────────
+      // Moved here from dispatchCommercialRoutes() (further below), which is
+      // only ever reached *after* the isAdmin() gate immediately below this
+      // block -- meaning these four routes, despite being coded there as
+      // "public" (before that function's own internal isAdmin() check), were
+      // never actually reachable by a real customer or by intel-gateway's
+      // apikeys/validate caller, both of which send no X-Admin-Secret. Fixed
+      // by dispatching them here, matching the same pattern already used for
+      // the leads/trial/demo routes above and the billing routes just above.
+      // The handler functions themselves are unchanged -- only reached
+      // correctly now. The now-dead duplicate checks inside
+      // dispatchCommercialRoutes() have been removed (see that function).
+      if (path === "/api/apikeys/request-free" && method === "POST")
+        return await handleFreeKeyRequest(request, env, rid);
+      if (path === "/api/apikeys/validate" && method === "GET")
+        return await handleApiKeyValidate(request, env, rid);
+      if (path === "/api/payments/submit" && method === "POST")
+        return await handlePaymentSubmit(request, env, rid);
+      if (path === "/api/customer/portal" && method === "GET")
+        return await handleCustomerPortal(request, env, rid);
+
+      // ── Public: observability endpoint ─────────────────────────────────────
+      // New (this pass) -- this Worker previously had no health endpoint at
+      // all, unlike intel-gateway's /api/health. Added both as the minimum
+      // observability requirement for a component now getting its own CI
+      // deploy workflow, and to give that workflow's post-deploy smoke test
+      // something real to check.
+      if ((path === "/api/health" || path === "/api/health/") && method === "GET")
+        return await handleRevenueEngineHealth(request, env, rid);
+
       // ── Admin-secured CRM endpoints ────────────────────────────────────────
       if (!await isAdmin(request, env)) {
         return json({ error: "unauthorized", message: "X-Admin-Secret required." }, 401);
@@ -1242,6 +1272,29 @@ async function isAdmin(request, env) {
   return secret && env?.REVENUE_ADMIN_SECRET && secret === env.REVENUE_ADMIN_SECRET;
 }
 
+// GET /api/health -- public observability endpoint. Mirrors the shape/intent
+// of intel-gateway's /api/health (binding pings + config presence), scaled
+// down to what this Worker actually has.
+async function handleRevenueEngineHealth(request, env, rid) {
+  const kvOk  = env.REVENUE_CRM_KV ? await env.REVENUE_CRM_KV.get("health:ping").then(() => "ok").catch(() => "error") : "not_bound";
+  const d1Ok  = env.CRM_DB ? await env.CRM_DB.prepare("SELECT 1").first().then(() => "ok").catch(() => "error") : "not_bound";
+  return json({
+    status: "ok",
+    engine: ENGINE.NAME,
+    version: ENGINE.VERSION,
+    checks: {
+      revenue_crm_kv: kvOk,
+      email_queue_kv: env.EMAIL_QUEUE_KV ? "bound" : "not_bound",
+      api_keys_kv: env.API_KEYS_KV ? "bound" : "not_bound",
+      crm_db: d1Ok,
+      razorpay_orders_configured: !!(env.RAZORPAY_KEY_ID && env.RAZORPAY_KEY_SECRET),
+      razorpay_subscriptions_configured: !!env.RAZORPAY_WEBHOOK_SECRET,
+    },
+    generated_at: new Date().toISOString(),
+    rid,
+  });
+}
+
 async function slackNotify(env, message) {
   if (!env?.SLACK_WEBHOOK_URL) return;
   await fetch(env.SLACK_WEBHOOK_URL, {
@@ -1343,21 +1396,13 @@ const SUB_STATUS      = { TRIAL:"trial", ACTIVE:"active", EXPIRING:"expiring", E
 
 // Called from main fetch() — we expose a secondary dispatcher
 async function dispatchCommercialRoutes(path, method, request, env, rid) {
-  // ── Public: free API key request ──────────────────────────────────────────
-  if (path === "/api/apikeys/request-free" && method === "POST")
-    return await handleFreeKeyRequest(request, env, rid);
-
-  // ── Public: validate API key (used by intel-gateway) ─────────────────────
-  if (path === "/api/apikeys/validate" && method === "GET")
-    return await handleApiKeyValidate(request, env, rid);
-
-  // ── Public: payment submission (customer uploads evidence) ───────────────
-  if (path === "/api/payments/submit" && method === "POST")
-    return await handlePaymentSubmit(request, env, rid);
-
-  // ── Public: customer self-service portal ──────────────────────────────────
-  if (path === "/api/customer/portal" && method === "GET")
-    return await handleCustomerPortal(request, env, rid);
+  // Public routes (free-key request, apikeys/validate, payments/submit,
+  // customer/portal) used to be checked here, but this function is only ever
+  // called from the main fetch() *after* its isAdmin() gate -- making them
+  // unreachable by any non-admin caller despite being coded as "public".
+  // Moved to the main fetch(), before that gate, where they are now actually
+  // reachable. See the "Public: customer-facing commercial routes" block
+  // there. Nothing below this comment changes -- all admin-secured.
 
   // ── Admin-secured routes below ────────────────────────────────────────────
   if (!await isAdmin(request, env))
