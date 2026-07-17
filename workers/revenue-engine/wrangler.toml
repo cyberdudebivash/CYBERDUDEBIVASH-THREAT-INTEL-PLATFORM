@@ -18,6 +18,11 @@ compatibility_date = "2025-09-01"
 #    record and certificate on deploy (Cloudflare's documented behavior:
 #    "without having to make changes to your DNS settings"), fixing this
 #    without any manual dashboard step.
+#    NOTE: a real `wrangler deploy` against this exact config on 2026-07-17
+#    rejected "revenue.intel.cyberdudebivash.com/*" outright: "Wildcard
+#    operators (*) are not allowed in Custom Domains / Paths are not allowed
+#    in Custom Domains" -- a Custom Domain claims the whole bare hostname,
+#    no path or wildcard suffix. Fixed below to the bare hostname.
 # 2) intel.cyberdudebivash.com/api/v2/billing/* -- more specific than
 #    intel-gateway's "intel.cyberdudebivash.com/api/*" catch-all
 #    (Cloudflare Workers routing is most-specific-match-wins), so this
@@ -29,7 +34,7 @@ compatibility_date = "2025-09-01"
 #    additive and target different hostnames, so they cannot conflict with
 #    each other.
 routes = [
-  { pattern = "revenue.intel.cyberdudebivash.com/*", custom_domain = true },
+  { pattern = "revenue.intel.cyberdudebivash.com", custom_domain = true },
   { pattern = "intel.cyberdudebivash.com/api/v2/billing/*", zone_name = "cyberdudebivash.com" },
 ]
 
@@ -96,6 +101,14 @@ database_id  = "76bd245d-3c30-4e7f-b33d-9f643c0c3fa5"
 
 [env.production]
 name = "sentinel-revenue-engine"
+
+# wrangler warns "vars exists at the top level, but not on env.production" --
+# vars are not inherited by named environments, so this was silently unset
+# under `wrangler deploy --env production` (the exact command DEPLOY.md and
+# deploy-revenue-engine.yml both use). Non-fatal (a warning, not the error
+# that blocked deploy) but real -- fixed alongside the routes fix above.
+[env.production.vars]
+ENGINE_VERSION = "183.0"
 
 [[env.production.kv_namespaces]]
 binding = "REVENUE_CRM_KV"
