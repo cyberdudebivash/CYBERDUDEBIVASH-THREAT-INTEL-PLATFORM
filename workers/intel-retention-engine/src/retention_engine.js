@@ -116,10 +116,12 @@ function getDashboardMetrics(repoState) {
     kev_advisories:      repo.kev_count || 0,
     permanent_advisories: repo.permanent_count || 0,
 
-    // Lifecycle breakdown
-    active_advisories:   repo.lifecycle_breakdown?.ACTIVE || 0,
-    monitoring:          repo.lifecycle_breakdown?.MONITORING || 0,
-    archived:            repo.lifecycle_breakdown?.ARCHIVED || 0,
+    // Lifecycle breakdown - real data uses lowercase keys (unlike
+    // severity_breakdown, which is genuinely uppercase); see
+    // dashboard_repository_adapter.js's identical fix.
+    active_advisories:   repo.lifecycle_breakdown?.active || 0,
+    monitoring:          repo.lifecycle_breakdown?.monitoring || 0,
+    archived:            repo.lifecycle_breakdown?.archived || 0,
 
     // Historical windows
     "30d_count":  hist["30d"]  || 0,

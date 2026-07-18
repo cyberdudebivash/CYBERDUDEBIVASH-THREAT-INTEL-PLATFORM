@@ -76,8 +76,19 @@ class RepositoryBuilder {
     // Register in dedupe engine
     this.dedupe.register(item, intelId, dh);
 
-    // Add to advisory repository
+    // Add to advisory repository. NEVER overwrite an existing entry - append
+    // only, matching feed_persistence_engine.js/historical_feed_merger.js's
+    // identical guard. this.dedupe.check() above is content-hash-based
+    // (title+source_url+CVEs), not intelId-based, so two content-distinct
+    // items that happen to carry the same explicit stix_id/id (e.g. an
+    // upstream source revising a title for the same STIX object across
+    // runs) would otherwise silently replace the first's entire record -
+    // original created_at, tags, actor_tag, retention metadata, all lost.
     if (!this.repository.advisories) this.repository.advisories = {};
+    if (this.repository.advisories[intelId]) {
+      this.repository.advisories[intelId].last_seen = this.runTs;
+      return { added: false, intelId, reason: "intel_id_collision" };
+    }
     this.repository.advisories[intelId] = {
       intel_id:       intelId,
       title:          String(item.title || "").slice(0, 500),

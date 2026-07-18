@@ -114,10 +114,14 @@ class DashboardRepositoryAdapter {
       kev_advisories:       repo.kev_count     || 0,
       permanent_advisories: repo.permanent_count || 0,
 
-      // Lifecycle
-      active_advisories:   repo.lifecycle_breakdown?.ACTIVE     || 0,
-      monitoring:          repo.lifecycle_breakdown?.MONITORING  || 0,
-      archived:            repo.lifecycle_breakdown?.ARCHIVED    || 0,
+      // Lifecycle - unlike severity_breakdown (uppercase keys, correct above),
+      // the real Python-produced lifecycle_breakdown uses lowercase keys
+      // (verified: {"active": N, "monitoring": N, "archived": N}), so the
+      // uppercase lookup here always returned undefined -> 0 regardless of
+      // the true counts.
+      active_advisories:   repo.lifecycle_breakdown?.active     || 0,
+      monitoring:          repo.lifecycle_breakdown?.monitoring || 0,
+      archived:            repo.lifecycle_breakdown?.archived   || 0,
 
       // Time-window counts
       "30d":  hw["30d"]  || 0,
