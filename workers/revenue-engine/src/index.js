@@ -1267,9 +1267,22 @@ function inferTags(company, role, context) {
   return tags;
 }
 
+// Constant-time string comparison — prevents timing side-channel attacks on
+// the admin shared secret. Always walks the full length of the longer input.
+function timingSafeEqual(a, b) {
+  const bufA = new TextEncoder().encode(String(a ?? ""));
+  const bufB = new TextEncoder().encode(String(b ?? ""));
+  const len  = Math.max(bufA.length, bufB.length);
+  let diff   = bufA.length ^ bufB.length;
+  for (let i = 0; i < len; i++) {
+    diff |= (bufA[i] ?? 0) ^ (bufB[i] ?? 0);
+  }
+  return diff === 0;
+}
+
 async function isAdmin(request, env) {
   const secret = request.headers.get("X-Admin-Secret");
-  return secret && env?.REVENUE_ADMIN_SECRET && secret === env.REVENUE_ADMIN_SECRET;
+  return Boolean(secret && env?.REVENUE_ADMIN_SECRET && timingSafeEqual(secret, env.REVENUE_ADMIN_SECRET));
 }
 
 // GET /api/health -- public observability endpoint. Mirrors the shape/intent
