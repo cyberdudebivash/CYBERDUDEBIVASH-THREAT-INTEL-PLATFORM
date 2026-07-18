@@ -171,7 +171,8 @@ export async function handleBillingSubscriptionCreate(request, env, ctx, rid) {
       prefill: { email },
     });
   } catch (e) {
-    return json({ error: "Razorpay API unavailable", detail: e.message }, 503);
+    console.error(`[subscription-create] Razorpay API failed: ${e.message}`);
+    return json({ error: "Razorpay API unavailable" }, 503);
   }
 }
 
