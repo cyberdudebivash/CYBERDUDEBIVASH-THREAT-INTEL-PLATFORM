@@ -73,6 +73,19 @@ class RepositoryBuilder {
     const intelId = item.stix_id || item.id || `intel--${dh}`;
     const ym      = new Date(publishedDate).toISOString().slice(0, 7).replace("-", "");
 
+    // Guard against intelId collisions. The dedupe check above is
+    // content-hash based (different dedupe_hash => genuinely different
+    // content), so two distinct items can still collide on intelId if the
+    // upstream feed assigns the same stix_id/id to both. Without this
+    // guard, the second item silently overwrote the first's repository
+    // entry below -- this repository is documented above as append-only,
+    // so that silent loss is a real data-integrity bug, not cosmetic.
+    const existingEntry = this.repository.advisories?.[intelId];
+    if (existingEntry && existingEntry.dedupe_hash && existingEntry.dedupe_hash !== dh) {
+      this.stats.duplicates++;
+      return { added: false, intelId, reason: "intel_id_collision" };
+    }
+
     // Register in dedupe engine
     this.dedupe.register(item, intelId, dh);
 
