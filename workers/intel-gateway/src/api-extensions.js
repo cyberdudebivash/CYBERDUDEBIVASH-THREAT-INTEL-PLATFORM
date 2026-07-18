@@ -17,6 +17,8 @@
 //     if (pathname === "/api/intel/correlate")     return handleCorrelate(request, env, auth, rid);
 // =============================================================================
 
+import { applyTierGateV2 } from './revenue-enforcement.js';
+
 // 
 // SCOPES SYSTEM
 // JWT payload carries: { scopes: ["read:intel","read:stix","export:misp"] }
@@ -57,8 +59,16 @@ export const TIER_DEFAULT_SCOPES = {
                "read:intel:graph","read:intel:graph:full"],
 };
 
+// index.js's TIERS constant emits "PRO" (index.js:297) but this table's
+// paid-tier key is "premium" (matching revenue-enforcement.js's internal
+// convention) -- without this alias, "PRO".toLowerCase() matches no key and
+// silently falls back to the free scope set, locking paying PRO customers
+// out of every scope-gated endpoint in this file.
+const TIER_KEY_ALIASES = { pro: "premium" };
+
 export function buildScopeSet(tier, explicitScopes) {
-  const defaults = TIER_DEFAULT_SCOPES[(tier||"free").toLowerCase()] || TIER_DEFAULT_SCOPES.free;
+  const key = (tier || "free").toLowerCase();
+  const defaults = TIER_DEFAULT_SCOPES[TIER_KEY_ALIASES[key] || key] || TIER_DEFAULT_SCOPES.free;
   if (Array.isArray(explicitScopes) && explicitScopes.length) {
     // Explicit scopes cannot exceed tier defaults -- intersect
     return explicitScopes.filter(s => defaults.includes(s));
@@ -179,7 +189,7 @@ export async function handleSearch(request, env, auth, rid) {
 
     const total     = results.length;
     const offset    = (page - 1) * limit;
-    const pageItems = results.slice(offset, offset + limit).map(item => applySearchTierGate(item, auth.tier));
+    const pageItems = results.slice(offset, offset + limit).map(item => applyTierGateV2(item, auth.tier, null));
 
     return extJson({
       status:     "ok",
@@ -311,10 +321,10 @@ export async function handleActors(request, env, auth, rid) {
         campaigns:         [...a.campaigns].filter(Boolean),
         sample_reports:    a.sample_reports,
         // Enterprise-gated: full TTP breakdown
-        ttp_detail:        auth.tier === "enterprise"
+        ttp_detail:        (auth.tier || "").toLowerCase() === "enterprise"
           ? [...a.ttps].filter(Boolean)
           : null,
-        locked:            auth.tier !== "enterprise",
+        locked:            (auth.tier || "").toLowerCase() !== "enterprise",
       };
     });
 
