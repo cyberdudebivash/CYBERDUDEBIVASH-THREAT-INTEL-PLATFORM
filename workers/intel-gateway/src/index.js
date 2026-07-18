@@ -1566,7 +1566,8 @@ async function handleLogout(request, env, ctx, auth) {
     auditLog(ctx, env, { action: "logout", sub: auth.sub, tier: auth.tier });
     return jsonResp({ message: "Logged out successfully. Token revoked." });
   } catch (e) {
-    return jsonResp({ error: "Logout failed", detail: e.message }, 500);
+    console.error(`[logout] failed: ${e.message}`);
+    return jsonResp({ error: "Logout failed" }, 500);
   }
 }
 
@@ -1625,7 +1626,8 @@ async function handleAdmin(request, env, ctx, path, method) {
       const valid = entries.filter(Boolean).sort((a, b) => (b.ts || "").localeCompare(a.ts || ""));
       return jsonResp({ entries: valid, count: valid.length, generated_at: now() });
     } catch (e) {
-      return jsonResp({ error: "Audit log unavailable", detail: e.message }, 500);
+      console.error(`[audit] unavailable: ${e.message}`);
+      return jsonResp({ error: "Audit log unavailable" }, 500);
     }
   }
 
@@ -2402,7 +2404,8 @@ async function handleRazorpayCreateOrder(request, env, method) {
       billing, prefill: { email },
     });
   } catch (e) {
-    return jsonResp({ error: "Razorpay API unavailable", detail: e.message }, 503);
+    console.error(`[razorpay] create-order failed: ${e.message}`);
+    return jsonResp({ error: "Razorpay API unavailable" }, 503);
   }
 }
 
@@ -3153,7 +3156,8 @@ async function handleIncidentResponse(request, env, auth, method, path, url, ctx
       const valid = rows.filter(Boolean).sort((a,b) => (b.created_at||"").localeCompare(a.created_at||""));
       return jsonResp({ status: "ok", incidents: valid, total: valid.length, generated_at: now() });
     } catch (e) {
-      return jsonResp({ error: "Failed to list incidents", detail: e.message }, 500);
+      console.error(`[incidents] list failed: ${e.message}`);
+      return jsonResp({ error: "Failed to list incidents" }, 500);
     }
   }
 
@@ -3913,7 +3917,8 @@ async function handleRequest(request, env, ctx) {
       auditLog(ctx, env, { action: "ingest", sub: auth.sub, tier: auth.tier, item_id: itemId, title: newItem.title });
       return jsonResp({ status: "created", item_id: itemId, feed_count: items.length, ingested_at: ts }, 201);
     } catch (e) {
-      return jsonResp({ error: "Failed to write to intel feed", detail: e.message }, 500);
+      console.error(`[ingest] feed write failed: ${e.message}`);
+      return jsonResp({ error: "Failed to write to intel feed" }, 500);
     }
   }
 
@@ -4277,7 +4282,13 @@ export default {
     try {
       return await handleRequest(request, env, ctx);
     } catch (err) {
-      return new Response(JSON.stringify({ error: "Internal gateway error", detail: err.message }), {
+      // Logged server-side (visible via wrangler tail / any configured
+      // Logpush) but never returned to the caller -- this is the top-level
+      // catch-all for every route, reachable unauthenticated, and
+      // err.message can carry internal detail (paths, binding names,
+      // upstream API error text).
+      console.error(`[fetch] unhandled error: ${err && err.message ? err.message : err}`);
+      return new Response(JSON.stringify({ error: "Internal gateway error" }), {
         status: 500,
         headers: { ...CORS_HEADERS, ...SECURITY_HEADERS, ...JSON_CONTENT },
       });
