@@ -337,12 +337,26 @@ async function resolveAuth(request, env) {
 
   // API key path: look up in KV
   if (raw.length >= 16) {
+    // Brute-force lockout already covers /auth/login's explicit key check
+    // but not this path, which every authenticated request goes through --
+    // meaning direct key guessing against any endpoint was untracked.
+    // 256-bit key entropy (secrets.token_hex(32)) makes guessing
+    // computationally infeasible regardless, but this closes the gap for
+    // defense in depth at negligible cost (one KV read, reuses the exact
+    // same tracking as /auth/login).
+    const ip = request.headers.get("CF-Connecting-IP") || request.headers.get("X-Forwarded-For") || "unknown";
+    const bf = await checkBruteForce(env, ip);
+    if (bf.locked) {
+      return { tier: TIERS.FREE, key: null, sub: null, error: "rate_limited" };
+    }
     try {
       const record = await env.API_KEYS_KV.get(raw, "json");
       if (record) {
         if (record.expires_at && new Date(record.expires_at) < new Date()) {
           return { tier: TIERS.FREE, key: null, sub: null, error: "key_expired" };
         }
+        // Skip the extra KV write on the common case (no prior failures to clear)
+        if (bf.count) await clearAuthFailures(env, ip);
         return {
           tier: TIERS[record.tier] || TIERS.PRO,
           key: raw,
@@ -351,6 +365,7 @@ async function resolveAuth(request, env) {
         };
       }
     } catch (_) {}
+    await recordAuthFailure(env, ip);
     return { tier: TIERS.FREE, key: null, sub: null, error: "invalid_key" };
   }
 
