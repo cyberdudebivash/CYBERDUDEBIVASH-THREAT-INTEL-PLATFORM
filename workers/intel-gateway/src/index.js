@@ -3583,8 +3583,12 @@ async function handleRequest(request, env, ctx) {
 
   // --- /api/feed + /api/feed.json (legacy) ------------------------------------
   if (path === "/api/feed" || path === "/api/feed.json") {
-    const data = await r2Get(env, LATEST_JSON_KEY);
+    let data = await r2Get(env, LATEST_JSON_KEY);
     if (!data) return errorResp("Feed not available", 503);
+    // Legacy alias for /api/v1/intel/latest.json -- same key, same gate.
+    if (auth.tier !== TIERS.PRO && auth.tier !== TIERS.ENTERPRISE && Array.isArray(data.items)) {
+      data = { ...data, items: data.items.map(i => applyTierGateV2(i, "free", null)) };
+    }
     return jsonResp(data, 200, { "Cache-Control": "public, max-age=120" });
   }
 
@@ -3618,7 +3622,15 @@ async function handleRequest(request, env, ctx) {
       const legacyItem = await findItemBySlug(env, slug);
       if (legacyItem) {
         const legacyFeed = await loadFeedItems(env);
-        const html = generateIntelReport(legacyItem, path, legacyFeed.items || []);
+        // /reports/** is a public, permanently-R2-cached HTML surface with no
+        // per-viewer variation possible once written -- always generate the
+        // FREE/masked view (same reasoning as /api/preview) so IOCs, detection
+        // rules, and actor attribution never get baked into the public cache.
+        // The `items` context array is masked too: some block builders (e.g.
+        // P31 campaign/entity blocks) cross-reference it for attribution.
+        const maskedLegacyItem  = applyTierGateV2(legacyItem, "free", null);
+        const maskedLegacyItems = (legacyFeed.items || []).map(i => applyTierGateV2(i, "free", null));
+        const html = generateIntelReport(maskedLegacyItem, path, maskedLegacyItems);
         const _lDate = new Date(legacyItem.published_at || legacyItem.timestamp || Date.now());
         const _lYr = _lDate.getFullYear();
         const _lMo = String(_lDate.getMonth() + 1).padStart(2, "0");
@@ -3670,7 +3682,11 @@ async function handleRequest(request, env, ctx) {
     const fallbackItem = await findItemBySlug(env, fallbackSlug);
     if (fallbackItem) {
       const fallbackFeed = await loadFeedItems(env);
-      const html = generateIntelReport(fallbackItem, path, fallbackFeed.items || []);
+      // Same reasoning as the legacy-slug branch above: public, permanently
+      // cached HTML with no per-viewer variation -- always mask.
+      const maskedFallbackItem  = applyTierGateV2(fallbackItem, "free", null);
+      const maskedFallbackItems = (fallbackFeed.items || []).map(i => applyTierGateV2(i, "free", null));
+      const html = generateIntelReport(maskedFallbackItem, path, maskedFallbackItems);
       if (ctx) ctx.waitUntil(
         env.REPORTS_R2.put(key, html, { httpMetadata: { contentType: "text/html; charset=utf-8" } }).catch(() => {})
       );
@@ -3954,7 +3970,7 @@ async function handleRequest(request, env, ctx) {
   if (path === "/api/v1/intel/trust-indicators")      return await handleP18TrustIndicators(request, env);
   if (path === "/api/v1/reports/validate")            return await handleP18Validate(request, env);
   if (path === "/api/v1/reports/quality")             return await handleP18QualityScore(request, env);
-  if (path === "/api/v1/ioc/enriched")                return await handleP18IOCEnriched(request, env);
+  if (path === "/api/v1/ioc/enriched")                return await handleP18IOCEnriched(request, env, auth.tier);
   if (path === "/api/v1/confidence/methodology")      return await handleP18ConfidenceMethod(request, env);
   // --- P19: Enterprise Report Excellence + Dead-code Activation (additive, v19.0) -----------
   if (path === "/api/v1/reports/certify")           return await handleP19Certify(request, env);
@@ -3963,7 +3979,7 @@ async function handleRequest(request, env, ctx) {
   if (path === "/api/v1/reports/p20/quality")       return await handleP20QualityReport(request, env);
   if (path === "/api/v1/reports/p20/audit")         return await handleP20FeedAudit(request, env);
   // --- P21: Enterprise Intelligence Certification System (additive, v21.0) ----------------
-  if (path === "/api/v1/p21/certify")               return await handleP21Certify(request, env);
+  if (path === "/api/v1/p21/certify")               return await handleP21Certify(request, env, auth.tier);
   if (path === "/api/v1/p21/certify/feed")          return await handleP21FeedCertify(request, env);
   if (path === "/api/v1/p21/dashboard")             return await handleP21Dashboard(request, env);
   if (path === "/api/v1/p21/observability")         return await handleP21Observability(request, env);
@@ -3996,7 +4012,7 @@ async function handleRequest(request, env, ctx) {
   if (path === "/api/v1/p28/observability")        return await handleP28Observability(request, env);
 
   // --- P29: Enterprise Intelligence Network (additive, v29.0) ---
-  if (path === "/api/v1/p29/certify")              return await handleP29Certify(request, env);
+  if (path === "/api/v1/p29/certify")              return await handleP29Certify(request, env, auth.tier);
   if (path === "/api/v1/p29/customer-value")       return await handleP29CustomerValueAnalytics(request, env);
   if (path === "/api/v1/p29/trust-center")         return await handleP29TrustCenter(request, env);
   if (path === "/api/v1/p29/release-assurance")    return await handleP29ReleaseAssurance(request, env);
@@ -4011,12 +4027,12 @@ async function handleRequest(request, env, ctx) {
   if (path === "/api/v1/p30/report-health")        return await handleP30ReportHealth(request, env);
   if (path === "/api/v1/p30/observability")        return await handleP30Observability(request, env);
   if (path === "/api/v1/p31/certify")              return await handleP31Certify(request, env);
-  if (path === "/api/v1/p31/graph")                return await handleP31Graph(request, env);
-  if (path === "/api/v1/p31/search")               return await handleP31Search(request, env);
-  if (path === "/api/v1/p31/entity")               return await handleP31Entity(request, env);
-  if (path === "/api/v1/p31/relationships")        return await handleP31Relationships(request, env);
-  if (path === "/api/v1/p31/campaign")             return await handleP31Campaign(request, env);
-  if (path === "/api/v1/p31/copilot")              return await handleP31Copilot(request, env);
+  if (path === "/api/v1/p31/graph")                return await handleP31Graph(request, env, auth.tier);
+  if (path === "/api/v1/p31/search")               return await handleP31Search(request, env, auth.tier);
+  if (path === "/api/v1/p31/entity")               return await handleP31Entity(request, env, auth.tier);
+  if (path === "/api/v1/p31/relationships")        return await handleP31Relationships(request, env, auth.tier);
+  if (path === "/api/v1/p31/campaign")             return await handleP31Campaign(request, env, auth.tier);
+  if (path === "/api/v1/p31/copilot")              return await handleP31Copilot(request, env, auth.tier);
   if (path === "/api/v1/p31/observability")        return await handleP31Observability(request, env);
 
   // --- P32 routes ---

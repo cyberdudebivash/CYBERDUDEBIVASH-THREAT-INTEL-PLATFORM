@@ -16,6 +16,8 @@
 
 "use strict";
 
+import { enforceTierGate } from './revenue-enforcement.js';
+
 // ---------------------------------------------------------------------------
 // Shared helpers (local  -  not re-imported from index.js)
 // ---------------------------------------------------------------------------
@@ -554,7 +556,12 @@ export async function handleP18Correlation(request, env) {
 // P18.3  -  IOC Enriched Endpoint
 // ---------------------------------------------------------------------------
 
-export async function handleP18IOCEnriched(request, env) {
+export async function handleP18IOCEnriched(request, env, tier) {
+  const t = (tier || "free").toLowerCase();
+  if (t === "free") {
+    const gate = enforceTierGate("ioc_full", t);
+    return _jsonResp({ status: "locked", error: gate.reason, message: gate.message, upgrade: gate.upgrade }, 402);
+  }
   const url    = new URL(request.url);
   const limit  = Math.min(parseInt(url.searchParams.get("limit") || "200"), 500);
   const typeFilter = url.searchParams.get("type") || null;
