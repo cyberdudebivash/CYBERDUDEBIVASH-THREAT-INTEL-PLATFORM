@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Phase 0 item 0.4 — Create the fixed Drive folder skeleton (PDS Vol. 4 §5.1)
+# Phase 0 item 0.4  -  Create the fixed Drive folder skeleton (PDS Vol. 4 5.1)
 # in one or more continuity-plane Google accounts via rclone.
 #
 # SAFE BY DESIGN:
@@ -28,7 +28,7 @@ set -euo pipefail
 ROOT="CyberDudeBivash"
 ALL_REMOTES=(gdrive-control gdrive-vault1 gdrive-vault2 gdrive-vault3 gdrive-vault4 gdrive-vault5 gdrive-cold)
 
-# Fixed skeleton — identical in every account (PDS Vol. 4 §5.1).
+# Fixed skeleton  -  identical in every account (PDS Vol. 4 5.1).
 # Each vault actively uses only the folders matching its role, but the
 # identical skeleton lets any vault absorb another's role in DR (RB-5).
 FOLDERS=(
@@ -66,7 +66,7 @@ command -v rclone >/dev/null || { echo "ERROR: rclone not installed"; exit 1; }
 
 for REMOTE in "${REMOTES[@]}"; do
   echo "==> ${REMOTE}: creating skeleton under ${ROOT}/"
-  rclone listremotes | grep -qx "${REMOTE}:" || { echo "ERROR: remote '${REMOTE}' not configured — see prerequisites"; exit 1; }
+  rclone listremotes | grep -qx "${REMOTE}:" || { echo "ERROR: remote '${REMOTE}' not configured  -  see prerequisites"; exit 1; }
 
   for f in "${FOLDERS[@]}"; do
     rclone mkdir "${REMOTE}:${ROOT}/${f}"
