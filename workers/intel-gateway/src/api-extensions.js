@@ -1041,7 +1041,7 @@ async function fetchReportsIndexExt(env) {
 }
 
 function applySearchTierGate(item, tier) {
-  if (tier === "enterprise" || tier === "premium") return item;
+  if (tier === "enterprise" || tier === "premium" || tier === "mssp") return item;
   return {
     ...item,
     iocs: [],
@@ -1258,7 +1258,7 @@ export async function handlePredict(request, env, auth, rid) {
 
   // ENTERPRISE gets additional signals from stored AI outputs
   let storedPrediction = null;
-  if (tier === "enterprise" && manifestItem) {
+  if ((tier === "enterprise" || tier === "mssp") && manifestItem) {
     storedPrediction = {
       stored_predicted_severity:  manifestItem.predicted_severity  || null,
       stored_risk_trajectory:     manifestItem.risk_trajectory     || null,
@@ -1307,7 +1307,7 @@ export async function handleCampaigns(request, env, auth, rid) {
   if (tier === "free") return aiTierReject(tier, "/api/campaigns", rid);
 
   const url = new URL(request.url);
-  const limit    = Math.min(parseInt(url.searchParams.get("limit") || "25") || 25, tier === "enterprise" ? 500 : 100);
+  const limit    = Math.min(parseInt(url.searchParams.get("limit") || "25") || 25, (tier === "enterprise" || tier === "mssp") ? 500 : 100);
   const severity = url.searchParams.get("severity") || null;
   const actor    = url.searchParams.get("actor")    || null;
   const since    = url.searchParams.get("since")    || null;
@@ -1366,8 +1366,8 @@ export async function handleCampaigns(request, env, auth, rid) {
   campaigns.sort((a, b) => (b.item_count || 0) - (a.item_count || 0));
   const page_data = campaigns.slice(0, limit);
 
-  // Free fields for PRO; enterprise gets full member_titles
-  if (tier !== "enterprise") {
+  // Free fields for PRO; enterprise/mssp get full member_titles
+  if (tier !== "enterprise" && tier !== "mssp") {
     page_data.forEach(c => { c.member_titles = c.member_titles?.slice(0, 3); });
   }
 
@@ -1401,7 +1401,7 @@ export async function handleAnomalies(request, env, auth, rid) {
   if (tier === "free") return aiTierReject(tier, "/api/anomalies", rid);
 
   const url = new URL(request.url);
-  const limit       = Math.min(parseInt(url.searchParams.get("limit") || "25") || 25, tier === "enterprise" ? 500 : 100);
+  const limit       = Math.min(parseInt(url.searchParams.get("limit") || "25") || 25, (tier === "enterprise" || tier === "mssp") ? 500 : 100);
   const typeFilter  = url.searchParams.get("type") || null;   // potential_zero_day, critical_velocity, etc.
   const minZdProb   = parseFloat(url.searchParams.get("min_zd_prob") || "0");
   const minNovelty  = parseFloat(url.searchParams.get("min_novelty") || "0");
@@ -1428,8 +1428,8 @@ export async function handleAnomalies(request, env, auth, rid) {
         actor_tag:            r.actor_tag       || "unknown",
         feed_source:          r.feed_source     || "",
         timestamp:            r.timestamp       || "",
-        zero_day_indicators:  tier === "enterprise" ? (r.zero_day_indicators || []) : undefined,
-        recommended_action:   tier === "enterprise" ? _zdRecommendation(r.zero_day_probability || 0) : undefined,
+        zero_day_indicators:  (tier === "enterprise" || tier === "mssp") ? (r.zero_day_indicators || []) : undefined,
+        recommended_action:   (tier === "enterprise" || tier === "mssp") ? _zdRecommendation(r.zero_day_probability || 0) : undefined,
       });
     }
   } catch (_) {}
@@ -1475,7 +1475,7 @@ export async function handleIntelGraph(request, env, auth, rid) {
   if (tier === "free") return aiTierReject(tier, "/api/intelligence/graph", rid);
 
   const url   = new URL(request.url);
-  const limit = Math.min(parseInt(url.searchParams.get("limit") || "50") || 50, tier === "enterprise" ? 1000 : 100);
+  const limit = Math.min(parseInt(url.searchParams.get("limit") || "50") || 50, (tier === "enterprise" || tier === "mssp") ? 1000 : 100);
 
   // Fetch stored graph data from R2
   let graphData = null;
@@ -1511,7 +1511,7 @@ export async function handleIntelGraph(request, env, auth, rid) {
         high_confidence_nodes: Object.values(iocIndex).filter(n => n.confidence >= 75).length,
         sources_active:       ["manifest_feed"],
         generated_at:         new Date().toISOString(),
-        nodes:                tier === "enterprise"
+        nodes:                (tier === "enterprise" || tier === "mssp")
           ? Object.values(iocIndex).slice(0, limit)
           : null,
       };
@@ -1535,7 +1535,7 @@ export async function handleIntelGraph(request, env, auth, rid) {
     generated_at: new Date().toISOString(),
   };
 
-  if (tier === "enterprise") {
+  if (tier === "enterprise" || tier === "mssp") {
     response.nodes = (graphData.nodes || []).slice(0, limit);
     response.node_type_breakdown = graphData.node_type_breakdown || {};
     response.avg_confidence = graphData.avg_confidence || 0;
@@ -1563,7 +1563,7 @@ export async function handleIntelRelations(request, env, auth, rid) {
 
   const url   = new URL(request.url);
   const ioc   = url.searchParams.get("ioc") || "";
-  const depth = Math.min(parseInt(url.searchParams.get("depth") || "2") || 2, tier === "enterprise" ? 3 : 2);
+  const depth = Math.min(parseInt(url.searchParams.get("depth") || "2") || 2, (tier === "enterprise" || tier === "mssp") ? 3 : 2);
 
   if (!ioc) {
     return extJson({ error: "missing_param", message: "'ioc' query parameter required.", request_id: rid }, 400);
@@ -1630,8 +1630,8 @@ export async function handleIntelRelations(request, env, auth, rid) {
     ioc,
     depth,
     relation_count: relations.length,
-    relations:   tier === "enterprise" ? relations : relations.slice(0, 5),
-    attribution: tier === "enterprise" ? attribution : null,
+    relations:   (tier === "enterprise" || tier === "mssp") ? relations : relations.slice(0, 5),
+    attribution: (tier === "enterprise" || tier === "mssp") ? attribution : null,
     generated_at: new Date().toISOString(),
     upgrade_note: tier === "premium"
       ? "Enterprise unlocks full BFS graph traversal, actor attribution paths, and raw STIX relationship objects."
