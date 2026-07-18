@@ -3999,19 +3999,27 @@ async function handleRequest(request, env, ctx) {
     return await handleCopilot(request, env, auth, method, path);
   }
 
-  // --- P16.1: Unified Enterprise Control Plane -------------------------------
-  if (path === "/api/v1/control-plane/state" || path === "/api/v1/control-plane/state/") {
-    return await handleControlPlaneState(request, env, ctx);
+  // --- P16.1-P16.8: Enterprise Endpoints (P16.10: require authentication) ----
+  // These 7 routes previously dispatched with no auth parameter and no guard
+  // (handlers only read KV/D1, never checked request headers). Guard added
+  // per the existing per-route auth-check pattern used throughout this file.
+  if (path === "/api/v1/control-plane/state" || path === "/api/v1/control-plane/state/" ||
+      path === "/api/v1/workflows/status" || path === "/api/v1/assets/intelligence" ||
+      path === "/api/v1/health/enterprise" || path === "/api/v1/analytics/enterprise" ||
+      path === "/api/v1/automation/intelligence" || path === "/api/v1/observability/metrics") {
+    if (!auth.key && !auth.jwt) {
+      return jsonResp({ error: "Authentication required", hint: "Provide X-API-Key header or Authorization: Bearer <JWT>" }, 401);
+    }
+    if (path === "/api/v1/control-plane/state" || path === "/api/v1/control-plane/state/") {
+      return await handleControlPlaneState(request, env, ctx);
+    }
+    if (path === "/api/v1/workflows/status") return await handleP16Workflows(request, env);
+    if (path === "/api/v1/assets/intelligence") return await handleP16Assets(request, env);
+    if (path === "/api/v1/health/enterprise") return await handleP16Health(request, env);
+    if (path === "/api/v1/analytics/enterprise") return await handleP16Analytics(request, env);
+    if (path === "/api/v1/automation/intelligence") return await handleP16Automation(request, env);
+    if (path === "/api/v1/observability/metrics") return await handleP16Observability(request, env);
   }
-
-
-  // --- P16.2-P16.8: Extended Enterprise Endpoints (additive, v16.2) ----------
-  if (path === "/api/v1/workflows/status") return await handleP16Workflows(request, env);
-  if (path === "/api/v1/assets/intelligence") return await handleP16Assets(request, env);
-  if (path === "/api/v1/health/enterprise") return await handleP16Health(request, env);
-  if (path === "/api/v1/analytics/enterprise") return await handleP16Analytics(request, env);
-  if (path === "/api/v1/automation/intelligence") return await handleP16Automation(request, env);
-  if (path === "/api/v1/observability/metrics") return await handleP16Observability(request, env);
   // --- P17: Enterprise Cyber Defense OS (additive, v17.0) -------------------
   if (path === "/api/platform/orchestrator/state")    return await handleP17Orchestrator(request, env);
   if (path === "/api/v1/digital-twin/state")          return await handleP17DigitalTwin(request, env);
