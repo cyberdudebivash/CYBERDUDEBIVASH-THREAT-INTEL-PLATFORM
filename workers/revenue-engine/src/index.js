@@ -230,6 +230,22 @@ async function handleTrialRequest(request, env, rid) {
   const company = (body.company || "").slice(0, 128);
   if (!email) return json({ error: "invalid_email" }, 400);
 
+  // Per-IP daily cap - the only prior dedup was per-email (trialId below),
+  // which does nothing against a script cycling through disposable/plus-
+  // addressed emails to mint unlimited "Pro, no card needed" trials.
+  const trialIp = request.headers.get("CF-Connecting-IP") ||
+    (request.headers.get("X-Forwarded-For") || "").split(",")[0].trim() || "unknown";
+  const trialIpCapKey = `trial_ip_daily:${trialIp}:${new Date().toISOString().slice(0, 10)}`;
+  const TRIAL_IP_DAILY_CAP = 5;
+  try {
+    const usedRaw = await env.REVENUE_CRM_KV?.get(trialIpCapKey);
+    const used = usedRaw ? parseInt(usedRaw, 10) : 0;
+    if (used >= TRIAL_IP_DAILY_CAP) {
+      return json({ error: "rate_limited", message: "Too many trial requests from this network today. Try again tomorrow or contact support." }, 429);
+    }
+    await env.REVENUE_CRM_KV?.put(trialIpCapKey, String(used + 1), { expirationTtl: 86400 });
+  } catch (_) { /* fail open on KV outage, same posture as intel-gateway's rate limiter */ }
+
   const trialId  = "trial_" + await sha256prefix(email, 10);
   const existing = await env.REVENUE_CRM_KV?.get(`trial:${trialId}`);
 
@@ -1269,9 +1285,23 @@ function inferTags(company, role, context) {
   return tags;
 }
 
+// Constant-time string compare (length-check + XOR-accumulate over UTF-8
+// bytes) - plain `===` is not guaranteed constant-time. Same technique as
+// workers/intel-gateway/src/index.js's timingSafeEqual (separate Worker
+// bundle, so duplicated rather than shared across deploy units).
+function timingSafeEqual(a, b) {
+  const enc = new TextEncoder();
+  const ab = enc.encode(String(a ?? ""));
+  const bb = enc.encode(String(b ?? ""));
+  if (ab.length !== bb.length) return false;
+  let diff = 0;
+  for (let i = 0; i < ab.length; i++) diff |= ab[i] ^ bb[i];
+  return diff === 0;
+}
+
 async function isAdmin(request, env) {
   const secret = request.headers.get("X-Admin-Secret");
-  return secret && env?.REVENUE_ADMIN_SECRET && secret === env.REVENUE_ADMIN_SECRET;
+  return !!(secret && env?.REVENUE_ADMIN_SECRET && timingSafeEqual(secret, env.REVENUE_ADMIN_SECRET));
 }
 
 // GET /api/health -- public observability endpoint. Mirrors the shape/intent
@@ -1662,7 +1692,25 @@ async function handlePaymentReject(request, env, rid, paymentId) {
 // =============================================================================
 // CORE: provisionCustomer — creates record + sub + API key + sends welcome
 // =============================================================================
-async function provisionCustomer(env, { email, tier, billing_cycle, payment_id, payment_method, amount_paid, currency, trial=false, mssp_parent_id=null }) {
+// Thin wrapper so a failure anywhere in the ~10 sequential cross-namespace KV
+// writes below produces a distinguishable, actionable signal instead of a
+// bare 500 - Workers KV has no cross-key/cross-namespace transaction
+// primitive, so a mid-sequence failure can leave a customer billed-but-not-
+// entitled (or the reverse) with nothing automated to catch it today. This
+// doesn't fix that structural limitation, it makes the failure discoverable.
+async function provisionCustomer(env, params) {
+  try {
+    return await _provisionCustomerCore(env, params);
+  } catch (err) {
+    await trackEvent(env, "provisioning_partial_failure", {
+      email: params?.email, tier: params?.tier, trial: !!params?.trial,
+      error: err?.message,
+    }).catch(() => {});
+    throw err;
+  }
+}
+
+async function _provisionCustomerCore(env, { email, tier, billing_cycle, payment_id, payment_method, amount_paid, currency, trial=false, mssp_parent_id=null }) {
   const now = new Date().toISOString();
   const customerId = genId("cust");
   const subId = genId("sub");

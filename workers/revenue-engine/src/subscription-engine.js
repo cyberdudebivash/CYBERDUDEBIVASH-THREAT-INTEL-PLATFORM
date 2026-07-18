@@ -111,6 +111,9 @@ async function alreadyProcessed(env, idempKey) {
 async function markProcessed(env, idempKey, meta) {
   await env.REVENUE_CRM_KV.put(`rzp_sub_event:${idempKey}`, JSON.stringify(meta), { expirationTtl: 86400 * 365 });
 }
+async function unmarkProcessed(env, idempKey) {
+  try { await env.REVENUE_CRM_KV.delete(`rzp_sub_event:${idempKey}`); } catch (_) {}
+}
 
 // =============================================================================
 // POST /api/v2/billing/subscriptions/create
@@ -209,12 +212,22 @@ export async function handleBillingWebhook(request, env, ctx, rid) {
   if (await alreadyProcessed(env, idempKey)) {
     return json({ status: "already_processed", event });
   }
+  // Claim BEFORE doing any provisioning work, not after. Cloudflare KV has no
+  // compare-and-swap, so this can't fully eliminate the race (two requests
+  // arriving in the same instant can both still pass the read above before
+  // either write lands) - but it shrinks the window from "the entire
+  // multi-step provisioning duration" down to one KV round-trip, which is
+  // what matters given Razorpay's documented at-least-once delivery retries
+  // specifically on slow responses. If the switch below throws, the claim is
+  // released so a genuine retry isn't wrongly swallowed as already-processed.
+  await markProcessed(env, idempKey, { event, providerId, ts: Date.now(), status: "in_progress" });
 
   const link  = providerId ? await getProviderLink(env, providerId) : null;
   const email = sanitizeEmail(link?.email || notes.email);
   const tier  = (link?.tier || notes.tier || "").toUpperCase();
   const cycle = link?.billing_cycle || notes.billing_cycle || "monthly";
 
+  try {
   switch (event) {
     case "subscription.authenticated": {
       if (providerId) await putProviderLink(env, providerId, { ...(link || {}), status: "authenticated" });
@@ -316,6 +329,11 @@ export async function handleBillingWebhook(request, env, ctx, rid) {
       await trackEvent(env, "subscription_webhook_unhandled_event", { event, razorpay_subscription_id: providerId, rid });
       break;
     }
+  }
+  } catch (err) {
+    await unmarkProcessed(env, idempKey);
+    await trackEvent(env, "subscription_webhook_error", { event, razorpay_subscription_id: providerId, error: err?.message, rid });
+    return json({ error: "internal_error", message: "Webhook processing failed; will be retried on redelivery.", rid }, 500);
   }
 
   await markProcessed(env, idempKey, { event, providerId, ts: Date.now() });
