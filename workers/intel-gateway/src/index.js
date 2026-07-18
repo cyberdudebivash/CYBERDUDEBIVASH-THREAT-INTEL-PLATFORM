@@ -240,6 +240,21 @@ async function verifyJWT(token, secret) {
   } catch (_) { return null; }
 }
 
+// Constant-time string comparison — prevents timing side-channel attacks on
+// shared-secret checks (admin key, Gumroad webhook token) that aren't HMAC
+// signatures and so can't use crypto.subtle.verify like Razorpay/JWT do.
+// Always walks the full length of the longer input; never short-circuits.
+function timingSafeEqual(a, b) {
+  const bufA = new TextEncoder().encode(String(a ?? ""));
+  const bufB = new TextEncoder().encode(String(b ?? ""));
+  const len  = Math.max(bufA.length, bufB.length);
+  let diff   = bufA.length ^ bufB.length;
+  for (let i = 0; i < len; i++) {
+    diff |= (bufA[i] ?? 0) ^ (bufB[i] ?? 0);
+  }
+  return diff === 0;
+}
+
 // =============================================================================
 // BRUTE FORCE PROTECTION
 // =============================================================================
@@ -1565,7 +1580,7 @@ async function handleAdmin(request, env, ctx, path, method) {
     (request.headers.get("Authorization") || "").replace(/^Bearer\s+/i, "")
   ).trim();
 
-  if (!env.ADMIN_SECRET || adminKey !== env.ADMIN_SECRET) {
+  if (!env.ADMIN_SECRET || !timingSafeEqual(adminKey, env.ADMIN_SECRET)) {
     auditLog(ctx, env, { action: "admin_auth_failed", path, method });
     return jsonResp({ error: "Forbidden: invalid admin credentials" }, 403);
   }
@@ -2537,12 +2552,13 @@ async function handleWebhookRazorpay(request, env, ctx) {
 // Set GUMROAD_WEBHOOK_SECRET via: npx wrangler secret put GUMROAD_WEBHOOK_SECRET
 async function handleWebhookGumroad(request, env, ctx) {
   // Token-based authentication: Gumroad doesn't sign payloads, so we use a shared secret in the URL
+  if (!env.GUMROAD_WEBHOOK_SECRET) {
+    return jsonResp({ error: "Webhook secret not configured" }, 500);
+  }
   const urlToken = new URL(request.url).searchParams.get("secret") || "";
-  if (env.GUMROAD_WEBHOOK_SECRET) {
-    if (!urlToken || urlToken !== env.GUMROAD_WEBHOOK_SECRET) {
-      auditLog(ctx, env, { action: "webhook_auth_fail", source: "gumroad" });
-      return jsonResp({ error: "Unauthorized" }, 401);
-    }
+  if (!urlToken || !timingSafeEqual(urlToken, env.GUMROAD_WEBHOOK_SECRET)) {
+    auditLog(ctx, env, { action: "webhook_auth_fail", source: "gumroad" });
+    return jsonResp({ error: "Unauthorized" }, 401);
   }
 
   let formData = {};
