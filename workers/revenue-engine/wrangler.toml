@@ -17,6 +17,16 @@ id      = "1740d5dba5e74c3aafff1c683588395b"
 binding = "EMAIL_QUEUE_KV"
 id      = "769edd785fbe4c67b878c113d46ff895"
 
+# Same physical namespace workers/intel-gateway binds as API_KEYS_KV (its
+# resolveAuth() reads this on every request). Added so syncGatewayEntitlement()
+# in src/index.js can write real entitlement records here -- without this
+# binding, every key provisionCustomer/renew/rotate/revoke ever "provisioned"
+# silently failed authentication against the live API (pre-existing gap; see
+# PR description). Not a new namespace -- same id as intel-gateway's.
+[[kv_namespaces]]
+binding = "API_KEYS_KV"
+id      = "ca786702c6df47b7a95d9777536c7cfb"
+
 # ── D1 Database (CRM) ─────────────────────────────────────────────────────────
 # Create: npx wrangler d1 create sentinel-crm
 # Apply schema: npx wrangler d1 execute sentinel-crm --file=../../revenue-crm/schema.sql
@@ -26,11 +36,30 @@ binding      = "CRM_DB"
 database_name = "sentinel-crm"
 database_id  = "76bd245d-3c30-4e7f-b33d-9f643c0c3fa5"
 
+# ── Worker Routes -- intel.cyberdudebivash.com ─────────────────────────────────
+# More specific than intel-gateway's /api/* catch-all, so Cloudflare's
+# longest-match rule sends these to this Worker instead (same pattern already
+# proven by intel-retention-engine's /api/v2/repository/* route).
+routes = [
+  { pattern = "intel.cyberdudebivash.com/api/v2/billing/*", zone_name = "cyberdudebivash.com" },
+]
+
 # ── Secrets ────────────────────────────────────────────────────────────────────
 # npx wrangler secret put REVENUE_ADMIN_SECRET   → admin API access
 # npx wrangler secret put SENDGRID_API_KEY       → email delivery
 # npx wrangler secret put RAZORPAY_KEY_ID        → INR billing
 # npx wrangler secret put RAZORPAY_KEY_SECRET
+# npx wrangler secret put RAZORPAY_WEBHOOK_SECRET → subscription webhook signature verification
+# Razorpay Plans are period-specific (a "monthly" and an "annual" Pro plan are
+# two different Plan objects), so 6 are needed, one per tier x cycle -- each
+# created once in the Razorpay dashboard (or a one-time setup API call); this
+# codebase cannot create them without live credentials:
+# npx wrangler secret put RAZORPAY_PLAN_ID_PRO_MONTHLY
+# npx wrangler secret put RAZORPAY_PLAN_ID_PRO_ANNUAL
+# npx wrangler secret put RAZORPAY_PLAN_ID_ENTERPRISE_MONTHLY
+# npx wrangler secret put RAZORPAY_PLAN_ID_ENTERPRISE_ANNUAL
+# npx wrangler secret put RAZORPAY_PLAN_ID_MSSP_MONTHLY
+# npx wrangler secret put RAZORPAY_PLAN_ID_MSSP_ANNUAL
 # npx wrangler secret put STRIPE_SECRET_KEY      → USD billing
 # npx wrangler secret put SLACK_WEBHOOK_URL      → deal alerts to Slack
 # npx wrangler secret put AIRTABLE_API_KEY       → optional Airtable CRM sync
@@ -39,6 +68,10 @@ database_id  = "76bd245d-3c30-4e7f-b33d-9f643c0c3fa5"
 [env.production]
 name = "sentinel-revenue-engine"
 
+routes = [
+  { pattern = "intel.cyberdudebivash.com/api/v2/billing/*", zone_name = "cyberdudebivash.com" },
+]
+
 [[env.production.kv_namespaces]]
 binding = "REVENUE_CRM_KV"
 id      = "1740d5dba5e74c3aafff1c683588395b"
@@ -46,6 +79,10 @@ id      = "1740d5dba5e74c3aafff1c683588395b"
 [[env.production.kv_namespaces]]
 binding = "EMAIL_QUEUE_KV"
 id      = "769edd785fbe4c67b878c113d46ff895"
+
+[[env.production.kv_namespaces]]
+binding = "API_KEYS_KV"
+id      = "ca786702c6df47b7a95d9777536c7cfb"
 
 [[env.production.d1_databases]]
 binding      = "CRM_DB"

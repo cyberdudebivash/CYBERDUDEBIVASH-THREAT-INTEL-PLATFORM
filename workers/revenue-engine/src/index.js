@@ -5,6 +5,11 @@
 // Deployed at: https://revenue.intel.cyberdudebivash.com
 // =============================================================================
 
+// Phase 2: Razorpay Subscriptions (recurring billing) -- new module, added
+// after the header, before any other declaration, per this codebase's
+// existing import-ordering convention in workers/intel-gateway/src/index.js.
+import { dispatchBillingRoutes } from './subscription-engine.js';
+
 const ENGINE = {
   VERSION:  "183.0",
   NAME:     "SENTINEL-REVENUE-ENGINE",
@@ -46,6 +51,13 @@ export default {
         return await handleDemoRequest(request, env, rid);
       if (path === "/api/demo/live"     && method === "GET")
         return await handleLiveDemoEndpoint(request, env, rid);
+
+      // -- Public billing endpoints (Phase 2: Razorpay Subscriptions) --------
+      // Customer checkout and Razorpay's server-to-server webhook -- neither
+      // sends (or should need) X-Admin-Secret, so these must be dispatched
+      // before the admin gate below, same as the leads/trial/demo routes above.
+      const billingResult = await dispatchBillingRoutes(path, method, request, env, ctx, rid);
+      if (billingResult) return billingResult;
 
       // ── Admin-secured CRM endpoints ────────────────────────────────────────
       if (!await isAdmin(request, env)) {
@@ -1020,7 +1032,20 @@ async function sendEmailViaProvider(env, msg) {
 // ─────────────────────────────────────────────────────────────────────────────
 // EMAIL TEMPLATES — Production cold outreach + nurture + automation
 // ─────────────────────────────────────────────────────────────────────────────
-function getEmailTemplate(name, vars) {
+// Renamed from getEmailTemplate (pre-existing bug fix, found while adding
+// `export` for Phase 2's subscription module): a second function with the
+// same name was declared below (line ~2218) to extend this one. Two
+// same-named top-level function declarations are legal in non-module script
+// scope (the second silently wins), but function hoisting resolves BOTH to
+// the second declaration from the very start of execution -- so the second
+// function's own "capture the original before redeclaring" line was already
+// capturing itself, not this function, causing infinite recursion (stack
+// overflow) for any template name not in COMMERCIAL_EMAIL_TEMPLATES. Adding
+// `export` elsewhere in this file turned that same collision into a hard
+// SyntaxError (module scope disallows duplicate declarations at all), which
+// is how this was found. Fix: give this one a distinct name and have the
+// wrapper below call it directly instead of relying on same-name shadowing.
+function getBaseEmailTemplate(name, vars) {
   const T = vars || {};
   const templates = {
     "cold_enterprise_v1": {
@@ -1261,7 +1286,7 @@ function sanitizeEmail(email) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e) ? e : null;
 }
 
-function genId(prefix) {
+export function genId(prefix) {
   const b = crypto.getRandomValues(new Uint8Array(6));
   return (prefix||"id") + "_" + [...b].map(x=>x.toString(16).padStart(2,"0")).join("");
 }
@@ -1306,7 +1331,7 @@ const DEMO_FALLBACK_THREATS = [
 // ─────────────────────────────────────────────────────────────────────────────
 // TIER CONFIGURATION
 // ─────────────────────────────────────────────────────────────────────────────
-const TIERS = {
+export const TIERS = {
   FREE:       { label:"Free",       req_day:100,    req_min:10,   price_usd:0,    price_inr:0,       trial_days:0,  features:["basic_feed","metadata","stix_ids"] },
   PRO:        { label:"Pro",        req_day:1000,   req_min:100,  price_usd:99,   price_inr:8250,    trial_days:7,  features:["full_ioc","sigma","yara","kql","spl","stix_bundle","actor","kill_chain","playbook","misp_json","csv_export"] },
   ENTERPRISE: { label:"Enterprise", req_day:50000,  req_min:500,  price_usd:999,  price_inr:83200,   trial_days:14, features:["siem_webhook","soar_export","navigator","hunt_queries","actor_tracking","campaign_intel","prediction_api","sector_feed","executive_brief","fair_model","reg_compliance","10_seats"] },
@@ -1315,7 +1340,7 @@ const TIERS = {
 
 const PAYMENT_METHODS = ["upi","qr","paypal","neft","crypto_usdt_bep20","crypto_usdt_erc20","amazon_pay","bank_wire"];
 const PAYMENT_STATUS  = { PENDING:"pending", VERIFIED:"verified", APPROVED:"approved", REJECTED:"rejected", REFUNDED:"refunded" };
-const SUB_STATUS      = { TRIAL:"trial", ACTIVE:"active", EXPIRING:"expiring", EXPIRED:"expired", SUSPENDED:"suspended", CANCELLED:"cancelled", RENEWED:"renewed" };
+export const SUB_STATUS = { TRIAL:"trial", ACTIVE:"active", EXPIRING:"expiring", EXPIRED:"expired", SUSPENDED:"suspended", CANCELLED:"cancelled", RENEWED:"renewed", PAST_DUE:"past_due" };
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ROUTER EXTENSION — inject into main fetch() by pattern
@@ -1558,9 +1583,29 @@ async function handlePaymentReject(request, env, rid, paymentId) {
 }
 
 // =============================================================================
+// GATEWAY ENTITLEMENT SYNC -- writes/clears the record intel-gateway's
+// resolveAuth() actually reads (env.API_KEYS_KV, keyed by the literal API key
+// string). This closes a pre-existing gap: provisionCustomer/rotate/revoke/
+// expire-check below used to write only to REVENUE_CRM_KV, which
+// intel-gateway never reads (no binding existed between the two Workers) --
+// so every key "provisioned" here silently failed authentication against the
+// live, customer-facing API. Requires the API_KEYS_KV binding in
+// wrangler.toml (added alongside this fix); fails safe (no-op) if absent so
+// this never throws before that binding is actually deployed.
+// =============================================================================
+export async function syncGatewayEntitlement(env, key, record) {
+  if (!env.API_KEYS_KV) return;
+  if (record === null) {
+    await env.API_KEYS_KV.delete(key);
+    return;
+  }
+  await env.API_KEYS_KV.put(key, JSON.stringify(record));
+}
+
+// =============================================================================
 // CORE: provisionCustomer — creates record + sub + API key + sends welcome
 // =============================================================================
-async function provisionCustomer(env, { email, tier, billing_cycle, payment_id, payment_method, amount_paid, currency, trial=false, mssp_parent_id=null }) {
+export async function provisionCustomer(env, { email, tier, billing_cycle, payment_id, payment_method, amount_paid, currency, trial=false, mssp_parent_id=null }) {
   const now = new Date().toISOString();
   const customerId = genId("cust");
   const subId = genId("sub");
@@ -1610,9 +1655,16 @@ async function provisionCustomer(env, { email, tier, billing_cycle, payment_id, 
   for (const pk of prevKeys) {
     if (pk.status === "active" && pk.key !== key) {
       await env.REVENUE_CRM_KV.put(`apikey:${pk.key}`, JSON.stringify({...pk, status:"superseded", superseded_at:now}));
+      await syncGatewayEntitlement(env, pk.key, null);
     }
   }
   await env.REVENUE_CRM_KV.put(`apikeys:${email}`, JSON.stringify([keyRecord]));
+
+  // Sync to the gateway's real entitlement store (see syncGatewayEntitlement above)
+  await syncGatewayEntitlement(env, key, {
+    tier, customer_id: custRecord.id, expires_at: currentPeriodEnd,
+    created_at: now, source: trial ? "trial" : "revenue_engine",
+  });
 
   // 3. Create subscription record
   const subRecord = {
@@ -1643,6 +1695,100 @@ async function provisionCustomer(env, { email, tier, billing_cycle, payment_id, 
   await updateMRR(env, tier, billing_cycle, "add");
 
   return { customer_id:custRecord.id, sub_id:subId, api_key:key, key_id:keyId, tier, period_end:currentPeriodEnd, features:tierCfg.features };
+}
+
+// =============================================================================
+// RECURRING LIFECYCLE -- renew / suspend / cancel an existing subscription.
+// Sibling operations to provisionCustomer (first activation); these extend or
+// end an existing customer's access rather than creating a new one. Used by
+// subscription-engine.js in response to real Razorpay subscription webhooks.
+// =============================================================================
+export async function renewCustomerSubscription(env, email, { billing_cycle, payment_id } = {}) {
+  const cust = await env.REVENUE_CRM_KV.get(`customer:${email}`, "json");
+  const sub  = await env.REVENUE_CRM_KV.get(`sub:email:${email}`, "json");
+  if (!cust || !sub) return { error: "not_found" };
+
+  const now = new Date().toISOString();
+  const cycle = billing_cycle || sub.billing_cycle || "monthly";
+  const billDays = cycle === "annual" ? 365 : 30;
+  const newPeriodEnd = new Date(Date.now() + billDays * 86400000).toISOString();
+
+  const updatedCust = { ...cust, status: "active", current_period_end: newPeriodEnd, updated_at: now };
+  await env.REVENUE_CRM_KV.put(`customer:${email}`, JSON.stringify(updatedCust));
+
+  const updatedSub = {
+    ...sub, status: SUB_STATUS.ACTIVE, current_period_start: now, current_period_end: newPeriodEnd,
+    renewal_count: (sub.renewal_count || 0) + 1, renewal_reminder_sent: false, payment_id: payment_id || sub.payment_id,
+  };
+  await env.REVENUE_CRM_KV.put(`sub:${sub.id}`, JSON.stringify(updatedSub));
+  await env.REVENUE_CRM_KV.put(`sub:email:${email}`, JSON.stringify(updatedSub));
+
+  const keys = await env.REVENUE_CRM_KV.get(`apikeys:${email}`, "json") || [];
+  for (const k of keys) {
+    if (k.status === "active" || k.status === "expired") {
+      const refreshed = { ...k, status: "active", expires_at: newPeriodEnd };
+      await env.REVENUE_CRM_KV.put(`apikey:${k.key}`, JSON.stringify(refreshed));
+      await syncGatewayEntitlement(env, k.key, {
+        tier: cust.tier, customer_id: cust.id, expires_at: newPeriodEnd,
+        created_at: k.created_at || now, source: "revenue_engine_renewal",
+      });
+    }
+  }
+  await env.REVENUE_CRM_KV.put(`apikeys:${email}`, JSON.stringify(keys));
+  await updateMRR(env, cust.tier, cycle, "add");
+  await appendAuditLog(env, { action: "subscription_renewed", email, tier: cust.tier, period_end: newPeriodEnd, ts: now });
+  return { customer_id: cust.id, sub_id: sub.id, tier: cust.tier, period_end: newPeriodEnd };
+}
+
+// grace_period_days: how long access survives after payment_failed/halted
+// before actually being cut off. Conservative default; not a final policy --
+// see the Production Readiness Report for why this isn't hardcoded further.
+export async function suspendCustomerSubscription(env, email, { reason, grace_period_days = 3 } = {}) {
+  const cust = await env.REVENUE_CRM_KV.get(`customer:${email}`, "json");
+  const sub  = await env.REVENUE_CRM_KV.get(`sub:email:${email}`, "json");
+  if (!cust || !sub) return { error: "not_found" };
+
+  const now = new Date().toISOString();
+  const graceEnds = new Date(Date.now() + grace_period_days * 86400000).toISOString();
+
+  const updatedSub = { ...sub, status: SUB_STATUS.PAST_DUE, past_due_since: now, grace_ends_at: graceEnds };
+  await env.REVENUE_CRM_KV.put(`sub:${sub.id}`, JSON.stringify(updatedSub));
+  await env.REVENUE_CRM_KV.put(`sub:email:${email}`, JSON.stringify(updatedSub));
+  await env.REVENUE_CRM_KV.put(`customer:${email}`, JSON.stringify({ ...cust, status: "past_due", updated_at: now }));
+
+  // Access is NOT cut immediately -- grace period stands until expire-check
+  // (or a future dunning pass) finds it past grace_ends_at. This mirrors the
+  // grace-period language in the lifecycle model; it is a conservative
+  // default, not a business-approved policy.
+  await appendAuditLog(env, { action: "subscription_past_due", email, reason: reason || "payment_failed", grace_ends_at: graceEnds, ts: now });
+  return { customer_id: cust.id, sub_id: sub.id, status: SUB_STATUS.PAST_DUE, grace_ends_at: graceEnds };
+}
+
+export async function cancelCustomerSubscription(env, email, { reason, immediate = false } = {}) {
+  const cust = await env.REVENUE_CRM_KV.get(`customer:${email}`, "json");
+  const sub  = await env.REVENUE_CRM_KV.get(`sub:email:${email}`, "json");
+  if (!cust || !sub) return { error: "not_found" };
+
+  const now = new Date().toISOString();
+  const updatedSub = { ...sub, status: SUB_STATUS.CANCELLED, auto_renew: false, cancelled_at: now, cancel_reason: reason || "customer_requested" };
+  await env.REVENUE_CRM_KV.put(`sub:${sub.id}`, JSON.stringify(updatedSub));
+  await env.REVENUE_CRM_KV.put(`sub:email:${email}`, JSON.stringify(updatedSub));
+  await env.REVENUE_CRM_KV.put(`customer:${email}`, JSON.stringify({ ...cust, status: "cancelled", updated_at: now }));
+
+  if (immediate) {
+    const keys = await env.REVENUE_CRM_KV.get(`apikeys:${email}`, "json") || [];
+    for (const k of keys) {
+      await env.REVENUE_CRM_KV.put(`apikey:${k.key}`, JSON.stringify({ ...k, status: "cancelled" }));
+      await syncGatewayEntitlement(env, k.key, null);
+    }
+    await updateMRR(env, cust.tier, sub.billing_cycle, "remove");
+  }
+  // If not immediate: access continues until current_period_end, at which
+  // point handleSubExpireCheck's existing expiry logic (auto_renew now false)
+  // naturally lets it lapse rather than renew -- no separate cutover needed.
+
+  await appendAuditLog(env, { action: "subscription_cancelled", email, immediate, reason: reason || "customer_requested", ts: now });
+  return { customer_id: cust.id, sub_id: sub.id, status: SUB_STATUS.CANCELLED, immediate };
 }
 
 // =============================================================================
@@ -1689,6 +1835,7 @@ async function handleApiKeyRotate(request, env, rid) {
   // Revoke all old keys
   for (const ok of oldKeys) {
     await env.REVENUE_CRM_KV.put(`apikey:${ok.key}`, JSON.stringify({...ok, status:"rotated", rotated_at:now}));
+    await syncGatewayEntitlement(env, ok.key, null);
   }
 
   const newRecord = {
@@ -1699,6 +1846,10 @@ async function handleApiKeyRotate(request, env, rid) {
   };
   await env.REVENUE_CRM_KV.put(`apikey:${newKey}`, JSON.stringify(newRecord));
   await env.REVENUE_CRM_KV.put(`apikeys:${cleanEmail}`, JSON.stringify([newRecord]));
+  await syncGatewayEntitlement(env, newKey, {
+    tier: cust.tier, customer_id: cust.id, expires_at: cust.current_period_end,
+    created_at: now, source: "revenue_engine_rotation",
+  });
 
   await appendAuditLog(env, { action:"key_rotated", email:cleanEmail, new_key_prefix:newKey.substring(0,16), ts:now });
   await queueEmail(env, { to:cleanEmail, template:"key_rotated", vars:{ new_key:newKey, tier:cust.tier } });
@@ -1715,6 +1866,7 @@ async function handleApiKeyRevoke(request, env, rid) {
   const now = new Date().toISOString();
   for (const k of keys) {
     await env.REVENUE_CRM_KV.put(`apikey:${k.key}`, JSON.stringify({...k, status:"revoked", revoked_at:now, revocation_reason:reason||"admin_action"}));
+    await syncGatewayEntitlement(env, k.key, null);
   }
   await env.REVENUE_CRM_KV.put(`apikeys:${cleanEmail}`, JSON.stringify(keys.map(k => ({...k, status:"revoked"}))));
   const cust = await env.REVENUE_CRM_KV.get(`customer:${cleanEmail}`, "json");
@@ -1841,10 +1993,27 @@ async function handleSubExpireCheck(request, env, rid) {
       const keys = await env.REVENUE_CRM_KV.get(`apikeys:${rec.email}`, "json") || [];
       for (const k of keys) {
         await env.REVENUE_CRM_KV.put(`apikey:${k.key}`, JSON.stringify({...k, status:"expired"}));
+        await syncGatewayEntitlement(env, k.key, null);
       }
       await queueEmail(env, { to:rec.email, template:"subscription_expired", vars:{ tier:rec.tier, renew_url:"https://intel.cyberdudebivash.com/PAYMENT-GATEWAY.html?renew="+rec.id } });
       await updateMRR(env, rec.tier, rec.billing_cycle, "remove");
       expired++;
+    }
+    // PAST_DUE (payment_failed/halted webhook) whose grace period has lapsed
+    // without a successful retry -- cut access now, same as a hard expiry.
+    if (rec.status === SUB_STATUS.PAST_DUE && rec.grace_ends_at && new Date(rec.grace_ends_at) < now) {
+      const updatedRec = { ...rec, status: SUB_STATUS.SUSPENDED, suspended_at: now.toISOString() };
+      await env.REVENUE_CRM_KV.put(`sub:${s.id}`, JSON.stringify(updatedRec));
+      await env.REVENUE_CRM_KV.put(`sub:email:${rec.email}`, JSON.stringify(updatedRec));
+      const keys = await env.REVENUE_CRM_KV.get(`apikeys:${rec.email}`, "json") || [];
+      for (const k of keys) {
+        await env.REVENUE_CRM_KV.put(`apikey:${k.key}`, JSON.stringify({...k, status:"suspended"}));
+        await syncGatewayEntitlement(env, k.key, null);
+      }
+      await queueEmail(env, { to:rec.email, template:"subscription_suspended", vars:{ tier:rec.tier, renew_url:"https://intel.cyberdudebivash.com/PAYMENT-GATEWAY.html?renew="+rec.id } });
+      await updateMRR(env, rec.tier, rec.billing_cycle, "remove");
+      await appendAuditLog(env, { action:"subscription_suspended_grace_expired", email:rec.email, ts:now.toISOString() });
+      suspended++;
     }
   }
   return json({ processed:idx.length, reminded, expired, suspended });
@@ -2019,7 +2188,7 @@ async function handleCommercialDashboard(request, env, rid) {
 // =============================================================================
 // HELPERS
 // =============================================================================
-function generateApiKey(tier, prefix) {
+export function generateApiKey(tier, prefix) {
   const tPrefix = prefix || { FREE:"CDB-FREE", PRO:"CDB-PRO", ENTERPRISE:"CDB-ENT", MSSP:"CDB-MSSP" }[tier] || "CDB-PRO";
   const buf = crypto.getRandomValues(new Uint8Array(12));
   const hex = [...buf].map(b=>b.toString(16).padStart(2,"0")).join("").toUpperCase();
@@ -2027,7 +2196,7 @@ function generateApiKey(tier, prefix) {
   return `${tPrefix}-${hex}-${checksum}`;
 }
 
-async function updateMRR(env, tier, billing_cycle, action) {
+export async function updateMRR(env, tier, billing_cycle, action) {
   const price = { FREE:0, PRO:99, ENTERPRISE:999, MSSP:1999 }[tier] || 0;
   const monthly = billing_cycle === "annual" ? price : price;
   const key = "revenue:mrr_usd";
@@ -2036,7 +2205,7 @@ async function updateMRR(env, tier, billing_cycle, action) {
   await env.REVENUE_CRM_KV.put(key, String(updated));
 }
 
-async function appendAuditLog(env, entry) {
+export async function appendAuditLog(env, entry) {
   const day = new Date().toISOString().slice(0,10);
   const key = `audit:${day}`;
   const log = await env.REVENUE_CRM_KV.get(key, "json") || [];
@@ -2057,14 +2226,16 @@ const COMMERCIAL_EMAIL_TEMPLATES = {
   mssp_tenant_welcome: (v) => ({ subject:`Welcome to ${v.mssp_name} Threat Intelligence (Powered by SENTINEL APEX)`, html:`<h2>Welcome, ${v.tenant_name}</h2><p>Your threat intelligence API key: <code>${v.api_key}</code></p><p>Rate limit: ${v.req_day} requests/day</p>` }),
 };
 
-// Patch getEmailTemplate to include commercial templates
-const _origGetEmailTemplate = typeof getEmailTemplate === "function" ? getEmailTemplate : (name, vars) => null;
+// getEmailTemplate: the one public entry point (queueEmail's only caller,
+// line ~1015, is unchanged) -- checks the commercial templates first, then
+// falls back to the base cold-outreach/nurture set above. See the bug-fix
+// note on getBaseEmailTemplate for why this used to infinite-recurse instead.
 function getEmailTemplate(name, vars) {
   if (COMMERCIAL_EMAIL_TEMPLATES[name]) {
     const t = COMMERCIAL_EMAIL_TEMPLATES[name](vars);
     return { subject:t.subject, html:t.html, text:t.html.replace(/<[^>]+>/g,"") };
   }
-  return _origGetEmailTemplate(name, vars);
+  return getBaseEmailTemplate(name, vars);
 }
 
 // =============================================================================
