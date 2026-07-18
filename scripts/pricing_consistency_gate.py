@@ -122,7 +122,15 @@ for label, rupees in INR_MONTHLY_EXPECTED.items():
         )
 
 # -- 4: checkout pages must still fetch /api/pricing -------------------------
-for page in ("upgrade.html", "PAYMENT-GATEWAY.html"):
+# PAYMENT-GATEWAY.html is intentionally NOT in this list: per its own header
+# comment, it was deliberately rewritten as a pure redirect to /upgrade.html
+# (0; url=/upgrade.html + a JS fallback) that displays no pricing at all --
+# "completely removing every manual-payment code path this page used to
+# contain." There is no hardcoded price on that page to silently drift, so
+# requiring a runtime pricing fetch on it tests a stale pre-redirect
+# assumption. upgrade.html is the only checkout page that actually renders
+# a price and must stay wired to the canonical source.
+for page in ("upgrade.html",):
     content = read_text(page)
     if "/api/pricing" not in content or "syncCanonicalPricing" not in content:
         failures.append(
