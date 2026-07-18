@@ -14,6 +14,11 @@ credentials/
 token.json
 credentials.json
 .env
+# SEC-2026-07-18: api/auth.py's APIKeyManager bootstraps a live plaintext
+# MSSP admin key + key registry here on first run. Runtime-generated
+# secret material — must never be tracked. See incident fix commit for
+# details on the leaked key this closes.
+data/auth/
 
 # --- ENTERPRISE SELLABLE ASSETS (protect revenue, upload via Gumroad engine) ---
 data/rule_packs/
