@@ -815,8 +815,14 @@ export async function handleSiemSentinel(req, env, ctx, tier, items, req_id) {
       else if (/^https?:\/\//.test(val)) ioc_type = "Url";
       else if (/^[a-zA-Z0-9\-\.]+\.[a-zA-Z]{2,}$/.test(val)) ioc_type = "DomainName";
 
+      // CSV/DDE formula-injection guard (OWASP): a leading =+-@ makes Excel/
+      // Sheets treat the cell as a formula when a SOC analyst opens this export.
       rows.push([ioc_type, val, confidence, severity, desc, item.threat_type || "ThreatIntelligence",
-                 tags, expiry, "Block", tlp].map(v => `"${String(v).replace(/"/g, "'")}"`).join(","));
+                 tags, expiry, "Block", tlp].map(v => {
+                   let s = String(v);
+                   if (/^[=+\-@]/.test(s)) s = "'" + s;
+                   return `"${s.replace(/"/g, "'")}"`;
+                 }).join(","));
     }
   }
 

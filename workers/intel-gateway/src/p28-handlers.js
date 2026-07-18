@@ -694,9 +694,16 @@ function _jsonResp(data, status = 200) {
   });
 }
 
-export async function handleP28Feedback(request, env) {
+export async function handleP28Feedback(request, env, auth) {
   if (request.method !== "POST") {
     return _jsonResp({ error: "POST required" }, 405);
+  }
+  // Require some resolved identity (any tier, even FREE-with-key) rather than
+  // a fully anonymous caller - this was previously reachable with no auth
+  // argument passed at all, throttled only by the generic per-IP rate limit,
+  // and its free-text `comment` field is stored verbatim.
+  if (!auth || (!auth.key && !auth.jwt)) {
+    return _jsonResp({ error: "Authentication required (API key or Bearer token)." }, 401);
   }
   let body;
   try { body = await request.json(); } catch (_) {

@@ -247,7 +247,10 @@ function buildExecutiveSummary(items, mitre, cve, actors, reportPeriod) {
 // -- Main Report Handler -------------------------------------------------------
 
 export async function handlePremiumReport(request, env, auth, rid) {
-  const tier = auth.tier || "free";
+  // auth.tier from resolveAuth() is always uppercase ("ENTERPRISE"/"MSSP"/...)
+  // - this comparison was previously against lowercase literals with no
+  // normalization, so it never matched real Enterprise or MSSP tokens at all.
+  const tier = (auth.tier || "free").toLowerCase();
 
   // Tier gate -- free users get upsell
   if (tier === "free") {
@@ -281,7 +284,7 @@ export async function handlePremiumReport(request, env, auth, rid) {
   const reportType  = ["weekly", "monthly", "custom", "cve_focused", "actor_focused"].includes(body.type)
     ? body.type : "weekly";
   const reportTitle = safeStr(body.title || `SENTINEL APEX Threat Intelligence Report -- ${reportType.toUpperCase()}`, 200);
-  const maxItems    = tier === "enterprise" ? REPORT_CONFIG.MAX_ITEMS_ENTERPRISE : REPORT_CONFIG.MAX_ITEMS_PRO;
+  const maxItems    = ["enterprise","mssp"].includes(tier) ? REPORT_CONFIG.MAX_ITEMS_ENTERPRISE : REPORT_CONFIG.MAX_ITEMS_PRO;
   const severityFilter = body.severity_filter
     ? (Array.isArray(body.severity_filter) ? body.severity_filter.map(s => safeStr(s, 20).toUpperCase()) : [])
     : [];
@@ -332,7 +335,7 @@ export async function handlePremiumReport(request, env, auth, rid) {
   const mitre   = analyseMitreCoverage(filtered);
   const cve     = buildCVESummary(filtered);
   const actors  = buildActorIntelligence(filtered);
-  const iocTable= buildIOCTable(filtered, tier === "enterprise" ? 500 : 100);
+  const iocTable= buildIOCTable(filtered, ["enterprise","mssp"].includes(tier) ? 500 : 100);
   const execSum = buildExecutiveSummary(filtered, mitre, cve, actors, reportPeriod);
 
   const reportId = genReportId();
@@ -366,7 +369,7 @@ export async function handlePremiumReport(request, env, auth, rid) {
     ioc_intelligence: iocTable,
 
     // Section 6 -- Raw advisories (limited)
-    advisories: filtered.slice(0, tier === "enterprise" ? 500 : 50).map(item => ({
+    advisories: filtered.slice(0, ["enterprise","mssp"].includes(tier) ? 500 : 50).map(item => ({
       id:          item.id,
       title:       safeStr(item.title || "", 200),
       severity:    item.severity,
@@ -442,7 +445,10 @@ export async function handlePremiumReport(request, env, auth, rid) {
 
 // -- GET /api/reports/list -----------------------------------------------------
 export async function handleReportList(request, env, auth, rid) {
-  const tier = auth.tier || "free";
+  // auth.tier from resolveAuth() is always uppercase ("ENTERPRISE"/"MSSP"/...)
+  // - this comparison was previously against lowercase literals with no
+  // normalization, so it never matched real Enterprise or MSSP tokens at all.
+  const tier = (auth.tier || "free").toLowerCase();
 
   if (tier === "free") {
     return _json({
@@ -486,7 +492,10 @@ export async function handleReportList(request, env, auth, rid) {
 
 // -- GET /api/reports/:id ------------------------------------------------------
 export async function handleReportGet(request, env, auth, rid, reportId) {
-  const tier = auth.tier || "free";
+  // auth.tier from resolveAuth() is always uppercase ("ENTERPRISE"/"MSSP"/...)
+  // - this comparison was previously against lowercase literals with no
+  // normalization, so it never matched real Enterprise or MSSP tokens at all.
+  const tier = (auth.tier || "free").toLowerCase();
   const safeId = safeStr(reportId || "", 30);
 
   if (!safeId || !/^rpt_[a-f0-9]{16}$/.test(safeId)) {
