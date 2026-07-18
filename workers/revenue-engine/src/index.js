@@ -264,17 +264,19 @@ async function handleTrialRequest(request, env, rid) {
 
   await env.REVENUE_CRM_KV?.put(`trial:${trialId}`, JSON.stringify(trialRecord), { expirationTtl: 8 * 86400 });
 
-  // Register API key in gateway KV (cross-namespace — requires binding)
-  // Gateway worker reads API_KEYS_KV; this worker writes to it via binding name
-  await env.REVENUE_CRM_KV?.put(`pending_apikey:${apiKey.slice(-12)}`, JSON.stringify({
-    api_key:  apiKey,
-    tier:     "premium",
-    email,
-    name,
-    company,
-    expires_at: expiresAt,
-    is_trial:   true,
-  }), { expirationTtl: 7 * 86400 });
+  // Register API key in the namespace intel-gateway's resolveAuth() actually
+  // reads (env.API_KEYS_KV, keyed by the raw key string) - the previous write
+  // went to `pending_apikey:{last12}` in REVENUE_CRM_KV, a key nothing ever
+  // reads, so every trial key issued by this route silently never worked
+  // against the real paywall. tier must be the exact uppercase TIERS.PRO
+  // value - resolveAuth() does `TIERS[record.tier] || TIERS.PRO`, so the
+  // previous lowercase "premium" only "worked" by accident via that fallback.
+  if (env.API_KEYS_KV) {
+    await env.API_KEYS_KV.put(apiKey, JSON.stringify({
+      key: apiKey, tier: "PRO", email, name, company,
+      source: "trial", created_at: new Date().toISOString(), expires_at: expiresAt,
+    }));
+  }
 
   await queueEmail(env, {
     to: email, template: "trial_welcome",
