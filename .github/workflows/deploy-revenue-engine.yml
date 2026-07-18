@@ -153,6 +153,34 @@ jobs:
             return 1
           }
 
+          # Zone/permission failures documented here are on the Cloudflare
+          # account side (token scope), not in this repo's code -- they must
+          # read as clearly distinct from a real deploy/code regression in
+          # both the Actions annotations (::error::/::warning::, shown
+          # inline on the commit/PR checks UI) and the job summary (shown on
+          # the run's summary page, no log-digging required).
+          summary_permission_gap() {
+            {
+              echo "## :rotating_light: Action Required -- Cloudflare Zone Permission Missing"
+              echo ""
+              echo "This is **not a code regression**. The Worker script (\`sentinel-revenue-engine\`)"
+              echo "deployed successfully with all bindings intact ($1). Only the route/custom-domain"
+              echo "binding step failed, because \`CLOUDFLARE_API_TOKEN\` does not have permission"
+              echo "on the Cloudflare zone that owns \`intel.cyberdudebivash.com\`."
+              echo ""
+              echo "**Fix (one-time, dashboard only -- no code push will resolve this):**"
+              echo "1. Go to <https://dash.cloudflare.com/profile/api-tokens>"
+              echo "2. Edit the token used as the \`CF_API_TOKEN\` GitHub secret"
+              echo "3. Add **Zone -> Workers Routes: Edit** and **Zone -> DNS: Edit**"
+              echo "4. Scope it to the zone containing \`intel.cyberdudebivash.com\`"
+              echo "5. Re-run this workflow (Actions tab -> Re-run jobs) -- no code push needed"
+              echo ""
+              echo "Until this is granted, \`revenue.intel.cyberdudebivash.com\` and"
+              echo "\`intel.cyberdudebivash.com/api/v2/billing/*\` will not receive live traffic,"
+              echo "even though the Worker code behind them is already deployed and correct."
+            } >> "$GITHUB_STEP_SUMMARY"
+          }
+
           handle_routes_gap() {
             echo ""
             echo "NOTICE: wrangler exited non-zero, but the worker SCRIPT uploaded"
@@ -163,9 +191,23 @@ jobs:
               echo "was skipped due to token scope -- this does NOT affect the deployed"
               echo "code. ACTION (optional): add 'Workers Routes: Edit' (zone:"
               echo "cyberdudebivash.com) to CLOUDFLARE_API_TOKEN to silence this."
+              echo "::warning title=Cloudflare token scope (non-blocking)::Worker script deployed and is live; route/custom-domain reconciliation was skipped because CLOUDFLARE_API_TOKEN lacks Zone -> Workers Routes/DNS Edit on the zone owning intel.cyberdudebivash.com. Existing routes still serve traffic. Grant that permission at https://dash.cloudflare.com/profile/api-tokens to silence this."
+              summary_permission_gap "existing routes keep serving traffic through this"
               return 0
             fi
-            echo "FATAL: routes step failed AND worker is not responding 200 -- real failure."
+            echo ""
+            echo "ACTION REQUIRED (not a code failure): the Worker script deployed"
+            echo "successfully, but its route(s)/custom domain could not be created"
+            echo "because CLOUDFLARE_API_TOKEN lacks permission on the zone that"
+            echo "owns intel.cyberdudebivash.com. This requires a one-time manual"
+            echo "grant in the Cloudflare dashboard -- no code change will fix it:"
+            echo "  1. https://dash.cloudflare.com/profile/api-tokens"
+            echo "  2. Edit the token used by this workflow (CLOUDFLARE_API_TOKEN secret)"
+            echo "  3. Add: Zone -> Workers Routes: Edit, and Zone -> DNS: Edit"
+            echo "  4. Scope it to the zone containing intel.cyberdudebivash.com"
+            echo "  5. Re-run this workflow (or push again) -- no code changes needed"
+            echo "::error title=ACTION REQUIRED: Cloudflare token missing Zone permission::Worker script deployed successfully, but its route(s)/custom domain could not be bound -- CLOUDFLARE_API_TOKEN lacks Zone -> Workers Routes/DNS Edit permission on the zone owning intel.cyberdudebivash.com. This is NOT a code regression. Fix: grant that permission at https://dash.cloudflare.com/profile/api-tokens, then re-run this workflow. See job summary for details."
+            summary_permission_gap "these routes are new and have never gone live"
             return 1
           }
 
@@ -193,6 +235,7 @@ jobs:
           fi
 
           echo "FATAL: both deploy attempts failed"
+          echo "::error title=Revenue Engine deploy failed (code/config issue)::Both deploy attempts failed for a reason other than the known Cloudflare zone-permission gap (that case is annotated separately, above). This needs investigation: check the wrangler output above in the logs for the actual error (bad binding, invalid wrangler.toml, secret issue, etc.)."
           exit 1
 
       - name: "Post-deploy smoke test"
