@@ -1714,7 +1714,7 @@ async function handleTAXII(request, env, ctx, path, auth) {
   const objMatch = path.match(/^\/taxii\/collections\/([^/]+)\/objects\/?$/);
   if (objMatch) {
     const collId = objMatch[1];
-    if (collId === TAXII_KEV_COLL && auth.tier !== TIERS.ENTERPRISE) {
+    if (collId === TAXII_KEV_COLL && auth.tier !== TIERS.ENTERPRISE && auth.tier !== TIERS.MSSP) {
       return taxiiResp({ title: "Forbidden", description: "KEV collection requires ENTERPRISE tier" }, 403);
     }
 
@@ -2536,13 +2536,13 @@ async function handleWebhookRazorpay(request, env, ctx) {
 //   https://intel.cyberdudebivash.com/api/webhooks/gumroad?secret=YOUR_GUMROAD_WEBHOOK_SECRET
 // Set GUMROAD_WEBHOOK_SECRET via: npx wrangler secret put GUMROAD_WEBHOOK_SECRET
 async function handleWebhookGumroad(request, env, ctx) {
-  // Token-based authentication: Gumroad doesn't sign payloads, so we use a shared secret in the URL
+  // Token-based authentication: Gumroad doesn't sign payloads, so we use a shared secret in the URL.
+  // Fail CLOSED (matches handleWebhookRazorpay) - an unset secret must never
+  // skip the check, or anyone can provision a paid API key with no payment.
   const urlToken = new URL(request.url).searchParams.get("secret") || "";
-  if (env.GUMROAD_WEBHOOK_SECRET) {
-    if (!urlToken || urlToken !== env.GUMROAD_WEBHOOK_SECRET) {
-      auditLog(ctx, env, { action: "webhook_auth_fail", source: "gumroad" });
-      return jsonResp({ error: "Unauthorized" }, 401);
-    }
+  if (!env.GUMROAD_WEBHOOK_SECRET || !urlToken || urlToken !== env.GUMROAD_WEBHOOK_SECRET) {
+    auditLog(ctx, env, { action: "webhook_auth_fail", source: "gumroad" });
+    return jsonResp({ error: "Unauthorized" }, 401);
   }
 
   let formData = {};
@@ -2834,7 +2834,7 @@ async function handleVendorRisk(request, env, auth, method, path) {
   }
 
   if (path === "/api/v1/vendor-risk/bulk" && method === "POST") {
-    if (auth.tier !== TIERS.ENTERPRISE) return jsonResp({ error: "Bulk vendor assessment requires ENTERPRISE tier" }, 403);
+    if (auth.tier !== TIERS.ENTERPRISE && auth.tier !== TIERS.MSSP) return jsonResp({ error: "Bulk vendor assessment requires ENTERPRISE tier" }, 403);
     let body = {};
     try { body = await request.json(); } catch (_) {}
     const vendors = body.vendors || [];
@@ -3179,7 +3179,7 @@ async function handleIncidentResponse(request, env, auth, method, path, url, ctx
     }
 
     if (method === "DELETE" && !subPath) {
-      if (auth.tier !== TIERS.ENTERPRISE) return jsonResp({ error: "ENTERPRISE tier required to delete incidents" }, 403);
+      if (auth.tier !== TIERS.ENTERPRISE && auth.tier !== TIERS.MSSP) return jsonResp({ error: "ENTERPRISE tier required to delete incidents" }, 403);
       await env.SECURITY_HUB_KV.delete(kvKey);
       auditLog(ctx, env, { action: "incident_deleted", id: incId, sub: auth.sub });
       return jsonResp({ status: "deleted", id: incId });
@@ -3328,7 +3328,7 @@ async function handleRequest(request, env, ctx) {
   // PRO/ENTERPRISE: full PRO manifest including report_url, pdf_url
   if (path === "/api/v1/intel/latest.json") {
     let data;
-    if (auth.tier === TIERS.PRO || auth.tier === TIERS.ENTERPRISE) {
+    if (auth.tier === TIERS.PRO || auth.tier === TIERS.ENTERPRISE || auth.tier === TIERS.MSSP) {
       // Try PRO manifest first; gracefully fall back to public if not yet generated
       data = await r2Get(env, LATEST_PRO_JSON_KEY);
       if (!data) data = await r2Get(env, LATEST_JSON_KEY);
@@ -3356,7 +3356,7 @@ async function handleRequest(request, env, ctx) {
     }
     // Same tier gate as /api/v1/intel/latest.json -- this endpoint carries the
     // same canonical item shape (IOCs, detection rules, actor attribution).
-    if (auth.tier !== TIERS.PRO && auth.tier !== TIERS.ENTERPRISE && Array.isArray(data.items)) {
+    if (auth.tier !== TIERS.PRO && auth.tier !== TIERS.ENTERPRISE && auth.tier !== TIERS.MSSP && Array.isArray(data.items)) {
       data = { ...data, items: data.items.map(i => applyTierGateV2(i, "free", null)) };
     }
     return jsonResp(data, 200, { "Cache-Control": "public, max-age=120" });
@@ -3586,7 +3586,7 @@ async function handleRequest(request, env, ctx) {
     let data = await r2Get(env, LATEST_JSON_KEY);
     if (!data) return errorResp("Feed not available", 503);
     // Legacy alias for /api/v1/intel/latest.json -- same key, same gate.
-    if (auth.tier !== TIERS.PRO && auth.tier !== TIERS.ENTERPRISE && Array.isArray(data.items)) {
+    if (auth.tier !== TIERS.PRO && auth.tier !== TIERS.ENTERPRISE && auth.tier !== TIERS.MSSP && Array.isArray(data.items)) {
       data = { ...data, items: data.items.map(i => applyTierGateV2(i, "free", null)) };
     }
     return jsonResp(data, 200, { "Cache-Control": "public, max-age=120" });

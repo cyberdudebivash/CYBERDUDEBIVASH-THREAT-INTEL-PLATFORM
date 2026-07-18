@@ -25,11 +25,15 @@ const ENTERPRISE_VERSION = "149.0.0";
 // -----------------------------------------------------------------------------
 
 function requireEnterprise(tier) {
-  return tier === "enterprise";
+  // MSSP is index.js's highest tier (RATE_LIMITS.MSSP > ENTERPRISE) and this
+  // file's own /api/mssp/* routes are MSSP's dedicated feature - excluding it
+  // here blocked MSSP customers from every Enterprise-gated endpoint,
+  // including their own tenant feed.
+  return tier === "enterprise" || tier === "mssp";
 }
 
 function requireProOrEnterprise(tier) {
-  return tier === "pro" || tier === "premium" || tier === "enterprise";
+  return tier === "pro" || tier === "premium" || tier === "enterprise" || tier === "mssp";
 }
 
 function enterpriseDenied(endpoint, req_id) {

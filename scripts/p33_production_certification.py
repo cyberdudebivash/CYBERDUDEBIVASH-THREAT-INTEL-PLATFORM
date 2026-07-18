@@ -294,7 +294,11 @@ def run_certification() -> dict:
 
         # --- G14 P25 trust gate ---
         gG14 = g("G14", "P25 trust gate report exists + 0 blockers")
-        p25_path = _QUAL / "p25_certification_report.json"
+        # scripts/p25_enterprise_trust_gate.py writes p25_enterprise_trust_gate.json -
+        # p25_certification_report.json has never existed, so _cert_blockers()'s
+        # missing-file fallback (99) was misreported as a real blocker count on
+        # every run despite the P25 gate actually being healthy (0 blockers).
+        p25_path = _QUAL / "p25_enterprise_trust_gate.json"
         blockers_25 = _cert_blockers(p25_path)
         if blockers_25 > 0:
             gG14.warn(f"P25 trust gate has {blockers_25} blocker(s)")

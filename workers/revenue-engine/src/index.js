@@ -1328,6 +1328,35 @@ async function sha256prefix(text, len = 12) {
   return Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2,"0")).join("").slice(0, len);
 }
 
+// Customer portal token: HMAC-SHA256(REVENUE_ADMIN_SECRET, email), hex-encoded.
+// Same key/algorithm pattern as verifyRazorpayHmac (subscription-engine.js) -
+// reuses the admin secret rather than requiring a new `wrangler secret put`
+// before this is deployable; a plain hash (sha256prefix above) would let
+// anyone compute their own "token" for any email with no secret at all.
+async function computePortalToken(env, email) {
+  const secret = env.REVENUE_ADMIN_SECRET;
+  if (!secret) return null;
+  const enc = new TextEncoder();
+  const key = await crypto.subtle.importKey(
+    "raw", enc.encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]
+  );
+  const sig = await crypto.subtle.sign("HMAC", key, enc.encode(email.toLowerCase()));
+  return Array.from(new Uint8Array(sig)).map(b => b.toString(16).padStart(2, "0")).join("");
+}
+
+async function verifyPortalToken(env, email, token) {
+  const secret = env.REVENUE_ADMIN_SECRET;
+  if (!secret || !token) return false;
+  try {
+    const enc = new TextEncoder();
+    const key = await crypto.subtle.importKey(
+      "raw", enc.encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["verify"]
+    );
+    const sigBytes = new Uint8Array(token.match(/.{2}/g).map(b => parseInt(b, 16)));
+    return await crypto.subtle.verify("HMAC", key, sigBytes, enc.encode(email.toLowerCase()));
+  } catch (_) { return false; }
+}
+
 function sanitizeEmail(email) {
   const e = (email || "").trim().toLowerCase();
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e) ? e : null;
@@ -1462,7 +1491,14 @@ async function handleFreeKeyRequest(request, env, rid) {
   if (existing) {
     const keys = await env.REVENUE_CRM_KV.get(`apikeys:${email}`, "json") || [];
     const activeKey = keys.find(k => k.tier === "FREE" && k.status === "active");
-    if (activeKey) return json({ success:true, already_exists:true, key:activeKey.key, tier:"FREE", message:"Your existing free API key has been resent." });
+    if (activeKey) {
+      // Actually resend via email rather than returning the live key in the
+      // HTTP response - this endpoint is unauthenticated (anyone who knows an
+      // email could otherwise pull out a working key), matching how
+      // handleTrialRequest already handles its own repeat-lookup case.
+      await queueEmail(env, { to:email, template:"free_key_welcome", vars:{ api_key:activeKey.key, tier:"FREE", req_day:activeKey.req_day || 100, upgrade_url:"https://intel.cyberdudebivash.com/PAYMENT-GATEWAY.html" } });
+      return json({ success:true, already_exists:true, tier:"FREE", message:"Your existing free API key has been resent to your email." });
+    }
   }
 
   const key = generateApiKey("FREE");
@@ -1717,11 +1753,15 @@ async function provisionCustomer(env, { email, tier, billing_cycle, payment_id, 
   await env.REVENUE_CRM_KV.put("subscriptions:index", JSON.stringify(subIdx.slice(0,1000)));
 
   // 4. Send welcome email with API key
+  const portalToken = await computePortalToken(env, email);
   const welcomeVars = {
     email, tier, api_key:key, req_day:tierCfg.req_day, req_min:tierCfg.req_min,
     period_end:currentPeriodEnd, features:tierCfg.features.join(", "),
     dashboard_url:"https://intel.cyberdudebivash.com", api_docs_url:"https://intel.cyberdudebivash.com/api-docs.html",
-    customer_id:custRecord.id, sub_id:subId
+    customer_id:custRecord.id, sub_id:subId,
+    portal_url: portalToken
+      ? `https://intel.cyberdudebivash.com/api/customer/portal?email=${encodeURIComponent(email)}&token=${portalToken}`
+      : null,
   };
   await queueEmail(env, { to:email, template:"welcome_provisioned", vars:welcomeVars });
 
@@ -1851,10 +1891,13 @@ async function handleCustomerProvision(request, env, rid) {
 
 async function handleCustomerPortal(request, env, rid) {
   const url = new URL(request.url);
-  const token = url.searchParams.get("token"); // token = HMAC of email (for simple auth)
+  const token = url.searchParams.get("token"); // HMAC of email - see computePortalToken/verifyPortalToken
   const email = url.searchParams.get("email");
   const cleanEmail = sanitizeEmail(email);
   if (!cleanEmail) return json({ error:"invalid_email" }, 400);
+  if (!(await verifyPortalToken(env, cleanEmail, token))) {
+    return json({ error:"unauthorized", message:"Invalid or missing portal token. Use the link from your welcome/renewal email." }, 401);
+  }
   const cust = await env.REVENUE_CRM_KV.get(`customer:${cleanEmail}`, "json");
   if (!cust) return json({ error:"not_found", message:"No account found. Check your email or subscribe at /PAYMENT-GATEWAY.html" }, 404);
   const keys = await env.REVENUE_CRM_KV.get(`apikeys:${cleanEmail}`, "json") || [];
@@ -2135,7 +2178,7 @@ const COMMERCIAL_EMAIL_TEMPLATES = {
   free_key_welcome: (v) => ({ subject:`Your SENTINEL APEX Free API Key`, html:`<h2>Your Free API Key</h2><p>Key: <code>${v.api_key}</code></p><p>Rate limit: ${v.req_day} requests/day</p><p><a href="${v.upgrade_url}">Upgrade to PRO</a> for full IOC access, Sigma/YARA rules, and more.</p>` }),
   payment_received: (v) => ({ subject:`Payment Received — Reference: ${v.payment_id}`, html:`<h2>Payment Under Review</h2><p>We've received your payment for <strong>${v.plan}</strong> via ${v.method}. Verification typically takes within ${v.expected_hours} business hours.</p><p>Reference: <strong>${v.payment_id}</strong></p>` }),
   payment_rejected: (v) => ({ subject:`Payment Could Not Be Verified`, html:`<h2>Payment Verification Issue</h2><p>Unfortunately we couldn't verify your payment: ${v.reason}</p><p><a href="${v.retry_url}">Try again</a> or contact us at support@cyberdudebivash.in</p>` }),
-  welcome_provisioned: (v) => ({ subject:`🔑 Your SENTINEL APEX ${v.tier} API Key is Ready`, html:`<h2>Welcome to SENTINEL APEX ${v.tier}</h2><p>Your API key: <code>${v.api_key}</code></p><p>Rate limit: ${v.req_day} requests/day, ${v.req_min} req/min</p><p>Valid until: ${v.period_end}</p><p>Features: ${v.features}</p><p><a href="${v.api_docs_url}">API Documentation</a> | <a href="${v.dashboard_url}">Platform Dashboard</a></p><p>Customer ID: ${v.customer_id}</p>` }),
+  welcome_provisioned: (v) => ({ subject:`🔑 Your SENTINEL APEX ${v.tier} API Key is Ready`, html:`<h2>Welcome to SENTINEL APEX ${v.tier}</h2><p>Your API key: <code>${v.api_key}</code></p><p>Rate limit: ${v.req_day} requests/day, ${v.req_min} req/min</p><p>Valid until: ${v.period_end}</p><p>Features: ${v.features}</p><p><a href="${v.api_docs_url}">API Documentation</a> | <a href="${v.dashboard_url}">Platform Dashboard</a></p>${v.portal_url ? `<p><a href="${v.portal_url}">Manage Your Account</a></p>` : ''}<p>Customer ID: ${v.customer_id}</p>` }),
   key_rotated: (v) => ({ subject:`API Key Rotated — SENTINEL APEX ${v.tier}`, html:`<h2>Your API key has been rotated</h2><p>New key: <code>${v.new_key}</code></p><p>Your old key has been deactivated. Update your integrations now.</p>` }),
   renewal_reminder_7d: (v) => ({ subject:`⚠️ Your ${v.tier} subscription expires in ${v.days} days`, html:`<h2>Subscription Expiring Soon</h2><p>Your SENTINEL APEX ${v.tier} plan expires in ${v.days} days. <a href="${v.renew_url}">Renew now</a> to keep your API key active.</p>` }),
   renewal_reminder_3d: (v) => ({ subject:`🚨 Final Reminder: ${v.tier} expires in ${v.days} days`, html:`<h2>Last Chance — Renew Today</h2><p>Your API key will stop working in ${v.days} days. <a href="${v.renew_url}">Renew immediately</a>.</p>` }),
