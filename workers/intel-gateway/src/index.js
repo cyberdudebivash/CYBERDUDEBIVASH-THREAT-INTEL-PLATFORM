@@ -1719,7 +1719,7 @@ async function handleTAXII(request, env, ctx, path, auth) {
           id: TAXII_KEV_COLL,
           title: "SENTINEL APEX - CISA KEV Confirmed",
           description: "Known Exploited Vulnerabilities confirmed in CISA KEV catalog (ENTERPRISE only)",
-          can_read: auth.tier === TIERS.ENTERPRISE, can_write: false, media_types: [STIX_CT],
+          can_read: auth.tier === TIERS.ENTERPRISE || auth.tier === TIERS.MSSP, can_write: false, media_types: [STIX_CT],
         },
       ],
     });
@@ -1729,7 +1729,7 @@ async function handleTAXII(request, env, ctx, path, auth) {
   const objMatch = path.match(/^\/taxii\/collections\/([^/]+)\/objects\/?$/);
   if (objMatch) {
     const collId = objMatch[1];
-    if (collId === TAXII_KEV_COLL && auth.tier !== TIERS.ENTERPRISE) {
+    if (collId === TAXII_KEV_COLL && auth.tier !== TIERS.ENTERPRISE && auth.tier !== TIERS.MSSP) {
       return taxiiResp({ title: "Forbidden", description: "KEV collection requires ENTERPRISE tier" }, 403);
     }
 
@@ -2746,7 +2746,7 @@ async function handleBrandProtection(request, env, auth, method, path, url) {
     const domain = (body.domain || "").toLowerCase().trim().replace(/^https?:\/\//, "").replace(/\/.*$/, "");
     if (!domain || !domain.includes(".")) return jsonResp({ error: "domain required (e.g. example.com)" }, 400);
 
-    const limit    = auth.tier === TIERS.ENTERPRISE ? 200 : 100;
+    const limit    = (auth.tier === TIERS.ENTERPRISE || auth.tier === TIERS.MSSP) ? 200 : 100;
     const all      = generateTyposquatVariants(domain).slice(0, limit);
     const scored   = all.map(v => ({ domain: v, ...scoreDomainRisk(v, domain) })).sort((a,b) => b.risk_score - a.risk_score);
     const critical = scored.filter(v => v.risk_level === "CRITICAL");
@@ -2850,7 +2850,7 @@ async function handleVendorRisk(request, env, auth, method, path) {
   }
 
   if (path === "/api/v1/vendor-risk/bulk" && method === "POST") {
-    if (auth.tier !== TIERS.ENTERPRISE) return jsonResp({ error: "Bulk vendor assessment requires ENTERPRISE tier" }, 403);
+    if (auth.tier !== TIERS.ENTERPRISE && auth.tier !== TIERS.MSSP) return jsonResp({ error: "Bulk vendor assessment requires ENTERPRISE tier" }, 403);
     let body = {};
     try { body = await request.json(); } catch (_) {}
     const vendors = body.vendors || [];
@@ -3087,7 +3087,7 @@ async function handleNLQ(request, env, auth, method, path, url, ctx) {
     const items    = feedData.items || [];
     const filters  = nlqParse(query);
     const matched  = nlqFilter(items, filters);
-    const limit    = auth.tier === TIERS.ENTERPRISE ? 100 : 25;
+    const limit    = (auth.tier === TIERS.ENTERPRISE || auth.tier === TIERS.MSSP) ? 100 : 25;
     const results  = matched.slice(0, limit);
 
     let llmSummary = null;
@@ -3132,7 +3132,7 @@ async function handleIncidentResponse(request, env, auth, method, path, url, ctx
   // LIST  GET /api/v1/incidents/
   if ((path === "/api/v1/incidents/" || path === "/api/v1/incidents") && method === "GET") {
     try {
-      const pfx    = auth.tier === TIERS.ENTERPRISE ? "ir:" : ownerPfx;
+      const pfx    = (auth.tier === TIERS.ENTERPRISE || auth.tier === TIERS.MSSP) ? "ir:" : ownerPfx;
       const listPrefix = `${pfx}incident:`;
       // Cursor-paginated list  -  fetches all keys across multiple pages (max 200 per page)
       let allKeys = [], cursor = undefined, complete = false;
@@ -3195,7 +3195,7 @@ async function handleIncidentResponse(request, env, auth, method, path, url, ctx
     }
 
     if (method === "DELETE" && !subPath) {
-      if (auth.tier !== TIERS.ENTERPRISE) return jsonResp({ error: "ENTERPRISE tier required to delete incidents" }, 403);
+      if (auth.tier !== TIERS.ENTERPRISE && auth.tier !== TIERS.MSSP) return jsonResp({ error: "ENTERPRISE tier required to delete incidents" }, 403);
       await env.SECURITY_HUB_KV.delete(kvKey);
       auditLog(ctx, env, { action: "incident_deleted", id: incId, sub: auth.sub });
       return jsonResp({ status: "deleted", id: incId });
@@ -3344,7 +3344,7 @@ async function handleRequest(request, env, ctx) {
   // PRO/ENTERPRISE: full PRO manifest including report_url, pdf_url
   if (path === "/api/v1/intel/latest.json") {
     let data;
-    if (auth.tier === TIERS.PRO || auth.tier === TIERS.ENTERPRISE) {
+    if (auth.tier === TIERS.PRO || auth.tier === TIERS.ENTERPRISE || auth.tier === TIERS.MSSP) {
       // Try PRO manifest first; gracefully fall back to public if not yet generated
       data = await r2Get(env, LATEST_PRO_JSON_KEY);
       if (!data) data = await r2Get(env, LATEST_JSON_KEY);
@@ -3372,7 +3372,7 @@ async function handleRequest(request, env, ctx) {
     }
     // Same tier gate as /api/v1/intel/latest.json -- this endpoint carries the
     // same canonical item shape (IOCs, detection rules, actor attribution).
-    if (auth.tier !== TIERS.PRO && auth.tier !== TIERS.ENTERPRISE && Array.isArray(data.items)) {
+    if (auth.tier !== TIERS.PRO && auth.tier !== TIERS.ENTERPRISE && auth.tier !== TIERS.MSSP && Array.isArray(data.items)) {
       data = { ...data, items: data.items.map(i => applyTierGateV2(i, "free", null)) };
     }
     return jsonResp(data, 200, { "Cache-Control": "public, max-age=120" });
@@ -3602,7 +3602,7 @@ async function handleRequest(request, env, ctx) {
     let data = await r2Get(env, LATEST_JSON_KEY);
     if (!data) return errorResp("Feed not available", 503);
     // Legacy alias for /api/v1/intel/latest.json -- same key, same gate.
-    if (auth.tier !== TIERS.PRO && auth.tier !== TIERS.ENTERPRISE && Array.isArray(data.items)) {
+    if (auth.tier !== TIERS.PRO && auth.tier !== TIERS.ENTERPRISE && auth.tier !== TIERS.MSSP && Array.isArray(data.items)) {
       data = { ...data, items: data.items.map(i => applyTierGateV2(i, "free", null)) };
     }
     return jsonResp(data, 200, { "Cache-Control": "public, max-age=120" });
