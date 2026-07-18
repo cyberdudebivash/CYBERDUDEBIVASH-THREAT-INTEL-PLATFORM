@@ -1110,8 +1110,20 @@ function slugify(str) {
   return (str || "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 }
 
+// OWASP CSV Injection guard: a cell value starting with = + - @ (or a
+// leading tab/CR) is interpreted as a formula by Excel/Sheets/LibreOffice
+// when the CSV is opened, which can exfiltrate data or run commands via
+// e.g. =WEBSERVICE(...) or =cmd|'/c calc'!A1. IOC values, titles, and tags
+// in this export come straight from ingested feed data, so any of them
+// could carry a malicious prefix. Prepending a single quote forces text
+// interpretation without changing the visible value.
+function csvFormulaGuard(v) {
+  const s = String(v ?? "");
+  return /^[=+\-@\t\r]/.test(s) ? "'" + s : s;
+}
+
 function esc(v) {
-  const s = String(v || "");
+  const s = csvFormulaGuard(v);
   return s.includes(",") || s.includes('"') || s.includes("\n")
     ? `"${s.replace(/"/g, '""')}"` : s;
 }

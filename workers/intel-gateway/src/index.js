@@ -2745,6 +2745,12 @@ async function handleBrandProtection(request, env, auth, method, path, url) {
     try { body = await request.json(); } catch (_) {}
     const domain = (body.domain || "").toLowerCase().trim().replace(/^https?:\/\//, "").replace(/\/.*$/, "");
     if (!domain || !domain.includes(".")) return jsonResp({ error: "domain required (e.g. example.com)" }, 400);
+    // generateTyposquatVariants() runs several O(n) passes over the domain
+    // name building new strings each time -- unbounded input length allows
+    // O(n^2)-ish CPU/memory blowup from a single request. 253 is the real
+    // DNS total-length limit, so this rejects nothing a genuine domain would
+    // ever hit.
+    if (domain.length > 253) return jsonResp({ error: "domain exceeds maximum length (253 chars)" }, 400);
 
     const limit    = (auth.tier === TIERS.ENTERPRISE || auth.tier === TIERS.MSSP) ? 200 : 100;
     const all      = generateTyposquatVariants(domain).slice(0, limit);
@@ -3850,6 +3856,15 @@ async function handleRequest(request, env, ctx) {
     if (isNaN(riskScore) || riskScore < 0 || riskScore > 10) {
       return jsonResp({ error: "risk_score must be a number between 0 and 10" }, 400);
     }
+    // Per-customer daily cap on ingested items -- this writes directly into
+    // the shared production feed served to every tier, with no prior limit
+    // on total growth from a single customer.
+    const ingestCapKey = `ingest_count:${new Date().toISOString().slice(0, 10)}:${auth.sub || "unknown"}`;
+    const ingestCount = parseInt((await env.RATE_LIMIT_KV.get(ingestCapKey)) || "0", 10);
+    if (ingestCount >= 50) {
+      return jsonResp({ error: "Daily ingest limit reached (50 items/day). Contact support for higher throughput." }, 429);
+    }
+    await env.RATE_LIMIT_KV.put(ingestCapKey, String(ingestCount + 1), { expirationTtl: 86400 });
     // Build canonical intel item
     const ts = new Date().toISOString();
     const itemId = body.stix_id || body.id || ("intel--ingest-" + crypto.randomUUID());
@@ -3859,7 +3874,12 @@ async function handleRequest(request, env, ctx) {
       severity: sev,
       risk_score: riskScore,
       source: body.source || `ingest:${auth.sub || "api"}`,
-      feed_source: body.feed_source || "api_ingest",
+      // feed_source is a trust/provenance signal read elsewhere in the
+      // pipeline -- always stamped from the authenticated caller's own
+      // identity, never taken from the request body, so a customer can't
+      // spoof it to impersonate an official curated feed name (e.g.
+      // "rss_cvefeed_io_rssfeed_latest_xml").
+      feed_source: `api_ingest:${auth.sub || "unknown"}`,
       published: body.published || ts,
       processed_at: ts,
       ingested_at: ts,
