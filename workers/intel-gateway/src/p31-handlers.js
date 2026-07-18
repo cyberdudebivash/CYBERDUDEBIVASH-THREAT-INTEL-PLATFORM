@@ -38,6 +38,7 @@ import { computeP20QualityScore }      from './p20-handlers.js';
 import { computeActionabilityScore }   from './p23-handlers.js';
 import { computeEnterpriseTrustScore } from './p25-handlers.js';
 import { computeP26Grade }             from './p26-handlers.js';
+import { enforceTierGate }             from './revenue-enforcement.js';
 
 export const P31_VERSION = "P31.0";
 
@@ -888,8 +889,13 @@ async function _loadFeed(env) {
 
 // -- API: P31 Graph ------------------------------------------------------------
 
-export async function handleP31Graph(request, env) {
+export async function handleP31Graph(request, env, tier) {
   try {
+    const t = (tier || "free").toLowerCase();
+    if (t === "free") {
+      const gate = enforceTierGate("intel_graph", t);
+      return _jsonResp({ status: "locked", error: gate.reason, message: gate.message, upgrade: gate.upgrade, version: P31_VERSION }, 402);
+    }
     const items = await _loadFeed(env);
     if (items.length === 0) return _jsonResp({ error: "No feed data", version: P31_VERSION }, 404);
     const graph = _buildGraph(items);
@@ -901,8 +907,13 @@ export async function handleP31Graph(request, env) {
 
 // -- API: P31 Search -----------------------------------------------------------
 
-export async function handleP31Search(request, env) {
+export async function handleP31Search(request, env, tier) {
   try {
+    const t = (tier || "free").toLowerCase();
+    if (t === "free") {
+      const gate = enforceTierGate("intel_graph", t);
+      return _jsonResp({ status: "locked", error: gate.reason, message: gate.message, upgrade: gate.upgrade, version: P31_VERSION }, 402);
+    }
     const url = new URL(request.url);
     const q = (url.searchParams.get("q") || "").toLowerCase().trim();
     if (!q) return _jsonResp({ error: "Missing query parameter ?q=", version: P31_VERSION }, 400);
@@ -951,8 +962,13 @@ export async function handleP31Search(request, env) {
 
 // -- API: P31 Entity -----------------------------------------------------------
 
-export async function handleP31Entity(request, env) {
+export async function handleP31Entity(request, env, tier) {
   try {
+    const t = (tier || "free").toLowerCase();
+    if (t === "free") {
+      const gate = enforceTierGate("actor_attribution", t);
+      return _jsonResp({ status: "locked", error: gate.reason, message: gate.message, upgrade: gate.upgrade, version: P31_VERSION }, 402);
+    }
     const url = new URL(request.url);
     const entityId = (url.searchParams.get("id") || "").trim();
     const entityType = (url.searchParams.get("type") || "").trim();
@@ -984,8 +1000,13 @@ export async function handleP31Entity(request, env) {
 
 // -- API: P31 Relationships ----------------------------------------------------
 
-export async function handleP31Relationships(request, env) {
+export async function handleP31Relationships(request, env, tier) {
   try {
+    const t = (tier || "free").toLowerCase();
+    if (t === "free") {
+      const gate = enforceTierGate("intel_relations", t);
+      return _jsonResp({ status: "locked", error: gate.reason, message: gate.message, upgrade: gate.upgrade, version: P31_VERSION }, 402);
+    }
     const url = new URL(request.url);
     const entityId = (url.searchParams.get("entity") || "").trim();
     const relType  = (url.searchParams.get("type") || "").trim();
@@ -1014,8 +1035,13 @@ export async function handleP31Relationships(request, env) {
 
 // -- API: P31 Campaign ---------------------------------------------------------
 
-export async function handleP31Campaign(request, env) {
+export async function handleP31Campaign(request, env, tier) {
   try {
+    const t = (tier || "free").toLowerCase();
+    if (t === "free") {
+      const gate = enforceTierGate("ai_campaigns", t);
+      return _jsonResp({ status: "locked", error: gate.reason, message: gate.message, upgrade: gate.upgrade, version: P31_VERSION }, 402);
+    }
     const items = await _loadFeed(env);
     if (items.length === 0) return _jsonResp({ error: "No feed data", version: P31_VERSION }, 404);
 
@@ -1056,8 +1082,13 @@ export async function handleP31Campaign(request, env) {
 
 // -- API: P31 Copilot ----------------------------------------------------------
 
-export async function handleP31Copilot(request, env) {
+export async function handleP31Copilot(request, env, tier) {
   try {
+    const t = (tier || "free").toLowerCase();
+    if (t === "free") {
+      const gate = enforceTierGate("actor_attribution", t);
+      return _jsonResp({ status: "locked", error: gate.reason, message: gate.message, upgrade: gate.upgrade, version: P31_VERSION }, 402);
+    }
     const url    = new URL(request.url);
     const itemId = (url.searchParams.get("id") || "").trim();
     const items  = await _loadFeed(env);

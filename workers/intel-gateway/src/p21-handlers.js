@@ -306,7 +306,7 @@ async function _loadFeed(env) {
   return null;
 }
 
-export async function handleP21Certify(request, env) {
+export async function handleP21Certify(request, env, tier) {
   const url = new URL(request.url);
   const id  = url.searchParams.get("id") || url.searchParams.get("item_id") || "";
 
@@ -324,6 +324,14 @@ export async function handleP21Certify(request, env) {
   }
 
   const { gates, passed, total, score, breakdown, certLevel, latencyMs } = _runGates(item);
+  // G3_ATTRIBUTION's detail embeds the raw actor identity ("Actor: <name>")
+  // -- redact it for FREE tier same as every other actor-attribution surface;
+  // every other gate's detail (evidence chain, detection engineering, etc.)
+  // carries no sensitive payload and stays as-is.
+  const isFree = (tier || "free").toLowerCase() === "free";
+  const outGates = isFree
+    ? gates.map(g => g.id === "G3_ATTRIBUTION" ? { ...g, detail: "Attribution detail requires Pro or Enterprise." } : g)
+    : gates;
 
   return _jsonRes({
     p21_version:       P21_VERSION,
@@ -337,7 +345,7 @@ export async function handleP21Certify(request, env) {
     publishable:       score >= 75,
     gates_passed:      passed,
     gates_total:       total,
-    gates,
+    gates:             outGates,
     latency_ms:        latencyMs,
     thresholds: {
       premium_certified:  90,

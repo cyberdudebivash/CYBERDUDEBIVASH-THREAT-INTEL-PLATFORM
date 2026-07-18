@@ -952,7 +952,7 @@ export async function handleP29Observability(request, env) {
 // -- API: P29 Certify ----------------------------------------------------------
 // Returns per-item P29 confidence graph and lifecycle as JSON.
 
-export async function handleP29Certify(request, env) {
+export async function handleP29Certify(request, env, tier) {
   try {
     const url    = new URL(request.url);
     const itemId = url.searchParams.get("id");
@@ -972,11 +972,19 @@ export async function handleP29Certify(request, env) {
     const conf = _computeConfidenceGraph(item);
     const lc   = _computeLifecycle(item);
     const ein  = _computeEIN(item);
+    // attribution.why embeds the raw actor identity ("Threat actor
+    // attributed: <name>") -- redact for FREE tier same as every other
+    // actor-attribution surface. The numeric score and every other
+    // dimension (evidence/source/detection/ioc/executive/overall) carry no
+    // sensitive payload and stay as-is.
+    const outConf = ((tier || "free").toLowerCase() === "free" && conf.attribution)
+      ? { ...conf, attribution: { ...conf.attribution, why: "Attribution detail requires Pro or Enterprise." } }
+      : conf;
 
     return _jsonResp({
       schema_version:     P29_VERSION,
       item_id:            item.id,
-      confidence_graph:   conf,
+      confidence_graph:   outConf,
       lifecycle:          lc,
       ein_network_scores: ein,
     });
