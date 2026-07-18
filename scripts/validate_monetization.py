@@ -1,22 +1,33 @@
 #!/usr/bin/env python3
 """
 scripts/validate_monetization.py
-CYBERDUDEBIVASH(R) SENTINEL APEX v149.0 -- Monetization Integrity Guard
+CYBERDUDEBIVASH(R) SENTINEL APEX v186.0 -- Monetization Integrity Guard
 ========================================================================
 PRODUCTION HARDENING GATE -- validates all monetization/payment assets.
 
+v186.0: Manual payment (direct UPI / Bank NEFT / PayPal / Crypto wallet
+transfer + a manual proof-of-payment confirmation form) is retired
+platform-wide per executive decision. Razorpay (automated, live) and
+Gumroad (automated, live) are the only two checkout paths going forward.
+This gate now enforces that direction as an anti-regression control --
+manual payment credentials must be ABSENT from customer-facing checkout
+pages, not present, and automated-checkout markers must be present.
+
 Checks:
-  1. upgrade.html    -- real credentials present, no BOM, no junk chars
-  2. PAYMENT-GATEWAY.html -- exists, real credentials present, no BOM
+  1. upgrade.html    -- Razorpay + Gumroad markers present, manual payment
+                        credentials absent, GSTIN/WhatsApp present, no BOM,
+                        no junk chars, JS syntax valid
+  2. PAYMENT-GATEWAY.html -- valid redirect to /upgrade.html, manual
+                        payment credentials absent, no BOM
   3. pricing.html    -- CTA links point to upgrade.html (not broken)
   4. store.html      -- payment strip present
   5. services.html   -- payment strip present
   6. index.html      -- payment strip present
-  7. Payment credential integrity -- real UPI, crypto, NEFT, PayPal
+  7. Manual payment anti-regression -- UPI, crypto, NEFT, PayPal, and the
+     manual confirmation form must NOT reappear on the checkout pages
   8. No placeholder/fake credentials in payment files
-  9. Formspree endpoint present for confirmation form
- 10. WhatsApp link correct
- 11. GSTIN present on payment pages
+  9. GSTIN present on the checkout page
+ 10. WhatsApp support link correct
 
 Exit 0 -- all checks passed
 Exit 1 -- one or more CRITICAL checks failed
@@ -100,6 +111,13 @@ def check_link(data: bytes, link: bytes, label: str, fname: str) -> None:
     else:
         warn(f"{fname}: {label} link not found (may be optional)")
 
+def check_absent(data: bytes, marker: bytes, label: str, fname: str) -> None:
+    """Anti-regression check: manual payment is retired -- this must NOT reappear."""
+    if marker in data:
+        fail(f"{fname}: {label} FOUND -- manual payment method must not reappear (Razorpay/Gumroad only)")
+    else:
+        ok(f"{fname}: {label} correctly absent (manual payment retired)")
+
 # =====================================================================
 # REAL CREDENTIALS (single source of truth)
 # =====================================================================
@@ -136,22 +154,38 @@ def validate_upgrade_html() -> None:
     check_no_bom(data, fname)
     check_no_junk_chars(data, fname)
 
-    # Real credentials must be present
-    check_credential(data, REAL_UPI_PRIMARY,    "UPI iambivash.bn-5@okaxis",   fname)
-    check_credential(data, REAL_UPI_AXIS,       "UPI 6302177246@axisbank",     fname)
-    check_credential(data, REAL_PAYPAL_EMAIL,   "PayPal iambivash.bn@gmail.com",fname)
-    check_credential(data, REAL_CRYPTO_BNB,     "BNB 0xa824c20...",            fname)
-    check_credential(data, REAL_BANK_ACCOUNT,   "Bank A/C 915010024617260",    fname)
-    check_credential(data, REAL_IFSC,           "IFSC UTIB0000052",            fname)
+    # GSTIN and support contact are legitimate business info, unrelated to
+    # the retired manual-payment methods -- must remain present.
     check_credential(data, REAL_GSTIN,          "GSTIN 21ARKPN8270G1ZP",       fname)
     check_credential(data, REAL_WHATSAPP,       "WhatsApp +91 8179881447",     fname)
-    check_credential(data, REAL_FORMSPREE,      "Formspree endpoint",          fname)
 
-    # Placeholders must NOT be present
+    # v186.0: manual payment retired platform-wide (executive decision) --
+    # Razorpay (automated) + Gumroad (automated) are the only two checkout
+    # paths. These credentials/endpoints must NEVER reappear on this page.
+    check_absent(data, REAL_UPI_PRIMARY,   "UPI iambivash.bn-5@okaxis",     fname)
+    check_absent(data, REAL_UPI_AXIS,      "UPI 6302177246@axisbank",       fname)
+    check_absent(data, REAL_PAYPAL_EMAIL,  "PayPal iambivash.bn@gmail.com", fname)
+    check_absent(data, REAL_CRYPTO_BNB,    "BNB 0xa824c20...",              fname)
+    check_absent(data, REAL_BANK_ACCOUNT,  "Bank A/C 915010024617260",      fname)
+    check_absent(data, REAL_IFSC,          "IFSC UTIB0000052",              fname)
+    check_absent(data, REAL_FORMSPREE,     "Formspree manual-confirmation endpoint", fname)
+
+    # Placeholders must NOT be present (always invalid, regardless of era)
     check_no_placeholder(data, PLACEHOLDER_UPI_1,    "bivash@upi (placeholder)", fname)
     check_no_placeholder(data, PLACEHOLDER_CRYPTO_1, "TKwP4mWh6L... (old fake TRC20)", fname)
     check_no_placeholder(data, PLACEHOLDER_CRYPTO_2, "0x3b2f4d7a91... (old fake ETH)", fname)
     check_no_placeholder(data, PLACEHOLDER_BTC,      "bc1qxy2k... (fake BTC)", fname)
+
+    # Automated checkout markers -- must be present (the only two live paths)
+    if b"checkout.razorpay.com" in data and b"initiateRazorpayCheckout" in data:
+        ok(f"{fname}: Razorpay automated checkout wired")
+    else:
+        fail(f"{fname}: Razorpay automated checkout markers missing")
+
+    if b"gumroad.com" in data:
+        ok(f"{fname}: Gumroad automated checkout present")
+    else:
+        fail(f"{fname}: Gumroad checkout missing")
 
     # Plan data must be present
     if b"4100" in data:
@@ -159,21 +193,25 @@ def validate_upgrade_html() -> None:
     else:
         fail(f"{fname}: PRO plan INR 4100 not found")
 
-    if b"formspree.io/f/xpzgdkoe" in data:
-        ok(f"{fname}: Formspree form ID xpzgdkoe present")
-    else:
-        warn(f"{fname}: Formspree form ID xpzgdkoe not found -- check form action")
-
     # JavaScript check -- no syntax errors by running node --check if available
     check_js_syntax(path, fname)
 
 
 def validate_payment_gateway() -> None:
+    """v186.0: PAYMENT-GATEWAY.html was the platform's manual payment page
+    (direct UPI / Bank NEFT / PayPal / Crypto wallet transfer + a manual
+    proof-of-payment confirmation form). Manual payment is retired
+    platform-wide, so this page is now a redirect to /upgrade.html
+    (Razorpay + Gumroad automated checkout) that preserves every existing
+    inbound link (including the "?plan=" query param several callers pass).
+    Validate it as a correct redirect, and confirm no manual-payment
+    credential ever reappears here.
+    """
     fname = "PAYMENT-GATEWAY.html"
     path  = REPO_ROOT / fname
     print(f"\n--- {fname} ---")
     if not path.exists():
-        fail(f"{fname}: FILE NOT FOUND -- payment hub page missing")
+        fail(f"{fname}: FILE NOT FOUND -- redirect page missing, dozens of inbound links would 404")
         return
 
     data = read_file(path)
@@ -182,13 +220,24 @@ def validate_payment_gateway() -> None:
 
     check_no_bom(data, fname)
     check_no_junk_chars(data, fname)
-    check_credential(data, REAL_UPI_PRIMARY,  "UPI iambivash.bn-5@okaxis", fname)
-    check_credential(data, REAL_UPI_AXIS,     "UPI 6302177246@axisbank",   fname)
-    check_credential(data, REAL_PAYPAL_EMAIL, "PayPal email",              fname)
-    check_credential(data, REAL_CRYPTO_BNB,   "BNB wallet",               fname)
-    check_credential(data, REAL_BANK_ACCOUNT, "Bank A/C",                 fname)
-    check_credential(data, REAL_IFSC,         "IFSC",                     fname)
-    check_credential(data, REAL_GSTIN,        "GSTIN",                    fname)
+
+    if b"url=/upgrade.html" in data:
+        ok(f"{fname}: meta-refresh redirect to /upgrade.html present")
+    else:
+        fail(f"{fname}: meta-refresh redirect to /upgrade.html missing")
+
+    if b"window.location.replace('/upgrade.html'" in data:
+        ok(f"{fname}: JS redirect to /upgrade.html present (query-string preserving)")
+    else:
+        fail(f"{fname}: JS redirect to /upgrade.html missing")
+
+    # Anti-regression: manual payment must never reappear on this page
+    check_absent(data, REAL_UPI_PRIMARY,  "UPI iambivash.bn-5@okaxis",     fname)
+    check_absent(data, REAL_UPI_AXIS,     "UPI 6302177246@axisbank",       fname)
+    check_absent(data, REAL_PAYPAL_EMAIL, "PayPal iambivash.bn@gmail.com", fname)
+    check_absent(data, REAL_CRYPTO_BNB,   "BNB wallet address",            fname)
+    check_absent(data, REAL_BANK_ACCOUNT, "Bank A/C",                      fname)
+    check_absent(data, REAL_IFSC,         "IFSC",                          fname)
 
 
 def validate_pricing_html() -> None:
@@ -245,7 +294,7 @@ def validate_store_html() -> None:
 
     check_no_bom(data, fname)
 
-    if b"PAYMENT-GATEWAY.html" in data or b"iambivash.bn-5@okaxis" in data:
+    if b"/upgrade.html" in data or b"GPay" in data:
         ok(f"{fname}: Payment methods strip present")
     else:
         fail(f"{fname}: Payment methods strip missing -- customers cannot see payment options")
@@ -270,7 +319,7 @@ def validate_services_html() -> None:
 
     check_no_bom(data, fname)
 
-    if b"PAYMENT-GATEWAY.html" in data or b"iambivash.bn-5@okaxis" in data:
+    if b"/upgrade.html" in data or b"GPay" in data:
         ok(f"{fname}: Payment methods strip present")
     else:
         fail(f"{fname}: Payment methods strip missing")
@@ -545,7 +594,7 @@ def validate_worker_api_auth_enforcement() -> None:
 # =====================================================================
 def main() -> None:
     print("=" * 70)
-    print("  SENTINEL APEX v184.0 -- MONETIZATION INTEGRITY GATE")
+    print("  SENTINEL APEX v186.0 -- MONETIZATION INTEGRITY GATE")
     print("  Validates: payment credentials, CTAs, encoding, JS syntax,")
     print("             BOM-free, mojibake-free, API auth enforcement")
     print("=" * 70)
