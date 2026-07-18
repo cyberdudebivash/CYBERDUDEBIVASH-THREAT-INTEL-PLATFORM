@@ -233,6 +233,28 @@ export function enforceTierGate(resource, tier) {
       };
       return { allowed: true };
 
+    // Detection rules (Sigma / KQL / Suricata) - Free: BLOCKED, Pro+: ALLOWED
+    case "detection_rules":
+      if (isFree) return {
+        allowed: false,
+        resource,
+        reason:  "pro_required",
+        message: "Sigma rules, KQL queries, and Suricata signatures require Pro or Enterprise. Deploy detections directly to your SIEM.",
+        upgrade: buildUpgradeTrigger("detection_rules", t),
+      };
+      return { allowed: true };
+
+    // Threat actor attribution (identity, aliases, TTPs, sectors, motivation) - Free: BLOCKED, Pro+: ALLOWED
+    case "actor_attribution":
+      if (isFree) return {
+        allowed: false,
+        resource,
+        reason:  "pro_required",
+        message: "Full threat actor attribution (identity, aliases, TTPs, sectors, motivation) requires Pro or Enterprise.",
+        upgrade: buildUpgradeTrigger("actor_attribution", t),
+      };
+      return { allowed: true };
+
     default:
       return { allowed: true };
   }
@@ -308,6 +330,8 @@ export function buildUpgradeTrigger(context, currentTier) {
     api:              { title: "More API Keys",                  body: "Create multiple API keys for your team and CI/CD pipelines." },
     usage_limit:      { title: "Daily Limit Reached",            body: t === "free" ? "You've used all 100 free API calls today. Upgrade to Pro for 5,000/day." : "Upgrade to Enterprise for unlimited calls." },
     approaching_limit:{ title: "80% of Daily Limit Used",        body: "You're close to your daily API limit. Upgrade now to avoid disruption." },
+    detection_rules:  { title: "Unlock Sigma / KQL / Suricata",  body: "Deploy production-ready detection rules directly to Splunk, Sentinel, and your NIDS." },
+    actor_attribution:{ title: "Unlock Threat Actor Attribution", body: "See who's behind the threat: aliases, TTPs, sectors, and motivation." },
   };
 
   const ctx = contextMessages[context] || { title: "Upgrade Your Plan", body: "Get more access, faster responses, and deeper intelligence." };
@@ -564,8 +588,53 @@ export function applyTierGateV2(item, tier, usageState) {
     }
   }
 
+  // Detection rule enforcement (Sigma / KQL / Suricata) - v142.0
+  if (isFree && (item.sigma_rule || item.kql_query || item.suricata_rule)) {
+    const gate = enforceTierGate("detection_rules", t);
+    gated.sigma_rule        = null;
+    gated.kql_query         = null;
+    gated.suricata_rule     = null;
+    gated.detection_paywall = gate;
+  }
+
+  // Threat actor attribution enforcement - v142.0
+  // actor_tag values like "CDB-UNATTR-*" / "UNC-UNKNOWN" mean "no attribution
+  // available" and are not sensitive; only mask when real attribution exists.
+  if (isFree) {
+    const rawTag    = item.actor_tag;
+    const noAttrTag = !rawTag || /^CDB-UNATTR/.test(String(rawTag)) || rawTag === "UNC-UNKNOWN";
+    const hasAttribution = !noAttrTag
+      || (item.actor_display_name && item.actor_display_name !== "Unknown Threat Actor")
+      || (Array.isArray(item.actor_aliases) && item.actor_aliases.length > 0);
+    if (hasAttribution) {
+      const gate = enforceTierGate("actor_attribution", t);
+      gated.actor_display_name = null;
+      gated.actor_aliases      = null;
+      gated.actor_sectors      = null;
+      gated.actor_ttps         = null;
+      gated.actor_malware      = null;
+      gated.actor_mitre_id     = null;
+      gated.actor_country      = null;
+      gated.actor_motivation   = null;
+      gated.actor_threat_level = null;
+      gated.mitre_group_name    = null;
+      gated.mitre_group_aliases = null;
+      gated.actor_tag           = noAttrTag ? rawTag : null;
+      gated.actor_paywall       = gate;
+    }
+  }
+
   //  AI analysis enforcement 
   gated.apex_ai = computeApexAIGated(item, t);
+  // The raw `apex` object and `apex_ai_summary` text (populated by the
+  // enrichment pipeline) carry full AI analysis and can embed attribution
+  // inline in prose (e.g. "Actor attribution: <name>") - null/replace them
+  // for FREE tier rather than relying on field-level masking of free text.
+  if (isFree) {
+    const aiGate = enforceTierGate("ai_full", t);
+    gated.apex = { locked: true, upgrade: aiGate.upgrade || buildUpgradeTrigger("ai", t) };
+    gated.apex_ai_summary = "Full AI threat analysis (kill chain mapping, actor fingerprint, TTP scoring) requires Pro or Enterprise.";
+  }
 
   //  Report text truncation for free tier 
   if (isFree) {
