@@ -92,6 +92,7 @@ import { handleP38SchemaRegistry, handleP38FeedGovernance, handleP38SchemaDrift,
 import { routeEnterpriseEndpoint } from './enterprise-endpoints.js';
 import { handleSearch, handleActors, handleCVEs, handleMISPExport as handleMISPExportExt, handleCSVExport, handleCorrelate, handlePredict, handleCampaigns, handleAnomalies, handleIntelGraph, handleIntelRelations } from './api-extensions.js';
 import { RAZORPAY_TIER_PRICES, getPricingSnapshot } from './pricing.js';
+import { applyTierGateV2, enforceTierGate } from './revenue-enforcement.js';
 const PLATFORM_VERSION    = "184.0";
 const JWT_EXPIRY_SEC      = 86400;        // 24h JWT lifetime
 const BRUTE_FORCE_MAX     = 5;            // lockout after N failed auth attempts
@@ -1400,6 +1401,9 @@ async function iocLookup(query, feedData) {
 // MONETIZATION / TIER GATES
 // =============================================================================
 
+// Community tier cap - matches pricing.html "Daily advisories: 25" row.
+const FREE_TIER_ITEM_CAP = 25;
+
 function maskForFreeTier(data) {
   if (!data || typeof data !== "object") return data;
   const masked = Object.assign({}, data);
@@ -1408,6 +1412,26 @@ function maskForFreeTier(data) {
   }
   if (Array.isArray(masked.top_critical_advisories)) {
     masked.top_critical_advisories = masked.top_critical_advisories.slice(0, 2);
+  }
+  // Real apex.json payloads carry a top-level `items` array (not the legacy
+  // top_advisories shape above). Mask each item through the existing
+  // revenue-enforcement engine so IOCs, Sigma/KQL/Suricata rules, actor
+  // attribution, and full AI analysis are actually stripped for FREE tier.
+  if (Array.isArray(masked.items)) {
+    masked.item_count_full = masked.items.length;
+    masked.items = masked.items.slice(0, FREE_TIER_ITEM_CAP).map(i => applyTierGateV2(i, "free", null));
+  }
+  // Real ai_summary.json payloads carry top-level `campaigns` (actor
+  // attribution + DBSCAN clustering) and `anomalies` (Isolation Forest /
+  // zero-day candidates) arrays - both already defined as Pro+-only in
+  // enforceTierGate(), just never enforced on this response path.
+  if (Array.isArray(masked.campaigns)) {
+    masked.campaigns_paywall = { ...enforceTierGate("ai_campaigns", "free"), count: masked.campaigns.length };
+    masked.campaigns = [];
+  }
+  if (Array.isArray(masked.anomalies)) {
+    masked.anomalies_paywall = { ...enforceTierGate("ai_anomalies", "free"), count: masked.anomalies.length };
+    masked.anomalies = [];
   }
   masked._tier = TIERS.FREE;
   masked._upgrade_url = "https://intel.cyberdudebivash.com/upgrade.html";
@@ -3313,6 +3337,12 @@ async function handleRequest(request, env, ctx) {
     }
     data = await r2Get(env, LATEST_JSON_KEY);
     if (!data) return errorResp("Feed not available", 503);
+    // v142.0: this branch previously returned the canonical item array
+    // untouched -- full IOCs, Sigma/KQL/Suricata rules, and actor attribution
+    // leaked to every anonymous caller despite the comment above. Mask it.
+    if (Array.isArray(data.items)) {
+      data = { ...data, items: data.items.map(i => applyTierGateV2(i, "free", null)) };
+    }
     return jsonResp(data, 200, { "Cache-Control": "public, max-age=120" });
   }
 
@@ -3323,6 +3353,11 @@ async function handleRequest(request, env, ctx) {
       const feedData = await loadFeedItems(env);
       const top10    = (feedData.items || []).sort((a, b) => parseFloat(b.risk_score || 0) - parseFloat(a.risk_score || 0)).slice(0, 10);
       data = { items: top10, count: top10.length, generated_at: now(), version: PLATFORM_VERSION };
+    }
+    // Same tier gate as /api/v1/intel/latest.json -- this endpoint carries the
+    // same canonical item shape (IOCs, detection rules, actor attribution).
+    if (auth.tier !== TIERS.PRO && auth.tier !== TIERS.ENTERPRISE && Array.isArray(data.items)) {
+      data = { ...data, items: data.items.map(i => applyTierGateV2(i, "free", null)) };
     }
     return jsonResp(data, 200, { "Cache-Control": "public, max-age=120" });
   }
@@ -3532,7 +3567,10 @@ async function handleRequest(request, env, ctx) {
   // --- /api/preview -----------------------------------------------------------
   if (path === "/api/preview" || path === "/api/preview/") {
     const feedData = await loadFeedItems(env);
-    const items    = (feedData.items || []).slice(0, PREVIEW_LIMIT);
+    // Always the FREE/teaser view regardless of caller tier (unauthenticated
+    // by design) -- so IOCs, detection rules, and actor attribution must be
+    // masked the same way the FREE branch of every other endpoint is.
+    const items    = (feedData.items || []).slice(0, PREVIEW_LIMIT).map(i => applyTierGateV2(i, "free", null));
     return jsonResp({
       status: "ok",
       preview: {
