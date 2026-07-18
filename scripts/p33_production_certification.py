@@ -293,8 +293,14 @@ def run_certification() -> dict:
             gG13.detail = "P28 cert chain OK"
 
         # --- G14 P25 trust gate ---
+        # SEC-2026-07-18: this previously pointed at a filename that has
+        # never existed (p25_certification_report.json), so _cert_blockers()
+        # always hit its "file missing" fallback and returned the hardcoded
+        # sentinel of 99 -- a false "99 blockers" alarm on every run, even
+        # though the real P25 gate (scripts/p25_enterprise_trust_gate.py) was
+        # healthy. Corrected to the filename that script actually writes.
         gG14 = g("G14", "P25 trust gate report exists + 0 blockers")
-        p25_path = _QUAL / "p25_certification_report.json"
+        p25_path = _QUAL / "p25_enterprise_trust_gate.json"
         blockers_25 = _cert_blockers(p25_path)
         if blockers_25 > 0:
             gG14.warn(f"P25 trust gate has {blockers_25} blocker(s)")
