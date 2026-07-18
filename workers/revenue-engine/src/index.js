@@ -230,6 +230,19 @@ async function handleTrialRequest(request, env, rid) {
   const company = (body.company || "").slice(0, 128);
   if (!email) return json({ error: "invalid_email" }, 400);
 
+  // Anti-automation: this endpoint mints a live 7-day PRO-tier key from just
+  // an email with no auth, so it's directly scriptable with disposable
+  // addresses. Fixed-window per-IP cap (hashed, not stored raw) — cheap and
+  // proportionate; a full sliding-window limiter belongs in intel-gateway's
+  // shared RATE_LIMIT_KV, not duplicated per-Worker for a Medium-severity gap.
+  const ipHash = await sha256prefix(request.headers.get("cf-connecting-ip") || "unknown", 16);
+  const rlKey  = `trial_rl:${ipHash}:${new Date().toISOString().slice(0, 13)}`; // hour bucket
+  const rlCount = parseInt((await env.REVENUE_CRM_KV?.get(rlKey)) || "0", 10);
+  if (rlCount >= 3) {
+    return json({ error: "rate_limited", message: "Too many trial requests from this network. Try again later." }, 429);
+  }
+  await env.REVENUE_CRM_KV?.put(rlKey, String(rlCount + 1), { expirationTtl: 3600 });
+
   const trialId  = "trial_" + await sha256prefix(email, 10);
   const existing = await env.REVENUE_CRM_KV?.get(`trial:${trialId}`);
 
@@ -264,17 +277,20 @@ async function handleTrialRequest(request, env, rid) {
 
   await env.REVENUE_CRM_KV?.put(`trial:${trialId}`, JSON.stringify(trialRecord), { expirationTtl: 8 * 86400 });
 
-  // Register API key in gateway KV (cross-namespace — requires binding)
-  // Gateway worker reads API_KEYS_KV; this worker writes to it via binding name
-  await env.REVENUE_CRM_KV?.put(`pending_apikey:${apiKey.slice(-12)}`, JSON.stringify({
-    api_key:  apiKey,
-    tier:     "premium",
-    email,
-    name,
-    company,
-    expires_at: expiresAt,
-    is_trial:   true,
-  }), { expirationTtl: 7 * 86400 });
+  // Register API key in the gateway's live auth store (API_KEYS_KV), matching
+  // provisionCustomer()'s exact write shape — same binding, full raw key as
+  // the lookup key, uppercase TIERS value ("PRO", not "premium") — since
+  // that's what intel-gateway's resolveAuth() actually reads
+  // (env.API_KEYS_KV.get(raw) then TIERS[record.tier] || TIERS.PRO). The
+  // previous pending_apikey:{last12} write went to REVENUE_CRM_KV under a
+  // key shape nothing ever read, so every trial silently never worked.
+  if (env.API_KEYS_KV) {
+    await env.API_KEYS_KV.put(apiKey, JSON.stringify({
+      key: apiKey, tier: "PRO", customer_id: trialId, email,
+      source: "trial", created_at: new Date().toISOString(), expires_at: expiresAt,
+      payment_metadata: { trial: true },
+    }));
+  }
 
   await queueEmail(env, {
     to: email, template: "trial_welcome",
@@ -1267,9 +1283,38 @@ function inferTags(company, role, context) {
   return tags;
 }
 
+// Constant-time string comparison — prevents timing side-channel attacks on
+// the admin shared secret. Always walks the full length of the longer input.
+function timingSafeEqual(a, b) {
+  const bufA = new TextEncoder().encode(String(a ?? ""));
+  const bufB = new TextEncoder().encode(String(b ?? ""));
+  const len  = Math.max(bufA.length, bufB.length);
+  let diff   = bufA.length ^ bufB.length;
+  for (let i = 0; i < len; i++) {
+    diff |= (bufA[i] ?? 0) ^ (bufB[i] ?? 0);
+  }
+  return diff === 0;
+}
+
 async function isAdmin(request, env) {
   const secret = request.headers.get("X-Admin-Secret");
-  return secret && env?.REVENUE_ADMIN_SECRET && secret === env.REVENUE_ADMIN_SECRET;
+  return Boolean(secret && env?.REVENUE_ADMIN_SECRET && timingSafeEqual(secret, env.REVENUE_ADMIN_SECRET));
+}
+
+// Customer portal token: HMAC-SHA256(REVENUE_ADMIN_SECRET, "portal:"+email),
+// hex-encoded. Reuses the Worker's existing admin secret as the HMAC key
+// (a one-way derivation - never exposes the secret itself) rather than
+// requiring a new dedicated secret to be provisioned before this fix takes
+// effect. Domain-separated with a "portal:" prefix so it can't be replayed
+// against any other HMAC use of the same secret.
+async function computePortalToken(env, email) {
+  if (!env?.REVENUE_ADMIN_SECRET) return null;
+  const key = await crypto.subtle.importKey(
+    "raw", new TextEncoder().encode(env.REVENUE_ADMIN_SECRET),
+    { name: "HMAC", hash: "SHA-256" }, false, ["sign"]
+  );
+  const sig = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode("portal:" + email.toLowerCase()));
+  return Array.from(new Uint8Array(sig)).map(b => b.toString(16).padStart(2, "0")).join("");
 }
 
 // GET /api/health -- public observability endpoint. Mirrors the shape/intent
@@ -1457,12 +1502,18 @@ async function handleFreeKeyRequest(request, env, rid) {
   const email = sanitizeEmail(body.email);
   if (!email) return json({ error:"invalid_email" }, 400);
 
-  // Check for existing key
+  // Check for existing key. Resend via email only (the address already on
+  // file) rather than returning the live key in the response — this endpoint
+  // has no auth, so anyone who knows/guesses an email could otherwise pull
+  // out that customer's real, active key.
   const existing = await env.REVENUE_CRM_KV.get(`customer:${email}`, "json");
   if (existing) {
     const keys = await env.REVENUE_CRM_KV.get(`apikeys:${email}`, "json") || [];
     const activeKey = keys.find(k => k.tier === "FREE" && k.status === "active");
-    if (activeKey) return json({ success:true, already_exists:true, key:activeKey.key, tier:"FREE", message:"Your existing free API key has been resent." });
+    if (activeKey) {
+      await queueEmail(env, { to:email, template:"free_key_welcome", vars:{ api_key:activeKey.key, tier:"FREE", req_day:100, upgrade_url:"https://intel.cyberdudebivash.com/PAYMENT-GATEWAY.html" } });
+      return json({ success:true, already_exists:true, key:"[sent to your email]", tier:"FREE", message:"Your existing free API key has been resent to your email." });
+    }
   }
 
   const key = generateApiKey("FREE");
@@ -1637,6 +1688,19 @@ async function provisionCustomer(env, { email, tier, billing_cycle, payment_id, 
   const trialEndsAt   = trial ? new Date(Date.now() + trialDays * 86400000).toISOString() : null;
   const currentPeriodEnd = new Date(Date.now() + activeDays * 86400000).toISOString();
 
+  // SEC-2026-07-18: this performs ~10 sequential cross-namespace KV writes
+  // with no rollback available (Cloudflare KV has no multi-key transactions),
+  // and previously had no error handling at all — a mid-sequence failure
+  // vanished silently, which can leave a customer billed but without a
+  // working key. True atomicity isn't achievable here, so the correct,
+  // minimal fix is to make failures observable and propagated instead of
+  // swallowed: track which stage failed, log it, count it via the existing
+  // trackEvent() mechanism, then re-throw unchanged so callers (payment
+  // approval, webhooks) see the same rejection as before and can alert/retry
+  // rather than treating a partial failure as success.
+  let stage = "customer_record";
+  try {
+
   // 1. Create/update customer record
   const existing = await env.REVENUE_CRM_KV.get(`customer:${email}`, "json");
   const custRecord = {
@@ -1678,6 +1742,7 @@ async function provisionCustomer(env, { email, tier, billing_cycle, payment_id, 
   }
   await env.REVENUE_CRM_KV.put(`apikeys:${email}`, JSON.stringify([keyRecord]));
 
+  stage = "entitlement_sync";
   // 2b. Entitlement sync — mirror the key into API_KEYS_KV, the namespace
   // intel-gateway's live auth path (resolveAuth()) actually reads on every
   // request. Without this, every customer provisioned here (manual payment
@@ -1700,6 +1765,7 @@ async function provisionCustomer(env, { email, tier, billing_cycle, payment_id, 
     }));
   }
 
+  stage = "subscription_record";
   // 3. Create subscription record
   const subRecord = {
     id:subId, customer_id:custRecord.id, email, tier, billing_cycle,
@@ -1716,19 +1782,30 @@ async function provisionCustomer(env, { email, tier, billing_cycle, payment_id, 
   subIdx.unshift({ id:subId, email, tier, status:subRecord.status, current_period_end:currentPeriodEnd, created_at:now });
   await env.REVENUE_CRM_KV.put("subscriptions:index", JSON.stringify(subIdx.slice(0,1000)));
 
+  stage = "welcome_email";
   // 4. Send welcome email with API key
+  const portalToken = await computePortalToken(env, email);
   const welcomeVars = {
     email, tier, api_key:key, req_day:tierCfg.req_day, req_min:tierCfg.req_min,
     period_end:currentPeriodEnd, features:tierCfg.features.join(", "),
     dashboard_url:"https://intel.cyberdudebivash.com", api_docs_url:"https://intel.cyberdudebivash.com/api-docs.html",
-    customer_id:custRecord.id, sub_id:subId
+    customer_id:custRecord.id, sub_id:subId,
+    portal_url: portalToken
+      ? `https://intel.cyberdudebivash.com/api/customer/portal?email=${encodeURIComponent(email)}&token=${portalToken}`
+      : "https://intel.cyberdudebivash.com/PAYMENT-GATEWAY.html",
   };
   await queueEmail(env, { to:email, template:"welcome_provisioned", vars:welcomeVars });
 
+  stage = "mrr_update";
   // 5. Update revenue MRR counter
   await updateMRR(env, tier, billing_cycle, "add");
 
   return { customer_id:custRecord.id, sub_id:subId, api_key:key, key_id:keyId, tier, period_end:currentPeriodEnd, features:tierCfg.features };
+  } catch (err) {
+    console.error(`[provisionCustomer] FAILED at stage=${stage} email=${email} tier=${tier} trial=${trial}: ${err?.message || err}`);
+    await trackEvent(env, "provision_customer_failed", { stage, tier, trial }).catch(() => {});
+    throw err;
+  }
 }
 
 // =============================================================================
@@ -1855,6 +1932,11 @@ async function handleCustomerPortal(request, env, rid) {
   const email = url.searchParams.get("email");
   const cleanEmail = sanitizeEmail(email);
   if (!cleanEmail) return json({ error:"invalid_email" }, 400);
+  const expectedToken = await computePortalToken(env, cleanEmail);
+  if (!expectedToken) return json({ error:"portal_not_configured" }, 500);
+  if (!token || !timingSafeEqual(token, expectedToken)) {
+    return json({ error:"unauthorized", message:"Invalid or missing portal token. Use the link from your welcome email." }, 401);
+  }
   const cust = await env.REVENUE_CRM_KV.get(`customer:${cleanEmail}`, "json");
   if (!cust) return json({ error:"not_found", message:"No account found. Check your email or subscribe at /PAYMENT-GATEWAY.html" }, 404);
   const keys = await env.REVENUE_CRM_KV.get(`apikeys:${cleanEmail}`, "json") || [];

@@ -167,29 +167,30 @@ jobs:
           JWT=$(echo "$HEALTH" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('jwt_configured','false'))" 2>/dev/null || echo "false")
           echo "[GATE D] JWT configured: $JWT"
           if [ "$JWT" != "true" ] && [ "$JWT" != "True" ]; then
-            echo "[GATE D] WARNING: JWT not confirmed -- auth may be degraded"
-          else
-            echo "[GATE D] PASS: JWT auth operational"
+            echo "[GATE D] FAIL: JWT auth not confirmed operational"
+            exit 1
           fi
+          echo "[GATE D] PASS: JWT auth operational"
 
       - name: "GATE E -- Frontend integrity"
         timeout-minutes: 3
         run: |
+          set -o pipefail
           echo "[GATE E] Validating frontend integrity..."
-          python3 scripts/frontend_integrity.py --verify 2>&1 | tail -20 || true
-          echo "[GATE E] Frontend integrity check complete"
+          python3 scripts/frontend_integrity.py --verify 2>&1 | tail -20
+          echo "[GATE E] PASS: Frontend integrity check complete"
 
       - name: "GATE F -- Post-deploy validator (full suite)"
         timeout-minutes: 5
         run: |
+          set -o pipefail
           echo "[GATE F] Running full post-deploy validator suite..."
-          python3 scripts/post_deploy_validator.py 2>&1 | tee /tmp/pdv_output.txt || true
-          # Check for hard failures
-          if grep -q "HARD FAIL\|EXIT CODE: 1" /tmp/pdv_output.txt 2>/dev/null; then
-            echo "[GATE F] FAIL: Hard gate failure detected"
-            cat /tmp/pdv_output.txt
-            exit 1
-          fi
+          # Checks the script's real exit code via pipefail rather than
+          # grepping its printed text for specific strings -- same failure
+          # class as the pricing-gate bug already fixed (a script whose
+          # output format changes, or that fails via traceback instead of
+          # the expected message, would silently pass the old grep check).
+          python3 scripts/post_deploy_validator.py 2>&1 | tee /tmp/pdv_output.txt
           echo "[GATE F] PASS: Full validation suite completed"
 
       - name: "GATE G -- Report URL integrity"

@@ -171,7 +171,8 @@ export async function handleBillingSubscriptionCreate(request, env, ctx, rid) {
       prefill: { email },
     });
   } catch (e) {
-    return json({ error: "Razorpay API unavailable", detail: e.message }, 503);
+    console.error(`[subscription-create] Razorpay API failed: ${e.message}`);
+    return json({ error: "Razorpay API unavailable" }, 503);
   }
 }
 
@@ -209,12 +210,20 @@ export async function handleBillingWebhook(request, env, ctx, rid) {
   if (await alreadyProcessed(env, idempKey)) {
     return json({ status: "already_processed", event });
   }
+  // Claim BEFORE processing, not after. Razorpay's delivery is at-least-once,
+  // so a redelivery arriving while this request is still mid-flight (e.g.
+  // during provisionCustomer()'s ~10 sequential KV writes for
+  // subscription.activated) previously saw alreadyProcessed()===false too
+  // and could double-provision the same customer. Unclaimed on failure below
+  // so a genuine retry after a transient error isn't blocked forever.
+  await markProcessed(env, idempKey, { event, providerId, ts: Date.now() });
 
   const link  = providerId ? await getProviderLink(env, providerId) : null;
   const email = sanitizeEmail(link?.email || notes.email);
   const tier  = (link?.tier || notes.tier || "").toUpperCase();
   const cycle = link?.billing_cycle || notes.billing_cycle || "monthly";
 
+  try {
   switch (event) {
     case "subscription.authenticated": {
       if (providerId) await putProviderLink(env, providerId, { ...(link || {}), status: "authenticated" });
@@ -225,7 +234,7 @@ export async function handleBillingWebhook(request, env, ctx, rid) {
     case "subscription.activated": {
       if (link?.status === "active") {
         // Already provisioned by an earlier delivery of this same event.
-        await markProcessed(env, idempKey, { event, providerId, ts: Date.now() });
+        // (idempKey is already claimed above, before this switch runs.)
         return json({ status: "already_active", razorpay_subscription_id: providerId });
       }
       if (!email || !TIERS[tier]) {
@@ -317,7 +326,16 @@ export async function handleBillingWebhook(request, env, ctx, rid) {
       break;
     }
   }
+  } catch (err) {
+    // Unclaim so Razorpay's automatic retry (it retries on non-2xx
+    // responses) can reprocess this event instead of it being silently
+    // dropped forever by the idempotency guard.
+    await env.REVENUE_CRM_KV.delete(`rzp_sub_event:${idempKey}`).catch(() => {});
+    await trackEvent(env, "subscription_webhook_processing_failed", {
+      event, razorpay_subscription_id: providerId, error: err?.message || String(err), rid,
+    }).catch(() => {});
+    return json({ error: "processing_failed" }, 500);
+  }
 
-  await markProcessed(env, idempKey, { event, providerId, ts: Date.now() });
   return json({ status: "processed", event });
 }

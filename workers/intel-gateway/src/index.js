@@ -240,6 +240,21 @@ async function verifyJWT(token, secret) {
   } catch (_) { return null; }
 }
 
+// Constant-time string comparison — prevents timing side-channel attacks on
+// shared-secret checks (admin key, Gumroad webhook token) that aren't HMAC
+// signatures and so can't use crypto.subtle.verify like Razorpay/JWT do.
+// Always walks the full length of the longer input; never short-circuits.
+function timingSafeEqual(a, b) {
+  const bufA = new TextEncoder().encode(String(a ?? ""));
+  const bufB = new TextEncoder().encode(String(b ?? ""));
+  const len  = Math.max(bufA.length, bufB.length);
+  let diff   = bufA.length ^ bufB.length;
+  for (let i = 0; i < len; i++) {
+    diff |= (bufA[i] ?? 0) ^ (bufB[i] ?? 0);
+  }
+  return diff === 0;
+}
+
 // =============================================================================
 // BRUTE FORCE PROTECTION
 // =============================================================================
@@ -322,12 +337,26 @@ async function resolveAuth(request, env) {
 
   // API key path: look up in KV
   if (raw.length >= 16) {
+    // Brute-force lockout already covers /auth/login's explicit key check
+    // but not this path, which every authenticated request goes through --
+    // meaning direct key guessing against any endpoint was untracked.
+    // 256-bit key entropy (secrets.token_hex(32)) makes guessing
+    // computationally infeasible regardless, but this closes the gap for
+    // defense in depth at negligible cost (one KV read, reuses the exact
+    // same tracking as /auth/login).
+    const ip = request.headers.get("CF-Connecting-IP") || request.headers.get("X-Forwarded-For") || "unknown";
+    const bf = await checkBruteForce(env, ip);
+    if (bf.locked) {
+      return { tier: TIERS.FREE, key: null, sub: null, error: "rate_limited" };
+    }
     try {
       const record = await env.API_KEYS_KV.get(raw, "json");
       if (record) {
         if (record.expires_at && new Date(record.expires_at) < new Date()) {
           return { tier: TIERS.FREE, key: null, sub: null, error: "key_expired" };
         }
+        // Skip the extra KV write on the common case (no prior failures to clear)
+        if (bf.count) await clearAuthFailures(env, ip);
         return {
           tier: TIERS[record.tier] || TIERS.PRO,
           key: raw,
@@ -336,6 +365,7 @@ async function resolveAuth(request, env) {
         };
       }
     } catch (_) {}
+    await recordAuthFailure(env, ip);
     return { tier: TIERS.FREE, key: null, sub: null, error: "invalid_key" };
   }
 
@@ -1551,7 +1581,8 @@ async function handleLogout(request, env, ctx, auth) {
     auditLog(ctx, env, { action: "logout", sub: auth.sub, tier: auth.tier });
     return jsonResp({ message: "Logged out successfully. Token revoked." });
   } catch (e) {
-    return jsonResp({ error: "Logout failed", detail: e.message }, 500);
+    console.error(`[logout] failed: ${e.message}`);
+    return jsonResp({ error: "Logout failed" }, 500);
   }
 }
 
@@ -1565,7 +1596,7 @@ async function handleAdmin(request, env, ctx, path, method) {
     (request.headers.get("Authorization") || "").replace(/^Bearer\s+/i, "")
   ).trim();
 
-  if (!env.ADMIN_SECRET || adminKey !== env.ADMIN_SECRET) {
+  if (!env.ADMIN_SECRET || !timingSafeEqual(adminKey, env.ADMIN_SECRET)) {
     auditLog(ctx, env, { action: "admin_auth_failed", path, method });
     return jsonResp({ error: "Forbidden: invalid admin credentials" }, 403);
   }
@@ -1610,7 +1641,8 @@ async function handleAdmin(request, env, ctx, path, method) {
       const valid = entries.filter(Boolean).sort((a, b) => (b.ts || "").localeCompare(a.ts || ""));
       return jsonResp({ entries: valid, count: valid.length, generated_at: now() });
     } catch (e) {
-      return jsonResp({ error: "Audit log unavailable", detail: e.message }, 500);
+      console.error(`[audit] unavailable: ${e.message}`);
+      return jsonResp({ error: "Audit log unavailable" }, 500);
     }
   }
 
@@ -1704,7 +1736,7 @@ async function handleTAXII(request, env, ctx, path, auth) {
           id: TAXII_KEV_COLL,
           title: "SENTINEL APEX - CISA KEV Confirmed",
           description: "Known Exploited Vulnerabilities confirmed in CISA KEV catalog (ENTERPRISE only)",
-          can_read: auth.tier === TIERS.ENTERPRISE, can_write: false, media_types: [STIX_CT],
+          can_read: auth.tier === TIERS.ENTERPRISE || auth.tier === TIERS.MSSP, can_write: false, media_types: [STIX_CT],
         },
       ],
     });
@@ -1714,7 +1746,7 @@ async function handleTAXII(request, env, ctx, path, auth) {
   const objMatch = path.match(/^\/taxii\/collections\/([^/]+)\/objects\/?$/);
   if (objMatch) {
     const collId = objMatch[1];
-    if (collId === TAXII_KEV_COLL && auth.tier !== TIERS.ENTERPRISE) {
+    if (collId === TAXII_KEV_COLL && auth.tier !== TIERS.ENTERPRISE && auth.tier !== TIERS.MSSP) {
       return taxiiResp({ title: "Forbidden", description: "KEV collection requires ENTERPRISE tier" }, 403);
     }
 
@@ -2387,7 +2419,8 @@ async function handleRazorpayCreateOrder(request, env, method) {
       billing, prefill: { email },
     });
   } catch (e) {
-    return jsonResp({ error: "Razorpay API unavailable", detail: e.message }, 503);
+    console.error(`[razorpay] create-order failed: ${e.message}`);
+    return jsonResp({ error: "Razorpay API unavailable" }, 503);
   }
 }
 
@@ -2537,12 +2570,13 @@ async function handleWebhookRazorpay(request, env, ctx) {
 // Set GUMROAD_WEBHOOK_SECRET via: npx wrangler secret put GUMROAD_WEBHOOK_SECRET
 async function handleWebhookGumroad(request, env, ctx) {
   // Token-based authentication: Gumroad doesn't sign payloads, so we use a shared secret in the URL
+  if (!env.GUMROAD_WEBHOOK_SECRET) {
+    return jsonResp({ error: "Webhook secret not configured" }, 500);
+  }
   const urlToken = new URL(request.url).searchParams.get("secret") || "";
-  if (env.GUMROAD_WEBHOOK_SECRET) {
-    if (!urlToken || urlToken !== env.GUMROAD_WEBHOOK_SECRET) {
-      auditLog(ctx, env, { action: "webhook_auth_fail", source: "gumroad" });
-      return jsonResp({ error: "Unauthorized" }, 401);
-    }
+  if (!urlToken || !timingSafeEqual(urlToken, env.GUMROAD_WEBHOOK_SECRET)) {
+    auditLog(ctx, env, { action: "webhook_auth_fail", source: "gumroad" });
+    return jsonResp({ error: "Unauthorized" }, 401);
   }
 
   let formData = {};
@@ -2729,8 +2763,14 @@ async function handleBrandProtection(request, env, auth, method, path, url) {
     try { body = await request.json(); } catch (_) {}
     const domain = (body.domain || "").toLowerCase().trim().replace(/^https?:\/\//, "").replace(/\/.*$/, "");
     if (!domain || !domain.includes(".")) return jsonResp({ error: "domain required (e.g. example.com)" }, 400);
+    // generateTyposquatVariants() runs several O(n) passes over the domain
+    // name building new strings each time -- unbounded input length allows
+    // O(n^2)-ish CPU/memory blowup from a single request. 253 is the real
+    // DNS total-length limit, so this rejects nothing a genuine domain would
+    // ever hit.
+    if (domain.length > 253) return jsonResp({ error: "domain exceeds maximum length (253 chars)" }, 400);
 
-    const limit    = auth.tier === TIERS.ENTERPRISE ? 200 : 100;
+    const limit    = (auth.tier === TIERS.ENTERPRISE || auth.tier === TIERS.MSSP) ? 200 : 100;
     const all      = generateTyposquatVariants(domain).slice(0, limit);
     const scored   = all.map(v => ({ domain: v, ...scoreDomainRisk(v, domain) })).sort((a,b) => b.risk_score - a.risk_score);
     const critical = scored.filter(v => v.risk_level === "CRITICAL");
@@ -2834,7 +2874,7 @@ async function handleVendorRisk(request, env, auth, method, path) {
   }
 
   if (path === "/api/v1/vendor-risk/bulk" && method === "POST") {
-    if (auth.tier !== TIERS.ENTERPRISE) return jsonResp({ error: "Bulk vendor assessment requires ENTERPRISE tier" }, 403);
+    if (auth.tier !== TIERS.ENTERPRISE && auth.tier !== TIERS.MSSP) return jsonResp({ error: "Bulk vendor assessment requires ENTERPRISE tier" }, 403);
     let body = {};
     try { body = await request.json(); } catch (_) {}
     const vendors = body.vendors || [];
@@ -3071,7 +3111,7 @@ async function handleNLQ(request, env, auth, method, path, url, ctx) {
     const items    = feedData.items || [];
     const filters  = nlqParse(query);
     const matched  = nlqFilter(items, filters);
-    const limit    = auth.tier === TIERS.ENTERPRISE ? 100 : 25;
+    const limit    = (auth.tier === TIERS.ENTERPRISE || auth.tier === TIERS.MSSP) ? 100 : 25;
     const results  = matched.slice(0, limit);
 
     let llmSummary = null;
@@ -3116,7 +3156,7 @@ async function handleIncidentResponse(request, env, auth, method, path, url, ctx
   // LIST  GET /api/v1/incidents/
   if ((path === "/api/v1/incidents/" || path === "/api/v1/incidents") && method === "GET") {
     try {
-      const pfx    = auth.tier === TIERS.ENTERPRISE ? "ir:" : ownerPfx;
+      const pfx    = (auth.tier === TIERS.ENTERPRISE || auth.tier === TIERS.MSSP) ? "ir:" : ownerPfx;
       const listPrefix = `${pfx}incident:`;
       // Cursor-paginated list  -  fetches all keys across multiple pages (max 200 per page)
       let allKeys = [], cursor = undefined, complete = false;
@@ -3131,7 +3171,8 @@ async function handleIncidentResponse(request, env, auth, method, path, url, ctx
       const valid = rows.filter(Boolean).sort((a,b) => (b.created_at||"").localeCompare(a.created_at||""));
       return jsonResp({ status: "ok", incidents: valid, total: valid.length, generated_at: now() });
     } catch (e) {
-      return jsonResp({ error: "Failed to list incidents", detail: e.message }, 500);
+      console.error(`[incidents] list failed: ${e.message}`);
+      return jsonResp({ error: "Failed to list incidents" }, 500);
     }
   }
 
@@ -3179,7 +3220,7 @@ async function handleIncidentResponse(request, env, auth, method, path, url, ctx
     }
 
     if (method === "DELETE" && !subPath) {
-      if (auth.tier !== TIERS.ENTERPRISE) return jsonResp({ error: "ENTERPRISE tier required to delete incidents" }, 403);
+      if (auth.tier !== TIERS.ENTERPRISE && auth.tier !== TIERS.MSSP) return jsonResp({ error: "ENTERPRISE tier required to delete incidents" }, 403);
       await env.SECURITY_HUB_KV.delete(kvKey);
       auditLog(ctx, env, { action: "incident_deleted", id: incId, sub: auth.sub });
       return jsonResp({ status: "deleted", id: incId });
@@ -3328,7 +3369,7 @@ async function handleRequest(request, env, ctx) {
   // PRO/ENTERPRISE: full PRO manifest including report_url, pdf_url
   if (path === "/api/v1/intel/latest.json") {
     let data;
-    if (auth.tier === TIERS.PRO || auth.tier === TIERS.ENTERPRISE) {
+    if (auth.tier === TIERS.PRO || auth.tier === TIERS.ENTERPRISE || auth.tier === TIERS.MSSP) {
       // Try PRO manifest first; gracefully fall back to public if not yet generated
       data = await r2Get(env, LATEST_PRO_JSON_KEY);
       if (!data) data = await r2Get(env, LATEST_JSON_KEY);
@@ -3356,7 +3397,7 @@ async function handleRequest(request, env, ctx) {
     }
     // Same tier gate as /api/v1/intel/latest.json -- this endpoint carries the
     // same canonical item shape (IOCs, detection rules, actor attribution).
-    if (auth.tier !== TIERS.PRO && auth.tier !== TIERS.ENTERPRISE && Array.isArray(data.items)) {
+    if (auth.tier !== TIERS.PRO && auth.tier !== TIERS.ENTERPRISE && auth.tier !== TIERS.MSSP && Array.isArray(data.items)) {
       data = { ...data, items: data.items.map(i => applyTierGateV2(i, "free", null)) };
     }
     return jsonResp(data, 200, { "Cache-Control": "public, max-age=120" });
@@ -3586,7 +3627,7 @@ async function handleRequest(request, env, ctx) {
     let data = await r2Get(env, LATEST_JSON_KEY);
     if (!data) return errorResp("Feed not available", 503);
     // Legacy alias for /api/v1/intel/latest.json -- same key, same gate.
-    if (auth.tier !== TIERS.PRO && auth.tier !== TIERS.ENTERPRISE && Array.isArray(data.items)) {
+    if (auth.tier !== TIERS.PRO && auth.tier !== TIERS.ENTERPRISE && auth.tier !== TIERS.MSSP && Array.isArray(data.items)) {
       data = { ...data, items: data.items.map(i => applyTierGateV2(i, "free", null)) };
     }
     return jsonResp(data, 200, { "Cache-Control": "public, max-age=120" });
@@ -3834,6 +3875,15 @@ async function handleRequest(request, env, ctx) {
     if (isNaN(riskScore) || riskScore < 0 || riskScore > 10) {
       return jsonResp({ error: "risk_score must be a number between 0 and 10" }, 400);
     }
+    // Per-customer daily cap on ingested items -- this writes directly into
+    // the shared production feed served to every tier, with no prior limit
+    // on total growth from a single customer.
+    const ingestCapKey = `ingest_count:${new Date().toISOString().slice(0, 10)}:${auth.sub || "unknown"}`;
+    const ingestCount = parseInt((await env.RATE_LIMIT_KV.get(ingestCapKey)) || "0", 10);
+    if (ingestCount >= 50) {
+      return jsonResp({ error: "Daily ingest limit reached (50 items/day). Contact support for higher throughput." }, 429);
+    }
+    await env.RATE_LIMIT_KV.put(ingestCapKey, String(ingestCount + 1), { expirationTtl: 86400 });
     // Build canonical intel item
     const ts = new Date().toISOString();
     const itemId = body.stix_id || body.id || ("intel--ingest-" + crypto.randomUUID());
@@ -3843,7 +3893,12 @@ async function handleRequest(request, env, ctx) {
       severity: sev,
       risk_score: riskScore,
       source: body.source || `ingest:${auth.sub || "api"}`,
-      feed_source: body.feed_source || "api_ingest",
+      // feed_source is a trust/provenance signal read elsewhere in the
+      // pipeline -- always stamped from the authenticated caller's own
+      // identity, never taken from the request body, so a customer can't
+      // spoof it to impersonate an official curated feed name (e.g.
+      // "rss_cvefeed_io_rssfeed_latest_xml").
+      feed_source: `api_ingest:${auth.sub || "unknown"}`,
       published: body.published || ts,
       processed_at: ts,
       ingested_at: ts,
@@ -3877,7 +3932,8 @@ async function handleRequest(request, env, ctx) {
       auditLog(ctx, env, { action: "ingest", sub: auth.sub, tier: auth.tier, item_id: itemId, title: newItem.title });
       return jsonResp({ status: "created", item_id: itemId, feed_count: items.length, ingested_at: ts }, 201);
     } catch (e) {
-      return jsonResp({ error: "Failed to write to intel feed", detail: e.message }, 500);
+      console.error(`[ingest] feed write failed: ${e.message}`);
+      return jsonResp({ error: "Failed to write to intel feed" }, 500);
     }
   }
 
@@ -4241,7 +4297,13 @@ export default {
     try {
       return await handleRequest(request, env, ctx);
     } catch (err) {
-      return new Response(JSON.stringify({ error: "Internal gateway error", detail: err.message }), {
+      // Logged server-side (visible via wrangler tail / any configured
+      // Logpush) but never returned to the caller -- this is the top-level
+      // catch-all for every route, reachable unauthenticated, and
+      // err.message can carry internal detail (paths, binding names,
+      // upstream API error text).
+      console.error(`[fetch] unhandled error: ${err && err.message ? err.message : err}`);
+      return new Response(JSON.stringify({ error: "Internal gateway error" }), {
         status: 500,
         headers: { ...CORS_HEADERS, ...SECURITY_HEADERS, ...JSON_CONTENT },
       });

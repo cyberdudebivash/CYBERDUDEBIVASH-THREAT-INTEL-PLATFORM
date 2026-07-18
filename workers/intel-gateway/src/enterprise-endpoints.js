@@ -25,11 +25,11 @@ const ENTERPRISE_VERSION = "149.0.0";
 // -----------------------------------------------------------------------------
 
 function requireEnterprise(tier) {
-  return tier === "enterprise";
+  return tier === "enterprise" || tier === "mssp";
 }
 
 function requireProOrEnterprise(tier) {
-  return tier === "pro" || tier === "premium" || tier === "enterprise";
+  return tier === "pro" || tier === "premium" || tier === "enterprise" || tier === "mssp";
 }
 
 function enterpriseDenied(endpoint, req_id) {
@@ -811,8 +811,13 @@ export async function handleSiemSentinel(req, env, ctx, tier, items, req_id) {
       else if (/^https?:\/\//.test(val)) ioc_type = "Url";
       else if (/^[a-zA-Z0-9\-\.]+\.[a-zA-Z]{2,}$/.test(val)) ioc_type = "DomainName";
 
+      // OWASP CSV Injection guard: a value starting with = + - @ is read as
+      // a formula by Excel/Sentinel's CSV importer (val/desc originate from
+      // ingested feed IOCs/titles, so either could carry a malicious
+      // prefix). Prepend a single quote to force text interpretation.
+      const csvGuard = s => /^[=+\-@\t\r]/.test(s) ? "'" + s : s;
       rows.push([ioc_type, val, confidence, severity, desc, item.threat_type || "ThreatIntelligence",
-                 tags, expiry, "Block", tlp].map(v => `"${String(v).replace(/"/g, "'")}"`).join(","));
+                 tags, expiry, "Block", tlp].map(v => `"${csvGuard(String(v)).replace(/"/g, "'")}"`).join(","));
     }
   }
 

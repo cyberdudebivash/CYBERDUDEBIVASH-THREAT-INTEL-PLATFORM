@@ -1246,6 +1246,50 @@ def _section(num: int, title: str, body: str) -> str:
     )
 
 
+# ── SEC-2026-07-18: public-report tier masking ──────────────────────────────
+# This pipeline has no tier concept of its own — every HTML page it renders
+# is the public, unauthenticated /reports/** artifact. Mirrors the canonical
+# gate (applyTierGateV2 in workers/intel-gateway/src/revenue-enforcement.js)
+# so the same fields stay paid across both the Worker API and these static
+# pages. Reuses its exact "no attribution" placeholder rule rather than
+# inventing a new one.
+def _is_real_attribution(raw_tag: Any) -> bool:
+    if not raw_tag:
+        return False
+    s = str(raw_tag)
+    return not (s.startswith("CDB-UNATTR") or s == "UNC-UNKNOWN")
+
+
+def _mask_item_for_public_report(item: dict) -> dict:
+    """Return a masked COPY for rendering. Never mutates the caller's item —
+    main() may have already written the real item back into the in-memory
+    manifest list before render_report() is called."""
+    masked = dict(item)
+    masked["iocs"] = []
+    masked["stix_bundle"] = None
+
+    raw_actor = (
+        item.get("actor_cluster") or item.get("actor_tag") or item.get("primary_actor")
+    )
+    if _is_real_attribution(raw_actor):
+        for f in (
+            "actor_tag", "primary_actor", "actor_cluster", "actor_display_name",
+            "actor_aliases", "actor_sectors", "actor_ttps", "actor_malware",
+            "actor_mitre_id", "actor_country", "actor_motivation",
+            "actor_threat_level", "mitre_group_name", "mitre_group_aliases",
+        ):
+            if f in masked:
+                masked[f] = None
+
+    raw_campaign = item.get("campaign_id") or item.get("campaign")
+    if raw_campaign and str(raw_campaign).upper() not in ("UNCLASSIFIED", "NONE", "N/A", ""):
+        masked["campaign_id"] = None
+        masked["campaign"] = None
+        masked["campaign_graph_intel"] = None
+
+    return masked
+
+
 def build_report_sections(item: dict) -> str:
     # RENDER LAYER SAFETY: NEVER assume data types  -  all fields coerced before use
     title       = str(item.get("title") or "Untitled Advisory")
@@ -1292,11 +1336,26 @@ def build_report_sections(item: dict) -> str:
     stix_id     = item.get("stix_id") or item.get("id") or "-"
     tlp         = item.get("tlp") or "TLP:CLEAR"
     source_url  = item.get("source_url") or ""
-    campaign    = item.get("campaign_id") or "UNCLASSIFIED"
     affected    = item.get("affected_products") or item.get("affected_versions") or []
     kc_phases   = item.get("kill_chain_phases") or []
     nvd_url     = item.get("nvd_url") or ""
     ts          = _fmt_ts(item.get("processed_at") or item.get("timestamp") or "")
+
+    # SEC-2026-07-18: this is the public /reports/** artifact — mask a COPY
+    # before any enrichment/resolution/summary function can read `item`
+    # directly (several do). Capture "was there real paid data" signals
+    # first so paywall messaging stays accurate. Does not mutate the
+    # caller's item — main() already persisted the real item to the manifest.
+    _had_real_attribution = _is_real_attribution(
+        item.get("actor_cluster") or item.get("actor_tag") or item.get("primary_actor")
+    )
+    _raw_campaign_signal = item.get("campaign_id") or item.get("campaign")
+    _had_real_campaign = bool(
+        (_raw_campaign_signal and str(_raw_campaign_signal).upper() not in ("UNCLASSIFIED", "NONE", "N/A", ""))
+        or item.get("campaign_graph_intel")
+    )
+    item  = _mask_item_for_public_report(item)
+    iocs  = []
 
     # ── v148.1.0: APEX Intelligence Upgrade  -  enrich advisory before rendering ──
     if _APEX_UPGRADE_AVAILABLE:
@@ -1307,21 +1366,19 @@ def build_report_sections(item: dict) -> str:
         except Exception as _enrich_exc:
             log(f"APEX enrich warn (non-fatal): {_enrich_exc}", "warning")
 
-    # Re-bind actor after enrichment (may have been updated)
+    # Re-bind actor/campaign after enrichment (item is the masked copy — safe)
     actor       = str(item.get("actor_cluster") or item.get("actor_tag") or item.get("primary_actor") or "UNATTRIBUTED")
     campaign    = item.get("campaign_id") or item.get("campaign") or "UNCLASSIFIED"
 
-    # ── APEX Actor Resolution: replace system artifacts with display names ──
-    _actor_resolved_display = actor
-    if _APEX_UPGRADE_AVAILABLE:
-        try:
-            _actor_profile = _apex_resolve_actor(actor, item)
-            _actor_resolved_display = _actor_profile["display_name"]
-            # Inject resolved display name back for use in S1, S3, S11
-            item["_actor_display"] = _actor_resolved_display
-            item["_actor_confidence"] = _actor_profile["confidence"]
-        except Exception as _actor_res_exc:
-            pass
+    # ── Public-report actor label: deliberately NOT calling the deep actor
+    # resolver here. Its named-actor pass pattern-matches title/description
+    # text for known actors independent of the (masked) actor argument,
+    # which would re-leak full attribution through a different path. Show a
+    # paywall marker when real attribution exists; the placeholder tag is
+    # safe to show as-is otherwise.
+    _actor_resolved_display = (
+        "ATTRIBUTED — ENTERPRISE ACCESS REQUIRED" if _had_real_attribution else actor
+    )
 
     sections = []
 
@@ -1582,19 +1639,21 @@ def build_report_sections(item: dict) -> str:
     sections.append(_section(6, "MITRE ATT&amp;CK Mapping", _s6_body))
 
     # ── S7: IOC Table  -  APEX Enterprise IOC Classification Engine v149.0 ──
-    if _APEX_UPGRADE_AVAILABLE:
-        try:
-            _s7_ioc_body = _apex_ioc_table(iocs, item)
-        except Exception as _s7_exc:
-            log(f"IOC table engine warn (non-fatal): {_s7_exc}", "warning")
-            _operational_iocs = iocs
-            try:
-                _operational_iocs, _ = _apex_filter_iocs(iocs)
-            except Exception:
-                pass
-            _s7_ioc_body = _render_iocs(_operational_iocs)
+    # SEC-2026-07-18: this is the public artifact — `iocs` is always masked
+    # to [] here (see _mask_item_for_public_report). Render an accurate
+    # paywall teaser off the real, preserved ioc_count instead of calling
+    # the real IOC table engine with an empty list, which would misleadingly
+    # claim zero IOCs were ever recorded.
+    if ioc_count > 0:
+        _s7_ioc_body = (
+            "<div class='callout'><strong>" + str(ioc_count) + " indicator(s) "
+            "of compromise recorded for this advisory.</strong> Full IOC values "
+            "(IP / domain / hash / URL) are an Enterprise entitlement — available "
+            "in STIX 2.1, MISP, Sigma, and YARA formats via the enterprise API "
+            "(<code>/api/stix/{id}</code>).</div>"
+        )
     else:
-        _s7_ioc_body = _render_iocs(iocs)
+        _s7_ioc_body = _render_iocs([])
 
     sections.append(_section(7, "Indicators of Compromise",
         "<p>Hunt these indicators across SIEM, EDR, DNS, proxy, and firewall "
@@ -1687,56 +1746,45 @@ def build_report_sections(item: dict) -> str:
     ))
 
     # ── S11: Threat Actor Profile  -  APEX Adversary Attribution Engine v149.0 ─
-    if _APEX_UPGRADE_AVAILABLE:
-        try:
-            # v2: attribution engine with confidence scoring + artifact resolution
-            _s11_body = _apex_actor_intel_v2(actor, item)
-        except Exception as _s11_exc:
-            try:
-                _s11_body = _apex_actor_intel(actor, item)
-            except Exception:
-                _s11_body = f"<p>Actor intelligence for cluster <code>{_h(actor)}</code>.</p>"
-    else:
-        _s11_body = (
-            f"<div class='actor-card'>"
-            f"<div class='actor-icon'>⚔</div>"
-            f"<div class='actor-body'>"
-            f"<h3>{_h(actor)}</h3>"
-            f"<p>Tracking cluster: <code>{_h(actor)}</code> &nbsp;|&nbsp; "
-            f"Campaign: <code>{_h(campaign)}</code></p>"
-            f"</div></div>"
-            f"<p style='margin-top:16px'>APEX tracks this actor cluster across {len(ttps)} "
-            f"ATT&amp;CK technique signatures. Full actor dossier including infrastructure "
-            f"history, geolocation intelligence, and TTP evolution is available via the "
-            f"enterprise API endpoint <code>/api/actor/{_h(actor)}</code>.</p>"
-            "<div class='callout'><strong>Enterprise subscribers</strong> receive automated "
-            "actor tracking reports, infrastructure pivot analysis, and proactive alerting "
-            "when this cluster shows new activity.</div>"
-        )
+    # SEC-2026-07-18: always render the teaser — never call the deep
+    # attribution engine for this public artifact. Its named-actor scan
+    # independently pattern-matches title/description text for known actors,
+    # which would leak full attribution (sophistication, motivation,
+    # targeting, infrastructure, geo-nexus) regardless of masked inputs.
+    _s11_body = (
+        f"<div class='actor-card'>"
+        f"<div class='actor-icon'>⚔</div>"
+        f"<div class='actor-body'>"
+        f"<h3>{_h(_actor_resolved_display)}</h3>"
+        f"<p>Tracking cluster: <code>{_h(actor)}</code> &nbsp;|&nbsp; "
+        f"Campaign: <code>{_h(campaign)}</code></p>"
+        f"</div></div>"
+        f"<p style='margin-top:16px'>APEX tracks this actor cluster across {len(ttps)} "
+        f"ATT&amp;CK technique signatures. Full actor dossier including infrastructure "
+        f"history, geolocation intelligence, and TTP evolution is available via the "
+        f"enterprise API endpoint <code>/api/actor/{_h(actor)}</code>.</p>"
+        "<div class='callout'><strong>Enterprise subscribers</strong> receive automated "
+        "actor tracking reports, infrastructure pivot analysis, and proactive alerting "
+        "when this cluster shows new activity.</div>"
+    )
     sections.append(_section(11, "Threat Actor Profile", _s11_body))
 
     # ── S12: Campaign Intelligence  -  APEX Campaign Correlation v148.1 ───────
     # v166.8 FIX (GAP-022): Only render Campaign section when real campaign data exists.
-    # Previously showed hollow template ("UNCLASSIFIED", boilerplate) on every report.
-    # Now: skip the section entirely if campaign is UNCLASSIFIED and no campaign graph data.
-    ai_conf = item.get("ai_confidence") or item.get("confidence") or "-"
-    _has_real_campaign = (
-        campaign not in ("UNCLASSIFIED", "", None) or
-        item.get("campaign_graph_intel") or
-        item.get("campaign_id")
-    )
-    if _APEX_UPGRADE_AVAILABLE:
-        _s12_body = _apex_campaign_intel(item)
-        sections.append(_section(12, "Campaign Intelligence", _s12_body))
-    elif _has_real_campaign:
+    # SEC-2026-07-18: never call the deep campaign engine for this public
+    # artifact — it independently re-derives a campaign name from title/vuln
+    # class when the field looks empty, and would render full phase/actor/
+    # IOC correlation for advisories that DO have real campaign tracking.
+    # Use _had_real_campaign (captured before masking) rather than
+    # re-deriving it from the now-masked campaign/item fields.
+    if _had_real_campaign:
         _s12_body = (
-            "<div class='kv'>"
-            f"<div class='kv-key'>Campaign ID</div><div class='kv-val'><code>{_h(campaign)}</code></div>"
-            f"<div class='kv-key'>AI Confidence</div><div class='kv-val'>{_h(ai_conf)}</div>"
-            f"<div class='kv-key'>Actor Cluster</div><div class='kv-val'>{_h(actor)}</div>"
-            f"<div class='kv-key'>TTP Count</div><div class='kv-val'>{len(ttps)}</div>"
-            f"<div class='kv-key'>IOC Count</div><div class='kv-val'>{ioc_count}</div>"
-            "</div>"
+            "<div class='callout'><strong>Campaign correlation confirmed.</strong> "
+            "This advisory has been linked to a tracked, multi-stage campaign. "
+            f"APEX correlates {len(ttps)} ATT&amp;CK techniques and {ioc_count} "
+            "indicators across this cluster. Full phase analysis, actor linkage, and "
+            "IOC clustering are an Enterprise entitlement — available via the "
+            "enterprise API.</div>"
         )
         sections.append(_section(12, "Campaign Intelligence", _s12_body))
     # else: skip section entirely — no hollow placeholder shown to customer (GAP-022)
@@ -1867,86 +1915,17 @@ def build_report_sections(item: dict) -> str:
     ))
 
     # ── S18: Detection Engineering Pack  -  APEX Enhanced Detection v148.1 ───
-    # Use _operational_iocs (already filtered) for all detection artefacts
-    _det_iocs = _operational_iocs if "_operational_iocs" in dir() else iocs
-    # v161.0 P0-004: Use real class-aware detection engine first (correct logsource per vuln class)
-    # Falls back to APEX enhanced sigma → generic fallback in that priority order
-    if _REAL_DETECT_AVAILABLE and _apex_real_detect is not None:
-        try:
-            _real_rules = _apex_real_detect(item)
-            sigma_rule  = _real_rules.get("sigma", "")
-            yara_rule   = _real_rules.get("yara", "")
-            kql_q       = _real_rules.get("kql", "")
-            spl_q       = _real_rules.get("spl", "")
-        except Exception as _rde_exc:
-            _log.warning("Real detection engine error for %s: %s — falling back", item.get("id","?"), _rde_exc)
-            _real_rules = {}
-            sigma_rule  = ""
-            yara_rule   = ""
-            kql_q       = ""
-            spl_q       = ""
-        # Fill any empty slots with legacy generators as safety net
-        if not sigma_rule:
-            sigma_rule = _apex_sigma(title, ttps, _det_iocs, item) if _APEX_UPGRADE_AVAILABLE else _render_sigma_rule(title, ttps, _det_iocs)
-        if not yara_rule:
-            yara_rule = _render_yara_rule(title, _det_iocs, actor)
-        if not kql_q or not spl_q:
-            _kql_fb, _spl_fb = _render_hunt_queries(title, ttps, _det_iocs)
-            kql_q = kql_q or _kql_fb
-            spl_q = spl_q or _spl_fb
-    elif _APEX_UPGRADE_AVAILABLE:
-        sigma_rule = _apex_sigma(title, ttps, _det_iocs, item)
-        yara_rule  = _render_yara_rule(title, _det_iocs, actor)
-        kql_q, spl_q = _render_hunt_queries(title, ttps, _det_iocs)
-    else:
-        sigma_rule = _render_sigma_rule(title, ttps, _det_iocs)
-        yara_rule  = _render_yara_rule(title, _det_iocs, actor)
-        kql_q, spl_q = _render_hunt_queries(title, ttps, _det_iocs)
-
+    # SEC-2026-07-18: never synthesize real detection rules for this public
+    # artifact — also avoids the wasted compute of generating Sigma/YARA/KQL/
+    # SPL rules that would never be shown.
     sections.append(_section(18, "Detection Engineering Pack",
-        "<p>Production-grade detection artefacts generated by SENTINEL APEX's rule synthesis engine. "
-        "Rules are pre-mapped to this advisory's IOCs and ATT&amp;CK techniques. "
-        "<strong>Enterprise subscribers</strong> receive validated, tuned rule packs with "
-        "false-positive rates below 0.1% against the APEX telemetry corpus.</p>"
-
-        # Sigma
-        "<div class='rule-block'>"
-        "<div class='rule-header'>"
-        "<span class='rule-badge rule-sigma'>SIGMA - SIEM/EDR Universal</span>"
-        "<span class='copy-hint'>Compatible: Splunk · Elastic · QRadar · Sentinel · Chronicle</span>"
-        "</div>"
-        f"<pre>{_h(sigma_rule)}</pre>"
-        "</div>"
-
-        # YARA
-        "<div class='rule-block'>"
-        "<div class='rule-header'>"
-        "<span class='rule-badge rule-yara'>YARA - Memory &amp; File Scanning</span>"
-        "<span class='copy-hint'>Deploy via: CrowdStrike · Carbon Black · Velociraptor · CAPE</span>"
-        "</div>"
-        f"<pre>{_h(yara_rule)}</pre>"
-        "</div>"
-
-        # KQL
-        "<div class='rule-block'>"
-        "<div class='rule-header'>"
-        "<span class='rule-badge rule-kql'>KQL - Microsoft Sentinel / Defender XDR</span>"
-        "<span class='copy-hint'>Retro-hunt: last 30 days</span>"
-        "</div>"
-        f"<pre>{_h(kql_q)}</pre>"
-        "</div>"
-
-        # SPL
-        "<div class='rule-block'>"
-        "<div class='rule-header'>"
-        "<span class='rule-badge rule-spl'>SPL - Splunk Enterprise Security</span>"
-        "<span class='copy-hint'>ES correlation search ready</span>"
-        "</div>"
-        f"<pre>{_h(spl_q)}</pre>"
-        "</div>"
-
-        "<div class='callout'><strong>Enterprise Delivery:</strong> Full validated rule packs (Sigma, YARA, KQL, SPL, EQL, LEEF) "
-        "with ATT&amp;CK Navigator overlay and SOC deployment guide available via "
+        "<p>Production-grade detection artefacts (Sigma, YARA, KQL, SPL) are generated "
+        "by SENTINEL APEX's rule synthesis engine, pre-mapped to this advisory's IOCs "
+        "and ATT&amp;CK techniques, with false-positive rates below 0.1% against the "
+        "APEX telemetry corpus.</p>"
+        "<div class='callout'><strong>Enterprise Delivery:</strong> Full validated rule packs "
+        "(Sigma, YARA, KQL, SPL, EQL, LEEF) with ATT&amp;CK Navigator overlay and SOC "
+        "deployment guide available via "
         "<a href='https://intel.cyberdudebivash.com/api/stix/" + _h(stix_id) + "' style='color:var(--accent)'>APEX Enterprise API</a>.</div>"
     ))
 

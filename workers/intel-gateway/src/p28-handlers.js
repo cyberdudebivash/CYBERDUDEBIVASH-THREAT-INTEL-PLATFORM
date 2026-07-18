@@ -698,6 +698,21 @@ export async function handleP28Feedback(request, env) {
   if (request.method !== "POST") {
     return _jsonResp({ error: "POST required" }, 405);
   }
+  // This widget is embedded directly in public report pages (buildP28FeedbackBlock
+  // renders it into every report), so it's intentionally reachable without a paid
+  // API key -- anonymous "was this helpful" feedback is the intended UX. But with
+  // no auth AND no rate limit, it was a fully open, unbounded state-changing write
+  // (KV storage abuse, fake-rating flooding). Cap per-IP instead of requiring auth,
+  // which would break the legitimate anonymous use case.
+  const ip = request.headers.get("CF-Connecting-IP") || request.headers.get("X-Forwarded-For") || "unknown";
+  if (env.RATE_LIMIT_KV) {
+    const rlKey = `p28fb_rl:${ip}:${new Date().toISOString().slice(0, 13)}`; // hour bucket
+    const rlCount = parseInt((await env.RATE_LIMIT_KV.get(rlKey)) || "0", 10);
+    if (rlCount >= 20) {
+      return _jsonResp({ error: "Too many feedback submissions from this network. Try again later." }, 429);
+    }
+    await env.RATE_LIMIT_KV.put(rlKey, String(rlCount + 1), { expirationTtl: 3600 });
+  }
   let body;
   try { body = await request.json(); } catch (_) {
     return _jsonResp({ error: "Invalid JSON body" }, 400);
