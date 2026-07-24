@@ -64,11 +64,19 @@ SEVERITY_EMOJI = {
     "LOW":      "🔵",
 }
 
-# Detection pack product keywords to match against Gumroad product names
-DETECTION_PACK_KEYWORDS = [
-    "detection", "pack", "sigma", "yara", "kql", "rule", "hunt",
-    "threat", "intel", "bundle", "soc", "siem",
-]
+# Only products created by gumroad_publisher.py's create_product() carry this
+# exact name prefix ("Sentinel APEX Detection Pack -- {title}"). Previously
+# this matched on generic single words (detection/pack/sigma/yara/kql/rule/
+# hunt/threat/intel/bundle/soc/siem) checked against every product's name AND
+# existing description -- catastrophically broad for a cybersecurity-tools
+# catalog, since nearly every listing's real copy naturally contains several
+# of those words. It fully replaced unrelated products' real descriptions
+# (LLM FORTRESS, AGENTGUARD PRO, CyberTwin, SovereignSOC, VIRALSHOCK AI) with
+# the generic daily digest, and would have done the same to SENTINEL APEX's
+# own subscription-tier descriptions on its next run. Found and fixed
+# 2026-07-24; see gumroad-refresh.yml for why the automatic trigger is also
+# disabled, not just this heuristic narrowed.
+DETECTION_PACK_NAME_PREFIX = "sentinel apex detection pack"
 
 
 # ── Gumroad API Layer ─────────────────────────────────────────────────────────
@@ -191,11 +199,13 @@ def collect_rule_stats(feed: list[dict]) -> dict[str, int]:
 
 # ── Description Builder ───────────────────────────────────────────────────────
 def is_detection_pack(product: dict) -> bool:
-    """Heuristic: match products that are detection/threat rule packs."""
-    name = (product.get("name") or "").lower()
-    desc = (product.get("description") or "").lower()
-    combined = name + " " + desc
-    return any(kw in combined for kw in DETECTION_PACK_KEYWORDS)
+    """Match only products actually created as detection packs by
+    gumroad_publisher.py -- identified by their exact name prefix, not by
+    generic cybersecurity vocabulary that any product in this catalog could
+    plausibly contain in its name or (worse) its already-written description.
+    """
+    name = (product.get("name") or "").strip().lower()
+    return name.startswith(DETECTION_PACK_NAME_PREFIX)
 
 
 def build_detection_pack_description(feed: list[dict], product: dict) -> str:

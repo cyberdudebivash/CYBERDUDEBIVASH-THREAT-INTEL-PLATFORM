@@ -22,17 +22,22 @@
 
 name: gumroad-refresh
 
+# DISABLED 2026-07-24: automatic schedule/workflow_run triggers removed.
+# is_detection_pack()'s keyword heuristic (any of: detection, pack, sigma,
+# yara, kql, rule, hunt, threat, intel, bundle, soc, siem -- matched against
+# every product's name AND existing description) is far too broad for a
+# catalog that now sells 40+ diverse cybersecurity products, not just one
+# detection-pack listing. It fired against unrelated products (LLM FORTRESS,
+# AGENTGUARD PRO, CyberTwin, SovereignSOC, VIRALSHOCK AI) and fully replaced
+# their real descriptions with the generic daily digest -- and would have
+# done the same to SENTINEL APEX's own subscription-tier descriptions on its
+# next scheduled run, since those are literally named "Sentinel APEX...".
+# The underlying business model has moved from "sell today's fresh pack" to
+# "sell stable subscription tiers" -- there is no longer a product this
+# script's original behavior is correct for. Manual dispatch is left
+# available below for a conscious, scoped future use; see is_detection_pack()
+# in scripts/gumroad_auto_refresh.py for the same finding recorded in code.
 on:
-  schedule:
-    # 08:30 UTC daily -- after telegram-revenue, after sentinel-blogger
-    - cron: '30 8 * * *'
-
-  # Run after sentinel-blogger completes (feed is freshest then)
-  workflow_run:
-    workflows: ["sentinel-blogger"]
-    types: [completed]
-    branches: [main]
-
   workflow_dispatch:
     inputs:
       dry_run:

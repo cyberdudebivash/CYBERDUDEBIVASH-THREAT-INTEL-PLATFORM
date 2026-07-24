@@ -75,7 +75,7 @@ If they ask "Is this real data?" → *"Every advisory is sourced from live feeds
 
 ### 16:00 — Platform scale proof points
 - Return to homepage, scroll to the metrics strip
-- Call out: **43,000+ intel reports · 74 live feeds · 24/7 pipeline**
+- Call out: **2,600+ intel reports · 74 live feeds · 24/7 pipeline**
 - **Key talking point**: *"No analyst team generates this volume. This is the equivalent of a 40-person threat intelligence team running 24 hours a day — delivered as an API."*
 
 ### 18:00 — ROI Calculator
