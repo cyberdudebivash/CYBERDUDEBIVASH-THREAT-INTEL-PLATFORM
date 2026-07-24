@@ -29,7 +29,7 @@
 |---|---|
 | Active Advisories | 77+ |
 | Intel Feeds | 74 |
-| Total Reports Generated | 43,000+ |
+| Total Reports Generated | 2,600+ |
 | API Uptime | 99.9% |
 | STIX 2.1 Bundles | Full export |
 | MITRE ATT&CK Coverage | Multi-tactic mapping |

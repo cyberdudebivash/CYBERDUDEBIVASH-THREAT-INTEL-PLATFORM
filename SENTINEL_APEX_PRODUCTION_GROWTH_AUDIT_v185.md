@@ -54,7 +54,7 @@
 **R-02 · Executive Weekly Threat Brief Upsell ($99/month add-on)**
 - **Revenue Impact:** +$2,000–$5,000 MRR from existing free users
 - **IC:** 2 · **ROI:** 500% · **TtV:** 14 days
-- Board-level PDF + email briefing, every Monday. Curated top 10 threats with CISO-ready language. Sells to CISOs who don't log into the dashboard daily. Add as standalone add-on to Free and PRO tiers. Already have 43K+ report library to draw from.
+- Board-level PDF + email briefing, every Monday. Curated top 10 threats with CISO-ready language. Sells to CISOs who don't log into the dashboard daily. Add as standalone add-on to Free and PRO tiers. Already have 2,600+ report library to draw from.
 
 ---
 
@@ -149,7 +149,7 @@
 **R-15 · Free Threat Brief Email List (100K subscribers → $10M ARR path)**
 - **Revenue Impact:** +$8,000–$20,000 MRR in 90 days; transformational at scale
 - **IC:** 2 · **ROI:** 2000% long-term · **TtV:** 14 days
-- Build a free weekly email briefing (TLP:CLEAR, top 5 threats, no login required). Target 100,000 security professionals. 1% conversion to PRO = 1,000 customers = $49,000 MRR from email alone. Partner with Substack or Mailchimp. Use 43K+ report library for content.
+- Build a free weekly email briefing (TLP:CLEAR, top 5 threats, no login required). Target 100,000 security professionals. 1% conversion to PRO = 1,000 customers = $49,000 MRR from email alone. Partner with Substack or Mailchimp. Use 2,600+ report library for content.
 
 ---
 
