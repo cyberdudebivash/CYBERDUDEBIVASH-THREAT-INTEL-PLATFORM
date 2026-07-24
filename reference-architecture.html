@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Reference Architecture — SENTINEL APEX Platform Design | CYBERDUDEBIVASH</title>
+<meta name="description" content="SENTINEL APEX reference architecture: feed ingestion pipeline, AI enrichment engine, STIX 2.1 delivery, SIEM integration, MSSP multi-tenant topology, and security control layers.">
+<meta property="og:title" content="SENTINEL APEX Reference Architecture — Platform Design Documentation">
+<meta property="og:description" content="Technical architecture diagram for SENTINEL APEX: 74-feed ingestion, AI enrichment, REST API / TAXII 2.1, SIEM webhook push, and MSSP white-label multi-tenant design.">
+<meta property="og:url" content="https://intel.cyberdudebivash.com/reference-architecture.html">
+<link rel="canonical" href="https://intel.cyberdudebivash.com/reference-architecture.html">
+<link rel="icon" href="/favicon.ico">
+<style>
+:root{--bg:#050c18;--card:#0b1422;--border:#162030;--accent:#00ffc6;--purple:#7c3aed;--blue:#3b82f6;--text:#e2e8f0;--muted:#64748b;--green:#10b981;--yellow:#f59e0b;--red:#ef4444;}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,sans-serif;line-height:1.6;}
+nav{display:flex;align-items:center;justify-content:space-between;padding:14px 32px;background:rgba(5,12,24,0.97);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:100;}
+.nav-logo{font-family:monospace;font-weight:900;font-size:13px;color:var(--accent);letter-spacing:2px;text-decoration:none;}
+.nav-links a{color:var(--muted);text-decoration:none;font-size:12px;margin-left:16px;}
+.nav-cta{background:var(--accent);color:#000;padding:7px 16px;border-radius:6px;font-weight:800;font-size:12px;text-decoration:none;margin-left:16px;}
+.hero{padding:64px 24px 48px;text-align:center;border-bottom:1px solid var(--border);}
+.eyebrow{display:inline-flex;align-items:center;gap:8px;background:rgba(0,255,198,0.08);border:1px solid rgba(0,255,198,0.2);border-radius:20px;padding:6px 18px;font-size:11px;color:var(--accent);letter-spacing:1.5px;font-family:monospace;margin-bottom:16px;}
+.hero h1{font-size:clamp(24px,3.5vw,44px);font-weight:900;margin-bottom:12px;}
+.hero h1 span{color:var(--accent);}
+.hero-sub{font-size:15px;color:var(--muted);max-width:620px;margin:0 auto 28px;}
+.hero-btns{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;}
+.btn-primary{background:var(--accent);color:#000;padding:12px 28px;border-radius:8px;font-weight:800;font-size:13px;text-decoration:none;}
+.btn-outline{background:transparent;color:var(--text);padding:12px 24px;border-radius:8px;font-weight:700;font-size:13px;text-decoration:none;border:1px solid var(--border);}
+.main{max-width:1080px;margin:0 auto;padding:64px 24px;}
+.section-label{font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--accent);font-family:monospace;margin-bottom:8px;}
+.section-h2{font-size:clamp(18px,2.8vw,26px);font-weight:900;margin-bottom:24px;}
+/* Architecture diagram boxes */
+.arch-wrap{overflow-x:auto;margin-bottom:72px;}
+.arch{min-width:700px;padding:8px;}
+/* Tier rows */
+.tier{margin-bottom:20px;}
+.tier-label{font-size:10px;font-weight:700;letter-spacing:2px;color:var(--muted);font-family:monospace;text-transform:uppercase;margin-bottom:8px;padding-left:4px;}
+.tier-row{display:flex;gap:10px;align-items:stretch;flex-wrap:nowrap;}
+/* Box styles */
+.abox{border-radius:10px;padding:14px 16px;font-size:12px;font-weight:600;text-align:center;position:relative;flex:1;min-width:100px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;}
+.abox-label{font-size:10px;color:rgba(255,255,255,0.5);font-weight:400;}
+.abox-title{font-size:12px;font-weight:700;line-height:1.3;}
+/* Color variants */
+.abox-feed{background:rgba(59,130,246,0.12);border:1px solid rgba(59,130,246,0.3);color:#93c5fd;}
+.abox-ai{background:rgba(124,58,237,0.15);border:1px solid rgba(124,58,237,0.4);color:#c4b5fd;}
+.abox-api{background:rgba(0,255,198,0.1);border:1px solid rgba(0,255,198,0.3);color:var(--accent);}
+.abox-siem{background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.3);color:#fcd34d;}
+.abox-mssp{background:rgba(16,185,129,0.1);border:1px solid rgba(16,185,129,0.3);color:#6ee7b7;}
+.abox-sec{background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.2);color:#fca5a5;}
+.abox-store{background:rgba(100,116,139,0.12);border:1px solid rgba(100,116,139,0.25);color:#94a3b8;}
+/* Arrow */
+.arrow-down{text-align:center;color:rgba(0,255,198,0.4);font-size:18px;line-height:1;padding:4px 0;}
+.arrow-row{display:flex;gap:10px;justify-content:center;padding:4px 0;}
+.arrow-item{flex:1;min-width:100px;text-align:center;color:rgba(0,255,198,0.3);font-size:16px;}
+/* Component detail cards */
+.comp-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:20px;margin-bottom:56px;}
+.comp-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:24px;}
+.comp-card h4{font-size:14px;font-weight:800;margin-bottom:8px;display:flex;align-items:center;gap:8px;}
+.comp-card p{font-size:12px;color:var(--muted);line-height:1.7;}
+.comp-card ul{font-size:12px;color:var(--muted);padding-left:16px;margin-top:8px;line-height:1.8;}
+.comp-card ul li::marker{color:var(--accent);}
+/* Integration table */
+.integ-table{width:100%;border-collapse:collapse;margin-bottom:56px;font-size:13px;}
+.integ-table th{text-align:left;padding:10px 14px;font-size:11px;font-weight:700;color:var(--muted);letter-spacing:1px;text-transform:uppercase;border-bottom:1px solid var(--border);background:var(--card);}
+.integ-table td{padding:12px 14px;border-bottom:1px solid rgba(22,32,48,0.6);}
+.integ-table td:first-child{font-weight:700;}
+.integ-table tr:last-child td{border-bottom:none;}
+.badge{display:inline-block;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;font-family:monospace;}
+.badge-live{background:rgba(16,185,129,0.12);color:var(--green);}
+.badge-road{background:rgba(245,158,11,0.1);color:var(--yellow);}
+/* Feed list */
+.feed-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:8px;margin-bottom:56px;}
+.feed-item{background:rgba(11,20,34,0.8);border:1px solid var(--border);border-radius:6px;padding:8px 12px;font-size:11px;font-family:monospace;color:var(--muted);display:flex;align-items:center;gap:6px;}
+.feed-dot{width:5px;height:5px;border-radius:50%;background:var(--accent);flex-shrink:0;}
+/* CTA */
+.cta-section{background:linear-gradient(135deg,rgba(0,255,198,0.05),rgba(124,58,237,0.06));border:1px solid rgba(0,255,198,0.15);border-radius:16px;padding:48px 32px;text-align:center;}
+.cta-section h2{font-size:clamp(20px,3vw,30px);font-weight:900;margin-bottom:12px;}
+.cta-section p{color:var(--muted);margin-bottom:24px;}
+footer{border-top:1px solid var(--border);padding:28px 24px;text-align:center;font-size:12px;color:var(--muted);}
+footer a{color:var(--muted);text-decoration:none;margin:0 10px;}
+@media(max-width:768px){nav .nav-links{display:none;}}
+</style>
+</head>
+<body>
+
+<nav>
+  <a href="/" class="nav-logo">CDB® SENTINEL APEX</a>
+  <div class="nav-links">
+    <a href="/">Dashboard</a>
+    <a href="/api-docs.html">API Docs</a>
+    <a href="/enterprise.html">Enterprise</a>
+    <a href="/security-compliance.html">Security</a>
+    <a href="/upgrade.html" class="nav-cta">Start Trial</a>
+  </div>
+</nav>
+
+<div class="hero">
+  <div class="eyebrow">🏗️ PLATFORM ARCHITECTURE</div>
+  <h1>SENTINEL APEX<br/><span>Reference Architecture</span></h1>
+  <p class="hero-sub">End-to-end design documentation: feed ingestion, AI enrichment pipeline, STIX 2.1 delivery layers, SIEM integration patterns, and MSSP multi-tenant topology. v185.0.</p>
+  <div class="hero-btns">
+    <a href="#architecture" class="btn-primary">View Architecture →</a>
+    <a href="/enterprise-procurement-pack.html" class="btn-outline">Procurement Pack</a>
+    <a href="/executive-briefing.html" class="btn-outline">Executive Briefing</a>
+  </div>
+</div>
+
+<div class="main">
+
+  <!-- HIGH-LEVEL ARCHITECTURE DIAGRAM -->
+  <div id="architecture" class="section-label">PLATFORM DESIGN</div>
+  <h2 class="section-h2">High-Level Architecture</h2>
+  <div class="arch-wrap">
+  <div class="arch">
+
+    <!-- LAYER 0: Intelligence Sources -->
+    <div class="tier">
+      <div class="tier-label">Layer 0 — Intelligence Sources (74 Live Feeds)</div>
+      <div class="tier-row">
+        <div class="abox abox-feed"><div class="abox-label">GOV</div><div class="abox-title">CISA KEV / NVD</div></div>
+        <div class="abox abox-feed"><div class="abox-label">THREAT INTEL</div><div class="abox-title">AlienVault OTX</div></div>
+        <div class="abox abox-feed"><div class="abox-label">THREAT INTEL</div><div class="abox-title">MISP Feeds</div></div>
+        <div class="abox abox-feed"><div class="abox-label">VULN</div><div class="abox-title">Exploit-DB</div></div>
+        <div class="abox abox-feed"><div class="abox-label">MALWARE</div><div class="abox-title">MalwareBazaar</div></div>
+        <div class="abox abox-feed"><div class="abox-label">CERT</div><div class="abox-title">RSS / Atom Feeds</div></div>
+        <div class="abox abox-feed"><div class="abox-label">FRAMEWORK</div><div class="abox-title">MITRE ATT&amp;CK</div></div>
+        <div class="abox abox-feed" style="background:rgba(59,130,246,0.06);border-style:dashed;"><div class="abox-label">+67 MORE</div><div class="abox-title">See Feed List</div></div>
+      </div>
+    </div>
+
+    <div class="arrow-down">↓↓↓ Feed Ingest — every 6–8 hours ↓↓↓</div>
+
+    <!-- LAYER 1: Ingestion -->
+    <div class="tier">
+      <div class="tier-label">Layer 1 — Feed Ingest &amp; Normalisation</div>
+      <div class="tier-row">
+        <div class="abox abox-ai"><div class="abox-label">SCHEDULER</div><div class="abox-title">Pipeline Orchestrator<br/>(CI/CD — 45 stages)</div></div>
+        <div class="abox abox-ai"><div class="abox-label">PARSER</div><div class="abox-title">Multi-format Parser<br/>(JSON / XML / RSS / STIX)</div></div>
+        <div class="abox abox-ai"><div class="abox-label">NORMALISER</div><div class="abox-title">Schema Normaliser<br/>(Unified Advisory Model)</div></div>
+        <div class="abox abox-ai"><div class="abox-label">IOC GATE</div><div class="abox-title">IOC Quality Governor<br/>v1.1 — FP &lt;5% target</div></div>
+      </div>
+    </div>
+
+    <div class="arrow-down">↓ Normalised advisory objects ↓</div>
+
+    <!-- LAYER 2: AI Enrichment -->
+    <div class="tier">
+      <div class="tier-label">Layer 2 — AI Enrichment Engine</div>
+      <div class="tier-row">
+        <div class="abox abox-ai"><div class="abox-label">CLASSIFICATION</div><div class="abox-title">Severity + Confidence<br/>Scoring (CVSS / EPSS)</div></div>
+        <div class="abox abox-ai"><div class="abox-label">MAPPING</div><div class="abox-title">MITRE ATT&amp;CK v15<br/>Tactic / Technique</div></div>
+        <div class="abox abox-ai"><div class="abox-label">ATTRIBUTION</div><div class="abox-title">Actor Attribution<br/>+ Campaign Clustering</div></div>
+        <div class="abox abox-ai"><div class="abox-label">DETECTION</div><div class="abox-title">Sigma / KQL /<br/>Suricata Rule Gen</div></div>
+        <div class="abox abox-ai"><div class="abox-label">PACKAGING</div><div class="abox-title">STIX 2.1 Bundle<br/>Assembly</div></div>
+      </div>
+    </div>
+
+    <div class="arrow-down">↓ Enriched STIX 2.1 objects ↓</div>
+
+    <!-- LAYER 3: Data Store -->
+    <div class="tier">
+      <div class="tier-label">Layer 3 — Data Store &amp; Cache</div>
+      <div class="tier-row">
+        <div class="abox abox-store"><div class="abox-label">PRIMARY</div><div class="abox-title">Advisory DB<br/>(structured + indexed)</div></div>
+        <div class="abox abox-store"><div class="abox-label">IOC STORE</div><div class="abox-title">IOC Feed Store<br/>(IPs, domains, hashes)</div></div>
+        <div class="abox abox-store"><div class="abox-label">CACHE</div><div class="abox-title">API Response Cache<br/>(TTL: 10 min)</div></div>
+        <div class="abox abox-store"><div class="abox-label">BLOB</div><div class="abox-title">STIX Bundle Store<br/>(AWS S3 / CDN)</div></div>
+      </div>
+    </div>
+
+    <div class="arrow-down">↓ Delivery Layer ↓</div>
+
+    <!-- LAYER 4: Delivery -->
+    <div class="tier">
+      <div class="tier-label">Layer 4 — Delivery &amp; API Layer (TLS 1.3 · AES-256)</div>
+      <div class="tier-row">
+        <div class="abox abox-api"><div class="abox-label">REST API</div><div class="abox-title">REST API v1<br/>(X-API-Key · HMAC-SHA256)</div></div>
+        <div class="abox abox-api"><div class="abox-label">TAXII 2.1</div><div class="abox-title">TAXII 2.1 Server<br/>(Collection-based)</div></div>
+        <div class="abox abox-api"><div class="abox-label">WEBHOOK</div><div class="abox-title">Push Webhooks<br/>(HMAC-signed · STIX 2.1)</div></div>
+        <div class="abox abox-api"><div class="abox-label">DASHBOARD</div><div class="abox-title">Web Dashboard<br/>(Public + Authenticated)</div></div>
+      </div>
+    </div>
+
+    <div class="arrow-down">↓ Customer Integration Layer ↓</div>
+
+    <!-- LAYER 5: Customer -->
+    <div class="tier">
+      <div class="tier-label">Layer 5 — Customer Integration Patterns</div>
+      <div class="tier-row">
+        <div class="abox abox-siem"><div class="abox-label">SIEM</div><div class="abox-title">Splunk / Microsoft<br/>Sentinel / QRadar</div></div>
+        <div class="abox abox-siem"><div class="abox-label">SOAR</div><div class="abox-title">Palo Alto XSOAR /<br/>Splunk SOAR</div></div>
+        <div class="abox abox-siem"><div class="abox-label">TIP</div><div class="abox-title">MISP / OpenCTI /<br/>Anomali ThreatStream</div></div>
+        <div class="abox abox-siem"><div class="abox-label">EDR</div><div class="abox-title">CrowdStrike / SentinelOne<br/>(IOC push)</div></div>
+        <div class="abox abox-siem"><div class="abox-label">FIREWALL</div><div class="abox-title">Palo Alto / Fortinet<br/>(Suricata rules)</div></div>
+        <div class="abox abox-mssp"><div class="abox-label">MSSP</div><div class="abox-title">White-Label<br/>Multi-Tenant Portal</div></div>
+      </div>
+    </div>
+
+    <div class="arrow-down" style="color:rgba(239,68,68,0.4);">↕ Security Controls (all layers) ↕</div>
+
+    <!-- LAYER 6: Security -->
+    <div class="tier">
+      <div class="tier-label">Cross-Cutting — Security Controls</div>
+      <div class="tier-row">
+        <div class="abox abox-sec"><div class="abox-title">RBAC + MFA</div></div>
+        <div class="abox abox-sec"><div class="abox-title">TLP Classification</div></div>
+        <div class="abox abox-sec"><div class="abox-title">Audit Logging</div></div>
+        <div class="abox abox-sec"><div class="abox-title">Rate Limiting</div></div>
+        <div class="abox abox-sec"><div class="abox-title">IP Allowlist</div></div>
+        <div class="abox abox-sec"><div class="abox-title">DDoS Protection<br/>(Cloudflare)</div></div>
+      </div>
+    </div>
+
+  </div>
+  </div>
+
+  <!-- MSSP MULTI-TENANT TOPOLOGY -->
+  <div class="section-label">MSSP TOPOLOGY</div>
+  <h2 class="section-h2">MSSP White-Label Multi-Tenant Design</h2>
+  <div class="arch-wrap" style="margin-bottom:56px;">
+  <div class="arch">
+    <div class="tier">
+      <div class="tier-label">SENTINEL APEX Core Platform</div>
+      <div class="tier-row">
+        <div class="abox abox-ai" style="flex:3;"><div class="abox-title">SENTINEL APEX Enrichment + Delivery Engine<br/><span style="font-size:10px;font-weight:400;">intel.cyberdudebivash.com · api.intel.cyberdudebivash.com</span></div></div>
+        <div class="abox abox-api" style="flex:1;"><div class="abox-title">MSSP Partner API<br/>/api/v1/mssp/</div></div>
+      </div>
+    </div>
+    <div class="arrow-down">↓ Tenant isolation — hard boundary per MSSP ↓</div>
+    <div class="tier">
+      <div class="tier-label">MSSP Operator (Your Brand)</div>
+      <div class="tier-row">
+        <div class="abox abox-mssp" style="flex:2;"><div class="abox-label">MSSP PORTAL</div><div class="abox-title">intel.yourcompany.com<br/>(CNAME → mssp-portal.intel.cyberdudebivash.com)</div></div>
+        <div class="abox abox-mssp"><div class="abox-label">MANAGEMENT</div><div class="abox-title">Tenant Management<br/>API + Dashboard</div></div>
+        <div class="abox abox-mssp"><div class="abox-label">COMMISSION</div><div class="abox-title">Revenue Share<br/>Up to 25%</div></div>
+      </div>
+    </div>
+    <div class="arrow-down">↓ Per-tenant sub-keys · per-tenant webhooks ↓</div>
+    <div class="tier">
+      <div class="tier-label">MSSP Clients (Your Customers — Unlimited)</div>
+      <div class="tier-row">
+        <div class="abox abox-siem"><div class="abox-label">CLIENT A</div><div class="abox-title">Enterprise SOC<br/>sub-key + webhook</div></div>
+        <div class="abox abox-siem"><div class="abox-label">CLIENT B</div><div class="abox-title">SMB Client<br/>PRO sub-key</div></div>
+        <div class="abox abox-siem"><div class="abox-label">CLIENT C</div><div class="abox-title">Financial Services<br/>Custom feed filter</div></div>
+        <div class="abox abox-siem" style="background:rgba(100,116,139,0.08);border-style:dashed;"><div class="abox-label">…</div><div class="abox-title">Unlimited tenants</div></div>
+      </div>
+    </div>
+  </div>
+  </div>
+
+  <!-- COMPONENT DETAIL -->
+  <div class="section-label">COMPONENT DETAIL</div>
+  <h2 class="section-h2">Key Component Specifications</h2>
+  <div class="comp-grid">
+    <div class="comp-card">
+      <h4>🔄 Pipeline Orchestrator</h4>
+      <p>45-stage CI/CD pipeline running on GitHub Actions. Feed ingestion every 6–8 hours with automated retry on failure. Pipeline health monitored with Slack/Telegram alerting.</p>
+      <ul>
+        <li>GitHub Actions runners (hosted)</li>
+        <li>Idempotent feed re-ingestion</li>
+        <li>Regression immunity suite (24 test cases)</li>
+        <li>Auto-rollback on quality gate failure</li>
+      </ul>
+    </div>
+    <div class="comp-card">
+      <h4>🤖 AI Enrichment Engine</h4>
+      <p>Processes each advisory through classification, MITRE ATT&CK mapping, actor attribution, and detection rule generation. Quality scores assigned before publish.</p>
+      <ul>
+        <li>CVSS v3.1 + EPSS enrichment</li>
+        <li>ATT&CK v15 tactic/technique ID validation</li>
+        <li>Sigma + KQL + Suricata rule templates</li>
+        <li>Confidence score (0.0–1.0)</li>
+      </ul>
+    </div>
+    <div class="comp-card">
+      <h4>🔍 IOC Quality Governor v1.1</h4>
+      <p>Three-step classifier: (1) unambiguous type match, (2) artifact rejection, (3) network/email IOC parsing. 22 valid IOC types; false-positive rate target &lt;5%.</p>
+      <ul>
+        <li>IPv4/IPv6/CIDR, Domain, URL</li>
+        <li>MD5/SHA1/SHA256/SHA512</li>
+        <li>CVE ID, MITRE TTP, Registry Key</li>
+        <li>Filename, ASN, GUID, Mutex</li>
+      </ul>
+    </div>
+    <div class="comp-card">
+      <h4>📡 STIX 2.1 / TAXII 2.1 Layer</h4>
+      <p>All enriched advisories serialised as STIX 2.1 bundles containing Indicator, Malware, AttackPattern, ThreatActor, and Vulnerability objects with full relationship graphs.</p>
+      <ul>
+        <li>TAXII 2.1 collection endpoint</li>
+        <li>HTTPS transport binding</li>
+        <li>Supports MISP, OpenCTI, Anomali</li>
+        <li>SHA-256 per-bundle content hash</li>
+      </ul>
+    </div>
+    <div class="comp-card">
+      <h4>🔐 Security Control Layer</h4>
+      <p>Defence-in-depth across all platform layers: TLS 1.3 in transit, AES-256 at rest, RBAC + MFA, Cloudflare DDoS, CSP Level 3, HSTS, audit logging.</p>
+      <ul>
+        <li>bcrypt cost-12 for API key storage</li>
+        <li>HMAC-SHA256 request signing</li>
+        <li>IP CIDR allowlisting (Enterprise)</li>
+        <li>90-day audit log retention</li>
+      </ul>
+    </div>
+    <div class="comp-card">
+      <h4>🏗️ Infrastructure</h4>
+      <p>AWS ap-south-1 (Mumbai) for compute and primary storage. Cloudflare for CDN, WAF, and DDoS mitigation. Daily config backups. DR runbook with automated recovery.</p>
+      <ul>
+        <li>AWS ap-south-1 (India region)</li>
+        <li>Cloudflare CDN + WAF</li>
+        <li>S3 for STIX bundle storage</li>
+        <li>99.9% monthly uptime SLA (Enterprise)</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- SIEM INTEGRATION TABLE -->
+  <div class="section-label">INTEGRATIONS</div>
+  <h2 class="section-h2">SIEM &amp; Tool Integration Reference</h2>
+  <table class="integ-table">
+    <thead>
+      <tr><th>Platform</th><th>Integration Method</th><th>Data Format</th><th>Status</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Microsoft Sentinel</td><td>Webhook push · KQL query import · TAXII 2.1</td><td>STIX 2.1 · KQL · JSON</td><td><span class="badge badge-live">LIVE</span></td></tr>
+      <tr><td>Splunk Enterprise / SIEM</td><td>Webhook push · REST API pull · Sigma rule import</td><td>Sigma · JSON · STIX 2.1</td><td><span class="badge badge-live">LIVE</span></td></tr>
+      <tr><td>IBM QRadar</td><td>TAXII 2.1 collection · REST API</td><td>STIX 2.1 · JSON</td><td><span class="badge badge-live">LIVE</span></td></tr>
+      <tr><td>MISP</td><td>STIX 2.1 import · TAXII 2.1 push</td><td>STIX 2.1 · MISP format</td><td><span class="badge badge-live">LIVE</span></td></tr>
+      <tr><td>OpenCTI</td><td>STIX 2.1 bundle import · TAXII 2.1</td><td>STIX 2.1</td><td><span class="badge badge-live">LIVE</span></td></tr>
+      <tr><td>CrowdStrike Falcon</td><td>IOC bulk push via REST API</td><td>JSON (IPs, hashes, domains)</td><td><span class="badge badge-live">LIVE</span></td></tr>
+      <tr><td>Palo Alto XSOAR</td><td>Webhook integration · custom playbook</td><td>JSON · STIX 2.1</td><td><span class="badge badge-live">LIVE</span></td></tr>
+      <tr><td>Elastic Security</td><td>Webhook · REST API · Sigma rules</td><td>Sigma (Elastic EQL) · JSON</td><td><span class="badge badge-live">LIVE</span></td></tr>
+      <tr><td>Palo Alto Cortex XDR</td><td>IOC feed via REST API</td><td>JSON</td><td><span class="badge badge-road">ROADMAP Q3 2026</span></td></tr>
+      <tr><td>ServiceNow VR</td><td>CVE / KEV data via REST API</td><td>JSON</td><td><span class="badge badge-road">ROADMAP Q4 2026</span></td></tr>
+    </tbody>
+  </table>
+
+  <!-- FEED LIST -->
+  <div class="section-label">FEED CATALOGUE</div>
+  <h2 class="section-h2">Active Intelligence Feeds (74)</h2>
+  <div class="feed-grid">
+    <div class="feed-item"><span class="feed-dot"></span>CISA KEV</div>
+    <div class="feed-item"><span class="feed-dot"></span>NVD / CVE</div>
+    <div class="feed-item"><span class="feed-dot"></span>MITRE ATT&CK</div>
+    <div class="feed-item"><span class="feed-dot"></span>AlienVault OTX</div>
+    <div class="feed-item"><span class="feed-dot"></span>Exploit-DB</div>
+    <div class="feed-item"><span class="feed-dot"></span>MalwareBazaar</div>
+    <div class="feed-item"><span class="feed-dot"></span>Abuse.ch URLhaus</div>
+    <div class="feed-item"><span class="feed-dot"></span>MISP Default Feeds</div>
+    <div class="feed-item"><span class="feed-dot"></span>Feodo Tracker</div>
+    <div class="feed-item"><span class="feed-dot"></span>PhishTank</div>
+    <div class="feed-item"><span class="feed-dot"></span>OpenPhish</div>
+    <div class="feed-item"><span class="feed-dot"></span>ThreatFox</div>
+    <div class="feed-item"><span class="feed-dot"></span>CERT-IN Advisories</div>
+    <div class="feed-item"><span class="feed-dot"></span>US-CERT / NCAS</div>
+    <div class="feed-item"><span class="feed-dot"></span>ENISA Advisories</div>
+    <div class="feed-item"><span class="feed-dot"></span>Recorded Future (Free)</div>
+    <div class="feed-item"><span class="feed-dot"></span>GreyNoise Community</div>
+    <div class="feed-item"><span class="feed-dot"></span>Shodan IOCs</div>
+    <div class="feed-item"><span class="feed-dot"></span>RansomWatch</div>
+    <div class="feed-item"><span class="feed-dot"></span>NIST NVD API</div>
+    <div class="feed-item"><span class="feed-dot"></span>GitHub Advisory DB</div>
+    <div class="feed-item"><span class="feed-dot"></span>OSV Database</div>
+    <div class="feed-item"><span class="feed-dot"></span>VulDB</div>
+    <div class="feed-item"><span class="feed-dot"></span>Packetstorm</div>
+    <div class="feed-item"><span class="feed-dot"></span>BleepingComputer RSS</div>
+    <div class="feed-item"><span class="feed-dot"></span>Krebs on Security</div>
+    <div class="feed-item"><span class="feed-dot"></span>Threatpost RSS</div>
+    <div class="feed-item"><span class="feed-dot"></span>SANS Internet Storm</div>
+    <div class="feed-item"><span class="feed-dot"></span>Mandiant Threat Intel</div>
+    <div class="feed-item"><span class="feed-dot"></span>ShadowServer</div>
+    <div class="feed-item"><span class="feed-dot"></span>Spamhaus DROP</div>
+    <div class="feed-item"><span class="feed-dot"></span>CIRCL MISP</div>
+    <div class="feed-item"><span class="feed-dot"></span>Bambenek C2 List</div>
+    <div class="feed-item"><span class="feed-dot"></span>DShield</div>
+    <div class="feed-item"><span class="feed-dot"></span>EmergingThreats</div>
+    <div class="feed-item"><span class="feed-dot"></span>Cybersecurity Insiders</div>
+    <div class="feed-item"><span class="feed-dot"></span>ACSC Advisories</div>
+    <div class="feed-item"><span class="feed-dot"></span>NCSC UK</div>
+    <div class="feed-item"><span class="feed-dot"></span>BSI Germany</div>
+    <div class="feed-item"><span class="feed-dot"></span>ANSSI France</div>
+    <div class="feed-item"><span class="feed-dot"></span>NSFOCUS Threat Intel</div>
+    <div class="feed-item"><span class="feed-dot"></span>Proofpoint ET Open</div>
+    <div class="feed-item"><span class="feed-dot"></span>CrowdSec Community</div>
+    <div class="feed-item"><span class="feed-dot"></span>Maltiverse</div>
+    <div class="feed-item" style="opacity:0.5;border-style:dashed;"><span class="feed-dot" style="background:var(--muted);"></span>+ 29 more feeds</div>
+  </div>
+
+  <!-- CTA -->
+  <div class="cta-section">
+    <h2>Ready to Integrate?</h2>
+    <p>Start a 7-day free PRO trial. Full API access, STIX 2.1, TAXII 2.1, and Sigma rules — deploy to your SIEM in minutes.</p>
+    <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;">
+      <a href="/api-docs.html" class="btn-primary">API Documentation →</a>
+      <a href="/upgrade.html?plan=pro" class="btn-outline">Start Free Trial</a>
+      <a href="/enterprise-procurement-pack.html" class="btn-outline">Procurement Pack</a>
+    </div>
+  </div>
+
+</div>
+
+<footer>
+  <a href="/">Dashboard</a><a href="/api-docs.html">API Docs</a><a href="/enterprise.html">Enterprise</a>
+  <a href="/security-compliance.html">Security</a><a href="/mssp.html">MSSP</a>
+  <a href="/executive-briefing.html">Executive Briefing</a>
+  <p style="margin-top:14px;">© 2026 CYBERDUDEBIVASH® SENTINEL APEX v185.0</p>
+</footer>
+</body>
+</html>

@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sentinel APEX — Master Operations Command Center</title>
+<style>
+:root{--bg:#070b14;--surface:#0f1724;--surface2:#162030;--border:#1a2840;--accent:#00d4ff;--green:#00ff88;--yellow:#ffd700;--red:#ff4444;--orange:#ff8800;--purple:#a855f7;--pink:#f472b6;--text:#e2e8f0;--muted:#4a6080;}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:var(--bg);color:var(--text);font-family:'Segoe UI',sans-serif;min-height:100vh;overflow-x:hidden;}
+
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:10px 24px;display:flex;align-items:center;justify-content:space-between;}
+.brand{display:flex;align-items:center;gap:10px;}
+.logo-box{width:32px;height:32px;background:linear-gradient(135deg,#00d4ff,#a855f7);border-radius:7px;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:13px;color:#000;}
+.platform-title{font-size:16px;font-weight:800;}
+.platform-sub{font-size:10px;color:var(--muted);}
+.topbar-right{display:flex;align-items:center;gap:16px;font-size:12px;}
+.live-ind{display:flex;align-items:center;gap:6px;color:var(--green);}
+.live-dot{width:8px;height:8px;border-radius:50%;background:var(--green);animation:pulse 1.5s infinite;}
+@keyframes pulse{0%,100%{opacity:1;}50%{opacity:0.3;}}
+.ts{color:var(--muted);}
+
+.main-grid{display:grid;grid-template-columns:1fr 1fr 1fr 1fr 1fr 1fr;grid-template-rows:auto;gap:14px;padding:20px;min-height:calc(100vh - 52px);}
+
+.widget{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px;overflow:hidden;}
+.w-title{font-size:11px;text-transform:uppercase;letter-spacing:0.8px;color:var(--muted);margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;}
+.w-badge{font-size:10px;padding:2px 7px;border-radius:10px;font-weight:700;}
+
+/* Layout spans */
+.col-2{grid-column:span 2;}
+.col-3{grid-column:span 3;}
+.col-4{grid-column:span 4;}
+.col-6{grid-column:span 6;}
+.row-2{grid-row:span 2;}
+
+/* Big KPI */
+.big-kpi{font-size:36px;font-weight:900;line-height:1;}
+.big-kpi-sub{font-size:12px;color:var(--muted);margin-top:6px;}
+.big-kpi-delta{font-size:13px;font-weight:700;margin-top:4px;}
+
+/* Revenue bar */
+.rev-row{display:flex;align-items:center;gap:10px;margin-bottom:10px;}
+.rev-label{width:100px;font-size:12px;color:var(--muted);}
+.rev-bar-wrap{flex:1;height:8px;background:var(--border);border-radius:4px;}
+.rev-bar-fill{height:100%;border-radius:4px;}
+.rev-val{width:65px;text-align:right;font-size:12px;font-weight:700;}
+
+/* Status grid */
+.status-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.status-item{background:var(--surface2);border-radius:8px;padding:12px;text-align:center;}
+.status-val{font-size:20px;font-weight:800;}
+.status-label{font-size:10px;color:var(--muted);margin-top:3px;}
+
+/* Customer table */
+.mini-table{width:100%;border-collapse:collapse;font-size:12px;}
+.mini-table th{padding:6px 8px;text-align:left;color:var(--muted);font-size:10px;text-transform:uppercase;border-bottom:1px solid var(--border);}
+.mini-table td{padding:7px 8px;border-bottom:1px solid rgba(30,40,69,0.5);}
+.mini-table tr:last-child td{border-bottom:none;}
+
+/* Health dot */
+.h-dot{width:8px;height:8px;border-radius:50%;display:inline-block;}
+
+/* Alert feed */
+.alert-item{display:flex;gap:10px;padding:8px 0;border-bottom:1px solid rgba(30,40,69,0.6);}
+.alert-item:last-child{border-bottom:none;}
+.alert-dot{width:8px;height:8px;border-radius:50%;margin-top:4px;flex-shrink:0;}
+.alert-text{font-size:12px;line-height:1.4;}
+.alert-time{font-size:10px;color:var(--muted);margin-top:2px;}
+
+/* Gauge mini */
+.gauge-mini{display:flex;flex-direction:column;align-items:center;}
+.gauge-ring{width:70px;height:70px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:900;}
+.gauge-label{font-size:10px;color:var(--muted);margin-top:6px;text-align:center;}
+
+/* Maturity bars */
+.mat-row{display:flex;align-items:center;gap:8px;margin-bottom:8px;}
+.mat-label{width:120px;font-size:11px;color:var(--muted);}
+.mat-bar-wrap{flex:1;height:6px;background:var(--border);border-radius:3px;}
+.mat-bar-fill{height:100%;border-radius:3px;}
+.mat-score{width:35px;text-align:right;font-size:11px;font-weight:700;}
+
+/* Billing pipeline */
+.pay-item{display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--border);font-size:12px;}
+.pay-item:last-child{border-bottom:none;}
+
+/* Map placeholder */
+.world-map{background:var(--surface2);border-radius:8px;padding:12px;margin-top:8px;height:120px;display:flex;align-items:center;justify-content:center;font-size:24px;letter-spacing:4px;color:var(--muted);border:1px dashed var(--border);}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="brand">
+    <div class="logo-box">SA</div>
+    <div><div class="platform-title">SENTINEL APEX — MASTER OPERATIONS CENTER</div><div class="platform-sub">CyberDudeBivash Pvt. Ltd. · 500 Enterprise Customers · Real-time</div></div>
+  </div>
+  <div class="topbar-right">
+    <div class="live-ind"><div class="live-dot"></div>LIVE</div>
+    <span class="ts" id="ts"></span>
+    <a href="customer-health-platform.html" style="color:var(--accent);font-size:12px">Health →</a>
+    <a href="subscription-billing-center.html" style="color:var(--green);font-size:12px">Billing →</a>
+    <a href="support-center.html" style="color:var(--yellow);font-size:12px">Support →</a>
+  </div>
+</div>
+
+<div class="main-grid">
+
+  <!-- MRR -->
+  <div class="widget">
+    <div class="w-title">Monthly ARR <span class="w-badge" style="background:rgba(0,255,136,0.15);color:var(--green)">▲ +18%</span></div>
+    <div class="big-kpi" style="color:var(--green)" id="mrr">₹3.84Cr</div>
+    <div class="big-kpi-sub">Annual Recurring Revenue</div>
+    <div class="big-kpi-delta" style="color:var(--green)">↑ ₹58L vs last month</div>
+  </div>
+
+  <!-- Active Customers -->
+  <div class="widget">
+    <div class="w-title">Active Customers</div>
+    <div class="big-kpi" style="color:var(--accent)" id="active-cust">500</div>
+    <div class="big-kpi-sub">Enterprise subscribers</div>
+    <div class="big-kpi-delta" style="color:var(--green)">↑ +22 onboarded</div>
+  </div>
+
+  <!-- Health Score -->
+  <div class="widget">
+    <div class="w-title">Avg Health Score</div>
+    <div class="big-kpi" style="color:var(--yellow)">78.4</div>
+    <div class="big-kpi-sub">Platform-wide</div>
+    <div class="big-kpi-delta" style="color:var(--green)">↑ +4.2 pts</div>
+  </div>
+
+  <!-- NRR -->
+  <div class="widget">
+    <div class="w-title">Net Revenue Retention</div>
+    <div class="big-kpi" style="color:var(--purple)">114%</div>
+    <div class="big-kpi-sub">NRR (incl. expansion)</div>
+    <div class="big-kpi-delta" style="color:var(--green)">World-class (&gt;110%)</div>
+  </div>
+
+  <!-- Churn Risk -->
+  <div class="widget">
+    <div class="w-title">Churn Risk <span class="w-badge" style="background:rgba(255,68,68,0.15);color:var(--red)">URGENT</span></div>
+    <div class="big-kpi" style="color:var(--red)">27</div>
+    <div class="big-kpi-sub">Accounts at risk</div>
+    <div class="big-kpi-delta" style="color:var(--red)">~₹2.8Cr ARR exposed</div>
+  </div>
+
+  <!-- Open Tickets -->
+  <div class="widget">
+    <div class="w-title">Support Tickets</div>
+    <div class="big-kpi" style="color:var(--orange)">38</div>
+    <div class="big-kpi-sub">Open tickets</div>
+    <div class="big-kpi-delta" style="color:var(--green)">SLA met: 94.7%</div>
+  </div>
+
+  <!-- Revenue Breakdown -->
+  <div class="widget col-2">
+    <div class="w-title">Revenue by Plan</div>
+    <div class="rev-row"><span class="rev-label">MSSP</span><div class="rev-bar-wrap"><div class="rev-bar-fill" style="width:38%;background:var(--purple)"></div></div><span class="rev-val" style="color:var(--purple)">₹1.5Cr</span></div>
+    <div class="rev-row"><span class="rev-label">Enterprise</span><div class="rev-bar-wrap"><div class="rev-bar-fill" style="width:52%;background:var(--accent)"></div></div><span class="rev-val" style="color:var(--accent)">₹2.0Cr</span></div>
+    <div class="rev-row"><span class="rev-label">Professional</span><div class="rev-bar-wrap"><div class="rev-bar-fill" style="width:24%;background:var(--green)"></div></div><span class="rev-val" style="color:var(--green)">₹94L</span></div>
+    <div class="rev-row"><span class="rev-label">Starter</span><div class="rev-bar-wrap"><div class="rev-bar-fill" style="width:8%;background:var(--yellow)"></div></div><span class="rev-val" style="color:var(--yellow)">₹30L</span></div>
+  </div>
+
+  <!-- Platform Status -->
+  <div class="widget col-2">
+    <div class="w-title">Platform Status <span class="w-badge" style="background:rgba(0,255,136,0.15);color:var(--green)">ALL SYSTEMS GO</span></div>
+    <div class="status-grid">
+      <div class="status-item"><div class="status-val" style="color:var(--green)">99.97%</div><div class="status-label">Uptime (30d)</div></div>
+      <div class="status-item"><div class="status-val" style="color:var(--accent)">142ms</div><div class="status-label">API Latency P99</div></div>
+      <div class="status-item"><div class="status-val" style="color:var(--yellow)">2.3M</div><div class="status-label">API Calls Today</div></div>
+      <div class="status-item"><div class="status-val" style="color:var(--purple)">99.2%</div><div class="status-label">SLA Compliance</div></div>
+    </div>
+  </div>
+
+  <!-- Customer Health Map -->
+  <div class="widget col-2 row-2">
+    <div class="w-title">Customer Health Overview</div>
+    <div style="display:flex;justify-content:space-around;margin:10px 0;">
+      <div class="gauge-mini"><div class="gauge-ring" style="border:4px solid var(--green);color:var(--green)">82%</div><div class="gauge-label">Healthy</div></div>
+      <div class="gauge-mini"><div class="gauge-ring" style="border:4px solid var(--yellow);color:var(--yellow)">12%</div><div class="gauge-label">At Risk</div></div>
+      <div class="gauge-mini"><div class="gauge-ring" style="border:4px solid var(--red);color:var(--red)">6%</div><div class="gauge-label">Churn Risk</div></div>
+    </div>
+    <div class="w-title" style="margin-top:14px">Top At-Risk Accounts</div>
+    <table class="mini-table">
+      <thead><tr><th>Organization</th><th>Score</th><th>Issue</th><th>ARR</th></tr></thead>
+      <tbody id="risk-mini"></tbody>
+    </table>
+    <div class="world-map">🌏 · 🌎 · 🌍</div>
+  </div>
+
+  <!-- Live Alert Feed -->
+  <div class="widget col-2 row-2">
+    <div class="w-title">⚡ Live Operations Feed</div>
+    <div id="live-feed"></div>
+  </div>
+
+  <!-- Billing Pipeline -->
+  <div class="widget col-2">
+    <div class="w-title">💳 Billing Pipeline</div>
+    <div id="billing-pipeline"></div>
+  </div>
+
+  <!-- Platform Maturity -->
+  <div class="widget col-2">
+    <div class="w-title">🧠 Platform Maturity Scores</div>
+    <div id="maturity"></div>
+  </div>
+
+  <!-- API Economy -->
+  <div class="widget col-2">
+    <div class="w-title">🔌 API Economy</div>
+    <div class="status-grid">
+      <div class="status-item"><div class="status-val" style="color:var(--accent)">2.3M</div><div class="status-label">API Calls/Day</div></div>
+      <div class="status-item"><div class="status-val" style="color:var(--green)">487</div><div class="status-label">Active API Keys</div></div>
+      <div class="status-item"><div class="status-val" style="color:var(--purple)">142</div><div class="status-label">Active Webhooks</div></div>
+      <div class="status-item"><div class="status-val" style="color:var(--yellow)">99.7%</div><div class="status-label">API Success Rate</div></div>
+    </div>
+  </div>
+
+  <!-- Renewal Pipeline -->
+  <div class="widget col-3">
+    <div class="w-title">🔄 Renewal Pipeline (Next 90 Days)</div>
+    <table class="mini-table">
+      <thead><tr><th>Organization</th><th>Plan</th><th>ARR</th><th>Renewal</th><th>Health</th><th>Risk</th></tr></thead>
+      <tbody id="renewal-pipeline"></tbody>
+    </table>
+  </div>
+
+  <!-- Support SLA -->
+  <div class="widget col-3">
+    <div class="w-title">📩 Support Operations</div>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;">
+      <div class="status-item"><div class="status-val" style="color:var(--red)">38</div><div class="status-label">Open</div></div>
+      <div class="status-item"><div class="status-val" style="color:var(--yellow)">12</div><div class="status-label">P1 Critical</div></div>
+      <div class="status-item"><div class="status-val" style="color:var(--green)">94.7%</div><div class="status-label">SLA Met</div></div>
+      <div class="status-item"><div class="status-val" style="color:var(--accent)">3.2h</div><div class="status-label">Avg Resolution</div></div>
+    </div>
+    <div style="margin-top:12px;">
+      <table class="mini-table">
+        <thead><tr><th>#</th><th>Customer</th><th>Issue</th><th>Priority</th><th>Age</th></tr></thead>
+        <tbody id="tickets-mini"></tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+
+<script>
+document.getElementById('ts').textContent = new Date().toLocaleString();
+
+const riskMini = [
+  {org:'Meridian Analytics',score:28,issue:'No logins 15d',arr:'₹36L'},
+  {org:'Vertex Security',score:31,issue:'API silent',arr:'₹84L'},
+  {org:'NexGen Systems',score:38,issue:'No feed consumption',arr:'₹12L'},
+  {org:'PacificSOC Ltd',score:42,issue:'Billing dispute',arr:'₹36L'},
+];
+const rm = document.getElementById('risk-mini');
+riskMini.forEach(r => {
+  const c = r.score<40?'var(--red)':'var(--orange)';
+  rm.innerHTML += `<tr><td style="font-weight:600">${r.org}</td><td style="color:${c};font-weight:800">${r.score}</td><td style="color:var(--muted)">${r.issue}</td><td style="color:${c};font-weight:600">${r.arr}</td></tr>`;
+});
+
+const feedItems = [
+  {c:'var(--green)',t:'TechCorp Global — Invoice INV-2026-0529 paid ₹99,120',time:'2m ago'},
+  {c:'var(--accent)',t:'GlobalSOC Corp — 34 detection rules downloaded via API',time:'5m ago'},
+  {c:'var(--red)',t:'Meridian Analytics — CHURN RISK: 15th day no login [AUTO-EMAIL SENT]',time:'8m ago'},
+  {c:'var(--green)',t:'NovaSecurity — Upgraded to Enterprise plan (upsell success)',time:'14m ago'},
+  {c:'var(--yellow)',t:'Apex FinTech — Support ticket #TKT-2847 escalated to P1',time:'22m ago'},
+  {c:'var(--purple)',t:'DataSystems Inc — Webhook delivered 1,240 IOC events to Splunk',time:'28m ago'},
+  {c:'var(--orange)',t:'InfoSec Partners — Subscription renewal in 7 days — auto-reminder sent',time:'41m ago'},
+  {c:'var(--green)',t:'CloudVentures — QBR scheduled for June 3 at 14:00 IST',time:'1h ago'},
+  {c:'var(--accent)',t:'SecureBank Ltd — ATT&CK Navigator export downloaded (CISO)',time:'1h 12m ago'},
+  {c:'var(--red)',t:'Vertex Security — SIEM integration alert: 0 rules pushed in 5 days',time:'2h ago'},
+];
+const lf = document.getElementById('live-feed');
+feedItems.forEach(f => {
+  lf.innerHTML += `<div class="alert-item"><div class="alert-dot" style="background:${f.c}"></div><div><div class="alert-text">${f.t}</div><div class="alert-time">${f.time}</div></div></div>`;
+});
+
+const billing = [
+  {org:'TechCorp Global',amt:'₹99,120',due:'Jun 29',status:'PAID',c:'var(--green)'},
+  {org:'SecureBank Ltd',amt:'₹42,480',due:'Jun 29',status:'DUE',c:'var(--yellow)'},
+  {org:'InfoSec Partners',amt:'₹99,120',due:'Jun 29',status:'PENDING',c:'var(--orange)'},
+  {org:'Apex FinTech',amt:'₹14,160',due:'Jun 15',status:'TRIAL',c:'var(--purple)'},
+  {org:'PacificSOC Ltd',amt:'₹42,480',due:'Jun 7',status:'OVERDUE',c:'var(--red)'},
+];
+const bp = document.getElementById('billing-pipeline');
+billing.forEach(b => {
+  bp.innerHTML += `<div class="pay-item"><span style="color:var(--text);font-weight:600">${b.org}</span><span style="color:var(--accent)">${b.amt}</span><span style="color:var(--muted)">${b.due}</span><span style="color:${b.c};font-weight:700;font-size:11px">${b.status}</span></div>`;
+});
+
+const maturity = [
+  {label:'CTI Generation',score:93,color:'var(--green)'},
+  {label:'Detection Eng.',score:92,color:'var(--green)'},
+  {label:'ATT&CK Ops',score:90,color:'var(--green)'},
+  {label:'Workflow Auto.',score:91,color:'var(--green)'},
+  {label:'Customer Ops',score:58,color:'var(--yellow)'},
+  {label:'Billing/Renewal',score:45,color:'var(--orange)'},
+  {label:'Customer Success',score:52,color:'var(--yellow)'},
+  {label:'Customer Portal',score:62,color:'var(--yellow)'},
+];
+const mat = document.getElementById('maturity');
+maturity.forEach(m => {
+  mat.innerHTML += `<div class="mat-row"><span class="mat-label">${m.label}</span><div class="mat-bar-wrap"><div class="mat-bar-fill" style="width:${m.score}%;background:${m.color}"></div></div><span class="mat-score" style="color:${m.color}">${m.score}</span></div>`;
+});
+
+const renewals = [
+  {org:'TechCorp Global',plan:'Enterprise',arr:'₹99,120',date:'Jun 29',health:92,risk:'Low'},
+  {org:'InfoSec Partners',plan:'Enterprise',arr:'₹99,120',date:'Jun 29',health:72,risk:'Medium'},
+  {org:'SecureBank Ltd',plan:'Professional',arr:'₹42,480',date:'Jul 14',health:78,risk:'Low'},
+  {org:'CloudVentures',plan:'Enterprise',arr:'₹99,120',date:'Jun 30',health:85,risk:'Low'},
+  {org:'Vertex Security',plan:'Enterprise',arr:'₹99,120',date:'Jul 5',health:31,risk:'HIGH'},
+];
+const rp = document.getElementById('renewal-pipeline');
+renewals.forEach(r => {
+  const rc = r.risk==='Low'?'var(--green)':r.risk==='Medium'?'var(--yellow)':'var(--red)';
+  const hc = r.health>=80?'var(--green)':r.health>=60?'var(--yellow)':'var(--red)';
+  rp.innerHTML += `<tr><td style="font-weight:600">${r.org}</td><td>${r.plan}</td><td style="color:var(--green);font-weight:600">${r.arr}</td><td>${r.date}</td><td style="color:${hc};font-weight:700">${r.health}</td><td style="color:${rc};font-weight:700">${r.risk}</td></tr>`;
+});
+
+const tickets = [
+  {id:'TKT-2847',org:'Apex FinTech',issue:'SIEM integration failure',pri:'P1',age:'4h'},
+  {id:'TKT-2844',org:'Vertex Security',issue:'API webhook not firing',pri:'P1',age:'22h'},
+  {id:'TKT-2840',org:'InfoSec Partners',issue:'Detection rule export error',pri:'P2',age:'2d'},
+  {id:'TKT-2838',org:'Meridian Analytics',issue:'Feed consumption queries',pri:'P3',age:'3d'},
+];
+const tk = document.getElementById('tickets-mini');
+tickets.forEach(t => {
+  const pc = t.pri==='P1'?'var(--red)':t.pri==='P2'?'var(--yellow)':'var(--muted)';
+  tk.innerHTML += `<tr><td style="font-family:monospace;color:var(--accent);font-size:11px">${t.id}</td><td style="font-weight:600">${t.org}</td><td style="color:var(--muted)">${t.issue}</td><td style="color:${pc};font-weight:700">${t.pri}</td><td style="color:var(--muted)">${t.age}</td></tr>`;
+});
+
+// Live clock
+setInterval(()=>{
+  document.getElementById('ts').textContent = new Date().toLocaleString();
+}, 1000);
+</script>
+</body>
+</html>

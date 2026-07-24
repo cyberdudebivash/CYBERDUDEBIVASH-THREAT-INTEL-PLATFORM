@@ -1,0 +1,1578 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>My Dashboard &mdash; CYBERDUDEBIVASH&reg; SENTINEL APEX</title>
+<meta name="description" content="Manage your SENTINEL APEX API keys, view usage stats, and upgrade your intelligence tier."/>
+<style>
+/* ===== DESIGN TOKENS ===== */
+:root{
+  --bg:#050810;
+  --surface:#08101f;
+  --surface2:#0d1428;
+  --surface3:#111c35;
+  --border:#1a2040;
+  --border2:#1e2d50;
+  --accent:#00d4aa;
+  --accent2:#6366f1;
+  --accent3:#00b4ff;
+  --red:#ef4444;
+  --orange:#f97316;
+  --yellow:#f59e0b;
+  --text:#e2e8f0;
+  --text2:#94a3b8;
+  --muted:#64748b;
+  --mono:'JetBrains Mono',Menlo,Consolas,monospace;
+  --green:#22c55e;
+  --gold:#ffd700;
+  --radius:10px;
+  --radius-lg:14px;
+  --shadow:0 4px 24px rgba(0,0,0,.5);
+  --glow-accent:0 0 24px rgba(0,212,170,.12);
+  --glow-gold:0 0 24px rgba(255,215,0,.12);
+  --trans:.2s ease;
+}
+
+/* ===== RESET ===== */
+*{box-sizing:border-box;margin:0;padding:0}
+
+html{scroll-behavior:smooth}
+
+body{
+  background:var(--bg);
+  color:var(--text);
+  font-family:-apple-system,BlinkMacSystemFont,'Inter','Segoe UI',system-ui,sans-serif;
+  min-height:100vh;
+  font-size:15px;
+  line-height:1.6;
+  -webkit-font-smoothing:antialiased;
+}
+
+a{color:var(--accent);text-decoration:none}
+a:hover{text-decoration:underline}
+
+code{
+  font-family:var(--mono);
+  background:rgba(0,212,170,.08);
+  padding:2px 7px;
+  border-radius:5px;
+  font-size:13px;
+  border:1px solid rgba(0,212,170,.14);
+}
+
+/* ===== SCROLLBAR ===== */
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-track{background:var(--bg)}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px}
+::-webkit-scrollbar-thumb:hover{background:var(--accent)}
+
+/* ===================================================================
+   TOPBAR - Brand always fully visible on all screen sizes
+=================================================================== */
+.topbar{
+  background:rgba(8,16,31,.97);
+  backdrop-filter:blur(16px);
+  -webkit-backdrop-filter:blur(16px);
+  border-bottom:1px solid var(--border);
+  padding:0 20px;
+  height:64px;
+  display:flex;
+  align-items:center;
+  gap:12px;
+  position:sticky;
+  top:0;
+  z-index:200;
+  box-shadow:0 2px 24px rgba(0,0,0,.45);
+}
+
+/* Brand block - two-line layout so full name is always visible */
+.brand{
+  display:flex;
+  flex-direction:column;
+  justify-content:center;
+  flex-shrink:0; /* never shrink - brand always fully visible */
+  min-width:0;
+  gap:1px;
+}
+
+.brand-name{
+  font-family:var(--mono);
+  font-weight:800;
+  font-size:12px;
+  letter-spacing:2px;
+  color:var(--accent);
+  text-transform:uppercase;
+  white-space:nowrap;
+  line-height:1.25;
+  text-shadow:0 0 20px rgba(0,212,170,.4);
+}
+
+.brand-reg{
+  font-size:8px;
+  vertical-align:super;
+  letter-spacing:0;
+  opacity:.8;
+}
+
+.brand-sub{
+  font-family:var(--mono);
+  font-size:8px;
+  letter-spacing:2.5px;
+  color:var(--muted);
+  text-transform:uppercase;
+  white-space:nowrap;
+  line-height:1.25;
+}
+
+.brand-version{
+  display:inline-block;
+  font-family:var(--mono);
+  font-size:9px;
+  font-weight:700;
+  color:var(--accent2);
+  background:rgba(99,102,241,.15);
+  border:1px solid rgba(99,102,241,.3);
+  padding:1px 6px;
+  border-radius:4px;
+  letter-spacing:.5px;
+  margin-left:8px;
+  vertical-align:middle;
+  line-height:1.6;
+}
+
+/* Separator */
+.topbar-sep{
+  width:1px;
+  height:28px;
+  background:var(--border);
+  flex-shrink:0;
+}
+
+/* Desktop nav links */
+.nav-links{
+  display:flex;
+  gap:2px;
+  font-size:12px;
+  align-items:center;
+}
+
+.nav-links a{
+  color:var(--text2);
+  padding:6px 11px;
+  border-radius:7px;
+  transition:all var(--trans);
+  font-weight:500;
+  white-space:nowrap;
+  letter-spacing:.02em;
+}
+
+.nav-links a:hover{
+  background:rgba(0,212,170,.08);
+  color:var(--accent);
+  text-decoration:none;
+}
+
+/* User badge */
+.topbar-right{
+  margin-left:auto;
+  display:flex;
+  align-items:center;
+  gap:10px;
+  flex-shrink:0;
+}
+
+.user-badge{
+  background:var(--surface2);
+  border:1px solid var(--border2);
+  padding:5px 13px 5px 9px;
+  border-radius:20px;
+  font-size:11px;
+  display:flex;
+  align-items:center;
+  gap:7px;
+  white-space:nowrap;
+  max-width:200px;
+}
+
+.user-badge-email{
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+  font-family:var(--mono);
+  font-size:11px;
+  color:var(--text2);
+}
+
+.tier-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.dot-free{background:var(--green);box-shadow:0 0 6px rgba(34,197,94,.6)}
+.dot-pro{background:var(--accent);box-shadow:0 0 6px rgba(0,212,170,.6)}
+.dot-ent{background:var(--gold);box-shadow:0 0 6px rgba(255,215,0,.6)}
+
+/* Hamburger button (mobile only) */
+.nav-toggle{
+  display:none;
+  background:none;
+  border:1px solid var(--border2);
+  color:var(--text2);
+  padding:7px 11px;
+  border-radius:8px;
+  cursor:pointer;
+  font-size:16px;
+  line-height:1;
+  transition:all var(--trans);
+  flex-shrink:0;
+}
+
+.nav-toggle:hover{
+  border-color:var(--accent);
+  color:var(--accent);
+  background:rgba(0,212,170,.05);
+}
+
+/* Mobile nav drawer */
+.mobile-nav{
+  display:none;
+  position:fixed;
+  top:64px;
+  left:0;
+  right:0;
+  background:rgba(8,16,31,.98);
+  backdrop-filter:blur(16px);
+  border-bottom:1px solid var(--border);
+  z-index:199;
+  padding:10px 16px 16px;
+  flex-direction:column;
+  gap:3px;
+  box-shadow:0 8px 32px rgba(0,0,0,.5);
+}
+
+.mobile-nav.open{display:flex}
+
+.mobile-nav a{
+  color:var(--text2);
+  font-size:14px;
+  font-weight:500;
+  padding:11px 16px;
+  border-radius:8px;
+  display:block;
+  transition:all var(--trans);
+  border:1px solid transparent;
+}
+
+.mobile-nav a:hover{
+  background:rgba(0,212,170,.06);
+  border-color:rgba(0,212,170,.15);
+  color:var(--accent);
+  text-decoration:none;
+}
+
+.mobile-nav-user{
+  padding:12px 16px;
+  border-top:1px solid var(--border);
+  margin-top:8px;
+  font-size:12px;
+  color:var(--muted);
+  font-family:var(--mono);
+  display:none;
+}
+
+/* ===== LAYOUT ===== */
+.container{max-width:1100px;margin:0 auto;padding:32px 20px}
+
+/* ===================================================================
+   AUTH GATE
+=================================================================== */
+#auth-gate{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  min-height:calc(100vh - 64px);
+  padding:24px;
+}
+
+.auth-card{
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:var(--radius-lg);
+  padding:48px 40px;
+  text-align:center;
+  max-width:480px;
+  width:100%;
+  box-shadow:var(--shadow);
+  position:relative;
+  overflow:hidden;
+}
+
+.auth-card::before{
+  content:'';
+  position:absolute;
+  top:0;left:0;right:0;bottom:0;
+  background:radial-gradient(ellipse at 50% 0%,rgba(0,212,170,.07),transparent 65%);
+  pointer-events:none;
+}
+
+.auth-card::after{
+  content:'';
+  position:absolute;
+  top:0;left:0;right:0;
+  height:2px;
+  background:linear-gradient(90deg,transparent,var(--accent),transparent);
+}
+
+.auth-shield{
+  font-size:48px;
+  margin-bottom:20px;
+  display:block;
+  filter:drop-shadow(0 0 20px rgba(0,212,170,.45));
+  animation:floatShield 3s ease-in-out infinite;
+}
+
+@keyframes floatShield{
+  0%,100%{transform:translateY(0)}
+  50%{transform:translateY(-5px)}
+}
+
+.auth-card h2{
+  font-size:24px;
+  font-weight:800;
+  margin-bottom:8px;
+  background:linear-gradient(135deg,var(--text) 40%,var(--accent));
+  -webkit-background-clip:text;
+  -webkit-text-fill-color:transparent;
+  background-clip:text;
+}
+
+.auth-card > p{
+  color:var(--muted);
+  margin-bottom:32px;
+  font-size:14px;
+  line-height:1.7;
+}
+
+.form-group{margin-bottom:16px;text-align:left}
+
+label{
+  display:block;
+  font-size:10px;
+  color:var(--muted);
+  margin-bottom:6px;
+  text-transform:uppercase;
+  letter-spacing:.1em;
+  font-weight:700;
+}
+
+input{
+  width:100%;
+  background:var(--surface2);
+  border:1px solid var(--border2);
+  color:var(--text);
+  padding:12px 16px;
+  border-radius:8px;
+  font-size:14px;
+  outline:none;
+  transition:border var(--trans),box-shadow var(--trans);
+  font-family:inherit;
+}
+
+input:focus{
+  border-color:var(--accent);
+  box-shadow:0 0 0 3px rgba(0,212,170,.1);
+}
+
+input::placeholder{color:var(--muted)}
+
+/* ===================================================================
+   BUTTONS
+=================================================================== */
+.btn{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:8px;
+  padding:12px 24px;
+  border-radius:9px;
+  font-weight:700;
+  font-size:14px;
+  cursor:pointer;
+  border:none;
+  transition:all var(--trans);
+  width:100%;
+  font-family:inherit;
+  letter-spacing:.02em;
+  position:relative;
+  overflow:hidden;
+}
+
+.btn-primary{
+  background:linear-gradient(135deg,var(--accent),#009e80);
+  color:#050810;
+  box-shadow:0 4px 16px rgba(0,212,170,.25);
+}
+
+.btn-primary:hover{
+  box-shadow:0 6px 24px rgba(0,212,170,.4);
+  transform:translateY(-1px);
+  text-decoration:none;
+  color:#050810;
+}
+
+.btn-sm{
+  width:auto;
+  padding:7px 14px;
+  font-size:12px;
+  border-radius:7px;
+}
+
+.btn-outline{
+  background:transparent;
+  border:1px solid var(--border2);
+  color:var(--text);
+}
+
+.btn-outline:hover{
+  border-color:var(--accent);
+  color:var(--accent);
+}
+
+.btn-danger{
+  background:rgba(239,68,68,.08);
+  border:1px solid rgba(239,68,68,.25);
+  color:var(--red);
+}
+
+.btn-danger:hover{
+  background:rgba(239,68,68,.15);
+  border-color:rgba(239,68,68,.5);
+}
+
+/* ===================================================================
+   DASHBOARD
+=================================================================== */
+#dashboard{display:none}
+
+.page-header{margin-bottom:36px;padding-bottom:24px;border-bottom:1px solid var(--border)}
+
+.page-header h1{
+  font-size:26px;
+  font-weight:800;
+  margin-bottom:6px;
+  display:flex;
+  align-items:center;
+  gap:10px;
+}
+
+.page-header p{color:var(--muted);font-size:14px}
+
+/* Live status indicator */
+.status-live{
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  font-size:11px;
+  font-weight:700;
+  color:var(--green);
+  letter-spacing:.5px;
+  font-family:var(--mono);
+  background:rgba(34,197,94,.08);
+  border:1px solid rgba(34,197,94,.2);
+  padding:3px 10px;
+  border-radius:12px;
+}
+
+.status-dot{
+  width:6px;height:6px;
+  border-radius:50%;
+  background:var(--green);
+  box-shadow:0 0 6px rgba(34,197,94,.8);
+  animation:pulseGreen 2s ease-in-out infinite;
+}
+
+@keyframes pulseGreen{
+  0%,100%{opacity:1;box-shadow:0 0 6px rgba(34,197,94,.8)}
+  50%{opacity:.6;box-shadow:0 0 3px rgba(34,197,94,.4)}
+}
+
+/* ===================================================================
+   STATS GRID
+=================================================================== */
+.stats-grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
+  gap:16px;
+  margin-bottom:32px;
+}
+
+.stat-card{
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:var(--radius);
+  padding:22px 20px;
+  transition:border var(--trans),box-shadow var(--trans),transform var(--trans);
+  position:relative;
+  overflow:hidden;
+}
+
+.stat-card::before{
+  content:'';
+  position:absolute;
+  top:0;left:0;right:0;
+  height:2px;
+  background:linear-gradient(90deg,transparent,rgba(0,212,170,.5),transparent);
+  transform:scaleX(0);
+  transition:transform .3s;
+}
+
+.stat-card:hover{
+  border-color:rgba(0,212,170,.25);
+  box-shadow:var(--glow-accent);
+  transform:translateY(-2px);
+}
+
+.stat-card:hover::before{transform:scaleX(1)}
+
+.stat-label{
+  font-size:10px;
+  text-transform:uppercase;
+  letter-spacing:.12em;
+  color:var(--muted);
+  margin-bottom:10px;
+  font-weight:700;
+}
+
+.stat-value{
+  font-size:28px;
+  font-weight:800;
+  font-family:var(--mono);
+  line-height:1;
+  letter-spacing:-1px;
+}
+
+.stat-sub{font-size:11px;color:var(--muted);margin-top:7px;line-height:1.4}
+.stat-accent{color:var(--accent)}
+.stat-gold{color:var(--gold)}
+.stat-green{color:var(--green)}
+
+/* ===================================================================
+   SECTION CARDS
+=================================================================== */
+.section-card{
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:var(--radius-lg);
+  padding:24px;
+  margin-bottom:20px;
+  transition:border var(--trans);
+}
+
+.section-card:hover{border-color:var(--border2)}
+
+.section-card h3{
+  font-size:13px;
+  font-weight:700;
+  margin-bottom:18px;
+  display:flex;
+  align-items:center;
+  gap:8px;
+  color:var(--text);
+  letter-spacing:.03em;
+  text-transform:uppercase;
+}
+
+.s-icon{font-size:16px}
+
+/* ===================================================================
+   API KEYS
+=================================================================== */
+.key-row{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  padding:12px 0;
+  border-bottom:1px solid var(--border);
+  flex-wrap:wrap;
+}
+
+.key-row:last-child{border-bottom:none}
+
+.key-label{
+  font-weight:600;
+  font-size:14px;
+  flex:1;
+  min-width:80px;
+}
+
+.key-value{
+  font-family:var(--mono);
+  font-size:11px;
+  color:var(--muted);
+  background:var(--surface2);
+  padding:5px 10px;
+  border-radius:6px;
+  max-width:220px;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+  cursor:pointer;
+  border:1px solid var(--border);
+  transition:all var(--trans);
+}
+
+.key-value:hover{
+  border-color:var(--accent);
+  color:var(--accent);
+  box-shadow:0 0 8px rgba(0,212,170,.15);
+}
+
+.key-tier{
+  font-size:10px;
+  padding:3px 9px;
+  border-radius:10px;
+  font-weight:700;
+  letter-spacing:.05em;
+  text-transform:uppercase;
+}
+
+.tier-free-badge{
+  background:rgba(34,197,94,.1);
+  color:var(--green);
+  border:1px solid rgba(34,197,94,.25);
+}
+
+.tier-pro-badge{
+  background:rgba(0,212,170,.1);
+  color:var(--accent);
+  border:1px solid rgba(0,212,170,.25);
+}
+
+.tier-ent-badge{
+  background:rgba(255,215,0,.1);
+  color:var(--gold);
+  border:1px solid rgba(255,215,0,.25);
+}
+
+/* ===================================================================
+   USAGE
+=================================================================== */
+.usage-bar-track{
+  background:var(--surface2);
+  border-radius:6px;
+  height:7px;
+  margin:8px 0;
+  overflow:hidden;
+  border:1px solid var(--border);
+}
+
+.usage-bar-fill{
+  background:linear-gradient(90deg,var(--accent),var(--accent2));
+  height:100%;
+  border-radius:6px;
+  transition:width 1.2s cubic-bezier(.4,0,.2,1);
+  box-shadow:0 0 8px rgba(0,212,170,.35);
+}
+
+.usage-mini{
+  background:var(--surface2);
+  border:1px solid var(--border);
+  border-radius:9px;
+  padding:14px 16px;
+  transition:border var(--trans);
+}
+
+.usage-mini:hover{border-color:var(--border2)}
+
+.usage-mini-label{
+  font-size:10px;
+  color:var(--muted);
+  margin-bottom:5px;
+  text-transform:uppercase;
+  letter-spacing:.08em;
+  font-weight:600;
+}
+
+.usage-mini-val{
+  font-size:20px;
+  font-weight:800;
+  font-family:var(--mono);
+}
+
+/* ===================================================================
+   QUICK ACCESS
+=================================================================== */
+.quick-link{
+  background:var(--surface2);
+  border:1px solid var(--border);
+  border-radius:var(--radius);
+  padding:18px;
+  display:block;
+  color:var(--text);
+  transition:all var(--trans);
+  position:relative;
+  overflow:hidden;
+}
+
+.quick-link::before{
+  content:'';
+  position:absolute;
+  bottom:0;left:0;right:0;
+  height:2px;
+  background:linear-gradient(90deg,var(--accent),var(--accent2));
+  transform:scaleX(0);
+  transition:transform .3s;
+}
+
+.quick-link:hover{
+  border-color:rgba(0,212,170,.3);
+  box-shadow:0 4px 20px rgba(0,212,170,.08);
+  transform:translateY(-2px);
+  text-decoration:none;
+  color:var(--text);
+}
+
+.quick-link:hover::before{transform:scaleX(1)}
+
+.quick-link-icon{
+  font-size:22px;
+  margin-bottom:10px;
+  display:block;
+}
+
+.quick-link-title{
+  font-weight:700;
+  font-size:13px;
+  margin-bottom:4px;
+  color:var(--text);
+}
+
+.quick-link-desc{font-size:12px;color:var(--muted);line-height:1.4}
+
+/* ===================================================================
+   UPGRADE CARD
+=================================================================== */
+.upgrade-card{
+  background:linear-gradient(135deg,rgba(0,212,170,.05),rgba(99,102,241,.05));
+  border:1px solid rgba(0,212,170,.18);
+  border-radius:var(--radius-lg);
+  padding:28px;
+  position:relative;
+  overflow:hidden;
+  margin-bottom:20px;
+}
+
+.upgrade-card::before{
+  content:'';
+  position:absolute;
+  top:0;left:0;right:0;
+  height:2px;
+  background:linear-gradient(90deg,var(--accent),var(--accent2),var(--accent));
+}
+
+.upgrade-card::after{
+  content:'';
+  position:absolute;
+  top:-60px;right:-60px;
+  width:220px;height:220px;
+  background:radial-gradient(circle,rgba(0,212,170,.07),transparent 70%);
+  pointer-events:none;
+}
+
+.upgrade-card h3{
+  font-size:18px;
+  font-weight:800;
+  margin-bottom:8px;
+  background:linear-gradient(135deg,var(--text),var(--accent));
+  -webkit-background-clip:text;
+  -webkit-text-fill-color:transparent;
+  background-clip:text;
+}
+
+.upgrade-card > p{
+  color:var(--muted);
+  margin-bottom:22px;
+  font-size:14px;
+  line-height:1.6;
+}
+
+.upgrade-options{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:14px;
+}
+
+.upgrade-option{
+  background:rgba(8,16,31,.6);
+  border:1px solid var(--border);
+  border-radius:var(--radius);
+  padding:22px 20px;
+  text-align:center;
+  transition:all var(--trans);
+  position:relative;
+  overflow:hidden;
+}
+
+.upgrade-option:hover{
+  border-color:rgba(0,212,170,.35);
+  box-shadow:var(--glow-accent);
+  transform:translateY(-2px);
+}
+
+.upgrade-option.ent:hover{
+  border-color:rgba(255,215,0,.35);
+  box-shadow:var(--glow-gold);
+}
+
+.upgrade-price{
+  font-size:30px;
+  font-weight:800;
+  color:var(--accent);
+  font-family:var(--mono);
+  line-height:1.1;
+  margin:8px 0;
+}
+
+.upgrade-price span{font-size:13px;color:var(--muted);font-weight:400}
+.upgrade-name{font-weight:800;margin-bottom:8px;font-size:10px;letter-spacing:2px;text-transform:uppercase}
+.upgrade-features{font-size:12px;color:var(--muted);margin-bottom:18px;line-height:1.9;text-align:left}
+
+/* ===================================================================
+   AI RADAR SECTION
+=================================================================== */
+.ai-badge{
+  font-size:9px;
+  font-weight:700;
+  background:linear-gradient(135deg,#5b21b6,#00d4ff);
+  color:#fff;
+  padding:2px 9px;
+  border-radius:20px;
+  letter-spacing:.8px;
+  text-transform:uppercase;
+  flex-shrink:0;
+  white-space:nowrap;
+}
+
+.ai-lock-badge{
+  font-size:9px;
+  font-weight:700;
+  background:var(--red);
+  color:#fff;
+  padding:2px 9px;
+  border-radius:20px;
+  margin-left:auto;
+  cursor:pointer;
+  flex-shrink:0;
+  white-space:nowrap;
+  transition:all var(--trans);
+}
+
+.ai-lock-badge:hover{
+  background:#dc2626;
+  box-shadow:0 0 10px rgba(239,68,68,.3);
+}
+
+.ai-paywall{
+  text-align:center;
+  padding:36px 24px;
+  background:rgba(91,33,182,.06);
+  border:1px solid rgba(91,33,182,.18);
+  border-radius:10px;
+}
+
+.ai-paywall-icon{font-size:36px;margin-bottom:10px}
+
+.ai-paywall-title{
+  font-weight:700;
+  font-size:15px;
+  margin-bottom:8px;
+}
+
+.ai-paywall-desc{
+  color:var(--muted);
+  font-size:13px;
+  margin-bottom:18px;
+  line-height:1.6;
+  max-width:480px;
+  margin-left:auto;
+  margin-right:auto;
+}
+
+.ai-paywall-btn{
+  display:inline-block;
+  background:linear-gradient(135deg,#5b21b6,#00d4ff);
+  color:#fff;
+  font-weight:700;
+  font-size:13px;
+  padding:10px 28px;
+  border-radius:8px;
+  text-decoration:none;
+  transition:all var(--trans);
+  box-shadow:0 4px 14px rgba(91,33,182,.3);
+}
+
+.ai-paywall-btn:hover{
+  box-shadow:0 6px 20px rgba(91,33,182,.45);
+  transform:translateY(-1px);
+  text-decoration:none;
+  color:#fff;
+}
+
+.anomaly-table-wrap{
+  overflow-x:auto;
+  border-radius:8px;
+  border:1px solid var(--border);
+}
+
+.anomaly-table{
+  width:100%;
+  border-collapse:collapse;
+  font-size:12px;
+}
+
+.anomaly-table th{
+  padding:10px 12px;
+  font-weight:700;
+  font-size:9px;
+  text-transform:uppercase;
+  letter-spacing:.1em;
+  color:var(--muted);
+  background:var(--surface2);
+  border-bottom:1px solid var(--border);
+  text-align:left;
+  white-space:nowrap;
+}
+
+.forecast-wrap{
+  display:flex;
+  align-items:flex-end;
+  gap:3px;
+  height:80px;
+  padding:6px;
+  background:var(--surface2);
+  border-radius:8px;
+  border:1px solid var(--border);
+  overflow:hidden;
+}
+
+/* ===================================================================
+   ACCOUNT SECTION
+=================================================================== */
+.account-row{
+  display:flex;
+  align-items:center;
+  gap:16px;
+  flex-wrap:wrap;
+}
+
+.account-email-display{
+  font-size:14px;
+  font-weight:600;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+  font-family:var(--mono);
+  color:var(--text);
+}
+
+/* ===================================================================
+   TOAST
+=================================================================== */
+#toast{
+  position:fixed;
+  bottom:24px;
+  right:24px;
+  background:var(--surface2);
+  border:1px solid var(--accent);
+  padding:12px 20px;
+  border-radius:10px;
+  font-size:13px;
+  opacity:0;
+  pointer-events:none;
+  z-index:999;
+  box-shadow:0 4px 24px rgba(0,212,170,.2);
+  transform:translateY(12px);
+  transition:opacity .25s,transform .25s;
+}
+
+#toast.show{opacity:1;transform:translateY(0)}
+
+/* ===================================================================
+   UTILITIES
+=================================================================== */
+.error-msg{color:var(--red);font-size:13px;margin-top:8px;display:flex;align-items:center;gap:6px}
+
+.loading-spinner{
+  display:inline-block;
+  width:16px;height:16px;
+  border:2px solid rgba(255,255,255,.15);
+  border-top-color:var(--accent);
+  border-radius:50%;
+  animation:spin .6s linear infinite;
+  vertical-align:middle;
+}
+
+@keyframes spin{to{transform:rotate(360deg)}}
+
+.section-label{
+  font-size:10px;
+  font-weight:700;
+  color:var(--accent);
+  text-transform:uppercase;
+  letter-spacing:1.5px;
+  margin-bottom:10px;
+  display:block;
+}
+
+/* ===================================================================
+   RESPONSIVE BREAKPOINTS
+=================================================================== */
+@media(max-width:768px){
+  .topbar{padding:0 16px;height:60px}
+  .topbar-sep{display:none}
+  .nav-links{display:none}
+  .user-badge{display:none !important}
+  .nav-toggle{display:flex;align-items:center;justify-content:center}
+  .mobile-nav{top:60px}
+
+  .container{padding:20px 16px}
+  .page-header h1{font-size:20px}
+
+  .stats-grid{grid-template-columns:1fr 1fr;gap:10px}
+  .stat-value{font-size:22px}
+  .stat-card{padding:16px}
+
+  .upgrade-options{grid-template-columns:1fr}
+  .auth-card{padding:32px 24px}
+  .auth-card h2{font-size:20px}
+  .key-value{max-width:160px}
+  .section-card{padding:18px}
+}
+
+@media(max-width:480px){
+  .topbar{height:58px;padding:0 14px}
+  .brand-name{font-size:11px;letter-spacing:1.5px}
+  .brand-sub{font-size:7.5px;letter-spacing:2px}
+  .brand-version{font-size:8px;padding:1px 5px;margin-left:6px}
+  .stats-grid{grid-template-columns:1fr 1fr;gap:8px}
+  .stat-value{font-size:20px}
+  .mobile-nav{top:58px}
+}
+
+@media(max-width:360px){
+  .stats-grid{grid-template-columns:1fr}
+  .brand-name{font-size:10px;letter-spacing:1px}
+}
+</style>
+</head>
+<body>
+
+<!-- ===================================================================
+     TOPBAR &mdash; Brand fully visible on all screen sizes
+=================================================================== -->
+<header class="topbar">
+  <!-- Brand: two-line layout, never truncated, always fully legible -->
+  <div class="brand">
+    <div class="brand-name">CYBERDUDEBIVASH<span class="brand-reg">&reg;</span><span class="brand-version">v184.0</span></div>
+    <div class="brand-sub">SENTINEL APEX &mdash; THREAT INTELLIGENCE</div>
+  </div>
+
+  <div class="topbar-sep"></div>
+
+  <!-- Desktop nav -->
+  <nav class="nav-links" aria-label="Main">
+    <a href="/">Dashboard</a>
+    <a href="/store.html">Store</a>
+    <a href="/pricing.html">Pricing</a>
+    <a href="/api-docs.html">API Docs</a>
+  </nav>
+
+  <!-- Right side -->
+  <div class="topbar-right">
+    <div class="user-badge" id="user-badge" style="display:none">
+      <div class="tier-dot dot-free" id="tier-dot"></div>
+      <span class="user-badge-email" id="user-email-badge">Loading...</span>
+    </div>
+    <!-- Mobile hamburger -->
+    <button class="nav-toggle" id="nav-toggle" aria-label="Toggle navigation" aria-expanded="false">&#9776;</button>
+  </div>
+</header>
+
+<!-- Mobile nav drawer -->
+<nav class="mobile-nav" id="mobile-nav" aria-label="Mobile navigation">
+  <a href="/">&#128737; Dashboard</a>
+  <a href="/store.html">&#128722; Store</a>
+  <a href="/pricing.html">&#11014; Pricing</a>
+  <a href="/api-docs.html">&#128218; API Docs</a>
+  <div class="mobile-nav-user" id="mobile-nav-user">
+    <span id="mobile-user-email"></span>
+  </div>
+</nav>
+
+<!-- ===================================================================
+     AUTH GATE
+=================================================================== -->
+<div id="auth-gate">
+  <div class="auth-card">
+    <span class="auth-shield">&#128737;</span>
+    <h2>Sign in to Dashboard</h2>
+    <p>Access your API keys, usage stats, and account settings.<br/>New users get instant <strong style="color:var(--accent)">FREE tier</strong> access instantly.</p>
+    <form id="login-form">
+      <div class="form-group">
+        <label for="email-input">Email Address</label>
+        <input type="email" id="email-input" placeholder="analyst@soc.com" required autocomplete="email"/>
+      </div>
+      <div class="form-group">
+        <label for="name-input">
+          Display Name
+          <span style="color:var(--muted);font-size:10px;text-transform:none;letter-spacing:0;font-weight:400;margin-left:4px">(first-time only)</span>
+        </label>
+        <input type="text" id="name-input" placeholder="SOC Analyst" autocomplete="name"/>
+      </div>
+      <button type="submit" class="btn btn-primary" id="login-btn">&#9889; Sign In / Register</button>
+      <div class="error-msg" id="login-error" style="display:none"></div>
+    </form>
+    <p style="margin-top:20px;font-size:12px;color:var(--muted);line-height:1.6">
+      By signing in you agree to our <a href="/pricing.html">Terms of Service</a>.<br/>
+      No password required &mdash; we use secure JWT sessions.
+    </p>
+  </div>
+</div>
+
+<!-- ===================================================================
+     DASHBOARD (hidden until auth)
+=================================================================== -->
+<div id="dashboard" class="container">
+
+  <!-- Page header -->
+  <div class="page-header">
+    <h1>
+      &#128737; My Dashboard
+      <span class="status-live" style="font-size:11px;font-weight:700;margin-left:4px">
+        <span class="status-dot"></span>LIVE
+      </span>
+    </h1>
+    <p id="welcome-msg">Welcome back &mdash; managing your SENTINEL APEX account.</p>
+  </div>
+
+  <!-- -- Stats grid -------------------------------------------- -->
+  <div class="stats-grid">
+    <div class="stat-card">
+      <div class="stat-label">Current Tier</div>
+      <div class="stat-value stat-accent" id="stat-tier">FREE</div>
+      <div class="stat-sub" id="stat-tier-sub">100 API calls/day</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Live Advisories</div>
+      <div class="stat-value stat-green" id="stat-advisories">&mdash;</div>
+      <div class="stat-sub">updated every 6 hours</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">API Keys</div>
+      <div class="stat-value stat-accent" id="stat-keys">&mdash;</div>
+      <div class="stat-sub" id="stat-keys-sub">of 2 allowed (FREE)</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Platform Status</div>
+      <div class="stat-value stat-green" id="stat-status">&mdash;</div>
+      <div class="stat-sub" id="stat-version">v184.0</div>
+    </div>
+  </div>
+
+  <!-- -- API Keys ---------------------------------------------- -->
+  <div class="section-card">
+    <h3>
+      <span class="s-icon">&#128273;</span>
+      API Keys
+      <button class="btn btn-sm btn-primary" id="create-key-btn" onclick="createKey()" style="margin-left:auto">+ New Key</button>
+    </h3>
+    <div id="keys-list">
+      <div style="color:var(--muted);font-size:14px;text-align:center;padding:24px 0">Loading keys...</div>
+    </div>
+    <div class="error-msg" id="key-error" style="display:none"></div>
+  </div>
+
+  <!-- -- Usage & Limits --------------------------------------- -->
+  <div class="section-card">
+    <h3><span class="s-icon">&#128202;</span> Usage &amp; Limits</h3>
+    <div id="usage-section">
+      <div style="margin-bottom:20px">
+        <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:6px">
+          <span style="color:var(--text2)">API Calls Today</span>
+          <span id="usage-calls" style="font-family:var(--mono);font-weight:700">&mdash;</span>
+        </div>
+        <div class="usage-bar-track">
+          <div class="usage-bar-fill" id="usage-bar" style="width:0%"></div>
+        </div>
+        <div style="font-size:11px;color:var(--muted)" id="usage-limit-label">Limit: 100/day (FREE tier)</div>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px">
+        <div class="usage-mini">
+          <div class="usage-mini-label">Feed Items</div>
+          <div class="usage-mini-val stat-accent" id="usage-feed-items">10</div>
+        </div>
+        <div class="usage-mini">
+          <div class="usage-mini-label">IOC Access</div>
+          <div class="usage-mini-val" style="color:var(--red)" id="usage-ioc">Locked</div>
+        </div>
+        <div class="usage-mini">
+          <div class="usage-mini-label">STIX Export</div>
+          <div class="usage-mini-val stat-gold" id="usage-stix">Enterprise</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- -- Quick Access ----------------------------------------- -->
+  <div class="section-card">
+    <h3><span class="s-icon">&#9889;</span> Quick Access</h3>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px">
+      <a href="/api/preview" target="_blank" class="quick-link">
+        <span class="quick-link-icon">&#128225;</span>
+        <div class="quick-link-title">Live Preview Feed</div>
+        <div class="quick-link-desc">Top 10 threats, no auth required</div>
+      </a>
+      <a href="/api-docs.html" class="quick-link">
+        <span class="quick-link-icon">&#128218;</span>
+        <div class="quick-link-title">API Documentation</div>
+        <div class="quick-link-desc">Full endpoint reference &amp; examples</div>
+      </a>
+      <a href="/store.html" class="quick-link">
+        <span class="quick-link-icon">&#128722;</span>
+        <div class="quick-link-title">Detection Packs</div>
+        <div class="quick-link-desc">Sigma, YARA, KQL, SPL rules</div>
+      </a>
+      <a href="/pricing.html" class="quick-link">
+        <span class="quick-link-icon">&#11014;</span>
+        <div class="quick-link-title">Upgrade Plan</div>
+        <div class="quick-link-desc">PRO $49/mo &middot; Enterprise $499/mo</div>
+      </a>
+    </div>
+  </div>
+
+  <!-- -- AI Anomaly Radar + 30-Day Forecast ------------------- -->
+  <div class="section-card" id="ai-radar-section">
+    <h3>
+      <span class="s-icon">&#129504;</span>
+      AI Anomaly Radar
+      <span class="ai-badge">Isolation Forest</span>
+      <span id="ai-radar-tier-badge" class="ai-lock-badge" style="display:none" onclick="window.location='/upgrade.html?plan=pro&amp;ref=ai_radar'">&#128274; PRO Only</span>
+    </h3>
+    <div style="font-size:12px;color:var(--muted);margin-bottom:18px">
+      Real-time anomaly detection + 30-day predicted threat risk forecast powered by SENTINEL APEX AI pipeline.
+    </div>
+
+    <!-- Loading state -->
+    <div id="ai-radar-loading" style="text-align:center;padding:36px 0;color:var(--muted);font-size:13px">
+      <span style="font-size:24px;display:inline-block;margin-bottom:10px;animation:spin 1.5s linear infinite">&#9881;</span>
+      <br/>Loading AI intelligence&hellip;
+    </div>
+
+    <!-- Paywall state -->
+    <div id="ai-radar-paywall" style="display:none">
+      <div class="ai-paywall">
+        <div class="ai-paywall-icon">&#128274;</div>
+        <div class="ai-paywall-title">AI Anomaly Radar is a PRO Feature</div>
+        <div class="ai-paywall-desc">
+          Isolation Forest anomaly detection, zero-day probability scoring, and 30-day
+          predicted threat risk forecast &mdash; available on PRO and Enterprise tiers.
+        </div>
+        <a href="/upgrade.html?plan=pro&amp;ref=ai_radar" class="ai-paywall-btn">&#11014; Upgrade to PRO &mdash; $49/mo</a>
+      </div>
+    </div>
+
+    <!-- Content state (populated by JS) -->
+    <div id="ai-radar-content" style="display:none">
+      <!-- Stat cards row -->
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:22px" id="ai-stat-cards"></div>
+
+      <!-- Anomaly table -->
+      <span class="section-label">&#9888; Top Anomalies Detected</span>
+      <div class="anomaly-table-wrap" id="ai-anomaly-table">
+        <table class="anomaly-table">
+          <thead>
+            <tr>
+              <th>Advisory</th>
+              <th>Anomaly Score</th>
+              <th>Zero-Day Prob.</th>
+              <th>Novelty</th>
+              <th>Type</th>
+            </tr>
+          </thead>
+          <tbody id="ai-anomaly-rows"></tbody>
+        </table>
+      </div>
+
+      <!-- 30-day forecast chart -->
+      <div style="margin-top:22px">
+        <span class="section-label">&#128200; 30-Day Predicted Threat Risk Forecast</span>
+        <div class="forecast-wrap" id="ai-forecast-chart"></div>
+        <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--muted);margin-top:5px">
+          <span id="ai-forecast-label-start">Day 1</span>
+          <span style="color:var(--accent);font-size:11px;font-weight:600" id="ai-forecast-peak-label"></span>
+          <span id="ai-forecast-label-end">Day 30</span>
+        </div>
+      </div>
+
+      <!-- Prediction summary -->
+      <div id="ai-prediction-summary" style="margin-top:16px;display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px"></div>
+
+      <div style="margin-top:14px;font-size:11px;color:var(--muted)">
+        Powered by SENTINEL APEX AI v184.0 &middot; Isolation Forest + Gradient Boosting &middot;
+        <span id="ai-radar-timestamp"></span>
+        <a href="/api-docs.html#anomaly" style="color:var(--accent);margin-left:6px">API docs &#8599;</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- -- Upgrade CTA ------------------------------------------ -->
+  <div class="upgrade-card" id="upgrade-section">
+    <h3>Unlock Full Threat Intelligence</h3>
+    <p>Your FREE tier gives you a preview. Upgrade to access the full advisory feed, IOC data, detection rules, and STIX 2.1 export.</p>
+    <div class="upgrade-options">
+      <div class="upgrade-option">
+        <div class="upgrade-name" style="color:var(--accent)">PRO</div>
+        <div class="upgrade-price">$49<span>/mo</span></div>
+        <div class="upgrade-features">
+          &#10003; 100 advisories/day<br/>
+          &#10003; Full IOC access<br/>
+          &#10003; Detection rules<br/>
+          &#10003; 5,000 API calls/day
+        </div>
+        <a href="/get-api-key.html?plan=pro" class="btn btn-primary btn-sm" style="width:100%;text-decoration:none">Upgrade to PRO</a>
+      </div>
+      <div class="upgrade-option ent" style="border-color:rgba(255,215,0,.18)">
+        <div class="upgrade-name" style="color:var(--gold)">ENTERPRISE</div>
+        <div class="upgrade-price" style="color:var(--gold)">$499<span>/mo</span></div>
+        <div class="upgrade-features">
+          &#10003; Unlimited advisories<br/>
+          &#10003; STIX 2.1 export<br/>
+          &#10003; SIEM webhooks<br/>
+          &#10003; 99.9% SLA + support
+        </div>
+        <a href="/get-api-key.html?plan=enterprise" class="btn btn-sm" style="width:100%;background:rgba(255,215,0,.07);border:1px solid rgba(255,215,0,.28);color:var(--gold);text-decoration:none">Upgrade to Enterprise</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- -- Account ---------------------------------------------- -->
+  <div class="section-card">
+    <h3><span class="s-icon">&#9881;</span> Account</h3>
+    <div class="account-row">
+      <div style="flex:1;min-width:0">
+        <div class="account-email-display" id="account-email">&mdash;</div>
+        <div style="font-size:12px;color:var(--muted);margin-top:3px" id="account-tier-label">FREE tier</div>
+      </div>
+      <button class="btn btn-sm btn-danger" onclick="logout()">Sign Out</button>
+    </div>
+  </div>
+
+</div><!-- /dashboard -->
+
+<div id="toast">&#10003; Copied to clipboard</div>
+
+<!-- ===================================================================
+     JAVASCRIPT
+=================================================================== -->
+<script>
+var API = 'https://intel.cyberdudebivash.com';
+
+/* -- Mobile nav toggle ------------------------------------------- */
+(function(){
+  var toggle = document.getElementById('nav-toggle');
+  var nav    = document.getElementById('mobile-nav');
+  if (!toggle || !nav) return;
+  toggle.addEventListener('click', function(e){
+    e.stopPropagation();
+    var open = nav.classList.toggle('open');
+    toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+    toggle.innerHTML = open ? '&times;' : '&#9776;';
+  });
+  document.addEventListener('click', function(e){
+    if (!nav.contains(e.target) && e.target !== toggle) {
+      nav.classList.remove('open');
+      toggle.setAttribute('aria-expanded', 'false');
+      toggle.innerHTML = '&#9776;';
+    }
+  });
+})();
+
+/* -- Storage ----------------------------------------------------- */
+function getToken() { return sessionStorage.getItem('cdb_token'); }
+function setToken(t) { sessionStorage.setItem('cdb_token', t); }
+function clearToken() { sessionStorage.removeItem('cdb_token'); sessionStorage.removeItem('cdb_user'); }
+function getUser() {
+  try { return JSON.parse(sessionStorage.getItem('cdb_user') || 'null'); } catch(e) { return null; }
+}
+function setUser(u) { sessionStorage.setItem('cdb_user', JSON.stringify(u)); }
+
+/* -- Toast ------------------------------------------------------- */
+function toast(msg) {
+  var t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(function(){ t.classList.remove('show'); }, 2500);
+}
+
+/* -- Auth form --------------------------------------------------- */
+document.getElementById('login-form').addEventListener('submit', async function(e) {
+  e.preventDefault();
+  var email = document.getElementById('email-input').value.trim();
+  var name  = document.getElementById('name-input').value.trim();
+  var btn   = document.getElementById('login-btn');
+  var err   = document.getElementById('login-error');
+  if (!email) return;
+
+  btn.innerHTML = '<span class="loading-spinner"></span> Signing in...';
+  btn.disabled = true;
+  err.style.display = 'none';
+
+  try {
+    var resp = await fetch(API + '/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: email, name: name || email.split('@')[0] })
+    });
+    var data = await resp.json();
+    if (!resp.ok || !data.token) throw new Error(data.message || data.error || 'Login failed');
+    setToken(data.token);
+    setUser({ email: (data.user && data.user.email) ? data.user.email : email, tier: data.tier || 'free' });
+    showDashboard();
+  } catch(ex) {
+    err.textContent = ex.message.includes('jwt_secret_not_configured')
+      ? 'Platform auth is being configured. Try again in a few minutes.'
+      : (ex.message || 'Authentication failed. Please try again.');
+    err.style.display = 'block';
+    btn.innerHTML = 'Access Dashboard';
+    btn.disabled = false;
+  }
+});
+
+/* ── Show dashboard after login ─────────────────────────────────── */
+function showDashboard() {
+  var user = getUser();
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('dashboard-screen').style.display = 'block';
+  if (user) {
+    var el = document.getElementById('user-email');
+    if (el) el.textContent = user.email;
+    var tel = document.getElementById('user-tier');
+    if (tel) tel.textContent = (user.tier || 'free').toUpperCase();
+  }
+  loadKeys();
+}
+
+/* ── Mobile hamburger ───────────────────────────────────────────── */
+function toggleMobileMenu() {
+  var btn = document.getElementById('hamburger-btn');
+  var drawer = document.getElementById('mobile-drawer');
+  if (!btn || !drawer) return;
+  var isOpen = drawer.classList.contains('open');
+  if (isOpen) {
+    drawer.classList.remove('open');
+    btn.classList.remove('open');
+  } else {
+    drawer.classList.add('open');
+    btn.classList.add('open');
+  }
+}
+
+/* ── API Key Management ─────────────────────────────────────────── */
+function maskKey(k) {
+  if (!k || k.length < 12) return k;
+  return k.slice(0, 8) + 'xxxxxxxx' + k.slice(-4);
+}
+
+function copyKey(k, el) {
+  navigator.clipboard.writeText(k).then(function() {
+    var orig = el ? el.textContent : '';
+    if (el) { el.textContent = 'Copied!'; setTimeout(function(){ el.textContent = orig; }, 1500); }
+  }).catch(function() {
+    toast('Copy failed &mdash; select and copy manually');
+  });
+}
+
+async function loadKeys() {
+  var token = getToken();
+  if (!token) return;
+  var container = document.getElementById('keys-list');
+  if (!container) return;
+  container.innerHTML = '<div style="color:var(--muted);font-size:12px;padding:12px 0">Loading keys...</div>';
+  try {
+    var resp = await fetch(API + '/auth/keys', {
+      headers: { 'Authorization': 'Bearer ' + token }
+    });
+    if (!resp.ok) throw new Error('Failed to load keys');
+    var data = await resp.json();
+    var keys = data.keys || data || [];
+    if (!keys.length) {
+      container.innerHTML = '<div style="color:var(--muted);font-size:12px;padding:12px 0">No API keys yet &mdash; create one below.</div>';
+      return;
+    }
+    container.innerHTML = keys.map(function(k) {
+      return '<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)">'
+        + '<span style="font-family:var(--mono);font-size:12px;color:var(--accent);flex:1">' + maskKey(k.key || k.id || '') + '</span>'
+        + '<span style="font-size:11px;color:var(--muted)">' + (k.tier || 'free').toUpperCase() + '</span>'
+        + '<button class="btn btn-sm" onclick="copyKey(\'' + (k.key || '') + '\', this)" style="font-size:10px;padding:3px 8px">Copy</button>'
+        + '<button class="btn btn-sm btn-danger" onclick="deleteKey(\'' + (k.id || '') + '\')" style="font-size:10px;padding:3px 8px">Delete</button>'
+        + '</div>';
+    }).join('');
+  } catch(ex) {
+    container.innerHTML = '<div style="color:var(--muted);font-size:12px;padding:12px 0">' + (ex.message || 'Could not load keys') + '</div>';
+  }
+}
+
+async function createKey() {
+  var token = getToken();
+  if (!token) return toast('Not authenticated');
+  var btn = document.getElementById('create-key-btn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Creating...'; }
+  try {
+    var resp = await fetch(API + '/auth/keys', {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ label: 'key-' + Date.now() })
+    });
+    var data = await resp.json();
+    if (!resp.ok) throw new Error(data.message || data.error || 'Failed to create key');
+    toast('API key created');
+    loadKeys();
+  } catch(ex) {
+    toast(ex.message || 'Error creating key');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '+ New Key'; }
+  }
+}
+
+async function deleteKey(id) {
+  if (!id) return;
+  var token = getToken();
+  if (!token) return toast('Not authenticated');
+  if (!confirm('Delete this API key? This cannot be undone.')) return;
+  try {
+    var resp = await fetch(API + '/auth/keys/' + id, {
+      method: 'DELETE',
+      headers: { 'Authorization': 'Bearer ' + token }
+    });
+    if (!resp.ok) throw new Error('Failed to delete key');
+    toast('Key deleted');
+    loadKeys();
+  } catch(ex) {
+    toast(ex.message || 'Error deleting key');
+  }
+}
+
+/* ── Logout ─────────────────────────────────────────────────────── */
+function logout() {
+  clearToken();
+  document.getElementById('dashboard-screen').style.display = 'none';
+  document.getElementById('login-screen').style.display = 'flex';
+  toast('Signed out');
+}
+
+/* ── Init ───────────────────────────────────────────────────────── */
+(function init() {
+  if (getToken()) {
+    showDashboard();
+  }
+})();
+</script>
+</body>
+</html>

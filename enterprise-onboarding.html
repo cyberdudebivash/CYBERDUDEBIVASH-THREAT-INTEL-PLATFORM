@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Enterprise Onboarding — SENTINEL APEX Admin</title>
+<meta name="robots" content="noindex,nofollow">
+<link rel="icon" href="/favicon.ico">
+<style>
+:root{--bg:#050c18;--bg2:#090f1e;--border:#162030;--accent:#00ffc6;--text:#e2e8f0;--muted:#64748b;--green:#10b981;--red:#ef4444;--yellow:#f59e0b;--card:#0b1422;--blue:#3b82f6;--accent2:#7c3aed;}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,sans-serif;min-height:100vh;}
+#loginScreen{display:flex;align-items:center;justify-content:center;min-height:100vh;}
+.login-card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:36px;max-width:340px;width:90%;text-align:center;}
+.login-input{width:100%;background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:11px 14px;color:var(--text);font-size:13px;font-family:inherit;outline:none;margin-bottom:12px;}
+.login-input:focus{border-color:var(--accent);}
+.login-btn{width:100%;padding:12px;background:var(--accent);color:#000;font-weight:800;border:none;border-radius:8px;cursor:pointer;font-size:13px;}
+#app{display:none;}
+nav{display:flex;align-items:center;justify-content:space-between;padding:14px 28px;background:rgba(5,12,24,0.97);border-bottom:1px solid var(--border);}
+.nav-logo{font-family:monospace;font-weight:900;font-size:12px;color:var(--accent);letter-spacing:2px;}
+.main{max-width:1300px;margin:0 auto;padding:28px 24px;}
+.page-title{font-size:20px;font-weight:800;margin-bottom:6px;}
+.page-sub{font-size:13px;color:var(--muted);margin-bottom:28px;}
+.pipeline-stages{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:14px;margin-bottom:32px;}
+.stage-col{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;min-height:300px;}
+.stage-header{font-size:10px;font-weight:800;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:12px;padding-bottom:10px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;}
+.stage-count{background:rgba(0,255,198,0.1);color:var(--accent);border-radius:10px;padding:2px 8px;font-size:10px;font-family:monospace;}
+.deal-card{background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:8px;cursor:pointer;transition:border-color 0.15s;}
+.deal-card:hover{border-color:rgba(0,255,198,0.25);}
+.deal-company{font-size:13px;font-weight:700;margin-bottom:4px;}
+.deal-meta{font-size:11px;color:var(--muted);}
+.deal-value{font-size:11px;font-weight:800;color:var(--accent);margin-top:5px;font-family:monospace;}
+.deal-actions{display:flex;gap:4px;margin-top:8px;flex-wrap:wrap;}
+.deal-btn{padding:3px 8px;border-radius:5px;font-size:9px;font-weight:700;cursor:pointer;font-family:inherit;border:1px solid;transition:all 0.15s;}
+.btn-adv{border-color:rgba(16,185,129,0.3);color:var(--green);background:rgba(16,185,129,0.1);}
+.btn-note{border-color:var(--border);color:var(--muted);background:none;}
+.btn-demo{border-color:rgba(59,130,246,0.3);color:var(--blue);background:rgba(59,130,246,0.1);}
+.add-deal-btn{width:100%;padding:8px;background:none;border:1px dashed var(--border);border-radius:8px;color:var(--muted);font-size:11px;cursor:pointer;font-family:inherit;transition:all 0.15s;margin-top:8px;}
+.add-deal-btn:hover{border-color:var(--accent);color:var(--accent);}
+.stats-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:24px;}
+.stat-card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px;}
+.stat-val{font-size:22px;font-weight:900;font-family:monospace;color:var(--accent);}
+.stat-label{font-size:9px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-top:3px;}
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:1000;align-items:center;justify-content:center;}
+.modal-overlay.show{display:flex;}
+.modal{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:26px;max-width:500px;width:90%;max-height:90vh;overflow-y:auto;}
+.modal h3{font-size:16px;font-weight:800;margin-bottom:16px;padding-bottom:10px;border-bottom:1px solid var(--border);}
+.form-group{margin-bottom:14px;}
+.form-label{font-size:10px;font-weight:700;color:var(--muted);letter-spacing:1px;text-transform:uppercase;display:block;margin-bottom:6px;}
+.form-input,.form-select,.form-textarea{width:100%;background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;color:var(--text);font-size:13px;font-family:inherit;outline:none;}
+.form-input:focus,.form-select:focus,.form-textarea:focus{border-color:var(--accent);}
+.form-select option{background:var(--bg2);}
+.form-textarea{min-height:70px;resize:vertical;}
+.modal-actions{display:flex;gap:10px;margin-top:16px;}
+.btn-primary{padding:10px 20px;background:var(--accent);color:#000;font-size:12px;font-weight:800;border:none;border-radius:8px;cursor:pointer;}
+.btn-secondary{padding:10px 20px;background:none;color:var(--muted);font-size:12px;font-weight:700;border:1px solid var(--border);border-radius:8px;cursor:pointer;}
+#toast{position:fixed;bottom:24px;right:24px;background:var(--green);color:#000;padding:12px 20px;border-radius:10px;font-weight:700;font-size:13px;z-index:9999;opacity:0;transform:translateY(20px);transition:all 0.3s;}
+#toast.show{opacity:1;transform:translateY(0);}
+</style>
+</head>
+<body>
+<div id="loginScreen">
+  <div class="login-card">
+    <div style="font-family:monospace;font-size:16px;font-weight:900;color:var(--accent);margin-bottom:12px;">⬡ SENTINEL APEX</div>
+    <h2 style="font-size:18px;margin-bottom:16px;">Enterprise Pipeline</h2>
+    <input type="password" id="adminSecret" class="login-input" placeholder="Admin Secret" onkeydown="if(event.key==='Enter')login()">
+    <button class="login-btn" onclick="login()">Access →</button>
+    <p id="loginErr" style="font-size:11px;color:var(--red);margin-top:8px;display:none;">Invalid secret</p>
+  </div>
+</div>
+
+<div id="app">
+  <nav>
+    <span class="nav-logo">⬡ SENTINEL APEX — ENTERPRISE PIPELINE</span>
+    <div style="display:flex;gap:12px;align-items:center;">
+      <a href="/payment-status-dashboard.html" style="color:var(--muted);font-size:12px;text-decoration:none;">Payments</a>
+      <a href="/mssp-tenant-dashboard.html" style="color:var(--muted);font-size:12px;text-decoration:none;">MSSP Tenants</a>
+      <button onclick="openAddDeal()" style="padding:8px 16px;background:var(--accent);color:#000;border:none;border-radius:8px;font-size:11px;font-weight:800;cursor:pointer;">+ Add Deal</button>
+      <button onclick="logout()" style="color:var(--red);background:none;border:none;cursor:pointer;font-size:12px;font-family:inherit;">Logout</button>
+    </div>
+  </nav>
+
+  <div class="main">
+    <div class="page-title">Enterprise Onboarding Pipeline</div>
+    <div class="page-sub">Track enterprise deals from inquiry to go-live. Each column = pipeline stage.</div>
+
+    <div class="stats-row">
+      <div class="stat-card"><div class="stat-val" id="totalDeals">—</div><div class="stat-label">Total Deals</div></div>
+      <div class="stat-card"><div class="stat-val" id="pipelineValue">—</div><div class="stat-label">Pipeline Value</div></div>
+      <div class="stat-card"><div class="stat-val" id="wonDeals">—</div><div class="stat-label">Closed Won</div></div>
+      <div class="stat-card"><div class="stat-val" id="wonValue">—</div><div class="stat-label">Won Value/mo</div></div>
+      <div class="stat-card"><div class="stat-val" id="winRate">—</div><div class="stat-label">Win Rate</div></div>
+      <div class="stat-card"><div class="stat-val" id="avgDays">—</div><div class="stat-label">Avg Days to Close</div></div>
+    </div>
+
+    <div class="pipeline-stages" id="pipelineBoard"></div>
+  </div>
+</div>
+
+<!-- Add Deal Modal -->
+<div class="modal-overlay" id="addDealModal">
+  <div class="modal">
+    <h3>+ New Enterprise Deal</h3>
+    <div class="form-group"><label class="form-label">Company Name *</label><input type="text" id="dCompany" class="form-input" placeholder="Acme Corp"></div>
+    <div class="form-group"><label class="form-label">Contact Name *</label><input type="text" id="dContact" class="form-input" placeholder="John Smith"></div>
+    <div class="form-group"><label class="form-label">Contact Email *</label><input type="email" id="dEmail" class="form-input" placeholder="john@acme.com"></div>
+    <div class="form-group"><label class="form-label">Title / Role</label><input type="text" id="dRole" class="form-input" placeholder="CISO / Head of Security"></div>
+    <div class="form-group"><label class="form-label">Plan</label>
+      <select id="dPlan" class="form-select">
+        <option value="ENTERPRISE">Enterprise — $999/mo</option>
+        <option value="MSSP">MSSP — $1,999/mo</option>
+        <option value="ENTERPRISE_ANNUAL">Enterprise Annual — $9,990/yr</option>
+      </select>
+    </div>
+    <div class="form-group"><label class="form-label">SIEM / Current Stack</label><input type="text" id="dSIEM" class="form-input" placeholder="Splunk / Sentinel / QRadar"></div>
+    <div class="form-group"><label class="form-label">Industry</label><input type="text" id="dIndustry" class="form-input" placeholder="Finance / Healthcare / Tech"></div>
+    <div class="form-group"><label class="form-label">Source</label>
+      <select id="dSource" class="form-select">
+        <option value="linkedin_outbound">LinkedIn Outbound</option>
+        <option value="inbound_form">Inbound Form</option>
+        <option value="referral">Referral</option>
+        <option value="cold_email">Cold Email</option>
+        <option value="event">Event / Conference</option>
+        <option value="mssp_referral">MSSP Referral</option>
+      </select>
+    </div>
+    <div class="form-group"><label class="form-label">Notes</label><textarea id="dNotes" class="form-textarea" placeholder="Initial context, pain points, budget signals…"></textarea></div>
+    <div class="modal-actions">
+      <button class="btn-primary" onclick="addDeal()">Add Deal</button>
+      <button class="btn-secondary" onclick="closeModal('addDealModal')">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- Move Stage Modal -->
+<div class="modal-overlay" id="advanceModal">
+  <div class="modal">
+    <h3>Advance Deal Stage</h3>
+    <div class="form-group"><label class="form-label">Move to Stage</label>
+      <select id="advStage" class="form-select">
+        <option value="inquiry">Inquiry</option>
+        <option value="qualification">Qualification</option>
+        <option value="demo_scheduled">Demo Scheduled</option>
+        <option value="demo_done">Demo Done</option>
+        <option value="proposal_sent">Proposal Sent</option>
+        <option value="negotiation">Negotiation</option>
+        <option value="approved">Approved</option>
+        <option value="provisioning">Provisioning</option>
+        <option value="go_live">Go Live ✅</option>
+        <option value="closed_lost">Closed Lost ✗</option>
+      </select>
+    </div>
+    <div class="form-group"><label class="form-label">Notes / Next Steps</label><textarea id="advNotes" class="form-textarea" placeholder="What happened? Next action?"></textarea></div>
+    <div class="modal-actions">
+      <button class="btn-primary" onclick="saveDealStage()">Save</button>
+      <button class="btn-secondary" onclick="closeModal('advanceModal')">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+let adminSecret='', deals=[], currentDealId='';
+const API = 'https://revenue.intel.cyberdudebivash.com';
+const PLAN_PRICES = { ENTERPRISE:999, MSSP:1999, ENTERPRISE_ANNUAL:9990 };
+const STAGES = ['inquiry','qualification','demo_scheduled','demo_done','proposal_sent','negotiation','approved','provisioning','go_live','closed_lost'];
+const STAGE_LABELS = { inquiry:'Inquiry',qualification:'Qualification',demo_scheduled:'Demo Scheduled',demo_done:'Demo Done',proposal_sent:'Proposal Sent',negotiation:'Negotiation',approved:'Approved',provisioning:'Provisioning',go_live:'Go Live ✅',closed_lost:'Closed Lost' };
+
+async function login() {
+  const s = document.getElementById('adminSecret').value.trim();
+  const res = await fetch(`${API}/api/revenue/commercial`, { headers:{'X-Admin-Secret':s} });
+  if (res.ok) { adminSecret=s; document.getElementById('loginScreen').style.display='none'; document.getElementById('app').style.display='block'; loadPipeline(); }
+  else document.getElementById('loginErr').style.display='block';
+}
+function logout() { adminSecret=''; location.reload(); }
+function apiFetch(path,opts={}) { return fetch(API+path,{...opts,headers:{'Content-Type':'application/json','X-Admin-Secret':adminSecret,...(opts.headers||{})}}); }
+
+async function loadPipeline() {
+  const res = await apiFetch('/api/deals');
+  const data = await res.json();
+  deals = data.deals || [];
+  // Compute stats
+  const total = deals.length;
+  const won   = deals.filter(d=>d.stage==='go_live');
+  const open  = deals.filter(d=>!['closed_lost','go_live'].includes(d.stage));
+  const pipelineVal = open.reduce((s,d)=>s+(PLAN_PRICES[d.plan]||999),0);
+  const wonVal = won.reduce((s,d)=>s+(PLAN_PRICES[d.plan]||999),0);
+  const closed = deals.filter(d=>['go_live','closed_lost'].includes(d.stage)).length;
+  const winRate = closed > 0 ? Math.round(won.length/closed*100) : 0;
+  document.getElementById('totalDeals').textContent = total;
+  document.getElementById('pipelineValue').textContent = '$'+pipelineVal.toLocaleString();
+  document.getElementById('wonDeals').textContent = won.length;
+  document.getElementById('wonValue').textContent = '$'+wonVal.toLocaleString();
+  document.getElementById('winRate').textContent = winRate+'%';
+  document.getElementById('avgDays').textContent = '—';
+  renderBoard();
+}
+
+function renderBoard() {
+  const board = document.getElementById('pipelineBoard');
+  board.innerHTML = STAGES.map(stage => {
+    const stageDeals = deals.filter(d => d.stage === stage);
+    return `<div class="stage-col">
+      <div class="stage-header">
+        ${STAGE_LABELS[stage]}
+        <span class="stage-count">${stageDeals.length}</span>
+      </div>
+      ${stageDeals.map(d => `
+        <div class="deal-card">
+          <div class="deal-company">${d.company}</div>
+          <div class="deal-meta">${d.contact_name||''} · ${d.industry||'—'}</div>
+          <div class="deal-meta">${d.siem||''}</div>
+          <div class="deal-value">$${(PLAN_PRICES[d.plan]||999).toLocaleString()}/mo</div>
+          <div class="deal-actions">
+            <button class="deal-btn btn-adv" onclick="openAdvance('${d.id}')">Advance →</button>
+            <button class="deal-btn btn-demo" onclick="bookDemo('${d.contact_email}')">Book Demo</button>
+            <button class="deal-btn btn-note" onclick="addNote('${d.id}')">Note</button>
+            ${stage==='approved'?`<button class="deal-btn btn-adv" onclick="provisionEnterprise('${d.contact_email}','${d.plan}')">🔑 Provision</button>`:''}
+          </div>
+        </div>`).join('')}
+      <button class="add-deal-btn" onclick="openAddDeal('${stage}')">+ Add</button>
+    </div>`;
+  }).join('');
+}
+
+function openAddDeal(stage) {
+  document.getElementById('addDealModal').classList.add('show');
+  if (stage) document.title = 'Add to: '+stage;
+}
+function openAdvance(dealId) {
+  currentDealId = dealId;
+  const deal = deals.find(d=>d.id===dealId);
+  if (deal) {
+    const si = STAGES.indexOf(deal.stage);
+    document.getElementById('advStage').value = STAGES[Math.min(si+1, STAGES.length-2)];
+  }
+  document.getElementById('advanceModal').classList.add('show');
+}
+function closeModal(id) { document.getElementById(id).classList.remove('show'); }
+
+async function addDeal() {
+  const company = document.getElementById('dCompany').value.trim();
+  const contactName = document.getElementById('dContact').value.trim();
+  const email = document.getElementById('dEmail').value.trim();
+  if (!company || !contactName || !email) { showToast('Fill required fields','err'); return; }
+  const body = { company, contact_name:contactName, contact_email:email, role:document.getElementById('dRole').value.trim(), plan:document.getElementById('dPlan').value, siem:document.getElementById('dSIEM').value.trim(), industry:document.getElementById('dIndustry').value.trim(), source:document.getElementById('dSource').value, notes:document.getElementById('dNotes').value.trim(), stage:'inquiry' };
+  const res = await apiFetch('/api/deals', { method:'POST', body:JSON.stringify(body) });
+  const data = await res.json();
+  if (data.id || data.success) { closeModal('addDealModal'); showToast('Deal added'); loadPipeline(); }
+  else showToast('Error: '+JSON.stringify(data),'err');
+}
+
+async function saveDealStage() {
+  const stage = document.getElementById('advStage').value;
+  const notes = document.getElementById('advNotes').value.trim();
+  await apiFetch(`/api/deals/${currentDealId}`, { method:'PUT', body:JSON.stringify({ stage, notes, updated_at:new Date().toISOString() }) });
+  closeModal('advanceModal'); showToast(`Deal moved to ${STAGE_LABELS[stage]}`); loadPipeline();
+}
+
+async function provisionEnterprise(email, plan) {
+  if (!confirm(`Provision Enterprise for ${email}?`)) return;
+  const res = await apiFetch('/api/customers/provision', { method:'POST', body:JSON.stringify({ email, tier:'ENTERPRISE', billing_cycle:'monthly' }) });
+  const d = await res.json();
+  if (d.success) showToast('✅ Provisioned: ' + d.api_key.substring(0,20)+'…');
+  else showToast('Error: '+d.error,'err');
+}
+
+function bookDemo(email) { window.open('https://cal.com/cyberdudebivash?email='+encodeURIComponent(email), '_blank'); }
+function addNote(dealId) { const note = prompt('Add note:'); if (note) showToast('Note saved'); }
+
+function showToast(msg, type) {
+  const t = document.getElementById('toast'); t.textContent=msg; t.style.background=type==='err'?'var(--red)':'var(--green)'; t.style.color=type==='err'?'#fff':'#000';
+  t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),3000);
+}
+window.onclick = e => { if(e.target.classList.contains('modal-overlay')) e.target.classList.remove('show'); };
+</script>
+</body>
+</html>

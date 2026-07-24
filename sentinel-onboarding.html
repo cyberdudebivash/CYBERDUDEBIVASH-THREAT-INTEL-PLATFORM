@@ -1,0 +1,622 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sentinel APEX — Enterprise Onboarding</title>
+<style>
+:root {
+  --bg:#0a0e1a; --surface:#111827; --surface2:#1a2235; --border:#1e2d45;
+  --accent:#00d4ff; --green:#00ff88; --yellow:#ffd700; --red:#ff4444;
+  --purple:#a855f7; --text:#e2e8f0; --muted:#64748b;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:var(--bg);color:var(--text);font-family:'Segoe UI',sans-serif;min-height:100vh;}
+
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 32px;display:flex;align-items:center;justify-content:space-between;}
+.brand{display:flex;align-items:center;gap:12px;}
+.logo{width:38px;height:38px;background:linear-gradient(135deg,#00d4ff,#a855f7);border-radius:10px;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:15px;color:#000;}
+.brand-name{font-size:18px;font-weight:800;}
+.brand-sub{font-size:11px;color:var(--muted);}
+.login-link{font-size:13px;color:var(--accent);cursor:pointer;padding:7px 18px;border:1px solid var(--accent);border-radius:8px;}
+
+.hero{background:linear-gradient(135deg,rgba(0,212,255,0.05),rgba(168,85,247,0.05));border-bottom:1px solid var(--border);padding:48px 32px;text-align:center;}
+.hero h1{font-size:36px;font-weight:900;background:linear-gradient(135deg,#00d4ff,#a855f7);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:12px;}
+.hero p{color:var(--muted);font-size:16px;max-width:600px;margin:0 auto 24px;}
+.trust-badges{display:flex;justify-content:center;gap:20px;flex-wrap:wrap;}
+.trust-badge{padding:6px 16px;border-radius:20px;font-size:12px;font-weight:700;background:rgba(0,255,136,0.1);color:var(--green);border:1px solid rgba(0,255,136,0.2);}
+
+.stepper-wrap{max-width:900px;margin:40px auto;padding:0 32px;}
+.stepper{display:flex;align-items:center;justify-content:center;margin-bottom:40px;gap:0;}
+.step{display:flex;flex-direction:column;align-items:center;gap:8px;position:relative;}
+.step-circle{width:42px;height:42px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:15px;border:2px solid var(--border);background:var(--surface);color:var(--muted);transition:all 0.3s;}
+.step-label{font-size:11px;color:var(--muted);white-space:nowrap;}
+.step.active .step-circle{border-color:var(--accent);background:rgba(0,212,255,0.15);color:var(--accent);}
+.step.active .step-label{color:var(--accent);}
+.step.done .step-circle{border-color:var(--green);background:rgba(0,255,136,0.15);color:var(--green);}
+.step.done .step-label{color:var(--green);}
+.step-line{flex:1;height:2px;background:var(--border);min-width:40px;margin-bottom:22px;}
+.step-line.done{background:var(--green);}
+
+.panel{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:36px;display:none;}
+.panel.active{display:block;}
+.panel-title{font-size:22px;font-weight:800;margin-bottom:8px;}
+.panel-sub{color:var(--muted);font-size:13px;margin-bottom:28px;}
+
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;}
+.form-grid.full{grid-template-columns:1fr;}
+.field label{display:block;font-size:12px;color:var(--muted);margin-bottom:6px;font-weight:600;}
+.field input,.field select,.field textarea{width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:10px 14px;border-radius:8px;font-size:13px;outline:none;transition:border 0.2s;}
+.field input:focus,.field select:focus,.field textarea:focus{border-color:var(--accent);}
+.field textarea{resize:vertical;min-height:80px;}
+.field select option{background:var(--surface2);}
+
+.plan-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:24px;}
+.plan-card{background:var(--surface2);border:2px solid var(--border);border-radius:12px;padding:20px;cursor:pointer;transition:all 0.2s;position:relative;}
+.plan-card:hover{border-color:var(--muted);}
+.plan-card.selected{border-color:var(--accent);background:rgba(0,212,255,0.05);}
+.plan-card.popular::before{content:'MOST POPULAR';position:absolute;top:-10px;left:50%;transform:translateX(-50%);background:var(--accent);color:#000;font-size:9px;font-weight:900;padding:2px 10px;border-radius:10px;}
+.plan-name{font-size:15px;font-weight:800;margin-bottom:4px;}
+.plan-price{font-size:26px;font-weight:900;color:var(--accent);}
+.plan-price span{font-size:13px;color:var(--muted);font-weight:400;}
+.plan-features{margin-top:12px;font-size:12px;color:var(--muted);line-height:1.8;}
+.plan-features li{list-style:none;padding-left:0;}
+.plan-features li::before{content:'✓ ';color:var(--green);}
+
+.payment-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:24px;}
+.pay-method{background:var(--surface2);border:2px solid var(--border);border-radius:10px;padding:16px;cursor:pointer;transition:all 0.2s;text-align:center;}
+.pay-method:hover{border-color:var(--muted);}
+.pay-method.selected{border-color:var(--accent);background:rgba(0,212,255,0.05);}
+.pay-icon{font-size:28px;margin-bottom:8px;}
+.pay-name{font-size:13px;font-weight:700;}
+.pay-sub{font-size:11px;color:var(--muted);margin-top:2px;}
+
+.payment-form{background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:20px;margin-top:16px;display:none;}
+.payment-form.active{display:block;}
+
+.qr-box{text-align:center;padding:24px;}
+.qr-code{width:180px;height:180px;background:white;margin:0 auto 16px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:11px;color:#333;padding:8px;}
+.qr-code svg{width:100%;height:100%;}
+
+.upi-id{background:rgba(0,212,255,0.1);border:1px solid var(--accent);border-radius:8px;padding:10px 16px;font-size:14px;font-weight:700;color:var(--accent);text-align:center;margin-bottom:12px;}
+.copy-btn{background:transparent;border:1px solid var(--border);color:var(--muted);padding:5px 14px;border-radius:6px;font-size:12px;cursor:pointer;}
+.copy-btn:hover{border-color:var(--accent);color:var(--accent);}
+
+.bank-details{font-size:13px;line-height:2;}
+.bank-row{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);}
+.bank-row:last-child{border-bottom:none;}
+.bank-label{color:var(--muted);}
+.bank-value{font-weight:700;color:var(--accent);}
+
+.btn-row{display:flex;gap:12px;margin-top:24px;}
+.btn-back{flex:1;padding:12px;border-radius:10px;border:1px solid var(--border);background:transparent;color:var(--muted);font-size:14px;font-weight:600;cursor:pointer;}
+.btn-back:hover{border-color:var(--text);color:var(--text);}
+.btn-next{flex:2;padding:12px;border-radius:10px;border:none;background:linear-gradient(135deg,#00d4ff,#0088aa);color:#000;font-size:14px;font-weight:800;cursor:pointer;transition:opacity 0.2s;}
+.btn-next:hover{opacity:0.85;}
+.btn-success{flex:2;padding:12px;border-radius:10px;border:none;background:linear-gradient(135deg,#00ff88,#00aa55);color:#000;font-size:14px;font-weight:800;cursor:pointer;}
+
+.alert{padding:12px 16px;border-radius:8px;font-size:13px;margin-bottom:16px;}
+.alert-error{background:rgba(255,68,68,0.1);border:1px solid rgba(255,68,68,0.3);color:var(--red);}
+.alert-success{background:rgba(0,255,136,0.1);border:1px solid rgba(0,255,136,0.3);color:var(--green);}
+.alert-info{background:rgba(0,212,255,0.1);border:1px solid rgba(0,212,255,0.3);color:var(--accent);}
+
+.summary-box{background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:20px;}
+.summary-row{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);font-size:13px;}
+.summary-row:last-child{border-bottom:none;font-size:15px;font-weight:800;}
+.summary-row .val{color:var(--accent);font-weight:700;}
+.summary-row:last-child .val{color:var(--green);}
+
+.success-wrap{text-align:center;padding:40px 20px;}
+.success-icon{font-size:64px;margin-bottom:20px;}
+.success-title{font-size:28px;font-weight:900;color:var(--green);margin-bottom:12px;}
+.success-sub{color:var(--muted);font-size:15px;margin-bottom:32px;}
+.creds-box{background:var(--surface2);border:1px solid var(--green);border-radius:12px;padding:20px;text-align:left;max-width:480px;margin:0 auto 24px;}
+.creds-row{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);font-size:13px;}
+.creds-row:last-child{border-bottom:none;}
+.creds-label{color:var(--muted);}
+.creds-val{font-weight:700;color:var(--accent);font-family:monospace;}
+.launch-btn{padding:14px 40px;background:linear-gradient(135deg,#00ff88,#00aa55);color:#000;font-size:15px;font-weight:900;border:none;border-radius:12px;cursor:pointer;display:inline-block;}
+
+.progress-bar{width:100%;height:4px;background:var(--border);border-radius:2px;margin-bottom:32px;}
+.progress-fill{height:100%;border-radius:2px;background:linear-gradient(90deg,var(--accent),var(--purple));transition:width 0.4s;}
+
+.checkbox-field{display:flex;align-items:flex-start;gap:10px;margin-bottom:12px;font-size:13px;color:var(--muted);}
+.checkbox-field input{margin-top:2px;accent-color:var(--accent);}
+.checkbox-field a{color:var(--accent);}
+
+.sector-tags{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;}
+.sector-tag{padding:5px 12px;border-radius:20px;border:1px solid var(--border);font-size:12px;cursor:pointer;background:var(--surface2);color:var(--muted);transition:all 0.2s;}
+.sector-tag.selected{border-color:var(--accent);background:rgba(0,212,255,0.1);color:var(--accent);}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="brand">
+    <div class="logo">SA</div>
+    <div><div class="brand-name">Sentinel APEX</div><div class="brand-sub">by CyberDudeBivash Pvt. Ltd.</div></div>
+  </div>
+  <div class="login-link" onclick="window.location='customer-portal.html'">Already a customer? Sign In →</div>
+</div>
+
+<div class="hero">
+  <h1>Start Your Enterprise Security Journey</h1>
+  <p>Join 500+ enterprise security teams using Sentinel APEX for real-time threat intelligence, detection engineering, and ATT&CK operations.</p>
+  <div class="trust-badges">
+    <span class="trust-badge">✓ SOC 2 Type II Ready</span>
+    <span class="trust-badge">✓ GDPR Compliant</span>
+    <span class="trust-badge">✓ 99.9% SLA Uptime</span>
+    <span class="trust-badge">✓ Enterprise SSO/SAML</span>
+    <span class="trust-badge">✓ 24/7 Priority Support</span>
+  </div>
+</div>
+
+<div class="stepper-wrap">
+  <div class="stepper" id="stepper">
+    <div class="step active" id="s1"><div class="step-circle">1</div><div class="step-label">Organization</div></div>
+    <div class="step-line" id="l1"></div>
+    <div class="step" id="s2"><div class="step-circle">2</div><div class="step-label">Plan</div></div>
+    <div class="step-line" id="l2"></div>
+    <div class="step" id="s3"><div class="step-circle">3</div><div class="step-label">Payment</div></div>
+    <div class="step-line" id="l3"></div>
+    <div class="step" id="s4"><div class="step-circle">4</div><div class="step-label">Security Config</div></div>
+    <div class="step-line" id="l4"></div>
+    <div class="step" id="s5"><div class="step-circle">5</div><div class="step-label">Launch</div></div>
+  </div>
+
+  <div class="progress-bar"><div class="progress-fill" id="progress" style="width:20%"></div></div>
+
+  <!-- STEP 1: Organization -->
+  <div class="panel active" id="p1">
+    <div class="panel-title">🏢 Organization Setup</div>
+    <div class="panel-sub">Tell us about your organization. This creates your tenant and admin account.</div>
+    <div id="err1"></div>
+    <div class="form-grid">
+      <div class="field"><label>Organization Name *</label><input id="org-name" type="text" placeholder="e.g. Acme Corp Security" /></div>
+      <div class="field"><label>Organization Domain *</label><input id="org-domain" type="text" placeholder="e.g. acmecorp.com" /></div>
+      <div class="field"><label>Admin First Name *</label><input id="admin-first" type="text" placeholder="John" /></div>
+      <div class="field"><label>Admin Last Name *</label><input id="admin-last" type="text" placeholder="Smith" /></div>
+      <div class="field"><label>Work Email *</label><input id="admin-email" type="email" placeholder="john.smith@acmecorp.com" /></div>
+      <div class="field"><label>Admin Phone</label><input id="admin-phone" type="tel" placeholder="+1 (555) 000-0000" /></div>
+      <div class="field"><label>Job Title *</label><input id="admin-title" type="text" placeholder="CISO / Head of Security" /></div>
+      <div class="field"><label>Team Size</label>
+        <select id="team-size">
+          <option>1–10 security analysts</option>
+          <option>11–50 security analysts</option>
+          <option>51–200 security analysts</option>
+          <option>200+ security analysts</option>
+        </select>
+      </div>
+    </div>
+    <div class="field" style="margin-bottom:16px">
+      <label>Industry Sector *</label>
+      <div class="sector-tags" id="sectors">
+        <span class="sector-tag" onclick="selectSector(this)">Financial Services</span>
+        <span class="sector-tag" onclick="selectSector(this)">Healthcare</span>
+        <span class="sector-tag" onclick="selectSector(this)">Government / Defense</span>
+        <span class="sector-tag" onclick="selectSector(this)">Technology</span>
+        <span class="sector-tag" onclick="selectSector(this)">Energy / Utilities</span>
+        <span class="sector-tag" onclick="selectSector(this)">Retail / E-Commerce</span>
+        <span class="sector-tag" onclick="selectSector(this)">Manufacturing</span>
+        <span class="sector-tag" onclick="selectSector(this)">MSSP / Security Services</span>
+        <span class="sector-tag" onclick="selectSector(this)">Telecom</span>
+        <span class="sector-tag" onclick="selectSector(this)">Other</span>
+      </div>
+    </div>
+    <div class="form-grid">
+      <div class="field"><label>Country *</label>
+        <select id="country">
+          <option>India</option><option>United States</option><option>United Kingdom</option>
+          <option>Singapore</option><option>UAE</option><option>Australia</option>
+          <option>Germany</option><option>Canada</option><option>Japan</option><option>Other</option>
+        </select>
+      </div>
+      <div class="field"><label>Password *</label><input id="admin-pass" type="password" placeholder="Min 12 chars, 1 upper, 1 special" /></div>
+    </div>
+    <div class="checkbox-field"><input type="checkbox" id="agree-terms" /><span>I agree to the <a href="terms.html">Terms of Service</a>, <a href="privacy.html">Privacy Policy</a>, and <a href="eula.html">Enterprise EULA</a></span></div>
+    <div class="checkbox-field"><input type="checkbox" id="agree-dpa" /><span>I accept the Data Processing Agreement (DPA) required for GDPR compliance</span></div>
+    <div class="btn-row">
+      <button class="btn-next" onclick="step1Next()">Continue to Plan Selection →</button>
+    </div>
+  </div>
+
+  <!-- STEP 2: Plan -->
+  <div class="panel" id="p2">
+    <div class="panel-title">🎯 Select Your Plan</div>
+    <div class="panel-sub">All plans include real-time threat intelligence, CVE feeds, detection rules, and API access. Upgrade anytime.</div>
+    <div class="plan-grid">
+      <div class="plan-card" id="plan-starter" onclick="selectPlan('starter',12000)">
+        <div class="plan-name">Starter</div>
+        <div class="plan-price">₹12,000<span>/mo</span></div>
+        <ul class="plan-features">
+          <li>5 analysts</li>
+          <li>CTI Feed (Standard)</li>
+          <li>50 Detection Rules/mo</li>
+          <li>Basic ATT&CK Coverage</li>
+          <li>Email Support</li>
+          <li>1,000 API calls/day</li>
+        </ul>
+      </div>
+      <div class="plan-card popular" id="plan-professional" onclick="selectPlan('professional',36000)">
+        <div class="plan-name">Professional</div>
+        <div class="plan-price">₹36,000<span>/mo</span></div>
+        <ul class="plan-features">
+          <li>25 analysts</li>
+          <li>CTI Feed (Full)</li>
+          <li>200 Detection Rules/mo</li>
+          <li>Full ATT&CK Coverage</li>
+          <li>Priority Support (24h SLA)</li>
+          <li>10,000 API calls/day</li>
+          <li>Executive Reports</li>
+        </ul>
+      </div>
+      <div class="plan-card" id="plan-enterprise" onclick="selectPlan('enterprise',84000)">
+        <div class="plan-name">Enterprise</div>
+        <div class="plan-price">₹84,000<span>/mo</span></div>
+        <ul class="plan-features">
+          <li>Unlimited analysts</li>
+          <li>CTI Feed (Premium)</li>
+          <li>Unlimited Detection Rules</li>
+          <li>Custom ATT&CK Coverage</li>
+          <li>Dedicated CSM (4h SLA)</li>
+          <li>100,000 API calls/day</li>
+          <li>SIEM/SOAR Integration</li>
+          <li>SSO/SAML/MFA</li>
+        </ul>
+      </div>
+      <div class="plan-card" id="plan-mssp" onclick="selectPlan('mssp',150000)">
+        <div class="plan-name">MSSP</div>
+        <div class="plan-price">₹1,50,000<span>/mo</span></div>
+        <ul class="plan-features">
+          <li>Multi-tenant management</li>
+          <li>White-label portal</li>
+          <li>Unlimited sub-tenants</li>
+          <li>Custom threat profiles</li>
+          <li>24/7 Dedicated Support</li>
+          <li>Unlimited API</li>
+          <li>OEM Licensing</li>
+          <li>Revenue sharing</li>
+        </ul>
+      </div>
+    </div>
+    <div class="alert alert-info" id="plan-selected-msg" style="display:none">✓ Plan selected. You can change billing cycle below.</div>
+    <div class="field" style="margin-bottom:20px">
+      <label>Billing Cycle</label>
+      <select id="billing-cycle" onchange="updateCycle()">
+        <option value="monthly">Monthly</option>
+        <option value="annual">Annual (Save 20%)</option>
+        <option value="biannual">Bi-Annual (Save 30%)</option>
+      </select>
+    </div>
+    <div class="btn-row">
+      <button class="btn-back" onclick="goTo(1)">← Back</button>
+      <button class="btn-next" onclick="step2Next()">Continue to Payment →</button>
+    </div>
+  </div>
+
+  <!-- STEP 3: Payment -->
+  <div class="panel" id="p3">
+    <div class="panel-title">💳 Payment Setup</div>
+    <div class="panel-sub">Secure payment processing. Choose your preferred method.</div>
+    <div id="order-summary-3" class="summary-box"></div>
+    <div class="payment-grid">
+      <div class="pay-method" id="pm-upi" onclick="selectPayment('upi')"><div class="pay-icon">📱</div><div class="pay-name">UPI</div><div class="pay-sub">Instant · India</div></div>
+      <div class="pay-method" id="pm-qr" onclick="selectPayment('qr')"><div class="pay-icon">🔲</div><div class="pay-name">QR Code</div><div class="pay-sub">Scan & Pay</div></div>
+      <div class="pay-method" id="pm-neft" onclick="selectPayment('neft')"><div class="pay-icon">🏦</div><div class="pay-name">NEFT / RTGS</div><div class="pay-sub">Bank Transfer</div></div>
+      <div class="pay-method" id="pm-card" onclick="selectPayment('card')"><div class="pay-icon">💳</div><div class="pay-name">Credit / Debit Card</div><div class="pay-sub">Visa · MC · Amex</div></div>
+      <div class="pay-method" id="pm-paypal" onclick="selectPayment('paypal')"><div class="pay-icon">🅿️</div><div class="pay-name">PayPal</div><div class="pay-sub">International</div></div>
+      <div class="pay-method" id="pm-crypto" onclick="selectPayment('crypto')"><div class="pay-icon">₿</div><div class="pay-name">Crypto</div><div class="pay-sub">USDT · BTC · ETH</div></div>
+    </div>
+
+    <!-- UPI Form -->
+    <div class="payment-form" id="form-upi">
+      <div class="qr-box">
+        <div class="upi-id">sentinelapex@cyberdudebivash</div>
+        <button class="copy-btn" onclick="copyUPI()">📋 Copy UPI ID</button>
+        <p style="color:var(--muted);font-size:12px;margin-top:12px">Pay via PhonePe, Google Pay, Paytm, or any UPI app</p>
+        <div class="alert alert-info" style="margin-top:12px;text-align:left">Enter your UPI Transaction ID after payment to confirm</div>
+        <div class="field" style="text-align:left;margin-top:12px"><label>UPI Transaction ID *</label><input id="upi-txn" type="text" placeholder="UTR / Transaction Reference" /></div>
+      </div>
+    </div>
+
+    <!-- QR Form -->
+    <div class="payment-form" id="form-qr">
+      <div class="qr-box">
+        <div class="qr-code">
+          <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+            <rect width="100" height="100" fill="white"/>
+            <rect x="5" y="5" width="35" height="35" fill="none" stroke="black" stroke-width="3"/>
+            <rect x="10" y="10" width="25" height="25" fill="black"/>
+            <rect x="60" y="5" width="35" height="35" fill="none" stroke="black" stroke-width="3"/>
+            <rect x="65" y="10" width="25" height="25" fill="black"/>
+            <rect x="5" y="60" width="35" height="35" fill="none" stroke="black" stroke-width="3"/>
+            <rect x="10" y="65" width="25" height="25" fill="black"/>
+            <rect x="15" y="15" width="15" height="15" fill="white"/>
+            <rect x="70" y="15" width="15" height="15" fill="white"/>
+            <rect x="15" y="70" width="15" height="15" fill="white"/>
+            <rect x="45" y="45" width="5" height="5" fill="black"/>
+            <rect x="55" y="45" width="5" height="5" fill="black"/>
+            <rect x="50" y="50" width="5" height="5" fill="black"/>
+            <rect x="60" y="55" width="5" height="5" fill="black"/>
+            <rect x="65" y="65" width="30" height="5" fill="black"/>
+            <rect x="65" y="75" width="5" height="20" fill="black"/>
+            <rect x="80" y="75" width="15" height="5" fill="black"/>
+            <rect x="80" y="85" width="15" height="10" fill="black"/>
+          </svg>
+        </div>
+        <p style="color:var(--muted);font-size:12px">Scan with any UPI or banking app</p>
+        <div class="field" style="margin-top:16px;text-align:left"><label>UPI Transaction ID *</label><input id="qr-txn" type="text" placeholder="Transaction reference after payment" /></div>
+      </div>
+    </div>
+
+    <!-- NEFT Form -->
+    <div class="payment-form" id="form-neft">
+      <div class="bank-details">
+        <div class="bank-row"><span class="bank-label">Account Name</span><span class="bank-value">CyberDudeBivash Pvt. Ltd.</span></div>
+        <div class="bank-row"><span class="bank-label">Account Number</span><span class="bank-value">1234567890123456</span></div>
+        <div class="bank-row"><span class="bank-label">IFSC Code</span><span class="bank-value">HDFC0001234</span></div>
+        <div class="bank-row"><span class="bank-label">Bank</span><span class="bank-value">HDFC Bank</span></div>
+        <div class="bank-row"><span class="bank-label">Branch</span><span class="bank-value">Connaught Place, New Delhi</span></div>
+        <div class="bank-row"><span class="bank-label">SWIFT Code</span><span class="bank-value">HDFCINBB</span></div>
+      </div>
+      <div class="alert alert-info" style="margin-top:16px">Use your organization name as the payment reference. Send UTR number below.</div>
+      <div class="field" style="margin-top:12px"><label>UTR / NEFT Reference *</label><input id="neft-utr" type="text" placeholder="UTR Reference Number" /></div>
+    </div>
+
+    <!-- Card Form -->
+    <div class="payment-form" id="form-card">
+      <div class="form-grid">
+        <div class="field form-grid full"><label>Cardholder Name *</label><input id="card-name" type="text" placeholder="As on card" /></div>
+        <div class="field form-grid full"><label>Card Number *</label><input id="card-num" type="text" placeholder="1234 5678 9012 3456" maxlength="19" oninput="formatCard(this)" /></div>
+        <div class="field"><label>Expiry *</label><input id="card-exp" type="text" placeholder="MM/YY" maxlength="5" /></div>
+        <div class="field"><label>CVV *</label><input id="card-cvv" type="password" placeholder="•••" maxlength="4" /></div>
+      </div>
+      <div class="alert alert-info">🔒 256-bit SSL encrypted. PCI DSS compliant. Card details never stored.</div>
+    </div>
+
+    <!-- PayPal Form -->
+    <div class="payment-form" id="form-paypal">
+      <div style="text-align:center;padding:24px">
+        <div style="font-size:48px;margin-bottom:16px">🅿️</div>
+        <p style="color:var(--muted);margin-bottom:20px">You'll be redirected to PayPal to complete payment. Return here with your PayPal Transaction ID.</p>
+        <button onclick="simulatePaypal()" style="padding:12px 28px;background:#003087;color:white;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer">Pay with PayPal →</button>
+        <div class="field" style="margin-top:20px;text-align:left"><label>PayPal Transaction ID *</label><input id="pp-txn" type="text" placeholder="PayPal Transaction ID" /></div>
+      </div>
+    </div>
+
+    <!-- Crypto Form -->
+    <div class="payment-form" id="form-crypto">
+      <div class="form-grid">
+        <div class="field"><label>Cryptocurrency</label>
+          <select id="crypto-type" onchange="updateCryptoAddress()">
+            <option value="usdt">USDT (TRC-20)</option>
+            <option value="btc">Bitcoin (BTC)</option>
+            <option value="eth">Ethereum (ETH)</option>
+          </select>
+        </div>
+        <div class="field"><label>Network</label><input id="crypto-network" type="text" readonly value="TRON (TRC-20)" /></div>
+      </div>
+      <div class="upi-id" id="crypto-address" style="font-size:12px;word-break:break-all">TYkQR8gF7Mnt4ZvV5NCpCnvnDo3hJXPD9Z</div>
+      <button class="copy-btn" onclick="copyCrypto()">📋 Copy Address</button>
+      <div class="alert alert-info" style="margin-top:12px">⚠️ Only send the exact amount. Manual settlement within 24h. Provide TxHash below.</div>
+      <div class="field" style="margin-top:12px"><label>Transaction Hash (TxHash) *</label><input id="crypto-txhash" type="text" placeholder="0x... or T..." /></div>
+      <div class="field"><label>USD Amount Sent *</label><input id="crypto-amount" type="text" placeholder="e.g. 1050.00" /></div>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn-back" onclick="goTo(2)">← Back</button>
+      <button class="btn-next" onclick="step3Next()">Continue to Security Config →</button>
+    </div>
+  </div>
+
+  <!-- STEP 4: Security Config -->
+  <div class="panel" id="p4">
+    <div class="panel-title">🔐 Security Configuration</div>
+    <div class="panel-sub">Configure your threat profile, integrations, and security stack. This personalizes your intelligence feed.</div>
+    <div class="form-grid">
+      <div class="field"><label>Primary SIEM Platform</label>
+        <select id="siem">
+          <option>Splunk</option><option>Microsoft Sentinel</option><option>IBM QRadar</option>
+          <option>Elastic SIEM</option><option>ArcSight</option><option>LogRhythm</option><option>None</option>
+        </select>
+      </div>
+      <div class="field"><label>EDR/XDR Platform</label>
+        <select id="edr">
+          <option>CrowdStrike Falcon</option><option>Microsoft Defender XDR</option><option>SentinelOne</option>
+          <option>Palo Alto Cortex XDR</option><option>Carbon Black</option><option>None</option>
+        </select>
+      </div>
+      <div class="field"><label>Cloud Infrastructure</label>
+        <select id="cloud">
+          <option>AWS</option><option>Microsoft Azure</option><option>Google Cloud</option>
+          <option>Multi-Cloud</option><option>On-Premise</option><option>Hybrid</option>
+        </select>
+      </div>
+      <div class="field"><label>Primary OS Environment</label>
+        <select id="os">
+          <option>Windows (Active Directory)</option><option>Linux</option><option>Mixed Windows/Linux</option><option>macOS</option>
+        </select>
+      </div>
+      <div class="field"><label>Detection Format Preference</label>
+        <select id="detect-format">
+          <option>Sigma (Universal)</option><option>Splunk SPL</option><option>KQL (Sentinel)</option>
+          <option>YARA</option><option>All Formats</option>
+        </select>
+      </div>
+      <div class="field"><label>Threat Intelligence Format</label>
+        <select id="ti-format">
+          <option>STIX 2.1 / TAXII</option><option>JSON</option><option>CSV</option><option>PDF Reports Only</option>
+        </select>
+      </div>
+    </div>
+    <div class="field" style="margin-bottom:16px">
+      <label>Priority Threat Actors (select your concern)</label>
+      <div class="sector-tags" id="threat-actors">
+        <span class="sector-tag" onclick="this.classList.toggle('selected')">APT28 (Fancy Bear)</span>
+        <span class="sector-tag" onclick="this.classList.toggle('selected')">APT29 (Cozy Bear)</span>
+        <span class="sector-tag" onclick="this.classList.toggle('selected')">Lazarus Group</span>
+        <span class="sector-tag" onclick="this.classList.toggle('selected')">LockBit Ransomware</span>
+        <span class="sector-tag" onclick="this.classList.toggle('selected')">Scattered Spider</span>
+        <span class="sector-tag" onclick="this.classList.toggle('selected')">FIN7</span>
+        <span class="sector-tag" onclick="this.classList.toggle('selected')">Conti / BlackBasta</span>
+        <span class="sector-tag" onclick="this.classList.toggle('selected')">All Threats</span>
+      </div>
+    </div>
+    <div class="form-grid">
+      <div class="field"><label>Webhook URL (optional)</label><input id="webhook-url" type="url" placeholder="https://your-siem.com/webhook/sentinel" /></div>
+      <div class="field"><label>MFA Preference</label>
+        <select id="mfa-pref">
+          <option>TOTP (Google Authenticator)</option><option>SMS OTP</option><option>Hardware Key (FIDO2)</option><option>Email OTP</option>
+        </select>
+      </div>
+    </div>
+    <div class="btn-row">
+      <button class="btn-back" onclick="goTo(3)">← Back</button>
+      <button class="btn-success" onclick="step4Next()">🚀 Activate My Account →</button>
+    </div>
+  </div>
+
+  <!-- STEP 5: Success -->
+  <div class="panel" id="p5">
+    <div class="success-wrap">
+      <div class="success-icon">🎉</div>
+      <div class="success-title">Welcome to Sentinel APEX!</div>
+      <div class="success-sub">Your enterprise account is activated. Here are your credentials and API keys.</div>
+      <div class="creds-box">
+        <div class="creds-row"><span class="creds-label">Organization ID</span><span class="creds-val" id="cred-orgid">ORG-APEX-8821</span></div>
+        <div class="creds-row"><span class="creds-label">Tenant ID</span><span class="creds-val" id="cred-tenant">TNT-29F4-A71B</span></div>
+        <div class="creds-row"><span class="creds-label">Admin Email</span><span class="creds-val" id="cred-email">—</span></div>
+        <div class="creds-row"><span class="creds-label">API Key (Primary)</span><span class="creds-val" id="cred-apikey">sk-apex-XXXXXXXXXXXX</span></div>
+        <div class="creds-row"><span class="creds-label">TAXII Feed URL</span><span class="creds-val">https://api.cyberdudebivash.in/taxii/</span></div>
+        <div class="creds-row"><span class="creds-label">Subscription</span><span class="creds-val" id="cred-plan">—</span></div>
+        <div class="creds-row"><span class="creds-label">Renews</span><span class="creds-val" id="cred-renew">—</span></div>
+      </div>
+      <div class="alert alert-success" style="max-width:480px;margin:0 auto 24px;text-align:left">📧 Credentials and onboarding guide sent to your email. Check your inbox.</div>
+      <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap">
+        <button class="launch-btn" onclick="window.location='customer-portal.html'">🚀 Launch Customer Portal</button>
+        <button onclick="window.location='api-management-center.html'" style="padding:14px 28px;background:rgba(0,212,255,0.15);color:var(--accent);border:1px solid var(--accent);border-radius:12px;font-size:15px;font-weight:700;cursor:pointer">🔑 View API Keys</button>
+        <button onclick="window.location='support-center.html'" style="padding:14px 28px;background:transparent;color:var(--muted);border:1px solid var(--border);border-radius:12px;font-size:15px;font-weight:700;cursor:pointer">📩 Contact Support</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+let selectedPlan = null, selectedPrice = 0, selectedPayment = null;
+const plans = { starter:12000, professional:36000, enterprise:84000, mssp:150000 };
+const cycleDisc = { monthly:1, annual:0.8, biannual:0.7 };
+const cryptoAddrs = { usdt:'TYkQR8gF7Mnt4ZvV5NCpCnvnDo3hJXPD9Z', btc:'bc1qar0srrr7xfkvy5l643lydnw9re59gtzzwf5mdq', eth:'0x742d35Cc6634C0532925a3b8D4C9D2B3F5E6791' };
+
+function goTo(n) {
+  for(let i=1;i<=5;i++){
+    document.getElementById('p'+i).classList.remove('active');
+    const s=document.getElementById('s'+i);
+    s.classList.remove('active');
+    if(i<n) s.classList.add('done'); else s.classList.remove('done');
+  }
+  document.getElementById('p'+n).classList.add('active');
+  document.getElementById('s'+n).classList.add('active');
+  for(let i=1;i<=4;i++){
+    const l=document.getElementById('l'+i);
+    if(l) l.classList.toggle('done', i<n);
+  }
+  document.getElementById('progress').style.width=(n*20)+'%';
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+function selectSector(el) {
+  document.querySelectorAll('.sector-tag').forEach(t=>t.classList.remove('selected'));
+  el.classList.add('selected');
+}
+
+function selectPlan(name, price) {
+  selectedPlan = name; selectedPrice = price;
+  document.querySelectorAll('.plan-card').forEach(c=>c.classList.remove('selected'));
+  document.getElementById('plan-'+name).classList.add('selected');
+  document.getElementById('plan-selected-msg').style.display='block';
+  updateCycle();
+}
+
+function updateCycle() {
+  if(!selectedPlan) return;
+  const cycle = document.getElementById('billing-cycle').value;
+  const disc = cycleDisc[cycle];
+  const finalPrice = Math.round(plans[selectedPlan] * disc);
+  document.getElementById('plan-selected-msg').textContent = `✓ ${selectedPlan.charAt(0).toUpperCase()+selectedPlan.slice(1)} plan · ₹${finalPrice.toLocaleString('en-IN')}/mo (${cycle})`;
+}
+
+function selectPayment(method) {
+  selectedPayment = method;
+  document.querySelectorAll('.pay-method').forEach(m=>m.classList.remove('selected'));
+  document.getElementById('pm-'+method).classList.add('selected');
+  document.querySelectorAll('.payment-form').forEach(f=>f.classList.remove('active'));
+  document.getElementById('form-'+method).classList.add('active');
+}
+
+function step1Next() {
+  const required = ['org-name','org-domain','admin-first','admin-last','admin-email','admin-title','admin-pass'];
+  for(const id of required) {
+    if(!document.getElementById(id).value.trim()) {
+      document.getElementById('err1').innerHTML='<div class="alert alert-error">⚠ Please fill all required fields.</div>';
+      document.getElementById(id).focus(); return;
+    }
+  }
+  if(!document.getElementById('agree-terms').checked) {
+    document.getElementById('err1').innerHTML='<div class="alert alert-error">⚠ Please accept the Terms of Service and Privacy Policy.</div>';
+    return;
+  }
+  document.getElementById('err1').innerHTML='';
+  goTo(2);
+}
+
+function step2Next() {
+  if(!selectedPlan) { alert('Please select a plan to continue.'); return; }
+  const cycle = document.getElementById('billing-cycle').value;
+  const disc = cycleDisc[cycle];
+  const finalPrice = Math.round(plans[selectedPlan]*disc);
+  const planLabel = {'starter':'Starter','professional':'Professional','enterprise':'Enterprise','mssp':'MSSP'}[selectedPlan];
+  const cycleLabel = {'monthly':'Monthly','annual':'Annual (–20%)','biannual':'Bi-Annual (–30%)'}[cycle];
+  document.getElementById('order-summary-3').innerHTML = `
+    <div class="summary-row"><span>Plan</span><span class="val">${planLabel}</span></div>
+    <div class="summary-row"><span>Billing Cycle</span><span class="val">${cycleLabel}</span></div>
+    <div class="summary-row"><span>Base Price</span><span class="val">₹${plans[selectedPlan].toLocaleString('en-IN')}/mo</span></div>
+    <div class="summary-row"><span>Discount</span><span class="val">${disc<1?'-'+(((1-disc)*100).toFixed(0))+'%':'None'}</span></div>
+    <div class="summary-row"><span>GST (18%)</span><span class="val">₹${Math.round(finalPrice*0.18).toLocaleString('en-IN')}</span></div>
+    <div class="summary-row"><span>Total Due Today</span><span class="val">₹${Math.round(finalPrice*1.18).toLocaleString('en-IN')}</span></div>`;
+  goTo(3);
+}
+
+function step3Next() {
+  if(!selectedPayment) { alert('Please select a payment method.'); return; }
+  goTo(4);
+}
+
+function step4Next() {
+  const email = document.getElementById('admin-email').value;
+  const plan = selectedPlan || 'professional';
+  const orgId = 'ORG-APEX-'+Math.floor(1000+Math.random()*9000);
+  const tenant = 'TNT-'+Math.random().toString(36).substring(2,6).toUpperCase()+'-'+Math.random().toString(36).substring(2,6).toUpperCase();
+  const apiKey = 'sk-apex-'+Math.random().toString(36).substring(2,18).toUpperCase();
+  const renewDate = new Date(); renewDate.setMonth(renewDate.getMonth()+1);
+  document.getElementById('cred-orgid').textContent = orgId;
+  document.getElementById('cred-tenant').textContent = tenant;
+  document.getElementById('cred-email').textContent = email;
+  document.getElementById('cred-apikey').textContent = apiKey;
+  document.getElementById('cred-plan').textContent = plan.charAt(0).toUpperCase()+plan.slice(1);
+  document.getElementById('cred-renew').textContent = renewDate.toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'});
+  goTo(5);
+}
+
+function copyUPI() { navigator.clipboard.writeText('sentinelapex@cyberdudebivash').then(()=>alert('UPI ID copied!')); }
+function copyCrypto() { navigator.clipboard.writeText(document.getElementById('crypto-address').textContent.trim()).then(()=>alert('Crypto address copied!')); }
+function formatCard(el) { el.value=el.value.replace(/\D/g,'').replace(/(.{4})/g,'$1 ').trim(); }
+function updateCryptoAddress() {
+  const t=document.getElementById('crypto-type').value;
+  const netMap={usdt:'TRON (TRC-20)',btc:'Bitcoin Mainnet',eth:'Ethereum Mainnet'};
+  document.getElementById('crypto-address').textContent=cryptoAddrs[t];
+  document.getElementById('crypto-network').value=netMap[t];
+}
+function simulatePaypal() { window.open('https://www.paypal.com','_blank'); }
+</script>
+</body>
+</html>

@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Enterprise Action Dashboard — SENTINEL APEX P23.0</title>
+<meta name="robots" content="noindex,nofollow">
+<link rel="icon" href="/favicon.ico">
+<style>
+:root{
+  --bg:#050c18;--bg2:#090f1e;--border:#162030;--card:#0b1422;
+  --accent:#00ffc6;--accent2:#7c3aed;--blue:#3b82f6;
+  --text:#e2e8f0;--muted:#64748b;--dim:#374151;
+  --green:#10b981;--red:#ef4444;--yellow:#d97706;--orange:#ea580c;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,sans-serif;min-height:100vh;}
+
+#authScreen{display:flex;align-items:center;justify-content:center;min-height:100vh;}
+.auth-card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:40px;max-width:380px;width:90%;text-align:center;}
+.auth-logo{font-family:monospace;font-size:11px;font-weight:900;color:var(--accent);letter-spacing:3px;margin-bottom:6px;}
+.auth-sub{font-size:12px;color:var(--muted);margin-bottom:28px;}
+.auth-input{width:100%;background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:12px 14px;color:var(--text);font-size:13px;font-family:inherit;outline:none;margin-bottom:12px;transition:border-color .2s;}
+.auth-input:focus{border-color:var(--accent);}
+.auth-btn{width:100%;padding:12px;background:var(--accent);color:#000;font-weight:800;font-size:13px;border:none;border-radius:8px;cursor:pointer;letter-spacing:0.5px;transition:opacity .15s;}
+.auth-btn:hover{opacity:0.9;}
+.auth-err{color:var(--red);font-size:12px;margin-top:8px;display:none;}
+
+#app{display:none;}
+nav{display:flex;align-items:center;justify-content:space-between;padding:14px 28px;background:rgba(5,12,24,0.97);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:100;backdrop-filter:blur(8px);}
+.nav-logo{font-family:monospace;font-weight:900;font-size:11px;color:var(--accent);letter-spacing:2px;}
+.nav-pill{padding:4px 12px;border-radius:20px;background:rgba(0,255,198,.08);border:1px solid rgba(0,255,198,.2);font-size:10px;font-family:monospace;color:var(--accent);font-weight:700;}
+.nav-links{display:flex;align-items:center;gap:16px;}
+.nav-links a{color:var(--muted);font-size:12px;text-decoration:none;transition:color .15s;}
+.nav-links a:hover{color:var(--accent);}
+.main{max-width:1440px;margin:0 auto;padding:28px 24px;}
+.pg-title{font-size:22px;font-weight:800;margin-bottom:4px;}
+.pg-sub{font-size:13px;color:var(--muted);margin-bottom:24px;}
+
+.kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:24px;}
+.kpi{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:20px;position:relative;overflow:hidden;}
+.kpi::after{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:var(--kpi-accent,var(--accent));}
+.kpi-val{font-size:30px;font-weight:900;font-family:monospace;color:var(--kpi-accent,var(--accent));line-height:1;}
+.kpi-label{font-size:9px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;margin-top:8px;}
+.kpi-sub{font-size:11px;color:var(--muted);margin-top:4px;}
+
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;}
+@media(max-width:900px){.row2{grid-template-columns:1fr;}}
+.row3{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px;margin-bottom:16px;}
+.row4{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-bottom:16px;}
+.card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:22px;}
+.card-title{font-size:9px;font-weight:700;color:var(--muted);letter-spacing:2px;text-transform:uppercase;margin-bottom:16px;display:flex;align-items:center;justify-content:space-between;}
+.card-title span{font-family:monospace;}
+
+.section-hdr{font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--accent);margin:28px 0 14px;display:flex;align-items:center;gap:8px;}
+.section-hdr::after{content:'';flex:1;height:1px;background:var(--border);}
+
+.bar-wrap{background:var(--bg2);border-radius:4px;height:6px;overflow:hidden;margin:6px 0;}
+.bar-fill{height:100%;border-radius:4px;transition:width .6s ease;}
+
+.badge{display:inline-block;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;letter-spacing:.05em;font-family:monospace;}
+.badge-green{background:rgba(16,185,129,.12);border:1px solid rgba(16,185,129,.3);color:var(--green);}
+.badge-red{background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.3);color:var(--red);}
+.badge-yellow{background:rgba(217,119,6,.12);border:1px solid rgba(217,119,6,.3);color:var(--yellow);}
+.badge-blue{background:rgba(59,130,246,.12);border:1px solid rgba(59,130,246,.3);color:var(--blue);}
+.badge-accent{background:rgba(0,255,198,.1);border:1px solid rgba(0,255,198,.3);color:var(--accent);}
+.badge-muted{background:rgba(100,116,139,.1);border:1px solid rgba(100,116,139,.3);color:var(--muted);}
+
+.patch-tier{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-radius:8px;margin:6px 0;font-size:12px;}
+.patch-tier.p0{background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.25);}
+.patch-tier.p1{background:rgba(249,115,22,.08);border:1px solid rgba(249,115,22,.25);}
+.patch-tier.p2{background:rgba(234,179,8,.08);border:1px solid rgba(234,179,8,.25);}
+.patch-tier.p3{background:rgba(59,130,246,.08);border:1px solid rgba(59,130,246,.25);}
+.patch-tier.p4{background:rgba(107,114,128,.08);border:1px solid rgba(107,114,128,.25);}
+.patch-count{font-size:20px;font-weight:900;font-family:monospace;}
+
+table{width:100%;border-collapse:collapse;font-size:12px;}
+th{font-size:9px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);padding:8px 10px;text-align:left;border-bottom:1px solid var(--border);}
+td{padding:9px 10px;border-bottom:1px solid var(--bg2);color:var(--text);vertical-align:middle;}
+tr:last-child td{border-bottom:none;}
+tr:hover td{background:rgba(255,255,255,.02);}
+.tbl-wrap{max-height:520px;overflow-y:auto;border-radius:10px;border:1px solid var(--border);}
+
+.stat-row{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--bg2);font-size:12px;}
+.stat-row:last-child{border-bottom:none;}
+.stat-label{color:var(--muted);}
+.stat-val{font-weight:700;font-family:monospace;}
+
+.loading{text-align:center;padding:60px;color:var(--muted);font-size:13px;}
+.empty{text-align:center;padding:30px;color:var(--dim);font-size:12px;}
+
+.score-ring{position:relative;display:inline-flex;align-items:center;justify-content:center;}
+.score-ring svg{transform:rotate(-90deg);}
+.score-ring-val{position:absolute;text-align:center;font-family:monospace;font-weight:900;}
+</style>
+</head>
+<body>
+
+<!-- Auth -->
+<div id="authScreen">
+  <div class="auth-card">
+    <div class="auth-logo">SENTINEL APEX</div>
+    <div class="auth-sub">Enterprise Action Dashboard — P23.0 Operational Intelligence</div>
+    <input class="auth-input" type="password" id="apiKeyInput" placeholder="Enter API Key" autocomplete="off">
+    <button class="auth-btn" onclick="authenticate()">Access Dashboard</button>
+    <div class="auth-err" id="authErr">Invalid API key</div>
+  </div>
+</div>
+
+<!-- App -->
+<div id="app">
+<nav>
+  <div class="nav-logo">CYBERDUDEBIVASH® SENTINEL APEX</div>
+  <div style="display:flex;align-items:center;gap:12px;">
+    <div class="nav-pill">P23.0 ENTERPRISE ACTION</div>
+    <span id="lastRefresh" style="font-size:10px;color:var(--muted);font-family:monospace;"></span>
+  </div>
+  <div class="nav-links">
+    <a href="/threat-intel-certification-dashboard.html">P21 Certification</a>
+    <a href="/intel">Intelligence Portal</a>
+    <a href="#" onclick="loadAll()">Refresh</a>
+  </div>
+</nav>
+
+<div class="main">
+  <div class="pg-title">Enterprise Action Dashboard</div>
+  <div class="pg-sub">Operational intelligence package — detection readiness, patch priorities, threat hunting, IR, compliance &amp; actionability scoring.</div>
+
+  <!-- KPI Grid -->
+  <div class="kpi-grid" id="kpiGrid">
+    <div class="kpi" style="--kpi-accent:var(--accent)"><div class="kpi-val" id="kpiTotal">—</div><div class="kpi-label">Total Advisories</div></div>
+    <div class="kpi" style="--kpi-accent:var(--accent)"><div class="kpi-val" id="kpiAvgAction">—</div><div class="kpi-label">Avg Actionability</div><div class="kpi-sub">out of 100</div></div>
+    <div class="kpi" style="--kpi-accent:#ef4444"><div class="kpi-val" id="kpiImmediate">—</div><div class="kpi-label">Patch Immediately</div><div class="kpi-sub">KEV/Critical risk</div></div>
+    <div class="kpi" style="--kpi-accent:var(--accent)"><div class="kpi-val" id="kpiExcellent">—</div><div class="kpi-label">Operationally Excellent</div><div class="kpi-sub">Score ≥85</div></div>
+    <div class="kpi" style="--kpi-accent:var(--blue)"><div class="kpi-val" id="kpiEntReady">—</div><div class="kpi-label">Enterprise Ready</div><div class="kpi-sub">Score ≥70</div></div>
+    <div class="kpi" style="--kpi-accent:var(--green)"><div class="kpi-val" id="kpiCoverage">—</div><div class="kpi-label">Detection Coverage</div><div class="kpi-sub">Avg across feed</div></div>
+  </div>
+
+  <!-- Patch Priority + Actionability Distribution -->
+  <div class="section-hdr">Patch Priority Distribution</div>
+  <div class="row2">
+    <div class="card">
+      <div class="card-title">Patch Priority Tiers <span id="patchTs"></span></div>
+      <div id="patchTiers"><div class="loading">Loading…</div></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Actionability Distribution</div>
+      <div id="actionDist"><div class="loading">Loading…</div></div>
+    </div>
+  </div>
+
+  <!-- Detection Coverage + Observability -->
+  <div class="section-hdr">Operational Readiness Metrics</div>
+  <div class="row3" id="obsCards">
+    <div class="card">
+      <div class="card-title">P22 Trust Status</div>
+      <div id="p22TrustPanel"><div class="loading">Loading…</div></div>
+    </div>
+    <div class="card">
+      <div class="card-title">P21 Certification Status</div>
+      <div id="p21CertPanel"><div class="loading">Loading…</div></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Publication Readiness</div>
+      <div id="pubReadPanel"><div class="loading">Loading…</div></div>
+    </div>
+  </div>
+
+  <!-- Items Table -->
+  <div class="section-hdr">Advisory Intelligence Packages</div>
+  <div style="display:flex;gap:10px;margin-bottom:12px;align-items:center;">
+    <input id="filterInput" style="flex:1;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:8px 12px;color:var(--text);font-size:12px;outline:none;" placeholder="Filter by title, CVE, priority…" oninput="filterTable()">
+    <select id="priorityFilter" style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:8px 12px;color:var(--text);font-size:12px;outline:none;" onchange="filterTable()">
+      <option value="">All Priorities</option>
+      <option value="PATCH IMMEDIATELY">Patch Immediately</option>
+      <option value="PATCH WITHIN 24 HOURS">Patch Within 24H</option>
+      <option value="PATCH WITHIN 7 DAYS">Patch Within 7 Days</option>
+      <option value="PATCH THIS MONTH">Patch This Month</option>
+      <option value="MONITOR">Monitor</option>
+    </select>
+  </div>
+  <div class="tbl-wrap">
+    <table>
+      <thead><tr>
+        <th>Advisory</th>
+        <th>Severity</th>
+        <th>Patch Priority</th>
+        <th>Actionability</th>
+        <th>KEV</th>
+        <th>CVSS</th>
+        <th>EPSS</th>
+      </tr></thead>
+      <tbody id="itemsTable"><tr><td colspan="7" class="loading">Loading…</td></tr></tbody>
+    </table>
+  </div>
+</div><!-- /main -->
+</div><!-- /app -->
+
+<script>
+let G_APIKEY = '';
+let G_DATA   = { actionability: null, readiness: null, p22obs: null, p21dash: null };
+let G_ITEMS  = [];
+
+function authenticate() {
+  const key = document.getElementById('apiKeyInput').value.trim();
+  if (!key) return;
+  G_APIKEY = key;
+  document.getElementById('authScreen').style.display = 'none';
+  document.getElementById('app').style.display = 'block';
+  loadAll();
+}
+
+document.getElementById('apiKeyInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter') authenticate();
+});
+
+async function apiFetch(path) {
+  const r = await fetch(path, { headers: { 'X-API-Key': G_APIKEY } });
+  if (!r.ok) throw new Error(`${r.status} ${path}`);
+  return r.json();
+}
+
+async function loadAll() {
+  document.getElementById('lastRefresh').textContent = 'Refreshing…';
+  try {
+    const [action, readiness, p22, p21] = await Promise.all([
+      apiFetch('/api/v1/p23/actionability').catch(() => null),
+      apiFetch('/api/v1/p23/operational-readiness').catch(() => null),
+      apiFetch('/api/v1/p22/observability').catch(() => null),
+      apiFetch('/api/v1/p21/observability').catch(() => null),
+    ]);
+    G_DATA = { action, readiness, p22, p21 };
+    if (action) G_ITEMS = action.items || [];
+    renderAll();
+    document.getElementById('lastRefresh').textContent = 'Updated ' + new Date().toLocaleTimeString();
+  } catch(e) {
+    console.error(e);
+    document.getElementById('lastRefresh').textContent = 'Error loading data';
+  }
+}
+
+function renderAll() {
+  const a = G_DATA.action;
+  const r = G_DATA.readiness;
+  const p22 = G_DATA.p22;
+  const p21 = G_DATA.p21;
+
+  // KPIs
+  if (a) {
+    setText('kpiTotal', a.total_items || 0);
+    setText('kpiAvgAction', (a.average_actionability || 0) + '%');
+    setText('kpiImmediate', a.immediate_patch_required || 0);
+    setText('kpiExcellent', a.operationally_excellent || 0);
+    setText('kpiEntReady', a.enterprise_ready || 0);
+  }
+  if (p22) setText('kpiCoverage', (p22.avg_detection_coverage_pct || 0) + '%');
+
+  // Patch tiers
+  if (a) {
+    const pd = a.items || [];
+    const counts = {};
+    pd.forEach(i => { counts[i.patch_priority] = (counts[i.patch_priority]||0)+1; });
+    const tiers = [
+      { key:'PATCH IMMEDIATELY', cls:'p0', label:'Patch Immediately', color:'#ef4444' },
+      { key:'PATCH WITHIN 24 HOURS', cls:'p1', label:'Patch Within 24H', color:'#f97316' },
+      { key:'PATCH WITHIN 7 DAYS', cls:'p2', label:'Patch Within 7 Days', color:'#eab308' },
+      { key:'PATCH THIS MONTH', cls:'p3', label:'Patch This Month', color:'#3b82f6' },
+      { key:'MONITOR', cls:'p4', label:'Monitor', color:'#6b7280' },
+      { key:'NO IMMEDIATE ACTION', cls:'p4', label:'No Action', color:'#4b5563' },
+    ];
+    document.getElementById('patchTiers').innerHTML = tiers.map(t => `
+      <div class="patch-tier ${t.cls}">
+        <span style="color:${t.color};font-size:12px;">${t.label}</span>
+        <span class="patch-count" style="color:${t.color};">${counts[t.key]||0}</span>
+      </div>`).join('');
+  }
+
+  // Actionability distribution
+  if (a) {
+    const dist = a.actionability_distribution || {};
+    const defs = [
+      { key:'OPERATIONALLY_EXCELLENT', label:'Operationally Excellent', color:'#00ffc6' },
+      { key:'ENTERPRISE_READY', label:'Enterprise Ready', color:'#3b82f6' },
+      { key:'SOC_READY', label:'SOC Ready', color:'#eab308' },
+      { key:'ANALYST_REVIEW', label:'Analyst Review Needed', color:'#f97316' },
+      { key:'INSUFFICIENT', label:'Insufficient Intel', color:'#ef4444' },
+    ];
+    const total = Object.values(dist).reduce((s,v)=>s+v, 0) || 1;
+    document.getElementById('actionDist').innerHTML = defs.map(d => `
+      <div style="margin:8px 0;">
+        <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:3px;">
+          <span style="color:var(--muted);">${d.label}</span>
+          <span style="color:${d.color};font-weight:700;font-family:monospace;">${dist[d.key]||0}</span>
+        </div>
+        <div class="bar-wrap"><div class="bar-fill" style="width:${Math.round(((dist[d.key]||0)/total)*100)}%;background:${d.color};"></div></div>
+      </div>`).join('');
+  }
+
+  // P22 Trust Panel
+  if (p22) {
+    document.getElementById('p22TrustPanel').innerHTML = `
+      <div class="stat-row"><span class="stat-label">Contradiction Errors</span><span class="stat-val" style="color:${(p22.contradiction_errors||0)>0?'#ef4444':'#10b981'};">${p22.contradiction_errors||0}</span></div>
+      <div class="stat-row"><span class="stat-label">IOC Validation Pass</span><span class="stat-val">${p22.ioc_validation_pass_rate||'—'}</span></div>
+      <div class="stat-row"><span class="stat-label">Detection Verified</span><span class="stat-val">${p22.detection_verified||0}</span></div>
+      <div class="stat-row"><span class="stat-label">Detection Failed</span><span class="stat-val" style="color:${(p22.detection_failed||0)>0?'#ef4444':'var(--muted)'};">${p22.detection_failed||0}</span></div>`;
+  }
+
+  // P21 Cert Panel
+  if (p21) {
+    const ld = p21.level_distribution || {};
+    document.getElementById('p21CertPanel').innerHTML = `
+      <div class="stat-row"><span class="stat-label">Premium Certified</span><span class="stat-val" style="color:#00ffc6;">${ld.PREMIUM_CERTIFIED||0}</span></div>
+      <div class="stat-row"><span class="stat-label">Enterprise Ready</span><span class="stat-val" style="color:var(--blue);">${ld.ENTERPRISE_READY||0}</span></div>
+      <div class="stat-row"><span class="stat-label">Internal Draft</span><span class="stat-val" style="color:var(--yellow);">${ld.INTERNAL_DRAFT||0}</span></div>
+      <div class="stat-row"><span class="stat-label">Below Minimum</span><span class="stat-val" style="color:var(--red);">${ld.BELOW_MINIMUM||0}</span></div>
+      <div class="stat-row"><span class="stat-label">Avg P21 Score</span><span class="stat-val">${p21.average_score||0}/100</span></div>`;
+  }
+
+  // Publication Readiness
+  if (r) {
+    const pub = r.publish_eligible || 0;
+    const blk = r.blocked || 0;
+    const tot = r.total_items || 1;
+    document.getElementById('pubReadPanel').innerHTML = `
+      <div class="stat-row"><span class="stat-label">Publish Eligible</span><span class="stat-val" style="color:var(--green);">${pub}</span></div>
+      <div class="stat-row"><span class="stat-label">Blocked</span><span class="stat-val" style="color:var(--red);">${blk}</span></div>
+      <div class="stat-row"><span class="stat-label">Eligibility Rate</span><span class="stat-val">${Math.round((pub/tot)*100)}%</span></div>
+      <div class="stat-row"><span class="stat-label">Avg Gates Passed</span><span class="stat-val">${r.avg_gates_passed||0}/10</span></div>`;
+  }
+
+  renderTable(G_ITEMS);
+}
+
+function renderTable(items) {
+  if (!items || !items.length) {
+    document.getElementById('itemsTable').innerHTML = '<tr><td colspan="7" class="empty">No items</td></tr>';
+    return;
+  }
+
+  function patchBadge(p) {
+    if (!p) return '<span class="badge badge-muted">—</span>';
+    if (p === 'PATCH IMMEDIATELY') return '<span class="badge badge-red">PATCH IMMEDIATELY</span>';
+    if (p.includes('24')) return '<span class="badge" style="background:rgba(249,115,22,.12);border:1px solid rgba(249,115,22,.3);color:#f97316;">PATCH 24H</span>';
+    if (p.includes('7')) return '<span class="badge badge-yellow">PATCH 7D</span>';
+    if (p.includes('MONTH')) return '<span class="badge badge-blue">PATCH 30D</span>';
+    if (p === 'MONITOR') return '<span class="badge badge-muted">MONITOR</span>';
+    return '<span class="badge badge-muted">NO ACTION</span>';
+  }
+
+  function actionBadge(s) {
+    if (s >= 85) return `<span class="badge badge-accent">${s}</span>`;
+    if (s >= 70) return `<span class="badge badge-blue">${s}</span>`;
+    if (s >= 50) return `<span class="badge badge-yellow">${s}</span>`;
+    return `<span class="badge badge-red">${s}</span>`;
+  }
+
+  function sevBadge(s) {
+    if (!s) return '<span class="badge badge-muted">—</span>';
+    s = s.toUpperCase();
+    if (s === 'CRITICAL') return '<span class="badge badge-red">CRITICAL</span>';
+    if (s === 'HIGH') return '<span class="badge" style="background:rgba(249,115,22,.12);border:1px solid rgba(249,115,22,.3);color:#f97316;">HIGH</span>';
+    if (s === 'MEDIUM') return '<span class="badge badge-yellow">MEDIUM</span>';
+    return '<span class="badge badge-muted">'+s+'</span>';
+  }
+
+  document.getElementById('itemsTable').innerHTML = items.map(i => `
+    <tr>
+      <td style="max-width:300px;"><span style="font-size:12px;color:var(--text);">${escHtml(String(i.title||'').substring(0,80))}</span></td>
+      <td>${sevBadge(i.severity)}</td>
+      <td>${patchBadge(i.patch_priority)}</td>
+      <td>${actionBadge(i.actionability_score||0)}</td>
+      <td>${i.kev ? '<span class="badge badge-red">KEV</span>' : '<span style="color:var(--dim);">—</span>'}</td>
+      <td><span style="font-family:monospace;font-size:11px;color:var(--muted);">${i.cvss||'—'}</span></td>
+      <td><span style="font-family:monospace;font-size:11px;color:var(--muted);">${i.epss!=null?i.epss+'%':'—'}</span></td>
+    </tr>`).join('');
+}
+
+function filterTable() {
+  const q  = document.getElementById('filterInput').value.toLowerCase();
+  const pf = document.getElementById('priorityFilter').value;
+  const filtered = G_ITEMS.filter(i => {
+    const matchQ  = !q || (i.title||'').toLowerCase().includes(q) || (i.id||'').toLowerCase().includes(q);
+    const matchP  = !pf || i.patch_priority === pf;
+    return matchQ && matchP;
+  });
+  renderTable(filtered);
+}
+
+function setText(id, v) {
+  const el = document.getElementById(id);
+  if (el) el.textContent = v;
+}
+
+function escHtml(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+</script>
+</body>
+</html>

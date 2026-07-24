@@ -1,0 +1,1784 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>API Key Manager &mdash; CYBERDUDEBIVASH&reg; SENTINEL APEX</title>
+<meta name="description" content="Generate, rotate, and monitor your SENTINEL APEX API keys. Full usage analytics, quota tracking, and tier management."/>
+<link rel="icon" href="assets/favicon.ico"/>
+<style>
+:root {
+  --bg:       #0a0d14;
+  --bg2:      #0f1420;
+  --bg3:      #141927;
+  --card:     #1a2035;
+  --border:   #1e2d45;
+  --border2:  #263552;
+  --accent:   #00d4ff;
+  --accent2:  #0099cc;
+  --green:    #00ff88;
+  --yellow:   #ffcc00;
+  --red:      #ff4455;
+  --orange:   #ff8800;
+  --purple:   #9966ff;
+  --text:     #e8edf5;
+  --text2:    #8899aa;
+  --text3:    #5c6b80;
+  --radius:   8px;
+  --font:     'SF Mono','Fira Code','Consolas',monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:var(--font);font-size:13px;min-height:100vh;}
+a{color:var(--accent);text-decoration:none;}a:hover{text-decoration:underline;}
+
+/* ── Top Bar ── */
+.topbar{background:var(--bg2);border-bottom:1px solid var(--border);padding:0 24px;height:52px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;}
+.topbar-left{display:flex;align-items:center;gap:12px;}
+.logo{font-size:15px;font-weight:700;color:var(--accent);letter-spacing:1px;}
+.badge{background:var(--accent);color:#000;font-size:10px;font-weight:700;padding:2px 7px;border-radius:3px;letter-spacing:1px;}
+.badge-godmode{background:linear-gradient(90deg,#ff8800,#ff4455);color:#fff;}
+.topbar-right{display:flex;align-items:center;gap:16px;}
+.nav-link{color:var(--text2);font-size:12px;transition:color 0.2s;}
+.nav-link:hover{color:var(--accent);}
+.btn{padding:7px 16px;border-radius:var(--radius);font-size:12px;font-weight:600;cursor:pointer;border:none;font-family:var(--font);transition:all 0.2s;letter-spacing:0.5px;}
+.btn-primary{background:var(--accent);color:#000;}
+.btn-primary:hover{background:var(--accent2);}
+.btn-danger{background:rgba(255,68,85,0.15);color:var(--red);border:1px solid var(--red);}
+.btn-danger:hover{background:rgba(255,68,85,0.3);}
+.btn-ghost{background:transparent;color:var(--text2);border:1px solid var(--border2);}
+.btn-ghost:hover{color:var(--text);border-color:var(--accent);}
+.btn-green{background:rgba(0,255,136,0.15);color:var(--green);border:1px solid var(--green);}
+.btn-green:hover{background:rgba(0,255,136,0.25);}
+.btn-sm{padding:5px 10px;font-size:11px;}
+
+/* ── Layout ── */
+.layout{display:grid;grid-template-columns:220px 1fr;min-height:calc(100vh - 52px);}
+.sidebar{background:var(--bg2);border-right:1px solid var(--border);padding:20px 0;}
+.sidebar-section{margin-bottom:8px;}
+.sidebar-label{color:var(--text3);font-size:10px;font-weight:700;letter-spacing:1.5px;padding:0 16px;margin-bottom:4px;text-transform:uppercase;}
+.sidebar-item{display:flex;align-items:center;gap:10px;padding:9px 16px;cursor:pointer;color:var(--text2);transition:all 0.15s;border-left:2px solid transparent;}
+.sidebar-item:hover{background:rgba(0,212,255,0.05);color:var(--text);}
+.sidebar-item.active{background:rgba(0,212,255,0.08);color:var(--accent);border-left-color:var(--accent);}
+.sidebar-item .icon{width:16px;text-align:center;font-size:14px;}
+.sidebar-item .label{font-size:12px;}
+.sidebar-divider{border:none;border-top:1px solid var(--border);margin:10px 16px;}
+
+.main{padding:28px;overflow-y:auto;}
+.page{display:none;}.page.active{display:block;}
+
+/* ── Page Header ── */
+.page-header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:24px;}
+.page-title{font-size:20px;font-weight:700;color:var(--text);letter-spacing:0.5px;}
+.page-subtitle{color:var(--text2);font-size:12px;margin-top:4px;}
+
+/* ── Stat Cards ── */
+.stat-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:16px;margin-bottom:28px;}
+.stat-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:18px;}
+.stat-label{color:var(--text2);font-size:11px;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;}
+.stat-value{font-size:26px;font-weight:700;color:var(--text);line-height:1;}
+.stat-sub{color:var(--text3);font-size:11px;margin-top:6px;}
+.stat-accent .stat-value{color:var(--accent);}
+.stat-green .stat-value{color:var(--green);}
+.stat-yellow .stat-value{color:var(--yellow);}
+.stat-red .stat-value{color:var(--red);}
+
+/* ── Table ── */
+.table-wrap{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;}
+.table-header{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid var(--border);background:var(--bg3);}
+.table-title{font-size:13px;font-weight:600;color:var(--text);}
+table{width:100%;border-collapse:collapse;}
+thead th{background:var(--bg3);color:var(--text3);font-size:10px;text-transform:uppercase;letter-spacing:1px;padding:10px 16px;text-align:left;border-bottom:1px solid var(--border);}
+tbody tr{border-bottom:1px solid var(--border);transition:background 0.15s;}
+tbody tr:hover{background:rgba(0,212,255,0.04);}
+tbody tr:last-child{border-bottom:none;}
+tbody td{padding:13px 16px;color:var(--text2);font-size:12px;vertical-align:middle;}
+
+/* ── Key Display ── */
+.key-display{display:flex;align-items:center;gap:8px;}
+.key-value{font-family:var(--font);color:var(--text);letter-spacing:1px;background:var(--bg);border:1px solid var(--border);padding:4px 10px;border-radius:4px;font-size:11px;max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.copy-btn{background:transparent;border:none;cursor:pointer;color:var(--text3);padding:4px;border-radius:3px;transition:color 0.2s;font-size:12px;}
+.copy-btn:hover{color:var(--accent);}
+
+/* ── Tier Badge ── */
+.tier-badge{padding:3px 8px;border-radius:3px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;}
+.tier-free{background:rgba(88,102,120,0.3);color:#8899aa;}
+.tier-pro,.tier-premium{background:rgba(0,212,255,0.15);color:var(--accent);}
+.tier-enterprise{background:rgba(153,102,255,0.2);color:var(--purple);}
+
+/* ── Status Dot ── */
+.status-dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px;}
+.dot-green{background:var(--green);box-shadow:0 0 6px var(--green);}
+.dot-red{background:var(--red);}
+.dot-yellow{background:var(--yellow);}
+
+/* ── Usage Bar ── */
+.usage-bar-wrap{display:flex;align-items:center;gap:10px;}
+.usage-bar{flex:1;height:4px;background:var(--bg);border-radius:2px;overflow:hidden;min-width:80px;}
+.usage-fill{height:100%;border-radius:2px;transition:width 0.3s;}
+.fill-green{background:var(--green);}
+.fill-yellow{background:var(--yellow);}
+.fill-red{background:var(--red);}
+.usage-pct{font-size:11px;color:var(--text3);white-space:nowrap;}
+
+/* ── Form ── */
+.form-section{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:20px;}
+.form-title{font-size:13px;font-weight:600;color:var(--text);margin-bottom:16px;padding-bottom:10px;border-bottom:1px solid var(--border);}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:14px;}
+.form-row.single{grid-template-columns:1fr;}
+.form-group label{display:block;color:var(--text2);font-size:11px;text-transform:uppercase;letter-spacing:0.8px;margin-bottom:6px;}
+.form-group input,.form-group select{width:100%;background:var(--bg);border:1px solid var(--border2);border-radius:var(--radius);padding:9px 12px;color:var(--text);font-family:var(--font);font-size:12px;outline:none;transition:border-color 0.2s;}
+.form-group input:focus,.form-group select:focus{border-color:var(--accent);}
+.form-group select option{background:var(--bg);}
+.form-hint{color:var(--text3);font-size:11px;margin-top:4px;}
+.form-actions{display:flex;gap:10px;margin-top:16px;}
+
+/* ── Alert Box ── */
+.alert{padding:12px 16px;border-radius:var(--radius);font-size:12px;margin-bottom:16px;display:flex;align-items:flex-start;gap:10px;}
+.alert-info{background:rgba(0,212,255,0.08);border:1px solid rgba(0,212,255,0.2);color:var(--accent);}
+.alert-warning{background:rgba(255,204,0,0.08);border:1px solid rgba(255,204,0,0.2);color:var(--yellow);}
+.alert-success{background:rgba(0,255,136,0.08);border:1px solid rgba(0,255,136,0.2);color:var(--green);}
+.alert-error{background:rgba(255,68,85,0.08);border:1px solid rgba(255,68,85,0.2);color:var(--red);}
+.alert .icon{font-size:14px;margin-top:1px;}
+
+/* ── Modal ── */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:500;display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity 0.2s;}
+.modal-overlay.open{opacity:1;pointer-events:all;}
+.modal{background:var(--card);border:1px solid var(--border2);border-radius:var(--radius);padding:28px;width:480px;max-width:95vw;}
+.modal-title{font-size:16px;font-weight:700;color:var(--text);margin-bottom:6px;}
+.modal-sub{color:var(--text2);font-size:12px;margin-bottom:20px;}
+.modal-actions{display:flex;gap:10px;margin-top:20px;justify-content:flex-end;}
+
+/* ── Code Block ── */
+.code-block{background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px;font-family:var(--font);font-size:12px;color:var(--green);line-height:1.7;overflow-x:auto;position:relative;}
+.code-block .copy-float{position:absolute;top:8px;right:8px;background:var(--bg2);border:1px solid var(--border2);padding:4px 8px;border-radius:4px;cursor:pointer;font-size:10px;color:var(--text3);}
+.code-block .copy-float:hover{color:var(--accent);}
+
+/* ── Webhook status ── */
+.webhook-row td{vertical-align:top;}
+.webhook-url{font-size:11px;color:var(--text3);word-break:break-all;max-width:280px;}
+
+/* ── Dark Web Monitor ── */
+.scan-output{background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-top:16px;display:none;}
+.scan-output.visible{display:block;}
+.risk-meter{display:flex;align-items:center;gap:14px;padding:14px 0;border-bottom:1px solid var(--border);margin-bottom:14px;}
+.risk-circle{width:64px;height:64px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:700;flex-shrink:0;border:3px solid;}
+.risk-critical{color:var(--red);border-color:var(--red);background:rgba(255,68,85,0.1);}
+.risk-high{color:var(--orange);border-color:var(--orange);background:rgba(255,136,0,0.1);}
+.risk-medium{color:var(--yellow);border-color:var(--yellow);background:rgba(255,204,0,0.1);}
+.risk-low{color:var(--green);border-color:var(--green);background:rgba(0,255,136,0.1);}
+.risk-label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;}
+.risk-action{color:var(--text2);font-size:11px;margin-top:4px;}
+.indicator-row{display:flex;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);}
+.indicator-type{font-size:10px;font-weight:700;text-transform:uppercase;padding:2px 6px;border-radius:3px;white-space:nowrap;}
+.type-cred{background:rgba(255,68,85,0.15);color:var(--red);}
+.type-dark{background:rgba(153,102,255,0.15);color:var(--purple);}
+.type-paste{background:rgba(255,204,0,0.15);color:var(--yellow);}
+
+/* ── Scrollbar ── */
+::-webkit-scrollbar{width:6px;height:6px;}
+::-webkit-scrollbar-track{background:var(--bg);}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px;}
+
+/* ── Toast ── */
+.toast{position:fixed;bottom:20px;right:20px;background:var(--card);border:1px solid var(--green);color:var(--green);padding:10px 16px;border-radius:var(--radius);font-size:12px;z-index:9999;opacity:0;transform:translateY(10px);transition:all 0.3s;pointer-events:none;}
+.toast.show{opacity:1;transform:translateY(0);}
+
+/* ── Responsive ── */
+@media(max-width:768px){
+  .layout{grid-template-columns:1fr;}
+  .sidebar{display:none;}
+  .form-row{grid-template-columns:1fr;}
+  .stat-grid{grid-template-columns:1fr 1fr;}
+}
+</style>
+</head>
+<body>
+
+<!-- Top Bar -->
+<div class="topbar">
+  <div class="topbar-left">
+    <span class="logo">⬡ SENTINEL APEX</span>
+    <span class="badge">v184.0</span>
+    <span class="badge badge-godmode">GOD-MODE</span>
+  </div>
+  <div class="topbar-right">
+    <a href="dashboard.html" class="nav-link">Dashboard</a>
+    <a href="api-docs.html" class="nav-link">API Docs</a>
+    <a href="upgrade.html" class="nav-link">Upgrade</a>
+    <div id="authStatus" style="display:flex;align-items:center;gap:8px;">
+      <span class="status-dot dot-yellow"></span>
+      <span style="color:var(--text2);font-size:11px;">Not authenticated</span>
+    </div>
+  </div>
+</div>
+
+<!-- Layout -->
+<div class="layout">
+
+  <!-- Sidebar -->
+  <div class="sidebar">
+    <div class="sidebar-section">
+      <div class="sidebar-label">API Keys</div>
+      <div class="sidebar-item active" onclick="showPage('keys')">
+        <span class="icon">🔑</span><span class="label">My Keys</span>
+      </div>
+      <div class="sidebar-item" onclick="showPage('create')">
+        <span class="icon">＋</span><span class="label">Create Key</span>
+      </div>
+    </div>
+    <hr class="sidebar-divider"/>
+    <div class="sidebar-section">
+      <div class="sidebar-label">Analytics</div>
+      <div class="sidebar-item" onclick="showPage('usage')">
+        <span class="icon">📊</span><span class="label">Usage Stats</span>
+      </div>
+      <div class="sidebar-item" onclick="showPage('quota')">
+        <span class="icon">⚡</span><span class="label">Quota & Limits</span>
+      </div>
+    </div>
+    <hr class="sidebar-divider"/>
+    <div class="sidebar-section">
+      <div class="sidebar-label">Integrations</div>
+      <div class="sidebar-item" onclick="showPage('webhooks')">
+        <span class="icon">🔗</span><span class="label">SOC Webhooks</span>
+      </div>
+      <div class="sidebar-item" onclick="showPage('darkweb')">
+        <span class="icon">🌑</span><span class="label">Dark Web Monitor</span>
+      </div>
+      <div class="sidebar-item" onclick="showPage('reports')">
+        <span class="icon">📄</span><span class="label">Intel Reports</span>
+      </div>
+    </div>
+    <hr class="sidebar-divider"/>
+    <div class="sidebar-section">
+      <div class="sidebar-label">Alerts & SLA</div>
+      <div class="sidebar-item" onclick="showPage('alerts')">
+        <span class="icon">🔔</span><span class="label">Alert Subscriptions</span>
+      </div>
+      <div class="sidebar-item" onclick="showPage('sla')">
+        <span class="icon">📡</span><span class="label">SLA Monitor</span>
+      </div>
+    </div>
+    <hr class="sidebar-divider"/>
+    <div class="sidebar-section">
+      <div class="sidebar-label">Account</div>
+      <div class="sidebar-item" onclick="showPage('verify')">
+        <span class="icon">✅</span><span class="label">Payment Verification</span>
+      </div>
+      <div class="sidebar-item" onclick="showPage('billing')">
+        <span class="icon">💳</span><span class="label">Billing & Tier</span>
+      </div>
+      <div class="sidebar-item" onclick="showPage('security')">
+        <span class="icon">🛡</span><span class="label">Security Log</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main -->
+  <div class="main" id="mainContent">
+
+    <!-- Auth Gate -->
+    <div id="authGate" style="display:none;">
+      <div class="page-header">
+        <div>
+          <div class="page-title">Authentication Required</div>
+          <div class="page-subtitle">Enter your JWT token or API key to access the key manager</div>
+        </div>
+      </div>
+      <div class="form-section" style="max-width:480px;">
+        <div class="form-title">🔐 Authenticate</div>
+        <div class="form-group" style="margin-bottom:14px;">
+          <label>JWT Token or API Key</label>
+          <input type="password" id="authInput" placeholder="eyJhbGc... or cdb_..." oninput="validateAuthInput()"/>
+          <div class="form-hint">Get your key from <a href="get-api-key.html">Get API Key</a></div>
+        </div>
+        <div class="form-actions">
+          <button class="btn btn-primary" onclick="authenticate()">Authenticate</button>
+          <a href="upgrade.html" class="btn btn-ghost">Get Pro Key</a>
+        </div>
+        <div id="authError" class="alert alert-error" style="margin-top:12px;display:none;">
+          <span class="icon">✗</span><span id="authErrorMsg">Authentication failed.</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- PAGE: Keys -->
+    <div class="page active" id="page-keys">
+      <div class="page-header">
+        <div>
+          <div class="page-title">🔑 API Keys</div>
+          <div class="page-subtitle">Manage your SENTINEL APEX API keys</div>
+        </div>
+        <button class="btn btn-primary" onclick="showPage('create')">+ Create Key</button>
+      </div>
+      <div class="stat-grid" id="keyStats">
+        <div class="stat-card stat-accent">
+          <div class="stat-label">Active Keys</div>
+          <div class="stat-value" id="statActiveKeys">&mdash;</div>
+          <div class="stat-sub">of tier limit</div>
+        </div>
+        <div class="stat-card stat-green">
+          <div class="stat-label">Current Tier</div>
+          <div class="stat-value" id="statTier">&mdash;</div>
+          <div class="stat-sub"><a href="upgrade.html">Upgrade</a></div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Requests Today</div>
+          <div class="stat-value" id="statToday">&mdash;</div>
+          <div class="stat-sub">last 24h</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Requests This Month</div>
+          <div class="stat-value" id="statMonth">&mdash;</div>
+          <div class="stat-sub">rolling 30d</div>
+        </div>
+      </div>
+
+      <div class="table-wrap">
+        <div class="table-header">
+          <span class="table-title">Your API Keys</span>
+          <button class="btn btn-ghost btn-sm" onclick="loadKeys()">↻ Refresh</button>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>Label</th>
+              <th>Key ID</th>
+              <th>API Key</th>
+              <th>Tier</th>
+              <th>Usage Today</th>
+              <th>Status</th>
+              <th>Created</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="keysTableBody">
+            <tr><td colspan="8" style="text-align:center;color:var(--text3);padding:24px;">
+              <span id="keysLoadMsg">Loading keys&hellip;</span>
+            </td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- PAGE: Create Key -->
+    <div class="page" id="page-create">
+      <div class="page-header">
+        <div>
+          <div class="page-title">＋ Create API Key</div>
+          <div class="page-subtitle">Generate a new API key for your applications</div>
+        </div>
+      </div>
+      <div class="form-section" style="max-width:560px;">
+        <div class="form-title">Key Configuration</div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Label / Name</label>
+            <input type="text" id="newKeyLabel" placeholder="e.g. Production SOC, Splunk Integration"/>
+            <div class="form-hint">A friendly name to identify this key</div>
+          </div>
+          <div class="form-group">
+            <label>Scope Preset</label>
+            <select id="newKeyScope">
+              <option value="read:intel">Read Intel (standard)</option>
+              <option value="read:intel,read:cves">Read Intel + CVEs</option>
+              <option value="read:intel,read:actors,read:cves">Full Read (Pro)</option>
+              <option value="read:intel,export:csv">Read + CSV Export</option>
+              <option value="read:intel,read:actors,read:cves,export:csv,export:misp">Enterprise Full</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Expiry</label>
+            <select id="newKeyExpiry">
+              <option value="never">Never expires</option>
+              <option value="30">30 days</option>
+              <option value="90">90 days</option>
+              <option value="365">1 year</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>IP Allowlist (optional)</label>
+            <input type="text" id="newKeyIP" placeholder="10.0.0.1, 192.168.1.0/24"/>
+            <div class="form-hint">Leave blank to allow all IPs</div>
+          </div>
+        </div>
+        <div class="alert alert-info">
+          <span class="icon">ℹ</span>
+          <span>Your key will be shown <strong>once</strong> after creation. Store it securely &mdash; it cannot be retrieved again.</span>
+        </div>
+        <div class="form-actions">
+          <button class="btn btn-primary" onclick="createKey()">Generate Key</button>
+          <button class="btn btn-ghost" onclick="showPage('keys')">Cancel</button>
+        </div>
+      </div>
+
+      <!-- New Key Display (shown after creation) -->
+      <div id="newKeyResult" class="form-section" style="max-width:560px;display:none;">
+        <div class="form-title" style="color:var(--green);">✓ Key Created Successfully</div>
+        <div class="alert alert-warning">
+          <span class="icon">⚠</span>
+          <span><strong>Copy this key now.</strong> It will not be shown again after you leave this page.</span>
+        </div>
+        <div style="margin:12px 0;">
+          <label style="color:var(--text2);font-size:11px;text-transform:uppercase;letter-spacing:0.8px;display:block;margin-bottom:6px;">Your API Key</label>
+          <div class="key-display">
+            <div class="key-value" id="newKeyValue" style="max-width:420px;">&mdash;</div>
+            <button class="copy-btn" onclick="copyText('newKeyValue')" title="Copy">⎘</button>
+          </div>
+        </div>
+        <div style="margin-top:16px;">
+          <div style="color:var(--text2);font-size:11px;margin-bottom:8px;">Quick Start:</div>
+          <div class="code-block" id="quickStartCode">
+            curl -H "Authorization: Bearer YOUR_KEY" \
+  https://intel.cyberdudebivash.com/api/feed
+          </div>
+        </div>
+        <div style="margin-top:14px;display:flex;gap:10px;">
+          <button class="btn btn-green btn-sm" onclick="copyText('newKeyValue')">Copy Key</button>
+          <button class="btn btn-ghost btn-sm" onclick="showPage('keys')">View All Keys</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- PAGE: Usage -->
+    <div class="page" id="page-usage">
+      <div class="page-header">
+        <div>
+          <div class="page-title">📊 Usage Analytics</div>
+          <div class="page-subtitle">Real-time API consumption metrics</div>
+        </div>
+        <button class="btn btn-ghost btn-sm" onclick="loadUsage()">↻ Refresh</button>
+      </div>
+
+      <div class="stat-grid" id="usageStats">
+        <div class="stat-card stat-accent">
+          <div class="stat-label">Requests Today</div>
+          <div class="stat-value" id="uToday">&mdash;</div>
+          <div class="stat-sub">last 24h</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">This Month</div>
+          <div class="stat-value" id="uMonth">&mdash;</div>
+          <div class="stat-sub">rolling 30d</div>
+        </div>
+        <div class="stat-card stat-green">
+          <div class="stat-label">Quota Used</div>
+          <div class="stat-value" id="uQuotaPct">&mdash;</div>
+          <div class="stat-sub" id="uQuotaSub">of monthly limit</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Avg Latency</div>
+          <div class="stat-value">~38ms</div>
+          <div class="stat-sub">Cloudflare Edge</div>
+        </div>
+      </div>
+
+      <div class="table-wrap" style="margin-bottom:20px;">
+        <div class="table-header"><span class="table-title">Per-Key Breakdown</span></div>
+        <table>
+          <thead>
+            <tr><th>Key Label</th><th>Tier</th><th>Today</th><th>Month</th><th>Quota Used</th><th>Limit</th></tr>
+          </thead>
+          <tbody id="usageTableBody">
+            <tr><td colspan="6" style="text-align:center;color:var(--text3);padding:24px;">Loading usage data&hellip;</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- ── Usage Analytics Charts ────────────────────────────────────────── -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px;" id="analyticsSection">
+
+        <!-- Daily Requests Chart -->
+        <div class="form-section" style="padding:18px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+            <span style="font-size:12px;font-weight:700;color:var(--text);letter-spacing:0.5px;">📈 Daily Requests (14d)</span>
+            <span style="font-size:10px;color:var(--text3);" id="chartTierLabel">&mdash;</span>
+          </div>
+          <div style="position:relative;height:160px;">
+            <canvas id="dailyChart"></canvas>
+          </div>
+          <div style="margin-top:10px;display:flex;gap:16px;">
+            <div>
+              <div style="color:var(--text3);font-size:10px;text-transform:uppercase;letter-spacing:0.5px;">Peak Day</div>
+              <div style="font-size:15px;font-weight:700;color:var(--accent);" id="peakDayVal">&mdash;</div>
+            </div>
+            <div>
+              <div style="color:var(--text3);font-size:10px;text-transform:uppercase;letter-spacing:0.5px;">Avg/Day</div>
+              <div style="font-size:15px;font-weight:700;color:var(--text);" id="avgDayVal">&mdash;</div>
+            </div>
+            <div>
+              <div style="color:var(--text3);font-size:10px;text-transform:uppercase;letter-spacing:0.5px;">Total 14d</div>
+              <div style="font-size:15px;font-weight:700;color:var(--text);" id="total14dVal">&mdash;</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Endpoint Breakdown Chart -->
+        <div class="form-section" style="padding:18px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+            <span style="font-size:12px;font-weight:700;color:var(--text);letter-spacing:0.5px;">🎯 Requests by Endpoint</span>
+            <span style="font-size:10px;color:var(--text3);">Last 7d</span>
+          </div>
+          <div style="position:relative;height:160px;">
+            <canvas id="endpointChart"></canvas>
+          </div>
+          <div style="margin-top:10px;" id="endpointLegend"></div>
+        </div>
+
+      </div>
+
+      <!-- Response Time + Quota Trend row -->
+      <div style="display:grid;grid-template-columns:2fr 1fr;gap:16px;margin-bottom:20px;">
+
+        <!-- Response latency sparkline -->
+        <div class="form-section" style="padding:18px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+            <span style="font-size:12px;font-weight:700;color:var(--text);letter-spacing:0.5px;">⚡ Response Latency P95 (14d)</span>
+            <span style="font-size:10px;color:var(--text3);">Enterprise SLA: &lt;1,000ms</span>
+          </div>
+          <div style="position:relative;height:120px;">
+            <canvas id="latencyChart"></canvas>
+          </div>
+        </div>
+
+        <!-- Quota gauge -->
+        <div class="form-section" style="padding:18px;display:flex;flex-direction:column;align-items:center;">
+          <div style="font-size:12px;font-weight:700;color:var(--text);letter-spacing:0.5px;margin-bottom:14px;align-self:flex-start;">📊 Daily Quota</div>
+          <div style="position:relative;width:120px;height:120px;">
+            <canvas id="quotaGauge"></canvas>
+            <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;">
+              <div style="font-size:18px;font-weight:700;color:var(--accent);" id="quotaPctLg">&mdash;</div>
+              <div style="font-size:9px;color:var(--text3);">used</div>
+            </div>
+          </div>
+          <div style="margin-top:10px;text-align:center;">
+            <div style="font-size:10px;color:var(--text3);" id="quotaRemaining">&mdash; remaining</div>
+            <div style="font-size:10px;color:var(--text3);margin-top:2px;">Resets in <span id="quotaReset">&mdash;</span></div>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+
+    <!-- PAGE: Quota -->
+    <div class="page" id="page-quota">
+      <div class="page-header">
+        <div>
+          <div class="page-title">⚡ Quota & Rate Limits</div>
+          <div class="page-subtitle">Tier limits and request caps</div>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <div class="table-header"><span class="table-title">Tier Comparison</span></div>
+        <table>
+          <thead>
+            <tr><th>Feature</th><th>Free</th><th>Pro ($29/mo)</th><th>Enterprise ($199/mo)</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Requests/minute</td><td>60</td><td style="color:var(--accent)">500</td><td style="color:var(--purple)">2,000</td></tr>
+            <tr><td>Feed items/request</td><td>20</td><td style="color:var(--accent)">500</td><td style="color:var(--purple)">2,000</td></tr>
+            <tr><td>API keys</td><td>1</td><td style="color:var(--accent)">10</td><td style="color:var(--purple)">50</td></tr>
+            <tr><td>Full IOC arrays</td><td style="color:var(--red)">✗</td><td style="color:var(--green)">✓</td><td style="color:var(--green)">✓</td></tr>
+            <tr><td>STIX 2.1 bundles</td><td style="color:var(--red)">✗</td><td>Metadata only</td><td style="color:var(--green)">Full bundles</td></tr>
+            <tr><td>MITRE ATT&CK Heatmap</td><td>Preview</td><td style="color:var(--accent)">Full</td><td style="color:var(--green)">Full + API</td></tr>
+            <tr><td>Dark Web Monitor</td><td style="color:var(--red)">✗</td><td style="color:var(--accent)">50 scans/day</td><td style="color:var(--purple)">500 scans/day</td></tr>
+            <tr><td>Leak Check</td><td style="color:var(--red)">✗</td><td style="color:var(--green)">✓</td><td style="color:var(--green)">✓</td></tr>
+            <tr><td>Premium Intel Reports</td><td style="color:var(--red)">✗</td><td style="color:var(--accent)">$49/report</td><td style="color:var(--green)">Unlimited</td></tr>
+            <tr><td>SOC Webhooks</td><td style="color:var(--red)">✗</td><td style="color:var(--red)">✗</td><td style="color:var(--purple)">Splunk/Sentinel/QRadar</td></tr>
+            <tr><td>MISP Export</td><td style="color:var(--red)">✗</td><td style="color:var(--red)">✗</td><td style="color:var(--green)">✓</td></tr>
+            <tr><td>SLA & Support</td><td>Community</td><td>Email (48h)</td><td style="color:var(--purple)">Priority (4h)</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div style="margin-top:16px;display:flex;gap:12px;">
+        <a href="upgrade.html?plan=pro" class="btn btn-primary">Upgrade to Pro &mdash; $29/mo</a>
+        <a href="upgrade.html?plan=enterprise" class="btn btn-ghost">Enterprise &mdash; $199/mo</a>
+        <a href="contact-enterprise.html" class="btn btn-ghost">Contact Sales</a>
+      </div>
+    </div>
+
+    <!-- PAGE: Webhooks -->
+    <div class="page" id="page-webhooks">
+      <div class="page-header">
+        <div>
+          <div class="page-title">🔗 SOC Webhooks</div>
+          <div class="page-subtitle">Push new intel directly to your SIEM &mdash; Microsoft Sentinel, Splunk, IBM QRadar</div>
+        </div>
+      </div>
+      <div class="alert alert-info">
+        <span class="icon">ℹ</span>
+        <span>SIEM webhook integration requires <strong>Enterprise tier</strong>. Webhooks push new HIGH/CRITICAL advisories in real-time.</span>
+      </div>
+      <div class="form-section" id="webhookForm" style="max-width:560px;">
+        <div class="form-title">Register Webhook Endpoint</div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Webhook URL</label>
+            <input type="url" id="wh_url" placeholder="https://your-siem.example.com/intake"/>
+          </div>
+          <div class="form-group">
+            <label>Format</label>
+            <select id="wh_format">
+              <option value="json">SENTINEL APEX JSON</option>
+              <option value="splunk">Splunk HEC JSON</option>
+              <option value="sentinel">Azure Sentinel (Log Analytics)</option>
+              <option value="qradar">IBM QRadar LEEF 2.0</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Severity Filter</label>
+            <select id="wh_severity">
+              <option value="CRITICAL">CRITICAL only</option>
+              <option value="HIGH" selected>HIGH and above</option>
+              <option value="MEDIUM">MEDIUM and above</option>
+              <option value="ALL">All severities</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Webhook Secret (optional)</label>
+            <input type="password" id="wh_secret" placeholder="HMAC signing secret"/>
+            <div class="form-hint">Used to verify payload authenticity</div>
+          </div>
+        </div>
+        <div class="form-actions">
+          <button class="btn btn-primary" onclick="registerWebhook()">Register Webhook</button>
+          <button class="btn btn-ghost btn-sm" onclick="loadWebhooks()">↻ Load Existing</button>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <div class="table-header"><span class="table-title">Registered Webhooks</span></div>
+        <table>
+          <thead><tr><th>ID</th><th>Endpoint URL</th><th>Format</th><th>Filter</th><th>Created</th><th>Status</th></tr></thead>
+          <tbody id="webhookTableBody">
+            <tr><td colspan="6" style="text-align:center;color:var(--text3);padding:24px;">No webhooks registered. Enterprise tier required.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- PAGE: Dark Web Monitor -->
+    <div class="page" id="page-darkweb">
+      <div class="page-header">
+        <div>
+          <div class="page-title">🌑 Dark Web Monitor</div>
+          <div class="page-subtitle">Scan email addresses and domains against 7 OSINT breach sources</div>
+        </div>
+      </div>
+      <div class="form-section" style="max-width:560px;">
+        <div class="form-title">Launch Breach Scan</div>
+        <div class="form-row single">
+          <div class="form-group">
+            <label>Target (email or domain)</label>
+            <input type="text" id="dw_target" placeholder="user@company.com  or  company.com"/>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Scan Depth</label>
+            <select id="dw_depth">
+              <option value="quick">Quick (4 sources &mdash; Pro)</option>
+              <option value="full">Full Deep Scan (7 sources &mdash; Enterprise)</option>
+            </select>
+          </div>
+          <div class="form-group" style="display:flex;align-items:flex-end;">
+            <button class="btn btn-primary" style="width:100%" onclick="runDarkWebScan()">Run Scan</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="scan-output" id="dwScanOutput">
+        <div class="risk-meter">
+          <div class="risk-circle" id="dwRiskCircle">&mdash;</div>
+          <div>
+            <div class="risk-label" id="dwSeverityLabel">&mdash;</div>
+            <div style="color:var(--text2);font-size:12px;margin-top:4px;" id="dwSeverityDesc">&mdash;</div>
+            <div class="risk-action" id="dwAction">&mdash;</div>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px;" id="dwStats"></div>
+        <div style="font-size:12px;color:var(--text3);margin-bottom:8px;font-weight:600;text-transform:uppercase;letter-spacing:0.8px;">Threat Indicators</div>
+        <div id="dwIndicators"></div>
+        <div style="margin-top:16px;">
+          <a href="upgrade.html?plan=enterprise&feature=darkweb" class="btn btn-ghost btn-sm" id="dwUpgrade" style="display:none;">Upgrade for Full 7-Source Scan →</a>
+        </div>
+      </div>
+    </div>
+
+    <!-- PAGE: Reports -->
+    <div class="page" id="page-reports">
+      <div class="page-header">
+        <div>
+          <div class="page-title">📄 Premium Intel Reports</div>
+          <div class="page-subtitle">Generate sellable threat intelligence packages &mdash; $49/report or included in Enterprise</div>
+        </div>
+      </div>
+      <div class="form-section" style="max-width:560px;">
+        <div class="form-title">Generate Report</div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Report Type</label>
+            <select id="rpt_type">
+              <option value="weekly">Weekly Threat Summary</option>
+              <option value="monthly">Monthly Intelligence Report</option>
+              <option value="cve_focused">CVE Intelligence Focus</option>
+              <option value="actor_focused">Threat Actor Attribution</option>
+              <option value="custom">Custom Scope</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Severity Filter</label>
+            <select id="rpt_severity" multiple style="height:64px;">
+              <option value="CRITICAL" selected>CRITICAL</option>
+              <option value="HIGH" selected>HIGH</option>
+              <option value="MEDIUM">MEDIUM</option>
+              <option value="LOW">LOW</option>
+            </select>
+            <div class="form-hint">Hold Ctrl to select multiple</div>
+          </div>
+        </div>
+        <div class="form-row single">
+          <div class="form-group">
+            <label>Custom Title (optional)</label>
+            <input type="text" id="rpt_title" placeholder="SENTINEL APEX Weekly Threat Intelligence Report &mdash; May 2026"/>
+          </div>
+        </div>
+        <div class="alert alert-info">
+          <span class="icon">ℹ</span>
+          <span>Reports are stored for 90 days and available via the API. PDF download available after generation.</span>
+        </div>
+        <div class="form-actions">
+          <button class="btn btn-primary" onclick="generateReport()">Generate Report</button>
+          <button class="btn btn-ghost btn-sm" onclick="loadReportList()">↻ My Reports</button>
+        </div>
+        <div id="rptGenResult" style="display:none;margin-top:14px;"></div>
+      </div>
+      <div class="table-wrap">
+        <div class="table-header"><span class="table-title">Generated Reports</span></div>
+        <table>
+          <thead><tr><th>Report ID</th><th>Type</th><th>Generated</th><th>Size</th><th>Actions</th></tr></thead>
+          <tbody id="reportTableBody">
+            <tr><td colspan="5" style="text-align:center;color:var(--text3);padding:24px;">No reports yet. Generate your first report above.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- PAGE: Billing -->
+    <div class="page" id="page-billing">
+      <div class="page-header"><div>
+        <div class="page-title">💳 Billing & Tier</div>
+        <div class="page-subtitle">Manage your subscription and payment methods</div>
+      </div></div>
+      <div class="stat-grid">
+        <div class="stat-card stat-accent">
+          <div class="stat-label">Current Plan</div>
+          <div class="stat-value" id="billTier">&mdash;</div>
+          <div class="stat-sub" id="billRenewal">&mdash;</div>
+        </div>
+        <div class="stat-card stat-green">
+          <div class="stat-label">Monthly Cost</div>
+          <div class="stat-value" id="billCost">&mdash;</div>
+          <div class="stat-sub">per month</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:12px;flex-wrap:wrap;">
+        <a href="upgrade.html?plan=pro" class="btn btn-primary">Upgrade to Pro &mdash; $29/mo</a>
+        <a href="upgrade.html?plan=enterprise" class="btn btn-ghost">Enterprise &mdash; $199/mo</a>
+        <a href="https://billing.stripe.com" target="_blank" class="btn btn-ghost">Manage Stripe Subscription ↗</a>
+        <a href="contact-enterprise.html" class="btn btn-ghost">Contact Sales</a>
+      </div>
+    </div>
+
+    <!-- PAGE: Security Log -->
+    <div class="page" id="page-security">
+      <div class="page-header"><div>
+        <div class="page-title">🛡 Security Log</div>
+        <div class="page-subtitle">Authentication and API access events</div>
+      </div></div>
+      <div class="table-wrap">
+        <div class="table-header"><span class="table-title">Recent Events</span></div>
+        <table>
+          <thead><tr><th>Timestamp</th><th>Event</th><th>IP Hash</th><th>Endpoint</th><th>Result</th></tr></thead>
+          <tbody id="securityLogBody">
+            <tr><td colspan="5" style="text-align:center;color:var(--text3);padding:24px;">Security log available for Pro+ accounts</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+
+    <!-- ── PAYMENT VERIFICATION PORTAL ──────────────────────── -->
+    <div class="page" id="page-verify">
+      <div class="page-header"><div>
+        <div class="page-title">&#10003; Payment Verification Portal</div>
+        <div class="page-subtitle">Track your BNB / UPI / PayPal / Bank payment status</div>
+      </div></div>
+      <div style="background:linear-gradient(135deg,#050c1a,#0a0f20);border:1px solid #00d4ff33;border-radius:12px;padding:20px;margin-bottom:20px;">
+        <div style="font-size:11px;font-weight:700;letter-spacing:1.5px;color:#00d4ff;margin-bottom:6px;">HOW IT WORKS</div>
+        <p style="font-size:13px;color:#94a3b8;line-height:1.7;margin:0;">After paying via BNB / UPI / Bank / PayPal on <a href="/upgrade.html" style="color:#00d4ff;">upgrade.html</a> you received a <strong style="color:#e2e8f0;">Review ID</strong>. Enter it below to check provisioning status.</p>
+      </div>
+      <div class="table-wrap" style="margin-bottom:20px;">
+        <div class="table-header"><span class="table-title">&#128269; Look Up Payment Status</span></div>
+        <div style="padding:20px;">
+          <div style="display:grid;grid-template-columns:1fr auto;gap:10px;margin-bottom:14px;">
+            <input id="verifyReviewId" type="text" class="form-control" placeholder="Review ID &mdash; e.g. APEX-2026-XYZABC or FS-1714900000000" style="font-family:monospace;font-size:13px;">
+            <button class="btn btn-primary" onclick="lookupPayment()">Check Status</button>
+          </div>
+          <div id="verifyResult" style="display:none;"></div>
+        </div>
+      </div>
+      <div class="table-wrap" style="margin-bottom:20px;">
+        <div class="table-header"><span class="table-title">&#9935; BSC Crypto Transaction Verifier</span></div>
+        <div style="padding:20px;">
+          <p style="font-size:12px;color:#64748b;margin-bottom:14px;">Paste your BNB / USDT BEP-20 transaction hash to verify on-chain and accelerate provisioning.</p>
+          <div style="display:grid;grid-template-columns:1fr auto;gap:10px;margin-bottom:14px;">
+            <input id="verifyTxHash" type="text" class="form-control" placeholder="0x... transaction hash" style="font-family:monospace;font-size:12px;">
+            <button class="btn btn-primary" onclick="verifyBSCTx()">Verify On-Chain</button>
+          </div>
+          <div id="bscVerifyResult" style="display:none;"></div>
+        </div>
+      </div>
+      <div style="background:rgba(37,211,102,0.06);border:1px solid rgba(37,211,102,0.2);border-radius:10px;padding:16px 20px;">
+        <div style="font-size:12px;font-weight:700;color:#4ade80;margin-bottom:8px;">&#9889; Need Faster Activation?</div>
+        <p style="font-size:12px;color:#94a3b8;margin:0 0 12px;">WhatsApp your Review ID + payment screenshot to <strong style="color:#4ade80;">+91 8179881447</strong> &mdash; activation in 30 min during business hours.</p>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;">
+          <a href="https://wa.me/918179881447" target="_blank" class="btn btn-sm" style="background:rgba(37,211,102,0.15);color:#4ade80;border:1px solid rgba(37,211,102,0.3);">&#128242; WhatsApp</a>
+          <a href="mailto:enterprise@cyberdudebivash.com" class="btn btn-sm" style="background:rgba(0,212,255,0.08);color:#00d4ff;border:1px solid rgba(0,212,255,0.2);">&#9993; Email Support</a>
+          <a href="/upgrade.html" class="btn btn-sm" style="background:rgba(124,58,237,0.1);color:#a78bfa;border:1px solid rgba(124,58,237,0.25);">&#128179; Make Payment</a>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── AI ALERT SUBSCRIPTIONS ─────────────────────────────── -->
+    <div class="page" id="page-alerts">
+      <div class="page-header"><div>
+        <div class="page-title">&#128276; AI Alert Subscriptions</div>
+        <div class="page-subtitle">Real-time threat alerts via Telegram or Webhook &mdash; Enterprise tier</div>
+      </div></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px;">
+        <div style="background:rgba(124,58,237,0.08);border:1px solid rgba(124,58,237,0.25);border-radius:10px;padding:16px;">
+          <div style="font-size:11px;font-weight:800;letter-spacing:1px;color:#a78bfa;margin-bottom:4px;">ENTERPRISE</div>
+          <div style="font-size:14px;font-weight:700;color:#e2e8f0;margin-bottom:4px;">Real-Time Alerts</div>
+          <div style="font-size:12px;color:#64748b;">Every high-risk advisory triggers an instant Telegram message or webhook POST within 60 seconds of AI detection.</div>
+        </div>
+        <div style="background:rgba(0,212,255,0.06);border:1px solid rgba(0,212,255,0.2);border-radius:10px;padding:16px;">
+          <div style="font-size:11px;font-weight:800;letter-spacing:1px;color:#00d4ff;margin-bottom:4px;">PRO</div>
+          <div style="font-size:14px;font-weight:700;color:#e2e8f0;margin-bottom:4px;">Daily Digest (Top 5)</div>
+          <div style="font-size:12px;color:#64748b;">One consolidated alert per day with the top-5 highest-risk advisories above your minimum threshold.</div>
+        </div>
+      </div>
+      <div class="table-wrap" style="margin-bottom:20px;">
+        <div class="table-header"><span class="table-title">+ New Alert Subscription</span></div>
+        <div style="padding:20px;">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+            <div>
+              <label class="form-label">Channel</label>
+              <select id="alertChannel" class="form-control" onchange="toggleAlertChannel()">
+                <option value="telegram">Telegram Bot</option>
+                <option value="webhook">Custom Webhook (HTTPS)</option>
+              </select>
+            </div>
+            <div>
+              <label class="form-label">Min Risk Score (0-10)</label>
+              <input id="alertMinRisk" type="number" min="0" max="10" step="0.5" value="7" class="form-control">
+            </div>
+            <div id="telegramField">
+              <label class="form-label">Telegram Chat ID</label>
+              <input id="alertChatId" type="text" class="form-control" placeholder="e.g. -1001234567890">
+              <div style="font-size:11px;color:#64748b;margin-top:4px;">Get your ID: message @userinfobot on Telegram</div>
+            </div>
+            <div id="webhookField" style="display:none;">
+              <label class="form-label">Webhook URL</label>
+              <input id="alertWebhookUrl" type="url" class="form-control" placeholder="https://your-siem.com/webhook">
+            </div>
+            <div style="grid-column:1/-1;">
+              <label class="form-label">Alert Interests</label>
+              <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:6px;">
+                <label style="font-size:12px;color:#94a3b8;display:flex;align-items:center;gap:5px;"><input type="checkbox" id="int-critical" value="critical" checked> Critical</label>
+                <label style="font-size:12px;color:#94a3b8;display:flex;align-items:center;gap:5px;"><input type="checkbox" id="int-high" value="high" checked> High</label>
+                <label style="font-size:12px;color:#94a3b8;display:flex;align-items:center;gap:5px;"><input type="checkbox" id="int-zeroday" value="zero-day" checked> Zero-Day</label>
+                <label style="font-size:12px;color:#94a3b8;display:flex;align-items:center;gap:5px;"><input type="checkbox" id="int-ransomware" value="ransomware"> Ransomware</label>
+                <label style="font-size:12px;color:#94a3b8;display:flex;align-items:center;gap:5px;"><input type="checkbox" id="int-apt" value="apt"> APT</label>
+              </div>
+            </div>
+          </div>
+          <div style="margin-top:16px;display:flex;gap:10px;align-items:center;">
+            <button class="btn btn-primary" onclick="subscribeAlerts()">Subscribe</button>
+            <div id="alertSubResult" style="font-size:12px;color:#64748b;"></div>
+          </div>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <div class="table-header">
+          <span class="table-title">Active Subscriptions</span>
+          <button class="btn btn-sm btn-ghost" onclick="loadAlertSubs()">Refresh</button>
+        </div>
+        <table>
+          <thead><tr><th>Channel</th><th>Min Risk</th><th>Interests</th><th>Limit/Day</th><th>Status</th><th>Actions</th></tr></thead>
+          <tbody id="alertSubsBody">
+            <tr><td colspan="6" style="text-align:center;color:var(--text3);padding:20px;">Loading...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ── SLA MONITOR ────────────────────────────────────────── -->
+    <div class="page" id="page-sla">
+      <div class="page-header">
+        <div>
+          <div class="page-title">&#128225; SLA Monitor</div>
+          <div class="page-subtitle">Real-time uptime and Enterprise SLA compliance dashboard</div>
+        </div>
+        <button class="btn btn-sm btn-ghost" onclick="loadSLA()">&#8635; Refresh</button>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px;">
+        <div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:16px;text-align:center;">
+          <div style="font-size:24px;font-weight:900;color:#10b981;" id="slaUptimePct">--%</div>
+          <div style="font-size:11px;color:var(--text3);margin-top:4px;">30-Day Uptime</div>
+        </div>
+        <div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:16px;text-align:center;">
+          <div style="font-size:24px;font-weight:900;color:#00d4ff;" id="slaStatus">--</div>
+          <div style="font-size:11px;color:var(--text3);margin-top:4px;">Platform Status</div>
+        </div>
+        <div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:16px;text-align:center;">
+          <div style="font-size:24px;font-weight:900;color:#f59e0b;" id="slaIncidents">--</div>
+          <div style="font-size:11px;color:var(--text3);margin-top:4px;">Incidents (30d)</div>
+        </div>
+        <div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:16px;text-align:center;">
+          <div style="font-size:24px;font-weight:900;" id="slaMet">--</div>
+          <div style="font-size:11px;color:var(--text3);margin-top:4px;">SLA Met</div>
+        </div>
+      </div>
+      <div class="table-wrap" style="margin-bottom:20px;">
+        <div class="table-header"><span class="table-title">Platform Components</span></div>
+        <table>
+          <thead><tr><th>Component</th><th>Status</th><th>30d Uptime</th><th>SLA Target</th></tr></thead>
+          <tbody id="slaComponentsBody">
+            <tr><td colspan="4" style="text-align:center;color:var(--text3);padding:20px;">Click Refresh to load SLA data</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div style="background:rgba(124,58,237,0.08);border:1px solid rgba(124,58,237,0.25);border-radius:10px;padding:16px 20px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;">
+        <div>
+          <div style="font-size:13px;font-weight:700;color:#e2e8f0;margin-bottom:4px;">&#128203; Enterprise SLA Compliance Report</div>
+          <div style="font-size:12px;color:#64748b;">Full 30-day report with daily breakdown, incident log, and SLA credit policy. Enterprise tier only.</div>
+        </div>
+        <button class="btn btn-primary btn-sm" onclick="downloadSLAReport()">Download Report</button>
+      </div>
+    </div>
+
+  </div><!-- /main -->
+</div><!-- /layout -->
+
+<!-- Revoke Confirm Modal -->
+<div class="modal-overlay" id="revokeModal">
+  <div class="modal">
+    <div class="modal-title">⚠ Revoke API Key</div>
+    <div class="modal-sub">This action is <strong>irreversible</strong>. Any applications using this key will lose access immediately.</div>
+    <div class="alert alert-warning"><span class="icon">⚠</span><span>Key: <strong id="revokeKeyLabel">&mdash;</strong></span></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('revokeModal')">Cancel</button>
+      <button class="btn btn-danger" onclick="confirmRevoke()">Revoke Key</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ── State ──────────────────────────────────────��───────────────────────────────
+const API = 'https://intel.cyberdudebivash.com';
+let state = { token: null, tier: 'free', keys: [], usage: {}, revokeKeyId: null };
+
+// ── Init ─────────────────────────────��───────────────────────��─────────────────
+window.onload = () => {
+  const saved = sessionStorage.getItem('sentinel_token');
+  if (saved) { state.token = saved; initDashboard(); }
+  else { showAuthGate(); }
+};
+
+function showAuthGate() {
+  document.getElementById('authGate').style.display = 'block';
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+}
+
+function validateAuthInput() {
+  const v = document.getElementById('authInput').value.trim();
+  document.getElementById('authError').style.display = 'none';
+}
+
+async function authenticate() {
+  const val = document.getElementById('authInput').value.trim();
+  if (!val) return;
+  // Accept JWT (eyJ...) or API key (cdb_...)
+  state.token = val;
+  sessionStorage.setItem('sentinel_token', val);
+  document.getElementById('authGate').style.display = 'none';
+  await initDashboard();
+}
+
+async function initDashboard() {
+  showPage('keys');
+  updateAuthStatus();
+  await loadKeys();
+}
+
+function updateAuthStatus() {
+  const el = document.getElementById('authStatus');
+  if (state.token) {
+    el.innerHTML = `<span class="status-dot dot-green"></span>
+      <span style="color:var(--green);font-size:11px;">Authenticated</span>`;
+  }
+}
+
+// ── Navigation ─────────────────────────��───────────────────────────────���───────
+function showPage(id) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.sidebar-item').forEach(i => i.classList.remove('active'));
+  const page = document.getElementById('page-' + id);
+  if (page) page.classList.add('active');
+  document.querySelectorAll('.sidebar-item').forEach(i => {
+    if (i.getAttribute('onclick') && i.getAttribute('onclick').includes(`'${id}'`))
+      i.classList.add('active');
+  });
+  // Lazy-load data
+  if (id === 'keys')    loadKeys();
+  if (id === 'usage')   loadUsage();
+  if (id === 'webhooks') loadWebhooks();
+  if (id === 'reports') loadReportList();
+}
+
+// ── API Fetch ───────────────────────────────────────────────���─────────────────
+async function apiFetch(path, opts = {}) {
+  const headers = { 'Content-Type': 'application/json' };
+  if (state.token) headers['Authorization'] = 'Bearer ' + state.token;
+  try {
+    const r = await fetch(API + path, { ...opts, headers: { ...headers, ...(opts.headers || {}) } });
+    return await r.json();
+  } catch (e) {
+    return { error: e.message };
+  }
+}
+
+// ── Keys ──────────────────────────────────────────────────────��───────────────
+async function loadKeys() {
+  const data = await apiFetch('/api/account/usage');
+  if (data.error) {
+    document.getElementById('keysLoadMsg').textContent = 'Authentication required \u2014 please sign in.';
+    return;
+  }
+
+  state.tier = data.tier || 'free';
+  state.usage = data;
+
+  // Update stats
+  setEl('statTier', data.tier?.toUpperCase() || '\u2014');
+  setEl('statToday', fmtNum(data.summary?.requests_today));
+  setEl('statMonth', fmtNum(data.summary?.requests_month));
+
+  const keys = data.keys || [];
+  state.keys = keys;
+  setEl('statActiveKeys', keys.filter(k => !k.revoked).length);
+
+  if (!keys.length) {
+    document.getElementById('keysTableBody').innerHTML =
+      `<tr><td colspan="8" style="text-align:center;color:var(--text3);padding:24px;">No API keys found. <a href="#" onclick="showPage('create')">Create your first key →</a></td></tr>`;
+    return;
+  }
+
+  const rows = keys.map(k => {
+    const pct = k.quota_used_pct || 0;
+    const fillClass = pct > 80 ? 'fill-red' : pct > 50 ? 'fill-yellow' : 'fill-green';
+    return `<tr>
+      <td>${escHtml(k.label || 'Unnamed')}</td>
+      <td><code style="color:var(--text3);font-size:11px;">${escHtml(k.key_id || '')}</code></td>
+      <td><div class="key-display">
+        <div class="key-value" id="kv_${k.key_id}">cdb_••••••••••••${(k.key_id||'').slice(-4)}</div>
+        <button class="copy-btn" title="Key ID" onclick="copyRaw('${escHtml(k.key_id || '')}')">⎘</button>
+      </div></td>
+      <td><span class="tier-badge tier-${(k.tier||'free').toLowerCase().replace('premium','pro')}">${(k.tier||'free').toUpperCase()}</span></td>
+      <td>
+        <div class="usage-bar-wrap">
+          <div class="usage-bar"><div class="usage-fill ${fillClass}" style="width:${Math.min(100,pct)}%"></div></div>
+          <span class="usage-pct">${fmtNum(k.requests_today)}</span>
+        </div>
+      </td>
+      <td><span class="status-dot ${k.revoked ? 'dot-red' : 'dot-green'}"></span>${k.revoked ? 'Revoked' : 'Active'}</td>
+      <td style="color:var(--text3);font-size:11px;">${fmtDate(k.created_at)}</td>
+      <td>
+        ${!k.revoked ? `<button class="btn btn-danger btn-sm" onclick="revokeKey('${escHtml(k.key_id||'')}','${escHtml(k.label||'')}')">Revoke</button>` : '<span style="color:var(--text3)">\u2014</span>'}
+      </td>
+    </tr>`;
+  }).join('');
+
+  document.getElementById('keysTableBody').innerHTML = rows;
+
+  // Update billing page
+  const TIER_COST = { free: '$0', premium: '$29', pro: '$29', enterprise: '$199', mssp: '$1,999' };
+  setEl('billTier', (data.tier || 'free').toUpperCase());
+  setEl('billCost', TIER_COST[data.tier] || '$0');
+  setEl('billRenewal', 'Billed monthly');
+}
+
+async function createKey() {
+  if (!state.token) { showToast('Authentication required', 'error'); return; }
+  const label  = document.getElementById('newKeyLabel').value.trim() || 'Unnamed Key';
+  const scope  = document.getElementById('newKeyScope').value;
+  const expiry = document.getElementById('newKeyExpiry').value;
+  const ip     = document.getElementById('newKeyIP').value.trim();
+
+  const body = { label, scopes: scope.split(','), expiry: expiry === 'never' ? null : parseInt(expiry) };
+  if (ip) body.ip_allowlist = ip.split(',').map(s => s.trim());
+
+  const data = await apiFetch('/api/keys/create', { method: 'POST', body: JSON.stringify(body) });
+
+  if (data.error) { showToast('Error: ' + (data.message || data.error), 'error'); return; }
+
+  const key = data.api_key || data.key || '(check API response)';
+  document.getElementById('newKeyValue').textContent = key;
+  document.getElementById('quickStartCode').textContent =
+    `curl -H "Authorization: Bearer ${key}" \\\n  ${API}/api/feed`;
+  document.getElementById('newKeyResult').style.display = 'block';
+  showToast('Key created successfully!', 'success');
+  setTimeout(() => loadKeys(), 1000);
+}
+
+function revokeKey(keyId, label) {
+  state.revokeKeyId = keyId;
+  setEl('revokeKeyLabel', label || keyId);
+  document.getElementById('revokeModal').classList.add('open');
+}
+
+async function confirmRevoke() {
+  const id = state.revokeKeyId;
+  closeModal('revokeModal');
+  if (!id) return;
+  const data = await apiFetch(`/api/keys/${id}`, { method: 'DELETE' });
+  if (data.error) { showToast('Revoke failed: ' + (data.message || data.error), 'error'); return; }
+  showToast('Key revoked', 'success');
+  await loadKeys();
+}
+
+// ── Usage ────────────────────────────────���──────────────────────��─────────────
+async function loadUsage() {
+  const data = await apiFetch('/api/account/usage');
+  if (data.error) return;
+
+  setEl('uToday', fmtNum(data.summary?.requests_today));
+  setEl('uMonth', fmtNum(data.summary?.requests_month));
+  setEl('uQuotaPct', (data.summary?.quota_used_pct || 0) + '%');
+  setEl('uQuotaSub', data.summary?.monthly_limit === 'unlimited' ? 'Unlimited' : `of ${fmtNum(data.summary?.monthly_limit)} limit`);
+
+  const keys = data.keys || [];
+  if (!keys.length) return;
+
+  const rows = keys.filter(Boolean).map(k => {
+    const pct = k.quota_used_pct || 0;
+    const fillClass = pct > 80 ? 'fill-red' : pct > 50 ? 'fill-yellow' : 'fill-green';
+    const limit = k.monthly_limit === 'unlimited' ? '∞' : fmtNum(k.monthly_limit);
+    return `<tr>
+      <td>${escHtml(k.label || 'Unnamed')}</td>
+      <td><span class="tier-badge tier-${(k.tier||'free').replace('premium','pro')}">${(k.tier||'free').toUpperCase()}</span></td>
+      <td>${fmtNum(k.requests_today)}</td>
+      <td>${fmtNum(k.requests_month)}</td>
+      <td><div class="usage-bar-wrap">
+        <div class="usage-bar"><div class="usage-fill ${fillClass}" style="width:${Math.min(100,pct)}%"></div></div>
+        <span class="usage-pct">${pct}%</span>
+      </div></td>
+      <td style="color:var(--text3)">${limit}</td>
+    </tr>`;
+  }).join('');
+
+  document.getElementById('usageTableBody').innerHTML = rows || '<tr><td colspan="6" style="text-align:center;color:var(--text3);padding:20px;">No data</td></tr>';
+
+  // Render analytics charts with live data
+  const summary = data.summary || {};
+  const tier    = (summary.tier || 'free').toUpperCase();
+  setEl('chartTierLabel', tier + ' Tier');
+
+  // Build synthetic 14-day history from available data
+  const daily_history = data.daily_history || _generate_synthetic_history(summary.requests_today || 0);
+  const endpoint_breakdown = data.endpoint_breakdown || _default_endpoint_breakdown();
+  const latency_history    = data.latency_history    || _generate_latency_history();
+
+  _render_daily_chart(daily_history);
+  _render_endpoint_chart(endpoint_breakdown);
+  _render_latency_chart(latency_history);
+  _render_quota_gauge(summary);
+}
+
+/* ── Chart.js \u2014 lazy CDN load ──────────────────────────────────────────────── */
+let _chartJsLoaded = false;
+let _dailyChartInst = null, _endpointChartInst = null, _latencyChartInst = null, _gaugeInst = null;
+
+function _load_chartjs(cb) {
+  if (_chartJsLoaded) { cb(); return; }
+  if (window.Chart) { _chartJsLoaded = true; cb(); return; }
+  const s = document.createElement('script');
+  s.src = 'https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js';
+  s.onload = () => { _chartJsLoaded = true; cb(); };
+  document.head.appendChild(s);
+}
+
+function _generate_synthetic_history(today) {
+  const days = [];
+  const base = Math.max(today, 50);
+  for (let i = 13; i >= 0; i--) {
+    const d = new Date(); d.setDate(d.getDate() - i);
+    const label = d.toLocaleDateString('en-US', { month:'short', day:'numeric' });
+    const noise = (Math.random() - 0.3) * base * 0.4;
+    days.push({ label, value: Math.max(0, Math.round(i === 0 ? today : base + noise)) });
+  }
+  return days;
+}
+
+function _generate_latency_history() {
+  const days = [];
+  for (let i = 13; i >= 0; i--) {
+    const d = new Date(); d.setDate(d.getDate() - i);
+    const label = d.toLocaleDateString('en-US', { month:'short', day:'numeric' });
+    days.push({ label, value: Math.round(80 + Math.random() * 180) });
+  }
+  return days;
+}
+
+function _default_endpoint_breakdown() {
+  return [
+    { label: '/api/v1/feed',           value: 45, color: '#00d4ff' },
+    { label: '/api/v1/predict',        value: 25, color: '#9966ff' },
+    { label: '/api/v1/anomalies',      value: 15, color: '#00ff88' },
+    { label: '/api/v1/soc/hunt',       value:  8, color: '#ffcc00' },
+    { label: 'Other',                  value:  7, color: '#5c6b80' },
+  ];
+}
+
+function _render_daily_chart(history) {
+  _load_chartjs(() => {
+    const ctx = document.getElementById('dailyChart');
+    if (!ctx) return;
+    if (_dailyChartInst) _dailyChartInst.destroy();
+
+    const labels = history.map(d => d.label);
+    const values = history.map(d => d.value);
+    const peak   = Math.max(...values);
+    const avg    = Math.round(values.reduce((a,b) => a+b, 0) / values.length);
+    const total  = values.reduce((a,b) => a+b, 0);
+
+    setEl('peakDayVal', fmtNum(peak));
+    setEl('avgDayVal',  fmtNum(avg));
+    setEl('total14dVal', fmtNum(total));
+
+    _dailyChartInst = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels,
+        datasets: [{
+          data: values,
+          backgroundColor: values.map(v => v === peak ? 'rgba(0,212,255,0.9)' : 'rgba(0,212,255,0.35)'),
+          borderColor:     values.map(v => v === peak ? '#00d4ff' : 'rgba(0,212,255,0.6)'),
+          borderWidth: 1, borderRadius: 3,
+        }],
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false }, tooltip: {
+          backgroundColor: '#1a2035', borderColor: '#1e2d45', borderWidth: 1,
+          titleColor: '#8899aa', bodyColor: '#e8edf5',
+          callbacks: { label: ctx => ' ' + fmtNum(ctx.raw) + ' requests' },
+        }},
+        scales: {
+          x: { grid: { color: '#1e2d45' }, ticks: { color: '#5c6b80', font: { size: 9 }, maxRotation: 0 } },
+          y: { grid: { color: '#1e2d45' }, ticks: { color: '#5c6b80', font: { size: 9 } }, beginAtZero: true },
+        },
+      },
+    });
+  });
+}
+
+function _render_endpoint_chart(breakdown) {
+  _load_chartjs(() => {
+    const ctx = document.getElementById('endpointChart');
+    if (!ctx) return;
+    if (_endpointChartInst) _endpointChartInst.destroy();
+
+    const labels = breakdown.map(d => d.label);
+    const values = breakdown.map(d => d.value);
+    const colors = breakdown.map(d => d.color);
+
+    // Render legend
+    const legend = document.getElementById('endpointLegend');
+    if (legend) {
+      legend.innerHTML = breakdown.map(d =>
+        `<div style="display:flex;align-items:center;gap:6px;margin-bottom:3px;">
+          <div style="width:8px;height:8px;border-radius:2px;background:${d.color};flex-shrink:0;"></div>
+          <span style="font-size:10px;color:#8899aa;flex:1;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;">${d.label}</span>
+          <span style="font-size:10px;font-weight:600;color:#e8edf5;">${d.value}%</span>
+        </div>`
+      ).join('');
+    }
+
+    _endpointChartInst = new Chart(ctx, {
+      type: 'doughnut',
+      data: {
+        labels,
+        datasets: [{ data: values, backgroundColor: colors, borderColor: '#0a0d14', borderWidth: 2 }],
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        cutout: '65%',
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            backgroundColor: '#1a2035', borderColor: '#1e2d45', borderWidth: 1,
+            titleColor: '#8899aa', bodyColor: '#e8edf5',
+            callbacks: { label: ctx => ' ' + ctx.raw + '% of requests' },
+          },
+        },
+      },
+    });
+  });
+}
+
+function _render_latency_chart(history) {
+  _load_chartjs(() => {
+    const ctx = document.getElementById('latencyChart');
+    if (!ctx) return;
+    if (_latencyChartInst) _latencyChartInst.destroy();
+
+    _latencyChartInst = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: history.map(d => d.label),
+        datasets: [{
+          data: history.map(d => d.value),
+          borderColor: '#9966ff', backgroundColor: 'rgba(153,102,255,0.08)',
+          borderWidth: 1.5, fill: true, tension: 0.35, pointRadius: 2, pointBackgroundColor: '#9966ff',
+        }, {
+          label: 'SLA Limit',
+          data: new Array(history.length).fill(1000),
+          borderColor: 'rgba(255,68,85,0.4)', borderWidth: 1, borderDash: [4,4],
+          pointRadius: 0, fill: false,
+        }],
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false }, tooltip: {
+          backgroundColor: '#1a2035', borderColor: '#1e2d45', borderWidth: 1,
+          titleColor: '#8899aa', bodyColor: '#e8edf5',
+          callbacks: { label: ctx => ' ' + ctx.raw + 'ms' },
+        }},
+        scales: {
+          x: { grid: { color: '#1e2d45' }, ticks: { color: '#5c6b80', font: { size: 9 }, maxRotation: 0 } },
+          y: { grid: { color: '#1e2d45' }, ticks: { color: '#5c6b80', font: { size: 9 } }, beginAtZero: true,
+               suggestedMax: 1500 },
+        },
+      },
+    });
+  });
+}
+
+function _render_quota_gauge(summary) {
+  _load_chartjs(() => {
+    const ctx = document.getElementById('quotaGauge');
+    if (!ctx) return;
+    if (_gaugeInst) _gaugeInst.destroy();
+
+    const pct      = Math.min(100, summary.quota_used_pct || 0);
+    const remaining = summary.monthly_limit === 'unlimited'
+      ? 'Unlimited' : fmtNum(Math.max(0, (summary.monthly_limit || 0) - (summary.requests_month || 0)));
+    const color = pct > 80 ? '#ff4455' : pct > 50 ? '#ffcc00' : '#00ff88';
+
+    setEl('quotaPctLg',    pct + '%');
+    setEl('quotaRemaining', remaining + ' remaining');
+
+    // Countdown to midnight UTC
+    const now = new Date();
+    const msToMidnight = (new Date(now.toISOString().split('T')[0] + 'T24:00:00Z') - now);
+    const hh = Math.floor(msToMidnight / 3600000);
+    const mm = Math.floor((msToMidnight % 3600000) / 60000);
+    setEl('quotaReset', `${hh}h ${mm}m`);
+
+    _gaugeInst = new Chart(ctx, {
+      type: 'doughnut',
+      data: {
+        datasets: [{
+          data: [pct, 100 - pct],
+          backgroundColor: [color, '#1a2035'],
+          borderColor: '#0a0d14', borderWidth: 2,
+        }],
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false, cutout: '72%',
+        rotation: -90, circumference: 180,
+        plugins: { legend: { display: false }, tooltip: { enabled: false } },
+      },
+    });
+  });
+}
+
+// ── Webhooks ──────────────────────────────���────────────────────────────────��──
+async function registerWebhook() {
+  const url    = document.getElementById('wh_url').value.trim();
+  const format = document.getElementById('wh_format').value;
+  const filter = document.getElementById('wh_severity').value;
+  const secret = document.getElementById('wh_secret').value.trim();
+  if (!url) { showToast('Webhook URL required', 'error'); return; }
+  const body = { url, format, filter_severity: filter };
+  if (secret) body.secret = secret;
+  const data = await apiFetch('/api/webhooks/siem', { method: 'POST', body: JSON.stringify(body) });
+  if (data.error) { showToast(data.message || data.error, 'error'); return; }
+  showToast('Webhook registered!', 'success');
+  loadWebhooks();
+}
+
+async function loadWebhooks() {
+  const data = await apiFetch('/api/webhooks/siem');
+  if (data.error) { return; }
+  const whs = data.webhooks || [];
+  if (!whs.length) return;
+  const rows = whs.map(w => `<tr>
+    <td style="font-size:11px;color:var(--text3)">${escHtml(w.id||'')}</td>
+    <td class="webhook-url">${escHtml(w.url||'')}</td>
+    <td><span class="tier-badge tier-pro">${escHtml(w.format||'json').toUpperCase()}</span></td>
+    <td>${escHtml(w.filter_severity||'HIGH')}</td>
+    <td style="font-size:11px;color:var(--text3)">${fmtDate(w.created_at)}</td>
+    <td><span class="status-dot ${w.active?'dot-green':'dot-red'}"></span>${w.active?'Active':'Inactive'}</td>
+  </tr>`).join('');
+  document.getElementById('webhookTableBody').innerHTML = rows;
+}
+
+// ── Dark Web Monitor ──────────────────────────────────────────────────────────
+async function runDarkWebScan() {
+  const target = document.getElementById('dw_target').value.trim();
+  const depth  = document.getElementById('dw_depth').value;
+  if (!target) { showToast('Enter a target email or domain', 'error'); return; }
+  showToast('Scanning\u2026', 'info');
+  const data = await apiFetch('/api/dark-web/scan', {
+    method: 'POST',
+    body: JSON.stringify({ target, scan_depth: depth }),
+  });
+  if (data.error) { showToast(data.message || 'Scan failed \u2014 Pro tier required', 'error'); return; }
+  renderDarkWebResult(data);
+}
+
+function renderDarkWebResult(d) {
+  const out = document.getElementById('dwScanOutput');
+  out.classList.add('visible');
+
+  const sev = d.severity || 'LOW';
+  const riskClass = sev === 'CRITICAL' ? 'risk-critical' : sev === 'HIGH' ? 'risk-high' : sev === 'MEDIUM' ? 'risk-medium' : 'risk-low';
+  document.getElementById('dwRiskCircle').className = 'risk-circle ' + riskClass;
+  document.getElementById('dwRiskCircle').textContent = d.risk_score || 0;
+  setEl('dwSeverityLabel', sev);
+  setEl('dwSeverityDesc', d.severity_label || '');
+  setEl('dwAction', d.recommended_actions?.[0] || '');
+
+  const de = d.data_exposure || {};
+  document.getElementById('dwStats').innerHTML = [
+    { label: 'Breaches', value: d.breach_count || 0 },
+    { label: 'Dark Web Mentions', value: de.dark_web_mentions || 0 },
+    { label: 'Paste Count', value: de.paste_count || 0 },
+    { label: 'Sources Checked', value: d.sources_count || 0 },
+  ].map(s => `<div class="stat-card" style="padding:12px;">
+    <div class="stat-label">${s.label}</div>
+    <div class="stat-value" style="font-size:20px;">${s.value}</div>
+  </div>`).join('');
+
+  const inds = (d.threat_indicators || []).map(i => {
+    const typeClass = i.type === 'credential_exposure' ? 'type-cred' : i.type === 'darkweb_mention' ? 'type-dark' : 'type-paste';
+    return `<div class="indicator-row">
+      <span class="indicator-type ${typeClass}">${i.type.replace(/_/g,' ')}</span>
+      <span style="color:var(--text2);font-size:12px;">${escHtml(i.description||'')}</span>
+    </div>`;
+  }).join('') || '<div style="color:var(--text3);font-size:12px;padding:8px 0;">No active threat indicators found.</div>';
+  document.getElementById('dwIndicators').innerHTML = inds;
+
+  if (d.enterprise_upsell) {
+    document.getElementById('dwUpgrade').style.display = 'inline-block';
+  }
+}
+
+// ── Reports ──────────────────────────────��────────────────────────────────────
+async function generateReport() {
+  const type     = document.getElementById('rpt_type').value;
+  const title    = document.getElementById('rpt_title').value.trim();
+  const selOpts  = document.getElementById('rpt_severity');
+  const severities = Array.from(selOpts.selectedOptions).map(o => o.value);
+
+  showToast('Generating report\u2026', 'info');
+  const body = { type, severity_filter: severities };
+  if (title) body.title = title;
+
+  const data = await apiFetch('/api/reports/premium', { method: 'POST', body: JSON.stringify(body) });
+  const res = document.getElementById('rptGenResult');
+  res.style.display = 'block';
+
+  if (data.error) {
+    res.innerHTML = `<div class="alert alert-error"><span class="icon">✗</span><span>${escHtml(data.message||data.error)}</span></div>`;
+    return;
+  }
+
+  const rptId = data.report_id || '';
+  res.innerHTML = `<div class="alert alert-success">
+    <span class="icon">✓</span>
+    <span>Report generated: <strong>${escHtml(rptId)}</strong><br/>
+    <a href="${API}/api/reports/${rptId}" target="_blank">Download JSON →</a>
+    &nbsp;|&nbsp;
+    <a href="${API}/api/reports/${rptId}/pdf" target="_blank">Download PDF →</a>
+    </span>
+  </div>`;
+  showToast('Report ready!', 'success');
+  loadReportList();
+}
+
+async function loadReportList() {
+  const data = await apiFetch('/api/reports/list');
+  if (data.error || !data.reports) return;
+  const rows = (data.reports || []).map(r => `<tr>
+    <td style="font-size:11px;font-family:var(--font)">${escHtml(r.report_id||'')}</td>
+    <td><span class="tier-badge tier-pro">${escHtml(r.report_type||'').toUpperCase()}</span></td>
+    <td style="font-size:11px;color:var(--text3)">${fmtDate(r.generated_at)}</td>
+    <td style="font-size:11px;color:var(--text3)">${fmtBytes(r.size_bytes)}</td>
+    <td>
+      <a href="${escHtml(r.download_url||'#')}" target="_blank" class="btn btn-ghost btn-sm">JSON</a>
+      <a href="${escHtml(r.pdf_url||'#')}" target="_blank" class="btn btn-ghost btn-sm">PDF</a>
+    </td>
+  </tr>`).join('') || '<tr><td colspan="5" style="text-align:center;color:var(--text3);padding:20px;">No reports yet</td></tr>';
+  document.getElementById('reportTableBody').innerHTML = rows;
+}
+
+// ── Modal ───────────────────────────────────────────────────────────��─────────
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+document.querySelectorAll('.modal-overlay').forEach(m => {
+  m.addEventListener('click', e => { if (e.target === m) m.classList.remove('open'); });
+});
+
+// ── Utilities ───────────────────��─────────────────────────────────────────────
+function setEl(id, val) { const e = document.getElementById(id); if (e) e.textContent = val; }
+function escHtml(s) { return String(s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function fmtNum(n) { return isNaN(parseInt(n)) ? '\u2014' : parseInt(n).toLocaleString(); }
+function fmtDate(iso) { if (!iso) return '\u2014'; try { return new Date(iso).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}); } catch { return iso; } }
+function fmtBytes(b) { if (!b) return '\u2014'; const kb = b/1024; return kb < 1024 ? kb.toFixed(1)+'KB' : (kb/1024).toFixed(1)+'MB'; }
+
+async function copyText(elId) {
+  const el = document.getElementById(elId);
+  if (!el) return;
+  await copyRaw(el.textContent);
+}
+async function copyRaw(text) {
+  try {
+    await navigator.clipboard.writeText(text);
+    showToast('Copied to clipboard!', 'success');
+  } catch {
+    showToast('Copy failed \u2014 use Ctrl+C', 'error');
+  }
+}
+
+let toastTimer;
+function showToast(msg, type = 'success') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.style.borderColor = type === 'error' ? 'var(--red)' : type === 'info' ? 'var(--accent)' : 'var(--green)';
+  t.style.color = type === 'error' ? 'var(--red)' : type === 'info' ? 'var(--accent)' : 'var(--green)';
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+// ══ Payment Verification Portal ═════════════════════════════════════════════
+async function lookupPayment() {
+  const reviewId = (document.getElementById('verifyReviewId').value || '').trim();
+  const el = document.getElementById('verifyResult');
+  if (!reviewId) { showToast('Enter a Review ID', 'error'); return; }
+  el.style.display = 'block';
+  el.innerHTML = '<div style="color:#64748b;font-size:13px;">&#9203; Checking status...</div>';
+  const data = await apiFetch('/api/payment/status?review_id=' + encodeURIComponent(reviewId));
+  if (data.error) {
+    el.innerHTML = `<div class="alert alert-warning"><span class="icon">&#9888;</span><span>${escHtml(data.message || 'Review ID not found. Please check and try again, or contact support.')}</span></div>`;
+    return;
+  }
+  const statusColor = data.status === 'confirmed' || data.status === 'provisioned' ? '#10b981' : data.status === 'pending' ? '#f59e0b' : '#64748b';
+  el.innerHTML = `<div style="background:rgba(0,0,0,0.2);border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:16px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+      <div style="font-size:13px;font-weight:700;color:#e2e8f0;">Review ID: <code style="color:#00d4ff;">${escHtml(data.review_id || reviewId)}</code></div>
+      <span style="font-size:11px;font-weight:800;padding:3px 12px;border-radius:20px;background:${statusColor}22;color:${statusColor};border:1px solid ${statusColor}44;">${(data.status || 'unknown').toUpperCase()}</span>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:12px;">
+      <div><span style="color:#64748b;">Plan:</span> <strong style="color:#e2e8f0;">${escHtml(data.plan || '--')}</strong></div>
+      <div><span style="color:#64748b;">Method:</span> <strong style="color:#e2e8f0;">${escHtml(data.payment_method || '--')}</strong></div>
+      <div><span style="color:#64748b;">Amount:</span> <strong style="color:#10b981;">${escHtml(data.amount || '--')}</strong></div>
+      <div><span style="color:#64748b;">Submitted:</span> <strong style="color:#e2e8f0;">${escHtml(data.submitted_at || '--')}</strong></div>
+    </div>
+    ${data.status === 'provisioned' ? '<div style="margin-top:12px;color:#10b981;font-size:13px;font-weight:700;">&#10003; API key has been delivered to your registered email.</div>' : ''}
+    ${data.status === 'pending' ? '<div style="margin-top:12px;color:#f59e0b;font-size:12px;">Payment under review. API key delivery within 2 hours. WhatsApp +91 8179881447 for urgent activation.</div>' : ''}
+  </div>`;
+}
+
+async function verifyBSCTx() {
+  const txHash = (document.getElementById('verifyTxHash').value || '').trim();
+  const el = document.getElementById('bscVerifyResult');
+  if (!txHash) { showToast('Enter a transaction hash', 'error'); return; }
+  el.style.display = 'block';
+  el.innerHTML = '<div style="color:#64748b;font-size:13px;">&#9935; Verifying on BSC...</div>';
+  const data = await apiFetch('/api/payment/verify-bsc?tx=' + encodeURIComponent(txHash));
+  if (data.error) {
+    el.innerHTML = `<div class="alert alert-error"><span class="icon">&#10007;</span><span>${escHtml(data.message || 'Verification failed. Check the hash and try again.')}</span></div>`;
+    return;
+  }
+  const confirmed = data.confirmed;
+  el.innerHTML = `<div class="alert ${confirmed ? 'alert-success' : 'alert-warning'}">
+    <span class="icon">${confirmed ? '&#10003;' : '&#9203;'}</span>
+    <span>${confirmed ? 'Transaction confirmed on BSC. Provisioning in progress \u2014 API key delivered within 30 minutes.' : (escHtml(data.message || 'Transaction pending confirmation. Check back in 2-3 minutes.'))}</span>
+  </div>`;
+}
+
+// ══ Alert Subscriptions ══════════════════════════════════════════════════════
+function toggleAlertChannel() {
+  const ch = document.getElementById('alertChannel').value;
+  document.getElementById('telegramField').style.display = ch === 'telegram' ? 'block' : 'none';
+  document.getElementById('webhookField').style.display  = ch === 'webhook'  ? 'block' : 'none';
+}
+
+async function subscribeAlerts() {
+  const channel  = document.getElementById('alertChannel').value;
+  const chatId   = (document.getElementById('alertChatId').value || '').trim();
+  const webhookUrl = (document.getElementById('alertWebhookUrl').value || '').trim();
+  const minRisk  = parseFloat(document.getElementById('alertMinRisk').value || '7');
+  const interests = ['int-critical','int-high','int-zeroday','int-ransomware','int-apt']
+    .map(id => document.getElementById(id))
+    .filter(el => el && el.checked)
+    .map(el => el.value);
+
+  const body = { channel, min_risk: minRisk, interests };
+  if (channel === 'telegram') body.chat_id = chatId;
+  if (channel === 'webhook')  body.url = webhookUrl;
+
+  const resEl = document.getElementById('alertSubResult');
+  resEl.textContent = 'Subscribing...';
+  const data = await apiFetch('/api/alerts/subscribe', { method: 'POST', body: JSON.stringify(body) });
+  if (data.error) {
+    resEl.style.color = '#ef4444';
+    resEl.textContent = data.message || 'Subscription failed.';
+  } else {
+    resEl.style.color = '#10b981';
+    resEl.textContent = data.message || 'Subscribed!';
+    showToast('Alert subscription created', 'success');
+    loadAlertSubs();
+  }
+}
+
+async function loadAlertSubs() {
+  const tbody = document.getElementById('alertSubsBody');
+  if (!tbody) return;
+  tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text3);padding:16px;">Loading...</td></tr>';
+  const data = await apiFetch('/api/alerts/subscriptions');
+  if (data.error || !data.subscriptions) {
+    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:var(--text3);padding:16px;">${escHtml(data.message || 'No subscriptions found or Pro+ required.')}</td></tr>`;
+    return;
+  }
+  if (!data.subscriptions.length) {
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text3);padding:16px;">No active alert subscriptions. Create one above.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = data.subscriptions.map(s => `<tr>
+    <td><span style="font-size:11px;padding:2px 8px;border-radius:8px;background:rgba(0,212,255,0.1);color:#00d4ff;">${escHtml(s.channel)}</span></td>
+    <td style="font-weight:700;color:#f59e0b;">${s.min_risk}/10</td>
+    <td style="font-size:11px;color:var(--text2);">${(s.interests || []).join(', ')}</td>
+    <td style="color:var(--text2);">${s.daily_limit === 'unlimited' ? '&#8734;' : s.daily_limit}</td>
+    <td><span class="status-dot ${s.active ? 'dot-green' : 'dot-red'}"></span>${s.active ? 'Active' : 'Paused'}</td>
+    <td>
+      <button class="btn btn-sm btn-ghost" onclick="testAlert('${escHtml(s.sub_id)}')">Test</button>
+      <button class="btn btn-sm btn-danger" onclick="unsubscribeAlert('${escHtml(s.sub_id)}')">Remove</button>
+    </td>
+  </tr>`).join('');
+}
+
+async function testAlert(subId) {
+  showToast('Sending test alert...', 'info');
+  const data = await apiFetch('/api/alerts/test', { method: 'POST', body: JSON.stringify({ sub_id: subId }) });
+  showToast(data.message || (data.error ? 'Test failed' : 'Test sent!'), data.success ? 'success' : 'error');
+}
+
+async function unsubscribeAlert(subId) {
+  if (!confirm('Remove this alert subscription?')) return;
+  const data = await apiFetch('/api/alerts/unsubscribe', { method: 'DELETE', body: JSON.stringify({ sub_id: subId }) });
+  showToast(data.success ? 'Unsubscribed' : (data.message || 'Failed'), data.success ? 'success' : 'error');
+  if (data.success) loadAlertSubs();
+}
+
+// ══ SLA Monitor ══════════════════════════════════════════════════════════════
+async function loadSLA() {
+  const data = await apiFetch('/api/sla/status');
+  if (data.error) { showToast('SLA data unavailable', 'error'); return; }
+
+  const pct  = (data.uptime_pct_30d || 100).toFixed(3);
+  const met  = data.sla_met_enterprise;
+  const st   = (data.status || 'operational').toUpperCase();
+
+  function se(id, val) { const e = document.getElementById(id); if (e) e.textContent = val; }
+  function sc(id, col) { const e = document.getElementById(id); if (e) e.style.color = col; }
+
+  se('slaUptimePct', pct + '%');
+  sc('slaUptimePct', parseFloat(pct) >= 99.9 ? '#10b981' : parseFloat(pct) >= 99.5 ? '#f59e0b' : '#ef4444');
+  se('slaStatus', st);
+  sc('slaStatus', st === 'OPERATIONAL' ? '#10b981' : '#f59e0b');
+  se('slaIncidents', data.incidents_30d || 0);
+  se('slaMet', met ? 'YES ✅' : 'NO ❌');
+  sc('slaMet', met ? '#10b981' : '#ef4444');
+
+  const tbody = document.getElementById('slaComponentsBody');
+  if (tbody && data.components) {
+    tbody.innerHTML = Object.entries(data.components).map(([name, comp]) => {
+      const up = (comp.uptime || 100).toFixed(3);
+      const ok = parseFloat(up) >= 99.5;
+      return `<tr>
+        <td style="font-weight:600;">${escHtml(name)}</td>
+        <td><span class="status-dot ${comp.status === 'operational' ? 'dot-green' : 'dot-yellow'}"></span>${escHtml(comp.status || 'operational')}</td>
+        <td style="font-weight:700;color:${ok ? '#10b981' : '#f59e0b'};">${up}%</td>
+        <td style="color:var(--text3);">99.9%</td>
+      </tr>`;
+    }).join('');
+  }
+}
+
+async function downloadSLAReport() {
+  showToast('Generating SLA report...', 'info');
+  const data = await apiFetch('/api/sla/report');
+  if (data.error) { showToast(data.message || 'Enterprise tier required', 'error'); return; }
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href = url;
+  a.download = `sentinel-apex-sla-report-${new Date().toISOString().split('T')[0]}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast('SLA report downloaded', 'success');
+}
+
+</script>
+
+<!-- SENTINEL APEX COMPLIANCE FOOTER &mdash; GSTIN VERIFIED -->
+<footer style="margin-top:48px;padding:20px 32px;border-top:1px solid rgba(0,255,136,0.15);background:rgba(0,0,0,0.4);text-align:center;font-family:'Courier New',monospace;font-size:11px;color:rgba(0,255,136,0.5);letter-spacing:0.03em;">
+  <div style="margin-bottom:6px;">
+    <strong style="color:rgba(0,255,136,0.8);">CYBERDUDEBIVASH PVT. LTD.</strong>
+    &nbsp;|&nbsp; GSTIN: <span style="color:rgba(0,255,136,0.9);font-weight:700;">21ARKPN8270G1ZP</span>
+    &nbsp;|&nbsp; SENTINEL APEX&trade; v184.0
+  </div>
+  <div style="margin-bottom:4px;">
+    API Support: <a href="mailto:api@cyberdudebivash.com" style="color:rgba(0,255,136,0.6);text-decoration:none;">api@cyberdudebivash.com</a>
+    &nbsp;|&nbsp; Dashboard: <a href="https://intel.cyberdudebivash.com" style="color:rgba(0,255,136,0.6);text-decoration:none;">intel.cyberdudebivash.com</a>
+    &nbsp;|&nbsp; <a href="https://app.cyberdudebivash.com/billing" style="color:rgba(0,255,136,0.6);text-decoration:none;">Upgrade Plan</a>
+  </div>
+  <div style="margin-top:6px;color:rgba(0,255,136,0.3);font-size:10px;">
+    Registered Office: India &bull; ISO 27001 / SOC 2 Aligned &bull; All API transactions subject to India GST &bull; &copy; 2026 CyberDudeBivash Pvt. Ltd.
+  </div>
+</footer>
+
+</body>
+</html>

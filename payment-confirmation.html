@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Order Confirmation — SENTINEL APEX</title>
+<meta name="description" content="Your SENTINEL APEX subscription order has been received. Track activation status, download receipt, and get your API key.">
+<meta name="robots" content="noindex, nofollow">
+<link rel="icon" type="image/x-icon" href="/favicon.ico">
+<style>
+:root{
+  --bg:#060d18;--surface:#0b1220;--surface2:#0d1628;--border:#162035;
+  --accent:#00d4ff;--green:#22c55e;--yellow:#f59e0b;--red:#ef4444;--purple:#7c3aed;
+  --text:#e2e8f0;--muted:#64748b;--mono:'JetBrains Mono',monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,sans-serif;min-height:100vh}
+a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
+
+/* NAV */
+.nav{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 32px;display:flex;align-items:center;justify-content:space-between}
+.nav-logo{font-family:var(--mono);font-size:12px;font-weight:700;color:var(--accent);letter-spacing:2px;text-decoration:none}
+.nav-logo span{color:var(--muted);font-weight:400}
+.nav-links a{color:var(--muted);font-size:12px;margin-left:20px;transition:color .2s}
+.nav-links a:hover{color:var(--accent)}
+
+/* HERO */
+.hero{background:radial-gradient(ellipse 800px 300px at 50% 0,rgba(34,197,94,.08) 0,transparent 70%);padding:48px 24px 32px;text-align:center;border-bottom:1px solid var(--border)}
+.hero-badge{display:inline-flex;align-items:center;gap:8px;background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.3);border-radius:100px;padding:8px 20px;margin-bottom:20px}
+.hero-badge .dot{width:8px;height:8px;background:var(--green);border-radius:50%;animation:pulse 2s ease-in-out infinite}
+.hero-badge span{font-family:var(--mono);font-size:11px;letter-spacing:2px;color:var(--green);font-weight:700;text-transform:uppercase}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(1.4)}}
+.hero h1{font-size:clamp(24px,4vw,38px);font-weight:900;margin-bottom:10px}
+.hero h1 span{color:var(--green)}
+.hero p{color:var(--muted);font-size:15px;max-width:520px;margin:0 auto}
+
+/* LAYOUT */
+.page{max-width:860px;margin:0 auto;padding:40px 24px}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+@media(max-width:700px){.grid-2{grid-template-columns:1fr}}
+
+/* CARD */
+.card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:24px;margin-bottom:20px}
+.card-title{font-family:var(--mono);font-size:10px;letter-spacing:2px;color:var(--muted);text-transform:uppercase;margin-bottom:16px}
+.card h3{font-size:16px;font-weight:700;color:var(--text);margin-bottom:8px}
+
+/* ORDER SUMMARY */
+.order-row{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid rgba(22,32,53,.8)}
+.order-row:last-child{border-bottom:none;padding-bottom:0}
+.order-label{font-size:13px;color:var(--muted)}
+.order-value{font-size:13px;font-weight:700;color:var(--text);font-family:var(--mono)}
+.order-value.accent{color:var(--accent)}
+.order-value.green{color:var(--green)}
+.order-total{font-size:18px;font-weight:800;color:var(--green)}
+
+/* STATUS STEPS */
+.steps{display:flex;flex-direction:column;gap:0}
+.step{display:flex;gap:16px;align-items:flex-start}
+.step-line-wrap{display:flex;flex-direction:column;align-items:center}
+.step-dot{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:12px;font-weight:700;z-index:1}
+.step-dot.done{background:rgba(34,197,94,.15);border:2px solid var(--green);color:var(--green)}
+.step-dot.active{background:rgba(0,212,255,.15);border:2px solid var(--accent);color:var(--accent);animation:pulse 2s ease-in-out infinite}
+.step-dot.pending{background:rgba(22,32,53,.8);border:2px solid var(--border);color:var(--muted)}
+.step-connector{width:2px;background:var(--border);flex:1;min-height:28px;margin:4px 0}
+.step-connector.done{background:var(--green)}
+.step-content{flex:1;padding-bottom:24px}
+.step-title{font-size:14px;font-weight:700;color:var(--text);margin-bottom:4px}
+.step-desc{font-size:12px;color:var(--muted);line-height:1.6}
+.step-time{display:inline-block;margin-top:6px;font-family:var(--mono);font-size:10px;font-weight:700;padding:2px 8px;border-radius:4px}
+.step-time.done{background:rgba(34,197,94,.1);color:var(--green)}
+.step-time.active{background:rgba(0,212,255,.1);color:var(--accent)}
+.step-time.pending{background:rgba(22,32,53,.8);color:var(--muted)}
+
+/* NEXT STEPS */
+.checklist{display:flex;flex-direction:column;gap:10px}
+.check-item{display:flex;align-items:flex-start;gap:12px;padding:12px;background:var(--surface2);border:1px solid var(--border);border-radius:8px}
+.check-item .ck{font-size:16px;flex-shrink:0;margin-top:1px}
+.check-item .ck-text{font-size:13px;color:var(--muted);line-height:1.5}
+.check-item .ck-text strong{color:var(--text)}
+.check-item a{color:var(--accent)}
+
+/* RECEIPT BUTTON */
+.receipt-btn{display:block;width:100%;padding:14px;background:rgba(0,212,255,.08);border:1px solid rgba(0,212,255,.25);border-radius:8px;color:var(--accent);font-family:var(--mono);font-size:12px;font-weight:700;letter-spacing:1px;text-align:center;cursor:pointer;transition:background .2s;margin-bottom:12px}
+.receipt-btn:hover{background:rgba(0,212,255,.15)}
+.wa-btn{display:block;width:100%;padding:14px;background:rgba(37,211,102,.08);border:1px solid rgba(37,211,102,.25);border-radius:8px;color:#25d366;font-family:var(--mono);font-size:12px;font-weight:700;letter-spacing:1px;text-align:center;text-decoration:none;transition:background .2s;margin-bottom:12px}
+.wa-btn:hover{background:rgba(37,211,102,.15);text-decoration:none}
+.email-btn{display:block;width:100%;padding:14px;background:rgba(124,58,237,.08);border:1px solid rgba(124,58,237,.25);border-radius:8px;color:#a78bfa;font-family:var(--mono);font-size:12px;font-weight:700;letter-spacing:1px;text-align:center;text-decoration:none;transition:background .2s}
+.email-btn:hover{background:rgba(124,58,237,.15);text-decoration:none}
+
+/* RESOURCES */
+.resource-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+@media(max-width:600px){.resource-grid{grid-template-columns:1fr}}
+.resource-card{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:16px;text-align:center;text-decoration:none;transition:border-color .2s}
+.resource-card:hover{border-color:rgba(0,212,255,.4);text-decoration:none}
+.resource-icon{font-size:24px;margin-bottom:8px}
+.resource-label{font-size:12px;font-weight:700;color:var(--text);margin-bottom:4px}
+.resource-desc{font-size:11px;color:var(--muted);line-height:1.5}
+
+/* ALERT */
+.alert-box{padding:14px 18px;border-radius:8px;font-size:13px;margin-bottom:20px}
+.alert-info{background:rgba(0,212,255,.06);border:1px solid rgba(0,212,255,.2);color:var(--accent)}
+
+footer{border-top:1px solid var(--border);padding:24px 32px;text-align:center;font-size:11px;color:var(--muted);margin-top:48px}
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <a href="/" class="nav-logo">SENTINEL APEX <span>// ORDER CONFIRMATION</span></a>
+  <div class="nav-links">
+    <a href="/">Dashboard</a>
+    <a href="/api-docs.html">API Docs</a>
+    <a href="/billing-center.html">Billing</a>
+  </div>
+</nav>
+
+<div class="hero">
+  <div class="hero-badge"><span class="dot"></span><span>Order Received</span></div>
+  <h1>Your Subscription is <span>Being Activated</span></h1>
+  <p>We have received your payment submission. Your API key will be delivered to your email once verified.</p>
+</div>
+
+<div class="page">
+
+  <div class="alert-box alert-info" id="order-banner">
+    Order <strong id="display-order-id">Loading...</strong> &nbsp;&middot;&nbsp; Plan: <strong id="display-plan">—</strong> &nbsp;&middot;&nbsp; Review ID: <strong id="display-review-id">—</strong>
+  </div>
+
+  <div class="grid-2">
+    <!-- ORDER SUMMARY -->
+    <div class="card">
+      <div class="card-title">Order Summary</div>
+      <div class="order-row"><span class="order-label">Order ID</span><span class="order-value accent" id="order-id-cell">—</span></div>
+      <div class="order-row"><span class="order-label">Plan</span><span class="order-value" id="plan-cell">—</span></div>
+      <div class="order-row"><span class="order-label">Billing</span><span class="order-value" id="billing-cell">Monthly</span></div>
+      <div class="order-row"><span class="order-label">Amount</span><span class="order-value green order-total" id="amount-cell">—</span></div>
+      <div class="order-row"><span class="order-label">Review ID</span><span class="order-value" id="review-id-cell">—</span></div>
+      <div class="order-row"><span class="order-label">Submitted</span><span class="order-value" id="ts-cell">—</span></div>
+      <div class="order-row"><span class="order-label">Status</span><span class="order-value" style="color:var(--yellow)">Under Review</span></div>
+    </div>
+
+    <!-- ACTIVATION TIMELINE -->
+    <div class="card">
+      <div class="card-title">Activation Timeline</div>
+      <div class="steps">
+        <div class="step">
+          <div class="step-line-wrap">
+            <div class="step-dot done">&#10003;</div>
+            <div class="step-connector done"></div>
+          </div>
+          <div class="step-content">
+            <div class="step-title">Payment Submitted</div>
+            <div class="step-desc">Your payment confirmation has been received by our system.</div>
+            <span class="step-time done">Completed</span>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-line-wrap">
+            <div class="step-dot active">&#9654;</div>
+            <div class="step-connector"></div>
+          </div>
+          <div class="step-content">
+            <div class="step-title">Payment Verification</div>
+            <div class="step-desc">Our team verifies UPI/bank reference or auto-verifies crypto on-chain. Razorpay payments are verified instantly.</div>
+            <span class="step-time active" id="verify-eta">Estimating...</span>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-line-wrap">
+            <div class="step-dot pending">3</div>
+            <div class="step-connector"></div>
+          </div>
+          <div class="step-content">
+            <div class="step-title">API Key Generation</div>
+            <div class="step-desc">A unique API key scoped to your plan tier is provisioned and hashed in our KV store.</div>
+            <span class="step-time pending">After verification</span>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-line-wrap">
+            <div class="step-dot pending">4</div>
+          </div>
+          <div class="step-content">
+            <div class="step-title">Welcome Email Delivered</div>
+            <div class="step-desc">API key, onboarding guide, SIEM integration templates, and your first intelligence brief delivered to your inbox.</div>
+            <span class="step-time pending">After key generation</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- NEXT STEPS -->
+  <div class="card">
+    <div class="card-title">What You Get — Immediately After Activation</div>
+    <div class="checklist">
+      <div class="check-item"><span class="ck">&#128272;</span><div class="ck-text"><strong>API Key (X-API-Key header)</strong> — Delivered to your email. Use it with any HTTP client, Python, Node.js, or cURL. Rate limit per your plan tier.</div></div>
+      <div class="check-item"><span class="ck">&#128202;</span><div class="ck-text"><strong>STIX 2.1 + TAXII 2.1 Endpoint</strong> — Live threat intel in machine-readable format. Ready to ingest into Splunk, Sentinel, QRadar, or MISP.</div></div>
+      <div class="check-item"><span class="ck">&#128203;</span><div class="ck-text"><strong>MITRE ATT&amp;CK v15 Enriched Feed</strong> — Every advisory tagged with tactics, techniques, and sub-techniques. Plus CISA KEV flags and EPSS scores.</div></div>
+      <div class="check-item"><span class="ck">&#128196;</span><div class="ck-text"><strong>Sigma / YARA / KQL / SPL Detection Rules</strong> — Auto-generated rules for every IOC. Deploy directly to your SIEM in minutes.</div></div>
+      <div class="check-item"><span class="ck">&#128218;</span><div class="ck-text"><strong>Onboarding Kit</strong> — Step-by-step SIEM integration guides, Postman collection, and Python SDK example. <a href="/api-docs.html">Preview API docs →</a></div></div>
+    </div>
+  </div>
+
+  <div class="grid-2">
+    <!-- SUPPORT -->
+    <div class="card">
+      <div class="card-title">Need Faster Activation?</div>
+      <p style="font-size:13px;color:var(--muted);margin-bottom:16px;line-height:1.6;">WhatsApp your Review ID for priority processing. Average response time: &lt;30 minutes during business hours (IST 9:00–22:00).</p>
+      <a id="wa-link" href="https://wa.me/918179881447" class="wa-btn">&#128172; WhatsApp +91 8179881447</a>
+      <a href="mailto:support@cyberdudebivash.com" class="email-btn">&#9993; support@cyberdudebivash.com</a>
+    </div>
+
+    <!-- RECEIPT -->
+    <div class="card">
+      <div class="card-title">Order Receipt</div>
+      <p style="font-size:13px;color:var(--muted);margin-bottom:16px;line-height:1.6;">Download a PDF receipt for your records or expense report. GST invoice (GSTIN: 21ARKPN8270G1ZP) issued upon activation.</p>
+      <button class="receipt-btn" onclick="downloadReceipt()">&#128229; Download Order Receipt (PDF)</button>
+      <p style="font-size:11px;color:var(--muted);text-align:center">GST invoice with GSTIN will be emailed after activation.</p>
+    </div>
+  </div>
+
+  <!-- WHILE YOU WAIT -->
+  <div class="card">
+    <div class="card-title">While You Wait — Explore the Platform</div>
+    <div class="resource-grid">
+      <a href="/api-docs.html" class="resource-card">
+        <div class="resource-icon">&#128270;</div>
+        <div class="resource-label">API Documentation</div>
+        <div class="resource-desc">Full REST API reference, authentication, endpoints, and code examples.</div>
+      </a>
+      <a href="/dashboard.html" class="resource-card">
+        <div class="resource-icon">&#128202;</div>
+        <div class="resource-label">Threat Dashboard</div>
+        <div class="resource-desc">Browse live advisories, CVEs, and IOC feeds before your key arrives.</div>
+      </a>
+      <a href="/integration-catalog.html" class="resource-card">
+        <div class="resource-icon">&#128279;</div>
+        <div class="resource-label">SIEM Integration</div>
+        <div class="resource-desc">Splunk, Sentinel, QRadar, Elastic setup guides — ready when you are.</div>
+      </a>
+    </div>
+  </div>
+
+</div>
+
+<footer>
+  <p>&copy; 2026 CyberDudeBivash Pvt. Ltd. &mdash; SENTINEL APEX v185.0 &mdash; GSTIN: 21ARKPN8270G1ZP</p>
+  <p style="margin-top:8px"><a href="/privacy.html">Privacy Policy</a> &middot; <a href="/terms.html">Terms of Service</a> &middot; <a href="/billing-center.html">Billing Center</a></p>
+</footer>
+
+<script>
+(function(){
+  var PLAN_META = {
+    pro:        { name: 'PRO Defense', price: '$49/mo', inr: '₹4,100/mo',  features: 'PRO' },
+    enterprise: { name: 'Enterprise SOC', price: '$499/mo', inr: '₹41,600/mo', features: 'ENTERPRISE' },
+    mssp:       { name: 'MSSP / White-Label', price: '$1,999/mo', inr: '₹1,66,600/mo', features: 'MSSP' }
+  };
+
+  var params = new URLSearchParams(window.location.search);
+  var plan     = params.get('plan') || 'pro';
+  var orderId  = params.get('order_id') || ('ORD-' + Date.now().toString(36).toUpperCase());
+  var reviewId = params.get('review_id') || 'PENDING';
+  var meta     = PLAN_META[plan] || PLAN_META.pro;
+
+  // Populate order summary
+  document.getElementById('order-id-cell').textContent    = orderId;
+  document.getElementById('plan-cell').textContent        = meta.name;
+  document.getElementById('amount-cell').textContent      = meta.price + ' (' + meta.inr + ')';
+  document.getElementById('review-id-cell').textContent   = reviewId;
+  document.getElementById('ts-cell').textContent          = new Date().toLocaleString('en-IN', {timeZone:'Asia/Kolkata'}) + ' IST';
+
+  // Populate banner
+  document.getElementById('display-order-id').textContent  = orderId;
+  document.getElementById('display-plan').textContent      = meta.name;
+  document.getElementById('display-review-id').textContent = reviewId;
+
+  // Verification ETA
+  var etaEl = document.getElementById('verify-eta');
+  if (reviewId.startsWith('RZP-') || reviewId.startsWith('rzp_')) {
+    etaEl.textContent = 'Razorpay: 1–5 minutes (auto)';
+    etaEl.className = 'step-time done';
+  } else if (reviewId.match(/^0x[0-9a-fA-F]{60,}/)) {
+    etaEl.textContent = 'Crypto: 1–3 min on-chain verification';
+  } else {
+    etaEl.textContent = 'UPI / Bank: 15–120 minutes';
+  }
+
+  // WhatsApp link
+  var waHref = 'https://wa.me/918179881447?text=' + encodeURIComponent(
+    'Hi Bivash! Confirming my SENTINEL APEX order.\n' +
+    'Order ID: ' + orderId + '\n' +
+    'Review ID: ' + reviewId + '\n' +
+    'Plan: ' + meta.name + '\n' +
+    'Please activate my API key. Thank you!'
+  );
+  document.getElementById('wa-link').href = waHref;
+
+  // Receipt download
+  window.downloadReceipt = function() {
+    var content = [
+      'SENTINEL APEX — ORDER RECEIPT',
+      '================================',
+      'Order ID:   ' + orderId,
+      'Plan:       ' + meta.name,
+      'Amount:     ' + meta.price + ' (Monthly Billing)',
+      'INR Price:  ' + meta.inr + ' + 18% GST',
+      'Review ID:  ' + reviewId,
+      'Date:       ' + new Date().toISOString(),
+      'GSTIN:      21ARKPN8270G1ZP',
+      '================================',
+      'Status:     Payment Under Review',
+      'Activation: API key delivered to registered email within 2 hours',
+      'Support:    WhatsApp +91 8179881447 / support@cyberdudebivash.com',
+      '================================',
+      'CYBERDUDEBIVASH PVT. LTD.',
+      'SENTINEL APEX v185.0',
+      'intel.cyberdudebivash.com',
+      '================================',
+      'Note: This is a provisional receipt. A GST-compliant',
+      'tax invoice will be emailed after activation.'
+    ].join('\n');
+
+    var blob = new Blob([content], { type: 'text/plain' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = 'SENTINEL-APEX-ORDER-' + orderId + '.txt';
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Redirecting to Upgrade &mdash; CYBERDUDEBIVASH SENTINEL APEX</title>
+<!--
+  payment-submission.html was a manual payment page (UPI / PayPal / Bank
+  NEFT / Crypto transfer, with a Transaction ID / UTR submission form
+  posting to revenue.intel.cyberdudebivash.com/api/payments/submit) -- no
+  automated processor at all. Per executive decision, manual payment is
+  retired platform-wide in favor of automated checkout (Razorpay, plus the
+  existing Gumroad channel) -- see /upgrade.html.
+
+  Rather than rewrite this page's markup in place, it's replaced with a
+  redirect: demo-intelligence-center.html, trial-center.html, and
+  roi-calculator.html all link here (some with "?plan=PRO"/"?plan=ENTERPRISE"
+  query params). The inline script below normalizes "plan" to the lowercase
+  form /upgrade.html expects (pro/enterprise/mssp) and forwards every other
+  query param unchanged, so an Enterprise-trial click still lands on the
+  Enterprise plan instead of silently defaulting to PRO.
+-->
+<meta name="description" content="This page has moved. Continue to the automated checkout at /upgrade.html.">
+<meta name="robots" content="noindex, follow">
+<link rel="canonical" href="https://intel.cyberdudebivash.com/upgrade.html">
+<link rel="icon" type="image/x-icon" href="/favicon.ico">
+<script>
+  // Normalize plan case (PRO/ENTERPRISE/MSSP -> pro/enterprise/mssp) so
+  // upgrade.html's exact-match plan selector routes correctly; forward
+  // every other existing query param (trial, source, email, etc.) as-is.
+  var params = new URLSearchParams(window.location.search);
+  var plan = params.get('plan');
+  if (plan) params.set('plan', plan.toLowerCase());
+  var qs = params.toString();
+  window.location.replace('/upgrade.html' + (qs ? '?' + qs : ''));
+</script>
+<meta http-equiv="refresh" content="0; url=/upgrade.html">
+<style>
+  body { background:#050c18; color:#e2e8f0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; display:flex; align-items:center; justify-content:center; min-height:100vh; margin:0; text-align:center; }
+  a { color:#00ffc6; }
+</style>
+</head>
+<body>
+  <p>Redirecting to <a href="/upgrade.html">the upgrade page</a>&hellip;</p>
+</body>
+</html>

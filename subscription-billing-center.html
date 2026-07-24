@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Subscription & Billing Center — Sentinel APEX</title>
+<style>
+:root{--bg:#0a0e1a;--surface:#111827;--surface2:#1a2235;--border:#1e2d45;--accent:#00d4ff;--green:#00ff88;--yellow:#ffd700;--red:#ff4444;--orange:#ff8800;--purple:#a855f7;--text:#e2e8f0;--muted:#64748b;}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:var(--bg);color:var(--text);font-family:'Segoe UI',sans-serif;min-height:100vh;}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 28px;display:flex;align-items:center;justify-content:space-between;}
+.brand{display:flex;align-items:center;gap:12px;}
+.logo{width:36px;height:36px;background:linear-gradient(135deg,#00ff88,#00d4ff);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:16px;}
+.title{font-size:18px;font-weight:700;}
+.subtitle{font-size:11px;color:var(--muted);}
+.badge{padding:4px 12px;border-radius:20px;font-size:11px;font-weight:700;}
+.badge-green{background:rgba(0,255,136,0.15);color:var(--green);border:1px solid rgba(0,255,136,0.3);}
+.layout{display:grid;grid-template-columns:240px 1fr;min-height:calc(100vh - 65px);}
+nav{background:var(--surface);border-right:1px solid var(--border);padding:20px 0;}
+.nav-section{padding:8px 20px 4px;font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;}
+.nav-item{display:flex;align-items:center;gap:10px;padding:10px 20px;font-size:13px;color:var(--muted);cursor:pointer;border-left:3px solid transparent;}
+.nav-item:hover{background:var(--surface2);color:var(--text);}
+.nav-item.active{background:var(--surface2);color:var(--accent);border-left-color:var(--accent);}
+main{padding:28px;overflow-y:auto;}
+.page-header{margin-bottom:24px;}
+.page-header h1{font-size:24px;font-weight:800;}
+.page-header p{color:var(--muted);font-size:13px;margin-top:4px;}
+
+.kpi-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:16px;margin-bottom:24px;}
+.kpi-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:18px;position:relative;overflow:hidden;}
+.kpi-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;}
+.kpi-label{font-size:11px;color:var(--muted);text-transform:uppercase;}
+.kpi-value{font-size:26px;font-weight:800;margin:6px 0 2px;}
+.kpi-delta{font-size:11px;}
+
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px;}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px;}
+.card-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;}
+.card-title{font-size:14px;font-weight:700;}
+.card-action{font-size:11px;color:var(--accent);cursor:pointer;padding:4px 10px;border:1px solid var(--accent);border-radius:6px;}
+
+table{width:100%;border-collapse:collapse;font-size:13px;}
+thead tr{background:var(--surface2);}
+th{padding:10px 14px;text-align:left;font-size:11px;color:var(--muted);text-transform:uppercase;}
+td{padding:10px 14px;border-bottom:1px solid var(--border);}
+tr:last-child td{border-bottom:none;}
+tr:hover td{background:rgba(0,212,255,0.02);}
+
+.pill{padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;display:inline-block;}
+.pill-active{background:rgba(0,255,136,0.15);color:var(--green);}
+.pill-past{background:rgba(100,116,139,0.15);color:var(--muted);}
+.pill-pending{background:rgba(255,215,0,0.15);color:var(--yellow);}
+.pill-failed{background:rgba(255,68,68,0.15);color:var(--red);}
+.pill-trial{background:rgba(168,85,247,0.15);color:var(--purple);}
+
+.action-btn{padding:5px 12px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;border:none;}
+.btn-invoice{background:rgba(0,212,255,0.15);color:var(--accent);border:1px solid rgba(0,212,255,0.3);}
+.btn-retry{background:rgba(255,68,68,0.15);color:var(--red);border:1px solid rgba(255,68,68,0.3);}
+.btn-cancel{background:rgba(255,136,0,0.15);color:var(--orange);border:1px solid rgba(255,136,0,0.3);}
+.btn-upgrade{background:linear-gradient(135deg,#00d4ff,#a855f7);color:#000;font-weight:800;}
+
+.current-plan-box{background:linear-gradient(135deg,rgba(0,212,255,0.08),rgba(168,85,247,0.08));border:1px solid rgba(0,212,255,0.3);border-radius:14px;padding:24px;margin-bottom:24px;}
+.cp-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;}
+.cp-plan-name{font-size:22px;font-weight:900;color:var(--accent);}
+.cp-price{font-size:28px;font-weight:900;color:var(--green);}
+.cp-price span{font-size:14px;color:var(--muted);font-weight:400;}
+.cp-features{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:16px;}
+.cp-feature{display:flex;align-items:center;gap:8px;font-size:13px;}
+.cp-feature::before{content:'✓';color:var(--green);font-weight:800;}
+.cp-actions{display:flex;gap:10px;margin-top:20px;flex-wrap:wrap;}
+.cp-btn{padding:8px 20px;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;}
+.cp-btn-upgrade{background:linear-gradient(135deg,#00d4ff,#a855f7);color:#000;border:none;}
+.cp-btn-cancel{background:transparent;border:1px solid var(--red);color:var(--red);}
+.cp-btn-pause{background:transparent;border:1px solid var(--yellow);color:var(--yellow);}
+.cp-btn-invoice{background:transparent;border:1px solid var(--border);color:var(--muted);}
+
+.usage-bar-wrap{height:8px;background:var(--border);border-radius:4px;margin-top:6px;}
+.usage-bar{height:100%;border-radius:4px;}
+.usage-item{margin-bottom:14px;}
+.usage-header{display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px;}
+.usage-label{color:var(--muted);}
+.usage-val{font-weight:700;}
+
+.renewal-alert{background:rgba(255,215,0,0.08);border:1px solid rgba(255,215,0,0.3);border-radius:10px;padding:14px 18px;display:flex;align-items:center;gap:12px;margin-bottom:20px;font-size:13px;}
+.renewal-days{font-size:22px;font-weight:900;color:var(--yellow);min-width:40px;}
+
+.invoice-preview{background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:20px;margin-top:12px;}
+.inv-header{display:flex;justify-content:space-between;margin-bottom:16px;}
+.inv-logo{font-size:20px;font-weight:900;color:var(--accent);}
+.inv-meta{font-size:12px;color:var(--muted);text-align:right;}
+.inv-row{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);font-size:13px;}
+.inv-row:last-child{border-bottom:none;font-weight:800;font-size:15px;}
+.inv-row .val{color:var(--green);}
+
+.payment-methods-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:12px;}
+.pm-card{background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:14px;display:flex;align-items:center;gap:12px;}
+.pm-icon{font-size:22px;}
+.pm-info{flex:1;}
+.pm-name{font-size:13px;font-weight:600;}
+.pm-detail{font-size:11px;color:var(--muted);}
+.pm-default{font-size:10px;color:var(--green);font-weight:700;}
+.pm-remove{font-size:11px;color:var(--red);cursor:pointer;background:none;border:none;}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <div class="brand"><div class="logo">💳</div><div><div class="title">Subscription & Billing Center</div><div class="subtitle">Sentinel APEX · Billing Operations</div></div></div>
+  <div style="display:flex;gap:12px;align-items:center">
+    <span class="badge badge-green">● Enterprise Active</span>
+    <span style="font-size:12px;color:var(--muted)" id="ts"></span>
+  </div>
+</div>
+
+<div class="layout">
+  <nav>
+    <div class="nav-section">Billing</div>
+    <div class="nav-item active">💳 Subscription Overview</div>
+    <div class="nav-item" onclick="showTab('invoices')">📄 Invoices</div>
+    <div class="nav-item" onclick="showTab('payments')">💰 Payment History</div>
+    <div class="nav-item" onclick="showTab('methods')">🏦 Payment Methods</div>
+    <div class="nav-section">Usage</div>
+    <div class="nav-item" onclick="showTab('usage')">📊 Usage & Limits</div>
+    <div class="nav-item" onclick="showTab('seats')">👥 Seat Management</div>
+    <div class="nav-section">Plans</div>
+    <div class="nav-item" onclick="showTab('upgrade')">⬆️ Upgrade Plan</div>
+    <div class="nav-item" onclick="showTab('renewal')">🔄 Renewal Settings</div>
+    <div class="nav-section">Admin</div>
+    <div class="nav-item" onclick="window.location='sentinel-onboarding.html'">➕ Add Subscription</div>
+    <div class="nav-item">⚙️ Billing Settings</div>
+  </nav>
+
+  <main>
+    <div class="page-header">
+      <h1>💳 Subscription & Billing Center</h1>
+      <p>Manage your plan, invoices, payments, and usage across all seats</p>
+    </div>
+
+    <div class="kpi-grid">
+      <div class="kpi-card" style="border-top:3px solid var(--green)"><div class="kpi-label">MRR</div><div class="kpi-value" style="color:var(--green)">₹84,000</div><div class="kpi-delta" style="color:var(--green)">↑ +₹12K vs last month</div></div>
+      <div class="kpi-card" style="border-top:3px solid var(--accent)"><div class="kpi-label">Next Invoice</div><div class="kpi-value" style="color:var(--accent)">₹99,120</div><div class="kpi-delta" style="color:var(--muted)">Due Jun 29, 2026</div></div>
+      <div class="kpi-card" style="border-top:3px solid var(--yellow)"><div class="kpi-label">Renewal In</div><div class="kpi-value" style="color:var(--yellow)">31d</div><div class="kpi-delta" style="color:var(--muted)">Auto-renew ON</div></div>
+      <div class="kpi-card" style="border-top:3px solid var(--purple)"><div class="kpi-label">Active Seats</div><div class="kpi-value" style="color:var(--purple)">18/∞</div><div class="kpi-delta" style="color:var(--muted)">Unlimited plan</div></div>
+      <div class="kpi-card" style="border-top:3px solid var(--orange)"><div class="kpi-label">API Usage</div><div class="kpi-value" style="color:var(--orange)">68%</div><div class="kpi-delta" style="color:var(--muted)">67.8K / 100K calls</div></div>
+    </div>
+
+    <div class="renewal-alert">
+      <div class="renewal-days">31d</div>
+      <div><strong style="color:var(--yellow)">Subscription renews June 29, 2026.</strong> Auto-renewal is active. Invoice will be generated on June 25.
+      <a href="#" style="color:var(--accent);margin-left:12px">Manage renewal →</a></div>
+    </div>
+
+    <!-- Current Plan -->
+    <div class="current-plan-box">
+      <div class="cp-header">
+        <div>
+          <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px">Current Plan</div>
+          <div class="cp-plan-name">Enterprise</div>
+          <div style="font-size:12px;color:var(--muted);margin-top:4px">Active since Jan 29, 2026 · Annual billing</div>
+        </div>
+        <div style="text-align:right">
+          <div class="cp-price">₹84,000<span>/mo</span></div>
+          <div style="font-size:12px;color:var(--muted)">₹99,120 incl. 18% GST</div>
+        </div>
+      </div>
+      <div class="cp-features">
+        <div class="cp-feature">Unlimited Analysts</div>
+        <div class="cp-feature">Premium CTI Feed</div>
+        <div class="cp-feature">Unlimited Detection Rules</div>
+        <div class="cp-feature">100K API calls/day</div>
+        <div class="cp-feature">SIEM/SOAR Integration</div>
+        <div class="cp-feature">Dedicated CSM (4h SLA)</div>
+        <div class="cp-feature">SSO/SAML/MFA</div>
+        <div class="cp-feature">Executive Reporting</div>
+        <div class="cp-feature">Custom ATT&CK Coverage</div>
+      </div>
+      <div class="cp-actions">
+        <button class="cp-btn cp-btn-upgrade" onclick="showTab('upgrade')">⬆️ Upgrade to MSSP</button>
+        <button class="cp-btn cp-btn-invoice" onclick="showTab('invoices')">📄 Download Latest Invoice</button>
+        <button class="cp-btn cp-btn-pause" onclick="confirmAction('pause')">⏸ Pause Subscription</button>
+        <button class="cp-btn cp-btn-cancel" onclick="confirmAction('cancel')">✕ Cancel Subscription</button>
+      </div>
+    </div>
+
+    <!-- Usage -->
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-header"><div class="card-title">📊 Usage This Month</div><div class="card-action">Full Analytics</div></div>
+        <div class="usage-item">
+          <div class="usage-header"><span class="usage-label">API Calls</span><span class="usage-val">67,842 / 100,000</span></div>
+          <div class="usage-bar-wrap"><div class="usage-bar" style="width:67.8%;background:var(--orange)"></div></div>
+        </div>
+        <div class="usage-item">
+          <div class="usage-header"><span class="usage-label">Detection Rules Downloaded</span><span class="usage-val">834 / ∞</span></div>
+          <div class="usage-bar-wrap"><div class="usage-bar" style="width:100%;background:var(--green)"></div></div>
+        </div>
+        <div class="usage-item">
+          <div class="usage-header"><span class="usage-label">IOC Feed Records</span><span class="usage-val">12,482 / ∞</span></div>
+          <div class="usage-bar-wrap"><div class="usage-bar" style="width:100%;background:var(--accent)"></div></div>
+        </div>
+        <div class="usage-item">
+          <div class="usage-header"><span class="usage-label">Reports Generated</span><span class="usage-val">47 / ∞</span></div>
+          <div class="usage-bar-wrap"><div class="usage-bar" style="width:100%;background:var(--purple)"></div></div>
+        </div>
+        <div class="usage-item">
+          <div class="usage-header"><span class="usage-label">Webhook Events Delivered</span><span class="usage-val">3,291 / ∞</span></div>
+          <div class="usage-bar-wrap"><div class="usage-bar" style="width:100%;background:var(--yellow)"></div></div>
+        </div>
+      </div>
+
+      <!-- Payment Methods -->
+      <div class="card">
+        <div class="card-header"><div class="card-title">🏦 Payment Methods</div><div class="card-action" onclick="addPaymentMethod()">+ Add Method</div></div>
+        <div class="payment-methods-grid">
+          <div class="pm-card">
+            <div class="pm-icon">💳</div>
+            <div class="pm-info"><div class="pm-name">Visa •••• 4242</div><div class="pm-detail">Exp 09/28</div><div class="pm-default">DEFAULT</div></div>
+          </div>
+          <div class="pm-card">
+            <div class="pm-icon">📱</div>
+            <div class="pm-info"><div class="pm-name">UPI</div><div class="pm-detail">sentinelapex@axis</div></div>
+            <button class="pm-remove" onclick="removeMethod(this)">✕</button>
+          </div>
+          <div class="pm-card">
+            <div class="pm-icon">🏦</div>
+            <div class="pm-info"><div class="pm-name">NEFT</div><div class="pm-detail">HDFC ••••3456</div></div>
+            <button class="pm-remove" onclick="removeMethod(this)">✕</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Invoice History -->
+    <div class="card" style="margin-bottom:20px">
+      <div class="card-header">
+        <div class="card-title">📄 Invoice History</div>
+        <div style="display:flex;gap:8px">
+          <div class="card-action" onclick="exportInvoices()">Export All</div>
+          <div class="card-action" onclick="generateCurrentInvoice()">Generate Invoice</div>
+        </div>
+      </div>
+      <table>
+        <thead><tr><th>Invoice #</th><th>Period</th><th>Plan</th><th>Amount</th><th>GST</th><th>Total</th><th>Status</th><th>Method</th><th>Action</th></tr></thead>
+        <tbody id="invoice-table"></tbody>
+      </table>
+    </div>
+
+    <!-- All Subscriptions (Admin View) -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">🏢 All Customer Subscriptions (Admin)</div>
+        <div style="display:flex;gap:8px">
+          <div class="card-action" onclick="exportSubs()">Export CSV</div>
+          <div class="card-action" onclick="window.location='sentinel-onboarding.html'">+ New Subscription</div>
+        </div>
+      </div>
+      <table>
+        <thead><tr><th>Organization</th><th>Plan</th><th>MRR</th><th>Status</th><th>Renewal</th><th>Payment</th><th>Health</th><th>Action</th></tr></thead>
+        <tbody id="subs-table"></tbody>
+      </table>
+    </div>
+  </main>
+</div>
+
+<script>
+document.getElementById('ts').textContent = new Date().toLocaleString();
+
+const invoices = [
+  {id:'INV-2026-0529',period:'May 2026',plan:'Enterprise',amount:84000,gst:15120,total:99120,status:'pending',method:'Visa ••4242'},
+  {id:'INV-2026-0429',period:'Apr 2026',plan:'Enterprise',amount:84000,gst:15120,total:99120,status:'active',method:'Visa ••4242'},
+  {id:'INV-2026-0329',period:'Mar 2026',plan:'Enterprise',amount:84000,gst:15120,total:99120,status:'active',method:'UPI'},
+  {id:'INV-2026-0229',period:'Feb 2026',plan:'Enterprise',amount:84000,gst:15120,total:99120,status:'active',method:'Visa ••4242'},
+  {id:'INV-2026-0129',period:'Jan 2026',plan:'Professional',amount:36000,gst:6480,total:42480,status:'active',method:'NEFT'},
+  {id:'INV-2025-1229',period:'Dec 2025',plan:'Professional',amount:36000,gst:6480,total:42480,status:'active',method:'NEFT'},
+];
+
+const invTable = document.getElementById('invoice-table');
+invoices.forEach(inv => {
+  const s = inv.status==='active'?'pill-active':inv.status==='pending'?'pill-pending':'pill-failed';
+  const sl = inv.status==='active'?'PAID':inv.status==='pending'?'DUE':'FAILED';
+  invTable.innerHTML += `<tr>
+    <td style="font-family:monospace;color:var(--accent)">${inv.id}</td>
+    <td>${inv.period}</td>
+    <td>${inv.plan}</td>
+    <td>₹${inv.amount.toLocaleString('en-IN')}</td>
+    <td>₹${inv.gst.toLocaleString('en-IN')}</td>
+    <td style="font-weight:700;color:var(--green)">₹${inv.total.toLocaleString('en-IN')}</td>
+    <td><span class="pill ${s}">${sl}</span></td>
+    <td style="color:var(--muted)">${inv.method}</td>
+    <td><button class="action-btn btn-invoice" onclick="downloadInvoice('${inv.id}')">📄 PDF</button>${inv.status==='pending'?` <button class="action-btn btn-upgrade" onclick="payNow('${inv.id}')">Pay Now</button>`:''}</td>
+  </tr>`;
+});
+
+const subs = [
+  {org:'TechCorp Global',plan:'Enterprise',mrr:84000,status:'active',renewal:'Jun 29',method:'Card',health:92},
+  {org:'SecureBank Ltd',plan:'Professional',mrr:36000,status:'active',renewal:'Jul 14',method:'UPI',health:78},
+  {org:'DataSystems Inc',plan:'MSSP',mrr:150000,status:'active',renewal:'Aug 1',method:'NEFT',health:95},
+  {org:'CloudVentures',plan:'Enterprise',mrr:84000,status:'active',renewal:'Jun 30',method:'Card',health:85},
+  {org:'Apex FinTech',plan:'Professional',mrr:36000,status:'trial',renewal:'Jun 15',method:'—',health:60},
+  {org:'GlobalSOC Corp',plan:'MSSP',mrr:150000,status:'active',renewal:'Sep 1',method:'PayPal',health:88},
+  {org:'NovaSecurity',plan:'Professional',mrr:36000,status:'active',renewal:'Jul 5',method:'UPI',health:94},
+  {org:'InfoSec Partners',plan:'Enterprise',mrr:84000,status:'pending',renewal:'Jun 29',method:'Crypto',health:72},
+];
+
+const subsTable = document.getElementById('subs-table');
+subs.forEach(s => {
+  const sc = s.status==='active'?'pill-active':s.status==='trial'?'pill-trial':'pill-pending';
+  const hc = s.health>=85?'var(--green)':s.health>=70?'var(--yellow)':'var(--orange)';
+  subsTable.innerHTML += `<tr>
+    <td style="font-weight:700">${s.org}</td>
+    <td>${s.plan}</td>
+    <td style="color:var(--green);font-weight:700">₹${s.mrr.toLocaleString('en-IN')}</td>
+    <td><span class="pill ${sc}">${s.status.toUpperCase()}</span></td>
+    <td>${s.renewal}</td>
+    <td style="color:var(--muted)">${s.method}</td>
+    <td><span style="color:${hc};font-weight:800">${s.health}</span></td>
+    <td><button class="action-btn btn-invoice" onclick="manageOrg('${s.org}')">Manage</button></td>
+  </tr>`;
+});
+
+function showTab(tab) {
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  event.target.closest('.nav-item').classList.add('active');
+  alert(`Opening ${tab} view... (integrate with backend /api/billing/${tab})`);
+}
+function downloadInvoice(id) { alert(`Generating PDF invoice for ${id}...\nPOST /api/invoices/${id}/pdf`); }
+function payNow(id) { alert(`Opening payment modal for ${id}...\nPOST /api/payments/initiate`); }
+function exportInvoices() { alert('Exporting all invoices as CSV...\nGET /api/invoices/export'); }
+function exportSubs() { alert('Exporting subscriptions CSV...\nGET /api/subscriptions/export'); }
+function addPaymentMethod() { alert('Opening payment method modal...\nPOST /api/payment-methods/add'); }
+function removeMethod(btn) { if(confirm('Remove this payment method?')) btn.closest('.pm-card').style.opacity='0.3'; }
+function manageOrg(org) { alert(`Opening management panel for ${org}...\nGET /api/organizations/${org.replace(/ /g,'_')}`); }
+function generateCurrentInvoice() { alert('Generating current period invoice...\nPOST /api/invoices/generate'); }
+function confirmAction(type) {
+  const msgs = { pause:'Pause subscription? Service will be suspended until reactivated.', cancel:'Cancel subscription? All data will be retained for 30 days.' };
+  if(confirm(msgs[type])) alert(`${type.charAt(0).toUpperCase()+type.slice(1)} request submitted.\nPOST /api/subscriptions/current/${type}`);
+}
+</script>
+</body>
+</html>

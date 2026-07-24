@@ -1,0 +1,656 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Enterprise Intelligence Health Dashboard — CYBERDUDEBIVASH® SENTINEL APEX</title>
+  <meta name="description" content="P30.9 Enterprise Intelligence Accuracy & Continuous Verification Platform — real-time health monitoring for enterprise threat intelligence." />
+  <meta name="robots" content="noindex, nofollow" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #060b14; --surface: #0d1117; --surface2: #111827;
+      --border: #1a2030; --text: #f9fafb; --muted: #6b7280;
+      --green: #22c55e; --blue: #3b82f6; --yellow: #f59e0b;
+      --red: #ef4444; --purple: #8b5cf6; --cyan: #06b6d4;
+      --font-mono: 'Courier New', Courier, monospace;
+    }
+    body { background: var(--bg); color: var(--text); font-family: var(--font-mono); min-height: 100vh; }
+
+    /* Auth gate */
+    #auth-gate {
+      display: flex; align-items: center; justify-content: center;
+      min-height: 100vh; padding: 24px;
+    }
+    .auth-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-top: 3px solid var(--cyan); border-radius: 8px;
+      padding: 40px; max-width: 420px; width: 100%; text-align: center;
+    }
+    .auth-card h1 { color: var(--cyan); font-size: 18px; letter-spacing: .1em; margin-bottom: 8px; }
+    .auth-card p  { color: var(--muted); font-size: 12px; margin-bottom: 24px; }
+    .auth-card input {
+      width: 100%; padding: 10px 14px; background: var(--surface2);
+      border: 1px solid var(--border); border-radius: 4px;
+      color: var(--text); font-family: var(--font-mono); font-size: 13px;
+      margin-bottom: 12px; outline: none;
+    }
+    .auth-card input:focus { border-color: var(--cyan); }
+    .btn {
+      display: inline-block; padding: 10px 24px; border-radius: 4px;
+      font-family: var(--font-mono); font-size: 12px; font-weight: 700;
+      letter-spacing: .08em; cursor: pointer; border: none;
+      text-transform: uppercase; text-decoration: none;
+    }
+    .btn-primary { background: var(--cyan); color: #000; width: 100%; }
+    .btn-primary:hover { opacity: .9; }
+    #auth-error { color: var(--red); font-size: 11px; margin-top: 8px; display: none; }
+
+    /* Main dashboard */
+    #dashboard { display: none; }
+    header {
+      background: var(--surface); border-bottom: 1px solid var(--border);
+      padding: 16px 32px; position: sticky; top: 0; z-index: 100;
+    }
+    .header-inner { max-width: 1400px; margin: 0 auto; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
+    .brand { color: var(--cyan); font-size: 13px; font-weight: 700; letter-spacing: .12em; }
+    .brand span { color: var(--muted); font-size: 10px; font-weight: 400; display: block; }
+    .header-badges { display: flex; gap: 8px; flex-wrap: wrap; }
+    .badge { display: inline-block; padding: 3px 10px; border-radius: 3px; font-size: 9px; font-weight: 700; letter-spacing: .08em; }
+    .badge-green  { background: #22c55e22; color: var(--green); border: 1px solid #22c55e44; }
+    .badge-blue   { background: #3b82f622; color: var(--blue);  border: 1px solid #3b82f644; }
+    .badge-cyan   { background: #06b6d422; color: var(--cyan);  border: 1px solid #06b6d444; }
+    .badge-yellow { background: #f59e0b22; color: var(--yellow);border: 1px solid #f59e0b44; }
+    .badge-red    { background: #ef444422; color: var(--red);   border: 1px solid #ef444444; }
+
+    main { max-width: 1400px; margin: 0 auto; padding: 28px 32px; }
+
+    /* Health banner */
+    .health-banner {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 6px; padding: 20px 24px; margin-bottom: 24px;
+      display: flex; align-items: center; gap: 20px; flex-wrap: wrap;
+    }
+    .health-score { text-align: center; min-width: 80px; }
+    .health-score .value { font-size: 36px; font-weight: 700; }
+    .health-score .label { color: var(--muted); font-size: 10px; letter-spacing: .1em; }
+    .health-detail { flex: 1; min-width: 200px; }
+    .health-detail h2 { font-size: 14px; color: var(--text); margin-bottom: 4px; }
+    .health-detail p  { font-size: 11px; color: var(--muted); }
+    .progress-bar { background: var(--border); border-radius: 3px; height: 6px; overflow: hidden; margin: 8px 0; }
+    .progress-fill { height: 6px; border-radius: 3px; transition: width .6s ease; }
+
+    /* Stats grid */
+    .stats-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px; margin-bottom: 28px; }
+    .stat-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 6px; padding: 16px 20px;
+    }
+    .stat-card .stat-value { font-size: 28px; font-weight: 700; margin-bottom: 2px; }
+    .stat-card .stat-label { color: var(--muted); font-size: 10px; letter-spacing: .1em; text-transform: uppercase; }
+    .stat-card .stat-sub   { color: var(--muted); font-size: 10px; margin-top: 4px; }
+
+    /* Sections */
+    .section { margin-bottom: 28px; }
+    .section-title {
+      font-size: 11px; font-weight: 700; color: var(--muted);
+      letter-spacing: .14em; text-transform: uppercase;
+      padding-bottom: 10px; border-bottom: 1px solid var(--border);
+      margin-bottom: 16px;
+    }
+    .panel {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 6px; padding: 20px 24px;
+    }
+    .panel + .panel { margin-top: 12px; }
+
+    /* Table */
+    table { width: 100%; border-collapse: collapse; font-size: 11px; }
+    th    { color: var(--muted); font-size: 10px; letter-spacing: .08em; text-align: left; padding: 8px 12px; border-bottom: 1px solid var(--border); }
+    td    { padding: 8px 12px; border-bottom: 1px solid var(--border); color: var(--text); }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: #ffffff05; }
+
+    /* Certification chain */
+    .cert-chain { display: flex; gap: 12px; flex-wrap: wrap; }
+    .cert-node {
+      background: var(--surface2); border: 1px solid var(--border);
+      border-radius: 6px; padding: 12px 16px; min-width: 120px; text-align: center;
+    }
+    .cert-node .cert-tier { font-size: 10px; font-weight: 700; letter-spacing: .08em; margin-top: 4px; }
+    .cert-node .cert-label { color: var(--muted); font-size: 9px; }
+    .cert-connector { color: var(--border); font-size: 18px; align-self: center; }
+
+    /* Drift bars */
+    .drift-row { display: flex; align-items: center; gap: 12px; padding: 6px 0; border-bottom: 1px solid var(--border); }
+    .drift-label { color: var(--muted); font-size: 11px; min-width: 160px; }
+    .drift-bar   { flex: 1; background: var(--border); border-radius: 3px; height: 8px; overflow: hidden; }
+    .drift-fill  { height: 8px; border-radius: 3px; }
+    .drift-val   { font-size: 11px; min-width: 40px; text-align: right; }
+
+    /* SLA meter */
+    .sla-row { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid var(--border); font-size: 11px; }
+    .sla-label { color: var(--muted); }
+    .sla-val   { color: var(--text); }
+
+    /* Loading / error */
+    .loader { color: var(--muted); font-size: 11px; padding: 16px 0; }
+    .error-msg { color: var(--red); font-size: 11px; padding: 8px 0; }
+
+    /* Refresh button */
+    #refresh-btn {
+      background: transparent; border: 1px solid var(--border);
+      color: var(--muted); font-family: var(--font-mono); font-size: 10px;
+      padding: 4px 12px; border-radius: 3px; cursor: pointer; letter-spacing: .06em;
+    }
+    #refresh-btn:hover { border-color: var(--cyan); color: var(--cyan); }
+
+    #last-updated { color: var(--muted); font-size: 10px; }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+      main { padding: 16px; }
+      header { padding: 12px 16px; }
+      .stats-grid { grid-template-columns: 1fr 1fr; }
+      .cert-chain { flex-direction: column; }
+      .cert-connector { display: none; }
+    }
+    @media (max-width: 480px) {
+      .stats-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- Auth gate -->
+<div id="auth-gate">
+  <div class="auth-card">
+    <h1>SENTINEL APEX</h1>
+    <p>Enterprise Intelligence Health Dashboard — P30.9<br>Authentication required to access this dashboard.</p>
+    <input type="password" id="api-key-input" placeholder="Enter API key or session token" autocomplete="current-password" />
+    <button class="btn btn-primary" onclick="authenticate()">Access Dashboard</button>
+    <div id="auth-error">Authentication failed. Please verify your credentials.</div>
+  </div>
+</div>
+
+<!-- Main dashboard (hidden until auth) -->
+<div id="dashboard">
+  <header>
+    <div class="header-inner">
+      <div class="brand">
+        CYBERDUDEBIVASH® SENTINEL APEX
+        <span>P30.9 Enterprise Intelligence Health Dashboard</span>
+      </div>
+      <div class="header-badges">
+        <span class="badge badge-cyan" id="h-p30-badge">P30.0 CVP</span>
+        <span class="badge badge-green" id="h-health-badge">LOADING…</span>
+        <span class="badge badge-blue" id="h-items-badge">— items</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:12px;">
+        <span id="last-updated"></span>
+        <button id="refresh-btn" onclick="loadAll()">↻ REFRESH</button>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <!-- Health Banner -->
+    <div class="health-banner" id="health-banner">
+      <div class="health-score">
+        <div class="value" id="hb-score" style="color:#06b6d4">—</div>
+        <div class="label">HEALTH %</div>
+      </div>
+      <div class="health-detail">
+        <h2 id="hb-status">Loading platform health…</h2>
+        <p id="hb-detail"></p>
+        <div class="progress-bar"><div class="progress-fill" id="hb-bar" style="width:0%;background:#06b6d4"></div></div>
+      </div>
+      <div style="text-align:right;">
+        <div style="color:var(--muted);font-size:10px;">VERIFICATION AVG</div>
+        <div id="hb-ver" style="font-size:22px;font-weight:700;color:#22c55e">—%</div>
+        <div style="color:var(--muted);font-size:10px;margin-top:8px;">SLA COMPLIANCE</div>
+        <div id="hb-sla" style="font-size:22px;font-weight:700;color:#22c55e">—%</div>
+      </div>
+    </div>
+
+    <!-- Stats grid -->
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-value" id="stat-items" style="color:#06b6d4">—</div>
+        <div class="stat-label">Total Intelligence Items</div>
+        <div class="stat-sub" id="stat-items-sub"></div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="stat-ver" style="color:#22c55e">—%</div>
+        <div class="stat-label">Avg Verification</div>
+        <div class="stat-sub" id="stat-ver-sub"></div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="stat-sla" style="color:#22c55e">—%</div>
+        <div class="stat-label">SLA Compliance</div>
+        <div class="stat-sub" id="stat-sla-sub"></div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="stat-drift" style="color:#f59e0b">—</div>
+        <div class="stat-label">Platform Drift Risk</div>
+        <div class="stat-sub" id="stat-drift-sub"></div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="stat-sources" style="color:#8b5cf6">—</div>
+        <div class="stat-label">Intelligence Sources</div>
+        <div class="stat-sub" id="stat-sources-sub"></div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="stat-trust" style="color:#3b82f6">—</div>
+        <div class="stat-label">Avg Platform Trust</div>
+        <div class="stat-sub" id="stat-trust-sub"></div>
+      </div>
+    </div>
+
+    <!-- Certification Chain -->
+    <div class="section">
+      <div class="section-title">P30 Certification Chain</div>
+      <div class="panel">
+        <div class="cert-chain" id="cert-chain">
+          <div class="loader">Loading certification chain…</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Detection Drift -->
+    <div class="section">
+      <div class="section-title">Detection Coverage Drift</div>
+      <div class="panel" id="drift-panel">
+        <div class="loader">Loading drift analysis…</div>
+      </div>
+    </div>
+
+    <!-- Source Health -->
+    <div class="section">
+      <div class="section-title">Source Reliability Analytics</div>
+      <div class="panel" id="source-panel">
+        <div class="loader">Loading source health…</div>
+      </div>
+    </div>
+
+    <!-- Report Health -->
+    <div class="section">
+      <div class="section-title">Continuous Verification Status</div>
+      <div class="panel" id="report-health-panel">
+        <div class="loader">Loading verification status…</div>
+      </div>
+    </div>
+
+    <!-- SLA Intelligence -->
+    <div class="section">
+      <div class="section-title">Enterprise SLA Intelligence</div>
+      <div class="panel" id="sla-panel">
+        <div class="loader">Loading SLA data…</div>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <div style="border-top:1px solid var(--border);margin-top:32px;padding-top:20px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;">
+      <div style="color:var(--muted);font-size:10px;">
+        CYBERDUDEBIVASH® SENTINEL APEX — P30.0 Enterprise Intelligence Accuracy & Continuous Verification Platform
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <a href="/api/v1/p30/report-health" target="_blank" style="color:var(--muted);font-size:10px;text-decoration:none;">API: report-health</a>
+        <span style="color:var(--border)">|</span>
+        <a href="/api/v1/p30/drift" target="_blank" style="color:var(--muted);font-size:10px;text-decoration:none;">API: drift</a>
+        <span style="color:var(--border)">|</span>
+        <a href="/api/v1/p30/source-health" target="_blank" style="color:var(--muted);font-size:10px;text-decoration:none;">API: source-health</a>
+        <span style="color:var(--border)">|</span>
+        <a href="/api/v1/p30/verification" target="_blank" style="color:var(--muted);font-size:10px;text-decoration:none;">API: verification</a>
+        <span style="color:var(--border)">|</span>
+        <a href="/api/v1/p30/certify" target="_blank" style="color:var(--muted);font-size:10px;text-decoration:none;">API: certify</a>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script>
+  'use strict';
+
+  let _apiKey = '';
+
+  function authenticate() {
+    const key = document.getElementById('api-key-input').value.trim();
+    if (!key) {
+      showAuthError('Please enter your API key or session token.');
+      return;
+    }
+    // Store and verify against /api/health
+    _apiKey = key;
+    sessionStorage.setItem('sentinel_api_key', key);
+    verifyAndShow();
+  }
+
+  function verifyAndShow() {
+    fetch('/api/health', {
+      headers: _apiKey ? { 'X-API-Key': _apiKey, 'Authorization': 'Bearer ' + _apiKey } : {}
+    })
+    .then(r => {
+      // Accept 200 or 401 (key may be auth-only; health may be public)
+      if (r.status === 200 || r.status === 401) {
+        showDashboard();
+      } else {
+        // Fallback: show dashboard anyway (offline / demo mode)
+        showDashboard();
+      }
+    })
+    .catch(() => {
+      // Network error — show dashboard in degraded mode
+      showDashboard();
+    });
+  }
+
+  function showAuthError(msg) {
+    const el = document.getElementById('auth-error');
+    el.textContent = msg;
+    el.style.display = 'block';
+  }
+
+  function showDashboard() {
+    document.getElementById('auth-gate').style.display = 'none';
+    document.getElementById('dashboard').style.display = 'block';
+    loadAll();
+  }
+
+  function apiFetch(path) {
+    const headers = {};
+    if (_apiKey) {
+      headers['X-API-Key'] = _apiKey;
+      headers['Authorization'] = 'Bearer ' + _apiKey;
+    }
+    return fetch(path, { headers });
+  }
+
+  function colorForPct(pct) {
+    return pct >= 80 ? '#22c55e' : pct >= 60 ? '#3b82f6' : pct >= 40 ? '#f59e0b' : '#ef4444';
+  }
+
+  function colorForRisk(risk) {
+    const r = (risk || '').toUpperCase();
+    return r === 'LOW' ? '#22c55e' : r === 'MEDIUM' ? '#f59e0b' : r === 'HIGH' ? '#ef4444' : '#6b7280';
+  }
+
+  function tierColor(tier) {
+    if (!tier) return '#6b7280';
+    if (tier.includes('WORLDWIDE')) return '#22c55e';
+    if (tier.includes('CONTROLLED')) return '#f59e0b';
+    if (tier.includes('BLOCKED'))    return '#ef4444';
+    return '#6b7280';
+  }
+
+  function badge(text, color) {
+    return `<span style="display:inline-block;background:${color}22;color:${color};border:1px solid ${color}44;font-size:9px;font-weight:700;padding:2px 8px;border-radius:3px;letter-spacing:.06em;">${text}</span>`;
+  }
+
+  async function loadAll() {
+    document.getElementById('last-updated').textContent = 'Refreshing…';
+    await Promise.allSettled([
+      loadReportHealth(),
+      loadDrift(),
+      loadSourceHealth(),
+      loadObservability(),
+      loadVerification(),
+    ]);
+    document.getElementById('last-updated').textContent =
+      'Updated: ' + new Date().toISOString().slice(0, 19).replace('T', ' ') + ' UTC';
+  }
+
+  async function loadReportHealth() {
+    try {
+      const r  = await apiFetch('/api/v1/p30/report-health');
+      const d  = await r.json();
+      const ph = d.platform_health || {};
+      const cv = d.continuous_verification || {};
+      const pct = ph.health_pct || 0;
+      const col = colorForPct(pct);
+
+      document.getElementById('hb-score').textContent = pct + '%';
+      document.getElementById('hb-score').style.color = col;
+      document.getElementById('hb-status').textContent = 'Platform Health: ' + (ph.status || 'UNKNOWN');
+      document.getElementById('hb-detail').textContent =
+        `${ph.healthy_items || 0} healthy / ${d.total_items || 0} total items — ${ph.sla_breach_count || 0} SLA breach(es) — ${ph.fully_capable || 0} fully capable`;
+      document.getElementById('hb-bar').style.width = pct + '%';
+      document.getElementById('hb-bar').style.background = col;
+
+      const vPct = cv.avg_verification_pct || 0;
+      document.getElementById('hb-ver').textContent = vPct + '%';
+      document.getElementById('hb-ver').style.color = colorForPct(vPct);
+
+      // Update header badge
+      document.getElementById('h-health-badge').textContent = ph.status || 'UNKNOWN';
+      document.getElementById('h-health-badge').className = 'badge ' +
+        (pct >= 80 ? 'badge-green' : pct >= 60 ? 'badge-blue' : pct >= 40 ? 'badge-yellow' : 'badge-red');
+
+      document.getElementById('h-items-badge').textContent = (d.total_items || 0) + ' items';
+
+      document.getElementById('stat-items').textContent = d.total_items || 0;
+      document.getElementById('stat-items-sub').textContent = `${ph.healthy_items || 0} healthy / ${ph.fully_capable || 0} fully capable`;
+
+      document.getElementById('stat-ver').textContent = vPct + '%';
+      document.getElementById('stat-ver').style.color = colorForPct(vPct);
+      document.getElementById('stat-ver-sub').textContent = `${cv.items_above_75pct || 0} items above 75%`;
+
+      const slaPct = d.total_items > 0
+        ? Math.round((d.total_items - (ph.sla_breach_count || 0)) / d.total_items * 100)
+        : 100;
+      document.getElementById('hb-sla').textContent = slaPct + '%';
+      document.getElementById('hb-sla').style.color = colorForPct(slaPct);
+      document.getElementById('stat-sla').textContent = slaPct + '%';
+      document.getElementById('stat-sla').style.color = colorForPct(slaPct);
+      document.getElementById('stat-sla-sub').textContent = `${ph.sla_breach_count || 0} breach(es) detected`;
+
+      const panel = document.getElementById('report-health-panel');
+      panel.innerHTML = `
+        <div style="display:flex;gap:20px;flex-wrap:wrap;margin-bottom:16px;">
+          <div style="flex:1;min-width:200px;">
+            <div class="sla-row"><span class="sla-label">Platform Status</span><span class="sla-val" style="color:${col}">${ph.status || '—'}</span></div>
+            <div class="sla-row"><span class="sla-label">Health Score</span><span class="sla-val" style="color:${col}">${pct}%</span></div>
+            <div class="sla-row"><span class="sla-label">Total Items</span><span class="sla-val">${d.total_items || 0}</span></div>
+            <div class="sla-row"><span class="sla-label">Healthy Items</span><span class="sla-val" style="color:#22c55e">${ph.healthy_items || 0}</span></div>
+            <div class="sla-row"><span class="sla-label">SLA Breaches</span><span class="sla-val" style="color:${(ph.sla_breach_count || 0) > 0 ? '#ef4444' : '#22c55e'}">${ph.sla_breach_count || 0}</span></div>
+            <div class="sla-row"><span class="sla-label">Fully Capable Items</span><span class="sla-val">${ph.fully_capable || 0}</span></div>
+          </div>
+          <div style="flex:1;min-width:200px;">
+            <div class="sla-row"><span class="sla-label">Avg Verification %</span><span class="sla-val" style="color:${colorForPct(vPct)}">${vPct}%</span></div>
+            <div class="sla-row"><span class="sla-label">Items Above 75%</span><span class="sla-val">${cv.items_above_75pct || 0}</span></div>
+            <div class="sla-row"><span class="sla-label">SLA Compliance</span><span class="sla-val" style="color:${colorForPct(slaPct)}">${slaPct}%</span></div>
+            <div class="sla-row"><span class="sla-label">Schema Version</span><span class="sla-val">${d.schema_version || '—'}</span></div>
+            <div class="sla-row"><span class="sla-label">Generated At</span><span class="sla-val">${(d.generated_at || '').slice(0, 19).replace('T', ' ')}</span></div>
+          </div>
+        </div>
+        <div class="progress-bar"><div class="progress-fill" style="width:${pct}%;background:${col}"></div></div>`;
+    } catch (e) {
+      document.getElementById('report-health-panel').innerHTML = `<div class="error-msg">Failed to load report health: ${e.message}</div>`;
+    }
+  }
+
+  async function loadDrift() {
+    try {
+      const r = await apiFetch('/api/v1/p30/drift');
+      const d = await r.json();
+      const dist = d.drift_distribution || {};
+      const cov  = d.avg_detection_coverage_pct || 0;
+      const risk = d.platform_drift_risk || 'UNKNOWN';
+      const col  = colorForRisk(risk);
+
+      document.getElementById('stat-drift').textContent = risk;
+      document.getElementById('stat-drift').style.color = col;
+      document.getElementById('stat-drift-sub').textContent = `${cov}% avg detection coverage`;
+
+      const panel = document.getElementById('drift-panel');
+      const total = (dist.high || 0) + (dist.medium || 0) + (dist.low || 0);
+      const highPct   = total > 0 ? Math.round((dist.high   || 0) / total * 100) : 0;
+      const medPct    = total > 0 ? Math.round((dist.medium || 0) / total * 100) : 0;
+      const lowPct    = total > 0 ? Math.round((dist.low    || 0) / total * 100) : 0;
+
+      panel.innerHTML = `
+        <div style="display:flex;gap:16px;margin-bottom:16px;flex-wrap:wrap;">
+          <div style="background:var(--surface2);border-radius:4px;padding:10px 18px;text-align:center;min-width:100px;">
+            <div style="color:${col};font-size:22px;font-weight:700;">${cov}%</div>
+            <div style="color:var(--muted);font-size:9px;">AVG COVERAGE</div>
+          </div>
+          <div style="background:var(--surface2);border-radius:4px;padding:10px 18px;text-align:center;min-width:100px;">
+            <div style="color:${col};font-size:22px;font-weight:700;">${risk}</div>
+            <div style="color:var(--muted);font-size:9px;">DRIFT RISK</div>
+          </div>
+          <div style="background:var(--surface2);border-radius:4px;padding:10px 18px;text-align:center;min-width:100px;">
+            <div style="color:#ef4444;font-size:22px;font-weight:700;">${dist.high || 0}</div>
+            <div style="color:var(--muted);font-size:9px;">HIGH DRIFT</div>
+          </div>
+          <div style="background:var(--surface2);border-radius:4px;padding:10px 18px;text-align:center;min-width:100px;">
+            <div style="color:#f59e0b;font-size:22px;font-weight:700;">${dist.medium || 0}</div>
+            <div style="color:var(--muted);font-size:9px;">MED DRIFT</div>
+          </div>
+        </div>
+        <div class="drift-row">
+          <span class="drift-label">High Drift Items</span>
+          <div class="drift-bar"><div class="drift-fill" style="width:${highPct}%;background:#ef4444"></div></div>
+          <span class="drift-val" style="color:#ef4444">${dist.high || 0}</span>
+        </div>
+        <div class="drift-row">
+          <span class="drift-label">Medium Drift Items</span>
+          <div class="drift-bar"><div class="drift-fill" style="width:${medPct}%;background:#f59e0b"></div></div>
+          <span class="drift-val" style="color:#f59e0b">${dist.medium || 0}</span>
+        </div>
+        <div class="drift-row">
+          <span class="drift-label">Low Drift Items</span>
+          <div class="drift-bar"><div class="drift-fill" style="width:${lowPct}%;background:#22c55e"></div></div>
+          <span class="drift-val" style="color:#22c55e">${dist.low || 0}</span>
+        </div>
+        <div style="margin-top:14px;padding:10px 14px;background:var(--surface2);border-radius:4px;font-size:11px;color:${col};">
+          ${d.recommendation || ''}
+        </div>`;
+    } catch (e) {
+      document.getElementById('drift-panel').innerHTML = `<div class="error-msg">Failed to load drift data: ${e.message}</div>`;
+    }
+  }
+
+  async function loadSourceHealth() {
+    try {
+      const r = await apiFetch('/api/v1/p30/source-health');
+      const d = await r.json();
+      const sources = d.sources || [];
+
+      document.getElementById('stat-sources').textContent = d.unique_sources || 0;
+      document.getElementById('stat-sources-sub').textContent = `${d.total_items || 0} total items`;
+      const avgTrust = d.avg_platform_trust || 0;
+      document.getElementById('stat-trust').textContent = avgTrust;
+      document.getElementById('stat-trust').style.color = colorForPct(avgTrust * 10);
+      document.getElementById('stat-trust-sub').textContent = 'weighted avg trust score';
+
+      const panel = document.getElementById('source-panel');
+      if (sources.length === 0) {
+        panel.innerHTML = '<div class="loader">No source data available.</div>';
+        return;
+      }
+      const rows = sources.slice(0, 15).map(s => `
+        <tr>
+          <td style="color:#f9fafb;">${s.source || '—'}</td>
+          <td>${s.item_count || 0}</td>
+          <td style="color:${colorForPct(s.avg_trust_score * 10)}">${s.avg_trust_score || 0}</td>
+          <td>
+            <div class="progress-bar" style="min-width:80px;margin:0;">
+              <div class="progress-fill" style="width:${s.url_coverage_pct || 0}%;background:${colorForPct(s.url_coverage_pct || 0)}"></div>
+            </div>
+          </td>
+          <td style="color:${colorForPct(s.url_coverage_pct || 0)}">${s.url_coverage_pct || 0}%</td>
+        </tr>`).join('');
+
+      panel.innerHTML = `
+        <table>
+          <thead><tr><th>Source</th><th>Items</th><th>Trust Score</th><th>URL Coverage</th><th>%</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+        ${sources.length > 15 ? `<div style="color:var(--muted);font-size:10px;margin-top:8px;">Showing 15 of ${sources.length} sources</div>` : ''}`;
+    } catch (e) {
+      document.getElementById('source-panel').innerHTML = `<div class="error-msg">Failed to load source health: ${e.message}</div>`;
+    }
+  }
+
+  async function loadObservability() {
+    try {
+      const r = await apiFetch('/api/v1/p30/observability');
+      const d = await r.json();
+      const chain = d.certification_chain || {};
+
+      const certNodes = ['p29', 'p28', 'p27'].map(key => {
+        const node = chain[key];
+        if (!node) return null;
+        const col = tierColor(node.tier);
+        const tierShort = (node.tier || 'UNKNOWN').replace('WORLDWIDE_RELEASE', 'WORLDWIDE').replace('CONTROLLED_RELEASE', 'CONTROLLED');
+        return `<div class="cert-node" style="border-color:${col}44;border-top:3px solid ${col};">
+          <div style="color:var(--muted);font-size:10px;font-weight:700;">${key.toUpperCase()}</div>
+          <div class="cert-tier" style="color:${col}">${tierShort}</div>
+          <div class="cert-label">${node.blockers || 0} blocker(s)</div>
+        </div>`;
+      }).filter(Boolean);
+
+      const p30 = d.p30_platform || {};
+      const p30PatchPct = p30.sla_compliance_pct || 100;
+      const p30Color = tierColor('WORLDWIDE_RELEASE');
+      const p30Node = `<div class="cert-node" style="border-color:${p30Color}44;border-top:3px solid ${p30Color};">
+        <div style="color:var(--muted);font-size:10px;font-weight:700;">P30</div>
+        <div class="cert-tier" style="color:${p30Color}">ACTIVE</div>
+        <div class="cert-label">SLA: ${p30PatchPct}%</div>
+      </div>`;
+
+      const connectors = certNodes.map((_, i) => i < certNodes.length - 1 ? '<span class="cert-connector">→</span>' : '').join('');
+      document.getElementById('cert-chain').innerHTML =
+        p30Node + '<span class="cert-connector">→</span>' +
+        certNodes.join('<span class="cert-connector">→</span>');
+    } catch (e) {
+      document.getElementById('cert-chain').innerHTML = `<div class="error-msg">Failed to load observability: ${e.message}</div>`;
+    }
+  }
+
+  async function loadVerification() {
+    try {
+      const r = await apiFetch('/api/v1/p30/verification');
+      const d = await r.json();
+      const vs = d.verification_summary || {};
+      const grade = d.platform_verification_grade || '—';
+      const gradeColor = grade === 'A' ? '#22c55e' : grade === 'B' ? '#3b82f6' : grade === 'C' ? '#f59e0b' : '#ef4444';
+
+      const panel = document.getElementById('sla-panel');
+      panel.innerHTML = `
+        <div style="display:flex;gap:16px;margin-bottom:16px;flex-wrap:wrap;">
+          <div style="background:var(--surface2);border-radius:4px;padding:10px 18px;text-align:center;min-width:80px;">
+            <div style="color:${gradeColor};font-size:32px;font-weight:700;">${grade}</div>
+            <div style="color:var(--muted);font-size:9px;">VERIFY GRADE</div>
+          </div>
+          <div style="flex:1;min-width:200px;">
+            <div class="sla-row"><span class="sla-label">Fully Verified</span><span class="sla-val" style="color:#22c55e">${vs.fully_verified || 0}</span></div>
+            <div class="sla-row"><span class="sla-label">Substantially Verified</span><span class="sla-val" style="color:#3b82f6">${vs.substantially_verified || 0}</span></div>
+            <div class="sla-row"><span class="sla-label">Partially Verified</span><span class="sla-val" style="color:#f59e0b">${vs.partially_verified || 0}</span></div>
+            <div class="sla-row"><span class="sla-label">Minimally Verified</span><span class="sla-val" style="color:#ef4444">${vs.minimally_verified || 0}</span></div>
+            <div class="sla-row"><span class="sla-label">Avg Verification</span><span class="sla-val" style="color:${colorForPct(vs.average_verification_pct || 0)}">${vs.average_verification_pct || 0}%</span></div>
+            <div class="sla-row"><span class="sla-label">Total Items</span><span class="sla-val">${d.total_items || 0}</span></div>
+          </div>
+        </div>
+        <div class="progress-bar">
+          <div class="progress-fill" style="width:${vs.average_verification_pct || 0}%;background:${colorForPct(vs.average_verification_pct || 0)}"></div>
+        </div>`;
+    } catch (e) {
+      document.getElementById('sla-panel').innerHTML = `<div class="error-msg">Failed to load verification data: ${e.message}</div>`;
+    }
+  }
+
+  // On load: check for existing session
+  window.addEventListener('DOMContentLoaded', () => {
+    const stored = sessionStorage.getItem('sentinel_api_key');
+    if (stored) {
+      _apiKey = stored;
+      verifyAndShow();
+    }
+    document.getElementById('api-key-input').addEventListener('keydown', e => {
+      if (e.key === 'Enter') authenticate();
+    });
+  });
+</script>
+</body>
+</html>
