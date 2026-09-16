@@ -1,5 +1,5 @@
 name              = "sentinel-apex-gateway"
-main              = "src/index.js"
+main              = "src/production-entry.js"
 compatibility_date = "2026-01-01"
 
 # Worker Routes -- intel.cyberdudebivash.com
@@ -160,6 +160,12 @@ bucket_name = "sentinel-apex-data"
 binding     = "REPORTS_R2"
 bucket_name = "sentinel-apex-reports"
 
+# -- APEX V4.43 Private Super Agent Mesh --
+# Private Service Binding only; cdb-apex-mesh-production has workers_dev=false.
+[[services]]
+binding = "APEX_MESH"
+service = "cdb-apex-mesh-production"
+
 # -- Durable Objects --
 # GumroadProvisioningLock (issue #288): closes a real race in
 # handleWebhookGumroad's idempotency check -- Cloudflare KV has no atomic
@@ -198,6 +204,10 @@ new_sqlite_classes = ["GumroadProvisioningLock"]
 # npx wrangler secret put CDB_JWT_SECRET           -> JWT HS256 signing key (REQUIRED for auth)
 #                                                     Minimum 32 random characters. Generate:
 #                                                     openssl rand -hex 32
+# npx wrangler secret put APEX_MESH_SERVICE_KEY    -> dedicated Sentinel APEX -> V4.43 mesh HMAC key;
+#                                                     MUST equal MESH_SENTINEL_APEX_KEY on
+#                                                     cdb-apex-mesh-production and MUST NOT reuse
+#                                                     JWT/admin/Authority/payment credentials.
 # -- Enterprise SSO (OpenID Connect) -- additive; GET /auth/sso/:provider/start
 #    503s with a clear "not configured" message until these are set, every
 #    other auth path (API key, existing JWT) is completely unaffected either
@@ -301,6 +311,10 @@ bucket_name = "sentinel-apex-data"
 [[env.production.r2_buckets]]
 binding     = "REPORTS_R2"
 bucket_name = "sentinel-apex-reports"
+
+[[env.production.services]]
+binding = "APEX_MESH"
+service = "cdb-apex-mesh-production"
 
 [[env.production.durable_objects.bindings]]
 name       = "GUMROAD_PROVISIONING_LOCK"
