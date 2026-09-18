@@ -173,12 +173,57 @@ jobs:
           # but without it this job would still be undiagnosable if it ever
           # times out again.
           PYTHONUNBUFFERED: "1"
+        # P0 FIX (2026-09-18, Telegram staleness-alert incident): the two fixes
+        # above (unbuffered output, 10-way parallel fetch) made this step
+        # diagnosable and faster, but not fast enough. Confirmed live across
+        # every run of this workflow from 2026-09-11 to 2026-09-18 (8/8 days):
+        # SECURITY_HUB_KV alone now holds ~92,400 keys (50x+ every other
+        # namespace here combined) and at ~38 keys/sec with 10 workers needs
+        # ~40min to export -- still past this job's 30min timeout-minutes.
+        #
+        # That alone would be harmless (this job has had continue-on-error:
+        # true since it was authored, specifically so an optional mirror never
+        # blocks the real backup above). But a RUNNER-enforced timeout-minutes
+        # kill produces conclusion "cancelled", and continue-on-error only
+        # absorbs "failure" -- confirmed live that a cancelled cf-data-backup
+        # dragged the WHOLE workflow run's conclusion to "cancelled" on all 8
+        # of those days, even though full-backup (the actual encrypted backup)
+        # succeeded in under a minute every single time. check_pipeline_
+        # staleness.py only asks for the most recent status=success run, so it
+        # has correctly (on objectively wrong input) been telling Telegram
+        # this platform's backup is down for over a week, 4x/day, when it
+        # never was. Same reason "Notify on CF backup failure" (if: failure())
+        # below never fired either -- cancelled isn't failure -- so nobody got
+        # a specific alert about the real, narrow issue, only a misleading one
+        # about the whole pipeline.
+        #
+        # This exact "timeout-minutes kill bypasses continue-on-error" class
+        # of bug was already found and fixed at STEP granularity in
+        # sentinel-blogger.yml (see its "Upload Intel State to R2 (final,
+        # post-enrichment)" and "STAGE 5.4.0b" step comments); this reuses
+        # that same fix at JOB granularity, since GitHub Actions has no "job
+        # timeout continue-on-error actually absorbs" primitive: `timeout`
+        # self-terminates well inside the job's own 30min budget, so the
+        # runner's own timeout-minutes can never fire here again, whatever
+        # SECURITY_HUB_KV grows to. 1200s (20min) keeps ~9-10min margin for
+        # setup plus the 3 steps after this one (which, cancelled at the
+        # 30min mark every day for over a week, likely never got to run).
+        #
+        # Raising max_workers or adding a retention/TTL policy for
+        # SECURITY_HUB_KV could close the remaining throughput gap, but both
+        # need live Cloudflare access this sandbox doesn't have to size
+        # safely -- flagged as follow-ups, not guessed at here.
         run: |
           if [[ -z "$CF_API_TOKEN" || -z "$CF_ACCOUNT_ID" ]]; then
             echo "SKIP: CF_API_TOKEN or CF_ACCOUNT_ID not configured"
             exit 0
           fi
-          python3 scripts/backup_kv_to_r2.py
+          timeout 1200 python3 scripts/backup_kv_to_r2.py
+          STATUS=$?
+          if [ "$STATUS" -eq 124 ]; then
+            echo "::warning::Backup KV namespaces to R2 did not finish within the 20min self-terminating safety window (SECURITY_HUB_KV has grown to ~92K+ keys; export is currently slower than that budget) -- partial or no snapshot for today. See P0 FIX comment above. This is a normal, continue-on-error-absorbed step outcome, not a runner cancellation, so it will never mark the overall workflow run as failed/stale."
+          fi
+          exit "$STATUS"
 
       - name: Backup R2 buckets (manifest + integrity check)
         env:
