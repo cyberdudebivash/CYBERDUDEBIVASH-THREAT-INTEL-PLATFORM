@@ -3,6 +3,10 @@ const PRODUCT = 'sentinel-apex';
 const MAX_BODY_BYTES = 32 * 1024;
 const ID_RE = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/;
 const MISSION_TTL_SECONDS = 30 * 24 * 60 * 60;
+const MISSION_INDEX_PREFIX = 'sentinel-mission-idx:';
+// Far enough out (year 2286) to stay positive for any real Date.now(), used
+// only to invert timestamps into a lexicographically-descending sort key.
+const INDEX_TS_CEILING = 9999999999999;
 
 const AGENTS = Object.freeze([
   ['ioc-hunter', 'IOC Hunter', 'ioc.correlation'],
@@ -66,6 +70,26 @@ function hasAuth(headers) {
     headers.get('x-api-key') ||
     headers.get('x-sentinel-key')
   );
+}
+
+// A stable, non-reversible per-caller storage partition for mission history
+// -- NOT an identity or entitlement decision (this worker still never
+// derives tenant/tier itself; the canonical route remains the sole
+// authority on who is allowed to run anything). Without this, a mission
+// LIST endpoint would enumerate every customer's mission metadata to any
+// caller holding a valid credential (single-mission-by-id lookup is safe
+// today only because a mission_id is an unguessable random UUID -- that
+// capability-based protection doesn't extend to a listable index). Hashing
+// the caller's own already-forwarded credential gives each distinct
+// credential its own isolated history with zero new identity plumbing and
+// zero calls to any other service. Same real credential in -> same
+// partition out; a different customer's different credential always
+// produces a different partition.
+async function credentialPartition(headers) {
+  const credential = headers.get('authorization') || headers.get('x-api-key') || headers.get('x-sentinel-key');
+  if (!credential) return null;
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(credential));
+  return [...new Uint8Array(digest)].slice(0, 8).map((b) => b.toString(16).padStart(2, '0')).join('');
 }
 
 function unique(values) {
@@ -260,13 +284,38 @@ async function emit(writer, encoder, event) {
 // stream closes. Never stores the caller's credentials. A missing/unbound
 // KV namespace (not yet provisioned -- see wrangler.toml) degrades to a
 // no-op rather than failing the mission.
-async function persistMission(env, record) {
+//
+// `partition` (from credentialPartition(), optional) additionally writes a
+// small listable index entry under the caller's own partition so
+// handleMissionList() can page through mission history without ever
+// reading another caller's missions. Omitting it (existing call sites/tests
+// that predate mission history) keeps exactly today's behavior -- only the
+// primary by-id record is written, unchanged in shape or key.
+async function persistMission(env, record, partition) {
   if (!env.SWARM_MISSIONS_KV) return;
   try {
     await env.SWARM_MISSIONS_KV.put(record.mission_id, JSON.stringify(record), {
       expirationTtl: MISSION_TTL_SECONDS,
     });
   } catch { /* persistence is observability, not a mission-fatal concern */ }
+
+  if (!partition) return;
+  try {
+    const invertedTs = String(INDEX_TS_CEILING - Date.now()).padStart(13, '0');
+    const indexKey = `${MISSION_INDEX_PREFIX}${partition}:${invertedTs}:${record.mission_id}`;
+    await env.SWARM_MISSIONS_KV.put(indexKey, '1', {
+      expirationTtl: MISSION_TTL_SECONDS,
+      metadata: {
+        mission_id: record.mission_id,
+        status: record.status,
+        ioc_value: record.ioc?.ioc_value ?? null,
+        ioc_type: record.ioc?.ioc_type ?? null,
+        verdict: record.verdict ?? null,
+        started_at: record.started_at ?? null,
+        finished_at: record.finished_at ?? null,
+      },
+    });
+  } catch { /* same best-effort discipline as the primary record write */ }
 }
 
 async function executeMission({ writer, request, env, body, correlationId, missionId, executionId }) {
@@ -274,6 +323,7 @@ async function executeMission({ writer, request, env, body, correlationId, missi
   const makeEvent = eventFactory({ missionId, executionId, correlationId });
   const canonicalBase = env.CANONICAL_BASE_URL || 'https://intel.cyberdudebivash.com';
   const auth = authHeaders(request);
+  const partition = await credentialPartition(auth);
   const startedAt = new Date().toISOString();
   const queued = AGENTS.filter((a) => a.id !== 'risk-synthesizer' && a.id !== 'ioc-hunter');
   const iocHunter = AGENTS.find((a) => a.id === 'ioc-hunter');
@@ -291,7 +341,7 @@ async function executeMission({ writer, request, env, body, correlationId, missi
       finished_at: new Date().toISOString(),
       ioc: { ioc_value: body.ioc_value, ioc_type: body.ioc_type || 'auto' },
       ...extra,
-    });
+    }, partition);
   };
 
   try {
@@ -485,19 +535,131 @@ async function handleRun(request, env, ctx) {
   });
 }
 
+// Single source of truth for "fetch one mission record by id" -- both the
+// existing by-id lookup and the new report export call this rather than
+// each re-implementing the unavailable/not-found/corrupt handling.
+async function getMissionRecord(env, missionId) {
+  if (!env.SWARM_MISSIONS_KV) {
+    return { status: 503, body: { error: 'mission_store_unavailable', message: 'Mission persistence is not provisioned yet.' } };
+  }
+  const raw = await env.SWARM_MISSIONS_KV.get(missionId);
+  if (!raw) return { status: 404, body: { error: 'mission_not_found' } };
+  let record;
+  try { record = JSON.parse(raw); } catch { return { status: 500, body: { error: 'mission_record_corrupt' } }; }
+  return { status: 200, record };
+}
+
 async function handleMissionLookup(request, env, missionId) {
   if (!ID_RE.test(missionId)) return json({ error: 'invalid_mission_id' }, 400);
   if (!hasAuth(authHeaders(request))) {
     return json({ error: 'authentication_required', message: 'Use an existing Sentinel customer API key or bearer token.' }, 401);
   }
+  const result = await getMissionRecord(env, missionId);
+  if (result.status !== 200) return json(result.body, result.status);
+  return json({ status: 'ok', data: result.record });
+}
+
+// GET /api/swarm/missions -- paginated mission history for the calling
+// credential only (see credentialPartition()'s header comment for why this
+// is scoped per-credential rather than left unscoped). Cloudflare KV's
+// list() returns each key's metadata directly, so this never performs a
+// per-mission get() -- one list() call serves an entire page.
+async function handleMissionList(request, env, url) {
+  const headers = authHeaders(request);
+  if (!hasAuth(headers)) {
+    return json({ error: 'authentication_required', message: 'Use an existing Sentinel customer API key or bearer token.' }, 401);
+  }
   if (!env.SWARM_MISSIONS_KV) {
     return json({ error: 'mission_store_unavailable', message: 'Mission persistence is not provisioned yet.' }, 503);
   }
-  const raw = await env.SWARM_MISSIONS_KV.get(missionId);
-  if (!raw) return json({ error: 'mission_not_found' }, 404);
-  let record;
-  try { record = JSON.parse(raw); } catch { return json({ error: 'mission_record_corrupt' }, 500); }
-  return json({ status: 'ok', data: record });
+
+  const limitParam = parseInt(url.searchParams.get('limit') || '20', 10);
+  const limit = Number.isFinite(limitParam) ? Math.min(Math.max(limitParam, 1), 100) : 20;
+  const cursor = url.searchParams.get('cursor') || undefined;
+  const statusFilter = url.searchParams.get('status') || null;
+  const partition = await credentialPartition(headers);
+
+  let page;
+  try {
+    page = await env.SWARM_MISSIONS_KV.list({ prefix: `${MISSION_INDEX_PREFIX}${partition}:`, limit, cursor });
+  } catch (error) {
+    return json({ error: 'mission_list_failed', message: String(error?.message || error).slice(0, 240) }, 500);
+  }
+
+  let missions = page.keys.map((k) => k.metadata).filter(Boolean);
+  if (statusFilter) missions = missions.filter((m) => m.status === statusFilter);
+
+  return json({
+    status: 'ok',
+    data: {
+      missions,
+      list_complete: Boolean(page.list_complete),
+      cursor: page.list_complete ? null : (page.cursor || null),
+    },
+  });
+}
+
+// Renders the same real, already-persisted mission record the JSON lookup
+// returns into a human-readable evidence transcript -- no new data model,
+// no re-fetched or re-derived findings, purely a formatting layer over
+// getMissionRecord()'s output.
+function missionReportMarkdown(record) {
+  const lines = [
+    '# CYBERDUDEBIVASH SENTINEL APEX -- SUPER AGENT SWARM Mission Report',
+    '',
+    `- **Mission ID:** ${record.mission_id}`,
+    `- **Execution ID:** ${record.execution_id || '—'}`,
+    `- **Correlation ID:** ${record.correlation_id || '—'}`,
+    `- **Status:** ${record.status}`,
+    `- **IOC:** ${record.ioc?.ioc_value || '—'} (${record.ioc?.ioc_type || 'auto'})`,
+    `- **Verdict:** ${record.verdict || '—'}`,
+    `- **Mesh Certified:** ${record.mesh_certified ? 'yes' : 'no'}${record.mesh_execution_id ? ` (execution ${record.mesh_execution_id})` : ''}`,
+    `- **Started:** ${record.started_at || '—'}`,
+    `- **Finished:** ${record.finished_at || '—'}`,
+    ...(record.error ? [`- **Error:** ${record.error}`] : []),
+    '',
+    '## Agent Evidence',
+    '',
+  ];
+  const specialists = record.specialists || {};
+  const ids = Object.keys(specialists);
+  if (ids.length === 0) lines.push('_No per-agent evidence recorded for this mission._');
+  for (const id of ids) {
+    const o = specialists[id] || {};
+    lines.push(`### ${id}`, `- basis: ${o.basis || '—'}`, `- state: ${o.state || '—'}`, '', '```json', JSON.stringify(o.result ?? null, null, 2), '```', '');
+  }
+  lines.push('---', `_Generated by CYBERDUDEBIVASH SENTINEL APEX -- SUPER AGENT SWARM (${PROTOCOL})._`);
+  return lines.join('\n');
+}
+
+// GET /api/swarm/mission/:id/report -- an exportable, downloadable evidence
+// report for one mission. ?format=json for the raw persisted record as a
+// downloadable attachment (same shape /api/swarm/mission/:id already
+// returns inline); default is a Markdown transcript.
+async function handleMissionReport(request, env, missionId, url) {
+  if (!ID_RE.test(missionId)) return json({ error: 'invalid_mission_id' }, 400);
+  if (!hasAuth(authHeaders(request))) {
+    return json({ error: 'authentication_required', message: 'Use an existing Sentinel customer API key or bearer token.' }, 401);
+  }
+  const result = await getMissionRecord(env, missionId);
+  if (result.status !== 200) return json(result.body, result.status);
+
+  const format = (url.searchParams.get('format') || 'md').toLowerCase();
+  if (format === 'json') {
+    return json({ status: 'ok', data: result.record }, 200, {
+      'content-disposition': `attachment; filename="${missionId}.json"`,
+    });
+  }
+
+  return new Response(missionReportMarkdown(result.record), {
+    status: 200,
+    headers: {
+      'content-type': 'text/markdown; charset=utf-8',
+      'cache-control': 'no-store',
+      'content-disposition': `attachment; filename="${missionId}.md"`,
+      'x-content-type-options': 'nosniff',
+    },
+  });
 }
 
 function escapeHtml(value) {
@@ -509,12 +671,49 @@ function ui() {
     `<article class="agent" id="agent-${escapeHtml(a.id)}"><div><strong>${escapeHtml(a.name)}</strong><small>${escapeHtml(a.capability)}</small></div><span class="state">IDLE</span>${a.id === 'risk-synthesizer' ? '<p class="narrative" hidden></p>' : ''}<pre></pre></article>`
   ).join('');
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>CYBERDUDEBIVASH SENTINEL APEX — SUPER AGENT SWARM</title><style>
-  :root{color-scheme:dark;font-family:Inter,ui-sans-serif,system-ui;background:#05080d;color:#e6edf3}*{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at top,#0d2a24,#05080d 45%);min-height:100vh}.wrap{max-width:1180px;margin:auto;padding:38px 22px 80px}.brand{font-weight:800;letter-spacing:.08em;color:#72f0c2}.hero{border:1px solid #19483c;background:rgba(6,19,17,.88);border-radius:18px;padding:28px;margin:20px 0}.hero h1{font-size:clamp(28px,5vw,52px);margin:8px 0}.sub{color:#9fb8b0;max-width:850px;line-height:1.55}.form{display:grid;grid-template-columns:1fr 180px;gap:10px;margin-top:22px}.form input,.form select,.key{background:#07110f;color:#e6edf3;border:1px solid #28594d;border-radius:10px;padding:13px;font:inherit}.key{width:100%;margin-top:10px}.run{background:#37d39f;border:0;color:#03100c;font-weight:800;border-radius:10px;padding:13px 18px;cursor:pointer}.meta{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:18px 0}.meta div{background:#07110f;border:1px solid #163a31;border-radius:10px;padding:12px}.meta small,.agent small{display:block;color:#78988f;margin-top:4px}.agents{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px}.agent{min-height:155px;background:#07110f;border:1px solid #173b32;border-radius:14px;padding:16px;position:relative}.agent .state{position:absolute;right:14px;top:14px;font-size:11px;font-weight:800;border:1px solid #28594d;border-radius:999px;padding:5px 8px}.agent[data-state=RUNNING]{border-color:#e9b949}.agent[data-state=COMPLETED]{border-color:#37d39f}.agent[data-state=DENIED]{border-color:#7d8590}.agent[data-state=FAILED]{border-color:#ff6b6b}.agent pre{white-space:pre-wrap;word-break:break-word;color:#9fb8b0;font-size:11px;max-height:180px;overflow:auto;margin-top:20px}.agent .narrative{margin-top:10px;font-size:12.5px;line-height:1.5;color:#e6edf3}.agent .narrative .badge{display:inline-block;font-size:10px;font-weight:800;letter-spacing:.04em;border-radius:999px;padding:3px 8px;margin-bottom:6px;border:1px solid #28594d;color:#78988f}.agent .narrative .badge[data-kind=ai]{color:#37d39f;border-color:#37d39f}.agent .narrative .narrative-body{display:block}.final{margin-top:16px;border:1px solid #28594d;background:#07110f;border-radius:14px;padding:18px;white-space:pre-wrap}.truth{font-size:12px;color:#78988f;margin-top:12px}@media(max-width:700px){.form{grid-template-columns:1fr}.meta{grid-template-columns:1fr}}
-  </style></head><body><main class="wrap"><div class="brand">CYBERDUDEBIVASH® SENTINEL APEX™</div><section class="hero"><h1>SUPER AGENT SWARM — LIVE CTI OPERATIONS</h1><p class="sub">Launch a real paid Sentinel correlation mission. Every agent state below is emitted by its own real backend execution against the canonical Sentinel intelligence platform -- no simulated timers, random percentages, or hard-coded findings. The mission is accepted only when the canonical Sentinel route completes through the private APEX mesh.</p><input class="key" id="key" type="password" autocomplete="off" placeholder="Sentinel API key — held in memory only, never saved"><div class="form"><input id="ioc" value="8.8.8.8" aria-label="IOC"><select id="type"><option value="ipv4">IPv4</option><option value="domain">Domain</option><option value="url">URL</option><option value="hash">Hash</option><option value="auto">Auto</option></select><button class="run" id="run">RUN LIVE SWARM</button></div><p class="truth">Credential storage: none. This page does not write the API key to cookies or localStorage.</p></section><section class="meta"><div>Mission<small id="mission">—</small></div><div>Correlation<small id="correlation">—</small></div><div>Mesh Certification<small id="mesh">PENDING</small></div></section><section class="agents">${agents}</section><pre class="final" id="final">Awaiting a live mission.</pre></main><script>
+  :root{color-scheme:dark;font-family:Inter,ui-sans-serif,system-ui;background:#05080d;color:#e6edf3}*{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at top,#0d2a24,#05080d 45%);min-height:100vh}.wrap{max-width:1180px;margin:auto;padding:38px 22px 80px}.brand{font-weight:800;letter-spacing:.08em;color:#72f0c2}.hero{border:1px solid #19483c;background:rgba(6,19,17,.88);border-radius:18px;padding:28px;margin:20px 0}.hero h1{font-size:clamp(28px,5vw,52px);margin:8px 0}.sub{color:#9fb8b0;max-width:850px;line-height:1.55}.form{display:grid;grid-template-columns:1fr 180px;gap:10px;margin-top:22px}.form input,.form select,.key{background:#07110f;color:#e6edf3;border:1px solid #28594d;border-radius:10px;padding:13px;font:inherit}.key{width:100%;margin-top:10px}.run{background:#37d39f;border:0;color:#03100c;font-weight:800;border-radius:10px;padding:13px 18px;cursor:pointer}.meta{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:18px 0}.meta div{background:#07110f;border:1px solid #163a31;border-radius:10px;padding:12px}.meta small,.agent small{display:block;color:#78988f;margin-top:4px}.agents{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px}.agent{min-height:155px;background:#07110f;border:1px solid #173b32;border-radius:14px;padding:16px;position:relative}.agent .state{position:absolute;right:14px;top:14px;font-size:11px;font-weight:800;border:1px solid #28594d;border-radius:999px;padding:5px 8px}.agent[data-state=RUNNING]{border-color:#e9b949}.agent[data-state=COMPLETED]{border-color:#37d39f}.agent[data-state=DENIED]{border-color:#7d8590}.agent[data-state=FAILED]{border-color:#ff6b6b}.agent pre{white-space:pre-wrap;word-break:break-word;color:#9fb8b0;font-size:11px;max-height:180px;overflow:auto;margin-top:20px}.agent .narrative{margin-top:10px;font-size:12.5px;line-height:1.5;color:#e6edf3}.agent .narrative .badge{display:inline-block;font-size:10px;font-weight:800;letter-spacing:.04em;border-radius:999px;padding:3px 8px;margin-bottom:6px;border:1px solid #28594d;color:#78988f}.agent .narrative .badge[data-kind=ai]{color:#37d39f;border-color:#37d39f}.agent .narrative .narrative-body{display:block}.final{margin-top:16px;border:1px solid #28594d;background:#07110f;border-radius:14px;padding:18px;white-space:pre-wrap}.truth{font-size:12px;color:#78988f;margin-top:12px}.history{margin-top:24px;border:1px solid #28594d;background:#07110f;border-radius:14px;padding:18px}.history h2{margin:0;font-size:16px}.history .row{display:flex;justify-content:space-between;align-items:center;gap:10px}.load,.dl{background:transparent;border:1px solid #28594d;color:#9fb8b0;border-radius:8px;padding:7px 12px;cursor:pointer;font:inherit;font-size:12px}.dl{padding:3px 8px}.history table{width:100%;border-collapse:collapse;font-size:12.5px;margin-top:10px}.history th,.history td{text-align:left;padding:6px 8px;border-bottom:1px solid #163a31}@media(max-width:700px){.form{grid-template-columns:1fr}.meta{grid-template-columns:1fr}}
+  </style></head><body><main class="wrap"><div class="brand">CYBERDUDEBIVASH® SENTINEL APEX™</div><section class="hero"><h1>SUPER AGENT SWARM — LIVE CTI OPERATIONS</h1><p class="sub">Launch a real paid Sentinel correlation mission. Every agent state below is emitted by its own real backend execution against the canonical Sentinel intelligence platform -- no simulated timers, random percentages, or hard-coded findings. The mission is accepted only when the canonical Sentinel route completes through the private APEX mesh.</p><input class="key" id="key" type="password" autocomplete="off" placeholder="Sentinel API key — held in memory only, never saved"><div class="form"><input id="ioc" value="8.8.8.8" aria-label="IOC"><select id="type"><option value="ipv4">IPv4</option><option value="domain">Domain</option><option value="url">URL</option><option value="hash">Hash</option><option value="auto">Auto</option></select><button class="run" id="run">RUN LIVE SWARM</button></div><p class="truth">Credential storage: none. This page does not write the API key to cookies or localStorage.</p></section><section class="meta"><div>Mission<small id="mission">—</small></div><div>Correlation<small id="correlation">—</small></div><div>Mesh Certification<small id="mesh">PENDING</small></div></section><section class="agents">${agents}</section><pre class="final" id="final">Awaiting a live mission.</pre><section class="history"><div class="row"><h2>Mission History</h2><button class="load" id="loadHistory">LOAD HISTORY</button></div><p class="truth" id="historyNote">Loads your own past missions for the API key above. Requires mission persistence to be provisioned (see /api/swarm/health).</p><div id="historyBody"></div></section></main><script>
   const run=document.getElementById('run'),final=document.getElementById('final');
   function renderNarrative(el,result){const n=el.querySelector('.narrative');if(!n)return;n.hidden=false;n.textContent='';const badge=document.createElement('span');badge.className='badge';const body=document.createElement('span');body.className='narrative-body';if(result.llm_enhanced&&result.ai_narrative){badge.dataset.kind='ai';badge.textContent='AI-SYNTHESIZED'+(result.llm_model?' · '+result.llm_model:'');body.textContent=result.ai_narrative}else{badge.dataset.kind='deterministic';badge.textContent='DETERMINISTIC FUSION';body.textContent=result.recommendation||''}n.append(badge,body)}
   function setAgent(ev){if(!ev.agent_id)return;const el=document.getElementById('agent-'+ev.agent_id);if(!el)return;el.dataset.state=ev.state;el.querySelector('.state').textContent=ev.state+(ev.basis==='unconfigured'?' · CONFIG ERROR':'');if(ev.agent_id==='risk-synthesizer'&&ev.result)renderNarrative(el,ev.result);const p=el.querySelector('pre');if(ev.result)p.textContent=JSON.stringify(ev.result,null,2);else if(ev.detail)p.textContent=JSON.stringify(ev.detail,null,2)}
   run.onclick=async()=>{const key=document.getElementById('key').value.trim(),ioc=document.getElementById('ioc').value.trim(),type=document.getElementById('type').value;if(!key||!ioc){final.textContent='API key and IOC are required.';return}run.disabled=true;final.textContent='Connecting to live swarm…';document.getElementById('mesh').textContent='PENDING';try{const rid='ui-'+crypto.randomUUID();const r=await fetch('/api/swarm/run',{method:'POST',headers:{'content-type':'application/json','x-api-key':key,'x-request-id':rid},body:JSON.stringify({ioc_value:ioc,ioc_type:type})});if(!r.ok){final.textContent='Launch failed: HTTP '+r.status+' '+await r.text();return}const reader=r.body.getReader(),decoder=new TextDecoder();let buf='';while(true){const {value,done}=await reader.read();if(done)break;buf+=decoder.decode(value,{stream:true});let idx;while((idx=buf.indexOf('\n\n'))>=0){const chunk=buf.slice(0,idx);buf=buf.slice(idx+2);const line=chunk.split('\n').find(x=>x.startsWith('data: '));if(!line)continue;const ev=JSON.parse(line.slice(6));document.getElementById('mission').textContent=ev.mission_id;document.getElementById('correlation').textContent=ev.correlation_id;setAgent(ev);if(ev.mesh_certified)document.getElementById('mesh').textContent='CERTIFIED · '+(ev.mesh_execution_id||'');if(ev.event_type==='mission.completed')final.textContent=JSON.stringify(ev.result,null,2);if(ev.event_type==='mission.rejected'||ev.event_type==='mission.failed')final.textContent=JSON.stringify(ev,null,2)}}}}catch(e){final.textContent='Mission transport failed: '+e.message}finally{run.disabled=false}}
+  const loadHistoryBtn=document.getElementById('loadHistory'),historyBody=document.getElementById('historyBody'),historyNote=document.getElementById('historyNote');
+  function escHtml(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+  loadHistoryBtn.onclick=async()=>{
+    const key=document.getElementById('key').value.trim();
+    if(!key){historyNote.textContent='Enter your API key above first.';return}
+    loadHistoryBtn.disabled=true;historyNote.textContent='Loading…';
+    try{
+      const r=await fetch('/api/swarm/missions?limit=20',{headers:{'x-api-key':key}});
+      const body=await r.json();
+      if(!r.ok){historyNote.textContent='History unavailable: '+(body.message||body.error||('HTTP '+r.status));historyBody.innerHTML='';return}
+      const missions=(body.data&&body.data.missions)||[];
+      if(!missions.length){historyNote.textContent='No missions found yet for this key.';historyBody.innerHTML='';return}
+      historyNote.textContent=missions.length+' mission(s)'+((body.data&&body.data.list_complete)?'':' (more available)');
+      historyBody.innerHTML='<table><thead><tr><th>Finished</th><th>IOC</th><th>Verdict</th><th>Status</th><th>Evidence</th></tr></thead><tbody>'+missions.map(m=>
+        '<tr><td>'+escHtml(m.finished_at||'—')+'</td><td>'+escHtml(m.ioc_value||'—')+'</td><td>'+escHtml(m.verdict||'—')+'</td><td>'+escHtml(m.status||'—')+'</td><td><button class="dl" data-id="'+escHtml(m.mission_id)+'" data-format="md">report</button> <button class="dl" data-id="'+escHtml(m.mission_id)+'" data-format="json">json</button></td></tr>'
+      ).join('')+'</tbody></table>';
+    }catch(e){historyNote.textContent='History request failed: '+e.message}
+    finally{loadHistoryBtn.disabled=false}
+  };
+  historyBody.onclick=async(e)=>{
+    const btn=e.target.closest('.dl');if(!btn)return;
+    const key=document.getElementById('key').value.trim();
+    if(!key){historyNote.textContent='Enter your API key above first.';return}
+    const id=btn.dataset.id,format=btn.dataset.format;
+    btn.disabled=true;
+    try{
+      const r=await fetch('/api/swarm/mission/'+encodeURIComponent(id)+'/report?format='+format,{headers:{'x-api-key':key}});
+      if(!r.ok){historyNote.textContent='Export failed: HTTP '+r.status;return}
+      const blob=await r.blob();
+      const a=document.createElement('a');
+      a.href=URL.createObjectURL(blob);
+      a.download=id+'.'+format;
+      document.body.appendChild(a);a.click();a.remove();
+      URL.revokeObjectURL(a.href);
+    }catch(err){historyNote.textContent='Export failed: '+err.message}
+    finally{btn.disabled=false}
+  };
   </script></body></html>`;
 }
 
@@ -534,13 +733,30 @@ export default {
       });
     }
     if (request.method === 'GET' && url.pathname === '/api/swarm/health') {
-      return json({ status: 'ok', service: 'sentinel-apex-swarm-live', protocol: PROTOCOL, version: env.SWARM_VERSION || '4.44.0', agents: AGENTS.length });
+      return json({
+        status: 'ok',
+        service: 'sentinel-apex-swarm-live',
+        protocol: PROTOCOL,
+        version: env.SWARM_VERSION || '4.44.0',
+        agents: AGENTS.length,
+        // Real dependency status, not a static ack -- reflects whether
+        // mission history/evidence export can actually serve a request
+        // right now (see wrangler.toml for why this may be false today).
+        persistence: { kv_bound: Boolean(env.SWARM_MISSIONS_KV) },
+      });
     }
     if (request.method === 'POST' && url.pathname === '/api/swarm/run') {
       return handleRun(request, env, ctx);
     }
+    if (request.method === 'GET' && url.pathname === '/api/swarm/missions') {
+      return handleMissionList(request, env, url);
+    }
     if (request.method === 'GET' && url.pathname.startsWith('/api/swarm/mission/')) {
-      return handleMissionLookup(request, env, url.pathname.slice('/api/swarm/mission/'.length));
+      const rest = url.pathname.slice('/api/swarm/mission/'.length);
+      if (rest.endsWith('/report')) {
+        return handleMissionReport(request, env, rest.slice(0, -'/report'.length), url);
+      }
+      return handleMissionLookup(request, env, rest);
     }
     return json({ error: 'not_found' }, 404);
   },
@@ -561,4 +777,8 @@ export const __test = Object.freeze({
   synthesizeNarrative,
   runBackendSpecialist,
   persistMission,
+  credentialPartition,
+  getMissionRecord,
+  missionReportMarkdown,
+  MISSION_INDEX_PREFIX,
 });
