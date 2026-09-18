@@ -1,0 +1,61 @@
+# SENTINEL APEX -- Swarm Live Regression Gate
+#
+# workers/swarm-live had zero CI coverage: no workflow referenced it at all
+# (confirmed by repository audit ahead of issue #420/#422), and its own
+# package.json declared "test": "node --test src/index.test.mjs" for a file
+# that did not exist, so `npm test` there silently no-op'd -- a regression
+# in this worker's dispatch logic would never have been caught. This gate
+# runs that suite (now written) on every push/PR touching this worker, and
+# syntax-checks the source the same way its own "check" script does.
+#
+# This gate is test-only. It does not deploy workers/swarm-live -- that
+# remains a deliberate separate decision (the worker is not yet live; see
+# workers/swarm-live/wrangler.toml for the routes it would claim).
+#
+# Runs on every push and PR to main that touches this worker.
+
+name: Swarm Live Regression Gate
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'workers/swarm-live/**'
+      - '.github/workflows/swarm-live-regression-gate.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'workers/swarm-live/**'
+      - '.github/workflows/swarm-live-regression-gate.yml'
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: swarm-live-regression-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  swarm-live-tests:
+    name: "workers/swarm-live -- syntax check + node --test"
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: workers/swarm-live
+
+    steps:
+      - name: " Checkout repository"
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: " Setup Node.js 22"
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '22'
+
+      - name: "Syntax check (npm run check)"
+        run: npm run check
+
+      - name: "Run swarm-live regression suite (npm test)"
+        run: npm test
