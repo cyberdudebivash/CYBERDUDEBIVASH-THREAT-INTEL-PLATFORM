@@ -7,6 +7,13 @@ const MISSION_INDEX_PREFIX = 'sentinel-mission-idx:';
 // Far enough out (year 2286) to stay positive for any real Date.now(), used
 // only to invert timestamps into a lexicographically-descending sort key.
 const INDEX_TS_CEILING = 9999999999999;
+const IDEMPOTENCY_PREFIX = 'sentinel-idem:';
+// Self-healing window for an in-flight idempotency lock: if a mission's
+// own `finally` block is somehow never reached (worker eviction between
+// the lock write and executeMission's completion), the caller's next
+// retry after this window is treated as a fresh mission rather than
+// wedged behind a stale 409 for the full 30-day mission retention period.
+const IDEMPOTENCY_LOCK_TTL_SECONDS = 600;
 
 const AGENTS = Object.freeze([
   ['ioc-hunter', 'IOC Hunter', 'ioc.correlation'],
@@ -143,9 +150,13 @@ function responseSnippet(body) {
 // tier-denied response becomes an honest DENIED agent state, not a fake
 // COMPLETED one.
 async function runBackendSpecialist(canonicalBase, auth, correlationId, correlation, route) {
+  // Real, measured latency of this specialist's own backend call -- not an
+  // estimate. The 'derived' no-op path below makes no call at all, so it
+  // honestly reports ~0ms rather than a fabricated figure.
+  const t0 = Date.now();
   const value = route.pick(correlation);
   if (!value) {
-    return { basis: 'derived', state: 'COMPLETED', result: { note: `Skipped live query: ${route.emptyReason}.` } };
+    return { basis: 'derived', state: 'COMPLETED', result: { note: `Skipped live query: ${route.emptyReason}.` }, duration_ms: Date.now() - t0 };
   }
 
   const headers = new Headers(auth);
@@ -164,6 +175,7 @@ async function runBackendSpecialist(canonicalBase, auth, correlationId, correlat
       result: null,
       queried: { [route.paramKey]: value },
       detail: { error: 'specialist_transport_failed', message: String(error?.message || error).slice(0, 240) },
+      duration_ms: Date.now() - t0,
     };
   }
 
@@ -171,7 +183,7 @@ async function runBackendSpecialist(canonicalBase, auth, correlationId, correlat
   try { body = await resp.json(); } catch { /* handled by the ok-check below */ }
 
   if (resp.ok && body && body.status === 'ok') {
-    return { basis: 'backend_execution', state: 'COMPLETED', result: body.data, queried: { [route.paramKey]: value } };
+    return { basis: 'backend_execution', state: 'COMPLETED', result: body.data, queried: { [route.paramKey]: value }, duration_ms: Date.now() - t0 };
   }
 
   const state = resp.status === 401 || resp.status === 403 ? 'DENIED' : 'FAILED';
@@ -182,6 +194,7 @@ async function runBackendSpecialist(canonicalBase, auth, correlationId, correlat
     queried: { [route.paramKey]: value },
     http_status: resp.status,
     detail: responseSnippet(body),
+    duration_ms: Date.now() - t0,
   };
 }
 
@@ -318,12 +331,43 @@ async function persistMission(env, record, partition) {
   } catch { /* same best-effort discipline as the primary record write */ }
 }
 
-async function executeMission({ writer, request, env, body, correlationId, missionId, executionId }) {
+// Idempotency guard: keyed by (credential partition, caller-supplied
+// x-request-id) so a retried request with the same header never dispatches
+// a second real mission. This is a storage-level guard, not a live-stream
+// reattachment -- a stateless Worker invocation has no way to hand a second
+// client the same in-flight TransformStream as the first (that would need
+// a Durable Object, a real architectural change out of scope for this fix;
+// see the PR description). A retry while the original is still RUNNING
+// therefore gets an honest 409 pointing at the mission_id to poll, and a
+// retry after completion gets the same persisted record replayed verbatim
+// -- never a second, duplicate downstream dispatch.
+async function getIdempotencyPointer(env, partition, correlationId) {
+  if (!env.SWARM_MISSIONS_KV || !partition) return null;
+  try {
+    const raw = await env.SWARM_MISSIONS_KV.get(`${IDEMPOTENCY_PREFIX}${partition}:${correlationId}`);
+    return raw ? JSON.parse(raw) : null;
+  } catch { return null; }
+}
+
+async function setIdempotencyPointer(env, partition, correlationId, missionId, status) {
+  if (!env.SWARM_MISSIONS_KV || !partition) return;
+  const terminal = status !== 'RUNNING';
+  try {
+    await env.SWARM_MISSIONS_KV.put(
+      `${IDEMPOTENCY_PREFIX}${partition}:${correlationId}`,
+      JSON.stringify({ mission_id: missionId, status }),
+      { expirationTtl: terminal ? MISSION_TTL_SECONDS : IDEMPOTENCY_LOCK_TTL_SECONDS }
+    );
+  } catch { /* best-effort, same discipline as persistMission */ }
+}
+
+async function executeMission({ writer, request, env, body, correlationId, missionId, executionId, idempotencyKeySupplied }) {
   const encoder = new TextEncoder();
   const makeEvent = eventFactory({ missionId, executionId, correlationId });
   const canonicalBase = env.CANONICAL_BASE_URL || 'https://intel.cyberdudebivash.com';
   const auth = authHeaders(request);
   const partition = await credentialPartition(auth);
+  const missionStartedMs = Date.now();
   const startedAt = new Date().toISOString();
   const queued = AGENTS.filter((a) => a.id !== 'risk-synthesizer' && a.id !== 'ioc-hunter');
   const iocHunter = AGENTS.find((a) => a.id === 'ioc-hunter');
@@ -339,9 +383,11 @@ async function executeMission({ writer, request, env, body, correlationId, missi
       status,
       started_at: startedAt,
       finished_at: new Date().toISOString(),
+      duration_ms: Date.now() - missionStartedMs,
       ioc: { ioc_value: body.ioc_value, ioc_type: body.ioc_type || 'auto' },
       ...extra,
     }, partition);
+    if (idempotencyKeySupplied) await setIdempotencyPointer(env, partition, correlationId, missionId, status);
   };
 
   try {
@@ -365,11 +411,13 @@ async function executeMission({ writer, request, env, body, correlationId, missi
     correlateHeaders.set('content-type', 'application/json');
     correlateHeaders.set('x-request-id', correlationId);
 
+    const iocHunterT0 = Date.now();
     const canonicalResponse = await fetch(`${canonicalBase}/api/intel/correlate`, {
       method: 'POST',
       headers: correlateHeaders,
       body: JSON.stringify({ ioc_value: body.ioc_value, ioc_type: body.ioc_type || 'auto' }),
     });
+    const iocHunterDurationMs = Date.now() - iocHunterT0;
 
     const canonicalText = await canonicalResponse.text();
     let canonical = null;
@@ -387,6 +435,7 @@ async function executeMission({ writer, request, env, body, correlationId, missi
         canonical_status: canonicalResponse.status,
         mesh_certified: meshCertified,
         canonical_error: responseSnippet(canonical),
+        duration_ms: iocHunterDurationMs,
       }));
       await emit(writer, encoder, makeEvent(state, null, {
         event_type: 'mission.rejected',
@@ -398,11 +447,12 @@ async function executeMission({ writer, request, env, body, correlationId, missi
       return;
     }
 
-    const iocHunterOutcome = { basis: 'backend_execution', state: 'COMPLETED', result: iocHunterResult(canonical) };
+    const iocHunterOutcome = { basis: 'backend_execution', state: 'COMPLETED', result: iocHunterResult(canonical), duration_ms: iocHunterDurationMs };
     await emit(writer, encoder, makeEvent('COMPLETED', iocHunter, {
       event_type: 'agent.completed',
       basis: 'backend_execution',
       result: iocHunterOutcome.result,
+      duration_ms: iocHunterDurationMs,
     }));
 
     await emit(writer, encoder, makeEvent('ADMITTED', null, {
@@ -434,6 +484,7 @@ async function executeMission({ writer, request, env, body, correlationId, missi
         result: outcome.result,
         queried: outcome.queried || undefined,
         detail: outcome.detail || undefined,
+        duration_ms: outcome.duration_ms ?? null,
       }));
       return outcome;
     });
@@ -446,6 +497,7 @@ async function executeMission({ writer, request, env, body, correlationId, missi
       inputs: queued.map((a) => a.id),
     }));
 
+    const synthesizerT0 = Date.now();
     const fused = fuseRiskSynthesis(canonical, outcomes);
     const narrative = await synthesizeNarrative(canonicalBase, auth, correlationId, canonical, outcomes);
     if (narrative) {
@@ -455,12 +507,14 @@ async function executeMission({ writer, request, env, body, correlationId, missi
     } else {
       fused.llm_enhanced = false;
     }
-    outcomes['risk-synthesizer'] = { basis: 'fusion', state: 'COMPLETED', result: fused };
+    const synthesizerDurationMs = Date.now() - synthesizerT0;
+    outcomes['risk-synthesizer'] = { basis: 'fusion', state: 'COMPLETED', result: fused, duration_ms: synthesizerDurationMs };
 
     await emit(writer, encoder, makeEvent('COMPLETED', synthesizer, {
       event_type: 'agent.completed',
       basis: 'fusion',
       result: fused,
+      duration_ms: synthesizerDurationMs,
     }));
 
     await emit(writer, encoder, makeEvent('COMPLETED', null, {
@@ -476,7 +530,7 @@ async function executeMission({ writer, request, env, body, correlationId, missi
       mesh_execution_id: meshExecutionId,
       verdict: fused.verdict,
       specialists: Object.fromEntries(
-        Object.entries(outcomes).map(([id, o]) => [id, { basis: o.basis, state: o.state, result: o.result ?? null }])
+        Object.entries(outcomes).map(([id, o]) => [id, { basis: o.basis, state: o.state, result: o.result ?? null, duration_ms: o.duration_ms ?? null }])
       ),
     });
   } catch (error) {
@@ -514,12 +568,45 @@ async function handleRun(request, env, ctx) {
   body.ioc_type = String(body.ioc_type || 'auto').trim().slice(0, 32) || 'auto';
 
   const correlationId = safeRequestId(request);
+  // Idempotency only applies when the CALLER supplied their own stable
+  // request id -- an auto-generated fallback is unique to this call by
+  // construction and can never collide with a genuine retry, so it would
+  // never match anything in the guard below anyway. Checking this first
+  // also skips a wasted KV read on the common (non-retry) case.
+  const idempotencyKeySupplied = ID_RE.test(request.headers.get('x-request-id') || '');
+  const partition = idempotencyKeySupplied ? await credentialPartition(auth) : null;
+
+  if (idempotencyKeySupplied) {
+    const pointer = await getIdempotencyPointer(env, partition, correlationId);
+    if (pointer) {
+      if (pointer.status === 'RUNNING') {
+        return json({
+          error: 'mission_in_progress',
+          mission_id: pointer.mission_id,
+          message: 'An identical request (same x-request-id) is already running. Poll GET /api/swarm/mission/:id or retry once it completes.',
+        }, 409);
+      }
+      // Terminal: replay the same persisted record rather than dispatching
+      // a second real mission. If the pointer somehow outlived its record
+      // (edge case, not the normal TTL-aligned path), fall through and
+      // start a fresh mission instead of erroring the caller out.
+      const existing = await getMissionRecord(env, pointer.mission_id);
+      if (existing.status === 200) {
+        return json({ status: 'ok', idempotent_replay: true, data: existing.record });
+      }
+    }
+  }
+
   const missionId = `sentinel-mission-${crypto.randomUUID()}`;
   const executionId = `sentinel-swarm-${crypto.randomUUID()}`;
   const stream = new TransformStream();
   const writer = stream.writable.getWriter();
 
-  ctx.waitUntil(executeMission({ writer, request, env, body, correlationId, missionId, executionId }));
+  if (idempotencyKeySupplied) {
+    await setIdempotencyPointer(env, partition, correlationId, missionId, 'RUNNING');
+  }
+
+  ctx.waitUntil(executeMission({ writer, request, env, body, correlationId, missionId, executionId, idempotencyKeySupplied }));
 
   return new Response(stream.readable, {
     status: 200,
@@ -632,10 +719,107 @@ function missionReportMarkdown(record) {
   return lines.join('\n');
 }
 
+// STIX 2.1 export -- mirrors the canonical bundle conventions this platform
+// already established in workers/intel-gateway/src/routes/exports.js
+// (stixObjectId's `{type}--{UUID}` id format, spec_version 2.1, x_sentinel_*
+// custom properties, application/stix+json;version=2.1 content type). This
+// worker is a separately deployed Cloudflare Worker with no shared module
+// graph with intel-gateway -- its functions can't be imported directly --
+// so this mirrors that file's shape deliberately rather than inventing a
+// divergent STIX dialect, matching this file's existing convention of
+// reusing established shapes across the worker boundary in spirit even
+// where direct code reuse isn't architecturally possible.
+const STIX_CONTENT_TYPE = 'application/stix+json;version=2.1';
+
+function stixObjectId(type) {
+  return `${type}--${crypto.randomUUID()}`;
+}
+
+// Same escaping discipline as exports.js's liveIndicatorToStixPattern.
+// Resolves the observable type deterministically from the real submitted
+// value/type rather than trusting an unhelpful 'auto' label -- an honest
+// classification of real input, not a fabricated one.
+function detectStixObservableType(iocValue, iocType) {
+  const v = String(iocValue);
+  if (iocType === 'ipv4' || /^(\d{1,3}\.){3}\d{1,3}$/.test(v)) return 'ipv4';
+  if (iocType === 'ipv6' || (v.includes(':') && /^[0-9a-fA-F:]{3,}$/.test(v))) return 'ipv6';
+  if (iocType === 'url' || /^https?:\/\//i.test(v)) return 'url';
+  if (iocType === 'hash' || /^[0-9a-fA-F]{32}$|^[0-9a-fA-F]{40}$|^[0-9a-fA-F]{64}$/.test(v)) return 'hash';
+  if (iocType === 'domain' || /^[a-z0-9.-]+\.[a-z]{2,}$/i.test(v)) return 'domain';
+  return 'unknown';
+}
+
+function hashAlgoFor(value) {
+  const len = String(value).length;
+  if (len === 32) return 'MD5';
+  if (len === 40) return 'SHA-1';
+  return 'SHA-256';
+}
+
+function missionIocToStixPattern(iocValue, iocType) {
+  const escaped = String(iocValue).replace(/['"\\]/g, '');
+  switch (detectStixObservableType(iocValue, iocType)) {
+    case 'ipv4': return `[ipv4-addr:value = '${escaped}']`;
+    case 'ipv6': return `[ipv6-addr:value = '${escaped}']`;
+    case 'domain': return `[domain-name:value = '${escaped}']`;
+    case 'url': return `[url:value = '${escaped}']`;
+    case 'hash': return `[file:hashes.'${hashAlgoFor(escaped)}' = '${escaped}']`;
+    // A custom x- SCO rather than silently mislabeling an unrecognized
+    // value as e.g. a domain -- honest about what wasn't determined.
+    default: return `[x-sentinel:value = '${escaped}']`;
+  }
+}
+
+// Renders the mission's real, already-persisted evidence as a STIX 2.1
+// Bundle: one Indicator for the mission's IOC, one Note per agent carrying
+// that agent's own real basis/state/result as its content. No new data
+// model -- same source record as the Markdown/JSON exports.
+function missionToStixBundle(record) {
+  const nowIso = new Date().toISOString();
+  const iocValue = record.ioc?.ioc_value || '';
+  const iocType = record.ioc?.ioc_type || 'auto';
+  const created = record.started_at || nowIso;
+  const modified = record.finished_at || created;
+
+  const indicatorId = stixObjectId('indicator');
+  const indicator = {
+    type: 'indicator', spec_version: '2.1', id: indicatorId,
+    created, modified,
+    name: `SENTINEL APEX SUPER AGENT SWARM: ${iocValue}`,
+    indicator_types: [
+      record.verdict === 'malicious' ? 'malicious-activity'
+        : record.verdict === 'suspicious' ? 'anomalous-activity'
+        : 'unknown',
+    ],
+    pattern: missionIocToStixPattern(iocValue, iocType),
+    pattern_type: 'stix',
+    valid_from: created,
+    custom_properties: {
+      x_sentinel_mission_id: record.mission_id,
+      x_sentinel_execution_id: record.execution_id || null,
+      x_sentinel_correlation_id: record.correlation_id || null,
+      x_sentinel_verdict: record.verdict || null,
+      x_sentinel_mesh_certified: Boolean(record.mesh_certified),
+    },
+  };
+
+  const specialists = record.specialists || {};
+  const notes = Object.entries(specialists).map(([agentId, o]) => ({
+    type: 'note', spec_version: '2.1', id: stixObjectId('note'),
+    created: modified, modified,
+    abstract: `SENTINEL APEX ${agentId} -- ${o.state || 'UNKNOWN'}`,
+    content: JSON.stringify({ basis: o.basis ?? null, state: o.state ?? null, result: o.result ?? null }, null, 2),
+    object_refs: [indicatorId],
+    custom_properties: { x_sentinel_agent_id: agentId, x_sentinel_agent_state: o.state ?? null, x_sentinel_agent_basis: o.basis ?? null },
+  }));
+
+  return { type: 'bundle', id: stixObjectId('bundle'), spec_version: '2.1', objects: [indicator, ...notes] };
+}
+
 // GET /api/swarm/mission/:id/report -- an exportable, downloadable evidence
-// report for one mission. ?format=json for the raw persisted record as a
-// downloadable attachment (same shape /api/swarm/mission/:id already
-// returns inline); default is a Markdown transcript.
+// report for one mission. ?format=json for the raw persisted record, or
+// ?format=stix21 for a STIX 2.1 Bundle ready for SIEM/SOAR/TIP ingestion,
+// both as downloadable attachments; default is a Markdown transcript.
 async function handleMissionReport(request, env, missionId, url) {
   if (!ID_RE.test(missionId)) return json({ error: 'invalid_mission_id' }, 400);
   if (!hasAuth(authHeaders(request))) {
@@ -648,6 +832,17 @@ async function handleMissionReport(request, env, missionId, url) {
   if (format === 'json') {
     return json({ status: 'ok', data: result.record }, 200, {
       'content-disposition': `attachment; filename="${missionId}.json"`,
+    });
+  }
+  if (format === 'stix21' || format === 'stix') {
+    return new Response(JSON.stringify(missionToStixBundle(result.record), null, 2), {
+      status: 200,
+      headers: {
+        'content-type': STIX_CONTENT_TYPE,
+        'cache-control': 'no-store',
+        'content-disposition': `attachment; filename="${missionId}.stix21.json"`,
+        'x-content-type-options': 'nosniff',
+      },
     });
   }
 
@@ -691,7 +886,7 @@ function ui() {
       if(!missions.length){historyNote.textContent='No missions found yet for this key.';historyBody.innerHTML='';return}
       historyNote.textContent=missions.length+' mission(s)'+((body.data&&body.data.list_complete)?'':' (more available)');
       historyBody.innerHTML='<table><thead><tr><th>Finished</th><th>IOC</th><th>Verdict</th><th>Status</th><th>Evidence</th></tr></thead><tbody>'+missions.map(m=>
-        '<tr><td>'+escHtml(m.finished_at||'—')+'</td><td>'+escHtml(m.ioc_value||'—')+'</td><td>'+escHtml(m.verdict||'—')+'</td><td>'+escHtml(m.status||'—')+'</td><td><button class="dl" data-id="'+escHtml(m.mission_id)+'" data-format="md">report</button> <button class="dl" data-id="'+escHtml(m.mission_id)+'" data-format="json">json</button></td></tr>'
+        '<tr><td>'+escHtml(m.finished_at||'—')+'</td><td>'+escHtml(m.ioc_value||'—')+'</td><td>'+escHtml(m.verdict||'—')+'</td><td>'+escHtml(m.status||'—')+'</td><td><button class="dl" data-id="'+escHtml(m.mission_id)+'" data-format="md">report</button> <button class="dl" data-id="'+escHtml(m.mission_id)+'" data-format="json">json</button> <button class="dl" data-id="'+escHtml(m.mission_id)+'" data-format="stix21">stix</button></td></tr>'
       ).join('')+'</tbody></table>';
     }catch(e){historyNote.textContent='History request failed: '+e.message}
     finally{loadHistoryBtn.disabled=false}
@@ -705,10 +900,11 @@ function ui() {
     try{
       const r=await fetch('/api/swarm/mission/'+encodeURIComponent(id)+'/report?format='+format,{headers:{'x-api-key':key}});
       if(!r.ok){historyNote.textContent='Export failed: HTTP '+r.status;return}
+      const cd=r.headers.get('content-disposition')||'',m=cd.match(/filename="([^"]+)"/);
       const blob=await r.blob();
       const a=document.createElement('a');
       a.href=URL.createObjectURL(blob);
-      a.download=id+'.'+format;
+      a.download=m?m[1]:(id+'.'+format);
       document.body.appendChild(a);a.click();a.remove();
       URL.revokeObjectURL(a.href);
     }catch(err){historyNote.textContent='Export failed: '+err.message}
@@ -743,6 +939,20 @@ export default {
         // mission history/evidence export can actually serve a request
         // right now (see wrangler.toml for why this may be false today).
         persistence: { kv_bound: Boolean(env.SWARM_MISSIONS_KV) },
+        // What this deployment can actually do, not usage numbers: per-
+        // mission timing/idempotency/export metrics live on the mission
+        // record itself (GET /api/swarm/mission/:id, .../report) where
+        // they have request context -- aggregating them here would mean
+        // either a KV scan on every health check (this platform's own
+        // performance baseline treats a health/cached endpoint as a fast
+        // path) or fabricated numbers, and this codebase's whole reason
+        // for existing is refusing exactly that trade.
+        capabilities: {
+          mission_history: true,
+          idempotent_retry: true,
+          report_formats: ['md', 'json', 'stix21'],
+          agent_timing: true,
+        },
       });
     }
     if (request.method === 'POST' && url.pathname === '/api/swarm/run') {
@@ -780,5 +990,11 @@ export const __test = Object.freeze({
   credentialPartition,
   getMissionRecord,
   missionReportMarkdown,
+  missionToStixBundle,
+  missionIocToStixPattern,
+  detectStixObservableType,
+  getIdempotencyPointer,
+  setIdempotencyPointer,
   MISSION_INDEX_PREFIX,
+  IDEMPOTENCY_PREFIX,
 });

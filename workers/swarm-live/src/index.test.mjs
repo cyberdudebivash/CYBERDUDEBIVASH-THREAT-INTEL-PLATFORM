@@ -727,3 +727,276 @@ test('end-to-end: a completed mission is immediately visible in its own caller\'
     }
   );
 });
+
+// ---------------------------------------------------------------------------
+// STIX 2.1 export.
+// ---------------------------------------------------------------------------
+
+test('detectStixObservableType: classifies real input values deterministically, never mislabels the unrecognized case', () => {
+  assert.equal(__test.detectStixObservableType('8.8.8.8', 'auto'), 'ipv4');
+  assert.equal(__test.detectStixObservableType('2001:db8::1', 'auto'), 'ipv6');
+  assert.equal(__test.detectStixObservableType('https://evil.test/x', 'auto'), 'url');
+  assert.equal(__test.detectStixObservableType('example.com', 'auto'), 'domain');
+  assert.equal(__test.detectStixObservableType('d41d8cd98f00b204e9800998ecf8427e', 'auto'), 'hash'); // 32 hex = MD5-length
+  assert.equal(__test.detectStixObservableType('da39a3ee5e6b4b0d3255bfef95601890afd80709', 'auto'), 'hash'); // 40 hex
+  assert.equal(__test.detectStixObservableType('e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855', 'auto'), 'hash'); // 64 hex
+  assert.equal(__test.detectStixObservableType('not a recognizable value!!', 'auto'), 'unknown');
+});
+
+test('missionIocToStixPattern: produces the correct SCO pattern per detected type and escapes quotes', () => {
+  assert.equal(__test.missionIocToStixPattern('8.8.8.8', 'ipv4'), "[ipv4-addr:value = '8.8.8.8']");
+  assert.equal(__test.missionIocToStixPattern('example.com', 'domain'), "[domain-name:value = 'example.com']");
+  assert.equal(__test.missionIocToStixPattern("evil'.test", 'domain'), "[domain-name:value = 'evil.test']");
+  assert.equal(
+    __test.missionIocToStixPattern('da39a3ee5e6b4b0d3255bfef95601890afd80709', 'hash'),
+    "[file:hashes.'SHA-1' = 'da39a3ee5e6b4b0d3255bfef95601890afd80709']"
+  );
+  assert.match(__test.missionIocToStixPattern('gibberish', 'auto'), /^\[x-sentinel:value = 'gibberish'\]$/);
+});
+
+test('missionToStixBundle: a valid STIX 2.1 Bundle with one Indicator and one Note per agent, correctly cross-referenced', () => {
+  const record = {
+    mission_id: 'sentinel-mission-stix1',
+    execution_id: 'sentinel-swarm-stix1',
+    correlation_id: 'corr-stix1',
+    verdict: 'malicious',
+    mesh_certified: true,
+    started_at: '2026-01-01T00:00:00.000Z',
+    finished_at: '2026-01-01T00:00:03.000Z',
+    ioc: { ioc_value: '8.8.8.8', ioc_type: 'ipv4' },
+    specialists: {
+      'ioc-hunter': { basis: 'backend_execution', state: 'COMPLETED', result: { verdict: 'malicious' } },
+      'threat-hunter': { basis: 'backend_execution', state: 'DENIED', result: null },
+    },
+  };
+  const bundle = __test.missionToStixBundle(record);
+  assert.equal(bundle.type, 'bundle');
+  assert.equal(bundle.spec_version, '2.1');
+  assert.match(bundle.id, /^bundle--[0-9a-f-]{36}$/);
+
+  const indicator = bundle.objects.find((o) => o.type === 'indicator');
+  assert.ok(indicator);
+  assert.match(indicator.id, /^indicator--[0-9a-f-]{36}$/);
+  assert.equal(indicator.spec_version, '2.1');
+  assert.equal(indicator.pattern, "[ipv4-addr:value = '8.8.8.8']");
+  assert.equal(indicator.indicator_types[0], 'malicious-activity');
+  assert.equal(indicator.custom_properties.x_sentinel_mission_id, 'sentinel-mission-stix1');
+  assert.equal(indicator.custom_properties.x_sentinel_verdict, 'malicious');
+
+  const notes = bundle.objects.filter((o) => o.type === 'note');
+  assert.equal(notes.length, 2);
+  for (const note of notes) {
+    assert.match(note.id, /^note--[0-9a-f-]{36}$/);
+    assert.deepEqual(note.object_refs, [indicator.id]);
+    assert.ok(['ioc-hunter', 'threat-hunter'].includes(note.custom_properties.x_sentinel_agent_id));
+  }
+  // Every object id in the bundle is unique -- no accidental id reuse.
+  assert.equal(new Set(bundle.objects.map((o) => o.id)).size, bundle.objects.length);
+});
+
+test('GET /api/swarm/mission/:id/report?format=stix21: serves a valid, downloadable STIX 2.1 Bundle', async () => {
+  const record = {
+    mission_id: 'sentinel-mission-stix2',
+    verdict: 'suspicious',
+    ioc: { ioc_value: 'evil.example.com', ioc_type: 'domain' },
+    specialists: { 'ioc-hunter': { basis: 'backend_execution', state: 'COMPLETED', result: {} } },
+  };
+  const kv = { async get(key) { return key === 'sentinel-mission-stix2' ? JSON.stringify(record) : null; } };
+  const res = await worker.fetch(new Request('https://x.test/api/swarm/mission/sentinel-mission-stix2/report?format=stix21', { headers: { 'x-api-key': 'k' } }), { SWARM_MISSIONS_KV: kv }, {});
+  assert.equal(res.status, 200);
+  assert.equal(res.headers.get('content-type'), 'application/stix+json;version=2.1');
+  assert.match(res.headers.get('content-disposition'), /attachment; filename="sentinel-mission-stix2\.stix21\.json"/);
+  const bundle = await res.json();
+  assert.equal(bundle.type, 'bundle');
+  assert.equal(bundle.spec_version, '2.1');
+  assert.equal(bundle.objects.find((o) => o.type === 'indicator').pattern, "[domain-name:value = 'evil.example.com']");
+});
+
+// ---------------------------------------------------------------------------
+// Idempotent retry.
+// ---------------------------------------------------------------------------
+
+test('getIdempotencyPointer / setIdempotencyPointer: round-trip and graceful no-ops', async () => {
+  assert.equal(await __test.getIdempotencyPointer({}, 'p', 'c'), null);
+  assert.equal(await __test.getIdempotencyPointer({ SWARM_MISSIONS_KV: {} }, null, 'c'), null);
+
+  const kv = makeKvMock();
+  await __test.setIdempotencyPointer({ SWARM_MISSIONS_KV: kv }, 'partA', 'req-1', 'sentinel-mission-i1', 'RUNNING');
+  const pointer = await __test.getIdempotencyPointer({ SWARM_MISSIONS_KV: kv }, 'partA', 'req-1');
+  assert.deepEqual(pointer, { mission_id: 'sentinel-mission-i1', status: 'RUNNING' });
+
+  await __test.setIdempotencyPointer({ SWARM_MISSIONS_KV: kv }, 'partA', 'req-1', 'sentinel-mission-i1', 'COMPLETED');
+  const updated = await __test.getIdempotencyPointer({ SWARM_MISSIONS_KV: kv }, 'partA', 'req-1');
+  assert.equal(updated.status, 'COMPLETED');
+});
+
+test('POST /api/swarm/run: a retry with the same x-request-id while the original mission is still RUNNING gets 409, never a duplicate dispatch', async () => {
+  const kv = makeKvMock();
+  const partition = await __test.credentialPartition(new Headers({ 'x-api-key': 'idem-customer' }));
+  await __test.setIdempotencyPointer({ SWARM_MISSIONS_KV: kv }, partition, 'retry-key-1', 'sentinel-mission-inflight', 'RUNNING');
+
+  await withStubFetch(
+    async (url) => { throw new Error(`must not dispatch a duplicate mission, but fetched: ${url}`); },
+    async () => {
+      const res = await worker.fetch(
+        new Request('https://x.test/api/swarm/run', {
+          method: 'POST',
+          headers: { 'x-api-key': 'idem-customer', 'x-request-id': 'retry-key-1' },
+          body: JSON.stringify({ ioc_value: '8.8.8.8' }),
+        }),
+        { SWARM_MISSIONS_KV: kv },
+        { waitUntil() {} }
+      );
+      assert.equal(res.status, 409);
+      const body = await res.json();
+      assert.equal(body.error, 'mission_in_progress');
+      assert.equal(body.mission_id, 'sentinel-mission-inflight');
+    }
+  );
+});
+
+test('POST /api/swarm/run: a retry with the same x-request-id after completion replays the persisted record, never a duplicate dispatch', async () => {
+  const kv = makeKvMock();
+  const partition = await __test.credentialPartition(new Headers({ 'x-api-key': 'idem-customer-2' }));
+  const record = { mission_id: 'sentinel-mission-done', status: 'COMPLETED', verdict: 'clean' };
+  await kv.put('sentinel-mission-done', JSON.stringify(record));
+  await __test.setIdempotencyPointer({ SWARM_MISSIONS_KV: kv }, partition, 'retry-key-2', 'sentinel-mission-done', 'COMPLETED');
+
+  await withStubFetch(
+    async (url) => { throw new Error(`must not dispatch a duplicate mission, but fetched: ${url}`); },
+    async () => {
+      const res = await worker.fetch(
+        new Request('https://x.test/api/swarm/run', {
+          method: 'POST',
+          headers: { 'x-api-key': 'idem-customer-2', 'x-request-id': 'retry-key-2' },
+          body: JSON.stringify({ ioc_value: '8.8.8.8' }),
+        }),
+        { SWARM_MISSIONS_KV: kv },
+        { waitUntil() {} }
+      );
+      assert.equal(res.status, 200);
+      const body = await res.json();
+      assert.equal(body.idempotent_replay, true);
+      assert.deepEqual(body.data, record);
+    }
+  );
+});
+
+test('POST /api/swarm/run: a different credential reusing the same x-request-id is never treated as a duplicate (different partition)', async () => {
+  const kv = makeKvMock();
+  const partitionA = await __test.credentialPartition(new Headers({ 'x-api-key': 'customer-x' }));
+  await __test.setIdempotencyPointer({ SWARM_MISSIONS_KV: kv }, partitionA, 'shared-request-id', 'sentinel-mission-x', 'RUNNING');
+
+  await withStubFetch(
+    async (url) => {
+      const u = new URL(String(url));
+      if (u.pathname === '/api/intel/correlate') {
+        return jsonResponse({ status: 'ok', ioc: { value: '1.1.1.1', type: 'ipv4' }, verdict: 'clean', match_count: 0, matches: [] }, 200, {
+          'x-cdb-mesh-certified': 'true', 'x-cdb-mesh-execution': 'mesh-x', 'x-cdb-mesh-correlation': 'shared-request-id',
+        });
+      }
+      return jsonResponse({ status: 'ok', data: {} });
+    },
+    async () => {
+      let waited;
+      const res = await worker.fetch(
+        new Request('https://x.test/api/swarm/run', {
+          method: 'POST',
+          headers: { 'x-api-key': 'customer-y', 'x-request-id': 'shared-request-id' },
+          body: JSON.stringify({ ioc_value: '1.1.1.1' }),
+        }),
+        { SWARM_MISSIONS_KV: kv },
+        { waitUntil(p) { waited = p; } }
+      );
+      assert.equal(res.status, 200);
+      assert.equal(res.headers.get('content-type'), 'text/event-stream; charset=utf-8');
+      await res.body.cancel();
+      await waited;
+    }
+  );
+});
+
+test('end-to-end: an in-flight-then-completed retry cycle never dispatches the downstream correlate call twice', async () => {
+  const kv = makeKvMock();
+  const env = { CANONICAL_BASE_URL: 'https://x.test', SWARM_MISSIONS_KV: kv };
+  let correlateCalls = 0;
+
+  await withStubFetch(
+    async (url, init) => {
+      const u = new URL(String(url));
+      if (u.pathname === '/api/intel/correlate') {
+        correlateCalls++;
+        return jsonResponse(CORRELATION, 200, {
+          'x-cdb-mesh-certified': 'true',
+          'x-cdb-mesh-execution': 'mesh-idem-e2e',
+          'x-cdb-mesh-correlation': init.headers.get('x-request-id'),
+        });
+      }
+      return jsonResponse({ status: 'ok', data: {} });
+    },
+    async () => {
+      const makeReq = () => new Request('https://x.test/api/swarm/run', {
+        method: 'POST',
+        headers: { 'x-api-key': 'idem-e2e-customer', 'x-request-id': 'idem-e2e-request' },
+        body: JSON.stringify({ ioc_value: '8.8.8.8', ioc_type: 'ipv4' }),
+      });
+
+      let waited;
+      const first = await worker.fetch(makeReq(), env, { waitUntil(p) { waited = p; } });
+      // Drain the SSE stream so executeMission's finally{} (and finish())
+      // actually completes before the retry is issued.
+      const reader = first.body.getReader();
+      while (!(await reader.read()).done) { /* drain */ }
+      await waited;
+
+      const secondBeforeCompletion = correlateCalls;
+      const retry = await worker.fetch(makeReq(), env, { waitUntil() {} });
+      assert.equal(retry.status, 200);
+      const retryBody = await retry.json();
+      assert.equal(retryBody.idempotent_replay, true);
+      assert.equal(retryBody.data.status, 'COMPLETED');
+      // The retry must not have triggered a second real correlate call.
+      assert.equal(correlateCalls, secondBeforeCompletion);
+    }
+  );
+});
+
+// ---------------------------------------------------------------------------
+// Partition isolation under stress / invalid parameters.
+// ---------------------------------------------------------------------------
+
+test('GET /api/swarm/missions: limit is clamped into [1, 100] regardless of what is requested', async () => {
+  const kv = makeKvMock();
+  const part = await __test.credentialPartition(new Headers({ 'x-api-key': 'clamp-customer' }));
+  for (let i = 0; i < 5; i++) {
+    await __test.persistMission({ SWARM_MISSIONS_KV: kv }, { mission_id: `sentinel-mission-clamp-${i}`, status: 'COMPLETED' }, part);
+  }
+  const tooLow = await worker.fetch(new Request('https://x.test/api/swarm/missions?limit=0', { headers: { 'x-api-key': 'clamp-customer' } }), { SWARM_MISSIONS_KV: kv }, {});
+  assert.equal((await tooLow.json()).data.missions.length, 1);
+
+  const tooHigh = await worker.fetch(new Request('https://x.test/api/swarm/missions?limit=99999', { headers: { 'x-api-key': 'clamp-customer' } }), { SWARM_MISSIONS_KV: kv }, {});
+  assert.equal((await tooHigh.json()).data.missions.length, 5);
+
+  const negative = await worker.fetch(new Request('https://x.test/api/swarm/missions?limit=-5', { headers: { 'x-api-key': 'clamp-customer' } }), { SWARM_MISSIONS_KV: kv }, {});
+  assert.equal(negative.status, 200);
+});
+
+test('GET /api/swarm/missions: a garbage cursor never throws and never crosses into another caller\'s partition', async () => {
+  const kv = makeKvMock();
+  const partA = await __test.credentialPartition(new Headers({ 'x-api-key': 'stress-a' }));
+  const partB = await __test.credentialPartition(new Headers({ 'x-api-key': 'stress-b' }));
+  await __test.persistMission({ SWARM_MISSIONS_KV: kv }, { mission_id: 'sentinel-mission-sa', status: 'COMPLETED' }, partA);
+  await __test.persistMission({ SWARM_MISSIONS_KV: kv }, { mission_id: 'sentinel-mission-sb', status: 'COMPLETED' }, partB);
+
+  const res = await worker.fetch(new Request('https://x.test/api/swarm/missions?cursor=not-a-real-cursor%00%00', { headers: { 'x-api-key': 'stress-a' } }), { SWARM_MISSIONS_KV: kv }, {});
+  assert.equal(res.status, 200);
+  const body = await res.json();
+  for (const m of body.data.missions) assert.notEqual(m.mission_id, 'sentinel-mission-sb');
+});
+
+test('GET /api/swarm/missions: KV list() throwing degrades to a clean 500, never an unhandled rejection', async () => {
+  const kv = { async list() { throw new Error('kv unavailable'); } };
+  const res = await worker.fetch(new Request('https://x.test/api/swarm/missions', { headers: { 'x-api-key': 'k' } }), { SWARM_MISSIONS_KV: kv }, {});
+  assert.equal(res.status, 500);
+  assert.equal((await res.json()).error, 'mission_list_failed');
+});
