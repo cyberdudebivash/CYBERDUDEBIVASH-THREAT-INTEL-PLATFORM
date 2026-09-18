@@ -191,6 +191,49 @@ function fuseRiskSynthesis(correlation, outcomes) {
   };
 }
 
+// One additional real backend call per mission: asks intel-gateway to
+// generate a genuine LLM narrative over this mission's already-real
+// specialist outcomes (POST /api/v1/swarm-synthesis, reusing the same
+// callLLM provider cascade handleCopilot already uses in production -- see
+// that route's own header comment in workers/intel-gateway/src/index.js).
+// Forwards the caller's own credentials unchanged, same pattern as
+// runBackendSpecialist. Any transport failure, non-2xx, or an honest
+// "unavailable" response (FREE tier, no LLM provider configured) degrades
+// gracefully to null -- the mission's risk-synthesizer result then keeps
+// its existing deterministic-only fusion (llm_enhanced: false), the same
+// fail-closed-but-graceful discipline persistMission() already applies for
+// a missing KV binding. Never throws, never blocks or fails the mission.
+async function synthesizeNarrative(canonicalBase, auth, correlationId, correlation, outcomes) {
+  const headers = new Headers(auth);
+  headers.set('content-type', 'application/json');
+  headers.set('x-request-id', correlationId);
+
+  let resp;
+  try {
+    resp = await fetch(`${canonicalBase}/api/v1/swarm-synthesis`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        ioc_value: correlation?.ioc?.value ?? null,
+        ioc_type: correlation?.ioc?.type ?? null,
+        verdict: correlation?.verdict || 'unknown',
+        outcomes,
+      }),
+    });
+  } catch {
+    return null;
+  }
+
+  let body = null;
+  try { body = await resp.json(); } catch { /* handled by the checks below */ }
+
+  if (!resp.ok || !body || body.status !== 'success' || !body.llm_enhanced || !body.narrative) {
+    return null;
+  }
+
+  return { text: body.narrative, model: body.llm_model || null };
+}
+
 function eventFactory({ missionId, executionId, correlationId }) {
   let sequence = 0;
   return (state, agent, payload = {}) => ({
@@ -354,6 +397,14 @@ async function executeMission({ writer, request, env, body, correlationId, missi
     }));
 
     const fused = fuseRiskSynthesis(canonical, outcomes);
+    const narrative = await synthesizeNarrative(canonicalBase, auth, correlationId, canonical, outcomes);
+    if (narrative) {
+      fused.ai_narrative = narrative.text;
+      fused.llm_enhanced = true;
+      fused.llm_model = narrative.model;
+    } else {
+      fused.llm_enhanced = false;
+    }
     outcomes['risk-synthesizer'] = { basis: 'fusion', state: 'COMPLETED', result: fused };
 
     await emit(writer, encoder, makeEvent('COMPLETED', synthesizer, {
@@ -455,13 +506,14 @@ function escapeHtml(value) {
 
 function ui() {
   const agents = AGENTS.map((a) =>
-    `<article class="agent" id="agent-${escapeHtml(a.id)}"><div><strong>${escapeHtml(a.name)}</strong><small>${escapeHtml(a.capability)}</small></div><span class="state">IDLE</span><pre></pre></article>`
+    `<article class="agent" id="agent-${escapeHtml(a.id)}"><div><strong>${escapeHtml(a.name)}</strong><small>${escapeHtml(a.capability)}</small></div><span class="state">IDLE</span>${a.id === 'risk-synthesizer' ? '<p class="narrative" hidden></p>' : ''}<pre></pre></article>`
   ).join('');
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>CYBERDUDEBIVASH SENTINEL APEX — SUPER AGENT SWARM</title><style>
-  :root{color-scheme:dark;font-family:Inter,ui-sans-serif,system-ui;background:#05080d;color:#e6edf3}*{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at top,#0d2a24,#05080d 45%);min-height:100vh}.wrap{max-width:1180px;margin:auto;padding:38px 22px 80px}.brand{font-weight:800;letter-spacing:.08em;color:#72f0c2}.hero{border:1px solid #19483c;background:rgba(6,19,17,.88);border-radius:18px;padding:28px;margin:20px 0}.hero h1{font-size:clamp(28px,5vw,52px);margin:8px 0}.sub{color:#9fb8b0;max-width:850px;line-height:1.55}.form{display:grid;grid-template-columns:1fr 180px;gap:10px;margin-top:22px}.form input,.form select,.key{background:#07110f;color:#e6edf3;border:1px solid #28594d;border-radius:10px;padding:13px;font:inherit}.key{width:100%;margin-top:10px}.run{background:#37d39f;border:0;color:#03100c;font-weight:800;border-radius:10px;padding:13px 18px;cursor:pointer}.meta{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:18px 0}.meta div{background:#07110f;border:1px solid #163a31;border-radius:10px;padding:12px}.meta small,.agent small{display:block;color:#78988f;margin-top:4px}.agents{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px}.agent{min-height:155px;background:#07110f;border:1px solid #173b32;border-radius:14px;padding:16px;position:relative}.agent .state{position:absolute;right:14px;top:14px;font-size:11px;font-weight:800;border:1px solid #28594d;border-radius:999px;padding:5px 8px}.agent[data-state=RUNNING]{border-color:#e9b949}.agent[data-state=COMPLETED]{border-color:#37d39f}.agent[data-state=DENIED]{border-color:#7d8590}.agent[data-state=FAILED]{border-color:#ff6b6b}.agent pre{white-space:pre-wrap;word-break:break-word;color:#9fb8b0;font-size:11px;max-height:180px;overflow:auto;margin-top:20px}.final{margin-top:16px;border:1px solid #28594d;background:#07110f;border-radius:14px;padding:18px;white-space:pre-wrap}.truth{font-size:12px;color:#78988f;margin-top:12px}@media(max-width:700px){.form{grid-template-columns:1fr}.meta{grid-template-columns:1fr}}
+  :root{color-scheme:dark;font-family:Inter,ui-sans-serif,system-ui;background:#05080d;color:#e6edf3}*{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at top,#0d2a24,#05080d 45%);min-height:100vh}.wrap{max-width:1180px;margin:auto;padding:38px 22px 80px}.brand{font-weight:800;letter-spacing:.08em;color:#72f0c2}.hero{border:1px solid #19483c;background:rgba(6,19,17,.88);border-radius:18px;padding:28px;margin:20px 0}.hero h1{font-size:clamp(28px,5vw,52px);margin:8px 0}.sub{color:#9fb8b0;max-width:850px;line-height:1.55}.form{display:grid;grid-template-columns:1fr 180px;gap:10px;margin-top:22px}.form input,.form select,.key{background:#07110f;color:#e6edf3;border:1px solid #28594d;border-radius:10px;padding:13px;font:inherit}.key{width:100%;margin-top:10px}.run{background:#37d39f;border:0;color:#03100c;font-weight:800;border-radius:10px;padding:13px 18px;cursor:pointer}.meta{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:18px 0}.meta div{background:#07110f;border:1px solid #163a31;border-radius:10px;padding:12px}.meta small,.agent small{display:block;color:#78988f;margin-top:4px}.agents{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px}.agent{min-height:155px;background:#07110f;border:1px solid #173b32;border-radius:14px;padding:16px;position:relative}.agent .state{position:absolute;right:14px;top:14px;font-size:11px;font-weight:800;border:1px solid #28594d;border-radius:999px;padding:5px 8px}.agent[data-state=RUNNING]{border-color:#e9b949}.agent[data-state=COMPLETED]{border-color:#37d39f}.agent[data-state=DENIED]{border-color:#7d8590}.agent[data-state=FAILED]{border-color:#ff6b6b}.agent pre{white-space:pre-wrap;word-break:break-word;color:#9fb8b0;font-size:11px;max-height:180px;overflow:auto;margin-top:20px}.agent .narrative{margin-top:10px;font-size:12.5px;line-height:1.5;color:#e6edf3}.agent .narrative .badge{display:inline-block;font-size:10px;font-weight:800;letter-spacing:.04em;border-radius:999px;padding:3px 8px;margin-bottom:6px;border:1px solid #28594d;color:#78988f}.agent .narrative .badge[data-kind=ai]{color:#37d39f;border-color:#37d39f}.agent .narrative .narrative-body{display:block}.final{margin-top:16px;border:1px solid #28594d;background:#07110f;border-radius:14px;padding:18px;white-space:pre-wrap}.truth{font-size:12px;color:#78988f;margin-top:12px}@media(max-width:700px){.form{grid-template-columns:1fr}.meta{grid-template-columns:1fr}}
   </style></head><body><main class="wrap"><div class="brand">CYBERDUDEBIVASH® SENTINEL APEX™</div><section class="hero"><h1>SUPER AGENT SWARM — LIVE CTI OPERATIONS</h1><p class="sub">Launch a real paid Sentinel correlation mission. Every agent state below is emitted by its own real backend execution against the canonical Sentinel intelligence platform -- no simulated timers, random percentages, or hard-coded findings. The mission is accepted only when the canonical Sentinel route completes through the private APEX mesh.</p><input class="key" id="key" type="password" autocomplete="off" placeholder="Sentinel API key — held in memory only, never saved"><div class="form"><input id="ioc" value="8.8.8.8" aria-label="IOC"><select id="type"><option value="ipv4">IPv4</option><option value="domain">Domain</option><option value="url">URL</option><option value="hash">Hash</option><option value="auto">Auto</option></select><button class="run" id="run">RUN LIVE SWARM</button></div><p class="truth">Credential storage: none. This page does not write the API key to cookies or localStorage.</p></section><section class="meta"><div>Mission<small id="mission">—</small></div><div>Correlation<small id="correlation">—</small></div><div>Mesh Certification<small id="mesh">PENDING</small></div></section><section class="agents">${agents}</section><pre class="final" id="final">Awaiting a live mission.</pre></main><script>
   const run=document.getElementById('run'),final=document.getElementById('final');
-  function setAgent(ev){if(!ev.agent_id)return;const el=document.getElementById('agent-'+ev.agent_id);if(!el)return;el.dataset.state=ev.state;el.querySelector('.state').textContent=ev.state+(ev.basis==='unconfigured'?' · CONFIG ERROR':'');const p=el.querySelector('pre');if(ev.result)p.textContent=JSON.stringify(ev.result,null,2);else if(ev.detail)p.textContent=JSON.stringify(ev.detail,null,2)}
+  function renderNarrative(el,result){const n=el.querySelector('.narrative');if(!n)return;n.hidden=false;n.textContent='';const badge=document.createElement('span');badge.className='badge';const body=document.createElement('span');body.className='narrative-body';if(result.llm_enhanced&&result.ai_narrative){badge.dataset.kind='ai';badge.textContent='AI-SYNTHESIZED'+(result.llm_model?' · '+result.llm_model:'');body.textContent=result.ai_narrative}else{badge.dataset.kind='deterministic';badge.textContent='DETERMINISTIC FUSION';body.textContent=result.recommendation||''}n.append(badge,body)}
+  function setAgent(ev){if(!ev.agent_id)return;const el=document.getElementById('agent-'+ev.agent_id);if(!el)return;el.dataset.state=ev.state;el.querySelector('.state').textContent=ev.state+(ev.basis==='unconfigured'?' · CONFIG ERROR':'');if(ev.agent_id==='risk-synthesizer'&&ev.result)renderNarrative(el,ev.result);const p=el.querySelector('pre');if(ev.result)p.textContent=JSON.stringify(ev.result,null,2);else if(ev.detail)p.textContent=JSON.stringify(ev.detail,null,2)}
   run.onclick=async()=>{const key=document.getElementById('key').value.trim(),ioc=document.getElementById('ioc').value.trim(),type=document.getElementById('type').value;if(!key||!ioc){final.textContent='API key and IOC are required.';return}run.disabled=true;final.textContent='Connecting to live swarm…';document.getElementById('mesh').textContent='PENDING';try{const rid='ui-'+crypto.randomUUID();const r=await fetch('/api/swarm/run',{method:'POST',headers:{'content-type':'application/json','x-api-key':key,'x-request-id':rid},body:JSON.stringify({ioc_value:ioc,ioc_type:type})});if(!r.ok){final.textContent='Launch failed: HTTP '+r.status+' '+await r.text();return}const reader=r.body.getReader(),decoder=new TextDecoder();let buf='';while(true){const {value,done}=await reader.read();if(done)break;buf+=decoder.decode(value,{stream:true});let idx;while((idx=buf.indexOf('\n\n'))>=0){const chunk=buf.slice(0,idx);buf=buf.slice(idx+2);const line=chunk.split('\n').find(x=>x.startsWith('data: '));if(!line)continue;const ev=JSON.parse(line.slice(6));document.getElementById('mission').textContent=ev.mission_id;document.getElementById('correlation').textContent=ev.correlation_id;setAgent(ev);if(ev.mesh_certified)document.getElementById('mesh').textContent='CERTIFIED · '+(ev.mesh_execution_id||'');if(ev.event_type==='mission.completed')final.textContent=JSON.stringify(ev.result,null,2);if(ev.event_type==='mission.rejected'||ev.event_type==='mission.failed')final.textContent=JSON.stringify(ev,null,2)}}}}catch(e){final.textContent='Mission transport failed: '+e.message}finally{run.disabled=false}}
   </script></body></html>`;
 }
@@ -506,6 +558,7 @@ export const __test = Object.freeze({
   firstTechnique,
   iocHunterResult,
   fuseRiskSynthesis,
+  synthesizeNarrative,
   runBackendSpecialist,
   persistMission,
 });

@@ -159,6 +159,56 @@ test('runBackendSpecialist: ir-guidance and exposure routes are queried by repor
   );
 });
 
+test('synthesizeNarrative: a real llm_enhanced response returns the narrative text and model', async () => {
+  await withStubFetch(
+    async (url, init) => {
+      assert.equal(String(url), 'https://x.test/api/v1/swarm-synthesis');
+      assert.equal(init.method, 'POST');
+      const sent = JSON.parse(init.body);
+      assert.equal(sent.ioc_value, '8.8.8.8');
+      assert.equal(sent.ioc_type, 'ipv4');
+      assert.equal(sent.verdict, 'suspicious');
+      assert.ok(sent.outcomes);
+      return jsonResponse({ status: 'success', llm_enhanced: true, narrative: 'Test narrative.', llm_model: 'groq/llama-3.3-70b-versatile' });
+    },
+    async () => {
+      const result = await __test.synthesizeNarrative('https://x.test', new Headers(), CORRELATION_ID, CORRELATION, { 'ioc-hunter': { state: 'COMPLETED' } });
+      assert.deepEqual(result, { text: 'Test narrative.', model: 'groq/llama-3.3-70b-versatile' });
+    }
+  );
+});
+
+test('synthesizeNarrative: an honest llm_enhanced:false response (FREE tier / no provider) degrades to null, not a fabricated narrative', async () => {
+  await withStubFetch(
+    async () => jsonResponse({ status: 'success', llm_enhanced: false, narrative: null, tier_upgrade: 'Upgrade to PRO...' }),
+    async () => {
+      const result = await __test.synthesizeNarrative('https://x.test', new Headers(), CORRELATION_ID, CORRELATION, {});
+      assert.equal(result, null);
+    }
+  );
+});
+
+test('synthesizeNarrative: a non-2xx response degrades to null', async () => {
+  await withStubFetch(
+    async () => jsonResponse({ error: 'forbidden' }, 403),
+    async () => {
+      const result = await __test.synthesizeNarrative('https://x.test', new Headers(), CORRELATION_ID, CORRELATION, {});
+      assert.equal(result, null);
+    }
+  );
+});
+
+test('synthesizeNarrative: a transport failure degrades to null, never throws', async () => {
+  await withStubFetch(
+    async () => { throw new TypeError('network down'); },
+    async () => {
+      await assert.doesNotReject(() => __test.synthesizeNarrative('https://x.test', new Headers(), CORRELATION_ID, CORRELATION, {}));
+      const result = await __test.synthesizeNarrative('https://x.test', new Headers(), CORRELATION_ID, CORRELATION, {});
+      assert.equal(result, null);
+    }
+  );
+});
+
 test('runBackendSpecialist: a scope-denied 403 is reported as DENIED, never masked as success', async () => {
   await withStubFetch(
     async () => jsonResponse({ error: 'forbidden', reason: 'insufficient_scope', required: 'read:actors' }, 403),
@@ -254,6 +304,15 @@ test('end-to-end mission: real correlate + all 6 specialists genuinely backend-e
       if (u.pathname === '/api/search') return jsonResponse({ error: 'search_failed' }, 500);
       if (u.pathname === '/api/intel/ir-guidance') return jsonResponse({ status: 'ok', data: { report_id: 'intel--abc123', applicable: true, checklist: { containment: ['isolate host'] } } });
       if (u.pathname === '/api/intel/exposure') return jsonResponse({ status: 'ok', data: { report_id: 'intel--abc123', exposed_count: 3, total_dimensions: 8, dimensions: [] } });
+      if (u.pathname === '/api/v1/swarm-synthesis') {
+        return jsonResponse({
+          status: 'success', llm_enhanced: true,
+          narrative: 'Synthesized analyst narrative for 8.8.8.8.',
+          llm_model: 'deepseek/deepseek-chat',
+          engine: 'CDB-SwarmSynthesis v1.0 (deepseek/deepseek-chat)',
+          generated_at: new Date().toISOString(),
+        });
+      }
       throw new Error(`unexpected fetch to ${u.pathname}`);
     },
     async () => {
@@ -303,6 +362,9 @@ test('end-to-end mission: real correlate + all 6 specialists genuinely backend-e
       assert.equal(byAgentTerminal['exposure-analyst'].basis, 'backend_execution');
       assert.equal(byAgentTerminal['exposure-analyst'].state, 'COMPLETED');
       assert.equal(byAgentTerminal['risk-synthesizer'].basis, 'fusion');
+      assert.equal(byAgentTerminal['risk-synthesizer'].result.llm_enhanced, true);
+      assert.equal(byAgentTerminal['risk-synthesizer'].result.ai_narrative, 'Synthesized analyst narrative for 8.8.8.8.');
+      assert.equal(byAgentTerminal['risk-synthesizer'].result.llm_model, 'deepseek/deepseek-chat');
 
       const missionCompleted = events.find((e) => e.event_type === 'mission.completed');
       assert.ok(missionCompleted);
@@ -318,6 +380,72 @@ test('end-to-end mission: real correlate + all 6 specialists genuinely backend-e
       assert.equal(persisted.specialists['threat-hunter'].state, 'DENIED');
       assert.equal(Array.isArray(persisted.specialists), false);
       assert.deepEqual(Object.keys(persisted.specialists).sort(), __test.AGENTS.map((a) => a.id).sort());
+    }
+  );
+});
+
+test('end-to-end mission: swarm-synthesis unavailable degrades to the existing deterministic fusion, mission still completes', async () => {
+  const env = { CANONICAL_BASE_URL: 'https://x.test' };
+
+  await withStubFetch(
+    async (url, init) => {
+      const u = new URL(String(url));
+      if (u.pathname === '/api/intel/correlate') {
+        return jsonResponse(CORRELATION, 200, {
+          'x-cdb-mesh-certified': 'true',
+          'x-cdb-mesh-execution': 'mesh-exec-2',
+          'x-cdb-mesh-correlation': init.headers.get('x-request-id'),
+        });
+      }
+      if (u.pathname === '/api/v1/swarm-synthesis') {
+        return jsonResponse({ status: 'success', llm_enhanced: false, narrative: null, tier_upgrade: 'Upgrade to PRO...' });
+      }
+      // Every specialist route: a minimal genuine COMPLETED response --
+      // this test's focus is the synthesis fallback, not specialist variety
+      // (already covered by the main end-to-end test above).
+      return jsonResponse({ status: 'ok', data: {} });
+    },
+    async () => {
+      let waited;
+      const ctx = { waitUntil(p) { waited = p; } };
+      const res = await worker.fetch(
+        new Request('https://x.test/api/swarm/run', {
+          method: 'POST',
+          headers: { 'x-api-key': 'k', 'x-request-id': CORRELATION_ID },
+          body: JSON.stringify({ ioc_value: '8.8.8.8', ioc_type: 'ipv4' }),
+        }),
+        env,
+        ctx
+      );
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buf = '';
+      const events = [];
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buf += decoder.decode(value, { stream: true });
+        let idx;
+        while ((idx = buf.indexOf('\n\n')) >= 0) {
+          const chunk = buf.slice(0, idx);
+          buf = buf.slice(idx + 2);
+          const line = chunk.split('\n').find((l) => l.startsWith('data: '));
+          if (line) events.push(JSON.parse(line.slice(6)));
+        }
+      }
+      await waited;
+
+      const synthesizerCompleted = events.find((e) => e.agent_id === 'risk-synthesizer' && e.state === 'COMPLETED');
+      assert.ok(synthesizerCompleted);
+      assert.equal(synthesizerCompleted.result.llm_enhanced, false);
+      assert.equal(synthesizerCompleted.result.ai_narrative, undefined);
+      // The deterministic fields this codebase already depended on before
+      // this feature existed are still present and unchanged in shape.
+      assert.equal(synthesizerCompleted.result.basis, 'fusion');
+      assert.equal(typeof synthesizerCompleted.result.recommendation, 'string');
+
+      const missionCompleted = events.find((e) => e.event_type === 'mission.completed');
+      assert.equal(missionCompleted.result.llm_enhanced, false);
     }
   );
 });
