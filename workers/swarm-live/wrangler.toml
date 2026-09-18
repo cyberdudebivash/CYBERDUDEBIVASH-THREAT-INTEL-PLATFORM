@@ -12,3 +12,13 @@ routes = [
 CANONICAL_BASE_URL = "https://intel.cyberdudebivash.com"
 SWARM_VERSION = "4.44.0"
 SWARM_PROTOCOL = "cdb.swarm.v1"
+
+# Mission persistence (GET /api/swarm/mission/:id after the SSE stream
+# closes). Not yet provisioned -- persistMission()/handleMissionLookup()
+# in src/index.js degrade gracefully when this binding is absent, so this
+# worker still deploys and runs correctly without it. To activate:
+#   wrangler kv namespace create SWARM_MISSIONS_KV
+# then paste the returned id below and uncomment.
+# [[kv_namespaces]]
+# binding = "SWARM_MISSIONS_KV"
+# id      = "<paste real id from `wrangler kv namespace create SWARM_MISSIONS_KV` here>"
