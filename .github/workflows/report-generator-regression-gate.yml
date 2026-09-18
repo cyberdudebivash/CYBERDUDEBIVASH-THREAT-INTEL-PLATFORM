@@ -227,3 +227,29 @@ jobs:
       - name: Run git-publish silent-push-failure regression tests (P0 2026-08-26 staleness incident)
         run: |
           python -m pytest tests/test_git_publish_no_silent_push_failure.py -v --tb=short
+
+      # P0 FIX (2026-09-18, Telegram staleness-alert incident): this file
+      # existed since PR #393 (2026-09-10) and its own module docstring
+      # claims it "fails the build if any threshold here ever again
+      # provides less than 1.3x headroom" -- but a repo-wide audit while
+      # investigating a NEW staleness incident found it was never actually
+      # wired into any workflow, so that claim was never true in CI. Wired
+      # in here rather than a new workflow, matching this exact gate's own
+      # precedent one step above (test_git_publish_no_silent_push_failure.py,
+      # from the same PR #393) of reusing this always-on, unfiltered
+      # push/PR-to-main gate for check_pipeline_staleness.py's regression
+      # tests, since that script isn't scoped to reports specifically.
+      - name: "Run pipeline-staleness threshold safety-margin regression tests (P0 PR #393, now actually wired in)"
+        run: |
+          python -m pytest tests/test_pipeline_staleness_thresholds.py -v --tb=short
+
+      # P0 FIX (2026-09-18, Telegram staleness-alert incident): see
+      # scripts/check_pipeline_staleness.py's get_latest_run()/
+      # _latest_run_suffix() and automated-backup.yml's cf-data-backup job
+      # comment for the full incident -- a stale alert previously linked
+      # only to the last SUCCESSFUL run (an 8-day-old green checkmark),
+      # which made a real, ongoing failure look like a false alarm on
+      # inspection.
+      - name: Run pipeline-staleness alert diagnostics regression tests (P0 2026-09-18 staleness incident)
+        run: |
+          python -m pytest tests/test_pipeline_staleness_diagnostics.py -v --tb=short

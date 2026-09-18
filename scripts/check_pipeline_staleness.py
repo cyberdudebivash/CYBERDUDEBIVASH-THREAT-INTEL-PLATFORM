@@ -116,6 +116,47 @@ def get_last_success(workflow_file):
     }
 
 
+def get_latest_run(workflow_file):
+    """Most recent run of ANY status/conclusion -- diagnostics only, never
+    used for the staleness decision itself (get_last_success()'s
+    status=success query remains the sole source of truth for that).
+
+    P0 FIX (2026-09-18, Telegram staleness-alert incident): a stale alert
+    previously linked only to the last SUCCESSFUL run -- during the
+    automated-backup.yml incident that was an 8-day-old green checkmark,
+    which is exactly what made a real, ongoing failure (cf-data-backup
+    cancelling every day since) look like a false alarm on inspection: the
+    thing actually broken right now (the most recent run) was never shown,
+    only the last time everything was fine. Used by _latest_run_suffix()
+    below to append what's actually happening right now to every alert.
+    """
+    data = gh_get(f"/actions/workflows/{workflow_file}/runs?per_page=1")
+    if not data or not data.get("workflow_runs"):
+        return None
+    run = data["workflow_runs"][0]
+    return {
+        "status": run["status"],
+        "conclusion": run["conclusion"],
+        "updated_at": run["updated_at"],
+        "html_url": run["html_url"],
+    }
+
+
+def _latest_run_suffix(workflow_file):
+    """Best-effort diagnostic suffix for an alert message -- swallows its
+    own errors so a lookup that exists purely to make an alert more
+    readable can never itself break primary alerting."""
+    try:
+        latest = get_latest_run(workflow_file)
+    except Exception:
+        return ""
+    if not latest:
+        return ""
+    latest_age = age_hours(latest["updated_at"])
+    outcome = latest["conclusion"] or latest["status"]
+    return f" | Most recent run: {outcome} ({latest_age:.1f}h ago) - {latest['html_url']}"
+
+
 def age_hours(iso_ts):
     if not iso_ts:
         return float("inf")
@@ -155,7 +196,7 @@ def main():
 
         run = get_last_success(wf["file"])
         if not run:
-            msg = f"No successful run found for {wf['name']}"
+            msg = f"No successful run found for {wf['name']}" + _latest_run_suffix(wf["file"])
             print(f"  STALE: {msg}")
             alerts.append((wf["severity"], wf["name"], msg))
             status_lines.append(f"[{wf['severity']}] {wf['name']}: NO RUNS")
@@ -165,7 +206,10 @@ def main():
         print(f"  Last success: {run['updated_at']} ({hours_ago:.1f}h ago)")
 
         if hours_ago > threshold:
-            msg = f"Last success was {hours_ago:.1f}h ago (threshold: {threshold}h) - {run['html_url']}"
+            msg = (
+                f"Last success was {hours_ago:.1f}h ago (threshold: {threshold}h) - {run['html_url']}"
+                + _latest_run_suffix(wf["file"])
+            )
             print(f"  STALE: {msg}")
             alerts.append((wf["severity"], wf["name"], msg))
             status_lines.append(f"[{wf['severity']}] {wf['name']}: STALE ({hours_ago:.1f}h)")
