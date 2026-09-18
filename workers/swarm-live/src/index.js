@@ -24,13 +24,14 @@ const SPECIALIST_ROUTES = Object.freeze({
   'threat-hunter': Object.freeze({ path: '/api/actors', paramKey: 'actor_id', pick: firstActorTag, emptyReason: 'no attributed actor present in the correlated matches' }),
   'siem-defender': Object.freeze({ path: '/api/v1/detections', paramKey: 'intel_id', pick: firstReportId, emptyReason: 'no matched intelligence report to query detection coverage for' }),
   'attack-mapper': Object.freeze({ path: '/api/search', paramKey: 'q', pick: firstTechnique, emptyReason: 'no ATT&CK technique present in the correlated matches' }),
+  // Both now backed by real routes (GET /api/intel/ir-guidance,
+  // GET /api/intel/exposure) added specifically to close this gap -- each
+  // reuses its P23.4/P27.3 engine (_buildIRChecklist/_deriveExposure)
+  // unchanged, just shaped as JSON instead of the HTML fragment those
+  // engines render into on the report page. No more derived-only specialists.
+  'ir-playbook': Object.freeze({ path: '/api/intel/ir-guidance', paramKey: 'report_id', pick: firstReportId, emptyReason: 'no matched intelligence report to derive IR guidance from' }),
+  'exposure-analyst': Object.freeze({ path: '/api/intel/exposure', paramKey: 'report_id', pick: firstReportId, emptyReason: 'no matched intelligence report to derive exposure analysis from' }),
 });
-
-// ir-playbook and exposure-analyst have no dedicated JSON-routed backend
-// endpoint today (their P23/P27 engines only render HTML report fragments,
-// not a callable API -- see buildDerivedSpecialistResults). They stay
-// honest derived views rather than fake independent execution.
-const DERIVED_AGENT_IDS = Object.freeze(['ir-playbook', 'exposure-analyst']);
 
 function json(data, status = 200, extra = {}) {
   return new Response(JSON.stringify(data), {
@@ -169,45 +170,9 @@ function iocHunterResult(correlation) {
   };
 }
 
-// The two specialists with no dedicated JSON-routed backend endpoint today.
-// Kept honest (basis: 'derived') rather than presented as independent
-// execution -- see SPECIALIST_ROUTES / DERIVED_AGENT_IDS comments above.
-export function buildDerivedSpecialistResults(correlation) {
-  const matches = allMatches(correlation);
-  const severityCounts = matches.reduce((acc, m) => {
-    const sev = String(m?.severity || 'unknown').toLowerCase();
-    acc[sev] = (acc[sev] || 0) + 1;
-    return acc;
-  }, {});
-  const riskScores = matches.map((m) => Number(m?.risk_score || 0)).filter(Number.isFinite);
-  const maxRisk = riskScores.length ? Math.max(...riskScores) : 0;
-  const verdict = correlation?.verdict || 'unknown';
-
-  return {
-    'ir-playbook': {
-      basis: 'derived',
-      priority: verdict === 'malicious' ? 'P1' : verdict === 'suspicious' ? 'P2' : 'MONITOR',
-      actions: verdict === 'malicious'
-        ? ['contain indicator', 'hunt related observables', 'validate affected assets', 'preserve evidence']
-        : verdict === 'suspicious'
-          ? ['investigate related activity', 'enrich indicator', 'increase monitoring']
-          : ['retain for watchlist correlation'],
-      source: 'derived from the canonical Sentinel verdict (no dedicated IR backend route exists yet)',
-    },
-    'exposure-analyst': {
-      basis: 'derived',
-      max_risk_score: maxRisk,
-      severity_distribution: severityCounts,
-      affected_intelligence_records: matches.length,
-      source: 'derived from canonical Sentinel correlation matches (no dedicated exposure-analysis route exists yet)',
-    },
-  };
-}
-
 function fuseRiskSynthesis(correlation, outcomes) {
   const entries = Object.entries(outcomes);
-  const contributing = entries.filter(([, o]) => o.state === 'COMPLETED' && o.basis !== 'derived').map(([id]) => id);
-  const derived = entries.filter(([, o]) => o.basis === 'derived').map(([id]) => id);
+  const contributing = entries.filter(([, o]) => o.state === 'COMPLETED').map(([id]) => id);
   const denied = entries.filter(([, o]) => o.state === 'DENIED').map(([id]) => id);
   const failed = entries.filter(([, o]) => o.state === 'FAILED').map(([id]) => id);
   const matches = allMatches(correlation);
@@ -219,11 +184,10 @@ function fuseRiskSynthesis(correlation, outcomes) {
     max_risk_score: riskScores.length ? Math.max(...riskScores) : 0,
     match_count: matches.length,
     contributing_specialists: contributing,
-    derived_specialists: derived,
     denied_specialists: denied,
     failed_specialists: failed,
     recommendation: correlation?.recommendation || 'Review the canonical Sentinel correlation result.',
-    source: `fusion of ${contributing.length} real specialist executions (${derived.length} derived, ${denied.length} denied by scope, ${failed.length} failed)`,
+    source: `fusion of ${contributing.length} real specialist executions (${denied.length} denied by scope, ${failed.length} failed)`,
   };
 }
 
@@ -354,19 +318,21 @@ async function executeMission({ writer, request, env, body, correlationId, missi
       mesh_execution_id: meshExecutionId,
     }));
 
-    const derived = buildDerivedSpecialistResults(canonical);
     const outcomes = { 'ioc-hunter': iocHunterOutcome };
 
     const specialistTasks = queued.map(async (agent) => {
       await emit(writer, encoder, makeEvent('RUNNING', agent, {
         event_type: 'agent.started',
-        basis: SPECIALIST_ROUTES[agent.id] ? 'backend_execution' : 'derived',
-        source: SPECIALIST_ROUTES[agent.id] ? `canonical:${SPECIALIST_ROUTES[agent.id].path}` : 'derived',
+        basis: SPECIALIST_ROUTES[agent.id] ? 'backend_execution' : 'unconfigured',
+        source: SPECIALIST_ROUTES[agent.id] ? `canonical:${SPECIALIST_ROUTES[agent.id].path}` : null,
       }));
 
+      // Every current agent has a SPECIALIST_ROUTES entry; the fallback below
+      // is a fail-closed guard against a future agent being added to AGENTS
+      // without one -- it reports a config error, never a fabricated result.
       const outcome = SPECIALIST_ROUTES[agent.id]
         ? await runBackendSpecialist(canonicalBase, auth, correlationId, canonical, SPECIALIST_ROUTES[agent.id])
-        : { basis: 'derived', state: 'COMPLETED', result: derived[agent.id] };
+        : { basis: 'unconfigured', state: 'FAILED', result: null, detail: { error: 'no_backend_route_configured', agent: agent.id } };
 
       outcomes[agent.id] = outcome;
       await emit(writer, encoder, makeEvent(outcome.state, agent, {
@@ -488,15 +454,14 @@ function escapeHtml(value) {
 }
 
 function ui() {
-  const agents = AGENTS.map((a) => {
-    const derivedTag = DERIVED_AGENT_IDS.includes(a.id) ? '<small class="derived-tag">DERIVED VIEW</small>' : '';
-    return `<article class="agent" id="agent-${escapeHtml(a.id)}"><div><strong>${escapeHtml(a.name)}</strong><small>${escapeHtml(a.capability)}</small>${derivedTag}</div><span class="state">IDLE</span><pre></pre></article>`;
-  }).join('');
+  const agents = AGENTS.map((a) =>
+    `<article class="agent" id="agent-${escapeHtml(a.id)}"><div><strong>${escapeHtml(a.name)}</strong><small>${escapeHtml(a.capability)}</small></div><span class="state">IDLE</span><pre></pre></article>`
+  ).join('');
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>CYBERDUDEBIVASH SENTINEL APEX — SUPER AGENT SWARM</title><style>
-  :root{color-scheme:dark;font-family:Inter,ui-sans-serif,system-ui;background:#05080d;color:#e6edf3}*{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at top,#0d2a24,#05080d 45%);min-height:100vh}.wrap{max-width:1180px;margin:auto;padding:38px 22px 80px}.brand{font-weight:800;letter-spacing:.08em;color:#72f0c2}.hero{border:1px solid #19483c;background:rgba(6,19,17,.88);border-radius:18px;padding:28px;margin:20px 0}.hero h1{font-size:clamp(28px,5vw,52px);margin:8px 0}.sub{color:#9fb8b0;max-width:850px;line-height:1.55}.form{display:grid;grid-template-columns:1fr 180px;gap:10px;margin-top:22px}.form input,.form select,.key{background:#07110f;color:#e6edf3;border:1px solid #28594d;border-radius:10px;padding:13px;font:inherit}.key{width:100%;margin-top:10px}.run{background:#37d39f;border:0;color:#03100c;font-weight:800;border-radius:10px;padding:13px 18px;cursor:pointer}.meta{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:18px 0}.meta div{background:#07110f;border:1px solid #163a31;border-radius:10px;padding:12px}.meta small,.agent small{display:block;color:#78988f;margin-top:4px}.agents{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px}.agent{min-height:155px;background:#07110f;border:1px solid #173b32;border-radius:14px;padding:16px;position:relative}.agent .state{position:absolute;right:14px;top:14px;font-size:11px;font-weight:800;border:1px solid #28594d;border-radius:999px;padding:5px 8px}.agent[data-state=RUNNING]{border-color:#e9b949}.agent[data-state=COMPLETED]{border-color:#37d39f}.agent[data-state=DENIED]{border-color:#7d8590}.agent[data-state=FAILED]{border-color:#ff6b6b}.agent pre{white-space:pre-wrap;word-break:break-word;color:#9fb8b0;font-size:11px;max-height:180px;overflow:auto;margin-top:20px}.derived-tag{color:#e9b949!important;font-size:10px;letter-spacing:.04em}.final{margin-top:16px;border:1px solid #28594d;background:#07110f;border-radius:14px;padding:18px;white-space:pre-wrap}.truth{font-size:12px;color:#78988f;margin-top:12px}@media(max-width:700px){.form{grid-template-columns:1fr}.meta{grid-template-columns:1fr}}
-  </style></head><body><main class="wrap"><div class="brand">CYBERDUDEBIVASH® SENTINEL APEX™</div><section class="hero"><h1>SUPER AGENT SWARM — LIVE CTI OPERATIONS</h1><p class="sub">Launch a real paid Sentinel correlation mission. Agents marked DERIVED VIEW compute their result from the canonical correlation response rather than an independent backend call; every other agent state below is emitted by its own real backend execution. No simulated timers, random percentages, or hard-coded findings. The mission is accepted only when the canonical Sentinel route completes through the private APEX mesh.</p><input class="key" id="key" type="password" autocomplete="off" placeholder="Sentinel API key — held in memory only, never saved"><div class="form"><input id="ioc" value="8.8.8.8" aria-label="IOC"><select id="type"><option value="ipv4">IPv4</option><option value="domain">Domain</option><option value="url">URL</option><option value="hash">Hash</option><option value="auto">Auto</option></select><button class="run" id="run">RUN LIVE SWARM</button></div><p class="truth">Credential storage: none. This page does not write the API key to cookies or localStorage.</p></section><section class="meta"><div>Mission<small id="mission">—</small></div><div>Correlation<small id="correlation">—</small></div><div>Mesh Certification<small id="mesh">PENDING</small></div></section><section class="agents">${agents}</section><pre class="final" id="final">Awaiting a live mission.</pre></main><script>
+  :root{color-scheme:dark;font-family:Inter,ui-sans-serif,system-ui;background:#05080d;color:#e6edf3}*{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at top,#0d2a24,#05080d 45%);min-height:100vh}.wrap{max-width:1180px;margin:auto;padding:38px 22px 80px}.brand{font-weight:800;letter-spacing:.08em;color:#72f0c2}.hero{border:1px solid #19483c;background:rgba(6,19,17,.88);border-radius:18px;padding:28px;margin:20px 0}.hero h1{font-size:clamp(28px,5vw,52px);margin:8px 0}.sub{color:#9fb8b0;max-width:850px;line-height:1.55}.form{display:grid;grid-template-columns:1fr 180px;gap:10px;margin-top:22px}.form input,.form select,.key{background:#07110f;color:#e6edf3;border:1px solid #28594d;border-radius:10px;padding:13px;font:inherit}.key{width:100%;margin-top:10px}.run{background:#37d39f;border:0;color:#03100c;font-weight:800;border-radius:10px;padding:13px 18px;cursor:pointer}.meta{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:18px 0}.meta div{background:#07110f;border:1px solid #163a31;border-radius:10px;padding:12px}.meta small,.agent small{display:block;color:#78988f;margin-top:4px}.agents{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px}.agent{min-height:155px;background:#07110f;border:1px solid #173b32;border-radius:14px;padding:16px;position:relative}.agent .state{position:absolute;right:14px;top:14px;font-size:11px;font-weight:800;border:1px solid #28594d;border-radius:999px;padding:5px 8px}.agent[data-state=RUNNING]{border-color:#e9b949}.agent[data-state=COMPLETED]{border-color:#37d39f}.agent[data-state=DENIED]{border-color:#7d8590}.agent[data-state=FAILED]{border-color:#ff6b6b}.agent pre{white-space:pre-wrap;word-break:break-word;color:#9fb8b0;font-size:11px;max-height:180px;overflow:auto;margin-top:20px}.final{margin-top:16px;border:1px solid #28594d;background:#07110f;border-radius:14px;padding:18px;white-space:pre-wrap}.truth{font-size:12px;color:#78988f;margin-top:12px}@media(max-width:700px){.form{grid-template-columns:1fr}.meta{grid-template-columns:1fr}}
+  </style></head><body><main class="wrap"><div class="brand">CYBERDUDEBIVASH® SENTINEL APEX™</div><section class="hero"><h1>SUPER AGENT SWARM — LIVE CTI OPERATIONS</h1><p class="sub">Launch a real paid Sentinel correlation mission. Every agent state below is emitted by its own real backend execution against the canonical Sentinel intelligence platform -- no simulated timers, random percentages, or hard-coded findings. The mission is accepted only when the canonical Sentinel route completes through the private APEX mesh.</p><input class="key" id="key" type="password" autocomplete="off" placeholder="Sentinel API key — held in memory only, never saved"><div class="form"><input id="ioc" value="8.8.8.8" aria-label="IOC"><select id="type"><option value="ipv4">IPv4</option><option value="domain">Domain</option><option value="url">URL</option><option value="hash">Hash</option><option value="auto">Auto</option></select><button class="run" id="run">RUN LIVE SWARM</button></div><p class="truth">Credential storage: none. This page does not write the API key to cookies or localStorage.</p></section><section class="meta"><div>Mission<small id="mission">—</small></div><div>Correlation<small id="correlation">—</small></div><div>Mesh Certification<small id="mesh">PENDING</small></div></section><section class="agents">${agents}</section><pre class="final" id="final">Awaiting a live mission.</pre></main><script>
   const run=document.getElementById('run'),final=document.getElementById('final');
-  function setAgent(ev){if(!ev.agent_id)return;const el=document.getElementById('agent-'+ev.agent_id);if(!el)return;el.dataset.state=ev.state;el.querySelector('.state').textContent=ev.state+(ev.basis==='derived'?' · DERIVED':'');const p=el.querySelector('pre');if(ev.result)p.textContent=JSON.stringify(ev.result,null,2);else if(ev.detail)p.textContent=JSON.stringify(ev.detail,null,2)}
+  function setAgent(ev){if(!ev.agent_id)return;const el=document.getElementById('agent-'+ev.agent_id);if(!el)return;el.dataset.state=ev.state;el.querySelector('.state').textContent=ev.state+(ev.basis==='unconfigured'?' · CONFIG ERROR':'');const p=el.querySelector('pre');if(ev.result)p.textContent=JSON.stringify(ev.result,null,2);else if(ev.detail)p.textContent=JSON.stringify(ev.detail,null,2)}
   run.onclick=async()=>{const key=document.getElementById('key').value.trim(),ioc=document.getElementById('ioc').value.trim(),type=document.getElementById('type').value;if(!key||!ioc){final.textContent='API key and IOC are required.';return}run.disabled=true;final.textContent='Connecting to live swarm…';document.getElementById('mesh').textContent='PENDING';try{const rid='ui-'+crypto.randomUUID();const r=await fetch('/api/swarm/run',{method:'POST',headers:{'content-type':'application/json','x-api-key':key,'x-request-id':rid},body:JSON.stringify({ioc_value:ioc,ioc_type:type})});if(!r.ok){final.textContent='Launch failed: HTTP '+r.status+' '+await r.text();return}const reader=r.body.getReader(),decoder=new TextDecoder();let buf='';while(true){const {value,done}=await reader.read();if(done)break;buf+=decoder.decode(value,{stream:true});let idx;while((idx=buf.indexOf('\n\n'))>=0){const chunk=buf.slice(0,idx);buf=buf.slice(idx+2);const line=chunk.split('\n').find(x=>x.startsWith('data: '));if(!line)continue;const ev=JSON.parse(line.slice(6));document.getElementById('mission').textContent=ev.mission_id;document.getElementById('correlation').textContent=ev.correlation_id;setAgent(ev);if(ev.mesh_certified)document.getElementById('mesh').textContent='CERTIFIED · '+(ev.mesh_execution_id||'');if(ev.event_type==='mission.completed')final.textContent=JSON.stringify(ev.result,null,2);if(ev.event_type==='mission.rejected'||ev.event_type==='mission.failed')final.textContent=JSON.stringify(ev,null,2)}}}}catch(e){final.textContent='Mission transport failed: '+e.message}finally{run.disabled=false}}
   </script></body></html>`;
 }
@@ -532,7 +497,6 @@ export default {
 export const __test = Object.freeze({
   AGENTS,
   SPECIALIST_ROUTES,
-  DERIVED_AGENT_IDS,
   authHeaders,
   hasAuth,
   safeRequestId,
@@ -540,7 +504,6 @@ export const __test = Object.freeze({
   firstActorTag,
   firstReportId,
   firstTechnique,
-  buildDerivedSpecialistResults,
   iocHunterResult,
   fuseRiskSynthesis,
   runBackendSpecialist,

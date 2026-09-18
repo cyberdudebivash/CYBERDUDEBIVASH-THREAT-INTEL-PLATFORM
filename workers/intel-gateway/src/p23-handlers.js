@@ -359,7 +359,7 @@ export function buildThreatHuntingBlock(item) {
 // P23.4  -  Incident Response Package
 // -----------------------------------------------------------------------------
 
-function _buildIRChecklist(item) {
+export function _buildIRChecklist(item) {
   const severity = (item.severity || "").toUpperCase();
   const kev      = !!(item.kev_present || item.kev);
   const cve      = item.cve_id || (item.cve_ids || [])[0] || null;

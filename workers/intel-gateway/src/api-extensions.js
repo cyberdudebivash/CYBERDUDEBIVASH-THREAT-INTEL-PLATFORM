@@ -19,6 +19,8 @@
 
 import { applyTierGateV2 } from './revenue-enforcement.js';
 import { extractDetectionArtifacts, toPublicArtifact } from './detection-registry.js';
+import { _buildIRChecklist } from './p23-handlers.js';
+import { _deriveExposure } from './p27-handlers.js';
 
 // 
 // SCOPES SYSTEM
@@ -1027,6 +1029,99 @@ export async function handleCorrelate(request, env, auth, rid) {
     });
   } catch (e) {
     return extJson({ error: "correlate_failed", message: e.message, request_id: rid }, 500);
+  }
+}
+
+// =============================================================================
+// ENDPOINT: GET /api/intel/ir-guidance?report_id=<id>
+// Incident-response guidance for one previously-correlated report. Reuses
+// P23.4's exact checklist derivation (_buildIRChecklist) unchanged -- this
+// route only resolves the item and shapes the response as JSON instead of
+// the HTML fragment buildIRPackageBlock renders it into on the report page.
+// Scope: read:intel (same as /api/intel/correlate -- this is a detail view
+// of a correlate match, not a separate product surface).
+// =============================================================================
+export async function handleIRGuidance(request, env, auth, rid) {
+  const scopeErr = enforceScopeMiddleware(auth, "read:intel", rid);
+  if (scopeErr) return scopeErr;
+
+  const url = new URL(request.url);
+  const reportId = sanitizeParam(url.searchParams.get("report_id") || "", 128);
+  if (!reportId) {
+    return extJson({ error: "report_id_required", message: "Provide the report_id from a prior /api/intel/correlate match.", request_id: rid }, 400);
+  }
+
+  try {
+    const index = await fetchReportsIndexExt(env);
+    if (!index?.reports?.length) return extJson({ error: "feed_unavailable" }, 503);
+
+    const item = index.reports.find((r) => (r.stix_id || r.id) === reportId);
+    if (!item) return extJson({ error: "report_not_found", request_id: rid }, 404);
+
+    const severity = String(item.severity || "UNKNOWN").toUpperCase();
+    const kev = !!(item.kev_present || item.kev);
+    const cvss = parseFloat(item.cvss_score || item.cvss || 0);
+    // Same threshold buildIRPackageBlock itself gates on -- IR guidance is
+    // only meaningful for HIGH/CRITICAL/KEV-flagged findings.
+    const applicable = cvss >= 4 || kev || /HIGH|CRITICAL/.test(severity);
+
+    return extJson({
+      status: "ok",
+      data: {
+        report_id: reportId,
+        severity,
+        kev,
+        applicable,
+        checklist: applicable ? _buildIRChecklist(item) : null,
+        note: applicable ? null : "IR guidance is generated for HIGH/CRITICAL/KEV-flagged findings; this report did not meet that threshold.",
+      },
+      request_id: rid,
+    });
+  } catch (e) {
+    return extJson({ error: "ir_guidance_failed", message: e.message, request_id: rid }, 500);
+  }
+}
+
+// =============================================================================
+// ENDPOINT: GET /api/intel/exposure?report_id=<id>
+// Enterprise exposure-surface analysis for one previously-correlated report.
+// Reuses P27.3's exact dimension derivation (_deriveExposure) unchanged --
+// this route only resolves the item and shapes the response as JSON instead
+// of the HTML fragment buildP27ExposureAnalysisBlock renders it into.
+// Scope: read:intel (same as /api/intel/correlate, same reasoning as above).
+// =============================================================================
+export async function handleExposureAnalysis(request, env, auth, rid) {
+  const scopeErr = enforceScopeMiddleware(auth, "read:intel", rid);
+  if (scopeErr) return scopeErr;
+
+  const url = new URL(request.url);
+  const reportId = sanitizeParam(url.searchParams.get("report_id") || "", 128);
+  if (!reportId) {
+    return extJson({ error: "report_id_required", message: "Provide the report_id from a prior /api/intel/correlate match.", request_id: rid }, 400);
+  }
+
+  try {
+    const index = await fetchReportsIndexExt(env);
+    if (!index?.reports?.length) return extJson({ error: "feed_unavailable" }, 503);
+
+    const item = index.reports.find((r) => (r.stix_id || r.id) === reportId);
+    if (!item) return extJson({ error: "report_not_found", request_id: rid }, 404);
+
+    const { dims, exposed, criticalDims } = _deriveExposure(item);
+    return extJson({
+      status: "ok",
+      data: {
+        report_id: reportId,
+        attack_vector: String(item.attack_vector || "UNKNOWN").toUpperCase(),
+        exposed_count: exposed.length,
+        total_dimensions: dims.length,
+        critical_count: criticalDims.length,
+        dimensions: dims,
+      },
+      request_id: rid,
+    });
+  } catch (e) {
+    return extJson({ error: "exposure_analysis_failed", message: e.message, request_id: rid }, 500);
   }
 }
 

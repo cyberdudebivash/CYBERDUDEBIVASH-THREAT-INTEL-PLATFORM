@@ -71,41 +71,31 @@ test('safeRequestId accepts a well-formed caller id, rejects and replaces a malf
   assert.match(__test.safeRequestId(bad), /^sentinel-swarm-/);
 });
 
-test('buildDerivedSpecialistResults: malicious verdict yields P1 containment actions', () => {
-  const result = __test.buildDerivedSpecialistResults({ ...CORRELATION, verdict: 'malicious' });
-  assert.equal(result['ir-playbook'].basis, 'derived');
-  assert.equal(result['ir-playbook'].priority, 'P1');
-  assert.ok(result['ir-playbook'].actions.includes('contain indicator'));
-  assert.equal(result['exposure-analyst'].basis, 'derived');
-  assert.equal(result['exposure-analyst'].max_risk_score, 8.4);
-  assert.equal(result['exposure-analyst'].severity_distribution.high, 1);
-});
-
-test('buildDerivedSpecialistResults: clean verdict yields MONITOR priority, no findings inflate risk', () => {
-  const clean = { verdict: 'clean', matches: [] };
-  const result = __test.buildDerivedSpecialistResults(clean);
-  assert.equal(result['ir-playbook'].priority, 'MONITOR');
-  assert.equal(result['exposure-analyst'].max_risk_score, 0);
-  assert.equal(result['exposure-analyst'].affected_intelligence_records, 0);
-});
-
-test('fuseRiskSynthesis classifies contributing vs derived vs denied vs failed specialists', () => {
+test('fuseRiskSynthesis classifies contributing vs denied vs failed specialists', () => {
   const outcomes = {
     'ioc-hunter': { basis: 'backend_execution', state: 'COMPLETED' },
     'cve-intelligence': { basis: 'backend_execution', state: 'COMPLETED' },
     'threat-hunter': { basis: 'backend_execution', state: 'DENIED' },
     'attack-mapper': { basis: 'backend_execution', state: 'FAILED' },
     'siem-defender': { basis: 'backend_execution', state: 'COMPLETED' },
-    'ir-playbook': { basis: 'derived', state: 'COMPLETED' },
-    'exposure-analyst': { basis: 'derived', state: 'COMPLETED' },
+    'ir-playbook': { basis: 'backend_execution', state: 'COMPLETED' },
+    'exposure-analyst': { basis: 'backend_execution', state: 'COMPLETED' },
   };
   const fused = __test.fuseRiskSynthesis(CORRELATION, outcomes);
   assert.equal(fused.basis, 'fusion');
-  assert.deepEqual(fused.contributing_specialists.sort(), ['cve-intelligence', 'ioc-hunter', 'siem-defender']);
-  assert.deepEqual(fused.derived_specialists.sort(), ['exposure-analyst', 'ir-playbook']);
+  assert.deepEqual(fused.contributing_specialists.sort(), ['cve-intelligence', 'exposure-analyst', 'ioc-hunter', 'ir-playbook', 'siem-defender']);
   assert.deepEqual(fused.denied_specialists, ['threat-hunter']);
   assert.deepEqual(fused.failed_specialists, ['attack-mapper']);
   assert.equal(fused.max_risk_score, 8.4);
+});
+
+test('fuseRiskSynthesis: an unconfigured specialist (missing SPECIALIST_ROUTES entry) surfaces as failed, never silently dropped', () => {
+  const outcomes = {
+    'ioc-hunter': { basis: 'backend_execution', state: 'COMPLETED' },
+    'cve-intelligence': { basis: 'unconfigured', state: 'FAILED' },
+  };
+  const fused = __test.fuseRiskSynthesis(CORRELATION, outcomes);
+  assert.deepEqual(fused.failed_specialists, ['cve-intelligence']);
 });
 
 test('runBackendSpecialist: skips the live call and returns a derived no-op when there is nothing to query', async () => {
@@ -131,6 +121,40 @@ test('runBackendSpecialist: a real 2xx response is reported as genuine backend e
       assert.equal(outcome.basis, 'backend_execution');
       assert.equal(outcome.state, 'COMPLETED');
       assert.equal(outcome.result.cves[0].kev, true);
+    }
+  );
+});
+
+test('SPECIALIST_ROUTES: ir-playbook and exposure-analyst resolve to the new report_id-keyed routes', () => {
+  assert.deepEqual(
+    { path: __test.SPECIALIST_ROUTES['ir-playbook'].path, paramKey: __test.SPECIALIST_ROUTES['ir-playbook'].paramKey },
+    { path: '/api/intel/ir-guidance', paramKey: 'report_id' }
+  );
+  assert.deepEqual(
+    { path: __test.SPECIALIST_ROUTES['exposure-analyst'].path, paramKey: __test.SPECIALIST_ROUTES['exposure-analyst'].paramKey },
+    { path: '/api/intel/exposure', paramKey: 'report_id' }
+  );
+  // Every non-synthesizer, non-ioc-hunter agent must have a route -- this is
+  // exactly the invariant that keeps executeMission's 'unconfigured'
+  // fail-closed branch unreachable in practice.
+  for (const agent of __test.AGENTS) {
+    if (agent.id === 'ioc-hunter' || agent.id === 'risk-synthesizer') continue;
+    assert.ok(__test.SPECIALIST_ROUTES[agent.id], `missing SPECIALIST_ROUTES entry for ${agent.id}`);
+  }
+});
+
+test('runBackendSpecialist: ir-guidance and exposure routes are queried by report_id, not the other specialists\' keys', async () => {
+  await withStubFetch(
+    async (url) => {
+      assert.ok(String(url).startsWith('https://x.test/api/intel/ir-guidance'));
+      assert.ok(String(url).includes('report_id=intel--abc123'));
+      return jsonResponse({ status: 'ok', data: { report_id: 'intel--abc123', applicable: true, checklist: { containment: ['x'] } } });
+    },
+    async () => {
+      const outcome = await __test.runBackendSpecialist('https://x.test', new Headers(), CORRELATION_ID, CORRELATION, __test.SPECIALIST_ROUTES['ir-playbook']);
+      assert.equal(outcome.basis, 'backend_execution');
+      assert.equal(outcome.state, 'COMPLETED');
+      assert.equal(outcome.result.applicable, true);
     }
   );
 });
@@ -206,7 +230,7 @@ test('GET /api/swarm/mission/:id returns the persisted record on a hit', async (
   assert.deepEqual(body.data, record);
 });
 
-test('end-to-end mission: real correlate + mixed real/derived/denied/failed specialists, persisted at the end', async () => {
+test('end-to-end mission: real correlate + all 6 specialists genuinely backend-executed (mixed completed/denied/failed), persisted at the end', async () => {
   const kvStore = new Map();
   const env = {
     CANONICAL_BASE_URL: 'https://x.test',
@@ -228,6 +252,8 @@ test('end-to-end mission: real correlate + mixed real/derived/denied/failed spec
       if (u.pathname === '/api/actors') return jsonResponse({ error: 'forbidden', reason: 'insufficient_scope' }, 403);
       if (u.pathname === '/api/v1/detections') return jsonResponse({ status: 'ok', data: { count: 1, data: [{ id: 'sigma-1' }] } });
       if (u.pathname === '/api/search') return jsonResponse({ error: 'search_failed' }, 500);
+      if (u.pathname === '/api/intel/ir-guidance') return jsonResponse({ status: 'ok', data: { report_id: 'intel--abc123', applicable: true, checklist: { containment: ['isolate host'] } } });
+      if (u.pathname === '/api/intel/exposure') return jsonResponse({ status: 'ok', data: { report_id: 'intel--abc123', exposed_count: 3, total_dimensions: 8, dimensions: [] } });
       throw new Error(`unexpected fetch to ${u.pathname}`);
     },
     async () => {
@@ -272,14 +298,20 @@ test('end-to-end mission: real correlate + mixed real/derived/denied/failed spec
       assert.equal(byAgentTerminal['threat-hunter'].state, 'DENIED');
       assert.equal(byAgentTerminal['attack-mapper'].state, 'FAILED');
       assert.equal(byAgentTerminal['siem-defender'].state, 'COMPLETED');
-      assert.equal(byAgentTerminal['ir-playbook'].basis, 'derived');
-      assert.equal(byAgentTerminal['exposure-analyst'].basis, 'derived');
+      assert.equal(byAgentTerminal['ir-playbook'].basis, 'backend_execution');
+      assert.equal(byAgentTerminal['ir-playbook'].state, 'COMPLETED');
+      assert.equal(byAgentTerminal['exposure-analyst'].basis, 'backend_execution');
+      assert.equal(byAgentTerminal['exposure-analyst'].state, 'COMPLETED');
       assert.equal(byAgentTerminal['risk-synthesizer'].basis, 'fusion');
 
       const missionCompleted = events.find((e) => e.event_type === 'mission.completed');
       assert.ok(missionCompleted);
       assert.deepEqual(missionCompleted.result.denied_specialists, ['threat-hunter']);
       assert.deepEqual(missionCompleted.result.failed_specialists, ['attack-mapper']);
+      assert.deepEqual(
+        missionCompleted.result.contributing_specialists.sort(),
+        ['cve-intelligence', 'exposure-analyst', 'ioc-hunter', 'ir-playbook', 'siem-defender']
+      );
 
       const persisted = JSON.parse(kvStore.get(missionCompleted.mission_id));
       assert.equal(persisted.status, 'COMPLETED');

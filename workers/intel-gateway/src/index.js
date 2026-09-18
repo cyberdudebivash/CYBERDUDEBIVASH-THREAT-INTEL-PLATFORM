@@ -95,7 +95,7 @@ import { handleP41Capabilities, handleP41CapabilityDetail, handleP41Observabilit
 import { evaluatePublicationGate, isCustomerReady, buildGateRejectedResponseBody, buildUnresolvableReportResponseBody } from './publication-gate.js';
 import { loadCertificationIndex, persistCertificationRecords, resolveCertification, CERTIFICATION_POLICY_VERSION } from './certification-registry.js';
 import { routeEnterpriseEndpoint } from './enterprise-endpoints.js';
-import { handleSearch, handleActors, handleCVEs, handleIOCLookup, handleMISPExport as handleMISPExportExt, handleCSVExport, handleCorrelate, handlePredict, handleCampaigns, handleAnomalies, handleIntelGraph, handleIntelRelations } from './api-extensions.js';
+import { handleSearch, handleActors, handleCVEs, handleIOCLookup, handleMISPExport as handleMISPExportExt, handleCSVExport, handleCorrelate, handlePredict, handleCampaigns, handleAnomalies, handleIntelGraph, handleIntelRelations, handleIRGuidance, handleExposureAnalysis } from './api-extensions.js';
 import { RAZORPAY_TIER_PRICES, getPricingSnapshot } from './pricing.js';
 import { applyTierGateV2, enforceTierGate, buildUpgradeTrigger, handleLeadCapture, handleTrialIssuance } from './revenue-enforcement.js';
 import { evaluateDailyQuota, utcDateString, dailyQuotaKey, quotaAlertDedupeKey, secondsUntilNextUtcMidnight } from './daily-quota.js';
@@ -7032,6 +7032,8 @@ async function handleRequest(request, env, ctx) {
   if (path === "/api/v1/anomalies")                 return await handleAnomalies(request, env, auth, crypto.randomUUID());
   if (path === "/api/v1/intel/graph")               return await handleIntelGraph(request, env, auth, crypto.randomUUID());
   if (path === "/api/v1/intel/relations")           return await handleIntelRelations(request, env, auth, crypto.randomUUID());
+  if (path === "/api/intel/ir-guidance")            return await handleIRGuidance(request, env, auth, crypto.randomUUID());
+  if (path === "/api/intel/exposure")               return await handleExposureAnalysis(request, env, auth, crypto.randomUUID());
 
   // --- enterprise-endpoints.js routes (previously unreachable  -  now wired via routeEnterpriseEndpoint) ---
   if (path.startsWith("/api/taxii") || path.startsWith("/api/misp/export") ||

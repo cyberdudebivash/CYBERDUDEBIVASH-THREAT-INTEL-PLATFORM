@@ -91,7 +91,7 @@ function _row(label, value, color) {
  *   SaaS (M365/Salesforce/Slack/generic)
  *   Web (WAF/CDN/API Gateway/Web App)
  */
-function _deriveExposure(item) {
+export function _deriveExposure(item) {
   const av      = String(item.attack_vector || "").toUpperCase();
   const ttps    = (item.ttps || item.mitre_tactics || []).map(t => String(t).toLowerCase());
   const tags    = (item.tags || []).map(t => String(t).toLowerCase());
