@@ -134,6 +134,11 @@ import {
 // one true response choke point -- withBaselineHeaders() and the OPTIONS
 // branch below -- so no individual route handler needs to change.
 import { applyCorsPolicy, buildPreflightResponse, classifyRoute } from './cors-policy.js';
+// AI Swarm Synthesis (v4.45): pure prompt-building + tier-gate helpers for
+// handleSwarmSynthesis (below, defined right after handleCopilot). Extracted
+// for the same reason as subscription-lifecycle.js/gumroad-lifecycle.js --
+// see swarm-synthesis.js's own header comment.
+import { tierAllowsSwarmSynthesis, buildSwarmSynthesisPrompt, SWARM_SYNTHESIS_SYSTEM_PROMPT } from './swarm-synthesis.js';
 // Issue #288: Durable Object class the Workers runtime instantiates via the
 // GUMROAD_PROVISIONING_LOCK binding (wrangler.toml). Must be a named export
 // of the Worker's main module -- see gumroad-provisioning-lock.js's header
@@ -3724,6 +3729,94 @@ async function handleCopilot(request, env, auth, method, path) {
 }
 
 // =============================================================================
+// AI SWARM SYNTHESIS (v4.45) -- real LLM narrative for a completed SUPER
+// AGENT SWARM mission (workers/swarm-live), replacing the risk-synthesizer
+// agent's previously-static "Review the canonical Sentinel correlation
+// result" recommendation string with genuine analysis over that mission's
+// actual specialist outcomes.
+//
+// Reuse Before Build (Principle 4): calls the EXISTING callLLM() unchanged
+// (same DeepSeek -> GROQ -> OpenRouter cascade handleCopilot already uses
+// above) and the EXISTING tier-gate shape handleCopilot already established
+// (PRO/ENTERPRISE/MSSP get real LLM output; everyone else gets an honest
+// "unavailable" response, never a fabricated one). Prompt-building and the
+// tier check are pure functions imported from swarm-synthesis.js so they
+// are unit-testable outside the wrangler/esbuild bundler; zero new
+// LLM-provider integration was written for this feature.
+//
+// Caller: workers/swarm-live's executeMission() makes one real HTTP call
+// here per mission (POST /api/v1/swarm-synthesis), forwarding the caller's
+// own credentials unchanged -- same pattern as every other specialist call
+// in that worker. A DENIED/FAILED/unavailable response here degrades that
+// mission's risk-synthesizer result back to its existing deterministic
+// fusion; it never fails the mission (see swarm-live's synthesizeNarrative).
+// =============================================================================
+async function handleSwarmSynthesis(request, env, auth, method, path) {
+  const LLM_ENABLED = !!(env.DEEPSEEK_API_KEY || env.GROQ_API_KEY || env.OPENROUTER_API_KEY);
+
+  // GET /api/v1/swarm-synthesis/health
+  if (method === "GET" && path.includes("/health")) {
+    return jsonResp({
+      status:      "ok",
+      engine:      "CDB-SwarmSynthesis v1.0 (Worker-native)",
+      llm_enabled: LLM_ENABLED,
+      providers:   { deepseek: !!env.DEEPSEEK_API_KEY, groq: !!env.GROQ_API_KEY, openrouter: !!env.OPENROUTER_API_KEY },
+    });
+  }
+
+  if (method !== "POST") return jsonResp({ error: "Method not allowed" }, 405);
+
+  let body = {};
+  try { body = await request.json(); } catch (_) {
+    return jsonResp({ error: "Invalid JSON body" }, 400);
+  }
+
+  if (!body || typeof body !== "object" || Array.isArray(body) || !body.outcomes || typeof body.outcomes !== "object") {
+    return jsonResp({ error: "outcomes_required", message: "Provide the swarm mission's specialist outcomes object" }, 400);
+  }
+
+  const generated_at  = new Date().toISOString();
+  const tierAllowsLLM = tierAllowsSwarmSynthesis(auth.tier);
+
+  // Same honest-unavailable pattern as handleCopilot's FREE-tier /
+  // LLM-disabled branch above -- never a fabricated narrative.
+  if (!tierAllowsLLM || !LLM_ENABLED) {
+    return jsonResp({
+      status:        "success",
+      llm_enhanced:  false,
+      llm_available: LLM_ENABLED,
+      narrative:     null,
+      engine:        "CDB-SwarmSynthesis v1.0 (unavailable)",
+      tier_upgrade:  !tierAllowsLLM ? "Upgrade to PRO for AI-powered swarm narrative synthesis  -  intel.cyberdudebivash.com" : null,
+      generated_at,
+    });
+  }
+
+  const userPrompt = buildSwarmSynthesisPrompt(body);
+  const llmResult  = await callLLM(env, SWARM_SYNTHESIS_SYSTEM_PROMPT, userPrompt, false);
+
+  if (!llmResult) {
+    return jsonResp({
+      status:        "success",
+      llm_enhanced:  false,
+      llm_available: LLM_ENABLED,
+      narrative:     null,
+      engine:        "CDB-SwarmSynthesis v1.0 (deterministic fallback)",
+      generated_at,
+    });
+  }
+
+  return jsonResp({
+    status:        "success",
+    llm_enhanced:  true,
+    llm_model:     llmResult.model,
+    narrative:     llmResult.text,
+    engine:        `CDB-SwarmSynthesis v1.0 (${llmResult.model})`,
+    generated_at,
+  });
+}
+
+// =============================================================================
 // PAYMENT SYSTEM  -  Razorpay + Gumroad + Manual Notify
 // Razorpay: create-order -> client checkout modal -> verify (client) + webhook (server)
 // Gumroad:  webhook ping -> auto-provision key + Telegram alert
@@ -6733,6 +6826,11 @@ async function handleRequest(request, env, ctx) {
   // --- AI Security Copilot ----------------------------------------------------
   if (path.startsWith("/api/v1/copilot")) {
     return await handleCopilot(request, env, auth, method, path);
+  }
+
+  // --- AI Swarm Synthesis (reuses callLLM -- same LLM stack as Copilot) ------
+  if (path.startsWith("/api/v1/swarm-synthesis")) {
+    return await handleSwarmSynthesis(request, env, auth, method, path);
   }
 
   // --- P16.1-P16.8: Enterprise Endpoints (P16.10: require authentication) ----

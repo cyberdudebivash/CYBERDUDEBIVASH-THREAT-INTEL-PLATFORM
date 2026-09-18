@@ -342,9 +342,17 @@ jobs:
         # the same "what can a customer/attacker be told or do" class of
         # regression this gate already exists to catch. Dependency-free for
         # the identical reason (see cors-policy.js header comment).
+        #
+        # v4.45 AI SWARM SYNTHESIS: swarm-synthesis.test.js added -- covers
+        # tierAllowsSwarmSynthesis() (which tier gets a real LLM-generated
+        # swarm narrative vs. an honest "unavailable" response) and
+        # buildSwarmSynthesisPrompt()'s bounded-size, no-fabrication prompt
+        # construction -- the same "what can a customer be told" class of
+        # regression this gate already exists to catch. Dependency-free for
+        # the identical reason (see swarm-synthesis.js header comment).
         run: |
           cd ${WORKER_DIR}
-          node --test src/__tests__/certification-registry.test.js src/__tests__/publication-gate.test.js src/__tests__/reports-canonical-write-guard.test.js src/__tests__/detection-registry.test.js src/__tests__/subscription-lifecycle.test.js src/__tests__/revenue-enforcement.upgrade-trigger.test.js src/__tests__/daily-quota.test.js src/__tests__/first-party-plane.test.js src/__tests__/api-extensions.cve-scope.test.js src/__tests__/gumroad-lifecycle.test.js src/__tests__/metric-integrity-contract.test.js src/__tests__/cors-policy.test.js
+          node --test src/__tests__/certification-registry.test.js src/__tests__/publication-gate.test.js src/__tests__/reports-canonical-write-guard.test.js src/__tests__/detection-registry.test.js src/__tests__/subscription-lifecycle.test.js src/__tests__/revenue-enforcement.upgrade-trigger.test.js src/__tests__/daily-quota.test.js src/__tests__/first-party-plane.test.js src/__tests__/api-extensions.cve-scope.test.js src/__tests__/gumroad-lifecycle.test.js src/__tests__/metric-integrity-contract.test.js src/__tests__/cors-policy.test.js src/__tests__/swarm-synthesis.test.js
 
       - name: " esbuild bundle pre-flight (HARD GATE)"
         run: |
