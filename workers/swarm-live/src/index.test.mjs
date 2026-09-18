@@ -482,3 +482,248 @@ test('end-to-end mission: canonical correlate denial short-circuits before any s
     }
   );
 });
+
+// ---------------------------------------------------------------------------
+// Mission history / evidence export (issue #424 groundwork).
+// ---------------------------------------------------------------------------
+
+// A small in-memory approximation of Cloudflare KV's list() semantics
+// (lexicographic key order, prefix filter, metadata returned without a
+// separate get()) -- enough to exercise handleMissionList's real logic,
+// not just mock-call assertions.
+function makeKvMock() {
+  const store = new Map();
+  return {
+    async put(key, value, opts = {}) {
+      store.set(key, { value, metadata: opts.metadata });
+    },
+    async get(key) {
+      const entry = store.get(key);
+      return entry ? entry.value : null;
+    },
+    async list({ prefix = '', limit = 1000, cursor } = {}) {
+      const all = [...store.keys()].filter((k) => k.startsWith(prefix)).sort();
+      const start = cursor ? Number(cursor) : 0;
+      const page = all.slice(start, start + limit);
+      const list_complete = start + limit >= all.length;
+      return {
+        keys: page.map((name) => ({ name, metadata: store.get(name).metadata })),
+        list_complete,
+        cursor: list_complete ? undefined : String(start + limit),
+      };
+    },
+    _store: store,
+  };
+}
+
+test('credentialPartition: same credential yields the same partition, a different credential a different one, no credential null', async () => {
+  const a1 = await __test.credentialPartition(new Headers({ 'x-api-key': 'customer-a-key' }));
+  const a2 = await __test.credentialPartition(new Headers({ 'x-api-key': 'customer-a-key' }));
+  const b = await __test.credentialPartition(new Headers({ 'x-api-key': 'customer-b-key' }));
+  const none = await __test.credentialPartition(new Headers());
+  assert.equal(a1, a2);
+  assert.notEqual(a1, b);
+  assert.equal(none, null);
+  assert.match(a1, /^[0-9a-f]{16}$/);
+});
+
+test('persistMission: without a partition, only the primary record is written (existing behavior unchanged)', async () => {
+  const kv = makeKvMock();
+  await __test.persistMission({ SWARM_MISSIONS_KV: kv }, { mission_id: 'sentinel-mission-z', status: 'COMPLETED' });
+  assert.equal(kv._store.size, 1);
+  assert.ok(kv._store.has('sentinel-mission-z'));
+});
+
+test('persistMission: with a partition, also writes a listable index entry carrying summary metadata', async () => {
+  const kv = makeKvMock();
+  const record = {
+    mission_id: 'sentinel-mission-z2',
+    status: 'COMPLETED',
+    verdict: 'malicious',
+    started_at: '2026-01-01T00:00:00.000Z',
+    finished_at: '2026-01-01T00:00:05.000Z',
+    ioc: { ioc_value: '1.2.3.4', ioc_type: 'ipv4' },
+  };
+  await __test.persistMission({ SWARM_MISSIONS_KV: kv }, record, 'deadbeefdeadbeef');
+  assert.equal(kv._store.size, 2);
+  const indexKey = [...kv._store.keys()].find((k) => k.startsWith(__test.MISSION_INDEX_PREFIX));
+  assert.ok(indexKey.startsWith(`${__test.MISSION_INDEX_PREFIX}deadbeefdeadbeef:`));
+  const meta = kv._store.get(indexKey).metadata;
+  assert.equal(meta.mission_id, 'sentinel-mission-z2');
+  assert.equal(meta.verdict, 'malicious');
+  assert.equal(meta.ioc_value, '1.2.3.4');
+});
+
+test('getMissionRecord: unavailable, not found, corrupt, and success', async () => {
+  assert.equal((await __test.getMissionRecord({}, 'x')).status, 503);
+  assert.equal((await __test.getMissionRecord({ SWARM_MISSIONS_KV: { async get() { return null; } } }, 'x')).status, 404);
+  assert.equal((await __test.getMissionRecord({ SWARM_MISSIONS_KV: { async get() { return 'not json'; } } }, 'x')).status, 500);
+  const ok = await __test.getMissionRecord({ SWARM_MISSIONS_KV: { async get() { return JSON.stringify({ mission_id: 'x' }); } } }, 'x');
+  assert.equal(ok.status, 200);
+  assert.equal(ok.record.mission_id, 'x');
+});
+
+test('GET /api/swarm/missions: requires auth, 503s when unprovisioned, and scopes strictly to the caller\'s own credential', async () => {
+  const kv = makeKvMock();
+  const envNoAuth = {};
+  const resNoAuth = await worker.fetch(new Request('https://x.test/api/swarm/missions'), envNoAuth, {});
+  assert.equal(resNoAuth.status, 401);
+
+  const resUnavailable = await worker.fetch(new Request('https://x.test/api/swarm/missions', { headers: { 'x-api-key': 'k' } }), {}, {});
+  assert.equal(resUnavailable.status, 503);
+
+  const partA = await __test.credentialPartition(new Headers({ 'x-api-key': 'customer-a' }));
+  const partB = await __test.credentialPartition(new Headers({ 'x-api-key': 'customer-b' }));
+  await __test.persistMission({ SWARM_MISSIONS_KV: kv }, { mission_id: 'sentinel-mission-a1', status: 'COMPLETED', ioc: { ioc_value: '1.1.1.1' } }, partA);
+  await __test.persistMission({ SWARM_MISSIONS_KV: kv }, { mission_id: 'sentinel-mission-b1', status: 'COMPLETED', ioc: { ioc_value: '2.2.2.2' } }, partB);
+
+  const resA = await worker.fetch(new Request('https://x.test/api/swarm/missions', { headers: { 'x-api-key': 'customer-a' } }), { SWARM_MISSIONS_KV: kv }, {});
+  assert.equal(resA.status, 200);
+  const bodyA = await resA.json();
+  assert.equal(bodyA.data.missions.length, 1);
+  assert.equal(bodyA.data.missions[0].mission_id, 'sentinel-mission-a1');
+
+  const resB = await worker.fetch(new Request('https://x.test/api/swarm/missions', { headers: { 'x-api-key': 'customer-b' } }), { SWARM_MISSIONS_KV: kv }, {});
+  const bodyB = await resB.json();
+  assert.equal(bodyB.data.missions.length, 1);
+  assert.equal(bodyB.data.missions[0].mission_id, 'sentinel-mission-b1');
+});
+
+test('GET /api/swarm/missions: optional status filter and pagination fields', async () => {
+  const kv = makeKvMock();
+  const part = await __test.credentialPartition(new Headers({ 'x-api-key': 'customer-c' }));
+  await __test.persistMission({ SWARM_MISSIONS_KV: kv }, { mission_id: 'sentinel-mission-c1', status: 'COMPLETED' }, part);
+  await new Promise((r) => setTimeout(r, 2));
+  await __test.persistMission({ SWARM_MISSIONS_KV: kv }, { mission_id: 'sentinel-mission-c2', status: 'FAILED' }, part);
+
+  const res = await worker.fetch(new Request('https://x.test/api/swarm/missions?status=FAILED', { headers: { 'x-api-key': 'customer-c' } }), { SWARM_MISSIONS_KV: kv }, {});
+  const body = await res.json();
+  assert.equal(body.data.missions.length, 1);
+  assert.equal(body.data.missions[0].mission_id, 'sentinel-mission-c2');
+  assert.equal(typeof body.data.list_complete, 'boolean');
+});
+
+test('GET /api/swarm/mission/:id/report: validates id, requires auth, and propagates not-found', async () => {
+  const badId = await worker.fetch(new Request('https://x.test/api/swarm/mission/has space/report', { headers: { 'x-api-key': 'k' } }), {}, {});
+  assert.equal(badId.status, 400);
+
+  const noAuth = await worker.fetch(new Request('https://x.test/api/swarm/mission/sentinel-mission-x/report'), {}, {});
+  assert.equal(noAuth.status, 401);
+
+  const kv = { async get() { return null; } };
+  const notFound = await worker.fetch(new Request('https://x.test/api/swarm/mission/sentinel-mission-x/report', { headers: { 'x-api-key': 'k' } }), { SWARM_MISSIONS_KV: kv }, {});
+  assert.equal(notFound.status, 404);
+});
+
+test('GET /api/swarm/mission/:id/report: default Markdown export is downloadable and includes mission + agent evidence', async () => {
+  const record = {
+    mission_id: 'sentinel-mission-r1',
+    execution_id: 'sentinel-swarm-r1',
+    correlation_id: 'corr-r1',
+    status: 'COMPLETED',
+    verdict: 'malicious',
+    mesh_certified: true,
+    mesh_execution_id: 'mesh-exec-9',
+    started_at: '2026-01-01T00:00:00.000Z',
+    finished_at: '2026-01-01T00:00:05.000Z',
+    ioc: { ioc_value: '9.9.9.9', ioc_type: 'ipv4' },
+    specialists: {
+      'ioc-hunter': { basis: 'backend_execution', state: 'COMPLETED', result: { verdict: 'malicious' } },
+      'threat-hunter': { basis: 'backend_execution', state: 'DENIED', result: null },
+    },
+  };
+  const kv = { async get(key) { return key === 'sentinel-mission-r1' ? JSON.stringify(record) : null; } };
+  const res = await worker.fetch(new Request('https://x.test/api/swarm/mission/sentinel-mission-r1/report', { headers: { 'x-api-key': 'k' } }), { SWARM_MISSIONS_KV: kv }, {});
+  assert.equal(res.status, 200);
+  assert.equal(res.headers.get('content-type'), 'text/markdown; charset=utf-8');
+  assert.match(res.headers.get('content-disposition'), /attachment; filename="sentinel-mission-r1\.md"/);
+  const text = await res.text();
+  assert.match(text, /sentinel-mission-r1/);
+  assert.match(text, /9\.9\.9\.9/);
+  assert.match(text, /malicious/);
+  assert.match(text, /### ioc-hunter/);
+  assert.match(text, /### threat-hunter/);
+  assert.match(text, /- state: DENIED/);
+});
+
+test('GET /api/swarm/mission/:id/report?format=json: returns the raw record as a downloadable attachment', async () => {
+  const record = { mission_id: 'sentinel-mission-r2', status: 'COMPLETED' };
+  const kv = { async get(key) { return key === 'sentinel-mission-r2' ? JSON.stringify(record) : null; } };
+  const res = await worker.fetch(new Request('https://x.test/api/swarm/mission/sentinel-mission-r2/report?format=json', { headers: { 'x-api-key': 'k' } }), { SWARM_MISSIONS_KV: kv }, {});
+  assert.equal(res.status, 200);
+  assert.match(res.headers.get('content-disposition'), /attachment; filename="sentinel-mission-r2\.json"/);
+  const body = await res.json();
+  assert.deepEqual(body.data, record);
+});
+
+test('GET /api/swarm/health reports real persistence status, not a static ack', async () => {
+  const unbound = await worker.fetch(new Request('https://x.test/api/swarm/health'), {}, {});
+  assert.equal((await unbound.json()).persistence.kv_bound, false);
+
+  const bound = await worker.fetch(new Request('https://x.test/api/swarm/health'), { SWARM_MISSIONS_KV: {} }, {});
+  assert.equal((await bound.json()).persistence.kv_bound, true);
+});
+
+test('end-to-end: a completed mission is immediately visible in its own caller\'s history and exportable as a report', async () => {
+  const kv = makeKvMock();
+  const env = { CANONICAL_BASE_URL: 'https://x.test', SWARM_MISSIONS_KV: kv };
+
+  await withStubFetch(
+    async (url, init) => {
+      const u = new URL(String(url));
+      if (u.pathname === '/api/intel/correlate') {
+        return jsonResponse(CORRELATION, 200, {
+          'x-cdb-mesh-certified': 'true',
+          'x-cdb-mesh-execution': 'mesh-exec-e2e',
+          'x-cdb-mesh-correlation': init.headers.get('x-request-id'),
+        });
+      }
+      if (u.pathname === '/api/v1/swarm-synthesis') return jsonResponse({ status: 'success', llm_enhanced: false, narrative: null });
+      return jsonResponse({ status: 'ok', data: {} });
+    },
+    async () => {
+      let waited;
+      const ctx = { waitUntil(p) { waited = p; } };
+      const res = await worker.fetch(
+        new Request('https://x.test/api/swarm/run', {
+          method: 'POST',
+          headers: { 'x-api-key': 'history-customer', 'x-request-id': CORRELATION_ID },
+          body: JSON.stringify({ ioc_value: '8.8.8.8', ioc_type: 'ipv4' }),
+        }),
+        env,
+        ctx
+      );
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buf = '';
+      let missionId;
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buf += decoder.decode(value, { stream: true });
+        let idx;
+        while ((idx = buf.indexOf('\n\n')) >= 0) {
+          const chunk = buf.slice(0, idx);
+          buf = buf.slice(idx + 2);
+          const line = chunk.split('\n').find((l) => l.startsWith('data: '));
+          if (line) { const ev = JSON.parse(line.slice(6)); missionId = ev.mission_id; }
+        }
+      }
+      await waited;
+
+      const listRes = await worker.fetch(new Request('https://x.test/api/swarm/missions', { headers: { 'x-api-key': 'history-customer' } }), env, {});
+      const listBody = await listRes.json();
+      assert.equal(listBody.data.missions.length, 1);
+      assert.equal(listBody.data.missions[0].mission_id, missionId);
+      assert.equal(listBody.data.missions[0].status, 'COMPLETED');
+
+      // A different credential must see none of this caller's history.
+      const otherRes = await worker.fetch(new Request('https://x.test/api/swarm/missions', { headers: { 'x-api-key': 'someone-else' } }), env, {});
+      assert.equal((await otherRes.json()).data.missions.length, 0);
+
+      const reportRes = await worker.fetch(new Request(`https://x.test/api/swarm/mission/${missionId}/report`, { headers: { 'x-api-key': 'history-customer' } }), env, {});
+      assert.equal(reportRes.status, 200);
+      assert.match(await reportRes.text(), new RegExp(missionId));
+    }
+  );
+});
