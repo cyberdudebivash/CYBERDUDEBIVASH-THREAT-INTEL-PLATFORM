@@ -323,7 +323,7 @@ test('browser controller executes to interactive-ready and attaches live mission
   assert.equal(typeof getElement('loadHistory').onclick, 'function');
   assert.equal(typeof getElement('historyBody').onclick, 'function');
   assert.equal(getElement('runtimeState').textContent, 'LIVE');
-  assert.equal(getElement('runtimeKpi').textContent, 'LIVE · 4.46.3');
+  assert.equal(getElement('runtimeKpi').textContent, 'LIVE · 4.46.4');
   assert.equal(getElement('gatewayState').textContent, 'BOUND');
   assert.equal(getElement('persistenceState').textContent, 'READY');
   assert.equal(getElement('evidenceStore').textContent, 'DURABLE KV READY');
