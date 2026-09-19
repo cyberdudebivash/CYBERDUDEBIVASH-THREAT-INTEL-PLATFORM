@@ -144,11 +144,15 @@ function responseSnippet(body) {
 }
 
 async function canonicalGatewayFetch(env, url, init = {}) {
-  const request = url instanceof Request ? url : new Request(String(url), init);
   if (env?.CANONICAL_GATEWAY && typeof env.CANONICAL_GATEWAY.fetch === 'function') {
+    const request = url instanceof Request ? url : new Request(String(url), init);
     return env.CANONICAL_GATEWAY.fetch(request);
   }
-  return fetch(request);
+  // Preserve the platform/browser fetch(url, init) calling convention when
+  // the private binding is absent. This keeps local/test compatibility and
+  // avoids changing observable fallback semantics just because production
+  // prefers the Worker service binding.
+  return url instanceof Request ? fetch(url) : fetch(String(url), init);
 }
 
 // One real, distinct backend call per specialist. Forwards the caller's own
