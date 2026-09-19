@@ -125,11 +125,11 @@ test('canonicalGatewayFetch falls back to public fetch(url, init) when no servic
   );
 });
 
-test('customer console exposes the production V4.46 control-plane capabilities', () => {
+test('customer console exposes the production V4.46.1 control-plane capabilities', () => {
   const html = __test.ui();
   for (const marker of [
     'SUPER AGENT SWARM',
-    'V4.46 PRODUCTION',
+    'V4.46.1 PRODUCTION',
     '8-Agent Operations Grid',
     'Private APEX Mesh',
     'Durable Evidence',
@@ -143,6 +143,11 @@ test('customer console exposes the production V4.46 control-plane capabilities',
     'Event Sequence',
     'Active Agents',
     'Completed Agents',
+    'Current customer location time',
+    'GLOBAL EDGE · RESOLVING',
+    'clock-led',
+    'clockLocation',
+    'clockCountry',
   ]) {
     assert.ok(html.includes(marker), 'missing UI marker: ' + marker);
   }
@@ -174,6 +179,11 @@ test('customer console browser controller is external, same-origin, and syntacti
   assert.ok(js.includes("setMeshNode(ev.agent_id"));
   assert.ok(js.includes("setText('eventCount'"));
   assert.ok(js.includes('setInterval(updateClock,1000)'));
+  assert.ok(js.includes("fetch('/api/swarm/client-context'"));
+  assert.ok(js.includes('function hydrateClockContext()'));
+  assert.ok(js.includes("Intl.DateTimeFormat('en-GB'"));
+  assert.ok(js.includes("Intl.DisplayNames"));
+  assert.ok(js.indexOf('updateClock();setInterval(updateClock,1000);hydrateClockContext();') < js.indexOf('const prefersReducedMotion'), 'clock must initialize before cinematic subsystems');
 
   const res = await worker.fetch(
     new Request('https://intel.cyberdudebivash.com/swarm/app.js'),
@@ -194,7 +204,7 @@ test('cinematic customer console exposes premium visual surfaces without fake mi
     'Cinematic launch visualization is decorative only',
     'SOC / CTI',
     'CYBER DEFENSE',
-    'V4.46 PRODUCTION',
+    'V4.46.1 PRODUCTION',
   ]) {
     assert.ok(html.includes(marker), 'missing cinematic UI marker: ' + marker);
   }
@@ -219,6 +229,18 @@ test('cinematic browser controller is decorative, reduced-motion aware, and real
   assert.ok(js.includes("ev.event_type==='mission.rejected'"));
   assert.equal(js.includes('localStorage'), false);
   assert.equal(js.includes('sessionStorage'), false);
+});
+
+test('global LED clock is server-rendered with visible digits before browser hydration', () => {
+  const html = __test.ui();
+  assert.ok(html.includes('id="globalClock"'));
+  assert.ok(html.includes('id="clockTime"'));
+  assert.match(html, /id="clockTime"[^>]*>\d{2}:\d{2}:\d{2}<\/time>/);
+  assert.ok(!html.includes('id="utcClock"'));
+  assert.ok(html.includes('id="clockLocation"'));
+  assert.ok(html.includes('id="clockCountry"'));
+  assert.ok(html.includes('@keyframes clockPulse'));
+  assert.ok(html.includes('@keyframes clockScan'));
 });
 
 test('customer console CSP allows only same-origin external JavaScript', async () => {
@@ -416,12 +438,56 @@ test('persistMission writes through the bound KV namespace with a TTL', async ()
 });
 
 test('GET /api/swarm/health reports protocol and agent count without requiring auth', async () => {
-  const res = await worker.fetch(new Request('https://x.test/api/swarm/health'), { SWARM_VERSION: '4.46.0' }, {});
+  const res = await worker.fetch(new Request('https://x.test/api/swarm/health'), { SWARM_VERSION: '4.46.1' }, {});
   assert.equal(res.status, 200);
   const body = await res.json();
   assert.equal(body.protocol, 'cdb.swarm.v1');
-  assert.equal(body.version, '4.46.0');
+  assert.equal(body.version, '4.46.1');
   assert.equal(body.agents, 8);
+});
+
+test('GET /api/swarm/client-context exposes only coarse Cloudflare location metadata', async () => {
+  const req = new Request('https://x.test/api/swarm/client-context');
+  Object.defineProperty(req, 'cf', {
+    value: {
+      city: 'Bengaluru',
+      region: 'Karnataka',
+      country: 'IN',
+      timezone: 'Asia/Kolkata',
+      colo: 'BLR',
+      latitude: '12.9716',
+      longitude: '77.5946',
+    },
+  });
+  const res = await worker.fetch(req, {}, {});
+  assert.equal(res.status, 200);
+  assert.equal(res.headers.get('cache-control'), 'private, no-store');
+  const body = await res.json();
+  assert.equal(body.status, 'ok');
+  assert.deepEqual(body.data, {
+    city: 'Bengaluru',
+    region: 'Karnataka',
+    country_code: 'IN',
+    country_name: '',
+    timezone: 'Asia/Kolkata',
+    source: 'cloudflare_edge',
+  });
+  const serialized = JSON.stringify(body);
+  assert.equal(serialized.includes('latitude'), false);
+  assert.equal(serialized.includes('longitude'), false);
+  assert.equal(serialized.includes('colo'), false);
+  assert.equal(serialized.includes('ip'), false);
+});
+
+test('GET /api/swarm/client-context degrades safely when Cloudflare metadata is unavailable', async () => {
+  const res = await worker.fetch(new Request('https://x.test/api/swarm/client-context'), {}, {});
+  assert.equal(res.status, 200);
+  const body = await res.json();
+  assert.equal(body.data.source, 'browser_fallback');
+  assert.equal(body.data.timezone, 'UTC');
+  assert.equal(body.data.city, '');
+  assert.equal(body.data.region, '');
+  assert.equal(body.data.country_code, '');
 });
 
 test('POST /api/swarm/run without credentials is rejected before any mission starts', async () => {
