@@ -125,10 +125,11 @@ test('canonicalGatewayFetch falls back to public fetch(url, init) when no servic
   );
 });
 
-test('customer console exposes the production V4.45 control-plane capabilities', () => {
+test('customer console exposes the production V4.46 control-plane capabilities', () => {
   const html = __test.ui();
   for (const marker of [
     'SUPER AGENT SWARM',
+    'V4.46 PRODUCTION',
     '8-Agent Operations Grid',
     'Private APEX Mesh',
     'Durable Evidence',
@@ -182,6 +183,42 @@ test('customer console browser controller is external, same-origin, and syntacti
   assert.equal(res.status, 200);
   assert.match(res.headers.get('content-type') || '', /^text\/javascript/);
   assert.equal(await res.text(), js);
+});
+
+test('cinematic customer console exposes premium visual surfaces without fake mission telemetry', () => {
+  const html = __test.ui();
+  for (const marker of [
+    'cinematicCanvas',
+    'RED TEAM INTEL',
+    'AI SECURITY OPS',
+    'Cinematic launch visualization is decorative only',
+    'SOC / CTI',
+    'CYBER DEFENSE',
+    'V4.46 PRODUCTION',
+  ]) {
+    assert.ok(html.includes(marker), 'missing cinematic UI marker: ' + marker);
+  }
+  assert.ok(html.includes('prefers-reduced-motion:reduce'));
+  assert.ok(html.includes('prefers-contrast:more'));
+  assert.ok(!html.includes('SOC 2 CERTIFIED'));
+});
+
+test('cinematic browser controller is decorative, reduced-motion aware, and real-event driven', () => {
+  const js = __test.swarmAppJs();
+  assert.doesNotThrow(() => new Function(js));
+  assert.ok(js.includes("matchMedia('(prefers-reduced-motion: reduce)')"));
+  assert.ok(js.includes('function triggerLaunchSequence()'));
+  assert.ok(js.includes('function fxForMissionEvent(ev)'));
+  assert.ok(js.includes('fxForMissionEvent(ev)'));
+  assert.ok(js.includes('function emitCinematicFx(kind,el,intensity)'));
+  assert.ok(js.includes('updateOpsTelemetry()'));
+  assert.ok(js.includes('triggerLaunchSequence();resetAgents();resetEventLog();'));
+  assert.ok(js.indexOf("if(!key||!ioc)") < js.indexOf('triggerLaunchSequence();'), 'launch FX must not fire before required input validation');
+  assert.ok(js.includes("ev.event_type==='agent.started'"));
+  assert.ok(js.includes("ev.event_type==='mission.completed'"));
+  assert.ok(js.includes("ev.event_type==='mission.rejected'"));
+  assert.equal(js.includes('localStorage'), false);
+  assert.equal(js.includes('sessionStorage'), false);
 });
 
 test('customer console CSP allows only same-origin external JavaScript', async () => {
@@ -379,10 +416,11 @@ test('persistMission writes through the bound KV namespace with a TTL', async ()
 });
 
 test('GET /api/swarm/health reports protocol and agent count without requiring auth', async () => {
-  const res = await worker.fetch(new Request('https://x.test/api/swarm/health'), { SWARM_VERSION: '4.44.0' }, {});
+  const res = await worker.fetch(new Request('https://x.test/api/swarm/health'), { SWARM_VERSION: '4.46.0' }, {});
   assert.equal(res.status, 200);
   const body = await res.json();
   assert.equal(body.protocol, 'cdb.swarm.v1');
+  assert.equal(body.version, '4.46.0');
   assert.equal(body.agents, 8);
 });
 
