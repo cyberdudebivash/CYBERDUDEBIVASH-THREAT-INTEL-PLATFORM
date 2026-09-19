@@ -146,6 +146,40 @@ test('customer console exposes the production V4.45 control-plane capabilities',
   assert.ok(!html.includes('setInterval('), 'customer console must not simulate progress with timers');
 });
 
+test('customer console browser controller is external, same-origin, and syntactically valid', async () => {
+  const html = __test.ui();
+  assert.ok(html.includes('<script src="/swarm/app.js" defer></script>'));
+  assert.ok(!html.includes('<script>'), 'customer console must not rely on an inline script block');
+
+  const js = __test.swarmAppJs();
+  assert.doesNotThrow(() => new Function(js));
+  assert.ok(js.includes("window.__CDB_SWARM_UI_READY__=true"));
+  assert.ok(js.includes('hydrateHealth()'));
+  assert.ok(js.includes("run.onclick=async()=>"));
+  assert.ok(js.includes("loadHistoryBtn.onclick=async()=>"));
+
+  const res = await worker.fetch(
+    new Request('https://intel.cyberdudebivash.com/swarm/app.js'),
+    {},
+    { waitUntil() {} },
+  );
+  assert.equal(res.status, 200);
+  assert.match(res.headers.get('content-type') || '', /^text\/javascript/);
+  assert.equal(await res.text(), js);
+});
+
+test('customer console CSP allows only same-origin external JavaScript', async () => {
+  const res = await worker.fetch(
+    new Request('https://intel.cyberdudebivash.com/swarm/'),
+    {},
+    { waitUntil() {} },
+  );
+  assert.equal(res.status, 200);
+  const csp = res.headers.get('content-security-policy') || '';
+  assert.ok(csp.includes("script-src 'self'"));
+  assert.ok(!csp.includes("script-src 'unsafe-inline'"));
+});
+
 test('safeRequestId accepts a well-formed caller id, rejects and replaces a malformed one', () => {
   const good = new Request('https://x.test', { headers: { 'x-request-id': 'abc.123:def' } });
   assert.equal(__test.safeRequestId(good), 'abc.123:def');

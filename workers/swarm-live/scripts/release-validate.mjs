@@ -96,7 +96,26 @@ async function validateUi(baseUrl) {
     assert(text.includes(marker), `/swarm/ missing required UI marker: ${marker}`);
   }
   assert(!text.includes('DERIVED VIEW'), '/swarm/ still exposes DERIVED VIEW agents');
-  logPass('customer UI', 'reachable and current swarm markers present');
+  assert(text.includes('<script src="/swarm/app.js" defer></script>'), '/swarm/ is not wired to the external browser controller');
+
+  const csp = response.headers.get('content-security-policy') || '';
+  assert(csp.includes("script-src 'self'"), '/swarm/ CSP does not allow same-origin external JavaScript');
+  assert(!csp.includes("script-src 'unsafe-inline'"), '/swarm/ CSP still depends on inline JavaScript');
+
+  const app = await getText(`${baseUrl}/swarm/app.js`);
+  assert(app.response.status === 200, `/swarm/app.js returned HTTP ${app.response.status}`);
+  assert((app.response.headers.get('content-type') || '').includes('javascript'), '/swarm/app.js has the wrong content type');
+  assert(app.text.includes("window.__CDB_SWARM_UI_READY__=true"), '/swarm/app.js missing browser-ready marker');
+  assert(app.text.includes('hydrateHealth()'), '/swarm/app.js missing runtime hydration');
+  assert(app.text.includes('run.onclick=async()=>'), '/swarm/app.js missing live-mission button handler');
+  assert(app.text.includes('loadHistoryBtn.onclick=async()=>'), '/swarm/app.js missing mission-history button handler');
+  try {
+    new Function(app.text);
+  } catch (error) {
+    throw new Error(`/swarm/app.js browser bundle does not parse: ${error.message}`);
+  }
+
+  logPass('customer UI', 'HTML + external browser controller reachable and executable');
 }
 
 async function validateLiveMission(baseUrl, apiKey) {
