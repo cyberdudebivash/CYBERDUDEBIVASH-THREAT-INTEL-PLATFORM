@@ -64,6 +64,175 @@ test('authHeaders forwards only recognized credential headers; hasAuth reflects 
   assert.equal(__test.hasAuth(__test.authHeaders(new Request('https://x.test'))), false);
 });
 
+test('canonicalGatewayFetch prefers the private service binding and preserves method/path/body', async () => {
+  let globalFetchCalled = false;
+  let observed = null;
+  await withStubFetch(
+    async () => {
+      globalFetchCalled = true;
+      throw new Error('public fetch must not be used when service binding exists');
+    },
+    async () => {
+      const env = {
+        CANONICAL_GATEWAY: {
+          async fetch(request) {
+            observed = {
+              method: request.method,
+              pathname: new URL(request.url).pathname,
+              body: await request.text(),
+            };
+            return jsonResponse({ status: 'ok' });
+          },
+        },
+      };
+      const res = await __test.canonicalGatewayFetch(
+        env,
+        'https://intel.cyberdudebivash.com/api/intel/correlate',
+        {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ ioc_value: '8.8.8.8', ioc_type: 'ipv4' }),
+        },
+      );
+      assert.equal(res.status, 200);
+      assert.equal(globalFetchCalled, false);
+      assert.equal(observed.method, 'POST');
+      assert.equal(observed.pathname, '/api/intel/correlate');
+      assert.deepEqual(JSON.parse(observed.body), { ioc_value: '8.8.8.8', ioc_type: 'ipv4' });
+    },
+  );
+});
+
+test('canonicalGatewayFetch falls back to public fetch(url, init) when no service binding is available', async () => {
+  let called = false;
+  await withStubFetch(
+    async (url, init) => {
+      called = true;
+      assert.equal(new URL(String(url)).pathname, '/api/health');
+      assert.equal(init?.headers?.get?.('x-request-id'), 'fallback-test');
+      return jsonResponse({ status: 'ok' });
+    },
+    async () => {
+      const headers = new Headers({ 'x-request-id': 'fallback-test' });
+      const res = await __test.canonicalGatewayFetch(
+        {},
+        'https://intel.cyberdudebivash.com/api/health',
+        { headers },
+      );
+      assert.equal(res.status, 200);
+      assert.equal(called, true);
+    },
+  );
+});
+
+test('customer console exposes the production V4.46 control-plane capabilities', () => {
+  const html = __test.ui();
+  for (const marker of [
+    'SUPER AGENT SWARM',
+    'V4.46 PRODUCTION',
+    '8-Agent Operations Grid',
+    'Private APEX Mesh',
+    'Durable Evidence',
+    'Retry Safety',
+    'STIX 2.1',
+    'Live Mission Events',
+    'Mission History & Evidence Export',
+    'SOC 2-ALIGNED EVIDENCE UX',
+    '8-Agent Mesh Topology',
+    'STATE-DRIVEN LED NODES',
+    'Event Sequence',
+    'Active Agents',
+    'Completed Agents',
+  ]) {
+    assert.ok(html.includes(marker), 'missing UI marker: ' + marker);
+  }
+  assert.ok(html.includes('id="gatewayState"'));
+  assert.ok(html.includes('id="persistenceState"'));
+  assert.ok(html.includes('id="eventLog"'));
+  assert.ok(html.includes('id="missionState"'));
+  assert.ok(html.includes('id="mesh-ioc-hunter"'));
+  assert.ok(html.includes('id="fabricLed"'));
+  assert.ok(html.includes('id="eventCount"'));
+  assert.ok(html.includes('id="activeAgents"'));
+  assert.ok(html.includes('id="completedAgents"'));
+  assert.ok(html.includes('does not claim independent SOC 2 certification'));
+  assert.ok(!html.includes('setInterval('), 'customer console HTML must not embed simulated mission timers');
+});
+
+test('customer console browser controller is external, same-origin, and syntactically valid', async () => {
+  const html = __test.ui();
+  assert.ok(html.includes('<script src="/swarm/app.js" defer></script>'));
+  assert.ok(!html.includes('<script>'), 'customer console must not rely on an inline script block');
+
+  const js = __test.swarmAppJs();
+  assert.doesNotThrow(() => new Function(js));
+  assert.ok(js.includes("window.__CDB_SWARM_UI_READY__=true"));
+  assert.ok(js.includes('hydrateHealth()'));
+  assert.ok(js.includes("run.onclick=async()=>"));
+  assert.ok(js.includes("loadHistoryBtn.onclick=async()=>"));
+  assert.ok(js.includes('updateOpsTelemetry()'));
+  assert.ok(js.includes("setMeshNode(ev.agent_id"));
+  assert.ok(js.includes("setText('eventCount'"));
+  assert.ok(js.includes('setInterval(updateClock,1000)'));
+
+  const res = await worker.fetch(
+    new Request('https://intel.cyberdudebivash.com/swarm/app.js'),
+    {},
+    { waitUntil() {} },
+  );
+  assert.equal(res.status, 200);
+  assert.match(res.headers.get('content-type') || '', /^text\/javascript/);
+  assert.equal(await res.text(), js);
+});
+
+test('cinematic customer console exposes premium visual surfaces without fake mission telemetry', () => {
+  const html = __test.ui();
+  for (const marker of [
+    'cinematicCanvas',
+    'RED TEAM INTEL',
+    'AI SECURITY OPS',
+    'Cinematic launch visualization is decorative only',
+    'SOC / CTI',
+    'CYBER DEFENSE',
+    'V4.46 PRODUCTION',
+  ]) {
+    assert.ok(html.includes(marker), 'missing cinematic UI marker: ' + marker);
+  }
+  assert.ok(html.includes('prefers-reduced-motion:reduce'));
+  assert.ok(html.includes('prefers-contrast:more'));
+  assert.ok(!html.includes('SOC 2 CERTIFIED'));
+});
+
+test('cinematic browser controller is decorative, reduced-motion aware, and real-event driven', () => {
+  const js = __test.swarmAppJs();
+  assert.doesNotThrow(() => new Function(js));
+  assert.ok(js.includes("matchMedia('(prefers-reduced-motion: reduce)')"));
+  assert.ok(js.includes('function triggerLaunchSequence()'));
+  assert.ok(js.includes('function fxForMissionEvent(ev)'));
+  assert.ok(js.includes('fxForMissionEvent(ev)'));
+  assert.ok(js.includes('function emitCinematicFx(kind,el,intensity)'));
+  assert.ok(js.includes('updateOpsTelemetry()'));
+  assert.ok(js.includes('triggerLaunchSequence();resetAgents();resetEventLog();'));
+  assert.ok(js.indexOf("if(!key||!ioc)") < js.indexOf('triggerLaunchSequence();'), 'launch FX must not fire before required input validation');
+  assert.ok(js.includes("ev.event_type==='agent.started'"));
+  assert.ok(js.includes("ev.event_type==='mission.completed'"));
+  assert.ok(js.includes("ev.event_type==='mission.rejected'"));
+  assert.equal(js.includes('localStorage'), false);
+  assert.equal(js.includes('sessionStorage'), false);
+});
+
+test('customer console CSP allows only same-origin external JavaScript', async () => {
+  const res = await worker.fetch(
+    new Request('https://intel.cyberdudebivash.com/swarm/'),
+    {},
+    { waitUntil() {} },
+  );
+  assert.equal(res.status, 200);
+  const csp = res.headers.get('content-security-policy') || '';
+  assert.ok(csp.includes("script-src 'self'"));
+  assert.ok(!csp.includes("script-src 'unsafe-inline'"));
+});
+
 test('safeRequestId accepts a well-formed caller id, rejects and replaces a malformed one', () => {
   const good = new Request('https://x.test', { headers: { 'x-request-id': 'abc.123:def' } });
   assert.equal(__test.safeRequestId(good), 'abc.123:def');
@@ -247,10 +416,11 @@ test('persistMission writes through the bound KV namespace with a TTL', async ()
 });
 
 test('GET /api/swarm/health reports protocol and agent count without requiring auth', async () => {
-  const res = await worker.fetch(new Request('https://x.test/api/swarm/health'), { SWARM_VERSION: '4.44.0' }, {});
+  const res = await worker.fetch(new Request('https://x.test/api/swarm/health'), { SWARM_VERSION: '4.46.0' }, {});
   assert.equal(res.status, 200);
   const body = await res.json();
   assert.equal(body.protocol, 'cdb.swarm.v1');
+  assert.equal(body.version, '4.46.0');
   assert.equal(body.agents, 8);
 });
 

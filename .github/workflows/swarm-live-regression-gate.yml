@@ -6,11 +6,12 @@
 # that did not exist, so `npm test` there silently no-op'd -- a regression
 # in this worker's dispatch logic would never have been caught. This gate
 # runs that suite (now written) on every push/PR touching this worker, and
-# syntax-checks the source the same way its own "check" script does.
+# syntax-checks the source the same way its own "check" script does and
+# bundles the Worker with Wrangler dry-run so config/binding/build regressions
+# are caught before merge.
 #
-# This gate is test-only. It does not deploy workers/swarm-live -- that
-# remains a deliberate separate decision (the worker is not yet live; see
-# workers/swarm-live/wrangler.toml for the routes it would claim).
+# This gate is validation-only. It never deploys workers/swarm-live;
+# production promotion remains an explicit, separate release decision.
 #
 # Runs on every push and PR to main that touches this worker.
 
@@ -38,7 +39,7 @@ concurrency:
 
 jobs:
   swarm-live-tests:
-    name: "workers/swarm-live -- syntax check + node --test"
+    name: "workers/swarm-live -- syntax + tests + Wrangler dry-run"
     runs-on: ubuntu-latest
     timeout-minutes: 10
     defaults:
@@ -54,8 +55,14 @@ jobs:
         with:
           node-version: '22'
 
+      - name: "Install locked worker dependencies"
+        run: npm ci --ignore-scripts
+
       - name: "Syntax check (npm run check)"
         run: npm run check
 
       - name: "Run swarm-live regression suite (npm test)"
         run: npm test
+
+      - name: "Wrangler production bundle dry-run"
+        run: npm run deploy:dry -- --config wrangler.toml

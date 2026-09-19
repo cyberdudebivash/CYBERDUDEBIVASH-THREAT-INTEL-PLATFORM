@@ -3,6 +3,7 @@
 const DEFAULT_BASE_URL = 'https://intel.cyberdudebivash.com';
 const EXPECTED_SERVICE = 'sentinel-apex-swarm-live';
 const EXPECTED_PROTOCOL = 'cdb.swarm.v1';
+const EXPECTED_VERSION = '4.46.0';
 const EXPECTED_AGENTS = new Set([
   'ioc-hunter',
   'cve-intelligence',
@@ -83,20 +84,58 @@ async function validateHealth(baseUrl) {
   assert(body?.status === 'ok', 'swarm health status is not ok');
   assert(body?.service === EXPECTED_SERVICE, `unexpected service: ${body?.service}`);
   assert(body?.protocol === EXPECTED_PROTOCOL, `unexpected protocol: ${body?.protocol}`);
+  assert(body?.version === EXPECTED_VERSION, `unexpected swarm version: ${body?.version}`);
+  assert(body?.production?.canonical_gateway_bound === true, 'CANONICAL_GATEWAY is not bound');
+  assert(body?.production?.private_mesh_required === true, 'private mesh requirement is not enabled');
+  assert(body?.production?.customer_console === true, 'customer console capability is not enabled');
+  assert(body?.capabilities?.idempotent_retry === true, 'idempotent retry capability is not enabled');
+  assert(Array.isArray(body?.capabilities?.report_formats) && body.capabilities.report_formats.includes('stix21'), 'STIX 2.1 evidence export is not advertised');
   assert(Number(body?.agents) === EXPECTED_AGENTS.size, `expected ${EXPECTED_AGENTS.size} agents, got ${body?.agents}`);
   assert(body?.persistence?.kv_bound === true, 'SWARM_MISSIONS_KV is not bound; durable mission lifecycle is NOT production-ready');
-  logPass('live health', `service=${body.service} protocol=${body.protocol} agents=${body.agents} kv_bound=true`);
+  logPass('live health', `service=${body.service} version=${body.version} protocol=${body.protocol} agents=${body.agents} kv_bound=true gateway_bound=true`);
   return body;
 }
 
 async function validateUi(baseUrl) {
   const { response, text } = await getText(`${baseUrl}/swarm/`);
   assert(response.status === 200, `/swarm/ returned HTTP ${response.status}`);
-  for (const marker of ['SUPER AGENT SWARM', 'Mission History', 'RUN LIVE SWARM']) {
+  for (const marker of ['SUPER AGENT SWARM', 'Mission History', 'RUN LIVE SWARM', 'Private APEX Mesh', 'Durable Evidence', 'STIX 2.1', '8-Agent Operations Grid', 'V4.46 PRODUCTION', 'SOC 2-ALIGNED EVIDENCE UX', '8-Agent Mesh Topology', 'STATE-DRIVEN LED NODES', 'Event Sequence', 'RED TEAM INTEL', 'AI SECURITY OPS', 'Cinematic launch visualization is decorative only', 'CYBER DEFENSE']) {
     assert(text.includes(marker), `/swarm/ missing required UI marker: ${marker}`);
   }
   assert(!text.includes('DERIVED VIEW'), '/swarm/ still exposes DERIVED VIEW agents');
-  logPass('customer UI', 'reachable and current swarm markers present');
+  assert(text.includes('<script src="/swarm/app.js" defer></script>'), '/swarm/ is not wired to the external browser controller');
+  assert(text.includes('id="cinematicCanvas"'), '/swarm/ missing cinematic canvas layer');
+  assert(text.includes('prefers-reduced-motion:reduce'), '/swarm/ missing reduced-motion CSS fallback');
+  assert(text.includes('prefers-contrast:more'), '/swarm/ missing high-contrast accessibility mode');
+  assert(!text.includes('SOC 2 CERTIFIED'), '/swarm/ contains an unsupported SOC 2 certification claim');
+
+  const csp = response.headers.get('content-security-policy') || '';
+  assert(csp.includes("script-src 'self'"), '/swarm/ CSP does not allow same-origin external JavaScript');
+  assert(!csp.includes("script-src 'unsafe-inline'"), '/swarm/ CSP still depends on inline JavaScript');
+
+  const app = await getText(`${baseUrl}/swarm/app.js`);
+  assert(app.response.status === 200, `/swarm/app.js returned HTTP ${app.response.status}`);
+  assert((app.response.headers.get('content-type') || '').includes('javascript'), '/swarm/app.js has the wrong content type');
+  assert(app.text.includes("window.__CDB_SWARM_UI_READY__=true"), '/swarm/app.js missing browser-ready marker');
+  assert(app.text.includes('hydrateHealth()'), '/swarm/app.js missing runtime hydration');
+  assert(app.text.includes('run.onclick=async()=>'), '/swarm/app.js missing live-mission button handler');
+  assert(app.text.includes('loadHistoryBtn.onclick=async()=>'), '/swarm/app.js missing mission-history button handler');
+  assert(app.text.includes('updateOpsTelemetry()'), '/swarm/app.js missing state-driven operations telemetry');
+  assert(app.text.includes('setMeshNode(ev.agent_id'), '/swarm/app.js missing state-driven mesh visualization');
+  assert(app.text.includes("setText('eventCount'"), '/swarm/app.js missing real event-sequence telemetry');
+  assert(app.text.includes('function triggerLaunchSequence()'), '/swarm/app.js missing cinematic launch controller');
+  assert(app.text.includes('function fxForMissionEvent(ev)'), '/swarm/app.js missing real-event cinematic state hook');
+  assert(app.text.includes('function emitCinematicFx(kind,el,intensity)'), '/swarm/app.js missing cinematic particle/shockwave renderer');
+  assert(app.text.includes("matchMedia('(prefers-reduced-motion: reduce)')"), '/swarm/app.js missing reduced-motion runtime guard');
+  assert(!app.text.includes('localStorage'), '/swarm/app.js must not persist credentials in localStorage');
+  assert(!app.text.includes('sessionStorage'), '/swarm/app.js must not persist credentials in sessionStorage');
+  try {
+    new Function(app.text);
+  } catch (error) {
+    throw new Error(`/swarm/app.js browser bundle does not parse: ${error.message}`);
+  }
+
+  logPass('customer UI', 'HTML + external browser controller reachable and executable');
 }
 
 async function validateLiveMission(baseUrl, apiKey) {
@@ -120,7 +159,23 @@ async function validateLiveMission(baseUrl, apiKey) {
   assert(events.length > 0, 'swarm SSE returned no events');
 
   const terminal = events.find((event) => event.event_type === 'mission.completed');
-  assert(terminal, 'mission.completed was not emitted');
+  if (!terminal) {
+    const terminalFailure = [...events].reverse().find((event) =>
+      event?.event_type === 'mission.rejected' || event?.event_type === 'mission.failed'
+    );
+    const observed = [...new Set(events.map((event) => event?.event_type).filter(Boolean))].join(', ');
+    const detail = terminalFailure
+      ? [
+          `event_type=${terminalFailure.event_type}`,
+          `state=${terminalFailure.state || 'unknown'}`,
+          `canonical_status=${terminalFailure.canonical_status ?? 'n/a'}`,
+          `mesh_certified=${terminalFailure.mesh_certified ?? 'n/a'}`,
+          `error=${terminalFailure.error || terminalFailure.canonical_error?.error || 'n/a'}`,
+          `message=${terminalFailure.message || terminalFailure.canonical_error?.message || 'n/a'}`,
+        ].join(' ')
+      : `observed_event_types=${observed || 'none'}`;
+    throw new Error(`mission.completed was not emitted — ${detail}`);
+  }
   assert(terminal.mesh_certified === true, 'mission completed without mesh_certified=true');
   assert(typeof terminal.mission_id === 'string' && terminal.mission_id.length > 0, 'mission_id missing');
   assert(typeof terminal.execution_id === 'string' && terminal.execution_id.length > 0, 'execution_id missing');
