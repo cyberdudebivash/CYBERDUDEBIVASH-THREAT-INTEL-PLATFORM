@@ -992,7 +992,7 @@ body:after{content:"";position:fixed;inset:0;pointer-events:none;z-index:0;backg
 <main class="wrap" id="missionShell">
   <header class="topbar">
     <div class="brand-block"><div class="brand-mark">CDB</div><div><div class="brand">CYBERDUDEBIVASH® SENTINEL APEX™</div><span class="brand-sub">Autonomous Cyber Intelligence Control Plane</span></div></div>
-    <div class="top-status"><span class="top-pill" id="runtimePill"><span class="dot"></span><span id="runtimeState">CHECKING RUNTIME</span></span><span class="top-pill"><span class="dot"></span>V4.45 PRODUCTION</span><span class="top-pill mono"><span class="dot"></span><span id="utcClock">--:--:-- UTC</span></span></div>
+    <div class="top-status"><span class="top-pill" id="runtimePill"><span class="dot"></span><span id="runtimeState">CHECKING RUNTIME</span></span><span class="top-pill"><span class="dot"></span>V4.46 PRODUCTION</span><span class="top-pill mono"><span class="dot"></span><span id="utcClock">--:--:-- UTC</span></span></div>
   </header>
 
   <section class="hero">
@@ -1116,7 +1116,7 @@ export default {
         status: 'ok',
         service: 'sentinel-apex-swarm-live',
         protocol: PROTOCOL,
-        version: env.SWARM_VERSION || '4.44.0',
+        version: env.SWARM_VERSION || '4.46.0',
         agents: AGENTS.length,
         // Real dependency status, not a static ack -- reflects whether
         // mission history/evidence export can actually serve a request
