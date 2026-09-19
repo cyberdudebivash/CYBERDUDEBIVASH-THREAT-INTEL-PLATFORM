@@ -64,6 +64,61 @@ test('authHeaders forwards only recognized credential headers; hasAuth reflects 
   assert.equal(__test.hasAuth(__test.authHeaders(new Request('https://x.test'))), false);
 });
 
+test('canonicalGatewayFetch prefers the private service binding and preserves method/path/body', async () => {
+  let globalFetchCalled = false;
+  let observed = null;
+  await withStubFetch(
+    async () => {
+      globalFetchCalled = true;
+      throw new Error('public fetch must not be used when service binding exists');
+    },
+    async () => {
+      const env = {
+        CANONICAL_GATEWAY: {
+          async fetch(request) {
+            observed = {
+              method: request.method,
+              pathname: new URL(request.url).pathname,
+              body: await request.text(),
+            };
+            return jsonResponse({ status: 'ok' });
+          },
+        },
+      };
+      const res = await __test.canonicalGatewayFetch(
+        env,
+        'https://intel.cyberdudebivash.com/api/intel/correlate',
+        {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ ioc_value: '8.8.8.8', ioc_type: 'ipv4' }),
+        },
+      );
+      assert.equal(res.status, 200);
+      assert.equal(globalFetchCalled, false);
+      assert.equal(observed.method, 'POST');
+      assert.equal(observed.pathname, '/api/intel/correlate');
+      assert.deepEqual(JSON.parse(observed.body), { ioc_value: '8.8.8.8', ioc_type: 'ipv4' });
+    },
+  );
+});
+
+test('canonicalGatewayFetch falls back to public fetch when no service binding is available', async () => {
+  let called = false;
+  await withStubFetch(
+    async (request) => {
+      called = true;
+      assert.equal(new URL(request.url).pathname, '/api/health');
+      return jsonResponse({ status: 'ok' });
+    },
+    async () => {
+      const res = await __test.canonicalGatewayFetch({}, 'https://intel.cyberdudebivash.com/api/health');
+      assert.equal(res.status, 200);
+      assert.equal(called, true);
+    },
+  );
+});
+
 test('safeRequestId accepts a well-formed caller id, rejects and replaces a malformed one', () => {
   const good = new Request('https://x.test', { headers: { 'x-request-id': 'abc.123:def' } });
   assert.equal(__test.safeRequestId(good), 'abc.123:def');
