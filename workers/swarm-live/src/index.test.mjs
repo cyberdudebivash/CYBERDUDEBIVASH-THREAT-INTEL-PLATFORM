@@ -142,11 +142,11 @@ test('canonicalGatewayFetch falls back to public fetch(url, init) when no servic
   );
 });
 
-test('customer console exposes the production V4.46.5 control-plane capabilities', () => {
+test('customer console exposes the production V4.47.0 control-plane capabilities', () => {
   const html = __test.ui();
   for (const marker of [
     'SUPER AGENT SWARM',
-    'V4.46.5 PRODUCTION',
+    'V4.47.0 PRODUCTION',
     '8-Agent Operations Grid',
     'Private APEX Mesh',
     'Durable Evidence',
@@ -320,7 +320,7 @@ test('browser controller executes to interactive-ready and attaches live mission
             status: 'ok',
             service: 'sentinel-apex-swarm-live',
             protocol: 'cdb.swarm.v1',
-            version: '4.46.5',
+            version: '4.47.0',
             agents: 8,
             persistence: { kv_bound: true },
             production: { canonical_gateway_bound: true },
@@ -346,7 +346,7 @@ test('browser controller executes to interactive-ready and attaches live mission
   assert.equal(typeof getElement('loadHistory').onclick, 'function');
   assert.equal(typeof getElement('historyBody').onclick, 'function');
   assert.equal(getElement('runtimeState').textContent, 'LIVE');
-  assert.equal(getElement('runtimeKpi').textContent, 'LIVE · 4.46.5');
+  assert.equal(getElement('runtimeKpi').textContent, 'LIVE · 4.47.0');
   assert.equal(getElement('gatewayState').textContent, 'BOUND');
   assert.equal(getElement('persistenceState').textContent, 'READY');
   assert.equal(getElement('evidenceStore').textContent, 'DURABLE KV READY');
@@ -372,7 +372,7 @@ test('cinematic customer console exposes premium visual surfaces without fake mi
     'Cinematic launch visualization is decorative only',
     'SOC / CTI',
     'CYBER DEFENSE',
-    'V4.46.5 PRODUCTION',
+    'V4.47.0 PRODUCTION',
   ]) {
     assert.ok(html.includes(marker), 'missing cinematic UI marker: ' + marker);
   }
@@ -728,11 +728,11 @@ test('persistMission writes through the bound KV namespace with a TTL', async ()
 });
 
 test('GET /api/swarm/health reports protocol and agent count without requiring auth', async () => {
-  const res = await worker.fetch(new Request('https://x.test/api/swarm/health'), { SWARM_VERSION: '4.46.5' }, {});
+  const res = await worker.fetch(new Request('https://x.test/api/swarm/health'), { SWARM_VERSION: '4.47.0' }, {});
   assert.equal(res.status, 200);
   const body = await res.json();
   assert.equal(body.protocol, 'cdb.swarm.v1');
-  assert.equal(body.version, '4.46.5');
+  assert.equal(body.version, '4.47.0');
   assert.equal(body.agents, 8);
 });
 
