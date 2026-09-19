@@ -678,6 +678,58 @@ async function executeMission({ writer, request, env, body, correlationId, missi
   }
 }
 
+async function handleEntitlementPreflight(request, env) {
+  const auth = authHeaders(request);
+  if (!hasAuth(auth)) {
+    return json({
+      status: 'denied',
+      allowed: false,
+      swarm_entitled: false,
+      reason: 'AUTH_REQUIRED',
+    }, 401, { 'cache-control': 'private, no-store' });
+  }
+
+  const canonicalBase = env.CANONICAL_BASE_URL || 'https://intel.cyberdudebivash.com';
+  const headers = new Headers(auth);
+  headers.set('accept', 'application/json');
+  headers.set('content-type', 'application/json');
+  headers.set('x-request-id', safeRequestId(request));
+
+  let response;
+  try {
+    response = await canonicalGatewayFetch(env, `${canonicalBase}/api/v1/swarm/preflight`, {
+      method: 'POST',
+      headers,
+      body: '{}',
+    });
+  } catch {
+    return json({
+      status: 'unavailable',
+      allowed: false,
+      swarm_entitled: false,
+      reason: 'VERIFY_UNAVAILABLE',
+    }, 503, { 'retry-after': '10', 'cache-control': 'private, no-store' });
+  }
+
+  const text = await response.text();
+  let body = null;
+  try { body = text ? JSON.parse(text) : null; } catch { /* normalized below */ }
+
+  if (!body || typeof body !== 'object' || Array.isArray(body)) {
+    return json({
+      status: 'unavailable',
+      allowed: false,
+      swarm_entitled: false,
+      reason: 'VERIFY_UNAVAILABLE',
+    }, 503, { 'retry-after': '10', 'cache-control': 'private, no-store' });
+  }
+
+  return json(body, response.status, {
+    'cache-control': 'private, no-store',
+    ...(response.headers.get('retry-after') ? { 'retry-after': response.headers.get('retry-after') } : {}),
+  });
+}
+
 async function handleRun(request, env, ctx) {
   const auth = authHeaders(request);
   if (!hasAuth(auth)) {
@@ -1003,10 +1055,14 @@ function escapeHtml(value) {
 function swarmAppJs() {
   return String.raw`  document.documentElement.dataset.swarmUi='ready';
   window.__CDB_SWARM_UI_READY__=true;
-const run=document.getElementById('run'),final=document.getElementById('final'),eventLog=document.getElementById('eventLog');
+const run=document.getElementById('run'),final=document.getElementById('final'),eventLog=document.getElementById('eventLog'),keyInput=document.getElementById('key');
   const byId=(id)=>document.getElementById(id);
   function setTone(el,tone){if(!el)return;el.dataset.tone=tone||''}
   function setText(id,value,tone){const el=byId(id);if(!el)return;el.textContent=value;setTone(el,tone)}
+  let preflightTimer=null,preflightAuthorized=false,verifiedKey='';
+  function setPreflightState(label,tone,authorized){preflightAuthorized=Boolean(authorized);setText('keyStatus',label,tone);if(run)run.disabled=!preflightAuthorized}
+  async function verifySwarmEntitlement(force=false){const key=(keyInput&&keyInput.value||'').trim();if(!key){verifiedKey='';setPreflightState('INPUT REQUIRED','warn',false);return false}if(!force&&preflightAuthorized&&verifiedKey===key)return true;setPreflightState('VERIFYING','warn',false);try{const r=await fetch('/api/swarm/preflight',{method:'POST',headers:{accept:'application/json','x-api-key':key},cache:'no-store'});let body=null;try{body=await r.json()}catch{}if(r.ok&&body&&body.allowed===true&&body.swarm_entitled===true){verifiedKey=key;const quota=body.quota&&body.quota.per_day?(' · '+body.quota.per_day.remaining+' DAY CALLS LEFT'):'';setPreflightState('AUTHORIZED · '+(body.tier||'PAID')+quota,'ok',true);return true}verifiedKey='';const reason=body&&body.reason?body.reason:('HTTP '+r.status);setPreflightState(reason,'bad',false);return false}catch{verifiedKey='';setPreflightState('VERIFY UNAVAILABLE','bad',false);return false}}
+  if(keyInput){keyInput.oninput=()=>{verifiedKey='';preflightAuthorized=false;if(run)run.disabled=true;const key=keyInput.value.trim();if(!key){setPreflightState('INPUT REQUIRED','warn',false);return}setPreflightState('VERIFYING','warn',false);if(preflightTimer&&window.clearTimeout)window.clearTimeout(preflightTimer);preflightTimer=window.setTimeout?window.setTimeout(()=>{verifySwarmEntitlement(false)},450):null}}
   function setMissionState(value,tone){setText('missionState',value,tone);setText('finalBadge',value,tone);const shell=byId('missionShell');if(shell)shell.dataset.mission=value||'READY';updateOpsTelemetry();const led=byId('fabricLed');if(value==='CONNECTING'){setText('fabricStateText','AWAITING ADMISSION','warn');setText('streamState','SSE · CONNECTING','warn');if(led)led.dataset.state='RUNNING'}else if(value==='QUEUED'||value==='ADMITTED'||value==='RUNNING'){setText('fabricStateText','MISSION ACTIVE','ok');setText('streamState','SSE · STREAMING','ok');if(led)led.dataset.state='RUNNING'}else if(value==='COMPLETED'){setText('fabricStateText','MISSION COMPLETE','ok');setText('streamState','SSE · CLOSED','ok');if(led)led.dataset.state='COMPLETED'}else if(value==='FAILED'||value==='REJECTED'||value==='TRANSPORT FAILED'){setText('fabricStateText','MISSION FAILED','warn');setText('streamState','SSE · CLOSED','warn');if(led)led.dataset.state='FAILED'}else if(String(value||'').startsWith('REPLAYED')){setText('fabricStateText','EVIDENCE REPLAY','ok');setText('streamState','SSE · NOT CONNECTED');if(led)led.dataset.state='COMPLETED'}else{setText('fabricStateText','DORMANT');setText('streamState','SSE · DORMANT');if(led)led.dataset.state='IDLE'}}
   const browserTimeZone=()=>{try{return Intl.DateTimeFormat().resolvedOptions().timeZone||'UTC'}catch{return 'UTC'}};
   const validTimeZone=(tz)=>{try{new Intl.DateTimeFormat('en-US',{timeZone:tz}).format(new Date());return tz}catch{return 'UTC'}};
@@ -1043,7 +1099,7 @@ const run=document.getElementById('run'),final=document.getElementById('final'),
   function setAgent(ev){if(!ev.agent_id)return;const el=byId('agent-'+ev.agent_id);if(!el)return;el.dataset.state=ev.state||'IDLE';setMeshNode(ev.agent_id,ev.state||'IDLE');el.querySelector('.state').textContent=(ev.state||'IDLE')+(ev.basis==='unconfigured'?' · CONFIG ERROR':'');el.querySelector('.basis').textContent=(ev.basis||ev.event_type||'BACKEND').replaceAll('_',' ');el.querySelector('.duration').textContent=Number.isFinite(ev.duration_ms)?ev.duration_ms+' ms':'—';if(ev.agent_id==='risk-synthesizer'&&ev.result)renderNarrative(el,ev.result);const p=el.querySelector('pre');if(ev.result)p.textContent=JSON.stringify(ev.result,null,2);else if(ev.detail)p.textContent=JSON.stringify(ev.detail,null,2);else if(ev.event_type)p.textContent=ev.event_type;updateOpsTelemetry()}
   function renderPersistedMission(record){setText('mission',record.mission_id||'—');setText('correlation',record.correlation_id||'—');setMissionState(record.status==='COMPLETED'?'REPLAYED · COMPLETED':('REPLAYED · '+(record.status||'UNKNOWN')),record.status==='COMPLETED'?'ok':'warn');setText('mesh',record.mesh_certified?'CERTIFIED':'NOT CERTIFIED',record.mesh_certified?'ok':'warn');if(record.specialists){Object.entries(record.specialists).forEach(([id,o])=>setAgent({agent_id:id,state:o.state,basis:o.basis,result:o.result,duration_ms:o.duration_ms}))}final.textContent=JSON.stringify(record,null,2);eventLog.innerHTML='<div class="event-empty">Persisted idempotent replay loaded. No duplicate backend dispatch was performed.</div>'}
   async function hydrateHealth(){try{const r=await fetch('/api/swarm/health',{cache:'no-store'});const body=await r.json();if(!r.ok)throw new Error('HTTP '+r.status);setText('runtimeState','LIVE','ok');setTone(byId('runtimePill'),'ok');setText('runtimeKpi','LIVE · '+(body.version||'CURRENT'),'ok');setText('protocol',body.protocol||'cdb.swarm.v1');setText('agentCount',String(body.agents||8)+' AGENTS','ok');const gateway=Boolean(body.production&&body.production.canonical_gateway_bound);const durable=Boolean(body.persistence&&body.persistence.kv_bound);const retry=Boolean(body.capabilities&&body.capabilities.idempotent_retry);const formats=(body.capabilities&&body.capabilities.report_formats)||[];setText('gatewayState',gateway?'BOUND':'UNAVAILABLE',gateway?'ok':'warn');setText('persistenceState',durable?'READY':'UNAVAILABLE',durable?'ok':'warn');setText('retryState',retry?'ENFORCED':'UNKNOWN',retry?'ok':'warn');setText('exportState',formats.includes('stix21')?'READY':'LIMITED',formats.includes('stix21')?'ok':'warn');setText('evidenceStore',durable?'DURABLE KV READY':'UNAVAILABLE',durable?'ok':'warn')}catch(e){setText('runtimeState','UNAVAILABLE','warn');setText('runtimeKpi','HEALTH CHECK FAILED','warn');setText('gatewayState','UNKNOWN','warn');setText('persistenceState','UNKNOWN','warn');setText('retryState','UNKNOWN','warn');setText('exportState','UNKNOWN','warn');setText('evidenceStore','UNKNOWN','warn')}}
-  run.onclick=async()=>{const key=byId('key').value.trim(),ioc=byId('ioc').value.trim(),type=byId('type').value;if(!key||!ioc){final.textContent='API key and IOC are required.';setMissionState('INPUT REQUIRED','warn');return}triggerLaunchSequence();resetAgents();resetEventLog();run.disabled=true;final.textContent='Connecting to the production swarm…';setText('mission','—');setText('correlation','—');setText('mesh','PENDING','warn');setMissionState('CONNECTING','warn');try{const rid='ui-'+crypto.randomUUID();const r=await fetch('/api/swarm/run',{method:'POST',headers:{'content-type':'application/json','x-api-key':key,'x-request-id':rid},body:JSON.stringify({ioc_value:ioc,ioc_type:type})});if(!r.ok){setMissionState('REJECTED','warn');final.textContent='Launch failed: HTTP '+r.status+' '+await r.text();return}const contentType=r.headers.get('content-type')||'';if(contentType.includes('application/json')){const replay=await r.json();if(replay&&replay.idempotent_replay&&replay.data){renderPersistedMission(replay.data);return}final.textContent=JSON.stringify(replay,null,2);return}setText('mission',r.headers.get('x-cdb-swarm-mission')||'—');setText('correlation',r.headers.get('x-cdb-swarm-correlation')||rid);const reader=r.body.getReader(),decoder=new TextDecoder();let buf='';while(true){const chunkResult=await reader.read();if(chunkResult.done)break;buf+=decoder.decode(chunkResult.value,{stream:true});let idx;while((idx=buf.indexOf('\n\n'))>=0){const chunk=buf.slice(0,idx);buf=buf.slice(idx+2);const line=chunk.split('\n').find((x)=>x.startsWith('data: '));if(!line)continue;const ev=JSON.parse(line.slice(6));setText('mission',ev.mission_id||'—');setText('correlation',ev.correlation_id||'—');appendEvent(ev);setAgent(ev);if(ev.event_type==='mission.accepted')setMissionState('QUEUED','warn');else if(ev.event_type==='mesh.admitted'){setText('mesh','CERTIFIED · '+(ev.mesh_execution_id||''),'ok');setMissionState('ADMITTED','ok')}else if(ev.event_type==='agent.started')setMissionState('RUNNING','warn');if(ev.mesh_certified)setText('mesh','CERTIFIED · '+(ev.mesh_execution_id||''),'ok');if(ev.event_type==='mission.completed'){setMissionState('COMPLETED','ok');final.textContent=JSON.stringify(ev.result,null,2)}if(ev.event_type==='mission.rejected'||ev.event_type==='mission.failed'){setMissionState('FAILED','warn');final.textContent=JSON.stringify(ev,null,2)}}}}catch(e){setMissionState('TRANSPORT FAILED','warn');final.textContent='Mission transport failed: '+e.message}finally{run.disabled=false}}
+  run.onclick=async()=>{const key=byId('key').value.trim(),ioc=byId('ioc').value.trim(),type=byId('type').value;if(!key||!ioc){final.textContent='API key and IOC are required.';setMissionState('INPUT REQUIRED','warn');return}if(!(await verifySwarmEntitlement(true))){final.textContent='Mission launch blocked by entitlement preflight. Review the API-key status above.';setMissionState('ACCESS DENIED','warn');return}triggerLaunchSequence();resetAgents();resetEventLog();run.disabled=true;final.textContent='Connecting to the production swarm…';setText('mission','—');setText('correlation','—');setText('mesh','PENDING','warn');setMissionState('CONNECTING','warn');try{const rid='ui-'+crypto.randomUUID();const r=await fetch('/api/swarm/run',{method:'POST',headers:{'content-type':'application/json','x-api-key':key,'x-request-id':rid},body:JSON.stringify({ioc_value:ioc,ioc_type:type})});if(!r.ok){setMissionState('REJECTED','warn');final.textContent='Launch failed: HTTP '+r.status+' '+await r.text();return}const contentType=r.headers.get('content-type')||'';if(contentType.includes('application/json')){const replay=await r.json();if(replay&&replay.idempotent_replay&&replay.data){renderPersistedMission(replay.data);return}final.textContent=JSON.stringify(replay,null,2);return}setText('mission',r.headers.get('x-cdb-swarm-mission')||'—');setText('correlation',r.headers.get('x-cdb-swarm-correlation')||rid);const reader=r.body.getReader(),decoder=new TextDecoder();let buf='';while(true){const chunkResult=await reader.read();if(chunkResult.done)break;buf+=decoder.decode(chunkResult.value,{stream:true});let idx;while((idx=buf.indexOf('\n\n'))>=0){const chunk=buf.slice(0,idx);buf=buf.slice(idx+2);const line=chunk.split('\n').find((x)=>x.startsWith('data: '));if(!line)continue;const ev=JSON.parse(line.slice(6));setText('mission',ev.mission_id||'—');setText('correlation',ev.correlation_id||'—');appendEvent(ev);setAgent(ev);if(ev.event_type==='mission.accepted')setMissionState('QUEUED','warn');else if(ev.event_type==='mesh.admitted'){setText('mesh','CERTIFIED · '+(ev.mesh_execution_id||''),'ok');setMissionState('ADMITTED','ok')}else if(ev.event_type==='agent.started')setMissionState('RUNNING','warn');if(ev.mesh_certified)setText('mesh','CERTIFIED · '+(ev.mesh_execution_id||''),'ok');if(ev.event_type==='mission.completed'){setMissionState('COMPLETED','ok');final.textContent=JSON.stringify(ev.result,null,2)}if(ev.event_type==='mission.rejected'||ev.event_type==='mission.failed'){setMissionState('FAILED','warn');final.textContent=JSON.stringify(ev,null,2)}}}}catch(e){setMissionState('TRANSPORT FAILED','warn');final.textContent='Mission transport failed: '+e.message}finally{run.disabled=!preflightAuthorized}}
   updateOpsTelemetry();
   hydrateHealth();
   const loadHistoryBtn=document.getElementById('loadHistory'),historyBody=document.getElementById('historyBody'),historyNote=document.getElementById('historyNote');
@@ -1457,6 +1513,7 @@ html,body{width:100%;max-width:100%;overflow-x:hidden}
   50%{opacity:1;transform:scale(1.14)}
 }
 
+.field-status{display:block;margin-top:8px;font:800 9px/1.35 var(--mono);letter-spacing:.12em;color:#9ab8b1;text-transform:uppercase}.field-status[data-tone=ok]{color:#62f6c6;text-shadow:0 0 12px rgba(98,246,198,.5)}.field-status[data-tone=warn]{color:#ffd166;text-shadow:0 0 10px rgba(255,209,102,.35)}.field-status[data-tone=bad]{color:#ff7b88;text-shadow:0 0 12px rgba(255,123,136,.42)}.run:disabled{cursor:not-allowed;filter:saturate(.45) brightness(.72);box-shadow:none;opacity:.68}
 /* Tablet landscape / compact desktop. */
 @media(max-width:1180px){
   .mesh-core{grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
@@ -1555,10 +1612,10 @@ html,body{width:100%;max-width:100%;overflow-x:hidden}
     <h2 class="section-title">Launch a live CTI mission</h2>
     <p class="section-copy">Use an existing paid Sentinel API key. The credential stays in browser memory only and is never written to cookies or localStorage.</p>
     <div class="launch-grid">
-      <div class="field"><label for="key">Sentinel API Key</label><input id="key" type="password" autocomplete="off" spellcheck="false" placeholder="ENTERPRISE / PRO / MSSP API key"></div>
+      <div class="field"><label for="key">Sentinel API Key</label><input id="key" type="password" autocomplete="off" spellcheck="false" placeholder="ENTERPRISE / PRO / MSSP API key"><small class="field-status" id="keyStatus" data-tone="warn" aria-live="polite">INPUT REQUIRED</small></div>
       <div class="field"><label for="ioc">Observable / IOC</label><input id="ioc" value="8.8.8.8" aria-label="IOC" spellcheck="false"></div>
       <div class="field"><label for="type">IOC Type</label><select id="type"><option value="ipv4">IPv4</option><option value="domain">Domain</option><option value="url">URL</option><option value="hash">Hash</option><option value="auto">Auto detect</option></select></div>
-      <button type="button" class="run" id="run">RUN LIVE SWARM</button>
+      <button type="button" class="run" id="run" disabled>RUN LIVE SWARM</button>
     </div>
     <p class="security-note">Credential storage: none. Mission execution is accepted only through production auth, entitlement and private-mesh controls.</p>
     <div class="cinematic-hint">Cinematic launch visualization is decorative only; backend events remain the sole source of mission truth.</div>
@@ -1679,11 +1736,15 @@ export default {
         // for existing is refusing exactly that trade.
         capabilities: {
           mission_history: true,
+          entitlement_preflight: true,
           idempotent_retry: true,
           report_formats: ['md', 'json', 'stix21'],
           agent_timing: true,
         },
       });
+    }
+    if (request.method === 'POST' && url.pathname === '/api/swarm/preflight') {
+      return handleEntitlementPreflight(request, env);
     }
     if (request.method === 'POST' && url.pathname === '/api/swarm/run') {
       return handleRun(request, env, ctx);
@@ -1717,6 +1778,7 @@ export const __test = Object.freeze({
   iocHunterResult,
   fuseRiskSynthesis,
   canonicalGatewayFetch,
+  handleEntitlementPreflight,
   synthesizeNarrative,
   runBackendSpecialist,
   persistMission,
