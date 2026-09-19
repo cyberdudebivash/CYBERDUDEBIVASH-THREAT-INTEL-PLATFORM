@@ -1051,7 +1051,7 @@ body[data-launch-fx=active] .agent{box-shadow:0 0 22px rgba(0,231,255,.055),inse
 <main class="wrap" id="missionShell">
   <header class="topbar">
     <div class="brand-block"><div class="brand-mark">CDB</div><div><div class="brand">CYBERDUDEBIVASH® SENTINEL APEX™</div><span class="brand-sub">Autonomous Cyber Intelligence Control Plane</span></div></div>
-    <div class="top-status"><span class="top-pill" id="runtimePill"><span class="dot"></span><span id="runtimeState" aria-live="polite">CHECKING RUNTIME</span></span><span class="top-pill"><span class="dot"></span>V4.46 PRODUCTION</span><section class="global-clock" id="globalClock" data-synced="fallback" aria-label="Current customer location time"><div class="clock-led-wrap"><span class="clock-live-dot" aria-hidden="true"></span><time class="clock-led" id="clockTime" datetime="${initialNow.toISOString()}" aria-live="off">${initialUtcTime}</time></div><div class="clock-zone mono" id="clockZone">UTC · EDGE SYNC</div><div class="clock-meta"><span class="clock-location" id="clockLocation">GLOBAL EDGE · RESOLVING</span><span class="clock-country" id="clockCountry">UTC · ${initialUtcDate}</span></div></section></div>
+    <div class="top-status"><span class="top-pill" id="runtimePill"><span class="dot"></span><span id="runtimeState" aria-live="polite">CHECKING RUNTIME</span></span><span class="top-pill"><span class="dot"></span>V4.46.1 PRODUCTION</span><section class="global-clock" id="globalClock" data-synced="fallback" aria-label="Current customer location time"><div class="clock-led-wrap"><span class="clock-live-dot" aria-hidden="true"></span><time class="clock-led" id="clockTime" datetime="${initialNow.toISOString()}" aria-live="off">${initialUtcTime}</time></div><div class="clock-zone mono" id="clockZone">UTC · EDGE SYNC</div><div class="clock-meta"><span class="clock-location" id="clockLocation">GLOBAL EDGE · RESOLVING</span><span class="clock-country" id="clockCountry">UTC · ${initialUtcDate}</span></div></section></div>
   </header>
 
   <section class="hero">
@@ -1196,7 +1196,7 @@ export default {
         status: 'ok',
         service: 'sentinel-apex-swarm-live',
         protocol: PROTOCOL,
-        version: env.SWARM_VERSION || '4.46.0',
+        version: env.SWARM_VERSION || '4.46.1',
         agents: AGENTS.length,
         // Real dependency status, not a static ack -- reflects whether
         // mission history/evidence export can actually serve a request
