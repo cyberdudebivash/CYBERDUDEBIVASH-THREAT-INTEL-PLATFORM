@@ -1,4 +1,5 @@
 import { evaluateKeyRecordAccess } from './subscription-lifecycle.js';
+import { SWARM_MESH_CAPABILITY, tierAllowsSwarm } from './swarm-access.js';
 
 const enc = new TextEncoder();
 const MESH_VERSION = 'cdb.mesh.v1';
@@ -9,10 +10,8 @@ const MAX_INPUT_BYTES = 32768;
 const MAX_OUTPUT_BYTES = 524288;
 const MAX_MESH_RESPONSE_BYTES = 65536;
 const ID = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/;
-const CUSTOMER_TIERS = new Set(['PRO', 'ENTERPRISE', 'MSSP']);
-
 const ROUTES = Object.freeze({
-  'POST /api/intel/correlate': Object.freeze({ capability: 'intel.enrich' }),
+  'POST /api/intel/correlate': Object.freeze({ capability: SWARM_MESH_CAPABILITY }),
 });
 
 class MeshAccessError extends Error {
@@ -102,7 +101,7 @@ function safeCorrelationId(request) {
 
 function normalizeTier(value) {
   const tier = String(value || '').trim().toUpperCase();
-  if (!CUSTOMER_TIERS.has(tier)) throw new MeshAccessError('mesh_paid_tier_required', 403);
+  if (!tierAllowsSwarm(tier)) throw new MeshAccessError('mesh_paid_tier_required', 403);
   return tier;
 }
 
