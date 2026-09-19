@@ -125,6 +125,27 @@ test('canonicalGatewayFetch falls back to public fetch(url, init) when no servic
   );
 });
 
+test('customer console exposes the production V4.45 control-plane capabilities', () => {
+  const html = __test.ui();
+  for (const marker of [
+    'SUPER AGENT SWARM',
+    '8-Agent Operations Grid',
+    'Private APEX Mesh',
+    'Durable Evidence',
+    'Retry Safety',
+    'STIX 2.1',
+    'Live Mission Events',
+    'Mission History & Evidence Export',
+  ]) {
+    assert.ok(html.includes(marker), 'missing UI marker: ' + marker);
+  }
+  assert.ok(html.includes('id="gatewayState"'));
+  assert.ok(html.includes('id="persistenceState"'));
+  assert.ok(html.includes('id="eventLog"'));
+  assert.ok(html.includes('id="missionState"'));
+  assert.ok(!html.includes('setInterval('), 'customer console must not simulate progress with timers');
+});
+
 test('safeRequestId accepts a well-formed caller id, rejects and replaces a malformed one', () => {
   const good = new Request('https://x.test', { headers: { 'x-request-id': 'abc.123:def' } });
   assert.equal(__test.safeRequestId(good), 'abc.123:def');
