@@ -579,6 +579,25 @@ async function checkRateLimit(env, ip, tier) {
   }
 }
 
+const SWARM_PREFLIGHT_RATE_LIMIT_PER_MINUTE = 60;
+
+async function checkSwarmPreflightRateLimit(env, ip) {
+  const limit = SWARM_PREFLIGHT_RATE_LIMIT_PER_MINUTE;
+  const minute = Math.floor(Date.now() / 60000);
+  const key = `rl:swarm-preflight:${ip}:${minute}`;
+  try {
+    const val = await env.RATE_LIMIT_KV.get(key);
+    const count = val ? parseInt(val, 10) : 0;
+    if (count >= limit) return { allowed: false, count, limit, remaining: 0 };
+    await env.RATE_LIMIT_KV.put(key, String(count + 1), { expirationTtl: 61 });
+    return { allowed: true, count: count + 1, limit, remaining: limit - count - 1 };
+  } catch (_) {
+    // Same fail-open posture as the platform's existing request limiter:
+    // an abuse-counter KV fault must not become a customer outage.
+    return { allowed: true, count: 0, limit, remaining: limit };
+  }
+}
+
 // =============================================================================
 // TIER DEFINITIONS & AUTH RESOLUTION
 // =============================================================================
@@ -5650,7 +5669,41 @@ async function handleRequest(request, env, ctx) {
         "Cache-Control": "no-store",
       });
     }
-    return await handleSwarmPreflight(env, auth);
+
+    // Preflight is intentionally outside commercial/billable request quota,
+    // but it is not an unbounded free auth/KV oracle. A dedicated IP-scoped
+    // limiter protects this one control-plane route in its own keyspace and
+    // never changes the customer's production API usage counters.
+    const preflightRl = await checkSwarmPreflightRateLimit(env, ip);
+    if (!preflightRl.allowed) {
+      auditLog(ctx, env, {
+        action: "swarm_preflight_rate_limited",
+        ip,
+        path,
+        method,
+        tier: auth.tier,
+      });
+      return jsonResp(
+        {
+          error: "Too Many Requests",
+          reason: "preflight_rate_limited",
+          retry_after: 60,
+          limit: preflightRl.limit,
+        },
+        429,
+        {
+          "Retry-After": "60",
+          "X-Preflight-RateLimit-Limit": String(preflightRl.limit),
+          "X-Preflight-RateLimit-Remaining": "0",
+          "Cache-Control": "no-store",
+        }
+      );
+    }
+
+    const response = await handleSwarmPreflight(env, auth);
+    response.headers.set("X-Preflight-RateLimit-Limit", String(preflightRl.limit));
+    response.headers.set("X-Preflight-RateLimit-Remaining", String(preflightRl.remaining));
+    return response;
   }
 
   // P0 2026-09-03 -- ENTITLEMENT PLANE SELECTION.
