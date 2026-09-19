@@ -27,7 +27,7 @@ const schema = {
   "url": "https://intel.cyberdudebivash.com/playground",
   "applicationCategory": "SecurityApplication",
   "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
-  "author": { "@type": "Organization", "name": "CYBERDUDEBIVASH PRIVATE LIMITED" },
+  "author": { "@type": "Organization", "name": "BIVASHA KUMAR NAYAK trading as CYBERDUDEBIVASH(R)" },
 };
 
 export default function PlaygroundPage() {

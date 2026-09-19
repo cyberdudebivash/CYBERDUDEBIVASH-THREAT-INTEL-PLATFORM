@@ -26,7 +26,7 @@ const schema = {
   "name": "SENTINEL APEX MSSP & Partner Program",
   "description": "Partner program for MSSPs, VARs, and resellers to deliver SENTINEL APEX threat intelligence to their customers.",
   "url": "https://intel.cyberdudebivash.com/partners",
-  "author": { "@type": "Organization", "name": "CYBERDUDEBIVASH PRIVATE LIMITED" },
+  "author": { "@type": "Organization", "name": "BIVASHA KUMAR NAYAK trading as CYBERDUDEBIVASH(R)" },
 };
 
 const PARTNER_TIERS = [

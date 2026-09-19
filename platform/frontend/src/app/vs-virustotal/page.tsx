@@ -26,7 +26,7 @@ const schema = {
   "name": "SENTINEL APEX vs VirusTotal — Threat Intelligence Platform Comparison",
   "description": "Side-by-side comparison of SENTINEL APEX and VirusTotal for threat intelligence use cases.",
   "url": "https://intel.cyberdudebivash.com/vs-virustotal",
-  "author": { "@type": "Organization", "name": "CYBERDUDEBIVASH PRIVATE LIMITED" },
+  "author": { "@type": "Organization", "name": "BIVASHA KUMAR NAYAK trading as CYBERDUDEBIVASH(R)" },
 };
 
 const COMPARISON = [

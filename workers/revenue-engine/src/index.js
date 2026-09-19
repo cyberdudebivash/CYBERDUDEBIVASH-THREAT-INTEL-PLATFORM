@@ -13,10 +13,13 @@ import { handleBillingSubscriptionCreate, handleBillingSubscriptionStatus, handl
 const ENGINE = {
   VERSION:  "183.0",
   NAME:     "SENTINEL-REVENUE-ENGINE",
+  // Confirmed unused elsewhere in this file (no `.PLANS`/`PLANS.`/`PLANS[` reference
+  // outside this definition) -- kept, not deleted, per CLAUDE.md's deprecation-over-
+  // deletion policy, but corrected to canon so it can't mislead a future reader.
   PLANS: {
     pro:        { name: "Pro",        inr: 4100,  usd: 49,  annual_inr: 41000,  annual_usd: 490  },
-    enterprise: { name: "Enterprise", inr: 41600, usd: 499, annual_inr: 415000, annual_usd: 4790 },
-    mssp:       { name: "MSSP",       inr: 166600, usd: 1999, annual_inr: 1600000, annual_usd: 19190 },
+    enterprise: { name: "Enterprise", inr: 41600, usd: 499, annual_inr: 416000, annual_usd: 4990 },
+    mssp:       { name: "MSSP",       inr: 83300,  usd: 999,  annual_inr: 833000,  annual_usd: 9990 },
   },
   TARGET_MRR_INR: 1000000,  // Rs.10L/month
   PIPELINE_STAGES: ["new","contacted","demo_scheduled","demo_done","trial","negotiation","closed_won","closed_lost"],
@@ -24,7 +27,7 @@ const ENGINE = {
     pro_monthly:        4100,
     pro_annual:         41000,
     enterprise_monthly: 41600,
-    enterprise_annual:  415000,
+    enterprise_annual:  416000,
     enterprise_custom:  0,  // negotiated
   },
 };
@@ -551,7 +554,7 @@ async function createDealInternal(env, data) {
     created_at:         new Date().toISOString(),
     updated_at:         new Date().toISOString(),
     owner:              "sales@cyberdudebivash.com",
-    weighted_value_inr: Math.floor((data.value_inr || 14999) * (data.close_probability || 0.10)),
+    weighted_value_inr: Math.floor((data.value_inr || ENGINE.DEAL_VALUES_INR.enterprise_monthly) * (data.close_probability || 0.10)),
   };
 
   try {
@@ -642,7 +645,7 @@ async function enterpriseClosingSequence(env, dealId, data) {
   }
 
   // 2. Notify sales team
-  await slackNotify(env, `🏆 DEAL CLOSED WON | ${data.company} | ${data.plan} | ₹${data.value_inr || 14999}/mo | deal: ${dealId}`);
+  await slackNotify(env, `🏆 DEAL CLOSED WON | ${data.company} | ${data.plan} | ₹${data.value_inr || ENGINE.DEAL_VALUES_INR.enterprise_monthly}/mo | deal: ${dealId}`);
 
   // 3. Queue onboarding sequence
   if (data.lead_email) {
@@ -650,7 +653,7 @@ async function enterpriseClosingSequence(env, dealId, data) {
   }
 
   // 4. Update MRR counter
-  await trackEvent(env, "deal_closed_won", { deal_id: dealId, value_inr: data.value_inr || 14999 });
+  await trackEvent(env, "deal_closed_won", { deal_id: dealId, value_inr: data.value_inr || ENGINE.DEAL_VALUES_INR.enterprise_monthly });
 }
 
 // Enterprise onboard — POST /api/enterprise/onboard
@@ -701,7 +704,7 @@ async function enterpriseContractTrigger(request, env, rid) {
 
   await queueEmail(env, {
     to: email, template: "enterprise_contract",
-    vars: { company, plan, deal_id, contract_ref: contractRef, value_inr: value_inr || 14999 },
+    vars: { company, plan, deal_id, contract_ref: contractRef, value_inr: value_inr || ENGINE.DEAL_VALUES_INR.enterprise_monthly },
     send_at: new Date().toISOString(),
   });
 
@@ -1142,14 +1145,14 @@ function getEmailTemplate(name, vars) {
     "cold_enterprise_value": {
       subject: `How ${T.company || "security teams"} use SENTINEL APEX to detect threats faster`,
       html: `<p>Quick value share —</p>
-<p>SENTINEL APEX processed <strong>2,400+ threat events</strong> last month. Here's what Pro/Enterprise users get that free users don't:</p>
+<p>SENTINEL APEX processes live threat intelligence around the clock. Here's what Pro/Enterprise users get that free users don't:</p>
 <ul>
 <li>✅ Full IOC arrays (IPs, domains, hashes) on every threat</li>
 <li>✅ STIX 2.1 bundle export to Splunk/QRadar/Sentinel</li>
 <li>✅ Actor fingerprinting with kill chain mapping</li>
 <li>✅ Real-time alert webhooks</li>
 </ul>
-<p>Enterprise starts at ₹14,999/month. ROI: one prevented incident pays for years of coverage.</p>
+<p>Enterprise starts at ₹${ENGINE.DEAL_VALUES_INR.enterprise_monthly.toLocaleString('en-IN')}/month. ROI: one prevented incident pays for years of coverage.</p>
 <p><a href="https://intel.cyberdudebivash.com/upgrade?plan=enterprise">Start Enterprise trial →</a></p>`,
     },
     "cold_enterprise_fu2": {
@@ -1239,8 +1242,8 @@ function getEmailTemplate(name, vars) {
       subject: "Ready to scale beyond Pro? Enterprise is waiting.",
       html: `<p>You're getting serious value from your Pro subscription.</p>
 <p>When you're ready to scale, Enterprise unlocks:</p>
-<ul><li>Unlimited API calls</li><li>Full STIX 2.1 bundle export</li><li>SIEM push (Splunk, Sentinel, QRadar)</li><li>Dedicated SLA + support engineer</li><li>White-label API option</li></ul>
-<p><a href="https://intel.cyberdudebivash.com/upgrade?plan=enterprise">Upgrade to Enterprise — ₹14,999/mo →</a></p>`,
+<ul><li>50,000 API calls/day</li><li>Full STIX 2.1 bundle export</li><li>SIEM push (Splunk, Sentinel, QRadar)</li><li>Dedicated SLA + support engineer</li><li>White-label API option</li></ul>
+<p><a href="https://intel.cyberdudebivash.com/upgrade?plan=enterprise">Upgrade to Enterprise — ₹${ENGINE.DEAL_VALUES_INR.enterprise_monthly.toLocaleString('en-IN')}/mo →</a></p>`,
     },
     "enterprise_contract": {
       subject: `Enterprise agreement ready — ${T.company}`,
@@ -1248,7 +1251,7 @@ function getEmailTemplate(name, vars) {
 <p>Thank you for choosing <strong>CYBERDUDEBIVASH® SENTINEL APEX Enterprise</strong>.</p>
 <p><strong>Contract ref:</strong> ${T.contract_ref || "CDB-ENT-2026-XXXX"}<br>
 <strong>Plan:</strong> Enterprise<br>
-<strong>Value:</strong> ₹${T.value_inr || 14999}/month</p>
+<strong>Value:</strong> ₹${T.value_inr || ENGINE.DEAL_VALUES_INR.enterprise_monthly}/month</p>
 <p>Next steps:</p>
 <ol><li>Review and sign the contract (DocuSign link coming separately)</li><li>Billing activation within 24 hours of signature</li><li>Enterprise API key + SIEM setup call with our team</li></ol>
 <p>Questions? Reply to this email or reach us at enterprise@cyberdudebivash.com</p>`,
@@ -1550,7 +1553,7 @@ const TIERS = {
   FREE:       { label:"Free",       req_day:25,     req_min:30,   price_usd:0,    price_inr:0,       trial_days:0,  features:["basic_feed","metadata","stix_ids"] },
   PRO:        { label:"Pro",        req_day:5000,   req_min:120,  price_usd:49,   price_inr:4100,    trial_days:7,  features:["full_ioc","sigma","yara","kql","spl","stix_bundle","actor","kill_chain","playbook","misp_json","csv_export"] },
   ENTERPRISE: { label:"Enterprise", req_day:50000,  req_min:600,  price_usd:499,  price_inr:41600,   trial_days:14, features:["siem_webhook","soar_export","navigator","hunt_queries","actor_tracking","campaign_intel","prediction_api","sector_feed","executive_brief","fair_model","reg_compliance","10_seats"] },
-  MSSP:       { label:"MSSP",       req_day:200000, req_min:1200, price_usd:1999, price_inr:166500,  trial_days:14, features:["multi_tenant","white_label","partner_api","bulk_stix","tenant_keys","oem_resale","40pct_revshare","unlimited_seats"] },
+  MSSP:       { label:"MSSP",       req_day:200000, req_min:1200, price_usd:999,  price_inr:83300,   trial_days:14, features:["multi_tenant","white_label","partner_api","bulk_stix","tenant_keys","oem_resale","40pct_revshare","unlimited_seats"] },
 };
 
 const PAYMENT_METHODS = ["upi","qr","paypal","neft","crypto_usdt_bep20","crypto_usdt_erc20","amazon_pay","bank_wire"];

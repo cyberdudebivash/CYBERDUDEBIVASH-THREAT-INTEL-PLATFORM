@@ -1,0 +1,143 @@
+{
+  "_schema": "cyberdudebivash-evidence-register-v1",
+  "_role": "Classification of every customer-facing metric claim this platform has published, with the evidence that supports it or the reason it was withdrawn.",
+  "_rule": "A production public page may present a claim as factual ONLY where classification is VERIFIED or MEASURED and an inspectable evidence source is named. DEMO_DATA, SYNTHETIC, UNVERIFIED and INTERNAL_ESTIMATE must never be presented as real-world customer proof. scripts/verify_public_claims.py enforces this.",
+  "_classifications": [
+    "VERIFIED — independently checkable outside this organisation",
+    "MEASURED — derived from our own systems by a documented, repeatable method",
+    "CUSTOMER_REPORTED — a named customer stated it and authorised publication",
+    "INTERNAL_ESTIMATE — our own model or projection; may be shown only when labelled as a projection",
+    "DEMO_DATA — illustrative fixture; never customer proof",
+    "SYNTHETIC — generated; never customer proof",
+    "UNVERIFIED — no evidence source located; must not be published"
+  ],
+  "_audit_date": "2026-09-19",
+  "_audit_scope": "All buyer-facing HTML surfaces on intel.cyberdudebivash.com (170 pages scanned by the gate; historical blog/, threat/ and reports/ trees excluded as dated records, not offers).",
+
+  "withdrawn": [
+    {
+      "claim": "4.9/5 average rating",
+      "appeared_on": ["testimonials.html", "case-studies.html", "compare.html", "demo.html", "index.html", "upgrade.html"],
+      "classification": "UNVERIFIED",
+      "source": null,
+      "measurement_window": null,
+      "denominator": null,
+      "collection_method": null,
+      "finding": "No review or rating system exists on this platform or on any third-party marketplace listing for it, so there is no population from which an average could be computed. No denominator was ever recorded.",
+      "action": "Removed. Not replaced with a different rating."
+    },
+    {
+      "claim": "Verified / professional / analyst / team head-counts",
+      "variants": ["500+ verified users", "500+ teams", "180+ teams", "1,000+ security professionals", "2,400+ security professionals", "4,800+ security professionals", "4,800+ analysts", "340+ analysts", "210+ analysts"],
+      "appeared_on": ["testimonials.html", "compare.html", "demo.html", "about.html", "login.html", "index.html", "enterprise-pricing.html", "landing/index.html"],
+      "classification": "UNVERIFIED",
+      "source": null,
+      "measurement_window": null,
+      "denominator": null,
+      "collection_method": null,
+      "finding": "Four mutually exclusive figures for the same population (1,000+, 2,400+, 4,800+ security professionals) were published simultaneously on different pages of the same site, and three different analyst counts (4,800+, 340+, 210+) appeared within index.html alone. Contradictory values for one population are themselves proof that none was measured. No user-count query, export or analytics view was found that produces any of them.",
+      "action": "Removed. Replaced where a headline was needed with MEASURED product facts from config/platform-evidence.json."
+    },
+    {
+      "claim": "Country reach",
+      "variants": ["40+ countries", "50+ countries", "60+ countries", "80+ countries"],
+      "appeared_on": ["testimonials.html", "compare.html", "index.html", "partner.html", "upgrade.html"],
+      "classification": "UNVERIFIED",
+      "source": null,
+      "measurement_window": null,
+      "denominator": null,
+      "collection_method": null,
+      "finding": "Four different figures across the same site. No geo-analytics export or customer-country field was located that yields any of them. Cloudflare request geography would describe visitors, not customers, and was not the stated basis.",
+      "action": "Removed."
+    },
+    {
+      "claim": "87% recommend to peers, 72h average time to value, 340% average threat detection ROI",
+      "appeared_on": ["testimonials.html"],
+      "classification": "UNVERIFIED",
+      "source": null,
+      "measurement_window": null,
+      "denominator": null,
+      "collection_method": null,
+      "finding": "Presented as aggregate customer outcomes. No survey instrument, response set, onboarding-time record or ROI study was located. A 340% ROI figure requires per-customer cost and benefit data that does not exist in this repository or any linked system.",
+      "action": "Removed."
+    },
+    {
+      "claim": "Anonymous but specifically-attributed testimonials",
+      "variants": ["Head of Threat Intelligence, Global Financial Services Group · 48,000 employees", "Director of Security Services — MSSP Partner (8 MSSP clients)", "ENTERPRISE SOC · FORTUNE 500"],
+      "appeared_on": ["testimonials.html", "pricing.html", "case-studies.html"],
+      "classification": "UNVERIFIED",
+      "source": null,
+      "collection_method": null,
+      "finding": "Quotes attributed to unnamed but precisely-described organisations, with no authorisation record, no customer reference and no way for a buyer to check any of it. Employee counts and sector labels make them read as real accounts.",
+      "action": "Removed. No replacement quotes were written — inventing a testimonial is prohibited."
+    },
+    {
+      "claim": "Customer case-study outcomes",
+      "variants": ["Global Bank Reduces MTTD to 38 minutes (90% improvement)", "results after 90 days"],
+      "appeared_on": ["case-studies.html"],
+      "classification": "UNVERIFIED",
+      "source": null,
+      "measurement_window": "stated as 90 days, with no engagement record",
+      "denominator": null,
+      "collection_method": null,
+      "finding": "Named-by-sector customer engagements with quantified before/after outcomes. No engagement, no baseline measurement and no customer authorisation was located for any of them.",
+      "action": "Page rewritten to describe what the product does, with no customer outcomes claimed. URL retained so indexed links do not 404."
+    },
+    {
+      "claim": "Fortune 500 customers",
+      "appeared_on": ["testimonials.html", "index.html"],
+      "classification": "UNVERIFIED",
+      "source": null,
+      "finding": "No Fortune 500 customer record, contract or authorisation was located.",
+      "action": "Removed."
+    }
+  ],
+
+  "retained": [
+    {
+      "claim": "Platform uptime 99.9% (Enterprise/MSSP), 99.5% (Professional), with P0 outage credits of 10%/15%/5% per hour",
+      "appeared_on": ["sla.html", "trust-center.html", "pricing.html", "enterprise.html", "security-compliance.html", "landing/index.html", "get-api-key.html", "executive-briefing.html"],
+      "classification": "MEASURED",
+      "source": "sla.html tier-by-tier commitment table, and /status.html for live data",
+      "measurement_window": "rolling 30 days",
+      "denominator": "successful API health-check responses from three independent monitoring locations",
+      "collection_method": "Automated health checks; planned maintenance announced 72h ahead is excluded. Credits claimable within 30 days via the documented procedure.",
+      "finding": "This is a real contractual commitment with a defined measurement method and a credit remedy, not marketing garnish. sla.html deliberately points to the live status page rather than quoting a static availability figure.",
+      "action": "RETAINED. Deliberately not withdrawn. Note this differs from the Labs storefront, which publishes no uptime SLA for its own tool/API surface — they are different products."
+    },
+    {
+      "claim": "Published corpus and capability counts (22,433 intelligence reports, 2,144 threat/CVE pages, 503 STIX bundles, 159 live feed entries, 4 commercial tiers)",
+      "classification": "MEASURED",
+      "source": "config/platform-evidence.json, generated by scripts/generate_platform_evidence.py",
+      "measurement_window": "at the generating commit",
+      "denominator": "direct file/record count over the published trees in this repository",
+      "collection_method": "Re-derivable at any time by re-running the generator; the gate fails if the committed file drifts from source.",
+      "action": "RETAINED as the replacement for withdrawn customer counts. These describe our own published output, never customers."
+    },
+    {
+      "claim": "Export formats and SIEM integrations (STIX 2.1, TAXII 2.1, MISP 2.4, CSV, Sigma, YARA, KQL; Splunk, Sentinel, QRadar)",
+      "classification": "MEASURED",
+      "source": "Implemented in workers/intel-gateway/src/index.js; each format has request-handling code and is exercised by the gateway's own tests.",
+      "action": "RETAINED."
+    },
+    {
+      "claim": "Enforced API quotas (30/120/600/1200 requests per minute; 50/5,000/50,000/50,000 per day)",
+      "classification": "MEASURED",
+      "source": "RATE_LIMITS in workers/intel-gateway/src/index.js and DAILY_QUOTAS in workers/intel-gateway/src/daily-quota.js",
+      "collection_method": "The gate asserts the published figure equals the enforced constant, so a published quota cannot exceed what the gateway honours.",
+      "action": "RETAINED."
+    }
+  ],
+
+  "labelled_projections": [
+    {
+      "claim": "ROI calculator outputs (analyst hours saved, breach-cost reduction, rules generated, IOC coverage)",
+      "appeared_on": ["roi-calculator.html"],
+      "classification": "INTERNAL_ESTIMATE",
+      "source": "User-supplied inputs (8 fields) combined with stated model assumptions: 65% reduction in manual research time, IBM Cost of a Data Breach 2025 average of $4.88M, $300/rule consultant rate, 45% MTTD improvement.",
+      "collection_method": "Deterministic model over visitor-entered values. Not measured customer results.",
+      "finding": "Legitimate as a projection because the page states its assumptions and cites an external benchmark. The defect was that outputs could be read as achieved outcomes.",
+      "action": "RETAINED and explicitly labelled a projection, not measured customer results."
+    }
+  ]
+}

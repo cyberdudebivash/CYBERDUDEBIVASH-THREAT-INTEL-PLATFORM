@@ -3,6 +3,8 @@
   "_comment": "CYBERDUDEBIVASH(R) SENTINEL APEX -- AUTHORITATIVE SUBSCRIPTION TIER DEFINITIONS",
   "_mandate": "THIS IS THE SINGLE SOURCE OF TRUTH for all subscription tier definitions. Worker reads this via /api/subscription/tiers. Pricing pages read this directly.",
   "_rule": "DO NOT duplicate tier definitions in Worker CONFIG or frontend. All tier logic reads from this file.",
+  "_canonical": "config/commercial-contract.json is the canonical commercial contract; this file MUST agree with it. scripts/verify_commercial_contract.py fails the build on drift.",
+  "_quota_note": "api_calls_day is enforced per API key per UTC day by DAILY_QUOTAS (workers/intel-gateway/src/daily-quota.js). api_calls_hour is DERIVED from the per-minute ceiling RATE_LIMITS enforces (requests/minute x 60), capped by api_calls_day -- there is no separate hourly enforcement mechanism. Both enforced caps deny with HTTP 429, so no tier may be described as unlimited. feed_limit -1 means the advisory feed is not separately row-capped for this tier; the API quotas above still apply.",
   "_generated": "2026-05-25T00:00:00Z",
 
   "free": {
@@ -12,8 +14,8 @@
     "price_inr":        0,
     "price_usd_annual": 0,
     "price_inr_annual": 0,
-    "api_calls_day":    100,
-    "api_calls_hour":   20,
+    "api_calls_day":    50,
+    "api_calls_hour":   50,
     "feed_limit":       10,
     "stix":             false,
     "ai":               false,
@@ -34,7 +36,7 @@
       "10 threat advisories/day",
       "Basic CTI feed (TLP-CLEAR)",
       "API preview access",
-      "100 API calls/day",
+      "50 API calls/day",
       "Platform health & SLA status"
     ]
   },
@@ -75,7 +77,7 @@
       "TAXII 2.1 feed",
       "Sigma + YARA rules",
       "Dark web & leak monitoring",
-      "5,000 API calls/day",
+      "5,000 API calls/day, 120 requests/minute",
       "Email support"
     ]
   },
@@ -85,10 +87,10 @@
     "tier_id":          "enterprise",
     "price_usd":        499,
     "price_inr":        41600,
-    "price_usd_annual": 4790,
+    "price_usd_annual": 4990,
     "price_inr_annual": 416000,
-    "api_calls_day":    -1,
-    "api_calls_hour":   -1,
+    "api_calls_day":    50000,
+    "api_calls_hour":   36000,
     "feed_limit":       -1,
     "stix":             true,
     "ai":               "full",
@@ -106,17 +108,17 @@
     "white_label":      false,
     "sovereign_mode":   false,
     "features": [
-      "Unlimited advisories",
+      "50,000 advisories/day",
       "Full AI analyst (MYTHOS Engine)",
       "SIEM integration (Splunk, Sentinel, QRadar)",
       "SOAR playbook webhooks",
       "MISP 2.4 JSON export",
       "TAXII 2.1 full collection",
       "Bulk Sigma + YARA rules",
-      "SLA compliance certificate",
+      "Support response-target report on request",
       "GSTIN invoicing (India)",
-      "Unlimited API calls",
-      "24x7 support with SLA",
+      "50,000 API calls/day, 600 requests/minute",
+      "Priority email support with an internal response target (no published uptime SLA)",
       "Intelligence graph + correlation"
     ]
   },
@@ -124,12 +126,12 @@
   "mssp": {
     "label":            "MSSP / SOVEREIGN",
     "tier_id":          "mssp",
-    "price_usd":        1999,
-    "price_inr":        166600,
-    "price_usd_annual": 19190,
-    "price_inr_annual": 1666000,
-    "api_calls_day":    -1,
-    "api_calls_hour":   -1,
+    "price_usd":        999,
+    "price_inr":        83300,
+    "price_usd_annual": 9990,
+    "price_inr_annual": 833000,
+    "api_calls_day":    50000,
+    "api_calls_hour":   50000,
     "feed_limit":       -1,
     "stix":             true,
     "ai":               "full",
@@ -150,13 +152,13 @@
       "Everything in ENTERPRISE",
       "White-label deployment",
       "Multi-tenant MSSP portal",
-      "15-minute SLA response",
+      "15-minute response target for CRITICAL alerts (a target, not a contractual SLA)",
       "Dedicated Customer Success Manager",
       "Custom threat intel feed curation",
       "Tenant-scoped API keys",
       "Branded reporting",
       "Priority incident response",
-      "Unlimited sub-tenant provisioning"
+      "Sub-tenant provisioning (fair-use, within the 50,000 calls/day account cap)"
     ]
   },
 

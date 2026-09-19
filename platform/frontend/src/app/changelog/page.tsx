@@ -24,7 +24,7 @@ const schema = {
   "name": "SENTINEL APEX Platform Changelog",
   "description": "Complete release history for the SENTINEL APEX threat intelligence platform.",
   "url": "https://intel.cyberdudebivash.com/changelog",
-  "author": { "@type": "Organization", "name": "CYBERDUDEBIVASH PRIVATE LIMITED" },
+  "author": { "@type": "Organization", "name": "BIVASHA KUMAR NAYAK trading as CYBERDUDEBIVASH(R)" },
 };
 
 type ReleaseType = "feature" | "improvement" | "fix" | "security" | "data";
