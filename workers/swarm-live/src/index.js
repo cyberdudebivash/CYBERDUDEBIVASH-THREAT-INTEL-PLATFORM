@@ -874,7 +874,7 @@ function escapeHtml(value) {
 }
 
 function swarmAppJs() {
-  return String.raw\`  document.documentElement.dataset.swarmUi='ready';
+  return String.raw`  document.documentElement.dataset.swarmUi='ready';
   window.__CDB_SWARM_UI_READY__=true;
 const run=document.getElementById('run'),final=document.getElementById('final'),eventLog=document.getElementById('eventLog');
   const byId=(id)=>document.getElementById(id);
@@ -928,7 +928,7 @@ const run=document.getElementById('run'),final=document.getElementById('final'),
     }catch(err){historyNote.textContent='Export failed: '+err.message}
     finally{btn.disabled=false}
   };
-\`;
+`;
 }
 
 function ui() {
