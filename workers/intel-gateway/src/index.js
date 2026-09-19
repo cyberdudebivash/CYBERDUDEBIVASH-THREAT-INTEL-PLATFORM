@@ -95,10 +95,10 @@ import { handleP41Capabilities, handleP41CapabilityDetail, handleP41Observabilit
 import { evaluatePublicationGate, isCustomerReady, buildGateRejectedResponseBody, buildUnresolvableReportResponseBody } from './publication-gate.js';
 import { loadCertificationIndex, persistCertificationRecords, resolveCertification, CERTIFICATION_POLICY_VERSION } from './certification-registry.js';
 import { routeEnterpriseEndpoint } from './enterprise-endpoints.js';
-import { handleSearch, handleActors, handleCVEs, handleIOCLookup, handleMISPExport as handleMISPExportExt, handleCSVExport, handleCorrelate, handlePredict, handleCampaigns, handleAnomalies, handleIntelGraph, handleIntelRelations, handleIRGuidance, handleExposureAnalysis } from './api-extensions.js';
+import { handleSearch, handleActors, handleCVEs, handleIOCLookup, handleMISPExport as handleMISPExportExt, handleCSVExport, handleCorrelate, handlePredict, handleCampaigns, handleAnomalies, handleIntelGraph, handleIntelRelations, handleIRGuidance, handleExposureAnalysis, buildScopeSet } from './api-extensions.js';
 import { RAZORPAY_TIER_PRICES, getPricingSnapshot } from './pricing.js';
 import { applyTierGateV2, enforceTierGate, buildUpgradeTrigger, handleLeadCapture, handleTrialIssuance } from './revenue-enforcement.js';
-import { evaluateDailyQuota, utcDateString, dailyQuotaKey, quotaAlertDedupeKey, secondsUntilNextUtcMidnight } from './daily-quota.js';
+import { evaluateDailyQuota, dailyQuotaConfig, utcDateString, dailyQuotaKey, quotaAlertDedupeKey, secondsUntilNextUtcMidnight } from './daily-quota.js';
 import { buildDetectionRegistry, queryDetectionRegistry, toPublicArtifact, DETECTION_REGISTRY_VERSION } from './detection-registry.js';
 import { handleSLAStatus, handleSLAReport, handleSLAIncidents, handleSLAPing, handleSLACertificate } from './sla-monitor.js';
 import { handleAlertSubscribe, handleAlertSubscriptions, handleAlertTest, handleAlertDispatch, handleAlertHistory, handleAlertUnsubscribe } from './alert-engine.js';
@@ -139,6 +139,7 @@ import { applyCorsPolicy, buildPreflightResponse, classifyRoute } from './cors-p
 // for the same reason as subscription-lifecycle.js/gumroad-lifecycle.js --
 // see swarm-synthesis.js's own header comment.
 import { tierAllowsSwarmSynthesis, buildSwarmSynthesisPrompt, SWARM_SYNTHESIS_SYSTEM_PROMPT } from './swarm-synthesis.js';
+import { evaluateSwarmPreflight, SWARM_MESH_CAPABILITY, SWARM_REQUIRED_SCOPE } from './swarm-access.js';
 // Issue #288: Durable Object class the Workers runtime instantiates via the
 // GUMROAD_PROVISIONING_LOCK binding (wrangler.toml). Must be a named export
 // of the Worker's main module -- see gumroad-provisioning-lock.js's header
@@ -407,6 +408,97 @@ async function checkDailyQuota(env, identifier, tier) {
   }
 }
 
+async function readSwarmQuotaSnapshot(env, identifier, tier) {
+  const cfg = dailyQuotaConfig(tier);
+  const dateStr = utcDateString();
+  const resetUtc = new Date(Date.now() + secondsUntilNextUtcMidnight() * 1000).toISOString();
+  const unavailable = {
+    available: false,
+    limit: cfg.limit,
+    used: null,
+    remaining: null,
+    exhausted: false,
+    date_utc: dateStr,
+    reset_utc: resetUtc,
+  };
+
+  if (!identifier || !env?.RATE_LIMIT_KV || typeof env.RATE_LIMIT_KV.get !== "function") {
+    return unavailable;
+  }
+
+  try {
+    const raw = await env.RATE_LIMIT_KV.get(dailyQuotaKey(identifier, dateStr));
+    const parsed = raw == null ? 0 : parseInt(raw, 10);
+    const used = Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
+    return {
+      available: true,
+      limit: cfg.limit,
+      used,
+      remaining: Math.max(0, cfg.limit - used),
+      // checkDailyQuota increments before evaluating. When used === limit,
+      // the next real request would become limit+1 and be denied.
+      exhausted: used >= cfg.limit,
+      date_utc: dateStr,
+      reset_utc: resetUtc,
+    };
+  } catch (_) {
+    // Match the real gateway's fail-open quota posture: inability to read
+    // quota must never masquerade as customer exhaustion.
+    return unavailable;
+  }
+}
+
+async function handleSwarmPreflight(env, auth) {
+  if (!auth?.key) {
+    return jsonResp(
+      {
+        status: "denied",
+        eligible: false,
+        reason: "authentication_required",
+        message: "Provide a Sentinel API key or bearer token.",
+      },
+      401,
+      { "Cache-Control": "no-store" }
+    );
+  }
+
+  const scopes = buildScopeSet(auth.tier, null);
+  const quota = await readSwarmQuotaSnapshot(env, auth.key, auth.tier);
+  const decision = evaluateSwarmPreflight({
+    tier: auth.tier,
+    scopes,
+    quotaExhausted: quota.exhausted,
+  });
+
+  const body = {
+    status: decision.eligible ? "ok" : "denied",
+    eligible: decision.eligible,
+    reason: decision.reason,
+    entitlement: {
+      tier: decision.tier,
+      swarm_enabled: decision.tier_allowed && decision.scope_allowed,
+      capability: SWARM_MESH_CAPABILITY,
+      required_scope: SWARM_REQUIRED_SCOPE,
+      scope_granted: decision.scope_allowed,
+      subscription_status: auth.subscription_status || "active",
+      expires_at: auth.expires_at || null,
+      credential_type: auth.credential_type || (auth.jwt ? "bearer" : "api_key"),
+    },
+    quota: {
+      daily: quota,
+    },
+    checked_at: new Date().toISOString(),
+  };
+
+  const status = decision.eligible
+    ? 200
+    : decision.reason === "daily_quota_exhausted"
+      ? 429
+      : 403;
+
+  return jsonResp(body, status, { "Cache-Control": "no-store" });
+}
+
 // Fire-and-forget (called via ctx.waitUntil, never on the request's own
 // critical path): looks up the account's email and asks revenue-engine to
 // queue the "approaching your daily limit" email, deduplicated to once per
@@ -542,7 +634,15 @@ async function resolveAuth(request, env) {
       const denied = await env.SECURITY_HUB_KV.get(`jwt_deny:${payload.sub}`);
       if (denied) return { tier: TIERS.FREE, key: null, sub: null, error: "subscription_status_denied" };
     } catch (_) {}
-    return { tier: TIERS[payload.tier] || TIERS.PRO, key: raw, sub: payload.sub, jwt: true };
+    return {
+      tier: TIERS[payload.tier] || TIERS.PRO,
+      key: raw,
+      sub: payload.sub,
+      jwt: true,
+      credential_type: "bearer",
+      subscription_status: "active",
+      expires_at: payload.exp ? new Date(payload.exp * 1000).toISOString() : null,
+    };
   }
 
   // API key path: look up in KV
@@ -601,6 +701,9 @@ async function resolveAuth(request, env) {
           key: raw,
           sub: record.customer_id || raw.slice(0, 8),
           kv: true,
+          credential_type: "api_key",
+          subscription_status: record.subscription_status || "active",
+          expires_at: record.expires_at || null,
           // v185.5 (Mission Phase 6): MSSP tenant ownership, OPT-IN not
           // fail-closed-by-default. `null` means "field genuinely absent" --
           // every key provisioned before this change, and every non-MSSP
@@ -5533,6 +5636,21 @@ async function handleRequest(request, env, ctx) {
       { error: "Unauthorized", reason: auth.error, hint: "Provide a valid X-API-Key header or Authorization: Bearer <token>." },
       401
     );
+  }
+
+  // V4.46.6 P0 -- read-only SWARM entitlement preflight. This route is
+  // intentionally resolved before the commercial rate/daily quota mutation
+  // below: checking whether a customer may launch must not itself spend one
+  // of the customer's production API requests. The real /api/intel/correlate
+  // execution still re-authorizes and re-enforces every gate at launch time.
+  if (path === "/api/v1/swarm/preflight") {
+    if (method !== "GET") {
+      return jsonResp({ error: "Method Not Allowed", allowed: ["GET"] }, 405, {
+        "Allow": "GET",
+        "Cache-Control": "no-store",
+      });
+    }
+    return await handleSwarmPreflight(env, auth);
   }
 
   // P0 2026-09-03 -- ENTITLEMENT PLANE SELECTION.
