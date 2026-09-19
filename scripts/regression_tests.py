@@ -2301,6 +2301,64 @@ def t40():
 
 
 # ---------------------------------------------------------------------------
+# T41: pages-fast-publish path filter covers every root-level HTML page
+# ---------------------------------------------------------------------------
+
+@test("T41_pages_fast_publish_covers_every_root_html_page")
+def t41():
+    """Every root-level *.html page must be able to trigger the fast publisher.
+
+    Found live (P0 first-revenue mission): PR #444 and #445 each landed a
+    pricing.html-only or pricing.html+lead-pipeline.html+enterprise-
+    onboarding.html diff to main. Neither triggered pages-fast-publish.yml --
+    confirmed via its own workflow run history, no run exists between #77
+    (PR #435's merge) and a manual workflow_dispatch that finally published
+    them, over three hours later. Root cause: the workflow's `on.push.paths`
+    (and matching `on.pull_request.paths`) listed `index.html` as a single
+    literal filename, not a glob -- so no other root-level HTML page, this
+    repo's entire buyer-facing surface among them, was covered. The exact gap
+    class this same file's own header comments already document finding and
+    fixing twice before (js/engines/*.js, then service-worker.js).
+
+    This test is evergreen, not a one-off pin: it globs every *.html file
+    actually at the repo root right now and asserts the workflow's own parsed
+    path filter would match each one, so a future root-level page is caught
+    by this test the moment it exists, and a future narrowing of the filter
+    back to an enumerated list fails immediately rather than silently
+    stranding pages behind the slow pipeline again.
+    """
+    import fnmatch
+    import yaml
+
+    workflow_path = REPO_ROOT / ".github" / "workflows" / "pages-fast-publish.yml"
+    assert workflow_path.exists(), "pages-fast-publish.yml missing"
+    doc = yaml.safe_load(workflow_path.read_text(encoding="utf-8"))
+    triggers = doc.get("on") or doc.get(True)  # PyYAML parses bare `on:` as True in some versions
+    assert isinstance(triggers, dict) and "push" in triggers, \
+        "pages-fast-publish.yml has no on.push trigger to check"
+
+    root_html_files = sorted(p.name for p in REPO_ROOT.glob("*.html"))
+    assert root_html_files, "no root-level *.html files found -- glob or repo layout changed"
+
+    for trigger_name in ("push", "pull_request"):
+        trigger = triggers.get(trigger_name)
+        if not trigger:
+            continue
+        paths = trigger.get("paths") or []
+        assert paths, f"pages-fast-publish.yml's on.{trigger_name} has no paths: filter at all"
+        uncovered = [
+            f for f in root_html_files
+            if not any(fnmatch.fnmatch(f, pattern) for pattern in paths)
+        ]
+        assert not uncovered, (
+            f"T41 REGRESSION: pages-fast-publish.yml's on.{trigger_name}.paths does not cover "
+            f"{uncovered} -- a merge touching only these files will not trigger this workflow, "
+            f"exactly the PR #444/#445 defect class. Use a glob (e.g. '*.html'), not an "
+            f"enumerated per-file list."
+        )
+
+
+# ---------------------------------------------------------------------------
 # Summary
 # ---------------------------------------------------------------------------
 

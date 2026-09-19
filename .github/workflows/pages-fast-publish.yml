@@ -112,6 +112,25 @@ on:
       # pipeline for hours, the exact failure mode this file's own header
       # comment already documents fixing for index.html/js/css/_headers.
       - 'service-worker.js'
+      # GAP FIX (P0 first-revenue mission, found live: PR #444 and #445, both
+      # pricing.html-only or pricing.html+lead-pipeline.html+enterprise-
+      # onboarding.html diffs, merged to main and neither triggered this
+      # workflow -- confirmed via workflow run history, no run exists between
+      # #77 (PR #435's merge) and the manual workflow_dispatch that finally
+      # published them). Root cause: `index.html` above is a single literal
+      # filename, not a glob, so no OTHER root-level HTML page -- pricing.html,
+      # mssp.html, upgrade.html, lead-pipeline.html, enterprise-onboarding.html,
+      # every buyer-facing page this repo's own commercial gates sweep -- was
+      # ever covered by this trigger. This is the exact same gap class this
+      # file has already found and fixed twice above (js/engines/*.js, then
+      # service-worker.js): a file central to fast frontend publishing sat
+      # outside the enumerated list. build_dist_artifact.py's own
+      # INCLUDE_FILES_PATTERN already copies `*.html` (verified: line ~108) --
+      # only this trigger's path filter had not kept pace with what the build
+      # already ships. Replacing the single-file entry with the same
+      # directory-glob philosophy already used for js/** and css/** so this
+      # can't drift out of sync again as new root-level pages are added.
+      - '*.html'
   # ADDITIVE FIX (issue #320, see header comment above): identical paths
   # list to the push trigger above -- only fires when a merged PR actually
   # touched one of these files, matching that trigger's own scoping intent
@@ -126,6 +145,7 @@ on:
       - 'css/**'
       - '_headers'
       - 'service-worker.js'
+      - '*.html'
   workflow_dispatch: {}
 
 permissions:
