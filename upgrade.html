@@ -643,7 +643,7 @@ h1 span { color: var(--accent); }
           <div class="plan-price-col">
             <div class="plan-price-val" id="price-mssp">$999</div>
             <div class="plan-price-period">/month</div>
-            <div class="plan-price-inr" id="inr-mssp">&#x20B9;1,66,600</div>
+            <div class="plan-price-inr" id="inr-mssp">&#x20B9;83,300</div>
           </div>
         </div>
       </div>
@@ -967,16 +967,13 @@ h1 span { color: var(--accent); }
 // that actually determines the Razorpay charge (syncCanonicalPricing() below overwrites
 // these from the live /api/pricing endpoint on success; this fallback is what a customer
 // sees if that fetch fails, and it must never show a lower price than what checkout will
-// actually charge). This does NOT resolve the separate, still-open business-pricing
-// question: config/pricing.json / config/subscription_tiers.json's marketing figures
-// (ENTERPRISE annual_inr 415000, MSSP annual_inr 1600000) still disagree with
-// pricing-data.json's real charge amounts (see pricing-data.json's own "_note") --
-// picking a winning figure there requires a supplied, business-approved number, not
-// engineering inference.
+// actually charge). Owner decision 2026-09-19 (config/commercial-contract.json):
+// MSSP is $999/month, Enterprise annual is $4,990/year. All four figures below now
+// agree with pricing-data.json's real Razorpay charge amounts at every tier.
 var RAZORPAY_PLANS = {
   pro:        { name:'PRO Defense',        inr_monthly:410000,   inr_annual:4100000,    usd_monthly:49,  usd_annual:490   },
-  enterprise: { name:'Enterprise SOC',     inr_monthly:4160000,  inr_annual:41600000,   usd_monthly:499, usd_annual:4790  },
-  mssp:       { name:'MSSP / White-Label', inr_monthly:16660000, inr_annual:166600000,  usd_monthly:1999,usd_annual:19190 },
+  enterprise: { name:'Enterprise SOC',     inr_monthly:4160000,  inr_annual:41600000,   usd_monthly:499, usd_annual:4990  },
+  mssp:       { name:'MSSP / White-Label', inr_monthly:8330000,  inr_annual:83300000,   usd_monthly:999, usd_annual:9990  },
 };
 
 /* Phase 1 architecture consolidation: sync the INR figures above (the ones
@@ -1251,8 +1248,8 @@ function renderOnboardingSnippets(apiKey) {
 var PLANS = {
   free:       { name:'Free Tier',            usd:0,    inr:0,       usdAnnual:0,    inrAnnual:0 },
   pro:        { name:'PRO Defense',          usd:49,   inr:4100,    usdAnnual:490,  inrAnnual:41000 },
-  enterprise: { name:'Enterprise SOC',       usd:499,  inr:41600,   usdAnnual:4790, inrAnnual:416000 },
-  mssp:       { name:'MSSP / White-Label',   usd:1999, inr:166600,  usdAnnual:19190,inrAnnual:1666000 }
+  enterprise: { name:'Enterprise SOC',       usd:499,  inr:41600,   usdAnnual:4990, inrAnnual:416000 },
+  mssp:       { name:'MSSP / White-Label',   usd:999,  inr:83300,   usdAnnual:9990, inrAnnual:833000 }
 };
 
 var currentPlan = 'free';

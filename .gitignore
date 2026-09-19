@@ -432,6 +432,15 @@ status.txt
 verify*.py
 verify*.txt
 
+# EXCEPTION: these are permanent, CI-wired commercial/claims drift gates
+# (invoked by .github/workflows/commercial-customer-ops-certification.yml and
+# named as the enforcement mechanism directly in config/commercial-contract.json
+# and config/evidence-register.json), not one-off local scratch scripts. The
+# blanket verify*.py rule above previously swallowed them silently on `git add`
+# -- written, run green, never committed. See both files' own docstrings.
+!scripts/verify_commercial_contract.py
+!scripts/verify_public_claims.py
+
 # Check scripts not covered by existing check_*.ps1/.bat rules
 check_live.py
 check_state.py
