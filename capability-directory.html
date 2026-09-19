@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Capability Directory — SENTINEL APEX</title>
+<meta name="description" content="Live, auto-updating directory of every public dashboard and capability on the SENTINEL APEX threat intelligence platform.">
+<link rel="canonical" href="https://intel.cyberdudebivash.com/capability-directory.html">
+<link rel="icon" href="/favicon.ico">
+<style>
+:root{--bg:#050c18;--bg2:#090f1e;--border:#162030;--accent:#00ffc6;--accent2:#7c3aed;--text:#e2e8f0;--muted:#64748b;--green:#10b981;--red:#ef4444;--yellow:#f59e0b;--card:#0b1422;--blue:#3b82f6;}
+*{box-sizing:border-box;margin:0;padding:0;}body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,sans-serif;line-height:1.6;}
+nav{display:flex;align-items:center;justify-content:space-between;padding:14px 32px;background:rgba(5,12,24,0.97);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:100;}
+.nav-logo{font-family:monospace;font-weight:900;font-size:13px;color:var(--accent);letter-spacing:2px;text-decoration:none;}
+.nav-links a{color:var(--muted);text-decoration:none;font-size:12px;margin-left:16px;}
+.cta-btn{background:var(--accent);color:#000;padding:8px 18px;border-radius:8px;font-weight:800;font-size:12px;text-decoration:none;margin-left:16px;}
+.hero{background:radial-gradient(ellipse 900px 400px at 50% -50px,rgba(0,255,198,0.06) 0%,transparent 60%);padding:56px 24px 40px;text-align:center;border-bottom:1px solid var(--border);}
+.hero-badge{display:inline-flex;align-items:center;gap:8px;background:rgba(0,255,198,0.08);border:1px solid rgba(0,255,198,0.2);border-radius:20px;padding:6px 18px;font-size:11px;color:var(--accent);letter-spacing:1.5px;font-family:monospace;margin-bottom:20px;}
+.hero h1{font-size:clamp(24px,4vw,40px);font-weight:900;margin-bottom:14px;}
+.hero h1 span{color:var(--accent);}
+.hero-sub{font-size:15px;color:var(--muted);max-width:620px;margin:0 auto;}
+.main{max-width:1100px;margin:0 auto;padding:48px 24px 64px;}
+
+/* ── capability-discovery.js render states ─────────────────────────────── */
+.sapx-cap-state{padding:40px 24px;text-align:center;border:1px solid var(--border);border-radius:14px;background:var(--card);color:var(--muted);font-size:14px;}
+.sapx-cap-error{border-color:rgba(239,68,68,0.3);color:#fca5a5;background:rgba(239,68,68,0.05);}
+.sapx-cap-loading{color:var(--muted);}
+.sapx-cap-meta{font-size:12px;color:var(--muted);margin-bottom:20px;font-family:monospace;letter-spacing:0.3px;}
+.sapx-cap-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:14px;}
+.sapx-cap-card{display:block;background:var(--card);border:1px solid var(--border);border-radius:12px;padding:18px 20px;text-decoration:none;transition:border-color 0.15s,transform 0.15s;}
+.sapx-cap-card:hover{border-color:rgba(0,255,198,0.35);transform:translateY(-1px);}
+.sapx-cap-card-title{color:var(--text);font-size:14px;font-weight:700;margin-bottom:6px;word-break:break-word;}
+.sapx-cap-card-status{color:var(--accent);font-size:11px;font-family:monospace;letter-spacing:0.3px;}
+
+.noscript-note{max-width:640px;margin:0 auto 32px;padding:16px 20px;border:1px solid rgba(245,158,11,0.3);background:rgba(245,158,11,0.06);border-radius:10px;color:#fbbf24;font-size:13px;text-align:center;}
+footer{border-top:1px solid var(--border);padding:32px;text-align:center;font-size:12px;color:var(--muted);}
+footer a{color:var(--muted);text-decoration:none;margin:0 12px;}
+</style>
+</head>
+<body>
+<nav>
+  <a href="/" class="nav-logo">CDB® SENTINEL APEX</a>
+  <div class="nav-links">
+    <a href="/dashboard.html">Dashboard</a>
+    <a href="/enterprise.html">Enterprise</a>
+    <a href="/mssp.html">MSSP</a>
+    <a href="/pricing.html">Pricing</a>
+    <a href="/api-docs.html">API</a>
+    <a href="/trial-center.html" class="cta-btn">Get Started</a>
+  </div>
+</nav>
+
+<div class="hero">
+  <div class="hero-badge">⬡ LIVE CAPABILITY DIRECTORY</div>
+  <h1>Every <span>Public Capability</span>, Discovered Live</h1>
+  <p class="hero-sub">This page renders directly from the platform's own capability registry via a public API — when a new dashboard is added and classified, it appears here automatically, with no page on this site needing to be hand-edited.</p>
+</div>
+
+<div class="main">
+  <noscript>
+    <div class="noscript-note">This directory loads its contents dynamically and requires JavaScript. With JavaScript disabled, browse the platform from the navigation links above instead.</div>
+  </noscript>
+  <div id="capability-mount" aria-live="polite">
+    <div class="sapx-cap-state sapx-cap-loading">Loading platform capabilities…</div>
+  </div>
+</div>
+
+<footer>
+  <a href="/">Home</a><a href="/enterprise.html">Enterprise</a><a href="/mssp.html">MSSP</a>
+  <a href="/pricing.html">Pricing</a><a href="/api-docs.html">API</a>
+  <a href="/platform-capabilities.html">Platform Capabilities</a>
+  <a href="/security-compliance.html">Security</a><a href="/privacy.html">Privacy</a><a href="/terms.html">Terms</a>
+  <p style="margin-top:16px;color:var(--muted)">© 2026 CYBERDUDEBIVASH® SENTINEL APEX</p>
+</footer>
+
+<script src="js/apex-data-plane.js"></script>
+<script src="js/capability-discovery.js"></script>
+<script>
+  // Fetches /api/v1/p41/capabilities (public, no auth -- see
+  // workers/intel-gateway/src/p41-handlers.js) via
+  // SentinelApexCapabilityDiscovery.mount(), which composes window.ApexDataPlane
+  // for the actual request/timeout/failure-classification work.
+  document.addEventListener('DOMContentLoaded', function () {
+    if (window.SentinelApexCapabilityDiscovery) {
+      window.SentinelApexCapabilityDiscovery.mount(document.getElementById('capability-mount'));
+    }
+  });
+</script>
+</body>
+</html>

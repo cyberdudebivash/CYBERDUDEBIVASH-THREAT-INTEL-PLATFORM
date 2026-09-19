@@ -1,0 +1,537 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pricing &amp; Plans — CYBERDUDEBIVASH&reg; SENTINEL APEX</title>
+<meta name="description" content="SENTINEL APEX pricing: Community (free), PRO $49/mo, Enterprise $499/mo, MSSP $999/mo. STIX 2.1 export, MITRE ATT&CK mapping, REST API, 7-day PRO trial, GST invoicing.">
+<meta name="keywords" content="threat intelligence pricing, cybersecurity API pricing, STIX 2.1 API, MITRE ATT&CK API, MSSP white label pricing, threat intel API plans">
+<meta name="robots" content="index, follow">
+<meta name="theme-color" content="#14e0ae">
+<link rel="canonical" href="https://intel.cyberdudebivash.com/enterprise-pricing.html">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Pricing &amp; Plans — CYBERDUDEBIVASH® SENTINEL APEX">
+<meta property="og:description" content="Community (free), PRO $49/mo, Enterprise $499/mo, MSSP $999/mo. STIX 2.1, MITRE ATT&CK mapping, REST API, 7-day PRO trial.">
+<meta property="og:url" content="https://intel.cyberdudebivash.com/enterprise-pricing.html">
+<meta property="og:image" content="https://intel.cyberdudebivash.com/assets/sentinel-apex-og-banner.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:site_name" content="CYBERDUDEBIVASH® SENTINEL APEX">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:site" content="@CDBSENTINELAPEX">
+<meta name="twitter:title" content="Pricing &amp; Plans — CYBERDUDEBIVASH® SENTINEL APEX">
+<meta name="twitter:description" content="Community (free), PRO $49/mo, Enterprise $499/mo, MSSP $999/mo. STIX 2.1, MITRE ATT&CK mapping, REST API.">
+<meta name="twitter:image" content="https://intel.cyberdudebivash.com/assets/sentinel-apex-og-banner.jpg">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%23020810'/><text x='6' y='23' font-size='20' fill='%2300e5ff'>&#11043;</text></svg>">
+
+<!--
+  SENTINEL APEX — Enterprise Pricing, API Platform & Customer Onboarding (PR-6)
+  ==================================================================
+  Consumes css/tokens.css (PR-2) and css/components.css (PR-4) only —
+  no css/hero.css (that component is documented as scoped to the
+  landing-page hero specifically; this is a content page, not a second
+  hero placement). No page-specific design system is introduced.
+
+  REAL DATA, NOT PLACEHOLDERS: pricing.html (616 lines) and
+  upgrade.html (1,533 lines, live Razorpay/Gumroad checkout) already
+  ship real, live pricing (Community free / PRO $49 / Enterprise $499
+  / MSSP $999 per month) and a full 20-row feature comparison table.
+  The task brief's "use placeholders such as TBD" instruction is
+  explicitly conditioned on "if repository evidence is unavailable" —
+  it is available here, verified live in this repository, so real
+  figures are used throughout instead of downgrading to fake
+  placeholders. Every figure on this page is cross-checked against
+  pricing.html, upgrade.html, and docs/faq.html and must match them
+  exactly (enforced by tests/test_enterprise_pricing.py).
+
+  NEW, STANDALONE PAGE — does not modify, replace, or duplicate the
+  checkout/payment logic in pricing.html or upgrade.html (Razorpay/
+  Gumroad integration, currency toggling, plan selection JS all stay
+  exclusively there — out of scope per "Do NOT modify: Backend, API
+  implementation"). This page is a design-system-consistent
+  PRESENTATION layer: real numbers, comparison highlights, and a
+  customer-journey map, with every actual transaction (checkout, plan
+  selection, FAQ deep-dive, API docs) linking out to the real,
+  functional page that already owns that logic — the same
+  presentation/transaction split PR-5 used for trust-center.html and
+  mssp.html rather than rebuilding either.
+
+  Does not touch docs/faq.html or pricing.html's own FAQ content —
+  this page's FAQ section is a short, cross-page-consistent excerpt
+  (same real answers, condensed), linking to both full FAQs rather
+  than replacing either.
+-->
+<link rel="stylesheet" href="/css/tokens.css">
+<link rel="stylesheet" href="/css/components.css">
+<style>
+  /* PR-6 page-scoped additions only. Every value below resolves
+     through var(--sapx-*) -- nothing here duplicates or overrides an
+     existing components.css selector. */
+  body { background: var(--sapx-color-bg-base); margin: 0; }
+
+  /* Feature comparison table -- components.css defines no table
+     styles yet (confirmed: grepped for "table" before adding this),
+     so this is new, not a duplicate of an existing selector. */
+  .pr6-compare-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: var(--sapx-font-size-sm);
+  }
+  .pr6-compare-table th,
+  .pr6-compare-table td {
+    text-align: left;
+    padding: var(--sapx-space-3) var(--sapx-space-4);
+    border-bottom: 1px solid var(--sapx-color-border);
+    color: var(--sapx-color-text-secondary);
+  }
+  .pr6-compare-table th {
+    font-family: var(--sapx-font-mono);
+    font-size: var(--sapx-font-size-xs);
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--sapx-color-text-tertiary);
+    border-bottom: 1px solid var(--sapx-color-border-strong);
+  }
+  .pr6-compare-table td:first-child { color: var(--sapx-color-text-primary); font-weight: var(--sapx-font-weight-medium); }
+  .pr6-compare-yes { color: var(--sapx-color-success-text); font-weight: var(--sapx-font-weight-bold); }
+  .pr6-compare-no { color: var(--sapx-color-text-tertiary); }
+  .pr6-compare-scroll { overflow-x: auto; }
+
+  /* Customer journey: same step-number-badge + connector-arrow
+     pattern PR-5 used for the workflow diagram, reused here as its
+     own page-scoped copy (each page's <style> block is independent —
+     components/component-system-guide.md has no shared page-level
+     stylesheet to place this in). 7 steps don't fit an existing
+     .sapx-grid-* column count, so this page defines its own grid
+     modifier rather than adding a single-use .sapx-grid-7 to the
+     shared library. */
+  .pr6-journey-grid {
+    display: grid;
+    gap: var(--sapx-space-4);
+    grid-template-columns: repeat(7, 1fr);
+  }
+  @media (max-width: 900px) {
+    .pr6-journey-grid { grid-template-columns: repeat(2, 1fr); }
+  }
+  @media (max-width: 560px) {
+    .pr6-journey-grid { grid-template-columns: 1fr; }
+  }
+  .pr6-journey-step {
+    position: relative;
+    text-align: center;
+  }
+  .pr6-journey-step .sapx-card-title,
+  .pr6-journey-step .sapx-card-desc {
+    text-align: center;
+  }
+  .pr6-journey-step-num {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border-radius: var(--sapx-radius-full);
+    background: var(--sapx-color-brand-indigo);
+    color: var(--sapx-color-text-on-bright);
+    font-family: var(--sapx-font-mono);
+    font-weight: var(--sapx-font-weight-bold);
+    font-size: var(--sapx-font-size-sm);
+    margin: 0 auto var(--sapx-space-3);
+  }
+  @media (min-width: 901px) {
+    .pr6-journey-step:not(:last-child)::after {
+      content: "\2192";
+      position: absolute;
+      top: 14px;
+      right: calc(-1 * var(--sapx-space-4) / 2);
+      transform: translateX(50%);
+      color: var(--sapx-color-text-tertiary);
+      font-size: var(--sapx-font-size-lg);
+      line-height: 1;
+    }
+  }
+
+  .pr6-page-intro {
+    max-width: 720px;
+  }
+</style>
+<!-- GCPE-WS1: same Organization facts already live in index.html's JSON-LD (name/url/sameAs); logo omitted, see docs/enterprise-certification-report.md Drift Register item 8 follow-up -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Organization",
+  "name": "BIVASHA KUMAR NAYAK trading as CYBERDUDEBIVASH&reg;",
+  "url": "https://cyberdudebivash.com/",
+  "sameAs": [
+    "https://x.com/CDBSENTINELAPEX",
+    "https://www.linkedin.com/company/cyberdudebivash/",
+    "https://github.com/cyberdudebivash"
+  ]
+}
+</script>
+</head>
+<body>
+
+<a class="sapx-skip-link" href="#main-content">Skip to main content</a>
+
+<div class="sapx-announcement-bar" role="region" aria-label="Site announcement">
+  <span aria-hidden="true">&#127775;</span>
+  <span>Community tier is free forever, no card required — PRO/Enterprise billed instantly at checkout. <a href="/pricing.html">View plans &rarr;</a></span>
+</div>
+
+<header class="sapx-site-header" data-nav-open="false">
+  <div class="sapx-site-header-inner">
+    <a class="sapx-brand" href="/index.html">
+      <span aria-hidden="true">&#128737;</span>
+      SENTINEL APEX
+    </a>
+    <nav aria-label="Primary">
+      <ul class="sapx-nav" id="sapx-primary-nav">
+        <li><a href="/index.html">Platform</a></li>
+        <li><a href="/threat/">Threat Intelligence</a></li>
+        <li><a href="/developer-portal.html">Developers</a></li>
+        <li><a href="/enterprise-pricing.html" aria-current="page">Pricing</a></li>
+        <li><a href="/enterprise-compliance.html">Trust Center</a></li>
+        <li><a href="/enterprise-homepage.html">Enterprise</a></li>
+        <li><a href="/enterprise-knowledge-center.html">Knowledge Center</a></li>
+      </ul>
+    </nav>
+    <div class="sapx-header-ctas">
+      <a class="sapx-btn sapx-btn-ghost" href="/demo.html?utm_source=pricing_header&amp;utm_medium=cta&amp;utm_campaign=enterprise_pricing">Book a Demo</a>
+      <a class="sapx-btn sapx-btn-primary" href="/get-api-key.html?plan=community&amp;utm_source=pricing_header&amp;utm_medium=cta&amp;utm_campaign=enterprise_pricing">Start Free</a>
+      <button type="button" class="sapx-nav-toggle" aria-expanded="false" aria-controls="sapx-primary-nav" aria-label="Toggle navigation menu" onclick="sapxToggleNav(this)">&#9776;</button>
+    </div>
+  </div>
+</header>
+
+<main id="main-content" tabindex="-1">
+
+<!-- 1. Pricing Page intro -->
+<section class="sapx-section" aria-labelledby="pricing-page-heading">
+  <div class="sapx-container">
+    <div class="pr6-page-intro">
+      <p class="sapx-section-kicker">Pricing</p>
+      <h1 class="sapx-section-heading" id="pricing-page-heading">Simple, Transparent Pricing</h1>
+      <p class="sapx-section-desc">Community access is free, forever. Paid tiers unlock full STIX 2.1 export, AI threat analysis, detection-rule generation, and higher API limits. Prices shown are monthly USD; annual billing saves 20% (toggle available on the full <a href="/pricing.html">pricing page</a>).</p>
+    </div>
+  </div>
+</section>
+
+<!-- 2. Pricing tiers (real figures, cross-checked against pricing.html / upgrade.html) -->
+<section class="sapx-section sapx-section-alt" aria-labelledby="pricing-tiers-heading" id="pricing-tiers">
+  <div class="sapx-container">
+    <h2 class="sapx-section-heading" id="pricing-tiers-heading" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);">Pricing Tiers</h2>
+    <div class="sapx-grid sapx-grid-4">
+      <div class="sapx-card sapx-pricing-card">
+        <p class="sapx-pricing-card-name">Community</p>
+        <p class="sapx-pricing-card-price">$0<span>/forever</span></p>
+        <ul class="sapx-pricing-card-features">
+          <li>100 API calls/day</li>
+          <li>25 daily advisories</li>
+          <li>Live threat dashboard</li>
+          <li>MITRE ATT&amp;CK v15 mapping</li>
+          <li>CISA KEV indicators</li>
+          <li>7-day data history</li>
+        </ul>
+        <a class="sapx-btn sapx-btn-secondary" href="/get-api-key.html?plan=community&amp;utm_source=pricing_tiers&amp;utm_medium=cta&amp;utm_campaign=enterprise_pricing">Get Started Free</a>
+      </div>
+      <div class="sapx-card sapx-pricing-card sapx-pricing-card-featured">
+        <span class="sapx-badge sapx-badge-brand sapx-pricing-card-badge">Most Popular</span>
+        <p class="sapx-pricing-card-name">PRO</p>
+        <p class="sapx-pricing-card-price">$49<span>/mo &middot; $39/mo billed annually</span></p>
+        <ul class="sapx-pricing-card-features">
+          <li>5,000 API calls/day</li>
+          <li>100 daily advisories</li>
+          <li>Full STIX 2.1 bundles</li>
+          <li>Threat actor attribution</li>
+          <li>Sigma / KQL rules</li>
+          <li>AI threat analysis</li>
+          <li>Weekly email threat brief</li>
+        </ul>
+        <a class="sapx-btn sapx-btn-primary" href="/upgrade.html?plan=pro&amp;utm_source=pricing_tiers&amp;utm_medium=cta&amp;utm_campaign=enterprise_pricing">Get PRO Access</a>
+      </div>
+      <div class="sapx-card sapx-pricing-card">
+        <p class="sapx-pricing-card-name">Enterprise</p>
+        <p class="sapx-pricing-card-price">$499<span>/mo &middot; $399/mo billed annually</span></p>
+        <ul class="sapx-pricing-card-features">
+          <li>50,000 API calls/day</li>
+          <li>50,000 advisories/day</li>
+          <li>SIEM webhook delivery</li>
+          <li>12-month data history</li>
+          <li>99.9% uptime SLA</li>
+          <li>Priority support</li>
+        </ul>
+        <a class="sapx-btn sapx-btn-secondary" href="/upgrade.html?plan=enterprise&amp;utm_source=pricing_tiers&amp;utm_medium=cta&amp;utm_campaign=enterprise_pricing">Get Enterprise</a>
+      </div>
+      <div class="sapx-card sapx-pricing-card">
+        <p class="sapx-pricing-card-name">MSSP</p>
+        <p class="sapx-pricing-card-price">$999<span>/mo &middot; $833/mo billed annually</span></p>
+        <ul class="sapx-pricing-card-features">
+          <li>Unlimited client seats</li>
+          <li>White-label dashboard &amp; API</li>
+          <li>Everything in Enterprise</li>
+          <li>Partner pricing available</li>
+        </ul>
+        <a class="sapx-btn sapx-btn-secondary" href="/mssp.html">Explore MSSP Program</a>
+      </div>
+    </div>
+    <p class="sapx-section-desc" style="margin-top: var(--sapx-space-6)">Student or independent security researcher? 50% off PRO — email <a href="mailto:enterprise@cyberdudebivash.com?subject=Student%2FResearcher%20Discount">enterprise@cyberdudebivash.com</a> with proof of enrollment or your research profile.</p>
+  </div>
+</section>
+
+<!-- 3. API Plans (real rate limits, from pricing.html's comparison table) -->
+<section class="sapx-section" aria-labelledby="api-plans-heading">
+  <div class="sapx-container">
+    <p class="sapx-section-kicker">API Plans</p>
+    <h2 class="sapx-section-heading" id="api-plans-heading">API Access by Tier</h2>
+    <p class="sapx-section-desc">Every tier includes REST API access; limits scale with plan.</p>
+    <div class="sapx-grid sapx-grid-4">
+      <div class="sapx-card sapx-metric-card">
+        <div class="sapx-metric-value">100/day</div>
+        <div class="sapx-metric-label">Community API Limit</div>
+      </div>
+      <div class="sapx-card sapx-metric-card">
+        <div class="sapx-metric-value">5,000/day</div>
+        <div class="sapx-metric-label">PRO API Limit</div>
+      </div>
+      <div class="sapx-card sapx-metric-card">
+        <div class="sapx-metric-value">50,000/day</div>
+        <div class="sapx-metric-label">Enterprise API Limit</div>
+      </div>
+      <div class="sapx-card sapx-metric-card">
+        <div class="sapx-metric-value">Bearer Token</div>
+        <div class="sapx-metric-label">Authentication Method</div>
+      </div>
+    </div>
+    <p class="sapx-section-desc" style="margin-top: var(--sapx-space-6)">
+      <a href="/api/">Explore the REST API &rarr;</a> &middot;
+      <a href="/docs/quickstart.html">API Quick Start (cURL, Python, Node.js) &rarr;</a> &middot;
+      <a href="/docs/api-auth-guide.md">Authentication guide &rarr;</a>
+    </p>
+  </div>
+</section>
+
+<!-- 4. Feature Comparison Table (condensed real subset; full 20-row table lives on pricing.html) -->
+<section class="sapx-section sapx-section-alt" aria-labelledby="comparison-heading">
+  <div class="sapx-container">
+    <p class="sapx-section-kicker">Compare Plans</p>
+    <h2 class="sapx-section-heading" id="comparison-heading">Feature Comparison</h2>
+    <p class="sapx-section-desc">Highlights only — see the <a href="/pricing.html">full feature comparison</a> for every line item.</p>
+    <div class="pr6-compare-scroll">
+      <table class="pr6-compare-table">
+        <thead>
+          <tr><th>Feature</th><th>Community</th><th>PRO</th><th>Enterprise</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>REST API access</td><td>100/day</td><td>5,000/day</td><td>50,000/day</td></tr>
+          <tr><td>STIX 2.1 bundles</td><td>Public only</td><td class="pr6-compare-yes">Full</td><td class="pr6-compare-yes">Full</td></tr>
+          <tr><td>Threat actor attribution</td><td class="pr6-compare-no">&#10007;</td><td class="pr6-compare-yes">&#10003;</td><td class="pr6-compare-yes">&#10003;</td></tr>
+          <tr><td>Sigma / KQL rules</td><td class="pr6-compare-no">&#10007;</td><td class="pr6-compare-yes">&#10003;</td><td class="pr6-compare-yes">&#10003;</td></tr>
+          <tr><td>AI threat analysis</td><td class="pr6-compare-no">&#10007;</td><td class="pr6-compare-yes">&#10003;</td><td class="pr6-compare-yes">&#10003;</td></tr>
+          <tr><td>SIEM webhook</td><td class="pr6-compare-no">&#10007;</td><td class="pr6-compare-no">&#10007;</td><td class="pr6-compare-yes">&#10003;</td></tr>
+          <tr><td>Historical data</td><td>7 days</td><td>90 days</td><td class="pr6-compare-yes">12 months</td></tr>
+          <tr><td>SLA / priority support</td><td class="pr6-compare-no">&#10007;</td><td>Email</td><td class="pr6-compare-yes">Priority</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- 5. Customer Journey -->
+<section class="sapx-section" aria-labelledby="journey-heading">
+  <div class="sapx-container-wide">
+    <p class="sapx-section-kicker">Customer Journey</p>
+    <h2 class="sapx-section-heading" id="journey-heading">From Discovery to Onboarding</h2>
+    <p class="sapx-section-desc">Every step links to where it actually happens on this site.</p>
+    <div class="pr6-journey-grid">
+      <a class="sapx-card pr6-journey-step" href="/enterprise-homepage.html" style="text-decoration:none">
+        <span class="pr6-journey-step-num" aria-hidden="true">1</span>
+        <h3 class="sapx-card-title">Discovery</h3>
+        <p class="sapx-card-desc">Explore the platform</p>
+      </a>
+      <a class="sapx-card pr6-journey-step" href="/enterprise-homepage.html#platform-overview-heading" style="text-decoration:none">
+        <span class="pr6-journey-step-num" aria-hidden="true">2</span>
+        <h3 class="sapx-card-title">Platform Overview</h3>
+        <p class="sapx-card-desc">Six core capabilities</p>
+      </a>
+      <a class="sapx-card pr6-journey-step" href="#pricing-tiers" style="text-decoration:none">
+        <span class="pr6-journey-step-num" aria-hidden="true">3</span>
+        <h3 class="sapx-card-title">Pricing</h3>
+        <p class="sapx-card-desc">Compare plans, this page</p>
+      </a>
+      <a class="sapx-card pr6-journey-step" href="/api/" style="text-decoration:none">
+        <span class="pr6-journey-step-num" aria-hidden="true">4</span>
+        <h3 class="sapx-card-title">API Overview</h3>
+        <p class="sapx-card-desc">Endpoints &amp; formats</p>
+      </a>
+      <a class="sapx-card pr6-journey-step" href="/demo.html" style="text-decoration:none">
+        <span class="pr6-journey-step-num" aria-hidden="true">5</span>
+        <h3 class="sapx-card-title">Demo</h3>
+        <p class="sapx-card-desc">30-minute live walkthrough</p>
+      </a>
+      <a class="sapx-card pr6-journey-step" href="mailto:enterprise@cyberdudebivash.com?subject=Enterprise%20Inquiry" style="text-decoration:none">
+        <span class="pr6-journey-step-num" aria-hidden="true">6</span>
+        <h3 class="sapx-card-title">Enterprise Contact</h3>
+        <p class="sapx-card-desc">Talk to our team</p>
+      </a>
+      <a class="sapx-card pr6-journey-step" href="/docs/quickstart.html" style="text-decoration:none">
+        <span class="pr6-journey-step-num" aria-hidden="true">7</span>
+        <h3 class="sapx-card-title">Onboarding</h3>
+        <p class="sapx-card-desc">API quick start guide</p>
+      </a>
+    </div>
+  </div>
+</section>
+
+<!-- 6. Enterprise conversion: demo, contact, partner, community -->
+<section class="sapx-section sapx-section-alt" aria-labelledby="conversion-heading">
+  <div class="sapx-container">
+    <p class="sapx-section-kicker">Talk to Us</p>
+    <h2 class="sapx-section-heading" id="conversion-heading">Ways to Engage</h2>
+    <div class="sapx-grid sapx-grid-4">
+      <div class="sapx-card sapx-feature-card">
+        <div class="sapx-card-icon" aria-hidden="true">&#128421;</div>
+        <h3 class="sapx-card-title">Book a Demo</h3>
+        <p class="sapx-card-desc">30-minute live walkthrough of the feed, AI engine, and API.</p>
+        <p style="margin-top: var(--sapx-space-3)"><a class="sapx-btn sapx-btn-secondary" href="/demo.html">Request Demo &rarr;</a></p>
+      </div>
+      <div class="sapx-card sapx-feature-card">
+        <div class="sapx-card-icon" aria-hidden="true">&#9993;</div>
+        <h3 class="sapx-card-title">Contact Sales</h3>
+        <p class="sapx-card-desc">Enterprise inquiries, procurement, and custom terms.</p>
+        <p style="margin-top: var(--sapx-space-3)"><a class="sapx-btn sapx-btn-secondary" href="mailto:enterprise@cyberdudebivash.com?subject=Enterprise%20Sales%20Inquiry">Email Sales &rarr;</a></p>
+      </div>
+      <div class="sapx-card sapx-feature-card">
+        <div class="sapx-card-icon" aria-hidden="true">&#129309;</div>
+        <h3 class="sapx-card-title">Partner / MSSP Program</h3>
+        <p class="sapx-card-desc">White-label the dashboard and API and resell to your clients.</p>
+        <p style="margin-top: var(--sapx-space-3)"><a class="sapx-btn sapx-btn-secondary" href="/mssp.html">Explore Partnership &rarr;</a></p>
+      </div>
+      <div class="sapx-card sapx-feature-card">
+        <div class="sapx-card-icon" aria-hidden="true">&#128241;</div>
+        <h3 class="sapx-card-title">Stay Informed</h3>
+        <p class="sapx-card-desc">Free, real-time critical alerts on Telegram &mdash; 22,433 published intelligence reports.</p>
+        <p style="margin-top: var(--sapx-space-3)"><a class="sapx-btn sapx-btn-secondary" href="https://t.me/cyberdudebivashSentinelApex" target="_blank" rel="noopener noreferrer">Join Telegram &rarr;</a></p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 7. FAQ (condensed real excerpt; full FAQs on pricing.html and docs/faq.html) -->
+<section class="sapx-section" aria-labelledby="faq-heading">
+  <div class="sapx-container-narrow">
+    <p class="sapx-section-kicker">FAQ</p>
+    <h2 class="sapx-section-heading" id="faq-heading">Frequently Asked Questions</h2>
+    <p class="sapx-section-desc">Short answers here — full detail on the <a href="/pricing.html">pricing FAQ</a> and <a href="/docs/faq.html">billing &amp; API FAQ</a>.</p>
+    <div class="sapx-card" style="margin-bottom: var(--sapx-space-4)">
+      <h3 class="sapx-card-title">Is there a free trial?</h3>
+      <p class="sapx-card-desc">Community is free forever (100 API calls/day, no card required). PRO, Enterprise, and MSSP are billed the full listed price immediately at checkout &mdash; that payment is your first month, and access is provisioned automatically.</p>
+    </div>
+    <div class="sapx-card" style="margin-bottom: var(--sapx-space-4)">
+      <h3 class="sapx-card-title">What payment methods are accepted?</h3>
+      <p class="sapx-card-desc">Razorpay (UPI, Cards, Net Banking, EMI) or Gumroad (Cards, PayPal, Stripe). GST invoices are issued automatically for every paid plan.</p>
+    </div>
+    <div class="sapx-card" style="margin-bottom: var(--sapx-space-4)">
+      <h3 class="sapx-card-title">How fast do I get my API key?</h3>
+      <p class="sapx-card-desc">Instantly for the vast majority of payments &mdash; provisioned and emailed automatically the moment Razorpay or Gumroad confirms payment.</p>
+    </div>
+    <div class="sapx-card" style="margin-bottom: var(--sapx-space-4)">
+      <h3 class="sapx-card-title">What SLA do paid plans include?</h3>
+      <p class="sapx-card-desc">Enterprise and MSSP plans include a 99.9% uptime SLA, with critical alerts pushed via Telegram within 15 minutes of detection.</p>
+    </div>
+    <div class="sapx-card">
+      <h3 class="sapx-card-title">Can my MSSP resell this intelligence?</h3>
+      <p class="sapx-card-desc">Yes &mdash; the MSSP white-label program lets you brand the dashboard and API under your own name. See the <a href="/mssp.html">MSSP program</a> for partnership tiers.</p>
+    </div>
+  </div>
+</section>
+
+<!-- 8. Final CTA -->
+<section class="sapx-section sapx-section-lg" aria-labelledby="pricing-final-cta-heading">
+  <div class="sapx-container-narrow">
+    <div class="sapx-cta-banner">
+      <h2 class="sapx-cta-banner-heading" id="pricing-final-cta-heading">Start Free. Upgrade When Ready.</h2>
+      <p class="sapx-cta-banner-copy">No credit card required for Community access. Production API keys provision automatically on upgrade.</p>
+      <div class="sapx-cta-banner-actions">
+        <a class="sapx-btn sapx-btn-primary" href="/get-api-key.html?plan=community&amp;utm_source=pricing_final_cta&amp;utm_medium=cta&amp;utm_campaign=enterprise_pricing">Start Free</a>
+        <a class="sapx-btn sapx-btn-secondary" href="/demo.html">Book a Live Demo</a>
+        <a class="sapx-btn sapx-btn-ghost" href="mailto:enterprise@cyberdudebivash.com?subject=Enterprise%20Sales%20Inquiry">Contact Sales</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<footer class="sapx-site-footer">
+  <div class="sapx-footer-grid">
+    <div>
+      <a class="sapx-brand" href="/index.html" style="margin-bottom: var(--sapx-space-4); display: inline-flex;">
+        <span aria-hidden="true">&#128737;</span>
+        SENTINEL APEX
+      </a>
+      <p style="font-size: var(--sapx-font-size-sm); color: var(--sapx-color-text-secondary); max-width: 320px; line-height: var(--sapx-line-height-normal); margin: 0 0 var(--sapx-space-4);">
+        AI-powered threat intelligence for enterprise SOC teams &mdash; real-time correlation, STIX 2.1 export, and MITRE ATT&amp;CK mapping.
+      </p>
+      <div class="sapx-footer-social">
+        <a href="https://x.com/CDBSENTINELAPEX" aria-label="SENTINEL APEX on X (Twitter)" target="_blank" rel="noopener noreferrer">&#120143;</a>
+        <a href="https://www.linkedin.com/company/cyberdudebivash/" aria-label="SENTINEL APEX on LinkedIn" target="_blank" rel="noopener noreferrer">in</a>
+        <a href="https://github.com/cyberdudebivash" aria-label="SENTINEL APEX on GitHub" target="_blank" rel="noopener noreferrer">&#128187;</a>
+      </div>
+    </div>
+
+    <div>
+      <h3 class="sapx-footer-col-heading">Products</h3>
+      <ul class="sapx-footer-links">
+        <li><a href="/index.html">Platform</a></li>
+        <li><a href="/threat/">Threat Intelligence</a></li>
+        <li><a href="/developer-portal.html">Developers</a></li>
+        <li><a href="/enterprise-pricing.html">Pricing</a></li>
+      </ul>
+    </div>
+
+    <div>
+      <h3 class="sapx-footer-col-heading">Resources</h3>
+      <ul class="sapx-footer-links">
+        <li><a href="/enterprise-knowledge-center.html">Knowledge Center</a></li>
+        <li><a href="/developer-portal.html">Developer Portal</a></li>
+        <li><a href="/docs/quickstart.html">API Quick Start</a></li>
+        <li><a href="/blog/">Research Blog</a></li>
+        <li><a href="/enterprise-compliance.html">Trust Center</a></li>
+      </ul>
+    </div>
+
+    <div>
+      <h3 class="sapx-footer-col-heading">Company</h3>
+      <ul class="sapx-footer-links">
+        <li><a href="/privacy.html">Privacy</a></li>
+        <li><a href="/terms.html">Terms</a></li>
+        <li><a href="/status.html">Status</a></li>
+        <li><a href="mailto:enterprise@cyberdudebivash.com">Contact</a></li>
+      </ul>
+      <div class="sapx-status-indicator" style="margin-top: var(--sapx-space-4);">
+        <span class="sapx-status-dot sapx-status-dot-live" aria-hidden="true"></span>
+        All Systems Operational
+      </div>
+    </div>
+  </div>
+
+  <div class="sapx-footer-bottom">
+    <span>&copy; 2026 BIVASHA KUMAR NAYAK trading as CYBERDUDEBIVASH&reg; All rights reserved.</span>
+    <span>SENTINEL APEX Threat Intelligence Platform</span>
+  </div>
+</footer>
+
+<script>
+  // Essential JS only: mobile nav toggle, identical to enterprise-homepage.html
+  // (PR-5) and components/header.html (PR-4). No other script on this page.
+  function sapxToggleNav(button) {
+    var header = button.closest('.sapx-site-header');
+    var expanded = button.getAttribute('aria-expanded') === 'true';
+    button.setAttribute('aria-expanded', String(!expanded));
+    header.setAttribute('data-nav-open', String(!expanded));
+  }
+</script>
+
+</body>
+</html>

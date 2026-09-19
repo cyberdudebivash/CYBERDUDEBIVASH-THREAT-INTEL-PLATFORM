@@ -1,0 +1,275 @@
+/*!
+ * SENTINEL APEX — Landing Page Hero (PR-3)
+ * ==============================================================
+ * Scoped, minimal supporting CSS for the marketing hero inserted
+ * after </header> on the homepage. Every color/spacing/radius/
+ * typography/motion value below is a var(--sapx-*) reference from
+ * css/tokens.css — nothing is redefined here. Requires tokens.css
+ * to be linked first.
+ *
+ * All selectors are scoped under .sapx-hero / .sapx-btn so this
+ * file cannot affect anything outside the hero section it targets.
+ * ============================================================== */
+
+/* Box-sizing reset (PR-5) -- see css/components.css's identical rule
+   for the full rationale (a real, Playwright-confirmed mobile
+   viewport-overflow defect). Duplicated here, not just left to
+   components.css, so hero.css stays independently correct when
+   loaded without components.css -- e.g. via
+   scripts/patch_landing_hero.py, which links tokens.css + hero.css
+   only. */
+[class^="sapx-"],
+[class*=" sapx-"] {
+  box-sizing: border-box;
+}
+
+.sapx-hero {
+  background: var(--sapx-color-bg-surface);
+  border-bottom: 1px solid var(--sapx-color-border);
+  padding: var(--sapx-space-8) var(--sapx-space-5);
+}
+
+/* ---- Primary hero content (headline / sub / CTAs / capabilities) --- */
+.sapx-hero-content {
+  max-width: 760px;
+  margin: 0 auto var(--sapx-space-8);
+  text-align: center;
+}
+
+.sapx-hero-eyebrow {
+  font-family: var(--sapx-font-mono);
+  font-size: var(--sapx-font-size-xs);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--sapx-color-brand-teal-text);
+  margin: 0 0 var(--sapx-space-4);
+}
+
+.sapx-hero-heading {
+  font-family: var(--sapx-font-display);
+  font-size: clamp(2rem, 4.5vw, var(--sapx-font-size-4xl));
+  font-weight: var(--sapx-font-weight-black);
+  line-height: var(--sapx-line-height-tight);
+  color: var(--sapx-color-text-primary);
+  margin: 0 0 var(--sapx-space-5);
+  letter-spacing: -0.01em;
+}
+
+.sapx-hero-heading-accent {
+  color: var(--sapx-color-brand-teal-text);
+}
+
+.sapx-hero-sub {
+  font-size: var(--sapx-font-size-lg);
+  line-height: var(--sapx-line-height-normal);
+  color: var(--sapx-color-text-secondary);
+  max-width: 600px;
+  margin: 0 auto var(--sapx-space-6);
+}
+
+.sapx-hero-ctas {
+  display: flex;
+  gap: var(--sapx-space-3);
+  justify-content: center;
+  flex-wrap: wrap;
+  margin-bottom: var(--sapx-space-6);
+}
+
+.sapx-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--sapx-space-3) var(--sapx-space-6);
+  border-radius: var(--sapx-radius-md);
+  font-family: var(--sapx-font-sans);
+  font-size: var(--sapx-font-size-base);
+  font-weight: var(--sapx-font-weight-semibold);
+  text-decoration: none;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: transform var(--sapx-transition-fast) var(--sapx-ease-standard),
+    opacity var(--sapx-transition-fast) var(--sapx-ease-standard),
+    border-color var(--sapx-transition-fast) var(--sapx-ease-standard);
+}
+
+.sapx-btn-primary {
+  background: var(--sapx-color-brand-teal);
+  /* PR-5: was --sapx-color-text-inverse (1.71:1 in light theme, WCAG AA
+     fail) -- switched to --sapx-color-text-on-bright (11.80:1) per the
+     fix already recommended in docs/component-system-guide.md §4/§7 and
+     css/tokens.css's PR-4 comment. Same value as before in dark theme
+     (#05070d both ways); light theme only gets more correct. This also
+     removes the disclosed hero.css/components.css cascade conflict now
+     that both files are loaded together for the first time (PR-5). */
+  color: var(--sapx-color-text-on-bright);
+}
+.sapx-btn-primary:hover {
+  opacity: 0.9;
+  transform: translateY(-1px);
+}
+
+.sapx-btn-secondary {
+  background: transparent;
+  color: var(--sapx-color-text-primary);
+  border-color: var(--sapx-color-border-strong);
+}
+.sapx-btn-secondary:hover {
+  border-color: var(--sapx-color-outline-neutral);
+}
+
+.sapx-btn:focus-visible {
+  outline: none;
+  box-shadow: var(--sapx-focus-ring);
+}
+
+/* prefers-reduced-motion: css/tokens.css already collapses the
+   --sapx-transition-* durations to ~0 globally, so the transitions
+   above become near-instant automatically. The hover translateY is
+   a spatial movement (not just a duration), so it's explicitly
+   disabled too -- duration and motion are different concerns. */
+@media (prefers-reduced-motion: reduce) {
+  .sapx-btn-primary:hover {
+    transform: none;
+  }
+}
+
+.sapx-hero-capabilities {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--sapx-space-3) var(--sapx-space-5);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  font-size: var(--sapx-font-size-sm);
+  color: var(--sapx-color-text-secondary);
+}
+.sapx-hero-capabilities li {
+  display: flex;
+  align-items: center;
+  gap: var(--sapx-space-2);
+}
+.sapx-hero-cap-icon {
+  font-size: var(--sapx-font-size-base);
+}
+
+/* ---- Shared section kicker (used by trust / stats / integrations) --- */
+.sapx-hero-section-kicker {
+  font-family: var(--sapx-font-mono);
+  font-size: var(--sapx-font-size-xs);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  font-weight: var(--sapx-font-weight-semibold);
+  color: var(--sapx-color-text-tertiary);
+  text-align: center;
+  margin: 0 0 var(--sapx-space-5);
+}
+
+.sapx-hero-trust,
+.sapx-hero-stats,
+.sapx-hero-integrations {
+  max-width: 1000px;
+  margin: 0 auto var(--sapx-space-7);
+}
+
+/* ---- Enterprise trust grid ------------------------------------------ */
+.sapx-hero-trust-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--sapx-space-4);
+}
+
+.sapx-trust-item {
+  display: flex;
+  align-items: center;
+  gap: var(--sapx-space-3);
+  padding: var(--sapx-space-4);
+  background: var(--sapx-color-bg-surface-raised);
+  border: 1px solid var(--sapx-color-border);
+  border-radius: var(--sapx-radius-md);
+}
+.sapx-trust-icon {
+  font-size: var(--sapx-font-size-xl);
+  flex-shrink: 0;
+}
+.sapx-trust-text {
+  font-size: var(--sapx-font-size-sm);
+  color: var(--sapx-color-text-secondary);
+  line-height: var(--sapx-line-height-snug);
+}
+
+/* ---- Statistics strip ------------------------------------------------
+   Deliberately SLA/format figures (<2h, 99.9%, STIX 2.1, ATT&CK v15) --
+   not live counts. A live "74 feeds" style number is exactly the kind
+   of baked-in-at-generation-time value PR-1 removed from crawler
+   metadata because it goes stale; the hero shouldn't reintroduce that
+   same problem in a new place. */
+.sapx-hero-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--sapx-space-4);
+  text-align: center;
+}
+.sapx-stat-item {
+  padding: var(--sapx-space-5) var(--sapx-space-3);
+  background: var(--sapx-color-bg-surface-raised);
+  border: 1px solid var(--sapx-color-border);
+  border-radius: var(--sapx-radius-md);
+}
+.sapx-stat-value {
+  font-family: var(--sapx-font-mono);
+  font-size: var(--sapx-font-size-3xl);
+  font-weight: var(--sapx-font-weight-bold);
+  color: var(--sapx-color-brand-teal-text);
+  line-height: 1;
+  margin-bottom: var(--sapx-space-2);
+}
+.sapx-stat-label {
+  font-size: var(--sapx-font-size-xs);
+  color: var(--sapx-color-text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* ---- Integrations ("works with your stack") ------------------------- */
+.sapx-hero-integrations-list {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--sapx-space-3);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.sapx-hero-integrations-list li {
+  padding: var(--sapx-space-2) var(--sapx-space-4);
+  background: var(--sapx-color-bg-surface-raised);
+  border: 1px solid var(--sapx-color-border);
+  border-radius: var(--sapx-radius-full);
+  font-size: var(--sapx-font-size-sm);
+  font-weight: var(--sapx-font-weight-medium);
+  color: var(--sapx-color-text-secondary);
+}
+
+/* ---- Responsive: tablet ---------------------------------------------- */
+@media (max-width: 900px) {
+  .sapx-hero-trust-grid,
+  .sapx-hero-stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+/* ---- Responsive: mobile ------------------------------------------------ */
+@media (max-width: 560px) {
+  .sapx-hero-trust-grid,
+  .sapx-hero-stats-grid {
+    grid-template-columns: 1fr;
+  }
+  .sapx-hero-ctas {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .sapx-btn {
+    width: 100%;
+  }
+}

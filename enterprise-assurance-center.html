@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SENTINEL APEX — Engineering Assurance Center (P34)</title>
+<style>
+:root{
+  --bg:#080c14;--surface:#0d1117;--border:#21262d;--accent:#0ea5e9;
+  --green:#22c55e;--yellow:#eab308;--red:#ef4444;--orange:#f97316;
+  --text:#e6edf3;--muted:#8b949e;--radius:8px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Inter',system-ui,sans-serif;font-size:14px;line-height:1.5;min-height:100vh}
+header{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:12px}
+header h1{font-size:15px;font-weight:700;letter-spacing:.5px}
+header .badge{background:#0ea5e920;color:var(--accent);border:1px solid var(--accent)40;border-radius:4px;padding:2px 8px;font-size:11px;font-weight:600}
+.main{padding:20px 24px;max-width:1400px;margin:0 auto}
+.stat-bar{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:12px;margin-bottom:20px}
+.stat-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px}
+.stat-card .label{font-size:10px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:6px}
+.stat-card .val{font-size:22px;font-weight:700}
+.stat-card .sub{font-size:11px;color:var(--muted);margin-top:2px}
+.tabs{display:flex;gap:2px;margin-bottom:16px;border-bottom:1px solid var(--border);padding-bottom:0;flex-wrap:wrap}
+.tab{padding:8px 16px;cursor:pointer;font-size:13px;color:var(--muted);border-bottom:2px solid transparent;margin-bottom:-1px;transition:all .15s}
+.tab.active{color:var(--text);border-color:var(--accent)}
+.tab:hover:not(.active){color:var(--text)}
+.panel{display:none}
+.panel.active{display:block}
+.section-title{font-size:11px;letter-spacing:1px;color:var(--muted);text-transform:uppercase;margin-bottom:12px}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px}
+.card h3{font-size:12px;color:var(--muted);letter-spacing:.5px;margin-bottom:10px;text-transform:uppercase}
+.tier{display:inline-block;padding:3px 10px;border-radius:4px;font-size:11px;font-weight:700;letter-spacing:.5px}
+.tier.green{background:#22c55e20;color:var(--green);border:1px solid #22c55e40}
+.tier.amber{background:#eab30820;color:var(--yellow);border:1px solid #eab30840}
+.tier.red{background:#ef444420;color:var(--red);border:1px solid #ef444440}
+.tier.blue{background:#0ea5e920;color:var(--accent);border:1px solid #0ea5e940}
+.kpi-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px}
+.kpi-item{background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:12px}
+.kpi-item .kv{font-size:11px;color:var(--muted)}
+.kpi-item .kval{font-size:18px;font-weight:700;margin-top:2px}
+.gate-list{display:flex;flex-direction:column;gap:6px;max-height:460px;overflow-y:auto}
+.gate-row{display:flex;align-items:flex-start;gap:10px;padding:8px 10px;border-radius:6px;background:var(--bg);border:1px solid var(--border)}
+.gate-row .gid{font-size:10px;color:var(--muted);min-width:34px;font-weight:600}
+.gate-row .glabel{font-size:12px;flex:1}
+.gate-row .gdetail{font-size:10px;color:var(--muted);margin-top:2px}
+.gate-row .gstatus{font-size:10px;font-weight:700;padding:2px 6px;border-radius:3px;white-space:nowrap}
+.gstatus.PASS{background:#22c55e20;color:var(--green)}
+.gstatus.FAIL_WARNING{background:#eab30820;color:var(--yellow)}
+.gstatus.FAIL_BLOCKER{background:#ef444420;color:var(--red)}
+.err{color:var(--red);font-size:12px;padding:12px}
+.loading{color:var(--muted);font-size:12px;padding:12px;text-align:center}
+.progress-bar{height:6px;background:var(--border);border-radius:3px;overflow:hidden;margin-top:6px}
+.progress-fill{height:100%;border-radius:3px;transition:width .5s}
+</style>
+</head>
+<body>
+<header>
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+  <h1>SENTINEL APEX — Engineering Assurance Center</h1>
+  <span class="badge">P34.0</span>
+</header>
+
+<div class="main" id="mainApp">
+  <div class="stat-bar" id="statBar">
+    <div class="stat-card"><div class="label">Health</div><div class="val" id="sHealth">—</div></div>
+    <div class="stat-card"><div class="label">Release Tier</div><div class="val" id="sTier" style="font-size:15px">—</div></div>
+    <div class="stat-card"><div class="label">Gate Pass Rate</div><div class="val" id="sPassRate">—</div></div>
+    <div class="stat-card"><div class="label">Blockers</div><div class="val" id="sBlockers">—</div></div>
+    <div class="stat-card"><div class="label">Warnings</div><div class="val" id="sWarnings">—</div></div>
+    <div class="stat-card"><div class="label">Feed Items</div><div class="val" id="sItems">—</div></div>
+    <div class="stat-card"><div class="label">Platform Health Score</div><div class="val" id="sPlatform">—</div></div>
+  </div>
+
+  <div class="tabs">
+    <div class="tab active" onclick="switchTab('dashboard')">Dashboard</div>
+    <div class="tab" onclick="switchTab('gates')">Assurance Gates</div>
+    <div class="tab" onclick="switchTab('security')">Security Posture</div>
+    <div class="tab" onclick="switchTab('reliability')">Reliability</div>
+    <div class="tab" onclick="switchTab('compliance')">Compliance</div>
+    <div class="tab" onclick="switchTab('sbom')">SBOM / Contracts</div>
+    <div class="tab" onclick="switchTab('cert')">Certification</div>
+  </div>
+
+  <div class="panel active" id="panel-dashboard"></div>
+  <div class="panel" id="panel-gates"></div>
+  <div class="panel" id="panel-security"></div>
+  <div class="panel" id="panel-reliability"></div>
+  <div class="panel" id="panel-compliance"></div>
+  <div class="panel" id="panel-sbom"></div>
+  <div class="panel" id="panel-cert"></div>
+</div>
+
+<script>
+const API = location.origin;
+const loaded = {};
+const TABS = ['dashboard','gates','security','reliability','compliance','sbom','cert'];
+
+async function fetchJSON(path) {
+  const r = await fetch(API + path);
+  return r.json();
+}
+
+async function loadStatBar() {
+  try {
+    const d = await fetchJSON('/api/v1/p34/observability');
+    const m = d.metrics || {};
+    const color = h => h === 'GREEN' ? 'var(--green)' : h === 'AMBER' ? 'var(--yellow)' : 'var(--red)';
+    document.getElementById('sHealth').style.color = color(d.health);
+    document.getElementById('sHealth').textContent = d.health || '—';
+    document.getElementById('sTier').textContent = d.release_tier || '—';
+    document.getElementById('sPassRate').textContent = (m.assurance_pass_rate_pct ?? '—') + (typeof m.assurance_pass_rate_pct === 'number' ? '%' : '');
+    document.getElementById('sBlockers').textContent = m.blocker_count ?? '—';
+    document.getElementById('sBlockers').style.color = (m.blocker_count > 0) ? 'var(--red)' : 'var(--green)';
+    document.getElementById('sWarnings').textContent = m.warning_count ?? '—';
+    document.getElementById('sItems').textContent = m.feed_item_count ?? '—';
+    const metrics = await fetchJSON('/api/v1/p34/metrics');
+    document.getElementById('sPlatform').textContent = metrics.platform_health_score ?? '—';
+  } catch(e) {}
+}
+
+function switchTab(name) {
+  document.querySelectorAll('.tab').forEach((t,i)=>{t.classList.toggle('active',TABS[i]===name)});
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+  document.getElementById('panel-' + name).classList.add('active');
+  if (!loaded[name]) loadPanel(name);
+}
+
+function tierClass(t) {
+  if (!t) return 'blue';
+  t = String(t).toUpperCase();
+  if (t.includes('WORLDWIDE') || t.includes('EXCELLENT') || t.includes('HIGH') || t.includes('OPERATIONAL') || t.includes('ENTER') || t.includes('PASS') || t.includes('STABLE') || t.includes('GREEN') || t.includes('COMPLIANT')) return 'green';
+  if (t.includes('BLOCK') || t.includes('DEGRADED') || t.includes('FAIL') || t.includes('AT_RISK') || t.includes('NON_COMPLIANT') || t.includes('DRIFT_DETECTED')) return 'red';
+  if (t.includes('AMBER') || t.includes('CONDITIONAL') || t.includes('MEDIUM') || t.includes('PENDING')) return 'amber';
+  return 'blue';
+}
+
+function kpiBlock(label, val, sub) {
+  return `<div class="kpi-item"><div class="kv">${label}</div><div class="kval">${val}</div>${sub ? `<div style="font-size:10px;color:var(--muted)">${sub}</div>` : ''}</div>`;
+}
+
+function gateRow(g) {
+  return `<div class="gate-row">
+    <div class="gid">${g.id}</div>
+    <div style="flex:1">
+      <div class="glabel">${g.label}</div>
+      <div class="gdetail">${g.detail || ''}</div>
+    </div>
+    <div class="gstatus ${g.status}">${g.status.replace('FAIL_','')}</div>
+  </div>`;
+}
+
+async function loadPanel(name) {
+  loaded[name] = true;
+  const el = document.getElementById('panel-' + name);
+  el.innerHTML = '<div class="loading">Loading…</div>';
+  try {
+    if (name === 'dashboard') await renderDashboard(el);
+    else if (name === 'gates') await renderGates(el);
+    else if (name === 'security') await renderSecurity(el);
+    else if (name === 'reliability') await renderReliability(el);
+    else if (name === 'compliance') await renderCompliance(el);
+    else if (name === 'sbom') await renderSbom(el);
+    else if (name === 'cert') await renderCert(el);
+  } catch(e) { el.innerHTML = `<div class="err">Load error: ${e.message}</div>`; }
+}
+
+async function renderDashboard(el) {
+  const d = await fetchJSON('/api/v1/p34/dashboard');
+  const a = d.assurance || {};
+  const fh = d.feed_health || {};
+  el.innerHTML = `
+<div class="grid-2" style="margin-bottom:16px">
+  <div class="card">
+    <h3>Platform Status</h3>
+    <div style="font-size:28px;font-weight:700;color:${d.platform_status==='OPERATIONAL'?'var(--green)':'var(--red)'}">${d.platform_status||'—'}</div>
+    <div style="font-size:12px;color:var(--muted);margin-top:4px">Release tier: <span class="tier ${tierClass(d.release_tier)}">${d.release_tier||'—'}</span></div>
+    <div style="margin-top:8px;font-size:12px;color:var(--muted)">P34 chain: ${d.certification_chain?.p34||'—'}</div>
+  </div>
+  <div class="card">
+    <h3>Feed Health</h3>
+    <div style="display:flex;gap:16px;flex-wrap:wrap">
+      <div><span style="font-size:20px;font-weight:700">${fh.item_count??'—'}</span><span style="font-size:11px;color:var(--muted);margin-left:4px">ITEMS</span></div>
+      <div><span style="font-size:20px;font-weight:700;color:var(--red)">${fh.critical??0}</span><span style="font-size:11px;color:var(--muted);margin-left:4px">CRITICAL</span></div>
+      <div><span style="font-size:20px;font-weight:700;color:var(--orange)">${fh.high??0}</span><span style="font-size:11px;color:var(--muted);margin-left:4px">HIGH</span></div>
+    </div>
+  </div>
+</div>
+<div class="section-title">Assurance Summary</div>
+<div class="kpi-grid">
+  ${kpiBlock('Gates Passed', `${a.passed ?? '—'}/${a.total ?? '—'}`)}
+  ${kpiBlock('Pass Rate', (a.pass_rate_pct != null ? a.pass_rate_pct + '%' : '—'))}
+  ${kpiBlock('Blockers', a.blockers ?? '—')}
+  ${kpiBlock('Warnings', a.warnings ?? '—')}
+</div>`;
+}
+
+async function renderGates(el) {
+  const d = await fetchJSON('/api/v1/p34/assurance');
+  el.innerHTML = `
+<div class="card" style="margin-bottom:16px">
+  <h3>Assurance Gate Evaluation</h3>
+  <div style="font-size:28px;font-weight:700;color:${d.blockers===0?'var(--green)':'var(--red)'}">${d.release_tier||'—'}</div>
+  <div style="font-size:12px;color:var(--muted);margin-top:4px">${d.passed}/${d.total} gates passed · ${d.blockers} blockers · ${d.warnings} warnings</div>
+</div>
+<div class="section-title">All Gates (A01–A26)</div>
+<div class="gate-list">${(d.gates||[]).map(gateRow).join('')}</div>`;
+}
+
+async function renderSecurity(el) {
+  const d = await fetchJSON('/api/v1/p34/security');
+  const dist = d.severity_distribution || {};
+  el.innerHTML = `
+<div class="grid-2" style="margin-bottom:16px">
+  <div class="card">
+    <h3>Security Posture</h3>
+    <div style="font-size:20px;font-weight:700;color:${d.posture==='NOMINAL'?'var(--green)':d.posture==='ELEVATED'?'var(--yellow)':'var(--red)'}">${d.posture||'—'}</div>
+    <div style="font-size:12px;color:var(--muted);margin-top:4px">Feed items: ${d.feed_item_count??'—'} · Critical/High ratio: ${d.critical_high_ratio??'—'}</div>
+  </div>
+  <div class="card">
+    <h3>Severity Distribution</h3>
+    ${Object.entries(dist).map(([k,v])=>`
+    <div style="display:flex;justify-content:space-between;margin-bottom:6px;font-size:12px">
+      <span style="color:var(--muted)">${k}</span><span style="font-weight:600">${v}</span>
+    </div>`).join('')||'<div class="loading">No data</div>'}
+  </div>
+</div>
+<div class="kpi-grid">
+  ${kpiBlock('Critical', d.critical_count ?? 0)}
+  ${kpiBlock('High', d.high_count ?? 0)}
+  ${kpiBlock('Medium', d.medium_count ?? 0)}
+  ${kpiBlock('Low', d.low_count ?? 0)}
+</div>`;
+}
+
+async function renderReliability(el) {
+  const [rel, perf] = await Promise.all([fetchJSON('/api/v1/p34/reliability'), fetchJSON('/api/v1/p34/performance')]);
+  el.innerHTML = `
+<div class="grid-2" style="margin-bottom:16px">
+  <div class="card">
+    <h3>Reliability</h3>
+    <div style="font-size:32px;font-weight:700;color:var(--accent)">${rel.gate_pass_rate_pct ?? '—'}%</div>
+    <div style="margin-top:4px"><span class="tier ${tierClass(rel.reliability_tier)}">${rel.reliability_tier||'—'}</span></div>
+    <div style="font-size:11px;color:var(--muted);margin-top:8px">SLA status: <span class="tier ${tierClass(rel.sla_status)}">${rel.sla_status||'—'}</span></div>
+  </div>
+  <div class="card">
+    <h3>Performance</h3>
+    <div style="font-size:32px;font-weight:700;color:var(--accent)">${perf.kv_latency_ms ?? '—'}ms</div>
+    <div style="margin-top:4px"><span class="tier ${tierClass(perf.performance_tier)}">${perf.performance_tier||'—'}</span></div>
+    <div style="font-size:11px;color:var(--muted);margin-top:8px">KV round-trip latency · Feed items: ${perf.feed_item_count??'—'}</div>
+  </div>
+</div>
+<div class="kpi-grid">
+  ${kpiBlock('Gates Passed', `${rel.passed ?? '—'}/${rel.total ?? '—'}`)}
+  ${kpiBlock('Blockers', rel.blockers ?? '—')}
+  ${kpiBlock('Warnings', rel.warnings ?? '—')}
+</div>`;
+}
+
+async function renderCompliance(el) {
+  const d = await fetchJSON('/api/v1/p34/compliance');
+  el.innerHTML = `
+<div class="card" style="margin-bottom:16px">
+  <h3>Compliance Posture</h3>
+  <div style="font-size:32px;font-weight:700;color:var(--accent)">${d.overall_compliance_pct ?? '—'}%</div>
+  <div style="margin-top:4px"><span class="tier ${tierClass(d.compliance_tier)}">${d.compliance_tier||'—'}</span></div>
+  <div style="font-size:12px;color:var(--muted);margin-top:8px">${d.passed_controls}/${d.total_controls} controls passing · ${d.blocker_count} blockers · ${d.warning_count} warnings</div>
+</div>
+<div class="section-title">Compliance Controls</div>
+<div class="gate-list">${(d.controls||[]).map(c=>gateRow({id:c.control_id,label:c.control_name,detail:c.detail,status:c.status})).join('')}</div>`;
+}
+
+async function renderSbom(el) {
+  const [sbom, contracts] = await Promise.all([fetchJSON('/api/v1/p34/sbom'), fetchJSON('/api/v1/p34/contracts')]);
+  el.innerHTML = `
+<div class="grid-2">
+  <div class="card">
+    <h3>SBOM Status</h3>
+    <div style="margin-top:4px"><span class="tier ${tierClass(sbom.sbom_status)}">${sbom.sbom_status||'—'}</span></div>
+    <div style="font-size:12px;color:var(--muted);margin-top:8px">Format: ${sbom.sbom_format||'—'}</div>
+    <div style="font-size:11px;color:var(--muted);margin-top:8px">${sbom.note||''}</div>
+  </div>
+  <div class="card">
+    <h3>API Contract Drift</h3>
+    <div style="margin-top:4px"><span class="tier ${tierClass(contracts.contract_drift_status)}">${contracts.contract_drift_status||'—'}</span></div>
+    <div style="font-size:11px;color:var(--muted);margin-top:8px">${contracts.note||''}</div>
+  </div>
+</div>`;
+}
+
+async function renderCert(el) {
+  const [obs, cert] = await Promise.all([fetchJSON('/api/v1/p34/observability'), fetchJSON('/api/v1/p34/certification')]);
+  el.innerHTML = `
+<div class="card" style="margin-bottom:16px">
+  <h3>P34 Certification Status</h3>
+  <div style="font-size:20px;font-weight:700;color:${obs.health==='GREEN'?'var(--green)':'var(--red)'}">${cert.release_tier||'—'}</div>
+  <div style="font-size:12px;color:var(--muted);margin-top:4px">P33 cert tier: ${obs.metrics?.p33_cert_tier||'—'}</div>
+  <div style="font-size:11px;color:var(--muted);margin-top:8px">${cert.certification_note||''}</div>
+</div>
+<div class="section-title">Certification Chain</div>
+<div class="kpi-grid">
+  <div class="kpi-item"><div class="kv">Feed Items</div><div class="kval">${cert.feed_item_count??'—'}</div></div>
+  <div class="kpi-item"><div class="kv">Passed Gates</div><div class="kval">${cert.passed_count??'—'}/${cert.total_gates??'—'}</div></div>
+  <div class="kpi-item"><div class="kv">Blockers</div><div class="kval">${cert.blocker_count??'—'}</div></div>
+  <div class="kpi-item"><div class="kv">Layer</div><div class="kval">P34.0</div></div>
+</div>`;
+}
+
+loadStatBar();
+loadPanel('dashboard');
+</script>
+</body>
+</html>

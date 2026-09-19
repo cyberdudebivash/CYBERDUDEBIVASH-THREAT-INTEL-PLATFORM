@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>System Status — CYBERDUDEBIVASH SENTINEL APEX</title>
+<meta name="description" content="Real-time system status, API uptime, feed freshness, and SLA monitoring for CYBERDUDEBIVASH SENTINEL APEX Threat Intelligence Platform.">
+<link rel="canonical" href="https://intel.cyberdudebivash.com/status.html">
+<style>
+:root{
+  --bg:#060d19;--panel:#0b1425;--panel2:#0e1930;--panel3:#0a1120;
+  --border:#162035;--border2:#1e2d45;--border3:#243554;
+  --accent:#00d4aa;--accent2:#0099ff;--accent3:#7c3aed;
+  --green:#22c55e;--yellow:#f59e0b;--red:#ef4444;--orange:#f97316;
+  --text:#e8eef8;--muted:#7a8499;--muted2:#9aabb8;
+  --mono:'JetBrains Mono',Menlo,Consolas,monospace;--radius:6px;
+  --font-sans:-apple-system,BlinkMacSystemFont,'Segoe UI',Inter,sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:var(--font-sans);font-size:15px;line-height:1.7}
+a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
+.nav{background:rgba(6,13,25,0.95);backdrop-filter:blur(12px);border-bottom:1px solid var(--border);padding:14px 40px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
+.nav-brand{display:flex;align-items:center;gap:10px;font-family:var(--mono);font-size:11px;letter-spacing:3px;color:var(--accent);text-transform:uppercase;text-decoration:none}
+.live-dot{width:6px;height:6px;background:var(--green);border-radius:50%;animation:pulse 2s ease-in-out infinite;flex-shrink:0}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(1.3)}}
+.nav-links a{color:var(--muted2);font-size:12px;margin-left:20px;transition:color .2s}
+.nav-links a:hover{color:var(--text);text-decoration:none}
+.wrap{max-width:900px;margin:0 auto;padding:0 28px}
+.page-header{padding:56px 0 36px;text-align:center}
+.status-overall{display:inline-flex;align-items:center;gap:12px;background:rgba(34,197,94,0.08);border:1px solid rgba(34,197,94,0.25);border-radius:100px;padding:10px 28px;margin-bottom:20px}
+.status-overall .dot{width:10px;height:10px;background:var(--green);border-radius:50%;animation:pulse 2s ease-in-out infinite}
+.status-overall .label{font-family:var(--mono);font-size:11px;letter-spacing:2px;color:var(--green);text-transform:uppercase;font-weight:700}
+.page-title{font-size:36px;font-weight:800;margin-bottom:10px}
+.page-sub{font-size:15px;color:var(--muted2);margin-bottom:6px}
+.last-updated{font-family:var(--mono);font-size:10px;color:var(--muted);letter-spacing:1px}
+.uptime-banner{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--border);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin:32px 0}
+.uptime-metric{background:var(--panel);padding:22px 18px;text-align:center}
+.uptime-num{font-size:28px;font-weight:800;font-family:var(--mono);color:var(--green);line-height:1}
+.uptime-label{font-size:10px;color:var(--muted);margin-top:6px;letter-spacing:0.5px}
+.section-label{font-family:var(--mono);font-size:9px;letter-spacing:2px;color:var(--muted);text-transform:uppercase;margin:28px 0 12px}
+.services-block{background:var(--panel);border:1px solid var(--border2);border-radius:var(--radius);overflow:hidden;margin-bottom:20px}
+.services-header{padding:14px 20px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center}
+.services-header-title{font-family:var(--mono);font-size:10px;letter-spacing:2px;color:var(--muted);text-transform:uppercase}
+.services-header-badge{font-family:var(--mono);font-size:9px;letter-spacing:1px;padding:4px 12px;border-radius:100px;text-transform:uppercase;font-weight:700}
+.badge-operational{background:rgba(34,197,94,0.1);border:1px solid rgba(34,197,94,0.25);color:var(--green)}
+.service-row{display:flex;align-items:center;padding:13px 20px;border-bottom:1px solid var(--border);transition:background .2s}
+.service-row:last-child{border-bottom:none}
+.service-row:hover{background:rgba(255,255,255,0.015)}
+.service-name{flex:1.2;font-size:13px;color:var(--text);font-weight:500}
+.service-desc{flex:2;font-size:12px;color:var(--muted2)}
+.service-status{display:flex;align-items:center;gap:6px;margin-left:16px;white-space:nowrap}
+.status-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.status-dot.green{background:var(--green);box-shadow:0 0 6px rgba(34,197,94,0.5);animation:pulse 3s ease-in-out infinite}
+.status-dot.gray{background:var(--muted)}
+.status-text{font-family:var(--mono);font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--green)}
+.status-text.gray{color:var(--muted)}
+.badge-unmonitored{background:rgba(122,132,153,0.1);border:1px solid rgba(122,132,153,0.25);color:var(--muted)}
+.uptime-bar-item{background:var(--panel);border:1px solid var(--border2);border-radius:var(--radius);padding:18px 22px;margin-bottom:10px}
+.uptime-bar-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+.uptime-bar-name{font-size:13px;font-weight:600;color:var(--text)}
+.uptime-bar-pct{font-family:var(--mono);font-size:12px;font-weight:700;color:var(--green)}
+.uptime-bar-days{display:flex;gap:2px;align-items:center}
+.uptime-day{flex:1;height:26px;border-radius:2px}
+.uptime-day.up{background:rgba(34,197,94,0.75)}
+.uptime-day.partial{background:var(--yellow);opacity:0.85}
+.uptime-bar-footer{display:flex;justify-content:space-between;margin-top:6px;font-family:var(--mono);font-size:9px;color:var(--muted)}
+.feed-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-bottom:20px}
+.feed-card{background:var(--panel);border:1px solid var(--border2);border-radius:var(--radius);padding:16px 18px}
+.feed-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px}
+.feed-name{font-size:13px;font-weight:600;color:var(--text)}
+.feed-badge{font-family:var(--mono);font-size:8px;letter-spacing:1px;padding:2px 7px;border-radius:3px;text-transform:uppercase}
+.feed-badge.live{background:rgba(34,197,94,0.1);border:1px solid rgba(34,197,94,0.25);color:var(--green)}
+.feed-badge.stix{background:rgba(0,153,255,0.1);border:1px solid rgba(0,153,255,0.25);color:var(--accent2)}
+.feed-meta{font-size:11px;color:var(--muted);margin-bottom:4px}
+.feed-age{font-family:var(--mono);font-size:11px;font-weight:700;color:var(--green)}
+.feed-progress{height:3px;background:var(--border2);border-radius:2px;margin-top:8px;overflow:hidden}
+.feed-progress-fill{height:100%;border-radius:2px;background:var(--green)}
+.sla-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:28px}
+.sla-card{background:var(--panel);border:1px solid var(--border2);border-radius:var(--radius);padding:20px}
+.sla-card-title{font-family:var(--mono);font-size:9px;letter-spacing:2px;color:var(--muted);text-transform:uppercase;margin-bottom:8px}
+.sla-card-val{font-size:26px;font-weight:800;font-family:var(--mono);color:var(--green);line-height:1;margin-bottom:6px}
+.sla-card-sub{font-size:11px;color:var(--muted2)}
+.incident-card{background:var(--panel);border:1px solid var(--border2);border-radius:var(--radius);padding:20px;margin-bottom:10px}
+.incident-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px}
+.incident-title{font-size:14px;font-weight:600;color:var(--text)}
+.incident-tag{font-family:var(--mono);font-size:8px;letter-spacing:1px;padding:3px 10px;border-radius:3px;text-transform:uppercase;font-weight:700;background:rgba(34,197,94,0.1);border:1px solid rgba(34,197,94,0.25);color:var(--green)}
+.incident-meta{font-family:var(--mono);font-size:10px;color:var(--muted);margin-bottom:8px}
+.incident-desc{font-size:13px;color:var(--muted2);line-height:1.6}
+.incident-update{background:var(--panel2);border-radius:4px;padding:10px 14px;margin-top:10px;border-left:2px solid var(--green)}
+.incident-update-time{font-family:var(--mono);font-size:9px;color:var(--muted);margin-bottom:4px}
+.incident-update-text{font-size:12px;color:var(--muted2)}
+.subscribe-box{background:var(--panel2);border:1px solid var(--border2);border-radius:var(--radius);padding:28px;text-align:center;margin:20px 0 48px}
+.subscribe-title{font-size:17px;font-weight:700;margin-bottom:8px}
+.subscribe-sub{font-size:13px;color:var(--muted2);margin-bottom:18px}
+.subscribe-form{display:flex;gap:10px;justify-content:center;max-width:440px;margin:0 auto}
+.subscribe-input{flex:1;padding:10px 16px;background:var(--bg);border:1px solid var(--border3);border-radius:4px;color:var(--text);font-size:13px}
+.subscribe-input:focus{outline:none;border-color:var(--accent)}
+.subscribe-btn{padding:10px 22px;background:var(--accent3);color:#fff;border:none;border-radius:4px;font-family:var(--mono);font-size:11px;font-weight:700;cursor:pointer;transition:background .2s;white-space:nowrap}
+.subscribe-btn:hover{background:#6d28d9}
+.footer{border-top:1px solid var(--border);padding:28px 0;text-align:center;font-family:var(--mono);font-size:10px;color:var(--muted);line-height:2}
+@media(max-width:700px){.uptime-banner{grid-template-columns:repeat(2,1fr)}.feed-grid,.sla-grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<nav class="nav">
+  <a href="https://intel.cyberdudebivash.com" class="nav-brand"><span class="live-dot"></span>SENTINEL APEX</a>
+  <div class="nav-links">
+    <a href="https://intel.cyberdudebivash.com">Platform</a>
+    <a href="https://intel.cyberdudebivash.com/api-docs.html">API</a>
+    <a href="https://intel.cyberdudebivash.com/enterprise.html">Enterprise</a>
+    <a href="https://intel.cyberdudebivash.com/trust-center.html">Trust Center</a>
+    <a href="https://intel.cyberdudebivash.com/pricing.html">Pricing</a>
+  </div>
+</nav>
+
+<div class="wrap">
+  <div class="page-header">
+    <div class="status-overall"><span class="dot"></span><span class="label">All Systems Operational</span></div>
+    <h1 class="page-title">System Status</h1>
+    <p class="page-sub">Real-time health monitoring — CYBERDUDEBIVASH SENTINEL APEX v200.0</p>
+    <div class="last-updated" id="last-updated">Initializing...</div>
+    <div id="live-health-badge" style="margin-top:10px;font-family:var(--mono);font-size:11px;color:var(--muted);letter-spacing:.5px">Loading live API health...</div>
+  </div>
+
+  <div class="uptime-banner">
+    <div class="uptime-metric"><div class="uptime-num" id="m-uptime30">&mdash;</div><div class="uptime-label">30-Day Uptime</div></div>
+    <div class="uptime-metric"><div class="uptime-num" id="m-target">99.9%</div><div class="uptime-label">Enterprise SLA Target</div></div>
+    <div class="uptime-metric"><div class="uptime-num" id="m-downtime">&mdash;</div><div class="uptime-label">Downtime (30d)</div></div>
+    <div class="uptime-metric"><div class="uptime-num" id="m-incidents">&mdash;</div><div class="uptime-label">Incidents (30d)</div></div>
+  </div>
+  <div style="text-align:center;margin:-24px 0 32px;font-size:11px;color:var(--muted)" id="uptime-note"></div>
+
+  <div class="section-label">Core Platform Services</div>
+  <div class="services-block">
+    <div class="services-header"><span class="services-header-title">Infrastructure</span><span class="services-header-badge badge-operational" id="badge-infra">Checking&hellip;</span></div>
+    <div class="service-row"><div class="service-name">Main Platform</div><div class="service-desc">intel.cyberdudebivash.com — dashboard, advisories, search</div><div class="service-status" data-svc="intel-gateway"><span class="status-dot"></span><span class="status-text">Checking&hellip;</span></div></div>
+    <div class="service-row"><div class="service-name">REST API v1</div><div class="service-desc">JSON advisory feed, IOC endpoints, CVSS scoring, full-text search</div><div class="service-status" data-svc="intel-gateway"><span class="status-dot"></span><span class="status-text">Checking&hellip;</span></div></div>
+    <div class="service-row"><div class="service-name">STIX 2.1 / TAXII 2.1 Feed</div><div class="service-desc">Machine-readable threat intel bundles for SIEM ingestion</div><div class="service-status" data-svc="stix-feed"><span class="status-dot"></span><span class="status-text">Checking&hellip;</span></div></div>
+    <div class="service-row"><div class="service-name">API Documentation</div><div class="service-desc">intel.cyberdudebivash.com/api-docs.html</div><div class="service-status" data-svc="_unmonitored"><span class="status-dot"></span><span class="status-text">Checking&hellip;</span></div></div>
+    <div class="service-row"><div class="service-name">CDN / Cloudflare Edge</div><div class="service-desc">Global static asset delivery — sub-50ms worldwide</div><div class="service-status" data-svc="_unmonitored"><span class="status-dot"></span><span class="status-text">Checking&hellip;</span></div></div>
+  </div>
+
+  <div class="services-block">
+    <div class="services-header"><span class="services-header-title">Intelligence Pipeline</span><span class="services-header-badge badge-operational" id="badge-pipeline">Checking&hellip;</span></div>
+    <div class="service-row"><div class="service-name">CVE Ingestion Engine</div><div class="service-desc">NVD + MITRE feed ingestion, EPSS scoring, CISA KEV sync</div><div class="service-status" data-svc="_unmonitored"><span class="status-dot"></span><span class="status-text">Checking&hellip;</span></div></div>
+    <div class="service-row"><div class="service-name">AI Cyber Brain Engine</div><div class="service-desc">Campaign clustering, anomaly scoring, predictive forecasting, attribution</div><div class="service-status" data-svc="ai-engine"><span class="status-dot"></span><span class="status-text">Checking&hellip;</span></div></div>
+    <div class="service-row"><div class="service-name">Intel Quality Engine</div><div class="service-desc">Advisory enrichment, MITRE mapping, FAIR risk, STIX export</div><div class="service-status" data-svc="_unmonitored"><span class="status-dot"></span><span class="status-text">Checking&hellip;</span></div></div>
+    <div class="service-row"><div class="service-name">Detection Rule Generator</div><div class="service-desc">Sigma, KQL, SPL, EQL, YARA rule synthesis per advisory</div><div class="service-status" data-svc="_unmonitored"><span class="status-dot"></span><span class="status-text">Checking&hellip;</span></div></div>
+    <div class="service-row"><div class="service-name">Weekly Analyst Briefing</div><div class="service-desc">Automated PDF + HTML briefing generation and delivery</div><div class="service-status" data-svc="_unmonitored"><span class="status-dot"></span><span class="status-text">Checking&hellip;</span></div></div>
+  </div>
+
+  <div class="services-block">
+    <div class="services-header"><span class="services-header-title">Third-Party Dependencies</span><span class="services-header-badge badge-operational" id="badge-thirdparty">Checking&hellip;</span></div>
+    <div class="service-row"><div class="service-name">GitHub Pages (Hosting)</div><div class="service-desc">Platform deployment infrastructure</div><div class="service-status" data-svc="_unmonitored"><span class="status-dot"></span><span class="status-text">Checking&hellip;</span></div></div>
+    <div class="service-row"><div class="service-name">NVD / NIST Feed</div><div class="service-desc">CVE source data — National Vulnerability Database</div><div class="service-status" data-svc="_unmonitored"><span class="status-dot"></span><span class="status-text">Checking&hellip;</span></div></div>
+    <div class="service-row"><div class="service-name">FIRST EPSS API</div><div class="service-desc">Exploit Prediction Scoring System v3</div><div class="service-status" data-svc="_unmonitored"><span class="status-dot"></span><span class="status-text">Checking&hellip;</span></div></div>
+    <div class="service-row"><div class="service-name">CISA KEV Feed</div><div class="service-desc">Known Exploited Vulnerabilities catalog</div><div class="service-status" data-svc="_unmonitored"><span class="status-dot"></span><span class="status-text">Checking&hellip;</span></div></div>
+  </div>
+  <p style="font-size:11px;color:var(--muted);margin:-8px 0 20px">Rows marked <strong>Not Independently Monitored</strong> are real, live product capabilities without a dedicated automated health check yet — not a claim that they're down.</p>
+
+  <div class="section-label">Last Full Intel Sync</div>
+  <div class="uptime-bar-item" style="margin-bottom:28px">
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+      <span style="font-size:13px;color:var(--muted2)">Most recent completed sync of the live advisory feed</span>
+      <span class="uptime-bar-pct" id="last-sync-val">&mdash;</span>
+    </div>
+  </div>
+
+  <div class="section-label">SLA Performance</div>
+  <div class="sla-grid">
+    <div class="sla-card"><div class="sla-card-title">Enterprise SLA Target</div><div class="sla-card-val">99.9%</div><div class="sla-card-sub" id="sla-ent-sub">30-day rolling</div></div>
+    <div class="sla-card"><div class="sla-card-title">Pro SLA Target</div><div class="sla-card-val">99.5%</div><div class="sla-card-sub" id="sla-pro-sub">30-day rolling</div></div>
+    <div class="sla-card"><div class="sla-card-title">Measured Uptime (30d)</div><div class="sla-card-val" id="sla-measured-val">&mdash;</div><div class="sla-card-sub" id="sla-measured-sub">Loading&hellip;</div></div>
+  </div>
+
+  <div class="section-label">Incident History — Last 30 Days</div>
+  <div class="incident-card" style="text-align:center;padding:36px 20px" id="incident-30d-card">
+    <div style="font-size:26px;margin-bottom:10px">&hellip;</div>
+    <div style="font-size:15px;font-weight:700;margin-bottom:6px">Loading incident history&hellip;</div>
+    <div style="font-size:13px;color:var(--muted2)"></div>
+  </div>
+
+  <div class="section-label">Past Incidents</div>
+  <div class="incident-card" style="border-color:rgba(34,197,94,0.15)">
+    <div class="incident-header">
+      <span class="incident-title">GitHub Actions Sandbox — git FUSE mount restriction</span>
+      <span class="incident-tag">Resolved</span>
+    </div>
+    <div class="incident-meta">May 10, 2026 · Duration: ~40 min · Severity: Low · Impact: Deployment pipeline only (platform unaffected)</div>
+    <div class="incident-desc">Git push operations from sandbox environment failed due to FUSE mount permissions. Platform availability was 100% unaffected. Deployment rerouted via direct Windows terminal execution.</div>
+    <div class="incident-update">
+      <div class="incident-update-time">May 10, 2026 · 22:45 IST — RESOLVED</div>
+      <div class="incident-update-text">Deployment pipeline restored. push_hotfix.py validated and deployed. Permanent mitigation: Windows-direct execution path for all git operations.</div>
+    </div>
+  </div>
+
+  <div class="subscribe-box">
+    <div class="subscribe-title">Subscribe to Status Updates</div>
+    <p class="subscribe-sub">Receive email notifications for incidents, maintenance windows, and monthly SLA reports.</p>
+    <div class="subscribe-form">
+      <input type="email" class="subscribe-input" placeholder="security@yourorg.com">
+      <button class="subscribe-btn" onclick="this.textContent='Subscribed ✓';this.style.background='#16a34a'">Subscribe →</button>
+    </div>
+  </div>
+</div>
+
+<div class="footer">
+  <div>CYBERDUDEBIVASH® SENTINEL APEX v200.0 — System Status</div>
+  <div><a href="https://intel.cyberdudebivash.com">Platform</a> · <a href="https://intel.cyberdudebivash.com/enterprise.html">Enterprise</a> · <a href="https://intel.cyberdudebivash.com/trust-center.html">Trust Center</a> · <a href="mailto:enterprise@cyberdudebivash.com">Support</a></div>
+</div>
+
+<script>
+(function(){
+  /* Timestamp */
+  function tick(){document.getElementById('last-updated').textContent='Last updated: '+new Date().toUTCString()+' · Auto-refreshes every 60s';}
+  tick();setInterval(tick,60000);
+
+  /* Live API Health Pull */
+  // PRODUCTION-TRUTH FIX (release hardening -- version audit): this fetched
+  // https://api.intel.cyberdudebivash.com/health -- a subdomain confirmed
+  // (direct DNS lookup) to not resolve at all, unlike intel.cyberdudebivash.com
+  // which does. Every single load of this page therefore hit the network
+  // error path below, not the success path -- meaning the catch() block's
+  // hardcoded "v185.0 -- 39 advisories -- 2 KEV -- 2026-06-22 17:01 UTC"
+  // wasn't a rare fallback, it was the ONLY thing this badge had ever shown,
+  // unconditionally labeled "LIVE" in green. Fixed to the real, confirmed-
+  // working endpoint, and the catch() path now reports honestly that the
+  // check failed instead of presenting frozen fabricated numbers as live.
+  (function fetchHealth(){
+    fetch('https://intel.cyberdudebivash.com/api/health', {
+      method: 'GET',
+      headers: { 'Accept': 'application/json' }
+    })
+    .then(function(r){ return r.ok ? r.json() : null; })
+    .then(function(d){
+      var el = document.getElementById('live-health-badge');
+      if (!el) return;
+      if (!d) {
+        el.innerHTML = '<span style="color:var(--muted);font-weight:700;">&#9679; STATUS CHECK UNAVAILABLE</span> &nbsp;Could not reach the live health endpoint just now.';
+        return;
+      }
+      el.innerHTML = '<span style="color:var(--green);font-weight:700;">&#9679; LIVE</span>'
+        + ' &nbsp;v' + (d.version||'200.0')
+        + ' &nbsp;&middot;&nbsp; ' + (d.advisory_count||'&mdash;') + ' advisories'
+        + ' &nbsp;&middot;&nbsp; ' + (d.kev_confirmed||'&mdash;') + ' KEV'
+        + ' &nbsp;&middot;&nbsp; Last sync: ' + (d.last_sync ? d.last_sync.replace('T',' ').replace('Z',' UTC') : '&mdash;');
+      var syncEl = document.getElementById('last-sync-val');
+      if (syncEl) syncEl.textContent = d.last_sync ? d.last_sync.replace('T',' ').replace('Z',' UTC') : 'Unavailable';
+    })
+    .catch(function(){
+      var el = document.getElementById('live-health-badge');
+      if (el) el.innerHTML = '<span style="color:var(--muted);font-weight:700;">&#9679; STATUS CHECK UNAVAILABLE</span> &nbsp;Could not reach the live health endpoint just now &mdash; this does not necessarily mean the platform is down. <a href="https://intel.cyberdudebivash.com/api/health" target="_blank" rel="noopener" style="color:var(--accent)">Check directly</a>.';
+    });
+    setTimeout(fetchHealth, 120000);
+  })();
+
+  /* PRODUCTION-TRUTH FIX (v200.0 audit): the uptime banner, all 14 service
+     rows, the "90-Day Uptime History" chart, the per-feed "X ago" cards, the
+     SLA cards, and the "No Incidents" claim below were ALL static HTML or
+     client-side fabrication -- the 90-day chart was a seeded PRNG
+     (seed=12345, so byte-identical on every load for every visitor), the
+     feed "X ago" timestamps never updated after page load, and every
+     "Operational" badge had no check behind it at all. Replaced with a real
+     fetch of /api/sla/status -- the endpoint this same audit already fixed
+     to report honestly (PR #267: "insufficient_data" / "not_separately_
+     monitored" instead of fabricated uptime) -- so this page finally shows
+     what that endpoint actually says instead of a disconnected fake.
+     Sections with literally no real backing data (the 90-day history, the
+     per-feed freshness cards) were removed rather than re-fabricated against
+     a different fake source. */
+  function fmtPct(v){ return (v === null || v === undefined) ? null : (Math.round(v*100)/100) + '%'; }
+
+  function renderSLAUnavailable(){
+    var note = document.getElementById('uptime-note');
+    if (note) note.textContent = 'Live SLA data unavailable right now.';
+    var texts = document.querySelectorAll('.service-status .status-text');
+    for (var i=0;i<texts.length;i++){ texts[i].textContent='Unknown'; texts[i].classList.add('gray'); }
+    var dots = document.querySelectorAll('.service-status .status-dot');
+    for (var j=0;j<dots.length;j++){ dots[j].classList.add('gray'); }
+  }
+
+  function renderUptimeBanner(d){
+    var u30 = document.getElementById('m-uptime30');
+    if (u30) u30.textContent = fmtPct(d.uptime_pct_30d) || 'N/A';
+    var note = document.getElementById('uptime-note');
+    if (note) note.textContent = (d.uptime_pct_30d === null || d.uptime_pct_30d === undefined)
+      ? 'Uptime measurement is live but does not yet have 30 days of ping history to report a figure.'
+      : '';
+    var downtime = document.getElementById('m-downtime');
+    if (downtime) { var secs = d.total_downtime_seconds || 0; downtime.textContent = secs === 0 ? '0m' : Math.round(secs/60) + 'm'; }
+    var inc = document.getElementById('m-incidents');
+    if (inc) inc.textContent = (d.incidents_30d != null ? d.incidents_30d : '0');
+  }
+
+  function renderServiceRows(components){
+    var rows = document.querySelectorAll('.service-status[data-svc]');
+    for (var i=0;i<rows.length;i++){
+      var row = rows[i];
+      var key = row.getAttribute('data-svc');
+      var dot = row.querySelector('.status-dot');
+      var text = row.querySelector('.status-text');
+      if (!dot || !text) continue;
+      var comp = components[key];
+      if (key === '_unmonitored' || !comp) {
+        dot.classList.add('gray'); text.classList.add('gray'); text.textContent = 'Not Independently Monitored';
+      } else if (comp.status === 'insufficient_data') {
+        dot.classList.add('gray'); text.classList.add('gray'); text.textContent = 'Monitoring (Building History)';
+      } else if (comp.status === 'not_separately_monitored' || comp.status === 'disabled') {
+        dot.classList.add('gray'); text.classList.add('gray'); text.textContent = 'Not Independently Monitored';
+      } else if (comp.status === 'operational' || comp.status === 'ok') {
+        dot.classList.add('green'); text.textContent = 'Operational';
+      } else {
+        dot.classList.add('gray'); text.classList.add('gray'); text.textContent = comp.status || 'Unknown';
+      }
+    }
+    // No block can honestly claim "All Operational" while its mapped
+    // components are still building ping history -- reflect that instead
+    // of defaulting back to a green claim with nothing behind it.
+    ['badge-infra','badge-pipeline','badge-thirdparty'].forEach(function(id){
+      var el = document.getElementById(id);
+      if (el) { el.textContent = 'See Below'; el.className = 'services-header-badge badge-unmonitored'; }
+    });
+  }
+
+  function renderSLACards(d){
+    var mv = document.getElementById('sla-measured-val');
+    var ms = document.getElementById('sla-measured-sub');
+    if (mv) mv.textContent = fmtPct(d.uptime_pct_30d) || 'N/A';
+    if (ms) ms.textContent = (d.uptime_pct_30d === null || d.uptime_pct_30d === undefined)
+      ? 'Insufficient ping history yet' : (d.total_pings_30d + ' checks, ' + d.successful_pings_30d + ' successful');
+    var es = document.getElementById('sla-ent-sub');
+    if (es) es.textContent = d.sla_met_enterprise === null || d.sla_met_enterprise === undefined ? 'Not yet measurable' : (d.sla_met_enterprise ? 'Target met (30d)' : 'Target missed (30d)');
+    var ps = document.getElementById('sla-pro-sub');
+    if (ps) ps.textContent = d.sla_met_pro === null || d.sla_met_pro === undefined ? 'Not yet measurable' : (d.sla_met_pro ? 'Target met (30d)' : 'Target missed (30d)');
+  }
+
+  function renderIncidentCard(d){
+    var card = document.getElementById('incident-30d-card');
+    if (!card) return;
+    var n = d.incidents_30d || 0;
+    if (n === 0) {
+      card.innerHTML = '<div style="font-size:26px;margin-bottom:10px">&#9989;</div>'
+        + '<div style="font-size:15px;font-weight:700;margin-bottom:6px">No Incidents Recorded in the Past 30 Days</div>'
+        + '<div style="font-size:13px;color:var(--muted2)">Based on ' + (d.total_pings_30d||0) + ' automated checks in this window.</div>';
+    } else {
+      card.innerHTML = '<div style="font-size:26px;margin-bottom:10px">&#9888;&#65039;</div>'
+        + '<div style="font-size:15px;font-weight:700;margin-bottom:6px">' + n + ' Incident' + (n===1?'':'s') + ' Recorded in the Past 30 Days</div>'
+        + '<div style="font-size:13px;color:var(--muted2)">See Past Incidents below for details.</div>';
+    }
+  }
+
+  function fetchSLAStatus(){
+    fetch('https://intel.cyberdudebivash.com/api/sla/status', { headers: { 'Accept': 'application/json' } })
+      .then(function(r){ return r.ok ? r.json() : null; })
+      .then(function(d){
+        if (!d) { renderSLAUnavailable(); return; }
+        renderUptimeBanner(d);
+        renderServiceRows(d.components || {});
+        renderSLACards(d);
+        renderIncidentCard(d);
+      })
+      .catch(renderSLAUnavailable);
+  }
+  fetchSLAStatus();
+  setInterval(fetchSLAStatus, 120000);
+})();
+</script>
+</body>
+</html>

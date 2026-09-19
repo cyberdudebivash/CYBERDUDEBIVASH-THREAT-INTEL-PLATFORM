@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SENTINEL APEX — Customer Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0a0e1a;--card:#0f1629;--accent:#00d4ff;--danger:#ff3366;--success:#00ff88;--warning:#ffaa00;--text:#e2e8f0;--muted:#64748b;--border:#1e2d4a}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+.header{background:var(--card);border-bottom:1px solid var(--border);padding:0 24px;height:60px;display:flex;align-items:center;justify-content:space-between}
+.logo{font-weight:700;color:var(--accent);font-size:1.1rem;display:flex;align-items:center;gap:8px}
+.logo-icon{width:30px;height:30px;background:linear-gradient(135deg,var(--accent),#0066ff);border-radius:7px;display:flex;align-items:center;justify-content:center}
+.header-right{display:flex;align-items:center;gap:12px;font-size:13px;color:var(--muted)}
+.live-dot{width:8px;height:8px;background:var(--success);border-radius:50%;animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.content{padding:24px;max-width:1400px;margin:0 auto}
+.kpi-row{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:24px}
+.kpi-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px;position:relative;overflow:hidden}
+.kpi-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px}
+.kpi-card.c1::before{background:var(--danger)}
+.kpi-card.c2::before{background:var(--accent)}
+.kpi-card.c3::before{background:var(--warning)}
+.kpi-card.c4::before{background:var(--success)}
+.kpi-val{font-size:2.2rem;font-weight:700;margin-bottom:4px}
+.kpi-lbl{font-size:12px;color:var(--muted)}
+.kpi-delta{font-size:11px;margin-top:6px}
+.charts-row{display:grid;grid-template-columns:2fr 1fr 1fr;gap:16px;margin-bottom:24px}
+.chart-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px}
+.chart-title{font-size:13px;font-weight:600;margin-bottom:16px;color:var(--text)}
+.bottom-row{display:grid;grid-template-columns:1fr 300px;gap:16px}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:left;padding:9px 12px;background:rgba(0,212,255,.05);color:var(--muted);font-size:11px;text-transform:uppercase;border-bottom:1px solid var(--border)}
+td{padding:9px 12px;border-bottom:1px solid rgba(30,45,74,.5)}
+tr:hover td{background:rgba(0,212,255,.03)}
+.badge{display:inline-flex;padding:2px 9px;border-radius:20px;font-size:11px;font-weight:600}
+.b-critical{background:rgba(255,51,102,.15);color:var(--danger)}
+.b-high{background:rgba(255,170,0,.15);color:var(--warning)}
+.b-medium{background:rgba(0,212,255,.15);color:var(--accent)}
+.b-low{background:rgba(100,116,139,.15);color:var(--muted)}
+.b-active{background:rgba(255,51,102,.12);color:var(--danger)}
+.b-investigating{background:rgba(255,170,0,.12);color:var(--warning)}
+.b-resolved{background:rgba(0,255,136,.12);color:var(--success)}
+/* HEATMAP */
+.heatmap{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-top:8px}
+.hm-cell{border-radius:6px;padding:6px 4px;text-align:center;cursor:pointer;transition:transform .15s;position:relative}
+.hm-cell:hover{transform:scale(1.08)}
+.hm-label{font-size:9px;color:rgba(255,255,255,.6);margin-top:2px;line-height:1.2}
+.hm-pct{font-size:10px;font-weight:700}
+/* RIGHT PANEL */
+.right-panel{display:flex;flex-direction:column;gap:16px}
+.panel-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px}
+.panel-title{font-size:13px;font-weight:600;margin-bottom:12px}
+.actor-row{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid rgba(30,45,74,.4)}
+.actor-row:last-child{border-bottom:none}
+.actor-rank{width:22px;height:22px;background:rgba(0,212,255,.1);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:var(--accent);flex-shrink:0}
+.actor-info{flex:1}
+.actor-name{font-size:13px;font-weight:500}
+.actor-meta{font-size:11px;color:var(--muted)}
+.actor-count{font-size:12px;color:var(--danger);font-weight:700}
+.status-row{display:flex;align-items:center;justify-content:space-between;padding:6px 0;font-size:12px}
+.status-dot{width:8px;height:8px;border-radius:50%;background:var(--success)}
+@media(max-width:1024px){.charts-row{grid-template-columns:1fr 1fr}.bottom-row{grid-template-columns:1fr}}
+@media(max-width:768px){.kpi-row{grid-template-columns:repeat(2,1fr)}.charts-row{grid-template-columns:1fr}.heatmap{grid-template-columns:repeat(7,1fr)}}
+</style>
+</head>
+<body>
+<div class="header">
+  <div class="logo"><div class="logo-icon">⬡</div>SENTINEL APEX — Daily Dashboard</div>
+  <div class="header-right"><div class="live-dot"></div>Live · Last updated just now &nbsp;|&nbsp; AcmeCorp Security</div>
+</div>
+<div class="content">
+  <div class="kpi-row">
+    <div class="kpi-card c1"><div class="kpi-val" style="color:var(--danger)">47</div><div class="kpi-lbl">Threats Detected Today</div><div class="kpi-delta" style="color:var(--danger)">▲ 12% vs yesterday</div></div>
+    <div class="kpi-card c2"><div class="kpi-val" style="color:var(--accent)">1,284</div><div class="kpi-lbl">IOCs Received</div><div class="kpi-delta" style="color:var(--success)">▲ 5% vs yesterday</div></div>
+    <div class="kpi-card c3"><div class="kpi-val" style="color:var(--warning)">12</div><div class="kpi-lbl">Active Detections</div><div class="kpi-delta" style="color:var(--warning)">3 critical, 9 high</div></div>
+    <div class="kpi-card c4"><div class="kpi-val" style="color:var(--success)">87<span style="font-size:1rem">/100</span></div><div class="kpi-lbl">Health Score</div><div class="kpi-delta" style="color:var(--success)">▲ 2 pts from last week</div></div>
+  </div>
+  <div class="charts-row">
+    <div class="chart-card">
+      <div class="chart-title">7-Day Threat Trend</div>
+      <canvas id="lineChart" height="120"></canvas>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">ATT&CK Tactic Distribution</div>
+      <canvas id="doughnutChart" height="160"></canvas>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">Daily IOC Volume</div>
+      <canvas id="barChart" height="160"></canvas>
+    </div>
+  </div>
+  <div style="margin-bottom:24px">
+    <div class="chart-card">
+      <div class="chart-title">MITRE ATT&CK Coverage — 14 Tactics</div>
+      <div class="heatmap" id="heatmap"></div>
+    </div>
+  </div>
+  <div class="bottom-row">
+    <div class="chart-card">
+      <div class="chart-title">Recent Alerts</div>
+      <div style="overflow-x:auto">
+        <table>
+          <thead><tr><th>Timestamp</th><th>Type</th><th>Severity</th><th>Source</th><th>Status</th></tr></thead>
+          <tbody id="alerts-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="right-panel">
+      <div class="panel-card">
+        <div class="panel-title">Top Threat Actors</div>
+        <div id="actors"></div>
+      </div>
+      <div class="panel-card">
+        <div class="panel-title">Platform Status</div>
+        <div id="platform-status"></div>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+// Charts
+const chartDefaults={responsive:true,plugins:{legend:{labels:{color:'#64748b',font:{size:11}}}}};
+const gridColor='rgba(30,45,74,.6)';
+const days=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+
+new Chart(document.getElementById('lineChart'),{type:'line',data:{labels:days,datasets:[
+  {label:'Threats',data:[32,41,28,55,43,38,47],borderColor:'#ff3366',backgroundColor:'rgba(255,51,102,.08)',tension:.4,fill:true,pointRadius:4,pointBackgroundColor:'#ff3366'},
+  {label:'IOCs',data:[980,1100,890,1350,1200,950,1284],borderColor:'#00d4ff',backgroundColor:'rgba(0,212,255,.05)',tension:.4,fill:true,yAxisID:'y2',pointRadius:3}
+]},options:{...chartDefaults,scales:{x:{ticks:{color:'#64748b'},grid:{color:gridColor}},y:{ticks:{color:'#64748b'},grid:{color:gridColor}},y2:{position:'right',ticks:{color:'#64748b'},grid:{display:false}}}}});
+
+new Chart(document.getElementById('doughnutChart'),{type:'doughnut',data:{labels:['Execution','Persistence','C2','Exfiltration','Discovery','Other'],datasets:[{data:[24,18,15,12,20,11],backgroundColor:['#ff3366','#ffaa00','#00d4ff','#ff6b35','#00ff88','#8b5cf6'],borderWidth:0,hoverOffset:6}]},options:{...chartDefaults,cutout:'65%',plugins:{legend:{position:'bottom',labels:{color:'#64748b',font:{size:10},padding:8}}}}});
+
+new Chart(document.getElementById('barChart'),{type:'bar',data:{labels:days,datasets:[{label:'IOCs',data:[980,1100,890,1350,1200,950,1284],backgroundColor:'rgba(0,212,255,.25)',borderColor:'var(--accent)',borderWidth:1,borderRadius:4}]},options:{...chartDefaults,scales:{x:{ticks:{color:'#64748b'},grid:{display:false}},y:{ticks:{color:'#64748b'},grid:{color:gridColor}}}}});
+
+// ATT&CK Heatmap
+const tactics=[
+  {name:'Recon',pct:45,color:'rgba(255,170,0,.3)'},
+  {name:'Resource Dev',pct:30,color:'rgba(255,51,102,.2)'},
+  {name:'Initial Access',pct:72,color:'rgba(255,51,102,.5)'},
+  {name:'Execution',pct:68,color:'rgba(255,51,102,.45)'},
+  {name:'Persistence',pct:55,color:'rgba(255,170,0,.4)'},
+  {name:'Priv Esc',pct:40,color:'rgba(255,170,0,.28)'},
+  {name:'Defense Eva',pct:82,color:'rgba(255,51,102,.6)'},
+  {name:'Cred Access',pct:60,color:'rgba(255,170,0,.45)'},
+  {name:'Discovery',pct:75,color:'rgba(255,51,102,.52)'},
+  {name:'Lateral Mov',pct:48,color:'rgba(255,170,0,.35)'},
+  {name:'Collection',pct:35,color:'rgba(255,170,0,.25)'},
+  {name:'C&C',pct:90,color:'rgba(255,51,102,.7)'},
+  {name:'Exfiltration',pct:25,color:'rgba(0,212,255,.2)'},
+  {name:'Impact',pct:15,color:'rgba(0,212,255,.15)'},
+];
+const hm=document.getElementById('heatmap');
+tactics.forEach(t=>{
+  hm.innerHTML+=`<div class="hm-cell" style="background:${t.color}" title="${t.name}: ${t.pct}% coverage"><div class="hm-pct">${t.pct}%</div><div class="hm-label">${t.name}</div></div>`;
+});
+
+// Alerts table
+const alerts=[
+  ['09:41:12','Malware C2 Beacon','Critical','EDR Agent','Active'],
+  ['09:22:05','Lateral Movement','High','SIEM','Investigating'],
+  ['08:55:30','Phishing Block','High','Email GW','Resolved'],
+  ['08:30:17','Suspicious Login','Medium','IAM','Resolved'],
+  ['07:45:00','Port Scan','Low','Firewall','Closed'],
+  ['07:12:43','Brute Force Attempt','High','IDS','Blocked'],
+];
+const tbody=document.getElementById('alerts-tbody');
+const smap={Critical:'b-critical',High:'b-high',Medium:'b-medium',Low:'b-low'};
+const stmap={Active:'b-active',Investigating:'b-investigating',Resolved:'b-resolved',Closed:'b-low',Blocked:'b-resolved'};
+alerts.forEach(a=>{
+  tbody.innerHTML+=`<tr><td style="font-size:12px;color:var(--muted)">${a[0]}</td><td>${a[1]}</td><td><span class="badge ${smap[a[2]]}">${a[2]}</span></td><td style="color:var(--muted)">${a[3]}</td><td><span class="badge ${stmap[a[4]]}">${a[4]}</span></td></tr>`;
+});
+
+// Actors
+const actors=[
+  {rank:1,name:'APT29 (Cozy Bear)',meta:'Espionage · Russia',count:'14 detections'},
+  {rank:2,name:'TA505',meta:'Financial Crime · Unknown',count:'9 detections'},
+  {rank:3,name:'Lazarus Group',meta:'Multi-motive · DPRK',count:'6 detections'},
+];
+const actorDiv=document.getElementById('actors');
+actors.forEach(a=>{
+  actorDiv.innerHTML+=`<div class="actor-row"><div class="actor-rank">${a.rank}</div><div class="actor-info"><div class="actor-name">${a.name}</div><div class="actor-meta">${a.meta}</div></div><div class="actor-count">${a.count}</div></div>`;
+});
+
+// Platform status
+const statuses=[
+  {name:'Intel Feed',status:'Operational'},
+  {name:'Detection Engine',status:'Operational'},
+  {name:'API Gateway',status:'Operational'},
+  {name:'SIEM Connector',status:'Degraded'},
+];
+const statusDiv=document.getElementById('platform-status');
+statuses.forEach(s=>{
+  const color=s.status==='Operational'?'var(--success)':'var(--warning)';
+  statusDiv.innerHTML+=`<div class="status-row"><span>${s.name}</span><span style="display:flex;align-items:center;gap:5px"><span style="width:7px;height:7px;border-radius:50%;background:${color};display:inline-block"></span><span style="color:${color};font-size:11px">${s.status}</span></span></div>`;
+});
+</script>
+</body>
+</html>

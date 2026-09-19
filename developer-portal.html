@@ -1,0 +1,666 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Developer Portal — CYBERDUDEBIVASH&reg; SENTINEL APEX</title>
+<meta name="description" content="SENTINEL APEX Developer Portal: quick start, authentication, API capabilities, integration guides, rate limits, and error handling — with full transparency about documentation inconsistencies found across this repository.">
+<meta name="keywords" content="threat intelligence API, developer portal, REST API, STIX 2.1, TAXII, MITRE ATT&CK, SIEM integration, Python SDK, API authentication">
+<meta name="robots" content="index, follow">
+<meta name="theme-color" content="#14e0ae">
+<link rel="canonical" href="https://intel.cyberdudebivash.com/developer-portal.html">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Developer Portal — CYBERDUDEBIVASH® SENTINEL APEX">
+<meta property="og:description" content="Quick start, authentication, API capabilities, integration guides, rate limits, and error handling.">
+<meta property="og:url" content="https://intel.cyberdudebivash.com/developer-portal.html">
+<meta property="og:image" content="https://intel.cyberdudebivash.com/assets/sentinel-apex-og-banner.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:site_name" content="CYBERDUDEBIVASH® SENTINEL APEX">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:site" content="@CDBSENTINELAPEX">
+<meta name="twitter:title" content="Developer Portal — CYBERDUDEBIVASH® SENTINEL APEX">
+<meta name="twitter:description" content="Quick start, authentication, API capabilities, integration guides, rate limits, and error handling.">
+<meta name="twitter:image" content="https://intel.cyberdudebivash.com/assets/sentinel-apex-og-banner.jpg">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%23020810'/><text x='6' y='23' font-size='20' fill='%2300e5ff'>&#11043;</text></svg>">
+
+<!--
+  SENTINEL APEX — Enterprise Developer Portal & API Experience (PR-8)
+  ==================================================================
+  Consumes css/tokens.css (PR-2) and css/components.css (PR-4) only.
+  No css/hero.css (content page, not the landing hero).
+
+  MANDATORY REPOSITORY VERIFICATION PERFORMED BEFORE WRITING ANY
+  CONTENT (per this PR's own instruction). Found an extraordinary
+  amount of existing, real developer-facing content:
+    - apex_openapi_v3.yaml (1073 lines) — a real OpenAPI 3.1 spec
+    - api-docs.html (577 lines, "v200.0") — a full API reference:
+      quick start, auth, rate limits, errors, per-endpoint docs,
+      SIEM integration guides, MSSP/white-label, GDPR
+    - docs/quickstart.html, docs/api-auth-guide.md — quick-start guides
+      with real curl/Python/JS/Go examples
+    - scripts/sentinel_apex_sdk.py (v1.0.0) AND sdk/sentinel_sdk/
+      (a SECOND, independent Python SDK, v134.0 per its own docstring)
+    - onboarding.html, get-api-key.html — real, substantial pages
+    - workers/intel-gateway/src/index.js — the actual deployed
+      Cloudflare Worker source (READ for reference only, never
+      modified): 239 distinct /api/* route strings, the single most
+      authoritative "what's actually live" evidence available.
+  This page reuses all of the above; it does not re-document any of
+  their full depth, and never touches any of them.
+
+  SEVERE, WELL-EVIDENCED DOCUMENTATION DRIFT FOUND AND DELIBERATELY
+  NOT RESOLVED (per this PR's explicit "document the inconsistency,
+  do not choose a side" instruction) -- see the dedicated section
+  below and docs/developer-portal-guide.md's Evidence Matrix for the
+  full account. Summary: at least five different API-key formats, two
+  different auth header conventions (Authorization: Bearer vs.
+  X-API-Key), two different JWT signing-algorithm claims, two
+  different JWT lifetime claims, four different rate-limit tables,
+  four different base-domain claims, five different support-email
+  addresses, and two independent, non-identical Python SDKs are all
+  simultaneously documented across this repository. None is corrected
+  here; all are disclosed with their exact source file.
+
+  NAMING: developer-portal.html was confirmed free of collisions
+  (checked directly against the filesystem before writing, learning
+  from PR-7's enterprise-trust-center.html near-miss) before this file
+  was created.
+-->
+<link rel="stylesheet" href="/css/tokens.css">
+<link rel="stylesheet" href="/css/components.css">
+<style>
+  /* PR-8 page-scoped additions only. Every value below resolves
+     through var(--sapx-*) -- nothing here duplicates or overrides an
+     existing components.css selector. */
+  body { background: var(--sapx-color-bg-base); margin: 0; }
+  .pr8-page-intro { max-width: 760px; }
+  .pr8-hero-ctas {
+    display: flex;
+    gap: var(--sapx-space-3);
+    flex-wrap: wrap;
+    margin-top: var(--sapx-space-5);
+  }
+
+  /* Developer workflow diagram -- same step-number-badge + connector-
+     arrow pattern PR-5/PR-6 used, this page's own copy. */
+  .pr8-workflow-step {
+    position: relative;
+    text-align: center;
+  }
+  .pr8-workflow-step .sapx-card-title,
+  .pr8-workflow-step .sapx-card-desc {
+    text-align: center;
+  }
+  .pr8-workflow-step-num {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border-radius: var(--sapx-radius-full);
+    background: var(--sapx-color-brand-indigo);
+    color: var(--sapx-color-text-on-bright);
+    font-family: var(--sapx-font-mono);
+    font-weight: var(--sapx-font-weight-bold);
+    font-size: var(--sapx-font-size-sm);
+    margin: 0 auto var(--sapx-space-3);
+  }
+  @media (min-width: 901px) {
+    .pr8-workflow-step:not(:last-child)::after {
+      content: "\2192";
+      position: absolute;
+      top: 14px;
+      right: calc(-1 * var(--sapx-space-3));
+      transform: translateX(50%);
+      color: var(--sapx-color-text-tertiary);
+      font-size: var(--sapx-font-size-lg);
+      line-height: 1;
+    }
+  }
+
+  /* Accessible code block: a labeled <pre><code> with a visible
+     language tag, keyboard-scrollable via a native tabindex, and
+     token-driven colors only. */
+  .pr8-code-label {
+    font-family: var(--sapx-font-mono);
+    font-size: var(--sapx-font-size-xs);
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--sapx-color-text-tertiary);
+    margin: 0 0 var(--sapx-space-2);
+  }
+  .pr8-code-block {
+    background: var(--sapx-color-bg-surface-raised);
+    border: 1px solid var(--sapx-color-border);
+    border-radius: var(--sapx-radius-md);
+    padding: var(--sapx-space-4);
+    overflow-x: auto;
+    font-family: var(--sapx-font-mono);
+    font-size: var(--sapx-font-size-sm);
+    color: var(--sapx-color-text-secondary);
+    line-height: var(--sapx-line-height-normal);
+    margin: 0 0 var(--sapx-space-5);
+  }
+  .pr8-code-block:focus-visible {
+    outline: none;
+    box-shadow: var(--sapx-focus-ring);
+  }
+  .pr8-drift-note {
+    border-left: 3px solid var(--sapx-color-warning);
+    padding-left: var(--sapx-space-4);
+  }
+</style>
+<!-- GCPE-WS1: same Organization facts already live in index.html's JSON-LD (name/url/sameAs); logo omitted, see docs/enterprise-certification-report.md Drift Register item 8 follow-up -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Organization",
+  "name": "BIVASHA KUMAR NAYAK trading as CYBERDUDEBIVASH&reg;",
+  "url": "https://cyberdudebivash.com/",
+  "sameAs": [
+    "https://x.com/CDBSENTINELAPEX",
+    "https://www.linkedin.com/company/cyberdudebivash/",
+    "https://github.com/cyberdudebivash"
+  ]
+}
+</script>
+</head>
+<body>
+
+<a class="sapx-skip-link" href="#main-content">Skip to main content</a>
+
+<div class="sapx-announcement-bar" role="region" aria-label="Site announcement">
+  <span aria-hidden="true">&#9888;</span>
+  <span>This portal discloses real, unresolved documentation inconsistencies found in this repository. <a href="#drift-notice">See Documentation Consistency Notice &rarr;</a></span>
+</div>
+
+<header class="sapx-site-header" data-nav-open="false">
+  <div class="sapx-site-header-inner">
+    <a class="sapx-brand" href="/index.html">
+      <span aria-hidden="true">&#128737;</span>
+      SENTINEL APEX
+    </a>
+    <nav aria-label="Primary">
+      <ul class="sapx-nav" id="sapx-primary-nav">
+        <li><a href="/index.html">Platform</a></li>
+        <li><a href="/threat/">Threat Intelligence</a></li>
+        <li><a href="/developer-portal.html" aria-current="page">Developers</a></li>
+        <li><a href="/enterprise-pricing.html">Pricing</a></li>
+        <li><a href="/enterprise-compliance.html">Trust Center</a></li>
+        <li><a href="/enterprise-homepage.html">Enterprise</a></li>
+        <li><a href="/enterprise-knowledge-center.html">Knowledge Center</a></li>
+      </ul>
+    </nav>
+    <div class="sapx-header-ctas">
+      <a class="sapx-btn sapx-btn-ghost" href="/api-docs.html">API Reference</a>
+      <a class="sapx-btn sapx-btn-primary" href="/get-api-key.html">Get API Key</a>
+      <button type="button" class="sapx-nav-toggle" aria-expanded="false" aria-controls="sapx-primary-nav" aria-label="Toggle navigation menu" onclick="sapxToggleNav(this)">&#9776;</button>
+    </div>
+  </div>
+</header>
+
+<main id="main-content" tabindex="-1">
+
+<!-- 1. Developer Hero -->
+<section class="sapx-section" aria-labelledby="dev-hero-heading">
+  <div class="sapx-container">
+    <div class="pr8-page-intro">
+      <p class="sapx-section-kicker">Developer Portal</p>
+      <h1 class="sapx-section-heading" id="dev-hero-heading">Build on SENTINEL APEX</h1>
+      <p class="sapx-section-desc">An API-first threat intelligence platform: real-time feeds, STIX 2.1 / TAXII export, MITRE ATT&amp;CK-tagged advisories, and SIEM-ready detection content. This portal is the technical entry point &mdash; every claim below is grounded in this repository's real API specification, source code, or documentation, with any unresolved inconsistency disclosed rather than silently picked.</p>
+      <div class="pr8-hero-ctas">
+        <a class="sapx-btn sapx-btn-primary" href="/docs/quickstart.html">Quick Start Guide</a>
+        <a class="sapx-btn sapx-btn-secondary" href="/api-docs.html">Full API Reference</a>
+        <a class="sapx-btn sapx-btn-ghost" href="/get-api-key.html">Get an API Key</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 2. Quick Start -->
+<section class="sapx-section sapx-section-alt" aria-labelledby="quickstart-heading">
+  <div class="sapx-container">
+    <p class="sapx-section-kicker">Quick Start</p>
+    <h2 class="sapx-section-heading" id="quickstart-heading">Understand, Authenticate, Explore, Test, Integrate</h2>
+    <p class="sapx-section-desc">Full walkthrough with copy-paste examples: <a href="/docs/quickstart.html">docs/quickstart.html &rarr;</a></p>
+    <div class="sapx-grid sapx-grid-5">
+      <div class="sapx-card sapx-feature-card">
+        <div class="sapx-card-icon" aria-hidden="true">&#128214;</div>
+        <h3 class="sapx-card-title">Understand</h3>
+        <p class="sapx-card-desc">Review the API Overview and capability list below.</p>
+      </div>
+      <div class="sapx-card sapx-feature-card">
+        <div class="sapx-card-icon" aria-hidden="true">&#128273;</div>
+        <h3 class="sapx-card-title">Authenticate</h3>
+        <p class="sapx-card-desc">Get a key and confirm the auth convention (see disclosed note below).</p>
+      </div>
+      <div class="sapx-card sapx-feature-card">
+        <div class="sapx-card-icon" aria-hidden="true">&#128269;</div>
+        <h3 class="sapx-card-title">Explore</h3>
+        <p class="sapx-card-desc">Browse the full reference at <a href="/api-docs.html">api-docs.html</a>.</p>
+      </div>
+      <div class="sapx-card sapx-feature-card">
+        <div class="sapx-card-icon" aria-hidden="true">&#9889;</div>
+        <h3 class="sapx-card-title">Test</h3>
+        <p class="sapx-card-desc">Run the example requests below against your key.</p>
+      </div>
+      <div class="sapx-card sapx-feature-card">
+        <div class="sapx-card-icon" aria-hidden="true">&#128268;</div>
+        <h3 class="sapx-card-title">Integrate</h3>
+        <p class="sapx-card-desc">Connect your SIEM or use the Python SDK.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 3. Authentication (includes the mandatory disclosed conflict) -->
+<section class="sapx-section" aria-labelledby="auth-heading">
+  <div class="sapx-container">
+    <p class="sapx-section-kicker">Authentication</p>
+    <h2 class="sapx-section-heading" id="auth-heading">Authentication</h2>
+    <p class="sapx-section-desc">Two different, mutually exclusive authentication conventions are documented across this repository. Both are shown below rather than choosing one.</p>
+    <div class="sapx-card pr8-drift-note" style="margin-bottom: var(--sapx-space-5)">
+      <h3 class="sapx-card-title">Convention A &mdash; Bearer token</h3>
+      <p class="sapx-card-desc"><code>Authorization: Bearer &lt;key&gt;</code>. Documented in <code>docs/quickstart.html</code>, <code>docs/api-auth-guide.md</code>, <code>docs/faq.html</code>, <code>README.md</code>, and <code>scripts/sentinel_apex_sdk.py</code>.</p>
+    </div>
+    <div class="sapx-card pr8-drift-note" style="margin-bottom: var(--sapx-space-5)">
+      <h3 class="sapx-card-title">Convention B &mdash; X-API-Key header</h3>
+      <p class="sapx-card-desc"><code>X-API-Key: &lt;key&gt;</code>. Documented in <code>api-docs.html</code> ("v200.0").</p>
+    </div>
+    <p class="sapx-section-desc">Key format also varies by source: <code>sa_&lt;key&gt;</code> (api-auth-guide.md, SDK), <code>SA-PRO-&lt;hex&gt;</code> (quickstart.html, faq.html), <code>cdb_pro_/cdb_ent_&lt;hex&gt;</code> (SECURITY.md). <code>apex_openapi_v3.yaml</code> separately documents JWT Bearer auth via <code>POST /auth/login</code> (30-day lifetime) as an alternative to API keys; <code>SECURITY.md</code> separately states JWT tokens are HS256-signed with a 24-hour lifetime, while <code>trust-center.html</code> states RS256. None of this is resolved here &mdash; confirm the current convention with <a href="mailto:enterprise@cyberdudebivash.com">enterprise@cyberdudebivash.com</a> before hardcoding integration logic. Full evidence matrix: <a href="#drift-notice">Documentation Consistency Notice &rarr;</a>.</p>
+  </div>
+</section>
+
+<!-- 4. API Overview -->
+<section class="sapx-section sapx-section-alt" aria-labelledby="api-overview-heading">
+  <div class="sapx-container">
+    <p class="sapx-section-kicker">API Overview</p>
+    <h2 class="sapx-section-heading" id="api-overview-heading">Verified Capabilities</h2>
+    <p class="sapx-section-desc">Grounded in the deployed Cloudflare Worker source (<code>workers/intel-gateway/src/index.js</code>, read for reference only, never modified) and <code>api-docs.html</code>. Internal P16&ndash;P38 observability/certification routes exist in the same source but are platform-internal, not part of this customer-facing surface, and are excluded here.</p>
+    <div class="sapx-grid sapx-grid-4">
+      <div class="sapx-card sapx-feature-card">
+        <div class="sapx-card-icon" aria-hidden="true">&#127919;</div>
+        <h3 class="sapx-card-title">Threat Intelligence Feed</h3>
+        <p class="sapx-card-desc">Advisory feed and preview endpoints. <span class="sapx-badge sapx-badge-success">Observed</span></p>
+      </div>
+      <div class="sapx-card sapx-feature-card">
+        <div class="sapx-card-icon" aria-hidden="true">&#128269;</div>
+        <h3 class="sapx-card-title">IOC Search &amp; Lookup</h3>
+        <p class="sapx-card-desc">Indicator lookup and enrichment, plus a search endpoint. <span class="sapx-badge sapx-badge-success">Observed</span></p>
+      </div>
+      <div class="sapx-card sapx-feature-card">
+        <div class="sapx-card-icon" aria-hidden="true">&#129516;</div>
+        <h3 class="sapx-card-title">STIX 2.1 / TAXII</h3>
+        <p class="sapx-card-desc">STIX bundle export and a TAXII route. <span class="sapx-badge sapx-badge-success">Observed</span></p>
+      </div>
+      <div class="sapx-card sapx-feature-card">
+        <div class="sapx-card-icon" aria-hidden="true">&#127919;</div>
+        <h3 class="sapx-card-title">MITRE ATT&amp;CK Mapping</h3>
+        <p class="sapx-card-desc">Technique IDs embedded per advisory (e.g. <code>mitre_ttps</code> field) &mdash; no dedicated lookup endpoint confirmed. <span class="sapx-badge sapx-badge-neutral">Observed, field-level</span></p>
+      </div>
+      <div class="sapx-card sapx-feature-card">
+        <div class="sapx-card-icon" aria-hidden="true">&#128737;</div>
+        <h3 class="sapx-card-title">Detection Rules</h3>
+        <p class="sapx-card-desc">Sigma and YARA rule endpoints (single + bulk). <span class="sapx-badge sapx-badge-success">Observed</span></p>
+      </div>
+      <div class="sapx-card sapx-feature-card">
+        <div class="sapx-card-icon" aria-hidden="true">&#128225;</div>
+        <h3 class="sapx-card-title">SIEM Integration</h3>
+        <p class="sapx-card-desc">Dedicated Splunk, Microsoft Sentinel, and IBM QRadar routes. <span class="sapx-badge sapx-badge-success">Observed</span></p>
+      </div>
+      <div class="sapx-card sapx-feature-card">
+        <div class="sapx-card-icon" aria-hidden="true">&#128269;</div>
+        <h3 class="sapx-card-title">Search &amp; Natural-Language Query</h3>
+        <p class="sapx-card-desc">A search endpoint plus an NLQ (natural-language query) route and examples endpoint. <span class="sapx-badge sapx-badge-success">Observed</span></p>
+      </div>
+      <div class="sapx-card sapx-feature-card">
+        <div class="sapx-card-icon" aria-hidden="true">&#128202;</div>
+        <h3 class="sapx-card-title">Analytics &amp; Prediction</h3>
+        <p class="sapx-card-desc">KEV/ransomware/velocity scoring and a prediction endpoint. <span class="sapx-badge sapx-badge-success">Observed</span></p>
+      </div>
+    </div>
+    <p class="sapx-section-desc" style="margin-top: var(--sapx-space-6)"><span class="sapx-badge sapx-badge-neutral">Coming Soon</span>&ensp;GraphQL and a public webhook-push (event-driven, non-payment) API are not evidenced anywhere in this repository. The webhook routes actually observed (<code>/api/webhooks/gumroad</code>, <code>/api/webhooks/razorpay</code>) are payment-processor callbacks, not a general threat-intel push mechanism.</p>
+  </div>
+</section>
+
+<!-- 5. Developer Workflow -->
+<section class="sapx-section" aria-labelledby="workflow-heading">
+  <div class="sapx-container-wide">
+    <p class="sapx-section-kicker">Developer Workflow</p>
+    <h2 class="sapx-section-heading" id="workflow-heading">From First Call to Automated Integration</h2>
+    <div class="sapx-grid sapx-grid-6">
+      <div class="sapx-card pr8-workflow-step">
+        <span class="pr8-workflow-step-num" aria-hidden="true">1</span>
+        <h3 class="sapx-card-title">Explore API</h3>
+        <p class="sapx-card-desc">Browse the reference.</p>
+      </div>
+      <div class="sapx-card pr8-workflow-step">
+        <span class="pr8-workflow-step-num" aria-hidden="true">2</span>
+        <h3 class="sapx-card-title">Authenticate</h3>
+        <p class="sapx-card-desc">Get a key, confirm convention.</p>
+      </div>
+      <div class="sapx-card pr8-workflow-step">
+        <span class="pr8-workflow-step-num" aria-hidden="true">3</span>
+        <h3 class="sapx-card-title">Query</h3>
+        <p class="sapx-card-desc">Call the feed or search API.</p>
+      </div>
+      <div class="sapx-card pr8-workflow-step">
+        <span class="pr8-workflow-step-num" aria-hidden="true">4</span>
+        <h3 class="sapx-card-title">Receive Intelligence</h3>
+        <p class="sapx-card-desc">Parse STIX/JSON advisories.</p>
+      </div>
+      <div class="sapx-card pr8-workflow-step">
+        <span class="pr8-workflow-step-num" aria-hidden="true">5</span>
+        <h3 class="sapx-card-title">Automate</h3>
+        <p class="sapx-card-desc">Wire into detection rules/SIEM.</p>
+      </div>
+      <div class="sapx-card pr8-workflow-step">
+        <span class="pr8-workflow-step-num" aria-hidden="true">6</span>
+        <h3 class="sapx-card-title">Integrate</h3>
+        <p class="sapx-card-desc">Production SOC workflow.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 6. Example Requests (reused verbatim from real sources, both auth conventions shown) -->
+<section class="sapx-section sapx-section-alt" aria-labelledby="examples-heading">
+  <div class="sapx-container-narrow">
+    <p class="sapx-section-kicker">Example Requests</p>
+    <h2 class="sapx-section-heading" id="examples-heading">Example Requests</h2>
+    <p class="sapx-section-desc">v185.0 FIX: <code>/api/intel?severity=critical</code> (below) was confirmed 404 against the live API -- verified directly with curl, not inferred. Both auth header conventions (<code>Authorization: Bearer</code> and <code>X-API-Key</code>) are real and supported; <code>/api/feed</code> is the one confirmed-working example endpoint, reused for both.</p>
+    <p class="pr8-code-label">cURL &mdash; Bearer token convention</p>
+    <pre class="pr8-code-block" tabindex="0"># Fetch the live threat feed
+curl -H "Authorization: Bearer YOUR_KEY" \
+  "https://intel.cyberdudebivash.com/api/feed"</pre>
+    <p class="pr8-code-label">cURL &mdash; X-API-Key convention (api-docs.html)</p>
+    <pre class="pr8-code-block" tabindex="0">curl -H "X-API-Key: YOUR_API_KEY" \
+  https://intel.cyberdudebivash.com/api/feed</pre>
+    <p class="pr8-code-label">Example JSON response (docs/quickstart.html)</p>
+    <pre class="pr8-code-block" tabindex="0">{
+  "status": "ok",
+  "count": 5,
+  "tier": "PRO",
+  "quota": { "used": 47, "limit": 5000, "resets_at": "2026-06-05T00:00:00Z" },
+  "intel": [
+    {
+      "id": "CVE-2026-1234",
+      "title": "Critical RCE in Apache HTTP Server",
+      "severity": "CRITICAL",
+      "cvss": 9.8,
+      "mitre_ttps": ["T1190", "T1059"]
+    }
+  ]
+}</pre>
+    <p class="sapx-section-desc">These are real, illustrative examples reused from existing documentation &mdash; not a guarantee that the shown response shape matches the live API today, given the endpoint-path drift disclosed below.</p>
+  </div>
+</section>
+
+<!-- 7. Integration Guides -->
+<section class="sapx-section" aria-labelledby="integrations-heading">
+  <div class="sapx-container">
+    <p class="sapx-section-kicker">Integration Guides</p>
+    <h2 class="sapx-section-heading" id="integrations-heading">Integration Guides</h2>
+    <div class="sapx-grid sapx-grid-4">
+      <div class="sapx-card sapx-feature-card">
+        <h3 class="sapx-card-title">Python</h3>
+        <p class="sapx-card-desc">Two independent SDKs exist in this repository: <code>scripts/sentinel_apex_sdk.py</code> (v1.0.0) and <code>sdk/sentinel_sdk/</code> (v134.0). They are not identical and target different base URLs &mdash; see the consistency notice below.</p>
+      </div>
+      <div class="sapx-card sapx-feature-card">
+        <h3 class="sapx-card-title">JavaScript / Node.js</h3>
+        <p class="sapx-card-desc">Real <code>fetch()</code>-based example in <code>docs/api-auth-guide.md</code> and <code>docs/quickstart.html</code>.</p>
+      </div>
+      <div class="sapx-card sapx-feature-card">
+        <h3 class="sapx-card-title">cURL</h3>
+        <p class="sapx-card-desc">See Example Requests above for both documented auth conventions.</p>
+      </div>
+      <div class="sapx-card sapx-feature-card">
+        <h3 class="sapx-card-title">Go</h3>
+        <p class="sapx-card-desc">Real minimal example in <code>docs/api-auth-guide.md</code>.</p>
+      </div>
+      <div class="sapx-card sapx-feature-card">
+        <h3 class="sapx-card-title">Postman Collection</h3>
+        <p class="sapx-card-desc"><span class="sapx-badge sapx-badge-neutral">Coming Soon</span> Not found anywhere in this repository.</p>
+      </div>
+      <div class="sapx-card sapx-feature-card">
+        <h3 class="sapx-card-title">Terraform</h3>
+        <p class="sapx-card-desc"><span class="sapx-badge sapx-badge-neutral">Coming Soon</span> Not evidenced. An Azure ARM template exists for detection content (<code>api/detections/apex-sentinel-arm-template.json</code>) but is not a Terraform provider.</p>
+      </div>
+      <div class="sapx-card sapx-feature-card">
+        <h3 class="sapx-card-title">SIEM</h3>
+        <p class="sapx-card-desc">Real, dedicated guides for Splunk, Microsoft Sentinel, and IBM QRadar &mdash; see <a href="/api-docs.html#splunk">api-docs.html</a> and <a href="/onboarding.html">onboarding.html</a>.</p>
+      </div>
+      <div class="sapx-card sapx-feature-card">
+        <h3 class="sapx-card-title">SOAR</h3>
+        <p class="sapx-card-desc"><span class="sapx-badge sapx-badge-neutral">Coming Soon</span> No dedicated SOAR playbook documentation found for customer use.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 8. Rate Limits -->
+<section class="sapx-section sapx-section-alt" aria-labelledby="rate-limits-heading">
+  <div class="sapx-container">
+    <p class="sapx-section-kicker">Rate Limits</p>
+    <h2 class="sapx-section-heading" id="rate-limits-heading">Rate Limits</h2>
+    <p class="sapx-section-desc">Four different rate-limit tables exist across this repository's documentation, with different figures and units. None is corrected here &mdash; see the current, most detailed live reference:</p>
+    <div class="sapx-table-wrap">
+      <table class="sapx-table">
+        <thead><tr><th>Tier</th><th>Requests/Day</th><th>Burst/Minute</th><th>Source</th></tr></thead>
+        <tbody>
+          <tr><td>Free</td><td>100</td><td>10</td><td>api-docs.html</td></tr>
+          <tr><td>Professional</td><td>5,000</td><td>100</td><td>api-docs.html</td></tr>
+          <tr><td>Enterprise</td><td>Unlimited</td><td>500</td><td>api-docs.html</td></tr>
+          <tr><td>MSSP</td><td>Unlimited</td><td>1,000</td><td>api-docs.html</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="sapx-section-desc" style="margin-top: var(--sapx-space-6)">This table (api-docs.html) is shown because it is the most complete single reference found; <code>SECURITY.md</code>, <code>docs/api-auth-guide.md</code>, and <code>apex_openapi_v3.yaml</code> each document different per-minute figures for the same tiers. See the Documentation Consistency Notice below for the full comparison.</p>
+  </div>
+</section>
+
+<!-- 9. Error Handling (reused verbatim from api-docs.html, the most complete real source) -->
+<section class="sapx-section" aria-labelledby="errors-heading">
+  <div class="sapx-container">
+    <p class="sapx-section-kicker">Error Handling</p>
+    <h2 class="sapx-section-heading" id="errors-heading">Error Codes</h2>
+    <p class="sapx-section-desc">Reused verbatim from <code>api-docs.html</code> &mdash; the only source found with a complete, structured error-code reference.</p>
+    <div class="sapx-table-wrap">
+      <table class="sapx-table">
+        <thead><tr><th>Code</th><th>Meaning</th><th>Action</th></tr></thead>
+        <tbody>
+          <tr><td>401</td><td>Invalid or missing API key</td><td>Check your authentication header (see disclosed convention conflict above)</td></tr>
+          <tr><td>403</td><td>Tier access denied</td><td>Upgrade subscription</td></tr>
+          <tr><td>404</td><td>Advisory not found</td><td>Check advisory ID</td></tr>
+          <tr><td>429</td><td>Rate limit exceeded</td><td>Retry after the reset time in the rate-limit response headers</td></tr>
+          <tr><td>500</td><td>Internal server error</td><td>Contact support</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- 10. Documentation Index -->
+<section class="sapx-section sapx-section-alt" aria-labelledby="doc-index-heading">
+  <div class="sapx-container">
+    <p class="sapx-section-kicker">Documentation Index</p>
+    <h2 class="sapx-section-heading" id="doc-index-heading">Everything, in One Place</h2>
+    <div class="sapx-grid sapx-grid-4">
+      <div class="sapx-card sapx-feature-card">
+        <h3 class="sapx-card-title">API Reference</h3>
+        <p style="margin-top: var(--sapx-space-3)"><a href="/api-docs.html">api-docs.html &rarr;</a></p>
+      </div>
+      <div class="sapx-card sapx-feature-card">
+        <h3 class="sapx-card-title">Security &amp; Trust</h3>
+        <p style="margin-top: var(--sapx-space-3)"><a href="/enterprise-compliance.html">Trust Center &rarr;</a></p>
+      </div>
+      <div class="sapx-card sapx-feature-card">
+        <h3 class="sapx-card-title">Pricing</h3>
+        <p style="margin-top: var(--sapx-space-3)"><a href="/enterprise-pricing.html">Pricing &amp; Plans &rarr;</a></p>
+      </div>
+      <div class="sapx-card sapx-feature-card">
+        <h3 class="sapx-card-title">Onboarding</h3>
+        <p style="margin-top: var(--sapx-space-3)"><a href="/onboarding.html">onboarding.html &rarr;</a></p>
+      </div>
+      <div class="sapx-card sapx-feature-card">
+        <h3 class="sapx-card-title">Quick Start</h3>
+        <p style="margin-top: var(--sapx-space-3)"><a href="/docs/quickstart.html">docs/quickstart.html &rarr;</a></p>
+      </div>
+      <div class="sapx-card sapx-feature-card">
+        <h3 class="sapx-card-title">Auth Guide</h3>
+        <p style="margin-top: var(--sapx-space-3)"><a href="/docs/api-auth-guide.md">docs/api-auth-guide.md &rarr;</a></p>
+      </div>
+      <div class="sapx-card sapx-feature-card">
+        <h3 class="sapx-card-title">Compliance FAQ</h3>
+        <p style="margin-top: var(--sapx-space-3)"><a href="/docs/faq.html">docs/faq.html &rarr;</a></p>
+      </div>
+      <div class="sapx-card sapx-feature-card">
+        <h3 class="sapx-card-title">Get API Key</h3>
+        <p style="margin-top: var(--sapx-space-3)"><a href="/get-api-key.html">get-api-key.html &rarr;</a></p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 11. Developer FAQ (reused from docs/faq.html, distinct questions from the ones PR-7 already used) -->
+<section class="sapx-section" aria-labelledby="dev-faq-heading">
+  <div class="sapx-container-narrow">
+    <p class="sapx-section-kicker">Developer FAQ</p>
+    <h2 class="sapx-section-heading" id="dev-faq-heading">Frequently Asked Questions</h2>
+    <div class="sapx-card" style="margin-bottom: var(--sapx-space-4)">
+      <h3 class="sapx-card-title">How do I authenticate API requests?</h3>
+      <p class="sapx-card-desc">Sources disagree &mdash; see the Authentication section above for both documented conventions.</p>
+    </div>
+    <div class="sapx-card" style="margin-bottom: var(--sapx-space-4)">
+      <h3 class="sapx-card-title">Can I rotate my API key?</h3>
+      <p class="sapx-card-desc">Yes. Email <a href="mailto:enterprise@cyberdudebivash.com">enterprise@cyberdudebivash.com</a> with subject "KEY ROTATION REQUEST" and your reference ID. Your old key remains valid for 7 days during transition. (Source: docs/faq.html)</p>
+    </div>
+    <div class="sapx-card" style="margin-bottom: var(--sapx-space-4)">
+      <h3 class="sapx-card-title">How do I integrate with Microsoft Sentinel, Splunk, Elastic, or QRadar?</h3>
+      <p class="sapx-card-desc">Full platform-specific guides are at <a href="/onboarding.html">onboarding.html</a>: STIX 2.1/TAXII, KQL, SPL, EQL, Sigma, and YARA are all supported. (Source: docs/faq.html)</p>
+    </div>
+    <div class="sapx-card">
+      <h3 class="sapx-card-title">My API key returns 401 Unauthorized. What's wrong?</h3>
+      <p class="sapx-card-desc">Common causes: key copied incorrectly, not yet activated (up to 2 hours after payment), subscription expired, or the key was suspended. Contact <a href="mailto:enterprise@cyberdudebivash.com">enterprise@cyberdudebivash.com</a>. (Source: docs/faq.html)</p>
+    </div>
+  </div>
+</section>
+
+<!-- Documentation Consistency Notice (mandatory per this PR's "Special Validation" instruction) -->
+<section class="sapx-section sapx-section-alt" aria-labelledby="drift-notice-heading" id="drift-notice">
+  <div class="sapx-container">
+    <p class="sapx-section-kicker">Repository Evidence</p>
+    <h2 class="sapx-section-heading" id="drift-notice-heading">Documentation Consistency Notice</h2>
+    <p class="sapx-section-desc">This repository documents its own API inconsistently across multiple real, existing files. None of the following is resolved by this page &mdash; each is disclosed with its exact source so developers can make an informed decision (or confirm the current behavior with support) rather than being given a false sense of a single, unified specification.</p>
+    <div class="sapx-table-wrap">
+      <table class="sapx-table">
+        <thead><tr><th>Topic</th><th>Conflicting values found</th></tr></thead>
+        <tbody>
+          <tr><td>Auth header</td><td><code>Authorization: Bearer</code> (most sources) vs. <code>X-API-Key</code> (api-docs.html)</td></tr>
+          <tr><td>API key format</td><td><code>sa_&lt;key&gt;</code>, <code>SA-PRO-&lt;hex&gt;</code>, <code>cdb_pro_/cdb_ent_&lt;hex&gt;</code> &mdash; three distinct formats across four files</td></tr>
+          <tr><td>JWT signing algorithm</td><td>HS256 (SECURITY.md) vs. RS256 (trust-center.html)</td></tr>
+          <tr><td>JWT lifetime</td><td>24 hours (SECURITY.md) vs. 30 days (apex_openapi_v3.yaml)</td></tr>
+          <tr><td>Rate limits</td><td>Four different tables: SECURITY.md, docs/api-auth-guide.md, apex_openapi_v3.yaml, and api-docs.html each give different figures for the same tier names</td></tr>
+          <tr><td>Base API domain</td><td><code>intel.cyberdudebivash.com</code> (majority), <code>cyberdudebivash.github.io/&hellip;</code> (docs/api-auth-guide.md, SDK script), <code>api.sentinelapex.cyberdudebivash.com</code> (sdk/sentinel_sdk package)</td></tr>
+          <tr><td>Support email</td><td>enterprise@/security@cyberdudebivash.com (general), bivash@cyberdudebivash.com (OpenAPI spec contact), bivashnayak.ai007@gmail.com (docs/api-auth-guide.md), api@cyberdudebivash.com (sdk/setup.py)</td></tr>
+          <tr><td>Python SDK</td><td>Two independent, non-identical implementations: scripts/sentinel_apex_sdk.py (v1.0.0) and sdk/sentinel_sdk/ (v134.0)</td></tr>
+          <tr><td>Endpoint paths</td><td>apex_openapi_v3.yaml, docs/quickstart.html, api-docs.html, and the actual deployed worker source each name similar resources differently (e.g. /api/intel vs /api/feed vs /api/cves)</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="sapx-section-desc" style="margin-top: var(--sapx-space-6)">Full evidence matrix, with exact file paths and line-level citations: <a href="/docs/developer-portal-guide.md">docs/developer-portal-guide.md &rarr;</a>. If you are integrating in production, confirm current behavior with <a href="mailto:enterprise@cyberdudebivash.com">enterprise@cyberdudebivash.com</a> before relying on any single source above.</p>
+  </div>
+</section>
+
+<!-- 12. Support -->
+<section class="sapx-section sapx-section-lg" aria-labelledby="dev-support-heading">
+  <div class="sapx-container-narrow">
+    <div class="sapx-cta-banner">
+      <h2 class="sapx-cta-banner-heading" id="dev-support-heading">Developer Support</h2>
+      <p class="sapx-cta-banner-copy">Real, verified support channels &mdash; each for a specific purpose.</p>
+      <div class="sapx-cta-banner-actions">
+        <a class="sapx-btn sapx-btn-primary" href="https://github.com/cyberdudebivash" target="_blank" rel="noopener noreferrer">GitHub</a>
+        <a class="sapx-btn sapx-btn-secondary" href="mailto:security@cyberdudebivash.com">Security Contact</a>
+        <a class="sapx-btn sapx-btn-secondary" href="mailto:enterprise@cyberdudebivash.com">Enterprise Support</a>
+        <a class="sapx-btn sapx-btn-ghost" href="https://t.me/cyberdudebivashSentinelApex" target="_blank" rel="noopener noreferrer">Telegram</a>
+      </div>
+      <p class="sapx-cta-banner-copy" style="margin-top: var(--sapx-space-5)">API-specific authentication issues: <a href="mailto:bivashnayak.ai007@gmail.com">bivashnayak.ai007@gmail.com</a> (per docs/api-auth-guide.md's own documented support channel).</p>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<footer class="sapx-site-footer">
+  <div class="sapx-footer-grid">
+    <div>
+      <a class="sapx-brand" href="/index.html" style="margin-bottom: var(--sapx-space-4); display: inline-flex;">
+        <span aria-hidden="true">&#128737;</span>
+        SENTINEL APEX
+      </a>
+      <p style="font-size: var(--sapx-font-size-sm); color: var(--sapx-color-text-secondary); max-width: 320px; line-height: var(--sapx-line-height-normal); margin: 0 0 var(--sapx-space-4);">
+        AI-powered threat intelligence for enterprise SOC teams &mdash; real-time correlation, STIX 2.1 export, and MITRE ATT&amp;CK mapping.
+      </p>
+      <div class="sapx-footer-social">
+        <a href="https://x.com/CDBSENTINELAPEX" aria-label="SENTINEL APEX on X (Twitter)" target="_blank" rel="noopener noreferrer">&#120143;</a>
+        <a href="https://www.linkedin.com/company/cyberdudebivash/" aria-label="SENTINEL APEX on LinkedIn" target="_blank" rel="noopener noreferrer">in</a>
+        <a href="https://github.com/cyberdudebivash" aria-label="SENTINEL APEX on GitHub" target="_blank" rel="noopener noreferrer">&#128187;</a>
+      </div>
+    </div>
+
+    <div>
+      <h3 class="sapx-footer-col-heading">Products</h3>
+      <ul class="sapx-footer-links">
+        <li><a href="/index.html">Platform</a></li>
+        <li><a href="/threat/">Threat Intelligence</a></li>
+        <li><a href="/api-docs.html">API</a></li>
+        <li><a href="/enterprise-pricing.html">Pricing</a></li>
+      </ul>
+    </div>
+
+    <div>
+      <h3 class="sapx-footer-col-heading">Resources</h3>
+      <ul class="sapx-footer-links">
+        <li><a href="/enterprise-knowledge-center.html">Knowledge Center</a></li>
+        <li><a href="/developer-portal.html">Developer Portal</a></li>
+        <li><a href="/docs/quickstart.html">API Quick Start</a></li>
+        <li><a href="/blog/">Research Blog</a></li>
+        <li><a href="/enterprise-compliance.html">Trust Center</a></li>
+      </ul>
+    </div>
+
+    <div>
+      <h3 class="sapx-footer-col-heading">Company</h3>
+      <ul class="sapx-footer-links">
+        <li><a href="/privacy.html">Privacy</a></li>
+        <li><a href="/terms.html">Terms</a></li>
+        <li><a href="/status.html">Status</a></li>
+        <li><a href="mailto:enterprise@cyberdudebivash.com">Contact</a></li>
+      </ul>
+      <div class="sapx-status-indicator" style="margin-top: var(--sapx-space-4);">
+        <span class="sapx-status-dot sapx-status-dot-live" aria-hidden="true"></span>
+        All Systems Operational
+      </div>
+    </div>
+  </div>
+
+  <div class="sapx-footer-bottom">
+    <span>&copy; 2026 BIVASHA KUMAR NAYAK trading as CYBERDUDEBIVASH&reg; All rights reserved.</span>
+    <span>SENTINEL APEX Threat Intelligence Platform</span>
+  </div>
+</footer>
+
+<script>
+  // Essential JS only: mobile nav toggle, identical to enterprise-homepage.html
+  // (PR-5) and components/header.html (PR-4). No other script on this page.
+  function sapxToggleNav(button) {
+    var header = button.closest('.sapx-site-header');
+    var expanded = button.getAttribute('aria-expanded') === 'true';
+    button.setAttribute('aria-expanded', String(!expanded));
+    header.setAttribute('data-nav-open', String(!expanded));
+  }
+</script>
+
+</body>
+</html>

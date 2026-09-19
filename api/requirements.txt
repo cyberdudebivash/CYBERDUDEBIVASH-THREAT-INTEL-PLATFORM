@@ -1,0 +1,17 @@
+# v185.0 FIX: this file's floors (fastapi>=0.115.0, starlette>=0.40.0, etc.)
+# predate the CVE-driven version bumps already verified and documented in
+# requirements.txt / requirements-ci-light.txt (fastapi PYSEC-2024-38,
+# starlette PYSEC-2026-{161,248,249,2281/2280}, pyjwt/python-multipart
+# advisories -- see requirements.txt v184.7 comment for the full per-CVE
+# rationale). Unlike those two files, this one was never in the pip-audit
+# CI gate's --requirement list, so it silently kept the pre-fix floors.
+# Raised to the same already-audited versions here (anyio/httpx left
+# unchanged -- no CVE evidence found for either, and this file's existing
+# httpx floor was already above requirements.txt's pin).
+fastapi==0.141.1
+uvicorn[standard]==0.52.4
+pydantic==2.13.4
+python-multipart==0.0.32
+starlette>=1.3.1
+anyio>=4.4.0
+httpx>=0.27.0
