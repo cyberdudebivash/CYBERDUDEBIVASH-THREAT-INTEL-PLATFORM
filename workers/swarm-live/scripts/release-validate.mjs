@@ -120,7 +120,23 @@ async function validateLiveMission(baseUrl, apiKey) {
   assert(events.length > 0, 'swarm SSE returned no events');
 
   const terminal = events.find((event) => event.event_type === 'mission.completed');
-  assert(terminal, 'mission.completed was not emitted');
+  if (!terminal) {
+    const terminalFailure = [...events].reverse().find((event) =>
+      event?.event_type === 'mission.rejected' || event?.event_type === 'mission.failed'
+    );
+    const observed = [...new Set(events.map((event) => event?.event_type).filter(Boolean))].join(', ');
+    const detail = terminalFailure
+      ? [
+          `event_type=${terminalFailure.event_type}`,
+          `state=${terminalFailure.state || 'unknown'}`,
+          `canonical_status=${terminalFailure.canonical_status ?? 'n/a'}`,
+          `mesh_certified=${terminalFailure.mesh_certified ?? 'n/a'}`,
+          `error=${terminalFailure.error || terminalFailure.canonical_error?.error || 'n/a'}`,
+          `message=${terminalFailure.message || terminalFailure.canonical_error?.message || 'n/a'}`,
+        ].join(' ')
+      : `observed_event_types=${observed || 'none'}`;
+    throw new Error(`mission.completed was not emitted — ${detail}`);
+  }
   assert(terminal.mesh_certified === true, 'mission completed without mesh_certified=true');
   assert(typeof terminal.mission_id === 'string' && terminal.mission_id.length > 0, 'mission_id missing');
   assert(typeof terminal.execution_id === 'string' && terminal.execution_id.length > 0, 'execution_id missing');
