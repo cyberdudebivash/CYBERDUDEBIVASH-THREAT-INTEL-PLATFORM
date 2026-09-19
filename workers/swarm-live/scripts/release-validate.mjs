@@ -3,6 +3,7 @@
 const DEFAULT_BASE_URL = 'https://intel.cyberdudebivash.com';
 const EXPECTED_SERVICE = 'sentinel-apex-swarm-live';
 const EXPECTED_PROTOCOL = 'cdb.swarm.v1';
+const EXPECTED_VERSION = '4.46.0';
 const EXPECTED_AGENTS = new Set([
   'ioc-hunter',
   'cve-intelligence',
@@ -83,20 +84,30 @@ async function validateHealth(baseUrl) {
   assert(body?.status === 'ok', 'swarm health status is not ok');
   assert(body?.service === EXPECTED_SERVICE, `unexpected service: ${body?.service}`);
   assert(body?.protocol === EXPECTED_PROTOCOL, `unexpected protocol: ${body?.protocol}`);
+  assert(body?.version === EXPECTED_VERSION, `unexpected swarm version: ${body?.version}`);
+  assert(body?.production?.canonical_gateway_bound === true, 'CANONICAL_GATEWAY is not bound');
+  assert(body?.production?.private_mesh_required === true, 'private mesh requirement is not enabled');
+  assert(body?.production?.customer_console === true, 'customer console capability is not enabled');
+  assert(body?.capabilities?.idempotent_retry === true, 'idempotent retry capability is not enabled');
+  assert(Array.isArray(body?.capabilities?.report_formats) && body.capabilities.report_formats.includes('stix21'), 'STIX 2.1 evidence export is not advertised');
   assert(Number(body?.agents) === EXPECTED_AGENTS.size, `expected ${EXPECTED_AGENTS.size} agents, got ${body?.agents}`);
   assert(body?.persistence?.kv_bound === true, 'SWARM_MISSIONS_KV is not bound; durable mission lifecycle is NOT production-ready');
-  logPass('live health', `service=${body.service} protocol=${body.protocol} agents=${body.agents} kv_bound=true`);
+  logPass('live health', `service=${body.service} version=${body.version} protocol=${body.protocol} agents=${body.agents} kv_bound=true gateway_bound=true`);
   return body;
 }
 
 async function validateUi(baseUrl) {
   const { response, text } = await getText(`${baseUrl}/swarm/`);
   assert(response.status === 200, `/swarm/ returned HTTP ${response.status}`);
-  for (const marker of ['SUPER AGENT SWARM', 'Mission History', 'RUN LIVE SWARM', 'Private APEX Mesh', 'Durable Evidence', 'STIX 2.1', '8-Agent Operations Grid', 'V4.46 PRODUCTION', 'SOC 2-ALIGNED EVIDENCE UX', '8-Agent Mesh Topology', 'STATE-DRIVEN LED NODES', 'Event Sequence']) {
+  for (const marker of ['SUPER AGENT SWARM', 'Mission History', 'RUN LIVE SWARM', 'Private APEX Mesh', 'Durable Evidence', 'STIX 2.1', '8-Agent Operations Grid', 'V4.46 PRODUCTION', 'SOC 2-ALIGNED EVIDENCE UX', '8-Agent Mesh Topology', 'STATE-DRIVEN LED NODES', 'Event Sequence', 'RED TEAM INTEL', 'AI SECURITY OPS', 'Cinematic launch visualization is decorative only', 'CYBER DEFENSE']) {
     assert(text.includes(marker), `/swarm/ missing required UI marker: ${marker}`);
   }
   assert(!text.includes('DERIVED VIEW'), '/swarm/ still exposes DERIVED VIEW agents');
   assert(text.includes('<script src="/swarm/app.js" defer></script>'), '/swarm/ is not wired to the external browser controller');
+  assert(text.includes('id="cinematicCanvas"'), '/swarm/ missing cinematic canvas layer');
+  assert(text.includes('prefers-reduced-motion:reduce'), '/swarm/ missing reduced-motion CSS fallback');
+  assert(text.includes('prefers-contrast:more'), '/swarm/ missing high-contrast accessibility mode');
+  assert(!text.includes('SOC 2 CERTIFIED'), '/swarm/ contains an unsupported SOC 2 certification claim');
 
   const csp = response.headers.get('content-security-policy') || '';
   assert(csp.includes("script-src 'self'"), '/swarm/ CSP does not allow same-origin external JavaScript');
@@ -112,6 +123,12 @@ async function validateUi(baseUrl) {
   assert(app.text.includes('updateOpsTelemetry()'), '/swarm/app.js missing state-driven operations telemetry');
   assert(app.text.includes('setMeshNode(ev.agent_id'), '/swarm/app.js missing state-driven mesh visualization');
   assert(app.text.includes("setText('eventCount'"), '/swarm/app.js missing real event-sequence telemetry');
+  assert(app.text.includes('function triggerLaunchSequence()'), '/swarm/app.js missing cinematic launch controller');
+  assert(app.text.includes('function fxForMissionEvent(ev)'), '/swarm/app.js missing real-event cinematic state hook');
+  assert(app.text.includes('function emitCinematicFx(kind,el,intensity)'), '/swarm/app.js missing cinematic particle/shockwave renderer');
+  assert(app.text.includes("matchMedia('(prefers-reduced-motion: reduce)')"), '/swarm/app.js missing reduced-motion runtime guard');
+  assert(!app.text.includes('localStorage'), '/swarm/app.js must not persist credentials in localStorage');
+  assert(!app.text.includes('sessionStorage'), '/swarm/app.js must not persist credentials in sessionStorage');
   try {
     new Function(app.text);
   } catch (error) {
