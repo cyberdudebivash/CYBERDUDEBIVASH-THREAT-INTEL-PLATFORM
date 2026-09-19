@@ -26,6 +26,58 @@ const AGENTS = Object.freeze([
   ['risk-synthesizer', 'Risk Synthesizer', 'risk.synthesis'],
 ].map(([id, name, capability]) => Object.freeze({ id, name, capability })));
 
+const AGENT_VISUALS = Object.freeze({
+  'ioc-hunter': Object.freeze({
+    mesh: 'IOC',
+    accent: '#00E7FF',
+    soft: 'rgba(0,231,255,.18)',
+    ring: 'rgba(0,231,255,.48)',
+  }),
+  'cve-intelligence': Object.freeze({
+    mesh: 'CVE',
+    accent: '#8B5CFF',
+    soft: 'rgba(139,92,255,.18)',
+    ring: 'rgba(139,92,255,.48)',
+  }),
+  'threat-hunter': Object.freeze({
+    mesh: 'THREAT',
+    accent: '#FF8A00',
+    soft: 'rgba(255,138,0,.18)',
+    ring: 'rgba(255,138,0,.50)',
+  }),
+  'attack-mapper': Object.freeze({
+    mesh: 'ATT&CK',
+    accent: '#FF4FD8',
+    soft: 'rgba(255,79,216,.18)',
+    ring: 'rgba(255,79,216,.48)',
+  }),
+  'siem-defender': Object.freeze({
+    mesh: 'SIEM',
+    accent: '#00FFA8',
+    soft: 'rgba(0,255,168,.18)',
+    ring: 'rgba(0,255,168,.46)',
+  }),
+  'ir-playbook': Object.freeze({
+    mesh: 'IR',
+    accent: '#FFD400',
+    soft: 'rgba(255,212,0,.18)',
+    ring: 'rgba(255,212,0,.48)',
+  }),
+  'exposure-analyst': Object.freeze({
+    mesh: 'EXPOSURE',
+    accent: '#5BE1FF',
+    soft: 'rgba(91,225,255,.18)',
+    ring: 'rgba(91,225,255,.48)',
+  }),
+  'risk-synthesizer': Object.freeze({
+    mesh: 'RISK',
+    accent: '#FF4D5A',
+    soft: 'rgba(255,77,90,.18)',
+    ring: 'rgba(255,77,90,.50)',
+  }),
+});
+
+
 // Agents backed by a genuine, distinct, already-routed intel-gateway endpoint
 // (Reuse Before Build: these call existing production routes, not new ones).
 // ioc-hunter isn't listed here -- its "call" is the canonical correlate
@@ -964,10 +1016,20 @@ function ui() {
   const initialNow = new Date();
   const initialUtcTime = initialNow.toISOString().slice(11, 19);
   const initialUtcDate = initialNow.toISOString().slice(0, 10);
-  const agents = AGENTS.map((a, index) =>
-    `<article class="agent" id="agent-${escapeHtml(a.id)}" data-state="IDLE"><div class="agent-spectrum"></div><div class="agent-head"><div class="agent-identity"><span class="agent-led" aria-hidden="true"></span><span class="agent-index">${String(index + 1).padStart(2, '0')}</span><div class="agent-title"><strong>${escapeHtml(a.name)}</strong><small>${escapeHtml(a.capability)}</small></div></div><span class="state">IDLE</span></div><div class="agent-meta-line"><span class="basis">WAITING</span><span class="duration">—</span></div>${a.id === 'risk-synthesizer' ? '<p class="narrative" hidden></p>' : ''}<pre>Awaiting backend execution.</pre></article>`
-  ).join('');
-  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>CYBERDUDEBIVASH SENTINEL APEX — SUPER AGENT SWARM</title><style>
+  const visualFor = (id) => AGENT_VISUALS[id] || AGENT_VISUALS['ioc-hunter'];
+  const visualStyle = (v) =>
+    `--agent-accent:${v.accent};--agent-accent-soft:${v.soft};--agent-accent-ring:${v.ring}`;
+
+  const agents = AGENTS.map((a, index) => {
+    const v = visualFor(a.id);
+    return `<article class="agent" id="agent-${escapeHtml(a.id)}" data-agent-id="${escapeHtml(a.id)}" data-state="IDLE" style="${visualStyle(v)}"><div class="agent-spectrum"></div><div class="agent-head"><div class="agent-identity"><span class="agent-led" aria-hidden="true"></span><span class="agent-index">${String(index + 1).padStart(2, '0')}</span><div class="agent-title"><strong>${escapeHtml(a.name)}</strong><small>${escapeHtml(a.capability)}</small></div></div><span class="state">IDLE</span></div><div class="agent-meta-line"><span class="basis">WAITING</span><span class="duration">—</span></div>${a.id === 'risk-synthesizer' ? '<p class="narrative" hidden></p>' : ''}<pre>Awaiting backend execution.</pre></article>`;
+  }).join('');
+
+  const meshNodes = AGENTS.map((a) => {
+    const v = visualFor(a.id);
+    return `<div class="mesh-node" id="mesh-${escapeHtml(a.id)}" data-agent-id="${escapeHtml(a.id)}" data-state="IDLE" style="${visualStyle(v)}"><span class="mesh-led" aria-hidden="true"></span><b class="mesh-code">${escapeHtml(v.mesh)}</b><small class="mesh-agent-name">${escapeHtml(a.name)}</small></div>`;
+  }).join('');
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>CYBERDUDEBIVASH SENTINEL APEX — SUPER AGENT SWARM</title><style>
   :root{color-scheme:dark;font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;--bg:#04080b;--panel:#07130f;--panel2:#0a1a15;--panel3:#0c211a;--line:#17483b;--line2:#226b56;--text:#f1f8f5;--muted:#8baaa1;--muted2:#64847a;--mint:#42e0ad;--mint2:#8bf7d2;--amber:#ffc857;--red:#ff7272;--blue:#75a7ff;--shadow:0 24px 80px rgba(0,0,0,.34)}*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;min-height:100vh;background:radial-gradient(circle at 18% -8%,rgba(38,155,119,.18),transparent 32%),radial-gradient(circle at 84% 12%,rgba(40,96,82,.14),transparent 28%),linear-gradient(180deg,#04090d 0%,#03070a 100%);color:var(--text)}body:before{content:"";position:fixed;inset:0;pointer-events:none;opacity:.18;background-image:linear-gradient(rgba(74,226,179,.045) 1px,transparent 1px),linear-gradient(90deg,rgba(74,226,179,.045) 1px,transparent 1px);background-size:42px 42px;mask-image:linear-gradient(to bottom,black,transparent 70%)}button,input,select{font:inherit}.wrap{position:relative;z-index:1;max-width:1380px;margin:auto;padding:26px 26px 72px}.topbar{display:flex;align-items:center;justify-content:space-between;gap:20px;padding:6px 2px 20px}.brand-block{display:flex;align-items:center;gap:12px}.brand-mark{width:38px;height:38px;border-radius:11px;border:1px solid var(--line2);display:grid;place-items:center;background:linear-gradient(145deg,#0b2c22,#07110e);box-shadow:inset 0 0 24px rgba(66,224,173,.08);font-weight:900;color:var(--mint2)}.brand{font-weight:900;letter-spacing:.09em;color:var(--mint2);font-size:14px}.brand-sub{display:block;margin-top:3px;color:var(--muted2);font-size:10px;letter-spacing:.13em;text-transform:uppercase}.top-status{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}.top-pill{display:inline-flex;align-items:center;gap:7px;border:1px solid var(--line);background:rgba(7,19,15,.86);padding:7px 10px;border-radius:999px;color:var(--muted);font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase}.top-pill .dot{width:7px;height:7px;border-radius:50%;background:#53675f;box-shadow:0 0 0 3px rgba(83,103,95,.1)}.top-pill[data-tone=ok]{color:var(--mint2);border-color:#226b56}.top-pill[data-tone=ok] .dot{background:var(--mint);box-shadow:0 0 14px rgba(66,224,173,.65)}.global-clock{position:relative;min-width:238px;padding:9px 13px 8px;border:1px solid rgba(0,231,255,.36);border-radius:14px;background:linear-gradient(145deg,rgba(1,15,18,.97),rgba(5,8,22,.98));box-shadow:0 0 0 1px rgba(157,107,255,.08),0 0 24px rgba(0,231,255,.08),inset 0 0 24px rgba(0,231,255,.035);overflow:hidden}.global-clock:before{content:"";position:absolute;inset:-1px;background:linear-gradient(105deg,transparent 5%,rgba(0,231,255,.16) 34%,rgba(157,107,255,.14) 58%,transparent 88%);transform:translateX(-120%);animation:clockScan 5.2s ease-in-out infinite;pointer-events:none}.global-clock[data-synced=true]{border-color:rgba(66,224,173,.46);box-shadow:0 0 0 1px rgba(66,224,173,.08),0 0 28px rgba(0,231,255,.11),0 0 46px rgba(66,224,173,.055),inset 0 0 26px rgba(0,231,255,.045)}.clock-led-wrap{position:relative;z-index:1;display:flex;align-items:center;gap:9px}.clock-live-dot{width:8px;height:8px;border-radius:50%;background:#00f5d4;box-shadow:0 0 8px #00f5d4,0 0 18px rgba(0,245,212,.8);animation:clockPulse 1.2s ease-in-out infinite}.clock-led{font-family:"SFMono-Regular",Consolas,"Liberation Mono",ui-monospace,monospace;font-variant-numeric:tabular-nums;font-feature-settings:"tnum" 1,"zero" 1;color:#bafff4;font-size:20px;line-height:1;font-weight:950;letter-spacing:.105em;text-shadow:0 0 4px rgba(186,255,244,.95),0 0 11px rgba(0,231,255,.85),0 0 24px rgba(66,224,173,.58);filter:drop-shadow(0 0 8px rgba(0,231,255,.35));white-space:nowrap}.clock-zone{position:relative;z-index:1;margin:5px 0 4px 17px;color:#76dff0;font-size:8px;font-weight:850;letter-spacing:.08em;white-space:nowrap;text-shadow:0 0 10px rgba(0,231,255,.38)}.clock-meta{position:relative;z-index:1;display:flex;align-items:center;justify-content:space-between;gap:10px;border-top:1px solid rgba(0,231,255,.12);padding-top:5px}.clock-location,.clock-country{font-size:7px;font-weight:900;letter-spacing:.095em;white-space:nowrap}.clock-location{color:#e7fffb;text-shadow:0 0 9px rgba(66,224,173,.22)}.clock-country{color:#af9cff;text-align:right;text-shadow:0 0 9px rgba(157,107,255,.25)}@keyframes clockPulse{0%,100%{opacity:.58;transform:scale(.86)}50%{opacity:1;transform:scale(1.12)}}@keyframes clockScan{0%,65%{transform:translateX(-120%);opacity:0}75%{opacity:.7}100%{transform:translateX(130%);opacity:0}}.hero{display:grid;grid-template-columns:minmax(0,1.45fr) minmax(320px,.55fr);gap:18px;border:1px solid var(--line);background:linear-gradient(135deg,rgba(7,24,19,.96),rgba(5,14,13,.96));border-radius:24px;padding:34px;box-shadow:var(--shadow);overflow:hidden;position:relative}.hero:after{content:"";position:absolute;right:-120px;top:-150px;width:360px;height:360px;border-radius:50%;border:1px solid rgba(66,224,173,.12);box-shadow:0 0 90px rgba(66,224,173,.05);pointer-events:none}.eyebrow{display:inline-flex;align-items:center;gap:8px;color:var(--mint2);font-size:11px;font-weight:900;letter-spacing:.16em;text-transform:uppercase}.eyebrow:before{content:"";width:24px;height:1px;background:var(--mint)}.hero h1{font-size:clamp(38px,5.4vw,72px);line-height:.98;letter-spacing:-.045em;margin:15px 0 16px;max-width:900px}.hero h1 span{display:block;color:var(--mint2)}.sub{color:#abc4bc;max-width:820px;line-height:1.7;font-size:15px;margin:0}.assurance{align-self:stretch;border:1px solid rgba(66,224,173,.15);background:rgba(3,11,9,.54);border-radius:18px;padding:18px;position:relative;z-index:1}.assurance-title{font-size:11px;font-weight:900;letter-spacing:.13em;text-transform:uppercase;color:var(--muted);margin-bottom:12px}.assurance-grid{display:grid;gap:9px}.assurance-item{display:flex;align-items:center;justify-content:space-between;gap:12px;border:1px solid #12382e;background:#06110e;border-radius:12px;padding:11px 12px}.assurance-item strong{display:block;font-size:12px}.assurance-item small{display:block;color:var(--muted2);font-size:10px;margin-top:3px}.assurance-state{font-size:10px;font-weight:900;letter-spacing:.08em;color:var(--muted);white-space:nowrap}.assurance-state[data-tone=ok]{color:var(--mint)}.launch{margin-top:18px;border:1px solid var(--line);background:rgba(6,17,14,.94);border-radius:20px;padding:22px}.section-kicker{font-size:10px;font-weight:900;letter-spacing:.14em;text-transform:uppercase;color:var(--mint)}.section-title{font-size:20px;margin:5px 0 3px}.section-copy{color:var(--muted);font-size:12px;line-height:1.5;margin:0}.launch-grid{display:grid;grid-template-columns:minmax(260px,1.3fr) minmax(220px,1fr) 150px 190px;gap:10px;margin-top:18px}.field{display:flex;flex-direction:column;gap:7px}.field label{font-size:10px;font-weight:800;letter-spacing:.08em;color:var(--muted);text-transform:uppercase}.field input,.field select{height:48px;background:#04100d;color:var(--text);border:1px solid #28594d;border-radius:11px;padding:0 13px;outline:none;transition:.18s}.field input:focus,.field select:focus{border-color:var(--mint);box-shadow:0 0 0 3px rgba(66,224,173,.08)}.run{align-self:end;height:48px;background:linear-gradient(90deg,#34d6a3,#51e3b5);border:0;color:#02100b;font-weight:950;border-radius:11px;padding:0 18px;cursor:pointer;letter-spacing:.04em;box-shadow:0 8px 24px rgba(66,224,173,.14);transition:.18s}.run:hover{transform:translateY(-1px);box-shadow:0 10px 30px rgba(66,224,173,.22)}.run:disabled{opacity:.55;cursor:not-allowed;transform:none}.security-note{display:flex;align-items:center;gap:8px;color:var(--muted2);font-size:11px;margin:12px 0 0}.security-note:before{content:"LOCK";font-size:8px;font-weight:900;letter-spacing:.08em;color:var(--mint);border:1px solid #245947;border-radius:999px;padding:3px 5px}.runtime-strip{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:16px 0}.kpi{border:1px solid #153f34;background:linear-gradient(180deg,#081610,#06100d);border-radius:15px;padding:14px 15px;min-width:0}.kpi-label{font-size:9px;text-transform:uppercase;letter-spacing:.12em;color:var(--muted2);font-weight:900}.kpi-value{font-size:14px;font-weight:850;margin-top:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.kpi-value[data-tone=ok]{color:var(--mint2)}.kpi-value[data-tone=warn]{color:var(--amber)}.mission-meta{display:grid;grid-template-columns:1.2fr 1.2fr .8fr .8fr;gap:10px;margin-bottom:20px}.meta-card{border:1px solid #143d32;background:#06110e;border-radius:14px;padding:13px 14px;min-width:0}.meta-card span{display:block;color:var(--muted2);font-size:9px;text-transform:uppercase;letter-spacing:.11em;font-weight:900}.meta-card strong{display:block;margin-top:6px;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.agent-section,.evidence-section,.history{margin-top:20px}.section-head{display:flex;align-items:flex-end;justify-content:space-between;gap:18px;margin-bottom:12px}.section-head h2{margin:4px 0 0;font-size:20px}.section-head p{max-width:650px;margin:0;color:var(--muted);font-size:11px;line-height:1.5;text-align:right}.agents{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}.agent{min-height:220px;background:linear-gradient(180deg,#07130f,#050e0c);border:1px solid #173b32;border-radius:17px;padding:15px;transition:.2s;overflow:hidden}.agent-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}.agent-identity{display:flex;align-items:flex-start;gap:10px;min-width:0}.agent-index{flex:0 0 28px;width:28px;height:28px;display:grid;place-items:center;border:1px solid #1b4a3d;background:#091a15;border-radius:9px;color:var(--mint);font-size:9px;font-weight:900}.agent-title{min-width:0}.agent-title strong{display:block;font-size:13px;line-height:1.28;overflow-wrap:anywhere}.agent-title small{display:block;color:var(--muted2);font-size:10px;margin-top:4px}.state{flex:0 0 auto;font-size:9px;font-weight:900;letter-spacing:.06em;border:1px solid #28594d;border-radius:999px;padding:5px 7px;color:var(--muted)}.agent-meta-line{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 0 8px;margin-top:9px;border-top:1px solid #102c25;color:var(--muted2);font-size:9px;text-transform:uppercase;letter-spacing:.07em}.agent[data-state=QUEUED]{border-color:#315e52}.agent[data-state=RUNNING]{border-color:#91752f;box-shadow:inset 0 0 28px rgba(255,200,87,.035)}.agent[data-state=COMPLETED]{border-color:#248f6d;box-shadow:inset 0 0 30px rgba(66,224,173,.035)}.agent[data-state=DENIED],.agent[data-state=FAILED]{border-color:#7b3b3b}.agent[data-state=RUNNING] .state{color:var(--amber);border-color:#6a5827}.agent[data-state=COMPLETED] .state{color:var(--mint);border-color:#226b56}.agent[data-state=DENIED] .state,.agent[data-state=FAILED] .state{color:var(--red);border-color:#6b3737}.agent pre{white-space:pre-wrap;word-break:break-word;color:#91aba3;font-size:10px;line-height:1.45;max-height:110px;overflow:auto;margin:6px 0 0;padding:10px;background:#040b09;border:1px solid #102b24;border-radius:10px}.agent .narrative{margin:8px 0 0;font-size:11px;line-height:1.45;color:var(--text)}.agent .narrative .badge{display:inline-block;font-size:8px;font-weight:900;letter-spacing:.05em;border-radius:999px;padding:3px 7px;margin-bottom:6px;border:1px solid #28594d;color:var(--muted)}.agent .narrative .badge[data-kind=ai]{color:var(--mint);border-color:#37a47f}.agent .narrative .narrative-body{display:block}.evidence-grid{display:grid;grid-template-columns:.8fr 1.2fr;gap:12px}.panel{border:1px solid #173e33;background:#06110e;border-radius:17px;padding:16px;min-width:0}.panel-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px}.panel-head strong{font-size:13px}.panel-badge{font-size:8px;font-weight:900;letter-spacing:.09em;color:var(--muted);border:1px solid #244f42;border-radius:999px;padding:5px 7px}.event-log{height:300px;overflow:auto;display:flex;flex-direction:column;gap:6px}.event-empty{color:var(--muted2);font-size:11px;padding:12px 4px}.event-row{display:grid;grid-template-columns:48px 82px 1fr;gap:8px;align-items:start;border-bottom:1px solid #102b24;padding:7px 3px;font-size:10px}.event-seq{color:var(--muted2);font-family:ui-monospace,SFMono-Regular,Menlo,monospace}.event-state{font-weight:900;color:var(--mint)}.event-desc{color:#a9bdb7;line-height:1.4;overflow-wrap:anywhere}.final{min-height:300px;max-height:300px;overflow:auto;margin:0;border:1px solid #102b24;background:#040b09;border-radius:12px;padding:14px;white-space:pre-wrap;word-break:break-word;color:#a9c0b8;font:10.5px/1.5 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}.history{border:1px solid var(--line);background:#06110e;border-radius:18px;padding:18px}.history h2{margin:0;font-size:18px}.history .row{display:flex;justify-content:space-between;align-items:center;gap:10px}.load,.dl{background:#071711;border:1px solid #28594d;color:#a8c5bb;border-radius:8px;padding:8px 11px;cursor:pointer;font:inherit;font-size:10px;font-weight:800}.load:hover,.dl:hover{border-color:var(--mint);color:var(--mint2)}.dl{padding:4px 7px}.history table{width:100%;border-collapse:collapse;font-size:11px;margin-top:12px}.history th{text-transform:uppercase;letter-spacing:.08em;color:var(--muted2);font-size:9px}.history th,.history td{text-align:left;padding:9px 8px;border-bottom:1px solid #123128}.truth{font-size:10.5px;color:var(--muted2);margin:10px 0 0}.footer{display:flex;justify-content:space-between;gap:18px;margin-top:18px;padding:0 2px;color:#536f66;font-size:9px;text-transform:uppercase;letter-spacing:.08em}.footer strong{color:#6f9589}.mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}@media(max-width:1120px){.hero{grid-template-columns:1fr}.agents{grid-template-columns:repeat(2,minmax(0,1fr))}.launch-grid{grid-template-columns:1fr 1fr}.run{align-self:end}.runtime-strip,.mission-meta{grid-template-columns:repeat(2,minmax(0,1fr))}.evidence-grid{grid-template-columns:1fr}}@media(max-width:700px){.wrap{padding:18px 14px 52px}.topbar,.section-head,.footer{align-items:flex-start;flex-direction:column}.top-status{justify-content:flex-start}.hero{padding:22px}.hero h1{font-size:38px}.launch-grid,.runtime-strip,.mission-meta,.agents{grid-template-columns:1fr}.section-head p{text-align:left}.event-log,.final{height:auto;max-height:360px}.history{overflow:auto}}
 
 /* V4.46 ULTRA-HD SOC / CTI CYBERPUNK PRESENTATION LAYER */
@@ -1043,6 +1105,336 @@ body[data-launch-fx=active] .agent{box-shadow:0 0 22px rgba(0,231,255,.055),inse
 @keyframes meshCharge{0%{box-shadow:0 0 0 rgba(0,231,255,0)}45%{box-shadow:0 0 55px rgba(0,231,255,.18),inset 0 0 45px rgba(157,107,255,.05)}100%{box-shadow:0 0 0 rgba(0,231,255,0)}}
 
 @media(max-width:1120px){.topbar{align-items:flex-start;flex-wrap:wrap}.top-status{width:100%;justify-content:flex-start}.global-clock{margin-left:auto}.mesh-core{grid-template-columns:repeat(4,minmax(0,1fr))}.led-strip{grid-template-columns:repeat(2,1fr)}}@media(max-width:700px){.mesh-core,.led-strip{grid-template-columns:repeat(2,minmax(0,1fr))}.topbar{position:relative;top:auto}.top-status{display:grid;grid-template-columns:1fr 1fr;width:100%}.global-clock{grid-column:1/-1;width:100%;min-width:0;margin:0}.clock-led{font-size:24px}.clock-meta{gap:6px}.clock-location,.clock-country{font-size:7px}.hero h1{font-size:42px}}
+
+
+/* V4.46.2 — PER-AGENT ULTRA-HD LED FABRIC + MOBILE/TABLET UX */
+html,body{width:100%;max-width:100%;overflow-x:hidden}
+.wrap{width:100%;min-width:0}
+.mesh-fabric,.agent-section,.agents,.agent,.mesh-core,.mesh-node{min-width:0}
+
+/* Every mesh node keeps a persistent individual identity color. */
+.mesh-core{
+  grid-template-columns:repeat(8,minmax(0,1fr));
+  gap:12px;
+  align-items:stretch;
+}
+.mesh-node{
+  position:relative;
+  min-height:108px;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  gap:7px;
+  padding:13px 8px 11px;
+  overflow:hidden;
+  isolation:isolate;
+  color:#f6fffd;
+  border:1px solid var(--agent-accent-ring);
+  background:
+    radial-gradient(circle at 50% 0%,var(--agent-accent-soft),transparent 58%),
+    linear-gradient(155deg,rgba(3,16,22,.97),rgba(5,7,18,.98));
+  box-shadow:
+    0 0 18px var(--agent-accent-soft),
+    inset 0 0 22px rgba(255,255,255,.018);
+}
+.mesh-node:before{
+  content:"";
+  position:absolute;
+  inset:0;
+  width:auto;
+  height:auto;
+  margin:0;
+  border-radius:inherit;
+  background:
+    linear-gradient(115deg,var(--agent-accent-soft),transparent 34%,transparent 68%,var(--agent-accent-soft));
+  box-shadow:none;
+  opacity:.8;
+  pointer-events:none;
+  z-index:-1;
+}
+.mesh-node:after{
+  content:"";
+  position:absolute;
+  left:15%;
+  right:15%;
+  bottom:0;
+  height:2px;
+  border-radius:999px;
+  background:var(--agent-accent);
+  box-shadow:
+    0 0 8px var(--agent-accent),
+    0 0 18px var(--agent-accent),
+    0 0 28px var(--agent-accent-soft);
+  opacity:.88;
+}
+.mesh-led{
+  position:relative;
+  z-index:1;
+  width:14px;
+  height:14px;
+  flex:0 0 14px;
+  border-radius:50%;
+  background:var(--agent-accent);
+  border:1px solid rgba(255,255,255,.72);
+  box-shadow:
+    0 0 7px var(--agent-accent),
+    0 0 18px var(--agent-accent),
+    0 0 34px var(--agent-accent);
+  animation:agentIdentityPulse 2.1s ease-in-out infinite;
+}
+.mesh-code{
+  position:relative;
+  z-index:1;
+  color:#f8ffff;
+  font-size:9px;
+  line-height:1.2;
+  font-weight:950;
+  letter-spacing:.09em;
+  text-shadow:
+    0 0 7px var(--agent-accent),
+    0 0 14px var(--agent-accent-soft);
+}
+.mesh-agent-name{
+  position:relative;
+  z-index:1;
+  display:block;
+  max-width:100%;
+  color:#a9c9d1;
+  font-size:7px;
+  line-height:1.25;
+  font-weight:800;
+  letter-spacing:.045em;
+  text-align:center;
+  overflow-wrap:anywhere;
+}
+
+/* State remains backend-truth driven; identity color remains visible. */
+.mesh-node[data-state=QUEUED]{
+  border-color:rgba(117,167,255,.78);
+  box-shadow:0 0 26px var(--agent-accent-soft),inset 0 0 25px rgba(117,167,255,.045);
+}
+.mesh-node[data-state=QUEUED]:before{
+  background:linear-gradient(145deg,var(--agent-accent-soft),rgba(117,167,255,.08),transparent);
+  box-shadow:none;
+}
+.mesh-node[data-state=QUEUED] .mesh-led{
+  background:#75A7FF;
+  box-shadow:0 0 8px #75A7FF,0 0 22px #75A7FF,0 0 36px rgba(117,167,255,.72);
+}
+.mesh-node[data-state=RUNNING]{
+  border-color:rgba(255,200,87,.84);
+  box-shadow:0 0 28px var(--agent-accent-soft),0 0 26px rgba(255,200,87,.12),inset 0 0 28px rgba(255,200,87,.055);
+}
+.mesh-node[data-state=RUNNING]:before{
+  background:linear-gradient(145deg,var(--agent-accent-soft),rgba(255,200,87,.09),transparent);
+  box-shadow:none;
+  animation:none;
+}
+.mesh-node[data-state=RUNNING] .mesh-led{
+  background:#FFC857;
+  box-shadow:0 0 9px #FFC857,0 0 24px #FFC857,0 0 42px rgba(255,200,87,.82);
+  animation:stateLedPulse .75s ease-in-out infinite;
+}
+.mesh-node[data-state=COMPLETED]{
+  border-color:rgba(66,224,173,.88);
+  box-shadow:0 0 28px var(--agent-accent-soft),0 0 26px rgba(66,224,173,.11),inset 0 0 30px rgba(66,224,173,.055);
+}
+.mesh-node[data-state=COMPLETED]:before{
+  background:linear-gradient(145deg,var(--agent-accent-soft),rgba(66,224,173,.08),transparent);
+  box-shadow:none;
+}
+.mesh-node[data-state=COMPLETED] .mesh-led{
+  background:#42E0AD;
+  box-shadow:0 0 9px #42E0AD,0 0 24px #42E0AD,0 0 42px rgba(66,224,173,.78);
+}
+.mesh-node[data-state=DENIED],
+.mesh-node[data-state=FAILED]{
+  border-color:rgba(255,114,114,.88);
+  box-shadow:0 0 28px var(--agent-accent-soft),0 0 28px rgba(255,114,114,.12),inset 0 0 28px rgba(255,114,114,.055);
+}
+.mesh-node[data-state=DENIED]:before,
+.mesh-node[data-state=FAILED]:before{
+  background:linear-gradient(145deg,var(--agent-accent-soft),rgba(255,114,114,.09),transparent);
+  box-shadow:none;
+}
+.mesh-node[data-state=DENIED] .mesh-led,
+.mesh-node[data-state=FAILED] .mesh-led{
+  background:#FF7272;
+  box-shadow:0 0 9px #FF7272,0 0 24px #FF7272,0 0 42px rgba(255,114,114,.82);
+}
+
+/* Real Backend Execution: each card receives its own accent identity. */
+.agents{
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:14px;
+}
+.agent{
+  min-height:244px;
+  border:1px solid var(--agent-accent-ring);
+  background:
+    radial-gradient(circle at 92% 2%,var(--agent-accent-soft),transparent 42%),
+    linear-gradient(155deg,rgba(3,16,22,.98),rgba(7,8,19,.985));
+  box-shadow:
+    0 16px 42px rgba(0,0,0,.24),
+    0 0 20px var(--agent-accent-soft),
+    inset 0 1px 0 rgba(255,255,255,.025);
+}
+.agent-spectrum{
+  height:3px;
+  opacity:1;
+  background:
+    linear-gradient(90deg,transparent,var(--agent-accent) 18%,var(--agent-accent) 82%,transparent);
+  box-shadow:0 0 16px var(--agent-accent);
+}
+.agent-led{
+  width:10px;
+  height:10px;
+  flex:0 0 10px;
+  margin-top:7px;
+  background:var(--agent-accent);
+  border:1px solid rgba(255,255,255,.7);
+  box-shadow:
+    0 0 7px var(--agent-accent),
+    0 0 17px var(--agent-accent),
+    0 0 30px var(--agent-accent-soft);
+  animation:agentIdentityPulse 2.1s ease-in-out infinite;
+}
+.agent-index{
+  border-color:var(--agent-accent-ring);
+  background:
+    linear-gradient(145deg,var(--agent-accent-soft),rgba(255,255,255,.025));
+  color:#fff;
+  box-shadow:0 0 14px var(--agent-accent-soft);
+}
+.agent-title strong{
+  color:#faffff;
+  font-size:14px;
+  text-shadow:0 0 13px rgba(255,255,255,.08);
+}
+.agent-title small{
+  color:#a9c7cf;
+  font-size:10px;
+}
+.agent .state{
+  border-color:var(--agent-accent-ring);
+  background:rgba(2,11,15,.76);
+  color:#d9f3f4;
+  box-shadow:0 0 12px var(--agent-accent-soft);
+}
+.agent-meta-line{
+  border-color:rgba(255,255,255,.085);
+  color:#91b1b8;
+}
+.agent pre{
+  color:#e1f1ef;
+  border-color:var(--agent-accent-ring);
+  background:rgba(2,10,13,.82);
+  box-shadow:inset 0 0 18px rgba(0,0,0,.26);
+  font-size:11px;
+}
+
+/* Backend state overrides LED/status, but panel identity stays unique. */
+.agent[data-state=QUEUED]{
+  border-color:rgba(117,167,255,.78);
+  box-shadow:0 18px 46px rgba(0,0,0,.25),0 0 24px var(--agent-accent-soft),inset 0 0 28px rgba(117,167,255,.04);
+}
+.agent[data-state=QUEUED] .agent-led{
+  background:#75A7FF;
+  box-shadow:0 0 8px #75A7FF,0 0 22px #75A7FF,0 0 34px rgba(117,167,255,.75);
+}
+.agent[data-state=RUNNING]{
+  border-color:rgba(255,200,87,.85);
+  box-shadow:0 20px 52px rgba(0,0,0,.28),0 0 26px var(--agent-accent-soft),0 0 30px rgba(255,200,87,.08),inset 0 0 34px rgba(255,200,87,.04);
+}
+.agent[data-state=RUNNING] .agent-led{
+  background:#FFC857;
+  box-shadow:0 0 9px #FFC857,0 0 24px #FFC857,0 0 42px rgba(255,200,87,.82);
+}
+.agent[data-state=COMPLETED]{
+  border-color:rgba(66,224,173,.85);
+  box-shadow:0 18px 48px rgba(0,0,0,.26),0 0 25px var(--agent-accent-soft),0 0 28px rgba(66,224,173,.08),inset 0 0 32px rgba(66,224,173,.04);
+}
+.agent[data-state=COMPLETED] .agent-led{
+  background:#42E0AD;
+  box-shadow:0 0 9px #42E0AD,0 0 24px #42E0AD,0 0 40px rgba(66,224,173,.78);
+}
+.agent[data-state=DENIED],
+.agent[data-state=FAILED]{
+  border-color:rgba(255,114,114,.86);
+  box-shadow:0 18px 48px rgba(0,0,0,.26),0 0 25px var(--agent-accent-soft),0 0 28px rgba(255,114,114,.09),inset 0 0 32px rgba(255,114,114,.04);
+}
+.agent[data-state=DENIED] .agent-led,
+.agent[data-state=FAILED] .agent-led{
+  background:#FF7272;
+  box-shadow:0 0 9px #FF7272,0 0 24px #FF7272,0 0 40px rgba(255,114,114,.8);
+}
+
+@keyframes agentIdentityPulse{
+  0%,100%{opacity:.76;transform:scale(.92)}
+  50%{opacity:1;transform:scale(1.08)}
+}
+@keyframes stateLedPulse{
+  0%,100%{opacity:.64;transform:scale(.88)}
+  50%{opacity:1;transform:scale(1.14)}
+}
+
+/* Tablet landscape / compact desktop. */
+@media(max-width:1180px){
+  .mesh-core{grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+  .agents{grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+  .mesh-node{min-height:104px}
+}
+
+/* Tablet portrait. */
+@media(max-width:860px){
+  .wrap{padding-left:16px;padding-right:16px}
+  .mesh-core{grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+  .mesh-node{padding:12px 6px}
+  .mesh-agent-name{font-size:6.8px}
+  .agents{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+  .agent{min-height:230px}
+  .section-head{align-items:flex-start}
+  .section-head p{max-width:100%}
+}
+
+/* Smartphone. */
+@media(max-width:700px){
+  .wrap{padding-left:max(12px,env(safe-area-inset-left));padding-right:max(12px,env(safe-area-inset-right))}
+  .mesh-fabric{padding:14px 12px}
+  .mesh-head{align-items:flex-start;flex-direction:column;gap:7px}
+  .mesh-head span{font-size:8px;line-height:1.4}
+  .mesh-core{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+  .mesh-node{min-height:102px;padding:12px 8px}
+  .mesh-led{width:13px;height:13px;flex-basis:13px}
+  .mesh-code{font-size:9px}
+  .mesh-agent-name{font-size:7px}
+  .agents{grid-template-columns:1fr;gap:12px}
+  .agent{min-height:0;padding:14px;border-radius:16px}
+  .agent-head{gap:8px}
+  .agent-identity{gap:9px}
+  .agent-title strong{font-size:15px}
+  .agent-title small{font-size:11px}
+  .agent .state{font-size:10px;padding:6px 9px}
+  .agent pre{max-height:190px;font-size:12px;line-height:1.55;padding:12px}
+  .agent-meta-line{font-size:10px}
+  .section-head h2{font-size:22px}
+  button,.run,.load,.dl,input,select{min-height:44px}
+}
+
+/* Narrow smartphone. */
+@media(max-width:480px){
+  .mesh-core{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+  .mesh-node{min-height:96px;padding:10px 6px}
+  .mesh-agent-name{font-size:6.5px}
+  .agent{padding:13px}
+  .agent-title strong{font-size:14px}
+  .agent-title small{font-size:10px}
+  .agent-index{width:32px;height:32px;flex-basis:32px}
+  .agent .state{font-size:9px}
+  .agent pre{font-size:11.5px}
+}
+
 @media(prefers-contrast:more){:root{--text:#fff;--muted:#d4e7e3;--muted2:#acc8c1}.sub,.section-copy,.section-head p,.truth,.security-note,.control-note,.brand-sub,.assurance-item small,.agent-title small,.event-desc{color:#e2f2ef}.agent pre,.final{color:#f2fffc}.field input,.field select{border-color:#67d8c3}}
 @media(prefers-reduced-motion:reduce){*,*:before,*:after{animation-duration:.001ms!important;animation-iteration-count:1!important;scroll-behavior:auto!important}.global-clock:before{display:none}.clock-live-dot{opacity:1;transform:none}}
 </style></head><body>
@@ -1051,7 +1443,7 @@ body[data-launch-fx=active] .agent{box-shadow:0 0 22px rgba(0,231,255,.055),inse
 <main class="wrap" id="missionShell">
   <header class="topbar">
     <div class="brand-block"><div class="brand-mark">CDB</div><div><div class="brand">CYBERDUDEBIVASH® SENTINEL APEX™</div><span class="brand-sub">Autonomous Cyber Intelligence Control Plane</span></div></div>
-    <div class="top-status"><span class="top-pill" id="runtimePill"><span class="dot"></span><span id="runtimeState" aria-live="polite">CHECKING RUNTIME</span></span><span class="top-pill"><span class="dot"></span>V4.46.1 PRODUCTION</span><section class="global-clock" id="globalClock" data-synced="fallback" aria-label="Current customer location time"><div class="clock-led-wrap"><span class="clock-live-dot" aria-hidden="true"></span><time class="clock-led" id="clockTime" datetime="${initialNow.toISOString()}" aria-live="off">${initialUtcTime}</time></div><div class="clock-zone mono" id="clockZone">UTC · EDGE SYNC</div><div class="clock-meta"><span class="clock-location" id="clockLocation">GLOBAL EDGE · RESOLVING</span><span class="clock-country" id="clockCountry">UTC · ${initialUtcDate}</span></div></section></div>
+    <div class="top-status"><span class="top-pill" id="runtimePill"><span class="dot"></span><span id="runtimeState" aria-live="polite">CHECKING RUNTIME</span></span><span class="top-pill"><span class="dot"></span>V4.46.2 PRODUCTION</span><section class="global-clock" id="globalClock" data-synced="fallback" aria-label="Current customer location time"><div class="clock-led-wrap"><span class="clock-live-dot" aria-hidden="true"></span><time class="clock-led" id="clockTime" datetime="${initialNow.toISOString()}" aria-live="off">${initialUtcTime}</time></div><div class="clock-zone mono" id="clockZone">UTC · EDGE SYNC</div><div class="clock-meta"><span class="clock-location" id="clockLocation">GLOBAL EDGE · RESOLVING</span><span class="clock-country" id="clockCountry">UTC · ${initialUtcDate}</span></div></section></div>
   </header>
 
   <section class="hero">
@@ -1103,16 +1495,7 @@ body[data-launch-fx=active] .agent{box-shadow:0 0 22px rgba(0,231,255,.055),inse
 
   <section class="mesh-fabric" aria-label="Live private mesh topology">
     <div class="mesh-head"><div><div class="section-kicker">Private Execution Fabric</div><strong>8-Agent Mesh Topology</strong></div><span>STATE-DRIVEN LED NODES · NO SIMULATED TELEMETRY</span></div>
-    <div class="mesh-core">
-      <div class="mesh-node" id="mesh-ioc-hunter" data-state="IDLE"><b>IOC</b></div>
-      <div class="mesh-node" id="mesh-cve-intelligence" data-state="IDLE"><b>CVE</b></div>
-      <div class="mesh-node" id="mesh-threat-hunter" data-state="IDLE"><b>THREAT</b></div>
-      <div class="mesh-node" id="mesh-attack-mapper" data-state="IDLE"><b>ATT&CK</b></div>
-      <div class="mesh-node" id="mesh-siem-defender" data-state="IDLE"><b>SIEM</b></div>
-      <div class="mesh-node" id="mesh-ir-playbook" data-state="IDLE"><b>IR</b></div>
-      <div class="mesh-node" id="mesh-exposure-analyst" data-state="IDLE"><b>EXPOSURE</b></div>
-      <div class="mesh-node" id="mesh-risk-synthesizer" data-state="IDLE"><b>RISK</b></div>
-    </div>
+    <div class="mesh-core">${meshNodes}</div>
   </section>
 
   <section class="mission-meta">
@@ -1196,7 +1579,7 @@ export default {
         status: 'ok',
         service: 'sentinel-apex-swarm-live',
         protocol: PROTOCOL,
-        version: env.SWARM_VERSION || '4.46.1',
+        version: env.SWARM_VERSION || '4.46.2',
         agents: AGENTS.length,
         // Real dependency status, not a static ack -- reflects whether
         // mission history/evidence export can actually serve a request
@@ -1242,6 +1625,7 @@ export default {
 
 export const __test = Object.freeze({
   AGENTS,
+  AGENT_VISUALS,
   SPECIALIST_ROUTES,
   authHeaders,
   hasAuth,
