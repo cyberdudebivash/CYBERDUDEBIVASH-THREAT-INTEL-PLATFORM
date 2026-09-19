@@ -19,6 +19,9 @@ on drift between:
   C43-C46   DAILY_QUOTAS (daily-quota.js)       requests_per_day vs canon
   C47-C58   pricing.html PRICES table (USD/INR, monthly/annual, 3 paid tiers)
   C59+      revenue/operator dashboards' own TIER_PRICES-style constants
+  C59a+     lowercase pricing_tiers-style dashboard constants
+  C59b+     workers/revenue-engine/src/index.js TIERS/PLANS/DEAL_VALUES_INR
+  C59c+     mssp.html partner break-even/profit calculator
   C60+      every buyer-facing HTML page, scanned for superseded price literals
   C61+      _forbidden_claims (commercial-contract.json) not present unnegated
 
@@ -255,6 +258,104 @@ def main() -> int:
             if key in values:
                 check(values[key] == expected, f"{rel} {{{key}}} == {expected} (got {values[key]})")
     log.info("Scanned %d dashboard file(s) with a TIER_PRICES-style constant.", dashboards_checked)
+
+    # --- lowercase-keyed `pricing_tiers: {free:0, pro:49, enterprise:499,
+    # mssp:999}` shape, found (still stale) in dashboard/revenue_acceleration
+    # .html and dashboard/revenue_dashboard.html during this gate's rebuild --
+    # distinct from the TIER_PRICES-style constant above (different variable
+    # name, lowercase keys, no *_ANNUAL variant).
+    lowercase_tier_pattern = re.compile(r"pricing_tiers\s*:\s*\{([^}]*)\}")
+    lowercase_expected = {
+        "free": canon["free"]["usd_monthly"], "pro": canon["pro"]["usd_monthly"],
+        "enterprise": canon["enterprise"]["usd_monthly"], "mssp": canon["mssp"]["usd_monthly"],
+    }
+    lowercase_checked = 0
+    for path in dashboard_candidates:
+        if not path.exists():
+            continue
+        text = path.read_text(encoding="utf-8", errors="ignore")
+        for m in lowercase_tier_pattern.finditer(text):
+            lowercase_checked += 1
+            rel = path.relative_to(REPO_ROOT)
+            values = {k: int(v) for k, v in re.findall(r"(free|pro|enterprise|mssp)\s*:\s*'?(\d+)'?", m.group(1))}
+            for key, expected in lowercase_expected.items():
+                if key in values:
+                    check(values[key] == expected, f"{rel} pricing_tiers.{key} == {expected} (got {values[key]})")
+    log.info("Scanned %d pricing_tiers-style constant(s).", lowercase_checked)
+
+    # --- workers/revenue-engine/src/index.js: TIERS, PLANS, DEAL_VALUES_INR -
+    # A second, independently deployed Worker (own Razorpay/Stripe secrets,
+    # D1 CRM, live route on intel.cyberdudebivash.com/api/v2/billing/*) with
+    # its own three price tables, found still stale during this gate's
+    # rebuild -- TIERS feeds real key entitlements, a persisted revenue:mrr_usd
+    # KV ledger, and (via DEAL_VALUES_INR) live outbound/upsell/contract email
+    # copy actually sent to leads and customers. See PLANS' own comment for
+    # why it's checked even though it's confirmed dead code: cheap insurance
+    # against it becoming live again with stale numbers still in it.
+    revenue_engine_path = REPO_ROOT / "workers" / "revenue-engine" / "src" / "index.js"
+    if revenue_engine_path.exists():
+        re_src = revenue_engine_path.read_text(encoding="utf-8", errors="ignore")
+        tiers_m = re.search(r"const TIERS\s*=\s*\{(.*?)\n\};", re_src, re.DOTALL)
+        check(tiers_m is not None, "workers/revenue-engine/src/index.js TIERS constant located")
+        if tiers_m:
+            for tier_id, key in (("pro", "PRO"), ("enterprise", "ENTERPRISE"), ("mssp", "MSSP")):
+                tier_m = re.search(rf"{key}:\s*\{{([^}}]*)\}}", tiers_m.group(1))
+                check(tier_m is not None, f"revenue-engine TIERS.{key} defined")
+                if tier_m:
+                    usd_m = re.search(r"price_usd\s*:\s*(\d+)", tier_m.group(1))
+                    inr_m = re.search(r"price_inr\s*:\s*(\d+)", tier_m.group(1))
+                    check(usd_m is not None and int(usd_m.group(1)) == canon[tier_id]["usd_monthly"],
+                          f"revenue-engine TIERS.{key}.price_usd == {canon[tier_id]['usd_monthly']} "
+                          f"(got {usd_m.group(1) if usd_m else None})")
+                    check(inr_m is not None and int(inr_m.group(1)) == canon[tier_id]["inr_monthly"],
+                          f"revenue-engine TIERS.{key}.price_inr == {canon[tier_id]['inr_monthly']} "
+                          f"(got {inr_m.group(1) if inr_m else None})")
+
+        plans_m = re.search(r"PLANS:\s*\{(.*?)\n  \},", re_src, re.DOTALL)
+        if plans_m:
+            for tier_id in ("pro", "enterprise", "mssp"):
+                tier_m = re.search(rf"{tier_id}:\s*\{{([^}}]*)\}}", plans_m.group(1))
+                if tier_m:
+                    usd_m = re.search(r"(?<!annual_)usd\s*:\s*(\d+)", tier_m.group(1))
+                    annual_usd_m = re.search(r"annual_usd\s*:\s*(\d+)", tier_m.group(1))
+                    check(usd_m is not None and int(usd_m.group(1)) == canon[tier_id]["usd_monthly"],
+                          f"revenue-engine PLANS.{tier_id}.usd == {canon[tier_id]['usd_monthly']} "
+                          f"(got {usd_m.group(1) if usd_m else None})")
+                    check(annual_usd_m is not None and int(annual_usd_m.group(1)) == canon[tier_id]["usd_annual"],
+                          f"revenue-engine PLANS.{tier_id}.annual_usd == {canon[tier_id]['usd_annual']} "
+                          f"(got {annual_usd_m.group(1) if annual_usd_m else None})")
+
+        deal_values_m = re.search(r"DEAL_VALUES_INR:\s*\{([^}]*)\}", re_src)
+        check(deal_values_m is not None, "revenue-engine DEAL_VALUES_INR constant located")
+        if deal_values_m:
+            em_m = re.search(r"enterprise_monthly\s*:\s*(\d+)", deal_values_m.group(1))
+            ea_m = re.search(r"enterprise_annual\s*:\s*(\d+)", deal_values_m.group(1))
+            check(em_m is not None and int(em_m.group(1)) == canon["enterprise"]["inr_monthly"],
+                  f"revenue-engine DEAL_VALUES_INR.enterprise_monthly == {canon['enterprise']['inr_monthly']} "
+                  f"(got {em_m.group(1) if em_m else None})")
+            check(ea_m is not None and int(ea_m.group(1)) == canon["enterprise"]["inr_annual"],
+                  f"revenue-engine DEAL_VALUES_INR.enterprise_annual == {canon['enterprise']['inr_annual']} "
+                  f"(got {ea_m.group(1) if ea_m else None})")
+        # No email template in this file may fall back to the old bare 14999
+        # placeholder this gate's rebuild found and replaced with a reference
+        # to DEAL_VALUES_INR.enterprise_monthly.
+        check("14999" not in re_src, "workers/revenue-engine/src/index.js contains no bare 14999 fallback")
+        check("Unlimited API calls" not in re_src,
+              "workers/revenue-engine/src/index.js email copy does not claim Unlimited API calls")
+
+    # --- mssp.html partner break-even calculator -- bare arithmetic
+    # literals, not an object, so checked as exact known-good expressions
+    # rather than a general numeric sweep (a bare "999"/"1999" elsewhere on
+    # the page is too easily a coincidental, unrelated number to regex for
+    # safely; these two expressions are the specific historical bug).
+    mssp_html_path = REPO_ROOT / "mssp.html"
+    if mssp_html_path.exists():
+        mssp_src = mssp_html_path.read_text(encoding="utf-8", errors="ignore")
+        check(f"({canon['mssp']['usd_monthly']} / (" in mssp_src.replace(" ", "") or
+              f"({canon['mssp']['usd_monthly']}/(" in mssp_src.replace(" ", ""),
+              f"mssp.html break-even calculator uses {canon['mssp']['usd_monthly']}, not a superseded MSSP cost")
+        check(f"commission - {canon['mssp']['usd_monthly']}" in mssp_src.replace(";", ""),
+              f"mssp.html profit calculator subtracts {canon['mssp']['usd_monthly']}, not a superseded MSSP cost")
 
     # --- C60+: sweep every buyer-facing HTML page for superseded literals --
     scanned = 0

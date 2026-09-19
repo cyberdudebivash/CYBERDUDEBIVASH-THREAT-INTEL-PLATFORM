@@ -26,7 +26,7 @@ const schema = {
   "name": "SENTINEL APEX IOC Feed API Documentation",
   "description": "Technical documentation for the SENTINEL APEX IOC Feed REST API. 2.4M+ live indicators, STIX 2.1 output, SIEM integration.",
   "url": "https://intel.cyberdudebivash.com/ioc-feed-api",
-  "author": { "@type": "Organization", "name": "CYBERDUDEBIVASH PRIVATE LIMITED" },
+  "author": { "@type": "Organization", "name": "BIVASHA KUMAR NAYAK trading as CYBERDUDEBIVASH(R)" },
 };
 
 const ENDPOINTS = [

@@ -48,7 +48,7 @@ const iocSchema = {
   "name": "CYBERDUDEBIVASH SENTINEL APEX — IOC Intelligence Feed",
   "description": "Curated, MITRE ATT&CK-mapped indicators of compromise including malicious IP addresses, phishing domains, and malware SHA256 hashes. TLP:GREEN, continuously updated.",
   "url": "https://intel.cyberdudebivash.com/iocs",
-  "creator": { "@type": "Organization", "name": "CYBERDUDEBIVASH PRIVATE LIMITED" },
+  "creator": { "@type": "Organization", "name": "BIVASHA KUMAR NAYAK trading as CYBERDUDEBIVASH(R)" },
   "license": "https://www.cisa.gov/tlp",
   "keywords": ["IOC", "threat indicator", "malware hash", "phishing domain", "malicious IP"],
 };

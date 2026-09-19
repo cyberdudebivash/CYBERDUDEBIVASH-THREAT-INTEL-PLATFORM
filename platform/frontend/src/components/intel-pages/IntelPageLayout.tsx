@@ -108,7 +108,7 @@ export function IntelPageLayout({ children, breadcrumbs }: IntelPageLayoutProps)
             </div>
           </div>
           <div className="mt-8 pt-6 border-t border-gray-800 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-gray-600">
-            <p>© 2026 CYBERDUDEBIVASH PRIVATE LIMITED. All rights reserved.</p>
+            <p>© 2026 BIVASHA KUMAR NAYAK trading as CYBERDUDEBIVASH®. All rights reserved.</p>
             <p>Intelligence data is TLP:GREEN unless otherwise marked.</p>
           </div>
         </div>

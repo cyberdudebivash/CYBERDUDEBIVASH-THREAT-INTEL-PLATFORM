@@ -365,13 +365,22 @@ REGEX_TARGETS = [
         r'(GSTIN: 21ARKPN8270G1ZP · SENTINEL APEX API v)[0-9]+\.[0-9]+(?:\.[0-9]+)?',
         r'\g<1>{VER}',
     ),
-    # case-studies.html -- footer
+    # case-studies.html / testimonials.html -- footer.
+    # PR #435 (2026-09-19) rewrote both footers to the correct legal entity
+    # ("BIVASHA KUMAR NAYAK trading as CYBERDUDEBIVASH(R)") and, in the same
+    # pass, dropped the trailing " &nbsp;·&nbsp; vX.Y.Z" version suffix
+    # entirely -- current text ends "... &nbsp;·&nbsp; SENTINEL APEX" with
+    # no version at all. The two patterns below intentionally no longer match
+    # anything (neither the old entity name nor a version suffix exists on
+    # these pages any more), so this version-bump silently skips both pages
+    # rather than erroring. If these footers are meant to carry a live
+    # version again, restore a "vX.Y.Z" placeholder there first, then update
+    # these two regexes to the current entity string.
     (
         "case-studies.html",
         r'(CYBERDUDEBIVASH PRIVATE LIMITED &nbsp;·&nbsp; SENTINEL APEX &nbsp;·&nbsp; v)[0-9]+\.[0-9]+(?:\.[0-9]+)?',
         r'\g<1>{VER}',
     ),
-    # testimonials.html -- footer (identical copy to case-studies.html)
     (
         "testimonials.html",
         r'(CYBERDUDEBIVASH PRIVATE LIMITED &nbsp;·&nbsp; SENTINEL APEX &nbsp;·&nbsp; v)[0-9]+\.[0-9]+(?:\.[0-9]+)?',

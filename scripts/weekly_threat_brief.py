@@ -323,7 +323,7 @@ footer{{text-align:center;padding:32px 0;color:#334155;font-size:12px;border-top
   </div>
 
   <footer>
-    <p>CYBERDUDEBIVASH PRIVATE LIMITED · GSTIN: 21ARKPN8270G1ZP · Odisha, India</p>
+    <p>BIVASHA KUMAR NAYAK trading as CYBERDUDEBIVASH&reg; · GSTIN: 21ARKPN8270G1ZP · Odisha, India</p>
     <p style="margin-top:8px;"><a href="{PLATFORM_URL}" style="color:#334155;">intel.cyberdudebivash.com</a> · <a href="mailto:enterprise@cyberdudebivash.com" style="color:#334155;">enterprise@cyberdudebivash.com</a></p>
   </footer>
 </div>

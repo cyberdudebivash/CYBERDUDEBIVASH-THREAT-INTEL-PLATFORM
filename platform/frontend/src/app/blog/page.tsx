@@ -158,14 +158,14 @@ const blogListSchema = {
   "name": "CYBERDUDEBIVASH® SENTINEL APEX Threat Intelligence Blog",
   "description": "In-depth threat intelligence research including CVE analysis, APT campaigns, ransomware, ICS/OT advisories, and malware reverse-engineering.",
   "url": "https://intel.cyberdudebivash.com/blog",
-  "author": { "@type": "Organization", "name": "CYBERDUDEBIVASH PRIVATE LIMITED" },
+  "author": { "@type": "Organization", "name": "BIVASHA KUMAR NAYAK trading as CYBERDUDEBIVASH(R)" },
   "blogPost": BLOG_POSTS.map((p) => ({
     "@type": "BlogPosting",
     "headline": p.title,
     "description": p.excerpt,
     "url": `https://intel.cyberdudebivash.com${p.externalPath}`,
     "datePublished": p.date,
-    "author": { "@type": "Organization", "name": "CYBERDUDEBIVASH PRIVATE LIMITED" },
+    "author": { "@type": "Organization", "name": "BIVASHA KUMAR NAYAK trading as CYBERDUDEBIVASH(R)" },
     "keywords": p.tags.join(", "),
   })),
 };

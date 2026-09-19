@@ -67,7 +67,7 @@ export default function NotFound() {
         </Link>
 
         <p className="mt-8 text-xs text-gray-600">
-          © 2026 CYBERDUDEBIVASH PRIVATE LIMITED · TLP:GREEN
+          © 2026 BIVASHA KUMAR NAYAK trading as CYBERDUDEBIVASH® · TLP:GREEN
         </p>
       </div>
     </div>
