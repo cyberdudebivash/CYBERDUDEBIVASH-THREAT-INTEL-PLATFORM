@@ -96,6 +96,20 @@ jobs:
         run: python3 scripts/entitlement_resource_drift_gate.py
       - name: "Worker JS integrity gate"
         run: python3 scripts/worker_js_integrity_gate.py
+      - name: "Commercial contract drift gate"
+        # Fails when any pricing definition, the Razorpay charging table, the
+        # gateway's enforced quotas, or any buyer page disagrees with
+        # config/commercial-contract.json. Added after an audit found five
+        # disagreeing plan definitions and two official surfaces quoting
+        # different MSSP prices while the gateway charged a third figure.
+        run: python3 scripts/verify_commercial_contract.py
+      - name: "Unsupported social-proof gate"
+        # Fails when a buyer page publishes customer proof with no evidence
+        # source (see config/evidence-register.json).
+        run: python3 scripts/verify_public_claims.py
+      - name: "Platform evidence freshness"
+        # The counts public pages cite must still match this repository.
+        run: python3 scripts/generate_platform_evidence.py --check
       - name: "Regression test suite"
         run: python3 scripts/regression_tests.py
 
