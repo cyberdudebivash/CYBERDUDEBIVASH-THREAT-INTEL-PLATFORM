@@ -873,6 +873,64 @@ function escapeHtml(value) {
   return String(value).replace(/[&<>"']/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
 }
 
+function swarmAppJs() {
+  return String.raw\`  document.documentElement.dataset.swarmUi='ready';
+  window.__CDB_SWARM_UI_READY__=true;
+const run=document.getElementById('run'),final=document.getElementById('final'),eventLog=document.getElementById('eventLog');
+  const byId=(id)=>document.getElementById(id);
+  function setTone(el,tone){if(!el)return;el.dataset.tone=tone||''}
+  function setText(id,value,tone){const el=byId(id);if(!el)return;el.textContent=value;setTone(el,tone)}
+  function setMissionState(value,tone){setText('missionState',value,tone);setText('finalBadge',value,tone)}
+  function resetAgents(){document.querySelectorAll('.agent').forEach((el)=>{el.dataset.state='IDLE';el.querySelector('.state').textContent='IDLE';el.querySelector('.basis').textContent='WAITING';el.querySelector('.duration').textContent='—';const p=el.querySelector('pre');p.textContent='Awaiting backend execution.';const n=el.querySelector('.narrative');if(n){n.hidden=true;n.textContent=''}})}
+  function resetEventLog(){eventLog.innerHTML='<div class="event-empty">Waiting for the production SSE stream…</div>'}
+  function appendEvent(ev){const empty=eventLog.querySelector('.event-empty');if(empty)empty.remove();const row=document.createElement('div');row.className='event-row';const seq=document.createElement('span');seq.className='event-seq';seq.textContent='#'+String(ev.sequence||'—').padStart(2,'0');const state=document.createElement('span');state.className='event-state';state.textContent=ev.state||'EVENT';const desc=document.createElement('span');desc.className='event-desc';const when=ev.timestamp?new Date(ev.timestamp).toLocaleTimeString():'—';desc.textContent=when+' · '+(ev.event_type||'swarm.event')+(ev.agent_name?' · '+ev.agent_name:'');row.append(seq,state,desc);eventLog.appendChild(row);eventLog.scrollTop=eventLog.scrollHeight}
+  function renderNarrative(el,result){const n=el.querySelector('.narrative');if(!n)return;n.hidden=false;n.textContent='';const badge=document.createElement('span');badge.className='badge';const body=document.createElement('span');body.className='narrative-body';if(result.llm_enhanced&&result.ai_narrative){badge.dataset.kind='ai';badge.textContent='AI-SYNTHESIZED'+(result.llm_model?' · '+result.llm_model:'');body.textContent=result.ai_narrative}else{badge.dataset.kind='deterministic';badge.textContent='DETERMINISTIC FUSION';body.textContent=result.recommendation||''}n.append(badge,body)}
+  function setAgent(ev){if(!ev.agent_id)return;const el=byId('agent-'+ev.agent_id);if(!el)return;el.dataset.state=ev.state||'IDLE';el.querySelector('.state').textContent=(ev.state||'IDLE')+(ev.basis==='unconfigured'?' · CONFIG ERROR':'');el.querySelector('.basis').textContent=(ev.basis||ev.event_type||'BACKEND').replaceAll('_',' ');el.querySelector('.duration').textContent=Number.isFinite(ev.duration_ms)?ev.duration_ms+' ms':'—';if(ev.agent_id==='risk-synthesizer'&&ev.result)renderNarrative(el,ev.result);const p=el.querySelector('pre');if(ev.result)p.textContent=JSON.stringify(ev.result,null,2);else if(ev.detail)p.textContent=JSON.stringify(ev.detail,null,2);else if(ev.event_type)p.textContent=ev.event_type}
+  function renderPersistedMission(record){setText('mission',record.mission_id||'—');setText('correlation',record.correlation_id||'—');setMissionState(record.status==='COMPLETED'?'REPLAYED · COMPLETED':('REPLAYED · '+(record.status||'UNKNOWN')),record.status==='COMPLETED'?'ok':'warn');setText('mesh',record.mesh_certified?'CERTIFIED':'NOT CERTIFIED',record.mesh_certified?'ok':'warn');if(record.specialists){Object.entries(record.specialists).forEach(([id,o])=>setAgent({agent_id:id,state:o.state,basis:o.basis,result:o.result,duration_ms:o.duration_ms}))}final.textContent=JSON.stringify(record,null,2);eventLog.innerHTML='<div class="event-empty">Persisted idempotent replay loaded. No duplicate backend dispatch was performed.</div>'}
+  async function hydrateHealth(){try{const r=await fetch('/api/swarm/health',{cache:'no-store'});const body=await r.json();if(!r.ok)throw new Error('HTTP '+r.status);setText('runtimeState','LIVE','ok');setTone(byId('runtimePill'),'ok');setText('runtimeKpi','LIVE · '+(body.version||'CURRENT'),'ok');setText('protocol',body.protocol||'cdb.swarm.v1');setText('agentCount',String(body.agents||8)+' AGENTS','ok');const gateway=Boolean(body.production&&body.production.canonical_gateway_bound);const durable=Boolean(body.persistence&&body.persistence.kv_bound);const retry=Boolean(body.capabilities&&body.capabilities.idempotent_retry);const formats=(body.capabilities&&body.capabilities.report_formats)||[];setText('gatewayState',gateway?'BOUND':'UNAVAILABLE',gateway?'ok':'warn');setText('persistenceState',durable?'READY':'UNAVAILABLE',durable?'ok':'warn');setText('retryState',retry?'ENFORCED':'UNKNOWN',retry?'ok':'warn');setText('exportState',formats.includes('stix21')?'READY':'LIMITED',formats.includes('stix21')?'ok':'warn');setText('evidenceStore',durable?'DURABLE KV READY':'UNAVAILABLE',durable?'ok':'warn')}catch(e){setText('runtimeState','UNAVAILABLE','warn');setText('runtimeKpi','HEALTH CHECK FAILED','warn');setText('gatewayState','UNKNOWN','warn');setText('persistenceState','UNKNOWN','warn');setText('retryState','UNKNOWN','warn');setText('exportState','UNKNOWN','warn');setText('evidenceStore','UNKNOWN','warn')}}
+  run.onclick=async()=>{const key=byId('key').value.trim(),ioc=byId('ioc').value.trim(),type=byId('type').value;if(!key||!ioc){final.textContent='API key and IOC are required.';setMissionState('INPUT REQUIRED','warn');return}resetAgents();resetEventLog();run.disabled=true;final.textContent='Connecting to the production swarm…';setText('mission','—');setText('correlation','—');setText('mesh','PENDING','warn');setMissionState('CONNECTING','warn');try{const rid='ui-'+crypto.randomUUID();const r=await fetch('/api/swarm/run',{method:'POST',headers:{'content-type':'application/json','x-api-key':key,'x-request-id':rid},body:JSON.stringify({ioc_value:ioc,ioc_type:type})});if(!r.ok){setMissionState('REJECTED','warn');final.textContent='Launch failed: HTTP '+r.status+' '+await r.text();return}const contentType=r.headers.get('content-type')||'';if(contentType.includes('application/json')){const replay=await r.json();if(replay&&replay.idempotent_replay&&replay.data){renderPersistedMission(replay.data);return}final.textContent=JSON.stringify(replay,null,2);return}setText('mission',r.headers.get('x-cdb-swarm-mission')||'—');setText('correlation',r.headers.get('x-cdb-swarm-correlation')||rid);const reader=r.body.getReader(),decoder=new TextDecoder();let buf='';while(true){const chunkResult=await reader.read();if(chunkResult.done)break;buf+=decoder.decode(chunkResult.value,{stream:true});let idx;while((idx=buf.indexOf('\n\n'))>=0){const chunk=buf.slice(0,idx);buf=buf.slice(idx+2);const line=chunk.split('\n').find((x)=>x.startsWith('data: '));if(!line)continue;const ev=JSON.parse(line.slice(6));setText('mission',ev.mission_id||'—');setText('correlation',ev.correlation_id||'—');appendEvent(ev);setAgent(ev);if(ev.event_type==='mission.accepted')setMissionState('QUEUED','warn');else if(ev.event_type==='mesh.admitted'){setText('mesh','CERTIFIED · '+(ev.mesh_execution_id||''),'ok');setMissionState('ADMITTED','ok')}else if(ev.event_type==='agent.started')setMissionState('RUNNING','warn');if(ev.mesh_certified)setText('mesh','CERTIFIED · '+(ev.mesh_execution_id||''),'ok');if(ev.event_type==='mission.completed'){setMissionState('COMPLETED','ok');final.textContent=JSON.stringify(ev.result,null,2)}if(ev.event_type==='mission.rejected'||ev.event_type==='mission.failed'){setMissionState('FAILED','warn');final.textContent=JSON.stringify(ev,null,2)}}}}catch(e){setMissionState('TRANSPORT FAILED','warn');final.textContent='Mission transport failed: '+e.message}finally{run.disabled=false}}
+  hydrateHealth();
+  const loadHistoryBtn=document.getElementById('loadHistory'),historyBody=document.getElementById('historyBody'),historyNote=document.getElementById('historyNote');
+  function escHtml(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+  loadHistoryBtn.onclick=async()=>{
+    const key=document.getElementById('key').value.trim();
+    if(!key){historyNote.textContent='Enter your API key above first.';return}
+    loadHistoryBtn.disabled=true;historyNote.textContent='Loading…';
+    try{
+      const r=await fetch('/api/swarm/missions?limit=20',{headers:{'x-api-key':key}});
+      const body=await r.json();
+      if(!r.ok){historyNote.textContent='History unavailable: '+(body.message||body.error||('HTTP '+r.status));historyBody.innerHTML='';return}
+      const missions=(body.data&&body.data.missions)||[];
+      if(!missions.length){historyNote.textContent='No missions found yet for this key.';historyBody.innerHTML='';return}
+      historyNote.textContent=missions.length+' mission(s)'+((body.data&&body.data.list_complete)?'':' (more available)');
+      historyBody.innerHTML='<table><thead><tr><th>Finished</th><th>IOC</th><th>Verdict</th><th>Status</th><th>Evidence</th></tr></thead><tbody>'+missions.map(m=>
+        '<tr><td>'+escHtml(m.finished_at||'—')+'</td><td>'+escHtml(m.ioc_value||'—')+'</td><td>'+escHtml(m.verdict||'—')+'</td><td>'+escHtml(m.status||'—')+'</td><td><button type="button" class="dl" data-id="'+escHtml(m.mission_id)+'" data-format="md">report</button> <button type="button" class="dl" data-id="'+escHtml(m.mission_id)+'" data-format="json">json</button> <button type="button" class="dl" data-id="'+escHtml(m.mission_id)+'" data-format="stix21">stix</button></td></tr>'
+      ).join('')+'</tbody></table>';
+    }catch(e){historyNote.textContent='History request failed: '+e.message}
+    finally{loadHistoryBtn.disabled=false}
+  };
+  historyBody.onclick=async(e)=>{
+    const btn=e.target.closest('.dl');if(!btn)return;
+    const key=document.getElementById('key').value.trim();
+    if(!key){historyNote.textContent='Enter your API key above first.';return}
+    const id=btn.dataset.id,format=btn.dataset.format;
+    btn.disabled=true;
+    try{
+      const r=await fetch('/api/swarm/mission/'+encodeURIComponent(id)+'/report?format='+format,{headers:{'x-api-key':key}});
+      if(!r.ok){historyNote.textContent='Export failed: HTTP '+r.status;return}
+      const cd=r.headers.get('content-disposition')||'',m=cd.match(/filename="([^"]+)"/);
+      const blob=await r.blob();
+      const a=document.createElement('a');
+      a.href=URL.createObjectURL(blob);
+      a.download=m?m[1]:(id+'.'+format);
+      document.body.appendChild(a);a.click();a.remove();
+      URL.revokeObjectURL(a.href);
+    }catch(err){historyNote.textContent='Export failed: '+err.message}
+    finally{btn.disabled=false}
+  };
+\`;
+}
+
 function ui() {
   const agents = AGENTS.map((a, index) =>
     `<article class="agent" id="agent-${escapeHtml(a.id)}" data-state="IDLE"><div class="agent-head"><div class="agent-identity"><span class="agent-index">${String(index + 1).padStart(2, '0')}</span><div class="agent-title"><strong>${escapeHtml(a.name)}</strong><small>${escapeHtml(a.capability)}</small></div></div><span class="state">IDLE</span></div><div class="agent-meta-line"><span class="basis">WAITING</span><span class="duration">—</span></div>${a.id === 'risk-synthesizer' ? '<p class="narrative" hidden></p>' : ''}<pre>Awaiting backend execution.</pre></article>`
@@ -911,7 +969,7 @@ function ui() {
       <div class="field"><label for="key">Sentinel API Key</label><input id="key" type="password" autocomplete="off" spellcheck="false" placeholder="ENTERPRISE / PRO / MSSP API key"></div>
       <div class="field"><label for="ioc">Observable / IOC</label><input id="ioc" value="8.8.8.8" aria-label="IOC" spellcheck="false"></div>
       <div class="field"><label for="type">IOC Type</label><select id="type"><option value="ipv4">IPv4</option><option value="domain">Domain</option><option value="url">URL</option><option value="hash">Hash</option><option value="auto">Auto detect</option></select></div>
-      <button class="run" id="run">RUN LIVE SWARM</button>
+      <button type="button" class="run" id="run">RUN LIVE SWARM</button>
     </div>
     <p class="security-note">Credential storage: none. Mission execution is accepted only through production auth, entitlement and private-mesh controls.</p>
   </section>
@@ -944,78 +1002,35 @@ function ui() {
   </section>
 
   <section class="history">
-    <div class="row"><div><div class="section-kicker">Durable Evidence</div><h2>Mission History & Evidence Export</h2></div><button class="load" id="loadHistory">LOAD HISTORY</button></div>
+    <div class="row"><div><div class="section-kicker">Durable Evidence</div><h2>Mission History & Evidence Export</h2></div><button type="button" class="load" id="loadHistory">LOAD HISTORY</button></div>
     <p class="truth" id="historyNote">Loads only missions scoped to the API key above. Completed missions can be exported as report, JSON evidence, or STIX 2.1.</p>
     <div id="historyBody"></div>
   </section>
 
   <footer class="footer"><span>CYBERDUDEBIVASH® SENTINEL APEX™ · SUPER AGENT SWARM</span><span><strong>Production truth model:</strong> backend events only · no simulated telemetry</span></footer>
 </main>
-<script>
-  const run=document.getElementById('run'),final=document.getElementById('final'),eventLog=document.getElementById('eventLog');
-  const byId=(id)=>document.getElementById(id);
-  function setTone(el,tone){if(!el)return;el.dataset.tone=tone||''}
-  function setText(id,value,tone){const el=byId(id);if(!el)return;el.textContent=value;setTone(el,tone)}
-  function setMissionState(value,tone){setText('missionState',value,tone);setText('finalBadge',value,tone)}
-  function resetAgents(){document.querySelectorAll('.agent').forEach((el)=>{el.dataset.state='IDLE';el.querySelector('.state').textContent='IDLE';el.querySelector('.basis').textContent='WAITING';el.querySelector('.duration').textContent='—';const p=el.querySelector('pre');p.textContent='Awaiting backend execution.';const n=el.querySelector('.narrative');if(n){n.hidden=true;n.textContent=''}})}
-  function resetEventLog(){eventLog.innerHTML='<div class="event-empty">Waiting for the production SSE stream…</div>'}
-  function appendEvent(ev){const empty=eventLog.querySelector('.event-empty');if(empty)empty.remove();const row=document.createElement('div');row.className='event-row';const seq=document.createElement('span');seq.className='event-seq';seq.textContent='#'+String(ev.sequence||'—').padStart(2,'0');const state=document.createElement('span');state.className='event-state';state.textContent=ev.state||'EVENT';const desc=document.createElement('span');desc.className='event-desc';const when=ev.timestamp?new Date(ev.timestamp).toLocaleTimeString():'—';desc.textContent=when+' · '+(ev.event_type||'swarm.event')+(ev.agent_name?' · '+ev.agent_name:'');row.append(seq,state,desc);eventLog.appendChild(row);eventLog.scrollTop=eventLog.scrollHeight}
-  function renderNarrative(el,result){const n=el.querySelector('.narrative');if(!n)return;n.hidden=false;n.textContent='';const badge=document.createElement('span');badge.className='badge';const body=document.createElement('span');body.className='narrative-body';if(result.llm_enhanced&&result.ai_narrative){badge.dataset.kind='ai';badge.textContent='AI-SYNTHESIZED'+(result.llm_model?' · '+result.llm_model:'');body.textContent=result.ai_narrative}else{badge.dataset.kind='deterministic';badge.textContent='DETERMINISTIC FUSION';body.textContent=result.recommendation||''}n.append(badge,body)}
-  function setAgent(ev){if(!ev.agent_id)return;const el=byId('agent-'+ev.agent_id);if(!el)return;el.dataset.state=ev.state||'IDLE';el.querySelector('.state').textContent=(ev.state||'IDLE')+(ev.basis==='unconfigured'?' · CONFIG ERROR':'');el.querySelector('.basis').textContent=(ev.basis||ev.event_type||'BACKEND').replaceAll('_',' ');el.querySelector('.duration').textContent=Number.isFinite(ev.duration_ms)?ev.duration_ms+' ms':'—';if(ev.agent_id==='risk-synthesizer'&&ev.result)renderNarrative(el,ev.result);const p=el.querySelector('pre');if(ev.result)p.textContent=JSON.stringify(ev.result,null,2);else if(ev.detail)p.textContent=JSON.stringify(ev.detail,null,2);else if(ev.event_type)p.textContent=ev.event_type}
-  function renderPersistedMission(record){setText('mission',record.mission_id||'—');setText('correlation',record.correlation_id||'—');setMissionState(record.status==='COMPLETED'?'REPLAYED · COMPLETED':('REPLAYED · '+(record.status||'UNKNOWN')),record.status==='COMPLETED'?'ok':'warn');setText('mesh',record.mesh_certified?'CERTIFIED':'NOT CERTIFIED',record.mesh_certified?'ok':'warn');if(record.specialists){Object.entries(record.specialists).forEach(([id,o])=>setAgent({agent_id:id,state:o.state,basis:o.basis,result:o.result,duration_ms:o.duration_ms}))}final.textContent=JSON.stringify(record,null,2);eventLog.innerHTML='<div class="event-empty">Persisted idempotent replay loaded. No duplicate backend dispatch was performed.</div>'}
-  async function hydrateHealth(){try{const r=await fetch('/api/swarm/health',{cache:'no-store'});const body=await r.json();if(!r.ok)throw new Error('HTTP '+r.status);setText('runtimeState','LIVE','ok');setTone(byId('runtimePill'),'ok');setText('runtimeKpi','LIVE · '+(body.version||'CURRENT'),'ok');setText('protocol',body.protocol||'cdb.swarm.v1');setText('agentCount',String(body.agents||8)+' AGENTS','ok');const gateway=Boolean(body.production&&body.production.canonical_gateway_bound);const durable=Boolean(body.persistence&&body.persistence.kv_bound);const retry=Boolean(body.capabilities&&body.capabilities.idempotent_retry);const formats=(body.capabilities&&body.capabilities.report_formats)||[];setText('gatewayState',gateway?'BOUND':'UNAVAILABLE',gateway?'ok':'warn');setText('persistenceState',durable?'READY':'UNAVAILABLE',durable?'ok':'warn');setText('retryState',retry?'ENFORCED':'UNKNOWN',retry?'ok':'warn');setText('exportState',formats.includes('stix21')?'READY':'LIMITED',formats.includes('stix21')?'ok':'warn');setText('evidenceStore',durable?'DURABLE KV READY':'UNAVAILABLE',durable?'ok':'warn')}catch(e){setText('runtimeState','UNAVAILABLE','warn');setText('runtimeKpi','HEALTH CHECK FAILED','warn');setText('gatewayState','UNKNOWN','warn');setText('persistenceState','UNKNOWN','warn');setText('retryState','UNKNOWN','warn');setText('exportState','UNKNOWN','warn');setText('evidenceStore','UNKNOWN','warn')}}
-  run.onclick=async()=>{const key=byId('key').value.trim(),ioc=byId('ioc').value.trim(),type=byId('type').value;if(!key||!ioc){final.textContent='API key and IOC are required.';setMissionState('INPUT REQUIRED','warn');return}resetAgents();resetEventLog();run.disabled=true;final.textContent='Connecting to the production swarm…';setText('mission','—');setText('correlation','—');setText('mesh','PENDING','warn');setMissionState('CONNECTING','warn');try{const rid='ui-'+crypto.randomUUID();const r=await fetch('/api/swarm/run',{method:'POST',headers:{'content-type':'application/json','x-api-key':key,'x-request-id':rid},body:JSON.stringify({ioc_value:ioc,ioc_type:type})});if(!r.ok){setMissionState('REJECTED','warn');final.textContent='Launch failed: HTTP '+r.status+' '+await r.text();return}const contentType=r.headers.get('content-type')||'';if(contentType.includes('application/json')){const replay=await r.json();if(replay&&replay.idempotent_replay&&replay.data){renderPersistedMission(replay.data);return}final.textContent=JSON.stringify(replay,null,2);return}setText('mission',r.headers.get('x-cdb-swarm-mission')||'—');setText('correlation',r.headers.get('x-cdb-swarm-correlation')||rid);const reader=r.body.getReader(),decoder=new TextDecoder();let buf='';while(true){const chunkResult=await reader.read();if(chunkResult.done)break;buf+=decoder.decode(chunkResult.value,{stream:true});let idx;while((idx=buf.indexOf('\n\n'))>=0){const chunk=buf.slice(0,idx);buf=buf.slice(idx+2);const line=chunk.split('\n').find((x)=>x.startsWith('data: '));if(!line)continue;const ev=JSON.parse(line.slice(6));setText('mission',ev.mission_id||'—');setText('correlation',ev.correlation_id||'—');appendEvent(ev);setAgent(ev);if(ev.event_type==='mission.accepted')setMissionState('QUEUED','warn');else if(ev.event_type==='mesh.admitted'){setText('mesh','CERTIFIED · '+(ev.mesh_execution_id||''),'ok');setMissionState('ADMITTED','ok')}else if(ev.event_type==='agent.started')setMissionState('RUNNING','warn');if(ev.mesh_certified)setText('mesh','CERTIFIED · '+(ev.mesh_execution_id||''),'ok');if(ev.event_type==='mission.completed'){setMissionState('COMPLETED','ok');final.textContent=JSON.stringify(ev.result,null,2)}if(ev.event_type==='mission.rejected'||ev.event_type==='mission.failed'){setMissionState('FAILED','warn');final.textContent=JSON.stringify(ev,null,2)}}}}catch(e){setMissionState('TRANSPORT FAILED','warn');final.textContent='Mission transport failed: '+e.message}finally{run.disabled=false}}
-  hydrateHealth();
-  const loadHistoryBtn=document.getElementById('loadHistory'),historyBody=document.getElementById('historyBody'),historyNote=document.getElementById('historyNote');
-  function escHtml(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
-  loadHistoryBtn.onclick=async()=>{
-    const key=document.getElementById('key').value.trim();
-    if(!key){historyNote.textContent='Enter your API key above first.';return}
-    loadHistoryBtn.disabled=true;historyNote.textContent='Loading…';
-    try{
-      const r=await fetch('/api/swarm/missions?limit=20',{headers:{'x-api-key':key}});
-      const body=await r.json();
-      if(!r.ok){historyNote.textContent='History unavailable: '+(body.message||body.error||('HTTP '+r.status));historyBody.innerHTML='';return}
-      const missions=(body.data&&body.data.missions)||[];
-      if(!missions.length){historyNote.textContent='No missions found yet for this key.';historyBody.innerHTML='';return}
-      historyNote.textContent=missions.length+' mission(s)'+((body.data&&body.data.list_complete)?'':' (more available)');
-      historyBody.innerHTML='<table><thead><tr><th>Finished</th><th>IOC</th><th>Verdict</th><th>Status</th><th>Evidence</th></tr></thead><tbody>'+missions.map(m=>
-        '<tr><td>'+escHtml(m.finished_at||'—')+'</td><td>'+escHtml(m.ioc_value||'—')+'</td><td>'+escHtml(m.verdict||'—')+'</td><td>'+escHtml(m.status||'—')+'</td><td><button class="dl" data-id="'+escHtml(m.mission_id)+'" data-format="md">report</button> <button class="dl" data-id="'+escHtml(m.mission_id)+'" data-format="json">json</button> <button class="dl" data-id="'+escHtml(m.mission_id)+'" data-format="stix21">stix</button></td></tr>'
-      ).join('')+'</tbody></table>';
-    }catch(e){historyNote.textContent='History request failed: '+e.message}
-    finally{loadHistoryBtn.disabled=false}
-  };
-  historyBody.onclick=async(e)=>{
-    const btn=e.target.closest('.dl');if(!btn)return;
-    const key=document.getElementById('key').value.trim();
-    if(!key){historyNote.textContent='Enter your API key above first.';return}
-    const id=btn.dataset.id,format=btn.dataset.format;
-    btn.disabled=true;
-    try{
-      const r=await fetch('/api/swarm/mission/'+encodeURIComponent(id)+'/report?format='+format,{headers:{'x-api-key':key}});
-      if(!r.ok){historyNote.textContent='Export failed: HTTP '+r.status;return}
-      const cd=r.headers.get('content-disposition')||'',m=cd.match(/filename="([^"]+)"/);
-      const blob=await r.blob();
-      const a=document.createElement('a');
-      a.href=URL.createObjectURL(blob);
-      a.download=m?m[1]:(id+'.'+format);
-      document.body.appendChild(a);a.click();a.remove();
-      URL.revokeObjectURL(a.href);
-    }catch(err){historyNote.textContent='Export failed: '+err.message}
-    finally{btn.disabled=false}
-  };
-  </script></body></html>`;
+<script src="/swarm/app.js" defer></script></body></html>`;
 }
 
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
+    if (request.method === 'GET' && url.pathname === '/swarm/app.js') {
+      return new Response(swarmAppJs(), {
+        headers: {
+          'content-type': 'text/javascript; charset=utf-8',
+          'cache-control': 'no-store',
+          'x-content-type-options': 'nosniff',
+          'referrer-policy': 'no-referrer',
+        },
+      });
+    }
     if (request.method === 'GET' && (url.pathname === '/swarm' || url.pathname === '/swarm/')) {
       return new Response(ui(), {
         headers: {
           'content-type': 'text/html; charset=utf-8',
           'cache-control': 'no-store',
-          'content-security-policy': "default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'self'; img-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'",
+          'content-security-policy': "default-src 'none'; style-src 'unsafe-inline'; script-src 'self'; connect-src 'self'; img-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'",
           'x-frame-options': 'DENY',
           'x-content-type-options': 'nosniff',
           'referrer-policy': 'no-referrer',
@@ -1090,6 +1105,7 @@ export const __test = Object.freeze({
   credentialPartition,
   getMissionRecord,
   ui,
+  swarmAppJs,
   missionReportMarkdown,
   missionToStixBundle,
   missionIocToStixPattern,
