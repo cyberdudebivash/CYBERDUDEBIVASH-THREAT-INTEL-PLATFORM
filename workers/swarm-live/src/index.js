@@ -131,6 +131,31 @@ function hasAuth(headers) {
   );
 }
 
+/**
+ * Conservative CTI refanging for analyst-pasted observables.
+ * Only well-known defanging delimiters are normalized; hashes are left
+ * byte-for-byte unchanged. The canonical backend still performs all real
+ * classification/correlation and remains the source of truth.
+ */
+function normalizeIocValue(value, iocType = 'auto') {
+  const original = String(value ?? '').trim();
+  const type = String(iocType || 'auto').trim().toLowerCase();
+  if (!original || type === 'hash') {
+    return { value: original, original, refanged: false };
+  }
+
+  let normalized = original
+    .replace(/^hxxps(?=[:[])/i, 'https')
+    .replace(/^hxxp(?=[:[])/i, 'http')
+    .replace(/\[\s*:\s*\/\/\s*\]/g, '://')
+    .replace(/\[\s*:\s*\]/g, ':')
+    .replace(/\[\s*\.\s*\]/g, '.')
+    .replace(/\(\s*\.\s*\)/g, '.')
+    .replace(/\{\s*\.\s*\}/g, '.');
+
+  return { value: normalized, original, refanged: normalized !== original };
+}
+
 // A stable, non-reversible per-caller storage partition for mission history
 // -- NOT an identity or entitlement decision (this worker still never
 // derives tenant/tier itself; the canonical route remains the sole
@@ -220,7 +245,16 @@ async function runBackendSpecialist(canonicalBase, auth, correlationId, correlat
   const t0 = Date.now();
   const value = route.pick(correlation);
   if (!value) {
-    return { basis: 'derived', state: 'COMPLETED', result: { note: `Skipped live query: ${route.emptyReason}.` }, duration_ms: Date.now() - t0 };
+    return {
+      basis: 'conditional_skip',
+      state: 'SKIPPED',
+      result: {
+        note: `Skipped live query: ${route.emptyReason}.`,
+        reason: 'dependency_input_absent',
+      },
+      skip_reason: route.emptyReason,
+      duration_ms: Date.now() - t0,
+    };
   }
 
   const headers = new Headers(auth);
@@ -274,6 +308,7 @@ function iocHunterResult(correlation) {
 function fuseRiskSynthesis(correlation, outcomes) {
   const entries = Object.entries(outcomes);
   const contributing = entries.filter(([, o]) => o.state === 'COMPLETED').map(([id]) => id);
+  const skipped = entries.filter(([, o]) => o.state === 'SKIPPED').map(([id]) => id);
   const denied = entries.filter(([, o]) => o.state === 'DENIED').map(([id]) => id);
   const failed = entries.filter(([, o]) => o.state === 'FAILED').map(([id]) => id);
   const matches = allMatches(correlation);
@@ -285,10 +320,11 @@ function fuseRiskSynthesis(correlation, outcomes) {
     max_risk_score: riskScores.length ? Math.max(...riskScores) : 0,
     match_count: matches.length,
     contributing_specialists: contributing,
+    skipped_specialists: skipped,
     denied_specialists: denied,
     failed_specialists: failed,
     recommendation: correlation?.recommendation || 'Review the canonical Sentinel correlation result.',
-    source: `fusion of ${contributing.length} real specialist executions (${denied.length} denied by scope, ${failed.length} failed)`,
+    source: `fusion of ${contributing.length} completed specialist outcomes (${skipped.length} conditionally skipped, ${denied.length} denied by scope, ${failed.length} failed)`,
   };
 }
 
@@ -448,7 +484,12 @@ async function executeMission({ writer, request, env, body, correlationId, missi
       started_at: startedAt,
       finished_at: new Date().toISOString(),
       duration_ms: Date.now() - missionStartedMs,
-      ioc: { ioc_value: body.ioc_value, ioc_type: body.ioc_type || 'auto' },
+      ioc: {
+        ioc_value: body.ioc_value,
+        ioc_type: body.ioc_type || 'auto',
+        original_ioc_value: body.ioc_original_value || null,
+        refanged: Boolean(body.ioc_refanged),
+      },
       ...extra,
     }, partition);
     if (idempotencyKeySupplied) await setIdempotencyPointer(env, partition, correlationId, missionId, status);
@@ -458,7 +499,12 @@ async function executeMission({ writer, request, env, body, correlationId, missi
     await emit(writer, encoder, makeEvent('QUEUED', null, {
       event_type: 'mission.accepted',
       agent_count: AGENTS.length,
-      input: { ioc_value: body.ioc_value, ioc_type: body.ioc_type || 'auto' },
+      input: {
+        ioc_value: body.ioc_value,
+        ioc_type: body.ioc_type || 'auto',
+        original_ioc_value: body.ioc_original_value || null,
+        refanged: Boolean(body.ioc_refanged),
+      },
     }));
 
     for (const agent of AGENTS) {
@@ -528,26 +574,49 @@ async function executeMission({ writer, request, env, body, correlationId, missi
     const outcomes = { 'ioc-hunter': iocHunterOutcome };
 
     const specialistTasks = queued.map(async (agent) => {
+      const route = SPECIALIST_ROUTES[agent.id];
+
+      // Honest DAG/conditional semantics: if correlation produced no input
+      // required by this specialist, transition QUEUED -> SKIPPED directly.
+      // Do not emit RUNNING and do not perform unnecessary backend compute.
+      if (route && !route.pick(canonical)) {
+        const outcome = await runBackendSpecialist(canonicalBase, auth, correlationId, canonical, route, env);
+        outcomes[agent.id] = outcome;
+        await emit(writer, encoder, makeEvent('SKIPPED', agent, {
+          event_type: 'agent.skipped',
+          basis: outcome.basis,
+          result: outcome.result,
+          skip_reason: outcome.skip_reason || route.emptyReason,
+          duration_ms: outcome.duration_ms ?? null,
+        }));
+        return outcome;
+      }
+
       await emit(writer, encoder, makeEvent('RUNNING', agent, {
         event_type: 'agent.started',
-        basis: SPECIALIST_ROUTES[agent.id] ? 'backend_execution' : 'unconfigured',
-        source: SPECIALIST_ROUTES[agent.id] ? `canonical:${SPECIALIST_ROUTES[agent.id].path}` : null,
+        basis: route ? 'backend_execution' : 'unconfigured',
+        source: route ? `canonical:${route.path}` : null,
       }));
 
       // Every current agent has a SPECIALIST_ROUTES entry; the fallback below
       // is a fail-closed guard against a future agent being added to AGENTS
       // without one -- it reports a config error, never a fabricated result.
-      const outcome = SPECIALIST_ROUTES[agent.id]
-        ? await runBackendSpecialist(canonicalBase, auth, correlationId, canonical, SPECIALIST_ROUTES[agent.id], env)
+      const outcome = route
+        ? await runBackendSpecialist(canonicalBase, auth, correlationId, canonical, route, env)
         : { basis: 'unconfigured', state: 'FAILED', result: null, detail: { error: 'no_backend_route_configured', agent: agent.id } };
 
       outcomes[agent.id] = outcome;
       await emit(writer, encoder, makeEvent(outcome.state, agent, {
-        event_type: outcome.state === 'COMPLETED' ? 'agent.completed' : outcome.state === 'DENIED' ? 'agent.denied' : 'agent.failed',
+        event_type:
+          outcome.state === 'COMPLETED' ? 'agent.completed'
+            : outcome.state === 'SKIPPED' ? 'agent.skipped'
+              : outcome.state === 'DENIED' ? 'agent.denied'
+                : 'agent.failed',
         basis: outcome.basis,
         result: outcome.result,
         queried: outcome.queried || undefined,
         detail: outcome.detail || undefined,
+        skip_reason: outcome.skip_reason || undefined,
         duration_ms: outcome.duration_ms ?? null,
       }));
       return outcome;
@@ -628,8 +697,14 @@ async function handleRun(request, env, ctx) {
   }
   if (body.ioc_type !== undefined && typeof body.ioc_type !== 'string') return json({ error: 'invalid_ioc_type' }, 400);
 
-  body.ioc_value = body.ioc_value.trim();
   body.ioc_type = String(body.ioc_type || 'auto').trim().slice(0, 32) || 'auto';
+  const normalizedIoc = normalizeIocValue(body.ioc_value, body.ioc_type);
+  body.ioc_original_value = normalizedIoc.refanged ? normalizedIoc.original : null;
+  body.ioc_refanged = normalizedIoc.refanged;
+  body.ioc_value = normalizedIoc.value;
+  if (!body.ioc_value || body.ioc_value.length > 256) {
+    return json({ error: 'invalid_ioc_value' }, 400);
+  }
 
   const correlationId = safeRequestId(request);
   // Idempotency only applies when the CALLER supplied their own stable
@@ -858,13 +933,11 @@ function missionToStixBundle(record) {
     pattern: missionIocToStixPattern(iocValue, iocType),
     pattern_type: 'stix',
     valid_from: created,
-    custom_properties: {
-      x_sentinel_mission_id: record.mission_id,
-      x_sentinel_execution_id: record.execution_id || null,
-      x_sentinel_correlation_id: record.correlation_id || null,
-      x_sentinel_verdict: record.verdict || null,
-      x_sentinel_mesh_certified: Boolean(record.mesh_certified),
-    },
+    x_sentinel_mission_id: record.mission_id,
+    x_sentinel_execution_id: record.execution_id || null,
+    x_sentinel_correlation_id: record.correlation_id || null,
+    x_sentinel_verdict: record.verdict || null,
+    x_sentinel_mesh_certified: Boolean(record.mesh_certified),
   };
 
   const specialists = record.specialists || {};
@@ -874,10 +947,12 @@ function missionToStixBundle(record) {
     abstract: `SENTINEL APEX ${agentId} -- ${o.state || 'UNKNOWN'}`,
     content: JSON.stringify({ basis: o.basis ?? null, state: o.state ?? null, result: o.result ?? null }, null, 2),
     object_refs: [indicatorId],
-    custom_properties: { x_sentinel_agent_id: agentId, x_sentinel_agent_state: o.state ?? null, x_sentinel_agent_basis: o.basis ?? null },
+    x_sentinel_agent_id: agentId,
+    x_sentinel_agent_state: o.state ?? null,
+    x_sentinel_agent_basis: o.basis ?? null,
   }));
 
-  return { type: 'bundle', id: stixObjectId('bundle'), spec_version: '2.1', objects: [indicator, ...notes] };
+  return { type: 'bundle', id: stixObjectId('bundle'), objects: [indicator, ...notes] };
 }
 
 // GET /api/swarm/mission/:id/report -- an exportable, downloadable evidence
@@ -932,7 +1007,7 @@ const run=document.getElementById('run'),final=document.getElementById('final'),
   const byId=(id)=>document.getElementById(id);
   function setTone(el,tone){if(!el)return;el.dataset.tone=tone||''}
   function setText(id,value,tone){const el=byId(id);if(!el)return;el.textContent=value;setTone(el,tone)}
-  function setMissionState(value,tone){setText('missionState',value,tone);setText('finalBadge',value,tone);const shell=byId('missionShell');if(shell)shell.dataset.mission=value||'READY';updateOpsTelemetry();const led=byId('fabricLed');if(led){if(value==='COMPLETED')led.dataset.state='COMPLETED';else if(value==='FAILED'||value==='REJECTED'||value==='TRANSPORT FAILED')led.dataset.state='FAILED'}}
+  function setMissionState(value,tone){setText('missionState',value,tone);setText('finalBadge',value,tone);const shell=byId('missionShell');if(shell)shell.dataset.mission=value||'READY';updateOpsTelemetry();const led=byId('fabricLed');if(value==='CONNECTING'){setText('fabricStateText','AWAITING ADMISSION','warn');setText('streamState','SSE · CONNECTING','warn');if(led)led.dataset.state='RUNNING'}else if(value==='QUEUED'||value==='ADMITTED'||value==='RUNNING'){setText('fabricStateText','MISSION ACTIVE','ok');setText('streamState','SSE · STREAMING','ok');if(led)led.dataset.state='RUNNING'}else if(value==='COMPLETED'){setText('fabricStateText','MISSION COMPLETE','ok');setText('streamState','SSE · CLOSED','ok');if(led)led.dataset.state='COMPLETED'}else if(value==='FAILED'||value==='REJECTED'||value==='TRANSPORT FAILED'){setText('fabricStateText','MISSION FAILED','warn');setText('streamState','SSE · CLOSED','warn');if(led)led.dataset.state='FAILED'}else if(String(value||'').startsWith('REPLAYED')){setText('fabricStateText','EVIDENCE REPLAY','ok');setText('streamState','SSE · NOT CONNECTED');if(led)led.dataset.state='COMPLETED'}else{setText('fabricStateText','DORMANT');setText('streamState','SSE · DORMANT');if(led)led.dataset.state='IDLE'}}
   const browserTimeZone=()=>{try{return Intl.DateTimeFormat().resolvedOptions().timeZone||'UTC'}catch{return 'UTC'}};
   const validTimeZone=(tz)=>{try{new Intl.DateTimeFormat('en-US',{timeZone:tz}).format(new Date());return tz}catch{return 'UTC'}};
   const regionDisplay=(code)=>{if(!code)return'';try{return typeof Intl.DisplayNames==='function'?new Intl.DisplayNames(['en'],{type:'region'}).of(code)||code:code}catch{return code}};
@@ -1438,6 +1513,7 @@ html,body{width:100%;max-width:100%;overflow-x:hidden}
   .agent pre{font-size:11.5px}
 }
 
+.agent[data-state=SKIPPED]{border-color:rgba(117,167,255,.46);box-shadow:0 12px 34px rgba(0,0,0,.22),0 0 18px rgba(117,167,255,.06);opacity:.88}.agent[data-state=SKIPPED] .state{color:#9fc6ff;border-color:rgba(117,167,255,.42)}.agent[data-state=SKIPPED] .agent-led{background:#75A7FF;box-shadow:0 0 12px rgba(117,167,255,.58)}.mesh-node[data-state=SKIPPED]{color:#9fc6ff;border-color:rgba(117,167,255,.38)}.mesh-node[data-state=SKIPPED] .mesh-led{background:#75A7FF;box-shadow:0 0 12px rgba(117,167,255,.58)}.event-row[data-state=SKIPPED] .event-state{color:#9fc6ff}
 @media(prefers-contrast:more){:root{--text:#fff;--muted:#d4e7e3;--muted2:#acc8c1}.sub,.section-copy,.section-head p,.truth,.security-note,.control-note,.brand-sub,.assurance-item small,.agent-title small,.event-desc{color:#e2f2ef}.agent pre,.final{color:#f2fffc}.field input,.field select{border-color:#67d8c3}}
 @media(prefers-reduced-motion:reduce){*,*:before,*:after{animation-duration:.001ms!important;animation-iteration-count:1!important;scroll-behavior:auto!important}.global-clock:before{display:none}.clock-live-dot{opacity:1;transform:none}}
 </style></head><body>
@@ -1446,7 +1522,7 @@ html,body{width:100%;max-width:100%;overflow-x:hidden}
 <main class="wrap" id="missionShell">
   <header class="topbar">
     <div class="brand-block"><div class="brand-mark">CDB</div><div><div class="brand">CYBERDUDEBIVASH® SENTINEL APEX™</div><span class="brand-sub">Autonomous Cyber Intelligence Control Plane</span></div></div>
-    <div class="top-status"><a class="back-platform" id="backToPlatform" href="/" aria-label="Back to CYBERDUDEBIVASH Sentinel APEX platform"><span class="back-arrow" aria-hidden="true">←</span><span>BACK TO PLATFORM</span></a><span class="top-pill" id="runtimePill"><span class="dot"></span><span id="runtimeState" aria-live="polite">CHECKING RUNTIME</span></span><span class="top-pill"><span class="dot"></span>V4.46.4 PRODUCTION</span><section class="global-clock" id="globalClock" data-synced="fallback" aria-label="Current customer location time"><div class="clock-led-wrap"><span class="clock-live-dot" aria-hidden="true"></span><time class="clock-led" id="clockTime" datetime="${initialNow.toISOString()}" aria-live="off">${initialUtcTime}</time></div><div class="clock-zone mono" id="clockZone">UTC · EDGE SYNC</div><div class="clock-meta"><span class="clock-location" id="clockLocation">GLOBAL EDGE · RESOLVING</span><span class="clock-country" id="clockCountry">UTC · ${initialUtcDate}</span></div></section></div>
+    <div class="top-status"><a class="back-platform" id="backToPlatform" href="/" aria-label="Back to CYBERDUDEBIVASH Sentinel APEX platform"><span class="back-arrow" aria-hidden="true">←</span><span>BACK TO PLATFORM</span></a><span class="top-pill" id="runtimePill"><span class="dot"></span><span id="runtimeState" aria-live="polite">CHECKING RUNTIME</span></span><span class="top-pill"><span class="dot"></span>V4.46.5 PRODUCTION</span><section class="global-clock" id="globalClock" data-synced="fallback" aria-label="Current customer location time"><div class="clock-led-wrap"><span class="clock-live-dot" aria-hidden="true"></span><time class="clock-led" id="clockTime" datetime="${initialNow.toISOString()}" aria-live="off">${initialUtcTime}</time></div><div class="clock-zone mono" id="clockZone">UTC · EDGE SYNC</div><div class="clock-meta"><span class="clock-location" id="clockLocation">GLOBAL EDGE · RESOLVING</span><span class="clock-country" id="clockCountry">UTC · ${initialUtcDate}</span></div></section></div>
   </header>
 
   <section class="hero">
@@ -1471,7 +1547,7 @@ html,body{width:100%;max-width:100%;overflow-x:hidden}
     <div class="led-cell"><div class="led-label">Event Sequence</div><div class="led-value cyan" id="eventCount">00</div></div>
     <div class="led-cell"><div class="led-label">Active Agents</div><div class="led-value violet" id="activeAgents">00</div></div>
     <div class="led-cell"><div class="led-label">Completed Agents</div><div class="led-value mint" id="completedAgents">00</div></div>
-    <div class="led-cell"><div class="led-label">Fabric State</div><div class="led-value magenta"><span class="fabric-indicator"><i class="fabric-led" id="fabricLed" data-state="IDLE"></i>REAL BACKEND</span></div></div>
+    <div class="led-cell"><div class="led-label">Fabric State</div><div class="led-value magenta"><span class="fabric-indicator"><i class="fabric-led" id="fabricLed" data-state="IDLE"></i><span id="fabricStateText">DORMANT</span></span></div></div>
   </section>
 
   <section class="launch">
@@ -1516,7 +1592,7 @@ html,body{width:100%;max-width:100%;overflow-x:hidden}
   <section class="evidence-section">
     <div class="section-head"><div><div class="section-kicker">Mission Evidence</div><h2>Live event stream & fused intelligence</h2></div><p>Sequence, state and timestamps are read directly from the production SSE stream; final evidence is persisted after mission completion.</p></div>
     <div class="evidence-grid">
-      <div class="panel"><div class="panel-head"><strong>Live Mission Events</strong><span class="panel-badge">SSE · REAL TIME</span></div><div class="event-log" id="eventLog"><div class="event-empty">No mission events yet.</div></div></div>
+      <div class="panel"><div class="panel-head"><strong>Live Mission Events</strong><span class="panel-badge" id="streamState">SSE · DORMANT</span></div><div class="event-log" id="eventLog"><div class="event-empty">No active mission. Stream opens only after authenticated launch.</div></div></div>
       <div class="panel"><div class="panel-head"><strong>Final Intelligence / Terminal Evidence</strong><span class="panel-badge" id="finalBadge">AWAITING MISSION</span></div><pre class="final" id="final">Awaiting a live mission.</pre></div>
     </div>
   </section>
@@ -1582,7 +1658,7 @@ export default {
         status: 'ok',
         service: 'sentinel-apex-swarm-live',
         protocol: PROTOCOL,
-        version: env.SWARM_VERSION || '4.46.4',
+        version: env.SWARM_VERSION || '4.46.5',
         agents: AGENTS.length,
         // Real dependency status, not a static ack -- reflects whether
         // mission history/evidence export can actually serve a request
@@ -1632,6 +1708,7 @@ export const __test = Object.freeze({
   SPECIALIST_ROUTES,
   authHeaders,
   hasAuth,
+  normalizeIocValue,
   safeRequestId,
   firstCveId,
   firstActorTag,

@@ -64,6 +64,23 @@ test('authHeaders forwards only recognized credential headers; hasAuth reflects 
   assert.equal(__test.hasAuth(__test.authHeaders(new Request('https://x.test'))), false);
 });
 
+test('normalizeIocValue conservatively refangs common CTI observables and preserves hashes', () => {
+  assert.deepEqual(
+    __test.normalizeIocValue('1[.]1[.]1[.]1', 'ipv4'),
+    { value: '1.1.1.1', original: '1[.]1[.]1[.]1', refanged: true },
+  );
+  assert.deepEqual(
+    __test.normalizeIocValue('hxxps[://]evil[.]example/path', 'url'),
+    { value: 'https://evil.example/path', original: 'hxxps[://]evil[.]example/path', refanged: true },
+  );
+  assert.deepEqual(
+    __test.normalizeIocValue('hxxp[:]//evil(.)example', 'auto'),
+    { value: 'http://evil.example', original: 'hxxp[:]//evil(.)example', refanged: true },
+  );
+  const hash = 'd41d8cd98f00b204e9800998ecf8427e';
+  assert.deepEqual(__test.normalizeIocValue(hash, 'hash'), { value: hash, original: hash, refanged: false });
+});
+
 test('canonicalGatewayFetch prefers the private service binding and preserves method/path/body', async () => {
   let globalFetchCalled = false;
   let observed = null;
@@ -125,11 +142,11 @@ test('canonicalGatewayFetch falls back to public fetch(url, init) when no servic
   );
 });
 
-test('customer console exposes the production V4.46.4 control-plane capabilities', () => {
+test('customer console exposes the production V4.46.5 control-plane capabilities', () => {
   const html = __test.ui();
   for (const marker of [
     'SUPER AGENT SWARM',
-    'V4.46.4 PRODUCTION',
+    'V4.46.5 PRODUCTION',
     '8-Agent Operations Grid',
     'Private APEX Mesh',
     'Durable Evidence',
@@ -148,6 +165,9 @@ test('customer console exposes the production V4.46.4 control-plane capabilities
     'clock-led',
     'clockLocation',
     'clockCountry',
+    'DORMANT',
+    'SSE · DORMANT',
+    'No active mission. Stream opens only after authenticated launch.',
   ]) {
     assert.ok(html.includes(marker), 'missing UI marker: ' + marker);
   }
@@ -160,6 +180,9 @@ test('customer console exposes the production V4.46.4 control-plane capabilities
   assert.ok(html.includes('id="eventCount"'));
   assert.ok(html.includes('id="activeAgents"'));
   assert.ok(html.includes('id="completedAgents"'));
+  assert.ok(html.includes('id="fabricStateText">DORMANT</span>'));
+  assert.ok(html.includes('id="streamState">SSE · DORMANT</span>'));
+  assert.ok(!html.includes('SSE · REAL TIME'), 'idle UI must not imply an active event stream');
   assert.match(
     html,
     /<a class="back-platform" id="backToPlatform" href="\/" aria-label="Back to CYBERDUDEBIVASH Sentinel APEX platform">/,
@@ -297,7 +320,7 @@ test('browser controller executes to interactive-ready and attaches live mission
             status: 'ok',
             service: 'sentinel-apex-swarm-live',
             protocol: 'cdb.swarm.v1',
-            version: '4.46.4',
+            version: '4.46.5',
             agents: 8,
             persistence: { kv_bound: true },
             production: { canonical_gateway_bound: true },
@@ -323,7 +346,7 @@ test('browser controller executes to interactive-ready and attaches live mission
   assert.equal(typeof getElement('loadHistory').onclick, 'function');
   assert.equal(typeof getElement('historyBody').onclick, 'function');
   assert.equal(getElement('runtimeState').textContent, 'LIVE');
-  assert.equal(getElement('runtimeKpi').textContent, 'LIVE · 4.46.4');
+  assert.equal(getElement('runtimeKpi').textContent, 'LIVE · 4.46.5');
   assert.equal(getElement('gatewayState').textContent, 'BOUND');
   assert.equal(getElement('persistenceState').textContent, 'READY');
   assert.equal(getElement('evidenceStore').textContent, 'DURABLE KV READY');
@@ -349,7 +372,7 @@ test('cinematic customer console exposes premium visual surfaces without fake mi
     'Cinematic launch visualization is decorative only',
     'SOC / CTI',
     'CYBER DEFENSE',
-    'V4.46.4 PRODUCTION',
+    'V4.46.5 PRODUCTION',
   ]) {
     assert.ok(html.includes(marker), 'missing cinematic UI marker: ' + marker);
   }
@@ -467,13 +490,14 @@ test('fuseRiskSynthesis classifies contributing vs denied vs failed specialists'
     'cve-intelligence': { basis: 'backend_execution', state: 'COMPLETED' },
     'threat-hunter': { basis: 'backend_execution', state: 'DENIED' },
     'attack-mapper': { basis: 'backend_execution', state: 'FAILED' },
-    'siem-defender': { basis: 'backend_execution', state: 'COMPLETED' },
+    'siem-defender': { basis: 'conditional_skip', state: 'SKIPPED' },
     'ir-playbook': { basis: 'backend_execution', state: 'COMPLETED' },
     'exposure-analyst': { basis: 'backend_execution', state: 'COMPLETED' },
   };
   const fused = __test.fuseRiskSynthesis(CORRELATION, outcomes);
   assert.equal(fused.basis, 'fusion');
-  assert.deepEqual(fused.contributing_specialists.sort(), ['cve-intelligence', 'exposure-analyst', 'ioc-hunter', 'ir-playbook', 'siem-defender']);
+  assert.deepEqual(fused.contributing_specialists.sort(), ['cve-intelligence', 'exposure-analyst', 'ioc-hunter', 'ir-playbook']);
+  assert.deepEqual(fused.skipped_specialists, ['siem-defender']);
   assert.deepEqual(fused.denied_specialists, ['threat-hunter']);
   assert.deepEqual(fused.failed_specialists, ['attack-mapper']);
   assert.equal(fused.max_risk_score, 8.4);
@@ -488,13 +512,15 @@ test('fuseRiskSynthesis: an unconfigured specialist (missing SPECIALIST_ROUTES e
   assert.deepEqual(fused.failed_specialists, ['cve-intelligence']);
 });
 
-test('runBackendSpecialist: skips the live call and returns a derived no-op when there is nothing to query', async () => {
+test('runBackendSpecialist: missing dependency emits an honest SKIPPED no-op and performs no backend call', async () => {
   let called = false;
   await withStubFetch(() => { called = true; throw new Error('must not be called'); }, async () => {
     const outcome = await __test.runBackendSpecialist('https://x.test', new Headers(), CORRELATION_ID, { matches: [] }, __test.SPECIALIST_ROUTES['cve-intelligence']);
-    assert.equal(outcome.basis, 'derived');
-    assert.equal(outcome.state, 'COMPLETED');
+    assert.equal(outcome.basis, 'conditional_skip');
+    assert.equal(outcome.state, 'SKIPPED');
+    assert.equal(outcome.result.reason, 'dependency_input_absent');
     assert.match(outcome.result.note, /no CVE identifier/);
+    assert.match(outcome.skip_reason, /no CVE identifier/);
   });
   assert.equal(called, false);
 });
@@ -622,6 +648,71 @@ test('runBackendSpecialist: a transport failure is reported as FAILED, not throw
   );
 });
 
+test('end-to-end clean correlation emits SKIPPED specialists without fake RUNNING transitions or backend compute', async () => {
+  const env = { CANONICAL_BASE_URL: 'https://x.test' };
+  const calls = [];
+  await withStubFetch(
+    async (url, init) => {
+      const u = new URL(String(url));
+      calls.push(u.pathname);
+      if (u.pathname === '/api/intel/correlate') {
+        return jsonResponse({
+          status: 'ok',
+          ioc: { value: '8.8.8.8', type: 'ipv4' },
+          verdict: 'clean',
+          match_count: 0,
+          matches: [],
+          recommendation: 'No match found in current feed.',
+        }, 200, {
+          'x-cdb-mesh-certified': 'true',
+          'x-cdb-mesh-execution': 'mesh-skip-1',
+          'x-cdb-mesh-correlation': init.headers.get('x-request-id'),
+        });
+      }
+      if (u.pathname === '/api/v1/swarm-synthesis') {
+        return jsonResponse({ status: 'success', llm_enhanced: false, narrative: null });
+      }
+      throw new Error('unexpected specialist backend call: ' + u.pathname);
+    },
+    async () => {
+      let waited;
+      const ctx = { waitUntil(p) { waited = p; } };
+      const res = await worker.fetch(
+        new Request('https://x.test/api/swarm/run', {
+          method: 'POST',
+          headers: { 'x-api-key': 'customer-key-123456', 'x-request-id': 'skip-e2e-1' },
+          body: JSON.stringify({ ioc_value: '8.8.8.8', ioc_type: 'ipv4' }),
+        }),
+        env,
+        ctx,
+      );
+      const text = await res.text();
+      await waited;
+
+      const events = text
+        .split('\n\n')
+        .map((chunk) => chunk.split('\n').find((line) => line.startsWith('data: ')))
+        .filter(Boolean)
+        .map((line) => JSON.parse(line.slice(6)));
+
+      const skipped = events.filter((ev) => ev.event_type === 'agent.skipped');
+      assert.equal(skipped.length, 6);
+      assert.ok(skipped.every((ev) => ev.state === 'SKIPPED'));
+      assert.ok(skipped.every((ev) => ev.result?.reason === 'dependency_input_absent'));
+
+      const startedSpecialists = events.filter(
+        (ev) => ev.event_type === 'agent.started' && ev.agent_id !== 'ioc-hunter' && ev.agent_id !== 'risk-synthesizer',
+      );
+      assert.equal(startedSpecialists.length, 0, 'conditionally skipped specialists must never claim RUNNING');
+
+      assert.deepEqual(calls.sort(), ['/api/intel/correlate', '/api/v1/swarm-synthesis'].sort());
+      const completed = events.find((ev) => ev.event_type === 'mission.completed');
+      assert.ok(completed);
+      assert.equal(completed.result.skipped_specialists.length, 6);
+    },
+  );
+});
+
 test('persistMission is a graceful no-op when no KV binding is provisioned', async () => {
   await assert.doesNotReject(() => __test.persistMission({}, { mission_id: 'sentinel-mission-x' }));
 });
@@ -637,11 +728,11 @@ test('persistMission writes through the bound KV namespace with a TTL', async ()
 });
 
 test('GET /api/swarm/health reports protocol and agent count without requiring auth', async () => {
-  const res = await worker.fetch(new Request('https://x.test/api/swarm/health'), { SWARM_VERSION: '4.46.4' }, {});
+  const res = await worker.fetch(new Request('https://x.test/api/swarm/health'), { SWARM_VERSION: '4.46.5' }, {});
   assert.equal(res.status, 200);
   const body = await res.json();
   assert.equal(body.protocol, 'cdb.swarm.v1');
-  assert.equal(body.version, '4.46.4');
+  assert.equal(body.version, '4.46.5');
   assert.equal(body.agents, 8);
 });
 
@@ -1206,7 +1297,7 @@ test('missionToStixBundle: a valid STIX 2.1 Bundle with one Indicator and one No
   };
   const bundle = __test.missionToStixBundle(record);
   assert.equal(bundle.type, 'bundle');
-  assert.equal(bundle.spec_version, '2.1');
+  assert.equal(Object.prototype.hasOwnProperty.call(bundle, 'spec_version'), false, 'STIX Bundle must not carry STIX Object spec_version');
   assert.match(bundle.id, /^bundle--[0-9a-f-]{36}$/);
 
   const indicator = bundle.objects.find((o) => o.type === 'indicator');
@@ -1215,18 +1306,40 @@ test('missionToStixBundle: a valid STIX 2.1 Bundle with one Indicator and one No
   assert.equal(indicator.spec_version, '2.1');
   assert.equal(indicator.pattern, "[ipv4-addr:value = '8.8.8.8']");
   assert.equal(indicator.indicator_types[0], 'malicious-activity');
-  assert.equal(indicator.custom_properties.x_sentinel_mission_id, 'sentinel-mission-stix1');
-  assert.equal(indicator.custom_properties.x_sentinel_verdict, 'malicious');
+  assert.equal(indicator.x_sentinel_mission_id, 'sentinel-mission-stix1');
+  assert.equal(indicator.x_sentinel_verdict, 'malicious');
+  assert.equal(Object.prototype.hasOwnProperty.call(indicator, 'custom_properties'), false);
 
   const notes = bundle.objects.filter((o) => o.type === 'note');
   assert.equal(notes.length, 2);
   for (const note of notes) {
     assert.match(note.id, /^note--[0-9a-f-]{36}$/);
     assert.deepEqual(note.object_refs, [indicator.id]);
-    assert.ok(['ioc-hunter', 'threat-hunter'].includes(note.custom_properties.x_sentinel_agent_id));
+    assert.ok(['ioc-hunter', 'threat-hunter'].includes(note.x_sentinel_agent_id));
+    assert.equal(Object.prototype.hasOwnProperty.call(note, 'custom_properties'), false);
   }
   // Every object id in the bundle is unique -- no accidental id reuse.
   assert.equal(new Set(bundle.objects.map((o) => o.id)).size, bundle.objects.length);
+});
+
+test('missionToStixBundle keeps custom x_sentinel properties at top level for STIX 2.1 interoperability', () => {
+  const bundle = __test.missionToStixBundle({
+    mission_id: 'sentinel-mission-custom-props',
+    verdict: 'clean',
+    ioc: { ioc_value: '1.1.1.1', ioc_type: 'ipv4' },
+    specialists: {
+      'ioc-hunter': { basis: 'backend_execution', state: 'COMPLETED', result: { verdict: 'clean' } },
+      'cve-intelligence': { basis: 'conditional_skip', state: 'SKIPPED', result: { reason: 'dependency_input_absent' } },
+    },
+  });
+  assert.equal(bundle.spec_version, undefined);
+  for (const object of bundle.objects) {
+    assert.equal(object.custom_properties, undefined);
+  }
+  const indicator = bundle.objects.find((o) => o.type === 'indicator');
+  assert.ok(indicator.x_sentinel_mission_id);
+  const skippedNote = bundle.objects.find((o) => o.type === 'note' && o.x_sentinel_agent_id === 'cve-intelligence');
+  assert.equal(skippedNote.x_sentinel_agent_state, 'SKIPPED');
 });
 
 test('GET /api/swarm/mission/:id/report?format=stix21: serves a valid, downloadable STIX 2.1 Bundle', async () => {
@@ -1243,7 +1356,7 @@ test('GET /api/swarm/mission/:id/report?format=stix21: serves a valid, downloada
   assert.match(res.headers.get('content-disposition'), /attachment; filename="sentinel-mission-stix2\.stix21\.json"/);
   const bundle = await res.json();
   assert.equal(bundle.type, 'bundle');
-  assert.equal(bundle.spec_version, '2.1');
+  assert.equal(Object.prototype.hasOwnProperty.call(bundle, 'spec_version'), false);
   assert.equal(bundle.objects.find((o) => o.type === 'indicator').pattern, "[domain-name:value = 'evil.example.com']");
 });
 
