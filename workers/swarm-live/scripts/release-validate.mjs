@@ -3,7 +3,7 @@
 const DEFAULT_BASE_URL = 'https://intel.cyberdudebivash.com';
 const EXPECTED_SERVICE = 'sentinel-apex-swarm-live';
 const EXPECTED_PROTOCOL = 'cdb.swarm.v1';
-const EXPECTED_VERSION = '4.46.0';
+const EXPECTED_VERSION = '4.46.1';
 const EXPECTED_AGENTS = new Set([
   'ioc-hunter',
   'cve-intelligence',
@@ -99,12 +99,16 @@ async function validateHealth(baseUrl) {
 async function validateUi(baseUrl) {
   const { response, text } = await getText(`${baseUrl}/swarm/`);
   assert(response.status === 200, `/swarm/ returned HTTP ${response.status}`);
-  for (const marker of ['SUPER AGENT SWARM', 'Mission History', 'RUN LIVE SWARM', 'Private APEX Mesh', 'Durable Evidence', 'STIX 2.1', '8-Agent Operations Grid', 'V4.46 PRODUCTION', 'SOC 2-ALIGNED EVIDENCE UX', '8-Agent Mesh Topology', 'STATE-DRIVEN LED NODES', 'Event Sequence', 'RED TEAM INTEL', 'AI SECURITY OPS', 'Cinematic launch visualization is decorative only', 'CYBER DEFENSE']) {
+  for (const marker of ['SUPER AGENT SWARM', 'Mission History', 'RUN LIVE SWARM', 'Private APEX Mesh', 'Durable Evidence', 'STIX 2.1', '8-Agent Operations Grid', 'V4.46.1 PRODUCTION', 'SOC 2-ALIGNED EVIDENCE UX', '8-Agent Mesh Topology', 'STATE-DRIVEN LED NODES', 'Event Sequence', 'RED TEAM INTEL', 'AI SECURITY OPS', 'Cinematic launch visualization is decorative only', 'CYBER DEFENSE', 'Current customer location time', 'GLOBAL EDGE · RESOLVING']) {
     assert(text.includes(marker), `/swarm/ missing required UI marker: ${marker}`);
   }
   assert(!text.includes('DERIVED VIEW'), '/swarm/ still exposes DERIVED VIEW agents');
   assert(text.includes('<script src="/swarm/app.js" defer></script>'), '/swarm/ is not wired to the external browser controller');
   assert(text.includes('id="cinematicCanvas"'), '/swarm/ missing cinematic canvas layer');
+  assert(text.includes('id="globalClock"'), '/swarm/ missing global LED clock');
+  assert(text.includes('id="clockTime"'), '/swarm/ missing LED time digits');
+  assert(text.includes('id="clockLocation"'), '/swarm/ missing coarse location surface');
+  assert(text.includes('id="clockCountry"'), '/swarm/ missing country surface');
   assert(text.includes('prefers-reduced-motion:reduce'), '/swarm/ missing reduced-motion CSS fallback');
   assert(text.includes('prefers-contrast:more'), '/swarm/ missing high-contrast accessibility mode');
   assert(!text.includes('SOC 2 CERTIFIED'), '/swarm/ contains an unsupported SOC 2 certification claim');
@@ -127,6 +131,9 @@ async function validateUi(baseUrl) {
   assert(app.text.includes('function fxForMissionEvent(ev)'), '/swarm/app.js missing real-event cinematic state hook');
   assert(app.text.includes('function emitCinematicFx(kind,el,intensity)'), '/swarm/app.js missing cinematic particle/shockwave renderer');
   assert(app.text.includes("matchMedia('(prefers-reduced-motion: reduce)')"), '/swarm/app.js missing reduced-motion runtime guard');
+  assert(app.text.includes("fetch('/api/swarm/client-context'"), '/swarm/app.js missing coarse location hydration');
+  assert(app.text.includes('function hydrateClockContext()'), '/swarm/app.js missing global clock context controller');
+  assert(app.text.includes('setInterval(updateClock,1000)'), '/swarm/app.js missing one-second LED clock cadence');
   assert(!app.text.includes('localStorage'), '/swarm/app.js must not persist credentials in localStorage');
   assert(!app.text.includes('sessionStorage'), '/swarm/app.js must not persist credentials in sessionStorage');
   try {
@@ -136,6 +143,20 @@ async function validateUi(baseUrl) {
   }
 
   logPass('customer UI', 'HTML + external browser controller reachable and executable');
+}
+
+async function validateClientContext(baseUrl) {
+  const { response, text } = await getText(`${baseUrl}/api/swarm/client-context`);
+  assert(response.status === 200, `/api/swarm/client-context returned HTTP ${response.status}`);
+  let body;
+  try { body = JSON.parse(text); } catch { throw new Error('/api/swarm/client-context did not return JSON'); }
+  assert(body?.status === 'ok', 'client-context status is not ok');
+  assert(body?.data && typeof body.data === 'object', 'client-context data is missing');
+  assert(typeof body.data.timezone === 'string' && body.data.timezone.length > 0, 'client-context timezone is missing');
+  assert(!Object.prototype.hasOwnProperty.call(body.data, 'ip'), 'client-context must not expose client IP');
+  assert(!Object.prototype.hasOwnProperty.call(body.data, 'latitude'), 'client-context must not expose latitude');
+  assert(!Object.prototype.hasOwnProperty.call(body.data, 'longitude'), 'client-context must not expose longitude');
+  logPass('global clock context', `source=${body.data.source} city=${body.data.city || 'n/a'} country=${body.data.country_code || 'n/a'} timezone=${body.data.timezone}`);
 }
 
 async function validateLiveMission(baseUrl, apiKey) {
@@ -217,6 +238,7 @@ async function main() {
 
   await validateHealth(baseUrl);
   await validateUi(baseUrl);
+  await validateClientContext(baseUrl);
   if (liveMission) await validateLiveMission(baseUrl, process.env.SENTINEL_API_KEY);
 
   console.log('RELEASE VALIDATION: PASS');
