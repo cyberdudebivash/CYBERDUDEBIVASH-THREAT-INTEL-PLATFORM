@@ -99,6 +99,7 @@ import { handleSearch, handleActors, handleCVEs, handleIOCLookup, handleMISPExpo
 import { RAZORPAY_TIER_PRICES, getPricingSnapshot } from './pricing.js';
 import { applyTierGateV2, enforceTierGate, buildUpgradeTrigger, handleLeadCapture, handleTrialIssuance } from './revenue-enforcement.js';
 import { evaluateDailyQuota, utcDateString, dailyQuotaKey, quotaAlertDedupeKey, secondsUntilNextUtcMidnight } from './daily-quota.js';
+import { buildSwarmPreflightDecision, readSwarmQuotaSnapshot } from './swarm-preflight.js';
 import { buildDetectionRegistry, queryDetectionRegistry, toPublicArtifact, DETECTION_REGISTRY_VERSION } from './detection-registry.js';
 import { handleSLAStatus, handleSLAReport, handleSLAIncidents, handleSLAPing, handleSLACertificate } from './sla-monitor.js';
 import { handleAlertSubscribe, handleAlertSubscriptions, handleAlertTest, handleAlertDispatch, handleAlertHistory, handleAlertUnsubscribe } from './alert-engine.js';
@@ -717,6 +718,64 @@ function resolveEntitlement(ctx, env, resource, auth, adHocAllowed) {
     });
   }
   return { allowed: decision.allowed, enforced: true };
+}
+
+function requestCarriesCustomerCredential(request) {
+  const url = new URL(request.url);
+  return Boolean(
+    (request.headers.get("X-API-Key") || "").trim()
+    || (request.headers.get("X-Sentinel-Key") || "").trim()
+    || (request.headers.get("Authorization") || "").replace(/^Bearer\s+/i, "").trim()
+    || (url.searchParams.get("api_key") || "").trim()
+  );
+}
+
+async function handleSwarmEntitlementPreflight(request, env, auth, ip) {
+  const credentialPresented = requestCarriesCustomerCredential(request);
+
+  // Fast-path all auth/subscription failures through the same canonical
+  // resolveAuth() result that protects every other paid gateway route.
+  if (!credentialPresented || auth?.error || !auth?.key || !["PRO", "ENTERPRISE", "MSSP"].includes(auth?.tier)) {
+    const decision = buildSwarmPreflightDecision({
+      credentialPresented,
+      auth,
+      record: null,
+      quota: null,
+    });
+    return jsonResp(decision.body, decision.http_status, { "Cache-Control": "private, no-store" });
+  }
+
+  let record = null;
+  if (auth.kv) {
+    try {
+      record = await env.API_KEYS_KV.get(auth.key, "json");
+    } catch (_) {
+      return jsonResp({
+        status: "unavailable",
+        allowed: false,
+        swarm_entitled: false,
+        reason: "VERIFY_UNAVAILABLE",
+      }, 503, { "Retry-After": "10", "Cache-Control": "private, no-store" });
+    }
+  }
+
+  const quota = await readSwarmQuotaSnapshot(env, {
+    identifier: auth.key,
+    ip,
+    tier: auth.tier,
+    rateLimits: RATE_LIMITS,
+  });
+  const decision = buildSwarmPreflightDecision({
+    credentialPresented,
+    auth,
+    record,
+    quota,
+  });
+
+  return jsonResp(decision.body, decision.http_status, {
+    "Cache-Control": "private, no-store",
+    ...(decision.http_status === 503 ? { "Retry-After": "10" } : {}),
+  });
 }
 
 // =============================================================================
@@ -5488,6 +5547,16 @@ async function handleRequest(request, env, ctx) {
 
   // Resolve auth once for this request (skip for pure public health check to save a KV read)
   const auth = await resolveAuth(request, env);
+
+  // SWARM entitlement preflight is intentionally evaluated BEFORE the normal
+  // commercial request-meter gates below so merely typing/verifying a key
+  // does not consume the customer's paid API quota. It still uses the same
+  // canonical resolveAuth(), subscription lifecycle and exact live quota
+  // keyspaces; it is a read-only authorization preview, not a second auth
+  // or entitlement system.
+  if (path === "/api/v1/swarm/preflight" && method === "POST") {
+    return await handleSwarmEntitlementPreflight(request, env, auth, ip);
+  }
 
   // Surface auth failures explicitly instead of silently downgrading to FREE.
   // resolveAuth() already computes auth.error for a credential that WAS
