@@ -185,6 +185,42 @@ test('customer console browser controller is external, same-origin, and syntacti
   assert.equal(await res.text(), js);
 });
 
+test('cinematic customer console exposes premium visual surfaces without fake mission telemetry', () => {
+  const html = __test.ui();
+  for (const marker of [
+    'cinematicCanvas',
+    'RED TEAM INTEL',
+    'AI SECURITY OPS',
+    'Cinematic launch visualization is decorative only',
+    'SOC / CTI',
+    'CYBER DEFENSE',
+    'V4.46 PRODUCTION',
+  ]) {
+    assert.ok(html.includes(marker), 'missing cinematic UI marker: ' + marker);
+  }
+  assert.ok(html.includes('prefers-reduced-motion:reduce'));
+  assert.ok(html.includes('prefers-contrast:more'));
+  assert.ok(!html.includes('SOC 2 CERTIFIED'));
+});
+
+test('cinematic browser controller is decorative, reduced-motion aware, and real-event driven', () => {
+  const js = __test.swarmAppJs();
+  assert.doesNotThrow(() => new Function(js));
+  assert.ok(js.includes("matchMedia('(prefers-reduced-motion: reduce)')"));
+  assert.ok(js.includes('function triggerLaunchSequence()'));
+  assert.ok(js.includes('function fxForMissionEvent(ev)'));
+  assert.ok(js.includes('fxForMissionEvent(ev)'));
+  assert.ok(js.includes('function emitCinematicFx(kind,el,intensity)'));
+  assert.ok(js.includes('updateOpsTelemetry()'));
+  assert.ok(js.includes('triggerLaunchSequence();resetAgents();resetEventLog();'));
+  assert.ok(js.indexOf("if(!key||!ioc)") < js.indexOf('triggerLaunchSequence();'), 'launch FX must not fire before required input validation');
+  assert.ok(js.includes("ev.event_type==='agent.started'"));
+  assert.ok(js.includes("ev.event_type==='mission.completed'"));
+  assert.ok(js.includes("ev.event_type==='mission.rejected'"));
+  assert.equal(js.includes('localStorage'), false);
+  assert.equal(js.includes('sessionStorage'), false);
+});
+
 test('customer console CSP allows only same-origin external JavaScript', async () => {
   const res = await worker.fetch(
     new Request('https://intel.cyberdudebivash.com/swarm/'),
