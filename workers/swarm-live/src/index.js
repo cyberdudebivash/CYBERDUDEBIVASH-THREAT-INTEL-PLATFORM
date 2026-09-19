@@ -143,13 +143,25 @@ function responseSnippet(body) {
   };
 }
 
+async function canonicalGatewayFetch(env, url, init = {}) {
+  if (env?.CANONICAL_GATEWAY && typeof env.CANONICAL_GATEWAY.fetch === 'function') {
+    const request = url instanceof Request ? url : new Request(String(url), init);
+    return env.CANONICAL_GATEWAY.fetch(request);
+  }
+  // Preserve the platform/browser fetch(url, init) calling convention when
+  // the private binding is absent. This keeps local/test compatibility and
+  // avoids changing observable fallback semantics just because production
+  // prefers the Worker service binding.
+  return url instanceof Request ? fetch(url) : fetch(String(url), init);
+}
+
 // One real, distinct backend call per specialist. Forwards the caller's own
 // credentials unchanged (same pattern as the existing canonical correlate
 // call) -- this worker never derives tenant/tier/entitlement itself, it
 // only reports what the already-authoritative route decides. A scope- or
 // tier-denied response becomes an honest DENIED agent state, not a fake
 // COMPLETED one.
-async function runBackendSpecialist(canonicalBase, auth, correlationId, correlation, route) {
+async function runBackendSpecialist(canonicalBase, auth, correlationId, correlation, route, env = null) {
   // Real, measured latency of this specialist's own backend call -- not an
   // estimate. The 'derived' no-op path below makes no call at all, so it
   // honestly reports ~0ms rather than a fabricated figure.
@@ -167,7 +179,7 @@ async function runBackendSpecialist(canonicalBase, auth, correlationId, correlat
 
   let resp;
   try {
-    resp = await fetch(url.toString(), { headers });
+    resp = await canonicalGatewayFetch(env, url.toString(), { headers });
   } catch (error) {
     return {
       basis: 'backend_execution',
@@ -240,14 +252,14 @@ function fuseRiskSynthesis(correlation, outcomes) {
 // its existing deterministic-only fusion (llm_enhanced: false), the same
 // fail-closed-but-graceful discipline persistMission() already applies for
 // a missing KV binding. Never throws, never blocks or fails the mission.
-async function synthesizeNarrative(canonicalBase, auth, correlationId, correlation, outcomes) {
+async function synthesizeNarrative(canonicalBase, auth, correlationId, correlation, outcomes, env = null) {
   const headers = new Headers(auth);
   headers.set('content-type', 'application/json');
   headers.set('x-request-id', correlationId);
 
   let resp;
   try {
-    resp = await fetch(`${canonicalBase}/api/v1/swarm-synthesis`, {
+    resp = await canonicalGatewayFetch(env, `${canonicalBase}/api/v1/swarm-synthesis`, {
       method: 'POST',
       headers,
       body: JSON.stringify({
@@ -412,7 +424,7 @@ async function executeMission({ writer, request, env, body, correlationId, missi
     correlateHeaders.set('x-request-id', correlationId);
 
     const iocHunterT0 = Date.now();
-    const canonicalResponse = await fetch(`${canonicalBase}/api/intel/correlate`, {
+    const canonicalResponse = await canonicalGatewayFetch(env, `${canonicalBase}/api/intel/correlate`, {
       method: 'POST',
       headers: correlateHeaders,
       body: JSON.stringify({ ioc_value: body.ioc_value, ioc_type: body.ioc_type || 'auto' }),
@@ -474,7 +486,7 @@ async function executeMission({ writer, request, env, body, correlationId, missi
       // is a fail-closed guard against a future agent being added to AGENTS
       // without one -- it reports a config error, never a fabricated result.
       const outcome = SPECIALIST_ROUTES[agent.id]
-        ? await runBackendSpecialist(canonicalBase, auth, correlationId, canonical, SPECIALIST_ROUTES[agent.id])
+        ? await runBackendSpecialist(canonicalBase, auth, correlationId, canonical, SPECIALIST_ROUTES[agent.id], env)
         : { basis: 'unconfigured', state: 'FAILED', result: null, detail: { error: 'no_backend_route_configured', agent: agent.id } };
 
       outcomes[agent.id] = outcome;
@@ -499,7 +511,7 @@ async function executeMission({ writer, request, env, body, correlationId, missi
 
     const synthesizerT0 = Date.now();
     const fused = fuseRiskSynthesis(canonical, outcomes);
-    const narrative = await synthesizeNarrative(canonicalBase, auth, correlationId, canonical, outcomes);
+    const narrative = await synthesizeNarrative(canonicalBase, auth, correlationId, canonical, outcomes, env);
     if (narrative) {
       fused.ai_narrative = narrative.text;
       fused.llm_enhanced = true;
@@ -984,6 +996,7 @@ export const __test = Object.freeze({
   firstTechnique,
   iocHunterResult,
   fuseRiskSynthesis,
+  canonicalGatewayFetch,
   synthesizeNarrative,
   runBackendSpecialist,
   persistMission,
