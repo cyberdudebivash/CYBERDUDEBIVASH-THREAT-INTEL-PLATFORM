@@ -2,8 +2,8 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 
-const indexSource = readFileSync(new URL('../index.js', import.meta.url), 'utf8');
-const meshSource = readFileSync(new URL('../apex-mesh-boundary.js', import.meta.url), 'utf8');
+const indexSource = readFileSync('src/index.js', 'utf8');
+const meshSource = readFileSync('src/apex-mesh-boundary.js', 'utf8');
 
 test('canonical SWARM preflight is routed before commercial quota mutation', () => {
   const route = indexSource.indexOf('path === "/api/v1/swarm/preflight"');
