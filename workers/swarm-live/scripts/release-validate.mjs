@@ -3,7 +3,7 @@
 const DEFAULT_BASE_URL = 'https://intel.cyberdudebivash.com';
 const EXPECTED_SERVICE = 'sentinel-apex-swarm-live';
 const EXPECTED_PROTOCOL = 'cdb.swarm.v1';
-const EXPECTED_VERSION = '4.46.2';
+const EXPECTED_VERSION = '4.46.3';
 const EXPECTED_AGENTS = new Set([
   'ioc-hunter',
   'cve-intelligence',
@@ -99,7 +99,7 @@ async function validateHealth(baseUrl) {
 async function validateUi(baseUrl) {
   const { response, text } = await getText(`${baseUrl}/swarm/`);
   assert(response.status === 200, `/swarm/ returned HTTP ${response.status}`);
-  for (const marker of ['SUPER AGENT SWARM', 'Mission History', 'RUN LIVE SWARM', 'Private APEX Mesh', 'Durable Evidence', 'STIX 2.1', '8-Agent Operations Grid', 'V4.46.2 PRODUCTION', 'SOC 2-ALIGNED EVIDENCE UX', '8-Agent Mesh Topology', 'STATE-DRIVEN LED NODES', 'Event Sequence', 'RED TEAM INTEL', 'AI SECURITY OPS', 'Cinematic launch visualization is decorative only', 'CYBER DEFENSE', 'Current customer location time', 'GLOBAL EDGE · RESOLVING']) {
+  for (const marker of ['SUPER AGENT SWARM', 'Mission History', 'RUN LIVE SWARM', 'Private APEX Mesh', 'Durable Evidence', 'STIX 2.1', '8-Agent Operations Grid', 'V4.46.3 PRODUCTION', 'SOC 2-ALIGNED EVIDENCE UX', '8-Agent Mesh Topology', 'STATE-DRIVEN LED NODES', 'Event Sequence', 'RED TEAM INTEL', 'AI SECURITY OPS', 'Cinematic launch visualization is decorative only', 'CYBER DEFENSE', 'Current customer location time', 'GLOBAL EDGE · RESOLVING']) {
     assert(text.includes(marker), `/swarm/ missing required UI marker: ${marker}`);
   }
   assert(!text.includes('DERIVED VIEW'), '/swarm/ still exposes DERIVED VIEW agents');
@@ -131,6 +131,8 @@ async function validateUi(baseUrl) {
   assert(app.response.status === 200, `/swarm/app.js returned HTTP ${app.response.status}`);
   assert((app.response.headers.get('content-type') || '').includes('javascript'), '/swarm/app.js has the wrong content type');
   assert(app.text.includes("window.__CDB_SWARM_UI_READY__=true"), '/swarm/app.js missing browser-ready marker');
+  assert(app.text.includes("window.__CDB_SWARM_INTERACTIVE_READY__=true"), '/swarm/app.js missing interactive-ready marker');
+  assert(!app.text.includes('};fxForMissionEvent(ev)'), '/swarm/app.js contains a top-level event FX call that aborts browser bootstrap');
   assert(app.text.includes('hydrateHealth()'), '/swarm/app.js missing runtime hydration');
   assert(app.text.includes('run.onclick=async()=>'), '/swarm/app.js missing live-mission button handler');
   assert(app.text.includes('loadHistoryBtn.onclick=async()=>'), '/swarm/app.js missing mission-history button handler');

@@ -125,11 +125,11 @@ test('canonicalGatewayFetch falls back to public fetch(url, init) when no servic
   );
 });
 
-test('customer console exposes the production V4.46.2 control-plane capabilities', () => {
+test('customer console exposes the production V4.46.3 control-plane capabilities', () => {
   const html = __test.ui();
   for (const marker of [
     'SUPER AGENT SWARM',
-    'V4.46.2 PRODUCTION',
+    'V4.46.3 PRODUCTION',
     '8-Agent Operations Grid',
     'Private APEX Mesh',
     'Durable Evidence',
@@ -195,6 +195,133 @@ test('customer console browser controller is external, same-origin, and syntacti
   assert.equal(await res.text(), js);
 });
 
+test('browser controller executes to interactive-ready and attaches live mission controls', async () => {
+  const js = __test.swarmAppJs();
+
+  class StubElement {
+    constructor(id = '') {
+      this.id = id;
+      this.dataset = {};
+      this.style = {};
+      this.className = '';
+      this.classList = { add() {}, remove() {} };
+      this.textContent = '';
+      this.innerHTML = '';
+      this.disabled = false;
+      this.value = id === 'ioc' ? '8.8.8.8' : (id === 'type' ? 'ipv4' : '');
+      this.scrollTop = 0;
+      this.scrollHeight = 0;
+    }
+    querySelector() { return null; }
+    querySelectorAll() { return []; }
+    append() {}
+    appendChild() {}
+    remove() {}
+    click() {}
+    closest() { return null; }
+    getBoundingClientRect() { return { left: 0, top: 0, width: 100, height: 40 }; }
+  }
+
+  const elements = new Map();
+  const getElement = (id) => {
+    if (id === 'cinematicCanvas') return null;
+    if (!elements.has(id)) elements.set(id, new StubElement(id));
+    return elements.get(id);
+  };
+
+  const documentStub = {
+    documentElement: new StubElement('documentElement'),
+    body: new StubElement('body'),
+    getElementById: getElement,
+    querySelector() { return null; },
+    querySelectorAll() { return []; },
+    createElement(tag) { return new StubElement(tag); },
+  };
+
+  const windowStub = {
+    __CDB_SWARM_UI_READY__: false,
+    __CDB_SWARM_INTERACTIVE_READY__: false,
+    matchMedia() { return { matches: true }; },
+    addEventListener() {},
+    setTimeout() {},
+    devicePixelRatio: 1,
+    innerWidth: 1280,
+    innerHeight: 720,
+  };
+
+  const fetchStub = async (url) => {
+    const target = String(url);
+    if (target.includes('/api/swarm/client-context')) {
+      return {
+        ok: true,
+        status: 200,
+        async json() {
+          return {
+            status: 'ok',
+            data: {
+              city: 'Bengaluru',
+              region: 'Karnataka',
+              country_code: 'IN',
+              country_name: '',
+              timezone: 'Asia/Kolkata',
+              source: 'cloudflare_edge',
+            },
+          };
+        },
+      };
+    }
+    if (target.includes('/api/swarm/health')) {
+      return {
+        ok: true,
+        status: 200,
+        async json() {
+          return {
+            status: 'ok',
+            service: 'sentinel-apex-swarm-live',
+            protocol: 'cdb.swarm.v1',
+            version: '4.46.3',
+            agents: 8,
+            persistence: { kv_bound: true },
+            production: { canonical_gateway_bound: true },
+            capabilities: { idempotent_retry: true, report_formats: ['md', 'json', 'stix21'] },
+          };
+        },
+      };
+    }
+    throw new Error('unexpected bootstrap fetch: ' + target);
+  };
+
+  const setIntervalStub = () => 1;
+  const execute = new Function('document', 'window', 'fetch', 'setInterval', js);
+
+  assert.doesNotThrow(() => execute(documentStub, windowStub, fetchStub, setIntervalStub));
+
+  // Let hydrateClockContext() and hydrateHealth() continue after their awaits.
+  await new Promise((resolve) => setImmediate(resolve));
+
+  assert.equal(windowStub.__CDB_SWARM_UI_READY__, true);
+  assert.equal(windowStub.__CDB_SWARM_INTERACTIVE_READY__, true);
+  assert.equal(typeof getElement('run').onclick, 'function');
+  assert.equal(typeof getElement('loadHistory').onclick, 'function');
+  assert.equal(typeof getElement('historyBody').onclick, 'function');
+  assert.equal(getElement('runtimeState').textContent, 'LIVE');
+  assert.equal(getElement('runtimeKpi').textContent, 'LIVE · 4.46.3');
+  assert.equal(getElement('gatewayState').textContent, 'BOUND');
+  assert.equal(getElement('persistenceState').textContent, 'READY');
+  assert.equal(getElement('evidenceStore').textContent, 'DURABLE KV READY');
+});
+
+test('appendEvent keeps cinematic event FX inside the event handler', () => {
+  const js = __test.swarmAppJs();
+  assert.equal(js.includes('};fxForMissionEvent(ev)'), false, 'top-level ev reference would abort browser bootstrap');
+  const start = js.indexOf('function appendEvent(ev)');
+  const next = js.indexOf('function renderNarrative', start);
+  assert.ok(start >= 0 && next > start);
+  const body = js.slice(start, next);
+  assert.ok(body.includes('fxForMissionEvent(ev)}'), 'appendEvent must invoke FX before its closing brace');
+  assert.ok(js.includes('window.__CDB_SWARM_INTERACTIVE_READY__=true'));
+});
+
 test('cinematic customer console exposes premium visual surfaces without fake mission telemetry', () => {
   const html = __test.ui();
   for (const marker of [
@@ -204,7 +331,7 @@ test('cinematic customer console exposes premium visual surfaces without fake mi
     'Cinematic launch visualization is decorative only',
     'SOC / CTI',
     'CYBER DEFENSE',
-    'V4.46.2 PRODUCTION',
+    'V4.46.3 PRODUCTION',
   ]) {
     assert.ok(html.includes(marker), 'missing cinematic UI marker: ' + marker);
   }
@@ -492,11 +619,11 @@ test('persistMission writes through the bound KV namespace with a TTL', async ()
 });
 
 test('GET /api/swarm/health reports protocol and agent count without requiring auth', async () => {
-  const res = await worker.fetch(new Request('https://x.test/api/swarm/health'), { SWARM_VERSION: '4.46.2' }, {});
+  const res = await worker.fetch(new Request('https://x.test/api/swarm/health'), { SWARM_VERSION: '4.46.3' }, {});
   assert.equal(res.status, 200);
   const body = await res.json();
   assert.equal(body.protocol, 'cdb.swarm.v1');
-  assert.equal(body.version, '4.46.2');
+  assert.equal(body.version, '4.46.3');
   assert.equal(body.agents, 8);
 });
 
