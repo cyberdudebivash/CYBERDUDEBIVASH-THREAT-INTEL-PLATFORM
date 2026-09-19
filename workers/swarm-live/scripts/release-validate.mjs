@@ -3,7 +3,7 @@
 const DEFAULT_BASE_URL = 'https://intel.cyberdudebivash.com';
 const EXPECTED_SERVICE = 'sentinel-apex-swarm-live';
 const EXPECTED_PROTOCOL = 'cdb.swarm.v1';
-const EXPECTED_VERSION = '4.46.5';
+const EXPECTED_VERSION = '4.47.0';
 const EXPECTED_AGENTS = new Set([
   'ioc-hunter',
   'cve-intelligence',
@@ -99,7 +99,7 @@ async function validateHealth(baseUrl) {
 async function validateUi(baseUrl) {
   const { response, text } = await getText(`${baseUrl}/swarm/`);
   assert(response.status === 200, `/swarm/ returned HTTP ${response.status}`);
-  for (const marker of ['SUPER AGENT SWARM', 'Mission History', 'RUN LIVE SWARM', 'Private APEX Mesh', 'Durable Evidence', 'STIX 2.1', '8-Agent Operations Grid', 'V4.46.5 PRODUCTION', 'SOC 2-ALIGNED EVIDENCE UX', '8-Agent Mesh Topology', 'STATE-DRIVEN LED NODES', 'Event Sequence', 'RED TEAM INTEL', 'AI SECURITY OPS', 'Cinematic launch visualization is decorative only', 'CYBER DEFENSE', 'Current customer location time', 'GLOBAL EDGE · RESOLVING']) {
+  for (const marker of ['SUPER AGENT SWARM', 'Mission History', 'RUN LIVE SWARM', 'Private APEX Mesh', 'Durable Evidence', 'STIX 2.1', '8-Agent Operations Grid', 'V4.47.0 PRODUCTION', 'SOC 2-ALIGNED EVIDENCE UX', '8-Agent Mesh Topology', 'STATE-DRIVEN LED NODES', 'Event Sequence', 'RED TEAM INTEL', 'AI SECURITY OPS', 'Cinematic launch visualization is decorative only', 'CYBER DEFENSE', 'Current customer location time', 'GLOBAL EDGE · RESOLVING']) {
     assert(text.includes(marker), `/swarm/ missing required UI marker: ${marker}`);
   }
   assert(!text.includes('DERIVED VIEW'), '/swarm/ still exposes DERIVED VIEW agents');
