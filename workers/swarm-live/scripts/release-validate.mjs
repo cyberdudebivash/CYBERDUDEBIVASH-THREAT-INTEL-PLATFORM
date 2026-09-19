@@ -3,7 +3,7 @@
 const DEFAULT_BASE_URL = 'https://intel.cyberdudebivash.com';
 const EXPECTED_SERVICE = 'sentinel-apex-swarm-live';
 const EXPECTED_PROTOCOL = 'cdb.swarm.v1';
-const EXPECTED_VERSION = '4.46.1';
+const EXPECTED_VERSION = '4.46.2';
 const EXPECTED_AGENTS = new Set([
   'ioc-hunter',
   'cve-intelligence',
@@ -99,7 +99,7 @@ async function validateHealth(baseUrl) {
 async function validateUi(baseUrl) {
   const { response, text } = await getText(`${baseUrl}/swarm/`);
   assert(response.status === 200, `/swarm/ returned HTTP ${response.status}`);
-  for (const marker of ['SUPER AGENT SWARM', 'Mission History', 'RUN LIVE SWARM', 'Private APEX Mesh', 'Durable Evidence', 'STIX 2.1', '8-Agent Operations Grid', 'V4.46.1 PRODUCTION', 'SOC 2-ALIGNED EVIDENCE UX', '8-Agent Mesh Topology', 'STATE-DRIVEN LED NODES', 'Event Sequence', 'RED TEAM INTEL', 'AI SECURITY OPS', 'Cinematic launch visualization is decorative only', 'CYBER DEFENSE', 'Current customer location time', 'GLOBAL EDGE · RESOLVING']) {
+  for (const marker of ['SUPER AGENT SWARM', 'Mission History', 'RUN LIVE SWARM', 'Private APEX Mesh', 'Durable Evidence', 'STIX 2.1', '8-Agent Operations Grid', 'V4.46.2 PRODUCTION', 'SOC 2-ALIGNED EVIDENCE UX', '8-Agent Mesh Topology', 'STATE-DRIVEN LED NODES', 'Event Sequence', 'RED TEAM INTEL', 'AI SECURITY OPS', 'Cinematic launch visualization is decorative only', 'CYBER DEFENSE', 'Current customer location time', 'GLOBAL EDGE · RESOLVING']) {
     assert(text.includes(marker), `/swarm/ missing required UI marker: ${marker}`);
   }
   assert(!text.includes('DERIVED VIEW'), '/swarm/ still exposes DERIVED VIEW agents');
@@ -109,6 +109,16 @@ async function validateUi(baseUrl) {
   assert(text.includes('id="clockTime"'), '/swarm/ missing LED time digits');
   assert(text.includes('id="clockLocation"'), '/swarm/ missing coarse location surface');
   assert(text.includes('id="clockCountry"'), '/swarm/ missing country surface');
+  assert(text.includes('class="mesh-led"'), '/swarm/ missing per-agent mesh LED nodes');
+  assert(text.includes('class="mesh-agent-name"'), '/swarm/ missing mesh agent identity labels');
+  for (const accent of ['#00E7FF', '#8B5CFF', '#FF8A00', '#FF4FD8', '#00FFA8', '#FFD400', '#5BE1FF', '#FF4D5A']) {
+    assert(text.includes(`--agent-accent:${accent}`), `/swarm/ missing unique agent accent ${accent}`);
+  }
+  assert(text.includes('viewport-fit=cover'), '/swarm/ missing mobile safe-area viewport support');
+  assert(text.includes('@media(max-width:1180px)'), '/swarm/ missing compact-desktop/tablet layout');
+  assert(text.includes('@media(max-width:860px)'), '/swarm/ missing tablet portrait layout');
+  assert(text.includes('@media(max-width:700px)'), '/swarm/ missing smartphone layout');
+  assert(text.includes('@media(max-width:480px)'), '/swarm/ missing narrow-smartphone layout');
   assert(text.includes('prefers-reduced-motion:reduce'), '/swarm/ missing reduced-motion CSS fallback');
   assert(text.includes('prefers-contrast:more'), '/swarm/ missing high-contrast accessibility mode');
   assert(!text.includes('SOC 2 CERTIFIED'), '/swarm/ contains an unsupported SOC 2 certification claim');

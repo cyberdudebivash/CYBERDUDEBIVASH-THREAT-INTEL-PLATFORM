@@ -125,11 +125,11 @@ test('canonicalGatewayFetch falls back to public fetch(url, init) when no servic
   );
 });
 
-test('customer console exposes the production V4.46.1 control-plane capabilities', () => {
+test('customer console exposes the production V4.46.2 control-plane capabilities', () => {
   const html = __test.ui();
   for (const marker of [
     'SUPER AGENT SWARM',
-    'V4.46.1 PRODUCTION',
+    'V4.46.2 PRODUCTION',
     '8-Agent Operations Grid',
     'Private APEX Mesh',
     'Durable Evidence',
@@ -204,7 +204,7 @@ test('cinematic customer console exposes premium visual surfaces without fake mi
     'Cinematic launch visualization is decorative only',
     'SOC / CTI',
     'CYBER DEFENSE',
-    'V4.46.1 PRODUCTION',
+    'V4.46.2 PRODUCTION',
   ]) {
     assert.ok(html.includes(marker), 'missing cinematic UI marker: ' + marker);
   }
@@ -241,6 +241,60 @@ test('global LED clock is server-rendered with visible digits before browser hyd
   assert.ok(html.includes('id="clockCountry"'));
   assert.ok(html.includes('@keyframes clockPulse'));
   assert.ok(html.includes('@keyframes clockScan'));
+});
+
+test('all eight agents expose unique persistent ultra-HD LED identities', () => {
+  const visuals = __test.AGENT_VISUALS;
+  assert.equal(Object.keys(visuals).length, 8);
+
+  const accents = __test.AGENTS.map((agent) => {
+    assert.ok(visuals[agent.id], 'missing visual identity for ' + agent.id);
+    assert.match(visuals[agent.id].accent, /^#[0-9A-F]{6}$/);
+    return visuals[agent.id].accent;
+  });
+
+  assert.equal(new Set(accents).size, 8, 'every agent must have a distinct LED identity color');
+
+  assert.deepEqual(accents, [
+    '#00E7FF',
+    '#8B5CFF',
+    '#FF8A00',
+    '#FF4FD8',
+    '#00FFA8',
+    '#FFD400',
+    '#5BE1FF',
+    '#FF4D5A',
+  ]);
+});
+
+test('customer console renders per-agent LED fabric and production mobile/tablet breakpoints', () => {
+  const html = __test.ui();
+
+  for (const marker of [
+    'class="mesh-led"',
+    'class="mesh-agent-name"',
+    'data-agent-id="ioc-hunter"',
+    'data-agent-id="risk-synthesizer"',
+    '--agent-accent:#00E7FF',
+    '--agent-accent:#8B5CFF',
+    '--agent-accent:#FF8A00',
+    '--agent-accent:#FF4FD8',
+    '--agent-accent:#00FFA8',
+    '--agent-accent:#FFD400',
+    '--agent-accent:#5BE1FF',
+    '--agent-accent:#FF4D5A',
+    'viewport-fit=cover',
+    '@media(max-width:1180px)',
+    '@media(max-width:860px)',
+    '@media(max-width:700px)',
+    '@media(max-width:480px)',
+  ]) {
+    assert.ok(html.includes(marker), 'missing LED/responsive marker: ' + marker);
+  }
+
+  assert.ok(html.includes('.agents{grid-template-columns:1fr'));
+  assert.ok(html.includes('.mesh-core{grid-template-columns:repeat(2,minmax(0,1fr))'));
+  assert.ok(html.includes('button,.run,.load,.dl,input,select{min-height:44px'));
 });
 
 test('customer console CSP allows only same-origin external JavaScript', async () => {
@@ -438,11 +492,11 @@ test('persistMission writes through the bound KV namespace with a TTL', async ()
 });
 
 test('GET /api/swarm/health reports protocol and agent count without requiring auth', async () => {
-  const res = await worker.fetch(new Request('https://x.test/api/swarm/health'), { SWARM_VERSION: '4.46.1' }, {});
+  const res = await worker.fetch(new Request('https://x.test/api/swarm/health'), { SWARM_VERSION: '4.46.2' }, {});
   assert.equal(res.status, 200);
   const body = await res.json();
   assert.equal(body.protocol, 'cdb.swarm.v1');
-  assert.equal(body.version, '4.46.1');
+  assert.equal(body.version, '4.46.2');
   assert.equal(body.agents, 8);
 });
 
