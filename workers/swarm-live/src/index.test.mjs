@@ -136,6 +136,12 @@ test('customer console exposes the production V4.45 control-plane capabilities',
     'STIX 2.1',
     'Live Mission Events',
     'Mission History & Evidence Export',
+    'SOC 2-ALIGNED EVIDENCE UX',
+    '8-Agent Mesh Topology',
+    'STATE-DRIVEN LED NODES',
+    'Event Sequence',
+    'Active Agents',
+    'Completed Agents',
   ]) {
     assert.ok(html.includes(marker), 'missing UI marker: ' + marker);
   }
@@ -143,7 +149,13 @@ test('customer console exposes the production V4.45 control-plane capabilities',
   assert.ok(html.includes('id="persistenceState"'));
   assert.ok(html.includes('id="eventLog"'));
   assert.ok(html.includes('id="missionState"'));
-  assert.ok(!html.includes('setInterval('), 'customer console must not simulate progress with timers');
+  assert.ok(html.includes('id="mesh-ioc-hunter"'));
+  assert.ok(html.includes('id="fabricLed"'));
+  assert.ok(html.includes('id="eventCount"'));
+  assert.ok(html.includes('id="activeAgents"'));
+  assert.ok(html.includes('id="completedAgents"'));
+  assert.ok(html.includes('does not claim independent SOC 2 certification'));
+  assert.ok(!html.includes('setInterval('), 'customer console HTML must not embed simulated mission timers');
 });
 
 test('customer console browser controller is external, same-origin, and syntactically valid', async () => {
@@ -157,6 +169,10 @@ test('customer console browser controller is external, same-origin, and syntacti
   assert.ok(js.includes('hydrateHealth()'));
   assert.ok(js.includes("run.onclick=async()=>"));
   assert.ok(js.includes("loadHistoryBtn.onclick=async()=>"));
+  assert.ok(js.includes('updateOpsTelemetry()'));
+  assert.ok(js.includes("setMeshNode(ev.agent_id"));
+  assert.ok(js.includes("setText('eventCount'"));
+  assert.ok(js.includes('setInterval(updateClock,1000)'));
 
   const res = await worker.fetch(
     new Request('https://intel.cyberdudebivash.com/swarm/app.js'),
