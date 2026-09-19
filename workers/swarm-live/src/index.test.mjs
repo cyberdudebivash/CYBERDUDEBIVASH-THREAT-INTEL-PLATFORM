@@ -64,6 +64,90 @@ test('authHeaders forwards only recognized credential headers; hasAuth reflects 
   assert.equal(__test.hasAuth(__test.authHeaders(new Request('https://x.test'))), false);
 });
 
+test('POST /api/swarm/preflight requires a customer credential', async () => {
+  const res = await worker.fetch(
+    new Request('https://x.test/api/swarm/preflight', { method: 'POST' }),
+    {},
+    {},
+  );
+  assert.equal(res.status, 401);
+  const body = await res.json();
+  assert.equal(body.allowed, false);
+  assert.equal(body.reason, 'AUTH_REQUIRED');
+});
+
+test('POST /api/swarm/preflight proxies only recognized auth to the canonical gateway', async () => {
+  let observed = null;
+  const env = {
+    CANONICAL_BASE_URL: 'https://intel.cyberdudebivash.com',
+    CANONICAL_GATEWAY: {
+      async fetch(request) {
+        observed = {
+          method: request.method,
+          path: new URL(request.url).pathname,
+          apiKey: request.headers.get('x-api-key'),
+          unrelated: request.headers.get('x-unrelated'),
+          body: await request.text(),
+        };
+        return jsonResponse({
+          status: 'ok',
+          allowed: true,
+          swarm_entitled: true,
+          tier: 'ENTERPRISE',
+          subscription_status: 'active',
+          expires_at: null,
+          credential_type: 'api_key',
+          quota: {
+            available: true,
+            per_minute: { limit: 600, used: 3, remaining: 597, exhausted: false },
+            per_day: { limit: 50000, used: 12, remaining: 49988, exhausted: false },
+          },
+        });
+      },
+    },
+  };
+  const res = await worker.fetch(
+    new Request('https://x.test/api/swarm/preflight', {
+      method: 'POST',
+      headers: { 'x-api-key': 'customer-enterprise-key', 'x-unrelated': 'must-not-forward' },
+    }),
+    env,
+    {},
+  );
+  assert.equal(res.status, 200);
+  const body = await res.json();
+  assert.equal(body.allowed, true);
+  assert.equal(body.swarm_entitled, true);
+  assert.equal(body.tier, 'ENTERPRISE');
+  assert.equal(observed.method, 'POST');
+  assert.equal(observed.path, '/api/v1/swarm/preflight');
+  assert.equal(observed.apiKey, 'customer-enterprise-key');
+  assert.equal(observed.unrelated, null);
+  assert.equal(observed.body, '{}');
+});
+
+test('POST /api/swarm/preflight fails closed when canonical authority is unavailable', async () => {
+  const env = {
+    CANONICAL_GATEWAY: {
+      async fetch() {
+        throw new Error('canonical unavailable');
+      },
+    },
+  };
+  const res = await worker.fetch(
+    new Request('https://x.test/api/swarm/preflight', {
+      method: 'POST',
+      headers: { 'x-api-key': 'customer-enterprise-key' },
+    }),
+    env,
+    {},
+  );
+  assert.equal(res.status, 503);
+  const body = await res.json();
+  assert.equal(body.allowed, false);
+  assert.equal(body.reason, 'VERIFY_UNAVAILABLE');
+});
+
 test('normalizeIocValue conservatively refangs common CTI observables and preserves hashes', () => {
   assert.deepEqual(
     __test.normalizeIocValue('1[.]1[.]1[.]1', 'ipv4'),
@@ -168,6 +252,7 @@ test('customer console exposes the production V4.47.0 control-plane capabilities
     'DORMANT',
     'SSE · DORMANT',
     'No active mission. Stream opens only after authenticated launch.',
+    'INPUT REQUIRED',
   ]) {
     assert.ok(html.includes(marker), 'missing UI marker: ' + marker);
   }
@@ -180,6 +265,8 @@ test('customer console exposes the production V4.47.0 control-plane capabilities
   assert.ok(html.includes('id="eventCount"'));
   assert.ok(html.includes('id="activeAgents"'));
   assert.ok(html.includes('id="completedAgents"'));
+  assert.ok(html.includes('id="keyStatus"'));
+  assert.ok(html.includes('id="run" disabled'), 'mission launch must start fail-closed before preflight');
   assert.ok(html.includes('id="fabricStateText">DORMANT</span>'));
   assert.ok(html.includes('id="streamState">SSE · DORMANT</span>'));
   assert.ok(!html.includes('SSE · REAL TIME'), 'idle UI must not imply an active event stream');
@@ -214,6 +301,9 @@ test('customer console browser controller is external, same-origin, and syntacti
   assert.doesNotThrow(() => new Function(js));
   assert.ok(js.includes("window.__CDB_SWARM_UI_READY__=true"));
   assert.ok(js.includes('hydrateHealth()'));
+  assert.ok(js.includes('function verifySwarmEntitlement(force=false)'));
+  assert.ok(js.includes("fetch('/api/swarm/preflight'"));
+  assert.ok(js.includes("if(run)run.disabled=true"));
   assert.ok(js.includes("run.onclick=async()=>"));
   assert.ok(js.includes("loadHistoryBtn.onclick=async()=>"));
   assert.ok(js.includes('updateOpsTelemetry()'));
@@ -324,7 +414,7 @@ test('browser controller executes to interactive-ready and attaches live mission
             agents: 8,
             persistence: { kv_bound: true },
             production: { canonical_gateway_bound: true },
-            capabilities: { idempotent_retry: true, report_formats: ['md', 'json', 'stix21'] },
+            capabilities: { entitlement_preflight: true, idempotent_retry: true, report_formats: ['md', 'json', 'stix21'] },
           };
         },
       };
@@ -350,6 +440,8 @@ test('browser controller executes to interactive-ready and attaches live mission
   assert.equal(getElement('gatewayState').textContent, 'BOUND');
   assert.equal(getElement('persistenceState').textContent, 'READY');
   assert.equal(getElement('evidenceStore').textContent, 'DURABLE KV READY');
+  assert.equal(getElement('run').disabled, true);
+  assert.equal(typeof getElement('key').oninput, 'function');
 });
 
 test('appendEvent keeps cinematic event FX inside the event handler', () => {
@@ -392,6 +484,7 @@ test('cinematic browser controller is decorative, reduced-motion aware, and real
   assert.ok(js.includes('updateOpsTelemetry()'));
   assert.ok(js.includes('triggerLaunchSequence();resetAgents();resetEventLog();'));
   assert.ok(js.indexOf("if(!key||!ioc)") < js.indexOf('triggerLaunchSequence();'), 'launch FX must not fire before required input validation');
+  assert.ok(js.indexOf('await verifySwarmEntitlement(true)') < js.indexOf('triggerLaunchSequence();'), 'launch FX must not fire before canonical entitlement preflight');
   assert.ok(js.includes("ev.event_type==='agent.started'"));
   assert.ok(js.includes("ev.event_type==='mission.completed'"));
   assert.ok(js.includes("ev.event_type==='mission.rejected'"));
@@ -734,6 +827,7 @@ test('GET /api/swarm/health reports protocol and agent count without requiring a
   assert.equal(body.protocol, 'cdb.swarm.v1');
   assert.equal(body.version, '4.47.0');
   assert.equal(body.agents, 8);
+  assert.equal(body.capabilities.entitlement_preflight, true);
 });
 
 test('GET /api/swarm/client-context exposes only coarse Cloudflare location metadata', async () => {
