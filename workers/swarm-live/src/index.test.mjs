@@ -125,11 +125,11 @@ test('canonicalGatewayFetch falls back to public fetch(url, init) when no servic
   );
 });
 
-test('customer console exposes the production V4.46.3 control-plane capabilities', () => {
+test('customer console exposes the production V4.46.4 control-plane capabilities', () => {
   const html = __test.ui();
   for (const marker of [
     'SUPER AGENT SWARM',
-    'V4.46.3 PRODUCTION',
+    'V4.46.4 PRODUCTION',
     '8-Agent Operations Grid',
     'Private APEX Mesh',
     'Durable Evidence',
@@ -160,8 +160,26 @@ test('customer console exposes the production V4.46.3 control-plane capabilities
   assert.ok(html.includes('id="eventCount"'));
   assert.ok(html.includes('id="activeAgents"'));
   assert.ok(html.includes('id="completedAgents"'));
+  assert.match(
+    html,
+    /<a class="back-platform" id="backToPlatform" href="\/" aria-label="Back to CYBERDUDEBIVASH Sentinel APEX platform">/,
+    'SWARM header must expose a same-origin back-to-platform navigation control',
+  );
+  assert.ok(html.includes('<span>BACK TO PLATFORM</span>'));
+  assert.ok(html.includes('.back-platform{'), 'back-to-platform control must have dedicated production styling');
+  assert.ok(html.includes('.back-platform:focus-visible'), 'back-to-platform control must expose a keyboard focus state');
+  assert.ok(html.includes('.back-platform{grid-column:1/-1;width:100%;min-height:48px'), 'back-to-platform control must remain touch-friendly on smartphones');
   assert.ok(html.includes('does not claim independent SOC 2 certification'));
   assert.ok(!html.includes('setInterval('), 'customer console HTML must not embed simulated mission timers');
+});
+
+test('customer console provides direct navigation back to the Sentinel APEX platform root', () => {
+  const html = __test.ui();
+  const expected = '<a class="back-platform" id="backToPlatform" href="/" aria-label="Back to CYBERDUDEBIVASH Sentinel APEX platform">';
+  assert.ok(html.includes(expected));
+  assert.ok(html.includes('<span class="back-arrow" aria-hidden="true">←</span><span>BACK TO PLATFORM</span>'));
+  assert.equal((html.match(/id="backToPlatform"/g) || []).length, 1, 'navigation control must be unique');
+  assert.ok(!html.includes('target="_blank"'), 'back-to-platform navigation should stay in the same customer tab');
 });
 
 test('customer console browser controller is external, same-origin, and syntactically valid', async () => {
@@ -279,7 +297,7 @@ test('browser controller executes to interactive-ready and attaches live mission
             status: 'ok',
             service: 'sentinel-apex-swarm-live',
             protocol: 'cdb.swarm.v1',
-            version: '4.46.3',
+            version: '4.46.4',
             agents: 8,
             persistence: { kv_bound: true },
             production: { canonical_gateway_bound: true },
@@ -305,7 +323,7 @@ test('browser controller executes to interactive-ready and attaches live mission
   assert.equal(typeof getElement('loadHistory').onclick, 'function');
   assert.equal(typeof getElement('historyBody').onclick, 'function');
   assert.equal(getElement('runtimeState').textContent, 'LIVE');
-  assert.equal(getElement('runtimeKpi').textContent, 'LIVE · 4.46.3');
+  assert.equal(getElement('runtimeKpi').textContent, 'LIVE · 4.46.4');
   assert.equal(getElement('gatewayState').textContent, 'BOUND');
   assert.equal(getElement('persistenceState').textContent, 'READY');
   assert.equal(getElement('evidenceStore').textContent, 'DURABLE KV READY');
@@ -331,7 +349,7 @@ test('cinematic customer console exposes premium visual surfaces without fake mi
     'Cinematic launch visualization is decorative only',
     'SOC / CTI',
     'CYBER DEFENSE',
-    'V4.46.3 PRODUCTION',
+    'V4.46.4 PRODUCTION',
   ]) {
     assert.ok(html.includes(marker), 'missing cinematic UI marker: ' + marker);
   }
@@ -619,11 +637,11 @@ test('persistMission writes through the bound KV namespace with a TTL', async ()
 });
 
 test('GET /api/swarm/health reports protocol and agent count without requiring auth', async () => {
-  const res = await worker.fetch(new Request('https://x.test/api/swarm/health'), { SWARM_VERSION: '4.46.3' }, {});
+  const res = await worker.fetch(new Request('https://x.test/api/swarm/health'), { SWARM_VERSION: '4.46.4' }, {});
   assert.equal(res.status, 200);
   const body = await res.json();
   assert.equal(body.protocol, 'cdb.swarm.v1');
-  assert.equal(body.version, '4.46.3');
+  assert.equal(body.version, '4.46.4');
   assert.equal(body.agents, 8);
 });
 

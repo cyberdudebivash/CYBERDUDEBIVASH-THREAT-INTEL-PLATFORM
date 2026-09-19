@@ -3,7 +3,7 @@
 const DEFAULT_BASE_URL = 'https://intel.cyberdudebivash.com';
 const EXPECTED_SERVICE = 'sentinel-apex-swarm-live';
 const EXPECTED_PROTOCOL = 'cdb.swarm.v1';
-const EXPECTED_VERSION = '4.46.3';
+const EXPECTED_VERSION = '4.46.4';
 const EXPECTED_AGENTS = new Set([
   'ioc-hunter',
   'cve-intelligence',
@@ -99,7 +99,7 @@ async function validateHealth(baseUrl) {
 async function validateUi(baseUrl) {
   const { response, text } = await getText(`${baseUrl}/swarm/`);
   assert(response.status === 200, `/swarm/ returned HTTP ${response.status}`);
-  for (const marker of ['SUPER AGENT SWARM', 'Mission History', 'RUN LIVE SWARM', 'Private APEX Mesh', 'Durable Evidence', 'STIX 2.1', '8-Agent Operations Grid', 'V4.46.3 PRODUCTION', 'SOC 2-ALIGNED EVIDENCE UX', '8-Agent Mesh Topology', 'STATE-DRIVEN LED NODES', 'Event Sequence', 'RED TEAM INTEL', 'AI SECURITY OPS', 'Cinematic launch visualization is decorative only', 'CYBER DEFENSE', 'Current customer location time', 'GLOBAL EDGE · RESOLVING']) {
+  for (const marker of ['SUPER AGENT SWARM', 'Mission History', 'RUN LIVE SWARM', 'Private APEX Mesh', 'Durable Evidence', 'STIX 2.1', '8-Agent Operations Grid', 'V4.46.4 PRODUCTION', 'SOC 2-ALIGNED EVIDENCE UX', '8-Agent Mesh Topology', 'STATE-DRIVEN LED NODES', 'Event Sequence', 'RED TEAM INTEL', 'AI SECURITY OPS', 'Cinematic launch visualization is decorative only', 'CYBER DEFENSE', 'Current customer location time', 'GLOBAL EDGE · RESOLVING']) {
     assert(text.includes(marker), `/swarm/ missing required UI marker: ${marker}`);
   }
   assert(!text.includes('DERIVED VIEW'), '/swarm/ still exposes DERIVED VIEW agents');
@@ -109,6 +109,10 @@ async function validateUi(baseUrl) {
   assert(text.includes('id="clockTime"'), '/swarm/ missing LED time digits');
   assert(text.includes('id="clockLocation"'), '/swarm/ missing coarse location surface');
   assert(text.includes('id="clockCountry"'), '/swarm/ missing country surface');
+  assert(text.includes('id="backToPlatform"'), '/swarm/ missing back-to-platform navigation control');
+  assert(text.includes('class="back-platform"'), '/swarm/ missing back-to-platform premium navigation styling');
+  assert(text.includes('href="/"'), '/swarm/ back-to-platform navigation does not target the platform root');
+  assert(text.includes('BACK TO PLATFORM'), '/swarm/ missing visible back-to-platform label');
   assert(text.includes('class="mesh-led"'), '/swarm/ missing per-agent mesh LED nodes');
   assert(text.includes('class="mesh-agent-name"'), '/swarm/ missing mesh agent identity labels');
   for (const accent of ['#00E7FF', '#8B5CFF', '#FF8A00', '#FF4FD8', '#00FFA8', '#FFD400', '#5BE1FF', '#FF4D5A']) {
