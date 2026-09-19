@@ -14,6 +14,17 @@ test('canonical SWARM preflight is routed before commercial quota mutation', () 
   assert.ok(dailyMutation > route, 'preflight must not spend daily quota');
 });
 
+test('preflight has an isolated non-billable anti-abuse limiter', () => {
+  assert.ok(indexSource.includes('const SWARM_PREFLIGHT_RATE_LIMIT_PER_MINUTE = 60'));
+  assert.ok(indexSource.includes('rl:swarm-preflight:'));
+  const route = indexSource.indexOf('path === "/api/v1/swarm/preflight"');
+  const limiter = indexSource.indexOf('checkSwarmPreflightRateLimit(env, ip)', route);
+  const handler = indexSource.indexOf('handleSwarmPreflight(env, auth)', route);
+  assert.ok(limiter > route && limiter < handler, 'dedicated preflight limiter must run before entitlement response');
+  assert.ok(indexSource.includes('reason: "preflight_rate_limited"'));
+  assert.ok(indexSource.includes('"X-Preflight-RateLimit-Remaining"'));
+});
+
 test('preflight uses a read-only quota snapshot and never reflects credential material', () => {
   const start = indexSource.indexOf('async function handleSwarmPreflight');
   const end = indexSource.indexOf('\n}\n', start) + 3;
