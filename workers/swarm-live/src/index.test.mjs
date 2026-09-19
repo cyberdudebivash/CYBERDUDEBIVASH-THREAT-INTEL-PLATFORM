@@ -103,16 +103,22 @@ test('canonicalGatewayFetch prefers the private service binding and preserves me
   );
 });
 
-test('canonicalGatewayFetch falls back to public fetch when no service binding is available', async () => {
+test('canonicalGatewayFetch falls back to public fetch(url, init) when no service binding is available', async () => {
   let called = false;
   await withStubFetch(
-    async (request) => {
+    async (url, init) => {
       called = true;
-      assert.equal(new URL(request.url).pathname, '/api/health');
+      assert.equal(new URL(String(url)).pathname, '/api/health');
+      assert.equal(init?.headers?.get?.('x-request-id'), 'fallback-test');
       return jsonResponse({ status: 'ok' });
     },
     async () => {
-      const res = await __test.canonicalGatewayFetch({}, 'https://intel.cyberdudebivash.com/api/health');
+      const headers = new Headers({ 'x-request-id': 'fallback-test' });
+      const res = await __test.canonicalGatewayFetch(
+        {},
+        'https://intel.cyberdudebivash.com/api/health',
+        { headers },
+      );
       assert.equal(res.status, 200);
       assert.equal(called, true);
     },
