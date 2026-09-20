@@ -282,6 +282,139 @@ async function handlePreflight(request, env) {
   }
 }
 
+async function handleMissionReadiness(request, env) {
+  const auth = authHeaders(request);
+  if (!hasAuth(auth)) {
+    return json({
+      error: 'authentication_required',
+      message: 'Use an existing Sentinel customer API key or bearer token.',
+    }, 401);
+  }
+
+  const raw = await request.text();
+  if (new TextEncoder().encode(raw).byteLength > MAX_BODY_BYTES) {
+    return json({ error: 'request_too_large' }, 413);
+  }
+
+  let body;
+  try { body = JSON.parse(raw); } catch { return json({ error: 'invalid_json' }, 400); }
+  if (!body || typeof body !== 'object' || Array.isArray(body)) return json({ error: 'invalid_request' }, 400);
+  if (typeof body.ioc_value !== 'string' || !body.ioc_value.trim() || body.ioc_value.length > 256) {
+    return json({ error: 'ioc_value_required' }, 400);
+  }
+  if (body.ioc_type !== undefined && typeof body.ioc_type !== 'string') {
+    return json({ error: 'invalid_ioc_type' }, 400);
+  }
+
+  const iocType = String(body.ioc_type || 'auto').trim().slice(0, 32) || 'auto';
+  const normalized = normalizeIocValue(body.ioc_value, iocType);
+  if (!normalized.value || normalized.value.length > 256) {
+    return json({ error: 'invalid_ioc_value' }, 400);
+  }
+
+  const canonicalBase = env.CANONICAL_BASE_URL || 'https://intel.cyberdudebivash.com';
+  const requestId = `readiness-${crypto.randomUUID()}`;
+  const headers = new Headers(auth);
+  headers.set('x-request-id', requestId);
+
+  // Authorize with the same canonical entitlement authority used by the
+  // console before spending a correlation request.
+  let preflightResponse;
+  try {
+    preflightResponse = await canonicalGatewayFetch(
+      env,
+      `${canonicalBase}/api/v1/swarm/preflight`,
+      { method: 'GET', headers },
+    );
+  } catch {
+    return json({ error: 'canonical_preflight_unavailable' }, 503, { 'retry-after': '10' });
+  }
+
+  let preflight = null;
+  try { preflight = await preflightResponse.json(); } catch { /* handled below */ }
+  if (!preflightResponse.ok || !preflight || preflight.eligible !== true) {
+    return json({
+      status: 'blocked',
+      eligible: false,
+      reason: preflight?.reason || preflight?.error || 'entitlement_preflight_failed',
+      entitlement: preflight?.entitlement || null,
+      quota: preflight?.quota || null,
+      mission_dispatch: false,
+    }, preflightResponse.status || 403);
+  }
+
+  const correlationHeaders = new Headers(auth);
+  correlationHeaders.set('content-type', 'application/json');
+  correlationHeaders.set('x-request-id', requestId);
+
+  const [correlationResponse, synthesisReadiness] = await Promise.all([
+    canonicalGatewayFetch(env, `${canonicalBase}/api/intel/correlate`, {
+      method: 'POST',
+      headers: correlationHeaders,
+      body: JSON.stringify({
+        ioc_value: normalized.value,
+        ioc_type: iocType,
+      }),
+    }).catch(() => null),
+    getSynthesisReadiness(canonicalBase, auth, requestId, env),
+  ]);
+
+  if (!correlationResponse) {
+    return json({
+      error: 'readiness_correlation_unavailable',
+      mission_dispatch: false,
+    }, 503, { 'retry-after': '10' });
+  }
+
+  const correlationText = await correlationResponse.text();
+  let correlation = null;
+  try { correlation = correlationText ? JSON.parse(correlationText) : null; } catch { /* handled below */ }
+
+  const meshCertified = correlationResponse.headers.get('x-cdb-mesh-certified') === 'true';
+  if (!correlationResponse.ok || !meshCertified || !correlation) {
+    return json({
+      status: 'blocked',
+      error: 'readiness_correlation_failed',
+      canonical_status: correlationResponse.status,
+      mesh_certified: meshCertified,
+      canonical_error: responseSnippet(correlation),
+      mission_dispatch: false,
+    }, correlationResponse.status || 502);
+  }
+
+  const quotaRemaining = preflight?.quota?.daily?.remaining;
+  const readiness = buildMissionReadiness(correlation, {
+    entitlementEligible: true,
+    quotaRemaining,
+    llmReady: synthesisReadiness.ready,
+    llmProviders: synthesisReadiness.providers,
+  });
+
+  return json({
+    status: 'ok',
+    mission_dispatch: false,
+    canonical_request_consumed: true,
+    note: 'Readiness performs one canonical correlation request but does not dispatch /api/swarm/run.',
+    ioc: {
+      value: normalized.value,
+      type: iocType,
+      original_value: normalized.refanged ? normalized.original : null,
+      refanged: normalized.refanged,
+    },
+    correlation: {
+      verdict: correlation?.verdict || 'unknown',
+      match_count: Number(correlation?.match_count ?? allMatches(correlation).length),
+      request_id: correlation?.request_id || null,
+    },
+    synthesis_readiness: synthesisReadiness,
+    readiness,
+    demo_recommended:
+      readiness.mission_quality === 'FULL_FABRIC' &&
+      synthesisReadiness.ready === true,
+    checked_at: new Date().toISOString(),
+  }, 200, { 'x-cdb-swarm-readiness': 'canonical' });
+}
+
 // One real, distinct backend call per specialist. Forwards the caller's own
 // credentials unchanged (same pattern as the existing canonical correlate
 // call) -- this worker never derives tenant/tier/entitlement itself, it
@@ -2030,11 +2163,19 @@ export default {
           report_formats: ['md', 'json', 'stix21'],
           agent_timing: true,
           entitlement_preflight: true,
+          mission_readiness: true,
+          mission_quality: true,
+          evidence_graph: true,
+          adaptive_specialists: true,
+          agent_semantics_v2: true,
         },
       });
     }
     if (request.method === 'GET' && url.pathname === '/api/swarm/preflight') {
       return handlePreflight(request, env);
+    }
+    if (request.method === 'POST' && url.pathname === '/api/swarm/readiness') {
+      return handleMissionReadiness(request, env);
     }
     if (request.method === 'POST' && url.pathname === '/api/swarm/run') {
       return handleRun(request, env, ctx);
@@ -2069,7 +2210,10 @@ export const __test = Object.freeze({
   fuseRiskSynthesis,
   canonicalGatewayFetch,
   handlePreflight,
+  handleMissionReadiness,
+  getSynthesisReadiness,
   synthesizeNarrative,
+  summarizeMissionOutcomes,
   runBackendSpecialist,
   persistMission,
   credentialPartition,
