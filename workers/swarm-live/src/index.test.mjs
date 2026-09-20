@@ -512,12 +512,12 @@ test('fuseRiskSynthesis: an unconfigured specialist (missing SPECIALIST_ROUTES e
   assert.deepEqual(fused.failed_specialists, ['cve-intelligence']);
 });
 
-test('runBackendSpecialist: missing dependency emits an honest SKIPPED no-op and performs no backend call', async () => {
+test('runBackendSpecialist: missing dependency emits honest NOT_APPLICABLE and performs no backend call', async () => {
   let called = false;
   await withStubFetch(() => { called = true; throw new Error('must not be called'); }, async () => {
     const outcome = await __test.runBackendSpecialist('https://x.test', new Headers(), CORRELATION_ID, { matches: [] }, __test.SPECIALIST_ROUTES['cve-intelligence']);
-    assert.equal(outcome.basis, 'conditional_skip');
-    assert.equal(outcome.state, 'SKIPPED');
+    assert.equal(outcome.basis, 'conditional_not_applicable');
+    assert.equal(outcome.state, 'NOT_APPLICABLE');
     assert.equal(outcome.result.reason, 'dependency_input_absent');
     assert.match(outcome.result.note, /no CVE identifier/);
     assert.match(outcome.skip_reason, /no CVE identifier/);
@@ -677,7 +677,7 @@ test('runBackendSpecialist: a transport failure is reported as FAILED, not throw
   );
 });
 
-test('end-to-end clean correlation emits SKIPPED specialists without fake RUNNING transitions or backend compute', async () => {
+test('end-to-end clean correlation emits NOT_APPLICABLE specialists and NO_MATCH_COMPLETE without fake backend compute', async () => {
   const env = { CANONICAL_BASE_URL: 'https://x.test' };
   const calls = [];
   await withStubFetch(
@@ -697,6 +697,9 @@ test('end-to-end clean correlation emits SKIPPED specialists without fake RUNNIN
           'x-cdb-mesh-execution': 'mesh-skip-1',
           'x-cdb-mesh-correlation': init.headers.get('x-request-id'),
         });
+      }
+      if (u.pathname === '/api/v1/swarm-synthesis/health') {
+        return jsonResponse({ status: 'ok', ready: false, llm_enabled: false, tier_llm: true, providers: {} });
       }
       if (u.pathname === '/api/v1/swarm-synthesis') {
         return jsonResponse({ status: 'success', llm_enhanced: false, narrative: null });
@@ -724,22 +727,138 @@ test('end-to-end clean correlation emits SKIPPED specialists without fake RUNNIN
         .filter(Boolean)
         .map((line) => JSON.parse(line.slice(6)));
 
-      const skipped = events.filter((ev) => ev.event_type === 'agent.skipped');
-      assert.equal(skipped.length, 6);
-      assert.ok(skipped.every((ev) => ev.state === 'SKIPPED'));
-      assert.ok(skipped.every((ev) => ev.result?.reason === 'dependency_input_absent'));
+      const notApplicable = events.filter((ev) => ev.event_type === 'agent.not_applicable');
+      assert.equal(notApplicable.length, 6);
+      assert.ok(notApplicable.every((ev) => ev.state === 'NOT_APPLICABLE'));
+      assert.ok(notApplicable.every((ev) => ev.result?.reason === 'dependency_input_absent'));
 
       const startedSpecialists = events.filter(
         (ev) => ev.event_type === 'agent.started' && ev.agent_id !== 'ioc-hunter' && ev.agent_id !== 'risk-synthesizer',
       );
       assert.equal(startedSpecialists.length, 0, 'conditionally skipped specialists must never claim RUNNING');
 
-      assert.deepEqual(calls.sort(), ['/api/intel/correlate', '/api/v1/swarm-synthesis'].sort());
+      assert.deepEqual(calls.sort(), ['/api/intel/correlate', '/api/v1/swarm-synthesis/health', '/api/v1/swarm-synthesis'].sort());
       const completed = events.find((ev) => ev.event_type === 'mission.completed');
       assert.ok(completed);
       assert.equal(completed.result.skipped_specialists.length, 6);
+      assert.equal(completed.mission_quality, 'NO_MATCH_COMPLETE');
+      const degradedSynth = events.find((ev) => ev.event_type === 'agent.degraded' && ev.agent_id === 'risk-synthesizer');
+      assert.ok(degradedSynth);
     },
   );
+});
+
+test('runBackendSpecialist: bounded adaptive orchestration tries the next evidence candidate after a valid empty result', async () => {
+  const correlation = {
+    ...CORRELATION,
+    matches: [
+      { ...CORRELATION.matches[0], cve_id: 'CVE-2026-EMPTY' },
+      { ...CORRELATION.matches[0], report_id: 'intel--second', cve_id: 'CVE-2026-HIT' },
+    ],
+  };
+  const calls = [];
+  await withStubFetch(
+    async (url) => {
+      const u = new URL(String(url));
+      const cve = u.searchParams.get('cve_id');
+      calls.push(cve);
+      if (cve === 'CVE-2026-EMPTY') return jsonResponse({ status: 'ok', data: { cves: [] } });
+      return jsonResponse({ status: 'ok', data: { cves: [{ cve_id: cve, kev: true }] } });
+    },
+    async () => {
+      const outcome = await __test.runBackendSpecialist(
+        'https://x.test',
+        new Headers(),
+        CORRELATION_ID,
+        correlation,
+        __test.SPECIALIST_ROUTES['cve-intelligence']
+      );
+      assert.equal(outcome.state, 'COMPLETED');
+      assert.equal(outcome.queried.cve_id, 'CVE-2026-HIT');
+      assert.equal(outcome.evidence_count, 1);
+      assert.equal(outcome.substantive, true);
+      assert.equal(outcome.attempted_candidates.length, 2);
+    }
+  );
+  assert.deepEqual(calls, ['CVE-2026-EMPTY', 'CVE-2026-HIT']);
+});
+
+test('runBackendSpecialist: transient 503 is UNAVAILABLE, not FAILED', async () => {
+  await withStubFetch(
+    async () => jsonResponse({ error: 'upstream_unavailable' }, 503),
+    async () => {
+      const outcome = await __test.runBackendSpecialist(
+        'https://x.test',
+        new Headers(),
+        CORRELATION_ID,
+        CORRELATION,
+        __test.SPECIALIST_ROUTES['cve-intelligence']
+      );
+      assert.equal(outcome.state, 'UNAVAILABLE');
+      assert.equal(outcome.http_status, 503);
+    }
+  );
+});
+
+test('POST /api/swarm/readiness returns full-fabric projection without dispatching a SWARM mission', async () => {
+  const calls = [];
+  await withStubFetch(
+    async (url, init = {}) => {
+      const u = new URL(String(url));
+      calls.push({ path: u.pathname, method: init.method || 'GET' });
+
+      if (u.pathname === '/api/v1/swarm/preflight') {
+        return jsonResponse({
+          status: 'ok',
+          eligible: true,
+          entitlement: { tier: 'ENTERPRISE', swarm_enabled: true, scope_granted: true },
+          quota: { daily: { available: true, remaining: 100, limit: 50000, exhausted: false } },
+        });
+      }
+
+      if (u.pathname === '/api/v1/swarm-synthesis/health') {
+        return jsonResponse({
+          status: 'ok',
+          ready: true,
+          llm_enabled: true,
+          tier_llm: true,
+          providers: { deepseek: true, groq: false, openrouter: false },
+        });
+      }
+
+      if (u.pathname === '/api/intel/correlate') {
+        return jsonResponse(CORRELATION, 200, {
+          'x-cdb-mesh-certified': 'true',
+          'x-cdb-mesh-execution': 'mesh-readiness-1',
+          'x-cdb-mesh-correlation': init.headers.get('x-request-id'),
+        });
+      }
+
+      throw new Error('unexpected readiness call: ' + u.pathname);
+    },
+    async () => {
+      const response = await worker.fetch(
+        new Request('https://x.test/api/swarm/readiness', {
+          method: 'POST',
+          headers: { 'x-api-key': 'enterprise-key' },
+          body: JSON.stringify({ ioc_value: '8.8.8.8', ioc_type: 'ipv4' }),
+        }),
+        { CANONICAL_BASE_URL: 'https://x.test' },
+        {}
+      );
+
+      assert.equal(response.status, 200);
+      const body = await response.json();
+      assert.equal(body.mission_dispatch, false);
+      assert.equal(body.canonical_request_consumed, true);
+      assert.equal(body.readiness.mission_quality, 'FULL_FABRIC');
+      assert.equal(body.readiness.ready_agents, 8);
+      assert.equal(body.demo_recommended, true);
+    }
+  );
+
+  assert.equal(calls.some((x) => x.path === '/api/swarm/run'), false);
+  assert.ok(calls.some((x) => x.path === '/api/intel/correlate' && x.method === 'POST'));
 });
 
 test('persistMission is a graceful no-op when no KV binding is provisioned', async () => {
@@ -757,12 +876,15 @@ test('persistMission writes through the bound KV namespace with a TTL', async ()
 });
 
 test('GET /api/swarm/health reports protocol and agent count without requiring auth', async () => {
-  const res = await worker.fetch(new Request('https://x.test/api/swarm/health'), { SWARM_VERSION: '4.46.6' }, {});
+  const res = await worker.fetch(new Request('https://x.test/api/swarm/health'), { SWARM_VERSION: '4.47.0' }, {});
   assert.equal(res.status, 200);
   const body = await res.json();
   assert.equal(body.protocol, 'cdb.swarm.v1');
-  assert.equal(body.version, '4.46.6');
+  assert.equal(body.version, '4.47.0');
   assert.equal(body.agents, 8);
+  assert.equal(body.capabilities.mission_readiness, true);
+  assert.equal(body.capabilities.evidence_graph, true);
+  assert.equal(body.capabilities.agent_semantics_v2, true);
 });
 
 test('GET /api/swarm/client-context exposes only coarse Cloudflare location metadata', async () => {
