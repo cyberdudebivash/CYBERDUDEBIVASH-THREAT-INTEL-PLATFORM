@@ -257,6 +257,9 @@ test('browser controller executes to interactive-ready and attaches live mission
     querySelectorAll() { return []; }
     append() {}
     appendChild() {}
+    addEventListener() {}
+    setAttribute() {}
+    scrollIntoView() {}
     remove() {}
     click() {}
     closest() { return null; }
@@ -344,6 +347,9 @@ test('browser controller executes to interactive-ready and attaches live mission
   assert.equal(windowStub.__CDB_SWARM_INTERACTIVE_READY__, true);
   assert.equal(typeof getElement('run').onclick, 'function');
   assert.equal(typeof getElement('loadHistory').onclick, 'function');
+  assert.equal(typeof getElement('loadMetrics').onclick, 'function');
+  assert.equal(typeof getElement('assessReadiness').onclick, 'function');
+  assert.equal(typeof getElement('viewMode').onclick, 'function');
   assert.equal(typeof getElement('historyBody').onclick, 'function');
   assert.equal(getElement('runtimeState').textContent, 'LIVE');
   assert.equal(getElement('runtimeKpi').textContent, 'LIVE · 4.47.0');
