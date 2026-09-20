@@ -379,7 +379,16 @@ test('appendEvent keeps cinematic event FX inside the event handler', () => {
   const next = js.indexOf('function renderNarrative', start);
   assert.ok(start >= 0 && next > start);
   const body = js.slice(start, next);
-  assert.ok(body.includes('fxForMissionEvent(ev)}'), 'appendEvent must invoke FX before its closing brace');
+  assert.ok(body.includes('fxForMissionEvent(ev)'), 'appendEvent must invoke cinematic FX from the real event');
+  assert.ok(body.includes('focusAgentForExecutive(ev)'), 'appendEvent must drive Executive View focus from the same real event');
+  assert.ok(
+    body.indexOf('fxForMissionEvent(ev)') < body.lastIndexOf('}'),
+    'event FX must execute inside appendEvent before its closing brace',
+  );
+  assert.ok(
+    body.indexOf('focusAgentForExecutive(ev)') < body.lastIndexOf('}'),
+    'executive focus must execute inside appendEvent before its closing brace',
+  );
   assert.ok(js.includes('window.__CDB_SWARM_INTERACTIVE_READY__=true'));
 });
 
