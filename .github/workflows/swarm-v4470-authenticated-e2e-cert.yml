@@ -17,7 +17,7 @@ permissions:
 
 concurrency:
   group: swarm-v4470-authenticated-production-e2e
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   certify:
@@ -57,21 +57,31 @@ jobs:
         working-directory: ${{ env.GATEWAY_DIR }}
         run: npm install --ignore-scripts --no-audit --no-fund
 
-      - name: Install headless clipboard isolation
+      - name: Install zero-persistence clipboard sink
         run: |
           set -euo pipefail
-          sudo apt-get update -qq
-          sudo apt-get install -y -qq xclip xvfb
+          BIN_DIR="$RUNNER_TEMP/cdb-bin"
+          mkdir -p "$BIN_DIR"
+          cat > "$BIN_DIR/xclip" <<'SH'
+          #!/usr/bin/env bash
+          set -euo pipefail
+          cat >/dev/null
+          exit 0
+          SH
+          chmod 700 "$BIN_DIR/xclip"
+          echo "$BIN_DIR" >> "$GITHUB_PATH"
+          echo "Installed ephemeral clipboard sink; credential bytes are discarded immediately."
 
       - name: Create short-lived production demo credential
         id: demo_key
+        timeout-minutes: 4
         working-directory: ${{ env.GATEWAY_DIR }}
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
         run: |
           set -euo pipefail
-          xvfb-run -a node scripts/demo-key-operator.mjs create --hours 1
+          node scripts/demo-key-operator.mjs create --hours 1
 
           node <<'NODE'
           const fs = require('node:fs');
@@ -92,6 +102,7 @@ jobs:
           echo "Raw credential was not printed."
 
       - name: Execute exactly one strict full-fabric production mission
+        timeout-minutes: 6
         working-directory: ${{ env.SWARM_DIR }}
         env:
           SENTINEL_SWARM_DISCOVER_FULL_FABRIC: 'true'
@@ -121,6 +132,7 @@ jobs:
           NODE
 
       - name: Post-mission durable evidence certification
+        timeout-minutes: 4
         working-directory: ${{ env.SWARM_DIR }}
         env:
           POSTDEMO_REQUIRE_FULL_FABRIC: 'true'
@@ -130,6 +142,7 @@ jobs:
 
       - name: Revoke temporary production credential
         if: always() && steps.demo_key.outcome != 'skipped'
+        timeout-minutes: 4
         working-directory: ${{ env.GATEWAY_DIR }}
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
@@ -140,7 +153,7 @@ jobs:
           DEFAULT_POINTER="/tmp/cdb-sentinel-demo-current.json"
 
           if [ -f "$POINTER" ] || [ -f "$DEFAULT_POINTER" ]; then
-            xvfb-run -a node scripts/demo-key-operator.mjs revoke
+            node scripts/demo-key-operator.mjs revoke
           else
             echo "No local demo-key pointer exists; no credential was created or it was already cleaned up."
           fi
