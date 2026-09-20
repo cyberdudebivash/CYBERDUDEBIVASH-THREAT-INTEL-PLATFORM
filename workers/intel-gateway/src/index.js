@@ -3875,13 +3875,20 @@ async function handleCopilot(request, env, auth, method, path) {
 // =============================================================================
 async function handleSwarmSynthesis(request, env, auth, method, path) {
   const LLM_ENABLED = !!(env.DEEPSEEK_API_KEY || env.GROQ_API_KEY || env.OPENROUTER_API_KEY);
+  const tierAllowsLLM = tierAllowsSwarmSynthesis(auth.tier);
 
   // GET /api/v1/swarm-synthesis/health
+  // Configuration-level readiness only: no provider token is spent here.
+  // The mission still performs a real synthesis call and records DEGRADED if
+  // the provider is configured but unavailable at execution time.
   if (method === "GET" && path.includes("/health")) {
     return jsonResp({
       status:      "ok",
-      engine:      "CDB-SwarmSynthesis v1.0 (Worker-native)",
+      engine:      "CDB-SwarmSynthesis v1.1 (Worker-native)",
       llm_enabled: LLM_ENABLED,
+      tier_llm:    tierAllowsLLM,
+      ready:       LLM_ENABLED && tierAllowsLLM,
+      readiness_scope: "configuration",
       providers:   { deepseek: !!env.DEEPSEEK_API_KEY, groq: !!env.GROQ_API_KEY, openrouter: !!env.OPENROUTER_API_KEY },
     });
   }
@@ -3898,7 +3905,6 @@ async function handleSwarmSynthesis(request, env, auth, method, path) {
   }
 
   const generated_at  = new Date().toISOString();
-  const tierAllowsLLM = tierAllowsSwarmSynthesis(auth.tier);
 
   // Same honest-unavailable pattern as handleCopilot's FREE-tier /
   // LLM-disabled branch above -- never a fabricated narrative.

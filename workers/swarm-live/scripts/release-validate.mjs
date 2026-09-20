@@ -3,7 +3,7 @@
 const DEFAULT_BASE_URL = 'https://intel.cyberdudebivash.com';
 const EXPECTED_SERVICE = 'sentinel-apex-swarm-live';
 const EXPECTED_PROTOCOL = 'cdb.swarm.v1';
-const EXPECTED_VERSION = '4.46.6';
+const EXPECTED_VERSION = '4.47.0';
 const EXPECTED_AGENTS = new Set([
   'ioc-hunter',
   'cve-intelligence',
@@ -90,6 +90,14 @@ async function validateHealth(baseUrl) {
   assert(body?.production?.customer_console === true, 'customer console capability is not enabled');
   assert(body?.capabilities?.idempotent_retry === true, 'idempotent retry capability is not enabled');
   assert(body?.capabilities?.entitlement_preflight === true, 'entitlement preflight capability is not enabled');
+  assert(body?.capabilities?.mission_readiness === true, 'mission readiness capability is not enabled');
+  assert(body?.capabilities?.mission_quality === true, 'mission quality capability is not enabled');
+  assert(body?.capabilities?.evidence_graph === true, 'evidence graph capability is not enabled');
+  assert(body?.capabilities?.adaptive_specialists === true, 'adaptive specialist capability is not enabled');
+  assert(body?.capabilities?.agent_semantics_v2 === true, 'agent semantics v2 capability is not enabled');
+  assert(body?.capabilities?.credential_scoped_metrics === true, 'credential-scoped mission metrics capability is not enabled');
+  assert(body?.capabilities?.mission_profiles === true, 'mission profile capability is not enabled');
+  assert(Array.isArray(body?.mission_profiles) && body.mission_profiles.some((p) => p.id === 'AUTO'), 'mission profile catalog missing AUTO');
   assert(Array.isArray(body?.capabilities?.report_formats) && body.capabilities.report_formats.includes('stix21'), 'STIX 2.1 evidence export is not advertised');
   assert(Number(body?.agents) === EXPECTED_AGENTS.size, `expected ${EXPECTED_AGENTS.size} agents, got ${body?.agents}`);
   assert(body?.persistence?.kv_bound === true, 'SWARM_MISSIONS_KV is not bound; durable mission lifecycle is NOT production-ready');
@@ -100,7 +108,7 @@ async function validateHealth(baseUrl) {
 async function validateUi(baseUrl) {
   const { response, text } = await getText(`${baseUrl}/swarm/`);
   assert(response.status === 200, `/swarm/ returned HTTP ${response.status}`);
-  for (const marker of ['SUPER AGENT SWARM', 'Mission History', 'RUN LIVE SWARM', 'Private APEX Mesh', 'Durable Evidence', 'STIX 2.1', '8-Agent Operations Grid', 'V4.46.6 PRODUCTION', 'SOC 2-ALIGNED EVIDENCE UX', '8-Agent Mesh Topology', 'STATE-DRIVEN LED NODES', 'Event Sequence', 'RED TEAM INTEL', 'AI SECURITY OPS', 'Cinematic launch visualization is decorative only', 'CYBER DEFENSE', 'Current customer location time', 'GLOBAL EDGE · RESOLVING']) {
+  for (const marker of ['SUPER AGENT SWARM', 'Mission History', 'RUN LIVE SWARM', 'Private APEX Mesh', 'Durable Evidence', 'STIX 2.1', '8-Agent Operations Grid', 'V4.47.0 PRODUCTION', 'SOC 2-ALIGNED EVIDENCE UX', '8-Agent Mesh Topology', 'STATE-DRIVEN LED NODES', 'Event Sequence', 'RED TEAM INTEL', 'AI SECURITY OPS', 'Cinematic launch visualization is decorative only', 'CYBER DEFENSE', 'Current customer location time', 'GLOBAL EDGE · RESOLVING']) {
     assert(text.includes(marker), `/swarm/ missing required UI marker: ${marker}`);
   }
   assert(!text.includes('DERIVED VIEW'), '/swarm/ still exposes DERIVED VIEW agents');
@@ -115,6 +123,12 @@ async function validateUi(baseUrl) {
   assert(text.includes('href="/"'), '/swarm/ back-to-platform navigation does not target the platform root');
   assert(text.includes('BACK TO PLATFORM'), '/swarm/ missing visible back-to-platform label');
   assert(text.includes('id="preflightStatus"'), '/swarm/ missing entitlement preflight status surface');
+  assert(text.includes('id="readinessPanel"'), '/swarm/ missing mission readiness surface');
+  assert(text.includes('id="assessReadiness"'), '/swarm/ missing explicit readiness control');
+  assert(text.includes('id="missionQuality"'), '/swarm/ missing mission quality surface');
+  assert(text.includes('id="evidenceGraphState"'), '/swarm/ missing evidence graph surface');
+  assert(text.includes('id="viewMode"'), '/swarm/ missing executive/technical view control');
+  assert(text.includes('id="profile"'), '/swarm/ missing mission profile selector');
   assert(text.includes('id="run" disabled'), '/swarm/ launch control must be locked until entitlement preflight passes');
   assert(text.includes('id="fabricStateText">DORMANT</span>'), '/swarm/ idle fabric state must be DORMANT');
   assert(text.includes('id="streamState">SSE · DORMANT</span>'), '/swarm/ idle SSE state must be DORMANT');
@@ -143,6 +157,9 @@ async function validateUi(baseUrl) {
   assert(app.text.includes("window.__CDB_SWARM_UI_READY__=true"), '/swarm/app.js missing browser-ready marker');
   assert(app.text.includes("window.__CDB_SWARM_INTERACTIVE_READY__=true"), '/swarm/app.js missing interactive-ready marker');
   assert(app.text.includes("fetch('/api/swarm/preflight'"), '/swarm/app.js is not wired to canonical entitlement preflight');
+  assert(app.text.includes("fetch('/api/swarm/readiness'"), '/swarm/app.js is not wired to mission readiness');
+  assert(app.text.includes('NOT_APPLICABLE'), '/swarm/app.js missing semantic NOT_APPLICABLE handling');
+  assert(app.text.includes('focusAgentForExecutive'), '/swarm/app.js missing event-driven executive auto-focus');
   assert(app.text.includes('!preflight.eligible||preflight.key!==key'), '/swarm/app.js does not enforce verified-key launch locking');
   assert(!app.text.includes('};fxForMissionEvent(ev)'), '/swarm/app.js contains a top-level event FX call that aborts browser bootstrap');
   assert(app.text.includes('hydrateHealth()'), '/swarm/app.js missing runtime hydration');
@@ -195,6 +212,25 @@ async function validateLiveMission(baseUrl, apiKey) {
   assert(preflight.body?.eligible === true, `paid SWARM preflight denied launch: ${preflight.body?.reason || preflight.body?.error || 'unknown'}`);
   assert(['PRO', 'ENTERPRISE', 'MSSP'].includes(preflight.body?.entitlement?.tier), `unexpected SWARM entitlement tier: ${preflight.body?.entitlement?.tier}`);
   logPass('paid entitlement preflight', `tier=${preflight.body.entitlement.tier}`);
+  const readinessRequestId = `release-readiness-${crypto.randomUUID()}`;
+  const readinessIoc = process.env.SENTINEL_SWARM_TEST_IOC || '8.8.8.8';
+  const readinessType = process.env.SENTINEL_SWARM_TEST_IOC_TYPE || 'ipv4';
+  const readiness = await getJson(`${baseUrl}/api/swarm/readiness`, {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      'x-api-key': apiKey,
+      'x-request-id': readinessRequestId,
+    },
+    body: JSON.stringify({ ioc_value: readinessIoc, ioc_type: readinessType, mission_profile: 'AUTO' }),
+  });
+  assert(readiness.response.status === 200, `mission readiness returned HTTP ${readiness.response.status}`);
+  assert(readiness.body?.mission_dispatch === false, 'mission readiness unexpectedly reports mission dispatch');
+  assert(readiness.body?.canonical_request_consumed === true, 'mission readiness cost disclosure missing');
+  assert(typeof readiness.body?.readiness?.mission_quality === 'string', 'readiness mission_quality missing');
+  assert(Number(readiness.body?.readiness?.fleet_agents) === 8, 'readiness fleet size mismatch');
+  logPass('paid mission readiness', `quality=${readiness.body.readiness.mission_quality} ready=${readiness.body.readiness.ready_agents}/${readiness.body.readiness.total_agents}`);
+
   const requestId = `release-${crypto.randomUUID()}`;
   const iocValue = process.env.SENTINEL_SWARM_TEST_IOC || '8.8.8.8';
   const iocType = process.env.SENTINEL_SWARM_TEST_IOC_TYPE || 'ipv4';
@@ -206,7 +242,7 @@ async function validateLiveMission(baseUrl, apiKey) {
       'x-api-key': apiKey,
       'x-request-id': requestId,
     },
-    body: JSON.stringify({ ioc_value: iocValue, ioc_type: iocType }),
+    body: JSON.stringify({ ioc_value: iocValue, ioc_type: iocType, mission_profile: 'AUTO' }),
   });
 
   assert(response.status === 200, `/api/swarm/run returned HTTP ${response.status}: ${text.slice(0, 240)}`);
@@ -235,10 +271,16 @@ async function validateLiveMission(baseUrl, apiKey) {
   assert(typeof terminal.mission_id === 'string' && terminal.mission_id.length > 0, 'mission_id missing');
   assert(typeof terminal.execution_id === 'string' && terminal.execution_id.length > 0, 'execution_id missing');
   assert(typeof terminal.correlation_id === 'string' && terminal.correlation_id.length > 0, 'correlation_id missing');
+  assert(typeof terminal.mission_quality === 'string' && terminal.mission_quality.length > 0, 'mission_quality missing from terminal event');
+  assert(terminal.evidence_graph?.schema === 'cdb.swarm.evidence-graph.v1', 'terminal evidence graph schema missing');
+  assert(Number(terminal.evidence_graph?.node_count) > 0, 'terminal evidence graph node count missing');
+  assert(Number(terminal.evidence_graph?.edge_count) >= 0, 'terminal evidence graph edge count missing');
 
   const seenAgents = new Set(events.map((event) => event.agent_id).filter(Boolean));
   for (const agent of EXPECTED_AGENTS) assert(seenAgents.has(agent), `missing live agent events for ${agent}`);
   const badEvents = events.filter((event) => event.state === 'FAILED' || event.basis === 'unconfigured');
+  const legacySkipped = events.filter((event) => event.state === 'SKIPPED' || event.event_type === 'agent.skipped');
+  assert(legacySkipped.length === 0, 'V4.47 mission emitted legacy SKIPPED semantics');
   assert(badEvents.length === 0, `mission contains FAILED/unconfigured agent events: ${badEvents.map((e) => e.agent_id || e.event_type).join(', ')}`);
 
   logPass('live mesh-certified mission', `mission=${terminal.mission_id} events=${events.length} agents=${seenAgents.size}`);
@@ -248,6 +290,9 @@ async function validateLiveMission(baseUrl, apiKey) {
   assert(readback.response.status === 200, `mission read-back returned HTTP ${readback.response.status}`);
   const persistedId = readback.body?.data?.mission_id ?? readback.body?.mission_id;
   assert(persistedId === terminal.mission_id, 'persisted mission_id does not match live mission');
+  const persisted = readback.body?.data ?? readback.body;
+  assert(persisted?.mission_quality === terminal.mission_quality, 'persisted mission quality does not match terminal event');
+  assert(persisted?.evidence_graph?.schema === 'cdb.swarm.evidence-graph.v1', 'persisted evidence graph missing');
   logPass('durable mission read-back', terminal.mission_id);
 
   const jsonReport = await getText(`${baseUrl}/api/swarm/mission/${encodeURIComponent(terminal.mission_id)}/report?format=json`, { headers });
@@ -271,7 +316,16 @@ async function validatePreflightContract(baseUrl) {
   const { response, body } = await getJson(`${baseUrl}/api/swarm/preflight`);
   assert(response.status === 401, `unauthenticated /api/swarm/preflight returned HTTP ${response.status}, expected 401`);
   assert(body?.error === 'authentication_required', 'unauthenticated SWARM preflight did not fail closed');
-  logPass('entitlement preflight fail-closed contract');
+
+  const readiness = await getJson(`${baseUrl}/api/swarm/readiness`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ ioc_value: '8.8.8.8', ioc_type: 'ipv4' }),
+  });
+  assert(readiness.response.status === 401, `unauthenticated /api/swarm/readiness returned HTTP ${readiness.response.status}, expected 401`);
+  assert(readiness.body?.error === 'authentication_required', 'mission readiness did not fail closed on authentication');
+
+  logPass('entitlement/readiness fail-closed contract');
 }
 
 async function main() {

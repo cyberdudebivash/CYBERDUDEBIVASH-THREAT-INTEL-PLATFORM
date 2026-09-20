@@ -12,7 +12,8 @@ test('pre-demo certification hard-blocks SWARM mission dispatch', () => {
   assert.ok(source.includes('missionDispatchCount === 0'));
 });
 
-test('pre-demo certification allows only the two explicit backend POST canaries', () => {
+test('pre-demo certification allows only the three explicit non-mission POST canaries', () => {
+  assert.ok(source.includes("'/api/swarm/readiness'"));
   assert.ok(source.includes("'/api/intel/correlate'"));
   assert.ok(source.includes("'/api/v1/swarm-synthesis'"));
   assert.ok(source.includes("method !== 'GET' && !SAFE_POST_PATHS.has(url.pathname)"));
@@ -29,7 +30,7 @@ test('public-only certification can never emit the final live-mission authorizat
   assert.ok(source.includes('PUBLIC-ONLY PASS — public production surfaces are certified.'));
   assert.ok(source.includes('the live SWARM mission is NOT authorized'));
   const publicBlockStart = source.indexOf('if (publicOnly)');
-  const fullGo = source.indexOf('GO — 100% OF THE DEFINED PRE-DEMO ACCEPTANCE MATRIX PASSED.', publicBlockStart);
+  const fullGo = source.indexOf('PRE-MISSION GO — 100% OF THE PRE-MISSION ACCEPTANCE MATRIX PASSED.', publicBlockStart);
   const publicReturn = source.indexOf('return;', publicBlockStart);
   assert.ok(publicReturn > publicBlockStart && publicReturn < fullGo);
 });
@@ -52,6 +53,8 @@ test('full pre-demo certification requires explicit physical mobile sign-off', (
 test('package scripts expose mission-safe public and full pre-demo gates', () => {
   assert.equal(pkg.scripts['pre-demo:certify'], 'node scripts/pre-demo-certify.mjs');
   assert.equal(pkg.scripts['pre-demo:public'], 'node scripts/pre-demo-certify.mjs --public-only');
+  assert.equal(pkg.scripts['post-demo:certify'], 'node scripts/post-demo-certify.mjs');
   assert.ok(pkg.scripts.test.includes('scripts/pre-demo-certify.contract.test.mjs'));
+  assert.ok(pkg.scripts.test.includes('scripts/post-demo-certify.contract.test.mjs'));
   assert.ok(pkg.scripts.check.includes('node --check scripts/pre-demo-certify.mjs'));
 });

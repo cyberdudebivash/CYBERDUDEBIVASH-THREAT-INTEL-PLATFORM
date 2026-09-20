@@ -142,11 +142,11 @@ test('canonicalGatewayFetch falls back to public fetch(url, init) when no servic
   );
 });
 
-test('customer console exposes the production V4.46.6 control-plane capabilities', () => {
+test('customer console exposes the production V4.47.0 control-plane capabilities', () => {
   const html = __test.ui();
   for (const marker of [
     'SUPER AGENT SWARM',
-    'V4.46.6 PRODUCTION',
+    'V4.47.0 PRODUCTION',
     '8-Agent Operations Grid',
     'Private APEX Mesh',
     'Durable Evidence',
@@ -257,6 +257,9 @@ test('browser controller executes to interactive-ready and attaches live mission
     querySelectorAll() { return []; }
     append() {}
     appendChild() {}
+    addEventListener() {}
+    setAttribute() {}
+    scrollIntoView() {}
     remove() {}
     click() {}
     closest() { return null; }
@@ -320,7 +323,7 @@ test('browser controller executes to interactive-ready and attaches live mission
             status: 'ok',
             service: 'sentinel-apex-swarm-live',
             protocol: 'cdb.swarm.v1',
-            version: '4.46.6',
+            version: '4.47.0',
             agents: 8,
             persistence: { kv_bound: true },
             production: { canonical_gateway_bound: true },
@@ -344,9 +347,12 @@ test('browser controller executes to interactive-ready and attaches live mission
   assert.equal(windowStub.__CDB_SWARM_INTERACTIVE_READY__, true);
   assert.equal(typeof getElement('run').onclick, 'function');
   assert.equal(typeof getElement('loadHistory').onclick, 'function');
+  assert.equal(typeof getElement('loadMetrics').onclick, 'function');
+  assert.equal(typeof getElement('assessReadiness').onclick, 'function');
+  assert.equal(typeof getElement('viewMode').onclick, 'function');
   assert.equal(typeof getElement('historyBody').onclick, 'function');
   assert.equal(getElement('runtimeState').textContent, 'LIVE');
-  assert.equal(getElement('runtimeKpi').textContent, 'LIVE · 4.46.6');
+  assert.equal(getElement('runtimeKpi').textContent, 'LIVE · 4.47.0');
   assert.equal(getElement('gatewayState').textContent, 'BOUND');
   assert.equal(getElement('persistenceState').textContent, 'READY');
   assert.equal(getElement('evidenceStore').textContent, 'DURABLE KV READY');
@@ -372,7 +378,7 @@ test('cinematic customer console exposes premium visual surfaces without fake mi
     'Cinematic launch visualization is decorative only',
     'SOC / CTI',
     'CYBER DEFENSE',
-    'V4.46.6 PRODUCTION',
+    'V4.47.0 PRODUCTION',
   ]) {
     assert.ok(html.includes(marker), 'missing cinematic UI marker: ' + marker);
   }
@@ -512,12 +518,12 @@ test('fuseRiskSynthesis: an unconfigured specialist (missing SPECIALIST_ROUTES e
   assert.deepEqual(fused.failed_specialists, ['cve-intelligence']);
 });
 
-test('runBackendSpecialist: missing dependency emits an honest SKIPPED no-op and performs no backend call', async () => {
+test('runBackendSpecialist: missing dependency emits honest NOT_APPLICABLE and performs no backend call', async () => {
   let called = false;
   await withStubFetch(() => { called = true; throw new Error('must not be called'); }, async () => {
     const outcome = await __test.runBackendSpecialist('https://x.test', new Headers(), CORRELATION_ID, { matches: [] }, __test.SPECIALIST_ROUTES['cve-intelligence']);
-    assert.equal(outcome.basis, 'conditional_skip');
-    assert.equal(outcome.state, 'SKIPPED');
+    assert.equal(outcome.basis, 'conditional_not_applicable');
+    assert.equal(outcome.state, 'NOT_APPLICABLE');
     assert.equal(outcome.result.reason, 'dependency_input_absent');
     assert.match(outcome.result.note, /no CVE identifier/);
     assert.match(outcome.skip_reason, /no CVE identifier/);
@@ -677,7 +683,7 @@ test('runBackendSpecialist: a transport failure is reported as FAILED, not throw
   );
 });
 
-test('end-to-end clean correlation emits SKIPPED specialists without fake RUNNING transitions or backend compute', async () => {
+test('end-to-end clean correlation emits NOT_APPLICABLE specialists and NO_MATCH_COMPLETE without fake backend compute', async () => {
   const env = { CANONICAL_BASE_URL: 'https://x.test' };
   const calls = [];
   await withStubFetch(
@@ -697,6 +703,9 @@ test('end-to-end clean correlation emits SKIPPED specialists without fake RUNNIN
           'x-cdb-mesh-execution': 'mesh-skip-1',
           'x-cdb-mesh-correlation': init.headers.get('x-request-id'),
         });
+      }
+      if (u.pathname === '/api/v1/swarm-synthesis/health') {
+        return jsonResponse({ status: 'ok', ready: false, llm_enabled: false, tier_llm: true, providers: {} });
       }
       if (u.pathname === '/api/v1/swarm-synthesis') {
         return jsonResponse({ status: 'success', llm_enhanced: false, narrative: null });
@@ -724,20 +733,203 @@ test('end-to-end clean correlation emits SKIPPED specialists without fake RUNNIN
         .filter(Boolean)
         .map((line) => JSON.parse(line.slice(6)));
 
-      const skipped = events.filter((ev) => ev.event_type === 'agent.skipped');
-      assert.equal(skipped.length, 6);
-      assert.ok(skipped.every((ev) => ev.state === 'SKIPPED'));
-      assert.ok(skipped.every((ev) => ev.result?.reason === 'dependency_input_absent'));
+      const notApplicable = events.filter((ev) => ev.event_type === 'agent.not_applicable');
+      assert.equal(notApplicable.length, 6);
+      assert.ok(notApplicable.every((ev) => ev.state === 'NOT_APPLICABLE'));
+      assert.ok(notApplicable.every((ev) => ev.result?.reason === 'dependency_input_absent'));
 
       const startedSpecialists = events.filter(
         (ev) => ev.event_type === 'agent.started' && ev.agent_id !== 'ioc-hunter' && ev.agent_id !== 'risk-synthesizer',
       );
       assert.equal(startedSpecialists.length, 0, 'conditionally skipped specialists must never claim RUNNING');
 
-      assert.deepEqual(calls.sort(), ['/api/intel/correlate', '/api/v1/swarm-synthesis'].sort());
+      assert.deepEqual(calls.sort(), ['/api/intel/correlate', '/api/v1/swarm-synthesis/health', '/api/v1/swarm-synthesis'].sort());
       const completed = events.find((ev) => ev.event_type === 'mission.completed');
       assert.ok(completed);
       assert.equal(completed.result.skipped_specialists.length, 6);
+      assert.equal(completed.mission_quality, 'NO_MATCH_COMPLETE');
+      const degradedSynth = events.find((ev) => ev.event_type === 'agent.degraded' && ev.agent_id === 'risk-synthesizer');
+      assert.ok(degradedSynth);
+    },
+  );
+});
+
+test('runBackendSpecialist: bounded adaptive orchestration tries the next evidence candidate after a valid empty result', async () => {
+  const correlation = {
+    ...CORRELATION,
+    matches: [
+      { ...CORRELATION.matches[0], cve_id: 'CVE-2026-EMPTY' },
+      { ...CORRELATION.matches[0], report_id: 'intel--second', cve_id: 'CVE-2026-HIT' },
+    ],
+  };
+  const calls = [];
+  await withStubFetch(
+    async (url) => {
+      const u = new URL(String(url));
+      const cve = u.searchParams.get('cve_id');
+      calls.push(cve);
+      if (cve === 'CVE-2026-EMPTY') return jsonResponse({ status: 'ok', data: { cves: [] } });
+      return jsonResponse({ status: 'ok', data: { cves: [{ cve_id: cve, kev: true }] } });
+    },
+    async () => {
+      const outcome = await __test.runBackendSpecialist(
+        'https://x.test',
+        new Headers(),
+        CORRELATION_ID,
+        correlation,
+        __test.SPECIALIST_ROUTES['cve-intelligence']
+      );
+      assert.equal(outcome.state, 'COMPLETED');
+      assert.equal(outcome.queried.cve_id, 'CVE-2026-HIT');
+      assert.equal(outcome.evidence_count, 1);
+      assert.equal(outcome.substantive, true);
+      assert.equal(outcome.attempted_candidates.length, 2);
+    }
+  );
+  assert.deepEqual(calls, ['CVE-2026-EMPTY', 'CVE-2026-HIT']);
+});
+
+test('runBackendSpecialist: transient 503 is UNAVAILABLE, not FAILED', async () => {
+  await withStubFetch(
+    async () => jsonResponse({ error: 'upstream_unavailable' }, 503),
+    async () => {
+      const outcome = await __test.runBackendSpecialist(
+        'https://x.test',
+        new Headers(),
+        CORRELATION_ID,
+        CORRELATION,
+        __test.SPECIALIST_ROUTES['cve-intelligence']
+      );
+      assert.equal(outcome.state, 'UNAVAILABLE');
+      assert.equal(outcome.http_status, 503);
+    }
+  );
+});
+
+test('POST /api/swarm/run rejects unknown mission profile before dispatch', async () => {
+  const response = await worker.fetch(
+    new Request('https://x.test/api/swarm/run', {
+      method: 'POST',
+      headers: { 'x-api-key': 'enterprise-key' },
+      body: JSON.stringify({ ioc_value: '8.8.8.8', ioc_type: 'ipv4', mission_profile: 'NOT_REAL' }),
+    }),
+    {},
+    { waitUntil() {} },
+  );
+  assert.equal(response.status, 400);
+  const body = await response.json();
+  assert.equal(body.error, 'invalid_mission_profile');
+  assert.ok(body.allowed.includes('AUTO'));
+  assert.ok(body.allowed.includes('SOC_DETECTION_ENGINEERING'));
+});
+
+test('POST /api/swarm/readiness returns full-fabric projection without dispatching a SWARM mission', async () => {
+  const calls = [];
+  await withStubFetch(
+    async (url, init = {}) => {
+      const u = new URL(String(url));
+      calls.push({ path: u.pathname, method: init.method || 'GET' });
+
+      if (u.pathname === '/api/v1/swarm/preflight') {
+        return jsonResponse({
+          status: 'ok',
+          eligible: true,
+          entitlement: { tier: 'ENTERPRISE', swarm_enabled: true, scope_granted: true },
+          quota: { daily: { available: true, remaining: 100, limit: 50000, exhausted: false } },
+        });
+      }
+
+      if (u.pathname === '/api/v1/swarm-synthesis/health') {
+        return jsonResponse({
+          status: 'ok',
+          ready: true,
+          llm_enabled: true,
+          tier_llm: true,
+          providers: { deepseek: true, groq: false, openrouter: false },
+        });
+      }
+
+      if (u.pathname === '/api/intel/correlate') {
+        return jsonResponse(CORRELATION, 200, {
+          'x-cdb-mesh-certified': 'true',
+          'x-cdb-mesh-execution': 'mesh-readiness-1',
+          'x-cdb-mesh-correlation': init.headers.get('x-request-id'),
+        });
+      }
+
+      throw new Error('unexpected readiness call: ' + u.pathname);
+    },
+    async () => {
+      const response = await worker.fetch(
+        new Request('https://x.test/api/swarm/readiness', {
+          method: 'POST',
+          headers: { 'x-api-key': 'enterprise-key' },
+          body: JSON.stringify({ ioc_value: '8.8.8.8', ioc_type: 'ipv4' }),
+        }),
+        { CANONICAL_BASE_URL: 'https://x.test' },
+        {}
+      );
+
+      assert.equal(response.status, 200);
+      const body = await response.json();
+      assert.equal(body.mission_dispatch, false);
+      assert.equal(body.canonical_request_consumed, true);
+      assert.equal(body.readiness.mission_quality, 'FULL_FABRIC');
+      assert.equal(body.readiness.ready_agents, 8);
+      assert.equal(body.demo_recommended, true);
+    }
+  );
+
+  assert.equal(calls.some((x) => x.path === '/api/swarm/run'), false);
+  assert.ok(calls.some((x) => x.path === '/api/intel/correlate' && x.method === 'POST'));
+});
+
+test('focused readiness profile reports PROFILE_READY with profile-scoped denominator', async () => {
+  await withStubFetch(
+    async (url, init = {}) => {
+      const u = new URL(String(url));
+      if (u.pathname === '/api/v1/swarm/preflight') {
+        return jsonResponse({
+          status: 'ok',
+          eligible: true,
+          entitlement: { tier: 'ENTERPRISE', swarm_enabled: true, scope_granted: true },
+          quota: { daily: { available: true, remaining: 100, limit: 50000, exhausted: false } },
+        });
+      }
+      if (u.pathname === '/api/v1/swarm-synthesis/health') {
+        return jsonResponse({ status: 'ok', ready: true, llm_enabled: true, tier_llm: true, providers: { deepseek: true } });
+      }
+      if (u.pathname === '/api/intel/correlate') {
+        return jsonResponse(CORRELATION, 200, {
+          'x-cdb-mesh-certified': 'true',
+          'x-cdb-mesh-execution': 'mesh-profile-1',
+          'x-cdb-mesh-correlation': init.headers.get('x-request-id'),
+        });
+      }
+      throw new Error('unexpected profile readiness call: ' + u.pathname);
+    },
+    async () => {
+      const response = await worker.fetch(
+        new Request('https://x.test/api/swarm/readiness', {
+          method: 'POST',
+          headers: { 'x-api-key': 'enterprise-key' },
+          body: JSON.stringify({
+            ioc_value: '8.8.8.8',
+            ioc_type: 'ipv4',
+            mission_profile: 'SOC_DETECTION_ENGINEERING',
+          }),
+        }),
+        { CANONICAL_BASE_URL: 'https://x.test' },
+        {},
+      );
+      assert.equal(response.status, 200);
+      const body = await response.json();
+      assert.equal(body.mission_profile.id, 'SOC_DETECTION_ENGINEERING');
+      assert.equal(body.readiness.mission_quality, 'PROFILE_READY');
+      assert.equal(body.readiness.ready_agents, 4);
+      assert.equal(body.readiness.total_agents, 4);
+      assert.equal(body.readiness.agents['cve-intelligence'].reason, 'mission_profile_excluded');
+      assert.equal(body.demo_recommended, false);
     },
   );
 });
@@ -757,12 +949,15 @@ test('persistMission writes through the bound KV namespace with a TTL', async ()
 });
 
 test('GET /api/swarm/health reports protocol and agent count without requiring auth', async () => {
-  const res = await worker.fetch(new Request('https://x.test/api/swarm/health'), { SWARM_VERSION: '4.46.6' }, {});
+  const res = await worker.fetch(new Request('https://x.test/api/swarm/health'), { SWARM_VERSION: '4.47.0' }, {});
   assert.equal(res.status, 200);
   const body = await res.json();
   assert.equal(body.protocol, 'cdb.swarm.v1');
-  assert.equal(body.version, '4.46.6');
+  assert.equal(body.version, '4.47.0');
   assert.equal(body.agents, 8);
+  assert.equal(body.capabilities.mission_readiness, true);
+  assert.equal(body.capabilities.evidence_graph, true);
+  assert.equal(body.capabilities.agent_semantics_v2, true);
 });
 
 test('GET /api/swarm/client-context exposes only coarse Cloudflare location metadata', async () => {
@@ -1234,6 +1429,72 @@ test('GET /api/swarm/missions: optional status filter and pagination fields', as
   assert.equal(body.data.missions[0].mission_id, 'sentinel-mission-c2');
   assert.equal(typeof body.data.list_complete, 'boolean');
 });
+
+test('GET /api/swarm/metrics: computes real credential-scoped observed metrics from index metadata only', async () => {
+  const kv = makeKvMock();
+  let getCalls = 0;
+  const originalGet = kv.get.bind(kv);
+  kv.get = async (...args) => { getCalls += 1; return originalGet(...args); };
+
+  const partA = await __test.credentialPartition(new Headers({ 'x-api-key': 'metrics-a' }));
+  const partB = await __test.credentialPartition(new Headers({ 'x-api-key': 'metrics-b' }));
+
+  await __test.persistMission({ SWARM_MISSIONS_KV: kv }, {
+    mission_id: 'sentinel-mission-metrics-a1',
+    status: 'COMPLETED',
+    mission_quality: 'FULL_FABRIC_COMPLETE',
+    mission_profile: 'AUTO',
+    duration_ms: 1000,
+    metrics: { completed: 8, not_applicable: 0, degraded: 0, denied: 0, unavailable: 0, failed: 0 },
+    specialists: { 'risk-synthesizer': { result: { llm_enhanced: true } } },
+    ioc: { ioc_value: 'evil.example', ioc_type: 'domain' },
+  }, partA);
+
+  await new Promise((r) => setTimeout(r, 2));
+
+  await __test.persistMission({ SWARM_MISSIONS_KV: kv }, {
+    mission_id: 'sentinel-mission-metrics-a2',
+    status: 'COMPLETED',
+    mission_quality: 'PARTIAL_FABRIC_COMPLETE',
+    mission_profile: 'AUTO',
+    duration_ms: 3000,
+    metrics: { completed: 5, not_applicable: 3, degraded: 0, denied: 0, unavailable: 0, failed: 0 },
+    specialists: { 'risk-synthesizer': { result: { llm_enhanced: false } } },
+    ioc: { ioc_value: 'example.org', ioc_type: 'domain' },
+  }, partA);
+
+  await __test.persistMission({ SWARM_MISSIONS_KV: kv }, {
+    mission_id: 'sentinel-mission-metrics-b1',
+    status: 'FAILED',
+    mission_quality: 'FAILED',
+    duration_ms: 9000,
+    metrics: { completed: 0, not_applicable: 0, degraded: 0, denied: 0, unavailable: 0, failed: 8 },
+  }, partB);
+
+  getCalls = 0;
+  const response = await worker.fetch(
+    new Request('https://x.test/api/swarm/metrics?limit=50', { headers: { 'x-api-key': 'metrics-a' } }),
+    { SWARM_MISSIONS_KV: kv },
+    {},
+  );
+
+  assert.equal(response.status, 200);
+  const body = await response.json();
+  assert.equal(body.data.scope, 'credential_owned_latest_missions');
+  assert.equal(body.data.sample_size, 2);
+  assert.equal(body.data.mission_counts.completed, 2);
+  assert.equal(body.data.mission_counts.full_fabric_complete, 1);
+  assert.equal(body.data.mission_quality.FULL_FABRIC_COMPLETE, 1);
+  assert.equal(body.data.mission_quality.PARTIAL_FABRIC_COMPLETE, 1);
+  assert.equal(body.data.latency_ms.p50, 1000);
+  assert.equal(body.data.latency_ms.p95, 3000);
+  assert.equal(body.data.ai_synthesis.llm_enhanced_missions, 1);
+  assert.equal(body.data.ai_synthesis.llm_enhanced_rate, 0.5);
+  assert.equal(body.data.agent_terminal_states.completed, 13);
+  assert.equal(body.data.agent_terminal_states.not_applicable, 3);
+  assert.equal(getCalls, 0, 'metrics must use index metadata without per-mission KV get() scans');
+});
+
 
 test('GET /api/swarm/mission/:id/report: validates id, requires auth, and propagates not-found', async () => {
   const badId = await worker.fetch(new Request('https://x.test/api/swarm/mission/has space/report', { headers: { 'x-api-key': 'k' } }), {}, {});
@@ -1734,7 +1995,7 @@ test('customer console locks mission launch behind canonical entitlement preflig
   assert.ok(html.includes('id="preflightState">ACCESS NOT VERIFIED</'));
   assert.ok(html.includes('id="preflightDetail"'));
   assert.ok(html.includes('id="run" disabled'));
-  assert.ok(html.includes('V4.46.6 PRODUCTION'));
+  assert.ok(html.includes('V4.47.0 PRODUCTION'));
 
   assert.ok(js.includes("fetch('/api/swarm/preflight'"));
   assert.ok(js.includes("keyInput.onpaste"));
@@ -1751,11 +2012,11 @@ test('customer console locks mission launch behind canonical entitlement preflig
 test('SWARM health truthfully advertises entitlement preflight capability', async () => {
   const response = await worker.fetch(
     new Request('https://intel.cyberdudebivash.com/api/swarm/health'),
-    { SWARM_VERSION: '4.46.6', CANONICAL_GATEWAY: { fetch() {} }, SWARM_MISSIONS_KV: {} },
+    { SWARM_VERSION: '4.47.0', CANONICAL_GATEWAY: { fetch() {} }, SWARM_MISSIONS_KV: {} },
     { waitUntil() {} },
   );
   assert.equal(response.status, 200);
   const body = await response.json();
-  assert.equal(body.version, '4.46.6');
+  assert.equal(body.version, '4.47.0');
   assert.equal(body.capabilities.entitlement_preflight, true);
 });
