@@ -1,3 +1,12 @@
+import {
+  AGENT_STATES,
+  buildDependencyCandidates,
+  buildMissionReadiness,
+  classifyMissionCompletion,
+} from './mission-readiness.js';
+import { adaptSpecialistResponse } from './specialist-contract.js';
+import { buildEvidenceGraph } from './evidence-graph.js';
+
 const PROTOCOL = 'cdb.swarm.v1';
 const PRODUCT = 'sentinel-apex';
 const MAX_BODY_BYTES = 32 * 1024;
@@ -82,18 +91,20 @@ const AGENT_VISUALS = Object.freeze({
 // (Reuse Before Build: these call existing production routes, not new ones).
 // ioc-hunter isn't listed here -- its "call" is the canonical correlate
 // request executeMission() already makes to gate the whole mission.
+const MAX_SPECIALIST_CANDIDATES = 3;
+
 const SPECIALIST_ROUTES = Object.freeze({
-  'cve-intelligence': Object.freeze({ path: '/api/cves', paramKey: 'cve_id', pick: firstCveId, emptyReason: 'no CVE identifier present in the correlated matches' }),
-  'threat-hunter': Object.freeze({ path: '/api/actors', paramKey: 'actor_id', pick: firstActorTag, emptyReason: 'no attributed actor present in the correlated matches' }),
-  'siem-defender': Object.freeze({ path: '/api/v1/detections', paramKey: 'intel_id', pick: firstReportId, emptyReason: 'no matched intelligence report to query detection coverage for' }),
-  'attack-mapper': Object.freeze({ path: '/api/search', paramKey: 'q', pick: firstTechnique, emptyReason: 'no ATT&CK technique present in the correlated matches' }),
+  'cve-intelligence': Object.freeze({ id: 'cve-intelligence', path: '/api/cves', paramKey: 'cve_id', pick: firstCveId, emptyReason: 'no CVE identifier present in the correlated matches' }),
+  'threat-hunter': Object.freeze({ id: 'threat-hunter', path: '/api/actors', paramKey: 'actor_id', pick: firstActorTag, emptyReason: 'no attributed actor present in the correlated matches' }),
+  'siem-defender': Object.freeze({ id: 'siem-defender', path: '/api/v1/detections', paramKey: 'intel_id', pick: firstReportId, emptyReason: 'no matched intelligence report to query detection coverage for' }),
+  'attack-mapper': Object.freeze({ id: 'attack-mapper', path: '/api/search', paramKey: 'q', pick: firstTechnique, emptyReason: 'no ATT&CK technique present in the correlated matches' }),
   // Both now backed by real routes (GET /api/intel/ir-guidance,
   // GET /api/intel/exposure) added specifically to close this gap -- each
   // reuses its P23.4/P27.3 engine (_buildIRChecklist/_deriveExposure)
   // unchanged, just shaped as JSON instead of the HTML fragment those
   // engines render into on the report page. No more derived-only specialists.
-  'ir-playbook': Object.freeze({ path: '/api/intel/ir-guidance', paramKey: 'report_id', pick: firstReportId, emptyReason: 'no matched intelligence report to derive IR guidance from' }),
-  'exposure-analyst': Object.freeze({ path: '/api/intel/exposure', paramKey: 'report_id', pick: firstReportId, emptyReason: 'no matched intelligence report to derive exposure analysis from' }),
+  'ir-playbook': Object.freeze({ id: 'ir-playbook', path: '/api/intel/ir-guidance', paramKey: 'report_id', pick: firstReportId, emptyReason: 'no matched intelligence report to derive IR guidance from' }),
+  'exposure-analyst': Object.freeze({ id: 'exposure-analyst', path: '/api/intel/exposure', paramKey: 'report_id', pick: firstReportId, emptyReason: 'no matched intelligence report to derive exposure analysis from' }),
 });
 
 function json(data, status = 200, extra = {}) {
@@ -278,79 +289,140 @@ async function handlePreflight(request, env) {
 // tier-denied response becomes an honest DENIED agent state, not a fake
 // COMPLETED one.
 async function runBackendSpecialist(canonicalBase, auth, correlationId, correlation, route, env = null) {
-  // Real, measured latency of this specialist's own backend call -- not an
-  // estimate. The 'derived' no-op path below makes no call at all, so it
-  // honestly reports ~0ms rather than a fabricated figure.
   const t0 = Date.now();
-  const value = route.pick(correlation);
-  if (!value) {
+  const planned = buildDependencyCandidates(correlation);
+  const fallback = route.pick?.(correlation);
+  const candidates = (planned[route.id]?.length ? planned[route.id] : (fallback ? [fallback] : []))
+    .slice(0, MAX_SPECIALIST_CANDIDATES);
+
+  if (!candidates.length) {
     return {
-      basis: 'conditional_skip',
-      state: 'SKIPPED',
+      basis: 'conditional_not_applicable',
+      state: AGENT_STATES.NOT_APPLICABLE,
       result: {
-        note: `Skipped live query: ${route.emptyReason}.`,
+        note: `Not applicable: ${route.emptyReason}.`,
         reason: 'dependency_input_absent',
       },
       skip_reason: route.emptyReason,
+      attempted_candidates: [],
+      evidence_count: 0,
+      substantive: false,
       duration_ms: Date.now() - t0,
     };
   }
 
   const headers = new Headers(auth);
   headers.set('x-request-id', correlationId);
-  const url = new URL(canonicalBase + route.path);
-  url.searchParams.set(route.paramKey, value);
-  url.searchParams.set('limit', '5');
+  const attempts = [];
 
-  let resp;
-  try {
-    resp = await canonicalGatewayFetch(env, url.toString(), { headers });
-  } catch (error) {
+  for (let index = 0; index < candidates.length; index += 1) {
+    const value = candidates[index];
+    const url = new URL(canonicalBase + route.path);
+    url.searchParams.set(route.paramKey, value);
+    url.searchParams.set('limit', '5');
+
+    let resp;
+    try {
+      resp = await canonicalGatewayFetch(env, url.toString(), { headers });
+    } catch (error) {
+      return {
+        basis: 'backend_execution',
+        state: AGENT_STATES.FAILED,
+        result: null,
+        queried: { [route.paramKey]: value },
+        attempted_candidates: attempts,
+        evidence_count: 0,
+        substantive: false,
+        detail: { error: 'specialist_transport_failed', message: String(error?.message || error).slice(0, 240) },
+        duration_ms: Date.now() - t0,
+      };
+    }
+
+    let body = null;
+    try { body = await resp.json(); } catch { /* adapter rejects invalid body */ }
+
+    const adapted = adaptSpecialistResponse(route.id, body);
+    attempts.push({
+      candidate: value,
+      http_status: resp.status,
+      contract: adapted.schema,
+      success: adapted.success,
+      substantive: adapted.substantive,
+      evidence_count: adapted.count,
+    });
+
+    if (resp.ok && adapted.success) {
+      // A valid but empty result may mean the first correlated report has no
+      // evidence while a later correlated report does. Try up to the bounded
+      // candidate cap before returning the final honest empty success.
+      const hasNext = index + 1 < candidates.length;
+      if (!adapted.substantive && hasNext) continue;
+
+      return {
+        basis: 'backend_execution',
+        state: AGENT_STATES.COMPLETED,
+        result: adapted.data,
+        queried: { [route.paramKey]: value },
+        attempted_candidates: attempts,
+        evidence_count: adapted.count,
+        substantive: adapted.substantive,
+        contract: adapted.schema,
+        duration_ms: Date.now() - t0,
+      };
+    }
+
+    if (resp.status === 401 || resp.status === 403) {
+      return {
+        basis: 'backend_execution',
+        state: AGENT_STATES.DENIED,
+        result: null,
+        queried: { [route.paramKey]: value },
+        attempted_candidates: attempts,
+        evidence_count: 0,
+        substantive: false,
+        http_status: resp.status,
+        detail: responseSnippet(body),
+        duration_ms: Date.now() - t0,
+      };
+    }
+
+    if ([429, 502, 503, 504].includes(resp.status)) {
+      return {
+        basis: 'backend_execution',
+        state: AGENT_STATES.UNAVAILABLE,
+        result: null,
+        queried: { [route.paramKey]: value },
+        attempted_candidates: attempts,
+        evidence_count: 0,
+        substantive: false,
+        http_status: resp.status,
+        detail: responseSnippet(body),
+        duration_ms: Date.now() - t0,
+      };
+    }
+
     return {
       basis: 'backend_execution',
-      state: 'FAILED',
+      state: AGENT_STATES.FAILED,
       result: null,
       queried: { [route.paramKey]: value },
-      detail: { error: 'specialist_transport_failed', message: String(error?.message || error).slice(0, 240) },
+      attempted_candidates: attempts,
+      evidence_count: 0,
+      substantive: false,
+      http_status: resp.status,
+      detail: responseSnippet(body),
       duration_ms: Date.now() - t0,
     };
   }
 
-  let body = null;
-  try { body = await resp.json(); } catch { /* handled by the ok-check below */ }
-
-  // Specialist success contracts are not identical across the canonical
-  // gateway. Most extension routes return { status: "ok", data }, while
-  // /api/v1/detections is the canonical detection-registry contract and
-  // returns { schema_version, engine_version, count, data, pagination }
-  // without a status field. Treat that documented 200 schema as genuine
-  // backend success instead of falsely marking SIEM Defender FAILED.
-  const detectionRegistrySuccess =
-    route.path === '/api/v1/detections' &&
-    body &&
-    typeof body.schema_version === 'string' &&
-    Array.isArray(body.data) &&
-    body.pagination &&
-    typeof body.pagination === 'object';
-
-  if (resp.ok && body && (body.status === 'ok' || detectionRegistrySuccess)) {
-    return {
-      basis: 'backend_execution',
-      state: 'COMPLETED',
-      result: body.data ?? body,
-      queried: { [route.paramKey]: value },
-      duration_ms: Date.now() - t0,
-    };
-  }
-
-  const state = resp.status === 401 || resp.status === 403 ? 'DENIED' : 'FAILED';
   return {
     basis: 'backend_execution',
-    state,
+    state: AGENT_STATES.FAILED,
     result: null,
-    queried: { [route.paramKey]: value },
-    http_status: resp.status,
-    detail: responseSnippet(body),
+    attempted_candidates: attempts,
+    evidence_count: 0,
+    substantive: false,
+    detail: { error: 'specialist_candidate_exhausted' },
     duration_ms: Date.now() - t0,
   };
 }
@@ -366,25 +438,41 @@ function iocHunterResult(correlation) {
 
 function fuseRiskSynthesis(correlation, outcomes) {
   const entries = Object.entries(outcomes);
-  const contributing = entries.filter(([, o]) => o.state === 'COMPLETED').map(([id]) => id);
-  const skipped = entries.filter(([, o]) => o.state === 'SKIPPED').map(([id]) => id);
-  const denied = entries.filter(([, o]) => o.state === 'DENIED').map(([id]) => id);
-  const failed = entries.filter(([, o]) => o.state === 'FAILED').map(([id]) => id);
+  const contributing = entries.filter(([, o]) => o.state === AGENT_STATES.COMPLETED).map(([id]) => id);
+  const notApplicable = entries
+    .filter(([, o]) => o.state === AGENT_STATES.NOT_APPLICABLE || o.state === 'SKIPPED')
+    .map(([id]) => id);
+  const denied = entries.filter(([, o]) => o.state === AGENT_STATES.DENIED).map(([id]) => id);
+  const unavailable = entries.filter(([, o]) => o.state === AGENT_STATES.UNAVAILABLE).map(([id]) => id);
+  const failed = entries.filter(([, o]) => o.state === AGENT_STATES.FAILED).map(([id]) => id);
   const matches = allMatches(correlation);
   const riskScores = matches.map((m) => Number(m?.risk_score || 0)).filter(Number.isFinite);
 
-  return {
+  const fused = {
     basis: 'fusion',
     verdict: correlation?.verdict || 'unknown',
     max_risk_score: riskScores.length ? Math.max(...riskScores) : 0,
     match_count: matches.length,
     contributing_specialists: contributing,
-    skipped_specialists: skipped,
+    not_applicable_specialists: notApplicable,
+    // Backward-compatible alias retained for V4.46.x consumers.
+    skipped_specialists: notApplicable,
     denied_specialists: denied,
+    unavailable_specialists: unavailable,
     failed_specialists: failed,
     recommendation: correlation?.recommendation || 'Review the canonical Sentinel correlation result.',
-    source: `fusion of ${contributing.length} completed specialist outcomes (${skipped.length} conditionally skipped, ${denied.length} denied by scope, ${failed.length} failed)`,
+    source: `fusion of ${contributing.length} completed specialist outcomes (${notApplicable.length} not applicable, ${denied.length} denied, ${unavailable.length} unavailable, ${failed.length} failed)`,
   };
+
+  if (matches.length === 0) {
+    fused.negative_intelligence = {
+      status: 'NO_CURRENT_INTELLIGENCE_MATCH',
+      assessment: 'No evidence in the current canonical Sentinel correlation result supports a known match for this observable.',
+      recommendation: correlation?.recommendation || 'Continue monitoring and enrich from additional telemetry if operational context warrants.',
+    };
+  }
+
+  return fused;
 }
 
 // One additional real backend call per mission: asks intel-gateway to
