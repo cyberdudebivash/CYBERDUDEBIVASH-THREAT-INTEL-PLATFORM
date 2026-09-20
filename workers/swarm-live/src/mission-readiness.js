@@ -31,11 +31,13 @@ export const AGENT_STATES = Object.freeze({
 
 export const MISSION_QUALITY = Object.freeze({
   FULL_FABRIC: 'FULL_FABRIC',
+  PROFILE_READY: 'PROFILE_READY',
   PARTIAL_FABRIC: 'PARTIAL_FABRIC',
   NO_MATCH: 'NO_MATCH',
   AI_DEGRADED: 'AI_DEGRADED',
   BLOCKED: 'BLOCKED',
   FULL_FABRIC_COMPLETE: 'FULL_FABRIC_COMPLETE',
+  PROFILE_COMPLETE: 'PROFILE_COMPLETE',
   PARTIAL_FABRIC_COMPLETE: 'PARTIAL_FABRIC_COMPLETE',
   NO_MATCH_COMPLETE: 'NO_MATCH_COMPLETE',
   AI_DEGRADED_COMPLETE: 'AI_DEGRADED_COMPLETE',
@@ -102,9 +104,18 @@ export function buildMissionReadiness(
     quotaRemaining = null,
     llmReady = null,
     llmProviders = [],
+    expectedAgentIds = SWARM_AGENT_IDS,
   } = {},
 ) {
   const candidates = buildDependencyCandidates(correlation);
+  const expected = new Set(
+    Array.isArray(expectedAgentIds) && expectedAgentIds.length
+      ? expectedAgentIds.filter((id) => SWARM_AGENT_IDS.includes(id))
+      : SWARM_AGENT_IDS
+  );
+  // IOC Hunter + Risk Synthesizer are mandatory control-plane bookends.
+  expected.add('ioc-hunter');
+  expected.add('risk-synthesizer');
   const matchCount = Number(
     correlation?.match_count ?? correlationMatches(correlation).length ?? 0
   );
@@ -125,6 +136,16 @@ export function buildMissionReadiness(
     'exposure-analyst',
   ]) {
     const values = candidates[id];
+    if (!expected.has(id)) {
+      agents[id] = {
+        state: AGENT_STATES.NOT_APPLICABLE,
+        reason: 'mission_profile_excluded',
+        candidate_count: values.length,
+        candidates: values,
+      };
+      continue;
+    }
+
     agents[id] = values.length
       ? {
           state: AGENT_STATES.READY,
@@ -165,29 +186,32 @@ export function buildMissionReadiness(
     entitlementEligible !== true ||
     (Number.isFinite(Number(quotaRemaining)) && Number(quotaRemaining) <= 0);
 
-  const specialistReady = [
+  const specialistIds = [
     'cve-intelligence',
     'threat-hunter',
     'attack-mapper',
     'siem-defender',
     'ir-playbook',
     'exposure-analyst',
-  ].filter((id) => agents[id].state === AGENT_STATES.READY).length;
+  ];
+  const expectedSpecialists = specialistIds.filter((id) => expected.has(id));
+  const specialistReady = expectedSpecialists.filter((id) => agents[id].state === AGENT_STATES.READY).length;
 
-  const fullSpecialistFabric = specialistReady === 6;
-  const readyCount = SWARM_AGENT_IDS.filter((id) => (
-    agents[id]?.state === AGENT_STATES.READY
-  )).length;
-  const applicableCount = SWARM_AGENT_IDS.filter((id) => (
+  const fullProfile = expected.size === SWARM_AGENT_IDS.length;
+  const expectedReady = [...expected].filter((id) => agents[id]?.state === AGENT_STATES.READY).length;
+  const expectedApplicable = [...expected].filter((id) => (
     agents[id]?.state === AGENT_STATES.READY ||
     agents[id]?.state === AGENT_STATES.DEGRADED
   )).length;
+  const allExpectedDependenciesReady =
+    expectedSpecialists.every((id) => agents[id].state === AGENT_STATES.READY);
 
   let missionQuality;
   if (blocked) missionQuality = MISSION_QUALITY.BLOCKED;
   else if (matchCount === 0) missionQuality = MISSION_QUALITY.NO_MATCH;
-  else if (fullSpecialistFabric && llmReady === false) missionQuality = MISSION_QUALITY.AI_DEGRADED;
-  else if (fullSpecialistFabric) missionQuality = MISSION_QUALITY.FULL_FABRIC;
+  else if (fullProfile && allExpectedDependenciesReady && llmReady === false) missionQuality = MISSION_QUALITY.AI_DEGRADED;
+  else if (fullProfile && allExpectedDependenciesReady) missionQuality = MISSION_QUALITY.FULL_FABRIC;
+  else if (!fullProfile && allExpectedDependenciesReady && llmReady === true) missionQuality = MISSION_QUALITY.PROFILE_READY;
   else missionQuality = MISSION_QUALITY.PARTIAL_FABRIC;
 
   return Object.freeze({
@@ -195,11 +219,14 @@ export function buildMissionReadiness(
     mission_quality: missionQuality,
     match_count: matchCount,
     full_fabric: missionQuality === MISSION_QUALITY.FULL_FABRIC,
-    ready_agents: readyCount,
-    applicable_agents: applicableCount,
-    total_agents: SWARM_AGENT_IDS.length,
+    profile_ready: missionQuality === MISSION_QUALITY.PROFILE_READY,
+    ready_agents: expectedReady,
+    applicable_agents: expectedApplicable,
+    total_agents: expected.size,
+    fleet_agents: SWARM_AGENT_IDS.length,
+    expected_agents: Object.freeze([...expected]),
     specialist_ready: specialistReady,
-    specialist_total: 6,
+    specialist_total: expectedSpecialists.length,
     entitlement_eligible: entitlementEligible === true,
     quota_remaining: Number.isFinite(Number(quotaRemaining)) ? Number(quotaRemaining) : null,
     llm_ready: llmReady,
@@ -208,7 +235,7 @@ export function buildMissionReadiness(
   });
 }
 
-export function classifyMissionCompletion(outcomes = {}, fused = {}) {
+export function classifyMissionCompletion(outcomes = {}, fused = {}, expectedAgentIds = SWARM_AGENT_IDS) {
   const normalized = Object.fromEntries(
     Object.entries(outcomes).map(([id, outcome]) => [
       id,
@@ -224,11 +251,22 @@ export function classifyMissionCompletion(outcomes = {}, fused = {}) {
   const completed = states.filter((s) => s === AGENT_STATES.COMPLETED).length;
   const matchCount = Number(fused?.match_count || 0);
   const llmEnhanced = fused?.llm_enhanced === true;
+  const expected = new Set(
+    Array.isArray(expectedAgentIds) && expectedAgentIds.length
+      ? expectedAgentIds.filter((id) => SWARM_AGENT_IDS.includes(id))
+      : SWARM_AGENT_IDS
+  );
+  expected.add('ioc-hunter');
+  expected.add('risk-synthesizer');
+  const expectedStates = [...expected].map((id) => normalized[id]?.state);
+  const expectedAllCompleted = expectedStates.every((state) => state === AGENT_STATES.COMPLETED);
+  const fullProfile = expected.size === SWARM_AGENT_IDS.length;
 
   if (hasFailure || hasDenied || hasUnavailable) return MISSION_QUALITY.COMPLETED_WITH_WARNINGS;
   if (matchCount === 0) return MISSION_QUALITY.NO_MATCH_COMPLETE;
-  if (completed === SWARM_AGENT_IDS.length && llmEnhanced) return MISSION_QUALITY.FULL_FABRIC_COMPLETE;
-  if (!llmEnhanced && notApplicable === 0) return MISSION_QUALITY.AI_DEGRADED_COMPLETE;
+  if (fullProfile && expectedAllCompleted && llmEnhanced) return MISSION_QUALITY.FULL_FABRIC_COMPLETE;
+  if (!fullProfile && expectedAllCompleted && llmEnhanced) return MISSION_QUALITY.PROFILE_COMPLETE;
+  if (!llmEnhanced && expectedAllCompleted) return MISSION_QUALITY.AI_DEGRADED_COMPLETE;
   if (notApplicable > 0) return MISSION_QUALITY.PARTIAL_FABRIC_COMPLETE;
   if (completed === SWARM_AGENT_IDS.length) return MISSION_QUALITY.FULL_FABRIC_COMPLETE;
   return MISSION_QUALITY.COMPLETED_WITH_WARNINGS;
