@@ -1449,6 +1449,10 @@ function missionReportMarkdown(record) {
     `- **Status:** ${record.status}`,
     `- **IOC:** ${record.ioc?.ioc_value || '—'} (${record.ioc?.ioc_type || 'auto'})`,
     `- **Verdict:** ${record.verdict || '—'}`,
+    `- **Mission Quality:** ${record.mission_quality || 'LEGACY / UNCLASSIFIED'}`,
+    `- **Mission Profile:** ${record.mission_profile || 'AUTO'}`,
+    `- **Duration:** ${Number.isFinite(Number(record.duration_ms)) ? `${record.duration_ms} ms` : '—'}`,
+    `- **Evidence Graph:** ${record.evidence_graph ? `${record.evidence_graph.node_count || 0} nodes / ${record.evidence_graph.edge_count || 0} edges` : '—'}`,
     `- **Mesh Certified:** ${record.mesh_certified ? 'yes' : 'no'}${record.mesh_execution_id ? ` (execution ${record.mesh_execution_id})` : ''}`,
     `- **Started:** ${record.started_at || '—'}`,
     `- **Finished:** ${record.finished_at || '—'}`,
@@ -1547,6 +1551,11 @@ function missionToStixBundle(record) {
     x_sentinel_execution_id: record.execution_id || null,
     x_sentinel_correlation_id: record.correlation_id || null,
     x_sentinel_verdict: record.verdict || null,
+    x_sentinel_mission_quality: record.mission_quality || null,
+    x_sentinel_mission_profile: record.mission_profile || 'AUTO',
+    x_sentinel_duration_ms: Number.isFinite(Number(record.duration_ms)) ? Number(record.duration_ms) : null,
+    x_sentinel_evidence_graph_nodes: Number(record.evidence_graph?.node_count || 0),
+    x_sentinel_evidence_graph_edges: Number(record.evidence_graph?.edge_count || 0),
     x_sentinel_mesh_certified: Boolean(record.mesh_certified),
   };
 
@@ -1706,6 +1715,8 @@ const run=document.getElementById('run'),final=document.getElementById('final'),
   run.onclick=async()=>{const key=byId('key').value.trim(),ioc=byId('ioc').value.trim(),type=byId('type').value,profile=String(byId('profile')?.value||'AUTO');if(!key||!ioc){final.textContent='API key and IOC are required.';setMissionState('INPUT REQUIRED','warn');return}if(!preflight.eligible||preflight.key!==key){final.textContent='SWARM access must be verified before launch.';setMissionState('ACCESS CHECK REQUIRED','warn');schedulePreflight(0);return}triggerLaunchSequence();resetAgents();resetEventLog();run.disabled=true;final.textContent='Connecting to the production swarm…';setText('mission','—');setText('correlation','—');setText('mesh','PENDING','warn');setText('missionQuality',readiness.valid&&readiness.body?String(readiness.body.readiness.mission_quality||'PENDING').replaceAll('_',' '):'PENDING','warn');setText('evidenceGraphState','BUILDING','warn');setMissionState('CONNECTING','warn');try{const rid='ui-'+crypto.randomUUID();const r=await fetch('/api/swarm/run',{method:'POST',headers:{'content-type':'application/json','x-api-key':key,'x-request-id':rid},body:JSON.stringify({ioc_value:ioc,ioc_type:type,mission_profile:profile})});if(!r.ok){setMissionState('REJECTED','warn');final.textContent='Launch failed: HTTP '+r.status+' '+await r.text();return}const contentType=r.headers.get('content-type')||'';if(contentType.includes('application/json')){const replay=await r.json();if(replay&&replay.idempotent_replay&&replay.data){renderPersistedMission(replay.data);return}final.textContent=JSON.stringify(replay,null,2);return}setText('mission',r.headers.get('x-cdb-swarm-mission')||'—');setText('correlation',r.headers.get('x-cdb-swarm-correlation')||rid);const reader=r.body.getReader(),decoder=new TextDecoder();let buf='';while(true){const chunkResult=await reader.read();if(chunkResult.done)break;buf+=decoder.decode(chunkResult.value,{stream:true});let idx;while((idx=buf.indexOf('\n\n'))>=0){const chunk=buf.slice(0,idx);buf=buf.slice(idx+2);const line=chunk.split('\n').find((x)=>x.startsWith('data: '));if(!line)continue;const ev=JSON.parse(line.slice(6));setText('mission',ev.mission_id||'—');setText('correlation',ev.correlation_id||'—');appendEvent(ev);setAgent(ev);if(ev.event_type==='mission.accepted')setMissionState('QUEUED','warn');else if(ev.event_type==='mission.readiness'){if(ev.readiness){const synthetic={status:'ok',readiness:ev.readiness,synthesis_readiness:ev.synthesis_readiness||{},correlation:{match_count:ev.readiness.match_count},demo_recommended:ev.readiness.mission_quality==='FULL_FABRIC'&&ev.synthesis_readiness&&ev.synthesis_readiness.ready===true};renderReadiness(synthetic)}}else if(ev.event_type==='mesh.admitted'){setText('mesh','CERTIFIED · '+(ev.mesh_execution_id||''),'ok');setMissionState('ADMITTED','ok')}else if(ev.event_type==='agent.started')setMissionState('RUNNING','warn');if(ev.mesh_certified)setText('mesh','CERTIFIED · '+(ev.mesh_execution_id||''),'ok');if(ev.event_type==='mission.completed'){setMissionState('COMPLETED','ok');setText('missionQuality',String(ev.mission_quality||'COMPLETED').replaceAll('_',' '),ev.mission_quality&&ev.mission_quality.includes('WARNING')?'warn':'ok');const g=ev.evidence_graph;setText('evidenceGraphState',g?(String(g.node_count||0)+' NODES · '+String(g.edge_count||0)+' EDGES'):'COMPLETE',g?'ok':'');final.textContent=JSON.stringify(ev.result,null,2)}if(ev.event_type==='mission.rejected'||ev.event_type==='mission.failed'){setMissionState('FAILED','warn');setText('missionQuality','FAILED','warn');setText('evidenceGraphState','INCOMPLETE','warn');final.textContent=JSON.stringify(ev,null,2)}}}}catch(e){setMissionState('TRANSPORT FAILED','warn');final.textContent='Mission transport failed: '+e.message}finally{run.disabled=!(preflight.eligible&&preflight.key===byId('key').value.trim());if(assessReadiness)assessReadiness.disabled=!(preflight.eligible&&String(iocInput.value||'').trim())}}
   updateOpsTelemetry();
   hydrateHealth();
+  const loadMetricsBtn=byId('loadMetrics'),metricsNote=byId('metricsNote');
+  if(loadMetricsBtn)loadMetricsBtn.onclick=async()=>{const key=keyInput.value.trim();if(!key){if(metricsNote)metricsNote.textContent='Enter your API key above first.';return}loadMetricsBtn.disabled=true;if(metricsNote)metricsNote.textContent='Loading credential-scoped observed metrics…';try{const r=await fetch('/api/swarm/metrics?limit=50',{headers:{'x-api-key':key},cache:'no-store'});const body=await r.json();if(!r.ok)throw new Error(body.message||body.error||('HTTP '+r.status));const d=body.data||{};setText('metricSample',String(d.sample_size??0));setText('metricFullFabric',String((d.mission_counts&&d.mission_counts.full_fabric_complete)??0));setText('metricP50',d.latency_ms&&d.latency_ms.p50!=null?String(d.latency_ms.p50)+' ms':'—');setText('metricP95',d.latency_ms&&d.latency_ms.p95!=null?String(d.latency_ms.p95)+' ms':'—');setText('metricAiRate',d.ai_synthesis&&d.ai_synthesis.llm_enhanced_rate!=null?String(Math.round(d.ai_synthesis.llm_enhanced_rate*100))+'%':'—');setText('metricFailedAgents',String((d.agent_terminal_states&&d.agent_terminal_states.failed)??0),(d.agent_terminal_states&&d.agent_terminal_states.failed)?'warn':'ok');if(metricsNote)metricsNote.textContent='Observed from '+String(d.sample_size??0)+' latest credential-owned mission(s) · measured '+String(d.measured_at||'now')}catch(e){if(metricsNote)metricsNote.textContent='Metrics unavailable: '+e.message}finally{loadMetricsBtn.disabled=false}};
   const loadHistoryBtn=document.getElementById('loadHistory'),historyBody=document.getElementById('historyBody'),historyNote=document.getElementById('historyNote');
   function escHtml(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
   loadHistoryBtn.onclick=async()=>{
@@ -1719,8 +1730,8 @@ const run=document.getElementById('run'),final=document.getElementById('final'),
       const missions=(body.data&&body.data.missions)||[];
       if(!missions.length){historyNote.textContent='No missions found yet for this key.';historyBody.innerHTML='';return}
       historyNote.textContent=missions.length+' mission(s)'+((body.data&&body.data.list_complete)?'':' (more available)');
-      historyBody.innerHTML='<table><thead><tr><th>Finished</th><th>IOC</th><th>Verdict</th><th>Status</th><th>Evidence</th></tr></thead><tbody>'+missions.map(m=>
-        '<tr><td>'+escHtml(m.finished_at||'—')+'</td><td>'+escHtml(m.ioc_value||'—')+'</td><td>'+escHtml(m.verdict||'—')+'</td><td>'+escHtml(m.status||'—')+'</td><td><button type="button" class="dl" data-id="'+escHtml(m.mission_id)+'" data-format="md">report</button> <button type="button" class="dl" data-id="'+escHtml(m.mission_id)+'" data-format="json">json</button> <button type="button" class="dl" data-id="'+escHtml(m.mission_id)+'" data-format="stix21">stix</button></td></tr>'
+      historyBody.innerHTML='<table><thead><tr><th>Finished</th><th>IOC</th><th>Verdict</th><th>Quality</th><th>Evidence</th></tr></thead><tbody>'+missions.map(m=>
+        '<tr><td>'+escHtml(m.finished_at||'—')+'</td><td>'+escHtml(m.ioc_value||'—')+'</td><td>'+escHtml(m.verdict||'—')+'</td><td>'+escHtml(m.mission_quality||m.status||'—')+'</td><td><button type="button" class="dl" data-id="'+escHtml(m.mission_id)+'" data-format="md">report</button> <button type="button" class="dl" data-id="'+escHtml(m.mission_id)+'" data-format="json">json</button> <button type="button" class="dl" data-id="'+escHtml(m.mission_id)+'" data-format="stix21">stix</button></td></tr>'
       ).join('')+'</tbody></table>';
     }catch(e){historyNote.textContent='History request failed: '+e.message}
     finally{loadHistoryBtn.disabled=false}
@@ -2176,6 +2187,7 @@ html,body{width:100%;max-width:100%;overflow-x:hidden}
 .agent[data-state=SKIPPED]{border-color:rgba(117,167,255,.46);box-shadow:0 12px 34px rgba(0,0,0,.22),0 0 18px rgba(117,167,255,.06);opacity:.88}.agent[data-state=SKIPPED] .state{color:#9fc6ff;border-color:rgba(117,167,255,.42)}.agent[data-state=SKIPPED] .agent-led{background:#75A7FF;box-shadow:0 0 12px rgba(117,167,255,.58)}.mesh-node[data-state=SKIPPED]{color:#9fc6ff;border-color:rgba(117,167,255,.38)}.mesh-node[data-state=SKIPPED] .mesh-led{background:#75A7FF;box-shadow:0 0 12px rgba(117,167,255,.58)}.event-row[data-state=SKIPPED] .event-state{color:#9fc6ff}
 @media(prefers-contrast:more){:root{--text:#fff;--muted:#d4e7e3;--muted2:#acc8c1}.sub,.section-copy,.section-head p,.truth,.security-note,.control-note,.brand-sub,.assurance-item small,.agent-title small,.event-desc{color:#e2f2ef}.agent pre,.final{color:#f2fffc}.field input,.field select{border-color:#67d8c3}}
 
+.metrics-panel{margin-top:18px;border:1px solid var(--line);background:rgba(5,14,12,.9);border-radius:18px;padding:18px}.metrics-grid{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:8px;margin-top:12px}.metrics-grid>div{border:1px solid rgba(255,255,255,.07);background:rgba(2,10,14,.72);border-radius:11px;padding:11px}.metrics-grid span{display:block;color:var(--muted2);font-size:8px;text-transform:uppercase;letter-spacing:.09em}.metrics-grid strong{display:block;margin-top:6px;font-size:12px;color:#e8fbf8}@media(max-width:860px){.metrics-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}@media(max-width:480px){.metrics-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 /* V4.47 Mission Readiness / Semantic State / Executive View */
 .view-toggle,.readiness-btn{border:1px solid rgba(0,231,255,.34);background:rgba(2,14,20,.92);color:#aef9ef;border-radius:999px;padding:8px 11px;font-size:9px;font-weight:900;letter-spacing:.08em;text-transform:uppercase;cursor:pointer;white-space:nowrap}.view-toggle:hover,.readiness-btn:hover:not(:disabled){border-color:var(--cyan);box-shadow:0 0 20px rgba(0,231,255,.12)}.view-toggle[aria-pressed=true]{color:#fff;border-color:rgba(157,107,255,.65);background:rgba(41,21,68,.72);box-shadow:0 0 22px rgba(157,107,255,.14)}.readiness-btn:disabled{opacity:.45;cursor:not-allowed}
 .readiness-panel{margin-top:12px;border:1px solid rgba(0,231,255,.18);background:linear-gradient(145deg,rgba(3,17,20,.9),rgba(7,9,21,.88));border-radius:14px;padding:13px}.readiness-panel[data-state=ready]{border-color:rgba(66,224,173,.55);box-shadow:inset 0 0 24px rgba(66,224,173,.035)}.readiness-panel[data-state=limited]{border-color:rgba(255,200,87,.6)}.readiness-panel[data-state=blocked]{border-color:rgba(255,114,114,.6)}.readiness-head{display:flex;align-items:center;justify-content:space-between;gap:14px}.readiness-head>div{min-width:0}.readiness-head strong{display:block;font-size:10px;letter-spacing:.1em;color:#8bf7d2}.readiness-head span{display:block;margin-top:4px;color:var(--muted2);font-size:9px;line-height:1.45}.readiness-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-top:10px}.readiness-grid>div{border:1px solid rgba(255,255,255,.07);background:rgba(2,10,14,.7);border-radius:10px;padding:9px}.readiness-grid span{display:block;color:var(--muted2);font-size:8px;text-transform:uppercase;letter-spacing:.08em}.readiness-grid strong{display:block;margin-top:5px;font-size:11px;color:#e8fbf8}.readiness-agents{display:flex;gap:6px;flex-wrap:wrap;margin-top:9px}.readiness-chip{display:inline-flex;align-items:center;gap:5px;border:1px solid rgba(255,255,255,.09);border-radius:999px;padding:5px 7px;font-size:8px;font-weight:850;letter-spacing:.04em}.readiness-chip[data-state=READY]{color:var(--mint2);border-color:rgba(66,224,173,.36)}.readiness-chip[data-state=NOT_APPLICABLE]{color:#8fa7ad}.readiness-chip[data-state=DEGRADED]{color:var(--amber);border-color:rgba(255,200,87,.35)}
@@ -2280,6 +2292,19 @@ body[data-view=executive] .history,body[data-view=executive] .event-log{display:
     </div>
   </section>
 
+  <section class="metrics-panel">
+    <div class="row"><div><div class="section-kicker">Observed Operations</div><h2>Credential-Scoped Mission Metrics</h2></div><button type="button" class="load" id="loadMetrics">LOAD METRICS</button></div>
+    <p class="truth" id="metricsNote">Measured only from the latest missions owned by the API key above. No global/customer-mixed vanity metrics.</p>
+    <div class="metrics-grid">
+      <div><span>Sample</span><strong id="metricSample">—</strong></div>
+      <div><span>Full Fabric</span><strong id="metricFullFabric">—</strong></div>
+      <div><span>P50 Latency</span><strong id="metricP50">—</strong></div>
+      <div><span>P95 Latency</span><strong id="metricP95">—</strong></div>
+      <div><span>AI Enhanced</span><strong id="metricAiRate">—</strong></div>
+      <div><span>Failed Agents</span><strong id="metricFailedAgents">—</strong></div>
+    </div>
+  </section>
+
   <section class="history">
     <div class="row"><div><div class="section-kicker">Durable Evidence</div><h2>Mission History & Evidence Export</h2></div><button type="button" class="load" id="loadHistory">LOAD HISTORY</button></div>
     <p class="truth" id="historyNote">Loads only missions scoped to the API key above. Completed missions can be exported as report, JSON evidence, or STIX 2.1.</p>
@@ -2341,7 +2366,7 @@ export default {
         status: 'ok',
         service: 'sentinel-apex-swarm-live',
         protocol: PROTOCOL,
-        version: env.SWARM_VERSION || '4.46.6',
+        version: env.SWARM_VERSION || '4.47.0',
         agents: AGENTS.length,
         // Real dependency status, not a static ack -- reflects whether
         // mission history/evidence export can actually serve a request
