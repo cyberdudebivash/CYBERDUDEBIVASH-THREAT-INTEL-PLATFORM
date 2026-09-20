@@ -41,6 +41,27 @@ test('dependency planner preserves ordered unique evidence candidates', () => {
   assert.deepEqual(plan['siem-defender'], ['intel--one', 'intel--two']);
 });
 
+test('absent quota telemetry is unknown and never interpreted as exhausted', () => {
+  const readiness = buildMissionReadiness(richCorrelation, {
+    entitlementEligible: true,
+    llmReady: true,
+  });
+  assert.equal(readiness.status, 'ready');
+  assert.equal(readiness.quota_remaining, null);
+  assert.equal(readiness.mission_quality, MISSION_QUALITY.FULL_FABRIC);
+});
+
+test('explicit zero quota blocks readiness', () => {
+  const readiness = buildMissionReadiness(richCorrelation, {
+    entitlementEligible: true,
+    quotaRemaining: 0,
+    llmReady: true,
+  });
+  assert.equal(readiness.status, 'blocked');
+  assert.equal(readiness.mission_quality, MISSION_QUALITY.BLOCKED);
+  assert.equal(readiness.quota_remaining, 0);
+});
+
 test('rich correlation + ready LLM projects FULL_FABRIC 8/8', () => {
   const readiness = buildMissionReadiness(richCorrelation, {
     entitlementEligible: true,
