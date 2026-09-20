@@ -465,8 +465,12 @@ async function emit(writer, encoder, event) {
 // primary by-id record is written, unchanged in shape or key.
 async function persistMission(env, record, partition) {
   if (!env.SWARM_MISSIONS_KV) return;
+  // Store the one-way credential partition atomically with every new primary
+  // mission record. It is an authorization attribute, not customer evidence,
+  // and getMissionRecord() strips it before any API/export response.
+  const storedRecord = partition ? { ...record, _owner_partition: partition } : record;
   try {
-    await env.SWARM_MISSIONS_KV.put(record.mission_id, JSON.stringify(record), {
+    await env.SWARM_MISSIONS_KV.put(record.mission_id, JSON.stringify(storedRecord), {
       expirationTtl: MISSION_TTL_SECONDS,
     });
   } catch { /* persistence is observability, not a mission-fatal concern */ }
@@ -788,7 +792,7 @@ async function handleRun(request, env, ctx) {
       // a second real mission. If the pointer somehow outlived its record
       // (edge case, not the normal TTL-aligned path), fall through and
       // start a fresh mission instead of erroring the caller out.
-      const existing = await getMissionRecord(env, pointer.mission_id);
+      const existing = await getMissionRecord(env, pointer.mission_id, partition);
       if (existing.status === 200) {
         return json({ status: 'ok', idempotent_replay: true, data: existing.record });
       }
@@ -823,23 +827,40 @@ async function handleRun(request, env, ctx) {
 // Single source of truth for "fetch one mission record by id" -- both the
 // existing by-id lookup and the new report export call this rather than
 // each re-implementing the unavailable/not-found/corrupt handling.
-async function getMissionRecord(env, missionId) {
+async function getMissionRecord(env, missionId, expectedPartition = null) {
   if (!env.SWARM_MISSIONS_KV) {
     return { status: 503, body: { error: 'mission_store_unavailable', message: 'Mission persistence is not provisioned yet.' } };
   }
   const raw = await env.SWARM_MISSIONS_KV.get(missionId);
   if (!raw) return { status: 404, body: { error: 'mission_not_found' } };
-  let record;
-  try { record = JSON.parse(raw); } catch { return { status: 500, body: { error: 'mission_record_corrupt' } }; }
-  return { status: 200, record };
+  let stored;
+  try { stored = JSON.parse(raw); } catch { return { status: 500, body: { error: 'mission_record_corrupt' } }; }
+
+  // V4.46.6 customer-isolation hardening: all newly persisted missions carry
+  // a one-way credential partition. A different authenticated customer gets
+  // the same 404 as an unknown mission so existence is not disclosed.
+  // Records created before this field existed remain readable for backward
+  // compatibility; every new mission is owner-enforced.
+  if (stored?._owner_partition && expectedPartition && stored._owner_partition !== expectedPartition) {
+    return { status: 404, body: { error: 'mission_not_found' } };
+  }
+
+  const { _owner_partition: _internalOwnerPartition, ...record } = stored || {};
+  return {
+    status: 200,
+    record,
+    ownership_enforced: Boolean(stored?._owner_partition),
+  };
 }
 
 async function handleMissionLookup(request, env, missionId) {
   if (!ID_RE.test(missionId)) return json({ error: 'invalid_mission_id' }, 400);
-  if (!hasAuth(authHeaders(request))) {
+  const headers = authHeaders(request);
+  if (!hasAuth(headers)) {
     return json({ error: 'authentication_required', message: 'Use an existing Sentinel customer API key or bearer token.' }, 401);
   }
-  const result = await getMissionRecord(env, missionId);
+  const partition = await credentialPartition(headers);
+  const result = await getMissionRecord(env, missionId, partition);
   if (result.status !== 200) return json(result.body, result.status);
   return json({ status: 'ok', data: result.record });
 }
@@ -1020,10 +1041,12 @@ function missionToStixBundle(record) {
 // both as downloadable attachments; default is a Markdown transcript.
 async function handleMissionReport(request, env, missionId, url) {
   if (!ID_RE.test(missionId)) return json({ error: 'invalid_mission_id' }, 400);
-  if (!hasAuth(authHeaders(request))) {
+  const headers = authHeaders(request);
+  if (!hasAuth(headers)) {
     return json({ error: 'authentication_required', message: 'Use an existing Sentinel customer API key or bearer token.' }, 401);
   }
-  const result = await getMissionRecord(env, missionId);
+  const partition = await credentialPartition(headers);
+  const result = await getMissionRecord(env, missionId, partition);
   if (result.status !== 200) return json(result.body, result.status);
 
   const format = (url.searchParams.get('format') || 'md').toLowerCase();
