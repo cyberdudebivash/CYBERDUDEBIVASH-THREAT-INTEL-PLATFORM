@@ -35,3 +35,21 @@ test("readiness cannot report READY unless both provider configuration and paid-
   assert.ok(fn.includes("ready:       LLM_ENABLED && tierAllowsLLM"));
   assert.equal(fn.includes("ready:       LLM_ENABLED || tierAllowsLLM"), false);
 });
+
+test("current DeepSeek production model identifiers are used by callLLM", () => {
+  const start = source.indexOf("async function callLLM");
+  const end = source.indexOf("async function handleCopilot", start);
+
+  assert.ok(start > 0);
+  assert.ok(end > start);
+
+  const fn = source.slice(start, end);
+
+  assert.ok(fn.includes('"deepseek-flash"'));
+  assert.ok(fn.includes('"deepseek-v4-pro"'));
+
+  assert.equal(fn.includes('"deepseek-chat"'), false);
+  assert.equal(fn.includes('"deepseek-reasoner"'), false);
+
+  assert.ok(fn.includes("llm_provider_cascade_exhausted"));
+});

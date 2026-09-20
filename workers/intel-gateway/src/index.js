@@ -3672,7 +3672,7 @@ async function callLLM(env, systemPrompt, userPrompt, useR1) {
   // 1. DeepSeek direct (lowest latency, most capable)
   if (env.DEEPSEEK_API_KEY) {
     try {
-      const model = useR1 ? "deepseek-reasoner" : "deepseek-chat";
+      const model = useR1 ? "deepseek-v4-pro" : "deepseek-flash";
       const resp  = await fetch("https://api.deepseek.com/v1/chat/completions", {
         method: "POST",
         headers: { "Authorization": `Bearer ${env.DEEPSEEK_API_KEY}`, "Content-Type": "application/json" },
@@ -3720,6 +3720,12 @@ async function callLLM(env, systemPrompt, userPrompt, useR1) {
     } catch (_) {}
   }
 
+  console.warn("llm_provider_cascade_exhausted", JSON.stringify({
+    deepseek_configured: !!env.DEEPSEEK_API_KEY,
+    groq_configured: !!env.GROQ_API_KEY,
+    openrouter_configured: !!env.OPENROUTER_API_KEY,
+  }));
+
   return null;
 }
 
@@ -3734,23 +3740,23 @@ async function handleCopilot(request, env, auth, method, path) {
       status: "success",
       llm_enabled: LLM_ENABLED && tierAllowsLLM,
       llm_stack: {
-        primary:   "DeepSeek R1 (deepseek-reasoner)  -  api.deepseek.com",
-        secondary: "DeepSeek V3 (deepseek-chat)      -  api.deepseek.com",
+        primary:   "DeepSeek V4 Pro (deepseek-v4-pro)  -  api.deepseek.com",
+        secondary: "DeepSeek Flash (deepseek-flash)  -  api.deepseek.com",
         fallback1: "GROQ LPU (deepseek-r1-distill-llama-70b)  -  ultra-fast",
         fallback2: "OpenRouter (deepseek/deepseek-r1)",
         fallback3: "Deterministic template  -  always on",
       },
       modes: [
-        { id: "explain_threat",   label: "Explain Threat",           model: "deepseek-chat (V3)",          new: false },
-        { id: "what_to_do",       label: "What Should I Do?",        model: "deepseek-chat (V3)",          new: false },
-        { id: "soc_report",       label: "SOC Report",               model: "deepseek-chat (V3)",          new: false },
-        { id: "risk_brief",       label: "Executive Risk Brief",     model: "deepseek-chat (V3)",          new: false },
+        { id: "explain_threat",   label: "Explain Threat",           model: "deepseek-flash",          new: false },
+        { id: "what_to_do",       label: "What Should I Do?",        model: "deepseek-flash",          new: false },
+        { id: "soc_report",       label: "SOC Report",               model: "deepseek-flash",          new: false },
+        { id: "risk_brief",       label: "Executive Risk Brief",     model: "deepseek-flash",          new: false },
         { id: "ioc_summary",      label: "IOC Intelligence",         model: "deterministic",               new: false },
         { id: "mitre_mapping",    label: "MITRE ATT&CK Mapping",     model: "deterministic",               new: false },
-        { id: "threat_hunt",      label: "Threat Hunt Package",      model: "deepseek-reasoner (R1)",      new: true  },
-        { id: "detection_write",  label: "Write Detection Rules",    model: "deepseek-reasoner (R1)",      new: true  },
-        { id: "incident_brief",   label: "Incident Commander Brief", model: "deepseek-reasoner (R1)",      new: true  },
-        { id: "natural_language", label: "Ask Anything",             model: "deepseek-reasoner (R1)",      new: true  },
+        { id: "threat_hunt",      label: "Threat Hunt Package",      model: "deepseek-v4-pro",      new: true  },
+        { id: "detection_write",  label: "Write Detection Rules",    model: "deepseek-v4-pro",      new: true  },
+        { id: "incident_brief",   label: "Incident Commander Brief", model: "deepseek-v4-pro",      new: true  },
+        { id: "natural_language", label: "Ask Anything",             model: "deepseek-v4-pro",      new: true  },
       ],
     });
   }
