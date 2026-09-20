@@ -154,6 +154,13 @@ test('customer console exposes the production V4.47.0 control-plane capabilities
     'STIX 2.1',
     'Live Mission Events',
     'Mission History & Evidence Export',
+    'Credential-Scoped Mission Metrics',
+    'MISSION READINESS',
+    'Mission Profile',
+    'EXECUTIVE VIEW',
+    'Mission Quality',
+    'Evidence Graph',
+    'Final Intelligence / Terminal Evidence',
     'SOC 2-ALIGNED EVIDENCE UX',
     '8-Agent Mesh Topology',
     'STATE-DRIVEN LED NODES',
@@ -180,6 +187,13 @@ test('customer console exposes the production V4.47.0 control-plane capabilities
   assert.ok(html.includes('id="eventCount"'));
   assert.ok(html.includes('id="activeAgents"'));
   assert.ok(html.includes('id="completedAgents"'));
+  assert.ok(html.includes('id="readinessPanel"'));
+  assert.ok(html.includes('id="profile"'));
+  assert.ok(html.includes('id="viewMode"'));
+  assert.ok(html.includes('id="missionQuality"'));
+  assert.ok(html.includes('id="evidenceGraphState"'));
+  assert.ok(html.includes('id="loadMetrics"'));
+  assert.ok(html.includes('id="executiveSummary"'));
   assert.ok(html.includes('id="fabricStateText">DORMANT</span>'));
   assert.ok(html.includes('id="streamState">SSE · DORMANT</span>'));
   assert.ok(!html.includes('SSE · REAL TIME'), 'idle UI must not imply an active event stream');
@@ -393,6 +407,10 @@ test('cinematic browser controller is decorative, reduced-motion aware, and real
   assert.ok(js.includes("matchMedia('(prefers-reduced-motion: reduce)')"));
   assert.ok(js.includes('function triggerLaunchSequence()'));
   assert.ok(js.includes('function fxForMissionEvent(ev)'));
+  assert.ok(js.includes('function focusAgentForExecutive(ev)'));
+  assert.ok(js.includes('function renderExecutiveSummary(result)'));
+  assert.ok(js.includes("fetch('/api/swarm/readiness'"));
+  assert.ok(js.includes("fetch('/api/swarm/metrics?limit=50'"));
   assert.ok(js.includes('fxForMissionEvent(ev)'));
   assert.ok(js.includes('function emitCinematicFx(kind,el,intensity)'));
   assert.ok(js.includes('updateOpsTelemetry()'));
@@ -1542,6 +1560,10 @@ test('GET /api/swarm/mission/:id/report: default Markdown export is downloadable
     correlation_id: 'corr-r1',
     status: 'COMPLETED',
     verdict: 'malicious',
+    mission_quality: 'COMPLETED_WITH_WARNINGS',
+    mission_profile: 'AUTO',
+    duration_ms: 5000,
+    evidence_graph: { schema: 'cdb.swarm.evidence-graph.v1', node_count: 7, edge_count: 9, nodes: [], edges: [] },
     mesh_certified: true,
     mesh_execution_id: 'mesh-exec-9',
     started_at: '2026-01-01T00:00:00.000Z',
@@ -1561,6 +1583,10 @@ test('GET /api/swarm/mission/:id/report: default Markdown export is downloadable
   assert.match(text, /sentinel-mission-r1/);
   assert.match(text, /9\.9\.9\.9/);
   assert.match(text, /malicious/);
+  assert.match(text, /Mission Quality:\*\* COMPLETED_WITH_WARNINGS/);
+  assert.match(text, /Mission Profile:\*\* AUTO/);
+  assert.match(text, /Duration:\*\* 5000 ms/);
+  assert.match(text, /Evidence Graph:\*\* 7 nodes \/ 9 edges/);
   assert.match(text, /### ioc-hunter/);
   assert.match(text, /### threat-hunter/);
   assert.match(text, /- state: DENIED/);
@@ -1720,6 +1746,10 @@ test('missionToStixBundle keeps custom x_sentinel properties at top level for ST
   const bundle = __test.missionToStixBundle({
     mission_id: 'sentinel-mission-custom-props',
     verdict: 'clean',
+    mission_quality: 'PARTIAL_FABRIC_COMPLETE',
+    mission_profile: 'IOC_TRIAGE',
+    duration_ms: 3210,
+    evidence_graph: { schema: 'cdb.swarm.evidence-graph.v1', node_count: 4, edge_count: 5, nodes: [], edges: [] },
     ioc: { ioc_value: '1.1.1.1', ioc_type: 'ipv4' },
     specialists: {
       'ioc-hunter': { basis: 'backend_execution', state: 'COMPLETED', result: { verdict: 'clean' } },
@@ -1732,6 +1762,11 @@ test('missionToStixBundle keeps custom x_sentinel properties at top level for ST
   }
   const indicator = bundle.objects.find((o) => o.type === 'indicator');
   assert.ok(indicator.x_sentinel_mission_id);
+  assert.equal(indicator.x_sentinel_mission_quality, 'PARTIAL_FABRIC_COMPLETE');
+  assert.equal(indicator.x_sentinel_mission_profile, 'IOC_TRIAGE');
+  assert.equal(indicator.x_sentinel_duration_ms, 3210);
+  assert.equal(indicator.x_sentinel_evidence_graph_nodes, 4);
+  assert.equal(indicator.x_sentinel_evidence_graph_edges, 5);
   const skippedNote = bundle.objects.find((o) => o.type === 'note' && o.x_sentinel_agent_id === 'cve-intelligence');
   assert.equal(skippedNote.x_sentinel_agent_state, 'SKIPPED');
 });
