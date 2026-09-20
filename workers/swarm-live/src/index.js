@@ -708,6 +708,16 @@ async function persistMission(env, record, partition) {
         ioc_value: record.ioc?.ioc_value ?? null,
         ioc_type: record.ioc?.ioc_type ?? null,
         verdict: record.verdict ?? null,
+        mission_quality: record.mission_quality ?? null,
+        mission_profile: record.mission_profile ?? 'AUTO',
+        duration_ms: Number.isFinite(Number(record.duration_ms)) ? Number(record.duration_ms) : null,
+        completed_agents: Number(record.metrics?.completed ?? 0),
+        not_applicable_agents: Number(record.metrics?.not_applicable ?? 0),
+        degraded_agents: Number(record.metrics?.degraded ?? 0),
+        denied_agents: Number(record.metrics?.denied ?? 0),
+        unavailable_agents: Number(record.metrics?.unavailable ?? 0),
+        failed_agents: Number(record.metrics?.failed ?? 0),
+        llm_enhanced: record.specialists?.['risk-synthesizer']?.result?.llm_enhanced === true,
         started_at: record.started_at ?? null,
         finished_at: record.finished_at ?? null,
       },
@@ -1264,6 +1274,97 @@ async function handleMissionList(request, env, url) {
       missions,
       list_complete: Boolean(page.list_complete),
       cursor: page.list_complete ? null : (page.cursor || null),
+    },
+  });
+}
+
+function percentile(values, p) {
+  const sorted = values.filter(Number.isFinite).sort((a, b) => a - b);
+  if (!sorted.length) return null;
+  const rank = Math.max(0, Math.min(sorted.length - 1, Math.ceil(p * sorted.length) - 1));
+  return sorted[rank];
+}
+
+async function handleMissionMetrics(request, env, url) {
+  const headers = authHeaders(request);
+  if (!hasAuth(headers)) {
+    return json({ error: 'authentication_required', message: 'Use an existing Sentinel customer API key or bearer token.' }, 401);
+  }
+  if (!env.SWARM_MISSIONS_KV) {
+    return json({ error: 'mission_store_unavailable', message: 'Mission persistence is not provisioned yet.' }, 503);
+  }
+
+  const rawLimit = parseInt(url.searchParams.get('limit') || '50', 10);
+  const limit = Number.isFinite(rawLimit) ? Math.min(Math.max(rawLimit, 1), 100) : 50;
+  const partition = await credentialPartition(headers);
+
+  let page;
+  try {
+    page = await env.SWARM_MISSIONS_KV.list({
+      prefix: `${MISSION_INDEX_PREFIX}${partition}:`,
+      limit,
+    });
+  } catch (error) {
+    return json({ error: 'mission_metrics_failed', message: String(error?.message || error).slice(0, 240) }, 500);
+  }
+
+  const missions = page.keys.map((k) => k.metadata).filter(Boolean);
+  const durations = missions.map((m) => Number(m.duration_ms)).filter(Number.isFinite);
+  const quality = {};
+  const profiles = {};
+  const agentStates = {
+    completed: 0,
+    not_applicable: 0,
+    degraded: 0,
+    denied: 0,
+    unavailable: 0,
+    failed: 0,
+  };
+
+  let llmEnhanced = 0;
+  for (const mission of missions) {
+    const q = mission.mission_quality || 'LEGACY_UNCLASSIFIED';
+    quality[q] = (quality[q] || 0) + 1;
+    const profile = mission.mission_profile || 'AUTO';
+    profiles[profile] = (profiles[profile] || 0) + 1;
+    if (mission.llm_enhanced === true) llmEnhanced += 1;
+
+    agentStates.completed += Number(mission.completed_agents || 0);
+    agentStates.not_applicable += Number(mission.not_applicable_agents || 0);
+    agentStates.degraded += Number(mission.degraded_agents || 0);
+    agentStates.denied += Number(mission.denied_agents || 0);
+    agentStates.unavailable += Number(mission.unavailable_agents || 0);
+    agentStates.failed += Number(mission.failed_agents || 0);
+  }
+
+  const completedMissions = missions.filter((m) => m.status === 'COMPLETED').length;
+  const fullFabric = missions.filter((m) => m.mission_quality === 'FULL_FABRIC_COMPLETE').length;
+
+  return json({
+    status: 'ok',
+    data: {
+      scope: 'credential_owned_latest_missions',
+      sample_size: missions.length,
+      sample_limit: limit,
+      list_complete: Boolean(page.list_complete),
+      mission_counts: {
+        completed: completedMissions,
+        non_completed: missions.length - completedMissions,
+        full_fabric_complete: fullFabric,
+      },
+      mission_quality: quality,
+      mission_profiles: profiles,
+      latency_ms: {
+        p50: percentile(durations, 0.50),
+        p95: percentile(durations, 0.95),
+        max: durations.length ? Math.max(...durations) : null,
+      },
+      ai_synthesis: {
+        llm_enhanced_missions: llmEnhanced,
+        llm_enhanced_rate: missions.length ? Number((llmEnhanced / missions.length).toFixed(4)) : null,
+      },
+      agent_terminal_states: agentStates,
+      measured_at: new Date().toISOString(),
     },
   });
 }
@@ -2202,6 +2303,7 @@ export default {
           evidence_graph: true,
           adaptive_specialists: true,
           agent_semantics_v2: true,
+          credential_scoped_metrics: true,
         },
       });
     }
@@ -2216,6 +2318,9 @@ export default {
     }
     if (request.method === 'GET' && url.pathname === '/api/swarm/missions') {
       return handleMissionList(request, env, url);
+    }
+    if (request.method === 'GET' && url.pathname === '/api/swarm/metrics') {
+      return handleMissionMetrics(request, env, url);
     }
     if (request.method === 'GET' && url.pathname.startsWith('/api/swarm/mission/')) {
       const rest = url.pathname.slice('/api/swarm/mission/'.length);
@@ -2252,6 +2357,8 @@ export const __test = Object.freeze({
   persistMission,
   credentialPartition,
   getMissionRecord,
+  handleMissionMetrics,
+  percentile,
   ui,
   swarmAppJs,
   missionReportMarkdown,
