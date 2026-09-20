@@ -19,6 +19,13 @@ test('pre-demo certification allows only the three explicit non-mission POST can
   assert.ok(source.includes("method !== 'GET' && !SAFE_POST_PATHS.has(url.pathname)"));
 });
 
+test('pre-demo GO report identity comes from the selected candidate correlation', () => {
+  assert.ok(source.includes("const correlationPlan = buildDependencyCandidates(correlation)"));
+  assert.ok(source.includes("demoCandidate.reportId = correlatedReportIds[0]"));
+  assert.ok(source.includes("DEMO REPORT"));
+  assert.ok(source.includes("candidate.reportId || 'UNRESOLVED'"));
+});
+
 test('pre-demo certification proves mission history is unchanged before GO', () => {
   assert.ok(source.includes('snapshotMissionIds()'));
   assert.ok(source.includes('mission history changed during pre-demo certification'));
