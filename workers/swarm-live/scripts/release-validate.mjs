@@ -78,6 +78,110 @@ function logPass(label, detail = '') {
   console.log(`PASS  ${label}${detail ? ` — ${detail}` : ''}`);
 }
 
+
+function flattenStrings(value, out = []) {
+  if (typeof value === 'string') out.push(value);
+  else if (Array.isArray(value)) for (const item of value) flattenStrings(item, out);
+  else if (value && typeof value === 'object') for (const item of Object.values(value)) flattenStrings(item, out);
+  return out;
+}
+
+function inferIocType(value) {
+  const s = String(value || '').trim();
+  if (/^(?:\d{1,3}\.){3}\d{1,3}$/.test(s)) return 'ipv4';
+  if (/^https?:\/\//i.test(s)) return 'url';
+  if (/^[0-9a-f]{32}$|^[0-9a-f]{40}$|^[0-9a-f]{64}$/i.test(s)) return 'hash';
+  if (/^[a-z0-9.-]+\.[a-z]{2,}$/i.test(s)) return 'domain';
+  return 'auto';
+}
+
+function isObservable(value) {
+  const s = String(value || '').trim();
+  return Boolean(
+    s &&
+    s.length <= 256 &&
+    (
+      /^(?:\d{1,3}\.){3}\d{1,3}$/.test(s) ||
+      /^https?:\/\//i.test(s) ||
+      /^[a-z0-9.-]+\.[a-z]{2,}$/i.test(s) ||
+      /^[0-9a-f]{32}$|^[0-9a-f]{40}$|^[0-9a-f]{64}$/i.test(s)
+    )
+  );
+}
+
+function pickObservable(item) {
+  for (const key of ['ioc', 'ioc_value', 'indicator', 'observable', 'domain', 'url', 'ip', 'ipv4', 'hash']) {
+    const value = item?.[key];
+    if (typeof value === 'string' && isObservable(value)) return value.trim();
+    if (Array.isArray(value)) {
+      const found = value.find((v) => typeof v === 'string' && isObservable(v));
+      if (found) return found.trim();
+    }
+  }
+  return flattenStrings(item).find(isObservable) || null;
+}
+
+async function discoverFullFabricCandidate(baseUrl, apiKey) {
+  const feed = await getJson(`${baseUrl}/api/v1/intel/latest.json`, {
+    headers: {
+      'x-api-key': apiKey,
+      'x-request-id': `release-feed-${crypto.randomUUID()}`,
+    },
+  });
+  assert(feed.response.status === 200, `candidate feed returned HTTP ${feed.response.status}`);
+  assert(Array.isArray(feed.body?.items) && feed.body.items.length > 0, 'candidate feed is empty');
+
+  const seen = new Set();
+  const candidates = [];
+  for (const item of feed.body.items) {
+    const value = pickObservable(item);
+    if (!value || seen.has(value)) continue;
+    seen.add(value);
+    candidates.push({ value, type: inferIocType(value) });
+    if (candidates.length >= 12) break;
+  }
+  assert(candidates.length > 0, 'no candidate observables available from canonical feed');
+
+  const attempts = [];
+  for (const candidate of candidates) {
+    const readiness = await getJson(`${baseUrl}/api/swarm/readiness`, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'x-api-key': apiKey,
+        'x-request-id': `release-discovery-${crypto.randomUUID()}`,
+      },
+      body: JSON.stringify({
+        ioc_value: candidate.value,
+        ioc_type: candidate.type,
+        mission_profile: 'AUTO',
+      }),
+    });
+
+    attempts.push({
+      value: candidate.value,
+      status: readiness.response.status,
+      quality: readiness.body?.readiness?.mission_quality || readiness.body?.reason || readiness.body?.error || 'unknown',
+      ready_agents: readiness.body?.readiness?.ready_agents ?? null,
+      ai_ready: readiness.body?.synthesis_readiness?.ready ?? null,
+    });
+
+    if (
+      readiness.response.status === 200 &&
+      readiness.body?.mission_dispatch === false &&
+      readiness.body?.readiness?.mission_quality === 'FULL_FABRIC' &&
+      Number(readiness.body?.readiness?.ready_agents) === 8 &&
+      readiness.body?.synthesis_readiness?.ready === true &&
+      readiness.body?.demo_recommended === true
+    ) {
+      logPass('full-fabric candidate discovery', `${candidate.type} ${candidate.value} · 8/8 + AI READY`);
+      return candidate;
+    }
+  }
+
+  throw new Error(`no FULL_FABRIC + AI-ready candidate found after ${attempts.length} readiness probes: ${JSON.stringify(attempts).slice(0, 1600)}`);
+}
+
 async function validateHealth(baseUrl) {
   const { response, body } = await getJson(`${baseUrl}/api/swarm/health`);
   assert(response.status === 200, `/api/swarm/health returned HTTP ${response.status}`);
@@ -212,9 +316,18 @@ async function validateLiveMission(baseUrl, apiKey) {
   assert(preflight.body?.eligible === true, `paid SWARM preflight denied launch: ${preflight.body?.reason || preflight.body?.error || 'unknown'}`);
   assert(['PRO', 'ENTERPRISE', 'MSSP'].includes(preflight.body?.entitlement?.tier), `unexpected SWARM entitlement tier: ${preflight.body?.entitlement?.tier}`);
   logPass('paid entitlement preflight', `tier=${preflight.body.entitlement.tier}`);
+
+  let selected = {
+    value: process.env.SENTINEL_SWARM_TEST_IOC || '8.8.8.8',
+    type: process.env.SENTINEL_SWARM_TEST_IOC_TYPE || 'ipv4',
+  };
+  if (String(process.env.SENTINEL_SWARM_DISCOVER_FULL_FABRIC || '').toLowerCase() === 'true') {
+    selected = await discoverFullFabricCandidate(baseUrl, apiKey);
+  }
+
   const readinessRequestId = `release-readiness-${crypto.randomUUID()}`;
-  const readinessIoc = process.env.SENTINEL_SWARM_TEST_IOC || '8.8.8.8';
-  const readinessType = process.env.SENTINEL_SWARM_TEST_IOC_TYPE || 'ipv4';
+  const readinessIoc = selected.value;
+  const readinessType = selected.type;
   const readiness = await getJson(`${baseUrl}/api/swarm/readiness`, {
     method: 'POST',
     headers: {
@@ -232,8 +345,8 @@ async function validateLiveMission(baseUrl, apiKey) {
   logPass('paid mission readiness', `quality=${readiness.body.readiness.mission_quality} ready=${readiness.body.readiness.ready_agents}/${readiness.body.readiness.total_agents}`);
 
   const requestId = `release-${crypto.randomUUID()}`;
-  const iocValue = process.env.SENTINEL_SWARM_TEST_IOC || '8.8.8.8';
-  const iocType = process.env.SENTINEL_SWARM_TEST_IOC_TYPE || 'ipv4';
+  const iocValue = selected.value;
+  const iocType = selected.type;
 
   const { response, text } = await getText(`${baseUrl}/api/swarm/run`, {
     method: 'POST',
@@ -272,6 +385,10 @@ async function validateLiveMission(baseUrl, apiKey) {
   assert(typeof terminal.execution_id === 'string' && terminal.execution_id.length > 0, 'execution_id missing');
   assert(typeof terminal.correlation_id === 'string' && terminal.correlation_id.length > 0, 'correlation_id missing');
   assert(typeof terminal.mission_quality === 'string' && terminal.mission_quality.length > 0, 'mission_quality missing from terminal event');
+  if (String(process.env.SENTINEL_SWARM_REQUIRE_FULL_FABRIC || '').toLowerCase() === 'true') {
+    assert(terminal.mission_quality === 'FULL_FABRIC_COMPLETE', `expected FULL_FABRIC_COMPLETE, got ${terminal.mission_quality}`);
+    assert(terminal.result?.llm_enhanced === true, 'full-fabric certification requires LLM-enhanced synthesis');
+  }
   assert(terminal.evidence_graph?.schema === 'cdb.swarm.evidence-graph.v1', 'terminal evidence graph schema missing');
   assert(Number(terminal.evidence_graph?.node_count) > 0, 'terminal evidence graph node count missing');
   assert(Number(terminal.evidence_graph?.edge_count) >= 0, 'terminal evidence graph edge count missing');
@@ -310,6 +427,14 @@ async function validateLiveMission(baseUrl, apiKey) {
   assert(typeof stixIndicator?.x_sentinel_mission_id === 'string', 'STIX Indicator missing top-level x_sentinel mission property');
   assert(!Object.prototype.hasOwnProperty.call(stixIndicator, 'custom_properties'), 'STIX custom properties must not be nested under custom_properties');
   logPass('STIX 2.1 evidence export');
+  return {
+    mission_id: terminal.mission_id,
+    execution_id: terminal.execution_id,
+    correlation_id: terminal.correlation_id,
+    mission_quality: terminal.mission_quality,
+    ioc_value: iocValue,
+    ioc_type: iocType,
+  };
 }
 
 async function validatePreflightContract(baseUrl) {
@@ -340,7 +465,15 @@ async function main() {
   await validateUi(baseUrl);
   await validateClientContext(baseUrl);
   await validatePreflightContract(baseUrl);
-  if (liveMission) await validateLiveMission(baseUrl, process.env.SENTINEL_API_KEY);
+  let liveResult = null;
+  if (liveMission) liveResult = await validateLiveMission(baseUrl, process.env.SENTINEL_API_KEY);
+
+  const resultPath = String(process.env.SENTINEL_SWARM_RESULT_PATH || '').trim();
+  if (resultPath && liveResult) {
+    const { writeFile } = await import('node:fs/promises');
+    await writeFile(resultPath, JSON.stringify(liveResult, null, 2) + '\n', { encoding: 'utf8' });
+    logPass('live certification result artifact', resultPath);
+  }
 
   console.log('RELEASE VALIDATION: PASS');
 }
