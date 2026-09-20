@@ -800,6 +800,23 @@ test('runBackendSpecialist: transient 503 is UNAVAILABLE, not FAILED', async () 
   );
 });
 
+test('POST /api/swarm/run rejects unknown mission profile before dispatch', async () => {
+  const response = await worker.fetch(
+    new Request('https://x.test/api/swarm/run', {
+      method: 'POST',
+      headers: { 'x-api-key': 'enterprise-key' },
+      body: JSON.stringify({ ioc_value: '8.8.8.8', ioc_type: 'ipv4', mission_profile: 'NOT_REAL' }),
+    }),
+    {},
+    { waitUntil() {} },
+  );
+  assert.equal(response.status, 400);
+  const body = await response.json();
+  assert.equal(body.error, 'invalid_mission_profile');
+  assert.ok(body.allowed.includes('AUTO'));
+  assert.ok(body.allowed.includes('SOC_DETECTION_ENGINEERING'));
+});
+
 test('POST /api/swarm/readiness returns full-fabric projection without dispatching a SWARM mission', async () => {
   const calls = [];
   await withStubFetch(
@@ -859,6 +876,56 @@ test('POST /api/swarm/readiness returns full-fabric projection without dispatchi
 
   assert.equal(calls.some((x) => x.path === '/api/swarm/run'), false);
   assert.ok(calls.some((x) => x.path === '/api/intel/correlate' && x.method === 'POST'));
+});
+
+test('focused readiness profile reports PROFILE_READY with profile-scoped denominator', async () => {
+  await withStubFetch(
+    async (url, init = {}) => {
+      const u = new URL(String(url));
+      if (u.pathname === '/api/v1/swarm/preflight') {
+        return jsonResponse({
+          status: 'ok',
+          eligible: true,
+          entitlement: { tier: 'ENTERPRISE', swarm_enabled: true, scope_granted: true },
+          quota: { daily: { available: true, remaining: 100, limit: 50000, exhausted: false } },
+        });
+      }
+      if (u.pathname === '/api/v1/swarm-synthesis/health') {
+        return jsonResponse({ status: 'ok', ready: true, llm_enabled: true, tier_llm: true, providers: { deepseek: true } });
+      }
+      if (u.pathname === '/api/intel/correlate') {
+        return jsonResponse(CORRELATION, 200, {
+          'x-cdb-mesh-certified': 'true',
+          'x-cdb-mesh-execution': 'mesh-profile-1',
+          'x-cdb-mesh-correlation': init.headers.get('x-request-id'),
+        });
+      }
+      throw new Error('unexpected profile readiness call: ' + u.pathname);
+    },
+    async () => {
+      const response = await worker.fetch(
+        new Request('https://x.test/api/swarm/readiness', {
+          method: 'POST',
+          headers: { 'x-api-key': 'enterprise-key' },
+          body: JSON.stringify({
+            ioc_value: '8.8.8.8',
+            ioc_type: 'ipv4',
+            mission_profile: 'SOC_DETECTION_ENGINEERING',
+          }),
+        }),
+        { CANONICAL_BASE_URL: 'https://x.test' },
+        {},
+      );
+      assert.equal(response.status, 200);
+      const body = await response.json();
+      assert.equal(body.mission_profile.id, 'SOC_DETECTION_ENGINEERING');
+      assert.equal(body.readiness.mission_quality, 'PROFILE_READY');
+      assert.equal(body.readiness.ready_agents, 4);
+      assert.equal(body.readiness.total_agents, 4);
+      assert.equal(body.readiness.agents['cve-intelligence'].reason, 'mission_profile_excluded');
+      assert.equal(body.demo_recommended, false);
+    },
+  );
 });
 
 test('persistMission is a graceful no-op when no KV binding is provisioned', async () => {
