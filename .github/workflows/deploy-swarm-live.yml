@@ -193,34 +193,34 @@ jobs:
             sleep 10
             if curl -sf --max-time 15 "https://intel.cyberdudebivash.com/api/swarm/health" -o "$HEALTH"; then
               if python3 - "$HEALTH" <<'PY'
-import json, sys
-path = sys.argv[1]
-with open(path, encoding='utf-8') as f:
-    d = json.load(f)
-
-required_caps = [
-    'mission_readiness',
-    'mission_quality',
-    'evidence_graph',
-    'adaptive_specialists',
-    'agent_semantics_v2',
-    'credential_scoped_metrics',
-    'mission_profiles',
-]
-assert d.get('status') == 'ok', d
-assert d.get('service') == 'sentinel-apex-swarm-live', d
-assert d.get('version') == '4.47.0', d
-assert d.get('protocol') == 'cdb.swarm.v1', d
-assert d.get('agents') == 8, d
-assert d.get('persistence', {}).get('kv_bound') is True, d
-assert d.get('production', {}).get('canonical_gateway_bound') is True, d
-for cap in required_caps:
-    assert d.get('capabilities', {}).get(cap) is True, f'missing capability: {cap}'
-profiles = {p.get('id') for p in d.get('mission_profiles', [])}
-assert 'AUTO' in profiles and 'FULL_CTI_FABRIC' in profiles, profiles
-print('PASS: exact V4.47.0 runtime contract is live')
-PY
-              then
+          import json, sys
+          path = sys.argv[1]
+          with open(path, encoding='utf-8') as f:
+              d = json.load(f)
+          
+          required_caps = [
+              'mission_readiness',
+              'mission_quality',
+              'evidence_graph',
+              'adaptive_specialists',
+              'agent_semantics_v2',
+              'credential_scoped_metrics',
+              'mission_profiles',
+          ]
+          assert d.get('status') == 'ok', d
+          assert d.get('service') == 'sentinel-apex-swarm-live', d
+          assert d.get('version') == '4.47.0', d
+          assert d.get('protocol') == 'cdb.swarm.v1', d
+          assert d.get('agents') == 8, d
+          assert d.get('persistence', {}).get('kv_bound') is True, d
+          assert d.get('production', {}).get('canonical_gateway_bound') is True, d
+          for cap in required_caps:
+              assert d.get('capabilities', {}).get(cap) is True, f'missing capability: {cap}'
+          profiles = {p.get('id') for p in d.get('mission_profiles', [])}
+          assert 'AUTO' in profiles and 'FULL_CTI_FABRIC' in profiles, profiles
+          print('PASS: exact V4.47.0 runtime contract is live')
+          PY
+                        then
                 OK=1
                 break
               fi
