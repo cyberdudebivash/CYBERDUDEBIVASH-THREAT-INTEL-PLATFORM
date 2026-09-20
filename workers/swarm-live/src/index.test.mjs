@@ -1050,7 +1050,11 @@ test('end-to-end mission: real correlate + all 6 specialists genuinely backend-e
       }
       if (u.pathname === '/api/cves') return jsonResponse({ status: 'ok', data: { cves: [{ cve_id: 'CVE-2026-11111', kev: true }] } });
       if (u.pathname === '/api/actors') return jsonResponse({ error: 'forbidden', reason: 'insufficient_scope' }, 403);
-      if (u.pathname === '/api/v1/detections') return jsonResponse({ status: 'ok', data: { count: 1, data: [{ id: 'sigma-1' }] } });
+      if (u.pathname === '/api/v1/detections') return jsonResponse({
+        schema_version: '1.0.0',
+        data: [{ artifact_type: 'sigma', id: 'sigma-1' }],
+        pagination: { total: 1, limit: 5, offset: 0 },
+      });
       if (u.pathname === '/api/search') return jsonResponse({ error: 'search_failed' }, 500);
       if (u.pathname === '/api/intel/ir-guidance') return jsonResponse({ status: 'ok', data: { report_id: 'intel--abc123', applicable: true, checklist: { containment: ['isolate host'] } } });
       if (u.pathname === '/api/intel/exposure') return jsonResponse({ status: 'ok', data: { report_id: 'intel--abc123', exposed_count: 3, total_dimensions: 8, dimensions: [] } });
@@ -1147,13 +1151,29 @@ test('end-to-end mission: swarm-synthesis unavailable degrades to the existing d
           'x-cdb-mesh-correlation': init.headers.get('x-request-id'),
         });
       }
+      if (u.pathname === '/api/v1/swarm-synthesis/health') {
+        return jsonResponse({ status: 'ok', ready: false, llm_enabled: false, tier_llm: true, providers: {} });
+      }
       if (u.pathname === '/api/v1/swarm-synthesis') {
         return jsonResponse({ status: 'success', llm_enhanced: false, narrative: null, tier_upgrade: 'Upgrade to PRO...' });
       }
-      // Every specialist route: a minimal genuine COMPLETED response --
-      // this test's focus is the synthesis fallback, not specialist variety
-      // (already covered by the main end-to-end test above).
-      return jsonResponse({ status: 'ok', data: {} });
+      if (u.pathname === '/api/cves') return jsonResponse({ status: 'ok', data: { cves: [{ cve_id: 'CVE-2026-11111' }] } });
+      if (u.pathname === '/api/actors') return jsonResponse({ status: 'ok', data: { actors: [{ actor_tag: 'APT42' }] } });
+      if (u.pathname === '/api/search') return jsonResponse({ status: 'ok', data: { results: [{ technique_id: 'T1059' }] } });
+      if (u.pathname === '/api/v1/detections') return jsonResponse({
+        schema_version: '1.0.0',
+        data: [{ artifact_type: 'sigma', id: 'sigma-fallback' }],
+        pagination: { total: 1, limit: 5, offset: 0 },
+      });
+      if (u.pathname === '/api/intel/ir-guidance') return jsonResponse({
+        status: 'ok',
+        data: { report_id: 'intel--abc123', applicable: true, checklist: { containment: ['isolate'] } },
+      });
+      if (u.pathname === '/api/intel/exposure') return jsonResponse({
+        status: 'ok',
+        data: { report_id: 'intel--abc123', exposed_count: 1, dimensions: [{ name: 'internet' }] },
+      });
+      throw new Error('unexpected deterministic-fallback route: ' + u.pathname);
     },
     async () => {
       let waited;
@@ -1185,17 +1205,24 @@ test('end-to-end mission: swarm-synthesis unavailable degrades to the existing d
       }
       await waited;
 
-      const synthesizerCompleted = events.find((e) => e.agent_id === 'risk-synthesizer' && e.state === 'COMPLETED');
-      assert.ok(synthesizerCompleted);
-      assert.equal(synthesizerCompleted.result.llm_enhanced, false);
-      assert.equal(synthesizerCompleted.result.ai_narrative, undefined);
-      // The deterministic fields this codebase already depended on before
-      // this feature existed are still present and unchanged in shape.
-      assert.equal(synthesizerCompleted.result.basis, 'fusion');
-      assert.equal(typeof synthesizerCompleted.result.recommendation, 'string');
+      const synthesizerDegraded = events.find((e) =>
+        e.agent_id === 'risk-synthesizer' &&
+        e.state === 'DEGRADED' &&
+        e.event_type === 'agent.degraded'
+      );
+      assert.ok(synthesizerDegraded);
+      assert.equal(synthesizerDegraded.result.llm_enhanced, false);
+      assert.equal(synthesizerDegraded.result.ai_narrative, undefined);
+      assert.equal(synthesizerDegraded.result.ai_mode, 'deterministic_fallback');
+      // Deterministic fusion remains usable evidence, but is never mislabeled
+      // as a successful AI-enhanced completion.
+      assert.equal(synthesizerDegraded.result.basis, 'fusion');
+      assert.equal(typeof synthesizerDegraded.result.recommendation, 'string');
 
       const missionCompleted = events.find((e) => e.event_type === 'mission.completed');
+      assert.ok(missionCompleted);
       assert.equal(missionCompleted.result.llm_enhanced, false);
+      assert.equal(missionCompleted.mission_quality, 'AI_DEGRADED_COMPLETE');
     }
   );
 });
