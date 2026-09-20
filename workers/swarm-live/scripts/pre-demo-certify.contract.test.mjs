@@ -24,6 +24,16 @@ test('pre-demo certification proves mission history is unchanged before GO', () 
   assert.ok(source.includes('/api/swarm/run calls=0'));
 });
 
+test('public-only certification can never emit the final live-mission authorization', () => {
+  assert.ok(source.includes("if (publicOnly)"));
+  assert.ok(source.includes('PUBLIC-ONLY PASS — public production surfaces are certified.'));
+  assert.ok(source.includes('the live SWARM mission is NOT authorized'));
+  const publicBlockStart = source.indexOf('if (publicOnly)');
+  const fullGo = source.indexOf('GO — 100% OF THE DEFINED PRE-DEMO ACCEPTANCE MATRIX PASSED.', publicBlockStart);
+  const publicReturn = source.indexOf('return;', publicBlockStart);
+  assert.ok(publicReturn > publicBlockStart && publicReturn < fullGo);
+});
+
 test('public certification distinguishes malformed mission ids from valid-shaped unauthenticated ids', () => {
   assert.ok(source.includes('/api/swarm/mission/bad%20mission%20id'));
   assert.ok(source.includes("invalid.body?.error === 'invalid_mission_id'"));
