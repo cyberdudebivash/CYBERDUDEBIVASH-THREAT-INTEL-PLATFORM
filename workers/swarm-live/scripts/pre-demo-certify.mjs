@@ -237,11 +237,27 @@ function inferIocType(value) {
 }
 
 function extractCorrelationDependencies(correlation) {
+  // Mirror workers/swarm-live/src/index.js firstReportId/firstCveId/
+  // firstActorTag/firstTechnique exactly. The pre-demo canaries must exercise
+  // the same dependency values the filmed mission will choose.
   const matches = Array.isArray(correlation?.matches) ? correlation.matches : [];
-  const reportId = matches.map(pickReportId).find(Boolean) || null;
-  const cve = matches.map(pickCve).find(Boolean) || null;
-  const actor = matches.map(pickActor).find(Boolean) || null;
-  const technique = matches.map(pickTechnique).find(Boolean) || null;
+  const reportId = matches[0]?.report_id || null;
+  const cveMatch = matches.find((m) => m?.cve_id);
+  const cve = cveMatch?.cve_id || null;
+  const actorMatch = matches.find((m) => m?.actor_tag && m.actor_tag !== 'UNATTRIBUTED');
+  const actor = actorMatch?.actor_tag || null;
+
+  let technique = null;
+  for (const m of matches) {
+    if (!Array.isArray(m?.ttps) || !m.ttps.length) continue;
+    const t = m.ttps[0];
+    const value = typeof t === 'string' ? t : (t?.technique_id || t?.name || t?.id);
+    if (value) {
+      technique = String(value);
+      break;
+    }
+  }
+
   return { reportId, cve, actor, technique };
 }
 
