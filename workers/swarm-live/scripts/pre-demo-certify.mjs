@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { buildDependencyCandidates } from '../src/mission-readiness.js';
 import { adaptSpecialistResponse } from '../src/specialist-contract.js';
+import { buildCandidatesFromIocCsv, normalizeCandidateType } from './certification-ioc-candidates.mjs';
 
 /**
  * CYBERDUDEBIVASH SENTINEL APEX — SUPER AGENT SWARM
@@ -450,54 +451,59 @@ async function main() {
       : 'fresh credential: empty history is correct; read-back/export are mandatory in post-demo certification after the first mission';
   });
 
-  let feedItem = null;
   let demoCandidate = null;
   let candidatePool = [];
 
-  await check('canonical intel feed/source data', async () => {
-    const { response, body, elapsedMs } = await getJson('/api/v1/intel/latest.json', { headers: paidHeaders() }, BACKEND_TIMEOUT_MS);
-    assert(response.status === 200, `HTTP ${response.status}`);
-    assert(Array.isArray(body?.items) && body.items.length > 0, 'latest intel items missing/empty');
+  await check('authenticated paid IOC export/source data', async () => {
+    const exportLimit = Math.max(50, Number(process.env.PREDEMO_IOC_EXPORT_LIMIT || 500));
+    const out = await guardedFetch(
+      `/api/export/csv?limit=${Math.min(exportLimit, 5000)}`,
+      { headers: paidHeaders({ accept: 'text/csv' }) },
+      BACKEND_TIMEOUT_MS
+    );
 
-    const candidates = [];
-    const seen = new Set();
-    for (const item of body.items) {
-      const observable = pickObservable(item);
-      if (!observable || seen.has(observable)) continue;
-      seen.add(observable);
-      const structuralScore = [
-        pickReportId(item),
-        pickCve(item),
-        pickActor(item),
-        pickTechnique(item),
-        hasUsableDetectionArtifact(item) ? 'detection' : null,
-      ].filter(Boolean).length;
-      candidates.push({
-        observable,
-        type: inferIocType(observable),
-        item,
-        reportId: pickReportId(item),
-        structuralScore,
-      });
-    }
+    assert(out.response.status === 200, `IOC export HTTP ${out.response.status}`);
+    assert(
+      (out.response.headers.get('content-type') || '').toLowerCase().includes('text/csv'),
+      'authenticated IOC export did not return CSV'
+    );
+
+    const limit = Number(process.env.PREDEMO_CANDIDATE_LIMIT || 32);
+    const candidates = buildCandidatesFromIocCsv(out.text, limit);
 
     if (process.env.PREDEMO_IOC) {
       const forced = String(process.env.PREDEMO_IOC).trim();
       candidates.unshift({
-        observable: forced,
-        type: String(process.env.PREDEMO_IOC_TYPE || inferIocType(forced)),
-        item: null,
-        reportId: null,
-        structuralScore: 99,
+        value: forced,
+        type: String(process.env.PREDEMO_IOC_TYPE || normalizeCandidateType('', forced)),
+        report_id: null,
+        cve_id: null,
+        actor_tag: null,
+        severity: null,
+        risk_score: null,
+        structural_score: 999,
       });
     }
 
+    const seen = new Set();
     candidatePool = candidates
-      .sort((a, b) => b.structuralScore - a.structuralScore)
-      .slice(0, Number(process.env.PREDEMO_CANDIDATE_LIMIT || 8));
+      .filter((candidate) => {
+        const key = `${candidate.type}:${candidate.value.toLowerCase()}`;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      })
+      .slice(0, Math.max(1, limit))
+      .map((candidate) => ({
+        observable: candidate.value,
+        type: candidate.type,
+        reportId: candidate.report_id,
+        structuralScore: candidate.structural_score,
+        metadata: candidate,
+      }));
 
-    assert(candidatePool.length > 0, 'live feed contains no usable IOC/observable candidates');
-    return `${body.items.length} live intel item(s) · ${candidatePool.length} bounded readiness candidate(s) · ${elapsedMs}ms`;
+    assert(candidatePool.length > 0, 'authenticated IOC export contains no usable certification candidates');
+    return `${candidatePool.length} paid IOC candidate(s) from canonical export · ${out.elapsedMs}ms`;
   });
 
   await check('full-fabric demo candidate discovery via mission readiness', async () => {
@@ -526,7 +532,6 @@ async function main() {
         body?.demo_recommended === true
       ) {
         demoCandidate = { ...candidate, readiness: body, readiness_ms: elapsedMs };
-        feedItem = candidate.item;
         break;
       }
     }
