@@ -116,8 +116,14 @@ function _passesStructuralCheck(artifactType, content) {
  */
 export function extractDetectionArtifacts(item) {
   if (!item || typeof item !== 'object') return [];
+  // Preserve the registry's established id-first public intel_id for
+  // backward compatibility, but retain every real source identifier as an
+  // internal lookup alias. Correlation/report routes use stix_id-first; without
+  // aliases a valid correlation report_id can fail to resolve detections when
+  // both fields exist and differ.
   const intelId = item.id || item.stix_id;
   if (!intelId) return [];
+  const intelAliases = [...new Set([item.id, item.stix_id].filter((v) => typeof v === 'string' && v.trim()))];
   const evidenceContext = {
     cve_ids: _cveIdsForItem(item),
     severity: item.severity || null,
@@ -134,6 +140,9 @@ export function extractDetectionArtifacts(item) {
     artifacts.push({
       artifact_id: `${intelId}:${artifactType}`,
       intel_id: intelId,
+      // Internal-only alias set. toPublicArtifact() deliberately omits this
+      // field, so the customer-facing response schema remains unchanged.
+      _intel_aliases: intelAliases,
       artifact_type: artifactType,
       content,
       generator: 'detection_bundle_injector.py',
@@ -180,7 +189,10 @@ export function queryDetectionRegistry(registry, params = {}) {
   let results = registry;
 
   if (params.intel_id) {
-    results = results.filter(a => a.intel_id === params.intel_id);
+    results = results.filter(a =>
+      a.intel_id === params.intel_id ||
+      (Array.isArray(a._intel_aliases) && a._intel_aliases.includes(params.intel_id))
+    );
   }
   if (params.artifact_type) {
     const want = String(params.artifact_type).toLowerCase();
