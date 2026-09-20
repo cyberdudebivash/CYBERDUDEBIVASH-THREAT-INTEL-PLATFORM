@@ -22,11 +22,21 @@ on:
     branches: [main]
     paths:
       - 'workers/swarm-live/**'
+      - 'workers/intel-gateway/src/index.js'
+      - 'workers/intel-gateway/src/__tests__/swarm-synthesis-readiness-contract.test.js'
+      - 'workers/intel-gateway/scripts/demo-key-operator.mjs'
+      - 'workers/intel-gateway/scripts/demo-key-operator.contract.test.mjs'
+      - 'workers/intel-gateway/package.json'
       - '.github/workflows/swarm-live-regression-gate.yml'
   pull_request:
     branches: [main]
     paths:
       - 'workers/swarm-live/**'
+      - 'workers/intel-gateway/src/index.js'
+      - 'workers/intel-gateway/src/__tests__/swarm-synthesis-readiness-contract.test.js'
+      - 'workers/intel-gateway/scripts/demo-key-operator.mjs'
+      - 'workers/intel-gateway/scripts/demo-key-operator.contract.test.mjs'
+      - 'workers/intel-gateway/package.json'
       - '.github/workflows/swarm-live-regression-gate.yml'
   workflow_dispatch: {}
 
@@ -66,3 +76,15 @@ jobs:
 
       - name: "Wrangler production bundle dry-run"
         run: npm run deploy:dry -- --config wrangler.toml
+
+      - name: "Install canonical gateway dependencies"
+        working-directory: workers/intel-gateway
+        run: npm install --ignore-scripts --no-audit --no-fund
+
+      - name: "Gateway SWARM synthesis readiness contract"
+        working-directory: workers/intel-gateway
+        run: node --test src/__tests__/swarm-synthesis-readiness-contract.test.js
+
+      - name: "Demo-key operator safety contract"
+        working-directory: workers/intel-gateway
+        run: npm run test:demo-key-operator
