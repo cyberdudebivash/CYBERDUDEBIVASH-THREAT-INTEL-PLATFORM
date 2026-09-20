@@ -37,3 +37,13 @@ test('workflow executes regression and Wrangler dry-run before creating producti
   assert.ok(preCreate.includes('npm run deploy:dry'));
   assert.ok(preCreate.includes('npm run release:validate'));
 });
+
+test('CI clipboard handling is non-persistent, GUI-free, and cannot hang indefinitely', () => {
+  assert.ok(workflow.includes('cancel-in-progress: true'));
+  assert.ok(workflow.includes('Install zero-persistence clipboard sink'));
+  assert.ok(workflow.includes('cat >/dev/null'));
+  assert.equal(workflow.includes('xvfb-run'), false);
+  assert.equal(workflow.includes('apt-get install -y -qq xclip xvfb'), false);
+  assert.ok(workflow.includes('timeout-minutes: 4'));
+  assert.ok(workflow.includes('timeout-minutes: 6'));
+});
