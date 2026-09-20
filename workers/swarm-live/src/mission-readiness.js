@@ -182,9 +182,13 @@ export function buildMissionReadiness(
           providers: [...llmProviders],
         };
 
+  const normalizedQuota =
+    quotaRemaining === null || quotaRemaining === undefined || quotaRemaining === ''
+      ? null
+      : Number(quotaRemaining);
   const blocked =
     entitlementEligible !== true ||
-    (Number.isFinite(Number(quotaRemaining)) && Number(quotaRemaining) <= 0);
+    (Number.isFinite(normalizedQuota) && normalizedQuota <= 0);
 
   const specialistIds = [
     'cve-intelligence',
@@ -228,7 +232,7 @@ export function buildMissionReadiness(
     specialist_ready: specialistReady,
     specialist_total: expectedSpecialists.length,
     entitlement_eligible: entitlementEligible === true,
-    quota_remaining: Number.isFinite(Number(quotaRemaining)) ? Number(quotaRemaining) : null,
+    quota_remaining: Number.isFinite(normalizedQuota) ? normalizedQuota : null,
     llm_ready: llmReady,
     candidates,
     agents: Object.freeze(agents),
@@ -260,13 +264,23 @@ export function classifyMissionCompletion(outcomes = {}, fused = {}, expectedAge
   expected.add('risk-synthesizer');
   const expectedStates = [...expected].map((id) => normalized[id]?.state);
   const expectedAllCompleted = expectedStates.every((state) => state === AGENT_STATES.COMPLETED);
+  const expectedNonSynthCompleted = [...expected]
+    .filter((id) => id !== 'risk-synthesizer')
+    .every((id) => normalized[id]?.state === AGENT_STATES.COMPLETED);
+  const synthState = normalized['risk-synthesizer']?.state;
   const fullProfile = expected.size === SWARM_AGENT_IDS.length;
 
   if (hasFailure || hasDenied || hasUnavailable) return MISSION_QUALITY.COMPLETED_WITH_WARNINGS;
   if (matchCount === 0) return MISSION_QUALITY.NO_MATCH_COMPLETE;
   if (fullProfile && expectedAllCompleted && llmEnhanced) return MISSION_QUALITY.FULL_FABRIC_COMPLETE;
   if (!fullProfile && expectedAllCompleted && llmEnhanced) return MISSION_QUALITY.PROFILE_COMPLETE;
-  if (!llmEnhanced && expectedAllCompleted) return MISSION_QUALITY.AI_DEGRADED_COMPLETE;
+  if (
+    !llmEnhanced &&
+    expectedNonSynthCompleted &&
+    (synthState === AGENT_STATES.COMPLETED || synthState === AGENT_STATES.DEGRADED)
+  ) {
+    return MISSION_QUALITY.AI_DEGRADED_COMPLETE;
+  }
   if (notApplicable > 0) return MISSION_QUALITY.PARTIAL_FABRIC_COMPLETE;
   if (completed === SWARM_AGENT_IDS.length) return MISSION_QUALITY.FULL_FABRIC_COMPLETE;
   return MISSION_QUALITY.COMPLETED_WITH_WARNINGS;
