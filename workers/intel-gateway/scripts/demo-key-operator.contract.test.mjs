@@ -25,3 +25,24 @@ test('revoke fails closed through suspended tombstone before deleting key', () =
   assert.ok(source.includes("'kv', 'key', 'delete'"));
   assert.ok(source.includes('cleanupState(pointer)'));
 });
+
+test('demo-key operator executes project-local Wrangler through process.execPath', () => {
+  assert.ok(source.includes('spawnSync(process.execPath'));
+  assert.ok(source.includes("'node_modules'"));
+  assert.ok(source.includes("'wrangler'"));
+  assert.ok(source.includes("'bin'"));
+  assert.ok(source.includes("'wrangler.js'"));
+  assert.ok(source.includes('existsSync(cli)'));
+
+  assert.equal(
+    source.includes(
+      "const bin = process.platform === 'win32' ? 'npx.cmd' : 'npx';"
+    ),
+    false
+  );
+
+  assert.equal(
+    source.includes("spawnSync(bin, ['wrangler', ...args]"),
+    false
+  );
+});

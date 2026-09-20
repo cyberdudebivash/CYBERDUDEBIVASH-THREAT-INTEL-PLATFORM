@@ -30,18 +30,53 @@ function command() {
 }
 
 function wrangler(args, { capture = false } = {}) {
-  const bin = process.platform === 'win32' ? 'npx.cmd' : 'npx';
-  const result = spawnSync(bin, ['wrangler', ...args], {
+  // Execute the project-local, lockfile-controlled Wrangler CLI directly
+  // through the current Node runtime.
+  //
+  // This deliberately avoids npx/npx.cmd and therefore avoids the
+  // Windows .cmd child-process boundary that can fail under spawnSync.
+  const cli = join(
+    process.cwd(),
+    'node_modules',
+    'wrangler',
+    'bin',
+    'wrangler.js',
+  );
+
+  if (!existsSync(cli)) {
+    throw new Error(
+      `local Wrangler CLI not found: ${cli}; run npm ci before using the demo-key operator`,
+    );
+  }
+
+  const result = spawnSync(process.execPath, [cli, ...args], {
     cwd: process.cwd(),
     encoding: 'utf8',
     windowsHide: true,
-    stdio: capture ? ['ignore', 'pipe', 'pipe'] : ['ignore', 'ignore', 'ignore'],
+    stdio: capture
+      ? ['ignore', 'pipe', 'pipe']
+      : ['ignore', 'ignore', 'ignore'],
   });
 
   if (result.error || result.status !== 0) {
-    const detail = capture ? String(result.stderr || result.stdout || '').trim().slice(0, 600) : '';
-    throw new Error(`wrangler failed (${result.status ?? 'spawn'}): ${detail || 'see local Wrangler authentication/configuration'}`);
+    const spawnDetail = result.error
+      ? `${result.error.code || 'spawn'}: ${result.error.message}`
+      : '';
+
+    const processDetail = capture
+      ? String(result.stderr || result.stdout || '').trim().slice(0, 600)
+      : '';
+
+    const detail =
+      processDetail ||
+      spawnDetail ||
+      'see local Wrangler authentication/configuration';
+
+    throw new Error(
+      `wrangler failed (${result.status ?? 'spawn'}): ${detail}`,
+    );
   }
+
   return String(result.stdout || '');
 }
 
@@ -248,8 +283,8 @@ async function statusDemoKey() {
   console.log(`Expires         : ${state.expires_at}`);
   console.log(`HTTP            : ${result.response.status}`);
   console.log(`Eligible        : ${result.body?.eligible === true}`);
-  console.log(`Tier            : ${result.body?.entitlement?.tier || '—'}`);
-  console.log(`Quota remaining : ${result.body?.quota?.daily?.remaining ?? '—'}`);
+  console.log(`Tier            : ${result.body?.entitlement?.tier || 'â€”'}`);
+  console.log(`Quota remaining : ${result.body?.quota?.daily?.remaining ?? 'â€”'}`);
 }
 
 async function copyDemoKey() {
