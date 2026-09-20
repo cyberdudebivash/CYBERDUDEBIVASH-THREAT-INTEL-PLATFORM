@@ -4,14 +4,17 @@ import { test } from 'node:test';
 
 const source = readFileSync('scripts/release-validate.mjs', 'utf8');
 
-test('authenticated release validation can discover a real full-fabric candidate from canonical readiness', () => {
+test('authenticated release validation discovers real candidates from the paid IOC export before canonical readiness', () => {
   assert.ok(source.includes('async function discoverFullFabricCandidate'));
-  assert.ok(source.includes('/api/v1/intel/latest.json'));
+  assert.ok(source.includes('/api/export/csv?limit='));
+  assert.ok(source.includes("accept: 'text/csv'"));
+  assert.ok(source.includes('buildCandidatesFromIocCsv'));
   assert.ok(source.includes('/api/swarm/readiness'));
   assert.ok(source.includes("mission_quality === 'FULL_FABRIC'"));
   assert.ok(source.includes('ready_agents) === 8'));
   assert.ok(source.includes('synthesis_readiness?.ready === true'));
   assert.ok(source.includes('demo_recommended === true'));
+  assert.equal(source.includes("candidate feed is empty"), false);
 });
 
 test('strict production E2E mode requires full-fabric completion and LLM synthesis', () => {
