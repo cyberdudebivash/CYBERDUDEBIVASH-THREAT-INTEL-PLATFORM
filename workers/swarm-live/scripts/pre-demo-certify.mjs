@@ -32,7 +32,10 @@ const SAFE_POST_PATHS = new Set([
 const HARD_BLOCKED_PATHS = new Set([
   '/api/swarm/run',
 ]);
-const MIN_DAILY_QUOTA_REMAINING = Number(process.env.PREDEMO_MIN_DAILY_QUOTA || 16);
+// Full certification consumes ~9 canonical requests (feed + correlate + six specialists + synthesis).
+// Reserve a further ~8 for the filmed mission plus safety headroom; the default is deliberately conservative.
+const MIN_DAILY_QUOTA_REMAINING = Number(process.env.PREDEMO_MIN_DAILY_QUOTA || 32);
+const MIN_LIVE_MISSION_QUOTA_REMAINING = Number(process.env.PREDEMO_MIN_LIVE_MISSION_QUOTA || 16);
 const PUBLIC_TIMEOUT_MS = Number(process.env.PREDEMO_PUBLIC_TIMEOUT_MS || 12000);
 const BACKEND_TIMEOUT_MS = Number(process.env.PREDEMO_BACKEND_TIMEOUT_MS || 25000);
 
@@ -417,7 +420,19 @@ async function main() {
     return `${iocType} ${canaryIoc} · ${elapsedMs}ms`;
   });
 
-  const specialistOutcomes = {};
+  const specialistOutcomes = {
+    'ioc-hunter': {
+      basis: 'backend_execution',
+      state: 'COMPLETED',
+      result: {
+        verdict: correlation?.verdict || 'unknown',
+        match_count: Number(correlation?.match_count || 0),
+        ioc: correlation?.ioc || null,
+        source: 'canonical:/api/intel/correlate',
+      },
+      duration_ms: null,
+    },
+  };
   await check('six specialist backend routes', async () => {
     const depsFromCorrelation = extractCorrelationDependencies(correlation);
     const reportId = depsFromCorrelation.reportId || feedEvidence.reportId || pickReportId(feedItem);
@@ -540,6 +555,20 @@ async function main() {
       return `mission=${completed.mission_id} · md/json/stix21 PASS`;
     });
   }
+
+  await check('post-canary quota reserve for filmed mission', async () => {
+    const { response, body, elapsedMs } = await getJson('/api/swarm/preflight', { headers: paidHeaders() });
+    assert(response.status === 200, `HTTP ${response.status}`);
+    assert(body?.eligible === true, `eligible=false reason=${body?.reason || 'unknown'}`);
+    const q = body?.quota?.daily;
+    assert(q && q.available === true, 'post-canary quota telemetry unavailable');
+    assert(q.exhausted === false, 'post-canary daily quota exhausted');
+    assert(
+      Number(q.remaining) >= MIN_LIVE_MISSION_QUOTA_REMAINING,
+      `only ${q.remaining} daily requests remain after certification; need >= ${MIN_LIVE_MISSION_QUOTA_REMAINING} for filmed mission reserve`
+    );
+    return `quota=${q.remaining}/${q.limit} reserved for filmed mission · ${elapsedMs}ms`;
+  });
 
   await check('mission-history immutability / zero SWARM dispatch', async () => {
     const after = await snapshotMissionIds();
