@@ -409,19 +409,44 @@ async function main() {
     for (const [name, value] of Object.entries(required)) assert(value, `unable to derive ${name} from live feed/correlation`);
 
     const probes = [
-      ['cve-intelligence', `/api/cves?cve_id=${encodeURIComponent(cve)}&limit=5`],
-      ['threat-hunter', `/api/actors?actor_id=${encodeURIComponent(actor)}&limit=5`],
-      ['attack-mapper', `/api/search?q=${encodeURIComponent(technique)}&limit=5`],
-      ['siem-defender', `/api/v1/detections?intel_id=${encodeURIComponent(reportId)}&limit=5`],
-      ['ir-playbook', `/api/intel/ir-guidance?report_id=${encodeURIComponent(reportId)}&limit=5`],
-      ['exposure-analyst', `/api/intel/exposure?report_id=${encodeURIComponent(reportId)}&limit=5`],
+      {
+        agentId: 'cve-intelligence',
+        path: `/api/cves?cve_id=${encodeURIComponent(cve)}&limit=5`,
+        validate: (body) => body?.status === 'ok' && Array.isArray(body?.data?.cves),
+      },
+      {
+        agentId: 'threat-hunter',
+        path: `/api/actors?actor_id=${encodeURIComponent(actor)}&limit=5`,
+        validate: (body) => body?.status === 'ok' && Array.isArray(body?.data?.actors),
+      },
+      {
+        agentId: 'attack-mapper',
+        path: `/api/search?q=${encodeURIComponent(technique)}&limit=5`,
+        validate: (body) => body?.status === 'ok' && Array.isArray(body?.data?.results),
+      },
+      {
+        agentId: 'siem-defender',
+        path: `/api/v1/detections?intel_id=${encodeURIComponent(reportId)}&limit=5`,
+        validate: (body) => typeof body?.schema_version === 'string' && Array.isArray(body?.data) && body?.pagination,
+      },
+      {
+        agentId: 'ir-playbook',
+        path: `/api/intel/ir-guidance?report_id=${encodeURIComponent(reportId)}&limit=5`,
+        validate: (body) => body?.status === 'ok' && body?.data?.report_id === reportId,
+      },
+      {
+        agentId: 'exposure-analyst',
+        path: `/api/intel/exposure?report_id=${encodeURIComponent(reportId)}&limit=5`,
+        validate: (body) => body?.status === 'ok' && body?.data?.report_id === reportId && Array.isArray(body?.data?.dimensions),
+      },
     ];
 
     const details = [];
-    for (const [agentId, path] of probes) {
+    for (const probe of probes) {
+      const { agentId, path, validate } = probe;
       const { response, body, text, elapsedMs } = await getJson(path, { headers: paidHeaders() }, BACKEND_TIMEOUT_MS);
       assert(response.status === 200, `${agentId} HTTP ${response.status}: ${text.slice(0, 180)}`);
-      assert(body?.status === 'ok' || body?.status === 'success', `${agentId} status=${body?.status}`);
+      assert(validate(body), `${agentId} returned an unexpected success schema`);
       assert(hasNoCredentialEcho(text), `${agentId} reflected credential`);
       specialistOutcomes[agentId] = {
         basis: 'pre_demo_backend_canary',
