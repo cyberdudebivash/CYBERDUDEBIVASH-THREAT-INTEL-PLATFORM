@@ -1357,6 +1357,72 @@ test('GET /api/swarm/missions: optional status filter and pagination fields', as
   assert.equal(typeof body.data.list_complete, 'boolean');
 });
 
+test('GET /api/swarm/metrics: computes real credential-scoped observed metrics from index metadata only', async () => {
+  const kv = makeKvMock();
+  let getCalls = 0;
+  const originalGet = kv.get.bind(kv);
+  kv.get = async (...args) => { getCalls += 1; return originalGet(...args); };
+
+  const partA = await __test.credentialPartition(new Headers({ 'x-api-key': 'metrics-a' }));
+  const partB = await __test.credentialPartition(new Headers({ 'x-api-key': 'metrics-b' }));
+
+  await __test.persistMission({ SWARM_MISSIONS_KV: kv }, {
+    mission_id: 'sentinel-mission-metrics-a1',
+    status: 'COMPLETED',
+    mission_quality: 'FULL_FABRIC_COMPLETE',
+    mission_profile: 'AUTO',
+    duration_ms: 1000,
+    metrics: { completed: 8, not_applicable: 0, degraded: 0, denied: 0, unavailable: 0, failed: 0 },
+    specialists: { 'risk-synthesizer': { result: { llm_enhanced: true } } },
+    ioc: { ioc_value: 'evil.example', ioc_type: 'domain' },
+  }, partA);
+
+  await new Promise((r) => setTimeout(r, 2));
+
+  await __test.persistMission({ SWARM_MISSIONS_KV: kv }, {
+    mission_id: 'sentinel-mission-metrics-a2',
+    status: 'COMPLETED',
+    mission_quality: 'PARTIAL_FABRIC_COMPLETE',
+    mission_profile: 'AUTO',
+    duration_ms: 3000,
+    metrics: { completed: 5, not_applicable: 3, degraded: 0, denied: 0, unavailable: 0, failed: 0 },
+    specialists: { 'risk-synthesizer': { result: { llm_enhanced: false } } },
+    ioc: { ioc_value: 'example.org', ioc_type: 'domain' },
+  }, partA);
+
+  await __test.persistMission({ SWARM_MISSIONS_KV: kv }, {
+    mission_id: 'sentinel-mission-metrics-b1',
+    status: 'FAILED',
+    mission_quality: 'FAILED',
+    duration_ms: 9000,
+    metrics: { completed: 0, not_applicable: 0, degraded: 0, denied: 0, unavailable: 0, failed: 8 },
+  }, partB);
+
+  getCalls = 0;
+  const response = await worker.fetch(
+    new Request('https://x.test/api/swarm/metrics?limit=50', { headers: { 'x-api-key': 'metrics-a' } }),
+    { SWARM_MISSIONS_KV: kv },
+    {},
+  );
+
+  assert.equal(response.status, 200);
+  const body = await response.json();
+  assert.equal(body.data.scope, 'credential_owned_latest_missions');
+  assert.equal(body.data.sample_size, 2);
+  assert.equal(body.data.mission_counts.completed, 2);
+  assert.equal(body.data.mission_counts.full_fabric_complete, 1);
+  assert.equal(body.data.mission_quality.FULL_FABRIC_COMPLETE, 1);
+  assert.equal(body.data.mission_quality.PARTIAL_FABRIC_COMPLETE, 1);
+  assert.equal(body.data.latency_ms.p50, 1000);
+  assert.equal(body.data.latency_ms.p95, 3000);
+  assert.equal(body.data.ai_synthesis.llm_enhanced_missions, 1);
+  assert.equal(body.data.ai_synthesis.llm_enhanced_rate, 0.5);
+  assert.equal(body.data.agent_terminal_states.completed, 13);
+  assert.equal(body.data.agent_terminal_states.not_applicable, 3);
+  assert.equal(getCalls, 0, 'metrics must use index metadata without per-mission KV get() scans');
+});
+
+
 test('GET /api/swarm/mission/:id/report: validates id, requires auth, and propagates not-found', async () => {
   const badId = await worker.fetch(new Request('https://x.test/api/swarm/mission/has space/report', { headers: { 'x-api-key': 'k' } }), {}, {});
   assert.equal(badId.status, 400);
