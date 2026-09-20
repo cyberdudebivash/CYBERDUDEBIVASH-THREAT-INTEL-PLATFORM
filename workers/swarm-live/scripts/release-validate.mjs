@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 
+import { buildCandidatesFromIocCsv } from './certification-ioc-candidates.mjs';
+
 const DEFAULT_BASE_URL = 'https://intel.cyberdudebivash.com';
 const EXPECTED_SERVICE = 'sentinel-apex-swarm-live';
 const EXPECTED_PROTOCOL = 'cdb.swarm.v1';
@@ -79,68 +81,25 @@ function logPass(label, detail = '') {
 }
 
 
-function flattenStrings(value, out = []) {
-  if (typeof value === 'string') out.push(value);
-  else if (Array.isArray(value)) for (const item of value) flattenStrings(item, out);
-  else if (value && typeof value === 'object') for (const item of Object.values(value)) flattenStrings(item, out);
-  return out;
-}
-
-function inferIocType(value) {
-  const s = String(value || '').trim();
-  if (/^(?:\d{1,3}\.){3}\d{1,3}$/.test(s)) return 'ipv4';
-  if (/^https?:\/\//i.test(s)) return 'url';
-  if (/^[0-9a-f]{32}$|^[0-9a-f]{40}$|^[0-9a-f]{64}$/i.test(s)) return 'hash';
-  if (/^[a-z0-9.-]+\.[a-z]{2,}$/i.test(s)) return 'domain';
-  return 'auto';
-}
-
-function isObservable(value) {
-  const s = String(value || '').trim();
-  return Boolean(
-    s &&
-    s.length <= 256 &&
-    (
-      /^(?:\d{1,3}\.){3}\d{1,3}$/.test(s) ||
-      /^https?:\/\//i.test(s) ||
-      /^[a-z0-9.-]+\.[a-z]{2,}$/i.test(s) ||
-      /^[0-9a-f]{32}$|^[0-9a-f]{40}$|^[0-9a-f]{64}$/i.test(s)
-    )
-  );
-}
-
-function pickObservable(item) {
-  for (const key of ['ioc', 'ioc_value', 'indicator', 'observable', 'domain', 'url', 'ip', 'ipv4', 'hash']) {
-    const value = item?.[key];
-    if (typeof value === 'string' && isObservable(value)) return value.trim();
-    if (Array.isArray(value)) {
-      const found = value.find((v) => typeof v === 'string' && isObservable(v));
-      if (found) return found.trim();
-    }
-  }
-  return flattenStrings(item).find(isObservable) || null;
-}
-
 async function discoverFullFabricCandidate(baseUrl, apiKey) {
-  const feed = await getJson(`${baseUrl}/api/v1/intel/latest.json`, {
+  const exportLimit = Math.max(50, Number(process.env.SENTINEL_SWARM_DISCOVERY_EXPORT_LIMIT || 500));
+  const candidateLimit = Math.max(1, Number(process.env.SENTINEL_SWARM_CANDIDATE_LIMIT || 32));
+  const exported = await getText(`${baseUrl}/api/export/csv?limit=${Math.min(exportLimit, 5000)}`, {
     headers: {
+      accept: 'text/csv',
       'x-api-key': apiKey,
-      'x-request-id': `release-feed-${crypto.randomUUID()}`,
+      'x-request-id': `release-ioc-export-${crypto.randomUUID()}`,
     },
   });
-  assert(feed.response.status === 200, `candidate feed returned HTTP ${feed.response.status}`);
-  assert(Array.isArray(feed.body?.items) && feed.body.items.length > 0, 'candidate feed is empty');
 
-  const seen = new Set();
-  const candidates = [];
-  for (const item of feed.body.items) {
-    const value = pickObservable(item);
-    if (!value || seen.has(value)) continue;
-    seen.add(value);
-    candidates.push({ value, type: inferIocType(value) });
-    if (candidates.length >= 12) break;
-  }
-  assert(candidates.length > 0, 'no candidate observables available from canonical feed');
+  assert(exported.response.status === 200, `authenticated IOC export returned HTTP ${exported.response.status}`);
+  assert(
+    (exported.response.headers.get('content-type') || '').toLowerCase().includes('text/csv'),
+    'authenticated IOC export did not return CSV'
+  );
+
+  const candidates = buildCandidatesFromIocCsv(exported.text, candidateLimit);
+  assert(candidates.length > 0, 'authenticated IOC export contains no usable certification candidates');
 
   const attempts = [];
   for (const candidate of candidates) {
@@ -160,6 +119,9 @@ async function discoverFullFabricCandidate(baseUrl, apiKey) {
 
     attempts.push({
       value: candidate.value,
+      type: candidate.type,
+      report_id: candidate.report_id,
+      structural_score: candidate.structural_score,
       status: readiness.response.status,
       quality: readiness.body?.readiness?.mission_quality || readiness.body?.reason || readiness.body?.error || 'unknown',
       ready_agents: readiness.body?.readiness?.ready_agents ?? null,
@@ -174,12 +136,17 @@ async function discoverFullFabricCandidate(baseUrl, apiKey) {
       readiness.body?.synthesis_readiness?.ready === true &&
       readiness.body?.demo_recommended === true
     ) {
-      logPass('full-fabric candidate discovery', `${candidate.type} ${candidate.value} · 8/8 + AI READY`);
+      logPass(
+        'full-fabric candidate discovery',
+        `${candidate.type} ${candidate.value} · report=${candidate.report_id || 'n/a'} · 8/8 + AI READY`
+      );
       return candidate;
     }
   }
 
-  throw new Error(`no FULL_FABRIC + AI-ready candidate found after ${attempts.length} readiness probes: ${JSON.stringify(attempts).slice(0, 1600)}`);
+  throw new Error(
+    `no FULL_FABRIC + AI-ready candidate found after ${attempts.length} authenticated IOC readiness probes: ${JSON.stringify(attempts).slice(0, 2200)}`
+  );
 }
 
 async function validateHealth(baseUrl) {
