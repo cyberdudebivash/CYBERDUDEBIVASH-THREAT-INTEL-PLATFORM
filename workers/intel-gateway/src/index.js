@@ -3669,66 +3669,216 @@ function copilotTemplate(mode, threat, question) {
 }
 
 async function callLLM(env, systemPrompt, userPrompt, useR1) {
-  // 1. DeepSeek direct (lowest latency, most capable)
+  const messages = [
+    { role: "system", content: systemPrompt },
+    { role: "user", content: userPrompt },
+  ];
+
+  async function decodeProviderResponse(provider, model, resp) {
+    let data = null;
+
+    try {
+      data = await resp.json();
+    } catch (_) {
+      // Invalid/non-JSON upstream body is recorded only as metadata below.
+    }
+
+    if (!resp.ok) {
+      console.warn("llm_provider_failure", JSON.stringify({
+        provider,
+        model,
+        status: resp.status,
+        reason: "http_error",
+        error_type: data?.error?.type || null,
+        error_code: data?.error?.code || null,
+      }));
+
+      return null;
+    }
+
+    const message = data?.choices?.[0]?.message || null;
+    const text = message?.content?.trim();
+
+    if (!text) {
+      console.warn("llm_provider_failure", JSON.stringify({
+        provider,
+        model,
+        status: resp.status,
+        reason: "empty_content",
+        finish_reason: data?.choices?.[0]?.finish_reason || null,
+        has_reasoning_content: Boolean(message?.reasoning_content),
+      }));
+
+      return null;
+    }
+
+    console.log("llm_provider_success", JSON.stringify({
+      provider,
+      model,
+      status: resp.status,
+    }));
+
+    return {
+      text,
+      model: `${provider}/${model}`,
+    };
+  }
+
+  function logProviderException(provider, model, error) {
+    console.warn("llm_provider_failure", JSON.stringify({
+      provider,
+      model,
+      status: null,
+      reason: "exception",
+      error_name: error?.name || "Error",
+    }));
+  }
+
+  // -----------------------------------------------------------------
+  // 1. DeepSeek direct
+  //
+  // `useR1=false` historically represented the normal/non-reasoning
+  // path. DeepSeek V4.1 Flash now defaults to thinking mode, therefore
+  // explicitly disable thinking here instead of relying on provider
+  // defaults.
+  // -----------------------------------------------------------------
+
   if (env.DEEPSEEK_API_KEY) {
+    const model = useR1 ? "deepseek-v4-pro" : "deepseek-flash";
+
     try {
-      const model = useR1 ? "deepseek-v4-pro" : "deepseek-flash";
-      const resp  = await fetch("https://api.deepseek.com/v1/chat/completions", {
-        method: "POST",
-        headers: { "Authorization": `Bearer ${env.DEEPSEEK_API_KEY}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ model, max_tokens: useR1 ? 4096 : 1500, messages: [{ role: "system", content: systemPrompt }, { role: "user", content: userPrompt }] }),
-      });
-      if (resp.ok) {
-        const d = await resp.json();
-        const t = d?.choices?.[0]?.message?.content?.trim();
-        if (t) return { text: t, model: `deepseek/${model}` };
-      }
-    } catch (_) {}
+      const resp = await fetch(
+        "https://api.deepseek.com/v1/chat/completions",
+        {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${env.DEEPSEEK_API_KEY}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            model,
+            max_tokens: useR1 ? 4096 : 1500,
+            thinking: {
+              type: useR1 ? "enabled" : "disabled",
+            },
+            reasoning_effort: useR1 ? "high" : "none",
+            messages,
+          }),
+        },
+      );
+
+      const result = await decodeProviderResponse(
+        "deepseek",
+        model,
+        resp,
+      );
+
+      if (result) return result;
+    } catch (error) {
+      logProviderException(
+        "deepseek",
+        model,
+        error,
+      );
+    }
   }
 
-  // 2. GROQ (ultra-fast LPU  -  DeepSeek R1 Distill 70B or Llama 3.3 70B)
+  // -----------------------------------------------------------------
+  // 2. Groq fallback
+  //
+  // Use a current production model rather than the developer-tier
+  // deprecated llama-3.3-70b-versatile path.
+  // -----------------------------------------------------------------
+
   if (env.GROQ_API_KEY) {
+    const model = "openai/gpt-oss-120b";
+
     try {
-      const model = useR1 ? "deepseek-r1-distill-llama-70b" : "llama-3.3-70b-versatile";
-      const resp  = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-        method: "POST",
-        headers: { "Authorization": `Bearer ${env.GROQ_API_KEY}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ model, max_tokens: useR1 ? 4096 : 1200, messages: [{ role: "system", content: systemPrompt }, { role: "user", content: userPrompt }] }),
-      });
-      if (resp.ok) {
-        const d = await resp.json();
-        const t = d?.choices?.[0]?.message?.content?.trim();
-        if (t) return { text: t, model: `groq/${model}` };
-      }
-    } catch (_) {}
+      const resp = await fetch(
+        "https://api.groq.com/openai/v1/chat/completions",
+        {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${env.GROQ_API_KEY}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            model,
+            max_tokens: useR1 ? 4096 : 1200,
+            reasoning_effort: useR1 ? "high" : "low",
+            messages,
+          }),
+        },
+      );
+
+      const result = await decodeProviderResponse(
+        "groq",
+        model,
+        resp,
+      );
+
+      if (result) return result;
+    } catch (error) {
+      logProviderException(
+        "groq",
+        model,
+        error,
+      );
+    }
   }
 
-  // 3. OpenRouter (broadest model availability fallback)
+  // -----------------------------------------------------------------
+  // 3. OpenRouter fallback
+  // -----------------------------------------------------------------
+
   if (env.OPENROUTER_API_KEY) {
+    const model = useR1
+      ? "deepseek/deepseek-v4-pro-0813"
+      : "deepseek/deepseek-v4.1-flash";
+
     try {
-      const model = useR1 ? "deepseek/deepseek-r1" : "deepseek/deepseek-chat";
-      const resp  = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-        method: "POST",
-        headers: { "Authorization": `Bearer ${env.OPENROUTER_API_KEY}`, "Content-Type": "application/json", "HTTP-Referer": "https://intel.cyberdudebivash.com", "X-Title": "CYBERDUDEBIVASH SENTINEL APEX" },
-        body: JSON.stringify({ model, max_tokens: useR1 ? 4096 : 1500, messages: [{ role: "system", content: systemPrompt }, { role: "user", content: userPrompt }] }),
-      });
-      if (resp.ok) {
-        const d = await resp.json();
-        const t = d?.choices?.[0]?.message?.content?.trim();
-        if (t) return { text: t, model: `openrouter/${model}` };
-      }
-    } catch (_) {}
+      const resp = await fetch(
+        "https://openrouter.ai/api/v1/chat/completions",
+        {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${env.OPENROUTER_API_KEY}`,
+            "Content-Type": "application/json",
+            "HTTP-Referer": "https://intel.cyberdudebivash.com",
+            "X-Title": "CYBERDUDEBIVASH SENTINEL APEX",
+          },
+          body: JSON.stringify({
+            model,
+            max_tokens: useR1 ? 4096 : 1500,
+            messages,
+          }),
+        },
+      );
+
+      const result = await decodeProviderResponse(
+        "openrouter",
+        model,
+        resp,
+      );
+
+      if (result) return result;
+    } catch (error) {
+      logProviderException(
+        "openrouter",
+        model,
+        error,
+      );
+    }
   }
 
   console.warn("llm_provider_cascade_exhausted", JSON.stringify({
-    deepseek_configured: !!env.DEEPSEEK_API_KEY,
-    groq_configured: !!env.GROQ_API_KEY,
-    openrouter_configured: !!env.OPENROUTER_API_KEY,
+    deepseek_configured: Boolean(env.DEEPSEEK_API_KEY),
+    groq_configured: Boolean(env.GROQ_API_KEY),
+    openrouter_configured: Boolean(env.OPENROUTER_API_KEY),
   }));
 
   return null;
 }
-
 async function handleCopilot(request, env, auth, method, path) {
   const LLM_ENABLED   = !!(env.DEEPSEEK_API_KEY || env.GROQ_API_KEY || env.OPENROUTER_API_KEY);
   const LLM_TIERS     = new Set([TIERS.PRO, TIERS.ENTERPRISE, TIERS.MSSP]);
