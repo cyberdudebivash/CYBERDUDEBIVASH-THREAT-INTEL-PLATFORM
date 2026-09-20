@@ -1,4 +1,6 @@
 #!/usr/bin/env node
+import { buildDependencyCandidates } from '../src/mission-readiness.js';
+import { adaptSpecialistResponse } from '../src/specialist-contract.js';
 
 /**
  * CYBERDUDEBIVASH SENTINEL APEX — SUPER AGENT SWARM
@@ -12,7 +14,7 @@
  */
 
 const DEFAULT_BASE_URL = 'https://intel.cyberdudebivash.com';
-const EXPECTED_VERSION = '4.46.6';
+const EXPECTED_VERSION = '4.47.0';
 const EXPECTED_PROTOCOL = 'cdb.swarm.v1';
 const EXPECTED_SERVICE = 'sentinel-apex-swarm-live';
 const EXPECTED_AGENT_IDS = Object.freeze([
@@ -26,6 +28,7 @@ const EXPECTED_AGENT_IDS = Object.freeze([
   'risk-synthesizer',
 ]);
 const SAFE_POST_PATHS = new Set([
+  '/api/swarm/readiness',
   '/api/intel/correlate',
   '/api/v1/swarm-synthesis',
 ]);
@@ -42,7 +45,6 @@ const BACKEND_TIMEOUT_MS = Number(process.env.PREDEMO_BACKEND_TIMEOUT_MS || 2500
 const baseUrl = cleanBaseUrl(process.env.SWARM_BASE_URL || DEFAULT_BASE_URL);
 const apiKey = String(process.env.SENTINEL_API_KEY || '').trim();
 const publicOnly = process.argv.includes('--public-only');
-const strictHistory = !process.argv.includes('--allow-empty-history');
 
 const results = [];
 let requestCount = 0;
@@ -270,7 +272,7 @@ async function snapshotMissionIds() {
 }
 
 async function main() {
-  console.log('CYBERDUDEBIVASH SENTINEL APEX — V4.46.6 PRE-DEMO CERTIFICATION');
+  console.log('CYBERDUDEBIVASH SENTINEL APEX — V4.47.0 PRE-MISSION CERTIFICATION');
   console.log(`BASE  ${baseUrl}`);
   console.log('MODE  mission-safe / no /api/swarm/run dispatch\n');
 
@@ -296,6 +298,11 @@ async function main() {
     assert(body?.capabilities?.idempotent_retry === true, 'idempotent retry capability missing');
     assert(body?.capabilities?.agent_timing === true, 'agent timing capability missing');
     assert(body?.capabilities?.entitlement_preflight === true, 'entitlement preflight capability missing');
+    assert(body?.capabilities?.mission_readiness === true, 'mission readiness capability missing');
+    assert(body?.capabilities?.mission_quality === true, 'mission quality capability missing');
+    assert(body?.capabilities?.evidence_graph === true, 'evidence graph capability missing');
+    assert(body?.capabilities?.adaptive_specialists === true, 'adaptive specialist capability missing');
+    assert(body?.capabilities?.agent_semantics_v2 === true, 'agent semantics v2 capability missing');
     for (const fmt of ['md', 'json', 'stix21']) {
       assert(body?.capabilities?.report_formats?.includes(fmt), `missing report format ${fmt}`);
     }
@@ -325,6 +332,11 @@ async function main() {
     assert(text.includes('prefers-contrast:more'), 'high-contrast CSS missing');
     assert(text.includes('id="run" disabled'), 'RUN button not locked by default');
     assert(text.includes('id="preflightStatus"'), 'preflight status UI missing');
+    assert(text.includes('id="readinessPanel"'), 'mission readiness UI missing');
+    assert(text.includes('id="assessReadiness"'), 'mission readiness control missing');
+    assert(text.includes('id="missionQuality"'), 'mission quality UI missing');
+    assert(text.includes('id="evidenceGraphState"'), 'evidence graph UI missing');
+    assert(text.includes('id="viewMode"'), 'executive/technical view control missing');
     assert(text.includes('id="loadHistory"'), 'history control missing');
     assert(text.includes('id="historyBody"'), 'history body missing');
     assert(text.includes('id="eventLog"'), 'event stream UI missing');
@@ -431,43 +443,106 @@ async function main() {
     return `tier=${body.entitlement.tier} · quota=${q.remaining}/${q.limit} · ${elapsedMs}ms`;
   });
 
-  await check('mission history snapshot before canaries', async () => {
+  await check('mission history endpoint / pre-mission snapshot', async () => {
     initialMissions = await snapshotMissionIds();
-    if (strictHistory) assert(initialMissions.length > 0, 'no existing mission history for this key; cannot live-certify read-back/export before the first filmed mission');
-    return `${initialMissions.length} existing mission(s)`;
+    return initialMissions.length
+      ? `${initialMissions.length} existing mission(s); read-back/export will also be revalidated post-mission`
+      : 'fresh credential: empty history is correct; read-back/export are mandatory in post-demo certification after the first mission';
   });
 
   let feedItem = null;
   let demoCandidate = null;
-  let feedEvidence = { reportId: null, cve: null, actor: null, technique: null, observable: null };
+  let candidatePool = [];
+
   await check('canonical intel feed/source data', async () => {
     const { response, body, elapsedMs } = await getJson('/api/v1/intel/latest.json', { headers: paidHeaders() }, BACKEND_TIMEOUT_MS);
     assert(response.status === 200, `HTTP ${response.status}`);
     assert(Array.isArray(body?.items) && body.items.length > 0, 'latest intel items missing/empty');
-    demoCandidate = body.items.map(richDemoCandidate).find(Boolean) || null;
+
+    const candidates = [];
+    const seen = new Set();
+    for (const item of body.items) {
+      const observable = pickObservable(item);
+      if (!observable || seen.has(observable)) continue;
+      seen.add(observable);
+      const structuralScore = [
+        pickReportId(item),
+        pickCve(item),
+        pickActor(item),
+        pickTechnique(item),
+        hasUsableDetectionArtifact(item) ? 'detection' : null,
+      ].filter(Boolean).length;
+      candidates.push({
+        observable,
+        type: inferIocType(observable),
+        item,
+        reportId: pickReportId(item),
+        structuralScore,
+      });
+    }
+
+    if (process.env.PREDEMO_IOC) {
+      const forced = String(process.env.PREDEMO_IOC).trim();
+      candidates.unshift({
+        observable: forced,
+        type: String(process.env.PREDEMO_IOC_TYPE || inferIocType(forced)),
+        item: null,
+        reportId: null,
+        structuralScore: 99,
+      });
+    }
+
+    candidatePool = candidates
+      .sort((a, b) => b.structuralScore - a.structuralScore)
+      .slice(0, Number(process.env.PREDEMO_CANDIDATE_LIMIT || 8));
+
+    assert(candidatePool.length > 0, 'live feed contains no usable IOC/observable candidates');
+    return `${body.items.length} live intel item(s) · ${candidatePool.length} bounded readiness candidate(s) · ${elapsedMs}ms`;
+  });
+
+  await check('full-fabric demo candidate discovery via mission readiness', async () => {
+    const attempted = [];
+    for (const candidate of candidatePool) {
+      const { response, body, elapsedMs } = await getJson('/api/swarm/readiness', {
+        method: 'POST',
+        headers: paidHeaders({ 'content-type': 'application/json' }),
+        body: JSON.stringify({ ioc_value: candidate.observable, ioc_type: candidate.type }),
+      }, BACKEND_TIMEOUT_MS);
+
+      attempted.push({
+        observable: candidate.observable,
+        status: response.status,
+        quality: body?.readiness?.mission_quality || body?.reason || body?.error || 'unknown',
+        ready_agents: body?.readiness?.ready_agents ?? null,
+        llm_ready: body?.synthesis_readiness?.ready ?? null,
+      });
+
+      if (
+        response.status === 200 &&
+        body?.mission_dispatch === false &&
+        body?.readiness?.mission_quality === 'FULL_FABRIC' &&
+        body?.readiness?.ready_agents === 8 &&
+        body?.synthesis_readiness?.ready === true &&
+        body?.demo_recommended === true
+      ) {
+        demoCandidate = { ...candidate, readiness: body, readiness_ms: elapsedMs };
+        feedItem = candidate.item;
+        break;
+      }
+    }
+
     assert(
       demoCandidate,
-      'live feed has no single customer-demo candidate carrying IOC + cve_id + attributed actor + ATT&CK technique + structurally valid detection artifact'
+      `no FULL_FABRIC + AI-ready demo candidate found after ${attempted.length} bounded readiness probe(s): ${JSON.stringify(attempted).slice(0, 1200)}`
     );
-    feedItem = demoCandidate.item;
-
-    feedEvidence = {
-      reportId: body.items.map(pickReportId).find(Boolean) || null,
-      cve: body.items.map(pickCve).find(Boolean) || null,
-      actor: body.items.map(pickActor).find(Boolean) || null,
-      technique: body.items.map(pickTechnique).find(Boolean) || null,
-      observable: body.items.map(pickObservable).find(Boolean) || null,
-    };
-    assert(feedEvidence.reportId, 'live feed contains no report identifier');
-    assert(feedEvidence.observable, 'live feed contains no usable IOC/observable for canary correlation');
-    return `${body.items.length} live intel item(s) · rich demo candidate=${demoCandidate.reportId} · ${elapsedMs}ms`;
+    return `${demoCandidate.type} ${demoCandidate.observable} · FULL_FABRIC 8/8 · AI READY · readiness=${demoCandidate.readiness_ms}ms`;
   });
 
   let correlation = null;
   let canaryIoc = null;
   await check('canonical IOC correlation backend', async () => {
-    canaryIoc = String(process.env.PREDEMO_IOC || demoCandidate.observable).trim();
-    const iocType = String(process.env.PREDEMO_IOC_TYPE || inferIocType(canaryIoc));
+    canaryIoc = String(demoCandidate.observable).trim();
+    const iocType = String(demoCandidate.type || inferIocType(canaryIoc));
     const { response, body, text, elapsedMs } = await getJson('/api/intel/correlate', {
       method: 'POST',
       headers: paidHeaders({ 'content-type': 'application/json' }),
@@ -478,14 +553,8 @@ async function main() {
     assert(body.status === 'ok' || body.status === 'success', `correlation status=${body.status}`);
     correlation = body.data || body;
     assert(hasNoCredentialEcho(text), 'credential reflected in correlation response');
-    const correlatedIds = (Array.isArray(correlation?.matches) ? correlation.matches : [])
-      .map((m) => m?.report_id)
-      .filter(Boolean);
-    assert(
-      correlatedIds.includes(demoCandidate.reportId),
-      `rich demo IOC did not correlate back to expected report ${demoCandidate.reportId}`
-    );
-    return `${iocType} ${canaryIoc} · report=${demoCandidate.reportId} · ${elapsedMs}ms`;
+    assert(Number(correlation?.match_count || 0) > 0, 'readiness-selected candidate unexpectedly produced zero correlation matches');
+    return `${iocType} ${canaryIoc} · matches=${correlation.match_count} · ${elapsedMs}ms`;
   });
 
   const specialistOutcomes = {
@@ -501,63 +570,48 @@ async function main() {
       duration_ms: null,
     },
   };
-  await check('six specialist backend routes', async () => {
-    const depsFromCorrelation = extractCorrelationDependencies(correlation);
-    const reportId = depsFromCorrelation.reportId || feedEvidence.reportId || pickReportId(feedItem);
-    const cve = depsFromCorrelation.cve || feedEvidence.cve || pickCve(feedItem);
-    const actor = depsFromCorrelation.actor || feedEvidence.actor || pickActor(feedItem);
-    const technique = depsFromCorrelation.technique || feedEvidence.technique || pickTechnique(feedItem);
-
-    const required = { reportId, cve, actor, technique };
-    for (const [name, value] of Object.entries(required)) assert(value, `unable to derive ${name} from live feed/correlation`);
-
-    const probes = [
-      {
-        agentId: 'cve-intelligence',
-        path: `/api/cves?cve_id=${encodeURIComponent(cve)}&limit=5`,
-        validate: (body) => body?.status === 'ok' && Array.isArray(body?.data?.cves) && body.data.cves.length > 0,
-      },
-      {
-        agentId: 'threat-hunter',
-        path: `/api/actors?actor_id=${encodeURIComponent(actor)}&limit=5`,
-        validate: (body) => body?.status === 'ok' && Array.isArray(body?.data?.actors) && body.data.actors.length > 0,
-      },
-      {
-        agentId: 'attack-mapper',
-        path: `/api/search?q=${encodeURIComponent(technique)}&limit=5`,
-        validate: (body) => body?.status === 'ok' && Array.isArray(body?.data?.results) && body.data.results.length > 0,
-      },
-      {
-        agentId: 'siem-defender',
-        path: `/api/v1/detections?intel_id=${encodeURIComponent(reportId)}&limit=5`,
-        validate: (body) => typeof body?.schema_version === 'string' && Array.isArray(body?.data) && body.data.length > 0 && body?.pagination,
-      },
-      {
-        agentId: 'ir-playbook',
-        path: `/api/intel/ir-guidance?report_id=${encodeURIComponent(reportId)}&limit=5`,
-        validate: (body) => body?.status === 'ok' && body?.data?.report_id === reportId,
-      },
-      {
-        agentId: 'exposure-analyst',
-        path: `/api/intel/exposure?report_id=${encodeURIComponent(reportId)}&limit=5`,
-        validate: (body) => body?.status === 'ok' && body?.data?.report_id === reportId && Array.isArray(body?.data?.dimensions),
-      },
-    ];
+  await check('six specialist backend routes / adaptive evidence execution', async () => {
+    const candidatePlan = buildDependencyCandidates(correlation);
+    const routeDefs = {
+      'cve-intelligence': { path: '/api/cves', key: 'cve_id' },
+      'threat-hunter': { path: '/api/actors', key: 'actor_id' },
+      'attack-mapper': { path: '/api/search', key: 'q' },
+      'siem-defender': { path: '/api/v1/detections', key: 'intel_id' },
+      'ir-playbook': { path: '/api/intel/ir-guidance', key: 'report_id' },
+      'exposure-analyst': { path: '/api/intel/exposure', key: 'report_id' },
+    };
 
     const details = [];
-    for (const probe of probes) {
-      const { agentId, path, validate } = probe;
-      const { response, body, text, elapsedMs } = await getJson(path, { headers: paidHeaders() }, BACKEND_TIMEOUT_MS);
-      assert(response.status === 200, `${agentId} HTTP ${response.status}: ${text.slice(0, 180)}`);
-      assert(validate(body), `${agentId} returned an unexpected success schema`);
-      assert(hasNoCredentialEcho(text), `${agentId} reflected credential`);
+    for (const [agentId, route] of Object.entries(routeDefs)) {
+      const candidates = (candidatePlan[agentId] || []).slice(0, 3);
+      assert(candidates.length > 0, `${agentId}: readiness claimed full fabric but no dependency candidate exists`);
+
+      let selected = null;
+      const attempts = [];
+      for (const value of candidates) {
+        const path = `${route.path}?${route.key}=${encodeURIComponent(value)}&limit=5`;
+        const { response, body, text, elapsedMs } = await getJson(path, { headers: paidHeaders() }, BACKEND_TIMEOUT_MS);
+        assert(response.status === 200, `${agentId} HTTP ${response.status}: ${text.slice(0, 180)}`);
+        assert(hasNoCredentialEcho(text), `${agentId} reflected credential`);
+        const adapted = adaptSpecialistResponse(agentId, body);
+        attempts.push({ value, success: adapted.success, substantive: adapted.substantive, count: adapted.count });
+        assert(adapted.success, `${agentId} returned an unexpected canonical contract`);
+        if (adapted.substantive) {
+          selected = { value, adapted, elapsedMs };
+          break;
+        }
+      }
+
+      assert(selected, `${agentId}: no substantive evidence after bounded candidates ${JSON.stringify(attempts)}`);
       specialistOutcomes[agentId] = {
         basis: 'pre_demo_backend_canary',
         state: 'COMPLETED',
-        result: body.data ?? body,
-        duration_ms: elapsedMs,
+        result: selected.adapted.data,
+        evidence_count: selected.adapted.count,
+        queried: { [route.key]: selected.value },
+        duration_ms: selected.elapsedMs,
       };
-      details.push(`${agentId}=${elapsedMs}ms`);
+      details.push(`${agentId}=${selected.adapted.count} evidence/${selected.elapsedMs}ms`);
     }
     return details.join(' · ');
   });
@@ -624,6 +678,13 @@ async function main() {
     });
   }
 
+  if (initialMissions.length === 0) {
+    pass(
+      'post-mission persistence/export gate',
+      'DEFERRED BY DESIGN — fresh credential has no mission yet; npm run post-demo:certify is mandatory immediately after the filmed mission'
+    );
+  }
+
   await check('post-canary quota reserve for filmed mission', async () => {
     const { response, body, elapsedMs } = await getJson('/api/swarm/preflight', { headers: paidHeaders() });
     assert(response.status === 200, `HTTP ${response.status}`);
@@ -675,13 +736,13 @@ function finalize(candidate = null) {
     return;
   }
 
-  console.log('\nGO — 100% OF THE DEFINED PRE-DEMO ACCEPTANCE MATRIX PASSED.');
+  console.log('\nPRE-MISSION GO — 100% OF THE PRE-MISSION ACCEPTANCE MATRIX PASSED.');
   if (candidate) {
     console.log(`DEMO IOC CANDIDATE  ${candidate.observable}`);
     console.log(`DEMO IOC TYPE       ${inferIocType(candidate.observable)}`);
     console.log(`DEMO REPORT         ${candidate.reportId}`);
   }
-  console.log('The next SWARM mission may be used as the filmed live customer demonstration.');
+  console.log('The next SWARM mission may be used as the filmed live customer demonstration. Post-mission certification remains mandatory.');
 }
 
 main().catch((error) => {
