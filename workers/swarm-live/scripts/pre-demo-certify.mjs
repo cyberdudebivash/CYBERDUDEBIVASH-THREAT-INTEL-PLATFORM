@@ -379,19 +379,30 @@ async function main() {
   });
 
   let feedItem = null;
+  let feedEvidence = { reportId: null, cve: null, actor: null, technique: null, observable: null };
   await check('canonical intel feed/source data', async () => {
     const { response, body, elapsedMs } = await getJson('/api/v1/intel/latest.json', { headers: paidHeaders() }, BACKEND_TIMEOUT_MS);
     assert(response.status === 200, `HTTP ${response.status}`);
     assert(Array.isArray(body?.items) && body.items.length > 0, 'latest intel items missing/empty');
-    feedItem = body.items.find((item) => pickReportId(item) && (pickCve(item) || pickActor(item) || pickTechnique(item) || pickObservable(item))) || body.items[0];
+    feedItem = body.items.find((item) => pickReportId(item) && pickObservable(item)) || body.items[0];
     assert(feedItem && typeof feedItem === 'object', 'no usable feed item');
-    return `${body.items.length} live intel item(s) · ${elapsedMs}ms`;
+
+    feedEvidence = {
+      reportId: body.items.map(pickReportId).find(Boolean) || null,
+      cve: body.items.map(pickCve).find(Boolean) || null,
+      actor: body.items.map(pickActor).find(Boolean) || null,
+      technique: body.items.map(pickTechnique).find(Boolean) || null,
+      observable: body.items.map(pickObservable).find(Boolean) || null,
+    };
+    assert(feedEvidence.reportId, 'live feed contains no report identifier');
+    assert(feedEvidence.observable, 'live feed contains no usable IOC/observable for canary correlation');
+    return `${body.items.length} live intel item(s) · source evidence prepared · ${elapsedMs}ms`;
   });
 
   let correlation = null;
   let canaryIoc = null;
   await check('canonical IOC correlation backend', async () => {
-    canaryIoc = String(process.env.PREDEMO_IOC || pickObservable(feedItem) || '8.8.8.8').trim();
+    canaryIoc = String(process.env.PREDEMO_IOC || feedEvidence.observable || pickObservable(feedItem) || '8.8.8.8').trim();
     const iocType = String(process.env.PREDEMO_IOC_TYPE || inferIocType(canaryIoc));
     const { response, body, text, elapsedMs } = await getJson('/api/intel/correlate', {
       method: 'POST',
@@ -409,10 +420,10 @@ async function main() {
   const specialistOutcomes = {};
   await check('six specialist backend routes', async () => {
     const depsFromCorrelation = extractCorrelationDependencies(correlation);
-    const reportId = depsFromCorrelation.reportId || pickReportId(feedItem);
-    const cve = depsFromCorrelation.cve || pickCve(feedItem);
-    const actor = depsFromCorrelation.actor || pickActor(feedItem);
-    const technique = depsFromCorrelation.technique || pickTechnique(feedItem);
+    const reportId = depsFromCorrelation.reportId || feedEvidence.reportId || pickReportId(feedItem);
+    const cve = depsFromCorrelation.cve || feedEvidence.cve || pickCve(feedItem);
+    const actor = depsFromCorrelation.actor || feedEvidence.actor || pickActor(feedItem);
+    const technique = depsFromCorrelation.technique || feedEvidence.technique || pickTechnique(feedItem);
 
     const required = { reportId, cve, actor, technique };
     for (const [name, value] of Object.entries(required)) assert(value, `unable to derive ${name} from live feed/correlation`);
