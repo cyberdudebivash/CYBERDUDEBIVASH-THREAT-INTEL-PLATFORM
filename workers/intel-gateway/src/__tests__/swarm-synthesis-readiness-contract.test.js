@@ -24,3 +24,14 @@ test("synthesis readiness health remains non-generative and does not invoke call
   const healthBranch = source.slice(start, end);
   assert.ok(!healthBranch.includes("callLLM("));
 });
+
+test("readiness cannot report READY unless both provider configuration and paid-tier policy allow LLM synthesis", () => {
+  const start = source.indexOf("async function handleSwarmSynthesis");
+  const end = source.indexOf("// =============================================================================", start);
+  const fn = source.slice(start, end > start ? end : start + 12000);
+
+  assert.ok(fn.includes("const LLM_ENABLED = !!(env.DEEPSEEK_API_KEY || env.GROQ_API_KEY || env.OPENROUTER_API_KEY)"));
+  assert.ok(fn.includes("const tierAllowsLLM = tierAllowsSwarmSynthesis(auth.tier)"));
+  assert.ok(fn.includes("ready:       LLM_ENABLED && tierAllowsLLM"));
+  assert.equal(fn.includes("ready:       LLM_ENABLED || tierAllowsLLM"), false);
+});
