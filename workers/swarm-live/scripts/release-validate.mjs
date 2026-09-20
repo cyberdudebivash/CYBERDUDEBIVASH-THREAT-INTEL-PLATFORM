@@ -3,7 +3,7 @@
 const DEFAULT_BASE_URL = 'https://intel.cyberdudebivash.com';
 const EXPECTED_SERVICE = 'sentinel-apex-swarm-live';
 const EXPECTED_PROTOCOL = 'cdb.swarm.v1';
-const EXPECTED_VERSION = '4.46.5';
+const EXPECTED_VERSION = '4.46.6';
 const EXPECTED_AGENTS = new Set([
   'ioc-hunter',
   'cve-intelligence',
@@ -89,6 +89,7 @@ async function validateHealth(baseUrl) {
   assert(body?.production?.private_mesh_required === true, 'private mesh requirement is not enabled');
   assert(body?.production?.customer_console === true, 'customer console capability is not enabled');
   assert(body?.capabilities?.idempotent_retry === true, 'idempotent retry capability is not enabled');
+  assert(body?.capabilities?.entitlement_preflight === true, 'entitlement preflight capability is not enabled');
   assert(Array.isArray(body?.capabilities?.report_formats) && body.capabilities.report_formats.includes('stix21'), 'STIX 2.1 evidence export is not advertised');
   assert(Number(body?.agents) === EXPECTED_AGENTS.size, `expected ${EXPECTED_AGENTS.size} agents, got ${body?.agents}`);
   assert(body?.persistence?.kv_bound === true, 'SWARM_MISSIONS_KV is not bound; durable mission lifecycle is NOT production-ready');
@@ -99,7 +100,7 @@ async function validateHealth(baseUrl) {
 async function validateUi(baseUrl) {
   const { response, text } = await getText(`${baseUrl}/swarm/`);
   assert(response.status === 200, `/swarm/ returned HTTP ${response.status}`);
-  for (const marker of ['SUPER AGENT SWARM', 'Mission History', 'RUN LIVE SWARM', 'Private APEX Mesh', 'Durable Evidence', 'STIX 2.1', '8-Agent Operations Grid', 'V4.46.5 PRODUCTION', 'SOC 2-ALIGNED EVIDENCE UX', '8-Agent Mesh Topology', 'STATE-DRIVEN LED NODES', 'Event Sequence', 'RED TEAM INTEL', 'AI SECURITY OPS', 'Cinematic launch visualization is decorative only', 'CYBER DEFENSE', 'Current customer location time', 'GLOBAL EDGE · RESOLVING']) {
+  for (const marker of ['SUPER AGENT SWARM', 'Mission History', 'RUN LIVE SWARM', 'Private APEX Mesh', 'Durable Evidence', 'STIX 2.1', '8-Agent Operations Grid', 'V4.46.6 PRODUCTION', 'SOC 2-ALIGNED EVIDENCE UX', '8-Agent Mesh Topology', 'STATE-DRIVEN LED NODES', 'Event Sequence', 'RED TEAM INTEL', 'AI SECURITY OPS', 'Cinematic launch visualization is decorative only', 'CYBER DEFENSE', 'Current customer location time', 'GLOBAL EDGE · RESOLVING']) {
     assert(text.includes(marker), `/swarm/ missing required UI marker: ${marker}`);
   }
   assert(!text.includes('DERIVED VIEW'), '/swarm/ still exposes DERIVED VIEW agents');
@@ -113,6 +114,8 @@ async function validateUi(baseUrl) {
   assert(text.includes('class="back-platform"'), '/swarm/ missing back-to-platform premium navigation styling');
   assert(text.includes('href="/"'), '/swarm/ back-to-platform navigation does not target the platform root');
   assert(text.includes('BACK TO PLATFORM'), '/swarm/ missing visible back-to-platform label');
+  assert(text.includes('id="preflightStatus"'), '/swarm/ missing entitlement preflight status surface');
+  assert(text.includes('id="run" disabled'), '/swarm/ launch control must be locked until entitlement preflight passes');
   assert(text.includes('id="fabricStateText">DORMANT</span>'), '/swarm/ idle fabric state must be DORMANT');
   assert(text.includes('id="streamState">SSE · DORMANT</span>'), '/swarm/ idle SSE state must be DORMANT');
   assert(!text.includes('SSE · REAL TIME'), '/swarm/ idle UI falsely implies an active SSE stream');
@@ -139,6 +142,8 @@ async function validateUi(baseUrl) {
   assert((app.response.headers.get('content-type') || '').includes('javascript'), '/swarm/app.js has the wrong content type');
   assert(app.text.includes("window.__CDB_SWARM_UI_READY__=true"), '/swarm/app.js missing browser-ready marker');
   assert(app.text.includes("window.__CDB_SWARM_INTERACTIVE_READY__=true"), '/swarm/app.js missing interactive-ready marker');
+  assert(app.text.includes("fetch('/api/swarm/preflight'"), '/swarm/app.js is not wired to canonical entitlement preflight');
+  assert(app.text.includes('!preflight.eligible||preflight.key!==key'), '/swarm/app.js does not enforce verified-key launch locking');
   assert(!app.text.includes('};fxForMissionEvent(ev)'), '/swarm/app.js contains a top-level event FX call that aborts browser bootstrap');
   assert(app.text.includes('hydrateHealth()'), '/swarm/app.js missing runtime hydration');
   assert(app.text.includes('run.onclick=async()=>'), '/swarm/app.js missing live-mission button handler');
@@ -183,6 +188,13 @@ async function validateClientContext(baseUrl) {
 
 async function validateLiveMission(baseUrl, apiKey) {
   assert(apiKey, 'SENTINEL_API_KEY is required with --live-mission');
+  const preflight = await getJson(`${baseUrl}/api/swarm/preflight`, {
+    headers: { 'X-API-Key': apiKey, 'X-Request-ID': 'release-preflight-' + crypto.randomUUID() },
+  });
+  assert(preflight.response.status === 200, `paid SWARM preflight returned HTTP ${preflight.response.status}`);
+  assert(preflight.body?.eligible === true, `paid SWARM preflight denied launch: ${preflight.body?.reason || preflight.body?.error || 'unknown'}`);
+  assert(['PRO', 'ENTERPRISE', 'MSSP'].includes(preflight.body?.entitlement?.tier), `unexpected SWARM entitlement tier: ${preflight.body?.entitlement?.tier}`);
+  logPass('paid entitlement preflight', `tier=${preflight.body.entitlement.tier}`);
   const requestId = `release-${crypto.randomUUID()}`;
   const iocValue = process.env.SENTINEL_SWARM_TEST_IOC || '8.8.8.8';
   const iocType = process.env.SENTINEL_SWARM_TEST_IOC_TYPE || 'ipv4';
@@ -255,6 +267,13 @@ async function validateLiveMission(baseUrl, apiKey) {
   logPass('STIX 2.1 evidence export');
 }
 
+async function validatePreflightContract(baseUrl) {
+  const { response, body } = await getJson(`${baseUrl}/api/swarm/preflight`);
+  assert(response.status === 401, `unauthenticated /api/swarm/preflight returned HTTP ${response.status}, expected 401`);
+  assert(body?.error === 'authentication_required', 'unauthenticated SWARM preflight did not fail closed');
+  logPass('entitlement preflight fail-closed contract');
+}
+
 async function main() {
   const baseUrl = cleanBaseUrl(argValue('--base-url') || process.env.SENTINEL_SWARM_BASE_URL || DEFAULT_BASE_URL);
   const liveMission = hasFlag('--live-mission');
@@ -266,6 +285,7 @@ async function main() {
   await validateHealth(baseUrl);
   await validateUi(baseUrl);
   await validateClientContext(baseUrl);
+  await validatePreflightContract(baseUrl);
   if (liveMission) await validateLiveMission(baseUrl, process.env.SENTINEL_API_KEY);
 
   console.log('RELEASE VALIDATION: PASS');
