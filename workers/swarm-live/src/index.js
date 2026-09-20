@@ -612,6 +612,66 @@ async function setIdempotencyPointer(env, partition, correlationId, missionId, s
   } catch { /* best-effort, same discipline as persistMission */ }
 }
 
+async function getSynthesisReadiness(canonicalBase, auth, correlationId, env = null) {
+  const headers = new Headers(auth);
+  headers.set('x-request-id', correlationId);
+
+  try {
+    const response = await canonicalGatewayFetch(
+      env,
+      `${canonicalBase}/api/v1/swarm-synthesis/health`,
+      { method: 'GET', headers },
+    );
+    let body = null;
+    try { body = await response.json(); } catch { /* fail closed below */ }
+    if (!response.ok || !body || body.status !== 'ok') {
+      return { ready: false, llm_enabled: false, providers: [], status: 'UNAVAILABLE' };
+    }
+
+    const providers = body.providers && typeof body.providers === 'object'
+      ? Object.entries(body.providers).filter(([, enabled]) => enabled === true).map(([name]) => name)
+      : [];
+
+    const ready = body.ready === true || (body.llm_enabled === true && body.tier_llm !== false);
+    return {
+      ready,
+      llm_enabled: body.llm_enabled === true,
+      tier_llm: body.tier_llm ?? null,
+      providers,
+      engine: body.engine || null,
+      status: ready ? 'READY' : 'DEGRADED',
+    };
+  } catch {
+    return { ready: false, llm_enabled: false, providers: [], status: 'UNAVAILABLE' };
+  }
+}
+
+function summarizeMissionOutcomes(outcomes = {}) {
+  const counts = {
+    completed: 0,
+    not_applicable: 0,
+    degraded: 0,
+    denied: 0,
+    unavailable: 0,
+    failed: 0,
+  };
+
+  for (const outcome of Object.values(outcomes)) {
+    const state = outcome?.state === 'SKIPPED' ? AGENT_STATES.NOT_APPLICABLE : outcome?.state;
+    if (state === AGENT_STATES.COMPLETED) counts.completed += 1;
+    else if (state === AGENT_STATES.NOT_APPLICABLE) counts.not_applicable += 1;
+    else if (state === AGENT_STATES.DEGRADED) counts.degraded += 1;
+    else if (state === AGENT_STATES.DENIED) counts.denied += 1;
+    else if (state === AGENT_STATES.UNAVAILABLE) counts.unavailable += 1;
+    else if (state === AGENT_STATES.FAILED) counts.failed += 1;
+  }
+
+  return {
+    ...counts,
+    total: Object.keys(outcomes).length,
+  };
+}
+
 async function executeMission({ writer, request, env, body, correlationId, missionId, executionId, idempotencyKeySupplied }) {
   const encoder = new TextEncoder();
   const makeEvent = eventFactory({ missionId, executionId, correlationId });
@@ -623,6 +683,7 @@ async function executeMission({ writer, request, env, body, correlationId, missi
   const queued = AGENTS.filter((a) => a.id !== 'risk-synthesizer' && a.id !== 'ioc-hunter');
   const iocHunter = AGENTS.find((a) => a.id === 'ioc-hunter');
   const synthesizer = AGENTS.find((a) => a.id === 'risk-synthesizer');
+  let readiness = null;
 
   const finish = async (status, extra = {}) => {
     await persistMission(env, {
@@ -632,6 +693,7 @@ async function executeMission({ writer, request, env, body, correlationId, missi
       product: PRODUCT,
       protocol: PROTOCOL,
       status,
+      mission_profile: body.mission_profile || 'AUTO',
       started_at: startedAt,
       finished_at: new Date().toISOString(),
       duration_ms: Date.now() - missionStartedMs,
@@ -641,6 +703,7 @@ async function executeMission({ writer, request, env, body, correlationId, missi
         original_ioc_value: body.ioc_original_value || null,
         refanged: Boolean(body.ioc_refanged),
       },
+      readiness,
       ...extra,
     }, partition);
     if (idempotencyKeySupplied) await setIdempotencyPointer(env, partition, correlationId, missionId, status);
@@ -650,6 +713,7 @@ async function executeMission({ writer, request, env, body, correlationId, missi
     await emit(writer, encoder, makeEvent('QUEUED', null, {
       event_type: 'mission.accepted',
       agent_count: AGENTS.length,
+      mission_profile: body.mission_profile || 'AUTO',
       input: {
         ioc_value: body.ioc_value,
         ioc_type: body.ioc_type || 'auto',
@@ -689,9 +753,9 @@ async function executeMission({ writer, request, env, body, correlationId, missi
     const meshCorrelationId = canonicalResponse.headers.get('x-cdb-mesh-correlation');
 
     if (!canonicalResponse.ok || !meshCertified || !meshExecutionId || meshCorrelationId !== correlationId || !canonical) {
-      const state = canonicalResponse.status === 401 || canonicalResponse.status === 403 ? 'DENIED' : 'FAILED';
+      const state = canonicalResponse.status === 401 || canonicalResponse.status === 403 ? AGENT_STATES.DENIED : AGENT_STATES.FAILED;
       await emit(writer, encoder, makeEvent(state, iocHunter, {
-        event_type: 'agent.denied',
+        event_type: state === AGENT_STATES.DENIED ? 'agent.denied' : 'agent.failed',
         basis: 'backend_execution',
         canonical_status: canonicalResponse.status,
         mesh_certified: meshCertified,
@@ -704,12 +768,38 @@ async function executeMission({ writer, request, env, body, correlationId, missi
         mesh_certified: meshCertified,
         canonical_error: responseSnippet(canonical),
       }));
-      await finish(state, { canonical_status: canonicalResponse.status, mesh_certified: meshCertified });
+      await finish(state, {
+        mission_quality: 'FAILED',
+        canonical_status: canonicalResponse.status,
+        mesh_certified: meshCertified,
+      });
       return;
     }
 
-    const iocHunterOutcome = { basis: 'backend_execution', state: 'COMPLETED', result: iocHunterResult(canonical), duration_ms: iocHunterDurationMs };
-    await emit(writer, encoder, makeEvent('COMPLETED', iocHunter, {
+    const synthesisReadiness = await getSynthesisReadiness(canonicalBase, auth, correlationId, env);
+    readiness = buildMissionReadiness(canonical, {
+      entitlementEligible: true,
+      llmReady: synthesisReadiness.ready,
+      llmProviders: synthesisReadiness.providers,
+    });
+
+    await emit(writer, encoder, makeEvent('ADMITTED', null, {
+      event_type: 'mission.readiness',
+      mesh_certified: true,
+      mesh_execution_id: meshExecutionId,
+      readiness,
+      synthesis_readiness: synthesisReadiness,
+    }));
+
+    const iocHunterOutcome = {
+      basis: 'backend_execution',
+      state: AGENT_STATES.COMPLETED,
+      result: iocHunterResult(canonical),
+      duration_ms: iocHunterDurationMs,
+      evidence_count: Number(canonical?.match_count ?? allMatches(canonical).length),
+      substantive: Number(canonical?.match_count ?? allMatches(canonical).length) > 0,
+    };
+    await emit(writer, encoder, makeEvent(AGENT_STATES.COMPLETED, iocHunter, {
       event_type: 'agent.completed',
       basis: 'backend_execution',
       result: iocHunterOutcome.result,
@@ -723,51 +813,65 @@ async function executeMission({ writer, request, env, body, correlationId, missi
     }));
 
     const outcomes = { 'ioc-hunter': iocHunterOutcome };
+    const dependencyPlan = buildDependencyCandidates(canonical);
 
     const specialistTasks = queued.map(async (agent) => {
       const route = SPECIALIST_ROUTES[agent.id];
+      const candidates = dependencyPlan[agent.id] || [];
 
-      // Honest DAG/conditional semantics: if correlation produced no input
-      // required by this specialist, transition QUEUED -> SKIPPED directly.
-      // Do not emit RUNNING and do not perform unnecessary backend compute.
-      if (route && !route.pick(canonical)) {
+      if (route && candidates.length === 0) {
         const outcome = await runBackendSpecialist(canonicalBase, auth, correlationId, canonical, route, env);
         outcomes[agent.id] = outcome;
-        await emit(writer, encoder, makeEvent('SKIPPED', agent, {
-          event_type: 'agent.skipped',
+        await emit(writer, encoder, makeEvent(AGENT_STATES.NOT_APPLICABLE, agent, {
+          event_type: 'agent.not_applicable',
           basis: outcome.basis,
           result: outcome.result,
-          skip_reason: outcome.skip_reason || route.emptyReason,
+          reason: outcome.skip_reason || route.emptyReason,
+          evidence_count: 0,
           duration_ms: outcome.duration_ms ?? null,
         }));
         return outcome;
       }
 
-      await emit(writer, encoder, makeEvent('RUNNING', agent, {
+      await emit(writer, encoder, makeEvent(AGENT_STATES.RUNNING, agent, {
         event_type: 'agent.started',
         basis: route ? 'backend_execution' : 'unconfigured',
         source: route ? `canonical:${route.path}` : null,
+        candidate_count: candidates.length,
       }));
 
-      // Every current agent has a SPECIALIST_ROUTES entry; the fallback below
-      // is a fail-closed guard against a future agent being added to AGENTS
-      // without one -- it reports a config error, never a fabricated result.
       const outcome = route
         ? await runBackendSpecialist(canonicalBase, auth, correlationId, canonical, route, env)
-        : { basis: 'unconfigured', state: 'FAILED', result: null, detail: { error: 'no_backend_route_configured', agent: agent.id } };
+        : {
+            basis: 'unconfigured',
+            state: AGENT_STATES.FAILED,
+            result: null,
+            detail: { error: 'no_backend_route_configured', agent: agent.id },
+            evidence_count: 0,
+            substantive: false,
+          };
 
       outcomes[agent.id] = outcome;
+
+      const eventType =
+        outcome.state === AGENT_STATES.COMPLETED ? 'agent.completed'
+          : outcome.state === AGENT_STATES.NOT_APPLICABLE ? 'agent.not_applicable'
+            : outcome.state === AGENT_STATES.DENIED ? 'agent.denied'
+              : outcome.state === AGENT_STATES.UNAVAILABLE ? 'agent.unavailable'
+                : outcome.state === AGENT_STATES.DEGRADED ? 'agent.degraded'
+                  : 'agent.failed';
+
       await emit(writer, encoder, makeEvent(outcome.state, agent, {
-        event_type:
-          outcome.state === 'COMPLETED' ? 'agent.completed'
-            : outcome.state === 'SKIPPED' ? 'agent.skipped'
-              : outcome.state === 'DENIED' ? 'agent.denied'
-                : 'agent.failed',
+        event_type: eventType,
         basis: outcome.basis,
         result: outcome.result,
         queried: outcome.queried || undefined,
+        attempted_candidates: outcome.attempted_candidates || undefined,
+        evidence_count: outcome.evidence_count ?? null,
+        substantive: outcome.substantive ?? null,
+        contract: outcome.contract || undefined,
         detail: outcome.detail || undefined,
-        skip_reason: outcome.skip_reason || undefined,
+        reason: outcome.skip_reason || undefined,
         duration_ms: outcome.duration_ms ?? null,
       }));
       return outcome;
@@ -775,7 +879,7 @@ async function executeMission({ writer, request, env, body, correlationId, missi
 
     await Promise.all(specialistTasks);
 
-    await emit(writer, encoder, makeEvent('RUNNING', synthesizer, {
+    await emit(writer, encoder, makeEvent(AGENT_STATES.RUNNING, synthesizer, {
       event_type: 'agent.started',
       basis: 'fusion',
       inputs: queued.map((a) => a.id),
@@ -790,12 +894,27 @@ async function executeMission({ writer, request, env, body, correlationId, missi
       fused.llm_model = narrative.model;
     } else {
       fused.llm_enhanced = false;
+      fused.ai_mode = 'deterministic_fallback';
     }
-    const synthesizerDurationMs = Date.now() - synthesizerT0;
-    outcomes['risk-synthesizer'] = { basis: 'fusion', state: 'COMPLETED', result: fused, duration_ms: synthesizerDurationMs };
 
-    await emit(writer, encoder, makeEvent('COMPLETED', synthesizer, {
-      event_type: 'agent.completed',
+    const synthesizerDurationMs = Date.now() - synthesizerT0;
+    const synthesizerState = narrative ? AGENT_STATES.COMPLETED : AGENT_STATES.DEGRADED;
+    outcomes['risk-synthesizer'] = {
+      basis: 'fusion',
+      state: synthesizerState,
+      result: fused,
+      duration_ms: synthesizerDurationMs,
+      evidence_count: Object.keys(outcomes).length,
+      substantive: true,
+    };
+
+    const missionQuality = classifyMissionCompletion(outcomes, fused);
+    fused.mission_quality = missionQuality;
+    const evidenceGraph = buildEvidenceGraph({ correlation: canonical, outcomes });
+    const metrics = summarizeMissionOutcomes(outcomes);
+
+    await emit(writer, encoder, makeEvent(synthesizerState, synthesizer, {
+      event_type: narrative ? 'agent.completed' : 'agent.degraded',
       basis: 'fusion',
       result: fused,
       duration_ms: synthesizerDurationMs,
@@ -807,23 +926,46 @@ async function executeMission({ writer, request, env, body, correlationId, missi
       mesh_execution_id: meshExecutionId,
       canonical_status: canonicalResponse.status,
       canonical_request_id: canonical.request_id || null,
+      mission_quality: missionQuality,
+      metrics,
+      evidence_graph: {
+        schema: evidenceGraph.schema,
+        node_count: evidenceGraph.node_count,
+        edge_count: evidenceGraph.edge_count,
+      },
       result: fused,
     }));
 
     await finish('COMPLETED', {
       mesh_execution_id: meshExecutionId,
       verdict: fused.verdict,
+      mission_quality: missionQuality,
+      metrics,
+      evidence_graph: evidenceGraph,
       specialists: Object.fromEntries(
-        Object.entries(outcomes).map(([id, o]) => [id, { basis: o.basis, state: o.state, result: o.result ?? null, duration_ms: o.duration_ms ?? null }])
+        Object.entries(outcomes).map(([id, o]) => [id, {
+          basis: o.basis,
+          state: o.state,
+          result: o.result ?? null,
+          duration_ms: o.duration_ms ?? null,
+          queried: o.queried || null,
+          attempted_candidates: o.attempted_candidates || null,
+          evidence_count: o.evidence_count ?? null,
+          substantive: o.substantive ?? null,
+          contract: o.contract || null,
+        }])
       ),
     });
   } catch (error) {
-    await emit(writer, encoder, makeEvent('FAILED', null, {
+    await emit(writer, encoder, makeEvent(AGENT_STATES.FAILED, null, {
       event_type: 'mission.failed',
       error: 'swarm_execution_failed',
       message: String(error?.message || error).slice(0, 240),
     })).catch(() => {});
-    await finish('FAILED', { error: String(error?.message || error).slice(0, 240) }).catch(() => {});
+    await finish('FAILED', {
+      mission_quality: 'FAILED',
+      error: String(error?.message || error).slice(0, 240),
+    }).catch(() => {});
   } finally {
     await writer.close().catch(() => {});
   }
