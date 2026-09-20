@@ -116,6 +116,15 @@ test('mission quality differentiates full, partial, no-match and AI-degraded com
     MISSION_QUALITY.AI_DEGRADED_COMPLETE
   );
 
+  const degradedSynth = {
+    ...completed,
+    'risk-synthesizer': { state: 'DEGRADED' },
+  };
+  assert.equal(
+    classifyMissionCompletion(degradedSynth, { match_count: 2, llm_enhanced: false }),
+    MISSION_QUALITY.AI_DEGRADED_COMPLETE
+  );
+
   const partial = { ...completed, 'cve-intelligence': { state: 'NOT_APPLICABLE' } };
   assert.equal(
     classifyMissionCompletion(partial, { match_count: 1, llm_enhanced: true }),
