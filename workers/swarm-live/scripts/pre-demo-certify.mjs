@@ -323,6 +323,15 @@ async function main() {
     return `${elapsedMs}ms · coarse edge context only`;
   });
 
+  await check('physical mobile visual sign-off', async () => {
+    if (publicOnly) return 'deferred in --public-only mode';
+    assert(
+      String(process.env.PREDEMO_MOBILE_VISUAL_SIGNOFF || '').toUpperCase() === 'YES',
+      'physical mobile sign-off missing. On the actual recording device verify /swarm/: no horizontal page overflow/cutoff; brand/version/clock readable; API key + IOC + type + RUN controls fully visible; ACCESS NOT VERIFIED/preflight status readable; all 8 agent cards reachable; event/final evidence panels readable; history/export controls usable. Then set PREDEMO_MOBILE_VISUAL_SIGNOFF=YES.'
+    );
+    return 'explicit operator sign-off recorded for the physical recording device';
+  });
+
   await check('anonymous fail-closed surfaces', async () => {
     const preflight = await getJson('/api/swarm/preflight');
     assert(preflight.response.status === 401, `preflight HTTP ${preflight.response.status}`);
