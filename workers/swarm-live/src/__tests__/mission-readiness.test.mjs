@@ -75,6 +75,28 @@ test('no-match correlation is truthful NO_MATCH with six NOT_APPLICABLE agents',
   assert.equal(readiness.agents['risk-synthesizer'].state, AGENT_STATES.DEGRADED);
 });
 
+test('focused mission profile projects PROFILE_READY and marks excluded agents explicitly', () => {
+  const expected = [
+    'ioc-hunter',
+    'attack-mapper',
+    'siem-defender',
+    'risk-synthesizer',
+  ];
+  const readiness = buildMissionReadiness(richCorrelation, {
+    entitlementEligible: true,
+    quotaRemaining: 100,
+    llmReady: true,
+    expectedAgentIds: expected,
+  });
+
+  assert.equal(readiness.mission_quality, MISSION_QUALITY.PROFILE_READY);
+  assert.equal(readiness.total_agents, 4);
+  assert.equal(readiness.ready_agents, 4);
+  assert.equal(readiness.fleet_agents, 8);
+  assert.equal(readiness.agents['cve-intelligence'].state, AGENT_STATES.NOT_APPLICABLE);
+  assert.equal(readiness.agents['cve-intelligence'].reason, 'mission_profile_excluded');
+});
+
 test('legacy SKIPPED evidence normalizes to NOT_APPLICABLE', () => {
   assert.equal(normalizeAgentState('SKIPPED'), AGENT_STATES.NOT_APPLICABLE);
 });
