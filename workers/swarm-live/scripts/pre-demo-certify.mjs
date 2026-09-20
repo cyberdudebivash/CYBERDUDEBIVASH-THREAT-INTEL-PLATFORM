@@ -554,7 +554,14 @@ async function main() {
     correlation = body.data || body;
     assert(hasNoCredentialEcho(text), 'credential reflected in correlation response');
     assert(Number(correlation?.match_count || 0) > 0, 'readiness-selected candidate unexpectedly produced zero correlation matches');
-    return `${iocType} ${canaryIoc} · matches=${correlation.match_count} · ${elapsedMs}ms`;
+
+    const correlationPlan = buildDependencyCandidates(correlation);
+    const correlatedReportIds = correlationPlan['siem-defender'] || [];
+    assert(correlatedReportIds.length > 0, 'readiness-selected candidate has no canonical correlated report id');
+    demoCandidate.reportId = correlatedReportIds[0];
+    demoCandidate.correlatedReportIds = correlatedReportIds;
+
+    return `${iocType} ${canaryIoc} · matches=${correlation.match_count} · report=${demoCandidate.reportId} · ${elapsedMs}ms`;
   });
 
   const specialistOutcomes = {
@@ -739,8 +746,9 @@ function finalize(candidate = null) {
   console.log('\nPRE-MISSION GO — 100% OF THE PRE-MISSION ACCEPTANCE MATRIX PASSED.');
   if (candidate) {
     console.log(`DEMO IOC CANDIDATE  ${candidate.observable}`);
-    console.log(`DEMO IOC TYPE       ${inferIocType(candidate.observable)}`);
-    console.log(`DEMO REPORT         ${candidate.reportId}`);
+    console.log(`DEMO IOC TYPE       ${candidate.type || inferIocType(candidate.observable)}`);
+    console.log(`DEMO REPORT         ${candidate.reportId || 'UNRESOLVED'}`);
+    if (Array.isArray(candidate.correlatedReportIds) && candidate.correlatedReportIds.length > 1) console.log(`CORRELATED REPORTS  ${candidate.correlatedReportIds.join(', ')}`);
   }
   console.log('The next SWARM mission may be used as the filmed live customer demonstration. Post-mission certification remains mandatory.');
 }

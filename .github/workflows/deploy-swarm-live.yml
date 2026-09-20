@@ -49,6 +49,7 @@ on:
       - 'workers/swarm-live/src/**'
       - 'workers/swarm-live/wrangler.toml'
       - 'workers/swarm-live/package.json'
+      - 'workers/swarm-live/package-lock.json'
   workflow_dispatch:
 
 permissions:
@@ -80,6 +81,10 @@ jobs:
         with:
           node-version: '22'
 
+      - name: "Install locked worker dependencies"
+        working-directory: ${{ env.WORKER_DIR }}
+        run: npm ci --ignore-scripts
+
       - name: "Syntax check (npm run check)"
         working-directory: ${{ env.WORKER_DIR }}
         run: npm run check
@@ -88,11 +93,13 @@ jobs:
         working-directory: ${{ env.WORKER_DIR }}
         run: npm test
 
-      - name: "Install Wrangler (from this worker's own package.json)"
+      - name: "Wrangler production bundle dry-run (HARD GATE)"
         working-directory: ${{ env.WORKER_DIR }}
-        run: |
-          npm install
-          npx wrangler --version
+        run: npm run deploy:dry -- --config wrangler.toml
+
+      - name: "Wrangler version"
+        working-directory: ${{ env.WORKER_DIR }}
+        run: npx wrangler --version
 
       - name: "Deploy Worker to Cloudflare (with retry)"
         working-directory: ${{ env.WORKER_DIR }}
@@ -175,38 +182,70 @@ jobs:
           echo "FATAL: Both deploy attempts failed"
           exit 1
 
-      - name: "Post-deploy smoke test (version + agent count assertion)"
-        continue-on-error: true
+      - name: "Post-deploy certification (V4.47.0 + capabilities + UI)"
         run: |
-          echo "=== Swarm Live Post-Deploy Smoke Test ==="
-          echo "Waiting 15s for global Cloudflare propagation..."
-          sleep 15
+          set -euo pipefail
+          echo "=== Swarm Live Post-Deploy Certification ==="
 
-          HEALTH=$(curl -sf --max-time 15 "https://intel.cyberdudebivash.com/api/swarm/health" 2>/dev/null || echo '{}')
-          echo "Health response: ${HEALTH}"
-
-          python3 -c "
+          HEALTH=/tmp/swarm_health.json
+          OK=0
+          for attempt in 1 2 3 4 5 6; do
+            sleep 10
+            if curl -sf --max-time 15 "https://intel.cyberdudebivash.com/api/swarm/health" -o "$HEALTH"; then
+              if python3 - "$HEALTH" <<'PY'
           import json, sys
-          raw = '''${HEALTH}'''
-          try:
-              d = json.loads(raw)
-          except Exception:
-              print('NOTE: Could not parse health response -- worker still propagating')
-              sys.exit(0)
-          print(f\"Service : {d.get('service', 'unknown')}\")
-          print(f\"Version : {d.get('version', 'unknown')}\")
-          print(f\"Agents  : {d.get('agents', 'unknown')}\")
-          if d.get('status') == 'ok':
-              print('OK: swarm-live health check passed')
-          else:
-              print('WARNING: unexpected health status -- review manually')
-          "
+          path = sys.argv[1]
+          with open(path, encoding='utf-8') as f:
+              d = json.load(f)
+          
+          required_caps = [
+              'mission_readiness',
+              'mission_quality',
+              'evidence_graph',
+              'adaptive_specialists',
+              'agent_semantics_v2',
+              'credential_scoped_metrics',
+              'mission_profiles',
+          ]
+          assert d.get('status') == 'ok', d
+          assert d.get('service') == 'sentinel-apex-swarm-live', d
+          assert d.get('version') == '4.47.0', d
+          assert d.get('protocol') == 'cdb.swarm.v1', d
+          assert d.get('agents') == 8, d
+          assert d.get('persistence', {}).get('kv_bound') is True, d
+          assert d.get('production', {}).get('canonical_gateway_bound') is True, d
+          for cap in required_caps:
+              assert d.get('capabilities', {}).get(cap) is True, f'missing capability: {cap}'
+          profiles = {p.get('id') for p in d.get('mission_profiles', [])}
+          assert 'AUTO' in profiles and 'FULL_CTI_FABRIC' in profiles, profiles
+          print('PASS: exact V4.47.0 runtime contract is live')
+          PY
+                        then
+                OK=1
+                break
+              fi
+            fi
+            echo "Runtime contract not converged yet (attempt ${attempt}/6)"
+          done
 
-          echo ""
-          echo "--- /swarm UI reachability check ---"
-          UI_STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 15 "https://intel.cyberdudebivash.com/swarm/" 2>/dev/null || echo "000")
-          echo "/swarm/ HTTP status: ${UI_STATUS}"
-          [ "$UI_STATUS" = "200" ] && echo "OK: /swarm UI reachable" || echo "NOTE: /swarm UI not yet 200 -- may still be propagating"
+          [ "$OK" = "1" ] || {
+            echo "FATAL: production did not converge to the V4.47.0 runtime contract"
+            cat "$HEALTH" 2>/dev/null || true
+            exit 1
+          }
+
+          echo "--- /swarm UI contract ---"
+          UI=/tmp/swarm_ui.html
+          curl -sf --max-time 15 "https://intel.cyberdudebivash.com/swarm/" -o "$UI"
+          grep -q 'V4.47.0 PRODUCTION' "$UI"
+          grep -q 'id="readinessPanel"' "$UI"
+          grep -q 'id="profile"' "$UI"
+          grep -q 'id="viewMode"' "$UI"
+          grep -q 'id="missionQuality"' "$UI"
+          grep -q 'id="evidenceGraphState"' "$UI"
+          grep -q 'id="loadMetrics"' "$UI"
+
+          echo "POST-DEPLOY CERTIFICATION: PASS"
 
   # Same pattern as deploy-worker.yml's notify-on-failure: a separate job so
   # this can never perturb the deploy job it reports on, reusing the exact
