@@ -1076,6 +1076,9 @@ test('end-to-end mission: real correlate + all 6 specialists genuinely backend-e
       if (u.pathname === '/api/search') return jsonResponse({ error: 'search_failed' }, 500);
       if (u.pathname === '/api/intel/ir-guidance') return jsonResponse({ status: 'ok', data: { report_id: 'intel--abc123', applicable: true, checklist: { containment: ['isolate host'] } } });
       if (u.pathname === '/api/intel/exposure') return jsonResponse({ status: 'ok', data: { report_id: 'intel--abc123', exposed_count: 3, total_dimensions: 8, dimensions: [] } });
+      if (u.pathname === '/api/v1/swarm-synthesis/health') {
+        return jsonResponse({ status: 'ok', ready: true, llm_enabled: true, tier_llm: true, providers: { deepseek: true } });
+      }
       if (u.pathname === '/api/v1/swarm-synthesis') {
         return jsonResponse({
           status: 'success', llm_enhanced: true,
@@ -1624,8 +1627,21 @@ test('end-to-end: a completed mission is immediately visible in its own caller\'
           'x-cdb-mesh-correlation': init.headers.get('x-request-id'),
         });
       }
+      if (u.pathname === '/api/v1/swarm-synthesis/health') {
+        return jsonResponse({ status: 'ok', ready: false, llm_enabled: false, tier_llm: true, providers: {} });
+      }
       if (u.pathname === '/api/v1/swarm-synthesis') return jsonResponse({ status: 'success', llm_enhanced: false, narrative: null });
-      return jsonResponse({ status: 'ok', data: {} });
+      if (u.pathname === '/api/cves') return jsonResponse({ status: 'ok', data: { cves: [{ cve_id: 'CVE-2026-11111' }] } });
+      if (u.pathname === '/api/actors') return jsonResponse({ status: 'ok', data: { actors: [{ actor_tag: 'APT42' }] } });
+      if (u.pathname === '/api/search') return jsonResponse({ status: 'ok', data: { results: [{ technique_id: 'T1059' }] } });
+      if (u.pathname === '/api/v1/detections') return jsonResponse({
+        schema_version: '1.0.0',
+        data: [{ artifact_type: 'sigma', id: 'sigma-history' }],
+        pagination: { total: 1, limit: 5, offset: 0 },
+      });
+      if (u.pathname === '/api/intel/ir-guidance') return jsonResponse({ status: 'ok', data: { report_id: 'intel--abc123', applicable: true } });
+      if (u.pathname === '/api/intel/exposure') return jsonResponse({ status: 'ok', data: { report_id: 'intel--abc123', dimensions: [{ name: 'internet' }] } });
+      throw new Error('unexpected history/export route: ' + u.pathname);
     },
     async () => {
       let waited;
