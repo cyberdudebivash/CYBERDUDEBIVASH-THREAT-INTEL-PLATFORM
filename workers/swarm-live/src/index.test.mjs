@@ -142,11 +142,11 @@ test('canonicalGatewayFetch falls back to public fetch(url, init) when no servic
   );
 });
 
-test('customer console exposes the production V4.46.6 control-plane capabilities', () => {
+test('customer console exposes the production V4.47.0 control-plane capabilities', () => {
   const html = __test.ui();
   for (const marker of [
     'SUPER AGENT SWARM',
-    'V4.46.6 PRODUCTION',
+    'V4.47.0 PRODUCTION',
     '8-Agent Operations Grid',
     'Private APEX Mesh',
     'Durable Evidence',
@@ -320,7 +320,7 @@ test('browser controller executes to interactive-ready and attaches live mission
             status: 'ok',
             service: 'sentinel-apex-swarm-live',
             protocol: 'cdb.swarm.v1',
-            version: '4.46.6',
+            version: '4.47.0',
             agents: 8,
             persistence: { kv_bound: true },
             production: { canonical_gateway_bound: true },
@@ -346,7 +346,7 @@ test('browser controller executes to interactive-ready and attaches live mission
   assert.equal(typeof getElement('loadHistory').onclick, 'function');
   assert.equal(typeof getElement('historyBody').onclick, 'function');
   assert.equal(getElement('runtimeState').textContent, 'LIVE');
-  assert.equal(getElement('runtimeKpi').textContent, 'LIVE · 4.46.6');
+  assert.equal(getElement('runtimeKpi').textContent, 'LIVE · 4.47.0');
   assert.equal(getElement('gatewayState').textContent, 'BOUND');
   assert.equal(getElement('persistenceState').textContent, 'READY');
   assert.equal(getElement('evidenceStore').textContent, 'DURABLE KV READY');
@@ -372,7 +372,7 @@ test('cinematic customer console exposes premium visual surfaces without fake mi
     'Cinematic launch visualization is decorative only',
     'SOC / CTI',
     'CYBER DEFENSE',
-    'V4.46.6 PRODUCTION',
+    'V4.47.0 PRODUCTION',
   ]) {
     assert.ok(html.includes(marker), 'missing cinematic UI marker: ' + marker);
   }
@@ -1989,7 +1989,7 @@ test('customer console locks mission launch behind canonical entitlement preflig
   assert.ok(html.includes('id="preflightState">ACCESS NOT VERIFIED</'));
   assert.ok(html.includes('id="preflightDetail"'));
   assert.ok(html.includes('id="run" disabled'));
-  assert.ok(html.includes('V4.46.6 PRODUCTION'));
+  assert.ok(html.includes('V4.47.0 PRODUCTION'));
 
   assert.ok(js.includes("fetch('/api/swarm/preflight'"));
   assert.ok(js.includes("keyInput.onpaste"));
@@ -2006,11 +2006,11 @@ test('customer console locks mission launch behind canonical entitlement preflig
 test('SWARM health truthfully advertises entitlement preflight capability', async () => {
   const response = await worker.fetch(
     new Request('https://intel.cyberdudebivash.com/api/swarm/health'),
-    { SWARM_VERSION: '4.46.6', CANONICAL_GATEWAY: { fetch() {} }, SWARM_MISSIONS_KV: {} },
+    { SWARM_VERSION: '4.47.0', CANONICAL_GATEWAY: { fetch() {} }, SWARM_MISSIONS_KV: {} },
     { waitUntil() {} },
   );
   assert.equal(response.status, 200);
   const body = await response.json();
-  assert.equal(body.version, '4.46.6');
+  assert.equal(body.version, '4.47.0');
   assert.equal(body.capabilities.entitlement_preflight, true);
 });
