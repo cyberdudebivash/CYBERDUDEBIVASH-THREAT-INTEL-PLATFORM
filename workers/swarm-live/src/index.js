@@ -6,6 +6,10 @@ import {
 } from './mission-readiness.js';
 import { adaptSpecialistResponse } from './specialist-contract.js';
 import { buildEvidenceGraph } from './evidence-graph.js';
+import {
+  listMissionProfiles,
+  resolveMissionProfile,
+} from './mission-profiles.js';
 
 const PROTOCOL = 'cdb.swarm.v1';
 const PRODUCT = 'sentinel-apex';
@@ -305,6 +309,17 @@ async function handleMissionReadiness(request, env) {
   if (body.ioc_type !== undefined && typeof body.ioc_type !== 'string') {
     return json({ error: 'invalid_ioc_type' }, 400);
   }
+  if (body.mission_profile !== undefined && typeof body.mission_profile !== 'string') {
+    return json({ error: 'invalid_mission_profile' }, 400);
+  }
+  const missionProfile = resolveMissionProfile(body.mission_profile || 'AUTO');
+  if (!missionProfile) {
+    return json({
+      error: 'invalid_mission_profile',
+      allowed: listMissionProfiles().map((p) => p.id),
+      mission_dispatch: false,
+    }, 400);
+  }
 
   const iocType = String(body.ioc_type || 'auto').trim().slice(0, 32) || 'auto';
   const normalized = normalizeIocValue(body.ioc_value, iocType);
@@ -388,6 +403,7 @@ async function handleMissionReadiness(request, env) {
     quotaRemaining,
     llmReady: synthesisReadiness.ready,
     llmProviders: synthesisReadiness.providers,
+    expectedAgentIds: missionProfile.agents,
   });
 
   return json({
@@ -395,6 +411,11 @@ async function handleMissionReadiness(request, env) {
     mission_dispatch: false,
     canonical_request_consumed: true,
     note: 'Readiness performs one canonical correlation request but does not dispatch /api/swarm/run.',
+    mission_profile: {
+      id: missionProfile.id,
+      label: missionProfile.label,
+      agents: missionProfile.agents,
+    },
     ioc: {
       value: normalized.value,
       type: iocType,
@@ -409,6 +430,7 @@ async function handleMissionReadiness(request, env) {
     synthesis_readiness: synthesisReadiness,
     readiness,
     demo_recommended:
+      ['AUTO', 'FULL_CTI_FABRIC'].includes(missionProfile.id) &&
       readiness.mission_quality === 'FULL_FABRIC' &&
       synthesisReadiness.ready === true,
     checked_at: new Date().toISOString(),
@@ -823,7 +845,10 @@ async function executeMission({ writer, request, env, body, correlationId, missi
   const partition = await credentialPartition(auth);
   const missionStartedMs = Date.now();
   const startedAt = new Date().toISOString();
-  const queued = AGENTS.filter((a) => a.id !== 'risk-synthesizer' && a.id !== 'ioc-hunter');
+  const missionProfile = resolveMissionProfile(body.mission_profile || 'AUTO') || resolveMissionProfile('AUTO');
+  const selectedAgentIds = new Set(missionProfile.agents);
+  const queued = AGENTS.filter((a) => selectedAgentIds.has(a.id) && a.id !== 'risk-synthesizer' && a.id !== 'ioc-hunter');
+  const excluded = AGENTS.filter((a) => !selectedAgentIds.has(a.id));
   const iocHunter = AGENTS.find((a) => a.id === 'ioc-hunter');
   const synthesizer = AGENTS.find((a) => a.id === 'risk-synthesizer');
   let readiness = null;
@@ -836,7 +861,7 @@ async function executeMission({ writer, request, env, body, correlationId, missi
       product: PRODUCT,
       protocol: PROTOCOL,
       status,
-      mission_profile: body.mission_profile || 'AUTO',
+      mission_profile: missionProfile.id,
       started_at: startedAt,
       finished_at: new Date().toISOString(),
       duration_ms: Date.now() - missionStartedMs,
@@ -855,8 +880,10 @@ async function executeMission({ writer, request, env, body, correlationId, missi
   try {
     await emit(writer, encoder, makeEvent('QUEUED', null, {
       event_type: 'mission.accepted',
-      agent_count: AGENTS.length,
-      mission_profile: body.mission_profile || 'AUTO',
+      agent_count: missionProfile.agents.length,
+      fleet_agent_count: AGENTS.length,
+      mission_profile: missionProfile.id,
+      mission_profile_label: missionProfile.label,
       input: {
         ioc_value: body.ioc_value,
         ioc_type: body.ioc_type || 'auto',
@@ -866,7 +893,23 @@ async function executeMission({ writer, request, env, body, correlationId, missi
     }));
 
     for (const agent of AGENTS) {
-      await emit(writer, encoder, makeEvent('QUEUED', agent, { event_type: 'agent.queued' }));
+      if (selectedAgentIds.has(agent.id)) {
+        await emit(writer, encoder, makeEvent('QUEUED', agent, {
+          event_type: 'agent.queued',
+          mission_profile: missionProfile.id,
+        }));
+      } else {
+        await emit(writer, encoder, makeEvent(AGENT_STATES.NOT_APPLICABLE, agent, {
+          event_type: 'agent.not_applicable',
+          basis: 'mission_profile',
+          reason: 'mission_profile_excluded',
+          mission_profile: missionProfile.id,
+          result: {
+            reason: 'mission_profile_excluded',
+            note: `Agent is outside the selected ${missionProfile.label} mission profile.`,
+          },
+        }));
+      }
     }
 
     await emit(writer, encoder, makeEvent('RUNNING', iocHunter, {
@@ -924,6 +967,7 @@ async function executeMission({ writer, request, env, body, correlationId, missi
       entitlementEligible: true,
       llmReady: synthesisReadiness.ready,
       llmProviders: synthesisReadiness.providers,
+      expectedAgentIds: missionProfile.agents,
     });
 
     await emit(writer, encoder, makeEvent('ADMITTED', null, {
@@ -955,7 +999,20 @@ async function executeMission({ writer, request, env, body, correlationId, missi
       mesh_execution_id: meshExecutionId,
     }));
 
-    const outcomes = { 'ioc-hunter': iocHunterOutcome };
+    const outcomes = {
+      'ioc-hunter': iocHunterOutcome,
+      ...Object.fromEntries(excluded.map((agent) => [agent.id, {
+        basis: 'mission_profile',
+        state: AGENT_STATES.NOT_APPLICABLE,
+        result: {
+          reason: 'mission_profile_excluded',
+          note: `Agent is outside the selected ${missionProfile.label} mission profile.`,
+        },
+        evidence_count: 0,
+        substantive: false,
+        duration_ms: 0,
+      }])),
+    };
     const dependencyPlan = buildDependencyCandidates(canonical);
 
     const specialistTasks = queued.map(async (agent) => {
@@ -1051,7 +1108,7 @@ async function executeMission({ writer, request, env, body, correlationId, missi
       substantive: true,
     };
 
-    const missionQuality = classifyMissionCompletion(outcomes, fused);
+    const missionQuality = classifyMissionCompletion(outcomes, fused, missionProfile.agents);
     fused.mission_quality = missionQuality;
     const evidenceGraph = buildEvidenceGraph({ correlation: canonical, outcomes });
     const metrics = summarizeMissionOutcomes(outcomes);
@@ -1132,6 +1189,15 @@ async function handleRun(request, env, ctx) {
     return json({ error: 'ioc_value_required' }, 400);
   }
   if (body.ioc_type !== undefined && typeof body.ioc_type !== 'string') return json({ error: 'invalid_ioc_type' }, 400);
+  if (body.mission_profile !== undefined && typeof body.mission_profile !== 'string') return json({ error: 'invalid_mission_profile' }, 400);
+  const missionProfile = resolveMissionProfile(body.mission_profile || 'AUTO');
+  if (!missionProfile) {
+    return json({
+      error: 'invalid_mission_profile',
+      allowed: listMissionProfiles().map((p) => p.id),
+    }, 400);
+  }
+  body.mission_profile = missionProfile.id;
 
   body.ioc_type = String(body.ioc_type || 'auto').trim().slice(0, 32) || 'auto';
   const normalizedIoc = normalizeIocValue(body.ioc_value, body.ioc_type);
@@ -2304,7 +2370,9 @@ export default {
           adaptive_specialists: true,
           agent_semantics_v2: true,
           credential_scoped_metrics: true,
+          mission_profiles: true,
         },
+        mission_profiles: listMissionProfiles(),
       });
     }
     if (request.method === 'GET' && url.pathname === '/api/swarm/preflight') {
@@ -2359,6 +2427,8 @@ export const __test = Object.freeze({
   getMissionRecord,
   handleMissionMetrics,
   percentile,
+  listMissionProfiles,
+  resolveMissionProfile,
   ui,
   swarmAppJs,
   missionReportMarkdown,
