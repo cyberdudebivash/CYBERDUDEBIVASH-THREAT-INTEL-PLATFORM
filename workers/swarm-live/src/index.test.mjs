@@ -383,6 +383,32 @@ test('appendEvent keeps cinematic event FX inside the event handler', () => {
   assert.ok(js.includes('window.__CDB_SWARM_INTERACTIVE_READY__=true'));
 });
 
+test('Executive View is truth-driven and renders terminal decision evidence without timers', () => {
+  const html = __test.ui();
+  const js = __test.swarmAppJs();
+
+  for (const marker of [
+    'id="executiveSummary"',
+    'id="execVerdict"',
+    'id="execRisk"',
+    'id="execMatches"',
+    'id="execAiMode"',
+    'id="execRecommendation"',
+    'body[data-view=executive] .executive-summary',
+    'body[data-view=executive] #final',
+  ]) {
+    assert.ok(html.includes(marker), 'missing executive summary surface: ' + marker);
+  }
+
+  assert.ok(js.includes('function renderExecutiveSummary(result)'));
+  assert.ok(js.includes("renderExecutiveSummary(ev.result)"));
+  assert.ok(js.includes("ev.event_type!=='agent.started'"));
+  assert.ok(js.includes("document.body.dataset.view==='executive'") || js.includes("document.body.dataset.view!=='executive'"));
+  assert.ok(js.includes('scrollIntoView'));
+  assert.equal(js.includes('setInterval(renderExecutiveSummary'), false);
+  assert.equal(js.includes('setTimeout(renderExecutiveSummary'), false);
+});
+
 test('cinematic customer console exposes premium visual surfaces without fake mission telemetry', () => {
   const html = __test.ui();
   for (const marker of [
