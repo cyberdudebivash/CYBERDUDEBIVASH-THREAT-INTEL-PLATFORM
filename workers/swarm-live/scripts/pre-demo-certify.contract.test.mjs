@@ -65,3 +65,11 @@ test('package scripts expose mission-safe public and full pre-demo gates', () =>
   assert.ok(pkg.scripts.test.includes('scripts/post-demo-certify.contract.test.mjs'));
   assert.ok(pkg.scripts.check.includes('node --check scripts/pre-demo-certify.mjs'));
 });
+
+
+test('paid IOC export is the canonical candidate source for pre-demo readiness discovery', () => {
+  assert.ok(source.includes("'/api/export/csv?limit=") || source.includes('`/api/export/csv?limit='));
+  assert.ok(source.includes("accept: 'text/csv'"));
+  assert.ok(source.includes('buildCandidatesFromIocCsv'));
+  assert.ok(source.includes('authenticated IOC export contains no usable certification candidates'));
+});
