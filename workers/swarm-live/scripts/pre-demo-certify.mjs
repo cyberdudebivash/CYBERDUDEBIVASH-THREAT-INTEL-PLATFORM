@@ -669,6 +669,12 @@ function finalize(candidate = null) {
     return;
   }
 
+  if (publicOnly) {
+    console.log('\nPUBLIC-ONLY PASS — public production surfaces are certified.');
+    console.log('HOLD — the live SWARM mission is NOT authorized until physical mobile sign-off and full paid pre-demo certification also pass.');
+    return;
+  }
+
   console.log('\nGO — 100% OF THE DEFINED PRE-DEMO ACCEPTANCE MATRIX PASSED.');
   if (candidate) {
     console.log(`DEMO IOC CANDIDATE  ${candidate.observable}`);
