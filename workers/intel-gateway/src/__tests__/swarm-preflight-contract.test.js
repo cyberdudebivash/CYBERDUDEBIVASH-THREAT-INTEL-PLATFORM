@@ -46,7 +46,11 @@ test('preflight uses a read-only quota snapshot and never reflects credential ma
   const responseBody = fn.slice(bodyStart, statusStart);
 
   assert.ok(!responseBody.includes('auth.key'), 'preflight response must not serialize the raw credential');
-  assert.ok(!responseBody.includes('auth.sub'), 'preflight response must not serialize customer identity');
+  assert.doesNotMatch(
+    responseBody,
+    /\bauth\.sub\b(?!scription_status)/,
+    'preflight response must not serialize customer identity',
+  );
 });
 
 test('mesh admission and preflight share one paid-tier/capability policy', () => {
