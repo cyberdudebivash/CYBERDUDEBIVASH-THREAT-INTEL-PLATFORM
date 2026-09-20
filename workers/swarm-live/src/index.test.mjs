@@ -541,6 +541,35 @@ test('runBackendSpecialist: a real 2xx response is reported as genuine backend e
   );
 });
 
+test('runBackendSpecialist: canonical detection-registry 200 schema completes SIEM Defender', async () => {
+  await withStubFetch(
+    async (url) => {
+      assert.ok(String(url).startsWith('https://x.test/api/v1/detections'));
+      assert.ok(String(url).includes('intel_id=intel--abc123'));
+      return jsonResponse({
+        schema_version: '1.0.0',
+        engine_version: 'phase4.1',
+        generated_at: new Date().toISOString(),
+        count: 1,
+        data: [{ intel_id: 'intel--abc123', artifact_type: 'sigma', status: 'DERIVED' }],
+        pagination: { limit: 5, next_cursor: null },
+      });
+    },
+    async () => {
+      const outcome = await __test.runBackendSpecialist(
+        'https://x.test',
+        new Headers(),
+        CORRELATION_ID,
+        CORRELATION,
+        __test.SPECIALIST_ROUTES['siem-defender']
+      );
+      assert.equal(outcome.basis, 'backend_execution');
+      assert.equal(outcome.state, 'COMPLETED');
+      assert.equal(outcome.result[0].artifact_type, 'sigma');
+    }
+  );
+});
+
 test('SPECIALIST_ROUTES: ir-playbook and exposure-analyst resolve to the new report_id-keyed routes', () => {
   assert.deepEqual(
     { path: __test.SPECIALIST_ROUTES['ir-playbook'].path, paramKey: __test.SPECIALIST_ROUTES['ir-playbook'].paramKey },
