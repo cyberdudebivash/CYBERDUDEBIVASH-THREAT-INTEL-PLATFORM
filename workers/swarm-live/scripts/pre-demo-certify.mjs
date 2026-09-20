@@ -155,7 +155,7 @@ function firstMatchingString(value, regex) {
 }
 
 function pickReportId(item) {
-  for (const key of ['report_id', 'intel_id', 'id', 'uid']) {
+  for (const key of ['report_id', 'intel_id', 'stix_id', 'id', 'uid']) {
     const value = item?.[key];
     if (typeof value === 'string' && value.trim()) return value.trim();
   }
@@ -200,6 +200,31 @@ function pickObservable(item) {
     }
   }
   return flattenStrings(item).find(isObservable) || null;
+}
+
+function hasUsableDetectionArtifact(item) {
+  const sigma = typeof item?.sigma_rule === 'string' ? item.sigma_rule.trim() : '';
+  const kql = typeof item?.kql_query === 'string' ? item.kql_query.trim() : '';
+  const suricata = typeof item?.suricata_rule === 'string' ? item.suricata_rule.trim() : '';
+  const yara = typeof item?.yara_rule === 'string' ? item.yara_rule.trim() : '';
+
+  if (sigma.length >= 20 && /\bdetection:/.test(sigma) && /\bcondition:/.test(sigma)) return true;
+  if (kql.length >= 20) return true;
+  if (yara.length >= 20) return true;
+  if (suricata.length >= 20 && (/^(alert|drop|reject|pass)\s/i.test(suricata) || /\bsid:\s*\d+/.test(suricata))) return true;
+  return false;
+}
+
+function richDemoCandidate(item) {
+  const reportId = pickReportId(item);
+  const observable = pickObservable(item);
+  const cve = typeof item?.cve_id === 'string' && item.cve_id.trim() ? item.cve_id.trim() : null;
+  const actor = typeof item?.actor_tag === 'string' && item.actor_tag.trim() && item.actor_tag !== 'UNATTRIBUTED'
+    ? item.actor_tag.trim()
+    : null;
+  const technique = Array.isArray(item?.ttps) && item.ttps.length ? pickTechnique(item.ttps) : null;
+  if (!reportId || !observable || !cve || !actor || !technique || !hasUsableDetectionArtifact(item)) return null;
+  return { item, reportId, observable, cve, actor, technique };
 }
 
 function inferIocType(value) {
@@ -382,13 +407,18 @@ async function main() {
   });
 
   let feedItem = null;
+  let demoCandidate = null;
   let feedEvidence = { reportId: null, cve: null, actor: null, technique: null, observable: null };
   await check('canonical intel feed/source data', async () => {
     const { response, body, elapsedMs } = await getJson('/api/v1/intel/latest.json', { headers: paidHeaders() }, BACKEND_TIMEOUT_MS);
     assert(response.status === 200, `HTTP ${response.status}`);
     assert(Array.isArray(body?.items) && body.items.length > 0, 'latest intel items missing/empty');
-    feedItem = body.items.find((item) => pickReportId(item) && pickObservable(item)) || body.items[0];
-    assert(feedItem && typeof feedItem === 'object', 'no usable feed item');
+    demoCandidate = body.items.map(richDemoCandidate).find(Boolean) || null;
+    assert(
+      demoCandidate,
+      'live feed has no single customer-demo candidate carrying IOC + cve_id + attributed actor + ATT&CK technique + structurally valid detection artifact'
+    );
+    feedItem = demoCandidate.item;
 
     feedEvidence = {
       reportId: body.items.map(pickReportId).find(Boolean) || null,
@@ -399,13 +429,13 @@ async function main() {
     };
     assert(feedEvidence.reportId, 'live feed contains no report identifier');
     assert(feedEvidence.observable, 'live feed contains no usable IOC/observable for canary correlation');
-    return `${body.items.length} live intel item(s) · source evidence prepared · ${elapsedMs}ms`;
+    return `${body.items.length} live intel item(s) · rich demo candidate=${demoCandidate.reportId} · ${elapsedMs}ms`;
   });
 
   let correlation = null;
   let canaryIoc = null;
   await check('canonical IOC correlation backend', async () => {
-    canaryIoc = String(process.env.PREDEMO_IOC || feedEvidence.observable || pickObservable(feedItem) || '8.8.8.8').trim();
+    canaryIoc = String(process.env.PREDEMO_IOC || demoCandidate.observable).trim();
     const iocType = String(process.env.PREDEMO_IOC_TYPE || inferIocType(canaryIoc));
     const { response, body, text, elapsedMs } = await getJson('/api/intel/correlate', {
       method: 'POST',
@@ -417,7 +447,14 @@ async function main() {
     assert(body.status === 'ok' || body.status === 'success', `correlation status=${body.status}`);
     correlation = body.data || body;
     assert(hasNoCredentialEcho(text), 'credential reflected in correlation response');
-    return `${iocType} ${canaryIoc} · ${elapsedMs}ms`;
+    const correlatedIds = (Array.isArray(correlation?.matches) ? correlation.matches : [])
+      .map((m) => m?.report_id)
+      .filter(Boolean);
+    assert(
+      correlatedIds.includes(demoCandidate.reportId),
+      `rich demo IOC did not correlate back to expected report ${demoCandidate.reportId}`
+    );
+    return `${iocType} ${canaryIoc} · report=${demoCandidate.reportId} · ${elapsedMs}ms`;
   });
 
   const specialistOutcomes = {
@@ -447,22 +484,22 @@ async function main() {
       {
         agentId: 'cve-intelligence',
         path: `/api/cves?cve_id=${encodeURIComponent(cve)}&limit=5`,
-        validate: (body) => body?.status === 'ok' && Array.isArray(body?.data?.cves),
+        validate: (body) => body?.status === 'ok' && Array.isArray(body?.data?.cves) && body.data.cves.length > 0,
       },
       {
         agentId: 'threat-hunter',
         path: `/api/actors?actor_id=${encodeURIComponent(actor)}&limit=5`,
-        validate: (body) => body?.status === 'ok' && Array.isArray(body?.data?.actors),
+        validate: (body) => body?.status === 'ok' && Array.isArray(body?.data?.actors) && body.data.actors.length > 0,
       },
       {
         agentId: 'attack-mapper',
         path: `/api/search?q=${encodeURIComponent(technique)}&limit=5`,
-        validate: (body) => body?.status === 'ok' && Array.isArray(body?.data?.results),
+        validate: (body) => body?.status === 'ok' && Array.isArray(body?.data?.results) && body.data.results.length > 0,
       },
       {
         agentId: 'siem-defender',
         path: `/api/v1/detections?intel_id=${encodeURIComponent(reportId)}&limit=5`,
-        validate: (body) => typeof body?.schema_version === 'string' && Array.isArray(body?.data) && body?.pagination,
+        validate: (body) => typeof body?.schema_version === 'string' && Array.isArray(body?.data) && body.data.length > 0 && body?.pagination,
       },
       {
         agentId: 'ir-playbook',
@@ -602,6 +639,11 @@ function finalize() {
   }
 
   console.log('\nGO — 100% OF THE DEFINED PRE-DEMO ACCEPTANCE MATRIX PASSED.');
+  if (typeof demoCandidate !== 'undefined' && demoCandidate) {
+    console.log(`DEMO IOC CANDIDATE  ${demoCandidate.observable}`);
+    console.log(`DEMO IOC TYPE       ${inferIocType(demoCandidate.observable)}`);
+    console.log(`DEMO REPORT         ${demoCandidate.reportId}`);
+  }
   console.log('The next SWARM mission may be used as the filmed live customer demonstration.');
 }
 
