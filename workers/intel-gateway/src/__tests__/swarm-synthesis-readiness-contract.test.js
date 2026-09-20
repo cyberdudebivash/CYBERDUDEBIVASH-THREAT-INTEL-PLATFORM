@@ -53,3 +53,47 @@ test("current DeepSeek production model identifiers are used by callLLM", () => 
 
   assert.ok(fn.includes("llm_provider_cascade_exhausted"));
 });
+
+test("non-reasoning swarm synthesis explicitly disables DeepSeek thinking", () => {
+  const start = source.indexOf("async function callLLM");
+  const end = source.indexOf("async function handleCopilot", start);
+
+  assert.ok(start > 0);
+  assert.ok(end > start);
+
+  const fn = source.slice(start, end);
+
+  assert.ok(fn.includes('"deepseek-flash"'));
+  assert.ok(fn.includes('"deepseek-v4-pro"'));
+
+  assert.ok(
+    fn.includes('type: useR1 ? "enabled" : "disabled"')
+  );
+
+  assert.ok(
+    fn.includes('reasoning_effort: useR1 ? "high" : "none"')
+  );
+
+  assert.ok(fn.includes('"openai/gpt-oss-120b"'));
+  assert.ok(fn.includes('"deepseek/deepseek-v4.1-flash"'));
+  assert.ok(fn.includes('"deepseek/deepseek-v4-pro-0813"'));
+
+  assert.ok(fn.includes('"llm_provider_failure"'));
+  assert.ok(fn.includes('"llm_provider_success"'));
+
+  // Diagnostic logs must never contain secret values or prompt bodies.
+  assert.equal(
+    fn.includes("DEEPSEEK_API_KEY,"),
+    false
+  );
+
+  assert.equal(
+    fn.includes("GROQ_API_KEY,"),
+    false
+  );
+
+  assert.equal(
+    fn.includes("OPENROUTER_API_KEY,"),
+    false
+  );
+});
