@@ -182,9 +182,13 @@ export function buildMissionReadiness(
           providers: [...llmProviders],
         };
 
+  const normalizedQuota =
+    quotaRemaining === null || quotaRemaining === undefined || quotaRemaining === ''
+      ? null
+      : Number(quotaRemaining);
   const blocked =
     entitlementEligible !== true ||
-    (Number.isFinite(Number(quotaRemaining)) && Number(quotaRemaining) <= 0);
+    (Number.isFinite(normalizedQuota) && normalizedQuota <= 0);
 
   const specialistIds = [
     'cve-intelligence',
@@ -228,7 +232,7 @@ export function buildMissionReadiness(
     specialist_ready: specialistReady,
     specialist_total: expectedSpecialists.length,
     entitlement_eligible: entitlementEligible === true,
-    quota_remaining: Number.isFinite(Number(quotaRemaining)) ? Number(quotaRemaining) : null,
+    quota_remaining: Number.isFinite(normalizedQuota) ? normalizedQuota : null,
     llm_ready: llmReady,
     candidates,
     agents: Object.freeze(agents),
