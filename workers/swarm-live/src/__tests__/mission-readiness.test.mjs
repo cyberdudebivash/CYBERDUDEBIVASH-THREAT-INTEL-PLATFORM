@@ -113,6 +113,7 @@ test('specialist adapters normalize heterogeneous gateway response envelopes', (
   assert.equal(cve.success, true);
   assert.equal(cve.substantive, true);
   assert.equal(cve.count, 1);
+  assert.equal(cve.data.cves[0].cve_id, 'CVE-2026-1');
 
   const detection = adaptSpecialistResponse('siem-defender', {
     schema_version: '1.0.0',
