@@ -319,8 +319,28 @@ async function runBackendSpecialist(canonicalBase, auth, correlationId, correlat
   let body = null;
   try { body = await resp.json(); } catch { /* handled by the ok-check below */ }
 
-  if (resp.ok && body && body.status === 'ok') {
-    return { basis: 'backend_execution', state: 'COMPLETED', result: body.data, queried: { [route.paramKey]: value }, duration_ms: Date.now() - t0 };
+  // Specialist success contracts are not identical across the canonical
+  // gateway. Most extension routes return { status: "ok", data }, while
+  // /api/v1/detections is the canonical detection-registry contract and
+  // returns { schema_version, engine_version, count, data, pagination }
+  // without a status field. Treat that documented 200 schema as genuine
+  // backend success instead of falsely marking SIEM Defender FAILED.
+  const detectionRegistrySuccess =
+    route.path === '/api/v1/detections' &&
+    body &&
+    typeof body.schema_version === 'string' &&
+    Array.isArray(body.data) &&
+    body.pagination &&
+    typeof body.pagination === 'object';
+
+  if (resp.ok && body && (body.status === 'ok' || detectionRegistrySuccess)) {
+    return {
+      basis: 'backend_execution',
+      state: 'COMPLETED',
+      result: body.data ?? body,
+      queried: { [route.paramKey]: value },
+      duration_ms: Date.now() - t0,
+    };
   }
 
   const state = resp.status === 401 || resp.status === 403 ? 'DENIED' : 'FAILED';
