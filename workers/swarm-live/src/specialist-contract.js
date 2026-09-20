@@ -23,19 +23,19 @@ export function adaptSpecialistResponse(agentId, body) {
     case 'cve-intelligence':
       schema = 'cve-extension-v1';
       success = body.status === 'ok' && Array.isArray(body?.data?.cves);
-      data = success ? body.data.cves : null;
+      data = success ? body.data : null;
       break;
 
     case 'threat-hunter':
       schema = 'actor-extension-v1';
       success = body.status === 'ok' && Array.isArray(body?.data?.actors);
-      data = success ? body.data.actors : null;
+      data = success ? body.data : null;
       break;
 
     case 'attack-mapper':
       schema = 'search-extension-v1';
       success = body.status === 'ok' && Array.isArray(body?.data?.results);
-      data = success ? body.data.results : null;
+      data = success ? body.data : null;
       break;
 
     case 'siem-defender':
@@ -74,18 +74,27 @@ export function adaptSpecialistResponse(agentId, body) {
     count = data.length;
     substantive = data.length > 0;
   } else if (data && typeof data === 'object') {
-    count = 1;
-    // IR/exposure may legitimately contain an object whose useful arrays are
-    // empty; presence of the canonical report identity still makes the backend
-    // execution real/substantive evidence.
-    substantive = Boolean(
-      data.report_id ||
-      data.intel_id ||
-      Object.keys(data).some((key) => {
-        const value = data[key];
-        return Array.isArray(value) ? value.length > 0 : value != null && value !== '';
-      })
-    );
+    const nestedArrays = ['cves', 'actors', 'results']
+      .map((key) => Array.isArray(data[key]) ? data[key] : null)
+      .filter(Boolean);
+
+    if (nestedArrays.length) {
+      count = nestedArrays.reduce((sum, arr) => sum + arr.length, 0);
+      substantive = count > 0;
+    } else {
+      count = 1;
+      // IR/exposure may legitimately contain an object whose useful arrays are
+      // empty; presence of the canonical report identity still makes the backend
+      // execution real/substantive evidence.
+      substantive = Boolean(
+        data.report_id ||
+        data.intel_id ||
+        Object.keys(data).some((key) => {
+          const value = data[key];
+          return Array.isArray(value) ? value.length > 0 : value != null && value !== '';
+        })
+      );
+    }
   } else if (data != null) {
     count = 1;
     substantive = true;
