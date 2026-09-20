@@ -380,7 +380,7 @@ async function main() {
   if (publicOnly) {
     assert(missionDispatchCount === 0, 'mission dispatch guard was triggered');
     console.log('\nPUBLIC-ONLY CERTIFICATION COMPLETE');
-    finalize();
+    finalize(null);
     return;
   }
 
@@ -616,10 +616,10 @@ async function main() {
     return `${afterIds.length} mission(s) unchanged · /api/swarm/run calls=0`;
   });
 
-  finalize();
+  finalize(demoCandidate);
 }
 
-function finalize() {
+function finalize(candidate = null) {
   const failed = results.filter((r) => r.status === 'FAIL');
   const passed = results.length - failed.length;
   console.log('\n============================================================');
@@ -639,10 +639,10 @@ function finalize() {
   }
 
   console.log('\nGO — 100% OF THE DEFINED PRE-DEMO ACCEPTANCE MATRIX PASSED.');
-  if (typeof demoCandidate !== 'undefined' && demoCandidate) {
-    console.log(`DEMO IOC CANDIDATE  ${demoCandidate.observable}`);
-    console.log(`DEMO IOC TYPE       ${inferIocType(demoCandidate.observable)}`);
-    console.log(`DEMO REPORT         ${demoCandidate.reportId}`);
+  if (candidate) {
+    console.log(`DEMO IOC CANDIDATE  ${candidate.observable}`);
+    console.log(`DEMO IOC TYPE       ${inferIocType(candidate.observable)}`);
+    console.log(`DEMO REPORT         ${candidate.reportId}`);
   }
   console.log('The next SWARM mission may be used as the filmed live customer demonstration.');
 }
