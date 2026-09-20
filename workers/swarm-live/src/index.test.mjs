@@ -1118,6 +1118,83 @@ test('getMissionRecord: unavailable, not found, corrupt, and success', async () 
   assert.equal(ok.record.mission_id, 'x');
 });
 
+test('new mission read-back and evidence exports are credential-owner scoped', async () => {
+  const kv = makeKvMock();
+  const ownerHeaders = new Headers({ 'x-api-key': 'owner-customer-key' });
+  const otherHeaders = new Headers({ 'x-api-key': 'different-customer-key' });
+  const ownerPartition = await __test.credentialPartition(ownerHeaders);
+
+  const record = {
+    mission_id: 'sentinel-mission-owned-1',
+    execution_id: 'sentinel-swarm-owned-1',
+    correlation_id: 'owned-corr-1',
+    status: 'COMPLETED',
+    verdict: 'malicious',
+    started_at: '2026-09-20T00:00:00.000Z',
+    finished_at: '2026-09-20T00:00:03.000Z',
+    ioc: { ioc_value: '203.0.113.9', ioc_type: 'ipv4' },
+    specialists: { 'ioc-hunter': { basis: 'backend_execution', state: 'COMPLETED', result: { verdict: 'malicious' } } },
+  };
+  await __test.persistMission({ SWARM_MISSIONS_KV: kv }, record, ownerPartition);
+
+  const stored = JSON.parse(kv._store.get(record.mission_id).value);
+  assert.equal(stored._owner_partition, ownerPartition);
+
+  const ownerRead = await worker.fetch(
+    new Request('https://x.test/api/swarm/mission/sentinel-mission-owned-1', { headers: ownerHeaders }),
+    { SWARM_MISSIONS_KV: kv },
+    {}
+  );
+  assert.equal(ownerRead.status, 200);
+  const ownerBody = await ownerRead.json();
+  assert.equal(ownerBody.data.mission_id, record.mission_id);
+  assert.equal(Object.prototype.hasOwnProperty.call(ownerBody.data, '_owner_partition'), false);
+
+  const otherRead = await worker.fetch(
+    new Request('https://x.test/api/swarm/mission/sentinel-mission-owned-1', { headers: otherHeaders }),
+    { SWARM_MISSIONS_KV: kv },
+    {}
+  );
+  assert.equal(otherRead.status, 404);
+  assert.equal((await otherRead.json()).error, 'mission_not_found');
+
+  const otherReport = await worker.fetch(
+    new Request('https://x.test/api/swarm/mission/sentinel-mission-owned-1/report?format=json', { headers: otherHeaders }),
+    { SWARM_MISSIONS_KV: kv },
+    {}
+  );
+  assert.equal(otherReport.status, 404);
+
+  const ownerReport = await worker.fetch(
+    new Request('https://x.test/api/swarm/mission/sentinel-mission-owned-1/report?format=json', { headers: ownerHeaders }),
+    { SWARM_MISSIONS_KV: kv },
+    {}
+  );
+  assert.equal(ownerReport.status, 200);
+  const ownerReportBody = await ownerReport.json();
+  assert.equal(ownerReportBody.data.mission_id, record.mission_id);
+  assert.equal(Object.prototype.hasOwnProperty.call(ownerReportBody.data, '_owner_partition'), false);
+});
+
+test('legacy mission records without ownership metadata remain backward-compatible', async () => {
+  const kv = makeKvMock();
+  await kv.put('sentinel-mission-legacy-1', JSON.stringify({
+    mission_id: 'sentinel-mission-legacy-1',
+    status: 'COMPLETED',
+    ioc: { ioc_value: '198.51.100.2', ioc_type: 'ipv4' },
+  }));
+
+  const response = await worker.fetch(
+    new Request('https://x.test/api/swarm/mission/sentinel-mission-legacy-1', {
+      headers: { 'x-api-key': 'any-existing-customer-key' },
+    }),
+    { SWARM_MISSIONS_KV: kv },
+    {}
+  );
+  assert.equal(response.status, 200);
+  assert.equal((await response.json()).data.mission_id, 'sentinel-mission-legacy-1');
+});
+
 test('GET /api/swarm/missions: requires auth, 503s when unprovisioned, and scopes strictly to the caller\'s own credential', async () => {
   const kv = makeKvMock();
   const envNoAuth = {};
