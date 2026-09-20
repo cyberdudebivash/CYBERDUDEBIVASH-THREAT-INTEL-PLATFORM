@@ -29,12 +29,24 @@ test('preflight uses a read-only quota snapshot and never reflects credential ma
   const start = indexSource.indexOf('async function handleSwarmPreflight');
   const end = indexSource.indexOf('\n}\n', start) + 3;
   const fn = indexSource.slice(start, end);
-  assert.ok(fn.includes('readSwarmQuotaSnapshot'));
+
+  assert.ok(fn.includes('readSwarmQuotaSnapshot(env, auth.key, auth.tier)'), 'preflight may use the credential internally to read its own quota partition');
   assert.ok(fn.includes('evaluateSwarmPreflight'));
   assert.ok(fn.includes('"Cache-Control": "no-store"'));
   assert.ok(!fn.includes('checkDailyQuota('), 'preflight must not call the mutating quota gate');
-  assert.ok(!fn.includes('auth.key,'), 'preflight response must not serialize the raw credential');
-  assert.ok(!fn.includes('auth.sub'), 'preflight response must not serialize customer identity');
+
+  // Credential material is legitimately consumed internally by
+  // readSwarmQuotaSnapshot(); the leak boundary is the response body, not the
+  // whole function. Scope the assertion to the object serialized by jsonResp()
+  // so this test rejects a real response leak without false-positive failures
+  // on safe internal authorization/quota lookups.
+  const bodyStart = fn.indexOf('  const body = {');
+  const statusStart = fn.indexOf('  const status =', bodyStart);
+  assert.ok(bodyStart > 0 && statusStart > bodyStart, 'preflight response body boundary must remain explicit');
+  const responseBody = fn.slice(bodyStart, statusStart);
+
+  assert.ok(!responseBody.includes('auth.key'), 'preflight response must not serialize the raw credential');
+  assert.ok(!responseBody.includes('auth.sub'), 'preflight response must not serialize customer identity');
 });
 
 test('mesh admission and preflight share one paid-tier/capability policy', () => {
