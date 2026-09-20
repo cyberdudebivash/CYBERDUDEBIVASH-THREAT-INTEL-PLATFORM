@@ -385,8 +385,23 @@ async function main() {
     assert(missions.response.status === 401, `missions HTTP ${missions.response.status}`);
     assert(missions.body?.error === 'authentication_required', 'history did not fail closed');
 
-    const invalid = await getJson('/api/swarm/mission/not-a-valid-mission-id');
+    // "not-a-valid-mission-id" is intentionally NOT used here: hyphens are
+    // valid under the production ID_RE contract. Use an encoded space so the
+    // path is genuinely malformed and must fail validation before auth.
+    const invalid = await getJson('/api/swarm/mission/bad%20mission%20id');
     assert(invalid.response.status === 400, `invalid mission id HTTP ${invalid.response.status}`);
+    assert(invalid.body?.error === 'invalid_mission_id', 'malformed mission id did not fail validation');
+
+    // Separately prove auth precedence for a syntactically valid mission id.
+    const unauthenticatedValidId = await getJson('/api/swarm/mission/sentinel-mission-probe');
+    assert(
+      unauthenticatedValidId.response.status === 401,
+      `valid-shaped unauthenticated mission id HTTP ${unauthenticatedValidId.response.status}`
+    );
+    assert(
+      unauthenticatedValidId.body?.error === 'authentication_required',
+      'valid-shaped mission lookup did not fail closed on authentication'
+    );
 
     const unknown = await getJson('/api/swarm/__pre_demo_unknown__');
     assert(unknown.response.status === 404, `unknown route HTTP ${unknown.response.status}`);

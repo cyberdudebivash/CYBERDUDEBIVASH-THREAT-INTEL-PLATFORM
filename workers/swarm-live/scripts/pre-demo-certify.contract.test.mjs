@@ -24,6 +24,14 @@ test('pre-demo certification proves mission history is unchanged before GO', () 
   assert.ok(source.includes('/api/swarm/run calls=0'));
 });
 
+test('public certification distinguishes malformed mission ids from valid-shaped unauthenticated ids', () => {
+  assert.ok(source.includes('/api/swarm/mission/bad%20mission%20id'));
+  assert.ok(source.includes("invalid.body?.error === 'invalid_mission_id'"));
+  assert.ok(source.includes('/api/swarm/mission/sentinel-mission-probe'));
+  assert.ok(source.includes("unauthenticatedValidId.body?.error === 'authentication_required'"));
+  assert.equal(source.includes('/api/swarm/mission/not-a-valid-mission-id'), false);
+});
+
 test('full pre-demo certification requires explicit physical mobile sign-off', () => {
   assert.ok(source.includes('PREDEMO_MOBILE_VISUAL_SIGNOFF'));
   assert.ok(source.includes('physical mobile sign-off missing'));
