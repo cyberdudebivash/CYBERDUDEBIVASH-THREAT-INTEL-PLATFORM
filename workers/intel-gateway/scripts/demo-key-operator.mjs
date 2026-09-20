@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { randomBytes, createHash } from 'node:crypto';
+import { randomBytes, createHash, randomUUID } from 'node:crypto';
 import {
   chmodSync,
   existsSync,
@@ -96,7 +96,7 @@ async function preflight(key) {
     method: 'GET',
     headers: {
       'x-api-key': key,
-      'x-request-id': `demo-key-${crypto.randomUUID()}`,
+      'x-request-id': `demo-key-${randomUUID()}`,
     },
     cache: 'no-store',
     signal: AbortSignal.timeout(20000),
