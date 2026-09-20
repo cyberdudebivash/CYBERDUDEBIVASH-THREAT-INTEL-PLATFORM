@@ -167,6 +167,28 @@ test("queryDetectionRegistry: filter by intel_id, cve, severity, status", () => 
   assert.equal(queryDetectionRegistry(registry, { status: "VERIFIED" }).pagination.total, 0);
 });
 
+test("queryDetectionRegistry: correlation stix_id alias resolves an id-keyed detection artifact", () => {
+  const registry = buildDetectionRegistry([
+    baseItem({
+      id: "internal-feed-id-123",
+      stix_id: "intel--canonical-stix-123",
+      kql_query: undefined,
+      suricata_rule: undefined,
+    }),
+  ]);
+
+  const legacy = queryDetectionRegistry(registry, { intel_id: "internal-feed-id-123" });
+  assert.equal(legacy.pagination.total, 1);
+  assert.equal(legacy.data[0].intel_id, "internal-feed-id-123");
+
+  const correlationId = queryDetectionRegistry(registry, { intel_id: "intel--canonical-stix-123" });
+  assert.equal(correlationId.pagination.total, 1);
+  assert.equal(correlationId.data[0].intel_id, "internal-feed-id-123");
+
+  const publicArtifact = toPublicArtifact(correlationId.data[0]);
+  assert.equal(Object.prototype.hasOwnProperty.call(publicArtifact, "_intel_aliases"), false);
+});
+
 test("queryDetectionRegistry: pagination -- cursor advances without overlap or loss", () => {
   const items = Array.from({ length: 10 }, (_, i) => baseItem({ id: `intel--p${i}`, kql_query: undefined, suricata_rule: undefined }));
   const registry = buildDetectionRegistry(items); // 10 sigma artifacts
