@@ -154,6 +154,13 @@ test('customer console exposes the production V4.47.0 control-plane capabilities
     'STIX 2.1',
     'Live Mission Events',
     'Mission History & Evidence Export',
+    'Credential-Scoped Mission Metrics',
+    'MISSION READINESS',
+    'Mission Profile',
+    'EXECUTIVE VIEW',
+    'Mission Quality',
+    'Evidence Graph',
+    'Final Intelligence / Terminal Evidence',
     'SOC 2-ALIGNED EVIDENCE UX',
     '8-Agent Mesh Topology',
     'STATE-DRIVEN LED NODES',
@@ -180,6 +187,13 @@ test('customer console exposes the production V4.47.0 control-plane capabilities
   assert.ok(html.includes('id="eventCount"'));
   assert.ok(html.includes('id="activeAgents"'));
   assert.ok(html.includes('id="completedAgents"'));
+  assert.ok(html.includes('id="readinessPanel"'));
+  assert.ok(html.includes('id="profile"'));
+  assert.ok(html.includes('id="viewMode"'));
+  assert.ok(html.includes('id="missionQuality"'));
+  assert.ok(html.includes('id="evidenceGraphState"'));
+  assert.ok(html.includes('id="loadMetrics"'));
+  assert.ok(html.includes('id="executiveSummary"'));
   assert.ok(html.includes('id="fabricStateText">DORMANT</span>'));
   assert.ok(html.includes('id="streamState">SSE · DORMANT</span>'));
   assert.ok(!html.includes('SSE · REAL TIME'), 'idle UI must not imply an active event stream');
@@ -393,6 +407,10 @@ test('cinematic browser controller is decorative, reduced-motion aware, and real
   assert.ok(js.includes("matchMedia('(prefers-reduced-motion: reduce)')"));
   assert.ok(js.includes('function triggerLaunchSequence()'));
   assert.ok(js.includes('function fxForMissionEvent(ev)'));
+  assert.ok(js.includes('function focusAgentForExecutive(ev)'));
+  assert.ok(js.includes('function renderExecutiveSummary(result)'));
+  assert.ok(js.includes("fetch('/api/swarm/readiness'"));
+  assert.ok(js.includes("fetch('/api/swarm/metrics?limit=50'"));
   assert.ok(js.includes('fxForMissionEvent(ev)'));
   assert.ok(js.includes('function emitCinematicFx(kind,el,intensity)'));
   assert.ok(js.includes('updateOpsTelemetry()'));
@@ -1050,7 +1068,11 @@ test('end-to-end mission: real correlate + all 6 specialists genuinely backend-e
       }
       if (u.pathname === '/api/cves') return jsonResponse({ status: 'ok', data: { cves: [{ cve_id: 'CVE-2026-11111', kev: true }] } });
       if (u.pathname === '/api/actors') return jsonResponse({ error: 'forbidden', reason: 'insufficient_scope' }, 403);
-      if (u.pathname === '/api/v1/detections') return jsonResponse({ status: 'ok', data: { count: 1, data: [{ id: 'sigma-1' }] } });
+      if (u.pathname === '/api/v1/detections') return jsonResponse({
+        schema_version: '1.0.0',
+        data: [{ artifact_type: 'sigma', id: 'sigma-1' }],
+        pagination: { total: 1, limit: 5, offset: 0 },
+      });
       if (u.pathname === '/api/search') return jsonResponse({ error: 'search_failed' }, 500);
       if (u.pathname === '/api/intel/ir-guidance') return jsonResponse({ status: 'ok', data: { report_id: 'intel--abc123', applicable: true, checklist: { containment: ['isolate host'] } } });
       if (u.pathname === '/api/intel/exposure') return jsonResponse({ status: 'ok', data: { report_id: 'intel--abc123', exposed_count: 3, total_dimensions: 8, dimensions: [] } });
@@ -1147,13 +1169,29 @@ test('end-to-end mission: swarm-synthesis unavailable degrades to the existing d
           'x-cdb-mesh-correlation': init.headers.get('x-request-id'),
         });
       }
+      if (u.pathname === '/api/v1/swarm-synthesis/health') {
+        return jsonResponse({ status: 'ok', ready: false, llm_enabled: false, tier_llm: true, providers: {} });
+      }
       if (u.pathname === '/api/v1/swarm-synthesis') {
         return jsonResponse({ status: 'success', llm_enhanced: false, narrative: null, tier_upgrade: 'Upgrade to PRO...' });
       }
-      // Every specialist route: a minimal genuine COMPLETED response --
-      // this test's focus is the synthesis fallback, not specialist variety
-      // (already covered by the main end-to-end test above).
-      return jsonResponse({ status: 'ok', data: {} });
+      if (u.pathname === '/api/cves') return jsonResponse({ status: 'ok', data: { cves: [{ cve_id: 'CVE-2026-11111' }] } });
+      if (u.pathname === '/api/actors') return jsonResponse({ status: 'ok', data: { actors: [{ actor_tag: 'APT42' }] } });
+      if (u.pathname === '/api/search') return jsonResponse({ status: 'ok', data: { results: [{ technique_id: 'T1059' }] } });
+      if (u.pathname === '/api/v1/detections') return jsonResponse({
+        schema_version: '1.0.0',
+        data: [{ artifact_type: 'sigma', id: 'sigma-fallback' }],
+        pagination: { total: 1, limit: 5, offset: 0 },
+      });
+      if (u.pathname === '/api/intel/ir-guidance') return jsonResponse({
+        status: 'ok',
+        data: { report_id: 'intel--abc123', applicable: true, checklist: { containment: ['isolate'] } },
+      });
+      if (u.pathname === '/api/intel/exposure') return jsonResponse({
+        status: 'ok',
+        data: { report_id: 'intel--abc123', exposed_count: 1, dimensions: [{ name: 'internet' }] },
+      });
+      throw new Error('unexpected deterministic-fallback route: ' + u.pathname);
     },
     async () => {
       let waited;
@@ -1185,17 +1223,24 @@ test('end-to-end mission: swarm-synthesis unavailable degrades to the existing d
       }
       await waited;
 
-      const synthesizerCompleted = events.find((e) => e.agent_id === 'risk-synthesizer' && e.state === 'COMPLETED');
-      assert.ok(synthesizerCompleted);
-      assert.equal(synthesizerCompleted.result.llm_enhanced, false);
-      assert.equal(synthesizerCompleted.result.ai_narrative, undefined);
-      // The deterministic fields this codebase already depended on before
-      // this feature existed are still present and unchanged in shape.
-      assert.equal(synthesizerCompleted.result.basis, 'fusion');
-      assert.equal(typeof synthesizerCompleted.result.recommendation, 'string');
+      const synthesizerDegraded = events.find((e) =>
+        e.agent_id === 'risk-synthesizer' &&
+        e.state === 'DEGRADED' &&
+        e.event_type === 'agent.degraded'
+      );
+      assert.ok(synthesizerDegraded);
+      assert.equal(synthesizerDegraded.result.llm_enhanced, false);
+      assert.equal(synthesizerDegraded.result.ai_narrative, undefined);
+      assert.equal(synthesizerDegraded.result.ai_mode, 'deterministic_fallback');
+      // Deterministic fusion remains usable evidence, but is never mislabeled
+      // as a successful AI-enhanced completion.
+      assert.equal(synthesizerDegraded.result.basis, 'fusion');
+      assert.equal(typeof synthesizerDegraded.result.recommendation, 'string');
 
       const missionCompleted = events.find((e) => e.event_type === 'mission.completed');
+      assert.ok(missionCompleted);
       assert.equal(missionCompleted.result.llm_enhanced, false);
+      assert.equal(missionCompleted.mission_quality, 'AI_DEGRADED_COMPLETE');
     }
   );
 });
@@ -1515,6 +1560,10 @@ test('GET /api/swarm/mission/:id/report: default Markdown export is downloadable
     correlation_id: 'corr-r1',
     status: 'COMPLETED',
     verdict: 'malicious',
+    mission_quality: 'COMPLETED_WITH_WARNINGS',
+    mission_profile: 'AUTO',
+    duration_ms: 5000,
+    evidence_graph: { schema: 'cdb.swarm.evidence-graph.v1', node_count: 7, edge_count: 9, nodes: [], edges: [] },
     mesh_certified: true,
     mesh_execution_id: 'mesh-exec-9',
     started_at: '2026-01-01T00:00:00.000Z',
@@ -1534,6 +1583,10 @@ test('GET /api/swarm/mission/:id/report: default Markdown export is downloadable
   assert.match(text, /sentinel-mission-r1/);
   assert.match(text, /9\.9\.9\.9/);
   assert.match(text, /malicious/);
+  assert.match(text, /Mission Quality:\*\* COMPLETED_WITH_WARNINGS/);
+  assert.match(text, /Mission Profile:\*\* AUTO/);
+  assert.match(text, /Duration:\*\* 5000 ms/);
+  assert.match(text, /Evidence Graph:\*\* 7 nodes \/ 9 edges/);
   assert.match(text, /### ioc-hunter/);
   assert.match(text, /### threat-hunter/);
   assert.match(text, /- state: DENIED/);
@@ -1693,6 +1746,10 @@ test('missionToStixBundle keeps custom x_sentinel properties at top level for ST
   const bundle = __test.missionToStixBundle({
     mission_id: 'sentinel-mission-custom-props',
     verdict: 'clean',
+    mission_quality: 'PARTIAL_FABRIC_COMPLETE',
+    mission_profile: 'IOC_TRIAGE',
+    duration_ms: 3210,
+    evidence_graph: { schema: 'cdb.swarm.evidence-graph.v1', node_count: 4, edge_count: 5, nodes: [], edges: [] },
     ioc: { ioc_value: '1.1.1.1', ioc_type: 'ipv4' },
     specialists: {
       'ioc-hunter': { basis: 'backend_execution', state: 'COMPLETED', result: { verdict: 'clean' } },
@@ -1705,6 +1762,11 @@ test('missionToStixBundle keeps custom x_sentinel properties at top level for ST
   }
   const indicator = bundle.objects.find((o) => o.type === 'indicator');
   assert.ok(indicator.x_sentinel_mission_id);
+  assert.equal(indicator.x_sentinel_mission_quality, 'PARTIAL_FABRIC_COMPLETE');
+  assert.equal(indicator.x_sentinel_mission_profile, 'IOC_TRIAGE');
+  assert.equal(indicator.x_sentinel_duration_ms, 3210);
+  assert.equal(indicator.x_sentinel_evidence_graph_nodes, 4);
+  assert.equal(indicator.x_sentinel_evidence_graph_edges, 5);
   const skippedNote = bundle.objects.find((o) => o.type === 'note' && o.x_sentinel_agent_id === 'cve-intelligence');
   assert.equal(skippedNote.x_sentinel_agent_state, 'SKIPPED');
 });
