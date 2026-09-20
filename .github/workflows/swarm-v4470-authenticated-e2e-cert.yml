@@ -1,0 +1,157 @@
+name: V4.47 Authenticated Production E2E Certification
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/swarm-v4470-authenticated-e2e-cert.yml'
+      - 'workers/swarm-live/scripts/release-validate.mjs'
+      - 'workers/swarm-live/scripts/release-validate.contract.test.mjs'
+      - 'workers/swarm-live/scripts/post-demo-certify.mjs'
+      - 'workers/swarm-live/package.json'
+      - 'workers/intel-gateway/scripts/demo-key-operator.mjs'
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: swarm-v4470-authenticated-production-e2e
+  cancel-in-progress: false
+
+jobs:
+  certify:
+    name: "Authenticated production mission + evidence + revocation"
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    if: github.actor != 'github-actions[bot]'
+
+    env:
+      SWARM_DIR: workers/swarm-live
+      GATEWAY_DIR: workers/intel-gateway
+      E2E_RESULT: /tmp/cdb-swarm-v4470-e2e-result.json
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '22'
+
+      - name: Install SWARM locked dependencies
+        working-directory: ${{ env.SWARM_DIR }}
+        run: npm ci --ignore-scripts
+
+      - name: Static + regression gate before touching production credential state
+        working-directory: ${{ env.SWARM_DIR }}
+        run: |
+          set -euo pipefail
+          npm run check
+          npm test
+          npm run deploy:dry -- --config wrangler.toml
+          npm run release:validate
+
+      - name: Install gateway operator dependencies
+        working-directory: ${{ env.GATEWAY_DIR }}
+        run: npm install --ignore-scripts --no-audit --no-fund
+
+      - name: Install headless clipboard isolation
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq xclip xvfb
+
+      - name: Create short-lived production demo credential
+        id: demo_key
+        working-directory: ${{ env.GATEWAY_DIR }}
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
+        run: |
+          set -euo pipefail
+          xvfb-run -a node scripts/demo-key-operator.mjs create --hours 1
+
+          node <<'NODE'
+          const fs = require('node:fs');
+          const os = require('node:os');
+          const path = require('node:path');
+
+          const pointerPath = path.join(os.tmpdir(), 'cdb-sentinel-demo-current.json');
+          const pointer = JSON.parse(fs.readFileSync(pointerPath, 'utf8'));
+          const state = JSON.parse(fs.readFileSync(pointer.state_path, 'utf8'));
+
+          if (!state.raw_key || !state.fingerprint) throw new Error('demo-key state is incomplete');
+          process.stdout.write('::add-mask::' + state.raw_key + '\n');
+          fs.appendFileSync(process.env.GITHUB_ENV, 'SENTINEL_API_KEY=' + state.raw_key + '\n');
+          fs.appendFileSync(process.env.GITHUB_ENV, 'CDB_DEMO_KEY_FINGERPRINT=' + state.fingerprint + '\n');
+          NODE
+
+          echo "Temporary credential exported to the masked runner environment."
+          echo "Raw credential was not printed."
+
+      - name: Execute exactly one strict full-fabric production mission
+        working-directory: ${{ env.SWARM_DIR }}
+        env:
+          SENTINEL_API_KEY: ${{ env.SENTINEL_API_KEY }}
+          SENTINEL_SWARM_DISCOVER_FULL_FABRIC: 'true'
+          SENTINEL_SWARM_REQUIRE_FULL_FABRIC: 'true'
+          SENTINEL_SWARM_RESULT_PATH: ${{ env.E2E_RESULT }}
+        run: |
+          set -euo pipefail
+          rm -f "$E2E_RESULT"
+          npm run release:validate:live
+          test -s "$E2E_RESULT"
+
+          node <<'NODE'
+          const fs = require('node:fs');
+          const result = JSON.parse(fs.readFileSync(process.env.E2E_RESULT, 'utf8'));
+
+          if (!/^sentinel-mission-[A-Za-z0-9._:-]+$/.test(result.mission_id || '')) {
+            throw new Error('authenticated release gate did not emit a valid mission id');
+          }
+          if (result.mission_quality !== 'FULL_FABRIC_COMPLETE') {
+            throw new Error('mission quality is not FULL_FABRIC_COMPLETE');
+          }
+
+          fs.appendFileSync(process.env.GITHUB_ENV, 'DEMO_MISSION_ID=' + result.mission_id + '\n');
+          console.log('Certified mission id: ' + result.mission_id);
+          console.log('Mission quality: ' + result.mission_quality);
+          console.log('Certified IOC type: ' + result.ioc_type);
+          NODE
+
+      - name: Post-mission durable evidence certification
+        working-directory: ${{ env.SWARM_DIR }}
+        env:
+          SENTINEL_API_KEY: ${{ env.SENTINEL_API_KEY }}
+          DEMO_MISSION_ID: ${{ env.DEMO_MISSION_ID }}
+          POSTDEMO_REQUIRE_FULL_FABRIC: 'true'
+        run: |
+          set -euo pipefail
+          npm run post-demo:certify
+
+      - name: Revoke temporary production credential
+        if: always() && steps.demo_key.outcome != 'skipped'
+        working-directory: ${{ env.GATEWAY_DIR }}
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
+        run: |
+          set -euo pipefail
+          POINTER="${RUNNER_TEMP:-/tmp}/cdb-sentinel-demo-current.json"
+          DEFAULT_POINTER="/tmp/cdb-sentinel-demo-current.json"
+
+          if [ -f "$POINTER" ] || [ -f "$DEFAULT_POINTER" ]; then
+            xvfb-run -a node scripts/demo-key-operator.mjs revoke
+          else
+            echo "No local demo-key pointer exists; no credential was created or it was already cleaned up."
+          fi
+
+      - name: Final certification summary
+        if: success()
+        run: |
+          echo "V4.47 AUTHENTICATED PRODUCTION E2E: PASS"
+          echo "Full-fabric mission: ${DEMO_MISSION_ID}"
+          echo "Temporary key fingerprint: ${CDB_DEMO_KEY_FINGERPRINT}"
+          echo "Credential lifecycle: created -> certified -> revoked"
