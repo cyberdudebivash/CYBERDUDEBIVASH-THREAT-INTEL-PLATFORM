@@ -32,7 +32,7 @@
 // needs its own fix (e.g. running it through a bundler-aware test runner,
 // or wiring the whole suite up deliberately) rather than reintroducing a
 // syntax the real deploy path can't parse.
-import pricingData from './pricing-data.json';
+import pricingData from './pricing-data.json' with { type: "json" };
 
 // Same shape/keys as the constant this replaces, so existing call sites
 // (handleRazorpayCreateOrder, etc.) need no changes beyond the import.
