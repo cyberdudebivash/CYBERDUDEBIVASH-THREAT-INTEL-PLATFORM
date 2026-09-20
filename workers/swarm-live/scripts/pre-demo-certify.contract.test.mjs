@@ -24,6 +24,13 @@ test('pre-demo certification proves mission history is unchanged before GO', () 
   assert.ok(source.includes('/api/swarm/run calls=0'));
 });
 
+test('full pre-demo certification requires explicit physical mobile sign-off', () => {
+  assert.ok(source.includes('PREDEMO_MOBILE_VISUAL_SIGNOFF'));
+  assert.ok(source.includes('physical mobile sign-off missing'));
+  assert.ok(source.includes('no horizontal page overflow/cutoff'));
+  assert.ok(source.includes('all 8 agent cards reachable'));
+});
+
 test('package scripts expose mission-safe public and full pre-demo gates', () => {
   assert.equal(pkg.scripts['pre-demo:certify'], 'node scripts/pre-demo-certify.mjs');
   assert.equal(pkg.scripts['pre-demo:public'], 'node scripts/pre-demo-certify.mjs --public-only');
