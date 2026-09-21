@@ -348,10 +348,35 @@ def run_certification() -> dict:
 
         # --- G16 HTML report count ---
         gG16 = g("G16", "HTML report files >= feed item count")
-        html_dir = _DATA / "reports"
+        # DEFECT FIX: this counted `data/reports/*.html` -- a non-recursive glob
+        # of a directory that holds no reports. It reported 0 while 22,433 real
+        # reports existed, so the gate warned that a platform shipping tens of
+        # thousands of reports had none. Evidence at time of fix:
+        #     data/reports/*.html      -> 0
+        #     reports/**/*.html        -> 22,433
+        # Reports are written to reports/YYYY/MM/, so the count must recurse.
+        #
+        # This mirrors regression_tests.py T08_reports_directory_nonempty, which
+        # is the repo's established convention for locating reports: prefer
+        # reports/, fall back to dist/reports/ (present after the Stage 5.4.6
+        # dist build), recurse with rglob, and exclude index.html, which is a
+        # listing page rather than an intel report. REPORT_COUNT is honoured for
+        # the same reason T08 honours it -- Stage 5.4.6b deletes reports/ after
+        # dist is built, so on a post-cleanup run the env var is the only
+        # surviving evidence of how many were produced.
         html_count = 0
-        if html_dir.exists():
-            html_count = len(list(html_dir.glob("*.html")))
+        for _reports_dir in (_ROOT / "reports", _ROOT / "dist" / "reports"):
+            if _reports_dir.is_dir():
+                found = sum(1 for f in _reports_dir.rglob("*.html")
+                            if f.name != "index.html")
+                if found:
+                    html_count = found
+                    break
+        if html_count == 0:
+            try:
+                html_count = int(os.environ.get("REPORT_COUNT", "0"))
+            except ValueError:
+                html_count = 0
         if html_count < n:
             gG16.warn(f"HTML reports: {html_count} < feed items: {n}")
         else:
