@@ -1734,6 +1734,36 @@ jobs:
         run: python3 scripts/threat_graph_engine.py
 
       # -----------------------------------------------------------------------
+      # STAGE 3.4.10a - RSS Source Fabric Health Probe
+      # -----------------------------------------------------------------------
+      # ingest_rss_feeds() is deliberately fault-tolerant: a feed that 404s,
+      # times out, or serves HTML instead of XML is logged at debug level and
+      # skipped, so one publisher moving a URL can never fail the pipeline.
+      # The cost is that a dead feed is INVISIBLE -- it stops contributing and
+      # nothing reports the loss.
+      #
+      # When this probe was first run against the live configuration, 40 of 91
+      # unique feeds (44%) yielded nothing. Ten were recoverable by repointing
+      # at the publisher's current URL (JPCERT/CC, Google Security Blog,
+      # Volexity, MSRC, Sysdig, Proofpoint, Deep Instinct, GreyNoise, Rapid7,
+      # Sophos X-Ops, plus CERT-FR), taking parseable entries available from
+      # 2,278 to 7,685. Source breadth is a product quality signal for a
+      # commercial CTI platform, so a silently rotting feed list is breadth
+      # draining away unnoticed. This makes it observable.
+      #
+      # The report separates publisher-side truth (404/410/500 -- safe to
+      # repoint or prune) from failures that may just be this runner's egress
+      # IP (403/timeout/DNS), so nobody prunes a feed that works fine from
+      # production.
+      #
+      # Non-blocking: third-party publisher availability is outside this
+      # platform's control and must never fail a build. It reports only.
+      - name: "STAGE 3.4.10a - RSS Source Fabric Health Probe (v1.0.0)"
+        timeout-minutes: 8
+        continue-on-error: true
+        run: python3 scripts/rss_feed_health.py || true
+
+      # -----------------------------------------------------------------------
       # STAGE 3.4.10b - Commercial Source Exposure Enrichment
       # -----------------------------------------------------------------------
       # Credential-gated connector layer for the 15 registry sources that are

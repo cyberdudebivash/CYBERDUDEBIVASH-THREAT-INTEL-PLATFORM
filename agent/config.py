@@ -121,7 +121,7 @@ RSS_FEEDS = [
     # [v32.0-PURGE] cert.gov.au/rss/alerts REMOVED — 0 entries confirmed run #605
     "https://googleprojectzero.blogspot.com/feeds/posts/default",
     # [v32.0-PURGE] github.com/advisories.atom REMOVED — requires auth token, returns 0 entries in CI run #605
-    "https://www.rapid7.com/blog/rss/",
+    "https://blog.rapid7.com/rss/",
     "https://www.welivesecurity.com/feed/",
     "https://isc.sans.edu/rssfeed_full.xml",
     "https://www.wordfence.com/blog/feed/",
@@ -148,7 +148,7 @@ RSS_FEEDS = [
     # cloud security, and EDR. Zero overlap with existing active feeds.
 
     # Vendor Threat Research (Tier 4 supplement)
-    "https://news.sophos.com/en-us/feed/",             # Sophos X-Ops Threat Research
+    "https://news.sophos.com/en-us/category/threat-research/feed/",             # Sophos X-Ops Threat Research
     "https://securityintelligence.com/feed/",          # IBM Security Intelligence
     "https://redcanary.com/blog/feed/",                # Red Canary MDR / TI Reports
     "https://www.elastic.co/security-labs/rss/feed.xml",  # Elastic Security Labs
@@ -159,10 +159,10 @@ RSS_FEEDS = [
     "https://github.blog/category/security/feed/",     # GitHub Security Lab
 
     # Government & CERT — Global (v33.0 new endpoints, replacing dead v31/v32 ones)
-    "https://www.cert.ssi.gouv.fr/alerte/feed",        # ANSSI France (CRITICAL alerts)
+    "https://www.cert.ssi.gouv.fr/feed/",        # ANSSI France (CRITICAL alerts)
     "https://www.ncsc.gov.uk/api/1/services/v1/report-rss-feed.xml",  # NCSC UK new API
     "https://www.cyber.gov.au/about-us/news/rss",      # ASD / ACSC Australia
-    "https://www.jpcert.or.jp/english/rss.html",       # JPCERT/CC (Japan CERT)
+    "https://www.jpcert.or.jp/rss/jpcert.rdf",       # JPCERT/CC (Japan CERT)
 
     # Zero-Day & Exploit Research
     "https://portswigger.net/research/rss",            # PortSwigger Research (not Daily Swig)
@@ -179,7 +179,7 @@ RSS_FEEDS = [
     # CISA Known Exploited Vulnerabilities JSON feed
     "https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json",
     # [v185.0-FIX] Duplicate NCSC UK entry removed (already present at line above)
-    "https://www.cert.ssi.gouv.fr/alerte/feed",       # ANSSI France
+    "https://www.cert.ssi.gouv.fr/feed/",       # ANSSI France
     # Additional vendor research
     "https://blog.talosintelligence.com/rss/",        # Cisco Talos
     "https://www.zeroscope.io/feed/",                 # ZeroScope threat intel
@@ -192,9 +192,9 @@ RSS_FEEDS = [
 
     # Incident Response & Threat Hunting
     "https://thedfirreport.com/feed/",                  # The DFIR Report — real intrusion reports with TTPs
-    "https://blog.google/threat-analysis-group/rss/",  # Google TAG — nation-state campaigns
+    "https://security.googleblog.com/feeds/posts/default",  # Google TAG — nation-state campaigns
     "https://decoded.avast.io/feed/",                  # Avast Threat Labs research
-    "https://www.volexity.com/blog/feed/",             # Volexity — APT + zero-day attribution
+    "https://www.volexity.com/feed/",             # Volexity — APT + zero-day attribution
 
     # ICS / OT / Critical Infrastructure
     "https://www.dragos.com/blog/feed/",               # Dragos ICS/OT threat intelligence
@@ -221,14 +221,14 @@ RSS_FEEDS = [
 
     # Exploit & Vulnerability Research
     "https://www.exploit-db.com/rss.xml",              # Exploit-DB — proof-of-concept exploits
-    "https://msrc.microsoft.com/blog/feed",            # Microsoft Security Response Center official blog
+    "https://api.msrc.microsoft.com/update-guide/rss",            # Microsoft Security Response Center official blog
 
     # Threat Intelligence Platforms
     "https://otx.alienvault.com/api/v1/pulses/subscribed_by_me?limit=20", # OTX public pulse feed
     "https://blog.qualys.com/feed",                    # Qualys Threat Research
 
     # Cloud & Container Security
-    "https://sysdig.com/blog/feed/",                   # Sysdig container / cloud threat reports
+    "https://sysdig.com/feed/",                   # Sysdig container / cloud threat reports
     "https://orca.security/resources/blog/feed/",      # Orca Security cloud intelligence
 
     # Emerging Threats & Honeypot Data
@@ -246,12 +246,12 @@ RSS_FEEDS = [
     # Nation-State & APT Tracking
     "https://feeds.trendmicro.com/Anti-MalwareBlog/",   # Trend Micro Security Blog
     "https://lab52.io/blog/feed/",                       # Lab52 — APT attribution research
-    "https://www.proofpoint.com/us/blog/rss.xml",        # Proofpoint Threat Research
-    "https://www.deepinstinct.com/blog/rss.xml",         # Deep Instinct AI threat intelligence
+    "https://www.proofpoint.com/us/rss.xml",        # Proofpoint Threat Research
+    "https://www.deepinstinct.com/blog/feed",         # Deep Instinct AI threat intelligence
 
     # Active Exploit Intelligence
     "https://attackerkb.com/rss",                        # AttackerKB — exploitability assessments
-    "https://www.greynoise.io/blog/rss",                 # GreyNoise — mass internet scanner intel
+    "https://www.greynoise.io/blog/rss.xml",                 # GreyNoise — mass internet scanner intel
     "https://feeds.feedburner.com/securityweekly",       # Security Weekly news feed
 
     # APAC / Global CERT
