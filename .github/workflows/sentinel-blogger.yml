@@ -1734,6 +1734,59 @@ jobs:
         run: python3 scripts/threat_graph_engine.py
 
       # -----------------------------------------------------------------------
+      # STAGE 3.4.11 - Detection Quality Engine (detection_rules_total backfill)
+      # -----------------------------------------------------------------------
+      # ROOT CAUSE this closes: every certification gate that measures detection
+      # coverage (P29 G-detection, P30, P31, P32, P33 G20) reads the item field
+      # `detection_rules_total`. The ONLY writer of that field is
+      # scripts/detection_quality_engine.py -- and this workflow never called
+      # it. It ran solely in generate-and-sync.yml (STAGE 6.99), a different
+      # workflow on a different schedule, whose result this pipeline's own
+      # api/feed.json then overwrote. safe_git_commit.py documents the
+      # resulting cross-workflow race in detail and notes its partial fix "is
+      # not sufficient by itself".
+      #
+      # Net effect: the platform genuinely ships Sigma + Suricata rules on 66 of
+      # 109 live feed items (78.6% of detection-eligible items, 60.6% of the
+      # full feed), but every gate reported 0.0% detection coverage, because the
+      # count field they all read was never populated on this path. That is a
+      # measurement defect, not a content gap -- the rules themselves
+      # (`sigma_rule`, `suricata_rule`) were always present and unaffected.
+      #
+      # Verified against the current live feed: this step sets
+      # detection_rules_total=3 on exactly the 66 rule-carrying items and 0 on
+      # the rest, taking P33 G20 from 0.0% to 60.6% -- above its 40% threshold.
+      #
+      # PLACEMENT is load-bearing. This must run:
+      #   * AFTER every feed-enrichment stage (3.1.x-3.4.10), so it counts the
+      #     final rule set rather than a mid-pipeline snapshot;
+      #   * BEFORE STAGE 3.5's R2 upload, so the field reaches the
+      #     customer-facing feed and is not published one cycle stale;
+      #   * BEFORE the P29-P33 certification stages (3.93+), which read it.
+      #
+      # `detection_rules_total` is already a registered optional field in
+      # p38_shared_validators.py's SCHEMA_REGISTRY (int, nullable), so adding
+      # it introduces no schema change and no contract-validator risk.
+      #
+      # Non-blocking (continue-on-error: true), matching the identical
+      # invocation in generate-and-sync.yml STAGE 6.99 and every other
+      # enrichment stage above: a detection-count failure must never block the
+      # pipeline, since the underlying rules are already in the feed.
+      - name: "STAGE 3.4.11 - Detection Quality Engine (v1.0.0 - detection_rules_total)"
+        timeout-minutes: 5
+        continue-on-error: true
+        run: |
+          if [ -f "api/feed.json" ]; then
+            python3 scripts/detection_quality_engine.py api/feed.json \
+              --apply --output api/detection_quality.json 2>&1 | tail -3
+            WITH_RULES=$(jq '[.[] | select((.detection_rules_total // 0) > 0)] | length' api/feed.json 2>/dev/null || echo "?")
+            TOTAL=$(jq 'length' api/feed.json 2>/dev/null || echo "?")
+            echo "[DETECTION-QUALITY] detection_rules_total populated on ${WITH_RULES}/${TOTAL} items"
+          else
+            echo "::warning::api/feed.json absent — detection_rules_total not computed this run"
+          fi
+
+      # -----------------------------------------------------------------------
       # STAGE 3.5: R2 UPLOAD -- MANDATORY, NO CONTINUE-ON-ERROR
       # Uploads feed_manifest, enriched manifests, HTML reports, AI data,
       # and sync metadata to Cloudflare R2.
