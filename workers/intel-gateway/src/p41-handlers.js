@@ -54,6 +54,10 @@
  *   /api/v1/p41/observability - observability health endpoint
  */
 
+// Edge cache for the R2 registry read -- see r2-edge-cache.js for the
+// measured latency/cost rationale this addresses.
+import { cachedR2Json } from './r2-edge-cache.js';
+
 const P41_VERSION  = '41.0';
 const REGISTRY_KEY = 'intel/frontend_capability_registry.json';
 
@@ -70,11 +74,24 @@ const PUBLIC_CATEGORIES = new Set(['CUSTOMER_UI']);
 // ---------------------------------------------------------------------------
 async function _loadR2Json(env, key) {
   try {
-    const obj = await env.INTEL_R2?.get(key);
-    if (!obj) return null;
-    const text = await obj.text();
-    if (!text || !text.trim()) return null;
-    return JSON.parse(text);
+    // EDGE-CACHED (2026-09-21). This previously did env.INTEL_R2.get() on
+    // EVERY request. Measured against live production, five consecutive
+    // samples of the public /api/v1/p41/capabilities endpoint returned a
+    // 16 KB body with ttfb 2.6-5.5s, while /api/feed served 1.2 MB over the
+    // identical path in 0.25-0.32s -- a 16 KB response 10-20x slower than a
+    // 1.2 MB one, consistently breaching the platform's own "< 2s p95
+    // computed" budget. It also spent one R2 Class B operation per request.
+    //
+    // The Cache-Control header _json() already sets is only a hint to
+    // downstream caches; a Worker-generated response is not edge-cached
+    // unless the Worker puts it there, which cachedR2Json now does.
+    //
+    // Degradation-safe: a cache miss, a cache error, or no Cache API at all
+    // falls through to exactly the previous R2 read, so this is never worse
+    // than before. The outer try/catch and the null-on-failure contract are
+    // unchanged, so every caller behaves identically.
+    const parsed = await cachedR2Json(env, key);
+    return parsed ?? null;
   } catch (_) {
     return null;
   }
