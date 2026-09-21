@@ -725,6 +725,40 @@ jobs:
           fi
 
       # -----------------------------------------------------------------------
+      # STAGE 1-3 MANIFEST CENSUS (observability only, never blocks)
+      # Surfaces run_pipeline.py's per-stage manifest/feed counts, written by
+      # record_manifest_census() at each _stage_done() boundary.
+      #
+      # WHY A SEPARATE STEP: the counts are logged inside the orchestrator
+      # step, whose log is far too large to retrieve by tail -- which is
+      # exactly why the 162 -> 40 feed drop could not be attributed after the
+      # fact. Echoing the summary here puts it in a small, reachable step.
+      # -----------------------------------------------------------------------
+      - name: "STAGE 1-3 CENSUS - Per-stage manifest attribution (observability)"
+        if: always()
+        run: |
+          python3 - <<'CENSUS_EOF' || true
+          import json, pathlib
+          p = pathlib.Path("data/quality/manifest_stage_census.json")
+          if not p.exists():
+              print("[census] no census written this run (pipeline may not have reached a stage boundary)")
+              raise SystemExit(0)
+          d = json.loads(p.read_text(encoding="utf-8"))
+          print(f"[census] stages recorded : {d.get('stages_recorded')}")
+          print(f"[census] manifest        : {d.get('first_manifest_count')} -> {d.get('last_manifest_count')}")
+          print(f"[census] api/feed.json   : {d.get('first_feed_count')} -> {d.get('last_feed_count')}")
+          big = d.get("largest_manifest_drop") or {}
+          if big.get("manifest_delta", 0) < 0:
+              print(f"[census] LARGEST DROP    : {big.get('stage')} ({big.get('manifest_delta')} items)")
+          print("[census] per-stage deltas (non-zero only):")
+          for row in d.get("census", []):
+              if row.get("manifest_delta") or row.get("feed_delta"):
+                  print(f"    {row.get('stage'):<32} manifest={row.get('manifest_items'):>5} "
+                        f"({row.get('manifest_delta'):+d})  feed={row.get('feed_items'):>5} "
+                        f"({row.get('feed_delta'):+d})")
+          CENSUS_EOF
+
+      # -----------------------------------------------------------------------
       # STAGE 3.1: APEX AI ENRICHMENT ENGINE (PERMANENT -- DO NOT REMOVE)
       # Injects apex_ai, updates apex, and adds ioc_paywall into ALL items in
       # api/feed.json immediately after run_pipeline generates it.

@@ -464,6 +464,75 @@ def count_manifest(path: str) -> int:
 
 
 # ---------------------------------------------------------------------------
+# Manifest stage census -- observability only, never blocking
+# ---------------------------------------------------------------------------
+# WHY THIS EXISTS (2026-09-21): the customer-facing feed dropped from 162
+# items / 15 sources to 40 / 5 across a single pipeline run, then began
+# recovering (46 / 8). Attribution was impossible after the fact:
+#
+#   * MANIFEST_FINAL_COUNT is written once from Stage 2.2 and then frozen in
+#     $GITHUB_ENV, so every later log line echoing it is a stale snapshot --
+#     data/quality/manifest_shrink_forensics.json already documents this
+#     exact trap, and its August incident (1356 -> 1115) was the same class
+#     of silent mid-run shrink.
+#   * The orchestrator step's log is far too large to retrieve by tail, so
+#     the per-stage counts were never observable from outside the runner.
+#
+# Every stage between Stage 2.2 and the end can legitimately drop items
+# (age gate, synthetic-title gate, title dedup, schema enforcement, dedup,
+# STIX prune). Without a per-stage count, choosing which one to fix is
+# guesswork -- and guessing at a data-pipeline change is how the customer
+# feed gets worse, not better. This makes the next run name the culprit.
+#
+# Cost: two small JSON reads per stage boundary, 19 boundaries per run,
+# against a ~20-minute pipeline. Negligible, and no R2/KV operation.
+_MANIFEST_CENSUS: list[dict] = []
+
+
+def record_manifest_census(tag: str) -> None:
+    """Append (stage, manifest_count, feed_count) to the run census.
+
+    Observability only. Swallows every exception by design: a census that
+    can fail the pipeline would be strictly worse than no census at all.
+    Reuses count_manifest() rather than re-implementing manifest parsing.
+    """
+    try:
+        manifest_n = count_manifest(str(REPO_ROOT / "data" / "stix" / "feed_manifest.json"))
+        feed_n = count_manifest(str(REPO_ROOT / "api" / "feed.json"))
+        prev = _MANIFEST_CENSUS[-1] if _MANIFEST_CENSUS else None
+        row = {
+            "stage": tag,
+            "manifest_items": manifest_n,
+            "feed_items": feed_n,
+            "manifest_delta": (manifest_n - prev["manifest_items"]) if prev else 0,
+            "feed_delta": (feed_n - prev["feed_items"]) if prev else 0,
+            "at": utc_now(),
+        }
+        _MANIFEST_CENSUS.append(row)
+        if row["manifest_delta"] or row["feed_delta"]:
+            log.info(
+                "[census] %s: manifest=%d (%+d) feed=%d (%+d)",
+                tag, manifest_n, row["manifest_delta"], feed_n, row["feed_delta"],
+            )
+        out = REPO_ROOT / "data" / "quality" / "manifest_stage_census.json"
+        out.parent.mkdir(parents=True, exist_ok=True)
+        biggest = min(_MANIFEST_CENSUS, key=lambda r: r["manifest_delta"], default=None)
+        out.write_text(json.dumps({
+            "report_type": "manifest_stage_census",
+            "generated_at": utc_now(),
+            "stages_recorded": len(_MANIFEST_CENSUS),
+            "first_manifest_count": _MANIFEST_CENSUS[0]["manifest_items"],
+            "last_manifest_count": _MANIFEST_CENSUS[-1]["manifest_items"],
+            "first_feed_count": _MANIFEST_CENSUS[0]["feed_items"],
+            "last_feed_count": _MANIFEST_CENSUS[-1]["feed_items"],
+            "largest_manifest_drop": biggest,
+            "census": _MANIFEST_CENSUS,
+        }, indent=2), encoding="utf-8")
+    except Exception:
+        pass
+
+
+# ---------------------------------------------------------------------------
 # Stage 0.0a -- Feed JSON Guard (runs BEFORE syntax guard, guarantees feed.json)
 # ---------------------------------------------------------------------------
 
@@ -3943,6 +4012,9 @@ def main() -> None:
         _completed_stages.append(name)
         log.debug("[stage-registry] completed: %s (%d/%d)",
                   name, len(_completed_stages), len(_STAGE_REGISTRY))
+        # Observability only -- see record_manifest_census()'s own comment for
+        # why. Cannot raise; cannot alter stage behaviour.
+        record_manifest_census(name)
 
     # ---- Phase 8 Pre-flight: Self-Healing Guard (v142.3.0) ------------------
     # Runs BEFORE any stage — detects and repairs corrupted data files
