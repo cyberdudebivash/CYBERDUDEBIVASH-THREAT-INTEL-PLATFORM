@@ -161,6 +161,36 @@ const PUBLIC_EXACT_PATHS = new Set([
   "/api/reports/index.json",
   "/api/reports/latest.json",
   "/api/reports/stats.json",
+  // P41 capability-discovery surface. Unauthenticated by design -- all three
+  // return 200 with no credential of any kind, and p41-handlers.js reads no
+  // auth header, tier, or API key, so the body is byte-identical regardless
+  // of WHO asks. PUBLIC_CATEGORIES is a hard server-side allowlist
+  // (CUSTOMER_UI only): ADMIN/INTERNAL/DEPRECATED entries can never leave
+  // these routes whatever a caller requests. Page-inventory metadata only,
+  // never intelligence data -- see p41-handlers.js's own header.
+  //
+  // This classification also makes them edge-cacheable, which is the point:
+  // isEdgeCacheableRequest() keys off this bucket, so a BROWSER-bucket route
+  // is skipped by index.js's whole-response cache. That coupling is correct
+  // and deliberate -- a BROWSER response carries a per-Origin
+  // Access-Control-Allow-Origin, and Cloudflare's cache does not vary on
+  // arbitrary headers, so caching one would serve one origin's CORS grant to
+  // every other origin. A PUBLIC response carries a bare asterisk, which
+  // is origin-invariant and therefore safe to store.
+  //
+  // Deliberately phrased without a double-quoted literal: the governance
+  // gate in tests/test_public_repo_zero_trust_gates.py extracts routes from
+  // this Set with a regex over double-quoted strings that does NOT strip
+  // comments, so a quoted token in this prose is read as a route and fails
+  // the allowlist-parity check. Fail-closed, but avoid the trap.
+  //
+  // /capability is ?id=-driven, which is safe here: index.js caches on the
+  // FULL request (path + query, per its own cache-key comment), so two ids
+  // never collide, and only status 200 is ever stored -- the 400 (missing
+  // id) and 404 (unknown/non-public id) paths are never cached.
+  "/api/v1/p41/capabilities",
+  "/api/v1/p41/capability",
+  "/api/v1/p41/observability",
 ]);
 
 // Bare TAXII 2.1 server-discovery root only -- per index.js's own comment

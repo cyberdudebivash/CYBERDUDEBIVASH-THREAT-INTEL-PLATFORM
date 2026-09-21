@@ -277,3 +277,68 @@ test("applyCorsPolicy() preserves an unrelated existing Vary token instead of ov
   assert.ok(tokens.includes("Origin"));
   assert.equal(tokens.length, 2); // each token exactly once
 });
+
+// ---------------------------------------------------------------------------
+// P41 capability-discovery surface -- PUBLIC classification.
+//
+// These three routes were BROWSER-bucketed, which had a measurable production
+// cost: isEdgeCacheableRequest() keys off this bucket, so index.js's
+// whole-response edge cache skipped them entirely. Live samples put
+// /api/v1/p41/capabilities (16 KB) at a ~0.81s median TTFB against /api/feed
+// (1.2 MB) at 0.25s over the identical path.
+//
+// They are genuinely public: 200 unauthenticated, no auth header/tier/API key
+// read anywhere in p41-handlers.js, and PUBLIC_CATEGORIES hard-filters to
+// CUSTOMER_UI server-side. See the allowlist comment in cors-policy.js.
+// ---------------------------------------------------------------------------
+
+const P41_PUBLIC_ROUTES = [
+  "/api/v1/p41/capabilities",
+  "/api/v1/p41/capability",
+  "/api/v1/p41/observability",
+];
+
+test("P41 discovery routes classify PUBLIC for their documented read methods", () => {
+  for (const path of P41_PUBLIC_ROUTES) {
+    assert.equal(classifyRoute(path, "GET").bucket, "PUBLIC", `${path} GET`);
+    assert.equal(classifyRoute(path, "HEAD").bucket, "PUBLIC", `${path} HEAD`);
+  }
+});
+
+test("P41 discovery routes serve an origin-invariant wildcard -- the property that makes them safe to edge-cache", () => {
+  for (const path of P41_PUBLIC_ROUTES) {
+    const r = req(`https://intel.cyberdudebivash.com${path}`, { Origin: EVIL });
+    const { acao, vary } = resolveCorsForRoute(r, path, "GET");
+    // Wildcard, not a reflected origin: one cached response is correct for
+    // every caller. A reflected ACAO here would make caching unsafe.
+    assert.equal(acao, "*", `${path} ACAO`);
+    assert.equal(vary, false, `${path} Vary`);
+    const applied = applyCorsPolicy(okResponse(), r, path, "GET");
+    assert.equal(applied.headers.get("Access-Control-Allow-Origin"), "*");
+    // A wildcard must never pair with credentials.
+    assert.equal(applied.headers.get("Access-Control-Allow-Credentials"), null);
+  }
+});
+
+test("P41 discovery routes fall back to BROWSER for non-read methods", () => {
+  for (const path of P41_PUBLIC_ROUTES) {
+    assert.equal(classifyRoute(path, "POST").bucket, "BROWSER", `${path} POST`);
+    assert.equal(classifyRoute(path, "DELETE").bucket, "BROWSER", `${path} DELETE`);
+  }
+});
+
+test("the P41 allowlist is exact, not a /api/v1/p41 prefix -- an unlisted sibling stays BROWSER", () => {
+  // Regression guard: if these entries are ever converted to a prefix match,
+  // a future /api/v1/p41/* route would be silently born PUBLIC and
+  // edge-cacheable without anyone classifying it.
+  assert.equal(classifyRoute("/api/v1/p41/admin", "GET").bucket, "BROWSER");
+  assert.equal(classifyRoute("/api/v1/p41/capabilities/internal", "GET").bucket, "BROWSER");
+});
+
+test("this change is scoped to P41 only -- other P-layer routes are untouched", () => {
+  // P40's source-fabric is auth-gated (returns 401 unauthenticated) and must
+  // not have been swept into PUBLIC alongside P41.
+  assert.equal(classifyRoute("/api/v1/p40/source-fabric", "GET").bucket, "BROWSER");
+  assert.equal(classifyRoute("/api/v1/p40/observability", "GET").bucket, "BROWSER");
+  assert.equal(classifyRoute("/api/v1/p33/dashboard", "GET").bucket, "BROWSER");
+});
