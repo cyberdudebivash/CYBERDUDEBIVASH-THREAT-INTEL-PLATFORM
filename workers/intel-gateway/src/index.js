@@ -134,6 +134,9 @@ import {
 // one true response choke point -- withBaselineHeaders() and the OPTIONS
 // branch below -- so no individual route handler needs to change.
 import { applyCorsPolicy, buildPreflightResponse, classifyRoute } from './cors-policy.js';
+// In-isolate counter layer: batches KV writes on the hot request path.
+// See rate-limit-cache.js for the cost rationale and the exact trade-off.
+import { bumpCounter, peekCounter } from './rate-limit-cache.js';
 // AI Swarm Synthesis (v4.45): pure prompt-building + tier-gate helpers for
 // handleSwarmSynthesis (below, defined right after handleCopilot). Extracted
 // for the same reason as subscription-lifecycle.js/gumroad-lifecycle.js --
@@ -397,9 +400,12 @@ async function checkDailyQuota(env, identifier, tier) {
   const dateStr = utcDateString();
   const key = dailyQuotaKey(identifier, dateStr);
   try {
-    const val = await env.RATE_LIMIT_KV.get(key);
-    const countAfter = (val ? parseInt(val, 10) : 0) + 1;
-    await env.RATE_LIMIT_KV.put(key, String(countAfter), { expirationTtl: 172800 }); // 48h per spec
+    // Daily counters meter rather than gate -- evaluateDailyQuota() renders the
+    // verdict -- so no crossing threshold is passed. KV therefore trails the
+    // in-isolate count by at most FLUSH_EVERY-1, which is immaterial against
+    // daily allowances in the thousands.
+    const { count: countAfter } =
+      await bumpCounter(env.RATE_LIMIT_KV, key, 172800, Infinity); // 48h per spec
     return { ...evaluateDailyQuota(tier, countAfter), dateStr, count: countAfter };
   } catch (_) {
     // Same fail-open posture checkRateLimit() already takes on a KV error --
@@ -541,11 +547,15 @@ async function checkWebPlaneRateLimit(env, ip) {
   const key = webPlaneRateKey(ip, minute);
   const limit = WEB_PLANE_LIMITS.perMinute;
   try {
-    const val = await env.RATE_LIMIT_KV.get(key);
-    const count = val ? parseInt(val, 10) : 0;
+    const count = await peekCounter(env.RATE_LIMIT_KV, key);
     if (count >= limit) return { allowed: false, count, limit, remaining: 0 };
-    await env.RATE_LIMIT_KV.put(key, String(count + 1), { expirationTtl: 61 });
-    return { allowed: true, count: count + 1, limit, remaining: limit - count - 1 };
+    const bumped = await bumpCounter(env.RATE_LIMIT_KV, key, 61, limit);
+    return {
+      allowed: true,
+      count: bumped.count,
+      limit,
+      remaining: Math.max(0, limit - bumped.count),
+    };
   } catch (_) {
     return { allowed: true, count: 0, limit, remaining: limit };
   }
@@ -555,9 +565,8 @@ async function checkWebPlaneDailyQuota(env, ip) {
   const dateStr = utcDateString();
   const key = webPlaneDailyKey(ip, dateStr);
   try {
-    const val = await env.RATE_LIMIT_KV.get(key);
-    const countAfter = (val ? parseInt(val, 10) : 0) + 1;
-    await env.RATE_LIMIT_KV.put(key, String(countAfter), { expirationTtl: 172800 });
+    const { count: countAfter } =
+      await bumpCounter(env.RATE_LIMIT_KV, key, 172800, Infinity);
     return { ...evaluateWebPlaneDaily(countAfter), dateStr, count: countAfter };
   } catch (_) {
     return { ...evaluateWebPlaneDaily(0), dateStr, count: 0 };
@@ -569,11 +578,20 @@ async function checkRateLimit(env, ip, tier) {
   const minute = Math.floor(Date.now() / 60000);
   const key    = `rl:${ip}:${minute}`;
   try {
-    const val   = await env.RATE_LIMIT_KV.get(key);
-    const count = val ? parseInt(val, 10) : 0;
+    // Counting is batched in-isolate (see rate-limit-cache.js) so this costs
+    // a KV write roughly every FLUSH_EVERY requests instead of every one.
+    // Semantics are unchanged: deny when the window is already at the limit,
+    // otherwise increment and allow. `limit` is passed so the increment that
+    // crosses it writes through immediately and other isolates see the block.
+    const count = await peekCounter(env.RATE_LIMIT_KV, key);
     if (count >= limit) return { allowed: false, count, limit, remaining: 0 };
-    await env.RATE_LIMIT_KV.put(key, String(count + 1), { expirationTtl: 61 });
-    return { allowed: true, count: count + 1, limit, remaining: limit - count - 1 };
+    const bumped = await bumpCounter(env.RATE_LIMIT_KV, key, 61, limit);
+    return {
+      allowed: true,
+      count: bumped.count,
+      limit,
+      remaining: Math.max(0, limit - bumped.count),
+    };
   } catch (_) {
     return { allowed: true, count: 0, limit, remaining: limit };
   }
