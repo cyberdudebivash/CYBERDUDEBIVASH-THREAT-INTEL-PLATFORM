@@ -175,8 +175,14 @@ const PUBLIC_EXACT_PATHS = new Set([
   // and deliberate -- a BROWSER response carries a per-Origin
   // Access-Control-Allow-Origin, and Cloudflare's cache does not vary on
   // arbitrary headers, so caching one would serve one origin's CORS grant to
-  // every other origin. A PUBLIC response carries "*", which is
-  // origin-invariant and therefore safe to store.
+  // every other origin. A PUBLIC response carries a bare asterisk, which
+  // is origin-invariant and therefore safe to store.
+  //
+  // Deliberately phrased without a double-quoted literal: the governance
+  // gate in tests/test_public_repo_zero_trust_gates.py extracts routes from
+  // this Set with a regex over double-quoted strings that does NOT strip
+  // comments, so a quoted token in this prose is read as a route and fails
+  // the allowlist-parity check. Fail-closed, but avoid the trap.
   //
   // /capability is ?id=-driven, which is safe here: index.js caches on the
   // FULL request (path + query, per its own cache-key comment), so two ids
