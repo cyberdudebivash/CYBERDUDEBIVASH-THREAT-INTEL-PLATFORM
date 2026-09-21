@@ -1,0 +1,161 @@
+# SENTINEL APEX -- Intel Gateway Regression Gate
+#
+# ROOT CAUSE THIS CLOSES
+# workers/intel-gateway is the platform's main product surface -- the Worker
+# that serves intel.cyberdudebivash.com/api/*, /reports/*, /taxii/* and
+# /auth/*. It ships 122 test files / 1121 tests. NONE of them gated a pull
+# request.
+#
+# deploy-worker.yml, which owns the gateway's test gates, triggers only on
+# `push: branches: [main]` -- i.e. AFTER merge. No pull_request-triggered
+# workflow in this repository ran the gateway suite at all (confirmed by
+# enumerating the `on:` block of every workflow). A PR could therefore be
+# fully green while shipping a broken gateway, and post-merge failure is the
+# expensive place to find out.
+#
+# That is not hypothetical: four zero-blast-radius boundary tests sat failing
+# on main undetected, because nothing in the PR path executed them.
+#
+# This is the same class of gap, on a far more important worker, that
+# swarm-live-regression-gate.yml was created to close for workers/swarm-live
+# ("had zero CI coverage: no workflow referenced it at all"). This gate
+# mirrors that one's structure deliberately.
+#
+# NO DEPENDENCY INSTALL BY DESIGN
+# The gateway's tests are dependency-free -- they import only node: builtins
+# and the worker's own ESM sources (verified: 1121/1121 pass in ~6s with no
+# node_modules present). Skipping `npm ci` keeps this gate fast AND keeps the
+# gateway's only devDependency chain -- wrangler -> miniflare -> sharp, which
+# carries known high-severity libheif advisories -- out of pull-request CI
+# entirely. Wrangler is a deploy-time tool; it is not needed to run tests.
+#
+# This gate is validation-only. It never deploys the gateway; production
+# promotion remains deploy-worker.yml's explicit, separate decision.
+
+name: Intel Gateway Regression Gate
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'workers/intel-gateway/src/**'
+      - 'scripts/**'
+      - 'tests/**'
+      - '.github/workflows/intel-gateway-regression-gate.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'workers/intel-gateway/src/**'
+      - 'scripts/**'
+      - 'tests/**'
+      - '.github/workflows/intel-gateway-regression-gate.yml'
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: intel-gateway-regression-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  gateway-tests:
+    name: "workers/intel-gateway -- full unit suite (1121 tests)"
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: "Checkout repository"
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: "Setup Node.js 22"
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '22'
+
+      # `node --test <glob>` requires Node >= 21; pinned to 22 above, matching
+      # deploy-worker.yml so a test passing here cannot fail there on runtime.
+      - name: "Full gateway unit suite"
+        working-directory: workers/intel-gateway
+        run: |
+          echo "=== workers/intel-gateway -- every test file under src/ ==="
+          node --test "src/**/*.test.js" "src/**/*.test.mjs"
+
+      # Lives outside src/, so the globs above do not match it. It is in
+      # deploy-worker.yml's curated gate; included here so the PR path covers
+      # the same surface the deploy path does.
+      - name: "Demo-key operator contract test"
+        working-directory: workers/intel-gateway
+        run: node --test scripts/demo-key-operator.contract.test.mjs
+
+  python-tests:
+    name: "scripts/ + tests/ -- Python unit and regression suites"
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: "Checkout repository"
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: "Setup Python 3.11"
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: '3.11'
+
+      # This repository's convention (see access-governance-gate.yml,
+      # report-generator-regression-gate.yml) is to install these explicitly:
+      # pytest is not in requirements.txt though pytest.ini configures it as
+      # the intended runner, and regression_tests.py imports yaml in three
+      # places (T12/T25/T41 parse workflow YAML). Installing the full
+      # requirements.txt here would be far slower and pulls in cloud SDKs
+      # these suites do not need.
+      #
+      # PyYAML was missing from the first version of this gate: it is present
+      # in most dev environments, so the regression suite passed locally at
+      # 41/41 and failed in CI at 38/41 with three "No module named 'yaml'"
+      # errors -- an environment gap in this gate, not a code regression.
+      - name: "Install pytest + PyYAML"
+        run: pip install pytest pyyaml --quiet
+
+      # Scoped to the suites that are self-contained -- no network, no cloud
+      # SDK, no credentials. Deliberately NOT `pytest tests/`: 115 modules live
+      # there and several require boto3 or network access, so a whole-directory
+      # run would be flaky and would train reviewers to ignore this gate.
+      # Widening this list is a separate, evidence-led change.
+      #
+      # `--strict-markers` and a collection guard below make a vacuous pass
+      # impossible. genesis-powerhouse.yml documents the incident this guards
+      # against: pytest was never installed and `| tail -15` swallowed the
+      # "No module named pytest" failure, so the step "passed" having run
+      # nothing. Nothing here is piped, and `set -o pipefail` is set regardless.
+      - name: "Python unit tests (self-contained suites)"
+        shell: bash
+        run: |
+          set -euo pipefail
+          SUITES=(
+            tests/test_exposure_intel_enricher.py
+            tests/test_source_fabric_health.py
+          )
+          python3 -m pytest "${SUITES[@]}" -q
+          # Refuse to pass having run nothing. pytest.ini forces --verbose, so
+          # --collect-only prints a "<N> tests collected" summary rather than
+          # nodeids; that summary is what is parsed here.
+          python3 - <<'PY'
+          import re, subprocess, sys
+          out = subprocess.run(
+              [sys.executable, "-m", "pytest",
+               "tests/test_exposure_intel_enricher.py",
+               "tests/test_source_fabric_health.py",
+               "--collect-only", "-q"],
+              capture_output=True, text=True).stdout
+          m = re.search(r"(\d+) tests? collected", out)
+          n = int(m.group(1)) if m else 0
+          print(f"collected {n} test(s)")
+          if n < 40:
+              print(f"::error::expected >=40 collected tests, got {n} -- "
+                    "refusing to pass vacuously")
+              sys.exit(1)
+          PY
+
+      - name: "Regression suite (regression_tests.py)"
+        run: python3 scripts/regression_tests.py

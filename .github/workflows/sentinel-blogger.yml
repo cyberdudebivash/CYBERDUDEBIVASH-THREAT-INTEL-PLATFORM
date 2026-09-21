@@ -1734,6 +1734,121 @@ jobs:
         run: python3 scripts/threat_graph_engine.py
 
       # -----------------------------------------------------------------------
+      # STAGE 3.4.10b - Commercial Source Exposure Enrichment
+      # -----------------------------------------------------------------------
+      # Credential-gated connector layer for the 15 registry sources that are
+      # both licensing_class=COMMERCIAL_LICENSED and access_type=
+      # FREE_REGISTRATION -- the sources this platform may lawfully use in a
+      # commercially sold product, each needing only a free API key.
+      #
+      # These close the gap that data/registry/source_registry.json described
+      # as REQUIRES_CREDENTIALS ("would work today if a key were supplied")
+      # for 25 sources when in fact only 1 had a reachable adapter. This step
+      # supplies the adapters for the 15 commercially usable ones.
+      #
+      # The 10 FREE_NONCOMMERCIAL sources (abuse.ch x3, AbuseIPDB, PhishTank,
+      # AlienVault OTX, Malpedia, IBM X-Force, urlscan.io, LeakIX) are
+      # deliberately NOT wired: this platform is sold commercially, and
+      # p40_production_certification.py G21 fails the build if a
+      # FREE_NONCOMMERCIAL source is flagged commercially usable.
+      #
+      # NO-OP UNTIL A KEY IS SET. Every adapter is inert without its
+      # credential (the true_intel_ingestor.py:ingest_urlhaus contract), so
+      # with no secrets configured this step logs which env vars it is
+      # waiting for and changes nothing. Adding a repository secret is the
+      # whole activation procedure -- no code change is needed.
+      #
+      # COST: runs on the GitHub Actions runner, not in a Cloudflare Worker,
+      # so it consumes no Cloudflare request/CPU quota and cannot affect the
+      # Cloudflare plan budget. MAX_LOOKUPS bounds outbound third-party API
+      # calls per run so an activated key cannot produce an unbounded spend
+      # or a rate-limit ban.
+      #
+      # Placed before STAGE 3.4.11 so exposure fields are present when the
+      # detection/quality engines and the P29-P33 certification gates read
+      # the feed, and before STAGE 3.5's R2 upload so they reach customers.
+      #
+      # Non-blocking: a third-party lookup API being down, rate-limiting us,
+      # or rejecting a key must degrade enrichment, never block the pipeline.
+      - name: "STAGE 3.4.10b - Commercial Source Exposure Enrichment (v1.0.0)"
+        timeout-minutes: 10
+        continue-on-error: true
+        env:
+          # Each is optional. An unset variable leaves that source inert.
+          SHODAN_API_KEY:        ${{ secrets.SHODAN_API_KEY }}
+          CENSYS_API_ID:         ${{ secrets.CENSYS_API_ID }}
+          CENSYS_API_SECRET:     ${{ secrets.CENSYS_API_SECRET }}
+          ZOOMEYE_API_KEY:       ${{ secrets.ZOOMEYE_API_KEY }}
+          FOFA_API_KEY:          ${{ secrets.FOFA_API_KEY }}
+          FOFA_EMAIL:            ${{ secrets.FOFA_EMAIL }}
+          BINARYEDGE_API_KEY:    ${{ secrets.BINARYEDGE_API_KEY }}
+          NETLAS_API_KEY:        ${{ secrets.NETLAS_API_KEY }}
+          CRIMINALIP_API_KEY:    ${{ secrets.CRIMINALIP_API_KEY }}
+          ONYPHE_API_KEY:        ${{ secrets.ONYPHE_API_KEY }}
+          GREYNOISE_API_KEY:     ${{ secrets.GREYNOISE_API_KEY }}
+          VIRUSTOTAL_API_KEY:    ${{ secrets.VIRUSTOTAL_API_KEY }}
+          SECURITYTRAILS_API_KEY: ${{ secrets.SECURITYTRAILS_API_KEY }}
+          WHOISXMLAPI_KEY:       ${{ secrets.WHOISXMLAPI_KEY }}
+          DNSLYTICS_API_KEY:     ${{ secrets.DNSLYTICS_API_KEY }}
+          ANYRUN_API_KEY:        ${{ secrets.ANYRUN_API_KEY }}
+          HYBRID_ANALYSIS_API_KEY: ${{ secrets.HYBRID_ANALYSIS_API_KEY }}
+          MAX_LOOKUPS: "200"
+        run: python3 scripts/exposure_intel_enricher.py || true
+
+      # -----------------------------------------------------------------------
+      # STAGE 3.4.11 - Detection Quality Engine (detection_rules_total backfill)
+      # -----------------------------------------------------------------------
+      # ROOT CAUSE this closes: every certification gate that measures detection
+      # coverage (P29 G-detection, P30, P31, P32, P33 G20) reads the item field
+      # `detection_rules_total`. The ONLY writer of that field is
+      # scripts/detection_quality_engine.py -- and this workflow never called
+      # it. It ran solely in generate-and-sync.yml (STAGE 6.99), a different
+      # workflow on a different schedule, whose result this pipeline's own
+      # api/feed.json then overwrote. safe_git_commit.py documents the
+      # resulting cross-workflow race in detail and notes its partial fix "is
+      # not sufficient by itself".
+      #
+      # Net effect: the platform genuinely ships Sigma + Suricata rules on 66 of
+      # 109 live feed items (78.6% of detection-eligible items, 60.6% of the
+      # full feed), but every gate reported 0.0% detection coverage, because the
+      # count field they all read was never populated on this path. That is a
+      # measurement defect, not a content gap -- the rules themselves
+      # (`sigma_rule`, `suricata_rule`) were always present and unaffected.
+      #
+      # Verified against the current live feed: this step sets
+      # detection_rules_total=3 on exactly the 66 rule-carrying items and 0 on
+      # the rest, taking P33 G20 from 0.0% to 60.6% -- above its 40% threshold.
+      #
+      # PLACEMENT is load-bearing. This must run:
+      #   * AFTER every feed-enrichment stage (3.1.x-3.4.10), so it counts the
+      #     final rule set rather than a mid-pipeline snapshot;
+      #   * BEFORE STAGE 3.5's R2 upload, so the field reaches the
+      #     customer-facing feed and is not published one cycle stale;
+      #   * BEFORE the P29-P33 certification stages (3.93+), which read it.
+      #
+      # `detection_rules_total` is already a registered optional field in
+      # p38_shared_validators.py's SCHEMA_REGISTRY (int, nullable), so adding
+      # it introduces no schema change and no contract-validator risk.
+      #
+      # Non-blocking (continue-on-error: true), matching the identical
+      # invocation in generate-and-sync.yml STAGE 6.99 and every other
+      # enrichment stage above: a detection-count failure must never block the
+      # pipeline, since the underlying rules are already in the feed.
+      - name: "STAGE 3.4.11 - Detection Quality Engine (v1.0.0 - detection_rules_total)"
+        timeout-minutes: 5
+        continue-on-error: true
+        run: |
+          if [ -f "api/feed.json" ]; then
+            python3 scripts/detection_quality_engine.py api/feed.json \
+              --apply --output api/detection_quality.json 2>&1 | tail -3
+            WITH_RULES=$(jq '[.[] | select((.detection_rules_total // 0) > 0)] | length' api/feed.json 2>/dev/null || echo "?")
+            TOTAL=$(jq 'length' api/feed.json 2>/dev/null || echo "?")
+            echo "[DETECTION-QUALITY] detection_rules_total populated on ${WITH_RULES}/${TOTAL} items"
+          else
+            echo "::warning::api/feed.json absent — detection_rules_total not computed this run"
+          fi
+
+      # -----------------------------------------------------------------------
       # STAGE 3.5: R2 UPLOAD -- MANDATORY, NO CONTINUE-ON-ERROR
       # Uploads feed_manifest, enriched manifests, HTML reports, AI data,
       # and sync metadata to Cloudflare R2.

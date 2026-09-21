@@ -17,6 +17,54 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(
 import source_fabric_health as sfh  # noqa: E402
 
 
+class TestConnectorAwareReasonCode:
+    """REQUIRES_CREDENTIALS collapses two very different blockers together:
+    a wired adapter that genuinely needs only an API key, and a source with
+    no adapter at all where a key would change nothing. These cover the
+    has_connector parameter that keeps the derived reason_code from
+    discarding the connector_ref/integration_mode ground truth."""
+
+    def test_requires_credentials_without_connector_is_not_credential_required(self):
+        # The 24-of-25 case: no adapter, so a key alone activates nothing.
+        assert sfh._compute_reason_code(
+            "REQUIRES_CREDENTIALS", "AWAITING_CREDENTIALS", None, False
+        ) == "CONNECTOR_NOT_IMPLEMENTED"
+
+    def test_requires_credentials_with_connector_stays_credential_required(self):
+        # The abuse_ch_urlhaus case: wired into the live pipeline, genuinely
+        # one API key away from delivering.
+        assert sfh._compute_reason_code(
+            "REQUIRES_CREDENTIALS", "AWAITING_CREDENTIALS", None, True
+        ) == "CREDENTIAL_REQUIRED"
+
+    def test_has_connector_defaults_to_true_for_legacy_callers(self):
+        # Backward compatibility: the pre-existing 3-argument call signature
+        # must keep its exact previous behaviour.
+        assert sfh._compute_reason_code(
+            "REQUIRES_CREDENTIALS", "AWAITING_CREDENTIALS", None
+        ) == "CREDENTIAL_REQUIRED"
+
+    def test_missing_connector_only_affects_requires_credentials(self):
+        # has_connector must not leak into unrelated statuses.
+        assert sfh._compute_reason_code(
+            "REQUIRES_LICENSE", "AWAITING_LICENSE", None, False
+        ) == "LICENSE_REQUIRED"
+        assert sfh._compute_reason_code(
+            "PLANNED", "NOT_APPLICABLE", None, False
+        ) == "NOT_YET_IMPLEMENTED"
+        assert sfh._compute_reason_code("ACTIVE", "HEALTHY", None, False) == "OK"
+
+    def test_connector_not_implemented_maps_to_its_own_state(self):
+        assert sfh._compute_state(
+            "AWAITING_CREDENTIALS", "CONNECTOR_NOT_IMPLEMENTED"
+        ) == "CONNECTOR_REQUIRED"
+
+    def test_credential_required_state_unchanged(self):
+        assert sfh._compute_state(
+            "AWAITING_CREDENTIALS", "CREDENTIAL_REQUIRED"
+        ) == "CREDENTIAL_REQUIRED"
+
+
 class TestComputeReasonCode:
     def test_requires_credentials_status(self):
         assert sfh._compute_reason_code("REQUIRES_CREDENTIALS", "AWAITING_CREDENTIALS", None) == "CREDENTIAL_REQUIRED"

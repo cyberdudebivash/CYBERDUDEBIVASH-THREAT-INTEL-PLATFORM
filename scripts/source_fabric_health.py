@@ -186,7 +186,32 @@ _HEALTH_TO_STATE = {
 _FAILURE_REASON_CODES = {"HTTP_403", "HTTP_429", "NETWORK_TIMEOUT", "NETWORK_FAILURE", "PARSER_FAILURE"}
 
 
-def _compute_reason_code(status: str, health: str, fs_reason: Optional[str]) -> str:
+def _compute_reason_code(status: str, health: str, fs_reason: Optional[str],
+                         has_connector: bool = True) -> str:
+    """Resolve the actionable reason a source is not delivering data.
+
+    `has_connector` distinguishes the two very different blockers that the
+    single REQUIRES_CREDENTIALS status collapses together:
+
+      * a source whose adapter is written and wired into the live pipeline
+        and is genuinely one API key away from delivering
+        (abuse_ch_urlhaus -- scripts/true_intel_ingestor.py:ingest_urlhaus);
+      * a source with no reachable adapter at all, where supplying a key
+        would change nothing because no code would ever call it.
+
+    Reporting CREDENTIAL_REQUIRED for the second kind overstates readiness:
+    it tells an operator (and, through handleP40SourceHealth, a customer)
+    that a credential is the ONLY thing standing between that source and
+    live data. At the time this parameter was added that was true of 1 of
+    the 25 REQUIRES_CREDENTIALS sources and false of the other 24.
+
+    The registry already carries the ground truth for this in
+    connector_ref/integration_mode; this only stops the derived reason_code
+    from discarding it. Defaults to True so existing 3-argument callers keep
+    their exact previous behaviour.
+    """
+    if status == "REQUIRES_CREDENTIALS" and not has_connector:
+        return "CONNECTOR_NOT_IMPLEMENTED"
     if status in _STATUS_REASON_CODE:
         return _STATUS_REASON_CODE[status]
     if status == "IMPLEMENTED":
@@ -201,6 +226,12 @@ def _compute_reason_code(status: str, health: str, fs_reason: Optional[str]) -> 
 
 
 def _compute_state(health: str, reason_code: str) -> str:
+    # A source with no adapter is not merely "awaiting a credential" -- see
+    # _compute_reason_code's docstring. Surfaced as its own state so the
+    # dashboard and /api/v1/p40/source-health distinguish "paste in a key"
+    # from "this still needs to be built".
+    if reason_code == "CONNECTOR_NOT_IMPLEMENTED":
+        return "CONNECTOR_REQUIRED"
     if health == "STALE":
         if reason_code == "AUTH_FAILURE":
             return "AUTH_FAILURE"
@@ -300,7 +331,11 @@ def compute_health() -> Dict[str, Any]:
                 health = "HEALTHY"
 
         counts_by_health[health] = counts_by_health.get(health, 0) + 1
-        reason_code = _compute_reason_code(status, health, fs_reason_code)
+        # Ground truth for "is there an adapter at all" already lives in the
+        # registry; NOT_INTEGRATED is the registry's own term for a source
+        # with no wired adapter (see build_source_registry.py).
+        has_connector = bool(s.get("connector_ref")) and s.get("integration_mode") != "NOT_INTEGRATED"
+        reason_code = _compute_reason_code(status, health, fs_reason_code, has_connector)
         state = _compute_state(health, reason_code)
 
         results.append({

@@ -423,6 +423,18 @@ SCHEMA_REGISTRY: Dict[str, Dict] = {
     "detection_quality_status":{"required": False,"type": "str","domain": "detection","nullable": True,  "version_introduced": "v3.0"},
     "detection_rules_production_ready":{"required": False,"type": "bool","domain": "detection","nullable": True,"version_introduced": "v3.0"},
     "detection_rules_total":{"required": False,"type": "int","domain": "detection",  "nullable": True,  "version_introduced": "v3.0"},
+    # ── Exposure Intelligence (commercial source connectors) ─────────────────
+    # Written by scripts/exposure_intel_enricher.py from the commercially
+    # licensed, free-registration sources (Shodan/Censys/ZoomEye/FOFA/
+    # BinaryEdge/Netlas/CriminalIP/Onyphe). Absent unless a credential is
+    # configured -- the enricher is a no-op without one -- hence nullable
+    # and not required. Registered here so an activated source does not
+    # register as schema drift in p38's live-feed drift gate.
+    "exposure_intel":  {"required": False, "type": "dict",  "domain": "exposure",    "nullable": True,  "version_introduced": "v3.1"},
+    "exposure_hosts_total":{"required": False,"type": "int","domain": "exposure",    "nullable": True,  "version_introduced": "v3.1"},
+    "exposure_sources_count":{"required": False,"type": "int","domain": "exposure",  "nullable": True,  "version_introduced": "v3.1"},
+    "exposure_queried_at":{"required": False,"type": "str", "domain": "exposure",    "nullable": True,  "version_introduced": "v3.1"},
+
     # ── Intelligence Quality ─────────────────────────────────────────────────
     "intelligence_grade":{"required": False,"type": "str",  "domain": "quality",     "nullable": True,  "version_introduced": "v2.0"},
     "iq_score":        {"required": False, "type": "float", "domain": "quality",     "nullable": True,  "version_introduced": "v3.0"},
