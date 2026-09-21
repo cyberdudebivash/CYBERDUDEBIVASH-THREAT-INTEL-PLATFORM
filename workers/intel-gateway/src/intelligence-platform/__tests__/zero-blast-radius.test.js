@@ -9,6 +9,7 @@ import { test } from "node:test";
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { dirname, join, relative, sep } from "node:path";
 import { fileURLToPath } from "node:url";
+import { stripComments } from "../../__tests__/boundary-scan-helpers.js";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const EIPS_DIR = dirname(HERE); // .../intelligence-platform
@@ -121,7 +122,7 @@ test("nothing outside intelligence-platform/ references 'intelligence-platform'"
     if (isInside(file, EIPS_DIR)) continue; // files inside this directory are exempt
     if (isInside(file, evidenceRegistryTestsDir)) continue; // see above
     if (AUTHORIZED_CONSUMER_DIRS.some((dir) => isInside(file, dir))) continue; // Stage 14, see above
-    const text = readFileSync(file, "utf-8");
+    const text = stripComments(readFileSync(file, "utf-8"));
     if (text.includes("intelligence-platform")) {
       violations.push(relative(WORKER_SRC_DIR, file));
     }

@@ -357,6 +357,38 @@ jobs:
           cd ${WORKER_DIR}
           node --test src/__tests__/certification-registry.test.js src/__tests__/publication-gate.test.js src/__tests__/reports-canonical-write-guard.test.js src/__tests__/detection-registry.test.js src/__tests__/subscription-lifecycle.test.js src/__tests__/revenue-enforcement.upgrade-trigger.test.js src/__tests__/daily-quota.test.js src/__tests__/first-party-plane.test.js src/__tests__/api-extensions.cve-scope.test.js src/__tests__/gumroad-lifecycle.test.js src/__tests__/metric-integrity-contract.test.js src/__tests__/cors-policy.test.js src/__tests__/swarm-synthesis.test.js src/__tests__/swarm-synthesis-readiness-contract.test.js src/__tests__/swarm-access.test.js src/__tests__/swarm-preflight-contract.test.js scripts/demo-key-operator.contract.test.mjs
 
+      # -----------------------------------------------------------------------
+      # Full gateway unit suite (HARD GATE)
+      # -----------------------------------------------------------------------
+      # ROOT CAUSE this closes: the curated gate above is a hand-maintained
+      # allowlist -- every entry was added deliberately, with its own rationale
+      # comment, as a specific customer-facing trust boundary worth blocking a
+      # deploy on. That list names 17 files. The worker actually ships 122 test
+      # files / 1121 tests, so ~87% of the suite never ran in CI and could not
+      # block a deploy. Four zero-blast-radius boundary tests were failing on
+      # main undetected for exactly that reason -- nothing in the deploy path
+      # executed them.
+      #
+      # This step runs the WHOLE suite so the deploy gate verifies the code it
+      # is about to deploy. It is additive: the curated gate above is left
+      # exactly as-is and still runs first, so its targeted, well-documented
+      # failure signal is preserved (a break there still names the specific
+      # trust boundary that regressed, rather than being one line in a
+      # 1121-test run). This step only widens coverage beyond it.
+      #
+      # The suite is pure unit tests -- no network, no secrets, no wrangler --
+      # and completes in ~5s, so it adds no meaningful pipeline time.
+      #
+      # `node --test <glob>` requires Node >= 21; this job pins Node 22 above.
+      # scripts/demo-key-operator.contract.test.mjs lives outside src/ and so
+      # is not matched by these globs -- it stays covered by the curated gate.
+      - name: "Full gateway unit suite (HARD GATE)"
+        run: |
+          echo "=== Full gateway unit suite -- HARD GATE ==="
+          echo "Runs every test file under src/, not just the curated allowlist."
+          cd ${WORKER_DIR}
+          node --test "src/**/*.test.js" "src/**/*.test.mjs"
+
       - name: " esbuild bundle pre-flight (HARD GATE)"
         run: |
           echo "=== esbuild bundle pre-flight -- HARD GATE ==="
