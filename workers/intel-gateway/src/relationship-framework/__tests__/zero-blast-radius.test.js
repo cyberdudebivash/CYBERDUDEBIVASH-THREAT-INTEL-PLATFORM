@@ -12,6 +12,7 @@ import { test } from "node:test";
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { dirname, join, relative, sep } from "node:path";
 import { fileURLToPath } from "node:url";
+import { stripComments } from "../../__tests__/boundary-scan-helpers.js";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const RF_DIR = dirname(HERE); // .../relationship-framework
@@ -72,7 +73,7 @@ test("nothing outside relationship-framework/ references 'relationship-framework
   for (const file of listJsFiles(WORKER_SRC_DIR)) {
     if (isInside(file, RF_DIR)) continue; // files inside this directory are exempt
     if (documentationOnlyExceptions.has(file)) continue; // see above -- prose only, no import
-    const text = readFileSync(file, "utf-8");
+    const text = stripComments(readFileSync(file, "utf-8"));
     if (text.includes("relationship-framework")) {
       violations.push(relative(WORKER_SRC_DIR, file));
     }

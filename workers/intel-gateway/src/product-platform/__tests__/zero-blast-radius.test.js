@@ -11,6 +11,7 @@ import { test } from "node:test";
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { dirname, join, relative, sep } from "node:path";
 import { fileURLToPath } from "node:url";
+import { stripComments } from "../../__tests__/boundary-scan-helpers.js";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const PP_DIR = dirname(HERE); // .../product-platform
@@ -82,7 +83,7 @@ test("nothing outside product-platform/ references 'product-platform' except the
     if (isInside(file, PP_DIR)) continue; // files inside this directory are exempt
     if (exemptTestsDirs.some((dir) => isInside(file, dir))) continue; // see above
     if (isInside(file, COMMERCIAL_CATALOG_DIR)) continue; // Stage 21, see above
-    const text = readFileSync(file, "utf-8");
+    const text = stripComments(readFileSync(file, "utf-8"));
     if (text.includes("product-platform")) violations.push(relative(WORKER_SRC_DIR, file));
   }
   assert.deepEqual(violations, [], `boundary violation(s) found: ${violations.join(", ")}`);

@@ -11,6 +11,7 @@ import { test } from "node:test";
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { dirname, join, relative, sep } from "node:path";
 import { fileURLToPath } from "node:url";
+import { stripComments } from "../../__tests__/boundary-scan-helpers.js";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const KP_DIR = dirname(HERE); // .../knowledge-platform
@@ -94,7 +95,7 @@ test("nothing outside knowledge-platform/ references 'knowledge-platform' except
     if (exemptTestsDirs.some((dir) => isInside(file, dir))) continue; // see above
     if (isInside(file, PRODUCT_PLATFORM_DIR)) continue; // Stage 19, see above
     if (isInside(file, COMMERCIAL_CATALOG_DIR)) continue; // Stage 21, see above
-    const text = readFileSync(file, "utf-8");
+    const text = stripComments(readFileSync(file, "utf-8"));
     if (text.includes("knowledge-platform")) violations.push(relative(WORKER_SRC_DIR, file));
   }
   assert.deepEqual(violations, [], `boundary violation(s) found: ${violations.join(", ")}`);
