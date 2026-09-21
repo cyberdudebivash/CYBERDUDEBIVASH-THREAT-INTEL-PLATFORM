@@ -102,11 +102,20 @@ jobs:
         with:
           python-version: '3.11'
 
-      # This repository's convention (see access-governance-gate.yml) is to
-      # install pytest explicitly: it is not in requirements.txt, and pytest.ini
-      # at the repo root configures it as the intended runner.
-      - name: "Install pytest"
-        run: pip install pytest --quiet
+      # This repository's convention (see access-governance-gate.yml,
+      # report-generator-regression-gate.yml) is to install these explicitly:
+      # pytest is not in requirements.txt though pytest.ini configures it as
+      # the intended runner, and regression_tests.py imports yaml in three
+      # places (T12/T25/T41 parse workflow YAML). Installing the full
+      # requirements.txt here would be far slower and pulls in cloud SDKs
+      # these suites do not need.
+      #
+      # PyYAML was missing from the first version of this gate: it is present
+      # in most dev environments, so the regression suite passed locally at
+      # 41/41 and failed in CI at 38/41 with three "No module named 'yaml'"
+      # errors -- an environment gap in this gate, not a code regression.
+      - name: "Install pytest + PyYAML"
+        run: pip install pytest pyyaml --quiet
 
       # Scoped to the suites that are self-contained -- no network, no cloud
       # SDK, no credentials. Deliberately NOT `pytest tests/`: 115 modules live
