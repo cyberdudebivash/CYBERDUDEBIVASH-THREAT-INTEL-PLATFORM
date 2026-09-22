@@ -1,12 +1,18 @@
 param(
     [ValidateRange(0, 1000000)]
-    [decimal]$MaxUsageCostUsd = 0.00
+    [decimal]$MaxUsageCostUsd = 0.00,
+
+    [string]$UsageSnapshotPath = "",
+
+    [string]$EvidencePath = ""
 )
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
-function Get-PropertyValue {
+
+function Get-CdbProperty {
+
     param(
         [Parameter(Mandatory = $true)] $Object,
         [Parameter(Mandatory = $true)] [string] $Name
@@ -21,105 +27,162 @@ function Get-PropertyValue {
     return $Property.Value
 }
 
-function Convert-ToDecimal {
+
+function Convert-CdbDecimal {
+
     param(
         [Parameter(Mandatory = $true)] $Value,
         [Parameter(Mandatory = $true)] [string] $FieldName
     )
 
     try {
+
         return [Convert]::ToDecimal(
             $Value,
             [Globalization.CultureInfo]::InvariantCulture
         )
     }
     catch {
+
         throw "Unable to parse $FieldName as decimal."
     }
 }
 
 
+function Convert-CdbUtcTimestamp {
+
+    param(
+        [Parameter(Mandatory = $true)] [string] $Value,
+        [Parameter(Mandatory = $true)] [string] $FieldName
+    )
+
+    if ([string]::IsNullOrWhiteSpace($Value)) {
+        throw "$FieldName is missing; fail closed."
+    }
+
+    try {
+
+        return [DateTimeOffset]::Parse(
+            $Value,
+            [Globalization.CultureInfo]::InvariantCulture
+        ).ToUniversalTime()
+    }
+    catch {
+
+        throw "Unable to parse $FieldName as timestamp: $Value"
+    }
+}
+
+
 # =====================================================================
-# INPUT CONTRACT
+# INPUT SOURCE
 # =====================================================================
 
-$AccountId = [Environment]::GetEnvironmentVariable(
-    "CF_ACCOUNT_ID",
-    "Process"
-)
+$SourceMode = "LIVE_API"
+$Rows = @()
 
-if ([string]::IsNullOrWhiteSpace($AccountId)) {
+if (-not [string]::IsNullOrWhiteSpace($UsageSnapshotPath)) {
+
+    if (-not (
+        Test-Path `
+            -LiteralPath $UsageSnapshotPath `
+            -PathType Leaf
+    )) {
+        throw "Usage snapshot does not exist: $UsageSnapshotPath"
+    }
+
+    $Snapshot = Get-Content `
+        -LiteralPath $UsageSnapshotPath `
+        -Raw |
+        ConvertFrom-Json
+
+    if ($Snapshot -is [System.Array]) {
+
+        $Rows = @($Snapshot)
+    }
+    elseif (
+        $Snapshot.PSObject.Properties.Name -contains "result"
+    ) {
+
+        $Rows = @($Snapshot.result)
+    }
+    else {
+
+        throw "Snapshot must be an array or contain a result property."
+    }
+
+    $SourceMode = "OFFLINE_SNAPSHOT"
+}
+else {
+
     $AccountId = [Environment]::GetEnvironmentVariable(
-        "CLOUDFLARE_ACCOUNT_ID",
+        "CF_ACCOUNT_ID",
         "Process"
     )
-}
 
-$Token = [Environment]::GetEnvironmentVariable(
-    "CF_BILLING_READ_TOKEN",
-    "Process"
-)
+    if ([string]::IsNullOrWhiteSpace($AccountId)) {
 
-if ([string]::IsNullOrWhiteSpace($AccountId)) {
-    throw "CF_ACCOUNT_ID or CLOUDFLARE_ACCOUNT_ID is required."
-}
+        $AccountId = [Environment]::GetEnvironmentVariable(
+            "CLOUDFLARE_ACCOUNT_ID",
+            "Process"
+        )
+    }
 
-if ($AccountId -notmatch "^[a-fA-F0-9]{32}$") {
-    throw "Cloudflare Account ID format is invalid."
-}
-
-if ([string]::IsNullOrWhiteSpace($Token)) {
-    throw "CF_BILLING_READ_TOKEN is required."
-}
-
-
-# =====================================================================
-# CLOUDFLARE BILLABLE USAGE API
-# =====================================================================
-
-$Headers = @{
-    Authorization = "Bearer $Token"
-    Accept        = "application/json"
-}
-
-$Uri = (
-    "https://api.cloudflare.com/client/v4/accounts/" +
-    $AccountId +
-    "/billable-usage"
-)
-
-Write-Host ""
-Write-Host "============================================================" -ForegroundColor Cyan
-Write-Host "CYBERDUDEBIVASH P0 CLOUDFLARE COST GUARD" -ForegroundColor Cyan
-Write-Host "============================================================"
-Write-Host "Mode             : PRE_REVENUE_ZERO_OVERAGE"
-Write-Host "Allowed overage  : USD $MaxUsageCostUsd"
-Write-Host "Accounting field : ContractedCost"
-Write-Host "Credential       : BILLING READ ONLY / NOT PRINTED"
-
-try {
-    $Response = Invoke-RestMethod `
-        -Method Get `
-        -Uri $Uri `
-        -Headers $Headers `
-        -TimeoutSec 60
-}
-catch {
-    throw (
-        "Cloudflare Billable Usage request failed: " +
-        $_.Exception.Message
+    $Token = [Environment]::GetEnvironmentVariable(
+        "CF_BILLING_READ_TOKEN",
+        "Process"
     )
+
+    if ([string]::IsNullOrWhiteSpace($AccountId)) {
+        throw "CF_ACCOUNT_ID or CLOUDFLARE_ACCOUNT_ID is required."
+    }
+
+    if ($AccountId -notmatch "^[a-fA-F0-9]{32}$") {
+        throw "Cloudflare Account ID format is invalid."
+    }
+
+    if ([string]::IsNullOrWhiteSpace($Token)) {
+        throw "CF_BILLING_READ_TOKEN is required."
+    }
+
+    $Headers = @{
+        Authorization = "Bearer $Token"
+        Accept        = "application/json"
+    }
+
+    $Uri = (
+        "https://api.cloudflare.com/client/v4/accounts/" +
+        $AccountId +
+        "/billable-usage"
+    )
+
+    try {
+
+        $Response = Invoke-RestMethod `
+            -Method Get `
+            -Uri $Uri `
+            -Headers $Headers `
+            -TimeoutSec 60
+    }
+    catch {
+
+        throw (
+            "Cloudflare Billable Usage request failed: " +
+            $_.Exception.Message
+        )
+    }
+
+    if ($null -eq $Response) {
+        throw "Cloudflare returned an empty response."
+    }
+
+    if ($Response.success -ne $true) {
+        throw "Cloudflare Billable Usage API returned success=false."
+    }
+
+    $Rows = @($Response.result)
 }
 
-if ($null -eq $Response) {
-    throw "Cloudflare returned an empty API response."
-}
-
-if ($Response.success -ne $true) {
-    throw "Cloudflare Billable Usage API returned success=false."
-}
-
-$Rows = @($Response.result)
 
 if ($Rows.Count -eq 0) {
     throw "No billable usage records returned; fail closed."
@@ -127,55 +190,32 @@ if ($Rows.Count -eq 0) {
 
 
 # =====================================================================
-# NORMALIZE + DEDUPLICATE CHARGE PERIODS
+# NORMALIZATION
 # =====================================================================
 
-$UniqueRows = @{}
-$DuplicateCount = 0
+$Normalized = @()
 
 foreach ($Row in $Rows) {
 
-    $Signature = @(
-        [string](Get-PropertyValue $Row "SubscriptionId"),
-        [string](Get-PropertyValue $Row "ZoneId"),
-        [string](Get-PropertyValue $Row "ServiceName"),
-        [string](Get-PropertyValue $Row "x_BillableMetricName"),
-        [string](Get-PropertyValue $Row "ChargePeriodStart"),
-        [string](Get-PropertyValue $Row "ChargePeriodEnd"),
-        [string](Get-PropertyValue $Row "PricingQuantity"),
-        [string](Get-PropertyValue $Row "ContractedCost")
-    ) -join "|"
+    $RawPeriod = [string](
+        Get-CdbProperty `
+            $Row `
+            "BillingPeriodStart"
+    )
 
-    if ($UniqueRows.ContainsKey($Signature)) {
-        $DuplicateCount++
-        continue
-    }
+    $BillingPeriodStart = Convert-CdbUtcTimestamp `
+        $RawPeriod `
+        "BillingPeriodStart"
 
-    $UniqueRows[$Signature] = $Row
-}
-
-
-# =====================================================================
-# ACCOUNTING
-# =====================================================================
-
-$TotalCost = [decimal]0
-$Diagnostics = @()
-$PositiveRows = @()
-
-foreach ($Entry in $UniqueRows.GetEnumerator()) {
-
-    $Row = $Entry.Value
-
-    $RawContracted = Get-PropertyValue `
+    $RawContracted = Get-CdbProperty `
         $Row `
         "ContractedCost"
 
     if ($null -eq $RawContracted) {
-        throw "ContractedCost missing from a billable usage record."
+        throw "ContractedCost is missing; fail closed."
     }
 
-    $ContractedCost = Convert-ToDecimal `
+    $ContractedCost = Convert-CdbDecimal `
         $RawContracted `
         "ContractedCost"
 
@@ -183,7 +223,7 @@ foreach ($Entry in $UniqueRows.GetEnumerator()) {
         throw "Negative ContractedCost returned; fail closed."
     }
 
-    $RawBilled = Get-PropertyValue `
+    $RawBilled = Get-CdbProperty `
         $Row `
         "BilledCost"
 
@@ -191,107 +231,347 @@ foreach ($Entry in $UniqueRows.GetEnumerator()) {
 
     if ($null -ne $RawBilled) {
 
-        $BilledCost = Convert-ToDecimal `
+        $BilledCost = Convert-CdbDecimal `
             $RawBilled `
             "BilledCost"
 
         if (
             [math]::Abs(
-                [double]($BilledCost - $ContractedCost)
+                [double](
+                    $BilledCost -
+                    $ContractedCost
+                )
             ) -gt 0.000001
         ) {
-            throw "BilledCost and ContractedCost disagree; fail closed for accounting review."
+            throw (
+                "BilledCost and ContractedCost disagree; " +
+                "fail closed for accounting review."
+            )
         }
     }
 
-    $TotalCost += $ContractedCost
+    $SubscriptionId = [string](
+        Get-CdbProperty `
+            $Row `
+            "SubscriptionId"
+    )
+
+    $ServiceFamily = [string](
+        Get-CdbProperty `
+            $Row `
+            "ServiceFamilyName"
+    )
+
+    $ServiceName = [string](
+        Get-CdbProperty `
+            $Row `
+            "ServiceName"
+    )
+
+    if (-not [string]::IsNullOrWhiteSpace($SubscriptionId)) {
+
+        $GroupKey = "subscription:" + $SubscriptionId
+    }
+    elseif (-not [string]::IsNullOrWhiteSpace($ServiceFamily)) {
+
+        $GroupKey = "family:" + $ServiceFamily
+    }
+    elseif (-not [string]::IsNullOrWhiteSpace($ServiceName)) {
+
+        $GroupKey = "service:" + $ServiceName
+    }
+    else {
+
+        throw (
+            "Unable to establish subscription/service billing group; " +
+            "fail closed."
+        )
+    }
 
     $Metric = [string](
-        Get-PropertyValue `
+        Get-CdbProperty `
             $Row `
             "x_BillableMetricName"
     )
 
     if ([string]::IsNullOrWhiteSpace($Metric)) {
-        $Metric = [string](
-            Get-PropertyValue `
-                $Row `
-                "ServiceName"
-        )
+        $Metric = $ServiceName
     }
 
     if ([string]::IsNullOrWhiteSpace($Metric)) {
         $Metric = "UNKNOWN"
     }
 
-    $Record = [PSCustomObject]@{
-        Metric                   = $Metric
-        ServiceFamily            = Get-PropertyValue $Row "ServiceFamilyName"
-        ServiceName              = Get-PropertyValue $Row "ServiceName"
-        ConsumedQuantity         = Get-PropertyValue $Row "ConsumedQuantity"
-        ConsumedUnit             = Get-PropertyValue $Row "ConsumedUnit"
-        PricingQuantity          = Get-PropertyValue $Row "PricingQuantity"
-        PricingUnit              = Get-PropertyValue $Row "PricingUnit"
-        ContractedCost           = $ContractedCost
-        BilledCost               = $BilledCost
-        CumulatedContractedCost  = Get-PropertyValue $Row "CumulatedContractedCost"
-        BillingCurrency          = Get-PropertyValue $Row "BillingCurrency"
-        BillingPeriodStart       = Get-PropertyValue $Row "BillingPeriodStart"
-        ChargePeriodStart        = Get-PropertyValue $Row "ChargePeriodStart"
-        ChargePeriodEnd          = Get-PropertyValue $Row "ChargePeriodEnd"
-    }
-
-    $Diagnostics += $Record
-
-    if ($ContractedCost -gt 0) {
-        $PositiveRows += $Record
+    $Normalized += [PSCustomObject]@{
+        GroupKey                  = $GroupKey
+        SubscriptionId            = $SubscriptionId
+        ServiceFamily             = $ServiceFamily
+        ServiceName               = $ServiceName
+        Metric                    = $Metric
+        ZoneId                    = Get-CdbProperty $Row "ZoneId"
+        ConsumedQuantity          = Get-CdbProperty $Row "ConsumedQuantity"
+        ConsumedUnit              = Get-CdbProperty $Row "ConsumedUnit"
+        PricingQuantity           = Get-CdbProperty $Row "PricingQuantity"
+        PricingUnit               = Get-CdbProperty $Row "PricingUnit"
+        ContractedCost            = $ContractedCost
+        BilledCost                = $BilledCost
+        CumulatedContractedCost   = Get-CdbProperty $Row "CumulatedContractedCost"
+        BillingCurrency           = Get-CdbProperty $Row "BillingCurrency"
+        BillingPeriodStart        = $BillingPeriodStart
+        ChargePeriodStart         = Get-CdbProperty $Row "ChargePeriodStart"
+        ChargePeriodEnd           = Get-CdbProperty $Row "ChargePeriodEnd"
     }
 }
 
-$TotalCost = [decimal]::Round(
-    $TotalCost,
-    6
+
+# =====================================================================
+# DEDUPLICATION
+# =====================================================================
+
+$Unique = @{}
+$DuplicateCount = 0
+
+foreach ($Row in $Normalized) {
+
+    $Signature = @(
+        $Row.GroupKey,
+        $Row.BillingPeriodStart.ToString("o"),
+        [string]$Row.ZoneId,
+        $Row.Metric,
+        [string]$Row.ChargePeriodStart,
+        [string]$Row.ChargePeriodEnd,
+        [string]$Row.PricingQuantity,
+        [string]$Row.ContractedCost
+    ) -join "|"
+
+    if ($Unique.ContainsKey($Signature)) {
+
+        $DuplicateCount++
+        continue
+    }
+
+    $Unique[$Signature] = $Row
+}
+
+$UniqueRows = @(
+    $Unique.Values
 )
 
 
 # =====================================================================
-# LOCAL EVIDENCE - OUTSIDE GIT WORKTREE
+# DETERMINE CURRENT BILLING PERIOD FOR EACH SUBSCRIPTION/SERVICE GROUP
 # =====================================================================
 
-$EvidenceDir = Join-Path `
-    $env:LOCALAPPDATA `
-    "CYBERDUDEBIVASH\FinOps"
+$LatestPeriodByGroup = @{}
 
-New-Item `
-    -ItemType Directory `
-    -Path $EvidenceDir `
-    -Force |
-    Out-Null
+foreach ($Row in $UniqueRows) {
 
-$EvidencePath = Join-Path `
-    $EvidenceDir `
-    "cloudflare-billable-usage-latest.json"
+    $Key = $Row.GroupKey
+
+    if (-not $LatestPeriodByGroup.ContainsKey($Key)) {
+
+        $LatestPeriodByGroup[$Key] =
+            [DateTimeOffset]$Row.BillingPeriodStart
+
+        continue
+    }
+
+    $Existing =
+        [DateTimeOffset]$LatestPeriodByGroup[$Key]
+
+    $Candidate =
+        [DateTimeOffset]$Row.BillingPeriodStart
+
+    if (
+        $Candidate.UtcDateTime.Ticks -gt
+        $Existing.UtcDateTime.Ticks
+    ) {
+
+        $LatestPeriodByGroup[$Key] = $Candidate
+    }
+}
+
+
+# =====================================================================
+# SELECT ONLY CURRENT BILLING PERIOD ROWS
+# =====================================================================
+
+$CurrentRows = @(
+    $UniqueRows |
+    Where-Object {
+
+        $Expected =
+            [DateTimeOffset]$LatestPeriodByGroup[$_.GroupKey]
+
+        $_.BillingPeriodStart.UtcDateTime.Ticks -eq
+        $Expected.UtcDateTime.Ticks
+    }
+)
+
+if ($CurrentRows.Count -eq 0) {
+    throw "No current billing-period rows remain after filtering."
+}
+
+
+$HistoricalRows = @(
+    $UniqueRows |
+    Where-Object {
+
+        $Expected =
+            [DateTimeOffset]$LatestPeriodByGroup[$_.GroupKey]
+
+        $_.BillingPeriodStart.UtcDateTime.Ticks -ne
+        $Expected.UtcDateTime.Ticks
+    }
+)
+
+
+# =====================================================================
+# ACCOUNTING
+# =====================================================================
+
+$CurrentTotal = [decimal]0
+
+foreach ($Row in $CurrentRows) {
+    $CurrentTotal += [decimal]$Row.ContractedCost
+}
+
+$AllReturnedTotal = [decimal]0
+
+foreach ($Row in $UniqueRows) {
+    $AllReturnedTotal += [decimal]$Row.ContractedCost
+}
+
+$CurrentTotal = [decimal]::Round(
+    $CurrentTotal,
+    6
+)
+
+$AllReturnedTotal = [decimal]::Round(
+    $AllReturnedTotal,
+    6
+)
+
+$HistoricalReturnedTotal = [decimal]::Round(
+    $AllReturnedTotal - $CurrentTotal,
+    6
+)
+
+$PositiveCurrentRows = @(
+    $CurrentRows |
+    Where-Object {
+        [decimal]$_.ContractedCost -gt 0
+    }
+)
+
+
+# =====================================================================
+# CURRENCY CONSISTENCY
+# =====================================================================
+
+$CurrentCurrencies = @(
+    $CurrentRows |
+    ForEach-Object {
+        [string]$_.BillingCurrency
+    } |
+    Where-Object {
+        -not [string]::IsNullOrWhiteSpace($_)
+    } |
+    Sort-Object -Unique
+)
+
+if ($CurrentCurrencies.Count -gt 1) {
+    throw "Multiple billing currencies detected in current period."
+}
+
+
+# =====================================================================
+# CURRENT PERIOD SUMMARY
+# =====================================================================
+
+$CurrentPeriodSummary = @(
+    $LatestPeriodByGroup.GetEnumerator() |
+    Sort-Object Key |
+    ForEach-Object {
+
+        [PSCustomObject]@{
+            GroupKey           = $_.Key
+            BillingPeriodStart = (
+                [DateTimeOffset]$_.Value
+            ).ToString("o")
+        }
+    }
+)
+
+
+# =====================================================================
+# EVIDENCE
+# =====================================================================
+
+if ([string]::IsNullOrWhiteSpace($EvidencePath)) {
+
+    $EvidenceDir = Join-Path `
+        $env:LOCALAPPDATA `
+        "CYBERDUDEBIVASH\FinOps"
+
+    New-Item `
+        -ItemType Directory `
+        -Path $EvidenceDir `
+        -Force |
+        Out-Null
+
+    $EvidencePath = Join-Path `
+        $EvidenceDir `
+        "cloudflare-billable-usage-latest.json"
+}
+else {
+
+    $EvidenceDir = Split-Path `
+        -Parent `
+        $EvidencePath
+
+    if (
+        -not [string]::IsNullOrWhiteSpace($EvidenceDir)
+    ) {
+
+        New-Item `
+            -ItemType Directory `
+            -Path $EvidenceDir `
+            -Force |
+            Out-Null
+    }
+}
+
 
 $Status = "PASS"
 
-if ($TotalCost -gt $MaxUsageCostUsd) {
+if ($CurrentTotal -gt $MaxUsageCostUsd) {
     $Status = "BLOCKED"
 }
 
+
 $Evidence = [ordered]@{
-    schema_version         = "4.0"
-    generated_at_utc       = [DateTime]::UtcNow.ToString("o")
-    control                = "CLOUDFLARE_PRE_REVENUE_ZERO_OVERAGE"
-    source                 = "Cloudflare Billable Usage API"
-    api_rows               = $Rows.Count
-    unique_charge_rows     = $UniqueRows.Count
-    duplicates_removed     = $DuplicateCount
-    usage_cost_usd         = $TotalCost
-    allowed_overage_usd    = $MaxUsageCostUsd
-    status                 = $Status
-    positive_cost_rows     = $PositiveRows
-    diagnostics            = $Diagnostics
+    schema_version                 = "5.0"
+    generated_at_utc               = [DateTime]::UtcNow.ToString("o")
+    control                        = "CLOUDFLARE_PRE_REVENUE_ZERO_OVERAGE"
+    source_mode                    = $SourceMode
+    source                         = "Cloudflare Billable Usage API"
+    api_rows                       = $Rows.Count
+    unique_charge_rows             = $UniqueRows.Count
+    duplicate_rows_removed         = $DuplicateCount
+    current_period_rows            = $CurrentRows.Count
+    historical_rows                = $HistoricalRows.Count
+    current_periods                = $CurrentPeriodSummary
+    current_usage_cost_usd         = $CurrentTotal
+    historical_returned_cost_usd   = $HistoricalReturnedTotal
+    all_returned_cost_usd          = $AllReturnedTotal
+    allowed_overage_usd            = $MaxUsageCostUsd
+    status                         = $Status
+    positive_current_cost_rows     = $PositiveCurrentRows
+    current_diagnostics            = $CurrentRows
+    all_diagnostics                = $UniqueRows
 }
+
 
 $Json = $Evidence |
     ConvertTo-Json -Depth 12
@@ -306,56 +586,78 @@ $Utf8Bom = New-Object System.Text.UTF8Encoding($true)
 
 
 # =====================================================================
-# OPERATOR RESULT
+# OPERATOR OUTPUT
 # =====================================================================
 
 Write-Host ""
-Write-Host "API rows           :" $Rows.Count
-Write-Host "Unique charge rows :" $UniqueRows.Count
-Write-Host "Duplicates removed :" $DuplicateCount
-Write-Host "Usage cost USD     :" $TotalCost
-Write-Host "Evidence           :" $EvidencePath
+Write-Host "============================================================" -ForegroundColor Cyan
+Write-Host "CYBERDUDEBIVASH P0 CURRENT-BILLING-PERIOD COST GUARD" -ForegroundColor Cyan
+Write-Host "============================================================"
+Write-Host "Source mode                  :" $SourceMode
+Write-Host "API rows                     :" $Rows.Count
+Write-Host "Unique rows                  :" $UniqueRows.Count
+Write-Host "Current-period rows          :" $CurrentRows.Count
+Write-Host "Historical rows              :" $HistoricalRows.Count
+Write-Host "Duplicates removed           :" $DuplicateCount
+Write-Host "Current-period cost USD      :" $CurrentTotal
+Write-Host "Historical returned cost USD :" $HistoricalReturnedTotal
+Write-Host "All returned cost USD        :" $AllReturnedTotal
+Write-Host "Allowed overage USD          :" $MaxUsageCostUsd
+Write-Host "Evidence                     :" $EvidencePath
 
-if ($PositiveRows.Count -gt 0) {
+Write-Host ""
+Write-Host "CURRENT BILLING PERIODS" -ForegroundColor Cyan
+
+$CurrentPeriodSummary |
+    Format-Table -AutoSize
+
+
+if ($PositiveCurrentRows.Count -gt 0) {
 
     Write-Host ""
-    Write-Host "POSITIVE USAGE CHARGES" -ForegroundColor Yellow
+    Write-Host "CURRENT-PERIOD POSITIVE USAGE CHARGES" -ForegroundColor Yellow
 
-    $PositiveRows |
+    $PositiveCurrentRows |
         Sort-Object ContractedCost -Descending |
         Select-Object `
             Metric,
+            BillingPeriodStart,
+            ChargePeriodStart,
+            ChargePeriodEnd,
             ConsumedQuantity,
             ConsumedUnit,
             PricingQuantity,
-            PricingUnit,
             ContractedCost,
             CumulatedContractedCost,
             BillingCurrency |
         Format-Table -AutoSize
 }
 
+
 Write-Host ""
 
-if ($TotalCost -gt $MaxUsageCostUsd) {
+if ($CurrentTotal -gt $MaxUsageCostUsd) {
 
     Write-Host "============================================================" -ForegroundColor Red
-    Write-Host "P0 CLOUDFLARE COST GUARD: BLOCKED" -ForegroundColor Red
+    Write-Host "P0 CURRENT-PERIOD COST GUARD: BLOCKED" -ForegroundColor Red
     Write-Host "============================================================"
-    Write-Host "Current usage cost USD :" $TotalCost
-    Write-Host "Allowed overage USD    :" $MaxUsageCostUsd
-    Write-Host "Customer production    : KEEP ONLINE"
-    Write-Host "Background expansion   : HOLD"
+    Write-Host "Current-period usage cost USD :" $CurrentTotal
+    Write-Host "Allowed overage USD           :" $MaxUsageCostUsd
+    Write-Host "Historical returned charges   :" $HistoricalReturnedTotal
+    Write-Host "Customer production           : KEEP ONLINE"
+    Write-Host "Nonessential expansion        : HOLD"
     Write-Host "============================================================"
 
-    throw "P0 Cloudflare usage-based cost ceiling exceeded."
+    throw "P0 current billing-period usage-cost ceiling exceeded."
 }
 
+
 Write-Host "============================================================" -ForegroundColor Green
-Write-Host "P0 CLOUDFLARE COST GUARD: PASS" -ForegroundColor Green
+Write-Host "P0 CURRENT-PERIOD COST GUARD: PASS" -ForegroundColor Green
 Write-Host "============================================================"
-Write-Host "Current usage cost USD :" $TotalCost
-Write-Host "Allowed overage USD    :" $MaxUsageCostUsd
-Write-Host "Customer production    : KEEP ONLINE"
-Write-Host "Pre-revenue mandate    : SATISFIED"
+Write-Host "Current-period usage cost USD :" $CurrentTotal
+Write-Host "Allowed overage USD           :" $MaxUsageCostUsd
+Write-Host "Historical returned charges   :" $HistoricalReturnedTotal
+Write-Host "Customer production           : KEEP ONLINE"
+Write-Host "Pre-revenue mandate           : SATISFIED"
 Write-Host "============================================================"
