@@ -30,6 +30,8 @@ from typing import Any, Dict, List, Optional
 logger = logging.getLogger("CDB-SYNTHETIC-ENGINE")
 
 # ── Trigger threshold ──────────────────────────────────────────────────────────
+# DEPRECATED: no production caller (scripts/apply_v131_upgrades.py STEP 2 disabled
+# -- fabricated advisories with placeholder detection targets). Remove next release.
 MIN_FEED_ITEMS = 3   # If live feeds produce fewer than this, synthesize
 
 # ── CVE database (real, publicly known CVEs for authenticity) ──────────────────

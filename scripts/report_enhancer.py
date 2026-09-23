@@ -36,6 +36,7 @@ if sys.stdout.encoding != 'utf-8':
     sys.stdout.reconfigure(encoding='utf-8', errors='replace')
 
 import json
+from html import escape as _html_escape
 import logging
 import os
 import re
@@ -272,7 +273,6 @@ def build_detection_rules_section(item: Dict) -> str:
     siem_q  = item.get("siem_queries") or {}
     if not isinstance(siem_q, dict):
         siem_q = {}
-    item_id = item.get("id","unknown")[:16]
     iocs    = item.get("iocs") or []
     # v142.1: normalise string IOCs to dict before .get() calls (matches _ioc_row fix)
     _iocs_norm = [
@@ -281,33 +281,25 @@ def build_detection_rules_section(item: Dict) -> str:
         if isinstance(i, (str, dict))
     ]
     domains = [i.get("value","") for i in _iocs_norm if isinstance(i, dict) and i.get("type")=="domain"][:3]
-    # v1.0.1 FIX: .get(key, default) only applies default when the key is
-    # ABSENT, not when it's present with value None -- attribution_evidence_engine.py
-    # legitimately sets actor_tag=None for unattributed items (correct
-    # behavior), which without `or` fell through to the literal text
-    # "None" in rendered output (e.g. 'description = "None campaign
-    # indicator"' in a YARA rule shown to paying customers).
-    actor   = item.get("actor_tag") or "Unknown Threat Actor"
 
-    splunk_dest = " OR ".join('dest="' + d + '"' for d in domains[:2]) or 'dest="c2.example.com"'
-    splunk_q    = siem_q.get("splunk") or f"index=* ({splunk_dest})"
-    elastic_dom = " OR ".join('dns.question.name:"' + d + '"' for d in domains[:2]) or 'dns.question.name:"c2.example.com"'
-    elastic_q   = siem_q.get("elastic") or f"({elastic_dom})"
-    kql_doms    = ", ".join(repr(d) for d in domains[:2]) or repr("c2.example.com")
-    kql_q       = siem_q.get("kql") or f"DeviceNetworkEvents | where RemoteUrl has_any ({kql_doms})"
-    yara_rule = f"""rule CDB_APEX_{item_id.replace("-","_")}_Malware {{
-    meta:
-        description = "{actor} campaign indicator"
-        author      = "CYBERDUDEBIVASH(R) SENTINEL APEX"
-        date        = "{datetime.now(timezone.utc).strftime('%Y-%m-%d')}"
-        severity    = "{(item.get('severity') or 'HIGH').upper()}"
-    strings:
-        $c2_pattern = /[a-zA-Z0-9-]{{5,20}}\\.(net|io|xyz|info)/ nocase
-        $exec_cmd   = "powershell -EncodedCommand" nocase
-        $persistence = "schtasks /create" nocase
-    condition:
-        any of them
-}}"""
+    # AUDIT FIX (P0 evidence quality): when the item had no domain IOCs the
+    # SIEM queries fell back to the literal target "c2.example.com", and the
+    # YARA block was a fixed generic rule (any PowerShell -EncodedCommand /
+    # schtasks string) presented as "Malware Sample Detection" for this
+    # advisory. Queries are now emitted only from real domains or upstream-
+    # generated queries; YARA only when upstream supplied one.
+    splunk_q = siem_q.get("splunk") or (
+        "index=* (" + " OR ".join('dest="' + d + '"' for d in domains[:2]) + ")" if domains else ""
+    )
+    elastic_q = siem_q.get("elastic") or (
+        "(" + " OR ".join('dns.question.name:"' + d + '"' for d in domains[:2]) + ")" if domains else ""
+    )
+    kql_q = siem_q.get("kql") or (
+        "DeviceNetworkEvents | where RemoteUrl has_any (" + ", ".join(repr(d) for d in domains[:2]) + ")"
+        if domains else ""
+    )
+    # Escaped: code_block() interpolates raw into <pre>.
+    yara_rule = _html_escape(item["yara_rule"]) if isinstance(item.get("yara_rule"), str) else ""
 
     def code_block(lang: str, code: str) -> str:
         return (
@@ -321,10 +313,13 @@ def build_detection_rules_section(item: Dict) -> str:
     content = (
         f'<div style="color:{C_MUTED};font-size:11px;margin-bottom:12px;">Deploy these rules to your SIEM/EDR within <strong style="color:{C_RED};">24 hours</strong> of receipt.</div>'
         + code_block("Sigma Rule (YAML) — Universal SIEM", sigma)
-        + code_block("Splunk SPL Query", splunk_q)
-        + code_block("Elastic EQL / Lucene", elastic_q)
-        + code_block("Microsoft Sentinel KQL", kql_q)
-        + code_block("YARA Rule — Malware Sample Detection", yara_rule)
+        + (code_block("Splunk SPL Query", splunk_q) if splunk_q else "")
+        + (code_block("Elastic EQL / Lucene", elastic_q) if elastic_q else "")
+        + (code_block("Microsoft Sentinel KQL", kql_q) if kql_q else "")
+        + (code_block("YARA Rule — Malware Sample Detection", yara_rule) if yara_rule else "")
+        + ("" if (splunk_q or elastic_q or kql_q) else
+           f'<div style="color:{C_MUTED};font-size:11px;margin-top:8px;">No network indicators were '
+           f'established for this advisory, so no IOC-based SIEM queries are generated.</div>')
     )
     return _card("DETECTION RULES — SIGMA + SIEM + YARA", content, icon="🛡️")
 
@@ -337,15 +332,33 @@ def build_soc_playbook_section(item: Dict) -> str:
     ioc_count = item.get("ioc_count", len(item.get("iocs") or []))
     sector   = item.get("target_sector","all sectors")
 
+    # AUDIT FIX (P0 evidence quality): no "Block all 0 IOCs", no "CVSS N/A"
+    # in instructions, and no unconditional incident declaration for an
+    # advisory that may not affect the reader's environment.
+    try:
+        ioc_count = int(ioc_count or 0)
+    except (TypeError, ValueError):
+        ioc_count = 0
+    try:
+        _cvss_txt = f" (CVSS {float(cvss):.1f})" if cvss not in (None, "", "N/A") else ""
+    except (TypeError, ValueError):
+        _cvss_txt = ""
+    if ioc_count > 0:
+        _contain = (f"Validate the {ioc_count} published IOC{'s' if ioc_count != 1 else ''} against your telemetry, "
+                    "then block confirmed-malicious ones at firewall, proxy, DNS, and EDR. Isolate affected endpoints.")
+        _hunt = "Threat hunt across a 90-day log window for the published IOCs. Identify patient-zero. Map lateral movement."
+    else:
+        _contain = ("No validated IOCs are published for this advisory — contain by exposure: restrict access to "
+                    "affected services and apply vendor mitigations. Isolate any endpoint showing related activity.")
+        _hunt = "Threat hunt across a 90-day log window for the behaviours and techniques described in this advisory."
     steps = [
         ("0-15 min",  "CRITICAL", "IMMEDIATE TRIAGE",
-         f"Declare {severity} severity incident. Notify CISO and SOC lead. Activate IR team. Set P1 bridge."),
-        ("15-60 min", C_RED,     "CONTAINMENT",
-         f"Block all {ioc_count} IOCs at firewall, proxy, DNS, and EDR. Isolate affected endpoints. Revoke active sessions."),
-        ("1-4 hrs",   C_ORG,    "INVESTIGATION",
-         f"Threat hunt across 90-day log window for all provided IOCs. Identify patient-zero. Map lateral movement."),
+         f"Determine whether affected products or assets exist in your environment. If exposure or activity "
+         f"is confirmed, declare a {severity} severity incident and engage the IR team."),
+        ("15-60 min", C_RED,     "CONTAINMENT", _contain),
+        ("1-4 hrs",   C_ORG,    "INVESTIGATION", _hunt),
         ("4-24 hrs",  C_PUR,    "ERADICATION",
-         f"Remove malware artifacts. Patch vulnerable systems (CVSS {cvss}). Reset compromised credentials. Rebuild infected hosts."),
+         f"Remove attacker artifacts. Patch vulnerable systems{_cvss_txt}. Reset compromised credentials. Rebuild infected hosts."),
         ("1-7 days",  C_BLU,    "RECOVERY",
          "Restore systems from clean backups. Monitor for re-infection. Validate controls. Update detection rules."),
         ("7-30 days", C_GRN,    "POST-INCIDENT",
@@ -367,33 +380,34 @@ def build_soc_playbook_section(item: Dict) -> str:
 
 
 def build_business_impact_section(item: Dict) -> str:
-    severity     = (item.get("severity") or "HIGH").upper()
-    sev_col      = SEV_COLORS.get(severity, C_ORG)
-    sector       = item.get("target_sector","Financial Services")
-    biz_impact   = item.get("business_impact") or {}
-    # v142.1: guard — business_impact may be a string in older manifest entries
+    """AUDIT FIX (P0 evidence quality): this used to map SEVERITY alone to
+    fixed "Estimated Direct Cost" ranges, "Stock Price Impact" (-8% to -23%),
+    a constant "127 days / 21 days" dwell time and an "Nx ROI vs $50K CTI
+    subscription" -- none derived from any evidence about the advisory or
+    the reader's organisation. Now renders only facts the item carries and
+    states what quantification would require."""
+    severity   = (item.get("severity") or "UNKNOWN").upper()
+    biz_impact = item.get("business_impact") or {}
     if not isinstance(biz_impact, dict):
         biz_impact = {}
-    regulatory   = biz_impact.get("regulatory_risk", ["ISO 27001","GDPR"])
-    op_risk      = biz_impact.get("operational_risk","HIGH")
+    regulatory = biz_impact.get("regulatory_risk")
+    op_risk    = biz_impact.get("operational_risk")
+    kev        = bool(item.get("kev_present") is True or item.get("kev") is True)
+    not_est    = "Not established from available evidence"
 
-    impact_map = {
-        "CRITICAL": {"cost_low":"$5M","cost_high":"$50M+","downtime":"72-240 hrs","stock_impact":"-8% to -23%"},
-        "HIGH":     {"cost_low":"$1.5M","cost_high":"$15M","downtime":"24-72 hrs","stock_impact":"-3% to -8%"},
-        "MEDIUM":   {"cost_low":"$250K","cost_high":"$2M","downtime":"4-24 hrs","stock_impact":"-0.5% to -2%"},
-        "LOW":      {"cost_low":"$10K","cost_high":"$250K","downtime":"<4 hrs","stock_impact":"Minimal"},
-    }
-    im = impact_map.get(severity, impact_map["HIGH"])
+    def _fmt(v):
+        if isinstance(v, list):
+            return ", ".join(str(x) for x in v) if v else not_est
+        return str(v) if v not in (None, "") else not_est
 
     metrics = [
-        ("Estimated Direct Cost",    f"{im['cost_low']} – {im['cost_high']}", C_RED),
-        ("Regulatory Exposure",      ", ".join(regulatory) if isinstance(regulatory,list) else str(regulatory), C_ORG),
-        ("Operational Downtime",     im["downtime"], C_PUR),
-        ("Stock Price Impact",       im["stock_impact"], C_BLU),
-        ("Breach Notification Cost", "$50K – $1.5M (legal + comms + notification)", C_ORG),
-        ("Threat Actor Dwell Time",  "127 days avg (APT) / 21 days avg (cybercrime)", C_MUTED),
+        ("Customer Exposure",       "UNKNOWN — no visibility into your environment", C_ORG),
+        ("Severity",                severity, SEV_COLORS.get(severity, C_ORG)),
+        ("CISA KEV",                "Listed — exploited in the wild" if kev else "Not listed", C_RED if kev else C_MUTED),
+        ("Regulatory Exposure",     _fmt(regulatory), C_ORG),
+        ("Operational Risk",        _fmt(op_risk), C_PUR),
+        ("Estimated Direct Cost",   "Not computed — requires your asset, data and downtime figures", C_MUTED),
     ]
-
     metrics_html = "".join(
         f'<div style="display:flex;justify-content:space-between;align-items:center;'
         f'padding:10px 0;border-bottom:1px solid #334155;">'
@@ -402,19 +416,12 @@ def build_business_impact_section(item: Dict) -> str:
         f'</div>'
         for label, value, col in metrics
     )
-
-    cost_low_n  = float(im["cost_low"].replace("$","").replace("M","000000").replace("K","000").replace("+",""))
-    cost_high_n = float(im["cost_high"].replace("$","").replace("M","000000").replace("K","000").replace("+",""))
-    roi_ratio = cost_low_n / 50000  # vs $50K annual CTI subscription cost
-
     content = (
         metrics_html +
-        f'<div style="margin-top:14px;background:#0f172a;border-radius:6px;padding:14px;">'
-        f'<div style="color:{C_MUTED};font-size:10px;margin-bottom:6px;">INTELLIGENCE ROI CALCULATION</div>'
-        f'<div style="color:{C_GRN};font-size:14px;font-weight:700;">{roi_ratio:.0f}x ROI</div>'
-        f'<div style="color:{C_MUTED};font-size:11px;">Early detection via this advisory could prevent '
-        f'{im["cost_low"]} – {im["cost_high"]} in breach costs vs. $50K annual CTI subscription</div>'
-        f'</div>'
+        f'<div style="margin-top:14px;color:{C_MUTED};font-size:11px;line-height:1.6;">'
+        f'SENTINEL APEX does not publish generic breach-cost, share-price or dwell-time figures as if they '
+        f'applied to this advisory. A defensible loss estimate needs your asset values, records at risk, '
+        f'downtime cost and control effectiveness (FAIR / Open Group O-RISK method).</div>'
     )
     return _card("BUSINESS IMPACT & FINANCIAL RISK ANALYSIS", content, icon="💰")
 

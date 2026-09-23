@@ -87,7 +87,9 @@ def _sanitize_intel_text_fields(obj: dict) -> dict:
 try:
     from core.intelligence.ioc_enforcer import IOCEnforcer as _IOCEnforcer
     from core.intelligence.ioc_confidence import IOCConfidenceEngine as _IOCConfEngine
-    _ioc_enforcer = _IOCEnforcer(auto_generate_fallback=True)
+    # Evidence-only: never invent IOCs, never drop an item for having few
+    # (see IOCEnforcer.__init__ deprecation note).
+    _ioc_enforcer = _IOCEnforcer(auto_generate_fallback=False, block_on_shortfall=False)
     _ioc_confidence = _IOCConfEngine()
     _IOC_ENFORCE_AVAILABLE = True
 except ImportError:
@@ -912,6 +914,9 @@ def _score_row(label: str, val: Any, max_val: float = 10.0) -> str:
 # Premium Enterprise Helper Functions
 # ─────────────────────────────────────────────────────────────────────────────
 
+# DEPRECATED (no longer rendered -- see _render_financial_impact's AUDIT FIX
+# note). The "Risk Multiplier" column is not an IBM figure. Kept only for any
+# out-of-repo importer during the migration period; remove next release.
 # IBM Cost of a Data Breach 2024 / Ponemon Institute sector benchmarks
 _BREACH_COSTS: list[tuple[str, str, str, str]] = [
     # (sector, avg_cost_usd, avg_days_to_contain, risk_multiplier)
@@ -927,96 +932,80 @@ _BREACH_COSTS: list[tuple[str, str, str, str]] = [
 ]
 
 
-def _render_financial_impact(sev: str, risk: float, sectors: list, vuln_class: str = "generic") -> str:
-    """Render IBM/Ponemon-based financial impact table with sector analysis and vuln-class-specific enrichment."""
-    match_sectors = {s.lower() for s in (sectors or [])}
-    rows = []
-    for sector, cost, days, mult in _BREACH_COSTS:
-        is_match = any(kw in sector.lower() for kw in match_sectors) if match_sectors else False
-        row_class = " class='sector-match'" if is_match else ""
-        rows.append(
-            f"<tr{row_class}><td>{_h(sector)}</td>"
-            f"<td class='cost'>{_h(cost)}</td>"
-            f"<td>{_h(days)}</td>"
-            f"<td>{_h(mult)}</td>"
-            f"</tr>"
-        )
-    # Exposure multiplier from risk score
-    risk_mult = max(0.3, min(risk / 5.0, 2.0))
-    fair_low  = f"${4_880_000 * 0.15 * risk_mult:,.0f}"
-    fair_mid  = f"${4_880_000 * 0.60 * risk_mult:,.0f}"
-    fair_high = f"${4_880_000 * 1.20 * risk_mult:,.0f}"
+def _render_financial_impact(
+    sev: str,
+    risk: float,
+    sectors: list,
+    vuln_class: str = "generic",
+    *,
+    cvss: Any = None,
+    epss: Any = None,
+    kev: bool = False,
+    exploit_maturity: Any = None,
+) -> str:
+    """Business-impact section built ONLY from evidence this platform holds.
 
-    # ── Vuln-class-specific financial intelligence block ──────────────────────
-    _class_specific_html = ""
-    if vuln_class in ("ransomware",):
-        _class_specific_html = (
-            "<h3 style='margin-top:20px'>Ransomware-Specific Financial Impact Model</h3>"
-            "<div class='kv'>"
-            "<div class='kv-key'>Ransom Demand Range</div>"
-            "<div class='kv-val'><strong style='color:var(--crit)'>$500K - $5M+ USD</strong>"
-            " (enterprise targets; calibrated to victim revenue via OSINT)</div>"
-            "<div class='kv-key'>Median Ransom Paid (2025)</div>"
-            "<div class='kv-val'>$850K (Coveware Q1 2025)  -  payment does NOT guarantee decryption or data deletion</div>"
-            "<div class='kv-key'>Recovery Cost (No Payment)</div>"
-            "<div class='kv-val'><strong>$3.2M - $14M</strong>  -  rebuild + forensics + legal + regulatory + PR</div>"
-            "<div class='kv-key'>Recovery Cost (With Payment)</div>"
-            "<div class='kv-val'><strong>$1.8M - $9M</strong>  -  ransom + decryption delays + partial data loss + audit</div>"
-            "<div class='kv-key'>Avg Downtime (Ransomware)</div>"
-            "<div class='kv-val'>21 days full operations suspended; 45 days to full recovery (Sophos 2025)</div>"
-            "<div class='kv-key'>Business Interruption</div>"
-            "<div class='kv-val'><strong>$250K - $2M/day</strong> depending on sector and revenue</div>"
-            "<div class='kv-key'>Double-Extortion Premium</div>"
-            "<div class='kv-val'>+40-60% breach cost uplift  -  regulatory fines + breach notification + reputational damage from data publication</div>"
-            "<div class='kv-key'>Cyber Insurance Sublimit Risk</div>"
-            "<div class='kv-val'>Most policies have ransomware sublimits of $500K-$5M; large enterprises frequently underinsured by 60-80%</div>"
-            "</div>"
-            "<div class='callout critical' style='margin-top:12px'>"
-            "<strong>Board-Level Decision Framework:</strong> Payment vs. Restoration  -  "
-            "Paying the ransom does not guarantee data deletion from the actor's infrastructure. "
-            "Double-extortion victims who pay still face a 35% probability of data publication. "
-            "Engage legal counsel and cyber-insurance carrier before any ransom consideration. "
-            "OFAC sanctions may apply to payments directed at designated entities."
-            "</div>"
-        )
-    elif vuln_class in ("ssrf", "remote_code_execution", "command_injection"):
-        _class_specific_html = (
-            "<h3 style='margin-top:20px'>Cloud & Infrastructure Compromise Cost Model</h3>"
-            "<div class='kv'>"
-            "<div class='kv-key'>Cloud Account Takeover Cost</div>"
-            "<div class='kv-val'>$180K - $2.4M (cryptomining charges + data exfiltration + cleanup)</div>"
-            "<div class='kv-key'>Credential Theft Impact</div>"
-            "<div class='kv-val'>IAM credential compromise enables lateral movement across all cloud services  -  blast radius multiplier 3-8x</div>"
-            "<div class='kv-key'>Data Exfiltration Risk</div>"
-            "<div class='kv-val'>S3/Blob storage accessible via stolen IAM tokens  -  GDPR Article 33 notification likely</div>"
-            "<div class='kv-key'>Mean Detection Time</div>"
-            "<div class='kv-val'>127 days average dwell before detection (IBM CODB 2025)  -  extended exposure window</div>"
-            "</div>"
-        )
+    AUDIT FIX (P0 evidence quality): this used to print a per-advisory
+    "FAIR" loss range computed as $4.88M x fixed factor x risk/5, sector
+    rows with an invented "Risk Multiplier" column, and vuln-class blocks of
+    unsourced figures ("$3.2M - $14M recovery", "35% probability of data
+    publication", "127 days dwell") -- presented as if they described this
+    advisory. None used a single organisation-specific input; the pipeline
+    has no customer-environment telemetry. Rule now: no dollar figure unless
+    it is computed from real inputs; otherwise state exactly what is known
+    and what quantification would require. Signature is backward compatible
+    (new inputs are keyword-only with defaults)."""
 
+    def _num(v: Any) -> Optional[float]:
+        try:
+            return float(v) if v not in (None, "", "N/A") else None
+        except (TypeError, ValueError):
+            return None
+
+    _cvss = _num(cvss)
+    _epss = _num(epss)
+    if _epss is not None and _epss > 1:
+        _epss = _epss / 100.0  # tolerate percent-scaled inputs
+    _NOT_ESTABLISHED = "Not established from available evidence"
+    _class_label = {
+        "ransomware": "Ransomware",
+        "ssrf": "Server-side request forgery",
+        "remote_code_execution": "Remote code execution",
+    }.get(vuln_class, "Not classified")
+    _mat = str(exploit_maturity).strip() if exploit_maturity not in (None, "") else ""
+    evidence_rows = [
+        ("Severity", _h(sev or "UNKNOWN")),
+        ("APEX composite risk", f"{float(risk or 0):.1f}/10"),
+        ("CVSS base score", f"{_cvss:.1f}" if _cvss is not None else "Not assigned"),
+        ("EPSS (30-day exploitation probability)", f"{_epss * 100:.2f}%" if _epss is not None else "Not available"),
+        ("CISA KEV", "Listed — exploitation in the wild confirmed" if kev else "Not listed"),
+        ("Exploit maturity", _h(_mat) if _mat else _NOT_ESTABLISHED),
+        ("Threat class", _h(_class_label)),
+        ("Sectors referenced", _h(", ".join(str(x) for x in sectors)) if sectors else "None tagged"),
+    ]
+    kv = "".join(
+        f"<div class='kv-key'>{k}</div><div class='kv-val'>{v}</div>" for k, v in evidence_rows
+    )
     return (
-        "<p>Breach cost projections derived from <strong>IBM Cost of a Data Breach Report 2025</strong>, "
-        "<strong>Sophos State of Ransomware 2025</strong>, and <strong>Coveware Ransomware Marketplace Report Q1 2025</strong>, "
-        "adjusted for observed severity, exploit maturity, and current threat actor activity. "
-        "Figures represent industry median for organisations of 1,000-10,000 employees. "
-        "<strong>Enterprise subscriptions</strong> receive sector-specific financial impact modelling "
-        "and tailored board-level risk quantification.</p>"
-        "<table class='fin-table'>"
-        "<thead><tr><th>Sector</th><th>Avg Breach Cost</th><th>Avg Contain Time</th><th>Risk Multiplier</th></tr></thead>"
-        f"<tbody>{''.join(rows)}</tbody></table>"
-        + _class_specific_html +
-        "<h3 style='margin-top:20px'>FAIR Model Exposure Estimate  -  This Advisory</h3>"
-        "<div class='kv'>"
-        f"<div class='kv-key'>Risk Input</div><div class='kv-val'>{risk}/10 composite APEX score</div>"
-        f"<div class='kv-key'>Loss Range (Optimistic)</div><div class='kv-val'><strong style='color:var(--low)'>{_h(fair_low)}</strong>  -  rapid detection, full backup recovery</div>"
-        f"<div class='kv-key'>Loss Range (Most Likely)</div><div class='kv-val'><strong style='color:var(--med)'>{_h(fair_mid)}</strong>  -  partial breach, regulatory notification, remediation</div>"
-        f"<div class='kv-key'>Loss Range (Severe)</div><div class='kv-val'><strong style='color:var(--crit)'>{_h(fair_high)}</strong>  -  full compromise, regulatory fines, class action exposure</div>"
-        "<div class='kv-key'>Methodology</div><div class='kv-val'>FAIR ISO/IEC 27005 · NIST SP 800-30 · IBM CODB 2025 · Coveware Q1 2025</div>"
-        "</div>"
-        "<div class='callout warn'><strong>Cyber-Insurance Disclosure:</strong> Losses in the Most Likely range "
-        "typically trigger mandatory notification under your cyber-insurance policy. Engage your broker within "
-        "72 hours of confirmed compromise. Validate that your policy covers the specific attack vector  -  "
-        "ransomware sublimits, war exclusions, and nation-state carve-outs are common coverage gaps.</div>"
+        "<div class='callout warn'><strong>CUSTOMER EXPOSURE: UNKNOWN</strong> — SENTINEL APEX has no "
+        "visibility into your environment, asset values, record counts or downtime costs, so no "
+        "dollar-loss figure is computed for this advisory. "
+        "<strong>INDUSTRY/SCENARIO ESTIMATE:</strong> not computed — generic breach-cost averages "
+        "describe past incidents across whole industries, not the impact of this advisory. For "
+        "sector-level context, consult the IBM Cost of a Data Breach Report 2025.</div>"
+        "<h3 style='margin-top:20px'>Evidence Available for This Advisory</h3>"
+        f"<div class='kv'>{kv}</div>"
+        "<h3 style='margin-top:20px'>What Quantification Would Require</h3>"
+        "<ul>"
+        "<li>Value of the affected assets and the business processes they support</li>"
+        "<li>Records at risk, by data class (personal, payment, health, confidential)</li>"
+        "<li>Cost per hour of downtime for the affected services</li>"
+        "<li>Regulatory regimes that apply to you (see the Regulatory Impact section)</li>"
+        "<li>Effectiveness of your existing preventive and detective controls</li>"
+        "</ul>"
+        "<p>With these inputs, a FAIR-style (Open Group O-RISK) analysis can produce a defensible "
+        "loss-exposure range. <strong>Enterprise subscriptions</strong> include a guided risk "
+        "quantification session using your own figures.</p>"
     )
 
 
@@ -1431,7 +1420,8 @@ def build_report_sections(item: dict) -> str:
         iocs = _ioc_confidence.score_batch(iocs)
         iocs = _ioc_confidence.ensure_minimum_confidence(iocs)
 
-    # Step 2: Enforce IOC count for HIGH/CRITICAL (auto-generate fallback IOCs)
+    # Step 2: IOC shortfall check for HIGH/CRITICAL (evidence-only: the
+    # enforcer never invents indicators -- zero stays zero).
     if _IOC_ENFORCE_AVAILABLE and _ioc_enforcer:
         severity_val = (item.get("severity") or "").upper()
         if severity_val in ("HIGH", "CRITICAL") and len(iocs) == 0:
@@ -1440,7 +1430,7 @@ def build_report_sections(item: dict) -> str:
             if not result.blocked:
                 iocs = result.item.get("iocs", iocs)
                 _item_id = item.get('id', '?')
-                log(f"IOC fallback: {result.fallback_added} IOCs generated for {_item_id[:16]} [{severity_val}]", "warning")
+                log(f"IOC shortfall: {_item_id[:16]} [{severity_val}] has {len(iocs)} validated IOCs -- none generated", "info")
             else:
                 log(f"IOC BLOCK: {result.reason}", "error")
 
@@ -1552,25 +1542,26 @@ def build_report_sections(item: dict) -> str:
     # label industry/scenario estimates explicitly; never assert a
     # customer-specific figure without real telemetry (none is available
     # here — this pipeline has no customer-environment integration).
+    # AUDIT FIX (P0 evidence quality): the RX-PR1 version still mapped
+    # SEVERITY to dollar ranges ("$4M-$9M per-incident average for
+    # critical-severity breaches") and credited them to IBM, which publishes
+    # no severity-keyed figures. No organisation-specific input exists, so
+    # no figure is shown; the disclosure labels are kept verbatim.
     _fin_exposure = (
         "CUSTOMER EXPOSURE: UNKNOWN — customer telemetry unavailable. "
-        "INDUSTRY/SCENARIO ESTIMATE: $4M-$9M per-incident average for critical-severity breaches "
-        "in critical-infrastructure/healthcare sectors (IBM Cost of a Data Breach Report 2025)." if sev == "CRITICAL" else
-        "CUSTOMER EXPOSURE: UNKNOWN — customer telemetry unavailable. "
-        "INDUSTRY/SCENARIO ESTIMATE: $1M-$4M per-incident average for high-severity breaches "
-        "at standard enterprises (IBM Cost of a Data Breach Report 2025)." if sev == "HIGH" else
-        "CUSTOMER EXPOSURE: UNKNOWN — customer telemetry unavailable. "
-        "INDUSTRY/SCENARIO ESTIMATE: $250K-$1M per-incident average for medium-severity breaches "
-        "(IBM Cost of a Data Breach Report 2025)." if sev == "MEDIUM" else
-        "CUSTOMER EXPOSURE: UNKNOWN — customer telemetry unavailable; minimal industry-average "
-        "exposure reported at this severity."
+        "INDUSTRY/SCENARIO ESTIMATE: not computed — no organisation-specific inputs "
+        "(see Business Impact Assessment; sector context: IBM Cost of a Data Breach Report 2025)."
     )
     _reg_flag = "YES — Breach notification obligations may apply under GDPR/DPDP/HIPAA" if sev in ("CRITICAL", "HIGH") else "Conditional — assess scope of data at risk"
     # v166.4 FIX: _urgency_txt was defined at line ~2060 (after first use at ~1386) causing
     # NameError on every report render → 33 write failures → Stage 5.5 HARD FAIL.
-    _urgency_txt = ("PATCH IMMEDIATELY" if sev == "CRITICAL" else
+    # Same RX-PR1 rule as _exec_action above: patch wording only when there
+    # is something to patch (a ransomware campaign has no patch).
+    _urgency_txt = ("PATCH IMMEDIATELY" if (sev == "CRITICAL" and _has_cve) else
+                    "RESPOND IMMEDIATELY" if sev == "CRITICAL" else
                     "HIGH PRIORITY"    if sev == "HIGH"     else
-                    "PATCH STANDARD"   if sev == "MEDIUM"   else "MONITOR")
+                    "PATCH STANDARD"   if (sev == "MEDIUM" and _has_cve) else
+                    "STANDARD PRIORITY" if sev == "MEDIUM" else "MONITOR")
     _exec_layer = (
         "<div style='background:#0a0a1a;border:2px solid #ff4444;border-radius:8px;"
         "padding:20px 24px;margin:0 0 20px;'>"
@@ -2059,8 +2050,12 @@ def build_report_sections(item: dict) -> str:
         "remote_code_execution"if any(k in _fi_lc for k in ("rce", "remote code", "arbitrary code")) else
         "generic"
     )
-    sections.append(_section(17, "Financial Impact Quantification",
-        _render_financial_impact(sev, risk, sectors_tagged, vuln_class=_fi_vuln_class)
+    sections.append(_section(17, "Business Impact Assessment",
+        _render_financial_impact(
+            sev, risk, sectors_tagged, vuln_class=_fi_vuln_class,
+            cvss=cvss, epss=epss, kev=kev,
+            exploit_maturity=item.get("exploit_maturity"),
+        )
     ))
 
     # ── S18: Detection Engineering Pack  -  APEX Enhanced Detection v148.1 ───
@@ -2070,8 +2065,8 @@ def build_report_sections(item: dict) -> str:
     sections.append(_section(18, "Detection Engineering Pack",
         "<p>Production-grade detection artefacts (Sigma, YARA, KQL, SPL) are generated "
         "by SENTINEL APEX's rule synthesis engine, pre-mapped to this advisory's IOCs "
-        "and ATT&amp;CK techniques, with false-positive rates below 0.1% against the "
-        "APEX telemetry corpus.</p>"
+        "and ATT&amp;CK techniques. Rules are syntax-validated; tune and test them "
+        "against your own telemetry before enabling blocking actions.</p>"
         "<div class='callout'><strong>Enterprise Delivery:</strong> Full validated rule packs "
         "(Sigma, YARA, KQL, SPL, EQL, LEEF) with ATT&amp;CK Navigator overlay and SOC "
         "deployment guide available via "
@@ -2198,9 +2193,14 @@ def render_report(item: dict, public_prefix: str) -> str:
     _feed_src    = str(item.get("feed_source") or item.get("source") or "SENTINEL APEX")[:40]
     _urgency_cls = ("IMMEDIATE" if sev in ("CRITICAL", "HIGH") else
                     "HIGH" if sev == "MEDIUM" else "MONITOR")
-    _urgency_txt = ("PATCH IMMEDIATELY" if sev == "CRITICAL" else
+    # Patch wording only when there is something to patch (RX-PR1 rule).
+    _hdr_has_cve = bool(item.get("cve_id")) or bool(re.search(
+        r"CVE-\d{4}-\d+", f"{item.get('title') or ''} {item.get('description') or ''}", re.IGNORECASE))
+    _urgency_txt = ("PATCH IMMEDIATELY" if (sev == "CRITICAL" and _hdr_has_cve) else
+                    "RESPOND IMMEDIATELY" if sev == "CRITICAL" else
                     "HIGH PRIORITY"    if sev == "HIGH"     else
-                    "PATCH STANDARD"   if sev == "MEDIUM"   else "MONITOR")
+                    "PATCH STANDARD"   if (sev == "MEDIUM" and _hdr_has_cve) else
+                    "STANDARD PRIORITY" if sev == "MEDIUM" else "MONITOR")
     _sev_tile    = ("crit" if sev == "CRITICAL" else "high" if sev == "HIGH" else
                     "med"  if sev == "MEDIUM"   else "low"  if sev == "LOW"  else "neutral")
     _risk_tile   = ("crit" if risk >= 9 else "high" if risk >= 7 else
