@@ -126,8 +126,21 @@ class IOCEnforcer:
     Fixes ioc_count integrity across all items.
     """
 
-    def __init__(self, auto_generate_fallback: bool = True):
+    def __init__(self, auto_generate_fallback: bool = True, block_on_shortfall: bool = True):
+        # DEPRECATED: auto_generate_fallback=True. It invents random public
+        # IPv4s, domains, URLs and hashes, labels them "C2"/"malware_sample"
+        # at 68-96% confidence and mixes them into real advisories -- data
+        # fabrication that a SOC can act on by blocking innocent hosts.
+        # Replacement: auto_generate_fallback=False, block_on_shortfall=False
+        # (evidence-only mode: keep the item and its real IOCs, flag the
+        # shortfall, never invent and never drop). Both production callers
+        # (scripts/generate_intel_reports.py, scripts/apply_v131_upgrades.py)
+        # use that mode. The defaults are unchanged so any other caller keeps
+        # its behaviour; remove the generator after one release with no caller.
         self.auto_generate = auto_generate_fallback
+        # False: an IOC shortfall is reported on the item, never a reason to
+        # drop it (a CVE advisory with no network indicators is valid intel).
+        self.block_on_shortfall = block_on_shortfall
         self._seed_counter = 0
 
     def enforce(self, item: Dict[str, Any]) -> EnforcementResult:
@@ -196,6 +209,21 @@ class IOCEnforcer:
 
         # Check if enforcement needed
         needs_fallback = len(iocs) < IOC_MIN_COUNT or avg_conf < IOC_MIN_CONFIDENCE
+
+        if needs_fallback and not self.auto_generate and not self.block_on_shortfall:
+            # Evidence-only mode: report the shortfall, keep the item as-is.
+            item["ioc_shortfall"] = True
+            item.setdefault(
+                "ioc_note",
+                "No validated indicators of compromise established from available evidence.",
+            )
+            result.item = item
+            result.final_ioc_count = len(iocs)
+            result.avg_confidence  = avg_conf
+            result.actions.append(
+                f"IOC shortfall reported ({len(iocs)} IOCs, avg_confidence={avg_conf:.1f}%) -- no fallback generated"
+            )
+            return result
 
         if needs_fallback:
             if not self.auto_generate:
@@ -292,7 +320,9 @@ class IOCEnforcer:
         return sum(confs) / len(confs)
 
     def _generate_fallback_iocs(self, item: Dict, count: int) -> List[Dict]:
-        """Generate realistic fallback IOCs derived from item context."""
+        """DEPRECATED -- see __init__. Invents indicators; not used by any
+        production caller. Kept only so auto_generate_fallback=True callers
+        outside this repository do not break during the migration period."""
         self._seed_counter += 1
         seed_str = f"{item.get('id','x')}-{self._seed_counter}-fallback"
         rng = random.Random(hashlib.md5(seed_str.encode()).hexdigest())

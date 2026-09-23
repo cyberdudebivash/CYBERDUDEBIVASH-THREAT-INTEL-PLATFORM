@@ -81,17 +81,18 @@ log.info("Loaded manifest: %d advisories", len(advisories))
 # ═══════════════════════════════════════════════════════════════════════════════
 # STEP 2: SYNTHETIC ENGINE — GUARANTEE FRESH INTEL
 # ═══════════════════════════════════════════════════════════════════════════════
-step(2, "SYNTHETIC ENGINE — GUARANTEE FRESH INTEL")
-try:
-    from core.intelligence.synthetic_engine import augment_with_synthetic, should_trigger_synthesis
-    if should_trigger_synthesis(len(advisories)):
-        log.warning("Only %d items in manifest — triggering synthetic intel generation", len(advisories))
-        advisories = augment_with_synthetic(advisories, target_total=5)
-        log.info("After augmentation: %d items", len(advisories))
-    else:
-        log.info("Feed has %d items — no synthetic augmentation needed", len(advisories))
-except Exception as e:
-    log.warning("Synthetic engine unavailable (non-fatal): %s", e)
+step(2, "SYNTHETIC ENGINE — DISABLED (evidence-only)")
+# AUDIT FIX (P0 evidence quality): when the manifest held fewer than
+# MIN_FEED_ITEMS (3) items this step injected fabricated advisories
+# (core/intelligence/synthetic_engine.py, "synthetic": True) complete with
+# "c2.example.com" detection rules into the customer manifest. A quiet feed
+# is a true statement about the threat landscape; padding it is not.
+# core/intelligence/synthetic_engine.py is left in place (deprecated, no
+# production caller) per the deprecation-instead-of-deletion policy.
+if len(advisories) < 3:
+    log.warning("Only %d items in manifest — publishing as-is (synthetic augmentation disabled)", len(advisories))
+else:
+    log.info("Feed has %d items", len(advisories))
 
 
 # ===============================================================================
@@ -112,7 +113,9 @@ try:
                     len(advisories) - len(_safe_advisories))
     advisories = _safe_advisories
     manifest["advisories"] = advisories
-    enforcer            = IOCEnforcer(auto_generate_fallback=True)
+    # Evidence-only: never invent IOCs (Rule 2 below already treats zero-IOC
+    # HIGH/CRITICAL as acceptable), never drop an item for having few.
+    enforcer            = IOCEnforcer(auto_generate_fallback=False, block_on_shortfall=False)
     manifest            = enforcer.enforce_manifest(manifest)
     if not isinstance(manifest, dict):
         raise TypeError("IOC enforcer returned non-dict result (type=%s)" % type(manifest).__name__)

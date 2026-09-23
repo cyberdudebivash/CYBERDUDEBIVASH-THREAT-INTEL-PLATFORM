@@ -297,6 +297,19 @@ def _h(s: Any) -> str:
     return _html_mod.escape(str(s) if s is not None else "")
 
 
+_NO_IOCS = "any IOCs you validate (none published for this advisory)"
+
+
+def _ioc_ref(n: int, all_: bool = True, kind: str = "") -> str:
+    """AUDIT FIX (P0 evidence quality): the narrative templates interpolated
+    the raw count into imperatives, publishing "Block all 0 IOCs at
+    firewall..." on every zero-IOC advisory. Returns the count phrase when
+    indicators exist, and an honest zero-IOC phrase otherwise."""
+    if n <= 0:
+        return _NO_IOCS
+    return f"{'all ' if all_ else ''}{n} {kind}IOC{'s' if n != 1 else ''}"
+
+
 def _extract_product_from_title(title: str) -> str:
     """Extract product name from CVE advisory title."""
     # Remove CVE ID prefix
@@ -476,14 +489,16 @@ def _narrative_threat_actor(item: Dict[str, Any]) -> str:
         f"<div class='apex-intel-item'><span class='apex-label'>Operational Objective</span>"
         f"<span class='apex-value'>{_operational_objective}</span></div>"
         f"<div class='apex-intel-item'><span class='apex-label'>Defender Priority</span>"
-        f"<span class='apex-value'>Correlate all {ioc_count} IOCs against SIEM/EDR; hunt for TTP signatures; review identity telemetry for lateral movement</span></div>"
+        f"<span class='apex-value'>Correlate {_ioc_ref(ioc_count)} against SIEM/EDR; hunt for TTP signatures; review identity telemetry for lateral movement</span></div>"
         f"</div>"
         f"<p>{_h(sectors)}{phase_str} "
         f"Defenders should treat this as operational campaign intelligence — correlate the IOC table "
         f"against 30-day SIEM retention, DNS query logs, EDR process telemetry, and authentication events. "
-        f"The {ioc_count} indicator{'s' if ioc_count != 1 else ''} provided represent confirmed adversary "
-        f"infrastructure observed during active campaign operations.</p>"
-        f"</div>"
+        + (f"The {ioc_count} indicator{'s' if ioc_count != 1 else ''} in the IOC table come from the cited "
+           f"source reporting — validate against your own telemetry before blocking.</p>"
+           if ioc_count > 0 else
+           "No validated indicators were published for this campaign — hunt on the TTPs above.</p>")
+        + "</div>"
     )
 
 
@@ -544,11 +559,11 @@ def _narrative_ransomware(item: Dict[str, Any]) -> str:
         f"<div class='apex-intel-item'><span class='apex-label'>Lateral Movement Vector</span>"
         f"<span class='apex-value'>{lateral_movement_text}</span></div>"
         f"<div class='apex-intel-item'><span class='apex-label'>Defender Priority</span>"
-        f"<span class='apex-value'>Validate offline backup integrity NOW; enforce network segmentation; deploy EDR anti-ransomware behavioural policy; hunt all {ioc_count} IOCs</span></div>"
+        f"<span class='apex-value'>Validate offline backup integrity NOW; enforce network segmentation; deploy EDR anti-ransomware behavioural policy; hunt {_ioc_ref(ioc_count)}</span></div>"
         f"</div>"
         f"<p>{double_extort}</p>"
         f"<p>{_h(sectors)} "
-        f"Immediate actions: (1) Validate backup isolation and recovery capability, (2) Block all {ioc_count} IOCs at "
+        f"Immediate actions: (1) Validate backup isolation and recovery capability, (2) Block {_ioc_ref(ioc_count)} at "
         f"firewall, DNS RPZ, and EDR immediately, (3) Audit RDP exposure and privileged account usage, "
         f"(4) Enable enhanced alerting for shadow copy deletion and mass file rename operations.</p>"
         f"</div>"
@@ -612,11 +627,13 @@ def _narrative_apt_espionage(item: Dict[str, Any]) -> str:
         f"</div>"
         f"<p>{persist_str} "
         f"{_h(sectors)} "
-        f"{ioc_count} IOCs documented — hunt across all telemetry sources including cloud access logs, "
-        f"email security gateways, and VPN authentication events. "
-        f"Complete eviction requires a coordinated incident response — single IOC blocking "
-        f"will not remove an established APT from your environment.</p>"
-        f"</div>"
+        + (f"{ioc_count} IOC{'s' if ioc_count != 1 else ''} documented — hunt" if ioc_count > 0
+           else "No IOCs documented for this advisory — hunt on the TTPs")
+        + " across all telemetry sources including cloud access logs, "
+        "email security gateways, and VPN authentication events. "
+        "Complete eviction requires a coordinated incident response — single IOC blocking "
+        "will not remove an established APT from your environment.</p>"
+        "</div>"
     )
 
 
@@ -650,7 +667,7 @@ def _narrative_ics_ot(item: Dict[str, Any]) -> str:
         f"</div>"
         f"<p>Immediate compensating controls: (1) Validate IT/OT network segmentation integrity, "
         f"(2) Audit engineering workstation access and remote maintenance connections, "
-        f"(3) Block all {ioc_count} IOCs at IT/OT boundary firewalls, "
+        f"(3) Block {_ioc_ref(ioc_count)} at IT/OT boundary firewalls, "
         f"(4) Engage OT security vendor and CISA ICS-CERT before applying any patches. "
         f"Physical safety systems must be tested after any remediation activity.</p>"
         f"</div>"
@@ -691,7 +708,7 @@ def _narrative_cloud_saas(item: Dict[str, Any]) -> str:
         f"</div>"
         f"<p>Immediate actions: (1) Audit all service accounts and OAuth application permissions, "
         f"(2) Review Conditional Access policies and MFA enforcement gaps, "
-        f"(3) Search {ioc_count} IOCs across cloud access logs (90-day lookback minimum), "
+        f"(3) Search {_ioc_ref(ioc_count, all_=False)} across cloud access logs (90-day lookback minimum), "
         f"(4) Validate that tenant isolation controls are functioning as designed. "
         f"Revoke all session tokens for affected accounts — not just passwords.</p>"
         f"</div>"
@@ -722,7 +739,7 @@ def _narrative_supply_chain(item: Dict[str, Any]) -> str:
         f"<span class='apex-value'>All systems that installed the affected package/version may be compromised — full dependency audit required before declaring clean</span></div>"
         f"</div>"
         f"<p>Immediate actions: (1) Audit software inventory for affected packages and versions via SBOM, "
-        f"(2) Hunt {ioc_count} IOCs across build systems, CI/CD pipelines, and deployment targets, "
+        f"(2) Hunt {_ioc_ref(ioc_count, all_=False)} across build systems, CI/CD pipelines, and deployment targets, "
         f"(3) Validate code signing certificate integrity and update pipeline authentication, "
         f"(4) Treat any system running affected versions as potentially compromised until proven otherwise.</p>"
         f"</div>"
@@ -753,10 +770,10 @@ def _narrative_phishing(item: Dict[str, Any]) -> str:
         f"<div class='apex-intel-item'><span class='apex-label'>BEC Risk</span>"
         f"<span class='apex-value'>Business Email Compromise via harvested executive credentials — average BEC loss: $125K per incident; immediate financial exposure if wire transfer approval accounts targeted</span></div>"
         f"<div class='apex-intel-item'><span class='apex-label'>Detection Priority</span>"
-        f"<span class='apex-value'>Review email security gateway for campaign indicators; hunt {ioc_count} IOCs across email logs, proxy, and DNS; audit recent privileged logins</span></div>"
+        f"<span class='apex-value'>Review email security gateway for campaign indicators; hunt {_ioc_ref(ioc_count, all_=False)} across email logs, proxy, and DNS; audit recent privileged logins</span></div>"
         f"</div>"
         f"<p>{_h(sectors)} "
-        f"Deploy all {ioc_count} IOCs to email security gateway, DNS RPZ, and proxy blocklists immediately. "
+        f"Deploy {_ioc_ref(ioc_count)} to email security gateway, DNS RPZ, and proxy blocklists immediately. "
         f"Activate end-user phishing awareness alert and validate MFA enforcement for all privileged accounts. "
         f"Review O365/Google Workspace mail flow rules for any adversary-planted forwarding rules.</p>"
         f"</div>"
@@ -795,13 +812,13 @@ def _narrative_malware(item: Dict[str, Any]) -> str:
         f"<div class='apex-intel-item'><span class='apex-label'>Malware Capability</span>"
         f"<span class='apex-value'>{_h(malware_type)} — persistent implant with command-and-control capability, capable of data exfiltration, lateral movement facilitation, and secondary payload delivery</span></div>"
         f"<div class='apex-intel-item'><span class='apex-label'>C2 Infrastructure</span>"
-        f"<span class='apex-value'>Block all {ioc_count} network IOCs at perimeter firewall and DNS RPZ — C2 communication is the adversary's kill switch; severing it disrupts the entire operation</span></div>"
+        f"<span class='apex-value'>Block {_ioc_ref(ioc_count, kind='network ')} at perimeter firewall and DNS RPZ — C2 communication is the adversary's kill switch; severing it disrupts the entire operation</span></div>"
         f"<div class='apex-intel-item'><span class='apex-label'>Host Forensic Priority</span>"
         f"<span class='apex-value'>Deploy YARA signatures to memory scanner and file system; review process creation events for malware loader signatures; check scheduled tasks and registry run keys</span></div>"
         f"<div class='apex-intel-item'><span class='apex-label'>Threat Intelligence Value</span>"
         f"<span class='apex-value'>Shared IOC infrastructure with previously documented campaigns — correlate against historical incidents and threat intel platform for attribution continuity</span></div>"
         f"</div>"
-        f"<p>Deploy all {ioc_count} IOCs to EDR, AV, firewall, and DNS RPZ immediately. "
+        f"<p>Deploy {_ioc_ref(ioc_count)} to EDR, AV, firewall, and DNS RPZ immediately. "
         f"Run memory scan with provided YARA signatures against all endpoints — "
         f"particularly internet-facing servers and privileged workstations. "
         f"If malware is detected, isolate immediately and engage incident response — "
@@ -862,7 +879,7 @@ def _narrative_zero_day(item: Dict[str, Any]) -> str:
         f"<div class='apex-intel-item'><span class='apex-label'>Vendor Engagement</span>"
         f"<span class='apex-value'>Monitor vendor security advisory channel for emergency patch — activate your vendor escalation contact and subscribe to emergency notification list</span></div>"
         f"<div class='apex-intel-item'><span class='apex-label'>Threat Hunting Priority</span>"
-        f"<span class='apex-value'>Hunt {ioc_count} IOCs across all telemetry for evidence of pre-patch exploitation — assume adversary access until forensics confirm clean state</span></div>"
+        f"<span class='apex-value'>Hunt {_ioc_ref(ioc_count, all_=False)} across all telemetry for evidence of pre-patch exploitation — assume adversary access until forensics confirm clean state</span></div>"
         f"</div>"
         f"<p>This is a time-critical emergency response scenario. "
         f"If you cannot immediately patch, you must reduce exposure by other means: "
@@ -898,7 +915,7 @@ def _narrative_cve_rce(item: Dict[str, Any]) -> str:
         f"<div class='apex-intel-item'><span class='apex-label'>Lateral Movement Risk</span>"
         f"<span class='apex-value'>Post-RCE lateral movement typically begins within minutes — credential dumping and domain reconnaissance commence immediately after foothold establishment</span></div>"
         f"<div class='apex-intel-item'><span class='apex-label'>Defender Priority</span>"
-        f"<span class='apex-value'>Emergency patching; network segmentation of affected systems; EDR alerting for anomalous child process spawning from web server processes; hunt {ioc_count} IOCs</span></div>"
+        f"<span class='apex-value'>Emergency patching; network segmentation of affected systems; EDR alerting for anomalous child process spawning from web server processes; hunt {_ioc_ref(ioc_count, all_=False)}</span></div>"
         f"</div>"
         f"<p>Defenders should correlate the IOC table against 30-day SIEM retention, proxy logs, "
         f"and EDR process telemetry. Specifically hunt for: web shell deployment, anomalous "
@@ -935,7 +952,7 @@ def _narrative_cve_auth_bypass(item: Dict[str, Any]) -> str:
         f"<div class='apex-intel-item'><span class='apex-label'>Identity Impact</span>"
         f"<span class='apex-value'>Admin-level bypass enables credential reset, backdoor account creation, and authentication infrastructure manipulation — review all admin account activity</span></div>"
         f"<div class='apex-intel-item'><span class='apex-label'>Defender Priority</span>"
-        f"<span class='apex-value'>Emergency patch or disable affected authentication endpoint; audit admin account creation since last patch; hunt {ioc_count} IOCs across auth logs</span></div>"
+        f"<span class='apex-value'>Emergency patch or disable affected authentication endpoint; audit admin account creation since last patch; hunt {_ioc_ref(ioc_count, all_=False)} across auth logs</span></div>"
         f"</div>"
         f"<p>Immediate actions: (1) Apply vendor patch or disable the authentication endpoint, "
         f"(2) Audit all privileged account creation and configuration changes in the past 30 days, "
@@ -976,7 +993,7 @@ def _narrative_cve_generic(item: Dict[str, Any]) -> str:
             pass
 
     _cve_impact_text = "System integrity and data confidentiality at risk - exploitation may enable code execution, data access, or service disruption" if sev in ("CRITICAL", "HIGH") else "Limited impact scope - assess compensating controls before emergency patching"
-    _cve_defender_priority = "Hunt " + str(ioc_count) + " IOCs across SIEM/EDR; apply patch immediately; validate no pre-patch exploitation occurred" if ioc_count > 0 else "Apply vendor patch; validate patching completeness across all affected asset classes"
+    _cve_defender_priority = "Hunt " + _ioc_ref(ioc_count, all_=False) + " across SIEM/EDR; apply patch immediately; validate no pre-patch exploitation occurred" if ioc_count > 0 else "Apply vendor patch; validate patching completeness across all affected asset classes"
 
     return (
         f"<div class='apex-narrative'>"
@@ -1028,11 +1045,11 @@ def _narrative_threat_intel(item: Dict[str, Any]) -> str:
         f"<div class='apex-intel-item'><span class='apex-label'>Actor Attribution</span>"
         f"<span class='apex-value'>{_h(actor)} &mdash; {_actor_attribution_status}</span></div>"
         f"<div class='apex-intel-item'><span class='apex-label'>Defender Priority</span>"
-        f"<span class='apex-value'>Deploy all {ioc_count} IOCs to detection layers; correlate against 30-day SIEM history; review TTP coverage gaps using ATT&CK section</span></div>"
+        f"<span class='apex-value'>Deploy {_ioc_ref(ioc_count)} to detection layers; correlate against 30-day SIEM history; review TTP coverage gaps using ATT&CK section</span></div>"
         f"<div class='apex-intel-item'><span class='apex-label'>Operational Relevance</span>"
         f"<span class='apex-value'>{_h(sectors)}</span></div>"
         f"</div>"
-        f"<p>Deploy all {ioc_count} IOCs to SIEM, EDR, DNS RPZ, and perimeter firewall. "
+        f"<p>Deploy {_ioc_ref(ioc_count)} to SIEM, EDR, DNS RPZ, and perimeter firewall. "
         f"Correlate against 30-day SIEM retention for pre-existing compromise indicators. "
         f"Review the ATT&CK mapping (Section 6) to identify detection coverage gaps "
         f"for the documented technique set.</p>"
@@ -1256,7 +1273,7 @@ def generate_context_aware_executive_summary(item: Dict[str, Any]) -> str:
         ) if intel_class in (CLS_CVE_RCE, CLS_CVE_AUTH, CLS_CVE_SQLI, CLS_CVE_XSS,
                               CLS_CVE_PRIVESC, CLS_CVE_SSRF, CLS_CVE_DOS,
                               CLS_CVE_INFODISC, CLS_CVE_MEMORY, CLS_CVE_GENERIC) else (
-            f"Deploy all {ioc_count} IOCs to your detection stack immediately. "
+            f"Deploy {_ioc_ref(ioc_count)} to your detection stack immediately. "
             f"Hunt across SIEM, EDR, DNS, and proxy logs using the provided detection pack. "
             "Assess this intelligence against your current threat model and risk register."
         )
