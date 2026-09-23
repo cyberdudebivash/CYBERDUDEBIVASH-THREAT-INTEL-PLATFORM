@@ -119,7 +119,7 @@ from r2_cost_guard import (  # noqa: E402
     enforce_budget,
 )
 from canonical_timestamp import parse_timestamp  # noqa: E402
-from generate_intel_reports import rel_report_path  # noqa: E402
+from generate_intel_reports import rel_report_path, report_future_skew_hours  # noqa: E402
 
 logging.basicConfig(
     level=logging.INFO,
@@ -274,6 +274,10 @@ def build_publish_candidates(items: list[dict], window_hours: int, now: datetime
     keyspace. Does not check disk/hash yet (that happens in plan building)."""
     candidates = []
     skipped_unparseable = 0
+    # Same bounded future-skew tolerance generate_intel_reports.py renders
+    # with (single definition there) -- see its P0 STAGE 3.3 WINDOW RACE FIX
+    # comment. A report that was rendered must also be publishable.
+    future_skew = report_future_skew_hours()
     for item in items:
         intel_id = item.get("id")
         if not intel_id:
@@ -282,9 +286,10 @@ def build_publish_candidates(items: list[dict], window_hours: int, now: datetime
         if ts is None:
             skipped_unparseable += 1
             continue
-        if age_hours is not None and 0 <= age_hours <= window_hours:
+        if age_hours is not None and -future_skew <= age_hours <= window_hours:
             candidates.append({"item": item, "id": intel_id, "canonical_ts": ts})
-        # age_hours < 0 (future-dated) is also excluded -- not provably "current".
+        # Future-dated beyond the skew tolerance is still excluded -- not
+        # provably "current" (e.g. a mis-parsed far-future timestamp).
     if skipped_unparseable:
         log.warning(
             "%d manifest item(s) had no parseable canonical timestamp -- "
