@@ -2478,6 +2478,39 @@ def save_manifest(data: dict) -> None:
 # ─────────────────────────────────────────────────────────────────────────────
 # Main
 # ─────────────────────────────────────────────────────────────────────────────
+# P0 STAGE 3.3 WINDOW RACE FIX: the rolling-window predicate is evaluated
+# independently by the producers (this script, which renders, and
+# scripts/r2_report_publisher.py, which uploads) and by several strict
+# verifiers (validate_reports.py -- STAGE 3.3 --, report_existence_validator
+# .py, report_url_canary.py, pipeline_audit.py, r2_reports_verifier.py),
+# each against its OWN datetime.now(). With a strict `0 <= age` lower bound
+# everywhere, an item whose canonical timestamp is slightly in the future
+# when this script runs is skipped, then crosses age=0 before a verifier
+# runs minutes later -- which then hard-fails it as "in window but never
+# rendered". Confirmed on run 35867879014 (2026-09-23): 2 items excluded
+# here at 13:58:05Z, in-window for STAGE 3.3 at 14:02:47Z, run failed.
+#
+# Producers therefore accept a bounded future skew; verifiers stay strict.
+# Every verifier's window at T_verify is then a subset of the producers'
+# window at T_render whenever T_verify - T_render < the tolerance, which
+# the default (3h) guarantees for any step of the same run (job timeout
+# 130 min). Anything further in the future (bad parses, 2099, the +5h case
+# tests/test_r2_report_publisher.py pins) stays excluded -- not provably
+# current.
+DEFAULT_REPORT_FUTURE_SKEW_HOURS = 3.0
+
+
+def report_future_skew_hours() -> float:
+    raw = os.environ.get("REPORT_FUTURE_SKEW_HOURS", "").strip()
+    if not raw:
+        return DEFAULT_REPORT_FUTURE_SKEW_HOURS
+    try:
+        value = float(raw)
+    except ValueError:
+        return DEFAULT_REPORT_FUTURE_SKEW_HOURS
+    return value if value >= 0 else DEFAULT_REPORT_FUTURE_SKEW_HOURS
+
+
 def _within_report_window(item: dict, since_hours: Optional[float], now: datetime) -> bool:
     """P0 R2 COST INCIDENT FIX: True iff --since-hours is unset (unbounded,
     default -- 100% backward compatible with every existing caller/test that
@@ -2502,7 +2535,7 @@ def _within_report_window(item: dict, since_hours: Optional[float], now: datetim
     if result.parse_status != "SUCCESS" or result.normalized is None:
         return False
     age_hours = (now - result.normalized).total_seconds() / 3600.0
-    return 0 <= age_hours <= since_hours
+    return -report_future_skew_hours() <= age_hours <= since_hours
 
 
 def main(argv=None) -> int:
