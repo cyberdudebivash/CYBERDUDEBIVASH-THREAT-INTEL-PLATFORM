@@ -30,6 +30,7 @@ import {
   scopesForTier,
 } from "./watchdog-policy.js";
 import { retryDelaySeconds, validateDestinationUrl } from "./watchdog-webhook.js";
+import { compactPriority, computeEventPriority, eventPriority, priorityRank, PRIORITY_BANDS } from "./watchdog-priority.js";
 
 export const WATCHDOG_NAME = "CYBERDUDEBIVASH SENTINEL APEX CYBER WATCHDOG";
 export const WATCHDOG_VERSION = "3.0.0";
@@ -37,6 +38,13 @@ export const WATCHDOG_PLATFORM_VERSION = "201.0";
 export const CLASSIFIER_VERSION = "watchdog-lens-v2";
 export const EVENT_RETENTION = 200;
 export const DELIVERY_RETENTION = 50;
+
+// Analyst triage workflow. Any status may move to any other (reopen included);
+// nothing is ever resolved automatically. `acknowledged` (v2/v3 clients) is
+// kept in sync: true for every status except NEW.
+export const TRIAGE_STATUSES = Object.freeze(["NEW", "ACKNOWLEDGED", "INVESTIGATING", "RESOLVED", "IGNORED"]);
+export const OPEN_STATUSES = Object.freeze(["NEW", "ACKNOWLEDGED", "INVESTIGATING"]);
+export const STATUS_HISTORY_RETENTION = 20;
 export const MAX_WEBHOOK_TIMEOUT_MS = DELIVERY_POLICY.timeout_ms;
 
 // Seller identity (not a price). The unit test pins it to the contract.
@@ -200,6 +208,8 @@ export function watchdogOffer() {
       matches: "GET /api/watchdog/matches",
       events: "GET /api/watchdog/events",
       ack: "POST /api/watchdog/events/ack",
+      event_status: "POST /api/watchdog/events/status",
+      event_item: "GET /api/watchdog/events/item?id=",
       destinations: "GET|POST|PATCH|DELETE /api/watchdog/destinations",
       destination_verify: "POST /api/watchdog/destinations/verify?id=",
       session: "POST|DELETE /api/watchdog/session",
@@ -605,6 +615,9 @@ export function candidateEvent(watch, item, feedGeneratedAt, nowIso, origin = "r
     feed_generated_at: feedGeneratedAt || null,
     reference: clean(String(item.source_url || item.blog_url || ""), 300) || "https://intel.cyberdudebivash.com/cyber-watchdog.html",
     dedupe_key: dedupe,
+    priority: compactPriority(computeEventPriority(item)),
+    status: "NEW",
+    status_history: [],
     acknowledged: false,
     delivery_status: "no_destinations",
     deliveries: [],
@@ -743,9 +756,34 @@ export function publicDestination(d) {
   };
 }
 
+/** Triage status; events stored before the workflow derive it from `acknowledged`. */
+export function eventStatus(e) {
+  if (e && TRIAGE_STATUSES.includes(e.status)) return e.status;
+  return e && e.acknowledged ? "ACKNOWLEDGED" : "NEW";
+}
+
+function withStatus(e, status, now, by, note) {
+  const from = eventStatus(e);
+  const entry = { from, to: status, at: now };
+  if (by) entry.by = by;
+  if (note) entry.note = note;
+  const out = {
+    ...e,
+    status,
+    status_updated_at: now,
+    status_history: [entry].concat(Array.isArray(e.status_history) ? e.status_history : []).slice(0, STATUS_HISTORY_RETENTION),
+    acknowledged: status !== "NEW",
+  };
+  if (status !== "NEW" && !e.acknowledged_at) out.acknowledged_at = now;
+  return out;
+}
+
 function publicEvent(e) {
   return {
     ...e,
+    status: eventStatus(e),
+    status_history: Array.isArray(e.status_history) ? e.status_history : [],
+    priority: eventPriority(e),
     deliveries: (e.deliveries || []).map((d) => ({
       destination_id: d.destination_id,
       delivery_id: d.delivery_id,
@@ -941,13 +979,37 @@ export function applyLedgerMutation(state, op) {
   }
   if (op.type === "ack") {
     const ids = new Set(asList(op.ids, 50, 96, (v) => clean(String(v), 96)));
+    const by = clean(String(op.actor || ""), 200) || null;
     let n = 0;
     next.events = next.events.map((e) => {
       if (!ids.has(e.id) || e.acknowledged) return e;
       n += 1;
-      return { ...e, acknowledged: true, acknowledged_at: now };
+      return withStatus(e, "ACKNOWLEDGED", now, by, null);
     });
     return { state: next, result: { acknowledged: n } };
+  }
+  if (op.type === "set_status") {
+    const status = clean(String(op.status || ""), 24).toUpperCase();
+    if (!TRIAGE_STATUSES.includes(status)) return { error: "invalid_status", status: 400, state: base, message: "status must be one of " + TRIAGE_STATUSES.join(", ") + "." };
+    if (!Array.isArray(op.ids) || !op.ids.length) return { error: "ids_required", status: 400, state: base, message: "Provide 1 to 50 event ids." };
+    if (op.ids.length > 50) return { error: "too_many_ids", status: 400, state: base, message: "At most 50 event ids per request." };
+    const ids = new Set(asList(op.ids, 50, 96, (v) => clean(String(v), 96)));
+    const note = clean(String(op.note || ""), 280) || null;
+    const by = clean(String(op.actor || ""), 200) || null;
+    const updated = [];
+    const unchanged = [];
+    const seen = new Set();
+    next.events = next.events.map((e) => {
+      if (!ids.has(e.id)) return e;
+      seen.add(e.id);
+      if (eventStatus(e) === status) { unchanged.push(e.id); return e; }
+      updated.push(e.id);
+      return withStatus(e, status, now, by, note);
+    });
+    const not_found = [...ids].filter((id) => !seen.has(id));
+    const result = { status, updated, unchanged, not_found };
+    if (!updated.length) return { readOnly: true, state: base, result };
+    return { state: next, result };
   }
   if (op.type === "set_destination" || op.type === "create_destination") {
     if (!quota.webhooks) return { error: "tier_required", status: 403, state: base, message: "HTTPS webhook delivery is included with Enterprise SOC or MSSP." };
@@ -1122,6 +1184,87 @@ export function normalizeDestination(input) {
   return { url: out.url, hostname: out.hostname };
 }
 
+function countBy(list, key, keys) {
+  const out = {};
+  for (const k of keys) out[k] = 0;
+  for (const e of list) { const k = key(e); if (k in out) out[k] += 1; }
+  return out;
+}
+
+// ---------------------------------------------------------------------------
+// Inbox query (server-side filter + sort over the bounded event list)
+// ---------------------------------------------------------------------------
+
+const SORTS = ["newest", "oldest", "priority"];
+
+function csvParam(sp, name, allowed, max = 8) {
+  const raw = sp?.get?.(name);
+  if (raw == null || raw === "") return { values: null };
+  const values = String(raw).split(",").map((v) => v.trim().toUpperCase()).filter(Boolean).slice(0, max);
+  const bad = values.filter((v) => !allowed.includes(v));
+  if (bad.length) return { error: { error: "invalid_filter", filter: name, message: name + " must be one or more of " + allowed.join(", ") + "." } };
+  return { values };
+}
+
+/**
+ * Parses inbox filters. Absent parameters filter nothing, so existing
+ * /api/watchdog/events callers see exactly the previous list and order.
+ */
+export function parseInboxQuery(sp) {
+  const status = csvParam(sp, "status", TRIAGE_STATUSES);
+  if (status.error) return status;
+  const priority = csvParam(sp, "priority", PRIORITY_BANDS);
+  if (priority.error) return priority;
+  const severity = csvParam(sp, "severity", ["CRITICAL", "HIGH", "MEDIUM", "LOW", "INFO", "UNKNOWN"]);
+  if (severity.error) return severity;
+  const watchId = clean(String(sp?.get?.("watch_id") || ""), 40) || null;
+  const q = clean(String(sp?.get?.("q") || ""), 80).toLowerCase() || null;
+  const sinceRaw = sp?.get?.("since");
+  let since = null;
+  if (sinceRaw) {
+    since = Date.parse(String(sinceRaw));
+    if (!Number.isFinite(since)) return { error: { error: "invalid_filter", filter: "since", message: "since must be an ISO-8601 timestamp." } };
+  }
+  const sortRaw = String(sp?.get?.("sort") || "newest").toLowerCase();
+  if (!SORTS.includes(sortRaw)) return { error: { error: "invalid_filter", filter: "sort", message: "sort must be one of " + SORTS.join(", ") + "." } };
+  const openOnly = sp?.get?.("open") === "1";
+  return { query: { status: status.values, priority: priority.values, severity: severity.values, watch_id: watchId, q, since, sort: sortRaw, open: openOnly } };
+}
+
+export function inboxActive(query) {
+  return !!(query.status || query.priority || query.severity || query.watch_id || query.q || query.since != null || query.open || query.sort !== "newest");
+}
+
+export function filterEvents(events, query) {
+  let out = events.filter((e) => {
+    const st = eventStatus(e);
+    if (query.open && !OPEN_STATUSES.includes(st)) return false;
+    if (query.status && !query.status.includes(st)) return false;
+    if (query.priority && !query.priority.includes(eventPriority(e).band)) return false;
+    if (query.severity) {
+      const sev = SEVERITY_RANK[String(e.severity || "").toUpperCase()] ? String(e.severity).toUpperCase() : "UNKNOWN";
+      if (!query.severity.includes(sev)) return false;
+    }
+    if (query.watch_id && e.watch_id !== query.watch_id) return false;
+    if (query.since != null && !(Date.parse(e.matched_at || "") >= query.since)) return false;
+    if (query.q) {
+      const hay = [e.title, e.watch_name, e.source, e.matched_item_id].concat(e.cve_ids || []).join(" ").toLowerCase();
+      if (!hay.includes(query.q)) return false;
+    }
+    return true;
+  });
+  if (query.sort === "oldest") out = out.slice().reverse();
+  else if (query.sort === "priority") {
+    // Stable: ties keep newest-first ledger order.
+    out = out.map((e, i) => [e, i]).sort((a, b) => {
+      const pa = eventPriority(a[0]);
+      const pb = eventPriority(b[0]);
+      return priorityRank(pb.band) - priorityRank(pa.band) || (pb.score ?? -1) - (pa.score ?? -1) || a[1] - b[1];
+    }).map(([e]) => e);
+  }
+  return out;
+}
+
 export function analyticsFromEvents(events, nowMs = Date.now()) {
   const list = Array.isArray(events) ? events : [];
   const day = 86400000;
@@ -1158,6 +1301,10 @@ export function analyticsFromEvents(events, nowMs = Date.now()) {
     critical_matches_24h: dayEvents.filter((e) => String(e.severity).toUpperCase() === "CRITICAL").length,
     high_matches_24h: dayEvents.filter((e) => String(e.severity).toUpperCase() === "HIGH").length,
     unread: list.filter((e) => !e.acknowledged).length,
+    by_status: countBy(list, eventStatus, TRIAGE_STATUSES),
+    by_priority: countBy(list, (e) => eventPriority(e).band, PRIORITY_BANDS),
+    open: list.filter((e) => OPEN_STATUSES.includes(eventStatus(e))).length,
+    open_critical: list.filter((e) => OPEN_STATUSES.includes(eventStatus(e)) && eventPriority(e).band === "CRITICAL").length,
     delivery_success_rate: finals.length ? Number((success / finals.length).toFixed(4)) : null,
     delivery_failure_rate: finals.length ? Number((failed / finals.length).toFixed(4)) : null,
     delivery_failures: failed,
@@ -1223,6 +1370,9 @@ const SCOPE_BY_ROUTE = [
   ["/api/watchdog/events", ["GET", "HEAD"], WATCHDOG_SCOPES.EVENTS_READ],
   ["/api/watchdog/matches", ["GET", "HEAD"], WATCHDOG_SCOPES.EVENTS_READ],
   ["/api/watchdog/events/ack", ["POST"], WATCHDOG_SCOPES.EVENTS_ACK],
+  // Triage status changes are the same customer capability as ack.
+  ["/api/watchdog/events/status", ["POST"], WATCHDOG_SCOPES.EVENTS_ACK],
+  ["/api/watchdog/events/item", ["GET", "HEAD"], WATCHDOG_SCOPES.EVENTS_READ],
   ["/api/watchdog/destinations", ["GET", "HEAD"], WATCHDOG_SCOPES.READ],
   ["/api/watchdog/destinations", ["POST", "PATCH", "DELETE"], WATCHDOG_SCOPES.DESTINATIONS_WRITE],
   ["/api/watchdog/destinations/verify", ["POST"], WATCHDOG_SCOPES.DESTINATIONS_WRITE],
@@ -1556,7 +1706,7 @@ export async function routeWatchdog(req) {
     return { status: 200, body: await req.scheduler.metrics(req.nowMs) };
   }
 
-  const known = ["/api/watchdog/watches", "/api/watchdog/matches", "/api/watchdog/events", "/api/watchdog/events/ack", "/api/watchdog/destinations", "/api/watchdog/destinations/verify"];
+  const known = ["/api/watchdog/watches", "/api/watchdog/matches", "/api/watchdog/events", "/api/watchdog/events/ack", "/api/watchdog/events/status", "/api/watchdog/events/item", "/api/watchdog/destinations", "/api/watchdog/destinations/verify"];
   if (!known.includes(path)) return { status: 404, body: { error: "not_found", path } };
 
   const guard = paidGuard(req.auth);
@@ -1653,12 +1803,51 @@ export async function routeWatchdog(req) {
   }
   if (path === "/api/watchdog/events/ack") {
     if (method !== "POST") return { status: 405, body: { error: "method_not_allowed" } };
-    const out = await ledger(req, { type: "ack", ids: req.body?.ids || [] });
+    const out = await ledger(req, { type: "ack", ids: req.body?.ids || [], actor: req.auth.sub });
     if (out.error) return publicFailure(out);
     return { status: 200, body: out.result };
   }
+  if (path === "/api/watchdog/events/status") {
+    if (method !== "POST") return { status: 405, body: { error: "method_not_allowed" } };
+    const b = req.body && typeof req.body === "object" ? req.body : {};
+    const ids = Array.isArray(b.ids) ? b.ids : (typeof b.id === "string" ? [b.id] : []);
+    const out = await ledger(req, { type: "set_status", ids, status: b.status, note: b.note, actor: req.auth.sub });
+    if (out.error) return publicFailure(out);
+    return { status: 200, body: out.result };
+  }
+  if (path === "/api/watchdog/events/item") {
+    if (method !== "GET" && method !== "HEAD") return { status: 405, body: { error: "method_not_allowed" } };
+    const id = clean(String(req.searchParams?.get?.("id") || ""), 96);
+    if (!id) return { status: 400, body: { error: "id_required" } };
+    const got = await ledger(req, { type: "get" });
+    if (got.error) return publicFailure(got);
+    const event = got.result.events.find((e) => e.id === id);
+    if (!event) return { status: 404, body: { error: "not_found" } };
+    const watch = got.result.watches.find((w) => w.id === event.watch_id) || null;
+    // Current advisory detail comes only from a FRESH authoritative feed.
+    const pub = watchdogPublication(req.feed, req.nowMs);
+    let feedItem = null;
+    let feedItemStatus = "feed_not_fresh";
+    if (pub.serve_live) {
+      const src = validItems(req.feed).find((i) => clean(String(i.id), 128) === event.matched_item_id);
+      if (src) {
+        feedItem = publicItem(projectItem(src), true);
+        feedItemStatus = materialRevision(src) === event.revision ? "current" : "revised_since_match";
+      } else feedItemStatus = "not_on_current_feed";
+    }
+    return {
+      status: 200,
+      body: {
+        product: WATCHDOG_NAME, tier, tenant: req.tenant || null,
+        event, watch, feed_item: feedItem, feed_item_status: feedItemStatus,
+        freshness_status: pub.freshness_status, feed_generated_at: pub.feed_generated_at,
+      },
+    };
+  }
   if (path === "/api/watchdog/matches" || path === "/api/watchdog/events") {
     if (method !== "GET" && method !== "HEAD") return { status: 405, body: { error: "method_not_allowed" } };
+    const parsed = parseInboxQuery(req.searchParams);
+    if (parsed.error) return { status: 400, body: parsed.error };
     const got = await ledger(req, { type: "get" });
     if (got.error) return publicFailure(got);
     // evaluate=0 lists stored events without evaluating: used to observe what
@@ -1677,7 +1866,9 @@ export async function routeWatchdog(req) {
     const events = finalState.result?.events || [];
     const limit = Math.min(50, Math.max(1, Number(req.searchParams?.get?.("limit")) || 20));
     const offset = Math.min(Math.max(0, Number(req.searchParams?.get?.("offset")) || 0), 500);
-    const page = events.slice(offset, offset + limit);
+    const filtering = inboxActive(parsed.query);
+    const listed = filtering ? filterEvents(events, parsed.query) : events;
+    const page = listed.slice(offset, offset + limit);
     const analytics = analyticsFromEvents(events, req.nowMs);
     const pub = evaluated.pub;
     if (path === "/api/watchdog/matches") {
@@ -1700,6 +1891,8 @@ export async function routeWatchdog(req) {
         inserted: evaluated.inserted.length,
         events: page,
         total: events.length,
+        matched_total: listed.length,
+        filters: filtering ? { ...parsed.query, since: parsed.query.since == null ? null : new Date(parsed.query.since).toISOString() } : null,
         limit,
         offset,
         analytics,

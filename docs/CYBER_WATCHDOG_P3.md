@@ -285,3 +285,24 @@ Use it first for any delivery incident: set it to `"false"` and deploy, or chang
 ### Current-production exposure until this hotfix deploys
 
 Production runs `6977abf` (v3 before this fix). **Do not roll back Watchdog to raw 6ac0385** if any Enterprise or MSSP destination may have been registered after 2026-09-24 11:06 UTC. Use the safe rollback target.
+
+## 14. Command center: priority, triage, inbox (PR A)
+
+**Priority (`watchdog-priority.js`, `watchdog-priority-1`).** Every new match event stores an evidence-cited priority computed from the projected feed item. Points: CISA KEV 30, CVSS 25 (`cvss/10`), EPSS 20 (`epss`), feed severity 15, threat-activity signals 10 (attributed actor, "exploited in the wild"/ransomware/zero-day text). Bands: CRITICAL ≥ 70, HIGH ≥ 45, MEDIUM ≥ 20, else LOW. Cited floors: KEV plus CVSS ≥ 9 or CRITICAL severity gives CRITICAL; KEV, CVSS ≥ 9, EPSS ≥ 0.5 or CRITICAL severity gives at least HIGH; HIGH severity gives at least MEDIUM.
+
+* A factor with no data is `known: false` and adds nothing. An item with no KEV/CVSS/EPSS/severity evidence scores `null` with band `INSUFFICIENT_EVIDENCE`, never 0/LOW.
+* Events stored before this change report `INSUFFICIENT_EVIDENCE` with `legacy: true`. Their source fields were never stored, so they are not re-scored from partial data.
+* It is not `computeActionabilityScore` (p23). That engine measures response-package completeness and assigns floor points to missing data.
+* Stored form is compact (known factors only). 200 events at maximum history stay well under 1.5 MB, which the tests assert.
+
+**Triage.** `NEW → ACKNOWLEDGED → INVESTIGATING → RESOLVED | IGNORED`. Any status may move to any other, so reopening is allowed. Nothing is resolved automatically. The last 20 changes are kept per event as `{from, to, at, by, note}`, with notes sanitized and capped at 280 characters. The legacy `acknowledged` flag stays in sync (true for every status except NEW), and `POST /events/ack` still works.
+
+| Route | Scope | Notes |
+|---|---|---|
+| `POST /api/watchdog/events/status` | `watchdog:events:ack` | `{ids[≤50] \| id, status, note?}` → `{updated, unchanged, not_found}`. Refusals and no-op updates do not write. |
+| `GET /api/watchdog/events/item?id=` | `watchdog:events:read` | Event, watch, and the current advisory only from a FRESH feed (`feed_item_status`: `current`, `revised_since_match`, `not_on_current_feed`, `feed_not_fresh`). |
+| `GET /api/watchdog/events?…` | `watchdog:events:read` | Filters: `status`, `priority`, `severity` (CSV), `open=1`, `watch_id`, `q`, `since`, `sort=newest\|oldest\|priority`. Invalid filters return 400 before any evaluation. With no filters the list and order are exactly as before. New additive fields: `matched_total`, `filters`, and `analytics.by_status/by_priority/open/open_critical`. |
+
+The webhook payload and contract version are unchanged. Rollback: the new event fields are ignored by earlier v3 code, and `acknowledged` stays accurate.
+
+Proof: `watchdog-command-center.test.js` (15 tests), plus 7 negative controls in `scripts/watchdog-negative-controls.mjs` (45/45 caught).

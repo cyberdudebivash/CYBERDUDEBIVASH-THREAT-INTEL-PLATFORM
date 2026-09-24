@@ -317,6 +317,55 @@ const CONTROLS = [
     replace: "    sale_id, product_id, product_name, price, variants, subscription_id,\n  }, billingCycle, null);",
     tests: [T("mssp-tenants.test.js")],
   },
+  {
+    id: "priority_missing_evidence_scored_zero",
+    file: "workers/intel-gateway/src/watchdog-priority.js",
+    find: "  if (!coreKnown.length) {",
+    replace: "  if (false) {",
+    tests: [T("watchdog-command-center.test.js")],
+  },
+  {
+    id: "priority_kev_floor_removed",
+    file: "workers/intel-gateway/src/watchdog-priority.js",
+    find: "  if (kev === true) floor(\"HIGH\", \"kev_listed\");",
+    replace: "",
+    tests: [T("watchdog-command-center.test.js")],
+  },
+  {
+    id: "triage_acknowledged_not_synced",
+    file: "workers/intel-gateway/src/cyber-watchdog.js",
+    find: "    acknowledged: status !== \"NEW\",",
+    replace: "    acknowledged: true,",
+    tests: [T("watchdog-command-center.test.js")],
+  },
+  {
+    id: "triage_status_validation_removed",
+    file: "workers/intel-gateway/src/cyber-watchdog.js",
+    find: "    if (!TRIAGE_STATUSES.includes(status)) return { error: \"invalid_status\"",
+    replace: "    if (false) return { error: \"invalid_status\"",
+    tests: [T("watchdog-command-center.test.js")],
+  },
+  {
+    id: "triage_status_scope_removed",
+    file: "workers/intel-gateway/src/cyber-watchdog.js",
+    find: "  [\"/api/watchdog/events/status\", [\"POST\"], WATCHDOG_SCOPES.EVENTS_ACK],",
+    replace: "",
+    tests: [T("watchdog-command-center.test.js")],
+  },
+  {
+    id: "inbox_priority_filter_ignored",
+    file: "workers/intel-gateway/src/cyber-watchdog.js",
+    find: "    if (query.priority && !query.priority.includes(eventPriority(e).band)) return false;",
+    replace: "",
+    tests: [T("watchdog-command-center.test.js")],
+  },
+  {
+    id: "detail_serves_stale_feed_item",
+    file: "workers/intel-gateway/src/cyber-watchdog.js",
+    find: "    let feedItemStatus = \"feed_not_fresh\";\n    if (pub.serve_live) {",
+    replace: "    let feedItemStatus = \"feed_not_fresh\";\n    if (true) {",
+    tests: [T("watchdog-command-center.test.js")],
+  },
 ];
 
 function runTests(root, files) {
