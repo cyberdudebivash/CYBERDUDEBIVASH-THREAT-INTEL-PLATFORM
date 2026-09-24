@@ -32,6 +32,9 @@ import {
   json, sanitizeEmail, genId, TIERS, SUB_STATUS, provisionCustomer, trackEvent,
 } from "./index.js";
 import { Subscription } from "./subscription-domain.js";
+import { normalizeBuyerTaxId, normalizeBillingState, normalizeBillingName } from "./gst.js";
+import { recordCapturedPayment, issueInvoiceForPayment } from "./billing-ledger.js";
+import { applyBillingWebhookEvent } from "./billing-routes.js";
 
 const RAZORPAY_API_BASE = "https://api.razorpay.com/v1";
 
@@ -166,6 +169,28 @@ export async function handleBillingSubscriptionCreate(request, env, ctx, rid) {
   if (!["PRO", "ENTERPRISE", "MSSP"].includes(tier) || !TIERS[tier]) {
     return json({ error: "Invalid tier. Valid: PRO, ENTERPRISE, MSSP" }, 400);
   }
+  // Buyer details for the GST invoice (all optional). Validated here and
+  // carried on the subscription (notes + provider link) so every captured
+  // charge is recorded on the ledger with them. Place of supply is derived
+  // from them, never guessed.
+  const taxId = normalizeBuyerTaxId(body.gstin);
+  if (!taxId.ok) return json({ error: taxId.reason, field: "gstin" }, 400);
+  const billingState = normalizeBillingState(body.billing_state);
+  if (!billingState.ok) return json({ error: billingState.reason, field: "billing_state" }, 400);
+  const billingName = normalizeBillingName(body.billing_name);
+  if (!billingName.ok) return json({ error: billingName.reason, field: "billing_name" }, 400);
+  const billingAddress = typeof body.billing_address === "string"
+    ? body.billing_address.normalize("NFKC").replace(/[\u0000-\u001f\u007f<>{}]/g, " ").replace(/\s+/g, " ").trim() : "";
+  if (billingAddress && (billingAddress.length < 10 || billingAddress.length > 250)) {
+    return json({ error: "Billing address must be 10-250 characters.", field: "billing_address" }, 400);
+  }
+  const buyer = {
+    gstin: taxId.kind === "gstin" ? taxId.value : "", vat_id: taxId.kind === "vat" ? taxId.value : "",
+    billing_state: taxId.kind === "gstin" ? taxId.value.slice(0, 2) : billingState.value,
+    billing_name: billingName.value, billing_address: billingAddress,
+  };
+  const buyerNotes = {};
+  for (const [k, v] of Object.entries(buyer)) if (v) buyerNotes[k] = v;
   if (!env.RAZORPAY_KEY_ID || !env.RAZORPAY_KEY_SECRET) {
     return json({ error: "Razorpay not configured on server", fallback_url: "https://intel.cyberdudebivash.com/upgrade.html" }, 503);
   }
@@ -185,7 +210,7 @@ export async function handleBillingSubscriptionCreate(request, env, ctx, rid) {
         customer_notify: 1,
         quantity: 1,
         total_count: TOTAL_COUNT_BY_CYCLE[cycle],
-        notes: { email, tier, billing_cycle: cycle, platform: "SENTINEL-APEX" },
+        notes: { email, tier, billing_cycle: cycle, platform: "SENTINEL-APEX", ...buyerNotes },
       }),
     });
     if (!resp.ok) {
@@ -196,7 +221,7 @@ export async function handleBillingSubscriptionCreate(request, env, ctx, rid) {
 
     await putProviderLink(env, sub.id, {
       razorpay_subscription_id: sub.id, email, tier, billing_cycle: cycle,
-      status: "created", plan_id: planId, created_at: new Date().toISOString(),
+      status: "created", plan_id: planId, created_at: new Date().toISOString(), buyer,
     });
     await trackEvent(env, "subscription_checkout_created", { email, tier, billing_cycle: cycle, razorpay_subscription_id: sub.id, rid });
 
@@ -325,6 +350,40 @@ export async function handleBillingWebhook(request, env, ctx, rid) {
   const cycle = link?.billing_cycle || notes.billing_cycle || "monthly";
 
   try {
+  // Refunds and disputes (billing-routes.js): reconcile the ledger, the
+  // refund request and the entitlement.
+  if (event.startsWith("refund.") || event.startsWith("payment.dispute.")) {
+    await applyBillingWebhookEvent(env, event, payload, {
+      rid, revokeEntitlementForSubscription: (subId, status) => revokeEntitlementForSubscription(env, subId, status, rid),
+    });
+    return json({ status: "processed", event });
+  }
+
+  // Every captured subscription charge goes on the billing ledger (the
+  // authority for refunds and GST invoices), then gets its invoice or a
+  // recorded hold. Never blocks the entitlement change below: a ledger
+  // failure is logged, and the raw payload is already stored with the
+  // idempotency marker above for replay.
+  if (subEntity && payEntity && payEntity.status === "captured" && email && TIERS[tier]) {
+    try {
+      const buyer = link?.buyer || {
+        gstin: notes.gstin || "", vat_id: notes.vat_id || "", billing_state: notes.billing_state || "",
+        billing_name: notes.billing_name || "", billing_address: notes.billing_address || "",
+      };
+      await recordCapturedPayment(env.CRM_DB, {
+        payment: payEntity, providerSubId: providerId, email, tier, billingCycle: cycle, buyer,
+      });
+      const inv = await issueInvoiceForPayment(env.CRM_DB, env, payEntity.id);
+      await trackEvent(env, inv.status === "issued" ? "invoice_issued" : "invoice_held", {
+        payment_id: payEntity.id, invoice_number: inv.invoice?.invoice_number || null, reason: inv.reason || null, rid,
+      });
+    } catch (ledgerErr) {
+      await trackEvent(env, "billing_ledger_write_failed", {
+        payment_id: payEntity.id, event, error: ledgerErr?.message || String(ledgerErr), rid,
+      }).catch(() => {});
+    }
+  }
+
   switch (event) {
     case "subscription.authenticated": {
       if (providerId) await putProviderLink(env, providerId, { ...(link || {}), status: "authenticated" });
@@ -458,4 +517,24 @@ export async function handleBillingWebhook(request, env, ctx, rid) {
   }
 
   return json({ status: "processed", event });
+}
+
+/**
+ * Revokes a subscription's entitlement after a refund (Razorpay confirmed it
+ * via webhook): the API key is denied at the gateway (subscription_status
+ * "refunded" is a deny state there) and expires now, the internal
+ * subscription is cancelled, and the provider link records the refund.
+ */
+export async function revokeEntitlementForSubscription(env, providerSubId, status, rid) {
+  const link = await getProviderLink(env, providerSubId);
+  if (!link) {
+    await trackEvent(env, "refund_revoke_no_provider_link", { razorpay_subscription_id: providerSubId, rid });
+    return false;
+  }
+  const at = new Date().toISOString();
+  if (link.api_key) await patchApiKeyEntitlement(env, link.api_key, { subscription_status: status, expires_at: at });
+  if (link.internal_sub_id) await tryTransition(env, link.internal_sub_id, SUB_STATUS.CANCELLED, { cancelled_at: at, cancel_reason: status }, rid);
+  await putProviderLink(env, providerSubId, { ...link, status });
+  await trackEvent(env, "entitlement_revoked", { razorpay_subscription_id: providerSubId, email: link.email, reason: status, rid });
+  return true;
 }

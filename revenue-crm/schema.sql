@@ -251,3 +251,67 @@ ORDER BY count DESC;
 -- ─── SEED: Revenue targets ────────────────────────────────────────────────────
 INSERT OR IGNORE INTO mrr_snapshots (date, mrr_inr, mrr_usd, target_inr)
 VALUES (date('now'), 0, 0, 1000000);
+
+-- ─── BILLING LEDGER, GST INVOICES, REFUND REQUESTS (2026-09-24) ─────────────
+-- Owner commercial policy: see docs/COMMERCIAL_POLICY_V1.md. workers/revenue-engine
+-- creates these idempotently on first use (billing-ledger.js BILLING_SCHEMA);
+-- listed here so a manual schema apply produces the identical tables.
+
+CREATE TABLE IF NOT EXISTS billing_payments (
+  payment_id      TEXT PRIMARY KEY,
+  provider        TEXT NOT NULL DEFAULT 'razorpay',
+  provider_sub_id TEXT,
+  email           TEXT NOT NULL,
+  tier            TEXT NOT NULL,
+  billing_cycle   TEXT NOT NULL,
+  amount_paise    INTEGER NOT NULL CHECK (amount_paise > 0),
+  currency        TEXT NOT NULL,
+  captured_at     TEXT NOT NULL,
+  buyer_gstin     TEXT NOT NULL DEFAULT '',
+  buyer_vat_id    TEXT NOT NULL DEFAULT '',
+  billing_state   TEXT NOT NULL DEFAULT '',
+  billing_name    TEXT NOT NULL DEFAULT '',
+  billing_address TEXT NOT NULL DEFAULT '',
+  invoice_status  TEXT NOT NULL DEFAULT 'pending',
+  invoice_hold_reason TEXT NOT NULL DEFAULT '',
+  refund_status   TEXT NOT NULL DEFAULT 'none',
+  refunded_paise  INTEGER NOT NULL DEFAULT 0,
+  disputed        INTEGER NOT NULL DEFAULT 0,
+  created_at      TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_billing_payments_email ON billing_payments (email, captured_at);
+
+CREATE TABLE IF NOT EXISTS invoice_sequences (
+  fy       TEXT PRIMARY KEY,
+  last_seq INTEGER NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS invoices (
+  id              TEXT PRIMARY KEY,
+  invoice_number  TEXT NOT NULL UNIQUE,
+  fy              TEXT NOT NULL,
+  seq             INTEGER NOT NULL,
+  payment_id      TEXT NOT NULL UNIQUE,
+  email           TEXT NOT NULL,
+  invoice_date    TEXT NOT NULL,
+  issued_at       TEXT NOT NULL,
+  document        TEXT NOT NULL,
+  status          TEXT NOT NULL DEFAULT 'issued',
+  UNIQUE (fy, seq)
+);
+
+CREATE TABLE IF NOT EXISTS refund_requests (
+  id                 TEXT PRIMARY KEY,
+  payment_id         TEXT NOT NULL UNIQUE,
+  email              TEXT NOT NULL,
+  status             TEXT NOT NULL,
+  reason             TEXT NOT NULL DEFAULT '',
+  amount_paise       INTEGER NOT NULL,
+  requested_at       TEXT NOT NULL,
+  decided_at         TEXT,
+  decision_note      TEXT NOT NULL DEFAULT '',
+  razorpay_refund_id TEXT UNIQUE,
+  last_error         TEXT NOT NULL DEFAULT '',
+  updated_at         TEXT NOT NULL
+);
