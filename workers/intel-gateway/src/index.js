@@ -152,6 +152,7 @@ import { classifyManifestFreshness, evaluatePublicIntelligence, healthEdgeTtlSec
 // of the Worker's main module -- see gumroad-provisioning-lock.js's header
 // comment for the full activation rationale.
 export { GumroadProvisioningLock } from './gumroad-provisioning-lock.js';
+export { WatchdogLedger } from './watchdog-ledger.js';
 // Re-exported unchanged for backward compatibility with any external
 // importer of index.js's own evaluateKeyRecordAccess export (Principle 5:
 // no silent removal of an existing export) -- the canonical implementation
@@ -6259,16 +6260,16 @@ async function handleRequest(request, env, ctx) {
       service: "sentinel-apex",
       version: PLATFORM_VERSION,
       ...(evaluation.reason ? { reason: evaluation.reason } : {}),
-      advisory_count: stats.total, critical_count: stats.critical,
+      advisory_count: evaluation.intelligence.advisory_count, critical_count: stats.critical,
       kev_confirmed: stats.kev_confirmed, last_sync: stats.last_sync,
-      feed_index: `live:${stats.total}_items`,
+      feed_index: `live:${evaluation.intelligence.advisory_count}_items`,
       platform_reachable: true,
       intelligence_available: evaluation.intelligence.advisory_count > 0,
       intelligence: evaluation.intelligence,
       checks: {
         gateway: "ok",
         ...evaluation.checks,
-        feed_index: `live:${stats.total}_items`,
+        feed_index: `live:${evaluation.intelligence.advisory_count}_items`,
       },
       generated_at: now(),
     };
@@ -6394,9 +6395,10 @@ async function handleRequest(request, env, ctx) {
   // Dashboard-facing unified stats endpoint  -  returns {intel:{...}, api:{...}}
   if (path === "/api/platform/stats") {
     const liveFeedCount = (await _liveFeedSourceCount(env)) ?? _LEGACY_FEED_COUNT_FALLBACK;
-    const feedData   = await loadFeedItems(env);
-    const items      = feedData.items || [];
-    const stats      = computeStats(items);
+    const rawFeed = await r2Get(env, LATEST_JSON_KEY);
+    const publication = evaluatePublicIntelligence(rawFeed, Date.now());
+    const items = rawFeed && Array.isArray(rawFeed.items) ? rawFeed.items : [];
+    const stats = computeStats(items);
     const threat     = computeThreatLevel(stats);
     const defcon     = computeDefcon(stats);
     // PRODUCTION FIX (live-data audit, Single Source of Truth): this endpoint
@@ -6435,7 +6437,7 @@ async function handleRequest(request, env, ctx) {
     // so the dashboard's primary stats call carries it too instead of
     // requiring a second fetch. Purely additive: existing consumers of
     // intel.last_sync/status are unaffected.
-    const freshness = classifyFreshness(feedData.generated_at);
+    const freshness = classifyFreshness(rawFeed && rawFeed.generated_at ? rawFeed.generated_at : null);
     return jsonResp({
       intel: {
         total_reports: totalReports,
@@ -6452,9 +6454,13 @@ async function handleRequest(request, env, ctx) {
         global_threat_label: threat.label,
         defcon: defcon.level,
         avg_risk_score: stats.avg_risk_score,
-        total_advisories: stats.total,
+        total_advisories: publication.intelligence.advisory_count,
+        canonical_advisory_count: publication.intelligence.advisory_count,
+        publication_state: publication.intelligence.status,
+        publication_generated_at: publication.intelligence.generated_at,
+        publication_age_seconds: publication.intelligence.age_seconds,
         last_sync: stats.last_sync,
-        last_feed_sync_utc: feedData.generated_at || null,
+        last_feed_sync_utc: publication.intelligence.generated_at,
         freshness: freshness.state,
         freshness_age_seconds: freshness.age_seconds,
         version: PLATFORM_VERSION,
@@ -7936,28 +7942,44 @@ async function handleRequest(request, env, ctx) {
   }
 
   // CYBERDUDEBIVASH SENTINEL APEX CYBER WATCHDOG.
-  // Classifies the live feed. Does not invent events. Offer is public.
-  // Brief is tier-redacted (not edge-cached). Watches require Pro+.
-  // Customer-environment poller requires Enterprise or MSSP.
+  // Same R2 object as /api/health (one GET, no LIST). Stale or empty feeds
+  // are not returned as a live brief. Anonymous reads do not write.
+  // Customer mutations use WatchdogLedger, one object per authenticated subject.
   if (path.startsWith("/api/watchdog")) {
-    const needsFeed = path === "/api/watchdog/brief" || path === "/api/watchdog/matches";
-    const feedData = needsFeed ? await loadFeedItems(env) : { items: [] };
+    const needsFeed = path === "/api/watchdog/brief"
+      || path === "/api/watchdog/matches"
+      || path === "/api/watchdog/events"
+      || path === "/api/watchdog/health";
+    const feed = needsFeed ? await r2Get(env, LATEST_JSON_KEY) : null;
     let body = null;
-    if (method === "POST" || method === "DELETE") {
+    if (method === "POST" || method === "PATCH" || method === "DELETE") {
       try { body = await request.json(); } catch { body = null; }
     }
+    const ns = env.WATCHDOG_LEDGER;
+    const ledger = ns && typeof ns.idFromName === "function" ? {
+      async mutate(op) {
+        const stub = ns.get(ns.idFromName("wd:" + op.subject));
+        const res = await stub.fetch("https://watchdog.ledger/mutate", {
+          method: "POST",
+          body: JSON.stringify({ op }),
+        });
+        try { return await res.json(); } catch { return { error: "watch_store_unavailable", status: 503 }; }
+      },
+    } : null;
     const watched = await routeWatchdog({
       path,
       method,
       searchParams: url.searchParams,
       auth,
-      items: feedData.items || [],
-      kv: env.SECURITY_HUB_KV,
+      feed,
+      ledger,
       body,
       id: crypto.randomUUID(),
       now: new Date().toISOString(),
+      nowMs: Date.now(),
+      fetchImpl: fetch,
     });
-    if (watched) return jsonResp(watched.body, watched.status);
+    if (watched) return jsonResp(watched.body, watched.status, { "Cache-Control": "no-store" });
   }
 
   // --- 404 --------------------------------------------------------------------
@@ -8045,9 +8067,12 @@ async function handleRequest(request, env, ctx) {
       "POST /api/alerts/subscribe (PRO+)", "GET /api/alerts/subscriptions (PRO+)", "POST /api/alerts/test (PRO+)",
       "GET /api/alerts/history (ENT)", "DELETE /api/alerts/unsubscribe (PRO+)",
       "POST /api/dark-web/scan (PRO+)", "GET /api/dark-web/status", "GET|POST /api/leak-check (PRO+)",
-      "GET /api/watchdog/offer", "GET /api/watchdog/brief",
-      "GET|POST /api/watchdog/watches (PRO+)", "GET /api/watchdog/matches (PRO+)",
-      "GET /api/watchdog/deploy (ENT)",
+      "GET /api/watchdog/offer", "GET /api/watchdog/health", "GET /api/watchdog/brief",
+      "GET|POST|PATCH /api/watchdog/watches (PRO+)", "DELETE /api/watchdog/watches (PRO+)",
+      "GET /api/watchdog/matches (PRO+)", "GET /api/watchdog/events (PRO+)",
+      "POST /api/watchdog/events/ack (PRO+)",
+      "GET|POST|DELETE /api/watchdog/destinations (ENT)",
+      "GET /api/watchdog/deploy (PRO+)",
       "POST /api/reports/premium (PRO+, $49/report)", "GET /api/reports/list (PRO+)", "GET /api/reports/{id} (PRO+)",
       "GET /api/v1/export/suricata.rules (FREE sample / PRO+ full)",
       "GET /api/v1/export/snort.rules (FREE sample / PRO+ full)",

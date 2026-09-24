@@ -64,7 +64,7 @@
   </section>
   <section class="card" style="margin-top:14px">
     <h2>Customer watches</h2>
-    <p class="meta">Included with Pro Defense ($49/mo). Paste an API key in this browser only. It stays in session storage and is sent as <code>X-API-Key</code>.</p>
+    <p class="meta">Included with Pro Defense. Paste an API key in this browser tab only. It stays in sessionStorage, never localStorage, and is not put in the URL. A scoped browser session is not available on this page yet.</p>
     <form id="keyform">
       <label>API key
         <input id="key" type="password" autocomplete="off" placeholder="Pro or Enterprise key">
@@ -78,13 +78,14 @@
       <button type="submit">Save watch</button>
     </form>
     <p class="meta" id="watchstatus"></p>
+    <p class="meta" id="inbox"></p>
   </section>
 </main>
 <footer>
   Seller: CYBERDUDEBIVASH Pvt. Ltd. · GSTIN 21ARKPN8270G1ZP · PAN ARKPN8270G.
   Gumroad or Razorpay receipt is not a GST tax invoice.
   ISO 27001 / SOC 2: aligned, not certified.
-  Customer-environment poller: <code>deploy/cyber-watchdog/poll.mjs</code> on Enterprise SOC.
+  Customer poller: <code>deploy/cyber-watchdog/poll.mjs</code> with Pro Defense. HTTPS delivery is Enterprise SOC and MSSP.
 </footer>
 <script>
 const plans = document.getElementById('plans');
@@ -92,6 +93,7 @@ const situation = document.getElementById('situation');
 const rows = document.getElementById('rows');
 const status = document.getElementById('status');
 const watchstatus = document.getElementById('watchstatus');
+const inbox = document.getElementById('inbox');
 
 function esc(s) {
   return String(s ?? '').replace(/[&<>"']/g, (c) => '&#' + c.charCodeAt(0) + ';');
@@ -99,7 +101,7 @@ function esc(s) {
 function money(p) {
   if (p.price_usd_monthly == null) return 'Contract';
   if (!p.price_usd_monthly) return '$0';
-  const inr = Number(p.price_inr_book_monthly);
+  const inr = Number(p.price_inr_monthly != null ? p.price_inr_monthly : p.price_inr_book_monthly);
   const grouped = Number.isFinite(inr) ? String(inr).replace(/\B(?=(\d{3})+(?!\d))/g, ',') : '';
   return grouped ? `$${p.price_usd_monthly}/mo | INR ${grouped}/mo` : `$${p.price_usd_monthly}/mo`;
 }
@@ -119,7 +121,7 @@ async function loadOffer() {
       <h2>${esc(p.name)}</h2>
       <div class="price">${esc(money(p))}</div>
       <p>${esc(p.note || '')}</p>
-      <p class="meta">${p.watches} watches · ${p.brief_items} brief items · deploy ${p.customer_deploy ? 'yes' : 'no'}</p>
+      <p class="meta">${p.watches} watches · ${p.brief_items} brief items · poller ${p.poller ? 'yes' : 'no'} · webhooks ${p.webhooks || 0}</p>
       ${p.checkout ? `<a class="btn" href="${esc(p.checkout)}">Buy this plan</a>` : ''}
     </article>`).join('') + `<article class="card"><h2>Out of scope</h2><ul>${(data.scope?.does_not || []).map(d => `<li>${esc(d)}</li>`).join('')}</ul></article>`;
 }
@@ -135,12 +137,14 @@ async function loadBrief(ev) {
   const res = await fetch(url, { headers: headers() });
   const data = await res.json();
   if (!res.ok) {
-    status.textContent = data.message || data.error || 'Brief unavailable';
+    status.textContent = data.message || 'INTELLIGENCE DEGRADED';
+    rows.innerHTML = '';
+    if (situation) situation.innerHTML = '';
     return;
   }
   status.textContent = data.empty
     ? data.empty_reason
-    : `${data.count} shown · ${data.feed_items_seen} on the live feed · ${data.tier}`;
+    : `${data.count} shown · ${data.feed_item_count} authoritative advisories · ${data.freshness_status} · ${data.tier}`;
   const sit = data.situation;
   if (sit) {
     const lens = sit.by_lens || {};
@@ -158,14 +162,23 @@ async function loadBrief(ev) {
   </tr>`).join('');
 }
 
+async function loadEvents() {
+  if (!key() || !inbox) return;
+  const res = await fetch('/api/watchdog/events?limit=5', { headers: headers() });
+  const data = await res.json();
+  if (!res.ok) { inbox.textContent = data.message || 'Match history unavailable.'; return; }
+  const a = data.analytics || {};
+  inbox.textContent = `${data.total || 0} stored matches · unread ${a.unread ?? 0} · 24h ${a.matches_24h ?? 0} · ${a.history || 'no_history_yet'}`;
+}
 document.getElementById('filters').addEventListener('submit', loadBrief);
 document.getElementById('keyform').addEventListener('submit', (ev) => {
   ev.preventDefault();
   const value = document.getElementById('key').value.trim();
   if (value) sessionStorage.setItem('apex_watchdog_key', value);
   else sessionStorage.removeItem('apex_watchdog_key');
-  watchstatus.textContent = value ? 'Key stored for this tab only.' : 'Key cleared.';
+  watchstatus.textContent = value ? 'Key stored for this tab only. Not written to localStorage or the URL.' : 'Key cleared.';
   loadBrief();
+  loadEvents();
 });
 document.getElementById('watchform').addEventListener('submit', async (ev) => {
   ev.preventDefault();
@@ -182,6 +195,7 @@ document.getElementById('watchform').addEventListener('submit', async (ev) => {
   });
   const data = await res.json();
   watchstatus.textContent = data.message || (res.ok ? `Saved ${data.watch.name}` : (data.error || 'Could not save'));
+  if (res.ok) loadEvents();
 });
 
 loadOffer().catch(() => { plans.innerHTML = '<p class="warn">Offer is not reachable yet. The API ships with the gateway.</p>'; });
