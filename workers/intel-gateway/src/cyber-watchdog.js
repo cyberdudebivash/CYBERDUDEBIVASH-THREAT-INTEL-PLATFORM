@@ -30,7 +30,7 @@ import {
   scopesForTier,
 } from "./watchdog-policy.js";
 import { retryDelaySeconds, validateDestinationUrl } from "./watchdog-webhook.js";
-import { compactPriority, computeEventPriority, eventPriority, priorityRank, PRIORITY_BANDS } from "./watchdog-priority.js";
+import { compactPriority, computeEventPriority, epssProbability, eventPriority, priorityRank, PRIORITY_BANDS } from "./watchdog-priority.js";
 
 export const WATCHDOG_NAME = "CYBERDUDEBIVASH SENTINEL APEX CYBER WATCHDOG";
 export const WATCHDOG_VERSION = "3.0.0";
@@ -522,7 +522,8 @@ export function matchWatch(watch, item) {
     add("severity", rank >= SEVERITY_RANK[criteria.min_severity]);
   }
   if (criteria.kev === true) add("kev", item.kev_present === true || item.kev_confirmed === true || item.kev === true);
-  if (criteria.min_epss != null) add("epss", Number(item.epss_score) >= criteria.min_epss);
+  // min_epss is a 0..1 probability; the feed stores EPSS as a percent.
+  if (criteria.min_epss != null) { const p = epssProbability(item); add("epss", p !== null && p >= criteria.min_epss); }
   if (criteria.min_cvss != null) add("cvss", Number(item.cvss_score) >= criteria.min_cvss);
   if (criteria.techniques?.length) add("technique", criteria.techniques.some((t) => techniques.includes(t)));
   if (criteria.sectors?.length) add("sector", criteria.sectors.some((s) => sectors.some((v) => v.toLowerCase().includes(s))));

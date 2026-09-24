@@ -8,7 +8,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import { FEED_ITEMS, PRO2_KEY, PRO_KEY, craftJwt, feedObject, harness } from "./watchdog-harness.js";
-import { compactPriority, computeEventPriority, eventPriority } from "../watchdog-priority.js";
+import { PRIORITY_VERSION, compactPriority, computeEventPriority, eventPriority } from "../watchdog-priority.js";
 import {
   EVENT_RETENTION, STATUS_HISTORY_RETENTION, TRIAGE_STATUSES, analyticsFromEvents, applyLedgerMutation,
   candidateEvent, emptyLedgerState, eventStatus, filterEvents, parseInboxQuery, projectItem,
@@ -57,7 +57,7 @@ test("priority: missing evidence is never scored 0 -- null score, INSUFFICIENT_E
   assert.equal(activityOnly.band, "INSUFFICIENT_EVIDENCE");
   assert.equal(activityOnly.score, null);
   // Out-of-range numbers are unknown, not clamped.
-  const bad = computeEventPriority({ cvss_score: 11, epss_score: 2, severity: "BOGUS" });
+  const bad = computeEventPriority({ cvss_score: 11, epss_score: 150, severity: "BOGUS" });
   assert.equal(bad.band, "INSUFFICIENT_EVIDENCE");
   assert.equal(computeEventPriority(null).band, "INSUFFICIENT_EVIDENCE");
 });
@@ -121,7 +121,7 @@ test("triage: NEW -> INVESTIGATING -> RESOLVED -> reopen, history bounded, legac
   for (const e of events) {
     assert.equal(e.status, "NEW");
     assert.equal(e.acknowledged, false);
-    assert.ok(e.priority && e.priority.version === "watchdog-priority-1");
+    assert.ok(e.priority && e.priority.version === PRIORITY_VERSION);
     assert.ok(Array.isArray(e.priority.factors) && e.priority.factors.length === 5, "public event carries the expanded priority");
   }
   const kev = events.find((e) => e.matched_item_id === "intel--kev-1");
