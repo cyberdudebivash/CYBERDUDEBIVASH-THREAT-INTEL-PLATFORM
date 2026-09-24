@@ -58,6 +58,7 @@ import sys
 import hashlib
 import logging
 import math
+import time
 from datetime import datetime, timezone
 from collections import Counter
 from pathlib import Path
@@ -257,6 +258,16 @@ def compute_defcon(stats):
 # ── Build apex.json ────────────────────────────────────────────────────────────
 # DEPRECATED 2026-09-24 (P0 Phase 3C): no longer written. apex.json has one
 # producer, generate_api_manifests.py (FEED schema). Remove after next release.
+def _feed_source_count(items):
+    sources = set()
+    for item in items:
+        raw = (item.get("feed_source") or item.get("source") or "").strip()
+        host = raw.replace("https://", "").replace("http://", "").split("/")[0]
+        if host:
+            sources.add(host)
+    return len(sources)
+
+
 def build_apex(items, stats):
     threat = compute_threat_level(stats)
     defcon = compute_defcon(stats)
@@ -281,7 +292,7 @@ def build_apex(items, stats):
         "global_threat_level": threat["level"],
         "global_threat_label": threat["label"],
         "defcon": defcon,
-        "feeds_active": 74,
+        "feeds_active": _feed_source_count(items),
         "top_advisories": [
             {
                 "id":          item.get("id") or item.get("stix_id"),
@@ -308,32 +319,34 @@ def build_ai_summary(items, stats):
     defcon = compute_defcon(stats)
     crit_items = [i for i in items if (i.get("severity") or "") == "CRITICAL"]
 
-    campaigns_detected = max(math.ceil(stats["critical"] / 2), 1)
-    anomalies_flagged  = max(math.ceil(stats["high"] / 3), 0)
-    high_risk_30d      = max(round(stats["total"] * 0.30), 1)
-
+    kc = build_campaigns(items, stats)
+    cutoff = time.time() - 30 * 86400
+    high_risk_30d = sum(
+        1 for i in items
+        if float(i.get("risk_score") or 0) >= 7 and (_published_epoch(i) or 0) >= cutoff
+    )
     return {
         "schema_version": "1.0",
         "version": PLATFORM_VERSION,
         "generated_at": NOW_ISO,
         "generator": "generate_dashboard_feeds.py",
-        "derivation_method": "ai_engine_synthesis",
-        "ai_engine": "SENTINEL-AI v2",
-        "model": "APEX-GRADIENT-BOOST-v166.2",
+        "derivation_method": "counts_from_feed_fields",
+        "ai_engine": None,
+        "model": None,
         "global_threat_level": threat,
         "defcon": defcon,
-        "campaigns_detected": campaigns_detected,
-        "anomalies_flagged": anomalies_flagged,
+        "campaigns_detected": len(kc["active_campaigns"]),
+        "anomalies_flagged": None,
         "high_risk_30d": high_risk_30d,
-        "kill_chain_coverage_pct": 71,
-        "ai_confidence": 81,
-        "last_model_run": NOW_ISO,
+        "kill_chain_coverage_pct": kc["coverage_pct"],
+        "ai_confidence": None,
+        "last_model_run": None,
         "executive_summary": (
-            f"SENTINEL APEX AI Engine has processed {stats['total']} threat advisories in the current cycle. "
-            f"{stats['critical']} CRITICAL severity threats identified, {stats['kev_confirmed']} confirmed in CISA KEV. "
-            f"Global threat level is {threat['label']} ({threat['level']}/10). "
-            f"Average risk score across all advisories: {stats['avg_risk_score']}/10. "
-            f"Immediate SOC action recommended for all CRITICAL and KEV-confirmed advisories."
+            f"The current feed contains {stats['total']} advisories. "
+            f"{stats['critical']} are CRITICAL and {stats['kev_confirmed']} are marked CISA KEV. "
+            f"Severity distribution puts the global threat level at {threat['label']} ({threat['level']}/10). "
+            f"Average recorded risk score is {stats['avg_risk_score']}/10. "
+            f"No separate anomaly model output is attached to this summary."
         ),
         "top_critical_advisories": [
             {
@@ -346,11 +359,7 @@ def build_ai_summary(items, stats):
             }
             for i in crit_items[:5]
         ],
-        "sector_impact": {
-            "finance": "HIGH", "healthcare": "HIGH",
-            "government": "CRITICAL", "energy": "HIGH",
-            "technology": "CRITICAL", "education": "MEDIUM",
-        },
+        "sector_impact": {},
     }
 
 # ── Build stats.json ───────────────────────────────────────────────────────────
@@ -364,7 +373,7 @@ def build_stats(items, stats):
         "defcon": defcon["level"],
         "defcon_label": defcon["label"],
         "defcon_status": defcon["status"],
-        "feeds_active": 74,
+        "feeds_active": _feed_source_count(items),
         "version": PLATFORM_VERSION,
         "generated_at": NOW_ISO,
         "generator": "generate_dashboard_feeds.py",
@@ -412,19 +421,46 @@ def build_campaigns(items, stats):
     }
 
 # ── Build ransomware.json ──────────────────────────────────────────────────────
+def _published_epoch(item):
+    raw = item.get("published_at") or item.get("published") or item.get("timestamp") or ""
+    if not raw:
+        return None
+    try:
+        return datetime.fromisoformat(str(raw).replace("Z", "+00:00")).timestamp()
+    except ValueError:
+        return None
+
+
+def _item_blob(item):
+    tags = " ".join(item.get("tags") or [])
+    return f"{item.get('title') or ''} {tags} {item.get('threat_type') or ''}".lower()
+
+
+def _group_mentioned(blob, name):
+    n = (name or "").lower()
+    if n == "play":
+        return "play ransomware" in blob
+    head = n.split("/")[0].strip()
+    return n in blob or (len(head) >= 5 and head in blob)
+
+
 def build_ransomware(items):
-    ransom_kws = {"ransom", "lockbit", "blackcat", "alphv", "cl0p", "extort", "encrypt", "victim"}
+    ransom_kws = {"ransom", "lockbit", "blackcat", "alphv", "cl0p", "extort"}
     ransom_items = [
         i for i in items
-        if any(kw in (i.get("title", "") + " " + " ".join(i.get("tags", []))).lower() for kw in ransom_kws)
+        if any(kw in _item_blob(i) for kw in ransom_kws)
         or (i.get("threat_type") or "").lower() == "ransomware"
     ]
-    new_victims = max(sum(1 for i in ransom_items if (i.get("ioc_count") or 0) > 20) * 2 + 36, 38)
-
+    blobs = [_item_blob(i) for i in items]
+    mentioned = [
+        g for g in RANSOMWARE_GROUPS
+        if any(_group_mentioned(b, g["name"]) for b in blobs)
+    ]
     return {
-        "active_groups":   len([g for g in RANSOMWARE_GROUPS if g["status"] == "ACTIVE"]),
-        "monitoring_groups": len([g for g in RANSOMWARE_GROUPS if g["status"] == "MONITORING"]),
-        "new_victims_30d": new_victims,
+        "active_groups": len(mentioned),
+        "monitoring_groups": 0,
+        "new_victims_30d": None,
+        "victims_measured": False,
         "recent_advisories": [
             {
                 "title": i.get("title"), "severity": i.get("severity"),
@@ -433,10 +469,13 @@ def build_ransomware(items):
             }
             for i in ransom_items[:5]
         ],
-        "top_groups": RANSOMWARE_GROUPS[:8],
+        "top_groups": [
+            {"name": g["name"], "sector": g["sector"], "status": "MENTIONED", "victims_30d": None}
+            for g in mentioned[:8]
+        ],
         "version": PLATFORM_VERSION,
         "generated_at": NOW_ISO,
-        "derivation_method": "feed_filter_plus_curated_profiles",
+        "derivation_method": "feed_title_mentions_only",
     }
 
 # ── Build apt.json ─────────────────────────────────────────────────────────────
@@ -444,19 +483,23 @@ def build_apt(items):
     apt_kws = {"apt", "nation-state", "state-sponsored", "lazarus", "sandworm", "fancy bear", "volt typhoon"}
     apt_items = [
         i for i in items
-        if any(kw in (i.get("title", "") + " " + " ".join(i.get("tags", []))).lower() for kw in apt_kws)
+        if any(kw in _item_blob(i) for kw in apt_kws)
         or (i.get("threat_type") or "").lower() == "apt"
     ]
-    sectors = set()
-    for p in APT_PROFILES:
-        for s in p["sector"].split(","):
-            sectors.add(s.strip())
-    total_ttps = sum(p["ttps"] for p in APT_PROFILES)
-
+    blobs = [_item_blob(i) for i in items]
+    mentioned = []
+    for profile in APT_PROFILES:
+        ident = (profile.get("id") or "").lower()
+        alias = (profile.get("alias") or "").lower()
+        if any((ident and ident in b) or (len(alias) >= 5 and alias in b) for b in blobs):
+            mentioned.append(profile)
+    measured_ttps = 0
+    for item in apt_items:
+        measured_ttps += len(item.get("mitre_techniques") or item.get("mitre_ttps") or [])
     return {
-        "tracked_apts":    len(APT_PROFILES),
-        "active_sectors":  len(sectors),
-        "total_ttps":      total_ttps,
+        "tracked_apts": len(mentioned),
+        "active_sectors": 0,
+        "total_ttps": measured_ttps,
         "recent_activity": [
             {
                 "title": i.get("title"), "severity": i.get("severity"),
@@ -464,10 +507,13 @@ def build_apt(items):
             }
             for i in apt_items[:5]
         ],
-        "top_actors":     APT_PROFILES[:8],
-        "version":        PLATFORM_VERSION,
-        "generated_at":   NOW_ISO,
-        "derivation_method": "feed_filter_plus_curated_profiles",
+        "top_actors": [
+            {"id": p["id"], "alias": p["alias"], "nation": p["nation"]}
+            for p in mentioned[:8]
+        ],
+        "version": PLATFORM_VERSION,
+        "generated_at": NOW_ISO,
+        "derivation_method": "feed_title_mentions_only",
     }
 
 # ── Build epss.json ────────────────────────────────────────────────────────────
@@ -518,68 +564,97 @@ def build_defcon(items, stats):
 
 # ── Build pulse.json ───────────────────────────────────────────────────────────
 def build_pulse(items, stats):
-    today_str = NOW_ISO[:10]
-    today_count = sum(1 for i in items if (i.get("published_at") or i.get("published") or "")[:10] == today_str)
-    rate_hr = max(round(stats["total"] / 6), 1)  # 6h sync cadence
-    if today_count == 0:
-        today_count = max(round(stats["total"] * 0.15), 1)
-
+    today_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    now_epoch = time.time()
+    today_count = sum(
+        1 for i in items
+        if (i.get("published_at") or i.get("published") or "")[:10] == today_str
+    )
+    rate_hr = sum(1 for i in items if (_published_epoch(i) or 0) >= now_epoch - 3600)
+    critical_today = sum(
+        1 for i in items
+        if (i.get("severity") or "") == "CRITICAL"
+        and (i.get("published_at") or i.get("published") or "")[:10] == today_str
+    )
     return {
-        "rate_hr":      rate_hr,
-        "today":        today_count,
-        "total":        stats["total"],
-        "critical_rate": max(round(stats["critical"] / 6), 0),
-        "version":      PLATFORM_VERSION,
+        "rate_hr": rate_hr,
+        "today": today_count,
+        "total": stats["total"],
+        "critical_rate": critical_today,
+        "version": PLATFORM_VERSION,
         "generated_at": NOW_ISO,
-        "derivation_method": "computed_from_advisory_count_and_sync_cadence",
+        "derivation_method": "counted_from_published_timestamps",
     }
 
-# ── Build darkweb.json ─────────────────────────────────────────────────────────
+
 def build_darkweb(items):
-    breach_kws = {"breach", "leak", "credential", "dark web", "tor", "exfil", "dump", "paste"}
-    breach_items = [
-        i for i in items
-        if any(kw in (i.get("title", "") + " " + " ".join(i.get("tags", []))).lower() for kw in breach_kws)
-    ]
+    breach_kws = {"breach", "leak", "credential", "dark web", "tor", "exfil"}
+    breach_items = [i for i in items if any(kw in _item_blob(i) for kw in breach_kws)]
+    cutoff = time.time() - 86400
+    in_window = [i for i in breach_items if (_published_epoch(i) or 0) >= cutoff]
+    sources = set()
+    for item in in_window:
+        raw = (item.get("feed_source") or item.get("source") or "").replace("https://", "").replace("http://", "")
+        host = raw.split("/")[0].removeprefix("www.").strip()
+        if host and host.lower() != "unknown":
+            sources.add(host)
     return {
-        "breach_detections_24h": max(len(breach_items) + 40, 43),
-        "sources_monitored":     127,
-        "credentials_exposed":   "58K+",
-        "paste_sites_monitored": 43,
-        "tor_services_tracked":  84,
+        "breach_detections_24h": len(in_window),
+        "sources_monitored": len(sources),
+        "credentials_exposed": None,
+        "paste_sites_monitored": None,
+        "tor_services_tracked": None,
+        "crawl_connected": False,
         "recent_findings": [
             {
                 "title": i.get("title"), "severity": i.get("severity"),
                 "source": i.get("source"), "published": i.get("published_at") or i.get("published"),
             }
-            for i in breach_items[:3]
+            for i in in_window[:3]
         ],
-        "version":          PLATFORM_VERSION,
-        "generated_at":     NOW_ISO,
-        "derivation_method": "feed_filter_plus_curated_dark_web_baseline",
+        "version": PLATFORM_VERSION,
+        "generated_at": NOW_ISO,
+        "derivation_method": "feed_title_matches_in_24h",
     }
 
-# ── Build cybermap.json ────────────────────────────────────────────────────────
+
 def build_cybermap(items, stats):
-    total_attacks = max(stats["total"] * 12, 200)
-    regions = [
-        {
-            **r,
-            "attacks": round(total_attacks * r["weight"]),
-            "pct":     round(r["weight"] * 100),
-        }
-        for r in GEO_ATTACK_MAP
-    ]
+    del stats
+    today_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    counts = {}
+    today_tagged = 0
+    for item in items:
+        raw = (item.get("actor_country") or item.get("source_country") or "").strip()
+        if not raw or raw.lower() in {"unknown", "unattributed", "n/a", "none", "null", "-"}:
+            continue
+        known = next((r for r in GEO_ATTACK_MAP if r["code"] == raw.upper() or r["country"].lower() == raw.lower()), None)
+        key = known["code"] if known else raw[:24]
+        row = counts.setdefault(key, {
+            "code": known["code"] if known else "",
+            "country": known["country"] if known else raw[:24],
+            "attacks": 0,
+        })
+        row["attacks"] += 1
+        if (item.get("published_at") or item.get("published") or "")[:10] == today_str:
+            today_tagged += 1
+    regions = sorted(counts.values(), key=lambda r: r["attacks"], reverse=True)[:8]
+    peak = max((r["attacks"] for r in regions), default=1) or 1
+    for region in regions:
+        region["pct"] = round(region["attacks"] / peak * 100)
+        region["risk"] = "TAGGED"
     return {
-        "regions":            regions,
-        "total_attacks_today": total_attacks,
-        "top_origin":          regions[0],
-        "top_target": {"code": "US", "country": "United States", "attacks": round(total_attacks * 0.35)},
-        "attacks_today":       total_attacks,
-        "version":             PLATFORM_VERSION,
-        "generated_at":        NOW_ISO,
-        "derivation_method":   "computed_from_threat_count_with_geo_weights",
+        "regions": regions,
+        "total_attacks_today": today_tagged,
+        "top_origin": regions[0] if regions else None,
+        "top_target": None,
+        "attacks_today": today_tagged,
+        "attribution": "country_field" if regions else "none",
+        "note": "" if regions else "No country tags on the current feed. Origins are not estimated.",
+        "version": PLATFORM_VERSION,
+        "generated_at": NOW_ISO,
+        "derivation_method": "counted_from_country_fields",
     }
+
 
 # ── Build reports/index.json ───────────────────────────────────────────────────
 def build_reports_index(items, stats):
