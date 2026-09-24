@@ -30,7 +30,13 @@ import {
   scopesForTier,
 } from "./watchdog-policy.js";
 import { retryDelaySeconds, validateDestinationUrl } from "./watchdog-webhook.js";
-import { compactPriority, computeEventPriority, epssProbability, eventPriority, priorityRank, PRIORITY_BANDS } from "./watchdog-priority.js";
+import { compactPriority, computeEventPriority, epssProbability, eventPriority, kevListed, priorityRank, PRIORITY_BANDS, PRIORITY_VERSION } from "./watchdog-priority.js";
+import { DEFINITION_VERSION, fnv64, matchDefinitionV2, normText, normalizeDefinitionV2, ruleLines } from "./watchdog-definition.js";
+import {
+  RELEVANCE_LABELS, RELEVANCE_LEVELS, buildEvidenceSnapshot, computeQueueRank, computeRelevance,
+  normalizeProfile, profileHasValues, profileRef,
+} from "./watchdog-relevance.js";
+import { PREVIEW_POLICY } from "./watchdog-policy.js";
 
 export const WATCHDOG_NAME = "CYBERDUDEBIVASH SENTINEL APEX CYBER WATCHDOG";
 export const WATCHDOG_VERSION = "3.0.0";
@@ -210,6 +216,8 @@ export function watchdogOffer() {
       ack: "POST /api/watchdog/events/ack",
       event_status: "POST /api/watchdog/events/status",
       event_item: "GET /api/watchdog/events/item?id=",
+      profile: "GET|PUT|DELETE /api/watchdog/profile",
+      watch_preview: "POST /api/watchdog/watches/preview",
       destinations: "GET|POST|PATCH|DELETE /api/watchdog/destinations",
       destination_verify: "POST /api/watchdog/destinations/verify?id=",
       session: "POST|DELETE /api/watchdog/session",
@@ -498,6 +506,12 @@ function normalizeCriteria(input) {
 }
 
 export function matchWatch(watch, item) {
+  if (watch && watch.version === DEFINITION_VERSION) {
+    if (watch.enabled === false) return { matched: false, reasons: [] };
+    const found = classifyItem(item);
+    const r = matchDefinitionV2(watch, item, { lenses: found.lenses, cves: cveIds(item) });
+    return { matched: r.matched, reasons: [...new Set(r.hits.map((h) => h.criterion))], lenses: found.lenses, hits: r.hits };
+  }
   if (watch.enabled === false) return { matched: false, reasons: [] };
   const criteria = watch.criteria || {};
   const text = itemText(item).toLowerCase();
@@ -544,17 +558,8 @@ export function matchWatch(watch, item) {
 // Event identity and dedupe
 // ---------------------------------------------------------------------------
 
-// 64-bit FNV-1a as 16 hex chars. Deterministic, dependency-free, sync.
-function fnv64(text) {
-  let h1 = 0x811c9dc5;
-  let h2 = 0xcbf29ce4;
-  for (let i = 0; i < text.length; i += 1) {
-    const c = text.charCodeAt(i);
-    h1 = Math.imul(h1 ^ c, 0x01000193) >>> 0;
-    h2 = Math.imul(h2 ^ c ^ (h1 >>> 7), 0x01000193) >>> 0;
-  }
-  return h1.toString(16).padStart(8, "0") + h2.toString(16).padStart(8, "0");
-}
+// 64-bit FNV-1a (fnv64) lives in watchdog-definition.js, shared with the
+// relevance module; event ids and dedupe keys are unchanged.
 
 /**
  * Material revision of an item: what a customer would call "the advisory
@@ -578,7 +583,7 @@ const PROJECTED_FIELDS = [
   "actor_tag", "actor_display_name", "threat_type", "actor_malware", "kev_product", "kev_name", "tags",
   "cve_ids", "affected_products", "kev_present", "kev_confirmed", "kev", "mitre_group_name", "actor_sectors",
   "attck_technique_ids", "epss_score", "cvss_score", "actor_country", "processed_at", "published", "tlp",
-  "source_url", "blog_url",
+  "source_url", "blog_url", "ioc_types",
 ];
 
 export function projectItem(item) {
@@ -592,12 +597,15 @@ export function projectFeedItems(feed) {
   return validItems(feed).map(projectItem);
 }
 
-export function candidateEvent(watch, item, feedGeneratedAt, nowIso, origin = "request") {
+export function candidateEvent(watch, item, feedGeneratedAt, nowIso, origin = "request", profile = null) {
   const hit = matchWatch(watch, item);
   if (!hit.matched) return null;
   const itemId = clean(String(item.id), 128);
   const revision = materialRevision(item);
   const dedupe = watch.id + "|" + itemId + "|" + revision;
+  const priority = computeEventPriority(item);
+  const relevance = computeRelevance(item, profile);
+  const queueRank = computeQueueRank(priority, relevance);
   return {
     id: "e_" + fnv64(dedupe),
     watch_id: watch.id,
@@ -616,7 +624,17 @@ export function candidateEvent(watch, item, feedGeneratedAt, nowIso, origin = "r
     feed_generated_at: feedGeneratedAt || null,
     reference: clean(String(item.source_url || item.blog_url || ""), 300) || "https://intel.cyberdudebivash.com/cyber-watchdog.html",
     dedupe_key: dedupe,
-    priority: compactPriority(computeEventPriority(item)),
+    priority: compactPriority(priority),
+    // Decision record, fixed at creation (never recomputed from today's
+    // profile, watch or formula): relevance level, queue rank and the
+    // bounded evidence snapshot that reproduces both.
+    watch_definition_version: watch.version === DEFINITION_VERSION ? DEFINITION_VERSION : 1,
+    relevance: { v: relevance.version, level: relevance.level },
+    queue_rank: { v: queueRank.version, score: queueRank.score },
+    evidence: buildEvidenceSnapshot({
+      item, revision, feedGeneratedAt, watch, watchHits: hit.hits || hit.reasons,
+      priorityVersion: priority.version, relevance, queueRank, profile, classifierVersion: CLASSIFIER_VERSION,
+    }),
     status: "NEW",
     status_history: [],
     acknowledged: false,
@@ -626,12 +644,12 @@ export function candidateEvent(watch, item, feedGeneratedAt, nowIso, origin = "r
 }
 
 /** Candidate events for every enabled watch, bounded per watch. */
-export function evaluateWatches(watches, items, feedGeneratedAt, nowIso, origin) {
+export function evaluateWatches(watches, items, feedGeneratedAt, nowIso, origin, profile = null) {
   const out = [];
   for (const watch of (watches || []).filter((w) => w.enabled !== false)) {
     let n = 0;
     for (const item of items) {
-      const event = candidateEvent(watch, item, feedGeneratedAt, nowIso, origin);
+      const event = candidateEvent(watch, item, feedGeneratedAt, nowIso, origin, profile);
       if (event) { out.push(event); n += 1; }
       if (n >= SCHEDULER_POLICY.max_events_per_watch_per_eval) break;
     }
@@ -666,9 +684,22 @@ function buildDedupeIndex(events) {
 // ---------------------------------------------------------------------------
 
 function publicWatch(w) {
-  return {
+  const out = {
     id: w.id, name: w.name, logic: w.logic, enabled: w.enabled !== false,
     criteria: w.criteria, created_at: w.created_at, updated_at: w.updated_at,
+  };
+  if (w.version === DEFINITION_VERSION) {
+    out.version = DEFINITION_VERSION;
+    out.rule = ruleLines(w);
+  } else out.version = 1;
+  return out;
+}
+
+function publicProfile(p) {
+  if (!profileHasValues(p)) return null;
+  return {
+    version: p.version, vendors: p.vendors || [], products: p.products || [], packages: p.packages || [],
+    technologies: p.technologies || [], revision: p.revision || 0, ref: profileRef(p), updated_at: p.updated_at || null,
   };
 }
 
@@ -688,6 +719,10 @@ function publicWatch(w) {
 export const LEDGER_STORAGE_KEY = "ledger";
 export const SIGNED_DESTINATIONS_STORAGE_KEY = "watchdog_v3_signed_destinations";
 export const DELIVERY_PROTOCOL = "signed-v3";
+// Exposure profile (v1) lives under its own key: code that predates it never
+// reads or writes this key, so a code rollback leaves the profile intact for
+// the roll-forward, and the "ledger" record never carries it.
+export const PROFILE_STORAGE_KEY = "watchdog_exposure_profile_v1";
 
 function isSignedV3(d) {
   return !!d && d.delivery_protocol === DELIVERY_PROTOCOL && typeof d.secret === "string" && d.secret.startsWith("whsec_");
@@ -696,9 +731,11 @@ function isSignedV3(d) {
 /** Splits in-memory ledger state into the two persisted records. */
 export function toPersisted(state) {
   const all = Array.isArray(state?.destinations) ? state.destinations : [];
+  const { profile, ...rest } = state || {};
   return {
-    ledger: { ...state, destinations: all.filter((d) => !isSignedV3(d)) },
+    ledger: { ...rest, destinations: all.filter((d) => !isSignedV3(d)) },
     signed: all.filter(isSignedV3),
+    profile: profileHasValues(profile) ? profile : null,
   };
 }
 
@@ -718,7 +755,7 @@ export function ledgerNeedsMigration(ledger) {
  * "ledger" into the v3-only key. v2 never writes a secret, so a real v2 row
  * cannot match this rule.
  */
-export function fromPersisted(ledger, signed) {
+export function fromPersisted(ledger, signed, profile = null) {
   const base = ledger && typeof ledger === "object" ? ledger : emptyLedgerState();
   const rows = (Array.isArray(base.destinations) ? base.destinations : []).map((d) => (
     d && !d.delivery_protocol && typeof d.secret === "string" && d.secret.startsWith("whsec_")
@@ -729,7 +766,10 @@ export function fromPersisted(ledger, signed) {
   const seen = new Set(v3.map((d) => d.id));
   const adopted = rows.filter((d) => isSignedV3(d) && !seen.has(d.id));
   const legacy = rows.filter((d) => !isSignedV3(d) && !seen.has(d.id));
-  return { ...base, destinations: legacy.concat(v3, adopted) };
+  const out = { ...base, destinations: legacy.concat(v3, adopted) };
+  delete out.profile;
+  if (profileHasValues(profile)) out.profile = profile;
+  return out;
 }
 
 // Only a signed-v3 destination can ever deliver. A v2 destination has no
@@ -779,12 +819,39 @@ function withStatus(e, status, now, by, note) {
   return out;
 }
 
+/**
+ * Customer relevance recorded when the event was created. Events stored
+ * before relevance existed are LEGACY: nothing is reconstructed from today's
+ * profile.
+ */
+export function eventRelevance(e) {
+  const r = e && e.relevance;
+  if (r && RELEVANCE_LEVELS.includes(r.level)) {
+    const hits = e.evidence && e.evidence.profile && Array.isArray(e.evidence.profile.hits) ? e.evidence.profile.hits : [];
+    return { version: r.v || null, level: r.level, label: RELEVANCE_LABELS[r.level], reasons: hits };
+  }
+  return { version: null, level: "LEGACY", label: RELEVANCE_LABELS.LEGACY, reasons: [], legacy: true };
+}
+
+/** Stored queue rank; legacy events rank on their stored threat band only. */
+export function eventQueueRank(e) {
+  const q = e && e.queue_rank;
+  if (q && Number.isFinite(q.score)) return { version: q.v || null, score: q.score };
+  const p = eventPriority(e);
+  return { version: null, score: priorityRank(p.band) * 10, legacy: true };
+}
+
 function publicEvent(e) {
   return {
     ...e,
     status: eventStatus(e),
     status_history: Array.isArray(e.status_history) ? e.status_history : [],
     priority: eventPriority(e),
+    relevance: eventRelevance(e),
+    queue_rank: eventQueueRank(e),
+    evidence: e.evidence || null,
+    evidence_status: e.evidence ? "RECORDED" : "EVIDENCE_SNAPSHOT_NOT_AVAILABLE",
+    watch_definition_version: e.watch_definition_version || 1,
     deliveries: (e.deliveries || []).map((d) => ({
       destination_id: d.destination_id,
       delivery_id: d.delivery_id,
@@ -887,6 +954,7 @@ function cloneState(base, subject) {
     destinations: Array.isArray(base.destinations) ? base.destinations.map((d) => ({ ...d })) : [],
     deliveries: Array.isArray(base.deliveries) ? base.deliveries.slice() : [],
     metrics: { ...(base.metrics || {}) },
+    ...(profileHasValues(base.profile) ? { profile: { ...base.profile } } : {}),
   };
 }
 
@@ -910,6 +978,18 @@ export function applyLedgerMutation(state, op) {
   if (op.type === "create_watch") {
     if (!quota.events) return { error: "tier_required", status: 403, state: base, message: "Watches are included with Pro Defense." };
     if (next.watches.length >= quota.watches) return { error: "watch_limit", status: 403, state: base, message: "Watch limit for this plan is reached.", limit: quota.watches };
+    if (op.watch && op.watch.version === DEFINITION_VERSION) {
+      const def = normalizeDefinitionV2(op.watch);
+      if (def.error) return { ...def, status: 400, state: base };
+      const watch = {
+        id: "w_" + clean(String(op.id || ""), 24).replace(/[^a-z0-9]/gi, "").slice(0, 24),
+        version: DEFINITION_VERSION, name: def.definition.name, logic: def.definition.logic,
+        criteria: def.definition.criteria, enabled: def.definition.enabled, created_at: now, updated_at: now,
+      };
+      if (!watch.id || watch.id === "w_") return { error: "invalid_watch", status: 400, state: base };
+      next.watches.push(watch);
+      return { state: next, result: { watch: publicWatch(watch), count: next.watches.length, limit: quota.watches }, enabled_watches: enabledCount(next.watches) };
+    }
     const norm = normalizeCriteria(op.watch);
     if (norm.error) return { ...norm, status: 400, state: base };
     const name = clean(String(op.watch?.name || ""), 80);
@@ -930,6 +1010,28 @@ export function applyLedgerMutation(state, op) {
     if (idx < 0) return { error: "not_found", status: 404, state: base };
     const prev = next.watches[idx];
     const patch = op.watch && typeof op.watch === "object" ? op.watch : {};
+    if (prev.version === DEFINITION_VERSION || patch.version === DEFINITION_VERSION) {
+      // v2 edits replace the definition as a whole (validated again); an
+      // enabled-only patch keeps the stored definition. v2 never downgrades.
+      const onlyToggle = Object.keys(patch).every((k) => k === "enabled" || k === "id");
+      if (onlyToggle && prev.version === DEFINITION_VERSION) {
+        if (patch.enabled != null && typeof patch.enabled !== "boolean") return { error: "invalid_watch", status: 400, state: base, message: "enabled must be true or false." };
+        next.watches[idx] = { ...prev, enabled: patch.enabled == null ? prev.enabled !== false : patch.enabled, updated_at: now };
+      } else {
+        const { id: _id, ...body } = patch;
+        const def = normalizeDefinitionV2({
+          version: DEFINITION_VERSION,
+          name: body.name ?? prev.name,
+          enabled: body.enabled ?? prev.enabled !== false,
+          logic: body.logic ?? (prev.version === DEFINITION_VERSION ? prev.logic : "AND"),
+          criteria: body.criteria ?? (prev.version === DEFINITION_VERSION ? prev.criteria : undefined),
+          ...Object.fromEntries(Object.entries(body).filter(([k]) => !["name", "enabled", "logic", "criteria", "version"].includes(k))),
+        });
+        if (def.error) return { ...def, status: 400, state: base };
+        next.watches[idx] = { ...prev, version: DEFINITION_VERSION, name: def.definition.name, logic: def.definition.logic, criteria: def.definition.criteria, enabled: def.definition.enabled, updated_at: now };
+      }
+      return { state: next, result: { watch: publicWatch(next.watches[idx]) }, enabled_watches: enabledCount(next.watches) };
+    }
     const mergedCriteria = { ...(prev.criteria || {}), ...(patch.criteria && typeof patch.criteria === "object" ? patch.criteria : {}) };
     for (const key of ["keywords", "cves", "vendors", "products", "actors", "malware_families", "sources", "techniques", "sectors", "countries", "ioc_types", "lenses"]) {
       if (Array.isArray(patch[key])) mergedCriteria[key] = patch[key];
@@ -964,7 +1066,7 @@ export function applyLedgerMutation(state, op) {
       if (op.publication?.freshness_status !== "FRESH" || !Array.isArray(op.items)) {
         return { readOnly: true, state: base, result: { inserted: [], inserted_count: 0, deduped: 0, skipped: "feed_not_fresh", enabled_watches: enabledCount(base.watches) } };
       }
-      candidates = evaluateWatches(next.watches, op.items, op.publication.feed_generated_at, now, "scheduler");
+      candidates = evaluateWatches(next.watches, op.items, op.publication.feed_generated_at, now, "scheduler", next.profile || null);
     }
     const { inserted, deduped } = appendCandidates(next, candidates, quota, now);
     const result = {
@@ -988,6 +1090,21 @@ export function applyLedgerMutation(state, op) {
       return withStatus(e, "ACKNOWLEDGED", now, by, null);
     });
     return { state: next, result: { acknowledged: n } };
+  }
+  if (op.type === "set_profile") {
+    if (!quota.events) return { error: "tier_required", status: 403, state: base, message: "The exposure profile is included with Pro Defense." };
+    const norm = normalizeProfile(op.profile);
+    if (norm.error) return { ...norm, status: 400, state: base };
+    const created = !profileHasValues(base.profile);
+    next.profile = { ...norm.profile, revision: ((base.profile && base.profile.revision) || 0) + 1, updated_at: now };
+    // Existing events keep the relevance they were created with; only new
+    // matches are evaluated against this profile.
+    return { state: next, result: { profile: publicProfile(next.profile), created } };
+  }
+  if (op.type === "delete_profile") {
+    if (!profileHasValues(base.profile)) return { readOnly: true, state: base, result: { deleted: false } };
+    delete next.profile;
+    return { state: next, result: { deleted: true } };
   }
   if (op.type === "set_status") {
     const status = clean(String(op.status || ""), 24).toUpperCase();
@@ -1165,6 +1282,7 @@ export function applyLedgerMutation(state, op) {
 
 function viewState(state) {
   return {
+    profile: publicProfile(state.profile),
     revision: state.revision || 0,
     watches: (state.watches || []).map(publicWatch),
     events: (state.events || []).map(publicEvent),
@@ -1196,7 +1314,7 @@ function countBy(list, key, keys) {
 // Inbox query (server-side filter + sort over the bounded event list)
 // ---------------------------------------------------------------------------
 
-const SORTS = ["newest", "oldest", "priority"];
+const SORTS = ["newest", "oldest", "priority", "customer"];
 
 function csvParam(sp, name, allowed, max = 8) {
   const raw = sp?.get?.(name);
@@ -1229,11 +1347,21 @@ export function parseInboxQuery(sp) {
   const sortRaw = String(sp?.get?.("sort") || "newest").toLowerCase();
   if (!SORTS.includes(sortRaw)) return { error: { error: "invalid_filter", filter: "sort", message: "sort must be one of " + SORTS.join(", ") + "." } };
   const openOnly = sp?.get?.("open") === "1";
-  return { query: { status: status.values, priority: priority.values, severity: severity.values, watch_id: watchId, q, since, sort: sortRaw, open: openOnly } };
+  const relevance = csvParam(sp, "relevance", [...RELEVANCE_LEVELS, "LEGACY"]);
+  if (relevance.error) return relevance;
+  const kevRaw = sp?.get?.("kev");
+  let kev = null;
+  if (kevRaw != null && kevRaw !== "") {
+    const k = String(kevRaw).toLowerCase();
+    if (!["yes", "no", "unknown"].includes(k)) return { error: { error: "invalid_filter", filter: "kev", message: "kev must be yes, no or unknown." } };
+    kev = k;
+  }
+  const source = clean(String(sp?.get?.("source") || ""), 80) || null;
+  return { query: { status: status.values, priority: priority.values, severity: severity.values, watch_id: watchId, q, since, sort: sortRaw, open: openOnly, relevance: relevance.values, kev, source } };
 }
 
 export function inboxActive(query) {
-  return !!(query.status || query.priority || query.severity || query.watch_id || query.q || query.since != null || query.open || query.sort !== "newest");
+  return !!(query.status || query.priority || query.severity || query.watch_id || query.q || query.since != null || query.open || query.sort !== "newest" || query.relevance || query.kev || query.source);
 }
 
 export function filterEvents(events, query) {
@@ -1247,6 +1375,14 @@ export function filterEvents(events, query) {
       if (!query.severity.includes(sev)) return false;
     }
     if (query.watch_id && e.watch_id !== query.watch_id) return false;
+    if (query.relevance && !query.relevance.includes(eventRelevance(e).level)) return false;
+    if (query.kev) {
+      // KEV state as recorded in the event's evidence snapshot.
+      const k = e.evidence && e.evidence.item ? e.evidence.item.kev : null;
+      const got = k === true ? "yes" : k === false ? "no" : "unknown";
+      if (got !== query.kev) return false;
+    }
+    if (query.source && normText(e.source) !== normText(query.source)) return false;
     if (query.since != null && !(Date.parse(e.matched_at || "") >= query.since)) return false;
     if (query.q) {
       const hay = [e.title, e.watch_name, e.source, e.matched_item_id].concat(e.cve_ids || []).join(" ").toLowerCase();
@@ -1261,6 +1397,14 @@ export function filterEvents(events, query) {
       const pa = eventPriority(a[0]);
       const pb = eventPriority(b[0]);
       return priorityRank(pb.band) - priorityRank(pa.band) || (pb.score ?? -1) - (pa.score ?? -1) || a[1] - b[1];
+    }).map(([e]) => e);
+  } else if (query.sort === "customer") {
+    // Customer queue rank (watchdog-queue-rank-1): stored rank, then threat
+    // score, then newest first.
+    out = out.map((e, i) => [e, i]).sort((a, b) => {
+      const qa = eventQueueRank(a[0]).score;
+      const qb = eventQueueRank(b[0]).score;
+      return qb - qa || (eventPriority(b[0]).score ?? -1) - (eventPriority(a[0]).score ?? -1) || a[1] - b[1];
     }).map(([e]) => e);
   }
   return out;
@@ -1304,6 +1448,8 @@ export function analyticsFromEvents(events, nowMs = Date.now()) {
     unread: list.filter((e) => !e.acknowledged).length,
     by_status: countBy(list, eventStatus, TRIAGE_STATUSES),
     by_priority: countBy(list, (e) => eventPriority(e).band, PRIORITY_BANDS),
+    by_relevance: countBy(list, (e) => eventRelevance(e).level, [...RELEVANCE_LEVELS, "LEGACY"]),
+    open_profile_matched: list.filter((e) => OPEN_STATUSES.includes(eventStatus(e)) && eventRelevance(e).level === "MATCHED").length,
     open: list.filter((e) => OPEN_STATUSES.includes(eventStatus(e))).length,
     open_critical: list.filter((e) => OPEN_STATUSES.includes(eventStatus(e)) && eventPriority(e).band === "CRITICAL").length,
     delivery_success_rate: finals.length ? Number((success / finals.length).toFixed(4)) : null,
@@ -1374,6 +1520,11 @@ const SCOPE_BY_ROUTE = [
   // Triage status changes are the same customer capability as ack.
   ["/api/watchdog/events/status", ["POST"], WATCHDOG_SCOPES.EVENTS_ACK],
   ["/api/watchdog/events/item", ["GET", "HEAD"], WATCHDOG_SCOPES.EVENTS_READ],
+  // Exposure profile: read with watchdog:read, change with the same scope
+  // that changes watches. Preview reads only.
+  ["/api/watchdog/profile", ["GET", "HEAD"], WATCHDOG_SCOPES.READ],
+  ["/api/watchdog/profile", ["PUT", "DELETE"], WATCHDOG_SCOPES.WATCHES_WRITE],
+  ["/api/watchdog/watches/preview", ["POST"], WATCHDOG_SCOPES.READ],
   ["/api/watchdog/destinations", ["GET", "HEAD"], WATCHDOG_SCOPES.READ],
   ["/api/watchdog/destinations", ["POST", "PATCH", "DELETE"], WATCHDOG_SCOPES.DESTINATIONS_WRITE],
   ["/api/watchdog/destinations/verify", ["POST"], WATCHDOG_SCOPES.DESTINATIONS_WRITE],
@@ -1540,7 +1691,7 @@ export async function deliverWebhook(url, payload, fetchImpl = fetch, timeoutMs 
 async function evaluateMatches(req, record) {
   const pub = watchdogPublication(req.feed, req.nowMs);
   if (!pub.serve_live) return { degraded: degradedBody(pub), inserted: [] };
-  const candidates = evaluateWatches(record.watches || [], projectFeedItems(req.feed), pub.feed_generated_at, req.now, "request");
+  const candidates = evaluateWatches(record.watches || [], projectFeedItems(req.feed), pub.feed_generated_at, req.now, "request", record.profile || null);
   const appended = candidates.length
     ? await ledger(req, { type: "append_events", events: candidates })
     : { result: { inserted: [], deduped: 0 } };
@@ -1621,6 +1772,66 @@ function metricsHook(req, delta) {
   return req.scheduler.recordMetrics(delta);
 }
 
+export const PROFILE_SEMANTICS = "Customer-declared technology relevance. A match means this intelligence matches technology in your configured exposure profile. It is not vulnerability scanning, asset discovery or exposure verification.";
+
+/**
+ * Previews a v2 watch definition against the current authoritative feed.
+ * Reads only: no event, no ledger write, no scheduler registration, no
+ * webhook. Uses the feed object the router already loaded (one R2 GET, no
+ * LIST) and at most PREVIEW_POLICY.max_items_scanned items.
+ */
+async function previewWatch(req, tier) {
+  const def = normalizeDefinitionV2(req.body && typeof req.body === "object" ? { ...req.body, version: req.body.version ?? DEFINITION_VERSION } : req.body);
+  if (def.error) return { status: 400, body: def };
+  const pub = watchdogPublication(req.feed, req.nowMs);
+  if (!pub.serve_live) return { status: 503, body: degradedBody(pub) };
+  const got = await ledger(req, { type: "get" });
+  if (got.error) return publicFailure(got);
+  const profile = got.result.profile;
+  const watch = { ...def.definition, id: "w_preview", enabled: true };
+  const scanned = validItems(req.feed).slice(0, PREVIEW_POLICY.max_items_scanned);
+  let matched = 0;
+  const sample = [];
+  for (const raw of scanned) {
+    const item = projectItem(raw);
+    const hit = matchWatch(watch, item);
+    if (!hit.matched) continue;
+    matched += 1;
+    if (sample.length >= PREVIEW_POLICY.sample_size) continue;
+    const priority = computeEventPriority(item);
+    const rel = computeRelevance(item, profile);
+    sample.push({
+      id: clean(String(item.id), 128), title: clean(String(item.title || ""), 240),
+      severity: clean(String(item.severity || ""), 24) || null, source: clean(String(item.source || ""), 80) || null,
+      why_matched: hit.hits || [],
+      priority: { band: priority.band, score: priority.score },
+      relevance: { level: rel.level, label: RELEVANCE_LABELS[rel.level], reasons: rel.reasons },
+      customer_priority: computeQueueRank(priority, rel).score,
+    });
+  }
+  const ratio = scanned.length ? matched / scanned.length : 0;
+  const warnings = [];
+  if (scanned.length && ratio >= PREVIEW_POLICY.broad_match_ratio) {
+    warnings.push({ code: "broad_rule", message: "This rule currently matches " + Math.round(ratio * 100) + "% of the available feed." });
+  }
+  if (scanned.length && !matched) {
+    warnings.push({ code: "no_current_match", message: "This rule matches no item on the current feed. Saved, it is evaluated against every new item." });
+  }
+  await metricsHook(req, { product_previews: 1 });
+  return {
+    status: 200,
+    body: {
+      product: WATCHDOG_NAME, tier, tenant: req.tenant || null,
+      definition: def.definition, rule: ruleLines(def.definition),
+      feed_item_count: pub.feed_item_count, feed_items_scanned: scanned.length,
+      matched_count: matched, match_ratio: Number(ratio.toFixed(4)),
+      sample, warnings, profile_ref: profile ? profile.ref : null,
+      freshness_status: pub.freshness_status, feed_generated_at: pub.feed_generated_at,
+      persisted: false,
+    },
+  };
+}
+
 export async function routeWatchdog(req) {
   const path = req.path || "";
   if (!path.startsWith("/api/watchdog")) return null;
@@ -1670,6 +1881,8 @@ export async function routeWatchdog(req) {
     if (!claims) return { status: 403, body: { error: "session_expired", message: "Sign in again with your API key." } };
     const token = await req.issueSession(claims);
     if (!token) return { status: 503, body: { error: "session_unavailable" } };
+    // Activation metric: key exchanges only, not session refreshes.
+    if (req.auth?.aud !== SESSION_POLICY.audience) await metricsHook(req, { product_signins: 1 });
     return {
       status: 200,
       body: {
@@ -1707,7 +1920,7 @@ export async function routeWatchdog(req) {
     return { status: 200, body: await req.scheduler.metrics(req.nowMs) };
   }
 
-  const known = ["/api/watchdog/watches", "/api/watchdog/matches", "/api/watchdog/events", "/api/watchdog/events/ack", "/api/watchdog/events/status", "/api/watchdog/events/item", "/api/watchdog/destinations", "/api/watchdog/destinations/verify"];
+  const known = ["/api/watchdog/watches", "/api/watchdog/matches", "/api/watchdog/events", "/api/watchdog/events/ack", "/api/watchdog/events/status", "/api/watchdog/events/item", "/api/watchdog/destinations", "/api/watchdog/destinations/verify", "/api/watchdog/profile", "/api/watchdog/watches/preview"];
   if (!known.includes(path)) return { status: 404, body: { error: "not_found", path } };
 
   const guard = paidGuard(req.auth);
@@ -1779,6 +1992,30 @@ export async function routeWatchdog(req) {
     return { status: 405, body: { error: "method_not_allowed" } };
   }
 
+  if (path === "/api/watchdog/profile") {
+    if (method === "GET" || method === "HEAD") {
+      const got = await ledger(req, { type: "get" });
+      if (got.error) return publicFailure(got);
+      return { status: 200, body: { profile: got.result.profile, tier, tenant: req.tenant || null, semantics: PROFILE_SEMANTICS } };
+    }
+    if (method === "PUT") {
+      const out = await ledger(req, { type: "set_profile", profile: req.body });
+      if (out.error) return publicFailure(out);
+      await metricsHook(req, { product_profiles_saved: 1 });
+      return { status: 200, body: { ...out.result, tenant: req.tenant || null, semantics: PROFILE_SEMANTICS } };
+    }
+    if (method === "DELETE") {
+      const out = await ledger(req, { type: "delete_profile" });
+      if (out.error) return publicFailure(out);
+      if (out.result.deleted) await metricsHook(req, { product_profiles_deleted: 1 });
+      return { status: 200, body: out.result };
+    }
+    return { status: 405, body: { error: "method_not_allowed" } };
+  }
+  if (path === "/api/watchdog/watches/preview") {
+    if (method !== "POST") return { status: 405, body: { error: "method_not_allowed" } };
+    return previewWatch(req, tier);
+  }
   if (path === "/api/watchdog/watches" && (method === "GET" || method === "HEAD")) {
     const got = await ledger(req, { type: "get" });
     if (got.error) return publicFailure(got);
@@ -1787,6 +2024,7 @@ export async function routeWatchdog(req) {
   if (path === "/api/watchdog/watches" && method === "POST") {
     const out = await ledger(req, { type: "create_watch", watch: req.body, id: req.id });
     if (out.error) return publicFailure(out);
+    if (out.result.watch && out.result.watch.version === DEFINITION_VERSION) await metricsHook(req, { product_watches_created_v2: 1 });
     await registerHook(req, out);
     return { status: 201, body: out.result };
   }
@@ -1814,6 +2052,7 @@ export async function routeWatchdog(req) {
     const ids = Array.isArray(b.ids) ? b.ids : (typeof b.id === "string" ? [b.id] : []);
     const out = await ledger(req, { type: "set_status", ids, status: b.status, note: b.note, actor: req.auth.sub });
     if (out.error) return publicFailure(out);
+    if (out.result.updated && out.result.updated.length) await metricsHook(req, { product_status_changes: out.result.updated.length });
     return { status: 200, body: out.result };
   }
   if (path === "/api/watchdog/events/item") {
@@ -1829,18 +2068,30 @@ export async function routeWatchdog(req) {
     const pub = watchdogPublication(req.feed, req.nowMs);
     let feedItem = null;
     let feedItemStatus = "feed_not_fresh";
+    let currentContext = null;
     if (pub.serve_live) {
       const src = validItems(req.feed).find((i) => clean(String(i.id), 128) === event.matched_item_id);
       if (src) {
-        feedItem = publicItem(projectItem(src), true);
+        const projected = projectItem(src);
+        feedItem = publicItem(projected, true);
         feedItemStatus = materialRevision(src) === event.revision ? "current" : "revised_since_match";
+        // CURRENT CONTEXT is computed now, with today's profile and formula.
+        // It never replaces the ORIGINAL MATCH recorded in event.evidence.
+        const rel = computeRelevance(projected, got.result.profile);
+        currentContext = {
+          computed_at: req.now,
+          priority: computeEventPriority(projected),
+          relevance: { version: rel.version, level: rel.level, label: RELEVANCE_LABELS[rel.level], reasons: rel.reasons },
+          profile_ref: got.result.profile ? got.result.profile.ref : null,
+        };
       } else feedItemStatus = "not_on_current_feed";
     }
+    await metricsHook(req, { product_evidence_views: 1 });
     return {
       status: 200,
       body: {
         product: WATCHDOG_NAME, tier, tenant: req.tenant || null,
-        event, watch, feed_item: feedItem, feed_item_status: feedItemStatus,
+        event, watch, feed_item: feedItem, feed_item_status: feedItemStatus, current_context: currentContext,
         freshness_status: pub.freshness_status, feed_generated_at: pub.feed_generated_at,
       },
     };

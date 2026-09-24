@@ -30,9 +30,16 @@ import { SCHEDULER_POLICY, featuresFor } from "./watchdog-policy.js";
 import { projectFeedItems, watchdogPublication } from "./cyber-watchdog.js";
 
 const HOUR_MS = 3600000;
+export const PRODUCT_METRIC_KEYS = Object.freeze([
+  "product_signins", "product_previews", "product_watches_created_v2", "product_profiles_saved",
+  "product_profiles_deleted", "product_evidence_views", "product_status_changes",
+]);
 const METRIC_KEYS = [
   "events_generated", "events_deduped", "delivery_attempts", "delivery_successes",
   "delivery_failures", "verification_failures", "scheduler_failures",
+  // Product activation telemetry: hourly aggregate counts only. Never a
+  // subject, tenant, key, profile value, watch value, note or secret.
+  ...PRODUCT_METRIC_KEYS,
 ];
 
 export function emptySchedulerState() {
@@ -236,6 +243,7 @@ export function summarize(state, nowMs = Date.now()) {
     delivery_failures_24h: sum("delivery_failures"),
     verification_failures_24h: sum("verification_failures"),
     scheduler_failures_24h: sum("scheduler_failures"),
+    product_24h: Object.fromEntries(PRODUCT_METRIC_KEYS.map((k) => [k.replace(/^product_/, ""), sum(k)])),
     recent_runs: (state.runs || []).slice(0, 8),
     policy: {
       max_subjects_per_run: SCHEDULER_POLICY.max_subjects_per_run,

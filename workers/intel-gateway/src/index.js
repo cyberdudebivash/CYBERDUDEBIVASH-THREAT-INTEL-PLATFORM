@@ -8075,10 +8075,11 @@ async function handleRequest(request, env, ctx) {
       || path === "/api/watchdog/matches"
       || path === "/api/watchdog/events"
       || path === "/api/watchdog/events/item"
+      || path === "/api/watchdog/watches/preview"
       || path === "/api/watchdog/health";
     const feed = needsFeed ? await r2Get(env, LATEST_JSON_KEY) : null;
     let body = null;
-    if (method === "POST" || method === "PATCH" || method === "DELETE") {
+    if (method === "POST" || method === "PATCH" || method === "PUT" || method === "DELETE") {
       try { body = await request.json(); } catch { body = null; }
     }
     // Self-service MSSP keys: tenant membership resolved only when the
@@ -8199,6 +8200,7 @@ async function handleRequest(request, env, ctx) {
       "GET /api/watchdog/matches (PRO+)", "GET /api/watchdog/events (PRO+)",
       "POST /api/watchdog/events/ack (PRO+)",
       "POST /api/watchdog/events/status (PRO+)", "GET /api/watchdog/events/item?id= (PRO+)",
+      "GET|PUT|DELETE /api/watchdog/profile (PRO+)", "POST /api/watchdog/watches/preview (PRO+)",
       "GET|POST|PATCH|DELETE /api/watchdog/destinations (ENT)",
       "POST /api/watchdog/destinations/verify (ENT)",
       "POST|DELETE /api/watchdog/session (PRO+)",

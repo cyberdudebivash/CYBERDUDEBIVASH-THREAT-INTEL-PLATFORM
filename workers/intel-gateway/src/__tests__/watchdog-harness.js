@@ -37,6 +37,7 @@ export class MemStorage {
   constructor() { this.data = new Map(); this.alarm = null; this.writes = 0; this.reads = 0; }
   async get(k) { this.reads += 1; const v = this.data.get(k); return v === undefined ? undefined : structuredClone(v); }
   async put(k, v) { this.writes += 1; this.data.set(k, structuredClone(v)); }
+  async delete(k) { this.writes += 1; return this.data.delete(k); }
   async getAlarm() { return this.alarm; }
   async setAlarm(t) { this.alarm = typeof t === "number" ? t : Number(t); }
   async deleteAlarm() { this.alarm = null; }
@@ -198,7 +199,7 @@ export function harness(opts = {}) {
     if (!inst) return null;
     const ledger = inst.storage.data.get("ledger");
     if (!ledger) return null;
-    return fromPersisted(ledger, inst.storage.data.get("watchdog_v3_signed_destinations"));
+    return fromPersisted(ledger, inst.storage.data.get("watchdog_v3_signed_destinations"), inst.storage.data.get("watchdog_exposure_profile_v1"));
   }
 
   function ledgerStorage(key) {
