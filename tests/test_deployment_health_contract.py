@@ -426,7 +426,7 @@ def _fake_fetch(live, health):
 def test_deployment_canary_a_uses_contract(monkeypatch, health, expect):
     import deployment_canary as dc
     monkeypatch.setattr(dc._deploy_health, "fetch_json", _fake_fetch(LIVE_OK, health))
-    r = dc.canary_a_health("https://x", 5)
+    r = dc.canary_a_health("https://x", 5, now=NOW)
     assert r["pass"] is expect, r
     if expect:
         assert r["intelligence_state"] in ("healthy", "degraded", "unhealthy")
@@ -435,7 +435,7 @@ def test_deployment_canary_a_uses_contract(monkeypatch, health, expect):
 def test_deployment_canary_a_fails_when_worker_not_live(monkeypatch):
     import deployment_canary as dc
     monkeypatch.setattr(dc._deploy_health, "fetch_json", _fake_fetch((404, {"error": "nf"}, None), HEALTH_STALE))
-    assert dc.canary_a_health("https://x", 5)["pass"] is False
+    assert dc.canary_a_health("https://x", 5, now=NOW)["pass"] is False
 
 
 def test_rollback_fingerprint_keeps_version_while_stale(monkeypatch):
