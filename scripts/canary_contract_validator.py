@@ -13,7 +13,9 @@ CANARY ENDPOINTS:
   /api/v1/intel/latest.json  — full intel feed (must have items array)
   /api/v1/intel/apex.json    — APEX-enriched feed
   /api/v1/intel/manifest.json — registry (checksums, counts)
-  /api/health                 — platform health (must return 200)
+  /api/health                 — platform health: structured contract (200 ok, or a
+                                valid SENTINEL 503 degraded/unhealthy = WARN; any
+                                other response = FAIL). See deployment_health_contract.py
 
 CONTRACT VALIDATION:
   For each endpoint:
@@ -56,6 +58,9 @@ import urllib.error
 import urllib.request
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
+
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+import deployment_health_contract as _deploy_health  # noqa: E402
 
 logging.basicConfig(
     level=logging.INFO,
@@ -106,6 +111,7 @@ CANARY_ENDPOINTS = [
     {
         "id"              : "health_endpoint",
         "path"            : "/api/health",
+        "health_contract" : True,
         "required_fields" : ["status"],
         "array_fields"    : [],
         "min_items"       : 0,
@@ -254,9 +260,31 @@ def main() -> int:
         ep_id  = ep["id"]
         log.info("[CANARY] Fetching: %s", url)
 
-        data, status, ms, fetch_err = fetch_endpoint(url)
+        if ep.get("health_contract"):
+            # /api/health truthfully answers 503 while intelligence is stale;
+            # validate the structured contract instead of requiring 200.
+            t_h = time.monotonic()
+            health = _deploy_health.fetch_json(url, REQUEST_TIMEOUT)
+            ms = (time.monotonic() - t_h) * 1000
+            live = _deploy_health.fetch_json(BASE_URL + "/api/health/live", REQUEST_TIMEOUT)
+            ev = _deploy_health.evaluate_deployment(live, health)
+            status, data = health[0] or 0, health[1] if isinstance(health[1], dict) else None
+            errors = list(ev["failures"])
+            warnings = [] if ev["customer_intelligence_healthy"] or errors else [
+                f"customer intelligence {ev['customer_intelligence_state']} "
+                f"(reason={ev['health']['reason']}) -- release freshness gate owns this"]
+            verdict = "FAIL" if errors else ("WARN" if warnings else "PASS")
+            if verdict == "FAIL":
+                overall_pass = False
+            log.info("[CANARY][%s] %s status=%d %.0fms err=%d warn=%d",
+                     ep_id, verdict, status, ms, len(errors), len(warnings))
+            fetch_err = None
+        else:
+            data, status, ms, fetch_err = fetch_endpoint(url)
 
-        if fetch_err and data is None:
+        if ep.get("health_contract"):
+            pass
+        elif fetch_err and data is None:
             verdict  = "FAIL"
             errors   = [fetch_err]
             warnings = []
@@ -273,7 +301,12 @@ def main() -> int:
         breaking_changes = []
         drift_additions  = []
         live_fp = compute_schema_fingerprint(data)
-        if ep_id in baseline and data is not None:
+        # The health contract is validated structurally above (field
+        # allowlist + forbidden secret/config keys), which supersedes
+        # fingerprint drift: its fields legitimately vary by state ("reason"
+        # only when not ok) and the stored baseline still lists the removed
+        # `security` block, which the contract now forbids.
+        if ep_id in baseline and data is not None and not ep.get("health_contract"):
             base_fp = baseline[ep_id].get("schema_fingerprint", {})
             breaking_changes, drift_additions = detect_drift(base_fp, live_fp)
             if breaking_changes:

@@ -8,7 +8,7 @@ import { applyCorsPolicy } from './cors-policy.js';
 // Wrangler instantiates this class through GUMROAD_PROVISIONING_LOCK. When
 // production-entry.js becomes the Worker main module, named exports must be
 // re-exported from the entry module as well as from the underlying core.
-export { GumroadProvisioningLock } from './index.js';
+export { GumroadProvisioningLock, WatchdogLedger } from './index.js';
 
 /**
  * P0 V4.43 production edge.

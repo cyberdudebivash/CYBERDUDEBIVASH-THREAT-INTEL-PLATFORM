@@ -13,7 +13,8 @@ Exit codes:
   2 = PARTIAL FAILURE -- degraded but acceptable
 
 Gates:
-  GATE A: API endpoint availability (latest.json, top10.json, apex.json, feed.json, health)
+  GATE A: API endpoint availability (latest.json, top10.json, apex.json, feed.json) +
+          Worker liveness and /api/health structured contract (valid 503 = operational)
   GATE B: Version match (live Worker == config/version.json)
   GATE C: Manifest freshness (generated_at < 4h)
   GATE D: Advisory count >= minimum threshold
@@ -43,6 +44,8 @@ MIN_ADVISORY_COUNT = 10
 # -- the same authority as the R2 upload guard, /api/health and STAGE 5.9.10.
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 import public_freshness_contract as _freshness  # noqa: E402
+
+import deployment_health_contract as _deploy_health  # noqa: E402
 
 MAX_MANIFEST_AGE_HOURS = _freshness.max_public_manifest_age_hours()
 
@@ -124,8 +127,10 @@ def run_validation(expected_version: str) -> dict:
 
     # GATE A: Endpoint Availability
     print("GATE A: Endpoint Availability")
+    # /api/health is evaluated below as a structured contract, not as a
+    # 200-only availability probe (it truthfully answers 503 while
+    # intelligence is stale -- see scripts/deployment_health_contract.py).
     endpoints = {
-        "health":        f"{WORKER_BASE}/api/health",
         "latest_json":   f"{WORKER_BASE}/api/v1/intel/latest.json",
         "top10_json":    f"{WORKER_BASE}/api/v1/intel/top10.json",
         "apex_json":     f"{WORKER_BASE}/api/v1/intel/apex.json",
@@ -144,7 +149,28 @@ def run_validation(expected_version: str) -> dict:
         print(f"  [{symbol}] {name}: {status_str}")
         if not r["ok"]:
             all_endpoints_ok = False
-    gate_results["A"] = {"passed": all_endpoints_ok, "detail": ep_results}
+    # Worker liveness (/api/health/live) + /api/health structured contract.
+    # A valid SENTINEL 503 (degraded/unhealthy) keeps the deployment
+    # operational; generic/HTML/malformed 503s, contradictions and exposed
+    # secret/config fields fail. Customer freshness is reported, never
+    # certified here (STAGE 5.9.10 owns release freshness).
+    health_contract = _deploy_health.evaluate_deployment(*_deploy_health.probe(WORKER_BASE))
+    hc = health_contract["health"]
+    ep_results["health"] = {
+        "url": f"{WORKER_BASE}/api/health", "ok": health_contract["deployment_operational"],
+        "status": hc["http_status"], "latency_ms": None, "error": "; ".join(health_contract["failures"]) or None,
+        "contract_state": health_contract["customer_intelligence_state"],
+        "customer_intelligence_healthy": health_contract["customer_intelligence_healthy"],
+    }
+    symbol = "OK" if health_contract["deployment_operational"] else "FAIL"
+    print(f"  [{symbol}] health: HTTP {hc['http_status']} contract={health_contract['customer_intelligence_state']} "
+          f"live={'yes' if health_contract['liveness']['alive'] else 'NO'}")
+    for f in health_contract["failures"]:
+        print(f"         {f}")
+    if not health_contract["deployment_operational"]:
+        all_endpoints_ok = False
+    gate_results["A"] = {"passed": all_endpoints_ok, "detail": ep_results,
+                         "customer_intelligence_state": health_contract["customer_intelligence_state"]}
     if not all_endpoints_ok:
         hard_failed = True
     print(f"  GATE A: {'PASS' if all_endpoints_ok else 'FAIL'}\n")

@@ -289,7 +289,9 @@ jobs:
           import requests, sys, time
 
           ENDPOINTS = [
-              ("https://intel.cyberdudebivash.com/api/health",         "API Health"),
+              # Liveness, not intelligence freshness: /api/health answers a
+              # structured 503 while the feed is stale, which a rollback cannot fix.
+              ("https://intel.cyberdudebivash.com/api/health/live",    "API Health (liveness)"),
               ("https://intel.cyberdudebivash.com/api/v1/health",      "API v1 Health"),
               ("https://www.cyberdudebivash.com/",                     "Dashboard"),
               ("https://intel.cyberdudebivash.com/api/feed.json",      "Feed API"),

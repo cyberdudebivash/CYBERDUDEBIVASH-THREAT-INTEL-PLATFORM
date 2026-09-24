@@ -204,10 +204,12 @@ jobs:
           echo "[CANARY] Starting 10-minute canary bake period..."
           echo "[CANARY] Monitoring for errors during bake..."
           sleep 30
-          # Quick health probe mid-bake
-          STATUS=$(curl -sf -o /dev/null -w "%{http_code}" --max-time 10 "https://intel.cyberdudebivash.com/api/health" || echo "000")
-          echo "[CANARY] Mid-bake health check: HTTP $STATUS"
-          if [ "$STATUS" != "200" ]; then
+          # Quick health probe mid-bake. Canary = is the deployed Worker
+          # serving correctly: Worker liveness (/api/health/live) + a valid
+          # structured /api/health contract. A stale-intelligence 503 is not a
+          # canary failure (release freshness is STAGE 5.9.10's gate); generic
+          # or malformed 5xx, contradictions and exposed secrets are.
+          if ! python3 scripts/deployment_health_contract.py --base-url "https://intel.cyberdudebivash.com"; then
             echo "[CANARY] FAIL: Health check failed during canary bake"
             exit 1
           fi

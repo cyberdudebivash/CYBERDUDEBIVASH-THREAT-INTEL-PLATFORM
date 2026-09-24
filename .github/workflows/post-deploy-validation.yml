@@ -95,14 +95,14 @@ jobs:
           sleep 30
 
       - name: "GATE A -- API availability"
+        id: gate_a
         timeout-minutes: 3
         run: |
           echo "[GATE A] Checking all API endpoints..."
           # v184.0 PERMANENT FIX: Two-tier endpoint check.
           #
           # PUBLIC endpoints: must return HTTP 200. Hard fail on non-200.
-          #   /api/health, /api/v1/intel/latest.json, /api/v1/intel/top10.json,
-          #   /api/feed.json
+          #   /api/v1/intel/latest.json, /api/v1/intel/top10.json, /api/feed.json
           #
           # AUTH-PROTECTED endpoints: 200 OR 401 both confirm the endpoint is
           #   reachable and responding. 401 = "endpoint exists, auth required"
@@ -111,12 +111,35 @@ jobs:
           #
           # DO NOT revert to single-tier 200-only check -- apex.json is intentionally
           # auth-protected and will always return 401 without a valid JWT token.
+          #
+          # P0 HEALTH CONTRACT (2026-09-24): /api/health is NOT an availability
+          # probe. Since PR #488 it answers 503 while customer intelligence is
+          # stale/empty/unavailable -- the truthful contract. Requiring 200
+          # here blocked healthy Worker deploys (including the deploys that
+          # fix staleness) and could only be "fixed" by making /api/health lie.
+          # Worker availability = /api/health/live; /api/health is validated
+          # as a STRUCTURED contract by scripts/deployment_health_contract.py:
+          #   200 ok (fresh)                     -> PASS, customer healthy
+          #   503 valid SENTINEL degraded/unhealthy body -> PASS (operational),
+          #       customer intelligence NOT healthy; release freshness stays
+          #       blocked by STAGE 5.9.10 (public_feed_freshness_gate.py)
+          #   any other 503 (HTML/Cloudflare page, empty/malformed JSON,
+          #   exception, wrong service), status/HTTP/freshness contradictions,
+          #   or exposed secret/config fields -> FAIL
+          # DO NOT put /api/health back into the 200-only loop below.
 
           FAIL=0
 
+          echo "  -- Worker liveness + /api/health structured contract --"
+          if python3 scripts/deployment_health_contract.py --base-url "${{ env.WORKER_BASE }}"; then
+            echo "  [PASS] Worker live; /api/health returned a valid contract response"
+          else
+            echo "  [FAIL] Worker liveness or /api/health contract violated (see ::error:: lines above)"
+            FAIL=$((FAIL+1))
+          fi
+
           echo "  -- Public endpoints (must be HTTP 200) --"
           for ENDPOINT in \
-            "${{ env.WORKER_BASE }}/api/health" \
             "${{ env.WORKER_BASE }}/api/v1/intel/latest.json" \
             "${{ env.WORKER_BASE }}/api/v1/intel/top10.json" \
             "${{ env.WORKER_BASE }}/api/feed.json"; do
@@ -148,7 +171,7 @@ jobs:
             echo "[GATE A] FAILED: $FAIL endpoints unreachable or returning server errors"
             exit 1
           fi
-          echo "[GATE A] PASS: All API endpoints healthy"
+          echo "[GATE A] PASS: Worker operational; all API endpoints reachable"
 
       - name: "GATE B -- Version consistency"
         timeout-minutes: 2
@@ -279,6 +302,9 @@ jobs:
           echo "[SLA] Snapshot complete"
 
       - name: "Print deployment certification"
+        env:
+          INTEL_STATE: ${{ steps.gate_a.outputs.intelligence_state }}
+          INTEL_HEALTHY: ${{ steps.gate_a.outputs.intelligence_healthy }}
         run: |
           echo "============================================================"
           echo "SENTINEL APEX -- DEPLOYMENT CERTIFICATION"
@@ -300,6 +326,16 @@ jobs:
           echo "GATE F (Full Validator):      PASS"
           echo "GATE G (Report URL Integrity): PASS"
           echo "============================================================"
+          # Deployment certification is NOT customer-intelligence
+          # certification: a stale/unavailable feed is reported here and
+          # stays release-blocked by STAGE 5.9.10 (public_feed_freshness_gate.py).
+          echo "Customer intelligence:        ${INTEL_STATE:-unknown}"
+          if [ "${INTEL_HEALTHY}" != "true" ]; then
+            echo "::warning::Deployment certified OPERATIONAL, but customer intelligence is ${INTEL_STATE:-unknown}. Release freshness certification remains BLOCKED until STAGE 5.9.10 passes."
+            echo "WORKER DEPLOYMENT CERTIFIED -- CUSTOMER INTELLIGENCE NOT CERTIFIED"
+            echo "============================================================"
+            exit 0
+          fi
           echo "PLATFORM IS PRODUCTION-CERTIFIED"
           echo "============================================================"
 
