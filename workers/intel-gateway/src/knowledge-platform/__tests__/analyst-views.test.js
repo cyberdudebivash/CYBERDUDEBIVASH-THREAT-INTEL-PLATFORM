@@ -14,7 +14,12 @@ test("investigationView(): returns the full Knowledge Object unmodified", async 
     platform.analystViews.investigationView(UUID_1),
     platform.object.build(UUID_1),
   ]);
-  assert.deepEqual(view, knowledgeObject);
+  assert.equal(typeof view.generatedAt, "string");
+  assert.equal(typeof knowledgeObject.generatedAt, "string");
+  const { generatedAt: viewAt, ...viewRest } = view;
+  const { generatedAt: objectAt, ...objectRest } = knowledgeObject;
+  assert.deepEqual(viewRest, objectRest);
+  assert.ok(Math.abs(Date.parse(viewAt) - Date.parse(objectAt)) < 5000);
 });
 
 test("correlationView(): composes related, similar, and contradictory evidence in one response", async () => {

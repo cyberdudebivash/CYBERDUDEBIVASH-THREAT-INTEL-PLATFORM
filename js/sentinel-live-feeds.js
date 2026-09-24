@@ -321,10 +321,15 @@
     const regions = data.regions || [];
     const container = qs(".cybermap-data, #cybermap-region-data, [data-section='cybermap']");
     if (!container) return;
+    if (!regions.length) {
+      container.innerHTML = `<div style="font-size:12px; color:#888; padding:8px 0;">${esc(data.note || "No country tags on the current feed. Origins are not estimated.")}</div>`;
+      qsAll("[data-loading='cybermap'], .cybermap-loading").forEach(n => { n.style.display = "none"; });
+      return;
+    }
 
     const html = `
       <div style="font-size:11px; color:#888; margin-bottom:8px;">
-        SOURCE: GOC NEURAL CORE | TOTAL ATTACKS TODAY: <strong style="color:#ff4444">${data.total_attacks_today || 0}</strong>
+        SOURCE: COUNTRY TAGS | TAGGED TODAY: <strong style="color:#ff4444">${data.total_attacks_today || 0}</strong>
       </div>
       ${regions.slice(0, 8).map((r, i) => `
         <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px; font-size:12px;">
@@ -382,21 +387,22 @@
 
     // Real DOM ids (see GADGET 7, index.html)
     setText("cdb-rw-groups", data.active_groups || 0, true);
-    setText("cdb-rw-victims", data.new_victims_30d || 0, true);
+    setText("cdb-rw-victims", (data.recent_advisories || []).length, true);
 
     const container = el("cdb-rw-list");
     if (container) {
       const groups = (data.top_groups || []).slice(0, 5);
-      container.innerHTML = groups.length ? groups.map(g => `
+      const advisories = (data.recent_advisories || []).slice(0, 5);
+      const rows = groups.length ? groups : advisories.map(a => ({ name: a.title, sector: a.source || "", status: a.severity || "" }));
+      container.innerHTML = rows.length ? rows.map(g => `
         <div style="display:flex; justify-content:space-between; align-items:center;
           padding:6px 8px; margin-bottom:4px; background:rgba(255,68,68,0.05);
           border-left:2px solid #ff4444; border-radius:3px; font-size:12px;">
           <span style="font-weight:bold; color:#ff4444;">${esc(g.name)}</span>
           <span style="color:#888; font-size:11px;">${esc((g.sector || "").split(",")[0])}</span>
-          <span style="color:#ffcc00; font-size:11px;">+${esc(String(g.victims_30d))} victims</span>
-          <span style="color:#ff4444; font-size:10px; padding:1px 5px; border:1px solid #ff444444; border-radius:2px;">${esc(g.status)}</span>
+          <span style="color:#ff4444; font-size:10px; padding:1px 5px; border:1px solid #ff444444; border-radius:2px;">${esc(g.status || "")}</span>
         </div>
-      `).join("") : `<div style="color:#888; font-size:11px; padding:8px 0;">No active ransomware campaigns tracked</div>`;
+      `).join("") : `<div style="color:#888; font-size:11px; padding:8px 0;">No ransomware titles in the current feed</div>`;
     }
   }
 
@@ -426,7 +432,6 @@
           <span style="font-weight:bold; color:#00d4aa; width:90px;">${esc(a.id)}</span>
           <span style="color:#888; font-size:11px; flex:1;">${esc(a.alias)}</span>
           <span style="color:#ff8800; font-size:11px; width:24px; text-align:center;">${getFlagEmoji(a.nation)}</span>
-          <span style="color:#ffcc00; font-size:11px;">${esc(String(a.ttps))} TTPs</span>
         </div>
       `).join("") : `<div style="color:#888; font-size:11px; padding:8px 0;">No tracked APT activity</div>`;
     }
@@ -558,13 +563,8 @@
   }
 
   // ── 11. Dark Web Monitor ──────────────────────────────────────────────────────
-  // NOTE: computeDarkweb() (workers/intel-gateway/src/index.js) derives
-  // breach_detections_24h from real feed content, but sources_monitored and
-  // credentials_exposed are currently fixed backend constants, not a live
-  // measurement -- that is a backend authenticity gap, documented and
-  // deliberately out of scope for this frontend wiring fix (see PR
-  // description). This loader renders whatever the API returns; it does not
-  // fabricate anything client-side.
+  // breach_detections_24h and sources_monitored are counted from the current
+  // feed. credentials and Tor crawl totals are not measured.
   async function loadDarkweb() {
     const data = await apiFetch("/api/v1/intel/darkweb");
     if (!data) {
@@ -575,9 +575,9 @@
     }
 
     // Real DOM ids (see GADGET 9, index.html)
-    setText("cdb-dw-count", data.breach_detections_24h || 0, true);
-    setText("cdb-dw-sources", data.sources_monitored || 0, true);
-    setText("cdb-dw-creds", data.credentials_exposed || "0", true);
+    setText("cdb-dw-count", data.breach_detections_24h != null ? data.breach_detections_24h : "N/A", true);
+    setText("cdb-dw-sources", data.sources_monitored != null ? data.sources_monitored : "N/A", true);
+    setText("cdb-dw-creds", data.crawl_connected ? (data.credentials_exposed || "0") : "OFF", true);
   }
 
   // ── 12. Global Cyber News Feed ────────────────────────────────────────────────

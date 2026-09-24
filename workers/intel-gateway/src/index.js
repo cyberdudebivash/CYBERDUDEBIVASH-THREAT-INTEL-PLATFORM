@@ -2121,41 +2121,74 @@ function computeKillChain(items) {
   };
 }
 
+function itemEpochMs(item) {
+  const t = Date.parse(item.published || item.published_at || item.timestamp || "");
+  return Number.isNaN(t) ? 0 : t;
+}
+
+function itemBlob(item) {
+  return ((item.title || "") + " " + ((item.tags || []).join(" ")) + " " + (item.threat_type || "")).toLowerCase();
+}
+
+function groupMentioned(blob, name) {
+  const n = String(name || "").toLowerCase();
+  if (n === "play") return blob.includes("play ransomware");
+  const head = n.split("/")[0].trim();
+  return blob.includes(n) || (head.length >= 5 && blob.includes(head));
+}
+
 function computeRansomware(items) {
   const ransomItems = items.filter(i => {
-    const t = (i.title + " " + (i.tags || []).join(" ")).toLowerCase();
+    const t = itemBlob(i);
     return t.includes("ransom") || t.includes("lockbit") || t.includes("blackcat") ||
            t.includes("alphv") || t.includes("cl0p") || t.includes("extort") ||
            (i.threat_type || "").toLowerCase().includes("ransom");
   });
-  const newVictims = ransomItems.reduce((s, i) => s + (parseInt(i.ioc_count || 0) > 20 ? 2 : 1), 0);
+  const blobs = items.map(itemBlob);
+  const mentioned = RANSOMWARE_GROUPS.filter(g => blobs.some(b => groupMentioned(b, g.name)));
   return {
-    active_groups: RANSOMWARE_GROUPS.filter(g => g.status === "ACTIVE").length,
-    monitoring_groups: RANSOMWARE_GROUPS.filter(g => g.status === "MONITORING").length,
-    new_victims_30d: Math.max(newVictims + 38, 38),
+    active_groups: mentioned.length,
+    monitoring_groups: 0,
+    new_victims_30d: null,
+    victims_measured: false,
     recent_advisories: ransomItems.slice(0, 5).map(i => ({
       title: i.title, severity: i.severity, risk_score: i.risk_score, source: i.source, published: i.published,
     })),
-    top_groups: RANSOMWARE_GROUPS.slice(0, 5), generated_at: now(),
+    top_groups: mentioned.slice(0, 5).map(g => ({
+      name: g.name, sector: g.sector, status: "MENTIONED", victims_30d: null,
+    })),
+    generated_at: now(),
   };
 }
 
 function computeAPT(items) {
   const aptItems = items.filter(i => {
-    const t = (i.title + " " + (i.tags || []).join(" ")).toLowerCase();
+    const t = itemBlob(i);
     return t.includes("apt") || t.includes("nation-state") || t.includes("state-sponsored") ||
            t.includes("lazarus") || t.includes("sandworm") || t.includes("fancy bear") ||
            (i.threat_type || "").toLowerCase().includes("apt");
   });
-  const sectors = new Set();
-  for (const p of APT_PROFILES) for (const s of p.sector.split(",")) sectors.add(s.trim());
+  const blobs = items.map(itemBlob);
+  const mentioned = APT_PROFILES.filter(p => blobs.some(b => {
+    const id = String(p.id || "").toLowerCase();
+    const alias = String(p.alias || "").toLowerCase();
+    return (id && b.includes(id)) || (alias.length >= 5 && b.includes(alias));
+  }));
+  let measuredTtps = 0;
+  for (const item of aptItems) {
+    measuredTtps += (item.mitre_techniques || item.mitre_ttps || []).length;
+  }
   return {
-    tracked_apts: APT_PROFILES.length, active_sectors: sectors.size,
-    total_ttps: APT_PROFILES.reduce((s, p) => s + p.ttps, 0),
+    tracked_apts: mentioned.length,
+    active_sectors: 0,
+    total_ttps: measuredTtps,
     recent_activity: aptItems.slice(0, 5).map(i => ({
       title: i.title, severity: i.severity, source: i.source, published: i.published,
     })),
-    top_actors: APT_PROFILES.slice(0, 5), generated_at: now(),
+    top_actors: mentioned.slice(0, 5).map(p => ({
+      id: p.id, alias: p.alias, nation: p.nation,
+    })),
+    generated_at: now(),
   };
 }
 
@@ -2176,39 +2209,73 @@ function computeEPSS(items) {
 }
 
 function computePulse(items, stats) {
-  const rateHr = Math.round(stats.total / 6);
-  const today  = items.filter(i => (i.published || i.published_at || "").startsWith(new Date().toISOString().slice(0, 10))).length;
+  const nowMs = Date.now();
+  const todayStr = new Date(nowMs).toISOString().slice(0, 10);
+  const hour = items.filter(i => itemEpochMs(i) >= nowMs - 3600000).length;
+  const today = items.filter(i => (i.published || i.published_at || "").startsWith(todayStr)).length;
+  const criticalToday = items.filter(i =>
+    (i.severity || "") === "CRITICAL" && (i.published || i.published_at || "").startsWith(todayStr)
+  ).length;
   return {
-    rate_hr: rateHr, today: today || Math.round(stats.total * 0.15),
-    total: stats.total, critical_rate: Math.round(stats.critical / 6), generated_at: now(),
+    rate_hr: hour, today, total: stats.total, critical_rate: criticalToday, generated_at: now(),
   };
 }
 
 function computeDarkweb(items) {
   const breachItems = items.filter(i => {
-    const t = (i.title + " " + (i.tags || []).join(" ")).toLowerCase();
+    const t = itemBlob(i);
     return t.includes("breach") || t.includes("leak") || t.includes("credential") ||
            t.includes("dark web") || t.includes("tor") || t.includes("exfil");
   });
+  const cutoff = Date.now() - 24 * 3600000;
+  const inWindow = breachItems.filter(i => itemEpochMs(i) >= cutoff);
+  const sources = new Set();
+  for (const item of inWindow) {
+    const s = String(item.feed_source || item.source || "").replace(/https?:\/\/(www\.)?/, "").split("/")[0].trim();
+    if (s && !/^unknown$/i.test(s)) sources.add(s);
+  }
   return {
-    breach_detections_24h: Math.max(breachItems.length + 40, 43), sources_monitored: 127,
-    credentials_exposed: "58K+", paste_sites: 43, tor_services: 84,
-    recent_findings: breachItems.slice(0, 3).map(i => ({
+    breach_detections_24h: inWindow.length,
+    sources_monitored: sources.size,
+    credentials_exposed: null,
+    paste_sites: null,
+    tor_services: null,
+    crawl_connected: false,
+    recent_findings: inWindow.slice(0, 3).map(i => ({
       title: i.title, severity: i.severity, source: i.source, published: i.published,
     })),
     generated_at: now(),
   };
 }
 
-function computeCybermap(items, stats) {
-  const totalAttacks = Math.max(stats.total * 12, 200);
-  const weights = [0.30, 0.25, 0.12, 0.08, 0.07, 0.06, 0.04, 0.04, 0.02, 0.02];
-  const regions  = GEO_ATTACK_MAP.map((r, i) => ({
-    ...r, attacks: Math.round(totalAttacks * (weights[i] || 0.01)), pct: Math.round((weights[i] || 0.01) * 100),
+function computeCybermap(items) {
+  const counts = new Map();
+  const todayStr = new Date().toISOString().slice(0, 10);
+  let todayTagged = 0;
+  for (const item of items) {
+    const raw = String(item.actor_country || item.source_country || "").trim();
+    if (!raw || /^(unknown|unattributed|n\/a|none|null|-)$/i.test(raw)) continue;
+    const code = raw.toUpperCase();
+    const known = GEO_ATTACK_MAP.find(r => r.code === code || r.country.toLowerCase() === raw.toLowerCase());
+    const key = known ? known.code : raw.slice(0, 24);
+    const country = known ? known.country : raw.slice(0, 24);
+    const row = counts.get(key) || { code: known ? known.code : "", country, attacks: 0 };
+    row.attacks += 1;
+    counts.set(key, row);
+    if ((item.published || item.published_at || "").startsWith(todayStr)) todayTagged += 1;
+  }
+  const regions = [...counts.values()].sort((a, b) => b.attacks - a.attacks).slice(0, 8).map(r => ({
+    ...r, pct: 0, risk: "TAGGED",
   }));
+  const max = regions.reduce((m, r) => Math.max(m, r.attacks), 0) || 1;
+  for (const r of regions) r.pct = Math.round((r.attacks / max) * 100);
   return {
-    regions, total_attacks_today: totalAttacks, top_origin: regions[0],
-    top_target: { code: "US", country: "United States", attacks: Math.round(totalAttacks * 0.35) },
+    regions,
+    total_attacks_today: todayTagged,
+    top_origin: regions[0] || null,
+    top_target: null,
+    attribution: regions.length ? "country_field" : "none",
+    note: regions.length ? "" : "No country tags on the current feed. Origins are not estimated.",
     generated_at: now(),
   };
 }
@@ -2238,17 +2305,20 @@ function buildAISummaryInline(feedData, stats) {
   const kcData    = computeKillChain(feedData.items || []);
   return {
     schema_version: "1.0", version: PLATFORM_VERSION, generated_at: now(),
-    ai_engine: "SENTINEL-AI v2", model: "APEX-GRADIENT-BOOST-v184.0",
+    ai_engine: null, model: null,
     global_threat_level: threat, defcon,
-    campaigns_detected: Math.max(Math.round(stats.critical / 2), 1),
-    anomalies_flagged: Math.max(Math.round(stats.high / 3), 0),
-    high_risk_30d: Math.round(stats.total * 0.3),
+    campaigns_detected: kcData.active_campaigns.length,
+    anomalies_flagged: null,
+    high_risk_30d: (feedData.items || []).filter(i => {
+      const risk = parseFloat(i.risk_score || 0);
+      return risk >= 7 && itemEpochMs(i) >= Date.now() - 30 * 24 * 3600000;
+    }).length,
     kill_chain_coverage: kcData.coverage_pct,
-    executive_summary: `SENTINEL APEX AI Engine has processed ${stats.total} threat advisories in the current cycle. ` +
-      `${stats.critical} CRITICAL severity threats identified, ${stats.kev_confirmed} confirmed in CISA KEV. ` +
-      `Global threat level is ${threat.label} (${threat.level}/10). ` +
-      `Average risk score across all advisories: ${stats.avg_risk_score}/10. ` +
-      `Immediate SOC action recommended for all CRITICAL and KEV-confirmed advisories.`,
+    executive_summary: `The current feed contains ${stats.total} advisories. ` +
+      `${stats.critical} are CRITICAL and ${stats.kev_confirmed} are marked CISA KEV. ` +
+      `Severity distribution puts the global threat level at ${threat.label} (${threat.level}/10). ` +
+      `Average recorded risk score is ${stats.avg_risk_score}/10. ` +
+      `No separate anomaly model output is attached to this summary.`,
     top_critical_advisories: critItems.map(i => ({
       title: i.title, risk_score: i.risk_score, source: i.source,
       cve_ids: i.cve_ids || [], kev_present: i.kev_present || false,
@@ -2258,7 +2328,7 @@ function buildAISummaryInline(feedData, stats) {
     // no dedicated confidence-fusion model behind it (unlike sentinel_ai_engine.py's
     // per-item _compute_ai_risk_score), so it reports the same neutral default
     // used elsewhere rather than a fabricated fixed figure.
-    ai_confidence: 50, last_model_run: now(),
+    ai_confidence: 50, last_model_run: null,
   };
 }
 

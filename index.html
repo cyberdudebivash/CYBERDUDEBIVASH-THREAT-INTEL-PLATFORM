@@ -6660,7 +6660,6 @@
                 // markup -- falls through to the empty-state branch below instead of
                 // returning early and leaving the loading message stuck forever.
                 var known = {RU:'Russia',CN:'China',IR:'Iran',KP:'N.Korea',US:'USA',BR:'Brazil',IN:'India',DE:'Germany',UA:'Ukraine',TR:'Turkey',UK:'UK',IL:'Israel',PK:'Pakistan',VN:'Vietnam'};
-                var lex = [['Iran','iran'],['Russia','russia'],['Russia','gru'],['China','china'],['N.Korea','north korea'],['N.Korea','lazarus'],['Ukraine','ukrain'],['Israel','israel']];
                 var regions = {};
                 var sub = document.getElementById('eicc-heatmap-sub');
                 function bump(map, key){ if(!key) return; map[key] = (map[key]||0)+1; }
@@ -6670,12 +6669,6 @@
                     if (raw && !/^(unknown|unattributed|n\/a|none|null|-)$/i.test(raw)) {
                         var code = raw.toUpperCase();
                         origin = known[code] || (raw.length <= 24 ? raw : '');
-                    }
-                    if (!origin) {
-                        var title = ((it.title || '') + ' ' + String(it.description || '').slice(0, 240)).toLowerCase();
-                        for (var li = 0; li < lex.length; li++) {
-                            if (title.indexOf(lex[li][1]) !== -1) { origin = lex[li][0]; break; }
-                        }
                     }
                     bump(regions, origin);
                 });
@@ -7092,11 +7085,11 @@
                             <div style="color:var(--white);font-size:15px;font-weight:800;">Dark Web Monitor</div>
                         </div>
                     </div>
-                    <p style="color:var(--text-muted);font-size:12px;line-height:1.7;margin:0 0 16px 0;">Continuous monitoring of Tor hidden services, paste sites, underground forums, and breach marketplaces. Alerts on credential leaks, data exposures, and threat actor chatter mentioning your organization.</p>
+                    <p style="color:var(--text-muted);font-size:12px;line-height:1.7;margin:0 0 16px 0;">Breach, leak, and ransomware titles already in the published advisory feed. This card does not crawl Tor, and it does not watch your organization.</p>
                     <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:16px;">
-                        <span style="font-family:var(--font-mono);font-size:8px;background:rgba(139,92,246,0.08);color:#a78bfa;border:1px solid rgba(139,92,246,0.2);padding:2px 7px;border-radius:3px;">TOR MONITORING</span>
-                        <span style="font-family:var(--font-mono);font-size:8px;background:rgba(139,92,246,0.08);color:#a78bfa;border:1px solid rgba(139,92,246,0.2);padding:2px 7px;border-radius:3px;">BREACH ALERTS</span>
-                        <span style="font-family:var(--font-mono);font-size:8px;background:rgba(139,92,246,0.08);color:#a78bfa;border:1px solid rgba(139,92,246,0.2);padding:2px 7px;border-radius:3px;">KEYWORD WATCH</span>
+                        <span style="font-family:var(--font-mono);font-size:8px;background:rgba(139,92,246,0.08);color:#a78bfa;border:1px solid rgba(139,92,246,0.2);padding:2px 7px;border-radius:3px;">FEED ADVISORIES</span>
+                        <span style="font-family:var(--font-mono);font-size:8px;background:rgba(139,92,246,0.08);color:#a78bfa;border:1px solid rgba(139,92,246,0.2);padding:2px 7px;border-radius:3px;">NOT A CRAWL</span>
+                        <span style="font-family:var(--font-mono);font-size:8px;background:rgba(139,92,246,0.08);color:#a78bfa;border:1px solid rgba(139,92,246,0.2);padding:2px 7px;border-radius:3px;">NO ORG WATCH</span>
                     </div>
                     <div style="border-top:1px solid rgba(139,92,246,0.1);padding-top:14px;">
                         <div id="cdb-darkweb-live" style="font-family:var(--font-mono);font-size:10px;color:var(--text-muted);line-height:1.5;">Checking the current advisory feed…</div>
@@ -7186,16 +7179,16 @@
                 <!-- Live stats bar -->
                 <div style="display:flex;gap:16px;justify-content:center;flex-wrap:wrap;margin-bottom:36px;">
                     <div style="background:rgba(0,212,170,0.07);border:1px solid rgba(0,212,170,0.18);border-radius:8px;padding:12px 22px;text-align:center;min-width:130px;">
-                        <div style="font-family:var(--font-mono);font-size:1.4rem;font-weight:700;color:#00d4aa;" id="hub-stat-threats">2,847+</div>
-                        <div style="font-family:var(--font-mono);font-size:9px;color:#64748b;letter-spacing:2px;margin-top:3px;">THREATS BLOCKED</div>
+                        <div style="font-family:var(--font-mono);font-size:1.4rem;font-weight:700;color:#00d4aa;" id="hub-stat-threats">LIVE</div>
+                        <div style="font-family:var(--font-mono);font-size:9px;color:#64748b;letter-spacing:2px;margin-top:3px;">PUBLISHED FEED</div>
                     </div>
                     <div style="background:rgba(59,130,246,0.07);border:1px solid rgba(59,130,246,0.18);border-radius:8px;padding:12px 22px;text-align:center;min-width:130px;">
-                        <div style="font-family:var(--font-mono);font-size:1.4rem;font-weight:700;color:#60a5fa;" id="hub-stat-models">47</div>
-                        <div style="font-family:var(--font-mono);font-size:9px;color:#64748b;letter-spacing:2px;margin-top:3px;">AI MODELS ACTIVE</div>
+                        <div style="font-family:var(--font-mono);font-size:1.4rem;font-weight:700;color:#60a5fa;" id="hub-stat-models">NVD+KEV</div>
+                        <div style="font-family:var(--font-mono);font-size:9px;color:#64748b;letter-spacing:2px;margin-top:3px;">ENRICHMENT</div>
                     </div>
                     <div style="background:rgba(167,139,250,0.07);border:1px solid rgba(167,139,250,0.18);border-radius:8px;padding:12px 22px;text-align:center;min-width:130px;">
-                        <div style="font-family:var(--font-mono);font-size:1.4rem;font-weight:700;color:#a78bfa;" id="hub-stat-coverage">99.7%</div>
-                        <div style="font-family:var(--font-mono);font-size:9px;color:#64748b;letter-spacing:2px;margin-top:3px;">DETECTION RATE</div>
+                        <div style="font-family:var(--font-mono);font-size:1.4rem;font-weight:700;color:#a78bfa;" id="hub-stat-coverage">STIX 2.1</div>
+                        <div style="font-family:var(--font-mono);font-size:9px;color:#64748b;letter-spacing:2px;margin-top:3px;">EXPORT</div>
                     </div>
                     <div style="background:rgba(244,63,94,0.07);border:1px solid rgba(244,63,94,0.18);border-radius:8px;padding:12px 22px;text-align:center;min-width:130px;">
                         <div style="font-family:var(--font-mono);font-size:1.4rem;font-weight:700;color:#f43f5e;" id="hub-stat-uptime">24/7</div>
@@ -7226,8 +7219,8 @@
 
                     <div class="hub-feature-card" style="background:rgba(249,115,22,0.05);border:1px solid rgba(249,115,22,0.15);border-radius:10px;padding:22px 18px;transition:transform 0.25s,border-color 0.25s,box-shadow 0.25s;cursor:pointer;" onmouseenter="this.style.transform='translateY(-4px)';this.style.borderColor='rgba(249,115,22,0.45)';this.style.boxShadow='0 8px 32px rgba(249,115,22,0.15)'" onmouseleave="this.style.transform='';this.style.borderColor='rgba(249,115,22,0.15)';this.style.boxShadow=''">
                         <div style="font-size:1.6rem;margin-bottom:10px;">🌐</div>
-                        <div style="font-weight:700;color:#f97316;font-size:0.9rem;margin-bottom:6px;">Dark Web Surveillance</div>
-                        <div style="font-size:0.8rem;color:#94a3b8;line-height:1.5;">Continuous dark web monitoring for credential leaks, data breaches, ransomware listings, and threat actor communications targeting your org.</div>
+                        <div style="font-weight:700;color:#f97316;font-size:0.9rem;margin-bottom:6px;">Feed Breach Titles</div>
+                        <div style="font-size:0.8rem;color:#94a3b8;line-height:1.5;">Breach, leak, and ransomware titles from the published advisory feed. A licensed Tor crawl is not connected.</div>
                     </div>
 
                     <div class="hub-feature-card" style="background:rgba(244,63,94,0.05);border:1px solid rgba(244,63,94,0.15);border-radius:10px;padding:22px 18px;transition:transform 0.25s,border-color 0.25s,box-shadow 0.25s;cursor:pointer;" onmouseenter="this.style.transform='translateY(-4px)';this.style.borderColor='rgba(244,63,94,0.45)';this.style.boxShadow='0 8px 32px rgba(244,63,94,0.15)'" onmouseleave="this.style.transform='';this.style.borderColor='rgba(244,63,94,0.15)';this.style.boxShadow=''">
@@ -7987,7 +7980,7 @@
                             <div id="cdb-rw-groups" style="font-family:var(--font-mono);font-size:18px;font-weight:900;color:#dc2626;">&mdash;</div>
                         </div>
                         <div style="background:rgba(234,88,12,0.06);border:1px solid rgba(234,88,12,0.15);padding:8px;border-radius:3px;text-align:center;">
-                            <div style="font-family:var(--font-mono);font-size:8px;color:#5a6578;letter-spacing:1px;">NEW VICTIMS</div>
+                            <div style="font-family:var(--font-mono);font-size:8px;color:#5a6578;letter-spacing:1px;">ADVISORIES</div>
                             <div id="cdb-rw-victims" style="font-family:var(--font-mono);font-size:18px;font-weight:900;color:#ea580c;">&mdash;</div>
                         </div>
                     </div>
@@ -8038,7 +8031,7 @@
                 <div class="cdb-gadget-card g-purple" id="cdb-g-darkweb">
                     <div class="cdb-gadget-label">
                         <span>&#127758; DARK WEB MONITOR</span>
-                        <span style="font-size:8px;color:#8b5cf6;letter-spacing:1px;">TOR + PASTE</span>
+                        <span style="font-size:8px;color:#8b5cf6;letter-spacing:1px;">FEED ONLY</span>
                     </div>
                     <div style="margin-top:10px;text-align:center;padding:10px;background:rgba(139,92,246,0.05);border:1px solid rgba(139,92,246,0.12);border-radius:4px;">
                         <div style="font-family:var(--font-mono);font-size:10px;color:#8b5cf6;letter-spacing:2px;font-weight:700;margin-bottom:6px;">BREACH DETECTIONS</div>
@@ -8051,8 +8044,8 @@
                             <div id="cdb-dw-sources" style="font-family:var(--font-mono);font-size:16px;font-weight:900;color:#8b5cf6;">&mdash;</div>
                         </div>
                         <div style="background:rgba(139,92,246,0.05);border:1px solid rgba(139,92,246,0.12);padding:8px;border-radius:3px;text-align:center;">
-                            <div style="font-family:var(--font-mono);font-size:8px;color:#5a6578;letter-spacing:1px;">CREDENTIALS</div>
-                            <div id="cdb-dw-creds" style="font-family:var(--font-mono);font-size:16px;font-weight:900;color:#a78bfa;">&mdash;</div>
+                            <div style="font-family:var(--font-mono);font-size:8px;color:#5a6578;letter-spacing:1px;">CRAWL</div>
+                            <div id="cdb-dw-creds" style="font-family:var(--font-mono);font-size:16px;font-weight:900;color:#a78bfa;">OFF</div>
                         </div>
                     </div>
                     <div style="margin-top:10px;text-align:center;">
@@ -8073,105 +8066,9 @@
         (function initNewGadgets() {
             'use strict';
             function _set(id, val) { var el = document.getElementById(id); if (el) el.textContent = val; }
-            function _rand(min, max) { return Math.floor(Math.random() * (max - min + 1)) + min; }
-
-            function populateFromFeed(intel) {
-                var rwGroups = 0, rwVictims = 0;
-                var aptCount = 0, aptSectors = new Set(), aptTtps = 0;
-                var dwCount = 0, dwSources = new Set(), dwCreds = 0;
-                var rwNames = [], aptNames = [];
-
-                intel.forEach(function(item) {
-                    var cat = (item.category || item.threat_category || '').toLowerCase();
-                    var title = (item.title || '').toLowerCase();
-                    var risk = parseFloat(item.risk_score || item.cvss || 0);
-
-                    // Ransomware tracker
-                    if (cat.indexOf('ransomware') !== -1 || title.indexOf('ransomware') !== -1 ||
-                        title.indexOf('lockbit') !== -1 || title.indexOf('cl0p') !== -1 || title.indexOf('blackcat') !== -1) {
-                        rwGroups++;
-                        rwVictims += _rand(1, 5);
-                        var src = (item.source || '').replace(/https?:\/\//, '').split('/')[0];
-                        if (src) rwNames.push(src);
-                    }
-                    // APT tracker
-                    if (cat.indexOf('apt') !== -1 || cat.indexOf('nation') !== -1 ||
-                        title.indexOf('apt') !== -1 || title.indexOf('espionage') !== -1 || title.indexOf('nation-state') !== -1) {
-                        aptCount++;
-                        aptTtps += (item.mitre_ttps || []).length || _rand(2, 6);
-                        var s = (item.sector || item.target_sector || '');
-                        if (s) aptSectors.add(s.split(',')[0].trim());
-                        var actor = (item.actor_fingerprint || item.actor || '');
-                        if (actor && actor !== 'UNC-UNKNOWN') aptNames.push(actor);
-                    }
-                    // Dark web
-                    if (cat.indexOf('breach') !== -1 || cat.indexOf('data_leak') !== -1 ||
-                        title.indexOf('breach') !== -1 || title.indexOf('leaked') !== -1 || title.indexOf('exposed') !== -1) {
-                        dwCount++;
-                        dwCreds += _rand(500, 50000);
-                        var dw = (item.source || '').replace(/https?:\/\//, '').split('/')[0];
-                        if (dw) dwSources.add(dw);
-                    }
-                });
-
-                // Ransomware gadget
-                _set('cdb-rw-groups', rwGroups || _rand(12, 24));
-                _set('cdb-rw-victims', rwVictims || _rand(8, 47));
-                var rwList = document.getElementById('cdb-rw-list');
-                if (rwList) {
-                    var rwSample = ['LockBit 3.0', 'BlackCat/ALPHV', 'Cl0p', 'Rhysida', 'Play', 'Akira', 'RansomHub'];
-                    rwList.innerHTML = rwSample.slice(0, 5).map(function(g, i) {
-                        var colors = ['#dc2626','#ea580c','#d97706','#dc2626','#ea580c'];
-                        var acts = [_rand(2,8), _rand(1,6), _rand(3,10), _rand(1,4), _rand(2,7)];
-                        return '<div style="display:flex;align-items:center;justify-content:space-between;padding:4px 0;border-bottom:1px solid rgba(220,38,38,0.08);">' +
-                            '<span style="font-family:var(--font-mono);font-size:10px;color:' + colors[i] + ';font-weight:700;">' + g + '</span>' +
-                            '<span style="font-family:var(--font-mono);font-size:9px;color:#5a6578;letter-spacing:1px;">' + acts[i] + ' victims</span>' +
-                        '</div>';
-                    }).join('');
-                }
-
-                // APT gadget
-                _set('cdb-apt-count', aptCount || _rand(18, 34));
-                _set('cdb-apt-sectors', aptSectors.size || _rand(9, 15));
-                _set('cdb-apt-ttps', aptTtps || _rand(180, 340));
-                var aptList = document.getElementById('cdb-apt-list');
-                if (aptList) {
-                    var aptSample = [
-                        {name:'APT29 (Cozy Bear)', origin:'Russia', color:'#dc2626'},
-                        {name:'APT41 (Winnti)',    origin:'China',  color:'#f59e0b'},
-                        {name:'Lazarus Group',     origin:'DPRK',   color:'#8b5cf6'},
-                        {name:'APT28 (Fancy Bear)',origin:'Russia', color:'#3b82f6'},
-                    ];
-                    aptList.innerHTML = aptSample.map(function(a) {
-                        return '<div style="display:flex;align-items:center;justify-content:space-between;padding:4px 0;border-bottom:1px solid rgba(245,158,11,0.08);">' +
-                            '<span style="font-family:var(--font-mono);font-size:9px;color:' + a.color + ';font-weight:700;">' + a.name + '</span>' +
-                            '<span style="font-family:var(--font-mono);font-size:8px;color:#5a6578;">' + a.origin + '</span>' +
-                        '</div>';
-                    }).join('');
-                }
-
-                // Dark web gadget
-                _set('cdb-dw-count', dwCount || _rand(14, 38));
-                _set('cdb-dw-sources', dwSources.size || _rand(6, 12));
-                _set('cdb-dw-creds', dwCreds ? (dwCreds > 1000 ? Math.round(dwCreds/1000)+'K+' : dwCreds) : _rand(12,89)+'K+');
-
-                // Kill Chain gadget — campaigns and tactics from live feed
-                var kcActors = {}, kcTactics = new Set();
-                intel.forEach(function(item) {
-                    var actor = item.actor_tag || item.actor_fingerprint || '';
-                    if (actor && actor !== 'UNC-CDB-99' && actor !== 'UNK' && actor !== 'UNC-UNKNOWN') {
-                        kcActors[actor] = (kcActors[actor] || 0) + 1;
-                    }
-                    (item.mitre_techniques || item.mitre_tactics || []).forEach(function(t) {
-                        var tid = typeof t === 'string' ? t : (t.id || t.technique_id || '');
-                        if (tid) kcTactics.add(tid.split('.')[0]);
-                    });
-                });
-                var kcCampaigns = Object.keys(kcActors).filter(function(a) { return kcActors[a] >= 2; }).length;
-                _set('cdb-kc-campaigns', kcCampaigns || Object.keys(kcActors).length || _rand(4, 12));
-                _set('cdb-kc-tactics', kcTactics.size || _rand(8, 18));
+            function populateFromFeed() {
+                return;
             }
-
             // P0 FIX: window.EMBEDDED_INTEL is permanently forced to [] elsewhere
             // in this file ("Worker API is authoritative" -- see its assignment
             // site) in the current R2/Worker-only architecture, so the branch
@@ -8414,7 +8311,7 @@
             <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:20px;">
                 <!-- CORTEX Panel -->
                 <div style="background:linear-gradient(135deg,rgba(59,130,246,0.06),rgba(0,212,170,0.03));border:1px solid rgba(59,130,246,0.2);border-radius:4px;padding:18px;">
-                    <p style="font-family:var(--font-mono);font-size:8px;letter-spacing:3px;color:#3b82f6;margin:0 0 10px 0;">🧊 v40 CORTEX</p>
+                    <p style="font-family:var(--font-mono);font-size:8px;letter-spacing:3px;color:#3b82f6;margin:0 0 10px 0;">🧊 CORTEX</p>
                     <div id="cortex-nodes" style="font-size:28px;font-weight:900;color:#3b82f6;font-family:var(--font-mono);">&mdash;</div>
                     <div style="font-size:9px;color:var(--text-muted);font-family:var(--font-mono);margin-top:2px;">KNOWLEDGE GRAPH NODES</div>
                     <div style="margin-top:10px;display:flex;gap:6px;flex-wrap:wrap;">
@@ -8426,7 +8323,7 @@
 
                 <!-- QUANTUM Panel -->
                 <div style="background:linear-gradient(135deg,rgba(139,92,246,0.06),rgba(236,72,153,0.03));border:1px solid rgba(139,92,246,0.2);border-radius:4px;padding:18px;">
-                    <p style="font-family:var(--font-mono);font-size:8px;letter-spacing:3px;color:#8b5cf6;margin:0 0 10px 0;">⚡ v41 QUANTUM</p>
+                    <p style="font-family:var(--font-mono);font-size:8px;letter-spacing:3px;color:#8b5cf6;margin:0 0 10px 0;">⚡ QUANTUM</p>
                     <div id="quantum-trust" style="font-size:28px;font-weight:900;color:#8b5cf6;font-family:var(--font-mono);">&mdash;</div>
                     <div style="font-size:9px;color:var(--text-muted);font-family:var(--font-mono);margin-top:2px;">FEED TRUST SCORE</div>
                     <div style="margin-top:10px;display:flex;gap:6px;flex-wrap:wrap;">
@@ -8438,7 +8335,7 @@
 
                 <!-- SOVEREIGN Panel -->
                 <div style="background:linear-gradient(135deg,rgba(0,212,170,0.06),rgba(234,179,8,0.03));border:1px solid rgba(0,212,170,0.2);border-radius:4px;padding:18px;">
-                    <p style="font-family:var(--font-mono);font-size:8px;letter-spacing:3px;color:var(--accent);margin:0 0 10px 0;">🏛️ v42 SOVEREIGN</p>
+                    <p style="font-family:var(--font-mono);font-size:8px;letter-spacing:3px;color:var(--accent);margin:0 0 10px 0;">🏛️ SOVEREIGN</p>
                     <div id="sovereign-compliance" style="font-size:28px;font-weight:900;color:var(--accent);font-family:var(--font-mono);">&mdash;</div>
                     <div style="font-size:9px;color:var(--text-muted);font-family:var(--font-mono);margin-top:2px;">GOVERNANCE SCORE</div>
                     <div style="margin-top:10px;display:flex;gap:6px;flex-wrap:wrap;">
