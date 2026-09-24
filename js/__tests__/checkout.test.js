@@ -89,9 +89,23 @@ test("validateTaxId accepts an empty value -- the field is optional", () => {
 
 test("validateTaxId accepts a well-formed 15-character GSTIN", () => {
   const { SentinelCheckout } = load();
-  const res = SentinelCheckout.validateTaxId("22aaaaa0000a1z5");
+  const res = SentinelCheckout.validateTaxId("22aaaaa0000a1zc");
   assert.equal(res.ok, true);
-  assert.equal(res.value, "22AAAAA0000A1Z5"); // normalized uppercase
+  assert.equal(res.value, "22AAAAA0000A1ZC"); // normalized uppercase
+});
+
+test("validateTaxId rejects a GSTIN whose check character is wrong", () => {
+  const { SentinelCheckout } = load();
+  // The widely copied sample "22AAAAA0000A1Z5" fails the GSTN mod-36 check (should end in C).
+  const res = SentinelCheckout.validateTaxId("22AAAAA0000A1Z5");
+  assert.equal(res.ok, false);
+  assert.match(res.reason, /GSTIN/);
+});
+
+test("validateTaxId rejects markup and control characters in a VAT number", () => {
+  const { SentinelCheckout } = load();
+  assert.equal(SentinelCheckout.validateTaxId("<script>x</script>").ok, false);
+  assert.equal(SentinelCheckout.validateTaxId("DE1\n23").ok, false);
 });
 
 test("validateTaxId flags a 15-character value that doesn't match the GSTIN shape", () => {

@@ -8,20 +8,26 @@
  * Rules (P0 dashboard data-contract recovery, 2026-09-24):
  *   - ATT&CK coverage counts only tactics the item's own ATT&CK evidence
  *     names. Severity and risk score are never used to infer a tactic.
- *   - An advisory is a "campaign" only when the feed carries campaign
- *     evidence (campaign id/type/tag/title, or a named MITRE group). A
- *     critical vulnerability is not, by itself, a campaign.
- *   - Ransomware classification reads structured fields before the title,
- *     and never the description. A group is "active" only when a current
- *     ransomware-classified item names it.
+ *   - An advisory is a "campaign" only when the advisory itself says so
+ *     (threat_type, a campaign tag, or the title). A critical vulnerability
+ *     is not, by itself, a campaign.
+ *   - Pipeline attribution labels (campaign_id / campaign / campaign_name,
+ *     actor, actor_tag, mitre_group_name) are keyword-inferred by the
+ *     pipeline and are supporting evidence only: they are recorded next to
+ *     independent evidence but never classify an item or name an active
+ *     group on their own (live: CAMP-APT41Healthcare on CRM XSS CVEs, a
+ *     LockBit label on Ryuk sentencing news, Cl0p on a Linux kernel CVE).
+ *   - Ransomware classification reads threat_type, tags, malware family and
+ *     the title, and never the description. A group is "active" only when
+ *     one of those fields of a current ransomware-classified item names it.
  *   - Geographic origin comes only from actor_country (threat-actor
  *     attribution). Publisher, vendor, victim and IP geography are not origin.
  */
 
 export const DASHBOARD_CONTRACT_VERSION = "dashboard-contract/1.0";
 export const ATTACK_DERIVATION_VERSION = "attack-tactics/1.0";
-export const CAMPAIGN_SEMANTICS_VERSION = "campaign-evidence/1.1";
-export const RANSOMWARE_CLASSIFIER_VERSION = "ransomware-classifier/1.0";
+export const CAMPAIGN_SEMANTICS_VERSION = "campaign-evidence/1.2";
+export const RANSOMWARE_CLASSIFIER_VERSION = "ransomware-classifier/1.1";
 export const THREAT_LEVEL_FORMULA_VERSION = "threat-level/1.0";
 export const THREAT_LEVEL_FORMULA =
   "min(10, min(avg_risk_score,10) + min(kev_confirmed*0.15,1.5) + min(critical*0.05,0.5)); " +
@@ -206,15 +212,21 @@ export function deriveAttackTacticCoverage(items, generatedAt) {
   };
 }
 
-const UNATTRIBUTED_RE = /^(cdb[-_ ]?unattr|unc[-_ ]?cdb|unattributed|unknown|n\/a|none|null|-|tbd)/i;
+const UNATTRIBUTED_RE = /^(cdb[-_ ]?unattr|unc[-_ ]?cdb|unattributed|unclassified|unknown|n\/a|none|null|-|tbd)/i;
+
+/** A pipeline placeholder ("Unattributed LockBit cluster", CDB-UNATTR-RAN), not a name. */
+function _isPlaceholderLabel(v) {
+  const s = String(v || "").trim();
+  return !s || UNATTRIBUTED_RE.test(s) || /unattr/i.test(s);
+}
 
 function _namedGroup(item) {
   const group = typeof item.mitre_group_name === "string" ? item.mitre_group_name.trim() : "";
   const gid = typeof item.actor_mitre_id === "string" ? item.actor_mitre_id.trim() : "";
-  if (group && !UNATTRIBUTED_RE.test(group)) return group;
+  if (group && !_isPlaceholderLabel(group)) return group;
   if (/^G\d{4}$/.test(gid)) {
     const actor = typeof item.actor === "string" ? item.actor.trim() : "";
-    return actor && !UNATTRIBUTED_RE.test(actor) ? actor : gid;
+    return actor && !_isPlaceholderLabel(actor) ? actor : gid;
   }
   return null;
 }
@@ -223,19 +235,22 @@ function _namedGroup(item) {
 export function campaignEvidence(item) {
   if (!item || typeof item !== "object") return [];
   const ev = [];
-  for (const f of ["campaign_id", "campaign", "campaign_name"]) {
-    if (typeof item[f] === "string" && item[f].trim()) { ev.push(f); break; }
-  }
   if (/campaign/i.test(String(item.threat_type || ""))) ev.push("threat_type");
   if (Array.isArray(item.tags) && item.tags.some((t) => typeof t === "string" && /\bcampaigns?\b/i.test(t))) ev.push("tag");
   const title = String(item.title || "");
   if (/\bcampaigns?\b/i.test(title)) ev.push("title:campaign");
   else if (/\b(ransomware|malware|threat actor|apt|espionage|hacking|botnet)\s+operations?\b/i.test(title)) ev.push("title:operation");
-  // A named MITRE group says who, not that an operation exists (the pipeline
-  // attaches heuristic group labels even to policy news). It is recorded as
-  // supporting evidence only alongside a campaign/operation signal.
+  // Pipeline campaign links and MITRE group labels are keyword-inferred (live:
+  // CAMP-APT41Healthcare on CRM XSS CVEs, a Volt Typhoon label on a Senate
+  // bill). They say who/which cluster the pipeline guessed, not that an
+  // operation exists, so they are supporting evidence only, recorded next to
+  // an independent campaign/operation signal.
+  if (!ev.length) return ev;
+  for (const f of ["campaign_id", "campaign", "campaign_name"]) {
+    if (typeof item[f] === "string" && item[f].trim() && !_isPlaceholderLabel(item[f])) { ev.push(f); break; }
+  }
   const group = _namedGroup(item);
-  if (group && ev.length) ev.push("mitre_group:" + group);
+  if (group) ev.push("mitre_group:" + group);
   return ev;
 }
 
@@ -283,8 +298,9 @@ export function buildCampaignsPayload(items, nowIso) {
     active_campaign_count: campaigns.length,
     campaign_semantics: {
       version: CAMPAIGN_SEMANTICS_VERSION,
-      rule: "campaign id/type/tag, or 'campaign' / '<actor> operation' in the title. A named MITRE group is " +
-        "supporting evidence only. Severity, risk score, KEV status or an actor label alone never make a campaign.",
+      rule: "campaign threat_type or tag, or 'campaign' / '<actor> operation' in the title. Pipeline campaign ids/names " +
+        "and MITRE group labels are supporting evidence only. Severity, risk score, KEV status, a campaign id or an " +
+        "actor label alone never make a campaign.",
     },
     attack_tactics: block,
     generated_at: nowIso,
@@ -306,8 +322,12 @@ function _strings(v) {
 
 /**
  * Ransomware classification for one item. Structured fields first
- * (threat_type, tags, malware family, actor), then the title. The
- * description is never read: prose mentions are not evidence.
+ * (threat_type, tags, malware family), then the title. The description is
+ * never read: prose mentions are not evidence. Actor attribution labels are
+ * keyword-inferred by the pipeline (live: "LockBit Ransomware Group" on Ryuk
+ * sentencing news, Cl0p on a Linux kernel CVE): they never classify an item
+ * or name an active group, and are recorded as supporting evidence
+ * ("actor_label:<name>") only when independent evidence classified it.
  */
 export function classifyRansomware(item, groups) {
   if (!item || typeof item !== "object") return { ransomware: false, evidence: [], groups: [] };
@@ -317,10 +337,6 @@ export function classifyRansomware(item, groups) {
     ["threat_type", _strings(item.threat_type)],
     ["tags", _strings(item.tags)],
     ["malware", [..._strings(item.malware_family), ..._strings(item.actor_malware), ..._strings(item.malware)]],
-    // Placeholder attributions ("Unattributed Ransomware ...", CDB-UNATTR-*)
-    // are pipeline cluster labels, not evidence: skipped like campaignEvidence().
-    ["actor", [..._strings(item.actor), ..._strings(item.actor_tag), ..._strings(item.mitre_group_name)]
-      .filter((v) => !UNATTRIBUTED_RE.test(v.trim()) && !/unattr/i.test(v))],
   ];
   const scan = (label, values) => {
     for (const raw of values) {
@@ -333,6 +349,11 @@ export function classifyRansomware(item, groups) {
   };
   for (const [label, values] of structured) scan(label, values);
   scan("title", _strings(item.title));
+  if (evidence.length) {
+    // Supporting only: placeholders ("Unattributed LockBit cluster") are dropped.
+    const labels = [..._strings(item.actor), ..._strings(item.mitre_group_name)].filter((v) => !_isPlaceholderLabel(v));
+    for (const v of new Set(labels.map((x) => x.trim()))) evidence.push("actor_label:" + v);
+  }
   return { ransomware: evidence.length > 0, evidence: [...new Set(evidence)], groups: [...named] };
 }
 
@@ -361,8 +382,9 @@ export function buildRansomwarePayload(items, groups, nowIso) {
     monitor_status: "OPERATIONAL",
     classification: {
       version: RANSOMWARE_CLASSIFIER_VERSION,
-      method: "threat_type, tags, malware family and actor fields, then the title. Description text is not used. " +
-        "A group counts as active only when a current ransomware-classified item names it.",
+      method: "threat_type, tags and malware family fields, then the title. Description text is not used. Pipeline " +
+        "actor labels are supporting evidence only and never classify an item. A group counts as active only when " +
+        "one of those fields of a current ransomware-classified item names it.",
     },
     recent_advisories: hits.slice(0, 5).map(({ item, c }) => ({
       title: item.title, severity: item.severity, risk_score: item.risk_score, source: item.source,

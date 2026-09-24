@@ -62,12 +62,27 @@
   // validated. International VAT numbers vary too widely by country to
   // validate generically -- and this field is optional -- so anything
   // else non-empty is accepted as-is rather than blocking checkout.
-  var GSTIN_RE = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[A-Z0-9]{1}Z[A-Z0-9]{1}$/;
+  // Same rules as workers/intel-gateway/src/tax-id.js, which re-validates
+  // server-side: a GSTIN must also carry a valid mod-36 check character.
+  var GSTIN_RE = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[A-Z0-9]{1}$/;
+  var VAT_RE = /^[A-Z0-9][A-Z0-9 .\/-]{2,18}[A-Z0-9]$/;
+  var GST_CHARSET = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+  function gstinCheckChar(v) {
+    var sum = 0;
+    for (var i = 0; i < 14; i++) {
+      var n = GST_CHARSET.indexOf(v.charAt(i)) * (i % 2 ? 2 : 1);
+      sum += Math.floor(n / 36) + (n % 36);
+    }
+    return GST_CHARSET.charAt((36 - (sum % 36)) % 36);
+  }
   SentinelCheckout.validateTaxId = function (value) {
     var v = (value || '').trim().toUpperCase();
     if (!v) return { ok: true, value: '' };
-    if (v.length === 15 && !GSTIN_RE.test(v)) {
+    if (v.length === 15 && (!GSTIN_RE.test(v) || gstinCheckChar(v) !== v.charAt(14))) {
       return { ok: false, value: v, reason: "Doesn't look like a valid 15-character GSTIN. Double-check it, or leave this blank." };
+    }
+    if (v.length !== 15 && !VAT_RE.test(v)) {
+      return { ok: false, value: v, reason: "Tax id must be 4-20 letters or digits (spaces, '-', '.', '/' allowed), or left blank." };
     }
     return { ok: true, value: v };
   };
