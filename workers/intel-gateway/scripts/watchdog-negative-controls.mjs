@@ -29,6 +29,10 @@ const COPY = [
   "dashboard.html",
   "cyber-watchdog.html",
   "docs/CYBER_WATCHDOG_P3.md",
+  "workers/revenue-engine/src",
+  "MSSP_PARTNER_PROGRAM.md",
+  "mssp.html",
+  "docs/MSSP_TENANT_IDENTITY_V185.md",
 ];
 const T = (f) => "workers/intel-gateway/src/__tests__/" + f;
 
@@ -210,6 +214,108 @@ const CONTROLS = [
     find: "      ? { ...feedTruth.headers, \"Cache-Control\": \"private, no-store\" }",
     replace: "      ? { ...feedTruth.headers, \"Cache-Control\": \"public, max-age=120\" }",
     tests: [T("watchdog-e2e.test.js")],
+  },
+  // ---- MSSP tenant self-service (mssp-tenants.js) ----
+  {
+    id: "paid_mssp_key_provisioned_unrestricted",
+    file: "workers/intel-gateway/src/index.js",
+    find: "    ...(validTier === \"MSSP\" && managedTenants === undefined ? { managed_tenants: [], tenant_auth_version: TENANT_AUTH_VERSION } : {}),",
+    replace: "    ...(false ? {} : {}),",
+    tests: [T("mssp-tenants.test.js")],
+  },
+  {
+    id: "admin_mssp_key_created_unrestricted",
+    file: "workers/intel-gateway/src/index.js",
+    find: "      ...(tier === \"MSSP\" && managed_tenants === undefined ? { managed_tenants: [], tenant_auth_version: TENANT_AUTH_VERSION } : {}),",
+    replace: "      ...(false ? {} : {}),",
+    tests: [T("mssp-tenants.test.js")],
+  },
+  {
+    id: "tenant_owner_or_fields_taken_from_body",
+    edits: [
+      { file: "workers/intel-gateway/src/mssp-tenants.js", find: "      const owned = OWNER_FIELDS.find((f) => Object.prototype.hasOwnProperty.call(body, f));", replace: "      const owned = null;" },
+      { file: "workers/intel-gateway/src/mssp-tenants.js", find: "      const unknown = Object.keys(body).find((k) => !ALLOWED_CREATE_FIELDS.has(k));", replace: "      const unknown = null;" },
+    ],
+    tests: [T("mssp-tenants.test.js")],
+  },
+  {
+    id: "pro_key_can_create_tenants",
+    file: "workers/intel-gateway/src/mssp-tenants.js",
+    find: "  if (auth.tier !== \"MSSP\") {",
+    replace: "  if (auth.tier === \"FREE\") {",
+    tests: [T("mssp-tenants.test.js")],
+  },
+  {
+    id: "customer_a_reads_customer_b_tenants",
+    edits: [
+      { file: "workers/intel-gateway/src/index.js", find: "      const stub = ns.get(ns.idFromName(TENANT_DO_PREFIX + owner));", replace: "      const stub = ns.get(ns.idFromName(TENANT_DO_PREFIX + \"shared\"));" },
+      { file: "workers/intel-gateway/src/mssp-tenants.js", find: "  if (state.owner !== owner) return { error: \"not_found\", status: 404 };", replace: "  if (false) return null;" },
+    ],
+    tests: [T("mssp-tenants.test.js")],
+  },
+  {
+    id: "tenant_revoke_not_enforced",
+    file: "workers/intel-gateway/src/mssp-tenants.js",
+    find: "  return (state?.tenants || []).filter((t) => t.status === \"active\").map((t) => t.id);",
+    replace: "  return (state?.tenants || []).map((t) => t.id);",
+    tests: [T("mssp-tenants.test.js")],
+  },
+  {
+    id: "membership_store_failure_fails_open",
+    edits: [
+      { file: "workers/intel-gateway/src/index.js", find: "  let ids = [];\n  try {\n    const store = msspMembership(env, auth.sub);", replace: "  let ids = null;\n  try {\n    const store = msspMembership(env, auth.sub);" },
+      { file: "workers/intel-gateway/src/index.js", find: "  } catch (_) { ids = []; }\n  return { ...auth, managed_tenants: ids };", replace: "  } catch (_) { ids = null; }\n  return { ...auth, managed_tenants: ids };" },
+    ],
+    tests: [T("mssp-tenants.test.js")],
+  },
+  {
+    id: "watchdog_ignores_self_service_membership",
+    file: "workers/intel-gateway/src/index.js",
+    find: "    const watchdogAuth = requestSelectsTenant(path, request.headers, url.searchParams, auth) ? await resolveMsspMembership(env, auth) : auth;",
+    replace: "    const watchdogAuth = auth;",
+    tests: [T("mssp-tenants.test.js")],
+  },
+  {
+    id: "scheduler_keeps_revoked_tenant",
+    file: "workers/intel-gateway/src/index.js",
+    find: "          if (out.result.initialized && !out.result.active) return { denied: true };",
+    replace: "",
+    tests: [T("mssp-tenants.test.js")],
+  },
+  {
+    id: "gateway_rotation_loses_self_service_tenants",
+    file: "workers/intel-gateway/src/index.js",
+    find: "      existing.tenant_auth_version === TENANT_AUTH_VERSION ? TENANT_AUTH_VERSION : undefined\n    );",
+    replace: "      undefined\n    );",
+    tests: [T("mssp-tenants.test.js")],
+  },
+  {
+    id: "gateway_rotation_widens_legacy_or_corrupt",
+    file: "workers/intel-gateway/src/index.js",
+    find: "      existing.managed_tenants === undefined ? null : (Array.isArray(existing.managed_tenants) ? existing.managed_tenants : []),",
+    replace: "      Array.isArray(existing.managed_tenants) ? existing.managed_tenants : undefined,",
+    tests: [T("mssp-tenants.test.js")],
+  },
+  {
+    id: "revenue_engine_rotation_loses_tenants",
+    file: "workers/revenue-engine/src/index.js",
+    find: "      ...gatewayTenantFields(cust.tier, previous),",
+    replace: "      ...gatewayTenantFields(cust.tier, null),",
+    tests: ["../revenue-engine/src/__tests__/mssp-tenant-fields.test.js"],
+  },
+  {
+    id: "razorpay_verify_mssp_parity_broken",
+    file: "workers/intel-gateway/src/index.js",
+    find: "  }, billing === \"annual\" ? \"annual\" : \"monthly\");",
+    replace: "  }, billing === \"annual\" ? \"annual\" : \"monthly\", null);",
+    tests: [T("mssp-tenants.test.js")],
+  },
+  {
+    id: "gumroad_mssp_parity_broken",
+    file: "workers/intel-gateway/src/index.js",
+    find: "    sale_id, product_id, product_name, price, variants, subscription_id,\n  }, billingCycle);",
+    replace: "    sale_id, product_id, product_name, price, variants, subscription_id,\n  }, billingCycle, null);",
+    tests: [T("mssp-tenants.test.js")],
   },
 ];
 

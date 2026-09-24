@@ -611,9 +611,11 @@ jobs:
           B_KEY=$(echo "$B_JSON" | jq -r '.key // empty')
           [ -n "$B_KEY" ] && PROVISIONED_KEYS+=("$B_KEY")
 
+          # managed_tenants:null is now the explicit legacy opt-in: an MSSP key
+          # created without a list starts self-service with zero tenants.
           echo "--- Provisioning legacy MSSP key (no managed_tenants) ---"
           L_JSON=$(curl -sS -X POST "$BASE/api/admin/keys" -H "X-Admin-Key: $ADMIN_SECRET" -H "Content-Type: application/json" \
-            -d "{\"customer_id\":\"ci-mssp-legacy-$(date +%s)\",\"tier\":\"MSSP\",\"label\":\"CI tenant isolation legacy\",\"expires_in_days\":1}")
+            -d "{\"customer_id\":\"ci-mssp-legacy-$(date +%s)\",\"tier\":\"MSSP\",\"label\":\"CI tenant isolation legacy\",\"expires_in_days\":1,\"managed_tenants\":null}")
           L_KEY=$(echo "$L_JSON" | jq -r '.key // empty')
           [ -n "$L_KEY" ] && PROVISIONED_KEYS+=("$L_KEY")
 
@@ -659,6 +661,79 @@ jobs:
           fi
           echo ""
           echo "All MSSP tenant-isolation checks PASSED."
+
+  # ---------------------------------------------------------------------
+  # Phase 7b (live): MSSP self-service tenants (tenant_auth_version 2).
+  # ADMIN_SECRET is used only to issue and delete the two test keys, the
+  # way a payment would issue them. Every tenant call uses the customer's
+  # own key. No key, tenant id or name is printed.
+  # ---------------------------------------------------------------------
+  mssp-self-service-tenants:
+    name: "Phase 7b - MSSP Self-Service Tenant Lifecycle"
+    needs: secret-presence-gate
+    if: needs.secret-presence-gate.outputs.admin_secret_present == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      ADMIN_SECRET: ${{ secrets.ADMIN_SECRET }}
+    steps:
+      - name: "Create, isolate, use and revoke a tenant with the customer's own key"
+        run: |
+          set +x
+          set -eo pipefail
+          BASE="$WORKER_BASE"
+          FAIL=0
+          expect_status() {
+            if [ "$3" = "$2" ]; then echo "PASS: $1 (HTTP $3)"; else echo "FAIL: $1 -- expected HTTP $2, got $3"; FAIL=1; fi
+          }
+          KEYS=()
+          cleanup() {
+            local k
+            for k in "${KEYS[@]:-}"; do
+              [ -n "$k" ] && curl -sS -X DELETE "$BASE/api/admin/keys/$k" -H "X-Admin-Key: $ADMIN_SECRET" -o /dev/null || true
+            done
+          }
+          trap cleanup EXIT
+          mk() {
+            curl -sS -X POST "$BASE/api/admin/keys" -H "X-Admin-Key: $ADMIN_SECRET" -H "Content-Type: application/json" \
+              -d "{\"customer_id\":\"ci-mssp-ss-$1-$(date +%s)\",\"tier\":\"MSSP\",\"label\":\"CI self-service $1\",\"expires_in_days\":1}" | jq -r '.key // empty'
+          }
+          A=$(mk a); [ -n "$A" ] && KEYS+=("$A")
+          B=$(mk b); [ -n "$B" ] && KEYS+=("$B")
+          if [ -z "$A" ] || [ -z "$B" ]; then echo "FAIL: could not issue test MSSP keys"; exit 1; fi
+
+          ST=$(curl -sS -o /dev/null -w "%{http_code}" -H "X-API-Key: $A" "$BASE/api/mssp/tenants/anything/feed")
+          expect_status "new MSSP key has zero tenants (fail-closed, not unrestricted)" "403" "$ST"
+          ST=$(curl -sS -o /dev/null -w "%{http_code}" -X POST -H "X-API-Key: $A" -H "Content-Type: application/json" \
+            -d '{"name":"CI tenant","customer_id":"someone-else"}' "$BASE/api/mssp/tenants")
+          expect_status "owner fields in the body are rejected" "400" "$ST"
+
+          OUT=$(curl -sS -w "\n%{http_code}" -X POST -H "X-API-Key: $A" -H "Content-Type: application/json" -d '{"name":"CI tenant"}' "$BASE/api/mssp/tenants")
+          expect_status "customer creates a tenant with its own key" "201" "$(echo "$OUT" | tail -1)"
+          T=$(echo "$OUT" | head -n -1 | jq -r '.tenant.tenant_id // empty')
+          if [ -z "$T" ]; then echo "FAIL: no tenant_id returned"; exit 1; fi
+
+          ST=$(curl -sS -o /dev/null -w "%{http_code}" -H "X-API-Key: $A" "$BASE/api/mssp/tenants/$T/feed")
+          expect_status "owner reads its tenant feed" "200" "$ST"
+          ST=$(curl -sS -o /dev/null -w "%{http_code}" -H "X-API-Key: $A" -H "X-CDB-Watchdog-Tenant: $T" "$BASE/api/watchdog/watches")
+          expect_status "Cyber Watchdog recognizes the tenant" "200" "$ST"
+          ST=$(curl -sS -o /dev/null -w "%{http_code}" -H "X-API-Key: $B" "$BASE/api/mssp/tenants/$T/feed")
+          expect_status "another MSSP customer cannot read it" "403" "$ST"
+          ST=$(curl -sS -o /dev/null -w "%{http_code}" -H "X-API-Key: $B" "$BASE/api/mssp/tenants/$T")
+          expect_status "another MSSP customer cannot see it" "404" "$ST"
+          ST=$(curl -sS -o /dev/null -w "%{http_code}" -X DELETE -H "X-API-Key: $B" "$BASE/api/mssp/tenants/$T")
+          expect_status "another MSSP customer cannot revoke it" "404" "$ST"
+
+          ST=$(curl -sS -o /dev/null -w "%{http_code}" -X DELETE -H "X-API-Key: $A" "$BASE/api/mssp/tenants/$T")
+          expect_status "owner revokes the tenant" "200" "$ST"
+          ST=$(curl -sS -o /dev/null -w "%{http_code}" -H "X-API-Key: $A" "$BASE/api/mssp/tenants/$T/feed")
+          expect_status "revoked tenant feed denied immediately" "403" "$ST"
+          ST=$(curl -sS -o /dev/null -w "%{http_code}" -H "X-API-Key: $A" -H "X-CDB-Watchdog-Tenant: $T" "$BASE/api/watchdog/watches")
+          expect_status "revoked tenant Watchdog access denied immediately" "403" "$ST"
+
+          cleanup; KEYS=()
+          if [ "$FAIL" -ne 0 ]; then echo "One or more MSSP self-service checks FAILED."; exit 1; fi
+          echo "All MSSP self-service tenant checks PASSED."
 
   # ---------------------------------------------------------------------
   # Phase 8 (partial, deliberately conservative): live boundary check for
@@ -757,7 +832,7 @@ jobs:
 
   summary:
     name: "Certification Summary"
-    needs: [secret-presence-gate, static-checks, authenticated-customer-ops-tests, expiry-shadow-validation, lifecycle-state-matrix, mssp-tenant-isolation, rate-limit-boundary]
+    needs: [secret-presence-gate, static-checks, authenticated-customer-ops-tests, expiry-shadow-validation, lifecycle-state-matrix, mssp-tenant-isolation, mssp-self-service-tenants, rate-limit-boundary]
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 2
@@ -770,6 +845,7 @@ jobs:
           echo "expiry-shadow-validation: ${{ needs.expiry-shadow-validation.result }}"
           echo "lifecycle-state-matrix: ${{ needs.lifecycle-state-matrix.result }}"
           echo "mssp-tenant-isolation: ${{ needs.mssp-tenant-isolation.result }}"
+          echo "mssp-self-service-tenants: ${{ needs.mssp-self-service-tenants.result }}"
           echo "rate-limit-boundary: ${{ needs.rate-limit-boundary.result }}"
           if [ "${{ needs.secret-presence-gate.outputs.admin_secret_present }}" != "true" ]; then
             echo "Authenticated phases: BLOCKED_BY_SECRET (ADMIN_SECRET not configured as a GitHub Actions secret -- see this workflow file's header comment for setup)"

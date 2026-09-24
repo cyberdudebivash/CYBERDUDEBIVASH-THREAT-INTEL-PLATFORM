@@ -1321,6 +1321,8 @@ export function buildSessionClaims(auth, nowSec, jti, tenant) {
   };
   if (tenant) claims.tenant = tenant;
   if (Array.isArray(auth.managed_tenants)) claims.managed_tenants = auth.managed_tenants.slice(0, 100);
+  // Self-service MSSP keys: membership is re-resolved on every tenant request.
+  if (auth.tenant_auth_version === 2) claims.tenant_auth_version = 2;
   // Entitlement expiry of the underlying key (not the token's own exp), so
   // the scheduler never confuses a 15-minute session with the subscription.
   const ent = entitlementExpiry(auth);

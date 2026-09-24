@@ -48,6 +48,12 @@ on:
       - 'deploy/cyber-watchdog/**'
       - 'index.html'
       - 'cyber-watchdog.html'
+      # MSSP tenant self-service: the suite checks these docs against the
+      # live routes, and a negative control mutates revenue-engine rotation.
+      - 'MSSP_PARTNER_PROGRAM.md'
+      - 'mssp.html'
+      - 'docs/MSSP_TENANT_IDENTITY_V185.md'
+      - 'workers/revenue-engine/src/**'
   pull_request:
     branches: [main]
     paths:
@@ -61,6 +67,12 @@ on:
       - 'deploy/cyber-watchdog/**'
       - 'index.html'
       - 'cyber-watchdog.html'
+      # MSSP tenant self-service: the suite checks these docs against the
+      # live routes, and a negative control mutates revenue-engine rotation.
+      - 'MSSP_PARTNER_PROGRAM.md'
+      - 'mssp.html'
+      - 'docs/MSSP_TENANT_IDENTITY_V185.md'
+      - 'workers/revenue-engine/src/**'
   workflow_dispatch: {}
 
 permissions:
@@ -168,6 +180,8 @@ jobs:
             # P0 Phase 3A/3E: rollback canary + single freshness authority
             # (self-contained; HTTP is never called).
             tests/test_post_rollback_canary.py
+            # Pinned-clock boundary/parity across every health consumer.
+            tests/test_health_consumer_clock_parity.py
             tests/test_orchestrator_freshness_single_authority.py
             # P0 Phase 6: stale-quota guard derives from the commercial contract.
             tests/test_enterprise_pricing.py
@@ -190,6 +204,7 @@ jobs:
                "tests/test_public_feed_freshness_gate.py",
                "tests/test_deployment_health_contract.py",
                "tests/test_post_rollback_canary.py",
+               "tests/test_health_consumer_clock_parity.py",
                "tests/test_orchestrator_freshness_single_authority.py",
                "tests/test_enterprise_pricing.py",
                "tests/test_feed_contract_validator_bounded_preview.py",
@@ -207,3 +222,9 @@ jobs:
 
       - name: "Regression suite (regression_tests.py)"
         run: python3 scripts/regression_tests.py
+
+      # Mutation proof for the pinned-clock fix: restoring the wall clock in
+      # either canary helper, widening the 6h threshold, or making the
+      # boundary exclusive must turn the health suites red.
+      - name: "Health clock negative controls"
+        run: python3 scripts/health_clock_negative_controls.py

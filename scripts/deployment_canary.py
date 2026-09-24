@@ -67,8 +67,14 @@ def _fetch(url: str, timeout: int, token: Optional[str] = None) -> Tuple[int, st
         return 0, str(exc)
 
 
-def canary_a_health(base: str, timeout: int) -> Dict:
-    """CANARY A: API health endpoint."""
+def canary_a_health(base: str, timeout: int, now=None) -> Dict:
+    """CANARY A: API health endpoint.
+
+    `now` is the evaluation clock passed to the canonical health contract.
+    Production callers omit it (real current time); tests pin it so a fixture
+    that is fresh relative to its own clock cannot turn stale as the calendar
+    moves. The six-hour freshness contract itself is unchanged.
+    """
     url = "%s/api/health" % base
     t0 = time.monotonic()
     # fetch_json keeps the body of a 503 (the shared _fetch() drops it).
@@ -94,7 +100,7 @@ def canary_a_health(base: str, timeout: int) -> Dict:
     # 5xx, contradictions and exposed secrets still fail.
     health_body = health[1] if isinstance(health[1], dict) else {}
     live = _deploy_health.fetch_json("%s/api/health/live" % base, timeout)
-    ev = _deploy_health.evaluate_deployment(live, health)
+    ev = _deploy_health.evaluate_deployment(live, health, now=now)
     result["pass"] = ev["deployment_operational"]
     result["intelligence_state"] = ev["customer_intelligence_state"]
     if ev["deployment_operational"]:

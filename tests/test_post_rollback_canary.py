@@ -21,7 +21,7 @@ sys.path.insert(0, str(REPO / "tests"))
 
 import post_rollback_canary as prc  # noqa: E402
 from test_deployment_health_contract import (  # noqa: E402
-    HEALTH_FRESH, HEALTH_STALE, HEALTH_UNAVAILABLE, LIVE_OK, _freeze_freshness_clock,
+    HEALTH_FRESH, HEALTH_STALE, HEALTH_UNAVAILABLE, LIVE_OK, NOW, _freeze_freshness_clock,
 )
 
 WF = REPO / ".github" / "workflows" / "enterprise-rollback-governance.yml"
@@ -47,24 +47,24 @@ def test_gateway_does_not_route_bare_api_v1_health():
 def test_good_rollback_passes_in_every_valid_intelligence_state(health, monkeypatch):
     # A rollback restores Worker code; it cannot make a stale feed fresh.
     _freeze_freshness_clock(monkeypatch)
-    r = prc.evaluate(LIVE_OK, health, 200, 200)
+    r = prc.evaluate(LIVE_OK, health, 200, 200, now=NOW)
     assert r["passed"] == 4 and r["canary_pass"], r["probes"]
 
 
 def test_malformed_health_body_is_a_failed_probe():
-    r = prc.evaluate(LIVE_OK, HTML_502, 200, 200)
+    r = prc.evaluate(LIVE_OK, HTML_502, 200, 200, now=NOW)
     assert r["passed"] == 3
     assert not r["canary_pass"], "3/4 must stay below the unchanged 80% threshold"
 
 
 def test_dead_worker_fails_the_canary():
-    r = prc.evaluate(LIVE_404, HTML_502, 200, 200)
+    r = prc.evaluate(LIVE_404, HTML_502, 200, 200, now=NOW)
     assert r["passed"] == 2 and not r["canary_pass"]
 
 
 def test_feed_or_dashboard_down_fails_the_canary():
-    assert not prc.evaluate(LIVE_OK, HEALTH_STALE, 200, 500)["canary_pass"]
-    assert not prc.evaluate(LIVE_OK, HEALTH_STALE, None, 200)["canary_pass"]
+    assert not prc.evaluate(LIVE_OK, HEALTH_STALE, 200, 500, now=NOW)["canary_pass"]
+    assert not prc.evaluate(LIVE_OK, HEALTH_STALE, None, 200, now=NOW)["canary_pass"]
 
 
 def test_negative_control_old_probe_set_could_never_pass():

@@ -48,10 +48,14 @@ def _http_status(url: str, timeout: float) -> tuple[int | None, str | None]:
         return None, f"{type(e).__name__}: {e}"
 
 
-def evaluate(live, health, dashboard_status, feed_status) -> dict:
-    """live/health are (status, body, err) triples; the others HTTP statuses."""
+def evaluate(live, health, dashboard_status, feed_status, now=None) -> dict:
+    """live/health are (status, body, err) triples; the others HTTP statuses.
+
+    `now` is the evaluation clock for the canonical health contract; main()
+    omits it (real current time), tests pin it.
+    """
     lv = dhc.evaluate_liveness(*live)
-    hv = dhc.evaluate_health(*health, expected_version=lv["version"] if lv["alive"] else None)
+    hv = dhc.evaluate_health(*health, now=now, expected_version=lv["version"] if lv["alive"] else None)
     probes = [
         ("API Health (liveness)", lv["alive"], "; ".join(lv["failures"]) or "alive"),
         ("API Health (contract)", hv["valid"],
