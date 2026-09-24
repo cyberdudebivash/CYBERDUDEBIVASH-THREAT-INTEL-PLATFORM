@@ -1,6 +1,7 @@
 /**
- * P0 checkout (2026-09-24): the buyer's GSTIN/VAT number reaches the
- * Razorpay order.
+ * P0 checkout (2026-09-24): buyer GSTIN/VAT validation at create-order, and
+ * (owner commercial policy, same day) recurring plans never become one-time
+ * Razorpay Orders.
  *
  * upgrade.html has always posted `gstin` to POST
  * /api/payment/razorpay/create-order, but the handler dropped it, so no
@@ -88,26 +89,6 @@ test("normalizeBuyerTaxId: empty is fine, GSTIN checked, VAT charset bounded", (
   assert.equal(normalizeBuyerTaxId({ gstin: "x" }).ok, false, "non-string input");
 });
 
-test("create-order records a valid buyer GSTIN in the Razorpay order notes", async () => {
-  const { createOrder, orders } = harness();
-  const { res, body } = await createOrder({ tier: "PRO", email: "buyer@example.com", billing: "monthly", gstin: "21arkpn8270g1zp" });
-  assert.equal(res.status, 200, JSON.stringify(body));
-  assert.equal(body.order_id, "order_T1");
-  assert.equal(orders.length, 1);
-  assert.equal(orders[0].notes.gstin, "21ARKPN8270G1ZP");
-  assert.equal(orders[0].notes.tier, "PRO");
-  assert.equal(orders[0].currency, "INR");
-  assert.ok(!("vat_id" in orders[0].notes));
-});
-
-test("create-order records a foreign VAT number as vat_id", async () => {
-  const { createOrder, orders } = harness();
-  const { res } = await createOrder({ tier: "PRO", email: "buyer@example.com", gstin: "DE123456789" });
-  assert.equal(res.status, 200);
-  assert.equal(orders[0].notes.vat_id, "DE123456789");
-  assert.ok(!("gstin" in orders[0].notes));
-});
-
 test("create-order refuses an invalid GSTIN before calling Razorpay", async () => {
   const { createOrder, orders } = harness();
   const { res, body } = await createOrder({ tier: "PRO", email: "buyer@example.com", gstin: "22AAAAA0000A1Z5" });
@@ -117,10 +98,16 @@ test("create-order refuses an invalid GSTIN before calling Razorpay", async () =
   assert.equal(orders.length, 0, "no Razorpay order may be created");
 });
 
-test("create-order without a tax id is unchanged (no tax keys in notes)", async () => {
-  const { createOrder, orders } = harness();
-  const { res } = await createOrder({ tier: "ENTERPRISE", email: "buyer@example.com", billing: "annual" });
-  assert.equal(res.status, 200);
-  assert.deepEqual(Object.keys(orders[0].notes).sort(), ["billing", "email", "platform", "tier"]);
-  assert.equal(orders[0].amount, 41600000);
-});
+// Owner commercial policy (2026-09-24): recurring plans are sold only as
+// Razorpay Subscriptions; a one-time Order is never created for them.
+for (const tier of ["PRO", "ENTERPRISE", "MSSP"]) {
+  for (const billing of ["monthly", "annual"]) {
+    test(`create-order refuses recurring ${tier} ${billing} with 409 subscription_required`, async () => {
+      const { createOrder, orders } = harness();
+      const { res, body } = await createOrder({ tier, email: "buyer@example.com", billing, gstin: "21ARKPN8270G1ZP" });
+      assert.equal(res.status, 409);
+      assert.equal(body.error, "subscription_required");
+      assert.equal(orders.length, 0, "no one-time Razorpay order may be created for a recurring plan");
+    });
+  }
+}
