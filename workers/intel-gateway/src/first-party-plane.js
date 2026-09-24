@@ -155,6 +155,10 @@ export const FIRST_PARTY_READ_PATHS = Object.freeze(new Set([
   "/api/reports/stats.json",
   // --- capability discovery (js/capability-discovery.js) ---
   "/api/capabilities",
+  // Cyber Watchdog public read. Anonymous brief is redacted. A credentialed
+  // caller is not on this plane (isFirstPartyRead requires no credential).
+  "/api/watchdog/offer",
+  "/api/watchdog/brief",
 ]));
 
 /**

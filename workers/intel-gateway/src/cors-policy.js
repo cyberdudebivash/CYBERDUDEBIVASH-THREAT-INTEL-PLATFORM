@@ -191,6 +191,10 @@ const PUBLIC_EXACT_PATHS = new Set([
   "/api/v1/p41/capabilities",
   "/api/v1/p41/capability",
   "/api/v1/p41/observability",
+  // Cyber Watchdog commercial offer. Identical for every caller. The brief
+  // route is intentionally absent: it redacts by tier, so it must not be
+  // edge-cached as a public wildcard response.
+  "/api/watchdog/offer",
 ]);
 
 // Bare TAXII 2.1 server-discovery root only -- per index.js's own comment
