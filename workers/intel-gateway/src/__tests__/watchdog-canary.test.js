@@ -11,7 +11,7 @@ import { fileURLToPath } from "node:url";
 
 import { ENT_KEY, FEED_ITEMS, MSSP_KEY, PRO_KEY, harness } from "./watchdog-harness.js";
 import {
-  pickUnambiguousCriterion, runAutonomousCanary, runEnterpriseCanary, runMsspCanary, runProCanary,
+  pickUnambiguousCriterion, runAutonomousCanary, runEnterpriseCanary, runMsspCanary, runMsspSelfServiceCanary, runProCanary,
 } from "../../../../deploy/cyber-watchdog/canary-lib.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -93,4 +93,43 @@ test("canary CLI reports operator blockers instead of passing", () => {
   const mssp = run("mssp");
   assert.equal(mssp.status, 12);
   assert.match(mssp.stdout, /OPERATOR_MSSP_FIXTURE_REQUIRED/);
+});
+
+const V2_MSSP = "cdb_mssp_canary_v2_0123456789abcdef01234567";
+
+function v2Harness() {
+  const h = harness();
+  h.env.API_KEYS_KV.map.set(V2_MSSP, JSON.stringify({ tier: "MSSP", customer_id: "cust_canary_v2", status: "active", managed_tenants: [], tenant_auth_version: 2 }));
+  return h;
+}
+
+test("MSSP self-service canary: customer-created tenants, isolation, immediate revocation, no ids leaked", async () => {
+  const h = v2Harness();
+  const logs = [];
+  const ev = await runMsspSelfServiceCanary({ http: bind(h), key: V2_MSSP, runId: "t5", feedItems: FEED_ITEMS, log: (s, d) => logs.push(JSON.stringify({ s, d })) });
+  assert.equal(ev.result, "PASS");
+  assert.equal(ev.isolation.result, "PASS");
+  assert.ok(ev.isolation.cross_tenant_probes.length >= 6);
+  for (const s of ["list_initially_empty", "server_generated_ids", "revoke_b", "b_feed_denied", "b_watchdog_denied", "b_old_session_denied", "b_new_session_denied", "a_still_operational"]) {
+    assert.ok(ev.checks.some((c) => c.step === s), s);
+  }
+  const out = JSON.stringify(ev) + logs.join("");
+  assert.doesNotMatch(out, /tn_[0-9a-f]{20}/, "tenant ids never in evidence");
+  assert.doesNotMatch(out, new RegExp(V2_MSSP));
+  // Tenant A is left active for the caller's rotation check.
+  const list = await h.call("GET", "/api/mssp/tenants", { key: V2_MSSP });
+  assert.equal(list.body.active_count, 1);
+});
+
+test("MSSP self-service canary fails when a revocation does not take effect", async () => {
+  const h = v2Harness();
+  // A gateway that ignored revocation would keep answering 200 for B.
+  const http = bind(h);
+  let revoked = false;
+  const lying = async (m, p, o) => {
+    if (m === "DELETE" && p.startsWith("/api/mssp/tenants/")) { revoked = true; return { status: 200, body: { tenant: { status: "revoked" } } }; }
+    return http(m, p, o);
+  };
+  await assert.rejects(runMsspSelfServiceCanary({ http: lying, key: V2_MSSP, runId: "t6", feedItems: FEED_ITEMS }));
+  assert.equal(revoked, true);
 });

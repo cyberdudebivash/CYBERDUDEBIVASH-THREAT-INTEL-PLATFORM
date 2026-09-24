@@ -2,13 +2,15 @@
 /**
  * CYBERDUDEBIVASH SENTINEL APEX CYBER WATCHDOG -- live production canary.
  *
- *   node deploy/cyber-watchdog/canary.mjs pro|autonomous|enterprise|mssp
+ *   node deploy/cyber-watchdog/canary.mjs pro|autonomous|enterprise|mssp|mssp-self-service
  *
  * Credentials come ONLY from the environment (never argv, never URLs):
  *   CDB_WATCHDOG_CANARY_PRO_KEY     sanctioned PRO canary key
  *   CDB_WATCHDOG_CANARY_ENT_KEY     sanctioned ENTERPRISE canary key
  *   CDB_WATCHDOG_CANARY_MSSP_KEY    sanctioned MSSP key whose managed_tenants
- *                                   include CANARY-A and CANARY-B
+ *                                   include CANARY-A and CANARY-B (mode mssp),
+ *                                   or a freshly issued self-service MSSP key
+ *                                   with no tenants (mode mssp-self-service)
  *   CDB_WATCHDOG_SINK_URL           owner-controlled HTTPS receiver (sink.mjs)
  *   CDB_WATCHDOG_SINK_INSPECT_URL   that receiver's /__inspect endpoint
  *   CDB_WATCHDOG_SINK_TOKEN         bearer token for /__inspect
@@ -24,7 +26,7 @@
  * Output is JSON evidence on stdout. Keys, tokens and signing secrets are
  * never printed. An internal canary key is not revenue.
  */
-import { runAutonomousCanary, runEnterpriseCanary, runMsspCanary, runProCanary } from "./canary-lib.mjs";
+import { runAutonomousCanary, runEnterpriseCanary, runMsspCanary, runMsspSelfServiceCanary, runProCanary } from "./canary-lib.mjs";
 
 const mode = process.argv[2] || "pro";
 const base = (process.env.CDB_WATCHDOG_BASE || "https://intel.cyberdudebivash.com").replace(/\/$/, "");
@@ -98,7 +100,14 @@ try {
     const evidence = await runMsspCanary({ http, key, runId, feedItems: feed.items, log });
     out({ result: evidence.result, feed_generated_at: feed.generated_at, evidence }, evidence.result === "PASS" ? 0 : 1);
   }
-  out({ result: "USAGE", usage: "canary.mjs pro|autonomous|enterprise|mssp" }, 2);
+  if (mode === "mssp-self-service") {
+    const key = process.env.CDB_WATCHDOG_CANARY_MSSP_KEY;
+    if (!key) out({ result: "OPERATOR_CREDENTIAL_REQUIRED", needs: "CDB_WATCHDOG_CANARY_MSSP_KEY: a freshly issued MSSP key (managed_tenants: [], tenant_auth_version 2)" }, 10);
+    const feed = await feedItems(key);
+    const evidence = await runMsspSelfServiceCanary({ http, key, runId, feedItems: feed.items, log });
+    out({ result: evidence.result, feed_generated_at: feed.generated_at, evidence }, evidence.result === "PASS" ? 0 : 1);
+  }
+  out({ result: "USAGE", usage: "canary.mjs pro|autonomous|enterprise|mssp|mssp-self-service" }, 2);
 } catch (err) {
   out({ result: "FAIL", step: err && err.step, error: String(err && err.message || err).slice(0, 300) }, 1);
 }
