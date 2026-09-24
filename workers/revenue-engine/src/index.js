@@ -68,8 +68,12 @@ async function routeRevenueRequest(request, env, ctx, rid, url, path, method) {
       // ── Public lead/trial endpoints ────────────────────────────────────────
       if (path === "/api/leads/capture" && method === "POST")
         return await handleLeadCapture(request, env, rid);
+      // DEPRECATED 2026-09-24: free trial discontinued (commercial-contract.json
+      // "No free trial"). Route kept, answers 410 Gone with the replacement;
+      // handleTrialRequest() is unrouted, not deleted. Already-issued trial
+      // keys and their nudge emails run out on their own expiry.
       if (path === "/api/leads/trial"   && method === "POST")
-        return await handleTrialRequest(request, env, rid);
+        return json(TRIAL_DISCONTINUED_BODY, 410);
       if (path === "/api/demo/request"  && method === "POST")
         return await handleDemoRequest(request, env, rid);
       if (path === "/api/demo/live"     && method === "GET")
@@ -232,12 +236,28 @@ async function handleLeadCapture(request, env, rid) {
     status:    "captured",
     lead_id:   leadId,
     score:     lead.score,
-    trial_url: "https://intel.cyberdudebivash.com/trial",
-    message:   "Access granted. Full intel unlocked. Check your email.",
+    upgrade_url: "https://intel.cyberdudebivash.com/upgrade.html?plan=pro",
+    // DEPRECATED 2026-09-24 (remove after the next major release): kept for
+    // response-shape compatibility only. /trial never existed (404) and the
+    // contract offers no free trial, so it now points at the pricing page.
+    trial_url: "https://intel.cyberdudebivash.com/pricing.html",
+    message:   "Thanks, you're on the list. Check your email.",
     request_id: rid,
   });
 }
 
+// Mirrors TRIAL_DISCONTINUED_BODY in intel-gateway/src/revenue-enforcement.js
+// (separate Worker bundle, so it cannot import it).
+const TRIAL_DISCONTINUED_BODY = Object.freeze({
+  error:       "trial_discontinued",
+  message:     "Sentinel APEX does not offer a free trial. The Free tier is available without payment, and paid plans activate immediately after checkout.",
+  free_tier:   "https://intel.cyberdudebivash.com/pricing.html",
+  pricing_url: "https://intel.cyberdudebivash.com/pricing.html",
+  upgrade_url: "https://intel.cyberdudebivash.com/upgrade.html?plan=pro",
+  deprecated:  "2026-09-24",
+});
+
+// DEPRECATED 2026-09-24: unrouted (see /api/leads/trial above).
 async function handleTrialRequest(request, env, rid) {
   let body;
   try { body = await request.json(); } catch { return json({ error: "invalid_json" }, 400); }
@@ -511,14 +531,19 @@ async function handleLiveDemoEndpoint(request, env, rid) {
     version:      "183.0",
     demo_features: ["Real-time threat intelligence", "AI-powered IOC extraction", "STIX 2.1 export", "SIEM integration", "Actor attribution"],
     sample_threats: threatData,
+    // P0 2026-09-24: derived from TIERS/commercial-contract.json. Previously
+    // claimed unlimited_api (forbidden claim; ENTERPRISE is capped),
+    // white_label:true (MSSP-only in the contract) and a "Dedicated security
+    // engineer" (contract: email and chat support, 4h response).
     enterprise_benefits: {
-      unlimited_api:      true,
+      requests_per_day:   TIERS.ENTERPRISE.req_day,
+      requests_per_minute: TIERS.ENTERPRISE.req_min,
       siem_push:          true,
       stix_bundles:       true,
-      dedicated_sla:      "99.9% uptime",
-      support:            "Dedicated security engineer",
+      uptime_sla:         "99.9%",
+      support:            "Email and chat support, 4h response",
       custom_feeds:       true,
-      white_label:        true,
+      white_label:        false,
       onprem_option:      "Contact sales",
     },
     upgrade_url:   "https://intel.cyberdudebivash.com/upgrade?plan=enterprise",
@@ -1137,7 +1162,7 @@ function getEmailTemplate(name, vars) {
     "cold_enterprise_fu1": {
       subject: `Re: Threat intelligence for ${T.company || "your team"}`,
       html: `<p>Just following up on my previous message.</p>
-<p>Last week, we detected <strong>3 critical CVEs</strong> actively exploited in the wild — including one targeting enterprise cloud infrastructure.</p>
+<p>Every item in the live feed at <a href="https://intel.cyberdudebivash.com/api/feed.json">intel.cyberdudebivash.com/api/feed.json</a> links to its public source, so you can check exactly what we are tracking right now.</p>
 <p>Our Enterprise tier delivers these alerts to your SIEM within minutes of confirmation.</p>
 <p>15 minutes this week? <a href="https://intel.cyberdudebivash.com/demo">Book here →</a></p>
 <p>— Bivash</p>`,
@@ -1152,8 +1177,8 @@ function getEmailTemplate(name, vars) {
 <li>✅ Actor fingerprinting with kill chain mapping</li>
 <li>✅ Real-time alert webhooks</li>
 </ul>
-<p>Enterprise starts at ₹${ENGINE.DEAL_VALUES_INR.enterprise_monthly.toLocaleString('en-IN')}/month. ROI: one prevented incident pays for years of coverage.</p>
-<p><a href="https://intel.cyberdudebivash.com/upgrade?plan=enterprise">Start Enterprise trial →</a></p>`,
+<p>Enterprise is ₹${ENGINE.DEAL_VALUES_INR.enterprise_monthly.toLocaleString('en-IN')}/month.</p>
+<p><a href="https://intel.cyberdudebivash.com/upgrade.html?plan=enterprise">Start Enterprise →</a></p>`,
     },
     "cold_enterprise_fu2": {
       subject: `Last check-in — threat intel for ${T.company || "your team"}`,
@@ -1175,21 +1200,23 @@ function getEmailTemplate(name, vars) {
 <p>You now have access to our real-time threat intelligence platform.</p>
 <p><strong>What you can do right now (free tier):</strong></p>
 <ul><li>Browse the latest 20 threat reports</li><li>See AI-generated risk scores</li><li>Preview IOC counts</li></ul>
-<p><strong>Upgrade to Pro</strong> to unlock full IOC arrays, AI kill chain analysis, and 5,000 API calls/day.</p>
-<p><a href="https://intel.cyberdudebivash.com/trial">Start 7-day Pro trial (no card needed) →</a></p>`,
+<p><strong>Upgrade to Pro</strong> (₹${ENGINE.DEAL_VALUES_INR.pro_monthly.toLocaleString('en-IN')}/month) to unlock full IOC arrays, AI kill chain analysis, and ${TIERS.PRO.req_day.toLocaleString('en-US')} API calls/day.</p>
+<p><a href="https://intel.cyberdudebivash.com/upgrade.html?plan=pro">Start Pro →</a></p>`,
     },
     "lead_value_d2": {
-      subject: "3 threats detected in the last 24h — your sector",
-      html: `<p>Since you signed up, our platform detected <strong>new active threats</strong> across enterprise cloud infrastructure.</p>
+      subject: "What Pro adds to the live Sentinel APEX feed",
+      html: `<p>The public feed at <a href="https://intel.cyberdudebivash.com">intel.cyberdudebivash.com</a> is updated by the publishing pipeline; every item links to its source.</p>
 <p>On the free tier, you can see the threat titles. On Pro, you get:</p>
 <ul><li>Full IOC arrays to block immediately</li><li>Actor attribution</li><li>STIX export for your SIEM</li></ul>
-<p><a href="https://intel.cyberdudebivash.com/trial">Unlock full intel — 7-day free trial →</a></p>`,
+<p><a href="https://intel.cyberdudebivash.com/upgrade.html?plan=pro">Unlock full intel with Pro — ₹${ENGINE.DEAL_VALUES_INR.pro_monthly.toLocaleString('en-IN')}/mo →</a></p>`,
     },
     "lead_trial_offer": {
-      subject: "Last chance: 7-day Pro trial — no credit card",
-      html: `<p>Your free trial offer expires in 24 hours.</p>
-<p>Activate now to get full IOC access, AI analysis, and SIEM integration for 7 days — free.</p>
-<p><a href="https://intel.cyberdudebivash.com/trial">Activate Trial Now →</a></p>`,
+      // Template key kept for the lead_nurture sequence; the copy no longer
+      // offers a trial (commercial-contract.json: "No free trial").
+      subject: "Sentinel APEX Pro — full IOC access for your SOC",
+      html: `<p>Pro gives your team full IOC arrays, AI analysis and STIX export, with ${TIERS.PRO.req_day.toLocaleString('en-US')} API calls/day.</p>
+<p>₹${ENGINE.DEAL_VALUES_INR.pro_monthly.toLocaleString('en-IN')}/month, cancel any time; access runs to the end of the paid period.</p>
+<p><a href="https://intel.cyberdudebivash.com/upgrade.html?plan=pro">Start Pro →</a></p>`,
     },
     "trial_welcome": {
       subject: "Your 7-day Pro trial is active — API key inside",
@@ -1200,14 +1227,14 @@ function getEmailTemplate(name, vars) {
 <p><strong>Quick start:</strong></p>
 <pre>curl -H "X-Api-Key: ${T.api_key || "YOUR_KEY"}" https://intel.cyberdudebivash.com/api/feed</pre>
 <p><a href="https://intel.cyberdudebivash.com/docs">Full API docs →</a></p>
-<p>To keep full access after your trial: <a href="https://intel.cyberdudebivash.com/upgrade?plan=pro">Upgrade to Pro (₹2,499/mo) →</a></p>`,
+<p>To keep full access after your trial: <a href="https://intel.cyberdudebivash.com/upgrade.html?plan=pro">Upgrade to Pro (₹${ENGINE.DEAL_VALUES_INR.pro_monthly.toLocaleString('en-IN')}/mo) →</a></p>`,
     },
     "trial_nudge_d3": {
       subject: "4 days left on your Pro trial — here's what you've unlocked",
       html: `<p>Hi ${T.name || "there"},</p>
 <p>You're halfway through your Pro trial. Here's a quick reminder of what you now have access to:</p>
-<ul><li>✅ Full IOC arrays on every threat</li><li>✅ AI kill chain analysis</li><li>✅ Actor fingerprinting</li><li>✅ 5,000 API calls/day</li></ul>
-<p>Don't lose this access. Lock it in at ₹2,499/month.</p>
+<ul><li>✅ Full IOC arrays on every threat</li><li>✅ AI kill chain analysis</li><li>✅ Actor fingerprinting</li><li>✅ ${TIERS.PRO.req_day.toLocaleString('en-US')} API calls/day</li></ul>
+<p>Keep this access with Pro at ₹${ENGINE.DEAL_VALUES_INR.pro_monthly.toLocaleString('en-IN')}/month.</p>
 <p><a href="https://intel.cyberdudebivash.com/upgrade?plan=pro">Upgrade Now →</a></p>`,
     },
     "trial_expiry_d1": {
@@ -1216,33 +1243,33 @@ function getEmailTemplate(name, vars) {
 <p>Your 7-day Pro trial expires <strong>tomorrow</strong>.</p>
 <p>After expiry, your API key will revert to free tier — IOC arrays and AI analysis will be locked.</p>
 <p><strong>Upgrade now to maintain full access:</strong></p>
-<p><a href="https://intel.cyberdudebivash.com/upgrade?plan=pro" style="background:#00d4aa;color:#000;padding:12px 24px;text-decoration:none;border-radius:6px;font-weight:bold;display:inline-block">Upgrade to Pro — ₹2,499/mo →</a></p>`,
+<p><a href="https://intel.cyberdudebivash.com/upgrade.html?plan=pro" style="background:#00d4aa;color:#000;padding:12px 24px;text-decoration:none;border-radius:6px;font-weight:bold;display:inline-block">Upgrade to Pro — ₹${ENGINE.DEAL_VALUES_INR.pro_monthly.toLocaleString('en-IN')}/mo →</a></p>`,
     },
     "trial_expired": {
       subject: "Your Pro trial has ended — upgrade to restore access",
       html: `<p>Hi ${T.name || "there"},</p>
 <p>Your 7-day Pro trial has ended. Your API key is now on the free tier.</p>
-<p>To restore full IOC access, AI analysis, and 5,000 API calls/day:</p>
-<p><a href="https://intel.cyberdudebivash.com/upgrade?plan=pro">Upgrade to Pro — ₹2,499/mo →</a></p>
+<p>To restore full IOC access, AI analysis, and ${TIERS.PRO.req_day.toLocaleString('en-US')} API calls/day:</p>
+<p><a href="https://intel.cyberdudebivash.com/upgrade.html?plan=pro">Upgrade to Pro — ₹${ENGINE.DEAL_VALUES_INR.pro_monthly.toLocaleString('en-IN')}/mo →</a></p>
 <p>Need enterprise access for your team? <a href="mailto:enterprise@cyberdudebivash.com">Contact us</a>.</p>`,
     },
     "usage_approaching_limit": {
       subject: "80% of your daily API limit used",
       html: `<p>You've used <strong>80% of your daily API calls</strong>.</p>
-<p>Upgrade to Pro for 5,000 calls/day (vs 100 on free tier).</p>
+<p>Upgrade to Pro for ${TIERS.PRO.req_day.toLocaleString('en-US')} calls/day (vs ${TIERS.FREE.req_day} on the free tier).</p>
 <p><a href="${T.upgrade_url || 'https://intel.cyberdudebivash.com/upgrade'}">Upgrade Now →</a></p>`,
     },
     "usage_limit_hit": {
       subject: "Daily API limit reached — upgrade to continue",
       html: `<p>You've hit your daily API limit.</p>
-<p>Your access will reset tomorrow. To continue today — upgrade to Pro for 5,000 calls/day.</p>
+<p>Your access will reset tomorrow. To continue today — upgrade to Pro for ${TIERS.PRO.req_day.toLocaleString('en-US')} calls/day.</p>
 <p><a href="${T.upgrade_url}">Upgrade Now →</a></p>`,
     },
     "pro_enterprise_upsell": {
       subject: "Ready to scale beyond Pro? Enterprise is waiting.",
       html: `<p>You're getting serious value from your Pro subscription.</p>
 <p>When you're ready to scale, Enterprise unlocks:</p>
-<ul><li>50,000 API calls/day</li><li>Full STIX 2.1 bundle export</li><li>SIEM push (Splunk, Sentinel, QRadar)</li><li>Dedicated SLA + support engineer</li><li>White-label API option</li></ul>
+<ul><li>${TIERS.ENTERPRISE.req_day.toLocaleString('en-US')} API calls/day</li><li>Full STIX 2.1 bundle export</li><li>SIEM push (Splunk, Sentinel, QRadar)</li><li>99.9% uptime SLA</li><li>Email and chat support, 4h response</li></ul>
 <p><a href="https://intel.cyberdudebivash.com/upgrade?plan=enterprise">Upgrade to Enterprise — ₹${ENGINE.DEAL_VALUES_INR.enterprise_monthly.toLocaleString('en-IN')}/mo →</a></p>`,
     },
     "enterprise_contract": {
@@ -1549,11 +1576,18 @@ const DEMO_FALLBACK_THREATS = [
 // price_usd must match pricing.html, the canonical price list. Both ENTERPRISE
 // fields were found drifted (req_min 500 vs real 600; price_usd 999 vs real
 // 499) during a 2026-08-31 monetization audit.
+//
+// P0 commercial-contract convergence (2026-09-24): req_day was FREE 25 and
+// MSSP 200000 -- config/commercial-contract.json says requests_per_day FREE 50
+// and MSSP 50,000, which is also what intel-gateway's DAILY_QUOTAS enforces on
+// the real API (so no customer could ever use more than 50,000/day; the 200000
+// here only mis-stated the cap on the portal and in /api/apikeys/validate).
+// scripts/verify_commercial_contract.py now gates req_day/req_min on drift.
 const TIERS = {
-  FREE:       { label:"Free",       req_day:25,     req_min:30,   price_usd:0,    price_inr:0,       trial_days:0,  features:["basic_feed","metadata","stix_ids"] },
+  FREE:       { label:"Free",       req_day:50,     req_min:30,   price_usd:0,    price_inr:0,       trial_days:0,  features:["basic_feed","metadata","stix_ids"] },
   PRO:        { label:"Pro",        req_day:5000,   req_min:120,  price_usd:49,   price_inr:4100,    trial_days:7,  features:["full_ioc","sigma","yara","kql","spl","stix_bundle","actor","kill_chain","playbook","misp_json","csv_export"] },
   ENTERPRISE: { label:"Enterprise", req_day:50000,  req_min:600,  price_usd:499,  price_inr:41600,   trial_days:14, features:["siem_webhook","soar_export","navigator","hunt_queries","actor_tracking","campaign_intel","prediction_api","sector_feed","executive_brief","fair_model","reg_compliance","10_seats"] },
-  MSSP:       { label:"MSSP",       req_day:200000, req_min:1200, price_usd:999,  price_inr:83300,   trial_days:14, features:["multi_tenant","white_label","partner_api","bulk_stix","tenant_keys","oem_resale","40pct_revshare","unlimited_seats"] },
+  MSSP:       { label:"MSSP",       req_day:50000,  req_min:1200, price_usd:999,  price_inr:83300,   trial_days:14, features:["multi_tenant","white_label","partner_api","bulk_stix","tenant_keys","oem_resale","40pct_revshare","25_seats"] },
 };
 
 const PAYMENT_METHODS = ["upi","qr","paypal","neft","crypto_usdt_bep20","crypto_usdt_erc20","amazon_pay","bank_wire"];
@@ -1650,7 +1684,7 @@ async function handleFreeKeyRequest(request, env, rid) {
           payment_metadata: {},
         }));
       }
-      await queueEmail(env, { to:email, template:"free_key_welcome", vars:{ api_key:activeKey.key, tier:"FREE", req_day:25, upgrade_url:"https://intel.cyberdudebivash.com/PAYMENT-GATEWAY.html" } });
+      await queueEmail(env, { to:email, template:"free_key_welcome", vars:{ api_key:activeKey.key, tier:"FREE", req_day:TIERS.FREE.req_day, upgrade_url:"https://intel.cyberdudebivash.com/PAYMENT-GATEWAY.html" } });
       return json({ success:true, already_exists:true, key:"[sent to your email]", tier:"FREE", message:"Your existing free API key has been resent to your email." });
     }
   }
@@ -1666,7 +1700,7 @@ async function handleFreeKeyRequest(request, env, rid) {
   // call is intel-gateway's RATE_LIMITS.FREE (30/min) and FREE_TIER_ITEM_CAP
   // (25 items/response); kept in sync with those here so this endpoint
   // doesn't quote a customer a limit intel-gateway doesn't actually apply.
-  const keyRecord = { id:keyId, key, tier:"FREE", status:"active", email, created_at:now, expires_at:expiresAt, req_day:25, req_min:30, rotation_count:0 };
+  const keyRecord = { id:keyId, key, tier:"FREE", status:"active", email, created_at:now, expires_at:expiresAt, req_day:TIERS.FREE.req_day, req_min:TIERS.FREE.req_min, rotation_count:0 };
   const custRecord = { id:genId("cust"), email, tier:"FREE", status:"active", created_at:now, plan_started_at:now, source:"free_signup" };
 
   await env.REVENUE_CRM_KV.put(`customer:${email}`, JSON.stringify(custRecord));
@@ -1692,10 +1726,10 @@ async function handleFreeKeyRequest(request, env, rid) {
     }));
   }
 
-  await queueEmail(env, { to:email, template:"free_key_welcome", vars:{ api_key:key, tier:"FREE", req_day:25, upgrade_url:"https://intel.cyberdudebivash.com/PAYMENT-GATEWAY.html" } });
+  await queueEmail(env, { to:email, template:"free_key_welcome", vars:{ api_key:key, tier:"FREE", req_day:TIERS.FREE.req_day, upgrade_url:"https://intel.cyberdudebivash.com/PAYMENT-GATEWAY.html" } });
   await trackEvent(env, "free_key_issued", { email, keyId });
 
-  return json({ success:true, key, tier:"FREE", req_day:25, req_min:30, expires_at:expiresAt, upgrade_url:"/PAYMENT-GATEWAY.html", message:"API key issued. Check your email for onboarding details." });
+  return json({ success:true, key, tier:"FREE", req_day:TIERS.FREE.req_day, req_min:TIERS.FREE.req_min, expires_at:expiresAt, upgrade_url:"/PAYMENT-GATEWAY.html", message:"API key issued. Check your email for onboarding details." });
 }
 
 // =============================================================================

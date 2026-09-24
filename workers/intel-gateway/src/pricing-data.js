@@ -46,6 +46,8 @@
 
 export const PRICING_CURRENCY = "INR";
 export const PRICING_UNIT = "paise";
+// Mirrors pricing-data.json "_status"; served as `status` by /api/pricing.
+export const PRICING_STATUS = "Reconciled against the canonical commercial contract under an explicit owner decision (2026-09-19).";
 
 export const PRICING_TIERS = {
   PRO:          { monthly: 410000,   annual: 4100000,   label: "Sentinel APEX PRO" },
@@ -53,4 +55,4 @@ export const PRICING_TIERS = {
   MSSP:         { monthly: 8330000,  annual: 83300000,  label: "Sentinel APEX MSSP" },
 };
 
-export default { currency: PRICING_CURRENCY, unit: PRICING_UNIT, tiers: PRICING_TIERS };
+export default { status: PRICING_STATUS, currency: PRICING_CURRENCY, unit: PRICING_UNIT, tiers: PRICING_TIERS };

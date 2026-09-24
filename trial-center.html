@@ -200,7 +200,6 @@ footer{border-top:1px solid var(--border);padding:28px 32px;margin-top:24px;}
         <li><span class="ck">✓</span>SOC response playbooks</li>
       </ul>
       <a id="cta-pro" href="/payment-submission.html?plan=PRO&source=trial_center" class="trial-btn">GET 30-DAY PRO ACCESS — $49 →</a>
-      <a href="#" class="trial-btn secondary" style="margin-top:8px;" onclick="openTrialModal();return false;">Or start a 7-day free trial →</a>
     </div>
 
     <!-- Enterprise trial -->
@@ -295,7 +294,7 @@ footer{border-top:1px solid var(--border);padding:28px 32px;margin-top:24px;}
 
     <div class="faq-item">
       <div class="faq-q" onclick="toggleFAQ(this)">Do I need to pay to get PRO, Enterprise, or MSSP access?<span class="faq-icon">+</span></div>
-      <div class="faq-a">Not for PRO — a 7-day free trial gets you full PRO access with no card required. Enterprise and MSSP require payment; both are billed immediately at checkout via Razorpay or Gumroad — there is no separate, smaller "trial" charge and no card-verification hold. There is no automated recurring billing; you decide when to renew, with no surprise charges.</div>
+      <div class="faq-a">Yes. There is no free trial; the FREE tier is available without payment. PRO, Enterprise and MSSP are billed immediately at checkout via Razorpay or Gumroad — there is no separate, smaller "trial" charge and no card-verification hold. There is no automated recurring billing; you decide when to renew, with no surprise charges.</div>
     </div>
 
     <div class="faq-item">
@@ -320,7 +319,7 @@ footer{border-top:1px solid var(--border);padding:28px 32px;margin-top:24px;}
 
     <div class="faq-item">
       <div class="faq-q" onclick="toggleFAQ(this)">Is there a free trial for PRO, Enterprise, or MSSP?<span class="faq-icon">+</span></div>
-      <div class="faq-a">PRO: yes — <a href="#" onclick="openTrialModal();return false;" style="color:var(--accent);">start a 7-day free trial</a> instantly, no card required, one trial per email. Enterprise and MSSP don't have a self-serve trial — if you want to evaluate either before paying, book an evaluation call instead of checking out directly. Once you do check out, PRO, Enterprise, and MSSP charge the full listed price immediately; that payment is your first month, not a separate "trial" or "proof-of-intent" charge.</div>
+      <div class="faq-a">No. There is no free trial on any plan; the FREE tier lets you evaluate the live feed and API without payment. For Enterprise or MSSP, book an evaluation call instead of checking out directly. Once you do check out, PRO, Enterprise, and MSSP charge the full listed price immediately; that payment is your first month, not a separate "trial" or "proof-of-intent" charge.</div>
     </div>
 
     <div class="faq-item">
@@ -375,32 +374,6 @@ footer{border-top:1px solid var(--border);padding:28px 32px;margin-top:24px;}
       <div style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:14px;font-family:monospace;font-size:13px;color:var(--accent);word-break:break-all;margin-bottom:12px;" id="freeKeyValue"></div>
       <button onclick="copyFreeKey()" style="padding:8px 16px;background:rgba(0,255,198,0.1);color:var(--accent);border:1px solid rgba(0,255,198,0.3);border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;margin-bottom:16px;">Copy Key</button>
       <p style="font-size:12px;color:var(--muted);" id="freeKeyMsg"></p>
-      <a href="/api-docs.html" style="display:block;font-size:12px;color:var(--accent);margin-top:10px;">Read the API Docs →</a>
-    </div>
-  </div>
-</div>
-
-<!-- 7-day PRO trial modal — posts to same-origin POST /api/leads/trial
-     (workers/intel-gateway/src/revenue-enforcement.js: handleTrialIssuance,
-     wired into this domain's route table 2026-09-10). Mirrors the
-     freeKeyOverlay modal above rather than introducing a new UI pattern. -->
-<div id="trialOverlay" style="display:none;position:fixed;inset:0;background:rgba(3,7,15,0.82);z-index:9998;align-items:center;justify-content:center;padding:20px;">
-  <div style="background:var(--card);border:1px solid var(--border);border-radius:14px;padding:32px;max-width:420px;width:100%;text-align:center;position:relative;">
-    <button onclick="closeTrialModal()" style="position:absolute;top:14px;right:14px;background:none;border:none;color:var(--muted);font-size:20px;cursor:pointer;line-height:1;">&times;</button>
-    <div id="trialStepForm">
-      <div style="font-size:32px;margin-bottom:10px;">🚀</div>
-      <h3 style="font-size:18px;font-weight:800;margin-bottom:8px;color:var(--text);">Start Your 7-Day PRO Trial</h3>
-      <p style="font-size:13px;color:var(--muted);margin-bottom:20px;">No card required. Instant API key, full PRO access for 7 days, one trial per email.</p>
-      <input type="email" id="trialEmail" placeholder="you@company.com" style="width:100%;background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:12px 14px;color:var(--text);font-size:13px;font-family:inherit;outline:none;margin-bottom:12px;box-sizing:border-box;" onkeydown="if(event.key==='Enter')submitTrialRequest()">
-      <button id="trialSubmitBtn" onclick="submitTrialRequest()" style="width:100%;padding:12px;background:var(--accent);color:#000;font-size:13px;font-weight:800;border:none;border-radius:8px;cursor:pointer;">Activate Trial →</button>
-      <div id="trialErr" style="display:none;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);border-radius:8px;padding:10px 14px;font-size:12px;color:var(--red);margin-top:12px;"></div>
-    </div>
-    <div id="trialStepResult" style="display:none;">
-      <div style="font-size:32px;margin-bottom:10px;">✅</div>
-      <h3 style="font-size:18px;font-weight:800;margin-bottom:8px;color:var(--text);">Trial Activated — 7 Days PRO Access</h3>
-      <div style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:14px;font-family:monospace;font-size:13px;color:var(--accent);word-break:break-all;margin-bottom:12px;" id="trialKeyValue"></div>
-      <p style="font-size:12px;color:var(--muted);margin-bottom:12px;" id="trialExpiryMsg"></p>
-      <button onclick="copyTrialKey()" style="padding:8px 16px;background:rgba(0,255,198,0.1);color:var(--accent);border:1px solid rgba(0,255,198,0.3);border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;margin-bottom:16px;">Copy Key</button>
       <a href="/api-docs.html" style="display:block;font-size:12px;color:var(--accent);margin-top:10px;">Read the API Docs →</a>
     </div>
   </div>
@@ -509,61 +482,6 @@ async function submitFreeKeyRequest(){
 }
 function copyFreeKey(){
   const txt = lastIssuedFreeKey || document.getElementById('freeKeyValue').textContent;
-  navigator.clipboard.writeText(txt);
-}
-
-/* 7-day PRO trial -- POST /api/leads/trial (intel-gateway, same-origin).
-   Same-origin rather than FREE_KEY_API's cross-origin revenue-engine target
-   so this signup path has no dependency on that subdomain's own state. */
-let lastIssuedTrialKey = '';
-
-function openTrialModal(){
-  document.getElementById('trialOverlay').style.display = 'flex';
-  document.getElementById('trialStepForm').style.display = 'block';
-  document.getElementById('trialStepResult').style.display = 'none';
-  document.getElementById('trialErr').style.display = 'none';
-  document.getElementById('trialEmail').focus();
-}
-function closeTrialModal(){
-  document.getElementById('trialOverlay').style.display = 'none';
-}
-async function submitTrialRequest(){
-  const email = document.getElementById('trialEmail').value.trim();
-  const errEl = document.getElementById('trialErr');
-  const btn   = document.getElementById('trialSubmitBtn');
-  errEl.style.display = 'none';
-  if(!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){
-    errEl.textContent = 'Please enter a valid email address.'; errEl.style.display = 'block'; return;
-  }
-  btn.textContent = 'Activating…'; btn.disabled = true;
-  try{
-    const res = await fetch('/api/leads/trial', {
-      method: 'POST',
-      headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({email: email})
-    });
-    const data = await res.json().catch(function(){ return {}; });
-    if(!res.ok || data.error){
-      errEl.textContent = data.message || data.error || 'Something went wrong. Please try again.';
-      errEl.style.display = 'block';
-      btn.textContent = 'Activate Trial →'; btn.disabled = false;
-      return;
-    }
-    // FIX (P0, 2026-09-10, CodeRabbit review): handleTrialIssuance's real
-    // response nests these under `trial: {...}`, not top-level.
-    const trialData = data.trial || {};
-    lastIssuedTrialKey = trialData.api_key || '';
-    document.getElementById('trialKeyValue').textContent = lastIssuedTrialKey || 'Sent to your email — check your inbox.';
-    document.getElementById('trialExpiryMsg').textContent = 'Expires: ' + (trialData.expires_at ? trialData.expires_at.slice(0,10) : '7 days from now');
-    document.getElementById('trialStepForm').style.display = 'none';
-    document.getElementById('trialStepResult').style.display = 'block';
-  }catch(e){
-    errEl.textContent = 'Network error. Please try again.'; errEl.style.display = 'block';
-    btn.textContent = 'Activate Trial →'; btn.disabled = false;
-  }
-}
-function copyTrialKey(){
-  const txt = lastIssuedTrialKey || document.getElementById('trialKeyValue').textContent;
   navigator.clipboard.writeText(txt);
 }
 

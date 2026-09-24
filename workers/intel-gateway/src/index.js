@@ -97,7 +97,7 @@ import { loadCertificationIndex, persistCertificationRecords, resolveCertificati
 import { routeEnterpriseEndpoint } from './enterprise-endpoints.js';
 import { handleSearch, handleActors, handleCVEs, handleIOCLookup, handleMISPExport as handleMISPExportExt, handleCSVExport, handleCorrelate, handlePredict, handleCampaigns, handleAnomalies, handleIntelGraph, handleIntelRelations, handleIRGuidance, handleExposureAnalysis, buildScopeSet } from './api-extensions.js';
 import { RAZORPAY_TIER_PRICES, getPricingSnapshot } from './pricing.js';
-import { applyTierGateV2, enforceTierGate, buildUpgradeTrigger, handleLeadCapture, handleTrialIssuance } from './revenue-enforcement.js';
+import { applyTierGateV2, enforceTierGate, buildUpgradeTrigger, handleLeadCapture, handleTrialIssuance, TRIAL_DISCONTINUED_BODY } from './revenue-enforcement.js';
 import { evaluateDailyQuota, dailyQuotaConfig, utcDateString, dailyQuotaKey, quotaAlertDedupeKey, secondsUntilNextUtcMidnight } from './daily-quota.js';
 import { buildDetectionRegistry, queryDetectionRegistry, toPublicArtifact, DETECTION_REGISTRY_VERSION } from './detection-registry.js';
 import { handleSLAStatus, handleSLAReport, handleSLAIncidents, handleSLAPing, handleSLACertificate } from './sla-monitor.js';
@@ -6108,10 +6108,14 @@ async function handleRequest(request, env, ctx) {
     if (!rl.allowed) return jsonResp({ error: "rate_limited", retry_after_seconds: 60 }, 429);
     return await handleLeadCapture(request, env, crypto.randomUUID());
   }
+  // DEPRECATED 2026-09-24 -- free trial discontinued. config/commercial-
+  // contract.json (owner decision 2026-09-19) states "No free trial" for every
+  // tier, yet this route minted a live 7-day PRO key from an email alone. The
+  // route is kept and answers 410 Gone with the replacement path instead of
+  // disappearing (404). handleTrialIssuance() stays exported but unrouted.
+  // Keys already issued are untouched and expire on their own expires_at.
   if (path === "/api/leads/trial" && method === "POST") {
-    const rl = await checkRateLimit(env, ip, "FREE");
-    if (!rl.allowed) return jsonResp({ error: "rate_limited", retry_after_seconds: 60 }, 429);
-    return await handleTrialIssuance(request, env, crypto.randomUUID());
+    return jsonResp(TRIAL_DISCONTINUED_BODY, 410);
   }
 
   // --- Premium intel gate (MONETIZATION INTEGRITY v148->v180) -----------------

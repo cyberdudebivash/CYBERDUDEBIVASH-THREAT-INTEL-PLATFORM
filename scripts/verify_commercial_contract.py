@@ -24,6 +24,12 @@ on drift between:
   C59c+     mssp.html partner break-even/profit calculator
   C60+      every buyer-facing HTML page, scanned for superseded price literals
   C61+      _forbidden_claims (commercial-contract.json) not present unnegated
+  C62+      runtime quota tables: revenue-enforcement.js REVENUE_CONFIG.LIMITS
+            (rpm, api_calls_day) and revenue-engine TIERS (req_day, req_min),
+            revenue-engine DEAL_VALUES_INR PRO values
+  C63+      no-trial policy: POST /api/leads/trial answers 410 on both Workers,
+            and the page sweep (C60) rejects trial offers and the superseded
+            FREE 100/day quota and INR 2,499 PRO price
 
 Exit codes:
   0 = ALL PASS
@@ -85,7 +91,90 @@ FORBIDDEN_PRICE_PATTERNS: list[tuple[str, re.Pattern]] = [
     ("old MSSP monthly INR-rupees (JS literal) inr(_monthly)?:166600/166500", re.compile(r"inr(?:_monthly)?\s*:\s*166[56]00\b")),
     ("old MSSP annual INR-rupees (JS literal) inr(_a|A)nnual:1666000/1600000", re.compile(r"inr(?:_a|A)nnual\s*:\s*1,?[67]00,?000\b")),
     ("old Enterprise annual USD (JS literal) usd(_a|A)nnual:4790/4788", re.compile(r"usd(?:_a|A)nnual\s*:\s*47[89]0\b")),
+    # P0 2026-09-24 commercial convergence. INR 2,499 was never a contract
+    # price (PRO is INR 4,100) but was still quoted in trial emails.
+    ("superseded PRO price INR 2,499", re.compile(r"\u20b9\s?2,?499\b")),
+    # FREE requests_per_day is 50 (contract + DAILY_QUOTAS); 100/day was
+    # published on 8 pages while the limiter denied at 50.
+    ("superseded FREE daily quota 100/day",
+     re.compile(r"(?<![\d,.])100\s*(?:free\s+)?(?:api\s+)?(?:req|reqs|requests|calls)?\s*(?:/|per\s+)\s*day", re.IGNORECASE)),
+    # trial_policy is "No free trial" for every tier (owner decision
+    # 2026-09-19); POST /api/leads/trial is 410 Gone. A page must not offer one.
+    ("free-trial offer (N-day trial)",
+     re.compile(r"\b\d{1,2}[- ]day\s+(?:free\s+|pro\s+|enterprise\s+)?trial\b", re.IGNORECASE)),
+    ("free-trial CTA (start ... trial)",
+     re.compile(r"\bstart\s+(?:a\s+|your\s+|the\s+)?(?:free\s+|pro\s+|enterprise\s+)?trial\b", re.IGNORECASE)),
+    ("free-trial modal/route wiring (openTrialModal, /api/leads/trial)",
+     re.compile(r"openTrialModal|/api/leads/trial")),
 ]
+
+REVENUE_ENFORCEMENT_PATH = REPO_ROOT / "workers" / "intel-gateway" / "src" / "revenue-enforcement.js"
+REVENUE_ENGINE_PATH = REPO_ROOT / "workers" / "revenue-engine" / "src" / "index.js"
+
+
+def check_runtime_quota_tables(canon: dict) -> None:
+    """C62+: quota tables that reach customers outside index.js/daily-quota.js.
+
+    revenue-enforcement.js LIMITS feeds buildUpgradeTrigger()/getUpgradeFeatures()
+    copy returned to FREE/PRO API callers; revenue-engine TIERS drives the
+    customer portal, FREE-key issuance and /api/apikeys/validate. Both drifted
+    (FREE 100 and 25/day, ENTERPRISE/MSSP "unlimited", MSSP 200000/day).
+    """
+    enf_src = REVENUE_ENFORCEMENT_PATH.read_text(encoding="utf-8")
+    limits_m = re.search(r"LIMITS:\s*\{(.*?)\n  \},", enf_src, re.DOTALL)
+    check(limits_m is not None, "revenue-enforcement.js REVENUE_CONFIG.LIMITS located")
+    for tier_id, tier in canon.items():
+        key = tier_id.upper()
+        row = re.search(rf"^\s*{key}:\s*\{{([^}}]*)\}}", limits_m.group(1), re.MULTILINE) if limits_m else None
+        rpm = re.search(r"\brpm:\s*(-?\d+)", row.group(1)) if row else None
+        day = re.search(r"\bapi_calls_day:\s*(-?\d+)", row.group(1)) if row else None
+        got_rpm = int(rpm.group(1)) if rpm else None
+        got_day = int(day.group(1)) if day else None
+        check(got_rpm == tier["requests_per_minute"],
+              f"revenue-enforcement LIMITS.{key}.rpm == {tier['requests_per_minute']} (got {got_rpm})")
+        check(got_day == tier["requests_per_day"],
+              f"revenue-enforcement LIMITS.{key}.api_calls_day == {tier['requests_per_day']} (got {got_day})")
+    check("Unlimited API calls" not in enf_src,
+          "revenue-enforcement.js upgrade copy does not claim Unlimited API calls")
+
+    re_src = REVENUE_ENGINE_PATH.read_text(encoding="utf-8")
+    tiers_m = re.search(r"const TIERS\s*=\s*\{(.*?)\n\};", re_src, re.DOTALL)
+    check(tiers_m is not None, "revenue-engine TIERS located for quota checks")
+    for tier_id, tier in canon.items():
+        key = tier_id.upper()
+        row = re.search(rf"^\s*{key}:\s*\{{(.*?)\}},?\s*$", tiers_m.group(1), re.MULTILINE) if tiers_m else None
+        day = re.search(r"\breq_day:\s*(\d+)", row.group(1)) if row else None
+        rpm = re.search(r"\breq_min:\s*(\d+)", row.group(1)) if row else None
+        got_day = int(day.group(1)) if day else None
+        got_rpm = int(rpm.group(1)) if rpm else None
+        check(got_day == tier["requests_per_day"],
+              f"revenue-engine TIERS.{key}.req_day == {tier['requests_per_day']} (got {got_day})")
+        check(got_rpm == tier["requests_per_minute"],
+              f"revenue-engine TIERS.{key}.req_min == {tier['requests_per_minute']} (got {got_rpm})")
+    # FREE-key issuance must read TIERS, not a literal that can drift again.
+    check(re.search(r"tier:\s*\"FREE\"[^\n]*req_day:\s*\d", re_src) is None,
+          "revenue-engine FREE-key issuance uses TIERS.FREE.req_day, not a literal")
+    deal = re.search(r"DEAL_VALUES_INR:\s*\{([^}]*)\}", re_src)
+    for field, expected in (("pro_monthly", canon["pro"]["inr_monthly"]), ("pro_annual", canon["pro"]["inr_annual"])):
+        m = re.search(rf"{field}\s*:\s*(\d+)", deal.group(1)) if deal else None
+        check(m is not None and int(m.group(1)) == expected,
+              f"revenue-engine DEAL_VALUES_INR.{field} == {expected} (got {m.group(1) if m else None})")
+
+
+def check_no_trial_routes() -> None:
+    """C63+: POST /api/leads/trial is 410 Gone on both Workers (no free trial)."""
+    gw_src = GATEWAY_INDEX_PATH.read_text(encoding="utf-8")
+    gw = re.search(r'path === "/api/leads/trial"[^\n]*\{(.*?)\n  \}', gw_src, re.DOTALL)
+    check(gw is not None and "410" in gw.group(1) and "handleTrialIssuance(" not in gw.group(1),
+          "intel-gateway POST /api/leads/trial answers 410 and never calls handleTrialIssuance")
+    re_src = REVENUE_ENGINE_PATH.read_text(encoding="utf-8")
+    rev = re.search(r'path === "/api/leads/trial"[^\n]*\n\s*(return[^\n]*)', re_src)
+    check(rev is not None and "410" in rev.group(1) and "handleTrialRequest(" not in rev.group(1),
+          "revenue-engine POST /api/leads/trial answers 410 and never calls handleTrialRequest")
+    check("\u20b92,499" not in re_src and "https://intel.cyberdudebivash.com/trial\"" not in re_src
+          and "https://intel.cyberdudebivash.com/trial\">" not in re_src,
+          "revenue-engine email copy quotes no INR 2,499 price and links no /trial page")
+
 
 FAILURES: list[str] = []
 CHECK_COUNT = 0
@@ -356,6 +445,10 @@ def main() -> int:
               f"mssp.html break-even calculator uses {canon['mssp']['usd_monthly']}, not a superseded MSSP cost")
         check(f"commission - {canon['mssp']['usd_monthly']}" in mssp_src.replace(";", ""),
               f"mssp.html profit calculator subtracts {canon['mssp']['usd_monthly']}, not a superseded MSSP cost")
+
+    # --- C62+/C63+: runtime quota tables and the no-trial route contract ---
+    check_runtime_quota_tables(canon)
+    check_no_trial_routes()
 
     # --- C60+: sweep every buyer-facing HTML page for superseded literals --
     scanned = 0
