@@ -6505,8 +6505,8 @@
                 return isNaN(n) ? 0 : n;
             }
             function fillMetrics(data){
-                var items = data.items || data.advisories || data.data || [];
-                var total    = data.total    || items.length || 0;
+                var items = Array.isArray(data) ? data : (data.items || data.advisories || data.data || []);
+                var total = (!Array.isArray(data) && typeof data.total === 'number') ? data.total : items.length;
                 var critical = 0, high = 0, iocs = 0, riskSum = 0;
                 items.forEach(function(it){
                     var sev = (it.severity||it.risk_level||'').toUpperCase();

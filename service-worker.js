@@ -1,4 +1,4 @@
-// CYBERDUDEBIVASH SENTINEL APEX — Service Worker v200.2
+// CYBERDUDEBIVASH SENTINEL APEX — Service Worker v200.3
 // P0 dashboard freshness semantics + stale-client convergence (2026-09-07)
 //
 // Production invariant:
@@ -20,7 +20,7 @@
 
 'use strict';
 
-const CACHE_VERSION = 'sentinel-apex-v200.2-live';
+const CACHE_VERSION = 'sentinel-apex-v200.3-live';
 const CACHE_NAME = CACHE_VERSION;
 
 const STATIC_ASSETS = Object.freeze([
@@ -30,26 +30,26 @@ const STATIC_ASSETS = Object.freeze([
 const STATIC_ASSET_SET = new Set(STATIC_ASSETS);
 
 self.addEventListener('install', event => {
-  console.log('[SW v200.2] Installing:', CACHE_VERSION);
+  console.log('[SW v200.3] Installing:', CACHE_VERSION);
   self.skipWaiting();
   event.waitUntil(
     caches.open(CACHE_NAME).then(cache =>
       cache.addAll(STATIC_ASSETS).catch(err => {
-        console.warn('[SW v200.2] Optional pre-cache failed:', err);
+        console.warn('[SW v200.3] Optional pre-cache failed:', err);
       })
     )
   );
 });
 
 self.addEventListener('activate', event => {
-  console.log('[SW v200.2] Activating:', CACHE_VERSION);
+  console.log('[SW v200.3] Activating:', CACHE_VERSION);
   event.waitUntil(
     caches.keys()
       .then(keys => Promise.all(
         keys
           .filter(key => key.startsWith('sentinel-apex-') && key !== CACHE_NAME)
           .map(key => {
-            console.log('[SW v200.2] Purging stale cache:', key);
+            console.log('[SW v200.3] Purging stale cache:', key);
             return caches.delete(key);
           })
       ))
@@ -109,7 +109,7 @@ async function fetchDashboardStats(request) {
       headers,
     });
   } catch (err) {
-    console.warn('[SW v200.2] Stats freshness normalization skipped:', err);
+    console.warn('[SW v200.3] Stats freshness normalization skipped:', err);
     return response;
   }
 }
@@ -117,6 +117,12 @@ async function fetchDashboardStats(request) {
 self.addEventListener('fetch', event => {
   const request = event.request;
   const url = new URL(request.url);
+
+  // Do not proxy third-party origins. A pass-through respondWith() makes the
+  // worker the network caller, which hides the page's own failure path
+  // (and defeats an aborted cross-origin fallback). Same-origin handling below
+  // is unchanged.
+  if (url.origin !== self.location.origin) return;
 
   // Never cache non-GET requests.
   if (request.method !== 'GET') {
