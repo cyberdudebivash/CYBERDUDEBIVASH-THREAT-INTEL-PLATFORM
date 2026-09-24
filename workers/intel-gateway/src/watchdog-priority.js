@@ -14,7 +14,10 @@
  * cyber-watchdog.js), so request-path and scheduler events score identically.
  */
 
-export const PRIORITY_VERSION = "watchdog-priority-1";
+// v2: EPSS read on the platform's percent scale (see epssProbability), and
+// a string KEV flag ("YES"/"NO") is evidence. v1 events keep their stored
+// explanation; they are never re-scored.
+export const PRIORITY_VERSION = "watchdog-priority-2";
 export const PRIORITY_BANDS = Object.freeze(["CRITICAL", "HIGH", "MEDIUM", "LOW", "INSUFFICIENT_EVIDENCE"]);
 
 // Maximum points per factor. Sums to 100.
@@ -37,10 +40,34 @@ function num(v) {
   return Number.isFinite(n) ? n : null;
 }
 
-function kevFlag(item) {
-  if (item.kev_present === true || item.kev_confirmed === true || item.kev === true) return true;
-  if (item.kev_present === false || item.kev_confirmed === false || item.kev === false) return false;
+function kevWord(v) {
+  if (typeof v !== "string") return null;
+  const w = v.trim().toUpperCase();
+  if (w === "YES" || w === "TRUE") return true;
+  if (w === "NO" || w === "FALSE") return false;
   return null;
+}
+
+function kevFlag(item) {
+  if (item.kev_present === true || item.kev_confirmed === true || item.kev === true || kevWord(item.kev) === true) return true;
+  if (item.kev_present === false || item.kev_confirmed === false || item.kev === false || kevWord(item.kev) === false) return false;
+  return null;
+}
+
+/**
+ * EPSS as a 0..1 probability, from the feed's epss_score.
+ *
+ * The platform stores EPSS as a PERCENT (0.0-100.0): both producers multiply
+ * FIRST.org's probability by 100 (agent/v48_pipeline_hardening/
+ * epss_batch_enricher.py, agent/sentinel_blogger.py). So 0.86 means 0.86%,
+ * not 86%. A value outside 0..100 is not evidence. This is the one place
+ * Watchdog converts it; the matcher's min_epss (a 0..1 probability, as
+ * documented to customers) compares against this.
+ */
+export function epssProbability(item) {
+  const n = num(item && item.epss_score);
+  if (n === null || n < 0 || n > 100) return null;
+  return Math.round(n * 10000) / 1000000;
 }
 
 function text(item) {
@@ -70,9 +97,9 @@ export function computeEventPriority(item) {
   const cvssOk = cvss !== null && cvss >= 0 && cvss <= 10;
   add("cvss", "CVSS base score", cvssOk, cvssOk ? (cvss / 10) * WEIGHTS.cvss : 0, cvssOk ? "cvss_score=" + cvss : null);
 
-  const epss = num(src.epss_score);
-  const epssOk = epss !== null && epss >= 0 && epss <= 1;
-  add("epss", "EPSS exploit probability", epssOk, epssOk ? epss * WEIGHTS.epss : 0, epssOk ? "epss_score=" + epss : null);
+  const epss = epssProbability(src);
+  const epssOk = epss !== null;
+  add("epss", "EPSS exploit probability", epssOk, epssOk ? epss * WEIGHTS.epss : 0, epssOk ? "epss_score=" + num(src.epss_score) + " (percent)" : null);
 
   const sev = typeof src.severity === "string" ? src.severity.trim().toUpperCase() : "";
   const sevOk = Object.prototype.hasOwnProperty.call(SEVERITY_POINTS, sev);
@@ -102,7 +129,7 @@ export function computeEventPriority(item) {
   if (kev === true && ((cvssOk && cvss >= 9) || sev === "CRITICAL")) floor("CRITICAL", "kev_and_critical_impact");
   if (kev === true) floor("HIGH", "kev_listed");
   if (cvssOk && cvss >= 9) floor("HIGH", "cvss_ge_9");
-  if (epssOk && epss >= 0.5) floor("HIGH", "epss_ge_0_5");
+  if (epssOk && epss >= 0.5) floor("HIGH", "epss_ge_50_percent");
   // The feed's own severity is never contradicted downward by missing data.
   if (sev === "CRITICAL") floor("HIGH", "severity_critical");
   if (sev === "HIGH") floor("MEDIUM", "severity_high");

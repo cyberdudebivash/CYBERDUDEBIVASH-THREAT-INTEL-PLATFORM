@@ -288,7 +288,7 @@ Production runs `6977abf` (v3 before this fix). **Do not roll back Watchdog to r
 
 ## 14. Command center: priority, triage, inbox (PR A)
 
-**Priority (`watchdog-priority.js`, `watchdog-priority-1`).** Every new match event stores an evidence-cited priority computed from the projected feed item. Points: CISA KEV 30, CVSS 25 (`cvss/10`), EPSS 20 (`epss`), feed severity 15, threat-activity signals 10 (attributed actor, "exploited in the wild"/ransomware/zero-day text). Bands: CRITICAL ≥ 70, HIGH ≥ 45, MEDIUM ≥ 20, else LOW. Cited floors: KEV plus CVSS ≥ 9 or CRITICAL severity gives CRITICAL; KEV, CVSS ≥ 9, EPSS ≥ 0.5 or CRITICAL severity gives at least HIGH; HIGH severity gives at least MEDIUM.
+**Priority (`watchdog-priority.js`, `watchdog-priority-2`).** Every new match event stores an evidence-cited priority computed from the projected feed item. Points: CISA KEV 30, CVSS 25 (`cvss/10`), EPSS 20 (probability from `epssProbability()`), feed severity 15, threat-activity signals 10 (attributed actor, "exploited in the wild"/ransomware/zero-day text). Bands: CRITICAL ≥ 70, HIGH ≥ 45, MEDIUM ≥ 20, else LOW. Cited floors: KEV plus CVSS ≥ 9 or CRITICAL severity gives CRITICAL; KEV, CVSS ≥ 9, EPSS ≥ 50% or CRITICAL severity gives at least HIGH; HIGH severity gives at least MEDIUM.
 
 * A factor with no data is `known: false` and adds nothing. An item with no KEV/CVSS/EPSS/severity evidence scores `null` with band `INSUFFICIENT_EVIDENCE`, never 0/LOW.
 * Events stored before this change report `INSUFFICIENT_EVIDENCE` with `legacy: true`. Their source fields were never stored, so they are not re-scored from partial data.
@@ -306,3 +306,15 @@ Production runs `6977abf` (v3 before this fix). **Do not roll back Watchdog to r
 The webhook payload and contract version are unchanged. Rollback: the new event fields are ignored by earlier v3 code, and `acknowledged` stays accurate.
 
 Proof: `watchdog-command-center.test.js` (15 tests), plus 7 negative controls in `scripts/watchdog-negative-controls.mjs` (45/45 caught).
+
+### EPSS scale (priority v2)
+
+The platform feed stores `epss_score` as a **percent (0–100)**. Both producers multiply FIRST.org's probability by 100 (`agent/v48_pipeline_hardening/epss_batch_enricher.py`, `agent/sentinel_blogger.py`), so `0.86` means 0.86%, not 86%. `watchdog-priority-1` read it as a 0–1 probability. That over-ranked sub-1% EPSS items (live feed 2026-09-24: 4 of 44 items HIGH instead of MEDIUM) and dropped EPSS above 1% as unknown.
+
+* `epssProbability(item)` in `watchdog-priority.js` is the single conversion. A value outside 0–100 is not evidence.
+* Priority v2 scores EPSS from that probability, with floor `epss_ge_50_percent`.
+* The watch criterion `min_epss` stays a **0–1 probability**, as documented to customers, and is compared against the converted feed value. `min_epss: 0.5` now means a 50% exploitation probability.
+* `kev: "YES"`/`"NO"` strings (the live feed carries `"NO"`) count as KEV evidence in priority only. `materialRevision()` and the matcher are unchanged, so no advisory re-alerts.
+* History is not rewritten. Events stored with `watchdog-priority-1` keep their stored explanation and show that version; only new events carry v2.
+
+Proof: `watchdog-epss-scale.test.js` (6 tests, live-feed value shapes) and 3 negative controls (`epss_read_as_probability_not_percent`, `min_epss_compared_to_raw_percent`, `kev_string_ignored`).

@@ -366,6 +366,27 @@ const CONTROLS = [
     replace: "    let feedItemStatus = \"feed_not_fresh\";\n    if (true) {",
     tests: [T("watchdog-command-center.test.js")],
   },
+  {
+    id: "epss_read_as_probability_not_percent",
+    file: "workers/intel-gateway/src/watchdog-priority.js",
+    find: "  if (n === null || n < 0 || n > 100) return null;\n  return Math.round(n * 10000) / 1000000;",
+    replace: "  if (n === null || n < 0 || n > 1) return null;\n  return n;",
+    tests: [T("watchdog-epss-scale.test.js")],
+  },
+  {
+    id: "min_epss_compared_to_raw_percent",
+    file: "workers/intel-gateway/src/cyber-watchdog.js",
+    find: "{ const p = epssProbability(item); add(\"epss\", p !== null && p >= criteria.min_epss); }",
+    replace: "add(\"epss\", Number(item.epss_score) >= criteria.min_epss);",
+    tests: [T("watchdog-epss-scale.test.js")],
+  },
+  {
+    id: "kev_string_ignored",
+    file: "workers/intel-gateway/src/watchdog-priority.js",
+    find: "  if (w === \"NO\" || w === \"FALSE\") return false;",
+    replace: "",
+    tests: [T("watchdog-epss-scale.test.js")],
+  },
 ];
 
 function runTests(root, files) {
