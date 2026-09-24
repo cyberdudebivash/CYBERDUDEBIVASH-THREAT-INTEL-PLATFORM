@@ -147,12 +147,19 @@ import { evaluateSwarmPreflight, SWARM_MESH_CAPABILITY, SWARM_REQUIRED_SCOPE } f
 // Canonical customer-visible freshness contract (mirror of
 // config/public_freshness_contract.json; see freshness-contract.js).
 import { classifyManifestFreshness, evaluatePublicIntelligence, healthEdgeTtlSeconds, STATES as FRESHNESS_STATES } from './freshness-contract.js';
+// Cyber Watchdog v3: feed freshness envelope, autonomous evaluation, signed
+// verified webhooks, browser sessions, MSSP tenants.
+import { publicationEnvelope } from './freshness-contract.js';
+import { runWatchdogCycle } from './watchdog-scheduler.js';
+import { generateSigningSecret, resolveAndValidate, runVerificationChallenge } from './watchdog-webhook.js';
+import { SESSION_POLICY as WATCHDOG_SESSION_POLICY } from './watchdog-policy.js';
 // Issue #288: Durable Object class the Workers runtime instantiates via the
 // GUMROAD_PROVISIONING_LOCK binding (wrangler.toml). Must be a named export
 // of the Worker's main module -- see gumroad-provisioning-lock.js's header
 // comment for the full activation rationale.
 export { GumroadProvisioningLock } from './gumroad-provisioning-lock.js';
 export { WatchdogLedger } from './watchdog-ledger.js';
+export { WatchdogScheduler } from './watchdog-scheduler.js';
 // Re-exported unchanged for backward compatibility with any external
 // importer of index.js's own evaluateKeyRecordAccess export (Principle 5:
 // no silent removal of an existing export) -- the canonical implementation
@@ -691,7 +698,7 @@ async function resolveAuth(request, env) {
       const denied = await env.SECURITY_HUB_KV.get(`jwt_deny:${payload.sub}`);
       if (denied) return { tier: TIERS.FREE, key: null, sub: null, error: "subscription_status_denied" };
     } catch (_) {}
-    return {
+    const jwtAuth = {
       tier: TIERS[payload.tier] || TIERS.PRO,
       key: raw,
       sub: payload.sub,
@@ -700,6 +707,23 @@ async function resolveAuth(request, env) {
       subscription_status: "active",
       expires_at: payload.exp ? new Date(payload.exp * 1000).toISOString() : null,
     };
+    // Cyber Watchdog browser session: audience- and scope-restricted. The
+    // audience is enforced in handleRequest (usable on the /api/watchdog routes only);
+    // scopes and tenant binding are enforced by routeWatchdog. A JWT without
+    // `aud` (POST /api/auth/login, SSO) is unchanged.
+    if (payload.aud !== undefined) {
+      if (payload.aud !== WATCHDOG_SESSION_POLICY.audience) {
+        return { tier: TIERS.FREE, key: null, sub: null, error: "invalid_token" };
+      }
+      jwtAuth.aud = payload.aud;
+      jwtAuth.scopes = typeof payload.scope === "string" ? payload.scope.split(" ").filter(Boolean) : [];
+      jwtAuth.tenant = typeof payload.tenant === "string" ? payload.tenant : null;
+      jwtAuth.auth_time = Number.isInteger(payload.auth_time) ? payload.auth_time : null;
+      jwtAuth.jti = typeof payload.jti === "string" ? payload.jti : null;
+      jwtAuth.managed_tenants = Array.isArray(payload.managed_tenants) ? payload.managed_tenants : null;
+      jwtAuth.entitlement_expires_at = typeof payload.ent_exp === "string" ? payload.ent_exp : null;
+    }
+    return jwtAuth;
   }
 
   // API key path: look up in KV
@@ -2406,7 +2430,9 @@ async function servePublicIntelManifest(env, key) {
 }
 
 async function servePremiumIntelManifest(request, env, ctx, pathname) {
-  const auth     = await resolveAuth(request, env);
+  let auth       = await resolveAuth(request, env);
+  // Watchdog session tokens are audience-bound to the /api/watchdog routes only.
+  if (auth.aud) auth = { tier: TIERS.FREE, key: null, sub: null, error: "token_audience_mismatch" };
   const feedData = await loadFeedItems(env);
   const stats    = computeStats(feedData.items || []);
   let data;
@@ -5813,7 +5839,12 @@ async function handleRequest(request, env, ctx) {
              (request.headers.get("X-Forwarded-For") || "127.0.0.1").split(",")[0].trim();
 
   // Resolve auth once for this request (skip for pure public health check to save a KV read)
-  const auth = await resolveAuth(request, env);
+  let auth = await resolveAuth(request, env);
+  // A Cyber Watchdog session token is audience-bound to the /api/watchdog routes.
+  // Anywhere else it is an invalid credential, never a general API bearer.
+  if (auth.aud === WATCHDOG_SESSION_POLICY.audience && !path.startsWith("/api/watchdog")) {
+    auth = { tier: TIERS.FREE, key: null, sub: null, error: "token_audience_mismatch" };
+  }
 
   // Surface auth failures explicitly instead of silently downgrading to FREE.
   // resolveAuth() already computes auth.error for a credential that WAS
@@ -6782,14 +6813,27 @@ async function handleRequest(request, env, ctx) {
   if (path === "/api/feed" || path === "/api/feed.json") {
     let data = await r2Get(env, LATEST_JSON_KEY);
     if (!data) return errorResp("Feed not available", 503);
+    // Freshness truth (Cyber Watchdog P3 / feed staleness contract). HTTP 200
+    // is kept for existing clients, so the verdict travels in the body
+    // (publication_state, freshness_status, age_seconds) and in X-Sentinel-*
+    // headers: a stale feed is never representable as fresh. Evaluated on
+    // the stored object before tier gating; the edge TTL is 0 unless FRESH.
+    const feedTruth = publicationEnvelope(data, Date.now(), 120);
     // Legacy alias for /api/v1/intel/latest.json -- same key, same gate.
-    if (auth.tier !== TIERS.PRO && auth.tier !== TIERS.ENTERPRISE && auth.tier !== TIERS.MSSP && Array.isArray(data.items)) {
+    const paidFeed = auth.tier === TIERS.PRO || auth.tier === TIERS.ENTERPRISE || auth.tier === TIERS.MSSP;
+    if (!paidFeed && Array.isArray(data.items)) {
       data = { ...data, items: data.items.map(i => applyTierGateV2(i, "free", null)) };
     }
     // v201.0: same additive-only live-indicators field as /api/preview above.
     const liveIndicators = await getLiveIndicatorsSummary(env);
     if (liveIndicators) data = { ...data, live_indicators_summary: liveIndicators };
-    return jsonResp(data, 200, { "Cache-Control": "public, max-age=120" });
+    data = { ...data, ...feedTruth.fields };
+    // A paid (ungated) body must never be stored in the shared URL-keyed edge
+    // cache, where an anonymous caller would be served it.
+    const feedHeaders = paidFeed
+      ? { ...feedTruth.headers, "Cache-Control": "private, no-store" }
+      : { ...feedTruth.headers, "Cache-Control": "public, max-age=120", "X-Sentinel-Edge-Ttl": String(feedTruth.edge_ttl_seconds) };
+    return jsonResp(data, 200, feedHeaders);
   }
 
   // --- /reports/** (HTML intel reports from REPORTS_R2) -----------------------
@@ -7970,7 +8014,9 @@ async function handleRequest(request, env, ctx) {
   // CYBERDUDEBIVASH SENTINEL APEX CYBER WATCHDOG.
   // Same R2 object as /api/health (one GET, no LIST). Stale or empty feeds
   // are not returned as a live brief. Anonymous reads do not write.
-  // Customer mutations use WatchdogLedger, one object per authenticated subject.
+  // Customer mutations use WatchdogLedger, one object per authenticated
+  // subject (or subject + MSSP tenant). Paid watch mutations register with
+  // WatchdogScheduler, which the 15-minute cron drives (scheduled() below).
   if (path.startsWith("/api/watchdog")) {
     const needsFeed = path === "/api/watchdog/brief"
       || path === "/api/watchdog/matches"
@@ -7981,29 +8027,26 @@ async function handleRequest(request, env, ctx) {
     if (method === "POST" || method === "PATCH" || method === "DELETE") {
       try { body = await request.json(); } catch { body = null; }
     }
-    const ns = env.WATCHDOG_LEDGER;
-    const ledger = ns && typeof ns.idFromName === "function" ? {
-      async mutate(op) {
-        const stub = ns.get(ns.idFromName("wd:" + op.subject));
-        const res = await stub.fetch("https://watchdog.ledger/mutate", {
-          method: "POST",
-          body: JSON.stringify({ op }),
-        });
-        try { return await res.json(); } catch { return { error: "watch_store_unavailable", status: 503 }; }
-      },
-    } : null;
     const watched = await routeWatchdog({
+      ...watchdogDeps(env, ctx),
       path,
       method,
+      headers: request.headers,
       searchParams: url.searchParams,
       auth,
       feed,
-      ledger,
       body,
       id: crypto.randomUUID(),
+      nonce: [...crypto.getRandomValues(new Uint8Array(16))].map((b) => b.toString(16).padStart(2, "0")).join(""),
+      secret: path === "/api/watchdog/destinations" && method === "POST" ? generateSigningSecret() : null,
+      isOperator: path === "/api/watchdog/ops" && isWatchdogOperator(request, env),
+      issueSession: env.CDB_JWT_SECRET ? (claims) => signJWT(claims, env.CDB_JWT_SECRET) : null,
+      revokeSession: async (a) => {
+        const ttl = a.expires_at ? Math.max(60, Math.ceil((Date.parse(a.expires_at) - Date.now()) / 1000)) : WATCHDOG_SESSION_POLICY.ttl_seconds;
+        await env.SECURITY_HUB_KV.put(`jwt_revoked:${a.key.slice(-24)}`, "1", { expirationTtl: ttl });
+      },
       now: new Date().toISOString(),
       nowMs: Date.now(),
-      fetchImpl: fetch,
     });
     if (watched) return jsonResp(watched.body, watched.status, { "Cache-Control": "no-store" });
   }
@@ -8097,7 +8140,9 @@ async function handleRequest(request, env, ctx) {
       "GET|POST|PATCH /api/watchdog/watches (PRO+)", "DELETE /api/watchdog/watches (PRO+)",
       "GET /api/watchdog/matches (PRO+)", "GET /api/watchdog/events (PRO+)",
       "POST /api/watchdog/events/ack (PRO+)",
-      "GET|POST|DELETE /api/watchdog/destinations (ENT)",
+      "GET|POST|PATCH|DELETE /api/watchdog/destinations (ENT)",
+      "POST /api/watchdog/destinations/verify (ENT)",
+      "POST|DELETE /api/watchdog/session (PRO+)",
       "GET /api/watchdog/deploy (PRO+)",
       "POST /api/reports/premium (PRO+, $49/report)", "GET /api/reports/list (PRO+)", "GET /api/reports/{id} (PRO+)",
       "GET /api/v1/export/suricata.rules (FREE sample / PRO+ full)",
@@ -8186,6 +8231,96 @@ const EDGE_CACHE_TTL_SECONDS = 300; // matches the /api/ai/* precedent's own TTL
 // PREMIUM_INTEL_PATHS, the existing, already-authoritative marker for
 // exactly this property (index.js's own tier-gate dispatch), rather than
 // inferring tier-variance from allowlist prose.
+// ---------------------------------------------------------------------------
+// Cyber Watchdog wiring (bindings only; decisions live in cyber-watchdog.js,
+// watchdog-scheduler.js and watchdog-webhook.js).
+// ---------------------------------------------------------------------------
+const WATCHDOG_SCHEDULER_NAME = "watchdog-scheduler-v1";
+
+function watchdogDoClient(ns, name, url) {
+  if (!ns || typeof ns.idFromName !== "function") return null;
+  return {
+    async mutate(op) {
+      const stub = ns.get(ns.idFromName(name));
+      const res = await stub.fetch(url, { method: "POST", body: JSON.stringify({ op }) });
+      try { return await res.json(); } catch { return { error: "watch_store_unavailable", status: 503 }; }
+    },
+  };
+}
+
+function watchdogScheduler(env) {
+  return watchdogDoClient(env.WATCHDOG_SCHEDULER, WATCHDOG_SCHEDULER_NAME, "https://watchdog.scheduler/op");
+}
+
+function watchdogDeps(env, ctx) {
+  const ns = env.WATCHDOG_LEDGER;
+  const ledgerFor = ns && typeof ns.idFromName === "function"
+    ? (key) => watchdogDoClient(ns, "wd:" + key, "https://watchdog.ledger/mutate")
+    : null;
+  const sched = watchdogScheduler(env);
+  const scheduler = sched ? {
+    register: async (entry) => {
+      // Best effort: the owner's next watch mutation registers again.
+      try { await sched.mutate({ type: "register", now: new Date().toISOString(), ...entry }); } catch (_) {}
+    },
+    recordMetrics: (delta) => {
+      const p = sched.mutate({ type: "record_metrics", now: new Date().toISOString(), delta }).catch(() => {});
+      if (ctx && typeof ctx.waitUntil === "function") ctx.waitUntil(p);
+    },
+    metrics: async (nowMs) => {
+      const out = await sched.mutate({ type: "metrics", now: new Date(nowMs || Date.now()).toISOString() });
+      return out && out.result ? out.result : { error: "scheduler_unavailable" };
+    },
+  } : null;
+  return {
+    ledgerFor,
+    ledger: null,
+    scheduler,
+    resolveDestination: (hostname) => resolveAndValidate(hostname, fetch),
+    verifyDestination: ({ destination, nonce }) => runVerificationChallenge({ destination, nonce, fetchImpl: fetch }),
+  };
+}
+
+function isWatchdogOperator(request, env) {
+  const k = (request.headers.get("X-Admin-Key") || "").trim();
+  return !!env.ADMIN_SECRET && !!k && timingSafeEqual(k, env.ADMIN_SECRET);
+}
+
+// Autonomous Watchdog evaluation, driven by the existing 15-minute cron.
+// With no paid watch enabled this costs one scheduler DO read and nothing
+// else: no R2 read, no write. Never LISTs R2. (Line comments only in this
+// file after the ADMIN API banner: scripts/entitlement_resource_drift_gate.py
+// strips block comments with a regex that a stray slash-star in that banner
+// would pair with any later star-slash.)
+async function runWatchdogSchedule(env) {
+  const sched = watchdogScheduler(env);
+  const ns = env.WATCHDOG_LEDGER;
+  if (!sched || !ns || typeof ns.idFromName !== "function") return { status: "unconfigured" };
+  try {
+    const out = await runWatchdogCycle({
+      scheduler: sched,
+      loadFeed: () => r2Get(env, LATEST_JSON_KEY),
+      ledgerFor: (key) => watchdogDoClient(ns, "wd:" + key, "https://watchdog.ledger/mutate"),
+      // Revocation signal written by applySubscriptionStatusChange() for
+      // cancelled/refunded/suspended/revoked keys (same check resolveAuth
+      // applies to JWTs).
+      checkEntitlement: async (entry) => {
+        try {
+          const denied = env.SECURITY_HUB_KV ? await env.SECURITY_HUB_KV.get(`jwt_deny:${entry.subject}`) : null;
+          return { denied: !!denied };
+        } catch (_) { return { denied: false }; }
+      },
+      nowMs: Date.now(),
+    });
+    if (out.status !== "idle") console.log(`[watchdog-cron] ${JSON.stringify({ status: out.status, evaluated: out.evaluated || 0, inserted: out.inserted || 0, failures: out.failures || 0, ops: out.ops })}`);
+    return out;
+  } catch (err) {
+    console.error(`[watchdog-cron] cycle failed: ${err && err.message ? err.message : err}`);
+    try { await sched.mutate({ type: "report", now: new Date().toISOString(), generation: null, results: [], cycle_error: true }); } catch (_) {}
+    return { status: "error" };
+  }
+}
+
 function isEdgeCacheableRequest(pathname, method) {
   return method === "GET" && classifyRoute(pathname, method).bucket === "PUBLIC" && !PREMIUM_INTEL_PATHS.has(pathname);
 }
@@ -8288,5 +8423,7 @@ export default {
       return;
     }
     ctx.waitUntil(fetchAndCacheCVEs(env));
+    // Cyber Watchdog autonomous evaluation (same 15-minute trigger).
+    ctx.waitUntil(runWatchdogSchedule(env));
   },
 };

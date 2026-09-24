@@ -6183,7 +6183,7 @@
                 <div style="position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,#00d4aa,transparent);"></div>
                 <div style="font-family:var(--font-mono);font-size:8px;letter-spacing:2px;color:var(--text-muted);text-transform:uppercase;margin-bottom:8px;">TOTAL ADVISORIES</div>
                 <div id="eicc-m-total" style="font-family:var(--font-mono);font-size:26px;font-weight:900;color:var(--accent);line-height:1;">—</div>
-                <div style="font-family:var(--font-mono);font-size:8px;color:#10b981;margin-top:4px;" id="eicc-m-total-delta">LIVE</div>
+                <div style="font-family:var(--font-mono);font-size:8px;color:#8ea0b8;margin-top:4px;" id="eicc-m-total-delta">CHECKING</div>
             </div>
             <div class="eicc-metric-card" style="background:var(--bg-card);border:1px solid var(--border);border-radius:4px;padding:14px 12px;text-align:center;position:relative;overflow:hidden;">
                 <div style="position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,#ef4444,transparent);"></div>
@@ -16318,6 +16318,30 @@ function renderTopThreats(data) {
         // even though the live API itself was fine. Named + called explicitly so
         // manualRefresh() and scheduleAutoRefresh() can re-invoke it on every
         // refresh cycle, not just once.
+        // Fail-closed publication badge. LIVE only when the authoritative
+        // freshness contract proves FRESH: publication_state === 'fresh',
+        // a valid ISO timestamp, and a numeric age inside the window.
+        // Missing or invalid evidence is UNKNOWN, never LIVE.
+        function cdbPublicationBadge(intel) {
+            if (!intel || typeof intel !== 'object') return { text: 'UNAVAILABLE', color: '#e2b340' };
+            var state = intel.publication_state;
+            var ts = intel.publication_generated_at;
+            var age = intel.publication_age_seconds;
+            var tsOk = typeof ts === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{1,9})?(Z|[+-]\d{2}:\d{2})$/.test(ts) && !isNaN(Date.parse(ts));
+            var ageOk = typeof age === 'number' && isFinite(age) && age >= 0;
+            if (state === 'fresh' && tsOk && ageOk) return { text: 'LIVE', color: '#10b981' };
+            if (state === 'stale') return { text: 'DEGRADED', color: '#e2b340' };
+            return { text: 'UNKNOWN', color: '#e2b340' };
+        }
+        window.cdbPublicationBadge = cdbPublicationBadge;
+        function cdbApplyPublicationBadge(intel) {
+            var el = document.getElementById('eicc-m-total-delta');
+            if (!el) return;
+            var b = cdbPublicationBadge(intel);
+            el.textContent = b.text;
+            el.style.color = b.color;
+        }
+
         function fetchWorkerStats() {
             var WORKER = 'https://intel.cyberdudebivash.com';
             var set = function(id, val) {
@@ -16340,7 +16364,7 @@ function renderTopThreats(data) {
             .then(function(r) { return r.ok ? r.json() : null; })
             .then(function(d) {
                 clearTimeout(statsTimer);
-                if (!d || !d.intel) return;
+                if (!d || !d.intel) { cdbApplyPublicationBadge(null); return; }
                 var intel = d.intel;
                 var api   = d.api || {};
 
@@ -16350,11 +16374,7 @@ function renderTopThreats(data) {
                 if (_advNote) {
                     _advNote.title = 'Authoritative Sentinel APEX feed advisories. Report-catalog size is a different number and is not shown here.';
                 }
-                var _liveDelta = document.getElementById('eicc-m-total-delta');
-                if (_liveDelta && intel.publication_state && intel.publication_state !== 'fresh') {
-                    _liveDelta.textContent = 'DEGRADED';
-                    _liveDelta.style.color = '#e2b340';
-                }
+                cdbApplyPublicationBadge(intel);
                 // Use Worker ioc_count only if larger than CVE-derived count from computeMetrics
                 var _workerIOC = intel.ioc_count != null ? intel.ioc_count : 0;
                 var _localIOC  = window._cdbComputedIOCs || 0;
@@ -16514,6 +16534,9 @@ function renderTopThreats(data) {
             })
             .catch(function(e) {
                 clearTimeout(statsTimer);
+                // Stats unreachable: never leave the badge implying LIVE.
+                var _b = document.getElementById('eicc-m-total-delta');
+                if (_b && _b.textContent === 'CHECKING') cdbApplyPublicationBadge(null);
                 console.debug('[v123.1] Worker stats (non-fatal):', e.message);
             });
         }

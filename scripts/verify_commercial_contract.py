@@ -14,7 +14,8 @@ on drift between:
 
   C01-C16   config/pricing.json               tiers vs canon (4 tiers x 4 fields)
   C17-C32   config/subscription_tiers.json     tiers vs canon (4 tiers x 4 fields)
-  C33-C38   workers/intel-gateway/src/pricing-data.json (paise) vs canon x 100
+  C33-C38   workers/intel-gateway/src/pricing-data.json (paise) vs canon x 100,
+            plus its usd_monthly/usd_annual display fields vs canon
   C39-C42   RATE_LIMITS (index.js)             requests_per_minute vs canon
   C43-C46   DAILY_QUOTAS (daily-quota.js)       requests_per_day vs canon
   C47-C58   pricing.html PRICES table (USD/INR, monthly/annual, 3 paid tiers)
@@ -244,6 +245,11 @@ def main() -> int:
               f"pricing-data.json {key}.monthly paise == {tier['inr_monthly'] * 100} (got {pd.get('monthly')})")
         check(pd.get("annual") == tier["inr_annual"] * 100,
               f"pricing-data.json {key}.annual paise == {tier['inr_annual'] * 100} (got {pd.get('annual')})")
+        # Display USD on the same runtime provider (Cyber Watchdog, /api/pricing).
+        check(pd.get("usd_monthly") == tier["usd_monthly"],
+              f"pricing-data.json {key}.usd_monthly == {tier['usd_monthly']} (got {pd.get('usd_monthly')})")
+        check(pd.get("usd_annual") == tier["usd_annual"],
+              f"pricing-data.json {key}.usd_annual == {tier['usd_annual']} (got {pd.get('usd_annual')})")
 
     # --- C39-C42: RATE_LIMITS (requests/minute) ----------------------------
     gateway_src = GATEWAY_INDEX_PATH.read_text(encoding="utf-8")

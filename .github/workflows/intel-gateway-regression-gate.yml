@@ -42,6 +42,12 @@ on:
       - 'scripts/**'
       - 'tests/**'
       - '.github/workflows/intel-gateway-regression-gate.yml'
+      # Cyber Watchdog: the gateway suite also imports the canary library and
+      # reads these pages (publication-truth, watchdog-canary tests).
+      - 'workers/intel-gateway/scripts/watchdog-negative-controls.mjs'
+      - 'deploy/cyber-watchdog/**'
+      - 'index.html'
+      - 'cyber-watchdog.html'
   pull_request:
     branches: [main]
     paths:
@@ -49,6 +55,12 @@ on:
       - 'scripts/**'
       - 'tests/**'
       - '.github/workflows/intel-gateway-regression-gate.yml'
+      # Cyber Watchdog: the gateway suite also imports the canary library and
+      # reads these pages (publication-truth, watchdog-canary tests).
+      - 'workers/intel-gateway/scripts/watchdog-negative-controls.mjs'
+      - 'deploy/cyber-watchdog/**'
+      - 'index.html'
+      - 'cyber-watchdog.html'
   workflow_dispatch: {}
 
 permissions:
@@ -87,6 +99,14 @@ jobs:
       - name: "Demo-key operator contract test"
         working-directory: workers/intel-gateway
         run: node --test scripts/demo-key-operator.contract.test.mjs
+
+      # Mutation proof: each control applies ONE deliberate defect to a temp
+      # copy (DNS validation off, HMAC removed, dedupe off, tenant check off,
+      # freshness gate off, PRO webhooks allowed, session scope off, scheduler
+      # bound off, ...) and requires the Watchdog suites to FAIL. A control the
+      # tests do not catch fails this step. Never modifies the checkout.
+      - name: "Cyber Watchdog negative controls"
+        run: node workers/intel-gateway/scripts/watchdog-negative-controls.mjs
 
   python-tests:
     name: "scripts/ + tests/ -- Python unit and regression suites"
