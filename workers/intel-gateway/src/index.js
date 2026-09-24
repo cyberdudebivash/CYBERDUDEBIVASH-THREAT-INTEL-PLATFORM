@@ -8074,6 +8074,7 @@ async function handleRequest(request, env, ctx) {
     const needsFeed = path === "/api/watchdog/brief"
       || path === "/api/watchdog/matches"
       || path === "/api/watchdog/events"
+      || path === "/api/watchdog/events/item"
       || path === "/api/watchdog/health";
     const feed = needsFeed ? await r2Get(env, LATEST_JSON_KEY) : null;
     let body = null;
@@ -8197,6 +8198,7 @@ async function handleRequest(request, env, ctx) {
       "GET|POST|PATCH /api/watchdog/watches (PRO+)", "DELETE /api/watchdog/watches (PRO+)",
       "GET /api/watchdog/matches (PRO+)", "GET /api/watchdog/events (PRO+)",
       "POST /api/watchdog/events/ack (PRO+)",
+      "POST /api/watchdog/events/status (PRO+)", "GET /api/watchdog/events/item?id= (PRO+)",
       "GET|POST|PATCH|DELETE /api/watchdog/destinations (ENT)",
       "POST /api/watchdog/destinations/verify (ENT)",
       "POST|DELETE /api/watchdog/session (PRO+)",
