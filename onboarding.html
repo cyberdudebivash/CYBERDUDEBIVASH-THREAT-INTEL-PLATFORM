@@ -219,17 +219,20 @@ a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
           <div class="card-title">Verify Your Connection</div>
           <p style="font-size:13px;color:var(--muted2);margin-bottom:12px">Run this to verify your API key and check your subscription tier:</p>
           <div class="code-block">
-<span class="comment"># Health + auth check</span>
+<span class="comment"># Validate your API key (independent of feed freshness)</span>
 curl -H <span class="str">"X-API-Key: $SENTINEL_API_KEY"</span> \
-  https://intel.cyberdudebivash.com/api/v1/health
+  https://intel.cyberdudebivash.com/api/auth/validate
 
-<span class="comment"># Expected response:</span>
+<span class="comment"># Expected response for a valid key:</span>
 {
-  <span class="key">"status"</span>: <span class="str">"operational"</span>,
-  <span class="key">"tier"</span>: <span class="str">"enterprise"</span>,
-  <span class="key">"calls_remaining"</span>: 49987,
-  <span class="key">"version": </span><span class="str">"v184.0"</span>
+  <span class="key">"valid"</span>: true,
+  <span class="key">"tier"</span>: <span class="str">"ENTERPRISE"</span>,
+  <span class="key">"sub"</span>: <span class="str">"&lt;your key id&gt;"</span>,
+  <span class="key">"jwt"</span>: false
 }
+<span class="comment"># An unknown or revoked key returns {"valid": false, "tier": "free"}.</span>
+<span class="comment"># Service and feed status: https://intel.cyberdudebivash.com/api/health</span>
+
           </div>
         </div>
         <div class="card">

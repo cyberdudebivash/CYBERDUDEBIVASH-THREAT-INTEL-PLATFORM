@@ -284,39 +284,12 @@ jobs:
         run: sleep 60
 
       - name: Run health canary probes
-        run: |
-          python3 - <<'EOF'
-          import requests, sys, time
-
-          ENDPOINTS = [
-              # Liveness, not intelligence freshness: /api/health answers a
-              # structured 503 while the feed is stale, which a rollback cannot fix.
-              ("https://intel.cyberdudebivash.com/api/health/live",    "API Health (liveness)"),
-              ("https://intel.cyberdudebivash.com/api/v1/health",      "API v1 Health"),
-              ("https://www.cyberdudebivash.com/",                     "Dashboard"),
-              ("https://intel.cyberdudebivash.com/api/feed.json",      "Feed API"),
-          ]
-
-          results = []
-          for url, name in ENDPOINTS:
-              try:
-                  r = requests.get(url, timeout=15)
-                  ok = r.status_code in (200, 204)
-                  status = "PASS" if ok else f"FAIL ({r.status_code})"
-                  results.append((name, ok, status))
-                  print(f"  {'✅' if ok else '❌'} {name}: {status}")
-              except Exception as e:
-                  results.append((name, False, f"ERROR: {e}"))
-                  print(f"  ❌ {name}: ERROR — {e}")
-
-          passed = sum(1 for _, ok, _ in results if ok)
-          total  = len(results)
-          print(f"\nPost-rollback canary: {passed}/{total} passed")
-
-          if passed < total * 0.8:
-              print("::error::Post-rollback canary FAILED — less than 80% probes passed.")
-              sys.exit(1)
-          EOF
+        # /api/v1/health was probed here but is not a gateway route (legacy
+        # FastAPI only) and 404'd on every run, capping the canary at 3/4 = 75%
+        # < 80%, so every post-rollback canary failed. scripts/
+        # post_rollback_canary.py probes the canonical /api/health contract
+        # instead, via scripts/deployment_health_contract.py.
+        run: python3 scripts/post_rollback_canary.py
 
   # ── Audit Log ───────────────────────────────────────────────────────────────
   audit-log:
