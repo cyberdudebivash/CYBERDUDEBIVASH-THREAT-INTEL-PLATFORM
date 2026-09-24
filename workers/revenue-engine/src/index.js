@@ -2015,6 +2015,7 @@ async function provisionCustomer(env, { email, tier, billing_cycle, payment_id, 
       source: trial ? "trial" : "revenue_engine",
       created_at: now, expires_at: currentPeriodEnd,
       payment_metadata: { payment_id: payment_id || null, billing_cycle },
+      ...gatewayTenantFields(tier, null),
     }));
   }
 
@@ -2124,6 +2125,13 @@ async function handleApiKeyRotate(request, env, rid) {
   // way provisionCustomer() is, so this stays a no-op wherever the binding
   // isn't configured.
   if (env.API_KEYS_KV) {
+    // Read the gateway record before deleting it, so the MSSP tenant mode
+    // is carried rather than silently reset to unrestricted.
+    let previous = null;
+    for (const ok of oldKeys) {
+      if (previous) break;
+      try { previous = await env.API_KEYS_KV.get(ok.key, "json"); } catch (_) { previous = null; }
+    }
     for (const ok of oldKeys) {
       await env.API_KEYS_KV.delete(ok.key);
     }
@@ -2131,6 +2139,7 @@ async function handleApiKeyRotate(request, env, rid) {
       key: newKey, tier: cust.tier, customer_id: cust.id, email: cleanEmail,
       source: "revenue_engine_rotation",
       created_at: now, expires_at: cust.current_period_end,
+      ...gatewayTenantFields(cust.tier, previous),
     }));
   }
 
@@ -2525,6 +2534,27 @@ async function handleCommercialDashboard(request, env, rid) {
 // =============================================================================
 // HELPERS
 // =============================================================================
+// MSSP tenant authorization fields for an intel-gateway API_KEYS_KV record
+// (intel-gateway mssp-tenants.js). A new MSSP key starts self-service with
+// zero tenants (tenant_auth_version 2), never unrestricted. A rotation
+// carries the previous record's mode exactly: an explicit list stays that
+// list (malformed stays fail-closed []), a legacy record (no field) stays
+// legacy, and a self-service key keeps its owner (customer_id), which is
+// where its tenants live -- so rotation never drops or widens tenants.
+function gatewayTenantFields(tier, previous) {
+  // Carried only for the same tier: an upgrade to MSSP starts self-service.
+  if (previous && typeof previous === "object" && previous.tier === tier) {
+    if (previous.managed_tenants === undefined) return {};
+    const out = { managed_tenants: Array.isArray(previous.managed_tenants) ? previous.managed_tenants : [] };
+    if (previous.tenant_auth_version === 2) {
+      out.tenant_auth_version = 2;
+      if (previous.customer_id) out.customer_id = previous.customer_id;
+    }
+    return out;
+  }
+  return tier === "MSSP" ? { managed_tenants: [], tenant_auth_version: 2 } : {};
+}
+
 function generateApiKey(tier, prefix) {
   const tPrefix = prefix || { FREE:"CDB-FREE", PRO:"CDB-PRO", ENTERPRISE:"CDB-ENT", MSSP:"CDB-MSSP" }[tier] || "CDB-PRO";
   const buf = crypto.getRandomValues(new Uint8Array(12));
@@ -2603,5 +2633,5 @@ function getCommercialEmailTemplate(name, vars) {
 export {
   json, sanitizeEmail, genId, TIERS, SUB_STATUS,
   provisionCustomer, trackEvent, isAdmin, automationTrigger,
-  handlePaymentSubmit, sanitizeScreenshotUrl,
+  handlePaymentSubmit, sanitizeScreenshotUrl, gatewayTenantFields,
 };

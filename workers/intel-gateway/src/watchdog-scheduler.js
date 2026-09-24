@@ -146,7 +146,7 @@ export function applySchedulerMutation(state, op) {
     }
     return {
       state: next,
-      result: { planned: candidates.map(([k, s]) => ({ ledger_key: k, subject: s.subject, tier: s.tier })) },
+      result: { planned: candidates.map(([k, s]) => ({ ledger_key: k, subject: s.subject, tenant: s.tenant || null, tier: s.tier })) },
     };
   }
 

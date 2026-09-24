@@ -22,6 +22,7 @@ import {
 } from "./cyber-watchdog.js";
 import { attemptDelivery } from "./watchdog-webhook.js";
 import { webhookDeliveryEnabled } from "./watchdog-policy.js";
+import { runTenantMembershipOp } from "./mssp-tenants.js";
 
 export class WatchdogLedger {
   constructor(state, env) {
@@ -67,6 +68,14 @@ export class WatchdogLedger {
   async fetch(request) {
     let body;
     try { body = await request.json(); } catch { body = null; }
+    // MSSP tenant membership (mssp-tenants.js) lives in its own instances
+    // ("mssp:" + owner) and its own storage key; never mixed with a ledger.
+    if (body && body.tenant_op && typeof body.tenant_op === "object") {
+      const out = await runTenantMembershipOp(this.state.storage, body.tenant_op);
+      return new Response(JSON.stringify(out), {
+        status: out.error ? (out.status || 400) : 200, headers: { "Content-Type": "application/json" },
+      });
+    }
     const op = body && body.op;
     if (!op || typeof op !== "object") {
       return new Response(JSON.stringify({ error: "invalid_request", status: 400 }), {

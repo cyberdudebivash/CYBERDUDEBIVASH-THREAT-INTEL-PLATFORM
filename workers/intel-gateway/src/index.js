@@ -153,6 +153,8 @@ import { publicationEnvelope } from './freshness-contract.js';
 import { runWatchdogCycle } from './watchdog-scheduler.js';
 import { generateSigningSecret, resolveAndValidate, runVerificationChallenge } from './watchdog-webhook.js';
 import { SESSION_POLICY as WATCHDOG_SESSION_POLICY, webhookDeliveryEnabled } from './watchdog-policy.js';
+// MSSP tenant self-service (tenant_auth_version 2); see mssp-tenants.js.
+import { TENANT_AUTH_VERSION, TENANT_DO_PREFIX, isTenantId, newTenantId, requestSelectsTenant, routeMsspTenants } from './mssp-tenants.js';
 // Issue #288: Durable Object class the Workers runtime instantiates via the
 // GUMROAD_PROVISIONING_LOCK binding (wrangler.toml). Must be a named export
 // of the Worker's main module -- see gumroad-provisioning-lock.js's header
@@ -721,6 +723,7 @@ async function resolveAuth(request, env) {
       jwtAuth.auth_time = Number.isInteger(payload.auth_time) ? payload.auth_time : null;
       jwtAuth.jti = typeof payload.jti === "string" ? payload.jti : null;
       jwtAuth.managed_tenants = Array.isArray(payload.managed_tenants) ? payload.managed_tenants : null;
+      jwtAuth.tenant_auth_version = payload.tenant_auth_version === TENANT_AUTH_VERSION ? TENANT_AUTH_VERSION : null;
       jwtAuth.entitlement_expires_at = typeof payload.ent_exp === "string" ? payload.ent_exp : null;
     }
     return jwtAuth;
@@ -804,6 +807,9 @@ async function resolveAuth(request, env) {
           managed_tenants: record.managed_tenants === undefined
             ? null
             : (Array.isArray(record.managed_tenants) ? record.managed_tenants : []),
+          // Self-service tenant keys: managed_tenants is resolved from the
+          // tenant membership store per tenant-scoped request (mssp-tenants.js).
+          tenant_auth_version: record.tenant_auth_version === TENANT_AUTH_VERSION ? TENANT_AUTH_VERSION : null,
         };
       }
     } catch (_) {}
@@ -3084,8 +3090,10 @@ export async function handleAdmin(request, env, ctx, path, method) {
     // MSSP tenant-feed behavior (see resolveAuth()'s managed_tenants
     // comment); pass [] to explicitly authorize zero tenants, or a list of
     // tenant_id strings to restrict this key to exactly those.
-    if (managed_tenants !== undefined && !Array.isArray(managed_tenants)) {
-      return jsonResp({ error: "managed_tenants, if provided, must be an array of tenant_id strings" }, 400);
+    // An explicit null keeps the legacy unrestricted mode (compatibility and
+    // the live legacy-key certification probe).
+    if (managed_tenants !== undefined && managed_tenants !== null && !Array.isArray(managed_tenants)) {
+      return jsonResp({ error: "managed_tenants, if provided, must be an array of tenant_id strings or null" }, 400);
     }
 
     // v185.0 FIX: this mirrors provisionApiKey()'s prefix logic (~line 2820)
@@ -3101,6 +3109,10 @@ export async function handleAdmin(request, env, ctx, path, method) {
       created_at: now(),
       expires_at: expires_in_days ? new Date(Date.now() + expires_in_days * 86400000).toISOString() : null,
       ...(Array.isArray(managed_tenants) ? { managed_tenants } : {}),
+      // New MSSP keys start with zero tenants and manage them through
+      // /api/mssp/tenants (tenant_auth_version 2). An explicit list stays
+      // operator-managed; an explicit null stays legacy unrestricted.
+      ...(tier === "MSSP" && managed_tenants === undefined ? { managed_tenants: [], tenant_auth_version: TENANT_AUTH_VERSION } : {}),
     };
     const opts = expires_in_days ? { expirationTtl: expires_in_days * 86400 } : undefined;
     await env.API_KEYS_KV.put(apiKey, JSON.stringify(record), opts);
@@ -3172,10 +3184,15 @@ export async function handleAdmin(request, env, ctx, path, method) {
       env, ctx, existing.tier, existing.customer_id, "admin_rotation",
       { ...(existing.payment_metadata || {}), rotated_from: oldKey.slice(0, 12) + "...", rotation_reason: "admin_rotate" },
       existing.billing_cycle || "monthly",
-      Array.isArray(existing.managed_tenants) ? existing.managed_tenants : undefined
+      // Carried exactly: a list stays that list (a malformed value stays
+      // fail-closed []), legacy (no field) stays legacy, and a self-service
+      // key stays self-service -- its tenants live under the same
+      // customer_id, so they survive the rotation.
+      existing.managed_tenants === undefined ? null : (Array.isArray(existing.managed_tenants) ? existing.managed_tenants : []),
+      existing.tenant_auth_version === TENANT_AUTH_VERSION ? TENANT_AUTH_VERSION : undefined
     );
     await env.API_KEYS_KV.delete(oldKey);
-    auditLog(ctx, env, { action: "api_key_rotated", old_key_prefix: oldKey.slice(0, 12), new_key_prefix: newKey.slice(0, 12), customer_id: existing.customer_id, tier: existing.tier, managed_tenants_carried: Array.isArray(existing.managed_tenants) });
+    auditLog(ctx, env, { action: "api_key_rotated", old_key_prefix: oldKey.slice(0, 12), new_key_prefix: newKey.slice(0, 12), customer_id: existing.customer_id, tier: existing.tier, managed_tenants_carried: Array.isArray(existing.managed_tenants), tenant_auth_version: existing.tenant_auth_version === TENANT_AUTH_VERSION ? TENANT_AUTH_VERSION : null });
     return jsonResp({
       new_key: newKey, tier: existing.tier, customer_id: existing.customer_id,
       old_key_prefix: oldKey.slice(0, 12), old_key_revoked: true,
@@ -4263,7 +4280,7 @@ async function applySubscriptionStatusChange(env, ctx, key, subscription_status,
   return { ok: true, existing, updated };
 }
 
-async function provisionApiKey(env, ctx, tier, email, source, metadata, billingCycle = "monthly", managedTenants = undefined) {
+async function provisionApiKey(env, ctx, tier, email, source, metadata, billingCycle = "monthly", managedTenants = undefined, tenantAuthVersion = undefined) {
   const validTier = ["FREE", "PRO", "ENTERPRISE", "MSSP"].includes(tier) ? tier : "PRO";
   const prefix = validTier === "ENTERPRISE" ? "cdb_ent" : validTier === "MSSP" ? "cdb_mssp" : validTier === "FREE" ? "cdb_free" : "cdb_pro";
   const rand   = Array.from(crypto.getRandomValues(new Uint8Array(20))).map(b => b.toString(16).padStart(2, "0")).join("");
@@ -4291,9 +4308,16 @@ async function provisionApiKey(env, ctx, tier, email, source, metadata, billingC
     // v185.5 CodeRabbit fix: only set when the caller explicitly passes an
     // array (e.g. key rotation carrying forward an MSSP key's tenant
     // restriction) -- every other call site (webhook/verify/gumroad/admin-
-    // create) omits this, so those keys still get resolveAuth()'s
-    // managed_tenants: null (unrestricted) default, unchanged.
+    // create) omits this, so non-MSSP keys still get resolveAuth()'s
+    // managed_tenants: null default, unchanged (MSSP: see the next line).
     ...(Array.isArray(managedTenants) ? { managed_tenants: managedTenants } : {}),
+    // Paid MSSP activation (Razorpay verify/webhook, Gumroad): a new MSSP key
+    // starts with zero tenants and the customer creates them through
+    // /api/mssp/tenants -- never null (unrestricted). Rotation passes
+    // null to keep a legacy key legacy, or tenantAuthVersion to keep a
+    // self-service key self-service.
+    ...(validTier === "MSSP" && managedTenants === undefined ? { managed_tenants: [], tenant_auth_version: TENANT_AUTH_VERSION } : {}),
+    ...(Array.isArray(managedTenants) && tenantAuthVersion === TENANT_AUTH_VERSION ? { tenant_auth_version: TENANT_AUTH_VERSION } : {}),
   };
   await env.API_KEYS_KV.put(apiKey, JSON.stringify(record));
   auditLog(ctx, env, {
@@ -4521,6 +4545,15 @@ async function sendActivationEmail(env, email, tier, apiKey) {
       <a href="https://intel.cyberdudebivash.com/customer/api-keys.html?email=${encodeURIComponent(email)}&token=${portalToken}" style="color:#60a5fa;">View your keys & subscription status &rarr;</a>
     </div>`
       : "";
+    // MSSP onboarding: a paid MSSP key starts with zero tenants; the customer
+    // adds them with the same key (no operator step).
+    const msspBlock = tier === "MSSP"
+      ? `<div style="background:#0f172a;border:1px solid #334155;border-radius:8px;padding:20px;margin:24px 0;">
+      <p style="color:#94a3b8;margin:0 0 8px;">Add your first managed tenant (returns its tenant_id):</p>
+      <code style="color:#fbbf24;font-size:13px;word-break:break-all;">curl -X POST -H "X-API-Key: ${apiKey}" -H "Content-Type: application/json" -d '{"name":"Customer name"}' https://intel.cyberdudebivash.com/api/mssp/tenants</code>
+      <p style="color:#94a3b8;margin:8px 0 0;">Then use GET /api/mssp/tenants/{tenant_id}/feed, or the X-CDB-Watchdog-Tenant header on Cyber Watchdog. Tenants are served the shared intelligence feed, filtered per request.</p>
+    </div>`
+      : "";
     const htmlBody = `<!DOCTYPE html>
 <html lang="en">
 <head><meta charset="UTF-8"><title>Your CYBERDUDEBIVASH(R) Sentinel APEX API Key</title></head>
@@ -4539,6 +4572,7 @@ async function sendActivationEmail(env, email, tier, apiKey) {
       <p style="color:#94a3b8;margin:0 0 8px;">Quick Start:</p>
       <code style="color:#fbbf24;font-size:13px;word-break:break-all;">curl -H "X-API-Key: ${apiKey}" https://intel.cyberdudebivash.com/api/feed</code>
     </div>
+    ${msspBlock}
     ${portalBlock}
     <p style="color:#94a3b8;">Need help? Contact us at <a href="mailto:support@cyberdudebivash.com" style="color:#60a5fa;">support@cyberdudebivash.com</a></p>
     <p style="color:#475569;font-size:12px;margin-bottom:0;">CYBERDUDEBIVASH(R) SENTINEL APEX  -  Enterprise Threat Intelligence Platform</p>
@@ -7600,6 +7634,23 @@ async function handleRequest(request, env, ctx) {
   if (path === "/api/intel/ir-guidance")            return await handleIRGuidance(request, env, auth, crypto.randomUUID());
   if (path === "/api/intel/exposure")               return await handleExposureAnalysis(request, env, auth, crypto.randomUUID());
 
+  // --- MSSP tenant self-service: GET|POST /api/mssp/tenants, GET|DELETE
+  // /api/mssp/tenants/{tenant_id}. Checked before the enterprise block so a
+  // tenant change never pays for its feed read; /feed stays there. ---
+  if (path === "/api/mssp/tenants" || /^\/api\/mssp\/tenants\/[^/]*$/.test(path)) {
+    let tenantBody = null;
+    if (method === "POST") {
+      try { tenantBody = await request.json(); } catch { tenantBody = null; }
+    }
+    const tenants = await routeMsspTenants({
+      path, method, auth, body: tenantBody,
+      membership: auth && auth.sub ? msspMembership(env, auth.sub) : null,
+      newId: () => newTenantId((n) => crypto.getRandomValues(new Uint8Array(n))),
+      now: new Date().toISOString(),
+    });
+    if (tenants) return jsonResp(tenants.body, tenants.status, { "Cache-Control": "no-store" });
+  }
+
   // --- enterprise-endpoints.js routes (previously unreachable  -  now wired via routeEnterpriseEndpoint) ---
   if (path.startsWith("/api/taxii") || path.startsWith("/api/misp/export") ||
       path.startsWith("/api/sigma") || path.startsWith("/api/yara") ||
@@ -7633,7 +7684,9 @@ async function handleRequest(request, env, ctx) {
     // a clean 404 -- confirmed live against production (GET /api/sigma and
     // /api/yara both returned 500 before this fix). Fall through to the
     // standard 404 handler below instead of returning the null.
-    const eeResponse = await routeEnterpriseEndpoint(path, request, env, ctx, eeTier, eeItems, crypto.randomUUID(), auth, resolveEntitlement);
+    // Self-service MSSP keys: tenant membership resolved for the tenant feed.
+    const eeAuth = requestSelectsTenant(path, request.headers, url.searchParams, auth) ? await resolveMsspMembership(env, auth) : auth;
+    const eeResponse = await routeEnterpriseEndpoint(path, request, env, ctx, eeTier, eeItems, crypto.randomUUID(), eeAuth, resolveEntitlement);
     if (eeResponse) return eeResponse;
   }
 
@@ -8027,13 +8080,16 @@ async function handleRequest(request, env, ctx) {
     if (method === "POST" || method === "PATCH" || method === "DELETE") {
       try { body = await request.json(); } catch { body = null; }
     }
+    // Self-service MSSP keys: tenant membership resolved only when the
+    // request selects a tenant (one Durable Object read).
+    const watchdogAuth = requestSelectsTenant(path, request.headers, url.searchParams, auth) ? await resolveMsspMembership(env, auth) : auth;
     const watched = await routeWatchdog({
       ...watchdogDeps(env, ctx),
       path,
       method,
       headers: request.headers,
       searchParams: url.searchParams,
-      auth,
+      auth: watchdogAuth,
       feed,
       body,
       id: crypto.randomUUID(),
@@ -8132,6 +8188,7 @@ async function handleRequest(request, env, ctx) {
       "/api/siem/qradar",
       "/api/stream",
       "/api/mssp/tenants/{tenant_id}/feed",
+      "GET|POST /api/mssp/tenants (MSSP)", "GET|DELETE /api/mssp/tenants/{tenant_id} (MSSP)",
       "/api/sla/status", "GET /api/sla/report (ENT)", "GET /api/sla/incidents (ENT)", "GET /api/sla/certificate (ENT)",
       "POST /api/alerts/subscribe (PRO+)", "GET /api/alerts/subscriptions (PRO+)", "POST /api/alerts/test (PRO+)",
       "GET /api/alerts/history (ENT)", "DELETE /api/alerts/unsubscribe (PRO+)",
@@ -8252,6 +8309,37 @@ function watchdogScheduler(env) {
   return watchdogDoClient(env.WATCHDOG_SCHEDULER, WATCHDOG_SCHEDULER_NAME, "https://watchdog.scheduler/op");
 }
 
+// MSSP tenant membership: one WatchdogLedger instance per owner
+// ("mssp:" + sub, never a "wd:" ledger name), tenant_op requests only.
+// The owner always comes from the authenticated subject.
+function msspMembership(env, owner) {
+  const ns = env.WATCHDOG_LEDGER;
+  if (!ns || typeof ns.idFromName !== "function" || !owner) return null;
+  return {
+    async mutate(op) {
+      const stub = ns.get(ns.idFromName(TENANT_DO_PREFIX + owner));
+      const res = await stub.fetch("https://mssp.tenants/op", { method: "POST", body: JSON.stringify({ tenant_op: { ...op, owner } }) });
+      try { return await res.json(); } catch { return { error: "tenant_store_unavailable", status: 503 }; }
+    },
+  };
+}
+
+// A self-service (tenant_auth_version 2) key's managed_tenants is the
+// membership store's active tenants, read once per tenant-scoped request so
+// a revoked tenant loses feed and Watchdog access immediately (sessions
+// included). Fails closed to [] if the store is unavailable. Every other key
+// is returned unchanged.
+async function resolveMsspMembership(env, auth) {
+  if (!auth || auth.tenant_auth_version !== TENANT_AUTH_VERSION || !auth.sub) return auth;
+  let ids = [];
+  try {
+    const store = msspMembership(env, auth.sub);
+    const out = store ? await store.mutate({ type: "members" }) : null;
+    if (out && !out.error && out.result && Array.isArray(out.result.tenant_ids)) ids = out.result.tenant_ids;
+  } catch (_) { ids = []; }
+  return { ...auth, managed_tenants: ids };
+}
+
 function watchdogDeps(env, ctx) {
   const ns = env.WATCHDOG_LEDGER;
   const ledgerFor = ns && typeof ns.idFromName === "function"
@@ -8306,10 +8394,22 @@ async function runWatchdogSchedule(env) {
       // cancelled/refunded/suspended/revoked keys (same check resolveAuth
       // applies to JWTs).
       checkEntitlement: async (entry) => {
+        let denied = null;
         try {
-          const denied = env.SECURITY_HUB_KV ? await env.SECURITY_HUB_KV.get(`jwt_deny:${entry.subject}`) : null;
-          return { denied: !!denied };
-        } catch (_) { return { denied: false }; }
+          denied = env.SECURITY_HUB_KV ? await env.SECURITY_HUB_KV.get(`jwt_deny:${entry.subject}`) : null;
+        } catch (_) { denied = null; }
+        if (denied) return { denied: true };
+        // A self-service tenant revoked by its MSSP owner leaves the
+        // registry. If the membership store cannot answer, this throws and
+        // the cycle records a failure for the entry: it is not evaluated,
+        // and not deregistered.
+        if (entry.tenant && isTenantId(entry.tenant)) {
+          const store = msspMembership(env, entry.subject);
+          const out = store ? await store.mutate({ type: "check", id: entry.tenant }) : null;
+          if (!out || out.error || !out.result) throw new Error("tenant_membership_unavailable");
+          if (out.result.initialized && !out.result.active) return { denied: true };
+        }
+        return { denied: false };
       },
       nowMs: Date.now(),
     });

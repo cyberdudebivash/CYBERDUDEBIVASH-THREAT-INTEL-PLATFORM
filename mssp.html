@@ -327,21 +327,16 @@ a:hover{text-decoration:underline;}
   </div>
 
   <div class="code-block">
-<span class="code-comment"># MSSP API — Provision a new client tenant (POST /api/mssp/tenants)</span>
+<span class="code-comment"># MSSP API — Add a client tenant with your MSSP key (POST /api/mssp/tenants)</span>
 curl -X POST https://intel.cyberdudebivash.com/api/mssp/tenants \
-  -H "Authorization: Bearer &lt;MSSP_PARTNER_KEY&gt;" \
+  -H "X-API-Key: &lt;MSSP_PARTNER_KEY&gt;" \
   -H "Content-Type: application/json" \
-  -d '{
-    "client_name": "Acme Corp",
-    "client_id": "acme-corp-001",
-    "siem_type": "splunk",
-    "siem_hec_url": "https://splunk.acme.com:8088",
-    "alert_severity_threshold": "HIGH",
-    "stix_push": true,
-    "tlp_level": "AMBER"
-  }'
+  -d '{"name": "Acme Corp"}'
 
-<span class="code-comment"># Response: tenant provisioned, API key issued, SIEM webhook live in &lt;60s</span></div>
+<span class="code-comment"># Response: 201 with a platform-generated tenant_id. Then:</span>
+<span class="code-comment">#   GET /api/mssp/tenants/{tenant_id}/feed   (shared feed, filtered)</span>
+<span class="code-comment">#   X-CDB-Watchdog-Tenant: {tenant_id} on /api/watchdog/*</span>
+<span class="code-comment">#   DELETE /api/mssp/tenants/{tenant_id}      (revoke)</span></div>
 </div>
 
 <hr class="divider">
