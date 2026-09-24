@@ -81,7 +81,7 @@ Your clients can be ingesting this in under 5 minutes. I'll walk you through it 
 ### Step 3 — MSSP Differentiators (3 min)
 "What makes the MSSP tier different for your operation:
 
-1. **500,000 API calls/day** — your master key covers all clients. One key, unlimited clients.
+1. **50,000 API calls/day** on one MSSP key, with client tenants you create yourself (multi-tenant capacity subject to plan terms).
 
 2. **Sub-keys** — for clients who need direct integration, I provision a dedicated key per client within 2 hours. You request by email.
 
@@ -96,14 +96,14 @@ Right now the AI engine shows 87% probability of ransomware escalation in the ne
 ### Step 4 — Pricing (2 min)
 "Pricing is simple.
 
-MSSP tier: $1,999/month or $19,990/year.
+MSSP tier: $999/month or $9,990/year.
 
 Break-even: If you bill 4 clients $500/month for CTI as a service, you're already profitable.
-At 10 clients at $200/month each, you make $2,001/month net on the intelligence layer alone.
+At 10 clients at $200/month each, you make $1,001/month net on the intelligence layer alone.
 
-No per-client licensing. No seat limits. Unlimited sub-keys.
+No per-client licensing. Multi-tenant capacity subject to plan terms.
 
-The only thing I ask is you don't share the master key directly with clients — they get sub-keys."
+The only thing I ask is you don't share your MSSP key directly with clients — you manage their tenants under it."
 
 ---
 
@@ -118,15 +118,15 @@ What would be most useful to compare? I can pull a live advisory on whatever you
 
 **"It's too expensive for our small client base"**
 "How many clients are you currently managing?
-Even at 2 clients, $1,999/month for a master key works if each client pays $1,000+/month.
-At 3 clients, break-even drops to $667/client.
-You can also start with a 14-day trial at no cost — see what your clients say before committing."
+Even at 2 clients, $999/month works if each client pays $500+/month.
+At 3 clients, break-even drops to $333/client.
+There is no free trial, but the free evaluation labs run without payment — see what your clients say before committing."
 
 **"We need SOC 2 before we can use this"**
 "Understood. SOC 2 is on our roadmap for Q4 2026.
 In the meantime, I can provide: security questionnaire responses, DPA, MSA, and GSTIN.
 Many MSSP clients are comfortable with our security posture for an intelligence layer — it's not touching their internal systems.
-Would a 14-day trial help you evaluate the risk independently?"
+Would the free evaluation labs help you evaluate the risk independently? No payment needed."
 
 **"Can I have a white-label branded platform?"**
 "You can white-label the intelligence output — reports, briefings, STIX bundles. Your clients see your brand.
@@ -148,9 +148,9 @@ You can audit any advisory by checking the source URL — every record has one."
 
 1. I'll send you the MSSP agreement — takes 5 minutes to review. No lawyer needed, it's written in plain English.
 
-2. I'll activate a 14-day MSSP trial key. No payment, no commitment. Your master key works exactly like the paid version.
+2. You and your team try the free evaluation labs — no payment, no commitment. (There is no free trial key.)
 
-3. You connect it to your test SIEM environment — I'll walk you through it on a 30-minute onboarding call this week.
+3. When you subscribe, you connect your MSSP key to your test SIEM environment — I'll walk you through it on a 30-minute onboarding call.
 
 4. If it works for your clients, you pay. If not, you walk away. No hard sell.
 
@@ -158,14 +158,14 @@ Does that work for you?"
 
 **[Get confirmation on:]**
 - [ ] Agreement: OK to send?
-- [ ] Trial: Activate? Get their email confirmed.
+- [ ] Evaluation labs: link sent? Get their email confirmed.
 - [ ] Onboarding call: Best time this week?
 
 ---
 
 ## MINUTE 28-30: CLOSE
 
-"I'll send the agreement and trial key within 2 hours of this call.
+"I'll send the agreement and the evaluation-lab link within 2 hours of this call.
 
 One thing I want you to know: I run this personally. When you WhatsApp me, I respond. When your client has a P0 issue at 2am, I'm on it.
 
@@ -179,12 +179,9 @@ Looking forward to it. Talk soon."
 
 ```
 [ ] Send MSSP agreement (MSSP_AGREEMENT_TEMPLATE.md as PDF)
-[ ] Activate 14-day MSSP trial key:
-    python generate_key.py generate --tier mssp --email [EMAIL] --ref MSSP-[DATE]-[ID] --days 14
-[ ] Send trial activation email (templates/email/08_mssp_welcome.txt, personalized)
+[ ] Send the free evaluation-lab link (no trial keys: config/commercial-contract.json trial_policy)
 [ ] Book onboarding call (within this week)
-[ ] Add to data/mssp/partners.json: status = "trial"
-[ ] Add to data/leads/pipeline.json: status = "trial", converted_tier = "MSSP"
+[ ] Add to data/leads/pipeline.json: status = "evaluating", target_tier = "MSSP"
 ```
 
 ---

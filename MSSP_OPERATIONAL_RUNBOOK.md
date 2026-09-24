@@ -36,8 +36,8 @@ A few quick questions to scope your needs:
 3. What sectors are your clients in? (Financial, Healthcare, Government, etc.)
 4. Are you looking to start with a few pilot clients or roll out across your full client base?
 
-Our MSSP program: $1,999/month for unlimited clients, 500,000 API calls/day,
-white-label Intel Data, sub-client keys on request, 2-hour support SLA.
+Our MSSP program: $999/month, 50,000 API calls/day, self-service client tenants
+(multi-tenant capacity subject to plan terms), white-label Intel Data, dedicated CSM with 1-hour response.
 
 Full details: https://intel.cyberdudebivash.com/mssp.html
 
@@ -80,11 +80,11 @@ Hi [NAME],
 As discussed, here's the SENTINEL APEX MSSP proposal for [COMPANY]:
 
 PLAN: MSSP Master Subscription
-PRICE: $1,999/month (≈ ₹1,65,000/month)
-      OR $19,990/year (save $1,998 — recommended)
+PRICE: $999/month (₹83,300/month)
+      OR $9,990/year (save $1,998 — recommended)
 
 WHAT'S INCLUDED:
-• Master API key (500,000 calls/day — covers all your clients)
+• MSSP API key (50,000 calls/day) with self-service client tenants (multi-tenant capacity subject to plan terms)
 • Sub-keys for each client (issued on request, 2 hours)
 • White-label Intel Data (your branding on reports)
 • STIX 2.1 / TAXII / Sigma / YARA / IOC exports
@@ -221,7 +221,7 @@ Client # | Client Name  | Key Hash[:12] | Issued    | Expires   | Status
 
 **D-14 before expiry:**
 - Send renewal reminder (email template 04) to MSSP primary contact
-- WhatsApp group message: "Hi [NAME], your SENTINEL APEX MSSP subscription renews in 14 days (expires [DATE]). Renewal link: [URL]. Same amount: $1,999."
+- WhatsApp group message: "Hi [NAME], your SENTINEL APEX MSSP subscription renews in 14 days (expires [DATE]). Renewal link: [URL]. Same amount: $999."
 
 **D-7:**
 - Follow-up WhatsApp if no payment response
@@ -266,7 +266,7 @@ CLIENT COVERAGE:
 • Client #2 [COMPANY]: [N] calls
 [etc.]
 
-Next renewal: [DATE] | Amount: $1,999
+Next renewal: [DATE] | Amount: $999
 Renewal link: https://intel.cyberdudebivash.com/PAYMENT-GATEWAY.html?plan=mssp
 
 Any questions? WhatsApp the support group or reply here.

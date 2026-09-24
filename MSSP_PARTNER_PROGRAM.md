@@ -21,23 +21,15 @@ The program is designed for MSSPs who:
 ## Section 1: Licensing and Pricing Model
 
 ### 1.1 MSSP Base License
-- **Price:** $1,999/month (base tier)
-- **Includes:** Up to 100 sub-tenant API keys, MSSP-tier rate limits, priority support, white-label report branding
+- **Price:** $999/month or $9,990/year (INR 83,300/month; canonical figures: `config/commercial-contract.json`)
+- **Includes:** Self-service client tenants (multi-tenant capacity subject to plan terms), MSSP-tier rate limits (1,200/min, 50,000/day), dedicated CSM with 1h response, white-label report branding
 - **Feed access:** Real-time APEX feed, AI summary endpoint, full detection pack library
 
-### 1.2 Sub-Tenant Pricing
-Sub-tenants are end-customer organizations managed by the MSSP partner:
+### 1.2 Client Tenants
+Client tenants are end-customer organizations the partner manages with its own MSSP key (Section 4). Multi-tenant capacity and any additional-tenant pricing are subject to plan terms.
 
-| Sub-Tenant Volume | Price per Sub-Tenant |
-|---|---|
-| 1–10 sub-tenants | Included in base |
-| 11–25 sub-tenants | $150/mo per additional sub-tenant |
-| 26–50 sub-tenants | $120/mo per additional sub-tenant |
-| 51–100 sub-tenants | $99/mo per additional sub-tenant |
-| 100+ sub-tenants | Custom enterprise pricing |
-
-### 1.3 Annual Commitment Discount
-Partners committing to 12-month contracts receive a 15% discount on the base license and sub-tenant pricing.
+### 1.3 Annual Billing
+Annual billing is $9,990/year, per the commercial contract.
 
 ### 1.4 White-Label Option
 Partners who require fully unbranded intelligence reports (CYBERDUDEBIVASH® branding removed, partner logo inserted) pay a $500/mo white-label activation fee.
@@ -148,15 +140,15 @@ MSSP partners receive a monthly usage report per sub-tenant showing: API calls, 
 ## Section 5: Partner Tiers
 
 ### Silver Partner
-**Qualification:** $1,999/mo MSSP base license, 1–10 sub-tenants
+**Qualification:** Active MSSP plan
 **Benefits:**
-- MSSP license + base sub-tenant allocation
+- MSSP license
 - Email support (48-hour SLA)
 - Standard documentation and onboarding guide
 - Partner badge for use in marketing materials
 
 ### Gold Partner
-**Qualification:** $1,999/mo MSSP base license, 11–50 sub-tenants, 6-month commitment
+**Qualification:** Active MSSP plan, 6-month commitment
 **Benefits:** All Silver benefits plus:
 - Priority email support (24-hour SLA)
 - Dedicated onboarding call (1 hour)
@@ -165,7 +157,7 @@ MSSP partners receive a monthly usage report per sub-tenant showing: API calls, 
 - Quarterly product roadmap briefing
 
 ### Platinum Partner
-**Qualification:** $1,999/mo MSSP base license, 51+ sub-tenants, 12-month commitment
+**Qualification:** Active MSSP plan, 12-month commitment
 **Benefits:** All Gold benefits plus:
 - Dedicated account manager
 - Priority support with 4-hour response SLA
