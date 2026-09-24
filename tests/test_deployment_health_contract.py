@@ -418,6 +418,21 @@ def _fake_fetch(live, health):
     return f
 
 
+def _freeze_freshness_clock(monkeypatch):
+    """HEALTH_FRESH is 10 minutes before the fixture clock (2026-09-24 06:00Z).
+    Canary and rollback evaluators that omit `now=` use the wall clock, so
+    this fixture becomes STALE six hours later and the release gate goes red
+    for a reason that is not a product regression."""
+    import public_freshness_contract as contract
+
+    class Frozen(contract.datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return NOW
+
+    monkeypatch.setattr(contract, "datetime", Frozen)
+
+
 @pytest.mark.parametrize("health,expect", [
     (HEALTH_FRESH, True), (HEALTH_STALE, True), (HEALTH_UNAVAILABLE, True),
     ((503, None, "invalid JSON: <!DOCTYPE html>"), False),
@@ -425,6 +440,7 @@ def _fake_fetch(live, health):
 ])
 def test_deployment_canary_a_uses_contract(monkeypatch, health, expect):
     import deployment_canary as dc
+    _freeze_freshness_clock(monkeypatch)
     monkeypatch.setattr(dc._deploy_health, "fetch_json", _fake_fetch(LIVE_OK, health))
     r = dc.canary_a_health("https://x", 5)
     assert r["pass"] is expect, r
