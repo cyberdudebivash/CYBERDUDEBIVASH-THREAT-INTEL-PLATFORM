@@ -1258,9 +1258,9 @@ export async function pushWebhookNotifications(env, newItems) {
           headers: {
             "Content-Type":            "application/json",
             "X-Sentinel-Signature":    sig,
-            "X-Sentinel-Version":      "183.0",
+            "X-Sentinel-Version":      "201.0",
             "X-Sentinel-Event":        "threat_intelligence_update",
-            "User-Agent":              "SENTINEL-APEX-WEBHOOK/183.0",
+            "User-Agent":              "SENTINEL-APEX-WEBHOOK/201.0",
           },
           body:    JSON.stringify(payload),
           signal:  AbortSignal.timeout(10000),
@@ -1290,7 +1290,7 @@ export async function pushWebhookNotifications(env, newItems) {
 function buildWebhookPayload(format, items, wh) {
   const base = {
     source:       "CYBERDUDEBIVASH(R) SENTINEL APEX",
-    version:      "183.0",
+    version:      "201.0",
     generated_at: new Date().toISOString(),
     webhook_id:   wh.id || "unknown",
     event:        "threat_intelligence_update",

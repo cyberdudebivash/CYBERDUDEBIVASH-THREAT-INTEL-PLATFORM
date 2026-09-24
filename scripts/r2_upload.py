@@ -85,7 +85,7 @@ logging.basicConfig(
 log = logging.getLogger("sentinel.r2_upload")
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-PIPELINE_VERSION = os.environ.get("PIPELINE_VERSION", "200.0")
+PIPELINE_VERSION = os.environ.get("PIPELINE_VERSION", "201.0")
 BUCKET_DATA = "sentinel-apex-data"
 BUCKET_REPORTS = "sentinel-apex-reports"  # written/retired only by scripts/r2_report_publisher.py now
 

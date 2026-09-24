@@ -41,5 +41,6 @@ def test_stats_normalization_is_network_only_and_not_synthetic():
 
 def test_runtime_code_and_intelligence_remain_network_only():
     src = _source()
-    assert "const CACHE_VERSION = 'sentinel-apex-v200.2-live'" in src
+    version = (ROOT / "VERSION").read_text(encoding="utf-8").strip()
+    assert f"const CACHE_VERSION = 'sentinel-apex-v{version}-live'" in src
     assert "event.respondWith(fetch(request, { cache: 'no-store' }))" in src

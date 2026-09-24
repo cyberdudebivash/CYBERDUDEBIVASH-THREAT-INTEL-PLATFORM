@@ -129,7 +129,7 @@ export async function handleP17Orchestrator(request, env) {
     generated_at: _now(),
     component: "unified-cyber-defense-orchestrator",
     version: "17.1",
-    platform_version: "184.0",
+    platform_version: "201.0",
     orchestrator: {
       health_pct: orchHealth,
       status: orchHealth >= 87 ? "fully_operational" : orchHealth >= 62 ? "degraded" : "critical",

@@ -4,7 +4,7 @@
 CYBERDUDEBIVASH® SENTINEL APEX
 scripts/enterprise_scoring_engine.py — Enterprise Intelligence Scoring Engine
 ================================================================================
-Version : 149.0.0
+Version : 201.0
 Author  : CYBERDUDEBIVASH Pvt. Ltd. — SENTINEL APEX Engineering
 License : CONFIDENTIAL — All Rights Reserved
 
@@ -67,7 +67,7 @@ MANIFEST_PATH    = REPO_ROOT / "data" / "stix" / "feed_manifest.json"
 SCORING_DIR      = REPO_ROOT / "data" / "enterprise_scoring"
 SCORING_REPORT   = SCORING_DIR / "scoring_report.json"
 
-ENGINE_VERSION   = "149.0.0"
+ENGINE_VERSION   = "201.0"
 NOW_UTC          = datetime.now(timezone.utc)
 NOW_ISO          = NOW_UTC.strftime("%Y-%m-%dT%H:%M:%SZ")
 

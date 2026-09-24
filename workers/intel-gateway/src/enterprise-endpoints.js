@@ -1,5 +1,5 @@
 // =============================================================================
-// CYBERDUDEBIVASH(R) SENTINEL APEX  -  Enterprise API Endpoints v149.0.0
+// CYBERDUDEBIVASH(R) SENTINEL APEX  -  Enterprise API Endpoints v201.0
 // =============================================================================
 // NEW ENTERPRISE FEATURES:
 //   /api/taxii/*              TAXII 2.1 protocol (ENTERPRISE tier)
@@ -18,7 +18,7 @@
 //   /api/mssp/*               MSSP multi-tenant intelligence routing
 // =============================================================================
 
-const ENTERPRISE_VERSION = "149.0.0";
+const ENTERPRISE_VERSION = "201.0";
 
 // -----------------------------------------------------------------------------
 // TIER GATES

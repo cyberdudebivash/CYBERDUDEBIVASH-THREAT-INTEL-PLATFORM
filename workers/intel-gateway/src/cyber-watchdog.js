@@ -33,6 +33,7 @@ import { retryDelaySeconds, validateDestinationUrl } from "./watchdog-webhook.js
 
 export const WATCHDOG_NAME = "CYBERDUDEBIVASH SENTINEL APEX CYBER WATCHDOG";
 export const WATCHDOG_VERSION = "3.0.0";
+export const WATCHDOG_PLATFORM_VERSION = "201.0";
 export const CLASSIFIER_VERSION = "watchdog-lens-v2";
 export const EVENT_RETENTION = 200;
 export const DELIVERY_RETENTION = 50;
@@ -159,6 +160,7 @@ export function watchdogOffer() {
   return {
     product: WATCHDOG_NAME,
     version: WATCHDOG_VERSION,
+    platform_version: WATCHDOG_PLATFORM_VERSION,
     classifier: CLASSIFIER_VERSION,
     seller,
     commercial_source: "config/commercial-contract.json",
@@ -1489,6 +1491,7 @@ export async function routeWatchdog(req) {
       body: {
         product: WATCHDOG_NAME,
         module_version: WATCHDOG_VERSION,
+        platform_version: WATCHDOG_PLATFORM_VERSION,
         freshness_status: pub.freshness_status,
         feed_generated_at: pub.feed_generated_at,
         feed_age_seconds: pub.feed_age_seconds,

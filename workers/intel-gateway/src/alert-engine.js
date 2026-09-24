@@ -1,5 +1,5 @@
 // ==============================================================================
-// CYBERDUDEBIVASH(R) SENTINEL APEX -- AI Alert Engine v143.0.0
+// CYBERDUDEBIVASH(R) SENTINEL APEX -- AI Alert Engine v201.0
 // Enterprise-tier active alerting: Telegram + custom Webhooks
 // Endpoints:
 //   POST /api/alerts/subscribe   -- register Telegram chat_id or webhook URL
@@ -228,7 +228,7 @@ export async function handleAlertTest(request, env, auth, rid) {
   }
 
   const testPayload = _buildAlertPayload({
-    title:            "FLASK TEST ALERT -- SENTINEL APEX v143.0.0",
+    title:            "FLASK TEST ALERT -- SENTINEL APEX v201.0",
     cve_id:           "CVE-2024-TEST-001",
     severity:         "CRITICAL",
     predictive_risk:  9.5,
@@ -437,7 +437,7 @@ function _buildAlertPayload(a) {
     ``,
     `LINK [View Full Intel](https://intel.cyberdudebivash.com) | [Upgrade](https://intel.cyberdudebivash.com/upgrade.html)`,
     ``,
-    `_CYBERDUDEBIVASH SENTINEL APEX v143.0.0_`,
+    `_CYBERDUDEBIVASH SENTINEL APEX v201.0_`,
   ].filter(l => l !== null).join("\n");
 
   return {
@@ -509,7 +509,7 @@ async function _sendWebhook(payload, url, env) {
       headers: {
         "Content-Type":       "application/json",
         "X-Sentinel-Source":  "CYBERDUDEBIVASH-SENTINEL-APEX",
-        "X-Sentinel-Version": "145.0.0",
+        "X-Sentinel-Version": "201.0",
         "X-Alert-Type":       payload.is_test ? "test" : "threat_alert",
       },
       body: JSON.stringify({
@@ -550,10 +550,10 @@ async function _recordHistory(env, entry) {
 function _json(status, body) {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { "Content-Type": "application/json", "X-Sentinel-Version": "145.0.0" },
+    headers: { "Content-Type": "application/json", "X-Sentinel-Version": "201.0" },
   });
 }
 
 function _jsonErr(status, message, rid) {
-  return _json(status, { error: true, message, rid, version: "145.0.0" });
+  return _json(status, { error: true, message, rid, version: "201.0" });
 }
