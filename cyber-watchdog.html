@@ -3,263 +3,363 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>CYBERDUDEBIVASH SENTINEL APEX CYBER WATCHDOG</title>
-<meta name="description" content="Hosted watch over the live Sentinel APEX feed: cybersecurity, technology, and security operations. Included with Pro Defense and Enterprise SOC.">
+<meta name="color-scheme" content="dark">
+<title>Cyber Watchdog | CYBERDUDEBIVASH SENTINEL APEX</title>
+<meta name="description" content="Hosted watch over the live Sentinel APEX feed: evidence-cited priority, customer relevance and an analyst triage inbox. Included with Pro Defense, Enterprise SOC and MSSP.">
+<link rel="stylesheet" href="/css/apex-design-tokens.css">
 <style>
-  :root { --bg:#070b12; --panel:#101826; --line:#243044; --ink:#e7eef8; --dim:#8ea0b8; --accent:#3ee0c5; --warn:#e2b340; }
-  * { box-sizing: border-box; }
-  body { margin:0; background:var(--bg); color:var(--ink); font:16px/1.5 "Segoe UI", system-ui, sans-serif; }
-  a { color:var(--accent); }
-  header, main { width:min(1080px, calc(100% - 32px)); margin:0 auto; }
-  header { padding:28px 0 8px; }
-  .kicker { letter-spacing:.14em; text-transform:uppercase; color:var(--accent); font-size:12px; }
-  h1 { font-size:clamp(28px, 4vw, 44px); line-height:1.1; margin:8px 0; }
-  .sub { color:var(--dim); max-width:68ch; }
-  .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:14px; margin:22px 0; }
-  .card, .row { background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:16px; }
-  .price { font-size:28px; font-weight:700; }
-  .meta { color:var(--dim); font-size:13px; }
-  table { width:100%; border-collapse:collapse; }
-  th, td { text-align:left; padding:8px 6px; border-bottom:1px solid var(--line); vertical-align:top; }
-  th { color:var(--dim); font-size:12px; letter-spacing:.06em; text-transform:uppercase; }
-  .lens { display:inline-block; margin:0 6px 6px 0; padding:2px 8px; border-radius:99px; border:1px solid var(--line); font-size:12px; }
-  button, .btn { background:var(--accent); color:#04221c; border:0; border-radius:8px; padding:8px 12px; font-weight:700; cursor:pointer; text-decoration:none; display:inline-block; }
-  input, select { background:#0b121c; color:var(--ink); border:1px solid var(--line); border-radius:8px; padding:8px; }
-  form { display:flex; flex-wrap:wrap; gap:8px; align-items:end; }
-  label { display:grid; gap:4px; font-size:13px; color:var(--dim); }
-  .warn { color:var(--warn); }
-  footer { color:var(--dim); font-size:13px; padding:28px 0 48px; }
-  .pri { display:inline-block; min-width:74px; text-align:center; padding:2px 8px; border-radius:6px; font-size:12px; font-weight:700; letter-spacing:.04em; border:1px solid var(--line); }
-  .pri-CRITICAL { background:#4a0f18; color:#ff9aa8; border-color:#8a1f30; }
-  .pri-HIGH { background:#3d2308; color:#ffc27a; border-color:#7a4a12; }
-  .pri-MEDIUM { background:#2f2c0b; color:#f3e27a; border-color:#6a6014; }
-  .pri-LOW { background:#0c2a24; color:#8fe8d6; border-color:#1f5a4f; }
-  .pri-INSUFFICIENT_EVIDENCE { background:#161d29; color:var(--dim); }
-  .st { font-size:12px; color:var(--dim); text-transform:lowercase; }
-  .btn-ghost { background:transparent; color:var(--accent); border:1px solid var(--line); }
-  dialog#eventdrawer { width:min(640px, 100vw); max-width:100vw; height:100vh; max-height:100vh; margin:0 0 0 auto; padding:0; border:0; border-left:1px solid var(--line); background:var(--panel); color:var(--ink); }
-  dialog#eventdrawer::backdrop { background:rgba(3,6,10,.6); }
-  .drawer-body { padding:20px; overflow:auto; height:100%; }
-  .drawer-body h3 { margin:18px 0 6px; font-size:14px; letter-spacing:.06em; text-transform:uppercase; color:var(--dim); }
-  textarea { width:100%; background:#0b121c; color:var(--ink); border:1px solid var(--line); border-radius:8px; padding:8px; font:inherit; }
-  .upsell { border-color:#1f5a4f; }
-  select, input { max-width:100%; }
-  .rel { display:inline-block; padding:2px 8px; border-radius:6px; font-size:12px; font-weight:700; border:1px solid var(--line); }
-  .rel-MATCHED { background:#10263a; color:#9fd3ff; border-color:#2b5d86; }
-  .rel-MENTIONED { background:#1d1a33; color:#c9b8ff; border-color:#4a3f86; }
-  .rel-NOT_MATCHED, .rel-NO_PROFILE, .rel-LEGACY { background:#161d29; color:var(--dim); }
-  .builder { border:1px solid var(--line); border-radius:12px; padding:14px; margin-top:12px; }
-  .builder fieldset { border:0; padding:0; margin:0; display:flex; flex-wrap:wrap; gap:8px; align-items:end; }
-  .builder legend { color:var(--dim); font-size:13px; margin-bottom:6px; }
-  details.adv { margin-top:10px; }
-  details.adv summary { cursor:pointer; color:var(--accent); font-weight:700; }
-  .rule { background:#0b121c; border:1px solid var(--line); border-radius:8px; padding:10px; font-family:ui-monospace, SFMono-Regular, Menlo, monospace; font-size:13px; white-space:pre-wrap; }
-  .sr-only { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; }
-  button:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-visible, summary:focus-visible, a:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
-  @media (max-width: 640px) { .col-opt { display:none; } }
-  @media (max-width: 640px) { table { display:block; overflow-x:auto; } }
+  body { margin: 0; }
+  .wd-skip { position: absolute; left: 12px; top: -60px; z-index: 50; padding: 10px 14px; background: var(--ax-surface-3); color: var(--ax-text-primary); border-radius: var(--ax-radius-sm); }
+  .wd-skip:focus { top: 12px; }
+  .wd-brand { display: grid; gap: 2px; padding: 4px 12px 18px; }
+  .wd-brand b { font-size: 15px; letter-spacing: 0.04em; }
+  .wd-cmd-left { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; min-width: 0; }
+  .wd-cmd-title { font: 800 18px/1.2 var(--ax-font); letter-spacing: 0.06em; margin: 0; }
+  .wd-cmd-right { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+  .wd-view-head { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 12px; margin: 18px 0 14px; }
+  .wd-lede { max-width: 72ch; color: var(--ax-text-secondary); margin: 0; }
+  .wd-stack { display: grid; gap: 16px; }
+  .wd-two { display: grid; gap: 16px; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); }
+  .wd-kpi-primary { min-height: 118px; }
+  .wd-secret { word-break: break-all; font-family: var(--ax-font-mono); font-size: 13px; background: #07101c; border: 1px solid var(--ax-accent-amber); border-radius: var(--ax-radius-sm); padding: 10px; }
+  .wd-plan-table th[scope="row"] { color: var(--ax-text-secondary); font-weight: 600; text-transform: none; letter-spacing: 0; font-family: var(--ax-font); font-size: 14px; position: static; background: transparent; border-bottom: 1px solid rgba(28,42,66,.7); }
+  .wd-price { font: 800 22px/1.2 var(--ax-font); color: var(--ax-text-primary); }
+  .wd-confirm { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 10px; padding: 10px; border: 1px solid rgba(251,191,36,.45); border-radius: var(--ax-radius-sm); }
+  footer.wd-foot { color: var(--ax-text-muted); font-size: 13px; padding: 28px 0 8px; border-top: 1px solid var(--ax-border-subtle); margin-top: 32px; }
+  @media (max-width: 1100px) { .wd-two { grid-template-columns: minmax(0, 1fr); } }
 </style>
 </head>
-<body>
-<header>
-  <div class="kicker">Sentinel APEX · Threat intelligence</div>
-  <h1>CYBER WATCHDOG</h1>
-  <p class="sub">A hosted watch over the live Sentinel APEX feed, split into cybersecurity, technology, and security operations. It does not watch the entire internet, and it does not invent advisories when the feed is empty.</p>
-</header>
-<main>
-  <section class="grid" id="plans" aria-live="polite"></section>
-  <section class="grid" id="situation" aria-live="polite"></section>
-  <section class="card">
-    <h2>Live brief</h2>
-    <form id="filters">
-      <label>Lens
-        <select id="lens">
-          <option value="all">All</option>
-          <option value="cybersecurity">Cybersecurity</option>
-          <option value="technology">Technology</option>
-          <option value="security_operations">Security operations</option>
-        </select>
-      </label>
-      <label>Query
-        <input id="q" placeholder="ransomware, azure, sigma" maxlength="80">
-      </label>
-      <button type="submit">Refresh</button>
-    </form>
-    <p class="meta" id="status">Loading the live brief…</p>
-    <table>
-      <thead><tr><th>Item</th><th>Lens</th><th>Source</th></tr></thead>
-      <tbody id="rows"></tbody>
-    </table>
-  </section>
-  <section class="card" style="margin-top:14px">
-    <h2>Customer watches</h2>
-    <p class="meta">Included with Pro Defense. Your API key is exchanged once for a short-lived, Watchdog-only session (15 minutes, refreshed while this tab is open, at most 4 hours). The key itself is not stored in this browser, not put in the URL, and the field is cleared after sign-in. Closing the tab does not stop your watches: they are evaluated by the hosted scheduler after each authoritative feed update.</p>
-    <form id="keyform" autocomplete="off">
-      <label>API key
-        <input id="key" type="password" autocomplete="off" placeholder="Pro, Enterprise or MSSP key">
-      </label>
-      <label>MSSP tenant (optional)
-        <input id="tenant" maxlength="64" placeholder="managed tenant id">
-      </label>
-      <button type="submit">Sign in to Watchdog</button>
-      <button type="button" id="signout">Sign out</button>
-    </form>
-    <p class="meta" id="sessionstatus">Not signed in.</p>
-    <div id="profilebox" class="builder" hidden>
-      <h3 style="margin:0 0 4px">Exposure profile</h3>
-      <p class="meta">Declare the technology your organization uses. Watchdog then marks intelligence that <strong>matches your exposure profile</strong>. This is customer-declared technology relevance. It is not vulnerability scanning, asset discovery or exposure verification, and a match does not mean an asset is affected. Vendor and product match CISA KEV product names as whole words; packages match exact package identifiers such as <code>npm:express</code>; other technologies are matched by name in advisory text and shown as a weaker "mentioned" signal. Comma-separated.</p>
-      <form id="profileform" aria-describedby="profilestatus">
-        <label>Vendors<input id="pvendors" maxlength="1700" placeholder="Microsoft, Fortinet"></label>
-        <label>Products<input id="pproducts" maxlength="1700" placeholder="FortiOS, Exchange Server"></label>
-        <label>Packages<input id="ppackages" maxlength="3100" placeholder="npm:express, pip:django"></label>
-        <label>Other technologies<input id="ptech" maxlength="1700" placeholder="Kubernetes, Azure"></label>
-        <button type="submit">Save profile</button>
-        <button type="button" id="profiledelete" class="btn-ghost">Remove profile</button>
+<body class="ax-app ax-texture">
+<a class="wd-skip" href="#main">Skip to content</a>
+<div class="ax-shell">
+  <nav class="ax-nav" aria-label="Cyber Watchdog sections">
+    <div class="wd-brand ax-nav__brand"><span class="ax-kicker">Sentinel APEX</span><b>CYBER WATCHDOG</b></div>
+    <a href="#overview" data-nav="overview"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></svg>Overview</a>
+    <a href="#matches" data-nav="matches"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h10"/></svg>Matches</a>
+    <a href="#watches" data-nav="watches"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/></svg>Watches</a>
+    <a href="#intelligence" data-nav="intelligence"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l8 4v5c0 5-3.5 8-8 9-4.5-1-8-4-8-9V7z"/></svg>Intelligence</a>
+    <a href="#integrations" data-nav="integrations"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/></svg>Integrations</a>
+    <a href="#tenants" data-nav="tenants" hidden><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="8" height="7" rx="1"/><rect x="13" y="4" width="8" height="7" rx="1"/><rect x="8" y="13" width="8" height="7" rx="1"/></svg>Tenants</a>
+    <a href="#plan" data-nav="plan"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18"/></svg>Plan</a>
+  </nav>
+
+  <main id="main" class="ax-main" tabindex="-1">
+    <header class="ax-cmdbar">
+      <div class="wd-cmd-left">
+        <p class="wd-cmd-title">CYBER WATCHDOG</p>
+        <span id="cmd-tenant" class="ax-badge" data-tone="tenant" hidden></span>
+        <span id="cmd-plan" class="ax-badge" hidden></span>
+        <label class="ax-sr" for="tenant-switch">Tenant</label>
+        <select id="tenant-switch" class="ax-select ax-btn--sm" style="width:auto;min-height:32px" hidden></select>
+      </div>
+      <div class="wd-cmd-right">
+        <div class="ax-rail" role="group" aria-label="Operational status">
+          <span class="ax-status" id="st-intel"><span class="ax-led" data-state="unknown"></span><span>Intelligence status unknown</span></span>
+          <span class="ax-status" id="st-watchdog"><span class="ax-led" data-state="unknown"></span><span>Watchdog status unknown</span></span>
+          <span class="ax-rail__meta" id="st-sync">Last sync: not yet</span>
+        </div>
+        <button type="button" id="cmd-signin" class="ax-btn ax-btn--primary ax-btn--sm">Sign in</button>
+        <button type="button" id="signout" class="ax-btn ax-btn--ghost ax-btn--sm" hidden>Sign out</button>
+      </div>
+    </header>
+    <div id="announcer" class="ax-sr" role="status" aria-live="polite"></div>
+
+    <!-- OVERVIEW -->
+    <section class="ax-view" data-view="overview" aria-labelledby="h-overview">
+      <div class="wd-view-head">
+        <div>
+          <p class="ax-kicker">Operations overview</p>
+          <h1 class="ax-h-display" id="h-overview" tabindex="-1">Cyber Watchdog</h1>
+          <p class="wd-lede">A hosted watch over the live Sentinel APEX feed: evidence-cited threat priority, customer relevance and an analyst triage inbox. It classifies items already on the feed. It does not scan networks, watch the dark web or invent advisories when the feed is stale.</p>
+        </div>
+      </div>
+      <div id="ov-signin" class="wd-two">
+        <section class="ax-panel ax-panel--focus" aria-labelledby="h-signin">
+          <div class="ax-panel__head"><h2 class="ax-h-panel" id="h-signin">Sign in</h2><span class="ax-meta">Pro Defense, Enterprise SOC or MSSP</span></div>
+          <p class="ax-meta" style="margin-top:0">Your API key is exchanged once for a short-lived, Watchdog-only session (15 minutes, refreshed while this tab is open, at most 4 hours). The key is not stored in this browser, not put in the URL, and the field is cleared after sign-in. Your watches keep running when the tab closes: the hosted scheduler evaluates them after each feed update.</p>
+          <form id="keyform" autocomplete="off" class="ax-form-row">
+            <label class="ax-field">API key<input id="key" class="ax-input" type="password" autocomplete="off" placeholder="Pro, Enterprise or MSSP key"></label>
+            <label class="ax-field">MSSP tenant (optional)<input id="tenant" class="ax-input" maxlength="64" placeholder="Bind this session to one tenant"></label>
+            <button type="submit" class="ax-btn ax-btn--primary">Sign in to Watchdog</button>
+          </form>
+          <p class="ax-meta" id="sessionstatus" role="status">Not signed in.</p>
+        </section>
+        <section class="ax-panel" aria-labelledby="h-included">
+          <div class="ax-panel__head"><h2 class="ax-h-panel" id="h-included">Included with paid plans</h2></div>
+          <ul class="ax-meta" style="margin:0;padding-left:18px;line-height:1.8">
+            <li>Evidence-cited threat priority on every match (CISA KEV, CVSS, EPSS, severity).</li>
+            <li>Triage inbox: New, Acknowledged, Investigating, Resolved, Ignored, with history.</li>
+            <li>Advanced watches with a live preview, and a declared technology profile.</li>
+            <li>Signed HTTPS webhooks (Enterprise SOC, MSSP) and per-tenant isolation (MSSP).</li>
+          </ul>
+          <p style="margin:14px 0 0"><a class="ax-btn ax-btn--ghost" href="#plan">Compare plans</a></p>
+        </section>
+      </div>
+      <div id="ov-signedin" class="wd-stack" hidden>
+        <div class="ax-grid ax-grid--kpi" id="ov-kpis" aria-label="Key metrics"></div>
+        <div class="wd-two">
+          <section class="ax-panel" aria-labelledby="h-queue">
+            <div class="ax-panel__head"><h2 class="ax-h-panel" id="h-queue">Open queue by customer priority</h2><a href="#matches" class="ax-btn ax-btn--ghost ax-btn--sm">Open inbox</a></div>
+            <div id="ov-queue"></div>
+          </section>
+          <section class="ax-panel" aria-labelledby="h-charts">
+            <div class="ax-panel__head"><h2 class="ax-h-panel" id="h-charts">Match history</h2><span class="ax-meta">Stored matches only</span></div>
+            <div id="ov-trend"></div>
+            <h3 class="ax-h-panel" style="margin:16px 0 8px">Threat priority of stored matches</h3>
+            <div id="ov-dist"></div>
+          </section>
+        </div>
+      </div>
+      <section class="ax-panel" aria-labelledby="h-lens" style="margin-top:16px">
+        <div class="ax-panel__head"><h2 class="ax-h-panel" id="h-lens">Live feed by lens</h2><span class="ax-meta" id="lens-meta"></span></div>
+        <div class="ax-grid" id="situation"></div>
+      </section>
+    </section>
+
+    <!-- MATCHES -->
+    <section class="ax-view" data-view="matches" aria-labelledby="h-matches" hidden>
+      <div class="wd-view-head">
+        <div><p class="ax-kicker">Triage inbox</p><h1 class="ax-h-section" id="h-matches" tabindex="-1">Matches</h1>
+        <p class="wd-lede ax-meta">Each match carries a threat priority (how urgent the intelligence is) and a customer relevance (whether it matches technology you declared). They are separate, and neither says an asset is affected.</p></div>
+      </div>
+      <div id="matches-locked"></div>
+      <div id="matches-body" hidden>
+        <form id="inboxfilters" class="ax-form-row ax-panel" aria-label="Filter the match inbox" style="margin-bottom:12px">
+          <label class="ax-field">Status<select id="fstatus" class="ax-select">
+            <option value="open">Open</option><option value="">All</option><option value="NEW">New</option><option value="ACKNOWLEDGED">Acknowledged</option><option value="INVESTIGATING">Investigating</option><option value="RESOLVED">Resolved</option><option value="IGNORED">Ignored</option>
+          </select></label>
+          <label class="ax-field">Threat priority<select id="fpriority" class="ax-select">
+            <option value="">Any</option><option value="CRITICAL">Critical</option><option value="CRITICAL,HIGH">High or above</option><option value="MEDIUM">Medium</option><option value="LOW">Low</option><option value="INSUFFICIENT_EVIDENCE">Insufficient evidence</option>
+          </select></label>
+          <label class="ax-field">Relevance<select id="frelevance" class="ax-select">
+            <option value="">Any</option><option value="MATCHED">Matches your exposure profile</option><option value="MATCHED,MENTIONED">Matched or mentioned</option><option value="NOT_MATCHED,NO_PROFILE">No profile match</option>
+          </select></label>
+          <label class="ax-field">CISA KEV<select id="fkev" class="ax-select">
+            <option value="">Any</option><option value="yes">Listed</option><option value="no">Not listed</option><option value="unknown">Not established</option>
+          </select></label>
+          <label class="ax-field">Sort<select id="fsort" class="ax-select">
+            <option value="customer">Customer priority</option><option value="priority">Threat priority</option><option value="newest">Newest</option><option value="oldest">Oldest</option>
+          </select></label>
+          <label class="ax-field">Search<input id="fq" class="ax-input" maxlength="80" placeholder="CVE, title, watch, source"></label>
+          <button type="submit" class="ax-btn">Apply</button>
+        </form>
+        <p class="ax-meta" id="inbox"></p>
+        <div id="eventlist"></div>
+      </div>
+    </section>
+
+    <!-- WATCHES -->
+    <section class="ax-view" data-view="watches" aria-labelledby="h-watches" hidden>
+      <div class="wd-view-head"><div><p class="ax-kicker">Detection rules</p><h1 class="ax-h-section" id="h-watches" tabindex="-1">Watches</h1></div></div>
+      <div id="watches-locked"></div>
+      <div id="watches-body" class="wd-stack" hidden>
+        <section id="profilebox" class="ax-panel" aria-labelledby="h-profile">
+          <div class="ax-panel__head"><h2 class="ax-h-panel" id="h-profile">Declared technology profile</h2><span class="ax-badge" id="profile-rev">Not configured</span></div>
+          <p class="ax-meta" style="margin-top:0">Used only to prioritize intelligence relevant to technologies you declare. It is not a scanner and it does not discover assets or confirm vulnerabilities. Vendors and products match CISA KEV product names as whole words; packages match exact identifiers such as <code>npm:express</code>; other technologies match advisory text and show as "mentioned".</p>
+          <form id="profileform" class="wd-stack" aria-describedby="profilestatus">
+            <div class="ax-grid">
+              <div class="ax-field"><span id="lbl-pvendors">Vendors</span><div class="ax-chips" data-chips="pvendors" data-max="25" data-maxlen="64" aria-labelledby="lbl-pvendors"></div></div>
+              <div class="ax-field"><span id="lbl-pproducts">Products</span><div class="ax-chips" data-chips="pproducts" data-max="25" data-maxlen="64" aria-labelledby="lbl-pproducts"></div></div>
+              <div class="ax-field"><span id="lbl-ppackages">Packages</span><div class="ax-chips" data-chips="ppackages" data-max="25" data-maxlen="120" data-lower="1" aria-labelledby="lbl-ppackages"></div></div>
+              <div class="ax-field"><span id="lbl-ptech">Other technologies</span><div class="ax-chips" data-chips="ptech" data-max="25" data-maxlen="64" aria-labelledby="lbl-ptech"></div></div>
+            </div>
+            <div class="ax-form-row"><button type="submit" class="ax-btn ax-btn--primary">Save profile</button><button type="button" id="profiledelete" class="ax-btn ax-btn--ghost">Remove profile</button></div>
+          </form>
+          <p class="ax-meta" id="profilestatus" role="status"></p>
+        </section>
+
+        <section id="builder" class="ax-panel ax-panel--focus" aria-labelledby="h-builder">
+          <div class="ax-panel__head">
+            <h2 class="ax-h-panel" id="h-builder">Watch builder</h2>
+            <div class="ax-seg" role="group" aria-label="Builder mode"><button type="button" data-mode="basic" aria-pressed="true">Basic</button><button type="button" data-mode="advanced" aria-pressed="false">Advanced</button></div>
+          </div>
+          <form id="watchform" class="wd-stack" aria-describedby="builderstatus">
+            <div class="ax-form-row">
+              <label class="ax-field">Watch name<input id="wname" class="ax-input" maxlength="80" required></label>
+              <label class="ax-field" data-basic>Match
+                <select id="wbasictype" class="ax-select"><option value="keywords">Keyword in advisory text</option><option value="vendors">CISA KEV vendor</option><option value="products">CISA KEV product</option><option value="cves">CVE id</option></select>
+              </label>
+              <label class="ax-field" data-basic>Value<input id="wbasicvalue" class="ax-input" maxlength="48" placeholder="ransomware, Microsoft, CVE-2026-1000"></label>
+              <label class="ax-field">Minimum severity<select id="wsev" class="ax-select"><option value="">Any</option><option>LOW</option><option>MEDIUM</option><option>HIGH</option><option>CRITICAL</option></select></label>
+            </div>
+            <div id="advanced" class="wd-stack" data-advanced hidden>
+              <div class="ax-form-row">
+                <div class="ax-field" style="flex:0 0 auto"><span id="lbl-logic">Combine criteria</span><div class="ax-seg" role="group" aria-labelledby="lbl-logic" id="wlogic"><button type="button" data-logic="AND" aria-pressed="true">ALL (AND)</button><button type="button" data-logic="OR" aria-pressed="false">ANY (OR)</button></div></div>
+                <div class="ax-field" style="flex:0 0 auto"><span id="lbl-kev">CISA KEV</span><div class="ax-seg" role="group" aria-labelledby="lbl-kev" id="wkev"><button type="button" data-kev="" aria-pressed="true">Any</button><button type="button" data-kev="true" aria-pressed="false">Listed</button><button type="button" data-kev="false" aria-pressed="false">Not listed</button></div></div>
+                <label class="ax-field">CVSS at least<input id="wcvss" class="ax-input" type="number" min="0" max="10" step="0.1" inputmode="decimal"></label>
+                <label class="ax-field">EPSS at least (%)<input id="wepss" class="ax-input" type="number" min="0" max="100" step="0.1" inputmode="decimal"></label>
+                <label class="ax-field">Lens<select id="wlens" class="ax-select"><option value="">Any</option><option value="cybersecurity">Cybersecurity</option><option value="technology">Technology</option><option value="security_operations">Security operations</option></select></label>
+              </div>
+              <div class="ax-grid">
+                <div class="ax-field"><span id="lbl-wvendors">KEV vendors</span><div class="ax-chips" data-chips="wvendors" data-max="8" data-maxlen="48" aria-labelledby="lbl-wvendors"></div></div>
+                <div class="ax-field"><span id="lbl-wproducts">KEV products</span><div class="ax-chips" data-chips="wproducts" data-max="8" data-maxlen="48" aria-labelledby="lbl-wproducts"></div></div>
+                <div class="ax-field"><span id="lbl-wkeywords">Keywords</span><div class="ax-chips" data-chips="wkeywords" data-max="8" data-maxlen="48" aria-labelledby="lbl-wkeywords"></div></div>
+                <div class="ax-field"><span id="lbl-wcves">CVE ids</span><div class="ax-chips" data-chips="wcves" data-max="8" data-maxlen="24" data-upper="1" aria-labelledby="lbl-wcves"></div></div>
+                <div class="ax-field"><span id="lbl-wpackages">Packages</span><div class="ax-chips" data-chips="wpackages" data-max="8" data-maxlen="120" data-lower="1" aria-labelledby="lbl-wpackages"></div></div>
+                <div class="ax-field"><span id="lbl-wsources">Sources</span><div class="ax-chips" data-chips="wsources" data-max="8" data-maxlen="80" aria-labelledby="lbl-wsources"></div></div>
+                <div class="ax-field"><span id="lbl-wtechniques">ATT&amp;CK techniques</span><div class="ax-chips" data-chips="wtechniques" data-max="8" data-maxlen="16" data-upper="1" aria-labelledby="lbl-wtechniques"></div></div>
+                <div class="ax-field"><span id="lbl-wioc">Indicator types</span><div class="ax-chips" data-chips="wioc" data-max="8" data-maxlen="24" data-lower="1" aria-labelledby="lbl-wioc"></div></div>
+              </div>
+            </div>
+            <div><span class="ax-h-panel">Rule</span><div class="ax-rule" id="draftrule" aria-live="polite" style="margin-top:6px">Add a criterion to see the rule.</div></div>
+            <div class="ax-form-row"><button type="button" id="wpreview" class="ax-btn">Preview against the live feed</button><button type="submit" class="ax-btn ax-btn--primary">Save watch</button></div>
+          </form>
+          <p class="ax-meta" id="builderstatus" role="status"></p>
+          <div id="previewbox"></div>
+        </section>
+
+        <section class="ax-panel" aria-labelledby="h-watchlist">
+          <div class="ax-panel__head"><h2 class="ax-h-panel" id="h-watchlist">Your watches</h2><span class="ax-meta" id="watchstatus"></span></div>
+          <div id="watchlist"></div>
+        </section>
+      </div>
+    </section>
+
+    <!-- INTELLIGENCE -->
+    <section class="ax-view" data-view="intelligence" aria-labelledby="h-intel" hidden>
+      <div class="wd-view-head"><div><p class="ax-kicker">Live brief</p><h1 class="ax-h-section" id="h-intel" tabindex="-1">Intelligence</h1>
+      <p class="wd-lede ax-meta">The live brief from the authoritative Sentinel APEX feed. When the feed is not fresh, nothing is shown as live.</p></div></div>
+      <form id="filters" class="ax-form-row ax-panel" style="margin-bottom:12px" aria-label="Filter the live brief">
+        <label class="ax-field">Lens<select id="lens" class="ax-select"><option value="all">All</option><option value="cybersecurity">Cybersecurity</option><option value="technology">Technology</option><option value="security_operations">Security operations</option></select></label>
+        <label class="ax-field">Query<input id="q" class="ax-input" placeholder="ransomware, azure, sigma" maxlength="80"></label>
+        <button type="submit" class="ax-btn">Refresh</button>
       </form>
-      <p class="meta" id="profilestatus" role="status" aria-live="polite"></p>
-    </div>
-    <div id="builder" class="builder" hidden>
-      <h3 style="margin:0 0 4px">Watch builder</h3>
-      <form id="watchform" aria-describedby="builderstatus">
-        <fieldset>
-          <legend>Basic</legend>
-          <label>Name<input id="wname" maxlength="80" required></label>
-          <label>Match
-            <select id="wbasictype">
-              <option value="keywords">Keyword in advisory text</option>
-              <option value="vendors">CISA KEV vendor</option>
-              <option value="products">CISA KEV product</option>
-              <option value="cves">CVE id</option>
-            </select>
-          </label>
-          <label>Value<input id="wbasicvalue" maxlength="48" placeholder="ransomware, Microsoft, CVE-2026-1000"></label>
-          <label>Minimum severity
-            <select id="wsev"><option value="">Any</option><option>LOW</option><option>MEDIUM</option><option>HIGH</option><option>CRITICAL</option></select>
-          </label>
-        </fieldset>
-        <details class="adv" id="advanced">
-          <summary>Advanced criteria</summary>
-          <fieldset style="margin-top:10px">
-            <legend>All lists are comma-separated. Leave a field empty to ignore it.</legend>
-            <label>Combine criteria
-              <select id="wlogic"><option value="AND">ALL must match (AND)</option><option value="OR">ANY may match (OR)</option></select>
-            </label>
-            <label>More keywords<input id="wkeywords" maxlength="400"></label>
-            <label>CVE ids<input id="wcves" maxlength="400" placeholder="CVE-2026-1000"></label>
-            <label>KEV vendors<input id="wvendors" maxlength="400"></label>
-            <label>KEV products<input id="wproducts" maxlength="400"></label>
-            <label>Packages<input id="wpackages" maxlength="900" placeholder="npm:express"></label>
-            <label>Sources<input id="wsources" maxlength="600" placeholder="CISA KEV"></label>
-            <label>ATT&amp;CK techniques<input id="wtechniques" maxlength="120" placeholder="T1190"></label>
-            <label>Indicator types<input id="wioc" maxlength="200" placeholder="ip_address, url"></label>
-            <label>Lens
-              <select id="wlens"><option value="">Any</option><option value="cybersecurity">Cybersecurity</option><option value="technology">Technology</option><option value="security_operations">Security operations</option></select>
-            </label>
-            <label>CVSS at least<input id="wcvss" type="number" min="0" max="10" step="0.1" inputmode="decimal"></label>
-            <label>EPSS at least (%)<input id="wepss" type="number" min="0" max="100" step="0.1" inputmode="decimal"></label>
-            <label>CISA KEV
-              <select id="wkev"><option value="">Any</option><option value="true">Listed</option><option value="false">Not listed</option></select>
-            </label>
-          </fieldset>
-        </details>
-        <p style="margin:10px 0 0">
-          <button type="button" id="wpreview" class="btn-ghost">Preview against the live feed</button>
-          <button type="submit">Save watch</button>
-        </p>
-      </form>
-      <p class="meta" id="builderstatus" role="status" aria-live="polite"></p>
-      <div id="previewbox"></div>
-    </div>
-    <p class="meta" id="watchstatus"></p>
-    <div id="watchlist"></div>
-    <h2>Match inbox</h2>
-    <p class="meta">Counts come from stored match events. They stay empty until a watch has matched a real feed item. Events are created by the hosted scheduler, and also when this page or the poller reads events.</p>
-    <div class="grid" id="ops"></div>
-    <p class="meta" id="inbox"></p>
-    <form id="inboxfilters" aria-label="Filter the match inbox">
-      <label>Status<select id="fstatus">
-        <option value="open" title="New, acknowledged or investigating">Open</option>
-        <option value="">All</option>
-        <option value="NEW">New</option>
-        <option value="ACKNOWLEDGED">Acknowledged</option>
-        <option value="INVESTIGATING">Investigating</option>
-        <option value="RESOLVED">Resolved</option>
-        <option value="IGNORED">Ignored</option>
-      </select></label>
-      <label>Priority<select id="fpriority">
-        <option value="">Any</option>
-        <option value="CRITICAL">Critical</option>
-        <option value="CRITICAL,HIGH">High or above</option>
-        <option value="MEDIUM">Medium</option>
-        <option value="LOW">Low</option>
-        <option value="INSUFFICIENT_EVIDENCE">Insufficient evidence</option>
-      </select></label>
-      <label>Relevance<select id="frelevance">
-        <option value="">Any</option>
-        <option value="MATCHED">Matches your exposure profile</option>
-        <option value="MATCHED,MENTIONED">Matched or mentioned</option>
-        <option value="NOT_MATCHED,NO_PROFILE">No profile match</option>
-      </select></label>
-      <label>CISA KEV<select id="fkev">
-        <option value="">Any</option><option value="yes">Listed</option><option value="no">Not listed</option><option value="unknown">Unknown</option>
-      </select></label>
-      <label>Sort<select id="fsort">
-        <option value="customer">Customer priority</option>
-        <option value="priority">Threat priority</option>
-        <option value="newest">Newest</option>
-        <option value="oldest">Oldest</option>
-      </select></label>
-      <label>Search<input id="fq" maxlength="80" placeholder="CVE, title, watch, source"></label>
-      <button type="submit">Apply</button>
-    </form>
-    <div id="eventlist"></div>
-    <h2>Webhook destinations</h2>
-    <p class="meta">Enterprise SOC and MSSP. A destination receives nothing until it passes verification: we POST a signed challenge and your endpoint must answer <code>{"challenge": "&lt;nonce&gt;"}</code>. Every delivery is signed: <code>X-CDB-Watchdog-Signature: v1=hex(HMAC-SHA256(secret, timestamp + "." + raw_body))</code>. HTTPS on port 443 only; hosts that resolve to private, loopback, link-local or metadata addresses are refused at registration and before every delivery. Redirects are not followed.</p>
-    <form id="destform">
-      <label>HTTPS URL<input id="durl" maxlength="300" placeholder="https://siem.example.com/hooks/watchdog"></label>
-      <button type="submit">Add destination</button>
-    </form>
-    <div id="secretbox" class="card" style="display:none;margin-top:8px"></div>
-    <p class="meta" id="deststatus"></p>
-    <div id="destlist"></div>
-  </section>
-</main>
-<dialog id="eventdrawer" aria-labelledby="drawertitle">
-  <div class="drawer-body">
-    <p style="text-align:right;margin:0"><button type="button" class="btn-ghost" id="drawerclose">Close</button></p>
-    <div id="drawercontent"><p class="meta">Loading…</p></div>
+      <p class="ax-meta" id="status" role="status">Loading the live brief…</p>
+      <div id="brieftable"></div>
+    </section>
+
+    <!-- INTEGRATIONS -->
+    <section class="ax-view" data-view="integrations" aria-labelledby="h-integrations" hidden>
+      <div class="wd-view-head"><div><p class="ax-kicker">Delivery</p><h1 class="ax-h-section" id="h-integrations" tabindex="-1">Integrations</h1>
+      <p class="wd-lede ax-meta">Signed HTTPS webhooks to your SIEM or SOAR. A destination receives nothing until it passes verification: we POST a signed challenge and your endpoint must answer <code>{"challenge": "&lt;nonce&gt;"}</code>. Every delivery is signed <code>X-CDB-Watchdog-Signature: v1=hex(HMAC-SHA256(secret, timestamp + "." + raw_body))</code>. HTTPS on port 443 only; private, loopback, link-local and metadata addresses are refused at registration and before every delivery. Redirects are not followed.</p></div></div>
+      <div id="integrations-locked"></div>
+      <div id="integrations-body" class="wd-stack" hidden>
+        <section class="ax-panel ax-panel--focus" aria-labelledby="h-adddest">
+          <div class="ax-panel__head"><h2 class="ax-h-panel" id="h-adddest">Add destination</h2><span class="ax-meta" id="deststatus" role="status"></span></div>
+          <form id="destform" class="ax-form-row">
+            <label class="ax-field">HTTPS URL<input id="durl" class="ax-input" maxlength="300" placeholder="https://siem.example.com/hooks/watchdog"></label>
+            <button type="submit" class="ax-btn ax-btn--primary">Add destination</button>
+          </form>
+          <div id="secretbox" hidden></div>
+        </section>
+        <section class="ax-panel" aria-labelledby="h-destlist">
+          <div class="ax-panel__head"><h2 class="ax-h-panel" id="h-destlist">Destinations</h2><span class="ax-meta" id="destmeta"></span></div>
+          <div id="destlist"></div>
+        </section>
+        <section class="ax-panel" aria-labelledby="h-deliveries">
+          <div class="ax-panel__head"><h2 class="ax-h-panel" id="h-deliveries">Recent delivery attempts</h2></div>
+          <div id="deliverylist"></div>
+        </section>
+      </div>
+    </section>
+
+    <!-- TENANTS (MSSP) -->
+    <section class="ax-view" data-view="tenants" aria-labelledby="h-tenants" hidden>
+      <div class="wd-view-head"><div><p class="ax-kicker">MSSP</p><h1 class="ax-h-section" id="h-tenants" tabindex="-1">Tenants</h1>
+      <p class="wd-lede ax-meta">Each tenant has its own watches, profile, events and deliveries. The server checks tenant membership on every request.</p></div></div>
+      <div id="tenantlist"></div>
+    </section>
+
+    <!-- PLAN -->
+    <section class="ax-view" data-view="plan" aria-labelledby="h-plan" hidden>
+      <div class="wd-view-head"><div><p class="ax-kicker">Account</p><h1 class="ax-h-section" id="h-plan" tabindex="-1">Plan</h1></div></div>
+      <div id="plancurrent"></div>
+      <section class="ax-panel" aria-labelledby="h-plans" id="plans-panel">
+        <div class="ax-panel__head"><h2 class="ax-h-panel" id="h-plans">Plans</h2><span class="ax-meta">Prices from the live pricing service · Checkout: Razorpay (primary), Gumroad (alternative) · one invoice</span></div>
+        <div id="plans"></div>
+      </section>
+      <section class="ax-panel" aria-labelledby="h-scope" style="margin-top:16px">
+        <div class="ax-panel__head"><h2 class="ax-h-panel" id="h-scope">Scope</h2></div>
+        <ul class="ax-meta" id="scope" style="margin:0;padding-left:18px;line-height:1.8"></ul>
+      </section>
+    </section>
+
+    <footer class="wd-foot">
+      Seller: CYBERDUDEBIVASH Pvt. Ltd. · GSTIN 21ARKPN8270G1ZP · PAN ARKPN8270G.
+      Gumroad or Razorpay receipt is not a GST tax invoice.
+      ISO 27001 / SOC 2: aligned, not certified.
+      Customer poller: <code>deploy/cyber-watchdog/poll.mjs</code> with Pro Defense. Signed HTTPS delivery is Enterprise SOC and MSSP; reference receiver: <code>deploy/cyber-watchdog/sink.mjs</code>.
+    </footer>
+  </main>
+</div>
+
+<dialog id="eventdrawer" class="ax-drawer ax-app" aria-labelledby="drawertitle">
+  <div class="ax-drawer__body">
+    <p style="text-align:right;margin:0"><button type="button" class="ax-btn ax-btn--ghost ax-btn--sm" id="drawerclose">Close</button></p>
+    <div id="drawercontent"></div>
   </div>
 </dialog>
-<footer>
-  Seller: CYBERDUDEBIVASH Pvt. Ltd. · GSTIN 21ARKPN8270G1ZP · PAN ARKPN8270G.
-  Gumroad or Razorpay receipt is not a GST tax invoice.
-  ISO 27001 / SOC 2: aligned, not certified.
-  Customer poller: <code>deploy/cyber-watchdog/poll.mjs</code> with Pro Defense. Signed HTTPS delivery is Enterprise SOC and MSSP; reference receiver: <code>deploy/cyber-watchdog/sink.mjs</code>.
-</footer>
-<script>
-const plans = document.getElementById('plans');
-const situation = document.getElementById('situation');
-const rows = document.getElementById('rows');
-const status = document.getElementById('status');
-const watchstatus = document.getElementById('watchstatus');
-const inbox = document.getElementById('inbox');
-const watchlist = document.getElementById('watchlist');
-const ops = document.getElementById('ops');
-const eventlist = document.getElementById('eventlist');
 
-function esc(s) {
+<script src="/js/apex-status-model.js"></script>
+<script>
+'use strict';
+const S = window.ApexStatus;
+
+// ---------------------------------------------------------------------------
+// Rendering. Untrusted values (titles, sources, watch names, tenant ids,
+// notes, profile values) only ever become text nodes via h(). There is no
+// innerHTML with data anywhere on this page.
+// ---------------------------------------------------------------------------
+function esc(s) { // kept for any attribute-string use; h() never needs it
   return String(s ?? '').replace(/[&<>"']/g, (c) => '&#' + c.charCodeAt(0) + ';');
 }
-function money(p) {
-  if (p.price_usd_monthly == null) return 'Contract';
-  if (!p.price_usd_monthly) return '$0';
-  const inr = Number(p.price_inr_monthly != null ? p.price_inr_monthly : p.price_inr_book_monthly);
-  const grouped = Number.isFinite(inr) ? String(inr).replace(/\B(?=(\d{3})+(?!\d))/g, ',') : '';
-  return grouped ? `$${p.price_usd_monthly}/mo | INR ${grouped}/mo` : `$${p.price_usd_monthly}/mo`;
+function safeHref(u) {
+  const v = String(u || '');
+  if (v.startsWith('/') && !v.startsWith('//')) return v;
+  return /^https:\/\//i.test(v) ? v : '#';
 }
-// Session, not key. The API key only ever travels once, in the exchange
-// request header. Only the short-lived scoped token is kept (memory +
-// sessionStorage for this tab); the legacy stored key is removed.
+function h(tag, attrs, ...kids) {
+  const el = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs || {})) {
+    if (v == null || v === false) continue;
+    if (k === 'class') el.className = v;
+    else if (k === 'text') el.textContent = String(v);
+    else if (k === 'href') el.setAttribute('href', safeHref(v));
+    else if (k === 'dataset') { for (const [dk, dv] of Object.entries(v)) if (dv != null) el.dataset[dk] = String(dv); }
+    else if (k.startsWith('on')) continue; // never from data
+    else el.setAttribute(k, v === true ? '' : String(v));
+  }
+  for (const kid of kids.flat()) {
+    if (kid == null || kid === false) continue;
+    el.appendChild(kid instanceof Node ? kid : document.createTextNode(String(kid)));
+  }
+  return el;
+}
+const $ = (id) => document.getElementById(id);
+function mount(el, ...kids) { el.replaceChildren(...kids.flat().filter((k) => k != null && k !== false)); }
+function announce(msg) { $('announcer').textContent = msg; }
+function led(state, label) { return h('span', { class: 'ax-status' }, h('span', { class: 'ax-led', dataset: { state } }), h('span', { text: label })); }
+function setStatus(id, st) { mount($(id), h('span', { class: 'ax-led', dataset: { state: st.state } }), h('span', { text: st.label })); }
+function na(text) { return h('span', { class: 'ax-na', text: text || 'NOT AVAILABLE' }); }
+function sevChip(v) { const k = S.severityKey(v); return h('span', { class: 'ax-sev', dataset: { sev: k }, text: k === 'UNKNOWN' ? 'Severity n/a' : k }); }
+const BAND = { CRITICAL: 'Critical', HIGH: 'High', MEDIUM: 'Medium', LOW: 'Low', INSUFFICIENT_EVIDENCE: 'No evidence' };
+function priorityChip(p) {
+  const band = p && BAND[p.band] ? p.band : 'INSUFFICIENT_EVIDENCE';
+  const title = band === 'INSUFFICIENT_EVIDENCE' ? 'No KEV, CVSS, EPSS or severity evidence on the item. Not scored.' : 'Evidence-cited threat priority, score out of 100';
+  return h('span', { class: 'ax-sev', dataset: { sev: band }, title }, BAND[band] + (p && p.score != null ? ' ' + p.score : ''));
+}
+const REL = { MATCHED: ['Matches your exposure profile', 'relevance'], MENTIONED: ['Mentioned in advisory text', 'mention'], NOT_MATCHED: ['No profile match', ''], NO_PROFILE: ['No profile', ''], LEGACY: ['Legacy event', ''] };
+function relevanceChip(r) {
+  const level = r && REL[r.level] ? r.level : 'LEGACY';
+  return h('span', { class: 'ax-badge', dataset: { tone: REL[level][1] || undefined }, text: REL[level][0] });
+}
+function kpi(label, value, note, tone, primary) {
+  return h('div', { class: 'ax-panel wd-kpi-primary' + (tone === 'critical' && value ? ' ax-panel--critical' : '') },
+    h('div', { class: 'ax-kpi' + (primary ? ' ax-kpi--primary' : ''), dataset: { tone: tone || undefined } },
+      h('span', { class: 'ax-kpi__label', text: label }), h('span', { class: 'ax-kpi__value', text: value }), h('span', { class: 'ax-kpi__note', text: note || '' })));
+}
+function table(caption, head, rows, opts = {}) {
+  return h('div', { class: 'ax-table-wrap' + (opts.tall ? ' ax-table-wrap--tall' : '') },
+    h('table', { class: 'ax-table' },
+      h('caption', { class: 'ax-sr', text: caption }),
+      h('thead', {}, h('tr', {}, head.map((c) => h('th', { scope: 'col', class: c.opt ? 'ax-col-opt' : null, text: c.label })))),
+      h('tbody', {}, rows)));
+}
+
+// ---------------------------------------------------------------------------
+// Session. Only the short-lived scoped token is kept (memory + this tab's
+// sessionStorage). The API key is never stored.
+// ---------------------------------------------------------------------------
 const SESSION_SLOT = 'apex_watchdog_session';
 try { sessionStorage.removeItem('apex_watchdog_key'); } catch (_) {}
 let session = null;
@@ -275,538 +375,698 @@ function loadSession() {
 function saveSession(s) {
   session = s;
   try {
-    if (s) sessionStorage.setItem(SESSION_SLOT, JSON.stringify({ token: s.token, expires_at: s.expires_at, tier: s.tier, tenant: s.tenant, scopes: s.scopes }));
+    if (s) sessionStorage.setItem(SESSION_SLOT, JSON.stringify({ token: s.token, expires_at: s.expires_at, tier: s.tier, tenant: s.tenant || null, active_tenant: s.active_tenant || null, managed_tenants: s.managed_tenants || [], scopes: s.scopes }));
     else sessionStorage.removeItem(SESSION_SLOT);
   } catch (_) {}
   scheduleRefresh();
-  showSession();
+  renderChrome();
 }
 function signedIn() { return !!(session && session.token && Date.parse(session.expires_at) > Date.now()); }
+function hasScope(s) { return signedIn() && (session.scopes || []).includes(s); }
+function tenantInUse() { return session ? (session.tenant || session.active_tenant || null) : null; }
 function headers() {
-  const h = { Accept: 'application/json' };
-  if (signedIn()) h.Authorization = 'Bearer ' + session.token;
-  return h;
+  const x = { Accept: 'application/json' };
+  if (signedIn()) x.Authorization = 'Bearer ' + session.token;
+  return x;
 }
 function api(path) {
   const url = new URL(path, location.origin);
-  if (session && session.tenant) url.searchParams.set('tenant', session.tenant);
+  const t = tenantInUse();
+  if (t) url.searchParams.set('tenant', t);
   return url;
-}
-function showSession() {
-  const el = document.getElementById('sessionstatus');
-  if (!el) return;
-  el.textContent = signedIn()
-    ? `Signed in · ${session.tier}${session.tenant ? ' · tenant ' + session.tenant : ''} · session until ${new Date(session.expires_at).toLocaleTimeString()} · scopes ${(session.scopes || []).length}`
-    : 'Not signed in.';
 }
 function scheduleRefresh() {
   if (refreshTimer) clearTimeout(refreshTimer);
   if (!signedIn()) return;
-  const wait = Math.max(5000, Date.parse(session.expires_at) - Date.now() - 60000);
-  refreshTimer = setTimeout(refreshSession, wait);
+  refreshTimer = setTimeout(refreshSession, Math.max(5000, Date.parse(session.expires_at) - Date.now() - 60000));
 }
 async function refreshSession() {
   if (!signedIn()) return saveSession(null);
   try {
-    const res = await fetch(api('/api/watchdog/session'), { method: 'POST', headers: headers() });
+    // Refresh keeps only a tenant the session was bound to at sign-in.
+    const url = new URL('/api/watchdog/session', location.origin);
+    if (session.tenant) url.searchParams.set('tenant', session.tenant);
+    const res = await fetch(url, { method: 'POST', headers: headers() });
     const data = await res.json();
-    if (res.ok && data.token) saveSession({ ...data, tenant: data.tenant || null });
+    if (res.ok && data.token) saveSession({ ...data, tenant: data.tenant || null, active_tenant: session.active_tenant || null, managed_tenants: data.managed_tenants || session.managed_tenants || [] });
     else saveSession(null);
   } catch (_) { saveSession(null); }
 }
-async function loadOffer() {
-  const res = await fetch('/api/watchdog/offer', { headers: { Accept: 'application/json' } });
-  const data = await res.json();
-  plans.innerHTML = (data.plans || []).filter(p => p.id !== 'FREE').map(p => `
-    <article class="card">
-      <div class="kicker">${esc(p.id)}</div>
-      <h2>${esc(p.name)}</h2>
-      <div class="price">${esc(money(p))}</div>
-      <p>${esc(p.note || '')}</p>
-      <p class="meta">${p.watches} watches · ${p.brief_items} brief items · poller ${p.poller ? 'yes' : 'no'} · webhooks ${p.webhooks || 0}</p>
-      ${p.checkout ? `<a class="btn" href="${esc(p.checkout)}">Buy this plan</a>` : ''}
-    </article>`).join('') + `<article class="card"><h2>Out of scope</h2><ul>${(data.scope?.does_not || []).map(d => `<li>${esc(d)}</li>`).join('')}</ul></article>`;
+
+// ---------------------------------------------------------------------------
+// Chrome: command bar, nav, tenant context, status rail.
+// ---------------------------------------------------------------------------
+const PLAN_NAME = { PRO: 'Pro Defense', ENTERPRISE: 'Enterprise SOC', MSSP: 'MSSP' };
+function renderChrome() {
+  const on = signedIn();
+  $('cmd-signin').hidden = on;
+  $('signout').hidden = !on;
+  const plan = $('cmd-plan');
+  plan.hidden = !on;
+  if (on) plan.textContent = 'Plan: ' + (PLAN_NAME[session.tier] || session.tier);
+  const isMssp = on && session.tier === 'MSSP';
+  document.querySelector('[data-nav="tenants"]').hidden = !isMssp;
+  const t = tenantInUse();
+  const badge = $('cmd-tenant');
+  badge.hidden = !t;
+  badge.textContent = t ? 'TENANT: ' + t : '';
+  document.title = (t ? t + ' · ' : '') + 'Cyber Watchdog | CYBERDUDEBIVASH SENTINEL APEX';
+  const sw = $('tenant-switch');
+  const list = isMssp && !session.tenant ? (session.managed_tenants || []) : [];
+  sw.hidden = !list.length;
+  if (list.length) {
+    mount(sw, h('option', { value: '', text: 'MSSP account (no tenant)' }), list.map((id) => h('option', { value: id, text: 'Tenant: ' + id })));
+    sw.value = session.active_tenant || '';
+  }
+  mount($('sessionstatus'), on
+    ? 'Signed in · ' + (PLAN_NAME[session.tier] || session.tier) + (t ? ' · tenant ' + t : '') + ' · session until ' + new Date(session.expires_at).toLocaleTimeString()
+    : 'Not signed in.');
 }
 
+let health = null;
+async function loadHealth() {
+  let failed = false; let json = false;
+  try {
+    const res = await fetch('/api/watchdog/health', { headers: { Accept: 'application/json' } });
+    health = await res.json(); json = true;
+  } catch (_) { failed = true; health = null; }
+  setStatus('st-intel', S.intelligenceState(health, failed));
+  setStatus('st-watchdog', S.watchdogState(health, failed));
+  const rel = S.releaseLabel(health);
+  const age = health ? S.ageText(health.feed_age_seconds) : null;
+  $('lens-meta').textContent = health && health.feed_generated_at ? 'Feed ' + (rel ? 'release ' + rel + ' · ' : '') + 'updated ' + (age || health.feed_generated_at) : '';
+  return json;
+}
+function markSynced() { $('st-sync').textContent = 'Last sync: ' + new Date().toLocaleTimeString(); }
+
+// ---------------------------------------------------------------------------
+// Views
+// ---------------------------------------------------------------------------
+const VIEWS = ['overview', 'matches', 'watches', 'intelligence', 'integrations', 'tenants', 'plan'];
+function currentView() {
+  const v = (location.hash || '#overview').slice(1);
+  return VIEWS.includes(v) ? v : 'overview';
+}
+function showView(focus) {
+  let v = currentView();
+  if (v === 'tenants' && !(signedIn() && session.tier === 'MSSP')) v = 'overview';
+  for (const sec of document.querySelectorAll('.ax-view')) sec.hidden = sec.dataset.view !== v;
+  for (const a of document.querySelectorAll('[data-nav]')) {
+    if (a.dataset.nav === v) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
+  }
+  if (focus) { const hd = document.querySelector('[data-view="' + v + '"] h1'); if (hd) hd.focus({ preventScroll: false }); }
+  loadView(v);
+}
+function lockedPanel(title, text, action) {
+  return h('section', { class: 'ax-panel' },
+    h('div', { class: 'ax-panel__head' }, h('h2', { class: 'ax-h-panel', text: title })),
+    h('p', { class: 'ax-meta', style: 'margin-top:0', text }), action || null);
+}
+function signInAction() { return h('a', { class: 'ax-btn ax-btn--primary', href: '#overview', text: 'Sign in' }); }
+
+async function loadView(v) {
+  try {
+    if (v === 'overview') await loadOverview();
+    else if (v === 'matches') await loadEvents();
+    else if (v === 'watches') { await Promise.all([loadProfile(), loadWatches()]); }
+    else if (v === 'intelligence') await loadBrief();
+    else if (v === 'integrations') await loadDestinations();
+    else if (v === 'tenants') renderTenants();
+    else if (v === 'plan') await loadPlan();
+  } catch (_) { announce('Could not load this view. Try again.'); }
+}
+
+// ------------------------------------------------------------------ brief
+let briefCache = null;
+async function fetchBrief(lens, q) {
+  const url = new URL('/api/watchdog/brief', location.origin);
+  if (lens && lens !== 'all') url.searchParams.set('lens', lens);
+  if (q) url.searchParams.set('q', q);
+  const res = await fetch(url, { headers: headers() });
+  return { ok: res.ok, data: await res.json() };
+}
+function renderSituation(data) {
+  const sit = data && data.situation;
+  if (!sit) { mount($('situation'), h('div', { class: 'ax-empty', text: 'Feed breakdown unavailable while the feed is not fresh' })); return; }
+  const l = sit.by_lens || {}; const sev = sit.by_severity || {};
+  const card = (label, n, note) => h('div', { class: 'ax-panel' }, h('div', { class: 'ax-kpi' }, h('span', { class: 'ax-kpi__label', text: label }), h('span', { class: 'ax-kpi__value', style: 'font-size:24px', text: n }), h('span', { class: 'ax-kpi__note', text: note })));
+  mount($('situation'),
+    card('Cybersecurity', l.cybersecurity || 0, 'Feed items in this lens'),
+    card('Technology', l.technology || 0, 'Feed items in this lens'),
+    card('Security operations', l.security_operations || 0, 'Feed items in this lens'),
+    card('Unclassified', sit.unclassified || 0, 'Critical ' + (sev.CRITICAL || 0) + ' · High ' + (sev.HIGH || 0) + ' on the feed'));
+}
 async function loadBrief(ev) {
   if (ev) ev.preventDefault();
-  const lens = document.getElementById('lens').value;
-  const q = document.getElementById('q').value.trim();
-  const url = new URL('/api/watchdog/brief', location.origin);
-  if (lens !== 'all') url.searchParams.set('lens', lens);
-  if (q) url.searchParams.set('q', q);
-  status.textContent = 'Loading…';
-  const res = await fetch(url, { headers: headers() });
-  const data = await res.json();
-  if (!res.ok) {
-    status.textContent = data.message || 'INTELLIGENCE DEGRADED';
-    rows.innerHTML = '';
-    if (situation) situation.innerHTML = '';
+  $('status').textContent = 'Loading…';
+  const { ok, data } = await fetchBrief($('lens').value, $('q').value.trim());
+  if (!ok) {
+    $('status').textContent = data.message || 'INTELLIGENCE DEGRADED';
+    mount($('brieftable'), h('div', { class: 'ax-empty', text: 'No live items: the feed is not fresh' }));
+    renderSituation(null);
     return;
   }
-  status.textContent = data.empty
-    ? data.empty_reason
-    : `${data.freshness_status} · age ${data.feed_age_seconds}s · updated ${data.feed_generated_at} · ${data.feed_item_count} advisories · ${data.count} shown · ${data.tier}`;
-  const sit = data.situation;
-  if (sit) {
-    const lens = sit.by_lens || {};
-    const sev = sit.by_severity || {};
-    situation.innerHTML = `
-      <article class="card"><div class="kicker">Cybersecurity</div><div class="price">${lens.cybersecurity || 0}</div><p class="meta">Feed items in this lens</p></article>
-      <article class="card"><div class="kicker">Technology</div><div class="price">${lens.technology || 0}</div><p class="meta">Feed items in this lens</p></article>
-      <article class="card"><div class="kicker">Security operations</div><div class="price">${lens.security_operations || 0}</div><p class="meta">Feed items in this lens</p></article>
-      <article class="card"><div class="kicker">Unclassified</div><div class="price">${sit.unclassified || 0}</div><p class="meta">${esc(sit.note || '')} Critical ${sev.CRITICAL || 0} · High ${sev.HIGH || 0}.</p></article>`;
-  }
-  rows.innerHTML = (data.items || []).map(item => `<tr>
-    <td><strong>${esc(item.title)}</strong><div class="meta">${esc(item.severity || '')} ${esc(item.observed_at || '')}</div></td>
-    <td>${(item.lenses || []).map(l => `<span class="lens">${esc(l)}</span>`).join('') || '<span class="meta">unclassified</span>'}</td>
-    <td>${esc(item.source || 'Sentinel APEX feed')}</td>
-  </tr>`).join('');
+  briefCache = data;
+  renderSituation(data);
+  markSynced();
+  $('status').textContent = data.empty ? data.empty_reason : data.freshness_status + ' · ' + data.feed_item_count + ' advisories on the feed · ' + data.count + ' shown · ' + (S.ageText(data.feed_age_seconds) || '') + (data.truncated ? ' · more available on paid plans' : '');
+  const rows = (data.items || []).map((item) => h('tr', { dataset: { band: S.severityKey(item.severity) } },
+    h('td', {}, sevChip(item.severity)),
+    h('td', {}, h('div', { class: 'ax-title', text: item.title }), item.summary ? h('div', { class: 'ax-sub', text: item.summary }) : null),
+    h('td', { class: 'ax-col-opt' }, (item.lenses || []).length ? (item.lenses || []).map((x) => h('span', { class: 'ax-badge', style: 'margin:0 4px 4px 0', text: x })) : na('Unclassified')),
+    h('td', { class: 'ax-col-opt' }, item.source || na()),
+    h('td', { class: 'ax-mono' }, S.ageFromIso(item.observed_at) || na())));
+  mount($('brieftable'), rows.length ? table('Live brief items', [{ label: 'Severity' }, { label: 'Advisory' }, { label: 'Lens', opt: true }, { label: 'Source', opt: true }, { label: 'Age' }], rows, { tall: true }) : h('div', { class: 'ax-empty', text: 'No feed items matched this lens or query' }));
 }
 
-function metric(label, value, note) {
-  return `<article class="card"><div class="kicker">${esc(label)}</div><div class="price">${esc(value)}</div><p class="meta">${esc(note || '')}</p></article>`;
-}
-
-async function loadWatches() {
-  if (!signedIn() || !watchlist) { if (watchlist) watchlist.innerHTML = ''; return; }
-  const res = await fetch(api('/api/watchdog/watches'), { headers: headers() });
+// --------------------------------------------------------------- overview
+async function loadOverview() {
+  const on = signedIn();
+  $('ov-signin').hidden = on;
+  $('ov-signedin').hidden = !on;
+  if (!briefCache) { const b = await fetchBrief('all', ''); if (b.ok) { briefCache = b.data; renderSituation(b.data); } else renderSituation(null); }
+  else renderSituation(briefCache);
+  if (!on) return;
+  const url = api('/api/watchdog/events');
+  url.searchParams.set('limit', '6'); url.searchParams.set('sort', 'customer'); url.searchParams.set('open', '1');
+  const res = await fetch(url, { headers: headers() });
   const data = await res.json();
-  if (!res.ok) { watchlist.innerHTML = `<p class="warn">${esc(data.message || data.error || 'Watches unavailable.')}</p>`; return; }
-  const rows = data.watches || [];
-  if (!rows.length) { watchlist.innerHTML = '<p class="meta">No watches saved.</p>'; return; }
-  watchlist.innerHTML = `<table><thead><tr><th>Watch</th><th>Logic</th><th></th></tr></thead><tbody>${rows.map((w) => `<tr>
-    <td><strong>${esc(w.name)}</strong><div class="meta">${w.enabled === false ? 'disabled' : 'enabled'} · definition v${esc(w.version || 1)}</div>${w.rule ? `<div class="rule" style="margin-top:6px">${esc(ruleText(w.rule))}</div>` : ''}</td>
-    <td>${esc(w.logic || 'OR')}</td>
-    <td>
-      <button type="button" data-act="toggle" data-id="${esc(w.id)}" data-enabled="${w.enabled === false ? 'false' : 'true'}">${w.enabled === false ? 'Enable' : 'Disable'}</button>
-      <button type="button" data-act="delete" data-id="${esc(w.id)}">Delete</button>
-    </td>
-  </tr>`).join('')}</tbody></table>`;
+  if (!res.ok) { mount($('ov-kpis'), h('div', { class: 'ax-empty', text: data.message || data.error || 'Match history unavailable' })); return; }
+  markSynced();
+  const a = data.analytics || {};
+  const webhooks = hasScope('watchdog:destinations:write');
+  mount($('ov-kpis'),
+    kpi('Open critical', a.open_critical ?? 0, 'Evidence-cited CRITICAL, not resolved', 'critical', true),
+    kpi('New matches · 24h', a.matches_24h ?? 0, 'Stored matches in the last 24 hours', 'ok', true),
+    kpi('Unacknowledged', a.unread ?? 0, 'Still NEW'),
+    kpi('High · 24h', a.high_matches_24h ?? 0, 'Severity on the matched item', 'high'),
+    kpi('Active watches', data.watches_active ?? 0, 'Enabled watches'),
+    a.open_profile_matched != null ? kpi('Open profile matches', a.open_profile_matched, 'Match technology you declared') : null,
+    webhooks ? kpi('Delivery failures', a.delivery_failure_rate == null ? 0 : (a.delivery_failures ?? 0), a.delivery_failure_rate == null ? 'No final delivery result yet' : 'Final failures after retries', a.delivery_failures ? 'critical' : null) : null);
+  const queue = (data.events || []).map((e) => eventRow(e, true));
+  mount($('ov-queue'), queue.length ? table('Top open matches', [{ label: 'Priority' }, { label: 'Match' }, { label: 'Relevance', opt: true }], queue) : h('div', { class: 'ax-empty', text: data.total ? 'No open matches' : 'No stored matches yet' }));
+  renderTrend(a); renderDist(a);
+}
+function svg(tag, attrs, ...kids) {
+  const el = document.createElementNS('http://www.w3.org/2000/svg', tag);
+  for (const [k, v] of Object.entries(attrs || {})) if (k === 'text') el.textContent = String(v); else el.setAttribute(k, String(v));
+  for (const kid of kids.flat()) if (kid) el.appendChild(kid);
+  return el;
+}
+function barChart(rows, label, color) {
+  const W = 420; const H = 150; const pad = 26; const max = Math.max(1, ...rows.map((r) => r.value));
+  const bw = (W - pad * 2) / rows.length;
+  const bars = rows.map((r, i) => {
+    const bh = Math.round(((H - 44) * r.value) / max);
+    const x = pad + i * bw + 4; const y = H - 22 - bh;
+    return svg('g', {}, svg('rect', { x, y, width: Math.max(4, bw - 8), height: Math.max(1, bh), rx: 3, fill: r.color || color, opacity: r.value ? 0.9 : 0.25 }, svg('title', { text: r.label + ': ' + r.value })),
+      svg('text', { x: x + (bw - 8) / 2, y: H - 6, 'text-anchor': 'middle', text: r.short }),
+      svg('text', { x: x + (bw - 8) / 2, y: Math.max(12, y - 4), 'text-anchor': 'middle', text: r.value }));
+  });
+  const summary = label + ': ' + rows.map((r) => r.label + ' ' + r.value).join(', ');
+  return h('figure', { style: 'margin:0' }, svg('svg', { class: 'ax-chart', viewBox: '0 0 ' + W + ' ' + H, role: 'img', 'aria-label': summary }, bars), h('figcaption', { class: 'ax-sr', text: summary }));
+}
+function renderTrend(a) {
+  const s = S.trendSeries(a);
+  if (!s) { mount($('ov-trend'), h('div', { class: 'ax-empty', text: 'Insufficient history' })); return; }
+  mount($('ov-trend'), barChart(s.map((d) => ({ label: d.date, short: d.date.slice(5), value: d.count })), 'Matches per day, last 7 days (UTC)', 'var(--ax-accent-cyan)'));
+}
+function renderDist(a) {
+  const d = S.priorityDistribution(a);
+  if (!d) { mount($('ov-dist'), h('div', { class: 'ax-empty', text: 'Insufficient history' })); return; }
+  const col = { CRITICAL: 'var(--ax-severity-critical)', HIGH: 'var(--ax-severity-high)', MEDIUM: 'var(--ax-severity-medium)', LOW: 'var(--ax-severity-low)', INSUFFICIENT_EVIDENCE: 'var(--ax-status-unknown)' };
+  mount($('ov-dist'), barChart(d.map((r) => ({ label: BAND[r.key], short: BAND[r.key].slice(0, 8), value: r.count, color: col[r.key] })), 'Stored matches by threat priority', 'var(--ax-accent-blue)'));
 }
 
-function deliveryText(e) {
-  const list = e.deliveries || [];
-  if (!list.length) return '';
-  return list.map((d) => `${d.destination_id}: ${d.status}${d.attempts ? ' ×' + d.attempts : ''}${d.last_http_status ? ' HTTP ' + d.last_http_status : ''}${d.last_error && d.status !== 'delivered' ? ' (' + d.last_error + ')' : ''}`).join(' · ');
-}
-
-const STATUSES = ['NEW', 'ACKNOWLEDGED', 'INVESTIGATING', 'RESOLVED', 'IGNORED'];
-const BAND_LABEL = { CRITICAL: 'Critical', HIGH: 'High', MEDIUM: 'Medium', LOW: 'Low', INSUFFICIENT_EVIDENCE: 'No evidence' };
-function priorityBadge(p) {
-  const band = p && BAND_LABEL[p.band] ? p.band : 'INSUFFICIENT_EVIDENCE';
-  const score = p && p.score != null ? ' ' + p.score : '';
-  const title = band === 'INSUFFICIENT_EVIDENCE' ? 'The feed item carries no KEV, CVSS, EPSS or severity evidence. Not scored.' : 'Evidence-cited priority score out of 100';
-  return `<span class="pri pri-${esc(band)}" title="${esc(title)}">${esc(BAND_LABEL[band])}${esc(score)}</span>`;
-}
-function statusSelect(e) {
-  const cur = STATUSES.includes(e.status) ? e.status : (e.acknowledged ? 'ACKNOWLEDGED' : 'NEW');
-  const can = signedIn() && (session.scopes || []).includes('watchdog:events:ack');
-  return `<select data-act="status" data-id="${esc(e.id)}" aria-label="Triage status"${can ? '' : ' disabled'}>${STATUSES.map((st) => `<option value="${st}"${st === cur ? ' selected' : ''}>${st.charAt(0) + st.slice(1).toLowerCase()}</option>`).join('')}</select>`;
-}
-const REL_LABEL = { MATCHED: 'Matches your exposure profile', MENTIONED: 'Mentioned in advisory text', NOT_MATCHED: 'No profile match', NO_PROFILE: 'No profile', LEGACY: 'Legacy event' };
-function relevanceBadge(r) {
-  const level = r && REL_LABEL[r.level] ? r.level : 'LEGACY';
-  return `<span class="rel rel-${esc(level)}">${esc(REL_LABEL[level])}</span>`;
-}
-function evidenceFacts(e) {
+// ---------------------------------------------------------------- matches
+function evidenceLine(e) {
   const it = e.evidence && e.evidence.item;
-  if (!it) return '';
-  const bits = [];
-  if (it.kev === true) bits.push('CISA KEV listed');
-  if (it.kev === false) bits.push('Not in CISA KEV');
-  if (it.cvss != null) bits.push('CVSS ' + it.cvss);
-  if (it.epss_percent != null) bits.push('EPSS ' + it.epss_percent + '%');
-  if (it.kev_product) bits.push(it.kev_product);
-  (it.packages || []).forEach((p) => bits.push(p));
-  return bits.join(' · ');
+  const parts = [];
+  if (it) {
+    parts.push(it.kev === true ? 'KEV yes' : it.kev === false ? 'KEV no' : 'KEV n/a');
+    parts.push(it.cvss != null ? 'CVSS ' + it.cvss : 'CVSS n/a');
+    parts.push(it.epss_percent != null ? 'EPSS ' + it.epss_percent + '%' : 'EPSS n/a');
+  }
+  return parts.length ? h('span', { class: 'ax-mono', text: parts.join(' · ') }) : na('LEGACY EVENT');
 }
-function splitList(id) {
-  return document.getElementById(id).value.split(',').map((v) => v.trim()).filter(Boolean);
-}
-function numberOrNull(id) {
-  const v = document.getElementById(id).value.trim();
-  if (v === '') return null;
-  const n = Number(v);
-  return Number.isFinite(n) ? n : NaN;
-}
-function buildDefinition() {
-  const criteria = {};
-  const add = (key, values) => { if (values.length) criteria[key] = (criteria[key] || []).concat(values).filter((v, i, a) => a.indexOf(v) === i); };
-  const basicType = document.getElementById('wbasictype').value;
-  const basicValue = document.getElementById('wbasicvalue').value.trim();
-  if (basicValue) add(basicType, [basicValue]);
-  const sev = document.getElementById('wsev').value;
-  if (sev) criteria.severity_min = sev;
-  add('keywords', splitList('wkeywords'));
-  add('cves', splitList('wcves'));
-  add('vendors', splitList('wvendors'));
-  add('products', splitList('wproducts'));
-  add('packages', splitList('wpackages'));
-  add('sources', splitList('wsources'));
-  add('techniques', splitList('wtechniques'));
-  add('ioc_types', splitList('wioc'));
-  const lens = document.getElementById('wlens').value;
-  if (lens) criteria.lenses = [lens];
-  const cvss = numberOrNull('wcvss');
-  if (cvss !== null) criteria.cvss_min = cvss;
-  const epss = numberOrNull('wepss');
-  if (epss !== null) criteria.epss_min = Number.isFinite(epss) ? Math.round(epss * 100) / 10000 : epss;
-  const kev = document.getElementById('wkev').value;
-  if (kev) criteria.kev = kev === 'true';
-  return { version: 2, name: document.getElementById('wname').value.trim(), logic: document.getElementById('wlogic').value, criteria };
-}
-function ruleText(rule) {
-  if (!rule || !rule.lines || !rule.lines.length) return '';
-  return 'MATCH WHEN:\n  ' + rule.lines.join('\n' + (rule.logic === 'OR' ? 'OR ' : 'AND '));
-}
-function whyMatched(hits) {
-  return (hits || []).map((h) => `<li>${esc(h.criterion)}${h.value !== undefined ? ' = ' + esc(h.value) : ''}${h.feed_field ? ` <span class="meta">(feed field ${esc(h.feed_field)}${h.feed_value !== undefined && h.feed_value !== null && h.feed_value !== h.value ? ': ' + esc(h.feed_value) : ''})</span>` : ''}</li>`).join('');
-}
-async function loadProfile() {
-  const box = document.getElementById('profilebox');
-  const builder = document.getElementById('builder');
-  box.hidden = !signedIn();
-  builder.hidden = !signedIn();
-  if (!signedIn()) return;
-  const res = await fetch(api('/api/watchdog/profile'), { headers: headers() });
-  const data = await res.json().catch(() => ({}));
-  const st = document.getElementById('profilestatus');
-  if (!res.ok) { st.textContent = data.message || data.error || 'Profile unavailable.'; return; }
-  const p = data.profile;
-  document.getElementById('pvendors').value = p ? p.vendors.join(', ') : '';
-  document.getElementById('pproducts').value = p ? p.products.join(', ') : '';
-  document.getElementById('ppackages').value = p ? p.packages.join(', ') : '';
-  document.getElementById('ptech').value = p ? p.technologies.join(', ') : '';
-  st.textContent = p ? `Profile revision ${p.revision}${data.tenant ? ' · tenant ' + data.tenant : ''}. New matches are evaluated against it; existing events keep the relevance recorded when they were created.` : 'No exposure profile yet. Watches still work; relevance shows "No profile".';
-}
-function renderPreview(data) {
-  const box = document.getElementById('previewbox');
-  const warn = (data.warnings || []).map((w) => `<p class="warn">${esc(w.message)}</p>`).join('');
-  const rows = (data.sample || []).map((x) => `<tr><td>${priorityBadge(x.priority)}</td><td>${relevanceBadge(x.relevance)}</td><td><strong>${esc(x.title)}</strong><div class="meta">${esc(x.severity || '')} · ${esc(x.source || '')}</div><ul class="meta">${whyMatched(x.why_matched)}</ul></td></tr>`).join('');
-  box.innerHTML = `<div class="rule" aria-label="Rule preview">${esc(ruleText(data.rule))}</div>
-    <p><strong>${esc(data.matched_count)}</strong> of ${esc(data.feed_items_scanned)} items on the current feed match (${esc(Math.round((data.match_ratio || 0) * 100))}%). Nothing was saved.</p>${warn}
-    ${rows ? `<table><thead><tr><th>Threat priority</th><th>Relevance</th><th>Sample match and why</th></tr></thead><tbody>${rows}</tbody></table>` : ''}`;
+function statusChip(e) { const t = S.triageState(e.status); return led(t.state, t.label); }
+function eventRow(e, compact) {
+  const tr = h('tr', { tabindex: '0', dataset: { row: e.id, band: e.priority ? e.priority.band : 'INSUFFICIENT_EVIDENCE' }, 'aria-label': 'Open evidence for ' + (e.title || e.matched_item_id) },
+    h('td', {}, priorityChip(e.priority)),
+    compact ? null : h('td', { class: 'ax-col-opt' }, sevChip(e.severity)),
+    h('td', {}, h('div', { class: 'ax-title', text: e.title || e.matched_item_id }),
+      h('div', { class: 'ax-sub', text: 'Watch ' + (e.watch_name || e.watch_id) + (e.source ? ' · ' + e.source : '') + (tenantInUse() ? ' · tenant ' + tenantInUse() : '') })),
+    h('td', { class: compact ? 'ax-col-opt' : null }, relevanceChip(e.relevance)),
+    compact ? null : h('td', { class: 'ax-col-opt' }, evidenceLine(e)),
+    compact ? null : h('td', {}, statusChip(e)),
+    compact ? null : h('td', { class: 'ax-mono ax-col-opt' }, S.ageFromIso(e.matched_at) || na()));
+  return tr;
 }
 function inboxUrl() {
   const url = api('/api/watchdog/events');
   url.searchParams.set('limit', '50');
-  const st = document.getElementById('fstatus').value;
-  if (st === 'open') url.searchParams.set('open', '1');
-  else if (st) url.searchParams.set('status', st);
-  const pr = document.getElementById('fpriority').value;
-  if (pr) url.searchParams.set('priority', pr);
-  const rel = document.getElementById('frelevance').value;
-  if (rel) url.searchParams.set('relevance', rel);
-  const kev = document.getElementById('fkev').value;
-  if (kev) url.searchParams.set('kev', kev);
-  url.searchParams.set('sort', document.getElementById('fsort').value || 'customer');
-  const q = document.getElementById('fq').value.trim();
-  if (q) url.searchParams.set('q', q);
+  const st = $('fstatus').value;
+  if (st === 'open') url.searchParams.set('open', '1'); else if (st) url.searchParams.set('status', st);
+  for (const [id, key] of [['fpriority', 'priority'], ['frelevance', 'relevance'], ['fkev', 'kev']]) { const v = $(id).value; if (v) url.searchParams.set(key, v); }
+  url.searchParams.set('sort', $('fsort').value || 'customer');
+  const q = $('fq').value.trim(); if (q) url.searchParams.set('q', q);
   return url;
 }
-async function setStatus(ids, statusValue, note) {
-  const res = await fetch(api('/api/watchdog/events/status'), {
-    method: 'POST', headers: { ...headers(), 'Content-Type': 'application/json' },
-    body: JSON.stringify({ ids, status: statusValue, note: note || undefined }),
+let seenEvents = null;
+async function loadEvents() {
+  const on = signedIn();
+  $('matches-body').hidden = !on;
+  mount($('matches-locked'), on ? null : lockedPanel('Triage inbox', 'Every match is ranked by cited evidence and moves through New, Acknowledged, Investigating, Resolved or Ignored with a status history. Included with Pro Defense and above.', h('div', { class: 'ax-form-row' }, signInAction(), h('a', { class: 'ax-btn ax-btn--ghost', href: '/upgrade.html?plan=pro&feature=cyber-watchdog-triage', text: 'Upgrade to Pro Defense' }))));
+  if (!on) return;
+  const res = await fetch(inboxUrl(), { headers: headers() });
+  const data = await res.json();
+  if (!res.ok) { $('inbox').textContent = data.message || data.error || 'Match history unavailable.'; mount($('eventlist')); return; }
+  markSynced();
+  $('inbox').textContent = (data.matched_total ?? 0) + ' of ' + (data.total ?? 0) + ' stored matches in this view · feed ' + data.freshness_status + (data.tenant ? ' · tenant ' + data.tenant : '');
+  const events = data.events || [];
+  const prev = seenEvents; seenEvents = new Set(events.map((e) => e.id));
+  const rows = events.map((e) => { const r = eventRow(e, false); if (prev && !prev.has(e.id)) r.classList.add('ax-new'); return r; });
+  mount($('eventlist'), rows.length
+    ? table('Stored matches', [{ label: 'Priority' }, { label: 'Severity', opt: true }, { label: 'Match' }, { label: 'Relevance' }, { label: 'Evidence', opt: true }, { label: 'Status' }, { label: 'Age', opt: true }], rows, { tall: true })
+    : h('div', { class: 'ax-empty', text: data.total ? 'No matches in this view. Change the filters.' : 'No stored matches yet. Create a watch to start.' }));
+}
+
+// ----------------------------------------------------------------- drawer
+let drawerReturn = null;
+async function openDrawer(id, from) {
+  drawerReturn = from || document.activeElement;
+  const dlg = $('eventdrawer');
+  mount($('drawercontent'), h('p', { class: 'ax-meta', text: 'Loading evidence…' }));
+  if (typeof dlg.showModal === 'function') dlg.showModal(); else dlg.setAttribute('open', '');
+  const url = api('/api/watchdog/events/item'); url.searchParams.set('id', id);
+  const res = await fetch(url, { headers: headers() });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) { mount($('drawercontent'), h('p', { class: 'ax-meta', text: data.message || data.error || 'Event unavailable.' })); return; }
+  renderDrawer(data);
+  const title = $('drawertitle'); if (title) title.focus();
+}
+function kv(pairs) { return h('dl', { class: 'ax-kv' }, pairs.flatMap(([k, v]) => [h('dt', { text: k }), h('dd', {}, v == null || v === '' ? na() : v)])); }
+function section(title, ...kids) { return h('section', { class: 'ax-drawer__section' }, h('h3', { class: 'ax-h-panel', style: 'margin-bottom:10px', text: title }), ...kids); }
+function renderDrawer(data) {
+  const e = data.event; const p = e.priority || {}; const ev = e.evidence; const it = ev && ev.item;
+  const itemNote = { current: 'Current advisory on the live feed.', revised_since_match: 'The advisory has been revised since this match; a new match event is created for the revision.', not_on_current_feed: 'The advisory is no longer on the current feed.', feed_not_fresh: 'The feed is not fresh, so the current advisory is not shown.' }[data.feed_item_status] || '';
+  const factors = (p.factors || []).map((f) => h('tr', {}, h('td', { text: f.label }), h('td', { class: 'ax-mono' }, f.known ? f.points + ' / ' + f.max : na('NO DATA')), h('td', {}, f.evidence || na('NOT ESTABLISHED'))));
+  const hits = ev ? ev.watch.hits : (e.reason || []).map((c) => ({ criterion: c }));
+  const t = S.triageState(e.status);
+  const steps = h('div', { class: 'ax-steps', role: 'group', 'aria-label': 'Triage status' }, S.TRIAGE.map((st) => h('button', { type: 'button', dataset: { step: st }, 'aria-current': st === t.status ? 'step' : null, disabled: hasScope('watchdog:events:ack') ? null : true, text: st.charAt(0) + st.slice(1).toLowerCase() })));
+  const note = h('textarea', { id: 'drawernote', class: 'ax-textarea', maxlength: '280', rows: '2', placeholder: 'What you checked, who owns it' });
+  const confirm = h('div', { id: 'drawerconfirm' });
+  const hist = (e.status_history || []).map((x) => h('li', {}, h('span', { class: 'ax-mono', text: x.from + ' → ' + x.to + ' · ' + x.at }), x.note ? h('div', { text: x.note }) : null));
+  mount($('drawercontent'),
+    h('p', { class: 'ax-kicker', text: 'Match event · ' + e.id }),
+    h('h2', { id: 'drawertitle', class: 'ax-h-section', tabindex: '-1', style: 'margin:6px 0 10px', text: e.title || e.matched_item_id }),
+    h('div', { class: 'ax-form-row', style: 'gap:8px' }, priorityChip(p), sevChip(e.severity), relevanceChip(e.relevance), statusChip(e), tenantInUse() ? h('span', { class: 'ax-badge', dataset: { tone: 'tenant' }, text: 'Tenant: ' + tenantInUse() }) : null),
+    section('Triage', steps, h('label', { class: 'ax-field', style: 'margin-top:10px' }, 'Note (optional, 280 characters)', note), confirm, h('p', { class: 'ax-meta', id: 'drawermsg', role: 'status' })),
+    section('Threat summary', kv([['Severity (feed)', sevChip(e.severity)], ['Source', e.source], ['Watch', e.watch_name || e.watch_id], ['Matched', e.matched_at ? h('span', { class: 'ax-mono', text: e.matched_at }) : null], ['Advisory', itemNote || null]]), data.feed_item && data.feed_item.summary ? h('p', { class: 'ax-meta', text: data.feed_item.summary }) : null,
+      h('p', { style: 'margin:8px 0 0' }, h('a', { href: e.reference, target: '_blank', rel: 'noopener noreferrer', text: 'Source reference' }))),
+    section('Why prioritized', p.band === 'INSUFFICIENT_EVIDENCE' ? h('p', { class: 'ax-meta', text: 'Not scored: the item carries no KEV, CVSS, EPSS or severity evidence. Missing evidence is never counted as zero risk.' }) : null,
+      factors.length ? table('Priority factors', [{ label: 'Factor' }, { label: 'Points' }, { label: 'Evidence' }], factors) : null,
+      h('p', { class: 'ax-meta', text: (p.version || '') + (p.floors_applied && p.floors_applied.length ? ' · floors: ' + p.floors_applied.join(', ') : '') + (p.legacy ? ' · recorded before priority scoring' : '') })),
+    section('Why matched', hits.length ? h('ul', { style: 'margin:0;padding-left:18px' }, hits.map((x) => h('li', {}, x.criterion + (x.value !== undefined ? ' = ' + x.value : ''), x.feed_field ? h('span', { class: 'ax-meta', text: ' (feed field ' + x.feed_field + (x.feed_value != null && x.feed_value !== x.value ? ': ' + x.feed_value : '') + ')' }) : null))) : na('NOT ESTABLISHED'),
+      ev ? h('p', { class: 'ax-meta', text: 'Watch definition v' + ev.watch.definition_version + ' · ' + ev.watch.logic }) : null),
+    section('Customer relevance', h('p', {}, relevanceChip(e.relevance)),
+      (e.relevance && e.relevance.reasons || []).length ? h('ul', { style: 'margin:0;padding-left:18px' }, e.relevance.reasons.map((r) => h('li', { text: 'Declared ' + r.type + ' "' + r.profile_value + '" ' + (r.basis === 'identifier' ? 'matches the feed identifier' : 'is mentioned in the advisory text') + ' (feed field ' + r.feed_field + ')' }))) : null,
+      h('p', { class: 'ax-meta', text: 'Relevance means the intelligence matches technology declared in your exposure profile. It does not mean an asset is affected or vulnerable.' })),
+    section('Vulnerability evidence', it ? kv([
+      ['CISA KEV', it.kev === true ? 'YES' : it.kev === false ? 'NO' : null],
+      ['CVSS', it.cvss != null ? String(it.cvss) : null],
+      ['EPSS', it.epss_percent != null ? it.epss_percent + '%' : null],
+      ['CVE', (it.cves || []).length ? h('span', { class: 'ax-mono', text: it.cves.join(', ') }) : null],
+      ['KEV product', it.kev_product],
+      ['Packages', (it.packages || []).length ? it.packages.join(', ') : null]]) : h('p', { class: 'ax-meta', text: 'Legacy event: evidence snapshot not available. Nothing is reconstructed.' })),
+    section('Provenance', ev ? kv([
+      ['Feed generated', ev.feed_generated_at ? h('span', { class: 'ax-mono', text: ev.feed_generated_at }) : null],
+      ['Feed item', h('span', { class: 'ax-mono', text: it.id + (it.revision ? ' · ' + it.revision : '') })],
+      ['Decision versions', h('span', { class: 'ax-mono', text: ['definition v' + ev.versions.watch_definition, ev.versions.priority, ev.versions.relevance, ev.versions.queue_rank].filter(Boolean).join(' · ') })],
+      ['Profile reference', ev.profile ? h('span', { class: 'ax-mono', text: ev.profile.ref }) : 'No profile at match time']]) : na('EVIDENCE SNAPSHOT NOT AVAILABLE'),
+      data.current_context ? h('div', { style: 'margin-top:10px' }, h('p', { class: 'ax-h-panel', text: 'Current context (computed now)' }), h('div', { class: 'ax-form-row', style: 'gap:8px' }, priorityChip(data.current_context.priority), relevanceChip(data.current_context.relevance)), h('p', { class: 'ax-meta', text: "Uses today's feed, formula and profile. The recorded evidence above does not change." })) : null),
+    section('Delivery', (e.deliveries || []).length ? h('ul', { style: 'margin:0;padding-left:18px' }, e.deliveries.map((d) => { const st = S.deliveryState(d.status); return h('li', {}, led(st.state, st.label), h('span', { class: 'ax-mono', text: ' ' + d.destination_id + (d.attempts ? ' · attempts ' + d.attempts : '') + (d.last_http_status ? ' · HTTP ' + d.last_http_status : '') + (d.last_error && d.status !== 'delivered' ? ' · ' + d.last_error : '') })); })) : led('disabled', 'No destinations')),
+    section('Triage history', hist.length ? h('ul', { style: 'margin:0;padding-left:18px' }, hist) : h('p', { class: 'ax-meta', text: 'No status changes yet.' })));
+  steps.addEventListener('click', (evt) => {
+    const b = evt.target.closest('button[data-step]'); if (!b) return;
+    const to = b.dataset.step;
+    if (to === t.status) return;
+    if (S.TERMINAL.includes(to)) {
+      const yes = h('button', { type: 'button', class: 'ax-btn ax-btn--sm ax-btn--primary', text: 'Confirm ' + to.toLowerCase() });
+      const no = h('button', { type: 'button', class: 'ax-btn ax-btn--sm ax-btn--ghost', text: 'Cancel' });
+      mount(confirm, h('div', { class: 'wd-confirm', role: 'alertdialog', 'aria-label': 'Confirm status change' }, h('span', { text: 'Mark this match ' + to.toLowerCase() + '? It leaves the open queue. You can reopen it later.' }), yes, no));
+      yes.focus();
+      yes.addEventListener('click', () => changeStatus(e.id, to, note.value.trim()));
+      no.addEventListener('click', () => { mount(confirm); b.focus(); });
+    } else changeStatus(e.id, to, note.value.trim());
   });
+}
+async function postStatus(ids, statusValue, noteText) {
+  const res = await fetch(api('/api/watchdog/events/status'), { method: 'POST', headers: { ...headers(), 'Content-Type': 'application/json' }, body: JSON.stringify({ ids, status: statusValue, note: noteText || undefined }) });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data.message || data.error || 'Status not saved');
   return data;
 }
-async function openDrawer(id) {
-  const dlg = document.getElementById('eventdrawer');
-  const box = document.getElementById('drawercontent');
-  box.innerHTML = '<p class="meta">Loading…</p>';
-  if (typeof dlg.showModal === 'function') dlg.showModal(); else dlg.setAttribute('open', '');
-  const url = api('/api/watchdog/events/item');
-  url.searchParams.set('id', id);
-  const res = await fetch(url, { headers: headers() });
+async function changeStatus(id, to, noteText) {
+  try {
+    const out = await postStatus([id], to, noteText);
+    announce(out.updated && out.updated.length ? 'Status changed to ' + to.toLowerCase() : 'No change');
+    const url = api('/api/watchdog/events/item'); url.searchParams.set('id', id);
+    const res = await fetch(url, { headers: headers() });
+    if (res.ok) renderDrawer(await res.json());
+    const msg = $('drawermsg'); if (msg) msg.textContent = 'Saved: ' + to.toLowerCase() + '.';
+    loadEvents().catch(() => {});
+  } catch (err) { const msg = $('drawermsg'); if (msg) msg.textContent = err.message; }
+}
+
+// ---------------------------------------------------------------- chips
+const chipState = {};
+function chipValues(key) { return (chipState[key] || []).slice(); }
+function setChips(key, values) { chipState[key] = values.slice(); renderChips(key); }
+function renderChips(key) {
+  const box = document.querySelector('[data-chips="' + key + '"]');
+  const input = box.querySelector('input') || h('input', { type: 'text', 'aria-labelledby': box.getAttribute('aria-labelledby'), maxlength: box.dataset.maxlen || '64', placeholder: 'Type and press Enter' });
+  const chips = (chipState[key] || []).map((v, i) => h('span', { class: 'ax-chip' }, h('span', { text: v }), h('button', { type: 'button', 'aria-label': 'Remove ' + v, dataset: { chipRemove: key + ':' + i }, text: '×' })));
+  mount(box, chips, input);
+}
+function addChip(key, raw) {
+  const box = document.querySelector('[data-chips="' + key + '"]');
+  let v = String(raw || '').trim();
+  if (!v) return;
+  if (box.dataset.lower) v = v.toLowerCase();
+  if (box.dataset.upper) v = v.toUpperCase();
+  const list = chipState[key] || (chipState[key] = []);
+  if (list.length >= Number(box.dataset.max || 25) || list.some((x) => x.toLowerCase() === v.toLowerCase())) return;
+  list.push(v.slice(0, Number(box.dataset.maxlen || 64)));
+  renderChips(key);
+  box.querySelector('input').focus();
+  updateDraft();
+}
+function initChips() {
+  for (const box of document.querySelectorAll('[data-chips]')) {
+    const key = box.dataset.chips; chipState[key] = []; renderChips(key);
+    box.addEventListener('keydown', (ev) => {
+      if (ev.target.tagName !== 'INPUT') return;
+      if (ev.key === 'Enter' || ev.key === ',') { ev.preventDefault(); addChip(key, ev.target.value); ev.target.value = ''; }
+      else if (ev.key === 'Backspace' && !ev.target.value && chipState[key].length) { chipState[key].pop(); renderChips(key); box.querySelector('input').focus(); updateDraft(); }
+    });
+    box.addEventListener('focusout', (ev) => { if (ev.target.tagName === 'INPUT' && ev.target.value.trim()) { addChip(key, ev.target.value); ev.target.value = ''; } });
+    box.addEventListener('click', (ev) => {
+      const b = ev.target.closest('[data-chip-remove]');
+      if (!b) { const i = box.querySelector('input'); if (i && ev.target === box) i.focus(); return; }
+      const idx = Number(b.dataset.chipRemove.split(':')[1]);
+      chipState[key].splice(idx, 1); renderChips(key); box.querySelector('input').focus(); updateDraft();
+    });
+  }
+}
+
+// ---------------------------------------------------------------- builder
+let builderMode = 'basic';
+let logic = 'AND';
+let kevChoice = '';
+function numOrNull(id) { const v = $(id).value.trim(); if (v === '') return null; const n = Number(v); return Number.isFinite(n) ? n : NaN; }
+function buildDefinition() {
+  const criteria = {};
+  const add = (key, values) => { if (values.length) criteria[key] = [...new Set((criteria[key] || []).concat(values))]; };
+  const bv = $('wbasicvalue').value.trim();
+  if (bv) add($('wbasictype').value, [bv]);
+  if ($('wsev').value) criteria.severity_min = $('wsev').value;
+  if (builderMode === 'advanced') {
+    add('vendors', chipValues('wvendors')); add('products', chipValues('wproducts')); add('keywords', chipValues('wkeywords'));
+    add('cves', chipValues('wcves')); add('packages', chipValues('wpackages')); add('sources', chipValues('wsources'));
+    add('techniques', chipValues('wtechniques')); add('ioc_types', chipValues('wioc'));
+    if ($('wlens').value) criteria.lenses = [$('wlens').value];
+    const cvss = numOrNull('wcvss'); if (cvss !== null) criteria.cvss_min = cvss;
+    const epss = numOrNull('wepss'); if (epss !== null) criteria.epss_min = Number.isFinite(epss) ? Math.round(epss * 100) / 10000 : epss;
+    if (kevChoice) criteria.kev = kevChoice === 'true';
+  }
+  return { version: 2, name: $('wname').value.trim(), logic: builderMode === 'advanced' ? logic : 'AND', criteria };
+}
+function updateDraft() { $('draftrule').textContent = S.draftRule(buildDefinition()) || 'Add a criterion to see the rule.'; }
+function setSeg(group, attr, value) { for (const b of group.querySelectorAll('button')) b.setAttribute('aria-pressed', String(b.dataset[attr] === value)); }
+function renderPreview(data) {
+  const warn = (data.warnings || []).map((w) => h('p', { class: 'ax-meta', style: 'color:var(--ax-accent-amber)' }, led('warning', 'Note'), ' ', w.message));
+  const rows = (data.sample || []).map((x) => h('tr', { dataset: { band: x.priority.band } }, h('td', {}, priorityChip(x.priority)), h('td', {}, relevanceChip(x.relevance)),
+    h('td', {}, h('div', { class: 'ax-title', text: x.title }), h('div', { class: 'ax-sub', text: (x.why_matched || []).map((w) => w.criterion + (w.feed_field ? ' (' + w.feed_field + ')' : '')).join(' · ') }))));
+  mount($('previewbox'),
+    h('div', { class: 'ax-rule', style: 'margin-top:12px' }, 'MATCH WHEN\n  ' + (data.rule.lines || []).join('\n' + (data.rule.logic === 'OR' ? 'OR ' : 'AND '))),
+    h('p', {}, h('strong', { text: data.matched_count }), ' of ' + data.feed_items_scanned + ' items on the current feed match (' + Math.round((data.match_ratio || 0) * 100) + '%). Nothing was saved.'),
+    warn, rows.length ? table('Preview sample', [{ label: 'Threat priority' }, { label: 'Relevance' }, { label: 'Sample match and why' }], rows) : null);
+}
+
+// ------------------------------------------------------------ watches view
+async function loadProfile() {
+  const on = signedIn();
+  $('watches-body').hidden = !on;
+  mount($('watches-locked'), on ? null : lockedPanel('Advanced watches and technology profile', 'Build structured watches with a live preview and declare the technology you use to rank relevant intelligence first. Included with Pro Defense and above.', signInAction()));
+  if (!on) return;
+  const res = await fetch(api('/api/watchdog/profile'), { headers: headers() });
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) { box.innerHTML = `<p class="warn">${esc(data.message || data.error || 'Event unavailable.')}</p>`; return; }
-  const e = data.event;
-  const p = e.priority || {};
-  const factors = (p.factors || []).map((f) => `<tr><td>${esc(f.label)}</td><td>${f.known ? esc(f.points) + ' / ' + esc(f.max) : '<span class="meta">no data</span>'}</td><td class="meta">${esc(f.evidence || (f.known ? '' : 'Not present on the feed item; not scored'))}</td></tr>`).join('');
-  const history = (e.status_history || []).map((h) => `<li><span class="st">${esc(h.from)} → ${esc(h.to)}</span> · ${esc(h.at)}${h.note ? `<div>${esc(h.note)}</div>` : ''}</li>`).join('') || '<li class="meta">No status changes yet.</li>';
-  const itemNote = { current: 'Current advisory on the live feed.', revised_since_match: 'The advisory has been revised since this match. A new match event is created for the revision.', not_on_current_feed: 'The advisory is no longer on the current feed.', feed_not_fresh: 'The feed is not fresh, so the current advisory is not shown.' }[data.feed_item_status] || '';
-  const item = data.feed_item;
-  box.innerHTML = `
-    <div class="kicker">Match event · ${esc(e.id)}</div>
-    <h2 id="drawertitle" style="margin:6px 0">${esc(e.title || e.matched_item_id)}</h2>
-    <p>${priorityBadge(p)} <span class="meta">coverage ${esc(Math.round((p.coverage || 0) * 100))}% of evidence dimensions · ${esc(p.version || '')}${p.legacy ? ' · recorded before priority scoring' : ''}</span></p>
-    <p class="meta">${esc(e.severity || '')} · ${esc(e.source || '')} · watch ${esc(e.watch_name || '')} · matched ${esc(e.matched_at || '')} · ${esc(e.origin || '')}</p>
-    <h3>Triage</h3>
-    <form id="drawertriage" data-id="${esc(e.id)}">
-      <label>Status${statusSelect(e).replace('data-act="status"', 'id="drawerstatus"')}</label>
-      <label style="flex:1 1 100%">Note (optional, 280 characters)<textarea id="drawernote" maxlength="280" rows="2" placeholder="What you checked, who owns it"></textarea></label>
-      <button type="submit">Save status</button>
-      <span class="meta" id="drawermsg"></span>
-    </form>
-    <h3>Why this matched</h3>
-    ${e.evidence ? `<ul>${whyMatched(e.evidence.watch.hits.map((h) => typeof h === 'string' ? { criterion: h } : h))}</ul><p class="meta">Watch definition v${esc(e.evidence.watch.definition_version)} · ${esc(e.evidence.watch.logic)}</p>` : `<p>${esc((e.reason || []).join(', ') || 'n/a')}</p>`}
-    <h3>Why it is relevant to you</h3>
-    <p>${relevanceBadge(e.relevance)}</p>
-    ${(e.relevance && e.relevance.reasons && e.relevance.reasons.length) ? `<ul>${e.relevance.reasons.map((r) => `<li>Your profile ${esc(r.type)} "${esc(r.profile_value)}" ${r.basis === 'identifier' ? 'matches the feed identifier' : 'is mentioned in the advisory text'} <span class="meta">(feed field ${esc(r.feed_field)})</span></li>`).join('')}</ul>` : ''}
-    <p class="meta">Relevance means the intelligence matches technology you declared in your exposure profile. It does not mean an asset is affected or vulnerable.</p>
-    <h3>Why it is prioritized</h3>
-    ${p.band === 'INSUFFICIENT_EVIDENCE' ? '<p class="meta">Not scored: the matched feed item carries no KEV, CVSS, EPSS or severity evidence. Missing evidence is never counted as zero risk.</p>' : ''}
-    <table><thead><tr><th>Factor</th><th>Points</th><th>Evidence</th></tr></thead><tbody>${factors}</tbody></table>
-    ${(p.floors_applied || []).length ? `<p class="meta">Floors applied: ${esc(p.floors_applied.join(', '))}</p>` : ''}
-    <p>${(e.cve_ids || []).map((c) => `<span class="lens">${esc(c)}</span>`).join('')}</p>
-    <h3>Original match (recorded evidence)</h3>
-    ${e.evidence ? `<p class="meta">Feed ${esc(e.evidence.feed_generated_at || 'unknown')} · item ${esc(e.evidence.item.id)} rev ${esc(e.evidence.item.revision || '')} · ${esc(evidenceFacts(e))}</p><p class="meta">Versions: definition v${esc(e.evidence.versions.watch_definition)} · ${esc(e.evidence.versions.priority)} · ${esc(e.evidence.versions.relevance || 'no relevance')} · ${esc(e.evidence.versions.queue_rank || '')} · profile ${esc(e.evidence.profile ? e.evidence.profile.ref : 'none')}</p>` : '<p class="meta">Legacy event: evidence snapshot not available. Nothing is reconstructed.</p>'}
-    ${data.current_context ? `<h3>Current context (computed now)</h3><p>${priorityBadge(data.current_context.priority)} ${relevanceBadge(data.current_context.relevance)}</p><p class="meta">Uses today's feed, formula and exposure profile. The original match above is what was recorded and does not change.</p>` : ''}
-    <h3>Advisory</h3>
-    <p class="meta">${esc(itemNote)}</p>
-    ${item ? `<p>${esc(item.summary || '')}</p>` : ''}
-    <p><a href="${esc(/^https:\/\//.test(e.reference || '') ? e.reference : '/cyber-watchdog.html')}" target="_blank" rel="noopener noreferrer">Source reference</a></p>
-    <h3>Delivery</h3>
-    <p class="meta">${esc(deliveryText(e) || e.delivery_status || 'no destinations')}</p>
-    <h3>Status history</h3>
-    <ul>${history}</ul>`;
+  if (!res.ok) { $('profilestatus').textContent = data.message || data.error || 'Profile unavailable.'; return; }
+  const p = data.profile;
+  setChips('pvendors', p ? p.vendors : []); setChips('pproducts', p ? p.products : []); setChips('ppackages', p ? p.packages : []); setChips('ptech', p ? p.technologies : []);
+  $('profile-rev').textContent = p ? 'Revision ' + p.revision : 'Not configured';
+  $('profilestatus').textContent = p ? 'New matches are evaluated against this profile; existing matches keep the relevance recorded when they were created.' : 'No profile yet. Watches still work; relevance shows "No profile".';
 }
-
-async function loadEvents() {
-  if (!signedIn() || !inbox) {
-    if (inbox) inbox.textContent = '';
-    if (ops) ops.innerHTML = '';
-    if (eventlist) eventlist.innerHTML = `<article class="card upsell"><div class="kicker">Pro Defense</div><h3 style="margin:6px 0">Priority triage inbox</h3><p class="meta">Every match is ranked by cited evidence (CISA KEV, CVSS, EPSS, feed severity, threat activity) and moves through New → Acknowledged → Investigating → Resolved with a status history. Sign in above with a Pro, Enterprise or MSSP key, or</p><a class="btn" href="/upgrade.html?plan=pro&amp;feature=cyber-watchdog-triage">Upgrade to Pro Defense</a></article>`;
-    return;
-  }
-  const res = await fetch(inboxUrl(), { headers: headers() });
+async function loadWatches() {
+  if (!signedIn()) return;
+  const res = await fetch(api('/api/watchdog/watches'), { headers: headers() });
   const data = await res.json();
-  if (!res.ok) {
-    inbox.textContent = data.message || 'Match history unavailable.';
-    if (ops) ops.innerHTML = '';
-    if (eventlist) eventlist.innerHTML = '';
-    return;
-  }
-  const a = data.analytics || {};
-  inbox.textContent = `${data.freshness_status || 'UNKNOWN'} · feed age ${data.feed_age_seconds ?? 'unknown'}s · last update ${data.feed_generated_at || 'unknown'} · ${a.history || 'no_history_yet'}`;
-  if (ops) {
-    const failures = a.delivery_failure_rate == null ? 'none' : String(a.delivery_failures ?? 0);
-    ops.innerHTML = [
-      metric('Watches active', data.watches_active ?? 0, 'Enabled watches'),
-      metric('Stored matches', data.total ?? 0, 'Durable events, cap 200'),
-      metric('Matches 24h', a.matches_24h ?? 0, 'From stored events only'),
-      metric('Critical 24h', a.critical_matches_24h ?? 0, 'Severity on the matched item'),
-      metric('Open', a.open ?? 0, 'New, acknowledged or investigating'),
-      metric('Open critical', a.open_critical ?? 0, 'Evidence-cited CRITICAL priority, not yet resolved'),
-      metric('Open profile matches', a.open_profile_matched ?? 0, 'Open matches on technology in your exposure profile'),
-      metric('Unread', a.unread ?? 0, 'Not yet acknowledged'),
-      metric('Deliveries pending', a.deliveries_pending ?? 0, 'Queued or awaiting retry'),
-      metric('Delivery failures', failures, a.delivery_failure_rate == null ? 'No final delivery result yet' : 'Final failures after retries'),
-    ].join('');
-  }
-  const tops = (a.top_watches || []).map((w) => `${w.name} (${w.count})`).join(', ') || 'none yet';
-  const sources = (a.top_sources || []).map((x) => `${x.source} (${x.count})`).join(', ') || 'none yet';
-  if (eventlist) {
-    const events = data.events || [];
-    eventlist.innerHTML = `<p class="meta">Top matching watches: ${esc(tops)}. Top sources: ${esc(sources)}.</p>` + (events.length ? `<p class="meta">${esc(data.matched_total ?? events.length)} of ${esc(data.total ?? events.length)} stored matches in this view.</p><table><thead><tr><th>Threat priority</th><th>Relevance</th><th>Match</th><th>Status</th><th class="col-opt">Delivery</th><th></th></tr></thead><tbody>${events.map((e) => `<tr>
-      <td>${priorityBadge(e.priority)}</td>
-      <td>${relevanceBadge(e.relevance)}</td>
-      <td><strong>${esc(e.title || e.matched_item_id)}</strong><div class="meta">${esc(e.severity || '')} · ${esc(e.source || '')} · watch ${esc(e.watch_name || '')}${data.tenant ? ' · tenant ' + esc(data.tenant) : ''}</div><div class="meta">${esc(evidenceFacts(e))}</div><div class="meta">Why: ${esc((e.reason || []).join(', '))}</div></td>
-      <td>${statusSelect(e)}</td>
-      <td class="meta col-opt">${esc(deliveryText(e) || e.delivery_status || '')}</td>
-      <td><button type="button" class="btn-ghost" data-act="detail" data-id="${esc(e.id)}">Evidence</button>${e.acknowledged ? '' : ` <button type="button" data-act="ack" data-id="${esc(e.id)}">Acknowledge</button>`}</td>
-    </tr>`).join('')}</tbody></table>` : (data.total ? '<p class="meta">No stored matches in this view. Change the filters to see the rest.</p>' : '<p class="meta">No stored matches yet.</p>'));
-  }
+  if (!res.ok) { mount($('watchlist'), h('div', { class: 'ax-empty', text: data.message || data.error || 'Watches unavailable' })); return; }
+  $('watchstatus').textContent = (data.watches || []).length + ' of ' + data.limit + ' watches' + (data.tenant ? ' · tenant ' + data.tenant : '');
+  const rows = (data.watches || []).map((w) => h('tr', {},
+    h('td', {}, h('div', { class: 'ax-title', text: w.name }), h('div', { class: 'ax-sub', text: 'Definition v' + (w.version || 1) })),
+    h('td', { class: 'ax-col-opt' }, w.rule ? h('div', { class: 'ax-rule', text: 'MATCH WHEN\n  ' + w.rule.lines.join('\n' + (w.rule.logic === 'OR' ? 'OR ' : 'AND ')) }) : h('span', { class: 'ax-mono', text: 'Legacy v1 · ' + (w.logic || 'OR') })),
+    h('td', {}, w.enabled === false ? led('disabled', 'Disabled') : led('active', 'Enabled')),
+    h('td', {}, h('div', { class: 'ax-form-row', style: 'gap:6px' },
+      h('button', { type: 'button', class: 'ax-btn ax-btn--sm', dataset: { act: 'toggle', id: w.id, enabled: String(w.enabled !== false) }, text: w.enabled === false ? 'Enable' : 'Disable' }),
+      h('button', { type: 'button', class: 'ax-btn ax-btn--sm ax-btn--danger', dataset: { act: 'delete', id: w.id, name: w.name }, text: 'Delete' })))));
+  mount($('watchlist'), rows.length ? table('Your watches', [{ label: 'Watch' }, { label: 'Rule', opt: true }, { label: 'State' }, { label: 'Actions' }], rows) : h('div', { class: 'ax-empty', text: 'No watches saved' }));
 }
 
+// ----------------------------------------------------------- integrations
 async function loadDestinations() {
-  const list = document.getElementById('destlist');
-  const st = document.getElementById('deststatus');
-  if (!list) return;
-  if (!signedIn() || !(session.scopes || []).includes('watchdog:destinations:write')) {
-    list.innerHTML = signedIn() ? '<p class="meta">Webhook destinations are included with Enterprise SOC and MSSP.</p>' : '';
-    return;
-  }
+  const on = signedIn(); const can = hasScope('watchdog:destinations:write');
+  $('integrations-body').hidden = !can;
+  mount($('integrations-locked'), can ? null : on
+    ? lockedPanel('Signed webhook delivery', 'Verified, signed HTTPS delivery to your SIEM or SOAR is included with Enterprise SOC and MSSP. Your plan includes hosted watches, background evaluation and the brief poller.', h('a', { class: 'ax-btn', href: '/upgrade.html?plan=enterprise&feature=cyber-watchdog', text: 'See Enterprise SOC' }))
+    : lockedPanel('Signed webhook delivery', 'Sign in with an Enterprise SOC or MSSP key to manage webhook destinations.', signInAction()));
+  if (!can) return;
   const res = await fetch(api('/api/watchdog/destinations'), { headers: headers() });
   const data = await res.json();
-  if (!res.ok) { list.innerHTML = `<p class="warn">${esc(data.message || data.error || 'Destinations unavailable.')}</p>`; return; }
-  const rows = data.destinations || [];
-  if (st) st.textContent = `${rows.length} of ${data.limit} destinations · contract ${data.contract_version || ''}`;
-  list.innerHTML = rows.length ? `<table><thead><tr><th>Host</th><th>State</th><th></th></tr></thead><tbody>${rows.map((d) => `<tr>
-    <td><strong>${esc(d.hostname)}</strong><div class="meta">${esc(d.url)}</div></td>
-    <td>${esc(d.state)}<div class="meta">${d.verified_at ? 'verified ' + esc(d.verified_at) : 'not verified'}${d.last_delivery_at ? ' · last delivery ' + esc(d.last_delivery_at) : ''}${d.failure_count ? ' · failures ' + esc(d.failure_count) : ''}${d.disabled_reason ? ' · ' + esc(d.disabled_reason) : ''}${d.last_verification_error ? ' · verification: ' + esc(d.last_verification_error) : ''}</div></td>
-    <td>
-      ${d.state !== 'active' && d.state !== 'disabled' ? `<button type="button" data-act="verify" data-id="${esc(d.id)}">Verify</button>` : ''}
-      ${d.state === 'active' ? `<button type="button" data-act="disable" data-id="${esc(d.id)}">Disable</button>` : ''}
-      <button type="button" data-act="remove" data-id="${esc(d.id)}">Remove</button>
-    </td>
-  </tr>`).join('')}</tbody></table>` : '<p class="meta">No destinations.</p>';
+  if (!res.ok) { mount($('destlist'), h('div', { class: 'ax-empty', text: data.message || data.error || 'Destinations unavailable' })); return; }
+  markSynced();
+  $('destmeta').textContent = (data.destinations || []).length + ' of ' + data.limit + ' · contract ' + (data.contract_version || '');
+  const rows = (data.destinations || []).map((d) => { const st = S.destinationState(d.state); return h('tr', {},
+    h('td', {}, h('div', { class: 'ax-title', text: d.hostname || 'destination' }), h('div', { class: 'ax-sub ax-mono', text: d.url })),
+    h('td', {}, led(st.state, st.label), d.disabled_reason ? h('div', { class: 'ax-sub', text: d.disabled_reason }) : null, d.last_verification_error ? h('div', { class: 'ax-sub', text: 'Verification: ' + d.last_verification_error }) : null),
+    h('td', { class: 'ax-mono ax-col-opt' }, d.verified_at ? S.ageFromIso(d.verified_at) : na('NOT VERIFIED')),
+    h('td', { class: 'ax-mono ax-col-opt' }, d.last_delivery_at ? S.ageFromIso(d.last_delivery_at) : na('NONE YET')),
+    h('td', { class: 'ax-mono' }, String(d.failure_count || 0)),
+    h('td', {}, h('div', { class: 'ax-form-row', style: 'gap:6px' },
+      d.state !== 'active' && d.state !== 'disabled' ? h('button', { type: 'button', class: 'ax-btn ax-btn--sm ax-btn--primary', dataset: { act: 'verify', id: d.id }, text: 'Verify' }) : null,
+      d.state === 'active' ? h('button', { type: 'button', class: 'ax-btn ax-btn--sm', dataset: { act: 'disable', id: d.id }, text: 'Disable' }) : null,
+      h('button', { type: 'button', class: 'ax-btn ax-btn--sm ax-btn--danger', dataset: { act: 'remove', id: d.id, name: d.hostname || d.id }, text: 'Delete' })))); });
+  mount($('destlist'), rows.length ? table('Webhook destinations', [{ label: 'Destination' }, { label: 'Status' }, { label: 'Verified', opt: true }, { label: 'Last delivery', opt: true }, { label: 'Failures' }, { label: 'Actions' }], rows) : h('div', { class: 'ax-empty', text: 'No destinations' }));
+  const del = (data.recent_deliveries || []).map((x) => { const st = S.deliveryState(x.outcome === 'retry_scheduled' ? 'pending' : x.outcome); return h('tr', {}, h('td', {}, led(st.state, st.label)), h('td', { class: 'ax-mono' }, x.destination_id), h('td', { class: 'ax-mono' }, 'attempt ' + x.attempt + (x.http_status ? ' · HTTP ' + x.http_status : '') + (x.error ? ' · ' + x.error : '')), h('td', { class: 'ax-mono ax-col-opt' }, S.ageFromIso(x.at) || na())); });
+  mount($('deliverylist'), del.length ? table('Recent delivery attempts', [{ label: 'Result' }, { label: 'Destination' }, { label: 'Detail' }, { label: 'When', opt: true }], del) : h('div', { class: 'ax-empty', text: 'No delivery attempts yet' }));
 }
 
-function refreshAll() {
-  showSession();
-  loadBrief().catch(() => { status.textContent = 'Brief is not reachable yet.'; });
-  loadProfile().catch(() => {});
-  loadWatches().catch(() => {});
-  loadEvents().catch(() => {});
-  loadDestinations().catch(() => {});
+// ---------------------------------------------------------------- tenants
+function renderTenants() {
+  const list = session && session.managed_tenants || [];
+  if (session && session.tenant) { mount($('tenantlist'), lockedPanel('Bound session', 'This session is bound to tenant ' + session.tenant + ' because a tenant was given at sign-in. Sign in without a tenant to switch between tenants.', null)); return; }
+  const rows = list.map((id) => h('tr', {}, h('td', { class: 'ax-mono', text: id }), h('td', {}, id === session.active_tenant ? led('active', 'Viewing') : led('unknown', 'Not selected')),
+    h('td', {}, h('button', { type: 'button', class: 'ax-btn ax-btn--sm', dataset: { act: 'tenant', id }, text: id === session.active_tenant ? 'Selected' : 'Switch to tenant', disabled: id === session.active_tenant ? true : null }))));
+  mount($('tenantlist'), rows.length ? table('Managed tenants', [{ label: 'Tenant' }, { label: 'State' }, { label: 'Action' }], rows) : h('div', { class: 'ax-empty', text: 'No managed tenants. Create them with POST /api/mssp/tenants' }));
+}
+function switchTenant(id) {
+  if (!session || session.tenant) return;
+  session.active_tenant = id || null;
+  saveSession(session);
+  seenEvents = null;
+  announce(id ? 'Now viewing tenant ' + id : 'Now viewing the MSSP account');
+  showView(false);
 }
 
-document.getElementById('filters').addEventListener('submit', loadBrief);
-document.getElementById('inboxfilters').addEventListener('submit', (ev) => { ev.preventDefault(); loadEvents().catch(() => {}); });
-document.getElementById('drawerclose').addEventListener('click', () => document.getElementById('eventdrawer').close());
-document.body.addEventListener('change', async (ev) => {
-  const sel = ev.target.closest('select[data-act="status"]');
-  if (!sel || !signedIn()) return;
-  sel.disabled = true;
-  try { await setStatus([sel.getAttribute('data-id')], sel.value); } catch (err) { inbox.textContent = err.message; }
-  loadEvents().catch(() => {});
+// ------------------------------------------------------------------- plan
+let offer = null;
+async function loadPlan() {
+  if (!offer) { const res = await fetch('/api/watchdog/offer', { headers: { Accept: 'application/json' } }); offer = await res.json(); }
+  const paid = (offer.plans || []).filter((p) => p.id !== 'FREE');
+  mount($('scope'), (offer.scope && offer.scope.does_not || []).map((d) => h('li', { text: d })));
+  const on = signedIn();
+  if (on) {
+    const mine = paid.find((p) => p.id === session.tier);
+    const next = session.tier === 'PRO' ? paid.find((p) => p.id === 'ENTERPRISE') : session.tier === 'ENTERPRISE' ? paid.find((p) => p.id === 'MSSP') : null;
+    mount($('plancurrent'), h('section', { class: 'ax-panel ax-panel--focus', style: 'margin-bottom:16px' },
+      h('div', { class: 'ax-panel__head' }, h('h2', { class: 'ax-h-panel', text: 'Current plan' }), led('active', mine ? mine.name : session.tier)),
+      mine ? kv([['Price', mine.price_label], ['Watches', String(mine.watches)], ['Webhook destinations', String(mine.webhooks || 0)], ['Background evaluation', mine.background_evaluation ? 'Included' : 'Not included'], ['MSSP tenants', mine.tenants ? 'Included' : 'Not included'], ['Tenant in view', tenantInUse() || 'None']]) : null,
+      next ? h('p', { class: 'ax-meta', style: 'margin:12px 0 0' }, (session.tier === 'PRO' ? 'Need signed webhook delivery? ' : 'Managing customers? ') + next.name + ' includes it. ', h('a', { href: next.checkout, text: 'Compare ' + next.name })) : null));
+    $('plans-panel').hidden = true;
+    return;
+  }
+  mount($('plancurrent'));
+  $('plans-panel').hidden = false;
+  const rows = [
+    ['Price', (p) => h('span', { class: 'wd-price', text: p.price_label })],
+    ['Watches', (p) => String(p.watches)],
+    ['Background evaluation', (p) => p.background_evaluation ? 'Included' : 'Not included'],
+    ['Signed webhook destinations', (p) => p.webhooks ? String(p.webhooks) : 'Not included'],
+    ['MSSP tenant isolation', (p) => p.tenants ? 'Included' : 'Not included'],
+    ['', (p) => p.checkout ? h('a', { class: 'ax-btn ax-btn--primary ax-btn--sm', href: p.checkout, text: 'Choose ' + p.name }) : null],
+  ].map(([label, f]) => h('tr', {}, h('th', { scope: 'row', text: label }), paid.map((p) => h('td', {}, f(p)))));
+  mount($('plans'), h('div', { class: 'ax-table-wrap' }, h('table', { class: 'ax-table wd-plan-table' }, h('caption', { class: 'ax-sr', text: 'Plan comparison' }),
+    h('thead', {}, h('tr', {}, h('th', { scope: 'col', text: 'Plan' }), paid.map((p) => h('th', { scope: 'col', text: p.name })))), h('tbody', {}, rows))));
+}
+
+// ----------------------------------------------------------------- events
+window.addEventListener('hashchange', () => showView(true));
+$('filters').addEventListener('submit', loadBrief);
+$('inboxfilters').addEventListener('submit', (ev) => { ev.preventDefault(); loadEvents().catch(() => {}); });
+$('eventdrawer').addEventListener('close', () => {
+  // Return focus to the row that opened the drawer; if the inbox re-rendered,
+  // to that event's new row, else to the view heading.
+  let target = drawerReturn && drawerReturn.isConnected ? drawerReturn : null;
+  const id = drawerReturn && drawerReturn.dataset ? drawerReturn.dataset.row : null;
+  if (!target && id) target = document.querySelector('tr[data-row="' + CSS.escape(id) + '"]');
+  if (!target) target = document.querySelector('.ax-view:not([hidden]) h1');
+  if (target) target.focus();
 });
-document.body.addEventListener('submit', async (ev) => {
-  if (ev.target.id !== 'drawertriage') return;
-  ev.preventDefault();
-  const id = ev.target.getAttribute('data-id');
-  const msg = document.getElementById('drawermsg');
-  try {
-    const out = await setStatus([id], document.getElementById('drawerstatus').value, document.getElementById('drawernote').value.trim());
-    msg.textContent = out.updated && out.updated.length ? 'Saved.' : 'No change.';
-    await openDrawer(id);
-    loadEvents().catch(() => {});
-  } catch (err) { msg.textContent = err.message; }
+$('drawerclose').addEventListener('click', () => $('eventdrawer').close());
+$('tenant-switch').addEventListener('change', (ev) => switchTenant(ev.target.value));
+$('cmd-signin').addEventListener('click', () => { location.hash = '#overview'; showView(false); $('key').focus(); });
+document.addEventListener('keydown', (ev) => {
+  const row = ev.target.closest && ev.target.closest('tr[data-row]');
+  if (row && (ev.key === 'Enter' || ev.key === ' ')) { ev.preventDefault(); openDrawer(row.dataset.row, row); }
 });
-document.body.addEventListener('click', async (ev) => {
+document.addEventListener('click', async (ev) => {
+  const row = ev.target.closest('tr[data-row]');
+  if (row && !ev.target.closest('button,a,select,input')) { openDrawer(row.dataset.row, row); return; }
   const btn = ev.target.closest('button[data-act]');
   if (!btn || !signedIn()) return;
-  const act = btn.getAttribute('data-act');
-  const id = btn.getAttribute('data-id');
-  if (!id) return;
+  const act = btn.dataset.act; const id = btn.dataset.id;
   const json = { ...headers(), 'Content-Type': 'application/json' };
-  if (act === 'detail') {
-    openDrawer(id).catch(() => { document.getElementById('drawercontent').innerHTML = '<p class="warn">Event unavailable.</p>'; });
-    return;
+  if (act === 'tenant') { switchTenant(id); return; }
+  if (act === 'delete' || act === 'remove') {
+    if (!confirmInline(btn, act === 'delete' ? 'Delete watch "' + btn.dataset.name + '"?' : 'Delete destination ' + btn.dataset.name + '? Pending deliveries to it end.')) return;
   }
-  if (act === 'ack') {
-    await fetch(api('/api/watchdog/events/ack'), { method: 'POST', headers: json, body: JSON.stringify({ ids: [id] }) });
-    loadEvents();
-    return;
-  }
-  if (act === 'delete') {
-    await fetch(api('/api/watchdog/watches?id=' + encodeURIComponent(id)), { method: 'DELETE', headers: headers() });
-    loadWatches();
-    return;
-  }
-  if (act === 'toggle') {
-    const enabled = btn.getAttribute('data-enabled') === 'false';
-    await fetch(api('/api/watchdog/watches?id=' + encodeURIComponent(id)), { method: 'PATCH', headers: json, body: JSON.stringify({ enabled }) });
-    loadWatches();
-    return;
-  }
+  if (act === 'delete') { await fetch(api('/api/watchdog/watches?id=' + encodeURIComponent(id)), { method: 'DELETE', headers: headers() }); announce('Watch deleted'); loadWatches(); }
+  if (act === 'toggle') { const enabled = btn.dataset.enabled !== 'true'; await fetch(api('/api/watchdog/watches?id=' + encodeURIComponent(id)), { method: 'PATCH', headers: json, body: JSON.stringify({ enabled }) }); announce(enabled ? 'Watch enabled' : 'Watch disabled'); loadWatches(); }
   if (act === 'verify') {
-    const st = document.getElementById('deststatus');
-    if (st) st.textContent = 'Sending signed verification challenge…';
+    btn.disabled = true; $('deststatus').textContent = 'Sending signed challenge…';
     const res = await fetch(api('/api/watchdog/destinations/verify?id=' + encodeURIComponent(id)), { method: 'POST', headers: json, body: '{}' });
-    const data = await res.json();
-    if (st) st.textContent = res.ok ? 'Destination verified. Deliveries are enabled.' : `Verification failed: ${data.error || res.status}`;
-    loadDestinations();
-    return;
-  }
-  if (act === 'disable') {
-    await fetch(api('/api/watchdog/destinations?id=' + encodeURIComponent(id)), { method: 'PATCH', headers: json, body: JSON.stringify({ state: 'disabled' }) });
-    loadDestinations();
-    return;
-  }
-  if (act === 'remove') {
-    await fetch(api('/api/watchdog/destinations?id=' + encodeURIComponent(id)), { method: 'DELETE', headers: headers() });
+    const data = await res.json().catch(() => ({}));
+    $('deststatus').textContent = res.ok ? 'Destination verified.' : 'Verification failed: ' + (data.error || data.message || res.status);
     loadDestinations();
   }
+  if (act === 'disable') { await fetch(api('/api/watchdog/destinations?id=' + encodeURIComponent(id)), { method: 'PATCH', headers: json, body: JSON.stringify({ state: 'disabled' }) }); announce('Destination disabled'); loadDestinations(); }
+  if (act === 'remove') { await fetch(api('/api/watchdog/destinations?id=' + encodeURIComponent(id)), { method: 'DELETE', headers: headers() }); announce('Destination deleted'); loadDestinations(); }
 });
-document.getElementById('keyform').addEventListener('submit', async (ev) => {
+// Two-step confirm for destructive actions: the first press arms, the second
+// (within 6 s) confirms. Screen readers hear the prompt via the announcer.
+function confirmInline(btn, prompt) {
+  if (btn.dataset.armed === '1') { btn.dataset.armed = ''; return true; }
+  btn.dataset.armed = '1'; const old = btn.textContent; btn.textContent = 'Press again to confirm'; announce(prompt + ' Press again to confirm.');
+  setTimeout(() => { if (btn.isConnected && btn.dataset.armed === '1') { btn.dataset.armed = ''; btn.textContent = old; } }, 6000);
+  return false;
+}
+document.querySelector('#builder .ax-seg').addEventListener('click', (ev) => {
+  const b = ev.target.closest('button[data-mode]'); if (!b) return;
+  builderMode = b.dataset.mode; setSeg(ev.currentTarget, 'mode', builderMode);
+  $('advanced').hidden = builderMode !== 'advanced'; updateDraft();
+});
+$('wlogic').addEventListener('click', (ev) => { const b = ev.target.closest('button[data-logic]'); if (!b) return; logic = b.dataset.logic; setSeg($('wlogic'), 'logic', logic); updateDraft(); });
+$('wkev').addEventListener('click', (ev) => { const b = ev.target.closest('button[data-kev]'); if (!b) return; kevChoice = b.dataset.kev; setSeg($('wkev'), 'kev', kevChoice); updateDraft(); });
+$('watchform').addEventListener('input', updateDraft);
+$('watchform').addEventListener('change', updateDraft);
+$('watchform').addEventListener('submit', async (ev) => {
   ev.preventDefault();
-  const input = document.getElementById('key');
-  const tenant = document.getElementById('tenant').value.trim();
-  const status = document.getElementById('sessionstatus');
+  if (!signedIn()) return;
+  const res = await fetch(api('/api/watchdog/watches'), { method: 'POST', headers: { ...headers(), 'Content-Type': 'application/json' }, body: JSON.stringify(buildDefinition()) });
+  const data = await res.json();
+  $('builderstatus').textContent = data.message || (res.ok ? 'Saved ' + data.watch.name + '. The hosted scheduler evaluates it after each feed update.' : (data.error || 'Could not save'));
+  if (res.ok) { mount($('previewbox')); loadWatches(); }
+});
+$('wpreview').addEventListener('click', async () => {
+  if (!signedIn()) return;
+  $('builderstatus').textContent = 'Previewing against the live feed…';
+  const res = await fetch(api('/api/watchdog/watches/preview'), { method: 'POST', headers: { ...headers(), 'Content-Type': 'application/json' }, body: JSON.stringify(buildDefinition()) });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) { $('builderstatus').textContent = data.message || data.error || 'Preview unavailable.'; mount($('previewbox')); return; }
+  $('builderstatus').textContent = 'Preview ready. Nothing was saved.';
+  renderPreview(data);
+});
+$('profileform').addEventListener('submit', async (ev) => {
+  ev.preventDefault();
+  if (!signedIn()) return;
+  const body = { version: 1, vendors: chipValues('pvendors'), products: chipValues('pproducts'), packages: chipValues('ppackages'), technologies: chipValues('ptech') };
+  const res = await fetch(api('/api/watchdog/profile'), { method: 'PUT', headers: { ...headers(), 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  const data = await res.json().catch(() => ({}));
+  $('profilestatus').textContent = res.ok ? 'Technology profile saved.' : (data.message || data.error || 'Profile not saved.');
+  if (res.ok) loadProfile();
+});
+$('profiledelete').addEventListener('click', async (ev) => {
+  const btn = ev.currentTarget;
+  if (!signedIn() || !confirmInline(btn, 'Remove the technology profile?')) return;
+  await fetch(api('/api/watchdog/profile'), { method: 'DELETE', headers: headers() });
+  btn.textContent = 'Remove profile';
+  announce('Technology profile removed');
+  loadProfile();
+});
+$('destform').addEventListener('submit', async (ev) => {
+  ev.preventDefault();
+  if (!signedIn()) return;
+  const url = $('durl').value.trim();
+  const res = await fetch(api('/api/watchdog/destinations'), { method: 'POST', headers: { ...headers(), 'Content-Type': 'application/json' }, body: JSON.stringify({ url }) });
+  const data = await res.json();
+  if (!res.ok) { $('deststatus').textContent = data.message || data.error || 'Could not add destination.'; return; }
+  $('durl').value = '';
+  // The signing secret is shown once and never stored by this page.
+  const box = $('secretbox'); box.hidden = false;
+  const done = h('button', { type: 'button', class: 'ax-btn ax-btn--sm', id: 'secretdone', text: 'I stored it' });
+  mount(box, h('div', { class: 'ax-panel', style: 'margin-top:12px;border-color:var(--ax-accent-amber)' },
+    h('p', { style: 'margin-top:0' }, h('strong', { text: 'Signing secret for ' + data.destination.hostname })),
+    h('p', { class: 'ax-meta', text: data.signing_secret_notice }), h('div', { class: 'wd-secret', text: data.signing_secret }), h('p', { style: 'margin-bottom:0' }, done)));
+  done.addEventListener('click', () => { mount(box); box.hidden = true; });
+  $('deststatus').textContent = 'Destination added in pending state. Verify it to enable deliveries.';
+  loadDestinations();
+});
+$('keyform').addEventListener('submit', async (ev) => {
+  ev.preventDefault();
+  const input = $('key');
+  const tenant = $('tenant').value.trim();
+  const st = $('sessionstatus');
   const value = input.value.trim();
   // Clear the field before the request; the key is not kept anywhere.
   input.value = '';
-  if (!value) { status.textContent = 'Enter an API key.'; return; }
+  if (!value) { st.textContent = 'Enter an API key.'; return; }
   const url = new URL('/api/watchdog/session', location.origin);
   if (tenant) url.searchParams.set('tenant', tenant);
-  status.textContent = 'Signing in…';
+  st.textContent = 'Signing in…';
   try {
     const res = await fetch(url, { method: 'POST', headers: { Accept: 'application/json', 'X-API-Key': value } });
     const data = await res.json();
-    if (!res.ok || !data.token) { status.textContent = data.message || data.error || 'Sign-in failed.'; saveSession(null); return; }
-    saveSession({ ...data, tenant: data.tenant || null });
-    refreshAll();
-  } catch (_) {
-    status.textContent = 'Sign-in failed.';
-  }
+    if (!res.ok || !data.token) { st.textContent = data.message || data.error || 'Sign-in failed.'; saveSession(null); return; }
+    saveSession({ ...data, tenant: data.tenant || null, active_tenant: null, managed_tenants: data.managed_tenants || [] });
+    announce('Signed in');
+    showView(false);
+  } catch (_) { st.textContent = 'Sign-in failed.'; }
 });
-document.getElementById('signout').addEventListener('click', async () => {
-  if (signedIn()) {
-    try { await fetch(api('/api/watchdog/session'), { method: 'DELETE', headers: headers() }); } catch (_) {}
-  }
-  saveSession(null);
-  refreshAll();
-});
-document.getElementById('watchform').addEventListener('submit', async (ev) => {
-  ev.preventDefault();
-  if (!signedIn()) { watchstatus.innerHTML = '<span class="warn">Sign in with a Pro, Enterprise or MSSP key first.</span>'; return; }
-  const body = buildDefinition();
-  const res = await fetch(api('/api/watchdog/watches'), {
-    method: 'POST',
-    headers: { ...headers(), 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  });
-  const data = await res.json();
-  const bst = document.getElementById('builderstatus');
-  bst.textContent = data.message || (res.ok ? `Saved ${data.watch.name}. The hosted scheduler evaluates it after each feed update.` : (data.error || 'Could not save'));
-  if (res.ok) { document.getElementById('previewbox').innerHTML = ''; loadWatches(); loadEvents(); }
-});
-document.getElementById('wpreview').addEventListener('click', async () => {
-  const bst = document.getElementById('builderstatus');
-  if (!signedIn()) return;
-  bst.textContent = 'Previewing…';
-  const res = await fetch(api('/api/watchdog/watches/preview'), { method: 'POST', headers: { ...headers(), 'Content-Type': 'application/json' }, body: JSON.stringify(buildDefinition()) });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) { bst.textContent = data.message || data.error || 'Preview unavailable.'; document.getElementById('previewbox').innerHTML = ''; return; }
-  bst.textContent = 'Preview ready.';
-  renderPreview(data);
-});
-document.getElementById('profileform').addEventListener('submit', async (ev) => {
-  ev.preventDefault();
-  const st = document.getElementById('profilestatus');
-  if (!signedIn()) return;
-  const body = { version: 1, vendors: splitList('pvendors'), products: splitList('pproducts'), packages: splitList('ppackages').map((v) => v.toLowerCase()), technologies: splitList('ptech') };
-  const res = await fetch(api('/api/watchdog/profile'), { method: 'PUT', headers: { ...headers(), 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-  const data = await res.json().catch(() => ({}));
-  st.textContent = res.ok ? 'Exposure profile saved.' : (data.message || data.error || 'Profile not saved.');
-  if (res.ok) loadProfile();
-});
-document.getElementById('profiledelete').addEventListener('click', async () => {
-  if (!signedIn()) return;
-  await fetch(api('/api/watchdog/profile'), { method: 'DELETE', headers: headers() });
-  loadProfile();
-});
-document.getElementById('destform').addEventListener('submit', async (ev) => {
-  ev.preventDefault();
-  const st = document.getElementById('deststatus');
-  const box = document.getElementById('secretbox');
-  if (!signedIn()) { st.textContent = 'Sign in first.'; return; }
-  const url = document.getElementById('durl').value.trim();
-  const res = await fetch(api('/api/watchdog/destinations'), { method: 'POST', headers: { ...headers(), 'Content-Type': 'application/json' }, body: JSON.stringify({ url }) });
-  const data = await res.json();
-  if (!res.ok) { st.textContent = data.message || data.error || 'Could not add destination.'; return; }
-  document.getElementById('durl').value = '';
-  // The signing secret is shown once and never stored by this page.
-  box.style.display = 'block';
-  box.innerHTML = `<strong>Signing secret for ${esc(data.destination.hostname)}</strong>
-    <p class="meta">${esc(data.signing_secret_notice)}</p>
-    <code style="word-break:break-all">${esc(data.signing_secret)}</code>
-    <p><button type="button" id="secretdone">I stored it</button></p>`;
-  document.getElementById('secretdone').addEventListener('click', () => { box.innerHTML = ''; box.style.display = 'none'; });
-  st.textContent = 'Destination added in pending state. Verify it to enable deliveries.';
-  loadDestinations();
+$('signout').addEventListener('click', async () => {
+  if (signedIn()) { try { await fetch(api('/api/watchdog/session'), { method: 'DELETE', headers: headers() }); } catch (_) {} }
+  saveSession(null); seenEvents = null; announce('Signed out'); showView(false);
 });
 
+// ------------------------------------------------------------------- boot
 session = loadSession();
 scheduleRefresh();
-loadOffer().catch(() => { plans.innerHTML = '<p class="warn">Offer is not reachable yet. The API ships with the gateway.</p>'; });
-refreshAll();
+renderChrome();
+initChips();
+updateDraft();
+loadHealth().then(() => markSynced()).catch(() => {});
+setInterval(() => { if (document.visibilityState === 'visible') loadHealth().catch(() => {}); }, 300000);
+showView(false);
 </script>
 </body>
 </html>

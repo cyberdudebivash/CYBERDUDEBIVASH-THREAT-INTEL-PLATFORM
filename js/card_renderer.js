@@ -578,11 +578,14 @@
   function renderTrustFooter(item) {
     const vs     = item.validation_status;
     const hasTtps = item.has_ttps;
+    // source_url is third-party feed data: esc() stops attribute break-out,
+    // this stops a javascript:/data: scheme from running on click.
+    const sourceHref = /^https?:\/\//i.test(String(item.source_url || "").trim()) ? item.source_url : "#";
 
     return `
     <div class="sapx-zone sapx-zone-footer">
       <div class="sapx-footer-top">
-        <a href="${esc(item.source_url)}" target="_blank" rel="noopener" class="sapx-source-link">
+        <a href="${esc(sourceHref)}" target="_blank" rel="noopener" class="sapx-source-link">
           <span class="sapx-source-dot">●</span>
           <span class="sapx-source-name">${esc(item.source_host)}</span>
         </a>

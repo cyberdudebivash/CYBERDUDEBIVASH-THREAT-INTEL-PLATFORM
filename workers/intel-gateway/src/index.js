@@ -8154,7 +8154,11 @@ async function handleRequest(request, env, ctx) {
     }
     // Self-service MSSP keys: tenant membership resolved only when the
     // request selects a tenant (one Durable Object read).
-    const watchdogAuth = requestSelectsTenant(path, request.headers, url.searchParams, auth) ? await resolveMsspMembership(env, auth) : auth;
+    // A session exchange also resolves it, so the Watchdog console can list
+    // the MSSP's own tenants (no-op for every other key; authorization of a
+    // tenant request is still re-resolved per request).
+    const watchdogAuth = (requestSelectsTenant(path, request.headers, url.searchParams, auth) || (path === "/api/watchdog/session" && method === "POST"))
+      ? await resolveMsspMembership(env, auth) : auth;
     const watched = await routeWatchdog({
       ...watchdogDeps(env, ctx),
       path,

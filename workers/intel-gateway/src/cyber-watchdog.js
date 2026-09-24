@@ -1421,6 +1421,20 @@ export function filterEvents(events, query) {
   return out;
 }
 
+function dailyCounts(list, nowMs, days) {
+  const dayMs = 86400000;
+  const today = Math.floor(nowMs / dayMs);
+  const out = [];
+  for (let d = today - days + 1; d <= today; d += 1) out.push({ date: new Date(d * dayMs).toISOString().slice(0, 10), count: 0 });
+  for (const e of list) {
+    const t = Date.parse(e.matched_at || "");
+    if (!Number.isFinite(t)) continue;
+    const i = Math.floor(t / dayMs) - (today - days + 1);
+    if (i >= 0 && i < days) out[i].count += 1;
+  }
+  return out;
+}
+
 export function analyticsFromEvents(events, nowMs = Date.now()) {
   const list = Array.isArray(events) ? events : [];
   const day = 86400000;
@@ -1468,6 +1482,10 @@ export function analyticsFromEvents(events, nowMs = Date.now()) {
     delivery_failures: failed,
     deliveries_pending: pending,
     top_watches: ranked(byWatch).map(([name, count]) => ({ name, count })),
+    // Per-UTC-day match counts for the last 7 days, oldest first, from the
+    // same stored events (bounded by EVENT_RETENTION). Days with no stored
+    // match are 0; `history` below says whether any history exists at all.
+    daily_7d: dailyCounts(list, nowMs, 7),
     top_sources: ranked(bySource).map(([source, count]) => ({ source, count })),
     history: list.length ? "stored-match-events" : "no_history_yet",
   };
@@ -1899,6 +1917,10 @@ export async function routeWatchdog(req) {
       body: {
         token, token_type: "Bearer", audience: claims.aud, scopes: claims.scope.split(" "),
         tier: claims.tier, tenant: claims.tenant || null,
+        // MSSP only: the tenant ids this credential manages, for the console's
+        // tenant switcher. Display data; every tenant request is authorized
+        // again server-side.
+        ...(claims.tier === "MSSP" ? { managed_tenants: Array.isArray(claims.managed_tenants) ? claims.managed_tenants : [] } : {}),
         expires_at: new Date(claims.exp * 1000).toISOString(),
         refresh_before: new Date(claims.exp * 1000).toISOString(),
         max_session_until: new Date((claims.auth_time + SESSION_POLICY.max_lifetime_seconds) * 1000).toISOString(),
