@@ -20,7 +20,7 @@ const LIVE_FEEDS = read("js/sentinel-live-feeds.js");
 const SNAPSHOT = read("js/apex-dashboard-snapshot.js");
 const SW = read("service-worker.js");
 
-const END_MARKER = "        <!-- ── END ENTERPRISE INTELLIGENCE COMMAND CENTER v184.0 ─────────────── -->";
+const END_MARKER = "        <!-- \u2500\u2500 END ENTERPRISE INTELLIGENCE COMMAND CENTER v184.0 \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 -->";
 function eiccBlock(src) {
   const end = src.indexOf(END_MARKER);
   const start = src.lastIndexOf('<section id="enterprise-intel-command"', end);
@@ -50,7 +50,7 @@ const FORBIDDEN = [
   [/(probability|confidence)\s*\|\|\s*0\.\d/, "defaulted prediction probability"],
   [/\[\s*['"](?:RU|CN|IR|KP)['"]\s*,\s*['"](?:RU|CN|IR|KP|US|UA)['"]/, "fallback attack-origin country list"],
   [/https?:\/\/raw\.githubusercontent\.com/, "frozen GitHub mirror as a dashboard source"],
-  [/items\.length\s*\?\s*['"]API\s*●\s*LIVE/, "API liveness inferred from item count"],
+  [/items\.length\s*\?\s*['"]API\s*\u25CF\s*LIVE/, "API liveness inferred from item count"],
 ];
 
 for (const [name, src] of Object.entries(MODULES)) {
@@ -80,11 +80,11 @@ test("EICC engine builds DOM with textContent only (no innerHTML)", () => {
 });
 
 test("static markup does not claim LIVE or an active phase before data proves it", () => {
-  assert.doesNotMatch(EICC, />\s*API\s*●\s*LIVE\s*</, "API ● LIVE hardcoded in markup");
+  assert.doesNotMatch(EICC, />\s*API\s*\u25CF\s*LIVE\s*</, "API \u25CF LIVE hardcoded in markup");
   const gauge = INDEX.slice(INDEX.indexOf('id="cdb-g-threat-gauge"'), INDEX.indexOf('<!-- GADGET 2'));
-  assert.doesNotMatch(gauge, />\s*●\s*LIVE\s*</, "threat level badge hardcoded LIVE");
+  assert.doesNotMatch(gauge, />\s*\u25CF\s*LIVE\s*</, "threat level badge hardcoded LIVE");
   const rw = INDEX.slice(INDEX.indexOf('id="cdb-g-ransomware"'), INDEX.indexOf('<!-- GADGET 8'));
-  assert.doesNotMatch(rw, />\s*●\s*LIVE\s*</, "ransomware badge hardcoded LIVE");
+  assert.doesNotMatch(rw, />\s*\u25CF\s*LIVE\s*</, "ransomware badge hardcoded LIVE");
   assert.doesNotMatch(INDEX, /class="cdb-kc-step active"/, "a kill-chain phase is marked active in static markup");
   assert.match(INDEX, /MITRE ATT&amp;CK TACTIC COVERAGE/);
   assert.doesNotMatch(INDEX, /ATTACK KILL CHAIN COVERAGE &mdash; CLICK TO EXPLORE MITRE ATT&CK/, "hybrid taxonomy labelled as MITRE ATT&CK");
@@ -98,25 +98,25 @@ test("sentinel-live-feeds escapes every intelligence field it interpolates into 
 });
 
 test("sentinel-live-feeds never downloads the full feed for a preview container that is not on the page", () => {
-  const fn = LIVE_FEEDS.slice(LIVE_FEEDS.indexOf("async function loadThreatFeedPreview()"), LIVE_FEEDS.indexOf("// ── 4. Cyber Warfare Heatmap"));
+  const fn = LIVE_FEEDS.slice(LIVE_FEEDS.indexOf("async function loadThreatFeedPreview()"), LIVE_FEEDS.indexOf("// \u2500\u2500 4. Cyber Warfare Heatmap"));
   assert.ok(fn.indexOf("if (!containers.length) return;") < fn.indexOf("load("), "container check must precede any load");
   const literal = /['"`][^'"`\n]*latest\.json/;
   assert.doesNotMatch(fn, literal);
-  assert.doesNotMatch(LIVE_FEEDS.slice(LIVE_FEEDS.indexOf("async function loadStats()"), LIVE_FEEDS.indexOf("// ── 2. Global Threat Level")), literal);
+  assert.doesNotMatch(LIVE_FEEDS.slice(LIVE_FEEDS.indexOf("async function loadStats()"), LIVE_FEEDS.indexOf("// \u2500\u2500 2. Global Threat Level")), literal);
 });
 
 test("threat level shows LIVE only for a fresh publication; campaigns only with evidence semantics", () => {
   const tl = LIVE_FEEDS.slice(LIVE_FEEDS.indexOf("async function loadThreatLevel()"), LIVE_FEEDS.indexOf("function setStatEl("));
   assert.match(tl, /if \(!pub \|\| !pub\.fresh \|\| !Number\.isFinite\(rawScore\)\)/);
   assert.match(tl, /THREAT LEVEL STALE/);
-  const kc = LIVE_FEEDS.slice(LIVE_FEEDS.indexOf("async function loadKillChain()"), LIVE_FEEDS.indexOf("// ── 10. AI Cyber Brain"));
+  const kc = LIVE_FEEDS.slice(LIVE_FEEDS.indexOf("async function loadKillChain()"), LIVE_FEEDS.indexOf("// \u2500\u2500 10. AI Cyber Brain"));
   assert.match(kc, /const evidenced = !!data\.campaign_semantics;/);
-  const rw = LIVE_FEEDS.slice(LIVE_FEEDS.indexOf("async function loadRansomware()"), LIVE_FEEDS.indexOf("// ── 7. APT Actor Radar"));
+  const rw = LIVE_FEEDS.slice(LIVE_FEEDS.indexOf("async function loadRansomware()"), LIVE_FEEDS.indexOf("// \u2500\u2500 7. APT Actor Radar"));
   assert.match(rw, /NO RANSOMWARE-TAGGED INTELLIGENCE IN CURRENT FEED/);
-  assert.match(rw, /MONITOR ● OPERATIONAL/);
+  assert.match(rw, /MONITOR \u25CF OPERATIONAL/);
 });
 
-// ── Single runtime owner per operational DOM node ─────────────────────────
+// -- Single runtime owner per operational DOM node -------------------------
 function scriptUnits() {
   const units = [];
   const re = /<script(?![^>]*\bsrc=)[^>]*>([\s\S]*?)<\/script>/g;
@@ -157,7 +157,7 @@ test("single owner: #nexus-rules-count is written only from real detection_pack 
   assert.doesNotMatch(refs[0].src, /\* 3; \/\/ sigma \+ yara \+ snort/, "invented rules count");
 });
 
-// ── Service worker ────────────────────────────────────────────────────────
+// -- Service worker --------------------------------------------------------
 test("service worker: runtime code and intelligence are network-only, cache only fixed static assets", () => {
   const staticList = SW.slice(SW.indexOf("const STATIC_ASSETS"), SW.indexOf("]);", SW.indexOf("const STATIC_ASSETS")));
   const entries = staticList.match(/'[^']+'/g) || [];
