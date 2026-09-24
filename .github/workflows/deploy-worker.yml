@@ -539,13 +539,18 @@ jobs:
           # Independently confirm the worker is actually live on its routes.
           # This is the source of truth for deploy success when wrangler's exit
           # code is poisoned by the routes-reconciliation step. If the script
-          # had NOT really deployed, the health endpoint would not respond 200.
+          # had NOT really deployed, the liveness endpoint would not respond 200.
+          # Uses /api/health/live (Worker liveness, no data dependency), NOT
+          # /api/health: /api/health now returns 503 while customer
+          # intelligence is stale, and a stale feed must never make a
+          # successful Worker deploy -- possibly the fix for that feed --
+          # report as failed.
           verify_live() {
-            echo "--- Verifying worker is live via health endpoint ---"
+            echo "--- Verifying worker is live via liveness endpoint ---"
             for attempt in 1 2 3 4 5 6; do
               sleep 10
               STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 15 \
-                "https://intel.cyberdudebivash.com/api/health" 2>/dev/null || echo "000")
+                "https://intel.cyberdudebivash.com/api/health/live" 2>/dev/null || echo "000")
               echo "  health probe ${attempt}/6 -> HTTP ${STATUS}"
               if [ "$STATUS" = "200" ]; then
                 echo "OK: Worker is live and serving (HTTP 200)."
@@ -608,8 +613,12 @@ jobs:
           echo "Waiting 20s for global Cloudflare propagation..."
           sleep 20
 
-          HEALTH=$(curl -sf --max-time 15 "https://intel.cyberdudebivash.com/api/health" 2>/dev/null || echo '{}')
-          echo "Health response: ${HEALTH}"
+          # Version comes from the liveness endpoint (no data dependency).
+          # jwt_configured is no longer in the PUBLIC /api/health response
+          # (secret-presence flag); post-deploy-validation.yml GATE D checks it
+          # with ADMIN_SECRET. This step stays informational (continue-on-error).
+          HEALTH=$(curl -sf --max-time 15 "https://intel.cyberdudebivash.com/api/health/live" 2>/dev/null || echo '{}')
+          echo "Liveness response: ${HEALTH}"
 
           python3 -c "
           import json, sys, os
@@ -645,7 +654,7 @@ jobs:
           elif jwt_ok is True:
               print('OK: CDB_JWT_SECRET is configured')
           else:
-              print('NOTE: jwt_configured status unknown (health endpoint may be at different version)')
+              print('NOTE: jwt_configured is verified by post-deploy-validation.yml GATE D (authenticated)')
           " 2>&1 || echo "Smoke test skipped -- worker still propagating"
 
           echo ""

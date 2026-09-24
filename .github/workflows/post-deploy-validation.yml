@@ -154,7 +154,10 @@ jobs:
         timeout-minutes: 2
         run: |
           echo "[GATE B] Checking version consistency..."
-          LIVE_VERSION=$(curl -sf --max-time 10 "${{ env.WORKER_BASE }}/api/health" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('version','unknown'))" 2>/dev/null || echo "unknown")
+          # /api/health/live: Worker version with no data dependency. /api/health
+          # returns 503 while the feed is stale, which would turn this into an
+          # "unknown -> skipping hard fail" and silently weaken the gate.
+          LIVE_VERSION=$(curl -sf --max-time 10 "${{ env.WORKER_BASE }}/api/health/live" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('version','unknown'))" 2>/dev/null || echo "unknown")
           REPO_VERSION=$(python3 -c "import json,pathlib; print(json.loads(pathlib.Path('config/version.json').read_text()).get('version','unknown'))" 2>/dev/null || echo "unknown")
           echo "[GATE B] Live: $LIVE_VERSION | Repo: $REPO_VERSION"
           if [ "$LIVE_VERSION" = "unknown" ] || [ "$REPO_VERSION" = "unknown" ]; then
@@ -201,9 +204,22 @@ jobs:
 
       - name: "GATE D -- JWT auth operational"
         timeout-minutes: 2
+        env:
+          ADMIN_SECRET: ${{ secrets.ADMIN_SECRET }}
         run: |
           echo "[GATE D] Checking JWT/auth system..."
-          HEALTH=$(curl -sf --max-time 10 "${{ env.WORKER_BASE }}/api/health" || echo '{}')
+          # checks.jwt_configured is a secret-presence flag and is no longer
+          # returned to anonymous callers of /api/health (P0 health freshness
+          # contract). It is still returned to operator calls authenticated
+          # with the Worker's ADMIN_SECRET, so this gate authenticates rather
+          # than being weakened. Fails closed if the repo secret is missing.
+          if [ -z "${ADMIN_SECRET}" ]; then
+            echo "::error::[GATE D] secrets.ADMIN_SECRET is not configured -- cannot verify JWT auth. Add repository secret ADMIN_SECRET (value = the Worker's ADMIN_SECRET)."
+            exit 1
+          fi
+          # -s (not -sf): /api/health answers 503 while intelligence is stale;
+          # the operator body still carries checks.jwt_configured.
+          HEALTH=$(curl -s --max-time 10 -H "X-Admin-Key: ${ADMIN_SECRET}" "${{ env.WORKER_BASE }}/api/health" || echo '{}')
           # v184.1 FIX: jwt_configured lives under the "checks" object in the
           # Worker's /api/health response (workers/intel-gateway/src/index.js:
           # checks: { ..., jwt_configured: !!(env.CDB_JWT_SECRET), ... }), not
@@ -231,6 +247,10 @@ jobs:
 
       - name: "GATE F -- Post-deploy validator (full suite)"
         timeout-minutes: 5
+        env:
+          # Used only as the X-Admin-Key header for the operator /api/health
+          # view (GATE E: jwt_configured, GATE F: r2_intel); never printed.
+          ADMIN_SECRET: ${{ secrets.ADMIN_SECRET }}
         run: |
           set -o pipefail
           echo "[GATE F] Running full post-deploy validator suite..."

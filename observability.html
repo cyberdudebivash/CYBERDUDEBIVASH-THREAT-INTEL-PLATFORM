@@ -264,11 +264,14 @@ async function fetchHealth() {
 function renderHealthChecks(checks, health) {
   const defs = [
     {key:'gateway',       label:'API Gateway',       detail:`Platform: ${health?.platform||'SENTINEL APEX'}`},
-    {key:'kv_rate_limit', label:'KV Rate Limit',     detail:'Cloudflare KV namespace'},
-    {key:'kv_api_keys',   label:'KV API Keys Store', detail:'Key storage'},
-    {key:'r2_intel',      label:'R2 Intel Storage',  detail:'Private R2 bucket'},
-    {key:'feed_index',    label:'Feed Index Cache',  detail: checks?.feed_index==='not_cached' ? 'Cache miss — fresh fetch on next req' : 'Cached'},
-    {key:'jwt',           label:'JWT Auth Config',   detail:'JWT secret configured'},
+    // Public /api/health checks (storage topology and secret-presence flags
+    // are operator-only). intelligence_freshness follows the canonical
+    // freshness contract (config/public_freshness_contract.json).
+    {key:'worker_runtime',         label:'Worker Runtime',          detail:'Edge gateway executing'},
+    {key:'intelligence_available', label:'Intelligence Available',  detail:'Published advisories present'},
+    {key:'intelligence_freshness', label:'Intelligence Freshness',  detail: health?.intelligence?.generated_at ? `Generated ${health.intelligence.generated_at}` : 'Generation time unknown'},
+    {key:'publication_integrity',  label:'Publication Integrity',   detail:'Feed structure consistent'},
+    {key:'feed_index',             label:'Feed Index',              detail: checks?.feed_index || 'Unknown'},
   ];
   if (!checks) {
     document.getElementById('health-checks').innerHTML =
@@ -276,8 +279,8 @@ function renderHealthChecks(checks, health) {
     return;
   }
   document.getElementById('health-checks').innerHTML = defs.map(d => {
-    const raw = d.key==='jwt' ? (health?.jwt_configured?'ok':'error') : (checks[d.key]||'unknown');
-    const s   = raw===true?'ok':raw===false?'error':raw;
+    const raw = checks[d.key]||'unknown';
+    const s   = raw===true||raw==='fresh'||(d.key==='feed_index'&&String(raw).startsWith('live:'))?'ok':raw===false?'error':raw==='stale'?'warn':String(raw);
     const cls = s==='ok'?'ok':s==='warn'||s==='not_cached'?'warn':'error';
     const ico = s==='ok'?'&#9989;':s==='warn'||s==='not_cached'?'&#9888;&#65039;':'&#10060;';
     return `<div class="check-item">

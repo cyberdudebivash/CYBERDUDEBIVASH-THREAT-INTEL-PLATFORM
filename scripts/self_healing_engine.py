@@ -40,6 +40,11 @@ import urllib.error
 import urllib.request
 from datetime import datetime, timezone
 
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+# Canonical customer-visible freshness contract -- same authority as the R2
+# upload guard, /api/health and the STAGE 5.9.10 release gate.
+import public_freshness_contract as _freshness  # noqa: E402
+
 REPO_ROOT   = pathlib.Path(__file__).resolve().parent.parent
 HEALING_DIR = REPO_ROOT / "data" / "self_healing"
 HEALING_DIR.mkdir(parents=True, exist_ok=True)
@@ -50,7 +55,7 @@ WORKER_BASE  = "https://intel.cyberdudebivash.com"
 
 # Thresholds for triggering recovery
 THRESHOLDS = {
-    "manifest_max_age_hours": 6,
+    "manifest_max_age_hours": _freshness.max_public_manifest_age_hours(),
     "api_latency_p95_warn_ms": 3000,
     "advisory_count_minimum": 50,
     "hydration_retry_max": 3,
@@ -85,13 +90,13 @@ def append_healing_event(event: dict):
     HEALING_LOG.write_text(json.dumps({"events": events, "updated_at": now_iso()}, indent=2))
 
 
-def probe_with_retry(url: str, retries: int = 3, backoff: float = 5.0) -> dict:
+def probe_with_retry(url: str, retries: int = 3, backoff: float = 5.0, headers: dict | None = None) -> dict:
     """Probe URL with exponential backoff retry."""
     last_err = None
     for attempt in range(retries):
         t0 = time.monotonic()
         try:
-            req = urllib.request.Request(url, headers={"User-Agent": "SENTINEL-APEX-HEALING/1.0"})
+            req = urllib.request.Request(url, headers={"User-Agent": "SENTINEL-APEX-HEALING/1.0", **(headers or {})})
             with urllib.request.urlopen(req, timeout=15) as resp:
                 latency_ms = int((time.monotonic() - t0) * 1000)
                 body = resp.read(131072).decode("utf-8", errors="replace")
@@ -107,28 +112,24 @@ def probe_with_retry(url: str, retries: int = 3, backoff: float = 5.0) -> dict:
 
 
 def check_manifest_freshness() -> dict:
-    """Check if live manifests are within freshness threshold."""
+    """Check if the live public manifest is fresh under the canonical
+    contract. Missing, unparseable or future-dated timestamps are NOT fresh
+    (previously they returned fresh=True, pretending freshness)."""
     import re
     url = f"{WORKER_BASE}/api/v1/intel/latest.json"
     r = probe_with_retry(url, retries=2)
     if not r["ok"]:
         return {"fresh": False, "age_hours": None, "error": r.get("error")}
-    body = r["body"]
-    m = re.search(r'"generated_at"\s*:\s*"([^"]+)"', body)
-    if m:
-        ts = m.group(1)
-        try:
-            dt = datetime.fromisoformat(ts.replace("Z", "+00:00"))
-            age_h = (datetime.now(timezone.utc) - dt).total_seconds() / 3600
-            return {
-                "fresh": age_h < THRESHOLDS["manifest_max_age_hours"],
-                "age_hours": round(age_h, 2),
-                "generated_at": ts,
-                "threshold_hours": THRESHOLDS["manifest_max_age_hours"],
-            }
-        except Exception as e:
-            return {"fresh": True, "age_hours": None, "error": str(e)}
-    return {"fresh": True, "age_hours": None, "note": "no timestamp in manifest"}
+    m = re.search(r'"generated_at"\s*:\s*"([^"]+)"', r["body"])
+    ts = m.group(1) if m else None
+    result = _freshness.classify_manifest_freshness(ts)
+    return {
+        "fresh": result["state"] == _freshness.FRESH,
+        "state": result["state"],
+        "age_hours": round(result["age_seconds"] / 3600, 2) if result["age_seconds"] is not None else None,
+        "generated_at": ts,
+        "threshold_hours": THRESHOLDS["manifest_max_age_hours"],
+    }
 
 
 def check_advisory_count() -> dict:
@@ -160,7 +161,11 @@ def check_advisory_count() -> dict:
 
 def check_ai_hydration() -> dict:
     """Check if AI brain data is present in health response."""
-    r = probe_with_retry(f"{WORKER_BASE}/api/health", retries=2)
+    # jwt_configured / r2_intel are operator-only /api/health fields; they are
+    # read when ADMIN_SECRET is available, otherwise reported as unknown.
+    _admin = os.environ.get("ADMIN_SECRET", "").strip()
+    r = probe_with_retry(f"{WORKER_BASE}/api/health", retries=2,
+                         headers={"X-Admin-Key": _admin} if _admin else None)
     if not r["ok"]:
         return {"ok": False, "error": r.get("error")}
     try:
@@ -174,7 +179,7 @@ def check_ai_hydration() -> dict:
             "status": status,
             "version": data.get("version"),
             "advisory_count": pipeline.get("advisory_count", 0),
-            "jwt_configured": checks.get("jwt_configured", False),
+            "jwt_configured": checks.get("jwt_configured", "unknown (operator-only field)"),
             "r2_intel": checks.get("r2_intel", "unknown"),
             "ai_engine": pipeline.get("ai_engine", "unknown"),
         }

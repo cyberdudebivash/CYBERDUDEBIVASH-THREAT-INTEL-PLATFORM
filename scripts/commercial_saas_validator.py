@@ -23,6 +23,7 @@ Usage:
 """
 
 import json
+import os
 import pathlib
 import sys
 import time
@@ -70,12 +71,17 @@ def probe(url: str, method: str = "GET", headers: dict = None,
             }
     except urllib.error.HTTPError as e:
         latency_ms = int((time.monotonic() - t0) * 1000)
+        # Keep the error body (e.g. /api/health's 503 envelope) readable.
+        try:
+            err_body = e.read(max_bytes if max_bytes > 0 else -1).decode("utf-8", errors="replace")
+        except Exception:
+            err_body = ""
         return {
             "ok": False,
             "status": e.code,
             "latency_ms": latency_ms,
             "headers": dict(e.headers) if e.headers else {},
-            "body": "",
+            "body": err_body,
             "error": str(e),
         }
     except Exception as e:
@@ -89,13 +95,16 @@ def check_api_monetization_safety() -> dict:
     max_score = 100
     findings = []
 
-    # 1. Health endpoint accessible (API is up)
+    # 1. API is up -- Worker liveness endpoint (no data dependency; /api/health
+    # answers 503 while intelligence is stale, which is not "API down").
+    live = probe(f"{WORKER_BASE}/api/health/live")
+    # /api/health is still probed for the CORS header check below (PUBLIC route).
     r = probe(f"{WORKER_BASE}/api/health")
-    if r["ok"] and r["status"] == 200:
+    if live["ok"] and live["status"] == 200:
         score += 30
-        findings.append({"check": "API_OPERATIONAL", "pass": True, "detail": f"HTTP {r['status']}"})
+        findings.append({"check": "API_OPERATIONAL", "pass": True, "detail": f"HTTP {live['status']}"})
     else:
-        findings.append({"check": "API_OPERATIONAL", "pass": False, "detail": f"HTTP {r['status']}"})
+        findings.append({"check": "API_OPERATIONAL", "pass": False, "detail": f"HTTP {live['status']}"})
 
     # 2. CORS headers present (API accessible from browser clients)
     cors = r["headers"].get("Access-Control-Allow-Origin") or r["headers"].get("access-control-allow-origin", "")
@@ -106,8 +115,12 @@ def check_api_monetization_safety() -> dict:
         findings.append({"check": "CORS_CONFIGURED", "pass": False, "detail": "No CORS headers detected"})
 
     # 3. JWT configured (paid tier requires auth)
+    # jwt_configured is an operator-only /api/health field (not returned to
+    # anonymous callers); readable only with the Worker's ADMIN_SECRET.
     try:
-        health_body = json.loads(r["body"]) if r["ok"] else {}
+        _admin = os.environ.get("ADMIN_SECRET", "").strip()
+        op = probe(f"{WORKER_BASE}/api/health", headers={"X-Admin-Key": _admin}) if _admin else {"body": "{}"}
+        health_body = json.loads(op.get("body") or "{}")
         jwt_ok = health_body.get("checks", {}).get("jwt_configured", False)
         if jwt_ok:
             score += 30

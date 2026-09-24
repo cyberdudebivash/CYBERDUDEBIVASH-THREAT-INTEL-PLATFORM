@@ -4775,3 +4775,23 @@ jobs:
           python3 scripts/capability_runtime_gate.py
           exit 0
 
+
+      # -----------------------------------------------------------------------
+      # STAGE 5.9.10 - Public Feed Freshness Gate (HARD FAIL)
+      # External, customer-view assertion: GETs the LIVE public
+      # /api/v1/intel/latest.json and /api/health (cache-busted) and fails the
+      # run if the customer feed is not fresh under the ONE canonical contract
+      # (config/public_freshness_contract.json -- the same
+      # MAX_PUBLIC_MANIFEST_AGE_HOURS PR #485's upload guard uses), or if
+      # /api/health reports "ok" for a feed that is not fresh.
+      # Why: on 2026-09-24 production served a feed generated 2026-08-26
+      # while /api/health returned 200 {"status":"ok"} and runs certified
+      # green. Deliberately NOT continue-on-error: a stale customer feed is a
+      # release failure. Only customer-critical freshness/availability is
+      # checked here -- optional enrichment providers are not. Read-only: two
+      # HTTPS GETs, no R2/KV operations.
+      # -----------------------------------------------------------------------
+      - name: "STAGE 5.9.10 - Public Feed Freshness Gate (HARD FAIL)"
+        if: ${{ !cancelled() && env.PIPELINE_LOCKED != 'true' }}
+        timeout-minutes: 3
+        run: python3 scripts/public_feed_freshness_gate.py
