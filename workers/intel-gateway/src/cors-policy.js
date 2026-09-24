@@ -195,6 +195,7 @@ const PUBLIC_EXACT_PATHS = new Set([
   // route is intentionally absent: it redacts by tier, so it must not be
   // edge-cached as a public wildcard response.
   "/api/watchdog/offer",
+  "/api/watchdog/health",
 ]);
 
 // Bare TAXII 2.1 server-discovery root only -- per index.js's own comment

@@ -194,9 +194,17 @@ service = "cdb-apex-mesh-production"
 name       = "GUMROAD_PROVISIONING_LOCK"
 class_name = "GumroadProvisioningLock"
 
+[[durable_objects.bindings]]
+name       = "WATCHDOG_LEDGER"
+class_name = "WatchdogLedger"
+
 [[migrations]]
 tag                = "v1-gumroad-provisioning-lock"
 new_sqlite_classes = ["GumroadProvisioningLock"]
+
+[[migrations]]
+tag                = "v2-watchdog-ledger"
+new_sqlite_classes = ["WatchdogLedger"]
 
 # -- Secrets (set via wrangler CLI -- NEVER commit to source control) --
 # npx wrangler secret put ADMIN_SECRET             -> cache bust + admin key management
@@ -319,3 +327,7 @@ service = "cdb-apex-mesh-production"
 [[env.production.durable_objects.bindings]]
 name       = "GUMROAD_PROVISIONING_LOCK"
 class_name = "GumroadProvisioningLock"
+
+[[env.production.durable_objects.bindings]]
+name       = "WATCHDOG_LEDGER"
+class_name = "WatchdogLedger"

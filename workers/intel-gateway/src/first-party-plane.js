@@ -159,6 +159,7 @@ export const FIRST_PARTY_READ_PATHS = Object.freeze(new Set([
   // caller is not on this plane (isFirstPartyRead requires no credential).
   "/api/watchdog/offer",
   "/api/watchdog/brief",
+  "/api/watchdog/health",
 ]));
 
 /**

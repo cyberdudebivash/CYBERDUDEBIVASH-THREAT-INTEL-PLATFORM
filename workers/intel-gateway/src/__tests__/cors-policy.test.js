@@ -345,7 +345,10 @@ test("this change is scoped to P41 only -- other P-layer routes are untouched", 
 
 test("Cyber Watchdog offer is public; the tiered brief is not", () => {
   assert.equal(classifyRoute("/api/watchdog/offer", "GET").bucket, "PUBLIC");
+  assert.equal(classifyRoute("/api/watchdog/health", "GET").bucket, "PUBLIC");
   assert.equal(classifyRoute("/api/watchdog/brief", "GET").bucket, "BROWSER");
   assert.equal(classifyRoute("/api/watchdog/watches", "GET").bucket, "BROWSER");
+  assert.equal(classifyRoute("/api/watchdog/events", "GET").bucket, "BROWSER");
+  assert.equal(classifyRoute("/api/watchdog/destinations", "POST").bucket, "BROWSER");
   assert.equal(classifyRoute("/api/watchdog/deploy", "GET").bucket, "BROWSER");
 });

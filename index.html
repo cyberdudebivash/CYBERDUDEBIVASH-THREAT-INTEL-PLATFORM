@@ -16345,7 +16345,16 @@ function renderTopThreats(data) {
                 var api   = d.api || {};
 
                 // ── Core metric cards ────────────────────────────────────────
-                set('m-total',    intel.total_reports);
+                set('m-total',    intel.total_advisories);
+                var _advNote = document.getElementById('m-total');
+                if (_advNote) {
+                    _advNote.title = 'Authoritative Sentinel APEX feed advisories. Report-catalog size is a different number and is not shown here.';
+                }
+                var _liveDelta = document.getElementById('eicc-m-total-delta');
+                if (_liveDelta && intel.publication_state && intel.publication_state !== 'fresh') {
+                    _liveDelta.textContent = 'DEGRADED';
+                    _liveDelta.style.color = '#e2b340';
+                }
                 // Use Worker ioc_count only if larger than CVE-derived count from computeMetrics
                 var _workerIOC = intel.ioc_count != null ? intel.ioc_count : 0;
                 var _localIOC  = window._cdbComputedIOCs || 0;
