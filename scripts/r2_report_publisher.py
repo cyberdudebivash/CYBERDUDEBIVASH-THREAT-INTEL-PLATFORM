@@ -304,6 +304,7 @@ def build_plan(
     state: dict,
     window_hours: int,
     now: datetime,
+    max_deletes: Optional[int] = None,
 ) -> tuple[R2OperationPlan, list[dict], list[dict]]:
     """Returns (plan, put_ops, delete_ops). put_ops/delete_ops carry
     everything execute_plan() needs -- no re-derivation, no second pass
@@ -370,6 +371,23 @@ def build_plan(
     # scan. Any id the state file knows about that (a) wasn't just seen as
     # an in-window candidate, and (b) whose recorded canonical_ts has aged
     # past the window, is retired.
+    #
+    # P0 RETIREMENT-BACKLOG DEADLOCK FIX: retirement is capped at
+    # `max_deletes` operations per run, oldest first, whole items only (an
+    # item's html+pdf are never split). Previously every expired id was
+    # planned at once, so any gap between successful runs long enough to
+    # expire >~250 items (2 objects each) produced a plan over
+    # MAX_REPORT_DELETIONS_PER_RUN. enforce_budget() then (correctly)
+    # blocked the WHOLE plan -- including every new-report PUT -- and since
+    # nothing was retired the backlog only grew: a permanent deadlock.
+    # Confirmed on runs 35910500527 / 35919409972 / 35955730472 (2026-09-23/24):
+    # "new: 61 ... expired: 320 ... DELETE: 623 ... budget 500 ... BLOCKED",
+    # then STAGE 3.5.1 found all 61 new reports missing and failed.
+    # Deferred ids stay in the state file untouched and are retired on the
+    # next run(s). The ceiling itself is unchanged and enforce_budget()
+    # still fails closed on anything over it; None keeps the old unbounded
+    # planning for callers that do not pass a cap.
+    expired: list[tuple[datetime, str, dict]] = []
     for intel_id, entry in list(state_items.items()):
         if intel_id in seen_ids:
             continue
@@ -389,6 +407,15 @@ def build_plan(
             # doesn't accumulate dead weight indefinitely.
             state_items.pop(intel_id, None)
             continue
+        expired.append((parsed.normalized, intel_id, entry))
+
+    expired.sort(key=lambda t: (t[0], t[1]))  # oldest first, deterministic
+    deferred = 0
+    for _ts, intel_id, entry in expired:
+        needed = (1 if entry.get("html_key") else 0) + (1 if entry.get("pdf_key") else 0)
+        if max_deletes is not None and len(delete_ops) + needed > max_deletes:
+            deferred += 1
+            continue
         # `expired` counts the RETIRED ITEM once, regardless of whether it
         # has one or two backing objects (html/pdf); `delete` counts the
         # actual R2 delete operations, one per object -- these are
@@ -400,6 +427,17 @@ def build_plan(
         if entry.get("pdf_key"):
             delete_ops.append({"id": intel_id, "kind": "pdf", "bucket": BUCKET_DATA, "key": entry["pdf_key"]})
             plan.record_delete(expired=False)
+
+    if deferred:
+        plan.note(
+            f"retirement backlog: {deferred} expired item(s) deferred to a later run "
+            f"(MAX_REPORT_DELETIONS_PER_RUN={max_deletes})"
+        )
+        log.warning(
+            "Retirement backlog: %d expired item(s) deferred to the next run(s) to stay within "
+            "MAX_REPORT_DELETIONS_PER_RUN=%s (oldest retired first; new-report publishing proceeds).",
+            deferred, max_deletes,
+        )
 
     return plan, put_ops, delete_ops
 
@@ -640,9 +678,12 @@ def main() -> int:
     log.info("%d item(s) within the %dh window are publish candidates.", len(candidates), window_hours)
 
     state = load_publish_state()
-    plan, put_ops, delete_ops = build_plan(candidates, state, window_hours, now)
-
     budgets = R2Budgets.from_env()
+    plan, put_ops, delete_ops = build_plan(
+        candidates, state, window_hours, now,
+        max_deletes=budgets.max_report_deletes_per_run,
+    )
+
     try:
         enforce_budget(plan, budgets, is_report_plan=True)
     except R2BudgetExceeded as exc:
