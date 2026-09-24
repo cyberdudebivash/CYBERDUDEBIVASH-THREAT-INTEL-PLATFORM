@@ -10,14 +10,14 @@
  * empty brief.
  *
  * Commercial list (existing checkout, not a second invoice):
- *   Pro Defense      $49/mo  — hosted brief + 25 watches
- *   Enterprise SOC   $499/mo — hosted brief + 200 watches + customer-environment poller
+ *   Pro Defense      $49/mo  - hosted brief + 25 watches
+ *   Enterprise SOC   $499/mo - hosted brief + 200 watches + customer-environment poller
  * Book rate 83 INR per USD, locked 2026-09-20. View math only. Razorpay
  * charge amounts are the existing plan prices.
  */
 
 export const WATCHDOG_NAME = 'CYBERDUDEBIVASH SENTINEL APEX CYBER WATCHDOG';
-export const WATCHDOG_VERSION = '1.0.0';
+export const WATCHDOG_VERSION = '1.1.0';
 export const BOOK_INR_PER_USD = 83;
 export const BOOK_LOCKED = '2026-09-20';
 
@@ -49,6 +49,14 @@ const PLAN_USD = { PRO: 49, ENTERPRISE: 499 };
 
 function bookInr(usd) {
   return Math.round(Number(usd) * BOOK_INR_PER_USD);
+}
+
+function grouped(n) {
+  return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+}
+
+function priceLabel(usd) {
+  return `$${usd}/mo | INR ${grouped(bookInr(usd))}/mo`;
 }
 
 export function watchdogOffer() {
@@ -86,7 +94,7 @@ export function watchdogOffer() {
         name: 'Pro Defense',
         price_usd_monthly: PLAN_USD.PRO,
         price_inr_book_monthly: bookInr(PLAN_USD.PRO),
-        price_label: `$${PLAN_USD.PRO}/mo · ₹${bookInr(PLAN_USD.PRO).toLocaleString('en-IN')}/mo`,
+        price_label: priceLabel(PLAN_USD.PRO),
         watches: 25,
         brief_items: 50,
         customer_deploy: false,
@@ -98,7 +106,7 @@ export function watchdogOffer() {
         name: 'Enterprise SOC',
         price_usd_monthly: PLAN_USD.ENTERPRISE,
         price_inr_book_monthly: bookInr(PLAN_USD.ENTERPRISE),
-        price_label: `$${PLAN_USD.ENTERPRISE}/mo · ₹${bookInr(PLAN_USD.ENTERPRISE).toLocaleString('en-IN')}/mo`,
+        price_label: priceLabel(PLAN_USD.ENTERPRISE),
         watches: 200,
         brief_items: 200,
         customer_deploy: true,
@@ -162,6 +170,50 @@ export function classifyItem(item) {
   return lenses;
 }
 
+const SEVERITY_BUCKETS = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW', 'INFO'];
+
+function severityBucket(item) {
+  const raw = clean(String(item?.severity || ''), 24).toUpperCase();
+  if (SEVERITY_BUCKETS.includes(raw)) return raw;
+  return 'UNKNOWN';
+}
+
+export function buildSituation(items) {
+  const source = Array.isArray(items) ? items.filter((item) => item && typeof item === 'object') : [];
+  const by_lens = { cybersecurity: 0, technology: 0, security_operations: 0 };
+  const by_severity = { CRITICAL: 0, HIGH: 0, MEDIUM: 0, LOW: 0, INFO: 0, UNKNOWN: 0 };
+  let classified = 0;
+  let unclassified = 0;
+  const sources = new Map();
+  for (const item of source) {
+    const lenses = classifyItem(item);
+    if (lenses.length) {
+      classified += 1;
+      for (const id of lenses) by_lens[id] += 1;
+    } else {
+      unclassified += 1;
+    }
+    by_severity[severityBucket(item)] += 1;
+    const src = clean(String(item.source || item.source_name || ''), 80);
+    if (src) sources.set(src, (sources.get(src) || 0) + 1);
+  }
+  const top_sources = [...sources.entries()]
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+    .slice(0, 5)
+    .map(([source, count]) => ({ source, count }));
+  return {
+    coverage: 'sentinel-apex-feed',
+    not_coverage: 'entire-internet',
+    feed_items_seen: source.length,
+    classified,
+    unclassified,
+    by_lens,
+    by_severity,
+    top_sources,
+    note: 'Counts classify items already on the Sentinel APEX feed. One item may sit in more than one lens. No events were invented.',
+  };
+}
+
 function cveIds(item) {
   const found = new Set();
   const blob = itemText(item);
@@ -198,15 +250,17 @@ export function buildWatchdogBrief(items, opts = {}) {
   const cap = Math.min(quota.brief_items, Math.max(1, Number(opts.limit) || quota.brief_items));
   const source = Array.isArray(items) ? items : [];
   const rows = [];
+  let matched = 0;
   for (const item of source) {
     if (!item || typeof item !== 'object') continue;
     const lenses = classifyItem(item);
     if (lens && !lenses.includes(lens)) continue;
     if (q && !itemText(item).toLowerCase().includes(q)) continue;
+    matched += 1;
+    if (rows.length >= cap) continue;
     const row = publicItem(item, quota.paid);
     if (lens) row.lenses = lenses;
     rows.push(row);
-    if (rows.length >= cap) break;
   }
   return {
     product: WATCHDOG_NAME,
@@ -215,7 +269,8 @@ export function buildWatchdogBrief(items, opts = {}) {
     lens: lens || 'all',
     count: rows.length,
     feed_items_seen: source.length,
-    truncated: source.length > rows.length,
+    truncated: matched > rows.length,
+    situation: buildSituation(source),
     items: rows,
     empty: rows.length === 0,
     empty_reason: rows.length === 0

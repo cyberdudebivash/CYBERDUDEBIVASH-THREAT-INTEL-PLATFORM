@@ -8,8 +8,8 @@ This process does **not** crawl the internet and does **not** watch private netw
 
 | Plan | List | What you get |
 |---|---|---|
-| Pro Defense | $49/mo · ₹4,067/mo book | Hosted brief + 25 watches. Checkout: `/upgrade.html?plan=pro&feature=cyber-watchdog` |
-| Enterprise SOC | $499/mo · ₹41,417/mo book | Hosted brief + 200 watches + this poller. Checkout: `/upgrade.html?plan=enterprise&feature=cyber-watchdog` |
+| Pro Defense | $49/mo \| INR 4,067/mo book | Hosted brief + 25 watches. Checkout: `/upgrade.html?plan=pro&feature=cyber-watchdog` |
+| Enterprise SOC | $499/mo \| INR 41,417/mo book | Hosted brief + 200 watches + this poller. Checkout: `/upgrade.html?plan=enterprise&feature=cyber-watchdog` |
 
 Book rate: 83 INR per USD, locked 2026-09-20. The Razorpay charge is the existing plan price. There is no second invoice.
 

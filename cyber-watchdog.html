@@ -39,6 +39,7 @@
 </header>
 <main>
   <section class="grid" id="plans" aria-live="polite"></section>
+  <section class="grid" id="situation" aria-live="polite"></section>
   <section class="card">
     <h2>Live brief</h2>
     <form id="filters">
@@ -87,12 +88,20 @@
 </footer>
 <script>
 const plans = document.getElementById('plans');
+const situation = document.getElementById('situation');
 const rows = document.getElementById('rows');
 const status = document.getElementById('status');
 const watchstatus = document.getElementById('watchstatus');
 
 function esc(s) {
-  return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&','<':'<','>':'>','"':'"',"'":'&#39;'}[c]));
+  return String(s ?? '').replace(/[&<>"']/g, (c) => '&#' + c.charCodeAt(0) + ';');
+}
+function money(p) {
+  if (p.price_usd_monthly == null) return 'Contract';
+  if (!p.price_usd_monthly) return '$0';
+  const inr = Number(p.price_inr_book_monthly);
+  const grouped = Number.isFinite(inr) ? String(inr).replace(/\B(?=(\d{3})+(?!\d))/g, ',') : '';
+  return grouped ? `$${p.price_usd_monthly}/mo | INR ${grouped}/mo` : `$${p.price_usd_monthly}/mo`;
 }
 function key() { return sessionStorage.getItem('apex_watchdog_key') || ''; }
 function headers() {
@@ -108,7 +117,7 @@ async function loadOffer() {
     <article class="card">
       <div class="kicker">${esc(p.id)}</div>
       <h2>${esc(p.name)}</h2>
-      <div class="price">${esc(p.price_label || (p.price_usd_monthly == null ? 'Contract' : '$' + p.price_usd_monthly + '/mo'))}</div>
+      <div class="price">${esc(money(p))}</div>
       <p>${esc(p.note || '')}</p>
       <p class="meta">${p.watches} watches · ${p.brief_items} brief items · deploy ${p.customer_deploy ? 'yes' : 'no'}</p>
       ${p.checkout ? `<a class="btn" href="${esc(p.checkout)}">Buy this plan</a>` : ''}
@@ -131,7 +140,17 @@ async function loadBrief(ev) {
   }
   status.textContent = data.empty
     ? data.empty_reason
-    : `${data.count} item${data.count === 1 ? '' : 's'} from the live feed · ${data.tier} preview`;
+    : `${data.count} shown · ${data.feed_items_seen} on the live feed · ${data.tier}`;
+  const sit = data.situation;
+  if (sit) {
+    const lens = sit.by_lens || {};
+    const sev = sit.by_severity || {};
+    situation.innerHTML = `
+      <article class="card"><div class="kicker">Cybersecurity</div><div class="price">${lens.cybersecurity || 0}</div><p class="meta">Feed items in this lens</p></article>
+      <article class="card"><div class="kicker">Technology</div><div class="price">${lens.technology || 0}</div><p class="meta">Feed items in this lens</p></article>
+      <article class="card"><div class="kicker">Security operations</div><div class="price">${lens.security_operations || 0}</div><p class="meta">Feed items in this lens</p></article>
+      <article class="card"><div class="kicker">Unclassified</div><div class="price">${sit.unclassified || 0}</div><p class="meta">${esc(sit.note || '')} Critical ${sev.CRITICAL || 0} · High ${sev.HIGH || 0}.</p></article>`;
+  }
   rows.innerHTML = (data.items || []).map(item => `<tr>
     <td><strong>${esc(item.title)}</strong><div class="meta">${esc(item.severity || '')} ${esc(item.observed_at || '')}</div></td>
     <td>${(item.lenses || []).map(l => `<span class="lens">${esc(l)}</span>`).join('') || '<span class="meta">unclassified</span>'}</td>

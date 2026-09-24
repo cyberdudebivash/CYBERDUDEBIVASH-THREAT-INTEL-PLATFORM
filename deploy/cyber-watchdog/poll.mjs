@@ -29,7 +29,7 @@ const res = await fetch(url, {
   headers: {
     Accept: 'application/json',
     'X-API-Key': key,
-    'User-Agent': 'CYBERDUDEBIVASH-SENTINEL-APEX-CYBER-WATCHDOG/1.0',
+    'User-Agent': 'CYBERDUDEBIVASH-SENTINEL-APEX-CYBER-WATCHDOG/1.1',
   },
 });
 const text = await res.text();
@@ -43,4 +43,13 @@ if (out) {
   console.log(`Wrote ${out}`);
 } else {
   process.stdout.write(text.endsWith('\n') ? text : `${text}\n`);
+}
+try {
+  const parsed = JSON.parse(text);
+  const sit = parsed.situation;
+  if (sit && sit.by_lens) {
+    console.error(`Cyber Watchdog feed=${sit.feed_items_seen} classified=${sit.classified} unclassified=${sit.unclassified} cybersecurity=${sit.by_lens.cybersecurity} technology=${sit.by_lens.technology} security_operations=${sit.by_lens.security_operations}`);
+  }
+} catch {
+  /* The brief body is already written. A non-JSON body is a gateway fault, not a local scan. */
 }
