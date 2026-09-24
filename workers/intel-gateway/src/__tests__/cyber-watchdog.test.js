@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   BOOK_INR_PER_USD,
+  buildSituation,
   buildWatchdogBrief,
   classifyItem,
   routeWatchdog,
@@ -43,8 +44,11 @@ test('book rate stays 83 and plan stickers stay $49 and $499', () => {
   const ent = offer.plans.find((p) => p.id === 'ENTERPRISE');
   assert.equal(pro.price_usd_monthly, 49);
   assert.equal(pro.price_inr_book_monthly, 4067);
+  assert.equal(pro.price_label, '$49/mo | INR 4,067/mo');
   assert.equal(ent.price_usd_monthly, 499);
   assert.equal(ent.price_inr_book_monthly, 41417);
+  assert.equal(ent.price_label, '$499/mo | INR 41,417/mo');
+  assert.match(pro.price_label, /^[\x20-\x7E]+$/);
   assert.match(offer.aligned_not_certified, /not certified/);
   assert.equal(offer.seller.legal_name, 'CYBERDUDEBIVASH Pvt. Ltd.');
   const blob = JSON.stringify(offer);
@@ -68,7 +72,26 @@ test('free brief redacts and paid brief keeps CVE ids', () => {
   assert.doesNotMatch(JSON.stringify(free), /should-not-leak/);
   const pro = buildWatchdogBrief(FEED, { tier: 'PRO', lens: 'cybersecurity' });
   assert.equal(pro.items.length, 1);
+  assert.equal(pro.truncated, false);
   assert.deepEqual(pro.items[0].cve_ids, ['CVE-2026-1000']);
+  assert.equal(pro.situation.coverage, 'sentinel-apex-feed');
+  assert.equal(pro.situation.not_coverage, 'entire-internet');
+  assert.equal(pro.situation.by_lens.cybersecurity, 1);
+  assert.equal(pro.situation.by_lens.technology, 1);
+  assert.equal(pro.situation.by_lens.security_operations, 1);
+});
+
+test('situation counts the feed and leaves unmatched items unclassified', () => {
+  const sit = buildSituation([
+    ...FEED,
+    { id: 'note', title: 'Quarterly planning note', severity: 'INFO', source: 'Internal' },
+  ]);
+  assert.equal(sit.feed_items_seen, 4);
+  assert.equal(sit.classified, 3);
+  assert.equal(sit.unclassified, 1);
+  assert.equal(sit.by_severity.CRITICAL, 1);
+  assert.equal(sit.by_severity.INFO, 1);
+  assert.equal(sit.top_sources[0].count >= 1, true);
 });
 
 test('pro can save a watch and match it; free cannot; enterprise gets the poller', async () => {
