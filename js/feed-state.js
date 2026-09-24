@@ -172,7 +172,7 @@
     var o = outcome || {};
     var attempts = Array.isArray(o.attempts) ? o.attempts : [];
     var online = (o.online === undefined) ? true : !!o.online;
-    var nowMs = Date.now();
+    var nowMs = (typeof o.nowMs === "number") ? o.nowMs : Date.now();
 
     // A source that answered with usable items wins, authoritative first.
     var authoritativeHit = null, fallbackHit = null, authoritativeEmpty = null;
