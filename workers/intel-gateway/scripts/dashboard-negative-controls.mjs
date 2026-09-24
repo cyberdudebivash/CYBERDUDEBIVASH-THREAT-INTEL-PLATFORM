@@ -71,6 +71,8 @@ const CONTROLS = [
     "    active_groups: active.size,", "    active_groups: (groups || []).length,"],
   ["ransomware classified from description prose", DC,
     '  scan("title", _strings(item.title));', '  scan("title", [..._strings(item.title), ..._strings(item.description)]);'],
+  ["placeholder actor label classified as ransomware", DC,
+    "      .filter((v) => !UNATTRIBUTED_RE.test(v.trim()) && !/unattr/i.test(v))],", "      ],"],
   ["unescaped malicious title in the preview renderer", LF,
     '${esc(item.title || "Untitled Advisory")}', '${item.title || "Untitled Advisory"}'],
   ["EICC ticker writes a title through innerHTML", "index.html",

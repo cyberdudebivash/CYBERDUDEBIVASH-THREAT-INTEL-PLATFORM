@@ -314,7 +314,10 @@ export function classifyRansomware(item, groups) {
     ["threat_type", _strings(item.threat_type)],
     ["tags", _strings(item.tags)],
     ["malware", [..._strings(item.malware_family), ..._strings(item.actor_malware), ..._strings(item.malware)]],
-    ["actor", [..._strings(item.actor), ..._strings(item.actor_tag), ..._strings(item.mitre_group_name)]],
+    // Placeholder attributions ("Unattributed Ransomware ...", CDB-UNATTR-*)
+    // are pipeline cluster labels, not evidence: skipped like campaignEvidence().
+    ["actor", [..._strings(item.actor), ..._strings(item.actor_tag), ..._strings(item.mitre_group_name)]
+      .filter((v) => !UNATTRIBUTED_RE.test(v.trim()) && !/unattr/i.test(v))],
   ];
   const scan = (label, values) => {
     for (const raw of values) {

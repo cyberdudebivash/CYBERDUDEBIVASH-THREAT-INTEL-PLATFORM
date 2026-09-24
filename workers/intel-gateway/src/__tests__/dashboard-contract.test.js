@@ -126,6 +126,15 @@ test("ransomware: description prose, bare 'ransom', 'extort' and 'play' do not c
   assert.equal(classifyRansomware({ title: "Play ransomware claims retailer" }, GROUPS).groups[0], "Play");
 });
 
+test("ransomware: a placeholder actor label is not evidence (live false positive, 2026-09-24)", () => {
+  // Live R2 item: product-launch news whose pipeline cluster label named ransomware.
+  const scoutz = { title: "SCOUTz Prospect Intelligence Platform Launches for MSPs with 30-Day Beta", tags: ["T1566"],
+    threat_type: "Threat Intel", actor: "Unattributed Ransomware Actor", actor_tag: "CDB-UNATTR-RAN" };
+  assert.equal(classifyRansomware(scoutz, GROUPS).ransomware, false);
+  assert.equal(classifyRansomware({ title: "Product launch", mitre_group_name: "Ransomware cluster (unattributed)" }, GROUPS).ransomware, false);
+  assert.equal(classifyRansomware({ title: "x", actor: "LockBit 3.0" }, GROUPS).ransomware, true, "a named group actor still counts");
+});
+
 test("ransomware payload: no active group from a static list; victims stay unmeasured", () => {
   const none = buildRansomwarePayload([ITEM_TACTICS, ITEM_CRITICAL_NO_EVIDENCE], GROUPS, "t");
   assert.equal(none.active_groups, 0);
