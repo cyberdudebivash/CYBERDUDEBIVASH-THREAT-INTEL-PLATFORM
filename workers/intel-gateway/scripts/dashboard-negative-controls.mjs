@@ -67,6 +67,8 @@ const CONTROLS = [
     "counts.set(t, counts.get(t) + 1);", "counts.set(t, counts.get(t));"],
   ["a CRITICAL vulnerability counted as a campaign", DC,
     "  const ev = [];\n  for (const f of [\"campaign_id\"", "  const ev = [];\n  if (item.severity === \"CRITICAL\") ev.push(\"severity\");\n  for (const f of [\"campaign_id\""],
+  ["an actor label alone counted as a campaign", DC,
+    '  if (group && ev.length) ev.push("mitre_group:" + group);', '  if (group) ev.push("mitre_group:" + group);'],
   ["no ransomware data, static group list reported active", DC,
     "    active_groups: active.size,", "    active_groups: (groups || []).length,"],
   ["ransomware classified from description prose", DC,

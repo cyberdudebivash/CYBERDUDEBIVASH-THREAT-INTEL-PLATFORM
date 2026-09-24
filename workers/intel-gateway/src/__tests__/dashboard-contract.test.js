@@ -96,7 +96,12 @@ test("a CRITICAL vulnerability is not a campaign; campaign evidence is", () => {
   assert.deepEqual(campaignEvidence({ title: "Fake PDF Files Hide Konni Malware Campaign Targeting Ukraine" }), ["title:campaign"]);
   assert.deepEqual(campaignEvidence({ title: "New Galago Ransomware Operation Emerges" }), ["title:operation"]);
   assert.deepEqual(campaignEvidence({ title: "x", campaign_id: "camp-7" }), ["campaign_id"]);
-  assert.deepEqual(campaignEvidence({ title: "x", mitre_group_name: "APT29" }), ["mitre_group:APT29"]);
+  assert.deepEqual(campaignEvidence({ title: "x", mitre_group_name: "APT29" }), [], "an actor label alone is not a campaign");
+  // Live item (2026-09-24): policy news carrying a heuristic group label.
+  assert.deepEqual(campaignEvidence({ title: "New bill would create federal investigative body for AI-driven hacks",
+    tags: ["T1203"], threat_type: "Threat Intel", mitre_group_name: "APT-22 / Sea Turtle" }), []);
+  assert.deepEqual(campaignEvidence({ title: "APT29 phishing campaign hits embassies", mitre_group_name: "APT29" }),
+    ["title:campaign", "mitre_group:APT29"], "a group is kept as supporting evidence");
   assert.deepEqual(campaignEvidence({ title: "x", actor: "CDB-UNATTR-APT", mitre_group_name: "Unattributed APT Cluster" }), [],
     "placeholder attributions are not a named actor");
   const payload = buildCampaignsPayload([ITEM_CRITICAL_NO_EVIDENCE, ITEM_IDS_ONLY], "t");
