@@ -126,6 +126,58 @@ REGEX_TARGETS = [
         r'(ENGINE_VERSION\s*=\s*")[0-9]+\.[0-9]+(?:\.[0-9]+)?"',
         r'\g<1>{VER}"',
     ),
+    # Homepage headings the first v201 pass did not match. Console GOC tags
+    # are the same release identity; the render tests assert the exact string.
+    (
+        "index.html",
+        r'(AI CYBER BRAIN &mdash; SENTINEL APEX )v[0-9]+\.[0-9]+(?:\.[0-9]+)?',
+        r'\g<1>v{VER}',
+    ),
+    (
+        "index.html",
+        r'(LIVE INTEL API &mdash; )v[0-9]+\.[0-9]+(?:\.[0-9]+)?',
+        r'\g<1>v{VER}',
+    ),
+    (
+        "index.html",
+        r'(API ACCESS TIERS &mdash; SENTINEL APEX )v[0-9]+\.[0-9]+(?:\.[0-9]+)?',
+        r'\g<1>v{VER}',
+    ),
+    (
+        "index.html",
+        r'(QUICK START &mdash; REST API )v[0-9]+\.[0-9]+(?:\.[0-9]+)?',
+        r'\g<1>v{VER}',
+    ),
+    (
+        "index.html",
+        r'(APEX AI )v[0-9]+\.[0-9]+(?:\.[0-9]+)?',
+        r'\g<1>v{VER}',
+    ),
+    (
+        "index.html",
+        r'(>)v[0-9]+\.[0-9]+(?:\.[0-9]+)?( &mdash; Auth Persistence Engine)',
+        r'\g<1>v{VER}\g<2>',
+    ),
+    (
+        "index.html",
+        r'(Single platform version constant \()v[0-9]+\.[0-9]+(?:\.[0-9]+)?',
+        r'\g<1>v{VER}',
+    ),
+    (
+        "index.html",
+        r'(\[GOC )v[0-9]+\.[0-9]+(?:\.[0-9]+)?(\])',
+        r'\g<1>v{VER}\g<2>',
+    ),
+    (
+        "render-test/verify_pages_fast_publish_smoke.js",
+        r'(\[GOC )v[0-9]+\.[0-9]+(?:\.[0-9]+)?(\])',
+        r'\g<1>v{VER}\g<2>',
+    ),
+    (
+        "render-test/verify_threat_map_chrome_render.js",
+        r'(\[GOC )v[0-9]+\.[0-9]+(?:\.[0-9]+)?(\])',
+        r'\g<1>v{VER}\g<2>',
+    ),
     # workers/intel-gateway/src/index.js -- X-Powered-By major version
     (
         "workers/intel-gateway/src/index.js",

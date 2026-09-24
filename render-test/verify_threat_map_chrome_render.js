@@ -292,7 +292,7 @@ async function main() {
     // from log text. A genuine terminal failure still fails this script.
     const termState = await page.evaluate(() => window.__FEED_TERMINAL_STATE__ || null).catch(() => null);
     if (termState && termState.isTerminalFailure === false) {
-      const goc = 'console.error: [GOC v200.0] Primary feed terminal state:';
+      const goc = 'console.error: [GOC v201.0] Primary feed terminal state:';
       for (let i = pageErrors.length - 1; i >= 0; i--) {
         if (pageErrors[i].startsWith(goc)) pageErrors.splice(i, 1);
       }
