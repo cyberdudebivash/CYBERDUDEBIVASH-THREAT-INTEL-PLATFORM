@@ -156,8 +156,8 @@ export function normalizeTorExitNodes(text) {
 
 const SOURCE_WEIGHT = { CISA_KEV: 40, URLHAUS: 32, TOR_EXIT_NODE: 18 };
 
-function recencyScore(indicator) {
-  const ageMs = Date.now() - new Date(indicator.last_seen || indicator.first_seen).getTime();
+function recencyScore(indicator, nowMs = Date.now()) {
+  const ageMs = nowMs - new Date(indicator.last_seen || indicator.first_seen).getTime();
   const ageDays = Math.max(0, ageMs / 86400000);
   return Math.max(0, 30 * (1 - ageDays / 30)); // 0-30, full weight inside 24h, decays to 0 at 30d
 }
@@ -174,9 +174,12 @@ function infraRiskFactor(indicator) {
   return Math.min(15, score);
 }
 
-export function computeSentinelRiskScore(indicator) {
+// `nowMs` (default: the wall clock, exactly as before) is the evaluation
+// instant; mergeIndicators() passes its own so TTL and recency scoring are
+// judged against the same instant, and tests can pin it.
+export function computeSentinelRiskScore(indicator, nowMs = Date.now()) {
   const base = SOURCE_WEIGHT[indicator.source] ?? 20;
-  const raw = base + recencyScore(indicator) + sightingScore(indicator) + infraRiskFactor(indicator);
+  const raw = base + recencyScore(indicator, nowMs) + sightingScore(indicator) + infraRiskFactor(indicator);
   return Math.max(0, Math.min(100, Math.round(raw)));
 }
 
@@ -189,7 +192,15 @@ export function computeSentinelRiskScore(indicator) {
 // the database sense, and is not oversold as one.
 // -----------------------------------------------------------------------------
 
-export function mergeIndicators(previous, incoming) {
+//
+// `nowMs` is the evaluation instant for the TTL and recency scoring. It
+// defaults to Date.now(), so the production caller (runScheduledIngestion)
+// is unchanged; tests pass a pinned instant so fixtures cannot silently
+// expire as the calendar advances (a hard-coded last_seen of 2026-08-25
+// crossed the 30-day TTL on 2026-09-24 and broke the gateway suite).
+// Boundary: an item exactly EXPIRY_MS old is retained; EXPIRY_MS + 1 ms is
+// dropped (`>` below).
+export function mergeIndicators(previous, incoming, nowMs = Date.now()) {
   const map = new Map();
   for (const p of previous || []) {
     if (p && p.indicator && p.type) map.set(indicatorKey(p), { ...p });
@@ -212,13 +223,12 @@ export function mergeIndicators(previous, incoming) {
     }
   }
 
-  const nowMs = Date.now();
   const merged = [];
   for (const item of map.values()) {
     const lastSeenMs = new Date(item.last_seen || item.first_seen).getTime();
     if (!Number.isFinite(lastSeenMs) || nowMs - lastSeenMs > EXPIRY_MS) continue; // expired -- dropped, not just flagged
     item.expires_at = new Date(lastSeenMs + EXPIRY_MS).toISOString();
-    item.risk_score = computeSentinelRiskScore(item);
+    item.risk_score = computeSentinelRiskScore(item, nowMs);
     merged.push(item);
   }
   merged.sort((a, b) => b.risk_score - a.risk_score);
