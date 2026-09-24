@@ -314,6 +314,15 @@ jobs:
       - name: Pre-deploy customer dashboard data-contract check (headless-browser)
         run: node render-test/verify_dashboard_data_contract.js dist
 
+      # P0 checkout (2026-09-24): upgrade.html's one-time Razorpay fallback
+      # referenced an undeclared `gstin` and threw before the modal opened,
+      # so buyers saw "Network error" and could not pay. Drives the shipped
+      # page with Razorpay and the payment APIs stubbed (no real payment):
+      # the fallback must open checkout, and the buyer's GSTIN must reach
+      # create-order. See render-test/verify_upgrade_checkout.js.
+      - name: Pre-deploy upgrade checkout check (headless-browser)
+        run: node render-test/verify_upgrade_checkout.js dist
+
       # STAGE 2 (SENTINEL APEX Dynamic Frontend Transformation, 2026-09-01):
       # js/__tests__/*.test.js (Node's built-in test runner, no extra
       # dependency) already existed -- api_adapter/dashboard_contract_validator/

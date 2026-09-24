@@ -156,6 +156,7 @@ import { SESSION_POLICY as WATCHDOG_SESSION_POLICY, webhookDeliveryEnabled } fro
 // MSSP tenant self-service (tenant_auth_version 2); see mssp-tenants.js.
 import { TENANT_AUTH_VERSION, TENANT_DO_PREFIX, isTenantId, newTenantId, requestSelectsTenant, routeMsspTenants } from './mssp-tenants.js';
 import { buildCampaignsPayload, buildRansomwarePayload, geoAttributionCoverage, DASHBOARD_CONTRACT_VERSION, THREAT_LEVEL_FORMULA, THREAT_LEVEL_FORMULA_VERSION } from './dashboard-contract.js';
+import { normalizeBuyerTaxId } from './tax-id.js';
 // Issue #288: Durable Object class the Workers runtime instantiates via the
 // GUMROAD_PROVISIONING_LOCK binding (wrangler.toml). Must be a named export
 // of the Worker's main module -- see gumroad-provisioning-lock.js's header
@@ -4773,6 +4774,11 @@ async function handleRazorpayCreateOrder(request, env, method) {
   try { body = await request.json(); } catch (_) {}
   const { tier = "PRO", email, billing = "monthly" } = body;
   if (!email) return jsonResp({ error: "email is required" }, 400);
+  // 2026-09-24: upgrade.html has always sent the buyer's GSTIN/VAT number,
+  // but it was dropped here, so no order carried it for a GST invoice.
+  // Validated server-side (tax-id.js) and recorded in the order notes.
+  const taxId = normalizeBuyerTaxId(body.gstin);
+  if (!taxId.ok) return jsonResp({ error: taxId.reason, field: "gstin" }, 400);
   const tierUp  = tier.toUpperCase();
   const pricing = RAZORPAY_TIER_PRICES[tierUp];
   if (!pricing) return jsonResp({ error: "Invalid tier. Valid: PRO, ENTERPRISE, MSSP" }, 400);
@@ -4788,7 +4794,9 @@ async function handleRazorpayCreateOrder(request, env, method) {
       body: JSON.stringify({
         amount, currency: "INR",
         receipt: `sa_${tierUp.toLowerCase()}_${Date.now()}`,
-        notes: { tier: tierUp, email, platform: "SENTINEL-APEX", billing },
+        notes: { tier: tierUp, email, platform: "SENTINEL-APEX", billing,
+          ...(taxId.kind === "gstin" ? { gstin: taxId.value } : {}),
+          ...(taxId.kind === "vat" ? { vat_id: taxId.value } : {}) },
       }),
     });
     if (!resp.ok) {

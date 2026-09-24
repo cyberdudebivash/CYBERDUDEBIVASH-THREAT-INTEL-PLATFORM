@@ -766,7 +766,7 @@ h1 span { color: var(--accent); }
 
             <div class="rzp-email-row">
               <label class="form-label">GSTIN / VAT Number <span style="color:var(--text-dim);font-weight:400;">(optional, for corporate tax invoicing)</span></label>
-              <input type="text" id="rzp-gstin" class="form-input" placeholder="e.g. 22AAAAA0000A1Z5" autocomplete="off" style="text-transform:uppercase;" oninput="this.value = this.value.toUpperCase();">
+              <input type="text" id="rzp-gstin" class="form-input" placeholder="e.g. 22AAAAA0000A1ZC" autocomplete="off" style="text-transform:uppercase;" oninput="this.value = this.value.toUpperCase();">
               <div id="rzp-gstin-hint" style="font-size:11px;color:var(--text-dim);margin-top:4px;">Leave blank if you don't need a GST/VAT invoice</div>
             </div>
 
@@ -1026,6 +1026,19 @@ async function initiateRazorpayCheckout() {
     alert('Please select a paid plan (PRO, Enterprise, or MSSP).');
     return;
   }
+  // Buyer GSTIN/VAT for the tax invoice (optional). Read and validated once
+  // here and passed down: the one-time path referenced an undeclared
+  // `gstin`, so every one-time checkout threw before Razorpay opened.
+  var gstinEl = document.getElementById('rzp-gstin');
+  var taxId = window.SentinelCheckout
+    ? window.SentinelCheckout.validateTaxId(gstinEl ? gstinEl.value : '')
+    : { ok: true, value: gstinEl ? gstinEl.value.trim().toUpperCase() : '' };
+  if (!taxId.ok) {
+    alert(taxId.reason);
+    if (gstinEl) { gstinEl.focus(); gstinEl.style.borderColor = 'var(--red)'; }
+    return;
+  }
+  var gstin = taxId.value;
   var btn  = document.getElementById('rzp-pay-btn');
   var orig = btn ? btn.innerHTML : '';
   var tierMap = { pro:'PRO', enterprise:'ENTERPRISE', mssp:'MSSP' };
@@ -1042,7 +1055,7 @@ async function initiateRazorpayCheckout() {
     var sub = await subResp.json();
 
     if (!subResp.ok || !sub.subscription_id) {
-      return await initiateRazorpayOneTimeCheckout(email, tier, cycle, btn, orig);
+      return await initiateRazorpayOneTimeCheckout(email, tier, cycle, btn, orig, gstin);
     }
     if (typeof Razorpay === 'undefined') {
       if (btn) { btn.disabled = false; btn.innerHTML = orig; }
@@ -1070,7 +1083,7 @@ async function initiateRazorpayCheckout() {
     var subRzp = new Razorpay(subOptions);
     subRzp.open();
   } catch (err) {
-    return await initiateRazorpayOneTimeCheckout(email, tier, cycle, btn, orig);
+    return await initiateRazorpayOneTimeCheckout(email, tier, cycle, btn, orig, gstin);
   }
 }
 
@@ -1119,7 +1132,7 @@ function pollSubscriptionStatus(subscriptionId, paymentId, signature, tier, emai
 // flow, kept verbatim as the fallback path for any tier/cycle without a
 // live Razorpay Plan ID yet (or if the Subscriptions endpoint above is
 // ever unreachable).
-async function initiateRazorpayOneTimeCheckout(email, tier, billing, btn, orig) {
+async function initiateRazorpayOneTimeCheckout(email, tier, billing, btn, orig, gstin) {
   if (btn) { btn.innerHTML = '&#9203; Creating order...'; }
 
   try {
@@ -1129,6 +1142,11 @@ async function initiateRazorpayOneTimeCheckout(email, tier, billing, btn, orig) 
     });
     var order = await resp.json();
 
+    if (resp.status === 400 && order && order.field === 'gstin') {
+      if (btn) { btn.disabled = false; btn.innerHTML = orig; }
+      alert(order.error);
+      return;
+    }
     if (!resp.ok || !order.order_id) {
       if (btn) { btn.disabled = false; btn.innerHTML = orig; }
       if (window.apxTrack) window.apxTrack('payment_failed', { tier: tier, method: 'razorpay', reason: 'order_create_error' });
