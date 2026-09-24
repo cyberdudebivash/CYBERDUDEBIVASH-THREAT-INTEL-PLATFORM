@@ -246,14 +246,14 @@ test("invoice HTML escapes every field", () => {
 test("customer files a refund request within 7 days: pending review, no money moves", async () => {
   const env = makeEnv();
   await seedPayment(env);
-  customerKey(env, "cdb_pro_key1", "buyer@example.com");
+  customerKey(env, "k1", "buyer@example.com");
   const rp = fakeRazorpay();
   try {
-    const res = await handleRefundRequest(post("/api/v2/billing/refunds/request", { reason: "not a fit", amount: 1 }, { "X-API-Key": "cdb_pro_key1" }), env, ctx, "rid");
+    const res = await handleRefundRequest(post("/api/v2/billing/refunds/request", { reason: "not a fit", amount: 1 }, { "X-API-Key": "k1" }), env, ctx, "rid");
     assert.equal(res.status, 202);
     const body = await res.json();
     assert.equal(body.status, "pending_review");
-    const again = await handleRefundRequest(post("/api/v2/billing/refunds/request", {}, { "X-API-Key": "cdb_pro_key1" }), env, ctx, "rid");
+    const again = await handleRefundRequest(post("/api/v2/billing/refunds/request", {}, { "X-API-Key": "k1" }), env, ctx, "rid");
     assert.equal((await again.json()).duplicate, true);
     assert.equal(rp.calls.length, 0, "a request never calls Razorpay");
     const row = await env.CRM_DB.prepare("SELECT amount_paise FROM refund_requests").first();
