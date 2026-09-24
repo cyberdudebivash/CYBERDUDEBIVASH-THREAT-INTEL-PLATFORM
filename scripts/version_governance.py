@@ -96,6 +96,36 @@ REGEX_TARGETS = [
         r'(const PLATFORM_VERSION\s*=\s*")[0-9]+\.[0-9]+(?:\.[0-9]+)?"',
         r'\g<1>{VER}"',
     ),
+    (
+        "workers/intel-gateway/src/intel-static-proxy.js",
+        r'(const PLATFORM_VERSION\s*=\s*")[0-9]+\.[0-9]+(?:\.[0-9]+)?"',
+        r'\g<1>{VER}"',
+    ),
+    (
+        "workers/intel-gateway/src/p17-handlers.js",
+        r'(platform_version: ")[0-9]+\.[0-9]+(?:\.[0-9]+)?"',
+        r'\g<1>{VER}"',
+    ),
+    (
+        "workers/intel-gateway/src/enterprise-endpoints.js",
+        r'(Enterprise API Endpoints v)[0-9]+\.[0-9]+(?:\.[0-9]+)?',
+        r'\g<1>{VER}',
+    ),
+    (
+        "workers/intel-gateway/src/enterprise-endpoints.js",
+        r'(const ENTERPRISE_VERSION = ")[0-9]+\.[0-9]+(?:\.[0-9]+)?"',
+        r'\g<1>{VER}"',
+    ),
+    (
+        "scripts/enterprise_scoring_engine.py",
+        r'(Version : )[0-9]+\.[0-9]+(?:\.[0-9]+)?',
+        r'\g<1>{VER}',
+    ),
+    (
+        "scripts/enterprise_scoring_engine.py",
+        r'(ENGINE_VERSION\s*=\s*")[0-9]+\.[0-9]+(?:\.[0-9]+)?"',
+        r'\g<1>{VER}"',
+    ),
     # workers/intel-gateway/src/index.js -- X-Powered-By major version
     (
         "workers/intel-gateway/src/index.js",
@@ -515,6 +545,228 @@ REGEX_TARGETS = [
         r'(© 2026 CYBERDUDEBIVASH® SENTINEL APEX v)[0-9]+\.[0-9]+(?:\.[0-9]+)?( · GSTIN)',
         r'\g<1>{VER}\g<2>',
     ),
+    # v201: customer-visible stamps the v200 pass missed (pattern-not-found
+    # skips). These are current release identity, not historical notes.
+    (
+        "ai-threat-tracker.html",
+        r'(id="hv-gentime">)v[0-9]+\.[0-9]+(?:\.[0-9]+)?(</span>)',
+        r'\g<1>v{VER}\g<2>',
+    ),
+    (
+        "ai-threat-tracker.html",
+        r'(PREDICTIVE INTELLIGENCE · )v[0-9]+\.[0-9]+(?:\.[0-9]+)?',
+        r'\g<1>v{VER}',
+    ),
+    (
+        "ai-threat-tracker.html",
+        r'(AI THREAT TRACKER )v[0-9]+\.[0-9]+(?:\.[0-9]+)?',
+        r'\g<1>v{VER}',
+    ),
+    (
+        "api-docs.html",
+        r'("version": ")v[0-9]+\.[0-9]+(?:\.[0-9]+)?(")',
+        r'\g<1>v{VER}\g<2>',
+    ),
+    (
+        "service-worker.js",
+        r'(Service Worker v)[0-9]+\.[0-9]+(?:\.[0-9]+)?',
+        r'\g<1>{VER}',
+    ),
+    (
+        "service-worker.js",
+        r"(const CACHE_VERSION = 'sentinel-apex-v)[0-9]+\.[0-9]+(?:\.[0-9]+)?(-live')",
+        r"\g<1>{VER}\g<2>",
+    ),
+    (
+        "service-worker.js",
+        r'(\[SW v)[0-9]+\.[0-9]+(?:\.[0-9]+)?(\])',
+        r'\g<1>{VER}\g<2>',
+    ),
+    (
+        ".github/workflows/dashboard-feeds-sync.yml",
+        r'(PIPELINE_VERSION:\s*")[0-9]+\.[0-9]+(?:\.[0-9]+)?"',
+        r'\g<1>{VER}"',
+    ),
+    (
+        ".github/workflows/multi-source-intel.yml",
+        r'(PIPELINE_VERSION:\s*")[0-9]+\.[0-9]+(?:\.[0-9]+)?"',
+        r'\g<1>{VER}"',
+    ),
+    (
+        ".github/workflows/storage-lifecycle-governance.yml",
+        r'(PIPELINE_VERSION:\s*")[0-9]+\.[0-9]+(?:\.[0-9]+)?"',
+        r'\g<1>{VER}"',
+    ),
+    (
+        ".github/workflows/enterprise-governance.yml",
+        r'(PIPELINE_VERSION:\s*")[0-9]+\.[0-9]+(?:\.[0-9]+)?"',
+        r'\g<1>{VER}"',
+    ),
+    (
+        ".github/workflows/weekly-threat-brief.yml",
+        r"(PIPELINE_VERSION:\s*')[0-9]+\.[0-9]+(?:\.[0-9]+)?'",
+        r"\g<1>{VER}'",
+    ),
+    (
+        ".github/workflows/v149-hardening.yml",
+        r'(PIPELINE_VERSION:\s*")[0-9]+\.[0-9]+(?:\.[0-9]+)?"',
+        r'\g<1>{VER}"',
+    ),
+    (
+        ".github/workflows/deploy-worker.yml",
+        r'(PLATFORM_VERSION:\s*")[0-9]+\.[0-9]+(?:\.[0-9]+)?"',
+        r'\g<1>{VER}"',
+    ),
+    (
+        ".github/workflows/gumroad-refresh.yml",
+        r'(PLATFORM_VERSION:\s*")[0-9]+\.[0-9]+(?:\.[0-9]+)?"',
+        r'\g<1>{VER}"',
+    ),
+    (
+        ".github/workflows/telegram-revenue.yml",
+        r'(PLATFORM_VERSION:\s*")[0-9]+\.[0-9]+(?:\.[0-9]+)?"',
+        r'\g<1>{VER}"',
+    ),
+    (
+        ".github/workflows/automated-backup.yml",
+        r"(PLATFORM_VERSION \|\| ')[0-9]+\.[0-9]+(?:\.[0-9]+)?(')",
+        r"\g<1>{VER}\g<2>",
+    ),
+    (
+        "workers/intel-gateway/src/cyber-watchdog.js",
+        r'(export const WATCHDOG_PLATFORM_VERSION = ")[0-9]+\.[0-9]+(?:\.[0-9]+)?"',
+        r'\g<1>{VER}"',
+    ),
+    (
+        "workers/intel-gateway/src/dark-web-monitor.js",
+        r'(Leak Check Engine v)[0-9]+\.[0-9]+(?:\.[0-9]+)?',
+        r'\g<1>{VER}',
+    ),
+    (
+        "workers/intel-gateway/src/dark-web-monitor.js",
+        r'(const VERSION = ")[0-9]+\.[0-9]+(?:\.[0-9]+)?"',
+        r'\g<1>{VER}"',
+    ),
+    (
+        "workers/intel-gateway/src/dark-web-monitor.js",
+        r'(SENTINEL-APEX/)[0-9]+\.[0-9]+(?:\.[0-9]+)?',
+        r'\g<1>{VER}',
+    ),
+    (
+        "workers/intel-gateway/src/dark-web-monitor.js",
+        r'(monitor_version:\s+")[0-9]+\.[0-9]+(?:\.[0-9]+)?"',
+        r'\g<1>{VER}"',
+    ),
+    (
+        "workers/intel-gateway/src/dark-web-monitor.js",
+        r'(dark-web-monitor/)[0-9]+\.[0-9]+(?:\.[0-9]+)?',
+        r'\g<1>{VER}',
+    ),
+    (
+        "workers/intel-gateway/src/sla-monitor.js",
+        r'(SLA Monitor Engine v)[0-9]+\.[0-9]+(?:\.[0-9]+)?',
+        r'\g<1>{VER}',
+    ),
+    (
+        "workers/intel-gateway/src/sla-monitor.js",
+        r'(version:\s+")[0-9]+\.[0-9]+(?:\.[0-9]+)?',
+        r'\g<1>{VER}',
+    ),
+    (
+        "workers/intel-gateway/src/sla-monitor.js",
+        r'(SENTINEL APEX -- v)[0-9]+\.[0-9]+(?:\.[0-9]+)?',
+        r'\g<1>{VER}',
+    ),
+    (
+        "workers/intel-gateway/src/sla-monitor.js",
+        r'(X-Sentinel-Version": ")[0-9]+\.[0-9]+(?:\.[0-9]+)?"',
+        r'\g<1>{VER}"',
+    ),
+    (
+        "workers/intel-gateway/src/premium-reports.js",
+        r'(Premium Threat Report Engine v)[0-9]+\.[0-9]+(?:\.[0-9]+)?',
+        r'\g<1>{VER}',
+    ),
+    (
+        "workers/intel-gateway/src/premium-reports.js",
+        r'(VERSION: ")[0-9]+\.[0-9]+(?:\.[0-9]+)?"',
+        r'\g<1>{VER}"',
+    ),
+    (
+        "workers/intel-gateway/src/premium-reports.js",
+        r'(premium-reports/)[0-9]+\.[0-9]+(?:\.[0-9]+)?',
+        r'\g<1>{VER}',
+    ),
+    (
+        "workers/intel-gateway/src/premium-reports.js",
+        r'(platform_version: ")[0-9]+\.[0-9]+(?:\.[0-9]+)?"',
+        r'\g<1>{VER}"',
+    ),
+    (
+        "workers/intel-gateway/src/premium-reports.js",
+        r'(SENTINEL APEX v)[0-9]+\.[0-9]+(?:\.[0-9]+)?',
+        r'\g<1>{VER}',
+    ),
+    (
+        "workers/intel-gateway/src/premium-reports.js",
+        r'(SENTINEL-APEX/)[0-9]+\.[0-9]+(?:\.[0-9]+)?',
+        r'\g<1>{VER}',
+    ),
+    (
+        "workers/intel-gateway/src/alert-engine.js",
+        r'(AI Alert Engine v)[0-9]+\.[0-9]+(?:\.[0-9]+)?',
+        r'\g<1>{VER}',
+    ),
+    (
+        "workers/intel-gateway/src/alert-engine.js",
+        r'(SENTINEL APEX v)[0-9]+\.[0-9]+(?:\.[0-9]+)?',
+        r'\g<1>{VER}',
+    ),
+    (
+        "workers/intel-gateway/src/alert-engine.js",
+        r'(X-Sentinel-Version": ")[0-9]+\.[0-9]+(?:\.[0-9]+)?"',
+        r'\g<1>{VER}"',
+    ),
+    (
+        "workers/intel-gateway/src/alert-engine.js",
+        r'(rid, version: ")[0-9]+\.[0-9]+(?:\.[0-9]+)?"',
+        r'\g<1>{VER}"',
+    ),
+    (
+        "workers/intel-gateway/src/revenue-enforcement.js",
+        r'(VERSION: ")[0-9]+\.[0-9]+(?:\.[0-9]+)?(",\s*// v)[0-9]+\.[0-9]+(?:\.[0-9]+)?',
+        r'\g<1>{VER}\g<2>{VER}',
+    ),
+    (
+        "workers/intel-gateway/src/api-extensions.js",
+        r'(X-Sentinel-Version":\s+")[0-9]+\.[0-9]+(?:\.[0-9]+)?"',
+        r'\g<1>{VER}"',
+    ),
+    (
+        "workers/intel-gateway/src/api-extensions.js",
+        r'(SENTINEL-APEX-WEBHOOK/)[0-9]+\.[0-9]+(?:\.[0-9]+)?',
+        r'\g<1>{VER}',
+    ),
+    (
+        "workers/intel-gateway/src/api-extensions.js",
+        r'(version:\s+")[0-9]+\.[0-9]+(?:\.[0-9]+)?(",\n    generated_at: new Date)',
+        r'\g<1>{VER}\g<2>',
+    ),
+    (
+        "workers/intel-gateway/src/usage-meter.js",
+        r'(Usage Meter Engine v)[0-9]+\.[0-9]+(?:\.[0-9]+)?',
+        r'\g<1>{VER}',
+    ),
+    (
+        "scripts/generate_executive_briefing.py",
+        r'(Briefing Engine v)[0-9]+\.[0-9]+(?:\.[0-9]+)?',
+        r'\g<1>{VER}',
+    ),
+    (
+        "scripts/generate_executive_briefing.py",
+        r'(SENTINEL APEX v)[0-9]+\.[0-9]+(?:\.[0-9]+)?',
+        r'\g<1>{VER}',
+    ),
 ]
 
 # HTML targets with simple title tag governance
@@ -792,6 +1044,37 @@ def _update_platform_version_json(ver: str, apply: bool):
         return False, found, "write error: %s" % e
 
 
+def _update_flat_identity(rel_path, ver, apply):
+    """Identity manifest with a numeric version/build. Does not rewrite schema names."""
+    path = REPO_ROOT / rel_path
+    if not path.exists():
+        return True, "N/A", "file not found -- skip"
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except Exception as e:
+        return False, "?", "read error: %s" % e
+    found = str(data.get("version", "?"))
+    label = "v%s" % major(ver)
+    checks = [found == ver]
+    if "commit_series" in data:
+        checks.append(data.get("commit_series") == label)
+    if "build" in data and re.match(r"^\d+\.\d+", str(data.get("build", ""))):
+        checks.append(str(data["build"]) == ver)
+    if all(checks):
+        return True, found, "ok"
+    if not apply:
+        return False, found, "drift: %s -> %s" % (found, ver)
+    data["version"] = ver
+    if "build" in data and re.match(r"^\d+\.\d+", str(data.get("build", ""))):
+        data["build"] = ver
+    if "commit_series" in data:
+        data["commit_series"] = label
+    if "updated_at" in data:
+        data["updated_at"] = now_iso()
+    path.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    return True, found, "updated"
+
+
 def run(mode):
     apply = mode == "apply"
     ver = read_authority()
@@ -815,6 +1098,11 @@ def run(mode):
     # persistent drift (config/platform_version.json=166.2 vs VERSION=170.0).
     ok, found, status = _update_platform_version_json(ver, apply)
     rows.append(("config/platform_version.json", found, status, ok))
+    if not ok:
+        any_drift = True
+
+    ok, found, status = _update_flat_identity("platform/PLATFORM_VERSION.json", ver, apply)
+    rows.append(("platform/PLATFORM_VERSION.json", found, status, ok))
     if not ok:
         any_drift = True
 

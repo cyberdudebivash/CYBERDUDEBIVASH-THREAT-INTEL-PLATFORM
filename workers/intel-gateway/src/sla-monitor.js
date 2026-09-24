@@ -1,5 +1,5 @@
 // ==============================================================================
-// CYBERDUDEBIVASH(R) SENTINEL APEX -- SLA Monitor Engine v143.0.0
+// CYBERDUDEBIVASH(R) SENTINEL APEX -- SLA Monitor Engine v201.0
 // Real-time uptime tracking + SLA compliance proof for Enterprise subscribers
 //
 // Endpoints:
@@ -129,7 +129,7 @@ export async function handleSLAStatus(request, env, rid) {
       "dark-web-monitor": { status: "disabled", uptime: null, note: "Simulated-data endpoints intentionally disabled pending real data-source integration -- see dark-web-monitor.js" },
       "premium-reports":  { status: "not_separately_monitored", uptime: null },
     },
-    version: "143.0.0",
+    version: "201.0",
     ts:      new Date().toISOString(),
     rid,
   });
@@ -210,7 +210,7 @@ export async function handleSLAReport(request, env, auth, rid) {
       "premium-reports":  { sla: ENTERPRISE_SLA, actual: null, status: "not_separately_monitored" },
     },
     credit_policy: "SLA credit of 10% per day of breach, up to 30% of monthly fee. Contact bivash@cyberdudebivash.com with this report to claim.",
-    certifier:     "CYBERDUDEBIVASH SENTINEL APEX -- v143.0.0 GOD-MODE",
+    certifier:     "CYBERDUDEBIVASH SENTINEL APEX -- v201.0 GOD-MODE",
     gstin:         "21ARKPN8270G1ZP",
     rid,
   });
@@ -349,7 +349,7 @@ export async function handleSLACertificate(request, env, auth, rid) {
         : "No monitoring data recorded for this period -- compliance cannot be verified.",
       platform_url:   "https://intel.cyberdudebivash.com",
       support_email:  "bivash@cyberdudebivash.com",
-      version:        "143.0.0 GOD-MODE",
+      version:        "201.0 GOD-MODE",
       issued_at:      now.toISOString(),
       cert_id:        `APEX-CERT-${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}-${Date.now().toString(36).toUpperCase()}`,
     },
@@ -381,10 +381,10 @@ async function _recordIncident(env, incident) {
 function _json(status, body) {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { "Content-Type": "application/json", "X-Sentinel-Version": "143.0.0" },
+    headers: { "Content-Type": "application/json", "X-Sentinel-Version": "201.0" },
   });
 }
 
 function _jsonErr(status, message, rid) {
-  return _json(status, { error: true, message, rid, version: "143.0.0" });
+  return _json(status, { error: true, message, rid, version: "201.0" });
 }

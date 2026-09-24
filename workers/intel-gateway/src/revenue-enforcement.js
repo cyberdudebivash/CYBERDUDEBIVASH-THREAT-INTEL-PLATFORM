@@ -27,7 +27,7 @@ function timingSafeEqual(a, b) {
 // ENTERPRISE : everything + raw STIX bundle, SIEM webhooks, dedicated SLA
 // 
 export const REVENUE_CONFIG = {
-  VERSION: "141.0.0",  // v141.0.0  synced with platform version
+  VERSION: "201.0",  // v201.0  synced with platform version
   // Phase 3: tier identifiers now match index.js's live TIERS constant
   // exactly (TIERS = { FREE:"FREE", PRO:"PRO", ENTERPRISE:"ENTERPRISE",
   // MSSP:"MSSP" }) instead of a separate lowercase/"premium" vocabulary.

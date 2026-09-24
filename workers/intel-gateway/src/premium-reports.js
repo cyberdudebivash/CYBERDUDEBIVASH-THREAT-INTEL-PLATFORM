@@ -1,5 +1,5 @@
 // =============================================================================
-// CYBERDUDEBIVASH(R) SENTINEL APEX -- Premium Threat Report Engine v143.0.0
+// CYBERDUDEBIVASH(R) SENTINEL APEX -- Premium Threat Report Engine v201.0
 // Routes: POST /api/reports/premium  .  GET /api/reports/list  .  GET /api/reports/:id
 // Sellable Asset: $49/report  |  $149/mo unlimited  |  Included in Enterprise
 // Architecture:
@@ -12,7 +12,7 @@
 
 // -- Tier & Pricing Config -----------------------------------------------------
 const REPORT_CONFIG = {
-  VERSION: "143.0.0",
+  VERSION: "201.0",
   PRICE_PER_REPORT_USD:   49,
   PRICE_PER_REPORT_INR:   3999,
   MONTHLY_UNLIMITED_USD:  149,
@@ -47,7 +47,7 @@ function _json(body, status = 200, extra = {}) {
       // public -- index.js's withBaselineHeaders() applies the real,
       // origin-aware decision via cors-policy.js to every response
       // including this one; see that file's header comment.
-      "X-Sentinel-Module":           "premium-reports/143.0.0",
+      "X-Sentinel-Module":           "premium-reports/201.0",
       ...extra,
     },
   });
@@ -384,7 +384,7 @@ export async function handlePremiumReport(request, env, auth, rid) {
     report_type:      reportType,
     report_title:     reportTitle,
     generated_at:     now.toISOString(),
-    generated_by:     "CYBERDUDEBIVASH(R) SENTINEL APEX v143.0.0",
+    generated_by:     "CYBERDUDEBIVASH(R) SENTINEL APEX v201.0",
     report_period:    reportPeriod,
     classification:   "TLP:AMBER -- Restricted to authorised recipients",
     tier:             tier,
@@ -430,7 +430,7 @@ export async function handlePremiumReport(request, env, auth, rid) {
     // Section 7 -- Metadata
     metadata: {
       platform:         "CYBERDUDEBIVASH(R) SENTINEL APEX",
-      platform_version: "143.0.0",
+      platform_version: "201.0",
       dashboard_url:    "https://intel.cyberdudebivash.com",
       api_docs_url:     "https://intel.cyberdudebivash.com/api-docs.html",
       pricing_url:      "https://intel.cyberdudebivash.com/pricing.html",
@@ -444,7 +444,7 @@ export async function handlePremiumReport(request, env, auth, rid) {
     },
 
     request_id: rid,
-    gateway:    "SENTINEL-APEX/143.0.0",
+    gateway:    "SENTINEL-APEX/201.0",
   };
 
   // Store in R2 (if available)
@@ -570,7 +570,7 @@ export async function handleReportList(request, env, auth, rid) {
     count:   reports.length,
     reports: reports.sort((a, b) => b.generated_at.localeCompare(a.generated_at)),
     request_id: rid,
-    gateway: "SENTINEL-APEX/143.0.0",
+    gateway: "SENTINEL-APEX/201.0",
   });
 }
 

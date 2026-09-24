@@ -1,5 +1,5 @@
 // =============================================================================
-// CYBERDUDEBIVASH(R) SENTINEL APEX -- Dark Web Monitor & Leak Check Engine v143.0.0
+// CYBERDUDEBIVASH(R) SENTINEL APEX -- Dark Web Monitor & Leak Check Engine v201.0
 // Routes: /api/dark-web/scan . /api/dark-web/status . /api/leak-check
 // Tier Gate: Pro+ for scan/check, Enterprise for bulk monitoring
 // Architecture:
@@ -69,7 +69,7 @@ async function kvPut(env, key, value, ttl = 3600) {
 // Requires: Pro tier minimum. Full scan requires Enterprise.
 // Returns: threat_indicators[], breach_records[], risk_score, recommended_actions[]
 export async function handleDarkWebScan(request, env, auth, rid) {
-  const VERSION = "145.0.0";
+  const VERSION = "201.0";
 
   // Tier gate
   const tier = (auth.tier || "free").toLowerCase();
@@ -252,7 +252,7 @@ export async function handleDarkWebScan(request, env, auth, rid) {
       message:     "Full scan checks all 7 sources including Telegram leak channels and dark market listings.",
       upgrade_url: "/upgrade.html?plan=enterprise&feature=darkweb_full",
     } : null,
-    gateway:    `SENTINEL-APEX/143.0.0`,
+    gateway:    `SENTINEL-APEX/201.0`,
     request_id: rid,
   };
 
@@ -284,7 +284,7 @@ export async function handleDarkWebStatus(request, env, auth, rid) {
 
   return _json({
     status:              "operational",
-    monitor_version:     "143.0.0",
+    monitor_version:     "201.0",
     sources_operational: sources.filter(s => s.status === "operational").length,
     sources_total:       sources.length,
     sources:             tier === "free" ? sources.slice(0, 2) : sources,
@@ -300,7 +300,7 @@ export async function handleDarkWebStatus(request, env, auth, rid) {
     current_tier: tier,
     upgrade_url:  tier !== "enterprise" ? "/upgrade.html?plan=enterprise&feature=darkweb" : null,
     request_id:   rid,
-    gateway:      "SENTINEL-APEX/143.0.0",
+    gateway:      "SENTINEL-APEX/201.0",
   });
 }
 
@@ -385,7 +385,7 @@ export async function handleLeakCheck(request, env, auth, rid) {
       : "No known breaches found. Continue monitoring.",
     sources:    ["HaveIBeenPwned-compatible", "SENTINEL-APEX CTI"],
     request_id: rid,
-    gateway:    "SENTINEL-APEX/143.0.0",
+    gateway:    "SENTINEL-APEX/201.0",
   };
 
   await kvPut(env, cacheKey, result, 1800);
@@ -404,7 +404,7 @@ function _json(body, status = 200) {
       // response, never genuinely public -- index.js's withBaselineHeaders()
       // applies the real, origin-aware decision via cors-policy.js to every
       // response including this one; see that file's header comment.
-      "X-Sentinel-Module":           "dark-web-monitor/143.0.0",
+      "X-Sentinel-Module":           "dark-web-monitor/201.0",
     },
   });
 }

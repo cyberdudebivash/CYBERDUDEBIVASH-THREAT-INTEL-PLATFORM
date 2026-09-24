@@ -175,7 +175,7 @@ export { inferGumroadTier, inferGumroadBillingCycle, isGumroadCancellationEvent,
 // header comment) -- unit-testable under plain `node --test` without
 // pulling in this file's full import chain.
 export { handleIntelStaticProxy, INTEL_STATIC_PROXY };
-const PLATFORM_VERSION    = "200.0";
+const PLATFORM_VERSION    = "201.0";
 const JWT_EXPIRY_SEC      = 86400;        // 24h JWT lifetime
 const BRUTE_FORCE_MAX     = 5;            // lockout after N failed auth attempts
 const BRUTE_FORCE_TTL     = 900;          // 15-minute lockout (seconds)

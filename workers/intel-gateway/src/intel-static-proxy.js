@@ -29,7 +29,7 @@
  * (c) 2026 CyberDudeBivash Pvt. Ltd. All Rights Reserved.
  */
 
-const PLATFORM_VERSION = "200.0";
+const PLATFORM_VERSION = "201.0";
 
 // SENTINEL APEX PUBLIC-REPO ZERO-TRUST -- PHASE 3 (2026-09-10): both of this
 // file's routes ARE genuinely public (unauthenticated, read-only threat-

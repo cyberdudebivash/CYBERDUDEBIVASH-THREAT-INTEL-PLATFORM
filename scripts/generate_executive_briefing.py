@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 ╔══════════════════════════════════════════════════════════════════════════════╗
-║  SENTINEL APEX — Executive Intelligence Briefing Engine v143.0.0           ║
+║  SENTINEL APEX — Executive Intelligence Briefing Engine v201.0           ║
 ║  Phase IV Asset 2 — Automated Daily PDF Briefing                           ║
 ║                                                                            ║
 ║  Produces watermarked, branded TLP:AMBER executive PDFs with:             ║
@@ -56,7 +56,7 @@ REPORTS_DIR.mkdir(parents=True, exist_ok=True)
 
 # ── Branding Constants ────────────────────────────────────────────────────────
 COMPANY_NAME  = "CYBERDUDEBIVASH PVT. LTD."
-PLATFORM      = "SENTINEL APEX v143.0.0"
+PLATFORM      = "SENTINEL APEX v201.0"
 GSTIN         = "21ARKPN8270G1ZP"
 PAN           = "ARKPN8270G"
 ADDRESS       = "29, Korai-Sukinda-Ramchandrapur Rd, Ragadi, JAJPUR ROAD, Odisha 755019, INDIA"
