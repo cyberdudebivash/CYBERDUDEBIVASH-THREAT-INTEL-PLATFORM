@@ -64,13 +64,18 @@
   </section>
   <section class="card" style="margin-top:14px">
     <h2>Customer watches</h2>
-    <p class="meta">Included with Pro Defense. Paste an API key in this browser tab only. It stays in sessionStorage, never localStorage, and is not put in the URL. A scoped browser session is not available on this page yet.</p>
-    <form id="keyform">
+    <p class="meta">Included with Pro Defense. Your API key is exchanged once for a short-lived, Watchdog-only session (15 minutes, refreshed while this tab is open, at most 4 hours). The key itself is not stored in this browser, not put in the URL, and the field is cleared after sign-in. Closing the tab does not stop your watches: they are evaluated by the hosted scheduler after each authoritative feed update.</p>
+    <form id="keyform" autocomplete="off">
       <label>API key
-        <input id="key" type="password" autocomplete="off" placeholder="Pro or Enterprise key">
+        <input id="key" type="password" autocomplete="off" placeholder="Pro, Enterprise or MSSP key">
       </label>
-      <button type="submit">Save key in this tab</button>
+      <label>MSSP tenant (optional)
+        <input id="tenant" maxlength="64" placeholder="managed tenant id">
+      </label>
+      <button type="submit">Sign in to Watchdog</button>
+      <button type="button" id="signout">Sign out</button>
     </form>
+    <p class="meta" id="sessionstatus">Not signed in.</p>
     <form id="watchform" style="margin-top:12px">
       <label>Name<input id="wname" maxlength="80" required></label>
       <label>Keyword<input id="wkw" maxlength="48" placeholder="ransomware"></label>
@@ -80,17 +85,26 @@
     <p class="meta" id="watchstatus"></p>
     <div id="watchlist"></div>
     <h2>Match inbox</h2>
-    <p class="meta">Counts below come from stored match events for this key. They stay empty until a Pro watch has matched a real feed item. Evaluation runs when this page, or the poller, reads events. There is no separate background sweep.</p>
+    <p class="meta">Counts come from stored match events. They stay empty until a watch has matched a real feed item. Events are created by the hosted scheduler, and also when this page or the poller reads events.</p>
     <div class="grid" id="ops"></div>
     <p class="meta" id="inbox"></p>
     <div id="eventlist"></div>
+    <h2>Webhook destinations</h2>
+    <p class="meta">Enterprise SOC and MSSP. A destination receives nothing until it passes verification: we POST a signed challenge and your endpoint must answer <code>{"challenge": "&lt;nonce&gt;"}</code>. Every delivery is signed: <code>X-CDB-Watchdog-Signature: v1=hex(HMAC-SHA256(secret, timestamp + "." + raw_body))</code>. HTTPS on port 443 only; hosts that resolve to private, loopback, link-local or metadata addresses are refused at registration and before every delivery. Redirects are not followed.</p>
+    <form id="destform">
+      <label>HTTPS URL<input id="durl" maxlength="300" placeholder="https://siem.example.com/hooks/watchdog"></label>
+      <button type="submit">Add destination</button>
+    </form>
+    <div id="secretbox" class="card" style="display:none;margin-top:8px"></div>
+    <p class="meta" id="deststatus"></p>
+    <div id="destlist"></div>
   </section>
 </main>
 <footer>
   Seller: CYBERDUDEBIVASH Pvt. Ltd. · GSTIN 21ARKPN8270G1ZP · PAN ARKPN8270G.
   Gumroad or Razorpay receipt is not a GST tax invoice.
   ISO 27001 / SOC 2: aligned, not certified.
-  Customer poller: <code>deploy/cyber-watchdog/poll.mjs</code> with Pro Defense. HTTPS delivery is Enterprise SOC and MSSP.
+  Customer poller: <code>deploy/cyber-watchdog/poll.mjs</code> with Pro Defense. Signed HTTPS delivery is Enterprise SOC and MSSP; reference receiver: <code>deploy/cyber-watchdog/sink.mjs</code>.
 </footer>
 <script>
 const plans = document.getElementById('plans');
@@ -113,13 +127,63 @@ function money(p) {
   const grouped = Number.isFinite(inr) ? String(inr).replace(/\B(?=(\d{3})+(?!\d))/g, ',') : '';
   return grouped ? `$${p.price_usd_monthly}/mo | INR ${grouped}/mo` : `$${p.price_usd_monthly}/mo`;
 }
-function key() { return sessionStorage.getItem('apex_watchdog_key') || ''; }
+// Session, not key. The API key only ever travels once, in the exchange
+// request header. Only the short-lived scoped token is kept (memory +
+// sessionStorage for this tab); the legacy stored key is removed.
+const SESSION_SLOT = 'apex_watchdog_session';
+try { sessionStorage.removeItem('apex_watchdog_key'); } catch (_) {}
+let session = null;
+let refreshTimer = null;
+function loadSession() {
+  try {
+    const raw = sessionStorage.getItem(SESSION_SLOT);
+    const s = raw ? JSON.parse(raw) : null;
+    if (s && s.token && Date.parse(s.expires_at) > Date.now() + 5000) return s;
+  } catch (_) {}
+  return null;
+}
+function saveSession(s) {
+  session = s;
+  try {
+    if (s) sessionStorage.setItem(SESSION_SLOT, JSON.stringify({ token: s.token, expires_at: s.expires_at, tier: s.tier, tenant: s.tenant, scopes: s.scopes }));
+    else sessionStorage.removeItem(SESSION_SLOT);
+  } catch (_) {}
+  scheduleRefresh();
+  showSession();
+}
+function signedIn() { return !!(session && session.token && Date.parse(session.expires_at) > Date.now()); }
 function headers() {
   const h = { Accept: 'application/json' };
-  if (key()) h['X-API-Key'] = key();
+  if (signedIn()) h.Authorization = 'Bearer ' + session.token;
   return h;
 }
-
+function api(path) {
+  const url = new URL(path, location.origin);
+  if (session && session.tenant) url.searchParams.set('tenant', session.tenant);
+  return url;
+}
+function showSession() {
+  const el = document.getElementById('sessionstatus');
+  if (!el) return;
+  el.textContent = signedIn()
+    ? `Signed in · ${session.tier}${session.tenant ? ' · tenant ' + session.tenant : ''} · session until ${new Date(session.expires_at).toLocaleTimeString()} · scopes ${(session.scopes || []).length}`
+    : 'Not signed in.';
+}
+function scheduleRefresh() {
+  if (refreshTimer) clearTimeout(refreshTimer);
+  if (!signedIn()) return;
+  const wait = Math.max(5000, Date.parse(session.expires_at) - Date.now() - 60000);
+  refreshTimer = setTimeout(refreshSession, wait);
+}
+async function refreshSession() {
+  if (!signedIn()) return saveSession(null);
+  try {
+    const res = await fetch(api('/api/watchdog/session'), { method: 'POST', headers: headers() });
+    const data = await res.json();
+    if (res.ok && data.token) saveSession({ ...data, tenant: data.tenant || null });
+    else saveSession(null);
+  } catch (_) { saveSession(null); }
+}
 async function loadOffer() {
   const res = await fetch('/api/watchdog/offer', { headers: { Accept: 'application/json' } });
   const data = await res.json();
@@ -175,12 +239,12 @@ function metric(label, value, note) {
 }
 
 async function loadWatches() {
-  if (!key() || !watchlist) return;
-  const res = await fetch('/api/watchdog/watches', { headers: headers() });
+  if (!signedIn() || !watchlist) { if (watchlist) watchlist.innerHTML = ''; return; }
+  const res = await fetch(api('/api/watchdog/watches'), { headers: headers() });
   const data = await res.json();
-  if (!res.ok) { watchlist.innerHTML = `<p class="warn">${esc(data.message || 'Watches unavailable.')}</p>`; return; }
+  if (!res.ok) { watchlist.innerHTML = `<p class="warn">${esc(data.message || data.error || 'Watches unavailable.')}</p>`; return; }
   const rows = data.watches || [];
-  if (!rows.length) { watchlist.innerHTML = '<p class="meta">No watches saved for this key.</p>'; return; }
+  if (!rows.length) { watchlist.innerHTML = '<p class="meta">No watches saved.</p>'; return; }
   watchlist.innerHTML = `<table><thead><tr><th>Watch</th><th>Logic</th><th></th></tr></thead><tbody>${rows.map((w) => `<tr>
     <td><strong>${esc(w.name)}</strong><div class="meta">${w.enabled === false ? 'disabled' : 'enabled'}</div></td>
     <td>${esc(w.logic || 'OR')}</td>
@@ -191,9 +255,15 @@ async function loadWatches() {
   </tr>`).join('')}</tbody></table>`;
 }
 
+function deliveryText(e) {
+  const list = e.deliveries || [];
+  if (!list.length) return '';
+  return list.map((d) => `${d.destination_id}: ${d.status}${d.attempts ? ' ×' + d.attempts : ''}${d.last_http_status ? ' HTTP ' + d.last_http_status : ''}${d.last_error && d.status !== 'delivered' ? ' (' + d.last_error + ')' : ''}`).join(' · ');
+}
+
 async function loadEvents() {
-  if (!key() || !inbox) return;
-  const res = await fetch('/api/watchdog/events?limit=20', { headers: headers() });
+  if (!signedIn() || !inbox) { if (inbox) inbox.textContent = ''; return; }
+  const res = await fetch(api('/api/watchdog/events?limit=20'), { headers: headers() });
   const data = await res.json();
   if (!res.ok) {
     inbox.textContent = data.message || 'Match history unavailable.';
@@ -206,73 +276,141 @@ async function loadEvents() {
   if (ops) {
     const failures = a.delivery_failure_rate == null ? 'none' : String(a.delivery_failures ?? 0);
     ops.innerHTML = [
-      metric('Watches active', data.watches_active ?? 0, 'Enabled watches on this key'),
+      metric('Watches active', data.watches_active ?? 0, 'Enabled watches'),
       metric('Stored matches', data.total ?? 0, 'Durable events, cap 200'),
       metric('Matches 24h', a.matches_24h ?? 0, 'From stored events only'),
       metric('Critical 24h', a.critical_matches_24h ?? 0, 'Severity on the matched item'),
-      metric('High 24h', a.high_matches_24h ?? 0, 'Severity on the matched item'),
       metric('Unread', a.unread ?? 0, 'Not yet acknowledged'),
-      metric('Delivery failures', failures, a.delivery_failure_rate == null ? 'No webhook attempt yet' : 'Failed deliveries among attempts'),
+      metric('Deliveries pending', a.deliveries_pending ?? 0, 'Queued or awaiting retry'),
+      metric('Delivery failures', failures, a.delivery_failure_rate == null ? 'No final delivery result yet' : 'Final failures after retries'),
     ].join('');
   }
   const tops = (a.top_watches || []).map((w) => `${w.name} (${w.count})`).join(', ') || 'none yet';
-  const sources = (a.top_sources || []).map((s) => `${s.source} (${s.count})`).join(', ') || 'none yet';
+  const sources = (a.top_sources || []).map((x) => `${x.source} (${x.count})`).join(', ') || 'none yet';
   if (eventlist) {
     const events = data.events || [];
-    eventlist.innerHTML = `<p class="meta">Top matching watches: ${esc(tops)}. Top sources: ${esc(sources)}.</p>` + (events.length ? `<table><thead><tr><th>Match</th><th>Why</th><th></th></tr></thead><tbody>${events.map((e) => `<tr>
-      <td><strong>${esc(e.title || e.matched_item_id)}</strong><div class="meta">${esc(e.severity || '')} · ${esc(e.source || '')} · ${esc(e.watch_name || '')}</div></td>
+    eventlist.innerHTML = `<p class="meta">Top matching watches: ${esc(tops)}. Top sources: ${esc(sources)}.</p>` + (events.length ? `<table><thead><tr><th>Match</th><th>Why</th><th>Delivery</th><th></th></tr></thead><tbody>${events.map((e) => `<tr>
+      <td><strong>${esc(e.title || e.matched_item_id)}</strong><div class="meta">${esc(e.severity || '')} · ${esc(e.source || '')} · ${esc(e.watch_name || '')} · ${esc(e.origin || '')}</div></td>
       <td>${esc((e.reason || []).join(', '))}</td>
+      <td class="meta">${esc(deliveryText(e) || e.delivery_status || '')}</td>
       <td>${e.acknowledged ? '<span class="meta">acknowledged</span>' : `<button type="button" data-act="ack" data-id="${esc(e.id)}">Acknowledge</button>`}</td>
     </tr>`).join('')}</tbody></table>` : '<p class="meta">No stored matches yet.</p>');
   }
 }
 
+async function loadDestinations() {
+  const list = document.getElementById('destlist');
+  const st = document.getElementById('deststatus');
+  if (!list) return;
+  if (!signedIn() || !(session.scopes || []).includes('watchdog:destinations:write')) {
+    list.innerHTML = signedIn() ? '<p class="meta">Webhook destinations are included with Enterprise SOC and MSSP.</p>' : '';
+    return;
+  }
+  const res = await fetch(api('/api/watchdog/destinations'), { headers: headers() });
+  const data = await res.json();
+  if (!res.ok) { list.innerHTML = `<p class="warn">${esc(data.message || data.error || 'Destinations unavailable.')}</p>`; return; }
+  const rows = data.destinations || [];
+  if (st) st.textContent = `${rows.length} of ${data.limit} destinations · contract ${data.contract_version || ''}`;
+  list.innerHTML = rows.length ? `<table><thead><tr><th>Host</th><th>State</th><th></th></tr></thead><tbody>${rows.map((d) => `<tr>
+    <td><strong>${esc(d.hostname)}</strong><div class="meta">${esc(d.url)}</div></td>
+    <td>${esc(d.state)}<div class="meta">${d.verified_at ? 'verified ' + esc(d.verified_at) : 'not verified'}${d.last_delivery_at ? ' · last delivery ' + esc(d.last_delivery_at) : ''}${d.failure_count ? ' · failures ' + esc(d.failure_count) : ''}${d.disabled_reason ? ' · ' + esc(d.disabled_reason) : ''}${d.last_verification_error ? ' · verification: ' + esc(d.last_verification_error) : ''}</div></td>
+    <td>
+      ${d.state !== 'active' && d.state !== 'disabled' ? `<button type="button" data-act="verify" data-id="${esc(d.id)}">Verify</button>` : ''}
+      ${d.state === 'active' ? `<button type="button" data-act="disable" data-id="${esc(d.id)}">Disable</button>` : ''}
+      <button type="button" data-act="remove" data-id="${esc(d.id)}">Remove</button>
+    </td>
+  </tr>`).join('')}</tbody></table>` : '<p class="meta">No destinations.</p>';
+}
+
+function refreshAll() {
+  showSession();
+  loadBrief().catch(() => { status.textContent = 'Brief is not reachable yet.'; });
+  loadWatches().catch(() => {});
+  loadEvents().catch(() => {});
+  loadDestinations().catch(() => {});
+}
+
 document.getElementById('filters').addEventListener('submit', loadBrief);
 document.body.addEventListener('click', async (ev) => {
   const btn = ev.target.closest('button[data-act]');
-  if (!btn || !key()) return;
+  if (!btn || !signedIn()) return;
   const act = btn.getAttribute('data-act');
   const id = btn.getAttribute('data-id');
   if (!id) return;
+  const json = { ...headers(), 'Content-Type': 'application/json' };
   if (act === 'ack') {
-    await fetch('/api/watchdog/events/ack', { method: 'POST', headers: { ...headers(), 'Content-Type': 'application/json' }, body: JSON.stringify({ ids: [id] }) });
+    await fetch(api('/api/watchdog/events/ack'), { method: 'POST', headers: json, body: JSON.stringify({ ids: [id] }) });
     loadEvents();
     return;
   }
   if (act === 'delete') {
-    await fetch('/api/watchdog/watches?id=' + encodeURIComponent(id), { method: 'DELETE', headers: headers() });
+    await fetch(api('/api/watchdog/watches?id=' + encodeURIComponent(id)), { method: 'DELETE', headers: headers() });
     loadWatches();
     return;
   }
   if (act === 'toggle') {
     const enabled = btn.getAttribute('data-enabled') === 'false';
-    await fetch('/api/watchdog/watches?id=' + encodeURIComponent(id), {
-      method: 'PATCH',
-      headers: { ...headers(), 'Content-Type': 'application/json' },
-      body: JSON.stringify({ enabled }),
-    });
+    await fetch(api('/api/watchdog/watches?id=' + encodeURIComponent(id)), { method: 'PATCH', headers: json, body: JSON.stringify({ enabled }) });
     loadWatches();
+    return;
+  }
+  if (act === 'verify') {
+    const st = document.getElementById('deststatus');
+    if (st) st.textContent = 'Sending signed verification challenge…';
+    const res = await fetch(api('/api/watchdog/destinations/verify?id=' + encodeURIComponent(id)), { method: 'POST', headers: json, body: '{}' });
+    const data = await res.json();
+    if (st) st.textContent = res.ok ? 'Destination verified. Deliveries are enabled.' : `Verification failed: ${data.error || res.status}`;
+    loadDestinations();
+    return;
+  }
+  if (act === 'disable') {
+    await fetch(api('/api/watchdog/destinations?id=' + encodeURIComponent(id)), { method: 'PATCH', headers: json, body: JSON.stringify({ state: 'disabled' }) });
+    loadDestinations();
+    return;
+  }
+  if (act === 'remove') {
+    await fetch(api('/api/watchdog/destinations?id=' + encodeURIComponent(id)), { method: 'DELETE', headers: headers() });
+    loadDestinations();
   }
 });
-document.getElementById('keyform').addEventListener('submit', (ev) => {
+document.getElementById('keyform').addEventListener('submit', async (ev) => {
   ev.preventDefault();
-  const value = document.getElementById('key').value.trim();
-  if (value) sessionStorage.setItem('apex_watchdog_key', value);
-  else sessionStorage.removeItem('apex_watchdog_key');
-  watchstatus.textContent = value ? 'Key stored for this tab only. Not written to localStorage or the URL.' : 'Key cleared.';
-  loadBrief();
-  loadWatches();
-  loadEvents();
+  const input = document.getElementById('key');
+  const tenant = document.getElementById('tenant').value.trim();
+  const status = document.getElementById('sessionstatus');
+  const value = input.value.trim();
+  // Clear the field before the request; the key is not kept anywhere.
+  input.value = '';
+  if (!value) { status.textContent = 'Enter an API key.'; return; }
+  const url = new URL('/api/watchdog/session', location.origin);
+  if (tenant) url.searchParams.set('tenant', tenant);
+  status.textContent = 'Signing in…';
+  try {
+    const res = await fetch(url, { method: 'POST', headers: { Accept: 'application/json', 'X-API-Key': value } });
+    const data = await res.json();
+    if (!res.ok || !data.token) { status.textContent = data.message || data.error || 'Sign-in failed.'; saveSession(null); return; }
+    saveSession({ ...data, tenant: data.tenant || null });
+    refreshAll();
+  } catch (_) {
+    status.textContent = 'Sign-in failed.';
+  }
+});
+document.getElementById('signout').addEventListener('click', async () => {
+  if (signedIn()) {
+    try { await fetch(api('/api/watchdog/session'), { method: 'DELETE', headers: headers() }); } catch (_) {}
+  }
+  saveSession(null);
+  refreshAll();
 });
 document.getElementById('watchform').addEventListener('submit', async (ev) => {
   ev.preventDefault();
-  if (!key()) { watchstatus.innerHTML = '<span class="warn">Add a Pro or Enterprise key first.</span>'; return; }
+  if (!signedIn()) { watchstatus.innerHTML = '<span class="warn">Sign in with a Pro, Enterprise or MSSP key first.</span>'; return; }
   const body = {
     name: document.getElementById('wname').value.trim(),
     keywords: document.getElementById('wkw').value.trim() ? [document.getElementById('wkw').value.trim()] : [],
     cves: document.getElementById('wcve').value.trim() ? [document.getElementById('wcve').value.trim()] : [],
   };
-  const res = await fetch('/api/watchdog/watches', {
+  const res = await fetch(api('/api/watchdog/watches'), {
     method: 'POST',
     headers: { ...headers(), 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
@@ -281,9 +419,31 @@ document.getElementById('watchform').addEventListener('submit', async (ev) => {
   watchstatus.textContent = data.message || (res.ok ? `Saved ${data.watch.name}` : (data.error || 'Could not save'));
   if (res.ok) { loadWatches(); loadEvents(); }
 });
+document.getElementById('destform').addEventListener('submit', async (ev) => {
+  ev.preventDefault();
+  const st = document.getElementById('deststatus');
+  const box = document.getElementById('secretbox');
+  if (!signedIn()) { st.textContent = 'Sign in first.'; return; }
+  const url = document.getElementById('durl').value.trim();
+  const res = await fetch(api('/api/watchdog/destinations'), { method: 'POST', headers: { ...headers(), 'Content-Type': 'application/json' }, body: JSON.stringify({ url }) });
+  const data = await res.json();
+  if (!res.ok) { st.textContent = data.message || data.error || 'Could not add destination.'; return; }
+  document.getElementById('durl').value = '';
+  // The signing secret is shown once and never stored by this page.
+  box.style.display = 'block';
+  box.innerHTML = `<strong>Signing secret for ${esc(data.destination.hostname)}</strong>
+    <p class="meta">${esc(data.signing_secret_notice)}</p>
+    <code style="word-break:break-all">${esc(data.signing_secret)}</code>
+    <p><button type="button" id="secretdone">I stored it</button></p>`;
+  document.getElementById('secretdone').addEventListener('click', () => { box.innerHTML = ''; box.style.display = 'none'; });
+  st.textContent = 'Destination added in pending state. Verify it to enable deliveries.';
+  loadDestinations();
+});
 
+session = loadSession();
+scheduleRefresh();
 loadOffer().catch(() => { plans.innerHTML = '<p class="warn">Offer is not reachable yet. The API ships with the gateway.</p>'; });
-loadBrief().catch(() => { status.textContent = 'Brief is not reachable yet.'; });
+refreshAll();
 </script>
 </body>
 </html>

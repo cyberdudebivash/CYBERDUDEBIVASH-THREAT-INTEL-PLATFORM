@@ -1,49 +1,83 @@
 /**
- * CYBERDUDEBIVASH SENTINEL APEX CYBER WATCHDOG v2
+ * CYBERDUDEBIVASH SENTINEL APEX CYBER WATCHDOG v3
  *
  * Classifies and watches items already on the authoritative Sentinel APEX
  * feed. Does not crawl the internet, does not invent advisories, and does
  * not serve a stale feed as a live brief.
  *
- * Prices are a tested mirror of config/commercial-contract.json.
- * Freshness is evaluatePublicIntelligence() from freshness-contract.js
- * (config/public_freshness_contract.json). No second age threshold.
+ * Prices: the gateway runtime pricing provider (pricing.js), the same values
+ * Razorpay charges and /api/pricing serves. No Watchdog price copy.
+ * Features, scheduler, delivery and session policy: watchdog-policy.js.
+ * Freshness: evaluatePublicIntelligence() via freshness-contract.js.
  *
  * Customer mutations go through WatchdogLedger (one Durable Object per
- * authenticated subject). Anonymous brief/offer/health do not write.
+ * authenticated subject, or per subject + MSSP tenant). Anonymous
+ * brief/offer/health do not write. Evaluation also runs from the Worker cron
+ * through WatchdogScheduler, so no browser is needed to generate events.
  */
 
-import { evaluatePublicIntelligence } from "./freshness-contract.js";
+import { evaluatePublicIntelligence, freshnessStatusFor } from "./freshness-contract.js";
+import { RAZORPAY_TIER_PRICES } from "./pricing.js";
+import {
+  DELIVERY_POLICY,
+  DENIED_SUBSCRIPTION_STATES,
+  SCHEDULER_POLICY,
+  SESSION_POLICY,
+  WATCHDOG_FEATURES,
+  WATCHDOG_SCOPES,
+  WEBHOOK_CONTRACT,
+  featuresFor,
+  scopesForTier,
+} from "./watchdog-policy.js";
+import { retryDelaySeconds, validateDestinationUrl } from "./watchdog-webhook.js";
 
 export const WATCHDOG_NAME = "CYBERDUDEBIVASH SENTINEL APEX CYBER WATCHDOG";
-export const WATCHDOG_VERSION = "2.0.0";
+export const WATCHDOG_VERSION = "3.0.0";
 export const CLASSIFIER_VERSION = "watchdog-lens-v2";
 export const EVENT_RETENTION = 200;
 export const DELIVERY_RETENTION = 50;
-export const MAX_WEBHOOK_TIMEOUT_MS = 5000;
+export const MAX_WEBHOOK_TIMEOUT_MS = DELIVERY_POLICY.timeout_ms;
 
-// Mirror of config/commercial-contract.json. The unit test fails on drift.
-export const COMMERCIAL_MIRROR = Object.freeze({
+// Seller identity (not a price). The unit test pins it to the contract.
+export const SELLER = Object.freeze({
   gstin: "21ARKPN8270G1ZP",
   seller_legal: "BIVASHA KUMAR NAYAK",
   seller_trade_name: "CYBERDUDEBIVASH(R)",
+});
+
+/**
+ * Monthly list price for a plan, read at call time from the runtime pricing
+ * provider. FREE is $0 by definition. A paid tier missing from the provider
+ * returns null (rendered "Contract"), never an invented number.
+ */
+export function planPrice(tierId) {
+  if (tierId === "FREE") return { usd_monthly: 0, inr_monthly: 0 };
+  const row = RAZORPAY_TIER_PRICES[tierId];
+  if (!row || !Number.isInteger(row.monthly)) return { usd_monthly: null, inr_monthly: null };
+  return {
+    usd_monthly: Number.isFinite(row.usd_monthly) ? row.usd_monthly : null,
+    inr_monthly: row.monthly / 100,
+  };
+}
+
+/**
+ * DEPRECATED (v3): kept only so existing importers keep working. Values are
+ * read from the runtime pricing provider on access -- this is a view, not a
+ * second price table. Use planPrice() and SELLER. Removal: next Watchdog major.
+ */
+export const COMMERCIAL_MIRROR = Object.freeze({
+  gstin: SELLER.gstin,
+  seller_legal: SELLER.seller_legal,
+  seller_trade_name: SELLER.seller_trade_name,
   tiers: Object.freeze({
-    FREE: Object.freeze({ usd_monthly: 0, inr_monthly: 0 }),
-    PRO: Object.freeze({ usd_monthly: 49, inr_monthly: 4100 }),
-    ENTERPRISE: Object.freeze({ usd_monthly: 499, inr_monthly: 41600 }),
-    MSSP: Object.freeze({ usd_monthly: 999, inr_monthly: 83300 }),
+    get FREE() { return planPrice("FREE"); },
+    get PRO() { return planPrice("PRO"); },
+    get ENTERPRISE() { return planPrice("ENTERPRISE"); },
+    get MSSP() { return planPrice("MSSP"); },
   }),
 });
 
-// Feature quotas are not prices. Prices stay in COMMERCIAL_MIRROR only.
-const FEATURES = Object.freeze({
-  FREE: Object.freeze({ watches: 0, brief_items: 8, poller: false, webhooks: 0, events: false }),
-  PRO: Object.freeze({ watches: 25, brief_items: 50, poller: true, webhooks: 0, events: true }),
-  ENTERPRISE: Object.freeze({ watches: 200, brief_items: 200, poller: true, webhooks: 3, events: true }),
-  MSSP: Object.freeze({ watches: 200, brief_items: 200, poller: true, webhooks: 5, events: true }),
-});
-
-const DENY_STATUS = new Set(["cancelled", "refunded", "suspended", "expired"]);
+const DENY_STATUS = new Set(DENIED_SUBSCRIPTION_STATES);
 const SEVERITY_RANK = { INFO: 1, LOW: 2, MEDIUM: 3, HIGH: 4, CRITICAL: 5 };
 const CRITERION_KEYS = new Set([
   "keywords", "cves", "vendors", "products", "actors", "malware_families",
@@ -58,7 +92,7 @@ const LENS_RULES = [
 ];
 
 export function emptyLedgerState() {
-  return { revision: 0, subject: null, watches: [], events: [], destinations: [], deliveries: [] };
+  return { revision: 0, subject: null, watches: [], events: [], destinations: [], deliveries: [], metrics: {} };
 }
 
 function clean(value, max) {
@@ -72,7 +106,7 @@ function groupInr(n) {
 }
 
 function priceLabel(tierId) {
-  const row = COMMERCIAL_MIRROR.tiers[tierId];
+  const row = planPrice(tierId);
   if (!row || row.usd_monthly == null) return "Contract";
   if (row.usd_monthly === 0) return "$0";
   return "$" + row.usd_monthly + "/mo | INR " + groupInr(row.inr_monthly) + "/mo";
@@ -83,12 +117,12 @@ export function effectiveTier(auth) {
   const err = String(auth?.error || "");
   if (DENY_STATUS.has(status) || err === "key_expired" || err.startsWith("subscription_")) return "FREE";
   const tier = String(auth?.tier || "FREE").toUpperCase();
-  return FEATURES[tier] ? tier : "FREE";
+  return WATCHDOG_FEATURES[tier] ? tier : "FREE";
 }
 
 export function quotaForTier(tier) {
-  const features = FEATURES[tier] || FEATURES.FREE;
-  const price = COMMERCIAL_MIRROR.tiers[tier] || COMMERCIAL_MIRROR.tiers.FREE;
+  const features = featuresFor(tier);
+  const price = planPrice(WATCHDOG_FEATURES[tier] ? tier : "FREE");
   return {
     ...features,
     paid: features.events,
@@ -99,13 +133,13 @@ export function quotaForTier(tier) {
 
 export function watchdogOffer() {
   const seller = {
-    legal_name: COMMERCIAL_MIRROR.seller_legal,
-    trade_name: COMMERCIAL_MIRROR.seller_trade_name,
-    gstin: COMMERCIAL_MIRROR.gstin,
+    legal_name: SELLER.seller_legal,
+    trade_name: SELLER.seller_trade_name,
+    gstin: SELLER.gstin,
   };
   const plan = (id, name, checkout, note) => {
     const q = quotaForTier(id);
-    const price = COMMERCIAL_MIRROR.tiers[id];
+    const price = planPrice(id);
     return {
       id,
       name,
@@ -116,6 +150,8 @@ export function watchdogOffer() {
       brief_items: q.brief_items,
       poller: q.poller,
       webhooks: q.webhooks,
+      background_evaluation: q.background_evaluation,
+      tenants: q.tenants,
       checkout,
       note,
     };
@@ -126,6 +162,7 @@ export function watchdogOffer() {
     classifier: CLASSIFIER_VERSION,
     seller,
     commercial_source: "config/commercial-contract.json",
+    price_source: "gateway runtime pricing provider (same values as Razorpay and /api/pricing)",
     checkout: {
       primary: "razorpay",
       alternative: "gumroad",
@@ -147,9 +184,9 @@ export function watchdogOffer() {
     },
     plans: [
       plan("FREE", "Public preview", null, "Titles only. No watches."),
-      plan("PRO", "Pro Defense", "/upgrade.html?plan=pro&feature=cyber-watchdog", "Existing Pro charge. Included. No second invoice. Hosted watches and the brief poller."),
-      plan("ENTERPRISE", "Enterprise SOC", "/upgrade.html?plan=enterprise&feature=cyber-watchdog", "Existing Enterprise charge. Includes HTTPS webhook delivery."),
-      plan("MSSP", "MSSP", "/upgrade.html?plan=mssp&feature=cyber-watchdog", "Canonical MSSP list price. Includes webhook delivery. Not a second invoice."),
+      plan("PRO", "Pro Defense", "/upgrade.html?plan=pro&feature=cyber-watchdog", "Existing Pro charge. Included. No second invoice. Hosted watches, background evaluation and the brief poller."),
+      plan("ENTERPRISE", "Enterprise SOC", "/upgrade.html?plan=enterprise&feature=cyber-watchdog", "Existing Enterprise charge. Includes verified, signed HTTPS webhook delivery."),
+      plan("MSSP", "MSSP", "/upgrade.html?plan=mssp&feature=cyber-watchdog", "Canonical MSSP list price. Includes signed webhook delivery and sub-tenant isolation for managed tenants. Not a second invoice."),
     ],
     endpoints: {
       offer: "GET /api/watchdog/offer",
@@ -161,8 +198,16 @@ export function watchdogOffer() {
       matches: "GET /api/watchdog/matches",
       events: "GET /api/watchdog/events",
       ack: "POST /api/watchdog/events/ack",
-      destinations: "GET|POST|DELETE /api/watchdog/destinations",
+      destinations: "GET|POST|PATCH|DELETE /api/watchdog/destinations",
+      destination_verify: "POST /api/watchdog/destinations/verify?id=",
+      session: "POST|DELETE /api/watchdog/session",
       deploy: "GET /api/watchdog/deploy",
+    },
+    background_evaluation: "Paid watches are evaluated by the hosted scheduler after authoritative feed updates. No browser or poller is required.",
+    webhook_contract: {
+      version: WEBHOOK_CONTRACT.version,
+      signature: "HMAC-SHA256(secret, timestamp + \".\" + raw_body), hex, header X-CDB-Watchdog-Signature: v1=<hex>",
+      destination_verification: "required before any delivery",
     },
     dashboard: "/cyber-watchdog.html",
     aligned_not_certified: "ISO 27001 / SOC 2: aligned, not certified.",
@@ -231,13 +276,7 @@ export function classifyItem(item) {
 export function watchdogPublication(feed, nowMs = Date.now()) {
   const evaluation = evaluatePublicIntelligence(feed, nowMs);
   const intel = evaluation.intelligence;
-  let freshness_status = "INVALID";
-  if (feed == null) freshness_status = "UNAVAILABLE";
-  else if (evaluation.reason === "no_intelligence_items") freshness_status = "EMPTY";
-  else if (evaluation.reason === "feed_unavailable") freshness_status = "UNAVAILABLE";
-  else if (intel.status === "stale" || evaluation.reason === "intelligence_stale") freshness_status = "STALE";
-  else if (evaluation.healthy && intel.status === "fresh") freshness_status = "FRESH";
-  else freshness_status = "INVALID";
+  const freshness_status = freshnessStatusFor(evaluation, feed);
   return {
     freshness_status,
     feed_generated_at: intel.generated_at,
@@ -488,20 +527,71 @@ export function matchWatch(watch, item) {
   };
 }
 
-function revisionToken(item) {
-  return clean(String(item.processed_at || item.published || item.title || ""), 80);
+// ---------------------------------------------------------------------------
+// Event identity and dedupe
+// ---------------------------------------------------------------------------
+
+// 64-bit FNV-1a as 16 hex chars. Deterministic, dependency-free, sync.
+function fnv64(text) {
+  let h1 = 0x811c9dc5;
+  let h2 = 0xcbf29ce4;
+  for (let i = 0; i < text.length; i += 1) {
+    const c = text.charCodeAt(i);
+    h1 = Math.imul(h1 ^ c, 0x01000193) >>> 0;
+    h2 = Math.imul(h2 ^ c ^ (h1 >>> 7), 0x01000193) >>> 0;
+  }
+  return h1.toString(16).padStart(8, "0") + h2.toString(16).padStart(8, "0");
 }
 
-export function candidateEvent(watch, item, feedGeneratedAt, nowIso) {
+/**
+ * Material revision of an item: what a customer would call "the advisory
+ * changed" (title, severity, CVEs, KEV). Pipeline timestamps such as
+ * processed_at are deliberately excluded, so re-enrichment of an unchanged
+ * advisory in a new feed generation never produces a second event, while a
+ * severity escalation or a new KEV listing does.
+ */
+export function materialRevision(item) {
+  const sev = severityBucket(item || {});
+  const kev = item?.kev_present === true || item?.kev_confirmed === true || item?.kev === true;
+  const title = clean(String(item?.title || item?.name || ""), 240).toLowerCase();
+  return "r" + fnv64([title, sev, cveIds(item || {}).sort().join(","), kev ? "kev" : ""].join("|"));
+}
+
+// Fields the matcher, classifier and event builder read. The scheduler ships
+// only these to ledgers; the request path matches on the same projection so
+// both paths decide identically.
+const PROJECTED_FIELDS = [
+  "id", "title", "name", "summary", "description", "ai_summary", "severity", "source", "source_name",
+  "actor_tag", "actor_display_name", "threat_type", "actor_malware", "kev_product", "kev_name", "tags",
+  "cve_ids", "affected_products", "kev_present", "kev_confirmed", "kev", "mitre_group_name", "actor_sectors",
+  "attck_technique_ids", "epss_score", "cvss_score", "actor_country", "processed_at", "published", "tlp",
+  "source_url", "blog_url",
+];
+
+export function projectItem(item) {
+  const out = {};
+  for (const k of PROJECTED_FIELDS) if (item[k] !== undefined) out[k] = item[k];
+  if (Array.isArray(item.iocs)) out.iocs = item.iocs.map((i) => ({ type: i && i.type })).filter((i) => i.type);
+  return out;
+}
+
+export function projectFeedItems(feed) {
+  return validItems(feed).map(projectItem);
+}
+
+export function candidateEvent(watch, item, feedGeneratedAt, nowIso, origin = "request") {
   const hit = matchWatch(watch, item);
   if (!hit.matched) return null;
   const itemId = clean(String(item.id), 128);
-  const dedupe = watch.id + "|" + itemId + "|" + revisionToken(item);
+  const revision = materialRevision(item);
+  const dedupe = watch.id + "|" + itemId + "|" + revision;
   return {
-    id: "e_" + dedupe.replace(/[^a-z0-9|:-]/gi, "").slice(0, 80),
+    id: "e_" + fnv64(dedupe),
     watch_id: watch.id,
     watch_name: watch.name,
     matched_item_id: itemId,
+    revision,
+    origin,
     matched_at: nowIso,
     severity: clean(String(item.severity || ""), 24) || null,
     source: clean(String(item.source || ""), 80) || null,
@@ -514,9 +604,50 @@ export function candidateEvent(watch, item, feedGeneratedAt, nowIso) {
     reference: clean(String(item.source_url || item.blog_url || ""), 300) || "https://intel.cyberdudebivash.com/cyber-watchdog.html",
     dedupe_key: dedupe,
     acknowledged: false,
-    delivery_status: "pending",
+    delivery_status: "no_destinations",
+    deliveries: [],
   };
 }
+
+/** Candidate events for every enabled watch, bounded per watch. */
+export function evaluateWatches(watches, items, feedGeneratedAt, nowIso, origin) {
+  const out = [];
+  for (const watch of (watches || []).filter((w) => w.enabled !== false)) {
+    let n = 0;
+    for (const item of items) {
+      const event = candidateEvent(watch, item, feedGeneratedAt, nowIso, origin);
+      if (event) { out.push(event); n += 1; }
+      if (n >= SCHEDULER_POLICY.max_events_per_watch_per_eval) break;
+    }
+  }
+  return out;
+}
+
+// v2 events carry a processed_at-based dedupe key and no `revision`. They
+// suppress any new event for the same watch + item, so the upgrade cannot
+// replay an old match as new.
+function isDuplicate(index, event) {
+  const k = event.watch_id + "|" + event.matched_item_id;
+  const seen = index.get(k);
+  if (!seen) return false;
+  return seen.has("*legacy*") || seen.has(event.revision) || seen.has(event.dedupe_key);
+}
+
+function buildDedupeIndex(events) {
+  const index = new Map();
+  for (const e of events) {
+    const k = e.watch_id + "|" + e.matched_item_id;
+    if (!index.has(k)) index.set(k, new Set());
+    const set = index.get(k);
+    set.add(e.revision || "*legacy*");
+    if (e.dedupe_key) set.add(e.dedupe_key);
+  }
+  return index;
+}
+
+// ---------------------------------------------------------------------------
+// Ledger state machine (pure). WatchdogLedger and MemoryLedger only store.
+// ---------------------------------------------------------------------------
 
 function publicWatch(w) {
   return {
@@ -525,23 +656,156 @@ function publicWatch(w) {
   };
 }
 
+// A v2 destination has no signing secret. It can never be verified or
+// signed for, so it is inert until the customer registers it again.
+export function destinationState(d) {
+  if (!d || !d.secret) return "disabled";
+  return d.state || "pending";
+}
+
+// Never includes the signing secret or the verification nonce.
+export function publicDestination(d) {
+  let hostname = null;
+  try { hostname = new URL(d.url).hostname; } catch { hostname = null; }
+  return {
+    id: d.id,
+    hostname,
+    url: d.url,
+    state: destinationState(d),
+    created_at: d.created_at || null,
+    verified_at: d.verified_at || null,
+    last_delivery_at: d.last_delivery_at || null,
+    failure_count: d.failure_count || 0,
+    disabled_reason: d.secret ? d.disabled_reason || null : "reregister_required_unsigned_v2_destination",
+    last_verification_error: d.last_verification_error || null,
+  };
+}
+
+function publicEvent(e) {
+  return {
+    ...e,
+    deliveries: (e.deliveries || []).map((d) => ({
+      destination_id: d.destination_id,
+      delivery_id: d.delivery_id,
+      status: d.status,
+      attempts: d.attempts || 0,
+      next_attempt_at: d.status === "pending" ? d.next_attempt_at || null : null,
+      last_attempt_at: d.last_attempt_at || null,
+      last_http_status: d.last_http_status ?? null,
+      last_error: d.last_error || null,
+      delivered_at: d.delivered_at || null,
+    })),
+  };
+}
+
+function aggregateDeliveryStatus(deliveries) {
+  if (!deliveries || !deliveries.length) return "no_destinations";
+  const s = new Set(deliveries.map((d) => d.status));
+  if (s.has("pending")) return "pending";
+  if (s.size === 1) return [...s][0];
+  return "partial";
+}
+
+function enabledCount(watches) {
+  return (watches || []).filter((w) => w.enabled !== false).length;
+}
+
+function activeDestinations(destinations) {
+  return (destinations || []).filter((d) => destinationState(d) === "active");
+}
+
+function pendingCount(events) {
+  let n = 0;
+  for (const e of events) for (const d of e.deliveries || []) if (d.status === "pending") n += 1;
+  return n;
+}
+
+function msIso(ms) { return new Date(ms).toISOString(); }
+
+export function nextDeliveryDue(state) {
+  let min = null;
+  const active = new Set(activeDestinations(state.destinations).map((d) => d.id));
+  for (const e of state.events || []) {
+    for (const d of e.deliveries || []) {
+      if (d.status !== "pending" || !active.has(d.destination_id)) continue;
+      const due = Date.parse(d.next_attempt_at || 0) || 0;
+      const lease = d.lease_until ? Date.parse(d.lease_until) || 0 : 0;
+      const t = Math.max(due, lease);
+      if (min === null || t < min) min = t;
+    }
+  }
+  return min === null ? null : msIso(min);
+}
+
+function appendCandidates(next, candidates, quota, now) {
+  const index = buildDedupeIndex(next.events);
+  const inserted = [];
+  let deduped = 0;
+  const active = quota.webhooks ? activeDestinations(next.destinations) : [];
+  let pending = pendingCount(next.events);
+  const nowMs = Date.parse(now) || Date.now();
+  for (const raw of candidates || []) {
+    if (!raw?.dedupe_key || !raw.watch_id || !raw.matched_item_id) continue;
+    const event = { ...raw, revision: raw.revision || null };
+    if (isDuplicate(index, event)) { deduped += 1; continue; }
+    const k = event.watch_id + "|" + event.matched_item_id;
+    if (!index.has(k)) index.set(k, new Set());
+    index.get(k).add(event.revision || event.dedupe_key).add(event.dedupe_key);
+    event.deliveries = active.map((d) => {
+      const queueFull = pending >= DELIVERY_POLICY.max_pending_deliveries;
+      if (!queueFull) pending += 1;
+      return {
+        destination_id: d.id,
+        delivery_id: event.id + ":" + d.id,
+        status: queueFull ? "failed" : "pending",
+        attempts: 0,
+        next_attempt_at: msIso(nowMs),
+        last_error: queueFull ? "queue_full" : null,
+      };
+    });
+    event.delivery_status = aggregateDeliveryStatus(event.deliveries);
+    inserted.push(event);
+  }
+  next.events = inserted.concat(next.events).slice(0, EVENT_RETENTION);
+  next.metrics = bumpMetrics(next.metrics, { events_generated: inserted.length, events_deduped: deduped });
+  return { inserted, deduped };
+}
+
+function bumpMetrics(m, delta) {
+  const out = { ...(m || {}) };
+  for (const [k, v] of Object.entries(delta)) if (v) out[k] = (out[k] || 0) + v;
+  return out;
+}
+
+function cloneState(base, subject) {
+  return {
+    revision: (base.revision || 0) + 1,
+    subject,
+    watches: Array.isArray(base.watches) ? base.watches.map((w) => ({ ...w })) : [],
+    events: Array.isArray(base.events) ? base.events.map((e) => ({ ...e, deliveries: (e.deliveries || []).map((d) => ({ ...d })) })) : [],
+    destinations: Array.isArray(base.destinations) ? base.destinations.map((d) => ({ ...d })) : [],
+    deliveries: Array.isArray(base.deliveries) ? base.deliveries.slice() : [],
+    metrics: { ...(base.metrics || {}) },
+  };
+}
+
 export function applyLedgerMutation(state, op) {
   const base = state && typeof state === "object" ? state : emptyLedgerState();
-  const subject = clean(String(op?.subject || ""), 128);
+  const subject = clean(String(op?.subject || ""), 200);
   if (!subject) return { error: "subject_required", status: 400, state: base };
   if (base.subject && base.subject !== subject) return { error: "tenant_mismatch", status: 403, state: base };
   if (op.type === "get") {
     return { readOnly: true, state: base, result: viewState(base) };
   }
-  const next = {
-    revision: (base.revision || 0) + 1,
-    subject,
-    watches: Array.isArray(base.watches) ? base.watches.map((w) => ({ ...w })) : [],
-    events: Array.isArray(base.events) ? base.events.slice() : [],
-    destinations: Array.isArray(base.destinations) ? base.destinations.slice() : [],
-    deliveries: Array.isArray(base.deliveries) ? base.deliveries.slice() : [],
-  };
+  if (op.type === "get_destination_internal") {
+    const d = (base.destinations || []).find((x) => x.id === clean(String(op.id || ""), 40));
+    if (!d) return { error: "not_found", status: 404, state: base };
+    return { readOnly: true, state: base, result: { destination: { ...d } } };
+  }
+  const next = cloneState(base, subject);
   const quota = quotaForTier(op.tier || "FREE");
+  const now = op.now || new Date().toISOString();
+  const nowMs = Date.parse(now) || Date.now();
   if (op.type === "create_watch") {
     if (!quota.events) return { error: "tier_required", status: 403, state: base, message: "Watches are included with Pro Defense." };
     if (next.watches.length >= quota.watches) return { error: "watch_limit", status: 403, state: base, message: "Watch limit for this plan is reached.", limit: quota.watches };
@@ -552,11 +816,11 @@ export function applyLedgerMutation(state, op) {
     const watch = {
       id: "w_" + clean(String(op.id || ""), 24).replace(/[^a-z0-9]/gi, "").slice(0, 24),
       name, logic: norm.logic, criteria: norm.criteria, enabled: op.watch?.enabled !== false,
-      created_at: op.now, updated_at: op.now,
+      created_at: now, updated_at: now,
     };
     if (!watch.id || watch.id === "w_") return { error: "invalid_watch", status: 400, state: base };
     next.watches.push(watch);
-    return { state: next, result: { watch: publicWatch(watch), count: next.watches.length, limit: quota.watches } };
+    return { state: next, result: { watch: publicWatch(watch), count: next.watches.length, limit: quota.watches }, enabled_watches: enabledCount(next.watches) };
   }
   if (op.type === "update_watch") {
     if (!quota.events) return { error: "tier_required", status: 403, state: base };
@@ -579,28 +843,39 @@ export function applyLedgerMutation(state, op) {
     next.watches[idx] = {
       ...prev, name, logic: norm.logic, criteria: norm.criteria,
       enabled: patch.enabled == null ? prev.enabled !== false : patch.enabled === true,
-      updated_at: op.now,
+      updated_at: now,
     };
-    return { state: next, result: { watch: publicWatch(next.watches[idx]) } };
+    return { state: next, result: { watch: publicWatch(next.watches[idx]) }, enabled_watches: enabledCount(next.watches) };
   }
   if (op.type === "delete_watch") {
     const id = clean(String(op.id || ""), 40);
     const kept = next.watches.filter((w) => w.id !== id);
     if (kept.length === next.watches.length) return { error: "not_found", status: 404, state: base };
     next.watches = kept;
-    return { state: next, result: { deleted: id, count: kept.length } };
+    return { state: next, result: { deleted: id, count: kept.length }, enabled_watches: enabledCount(next.watches) };
   }
-  if (op.type === "append_events") {
+  if (op.type === "append_events" || op.type === "scheduled_evaluate") {
     if (!quota.events) return { error: "tier_required", status: 403, state: base };
-    const existing = new Set(next.events.map((e) => e.dedupe_key));
-    const inserted = [];
-    for (const event of op.events || []) {
-      if (!event?.dedupe_key || existing.has(event.dedupe_key)) continue;
-      existing.add(event.dedupe_key);
-      inserted.push(event);
+    let candidates = op.events || [];
+    if (op.type === "scheduled_evaluate") {
+      // Freshness is re-checked here, inside the store: a caller that skipped
+      // the gate still cannot create events from a non-FRESH feed.
+      if (op.publication?.freshness_status !== "FRESH" || !Array.isArray(op.items)) {
+        return { readOnly: true, state: base, result: { inserted: [], inserted_count: 0, deduped: 0, skipped: "feed_not_fresh", enabled_watches: enabledCount(base.watches) } };
+      }
+      candidates = evaluateWatches(next.watches, op.items, op.publication.feed_generated_at, now, "scheduler");
     }
-    next.events = inserted.concat(next.events).slice(0, EVENT_RETENTION);
-    return { state: next, result: { inserted, inserted_count: inserted.length } };
+    const { inserted, deduped } = appendCandidates(next, candidates, quota, now);
+    const result = {
+      inserted, inserted_count: inserted.length, deduped,
+      enabled_watches: enabledCount(next.watches),
+      active_destinations: activeDestinations(next.destinations).length,
+    };
+    if (!inserted.length) {
+      // Nothing new: do not rewrite storage for a pure dedupe pass.
+      return { readOnly: true, state: base, result };
+    }
+    return { state: next, result, next_delivery_due_at: nextDeliveryDue(next) };
   }
   if (op.type === "ack") {
     const ids = new Set(asList(op.ids, 50, 96, (v) => clean(String(v), 96)));
@@ -608,29 +883,155 @@ export function applyLedgerMutation(state, op) {
     next.events = next.events.map((e) => {
       if (!ids.has(e.id) || e.acknowledged) return e;
       n += 1;
-      return { ...e, acknowledged: true, acknowledged_at: op.now };
+      return { ...e, acknowledged: true, acknowledged_at: now };
     });
     return { state: next, result: { acknowledged: n } };
   }
-  if (op.type === "set_destination") {
+  if (op.type === "set_destination" || op.type === "create_destination") {
     if (!quota.webhooks) return { error: "tier_required", status: 403, state: base, message: "HTTPS webhook delivery is included with Enterprise SOC or MSSP." };
     const dest = normalizeDestination(op.destination);
     if (dest.error) return { ...dest, status: 400, state: base };
-    if (next.destinations.length >= quota.webhooks) return { error: "webhook_limit", status: 403, state: base, limit: quota.webhooks };
-    next.destinations.push({ id: "d_" + clean(String(op.id || ""), 24), url: dest.url, created_at: op.now });
-    return { state: next, result: { destination: next.destinations[next.destinations.length - 1], count: next.destinations.length } };
+    const live = next.destinations.filter((d) => destinationState(d) !== "disabled");
+    if (live.length >= quota.webhooks) return { error: "webhook_limit", status: 403, state: base, limit: quota.webhooks };
+    const secret = typeof op.secret === "string" && /^whsec_[0-9a-f]{64}$/.test(op.secret) ? op.secret : null;
+    if (!secret) return { error: "secret_required", status: 500, state: base };
+    const row = {
+      id: "d_" + clean(String(op.id || ""), 40).replace(/[^a-z0-9-]/gi, "").slice(0, 36),
+      url: dest.url,
+      state: "pending",
+      secret,
+      created_at: now,
+      verified_at: null,
+      last_delivery_at: null,
+      failure_count: 0,
+    };
+    next.destinations.push(row);
+    return { state: next, result: { destination: publicDestination(row), count: next.destinations.length } };
+  }
+  if (op.type === "verification_result") {
+    const id = clean(String(op.id || ""), 40);
+    const idx = next.destinations.findIndex((d) => d.id === id);
+    if (idx < 0) return { error: "not_found", status: 404, state: base };
+    const d = next.destinations[idx];
+    if (!d.secret) return { error: "reregister_required", status: 409, state: base };
+    if (op.ok) {
+      next.destinations[idx] = { ...d, state: "active", verified_at: now, failure_count: 0, disabled_reason: null, last_verification_error: null };
+    } else {
+      next.destinations[idx] = { ...d, state: d.state === "active" ? "active" : "pending", last_verification_error: clean(String(op.error || "verification_failed"), 60) };
+      next.metrics = bumpMetrics(next.metrics, { verification_failures: 1 });
+    }
+    return { state: next, result: { destination: publicDestination(next.destinations[idx]), verified: !!op.ok }, enabled_watches: enabledCount(next.watches) };
+  }
+  if (op.type === "set_destination_state") {
+    const id = clean(String(op.id || ""), 40);
+    const idx = next.destinations.findIndex((d) => d.id === id);
+    if (idx < 0) return { error: "not_found", status: 404, state: base };
+    const want = op.state === "disabled" ? "disabled" : null;
+    if (!want) return { error: "invalid_state", status: 400, state: base };
+    next.destinations[idx] = { ...next.destinations[idx], state: want, disabled_reason: "customer" };
+    return { state: next, result: { destination: publicDestination(next.destinations[idx]) } };
   }
   if (op.type === "delete_destination") {
     const id = clean(String(op.id || ""), 40);
     const kept = next.destinations.filter((d) => d.id !== id);
     if (kept.length === next.destinations.length) return { error: "not_found", status: 404, state: base };
     next.destinations = kept;
+    // Pending deliveries to a removed destination end here, visibly.
+    for (const e of next.events) {
+      let touched = false;
+      for (const d of e.deliveries || []) {
+        if (d.destination_id === id && d.status === "pending") { d.status = "failed"; d.last_error = "destination_removed"; touched = true; }
+      }
+      if (touched) e.delivery_status = aggregateDeliveryStatus(e.deliveries);
+    }
     return { state: next, result: { deleted: id, count: kept.length } };
   }
+  if (op.type === "delivery_plan") {
+    // Leases due deliveries so an overlapping alarm cannot send them twice.
+    const limit = Math.min(DELIVERY_POLICY.max_deliveries_per_run, Math.max(1, Number(op.limit) || DELIVERY_POLICY.max_deliveries_per_run));
+    const byId = new Map(next.destinations.map((d) => [d.id, d]));
+    const planned = [];
+    let changed = false;
+    for (const e of next.events) {
+      for (const d of e.deliveries || []) {
+        if (d.status !== "pending") continue;
+        const dest = byId.get(d.destination_id);
+        if (!dest || destinationState(dest) !== "active") {
+          d.status = "failed"; d.last_error = dest ? "destination_" + destinationState(dest) : "destination_removed";
+          e.delivery_status = aggregateDeliveryStatus(e.deliveries);
+          changed = true;
+          continue;
+        }
+        if (Date.parse(d.next_attempt_at || 0) > nowMs) continue;
+        if (d.lease_until && Date.parse(d.lease_until) > nowMs) continue;
+        if (planned.length >= limit) continue;
+        d.lease_until = msIso(nowMs + DELIVERY_POLICY.lease_seconds * 1000);
+        changed = true;
+        planned.push({
+          event_id: e.id,
+          delivery_id: d.delivery_id,
+          attempt: (d.attempts || 0) + 1,
+          destination: { id: dest.id, url: dest.url, secret: dest.secret },
+          raw_body: JSON.stringify(buildWebhookPayload(e, d.delivery_id)),
+        });
+      }
+    }
+    if (!changed) return { readOnly: true, state: base, result: { planned: [], next_delivery_due_at: nextDeliveryDue(base) } };
+    return { state: next, result: { planned, next_delivery_due_at: nextDeliveryDue(next) }, next_delivery_due_at: nextDeliveryDue(next) };
+  }
+  if (op.type === "delivery_results") {
+    const byDelivery = new Map();
+    for (const r of op.results || []) if (r && r.delivery_id) byDelivery.set(r.delivery_id, r);
+    const destIdx = new Map(next.destinations.map((d, i) => [d.id, i]));
+    const delta = { delivery_attempts: 0, delivery_successes: 0, delivery_failures: 0 };
+    for (const e of next.events) {
+      let touched = false;
+      for (const d of e.deliveries || []) {
+        const r = byDelivery.get(d.delivery_id);
+        if (!r || d.status !== "pending") continue;
+        touched = true;
+        d.attempts = (d.attempts || 0) + 1;
+        d.last_attempt_at = now;
+        d.last_http_status = r.http_status ?? null;
+        d.last_error = r.error || null;
+        d.lease_until = null;
+        delta.delivery_attempts += 1;
+        const di = destIdx.get(d.destination_id);
+        const dest = di == null ? null : next.destinations[di];
+        let final = null;
+        if (r.outcome === "delivered") {
+          d.status = "delivered"; d.delivered_at = now;
+          delta.delivery_successes += 1;
+          if (dest) next.destinations[di] = { ...dest, last_delivery_at: now, failure_count: 0 };
+        } else if (r.outcome === "retry" && d.attempts < DELIVERY_POLICY.max_attempts) {
+          d.next_attempt_at = msIso(nowMs + retryDelaySeconds(d.attempts + 1, r.retry_after_seconds) * 1000);
+        } else {
+          d.status = "failed"; final = true;
+          delta.delivery_failures += 1;
+        }
+        if (dest && (final || r.disable)) {
+          const cur = next.destinations[di];
+          const failures = final ? (cur.failure_count || 0) + 1 : cur.failure_count || 0;
+          let stateNext = cur.state;
+          let reason = cur.disabled_reason || null;
+          if (r.disable) { stateNext = "failed"; reason = r.disable; }
+          else if (failures >= DELIVERY_POLICY.auto_disable_after_consecutive_failed_events) { stateNext = "failed"; reason = "consecutive_failures"; }
+          next.destinations[di] = { ...cur, failure_count: failures, state: stateNext, disabled_reason: reason };
+        }
+        next.deliveries = [{
+          event_id: e.id, destination_id: d.destination_id, delivery_id: d.delivery_id, attempt: d.attempts,
+          outcome: d.status === "pending" ? "retry_scheduled" : d.status, http_status: d.last_http_status, error: d.last_error, at: now,
+        }].concat(next.deliveries).slice(0, DELIVERY_RETENTION);
+      }
+      if (touched) e.delivery_status = aggregateDeliveryStatus(e.deliveries);
+    }
+    next.metrics = bumpMetrics(next.metrics, delta);
+    return { state: next, result: { recorded: delta.delivery_attempts, metrics: delta, next_delivery_due_at: nextDeliveryDue(next) }, next_delivery_due_at: nextDeliveryDue(next) };
+  }
   if (op.type === "record_delivery") {
-    next.deliveries = [{ ...op.delivery, at: op.now }].concat(next.deliveries).slice(0, DELIVERY_RETENTION);
-    const id = op.delivery?.event_id;
-    next.events = next.events.map((e) => e.id === id ? { ...e, delivery_status: op.delivery.status } : e);
+    // DEPRECATED v2 op (single status per event). Kept so an in-flight v2
+    // caller cannot corrupt state; v3 uses delivery_plan/delivery_results.
+    next.deliveries = [{ ...op.delivery, at: now }].concat(next.deliveries).slice(0, DELIVERY_RETENTION);
     return { state: next, result: { recorded: true } };
   }
   return { error: "unsupported_op", status: 400, state: base };
@@ -640,44 +1041,22 @@ function viewState(state) {
   return {
     revision: state.revision || 0,
     watches: (state.watches || []).map(publicWatch),
-    events: state.events || [],
-    destinations: state.destinations || [],
+    events: (state.events || []).map(publicEvent),
+    destinations: (state.destinations || []).map(publicDestination),
     deliveries: state.deliveries || [],
+    metrics: { ...(state.metrics || {}) },
   };
 }
 
-const BLOCKED_HOSTS = /^(localhost|127\.0\.0\.1|0\.0\.0\.0|::1|metadata\.google\.internal)$/i;
-
-function ipv4Private(parts) {
-  const [a, b] = parts;
-  return a === 10 || a === 127 || a === 0 || a >= 224
-    || (a === 169 && b === 254)
-    || (a === 172 && b >= 16 && b <= 31)
-    || (a === 192 && b === 168);
-}
-
-function blockedHost(hostname) {
-  const host = String(hostname || "").replace(/^\[|\]$/g, "").toLowerCase();
-  if (!host || BLOCKED_HOSTS.test(host) || host.endsWith(".local") || host.endsWith(".internal")) return true;
-  if (/^\d+$/.test(host)) return true;
-  const v4 = host.match(/^(\d+)\.(\d+)\.(\d+)\.(\d+)$/);
-  if (v4) return ipv4Private(v4.slice(1).map(Number));
-  if (!host.includes(":")) return false;
-  if (host === "::" || host === "::1" || host.startsWith("::ffff:")) return true;
-  const first = host.split(":").find(Boolean) || "";
-  if (/^f[cd]/.test(first) || /^fe[89ab]/.test(first) || /^ff/.test(first)) return true;
-  const hextet = Number.parseInt(first, 16);
-  if (!Number.isFinite(hextet)) return true;
-  return hextet < 0x2000 || hextet > 0x3fff;
-}
-
+/**
+ * Static URL checks (scheme, port, credentials, literal addresses, local
+ * names). DNS resolution safety is enforced separately, at registration,
+ * verification and every delivery -- see watchdog-webhook.js.
+ */
 export function normalizeDestination(input) {
-  let url;
-  try { url = new URL(String(input?.url || "")); } catch { return { error: "invalid_destination", message: "Webhook URL must be https." }; }
-  if (url.protocol !== "https:") return { error: "invalid_destination", message: "Webhook URL must be https." };
-  if (url.username || url.password) return { error: "invalid_destination", message: "Webhook URL must not contain credentials." };
-  if (blockedHost(url.hostname)) return { error: "invalid_destination", message: "Webhook host is not allowed." };
-  return { url: url.origin + url.pathname };
+  const out = validateDestinationUrl(input?.url);
+  if (out.error) return out;
+  return { url: out.url, hostname: out.hostname };
 }
 
 export function analyticsFromEvents(events, nowMs = Date.now()) {
@@ -689,9 +1068,19 @@ export function analyticsFromEvents(events, nowMs = Date.now()) {
   };
   const dayEvents = list.filter((e) => inWindow(e, day));
   const weekEvents = list.filter((e) => inWindow(e, 7 * day));
-  const deliveries = list.map((e) => e.delivery_status).filter((s) => s && s !== "pending");
-  const success = deliveries.filter((s) => s === "delivered").length;
-  const failed = deliveries.filter((s) => s === "failed").length;
+  // Destination-specific results; a v2 event without `deliveries` falls back
+  // to its single delivery_status.
+  const finals = [];
+  for (const e of list) {
+    if (Array.isArray(e.deliveries) && e.deliveries.length) {
+      for (const d of e.deliveries) if (d.status === "delivered" || d.status === "failed") finals.push(d.status);
+    } else if (e.delivery_status === "delivered" || e.delivery_status === "failed") {
+      finals.push(e.delivery_status);
+    }
+  }
+  const pending = list.reduce((n, e) => n + (e.deliveries || []).filter((d) => d.status === "pending").length, 0);
+  const success = finals.filter((s) => s === "delivered").length;
+  const failed = finals.filter((s) => s === "failed").length;
   const byWatch = new Map();
   const bySource = new Map();
   for (const event of list) {
@@ -706,9 +1095,10 @@ export function analyticsFromEvents(events, nowMs = Date.now()) {
     critical_matches_24h: dayEvents.filter((e) => String(e.severity).toUpperCase() === "CRITICAL").length,
     high_matches_24h: dayEvents.filter((e) => String(e.severity).toUpperCase() === "HIGH").length,
     unread: list.filter((e) => !e.acknowledged).length,
-    delivery_success_rate: deliveries.length ? Number((success / deliveries.length).toFixed(4)) : null,
-    delivery_failure_rate: deliveries.length ? Number((failed / deliveries.length).toFixed(4)) : null,
+    delivery_success_rate: finals.length ? Number((success / finals.length).toFixed(4)) : null,
+    delivery_failure_rate: finals.length ? Number((failed / finals.length).toFixed(4)) : null,
     delivery_failures: failed,
+    deliveries_pending: pending,
     top_watches: ranked(byWatch).map(([name, count]) => ({ name, count })),
     top_sources: ranked(bySource).map(([source, count]) => ({ source, count })),
     history: list.length ? "stored-match-events" : "no_history_yet",
@@ -731,35 +1121,167 @@ export class MemoryLedger {
   }
 }
 
+/**
+ * Executes due webhook deliveries for one ledger: plan (leases) -> attempt
+ * (re-resolve, sign, POST) -> record. Used by the WatchdogLedger alarm and
+ * by tests. Bounded by DELIVERY_POLICY.max_deliveries_per_run.
+ * `attempt` is watchdog-webhook.js attemptDelivery (injected, no cycle).
+ */
+export async function runDueDeliveries({ ledger, subject, tier, now, attempt, fetchImpl, dnsFetch }) {
+  const plan = await ledger.mutate({ type: "delivery_plan", subject, tier, now });
+  if (plan.error) return { error: plan.error, attempted: 0, next_delivery_due_at: null };
+  const planned = plan.result?.planned || [];
+  if (!planned.length) return { attempted: 0, next_delivery_due_at: plan.result?.next_delivery_due_at || null, metrics: null };
+  const results = [];
+  for (const p of planned) {
+    const r = await attempt({
+      destination: p.destination, eventId: p.event_id, deliveryId: p.delivery_id, attempt: p.attempt,
+      rawBody: p.raw_body, fetchImpl, dnsFetch, nowMs: Date.parse(now) || Date.now(),
+    });
+    results.push({ delivery_id: p.delivery_id, ...r });
+  }
+  const rec = await ledger.mutate({ type: "delivery_results", subject, tier, now, results });
+  return {
+    attempted: results.length,
+    results,
+    metrics: rec.result?.metrics || null,
+    next_delivery_due_at: rec.result?.next_delivery_due_at || null,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Request routing
+// ---------------------------------------------------------------------------
+
+const SCOPE_BY_ROUTE = [
+  // [path, methods, scope]
+  ["/api/watchdog/watches", ["GET", "HEAD"], WATCHDOG_SCOPES.READ],
+  ["/api/watchdog/watches", ["POST", "PATCH", "DELETE"], WATCHDOG_SCOPES.WATCHES_WRITE],
+  ["/api/watchdog/events", ["GET", "HEAD"], WATCHDOG_SCOPES.EVENTS_READ],
+  ["/api/watchdog/matches", ["GET", "HEAD"], WATCHDOG_SCOPES.EVENTS_READ],
+  ["/api/watchdog/events/ack", ["POST"], WATCHDOG_SCOPES.EVENTS_ACK],
+  ["/api/watchdog/destinations", ["GET", "HEAD"], WATCHDOG_SCOPES.READ],
+  ["/api/watchdog/destinations", ["POST", "PATCH", "DELETE"], WATCHDOG_SCOPES.DESTINATIONS_WRITE],
+  ["/api/watchdog/destinations/verify", ["POST"], WATCHDOG_SCOPES.DESTINATIONS_WRITE],
+  ["/api/watchdog/deploy", ["GET", "HEAD"], WATCHDOG_SCOPES.READ],
+  ["/api/watchdog/brief", ["GET", "HEAD"], WATCHDOG_SCOPES.READ],
+];
+
+export function requiredScope(path, method) {
+  for (const [p, methods, scope] of SCOPE_BY_ROUTE) if (p === path && methods.includes(method)) return scope;
+  return null;
+}
+
+/** A Watchdog session token may only do what its scopes name. */
+export function scopeDenied(auth, path, method) {
+  if (!auth || auth.aud !== SESSION_POLICY.audience) return null;
+  const need = requiredScope(path, method);
+  if (!need) return null;
+  const have = Array.isArray(auth.scopes) ? auth.scopes : [];
+  return have.includes(need) ? null : { status: 403, body: { error: "insufficient_scope", required_scope: need } };
+}
+
+const TENANT_RE = /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/;
+const FORBIDDEN = { status: 403, body: { error: "forbidden", message: "Not authorized for this Watchdog resource." } };
+
+/**
+ * MSSP sub-tenant selection. Tenant identity comes from the authenticated
+ * credential's managed_tenants list (the platform's existing MSSP tenant
+ * authority, set by the key administrator), never from the request body.
+ * A key with no explicit managed_tenants list gets no sub-tenant access:
+ * isolation requires an explicit membership list. Every refusal is the same
+ * generic 403, so a caller cannot probe which tenants exist.
+ */
+export function resolveTenant(req) {
+  const fromHeader = req.headers && typeof req.headers.get === "function" ? req.headers.get("X-CDB-Watchdog-Tenant") : null;
+  const fromQuery = req.searchParams?.get?.("tenant") || null;
+  const requested = fromHeader || fromQuery || null;
+  const bound = req.auth?.tenant || null;
+  if (!requested && !bound) return { tenant: null };
+  const tenant = requested || bound;
+  if (bound && requested && bound !== requested) return { error: FORBIDDEN };
+  if (typeof tenant !== "string" || !TENANT_RE.test(tenant)) return { error: FORBIDDEN };
+  const tier = effectiveTier(req.auth);
+  if (!featuresFor(tier).tenants) return { error: FORBIDDEN };
+  const managed = Array.isArray(req.auth?.managed_tenants) ? req.auth.managed_tenants : null;
+  if (!managed || !managed.includes(tenant)) return { error: FORBIDDEN };
+  return { tenant };
+}
+
+export function ledgerKeyFor(sub, tenant) {
+  return tenant ? sub + "|t:" + tenant : sub;
+}
+
 function paidGuard(auth) {
   const tier = effectiveTier(auth);
   const quota = quotaForTier(tier);
   if (!quota.events || !auth?.sub) {
-    return { error: { status: 403, body: { error: "tier_required", message: "This Watchdog capability is included with Pro Defense ($49/mo).", checkout: "/upgrade.html?plan=pro&feature=cyber-watchdog" } } };
+    return { error: { status: 403, body: { error: "tier_required", message: "This Watchdog capability is included with Pro Defense (" + priceLabel("PRO") + ").", checkout: "/upgrade.html?plan=pro&feature=cyber-watchdog" } } };
   }
   return { tier, quota };
 }
 
 async function ledger(req, op) {
-  if (!req.ledger || typeof req.ledger.mutate !== "function") {
+  const key = req.ledgerKey || req.auth.sub;
+  const store = typeof req.ledgerFor === "function" ? req.ledgerFor(key) : req.ledger;
+  if (!store || typeof store.mutate !== "function") {
     return { error: "watch_store_unavailable", status: 503, message: "Watch store is temporarily unavailable. Nothing was saved." };
   }
-  return req.ledger.mutate({ ...op, subject: req.auth.sub, tier: effectiveTier(req.auth), now: req.now });
+  return store.mutate({ ...op, subject: key, tier: effectiveTier(req.auth), now: req.now });
 }
 
 function publicFailure(out) {
   const body = { error: out?.error || "watch_store_unavailable" };
+  // Ownership mismatch reveals nothing about the other ledger.
+  if (out?.error === "tenant_mismatch") return { status: 403, body };
   if (out?.message) body.message = out.message;
   if (out?.limit != null) body.limit = out.limit;
   return { status: out?.status || 503, body };
 }
 
-export function buildWebhookPayload(event) {
-  return {
+/**
+ * Claims for a Watchdog browser session: customer-bound (sub), audience- and
+ * scope-restricted, short-lived, and never outliving max_lifetime_seconds
+ * from the original credential exchange. A session token can refresh
+ * itself but can never widen its scopes or tenant.
+ */
+export function buildSessionClaims(auth, nowSec, jti, tenant) {
+  const tier = effectiveTier(auth);
+  const tierScopes = scopesForTier(tier);
+  const isSession = auth?.aud === SESSION_POLICY.audience;
+  const scopes = isSession ? tierScopes.filter((s) => (auth.scopes || []).includes(s)) : tierScopes;
+  const authTime = isSession && Number.isInteger(auth.auth_time) ? auth.auth_time : nowSec;
+  const hardStop = authTime + SESSION_POLICY.max_lifetime_seconds;
+  const exp = Math.min(nowSec + SESSION_POLICY.ttl_seconds, hardStop);
+  if (!scopes.length || exp <= nowSec) return null;
+  const claims = {
+    sub: auth.sub, tier, aud: SESSION_POLICY.audience, scope: scopes.join(" "),
+    iat: nowSec, exp, auth_time: authTime, jti, iss: "SENTINEL-APEX",
+  };
+  if (tenant) claims.tenant = tenant;
+  if (Array.isArray(auth.managed_tenants)) claims.managed_tenants = auth.managed_tenants.slice(0, 100);
+  // Entitlement expiry of the underlying key (not the token's own exp), so
+  // the scheduler never confuses a 15-minute session with the subscription.
+  const ent = entitlementExpiry(auth);
+  if (ent) {
+    if (Date.parse(ent) <= nowSec * 1000) return null;
+    claims.ent_exp = ent;
+    claims.exp = Math.min(claims.exp, Math.floor(Date.parse(ent) / 1000));
+  }
+  return claims;
+}
+
+export function buildWebhookPayload(event, deliveryId) {
+  const payload = {
+    type: "watchdog.match",
+    contract_version: WEBHOOK_CONTRACT.version,
+    event_id: event.id,
     product: WATCHDOG_NAME,
     watch_id: event.watch_id,
     watch_name: event.watch_name,
     matched_item_id: event.matched_item_id,
+    revision: event.revision || null,
+    matched_at: event.matched_at || null,
     title: event.title,
     severity: event.severity,
     source: event.source,
@@ -770,8 +1292,16 @@ export function buildWebhookPayload(event) {
     reference: event.reference,
     tlp: event.tlp,
   };
+  if (deliveryId) payload.delivery_id = deliveryId;
+  return payload;
 }
 
+/**
+ * DEPRECATED (v3): unsigned single-attempt POST with no DNS validation.
+ * Not called by any v3 path; retained for importers. Use
+ * watchdog-webhook.js attemptDelivery() via runDueDeliveries().
+ * Removal: next Watchdog major.
+ */
 export async function deliverWebhook(url, payload, fetchImpl = fetch, timeoutMs = MAX_WEBHOOK_TIMEOUT_MS) {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), timeoutMs);
@@ -779,7 +1309,7 @@ export async function deliverWebhook(url, payload, fetchImpl = fetch, timeoutMs 
     const res = await fetchImpl(url, {
       method: "POST",
       redirect: "manual",
-      headers: { "Content-Type": "application/json", "User-Agent": "CYBERDUDEBIVASH-SENTINEL-APEX-CYBER-WATCHDOG/2.0" },
+      headers: { "Content-Type": "application/json", "User-Agent": "CYBERDUDEBIVASH-SENTINEL-APEX-CYBER-WATCHDOG/3.0" },
       body: JSON.stringify(payload),
       signal: ctrl.signal,
     });
@@ -794,24 +1324,11 @@ export async function deliverWebhook(url, payload, fetchImpl = fetch, timeoutMs 
 async function evaluateMatches(req, record) {
   const pub = watchdogPublication(req.feed, req.nowMs);
   if (!pub.serve_live) return { degraded: degradedBody(pub), inserted: [] };
-  const watches = (record.watches || []).filter((w) => w.enabled !== false);
-  const items = validItems(req.feed);
-  const candidates = [];
-  for (const watch of watches) {
-    let n = 0;
-    for (const item of items) {
-      const event = candidateEvent(watch, item, pub.feed_generated_at, req.now);
-      if (event) {
-        candidates.push(event);
-        n += 1;
-      }
-      if (n >= 20) break;
-    }
-  }
+  const candidates = evaluateWatches(record.watches || [], projectFeedItems(req.feed), pub.feed_generated_at, req.now, "request");
   const appended = candidates.length
     ? await ledger(req, { type: "append_events", events: candidates })
-    : { result: { inserted: [] } };
-  return { pub, inserted: appended.result?.inserted || [], error: appended.error ? appended : null };
+    : { result: { inserted: [], deduped: 0 } };
+  return { pub, inserted: appended.result?.inserted || [], deduped: appended.result?.deduped || 0, error: appended.error ? appended : null };
 }
 
 export function deployManifest(tier) {
@@ -826,7 +1343,7 @@ export function deployManifest(tier) {
   return {
     product: WATCHDOG_NAME,
     mode: "customer-environment",
-    seller: COMMERCIAL_MIRROR.seller_trade_name,
+    seller: SELLER.seller_trade_name,
     entitlement: "PRO+ reads GET /api/watchdog/brief. The poller is not an Enterprise boundary.",
     runtime: "Node.js 18+",
     poll: {
@@ -835,8 +1352,18 @@ export function deployManifest(tier) {
       interval_seconds: 900,
       package: "deploy/cyber-watchdog/poll.mjs",
     },
+    background_evaluation: quota.background_evaluation
+      ? "Watches are evaluated by the hosted scheduler after each authoritative feed update. No browser or poller is required."
+      : null,
     webhooks: quota.webhooks
-      ? { endpoint: "POST /api/watchdog/destinations", limit: quota.webhooks }
+      ? {
+        endpoint: "POST /api/watchdog/destinations",
+        verify: "POST /api/watchdog/destinations/verify?id=",
+        limit: quota.webhooks,
+        contract_version: WEBHOOK_CONTRACT.version,
+        signature: "X-CDB-Watchdog-Signature: v1=hex(HMAC-SHA256(secret, timestamp + \".\" + raw_body))",
+        reference_receiver: "deploy/cyber-watchdog/sink.mjs",
+      }
       : { endpoint: null, message: "HTTPS delivery is included with Enterprise SOC or MSSP." },
     does_not: [
       "The poller does not scan the internet from the customer host.",
@@ -844,6 +1371,38 @@ export function deployManifest(tier) {
     ],
     included_with: tier,
   };
+}
+
+/**
+ * When the paid entitlement behind this credential ends. An API key carries
+ * its record's expires_at; a Watchdog session carries ent_exp from the key it
+ * was exchanged for. Any other JWT's expires_at is the token lifetime, not
+ * the entitlement, so it is not used.
+ */
+export function entitlementExpiry(auth) {
+  if (!auth) return null;
+  if (auth.aud === SESSION_POLICY.audience) return auth.entitlement_expires_at || null;
+  if (auth.jwt) return null;
+  return auth.expires_at || null;
+}
+
+function registerHook(req, out) {
+  if (!req.scheduler || typeof req.scheduler.register !== "function" || out?.enabled_watches == null) return;
+  const tier = effectiveTier(req.auth);
+  return req.scheduler.register({
+    ledger_key: req.ledgerKey,
+    subject: req.auth.sub,
+    tenant: req.tenant || null,
+    tier,
+    enabled_watches: featuresFor(tier).background_evaluation ? out.enabled_watches : 0,
+    expires_at: entitlementExpiry(req.auth),
+  });
+}
+
+function metricsHook(req, delta) {
+  if (!req.scheduler || typeof req.scheduler.recordMetrics !== "function") return;
+  if (!Object.values(delta).some(Boolean)) return;
+  return req.scheduler.recordMetrics(delta);
 }
 
 export async function routeWatchdog(req) {
@@ -872,18 +1431,50 @@ export async function routeWatchdog(req) {
         feed_age_seconds: pub.feed_age_seconds,
         freshness_threshold_seconds: pub.freshness_threshold_seconds,
         feed_item_count: pub.feed_item_count,
-        watch_store: req.ledger ? "ok" : "unavailable",
+        watch_store: (req.ledger || req.ledgerFor) ? "ok" : "unavailable",
+        autonomous_evaluation: req.scheduler ? "configured" : "unavailable",
       },
     };
   }
+
+  if (path === "/api/watchdog/session") {
+    if (method === "DELETE") {
+      if (req.auth?.aud !== SESSION_POLICY.audience || typeof req.revokeSession !== "function") return { status: 400, body: { error: "no_watchdog_session" } };
+      await req.revokeSession(req.auth);
+      return { status: 200, body: { revoked: true } };
+    }
+    if (method !== "POST") return { status: 405, body: { error: "method_not_allowed" } };
+    const guard = paidGuard(req.auth);
+    if (guard.error) return guard.error;
+    const t = resolveTenant(req);
+    if (t.error) return t.error;
+    if (typeof req.issueSession !== "function") return { status: 503, body: { error: "session_unavailable" } };
+    const claims = buildSessionClaims(req.auth, Math.floor((req.nowMs || Date.now()) / 1000), req.id, t.tenant);
+    if (!claims) return { status: 403, body: { error: "session_expired", message: "Sign in again with your API key." } };
+    const token = await req.issueSession(claims);
+    if (!token) return { status: 503, body: { error: "session_unavailable" } };
+    return {
+      status: 200,
+      body: {
+        token, token_type: "Bearer", audience: claims.aud, scopes: claims.scope.split(" "),
+        tier: claims.tier, tenant: claims.tenant || null,
+        expires_at: new Date(claims.exp * 1000).toISOString(),
+        refresh_before: new Date(claims.exp * 1000).toISOString(),
+        max_session_until: new Date((claims.auth_time + SESSION_POLICY.max_lifetime_seconds) * 1000).toISOString(),
+        usage: "Authorization: Bearer <token> on /api/watchdog/* only.",
+      },
+    };
+  }
+
+  const denied = scopeDenied(req.auth, path, method);
+  if (denied) return denied;
 
   if (path === "/api/watchdog/brief") {
     if (method !== "GET" && method !== "HEAD") return { status: 405, body: { error: "method_not_allowed" } };
     const lens = req.searchParams?.get?.("lens") || null;
     const q = req.searchParams?.get?.("q") || "";
     const limit = req.searchParams?.get?.("limit");
-    const built = buildWatchdogBrief(req.feed, { tier, lens, q, limit, now, nowMs: req.nowMs, subscription_status: req.auth?.subscription_status, error: req.auth?.error });
-    return built;
+    return buildWatchdogBrief(req.feed, { tier, lens, q, limit, now, nowMs: req.nowMs, subscription_status: req.auth?.subscription_status, error: req.auth?.error });
   }
 
   if (path === "/api/watchdog/deploy") {
@@ -892,23 +1483,75 @@ export async function routeWatchdog(req) {
     return { status: body.error ? 403 : 200, body };
   }
 
-  if (path === "/api/watchdog/destinations") {
-    const guard = paidGuard(req.auth);
-    if (guard.error && method !== "GET") return guard.error;
+  if (path === "/api/watchdog/ops") {
+    // Operator-only. Unknown to everyone else.
+    if (!req.isOperator || !req.scheduler || typeof req.scheduler.metrics !== "function") return { status: 404, body: { error: "not_found", path } };
+    if (method !== "GET" && method !== "HEAD") return { status: 405, body: { error: "method_not_allowed" } };
+    return { status: 200, body: await req.scheduler.metrics(req.nowMs) };
+  }
+
+  const known = ["/api/watchdog/watches", "/api/watchdog/matches", "/api/watchdog/events", "/api/watchdog/events/ack", "/api/watchdog/destinations", "/api/watchdog/destinations/verify"];
+  if (!known.includes(path)) return { status: 404, body: { error: "not_found", path } };
+
+  const guard = paidGuard(req.auth);
+  if (guard.error) return guard.error;
+  const t = resolveTenant(req);
+  if (t.error) return t.error;
+  req.tenant = t.tenant;
+  req.ledgerKey = ledgerKeyFor(req.auth.sub, t.tenant);
+
+  if (path === "/api/watchdog/destinations" || path === "/api/watchdog/destinations/verify") {
     const quota = quotaForTier(tier);
     if (!quota.webhooks) {
-      return { status: 403, body: { error: "tier_required", message: "HTTPS webhook delivery is included with Enterprise SOC ($499/mo) or MSSP. Pro Defense includes the hosted watch and the brief poller only.", checkout: "/upgrade.html?plan=enterprise&feature=cyber-watchdog" } };
+      return { status: 403, body: { error: "tier_required", message: "HTTPS webhook delivery is included with Enterprise SOC (" + priceLabel("ENTERPRISE") + ") or MSSP. Pro Defense includes the hosted watch, background evaluation and the brief poller.", checkout: "/upgrade.html?plan=enterprise&feature=cyber-watchdog" } };
     }
-    if (!req.auth?.sub) return { status: 403, body: { error: "tier_required" } };
+    if (path === "/api/watchdog/destinations/verify") {
+      if (method !== "POST") return { status: 405, body: { error: "method_not_allowed" } };
+      const id = req.searchParams?.get?.("id") || req.body?.id;
+      const got = await ledger(req, { type: "get_destination_internal", id });
+      if (got.error) return publicFailure(got);
+      const dest = got.result.destination;
+      if (dest.state === "disabled") return { status: 409, body: { error: "destination_disabled" } };
+      if (typeof req.verifyDestination !== "function") return { status: 503, body: { error: "verification_unavailable" } };
+      const nonce = req.nonce || "";
+      const outcome = await req.verifyDestination({ destination: dest, nonce });
+      const rec = await ledger(req, { type: "verification_result", id: dest.id, ok: outcome.ok, error: outcome.error });
+      if (rec.error) return publicFailure(rec);
+      if (!outcome.ok) await metricsHook(req, { verification_failures: 1 });
+      await registerHook(req, { enabled_watches: rec.enabled_watches });
+      return { status: outcome.ok ? 200 : 422, body: { ...rec.result, error: outcome.ok ? undefined : outcome.error } };
+    }
     if (method === "GET" || method === "HEAD") {
       const got = await ledger(req, { type: "get" });
       if (got.error) return publicFailure(got);
-      return { status: 200, body: { destinations: got.result.destinations, limit: quota.webhooks } };
+      return { status: 200, body: { destinations: got.result.destinations, limit: quota.webhooks, recent_deliveries: got.result.deliveries.slice(0, 20), contract_version: WEBHOOK_CONTRACT.version } };
     }
     if (method === "POST") {
-      const out = await ledger(req, { type: "set_destination", destination: req.body, id: req.id });
+      const checked = normalizeDestination(req.body);
+      if (checked.error) return { status: 400, body: { error: checked.error, message: checked.message } };
+      if (typeof req.resolveDestination === "function") {
+        const resolved = await req.resolveDestination(checked.hostname);
+        if (!resolved.ok) return { status: 400, body: { error: "invalid_destination", message: "Webhook host did not resolve to an allowed public address.", reason: resolved.error } };
+      } else {
+        return { status: 503, body: { error: "destination_resolution_unavailable", message: "Destination safety check is unavailable. Nothing was saved." } };
+      }
+      const secret = req.secret;
+      const out = await ledger(req, { type: "create_destination", destination: req.body, id: req.id, secret });
       if (out.error) return publicFailure(out);
-      return { status: 201, body: out.result };
+      return {
+        status: 201,
+        body: {
+          ...out.result,
+          signing_secret: secret,
+          signing_secret_notice: "Shown once. Store it now. It is never returned again.",
+          next_step: "POST /api/watchdog/destinations/verify?id=" + out.result.destination.id,
+        },
+      };
+    }
+    if (method === "PATCH") {
+      const out = await ledger(req, { type: "set_destination_state", id: req.searchParams?.get?.("id") || req.body?.id, state: req.body?.state });
+      if (out.error) return publicFailure(out);
+      return { status: 200, body: out.result };
     }
     if (method === "DELETE") {
       const out = await ledger(req, { type: "delete_destination", id: req.searchParams?.get?.("id") || req.body?.id });
@@ -918,87 +1561,89 @@ export async function routeWatchdog(req) {
     return { status: 405, body: { error: "method_not_allowed" } };
   }
 
-  if (path === "/api/watchdog/watches" || path === "/api/watchdog/matches" || path === "/api/watchdog/events" || path === "/api/watchdog/events/ack") {
-    const guard = paidGuard(req.auth);
-    if (guard.error) return guard.error;
-    if (path === "/api/watchdog/watches" && (method === "GET" || method === "HEAD")) {
-      const got = await ledger(req, { type: "get" });
-      if (got.error) return publicFailure(got);
-      return { status: 200, body: { watches: got.result.watches, limit: guard.quota.watches, tier } };
-    }
-    if (path === "/api/watchdog/watches" && method === "POST") {
-      const out = await ledger(req, { type: "create_watch", watch: req.body, id: req.id });
-      if (out.error) return publicFailure(out);
-      return { status: 201, body: out.result };
-    }
-    if (path === "/api/watchdog/watches" && method === "PATCH") {
-      const out = await ledger(req, { type: "update_watch", id: req.searchParams?.get?.("id") || req.body?.id, watch: req.body });
-      if (out.error) return publicFailure(out);
-      return { status: 200, body: out.result };
-    }
-    if (path === "/api/watchdog/watches" && method === "DELETE") {
-      const out = await ledger(req, { type: "delete_watch", id: req.searchParams?.get?.("id") || req.body?.id });
-      if (out.error) return publicFailure(out);
-      return { status: 200, body: out.result };
-    }
-    if (path === "/api/watchdog/events/ack" && method === "POST") {
-      const out = await ledger(req, { type: "ack", ids: req.body?.ids || [] });
-      if (out.error) return publicFailure(out);
-      return { status: 200, body: out.result };
-    }
-    if (path === "/api/watchdog/matches" || path === "/api/watchdog/events") {
-      if (method !== "GET" && method !== "HEAD") return { status: 405, body: { error: "method_not_allowed" } };
-      const got = await ledger(req, { type: "get" });
-      if (got.error) return publicFailure(got);
-      const evaluated = await evaluateMatches(req, got.result);
-      if (evaluated.degraded) return { status: 503, body: evaluated.degraded };
-      const again = evaluated.inserted.length ? await ledger(req, { type: "get" }) : got;
-      const quota = quotaForTier(tier);
-      if (quota.webhooks && evaluated.inserted.length && (got.result.destinations || []).length && req.fetchImpl) {
-        for (const event of evaluated.inserted) {
-          for (const dest of got.result.destinations) {
-            const sent = await deliverWebhook(dest.url, buildWebhookPayload(event), req.fetchImpl);
-            await ledger(req, { type: "record_delivery", delivery: { event_id: event.id, destination_id: dest.id, status: sent.status, http_status: sent.http_status } });
-          }
-        }
-      }
-      const finalState = (quota.webhooks && evaluated.inserted.length) ? await ledger(req, { type: "get" }) : again;
-      const events = (finalState.result?.events || again.result?.events || got.result.events || []);
-      const limit = Math.min(50, Math.max(1, Number(req.searchParams?.get?.("limit")) || 20));
-      const offset = Math.min(Math.max(0, Number(req.searchParams?.get?.("offset")) || 0), 500);
-      const page = events.slice(offset, offset + limit);
-      const analytics = analyticsFromEvents(events, req.nowMs);
-      if (path === "/api/watchdog/matches") {
-        const byWatch = {};
-        for (const watch of got.result.watches) byWatch[watch.id] = { watch_id: watch.id, name: watch.name, hit_count: 0, hits: [] };
-        for (const event of events) {
-          if (!byWatch[event.watch_id]) continue;
-          byWatch[event.watch_id].hit_count += 1;
-          if (byWatch[event.watch_id].hits.length < 20) byWatch[event.watch_id].hits.push(event);
-        }
-        return { status: 200, body: { product: WATCHDOG_NAME, tier, matches: Object.values(byWatch), inserted: evaluated.inserted.length, analytics, freshness_status: evaluated.pub.freshness_status, feed_generated_at: evaluated.pub.feed_generated_at, feed_item_count: evaluated.pub.feed_item_count } };
-      }
-      return {
-        status: 200,
-        body: {
-          product: WATCHDOG_NAME,
-          tier,
-          events: page,
-          total: events.length,
-          limit,
-          offset,
-          analytics,
-          watches_active: got.result.watches.filter((w) => w.enabled !== false).length,
-          freshness_status: evaluated.pub.freshness_status,
-          feed_generated_at: evaluated.pub.feed_generated_at,
-          feed_age_seconds: evaluated.pub.feed_age_seconds,
-          freshness_threshold_seconds: evaluated.pub.freshness_threshold_seconds,
-          feed_item_count: evaluated.pub.feed_item_count,
-        },
-      };
-    }
-    return { status: 405, body: { error: "method_not_allowed" } };
+  if (path === "/api/watchdog/watches" && (method === "GET" || method === "HEAD")) {
+    const got = await ledger(req, { type: "get" });
+    if (got.error) return publicFailure(got);
+    return { status: 200, body: { watches: got.result.watches, limit: guard.quota.watches, tier, tenant: req.tenant || null } };
   }
-
-  return { status: 404, body: { error: "not_found", path } };
+  if (path === "/api/watchdog/watches" && method === "POST") {
+    const out = await ledger(req, { type: "create_watch", watch: req.body, id: req.id });
+    if (out.error) return publicFailure(out);
+    await registerHook(req, out);
+    return { status: 201, body: out.result };
+  }
+  if (path === "/api/watchdog/watches" && method === "PATCH") {
+    const out = await ledger(req, { type: "update_watch", id: req.searchParams?.get?.("id") || req.body?.id, watch: req.body });
+    if (out.error) return publicFailure(out);
+    await registerHook(req, out);
+    return { status: 200, body: out.result };
+  }
+  if (path === "/api/watchdog/watches" && method === "DELETE") {
+    const out = await ledger(req, { type: "delete_watch", id: req.searchParams?.get?.("id") || req.body?.id });
+    if (out.error) return publicFailure(out);
+    await registerHook(req, out);
+    return { status: 200, body: out.result };
+  }
+  if (path === "/api/watchdog/events/ack") {
+    if (method !== "POST") return { status: 405, body: { error: "method_not_allowed" } };
+    const out = await ledger(req, { type: "ack", ids: req.body?.ids || [] });
+    if (out.error) return publicFailure(out);
+    return { status: 200, body: out.result };
+  }
+  if (path === "/api/watchdog/matches" || path === "/api/watchdog/events") {
+    if (method !== "GET" && method !== "HEAD") return { status: 405, body: { error: "method_not_allowed" } };
+    const got = await ledger(req, { type: "get" });
+    if (got.error) return publicFailure(got);
+    // evaluate=0 lists stored events without evaluating: used to observe what
+    // the autonomous scheduler produced on its own.
+    const readOnly = req.searchParams?.get?.("evaluate") === "0";
+    let evaluated;
+    if (readOnly) {
+      const pub = watchdogPublication(req.feed, req.nowMs);
+      evaluated = { pub, inserted: [], deduped: 0 };
+    } else {
+      evaluated = await evaluateMatches(req, got.result);
+      if (evaluated.degraded) return { status: 503, body: evaluated.degraded };
+      await metricsHook(req, { events_generated: evaluated.inserted.length, events_deduped: evaluated.deduped });
+    }
+    const finalState = evaluated.inserted.length ? await ledger(req, { type: "get" }) : got;
+    const events = finalState.result?.events || [];
+    const limit = Math.min(50, Math.max(1, Number(req.searchParams?.get?.("limit")) || 20));
+    const offset = Math.min(Math.max(0, Number(req.searchParams?.get?.("offset")) || 0), 500);
+    const page = events.slice(offset, offset + limit);
+    const analytics = analyticsFromEvents(events, req.nowMs);
+    const pub = evaluated.pub;
+    if (path === "/api/watchdog/matches") {
+      const byWatch = {};
+      for (const watch of got.result.watches) byWatch[watch.id] = { watch_id: watch.id, name: watch.name, hit_count: 0, hits: [] };
+      for (const event of events) {
+        if (!byWatch[event.watch_id]) continue;
+        byWatch[event.watch_id].hit_count += 1;
+        if (byWatch[event.watch_id].hits.length < 20) byWatch[event.watch_id].hits.push(event);
+      }
+      return { status: 200, body: { product: WATCHDOG_NAME, tier, tenant: req.tenant || null, matches: Object.values(byWatch), inserted: evaluated.inserted.length, analytics, freshness_status: pub.freshness_status, feed_generated_at: pub.feed_generated_at, feed_item_count: pub.feed_item_count } };
+    }
+    return {
+      status: 200,
+      body: {
+        product: WATCHDOG_NAME,
+        tier,
+        tenant: req.tenant || null,
+        evaluated: !readOnly,
+        inserted: evaluated.inserted.length,
+        events: page,
+        total: events.length,
+        limit,
+        offset,
+        analytics,
+        watches_active: got.result.watches.filter((w) => w.enabled !== false).length,
+        freshness_status: pub.freshness_status,
+        feed_generated_at: pub.feed_generated_at,
+        feed_age_seconds: pub.feed_age_seconds,
+        freshness_threshold_seconds: pub.freshness_threshold_seconds,
+        feed_item_count: pub.feed_item_count,
+      },
+    };
+  }
+  return { status: 405, body: { error: "method_not_allowed" } };
 }

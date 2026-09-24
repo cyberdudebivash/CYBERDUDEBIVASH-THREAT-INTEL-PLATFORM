@@ -9,6 +9,8 @@ import {
   CLASSIFIER_VERSION,
   COMMERCIAL_MIRROR,
   MemoryLedger,
+  planPrice,
+  runDueDeliveries,
   analyticsFromEvents,
   applyLedgerMutation,
   buildWatchdogBrief,
@@ -83,8 +85,15 @@ function auth(tier, sub = "cust-1", extra = {}) {
   return { tier, sub, subscription_status: "active", ...extra };
 }
 
-test("commercial mirror matches config/commercial-contract.json", () => {
+// v3 destination registration needs a DNS safety check and a signing secret.
+const SECRET = "whsec_" + "a".repeat(64);
+const PUBLIC_DNS = { resolveDestination: async () => ({ ok: true, addresses: ["93.184.216.34"] }), secret: SECRET };
+
+test("offer prices come from the runtime provider and equal config/commercial-contract.json", () => {
   for (const [id, key] of [["PRO", "pro"], ["ENTERPRISE", "enterprise"], ["MSSP", "mssp"], ["FREE", "free"]]) {
+    assert.equal(planPrice(id).usd_monthly, CONTRACT.tiers[key].usd_monthly);
+    assert.equal(planPrice(id).inr_monthly, CONTRACT.tiers[key].inr_monthly);
+    // Deprecated view stays readable for old importers.
     assert.equal(COMMERCIAL_MIRROR.tiers[id].usd_monthly, CONTRACT.tiers[key].usd_monthly);
     assert.equal(COMMERCIAL_MIRROR.tiers[id].inr_monthly, CONTRACT.tiers[key].inr_monthly);
   }
@@ -197,7 +206,7 @@ test("entitlement: free, pro, enterprise, expired, refunded", async () => {
   assert.equal(effectiveTier({ tier: "ENTERPRISE", subscription_status: "refunded" }), "FREE");
   assert.equal(effectiveTier({ tier: "PRO", error: "subscription_cancelled" }), "FREE");
   const ledger = new MemoryLedger();
-  const base = { ledger, feed: liveFeed(), nowMs: NOW_MS, now: NOW, id: "abc123" };
+  const base = { ledger, feed: liveFeed(), nowMs: NOW_MS, now: NOW, id: "abc123", ...PUBLIC_DNS };
   const free = await routeWatchdog({ ...base, path: "/api/watchdog/watches", method: "POST", auth: auth("FREE", null), body: { name: "KEV", keywords: ["ransomware"] } });
   assert.equal(free.status, 403);
   const created = await routeWatchdog({ ...base, path: "/api/watchdog/watches", method: "POST", auth: auth("PRO"), body: { name: "Ransomware", keywords: ["ransomware"], lenses: ["cybersecurity"] } });
@@ -213,6 +222,9 @@ test("entitlement: free, pro, enterprise, expired, refunded", async () => {
   assert.equal(proDeploy.body.webhooks.endpoint, null);
   const entDeploy = deployManifest("ENTERPRISE");
   assert.equal(entDeploy.webhooks.endpoint, "POST /api/watchdog/destinations");
+  assert.equal(entHook.body.destination.state, "pending");
+  assert.equal(entHook.body.signing_secret, SECRET);
+  assert.equal(JSON.stringify(entHook.body.destination).includes("whsec_"), false);
   const deniedHost = normalizeDestination({ url: "http://127.0.0.1/hook" });
   assert.equal(deniedHost.error, "invalid_destination");
   const meta = normalizeDestination({ url: "https://169.254.169.254/latest" });
@@ -253,26 +265,61 @@ test("match events dedupe and do not record from a stale feed", async () => {
   assert.equal(stale.body.events_recorded, false);
 });
 
-test("enterprise webhook payload has no invented remediation and PRO cannot receive it", async () => {
+test("enterprise webhook: nothing is delivered before verification, then one signed delivery", async () => {
+  const { attemptDelivery, verifySignature } = await import("../watchdog-webhook.js");
   const ledger = new MemoryLedger();
-  let posted = null;
+  const posted = [];
+  const dns = async (url) => ({ ok: true, json: async () => ({ Status: 0, Answer: [{ type: 1, data: "93.184.216.34" }] }), status: 200, url });
   const fetchImpl = async (url, init) => {
-    posted = { url, body: JSON.parse(init.body) };
-    return { ok: true, status: 204 };
+    if (String(url).startsWith("https://cloudflare-dns.com/")) return dns(url);
+    posted.push({ url, init });
+    return { ok: true, status: 204, headers: new Headers() };
   };
-  const base = { ledger, feed: liveFeed(), nowMs: NOW_MS, now: NOW, id: "zzz999", fetchImpl, auth: auth("ENTERPRISE") };
+  const base = { ledger, feed: liveFeed(), nowMs: NOW_MS, now: NOW, id: "zzz999", auth: auth("ENTERPRISE"), ...PUBLIC_DNS };
   await routeWatchdog({ ...base, path: "/api/watchdog/watches", method: "POST", body: { name: "Ransomware", keywords: ["ransomware"] } });
-  await routeWatchdog({ ...base, path: "/api/watchdog/destinations", method: "POST", body: { url: "https://siem.example/hook" } });
-  const events = await routeWatchdog({ ...base, path: "/api/watchdog/events", method: "GET", searchParams: new URLSearchParams() });
-  assert.equal(events.status, 200);
-  assert.equal(posted.url, "https://siem.example/hook");
-  assert.equal(posted.body.product.includes("CYBER WATCHDOG"), true);
-  assert.equal("remediation" in posted.body, false);
-  assert.equal(events.body.events[0].delivery_status, "delivered");
-  assert.equal(events.body.analytics.delivery_success_rate, 1);
-  const payload = buildWebhookPayload(events.body.events[0]);
+  const dest = await routeWatchdog({ ...base, path: "/api/watchdog/destinations", method: "POST", body: { url: "https://siem.example/hook" } });
+  assert.equal(dest.status, 201);
+  const first = await routeWatchdog({ ...base, path: "/api/watchdog/events", method: "GET", searchParams: new URLSearchParams() });
+  assert.equal(first.status, 200);
+  assert.equal(first.body.events[0].delivery_status, "no_destinations", "a pending destination gets nothing queued");
+  const idle = await runDueDeliveries({ ledger, subject: "cust-1", now: NOW, attempt: attemptDelivery, fetchImpl });
+  assert.equal(idle.attempted, 0);
+  assert.equal(posted.length, 0);
+
+  const verified = await routeWatchdog({
+    ...base, path: "/api/watchdog/destinations/verify", method: "POST", nonce: "ab".repeat(16),
+    searchParams: new URLSearchParams("id=" + dest.body.destination.id),
+    verifyDestination: async () => ({ ok: true }),
+  });
+  assert.equal(verified.status, 200);
+  assert.equal(verified.body.destination.state, "active");
+
+  // A new matching item after verification is queued and delivered, signed.
+  const feed2 = liveFeed([...FEED_ITEMS, { id: "adv-9", title: "New ransomware wave", severity: "HIGH", source: "CERT", processed_at: "2026-09-24T05:30:00Z" }], "2026-09-24T05:40:00Z");
+  const second = await routeWatchdog({ ...base, feed: feed2, path: "/api/watchdog/events", method: "GET", searchParams: new URLSearchParams() });
+  const fresh = second.body.events.find((e) => e.matched_item_id === "adv-9");
+  assert.equal(fresh.delivery_status, "pending");
+  const run = await runDueDeliveries({ ledger, subject: "cust-1", now: NOW, attempt: attemptDelivery, fetchImpl });
+  assert.equal(run.attempted, 1);
+  assert.equal(posted.length, 1);
+  const sent = posted[0];
+  assert.equal(sent.url, "https://siem.example/hook");
+  assert.equal(sent.init.redirect, "manual");
+  const h = sent.init.headers;
+  assert.equal(h["X-CDB-Watchdog-Event-ID"], fresh.id);
+  const ok = await verifySignature({ secret: SECRET, timestamp: h["X-CDB-Watchdog-Timestamp"], signature: h["X-CDB-Watchdog-Signature"], rawBody: sent.init.body, nowMs: NOW_MS });
+  assert.equal(ok.ok, true);
+  const body = JSON.parse(sent.init.body);
+  assert.equal(body.product.includes("CYBER WATCHDOG"), true);
+  assert.equal("remediation" in body, false);
+  assert.doesNotMatch(sent.init.body, /should-not-leak/);
+  const after = await routeWatchdog({ ...base, feed: feed2, path: "/api/watchdog/events", method: "GET", searchParams: new URLSearchParams("evaluate=0") });
+  const done = after.body.events.find((e) => e.matched_item_id === "adv-9");
+  assert.equal(done.delivery_status, "delivered");
+  assert.equal(done.deliveries[0].status, "delivered");
+  assert.equal(after.body.analytics.delivery_success_rate, 1);
+  const payload = buildWebhookPayload(done);
   assert.ok(payload.matched_item_id);
-  assert.doesNotMatch(JSON.stringify(payload), /should-not-leak/);
 });
 
 test("cross-customer ledger isolation", async () => {
@@ -309,6 +356,10 @@ test("negative control: page escape is not an identity map", () => {
   assert.doesNotMatch(html, /sessionStorage is not used|localStorage\.setItem\('apex_watchdog_key'/);
   assert.match(html, /sessionStorage/);
   assert.doesNotMatch(html, /localStorage\.(get|set)Item/);
+  // v3: the long-lived key is never stored, only exchanged for a session.
+  assert.doesNotMatch(html, /sessionStorage\.setItem\('apex_watchdog_key'/);
+  assert.match(html, /\/api\/watchdog\/session/);
+  assert.match(html, /input\.value = ''/);
 });
 
 test("analytics does not invent history", () => {
@@ -380,7 +431,7 @@ test("negative control: private and mapped webhook hosts are rejected, and a bod
   assert.equal(effectiveTier({ tier: "MSSP", subscription_status: "suspended" }), "FREE");
   assert.equal(effectiveTier({ tier: "ENTERPRISE", error: "subscription_revoked" }), "FREE");
   const mssp = await routeWatchdog({
-    ledger: new MemoryLedger(), feed: liveFeed(), nowMs: NOW_MS, now: NOW, id: "mssp1",
+    ledger: new MemoryLedger(), feed: liveFeed(), nowMs: NOW_MS, now: NOW, id: "mssp1", ...PUBLIC_DNS,
     path: "/api/watchdog/destinations", method: "POST", auth: auth("MSSP", "mssp-a"),
     body: { url: "https://hooks.example/mssp" },
   });
