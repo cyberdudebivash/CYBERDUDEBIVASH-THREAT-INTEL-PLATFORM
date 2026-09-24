@@ -656,10 +656,70 @@ function publicWatch(w) {
   };
 }
 
-// A v2 destination has no signing secret. It can never be verified or
-// signed for, so it is inert until the customer registers it again.
+// ---------------------------------------------------------------------------
+// Rollback safety (persisted representation)
+//
+// The previous implementation (v2, main @ 6ac0385) POSTs, unsigned, to the
+// `url` of EVERY element of `destinations` inside the Durable Object storage
+// key "ledger" -- it reads no state or protocol field. A marker alone would
+// therefore not protect a v3 destination from a code rollback. v3 persists
+// its signed destinations under a separate storage key that v2 never reads
+// or writes, so after a rollback they are invisible (inert) to v2, and they
+// survive any v2 write for a later roll-forward. The "ledger" key keeps only
+// legacy v2 rows, which v3 in turn treats as disabled (no signing secret).
+// Proven against the vendored v2 code by watchdog-rollback-compat.test.js.
+// ---------------------------------------------------------------------------
+export const LEDGER_STORAGE_KEY = "ledger";
+export const SIGNED_DESTINATIONS_STORAGE_KEY = "watchdog_v3_signed_destinations";
+export const DELIVERY_PROTOCOL = "signed-v3";
+
+function isSignedV3(d) {
+  return !!d && d.delivery_protocol === DELIVERY_PROTOCOL && typeof d.secret === "string" && d.secret.startsWith("whsec_");
+}
+
+/** Splits in-memory ledger state into the two persisted records. */
+export function toPersisted(state) {
+  const all = Array.isArray(state?.destinations) ? state.destinations : [];
+  return {
+    ledger: { ...state, destinations: all.filter((d) => !isSignedV3(d)) },
+    signed: all.filter(isSignedV3),
+  };
+}
+
+/** True when "ledger" still holds a signed v3 row (e.g. written by 6977abf). */
+export function ledgerNeedsMigration(ledger) {
+  return !!ledger && Array.isArray(ledger.destinations)
+    && ledger.destinations.some((d) => d && typeof d.secret === "string" && d.secret.startsWith("whsec_"));
+}
+
+/**
+ * Joins the two persisted records back into ledger state.
+ *
+ * Migration: the first v3 build deployed to production (6977abf, #496) kept
+ * signed destinations inside "ledger" with a whsec_ secret but no
+ * delivery_protocol. Such a row is a v3 destination, not a v2 one: it is
+ * adopted as signed-v3 here, and the next write (toPersisted) moves it out of
+ * "ledger" into the v3-only key. v2 never writes a secret, so a real v2 row
+ * cannot match this rule.
+ */
+export function fromPersisted(ledger, signed) {
+  const base = ledger && typeof ledger === "object" ? ledger : emptyLedgerState();
+  const rows = (Array.isArray(base.destinations) ? base.destinations : []).map((d) => (
+    d && !d.delivery_protocol && typeof d.secret === "string" && d.secret.startsWith("whsec_")
+      ? { ...d, delivery_protocol: DELIVERY_PROTOCOL }
+      : d
+  ));
+  const v3 = (Array.isArray(signed) ? signed.filter(isSignedV3) : []);
+  const seen = new Set(v3.map((d) => d.id));
+  const adopted = rows.filter((d) => isSignedV3(d) && !seen.has(d.id));
+  const legacy = rows.filter((d) => !isSignedV3(d) && !seen.has(d.id));
+  return { ...base, destinations: legacy.concat(v3, adopted) };
+}
+
+// Only a signed-v3 destination can ever deliver. A v2 destination has no
+// signing secret or protocol, so it is inert until registered again.
 export function destinationState(d) {
-  if (!d || !d.secret) return "disabled";
+  if (!isSignedV3(d)) return "disabled";
   return d.state || "pending";
 }
 
@@ -676,7 +736,7 @@ export function publicDestination(d) {
     verified_at: d.verified_at || null,
     last_delivery_at: d.last_delivery_at || null,
     failure_count: d.failure_count || 0,
-    disabled_reason: d.secret ? d.disabled_reason || null : "reregister_required_unsigned_v2_destination",
+    disabled_reason: isSignedV3(d) ? d.disabled_reason || null : "reregister_required_unsigned_v2_destination",
     last_verification_error: d.last_verification_error || null,
   };
 }
@@ -710,7 +770,7 @@ function enabledCount(watches) {
   return (watches || []).filter((w) => w.enabled !== false).length;
 }
 
-function activeDestinations(destinations) {
+export function activeDestinations(destinations) {
   return (destinations || []).filter((d) => destinationState(d) === "active");
 }
 
@@ -899,6 +959,7 @@ export function applyLedgerMutation(state, op) {
       id: "d_" + clean(String(op.id || ""), 40).replace(/[^a-z0-9-]/gi, "").slice(0, 36),
       url: dest.url,
       state: "pending",
+      delivery_protocol: DELIVERY_PROTOCOL,
       secret,
       created_at: now,
       verified_at: null,
@@ -913,7 +974,7 @@ export function applyLedgerMutation(state, op) {
     const idx = next.destinations.findIndex((d) => d.id === id);
     if (idx < 0) return { error: "not_found", status: 404, state: base };
     const d = next.destinations[idx];
-    if (!d.secret) return { error: "reregister_required", status: 409, state: base };
+    if (!isSignedV3(d)) return { error: "reregister_required", status: 409, state: base };
     if (op.ok) {
       next.destinations[idx] = { ...d, state: "active", verified_at: now, failure_count: 0, disabled_reason: null, last_verification_error: null };
     } else {
@@ -1512,6 +1573,7 @@ export async function routeWatchdog(req) {
       if (got.error) return publicFailure(got);
       const dest = got.result.destination;
       if (dest.state === "disabled") return { status: 409, body: { error: "destination_disabled" } };
+      if (req.webhookDeliveryEnabled !== true) return { status: 503, body: { error: "webhook_delivery_disabled", message: "Webhook delivery is switched off by the operator. Nothing was sent." } };
       if (typeof req.verifyDestination !== "function") return { status: 503, body: { error: "verification_unavailable" } };
       const nonce = req.nonce || "";
       const outcome = await req.verifyDestination({ destination: dest, nonce });

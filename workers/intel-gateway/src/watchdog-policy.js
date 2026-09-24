@@ -130,3 +130,18 @@ export function scopesForTier(tier) {
   if (f.webhooks > 0) scopes.push(WATCHDOG_SCOPES.DESTINATIONS_WRITE);
   return scopes;
 }
+
+/**
+ * Emergency kill switch for every outbound Watchdog webhook request
+ * (deliveries and verification challenges). Fail-closed: only the exact
+ * string "true" enables delivery; absent, empty, "1", "TRUE" or anything else
+ * disables it. wrangler.toml sets it to "true" explicitly for production. To
+ * stop delivery without a code change: set the var to "false" and deploy, or
+ * change it in the Cloudflare dashboard. Pending deliveries are kept, not
+ * dropped, and resume on the next alarm after delivery is re-enabled.
+ */
+export const WEBHOOK_DELIVERY_FLAG = "WATCHDOG_WEBHOOK_DELIVERY_ENABLED";
+
+export function webhookDeliveryEnabled(env) {
+  return !!env && env[WEBHOOK_DELIVERY_FLAG] === "true";
+}

@@ -79,11 +79,6 @@ ENTITLEMENT_ENFORCEMENT_ENABLED = "true"
 # switch above is "true". Empty = nothing enforced even if the switch is on
 # -- this is the per-resource dial for a gradual, one-at-a-time rollout.
 ENTITLEMENT_ENFORCEMENT_RESOURCES = "cve_detail_full"
-# Cyber Watchdog webhook kill switch (watchdog-policy.js). Fail-closed: only
-# the exact string "true" enables outbound webhook delivery and verification
-# challenges; absent or any other value disables them. Set "false" to stop
-# all customer webhook traffic without a code rollback.
-WATCHDOG_WEBHOOK_DELIVERY_ENABLED = "true"
 
 # -- KV Namespaces --
 # Deployed KV IDs -- verified live on intel.cyberdudebivash.com (v142.3.1)
@@ -203,9 +198,7 @@ class_name = "GumroadProvisioningLock"
 name       = "WATCHDOG_LEDGER"
 class_name = "WatchdogLedger"
 
-# Cyber Watchdog autonomous evaluation coordinator: ONE global instance
-# (idFromName "watchdog-scheduler-v1") holding the registry of subjects with
-# enabled paid watches. Driven by the existing 15-minute cron; no new product.
+# SAFE ROLLBACK: kept so the v3-created class and migration stay valid.
 [[durable_objects.bindings]]
 name       = "WATCHDOG_SCHEDULER"
 class_name = "WatchdogScheduler"
@@ -307,11 +300,6 @@ RAZORPAY_KEY_ID = "rzp_live_T006RdZV7opnrY"
 SUBSCRIPTION_EXPIRY_ENABLED = "true"
 ENTITLEMENT_ENFORCEMENT_ENABLED = "true"
 ENTITLEMENT_ENFORCEMENT_RESOURCES = "cve_detail_full"
-# Cyber Watchdog webhook kill switch (watchdog-policy.js). Fail-closed: only
-# the exact string "true" enables outbound webhook delivery and verification
-# challenges; absent or any other value disables them. Set "false" to stop
-# all customer webhook traffic without a code rollback.
-WATCHDOG_WEBHOOK_DELIVERY_ENABLED = "true"
 
 [[env.production.kv_namespaces]]
 binding = "API_KEYS_KV"

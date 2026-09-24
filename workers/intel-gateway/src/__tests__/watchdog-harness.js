@@ -8,6 +8,7 @@
 import worker from "../index.js";
 import { WatchdogLedger } from "../watchdog-ledger.js";
 import { WatchdogScheduler } from "../watchdog-scheduler.js";
+import { fromPersisted } from "../cyber-watchdog.js";
 
 export const PRO_KEY = "cdb_pro_wd_0123456789abcdef0123456789abcdef";
 export const PRO2_KEY = "cdb_pro_wd_1123456789abcdef0123456789abcdef";
@@ -32,7 +33,7 @@ export function fakeKV(initial = {}) {
   };
 }
 
-class MemStorage {
+export class MemStorage {
   constructor() { this.data = new Map(); this.alarm = null; this.writes = 0; this.reads = 0; }
   async get(k) { this.reads += 1; const v = this.data.get(k); return v === undefined ? undefined : structuredClone(v); }
   async put(k, v) { this.writes += 1; this.data.set(k, structuredClone(v)); }
@@ -150,7 +151,10 @@ export function harness(opts = {}) {
       [EXPIRED_KEY]: keyRecord("ENTERPRISE", "cust_ent_expired", { subscription_status: "expired" }),
     }),
     CDB_JWT_SECRET: "jwt-test-secret-0123456789abcdef", ADMIN_SECRET: "admin-test-secret",
+    // Production value from wrangler.toml; tests of the kill switch delete it.
+    WATCHDOG_WEBHOOK_DELIVERY_ENABLED: opts.deliveryFlag === undefined ? "true" : opts.deliveryFlag,
   };
+  if (opts.deliveryFlag === null) delete env.WATCHDOG_WEBHOOK_DELIVERY_ENABLED;
   env.WATCHDOG_LEDGER = fakeNamespace(WatchdogLedger, envRef);
   env.WATCHDOG_SCHEDULER = fakeNamespace(WatchdogScheduler, envRef);
   envRef.env = env;
@@ -188,9 +192,18 @@ export function harness(opts = {}) {
     }
   }
 
+  // Logical ledger state: both persisted keys joined, as v3 reads them.
   function ledgerState(key) {
     const inst = env.WATCHDOG_LEDGER.instance("wd:" + key);
-    return inst ? inst.storage.data.get("ledger") : null;
+    if (!inst) return null;
+    const ledger = inst.storage.data.get("ledger");
+    if (!ledger) return null;
+    return fromPersisted(ledger, inst.storage.data.get("watchdog_v3_signed_destinations"));
+  }
+
+  function ledgerStorage(key) {
+    const inst = env.WATCHDOG_LEDGER.instance("wd:" + key);
+    return inst ? inst.storage : null;
   }
 
   function schedulerState() {
@@ -198,7 +211,7 @@ export function harness(opts = {}) {
     return inst ? inst.storage.data.get("scheduler") : null;
   }
 
-  return { env, net, state, call, cron, runAlarms, ledgerState, schedulerState, ctx };
+  return { env, net, state, call, cron, runAlarms, ledgerState, ledgerStorage, schedulerState, ctx };
 }
 
 /** HS256 JWT signed like the gateway's signJWT (for crafting bad tokens). */

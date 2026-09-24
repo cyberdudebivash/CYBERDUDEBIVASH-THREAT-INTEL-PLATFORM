@@ -207,10 +207,81 @@ CDB_WATCHDOG_CANARY_MSSP_KEY=… npm run canary:watchdog -- mssp        # key mu
 
 ## 13. Deploy and rollback
 
-The deploy adds one binding (`WATCHDOG_SCHEDULER`) and one migration (`v3-watchdog-scheduler`, `new_sqlite_classes`). `wrangler deploy --dry-run --env production` with the pinned wrangler 3.114.17 succeeds (1499 KiB, 350 KiB gzip).
+The v3 deploy adds one binding (`WATCHDOG_SCHEDULER`), one migration (`v3-watchdog-scheduler`, `new_sqlite_classes`) and one variable (`WATCHDOG_WEBHOOK_DELIVERY_ENABLED = "true"`).
 
-**Rollback:** revert the commit and redeploy.
+### NORMAL ROLLBACK AFTER WATCHDOG V3
 
-* The new DO class stays unused; leave its migration in place.
-* Existing ledgers keep their data. v3 fields (`deliveries`, `revision`, `metrics`, destination `state`/`secret`) are ignored by v2 code. v2 would read v3 destinations as plain URLs and POST to them **unsigned**, so disable Enterprise destinations before rolling back if any exist.
-* Browser sessions stop working, so the old page must be restored with the revert.
+**DO NOT deploy raw pre-v3 commit 6ac0385.** Once Watchdog v3 has stored a signed destination (and #496 / `6977abf` has been live since 2026-09-24 11:06 UTC), raw `6ac0385` can POST unsigned intelligence to it. The rollback matrix test demonstrates that for states B, F and H below.
+
+**Deploy the immutable SAFE ROLLBACK TARGET, `watchdog-v2-safe-rollback`.** It is the pre-v3 gateway (`6ac0385`, the last Worker before v3) with every outbound Watchdog webhook path removed. It intentionally disables Watchdog webhook delivery while keeping the rest of the pre-v3 platform: feeds, health, R2 paths, auth, payments, briefs and watches. Then investigate and remediate.
+
+| | |
+|---|---|
+| Target | `watchdog-v2-safe-rollback` |
+| Base | `6ac0385d658035ec53b98b5476dbc7af30887426` |
+| Artifact | `deploy/cyber-watchdog/safe-rollback/` (`manifest.json` + a 4-file `overlay/`) |
+| Artifact digest (SHA-256 over the built `workers/intel-gateway` tree) | `eefab60ffa564616d286b6e57c6180c47445d872ad65e0bf3c9a8c8031b99a2c` |
+
+**Build and verify.** The build is deterministic, and it fails unless every base file, overlay file and the tree digest match `manifest.json`:
+
+```
+node deploy/cyber-watchdog/safe-rollback/build.mjs --out /tmp/wd-safe-rollback
+# -> "result": "PASS", "artifact_digest": "eefab60ffa564616d286b6e57c6180c47445d872ad65e0bf3c9a8c8031b99a2c"
+cd /tmp/wd-safe-rollback/workers/intel-gateway
+npx wrangler@3.114.17 deploy --dry-run --env production    # must succeed
+npx wrangler@3.114.17 deploy --env production               # the rollback itself
+```
+
+**What the overlay changes, and nothing else:**
+
+* `cyber-watchdog.js`: the events webhook-delivery loop is removed; `deliverWebhook()` never calls fetch; `/api/watchdog/destinations` answers 503 for every method, so no unsigned row can be created and no stored secret can be listed; `module_version` is `2.0.0-safe-rollback`.
+* `watchdog-ledger.js`: a no-op `alarm()` drops any alarm armed by v3, without making a request.
+* `production-entry.js`: `WatchdogScheduler` stays exported as an inert stub. Cloudflare will not deploy a script that drops a Durable Object class that already exists.
+* `wrangler.toml`: the `WATCHDOG_SCHEDULER` bindings and the `v3-watchdog-scheduler` migration are kept.
+
+The rollback needs no ledger migration, no enumeration of Durable Objects and no control-plane change before it runs.
+
+**Expected behavior after the rollback deploys:**
+
+* `GET /api/watchdog/health` → `module_version: "2.0.0-safe-rollback"`, HTTP 200 while the feed is FRESH (503 when stale, as before).
+* Any method on `/api/watchdog/destinations` → `503 webhook_delivery_disabled_safe_rollback`.
+* Watchdog webhook state: **no outbound webhook requests at all**. Destinations are neither listed nor deleted. v3 signed destinations are preserved untouched in `watchdog_v3_signed_destinations`.
+* Brief, watches and events keep working. Scheduled (browser-less) evaluation stops, because v2 has no scheduler.
+
+**Roll forward safely:**
+
+* Redeploy current main (the fixed v3). It reads both storage keys, adopts any early-v3 rows, and resumes signed delivery only for verified destinations, and only while `WATCHDOG_WEBHOOK_DELIVERY_ENABLED = "true"`.
+* To roll forward with delivery still off, set that variable to `"false"` before deploying.
+
+**Evidence (tests on this branch).** `watchdog-rollback-matrix.test.js` runs 8 persisted states × 3 implementations:
+
+* A: genuine v2 unsigned destination.
+* B: early-v3 (`6977abf`) signed row in `"ledger"`.
+* C: corrected-v3 verified.
+* D: corrected-v3 pending.
+* E: corrected-v3 disabled.
+* F: pending delivery on an early-v3 row.
+* G: early-v3 row, zero enabled watches.
+* H: early-v3 row in a ledger never accessed after the hotfix.
+
+Results:
+
+* **Corrected v3:** only B, C, F and H deliver, and every request is signed; A, D, E and G make none. With the flag absent, no state makes any request.
+* **Raw v2** (evidence only): unsigned POSTs for A, B, F and H.
+* **Safe target:** zero outbound Watchdog requests for all eight.
+
+`watchdog-safe-rollback-artifact.test.js` pins the manifest and overlay. On a full `6ac0385` tree, the safe target passes 1244/1247 of v2's own tests. The 3 differences are v2's assertions that destination registration and delivery work, which is the behavior removed on purpose.
+
+### Early-v3 data (defense in depth, not the rollback protection)
+
+`6977abf` persisted signed destinations inside `"ledger"` with a `whsec_` secret and no `delivery_protocol`. The fixed v3 adopts them as signed-v3, and on **any** access to that ledger (reads included) moves them into `watchdog_v3_signed_destinations`. A ledger that is never accessed again (state H) keeps its row in `"ledger"` indefinitely. That is why the safe rollback target, not this migration, is what protects a rollback.
+
+### Kill switch (secondary control)
+
+`WATCHDOG_WEBHOOK_DELIVERY_ENABLED` is fail-closed: only `"true"` enables outbound deliveries and verification challenges. It is set explicitly in `[vars]` and `[env.production.vars]`. Pending deliveries are kept while it is off. It shows as `webhook_delivery_enabled` on `/api/watchdog/ops`.
+
+Use it first for any delivery incident: set it to `"false"` and deploy, or change the variable in the dashboard. It does not protect a code rollback, because pre-v3 code ignores it. Only the safe target does.
+
+### Current-production exposure until this hotfix deploys
+
+Production runs `6977abf` (v3 before this fix). **Do not roll back Watchdog to raw 6ac0385** if any Enterprise or MSSP destination may have been registered after 2026-09-24 11:06 UTC. Use the safe rollback target.
