@@ -47,7 +47,9 @@ test("pure: server ids, name validation, duplicate and limit rules", () => {
     assert.ok(validateTenantName(bad).error, JSON.stringify(bad));
   }
   assert.equal(validateTenantName("  Acme   Corp  ").name, "Acme Corp");
-  assert.equal(validateTenantName("Müller & Söhne (EU)").name, "Müller & Söhne (EU)");
+  // Non-ASCII written as escapes: deploy-worker.yml rewrites non-ASCII in
+  // Worker JS (sanitize_encoding.py) before running this suite.
+  assert.equal(validateTenantName("M\u00fcller & S\u00f6hne (EU)").name, "M\u00fcller & S\u00f6hne (EU)");
 
   let st = null;
   const op = (o) => ({ owner: "o1", now: "2026-09-24T00:00:00Z", ...o });
@@ -55,7 +57,7 @@ test("pure: server ids, name validation, duplicate and limit rules", () => {
   st = out.state;
   assert.equal(applyTenantMutation(st, op({ type: "create", id: "tn_" + "2".repeat(20), name: "ACME" })).error, "tenant_name_exists");
   // Full-width letters normalize (NFKC) to the same name.
-  assert.equal(applyTenantMutation(st, op({ type: "create", id: "tn_" + "2".repeat(20), name: "ＡＣＭＥ" })).error, "tenant_name_exists");
+  assert.equal(applyTenantMutation(st, op({ type: "create", id: "tn_" + "2".repeat(20), name: "\uff21\uff23\uff2d\uff25" })).error, "tenant_name_exists");
   assert.equal(applyTenantMutation(st, op({ type: "create", id: "tn_" + "1".repeat(20), name: "Other" })).error, "tenant_id_conflict");
   assert.equal(applyTenantMutation(st, { ...op({ type: "list" }), owner: "o2" }).error, "not_found", "another owner sees nothing");
   // Revoked names can be reused; ids never are.
@@ -69,6 +71,19 @@ test("pure: server ids, name validation, duplicate and limit rules", () => {
   const over = applyTenantMutation(full, op({ type: "create", id: "tn_" + "f".repeat(20), name: "One too many" }));
   assert.equal(over.error, "tenant_limit_reached");
   assert.equal(over.limit, 100);
+});
+
+test("source is ASCII-only, as the deploy pipeline requires", async () => {
+  // deploy-worker.yml runs scripts/sanitize_encoding.py --fix, which rewrites
+  // every non-ASCII character under workers/intel-gateway/src to "?" before
+  // the unit suite runs. A literal "\u00fc" here once passed the PR gate and
+  // then failed the pre-deploy suite. Escapes survive; literals do not.
+  const { readFileSync } = await import("node:fs");
+  for (const rel of ["../mssp-tenants.js", "./mssp-tenants.test.js"]) {
+    const src = readFileSync(new URL(rel, import.meta.url), "utf8");
+    const bad = [...src].findIndex((c) => c.charCodeAt(0) > 127);
+    assert.equal(bad, -1, rel + " has a non-ASCII character at offset " + bad);
+  }
 });
 
 test("pure: only tenant-selecting requests pay for a membership read", () => {
