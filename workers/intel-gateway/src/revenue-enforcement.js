@@ -56,16 +56,25 @@ export const REVENUE_CONFIG = {
   // match so this file stops emitting a promise the platform doesn't keep.
   // MSSP was also wrongly marked unlimited (-1); it is rate-limited too, just
   // at a higher ceiling than Enterprise.
+  //
+  // P0 commercial-contract convergence (2026-09-24): api_calls_day said
+  // FREE 100 and ENTERPRISE/MSSP -1 ("unlimited"), contradicting
+  // config/commercial-contract.json (requests_per_day FREE 50,
+  // ENTERPRISE 50,000, MSSP 50,000) and the limiter that really enforces
+  // it (DAILY_QUOTAS, daily-quota.js). The contract forbids publishing any
+  // tier as unlimited. These values reach customers through
+  // buildUpgradeTrigger()/getUpgradeFeatures() copy, so they now equal the
+  // contract; scripts/verify_commercial_contract.py fails the build on drift.
   LIMITS: {
-    FREE:       { items: 20,   rpm: 30,   api_calls_day: 100,  stix: false, ioc: false,  ai_full: false },
-    PRO:        { items: 500,  rpm: 120,  api_calls_day: 5000, stix: "meta", ioc: true,  ai_full: true  },
-    ENTERPRISE: { items: 2000, rpm: 600,  api_calls_day: -1,   stix: true,  ioc: true,  ai_full: true  },
+    FREE:       { items: 20,   rpm: 30,   api_calls_day: 50,    stix: false, ioc: false,  ai_full: false },
+    PRO:        { items: 500,  rpm: 120,  api_calls_day: 5000,  stix: "meta", ioc: true,  ai_full: true  },
+    ENTERPRISE: { items: 2000, rpm: 600,  api_calls_day: 50000, stix: true,  ioc: true,  ai_full: true  },
     // MSSP evidenced as >= ENTERPRISE everywhere else in this codebase
     // (every ad-hoc `auth.tier === TIERS.ENTERPRISE || auth.tier === TIERS.MSSP`
     // check in index.js treats them identically) -- unlimited items/day here
     // for the same reason, not a new policy invented for this pass. rpm is
     // NOT unlimited -- matches RATE_LIMITS.MSSP in index.js.
-    MSSP:       { items: -1,   rpm: 1200, api_calls_day: -1,   stix: true,  ioc: true,  ai_full: true  },
+    MSSP:       { items: -1,   rpm: 1200, api_calls_day: 50000, stix: true,  ioc: true,  ai_full: true  },
   },
   // v185.2 FIX (Fortune-500 audit, Phase 9): premium.monthly_usd was 29 --
   // the actual Razorpay charge (pricing-data.json, the live checkout source
@@ -494,8 +503,7 @@ export async function trackUsageAndEnforce(env, keyId, tier) {
   if (!env?.SECURITY_HUB_KV || !keyId) return { allowed: true, count: 0 };
 
   const t      = (tier || "FREE").toUpperCase();
-  const limit  = REVENUE_CONFIG.LIMITS[t]?.api_calls_day ?? 100;
-  if (limit === -1) return { allowed: true, unlimited: true }; // enterprise/mssp
+  const limit  = REVENUE_CONFIG.LIMITS[t]?.api_calls_day ?? REVENUE_CONFIG.LIMITS.FREE.api_calls_day;
 
   const day    = new Date().toISOString().slice(0, 10);
   const kvKey  = `usage:${keyId}:${day}`;
@@ -514,7 +522,7 @@ export async function trackUsageAndEnforce(env, keyId, tier) {
         used:     next,
         limit,
         upgrade:  buildUpgradeTrigger("usage_limit", t),
-        message:  `Daily API limit reached (${limit} calls). ${t === "FREE" ? "Upgrade to Pro for 5,000 calls/day." : "Upgrade to Enterprise for unlimited."}`,
+        message:  `Daily API limit reached (${limit} calls). ${dailyUpgradeHint(t)}`,
         reset_at: `${day}T23:59:59Z`,
       };
     }
@@ -553,7 +561,7 @@ export function buildUpgradeTrigger(context, currentTier) {
     siem:             { title: "Enterprise SIEM Push",           body: "Auto-push threats to Splunk, Sentinel, or QRadar in real-time." },
     alerts:           { title: "Real-Time Threat Alerts",        body: "Get notified instantly when critical threats emerge. Actor TTPs included." },
     api:              { title: "More API Keys",                  body: "Create multiple API keys for your team and CI/CD pipelines." },
-    usage_limit:      { title: "Daily Limit Reached",            body: t === "FREE" ? "You've used all 100 free API calls today. Upgrade to Pro for 5,000/day." : "Upgrade to Enterprise for unlimited calls." },
+    usage_limit:      { title: "Daily Limit Reached",            body: t === "FREE" ? `You've used all ${fmtCalls(REVENUE_CONFIG.LIMITS.FREE.api_calls_day)} free API calls today. ${dailyUpgradeHint(t)}` : dailyUpgradeHint(t) },
     approaching_limit:{ title: "80% of Daily Limit Used",        body: "You're close to your daily API limit. Upgrade now to avoid disruption." },
     detection_rules:  { title: "Unlock Sigma / KQL / Suricata",  body: "Deploy production-ready detection rules directly to Splunk, Sentinel, and your NIDS." },
     actor_attribution:{ title: "Unlock Threat Actor Attribution", body: "See who's behind the threat: aliases, TTPs, sectors, and motivation." },
@@ -595,13 +603,32 @@ export function buildUpgradeTrigger(context, currentTier) {
   };
 }
 
+// Quota copy is derived from LIMITS (contract-gated) so upgrade messages can
+// never quote a figure the limiter does not enforce.
+function fmtCalls(n) {
+  return Number(n).toLocaleString("en-US");
+}
+
+// Next paid tier's contracted daily quota for a customer who hit theirs.
+// Never "unlimited": every tier is capped (commercial-contract.json).
+function dailyUpgradeHint(tier) {
+  const L = REVENUE_CONFIG.LIMITS;
+  if (tier === "FREE") return `Upgrade to Pro for ${fmtCalls(L.PRO.api_calls_day)} calls/day.`;
+  if (tier === "PRO")  return `Upgrade to Enterprise for ${fmtCalls(L.ENTERPRISE.api_calls_day)} calls/day.`;
+  return "Your plan's daily quota resets at 00:00 UTC. Contact sales for higher volume.";
+}
+
 function getUpgradeFeatures(targetTier) {
+  const L = REVENUE_CONFIG.LIMITS;
   if (targetTier === "enterprise") {
-    return ["Unlimited API calls", "Full STIX 2.1 bundles", "SIEM push integrations", "Dedicated SLA", "White-label API", "Priority support"];
+    // P0 2026-09-24: previously claimed unlimited API calls (a _forbidden_claims entry in
+    // commercial-contract.json) and "White-label API" (white_label is MSSP-only
+    // in the contract; ENTERPRISE white_label=false).
+    return [`${L.ENTERPRISE.rpm} req/min`, `${fmtCalls(L.ENTERPRISE.api_calls_day)} API calls/day`, "Full STIX 2.1 bundles", "SIEM push integrations", "99.9% uptime SLA", "Email and chat support, 4h response"];
   }
   // v185.2 FIX (Fortune-500 audit, Phase 9): was "500 req/min" -- the actual
   // enforced PRO rate limit (RATE_LIMITS.PRO, index.js) is 120 req/min.
-  return ["120 req/min", "5,000 API calls/day", "Full IOC arrays", "Full AI analysis", "Threat alerts", "Priority email support"];
+  return [`${L.PRO.rpm} req/min`, `${fmtCalls(L.PRO.api_calls_day)} API calls/day`, "Full IOC arrays", "Full AI analysis", "Threat alerts", "Email support, 48h response"];
 }
 
 // 
@@ -674,10 +701,12 @@ export async function handleLeadCapture(request, env, rid) {
     return revenueJson({
       status:      "captured",
       message:     "Access granted. Check your email for full report delivery.",
+      // Shape kept for compatibility; commercial-contract.json offers no free
+      // trial, so this now always reports available:false (P0 2026-09-24).
       trial_offer: {
-        available: true,
-        message:   "Start your 7-day Pro trial  no credit card required.",
-        url:       REVENUE_CONFIG.UPGRADE_URLS.trial,
+        available: false,
+        message:   "No free trial. The Free tier is available without payment; Pro starts immediately after checkout.",
+        url:       REVENUE_CONFIG.UPGRADE_URLS.pricing,
       },
       request_id:  rid,
     });
@@ -689,7 +718,22 @@ export async function handleLeadCapture(request, env, rid) {
 // 
 // PHASE 2B  Trial Issuance Engine
 // POST /api/leads/trial  issues 7-day PRO trial + API key instantly
+//
+// DEPRECATED 2026-09-24: no longer routed. commercial-contract.json states
+// "No free trial" for every tier; POST /api/leads/trial now answers 410 with
+// TRIAL_DISCONTINUED_BODY. Replacement: the Free tier (no payment) or a paid
+// plan via /upgrade.html. Kept exported for one release so any out-of-tree
+// importer keeps building; remove at the next major P-layer release.
 // 
+export const TRIAL_DISCONTINUED_BODY = Object.freeze({
+  error:       "trial_discontinued",
+  message:     "Sentinel APEX does not offer a free trial. The Free tier is available without payment, and paid plans activate immediately after checkout.",
+  free_tier:   "https://intel.cyberdudebivash.com/pricing.html",
+  pricing_url: "https://intel.cyberdudebivash.com/pricing.html",
+  upgrade_url: "https://intel.cyberdudebivash.com/upgrade.html?plan=pro",
+  deprecated:  "2026-09-24",
+});
+
 export async function handleTrialIssuance(request, env, rid) {
   if (request.method !== "POST") {
     return revenueJson({ error: "method_not_allowed" }, 405);

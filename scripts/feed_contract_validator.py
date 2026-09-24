@@ -80,6 +80,11 @@ CONTRACTS: Dict[str, Dict] = {
     "/api/preview": {
         "description": "Public preview feed endpoint",
         "canary": "B",
+        # A full default page is 25 FREE-masked items (~300 KB) -- more than
+        # READ_LIMIT_BYTES. The contract is validated on an explicit bounded
+        # page; the Worker must honour it (CONTRACT-PREVIEW-BOUND).
+        "live_query": "?limit=5",
+        "live_query_limit": 5,
         "http_status": [200],
         "content_type_prefix": "application/json",
         # Top-level envelope required keys
@@ -220,17 +225,30 @@ class ContractReport:
 
 # ─── HTTP Fetch ─────────────────────────────────────────────────────────────
 
+# Bounded read: a contract probe never buffers an unbounded body. A response
+# larger than this is reported as an explicit CONTRACT-SIZE hard fail (see
+# check_live_endpoints) instead of surfacing as a truncated-JSON parse error.
+# Endpoints that can legitimately be large are probed with a bounded query
+# (CONTRACTS[...]["live_query"]) rather than by raising this limit.
+READ_LIMIT_BYTES = 131072
+TRUNCATED_MARKER = "_x_validator_truncated"
+
+
 def _fetch(url: str, timeout: int, token: Optional[str] = None) -> Tuple[int, str, Dict[str, str]]:
-    """Returns (status_code, body_text, headers_dict)."""
+    """Returns (status_code, body_text, headers_dict). headers_dict carries
+    TRUNCATED_MARKER when the body exceeded READ_LIMIT_BYTES."""
     headers = {"User-Agent": "SentinelApex-ContractValidator/1.0"}
     if token:
         headers["Authorization"] = "Bearer %s" % token
     req = urllib.request.Request(url, headers=headers)
     try:
         with urllib.request.urlopen(req, timeout=timeout) as resp:
-            body    = resp.read(131072).decode("utf-8", errors="replace")
+            raw     = resp.read(READ_LIMIT_BYTES + 1)
             hdrs    = dict(resp.headers)
-            return resp.status, body, hdrs
+            if len(raw) > READ_LIMIT_BYTES:
+                hdrs[TRUNCATED_MARKER] = "1"
+                raw = raw[:READ_LIMIT_BYTES]
+            return resp.status, raw.decode("utf-8", errors="replace"), hdrs
     except urllib.error.HTTPError as exc:
         hdrs = dict(exc.headers) if exc.headers else {}
         return exc.code, str(exc), hdrs
@@ -590,7 +608,7 @@ class FeedContractValidator:
     def check_live_endpoints(self) -> None:
         """Run live HTTP contract validation against all registered endpoint contracts."""
         for endpoint, contract in CONTRACTS.items():
-            url = self.base + endpoint
+            url = self.base + endpoint + contract.get("live_query", "")
             log.info("Checking contract: %s %s", endpoint, contract["description"])
             if contract.get("health_contract"):
                 self._check_live_health_contract(endpoint, contract)
@@ -630,6 +648,14 @@ class FeedContractValidator:
                                "Content-Type mismatch: expected prefix '%s' got '%s'" % (
                                    ct_prefix, ct_actual))
 
+            # Size bound: an over-limit body is its own finding, not a JSON error.
+            if hdrs.get(TRUNCATED_MARKER):
+                self._tick()
+                self._hard(endpoint, "CONTRACT-SIZE",
+                           "Response exceeds the %d-byte contract read limit" % READ_LIMIT_BYTES,
+                           "URL: %s -- bound the response (pagination/limit) rather than raising the limit" % url)
+                continue
+
             # JSON contracts
             if contract.get("content_type_prefix") == "application/json" and body:
                 try:
@@ -649,6 +675,16 @@ class FeedContractValidator:
                         preview = data.get("preview", {})
                         if isinstance(preview, dict):
                             items = preview.get("items", [])
+                            want = contract.get("live_query_limit")
+                            if want:
+                                self._tick()
+                                if preview.get("limit") == want and len(items) <= want:
+                                    self._pass(endpoint, "CONTRACT-PREVIEW-BOUND",
+                                               "limit=%d honoured (%d items)" % (want, len(items)))
+                                else:
+                                    self._hard(endpoint, "CONTRACT-PREVIEW-BOUND",
+                                               "preview ignored limit=%d (limit=%r, %d items)" % (
+                                                   want, preview.get("limit"), len(items)))
                             if items:
                                 self._validate_preview_items(
                                     endpoint, items,
@@ -747,7 +783,7 @@ class FeedContractValidator:
         if not self.live:
             return
 
-        url = self.base + "/api/preview"
+        url = self.base + "/api/preview" + CONTRACTS["/api/preview"].get("live_query", "")
         _, body, _ = _fetch(url, self.timeout)
         try:
             data = json.loads(body)

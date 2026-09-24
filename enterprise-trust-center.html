@@ -133,24 +133,30 @@
     const key = document.getElementById("api-key-input").value.trim();
     if (!key) return;
     sessionStorage.setItem("apex_api_key", key);
-    // Validate by hitting health endpoint
-    fetch(BASE + "/api/health", {
-      headers: { "Authorization": "Bearer " + key }
-    }).then(r => {
-      if (r.ok || r.status === 200 || r.status === 401) {
-        // In dev mode allow any key; in prod the fetch will fail on bad keys
-        document.getElementById("auth-gate").style.display = "none";
-        document.getElementById("main").style.display = "block";
-        loadAll(key);
-      } else {
-        document.getElementById("auth-err").style.display = "block";
-      }
-    }).catch(() => {
-      // Offline / dev mode — allow access
-      document.getElementById("auth-gate").style.display = "none";
-      document.getElementById("main").style.display = "block";
-      loadAll(key);
-    });
+    // Validate against the canonical key-validation endpoint. /api/health
+    // reports INTELLIGENCE FRESHNESS (structured 503 while the feed is
+    // stale) and never validated a key, so a valid customer could be shown
+    // an auth error; it also let any key through on 401 or network error.
+    // Authentication validity is now independent of feed freshness, and
+    // the gate fails closed.
+    const err = document.getElementById("auth-err");
+    err.style.display = "none";
+    fetch(BASE + "/api/auth/validate", {
+      headers: { "X-API-Key": key, "Cache-Control": "no-store" }
+    }).then(r => r.ok ? r.json() : null)
+      .then(body => {
+        if (body && body.valid === true) {
+          document.getElementById("auth-gate").style.display = "none";
+          document.getElementById("main").style.display = "block";
+          loadAll(key);
+        } else {
+          sessionStorage.removeItem("apex_api_key");
+          err.style.display = "block";
+        }
+      }).catch(() => {
+        sessionStorage.removeItem("apex_api_key");
+        err.style.display = "block";
+      });
   }
 
   function hdrs(key) {

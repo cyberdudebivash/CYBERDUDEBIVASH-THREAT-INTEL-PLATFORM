@@ -333,9 +333,14 @@ def test_every_dollar_figure_matches_real_pricing_pages(page_text):
 
 
 def test_api_rate_limits_match_real_comparison_table(page_text):
-    """Same guard as above, for the per-day API rate limits (100/day,
-    5,000/day, 50,000/day) quoted in the API Plans section."""
+    """Same guard as above, for the per-day API rate limits quoted in the
+    API Plans section. Expected figures come from config/commercial-contract.json
+    (requests_per_day) rather than literals -- the previous hardcoded "100/day"
+    for FREE was itself stale (contract and DAILY_QUOTAS: 50/day)."""
+    import json
+    contract = json.loads((REPO_ROOT / "config" / "commercial-contract.json").read_text(encoding="utf-8"))
     real_text = REAL_PRICING_HTML.read_text(encoding="utf-8")
-    for limit in ("100/day", "5,000/day", "50,000/day"):
+    expected = [f"{contract['tiers'][t]['requests_per_day']:,}/day" for t in ("free", "pro", "enterprise")]
+    for limit in expected:
         assert limit in page_text, f"enterprise-pricing.html missing expected rate limit '{limit}'"
         assert limit in real_text, f"'{limit}' not found in real pricing.html -- page may be quoting a stale figure"

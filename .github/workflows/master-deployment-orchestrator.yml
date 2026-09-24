@@ -54,7 +54,10 @@ env:
   # fresh Worker deploy. 10 = minimum viable non-empty feed. Do not raise this
   # threshold above 10 without ensuring r2-data-sync runs before this workflow.
   MIN_ADVISORY_COUNT: 10
-  MAX_MANIFEST_AGE_HOURS: 6
+  # Freshness threshold intentionally NOT defined here: Gate 2 reads it from
+  # config/public_freshness_contract.json via scripts/public_freshness_contract.py
+  # (the single authority shared with /api/health, STAGE 5.9.10 and the R2
+  # upload guard). A local MAX_MANIFEST_AGE_HOURS copy used to live here.
 
 jobs:
 
@@ -205,41 +208,22 @@ jobs:
       fresh: ${{ steps.freshness.outputs.fresh }}
 
     steps:
+      - name: "Checkout"
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        timeout-minutes: 3
+
       - name: "Check manifest timestamps"
         id: freshness
         timeout-minutes: 4
+        # Classified by the canonical contract (scripts/public_freshness_contract.py
+        # -> config/public_freshness_contract.json). Previously this step kept its
+        # own 6h threshold and, when a timestamp failed to parse, fell back to
+        # age "0" and reported the feed FRESH. Outputs are unchanged:
+        # fresh=true | stale | warn (warning-only gate, as before).
         run: |
           echo "[GATE 2] Checking manifest freshness..."
-          LATEST=$(curl -sf --max-time 20 "${{ env.WORKER_BASE }}/api/v1/intel/latest.json" || echo '{}')
-          GENERATED=$(echo "$LATEST" | python3 -c "
-          import sys,json,re
-          body=sys.stdin.read()
-          m=re.search(r'\"generated_at\"\s*:\s*\"([^\"]+)\"',body)
-          print(m.group(1) if m else 'unknown')
-          " 2>/dev/null || echo "unknown")
-
-          if [ "$GENERATED" = "unknown" ]; then
-            echo "[GATE 2] WARNING: No generated_at timestamp found"
-            echo "fresh=warn" >> $GITHUB_OUTPUT
-          else
-            AGE=$(python3 -c "
-          from datetime import datetime,timezone
-          ts='$GENERATED'.replace('Z','+00:00')
-          dt=datetime.fromisoformat(ts)
-          age=(datetime.now(timezone.utc)-dt).total_seconds()/3600
-          print(f'{age:.1f}')
-          " 2>/dev/null || echo "0")
-            echo "[GATE 2] Manifest age: ${AGE}h"
-            LIMIT="${{ env.MAX_MANIFEST_AGE_HOURS }}"
-            STALE=$(python3 -c "print('true' if float('$AGE')>float('$LIMIT') else 'false')" 2>/dev/null || echo "false")
-            if [ "$STALE" = "true" ]; then
-              echo "[GATE 2] WARNING: Manifest is ${AGE}h old (limit: ${LIMIT}h)"
-              echo "fresh=stale" >> $GITHUB_OUTPUT
-            else
-              echo "[GATE 2] Manifest fresh: ${AGE}h old"
-              echo "fresh=true" >> $GITHUB_OUTPUT
-            fi
-          fi
+          curl -sf --max-time 20 "${{ env.WORKER_BASE }}/api/v1/intel/latest.json" -o /tmp/latest.json || echo '{}' > /tmp/latest.json
+          python3 scripts/orchestrator_manifest_freshness.py /tmp/latest.json >> "$GITHUB_OUTPUT"
 
   # ============================================================
   # GATE 3: SLA STATUS EVALUATION

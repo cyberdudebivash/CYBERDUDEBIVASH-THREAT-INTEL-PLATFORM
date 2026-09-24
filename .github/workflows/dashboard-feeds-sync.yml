@@ -111,8 +111,10 @@ jobs:
               raise ValueError(f'non-standard JSON constant: {token}')
           def strict_load(path):
               return json.loads(path.read_text(encoding='utf-8'), parse_constant=reject_constant)
+          # api/v1/intel/apex.json is not ours: generate_api_manifests.py
+          # (sentinel-blogger) is its sole producer (P0 Phase 3C).
           files = [
-            'api/v1/intel/apex.json','api/v1/intel/ai_summary.json','api/v1/intel/stats.json',
+            'api/v1/intel/ai_summary.json','api/v1/intel/stats.json',
             'api/v1/intel/campaigns.json','api/v1/intel/ransomware.json','api/v1/intel/apt.json',
             'api/v1/intel/epss.json','api/v1/intel/defcon.json','api/v1/intel/pulse.json',
             'api/v1/intel/darkweb.json','api/v1/intel/cybermap.json'
@@ -128,10 +130,13 @@ jobs:
               if not isinstance(d,(dict,list)):
                   print(f'::error::{name}: invalid top-level shape'); sys.exit(1)
               parsed[name]=d
-          apex=parsed['api/v1/intel/apex.json']
-          count=apex.get('total_advisories', apex.get('total', 0)) if isinstance(apex,dict) else 0
+          if pathlib.Path('api/v1/intel/apex.json').exists() and \
+             strict_load(pathlib.Path('api/v1/intel/apex.json')).get('generator') == 'generate_dashboard_feeds.py':
+              print('::error::generate_dashboard_feeds.py wrote apex.json; it must not (single producer)'); sys.exit(1)
+          stats=parsed['api/v1/intel/stats.json']
+          count=stats.get('total', 0) if isinstance(stats,dict) else 0
           if not isinstance(count,(int,float)) or isinstance(count,bool) or count <= 0:
-              print(f'::error::apex.json advertises non-positive advisory count ({count}); refusing destructive empty publication')
+              print(f'::error::stats.json advertises non-positive advisory count ({count}); refusing destructive empty publication')
               sys.exit(1)
           print(f'VALIDATION=PASS DASHBOARD_ADVISORIES={count} FILES={len(files)} STRICT_JSON=PASS')
           PY
@@ -147,7 +152,7 @@ jobs:
           ENDPOINT="https://${CF_ACCOUNT_ID}.r2.cloudflarestorage.com"
           BUCKET="sentinel-apex-data"
           for FILE in \
-            api/v1/intel/apex.json api/v1/intel/ai_summary.json api/v1/intel/stats.json \
+            api/v1/intel/ai_summary.json api/v1/intel/stats.json \
             api/v1/intel/campaigns.json api/v1/intel/ransomware.json api/v1/intel/apt.json \
             api/v1/intel/epss.json api/v1/intel/defcon.json api/v1/intel/pulse.json \
             api/v1/intel/darkweb.json api/v1/intel/cybermap.json; do
@@ -156,7 +161,7 @@ jobs:
               --endpoint-url "$ENDPOINT" --content-type "application/json" \
               --cache-control "max-age=120, s-maxage=120" --quiet
           done
-          echo "R2_PUBLICATION=PASS FILES=11"
+          echo "R2_PUBLICATION=PASS FILES=10"
 
       - name: "Purge Cloudflare cache"
         if: github.event.inputs.dry_run != 'true'
@@ -171,7 +176,7 @@ jobs:
           curl --fail-with-body -sS -X POST \
             "https://api.cloudflare.com/client/v4/zones/${ZONE_ID}/purge_cache" \
             -H "Authorization: Bearer ${TOKEN}" -H "Content-Type: application/json" \
-            --data '{"files":["https://intel.cyberdudebivash.com/api/v1/intel/apex.json","https://intel.cyberdudebivash.com/api/v1/intel/ai_summary.json","https://intel.cyberdudebivash.com/api/v1/intel/stats","https://intel.cyberdudebivash.com/api/v1/intel/campaigns","https://intel.cyberdudebivash.com/api/v1/intel/ransomware","https://intel.cyberdudebivash.com/api/v1/intel/apt","https://intel.cyberdudebivash.com/api/v1/intel/epss","https://intel.cyberdudebivash.com/api/v1/intel/defcon","https://intel.cyberdudebivash.com/api/v1/intel/pulse","https://intel.cyberdudebivash.com/api/v1/intel/darkweb","https://intel.cyberdudebivash.com/api/v1/intel/cybermap"]}'
+            --data '{"files":["https://intel.cyberdudebivash.com/api/v1/intel/ai_summary.json","https://intel.cyberdudebivash.com/api/v1/intel/stats","https://intel.cyberdudebivash.com/api/v1/intel/campaigns","https://intel.cyberdudebivash.com/api/v1/intel/ransomware","https://intel.cyberdudebivash.com/api/v1/intel/apt","https://intel.cyberdudebivash.com/api/v1/intel/epss","https://intel.cyberdudebivash.com/api/v1/intel/defcon","https://intel.cyberdudebivash.com/api/v1/intel/pulse","https://intel.cyberdudebivash.com/api/v1/intel/darkweb","https://intel.cyberdudebivash.com/api/v1/intel/cybermap"]}'
 
       - name: "Production semantic canary"
         if: github.event.inputs.dry_run != 'true'
@@ -192,12 +197,17 @@ jobs:
                       with urllib.request.urlopen(req, timeout=15) as r:
                           if r.status != 200: raise RuntimeError(f'{ep}: HTTP {r.status}')
                           payloads[ep]=json.loads(r.read().decode('utf-8'), parse_constant=reject_constant)
+                  # Advisory count comes from stats (this workflow's output).
+                  # apex.json is the FEED owned by generate_api_manifests.py
+                  # (P0 Phase 3C) and is only checked for its feed shape.
+                  stats=payloads['/api/v1/intel/stats']
+                  count=stats.get('total',0) if isinstance(stats,dict) else 0
                   apex=payloads['/api/v1/intel/apex.json']
-                  count=apex.get('total_advisories', apex.get('total',0)) if isinstance(apex,dict) else 0
-                  if isinstance(count,(int,float)) and not isinstance(count,bool) and count > 0:
-                      print(f'PRODUCTION_CANARY=PASS API_ADVISORIES={count} STRICT_JSON=PASS')
+                  apex_ok=isinstance(apex,dict) and isinstance(apex.get('items'),list) and apex.get('generator')=='generate_api_manifests.py'
+                  if apex_ok and isinstance(count,(int,float)) and not isinstance(count,bool) and count > 0:
+                      print(f'PRODUCTION_CANARY=PASS API_ADVISORIES={count} APEX_FEED_SHAPE=PASS STRICT_JSON=PASS')
                       sys.exit(0)
-                  last=f'apex advisory count={count}'
+                  last=f'stats advisory count={count} apex_feed_shape={apex_ok}'
               except Exception as e:
                   last=str(e)
               time.sleep(5*(attempt+1))

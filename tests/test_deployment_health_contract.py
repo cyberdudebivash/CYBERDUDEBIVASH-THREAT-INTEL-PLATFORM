@@ -468,7 +468,7 @@ def test_feed_contract_live_health_accepts_valid_503_rejects_html(monkeypatch, t
 @pytest.mark.parametrize("wf,needle", [
     ("master-deployment-orchestrator.yml", "scripts/deployment_health_contract.py"),
     ("environment-promotion.yml", "scripts/deployment_health_contract.py"),
-    ("enterprise-rollback-governance.yml", "/api/health/live"),
+    ("enterprise-rollback-governance.yml", "scripts/post_rollback_canary.py"),
 ])
 def test_deploy_readiness_workflows_use_liveness_contract(wf, needle):
     src = (REPO / ".github/workflows" / wf).read_text(encoding="utf-8")

@@ -35,17 +35,25 @@
 //
 // Values are IDENTICAL -- this changes how the data is loaded, never what
 // Razorpay charges.
-import { PRICING_TIERS as pricingTiers } from './pricing-data.js';
+import {
+  PRICING_TIERS as pricingTiers,
+  PRICING_CURRENCY,
+  PRICING_UNIT,
+  PRICING_STATUS,
+} from './pricing-data.js';
 
 // Same shape/keys as the constant this replaces, so existing call sites
 // (handleRazorpayCreateOrder, etc.) need no changes beyond the import.
 export const RAZORPAY_TIER_PRICES = pricingTiers;
 
+// /api/pricing response. Built only from the pricing-data.js mirror: the
+// previous body read an undefined `pricingData` left over from the removed
+// JSON import, so every /api/pricing request threw a ReferenceError (500).
 export function getPricingSnapshot() {
   return {
-    status: pricingData._status,
-    currency: pricingData.currency,
-    unit: pricingData.unit,
-    tiers: pricingData.tiers,
+    status: PRICING_STATUS,
+    currency: PRICING_CURRENCY,
+    unit: PRICING_UNIT,
+    tiers: pricingTiers,
   };
 }

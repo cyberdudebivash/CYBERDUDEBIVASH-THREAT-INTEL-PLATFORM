@@ -24,8 +24,8 @@ import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { PRICING_TIERS, PRICING_CURRENCY, PRICING_UNIT } from "../pricing-data.js";
-import { RAZORPAY_TIER_PRICES } from "../pricing.js";
+import { PRICING_TIERS, PRICING_CURRENCY, PRICING_UNIT, PRICING_STATUS } from "../pricing-data.js";
+import { RAZORPAY_TIER_PRICES, getPricingSnapshot } from "../pricing.js";
 
 const SRC_DIR = dirname(dirname(fileURLToPath(import.meta.url)));
 const json = JSON.parse(readFileSync(join(SRC_DIR, "pricing-data.json"), "utf-8"));
@@ -73,4 +73,23 @@ test("known production paise values are unchanged by the module refactor", () =>
   assert.equal(RAZORPAY_TIER_PRICES.ENTERPRISE.annual, 41600000);
   assert.equal(RAZORPAY_TIER_PRICES.MSSP.monthly, 8330000);
   assert.equal(RAZORPAY_TIER_PRICES.MSSP.annual, 83300000);
+});
+
+test("PRICING_STATUS mirrors pricing-data.json _status", () => {
+  assert.equal(PRICING_STATUS, json._status);
+});
+
+test("getPricingSnapshot() returns the /api/pricing body without throwing", () => {
+  // Regression: getPricingSnapshot read an undefined `pricingData` binding
+  // left over from the removed JSON import, so production /api/pricing
+  // returned HTTP 500 {"error":"Internal gateway error"} on every request.
+  const snap = getPricingSnapshot();
+  assert.deepEqual(snap, {
+    status: json._status,
+    currency: json.currency,
+    unit: json.unit,
+    tiers: json.tiers,
+  });
+  // Must be JSON-serialisable exactly as jsonResp() will send it.
+  assert.deepEqual(JSON.parse(JSON.stringify(snap)).tiers, json.tiers);
 });

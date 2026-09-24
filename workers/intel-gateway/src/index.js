@@ -97,7 +97,7 @@ import { loadCertificationIndex, persistCertificationRecords, resolveCertificati
 import { routeEnterpriseEndpoint } from './enterprise-endpoints.js';
 import { handleSearch, handleActors, handleCVEs, handleIOCLookup, handleMISPExport as handleMISPExportExt, handleCSVExport, handleCorrelate, handlePredict, handleCampaigns, handleAnomalies, handleIntelGraph, handleIntelRelations, handleIRGuidance, handleExposureAnalysis, buildScopeSet } from './api-extensions.js';
 import { RAZORPAY_TIER_PRICES, getPricingSnapshot } from './pricing.js';
-import { applyTierGateV2, enforceTierGate, buildUpgradeTrigger, handleLeadCapture, handleTrialIssuance } from './revenue-enforcement.js';
+import { applyTierGateV2, enforceTierGate, buildUpgradeTrigger, handleLeadCapture, handleTrialIssuance, TRIAL_DISCONTINUED_BODY } from './revenue-enforcement.js';
 import { evaluateDailyQuota, dailyQuotaConfig, utcDateString, dailyQuotaKey, quotaAlertDedupeKey, secondsUntilNextUtcMidnight } from './daily-quota.js';
 import { buildDetectionRegistry, queryDetectionRegistry, toPublicArtifact, DETECTION_REGISTRY_VERSION } from './detection-registry.js';
 import { handleSLAStatus, handleSLAReport, handleSLAIncidents, handleSLAPing, handleSLACertificate } from './sla-monitor.js';
@@ -172,7 +172,22 @@ const BRUTE_FORCE_MAX     = 5;            // lockout after N failed auth attempt
 const BRUTE_FORCE_TTL     = 900;          // 15-minute lockout (seconds)
 const AUDIT_TTL           = 86400 * 30;   // 30-day audit log retention
 const NEWS_TTL_SEC        = 300;
-const PREVIEW_LIMIT       = 25;
+const PREVIEW_LIMIT       = 25;           // max (and default) items per /api/preview page
+
+// /api/preview pagination (P0 Phase 3D): ?limit=1..PREVIEW_LIMIT (default
+// PREVIEW_LIMIT, so the default response is unchanged) and ?offset= within
+// the FREE preview window (the first PREVIEW_LIMIT feed items; pagination
+// never reaches past what the preview exposes). Each FREE-masked item is
+// ~13 KB, so a full page is ~300 KB; clients that need a small body
+// (contract validators, widgets, admin.html's ?limit=10, which was silently
+// ignored) can ask for one. Response adds limit/offset/has_more/next_offset.
+//
+// Integer query parameter clamped to [min, max]; missing/non-numeric -> def.
+function boundedIntParam(raw, def, min, max) {
+  const n = Number.parseInt(raw ?? "", 10);
+  if (!Number.isFinite(n)) return def;
+  return Math.min(Math.max(n, min), max);
+}
 const FREE_SIGNUP_IP_DAILY_CAP = 5; // self-serve free-key requests per IP per day
 const LATEST_JSON_KEY     = "api/v1/intel/latest.json";
 const LATEST_PRO_JSON_KEY = "api/v1/intel/latest_pro.json"; // PRO/ENTERPRISE: includes report_url
@@ -6109,10 +6124,14 @@ async function handleRequest(request, env, ctx) {
     if (!rl.allowed) return jsonResp({ error: "rate_limited", retry_after_seconds: 60 }, 429);
     return await handleLeadCapture(request, env, crypto.randomUUID());
   }
+  // DEPRECATED 2026-09-24 -- free trial discontinued. config/commercial-
+  // contract.json (owner decision 2026-09-19) states "No free trial" for every
+  // tier, yet this route minted a live 7-day PRO key from an email alone. The
+  // route is kept and answers 410 Gone with the replacement path instead of
+  // disappearing (404). handleTrialIssuance() stays exported but unrouted.
+  // Keys already issued are untouched and expire on their own expires_at.
   if (path === "/api/leads/trial" && method === "POST") {
-    const rl = await checkRateLimit(env, ip, "FREE");
-    if (!rl.allowed) return jsonResp({ error: "rate_limited", retry_after_seconds: 60 }, 429);
-    return await handleTrialIssuance(request, env, crypto.randomUUID());
+    return jsonResp(TRIAL_DISCONTINUED_BODY, 410);
   }
 
   // --- Premium intel gate (MONETIZATION INTEGRITY v148->v180) -----------------
@@ -6733,7 +6752,12 @@ async function handleRequest(request, env, ctx) {
     // Always the FREE/teaser view regardless of caller tier (unauthenticated
     // by design) -- so IOCs, detection rules, and actor attribution must be
     // masked the same way the FREE branch of every other endpoint is.
-    const items    = (feedData.items || []).slice(0, PREVIEW_LIMIT).map(i => applyTierGateV2(i, "free", null));
+    // Bounded pagination -- see boundedIntParam()/PREVIEW_LIMIT above.
+    const pvLimit  = boundedIntParam(url.searchParams.get("limit"), PREVIEW_LIMIT, 1, PREVIEW_LIMIT);
+    const pvOffset = boundedIntParam(url.searchParams.get("offset"), 0, 0, PREVIEW_LIMIT);
+    const window_  = (feedData.items || []).slice(0, PREVIEW_LIMIT);
+    const items    = window_.slice(pvOffset, pvOffset + pvLimit).map(i => applyTierGateV2(i, "free", null));
+    const pvNext   = pvOffset + items.length;
     // v201.0: additive-only field sourced from the new cron_worker.js
     // ingestion pipeline's cached summary (threat-indicators/summary.json,
     // a NEW R2 key -- distinct from LATEST_JSON_KEY). getLiveIndicatorsSummary
@@ -6746,6 +6770,8 @@ async function handleRequest(request, env, ctx) {
       preview: {
         items, total_preview: items.length, feed_total: (feedData.items || []).length,
         preview_limit: PREVIEW_LIMIT, generated_at: now(), version: PLATFORM_VERSION,
+        limit: pvLimit, offset: pvOffset, has_more: pvNext < window_.length,
+        next_offset: pvNext < window_.length ? pvNext : null,
         _tier: TIERS.FREE, _upgrade_url: "https://intel.cyberdudebivash.com/upgrade.html",
         ...(liveIndicators ? { live_indicators_summary: liveIndicators } : {}),
       },
