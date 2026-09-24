@@ -25,6 +25,7 @@ const COPY = [
   "config/commercial-contract.json",
   "config/public_freshness_contract.json",
   "index.html",
+  "dashboard.html",
   "cyber-watchdog.html",
 ];
 const T = (f) => "workers/intel-gateway/src/__tests__/" + f;

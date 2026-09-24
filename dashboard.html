@@ -1079,6 +1079,7 @@ input::placeholder{color:var(--muted)}
   <!-- Desktop nav -->
   <nav class="nav-links" aria-label="Main">
     <a href="/">Dashboard</a>
+    <a href="/cyber-watchdog.html">Cyber Watchdog</a>
     <a href="/store.html">Store</a>
     <a href="/pricing.html">Pricing</a>
     <a href="/api-docs.html">API Docs</a>
@@ -1098,6 +1099,7 @@ input::placeholder{color:var(--muted)}
 <!-- Mobile nav drawer -->
 <nav class="mobile-nav" id="mobile-nav" aria-label="Mobile navigation">
   <a href="/">&#128737; Dashboard</a>
+  <a href="/cyber-watchdog.html">Cyber Watchdog</a>
   <a href="/store.html">&#128722; Store</a>
   <a href="/pricing.html">&#11014; Pricing</a>
   <a href="/api-docs.html">&#128218; API Docs</a>
@@ -1175,6 +1177,32 @@ input::placeholder{color:var(--muted)}
       <div class="stat-sub" id="stat-version">v184.0</div>
     </div>
   </div>
+
+  <section class="section-card" id="account-cyber-watchdog" aria-label="Cyber Watchdog">
+    <h3>CYBER WATCHDOG</h3>
+    <p id="account-cwd-status" style="color:var(--text2);font-size:14px;margin:8px 0 12px;">Loading the live Watchdog brief…</p>
+    <p style="color:var(--muted);font-size:13px;margin:0 0 12px;">This watches advisories already on the Sentinel APEX feed. It does not watch the entire internet.</p>
+    <a class="btn btn-primary" href="/cyber-watchdog.html">Open Watchdog</a>
+  </section>
+  <script>
+  (function () {
+    var status = document.getElementById('account-cwd-status');
+    if (!status) return;
+    fetch('/api/watchdog/brief?limit=1', { headers: { Accept: 'application/json' } })
+      .then(function (res) { return res.json().then(function (data) { return { ok: res.ok, data: data }; }); })
+      .then(function (out) {
+        var data = out.data || {};
+        if (!out.ok) {
+          status.textContent = data.message || 'INTELLIGENCE DEGRADED';
+          return;
+        }
+        status.textContent = (data.freshness_status || 'UNKNOWN')
+          + ' · ' + (data.feed_item_count == null ? 'unknown' : data.feed_item_count) + ' advisories'
+          + ' · updated ' + (data.feed_generated_at || 'unknown');
+      })
+      .catch(function () { status.textContent = 'Watchdog brief is not reachable.'; });
+  })();
+  </script>
 
   <!-- -- API Keys ---------------------------------------------- -->
   <div class="section-card">

@@ -340,6 +340,14 @@ test("dashboard binds Total Advisories to total_advisories, not the report catal
   const html = fs.readFileSync(path.join(REPO, "index.html"), "utf8");
   assert.match(html, /set\('m-total',\s*intel\.total_advisories\)/);
   assert.doesNotMatch(html, /set\('m-total',\s*intel\.total_reports\)/);
+  assert.match(html, /id="cyber-watchdog-dashboard"/);
+  assert.match(html, /\/api\/watchdog\/brief\?limit=5/);
+  assert.match(html, /charCodeAt\(0\)/);
+  assert.doesNotMatch(html, /watches the entire internet/i);
+  const account = fs.readFileSync(path.join(REPO, "dashboard.html"), "utf8");
+  assert.match(account, /id="account-cyber-watchdog"/);
+  assert.match(account, /\/api\/watchdog\/brief\?limit=1/);
+  assert.match(account, /href="\/cyber-watchdog\.html"/);
 });
 
 test("negative control: page escape is not an identity map", () => {
