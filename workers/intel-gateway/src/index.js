@@ -155,6 +155,7 @@ import { generateSigningSecret, resolveAndValidate, runVerificationChallenge } f
 import { SESSION_POLICY as WATCHDOG_SESSION_POLICY, webhookDeliveryEnabled } from './watchdog-policy.js';
 // MSSP tenant self-service (tenant_auth_version 2); see mssp-tenants.js.
 import { TENANT_AUTH_VERSION, TENANT_DO_PREFIX, isTenantId, newTenantId, requestSelectsTenant, routeMsspTenants } from './mssp-tenants.js';
+import { buildCampaignsPayload, buildRansomwarePayload, geoAttributionCoverage, DASHBOARD_CONTRACT_VERSION, THREAT_LEVEL_FORMULA, THREAT_LEVEL_FORMULA_VERSION } from './dashboard-contract.js';
 // Issue #288: Durable Object class the Workers runtime instantiates via the
 // GUMROAD_PROVISIONING_LOCK binding (wrangler.toml). Must be a named export
 // of the Worker's main module -- see gumroad-provisioning-lock.js's header
@@ -930,7 +931,26 @@ async function r2Get(env, key) {
 async function loadFeedItems(env) {
   const data = await r2Get(env, LATEST_JSON_KEY);
   if (data && data.items && data.items.length > 0) return data;
-  return { schema_version: "1.0", count: 0, items: [], generated_at: now(), version: PLATFORM_VERSION };
+  // _synthetic_empty marks this stand-in so freshness readers never treat
+  // its generated_at (the request time) as a feed publication time.
+  return { schema_version: "1.0", count: 0, items: [], generated_at: now(), version: PLATFORM_VERSION, _synthetic_empty: true };
+}
+
+// Publication/freshness block for the dashboard routes, from the same
+// evaluatePublicIntelligence() /api/health uses. A synthetic stand-in feed
+// is "unavailable", not fresh.
+function _dashboardPublication(feedData) {
+  const evaluation = evaluatePublicIntelligence(feedData && !feedData._synthetic_empty ? feedData : null, Date.now());
+  const intel = evaluation.intelligence;
+  return {
+    status: intel.status,
+    fresh: intel.status === "fresh",
+    generated_at: intel.generated_at,
+    age_seconds: intel.age_seconds,
+    max_age_seconds: intel.max_age_seconds,
+    advisory_count: intel.advisory_count,
+    authority: "/api/health intelligence contract",
+  };
 }
 
 // P0 FIX (metric-integrity contract closure, see /api/metrics below): both
@@ -959,7 +979,9 @@ async function _liveFeedSourceCount(env) {
     return null;
   }
 }
-const _LEGACY_FEED_COUNT_FALLBACK = 74;
+// 2026-09-24 (P0 dashboard data contract): the legacy `?? 74` fallback both
+// stats routes applied on a registry miss is removed. An unmeasured source
+// count is null ("N/A" on the dashboard), never an invented 74.
 
 // =============================================================================
 // DETECTION REGISTRY QUERY HANDLERS (Phase 4.1 mandate Section 9-19)
@@ -2074,51 +2096,13 @@ async function handleControlPlaneState(request, env, ctx) {
   }, 200, { "Cache-Control": "no-store" });
 }
 
+// 2026-09-24 (P0 dashboard data contract): delegates to dashboard-contract.js.
+// The old body counted only kill_chain_phases/mitre_tactics (so technique-only
+// items never reached the coverage panel) and listed every CRITICAL or
+// risk>=8 advisory as an "active campaign". Same legacy keys, corrected
+// meaning, plus attack_tactics.
 function computeKillChain(items) {
-  const phases = { recon: 0, weaponize: 0, deliver: 0, exploit: 0, install: 0, c2: 0, action: 0 };
-  const phaseMap = {
-    "Reconnaissance": "recon", "Resource Development": "weaponize",
-    "Initial Access": "deliver", "Execution": "exploit",
-    "Persistence": "install", "Privilege Escalation": "install",
-    "Defense Evasion": "install", "Credential Access": "install",
-    "Discovery": "install", "Lateral Movement": "c2",
-    "Collection": "c2", "Command and Control": "c2",
-    "Exfiltration": "action", "Impact": "action",
-    "Delivery": "deliver", "Exploitation": "exploit",
-    "Installation": "install", "C2": "c2", "Actions on Objectives": "action",
-  };
-  const campaigns = [];
-  for (const item of items) {
-    // FIX (P0, 2026-09-10): item.kill_chain_phases is an always-present but
-    // always-empty array on every real item (confirmed live and in feed
-    // data -- no producer anywhere populates it), so `|| item.kill_chain`
-    // never ran and total_tactics/coverage_pct were always 0 regardless of
-    // active_campaigns.length. The two fields that DO carry real per-item
-    // tactic data: item.mitre_tactics[].tactic (space-separated, e.g.
-    // "Initial Access" -- already matches phaseMap's key format) and the
-    // singular item.kill_chain_phase (hyphenated, e.g. "Initial-Access" --
-    // normalized to spaces below to match). Deduped since only presence
-    // (phases[m] > 0), not raw count, feeds total_tactics/coverage_pct.
-    const mitreTactics = (item.mitre_tactics || [])
-      .map(t => (t && typeof t === 'object') ? t.tactic : null)
-      .filter(Boolean);
-    const singlePhase = item.kill_chain_phase ? [item.kill_chain_phase.replace(/-/g, ' ')] : [];
-    const kc = [...new Set([...(item.kill_chain_phases || []), ...mitreTactics, ...singlePhase])];
-    for (const phase of kc) { const m = phaseMap[phase]; if (m) phases[m]++; }
-    if ((item.severity || "") === "CRITICAL" || parseFloat(item.risk_score || 0) >= 8.0) {
-      campaigns.push({
-        id: item.id || item.stix_id, title: item.title, severity: item.severity,
-        risk_score: item.risk_score, source: item.source, published: item.published,
-        kill_chain: kc, cve_ids: item.cve_ids || [], tags: item.tags || [],
-      });
-    }
-  }
-  const total = Object.values(phases).reduce((a, b) => a + b, 0);
-  return {
-    phases, coverage_pct: total > 0 ? Math.round((Object.values(phases).filter(v => v > 0).length / 7) * 100) : 0,
-    active_campaigns: campaigns.slice(0, 10),
-    total_tactics: Object.values(phases).filter(v => v > 0).length, generated_at: now(),
-  };
+  return buildCampaignsPayload(items, now());
 }
 
 function itemEpochMs(item) {
@@ -2137,28 +2121,12 @@ function groupMentioned(blob, name) {
   return blob.includes(n) || (head.length >= 5 && blob.includes(head));
 }
 
+// 2026-09-24: delegates to dashboard-contract.js (structured fields before
+// the title, no bare "ransom"/"extort" substrings, groups active only when a
+// ransomware-classified item names them). Same keys plus
+// ransomware_advisories, items_evaluated, monitor_status, classification.
 function computeRansomware(items) {
-  const ransomItems = items.filter(i => {
-    const t = itemBlob(i);
-    return t.includes("ransom") || t.includes("lockbit") || t.includes("blackcat") ||
-           t.includes("alphv") || t.includes("cl0p") || t.includes("extort") ||
-           (i.threat_type || "").toLowerCase().includes("ransom");
-  });
-  const blobs = items.map(itemBlob);
-  const mentioned = RANSOMWARE_GROUPS.filter(g => blobs.some(b => groupMentioned(b, g.name)));
-  return {
-    active_groups: mentioned.length,
-    monitoring_groups: 0,
-    new_victims_30d: null,
-    victims_measured: false,
-    recent_advisories: ransomItems.slice(0, 5).map(i => ({
-      title: i.title, severity: i.severity, risk_score: i.risk_score, source: i.source, published: i.published,
-    })),
-    top_groups: mentioned.slice(0, 5).map(g => ({
-      name: g.name, sector: g.sector, status: "MENTIONED", victims_30d: null,
-    })),
-    generated_at: now(),
-  };
+  return buildRansomwarePayload(items, RANSOMWARE_GROUPS, now());
 }
 
 function computeAPT(items) {
@@ -2253,7 +2221,9 @@ function computeCybermap(items) {
   const todayStr = new Date().toISOString().slice(0, 10);
   let todayTagged = 0;
   for (const item of items) {
-    const raw = String(item.actor_country || item.source_country || "").trim();
+    // Origin is threat-actor attribution only (dashboard-contract.js
+    // geoAttributionCoverage): source_country can be the publisher's country.
+    const raw = String(item.actor_country || "").trim();
     if (!raw || /^(unknown|unattributed|n\/a|none|null|-)$/i.test(raw)) continue;
     const code = raw.toUpperCase();
     const known = GEO_ATTACK_MAP.find(r => r.code === code || r.country.toLowerCase() === raw.toLowerCase());
@@ -2276,6 +2246,7 @@ function computeCybermap(items) {
     top_target: null,
     attribution: regions.length ? "country_field" : "none",
     note: regions.length ? "" : "No country tags on the current feed. Origins are not estimated.",
+    coverage: geoAttributionCoverage(items),
     generated_at: now(),
   };
 }
@@ -2307,7 +2278,7 @@ function buildAISummaryInline(feedData, stats) {
     schema_version: "1.0", version: PLATFORM_VERSION, generated_at: now(),
     ai_engine: null, model: null,
     global_threat_level: threat, defcon,
-    campaigns_detected: kcData.active_campaigns.length,
+    campaigns_detected: kcData.active_campaign_count,
     anomalies_flagged: null,
     high_risk_30d: (feedData.items || []).filter(i => {
       const risk = parseFloat(i.risk_score || 0);
@@ -6548,7 +6519,7 @@ async function handleRequest(request, env, ctx) {
   // --- /api/platform/stats ----------------------------------------------------
   // Dashboard-facing unified stats endpoint  -  returns {intel:{...}, api:{...}}
   if (path === "/api/platform/stats") {
-    const liveFeedCount = (await _liveFeedSourceCount(env)) ?? _LEGACY_FEED_COUNT_FALLBACK;
+    const liveFeedCount = (await _liveFeedSourceCount(env)) ?? null;
     const rawFeed = await r2Get(env, LATEST_JSON_KEY);
     const publication = evaluatePublicIntelligence(rawFeed, Date.now());
     const items = rawFeed && Array.isArray(rawFeed.items) ? rawFeed.items : [];
@@ -6629,11 +6600,22 @@ async function handleRequest(request, env, ctx) {
     const stats    = computeStats(feedData.items || []);
     const threat   = computeThreatLevel(stats);
     const defcon   = computeDefcon(stats);
-    const liveFeedCount = (await _liveFeedSourceCount(env)) ?? _LEGACY_FEED_COUNT_FALLBACK;
+    const liveFeedCount = (await _liveFeedSourceCount(env)) ?? null;
+    // Additive (P0 dashboard data contract): last_feed_sync_utc is the feed
+    // generation time /api/health reports; last_sync stays the newest item's
+    // publish time for existing readers. The service worker's Last Sync
+    // alias (service-worker.js fetchDashboardStats) keys on this field.
+    const publication = _dashboardPublication(feedData);
     return jsonResp({
       ...stats, global_threat_level: threat.level, global_threat_label: threat.label,
       defcon: defcon.level, defcon_label: defcon.label, defcon_status: defcon.status,
       feeds_active: liveFeedCount, version: PLATFORM_VERSION,
+      feeds_active_semantics: "active sources in the P40 source registry; null when the registry is unreadable",
+      last_feed_sync_utc: publication.generated_at,
+      latest_item_published_at: stats.last_sync,
+      publication,
+      threat_level_formula_version: THREAT_LEVEL_FORMULA_VERSION,
+      dashboard_contract: DASHBOARD_CONTRACT_VERSION,
     }, 200, { "Cache-Control": "public, max-age=60" });
   }
 
@@ -6675,7 +6657,7 @@ async function handleRequest(request, env, ctx) {
     // item's own published date, not "when this platform last
     // synced/ingested," and using it here can mask the same silently-
     // broken-pipeline class /api/health's fix exists to catch.
-    const lastFeedSyncUtc = feedData.generated_at || null;
+    const lastFeedSyncUtc = feedData._synthetic_empty ? null : (feedData.generated_at || null);
     const freshness = classifyFreshness(lastFeedSyncUtc);
     const feedSourceCount = await _liveFeedSourceCount(env);
 
@@ -6721,13 +6703,13 @@ async function handleRequest(request, env, ctx) {
     const stats    = computeStats(feedData.items || []);
     const kc       = computeKillChain(feedData.items || []);
     const threat   = computeThreatLevel(stats);
-    return jsonResp({ ...kc, global_threat_level: threat, version: PLATFORM_VERSION }, 200, { "Cache-Control": "public, max-age=60" });
+    return jsonResp({ ...kc, global_threat_level: threat, publication: _dashboardPublication(feedData), version: PLATFORM_VERSION }, 200, { "Cache-Control": "public, max-age=60" });
   }
 
   // --- /api/v1/intel/ransomware -----------------------------------------------
   if (path === "/api/v1/intel/ransomware") {
     const feedData = await loadFeedItems(env);
-    return jsonResp({ ...computeRansomware(feedData.items || []), version: PLATFORM_VERSION }, 200, { "Cache-Control": "public, max-age=120" });
+    return jsonResp({ ...computeRansomware(feedData.items || []), publication: _dashboardPublication(feedData), version: PLATFORM_VERSION }, 200, { "Cache-Control": "public, max-age=120" });
   }
 
   // --- /api/v1/intel/apt ------------------------------------------------------
@@ -6751,6 +6733,9 @@ async function handleRequest(request, env, ctx) {
     return jsonResp({
       ...defcon, global_threat_level: threat,
       stats: { critical: stats.critical, kev_confirmed: stats.kev_confirmed, total: stats.total },
+      evidence: { avg_risk_score: stats.avg_risk_score, critical: stats.critical, kev_confirmed: stats.kev_confirmed, total: stats.total },
+      formula: { version: THREAT_LEVEL_FORMULA_VERSION, expression: THREAT_LEVEL_FORMULA },
+      publication: _dashboardPublication(feedData),
       generated_at: now(),
     }, 200, { "Cache-Control": "public, max-age=60" });
   }
@@ -6772,7 +6757,7 @@ async function handleRequest(request, env, ctx) {
   if (path === "/api/v1/intel/cybermap" || path === "/api/v1/geo/cybermap") {
     const feedData = await loadFeedItems(env);
     const stats    = computeStats(feedData.items || []);
-    return jsonResp({ ...computeCybermap(feedData.items || [], stats), version: PLATFORM_VERSION }, 200, { "Cache-Control": "public, max-age=120" });
+    return jsonResp({ ...computeCybermap(feedData.items || [], stats), publication: _dashboardPublication(feedData), version: PLATFORM_VERSION }, 200, { "Cache-Control": "public, max-age=120" });
   }
 
   // --- /api/v1/news/feed ------------------------------------------------------

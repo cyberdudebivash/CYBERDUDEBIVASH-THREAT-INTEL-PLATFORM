@@ -30,17 +30,21 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const INDEX_HTML = path.join(__dirname, "..", "..", "index.html");
 
+// 2026-09-24 (P0 dashboard data contract): the EICC engine no longer sums
+// IOCs itself; it renders js/apex-dashboard-snapshot.js, where this function
+// now lives unchanged. Loaded from there (the code the page runs), and the
+// EICC block is checked to still use it rather than a second copy.
+const SNAPSHOT_JS = path.join(__dirname, "..", "apex-dashboard-snapshot.js");
 function loadIocContribution() {
-  const src = readFileSync(INDEX_HTML, "utf-8");
-  const start = src.indexOf("function _iocContribution(it){");
-  assert.ok(start !== -1, "_iocContribution() not found in index.html -- has the fix been reverted?");
-  const end = src.indexOf("\n            }", start);
-  assert.ok(end !== -1, "could not locate the end of _iocContribution() in index.html");
-  const fnSrc = src.slice(start, end + "\n            }".length);
-  const context = {};
+  const html = readFileSync(INDEX_HTML, "utf-8");
+  assert.ok(html.includes('<script src="/js/apex-dashboard-snapshot.js"></script>'), "index.html must load the dashboard snapshot");
+  assert.ok(!html.includes("function _iocContribution(it){"), "a second IOC summing copy is back in index.html");
+  const context = { module: { exports: {} } };
+  context.globalThis = context;
   vm.createContext(context);
-  vm.runInContext(fnSrc + "\nthis._iocContribution = _iocContribution;", context);
-  return context._iocContribution;
+  vm.runInContext(readFileSync(SNAPSHOT_JS, "utf-8"), context);
+  assert.equal(typeof context.module.exports.iocContribution, "function", "iocContribution() not exported by apex-dashboard-snapshot.js");
+  return context.module.exports.iocContribution;
 }
 
 const _iocContribution = loadIocContribution();

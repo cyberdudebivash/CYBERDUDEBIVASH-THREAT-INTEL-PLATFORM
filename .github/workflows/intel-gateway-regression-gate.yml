@@ -45,6 +45,12 @@ on:
       # Cyber Watchdog: the gateway suite also imports the canary library and
       # reads these pages (publication-truth, watchdog-canary tests).
       - 'workers/intel-gateway/scripts/watchdog-negative-controls.mjs'
+      # Customer dashboard data contract: the suite and its negative controls
+      # read these runtime files.
+      - 'workers/intel-gateway/scripts/dashboard-negative-controls.mjs'
+      - 'js/sentinel-live-feeds.js'
+      - 'js/apex-dashboard-snapshot.js'
+      - 'service-worker.js'
       - 'deploy/cyber-watchdog/**'
       - 'index.html'
       - 'cyber-watchdog.html'
@@ -76,6 +82,12 @@ on:
       # Cyber Watchdog: the gateway suite also imports the canary library and
       # reads these pages (publication-truth, watchdog-canary tests).
       - 'workers/intel-gateway/scripts/watchdog-negative-controls.mjs'
+      # Customer dashboard data contract: the suite and its negative controls
+      # read these runtime files.
+      - 'workers/intel-gateway/scripts/dashboard-negative-controls.mjs'
+      - 'js/sentinel-live-feeds.js'
+      - 'js/apex-dashboard-snapshot.js'
+      - 'service-worker.js'
       - 'deploy/cyber-watchdog/**'
       - 'index.html'
       - 'cyber-watchdog.html'
@@ -143,6 +155,15 @@ jobs:
       # tests do not catch fails this step. Never modifies the checkout.
       - name: "Cyber Watchdog negative controls"
         run: node workers/intel-gateway/scripts/watchdog-negative-controls.mjs
+
+      # Mutation proof for the customer dashboard data contract: each control
+      # reintroduces ONE defect (1749/74 fallbacks, Math.random heatmap,
+      # hardcoded forecasts, stale shown LIVE, blank Last Sync, zero ATT&CK
+      # coverage, CRITICAL-as-campaign, unescaped title, second DOM owner,
+      # frozen GitHub mirror, cache-first intelligence, ...) and requires the
+      # dashboard suites to FAIL. Never modifies the checkout.
+      - name: "Dashboard data contract negative controls"
+        run: node workers/intel-gateway/scripts/dashboard-negative-controls.mjs
 
       # The only supported rollback target after Watchdog v3: rebuilt from the
       # pinned base commit + overlay; fails on any hash or digest mismatch.
