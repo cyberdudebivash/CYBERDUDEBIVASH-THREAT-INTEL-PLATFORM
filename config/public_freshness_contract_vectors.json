@@ -1,0 +1,26 @@
+{
+  "description": "Shared test vectors. The Python classifier (scripts/public_freshness_contract.py) and the Worker classifier (workers/intel-gateway/src/freshness-contract.js) must produce exactly these states for the fixed `now` below. Both test suites load this file, so the two implementations cannot drift apart silently.",
+  "now": "2026-09-24T06:00:00Z",
+  "vectors": [
+    {"name": "fresh_1h",                 "generated_at": "2026-09-24T05:00:00Z",             "state": "fresh",             "age_seconds": 3600},
+    {"name": "fresh_offset_form",        "generated_at": "2026-09-24T10:30:00+05:30",        "state": "fresh",             "age_seconds": 3600},
+    {"name": "fresh_fractional",         "generated_at": "2026-09-24T05:59:59.500Z",         "state": "fresh",             "age_seconds": 0},
+    {"name": "boundary_exactly_max",     "generated_at": "2026-09-24T00:00:00Z",             "state": "fresh",             "age_seconds": 21600},
+    {"name": "boundary_one_second_over", "generated_at": "2026-09-23T23:59:59Z",             "state": "stale",             "age_seconds": 21601},
+    {"name": "stale_incident_2026_08_26","generated_at": "2026-08-26T09:55:27Z",             "state": "stale",             "age_seconds": 2491473},
+    {"name": "future_within_skew",       "generated_at": "2026-09-24T08:00:00Z",             "state": "fresh",             "age_seconds": 0},
+    {"name": "future_exactly_skew",      "generated_at": "2026-09-24T09:00:00Z",             "state": "fresh",             "age_seconds": 0},
+    {"name": "future_beyond_skew",       "generated_at": "2026-09-24T09:00:01Z",             "state": "future_timestamp",  "age_seconds": null},
+    {"name": "future_gross_2099",        "generated_at": "2099-01-01T00:00:00Z",             "state": "future_timestamp",  "age_seconds": null},
+    {"name": "missing_null",             "generated_at": null,                               "state": "missing_timestamp", "age_seconds": null},
+    {"name": "missing_empty",            "generated_at": "",                                 "state": "missing_timestamp", "age_seconds": null},
+    {"name": "invalid_text",             "generated_at": "not-a-date",                       "state": "invalid_timestamp", "age_seconds": null},
+    {"name": "invalid_calendar",         "generated_at": "2026-13-45T00:00:00Z",             "state": "invalid_timestamp", "age_seconds": null},
+    {"name": "invalid_feb_30_rollover",  "generated_at": "2026-02-30T00:00:00Z",             "state": "invalid_timestamp", "age_seconds": null},
+    {"name": "invalid_hour_24",          "generated_at": "2026-09-24T24:00:00Z",             "state": "invalid_timestamp", "age_seconds": null},
+    {"name": "invalid_no_offset",        "generated_at": "2026-09-24T05:00:00",              "state": "invalid_timestamp", "age_seconds": null},
+    {"name": "invalid_date_only",        "generated_at": "2026-09-24",                       "state": "invalid_timestamp", "age_seconds": null},
+    {"name": "invalid_rfc2822",          "generated_at": "Thu, 24 Sep 2026 05:00:00 GMT",    "state": "invalid_timestamp", "age_seconds": null},
+    {"name": "invalid_non_string",       "generated_at": 1790227200,                         "state": "invalid_timestamp", "age_seconds": null}
+  ]
+}

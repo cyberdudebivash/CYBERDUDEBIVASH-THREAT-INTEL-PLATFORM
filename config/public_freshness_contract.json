@@ -1,0 +1,14 @@
+{
+  "schema_version": "1.0",
+  "description": "SINGLE SOURCE OF TRUTH for customer-visible intelligence freshness. Consumed by scripts/public_freshness_contract.py (R2 stale-manifest upload guard, public feed freshness release gate) and mirrored by workers/intel-gateway/src/freshness-contract.js (/api/health). tests/test_public_freshness_contract.py fails if any consumer drifts from these values or from config/public_freshness_contract_vectors.json.",
+  "max_public_manifest_age_hours": 6,
+  "max_future_skew_hours": 3,
+  "generated_at_pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+  "states": {
+    "fresh": "0 <= age <= max_public_manifest_age_hours, or future-dated by no more than max_future_skew_hours (pipeline clock skew)",
+    "stale": "age > max_public_manifest_age_hours",
+    "future_timestamp": "future-dated by more than max_future_skew_hours",
+    "missing_timestamp": "generated_at absent or empty",
+    "invalid_timestamp": "generated_at present but not an ISO-8601 datetime with an explicit UTC offset"
+  }
+}

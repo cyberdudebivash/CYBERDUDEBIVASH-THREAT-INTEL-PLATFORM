@@ -143,6 +143,9 @@ import { bumpCounter, peekCounter } from './rate-limit-cache.js';
 // see swarm-synthesis.js's own header comment.
 import { tierAllowsSwarmSynthesis, buildSwarmSynthesisPrompt, SWARM_SYNTHESIS_SYSTEM_PROMPT } from './swarm-synthesis.js';
 import { evaluateSwarmPreflight, SWARM_MESH_CAPABILITY, SWARM_REQUIRED_SCOPE } from './swarm-access.js';
+// Canonical customer-visible freshness contract (mirror of
+// config/public_freshness_contract.json; see freshness-contract.js).
+import { classifyManifestFreshness, evaluatePublicIntelligence, healthEdgeTtlSeconds, STATES as FRESHNESS_STATES } from './freshness-contract.js';
 // Issue #288: Durable Object class the Workers runtime instantiates via the
 // GUMROAD_PROVISIONING_LOCK binding (wrangler.toml). Must be a named export
 // of the Worker's main module -- see gumroad-provisioning-lock.js's header
@@ -1893,21 +1896,25 @@ function computeStats(items) {
 // Thresholds are informed by this platform's own known ingestion cadence
 // (multi-source-intel.yml every ~4h, sentinel-blogger.yml every ~4h) --
 // FRESH allows one missed cycle before escalating.
-export function classifyFreshness(lastSyncIso) {
-  if (!lastSyncIso || lastSyncIso === "N/A") {
+//
+// 2026-09-24 (P0 health freshness contract): the FRESH verdict now comes from
+// the ONE canonical contract (freshness-contract.js, mirroring
+// config/public_freshness_contract.json -- the same MAX_PUBLIC_MANIFEST_AGE_HOURS
+// PR #485's upload guard uses) instead of a hard-coded `< 6h` here, so the
+// dashboard badge, /api/metrics and /api/health can never disagree about the
+// same timestamp. Two defects removed at the same time: a future-dated
+// timestamp was clamped to age 0 and reported FRESH forever (now FRESH only
+// within the contract's clock-skew allowance, UNAVAILABLE beyond it), and
+// any Date.parse-able string was accepted (now the contract's strict
+// ISO-8601-with-offset form). RECENT/AGING/STALE are unchanged display tiers.
+export function classifyFreshness(lastSyncIso, nowMs = Date.now()) {
+  const c = classifyManifestFreshness(lastSyncIso === "N/A" ? null : lastSyncIso, nowMs);
+  if (c.state === FRESHNESS_STATES.MISSING || c.state === FRESHNESS_STATES.INVALID || c.state === FRESHNESS_STATES.FUTURE) {
     return { state: "UNAVAILABLE", age_seconds: null };
   }
-  const lastSyncMs = Date.parse(lastSyncIso);
-  if (Number.isNaN(lastSyncMs)) {
-    return { state: "UNAVAILABLE", age_seconds: null };
-  }
-  // CodeRabbit review finding (verified: e.g. an actual age of 5h59m59.6s =
-  // 21599.6s rounds UP to 21600 and wrongly fails the "< 6h" FRESH check --
-  // floor keeps the integer age on the same side of each boundary as the
-  // real elapsed time, for all three thresholds).
-  const ageSeconds = Math.max(0, Math.floor((Date.now() - lastSyncMs) / 1000));
+  const ageSeconds = c.age_seconds;
   let state;
-  if (ageSeconds < 6 * 3600) state = "FRESH";
+  if (c.state === FRESHNESS_STATES.FRESH) state = "FRESH";
   else if (ageSeconds < 24 * 3600) state = "RECENT";
   else if (ageSeconds < 72 * 3600) state = "AGING";
   else state = "STALE";
@@ -5942,7 +5949,7 @@ async function handleRequest(request, env, ctx) {
   // `!firstPartyRead` keeps the commercial plane's two gates exactly as they
   // were for every request that is not an anonymous first-party dashboard
   // read -- the condition below is unchanged apart from that one conjunct.
-  if (!firstPartyRead && path !== "/api/health" && path !== "/api/health/") {
+  if (!firstPartyRead && path !== "/api/health" && path !== "/api/health/" && path !== "/api/health/live") {
     const rl = await checkRateLimit(env, ip, auth.tier);
     if (!rl.allowed) {
       auditLog(ctx, env, { action: "rate_limited", ip, path, method, tier: auth.tier });
@@ -6218,56 +6225,68 @@ async function handleRequest(request, env, ctx) {
     ).trim();
     const healthIsAuthenticated = !!env.ADMIN_SECRET && timingSafeEqual(healthAdminKey, env.ADMIN_SECRET);
 
-    const feedData = await loadFeedItems(env);
-    const stats    = computeStats(feedData.items || []);
-    const kvOk     = await env.RATE_LIMIT_KV.get("health:ping").then(() => "ok").catch(() => "error");
-    // A secret set to "" or whitespace-only (e.g. `wrangler secret put` given an
-    // empty/blank value by mistake) is truthy under a plain !!(env.X) check, so
-    // it would silently read as "configured" here while still being useless to
-    // every caller that needs the actual value. Require non-whitespace content.
-    const isSet = (v) => typeof v === "string" && v.trim().length > 0;
-    // P0 FIX: `status: "ok"` above has only ever meant "the gateway
-    // answered" -- it is NOT a data-health signal and must never be read as
-    // one (see classifyFreshness()'s comment for the incident this fixes).
-    // data_freshness is additive: existing consumers reading top-level
-    // `status`/`last_sync` are unaffected.
-    //
-    // CodeRabbit review finding on this migration (verified, not taken on
-    // faith): stats.last_sync (computeStats()) is the MAX of each item's
-    // own published/published_at date -- i.e. "how recent is the newest
-    // article," not "when did this platform last successfully sync/ingest
-    // data." Those are genuinely different signals: a freshly-synced batch
-    // of month-old backfill items would wrongly report STALE, and -- far
-    // more dangerous given what this field exists to detect -- a pipeline
-    // that has been silently broken for weeks but whose last successful
-    // ingest happened to include recently-published source articles would
-    // wrongly report FRESH, masking exactly the class of incident this
-    // whole fix exists to catch. feedData.generated_at (set by
-    // generate_api_manifests.py every time it actually writes this file,
-    // always present -- loadFeedItems()'s empty-fallback path sets it too)
-    // is the correct signal: it is the same "when was this file last
-    // regenerated" timestamp this incident's own root-cause investigation
-    // used as its evidence throughout (frozen at 2026-08-26T09:55:27Z).
-    const dataFreshness = classifyFreshness(feedData.generated_at);
+    // P0 HEALTH FRESHNESS CONTRACT (2026-09-24). Verified live before this
+    // change: HTTP 200 {"status":"ok"} while every customer feed endpoint
+    // served generated_at 2026-08-26T09:55:27Z (four weeks stale). Causes:
+    // `status` was hard-coded "ok"; the freshness verdict was admin-only and
+    // used thresholds independent of PR #485's MAX_PUBLIC_MANIFEST_AGE_HOURS;
+    // and loadFeedItems()'s empty fallback stamps generated_at=now(), so an
+    // R2 miss read as FRESH. Now: the authoritative object is read directly
+    // (one R2 GET, same as before -- no LIST, no write), evaluated against the
+    // ONE canonical contract (freshness-contract.js), and the HTTP status
+    // follows it: 200 only when intelligence exists, is structurally valid
+    // and is within the freshness window; otherwise 503 with a
+    // machine-readable `reason`. Worker liveness (deploy checks) lives at
+    // /api/health/live, which never depends on data.
+    const nowMs    = Date.now();
+    const rawFeed  = await r2Get(env, LATEST_JSON_KEY);
+    const evaluation = evaluatePublicIntelligence(rawFeed, nowMs);
+    const feedItems = rawFeed && Array.isArray(rawFeed.items) ? rawFeed.items : [];
+    const stats    = computeStats(feedItems);
+    // Kept for the authenticated view below; classifyFreshness() now derives
+    // its FRESH verdict from the same contract.
+    const dataFreshness = classifyFreshness(rawFeed ? rawFeed.generated_at : null, nowMs);
+    // Public envelope: every field existing unauthenticated consumers read
+    // (status, version, advisory_count, critical_count, kev_confirmed,
+    // last_sync, feed_index, platform_reachable, intelligence_available,
+    // non-empty `checks`, generated_at) is preserved. Removed from the
+    // PUBLIC view (still returned to admin callers): checks.jwt_configured
+    // (a secret-presence flag) and checks.kv_rate_limit / kv_api_keys /
+    // r2_intel (storage topology).
     const body = {
-      status: "ok", version: PLATFORM_VERSION,
+      status: evaluation.status,
+      service: "sentinel-apex",
+      version: PLATFORM_VERSION,
+      ...(evaluation.reason ? { reason: evaluation.reason } : {}),
       advisory_count: stats.total, critical_count: stats.critical,
       kev_confirmed: stats.kev_confirmed, last_sync: stats.last_sync,
       feed_index: `live:${stats.total}_items`,
       platform_reachable: true,
-      intelligence_available: stats.total > 0,
+      intelligence_available: evaluation.intelligence.advisory_count > 0,
+      intelligence: evaluation.intelligence,
       checks: {
-        gateway: "ok", kv_rate_limit: kvOk, kv_api_keys: kvOk,
-        r2_intel: feedData.items.length > 0 ? "ok" : "empty",
+        gateway: "ok",
+        ...evaluation.checks,
         feed_index: `live:${stats.total}_items`,
-        jwt_configured: !!(env.CDB_JWT_SECRET),
       },
       generated_at: now(),
     };
+    const respHeaders = {};
 
     if (healthIsAuthenticated) {
       body.data_freshness = dataFreshness;
+      // Operator-only: storage probe and secret-presence flags. The KV read
+      // now happens only for authenticated calls (public calls skip it).
+      const kvOk = await env.RATE_LIMIT_KV.get("health:ping").then(() => "ok").catch(() => "error");
+      // A secret set to "" or whitespace-only (e.g. `wrangler secret put`
+      // given a blank value by mistake) is truthy under a plain !!(env.X)
+      // check, so it would silently read as "configured" while still being
+      // useless to every caller that needs the actual value.
+      const isSet = (v) => typeof v === "string" && v.trim().length > 0;
       Object.assign(body.checks, {
+        kv_rate_limit: kvOk, kv_api_keys: kvOk,
+        r2_intel: feedItems.length > 0 ? "ok" : (rawFeed ? "empty" : "unavailable"),
+        jwt_configured: !!(env.CDB_JWT_SECRET),
         admin_configured: !!(env.ADMIN_SECRET),
         // Additive: surfaces the exact outage verified live on 2026-08-03 -- create-order
         // 503s with "Razorpay not configured on server" whenever either secret is unset,
@@ -6304,9 +6323,29 @@ async function handleRequest(request, env, ctx) {
         headers: "HSTS+CSP+XFO",
         taxii: "2.1",
       };
+      // Never let an operator response enter the shared edge cache (the
+      // Cache API keys on URL only, so a cached admin body would be served
+      // to anonymous callers).
+      respHeaders["Cache-Control"] = "private, no-store";
+    } else if (evaluation.healthy) {
+      // A cached "ok" must not outlive the freshness boundary.
+      respHeaders["X-Sentinel-Edge-Ttl"] = String(healthEdgeTtlSeconds(evaluation, EDGE_CACHE_TTL_SECONDS));
     }
 
-    return jsonResp(body);
+    return jsonResp(body, evaluation.http_status, respHeaders);
+  }
+
+  // --- /api/health/live ---------------------------------------------------------
+  // Worker liveness only: answers 200 whenever this Worker is executing,
+  // independent of intelligence freshness, with no R2/KV access. Used by
+  // deploy-worker.yml to prove a deploy is serving, so a stale feed (which
+  // /api/health now reports as 503) can never block shipping the fix for it.
+  if (path === "/api/health/live") {
+    return jsonResp(
+      { status: "alive", service: "sentinel-apex", version: PLATFORM_VERSION, generated_at: now() },
+      200,
+      { "Cache-Control": "no-store" },
+    );
   }
 
   // --- /api/v1/intel/latest.json ----------------------------------------------
@@ -8083,7 +8122,11 @@ export default {
     // (e.g. /api/v1/cve/detail) are query-parameter-driven; stripping would
     // collide two different lookups onto one cache key and serve the wrong
     // caller's data back -- a correctness bug, not just an inefficiency.
-    const cacheable = isEdgeCacheableRequest(pathname, method);
+    // Operator /api/health calls must never be answered from (or written
+    // to) the shared URL-keyed edge cache -- see the /api/health handler.
+    const healthAdminCall = (pathname === "/api/health" || pathname === "/api/health/") &&
+      !!(request.headers.get("X-Admin-Key") || request.headers.get("Authorization"));
+    const cacheable = isEdgeCacheableRequest(pathname, method) && !healthAdminCall;
     const edgeCache = cacheable ? caches.default : null;
     if (edgeCache) {
       try {
@@ -8101,14 +8144,24 @@ export default {
       // here rather than trusting each individual handler to have set one
       // correctly, so this is safe even for a PUBLIC route whose handler
       // omitted or under-specified it. Store is non-blocking.
-      if (edgeCache && response.status === 200 && ctx && typeof ctx.waitUntil === "function") {
+      // Per-response edge TTL cap (only /api/health sets it: a cached "ok"
+      // must not outlive the freshness boundary). Stripped before the
+      // response leaves the Worker.
+      const edgeTtlHeader = response.headers.get("X-Sentinel-Edge-Ttl");
+      const edgeTtl = edgeTtlHeader === null
+        ? EDGE_CACHE_TTL_SECONDS
+        : Math.min(EDGE_CACHE_TTL_SECONDS, Math.max(0, parseInt(edgeTtlHeader, 10) || 0));
+      if (edgeTtlHeader !== null) response.headers.delete("X-Sentinel-Edge-Ttl");
+      const responseCc = (response.headers.get("Cache-Control") || "").toLowerCase();
+      const privateResponse = responseCc.includes("private") || responseCc.includes("no-store");
+      if (edgeCache && response.status === 200 && edgeTtl > 0 && !privateResponse && ctx && typeof ctx.waitUntil === "function") {
         try {
           const toCache = new Response(response.clone().body, {
             status: response.status,
             statusText: response.statusText,
             headers: new Headers(response.headers),
           });
-          toCache.headers.set("Cache-Control", `public, max-age=${EDGE_CACHE_TTL_SECONDS}`);
+          toCache.headers.set("Cache-Control", `public, max-age=${edgeTtl}`);
           ctx.waitUntil(edgeCache.put(request, toCache));
         } catch (putErr) {
           console.error(`[fetch] edge cache put failed for ${pathname}: ${putErr && putErr.message ? putErr.message : putErr}`);

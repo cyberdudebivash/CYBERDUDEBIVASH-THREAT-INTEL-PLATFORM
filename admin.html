@@ -531,7 +531,9 @@ function showPage(id) {
 // ---- PLATFORM DATA ----
 async function loadDashboard() {
   try {
-    const r = await fetch(API + '/api/health');
+    // Operator fields (checks.jwt_configured, kv_*, r2_intel) are only
+    // returned to authenticated callers of /api/health.
+    const r = await fetch(API + '/api/health', adminKey ? { headers: { 'X-Admin-Key': adminKey } } : {});
     const d = await r.json();
     const statusEl = document.getElementById('stat-status');
     const s = d.status;
@@ -561,7 +563,9 @@ function loadActivity() {
 
 async function loadHealth() {
   try {
-    const r = await fetch(API + '/api/health');
+    // Operator fields (checks.jwt_configured, kv_*, r2_intel) are only
+    // returned to authenticated callers of /api/health.
+    const r = await fetch(API + '/api/health', adminKey ? { headers: { 'X-Admin-Key': adminKey } } : {});
     const d = await r.json();
     document.getElementById('raw-health').textContent = JSON.stringify(d, null, 2);
     const checks = d.checks || {};

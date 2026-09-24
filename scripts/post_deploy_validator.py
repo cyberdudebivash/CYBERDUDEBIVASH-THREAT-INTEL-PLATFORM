@@ -39,7 +39,12 @@ WORKER_BASE = "https://intel.cyberdudebivash.com"
 # that lag. Do not raise above 10 without first confirming r2-data-sync runs
 # and populates R2 before this validator does.
 MIN_ADVISORY_COUNT = 10
-MAX_MANIFEST_AGE_HOURS = 6
+# Canonical customer-visible freshness contract (config/public_freshness_contract.json)
+# -- the same authority as the R2 upload guard, /api/health and STAGE 5.9.10.
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+import public_freshness_contract as _freshness  # noqa: E402
+
+MAX_MANIFEST_AGE_HOURS = _freshness.max_public_manifest_age_hours()
 
 HARD_FAIL_GATES = {"A", "B", "E"}   # these block a deployment green state
 SOFT_FAIL_GATES = {"C", "D", "F"}   # these warn but don't block
@@ -58,10 +63,10 @@ def now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
-def probe_json(url: str, timeout: int = 20) -> dict:
+def probe_json(url: str, timeout: int = 20, headers: dict | None = None) -> dict:
     t0 = time.monotonic()
     try:
-        req = urllib.request.Request(url, headers={"User-Agent": "SENTINEL-APEX-VALIDATOR/1.0"})
+        req = urllib.request.Request(url, headers={"User-Agent": "SENTINEL-APEX-VALIDATOR/1.0", **(headers or {})})
         with urllib.request.urlopen(req, timeout=timeout) as resp:
             # Read one byte past the cap so a body that's actually larger is distinguishable
             # from one that happens to be exactly MAX_PROBE_BODY_BYTES.
@@ -84,7 +89,13 @@ def probe_json(url: str, timeout: int = 20) -> dict:
                 return {"ok": False, "status": resp.status, "latency_ms": latency_ms, "body": None, "error": f"invalid_json: {e}"}
             return {"ok": True, "status": resp.status, "latency_ms": latency_ms, "body": body, "error": None}
     except urllib.error.HTTPError as e:
-        return {"ok": False, "status": e.code, "latency_ms": 0, "body": None, "error": str(e)}
+        # Keep a parseable error body (e.g. /api/health's 503 "degraded"
+        # envelope) so callers can read it; ok stays False.
+        try:
+            err_body = json.loads(e.read(MAX_PROBE_BODY_BYTES).decode("utf-8", errors="replace"))
+        except Exception:
+            err_body = None
+        return {"ok": False, "status": e.code, "latency_ms": 0, "body": err_body, "error": str(e)}
     except Exception as e:
         # Genuine connection-level failure (DNS, refused, reset, timeout, TLS) -- no response was
         # ever received, so status 0 is honest here.
@@ -140,7 +151,9 @@ def run_validation(expected_version: str) -> dict:
 
     # GATE B: Version Match
     print("GATE B: Version Match")
-    health_r = probe_json(f"{WORKER_BASE}/api/health", timeout=15)
+    # Liveness endpoint: Worker version with no data dependency (/api/health
+    # answers 503 while intelligence is stale; that must not mask a version check).
+    health_r = probe_json(f"{WORKER_BASE}/api/health/live", timeout=15)
     live_version = ""
     if health_r["ok"] and health_r["body"]:
         live_version = health_r["body"].get("version", "")
@@ -159,15 +172,10 @@ def run_validation(expected_version: str) -> dict:
     manifest_fresh = False
     manifest_age_h = None
     if latest_r["ok"] and latest_r["body"]:
-        gen_at = latest_r["body"].get("generated_at", "")
-        if gen_at:
-            try:
-                ts = datetime.fromisoformat(gen_at.replace("Z", "+00:00"))
-                age_s = (datetime.now(timezone.utc) - ts).total_seconds()
-                manifest_age_h = round(age_s / 3600, 1)
-                manifest_fresh = age_s < (MAX_MANIFEST_AGE_HOURS * 3600)
-            except Exception:
-                pass
+        fresh = _freshness.classify_manifest_freshness(latest_r["body"].get("generated_at"))
+        if fresh["age_seconds"] is not None:
+            manifest_age_h = round(fresh["age_seconds"] / 3600, 1)
+        manifest_fresh = fresh["state"] == _freshness.FRESH
     print(f"  Age: {manifest_age_h}h (threshold: {MAX_MANIFEST_AGE_HOURS}h)")
     print(f"  GATE C: {'PASS' if manifest_fresh else 'WARN (soft)'}")
     gate_results["C"] = {"passed": manifest_fresh, "age_hours": manifest_age_h, "threshold_hours": MAX_MANIFEST_AGE_HOURS}
@@ -186,12 +194,21 @@ def run_validation(expected_version: str) -> dict:
 
     # GATE E: JWT Configured
     print("GATE E: JWT Configured")
-    jwt_ok = False
-    if health_r["ok"] and health_r["body"]:
-        jwt_ok = health_r["body"].get("checks", {}).get("jwt_configured", False) is True
+    # jwt_configured / r2_intel are operator-only fields of /api/health (not
+    # returned to anonymous callers). Authenticate with the Worker's
+    # ADMIN_SECRET; fail closed when it is not provided.
+    admin_secret = os.environ.get("ADMIN_SECRET", "").strip()
+    op_body = {}
+    if admin_secret:
+        op_r = probe_json(f"{WORKER_BASE}/api/health", timeout=15, headers={"X-Admin-Key": admin_secret})
+        op_body = op_r["body"] if isinstance(op_r["body"], dict) else {}
+    else:
+        print("  ADMIN_SECRET not set -- cannot read the operator health view")
+    jwt_ok = op_body.get("checks", {}).get("jwt_configured", False) is True
     print(f"  JWT configured: {jwt_ok}")
     if not jwt_ok:
-        print(f"  FIX: openssl rand -hex 32 | npx wrangler secret put CDB_JWT_SECRET")
+        print(f"  FIX: openssl rand -hex 32 | npx wrangler secret put CDB_JWT_SECRET"
+              f"{'' if admin_secret else '  (or provide ADMIN_SECRET to this validator)'}")
         hard_failed = True
     print(f"  GATE E: {'PASS' if jwt_ok else 'FAIL'}")
     gate_results["E"] = {"passed": jwt_ok}
@@ -201,8 +218,8 @@ def run_validation(expected_version: str) -> dict:
     print("GATE F: R2 Intel Binding")
     r2_ok = False
     r2_status = "unknown"
-    if health_r["ok"] and health_r["body"]:
-        r2_status = health_r["body"].get("checks", {}).get("r2_intel", "unknown")
+    if op_body:
+        r2_status = op_body.get("checks", {}).get("r2_intel", "unknown")
         r2_ok = r2_status == "ok"
     print(f"  R2 intel status: {r2_status}")
     print(f"  GATE F: {'PASS' if r2_ok else 'WARN (soft)'}")
