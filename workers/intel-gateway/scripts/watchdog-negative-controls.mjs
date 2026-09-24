@@ -478,6 +478,13 @@ const CONTROLS = [
     replace: "    watches: 30, brief_items: 50,",
     tests: [T("watchdog-exposure-relevance.test.js")],
   },
+  {
+    id: "v2_watch_readable_by_pre_v2_code",
+    file: "workers/intel-gateway/src/cyber-watchdog.js",
+    find: "        criteria: {}, v2_criteria: def.definition.criteria, enabled: def.definition.enabled, created_at: now, updated_at: now,",
+    replace: "        criteria: def.definition.criteria, v2_criteria: def.definition.criteria, enabled: def.definition.enabled, created_at: now, updated_at: now,",
+    tests: [T("watchdog-exposure-relevance.test.js")],
+  },
 ];
 
 function runTests(root, files) {

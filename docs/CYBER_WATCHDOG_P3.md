@@ -362,6 +362,7 @@ Watch criteria are offered only for fields the authoritative feed actually carri
 * **Matching:** identifiers match exactly or as whole-token runs, never substrings (`Micro` does not match `Microsoft`). Every hit cites `{criterion, value, feed_field, feed_value}`.
 * **Rule text:** `ruleLines()` produces the "MATCH WHEN" text shown in the builder, the preview and the watch list.
 * **v1 compatibility:** watches without `version` keep the original matcher byte for byte, including its substring semantics. A v2 watch never downgrades.
+* **Rollback safety:** a v2 watch is stored with `criteria: {}` and its definition under `v2_criteria`. Code that predates v2 reads only `criteria` with v1 semantics, so after a code rollback a v2 watch is an empty watch that can never match. It is never re-interpreted (for example `vendors` as substring, or `severity_min` ignored), and it is intact for the roll-forward. This is proven by a test that runs the stored watch through the v1 matcher, and by the negative control `v2_watch_readable_by_pre_v2_code`.
 
 ### Exposure Profile v1 (`watchdog-relevance.js`)
 
@@ -472,4 +473,4 @@ The profile adds one storage read per ledger access. There is no new Cloudflare 
 * **`products` is a whole-token run** inside `kev_product`. A single generic token (for example "Server") therefore matches every KEV product containing that word. The preview shows the effect before saving.
 * **ATT&CK sub-techniques** match exactly. `T1566` does not match `T1566.002`.
 * **Telemetry has no client-only signals.** Opening the builder and anonymous views are not counted.
-* **Proof:** `watchdog-exposure-relevance.test.js` (22 tests) and 13 negative controls (61/61 caught).
+* **Proof:** `watchdog-exposure-relevance.test.js` (23 tests) and 14 negative controls (62/62 caught).

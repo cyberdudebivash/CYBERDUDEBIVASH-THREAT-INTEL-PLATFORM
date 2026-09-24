@@ -505,11 +505,21 @@ function normalizeCriteria(input) {
   return { criteria, logic };
 }
 
+/**
+ * Criteria of a v2 watch. Stored under `v2_criteria` with `criteria: {}` so
+ * that code predating v2 (which reads only `criteria`, with v1 semantics)
+ * sees an empty watch that can never match: after a code rollback a v2 watch
+ * is inert, never re-interpreted, and it is intact for the roll-forward.
+ */
+export function watchV2Criteria(watch) {
+  return (watch && (watch.v2_criteria || watch.criteria)) || {};
+}
+
 export function matchWatch(watch, item) {
   if (watch && watch.version === DEFINITION_VERSION) {
     if (watch.enabled === false) return { matched: false, reasons: [] };
     const found = classifyItem(item);
-    const r = matchDefinitionV2(watch, item, { lenses: found.lenses, cves: cveIds(item) });
+    const r = matchDefinitionV2({ logic: watch.logic, criteria: watchV2Criteria(watch) }, item, { lenses: found.lenses, cves: cveIds(item) });
     return { matched: r.matched, reasons: [...new Set(r.hits.map((h) => h.criterion))], lenses: found.lenses, hits: r.hits };
   }
   if (watch.enabled === false) return { matched: false, reasons: [] };
@@ -690,7 +700,8 @@ function publicWatch(w) {
   };
   if (w.version === DEFINITION_VERSION) {
     out.version = DEFINITION_VERSION;
-    out.rule = ruleLines(w);
+    out.criteria = watchV2Criteria(w);
+    out.rule = ruleLines({ logic: w.logic, criteria: out.criteria });
   } else out.version = 1;
   return out;
 }
@@ -984,7 +995,7 @@ export function applyLedgerMutation(state, op) {
       const watch = {
         id: "w_" + clean(String(op.id || ""), 24).replace(/[^a-z0-9]/gi, "").slice(0, 24),
         version: DEFINITION_VERSION, name: def.definition.name, logic: def.definition.logic,
-        criteria: def.definition.criteria, enabled: def.definition.enabled, created_at: now, updated_at: now,
+        criteria: {}, v2_criteria: def.definition.criteria, enabled: def.definition.enabled, created_at: now, updated_at: now,
       };
       if (!watch.id || watch.id === "w_") return { error: "invalid_watch", status: 400, state: base };
       next.watches.push(watch);
@@ -1024,11 +1035,11 @@ export function applyLedgerMutation(state, op) {
           name: body.name ?? prev.name,
           enabled: body.enabled ?? prev.enabled !== false,
           logic: body.logic ?? (prev.version === DEFINITION_VERSION ? prev.logic : "AND"),
-          criteria: body.criteria ?? (prev.version === DEFINITION_VERSION ? prev.criteria : undefined),
+          criteria: body.criteria ?? (prev.version === DEFINITION_VERSION ? watchV2Criteria(prev) : undefined),
           ...Object.fromEntries(Object.entries(body).filter(([k]) => !["name", "enabled", "logic", "criteria", "version"].includes(k))),
         });
         if (def.error) return { ...def, status: 400, state: base };
-        next.watches[idx] = { ...prev, version: DEFINITION_VERSION, name: def.definition.name, logic: def.definition.logic, criteria: def.definition.criteria, enabled: def.definition.enabled, updated_at: now };
+        next.watches[idx] = { ...prev, version: DEFINITION_VERSION, name: def.definition.name, logic: def.definition.logic, criteria: {}, v2_criteria: def.definition.criteria, enabled: def.definition.enabled, updated_at: now };
       }
       return { state: next, result: { watch: publicWatch(next.watches[idx]) }, enabled_watches: enabledCount(next.watches) };
     }

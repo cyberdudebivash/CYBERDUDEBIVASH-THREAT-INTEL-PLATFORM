@@ -186,6 +186,26 @@ test("v1 compatibility: legacy watches keep the original matcher (substring sema
   assert.equal(matchWatch(v2, projectItem(KEV_MS)).matched, false);
 });
 
+test("rollback safety: a stored v2 watch is inert for code that predates v2 (never re-interpreted)", () => {
+  let state = applyLedgerMutation(emptyLedgerState(), { subject: "s", tier: "PRO", type: "create_watch", id: "abc", now: "2026-09-24T00:00:00Z", watch: { version: 2, name: "KEV or high", logic: "OR", criteria: { kev: true, severity_min: "HIGH", vendors: ["micro"] } } }).state;
+  const stored = state.watches[0];
+  assert.deepEqual(stored.criteria, {}, "pre-v2 code reads only `criteria`: it must be empty");
+  assert.ok(stored.v2_criteria.kev === true);
+  // Pre-v2 code has no `version` branch: it runs the v1 matcher on `criteria`.
+  const { version: _v, ...asPreV2Sees } = stored;
+  for (const item of [KEV_MS, F5, NPM, NEWS, BLOG]) assert.equal(matchWatch(asPreV2Sees, projectItem(item)).matched, false, item.id);
+  // Current code still matches it as v2.
+  assert.equal(matchWatch(stored, projectItem(F5)).matched, true);
+  const pub = applyLedgerMutation(state, { subject: "s", type: "get" }).result.watches[0];
+  assert.equal(pub.criteria.kev, true, "the public shape shows the v2 criteria");
+  // Enabled-only and full edits keep the inert layout.
+  state = applyLedgerMutation(state, { subject: "s", tier: "PRO", type: "update_watch", id: stored.id, now: "2026-09-24T00:01:00Z", watch: { enabled: false } }).state;
+  assert.deepEqual(state.watches[0].criteria, {});
+  state = applyLedgerMutation(state, { subject: "s", tier: "PRO", type: "update_watch", id: stored.id, now: "2026-09-24T00:02:00Z", watch: { name: "renamed", criteria: { cves: ["CVE-2026-2002"] } } }).state;
+  assert.deepEqual(state.watches[0].criteria, {});
+  assert.deepEqual(state.watches[0].v2_criteria, { cves: ["CVE-2026-2002"] });
+});
+
 test("rule preview text states exactly what will match", () => {
   const d = norm({ vendors: ["Microsoft"], severity_min: "HIGH", kev: true, epss_min: 0.5 }).definition;
   assert.deepEqual(ruleLines(d), { logic: "AND", lines: ["CISA KEV vendor is Microsoft", "Severity is HIGH or higher", "EPSS is 50% or higher", "CISA KEV listed = YES"] });
