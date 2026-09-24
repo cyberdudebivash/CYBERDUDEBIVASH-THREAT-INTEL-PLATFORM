@@ -95,7 +95,11 @@ test("a CRITICAL vulnerability is not a campaign; campaign evidence is", () => {
   assert.deepEqual(campaignEvidence({ title: "CVE-2026-1 KEV", severity: "CRITICAL", kev: true, risk_score: 9.9 }), []);
   assert.deepEqual(campaignEvidence({ title: "Fake PDF Files Hide Konni Malware Campaign Targeting Ukraine" }), ["title:campaign"]);
   assert.deepEqual(campaignEvidence({ title: "New Galago Ransomware Operation Emerges" }), ["title:operation"]);
-  assert.deepEqual(campaignEvidence({ title: "x", campaign_id: "camp-7" }), ["campaign_id"]);
+  assert.deepEqual(campaignEvidence({ title: "x", campaign_id: "camp-7" }), [], "a pipeline campaign id alone is not a campaign");
+  assert.deepEqual(campaignEvidence({ title: "Konni campaign targets Ukraine", campaign_id: "camp-7" }),
+    ["title:campaign", "campaign_id"], "a campaign id is kept as supporting evidence");
+  assert.deepEqual(campaignEvidence({ title: "Konni campaign targets Ukraine", campaign_id: "UNCLASSIFIED" }),
+    ["title:campaign"], "the pipeline's UNCLASSIFIED placeholder is not a campaign link");
   assert.deepEqual(campaignEvidence({ title: "x", mitre_group_name: "APT29" }), [], "an actor label alone is not a campaign");
   // Live item (2026-09-24): policy news carrying a heuristic group label.
   assert.deepEqual(campaignEvidence({ title: "New bill would create federal investigative body for AI-driven hacks",
@@ -104,9 +108,31 @@ test("a CRITICAL vulnerability is not a campaign; campaign evidence is", () => {
     ["title:campaign", "mitre_group:APT29"], "a group is kept as supporting evidence");
   assert.deepEqual(campaignEvidence({ title: "x", actor: "CDB-UNATTR-APT", mitre_group_name: "Unattributed APT Cluster" }), [],
     "placeholder attributions are not a named actor");
+  assert.deepEqual(campaignEvidence({ title: "Phishing campaign hits banks", mitre_group_name: "Unattributed LockBit cluster" }),
+    ["title:campaign"], "a placeholder label is never recorded as a named group");
+  assert.deepEqual(campaignEvidence({ title: "Phishing campaign hits banks", mitre_group_name: "LockBit cluster (unattributed)" }),
+    ["title:campaign"]);
   const payload = buildCampaignsPayload([ITEM_CRITICAL_NO_EVIDENCE, ITEM_IDS_ONLY], "t");
   assert.equal(payload.active_campaign_count, 0);
   assert.equal(payload.active_campaigns.length, 0);
+});
+
+test("campaigns: pipeline campaign links on unrelated news are not campaigns (live false positives, 2026-09-24)", () => {
+  // Live R2 items: keyword-inferred campaign links on CVE, court and policy news.
+  const live = [
+    { id: "k1", title: "CVE-2026-48540 - Krayin CRM 2.2.6 Stored Template Injection XSS via Lead Title",
+      campaign_id: "CAMP-APT41Healthcare", threat_type: "Threat Intelligence", tags: ["CVE-2026-48540", "rss"] },
+    { id: "k2", title: "Ukrainian ransomware developer jailed for nearly 13 years", campaign_id: "CAMP-LockBitRoyalMail",
+      mitre_group_name: "LockBit Ransomware Group", threat_type: "Threat Intelligence", tags: ["rss"] },
+    { id: "k3", title: "Bipartisan Senate leaders introduce bill to bolster telecom cybersecurity",
+      campaign_id: "CAMP-VoltTyphoonCritical", mitre_group_name: "Volt Typhoon", tags: ["rss"] },
+    { id: "k4", title: "17,000 URLs Reveal How ClickFix Turns Trusted Websites Into Malware Traps", campaign_name: "OP-GHOSTPULSE" },
+    { id: "k5", title: "TeamFiltration Campaign Compromises Seven Microsoft 365 Accounts Using Default Passwords" },
+  ];
+  const payload = buildCampaignsPayload(live, "t");
+  assert.equal(payload.active_campaign_count, 1);
+  assert.deepEqual(payload.active_campaigns.map((c) => c.id), ["k5"]);
+  assert.equal(payload.campaign_semantics.version, "campaign-evidence/1.2");
 });
 
 test("ransomware: LockBit and ALPHV advisories classify from structured fields and titles", () => {
@@ -137,7 +163,29 @@ test("ransomware: a placeholder actor label is not evidence (live false positive
     threat_type: "Threat Intel", actor: "Unattributed Ransomware Actor", actor_tag: "CDB-UNATTR-RAN" };
   assert.equal(classifyRansomware(scoutz, GROUPS).ransomware, false);
   assert.equal(classifyRansomware({ title: "Product launch", mitre_group_name: "Ransomware cluster (unattributed)" }, GROUPS).ransomware, false);
-  assert.equal(classifyRansomware({ title: "x", actor: "LockBit 3.0" }, GROUPS).ransomware, true, "a named group actor still counts");
+  assert.equal(classifyRansomware({ title: "x", actor: "LockBit 3.0" }, GROUPS).ransomware, false, "an actor label alone is not evidence");
+});
+
+test("ransomware: pipeline actor labels never classify or name a group (live false positives, 2026-09-24)", () => {
+  // Live R2 items: keyword-inferred attributions on a kernel CVE and on Ryuk court news.
+  const kernel = { title: "CVE-2026-89686: In the Linux kernel, the following vulnerability has been resolved: nfsd",
+    tags: ["nvd", "cve", "critical"], threat_type: "Threat Intelligence", actor: "Cl0p Ransomware", actor_tag: "CDB-FIN-11",
+    mitre_group_name: "Cl0p" };
+  assert.deepEqual(classifyRansomware(kernel, GROUPS), { ransomware: false, evidence: [], groups: [] });
+  const ryuk = { title: "US Court Sentences Armenian Man to Prison for Ryuk Ransomware Attacks", tags: ["rss"],
+    actor: "LockBit Ransomware Group", mitre_group_name: "LockBit 3.0" };
+  const r = classifyRansomware(ryuk, GROUPS);
+  assert.equal(r.ransomware, true, "the title is independent evidence");
+  assert.deepEqual(r.groups, [], "LockBit is not active because a pipeline label named it");
+  assert.ok(r.evidence.includes("title:ransomware"));
+  assert.ok(r.evidence.includes("actor_label:LockBit Ransomware Group"), "kept as supporting evidence");
+  const placeholder = classifyRansomware({ title: "Ransomware hits hospital", actor: "Unattributed LockBit cluster" }, GROUPS);
+  assert.deepEqual(placeholder.groups, []);
+  assert.ok(!placeholder.evidence.some((e) => /lockbit/i.test(e)), "a placeholder label is never a named group");
+  const payload = buildRansomwarePayload([kernel, ryuk], GROUPS, "t");
+  assert.equal(payload.ransomware_advisories, 1);
+  assert.equal(payload.active_groups, 0);
+  assert.equal(payload.classification.version, "ransomware-classifier/1.1");
 });
 
 test("ransomware payload: no active group from a static list; victims stay unmeasured", () => {
