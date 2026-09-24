@@ -49,10 +49,12 @@ export const PRICING_UNIT = "paise";
 // Mirrors pricing-data.json "_status"; served as `status` by /api/pricing.
 export const PRICING_STATUS = "Reconciled against the canonical commercial contract under an explicit owner decision (2026-09-19).";
 
+// usd_monthly/usd_annual: contract USD list prices for display only (Cyber
+// Watchdog offer, /api/pricing). Razorpay charges monthly/annual paise.
 export const PRICING_TIERS = {
-  PRO:          { monthly: 410000,   annual: 4100000,   label: "Sentinel APEX PRO" },
-  ENTERPRISE:   { monthly: 4160000,  annual: 41600000,  label: "Sentinel APEX ENTERPRISE" },
-  MSSP:         { monthly: 8330000,  annual: 83300000,  label: "Sentinel APEX MSSP" },
+  PRO:          { monthly: 410000,   annual: 4100000,   usd_monthly: 49,  usd_annual: 490,  label: "Sentinel APEX PRO" },
+  ENTERPRISE:   { monthly: 4160000,  annual: 41600000,  usd_monthly: 499, usd_annual: 4990, label: "Sentinel APEX ENTERPRISE" },
+  MSSP:         { monthly: 8330000,  annual: 83300000,  usd_monthly: 999, usd_annual: 9990, label: "Sentinel APEX MSSP" },
 };
 
 export default { status: PRICING_STATUS, currency: PRICING_CURRENCY, unit: PRICING_UNIT, tiers: PRICING_TIERS };

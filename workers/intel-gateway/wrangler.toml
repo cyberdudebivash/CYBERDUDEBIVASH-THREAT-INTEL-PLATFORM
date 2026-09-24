@@ -198,6 +198,13 @@ class_name = "GumroadProvisioningLock"
 name       = "WATCHDOG_LEDGER"
 class_name = "WatchdogLedger"
 
+# Cyber Watchdog autonomous evaluation coordinator: ONE global instance
+# (idFromName "watchdog-scheduler-v1") holding the registry of subjects with
+# enabled paid watches. Driven by the existing 15-minute cron; no new product.
+[[durable_objects.bindings]]
+name       = "WATCHDOG_SCHEDULER"
+class_name = "WatchdogScheduler"
+
 [[migrations]]
 tag                = "v1-gumroad-provisioning-lock"
 new_sqlite_classes = ["GumroadProvisioningLock"]
@@ -205,6 +212,10 @@ new_sqlite_classes = ["GumroadProvisioningLock"]
 [[migrations]]
 tag                = "v2-watchdog-ledger"
 new_sqlite_classes = ["WatchdogLedger"]
+
+[[migrations]]
+tag                = "v3-watchdog-scheduler"
+new_sqlite_classes = ["WatchdogScheduler"]
 
 # -- Secrets (set via wrangler CLI -- NEVER commit to source control) --
 # npx wrangler secret put ADMIN_SECRET             -> cache bust + admin key management
@@ -331,3 +342,7 @@ class_name = "GumroadProvisioningLock"
 [[env.production.durable_objects.bindings]]
 name       = "WATCHDOG_LEDGER"
 class_name = "WatchdogLedger"
+
+[[env.production.durable_objects.bindings]]
+name       = "WATCHDOG_SCHEDULER"
+class_name = "WatchdogScheduler"

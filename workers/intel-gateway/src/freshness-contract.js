@@ -163,3 +163,51 @@ export function healthEdgeTtlSeconds(evaluation, capSeconds) {
   if (typeof age !== "number" || typeof max !== "number") return 0;
   return Math.max(0, Math.min(capSeconds, max - age));
 }
+
+/**
+ * One upper-case freshness verdict for feed consumers (Cyber Watchdog,
+ * /api/feed.json). FRESH only when evaluatePublicIntelligence() is healthy.
+ * Everything else names why it is not fresh. Never infers FRESH from absence.
+ */
+export function freshnessStatusFor(evaluation, feedData) {
+  if (feedData === null || feedData === undefined) return "UNAVAILABLE";
+  if (!evaluation) return "INVALID";
+  if (evaluation.reason === "no_intelligence_items") return "EMPTY";
+  if (evaluation.reason === "feed_unavailable") return "UNAVAILABLE";
+  if (evaluation.intelligence && evaluation.intelligence.status === STATES.STALE) return "STALE";
+  if (evaluation.healthy && evaluation.intelligence && evaluation.intelligence.status === STATES.FRESH) return "FRESH";
+  return "INVALID";
+}
+
+/**
+ * Freshness truth for a feed response that keeps HTTP 200 for backward
+ * compatibility (/api/feed, /api/feed.json). A consumer must not infer
+ * "fresh" from the status code, so the verdict travels in the body and in
+ * headers. edge_ttl_seconds is 0 unless FRESH, so a stale body is never
+ * stored in the shared edge cache and a fresh one never outlives its window.
+ */
+export function publicationEnvelope(feedData, nowMs = Date.now(), capSeconds = 120) {
+  const evaluation = evaluatePublicIntelligence(feedData, nowMs);
+  const intel = evaluation.intelligence;
+  const freshness_status = freshnessStatusFor(evaluation, feedData);
+  let publication_state = intel.status;
+  if (freshness_status === "EMPTY") publication_state = "empty";
+  if (freshness_status === "UNAVAILABLE") publication_state = "unavailable";
+  if (evaluation.reason === "invalid_feed_structure") publication_state = "invalid";
+  if (evaluation.reason === "publication_count_mismatch") publication_state = "count_mismatch";
+  const fields = {
+    publication_state,
+    freshness_status,
+    freshness_reason: evaluation.reason,
+    age_seconds: intel.age_seconds,
+    max_age_seconds: intel.max_age_seconds,
+    freshness_contract: "config/public_freshness_contract.json",
+  };
+  const headers = {
+    "X-Sentinel-Freshness": freshness_status,
+    "X-Sentinel-Publication-State": publication_state,
+    "X-Sentinel-Feed-Generated-At": intel.generated_at || "unknown",
+    "X-Sentinel-Feed-Age-Seconds": intel.age_seconds == null ? "unknown" : String(intel.age_seconds),
+  };
+  return { evaluation, fields, headers, edge_ttl_seconds: healthEdgeTtlSeconds(evaluation, capSeconds) };
+}
