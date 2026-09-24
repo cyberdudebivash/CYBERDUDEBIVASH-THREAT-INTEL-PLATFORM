@@ -108,7 +108,7 @@ lines = src.count('\n')
 struct_checks = [
     ("V173 renderer block START",        'CDB-RENDERER-ENGINE-V173-START' in src),
     ("V173 renderer block END",          'CDB-RENDERER-ENGINE-V173-END' in src),
-    ("GVOS version 173",                 "173.0.0" in src),
+    ("GVOS version 201",                 "201.0.0" in src),
     ("SOC tab system",                   'id="cdb-tab-bar"' in src),
     ("Threat grid",                      'id="threat-grid"' in src),
     ("Enterprise intel command center",  'id="enterprise-intel-command"' in src),

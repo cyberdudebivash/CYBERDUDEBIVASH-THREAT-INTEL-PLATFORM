@@ -6297,7 +6297,7 @@
                 <div style="position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,#10b981,transparent);"></div>
                 <div style="font-family:var(--font-mono);font-size:8px;letter-spacing:2px;color:var(--text-muted);text-transform:uppercase;margin-bottom:8px;">LAST SYNC</div>
                 <div id="eicc-m-sync" style="font-family:var(--font-mono);font-size:14px;font-weight:900;color:#10b981;line-height:1;margin-top:8px;">—</div>
-                <div style="font-family:var(--font-mono);font-size:8px;color:#10b981;margin-top:4px;">API ● LIVE</div>
+                <div id="eicc-m-api" style="font-family:var(--font-mono);font-size:8px;color:#10b981;margin-top:4px;">API ● CHECKING</div>
             </div>
         </div>
 
@@ -6322,7 +6322,7 @@
             <div style="background:linear-gradient(135deg,rgba(239,68,68,0.07),rgba(8,10,16,0.98));border:1px solid rgba(239,68,68,0.22);border-radius:4px;padding:18px;position:relative;overflow:hidden;">
                 <div style="position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,#ef4444,#f97316,#ef4444);"></div>
                 <p style="font-family:var(--font-mono);font-size:8px;letter-spacing:3px;color:#f87171;text-transform:uppercase;margin:0 0 4px 0;">🌍 CYBER WARFARE HEATMAP</p>
-                <p style="font-family:var(--font-mono);font-size:10px;color:var(--text-muted);margin:0 0 12px 0;">Top Attack Origins by Volume</p>
+                <p id="eicc-heatmap-sub" style="font-family:var(--font-mono);font-size:10px;color:var(--text-muted);margin:0 0 12px 0;">Top Attack Origins by Volume</p>
                 <div id="eicc-heatmap" style="display:flex;flex-direction:column;gap:7px;">
                     <div style="font-family:var(--font-mono);font-size:9px;color:var(--text-muted);">⚙ Loading region data...</div>
                 </div>
@@ -6451,6 +6451,33 @@
             ];
             var AI_TRACKER_URL = '/api/ai/tracker.json';
 
+            function eiccItems(data){
+                if (Array.isArray(data)) return data;
+                if (!data || typeof data !== 'object') return [];
+                if (Array.isArray(data.items)) return data.items;
+                if (Array.isArray(data.advisories)) return data.advisories;
+                if (Array.isArray(data.data)) return data.data;
+                return [];
+            }
+            function eiccNewestMs(items){
+                var best = 0;
+                (items || []).forEach(function(it){
+                    var raw = it.published_at || it.timestamp || it.generated_at || it.processed_at || '';
+                    var t = Date.parse(raw);
+                    if (!isNaN(t) && t > best) best = t;
+                });
+                return best;
+            }
+            function eiccAge(ms){
+                if (!ms) return '—';
+                var diff = Math.round((Date.now() - ms) / 60000);
+                if (diff < 1) return 'just now';
+                if (diff < 60) return diff + 'm ago';
+                var h = Math.round(diff / 60);
+                if (h < 48) return h + 'h ago';
+                return Math.round(h / 24) + 'd ago';
+            }
+
             // ── HTML escape helper (v184.0 XSS fix) ────────────────────────
             function _hEsc(s){
                 if(!s) return '';
@@ -6543,12 +6570,10 @@
                     if (it.feed_source) feedSources[it.feed_source.replace(/https?:\/\/(www\.)?/, '').split('/')[0]] = 1;
                 });
                 var feeds = Object.keys(feedSources).length || '—';
-                var sync    = data.last_updated || data.generated_at || '';
-                var syncStr = sync ? (function(){
-                    var d = new Date(sync);
-                    var diff = Math.round((Date.now()-d)/60000);
-                    return diff < 60 ? diff+'m ago' : Math.round(diff/60)+'h ago';
-                })() : '—';
+                var sync = (!Array.isArray(data) && data) ? (data.last_updated || data.generated_at || '') : '';
+                var syncMs = sync ? Date.parse(sync) : 0;
+                if (!syncMs || isNaN(syncMs)) syncMs = eiccNewestMs(items);
+                var syncStr = eiccAge(syncMs);
 
                 function set(id, val){ var el=document.getElementById(id); if(el) el.textContent=val; }
                 set('eicc-m-total',    total);
@@ -6560,6 +6585,8 @@
                 set('eicc-m-risk',     avgRisk);
                 set('eicc-m-feeds',    feeds);
                 set('eicc-m-sync',     syncStr);
+                var apiEl = document.getElementById('eicc-m-api');
+                if (apiEl) apiEl.textContent = items.length ? 'API ● LIVE' : 'API ● EMPTY';
             }
 
             // ── Feed preview helpers ────────────────────────────────────────
@@ -6585,11 +6612,21 @@
                     var _rawSev = (it.severity||it.risk_level||'INFO').toUpperCase();
                     var sev = _rawSev;
                     if (_rawSev === 'CRITICAL') {
-                        // P0 FIX: same canonical KEV/EPSS normalization as getSeverity()
-                        var _kev  = window.CDB_NORMALIZE.kevState(it) === true;
+                        // CDB_NORMALIZE is optional. A missing helper must not throw
+                        // and leave the preview stuck on its loading shimmer.
+                        var _norm = window.CDB_NORMALIZE;
+                        var _kev = _norm && typeof _norm.kevState === 'function'
+                            ? _norm.kevState(it) === true
+                            : !!(it.kev === true || it.kev_confirmed === true || it.kev_present === true);
                         var _cvss = parseFloat(it.cvss_score || 0);
-                        var _epssNorm = window.CDB_NORMALIZE.epss(it.epss_score);
-                        var _epss = _epssNorm.state === 'OK' ? _epssNorm.probability : 0;
+                        var _epss = 0;
+                        if (_norm && typeof _norm.epss === 'function') {
+                            var _epssNorm = _norm.epss(it.epss_score);
+                            _epss = _epssNorm && _epssNorm.state === 'OK' ? _epssNorm.probability : 0;
+                        } else {
+                            var _rawEpss = parseFloat(it.epss_score != null ? it.epss_score : it.epss);
+                            _epss = isNaN(_rawEpss) ? 0 : (_rawEpss > 1 ? _rawEpss / 100 : _rawEpss);
+                        }
                         var _risk = parseFloat(it.risk_score || 0);
                         if (!(_kev || _cvss >= 9.0 || _epss >= 0.70 || _risk >= 8.5)) {
                             sev = _risk >= 6.5 ? 'HIGH' : _risk >= 4.0 ? 'MEDIUM' : 'LOW';
@@ -6622,19 +6659,42 @@
                 // still resolve the panel out of its static "Loading region data..."
                 // markup -- falls through to the empty-state branch below instead of
                 // returning early and leaving the loading message stuck forever.
+                var known = {RU:'Russia',CN:'China',IR:'Iran',KP:'N.Korea',US:'USA',BR:'Brazil',IN:'India',DE:'Germany',UA:'Ukraine',TR:'Turkey',UK:'UK',IL:'Israel',PK:'Pakistan',VN:'Vietnam'};
+                var lex = [['Iran','iran'],['Russia','russia'],['Russia','gru'],['China','china'],['N.Korea','north korea'],['N.Korea','lazarus'],['Ukraine','ukrain'],['Israel','israel']];
                 var regions = {};
+                var sub = document.getElementById('eicc-heatmap-sub');
+                function bump(map, key){ if(!key) return; map[key] = (map[key]||0)+1; }
                 (items || []).forEach(function(it){
-                    var src = it.source_country || it.actor_country || (it.tags && it.tags.find(function(t){return t&&t.length===2;})) || '';
-                    if(src && src.length===2) regions[src.toUpperCase()] = (regions[src.toUpperCase()]||0)+1;
+                    var raw = String(it.source_country || it.actor_country || '').trim();
+                    var origin = '';
+                    if (raw && !/^(unknown|unattributed|n\/a|none|null|-)$/i.test(raw)) {
+                        var code = raw.toUpperCase();
+                        origin = known[code] || (raw.length <= 24 ? raw : '');
+                    }
+                    if (!origin) {
+                        var title = ((it.title || '') + ' ' + String(it.description || '').slice(0, 240)).toLowerCase();
+                        for (var li = 0; li < lex.length; li++) {
+                            if (title.indexOf(lex[li][1]) !== -1) { origin = lex[li][0]; break; }
+                        }
+                    }
+                    bump(regions, origin);
                 });
-                var known = {RU:'Russia',CN:'China',IR:'Iran',KP:'N.Korea',US:'USA',BR:'Brazil',IN:'India',DE:'Germany',UA:'Ukraine',TR:'Turkey'};
-                // v185.0: no synthetic fallback -- an honest "no data" state beats a
-                // plausible-looking fabricated heatmap. Every bar below is now backed
-                // by a real per-item source_country/actor_country/tag count; when zero
-                // items carry that attribution, show the empty state instead of guessing.
+                var mode = 'origin';
                 var sorted = Object.keys(regions).sort(function(a,b){return regions[b]-regions[a];}).slice(0,6);
                 if(!sorted.length){
-                    el.innerHTML = '<div class="watchlist-empty" style="padding:24px 12px;">NO GEOGRAPHIC ATTRIBUTION DATA<br><span style="font-size:9px;">CURRENT ADVISORIES DO NOT INCLUDE SOURCE-COUNTRY TAGS</span></div>';
+                    // No country tags on this feed. Chart real source volume instead of
+                    // leaving the panel empty or inventing origin countries.
+                    regions = {};
+                    (items || []).forEach(function(it){
+                        var s = String(it.feed_source || it.source || '').replace(/https?:\/\/(www\.)?/, '').split('/')[0].trim();
+                        if (s && !/^unknown$/i.test(s)) bump(regions, s.length > 22 ? s.slice(0, 21) + '…' : s);
+                    });
+                    sorted = Object.keys(regions).sort(function(a,b){return regions[b]-regions[a];}).slice(0,6);
+                    mode = 'source';
+                }
+                if(sub) sub.textContent = mode === 'origin' ? 'Top Attack Origins by Volume' : 'Advisory sources by volume — no country tags';
+                if(!sorted.length){
+                    el.innerHTML = '<div class="watchlist-empty" style="padding:24px 12px;">NO VOLUME DATA<br><span style="font-size:9px;">THE CURRENT FEED HAS NO ORIGIN OR SOURCE FIELD</span></div>';
                     if(ts) ts.textContent = '—';
                     return;
                 }
@@ -6645,7 +6705,7 @@
                     var name = known[code]||code;
                     var col  = pct>75?'#ef4444':pct>45?'#f97316':'#f59e0b';
                     return '<div style="display:flex;align-items:center;gap:8px;">'
-                         + '<span style="font-family:var(--font-mono);font-size:8px;color:var(--text-muted);width:58px;flex-shrink:0;">'+name+'</span>'
+                         + '<span style="font-family:var(--font-mono);font-size:8px;color:var(--text-muted);width:92px;flex-shrink:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+_hEsc(name)+'</span>'
                          + '<div style="flex:1;background:rgba(255,255,255,0.05);border-radius:2px;height:10px;overflow:hidden;">'
                          +   '<div style="width:'+pct+'%;background:linear-gradient(90deg,'+col+',transparent);height:100%;transition:width 1s ease;"></div>'
                          + '</div>'
@@ -6655,6 +6715,28 @@
                 if(ts) ts.textContent = 'UPDATED ' + new Date().toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit',hour12:false}) + ' UTC';
             }
 
+
+            function fillDarkWeb(items){
+                var el = document.getElementById('cdb-darkweb-live');
+                var badge = document.getElementById('cdb-darkweb-badge');
+                if(!el) return;
+                var keys = ['dark web','darkweb','stealer','leak','breach','credential','ransomware','paste site','initial access'];
+                var rows = (items || []).filter(function(it){
+                    var t = ((it.title||'') + ' ' + (it.threat_category||'') + ' ' + (it.threat_type||'')).toLowerCase();
+                    return keys.some(function(k){ return t.indexOf(k) !== -1; });
+                }).slice(0, 5);
+                if(!rows.length){
+                    el.textContent = 'No breach, leak, or stealer advisory in the current feed. Licensed Tor monitoring is not connected.';
+                    if(badge) badge.textContent = 'NOT A CRAWL';
+                    return;
+                }
+                if(badge) badge.textContent = 'FROM LIVE FEED';
+                el.innerHTML = rows.map(function(it){
+                    var sev = _hEsc((it.severity || 'INFO').toUpperCase());
+                    var title = _hEsc((it.title || 'Advisory').substring(0, 96));
+                    return '<div style="padding:4px 0;border-bottom:1px solid rgba(139,92,246,0.15);">'+sev+' · '+title+'</div>';
+                }).join('');
+            }
             // ── AI predictions ──────────────────────────────────────────────
             function fillAIPredictions(d){
                 var el = document.getElementById('eicc-ai-predictions');
@@ -6737,6 +6819,10 @@
             var _eiccGuard = null;
 
             function _eiccShowUnavailable(){
+                var apiEl = document.getElementById('eicc-m-api');
+                if (apiEl) apiEl.textContent = 'API ● UNAVAILABLE';
+                try { fillDarkWeb([]); } catch (e) {}
+
                 // Reuses each widget's own empty-state rendering (an empty
                 // array) for both "fetch failed" and "valid empty result" --
                 // both are honestly "nothing to show right now" to the
@@ -6762,11 +6848,12 @@
                         }
                         if (!_eiccGuard.isCurrent(guardToken.token)) return; // superseded while awaiting
                         if (result && result.ok) {
-                            var items = result.data.items || result.data.advisories || result.data.data || [];
+                            var items = eiccItems(result.data);
                             buildTicker(items);
                             fillMetrics(result.data);
-                            buildFeedPreview(items);
-                            buildHeatmap(items);
+                            try { buildFeedPreview(items); } catch (e) { console.warn('[EICC feed]', e); }
+                            try { buildHeatmap(items); } catch (e) { console.warn('[EICC heat]', e); }
+                            try { fillDarkWeb(items); } catch (e) { console.warn('[EICC darkweb]', e); }
                         } else {
                             _eiccShowUnavailable();
                         }
@@ -6778,11 +6865,12 @@
                         fetch(EICC_DATA_URLS[i]+'?_='+Date.now())
                         .then(function(r){ return r.json(); })
                         .then(function(data){
-                            var items = data.items || data.advisories || data.data || [];
+                            var items = eiccItems(data);
                             buildTicker(items);
                             fillMetrics(data);
-                            buildFeedPreview(items);
-                            buildHeatmap(items);
+                            try { buildFeedPreview(items); } catch (e) { console.warn('[EICC feed]', e); }
+                            try { buildHeatmap(items); } catch (e) { console.warn('[EICC heat]', e); }
+                            try { fillDarkWeb(items); } catch (e) { console.warn('[EICC darkweb]', e); }
                         })
                         .catch(function(){ tryManifest(i+1); });
                     }
@@ -6996,7 +7084,7 @@
 
                 <!-- Product 7: Dark Web Monitor -->
                 <div style="background:linear-gradient(135deg,rgba(139,92,246,0.07) 0%,rgba(10,15,28,0.98) 60%);border:1px solid rgba(139,92,246,0.3);border-top:3px solid #8b5cf6;border-radius:6px;padding:24px;position:relative;overflow:hidden;transition:all 0.3s;" onmouseover="this.style.transform='translateY(-4px)';this.style.boxShadow='0 16px 48px rgba(139,92,246,0.18)'" onmouseout="this.style.transform='none';this.style.boxShadow='none'">
-                    <div style="position:absolute;top:8px;right:12px;font-family:var(--font-mono);font-size:8px;background:rgba(239,68,68,0.12);color:#f87171;border:1px solid rgba(239,68,68,0.3);padding:2px 8px;border-radius:3px;font-weight:800;">COMING SOON</div>
+                    <div id="cdb-darkweb-badge" style="position:absolute;top:8px;right:12px;font-family:var(--font-mono);font-size:8px;background:rgba(139,92,246,0.12);color:#c4b5fd;border:1px solid rgba(139,92,246,0.3);padding:2px 8px;border-radius:3px;font-weight:800;">NOT A CRAWL</div>
                     <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
                         <div style="width:40px;height:40px;border-radius:8px;background:rgba(139,92,246,0.12);border:1px solid rgba(139,92,246,0.3);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;">&#128274;</div>
                         <div>
@@ -7011,7 +7099,8 @@
                         <span style="font-family:var(--font-mono);font-size:8px;background:rgba(139,92,246,0.08);color:#a78bfa;border:1px solid rgba(139,92,246,0.2);padding:2px 7px;border-radius:3px;">KEYWORD WATCH</span>
                     </div>
                     <div style="border-top:1px solid rgba(139,92,246,0.1);padding-top:14px;">
-                        <div style="font-family:var(--font-mono);font-size:11px;color:#f87171;">Temporarily unavailable while we integrate licensed breach-intelligence providers. Not purchasable yet.</div>
+                        <div id="cdb-darkweb-live" style="font-family:var(--font-mono);font-size:10px;color:var(--text-muted);line-height:1.5;">Checking the current advisory feed…</div>
+                        <div style="font-family:var(--font-mono);font-size:9px;color:#8b95a7;margin-top:8px;">Licensed Tor and marketplace crawl is not connected. Rows are breach, leak, and stealer advisories already in the live feed.</div>
                     </div>
                 </div>
 
@@ -8243,7 +8332,7 @@
 
         <section id="nexus-section" style="padding:40px 0;border-top:1px solid var(--border);">
             <div style="text-align:center;margin-bottom:28px;">
-                <p style="font-family:var(--font-mono);font-size:9px;color:#8b5cf6;letter-spacing:5px;text-transform:uppercase;margin:0 0 8px 0;">🧠 NEXUS INTELLIGENCE v134.0</p>
+                <p style="font-family:var(--font-mono);font-size:9px;color:#8b5cf6;letter-spacing:5px;text-transform:uppercase;margin:0 0 8px 0;">🧠 NEXUS INTELLIGENCE v201.0</p>
                 <h2 style="color:var(--white);font-size:22px;font-weight:900;letter-spacing:-0.5px;margin:0;">AI Threat Hunting & Correlation Command Center</h2>
             </div>
 
@@ -8319,7 +8408,7 @@
         <section style="padding:32px 0;border-top:1px solid var(--border);">
             <div style="text-align:center;margin-bottom:24px;">
                 <p style="font-family:var(--font-mono);font-size:9px;color:#3b82f6;letter-spacing:5px;text-transform:uppercase;margin:0 0 8px 0;">🌐 CORTEX &middot; QUANTUM &middot; SOVEREIGN</p>
-                <h2 style="color:var(--white);font-size:20px;font-weight:900;letter-spacing:-0.5px;margin:0;">Full-Stack AI Cybersecurity Ecosystem v134.0</h2>
+                <h2 style="color:var(--white);font-size:20px;font-weight:900;letter-spacing:-0.5px;margin:0;">Full-Stack AI Cybersecurity Ecosystem v201.0</h2>
             </div>
 
             <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:20px;">
@@ -8405,7 +8494,7 @@
         <!-- ═══════════════════════════════════════════════════════ -->
         <section id="genesis-section" style="padding:32px 0;border-top:1px solid var(--border);">
             <div style="text-align:center;margin-bottom:20px;">
-                <p style="font-family:var(--font-mono);font-size:9px;color:#ec4899;letter-spacing:5px;text-transform:uppercase;margin:0 0 6px 0;">🌐 GENESIS v134.0 &mdash; 12 STRATEGIC ENGINES</p>
+                <p style="font-family:var(--font-mono);font-size:9px;color:#ec4899;letter-spacing:5px;text-transform:uppercase;margin:0 0 6px 0;">🌐 GENESIS v201.0 &mdash; 12 STRATEGIC ENGINES</p>
                 <h2 style="color:var(--white);font-size:20px;font-weight:900;margin:0;">Global Cybersecurity Intelligence Powerhouse</h2>
             </div>
             <div id="genesis-grid" style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px;"></div>
@@ -8577,7 +8666,7 @@
         <!-- ═══════════════════════════════════════════════════════ -->
         <section id="bughunter-section" style="padding:32px 0;border-top:1px solid var(--border);">
             <div style="text-align:center;margin-bottom:20px;">
-                <p style="font-family:var(--font-mono);font-size:9px;color:#f97316;letter-spacing:5px;text-transform:uppercase;margin:0 0 6px 0;">🐛 BUG HUNTER v134.0 &mdash; 12 RECON ENGINES</p>
+                <p style="font-family:var(--font-mono);font-size:9px;color:#f97316;letter-spacing:5px;text-transform:uppercase;margin:0 0 6px 0;">🐛 BUG HUNTER v201.0 &mdash; 12 RECON ENGINES</p>
                 <h2 style="color:var(--white);font-size:20px;font-weight:900;margin:0;">AI-Powered Attack Surface Recon & Vulnerability Discovery</h2>
             </div>
             <!-- Engine Grid -->
@@ -8648,10 +8737,10 @@
             </div>
         </section>
 
-        <!-- ═══ TIP + SOAR COMMAND CENTER v63.0 ═══ -->
+        <!-- ═══ TIP + SOAR COMMAND CENTER v201.0 ═══ -->
         <section id="tipsoar-section" style="padding:32px 0;border-top:1px solid var(--border);">
             <div style="max-width:1320px;margin:0 auto;padding:0 16px;">
-                <p style="font-family:var(--font-mono);font-size:9px;color:#f472b6;letter-spacing:5px;text-transform:uppercase;margin:0 0 6px 0;">🛡️ TIP + SOAR COMMAND CENTER v63.0</p>
+                <p style="font-family:var(--font-mono);font-size:9px;color:#f472b6;letter-spacing:5px;text-transform:uppercase;margin:0 0 6px 0;">🛡️ TIP + SOAR COMMAND CENTER v201.0</p>
                 <h2 style="color:var(--white);font-size:24px;font-weight:900;letter-spacing:-0.5px;margin:0 0 24px 0;">
                     Automated Incident Response &amp; Threat Hunting <span id="tipsoar-badge" style="font-size:10px;background:rgba(244,114,182,0.12);color:#f472b6;padding:3px 10px;border-radius:4px;margin-left:10px;font-family:var(--font-mono);vertical-align:middle;">LOADING...</span>
                 </h2>
@@ -19150,7 +19239,7 @@ a:focus-visible {
    ============================================================================
    PIPELINE-COLLISION-PROOF:
    • Markers: CDB-RENDERER-ENGINE-V173
-   • GVOS label: 'CDB-SENTINEL v173' (pipeline regex won't match)
+   • Visible HUD reads SENTINEL_GVOS.label (current release). Engine marker stays V173.
    ============================================================================ */
 (function cdbV173() {
   'use strict';
@@ -19184,10 +19273,10 @@ a:focus-visible {
 
   /* ── GVOS ─────────────────────────────────────────────────────────────── */
   window.SENTINEL_GVOS = {
-    version   : '173.0.0',
-    buildId   : '2026.05.20-APEX-V173',
+    version   : '201.0.0',
+    buildId   : '2026.09.24-APEX-V201',
     cacheKey  : 'sentinel-apex-v173-live',
-    label     : 'CDB-SENTINEL v173',
+    label     : 'CDB-SENTINEL v201',
     runtime   : 'CPU-RASTERIZED',
     classified: 'TOP SECRET // SI // TK // NOFORN'
   };
@@ -20180,12 +20269,15 @@ a:focus-visible {
       ctx.font = 'bold 9px "Courier New",monospace';
 
       /* ── Top-left: version + build + GPU ─── */
-      ctx.fillStyle   = 'rgba(0,0,0,0.52)';
-      ctx.fillRect(6, 6, 260, 13);
+      var hud = (window.SENTINEL_GVOS && window.SENTINEL_GVOS.label) || 'CDB-SENTINEL v201';
+      ctx.font = 'bold 9px "Courier New",monospace';
+      ctx.textAlign = 'left';
+      var hudW = Math.min(Math.max(120, Math.ceil(ctx.measureText(hud).width) + 16), Math.max(120, W - 150));
+      ctx.fillStyle   = 'rgba(0,0,0,0.72)';
+      ctx.fillRect(6, 6, hudW, 14);
       ctx.fillStyle   = '#00eeff';
       ctx.globalAlpha = 0.92;
-      ctx.textAlign   = 'left';
-      ctx.fillText('CDB-SENTINEL v173  |  2026.05.20-V173  |  GPU-' + gpuT + '/' + br + '  |  RC13', 10, 16);
+      ctx.fillText(hud, 10, 16);
 
       /* ── Top-right: UTC clock ─── */
       ctx.textAlign = 'right';
