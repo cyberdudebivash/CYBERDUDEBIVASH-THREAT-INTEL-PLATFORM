@@ -8306,10 +8306,14 @@ async function runWatchdogSchedule(env) {
       // cancelled/refunded/suspended/revoked keys (same check resolveAuth
       // applies to JWTs).
       checkEntitlement: async (entry) => {
+        // Outbound evaluation only. A missing or unreadable denial marker
+        // is not proof the subscription is still paid, so this cycle does
+        // not create events and does not drop the subject.
+        if (!env.SECURITY_HUB_KV || typeof env.SECURITY_HUB_KV.get !== "function") return { unverified: true };
         try {
-          const denied = env.SECURITY_HUB_KV ? await env.SECURITY_HUB_KV.get(`jwt_deny:${entry.subject}`) : null;
+          const denied = await env.SECURITY_HUB_KV.get(`jwt_deny:${entry.subject}`);
           return { denied: !!denied };
-        } catch (_) { return { denied: false }; }
+        } catch (_) { return { unverified: true }; }
       },
       nowMs: Date.now(),
     });

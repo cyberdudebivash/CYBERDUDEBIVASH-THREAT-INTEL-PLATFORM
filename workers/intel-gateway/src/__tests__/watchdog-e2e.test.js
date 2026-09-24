@@ -164,6 +164,22 @@ test("autonomous: revoked subscription (jwt_deny) leaves the registry and gets n
   assert.equal(denied.status, 401, "the session itself is refused after revocation");
 });
 
+test("autonomous: entitlement store outage does not evaluate and does not drop the watch", async () => {
+  const h = harness();
+  const created = await h.call("POST", "/api/watchdog/watches", { key: PRO_KEY, body: { name: "KEV", cves: ["CVE-2026-1000"] } });
+  assert.equal(created.status, 201);
+  const original = h.env.SECURITY_HUB_KV.get.bind(h.env.SECURITY_HUB_KV);
+  h.env.SECURITY_HUB_KV.get = async () => { throw new Error("kv down"); };
+  await h.cron();
+  const held = h.schedulerState().subjects.cust_pro_1;
+  assert.ok(held, "subject stays registered when entitlement cannot be read");
+  assert.equal(held.parked || null, null);
+  assert.equal(h.ledgerState("cust_pro_1").events.length, 0);
+  h.env.SECURITY_HUB_KV.get = original;
+  await h.cron();
+  assert.equal(h.ledgerState("cust_pro_1").events.length, 1, "the next healthy tick still evaluates");
+});
+
 // ---------------------------------------------------------------------------
 // Browser authentication (Phase 10)
 // ---------------------------------------------------------------------------

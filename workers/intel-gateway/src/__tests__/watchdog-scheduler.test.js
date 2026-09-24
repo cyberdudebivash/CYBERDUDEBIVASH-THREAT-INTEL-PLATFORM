@@ -110,6 +110,31 @@ test("an expired or FREE-downgraded subject is dropped, not evaluated", async ()
   assert.equal(l.state.events.length, 0);
 });
 
+test("an unreadable entitlement skips this cycle and keeps the subject", async () => {
+  const { scheduler, ledgers } = await populated(1);
+  const l = ledgers.get("cust-0");
+  let ledgerCalls = 0;
+  const out = await runWatchdogCycle({
+    scheduler, loadFeed: async () => feed(), nowMs: NOW_MS,
+    ledgerFor: () => ({ mutate: async () => { ledgerCalls += 1; throw new Error("should not evaluate"); } }),
+    checkEntitlement: async () => ({ unverified: true }),
+  });
+  assert.equal(out.skipped_unverified, 1);
+  assert.equal(out.evaluated, 0);
+  assert.equal(ledgerCalls, 0);
+  assert.equal(scheduler.state.subjects["cust-0"].parked, null);
+  assert.equal(scheduler.state.subjects["cust-0"].failures || 0, 0);
+  assert.equal(scheduler.state.runs[0].status, "entitlement_unverified");
+  assert.equal(l.state.events.length, 0);
+  const next = await runWatchdogCycle({
+    scheduler, loadFeed: async () => feed(), nowMs: NOW_MS + 900000,
+    ledgerFor: () => l,
+    checkEntitlement: async () => ({ denied: false }),
+  });
+  assert.equal(next.evaluated, 1);
+  assert.equal(l.state.events.length, 1, "the following healthy tick still records the match");
+});
+
 test("operator summary exposes no subject, tenant or url", async () => {
   const { scheduler, ledgers } = await populated(3);
   await runWatchdogCycle({ scheduler, loadFeed: async () => feed(), ledgerFor: (k) => ledgers.get(k), nowMs: NOW_MS });

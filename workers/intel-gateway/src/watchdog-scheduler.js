@@ -161,6 +161,9 @@ export function applySchedulerMutation(state, op) {
       if (!s) continue;
       s.lease_until = null;
       if (r.denied) { delete next.subjects[r.ledger_key]; continue; }
+      // Entitlement could not be read. Do not evaluate, do not delete, and
+      // do not park: the next tick retries. A blip must not look like revocation.
+      if (r.unverified) continue;
       if (!r.ok) {
         failures += 1;
         s.failures = (s.failures || 0) + 1;
@@ -183,11 +186,12 @@ export function applySchedulerMutation(state, op) {
       }
     }
     const remaining = activeKeys(next, nowMs).filter((k) => next.subjects[k].evaluated_generation !== generation || next.subjects[k].dirty);
-    if (!remaining.length && generation) next.last_successful_generation = generation;
+    const unverified = (op.results || []).filter((r) => r.unverified).length;
+    if (!remaining.length && generation && !unverified) next.last_successful_generation = generation;
     bump(next, nowMs, { events_generated: inserted, events_deduped: deduped, scheduler_failures: failures + (op.cycle_error ? 1 : 0) });
     recordRun(next, {
       at: now,
-      status: op.cycle_error ? "cycle_error" : failures ? "partial" : "ok",
+      status: op.cycle_error ? "cycle_error" : failures ? "partial" : unverified ? "entitlement_unverified" : "ok",
       generation,
       planned: (op.results || []).length,
       evaluated,
@@ -265,7 +269,8 @@ export class MemoryScheduler {
  *   scheduler.mutate(op)       WatchdogScheduler (or MemoryScheduler)
  *   loadFeed()                 authoritative feed object or null (one R2 GET)
  *   ledgerFor(key).mutate(op)  WatchdogLedger for that subject
- *   checkEntitlement(entry)    { denied: bool } -- revocation / expiry
+ *   checkEntitlement(entry)    { denied } drops the subject; { unverified }
+ *                              skips this cycle only (store outage)
  *
  * Returns a summary including the operation counts of this cycle.
  */
@@ -296,6 +301,7 @@ export async function runWatchdogCycle({ scheduler, loadFeed, ledgerFor, checkEn
       if (checkEntitlement) {
         ops.entitlement_reads += 1;
         const ent = await checkEntitlement(entry);
+        if (ent && ent.unverified) { results.push({ ledger_key: entry.ledger_key, unverified: true }); continue; }
         if (ent && ent.denied) { results.push({ ledger_key: entry.ledger_key, denied: true }); continue; }
       }
       ops.ledger_requests += 1;
@@ -329,6 +335,7 @@ export async function runWatchdogCycle({ scheduler, loadFeed, ledgerFor, checkEn
     inserted: results.reduce((n, r) => n + (r.inserted || 0), 0),
     failures: results.filter((r) => r.ok === false).length,
     denied: results.filter((r) => r.denied).length,
+    skipped_unverified: results.filter((r) => r.unverified).length,
     ops,
   };
 }
