@@ -53,7 +53,7 @@ Use the PREMIUM_ANALYST_BRIEFING_TEMPLATE.md to generate monthly per-client repo
 ## PART 3 — YOUR MASTER KEY
 
 Your MSSP Master Key gives you:
-- 500,000 API calls/day — covers all your managed clients
+- 50,000 API calls/day on your MSSP key; client tenants managed self-service (multi-tenant capacity subject to plan terms)
 - Full PRO + Enterprise tier access
 - STIX 2.1 bundles
 - Detection rules (Sigma/YARA/Snort)
@@ -84,7 +84,7 @@ Body:
 ```
 
 **Delivery:** Sub-key provisioned within 2 hours of request.
-**Capacity:** Unlimited sub-keys included in MSSP subscription.
+**Capacity:** Subject to plan terms.
 **Sub-key format:** `SA-PRO-XXXX` or `SA-ENT-XXXX` (not SA-MSSP-)
 
 ---
@@ -163,7 +163,7 @@ POST https://intel.cyberdudebivash.com/api/feed?format=elastic
 
 ## PART 7 — MSSP PRICING GUIDANCE
 
-You are free to price your managed clients at any rate that covers your MSSP subscription ($1,999/month) plus your margin.
+You are free to price your managed clients at any rate that covers your MSSP subscription ($999/month) plus your margin.
 
 **Example pricing models:**
 
@@ -175,9 +175,9 @@ You are free to price your managed clients at any rate that covers your MSSP sub
 | Annual contract | $2,988/client/year | Strong recurring |
 
 **Break-even analysis:**
-- At 1 client: Break even at $1,999/month client pricing
-- At 3 clients: Break even at $667/month per client
-- At 10 clients: Break even at $200/month per client — $17,990/month at $1,999/client
+- At 1 client: Break even at $999/month client pricing
+- At 3 clients: Break even at $333/month per client
+- At 10 clients: Break even at $100/month per client — $9,001/month net at $1,000/client
 
 ---
 

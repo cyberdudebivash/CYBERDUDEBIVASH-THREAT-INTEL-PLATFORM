@@ -54,6 +54,13 @@ on:
       - 'mssp.html'
       - 'docs/MSSP_TENANT_IDENTITY_V185.md'
       - 'workers/revenue-engine/src/**'
+      # Customer-visible release labels and MSSP commercial copy (checked
+      # below by customer_release_label.py and verify_commercial_contract.py).
+      - '*.html'
+      - 'MSSP_OPERATIONAL_RUNBOOK.md'
+      - 'mssp-onboarding-kit/**'
+      - 'config/commercial-contract.json'
+      - 'VERSION'
   pull_request:
     branches: [main]
     paths:
@@ -73,6 +80,13 @@ on:
       - 'mssp.html'
       - 'docs/MSSP_TENANT_IDENTITY_V185.md'
       - 'workers/revenue-engine/src/**'
+      # Customer-visible release labels and MSSP commercial copy (checked
+      # below by customer_release_label.py and verify_commercial_contract.py).
+      - '*.html'
+      - 'MSSP_OPERATIONAL_RUNBOOK.md'
+      - 'mssp-onboarding-kit/**'
+      - 'config/commercial-contract.json'
+      - 'VERSION'
   workflow_dispatch: {}
 
 permissions:
@@ -189,6 +203,8 @@ jobs:
             tests/test_feed_contract_validator_bounded_preview.py
             # P0 Phase 3C: apex.json single producer / canary contract.
             tests/test_apex_feed_single_producer.py
+            # v201 convergence: customer-visible release labels.
+            tests/test_customer_release_label.py
           )
           python3 -m pytest "${SUITES[@]}" -q
           # Refuse to pass having run nothing. pytest.ini forces --verbose, so
@@ -209,6 +225,7 @@ jobs:
                "tests/test_enterprise_pricing.py",
                "tests/test_feed_contract_validator_bounded_preview.py",
                "tests/test_apex_feed_single_producer.py",
+               "tests/test_customer_release_label.py",
                "--collect-only", "-q"],
               capture_output=True, text=True).stdout
           m = re.search(r"(\d+) tests? collected", out)
@@ -228,3 +245,12 @@ jobs:
       # boundary exclusive must turn the health suites red.
       - name: "Health clock negative controls"
         run: python3 scripts/health_clock_negative_controls.py
+
+      # Buyer-facing copy must match the canonical contract (prices, quotas,
+      # no unsupported MSSP tenant allowance) and show the current release.
+      # Both previously ran only on manual dispatch, so drift accumulated.
+      - name: "Commercial contract drift gate"
+        run: python3 scripts/verify_commercial_contract.py
+
+      - name: "Customer-visible release label gate"
+        run: python3 scripts/customer_release_label.py

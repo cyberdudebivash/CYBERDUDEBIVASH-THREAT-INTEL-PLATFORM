@@ -175,9 +175,9 @@ python agent/tools/generate_key.py list
 |------------|----------|----------------------|
 | Phase 1 (5 clients) | Up to 25 sub-keys | ~25,000/day at 5,000/client |
 | Phase 2 (20 clients) | Up to 100 sub-keys | ~100,000/day at 5,000/client |
-| Master key limit | Unlimited sub-keys | 500,000/day total |
+| Plan limit | Up to 100 API keys (contract `api_keys`) | 50,000/day on the MSSP key |
 
-**Note:** Sub-keys have their own rate limits. Master key calls and sub-key calls are counted separately. The master key's 500,000/day limit covers MSSP's own infrastructure usage; sub-key limits are per-key.
+**Note:** Sub-keys have their own rate limits. Master key calls and sub-key calls are counted separately. The MSSP key's 50,000/day limit (config/commercial-contract.json) covers the MSSP's own usage; sub-key limits are per-key. Tenant management with the MSSP key itself (/api/mssp/tenants) needs no sub-keys; multi-tenant capacity is subject to plan terms.
 
 ---
 

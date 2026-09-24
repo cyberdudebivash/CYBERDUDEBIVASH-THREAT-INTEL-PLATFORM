@@ -203,6 +203,43 @@ def iter_buyer_html_files():
         yield rel, path
 
 
+# Partner-facing and sales documents (markdown) that quote MSSP terms to
+# buyers. Swept for superseded prices like the buyer HTML pages.
+BUYER_FACING_DOCS = [
+    "MSSP_PARTNER_PROGRAM.md",
+    "MSSP_OPERATIONAL_RUNBOOK.md",
+    "mssp-onboarding-kit/MSSP_DEMO_SCRIPT.md",
+    "mssp-onboarding-kit/MSSP_WHITE_LABEL_KIT.md",
+    "mssp-onboarding-kit/MSSP_TENANT_PROVISIONING.md",
+]
+
+# While the contract defines no MSSP tenant allowance (owner decision
+# pending: OWNER_DECISION_REQUIRED_MSSP_TENANT_QUOTA), no buyer-facing copy
+# may promise one. The 100-tenant technical bound in mssp-tenants.js is not a
+# commercial allowance.
+TENANT_ALLOWANCE_CLAIMS = [
+    ("tenant count allowance", re.compile(r"\b(?:up to|includes?|included:?)\s+\d+\s+(?:managed\s+)?(?:client\s+|sub-?)?tenants?\b", re.I)),
+    ("tenant range allowance", re.compile(r"\b\d+\s*[\u2013-]\s*\d+\s+(?:client\s+|sub-?)?tenants?\b", re.I)),
+    ("tenant count allowance", re.compile(r"\b100\s+sub-?tenants?\b", re.I)),
+    ("unlimited tenants/clients", re.compile(r"\bunlimited\s+(?:client\s+|sub-?)?(?:tenants?|clients|sub-?keys)\b", re.I)),
+]
+
+
+def check_mssp_tenant_claims(canon):
+    mssp = canon.get("mssp", {})
+    if any(k in mssp for k in ("tenants_included", "tenant_quota", "max_tenants")):
+        return  # an owner-approved allowance exists; claims are judged against it elsewhere
+    targets = [(rel, path) for rel, path in iter_buyer_html_files()]
+    targets += [(Path(d), REPO_ROOT / d) for d in BUYER_FACING_DOCS if (REPO_ROOT / d).exists()]
+    for rel, path in targets:
+        text = path.read_text(encoding="utf-8", errors="ignore")
+        text = re.sub(r"<!--.*?-->", " ", text, flags=re.S)
+        for label, pattern in TENANT_ALLOWANCE_CLAIMS:
+            m = pattern.search(text)
+            check(m is None, f"{rel} makes no MSSP {label} claim without a contract allowance"
+                  + (f" (found '{m.group(0)}')" if m else ""))
+
+
 def main() -> int:
     if not CONTRACT_PATH.exists():
         log.error("Canonical contract missing: %s", CONTRACT_PATH)
@@ -464,6 +501,14 @@ def main() -> int:
         for label, pattern in FORBIDDEN_PRICE_PATTERNS:
             check(not pattern.search(text), f"{rel} does not contain {label}")
     log.info("Swept %d buyer-facing HTML page(s) for superseded price/legal-entity literals.", scanned)
+    for rel in BUYER_FACING_DOCS:
+        path = REPO_ROOT / rel
+        if not path.exists():
+            continue
+        text = path.read_text(encoding="utf-8", errors="ignore")
+        for label, pattern in FORBIDDEN_PRICE_PATTERNS:
+            check(not pattern.search(text), f"{rel} does not contain {label}")
+    check_mssp_tenant_claims(canon)
 
     # --- Forbidden quota claims ---------------------------------------------
     # commercial-contract.json's _forbidden_claims also lists compliance-
