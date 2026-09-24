@@ -231,12 +231,35 @@ a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
       method: 'GET',
       headers: { 'Accept': 'application/json' }
     })
-    .then(function(r){ return r.ok ? r.json() : null; })
+    // /api/health answers 503 with a structured SENTINEL body while
+    // intelligence is stale/unavailable (health freshness contract). That is
+    // a reachable platform reporting degraded intelligence, not an
+    // unreachable endpoint -- show it as such. Non-SENTINEL bodies (HTML
+    // error pages, malformed JSON) still fall through to "unavailable".
+    .then(function(r){
+      if (r.ok) return r.json();
+      if (r.status !== 503) return null;
+      return r.json().then(function(b){
+        return (b && b.service === 'sentinel-apex' && (b.status === 'degraded' || b.status === 'unhealthy')) ? b : null;
+      }, function(){ return null; });
+    })
     .then(function(d){
       var el = document.getElementById('live-health-badge');
       if (!el) return;
       if (!d) {
         el.innerHTML = '<span style="color:var(--muted);font-weight:700;">&#9679; STATUS CHECK UNAVAILABLE</span> &nbsp;Could not reach the live health endpoint just now.';
+        return;
+      }
+      if (d.status !== 'ok') {
+        var gen = d.intelligence && d.intelligence.generated_at;
+        gen = gen ? String(gen).replace(/[^0-9TZ:+.\-]/g, '') : '';
+        el.innerHTML = '<span style="color:var(--yellow);font-weight:700;">&#9679; ' + (d.status === 'degraded' ? 'DEGRADED' : 'INTELLIGENCE UNAVAILABLE') + '</span>'
+          + ' &nbsp;v' + (d.version||'&mdash;')
+          + ' &nbsp;&middot;&nbsp; Platform reachable; intelligence '
+          + (d.status === 'degraded' ? 'is older than the freshness window' : 'is not currently available')
+          + (gen ? ' &nbsp;&middot;&nbsp; Feed generated: ' + String(gen).replace('T',' ').replace('Z',' UTC') : '');
+        var syncElD = document.getElementById('last-sync-val');
+        if (syncElD) syncElD.textContent = gen ? String(gen).replace('T',' ').replace('Z',' UTC') : 'Unavailable';
         return;
       }
       el.innerHTML = '<span style="color:var(--green);font-weight:700;">&#9679; LIVE</span>'

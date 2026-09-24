@@ -56,6 +56,9 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import deployment_health_contract as _deploy_health  # noqa: E402
+
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [CDB-CONTRACT] %(message)s",
@@ -123,7 +126,12 @@ CONTRACTS: Dict[str, Dict] = {
     "/api/health": {
         "description": "API health / gateway status endpoint",
         "canary": "A",
-        "http_status": [200, 207],  # 207 = degraded but alive
+        # Live validation is delegated to deployment_health_contract.py:
+        # 200 ok, or a VALID SENTINEL 503 degraded/unhealthy envelope (the
+        # truthful stale-intelligence answer). http_status below is the
+        # documentation of that contract, not a 200-only probe.
+        "health_contract": True,
+        "http_status": [200, 503],
         "content_type_prefix": "application/json",
         "envelope_required": ["status", "version", "checks"],
         "envelope_types": {
@@ -133,7 +141,7 @@ CONTRACTS: Dict[str, Dict] = {
         },
         "envelope_values": {
             # status must be one of these — canary_a_health checks .get("status") in (healthy/ok/operational)
-            "status:oneof": ["healthy", "ok", "operational", "degraded"],
+            "status:oneof": ["healthy", "ok", "operational", "degraded", "unhealthy"],
         },
         "nested": {
             "checks": {
@@ -560,11 +568,33 @@ class FeedContractValidator:
         if errors == 0 and items:
             log.info("[CONTRACT-6] Preview item schema: OK (sampled %d items)", min(5, len(items)))
 
+    def _check_live_health_contract(self, endpoint: str, contract: Dict) -> None:
+        """/api/health: Worker liveness + structured contract. A valid SENTINEL
+        503 (stale/unavailable intelligence) is a valid envelope, not drift;
+        generic/HTML/malformed responses, contradictions and exposed
+        secret/config fields are HARD violations."""
+        self._tick()
+        health = _deploy_health.fetch_json(self.base + endpoint, self.timeout)
+        live = _deploy_health.fetch_json(self.base + "/api/health/live", self.timeout)
+        ev = _deploy_health.evaluate_deployment(live, health)
+        if not ev["deployment_operational"]:
+            self._hard(endpoint, "CONTRACT-HEALTH",
+                       "Health contract violated (HTTP %s)" % health[0],
+                       "; ".join(ev["failures"])[:400])
+            return
+        self._pass(endpoint, "CONTRACT-HEALTH",
+                   "HTTP %s valid SENTINEL envelope, intelligence=%s" % (
+                       health[0], ev["customer_intelligence_state"]))
+        self._validate_envelope(endpoint, health[1], contract)
+
     def check_live_endpoints(self) -> None:
         """Run live HTTP contract validation against all registered endpoint contracts."""
         for endpoint, contract in CONTRACTS.items():
             url = self.base + endpoint
             log.info("Checking contract: %s %s", endpoint, contract["description"])
+            if contract.get("health_contract"):
+                self._check_live_health_contract(endpoint, contract)
+                continue
             t0 = time.monotonic()
             status, body, hdrs = _fetch(url, self.timeout)
             latency = int((time.monotonic() - t0) * 1000)
