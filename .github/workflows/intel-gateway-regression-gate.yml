@@ -135,6 +135,11 @@ jobs:
           SUITES=(
             tests/test_exposure_intel_enricher.py
             tests/test_source_fabric_health.py
+            # P0 health/freshness contract (self-contained: no network --
+            # HTTP is stubbed; the Worker cross-checks use `node` when present).
+            tests/test_public_freshness_contract.py
+            tests/test_public_feed_freshness_gate.py
+            tests/test_deployment_health_contract.py
           )
           python3 -m pytest "${SUITES[@]}" -q
           # Refuse to pass having run nothing. pytest.ini forces --verbose, so
@@ -146,6 +151,9 @@ jobs:
               [sys.executable, "-m", "pytest",
                "tests/test_exposure_intel_enricher.py",
                "tests/test_source_fabric_health.py",
+               "tests/test_public_freshness_contract.py",
+               "tests/test_public_feed_freshness_gate.py",
+               "tests/test_deployment_health_contract.py",
                "--collect-only", "-q"],
               capture_output=True, text=True).stdout
           m = re.search(r"(\d+) tests? collected", out)

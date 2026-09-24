@@ -32,7 +32,11 @@ import time
 import urllib.error
 import urllib.request
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Dict, Optional, Tuple
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import deployment_health_contract as _deploy_health  # noqa: E402
 
 logging.basicConfig(
     level=logging.INFO,
@@ -67,7 +71,9 @@ def canary_a_health(base: str, timeout: int) -> Dict:
     """CANARY A: API health endpoint."""
     url = "%s/api/health" % base
     t0 = time.monotonic()
-    status, body = _fetch(url, timeout)
+    # fetch_json keeps the body of a 503 (the shared _fetch() drops it).
+    health = _deploy_health.fetch_json(url, timeout)
+    status = health[0] or 0
     latency_ms = int((time.monotonic() - t0) * 1000)
 
     result = {
@@ -80,19 +86,22 @@ def canary_a_health(base: str, timeout: int) -> Dict:
         "details": "",
     }
 
-    if status != 200:
-        result["details"] = "HTTP %d (expected 200)" % status
-        return result
-
-    try:
-        data = json.loads(body)
-        gw_ok = data.get("status") in ("healthy", "ok", "operational")
-        result["pass"] = gw_ok
-        result["details"] = "status=%s version=%s" % (
-            data.get("status"), data.get("version", "?")
-        )
-    except Exception:
-        result["details"] = "Invalid JSON response"
+    # CANARY A asks "is the gateway operational?" -- its failure emits a
+    # ROLLBACK signal. /api/health answers a structured 503 while customer
+    # intelligence is stale (P0 health freshness contract); rolling back a
+    # healthy Worker cannot fix a stale feed, so a VALID SENTINEL 503 passes
+    # here and the intelligence state is reported. Generic/HTML/malformed
+    # 5xx, contradictions and exposed secrets still fail.
+    health_body = health[1] if isinstance(health[1], dict) else {}
+    live = _deploy_health.fetch_json("%s/api/health/live" % base, timeout)
+    ev = _deploy_health.evaluate_deployment(live, health)
+    result["pass"] = ev["deployment_operational"]
+    result["intelligence_state"] = ev["customer_intelligence_state"]
+    if ev["deployment_operational"]:
+        result["details"] = "HTTP %d status=%s version=%s intelligence=%s" % (
+            status, health_body.get("status"), health_body.get("version", "?"), ev["customer_intelligence_state"])
+    else:
+        result["details"] = "HTTP %d: %s" % (status, "; ".join(ev["failures"])[:300])
 
     return result
 

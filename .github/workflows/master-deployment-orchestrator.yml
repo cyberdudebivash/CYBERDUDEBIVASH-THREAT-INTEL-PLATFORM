@@ -125,14 +125,21 @@ jobs:
         timeout-minutes: 3
         run: |
           echo "[GATE 1] Probing Worker health..."
-          HEALTH=$(curl -sf --max-time 10 "${{ env.WORKER_BASE }}/api/health" || echo '{"status":"error"}')
+          # P0 health contract (2026-09-24): Gate 1 is DEPLOYMENT integrity.
+          # /api/health answers a structured 503 while customer intelligence
+          # is stale -- that is Gate 2's (manifest freshness) and STAGE
+          # 5.9.10's concern, not a broken deployment. Worker liveness +
+          # structured /api/health contract via the shared evaluator; generic
+          # or malformed 503s, contradictions and exposed secrets still FAIL.
+          if ! python3 scripts/deployment_health_contract.py --base-url "${{ env.WORKER_BASE }}"; then
+            echo "[GATE 1] FAIL: Worker not live or /api/health violates its contract"
+            exit 1
+          fi
+          # -s (not -sf): keep the structured 503 body, which still carries advisory_count.
+          HEALTH=$(curl -s --max-time 10 "${{ env.WORKER_BASE }}/api/health" || echo '{"status":"error"}')
           echo "health_response=$HEALTH"
           STATUS=$(echo "$HEALTH" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('status','error'))" 2>/dev/null || echo "error")
           echo "[GATE 1] Health status: $STATUS"
-          if [ "$STATUS" != "ok" ]; then
-            echo "[GATE 1] FAIL: Worker health check failed"
-            exit 1
-          fi
 
           # v184.0 FIX: Extract advisory count from health endpoint's pipeline.advisory_count.
           # DO NOT use /api/v1/intel/latest.json with curl -sf:

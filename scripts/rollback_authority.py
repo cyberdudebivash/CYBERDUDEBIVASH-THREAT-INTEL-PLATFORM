@@ -114,23 +114,29 @@ def get_git_head() -> dict:
 
 
 def probe_worker_version() -> dict:
-    """Probe live Worker for version + health fingerprint."""
-    import urllib.request, urllib.error
-    try:
-        req = urllib.request.Request(
-            f"{WORKER_BASE}/api/health",
-            headers={"User-Agent": "SENTINEL-APEX-ROLLBACK/1.0"},
-        )
-        with urllib.request.urlopen(req, timeout=10) as resp:
-            body = json.loads(resp.read(4096))
-            return {
-                "ok": True,
-                "version": body.get("version", "unknown"),
-                "status": body.get("status", "unknown"),
-                "advisories": body.get("advisory_count", 0),
-            }
-    except Exception as e:
-        return {"ok": False, "version": "unknown", "status": "error", "error": str(e)}
+    """Probe live Worker for version + health fingerprint.
+
+    Version/liveness come from /api/health/live (no data dependency);
+    status/advisories from /api/health, whose structured 503 body (stale or
+    unavailable intelligence) is still a valid fingerprint -- a rollback
+    point must not record the Worker as "unknown" just because the feed is
+    stale."""
+    sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+    import deployment_health_contract as _deploy_health
+    live = _deploy_health.fetch_json(f"{WORKER_BASE}/api/health/live", 10)
+    health = _deploy_health.fetch_json(f"{WORKER_BASE}/api/health", 10)
+    ev = _deploy_health.evaluate_deployment(live, health)
+    if not ev["liveness"]["alive"]:
+        return {"ok": False, "version": "unknown", "status": "error",
+                "error": "; ".join(ev["liveness"]["failures"])}
+    body = health[1] if ev["health"]["valid"] else {}
+    return {
+        "ok": ev["deployment_operational"],
+        "version": ev["liveness"]["version"],
+        "status": body.get("status", "invalid"),
+        "advisories": body.get("advisory_count", 0),
+        "intelligence_state": ev["customer_intelligence_state"],
+    }
 
 
 def snapshot_assets() -> dict:
