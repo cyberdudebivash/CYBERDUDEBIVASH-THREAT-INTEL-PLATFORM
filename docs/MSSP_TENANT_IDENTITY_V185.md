@@ -160,7 +160,8 @@ header, query or session. Nothing else pays for the read.
 - The Watchdog scheduler drops a revoked tenant from the registry on its
   next run.
 - If the store cannot be reached, the scheduler skips the tenant for that
-  run (recorded as a failure) rather than evaluating or deregistering it.
+  run (`unverified`, the same handling #501 gives an unreadable denial
+  marker) rather than evaluating or deregistering it.
 
 **Limit.** There is a technical limit of 100 active tenants per owner,
 matching the Watchdog session-claim cap. **It is not a commercial quota.**

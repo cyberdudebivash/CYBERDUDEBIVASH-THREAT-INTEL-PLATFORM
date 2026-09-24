@@ -233,7 +233,7 @@ test("Watchdog recognizes self-service tenants automatically; revoke ends access
   assert.equal(hx.ledgerState(key).events.length, before, "no evaluation for a revoked tenant");
 });
 
-test("scheduler: an unreachable membership store skips the tenant, never deregisters it", async () => {
+test("scheduler: an unreachable membership store skips the tenant (unverified), never deregisters it", async () => {
   const hx = h();
   const id = await createTenant(hx, V2_A, "Acme");
   await hx.call("POST", "/api/watchdog/watches", { key: V2_A, headers: { "X-CDB-Watchdog-Tenant": id }, body: { name: "Ransomware", keywords: ["ransomware"] } });
@@ -245,7 +245,7 @@ test("scheduler: an unreachable membership store skips the tenant, never deregis
   const key = "cust_v2_a|t:" + id;
   const s = hx.schedulerState().subjects[key];
   assert.ok(s, "still registered");
-  assert.equal(s.failures, 1);
+  assert.equal(s.parked, null, "an outage is not a revocation or a failure streak");
   assert.equal(hx.ledgerState(key).events.length, 0, "not evaluated while membership is unknown");
   await hx.cron();
   assert.ok(hx.ledgerState(key).events.length > 0, "evaluated once membership answers again");

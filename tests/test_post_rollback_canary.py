@@ -21,7 +21,7 @@ sys.path.insert(0, str(REPO / "tests"))
 
 import post_rollback_canary as prc  # noqa: E402
 from test_deployment_health_contract import (  # noqa: E402
-    HEALTH_FRESH, HEALTH_STALE, HEALTH_UNAVAILABLE, LIVE_OK, NOW,
+    HEALTH_FRESH, HEALTH_STALE, HEALTH_UNAVAILABLE, LIVE_OK, NOW, _freeze_freshness_clock,
 )
 
 WF = REPO / ".github" / "workflows" / "enterprise-rollback-governance.yml"
@@ -44,8 +44,9 @@ def test_gateway_does_not_route_bare_api_v1_health():
 
 @pytest.mark.parametrize("health", [HEALTH_FRESH, HEALTH_STALE, HEALTH_UNAVAILABLE],
                          ids=["fresh-200", "stale-503", "unavailable-503"])
-def test_good_rollback_passes_in_every_valid_intelligence_state(health):
+def test_good_rollback_passes_in_every_valid_intelligence_state(health, monkeypatch):
     # A rollback restores Worker code; it cannot make a stale feed fresh.
+    _freeze_freshness_clock(monkeypatch)
     r = prc.evaluate(LIVE_OK, health, 200, 200, now=NOW)
     assert r["passed"] == 4 and r["canary_pass"], r["probes"]
 

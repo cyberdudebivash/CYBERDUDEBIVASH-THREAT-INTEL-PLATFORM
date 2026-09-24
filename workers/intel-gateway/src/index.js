@@ -8394,19 +8394,25 @@ async function runWatchdogSchedule(env) {
       // cancelled/refunded/suspended/revoked keys (same check resolveAuth
       // applies to JWTs).
       checkEntitlement: async (entry) => {
-        let denied = null;
+        // Outbound evaluation only. A missing or unreadable denial marker
+        // is not proof the subscription is still paid, so this cycle does
+        // not create events and does not drop the subject.
+        if (!env.SECURITY_HUB_KV || typeof env.SECURITY_HUB_KV.get !== "function") return { unverified: true };
+        let denied;
         try {
-          denied = env.SECURITY_HUB_KV ? await env.SECURITY_HUB_KV.get(`jwt_deny:${entry.subject}`) : null;
-        } catch (_) { denied = null; }
+          denied = await env.SECURITY_HUB_KV.get(`jwt_deny:${entry.subject}`);
+        } catch (_) { return { unverified: true }; }
         if (denied) return { denied: true };
         // A self-service tenant revoked by its MSSP owner leaves the
-        // registry. If the membership store cannot answer, this throws and
-        // the cycle records a failure for the entry: it is not evaluated,
-        // and not deregistered.
+        // registry. If the membership store cannot answer, the tenant is
+        // skipped this cycle (not evaluated, not deregistered).
         if (entry.tenant && isTenantId(entry.tenant)) {
-          const store = msspMembership(env, entry.subject);
-          const out = store ? await store.mutate({ type: "check", id: entry.tenant }) : null;
-          if (!out || out.error || !out.result) throw new Error("tenant_membership_unavailable");
+          let out = null;
+          try {
+            const store = msspMembership(env, entry.subject);
+            out = store ? await store.mutate({ type: "check", id: entry.tenant }) : null;
+          } catch (_) { out = null; }
+          if (!out || out.error || !out.result) return { unverified: true };
           if (out.result.initialized && !out.result.active) return { denied: true };
         }
         return { denied: false };
