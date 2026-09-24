@@ -232,6 +232,15 @@ v3 persists signed destinations under a separate storage key, `watchdog_v3_signe
 
 Negative controls: `v3_verified_persisted_in_v2_readable_ledger` (put signed rows back into `"ledger"`) and `v3_accepts_unsigned_v2_destination` both turn the suite red.
 
+### Destinations created by the first deployed v3 build
+
+`6977abf` (#496) was merged and deployed before this fix, so its signed destinations sit in `"ledger"` with a secret but no `delivery_protocol`.
+
+* `fromPersisted()` adopts any such row as signed-v3.
+* The next v3 write on that ledger moves the row into the v3-only key. Any mutation, append or delivery run counts as a write.
+* The test `migration: a destination persisted by the first deployed v3 build…` covers this, and the negative control `early_v3_rows_not_migrated` turns it red.
+* **Remaining exposure:** until a ledger's first write under this fix, such a row is still in the v2-readable key. If you need a rollback during that window, turn the kill switch off first. v2 itself has no kill switch, so only a rollback that happens after these rows have moved is fully safe.
+
 ### Kill switch (secondary control)
 
 `WATCHDOG_WEBHOOK_DELIVERY_ENABLED` is fail-closed: only the exact string `"true"` enables outbound webhook deliveries and verification challenges; absent or any other value disables them. It is set explicitly to `"true"` in `[vars]` and `[env.production.vars]`. When it is off, pending deliveries are kept, not attempted, and resume after delivery is re-enabled. It is exposed as `webhook_delivery_enabled` on `/api/watchdog/ops`. To stop all customer webhook traffic without a code rollback, set it to `"false"` and deploy (or change the variable in the Cloudflare dashboard).

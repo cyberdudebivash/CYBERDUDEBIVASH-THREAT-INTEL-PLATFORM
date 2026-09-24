@@ -145,6 +145,13 @@ const CONTROLS = [
     tests: [T("watchdog-rollback-compat.test.js")],
   },
   {
+    id: "early_v3_rows_not_migrated",
+    file: "workers/intel-gateway/src/cyber-watchdog.js",
+    find: "    d && !d.delivery_protocol && typeof d.secret === \"string\" && d.secret.startsWith(\"whsec_\")",
+    replace: "    false",
+    tests: [T("watchdog-rollback-compat.test.js")],
+  },
+  {
     id: "kill_switch_default_open",
     file: "workers/intel-gateway/src/watchdog-policy.js",
     find: "  return !!env && env[WEBHOOK_DELIVERY_FLAG] === \"true\";",

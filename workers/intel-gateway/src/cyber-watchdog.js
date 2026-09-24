@@ -686,13 +686,28 @@ export function toPersisted(state) {
   };
 }
 
-/** Joins the two persisted records back into ledger state. */
+/**
+ * Joins the two persisted records back into ledger state.
+ *
+ * Migration: the first v3 build deployed to production (6977abf, #496) kept
+ * signed destinations inside "ledger" with a whsec_ secret but no
+ * delivery_protocol. Such a row is a v3 destination, not a v2 one: it is
+ * adopted as signed-v3 here, and the next write (toPersisted) moves it out of
+ * "ledger" into the v3-only key. v2 never writes a secret, so a real v2 row
+ * cannot match this rule.
+ */
 export function fromPersisted(ledger, signed) {
   const base = ledger && typeof ledger === "object" ? ledger : emptyLedgerState();
-  const legacy = (Array.isArray(base.destinations) ? base.destinations : []).filter((d) => !isSignedV3(d));
-  const v3 = Array.isArray(signed) ? signed.filter(isSignedV3) : [];
+  const rows = (Array.isArray(base.destinations) ? base.destinations : []).map((d) => (
+    d && !d.delivery_protocol && typeof d.secret === "string" && d.secret.startsWith("whsec_")
+      ? { ...d, delivery_protocol: DELIVERY_PROTOCOL }
+      : d
+  ));
+  const v3 = (Array.isArray(signed) ? signed.filter(isSignedV3) : []);
   const seen = new Set(v3.map((d) => d.id));
-  return { ...base, destinations: legacy.filter((d) => !seen.has(d.id)).concat(v3) };
+  const adopted = rows.filter((d) => isSignedV3(d) && !seen.has(d.id));
+  const legacy = rows.filter((d) => !isSignedV3(d) && !seen.has(d.id));
+  return { ...base, destinations: legacy.concat(v3, adopted) };
 }
 
 // Only a signed-v3 destination can ever deliver. A v2 destination has no

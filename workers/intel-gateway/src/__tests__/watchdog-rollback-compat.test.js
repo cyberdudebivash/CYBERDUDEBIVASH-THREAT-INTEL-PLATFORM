@@ -194,3 +194,35 @@ test("kill switch: flag absent -> no verification challenge, no delivery; re-ena
   await h.env.WATCHDOG_LEDGER.instance("wd:cust_ent_1").obj.alarm();
   assert.equal(received.filter((b) => b.type === "watchdog.match" && b.matched_item_id === "intel--kill-1").length, 1);
 });
+
+test("migration: a destination persisted by the first deployed v3 build (6977abf) is adopted and moved out of the v2-readable key", async () => {
+  // Exact row shape 6977abf's create_destination + verification_result write
+  // into "ledger": whsec_ secret, no delivery_protocol.
+  const storage = new MemStorage();
+  const v2 = new V2Ledger({ storage }, {});
+  const base = { subject: "cust_ent_1", tier: "ENTERPRISE", now: NOW };
+  await call(v2, { ...base, type: "create_watch", id: "w1", watch: { name: "Ransomware", keywords: ["ransomware"] } });
+  await call(v2, { ...base, type: "set_destination", id: "legacy", destination: { url: URLS.legacy } });
+  const ledger = storage.data.get("ledger");
+  ledger.destinations.push({
+    id: "d_early", url: URLS.verified, state: "active", secret: SECRET("e"), created_at: NOW,
+    verified_at: NOW, last_delivery_at: null, failure_count: 0, disabled_reason: null, last_verification_error: null,
+  });
+  storage.data.set("ledger", ledger);
+
+  const v3 = new WatchdogLedger({ storage }, {});
+  const got = await call(v3, { ...base, type: "get" });
+  assert.equal(got.result.destinations.find((d) => d.id === "d_early").state, "active", "still deliverable under v3");
+  assert.equal(got.result.destinations.find((d) => d.id === "d_legacy").state, "disabled");
+
+  // Any v3 write re-persists: the early row leaves "ledger".
+  await call(v3, { ...base, type: "create_watch", id: "w2", watch: { name: "Azure", keywords: ["azure"] } });
+  assert.deepEqual(storage.data.get("ledger").destinations.map((d) => d.id), ["d_legacy"]);
+  const moved = storage.data.get("watchdog_v3_signed_destinations").find((d) => d.id === "d_early");
+  assert.equal(moved.delivery_protocol, "signed-v3");
+  assert.equal(moved.secret, SECRET("e"));
+
+  const urls = await v2Deliveries(storage, [...FEED_ITEMS, { id: "intel--mig-1", title: "Migration ransomware wave", severity: "HIGH" }]);
+  assert.ok(urls.every((u) => u === URLS.legacy), JSON.stringify(urls));
+  assert.equal(urls.includes(URLS.verified), false);
+});
