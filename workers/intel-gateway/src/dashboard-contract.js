@@ -20,7 +20,7 @@
 
 export const DASHBOARD_CONTRACT_VERSION = "dashboard-contract/1.0";
 export const ATTACK_DERIVATION_VERSION = "attack-tactics/1.0";
-export const CAMPAIGN_SEMANTICS_VERSION = "campaign-evidence/1.0";
+export const CAMPAIGN_SEMANTICS_VERSION = "campaign-evidence/1.1";
 export const RANSOMWARE_CLASSIFIER_VERSION = "ransomware-classifier/1.0";
 export const THREAT_LEVEL_FORMULA_VERSION = "threat-level/1.0";
 export const THREAT_LEVEL_FORMULA =
@@ -231,8 +231,11 @@ export function campaignEvidence(item) {
   const title = String(item.title || "");
   if (/\bcampaigns?\b/i.test(title)) ev.push("title:campaign");
   else if (/\b(ransomware|malware|threat actor|apt|espionage|hacking|botnet)\s+operations?\b/i.test(title)) ev.push("title:operation");
+  // A named MITRE group says who, not that an operation exists (the pipeline
+  // attaches heuristic group labels even to policy news). It is recorded as
+  // supporting evidence only alongside a campaign/operation signal.
   const group = _namedGroup(item);
-  if (group) ev.push("mitre_group:" + group);
+  if (group && ev.length) ev.push("mitre_group:" + group);
   return ev;
 }
 
@@ -280,8 +283,8 @@ export function buildCampaignsPayload(items, nowIso) {
     active_campaign_count: campaigns.length,
     campaign_semantics: {
       version: CAMPAIGN_SEMANTICS_VERSION,
-      rule: "campaign id/type/tag, 'campaign' or '<actor> operation' in the title, or a named MITRE group. " +
-        "Severity, risk score and KEV status alone never make a campaign.",
+      rule: "campaign id/type/tag, or 'campaign' / '<actor> operation' in the title. A named MITRE group is " +
+        "supporting evidence only. Severity, risk score, KEV status or an actor label alone never make a campaign.",
     },
     attack_tactics: block,
     generated_at: nowIso,
@@ -314,7 +317,10 @@ export function classifyRansomware(item, groups) {
     ["threat_type", _strings(item.threat_type)],
     ["tags", _strings(item.tags)],
     ["malware", [..._strings(item.malware_family), ..._strings(item.actor_malware), ..._strings(item.malware)]],
-    ["actor", [..._strings(item.actor), ..._strings(item.actor_tag), ..._strings(item.mitre_group_name)]],
+    // Placeholder attributions ("Unattributed Ransomware ...", CDB-UNATTR-*)
+    // are pipeline cluster labels, not evidence: skipped like campaignEvidence().
+    ["actor", [..._strings(item.actor), ..._strings(item.actor_tag), ..._strings(item.mitre_group_name)]
+      .filter((v) => !UNATTRIBUTED_RE.test(v.trim()) && !/unattr/i.test(v))],
   ];
   const scan = (label, values) => {
     for (const raw of values) {
