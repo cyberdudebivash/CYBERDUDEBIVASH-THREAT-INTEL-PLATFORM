@@ -34,7 +34,13 @@ The browser page still keeps a key in `sessionStorage` for this phase. It is not
 
 ## Match events
 
-Stored per customer, capped at 200. Dedupe key is watch id + item id + the item revision token (`processed_at`, else `published`, else title). The same advisory does not create another event until that token changes. Webhook payload contains watch identity, item identity, title, severity, source, match reasons, entitled CVE ids, lenses, feed timestamp, reference, and TLP. It does not invent remediation.
+Stored per customer, capped at 200. Dedupe key is watch id + item id + the item revision token (`processed_at`, else `published`, else title). The same advisory does not create another event until that token changes. Evaluation runs when a paid client calls `GET /api/watchdog/events` or `GET /api/watchdog/matches` (the page, or the poller). There is no background sweep of every customer. Webhook payload contains watch identity, item identity, title, severity, source, match reasons, entitled CVE ids, lenses, feed timestamp, reference, and TLP. It does not invent remediation. There is no Splunk, Sentinel, Elastic, or MISP connector. HTTPS POST is the delivery channel.
+
+Webhook URLs must be `https`, with no userinfo. Loopback, link-local, RFC1918, link-local metadata (`169.254.169.254`), decimal IP forms, and non-global IPv6 (including IPv4-mapped addresses) are rejected. Query strings are not stored.
+
+Error bodies never include the ledger. A request body `customer_id` or `subject` is ignored. Ownership is the authenticated subject.
+
+A `PATCH` may send `{ "enabled": false }` without repeating criteria. Omitted criteria stay as stored.
 
 ## Errors
 

@@ -284,6 +284,9 @@ test("cross-customer ledger isolation", async () => {
   assert.equal(other.body.watches.length, 0);
   const del = await routeWatchdog({ ledger: a, feed, nowMs: NOW_MS, now: NOW, path: "/api/watchdog/watches", method: "DELETE", auth: auth("PRO", "cust-b"), searchParams: new URLSearchParams("id=w_a1") });
   assert.equal(del.status, 403);
+  assert.equal(del.body.error, "tenant_mismatch");
+  assert.equal("state" in del.body, false);
+  assert.doesNotMatch(JSON.stringify(del.body), /ransomware|Owned|"name":"A"/);
 });
 
 test("dashboard binds Total Advisories to total_advisories, not the report catalog", () => {
@@ -305,6 +308,8 @@ test("analytics does not invent history", () => {
   assert.equal(empty.matches_24h, 0);
   assert.equal(empty.history, "no_history_yet");
   assert.equal(empty.delivery_success_rate, null);
+  assert.deepEqual(empty.top_watches, []);
+  assert.deepEqual(empty.top_sources, []);
 });
 
 test("poller refuses to replace a good file with stale, unauthorized, or malformed input", () => {
@@ -316,6 +321,62 @@ test("poller refuses to replace a good file with stale, unauthorized, or malform
   assert.equal(pollDecision(200, "not-json").exitCode, 5);
   assert.equal(pollDecision(429, "{}").action, "retry");
   assert.equal(retryDelayMs(0, "2"), 2000);
+});
+
+test("negative control: private and mapped webhook hosts are rejected, and a body cannot choose the customer", async () => {
+  for (const url of [
+    "https://[::1]/hook",
+    "https://[::ffff:169.254.169.254]/latest",
+    "https://[fd00::1]/hook",
+    "https://[fe80::1]/hook",
+    "https://2130706433/hook",
+    "https://10.1.2.3/hook",
+    "http://hooks.example/hook",
+    "https://user:pass@hooks.example/hook",
+  ]) {
+    assert.equal(normalizeDestination({ url }).error, "invalid_destination", url);
+  }
+  assert.equal(normalizeDestination({ url: "https://hooks.example/watchdog" }).url, "https://hooks.example/watchdog");
+  assert.equal(normalizeDestination({ url: "https://[2001:4860:4860::8888]/dns" }).error, undefined);
+
+  const ledger = new MemoryLedger();
+  const created = await routeWatchdog({
+    ledger, feed: liveFeed(), nowMs: NOW_MS, now: NOW, id: "owner1",
+    path: "/api/watchdog/watches", method: "POST", auth: auth("PRO", "cust-1"),
+    body: { name: "Owned", keywords: ["ransomware"], customer_id: "cust-victim", subject: "cust-victim" },
+  });
+  assert.equal(created.status, 201);
+  const victim = await routeWatchdog({
+    ledger, feed: liveFeed(), nowMs: NOW_MS, now: NOW,
+    path: "/api/watchdog/watches", method: "GET", auth: auth("PRO", "cust-victim"),
+    searchParams: new URLSearchParams(),
+  });
+  assert.equal(victim.status, 403);
+  assert.equal("state" in victim.body, false);
+  assert.doesNotMatch(JSON.stringify(victim.body), /Owned/);
+  const owner = await routeWatchdog({
+    ledger, feed: liveFeed(), nowMs: NOW_MS, now: NOW,
+    path: "/api/watchdog/watches", method: "GET", auth: auth("PRO", "cust-1"),
+    searchParams: new URLSearchParams(),
+  });
+  assert.equal(owner.body.watches.length, 1);
+  const disabled = await routeWatchdog({
+    ledger, feed: liveFeed(), nowMs: NOW_MS, now: NOW,
+    path: "/api/watchdog/watches", method: "PATCH", auth: auth("PRO", "cust-1"),
+    searchParams: new URLSearchParams("id=" + created.body.watch.id),
+    body: { enabled: false },
+  });
+  assert.equal(disabled.status, 200);
+  assert.equal(disabled.body.watch.enabled, false);
+  assert.deepEqual(disabled.body.watch.criteria.keywords, ["ransomware"]);
+  assert.equal(effectiveTier({ tier: "MSSP", subscription_status: "suspended" }), "FREE");
+  assert.equal(effectiveTier({ tier: "ENTERPRISE", error: "subscription_revoked" }), "FREE");
+  const mssp = await routeWatchdog({
+    ledger: new MemoryLedger(), feed: liveFeed(), nowMs: NOW_MS, now: NOW, id: "mssp1",
+    path: "/api/watchdog/destinations", method: "POST", auth: auth("MSSP", "mssp-a"),
+    body: { url: "https://hooks.example/mssp" },
+  });
+  assert.equal(mssp.status, 201);
 });
 
 test("negative control: a 200 without FRESH must not be written", () => {

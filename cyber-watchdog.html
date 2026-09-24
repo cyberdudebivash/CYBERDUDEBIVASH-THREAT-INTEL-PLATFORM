@@ -78,7 +78,12 @@
       <button type="submit">Save watch</button>
     </form>
     <p class="meta" id="watchstatus"></p>
+    <div id="watchlist"></div>
+    <h2>Match inbox</h2>
+    <p class="meta">Counts below come from stored match events for this key. They stay empty until a Pro watch has matched a real feed item. Evaluation runs when this page, or the poller, reads events. There is no separate background sweep.</p>
+    <div class="grid" id="ops"></div>
     <p class="meta" id="inbox"></p>
+    <div id="eventlist"></div>
   </section>
 </main>
 <footer>
@@ -94,6 +99,9 @@ const rows = document.getElementById('rows');
 const status = document.getElementById('status');
 const watchstatus = document.getElementById('watchstatus');
 const inbox = document.getElementById('inbox');
+const watchlist = document.getElementById('watchlist');
+const ops = document.getElementById('ops');
+const eventlist = document.getElementById('eventlist');
 
 function esc(s) {
   return String(s ?? '').replace(/[&<>"']/g, (c) => '&#' + c.charCodeAt(0) + ';');
@@ -144,7 +152,7 @@ async function loadBrief(ev) {
   }
   status.textContent = data.empty
     ? data.empty_reason
-    : `${data.count} shown · ${data.feed_item_count} authoritative advisories · ${data.freshness_status} · ${data.tier}`;
+    : `${data.freshness_status} · age ${data.feed_age_seconds}s · updated ${data.feed_generated_at} · ${data.feed_item_count} advisories · ${data.count} shown · ${data.tier}`;
   const sit = data.situation;
   if (sit) {
     const lens = sit.by_lens || {};
@@ -162,15 +170,90 @@ async function loadBrief(ev) {
   </tr>`).join('');
 }
 
+function metric(label, value, note) {
+  return `<article class="card"><div class="kicker">${esc(label)}</div><div class="price">${esc(value)}</div><p class="meta">${esc(note || '')}</p></article>`;
+}
+
+async function loadWatches() {
+  if (!key() || !watchlist) return;
+  const res = await fetch('/api/watchdog/watches', { headers: headers() });
+  const data = await res.json();
+  if (!res.ok) { watchlist.innerHTML = `<p class="warn">${esc(data.message || 'Watches unavailable.')}</p>`; return; }
+  const rows = data.watches || [];
+  if (!rows.length) { watchlist.innerHTML = '<p class="meta">No watches saved for this key.</p>'; return; }
+  watchlist.innerHTML = `<table><thead><tr><th>Watch</th><th>Logic</th><th></th></tr></thead><tbody>${rows.map((w) => `<tr>
+    <td><strong>${esc(w.name)}</strong><div class="meta">${w.enabled === false ? 'disabled' : 'enabled'}</div></td>
+    <td>${esc(w.logic || 'OR')}</td>
+    <td>
+      <button type="button" data-act="toggle" data-id="${esc(w.id)}" data-enabled="${w.enabled === false ? 'false' : 'true'}">${w.enabled === false ? 'Enable' : 'Disable'}</button>
+      <button type="button" data-act="delete" data-id="${esc(w.id)}">Delete</button>
+    </td>
+  </tr>`).join('')}</tbody></table>`;
+}
+
 async function loadEvents() {
   if (!key() || !inbox) return;
-  const res = await fetch('/api/watchdog/events?limit=5', { headers: headers() });
+  const res = await fetch('/api/watchdog/events?limit=20', { headers: headers() });
   const data = await res.json();
-  if (!res.ok) { inbox.textContent = data.message || 'Match history unavailable.'; return; }
+  if (!res.ok) {
+    inbox.textContent = data.message || 'Match history unavailable.';
+    if (ops) ops.innerHTML = '';
+    if (eventlist) eventlist.innerHTML = '';
+    return;
+  }
   const a = data.analytics || {};
-  inbox.textContent = `${data.total || 0} stored matches · unread ${a.unread ?? 0} · 24h ${a.matches_24h ?? 0} · ${a.history || 'no_history_yet'}`;
+  inbox.textContent = `${data.freshness_status || 'UNKNOWN'} · feed age ${data.feed_age_seconds ?? 'unknown'}s · last update ${data.feed_generated_at || 'unknown'} · ${a.history || 'no_history_yet'}`;
+  if (ops) {
+    const failures = a.delivery_failure_rate == null ? 'none' : String(a.delivery_failures ?? 0);
+    ops.innerHTML = [
+      metric('Watches active', data.watches_active ?? 0, 'Enabled watches on this key'),
+      metric('Stored matches', data.total ?? 0, 'Durable events, cap 200'),
+      metric('Matches 24h', a.matches_24h ?? 0, 'From stored events only'),
+      metric('Critical 24h', a.critical_matches_24h ?? 0, 'Severity on the matched item'),
+      metric('High 24h', a.high_matches_24h ?? 0, 'Severity on the matched item'),
+      metric('Unread', a.unread ?? 0, 'Not yet acknowledged'),
+      metric('Delivery failures', failures, a.delivery_failure_rate == null ? 'No webhook attempt yet' : 'Failed deliveries among attempts'),
+    ].join('');
+  }
+  const tops = (a.top_watches || []).map((w) => `${w.name} (${w.count})`).join(', ') || 'none yet';
+  const sources = (a.top_sources || []).map((s) => `${s.source} (${s.count})`).join(', ') || 'none yet';
+  if (eventlist) {
+    const events = data.events || [];
+    eventlist.innerHTML = `<p class="meta">Top matching watches: ${esc(tops)}. Top sources: ${esc(sources)}.</p>` + (events.length ? `<table><thead><tr><th>Match</th><th>Why</th><th></th></tr></thead><tbody>${events.map((e) => `<tr>
+      <td><strong>${esc(e.title || e.matched_item_id)}</strong><div class="meta">${esc(e.severity || '')} · ${esc(e.source || '')} · ${esc(e.watch_name || '')}</div></td>
+      <td>${esc((e.reason || []).join(', '))}</td>
+      <td>${e.acknowledged ? '<span class="meta">acknowledged</span>' : `<button type="button" data-act="ack" data-id="${esc(e.id)}">Acknowledge</button>`}</td>
+    </tr>`).join('')}</tbody></table>` : '<p class="meta">No stored matches yet.</p>');
+  }
 }
+
 document.getElementById('filters').addEventListener('submit', loadBrief);
+document.body.addEventListener('click', async (ev) => {
+  const btn = ev.target.closest('button[data-act]');
+  if (!btn || !key()) return;
+  const act = btn.getAttribute('data-act');
+  const id = btn.getAttribute('data-id');
+  if (!id) return;
+  if (act === 'ack') {
+    await fetch('/api/watchdog/events/ack', { method: 'POST', headers: { ...headers(), 'Content-Type': 'application/json' }, body: JSON.stringify({ ids: [id] }) });
+    loadEvents();
+    return;
+  }
+  if (act === 'delete') {
+    await fetch('/api/watchdog/watches?id=' + encodeURIComponent(id), { method: 'DELETE', headers: headers() });
+    loadWatches();
+    return;
+  }
+  if (act === 'toggle') {
+    const enabled = btn.getAttribute('data-enabled') === 'false';
+    await fetch('/api/watchdog/watches?id=' + encodeURIComponent(id), {
+      method: 'PATCH',
+      headers: { ...headers(), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ enabled }),
+    });
+    loadWatches();
+  }
+});
 document.getElementById('keyform').addEventListener('submit', (ev) => {
   ev.preventDefault();
   const value = document.getElementById('key').value.trim();
@@ -178,6 +261,7 @@ document.getElementById('keyform').addEventListener('submit', (ev) => {
   else sessionStorage.removeItem('apex_watchdog_key');
   watchstatus.textContent = value ? 'Key stored for this tab only. Not written to localStorage or the URL.' : 'Key cleared.';
   loadBrief();
+  loadWatches();
   loadEvents();
 });
 document.getElementById('watchform').addEventListener('submit', async (ev) => {
@@ -195,7 +279,7 @@ document.getElementById('watchform').addEventListener('submit', async (ev) => {
   });
   const data = await res.json();
   watchstatus.textContent = data.message || (res.ok ? `Saved ${data.watch.name}` : (data.error || 'Could not save'));
-  if (res.ok) loadEvents();
+  if (res.ok) { loadWatches(); loadEvents(); }
 });
 
 loadOffer().catch(() => { plans.innerHTML = '<p class="warn">Offer is not reachable yet. The API ships with the gateway.</p>'; });

@@ -42,6 +42,33 @@ Linux cron, every 15 minutes:
 */15 * * * * SENTINEL_APEX_API_KEY=your-key SENTINEL_APEX_OUT=/var/lib/watchdog/brief.json /usr/bin/node /opt/watchdog/poll.mjs
 ```
 
-systemd is the same command on a 15-minute timer. Windows Task Scheduler can run `node poll.mjs` with `SENTINEL_APEX_API_KEY` set as a task environment variable. Kubernetes is not required.
+systemd timer, same command, no Kubernetes:
+
+```ini
+# /etc/systemd/system/apex-watchdog.service
+[Service]
+Environment=SENTINEL_APEX_API_KEY=your-key
+Environment=SENTINEL_APEX_OUT=/var/lib/watchdog/brief.json
+ExecStart=/usr/bin/node /opt/watchdog/poll.mjs
+```
+
+```ini
+# /etc/systemd/system/apex-watchdog.timer
+[Timer]
+OnUnitActiveSec=15min
+Persistent=true
+```
+
+Docker, local only. This image is not a new hosted product:
+
+```dockerfile
+FROM node:22-alpine
+WORKDIR /opt/watchdog
+COPY poll.mjs poll-lib.mjs ./
+ENV SENTINEL_APEX_OUT=/data/brief.json
+CMD ["node", "poll.mjs"]
+```
+
+Windows Task Scheduler: program `node`, arguments `C:\watchdog\poll.mjs`, and `SENTINEL_APEX_API_KEY` plus `SENTINEL_APEX_OUT` set on the task environment. Do not put the key in the command line.
 
 Set `SENTINEL_APEX_EVENTS=0` to skip the durable match-event call. The default also calls `GET /api/watchdog/events` after a fresh brief so repeated polls do not require the browser.

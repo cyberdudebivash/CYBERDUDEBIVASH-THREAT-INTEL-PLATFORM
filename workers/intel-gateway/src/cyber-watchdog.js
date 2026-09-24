@@ -564,12 +564,21 @@ export function applyLedgerMutation(state, op) {
     const idx = next.watches.findIndex((w) => w.id === id);
     if (idx < 0) return { error: "not_found", status: 404, state: base };
     const prev = next.watches[idx];
-    const norm = normalizeCriteria(op.watch || prev);
+    const patch = op.watch && typeof op.watch === "object" ? op.watch : {};
+    const mergedCriteria = { ...(prev.criteria || {}), ...(patch.criteria && typeof patch.criteria === "object" ? patch.criteria : {}) };
+    for (const key of ["keywords", "cves", "vendors", "products", "actors", "malware_families", "sources", "techniques", "sectors", "countries", "ioc_types", "lenses"]) {
+      if (Array.isArray(patch[key])) mergedCriteria[key] = patch[key];
+    }
+    if (patch.min_severity != null) mergedCriteria.min_severity = patch.min_severity;
+    if (patch.kev != null) mergedCriteria.kev = patch.kev;
+    if (patch.min_epss != null) mergedCriteria.min_epss = patch.min_epss;
+    if (patch.min_cvss != null) mergedCriteria.min_cvss = patch.min_cvss;
+    const norm = normalizeCriteria({ logic: patch.logic || prev.logic, criteria: mergedCriteria });
     if (norm.error) return { ...norm, status: 400, state: base };
-    const name = clean(String(op.watch?.name || prev.name), 80);
+    const name = clean(String(patch.name || prev.name), 80);
     next.watches[idx] = {
       ...prev, name, logic: norm.logic, criteria: norm.criteria,
-      enabled: op.watch?.enabled == null ? prev.enabled !== false : op.watch.enabled === true,
+      enabled: patch.enabled == null ? prev.enabled !== false : patch.enabled === true,
       updated_at: op.now,
     };
     return { state: next, result: { watch: publicWatch(next.watches[idx]) } };
@@ -639,21 +648,35 @@ function viewState(state) {
 
 const BLOCKED_HOSTS = /^(localhost|127\.0\.0\.1|0\.0\.0\.0|::1|metadata\.google\.internal)$/i;
 
+function ipv4Private(parts) {
+  const [a, b] = parts;
+  return a === 10 || a === 127 || a === 0 || a >= 224
+    || (a === 169 && b === 254)
+    || (a === 172 && b >= 16 && b <= 31)
+    || (a === 192 && b === 168);
+}
+
+function blockedHost(hostname) {
+  const host = String(hostname || "").replace(/^\[|\]$/g, "").toLowerCase();
+  if (!host || BLOCKED_HOSTS.test(host) || host.endsWith(".local") || host.endsWith(".internal")) return true;
+  if (/^\d+$/.test(host)) return true;
+  const v4 = host.match(/^(\d+)\.(\d+)\.(\d+)\.(\d+)$/);
+  if (v4) return ipv4Private(v4.slice(1).map(Number));
+  if (!host.includes(":")) return false;
+  if (host === "::" || host === "::1" || host.startsWith("::ffff:")) return true;
+  const first = host.split(":").find(Boolean) || "";
+  if (/^f[cd]/.test(first) || /^fe[89ab]/.test(first) || /^ff/.test(first)) return true;
+  const hextet = Number.parseInt(first, 16);
+  if (!Number.isFinite(hextet)) return true;
+  return hextet < 0x2000 || hextet > 0x3fff;
+}
+
 export function normalizeDestination(input) {
   let url;
   try { url = new URL(String(input?.url || "")); } catch { return { error: "invalid_destination", message: "Webhook URL must be https." }; }
   if (url.protocol !== "https:") return { error: "invalid_destination", message: "Webhook URL must be https." };
   if (url.username || url.password) return { error: "invalid_destination", message: "Webhook URL must not contain credentials." };
-  if (BLOCKED_HOSTS.test(url.hostname) || url.hostname.endsWith(".local") || url.hostname.endsWith(".internal")) {
-    return { error: "invalid_destination", message: "Webhook host is not allowed." };
-  }
-  const ipv4 = url.hostname.match(/^(\d+)\.(\d+)\.(\d+)\.(\d+)$/);
-  if (ipv4) {
-    const a = Number(ipv4[1]); const b = Number(ipv4[2]);
-    if (a === 10 || a === 127 || a === 0 || (a === 169 && b === 254) || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168)) {
-      return { error: "invalid_destination", message: "Webhook host is not allowed." };
-    }
-  }
+  if (blockedHost(url.hostname)) return { error: "invalid_destination", message: "Webhook host is not allowed." };
   return { url: url.origin + url.pathname };
 }
 
@@ -669,6 +692,14 @@ export function analyticsFromEvents(events, nowMs = Date.now()) {
   const deliveries = list.map((e) => e.delivery_status).filter((s) => s && s !== "pending");
   const success = deliveries.filter((s) => s === "delivered").length;
   const failed = deliveries.filter((s) => s === "failed").length;
+  const byWatch = new Map();
+  const bySource = new Map();
+  for (const event of list) {
+    const watch = event.watch_name || event.watch_id;
+    if (watch) byWatch.set(watch, (byWatch.get(watch) || 0) + 1);
+    if (event.source) bySource.set(event.source, (bySource.get(event.source) || 0) + 1);
+  }
+  const ranked = (map) => [...map.entries()].sort((a, b) => b[1] - a[1] || String(a[0]).localeCompare(String(b[0]))).slice(0, 5);
   return {
     matches_24h: dayEvents.length,
     matches_7d: weekEvents.length,
@@ -677,6 +708,9 @@ export function analyticsFromEvents(events, nowMs = Date.now()) {
     unread: list.filter((e) => !e.acknowledged).length,
     delivery_success_rate: deliveries.length ? Number((success / deliveries.length).toFixed(4)) : null,
     delivery_failure_rate: deliveries.length ? Number((failed / deliveries.length).toFixed(4)) : null,
+    delivery_failures: failed,
+    top_watches: ranked(byWatch).map(([name, count]) => ({ name, count })),
+    top_sources: ranked(bySource).map(([source, count]) => ({ source, count })),
     history: list.length ? "stored-match-events" : "no_history_yet",
   };
 }
@@ -711,6 +745,13 @@ async function ledger(req, op) {
     return { error: "watch_store_unavailable", status: 503, message: "Watch store is temporarily unavailable. Nothing was saved." };
   }
   return req.ledger.mutate({ ...op, subject: req.auth.sub, tier: effectiveTier(req.auth), now: req.now });
+}
+
+function publicFailure(out) {
+  const body = { error: out?.error || "watch_store_unavailable" };
+  if (out?.message) body.message = out.message;
+  if (out?.limit != null) body.limit = out.limit;
+  return { status: out?.status || 503, body };
 }
 
 export function buildWebhookPayload(event) {
@@ -861,17 +902,17 @@ export async function routeWatchdog(req) {
     if (!req.auth?.sub) return { status: 403, body: { error: "tier_required" } };
     if (method === "GET" || method === "HEAD") {
       const got = await ledger(req, { type: "get" });
-      if (got.error) return { status: got.status || 503, body: got };
+      if (got.error) return publicFailure(got);
       return { status: 200, body: { destinations: got.result.destinations, limit: quota.webhooks } };
     }
     if (method === "POST") {
       const out = await ledger(req, { type: "set_destination", destination: req.body, id: req.id });
-      if (out.error) return { status: out.status || 400, body: out };
+      if (out.error) return publicFailure(out);
       return { status: 201, body: out.result };
     }
     if (method === "DELETE") {
       const out = await ledger(req, { type: "delete_destination", id: req.searchParams?.get?.("id") || req.body?.id });
-      if (out.error) return { status: out.status || 400, body: out };
+      if (out.error) return publicFailure(out);
       return { status: 200, body: out.result };
     }
     return { status: 405, body: { error: "method_not_allowed" } };
@@ -882,33 +923,33 @@ export async function routeWatchdog(req) {
     if (guard.error) return guard.error;
     if (path === "/api/watchdog/watches" && (method === "GET" || method === "HEAD")) {
       const got = await ledger(req, { type: "get" });
-      if (got.error) return { status: got.status || 503, body: got };
+      if (got.error) return publicFailure(got);
       return { status: 200, body: { watches: got.result.watches, limit: guard.quota.watches, tier } };
     }
     if (path === "/api/watchdog/watches" && method === "POST") {
       const out = await ledger(req, { type: "create_watch", watch: req.body, id: req.id });
-      if (out.error) return { status: out.status || 400, body: out };
+      if (out.error) return publicFailure(out);
       return { status: 201, body: out.result };
     }
     if (path === "/api/watchdog/watches" && method === "PATCH") {
       const out = await ledger(req, { type: "update_watch", id: req.searchParams?.get?.("id") || req.body?.id, watch: req.body });
-      if (out.error) return { status: out.status || 400, body: out };
+      if (out.error) return publicFailure(out);
       return { status: 200, body: out.result };
     }
     if (path === "/api/watchdog/watches" && method === "DELETE") {
       const out = await ledger(req, { type: "delete_watch", id: req.searchParams?.get?.("id") || req.body?.id });
-      if (out.error) return { status: out.status || 400, body: out };
+      if (out.error) return publicFailure(out);
       return { status: 200, body: out.result };
     }
     if (path === "/api/watchdog/events/ack" && method === "POST") {
       const out = await ledger(req, { type: "ack", ids: req.body?.ids || [] });
-      if (out.error) return { status: out.status || 400, body: out };
+      if (out.error) return publicFailure(out);
       return { status: 200, body: out.result };
     }
     if (path === "/api/watchdog/matches" || path === "/api/watchdog/events") {
       if (method !== "GET" && method !== "HEAD") return { status: 405, body: { error: "method_not_allowed" } };
       const got = await ledger(req, { type: "get" });
-      if (got.error) return { status: got.status || 503, body: got };
+      if (got.error) return publicFailure(got);
       const evaluated = await evaluateMatches(req, got.result);
       if (evaluated.degraded) return { status: 503, body: evaluated.degraded };
       const again = evaluated.inserted.length ? await ledger(req, { type: "get" }) : got;
