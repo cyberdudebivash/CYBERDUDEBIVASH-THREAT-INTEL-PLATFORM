@@ -166,7 +166,7 @@ async function main() {
       // still fails this test exactly as before.
       const termState = await page.evaluate(() => window.__FEED_TERMINAL_STATE__ || null).catch(() => null);
       if (termState && termState.isTerminalFailure === false) {
-        const goc = 'console.error: [GOC v200.0] Primary feed terminal state:';
+        const goc = 'console.error: [GOC v201.0] Primary feed terminal state:';
         for (let i = failures.length - 1; i >= 0; i--) {
           if (failures[i].startsWith(goc)) failures.splice(i, 1);
         }
