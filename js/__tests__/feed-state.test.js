@@ -229,11 +229,17 @@ test('a fallback within the usable-age threshold still resolves to STALE (unaffe
 });
 
 test('a fallback right at the usable-age boundary is accepted; just past it is rejected', () => {
-  const boundaryHours = MAX_USABLE_FALLBACK_AGE_MS / 3600000;
-  const atBoundary  = resolveFeedTerminalState({ attempts: [...ALL_QUOTA_DENIED, MIRROR_AGED(boundaryHours)] });
-  const pastBoundary = resolveFeedTerminalState({ attempts: [...ALL_QUOTA_DENIED, MIRROR_AGED(boundaryHours + 1)] });
-  assert.equal(atBoundary.state, STATES.STALE);
-  assert.equal(pastBoundary.state, STATES.RATE_LIMITED);
+  const now = Date.parse('2026-09-24T12:00:00.000Z');
+  const atBoundary = {
+    ...MIRROR_AGED(0),
+    contentGeneratedAt: new Date(now - MAX_USABLE_FALLBACK_AGE_MS).toISOString(),
+  };
+  const pastBoundary = {
+    ...MIRROR_AGED(0),
+    contentGeneratedAt: new Date(now - MAX_USABLE_FALLBACK_AGE_MS - 1).toISOString(),
+  };
+  assert.equal(resolveFeedTerminalState({ attempts: [...ALL_QUOTA_DENIED, atBoundary], nowMs: now }).state, STATES.STALE);
+  assert.equal(resolveFeedTerminalState({ attempts: [...ALL_QUOTA_DENIED, pastBoundary], nowMs: now }).state, STATES.RATE_LIMITED);
 });
 
 test('backward compatible: a fallback hit with no contentGeneratedAt (legacy callers) behaves exactly as before this fix', () => {
