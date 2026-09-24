@@ -252,8 +252,10 @@ async function main() {
       record('Total feed failure: heatmap reaches an explicit unavailable state, not stuck on "Loading region data..."',
         !!s.heatmapHtml && !/loading region data/i.test(s.heatmapHtml),
         JSON.stringify(s.heatmapHtml));
-      record('Total feed failure: metrics stay at the honest "—" placeholder, never a fabricated/zeroed value',
-        s.metricsTotal === '—' && s.metricsFeeds === '—' && s.metricsSync === '—',
+      // 2026-09-24 (P0 dashboard data contract): unknown is now the explicit
+      // "N/A" (a permanent "—" read as still loading), still never a zero.
+      record('Total feed failure: metrics show explicit N/A, never a fabricated/zeroed value',
+        s.metricsTotal === 'N/A' && s.metricsFeeds === 'N/A' && s.metricsSync === 'N/A',
         JSON.stringify({ total: s.metricsTotal, feeds: s.metricsFeeds, sync: s.metricsSync }));
       record('Total AI failure: status shows UNAVAILABLE, never a false ONLINE claim',
         !!s.aiStatusHtml && /unavailable/i.test(s.aiStatusHtml) && !/online/i.test(s.aiStatusHtml),
@@ -276,11 +278,11 @@ async function main() {
       await page.waitForTimeout(2500);
       const s = await eiccState(page);
 
-      record('Incomplete-but-valid feed response: Active Feeds shows "—", never the old hardcoded "74"',
-        s.metricsFeeds === '—',
+      record('Incomplete-but-valid feed response: source count is N/A (unmeasured), never the old hardcoded "74" or a false 0',
+        s.metricsFeeds === 'N/A',
         JSON.stringify(s.metricsFeeds));
-      record('Incomplete-but-valid feed response: Last Sync shows "—", never falsely claims "LIVE" with no timestamp',
-        s.metricsSync === '—',
+      record('Incomplete-but-valid feed response: Last Sync shows N/A, never falsely claims "LIVE" with no timestamp',
+        s.metricsSync === 'N/A',
         JSON.stringify(s.metricsSync));
       record('Incomplete-but-valid feed response: ticker still renders the real item (proves this is not a blanket failure state)',
         !!s.tickerText && /REGRESSION-TEST-CANARY-ITEM/.test(s.tickerText),
@@ -402,11 +404,13 @@ async function main() {
       record('Real escalation_tracker prediction title renders in the AI predictions panel',
         !!s.aiPredictionsHtml && s.aiPredictionsHtml.includes('REGRESSION-TEST-ESCALATION-PREDICTION'),
         JSON.stringify(s.aiPredictionsHtml));
-      record('escalation_tracker risk_score 9.4/10 maps to the expected 94% probability',
-        !!s.aiPredictionsHtml && s.aiPredictionsHtml.includes('94%'),
+      // A 0-10 risk score is not a probability: shown as "RISK 9.4/10",
+      // never as a "94%" label.
+      record('escalation_tracker risk_score 9.4/10 is shown as a risk score, never as a 94% probability',
+        !!s.aiPredictionsHtml && s.aiPredictionsHtml.includes('RISK 9.4/10') && !/>[^<]*94%[^<]*</.test(s.aiPredictionsHtml),
         JSON.stringify(s.aiPredictionsHtml));
       record('escalation_tracker priority P1 maps to CRITICAL severity color',
-        !!s.aiPredictionsHtml && s.aiPredictionsHtml.includes('#ef4444'),
+        !!s.aiPredictionsHtml && (s.aiPredictionsHtml.includes('#ef4444') || s.aiPredictionsHtml.includes('rgb(239, 68, 68)')),
         JSON.stringify(s.aiPredictionsHtml));
       record('Zero uncaught JS errors on the real-schema AI response',
         pageErrors.length === 0, pageErrors.join(' | '));

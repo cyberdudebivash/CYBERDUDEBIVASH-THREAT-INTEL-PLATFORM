@@ -72,6 +72,12 @@
     return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#x27;");
   }
 
+  // Only http(s) or same-origin paths may become an href/window.open target.
+  function safeUrl(u) {
+    const s = String(u || "");
+    return /^(https?:\/\/|\/(?!\/))/i.test(s) ? s : "";
+  }
+
   function setText(selector, text, isId = false) {
     const node = isId ? el(selector) : qs(selector);
     if (node) node.textContent = text;
@@ -137,29 +143,15 @@
 
   // ── 1. Stats Bar ─────────────────────────────────────────────────────────────
   async function loadStats() {
-    // Try dedicated stats endpoint first; fall back to latest.json
-    let stats = await apiFetch("/api/v1/intel/stats");
-    if (!stats) {
-      const feed = await apiFetch("/api/v1/intel/latest.json");
-      if (!feed) return;
-      const items = feed.items || [];
-      const sev = { CRITICAL: 0, HIGH: 0, MEDIUM: 0, LOW: 0 };
-      let risk = 0, iocs = 0, last = "";
-      items.forEach(i => {
-        sev[(i.severity || "INFO").toUpperCase()] = (sev[(i.severity || "INFO").toUpperCase()] || 0) + 1;
-        risk += parseFloat(i.risk_score || 0);
-        iocs += parseInt(i.ioc_count || 0, 10);
-        const pub = i.published || i.published_at || "";
-        if (pub > last) last = pub;
-      });
-      stats = {
-        total: items.length, critical: sev.CRITICAL, high: sev.HIGH,
-        avg_risk_score: items.length ? (risk / items.length).toFixed(2) : 0,
-        total_iocs: iocs, last_sync: last,
-        global_threat_label: "COMPUTING",
-        defcon_label: "DEFCON ?", defcon_status: "ASSESSING",
-      };
-    }
+    // P0 dashboard data contract: no second ~0.9 MB latest.json download as a
+    // fallback. If the stats route fails the tiles keep their placeholders.
+    const stats = await apiFetch("/api/v1/intel/stats");
+    if (!stats) return;
+    // Last Sync is the feed generation time (last_feed_sync_utc), not the
+    // newest item's publish date (last_sync).
+    const syncIso = stats.last_feed_sync_utc || null;
+    const pub = stats.publication || null;
+    const intelFresh = !!(pub && pub.fresh);
 
     // Populate all stat tiles — try multiple selectors for compatibility
     const setStatEl = (selectors, value) => {
@@ -191,11 +183,11 @@
     );
     setStatEl(
       ["#stat-sync", ".stat-sync", "[data-stat='sync']", ".last-sync"],
-      fmtRelTime(stats.last_sync) || fmtDate(stats.last_sync)
+      syncIso ? fmtRelTime(syncIso) : "N/A"
     );
     setStatEl(
       ["#stat-feeds", ".stat-feeds", "[data-stat='feeds']", ".active-feeds"],
-      stats.feeds_active || 74
+      stats.feeds_active != null ? stats.feeds_active : "N/A"
     );
 
     // Update page header counts
@@ -209,7 +201,7 @@
     // Update sync status bar
     const syncBar = qs(".sync-status, .feed-status, #sync-status");
     if (syncBar) {
-      syncBar.textContent = `SYNCED: ${fmtDate(stats.last_sync)} · ${stats.total} advisories · API LIVE`;
+      syncBar.textContent = `FEED GENERATED: ${syncIso ? fmtDate(syncIso) : "N/A"} · ${stats.total} advisories · API LIVE · INTEL ${intelFresh ? "FRESH" : "DEGRADED"}`;
     }
 
     // Store globally for other components
@@ -218,36 +210,65 @@
   }
 
   // ── 2. Global Threat Level ────────────────────────────────────────────────────
+  // Owns cdb-gauge-*, cdb-defcon-*, cdb-dc1..5. The score is shown as LIVE only
+  // when the feed it was computed from is fresh under the /api/health contract
+  // (data.publication); otherwise the gauge says STALE and shows no score.
   async function loadThreatLevel() {
     const data = await apiFetch("/api/v1/intel/defcon");
+    const statusEl = el("cdb-gauge-status");
+    const setStatus = (label, color) => { if (statusEl) { statusEl.textContent = label; statusEl.style.color = color; } };
+    const resetArc = () => { const a = el("cdb-gauge-arc"); if (a) a.setAttribute("stroke-dashoffset", "157"); };
     if (!data) {
+      setText("cdb-gauge-val", "—", true);
+      resetArc();
       setUnavailable("cdb-gauge-label", "THREAT LEVEL UNAVAILABLE");
       setUnavailable("cdb-defcon-status", "DEFCON UNAVAILABLE");
+      ["cdb-gauge-crit", "cdb-gauge-kev", "cdb-gauge-age"].forEach(id => setUnavailable(id, "N/A"));
+      setStatus("● UNAVAILABLE", "#5a6578");
       return;
     }
 
+    // Freshness authority: the route's own publication block, else the same
+    // /api/health contract via the shared dashboard snapshot (a Worker that
+    // predates the publication field must not blank a valid score).
+    let pub = data.publication || null;
+    if (!pub && window.ApexDashboardSnapshot) {
+      const snap = await window.ApexDashboardSnapshot.load();
+      pub = snap && snap.publication && snap.publication.status !== "unknown" ? snap.publication : null;
+    }
+    const ev = data.evidence || data.stats || {};
+    setText("cdb-gauge-crit", ev.critical != null ? ev.critical : "N/A", true);
+    setText("cdb-gauge-kev", ev.kev_confirmed != null ? ev.kev_confirmed : "N/A", true);
+    setText("cdb-gauge-age", pub && pub.generated_at ? (fmtRelTime(pub.generated_at) || "N/A") : "N/A", true);
+
     const level = data.global_threat_level || {};
     const rawScore = Number(level.level);
-    const score = Number.isFinite(rawScore) ? Math.max(0, Math.min(rawScore, 10)) : 0;
-    const label = level.label || data.label || "ASSESSING";
-
-    // Threat level gauge -- real DOM ids (see GADGET 1, index.html)
-    setText("cdb-gauge-val", score.toFixed(1), true);
-    setText("cdb-gauge-label", label, true);
-    const arcEl = el("cdb-gauge-arc");
-    if (arcEl) {
-      // dasharray=157 spans the full 0-10 gauge sweep
-      arcEl.setAttribute("stroke-dashoffset", String(157 - Math.min(score, 10) / 10 * 157));
-      arcEl.setAttribute("stroke", score >= 8 ? "#ff4444" : score >= 6 ? "#ff8800" : score >= 4 ? "#ffcc00" : "#00d4aa");
+    if (!pub || !pub.fresh || !Number.isFinite(rawScore)) {
+      setText("cdb-gauge-val", "—", true);
+      resetArc();
+      setText("cdb-gauge-label", pub && pub.status === "stale" ? "THREAT LEVEL STALE" : "THREAT LEVEL UNAVAILABLE", true);
+      setStatus(pub && pub.status === "stale" ? "● STALE" : "● UNVERIFIED", "#f59e0b");
+    } else {
+      const score = Math.max(0, Math.min(rawScore, 10));
+      setText("cdb-gauge-val", score.toFixed(1), true);
+      setText("cdb-gauge-label", level.label || "N/A", true);
+      const arcEl = el("cdb-gauge-arc");
+      if (arcEl) {
+        // dasharray=157 spans the full 0-10 gauge sweep
+        arcEl.setAttribute("stroke-dashoffset", String(157 - score / 10 * 157));
+        arcEl.setAttribute("stroke", score >= 8 ? "#ff4444" : score >= 6 ? "#ff8800" : score >= 4 ? "#ffcc00" : "#00d4aa");
+      }
+      setStatus("● LIVE", "#dc2626");
     }
+    const gauge = el("cdb-g-threat-gauge");
+    if (gauge && data.formula) gauge.title = `Formula ${data.formula.version}: ${data.formula.expression}`;
 
     // DEFCON -- real DOM ids (see GADGET 2, index.html)
-    const defconLvl = data.level || 5;
-    const defconStatus = data.status || "UNKNOWN";
+    const defconLvl = data.level;
     const stats = data.stats || {};
-    setText("cdb-defcon-status", defconStatus, true);
+    setText("cdb-defcon-status", data.status || "N/A", true);
     setText("cdb-defcon-detail",
-      `${label} · ${stats.critical || 0} critical, ${stats.kev_confirmed || 0} KEV confirmed`, true);
+      `${level.label || "N/A"} · ${stats.critical != null ? stats.critical : "N/A"} critical, ${stats.kev_confirmed != null ? stats.kev_confirmed : "N/A"} KEV confirmed`, true);
 
     // Light up the DEFCON indicators (cdb-dc1..cdb-dc5)
     for (let i = 1; i <= 5; i++) {
@@ -267,47 +288,62 @@
   }
 
   // ── 3. Live Threat Feed Preview ───────────────────────────────────────────────
+  // Renders only into pages that have one of these containers (index.html
+  // has none -- its preview is #eicc-feed-preview). Uses the shared dashboard
+  // snapshot instead of downloading latest.json (~0.9 MB) a second time.
   async function loadThreatFeedPreview() {
-    const feed = await apiFetch("/api/v1/intel/latest.json");
-    if (!feed) return;
-
-    const items = (feed.items || []).slice(0, 8);
     const containers = [
       qs(".live-feed-preview, #live-feed-preview, .threat-feed-preview"),
       qs("[data-section='live-feed']"),
     ].filter(Boolean);
-
     if (!containers.length) return;
 
+    const snap = window.ApexDashboardSnapshot;
+    let items = null;
+    if (snap) {
+      const state = await snap.load();
+      items = state && state.feed.state !== "error" ? snap.previewItems(state, 8) : null;
+    } else {
+      const feed = await apiFetch("/api/feed.json");
+      items = feed && Array.isArray(feed.items) ? feed.items.slice(0, 8) : null;
+    }
+    if (!items) {
+      containers.forEach(c => { c.innerHTML = `<div style="color:#888;font-size:12px;padding:8px 0;">INTELLIGENCE TEMPORARILY UNAVAILABLE</div>`; });
+      return;
+    }
+    if (!items.length) {
+      containers.forEach(c => { c.innerHTML = `<div style="color:#888;font-size:12px;padding:8px 0;">NO CURRENT ADVISORIES IN THE AUTHORITATIVE FEED</div>`; });
+      return;
+    }
+
     const html = items.map(item => `
-      <div class="feed-item feed-${(item.severity || "info").toLowerCase()}" style="
+      <div class="feed-item feed-${esc((item.severity || "info").toLowerCase())}" style="
         border-left: 3px solid ${severityColor(item.severity)};
         padding: 8px 12px; margin-bottom: 8px; background: rgba(0,0,0,0.3);
-        border-radius: 4px; cursor: pointer;
+        border-radius: 4px;
       ">
         <div style="display:flex; justify-content:space-between; align-items:center;">
           <span class="sev-badge" style="
             background: ${severityColor(item.severity)}22;
             color: ${severityColor(item.severity)};
             padding: 2px 6px; border-radius: 3px; font-size: 11px; font-weight: bold;
-          ">${item.severity || "INFO"}</span>
-          <span style="color:#888; font-size:11px;">${fmtRelTime(item.published || item.published_at)}</span>
+          ">${esc(item.severity || "INFO")}</span>
+          <span style="color:#888; font-size:11px;">${esc(fmtRelTime(item.published || item.published_at))}</span>
         </div>
         <div style="font-size:13px; font-weight:500; margin-top:4px; color:#e0e0e0; line-height:1.4;">
-          ${item.title || "Untitled Advisory"}
+          ${esc(item.title || "Untitled Advisory")}
         </div>
         <div style="display:flex; gap:12px; margin-top:4px; font-size:11px; color:#888;">
-          <span>RISK: <strong style="color:${severityColor(item.severity)}">${fmtRisk(item.risk_score)}</strong></span>
-          <span>IOCs: ${item.ioc_count || 0}</span>
-          <span>SRC: ${item.source || "APEX"}</span>
-          ${(item.cve_ids || []).length ? `<span style="color:#ff8800">${item.cve_ids[0]}</span>` : ""}
+          <span>RISK: <strong style="color:${severityColor(item.severity)}">${esc(fmtRisk(item.risk_score))}</strong></span>
+          <span>IOCs: ${esc(Number(item.ioc_count) || 0)}</span>
+          <span>SRC: ${esc(item.source || "APEX")}</span>
+          ${(item.cve_ids || []).length ? `<span style="color:#ff8800">${esc(item.cve_ids[0])}</span>` : ""}
         </div>
       </div>
     `).join("");
 
     containers.forEach(c => { c.innerHTML = html; });
 
-    // Also clear "loading" spinners in the feed area
     qsAll(".feed-loading, [data-loading='feed']").forEach(n => {
       n.style.display = "none";
     });
@@ -329,19 +365,19 @@
 
     const html = `
       <div style="font-size:11px; color:#888; margin-bottom:8px;">
-        SOURCE: COUNTRY TAGS | TAGGED TODAY: <strong style="color:#ff4444">${data.total_attacks_today || 0}</strong>
+        SOURCE: COUNTRY TAGS | TAGGED TODAY: <strong style="color:#ff4444">${esc(Number(data.total_attacks_today) || 0)}</strong>
       </div>
       ${regions.slice(0, 8).map((r, i) => `
         <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px; font-size:12px;">
           <span style="width:24px; text-align:center; font-size:14px;">${getFlagEmoji(r.code)}</span>
-          <span style="flex:1; color:#ccc;">${r.country}</span>
+          <span style="flex:1; color:#ccc;">${esc(r.country)}</span>
           <div style="flex:2; background:#1a1a2e; border-radius:3px; height:8px; overflow:hidden;">
-            <div style="width:${r.pct || 0}%; height:100%; background:${r.risk === 'CRITICAL' ? '#ff4444' : r.risk === 'HIGH' ? '#ff8800' : '#ffcc00'}; border-radius:3px;"></div>
+            <div style="width:${Number(r.pct) || 0}%; height:100%; background:${r.risk === 'CRITICAL' ? '#ff4444' : r.risk === 'HIGH' ? '#ff8800' : '#ffcc00'}; border-radius:3px;"></div>
           </div>
-          <span style="width:60px; text-align:right; color:${r.risk === 'CRITICAL' ? '#ff4444' : r.risk === 'HIGH' ? '#ff8800' : '#888'};">${(r.attacks || 0).toLocaleString()}</span>
+          <span style="width:60px; text-align:right; color:${r.risk === 'CRITICAL' ? '#ff4444' : r.risk === 'HIGH' ? '#ff8800' : '#888'};">${esc((Number(r.attacks) || 0).toLocaleString())}</span>
           <span style="width:50px; font-size:10px; padding:2px 4px; border-radius:2px;
             background:${r.risk === 'CRITICAL' ? '#ff444422' : r.risk === 'HIGH' ? '#ff880022' : '#88888822'};
-            color:${r.risk === 'CRITICAL' ? '#ff4444' : r.risk === 'HIGH' ? '#ff8800' : '#888'};">${r.risk}</span>
+            color:${r.risk === 'CRITICAL' ? '#ff4444' : r.risk === 'HIGH' ? '#ff8800' : '#888'};">${esc(r.risk)}</span>
         </div>
       `).join("")}
     `;
@@ -354,7 +390,7 @@
   }
 
   function getFlagEmoji(code) {
-    if (!code || code.length !== 2) return "🌐";
+    if (!code || !/^[A-Za-z]{2}$/.test(code)) return "🌐";
     const offset = 127397;
     return Array.from(code.toUpperCase()).map(c => String.fromCodePoint(c.charCodeAt(0) + offset)).join("");
   }
@@ -376,33 +412,46 @@
   }
 
   // ── 6. Ransomware Tracker ─────────────────────────────────────────────────────
+  // Monitor status and current activity are separate facts: the monitor can be
+  // OPERATIONAL while the current feed holds no ransomware intelligence.
   async function loadRansomware() {
     const data = await apiFetch("/api/v1/intel/ransomware");
+    const statusEl = el("cdb-rw-status");
     if (!data) {
       setUnavailable("cdb-rw-groups", "N/A");
       setUnavailable("cdb-rw-victims", "N/A");
       setUnavailable("cdb-rw-list", "RANSOMWARE DATA UNAVAILABLE");
+      if (statusEl) { statusEl.textContent = "MONITOR ● UNAVAILABLE"; statusEl.style.color = "#5a6578"; }
       return;
     }
+    if (statusEl) {
+      const operational = (data.monitor_status || "OPERATIONAL") === "OPERATIONAL";
+      statusEl.textContent = operational ? "MONITOR ● OPERATIONAL" : "MONITOR ● " + String(data.monitor_status);
+      statusEl.style.color = operational ? "#10b981" : "#f59e0b";
+    }
 
-    // Real DOM ids (see GADGET 7, index.html)
-    setText("cdb-rw-groups", data.active_groups || 0, true);
-    setText("cdb-rw-victims", (data.recent_advisories || []).length, true);
+    const advisories = (data.recent_advisories || []).slice(0, 5);
+    const advisoryCount = typeof data.ransomware_advisories === "number" ? data.ransomware_advisories : advisories.length;
+    // Real DOM ids (see GADGET 7, index.html). cdb-rw-victims shows the
+    // ransomware ADVISORY count; victim counts are not measured.
+    setText("cdb-rw-groups", Number(data.active_groups) || 0, true);
+    setText("cdb-rw-victims", advisoryCount, true);
 
     const container = el("cdb-rw-list");
     if (container) {
       const groups = (data.top_groups || []).slice(0, 5);
-      const advisories = (data.recent_advisories || []).slice(0, 5);
-      const rows = groups.length ? groups : advisories.map(a => ({ name: a.title, sector: a.source || "", status: a.severity || "" }));
+      const rows = groups.length
+        ? groups.map(g => ({ name: g.name, sector: g.sector || "", status: "IN FEED" }))
+        : advisories.map(a => ({ name: a.title, sector: a.source || "", status: a.severity || "" }));
       container.innerHTML = rows.length ? rows.map(g => `
-        <div style="display:flex; justify-content:space-between; align-items:center;
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:6px;
           padding:6px 8px; margin-bottom:4px; background:rgba(255,68,68,0.05);
           border-left:2px solid #ff4444; border-radius:3px; font-size:12px;">
-          <span style="font-weight:bold; color:#ff4444;">${esc(g.name)}</span>
-          <span style="color:#888; font-size:11px;">${esc((g.sector || "").split(",")[0])}</span>
+          <span style="font-weight:bold; color:#ff4444; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${esc(g.name)}</span>
+          <span style="color:#888; font-size:11px; white-space:nowrap;">${esc((g.sector || "").split(",")[0])}</span>
           <span style="color:#ff4444; font-size:10px; padding:1px 5px; border:1px solid #ff444444; border-radius:2px;">${esc(g.status || "")}</span>
         </div>
-      `).join("") : `<div style="color:#888; font-size:11px; padding:8px 0;">No ransomware titles in the current feed</div>`;
+      `).join("") : `<div style="color:#888; font-size:11px; padding:8px 0;">NO RANSOMWARE-TAGGED INTELLIGENCE IN CURRENT FEED</div>`;
     }
   }
 
@@ -482,44 +531,78 @@
     }).join("");
   }
 
-  // ── 9. Kill Chain Activity ─────────────────────────────────────────────────────
+  // ── 9. ATT&CK tactic coverage + derived kill chain ────────────────────────────
+  // Owns #nexus-killchain, #nexus-killchain-meta and cdb-kc-*. Everything comes
+  // from /api/v1/intel/campaigns: attack_tactics (per-item ATT&CK evidence)
+  // and active_campaigns (advisories with campaign evidence only).
+  const KC_PHASE_KEY = { recon: "recon", weapon: "weaponize", deliver: "deliver", exploit: "exploit", install: "install", c2: "c2", action: "action" };
+
+  function renderAttackCoverage(at) {
+    const box = el("nexus-killchain");
+    const meta = el("nexus-killchain-meta");
+    if (!box) return;
+    if (!at || !Array.isArray(at.tactics)) {
+      box.textContent = "ATT&CK COVERAGE UNAVAILABLE";
+      if (meta) meta.textContent = "The campaigns endpoint did not return ATT&CK evidence.";
+      return;
+    }
+    if (meta) {
+      meta.textContent = `${at.tactics_observed} of ${at.tactics_total} tactics observed · ` +
+        `${at.items_with_attack_evidence} of ${at.items_evaluated} advisories carry ATT&CK evidence`;
+      meta.title = at.derivation_method || "";
+    }
+    const max = Math.max(1, ...at.tactics.map(t => Number(t.count) || 0));
+    box.innerHTML = at.tactics.map(t => {
+      const count = Number(t.count) || 0;
+      const a = count ? Math.round(10 + (count / max) * 30) : 4;
+      return `<div data-tactic="${esc(t.id)}" title="${esc(t.name)} (${esc(t.id)}): ${count} advisories" style="flex:1;min-width:88px;text-align:center;padding:8px 4px;background:rgba(139,92,246,0.${String(a).padStart(2, "0")});border:1px solid rgba(139,92,246,${count ? 0.45 : 0.15});border-radius:2px;">
+        <div style="font-family:var(--font-mono);font-size:7px;letter-spacing:1px;color:var(--text-muted);">${esc(t.name.toUpperCase())}</div>
+        <div style="font-family:var(--font-mono);font-size:${count ? 18 : 14}px;font-weight:900;color:${count ? "#a78bfa" : "var(--text-muted)"};">${count}</div>
+      </div>`;
+    }).join("");
+  }
+
   async function loadKillChain() {
     const data = await apiFetch("/api/v1/intel/campaigns");
     if (!data) {
-      // The static markup marks RECON active by default -- clear it so a
-      // failed fetch never shows "CAMPAIGN DATA UNAVAILABLE" alongside a
-      // phase that looks live.
       qsAll(".cdb-kc-step").forEach(stepEl => stepEl.classList.remove("active"));
       setUnavailable("cdb-kc-active-label", "CAMPAIGN DATA UNAVAILABLE");
       setUnavailable("cdb-kc-campaigns", "N/A");
       setUnavailable("cdb-kc-tactics", "N/A");
+      renderAttackCoverage(null);
       return;
     }
 
-    // Real DOM ids (see GADGET 5, index.html). cdb-kc-campaigns/cdb-kc-tactics
-    // are this loader's sole owner -- do not also set them elsewhere.
-    const campaigns = data.active_campaigns || [];
-    setText("cdb-kc-campaigns", campaigns.length, true);
-    setText("cdb-kc-tactics", data.total_tactics || 0, true);
+    const at = data.attack_tactics || null;
+    renderAttackCoverage(at);
+
+    // A Worker without campaign_semantics still lists every CRITICAL advisory
+    // as a campaign; that count is not shown.
+    const evidenced = !!data.campaign_semantics;
+    const campaigns = evidenced ? (data.active_campaigns || []) : [];
+    setText("cdb-kc-campaigns", evidenced ? (typeof data.active_campaign_count === "number" ? data.active_campaign_count : campaigns.length) : "N/A", true);
+    setText("cdb-kc-tactics", at ? at.tactics_observed : "N/A", true);
 
     const labelEl = el("cdb-kc-active-label");
     if (labelEl) {
-      if (campaigns.length > 0) {
+      if (!evidenced) {
+        labelEl.textContent = "Campaign evidence not available from this API version";
+      } else if (campaigns.length > 0) {
         const top = campaigns[0];
         const title = (top.title || "").slice(0, 70) + ((top.title || "").length > 70 ? "…" : "");
-        labelEl.textContent = `TOP: ${title} (${top.severity || "UNKNOWN"})`;
+        labelEl.textContent = `CAMPAIGN: ${title}`;
+      } else if (at && at.items_with_attack_evidence > 0) {
+        labelEl.textContent = `0 evidenced campaigns · ATT&CK evidence on ${at.items_with_attack_evidence} advisories`;
       } else {
-        // A successful fetch with zero active campaigns is a valid result.
-        labelEl.textContent = "0 active campaigns tracked";
+        labelEl.textContent = "0 evidenced campaigns · no ATT&CK evidence in current feed";
       }
     }
 
-    // Highlight the kill-chain phase steps this top campaign actually touched
-    const topKc = (campaigns[0] && campaigns[0].kill_chain) || [];
+    // Derived kill-chain steps: lit only where ATT&CK evidence maps to them.
+    const phases = data.phases || {};
     qsAll(".cdb-kc-step").forEach(stepEl => {
-      const phase = stepEl.getAttribute("data-phase") || "";
-      const active = topKc.some(k => String(k).toLowerCase().includes(phase.slice(0, 4)));
-      stepEl.classList.toggle("active", active);
+      const key = KC_PHASE_KEY[stepEl.getAttribute("data-phase") || ""];
+      stepEl.classList.toggle("active", !!(key && Number(phases[key]) > 0));
     });
   }
 
@@ -535,13 +618,13 @@
 
     // Update "— campaigns detected", "— anomalies flagged", "— threats analyzed" text
     qsAll(".ai-campaigns-text, [data-ai-text='campaigns']").forEach(n => {
-      n.innerHTML = n.innerHTML.replace("— campaigns detected", `<strong>${data.campaigns_detected}</strong> campaigns detected`);
+      n.innerHTML = n.innerHTML.replace("— campaigns detected", `<strong>${esc(Number(data.campaigns_detected) || 0)}</strong> campaigns detected`);
     });
     qsAll(".ai-anomalies-text, [data-ai-text='anomalies']").forEach(n => {
-      n.innerHTML = n.innerHTML.replace("— anomalies flagged", `<strong>${data.anomalies_flagged}</strong> anomalies flagged`);
+      n.innerHTML = n.innerHTML.replace("— anomalies flagged", `<strong>${data.anomalies_flagged == null ? "N/A" : esc(Number(data.anomalies_flagged) || 0)}</strong> anomalies flagged`);
     });
     qsAll(".ai-threats-text, [data-ai-text='threats']").forEach(n => {
-      n.innerHTML = n.innerHTML.replace("— threats analyzed", `<strong>${data.high_risk_30d}</strong> threats analyzed`);
+      n.innerHTML = n.innerHTML.replace("— threats analyzed", `<strong>${esc(Number(data.high_risk_30d) || 0)}</strong> threats analyzed`);
     });
 
     // Executive summary
@@ -601,20 +684,20 @@
       <div class="news-item" style="
         padding:12px; margin-bottom:8px; background:rgba(0,0,0,0.3);
         border-left:3px solid ${severityColor(item.severity)}; border-radius:4px;
-        cursor:pointer; transition:background 0.2s;
-      " onclick="window.open('${item.url || "#"}', '_blank')">
+        transition:background 0.2s;
+      ">
         <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px;">
           <div style="flex:1;">
             <div style="font-size:12px; color:${severityColor(item.severity)}; font-weight:bold; margin-bottom:4px;">
-              ${item.source || "APEX INTEL"}
+              ${safeUrl(item.url) ? `<a href="${esc(safeUrl(item.url))}" target="_blank" rel="noopener noreferrer" style="color:inherit;">${esc(item.source || "APEX INTEL")}</a>` : esc(item.source || "APEX INTEL")}
               ${item.severity === "CRITICAL" ? ' <span style="background:#ff444422; padding:1px 4px; border-radius:2px; font-size:10px;">⚠ CRITICAL</span>' : ""}
             </div>
             <div style="font-size:13px; font-weight:500; color:#e0e0e0; line-height:1.4; margin-bottom:4px;">
-              ${item.title}
+              ${esc(item.title)}
             </div>
-            ${item.description ? `<div style="font-size:11px; color:#666; line-height:1.4;">${item.description.slice(0, 120)}${item.description.length > 120 ? "…" : ""}</div>` : ""}
+            ${item.description ? `<div style="font-size:11px; color:#666; line-height:1.4;">${esc(String(item.description).slice(0, 120))}${String(item.description).length > 120 ? "…" : ""}</div>` : ""}
           </div>
-          <div style="font-size:10px; color:#555; white-space:nowrap;">${fmtRelTime(item.published)}</div>
+          <div style="font-size:10px; color:#555; white-space:nowrap;">${esc(fmtRelTime(item.published))}</div>
         </div>
       </div>
     `).join("");
@@ -684,10 +767,10 @@
           color:${severityColor(r.severity)}; font-weight:bold; font-size:10px;
           padding:2px 6px; border-radius:2px; background:${severityColor(r.severity)}22;
           min-width:55px; text-align:center;
-        ">${r.severity}</span>
-        <div style="flex:1; color:#e0e0e0; line-height:1.4;">${r.title.slice(0, 80)}${r.title.length > 80 ? "…" : ""}</div>
-        <span style="color:#888; white-space:nowrap; font-size:11px;">${fmtRelTime(r.published)}</span>
-        <span style="color:${severityColor(r.severity)}; font-weight:bold;">${fmtRisk(r.risk_score)}</span>
+        ">${esc(r.severity)}</span>
+        <div style="flex:1; color:#e0e0e0; line-height:1.4;">${esc(String(r.title || "").slice(0, 80))}${String(r.title || "").length > 80 ? "…" : ""}</div>
+        <span style="color:#888; white-space:nowrap; font-size:11px;">${esc(fmtRelTime(r.published))}</span>
+        <span style="color:${severityColor(r.severity)}; font-weight:bold;">${esc(fmtRisk(r.risk_score))}</span>
         ${r.kev_present ? '<span style="color:#ff4444; font-size:10px; padding:1px 4px; border:1px solid #ff444444; border-radius:2px;">KEV</span>' : ""}
       </div>
     `).join("");
@@ -733,7 +816,7 @@
         <div style="font-weight:bold; color:#ff8800;">${esc(r.severity)} — RISK ${r.risk_score == null ? "PRO+" : fmtRisk(r.risk_score)}</div>
         <div style="color:#e0e0e0;">${esc(r.title)}</div>
         <div style="color:#888; font-size:11px; margin-top:2px;">
-          IOCs: ${r.ioc_count || 0} · ${esc(r.source)} · ${fmtRelTime(r.published)}
+          IOCs: ${esc(Number(r.ioc_count) || 0)} · ${esc(r.source)} · ${esc(fmtRelTime(r.published))}
         </div>
       </div>
     `).join("");
@@ -746,7 +829,7 @@
       <div style="padding:8px; margin-top:4px; background:rgba(59,130,246,0.12);
         border:1px solid rgba(96,165,250,0.4); border-radius:4px; font-size:11px; text-align:left;">
         <div style="color:#93c5fd; margin-bottom:6px;">${esc(data._note || "Upgrade to PRO for full results, risk scores, and CVE mapping.")}</div>
-        <a href="${data._upgrade_url}?utm_source=ioc-lookup-widget" target="_blank"
+        <a href="${esc(safeUrl(data._upgrade_url))}?utm_source=ioc-lookup-widget" target="_blank"
            style="color:#fff; background:#2563eb; padding:4px 10px; border-radius:3px; text-decoration:none; font-weight:bold;">Unlock Full Analysis →</a>
       </div>` : "";
     result.innerHTML = resultsHtml + upgradeHtml;
@@ -763,27 +846,14 @@
   }
 
   // ── 15. NEXUS Stats Panel ─────────────────────────────────────────────────────
+  // P0 dashboard data contract: removed the invented values this wrote
+  // (hunts = max(critical, 1), rules = total x 1.3, PIR capped at 92%). Only
+  // the threat exposure index, which is a real API value, is shown.
   async function loadNEXUS() {
     const stats = window._apexStats || await apiFetch("/api/v1/intel/stats");
     if (!stats) return;
-
-    const apex = await apiFetch("/api/v1/intel/apex.json");
-
-    // Threat Exposure Index
-    setStatEl([".nexus-tei, #nexus-tei, [data-nexus='tei']"],
-      fmtRisk(apex?.global_threat_level || stats.global_threat_level || stats.avg_risk_score));
-
-    // Priority threat hunts (derived from critical count)
-    setStatEl([".nexus-hunts, #nexus-hunts, [data-nexus='hunts']"],
-      Math.max(stats.critical || 0, 1));
-
-    // Detection rules (derived from total)
-    setStatEl([".nexus-rules, #nexus-rules, [data-nexus='rules']"],
-      Math.round((stats.total || 0) * 1.3));
-
-    // PIR coverage
-    setStatEl([".pir-coverage, #pir-coverage, [data-nexus='pir']"],
-      `${Math.min(Math.round(((stats.critical + stats.high) / Math.max(stats.total, 1)) * 100), 92)}%`);
+    const tei = stats.global_threat_level;
+    setStatEl([".nexus-tei, #nexus-tei, [data-nexus='tei']"], tei != null ? fmtRisk(tei) : "N/A");
   }
 
   // ── Run all loaders ───────────────────────────────────────────────────────────

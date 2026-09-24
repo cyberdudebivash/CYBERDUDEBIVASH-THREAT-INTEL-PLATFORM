@@ -254,7 +254,7 @@ h1{font-size:36px;font-weight:700;margin-bottom:12px}
       return '<div class="cdb-live-row">' +
         '<span class="name">' + esc(g.name) + '</span>' +
         '<span class="meta">' + esc(sector) + '</span>' +
-        '<span class="meta">+' + esc(String(g.victims_30d != null ? g.victims_30d : 0)) + ' victims</span>' +
+        (g.victims_30d != null ? '<span class="meta">+' + esc(String(g.victims_30d)) + ' victims</span>' : '<span class="meta">' + esc(String(g.advisories != null ? g.advisories : '')) + ' advisories in feed</span>') +
         '<span class="pill">' + esc(g.status || "") + '</span>' +
         '</div>';
     }).join("");
@@ -303,7 +303,9 @@ h1{font-size:36px;font-weight:700;margin-bottom:12px}
         var vicEl = document.getElementById("cdb-rw-live-victims");
         if (groupsEl) groupsEl.textContent = data.active_groups != null ? data.active_groups : 0;
         if (monEl) monEl.textContent = data.monitoring_groups != null ? data.monitoring_groups : 0;
-        if (vicEl) vicEl.textContent = data.new_victims_30d != null ? data.new_victims_30d : 0;
+        // Victim publication data is not measured (victims_measured:false):
+        // show N/A, never a measured-looking 0.
+        if (vicEl) vicEl.textContent = (data.victims_measured === true && data.new_victims_30d != null) ? data.new_victims_30d : "N/A";
         renderGroups(data.top_groups);
         renderAdvisories(data.recent_advisories);
         var updated = document.getElementById("cdb-rw-updated");

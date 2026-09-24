@@ -216,7 +216,7 @@ jobs:
       - name: Verify frontend-critical files are present in dist/
         run: |
           missing=0
-          for f in index.html js/api_adapter.js js/card_renderer.js js/card_renderer_integration.js js/sla-monitor.js js/sentinel-live-feeds.js css/card_renderer_styles.css _headers .nojekyll; do
+          for f in index.html js/api_adapter.js js/card_renderer.js js/card_renderer_integration.js js/sla-monitor.js js/sentinel-live-feeds.js js/apex-dashboard-snapshot.js css/card_renderer_styles.css _headers .nojekyll; do
             path="dist/$f"
             if [ ! -s "$path" ]; then
               echo "::error::Missing or empty required file in dist/: $f"
@@ -304,6 +304,15 @@ jobs:
       # rationale.
       - name: Pre-deploy EICC zero-fabrication + rendering-security check (headless-browser)
         run: node render-test/verify_eicc_zero_fabrication_states.js dist
+
+      # P0 customer dashboard data contract (2026-09-24): one snapshot drives
+      # the EICC widgets; ticker/Last Sync/preview/geo/ransomware/threat level/
+      # ATT&CK coverage are checked against a production-shaped fixture, a
+      # zero-evidence fixture, stale/unavailable states and hostile payloads,
+      # on desktop/laptop/mobile, through one refresh cycle. The Worker-side
+      # fixtures come from workers/intel-gateway/src/dashboard-contract.js.
+      - name: Pre-deploy customer dashboard data-contract check (headless-browser)
+        run: node render-test/verify_dashboard_data_contract.js dist
 
       # STAGE 2 (SENTINEL APEX Dynamic Frontend Transformation, 2026-09-01):
       # js/__tests__/*.test.js (Node's built-in test runner, no extra
