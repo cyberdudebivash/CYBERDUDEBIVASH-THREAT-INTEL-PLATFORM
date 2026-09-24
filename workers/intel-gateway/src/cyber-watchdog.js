@@ -686,6 +686,12 @@ export function toPersisted(state) {
   };
 }
 
+/** True when "ledger" still holds a signed v3 row (e.g. written by 6977abf). */
+export function ledgerNeedsMigration(ledger) {
+  return !!ledger && Array.isArray(ledger.destinations)
+    && ledger.destinations.some((d) => d && typeof d.secret === "string" && d.secret.startsWith("whsec_"));
+}
+
 /**
  * Joins the two persisted records back into ledger state.
  *

@@ -1,0 +1,346 @@
+name              = "sentinel-apex-gateway"
+main              = "src/production-entry.js"
+compatibility_date = "2026-01-01"
+
+# Worker Routes -- intel.cyberdudebivash.com
+# /api/*        -- Worker-native API endpoints (auth, feed, reports index, etc.)
+# /reports/*    -- HTML intel reports served from REPORTS_R2 (sentinel-apex-reports)
+#                  Previously only /api/* was routed to the Worker; /reports/* fell
+#                  through to CF Pages static hosting which had no matching files => 404.
+# Fix (v167.2): Added /reports/* route so serveHtmlIntelReport() is invoked and
+#               reports are served directly from R2 (REPORTS_R2 binding).
+#
+# REQUIRED API TOKEN SCOPE (v177.1):
+#   Deploying these routes requires the CLOUDFLARE_API_TOKEN (GH secret
+#   CF_API_TOKEN) to hold BOTH:
+#     * Account -> Workers Scripts : Edit   (upload + activate the worker script)
+#     * Zone    -> Workers Routes  : Edit   (attach/verify these route patterns)
+#                  scoped to zone cyberdudebivash.com
+#   If the Workers Routes permission is missing, wrangler uploads the script
+#   successfully but then fails re-asserting these (already-existing, static)
+#   routes with Authentication error [code: 10000]. deploy-worker.yml tolerates
+#   exactly that case by verifying the worker is live via /api/health, but the
+#   clean fix is to grant the Workers Routes: Edit permission to the token.
+routes = [
+  { pattern = "intel.cyberdudebivash.com/api/*",     zone_name = "cyberdudebivash.com" },
+  { pattern = "intel.cyberdudebivash.com/reports/*", zone_name = "cyberdudebivash.com" },
+  { pattern = "intel.cyberdudebivash.com/taxii/*",   zone_name = "cyberdudebivash.com" },
+  { pattern = "intel.cyberdudebivash.com/auth/*",    zone_name = "cyberdudebivash.com" },
+]
+
+# v143.0.0: Cron trigger for scheduled webhook push + cache refresh
+# Fires every 15 minutes -- matches typical CTI pipeline run cadence
+#
+# v201.0: second cron string added for the live threat-indicator ingestion
+# pipeline (src/ingestion/cron_worker.js -- CISA KEV + URLhaus + Tor exit
+# nodes). Cloudflare Workers support multiple cron schedules on one
+# `scheduled()` handler; index.js's scheduled() branches on event.cron so
+# the "*/15 * * * *" entry above keeps calling fetchAndCacheCVEs() exactly
+# as before -- purely additive, zero change to the existing schedule.
+#
+# v202.0 (2026-09-09 npm audit remediation): moved from a bare top-level
+# `crons = [...]` into the `[triggers]` table. Both wrangler 3.114.17 (the
+# version this repo's deploy pipeline pins) and 4.130.0 already warn
+# "Unexpected fields found in top-level field: crons" against the old
+# placement -- confirmed via `wrangler deploy --dry-run` on both versions,
+# which is also how the [triggers] form was confirmed to produce a
+# byte-for-byte-equivalent bundle on both, so this is a same-behavior
+# syntax correction, not a schedule change.
+[triggers]
+crons = ["*/15 * * * *", "0 */6 * * *"]
+
+[vars]
+GATEWAY_VERSION = "200.0"
+# Public-facing Razorpay Key ID (NOT secret — safe in vars)
+# Set live 2026-08-03 (matches the key_id RAZORPAY_KEY_SECRET was paired with via
+# `wrangler secret put`) -- was blank here, which 503'd every checkout via
+# handleRazorpayCreateOrder's `!env.RAZORPAY_KEY_ID` guard regardless of the secret.
+RAZORPAY_KEY_ID = "rzp_live_T006RdZV7opnrY"
+
+# Phase 1 revenue-leak fix (docs/BILLING_ENTITLEMENT_ARCHITECTURE_AUDIT.md).
+# "false" = zero behavior change (current production state, expires_at stays
+# null, shadow-computed expiry only audit-logged). Set to "true" to start
+# actually enforcing real expiry on newly-provisioned keys. Reversible by
+# flipping this value back -- no code change needed either direction.
+SUBSCRIPTION_EXPIRY_ENABLED = "true"
+
+# Phase 4 gateway enforcement (docs/PHASE4_GATEWAY_ENFORCEMENT.md). Master
+# switch: "false" = zero behavior change (every one of the 11 Phase 3 gates
+# keeps deciding access exactly as it does today; only the passive shadow
+# log runs). Set to "true" to let ENTITLEMENT_ENFORCEMENT_RESOURCES start
+# taking effect. Reversible by flipping back -- no code change either way.
+# Step 1 of the gradual rollout (2026-08-03): enabled for cve_detail_full
+# only -- read-only, high-traffic, and an exact mirror of the ad-hoc check
+# per Phase 3/4 discovery, so zero behavior change is expected. Watch
+# SECURITY_HUB_KV for "entitlement_enforced_override" before adding more.
+ENTITLEMENT_ENFORCEMENT_ENABLED = "true"
+# Comma-separated allowlist of resource names (e.g. "cve_detail_full,nlq")
+# actually switched over to enforceTierGate's decision when the master
+# switch above is "true". Empty = nothing enforced even if the switch is on
+# -- this is the per-resource dial for a gradual, one-at-a-time rollout.
+ENTITLEMENT_ENFORCEMENT_RESOURCES = "cve_detail_full"
+
+# -- KV Namespaces --
+# Deployed KV IDs -- verified live on intel.cyberdudebivash.com (v142.3.1)
+# To add new namespace: npx wrangler kv namespace create "<NAME>"
+
+[[kv_namespaces]]
+binding = "API_KEYS_KV"
+id      = "ca786702c6df47b7a95d9777536c7cfb"
+
+[[kv_namespaces]]
+binding = "RATE_LIMIT_KV"
+id      = "647efdda28dc4a2db91378931cfa02dc"
+
+[[kv_namespaces]]
+binding = "ANALYTICS_KV"
+id      = "baa66e510f7247d4b268af943bfb7213"
+
+[[kv_namespaces]]
+# v142.3.1: SECURITY_HUB_KV -- used for:
+#   1. JWT revocation blocklist  (jwt_revoked:<hash> keys)
+#   2. Structured error tracking (error:<component>:<date> keys, 7-day TTL)
+#   3. SIEM webhook registrations (webhook:<key_id> keys)
+# Surface via: GET /api/admin/observability
+binding = "SECURITY_HUB_KV"
+id      = "95faae90943f43afa26d552b8385d339"
+
+[[kv_namespaces]]
+# PR #281: same namespace ID as workers/revenue-engine's own REVENUE_CRM_KV
+# binding -- the reverse direction of the exact pattern already used for
+# API_KEYS_KV (revenue-engine binds this Worker's namespace so its writes
+# land where resolveAuth() reads). Bound here so provisionApiKey() -- the
+# real, live Razorpay/Gumroad checkout path -- can mirror customer/key/
+# subscription records into the namespace handleCustomerPortal()
+# (revenue-engine) actually reads. Additive only; API_KEYS_KV remains the
+# sole authoritative grant of access.
+binding = "REVENUE_CRM_KV"
+id      = "1740d5dba5e74c3aafff1c683588395b"
+
+# Enterprise SSO domain authorization (NOT YET PROVISIONED -- see below).
+# Keyed by verified email domain (e.g. "acmecorp.com"), value
+# {"tier":"ENTERPRISE","customer_id":"cust_...","enabled":true} -- written
+# once per enterprise contract, the same operational step that already
+# provisions an API_KEYS_KV record for a paying customer today.
+# handleSsoCallback() (src/index.js) is the only reader; an unrecognized or
+# disabled domain always gets a clear "contact enterprise sales" response,
+# never a silently-granted tier. Deliberately left as a commented-out
+# template rather than a live binding with a placeholder id: Cloudflare
+# validates a bound KV namespace id actually exists at deploy time, so an
+# invalid id here would fail `wrangler deploy` for every future push to
+# this Worker, not just SSO's own code (handleSsoCallback already treats
+# env.SSO_DOMAINS_KV being entirely unbound as "SSO not configured" and
+# fails safe -- see its try/catch -- so this being commented out breaks
+# nothing today).
+#
+# To activate: 1) npx wrangler kv namespace create "SSO_DOMAINS_KV"
+#              2) uncomment the two lines below and paste the real id
+#                 wrangler printed in step 1
+#              3) repeat both lines under [env.production] further down
+#
+# [[kv_namespaces]]
+# binding = "SSO_DOMAINS_KV"
+# id      = "<paste real id from step 1 here>"
+
+# -- R2 Buckets --
+# INTEL_R2: Primary intel storage (feed, STIX, manifests, CTI data)
+# Create: npx wrangler r2 bucket create sentinel-apex-data
+
+[[r2_buckets]]
+binding     = "INTEL_R2"
+bucket_name = "sentinel-apex-data"
+
+# REPORTS_R2: Advisory HTML report storage
+# r2_upload.py uploads reports/ to sentinel-apex-reports (dedicated token).
+# Worker serves /reports/**/*.html from this bucket.
+# Fix (v167.1): was missing — caused all /reports/ URLs to 404.
+# Create: npx wrangler r2 bucket create sentinel-apex-reports
+
+[[r2_buckets]]
+binding     = "REPORTS_R2"
+bucket_name = "sentinel-apex-reports"
+
+# -- APEX V4.43 Private Super Agent Mesh --
+# Private Service Binding only; cdb-apex-mesh-production has workers_dev=false.
+[[services]]
+binding = "APEX_MESH"
+service = "cdb-apex-mesh-production"
+
+# -- Durable Objects --
+# GumroadProvisioningLock (issue #288): closes a real race in
+# handleWebhookGumroad's idempotency check -- Cloudflare KV has no atomic
+# check-and-set, so two concurrent deliveries of the same Gumroad webhook
+# event could both provision an API key for one sale_id. Routing every
+# request for a given sale_id to the same Durable Object instance gives
+# that instance's storage genuine serialization (Cloudflare's "input gate"),
+# so the claim check in gumroad-provisioning-lock.js is atomic in a way KV
+# alone can't be. See that file's header comment for the full rationale.
+# Confirmed (2026-09-01): Durable Objects are enabled for this account.
+#
+# PRODUCTION INCIDENT (2026-09-01, PR #296 deploy): the first deploy attempt
+# used `new_classes` (classic KV-backed Durable Object storage) and failed
+# both retry attempts with Cloudflare API error [code: 10099]: "Creating new
+# key-value backed Durable Object namespaces is no longer supported on this
+# account. Please create a namespace using a `new_sqlite_classes` migration
+# instead." Both attempts failed at the API-validation step before any
+# script upload took effect, so the previously-deployed Worker kept serving
+# unaffected (confirmed via /api/health) -- zero live-payment-gateway
+# downtime. `new_sqlite_classes` below uses the same storage.get/put API
+# GumroadProvisioningLock already calls (SQLite-backed Durable Objects
+# expose an identical transactional key-value interface), so no application
+# code change was needed -- only this migration's class list moved.
+
+[[durable_objects.bindings]]
+name       = "GUMROAD_PROVISIONING_LOCK"
+class_name = "GumroadProvisioningLock"
+
+[[durable_objects.bindings]]
+name       = "WATCHDOG_LEDGER"
+class_name = "WatchdogLedger"
+
+# SAFE ROLLBACK: kept so the v3-created class and migration stay valid.
+[[durable_objects.bindings]]
+name       = "WATCHDOG_SCHEDULER"
+class_name = "WatchdogScheduler"
+
+[[migrations]]
+tag                = "v1-gumroad-provisioning-lock"
+new_sqlite_classes = ["GumroadProvisioningLock"]
+
+[[migrations]]
+tag                = "v2-watchdog-ledger"
+new_sqlite_classes = ["WatchdogLedger"]
+
+[[migrations]]
+tag                = "v3-watchdog-scheduler"
+new_sqlite_classes = ["WatchdogScheduler"]
+
+# -- Secrets (set via wrangler CLI -- NEVER commit to source control) --
+# npx wrangler secret put ADMIN_SECRET             -> cache bust + admin key management
+# npx wrangler secret put GITHUB_TOKEN             -> emergency GitHub fallback reads
+# npx wrangler secret put CDB_JWT_SECRET           -> JWT HS256 signing key (REQUIRED for auth)
+#                                                     Minimum 32 random characters. Generate:
+#                                                     openssl rand -hex 32
+# npx wrangler secret put APEX_MESH_SERVICE_KEY    -> dedicated Sentinel APEX -> V4.43 mesh HMAC key;
+#                                                     MUST equal MESH_SENTINEL_APEX_KEY on
+#                                                     cdb-apex-mesh-production and MUST NOT reuse
+#                                                     JWT/admin/Authority/payment credentials.
+# -- Enterprise SSO (OpenID Connect) -- additive; GET /auth/sso/:provider/start
+#    503s with a clear "not configured" message until these are set, every
+#    other auth path (API key, existing JWT) is completely unaffected either
+#    way.
+# npx wrangler secret put GOOGLE_OAUTH_CLIENT_ID   -> Google Cloud Console -> APIs & Services ->
+#                                                     Credentials -> OAuth client ID (type: Web
+#                                                     application). Authorized redirect URI must be
+#                                                     exactly: https://intel.cyberdudebivash.com/auth/sso/google/callback
+# npx wrangler secret put GOOGLE_OAUTH_CLIENT_SECRET -> paired secret from the same OAuth client
+# npx wrangler secret put MS_OAUTH_CLIENT_ID       -> Azure Portal -> Microsoft Entra ID -> App
+#                                                     registrations -> New registration (supported
+#                                                     account types: "Accounts in any organizational
+#                                                     directory"). Redirect URI (type: Web) must be
+#                                                     exactly: https://intel.cyberdudebivash.com/auth/sso/microsoft/callback
+# npx wrangler secret put MS_OAUTH_CLIENT_SECRET   -> Azure Portal -> that App registration ->
+#                                                     Certificates & secrets -> New client secret
+# npx wrangler secret put STRIPE_WEBHOOK_SECRET    -> Stripe webhook endpoint secret
+#                                                     Get from: Stripe Dashboard -> Webhooks -> Signing secret
+# npx wrangler secret put RAZORPAY_KEY_SECRET       -> Razorpay API Key Secret (private)
+#                                                     Get from: Razorpay Dashboard -> Settings -> API Keys
+# npx wrangler secret put RAZORPAY_WEBHOOK_SECRET  -> Razorpay webhook secret
+# npx wrangler secret put GUMROAD_WEBHOOK_SECRET   -> Shared secret appended as ?secret= to Gumroad webhook URL
+#                                                     Configure Gumroad Ping URL as:
+#                                                     https://intel.cyberdudebivash.com/api/webhooks/gumroad?secret=<VALUE>
+#                                                     Get from: Razorpay Dashboard -> Webhooks
+# npx wrangler secret put RESEND_API_KEY           -> Resend API key (sendActivationEmail(),
+#                                                     sendStatusChangeEmail(), sendPaymentFailedEmail()
+#                                                     in src/index.js). Not previously documented here --
+#                                                     if unset, all three fail silently (warn-and-return-
+#                                                     false, provisioning/webhook processing unaffected)
+#                                                     and no activation/status/payment-failure email is
+#                                                     ever sent. Get from: Resend Dashboard -> API Keys
+# npx wrangler secret put STRIPE_PRO_PRICE_ID      -> Stripe Price ID for PRO plan ($29/mo)
+# npx wrangler secret put STRIPE_ENT_PRICE_ID      -> Stripe Price ID for ENTERPRISE plan ($199/mo)
+# npx wrangler secret put REVENUE_ADMIN_SECRET     -> MUST be set to the exact same value as
+#                                                     workers/revenue-engine's own REVENUE_ADMIN_SECRET.
+#                                                     Two uses, both still not admin auth for THIS
+#                                                     Worker's own routes: (1) computes the customer-
+#                                                     portal HMAC token (computePortalToken() in
+#                                                     src/index.js) so the welcome email's portal link
+#                                                     validates against revenue-engine's
+#                                                     handleCustomerPortal(); (2) sent as the
+#                                                     X-Admin-Secret header when this Worker calls
+#                                                     revenue-engine's POST /api/automation/trigger
+#                                                     (maybeDispatchQuotaAlert() in src/index.js) to
+#                                                     queue the daily-quota 80% alert email -- that
+#                                                     route used to accept unauthenticated requests
+#                                                     from anyone (real, fixed defect; see
+#                                                     workers/revenue-engine's own automationTrigger()).
+#                                                     Optional for both uses: if unset, portal_url is
+#                                                     simply omitted from the activation email, and the
+#                                                     quota alert dispatch silently no-ops instead of
+#                                                     crashing a customer's actual API request.
+# v142.4.0: GOD-MODE PAYMENT ALERTS + BSC AUTO-VERIFY
+# npx wrangler secret put TG_BOT_TOKEN             -> Telegram bot token (from @BotFather)
+#                                                     Create: t.me/BotFather -> /newbot -> copy token
+# npx wrangler secret put TG_CHAT_ID               -> Your personal Telegram chat ID (as integer)
+#                                                     Get: message @userinfobot -> it replies with your ID
+# npx wrangler secret put BSCSCAN_API_KEY          -> BscScan API key for on-chain BSC tx verification
+#                                                     Free key: https://bscscan.com/register -> API Keys tab
+# Verify configured: GET /api/health -> checks.jwt_configured: true
+
+# -- Production environment --
+# Mirrors default env exactly. Required so `wrangler deploy --env production`
+# succeeds on the first deploy attempt (deploy-worker.yml retries without --env
+# on failure, but having this avoids a spurious first-attempt error in CI logs).
+[env.production]
+name = "sentinel-apex-gateway"
+
+[env.production.vars]
+GATEWAY_VERSION = "200.0"
+RAZORPAY_KEY_ID = "rzp_live_T006RdZV7opnrY"
+SUBSCRIPTION_EXPIRY_ENABLED = "true"
+ENTITLEMENT_ENFORCEMENT_ENABLED = "true"
+ENTITLEMENT_ENFORCEMENT_RESOURCES = "cve_detail_full"
+
+[[env.production.kv_namespaces]]
+binding = "API_KEYS_KV"
+id      = "ca786702c6df47b7a95d9777536c7cfb"
+
+[[env.production.kv_namespaces]]
+binding = "RATE_LIMIT_KV"
+id      = "647efdda28dc4a2db91378931cfa02dc"
+
+[[env.production.kv_namespaces]]
+binding = "ANALYTICS_KV"
+id      = "baa66e510f7247d4b268af943bfb7213"
+
+[[env.production.kv_namespaces]]
+binding = "SECURITY_HUB_KV"
+id      = "95faae90943f43afa26d552b8385d339"
+
+[[env.production.kv_namespaces]]
+binding = "REVENUE_CRM_KV"
+id      = "1740d5dba5e74c3aafff1c683588395b"
+
+[[env.production.r2_buckets]]
+binding     = "INTEL_R2"
+bucket_name = "sentinel-apex-data"
+
+[[env.production.r2_buckets]]
+binding     = "REPORTS_R2"
+bucket_name = "sentinel-apex-reports"
+
+[[env.production.services]]
+binding = "APEX_MESH"
+service = "cdb-apex-mesh-production"
+
+[[env.production.durable_objects.bindings]]
+name       = "GUMROAD_PROVISIONING_LOCK"
+class_name = "GumroadProvisioningLock"
+
+[[env.production.durable_objects.bindings]]
+name       = "WATCHDOG_LEDGER"
+class_name = "WatchdogLedger"
+
+[[env.production.durable_objects.bindings]]
+name       = "WATCHDOG_SCHEDULER"
+class_name = "WatchdogScheduler"

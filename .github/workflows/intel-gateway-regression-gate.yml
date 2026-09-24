@@ -108,6 +108,11 @@ jobs:
       - name: "Cyber Watchdog negative controls"
         run: node workers/intel-gateway/scripts/watchdog-negative-controls.mjs
 
+      # The only supported rollback target after Watchdog v3: rebuilt from the
+      # pinned base commit + overlay; fails on any hash or digest mismatch.
+      - name: "Cyber Watchdog safe rollback artifact builds"
+        run: node deploy/cyber-watchdog/safe-rollback/build.mjs --out "$RUNNER_TEMP/wd-safe-rollback"
+
   python-tests:
     name: "scripts/ + tests/ -- Python unit and regression suites"
     runs-on: ubuntu-latest

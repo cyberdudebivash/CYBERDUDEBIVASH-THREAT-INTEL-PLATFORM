@@ -16,6 +16,7 @@ import {
   SIGNED_DESTINATIONS_STORAGE_KEY,
   applyLedgerMutation,
   fromPersisted,
+  ledgerNeedsMigration,
   runDueDeliveries,
   toPersisted,
 } from "./cyber-watchdog.js";
@@ -32,11 +33,17 @@ export class WatchdogLedger {
     // Two storage keys (see toPersisted() in cyber-watchdog.js): "ledger" is
     // the only key the previous implementation reads, and it never holds a
     // signed v3 destination, so a code rollback cannot deliver to one.
-    const current = fromPersisted(
-      await this.state.storage.get(LEDGER_STORAGE_KEY),
-      await this.state.storage.get(SIGNED_DESTINATIONS_STORAGE_KEY),
-    );
+    const rawLedger = await this.state.storage.get(LEDGER_STORAGE_KEY);
+    const current = fromPersisted(rawLedger, await this.state.storage.get(SIGNED_DESTINATIONS_STORAGE_KEY));
+    // Read-migrate: a signed row still in "ledger" (early v3, 6977abf) is moved
+    // out on ANY access, reads included, not only on the next write.
+    const migrate = ledgerNeedsMigration(rawLedger);
     const out = applyLedgerMutation(current, op);
+    if (migrate && (out.readOnly || out.error)) {
+      const persisted = toPersisted(current);
+      await this.state.storage.put(SIGNED_DESTINATIONS_STORAGE_KEY, persisted.signed);
+      await this.state.storage.put(LEDGER_STORAGE_KEY, persisted.ledger);
+    }
     if (!out.readOnly && !out.error) {
       const persisted = toPersisted(out.state);
       await this.state.storage.put(SIGNED_DESTINATIONS_STORAGE_KEY, persisted.signed);
