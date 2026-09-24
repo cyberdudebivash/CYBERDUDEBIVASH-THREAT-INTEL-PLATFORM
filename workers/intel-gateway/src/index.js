@@ -5227,7 +5227,30 @@ async function handleWebhookGumroad(request, env, ctx) {
 }
 
 // POST /api/payment/manual-notify  (UPI / NEFT / Crypto proof of payment)
+// RETIRED 2026-09-24 (owner commercial policy): public manual payment proof
+// is no longer accepted -- forged screenshots, reference reuse and
+// unreconcilable entitlement/GST/refund records. Answers 410 before reading
+// the body or touching KV, Telegram or audit; the same contract as
+// revenue-engine's retired POST /api/payments/submit. Enterprise bank
+// transfers go through an approved quote/PO -> invoice workflow instead.
+// GET /api/payment/status stays readable for review ids already issued.
+// The legacy body below is kept unreachable (deprecation, not deletion);
+// remove it in the next major P-layer once no caller references it.
+const MANUAL_PAYMENT_RETIRED_BODY = Object.freeze({
+  error: "manual_payment_retired",
+  code: "MANUAL_PAYMENT_RETIRED",
+  message: "Manual payment verification is no longer available. Please use the secure checkout.",
+  checkout_url: "https://intel.cyberdudebivash.com/upgrade.html",
+});
 async function handleManualNotify(request, env, ctx, method) {
+  return jsonResp(MANUAL_PAYMENT_RETIRED_BODY, 410, {
+    "Cache-Control": "no-store", "Deprecation": "true", "Sunset": "Thu, 24 Sep 2026 00:00:00 GMT",
+  });
+}
+
+// DEPRECATED (unreachable since 2026-09-24): the pre-retirement handler.
+// eslint-disable-next-line no-unused-vars
+async function _legacyHandleManualNotify(request, env, ctx, method) {
   if (method !== "POST") return jsonResp({ error: "POST required" }, 405);
   let body = {};
   try { body = await request.json(); } catch (_) {}
