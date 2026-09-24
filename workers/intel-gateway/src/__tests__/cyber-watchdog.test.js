@@ -290,6 +290,7 @@ test("enterprise webhook: nothing is delivered before verification, then one sig
     ...base, path: "/api/watchdog/destinations/verify", method: "POST", nonce: "ab".repeat(16),
     searchParams: new URLSearchParams("id=" + dest.body.destination.id),
     verifyDestination: async () => ({ ok: true }),
+    webhookDeliveryEnabled: true,
   });
   assert.equal(verified.status, 200);
   assert.equal(verified.body.destination.state, "active");

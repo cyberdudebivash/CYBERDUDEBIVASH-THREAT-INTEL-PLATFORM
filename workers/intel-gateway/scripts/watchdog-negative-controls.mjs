@@ -21,6 +21,7 @@ const REPO = path.resolve(HERE, "../../..");
 const COPY = [
   "workers/intel-gateway/src",
   "workers/intel-gateway/package.json",
+  "workers/intel-gateway/wrangler.toml",
   "deploy/cyber-watchdog",
   "config/commercial-contract.json",
   "config/public_freshness_contract.json",
@@ -128,6 +129,27 @@ const CONTROLS = [
     find: "  const row = RAZORPAY_TIER_PRICES[tierId];",
     replace: "  const row = { PRO: { monthly: 410000, usd_monthly: 49 }, ENTERPRISE: { monthly: 4160000, usd_monthly: 499 }, MSSP: { monthly: 8330000, usd_monthly: 999 } }[tierId];",
     tests: [T("watchdog-policy.test.js")],
+  },
+  {
+    id: "v3_verified_persisted_in_v2_readable_ledger",
+    file: "workers/intel-gateway/src/cyber-watchdog.js",
+    find: "    ledger: { ...state, destinations: all.filter((d) => !isSignedV3(d)) },",
+    replace: "    ledger: { ...state, destinations: all },",
+    tests: [T("watchdog-rollback-compat.test.js")],
+  },
+  {
+    id: "v3_accepts_unsigned_v2_destination",
+    file: "workers/intel-gateway/src/cyber-watchdog.js",
+    find: "  if (!isSignedV3(d)) return \"disabled\";\n  return d.state || \"pending\";",
+    replace: "  if (!d) return \"disabled\";\n  return d.state || \"active\";",
+    tests: [T("watchdog-rollback-compat.test.js")],
+  },
+  {
+    id: "kill_switch_default_open",
+    file: "workers/intel-gateway/src/watchdog-policy.js",
+    find: "  return !!env && env[WEBHOOK_DELIVERY_FLAG] === \"true\";",
+    replace: "  return !env || env[WEBHOOK_DELIVERY_FLAG] !== \"false\";",
+    tests: [T("watchdog-rollback-compat.test.js")],
   },
   {
     id: "homepage_missing_state_is_live",

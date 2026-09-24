@@ -207,10 +207,38 @@ CDB_WATCHDOG_CANARY_MSSP_KEY=… npm run canary:watchdog -- mssp        # key mu
 
 ## 13. Deploy and rollback
 
-The deploy adds one binding (`WATCHDOG_SCHEDULER`) and one migration (`v3-watchdog-scheduler`, `new_sqlite_classes`). `wrangler deploy --dry-run --env production` with the pinned wrangler 3.114.17 succeeds (1499 KiB, 350 KiB gzip).
+The deploy adds one binding (`WATCHDOG_SCHEDULER`), one migration (`v3-watchdog-scheduler`, `new_sqlite_classes`) and one variable (`WATCHDOG_WEBHOOK_DELIVERY_ENABLED = "true"`). `wrangler deploy --dry-run --env production` with the pinned wrangler 3.114.17 succeeds.
 
-**Rollback:** revert the commit and redeploy.
+**Rollback: revert and redeploy. V3 signed destinations are inert under the previous implementation.**
 
-* The new DO class stays unused; leave its migration in place.
-* Existing ledgers keep their data. v3 fields (`deliveries`, `revision`, `metrics`, destination `state`/`secret`) are ignored by v2 code. v2 would read v3 destinations as plain URLs and POST to them **unsigned**, so disable Enterprise destinations before rolling back if any exist.
-* Browser sessions stop working, so the old page must be restored with the revert.
+### Why the rollback is safe
+
+The previous implementation (main @ `6ac0385`) POSTs, unsigned, to the `url` of **every** element of `destinations` in the Durable Object storage key `"ledger"`. It reads no state or protocol field (`cyber-watchdog.js@6ac0385:957-960`). A state or protocol marker alone would therefore not stop it.
+
+v3 persists signed destinations under a separate storage key, `watchdog_v3_signed_destinations`, which v2 never reads or writes. `"ledger".destinations` holds only legacy v2 rows. v3 also marks its rows `delivery_protocol: "signed-v3"` and treats anything without that marker and a `whsec_` secret as disabled. So compatibility holds in both directions:
+
+| persisted destination | v3 | previous v2 |
+|---|---|---|
+| legacy v2 (`url`, no secret) | disabled, re-registration required | active (unchanged v2 behavior) |
+| v3 pending | pending, never delivered | invisible, never delivered |
+| v3 verified signed | **active** | **invisible, never delivered** |
+| v3 disabled | disabled | invisible, never delivered |
+
+`watchdog-rollback-compat.test.js` proves this with the real v2 router and v2 `WatchdogLedger` (vendored byte-for-byte in `__tests__/fixtures/watchdog-v2`, hash-checked) running over storage written by the real v3 ledger:
+
+* v2 does run its delivery loop, and only ever POSTs to the legacy URL.
+* A ledger holding only v3 destinations makes zero outbound requests under v2.
+* v2 writes do not delete v3 destinations, so rolling forward again restores them.
+
+Negative controls: `v3_verified_persisted_in_v2_readable_ledger` (put signed rows back into `"ledger"`) and `v3_accepts_unsigned_v2_destination` both turn the suite red.
+
+### Kill switch (secondary control)
+
+`WATCHDOG_WEBHOOK_DELIVERY_ENABLED` is fail-closed: only the exact string `"true"` enables outbound webhook deliveries and verification challenges; absent or any other value disables them. It is set explicitly to `"true"` in `[vars]` and `[env.production.vars]`. When it is off, pending deliveries are kept, not attempted, and resume after delivery is re-enabled. It is exposed as `webhook_delivery_enabled` on `/api/watchdog/ops`. To stop all customer webhook traffic without a code rollback, set it to `"false"` and deploy (or change the variable in the Cloudflare dashboard).
+
+### Operational notes for the revert commit (not code-proven here)
+
+* **Keep the scheduler Durable Object class.** Cloudflare normally refuses to deploy a script that stops exporting a Durable Object class that has a namespace, unless a `deleted_classes` migration is added. The revert should therefore keep an inert `WatchdogScheduler` export, the `WATCHDOG_SCHEDULER` binding and the `v3-watchdog-scheduler` migration, or add a `deleted_classes` migration. I could not check this against the live account from CI.
+* **Pending v3 ledger alarms.** Alarms armed by v3 may fire once more after a revert. The v2 `WatchdogLedger` has no alarm handler, so no request is made.
+* **Browser sessions.** Sessions stop working after a revert, so the previous page returns with the revert.
+* **Leftover data.** Existing ledgers keep their data. v2 ignores the v3 event fields (`deliveries`, `revision`, `metrics`).

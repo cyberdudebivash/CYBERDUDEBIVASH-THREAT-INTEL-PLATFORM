@@ -152,7 +152,7 @@ import { classifyManifestFreshness, evaluatePublicIntelligence, healthEdgeTtlSec
 import { publicationEnvelope } from './freshness-contract.js';
 import { runWatchdogCycle } from './watchdog-scheduler.js';
 import { generateSigningSecret, resolveAndValidate, runVerificationChallenge } from './watchdog-webhook.js';
-import { SESSION_POLICY as WATCHDOG_SESSION_POLICY } from './watchdog-policy.js';
+import { SESSION_POLICY as WATCHDOG_SESSION_POLICY, webhookDeliveryEnabled } from './watchdog-policy.js';
 // Issue #288: Durable Object class the Workers runtime instantiates via the
 // GUMROAD_PROVISIONING_LOCK binding (wrangler.toml). Must be a named export
 // of the Worker's main module -- see gumroad-provisioning-lock.js's header
@@ -8269,13 +8269,14 @@ function watchdogDeps(env, ctx) {
     },
     metrics: async (nowMs) => {
       const out = await sched.mutate({ type: "metrics", now: new Date(nowMs || Date.now()).toISOString() });
-      return out && out.result ? out.result : { error: "scheduler_unavailable" };
+      return out && out.result ? { ...out.result, webhook_delivery_enabled: webhookDeliveryEnabled(env) } : { error: "scheduler_unavailable" };
     },
   } : null;
   return {
     ledgerFor,
     ledger: null,
     scheduler,
+    webhookDeliveryEnabled: webhookDeliveryEnabled(env),
     resolveDestination: (hostname) => resolveAndValidate(hostname, fetch),
     verifyDestination: ({ destination, nonce }) => runVerificationChallenge({ destination, nonce, fetchImpl: fetch }),
   };
