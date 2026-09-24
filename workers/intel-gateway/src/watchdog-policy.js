@@ -145,3 +145,29 @@ export const WEBHOOK_DELIVERY_FLAG = "WATCHDOG_WEBHOOK_DELIVERY_ENABLED";
 export function webhookDeliveryEnabled(env) {
   return !!env && env[WEBHOOK_DELIVERY_FLAG] === "true";
 }
+
+// Watch Definition v2 and Exposure Profile v1 input bounds. Structure limits,
+// not commercial quotas: plan watch counts stay in WATCHDOG_FEATURES.
+export const DEFINITION_LIMITS = Object.freeze({
+  name_max: 80,
+  values_per_list: 8,
+  total_values: 40,
+  term_max: 48,
+  package_max: 120,
+});
+
+export const PROFILE_LIMITS = Object.freeze({
+  values_per_list: 25,
+  total_values: 100,
+  term_max: 64,
+  package_max: 120,
+});
+
+// Preview bounds: one feed read (the same R2 GET as /brief), no write.
+export const PREVIEW_POLICY = Object.freeze({
+  max_items_scanned: 500,
+  sample_size: 10,
+  // A rule matching at least this share of the current feed gets a
+  // deterministic "broad rule" warning. Nothing is blocked.
+  broad_match_ratio: 0.5,
+});

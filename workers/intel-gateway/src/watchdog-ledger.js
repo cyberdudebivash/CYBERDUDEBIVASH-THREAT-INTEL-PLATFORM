@@ -13,6 +13,7 @@
  */
 import {
   LEDGER_STORAGE_KEY,
+  PROFILE_STORAGE_KEY,
   SIGNED_DESTINATIONS_STORAGE_KEY,
   applyLedgerMutation,
   fromPersisted,
@@ -35,7 +36,7 @@ export class WatchdogLedger {
     // the only key the previous implementation reads, and it never holds a
     // signed v3 destination, so a code rollback cannot deliver to one.
     const rawLedger = await this.state.storage.get(LEDGER_STORAGE_KEY);
-    const current = fromPersisted(rawLedger, await this.state.storage.get(SIGNED_DESTINATIONS_STORAGE_KEY));
+    const current = fromPersisted(rawLedger, await this.state.storage.get(SIGNED_DESTINATIONS_STORAGE_KEY), await this.state.storage.get(PROFILE_STORAGE_KEY));
     // Read-migrate: a signed row still in "ledger" (early v3, 6977abf) is moved
     // out on ANY access, reads included, not only on the next write.
     const migrate = ledgerNeedsMigration(rawLedger);
@@ -49,6 +50,10 @@ export class WatchdogLedger {
       const persisted = toPersisted(out.state);
       await this.state.storage.put(SIGNED_DESTINATIONS_STORAGE_KEY, persisted.signed);
       await this.state.storage.put(LEDGER_STORAGE_KEY, persisted.ledger);
+      // The exposure profile key is written only by profile operations, in
+      // the same serialized request as the ledger write.
+      if (op.type === "set_profile" && persisted.profile) await this.state.storage.put(PROFILE_STORAGE_KEY, persisted.profile);
+      if (op.type === "delete_profile") await this.state.storage.delete(PROFILE_STORAGE_KEY);
     }
     if (!out.error && op && op.subject && op.type !== "get") {
       // Remember whose ledger this is for the alarm (no secrets).

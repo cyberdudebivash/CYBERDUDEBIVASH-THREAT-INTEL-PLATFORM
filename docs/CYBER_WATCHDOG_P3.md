@@ -318,3 +318,159 @@ The platform feed stores `epss_score` as a **percent (0–100)**. Both producers
 * History is not rewritten. Events stored with `watchdog-priority-1` keep their stored explanation and show that version; only new events carry v2.
 
 Proof: `watchdog-epss-scale.test.js` (6 tests, live-feed value shapes) and 3 negative controls (`epss_read_as_probability_not_percent`, `min_epss_compared_to_raw_percent`, `kev_string_ignored`).
+
+## 15. Advanced watches, exposure profiles and customer relevance (PR-B)
+
+### Feed schema audit (live `/api/v1/intel/latest.json`, 2026-09-24, 44 items)
+
+Watch criteria are offered only for fields the authoritative feed actually carries.
+
+| Field | Available | Normalized | Source | Safe for watch criteria |
+|---|---|---|---|---|
+| title, description | 100% | text | producers | yes, `keywords` only (whole-token phrase) |
+| severity | 100% | CRITICAL/HIGH/MEDIUM/LOW | producers | yes, `severity_min` |
+| source | 100% | exact string | producers | yes, `sources` (exact, not substring) |
+| lens | derived | enum | `classifyItem()` | yes, `lenses` |
+| cve_ids | 57% | CVE-YYYY-N | producers | yes, `cves` |
+| cvss_score | 55% | 0–10 | GHSA / NVD | yes, `cvss_min` |
+| epss_score | 36% | percent 0–100 (section 14) | FIRST.org × 100 | yes, `epss_min` (0–1 probability) |
+| kev_present / kev_confirmed / kev | ~100% | bool or "YES"/"NO" | CISA KEV | yes, `kev` true/false (unknown matches neither) |
+| attck_technique_ids | 32% | T#### | producers | yes, `techniques` (exact id) |
+| ioc_types | 16% | enum strings | producers | yes, `ioc_types` (low coverage) |
+| kev_product | 11% | CISA vendor + product string | CISA KEV | yes, `vendors` (leading tokens), `products` (token run) |
+| package tags (`npm:`, `pip:`, `maven:`, `go:`, `composer:`) | ~34% | `ecosystem:name` | GHSA | yes, `packages` (exact id) |
+| vendor, product, affected_products | absent or always empty | — | — | **no** |
+| actor_tag | placeholders (`CDB-UNATTR-*`) | — | internal | **no** |
+| malware / ransomware family | absent | — | — | **no** |
+| actor_sectors, actor_country | null on the live feed | — | — | **no** |
+| exploit_maturity | present, producer unverified | — | unknown | **no** |
+
+### Watch Definition v2 (`watchdog-definition.js`)
+
+```
+{ "version": 2, "name": "...", "enabled": true, "logic": "AND" | "OR",
+  "criteria": { "keywords": [], "cves": [], "vendors": [], "products": [], "packages": [],
+                "sources": [], "lenses": [], "techniques": [], "ioc_types": [],
+                "severity_min": null, "cvss_min": null, "epss_min": null, "kev": null } }
+```
+
+* **Bounds:** name ≤ 80; ≤ 8 values per list; ≤ 40 values in total; term ≤ 48; package id ≤ 120.
+* **Numbers must be JSON numbers:** `cvss_min` 0–10, `epss_min` 0–1. NaN, Infinity, negatives, out-of-range values and numeric strings are refused.
+* **Refused rather than dropped:** unknown top-level fields (owner, subject, tenant, customer_id), unknown or schema-unsafe criteria, `__proto__`/`constructor`/`prototype`, and operators other than AND/OR.
+* **Text handling:** values are NFKC-normalized and case-folded, with control, zero-width and bidi characters removed. A homoglyph is a different character and does not match.
+* **No code execution:** no eval, and no regular expression is built from customer input.
+* **Matching:** identifiers match exactly or as whole-token runs, never substrings (`Micro` does not match `Microsoft`). Every hit cites `{criterion, value, feed_field, feed_value}`.
+* **Rule text:** `ruleLines()` produces the "MATCH WHEN" text shown in the builder, the preview and the watch list.
+* **v1 compatibility:** watches without `version` keep the original matcher byte for byte, including its substring semantics. A v2 watch never downgrades.
+* **Rollback safety:** a v2 watch is stored with `criteria: {}` and its definition under `v2_criteria`. Code that predates v2 reads only `criteria` with v1 semantics, so after a code rollback a v2 watch is an empty watch that can never match. It is never re-interpreted (for example `vendors` as substring, or `severity_min` ignored), and it is intact for the roll-forward. This is proven by a test that runs the stored watch through the v1 matcher, and by the negative control `v2_watch_readable_by_pre_v2_code`.
+
+### Exposure Profile v1 (`watchdog-relevance.js`)
+
+```
+{ "version": 1, "vendors": [], "products": [], "packages": [], "technologies": [] }
+```
+
+The Exposure Profile is **customer-declared technology relevance**. It is **not** vulnerability scanning, asset discovery or exposure verification. A match means only "this intelligence matches technology in your configured exposure profile".
+
+* **Bounds:** ≤ 25 values per list, ≤ 100 in total, term ≤ 64.
+* **Ownership:** the profile belongs to the authenticated subject (PRO/ENTERPRISE) or subject + authorized tenant (MSSP). Owner, tenant and subject are never read from the body.
+* **Storage:** the existing WatchdogLedger Durable Object (the same object as that customer's watches and events), under its own key `watchdog_exposure_profile_v1`:
+  * Updates are serialized with every watch and event mutation, and the key is written only by profile operations.
+  * Code that predates the profile never reads this key, so a rollback leaves it intact.
+  * Delete removes the key.
+  * No R2, no LIST, no global scan.
+* **Entitlement (owner review):** no product decision existed, so the profile follows the existing paid Watchdog policy: PRO and above (`quota.events`). There is no new quota, add-on or invoice. Watch limits stay 25/200/200 from `WATCHDOG_FEATURES`.
+
+### Three separate decisions
+
+| Concept | Question | Engine | Version |
+|---|---|---|---|
+| Threat priority | How urgent is the intelligence itself? | `computeEventPriority` (section 14), from the feed item only | `watchdog-priority-2` |
+| Customer relevance | Does it match technology the customer declared? | `computeRelevance` | `watchdog-relevance-1` |
+| Queue rank ("customer priority") | Where does it sit in this customer's queue? | `computeQueueRank` | `watchdog-queue-rank-1` |
+
+**Relevance levels:**
+
+* **MATCHED:** a structured identifier matched. That is a profile vendor/product against the CISA `kev_product` whole tokens, or a package id against the feed tags.
+* **MENTIONED:** only advisory text names a profile value.
+* **NOT_MATCHED** and **NO_PROFILE.**
+* **LEGACY:** events recorded before relevance existed.
+
+**Queue rank** = 10 × threat band rank + relevance bonus (MATCHED 15, MENTIONED 5). This gives:
+
+> matched CRITICAL (55) > matched HIGH (45) = mentioned CRITICAL (45) > CRITICAL (40) > matched MEDIUM (35) = mentioned HIGH (35) > HIGH (30) > …
+
+Ties are broken by threat score, then by newest. Upstream severity, CVSS and the threat band are never changed. The inbox shows threat priority and relevance as separate columns, and `sort=customer` orders by queue rank.
+
+### Evidence snapshot and immutability
+
+Every new event stores a bounded `evidence` record (worst case ≤ 4096 bytes, asserted):
+
+* **Item:** id, material revision, source, severity, CVSS, EPSS percent, KEV state, `kev_product`, ≤ 3 package ids, ≤ 12 CVEs.
+* **Feed:** `feed_generated_at`.
+* **Watch:** id, definition version, logic, ≤ 8 cited hits.
+* **Profile:** version, `ref` (revision + FNV hash of the normalized profile), ≤ 6 cited relevance hits.
+* **Versions:** `{watch_definition, priority, relevance, queue_rank, classifier}`.
+
+The event also stores `relevance {v, level}`, `queue_rank {v, score}` and `watch_definition_version`.
+
+Historical explanations are read **only** from these stored records. They are never recomputed with today's profile, watch or formula. `GET /api/watchdog/events/item` adds a separate `current_context` (priority and relevance computed now from the FRESH feed and the current profile). The UI shows **Original match** and **Current context** as distinct sections.
+
+Legacy events report relevance `LEGACY` and `evidence_status: "EVIDENCE_SNAPSHOT_NOT_AVAILABLE"`. There is no reconstruction and no mass rewrite.
+
+**Measured sizes** (`watchdog-exposure-relevance.test.js`):
+
+| | Bytes |
+|---|---|
+| Legacy event | 626 |
+| New event, v1 watch | 1,696 |
+| New event, v2 watch with profile | 2,054 |
+| Full 200-event ledger | ~410 KB, 20% of the 2 MB per-value limit; the test bound is < 1 MB |
+
+### Routes (additive)
+
+| Route | Scope | Notes |
+|---|---|---|
+| `GET /api/watchdog/profile` | `watchdog:read` | `{profile, tenant, semantics}` |
+| `PUT /api/watchdog/profile` | `watchdog:watches:write` | Validated; `created` flag; existing events keep their recorded relevance |
+| `DELETE /api/watchdog/profile` | `watchdog:watches:write` | Deterministic delete of the profile key |
+| `POST /api/watchdog/watches/preview` | `watchdog:read` | v2 definition → `{rule, matched_count, feed_items_scanned, match_ratio, sample[≤10] with why/priority/relevance, warnings, persisted:false}` |
+| `POST/PATCH /api/watchdog/watches` | unchanged | Body `version: 2` creates or edits a v2 definition; an enabled-only PATCH keeps it |
+| `GET /api/watchdog/events` | unchanged | New filters `relevance`, `kev=yes\|no\|unknown`, `source`, `sort=customer`; additive analytics `by_relevance`, `open_profile_matched` |
+
+**Preview writes nothing to the customer ledger.** It creates no event, registers no scheduler subject and sends no webhook. It uses the already-loaded feed (one R2 GET, no LIST) and scans ≤ 500 items.
+
+**Broad-rule warning:** a rule matching ≥ 50% of the scanned feed returns, for example, "This rule currently matches 82% of the available feed." Nothing is blocked, and there is no invented quality score.
+
+### Telemetry (privacy-safe, existing infrastructure)
+
+Hourly aggregate counters are kept in the existing WatchdogScheduler operator metrics and shown under `GET /api/watchdog/ops` → `product_24h`:
+
+* `signins` (key exchanges only)
+* `previews`
+* `watches_created_v2`
+* `profiles_saved`
+* `profiles_deleted`
+* `evidence_views`
+* `status_changes`
+
+No subject, tenant, key, profile value, watch value, note or secret is recorded (asserted). Anonymous page views are not counted, because anonymous requests never write. Upgrade intent is carried by the existing `feature=` parameter on upgrade links. Each counted action costs one scheduler DO request, which is also the only write a preview makes.
+
+### FinOps (measured with the harness)
+
+| Operation | R2 GET | R2 LIST | Ledger DO requests | Scheduler DO requests | Ledger reads / writes |
+|---|---|---|---|---|---|
+| Profile create or update | 0 | 0 | 1 | 1 (metric) | 4 / 3 |
+| Watch preview | 1 | 0 | 1 | 1 (metric) | 3 / 0 |
+| Advanced watch create | 0 | 0 | 1 | 2 (register + metric) | 4 / 2 |
+| Scheduler tick, 1 subject | 1 | 0 | 1 | 3 | 4 / 2 |
+
+The profile adds one storage read per ledger access. There is no new Cloudflare service, no global customer or profile scan, and no write on an anonymous page refresh.
+
+### Limitations
+
+* **Vendor/product relevance is narrow.** The feed has no general vendor/product field, so structured relevance covers only CISA KEV items (`kev_product`, ~11%) and GHSA package advisories (~34%). Everything else can at most be **MENTIONED** by text.
+* **`products` is a whole-token run** inside `kev_product`. A single generic token (for example "Server") therefore matches every KEV product containing that word. The preview shows the effect before saving.
+* **ATT&CK sub-techniques** match exactly. `T1566` does not match `T1566.002`.
+* **Telemetry has no client-only signals.** Opening the builder and anonymous views are not counted.
+* **Proof:** `watchdog-exposure-relevance.test.js` (23 tests) and 14 negative controls (62/62 caught).

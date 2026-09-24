@@ -54,6 +54,11 @@ function kevFlag(item) {
   return null;
 }
 
+/** CISA KEV state from the feed: true (listed), false (feed says not listed), null (unknown). */
+export function kevListed(item) {
+  return item && typeof item === "object" ? kevFlag(item) : null;
+}
+
 /**
  * EPSS as a 0..1 probability, from the feed's epss_score.
  *

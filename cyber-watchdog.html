@@ -44,6 +44,19 @@
   textarea { width:100%; background:#0b121c; color:var(--ink); border:1px solid var(--line); border-radius:8px; padding:8px; font:inherit; }
   .upsell { border-color:#1f5a4f; }
   select, input { max-width:100%; }
+  .rel { display:inline-block; padding:2px 8px; border-radius:6px; font-size:12px; font-weight:700; border:1px solid var(--line); }
+  .rel-MATCHED { background:#10263a; color:#9fd3ff; border-color:#2b5d86; }
+  .rel-MENTIONED { background:#1d1a33; color:#c9b8ff; border-color:#4a3f86; }
+  .rel-NOT_MATCHED, .rel-NO_PROFILE, .rel-LEGACY { background:#161d29; color:var(--dim); }
+  .builder { border:1px solid var(--line); border-radius:12px; padding:14px; margin-top:12px; }
+  .builder fieldset { border:0; padding:0; margin:0; display:flex; flex-wrap:wrap; gap:8px; align-items:end; }
+  .builder legend { color:var(--dim); font-size:13px; margin-bottom:6px; }
+  details.adv { margin-top:10px; }
+  details.adv summary { cursor:pointer; color:var(--accent); font-weight:700; }
+  .rule { background:#0b121c; border:1px solid var(--line); border-radius:8px; padding:10px; font-family:ui-monospace, SFMono-Regular, Menlo, monospace; font-size:13px; white-space:pre-wrap; }
+  .sr-only { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; }
+  button:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-visible, summary:focus-visible, a:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
+  @media (max-width: 640px) { .col-opt { display:none; } }
   @media (max-width: 640px) { table { display:block; overflow-x:auto; } }
 </style>
 </head>
@@ -92,12 +105,71 @@
       <button type="button" id="signout">Sign out</button>
     </form>
     <p class="meta" id="sessionstatus">Not signed in.</p>
-    <form id="watchform" style="margin-top:12px">
-      <label>Name<input id="wname" maxlength="80" required></label>
-      <label>Keyword<input id="wkw" maxlength="48" placeholder="ransomware"></label>
-      <label>CVE<input id="wcve" maxlength="20" placeholder="CVE-2026-1000"></label>
-      <button type="submit">Save watch</button>
-    </form>
+    <div id="profilebox" class="builder" hidden>
+      <h3 style="margin:0 0 4px">Exposure profile</h3>
+      <p class="meta">Declare the technology your organization uses. Watchdog then marks intelligence that <strong>matches your exposure profile</strong>. This is customer-declared technology relevance. It is not vulnerability scanning, asset discovery or exposure verification, and a match does not mean an asset is affected. Vendor and product match CISA KEV product names as whole words; packages match exact package identifiers such as <code>npm:express</code>; other technologies are matched by name in advisory text and shown as a weaker "mentioned" signal. Comma-separated.</p>
+      <form id="profileform" aria-describedby="profilestatus">
+        <label>Vendors<input id="pvendors" maxlength="1700" placeholder="Microsoft, Fortinet"></label>
+        <label>Products<input id="pproducts" maxlength="1700" placeholder="FortiOS, Exchange Server"></label>
+        <label>Packages<input id="ppackages" maxlength="3100" placeholder="npm:express, pip:django"></label>
+        <label>Other technologies<input id="ptech" maxlength="1700" placeholder="Kubernetes, Azure"></label>
+        <button type="submit">Save profile</button>
+        <button type="button" id="profiledelete" class="btn-ghost">Remove profile</button>
+      </form>
+      <p class="meta" id="profilestatus" role="status" aria-live="polite"></p>
+    </div>
+    <div id="builder" class="builder" hidden>
+      <h3 style="margin:0 0 4px">Watch builder</h3>
+      <form id="watchform" aria-describedby="builderstatus">
+        <fieldset>
+          <legend>Basic</legend>
+          <label>Name<input id="wname" maxlength="80" required></label>
+          <label>Match
+            <select id="wbasictype">
+              <option value="keywords">Keyword in advisory text</option>
+              <option value="vendors">CISA KEV vendor</option>
+              <option value="products">CISA KEV product</option>
+              <option value="cves">CVE id</option>
+            </select>
+          </label>
+          <label>Value<input id="wbasicvalue" maxlength="48" placeholder="ransomware, Microsoft, CVE-2026-1000"></label>
+          <label>Minimum severity
+            <select id="wsev"><option value="">Any</option><option>LOW</option><option>MEDIUM</option><option>HIGH</option><option>CRITICAL</option></select>
+          </label>
+        </fieldset>
+        <details class="adv" id="advanced">
+          <summary>Advanced criteria</summary>
+          <fieldset style="margin-top:10px">
+            <legend>All lists are comma-separated. Leave a field empty to ignore it.</legend>
+            <label>Combine criteria
+              <select id="wlogic"><option value="AND">ALL must match (AND)</option><option value="OR">ANY may match (OR)</option></select>
+            </label>
+            <label>More keywords<input id="wkeywords" maxlength="400"></label>
+            <label>CVE ids<input id="wcves" maxlength="400" placeholder="CVE-2026-1000"></label>
+            <label>KEV vendors<input id="wvendors" maxlength="400"></label>
+            <label>KEV products<input id="wproducts" maxlength="400"></label>
+            <label>Packages<input id="wpackages" maxlength="900" placeholder="npm:express"></label>
+            <label>Sources<input id="wsources" maxlength="600" placeholder="CISA KEV"></label>
+            <label>ATT&amp;CK techniques<input id="wtechniques" maxlength="120" placeholder="T1190"></label>
+            <label>Indicator types<input id="wioc" maxlength="200" placeholder="ip_address, url"></label>
+            <label>Lens
+              <select id="wlens"><option value="">Any</option><option value="cybersecurity">Cybersecurity</option><option value="technology">Technology</option><option value="security_operations">Security operations</option></select>
+            </label>
+            <label>CVSS at least<input id="wcvss" type="number" min="0" max="10" step="0.1" inputmode="decimal"></label>
+            <label>EPSS at least (%)<input id="wepss" type="number" min="0" max="100" step="0.1" inputmode="decimal"></label>
+            <label>CISA KEV
+              <select id="wkev"><option value="">Any</option><option value="true">Listed</option><option value="false">Not listed</option></select>
+            </label>
+          </fieldset>
+        </details>
+        <p style="margin:10px 0 0">
+          <button type="button" id="wpreview" class="btn-ghost">Preview against the live feed</button>
+          <button type="submit">Save watch</button>
+        </p>
+      </form>
+      <p class="meta" id="builderstatus" role="status" aria-live="polite"></p>
+      <div id="previewbox"></div>
+    </div>
     <p class="meta" id="watchstatus"></p>
     <div id="watchlist"></div>
     <h2>Match inbox</h2>
@@ -122,8 +194,18 @@
         <option value="LOW">Low</option>
         <option value="INSUFFICIENT_EVIDENCE">Insufficient evidence</option>
       </select></label>
+      <label>Relevance<select id="frelevance">
+        <option value="">Any</option>
+        <option value="MATCHED">Matches your exposure profile</option>
+        <option value="MATCHED,MENTIONED">Matched or mentioned</option>
+        <option value="NOT_MATCHED,NO_PROFILE">No profile match</option>
+      </select></label>
+      <label>CISA KEV<select id="fkev">
+        <option value="">Any</option><option value="yes">Listed</option><option value="no">Not listed</option><option value="unknown">Unknown</option>
+      </select></label>
       <label>Sort<select id="fsort">
-        <option value="priority">Priority</option>
+        <option value="customer">Customer priority</option>
+        <option value="priority">Threat priority</option>
         <option value="newest">Newest</option>
         <option value="oldest">Oldest</option>
       </select></label>
@@ -294,7 +376,7 @@ async function loadWatches() {
   const rows = data.watches || [];
   if (!rows.length) { watchlist.innerHTML = '<p class="meta">No watches saved.</p>'; return; }
   watchlist.innerHTML = `<table><thead><tr><th>Watch</th><th>Logic</th><th></th></tr></thead><tbody>${rows.map((w) => `<tr>
-    <td><strong>${esc(w.name)}</strong><div class="meta">${w.enabled === false ? 'disabled' : 'enabled'}</div></td>
+    <td><strong>${esc(w.name)}</strong><div class="meta">${w.enabled === false ? 'disabled' : 'enabled'} · definition v${esc(w.version || 1)}</div>${w.rule ? `<div class="rule" style="margin-top:6px">${esc(ruleText(w.rule))}</div>` : ''}</td>
     <td>${esc(w.logic || 'OR')}</td>
     <td>
       <button type="button" data-act="toggle" data-id="${esc(w.id)}" data-enabled="${w.enabled === false ? 'false' : 'true'}">${w.enabled === false ? 'Enable' : 'Disable'}</button>
@@ -322,6 +404,90 @@ function statusSelect(e) {
   const can = signedIn() && (session.scopes || []).includes('watchdog:events:ack');
   return `<select data-act="status" data-id="${esc(e.id)}" aria-label="Triage status"${can ? '' : ' disabled'}>${STATUSES.map((st) => `<option value="${st}"${st === cur ? ' selected' : ''}>${st.charAt(0) + st.slice(1).toLowerCase()}</option>`).join('')}</select>`;
 }
+const REL_LABEL = { MATCHED: 'Matches your exposure profile', MENTIONED: 'Mentioned in advisory text', NOT_MATCHED: 'No profile match', NO_PROFILE: 'No profile', LEGACY: 'Legacy event' };
+function relevanceBadge(r) {
+  const level = r && REL_LABEL[r.level] ? r.level : 'LEGACY';
+  return `<span class="rel rel-${esc(level)}">${esc(REL_LABEL[level])}</span>`;
+}
+function evidenceFacts(e) {
+  const it = e.evidence && e.evidence.item;
+  if (!it) return '';
+  const bits = [];
+  if (it.kev === true) bits.push('CISA KEV listed');
+  if (it.kev === false) bits.push('Not in CISA KEV');
+  if (it.cvss != null) bits.push('CVSS ' + it.cvss);
+  if (it.epss_percent != null) bits.push('EPSS ' + it.epss_percent + '%');
+  if (it.kev_product) bits.push(it.kev_product);
+  (it.packages || []).forEach((p) => bits.push(p));
+  return bits.join(' · ');
+}
+function splitList(id) {
+  return document.getElementById(id).value.split(',').map((v) => v.trim()).filter(Boolean);
+}
+function numberOrNull(id) {
+  const v = document.getElementById(id).value.trim();
+  if (v === '') return null;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : NaN;
+}
+function buildDefinition() {
+  const criteria = {};
+  const add = (key, values) => { if (values.length) criteria[key] = (criteria[key] || []).concat(values).filter((v, i, a) => a.indexOf(v) === i); };
+  const basicType = document.getElementById('wbasictype').value;
+  const basicValue = document.getElementById('wbasicvalue').value.trim();
+  if (basicValue) add(basicType, [basicValue]);
+  const sev = document.getElementById('wsev').value;
+  if (sev) criteria.severity_min = sev;
+  add('keywords', splitList('wkeywords'));
+  add('cves', splitList('wcves'));
+  add('vendors', splitList('wvendors'));
+  add('products', splitList('wproducts'));
+  add('packages', splitList('wpackages'));
+  add('sources', splitList('wsources'));
+  add('techniques', splitList('wtechniques'));
+  add('ioc_types', splitList('wioc'));
+  const lens = document.getElementById('wlens').value;
+  if (lens) criteria.lenses = [lens];
+  const cvss = numberOrNull('wcvss');
+  if (cvss !== null) criteria.cvss_min = cvss;
+  const epss = numberOrNull('wepss');
+  if (epss !== null) criteria.epss_min = Number.isFinite(epss) ? Math.round(epss * 100) / 10000 : epss;
+  const kev = document.getElementById('wkev').value;
+  if (kev) criteria.kev = kev === 'true';
+  return { version: 2, name: document.getElementById('wname').value.trim(), logic: document.getElementById('wlogic').value, criteria };
+}
+function ruleText(rule) {
+  if (!rule || !rule.lines || !rule.lines.length) return '';
+  return 'MATCH WHEN:\n  ' + rule.lines.join('\n' + (rule.logic === 'OR' ? 'OR ' : 'AND '));
+}
+function whyMatched(hits) {
+  return (hits || []).map((h) => `<li>${esc(h.criterion)}${h.value !== undefined ? ' = ' + esc(h.value) : ''}${h.feed_field ? ` <span class="meta">(feed field ${esc(h.feed_field)}${h.feed_value !== undefined && h.feed_value !== null && h.feed_value !== h.value ? ': ' + esc(h.feed_value) : ''})</span>` : ''}</li>`).join('');
+}
+async function loadProfile() {
+  const box = document.getElementById('profilebox');
+  const builder = document.getElementById('builder');
+  box.hidden = !signedIn();
+  builder.hidden = !signedIn();
+  if (!signedIn()) return;
+  const res = await fetch(api('/api/watchdog/profile'), { headers: headers() });
+  const data = await res.json().catch(() => ({}));
+  const st = document.getElementById('profilestatus');
+  if (!res.ok) { st.textContent = data.message || data.error || 'Profile unavailable.'; return; }
+  const p = data.profile;
+  document.getElementById('pvendors').value = p ? p.vendors.join(', ') : '';
+  document.getElementById('pproducts').value = p ? p.products.join(', ') : '';
+  document.getElementById('ppackages').value = p ? p.packages.join(', ') : '';
+  document.getElementById('ptech').value = p ? p.technologies.join(', ') : '';
+  st.textContent = p ? `Profile revision ${p.revision}${data.tenant ? ' · tenant ' + data.tenant : ''}. New matches are evaluated against it; existing events keep the relevance recorded when they were created.` : 'No exposure profile yet. Watches still work; relevance shows "No profile".';
+}
+function renderPreview(data) {
+  const box = document.getElementById('previewbox');
+  const warn = (data.warnings || []).map((w) => `<p class="warn">${esc(w.message)}</p>`).join('');
+  const rows = (data.sample || []).map((x) => `<tr><td>${priorityBadge(x.priority)}</td><td>${relevanceBadge(x.relevance)}</td><td><strong>${esc(x.title)}</strong><div class="meta">${esc(x.severity || '')} · ${esc(x.source || '')}</div><ul class="meta">${whyMatched(x.why_matched)}</ul></td></tr>`).join('');
+  box.innerHTML = `<div class="rule" aria-label="Rule preview">${esc(ruleText(data.rule))}</div>
+    <p><strong>${esc(data.matched_count)}</strong> of ${esc(data.feed_items_scanned)} items on the current feed match (${esc(Math.round((data.match_ratio || 0) * 100))}%). Nothing was saved.</p>${warn}
+    ${rows ? `<table><thead><tr><th>Threat priority</th><th>Relevance</th><th>Sample match and why</th></tr></thead><tbody>${rows}</tbody></table>` : ''}`;
+}
 function inboxUrl() {
   const url = api('/api/watchdog/events');
   url.searchParams.set('limit', '50');
@@ -330,7 +496,11 @@ function inboxUrl() {
   else if (st) url.searchParams.set('status', st);
   const pr = document.getElementById('fpriority').value;
   if (pr) url.searchParams.set('priority', pr);
-  url.searchParams.set('sort', document.getElementById('fsort').value || 'priority');
+  const rel = document.getElementById('frelevance').value;
+  if (rel) url.searchParams.set('relevance', rel);
+  const kev = document.getElementById('fkev').value;
+  if (kev) url.searchParams.set('kev', kev);
+  url.searchParams.set('sort', document.getElementById('fsort').value || 'customer');
   const q = document.getElementById('fq').value.trim();
   if (q) url.searchParams.set('q', q);
   return url;
@@ -372,12 +542,20 @@ async function openDrawer(id) {
       <button type="submit">Save status</button>
       <span class="meta" id="drawermsg"></span>
     </form>
-    <h3>Why this priority</h3>
+    <h3>Why this matched</h3>
+    ${e.evidence ? `<ul>${whyMatched(e.evidence.watch.hits.map((h) => typeof h === 'string' ? { criterion: h } : h))}</ul><p class="meta">Watch definition v${esc(e.evidence.watch.definition_version)} · ${esc(e.evidence.watch.logic)}</p>` : `<p>${esc((e.reason || []).join(', ') || 'n/a')}</p>`}
+    <h3>Why it is relevant to you</h3>
+    <p>${relevanceBadge(e.relevance)}</p>
+    ${(e.relevance && e.relevance.reasons && e.relevance.reasons.length) ? `<ul>${e.relevance.reasons.map((r) => `<li>Your profile ${esc(r.type)} "${esc(r.profile_value)}" ${r.basis === 'identifier' ? 'matches the feed identifier' : 'is mentioned in the advisory text'} <span class="meta">(feed field ${esc(r.feed_field)})</span></li>`).join('')}</ul>` : ''}
+    <p class="meta">Relevance means the intelligence matches technology you declared in your exposure profile. It does not mean an asset is affected or vulnerable.</p>
+    <h3>Why it is prioritized</h3>
     ${p.band === 'INSUFFICIENT_EVIDENCE' ? '<p class="meta">Not scored: the matched feed item carries no KEV, CVSS, EPSS or severity evidence. Missing evidence is never counted as zero risk.</p>' : ''}
     <table><thead><tr><th>Factor</th><th>Points</th><th>Evidence</th></tr></thead><tbody>${factors}</tbody></table>
     ${(p.floors_applied || []).length ? `<p class="meta">Floors applied: ${esc(p.floors_applied.join(', '))}</p>` : ''}
-    <h3>Why it matched</h3>
-    <p>${esc((e.reason || []).join(', ') || 'n/a')} ${(e.cve_ids || []).map((c) => `<span class="lens">${esc(c)}</span>`).join('')}</p>
+    <p>${(e.cve_ids || []).map((c) => `<span class="lens">${esc(c)}</span>`).join('')}</p>
+    <h3>Original match (recorded evidence)</h3>
+    ${e.evidence ? `<p class="meta">Feed ${esc(e.evidence.feed_generated_at || 'unknown')} · item ${esc(e.evidence.item.id)} rev ${esc(e.evidence.item.revision || '')} · ${esc(evidenceFacts(e))}</p><p class="meta">Versions: definition v${esc(e.evidence.versions.watch_definition)} · ${esc(e.evidence.versions.priority)} · ${esc(e.evidence.versions.relevance || 'no relevance')} · ${esc(e.evidence.versions.queue_rank || '')} · profile ${esc(e.evidence.profile ? e.evidence.profile.ref : 'none')}</p>` : '<p class="meta">Legacy event: evidence snapshot not available. Nothing is reconstructed.</p>'}
+    ${data.current_context ? `<h3>Current context (computed now)</h3><p>${priorityBadge(data.current_context.priority)} ${relevanceBadge(data.current_context.relevance)}</p><p class="meta">Uses today's feed, formula and exposure profile. The original match above is what was recorded and does not change.</p>` : ''}
     <h3>Advisory</h3>
     <p class="meta">${esc(itemNote)}</p>
     ${item ? `<p>${esc(item.summary || '')}</p>` : ''}
@@ -414,6 +592,7 @@ async function loadEvents() {
       metric('Critical 24h', a.critical_matches_24h ?? 0, 'Severity on the matched item'),
       metric('Open', a.open ?? 0, 'New, acknowledged or investigating'),
       metric('Open critical', a.open_critical ?? 0, 'Evidence-cited CRITICAL priority, not yet resolved'),
+      metric('Open profile matches', a.open_profile_matched ?? 0, 'Open matches on technology in your exposure profile'),
       metric('Unread', a.unread ?? 0, 'Not yet acknowledged'),
       metric('Deliveries pending', a.deliveries_pending ?? 0, 'Queued or awaiting retry'),
       metric('Delivery failures', failures, a.delivery_failure_rate == null ? 'No final delivery result yet' : 'Final failures after retries'),
@@ -423,11 +602,12 @@ async function loadEvents() {
   const sources = (a.top_sources || []).map((x) => `${x.source} (${x.count})`).join(', ') || 'none yet';
   if (eventlist) {
     const events = data.events || [];
-    eventlist.innerHTML = `<p class="meta">Top matching watches: ${esc(tops)}. Top sources: ${esc(sources)}.</p>` + (events.length ? `<p class="meta">${esc(data.matched_total ?? events.length)} of ${esc(data.total ?? events.length)} stored matches in this view.</p><table><thead><tr><th>Priority</th><th>Match</th><th>Status</th><th>Delivery</th><th></th></tr></thead><tbody>${events.map((e) => `<tr>
+    eventlist.innerHTML = `<p class="meta">Top matching watches: ${esc(tops)}. Top sources: ${esc(sources)}.</p>` + (events.length ? `<p class="meta">${esc(data.matched_total ?? events.length)} of ${esc(data.total ?? events.length)} stored matches in this view.</p><table><thead><tr><th>Threat priority</th><th>Relevance</th><th>Match</th><th>Status</th><th class="col-opt">Delivery</th><th></th></tr></thead><tbody>${events.map((e) => `<tr>
       <td>${priorityBadge(e.priority)}</td>
-      <td><strong>${esc(e.title || e.matched_item_id)}</strong><div class="meta">${esc(e.severity || '')} · ${esc(e.source || '')} · ${esc(e.watch_name || '')} · ${esc(e.origin || '')}</div><div class="meta">Why: ${esc((e.reason || []).join(', '))}</div></td>
+      <td>${relevanceBadge(e.relevance)}</td>
+      <td><strong>${esc(e.title || e.matched_item_id)}</strong><div class="meta">${esc(e.severity || '')} · ${esc(e.source || '')} · watch ${esc(e.watch_name || '')}${data.tenant ? ' · tenant ' + esc(data.tenant) : ''}</div><div class="meta">${esc(evidenceFacts(e))}</div><div class="meta">Why: ${esc((e.reason || []).join(', '))}</div></td>
       <td>${statusSelect(e)}</td>
-      <td class="meta">${esc(deliveryText(e) || e.delivery_status || '')}</td>
+      <td class="meta col-opt">${esc(deliveryText(e) || e.delivery_status || '')}</td>
       <td><button type="button" class="btn-ghost" data-act="detail" data-id="${esc(e.id)}">Evidence</button>${e.acknowledged ? '' : ` <button type="button" data-act="ack" data-id="${esc(e.id)}">Acknowledge</button>`}</td>
     </tr>`).join('')}</tbody></table>` : (data.total ? '<p class="meta">No stored matches in this view. Change the filters to see the rest.</p>' : '<p class="meta">No stored matches yet.</p>'));
   }
@@ -460,6 +640,7 @@ async function loadDestinations() {
 function refreshAll() {
   showSession();
   loadBrief().catch(() => { status.textContent = 'Brief is not reachable yet.'; });
+  loadProfile().catch(() => {});
   loadWatches().catch(() => {});
   loadEvents().catch(() => {});
   loadDestinations().catch(() => {});
@@ -565,19 +746,41 @@ document.getElementById('signout').addEventListener('click', async () => {
 document.getElementById('watchform').addEventListener('submit', async (ev) => {
   ev.preventDefault();
   if (!signedIn()) { watchstatus.innerHTML = '<span class="warn">Sign in with a Pro, Enterprise or MSSP key first.</span>'; return; }
-  const body = {
-    name: document.getElementById('wname').value.trim(),
-    keywords: document.getElementById('wkw').value.trim() ? [document.getElementById('wkw').value.trim()] : [],
-    cves: document.getElementById('wcve').value.trim() ? [document.getElementById('wcve').value.trim()] : [],
-  };
+  const body = buildDefinition();
   const res = await fetch(api('/api/watchdog/watches'), {
     method: 'POST',
     headers: { ...headers(), 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
   });
   const data = await res.json();
-  watchstatus.textContent = data.message || (res.ok ? `Saved ${data.watch.name}` : (data.error || 'Could not save'));
-  if (res.ok) { loadWatches(); loadEvents(); }
+  const bst = document.getElementById('builderstatus');
+  bst.textContent = data.message || (res.ok ? `Saved ${data.watch.name}. The hosted scheduler evaluates it after each feed update.` : (data.error || 'Could not save'));
+  if (res.ok) { document.getElementById('previewbox').innerHTML = ''; loadWatches(); loadEvents(); }
+});
+document.getElementById('wpreview').addEventListener('click', async () => {
+  const bst = document.getElementById('builderstatus');
+  if (!signedIn()) return;
+  bst.textContent = 'Previewing…';
+  const res = await fetch(api('/api/watchdog/watches/preview'), { method: 'POST', headers: { ...headers(), 'Content-Type': 'application/json' }, body: JSON.stringify(buildDefinition()) });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) { bst.textContent = data.message || data.error || 'Preview unavailable.'; document.getElementById('previewbox').innerHTML = ''; return; }
+  bst.textContent = 'Preview ready.';
+  renderPreview(data);
+});
+document.getElementById('profileform').addEventListener('submit', async (ev) => {
+  ev.preventDefault();
+  const st = document.getElementById('profilestatus');
+  if (!signedIn()) return;
+  const body = { version: 1, vendors: splitList('pvendors'), products: splitList('pproducts'), packages: splitList('ppackages').map((v) => v.toLowerCase()), technologies: splitList('ptech') };
+  const res = await fetch(api('/api/watchdog/profile'), { method: 'PUT', headers: { ...headers(), 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  const data = await res.json().catch(() => ({}));
+  st.textContent = res.ok ? 'Exposure profile saved.' : (data.message || data.error || 'Profile not saved.');
+  if (res.ok) loadProfile();
+});
+document.getElementById('profiledelete').addEventListener('click', async () => {
+  if (!signedIn()) return;
+  await fetch(api('/api/watchdog/profile'), { method: 'DELETE', headers: headers() });
+  loadProfile();
 });
 document.getElementById('destform').addEventListener('submit', async (ev) => {
   ev.preventDefault();
