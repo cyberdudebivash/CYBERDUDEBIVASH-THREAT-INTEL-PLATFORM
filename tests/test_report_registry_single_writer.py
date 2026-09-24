@@ -67,8 +67,12 @@ class TestGenerateDashboardFeedsDoesNotWriteReportRegistry:
             "-- build_reports_index.py is the sole authoritative writer (F-02)"
         )
         # Positive control: the script still does its actual job.
-        assert (tmp_path / "api" / "v1" / "intel" / "apex.json").exists()
+        assert (tmp_path / "api" / "v1" / "intel" / "stats.json").exists()
         assert (tmp_path / "api" / "v1" / "intel" / "campaigns.json").exists()
+        # Same single-writer rule for api/v1/intel/apex.json (P0 Phase 3C):
+        # generate_api_manifests.py is its sole producer. This assertion used
+        # to require the competing SUMMARY write that caused the schema drift.
+        assert not (tmp_path / "api" / "v1" / "intel" / "apex.json").exists()
 
 
 class TestR2ReportsIntegrityPurgeConsistency:

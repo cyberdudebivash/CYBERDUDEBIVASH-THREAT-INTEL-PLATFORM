@@ -93,6 +93,11 @@ CANARY_ENDPOINTS = [
     {
         "id"              : "apex_feed",
         "path"            : "/api/v1/intel/apex.json",
+        # Canonical schema authority (P0 Phase 3C): apex.json is the FEED
+        # written ONLY by scripts/generate_api_manifests.py. A body declaring
+        # any other generator (e.g. the retired generate_dashboard_feeds.py
+        # SUMMARY shape) is a contract failure, not "drift".
+        "producer"        : "generate_api_manifests.py",
         "required_fields" : ["schema_version", "generated_at", "count", "items"],
         "array_fields"    : ["items"],
         "min_items"       : 1,
@@ -102,6 +107,11 @@ CANARY_ENDPOINTS = [
     {
         "id"              : "manifest_registry",
         "path"            : "/api/v1/intel/manifest.json",
+        # NOT a public gateway route (never routed by workers/intel-gateway;
+        # answers 404, which failed every canary run). It is an internal R2
+        # registry validated in-pipeline by scripts/validate_api_manifests.py
+        # (sentinel-blogger STAGE 3.93.5). Kept here, skipped live.
+        "public"          : False,
         "required_fields" : ["schema_version", "generated_at", "files"],
         "array_fields"    : [],
         "min_items"       : 0,
@@ -188,6 +198,10 @@ def validate_endpoint(ep: Dict, data: Any, status: int, ms: float) -> Tuple[str,
         if field not in data:
             errors.append(f"Required field missing: '{field}'")
 
+    producer = ep.get("producer")
+    if producer and isinstance(data, dict) and data.get("generator") != producer:
+        errors.append(f"Foreign producer: generator={data.get('generator')!r}, contract requires {producer!r}")
+
     for field in ep.get("array_fields", []):
         if field in data and not isinstance(data[field], list):
             errors.append(f"Field '{field}' must be array, got {type(data[field]).__name__}")
@@ -258,6 +272,11 @@ def main() -> int:
     for ep in CANARY_ENDPOINTS:
         url    = BASE_URL + ep["path"]
         ep_id  = ep["id"]
+        if ep.get("public") is False:
+            log.info("[CANARY][%s] SKIP: internal registry, not a public route (validated at STAGE 3.93.5)", ep_id)
+            if ep_id in baseline:
+                new_baseline[ep_id] = baseline[ep_id]
+            continue
         log.info("[CANARY] Fetching: %s", url)
 
         if ep.get("health_contract"):
@@ -317,12 +336,19 @@ def main() -> int:
             for d in drift_additions:
                 log.warning("[DRIFT][%s] COMPATIBLE: %s", ep_id, d)
 
-        # Update baseline for this endpoint
-        new_baseline[ep_id] = {
-            "schema_fingerprint": live_fp,
-            "last_checked"      : now_iso(),
-            "item_count"        : len(data.get("items", [])) if isinstance(data, dict) else 0,
-        }
+        # Update baseline for this endpoint -- EXCEPT after a breaking drift.
+        # Overwriting unconditionally (as before) made every breaking change
+        # self-erasing: reported once, then silently adopted as the new
+        # baseline on the same run. The previous baseline is kept until the
+        # drift is resolved or the baseline is deliberately re-recorded.
+        if breaking_changes and ep_id in baseline:
+            new_baseline[ep_id] = baseline[ep_id]
+        else:
+            new_baseline[ep_id] = {
+                "schema_fingerprint": live_fp,
+                "last_checked"      : now_iso(),
+                "item_count"        : len(data.get("items", [])) if isinstance(data, dict) else 0,
+            }
 
         results.append({
             "endpoint_id"      : ep_id,
