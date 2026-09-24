@@ -5585,6 +5585,90 @@
             <div class="metric-card"><div class="metric-val" style="color:#00FFC6;text-shadow:0 0 12px rgba(0,255,198,0.8),0 0 32px rgba(0,212,170,0.5),0 0 60px rgba(0,212,170,0.2);" id="m-last-sync" data-stat="sync-time">&mdash;</div><div class="metric-label">Last Sync</div></div>
         </div>
 
+        <!-- CYBER WATCHDOG — live on the dashboard, same brief the API serves -->
+        <section id="cyber-watchdog-dashboard" aria-label="Cyber Watchdog" style="margin:14px 0 18px;padding:16px 16px 12px;border:1px solid rgba(62,224,197,0.45);border-radius:10px;background:linear-gradient(180deg,rgba(62,224,197,0.08),rgba(8,12,20,0.92));">
+            <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end;justify-content:space-between;">
+                <div>
+                    <div style="font-family:var(--font-mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:#3ee0c5;font-weight:800;">Sentinel APEX</div>
+                    <h2 style="margin:4px 0 6px;font-size:22px;line-height:1.15;color:#f4f7fb;">CYBER WATCHDOG</h2>
+                    <p style="margin:0;max-width:68ch;color:#c5d0de;font-size:14px;line-height:1.45;">Classifies advisories already on this Sentinel APEX feed. It does not watch the entire internet, private networks, or the dark web.</p>
+                </div>
+                <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                    <a href="/cyber-watchdog.html" style="background:#3ee0c5;color:#04221c;font-weight:800;text-decoration:none;border-radius:8px;padding:8px 12px;">Open Watchdog</a>
+                    <a href="/upgrade.html?plan=pro&feature=cyber-watchdog" style="border:1px solid rgba(62,224,197,0.55);color:#3ee0c5;font-weight:700;text-decoration:none;border-radius:8px;padding:8px 12px;">Pro watches</a>
+                </div>
+            </div>
+            <p id="cwd-status" style="font-family:var(--font-mono);font-size:13px;color:#e7eef8;margin:14px 0 8px;">Loading the live Watchdog brief…</p>
+            <div id="cwd-lenses" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;margin-bottom:10px;"></div>
+            <div style="overflow-x:auto;">
+                <table style="width:100%;border-collapse:collapse;font-size:14px;">
+                    <thead>
+                        <tr>
+                            <th style="text-align:left;padding:6px;color:#8ea0b8;font-size:11px;letter-spacing:.06em;text-transform:uppercase;">Item</th>
+                            <th style="text-align:left;padding:6px;color:#8ea0b8;font-size:11px;letter-spacing:.06em;text-transform:uppercase;">Severity</th>
+                            <th style="text-align:left;padding:6px;color:#8ea0b8;font-size:11px;letter-spacing:.06em;text-transform:uppercase;">Lens</th>
+                            <th style="text-align:left;padding:6px;color:#8ea0b8;font-size:11px;letter-spacing:.06em;text-transform:uppercase;">Source</th>
+                        </tr>
+                    </thead>
+                    <tbody id="cwd-rows"></tbody>
+                </table>
+            </div>
+        </section>
+        <script>
+        (function () {
+            var status = document.getElementById('cwd-status');
+            var lenses = document.getElementById('cwd-lenses');
+            var rows = document.getElementById('cwd-rows');
+            function esc(s) {
+                return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+                    return '&#' + c.charCodeAt(0) + ';';
+                });
+            }
+            function metric(label, value) {
+                return '<div style="background:#101826;border:1px solid #243044;border-radius:8px;padding:10px 12px;"><div style="color:#8ea0b8;font-size:11px;letter-spacing:.08em;text-transform:uppercase;">' + esc(label) + '</div><div style="font-size:22px;font-weight:800;color:#f4f7fb;">' + esc(value) + '</div></div>';
+            }
+            fetch('/api/watchdog/brief?limit=5', { headers: { Accept: 'application/json' } })
+                .then(function (res) {
+                    return res.json().then(function (data) { return { ok: res.ok, data: data }; });
+                })
+                .then(function (out) {
+                    var data = out.data || {};
+                    if (!out.ok) {
+                        status.textContent = data.message || 'INTELLIGENCE DEGRADED';
+                        lenses.innerHTML = '';
+                        rows.innerHTML = '';
+                        return;
+                    }
+                    var sit = data.situation || {};
+                    var by = sit.by_lens || {};
+                    var sev = sit.by_severity || {};
+                    status.textContent = (data.freshness_status || 'UNKNOWN')
+                        + ' · ' + (data.feed_item_count == null ? 'unknown' : data.feed_item_count) + ' advisories on the feed'
+                        + ' · age ' + (data.feed_age_seconds == null ? 'unknown' : data.feed_age_seconds) + 's'
+                        + ' · updated ' + (data.feed_generated_at || 'unknown');
+                    lenses.innerHTML = [
+                        metric('Cybersecurity', by.cybersecurity || 0),
+                        metric('Technology', by.technology || 0),
+                        metric('Security operations', by.security_operations || 0),
+                        metric('Unclassified', sit.unclassified || 0),
+                        metric('Critical', sev.CRITICAL || 0),
+                        metric('High', sev.HIGH || 0)
+                    ].join('');
+                    var items = data.items || [];
+                    rows.innerHTML = items.length ? items.map(function (item) {
+                        var lens = (item.lenses && item.lenses.length) ? item.lenses.join(', ') : 'unclassified';
+                        return '<tr><td style="padding:8px 6px;border-top:1px solid #243044;color:#f4f7fb;">' + esc(item.title) + '</td>'
+                            + '<td style="padding:8px 6px;border-top:1px solid #243044;color:#e7eef8;">' + esc(item.severity || '') + '</td>'
+                            + '<td style="padding:8px 6px;border-top:1px solid #243044;color:#e7eef8;">' + esc(lens) + '</td>'
+                            + '<td style="padding:8px 6px;border-top:1px solid #243044;color:#e7eef8;">' + esc(item.source || 'Sentinel APEX feed') + '</td></tr>';
+                    }).join('') : '<tr><td colspan="4" style="padding:8px 6px;color:#8ea0b8;">No items in this brief.</td></tr>';
+                })
+                .catch(function () {
+                    status.textContent = 'Watchdog brief is not reachable.';
+                });
+        })();
+        </script>
+
         <!-- ═══ RISK TREND CHART v73.0 ═══ -->
         <div class="trend-section" id="trend-section" style="display:none;">
             <div class="trend-header">
