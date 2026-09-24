@@ -104,6 +104,7 @@ import { handleSLAStatus, handleSLAReport, handleSLAIncidents, handleSLAPing, ha
 import { handleAlertSubscribe, handleAlertSubscriptions, handleAlertTest, handleAlertDispatch, handleAlertHistory, handleAlertUnsubscribe } from './alert-engine.js';
 // dark-web-monitor.js's handlers are intentionally NOT imported -- see the
 // _darkWebUnavailable disable note at its route registration below.
+import { routeWatchdog } from './cyber-watchdog.js';
 import { handlePremiumReport, handleReportList, handleReportGet } from './premium-reports.js';
 // P0 FIX (2026-09-01): PR #285 (v201.0) called getLiveIndicatorsSummary(),
 // runScheduledIngestion(), and routeExports() below without ever importing
@@ -7934,6 +7935,31 @@ async function handleRequest(request, env, ctx) {
     if (exportRes) return exportRes;
   }
 
+  // CYBERDUDEBIVASH SENTINEL APEX CYBER WATCHDOG.
+  // Classifies the live feed. Does not invent events. Offer is public.
+  // Brief is tier-redacted (not edge-cached). Watches require Pro+.
+  // Customer-environment poller requires Enterprise or MSSP.
+  if (path.startsWith("/api/watchdog")) {
+    const needsFeed = path === "/api/watchdog/brief" || path === "/api/watchdog/matches";
+    const feedData = needsFeed ? await loadFeedItems(env) : { items: [] };
+    let body = null;
+    if (method === "POST" || method === "DELETE") {
+      try { body = await request.json(); } catch { body = null; }
+    }
+    const watched = await routeWatchdog({
+      path,
+      method,
+      searchParams: url.searchParams,
+      auth,
+      items: feedData.items || [],
+      kv: env.SECURITY_HUB_KV,
+      body,
+      id: crypto.randomUUID(),
+      now: new Date().toISOString(),
+    });
+    if (watched) return jsonResp(watched.body, watched.status);
+  }
+
   // --- 404 --------------------------------------------------------------------
   return jsonResp({
     error: "Not found", path,
@@ -8019,6 +8045,9 @@ async function handleRequest(request, env, ctx) {
       "POST /api/alerts/subscribe (PRO+)", "GET /api/alerts/subscriptions (PRO+)", "POST /api/alerts/test (PRO+)",
       "GET /api/alerts/history (ENT)", "DELETE /api/alerts/unsubscribe (PRO+)",
       "POST /api/dark-web/scan (PRO+)", "GET /api/dark-web/status", "GET|POST /api/leak-check (PRO+)",
+      "GET /api/watchdog/offer", "GET /api/watchdog/brief",
+      "GET|POST /api/watchdog/watches (PRO+)", "GET /api/watchdog/matches (PRO+)",
+      "GET /api/watchdog/deploy (ENT)",
       "POST /api/reports/premium (PRO+, $49/report)", "GET /api/reports/list (PRO+)", "GET /api/reports/{id} (PRO+)",
       "GET /api/v1/export/suricata.rules (FREE sample / PRO+ full)",
       "GET /api/v1/export/snort.rules (FREE sample / PRO+ full)",
