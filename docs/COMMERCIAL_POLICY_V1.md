@@ -263,18 +263,18 @@ Bearer JWT issued before the event (TTL 25 h, longer than a JWT's 24 h life).
 | `subscription.halted` | `suspended` | denied | denied | refused |
 | `subscription.cancelled` / `.completed` | `cancelled` | denied | denied | refused |
 | `refund.created` / `refund.processed` | `refunded` (never relabelled) | denied | denied | refused |
+| `subscription.charged` / `.activated` after a halt, with a **captured** payment | `active`, deny marker cleared, same key | allowed | denied (log in again) | allowed |
 
-A charge arriving after a halt or cancellation never restores access
-(fail-safe). Certified by `workers/revenue-engine/src/__tests__/cross-worker-revocation.test.js`,
+**Halt recovery** (owner decision 2026-09-25): a halted subscription whose
+charge Razorpay later captures reactivates automatically (`suspended ->
+active`), with the customer's existing key; no second key is issued. A charge
+without a captured payment, or any charge or activation after a refund or
+cancellation, never restores access (fail-safe). Certified by `workers/revenue-engine/src/__tests__/cross-worker-revocation.test.js`,
 which runs both real Workers against one shared store, and by the mutation
 controls in `billing-negative-controls.mjs` (regression gate).
 
 ## Known gaps (not in this change)
 
-- **Halted subscriptions cannot recover.** If Razorpay's retry later succeeds
-  after `subscription.halted`, access stays denied: the lifecycle model allows
-  only `suspended -> cancelled` (`subscription-domain.js`). Recovery needs an
-  owner decision (reactivate on a verified charge, or require a new checkout).
 
 - **Gumroad membership products** themselves (owner action, see the cutover
   above). Until they exist, Gumroad keeps selling the labelled one-time grant.

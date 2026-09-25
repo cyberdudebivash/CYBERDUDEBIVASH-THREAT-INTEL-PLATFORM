@@ -121,16 +121,61 @@ test("halted (renewal failed): key and pre-issued JWT denied at the gateway at o
   assert.equal(await w.login(w.key), null, "no fresh JWT while halted");
 });
 
-// Recovery of a halted subscription is not implemented (subscription-domain.js:
-// SUSPENDED -> CANCELLED only). Until it is, a late charge must never
-// silently re-open access through a side door: certified fail-safe.
-test("halted then a late charged event: access stays denied (no recovery path yet, fail-safe)", async () => {
+let payN = 0;
+const captured = () => ({ payment: { entity: {
+  id: `pay_TEST_ONLY_${++payN}`, status: "captured", amount: 410000, currency: "INR", created_at: Math.floor(Date.now() / 1000),
+} } });
+
+// Owner decision 2026-09-25: a halted subscription reactivates automatically
+// on a later captured charge -- the same key, never a second one.
+test("halted then a captured charge: the same key and a new JWT work again; the old deny marker is cleared", async () => {
+  const w = await activeCustomer();
+  await w.webhook("subscription.halted");
+  assert.equal(await w.validateKey(w.key), false);
+  await w.webhook("subscription.charged", {}, captured());
+  assert.equal(w.apiKey(), w.key, "the same key is restored, no second key is issued");
+  assert.equal(await w.validateKey(w.key), true, "API key works again");
+  const rec = JSON.parse(w.gw.API_KEYS_KV.store.get(w.key));
+  assert.equal(rec.subscription_status, "active");
+  assert.ok(Date.parse(rec.expires_at) > Date.now() + 20 * 86400e3, "access runs to Razorpay's new period end");
+  const jwt2 = await w.login(w.key);
+  assert.ok(jwt2, "a new JWT can be obtained");
+  assert.equal(await w.validateJwt(jwt2), true, "deny marker cleared");
+  assert.equal(JSON.parse(w.revenue.REVENUE_CRM_KV.store.get(`razorpay_sub:${SUB}`)).status, "active");
+});
+
+test("halted then subscription.activated with a captured payment: recovery of the same key, not a second provisioning", async () => {
+  const w = await activeCustomer();
+  const keysBefore = [...w.gw.API_KEYS_KV.store.keys()].filter((k) => !k.startsWith("jwt_deny:")).length;
+  await w.webhook("subscription.halted");
+  await w.webhook("subscription.activated", {}, captured());
+  assert.equal(w.apiKey(), w.key);
+  assert.equal(await w.validateKey(w.key), true);
+  assert.equal([...w.gw.API_KEYS_KV.store.keys()].filter((k) => !k.startsWith("jwt_deny:")).length, keysBefore, "no new key minted");
+});
+
+test("halted then a charge WITHOUT a captured payment: access stays denied", async () => {
   const w = await activeCustomer();
   await w.webhook("subscription.halted");
   await w.webhook("subscription.charged");
+  await w.webhook("subscription.charged", {}, { payment: { entity: { id: "pay_TEST_ONLY_failed", status: "failed", amount: 410000, currency: "INR" } } });
   assert.equal(await w.validateKey(w.key), false, "API key stays denied");
   assert.equal(await w.validateJwt(w.jwt), false, "JWT stays denied");
   assert.equal(await w.login(w.key), null);
+});
+
+test("refunded or cancelled subscriptions are never revived by a later captured charge", async () => {
+  for (const end of ["refund", "subscription.cancelled"]) {
+    const w = await activeCustomer();
+    await w.webhook("subscription.halted");
+    if (end === "refund") await revokeEntitlementForSubscription(w.revenue, SUB, "refunded", "rid");
+    else await w.webhook(end);
+    await w.webhook("subscription.charged", {}, captured());
+    await w.webhook("subscription.activated", {}, captured());
+    assert.equal(await w.validateKey(w.key), false, `${end}: API key stays denied`);
+    assert.equal(await w.validateJwt(w.jwt), false, `${end}: JWT stays denied`);
+    assert.equal(await w.login(w.key), null, `${end}: no new JWT`);
+  }
 });
 
 test("cancelled / completed at cycle end: key and pre-issued JWT denied at the gateway at once", async () => {
@@ -203,4 +248,19 @@ test("refund then Razorpay's cancellation: the key keeps 'refunded' and stays de
   assert.equal(JSON.parse(w.gw.API_KEYS_KV.store.get(w.key)).subscription_status, "refunded");
   assert.equal(await w.validateKey(w.key), false);
   assert.equal(await w.validateJwt(w.jwt), false);
+});
+
+test("a key refunded or cancelled at the gateway (admin) is not revived by a halted subscription's recovery", async () => {
+  for (const status of ["refunded", "cancelled"]) {
+    const w = await activeCustomer();
+    await w.webhook("subscription.halted");
+    // Gateway-side decision (PATCH /api/admin/keys/{key}/status) while the
+    // revenue engine still holds the subscription as halted.
+    const rec = JSON.parse(w.gw.API_KEYS_KV.store.get(w.key));
+    w.gw.API_KEYS_KV.store.set(w.key, JSON.stringify({ ...rec, subscription_status: status }));
+    await w.webhook("subscription.charged", {}, captured());
+    assert.equal(JSON.parse(w.gw.API_KEYS_KV.store.get(w.key)).subscription_status, status, `${status} label kept`);
+    assert.equal(await w.validateKey(w.key), false, `${status}: API key stays denied`);
+    assert.equal(await w.login(w.key), null, `${status}: no new JWT`);
+  }
 });

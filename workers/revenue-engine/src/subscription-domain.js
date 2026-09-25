@@ -61,11 +61,11 @@ function getTransitions() {
     // new period dates -- a self-transition, not a no-op, so it's listed.
     [SUB_STATUS.ACTIVE]:    Object.freeze([SUB_STATUS.ACTIVE, SUB_STATUS.PAST_DUE, SUB_STATUS.SUSPENDED, SUB_STATUS.CANCELLED, SUB_STATUS.EXPIRED]),
     [SUB_STATUS.PAST_DUE]:  Object.freeze([SUB_STATUS.ACTIVE, SUB_STATUS.SUSPENDED, SUB_STATUS.CANCELLED]),
-    // No code path today reactivates a SUSPENDED subscription (Razorpay
-    // "halted" is a terminal state short of cancellation in the current
-    // implementation) -- recovery/resume is Phase 5 (Subscription Automation)
-    // territory, not invented here.
-    [SUB_STATUS.SUSPENDED]: Object.freeze([SUB_STATUS.CANCELLED]),
+    // SUSPENDED -> ACTIVE: owner decision 2026-09-25 -- a halted Razorpay
+    // subscription whose retried charge is later captured reactivates
+    // automatically (recoverHaltedSubscription(), subscription-engine.js,
+    // only on a signed webhook carrying a captured payment).
+    [SUB_STATUS.SUSPENDED]: Object.freeze([SUB_STATUS.ACTIVE, SUB_STATUS.CANCELLED]),
     [SUB_STATUS.CANCELLED]: Object.freeze([]),
     [SUB_STATUS.EXPIRED]:   Object.freeze([]),
   });

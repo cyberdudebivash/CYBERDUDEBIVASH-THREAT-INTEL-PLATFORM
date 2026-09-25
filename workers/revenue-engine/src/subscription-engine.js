@@ -201,6 +201,55 @@ export async function denyGatewayAccess(env, link, status, at, meta = {}) {
   return keyRecord;
 }
 
+/**
+ * Inverse of denyGatewayAccess() for a recovered halt only: the key the
+ * customer already holds works again at intel-gateway until periodEnd, and
+ * the jwt_deny marker is cleared so a new login works. A key the gateway
+ * holds as refunded or cancelled is never revived here.
+ * @returns {Promise<boolean>} whether access was restored
+ */
+export async function restoreGatewayAccess(env, link, periodEnd) {
+  if (!env.API_KEYS_KV || !link || !link.api_key) return false;
+  const rec = await env.API_KEYS_KV.get(link.api_key, "json").catch(() => null);
+  if (!rec || rec.subscription_status === "refunded" || rec.subscription_status === "cancelled") return false;
+  await patchApiKeyEntitlement(env, link.api_key, { subscription_status: "active", expires_at: periodEnd });
+  const customerId = link.internal_customer_id || rec.customer_id || null;
+  if (customerId) await env.API_KEYS_KV.delete(`jwt_deny:${customerId}`);
+  return true;
+}
+
+/**
+ * Owner decision 2026-09-25: a halted subscription reactivates automatically
+ * when Razorpay later captures a charge on it (the customer paid after the
+ * retries ran out). Requires the signed webhook to carry a CAPTURED payment
+ * for this subscription; then SUSPENDED -> ACTIVE, the same API key is
+ * restored (never a second key), and the period follows Razorpay.
+ */
+export async function recoverHaltedSubscription(env, link, providerId, subEntity, payEntity, event, rid) {
+  if (!link?.internal_sub_id || !payEntity || payEntity.status !== "captured") {
+    await trackEvent(env, "subscription_recovery_unverified", {
+      razorpay_subscription_id: providerId, event, payment_status: payEntity?.status || null, rid,
+    });
+    return false;
+  }
+  const at = new Date().toISOString();
+  const periodEnd = unixToIso(subEntity?.current_end) || link.current_period_end;
+  const transitioned = await tryTransition(env, link.internal_sub_id, SUB_STATUS.ACTIVE, {
+    current_period_start: unixToIso(subEntity?.current_start), current_period_end: periodEnd,
+    renewal_reminder_sent: false, recovered_at: at,
+  }, rid);
+  if (!transitioned) return false;
+  const restored = await restoreGatewayAccess(env, link, periodEnd);
+  await putProviderLink(env, providerId, {
+    ...link, status: "active", current_period_end: periodEnd, recovered_at: at,
+    renewal_count: (link.renewal_count || 0) + 1,
+  });
+  await trackEvent(env, "subscription_recovered", {
+    email: link.email, tier: link.tier, razorpay_subscription_id: providerId, payment_id: payEntity.id, access_restored: restored, event, rid,
+  });
+  return true;
+}
+
 // Webhook idempotency guard -- Razorpay's delivery is at-least-once, so any
 // event may be redelivered. Uses REVENUE_CRM_KV (already bound in this
 // Worker) rather than intel-gateway's SECURITY_HUB_KV (not bound here, and
@@ -519,6 +568,18 @@ export async function handleBillingWebhook(request, env, ctx, rid) {
     }
 
     case "subscription.activated": {
+      if (link?.status === "halted" && link.internal_sub_id) {
+        // Already provisioned: a halted subscription resuming is a recovery
+        // of the SAME key, never a second provisioning.
+        await recoverHaltedSubscription(env, link, providerId, subEntity, payEntity, event, rid);
+        break;
+      }
+      if (link && ["refunded", "cancelled", "completed"].includes(link.status)) {
+        // An ended subscription is never provisioned again: that would mint
+        // a second key and clear the refund/cancel jwt_deny marker.
+        await trackEvent(env, "subscription_billing_anomaly", { reason: "activated_after_end", status: link.status, razorpay_subscription_id: providerId, rid });
+        break;
+      }
       if (link?.status === "active") {
         // Already provisioned by an earlier delivery of this same event.
         // (idempKey is already claimed above, before this switch runs.)
@@ -550,6 +611,10 @@ export async function handleBillingWebhook(request, env, ctx, rid) {
     case "subscription.charged": {
       if (!link?.internal_sub_id) {
         await trackEvent(env, "subscription_billing_anomaly", { reason: "charged_event_with_no_provider_link", razorpay_subscription_id: providerId, rid });
+        break;
+      }
+      if (link.status === "halted") {
+        await recoverHaltedSubscription(env, link, providerId, subEntity, payEntity, event, rid);
         break;
       }
       // ACTIVE -> ACTIVE is a valid self-transition (a normal renewal), so

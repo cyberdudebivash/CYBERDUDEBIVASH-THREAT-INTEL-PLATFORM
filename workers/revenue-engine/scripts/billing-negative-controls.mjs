@@ -46,6 +46,19 @@ const EP = "workers/revenue-engine/src/enterprise-po.js";
 
 // [name, file, find, replace] -- `find` must occur exactly once.
 const CONTROLS = [
+  // Halt recovery (owner decision 2026-09-25).
+  ["halted subscription recovers without a captured payment", SE,
+    "  if (!link?.internal_sub_id || !payEntity || payEntity.status !== \"captured\") {", "  if (!link?.internal_sub_id) {"],
+  ["recovery revives a refunded key", SE,
+    "  if (!rec || rec.subscription_status === \"refunded\" || rec.subscription_status === \"cancelled\") return false;", "  if (!rec) return false;"],
+  ["recovery leaves the jwt_deny marker (new login refused)", SE,
+    "  if (customerId) await env.API_KEYS_KV.delete(`jwt_deny:${customerId}`);\n  return true;", "  return true;"],
+  ["halted subscription cannot recover (no SUSPENDED -> ACTIVE)", "workers/revenue-engine/src/subscription-domain.js",
+    "[SUB_STATUS.SUSPENDED]: Object.freeze([SUB_STATUS.ACTIVE, SUB_STATUS.CANCELLED]),", "[SUB_STATUS.SUSPENDED]: Object.freeze([SUB_STATUS.CANCELLED]),"],
+  ["activation after a halt provisions a second key", SE,
+    "      if (link?.status === \"halted\" && link.internal_sub_id) {", "      if (false) {"],
+  ["activation after a refund provisions again (clears jwt_deny)", SE,
+    "      if (link && [\"refunded\", \"cancelled\", \"completed\"].includes(link.status)) {", "      if (false) {"],
   // S10 cross-worker revocation (revenue engine writes, gateway enforces).
   ["halt leaves pre-issued JWTs valid (no jwt_deny)", SE,
     "        await denyGatewayAccess(env, link, \"suspended\", new Date().toISOString(), { provider_sub_id: providerId });",
