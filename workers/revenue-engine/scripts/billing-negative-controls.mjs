@@ -28,7 +28,7 @@ const COPY = [
 ];
 const SUITES = [
   ["workers/revenue-engine", ["--test", "src/__tests__/billing-policy.test.js", "src/__tests__/subscription-engine.test.js",
-    "src/__tests__/billing-credit-notes.test.js"]],
+    "src/__tests__/billing-credit-notes.test.js", "src/__tests__/billing-export-po.test.js"]],
   ["workers/intel-gateway", ["--test", "src/__tests__/razorpay-create-order-taxid.test.js",
     "src/__tests__/razorpay-webhook-subscription-guard.test.js", "src/__tests__/manual-notify-retirement.test.js",
     "src/__tests__/gumroad-membership.test.js", "src/__tests__/gumroad-lifecycle.test.js"]],
@@ -40,6 +40,7 @@ const GS = "workers/revenue-engine/src/gst.js";
 const SE = "workers/revenue-engine/src/subscription-engine.js";
 const GW = "workers/intel-gateway/src/index.js";
 const GL = "workers/intel-gateway/src/gumroad-lifecycle.js";
+const EP = "workers/revenue-engine/src/enterprise-po.js";
 
 // [name, file, find, replace] -- `find` must occur exactly once.
 const CONTROLS = [
@@ -65,12 +66,12 @@ const CONTROLS = [
   ["refund webhook does not revoke the entitlement", BR,
     "if (payment.provider_sub_id) await revokeEntitlementForSubscription(payment.provider_sub_id, \"refunded\");", ""],
   ["invoice serial consumed for an already-invoiced payment", BL,
-    "WHERE fy = ? AND last_seq < ? AND ${notYet}`)\n        .bind(fy, INVOICE_SERIAL_MAX, paymentId),",
+    "WHERE fy = ? AND last_seq < ? AND ${notYet}`)\n        .bind(fy, INVOICE_SERIAL_MAX, key),",
     "WHERE fy = ? AND last_seq < ?`)\n        .bind(fy, INVOICE_SERIAL_MAX),"],
   ["invoice issued without GST configuration", BL,
     "  if (!cfg.ok) return \"gst_config_incomplete:\" + cfg.missing.join(\",\");\n", ""],
   ["export invoiced as a domestic supply", BL,
-    "  if (pos.export) return \"recipient_outside_india_export_requires_review\";\n", ""],
+    "  if (pos.export) return exportHoldReason(row, cfg.config);\n", ""],
   ["IGST applied to an intra-state supply", GS,
     "  if (intraState) {\n    const cgst", "  if (false) {\n    const cgst"],
   ["recipient GSTIN ignored for place of supply", GS,
@@ -99,8 +100,8 @@ const CONTROLS = [
     "const fits = `(SELECT COALESCE(SUM(total_paise), 0) FROM credit_notes WHERE payment_id = ?) + ? <= ?`;",
     "const fits = `(? IS NOT NULL AND ? IS NOT NULL AND ? IS NOT NULL)`;"],
   ["credit note ignores the invoice's supply type", BL,
-    "  const intra = inv.supply_type === \"intra_state\";\n  const tax = splitInclusiveTax(refund.amount_paise",
-    "  const intra = true;\n  const tax = splitInclusiveTax(refund.amount_paise"],
+    "  const intra = inv.supply_type === \"intra_state\";\n  const zeroRated",
+    "  const intra = true;\n  const zeroRated"],
   ["redelivered refund un-credits the invoice", BL,
     "WHERE payment_id = ? AND status = 'issued'`).bind(paymentId).run();", "WHERE payment_id = ?`).bind(paymentId).run();"],
   ["held invoice's refund never gets its credit note", BL,
@@ -124,6 +125,47 @@ const CONTROLS = [
     "Math.max(Number.isFinite(existing) ? existing : 0,", "Math.max(0,"],
   ["a won dispute revokes access", GL,
     "if (_true(formData.disputed) && !_true(formData.dispute_won)) return \"dispute\";", "if (_true(formData.disputed)) return \"dispute\";"],
+
+  // Export of services under LUT (2026-09-25)
+  ["export invoiced without a LUT for the year", BL,
+    "  if (!lutFor(c, fy)) return \"export_lut_not_configured_for_\" + fy;\n", ""],
+  ["export zero-rated without foreign-exchange evidence", BL,
+    "  if (!row.payment_international && ![", "  if (false && ![" ],
+  ["export invoiced as a taxable domestic supply", BL,
+    "    return buildExportInvoiceDocument(row, c);\n", ""],
+  ["export credit note charges GST", BL,
+    "  const zeroRated = inv.supply_type === \"export_under_lut\";", "  const zeroRated = false;"],
+  ["column migrations skipped", BL,
+    "  for (const sql of BILLING_MIGRATIONS) {", "  for (const sql of []) {"],
+
+  // Enterprise quote -> PO -> invoice -> bank transfer -> entitlement (2026-09-25)
+  ["PO price drifts from the canonical contract", EP,
+    "ENTERPRISE: 416000,", "ENTERPRISE: 415000,"],
+  ["custom quote price without a recorded reason", EP,
+    "    if (reason.length < 10) return json(", "    if (false) return json("],
+  ["quote accepted without its token", EP,
+    "  if (!/^qt_[0-9a-f]{20}$/.test(id) || !(await tokenValid(env, id, b.token))) return json({ error: \"not_found\" }, 404);",
+    "  if (!/^qt_[0-9a-f]{20}$/.test(id)) return json({ error: \"not_found\" }, 404);"],
+  ["expired quote accepted", EP,
+    "  if (q.status === \"sent\" && Date.parse(q.valid_until) < Date.now()) {", "  if (false) {"],
+  ["invoice issued before the PO", EP,
+    "  if (q.status !== \"accepted\") {\n    if (q.invoice_number)", "  if (false) {\n    if (q.invoice_number)"],
+  ["reconciled with a short payment", EP,
+    "  if (received + tds !== total) {", "  if (false) {"],
+  ["one bank transfer settles two invoices", BL,
+    "    bank_reference      TEXT UNIQUE,", "    bank_reference      TEXT,"],
+  ["entitlement provisioned twice", EP,
+    "  const won = await transitionQuote(database, id, \"paid\", \"provisioning\");",
+    "  const won = 1; await transitionQuote(database, id, \"paid\", \"provisioning\");"],
+  ["reconciliation without the admin check", EP,
+    "export async function handleQuoteReconcile(request, env, ctx, rid) {\n  if (!(await isAdmin(request, env))) return json({ error: \"unauthorized\" }, 401);",
+    "export async function handleQuoteReconcile(request, env, ctx, rid) {"],
+  ["TDS accepted on an export", EP,
+    "    if (isExport(q)) return json({ error: \"TDS does not apply", "    if (false) return json({ error: \"TDS does not apply"],
+  ["export reconciled without a FIRC", EP,
+    "  if (isExport(q) && firc.length < 4) {", "  if (false) {"],
+  ["invoiced quote cancelled (invoice orphaned)", EP,
+    "[\"sent\", \"accepted\"], \"cancelled\"", "[\"sent\", \"accepted\", \"invoiced\"], \"cancelled\""],
 ];
 
 function stage() {

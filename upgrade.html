@@ -775,7 +775,7 @@ h1 span { color: var(--accent); }
                  server-side (workers/revenue-engine/src/gst.js). -->
             <div class="rzp-email-row">
               <label class="form-label" for="rzp-billing-state">Billing state <span style="color:var(--text-dim);font-weight:400;">(optional, sets the GST place of supply)</span></label>
-              <select id="rzp-billing-state" class="form-input">
+              <select id="rzp-billing-state" class="form-input" onchange="var r=document.getElementById('rzp-country-row'); if (r) r.style.display = this.value === 'OUTSIDE_INDIA' ? '' : 'none';">
                 <option value="">Not specified</option>
                 <option value="OUTSIDE_INDIA">Outside India</option>
                 <option value="35">Andaman and Nicobar Islands</option><option value="37">Andhra Pradesh</option>
@@ -793,6 +793,12 @@ h1 span { color: var(--accent); }
                 <option value="16">Tripura</option><option value="09">Uttar Pradesh</option><option value="05">Uttarakhand</option>
                 <option value="19">West Bengal</option><option value="97">Other Territory</option>
               </select>
+            </div>
+            <!-- Buyers outside India: an export of services is invoiced zero-rated
+                 under LUT only with the recipient's country (ISO 3166-1). -->
+            <div class="rzp-email-row" id="rzp-country-row" style="display:none">
+              <label class="form-label" for="rzp-billing-country">Billing country <span style="color:var(--text-dim);font-weight:400;">(two-letter ISO code, e.g. US, GB, SG, AE)</span></label>
+              <input type="text" id="rzp-billing-country" class="form-input" maxlength="2" autocomplete="country" placeholder="US" style="text-transform:uppercase;" oninput="this.value = this.value.toUpperCase();">
             </div>
             <div class="rzp-email-row">
               <label class="form-label" for="rzp-billing-name">Billing name <span style="color:var(--text-dim);font-weight:400;">(optional; needed on a GST invoice)</span></label>
@@ -1080,6 +1086,8 @@ async function initiateRazorpayCheckout() {
   var buyer = {
     gstin: taxId.value || undefined,
     billing_state: val('rzp-billing-state') || undefined,
+    // Country only for a buyer outside India (the server refuses it otherwise).
+    billing_country: (val('rzp-billing-state') === 'OUTSIDE_INDIA' && val('rzp-billing-country')) || undefined,
     billing_name: val('rzp-billing-name') || undefined,
     billing_address: val('rzp-billing-address') || undefined,
   };

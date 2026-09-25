@@ -22,7 +22,7 @@
 
 import {
   financialYear, istDate, placeOfSupply, splitInclusiveTax,
-  parseGstInvoiceConfig, GST_STATES, creditNoteAdjustmentDeadline,
+  parseGstInvoiceConfig, GST_STATES, creditNoteAdjustmentDeadline, lutFor, GST_FOREIGN_POS_CODE,
 } from "./gst.js";
 
 export const BILLING_SCHEMA = [
@@ -91,6 +91,43 @@ export const BILLING_SCHEMA = [
     processed_at TEXT
   )`,
   `CREATE INDEX IF NOT EXISTS idx_billing_refunds_payment ON billing_refunds (payment_id)`,
+  // Enterprise quote -> PO -> invoice -> bank transfer -> reconciliation ->
+  // entitlement (enterprise-po.js). bank_reference is UNIQUE: one bank
+  // transfer can settle only one invoice.
+  `CREATE TABLE IF NOT EXISTS enterprise_quotes (
+    id                  TEXT PRIMARY KEY,
+    email               TEXT NOT NULL,
+    company_name        TEXT NOT NULL,
+    billing_address     TEXT NOT NULL,
+    billing_state       TEXT NOT NULL DEFAULT '',
+    billing_country     TEXT NOT NULL DEFAULT '',
+    buyer_gstin         TEXT NOT NULL DEFAULT '',
+    tier                TEXT NOT NULL,
+    term_months         INTEGER NOT NULL,
+    amount_paise        INTEGER NOT NULL CHECK (amount_paise > 0),
+    price_basis         TEXT NOT NULL,
+    price_reason        TEXT NOT NULL DEFAULT '',
+    valid_until         TEXT NOT NULL,
+    status              TEXT NOT NULL,
+    po_number           TEXT NOT NULL DEFAULT '',
+    po_date             TEXT NOT NULL DEFAULT '',
+    accepted_at         TEXT,
+    invoice_number      TEXT NOT NULL DEFAULT '',
+    invoice_hold_reason TEXT NOT NULL DEFAULT '',
+    bank_reference      TEXT UNIQUE,
+    received_paise      INTEGER,
+    tds_paise           INTEGER,
+    tds_section         TEXT NOT NULL DEFAULT '',
+    received_on         TEXT NOT NULL DEFAULT '',
+    firc_reference      TEXT NOT NULL DEFAULT '',
+    reconciled_at       TEXT,
+    api_key_hint        TEXT NOT NULL DEFAULT '',
+    provisioned_at      TEXT,
+    cancel_note         TEXT NOT NULL DEFAULT '',
+    created_at          TEXT NOT NULL,
+    updated_at          TEXT NOT NULL
+  )`,
+  `CREATE INDEX IF NOT EXISTS idx_enterprise_quotes_status ON enterprise_quotes (status, created_at)`,
   `CREATE TABLE IF NOT EXISTS credit_note_sequences (
     fy       TEXT PRIMARY KEY,
     last_seq INTEGER NOT NULL
@@ -112,13 +149,31 @@ export const BILLING_SCHEMA = [
   )`,
 ];
 
+// Additive column migrations, applied after BILLING_SCHEMA. A table that
+// already exists in production never gains columns from CREATE TABLE IF NOT
+// EXISTS, so new columns arrive here; "duplicate column" means already applied.
+export const BILLING_MIGRATIONS = [
+  // Export of services (2026-09-25): buyer country, Razorpay's own
+  // "international" flag (card/method issued outside India: evidence of a
+  // foreign-currency payment), and how realisation was evidenced.
+  `ALTER TABLE billing_payments ADD COLUMN billing_country TEXT NOT NULL DEFAULT ''`,
+  `ALTER TABLE billing_payments ADD COLUMN payment_international INTEGER NOT NULL DEFAULT 0`,
+  `ALTER TABLE billing_payments ADD COLUMN export_basis TEXT NOT NULL DEFAULT ''`,
+  `ALTER TABLE billing_payments ADD COLUMN export_reference TEXT NOT NULL DEFAULT ''`,
+];
+
 const _schemaReady = new WeakSet();
 
-/** Creates the billing tables once per D1 binding per isolate. */
+/** Creates the billing tables and applies column migrations once per D1 binding per isolate. */
 export async function ensureBillingSchema(db) {
   if (!db) throw new Error("CRM_DB binding is required for billing");
   if (_schemaReady.has(db)) return;
   await db.batch(BILLING_SCHEMA.map((sql) => db.prepare(sql)));
+  for (const sql of BILLING_MIGRATIONS) {
+    try { await db.prepare(sql).run(); } catch (err) {
+      if (!/duplicate column/i.test(String(err && err.message))) throw err;
+    }
+  }
   _schemaReady.add(db);
 }
 
@@ -137,14 +192,15 @@ export async function recordCapturedPayment(db, { payment, providerSubId, email,
   const b = buyer || {};
   await db.prepare(
     `INSERT INTO billing_payments (payment_id, provider_sub_id, email, tier, billing_cycle, amount_paise, currency,
-       captured_at, buyer_gstin, buyer_vat_id, billing_state, billing_name, billing_address, created_at)
-     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+       captured_at, buyer_gstin, buyer_vat_id, billing_state, billing_name, billing_address, created_at,
+       billing_country, payment_international)
+     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
      ON CONFLICT (payment_id) DO NOTHING`
   ).bind(
     payment.id, providerSubId || null, email, tier, billingCycle || "monthly", payment.amount,
     String(payment.currency || "INR").toUpperCase(), capturedAt,
     b.gstin || "", b.vat_id || "", b.billing_state || "", b.billing_name || "", b.billing_address || "",
-    new Date().toISOString(),
+    new Date().toISOString(), b.billing_country || "", payment.international === true ? 1 : 0,
   ).run();
   return await getPayment(db, payment.id);
 }
@@ -195,7 +251,7 @@ export function invoiceHoldReason(row, cfg) {
   if (!cfg.ok) return "gst_config_incomplete:" + cfg.missing.join(",");
   if (row.currency !== "INR") return "non_inr_payment_requires_review";
   const pos = placeOfSupply({ buyerGstin: row.buyer_gstin, billingState: row.billing_state, supplierStateCode: cfg.config.supplier_state_code });
-  if (pos.export) return "recipient_outside_india_export_requires_review";
+  if (pos.export) return exportHoldReason(row, cfg.config);
   if (row.buyer_gstin && (!row.billing_name || !row.billing_address)) return "registered_recipient_name_and_address_required";
   if (!row.buyer_gstin && row.amount_paise >= B2C_DETAILS_THRESHOLD_PAISE &&
       (!row.billing_name || !row.billing_address || !row.billing_state)) {
@@ -204,7 +260,67 @@ export function invoiceHoldReason(row, cfg) {
   return null;
 }
 
+/**
+ * Export of services under LUT (IGST Act s.2(6), s.16(3)(a); CGST Rules
+ * r.96A). Issued zero-rated only when every condition the platform can
+ * evidence holds; everything else is held for a person to decide.
+ *   - a LUT accepted for the invoice's financial year (config)
+ *   - recipient name, address and country (outside India)
+ *   - consideration in convertible foreign exchange: Razorpay's own
+ *     "international" flag on the payment, an operator's confirmation, or
+ *     (purchase orders) bank realisation recorded at reconciliation
+ */
+export function exportHoldReason(row, c) {
+  const fy = financialYear(row.captured_at);
+  if (!lutFor(c, fy)) return "export_lut_not_configured_for_" + fy;
+  if (!row.billing_name || !row.billing_address || !row.billing_country) return "export_recipient_name_address_country_required";
+  if (!row.payment_international && !["operator_confirmed", "bank_realisation_pending"].includes(row.export_basis)) {
+    return "export_foreign_exchange_not_evidenced";
+  }
+  return null;
+}
+
+function buildExportInvoiceDocument(row, c) {
+  const lut = lutFor(c, financialYear(row.captured_at));
+  return {
+    schema: "cdb-gst-invoice/1.0",
+    invoice_date: istDate(row.captured_at),
+    supplier: {
+      legal_name: c.supplier_legal_name, trade_name: c.supplier_trade_name, gstin: c.supplier_gstin,
+      address: c.supplier_address, state_code: c.supplier_state_code, state_name: c.supplier_state_name,
+    },
+    recipient: {
+      name: row.billing_name, address: row.billing_address, email: row.email, country: row.billing_country,
+      gstin: null, registered: false,
+    },
+    place_of_supply: { state_code: GST_FOREIGN_POS_CODE, state_name: "Other Countries", country: row.billing_country, basis: "recipient_outside_india" },
+    supply_type: "export_under_lut",
+    reverse_charge: false,
+    export: {
+      declaration: "SUPPLY MEANT FOR EXPORT UNDER LETTER OF UNDERTAKING WITHOUT PAYMENT OF INTEGRATED TAX",
+      lut_arn: lut.arn, lut_financial_year: lut.financial_year,
+      realisation_basis: row.payment_international ? "razorpay_international_payment" : row.export_basis,
+      realisation_reference: row.export_reference || null,
+    },
+    line_items: [{
+      description: row.description || `SENTINEL APEX ${row.tier} subscription (${row.billing_cycle})`,
+      sac: c.sac_subscription, quantity: 1, taxable_value_paise: row.amount_paise,
+    }],
+    tax: {
+      rate_percent: 0, cgst_rate_percent: 0, sgst_rate_percent: 0, igst_rate_percent: 0,
+      taxable_paise: row.amount_paise, cgst_paise: 0, sgst_paise: 0, igst_paise: 0, tax_paise: 0, total_paise: row.amount_paise,
+    },
+    amount_basis: "Zero-rated export of services: no GST charged.",
+    currency: "INR",
+    payment: row.payment_block,
+    config_confirmed_by: c.confirmed_by, config_confirmed_on: c.confirmed_on,
+  };
+}
+
 function buildInvoiceDocument(row, c) {
+  if (placeOfSupply({ buyerGstin: row.buyer_gstin, billingState: row.billing_state, supplierStateCode: c.supplier_state_code }).export) {
+    return buildExportInvoiceDocument(row, c);
+  }
   const pos = placeOfSupply({ buyerGstin: row.buyer_gstin, billingState: row.billing_state, supplierStateCode: c.supplier_state_code });
   const intra = pos.code === c.supplier_state_code;
   const tax = splitInclusiveTax(row.amount_paise, c.gst_rate_percent, intra);
@@ -223,7 +339,7 @@ function buildInvoiceDocument(row, c) {
     supply_type: intra ? "intra_state" : "inter_state",
     reverse_charge: false,
     line_items: [{
-      description: `SENTINEL APEX ${row.tier} subscription (${row.billing_cycle})`,
+      description: row.description || `SENTINEL APEX ${row.tier} subscription (${row.billing_cycle})`,
       sac: c.sac_subscription, quantity: 1, taxable_value_paise: tax.taxable_paise,
     }],
     tax: {
@@ -234,27 +350,26 @@ function buildInvoiceDocument(row, c) {
     },
     amount_basis: "The amount charged is the total, inclusive of GST.",
     currency: "INR",
-    payment: { provider: "razorpay", payment_id: row.payment_id, subscription_id: row.provider_sub_id, captured_at: row.captured_at },
+    payment: row.payment_block,
     config_confirmed_by: c.confirmed_by, config_confirmed_on: c.confirmed_on,
   };
 }
 
 /**
- * Issues the GST invoice for a recorded payment, or records why it is held.
- * Idempotent: an existing invoice for the payment is returned unchanged.
+ * The one invoice issuer. `key` is the invoice's unique source (a Razorpay
+ * payment id, or "po:<quote id>"); `row` carries the subject in ledger
+ * shape; `onHold(reason)` / `issuedStmt` record the outcome on the source's
+ * own table (issuedStmt runs inside the issuing transaction).
  * @returns {{ status: "issued", invoice } | { status: "held", reason }}
  */
-export async function issueInvoiceForPayment(db, env, paymentId) {
+export async function issueInvoiceCore(db, env, { key, row, onHold, issuedStmt }) {
   await ensureBillingSchema(db);
-  const existing = await getInvoiceByPayment(db, paymentId);
+  const existing = await getInvoiceByPayment(db, key);
   if (existing) return { status: "issued", invoice: existing };
-  const row = await getPayment(db, paymentId);
-  if (!row) throw new Error(`issueInvoiceForPayment: no ledger row for ${paymentId}`);
   const cfg = parseGstInvoiceConfig(env.GST_INVOICE_CONFIG);
   const hold = invoiceHoldReason(row, cfg);
   if (hold) {
-    await db.prepare(`UPDATE billing_payments SET invoice_status = 'held', invoice_hold_reason = ? WHERE payment_id = ?`)
-      .bind(hold, paymentId).run();
+    await onHold(hold);
     return { status: "held", reason: hold };
   }
   const c = cfg.config;
@@ -265,28 +380,51 @@ export async function issueInvoiceForPayment(db, env, paymentId) {
   // One D1 batch = one transaction. The serial is incremented and read back
   // by the INSERT inside that transaction, so concurrent issuers serialize on
   // the database: no retry, no gap, no duplicate. For an already-invoiced
-  // payment both statements are no-ops, so no serial is consumed. A UNIQUE
-  // violation (a concurrent issue for the same payment) rolls it all back.
+  // source both statements are no-ops, so no serial is consumed. A UNIQUE
+  // violation (a concurrent issue for the same source) rolls it all back.
   try {
     await db.batch([
       db.prepare(`INSERT INTO invoice_sequences (fy, last_seq) VALUES (?, 0) ON CONFLICT (fy) DO NOTHING`).bind(fy),
       db.prepare(`UPDATE invoice_sequences SET last_seq = last_seq + 1 WHERE fy = ? AND last_seq < ? AND ${notYet}`)
-        .bind(fy, INVOICE_SERIAL_MAX, paymentId),
+        .bind(fy, INVOICE_SERIAL_MAX, key),
       db.prepare(
         `INSERT INTO invoices (id, invoice_number, fy, seq, payment_id, email, invoice_date, issued_at, document)
          SELECT ?, ? || '/' || fy || '/' || printf('%06d', last_seq), fy, last_seq, ?, ?, ?, ?, ?
            FROM invoice_sequences WHERE fy = ? AND last_seq > 0 AND ${notYet}`
-      ).bind(id, c.invoice_prefix, paymentId, row.email, doc.invoice_date, new Date().toISOString(), JSON.stringify(doc), fy, paymentId),
-      db.prepare(`UPDATE billing_payments SET invoice_status = 'issued', invoice_hold_reason = '' WHERE payment_id = ?
-                  AND EXISTS (SELECT 1 FROM invoices WHERE payment_id = ?)`).bind(paymentId, paymentId),
+      ).bind(id, c.invoice_prefix, key, row.email, doc.invoice_date, new Date().toISOString(), JSON.stringify(doc), fy, key),
+      issuedStmt,
     ]);
   } catch (err) {
-    const raced = await getInvoiceByPayment(db, paymentId);
+    const raced = await getInvoiceByPayment(db, key);
     if (raced) return { status: "issued", invoice: raced };
     throw err;
   }
-  const issued = await getInvoiceByPayment(db, paymentId);
-  if (!issued) throw new Error(`issueInvoiceForPayment: no invoice after issuance for ${paymentId} (serial space for ${fy} exhausted?)`);
+  const issued = await getInvoiceByPayment(db, key);
+  if (!issued) throw new Error(`issueInvoiceCore: no invoice after issuance for ${key} (serial space for ${fy} exhausted?)`);
+  return { status: "issued", invoice: issued };
+}
+
+/**
+ * Issues the GST invoice for a recorded Razorpay payment, or records why it
+ * is held. Idempotent: an existing invoice for the payment is returned.
+ * @returns {{ status: "issued", invoice } | { status: "held", reason }}
+ */
+export async function issueInvoiceForPayment(db, env, paymentId) {
+  await ensureBillingSchema(db);
+  const existing = await getInvoiceByPayment(db, paymentId);
+  if (existing) return { status: "issued", invoice: existing };
+  const ledger = await getPayment(db, paymentId);
+  if (!ledger) throw new Error(`issueInvoiceForPayment: no ledger row for ${paymentId}`);
+  const row = { ...ledger, payment_block: { provider: "razorpay", payment_id: ledger.payment_id,
+    subscription_id: ledger.provider_sub_id, captured_at: ledger.captured_at } };
+  const result = await issueInvoiceCore(db, env, {
+    key: paymentId, row,
+    onHold: (reason) => db.prepare(`UPDATE billing_payments SET invoice_status = 'held', invoice_hold_reason = ? WHERE payment_id = ?`)
+      .bind(reason, paymentId).run(),
+    issuedStmt: db.prepare(`UPDATE billing_payments SET invoice_status = 'issued', invoice_hold_reason = '' WHERE payment_id = ?
+                AND EXISTS (SELECT 1 FROM invoices WHERE payment_id = ?)`).bind(paymentId, paymentId),
+  });
+  if (result.status !== "issued") return result;
   // A payment refunded while its invoice was held gets its credit notes now.
   await issuePendingCreditNotesForPayment(db, env, paymentId);
   return { status: "issued", invoice: await getInvoiceByPayment(db, paymentId) };
@@ -327,15 +465,19 @@ export async function listInvoiceHolds(db) {
 }
 
 /** Operator completes recipient details for a held payment (never amounts). */
-export async function completeRecipientDetails(db, paymentId, { billing_name, billing_address, billing_state }) {
+export async function completeRecipientDetails(db, paymentId, { billing_name, billing_address, billing_state, billing_country, export_realisation_confirmed, export_reference }) {
   await ensureBillingSchema(db);
   const r = await db.prepare(
     `UPDATE billing_payments SET
        billing_name = COALESCE(NULLIF(?, ''), billing_name),
        billing_address = COALESCE(NULLIF(?, ''), billing_address),
-       billing_state = COALESCE(NULLIF(?, ''), billing_state)
+       billing_state = COALESCE(NULLIF(?, ''), billing_state),
+       billing_country = COALESCE(NULLIF(?, ''), billing_country),
+       export_basis = CASE WHEN ? = 1 THEN 'operator_confirmed' ELSE export_basis END,
+       export_reference = CASE WHEN ? = 1 THEN ? ELSE export_reference END
      WHERE payment_id = ? AND invoice_status != 'issued'`
-  ).bind(billing_name || "", billing_address || "", billing_state || "", paymentId).run();
+  ).bind(billing_name || "", billing_address || "", billing_state || "", billing_country || "",
+    export_realisation_confirmed === true ? 1 : 0, export_realisation_confirmed === true ? 1 : 0, export_reference || "", paymentId).run();
   return (r.meta && r.meta.changes) || 0;
 }
 
@@ -477,7 +619,10 @@ export async function issueCreditNoteForRefund(db, env, refundId) {
   const fy = financialYear(noteAt);
   const noteDate = istDate(noteAt);
   const intra = inv.supply_type === "intra_state";
-  const tax = splitInclusiveTax(refund.amount_paise, inv.tax.rate_percent, intra);
+  const zeroRated = inv.supply_type === "export_under_lut";
+  const tax = zeroRated
+    ? { taxable_paise: refund.amount_paise, cgst_paise: 0, sgst_paise: 0, igst_paise: 0, tax_paise: 0, total_paise: refund.amount_paise }
+    : splitInclusiveTax(refund.amount_paise, inv.tax.rate_percent, intra);
   const deadline = creditNoteAdjustmentDeadline(inv.financial_year);
   const doc = {
     schema: "cdb-gst-credit-note/1.0",
@@ -494,8 +639,9 @@ export async function issueCreditNoteForRefund(db, env, refundId) {
     tax: {
       rate_percent: inv.tax.rate_percent,
       cgst_rate_percent: intra ? inv.tax.rate_percent / 2 : 0, sgst_rate_percent: intra ? inv.tax.rate_percent / 2 : 0,
-      igst_rate_percent: intra ? 0 : inv.tax.rate_percent, ...tax,
+      igst_rate_percent: intra || zeroRated ? 0 : inv.tax.rate_percent, ...tax,
     },
+    ...(zeroRated ? { export: inv.export } : {}),
     currency: "INR",
     refund: { provider: "razorpay", refund_id: refund.refund_id, payment_id: refund.payment_id, processed_at: refund.processed_at },
     gst_adjustment: { deadline, within_deadline: noteDate <= deadline },

@@ -99,6 +99,12 @@ async function scenario(browser, { gstin, fill = {}, subStatus = 200, subBody })
   // Optional fields are filled only when the page has them, so an older
   // revision can be replayed (UPGRADE_HTML) and fail on behaviour instead.
   if (fill.state && await page.$('#rzp-billing-state')) await page.selectOption('#rzp-billing-state', fill.state);
+  const countryVisible = await page.evaluate(() => { const r = document.getElementById('rzp-country-row'); return !!r && r.style.display !== 'none'; });
+  // Set directly: the field is hidden unless "Outside India" is chosen, and a
+  // value typed before switching back to an Indian state must not be sent.
+  if (fill.country && await page.$('#rzp-billing-country')) {
+    await page.evaluate((v) => { document.getElementById('rzp-billing-country').value = v.toUpperCase(); }, fill.country);
+  }
   if (fill.name && await page.$('#rzp-billing-name')) await page.fill('#rzp-billing-name', fill.name);
   if (fill.address && await page.$('#rzp-billing-address')) await page.fill('#rzp-billing-address', fill.address);
   await page.evaluate(() => initiateRazorpayCheckout());
@@ -106,7 +112,7 @@ async function scenario(browser, { gstin, fill = {}, subStatus = 200, subBody })
   const rzp = await page.evaluate(() => window.__rzp);
   const text = await page.evaluate(() => document.body.innerText);
   await page.close();
-  return { errors, alerts, subs, orders, rzp, text };
+  return { errors, alerts, subs, orders, rzp, text, countryVisible };
 }
 
 async function gumroadStates(browser) {
@@ -158,8 +164,14 @@ async function gumroadStates(browser) {
     check('configured plan: no one-time order', ok.orders.length === 0);
     check('configured plan: no page error', ok.errors.length === 0, ok.errors.join(' | '));
 
-    const state = await scenario(browser, { fill: { state: '27' } });
+    const state = await scenario(browser, { fill: { state: '27', country: 'US' } });
     check('billing state sent when chosen', state.subs[0] && state.subs[0].billing_state === '27', JSON.stringify(state.subs[0]));
+    check('a buyer in India sends no country (field hidden)', state.subs[0] && !('billing_country' in state.subs[0]) && !state.countryVisible,
+      JSON.stringify(state.subs[0]));
+    const abroad = await scenario(browser, { fill: { state: 'OUTSIDE_INDIA', country: 'sg' } });
+    check('a buyer outside India sees and sends the country (export invoice)',
+      abroad.countryVisible && abroad.subs[0] && abroad.subs[0].billing_state === 'OUTSIDE_INDIA' && abroad.subs[0].billing_country === 'SG',
+      JSON.stringify(abroad.subs[0]));
 
     const missing = await scenario(browser, { subStatus: 503, subBody: { error: 'Razorpay plan not configured (RAZORPAY_PLAN_ID_PRO_MONTHLY)' } });
     check('plan not configured: NO one-time order fallback', missing.orders.length === 0, JSON.stringify(missing.orders));
