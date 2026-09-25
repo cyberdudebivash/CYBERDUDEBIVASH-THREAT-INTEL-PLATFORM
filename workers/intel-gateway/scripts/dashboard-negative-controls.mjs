@@ -26,6 +26,8 @@ const COPY = [
   "workers/intel-gateway/package.json",
   "workers/intel-gateway/src/index.js",
   "workers/intel-gateway/src/dashboard-contract.js",
+  "workers/intel-gateway/src/attack-technique-tactics.js",
+  "data/attck/enterprise-attack.json",
   "workers/intel-gateway/src/__tests__/dashboard-contract.test.js",
   "workers/intel-gateway/src/__tests__/dashboard-frontend-contract.test.js",
 ];
@@ -78,7 +80,8 @@ const CONTROLS = [
   ["no ransomware data, static group list reported active", DC,
     "    active_groups: active.size,", "    active_groups: (groups || []).length,"],
   ["ransomware classified from description prose", DC,
-    '  scan("title", _strings(item.title));', '  scan("title", [..._strings(item.title), ..._strings(item.description)]);'],
+    '  if (!isPipelineTitle(item)) scan("title", _strings(item.title));',
+    '  if (!isPipelineTitle(item)) scan("title", [..._strings(item.title), ..._strings(item.description)]);'],
   ["pipeline actor label classifies ransomware", DC,
     "..._strings(item.malware)]],\n  ];",
     "..._strings(item.malware)]],\n    [\"actor\", [..._strings(item.actor), ..._strings(item.mitre_group_name)].filter((v) => !_isPlaceholderLabel(v))],\n  ];"],
@@ -102,6 +105,14 @@ const CONTROLS = [
   ["synthetic empty feed reported as a fresh publication", WI,
     "evaluatePublicIntelligence(feedData && !feedData._synthetic_empty ? feedData : null, Date.now())",
     "evaluatePublicIntelligence(feedData, Date.now())"],
+  ["technique ids without a tactic pair are not mapped (live coverage 0 of 45)", DC,
+    "  for (const id of techniqueIdsOf(item)) referenceTacticsFor(id).forEach((t) => tactics.add(t));\n", ""],
+  ["reference table drifts from the ATT&CK reference", "workers/intel-gateway/src/attack-technique-tactics.js",
+    '  "T1041": ["TA0010"],', '  "T1041": ["TA0011"],'],
+  ["pipeline-generated titles read as campaign evidence", DC,
+    '  const title = isPipelineTitle(item) ? "" : String(item.title || "");', '  const title = String(item.title || "");'],
+  ["pipeline-generated titles read by the ransomware classifier", DC,
+    '  if (!isPipelineTitle(item)) scan("title", _strings(item.title));', '  scan("title", _strings(item.title));'],
 ];
 
 function stage() {

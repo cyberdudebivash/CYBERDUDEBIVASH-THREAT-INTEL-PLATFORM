@@ -10,7 +10,8 @@ WHAT IT FIXES:
       flags as unverified — does NOT delete to preserve lineage)
   [B] Upgrades generic actor names (CDB-UNATTR-*) using real TTP-based
       attribution from threat intel knowledge base
-  [C] Improves generic report titles ("CDB-UNATTR-SUP Campaign" → real title)
+  [C] Restores the advisory headline where the title is a generated
+      actor-cluster label ("CDB-UNATTR-SUP Campaign"). Never invents one.
   [D] Clamps risk_score/confidence to realistic validated ranges
   [E] Adds analyst-grade tags from CVE metadata and threat type
   [F] Flags ancient CVEs (pre-2020) for review — marks as LEGACY
@@ -147,8 +148,13 @@ ACTOR_UPGRADE_MAP: dict[str, dict] = {
     },
 }
 
-# [C] TITLE IMPROVEMENT TEMPLATES
-# Maps synthetic campaign suffixes to real-world-sounding titles
+# [C] DEPRECATED (2026-09-25): these templates used to REPLACE cluster-label
+# titles with invented headlines, several naming actors the advisory never
+# mentions ("APT41 Espionage Campaign", "Sandworm Destructive Campaign").
+# That is fabricated attribution shown to customers. They are kept only so
+# _improve_title() can recognise titles written by earlier runs and restore
+# the real headline. Removal: once no published item carries one (the
+# dashboard contract test pins the same set in dashboard-contract.js).
 TITLE_PATTERNS: list[tuple[re.Pattern, str]] = [
     (re.compile(r"^CDB-UNATTR-RAN Campaign$", re.I),
      "Unattributed Ransomware Campaign — Active Threat"),
@@ -215,15 +221,28 @@ def _upgrade_actor(item: dict) -> bool:
     return True
 
 
+_CLUSTER_LABEL_TITLE_RE = re.compile(r"^(cdb|unc)[-_][a-z0-9-]+(\s+campaign)?$", re.I)
+_TEMPLATE_TITLES = {replacement for _, replacement in TITLE_PATTERNS}
+
+
 def _improve_title(item: dict) -> bool:
-    """[C] Replace generic campaign titles with analyst-grade ones."""
-    title = str(item.get("title") or "")
-    for pattern, replacement in TITLE_PATTERNS:
-        if pattern.match(title):
-            item["title"]          = replacement
-            item["_orig_title"]    = title
-            return True
-    return False
+    """[C] Restore the advisory headline over a pipeline-generated title.
+
+    A generated actor-cluster label ("CDB-UNATTR-PHI Campaign") or a title an
+    earlier run invented from TITLE_PATTERNS is replaced by the first line of
+    the item's own description, which is the source headline for these items.
+    With no description the title is left alone: nothing is invented.
+    """
+    title = str(item.get("title") or "").strip()
+    if not (_CLUSTER_LABEL_TITLE_RE.match(title) or title in _TEMPLATE_TITLES):
+        return False
+    desc = str(item.get("description") or "").strip()
+    headline = desc.splitlines()[0].strip()[:200] if desc else ""
+    if not headline or headline == title:
+        return False
+    item.setdefault("_orig_title", title)
+    item["title"] = headline
+    return True
 
 
 def _flag_synthetic_cve(item: dict) -> bool:

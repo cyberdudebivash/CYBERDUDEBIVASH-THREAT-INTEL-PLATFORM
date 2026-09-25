@@ -22,12 +22,18 @@
  *     one of those fields of a current ransomware-classified item names it.
  *   - Geographic origin comes only from actor_country (threat-actor
  *     attribution). Publisher, vendor, victim and IP geography are not origin.
+ *   - A technique id the feed carries without a tactic is mapped through the
+ *     repo's MITRE ATT&CK reference (attack-technique-tactics.js, generated
+ *     from data/attck/enterprise-attack.json). Live feeds carry technique ids
+ *     but no tactic pairs, so without it coverage read zero (0 of 45).
  */
 
+import { TECHNIQUE_TACTIC_IDS, ATTACK_REFERENCE } from "./attack-technique-tactics.js";
+
 export const DASHBOARD_CONTRACT_VERSION = "dashboard-contract/1.0";
-export const ATTACK_DERIVATION_VERSION = "attack-tactics/1.0";
-export const CAMPAIGN_SEMANTICS_VERSION = "campaign-evidence/1.2";
-export const RANSOMWARE_CLASSIFIER_VERSION = "ransomware-classifier/1.1";
+export const ATTACK_DERIVATION_VERSION = "attack-tactics/1.1";
+export const CAMPAIGN_SEMANTICS_VERSION = "campaign-evidence/1.3";
+export const RANSOMWARE_CLASSIFIER_VERSION = "ransomware-classifier/1.2";
 export const THREAT_LEVEL_FORMULA_VERSION = "threat-level/1.0";
 export const THREAT_LEVEL_FORMULA =
   "min(10, min(avg_risk_score,10) + min(kev_confirmed*0.15,1.5) + min(critical*0.05,0.5)); " +
@@ -60,6 +66,13 @@ for (const t of ATTACK_TACTICS) {
 function _key(s) {
   return String(s || "").toLowerCase().replace(/[-_]+/g, " ").replace(/\s+/g, " ").trim();
 }
+
+// ATT&CK v18 split TA0005 into Stealth (TA0005) and Defense Impairment
+// (TA0112). The dashboard keeps the 14-tactic Enterprise matrix, where both
+// are Defense Evasion, so its response shape is unchanged.
+TACTIC_BY_KEY.set("stealth", "Defense Evasion");
+TACTIC_BY_KEY.set("defense impairment", "Defense Evasion");
+TACTIC_BY_KEY.set("ta0112", "Defense Evasion");
 
 /** Canonical ATT&CK tactic name for one label, or null when it is not one. */
 export function normalizeTactic(label) {
@@ -132,9 +145,24 @@ export function buildTechniqueTacticMap(items) {
 }
 
 /**
+ * Tactics the MITRE ATT&CK reference gives one technique id (a sub-technique
+ * falls back to its parent), as dashboard tactic names. [] when unknown.
+ */
+export function referenceTacticsFor(id) {
+  const ids = TECHNIQUE_TACTIC_IDS[id] || TECHNIQUE_TACTIC_IDS[_baseTechnique(id)] || [];
+  const out = [];
+  for (const tid of ids) {
+    const t = normalizeTactic(tid);
+    if (t && !out.includes(t)) out.push(t);
+  }
+  return out;
+}
+
+/**
  * Tactics one item's evidence supports, with the method that produced them.
  * Precedence: mitre_tactics[].tactic > attck_techniques[].tactic >
- * technique ids mapped via the feed's own pairs > legacy kill_chain fields.
+ * technique ids mapped via the feed's own pairs > technique ids mapped via
+ * the ATT&CK reference > legacy kill_chain fields.
  */
 export function deriveItemTactics(item, techniqueMap) {
   const collect = (list) => {
@@ -157,6 +185,8 @@ export function deriveItemTactics(item, techniqueMap) {
     }
     if (tactics.size) return { tactics: [...tactics], method: "technique_id_map" };
   }
+  for (const id of techniqueIdsOf(item)) referenceTacticsFor(id).forEach((t) => tactics.add(t));
+  if (tactics.size) return { tactics: [...tactics], method: "attck_reference" };
   const legacy = [];
   if (Array.isArray(item && item.kill_chain_phases)) legacy.push(...item.kill_chain_phases);
   if (item && typeof item.kill_chain_phase === "string") legacy.push(item.kill_chain_phase);
@@ -174,7 +204,7 @@ export function deriveAttackTacticCoverage(items, generatedAt) {
   const techniqueMap = buildTechniqueTacticMap(list);
   const counts = new Map(ATTACK_TACTICS.map((t) => [t.name, 0]));
   const samples = new Map(ATTACK_TACTICS.map((t) => [t.name, []]));
-  const methods = { mitre_tactics: 0, attck_techniques: 0, technique_id_map: 0, legacy_kill_chain: 0, none: 0 };
+  const methods = { mitre_tactics: 0, attck_techniques: 0, technique_id_map: 0, attck_reference: 0, legacy_kill_chain: 0, none: 0 };
   let withEvidence = 0;
   const perItem = [];
   for (const item of list) {
@@ -198,8 +228,10 @@ export function deriveAttackTacticCoverage(items, generatedAt) {
       derivation_version: ATTACK_DERIVATION_VERSION,
       derivation_method:
         "per item: mitre_tactics[].tactic, else attck_techniques[].tactic, else technique ids mapped " +
-        "through the technique/tactic pairs in this feed generation, else legacy kill_chain fields. " +
-        "Severity and risk score are never used.",
+        "through the technique/tactic pairs in this feed generation, else technique ids mapped through " +
+        "the MITRE ATT&CK reference, else legacy kill_chain fields. Severity and risk score are never used.",
+      reference: { source: ATTACK_REFERENCE.source, synced_at: ATTACK_REFERENCE.synced_at,
+        content_hash: ATTACK_REFERENCE.content_hash },
       tactics,
       tactics_observed: tactics.filter((t) => t.count > 0).length,
       tactics_total: ATTACK_TACTICS.length,
@@ -232,12 +264,41 @@ function _namedGroup(item) {
 }
 
 /** Evidence that an advisory describes a campaign or actor operation; [] when none. */
+// Titles the pipeline wrote, not the advisory. The STIX re-ingest used the
+// intrusion-set name ("CDB-UNATTR-PHI Campaign", a cluster label) as the
+// title, and intelligence_quality_hardener then rewrote those into invented
+// headlines ("Phishing Campaign \u2014 Credential Harvesting Operation",
+// "APT41 Espionage Campaign ..."). Live 2026-09-25: 3 of 5 "campaigns" were
+// these, over headlines about an Ethereum bridge hack and smart-TV proxies.
+const CLUSTER_LABEL_TITLE_RE = /^(cdb|unc)[-_][a-z0-9-]+(\s+campaign)?$/i;
+const HARDENER_TEMPLATE_TITLES = new Set([
+  "Unattributed Ransomware Campaign \u2014 Active Threat",
+  "Unattributed APT Activity \u2014 Persistent Access Campaign",
+  "Supply Chain Compromise Campaign \u2014 Active IOC Cluster",
+  "Phishing Campaign \u2014 Credential Harvesting Operation",
+  "CVE Exploitation Campaign \u2014 Unattributed Threat Actor",
+  "FIN12 Ransomware Campaign \u2014 Healthcare Sector Targeting",
+  "FIN9 Financial Threat Campaign \u2014 BEC & Phishing Operation",
+  "FIN9 Financial Threat Campaign",
+  "FIN11 Ransomware Campaign \u2014 Double Extortion Operation",
+  "APT41 Espionage Campaign \u2014 Multi-Sector Targeting",
+  "Sandworm Destructive Campaign \u2014 Critical Infrastructure",
+  "CyberAv3ngers ICS Attack Campaign \u2014 Infrastructure Disruption",
+]);
+
+/** True when the item's title was generated by the pipeline rather than taken from the advisory. */
+export function isPipelineTitle(item) {
+  if (!item || typeof item !== "object") return false;
+  const title = String(item.title || "").trim();
+  return CLUSTER_LABEL_TITLE_RE.test(title) || HARDENER_TEMPLATE_TITLES.has(title);
+}
+
 export function campaignEvidence(item) {
   if (!item || typeof item !== "object") return [];
   const ev = [];
   if (/campaign/i.test(String(item.threat_type || ""))) ev.push("threat_type");
   if (Array.isArray(item.tags) && item.tags.some((t) => typeof t === "string" && /\bcampaigns?\b/i.test(t))) ev.push("tag");
-  const title = String(item.title || "");
+  const title = isPipelineTitle(item) ? "" : String(item.title || "");
   if (/\bcampaigns?\b/i.test(title)) ev.push("title:campaign");
   else if (/\b(ransomware|malware|threat actor|apt|espionage|hacking|botnet)\s+operations?\b/i.test(title)) ev.push("title:operation");
   // Pipeline campaign links and MITRE group labels are keyword-inferred (live:
@@ -300,7 +361,8 @@ export function buildCampaignsPayload(items, nowIso) {
       version: CAMPAIGN_SEMANTICS_VERSION,
       rule: "campaign threat_type or tag, or 'campaign' / '<actor> operation' in the title. Pipeline campaign ids/names " +
         "and MITRE group labels are supporting evidence only. Severity, risk score, KEV status, a campaign id or an " +
-        "actor label alone never make a campaign.",
+        "actor label alone never make a campaign. Pipeline-generated titles (cluster labels, hardener templates) " +
+        "are not read.",
     },
     attack_tactics: block,
     generated_at: nowIso,
@@ -348,7 +410,7 @@ export function classifyRansomware(item, groups) {
     }
   };
   for (const [label, values] of structured) scan(label, values);
-  scan("title", _strings(item.title));
+  if (!isPipelineTitle(item)) scan("title", _strings(item.title));
   if (evidence.length) {
     // Supporting only: placeholders ("Unattributed LockBit cluster") are dropped.
     const labels = [..._strings(item.actor), ..._strings(item.mitre_group_name)].filter((v) => !_isPlaceholderLabel(v));
@@ -384,7 +446,7 @@ export function buildRansomwarePayload(items, groups, nowIso) {
       version: RANSOMWARE_CLASSIFIER_VERSION,
       method: "threat_type, tags and malware family fields, then the title. Description text is not used. Pipeline " +
         "actor labels are supporting evidence only and never classify an item. A group counts as active only when " +
-        "one of those fields of a current ransomware-classified item names it.",
+        "one of those fields of a current ransomware-classified item names it. Pipeline-generated titles are not read.",
     },
     recent_advisories: hits.slice(0, 5).map(({ item, c }) => ({
       title: item.title, severity: item.severity, risk_score: item.risk_score, source: item.source,

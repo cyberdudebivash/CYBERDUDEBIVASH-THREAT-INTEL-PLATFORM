@@ -3026,6 +3026,27 @@ def stage_write_metrics() -> None:
 # Stage 3.9 — Sync Root feed.json from STIX bundles (P0 DATA CONTRACT FIX)
 # ---------------------------------------------------------------------------
 
+# A generated actor-cluster label ("CDB-UNATTR-PHI Campaign", "CDB-MOB-02
+# Campaign", "UNC-CDB-99") is not an advisory title. 476 of 503 committed
+# platform STIX bundles name their intrusion-set this way; the headline is
+# the intrusion-set description.
+_CLUSTER_LABEL_TITLE_RE = re.compile(r"^(cdb|unc)[-_][a-z0-9-]+(\s+campaign)?$", re.I)
+
+
+def stix_advisory_title(name: str, description: str) -> str:
+    """Advisory title for a re-ingested platform STIX bundle.
+
+    Returns `name` unless it is a generated cluster label; then the first
+    line of `description` (the source headline), capped at 200 characters.
+    Never invents a title: with no usable description the label is kept.
+    """
+    name = (name or "").strip()
+    if not _CLUSTER_LABEL_TITLE_RE.match(name):
+        return name
+    headline = (description or "").strip().splitlines()[0].strip() if (description or "").strip() else ""
+    return headline[:200] if headline else name
+
+
 def stage_sync_root_feed_json() -> None:
     """
     v134.1 P0 FIX: Populate root feed.json and api/feed.json from the
@@ -3087,6 +3108,10 @@ def stage_sync_root_feed_json() -> None:
                         raw_title = intset.get("name", "Threat Advisory")
                         if vuln:
                             raw_title = vuln.get("name", raw_title)
+                        # The platform's own bundles name the intrusion-set after the
+                        # actor cluster ("CDB-UNATTR-PHI Campaign"); the advisory
+                        # headline is its description. A cluster label is not a title.
+                        raw_title = stix_advisory_title(raw_title, intset.get("description", ""))
                         cve_ids = [vuln["name"] for vuln in
                                    [o for o in objs if o.get("type") == "vulnerability"]
                                    if vuln.get("name")]
