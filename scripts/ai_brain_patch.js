@@ -1,5 +1,5 @@
 /* ============================================================================
-   CYBERDUDEBIVASH® SENTINEL APEX v148.0 — AI CYBER BRAIN ENTERPRISE ENGINE
+   CYBERDUDEBIVASH® SENTINEL APEX v184.0 — AI CYBER BRAIN ENTERPRISE ENGINE
    World-class operational AI intelligence: campaign clustering, anomaly scoring,
    predictive attack-chain modeling, actor attribution, confidence scoring,
    behavioral analytics, risk trajectory forecasting, IOC correlation,
@@ -894,9 +894,23 @@
   /* Expose for manual refresh buttons */
   window.CDB_NEWS={refresh:refreshNews};
 
-  /* FIX v148.0 — LIVE DATA BRIDGE: fetch /api/apex_v2/priority.json → window.__GOC_LIVE_INTEL */
+  /* FIX v148.0 — LIVE DATA BRIDGE: fetch /api/feed.json → window.__GOC_LIVE_INTEL
+     P0 Runtime Convergence session: verified live (2026-09-03) that
+     /api/apex_v2/priority.json and /api/apex_v2/critical.json both return
+     404 in production -- /api/* is entirely Worker-routed per
+     wrangler.toml, and workers/intel-gateway/src/index.js has no handler
+     for /api/apex_v2/* (the files under the repo's own api/apex_v2/
+     directory are not served at that URL; likely a stale reference to a
+     prior architecture). The forEach+done-guard fallback already made this
+     harmless functionally (api/feed.json, the 3rd URL, always won), but
+     the first two entries cost two guaranteed-failing requests on every
+     homepage load for zero benefit. Removed rather than fixed forward:
+     building /api/apex_v2/* routes is a backend change outside this
+     session's frontend-runtime scope, and the working fallback already
+     covers this page's actual need -- see this session's PR description
+     for the full finding. */
   function _fetchLiveIntel(cb){
-    var urls=['/api/apex_v2/priority.json','/api/apex_v2/critical.json','/api/feed.json'];
+    var urls=['/api/feed.json'];
     var done=false;
     urls.forEach(function(url){
       if(done)return;
@@ -905,7 +919,15 @@
         return r.json();
       }).then(function(data){
         if(done)return;
-        var items=Array.isArray(data)?data:(data.advisories||data.data||data.feed||[]);
+        // ROOT CAUSE FIX: /api/feed.json's real response is
+        // {schema_version, generated_at, count, items:[...], ...} -- the
+        // items array lives under `.items`, which this fallback chain never
+        // checked. `.advisories`/`.data`/`.feed` never matched, so `items`
+        // was always [], window.__GOC_LIVE_INTEL was never set, and every
+        // consumer (runAIBrain, injectEnterpriseSignals, refreshNews) stayed
+        // on its permanent empty-state placeholder. `.items` checked first
+        // since that's the real shape; the others kept as harmless fallbacks.
+        var items=Array.isArray(data)?data:(data.items||data.advisories||data.data||data.feed||[]);
         if(items.length){done=true;window.__GOC_LIVE_INTEL=items;if(typeof cb==='function')cb(items);}
       }).catch(function(){});
     });
@@ -921,7 +943,25 @@
   // stayed on its initial shimmer placeholder forever. refreshNews() already
   // no-ops when the cached item count hasn't changed, so calling it here on
   // every successful fetch is safe and does not cause redundant re-renders.
+  // FIX (P0, 2026-09-10): #ai-bar-predicted ("High-Risk 30d") had no writer
+  // anywhere in this file -- runAIBrain() above only ever sets campaigns/
+  // anomalies/soc/actors/families, all client-side heuristics; nothing wrote
+  // this one field, which permanently showed the seeded '&mdash;'. Unlike
+  // those, the real APEX AI backend (GET /api/v1/intel/ai_summary.json,
+  // confirmed live) already publishes exactly this number under the same
+  // field name (high_risk_30d) -- wiring it directly rather than
+  // approximating it client-side. One-time fetch at boot, not on the 30s
+  // poller below: this AI-computed summary updates on the backend's own
+  // model-run cadence, not every raw-feed poll.
+  function _loadApexAISummary(){
+    fetch('/api/v1/intel/ai_summary.json', {cache:'no-store'})
+      .then(function(r){ return r.ok ? r.json() : null; })
+      .then(function(d){
+        if (d && d.high_risk_30d != null) txt('ai-bar-predicted', d.high_risk_30d);
+      }).catch(function(){});
+  }
   function _startAIBrainPoller(){
+    _loadApexAISummary();
     _fetchLiveIntel(function(){runAIBrain();injectEnterpriseSignals(window.__GOC_LIVE_INTEL||window.EMBEDDED_INTEL||[]);refreshNews();});
     setInterval(function(){_fetchLiveIntel(function(){runAIBrain();refreshNews();});},30000);
   }

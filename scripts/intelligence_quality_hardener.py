@@ -17,6 +17,9 @@ WHAT IT FIXES:
   [F] Flags ancient CVEs (pre-2020) for review — marks as LEGACY
   [G] Adds IOC type hints from threat type context
   [H] Writes quality improvement telemetry report
+  [I] Drops a severity prefix ("Low: ...") from a title when it contradicts
+      the item's own severity field (the prefix was written earlier by
+      cve_title_enricher.py; severity changed after).
 
 T12 compliant: zero inline Python in YAML.
 (c) 2026 CyberDudeBivash Pvt. Ltd. All Rights Reserved. CONFIDENTIAL.
@@ -245,6 +248,29 @@ def _improve_title(item: dict) -> bool:
     return True
 
 
+_SEVERITY_PREFIX_RE = re.compile(r"^(critical|high|medium|low|info)\s*:\s+", re.I)
+
+
+def _drop_stale_severity_prefix(item: dict) -> bool:
+    """[I] Remove a title severity prefix that disagrees with item["severity"].
+
+    Live 2026-09-25: "Low: phpIPAM User API Authorization Bypass" on a HIGH
+    item and "Critical: A Closer Look at Malware ..." on a LOW item; the
+    dashboard showed the severity chip beside the contradicting title. The
+    prefix is removed, not rewritten: this step does not choose a severity.
+    """
+    title = str(item.get("title") or "")
+    m = _SEVERITY_PREFIX_RE.match(title)
+    sev = str(item.get("severity") or "").strip().upper()
+    if not m or not sev or m.group(1).upper() == sev:
+        return False
+    rest = title[m.end():].strip()
+    if not rest:
+        return False
+    item["title"] = rest
+    return True
+
+
 def _flag_synthetic_cve(item: dict) -> bool:
     """[A] Flag CVE-202x-* items that are likely synthetic (unverified).
     Uses year heuristic: CVE-2026-* are almost certainly not in NVD yet.
@@ -399,6 +425,7 @@ def main() -> int:
         "tags_enriched":           0,
         "ioc_hints_added":         0,
         "tlp_derived":             0,
+        "stale_severity_prefixes_dropped": 0,
     }
 
     for item in items:
@@ -413,6 +440,9 @@ def main() -> int:
 
         if _improve_title(item):
             stats["titles_improved"] += 1
+
+        if _drop_stale_severity_prefix(item):
+            stats["stale_severity_prefixes_dropped"] += 1
 
         if _clamp_scores(item):
             stats["scores_clamped"] += 1

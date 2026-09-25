@@ -91,3 +91,19 @@ def test_worker_recognises_the_same_template_titles():
     block = js[js.index("const HARDENER_TEMPLATE_TITLES"):js.index("]);", js.index("const HARDENER_TEMPLATE_TITLES"))]
     pinned = {json.loads('"' + s + '"') for s in re.findall(r'"((?:[^"\\]|\\.)*)"', block)}
     assert pinned == {replacement for _, replacement in hardener.TITLE_PATTERNS}
+
+
+def test_hardener_drops_a_severity_prefix_that_contradicts_the_item():
+    low_on_high = {"title": "Low: phpIPAM User API Authorization Bypass (CVE-2026-97818)", "severity": "HIGH"}
+    assert hardener._drop_stale_severity_prefix(low_on_high) is True
+    assert low_on_high["title"] == "phpIPAM User API Authorization Bypass (CVE-2026-97818)"
+    crit_on_low = {"title": "Critical: A Closer Look at Malware From the Macfinger ClickFix Campaign", "severity": "LOW"}
+    assert hardener._drop_stale_severity_prefix(crit_on_low) is True
+    assert crit_on_low["title"].startswith("A Closer Look at Malware")
+    # A consistent prefix, an unprefixed title, or no severity: unchanged.
+    for item in ({"title": "Critical: Microsoft Patches a Record 570 Flaws", "severity": "CRITICAL"},
+                 {"title": "CISA: Ransomware gangs now exploiting TeamCity", "severity": "HIGH"},
+                 {"title": "Low: something", "severity": ""}):
+        before = item["title"]
+        assert hardener._drop_stale_severity_prefix(item) is False
+        assert item["title"] == before

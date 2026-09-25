@@ -22,6 +22,7 @@ const COPY = [
   "index.html",
   "service-worker.js",
   "scripts/enterprise_intel_block.html",
+  "scripts/ai_brain_patch.js",
   "js",
   "workers/intel-gateway/package.json",
   "workers/intel-gateway/src/index.js",
@@ -113,6 +114,8 @@ const CONTROLS = [
     '  const title = isPipelineTitle(item) ? "" : String(item.title || "");', '  const title = String(item.title || "");'],
   ["pipeline-generated titles read by the ransomware classifier", DC,
     '  if (!isPipelineTitle(item)) scan("title", _strings(item.title));', '  scan("title", _strings(item.title));'],
+  ["AI-brain template drifts from the shipped block (pipeline re-injects it)", "scripts/ai_brain_patch.js",
+    "    var urls=['/api/feed.json'];", "    var urls=['/api/apex_v2/priority.json','/api/apex_v2/critical.json','/api/feed.json'];"],
 ];
 
 function stage() {

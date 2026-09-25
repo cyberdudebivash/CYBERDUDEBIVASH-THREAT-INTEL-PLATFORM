@@ -63,6 +63,16 @@ Titles come from the advisory. `run_pipeline.py` (`stix_advisory_title`) no long
 is an actor-cluster label as the title (476 of 503 committed platform bundles); it uses the description headline.
 `intelligence_quality_hardener.py` `[C]` restores that headline instead of writing template headlines; the templates
 are deprecated and kept only to recognise titles written by earlier runs (`tests/test_advisory_title_integrity.py`).
+Hardener `[I]` drops a title severity prefix (`Low: …`) that contradicts the item's own `severity` (written earlier by
+`cve_title_enricher.py`; live: `Low: phpIPAM …` on a HIGH item). It removes the prefix and does not choose a severity.
+
+## Pipeline re-injection of index.html blocks
+
+`run_pipeline.py` Stage 3.6b (`patch_ai_brain_news.py`) re-injects `scripts/ai_brain_patch.js` into index.html on every
+run, so a fix made only in index.html is reverted in the published page. The template had fallen behind: production
+served the pre-fix live-data bridge (two 404 fetches of `/api/apex_v2/*.json` per load, and `data.items` never read, so
+`window.__GOC_LIVE_INTEL` stayed empty). The template is now the shipped block, and
+`dashboard-frontend-contract.test.js` requires them to be byte-identical, as it already does for the EICC template.
 
 ## Deprecations
 
