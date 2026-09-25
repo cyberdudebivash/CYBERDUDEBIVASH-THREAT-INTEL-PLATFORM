@@ -134,8 +134,14 @@ def test_gumroad_webhook_requires_shared_secret_auth(gumroad_webhook_body: str):
     assert "timingSafeEqual" in gumroad_webhook_body
 
 
-def test_gumroad_webhook_handles_cancellation_event(gumroad_webhook_body: str):
-    assert "isGumroadCancellationEvent" in gumroad_webhook_body, (
+def test_gumroad_webhook_handles_cancellation_event(gumroad_webhook_body: str, gumroad_lifecycle_src: str):
+    # 2026-09-25 (Gumroad memberships): the handler routes on
+    # classifyGumroadPing(), whose "cancellation" kind IS
+    # isGumroadCancellationEvent() -- same guarantee, one classifier.
+    classifies = ('classifyGumroadPing(formData)' in gumroad_webhook_body
+                  and 'pingKind === "cancellation"' in gumroad_webhook_body
+                  and 'if (isGumroadCancellationEvent(formData)) return "cancellation";' in gumroad_lifecycle_src)
+    assert "isGumroadCancellationEvent" in gumroad_webhook_body or classifies, (
         "handleWebhookGumroad must check isGumroadCancellationEvent() -- "
         "a Gumroad subscription cancellation/end ping must not be treated as a new sale"
     )
@@ -340,14 +346,17 @@ def test_welcome_html_inline_js_syntax_valid():
 # 6. Gumroad billing-cycle expansion (issue #287)
 # ---------------------------------------------------------------------------
 
-def test_provision_api_key_has_cycle_days_for_every_gumroad_recurrence(gateway_src: str):
+def test_provision_api_key_has_cycle_days_for_every_gumroad_recurrence(gateway_src: str, gumroad_lifecycle_src: str):
     """provisionApiKey()'s cycleDays used to be a binary
     `billingCycle === "annual" ? 365 : 30`, silently giving any other value
     (Gumroad's quarterly/biannual/every_two_years) only 30 days. Regression
     guard: every bucket inferGumroadBillingCycle() can return must have a
     real entry here, not fall through to the 30-day default."""
-    match = re.search(r"const CYCLE_DAYS = \{([^}]*)\}", gateway_src)
-    assert match, "expected a CYCLE_DAYS mapping in provisionApiKey()"
+    # 2026-09-25: the table is the shared BILLING_CYCLE_DAYS (gumroad-lifecycle.js,
+    # also used for membership renewals); provisionApiKey() must read it.
+    assert "BILLING_CYCLE_DAYS[billingCycle]" in gateway_src, "provisionApiKey() must use BILLING_CYCLE_DAYS"
+    match = re.search(r"export const BILLING_CYCLE_DAYS = Object\.freeze\(\{([^}]*)\}\)", gumroad_lifecycle_src)
+    assert match, "expected the BILLING_CYCLE_DAYS mapping in gumroad-lifecycle.js"
     cycle_days_body = match.group(1)
     for bucket in ("monthly", "quarterly", "biannual", "annual", "every_two_years"):
         assert f"{bucket}:" in cycle_days_body, f"CYCLE_DAYS is missing a '{bucket}' entry"

@@ -193,7 +193,7 @@ def test_t13_razorpay_display_aligned_charge_unchanged():
     assert "3,999" not in src
     assert "399900" not in src
     # Owner commercial policy (2026-09-24): Razorpay checkout IS a recurring
-    # subscription now (Gumroad stays a one-time 30-day grant), so the
+    # subscription now (Gumroad: membership or a labelled one-time grant), so the
     # Razorpay button must say so; it previously had to avoid the word.
     btn = re.search(r'id="rzp-pay-btn"[^>]*>([\s\S]*?)</button>', src)
     assert btn, "rzp-pay-btn missing"

@@ -119,7 +119,7 @@ import { routeExports } from './routes/exports.js';
 import { trackApiUsage, calculateCostPerCall, slugifyEndpoint } from './usage-meter.js';
 import { deductCredits } from './credit-system.js';
 import { evaluateKeyRecordAccess, SUBSCRIPTION_STATUS_DENY_STATES, SUBSCRIPTION_STATUS_VALID_STATES } from './subscription-lifecycle.js';
-import { inferGumroadTier, inferGumroadBillingCycle, isGumroadCancellationEvent, isGumroadAccessRevokingEvent } from './gumroad-lifecycle.js';
+import { inferGumroadTier, inferGumroadBillingCycle, isGumroadCancellationEvent, isGumroadAccessRevokingEvent, classifyGumroadPing, renewedExpiry, renewalMayReactivate, BILLING_CYCLE_DAYS } from './gumroad-lifecycle.js';
 import { handleIntelStaticProxy, INTEL_STATIC_PROXY } from './intel-static-proxy.js';
 // P0 2026-09-03: separates the first-party dashboard's own read traffic from
 // the commercial API entitlement plane. See first-party-plane.js's header for
@@ -4334,8 +4334,7 @@ async function provisionApiKey(env, ctx, tier, email, source, metadata, billingC
   // of the ~90+ days actually paid for. Razorpay's own plans really are
   // monthly/annual only (RAZORPAY_PLAN_ID_* has no other suffix), so this
   // widening only changes behavior for Gumroad-sourced billing cycles.
-  const CYCLE_DAYS = { monthly: 30, quarterly: 90, biannual: 180, annual: 365, every_two_years: 730 };
-  const cycleDays      = CYCLE_DAYS[billingCycle] || 30;
+  const cycleDays      = BILLING_CYCLE_DAYS[billingCycle] || BILLING_CYCLE_DAYS.monthly;
   const shadowExpiresAt = new Date(Date.now() + cycleDays * 86400000).toISOString();
   // FREE has no billing cycle to expire against -- it is not a paid
   // subscription, so it never gets a shadow/enforced expiry regardless of
@@ -5100,6 +5099,84 @@ async function handleWebhookRazorpay(request, env, ctx) {
 // Configure Gumroad -> Settings -> Webhooks URL as:
 //   https://intel.cyberdudebivash.com/api/webhooks/gumroad?secret=YOUR_GUMROAD_WEBHOOK_SECRET
 // Set GUMROAD_WEBHOOK_SECRET via: npx wrangler secret put GUMROAD_WEBHOOK_SECRET
+// Key mappings are refreshed on every renewal, so an active membership never
+// ages out; a lapsed one expires a year after its last charge.
+const GUMROAD_KEY_MAP_TTL = 86400 * 400;
+
+/**
+ * Gumroad refund / chargeback: the entitlement bought by that sale ends.
+ * Refunds are issued by the merchant in Gumroad (the 7-day guarantee is
+ * merchant-approved), so this only reconciles access. A dispute suspends
+ * (an operator can reactivate if it is won); a refund marks refunded.
+ */
+async function handleGumroadMoneyBack(env, ctx, kind, saleId, subscriptionId) {
+  if (!saleId) return jsonResp({ error: "Invalid Gumroad payload: sale_id required" }, 400);
+  const key = (await env.SECURITY_HUB_KV.get(`gumroad_sale_key_map:${saleId}`))
+    || (subscriptionId ? await env.SECURITY_HUB_KV.get(`gumroad_sub_key_map:${subscriptionId}`) : null);
+  if (!key) {
+    auditLog(ctx, env, { action: `gumroad_${kind}_key_lookup_failed`, sale_id: saleId, subscription_id: subscriptionId || null });
+    ctx.waitUntil(sendTelegramAlert(env,
+      `[WARN] <b>GUMROAD ${kind.toUpperCase()} -- NO KEY MAPPING</b>\n` +
+      `Sale ID: <code>${saleId}</code>\n` +
+      `Manual follow-up required -- could not auto-revoke access.`
+    ));
+    return jsonResp({ status: "noted_no_mapping", sale_id: saleId, event: kind });
+  }
+  const status = kind === "refund" ? "refunded" : "suspended";
+  const result = await applySubscriptionStatusChange(env, ctx, key, status, `gumroad_${kind}:${saleId}`);
+  ctx.waitUntil(sendTelegramAlert(env,
+    `<b>GUMROAD ${kind.toUpperCase()}</b>\n` +
+    `Sale ID: <code>${saleId}</code>\n` +
+    `Key: <code>${key.slice(0, 16)}...</code> marked ${status} -- access revoked.`
+  ));
+  return jsonResp({ status: result.ok ? status : "key_not_found", sale_id: saleId, event: kind });
+}
+
+/**
+ * A paid membership renewal: extend the mapped key by one billing cycle.
+ * Returns the response, or null when there is no usable key to extend (the
+ * caller then provisions). Keys an operator or a refund denied are never
+ * reactivated by a charge; they are flagged for manual review instead.
+ */
+async function renewGumroadMembership(env, ctx, { sale_id, subscription_id, sale_timestamp, billingCycle, email, tier, idempKey }) {
+  const key = await env.SECURITY_HUB_KV.get(`gumroad_sub_key_map:${subscription_id}`);
+  const record = key ? await env.API_KEYS_KV.get(key, "json") : null;
+  if (!key || !record) {
+    auditLog(ctx, env, { action: "gumroad_renewal_without_key_mapping", sale_id, subscription_id });
+    return null;
+  }
+  const claim = JSON.stringify({ key_prefix: key.slice(0, 12) + "...", email, tier, ts: now(), renewal: true });
+  if (!renewalMayReactivate(record.subscription_status)) {
+    await env.SECURITY_HUB_KV.put(idempKey, claim, { expirationTtl: 86400 * 365 });
+    auditLog(ctx, env, { action: "gumroad_renewal_on_denied_key", sale_id, subscription_id, subscription_status: record.subscription_status });
+    ctx.waitUntil(sendTelegramAlert(env,
+      `[WARN] <b>GUMROAD RENEWAL ON A ${String(record.subscription_status).toUpperCase()} KEY</b>\n` +
+      `Subscription ID: <code>${subscription_id}</code> | Sale ID: <code>${sale_id}</code>\n` +
+      `Charged, but access was NOT restored automatically -- review and refund or reactivate.`
+    ));
+    return jsonResp({ status: "renewal_requires_review", sale_id, subscription_status: record.subscription_status });
+  }
+  const enforceExpiry = record.tier !== "FREE" && env.SUBSCRIPTION_EXPIRY_ENABLED === "true";
+  const expiresAt = enforceExpiry ? renewedExpiry(record.expires_at, sale_timestamp, billingCycle) : record.expires_at;
+  const updated = { ...record, expires_at: expiresAt, billing_cycle: billingCycle,
+    last_renewal: { sale_id, at: now(), provider: "gumroad" } };
+  await env.API_KEYS_KV.put(key, JSON.stringify(updated));
+  // A lapsed/cancelled membership that charges again (restarted) is active again.
+  if (record.subscription_status && record.subscription_status !== "active") {
+    await applySubscriptionStatusChange(env, ctx, key, "active", `gumroad_renewal:${sale_id}`);
+  }
+  await env.SECURITY_HUB_KV.put(`gumroad_sub_key_map:${subscription_id}`, key, { expirationTtl: GUMROAD_KEY_MAP_TTL });
+  await env.SECURITY_HUB_KV.put(`gumroad_sale_key_map:${sale_id}`, key, { expirationTtl: GUMROAD_KEY_MAP_TTL });
+  await env.SECURITY_HUB_KV.put(idempKey, claim, { expirationTtl: 86400 * 365 });
+  auditLog(ctx, env, { action: "gumroad_membership_renewed", sale_id, subscription_id, expires_at: expiresAt });
+  ctx.waitUntil(sendTelegramAlert(env,
+    `<b>GUMROAD RENEWAL</b>\n` +
+    `Subscription ID: <code>${subscription_id}</code> | Sale ID: <code>${sale_id}</code>\n` +
+    `Key: <code>${key.slice(0, 16)}...</code> extended to ${expiresAt || "no expiry"}.`
+  ));
+  return jsonResp({ status: "renewed", sale_id, subscription_id, expires_at: expiresAt });
+}
+
 async function handleWebhookGumroad(request, env, ctx) {
   // Token-based authentication: Gumroad doesn't sign payloads, so we use a shared secret in the URL
   if (!env.GUMROAD_WEBHOOK_SECRET) {
@@ -5121,11 +5198,20 @@ async function handleWebhookGumroad(request, env, ctx) {
 
   const {
     sale_id, email, product_id = "", product_name = "", variants = "",
-    price = "0", subscription_id = "", recurrence = "",
+    price = "0", subscription_id = "", recurrence = "", sale_timestamp = "",
   } = formData;
 
+  // 2026-09-25 (Gumroad memberships): what this ping asks for. Refund and
+  // dispute pings repeat the original sale_id, so they are handled before the
+  // one-provisioning-per-sale claim below, which would otherwise answer
+  // "already_provisioned" and leave access active after money went back.
+  const pingKind = classifyGumroadPing(formData);
+  if (pingKind === "refund" || pingKind === "dispute") {
+    return await handleGumroadMoneyBack(env, ctx, pingKind, sale_id, subscription_id);
+  }
+
   // "Subscription updated" ping (same webhook URL as "sale"): cancelled/ended.
-  if (isGumroadCancellationEvent(formData)) {
+  if (pingKind === "cancellation") {
     if (!subscription_id) {
       return jsonResp({ error: "Invalid Gumroad cancellation payload: subscription_id required" }, 400);
     }
@@ -5203,9 +5289,20 @@ async function handleWebhookGumroad(request, env, ctx) {
   const existing = await env.SECURITY_HUB_KV.get(idempKey);
   if (existing) return jsonResp({ status: "already_provisioned", sale_id });
 
+  // Membership renewal (2026-09-25): every recurring charge arrives as a new
+  // sale. It extends the key this membership already has instead of minting
+  // a second one, so the customer's key never changes. Without a usable
+  // mapping (first charge predates it, or the record is gone) it falls
+  // through to provisioning: the customer paid, so they get access.
+  if (subscription_id && (pingKind === "renewal" || await env.SECURITY_HUB_KV.get(`gumroad_sub_key_map:${subscription_id}`))) {
+    const renewed = await renewGumroadMembership(env, ctx, { sale_id, subscription_id, sale_timestamp, billingCycle, email, tier, idempKey });
+    if (renewed) return renewed;
+  }
+
   const apiKey = await provisionApiKey(env, ctx, tier, email, "gumroad_webhook", {
     sale_id, product_id, product_name, price, variants, subscription_id,
   }, billingCycle);
+  await env.SECURITY_HUB_KV.put(`gumroad_sale_key_map:${sale_id}`, apiKey, { expirationTtl: GUMROAD_KEY_MAP_TTL });
 
   await env.SECURITY_HUB_KV.put(
     idempKey,
@@ -5218,7 +5315,7 @@ async function handleWebhookGumroad(request, env, ctx) {
   // subscription_id, not the API key) can find it. Same pattern and TTL as
   // Razorpay's payment_key_map: above.
   if (subscription_id) {
-    await env.SECURITY_HUB_KV.put(`gumroad_sub_key_map:${subscription_id}`, apiKey, { expirationTtl: 86400 * 365 });
+    await env.SECURITY_HUB_KV.put(`gumroad_sub_key_map:${subscription_id}`, apiKey, { expirationTtl: GUMROAD_KEY_MAP_TTL });
   }
 
   // Gumroad checkout happens entirely on Gumroad's hosted page -- there is
