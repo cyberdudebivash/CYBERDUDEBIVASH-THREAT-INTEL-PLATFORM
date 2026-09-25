@@ -220,6 +220,9 @@ def test_t14_pricing_jsonld_no_p1m_parses():
     assert by_name["PRO / SOC"]["price"] == "49"
     assert by_name["Enterprise SOC"]["price"] == "499"
     assert by_name["MSSP / Sovereign"]["price"] == "999"
+    assert by_name["PRO / SOC — Annual"]["price"] == "490"
+    assert by_name["Enterprise SOC — Annual"]["price"] == "4990"
+    assert by_name["MSSP / White-Label — Annual"]["price"] == "9990"
     assert by_name["Free Tier"]["price"] == "0"
     for name in ("PRO / SOC", "Enterprise SOC", "MSSP / Sovereign"):
         assert "billingDuration" not in by_name[name], name
