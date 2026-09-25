@@ -21,6 +21,7 @@ const HERE = path.dirname(fileURLToPath(import.meta.url));
 const REPO = path.resolve(HERE, "../../..");
 const COPY = [
   "revenue-crm/schema.sql",
+  "upgrade.html",
   "config",
   "workers/revenue-engine/src",
   "workers/intel-gateway/package.json",
@@ -34,7 +35,8 @@ const SUITES = [
     "src/__tests__/pricing-fail-closed.test.js"]],
   ["workers/intel-gateway", ["--test", "src/__tests__/razorpay-create-order-taxid.test.js",
     "src/__tests__/razorpay-webhook-subscription-guard.test.js", "src/__tests__/manual-notify-retirement.test.js",
-    "src/__tests__/gumroad-membership.test.js", "src/__tests__/gumroad-lifecycle.test.js"]],
+    "src/__tests__/gumroad-membership.test.js", "src/__tests__/gumroad-lifecycle.test.js",
+    "src/__tests__/gumroad-catalog.test.js"]],
 ];
 
 const BR = "workers/revenue-engine/src/billing-routes.js";
@@ -47,6 +49,33 @@ const EP = "workers/revenue-engine/src/enterprise-po.js";
 
 // [name, file, find, replace] -- `find` must occur exactly once.
 const CONTROLS = [
+  // S16/S18/S19 Gumroad (gateway).
+  ["Gumroad tier inferred from the product name again", GW,
+    "    tier = product.tier;", "    tier = inferGumroadTier(product_name, variants);"],
+  ["Gumroad sale price not checked", GW,
+    "    if (!priceCheck.ok) return await holdGumroadSale(env, ctx, formData, priceCheck.reason, priceCheck);", ""],
+  ["plan-like product outside the catalog provisioned by name", GW,
+    "      return await holdGumroadSale(env, ctx, formData, \"unknown_product\", null);",
+    "      return await processGumroadSale(env, ctx, formData, pingKind, { tier: inferGumroadTier(product_name, variants), billingCycle: \"monthly\" });"],
+  ["content products mint API keys again", GW,
+    "      if (GUMROAD_CONTENT_PRODUCTS.includes(gumroadPermalinkFrom(formData)) || !looksLikePlatformProduct(product_name)) {",
+    "      if (!looksLikePlatformProduct(product_name)) {"],
+  ["a discount below the catalog price accepted", "workers/intel-gateway/src/gumroad-catalog.js",
+    "  if (paid < expected) return", "  if (paid < expected / 2) return"],
+  ["non-USD Gumroad sale accepted", "workers/intel-gateway/src/gumroad-catalog.js",
+    "  if (currency !== \"usd\") return", "  if (false) return"],
+  ["held-sale redelivery re-holds and re-alerts", GW,
+    "    if (priorHold) return jsonResp({ status: \"held_for_review\", reason: priorHold.reason, sale_id, duplicate: true });", ""],
+  ["refund of a held sale leaves it releasable", GW,
+    "    await env.SECURITY_HUB_KV.delete(`gumroad_held:${saleId}`);\n    auditLog(ctx, env, { action: `gumroad_held_sale_${kind}`, sale_id: saleId });",
+    "    auditLog(ctx, env, { action: `gumroad_held_sale_${kind}`, sale_id: saleId });"],
+  ["Gumroad seller binding skipped", GW,
+    "  if (env.GUMROAD_SELLER_ID && formData.seller_id !== env.GUMROAD_SELLER_ID) {", "  if (false) {"],
+  ["reconcile writes during a dry run", GW,
+    "        if (apply) await env.SECURITY_HUB_KV.put(mapKey, k.name, { expirationTtl: GUMROAD_KEY_MAP_TTL });",
+    "        await env.SECURITY_HUB_KV.put(mapKey, k.name, { expirationTtl: GUMROAD_KEY_MAP_TTL });"],
+  ["reconcile overwrites a conflicting map", GW,
+    "        if (existing) { conflict = true; out.conflicts.push(", "        if (false) { conflict = true; out.conflicts.push("],
   // S19 pricing fail-closed (Razorpay Plans).
   ["checkout created without verifying the Plan price", SE,
     "  const planCheck = await verifyPlanPrice(env, tier, cycle, planId);", "  const planCheck = { ok: true };"],

@@ -397,6 +397,15 @@ test("paid activation: Gumroad webhook parity with Razorpay", async () => {
     method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded", "cf-connecting-ip": "203.0.113.10" }, body: form.toString(),
   }), hx.env, hx.ctx);
   assert.equal(res.status, 200);
+  // S16: MSSP has no Gumroad catalog product, so the sale is held, never
+  // provisioned from the product name ...
+  assert.equal((await res.json()).status, "held_for_review");
+  const buyerKeys = () => [...hx.env.API_KEYS_KV.map.values()].filter((v) => { try { return JSON.parse(v).customer_id === "gum-buyer@example.com"; } catch { return false; } });
+  assert.equal(buyerKeys().length, 0, "no key for the held sale");
+  // ... until an operator releases it as MSSP: then self-service works as for Razorpay.
+  const rel = await hx.call("POST", "/api/admin/gumroad/release", { admin: hx.env.ADMIN_SECRET, body: { sale_id: "sale_stub_1", tier: "MSSP", billing_cycle: "monthly" } });
+  assert.equal(rel.status, 200);
+  assert.equal(rel.body.status, "provisioned");
   await selfServiceWorks(hx, "gum-buyer@example.com");
 });
 

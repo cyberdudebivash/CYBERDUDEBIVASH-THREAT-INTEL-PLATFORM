@@ -192,6 +192,36 @@ handles every Gumroad ping:
 Before this change, each monthly renewal would have minted a new key, and a
 refund ping was swallowed as "already provisioned".
 
+**Product catalog and price check (S16/S19, 2026-09-25).** What a Gumroad
+sale grants comes only from `workers/intel-gateway/src/gumroad-catalog.js`
+(permalink -> tier, cycle), never from the product name. Prices are the
+contract's USD prices; `upgrade.html` must list exactly the catalog's
+permalinks (both enforced by `gumroad-catalog.test.js`).
+
+| Sale | Result |
+|---|---|
+| catalog product, USD, at least the canonical price | key provisioned (catalog tier/cycle) |
+| catalog product below the canonical price, not USD, or no readable price | **held**, no key, operator alerted |
+| product not in the catalog whose name looks like a plan | **held** (`unknown_product`), no key, alerted |
+| content product (detection packs, monthly report, daily brief, IOC download) or any other product | acknowledged, no key, no alert |
+
+Before this, any sale on the Gumroad account (including the $299 IOC
+download or a detection pack) minted a paid API key by name inference, and
+the price paid was never checked. Held sales: `GET /api/admin/gumroad/holds`;
+accept one with `POST /api/admin/gumroad/release {sale_id}` (a product
+outside the catalog also needs `tier` and `billing_cycle`). A held sale that
+is refunded or disputed can no longer be released. Optional hardening: set
+`GUMROAD_SELLER_ID` on the gateway to refuse pings for any other seller.
+
+**Legacy reconciliation (S18).** Gumroad keys provisioned before the
+sale/subscription -> key maps existed carry `sale_id` / `subscription_id` in
+their key record. `POST /api/admin/gumroad/reconcile` (dry run) reports what
+it would backfill; `{"apply": true}` writes the maps, one page of 200 keys
+per call (follow `cursor`). It never overwrites a map that points to another
+key (reported under `conflicts`); keys with no `sale_id` are listed as
+`unmappable` for manual review. After it runs, refunds, disputes and
+cancellations of those sales revoke automatically.
+
 **Cutover (owner action).** Create a membership product per plan and cycle in
 the Gumroad dashboard: PRO and Enterprise, monthly and yearly, at the same USD
 prices. Put each permalink in `GUMROAD_MEMBERSHIP_URLS` in `upgrade.html`.
@@ -300,8 +330,9 @@ is set.
 
 - **Gumroad membership products** themselves (owner action, see the cutover
   above). Until they exist, Gumroad keeps selling the labelled one-time grant.
-- Gumroad sales provisioned **before** 2026-09-25 have no `sale_id` → key
-  mapping. A refund ping for one is flagged (`noted_no_mapping`) for manual
+- Gumroad sales provisioned **before** 2026-09-25: run
+  `POST /api/admin/gumroad/reconcile` once with `{"apply": true}` (see above).
+  Until then a refund ping for one is flagged (`noted_no_mapping`) for manual
   revocation.
 - **e-invoicing (IRN)** if aggregate turnover crosses the threshold; filing
   invoices and credit notes in GSTR-1 (operator).
