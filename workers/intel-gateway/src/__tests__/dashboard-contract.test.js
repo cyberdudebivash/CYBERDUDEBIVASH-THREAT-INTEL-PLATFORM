@@ -9,8 +9,9 @@ import { fileURLToPath } from "node:url";
 import {
   ATTACK_TACTICS, normalizeTactic, techniqueIdsOf, buildTechniqueTacticMap, deriveItemTactics,
   deriveAttackTacticCoverage, campaignEvidence, buildCampaignsPayload, classifyRansomware,
-  buildRansomwarePayload, geoAttributionCoverage,
+  buildRansomwarePayload, geoAttributionCoverage, referenceTacticsFor, isPipelineTitle,
 } from "../dashboard-contract.js";
+import { TECHNIQUE_TACTIC_IDS, ATTACK_REFERENCE, REFERENCE_TACTICS } from "../attack-technique-tactics.js";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const INDEX = readFileSync(path.join(HERE, "..", "index.js"), "utf8");
@@ -59,6 +60,73 @@ test("tactic derivation precedence: mitre_tactics, attck_techniques, id map, leg
   assert.deepEqual(multi.tactics.sort(), ["Defense Evasion", "Initial Access", "Persistence", "Privilege Escalation"]);
   assert.deepEqual(deriveItemTactics(ITEM_IDS_ONLY, map), { tactics: ["Credential Access"], method: "technique_id_map" });
   assert.deepEqual(deriveItemTactics({ kill_chain_phase: "Lateral-Movement" }, map), { tactics: ["Lateral Movement"], method: "legacy_kill_chain" });
+});
+
+// Live /api/feed.json shape (2026-09-25): technique ids, mitre_tactics as
+// technique NAMES, attck_techniques as {id, name} -- no tactic anywhere.
+const ITEM_LIVE_IDS_NO_TACTIC = {
+  id: "l1", title: "Macfinger ClickFix malware", severity: "CRITICAL", risk_score: 9.1,
+  mitre_tactics: ["Exfiltration Over C2 Channel"], attck_techniques: [{ id: "T1041", name: "Exfiltration Over C2 Channel" }],
+  attck_technique_ids: ["T1041"],
+};
+
+test("generated technique->tactic table matches the committed MITRE ATT&CK reference", () => {
+  const ref = JSON.parse(readFileSync(path.join(HERE, "..", "..", "..", "..", "data", "attck", "enterprise-attack.json"), "utf8"));
+  const tacticId = Object.fromEntries(ref.tactics.map((t) => [t.shortname, t.attck_id]));
+  assert.equal(ATTACK_REFERENCE.content_hash, ref.content_hash, "rerun python3 scripts/build_attack_tactic_map.py");
+  assert.deepEqual(REFERENCE_TACTICS, Object.fromEntries(ref.tactics.map((t) => [t.attck_id, t.name])));
+  for (const t of ref.techniques) {
+    const want = [...new Set(t.tactics.map((s) => tacticId[s]).filter(Boolean))].sort();
+    const got = TECHNIQUE_TACTIC_IDS[t.attck_id] || TECHNIQUE_TACTIC_IDS[t.attck_id.split(".")[0]];
+    assert.deepEqual(got, want, t.attck_id);
+  }
+  assert.equal(Object.keys(TECHNIQUE_TACTIC_IDS).filter((k) => !ref.techniques.some((t) => t.attck_id === k)).length, 0,
+    "no technique outside the reference");
+});
+
+test("technique ids without a tactic pair map through the ATT&CK reference (live feed shape)", () => {
+  assert.deepEqual(deriveItemTactics(ITEM_LIVE_IDS_NO_TACTIC, buildTechniqueTacticMap([ITEM_LIVE_IDS_NO_TACTIC])),
+    { tactics: ["Exfiltration"], method: "attck_reference" });
+  assert.deepEqual(referenceTacticsFor("T1078").sort(), ["Defense Evasion", "Initial Access", "Persistence", "Privilege Escalation"],
+    "v18 Stealth folds into Defense Evasion on the 14-tactic matrix");
+  assert.deepEqual(referenceTacticsFor("T1059.001"), ["Execution"], "sub-technique falls back to its parent");
+  assert.deepEqual(referenceTacticsFor("T9999"), [], "unknown id maps to nothing");
+  assert.equal(normalizeTactic("Stealth"), "Defense Evasion");
+  assert.equal(normalizeTactic("TA0112"), "Defense Evasion");
+  // Feed-carried pairs still win over the reference.
+  const map = buildTechniqueTacticMap([ITEM_TACTICS]);
+  assert.equal(deriveItemTactics(ITEM_IDS_ONLY, map).method, "technique_id_map");
+  const { block } = deriveAttackTacticCoverage([ITEM_LIVE_IDS_NO_TACTIC, ITEM_CRITICAL_NO_EVIDENCE], "t");
+  assert.equal(block.derivation_version, "attack-tactics/1.1");
+  assert.equal(block.items_with_attack_evidence, 1);
+  assert.equal(block.method_counts.attck_reference, 1);
+  assert.equal(block.method_counts.none, 1, "a CRITICAL item with no technique ids stays uncounted");
+  assert.equal(block.tactics.find((t) => t.name === "Exfiltration").count, 1);
+  assert.equal(block.tactics_observed, 1, "one technique contributes only its own tactic");
+  assert.equal(block.reference.content_hash, ATTACK_REFERENCE.content_hash);
+});
+
+test("pipeline-generated titles are not campaign or ransomware evidence (live 2026-09-25)", () => {
+  const fabricated = [
+    { id: "p1", title: "Phishing Campaign \u2014 Credential Harvesting Operation", _orig_title: "CDB-UNATTR-PHI Campaign",
+      description: "Hackers Exploited Ethereum Bridge Contract to Drain Full Balance from Payy Network", threat_type: "Phishing", tags: ["phishing"] },
+    { id: "p2", title: "CDB-MOB-02 Campaign", description: "Read This Before You Buy That TV Streaming Stick", threat_type: "Phishing", tags: [] },
+    { id: "p3", title: "Unattributed Ransomware Campaign \u2014 Active Threat", description: "x", tags: [] },
+    { id: "p4", title: "APT41 Espionage Campaign \u2014 Multi-Sector Targeting", description: "x", tags: [] },
+  ];
+  for (const it of fabricated) {
+    assert.equal(isPipelineTitle(it), true, it.title);
+    assert.deepEqual(campaignEvidence(it), [], it.title);
+  }
+  assert.equal(classifyRansomware(fabricated[2], GROUPS).ransomware, false, "a template title is not ransomware evidence");
+  // A restored real headline keeps its lineage marker and still counts.
+  const restored = { id: "r1", title: "Fake PDF Files Hide Konni Malware Campaign Targeting Ukraine Organizations",
+    _orig_title: "CDB-UNATTR-APT Campaign", tags: [] };
+  assert.equal(isPipelineTitle(restored), false);
+  assert.deepEqual(campaignEvidence(restored), ["title:campaign"]);
+  const payload = buildCampaignsPayload([...fabricated, restored], "t");
+  assert.equal(payload.active_campaign_count, 1);
+  assert.equal(payload.campaign_semantics.version, "campaign-evidence/1.3");
 });
 
 test("severity never produces a tactic: a CRITICAL item with no ATT&CK evidence contributes nothing", () => {
@@ -132,7 +200,7 @@ test("campaigns: pipeline campaign links on unrelated news are not campaigns (li
   const payload = buildCampaignsPayload(live, "t");
   assert.equal(payload.active_campaign_count, 1);
   assert.deepEqual(payload.active_campaigns.map((c) => c.id), ["k5"]);
-  assert.equal(payload.campaign_semantics.version, "campaign-evidence/1.2");
+  assert.equal(payload.campaign_semantics.version, "campaign-evidence/1.3");
 });
 
 test("ransomware: LockBit and ALPHV advisories classify from structured fields and titles", () => {
@@ -185,7 +253,7 @@ test("ransomware: pipeline actor labels never classify or name a group (live fal
   const payload = buildRansomwarePayload([kernel, ryuk], GROUPS, "t");
   assert.equal(payload.ransomware_advisories, 1);
   assert.equal(payload.active_groups, 0);
-  assert.equal(payload.classification.version, "ransomware-classifier/1.1");
+  assert.equal(payload.classification.version, "ransomware-classifier/1.2");
 });
 
 test("ransomware payload: no active group from a static list; victims stay unmeasured", () => {

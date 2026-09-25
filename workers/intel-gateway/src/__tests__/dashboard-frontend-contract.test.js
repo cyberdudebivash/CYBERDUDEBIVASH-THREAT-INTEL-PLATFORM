@@ -67,6 +67,21 @@ test("the EICC template is the shipped index.html block, byte for byte", () => {
   assert.equal(t, EICC, "scripts/enterprise_intel_block.html drifted from index.html: re-injection would ship different code");
 });
 
+// run_pipeline.py Stage 3.6b (patch_ai_brain_news.py) re-injects
+// scripts/ai_brain_patch.js into index.html on every pipeline run. The
+// template had fallen behind the shipped block, so production kept serving
+// the pre-fix bridge: two 404 fetches of /api/apex_v2/*.json per load and
+// `data.items` never read, leaving window.__GOC_LIVE_INTEL empty
+// (observed live 2026-09-25).
+test("the AI-brain template is the shipped index.html block, byte for byte", () => {
+  const m = INDEX.match(/<!-- CDB-AI-BRAIN-INIT-v145 -->\n<script>\n([\s\S]*?)\n<\/script>\n<!-- \/CDB-AI-BRAIN-INIT-v145 -->/);
+  assert.ok(m, "AI-brain block present in index.html");
+  assert.equal(read("scripts/ai_brain_patch.js").trim(), m[1],
+    "scripts/ai_brain_patch.js drifted from index.html: the pipeline re-injection would ship different code");
+  assert.match(m[1], /var urls=\['\/api\/feed\.json'\];/, "no request to the unrouted /api/apex_v2/* files");
+  assert.match(m[1], /data\.items\|\|/, "the live bridge reads the feed's items array");
+});
+
 test("EICC engine renders from the shared snapshot, with no fetch of its own for intelligence", () => {
   assert.match(EICC, /<script src="\/js\/apex-dashboard-snapshot\.js"><\/script>\s*<script>\s*\(function eiccEngine\(\)\{/);
   assert.match(EICC_SCRIPT, /SNAP\.load\(/);
