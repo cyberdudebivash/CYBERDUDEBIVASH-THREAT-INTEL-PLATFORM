@@ -380,9 +380,52 @@ function signed(body, eventId) {
   const raw = JSON.stringify(body);
   const sig = crypto.createHmac("sha256", WHSEC).update(raw).digest("hex");
   return new Request("https://revenue.intel.cyberdudebivash.com/api/v2/billing/webhooks/razorpay", {
-    method: "POST", headers: { "X-Razorpay-Signature": sig, "X-Razorpay-Event-Id": eventId }, body: raw,
+    method: "POST", headers: { "Content-Type": "application/json", "X-Razorpay-Signature": sig, ...(eventId ? { "X-Razorpay-Event-Id": eventId } : {}) }, body: raw,
   });
 }
+
+test("webhook rejects non-JSON content before any idempotency mutation", async () => {
+  const env = makeEnv();
+  const req = new Request("https://revenue.intel.cyberdudebivash.com/api/v2/billing/webhooks/razorpay", {
+    method: "POST", headers: { "Content-Type": "text/plain", "X-Razorpay-Signature": "0".repeat(64) }, body: "{}",
+  });
+  const res = await handleBillingWebhook(req, env, ctx, "rid");
+  assert.equal(res.status, 415);
+  assert.equal([...env.REVENUE_CRM_KV.store.keys()].some((k) => k.startsWith("rzp_sub_event:")), false);
+});
+
+test("webhook rejects oversized payload before signature verification or mutation", async () => {
+  const env = makeEnv();
+  const req = new Request("https://revenue.intel.cyberdudebivash.com/api/v2/billing/webhooks/razorpay", {
+    method: "POST", headers: { "Content-Type": "application/json", "X-Razorpay-Signature": "0".repeat(64) }, body: "x".repeat(300000),
+  });
+  const res = await handleBillingWebhook(req, env, ctx, "rid");
+  assert.equal(res.status, 413);
+  assert.equal([...env.REVENUE_CRM_KV.store.keys()].some((k) => k.startsWith("rzp_sub_event:")), false);
+});
+
+test("signed unknown Razorpay event is ignored without claiming idempotency state", async () => {
+  const env = makeEnv();
+  const res = await handleBillingWebhook(signed({ event: "customer.updated", payload: {} }, "evt_unknown"), env, ctx, "rid");
+  assert.equal(res.status, 200);
+  assert.equal((await res.json()).status, "ignored");
+  assert.equal(env.REVENUE_CRM_KV.store.has("rzp_sub_event:evt_unknown"), false);
+});
+
+test("webhook validates provider event id and uses signed body digest when it is absent", async () => {
+  const env = makeEnv();
+  const body = { event: "subscription.authenticated", payload: { subscription: { entity: { id: "sub_digest", notes: {} } } } };
+  const invalid = await handleBillingWebhook(signed(body, "../bad/event"), env, ctx, "rid");
+  assert.equal(invalid.status, 400);
+  assert.equal([...env.REVENUE_CRM_KV.store.keys()].some((k) => k.includes("../bad/event")), false);
+
+  const first = await handleBillingWebhook(signed(body, null), env, ctx, "rid");
+  assert.equal(first.status, 200);
+  const second = await handleBillingWebhook(signed(body, null), env, ctx, "rid");
+  assert.equal((await second.json()).status, "already_processed");
+  const digestKeys = [...env.REVENUE_CRM_KV.store.keys()].filter((k) => k.startsWith("rzp_sub_event:body-sha256:"));
+  assert.equal(digestKeys.length, 1);
+});
 
 test("a captured subscription charge is recorded on the ledger and invoiced once", async () => {
   const env = makeEnv({ GST_INVOICE_CONFIG: GST_CONFIG });
@@ -407,8 +450,8 @@ test("refund.processed revokes the entitlement and issues the credit note (invoi
   const env = makeEnv({ GST_INVOICE_CONFIG: GST_CONFIG });
   const id = await pendingRequest(env);
   await issueInvoiceForPayment(env.CRM_DB, env, "pay_1");
-  env.REVENUE_CRM_KV.store.set("razorpay_sub:sub_1", JSON.stringify({ email: "buyer@example.com", tier: "PRO", status: "active", api_key: "cdb_live_key" }));
-  env.API_KEYS_KV.store.set("cdb_live_key", JSON.stringify({ tier: "PRO", email: "buyer@example.com", expires_at: "2099-01-01T00:00:00Z" }));
+  env.REVENUE_CRM_KV.store.set("razorpay_sub:sub_1", JSON.stringify({ email: "buyer@example.com", tier: "PRO", status: "active", api_key: "cdb_live_key", internal_customer_id: "cust_buyer" }));
+  env.API_KEYS_KV.store.set("cdb_live_key", JSON.stringify({ tier: "PRO", email: "buyer@example.com", customer_id: "cust_buyer", expires_at: "2099-01-01T00:00:00Z" }));
   const rp = fakeRazorpay({ payments: { pay_1: { id: "pay_1", status: "captured", amount: 410000, amount_refunded: 0 } } });
   try {
     await handleRefundApprove(post("/x", { request_id: id }, { "X-Admin-Secret": ADMIN }), env, ctx, "rid");
@@ -418,6 +461,8 @@ test("refund.processed revokes the entitlement and issues the credit note (invoi
   const key = JSON.parse(env.API_KEYS_KV.store.get("cdb_live_key"));
   assert.equal(key.subscription_status, "refunded");
   assert.ok(Date.parse(key.expires_at) <= Date.now());
+  const jwtDeny = JSON.parse(env.API_KEYS_KV.store.get("jwt_deny:cust_buyer"));
+  assert.equal(jwtDeny.reason, "refunded", "refund immediately invalidates already-issued JWTs through the shared auth namespace");
   assert.equal((await getPayment(env.CRM_DB, "pay_1")).refund_status, "refunded");
   assert.equal((await env.CRM_DB.prepare("SELECT status FROM refund_requests WHERE id = ?").bind(id).first()).status, "refunded");
   assert.equal((await getInvoiceByPayment(env.CRM_DB, "pay_1")).status, "credited", "full credit note issued (billing-credit-notes.test.js)");
