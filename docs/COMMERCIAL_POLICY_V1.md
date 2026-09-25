@@ -273,6 +273,28 @@ cancellation, never restores access (fail-safe). Certified by `workers/revenue-e
 which runs both real Workers against one shared store, and by the mutation
 controls in `billing-negative-controls.mjs` (regression gate).
 
+## Commercial readiness and operator queue (S13/S22/S23, 2026-09-25)
+
+`GET /api/v2/billing/admin/readiness` (revenue engine, `X-Admin-Secret`), also
+the **COMMERCIAL READINESS** tab in `admin.html`, answers "can checkout take
+money correctly right now?" as **READY** or **BLOCKED**, and lists each failing
+check with its fix. It reports presence and validity only: never a secret, a
+Plan ID or GST configuration contents.
+
+| Blocks go-live | Warning only |
+|---|---|
+| Razorpay key pair missing or not a live key; webhook secret missing; any of the 6 Plan IDs missing; `API_KEYS_KV`, `REVENUE_CRM_KV` or the D1 ledger unavailable | GST config incomplete (invoices held); no LUT for this FY (or next FY within 30 days of 1 April); webhook account binding unset; no Slack alert channel |
+
+The operator queue counts what is waiting (no customer data): refund requests
+to decide (overdue after 2 days), approved refunds that never started (after
+1 hour), refunds Razorpay has not confirmed (after 7 days), invoice holds by
+reason, credit notes to issue, open disputes, and enterprise quotes to
+invoice, awaiting the buyer's transfer, or stuck provisioning. The admin
+`/api/health` carries a `commercial` summary (verdict, blocker and warning
+ids, queue size); anonymous `/api/health` is unchanged. After each deploy the
+workflow prints the verdict when the `REVENUE_ADMIN_SECRET` repository secret
+is set.
+
 ## Known gaps (not in this change)
 
 

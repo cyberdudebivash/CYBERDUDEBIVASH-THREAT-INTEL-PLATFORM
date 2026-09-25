@@ -30,7 +30,7 @@ const SUITES = [
   ["workers/revenue-engine", ["--test", "src/__tests__/billing-policy.test.js", "src/__tests__/subscription-engine.test.js",
     "src/__tests__/billing-credit-notes.test.js", "src/__tests__/billing-export-po.test.js",
     "src/__tests__/billing-go-live.test.js", "src/__tests__/billing-center.test.js",
-    "src/__tests__/cross-worker-revocation.test.js"]],
+    "src/__tests__/cross-worker-revocation.test.js", "src/__tests__/commercial-readiness.test.js"]],
   ["workers/intel-gateway", ["--test", "src/__tests__/razorpay-create-order-taxid.test.js",
     "src/__tests__/razorpay-webhook-subscription-guard.test.js", "src/__tests__/manual-notify-retirement.test.js",
     "src/__tests__/gumroad-membership.test.js", "src/__tests__/gumroad-lifecycle.test.js"]],
@@ -46,6 +46,20 @@ const EP = "workers/revenue-engine/src/enterprise-po.js";
 
 // [name, file, find, replace] -- `find` must occur exactly once.
 const CONTROLS = [
+  // Commercial readiness S13/S22/S23.
+  ["missing webhook secret does not block go-live", "workers/revenue-engine/src/commercial-readiness.js",
+    "  checks.push(check(\"razorpay_webhook_secret\", !!env.RAZORPAY_WEBHOOK_SECRET, true,", "  checks.push(check(\"razorpay_webhook_secret\", !!env.RAZORPAY_WEBHOOK_SECRET, false,"],
+  ["test-mode Razorpay key passes as live", "workers/revenue-engine/src/commercial-readiness.js",
+    "    const live = keyId.startsWith(\"rzp_live_\");", "    const live = true;"],
+  ["a missing Plan ID is not reported", "workers/revenue-engine/src/commercial-readiness.js",
+    "    for (const [cycle, envKey] of Object.entries(cycles)) if (!env[envKey]) missingPlans.push(", "    for (const [cycle, envKey] of Object.entries(cycles)) if (false) missingPlans.push("],
+  ["readiness echoes a secret value", "workers/revenue-engine/src/commercial-readiness.js",
+    "hasKeys ? \"Razorpay API key pair configured.\"", "hasKeys ? \"Razorpay API key pair configured: \" + keyId"],
+  ["overdue refund decisions not flagged", "workers/revenue-engine/src/commercial-readiness.js",
+    "  refund_decision_ms: 2 * DAY,", "  refund_decision_ms: 30 * DAY,"],
+  ["readiness served without the admin check", "workers/revenue-engine/src/commercial-readiness.js",
+    "  if (!(await isAdmin(request, env))) return json({ error: \"unauthorized\" }, 401);\n  return json(await buildCommercialReadiness(env));",
+    "  return json(await buildCommercialReadiness(env));"],
   // Halt recovery (owner decision 2026-09-25).
   ["halted subscription recovers without a captured payment", SE,
     "  if (!link?.internal_sub_id || !payEntity || payEntity.status !== \"captured\") {", "  if (!link?.internal_sub_id) {"],
