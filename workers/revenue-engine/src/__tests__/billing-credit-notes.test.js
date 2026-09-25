@@ -56,7 +56,7 @@ function signed(body, eventId) {
   const raw = JSON.stringify(body);
   const sig = crypto.createHmac("sha256", WHSEC).update(raw).digest("hex");
   return new Request("https://revenue.intel.cyberdudebivash.com/api/v2/billing/webhooks/razorpay", {
-    method: "POST", headers: { "X-Razorpay-Signature": sig, "X-Razorpay-Event-Id": eventId }, body: raw,
+    method: "POST", headers: { "Content-Type": "application/json", "X-Razorpay-Signature": sig, "X-Razorpay-Event-Id": eventId }, body: raw,
   });
 }
 const refundEvent = (event, id, paymentId, amount) => ({
