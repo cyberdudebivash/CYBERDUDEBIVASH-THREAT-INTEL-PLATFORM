@@ -162,7 +162,8 @@ const PREFIX_RE = /^[A-Z0-9-]{1,6}$/;
  *   "supplier_legal_name": "...", "supplier_trade_name": "...",
  *   "supplier_gstin": "...", "supplier_address": "... as on the GST registration ...",
  *   "sac": { "subscription": "99xxxx" }, "gst_rate_percent": 18,
- *   "invoice_prefix": "CDB", "confirmed_by": "CA name / firm", "confirmed_on": "YYYY-MM-DD"
+ *   "invoice_prefix": "CDB", "credit_note_prefix": "CN" (optional, default "CN"),
+ *   "confirmed_by": "CA name / firm", "confirmed_on": "YYYY-MM-DD"
  * }
  * @returns {{ ok: true, config } | { ok: false, missing: string[] }}
  */
@@ -187,6 +188,14 @@ export function parseGstInvoiceConfig(raw) {
   if (prefix) {
     try { formatInvoiceNumber(prefix, "26-27", 1); } catch { missing.push("invoice_prefix (number would exceed 16 characters)"); }
   }
+  // Credit notes (CGST Rules r.53) take their own consecutive series; the
+  // prefix is a numbering choice, not a legal field, so it may default.
+  const cnPrefix = c.credit_note_prefix === undefined ? "CN"
+    : (typeof c.credit_note_prefix === "string" && PREFIX_RE.test(c.credit_note_prefix) ? c.credit_note_prefix : (missing.push("credit_note_prefix"), null));
+  if (cnPrefix) {
+    try { formatInvoiceNumber(cnPrefix, "26-27", 1); } catch { missing.push("credit_note_prefix (number would exceed 16 characters)"); }
+    if (prefix && cnPrefix === prefix) missing.push("credit_note_prefix (must differ from invoice_prefix)");
+  }
   const confirmedBy = str("confirmed_by");
   const confirmedOn = typeof c.confirmed_on === "string" && /^\d{4}-\d{2}-\d{2}$/.test(c.confirmed_on) ? c.confirmed_on : (missing.push("confirmed_on"), null);
   if (missing.length) return { ok: false, missing };
@@ -196,7 +205,20 @@ export function parseGstInvoiceConfig(raw) {
       supplier_legal_name: legal, supplier_trade_name: trade, supplier_gstin: gstin,
       supplier_state_code: gstin.slice(0, 2), supplier_state_name: GST_STATES[gstin.slice(0, 2)],
       supplier_address: address, sac_subscription: sac, gst_rate_percent: rate, invoice_prefix: prefix,
+      credit_note_prefix: cnPrefix,
       confirmed_by: confirmedBy, confirmed_on: confirmedOn,
     },
   };
+}
+
+/**
+ * CGST Act s.34(2): a credit note reduces output tax only if declared by
+ * 30 November following the end of the financial year of the original
+ * supply (or the annual return date, if earlier -- not modelled; the operator
+ * files that). Returns that 30 November as YYYY-MM-DD for an FY like "26-27".
+ */
+export function creditNoteAdjustmentDeadline(fy) {
+  const m = /^(\d{2})-(\d{2})$/.exec(String(fy || ""));
+  if (!m) throw new Error("creditNoteAdjustmentDeadline: invalid financial year");
+  return `20${m[2]}-11-30`;
 }

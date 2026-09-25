@@ -403,7 +403,7 @@ test("a captured subscription charge is recorded on the ledger and invoiced once
   assert.equal((await env.CRM_DB.prepare("SELECT COUNT(*) n FROM invoices").first()).n, 1);
 });
 
-test("refund.processed revokes the entitlement and flags the invoice for a credit note", async () => {
+test("refund.processed revokes the entitlement and issues the credit note (invoice credited)", async () => {
   const env = makeEnv({ GST_INVOICE_CONFIG: GST_CONFIG });
   const id = await pendingRequest(env);
   await issueInvoiceForPayment(env.CRM_DB, env, "pay_1");
@@ -420,7 +420,7 @@ test("refund.processed revokes the entitlement and flags the invoice for a credi
   assert.ok(Date.parse(key.expires_at) <= Date.now());
   assert.equal((await getPayment(env.CRM_DB, "pay_1")).refund_status, "refunded");
   assert.equal((await env.CRM_DB.prepare("SELECT status FROM refund_requests WHERE id = ?").bind(id).first()).status, "refunded");
-  assert.equal((await getInvoiceByPayment(env.CRM_DB, "pay_1")).status, "refunded_credit_note_required");
+  assert.equal((await getInvoiceByPayment(env.CRM_DB, "pay_1")).status, "credited", "full credit note issued (billing-credit-notes.test.js)");
 });
 
 test("a dispute webhook blocks the guarantee for that payment", async () => {

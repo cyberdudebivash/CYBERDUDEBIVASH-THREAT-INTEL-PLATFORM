@@ -22,7 +22,7 @@
 
 import {
   financialYear, istDate, placeOfSupply, splitInclusiveTax,
-  parseGstInvoiceConfig, GST_STATES,
+  parseGstInvoiceConfig, GST_STATES, creditNoteAdjustmentDeadline,
 } from "./gst.js";
 
 export const BILLING_SCHEMA = [
@@ -79,6 +79,36 @@ export const BILLING_SCHEMA = [
     razorpay_refund_id TEXT UNIQUE,
     last_error         TEXT NOT NULL DEFAULT '',
     updated_at         TEXT NOT NULL
+  )`,
+  // Refunds as Razorpay reports them (refund.* webhooks): the authority for
+  // credit notes, whether the refund came from a request or the Dashboard.
+  `CREATE TABLE IF NOT EXISTS billing_refunds (
+    refund_id    TEXT PRIMARY KEY,
+    payment_id   TEXT NOT NULL,
+    amount_paise INTEGER NOT NULL CHECK (amount_paise > 0),
+    status       TEXT NOT NULL,
+    created_at   TEXT NOT NULL,
+    processed_at TEXT
+  )`,
+  `CREATE INDEX IF NOT EXISTS idx_billing_refunds_payment ON billing_refunds (payment_id)`,
+  `CREATE TABLE IF NOT EXISTS credit_note_sequences (
+    fy       TEXT PRIMARY KEY,
+    last_seq INTEGER NOT NULL
+  )`,
+  `CREATE TABLE IF NOT EXISTS credit_notes (
+    id                 TEXT PRIMARY KEY,
+    credit_note_number TEXT NOT NULL UNIQUE,
+    fy                 TEXT NOT NULL,
+    seq                INTEGER NOT NULL,
+    refund_id          TEXT NOT NULL UNIQUE,
+    payment_id         TEXT NOT NULL,
+    invoice_number     TEXT NOT NULL,
+    email              TEXT NOT NULL,
+    total_paise        INTEGER NOT NULL,
+    note_date          TEXT NOT NULL,
+    issued_at          TEXT NOT NULL,
+    document           TEXT NOT NULL,
+    UNIQUE (fy, seq)
   )`,
 ];
 
@@ -145,7 +175,9 @@ export async function applyRefundToPayment(db, paymentId, { refundedPaise, statu
     `UPDATE billing_payments SET refunded_paise = MAX(refunded_paise, ?), refund_status = ? WHERE payment_id = ?`
   ).bind(refundedPaise, status, paymentId).run();
   if ((r.meta && r.meta.changes) && status === "refunded") {
-    await db.prepare(`UPDATE invoices SET status = 'refunded_credit_note_required' WHERE payment_id = ?`).bind(paymentId).run();
+    // Flags an uncredited invoice until its credit note exists; never
+    // overwrites a credited status (a redelivered refund webhook).
+    await db.prepare(`UPDATE invoices SET status = 'refunded_credit_note_required' WHERE payment_id = ? AND status = 'issued'`).bind(paymentId).run();
   }
   return (r.meta && r.meta.changes) || 0;
 }
@@ -255,7 +287,9 @@ export async function issueInvoiceForPayment(db, env, paymentId) {
   }
   const issued = await getInvoiceByPayment(db, paymentId);
   if (!issued) throw new Error(`issueInvoiceForPayment: no invoice after issuance for ${paymentId} (serial space for ${fy} exhausted?)`);
-  return { status: "issued", invoice: issued };
+  // A payment refunded while its invoice was held gets its credit notes now.
+  await issuePendingCreditNotesForPayment(db, env, paymentId);
+  return { status: "issued", invoice: await getInvoiceByPayment(db, paymentId) };
 }
 
 // The number and serial are the database's (assigned in the issuing
@@ -354,4 +388,161 @@ export async function transitionRefundRequest(db, id, from, to, patch = {}) {
     `UPDATE refund_requests SET ${sets.join(", ")} WHERE id = ? AND status IN (${fromList.map(() => "?").join(",")})`
   ).bind(...vals, id, ...fromList).run();
   return (r.meta && r.meta.changes) || 0;
+}
+
+// --- refunds + credit notes (CGST Act s.34, CGST Rules r.53) ------------------
+
+/**
+ * Records a refund Razorpay reported (idempotent on refund_id; status only
+ * moves forward to "processed"). Returns the stored row.
+ */
+export async function recordRefund(db, { refundId, paymentId, amountPaise, status, atIso }) {
+  await ensureBillingSchema(db);
+  if (!refundId || !paymentId) throw new Error("recordRefund: refund and payment ids required");
+  if (!Number.isInteger(amountPaise) || amountPaise <= 0) throw new Error("recordRefund: invalid amount");
+  const processed = status === "processed";
+  await db.prepare(
+    `INSERT INTO billing_refunds (refund_id, payment_id, amount_paise, status, created_at, processed_at)
+     VALUES (?,?,?,?,?,?)
+     ON CONFLICT (refund_id) DO UPDATE SET
+       status = CASE WHEN billing_refunds.status = 'processed' THEN 'processed' ELSE excluded.status END,
+       processed_at = COALESCE(billing_refunds.processed_at, excluded.processed_at)`
+  ).bind(refundId, paymentId, amountPaise, status, atIso, processed ? atIso : null).run();
+  return await db.prepare(`SELECT * FROM billing_refunds WHERE refund_id = ?`).bind(refundId).first();
+}
+
+function _creditNoteRow(r) {
+  if (!r) return null;
+  return { ...r, document: { ...JSON.parse(r.document), credit_note_number: r.credit_note_number, financial_year: r.fy, serial: r.seq } };
+}
+
+export async function getCreditNoteByRefund(db, refundId) {
+  await ensureBillingSchema(db);
+  return _creditNoteRow(await db.prepare(`SELECT * FROM credit_notes WHERE refund_id = ?`).bind(refundId).first());
+}
+
+export async function getCreditNoteByNumber(db, number) {
+  await ensureBillingSchema(db);
+  return _creditNoteRow(await db.prepare(`SELECT * FROM credit_notes WHERE credit_note_number = ?`).bind(number).first());
+}
+
+export async function listCreditNotesFor(db, email) {
+  await ensureBillingSchema(db);
+  const { results } = await db.prepare(
+    `SELECT credit_note_number, note_date, invoice_number, payment_id, total_paise FROM credit_notes
+      WHERE email = ? ORDER BY fy DESC, seq DESC LIMIT 100`
+  ).bind(email).all();
+  return results || [];
+}
+
+/** Processed refunds that have no credit note yet (and why, when known). */
+export async function listPendingCreditNotes(db) {
+  await ensureBillingSchema(db);
+  const { results } = await db.prepare(
+    `SELECT r.refund_id, r.payment_id, r.amount_paise, r.processed_at, i.invoice_number
+       FROM billing_refunds r
+       LEFT JOIN credit_notes c ON c.refund_id = r.refund_id
+       LEFT JOIN invoices i ON i.payment_id = r.payment_id
+      WHERE r.status = 'processed' AND c.refund_id IS NULL
+      ORDER BY r.processed_at ASC LIMIT 500`
+  ).all();
+  return results || [];
+}
+
+/**
+ * Issues the credit note for one processed refund against the payment's
+ * invoice, or reports why it is held. Idempotent on refund_id. The serial
+ * is allocated inside one D1 batch exactly as for invoices, and the INSERT
+ * itself refuses to credit more than the invoice total.
+ * @returns {{ status: "issued", credit_note } | { status: "held", reason }}
+ */
+export async function issueCreditNoteForRefund(db, env, refundId) {
+  await ensureBillingSchema(db);
+  const existing = await getCreditNoteByRefund(db, refundId);
+  if (existing) return { status: "issued", credit_note: existing };
+  const refund = await db.prepare(`SELECT * FROM billing_refunds WHERE refund_id = ?`).bind(refundId).first();
+  if (!refund) throw new Error(`issueCreditNoteForRefund: no refund ${refundId}`);
+  if (refund.status !== "processed") return { status: "held", reason: "refund_not_processed" };
+  const invoice = await getInvoiceByPayment(db, refund.payment_id);
+  if (!invoice) return { status: "held", reason: "invoice_not_issued" };
+  const cfg = parseGstInvoiceConfig(env.GST_INVOICE_CONFIG);
+  if (!cfg.ok) return { status: "held", reason: "gst_config_incomplete:" + cfg.missing.join(",") };
+  const c = cfg.config;
+  const inv = invoice.document;
+  const credited = await db.prepare(`SELECT COALESCE(SUM(total_paise), 0) AS t FROM credit_notes WHERE payment_id = ?`)
+    .bind(refund.payment_id).first();
+  if (credited.t + refund.amount_paise > inv.tax.total_paise) return { status: "held", reason: "credit_would_exceed_invoice_total" };
+
+  const noteAt = refund.processed_at || new Date().toISOString();
+  const fy = financialYear(noteAt);
+  const noteDate = istDate(noteAt);
+  const intra = inv.supply_type === "intra_state";
+  const tax = splitInclusiveTax(refund.amount_paise, inv.tax.rate_percent, intra);
+  const deadline = creditNoteAdjustmentDeadline(inv.financial_year);
+  const doc = {
+    schema: "cdb-gst-credit-note/1.0",
+    note_date: noteDate,
+    original_invoice: { invoice_number: inv.invoice_number, invoice_date: inv.invoice_date, financial_year: inv.financial_year },
+    reason: "Refund of the invoiced payment",
+    supplier: inv.supplier,
+    recipient: inv.recipient,
+    place_of_supply: inv.place_of_supply,
+    supply_type: inv.supply_type,
+    reverse_charge: false,
+    line_items: [{ description: "Credit against " + inv.line_items[0].description, sac: inv.line_items[0].sac, quantity: 1,
+      taxable_value_paise: tax.taxable_paise }],
+    tax: {
+      rate_percent: inv.tax.rate_percent,
+      cgst_rate_percent: intra ? inv.tax.rate_percent / 2 : 0, sgst_rate_percent: intra ? inv.tax.rate_percent / 2 : 0,
+      igst_rate_percent: intra ? 0 : inv.tax.rate_percent, ...tax,
+    },
+    currency: "INR",
+    refund: { provider: "razorpay", refund_id: refund.refund_id, payment_id: refund.payment_id, processed_at: refund.processed_at },
+    gst_adjustment: { deadline, within_deadline: noteDate <= deadline },
+    config_confirmed_by: c.confirmed_by, config_confirmed_on: c.confirmed_on,
+  };
+  const id = "cn_" + crypto.randomUUID().replace(/-/g, "").slice(0, 20);
+  const notYet = `NOT EXISTS (SELECT 1 FROM credit_notes WHERE refund_id = ?)`;
+  // The over-credit guard is re-checked inside the transaction, so two
+  // concurrent refunds on one payment cannot together exceed the invoice.
+  const fits = `(SELECT COALESCE(SUM(total_paise), 0) FROM credit_notes WHERE payment_id = ?) + ? <= ?`;
+  try {
+    await db.batch([
+      db.prepare(`INSERT INTO credit_note_sequences (fy, last_seq) VALUES (?, 0) ON CONFLICT (fy) DO NOTHING`).bind(fy),
+      db.prepare(`UPDATE credit_note_sequences SET last_seq = last_seq + 1 WHERE fy = ? AND last_seq < ? AND ${notYet} AND ${fits}`)
+        .bind(fy, INVOICE_SERIAL_MAX, refundId, refund.payment_id, refund.amount_paise, inv.tax.total_paise),
+      db.prepare(
+        `INSERT INTO credit_notes (id, credit_note_number, fy, seq, refund_id, payment_id, invoice_number, email, total_paise,
+                                   note_date, issued_at, document)
+         SELECT ?, ? || '/' || fy || '/' || printf('%06d', last_seq), fy, last_seq, ?, ?, ?, ?, ?, ?, ?, ?
+           FROM credit_note_sequences WHERE fy = ? AND last_seq > 0 AND ${notYet} AND ${fits}`
+      ).bind(id, c.credit_note_prefix, refundId, refund.payment_id, inv.invoice_number, invoice.email, refund.amount_paise,
+        noteDate, new Date().toISOString(), JSON.stringify(doc), fy, refundId, refund.payment_id, refund.amount_paise, inv.tax.total_paise),
+      db.prepare(
+        `UPDATE invoices SET status = CASE
+            WHEN (SELECT COALESCE(SUM(total_paise), 0) FROM credit_notes WHERE payment_id = ?) >= ? THEN 'credited'
+            ELSE 'partially_credited' END
+          WHERE payment_id = ? AND EXISTS (SELECT 1 FROM credit_notes WHERE refund_id = ?)`
+      ).bind(refund.payment_id, inv.tax.total_paise, refund.payment_id, refundId),
+    ]);
+  } catch (err) {
+    const raced = await getCreditNoteByRefund(db, refundId);
+    if (raced) return { status: "issued", credit_note: raced };
+    throw err;
+  }
+  const issued = await getCreditNoteByRefund(db, refundId);
+  if (issued) return { status: "issued", credit_note: issued };
+  return { status: "held", reason: "credit_would_exceed_invoice_total" };
+}
+
+/** Credit notes for every processed refund of a payment that lacks one. */
+export async function issuePendingCreditNotesForPayment(db, env, paymentId) {
+  await ensureBillingSchema(db);
+  const { results } = await db.prepare(
+    `SELECT r.refund_id FROM billing_refunds r LEFT JOIN credit_notes c ON c.refund_id = r.refund_id
+      WHERE r.payment_id = ? AND r.status = 'processed' AND c.refund_id IS NULL ORDER BY r.processed_at ASC`
+  ).bind(paymentId).all();
+  const out = [];
+  for (const r of results || []) out.push(await issueCreditNoteForRefund(db, env, r.refund_id));
+  return out;
 }
