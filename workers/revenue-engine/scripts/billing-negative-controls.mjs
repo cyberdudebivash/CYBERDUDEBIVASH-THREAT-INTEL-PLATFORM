@@ -28,7 +28,8 @@ const COPY = [
 ];
 const SUITES = [
   ["workers/revenue-engine", ["--test", "src/__tests__/billing-policy.test.js", "src/__tests__/subscription-engine.test.js",
-    "src/__tests__/billing-credit-notes.test.js", "src/__tests__/billing-export-po.test.js"]],
+    "src/__tests__/billing-credit-notes.test.js", "src/__tests__/billing-export-po.test.js",
+    "src/__tests__/billing-go-live.test.js"]],
   ["workers/intel-gateway", ["--test", "src/__tests__/razorpay-create-order-taxid.test.js",
     "src/__tests__/razorpay-webhook-subscription-guard.test.js", "src/__tests__/manual-notify-retirement.test.js",
     "src/__tests__/gumroad-membership.test.js", "src/__tests__/gumroad-lifecycle.test.js"]],
@@ -44,6 +45,19 @@ const EP = "workers/revenue-engine/src/enterprise-po.js";
 
 // [name, file, find, replace] -- `find` must occur exactly once.
 const CONTROLS = [
+  // P0 go-live S5/S15.
+  ["retried checkout creates a second subscription (no pending reuse)", SE,
+    "if (pendingLink && pendingLink.status === \"created\") {", "if (false) {"],
+  ["a paid subscription handed out again as the pending checkout", SE,
+    "if (pendingLink && pendingLink.status === \"created\") {", "if (pendingLink) {"],
+  ["same-tier live subscriber billed a second time", SE,
+    "if (existing && existing.tier === tier && LIVE_SUB_STATUSES.includes(existing.status) &&", "if (false &&"],
+  ["account binding skipped when the payload omits account_id", SE,
+    "if (env.RAZORPAY_ACCOUNT_ID && payload.account_id !== env.RAZORPAY_ACCOUNT_ID) {",
+    "if (env.RAZORPAY_ACCOUNT_ID && payload.account_id && payload.account_id !== env.RAZORPAY_ACCOUNT_ID) {"],
+  ["unknown signed events claimed as processed", SE,
+    "  if (!RAZORPAY_BILLING_EVENTS.includes(event)) {\n    await trackEvent(env, \"subscription_webhook_event_ignored\", { event: event || null, rid });",
+    "  if (!RAZORPAY_BILLING_EVENTS.includes(event)) {\n    await markProcessed(env, request.headers.get(\"X-Razorpay-Event-Id\") || \"x\", {});\n    await trackEvent(env, \"subscription_webhook_event_ignored\", { event: event || null, rid });"],
   ["refund amount taken from the request body", BR,
     "amount: payment.amount_paise, speed: \"normal\", receipt: id,",
     "amount: Number(body.amount) || payment.amount_paise, speed: \"normal\", receipt: id,"],

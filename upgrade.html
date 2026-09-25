@@ -1168,6 +1168,13 @@ async function initiateRazorpayCheckout() {
     alert(sub.error);
     return;
   }
+  if (subResp.status === 409 && sub && sub.error === 'already_subscribed') {
+    setCheckoutState('IDLE');
+    if (btn) { btn.disabled = false; btn.innerHTML = orig; }
+    trackCheckout('checkout_already_subscribed', tier);
+    alert('You already have an active subscription for this plan — no payment was taken. Manage it in your Billing Center: /billing.html');
+    return;
+  }
   if (!subResp.ok || !sub || !sub.subscription_id) {
     return checkoutUnavailable(btn, orig, tier, 'subscription_create_' + subResp.status);
   }

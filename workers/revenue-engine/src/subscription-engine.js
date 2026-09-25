@@ -55,6 +55,11 @@ export const RAZORPAY_BILLING_EVENTS = Object.freeze([
 const MAX_RAZORPAY_WEBHOOK_BYTES = 256 * 1024;
 const RAZORPAY_EVENT_ID_RE = /^[A-Za-z0-9_.:-]{1,128}$/;
 const JWT_DENY_TTL_SECONDS = 25 * 60 * 60;
+const PENDING_CHECKOUT_TTL_SECONDS = 30 * 60;
+// Subscription statuses (SUB_STATUS values, index.js) that already entitle
+// the email to its tier. Literal: index.js imports this module, so its
+// SUB_STATUS binding is not initialised while this module evaluates.
+const LIVE_SUB_STATUSES = Object.freeze(["active", "trial", "past_due", "expiring", "renewed"]);
 
 async function sha256Hex(value) {
   const bytes = new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value)));
@@ -230,6 +235,38 @@ export async function handleBillingSubscriptionCreate(request, env, ctx, rid) {
     return json({ error: `Razorpay plan not configured (${planEnvKey})`, fallback_url: "https://intel.cyberdudebivash.com/upgrade.html" }, 503);
   }
 
+  // S5 idempotency / double-billing guard. (1) An email that already holds
+  // a live subscription on this tier is sent to the Billing Center instead
+  // of being billed a second time. (2) A retried or double-submitted
+  // checkout (same email, tier, cycle and buyer details) within
+  // PENDING_CHECKOUT_TTL_SECONDS reuses the subscription it already created
+  // while that one is still unpaid, instead of creating a second one.
+  // KV is not transactional, so two truly simultaneous requests can still
+  // both create one; only one checkout modal is ever opened per page (the
+  // client state machine), and an unpaid Razorpay subscription never bills.
+  const existing = await env.REVENUE_CRM_KV.get(`sub:email:${email}`, "json");
+  if (existing && existing.tier === tier && LIVE_SUB_STATUSES.includes(existing.status) &&
+      (!existing.current_period_end || Date.parse(existing.current_period_end) > Date.now())) {
+    await trackEvent(env, "subscription_checkout_already_subscribed", { tier, billing_cycle: cycle, rid });
+    return json({
+      error: "already_subscribed",
+      message: "An active subscription for this plan already exists for this email. Manage it in the Billing Center.",
+      billing_center_url: "/billing.html",
+    }, 409);
+  }
+  const pendingKey = `rzp_sub_pending:${await sha256Hex(JSON.stringify([email, tier, cycle, buyer]))}`;
+  const pendingId = await env.REVENUE_CRM_KV.get(pendingKey);
+  if (pendingId) {
+    const pendingLink = await getProviderLink(env, pendingId);
+    if (pendingLink && pendingLink.status === "created") {
+      await trackEvent(env, "subscription_checkout_reused", { tier, billing_cycle: cycle, rid });
+      return json({
+        subscription_id: pendingId, short_url: pendingLink.short_url || null, key_id: env.RAZORPAY_KEY_ID,
+        tier, billing_cycle: cycle, status: "created", prefill: { email }, reused: true,
+      });
+    }
+  }
+
   try {
     const creds = btoa(`${env.RAZORPAY_KEY_ID}:${env.RAZORPAY_KEY_SECRET}`);
     const resp  = await fetch(`${RAZORPAY_API_BASE}/subscriptions`, {
@@ -252,7 +289,9 @@ export async function handleBillingSubscriptionCreate(request, env, ctx, rid) {
     await putProviderLink(env, sub.id, {
       razorpay_subscription_id: sub.id, email, tier, billing_cycle: cycle,
       status: "created", plan_id: planId, created_at: new Date().toISOString(), buyer,
+      short_url: sub.short_url || null,
     });
+    await env.REVENUE_CRM_KV.put(pendingKey, sub.id, { expirationTtl: PENDING_CHECKOUT_TTL_SECONDS });
     await trackEvent(env, "subscription_checkout_created", { email, tier, billing_cycle: cycle, razorpay_subscription_id: sub.id, rid });
 
     return json({
@@ -370,7 +409,9 @@ export async function handleBillingWebhook(request, env, ctx, rid) {
     await trackEvent(env, "subscription_webhook_event_ignored", { event: event || null, rid });
     return json({ status: "ignored", event: event || null });
   }
-  if (env.RAZORPAY_ACCOUNT_ID && payload.account_id && payload.account_id !== env.RAZORPAY_ACCOUNT_ID) {
+  // Optional account binding: once RAZORPAY_ACCOUNT_ID is configured, an
+  // event must name that account (a payload without account_id is refused).
+  if (env.RAZORPAY_ACCOUNT_ID && payload.account_id !== env.RAZORPAY_ACCOUNT_ID) {
     await trackEvent(env, "subscription_webhook_account_mismatch", { event, rid });
     return json({ error: "account_mismatch" }, 403);
   }
