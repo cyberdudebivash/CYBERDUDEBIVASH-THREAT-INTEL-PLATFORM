@@ -262,6 +262,60 @@ export async function markProcessed(env, idempKey, meta) {
 }
 
 // =============================================================================
+// S19 pricing fail-closed: a Razorpay Plan must charge the canonical price
+// =============================================================================
+// Razorpay bills whatever the Plan behind RAZORPAY_PLAN_ID_* says. Before any
+// subscription is created, the Plan is read from Razorpay and its currency,
+// amount and billing period compared with the canonical price (TIERS,
+// verified against config/commercial-contract.json by
+// scripts/verify_commercial_contract.py). A mismatch, or a Plan that cannot
+// be read, refuses the checkout: no subscription, no payment UI.
+const PLAN_VERIFIED_TTL_SECONDS = 3600;
+
+/** Canonical charge in paise for a tier/cycle, or null. */
+export function canonicalPlanPaise(tier, cycle) {
+  const t = TIERS[tier];
+  if (!t) return null;
+  const inr = cycle === "annual" ? t.price_inr_annual : t.price_inr;
+  return Number.isInteger(inr) && inr > 0 ? inr * 100 : null;
+}
+
+/** Pure comparison of a Razorpay Plan entity with the canonical price. */
+export function planMatchesCanonical(plan, tier, cycle) {
+  const expected = canonicalPlanPaise(tier, cycle);
+  if (!expected) return { ok: false, reason: "no_canonical_price" };
+  if (!plan || !plan.item) return { ok: false, reason: "plan_unreadable" };
+  if (String(plan.item.currency || "").toUpperCase() !== "INR") return { ok: false, reason: "currency_mismatch", expected_paise: expected };
+  if (plan.item.amount !== expected) return { ok: false, reason: "amount_mismatch", expected_paise: expected, plan_paise: plan.item.amount };
+  const period = String(plan.period || ""), interval = Number(plan.interval);
+  const periodOk = cycle === "annual"
+    ? (period === "yearly" && interval === 1) || (period === "monthly" && interval === 12)
+    : period === "monthly" && interval === 1;
+  if (!periodOk) return { ok: false, reason: "period_mismatch", expected_paise: expected };
+  return { ok: true, expected_paise: expected };
+}
+
+/**
+ * Reads the Plan from Razorpay (cached for an hour once verified) and checks
+ * it. Fails closed: an unreadable Plan is not a verified Plan.
+ */
+export async function verifyPlanPrice(env, tier, cycle, planId) {
+  const cacheKey = `rzp_plan_verified:${planId}:${tier}:${cycle}`;
+  const cached = await env.REVENUE_CRM_KV.get(cacheKey, "json").catch(() => null);
+  if (cached && cached.ok) return cached;
+  let plan = null;
+  try {
+    const resp = await fetch(`${RAZORPAY_API_BASE}/plans/${encodeURIComponent(planId)}`, {
+      headers: { "Authorization": `Basic ${btoa(`${env.RAZORPAY_KEY_ID}:${env.RAZORPAY_KEY_SECRET}`)}` },
+    });
+    if (resp.ok) plan = await resp.json();
+  } catch (_) { plan = null; }
+  const verdict = { ...planMatchesCanonical(plan, tier, cycle), checked_at: new Date().toISOString() };
+  if (verdict.ok) await env.REVENUE_CRM_KV.put(cacheKey, JSON.stringify(verdict), { expirationTtl: PLAN_VERIFIED_TTL_SECONDS }).catch(() => {});
+  return verdict;
+}
+
+// =============================================================================
 // POST /api/v2/billing/subscriptions/create
 // =============================================================================
 export async function handleBillingSubscriptionCreate(request, env, ctx, rid) {
@@ -313,6 +367,16 @@ export async function handleBillingSubscriptionCreate(request, env, ctx, rid) {
   const planId = env[planEnvKey];
   if (!planId) {
     return json({ error: `Razorpay plan not configured (${planEnvKey})`, fallback_url: "https://intel.cyberdudebivash.com/upgrade.html" }, 503);
+  }
+  const planCheck = await verifyPlanPrice(env, tier, cycle, planId);
+  if (!planCheck.ok) {
+    await trackEvent(env, "subscription_plan_price_unverified", {
+      tier, billing_cycle: cycle, reason: planCheck.reason, expected_paise: planCheck.expected_paise ?? null, plan_paise: planCheck.plan_paise ?? null, rid,
+    });
+    return json({
+      error: "plan_price_unverified",
+      message: "This billing cycle is temporarily unavailable. No payment was taken.",
+    }, 503);
   }
 
   // S5 idempotency / double-billing guard. (1) An email that already holds

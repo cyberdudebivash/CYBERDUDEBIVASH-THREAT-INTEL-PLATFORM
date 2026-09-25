@@ -30,7 +30,8 @@ const SUITES = [
   ["workers/revenue-engine", ["--test", "src/__tests__/billing-policy.test.js", "src/__tests__/subscription-engine.test.js",
     "src/__tests__/billing-credit-notes.test.js", "src/__tests__/billing-export-po.test.js",
     "src/__tests__/billing-go-live.test.js", "src/__tests__/billing-center.test.js",
-    "src/__tests__/cross-worker-revocation.test.js", "src/__tests__/commercial-readiness.test.js"]],
+    "src/__tests__/cross-worker-revocation.test.js", "src/__tests__/commercial-readiness.test.js",
+    "src/__tests__/pricing-fail-closed.test.js"]],
   ["workers/intel-gateway", ["--test", "src/__tests__/razorpay-create-order-taxid.test.js",
     "src/__tests__/razorpay-webhook-subscription-guard.test.js", "src/__tests__/manual-notify-retirement.test.js",
     "src/__tests__/gumroad-membership.test.js", "src/__tests__/gumroad-lifecycle.test.js"]],
@@ -46,6 +47,17 @@ const EP = "workers/revenue-engine/src/enterprise-po.js";
 
 // [name, file, find, replace] -- `find` must occur exactly once.
 const CONTROLS = [
+  // S19 pricing fail-closed (Razorpay Plans).
+  ["checkout created without verifying the Plan price", SE,
+    "  const planCheck = await verifyPlanPrice(env, tier, cycle, planId);", "  const planCheck = { ok: true };"],
+  ["Plan amount not compared", SE,
+    "  if (plan.item.amount !== expected) return", "  if (false) return"],
+  ["Plan period not compared", SE,
+    "  if (!periodOk) return { ok: false, reason: \"period_mismatch\", expected_paise: expected };", ""],
+  ["unreadable Plan treated as verified (fail open)", SE,
+    "  if (!plan || !plan.item) return { ok: false, reason: \"plan_unreadable\" };", "  if (!plan || !plan.item) return { ok: true, expected_paise: expected };"],
+  ["readiness ignores Plan prices", "workers/revenue-engine/src/commercial-readiness.js",
+    "    checks.push(check(\"razorpay_plan_prices\", bad.length === 0, true,", "    checks.push(check(\"razorpay_plan_prices\", true, true,"],
   // Commercial readiness S13/S22/S23.
   ["missing webhook secret does not block go-live", "workers/revenue-engine/src/commercial-readiness.js",
     "  checks.push(check(\"razorpay_webhook_secret\", !!env.RAZORPAY_WEBHOOK_SECRET, true,", "  checks.push(check(\"razorpay_webhook_secret\", !!env.RAZORPAY_WEBHOOK_SECRET, false,"],

@@ -7,6 +7,7 @@ import crypto from "node:crypto";
 import { test } from "node:test";
 
 import { createD1 } from "./helpers/d1-sqlite.js";
+import { planResponse } from "./helpers/razorpay-plans.js";
 import {
   financialYear, istDate, placeOfSupply, splitInclusiveTax, formatInvoiceNumber, parseGstInvoiceConfig,
   normalizeBuyerTaxId, normalizeBillingState, normalizeBillingName, gstinCheckChar,
@@ -76,6 +77,8 @@ function fakeRazorpay({ payments = {}, refunds = {}, failRefund = false, refundD
       return payments[m[1]] ? Response.json(payments[m[1]]) : new Response("{}", { status: 404 });
     }
     if ((m = url.match(/\/v1\/subscriptions\/([^/]+)\/cancel$/))) return Response.json({ id: m[1], status: "cancelled" });
+    const plan = planResponse(url);
+    if (plan) return plan;
     if (url.endsWith("/v1/subscriptions")) return Response.json({ id: "sub_NEW", status: "created" });
     return new Response("{}", { status: 404 });
   };

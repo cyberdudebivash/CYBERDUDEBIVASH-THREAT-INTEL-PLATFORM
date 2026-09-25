@@ -7,6 +7,7 @@ import crypto from "node:crypto";
 import { test } from "node:test";
 
 import { createD1 } from "./helpers/d1-sqlite.js";
+import { planResponse } from "./helpers/razorpay-plans.js";
 import { handleBillingWebhook, handleBillingSubscriptionCreate } from "../subscription-engine.js";
 
 const WHSEC = "whsec_TEST_ONLY";
@@ -48,6 +49,9 @@ async function withRazorpay(fn) {
   const real = globalThis.fetch;
   globalThis.fetch = async (input, init = {}) => {
     const url = typeof input === "string" ? input : input.url;
+    // Plan reads (S19 price verification) are not subscription creations.
+    const plan = planResponse(url);
+    if (plan) return plan;
     calls.push({ url, body: init.body ? JSON.parse(init.body) : null });
     if (url.endsWith("/v1/subscriptions")) return Response.json({ id: `sub_TEST_ONLY_${calls.length}`, status: "created" });
     return new Response("{}", { status: 404 });

@@ -4,6 +4,17 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import { createD1 } from "./helpers/d1-sqlite.js";
+import { planResponse, canonicalPlan } from "./helpers/razorpay-plans.js";
+
+// Razorpay fake for the S19 Plan price check: canonical Plans, unless a test
+// overrides one id in planOverrides.
+const planOverrides = new Map();
+globalThis.fetch = async (input) => {
+  const url = typeof input === "string" ? input : input.url;
+  const m = url.match(/\/v1\/plans\/([^/?]+)$/);
+  if (m && planOverrides.has(m[1])) return Response.json(planOverrides.get(m[1]));
+  return planResponse(url) || new Response("{}", { status: 404 });
+};
 import { buildCommercialReadiness, buildOperationsQueue, handleCommercialReadiness } from "../commercial-readiness.js";
 import { handleRevenueEngineHealth } from "../index.js";
 import { recordCapturedPayment, insertRefundRequest, transitionRefundRequest, recordRefund, markDisputed, ensureBillingSchema } from "../billing-ledger.js";
@@ -15,9 +26,9 @@ const SECRETS = {
   SLACK_WEBHOOK_URL: "https://hooks.slack.test/TEST_ONLY_path",
 };
 const PLANS = {
-  RAZORPAY_PLAN_ID_PRO_MONTHLY: "plan_TEST_ONLY_pm", RAZORPAY_PLAN_ID_PRO_ANNUAL: "plan_TEST_ONLY_pa",
-  RAZORPAY_PLAN_ID_ENTERPRISE_MONTHLY: "plan_TEST_ONLY_em", RAZORPAY_PLAN_ID_ENTERPRISE_ANNUAL: "plan_TEST_ONLY_ea",
-  RAZORPAY_PLAN_ID_MSSP_MONTHLY: "plan_TEST_ONLY_mm", RAZORPAY_PLAN_ID_MSSP_ANNUAL: "plan_TEST_ONLY_ma",
+  RAZORPAY_PLAN_ID_PRO_MONTHLY: "plan_TEST_ONLY_pro_monthly", RAZORPAY_PLAN_ID_PRO_ANNUAL: "plan_TEST_ONLY_pro_annual",
+  RAZORPAY_PLAN_ID_ENTERPRISE_MONTHLY: "plan_TEST_ONLY_enterprise_monthly", RAZORPAY_PLAN_ID_ENTERPRISE_ANNUAL: "plan_TEST_ONLY_enterprise_annual",
+  RAZORPAY_PLAN_ID_MSSP_MONTHLY: "plan_TEST_ONLY_mssp_monthly", RAZORPAY_PLAN_ID_MSSP_ANNUAL: "plan_TEST_ONLY_mssp_annual",
 };
 const NOW = Date.parse("2026-09-25T06:00:00Z"); // FY 26-27
 const GST = (luts) => JSON.stringify({
@@ -143,4 +154,15 @@ test("route: admin only; health gives admins the summary and anonymous callers n
   const anon = await (await handleRevenueEngineHealth(h({}), env, "rid")).json();
   assert.equal(anon.commercial, undefined);
   assert.deepEqual(Object.keys(anon).sort(), ["engine", "generated_at", "status", "version"]);
+});
+
+test("a configured Plan charging the wrong amount blocks go-live and names the fix (S19)", async () => {
+  planOverrides.set("plan_TEST_ONLY_enterprise_annual", { ...canonicalPlan("plan_TEST_ONLY_enterprise_annual"), item: { amount: 100, currency: "INR" } });
+  try {
+    const r = await buildCommercialReadiness(readyEnv(), NOW);
+    assert.equal(r.verdict, "BLOCKED");
+    assert.deepEqual(r.blockers, ["razorpay_plan_prices"]);
+    assert.match(byId(r, "razorpay_plan_prices").detail, /enterprise_annual \(amount_mismatch\)/);
+    assert.match(byId(r, "razorpay_plan_prices").fix, /RAZORPAY_PLAN_ID_ENTERPRISE_ANNUAL.*4,16,000 per year/);
+  } finally { planOverrides.clear(); }
 });
