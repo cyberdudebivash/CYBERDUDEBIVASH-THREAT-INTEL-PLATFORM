@@ -9,7 +9,7 @@
 // creation, webhook lifecycle, entitlement sync. See subscription-engine.js
 // for scope notes (refunds/upgrades/downgrades/checkout-cutover deferred).
 import { handleBillingSubscriptionCreate, handleBillingSubscriptionStatus, handleBillingWebhook, patchApiKeyEntitlement, patchInternalSub, tryTransition, PLAN_ID_ENV_KEYS } from "./subscription-engine.js";
-import { handleRefundRequest, handleRefundList, handleRefundApprove, handleRefundReject, handleInvoiceList, handleInvoiceView, handleInvoiceHolds, handleInvoiceIssue, handleSubscriptionCancel, handleCreditNoteList, handleCreditNoteView, handleCreditNotesPending, handleCreditNoteIssue } from "./billing-routes.js";
+import { handleRefundRequest, handleRefundList, handleRefundApprove, handleRefundReject, handleInvoiceList, handleInvoiceView, handleInvoiceHolds, handleInvoiceIssue, handleSubscriptionCancel, handleCreditNoteList, handleCreditNoteView, handleCreditNotesPending, handleCreditNoteIssue, handleBillingAccount } from "./billing-routes.js";
 import { handleQuoteCreate, handleQuoteList, handleQuoteView, handleQuoteAccept, handleQuoteCancel, handleQuoteInvoice, handleQuoteReconcile, handleQuoteProvision } from "./enterprise-po.js";
 
 const ENGINE = {
@@ -143,6 +143,9 @@ async function routeRevenueRequest(request, env, ctx, rid, url, path, method) {
         return await handleCreditNotesPending(request, env);
       if (path === "/api/v2/billing/credit-notes/issue" && method === "POST")
         return await handleCreditNoteIssue(request, env, ctx, rid);
+      // Billing Center (billing.html): the caller's own account, by X-API-Key.
+      if (path === "/api/v2/billing/account" && method === "GET")
+        return await handleBillingAccount(request, env);
 
       // ── Public: customer-facing commercial routes ──────────────────────────
       // Moved here from dispatchCommercialRoutes() (further below), which is

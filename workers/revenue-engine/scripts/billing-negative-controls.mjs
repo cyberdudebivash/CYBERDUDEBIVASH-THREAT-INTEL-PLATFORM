@@ -29,7 +29,7 @@ const COPY = [
 const SUITES = [
   ["workers/revenue-engine", ["--test", "src/__tests__/billing-policy.test.js", "src/__tests__/subscription-engine.test.js",
     "src/__tests__/billing-credit-notes.test.js", "src/__tests__/billing-export-po.test.js",
-    "src/__tests__/billing-go-live.test.js"]],
+    "src/__tests__/billing-go-live.test.js", "src/__tests__/billing-center.test.js"]],
   ["workers/intel-gateway", ["--test", "src/__tests__/razorpay-create-order-taxid.test.js",
     "src/__tests__/razorpay-webhook-subscription-guard.test.js", "src/__tests__/manual-notify-retirement.test.js",
     "src/__tests__/gumroad-membership.test.js", "src/__tests__/gumroad-lifecycle.test.js"]],
@@ -45,6 +45,22 @@ const EP = "workers/revenue-engine/src/enterprise-po.js";
 
 // [name, file, find, replace] -- `find` must occur exactly once.
 const CONTROLS = [
+  // Billing Center S6-S12.
+  ["account view reads another customer's email from the query string", BR,
+    "  const database = db(env);\n  await ensureBillingSchema(database);",
+    "  const q = sanitizeEmail(new URL(request.url).searchParams.get(\"email\")); if (q) who.email = q;\n  const database = db(env);\n  await ensureBillingSchema(database);"],
+  ["superseded key reads the billing account", BR,
+    "if (who.key_status === \"superseded\" || who.key_status === \"revoked\") {", "if (false) {"],
+  ["account view leaks the provider link (and its api_key)", BR,
+    "  const subscription = subscriptionView(link, internal, subId);", "  const subscription = link ? { ...link, ...subscriptionView(link, internal, subId) } : subscriptionView(link, internal, subId);"],
+  ["refund offered again after a request exists", BR,
+    "    eligible: elig.ok && !req,", "    eligible: elig.ok,"],
+  ["repeated cancel calls Razorpay again", BR,
+    "  if (link && link.cancel_scheduled_at) {", "  if (false) {"],
+  ["scheduled cancellation not persisted", BR,
+    "    if (link) await putProviderLink(env, subId, { ...link, cancel_at_cycle_end: true, cancel_scheduled_at: at });", ""],
+  ["cancelling an ended subscription calls Razorpay", BR,
+    "  if (link && ENDED_LINK_STATUSES.includes(link.status)) {", "  if (false) {"],
   // P0 go-live S5/S15.
   ["retried checkout creates a second subscription (no pending reuse)", SE,
     "if (pendingLink && pendingLink.status === \"created\") {", "if (false) {"],

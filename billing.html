@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<meta name="referrer" content="no-referrer">
+<title>Billing Center — SENTINEL APEX</title>
+<!--
+  Billing Center (S6-S12). Every figure on this page comes from
+  GET /api/v2/billing/account (revenue engine), scoped to the email on the
+  caller's own API key. The key is held in memory only: never in the URL,
+  never in localStorage/sessionStorage. All server data is written with
+  textContent; tax documents render in a sandboxed iframe (no scripts).
+-->
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0a0e1a;--card:#0f1629;--accent:#00d4ff;--danger:#ff3366;--success:#00ff88;--warning:#ffaa00;--text:#e2e8f0;--muted:#8a9bb4;--border:#1e2d4a}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.5}
+a{color:var(--accent)}
+.header{background:var(--card);border-bottom:1px solid var(--border);padding:0 16px;min-height:60px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.logo{font-weight:700;color:var(--accent);font-size:1.05rem;text-decoration:none}
+.nav a{color:var(--muted);font-size:13px;margin-left:14px;text-decoration:none}
+.nav a:hover{color:var(--accent)}
+.content{padding:24px 16px;max-width:1100px;margin:0 auto}
+h1{font-size:1.4rem;margin-bottom:4px}
+.sub{color:var(--muted);font-size:13px;margin-bottom:20px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:20px}
+.card h2{font-size:1rem;margin-bottom:12px}
+label{display:block;font-size:13px;color:var(--muted);margin-bottom:6px}
+input[type=password],textarea{width:100%;background:rgba(0,0,0,.3);border:1px solid var(--border);border-radius:8px;color:var(--text);padding:10px 12px;font-size:14px;font-family:inherit}
+textarea{min-height:80px;resize:vertical}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:9px 16px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;border:1px solid transparent;text-decoration:none;font-family:inherit}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.btn-primary{background:linear-gradient(135deg,var(--accent),#0066ff);color:#0a0e1a}
+.btn-outline{background:transparent;border-color:var(--accent);color:var(--accent)}
+.btn-danger{background:transparent;border-color:var(--danger);color:var(--danger)}
+.btn-ghost{background:transparent;border-color:var(--border);color:var(--muted)}
+.msg{font-size:13px;margin-top:10px;padding:10px 12px;border-radius:8px;display:none}
+.msg.show{display:block}
+.msg.err{background:rgba(255,51,102,.1);border:1px solid rgba(255,51,102,.35);color:#ff8fa8}
+.msg.ok{background:rgba(0,255,136,.08);border:1px solid rgba(0,255,136,.3);color:#7dffc0}
+.msg.info{background:rgba(255,170,0,.08);border:1px solid rgba(255,170,0,.35);color:#ffcc66}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px}
+.kv .k{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+.kv .v{font-size:15px;font-weight:600;margin-top:2px;word-break:break-word}
+.badge{display:inline-flex;padding:2px 10px;border-radius:20px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em}
+.b-ok{background:rgba(0,255,136,.12);color:var(--success)}
+.b-warn{background:rgba(255,170,0,.12);color:var(--warning)}
+.b-bad{background:rgba(255,51,102,.12);color:var(--danger)}
+.b-muted{background:rgba(138,155,180,.12);color:var(--muted)}
+.table-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:left;padding:9px 12px;color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.06em;border-bottom:1px solid var(--border);white-space:nowrap}
+td{padding:9px 12px;border-bottom:1px solid rgba(30,45,74,.5);white-space:nowrap}
+td.mono{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px}
+.empty{color:var(--muted);font-size:13px}
+.policy{font-size:12px;color:var(--muted);margin-top:8px}
+.hidden{display:none!important}
+.doc-modal{position:fixed;inset:0;background:rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center;padding:16px;z-index:50}
+.doc-box{background:#fff;border-radius:10px;width:100%;max-width:880px;height:88vh;display:flex;flex-direction:column;overflow:hidden}
+.doc-bar{background:var(--card);padding:10px 12px;display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap}
+.doc-box iframe{flex:1;border:0;width:100%;background:#fff}
+@media(max-width:600px){.nav{display:none}.content{padding:16px}}
+</style>
+</head>
+<body>
+<header class="header">
+  <a class="logo" href="/">SENTINEL APEX</a>
+  <nav class="nav"><a href="/upgrade.html">Plans</a><a href="/api-docs.html">API docs</a><a href="/api-key-manager.html">API keys</a></nav>
+</header>
+
+<main class="content">
+  <h1>Billing Center</h1>
+  <p class="sub">Your plan, payments, GST invoices, credit notes, cancellation and refunds.</p>
+
+  <!-- SIGN IN -->
+  <section class="card" id="signin">
+    <h2>Open your billing account</h2>
+    <form id="signin-form" autocomplete="off">
+      <label for="api-key">Your SENTINEL APEX API key (from your activation email)</label>
+      <input type="password" id="api-key" maxlength="200" spellcheck="false" required>
+      <div class="row" style="margin-top:12px">
+        <button class="btn btn-primary" type="submit" id="signin-btn">Open Billing Center</button>
+      </div>
+    </form>
+    <p class="policy">Your key is sent only in a request header to this site and is not stored in your browser. It is cleared when you close or reload this page.</p>
+    <p class="policy">Bought through Gumroad? Receipts, renewals and cancellation for Gumroad memberships are in your <a href="https://app.gumroad.com/library" rel="noopener">Gumroad library</a>.</p>
+    <div class="msg err" id="signin-msg" role="alert"></div>
+  </section>
+
+  <div id="account" class="hidden">
+    <div class="row" style="justify-content:space-between;margin-bottom:12px">
+      <div class="sub" style="margin:0">Signed in as <strong id="acct-email"></strong></div>
+      <div class="row">
+        <button class="btn btn-ghost" id="refresh-btn" type="button">Refresh</button>
+        <button class="btn btn-ghost" id="signout-btn" type="button">Sign out</button>
+      </div>
+    </div>
+
+    <!-- PLAN -->
+    <section class="card">
+      <h2>Subscription</h2>
+      <div id="sub-none" class="empty hidden">No Razorpay subscription is on record for this key. Gumroad memberships are managed in your <a href="https://app.gumroad.com/library" rel="noopener">Gumroad library</a>. <a href="/upgrade.html">See plans</a>.</div>
+      <div id="sub-body" class="hidden">
+        <div class="grid">
+          <div class="kv"><div class="k">Plan</div><div class="v" id="sub-tier"></div></div>
+          <div class="kv"><div class="k">Billing cycle</div><div class="v" id="sub-cycle"></div></div>
+          <div class="kv"><div class="k">Status</div><div class="v"><span class="badge" id="sub-status"></span></div></div>
+          <div class="kv"><div class="k" id="sub-period-label">Current period ends</div><div class="v" id="sub-period"></div></div>
+        </div>
+        <div class="msg info" id="sub-note"></div>
+        <div class="row" style="margin-top:14px">
+          <a class="btn btn-outline" href="/upgrade.html">Change plan</a>
+          <button class="btn btn-danger hidden" id="cancel-btn" type="button">Cancel subscription</button>
+        </div>
+        <div class="msg" id="cancel-msg" role="status"></div>
+      </div>
+      <p class="policy" id="policy-cancel"></p>
+    </section>
+
+    <!-- REFUND -->
+    <section class="card">
+      <h2>Money-back guarantee</h2>
+      <div id="refund-status" class="empty"></div>
+      <form id="refund-form" class="hidden" style="margin-top:12px">
+        <label for="refund-reason">Tell us why (optional, helps us improve)</label>
+        <textarea id="refund-reason" maxlength="1000"></textarea>
+        <div class="row" style="margin-top:10px">
+          <button class="btn btn-outline" type="submit" id="refund-btn">Request a refund</button>
+        </div>
+      </form>
+      <div class="msg" id="refund-msg" role="status"></div>
+      <p class="policy" id="policy-refund"></p>
+    </section>
+
+    <!-- PAYMENTS -->
+    <section class="card">
+      <h2>Payments</h2>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Date</th><th>Plan</th><th>Amount</th><th>Payment ID</th><th>Invoice</th><th>Refund</th></tr></thead>
+        <tbody id="payments-body"></tbody>
+      </table></div>
+      <div class="empty hidden" id="payments-empty">No payments yet.</div>
+    </section>
+
+    <!-- INVOICES -->
+    <section class="card">
+      <h2>GST invoices</h2>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Invoice #</th><th>Date</th><th>Payment ID</th><th>Status</th><th></th></tr></thead>
+        <tbody id="invoices-body"></tbody>
+      </table></div>
+      <div class="empty hidden" id="invoices-empty">No invoices issued yet. An invoice is issued for each captured payment; one that needs more billing details is held until they are complete.</div>
+    </section>
+
+    <!-- CREDIT NOTES -->
+    <section class="card">
+      <h2>Credit notes</h2>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Credit note #</th><th>Date</th><th>Against invoice</th><th>Amount</th><th></th></tr></thead>
+        <tbody id="cn-body"></tbody>
+      </table></div>
+      <div class="empty hidden" id="cn-empty">No credit notes.</div>
+    </section>
+
+    <p class="policy">Questions about a charge or an invoice: <a href="mailto:billing@cyberdudebivash.com">billing@cyberdudebivash.com</a>. Quote the payment ID.</p>
+  </div>
+</main>
+
+<div class="doc-modal hidden" id="doc-modal" role="dialog" aria-modal="true" aria-label="Tax document">
+  <div class="doc-box">
+    <div class="doc-bar">
+      <a class="btn btn-outline" id="doc-download" download>Download</a>
+      <button class="btn btn-ghost" id="doc-close" type="button" style="color:#e2e8f0">Close</button>
+    </div>
+    <iframe id="doc-frame" sandbox title="Tax document"></iframe>
+  </div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+  var API = '/api/v2/billing';
+  var apiKey = null;   // memory only
+  var account = null;
+  var docUrl = null;
+
+  function $(id) { return document.getElementById(id); }
+  function show(el, on) { el.classList.toggle('hidden', !on); }
+  function msg(el, text, kind) {
+    el.textContent = text || '';
+    el.className = 'msg' + (text ? ' show ' + (kind || 'info') : '');
+  }
+  function inr(paise) {
+    if (typeof paise !== 'number') return '—';
+    return '₹' + (paise / 100).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+  function money(paise, currency) {
+    if (currency && currency !== 'INR') return (paise / 100).toFixed(2) + ' ' + currency;
+    return inr(paise);
+  }
+  function date(iso) {
+    if (!iso) return '—';
+    var d = new Date(iso);
+    return isNaN(d) ? String(iso) : d.toLocaleDateString('en-IN', { year: 'numeric', month: 'short', day: 'numeric' });
+  }
+  function title(s) { return s ? String(s).charAt(0).toUpperCase() + String(s).slice(1).toLowerCase() : '—'; }
+  function td(text, cls) { var c = document.createElement('td'); c.textContent = text; if (cls) c.className = cls; return c; }
+  function badge(text, kind) { var b = document.createElement('span'); b.className = 'badge ' + kind; b.textContent = text; return b; }
+
+  function call(path, opts) {
+    opts = opts || {};
+    var headers = { 'X-API-Key': apiKey };
+    if (opts.body) headers['Content-Type'] = 'application/json';
+    return fetch(API + path, {
+      method: opts.method || 'GET', headers: headers, cache: 'no-store', credentials: 'omit',
+      body: opts.body ? JSON.stringify(opts.body) : undefined
+    });
+  }
+
+  var STATUS = {
+    active: ['Active', 'b-ok'], authenticated: ['Starting', 'b-warn'], created: ['Awaiting payment', 'b-warn'],
+    pending: ['Payment retrying', 'b-warn'], past_due: ['Payment retrying', 'b-warn'],
+    halted: ['Suspended — payment failed', 'b-bad'], suspended: ['Suspended', 'b-bad'],
+    cancelled: ['Cancelled', 'b-muted'], completed: ['Completed', 'b-muted'], refunded: ['Refunded', 'b-muted'],
+    expired: ['Expired', 'b-muted']
+  };
+  var INVOICE_STATE = {
+    issued: ['Issued', 'b-ok'], held: ['Held — details needed', 'b-warn'], pending: ['Being issued', 'b-warn'],
+    partially_credited: ['Partially credited', 'b-warn'], credited: ['Credited', 'b-muted']
+  };
+  var REFUND_STATE = {
+    none: ['—', 'b-muted'], refund_pending: ['Refund in progress', 'b-warn'], refunded: ['Refunded', 'b-muted']
+  };
+
+  function renderSubscription(a) {
+    var s = a.subscription;
+    show($('sub-none'), !s);
+    show($('sub-body'), !!s);
+    $('policy-cancel').textContent = a.policy ? a.policy.cancellation : '';
+    if (!s) return;
+    $('sub-tier').textContent = s.tier || '—';
+    $('sub-cycle').textContent = title(s.billing_cycle);
+    var st = STATUS[s.status] || [title(s.status), 'b-muted'];
+    var el = $('sub-status');
+    el.textContent = s.cancel_scheduled ? 'Active — ends at period end' : st[0];
+    el.className = 'badge ' + (s.cancel_scheduled ? 'b-warn' : st[1]);
+    var ended = ['cancelled', 'completed', 'refunded', 'expired'].indexOf(s.status) >= 0;
+    $('sub-period-label').textContent = ended ? 'Access ended' : (s.renews ? 'Renews on' : 'Access until');
+    $('sub-period').textContent = date(s.current_period_end);
+    var note = '';
+    if (s.cancel_scheduled) note = 'Cancellation is scheduled. Your subscription will not renew; access continues until ' + date(s.current_period_end) + '.';
+    else if (s.status === 'halted' || s.status === 'suspended') note = 'Renewal payment failed and access is paused. Update your payment method from the Razorpay email, or contact us.';
+    else if (s.status === 'pending' || s.status === 'past_due') note = 'A renewal payment failed. Razorpay is retrying it; access continues meanwhile.';
+    msg($('sub-note'), note, 'info');
+    show($('cancel-btn'), !!(a.actions && a.actions.can_cancel));
+  }
+
+  function renderRefund(a) {
+    var r = a.refund || {};
+    $('policy-refund').textContent = a.policy ? a.policy.refund : '';
+    var text;
+    if (r.request) {
+      text = 'Refund request ' + r.request.request_id + ': ' + r.request.status_label + ' (requested ' + date(r.request.requested_at) + ').';
+      if (r.request.decision_note) text += ' Note: ' + r.request.decision_note;
+    } else if (r.eligible) {
+      text = 'Your first purchase is covered until ' + date(r.window_ends_at) + '. Requests are reviewed and approved by us; the refund goes back to your original payment method.';
+    } else {
+      text = r.message || 'No refund is available for this account.';
+    }
+    $('refund-status').textContent = text;
+    show($('refund-form'), !!(a.actions && a.actions.can_request_refund));
+  }
+
+  function renderPayments(a) {
+    var body = $('payments-body');
+    body.replaceChildren();
+    (a.payments || []).forEach(function (p) {
+      var tr = document.createElement('tr');
+      tr.appendChild(td(date(p.captured_at)));
+      tr.appendChild(td((p.tier || '') + ' · ' + title(p.billing_cycle)));
+      tr.appendChild(td(money(p.amount_paise, p.currency)));
+      tr.appendChild(td(p.payment_id, 'mono'));
+      var inv = INVOICE_STATE[p.invoice_status] || [title(p.invoice_status), 'b-muted'];
+      var c1 = document.createElement('td'); c1.appendChild(badge(inv[0], inv[1])); tr.appendChild(c1);
+      var rf = p.disputed ? ['Disputed', 'b-bad'] : (REFUND_STATE[p.refund_status] || [title(p.refund_status), 'b-muted']);
+      var c2 = document.createElement('td'); c2.appendChild(badge(rf[0], rf[1])); tr.appendChild(c2);
+      body.appendChild(tr);
+    });
+    show($('payments-empty'), !(a.payments || []).length);
+  }
+
+  function docButton(kind, number) {
+    var c = document.createElement('td');
+    var b = document.createElement('button');
+    b.type = 'button'; b.className = 'btn btn-outline'; b.textContent = 'View';
+    b.addEventListener('click', function () { openDoc(kind, number, b); });
+    c.appendChild(b);
+    return c;
+  }
+
+  function renderDocs(a) {
+    var ib = $('invoices-body');
+    ib.replaceChildren();
+    (a.invoices || []).forEach(function (i) {
+      var tr = document.createElement('tr');
+      tr.appendChild(td(i.invoice_number, 'mono'));
+      tr.appendChild(td(date(i.invoice_date)));
+      tr.appendChild(td(i.payment_id, 'mono'));
+      var st = INVOICE_STATE[i.status] || [title(i.status), 'b-muted'];
+      var c = document.createElement('td'); c.appendChild(badge(st[0], st[1])); tr.appendChild(c);
+      tr.appendChild(docButton('invoices', i.invoice_number));
+      ib.appendChild(tr);
+    });
+    show($('invoices-empty'), !(a.invoices || []).length);
+
+    var cb = $('cn-body');
+    cb.replaceChildren();
+    (a.credit_notes || []).forEach(function (n) {
+      var tr = document.createElement('tr');
+      tr.appendChild(td(n.credit_note_number, 'mono'));
+      tr.appendChild(td(date(n.note_date)));
+      tr.appendChild(td(n.invoice_number, 'mono'));
+      tr.appendChild(td(inr(n.total_paise)));
+      tr.appendChild(docButton('credit-notes', n.credit_note_number));
+      cb.appendChild(tr);
+    });
+    show($('cn-empty'), !(a.credit_notes || []).length);
+  }
+
+  function render(a) {
+    account = a;
+    $('acct-email').textContent = a.account ? a.account.email : '';
+    renderSubscription(a);
+    renderRefund(a);
+    renderPayments(a);
+    renderDocs(a);
+  }
+
+  function load() {
+    return call('/account').then(function (res) {
+      return res.json().catch(function () { return {}; }).then(function (body) {
+        if (res.status === 401) throw new Error(body.message || 'This API key was not recognised. Use the current key from your activation email.');
+        if (!res.ok) throw new Error('Billing is temporarily unavailable. Please try again shortly.');
+        render(body);
+      });
+    });
+  }
+
+  function signOut() {
+    apiKey = null; account = null;
+    $('api-key').value = '';
+    ['payments-body', 'invoices-body', 'cn-body'].forEach(function (id) { $(id).replaceChildren(); });
+    show($('account'), false); show($('signin'), true);
+    msg($('cancel-msg'), ''); msg($('refund-msg'), ''); msg($('signin-msg'), '');
+  }
+
+  $('signin-form').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var k = $('api-key').value.trim();
+    if (!k) return;
+    apiKey = k;
+    var btn = $('signin-btn'); btn.disabled = true;
+    msg($('signin-msg'), '');
+    load().then(function () {
+      $('api-key').value = '';
+      show($('signin'), false); show($('account'), true);
+    }).catch(function (err) {
+      apiKey = null;
+      msg($('signin-msg'), err.message || 'Could not open your billing account.', 'err');
+    }).then(function () { btn.disabled = false; });
+  });
+
+  $('refresh-btn').addEventListener('click', function () {
+    load().catch(function (err) { msg($('cancel-msg'), err.message, 'err'); });
+  });
+  $('signout-btn').addEventListener('click', signOut);
+
+  $('cancel-btn').addEventListener('click', function () {
+    var s = account && account.subscription;
+    var until = s ? date(s.current_period_end) : 'the end of the paid period';
+    if (!window.confirm('Cancel your subscription?\n\nIt will not renew. Access continues until ' + until + '. No pro-rata refund applies.')) return;
+    var btn = $('cancel-btn'); btn.disabled = true;
+    call('/subscriptions/cancel', { method: 'POST', body: {} }).then(function (res) {
+      return res.json().catch(function () { return {}; }).then(function (body) {
+        if (res.ok) {
+          msg($('cancel-msg'), body.message || 'Cancellation scheduled.', 'ok');
+          return load();
+        }
+        msg($('cancel-msg'), body.message || 'Cancellation could not be scheduled. Please retry or contact us.', 'err');
+      });
+    }).catch(function () {
+      msg($('cancel-msg'), 'Network error. Nothing was changed; please retry.', 'err');
+    }).then(function () { btn.disabled = false; });
+  });
+
+  $('refund-form').addEventListener('submit', function (e) {
+    e.preventDefault();
+    if (!window.confirm('Request a refund of your first purchase?\n\nIf approved, the payment is refunded and API access ends.')) return;
+    var btn = $('refund-btn'); btn.disabled = true;
+    call('/refunds/request', { method: 'POST', body: { reason: $('refund-reason').value.slice(0, 1000) } }).then(function (res) {
+      return res.json().catch(function () { return {}; }).then(function (body) {
+        if (res.ok) {
+          msg($('refund-msg'), body.duplicate ? 'A refund request is already on record for this payment.' : (body.message || 'Refund request received.'), 'ok');
+          $('refund-reason').value = '';
+          return load();
+        }
+        msg($('refund-msg'), body.message || 'The refund request could not be submitted.', 'err');
+      });
+    }).catch(function () {
+      msg($('refund-msg'), 'Network error. Nothing was submitted; please retry.', 'err');
+    }).then(function () { btn.disabled = false; });
+  });
+
+  function closeDoc() {
+    show($('doc-modal'), false);
+    $('doc-frame').srcdoc = '';
+    if (docUrl) { URL.revokeObjectURL(docUrl); docUrl = null; }
+  }
+
+  function openDoc(kind, number, btn) {
+    btn.disabled = true;
+    call('/' + kind + '/view?format=html&number=' + encodeURIComponent(number)).then(function (res) {
+      if (!res.ok) throw new Error('The document could not be loaded.');
+      return res.text();
+    }).then(function (html) {
+      // Sandboxed (no scripts, no same-origin) and served by our own API.
+      $('doc-frame').srcdoc = html;
+      if (docUrl) URL.revokeObjectURL(docUrl);
+      docUrl = URL.createObjectURL(new Blob([html], { type: 'text/html' }));
+      var dl = $('doc-download');
+      dl.href = docUrl;
+      dl.download = number.replace(/[^A-Za-z0-9-]/g, '_') + '.html';
+      show($('doc-modal'), true);
+    }).catch(function (err) {
+      window.alert(err.message);
+    }).then(function () { btn.disabled = false; });
+  }
+
+  $('doc-close').addEventListener('click', closeDoc);
+  $('doc-modal').addEventListener('click', function (e) { if (e.target === $('doc-modal')) closeDoc(); });
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeDoc(); });
+})();
+</script>
+</body>
+</html>
