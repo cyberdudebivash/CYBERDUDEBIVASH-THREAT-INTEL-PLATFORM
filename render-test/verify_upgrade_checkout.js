@@ -205,6 +205,11 @@ async function gumroadStates(browser) {
       missing.alerts.some((a) => /This billing cycle is temporarily unavailable\. No payment was taken\./.test(a)), JSON.stringify(missing.alerts));
     check('plan not configured: no page error', missing.errors.length === 0, missing.errors.join(' | '));
 
+    const dup = await scenario(browser, { subStatus: 409, subBody: { error: 'already_subscribed', billing_center_url: '/billing.html' } });
+    check('already subscribed: no modal, pointed to the Billing Center, no payment taken',
+      dup.rzp.opened.length === 0 && dup.alerts.some((a) => /already have an active subscription/.test(a) && /Billing Center/.test(a) && /no payment was taken/.test(a)),
+      JSON.stringify(dup.alerts));
+
     const badGst = await scenario(browser, { gstin: '22AAAAA0000A1Z5' });
     check('invalid GSTIN: refused in the page', badGst.alerts.some((a) => /GSTIN/.test(a)), JSON.stringify(badGst.alerts));
     check('invalid GSTIN: no request, no modal', badGst.subs.length === 0 && badGst.orders.length === 0 && badGst.rzp.opened.length === 0);
