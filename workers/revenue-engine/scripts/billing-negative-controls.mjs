@@ -29,7 +29,8 @@ const COPY = [
 const SUITES = [
   ["workers/revenue-engine", ["--test", "src/__tests__/billing-policy.test.js", "src/__tests__/subscription-engine.test.js",
     "src/__tests__/billing-credit-notes.test.js", "src/__tests__/billing-export-po.test.js",
-    "src/__tests__/billing-go-live.test.js", "src/__tests__/billing-center.test.js"]],
+    "src/__tests__/billing-go-live.test.js", "src/__tests__/billing-center.test.js",
+    "src/__tests__/cross-worker-revocation.test.js"]],
   ["workers/intel-gateway", ["--test", "src/__tests__/razorpay-create-order-taxid.test.js",
     "src/__tests__/razorpay-webhook-subscription-guard.test.js", "src/__tests__/manual-notify-retirement.test.js",
     "src/__tests__/gumroad-membership.test.js", "src/__tests__/gumroad-lifecycle.test.js"]],
@@ -45,6 +46,22 @@ const EP = "workers/revenue-engine/src/enterprise-po.js";
 
 // [name, file, find, replace] -- `find` must occur exactly once.
 const CONTROLS = [
+  // S10 cross-worker revocation (revenue engine writes, gateway enforces).
+  ["halt leaves pre-issued JWTs valid (no jwt_deny)", SE,
+    "        await denyGatewayAccess(env, link, \"suspended\", new Date().toISOString(), { provider_sub_id: providerId });",
+    "        await patchApiKeyEntitlement(env, link.api_key, { expires_at: new Date().toISOString() });"],
+  ["cycle-end cancellation leaves pre-issued JWTs valid (no jwt_deny)", SE,
+    "        await denyGatewayAccess(env, link, \"cancelled\", new Date().toISOString(), { provider_sub_id: providerId });",
+    "        await patchApiKeyEntitlement(env, link.api_key, { expires_at: new Date().toISOString() });"],
+  ["revenue engine writes a status the gateway does not deny", SE,
+    "    await patchApiKeyEntitlement(env, link.api_key, { subscription_status: keep, expires_at: at });",
+    "    await patchApiKeyEntitlement(env, link.api_key, { subscription_status: keep === \"refunded\" ? keep : \"past_due\", expires_at: new Date(Date.parse(at) + 60000).toISOString() });"],
+  ["a later cancel relabels a refunded key", SE,
+    "keyRecord && keyRecord.subscription_status === \"refunded\" ? \"refunded\" : status", "status"],
+  ["gateway ignores the revenue engine's jwt_deny", GW,
+    "      if (billingDenied) return { tier: TIERS.FREE, key: null, sub: null, error: \"subscription_status_denied\" };", ""],
+  ["gateway no longer denies suspended keys", "workers/intel-gateway/src/subscription-lifecycle.js",
+    "new Set([\"cancelled\", \"refunded\", \"suspended\", \"expired\"])", "new Set([\"cancelled\", \"refunded\", \"expired\"])"],
   // Billing Center S6-S12.
   ["account view reads another customer's email from the query string", BR,
     "  const database = db(env);\n  await ensureBillingSchema(database);",

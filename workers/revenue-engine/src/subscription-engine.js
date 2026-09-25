@@ -170,6 +170,37 @@ export async function patchApiKeyEntitlement(env, apiKey, patch) {
   await env.API_KEYS_KV.put(apiKey, JSON.stringify({ ...rec, ...patch }));
 }
 
+/**
+ * S10 cross-worker revocation: the one way the revenue engine takes access
+ * away at intel-gateway. API_KEYS_KV is the only state the two Workers
+ * share, so the deny is written there in both forms the gateway enforces:
+ *   - the key record gets an explicit gateway deny state
+ *     (subscription-lifecycle.js SUBSCRIPTION_STATUS_DENY_STATES) and
+ *     expires now: the API key is refused on its next request;
+ *   - jwt_deny:{customer_id}: a Bearer JWT the customer obtained before the
+ *     event is refused too (resolveAuth checks it by `sub`), instead of
+ *     living out its 24-hour lifetime.
+ * A refunded key keeps "refunded" (a later cancel/halt never relabels it).
+ * @param {"refunded"|"cancelled"|"suspended"} status
+ * @returns {Promise<object|null>} the key record before the change
+ */
+export async function denyGatewayAccess(env, link, status, at, meta = {}) {
+  if (!env.API_KEYS_KV || !link) return null;
+  let keyRecord = null;
+  if (link.api_key) {
+    keyRecord = await env.API_KEYS_KV.get(link.api_key, "json").catch(() => null);
+    const keep = keyRecord && keyRecord.subscription_status === "refunded" ? "refunded" : status;
+    await patchApiKeyEntitlement(env, link.api_key, { subscription_status: keep, expires_at: at });
+  }
+  const customerId = link.internal_customer_id || keyRecord?.customer_id || null;
+  if (customerId) {
+    await env.API_KEYS_KV.put(`jwt_deny:${customerId}`, JSON.stringify({
+      reason: status, denied_at: at, ...meta,
+    }), { expirationTtl: JWT_DENY_TTL_SECONDS });
+  }
+  return keyRecord;
+}
+
 // Webhook idempotency guard -- Razorpay's delivery is at-least-once, so any
 // event may be redelivered. Uses REVENUE_CRM_KV (already bound in this
 // Worker) rather than intel-gateway's SECURITY_HUB_KV (not bound here, and
@@ -566,7 +597,7 @@ export async function handleBillingWebhook(request, env, ctx, rid) {
     case "subscription.halted": {
       if (link?.internal_sub_id) {
         await tryTransition(env, link.internal_sub_id, SUB_STATUS.SUSPENDED, {}, rid);
-        await patchApiKeyEntitlement(env, link.api_key, { expires_at: new Date().toISOString() });
+        await denyGatewayAccess(env, link, "suspended", new Date().toISOString(), { provider_sub_id: providerId });
         await putProviderLink(env, providerId, { ...link, status: "halted" });
       }
       await trackEvent(env, "subscription_suspended", { email: link?.email, tier: link?.tier, razorpay_subscription_id: providerId, rid });
@@ -577,7 +608,7 @@ export async function handleBillingWebhook(request, env, ctx, rid) {
     case "subscription.completed": {
       if (link?.internal_sub_id) {
         await tryTransition(env, link.internal_sub_id, SUB_STATUS.CANCELLED, { cancelled_at: new Date().toISOString() }, rid);
-        await patchApiKeyEntitlement(env, link.api_key, { expires_at: new Date().toISOString() });
+        await denyGatewayAccess(env, link, "cancelled", new Date().toISOString(), { provider_sub_id: providerId });
         await putProviderLink(env, providerId, { ...link, status: "cancelled" });
       }
       await trackEvent(env, "subscription_cancelled", { email: link?.email, tier: link?.tier, razorpay_subscription_id: providerId, event, rid });
@@ -631,17 +662,7 @@ export async function revokeEntitlementForSubscription(env, providerSubId, statu
     return false;
   }
   const at = new Date().toISOString();
-  let keyRecord = null;
-  if (link.api_key && env.API_KEYS_KV) {
-    keyRecord = await env.API_KEYS_KV.get(link.api_key, "json").catch(() => null);
-  }
-  if (link.api_key) await patchApiKeyEntitlement(env, link.api_key, { subscription_status: status, expires_at: at });
-  const customerId = link.internal_customer_id || keyRecord?.customer_id || null;
-  if (customerId && env.API_KEYS_KV) {
-    await env.API_KEYS_KV.put(`jwt_deny:${customerId}`, JSON.stringify({
-      reason: status, provider_sub_id: providerSubId, denied_at: at,
-    }), { expirationTtl: JWT_DENY_TTL_SECONDS });
-  }
+  await denyGatewayAccess(env, link, status, at, { provider_sub_id: providerSubId });
   if (link.internal_sub_id) await tryTransition(env, link.internal_sub_id, SUB_STATUS.CANCELLED, { cancelled_at: at, cancel_reason: status }, rid);
   await putProviderLink(env, providerSubId, { ...link, status });
   await trackEvent(env, "entitlement_revoked", { razorpay_subscription_id: providerSubId, email: link.email, reason: status, rid });

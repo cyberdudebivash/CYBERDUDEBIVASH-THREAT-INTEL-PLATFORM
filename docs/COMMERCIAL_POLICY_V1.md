@@ -247,7 +247,34 @@ sent/accepted --> cancelled (admin)      sent --(after valid_until)--> expired
 | `POST /api/v2/billing/quotes/provision` `{id}` | admin | Retry provisioning |
 | `POST /api/v2/billing/quotes/cancel` `{id, note}` | admin | Cancel before invoicing |
 
+## Access revocation across Workers (S10, 2026-09-25)
+
+The revenue engine decides entitlement; intel-gateway enforces it. They share
+only `API_KEYS_KV`, and every revocation writes both deny forms there
+(`denyGatewayAccess()` in `subscription-engine.js`): the key record gets a
+gateway deny status and expires now, and `jwt_deny:<customer_id>` refuses any
+Bearer JWT issued before the event (TTL 25 h, longer than a JWT's 24 h life).
+
+| Razorpay event | Key status at the gateway | API key | JWT issued before | New login |
+|---|---|---|---|---|
+| `subscription.activated` | active (deny marker cleared) | allowed | allowed | allowed |
+| `subscription.charged` (renewal) | unchanged, expiry extended | allowed | allowed | allowed |
+| `subscription.pending` (retrying) | unchanged (grace) | allowed | allowed | allowed |
+| `subscription.halted` | `suspended` | denied | denied | refused |
+| `subscription.cancelled` / `.completed` | `cancelled` | denied | denied | refused |
+| `refund.created` / `refund.processed` | `refunded` (never relabelled) | denied | denied | refused |
+
+A charge arriving after a halt or cancellation never restores access
+(fail-safe). Certified by `workers/revenue-engine/src/__tests__/cross-worker-revocation.test.js`,
+which runs both real Workers against one shared store, and by the mutation
+controls in `billing-negative-controls.mjs` (regression gate).
+
 ## Known gaps (not in this change)
+
+- **Halted subscriptions cannot recover.** If Razorpay's retry later succeeds
+  after `subscription.halted`, access stays denied: the lifecycle model allows
+  only `suspended -> cancelled` (`subscription-domain.js`). Recovery needs an
+  owner decision (reactivate on a verified charge, or require a new checkout).
 
 - **Gumroad membership products** themselves (owner action, see the cutover
   above). Until they exist, Gumroad keeps selling the labelled one-time grant.
