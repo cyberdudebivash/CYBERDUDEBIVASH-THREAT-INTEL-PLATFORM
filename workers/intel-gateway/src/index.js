@@ -4767,6 +4767,9 @@ async function verifyRazorpayHmac(payload, signature, secret) {
   } catch (_) { return false; }
 }
 
+// Tiers sold as recurring Razorpay Subscriptions (never as one-time Orders).
+const RECURRING_TIERS = new Set(["PRO", "ENTERPRISE", "MSSP"]);
+
 // POST /api/payment/razorpay/create-order
 async function handleRazorpayCreateOrder(request, env, method) {
   if (method !== "POST") return jsonResp({ error: "POST required" }, 405);
@@ -4782,6 +4785,20 @@ async function handleRazorpayCreateOrder(request, env, method) {
   const tierUp  = tier.toUpperCase();
   const pricing = RAZORPAY_TIER_PRICES[tierUp];
   if (!pricing) return jsonResp({ error: "Invalid tier. Valid: PRO, ENTERPRISE, MSSP" }, 400);
+  // 2026-09-24 (owner commercial policy): PRO, ENTERPRISE and MSSP are
+  // recurring services, sold only through Razorpay Subscriptions
+  // (revenue-engine POST /api/v2/billing/subscriptions/create). A one-time
+  // Order priced as "per month" would leave renewal, failed-payment and
+  // expiry handling to nobody. One-time Orders are reserved for explicit
+  // one-time SKUs; none is on sale today. /verify stays live for orders
+  // already created before this change.
+  if (RECURRING_TIERS.has(tierUp)) {
+    return jsonResp({
+      error: "subscription_required",
+      message: "This plan is a recurring subscription. Use the secure subscription checkout.",
+      checkout_url: "https://intel.cyberdudebivash.com/upgrade.html",
+    }, 409);
+  }
   if (!env.RAZORPAY_KEY_ID || !env.RAZORPAY_KEY_SECRET) {
     return jsonResp({ error: "Razorpay not configured on server", fallback_url: "https://intel.cyberdudebivash.com/upgrade.html" }, 503);
   }
@@ -4961,6 +4978,17 @@ async function handleWebhookRazorpay(request, env, ctx) {
   const pid    = entity.id || "unknown";
 
   if (event === "payment.captured" || event === "order.paid") {
+    // 2026-09-24 (recurring billing on Razorpay Subscriptions): a subscription
+    // charge is a Payment with an invoice_id (or arrives with a subscription
+    // entity). Its entitlement is owned by revenue-engine's
+    // /api/v2/billing/webhooks/razorpay; provisioning it here as well would
+    // mint a second key (tier defaulting to PRO when the payment carries no
+    // notes). Only one-time Order payments are provisioned by this handler.
+    const payEntity = payload.payload?.payment?.entity || {};
+    if (payEntity.invoice_id || payload.payload?.subscription?.entity) {
+      auditLog(ctx, env, { action: "razorpay_subscription_payment_ignored", payment_id: payEntity.id || pid, event });
+      return jsonResp({ status: "ignored_subscription_payment", payment_id: payEntity.id || pid });
+    }
     // P2.6.1-001: Unified cross-path idempotency guard  -  checked FIRST before per-path key
     const unifiedIdempKey = `rzp_payment:${pid}`;
     const alreadyProvisioned = await env.SECURITY_HUB_KV.get(unifiedIdempKey);
@@ -5227,7 +5255,30 @@ async function handleWebhookGumroad(request, env, ctx) {
 }
 
 // POST /api/payment/manual-notify  (UPI / NEFT / Crypto proof of payment)
+// RETIRED 2026-09-24 (owner commercial policy): public manual payment proof
+// is no longer accepted -- forged screenshots, reference reuse and
+// unreconcilable entitlement/GST/refund records. Answers 410 before reading
+// the body or touching KV, Telegram or audit; the same contract as
+// revenue-engine's retired POST /api/payments/submit. Enterprise bank
+// transfers go through an approved quote/PO -> invoice workflow instead.
+// GET /api/payment/status stays readable for review ids already issued.
+// The legacy body below is kept unreachable (deprecation, not deletion);
+// remove it in the next major P-layer once no caller references it.
+const MANUAL_PAYMENT_RETIRED_BODY = Object.freeze({
+  error: "manual_payment_retired",
+  code: "MANUAL_PAYMENT_RETIRED",
+  message: "Manual payment verification is no longer available. Please use the secure checkout.",
+  checkout_url: "https://intel.cyberdudebivash.com/upgrade.html",
+});
 async function handleManualNotify(request, env, ctx, method) {
+  return jsonResp(MANUAL_PAYMENT_RETIRED_BODY, 410, {
+    "Cache-Control": "no-store", "Deprecation": "true", "Sunset": "Thu, 24 Sep 2026 00:00:00 GMT",
+  });
+}
+
+// DEPRECATED (unreachable since 2026-09-24): the pre-retirement handler.
+// eslint-disable-next-line no-unused-vars
+async function _legacyHandleManualNotify(request, env, ctx, method) {
   if (method !== "POST") return jsonResp({ error: "POST required" }, 405);
   let body = {};
   try { body = await request.json(); } catch (_) {}

@@ -9,6 +9,7 @@
 // creation, webhook lifecycle, entitlement sync. See subscription-engine.js
 // for scope notes (refunds/upgrades/downgrades/checkout-cutover deferred).
 import { handleBillingSubscriptionCreate, handleBillingSubscriptionStatus, handleBillingWebhook, patchApiKeyEntitlement, patchInternalSub, tryTransition, PLAN_ID_ENV_KEYS } from "./subscription-engine.js";
+import { handleRefundRequest, handleRefundList, handleRefundApprove, handleRefundReject, handleInvoiceList, handleInvoiceView, handleInvoiceHolds, handleInvoiceIssue, handleSubscriptionCancel } from "./billing-routes.js";
 
 const ENGINE = {
   VERSION:  "183.0",
@@ -94,6 +95,28 @@ async function routeRevenueRequest(request, env, ctx, rid, url, path, method) {
         return await handleBillingWebhook(request, env, ctx, rid);
       if (path === "/api/v2/billing/subscriptions/status" && method === "GET")
         return await handleBillingSubscriptionStatus(request, env, ctx, rid);
+
+      // ── Refunds (merchant-approved) + GST invoices (billing-routes.js) ─────
+      // Each handler authenticates itself: customer routes take the
+      // subscription's X-API-Key, decision routes take X-Admin-Secret.
+      if (path === "/api/v2/billing/subscriptions/cancel" && method === "POST")
+        return await handleSubscriptionCancel(request, env, ctx, rid);
+      if (path === "/api/v2/billing/refunds/request" && method === "POST")
+        return await handleRefundRequest(request, env, ctx, rid);
+      if (path === "/api/v2/billing/refunds" && method === "GET")
+        return await handleRefundList(request, env);
+      if (path === "/api/v2/billing/refunds/approve" && method === "POST")
+        return await handleRefundApprove(request, env, ctx, rid);
+      if (path === "/api/v2/billing/refunds/reject" && method === "POST")
+        return await handleRefundReject(request, env, ctx, rid);
+      if (path === "/api/v2/billing/invoices" && method === "GET")
+        return await handleInvoiceList(request, env);
+      if (path === "/api/v2/billing/invoices/view" && method === "GET")
+        return await handleInvoiceView(request, env);
+      if (path === "/api/v2/billing/invoices/holds" && method === "GET")
+        return await handleInvoiceHolds(request, env);
+      if (path === "/api/v2/billing/invoices/issue" && method === "POST")
+        return await handleInvoiceIssue(request, env, ctx, rid);
 
       // ── Public: customer-facing commercial routes ──────────────────────────
       // Moved here from dispatchCommercialRoutes() (further below), which is
@@ -2632,6 +2655,6 @@ function getCommercialEmailTemplate(name, vars) {
 // =============================================================================
 export {
   json, sanitizeEmail, genId, TIERS, SUB_STATUS,
-  provisionCustomer, trackEvent, isAdmin, automationTrigger,
+  provisionCustomer, trackEvent, isAdmin, automationTrigger, slackNotify,
   handlePaymentSubmit, sanitizeScreenshotUrl, gatewayTenantFields,
 };

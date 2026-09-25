@@ -97,10 +97,20 @@ def test_t02_community_no_credit_card_retained():
 # T03 — genuine 7-day money-back refund copy is allowed
 # ---------------------------------------------------------------------------
 def test_t03_money_back_refund_copy_retained():
+    # Owner commercial policy (2026-09-24): the 7-day guarantee is kept, but
+    # only as a qualified, merchant-approved guarantee on eligible first
+    # purchases, with no pro-rata refunds after it (terms.html#refunds).
     upgrade = _read(UPGRADE)
     pricing = _read(PRICING)
-    assert "7-Day Money-Back" in upgrade or "7-day money-back" in upgrade
-    assert "7-day money-back guarantee" in pricing
+    terms = _read(REPO / "terms.html")
+    assert "7-Day Money-Back Guarantee on eligible first purchases" in upgrade
+    assert "7-day money-back on eligible first purchases" in pricing
+    for src in (upgrade, pricing):
+        assert "/terms.html#refunds" in src
+        assert "No pro-rata refunds" in src or "no pro-rata refunds" in src
+    assert 'id="refunds"' in terms
+    assert "pro-rated refund for unused" not in terms
+    assert "no partial or pro-rata refunds" in terms
 
 
 # ---------------------------------------------------------------------------
@@ -182,11 +192,13 @@ def test_t13_razorpay_display_aligned_charge_unchanged():
     assert 'id="rzp-display-inr">&#x20B9;4,100</div>' in src or 'id="rzp-display-inr">₹4,100</div>' in src
     assert "3,999" not in src
     assert "399900" not in src
-    # Do not label the Razorpay button SUBSCRIBE (Gumroad is one-time 30-day)
-    assert "Pay Securely with Razorpay" in src
+    # Owner commercial policy (2026-09-24): Razorpay checkout IS a recurring
+    # subscription now (Gumroad stays a one-time 30-day grant), so the
+    # Razorpay button must say so; it previously had to avoid the word.
     btn = re.search(r'id="rzp-pay-btn"[^>]*>([\s\S]*?)</button>', src)
     assert btn, "rzp-pay-btn missing"
-    assert "SUBSCRIBE" not in btn.group(1).upper()
+    assert "SUBSCRIBE" in btn.group(1).upper()
+    assert "Renews monthly" in src
 
 
 # ---------------------------------------------------------------------------

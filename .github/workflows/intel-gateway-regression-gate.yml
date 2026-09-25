@@ -48,6 +48,10 @@ on:
       # Customer dashboard data contract: the suite and its negative controls
       # read these runtime files.
       - 'workers/intel-gateway/scripts/dashboard-negative-controls.mjs'
+      # Commercial policy v1 billing (refunds, GST invoices, subscriptions-
+      # only checkout): the controls mutate revenue-engine + gateway code.
+      - 'workers/revenue-engine/scripts/billing-negative-controls.mjs'
+      - 'revenue-crm/schema.sql'
       - 'js/sentinel-live-feeds.js'
       - 'js/apex-dashboard-snapshot.js'
       - 'service-worker.js'
@@ -85,6 +89,10 @@ on:
       # Customer dashboard data contract: the suite and its negative controls
       # read these runtime files.
       - 'workers/intel-gateway/scripts/dashboard-negative-controls.mjs'
+      # Commercial policy v1 billing (refunds, GST invoices, subscriptions-
+      # only checkout): the controls mutate revenue-engine + gateway code.
+      - 'workers/revenue-engine/scripts/billing-negative-controls.mjs'
+      - 'revenue-crm/schema.sql'
       - 'js/sentinel-live-feeds.js'
       - 'js/apex-dashboard-snapshot.js'
       - 'service-worker.js'
@@ -164,6 +172,17 @@ jobs:
       # dashboard suites to FAIL. Never modifies the checkout.
       - name: "Dashboard data contract negative controls"
         run: node workers/intel-gateway/scripts/dashboard-negative-controls.mjs
+
+      # Mutation proof for commercial policy v1 (docs/COMMERCIAL_POLICY_V1.md):
+      # each control reintroduces ONE defect (refund amount from the request,
+      # no admin check, no compare-and-set, refund window off, not the first
+      # purchase, dispute ignored, invoice serial consumed twice, invoice
+      # without GST config, export invoiced, CGST/IGST swapped, >16-char
+      # number, foreign invoice readable, one-time order for a recurring plan,
+      # subscription charge provisioned twice, manual proof accepted) and
+      # requires the billing suites (revenue-engine + gateway) to FAIL.
+      - name: "Commercial billing negative controls"
+        run: node workers/revenue-engine/scripts/billing-negative-controls.mjs
 
       # The only supported rollback target after Watchdog v3: rebuilt from the
       # pinned base commit + overlay; fails on any hash or digest mismatch.

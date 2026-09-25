@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Upgrade &mdash; CYBERDUDEBIVASH SENTINEL APEX</title>
-<meta name="description" content="Upgrade your threat intelligence subscription. Professional, Enterprise and MSSP plans with automated instant checkout via Razorpay (UPI, Cards, Net Banking, EMI) or Gumroad. GSTIN: 21ARKPN8270G1ZP">
+<meta name="description" content="Upgrade your threat intelligence subscription. Professional, Enterprise and MSSP plans with recurring Razorpay subscriptions (UPI AutoPay, Cards, Net Banking e-mandate) or Gumroad. GSTIN: 21ARKPN8270G1ZP">
 <meta name="robots" content="noindex, nofollow">
 <link rel="icon" type="image/x-icon" href="/favicon.ico">
 <style>
@@ -511,7 +511,7 @@ h1 span { color: var(--accent); }
 <body>
 
 <div class="urgency-bar">
-  &#9889; RAZORPAY INSTANT CHECKOUT &nbsp;&middot;&nbsp; UPI &middot; Cards &middot; Net Banking &middot; EMI &nbsp;&middot;&nbsp; API Key Within 2h &nbsp;&middot;&nbsp; 7-Day Money-Back Guarantee &nbsp;&middot;&nbsp; GSTIN: 21ARKPN8270G1ZP
+  &#9889; RAZORPAY SECURE SUBSCRIPTION CHECKOUT &nbsp;&middot;&nbsp; UPI AutoPay &middot; Cards &middot; Net Banking &nbsp;&middot;&nbsp; API key on payment confirmation &nbsp;&middot;&nbsp; <a href="/terms.html#refunds" style="color:inherit;text-decoration:underline;">7-day money-back on eligible first purchases</a> &nbsp;&middot;&nbsp; GSTIN: 21ARKPN8270G1ZP
 </div>
 
 <nav>
@@ -552,7 +552,7 @@ h1 span { color: var(--accent); }
       <button class="stix-upgrade-btn" onclick="document.getElementById('plan-pro').scrollIntoView({behavior:'smooth',block:'center'});document.getElementById('plan-pro').click();">
         ⚡ Unlock PRO &mdash; $49 due now
       </button>
-      <div class="stix-banner-note">API key delivered within 2 hours &nbsp;&middot;&nbsp; Gumroad: 30-day grant, no auto-renew</div>
+      <div class="stix-banner-note">API key on payment confirmation &nbsp;&middot;&nbsp; Razorpay: renews automatically, cancel any time &nbsp;&middot;&nbsp; Gumroad: 30-day grant, no auto-renew</div>
     </div>
   </div>
 </div>
@@ -561,7 +561,7 @@ h1 span { color: var(--accent); }
   <div>
     <div id="checkout-state">
       <h1>Complete Your <span>Upgrade</span></h1>
-      <p class="subtitle">Select your plan &mdash; pay instantly via Razorpay. API key delivered within 2 hours.</p>
+      <p class="subtitle">Select your plan &mdash; subscribe securely via Razorpay. API key provisioned on payment confirmation.</p>
 
       <!-- Social proof trust strip -->
       <div style="display:flex;align-items:center;justify-content:center;gap:24px;flex-wrap:wrap;margin:16px 0 24px;padding:14px 20px;background:rgba(0,212,170,.05);border:1px solid rgba(0,212,170,.15);border-radius:8px;font-size:12px;">
@@ -572,7 +572,7 @@ h1 span { color: var(--accent); }
         <span style="color:rgba(255,255,255,.15);">|</span>
         <span style="color:#94a3b8;font-family:monospace;letter-spacing:1px;">2,144 CVE &amp; threat pages</span>
         <span style="color:rgba(255,255,255,.15);">|</span>
-        <span style="color:#94a3b8;font-family:monospace;letter-spacing:1px;">7-day money-back</span>
+        <span style="color:#94a3b8;font-family:monospace;letter-spacing:1px;">7-day money-back (first purchase)</span>
         <span style="color:rgba(255,255,255,.15);">|</span>
         <a href="/testimonials.html" style="color:#00d4aa;text-decoration:none;font-weight:700;font-family:monospace;font-size:11px;letter-spacing:1px;">Read Testimonials →</a>
       </div>
@@ -733,7 +733,7 @@ h1 span { color: var(--accent); }
         </div>
         <div style="font-size:12px;color:var(--text-dim);margin-bottom:16px;display:flex;align-items:center;gap:8px;">
           <span style="color:var(--green);font-weight:700;">&#10003;</span>
-          Enter your email and pay securely &mdash; your API key is provisioned automatically the moment payment is verified. No manual review, no waiting.
+          Enter your email and subscribe securely &mdash; your API key is provisioned automatically once Razorpay confirms the payment. The subscription renews each billing period until you cancel; cancelling stops the next renewal and access runs to the end of the paid period.
         </div>
 
         <!-- RAZORPAY PANEL -->
@@ -741,20 +741,20 @@ h1 span { color: var(--accent); }
           <div class="rzp-panel">
             <div class="rzp-header">
               <span class="rzp-logo">Razorpay</span>
-              <span class="rzp-badge">&#9889; INSTANT CHECKOUT</span>
+              <span class="rzp-badge">&#8635; RECURRING SUBSCRIPTION</span>
               <span class="rzp-badge" style="background:rgba(16,185,129,0.1);border-color:rgba(16,185,129,0.3);color:var(--green);">&#127470;&#127475; INDIA</span>
             </div>
 
             <div class="rzp-amount-box">
               <div>
-                <div class="rzp-amount-label">Total Amount (INR)</div>
+                <div class="rzp-amount-label">Charged per billing period (INR, incl. GST)</div>
                 <div class="rzp-amount-val" id="rzp-display-inr">&#x20B9;4,100</div>
                 <div class="rzp-amount-usd" id="rzp-display-usd">&asymp; $49 USD</div>
               </div>
               <div style="text-align:right">
                 <div style="font-size:11px;color:var(--text-dim);margin-bottom:4px;">PLAN</div>
                 <div style="font-size:14px;font-weight:700;color:var(--text)" id="rzp-display-plan">PRO Defense</div>
-                <div style="font-size:11px;color:var(--text-dim)">Monthly</div>
+                <div style="font-size:11px;color:var(--text-dim)" id="rzp-display-cycle">Renews monthly</div>
               </div>
             </div>
 
@@ -770,17 +770,50 @@ h1 span { color: var(--accent); }
               <div id="rzp-gstin-hint" style="font-size:11px;color:var(--text-dim);margin-top:4px;">Leave blank if you don't need a GST/VAT invoice</div>
             </div>
 
+            <!-- GST invoice details (all optional): place of supply and the
+                 recipient particulars a tax invoice needs. Validated again
+                 server-side (workers/revenue-engine/src/gst.js). -->
+            <div class="rzp-email-row">
+              <label class="form-label" for="rzp-billing-state">Billing state <span style="color:var(--text-dim);font-weight:400;">(optional, sets the GST place of supply)</span></label>
+              <select id="rzp-billing-state" class="form-input">
+                <option value="">Not specified</option>
+                <option value="OUTSIDE_INDIA">Outside India</option>
+                <option value="35">Andaman and Nicobar Islands</option><option value="37">Andhra Pradesh</option>
+                <option value="12">Arunachal Pradesh</option><option value="18">Assam</option><option value="10">Bihar</option>
+                <option value="04">Chandigarh</option><option value="22">Chhattisgarh</option>
+                <option value="26">Dadra and Nagar Haveli and Daman and Diu</option><option value="07">Delhi</option>
+                <option value="30">Goa</option><option value="24">Gujarat</option><option value="06">Haryana</option>
+                <option value="02">Himachal Pradesh</option><option value="01">Jammu and Kashmir</option>
+                <option value="20">Jharkhand</option><option value="29">Karnataka</option><option value="32">Kerala</option>
+                <option value="38">Ladakh</option><option value="31">Lakshadweep</option><option value="23">Madhya Pradesh</option>
+                <option value="27">Maharashtra</option><option value="14">Manipur</option><option value="17">Meghalaya</option>
+                <option value="15">Mizoram</option><option value="13">Nagaland</option><option value="21">Odisha</option>
+                <option value="34">Puducherry</option><option value="03">Punjab</option><option value="08">Rajasthan</option>
+                <option value="11">Sikkim</option><option value="33">Tamil Nadu</option><option value="36">Telangana</option>
+                <option value="16">Tripura</option><option value="09">Uttar Pradesh</option><option value="05">Uttarakhand</option>
+                <option value="19">West Bengal</option><option value="97">Other Territory</option>
+              </select>
+            </div>
+            <div class="rzp-email-row">
+              <label class="form-label" for="rzp-billing-name">Billing name <span style="color:var(--text-dim);font-weight:400;">(optional; needed on a GST invoice)</span></label>
+              <input type="text" id="rzp-billing-name" class="form-input" maxlength="120" autocomplete="organization" placeholder="Company or full name">
+            </div>
+            <div class="rzp-email-row">
+              <label class="form-label" for="rzp-billing-address">Billing address <span style="color:var(--text-dim);font-weight:400;">(optional; needed on a GST invoice)</span></label>
+              <input type="text" id="rzp-billing-address" class="form-input" maxlength="250" autocomplete="street-address" placeholder="Street, city, PIN">
+            </div>
+
             <div class="rzp-features">
-              <div class="rzp-feature"><span class="rzp-check">&#10003;</span> UPI (GPay, PhonePe, Paytm)</div>
-              <div class="rzp-feature"><span class="rzp-check">&#10003;</span> Credit / Debit Cards</div>
-              <div class="rzp-feature"><span class="rzp-check">&#10003;</span> Net Banking (50+ banks)</div>
-              <div class="rzp-feature"><span class="rzp-check">&#10003;</span> EMI (No-Cost available)</div>
-              <div class="rzp-feature"><span class="rzp-check">&#10003;</span> Wallets (Mobikwik, etc.)</div>
-              <div class="rzp-feature"><span class="rzp-check">&#10003;</span> Instant API key delivery</div>
+              <div class="rzp-feature"><span class="rzp-check">&#10003;</span> UPI AutoPay</div>
+              <div class="rzp-feature"><span class="rzp-check">&#10003;</span> Credit / Debit Cards (recurring)</div>
+              <div class="rzp-feature"><span class="rzp-check">&#10003;</span> Net Banking e-mandate</div>
+              <div class="rzp-feature"><span class="rzp-check">&#10003;</span> Cancel any time; no pro-rata refunds</div>
+              <div class="rzp-feature"><span class="rzp-check">&#10003;</span> GST tax invoice available</div>
+              <div class="rzp-feature"><span class="rzp-check">&#10003;</span> API key on payment confirmation</div>
             </div>
 
             <button class="rzp-btn" id="rzp-pay-btn" onclick="initiateRazorpayCheckout()">
-              <span>&#9889;</span> Pay Securely with Razorpay
+              <span>&#9889;</span> Subscribe Securely with Razorpay
             </button>
 
             <div class="rzp-secure-row">
@@ -788,7 +821,7 @@ h1 span { color: var(--accent); }
               <span>&middot;</span>
               <span>&#128203; GST Invoice Available</span>
               <span>&middot;</span>
-              <span>&#9989; 7-Day Money Back</span>
+              <span>&#9989; <a href="/terms.html#refunds" style="color:inherit;text-decoration:underline;">7-day money-back on eligible first purchases</a></span>
             </div>
             <div class="rzp-methods">
               <span class="rzp-method-badge">UPI</span>
@@ -796,8 +829,7 @@ h1 span { color: var(--accent); }
               <span class="rzp-method-badge">Mastercard</span>
               <span class="rzp-method-badge">RuPay</span>
               <span class="rzp-method-badge">Net Banking</span>
-              <span class="rzp-method-badge">EMI</span>
-              <span class="rzp-method-badge">Wallets</span>
+              <span class="rzp-method-badge">UPI AutoPay</span>
             </div>
           </div>
         </div>
@@ -899,7 +931,7 @@ h1 span { color: var(--accent); }
         <span class="pay-badge">Mastercard</span>
         <span class="pay-badge">RuPay</span>
         <span class="pay-badge">Net Banking</span>
-        <span class="pay-badge">Cards EMI</span>
+        <span class="pay-badge">UPI AutoPay</span>
         <span class="pay-badge" style="color:#009cde;border-color:#009cde;">PayPal (Gumroad)</span>
       </div>
     </div>
@@ -907,12 +939,11 @@ h1 span { color: var(--accent); }
     <div class="trust-card">
       <div class="trust-title">&#128272; Guarantees &amp; Trust</div>
       <div class="trust-item"><span class="t-icon">&#10003;</span>GST Registered &mdash; GSTIN: 21ARKPN8270G1ZP</div>
-      <div class="trust-item"><span class="t-icon">&#10003;</span>7-Day Money-Back Guarantee</div>
-      <div class="trust-item"><span class="t-icon">&#10003;</span>API Key in 2 Hours</div>
-      <div class="trust-item"><span class="t-icon">&#10003;</span>No Auto-Renewal &mdash; Manual Renewal</div>
+      <div class="trust-item"><span class="t-icon">&#10003;</span>7-Day Money-Back Guarantee on eligible first purchases &mdash; subject to our <a href="/terms.html#refunds" style="color:var(--accent)">Refund Policy</a>. No pro-rata refunds after the guarantee period.</div>
+      <div class="trust-item"><span class="t-icon">&#10003;</span>API key on payment confirmation</div>
+      <div class="trust-item"><span class="t-icon">&#10003;</span>Razorpay: renews automatically, cancel any time &middot; Gumroad: 30-day grant, no auto-renew</div>
       <div class="trust-item"><span class="t-icon">&#10003;</span>Enterprise SLA Available</div>
       <div class="trust-item"><span class="t-icon">&#10003;</span>STIX 2.1 &middot; MITRE ATT&amp;CK &middot; CISA KEV</div>
-      <div class="trust-item"><span class="t-icon">&#10003;</span>ISO 27001 Aligned &middot; SOC 2 Ready</div>
     </div>
 
     <a href="https://wa.me/918179881447?text=Hi%20Bivash%2C%20I%20want%20to%20upgrade%20to%20SENTINEL%20APEX" target="_blank" class="wa-cta">
@@ -1006,14 +1037,22 @@ function updateRazorpayPanel() {
   el = document.getElementById('rzp-display-inr');  if (el) el.textContent = inrFmt;
   el = document.getElementById('rzp-display-usd');  if (el) el.textContent = '\u2248 $' + usd.toLocaleString() + ' USD';
   el = document.getElementById('rzp-display-plan'); if (el) el.textContent = rp.name;
+  el = document.getElementById('rzp-display-cycle'); if (el) el.textContent = isAnnual ? 'Renews yearly' : 'Renews monthly';
 }
 
-// Recurring Subscriptions cutover: tries real recurring billing
-// (Razorpay Subscriptions API) first, and falls back to the proven
-// one-time-order flow below on any failure -- a tier/cycle without a
-// live Razorpay Plan ID yet returns 503 by design (see
-// workers/revenue-engine/src/subscription-engine.js), not an error, so
-// checkout must never dead-end here.
+// Owner commercial policy (2026-09-24): PRO, Enterprise and MSSP are
+// recurring services and are sold ONLY as Razorpay Subscriptions
+// (revenue-engine POST /api/v2/billing/subscriptions/create). There is no
+// silent fallback to a one-time Order: a plan whose Razorpay Plan ID is not
+// live answers 503 and the buyer is told so, with a way to reach sales.
+// The server resolves tier + cycle to the Razorpay plan_id; no price is sent.
+function checkoutUnavailable(btn, orig, tier, reason) {
+  if (btn) { btn.disabled = false; btn.innerHTML = orig; }
+  if (window.apxTrack) window.apxTrack('payment_failed', { tier: tier, method: 'razorpay_subscription', reason: reason });
+  alert('Online subscription checkout for this plan is not available right now. No payment was taken.\n' +
+        'Please try again later, or contact us: enterprise@cyberdudebivash.com / WhatsApp +91 8179881447.');
+}
+
 async function initiateRazorpayCheckout() {
   var emailEl = document.getElementById('rzp-email');
   var email   = emailEl ? emailEl.value.trim() : '';
@@ -1026,9 +1065,8 @@ async function initiateRazorpayCheckout() {
     alert('Please select a paid plan (PRO, Enterprise, or MSSP).');
     return;
   }
-  // Buyer GSTIN/VAT for the tax invoice (optional). Read and validated once
-  // here and passed down: the one-time path referenced an undeclared
-  // `gstin`, so every one-time checkout threw before Razorpay opened.
+  // Buyer GSTIN/VAT for the tax invoice (optional), validated with the
+  // shared js/checkout.js rules; the server validates again.
   var gstinEl = document.getElementById('rzp-gstin');
   var taxId = window.SentinelCheckout
     ? window.SentinelCheckout.validateTaxId(gstinEl ? gstinEl.value : '')
@@ -1038,7 +1076,13 @@ async function initiateRazorpayCheckout() {
     if (gstinEl) { gstinEl.focus(); gstinEl.style.borderColor = 'var(--red)'; }
     return;
   }
-  var gstin = taxId.value;
+  function val(id) { var e = document.getElementById(id); return e ? e.value.trim() : ''; }
+  var buyer = {
+    gstin: taxId.value || undefined,
+    billing_state: val('rzp-billing-state') || undefined,
+    billing_name: val('rzp-billing-name') || undefined,
+    billing_address: val('rzp-billing-address') || undefined,
+  };
   var btn  = document.getElementById('rzp-pay-btn');
   var orig = btn ? btn.innerHTML : '';
   var tierMap = { pro:'PRO', enterprise:'ENTERPRISE', mssp:'MSSP' };
@@ -1047,44 +1091,56 @@ async function initiateRazorpayCheckout() {
 
   if (btn) { btn.disabled = true; btn.innerHTML = '&#9203; Setting up checkout...'; }
 
+  var sub, subResp;
   try {
-    var subResp = await fetch('/api/v2/billing/subscriptions/create', {
+    subResp = await fetch('/api/v2/billing/subscriptions/create', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: email, tier: tier, billing_cycle: cycle }),
+      body: JSON.stringify(Object.assign({ email: email, tier: tier, billing_cycle: cycle }, buyer)),
     });
-    var sub = await subResp.json();
-
-    if (!subResp.ok || !sub.subscription_id) {
-      return await initiateRazorpayOneTimeCheckout(email, tier, cycle, btn, orig, gstin);
-    }
-    if (typeof Razorpay === 'undefined') {
-      if (btn) { btn.disabled = false; btn.innerHTML = orig; }
-      alert('Razorpay could not load \u2014 please check your connection and try again, or contact us on WhatsApp: +91 8179881447');
-      return;
-    }
-
-    var subOptions = {
-      key:              sub.key_id,
-      subscription_id:  sub.subscription_id,
-      name:             'CYBERDUDEBIVASH SENTINEL APEX',
-      description:      tier + ' - ' + cycle + ' subscription',
-      prefill:          { email: email },
-      theme:            { color: '#00d4ff' },
-      modal: {
-        ondismiss: function() {
-          if (btn) { btn.disabled = false; btn.innerHTML = orig; }
-        }
-      },
-      handler: function(response) {
-        if (btn) btn.innerHTML = '&#9203; Confirming subscription...';
-        pollSubscriptionStatus(sub.subscription_id, response.razorpay_payment_id, response.razorpay_signature, tier, email, btn, orig, 0);
-      },
-    };
-    var subRzp = new Razorpay(subOptions);
-    subRzp.open();
+    sub = await subResp.json();
   } catch (err) {
-    return await initiateRazorpayOneTimeCheckout(email, tier, cycle, btn, orig, gstin);
+    return checkoutUnavailable(btn, orig, tier, 'subscription_create_network');
   }
+  if (subResp.status === 400 && sub && sub.field) {
+    if (btn) { btn.disabled = false; btn.innerHTML = orig; }
+    alert(sub.error);
+    return;
+  }
+  if (!subResp.ok || !sub || !sub.subscription_id) {
+    return checkoutUnavailable(btn, orig, tier, 'subscription_create_' + subResp.status);
+  }
+  if (typeof Razorpay === 'undefined') {
+    if (btn) { btn.disabled = false; btn.innerHTML = orig; }
+    alert('Razorpay could not load \u2014 please check your connection and try again, or contact us on WhatsApp: +91 8179881447');
+    return;
+  }
+
+  var subOptions = {
+    key:              sub.key_id,
+    subscription_id:  sub.subscription_id,
+    name:             'CYBERDUDEBIVASH SENTINEL APEX',
+    description:      tier + ' - ' + cycle + ' subscription (renews until cancelled)',
+    prefill:          { email: email },
+    theme:            { color: '#00d4ff' },
+    modal: {
+      ondismiss: function() {
+        if (btn) { btn.disabled = false; btn.innerHTML = orig; }
+      }
+    },
+    handler: function(response) {
+      if (btn) btn.innerHTML = '&#9203; Confirming subscription...';
+      pollSubscriptionStatus(sub.subscription_id, response.razorpay_payment_id, response.razorpay_signature, tier, email, btn, orig, 0);
+    },
+  };
+  var subRzp = new Razorpay(subOptions);
+  if (window.SentinelCheckout) {
+    window.SentinelCheckout.bindPaymentFailedHandler(subRzp, function(msg) {
+      if (btn) { btn.disabled = false; btn.innerHTML = orig; }
+      if (window.apxTrack) window.apxTrack('payment_failed', { tier: tier, method: 'razorpay_subscription', reason: 'declined' });
+      alert(msg);
+    });
+  }
+  subRzp.open();
 }
 
 // Subscription activation happens asynchronously via Razorpay's
@@ -1128,10 +1184,11 @@ function pollSubscriptionStatus(subscriptionId, paymentId, signature, tier, emai
     });
 }
 
-// Original one-time-Orders checkout -- the pre-Subscriptions-cutover
-// flow, kept verbatim as the fallback path for any tier/cycle without a
-// live Razorpay Plan ID yet (or if the Subscriptions endpoint above is
-// ever unreachable).
+// DEPRECATED (2026-09-24, owner commercial policy): one-time Orders
+// checkout. No longer called for PRO / Enterprise / MSSP, which are sold
+// only as Subscriptions (the gateway's create-order now answers 409
+// subscription_required for them). Kept for a future explicit one-time SKU;
+// remove if none is introduced by the next major release.
 async function initiateRazorpayOneTimeCheckout(email, tier, billing, btn, orig, gstin) {
   if (btn) { btn.innerHTML = '&#9203; Creating order...'; }
 

@@ -2,23 +2,28 @@
 /**
  * SENTINEL APEX -- upgrade.html Razorpay checkout (real browser).
  *
- * P0 (2026-09-24): initiateRazorpayOneTimeCheckout() referenced an
- * undeclared `gstin`, so whenever the Subscriptions path was unavailable
- * (no live Plan ID -> 503, by design) the one-time Orders fallback threw a
- * ReferenceError inside its try and the buyer saw "Network error" -- the
- * Razorpay modal never opened and no payment could be taken.
+ * Owner commercial policy (2026-09-24): PRO / Enterprise / MSSP are recurring
+ * services sold ONLY as Razorpay Subscriptions. Background: the page used to
+ * fall back to one-time Orders when a plan had no live Razorpay Plan ID, and
+ * that fallback referenced an undeclared `gstin` (fixed in #516), so buyers
+ * saw "Network error". Now there is no fallback at all.
  *
  * Headless Chromium drives the shipped page with every network edge stubbed
- * (no real payment, no Razorpay call): checkout.razorpay.com is replaced by
- * a recorder, /api/v2/billing/subscriptions/create answers 503, and
- * /api/payment/razorpay/create-order answers a fixture order.
+ * (no real payment, no Razorpay call): checkout.razorpay.com is replaced by a
+ * recorder, and the billing APIs answer fixtures.
  *
  * Checks:
- *   1. one-time fallback opens Razorpay (PRO monthly, no tax id)
- *   2. a valid buyer GSTIN reaches create-order and the checkout notes
- *   3. an invalid GSTIN is refused in the page; no order is created
- *   4. a server-side GSTIN refusal is shown to the buyer verbatim
- *   5. no page error on any path
+ *   1. configured plan: Subscriptions modal opens with the subscription id;
+ *      buyer GSTIN / state / name / address reach subscriptions/create;
+ *      no one-time order is ever created
+ *   2. plan not configured (503): no one-time order, no modal, an honest
+ *      "not available, no payment was taken" message
+ *   3. invalid GSTIN refused in the page, before any request
+ *   4. a server-side field refusal is shown verbatim
+ *   5. copy: no retracted claims (EMI/wallets on a subscription, 2-hour key,
+ *      no-auto-renewal for Razorpay, SOC 2 / ISO 27001), and the refund
+ *      guarantee is qualified and linked to the Refund Policy
+ *   6. no page error on any path
  *
  * Usage:
  *   PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers NODE_PATH="$(npm root -g)" \
@@ -54,10 +59,11 @@ function check(name, ok, detail) {
   if (!ok) failures++;
 }
 
-async function scenario(browser, { gstin, orderStatus = 200, orderBody }) {
+async function scenario(browser, { gstin, fill = {}, subStatus = 200, subBody }) {
   const page = await browser.newPage();
   const errors = [];
   const alerts = [];
+  const subs = [];
   const orders = [];
   page.on('pageerror', (e) => errors.push(String(e && e.message || e)));
   page.on('dialog', async (d) => { alerts.push(d.message()); await d.dismiss(); });
@@ -71,13 +77,13 @@ async function scenario(browser, { gstin, orderStatus = 200, orderBody }) {
     const p = new URL(url).pathname;
     if (p === '/upgrade.html' && OVERRIDE) return route.fulfill({ status: 200, contentType: 'text/html', body: OVERRIDE });
     if (p === '/api/v2/billing/subscriptions/create') {
-      return route.fulfill({ status: 503, contentType: 'application/json', body: JSON.stringify({ error: 'Razorpay plan not configured (RAZORPAY_PLAN_PRO_MONTHLY)' }) });
+      subs.push(JSON.parse(route.request().postData() || '{}'));
+      const out = subBody || { subscription_id: 'sub_T1', key_id: 'rzp_test_key', tier: 'PRO', billing_cycle: 'monthly', status: 'created' };
+      return route.fulfill({ status: subStatus, contentType: 'application/json', body: JSON.stringify(out) });
     }
     if (p === '/api/payment/razorpay/create-order') {
-      const body = JSON.parse(route.request().postData() || '{}');
-      orders.push(body);
-      const out = orderBody || { order_id: 'order_T1', amount: 410000, currency: 'INR', key_id: 'rzp_test_key', plan: 'Sentinel APEX PRO', tier: 'PRO', billing: body.billing };
-      return route.fulfill({ status: orderStatus, contentType: 'application/json', body: JSON.stringify(out) });
+      orders.push(JSON.parse(route.request().postData() || '{}'));
+      return route.fulfill({ status: 409, contentType: 'application/json', body: JSON.stringify({ error: 'subscription_required' }) });
     }
     if (p.startsWith('/api/')) return route.fulfill({ status: 404, contentType: 'application/json', body: '{}' });
     return route.continue();
@@ -88,39 +94,61 @@ async function scenario(browser, { gstin, orderStatus = 200, orderBody }) {
   await page.evaluate(() => { if (typeof selectPlan === 'function') selectPlan('pro'); });
   await page.fill('#rzp-email', 'buyer@example.com');
   if (gstin !== undefined) await page.fill('#rzp-gstin', gstin);
+  // Optional fields are filled only when the page has them, so an older
+  // revision can be replayed (UPGRADE_HTML) and fail on behaviour instead.
+  if (fill.state && await page.$('#rzp-billing-state')) await page.selectOption('#rzp-billing-state', fill.state);
+  if (fill.name && await page.$('#rzp-billing-name')) await page.fill('#rzp-billing-name', fill.name);
+  if (fill.address && await page.$('#rzp-billing-address')) await page.fill('#rzp-billing-address', fill.address);
   await page.evaluate(() => initiateRazorpayCheckout());
   await page.waitForTimeout(300);
   const rzp = await page.evaluate(() => window.__rzp);
+  const text = await page.evaluate(() => document.body.innerText);
   await page.close();
-  return { errors, alerts, orders, rzp };
+  return { errors, alerts, subs, orders, rzp, text };
 }
 
 (async () => {
   const server = await startStaticServer(ROOT, PORT, MIME);
   const browser = await chromium.launch();
   try {
-    const plain = await scenario(browser, {});
-    check('one-time fallback: create-order called once', plain.orders.length === 1, JSON.stringify(plain.orders));
-    check('one-time fallback: Razorpay modal opened', plain.rzp.opened.length === 1, 'alerts: ' + JSON.stringify(plain.alerts));
-    check('one-time fallback: order id + INR passed to Razorpay',
-      !!plain.rzp.options && plain.rzp.options.order_id === 'order_T1' && plain.rzp.options.currency === 'INR');
-    check('one-time fallback: no tax id sent when the field is blank', plain.orders[0] && !plain.orders[0].gstin);
-    check('one-time fallback: no page error', plain.errors.length === 0, plain.errors.join(' | '));
+    const ok = await scenario(browser, {
+      gstin: '21arkpn8270g1zp', fill: { name: 'Acme Security Pvt Ltd', address: '12 MG Road, Bengaluru 560001' },
+    });
+    check('configured plan: subscriptions/create called once', ok.subs.length === 1, JSON.stringify(ok.subs));
+    check('configured plan: Razorpay opened with the subscription id',
+      ok.rzp.opened.length === 1 && ok.rzp.options && ok.rzp.options.subscription_id === 'sub_T1' && !ok.rzp.options.order_id);
+    check('configured plan: no price or amount sent by the page', ok.subs[0] && !('amount' in ok.subs[0]) && !('price' in ok.subs[0]));
+    check('configured plan: buyer GSTIN, name and address sent',
+      ok.subs[0] && ok.subs[0].gstin === '21ARKPN8270G1ZP' && ok.subs[0].billing_name === 'Acme Security Pvt Ltd' &&
+      ok.subs[0].billing_address === '12 MG Road, Bengaluru 560001', JSON.stringify(ok.subs[0]));
+    check('configured plan: no one-time order', ok.orders.length === 0);
+    check('configured plan: no page error', ok.errors.length === 0, ok.errors.join(' | '));
 
-    const withGst = await scenario(browser, { gstin: '21arkpn8270g1zp' });
-    check('valid GSTIN: sent to create-order, normalized', withGst.orders[0] && withGst.orders[0].gstin === '21ARKPN8270G1ZP', JSON.stringify(withGst.orders));
-    check('valid GSTIN: carried in Razorpay checkout notes', !!withGst.rzp.options && withGst.rzp.options.notes && withGst.rzp.options.notes.gstin === '21ARKPN8270G1ZP');
-    check('valid GSTIN: no page error', withGst.errors.length === 0, withGst.errors.join(' | '));
+    const state = await scenario(browser, { fill: { state: '27' } });
+    check('billing state sent when chosen', state.subs[0] && state.subs[0].billing_state === '27', JSON.stringify(state.subs[0]));
+
+    const missing = await scenario(browser, { subStatus: 503, subBody: { error: 'Razorpay plan not configured (RAZORPAY_PLAN_ID_PRO_MONTHLY)' } });
+    check('plan not configured: NO one-time order fallback', missing.orders.length === 0, JSON.stringify(missing.orders));
+    check('plan not configured: no modal', missing.rzp.opened.length === 0);
+    check('plan not configured: honest message, no payment taken',
+      missing.alerts.some((a) => /not available/.test(a) && /No payment was taken/.test(a)), JSON.stringify(missing.alerts));
+    check('plan not configured: no page error', missing.errors.length === 0, missing.errors.join(' | '));
 
     const badGst = await scenario(browser, { gstin: '22AAAAA0000A1Z5' });
     check('invalid GSTIN: refused in the page', badGst.alerts.some((a) => /GSTIN/.test(a)), JSON.stringify(badGst.alerts));
-    check('invalid GSTIN: no order created, no modal', badGst.orders.length === 0 && badGst.rzp.opened.length === 0);
+    check('invalid GSTIN: no request, no modal', badGst.subs.length === 0 && badGst.orders.length === 0 && badGst.rzp.opened.length === 0);
 
-    const serverRefuses = await scenario(browser, {
-      gstin: 'DE123456789', orderStatus: 400, orderBody: { error: 'Tax id refused by server', field: 'gstin' },
-    });
-    check('server GSTIN refusal shown verbatim', serverRefuses.alerts.includes('Tax id refused by server'), JSON.stringify(serverRefuses.alerts));
-    check('server GSTIN refusal: no modal', serverRefuses.rzp.opened.length === 0);
+    const refused = await scenario(browser, { gstin: 'DE123456789', subStatus: 400, subBody: { error: 'Billing address must be 10-250 characters.', field: 'billing_address' } });
+    check('server field refusal shown verbatim', refused.alerts.includes('Billing address must be 10-250 characters.'), JSON.stringify(refused.alerts));
+    check('server field refusal: no modal, no order', refused.rzp.opened.length === 0 && refused.orders.length === 0);
+
+    const t = ok.text;
+    check('copy: no EMI / wallets offered for a subscription', !/\bEMI\b|Wallets \(/.test(t));
+    check('copy: no "API key within 2 hours" claim', !/within 2 ?h|in 2 hours/i.test(t));
+    check('copy: no blanket "No Auto-Renewal" for Razorpay', !/No Auto-Renewal/i.test(t));
+    check('copy: no SOC 2 / ISO 27001 claim', !/SOC 2|ISO 27001/.test(t));
+    check('copy: guarantee qualified to eligible first purchases', /7-Day Money-Back Guarantee on eligible first purchases/i.test(t) && /No pro-rata refunds/i.test(t));
+    check('copy: Razorpay renewal and cancellation stated', /renews automatically, cancel any time/i.test(t));
   } finally {
     await browser.close();
     server.close();
