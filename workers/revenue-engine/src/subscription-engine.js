@@ -38,6 +38,29 @@ import { applyBillingWebhookEvent } from "./billing-routes.js";
 
 const RAZORPAY_API_BASE = "https://api.razorpay.com/v1";
 
+export const RAZORPAY_BILLING_EVENTS = Object.freeze([
+  "subscription.authenticated",
+  "subscription.activated",
+  "subscription.charged",
+  "subscription.pending",
+  "subscription.halted",
+  "subscription.cancelled",
+  "subscription.completed",
+  "payment.failed",
+  "refund.created",
+  "refund.processed",
+  "refund.failed",
+  "payment.dispute.created",
+]);
+const MAX_RAZORPAY_WEBHOOK_BYTES = 256 * 1024;
+const RAZORPAY_EVENT_ID_RE = /^[A-Za-z0-9_.:-]{1,128}$/;
+const JWT_DENY_TTL_SECONDS = 25 * 60 * 60;
+
+async function sha256Hex(value) {
+  const bytes = new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value)));
+  return [...bytes].map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
 // One Razorpay Plan (pre-created in the Razorpay Dashboard or via the Plans
 // API -- a one-time manual step outside what this session can do without
 // live credentials) per tier/cycle. Missing plan_id => 503, not a crash.
@@ -302,14 +325,31 @@ export async function handleBillingSubscriptionStatus(request, env, ctx, rid) {
 // POST /api/v2/billing/webhooks/razorpay
 // =============================================================================
 export async function handleBillingWebhook(request, env, ctx, rid) {
+  if (request.method !== "POST") return json({ error: "POST required" }, 405);
+  const contentType = (request.headers.get("Content-Type") || "").toLowerCase();
+  if (!contentType.includes("application/json")) return json({ error: "application/json required" }, 415);
+
+  const declaredLength = Number(request.headers.get("Content-Length"));
+  if (Number.isFinite(declaredLength) && declaredLength > MAX_RAZORPAY_WEBHOOK_BYTES) {
+    return json({ error: "payload_too_large" }, 413);
+  }
+
   const rawBody = await request.text();
+  if (new TextEncoder().encode(rawBody).byteLength > MAX_RAZORPAY_WEBHOOK_BYTES) {
+    return json({ error: "payload_too_large" }, 413);
+  }
+
   const sig     = request.headers.get("X-Razorpay-Signature") || "";
   const secret  = env.RAZORPAY_WEBHOOK_SECRET;
   if (!secret) return json({ error: "Webhook secret not configured" }, 500);
+  if (!/^[0-9a-f]{64}$/i.test(sig)) {
+    await trackEvent(env, "subscription_webhook_sig_fail", { rid, reason: "malformed_signature" });
+    return json({ error: "Signature mismatch" }, 401);
+  }
 
   const valid = await verifyRazorpayHmac(rawBody, sig, secret);
   if (!valid) {
-    await trackEvent(env, "subscription_webhook_sig_fail", { rid });
+    await trackEvent(env, "subscription_webhook_sig_fail", { rid, reason: "verification_failed" });
     return json({ error: "Signature mismatch" }, 401);
   }
 
@@ -318,17 +358,24 @@ export async function handleBillingWebhook(request, env, ctx, rid) {
     return json({ error: "Invalid JSON payload" }, 400);
   }
 
-  const event      = payload.event || "";
+  const event = typeof payload.event === "string" ? payload.event : "";
+  if (!RAZORPAY_BILLING_EVENTS.includes(event)) {
+    await trackEvent(env, "subscription_webhook_event_ignored", { event: event || null, rid });
+    return json({ status: "ignored", event: event || null });
+  }
+  if (env.RAZORPAY_ACCOUNT_ID && payload.account_id && payload.account_id !== env.RAZORPAY_ACCOUNT_ID) {
+    await trackEvent(env, "subscription_webhook_account_mismatch", { event, rid });
+    return json({ error: "account_mismatch" }, 403);
+  }
+
   const subEntity  = payload.payload?.subscription?.entity || null;
   const payEntity  = payload.payload?.payment?.entity || null;
-  const entity     = subEntity || payEntity || {};
   const notes      = subEntity?.notes || payEntity?.notes || {};
   const providerId = subEntity?.id || null;
 
-  // Idempotency -- prefer Razorpay's own event id header; fall back to a
-  // composite of event + subscription id + payment id.
-  const idempKey = request.headers.get("X-Razorpay-Event-Id")
-    || `${event}:${providerId || "none"}:${payEntity?.id || "none"}`;
+  const eventId = request.headers.get("X-Razorpay-Event-Id") || "";
+  if (eventId && !RAZORPAY_EVENT_ID_RE.test(eventId)) return json({ error: "invalid_event_id" }, 400);
+  const idempKey = eventId || `body-sha256:${await sha256Hex(rawBody)}`;
   if (await alreadyProcessed(env, idempKey)) {
     return json({ status: "already_processed", event });
   }
@@ -406,6 +453,9 @@ export async function handleBillingWebhook(request, env, ctx, rid) {
         payment_id: null, payment_method: "razorpay_subscription",
         amount_paid: null, currency: "INR", trial: false,
       });
+      if (env.API_KEYS_KV && result.customer_id) {
+        await env.API_KEYS_KV.delete(`jwt_deny:${result.customer_id}`);
+      }
       await putProviderLink(env, providerId, {
         ...(link || {}), email, tier, billing_cycle: cycle, status: "active",
         internal_sub_id: result.sub_id, internal_customer_id: result.customer_id,
@@ -532,7 +582,17 @@ export async function revokeEntitlementForSubscription(env, providerSubId, statu
     return false;
   }
   const at = new Date().toISOString();
+  let keyRecord = null;
+  if (link.api_key && env.API_KEYS_KV) {
+    keyRecord = await env.API_KEYS_KV.get(link.api_key, "json").catch(() => null);
+  }
   if (link.api_key) await patchApiKeyEntitlement(env, link.api_key, { subscription_status: status, expires_at: at });
+  const customerId = link.internal_customer_id || keyRecord?.customer_id || null;
+  if (customerId && env.API_KEYS_KV) {
+    await env.API_KEYS_KV.put(`jwt_deny:${customerId}`, JSON.stringify({
+      reason: status, provider_sub_id: providerSubId, denied_at: at,
+    }), { expirationTtl: JWT_DENY_TTL_SECONDS });
+  }
   if (link.internal_sub_id) await tryTransition(env, link.internal_sub_id, SUB_STATUS.CANCELLED, { cancelled_at: at, cancel_reason: status }, rid);
   await putProviderLink(env, providerSubId, { ...link, status });
   await trackEvent(env, "entitlement_revoked", { razorpay_subscription_id: providerSubId, email: link.email, reason: status, rid });
