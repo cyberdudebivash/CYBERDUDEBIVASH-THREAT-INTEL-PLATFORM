@@ -157,6 +157,7 @@ import { SESSION_POLICY as WATCHDOG_SESSION_POLICY, webhookDeliveryEnabled } fro
 import { TENANT_AUTH_VERSION, TENANT_DO_PREFIX, isTenantId, newTenantId, requestSelectsTenant, routeMsspTenants } from './mssp-tenants.js';
 import { buildCampaignsPayload, buildRansomwarePayload, geoAttributionCoverage, DASHBOARD_CONTRACT_VERSION, THREAT_LEVEL_FORMULA, THREAT_LEVEL_FORMULA_VERSION } from './dashboard-contract.js';
 import { normalizeBuyerTaxId } from './tax-id.js';
+import { resolveGumroadProduct, checkGumroadSalePrice, looksLikePlatformProduct, gumroadPermalinkFrom, GUMROAD_CONTENT_PRODUCTS } from './gumroad-products.js';
 // Issue #288: Durable Object class the Workers runtime instantiates via the
 // GUMROAD_PROVISIONING_LOCK binding (wrangler.toml). Must be a named export
 // of the Worker's main module -- see gumroad-provisioning-lock.js's header
@@ -3309,9 +3310,90 @@ export async function handleAdmin(request, env, ctx, path, method) {
     }
   }
 
+  // S16/S19: Gumroad sales held for review (not in the catalog, or paid
+  // below the canonical price / not in USD).
+  if (path === "/api/admin/gumroad/holds" && method === "GET") {
+    const listing = await env.SECURITY_HUB_KV.list({ prefix: "gumroad_held:", limit: 200 });
+    const holds = [];
+    for (const k of listing.keys || []) {
+      const h = await env.SECURITY_HUB_KV.get(k.name, "json");
+      if (h) holds.push({ sale_id: h.sale_id, reason: h.reason, held_at: h.held_at, permalink: h.permalink,
+        product_name: h.form?.product_name || null, email: h.form?.email || null,
+        paid_cents: h.paid_cents, expected_cents: h.expected_cents, currency: h.form?.currency || null });
+    }
+    return jsonResp({ count: holds.length, holds, truncated: !listing.list_complete });
+  }
+
+  // POST /api/admin/gumroad/release {sale_id, tier?, billing_cycle?}: the
+  // operator accepts a held sale. The catalog's tier/cycle apply when the
+  // product is in it; an unknown product needs both named explicitly.
+  if (path === "/api/admin/gumroad/release" && method === "POST") {
+    let body = {};
+    try { body = await request.json(); } catch (_) {}
+    const saleId = typeof body.sale_id === "string" ? body.sale_id : "";
+    if (!saleId) return jsonResp({ error: "sale_id is required" }, 400);
+    const held = await env.SECURITY_HUB_KV.get(`gumroad_held:${saleId}`, "json");
+    if (!held || !held.form) return jsonResp({ error: "not_held", sale_id: saleId }, 404);
+    const product = resolveGumroadProduct(held.form);
+    const tier = body.tier !== undefined ? String(body.tier).toUpperCase() : product?.tier;
+    const billingCycle = body.billing_cycle !== undefined ? String(body.billing_cycle) : product?.cycle;
+    if (!["PRO", "ENTERPRISE", "MSSP"].includes(tier) || !BILLING_CYCLE_DAYS[billingCycle]) {
+      return jsonResp({ error: "tier (PRO|ENTERPRISE|MSSP) and billing_cycle (monthly|annual|...) are required for a product outside the catalog" }, 400);
+    }
+    const pingKind = classifyGumroadPing(held.form);
+    const res = await processGumroadSale(env, ctx, held.form, pingKind === "renewal" ? "renewal" : "sale", { tier, billingCycle });
+    if (res.ok) {
+      await env.SECURITY_HUB_KV.delete(`gumroad_held:${saleId}`);
+      auditLog(ctx, env, { action: "gumroad_hold_released", sale_id: saleId, tier, billing_cycle: billingCycle, reason: held.reason });
+    }
+    return res;
+  }
+
+  // POST /api/admin/gumroad/reconcile {apply?, cursor?} (S18): legacy Gumroad
+  // keys provisioned before the sale/subscription -> key maps existed carry
+  // their sale_id / subscription_id in payment_metadata. Backfill the maps so
+  // refunds, disputes and cancellations of those sales revoke automatically.
+  // Dry run unless apply === true. Never overwrites a map that points
+  // elsewhere (reported as a conflict). One page per call; follow `cursor`.
+  if (path === "/api/admin/gumroad/reconcile" && method === "POST") {
+    let body = {};
+    try { body = await request.json(); } catch (_) {}
+    const apply = body.apply === true;
+    const listing = await env.API_KEYS_KV.list({ prefix: "cdb_", limit: 200, ...(typeof body.cursor === "string" && body.cursor ? { cursor: body.cursor } : {}) });
+    const out = { apply, scanned: 0, gumroad_keys: 0, mapped: 0, backfilled: 0, conflicts: [], unmappable: [] };
+    for (const k of listing.keys || []) {
+      out.scanned++;
+      const rec = await env.API_KEYS_KV.get(k.name, "json").catch(() => null);
+      const meta = rec && rec.payment_metadata;
+      if (!rec || !(String(rec.source || "").startsWith("gumroad"))) continue;
+      out.gumroad_keys++;
+      const saleId = meta && typeof meta.sale_id === "string" ? meta.sale_id : "";
+      if (!saleId) { out.unmappable.push({ key_prefix: k.name.slice(0, 12), reason: "no_sale_id_on_record" }); continue; }
+      const maps = [[`gumroad_sale_key_map:${saleId}`, "sale", saleId]];
+      if (meta.subscription_id) maps.push([`gumroad_sub_key_map:${meta.subscription_id}`, "subscription", meta.subscription_id]);
+      let missing = 0, conflict = false;
+      for (const [mapKey, kind, id] of maps) {
+        const existing = await env.SECURITY_HUB_KV.get(mapKey);
+        if (existing === k.name) continue;
+        if (existing) { conflict = true; out.conflicts.push({ kind, id, key_prefix: k.name.slice(0, 12), mapped_prefix: existing.slice(0, 12) }); continue; }
+        missing++;
+        if (apply) await env.SECURITY_HUB_KV.put(mapKey, k.name, { expirationTtl: GUMROAD_KEY_MAP_TTL });
+      }
+      // mapped: every map already points at this key. backfilled: maps
+      // written (apply) or that would be written (dry run).
+      if (missing > 0) out.backfilled++;
+      else if (!conflict) out.mapped++;
+    }
+    auditLog(ctx, env, { action: "gumroad_reconcile", apply, scanned: out.scanned, gumroad_keys: out.gumroad_keys, backfilled: out.backfilled, conflicts: out.conflicts.length });
+    return jsonResp({ ...out, cursor: listing.list_complete ? null : listing.cursor, list_complete: !!listing.list_complete });
+  }
+
   return jsonResp({
     error: "Admin endpoint not found",
     endpoints: [
+      "GET /api/admin/gumroad/holds",
+      "POST /api/admin/gumroad/release  body:{sale_id,tier?,billing_cycle?}",
+      "POST /api/admin/gumroad/reconcile  body:{apply?,cursor?}",
       "GET /api/admin/health",
       "GET /api/admin/audit?limit=50",
       "GET /api/admin/publication-audit?limit=100&cursor=...",
@@ -5115,8 +5197,42 @@ const GUMROAD_KEY_MAP_TTL = 86400 * 400;
  * merchant-approved), so this only reconciles access. A dispute suspends
  * (an operator can reactivate if it is won); a refund marks refunded.
  */
+/**
+ * S16/S19: a Gumroad sale that must not provision on its own (product not in
+ * the catalog, or paid below the canonical price / not in USD). Recorded for
+ * the operator; the buyer paid, so it is alerted, never silently dropped.
+ */
+async function holdGumroadSale(env, ctx, formData, reason, priceCheck) {
+  const saleId = formData.sale_id;
+  const record = {
+    sale_id: saleId, reason, held_at: now(),
+    permalink: gumroadPermalinkFrom(formData) || null,
+    expected_cents: priceCheck?.expected_cents ?? null, paid_cents: priceCheck?.paid_cents ?? null,
+    form: formData,
+  };
+  await env.SECURITY_HUB_KV.put(`gumroad_held:${saleId}`, JSON.stringify(record), { expirationTtl: GUMROAD_HOLD_TTL });
+  auditLog(ctx, env, { action: "gumroad_sale_held", sale_id: saleId, reason, permalink: record.permalink });
+  ctx.waitUntil(sendTelegramAlert(env,
+    `[WARN] <b>GUMROAD SALE HELD -- NO KEY ISSUED</b>\n` +
+    `Reason: <b>${reason}</b>\n` +
+    `Product: ${String(formData.product_name || "").slice(0, 80)} (${record.permalink || "no permalink"})\n` +
+    `Paid: ${record.paid_cents ?? "?"} ${String(formData.currency || "usd").toUpperCase()} cents` +
+    (record.expected_cents ? ` | Catalog: ${record.expected_cents} USD cents` : "") + `\n` +
+    `Sale ID: <code>${saleId}</code> -- review, then POST /api/admin/gumroad/release or refund in Gumroad.`
+  ));
+  return jsonResp({ status: "held_for_review", reason, sale_id: saleId });
+}
+
 async function handleGumroadMoneyBack(env, ctx, kind, saleId, subscriptionId) {
   if (!saleId) return jsonResp({ error: "Invalid Gumroad payload: sale_id required" }, 400);
+  // A refunded / disputed sale that was held never received a key: close the
+  // hold so it cannot be released after the money went back.
+  const held = await env.SECURITY_HUB_KV.get(`gumroad_held:${saleId}`);
+  if (held) {
+    await env.SECURITY_HUB_KV.delete(`gumroad_held:${saleId}`);
+    auditLog(ctx, env, { action: `gumroad_held_sale_${kind}`, sale_id: saleId });
+    return jsonResp({ status: `held_sale_${kind === "refund" ? "refunded" : "disputed"}`, sale_id: saleId, event: kind });
+  }
   const key = (await env.SECURITY_HUB_KV.get(`gumroad_sale_key_map:${saleId}`))
     || (subscriptionId ? await env.SECURITY_HUB_KV.get(`gumroad_sub_key_map:${subscriptionId}`) : null);
   if (!key) {
@@ -5202,10 +5318,15 @@ async function handleWebhookGumroad(request, env, ctx) {
     return jsonResp({ error: "Invalid request body" }, 400);
   }
 
-  const {
-    sale_id, email, product_id = "", product_name = "", variants = "",
-    price = "0", subscription_id = "", recurrence = "", sale_timestamp = "",
-  } = formData;
+  // Optional seller binding (same idea as RAZORPAY_ACCOUNT_ID): once
+  // GUMROAD_SELLER_ID is set, a ping for any other seller is refused before
+  // it can touch access, including refunds and cancellations.
+  if (env.GUMROAD_SELLER_ID && formData.seller_id !== env.GUMROAD_SELLER_ID) {
+    auditLog(ctx, env, { action: "gumroad_seller_mismatch" });
+    return jsonResp({ error: "seller_mismatch" }, 403);
+  }
+
+  const { sale_id, subscription_id = "" } = formData;
 
   // 2026-09-25 (Gumroad memberships): what this ping asks for. Refund and
   // dispute pings repeat the original sale_id, so they are handled before the
@@ -5258,11 +5379,53 @@ async function handleWebhookGumroad(request, env, ctx) {
     return jsonResp({ status: result.ok ? "cancelled" : "key_not_found", subscription_id });
   }
 
+  return await processGumroadSale(env, ctx, formData, pingKind, null);
+}
+
+// Held-for-review Gumroad sales (S16/S19): kept a year for the operator.
+const GUMROAD_HOLD_TTL = 86400 * 365;
+
+/**
+ * A paid Gumroad sale or membership charge. S16: only products in the
+ * catalog (gumroad-products.js) grant access, with the tier and cycle the
+ * catalog gives them -- never inferred from the product name. S19: the price
+ * paid must be at least the canonical price, in USD. Anything else is held
+ * for an operator (POST /api/admin/gumroad/release), never provisioned.
+ * `release` is that operator decision: {tier, billingCycle}, skipping the
+ * catalog/price gate and the sale lock (the held sale never provisioned).
+ */
+async function processGumroadSale(env, ctx, formData, pingKind, release) {
+  const {
+    sale_id, email, product_id = "", product_name = "", variants = "",
+    price = "0", subscription_id = "", recurrence = "", sale_timestamp = "",
+  } = formData;
   if (!sale_id || !email) return jsonResp({ error: "Invalid Gumroad payload: sale_id and email required" }, 400);
 
-  // Map product/variant to tier
-  const tier = inferGumroadTier(product_name, variants);
-  const billingCycle = inferGumroadBillingCycle(recurrence, product_name, variants);
+  let tier, billingCycle;
+  if (release) {
+    ({ tier, billingCycle } = release);
+  } else {
+    // A redelivery of a sale already provisioned (or released), or already
+    // held, answers from that record: no second hold, no second alert.
+    if (await env.SECURITY_HUB_KV.get(`gumroad_sale:${sale_id}`)) return jsonResp({ status: "already_provisioned", sale_id });
+    const priorHold = await env.SECURITY_HUB_KV.get(`gumroad_held:${sale_id}`, "json");
+    if (priorHold) return jsonResp({ status: "held_for_review", reason: priorHold.reason, sale_id, duplicate: true });
+    const product = resolveGumroadProduct(formData);
+    if (!product) {
+      // A sale of some other product on the same Gumroad account (an e-book,
+      // a course) is none of the platform's business. One that looks like a
+      // plan is a catalog gap: hold it so the buyer is not left without access.
+      if (GUMROAD_CONTENT_PRODUCTS.includes(gumroadPermalinkFrom(formData)) || !looksLikePlatformProduct(product_name)) {
+        auditLog(ctx, env, { action: "gumroad_sale_ignored_not_platform", sale_id, permalink: gumroadPermalinkFrom(formData) || null });
+        return jsonResp({ status: "ignored_not_a_platform_product", sale_id });
+      }
+      return await holdGumroadSale(env, ctx, formData, "unknown_product", null);
+    }
+    const priceCheck = checkGumroadSalePrice(product, formData);
+    if (!priceCheck.ok) return await holdGumroadSale(env, ctx, formData, priceCheck.reason, priceCheck);
+    tier = product.tier;
+    billingCycle = product.cycle;
+  }
 
   // Issue #288: atomic claim via Durable Object, closing the race the
   // KV-only check below can't -- Cloudflare KV has no atomic check-and-set,
@@ -5276,7 +5439,7 @@ async function handleWebhookGumroad(request, env, ctx) {
   // The KV check is kept as defense-in-depth, unchanged: if the DO call
   // itself fails (e.g. a transient binding error), processing falls back to
   // it rather than crashing the whole webhook request.
-  if (env.GUMROAD_PROVISIONING_LOCK) {
+  if (env.GUMROAD_PROVISIONING_LOCK && !release) {
     try {
       const lockId = env.GUMROAD_PROVISIONING_LOCK.idFromName(sale_id);
       const lock = env.GUMROAD_PROVISIONING_LOCK.get(lockId);

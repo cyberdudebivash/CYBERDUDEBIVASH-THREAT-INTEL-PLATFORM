@@ -20,7 +20,7 @@
 // =============================================================================
 
 import { json, isAdmin } from "./index.js";
-import { PLAN_ID_ENV_KEYS } from "./subscription-engine.js";
+import { PLAN_ID_ENV_KEYS, verifyPlanPrice } from "./subscription-engine.js";
 import { parseGstInvoiceConfig, lutFor, financialYear } from "./gst.js";
 import { ensureBillingSchema, listRefundRequests, listInvoiceHolds, listPendingCreditNotes } from "./billing-ledger.js";
 
@@ -69,6 +69,23 @@ async function configurationChecks(env, nowMs) {
     missingPlans.length === 0 ? "All 6 Plan IDs configured."
       : `${missingPlans.length} of 6 plans cannot be bought online: ${missingPlans.map((m) => m.sku).join(", ")}.`,
     missingPlans.map((m) => `wrangler secret put ${m.env}`).join("; ")));
+
+  // S19: every configured Plan must charge the canonical price. Uses the same
+  // cached verification the checkout runs, so this never disagrees with it.
+  if (hasKeys) {
+    const bad = [];
+    for (const [tier, cycles] of Object.entries(PLAN_ID_ENV_KEYS)) {
+      for (const [cycle, envKey] of Object.entries(cycles)) {
+        if (!env[envKey]) continue;
+        const v = await verifyPlanPrice(env, tier, cycle, env[envKey]).catch(() => ({ ok: false, reason: "plan_unreadable" }));
+        if (!v.ok) bad.push({ sku: `${tier.toLowerCase()}_${cycle}`, env: envKey, reason: v.reason, expected: v.expected_paise ?? null });
+      }
+    }
+    checks.push(check("razorpay_plan_prices", bad.length === 0, true,
+      bad.length === 0 ? "Every configured Plan charges the canonical price."
+        : `Checkout refused for ${bad.map((b) => `${b.sku} (${b.reason})`).join(", ")}.`,
+      bad.map((b) => `Point ${b.env} at a Plan charging INR ${b.expected ? (b.expected / 100).toLocaleString("en-IN") : "?"} per ${b.sku.endsWith("annual") ? "year" : "month"}`).join("; ")));
+  }
 
   checks.push(check("api_keys_kv", !!env.API_KEYS_KV, true,
     env.API_KEYS_KV ? "Gateway entitlement store bound." : "API_KEYS_KV not bound: paid keys would never work at the gateway, and revocations would not reach it.",

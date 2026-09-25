@@ -21,6 +21,11 @@
 // subscription cancellation never revoked platform access.
 // =============================================================================
 
+// DEPRECATED 2026-09-25 (S16): no longer decides what a sale grants.
+// handleWebhookGumroad() now takes tier and cycle from the product catalog
+// (gumroad-products.js); a product outside it is ignored or held, never
+// guessed from its name. Kept exported (index.js re-exports it) for existing
+// importers; remove in the next major P-layer.
 export function inferGumroadTier(productName, variants) {
   const pnl = `${productName || ""}${variants || ""}`.toLowerCase();
   // Bug fix: the original inline check also matched the bare substring
@@ -51,6 +56,8 @@ export function inferGumroadTier(productName, variants) {
  * @param {string} variants
  * @returns {"monthly"|"quarterly"|"biannual"|"annual"|"every_two_years"}
  */
+// DEPRECATED 2026-09-25 (S16) for sale decisions, like inferGumroadTier():
+// the catalog entry carries the cycle. Kept exported for existing importers.
 export function inferGumroadBillingCycle(recurrence, productName, variants) {
   const r = String(recurrence || "").toLowerCase();
   if (r === "yearly" || r === "annually" || r === "annual") return "annual";

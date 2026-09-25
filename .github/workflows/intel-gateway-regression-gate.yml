@@ -57,6 +57,7 @@ on:
       - 'js/apex-dashboard-snapshot.js'
       - 'service-worker.js'
       - 'deploy/cyber-watchdog/**'
+      - 'deploy/billing-canary/**'
       - 'index.html'
       - 'cyber-watchdog.html'
       # SENTINEL APEX UI system: watchdog-apex-ui.test.js and its negative
@@ -102,6 +103,7 @@ on:
       - 'js/apex-dashboard-snapshot.js'
       - 'service-worker.js'
       - 'deploy/cyber-watchdog/**'
+      - 'deploy/billing-canary/**'
       - 'index.html'
       - 'cyber-watchdog.html'
       # SENTINEL APEX UI system: watchdog-apex-ui.test.js and its negative
@@ -189,6 +191,13 @@ jobs:
       # number, foreign invoice readable, one-time order for a recurring plan,
       # subscription charge provisioned twice, manual proof accepted) and
       # requires the billing suites (revenue-engine + gateway) to FAIL.
+      # S28 billing canary, certified in-process against both Workers
+      # (Razorpay test mode faked at the network edge): passes on a correct
+      # deployment, fails on a wrong Plan price, a missing webhook secret, a
+      # missing Billing Center or a truncated admin page.
+      - name: "Billing canary certification"
+        run: node --test deploy/billing-canary/canary.test.mjs
+
       - name: "Commercial billing negative controls"
         run: node workers/revenue-engine/scripts/billing-negative-controls.mjs
 

@@ -21,19 +21,27 @@ const HERE = path.dirname(fileURLToPath(import.meta.url));
 const REPO = path.resolve(HERE, "../../..");
 const COPY = [
   "revenue-crm/schema.sql",
+  "upgrade.html",
+  "billing.html",
+  "admin.html",
+  "deploy/billing-canary",
   "config",
   "workers/revenue-engine/src",
   "workers/intel-gateway/package.json",
   "workers/intel-gateway/src",
 ];
 const SUITES = [
+  // S28 billing canary, certified against both Workers in-process.
+  ["deploy/billing-canary", ["--test", "canary.test.mjs"]],
   ["workers/revenue-engine", ["--test", "src/__tests__/billing-policy.test.js", "src/__tests__/subscription-engine.test.js",
     "src/__tests__/billing-credit-notes.test.js", "src/__tests__/billing-export-po.test.js",
     "src/__tests__/billing-go-live.test.js", "src/__tests__/billing-center.test.js",
-    "src/__tests__/cross-worker-revocation.test.js", "src/__tests__/commercial-readiness.test.js"]],
+    "src/__tests__/cross-worker-revocation.test.js", "src/__tests__/commercial-readiness.test.js",
+    "src/__tests__/pricing-fail-closed.test.js"]],
   ["workers/intel-gateway", ["--test", "src/__tests__/razorpay-create-order-taxid.test.js",
     "src/__tests__/razorpay-webhook-subscription-guard.test.js", "src/__tests__/manual-notify-retirement.test.js",
-    "src/__tests__/gumroad-membership.test.js", "src/__tests__/gumroad-lifecycle.test.js"]],
+    "src/__tests__/gumroad-membership.test.js", "src/__tests__/gumroad-lifecycle.test.js",
+    "src/__tests__/gumroad-products.test.js"]],
 ];
 
 const BR = "workers/revenue-engine/src/billing-routes.js";
@@ -46,6 +54,54 @@ const EP = "workers/revenue-engine/src/enterprise-po.js";
 
 // [name, file, find, replace] -- `find` must occur exactly once.
 const CONTROLS = [
+  // S28 billing canary safety.
+  ["canary would create a test checkout on live keys", "deploy/billing-canary/canary-lib.mjs",
+    "  return !!(c && c.ok === false && /test mode/.test(String(c.detail || \"\")));", "  return !!c;"],
+  ["canary counts a missing webhook secret (500) as a refusal", "deploy/billing-canary/canary-lib.mjs",
+    "  step(steps, \"razorpay_webhook_refuses_bad_signature\", unsigned.status === 401,",
+    "  step(steps, \"razorpay_webhook_refuses_bad_signature\", unsigned.status === 401 || unsigned.status === 500,"],
+  ["canary live gate passes a BLOCKED verdict", "deploy/billing-canary/canary-lib.mjs",
+    "    step(steps, \"readiness_verdict\", !requireReady || readiness.verdict === \"READY\",", "    step(steps, \"readiness_verdict\", true,"],
+  ["canary accepts a checkout the Plan check refused", "deploy/billing-canary/canary-lib.mjs",
+    "  const created = a.status === 200 && a.body && /^sub_/.test(a.body.subscription_id || \"\");", "  const created = a.status < 600 && a.body && a.body.subscription_id !== null;"],
+  // S16/S18/S19 Gumroad (gateway).
+  ["Gumroad tier inferred from the product name again", GW,
+    "    tier = product.tier;", "    tier = inferGumroadTier(product_name, variants);"],
+  ["Gumroad sale price not checked", GW,
+    "    if (!priceCheck.ok) return await holdGumroadSale(env, ctx, formData, priceCheck.reason, priceCheck);", ""],
+  ["plan-like product outside the catalog provisioned by name", GW,
+    "      return await holdGumroadSale(env, ctx, formData, \"unknown_product\", null);",
+    "      return await processGumroadSale(env, ctx, formData, pingKind, { tier: inferGumroadTier(product_name, variants), billingCycle: \"monthly\" });"],
+  ["content products mint API keys again", GW,
+    "      if (GUMROAD_CONTENT_PRODUCTS.includes(gumroadPermalinkFrom(formData)) || !looksLikePlatformProduct(product_name)) {",
+    "      if (!looksLikePlatformProduct(product_name)) {"],
+  ["a discount below the catalog price accepted", "workers/intel-gateway/src/gumroad-products.js",
+    "  if (paid < expected) return", "  if (paid < expected / 2) return"],
+  ["non-USD Gumroad sale accepted", "workers/intel-gateway/src/gumroad-products.js",
+    "  if (currency !== \"usd\") return", "  if (false) return"],
+  ["held-sale redelivery re-holds and re-alerts", GW,
+    "    if (priorHold) return jsonResp({ status: \"held_for_review\", reason: priorHold.reason, sale_id, duplicate: true });", ""],
+  ["refund of a held sale leaves it releasable", GW,
+    "    await env.SECURITY_HUB_KV.delete(`gumroad_held:${saleId}`);\n    auditLog(ctx, env, { action: `gumroad_held_sale_${kind}`, sale_id: saleId });",
+    "    auditLog(ctx, env, { action: `gumroad_held_sale_${kind}`, sale_id: saleId });"],
+  ["Gumroad seller binding skipped", GW,
+    "  if (env.GUMROAD_SELLER_ID && formData.seller_id !== env.GUMROAD_SELLER_ID) {", "  if (false) {"],
+  ["reconcile writes during a dry run", GW,
+    "        if (apply) await env.SECURITY_HUB_KV.put(mapKey, k.name, { expirationTtl: GUMROAD_KEY_MAP_TTL });",
+    "        await env.SECURITY_HUB_KV.put(mapKey, k.name, { expirationTtl: GUMROAD_KEY_MAP_TTL });"],
+  ["reconcile overwrites a conflicting map", GW,
+    "        if (existing) { conflict = true; out.conflicts.push(", "        if (false) { conflict = true; out.conflicts.push("],
+  // S19 pricing fail-closed (Razorpay Plans).
+  ["checkout created without verifying the Plan price", SE,
+    "  const planCheck = await verifyPlanPrice(env, tier, cycle, planId);", "  const planCheck = { ok: true };"],
+  ["Plan amount not compared", SE,
+    "  if (plan.item.amount !== expected) return", "  if (false) return"],
+  ["Plan period not compared", SE,
+    "  if (!periodOk) return { ok: false, reason: \"period_mismatch\", expected_paise: expected };", ""],
+  ["unreadable Plan treated as verified (fail open)", SE,
+    "  if (!plan || !plan.item) return { ok: false, reason: \"plan_unreadable\" };", "  if (!plan || !plan.item) return { ok: true, expected_paise: expected };"],
+  ["readiness ignores Plan prices", "workers/revenue-engine/src/commercial-readiness.js",
+    "    checks.push(check(\"razorpay_plan_prices\", bad.length === 0, true,", "    checks.push(check(\"razorpay_plan_prices\", true, true,"],
   // Commercial readiness S13/S22/S23.
   ["missing webhook secret does not block go-live", "workers/revenue-engine/src/commercial-readiness.js",
     "  checks.push(check(\"razorpay_webhook_secret\", !!env.RAZORPAY_WEBHOOK_SECRET, true,", "  checks.push(check(\"razorpay_webhook_secret\", !!env.RAZORPAY_WEBHOOK_SECRET, false,"],

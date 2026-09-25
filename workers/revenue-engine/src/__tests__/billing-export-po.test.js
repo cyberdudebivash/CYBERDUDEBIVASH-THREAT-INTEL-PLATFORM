@@ -8,6 +8,7 @@ import { readFileSync } from "node:fs";
 import { test } from "node:test";
 
 import { createD1 } from "./helpers/d1-sqlite.js";
+import { planResponse } from "./helpers/razorpay-plans.js";
 import { parseGstInvoiceConfig, normalizeBillingCountry, financialYear, gstinCheckChar } from "../gst.js";
 import {
   recordCapturedPayment, issueInvoiceForPayment, getInvoiceByPayment, recordRefund, issueCreditNoteForRefund,
@@ -143,7 +144,11 @@ test("checkout: country only outside India, never India, recorded on the subscri
   const env = makeEnv(WITH_LUT, { RAZORPAY_PLAN_ID_PRO_MONTHLY: "plan_pro_m" });
   const real = globalThis.fetch;
   const calls = [];
-  globalThis.fetch = async (u, init) => { calls.push(JSON.parse(init.body)); return Response.json({ id: "sub_NEW", status: "created" }); };
+  globalThis.fetch = async (u, init) => {
+    const plan = planResponse(typeof u === "string" ? u : u.url);
+    if (plan) return plan;
+    calls.push(JSON.parse(init.body)); return Response.json({ id: "sub_NEW", status: "created" });
+  };
   try {
     const bad1 = await handleBillingSubscriptionCreate(post({ email: "b@example.com", tier: "PRO", billing_state: "27", billing_country: "US" }), env, ctx, "rid");
     assert.equal(bad1.status, 400);

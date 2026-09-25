@@ -442,6 +442,12 @@ def main() -> int:
                     check(inr_m is not None and int(inr_m.group(1)) == canon[tier_id]["inr_monthly"],
                           f"revenue-engine TIERS.{key}.price_inr == {canon[tier_id]['inr_monthly']} "
                           f"(got {inr_m.group(1) if inr_m else None})")
+                    # S19: the annual figure the revenue engine verifies each
+                    # Razorpay Plan's amount against before any checkout.
+                    ann_m = re.search(r"price_inr_annual\s*:\s*(\d+)", tier_m.group(1))
+                    check(ann_m is not None and int(ann_m.group(1)) == canon[tier_id]["inr_annual"],
+                          f"revenue-engine TIERS.{key}.price_inr_annual == {canon[tier_id]['inr_annual']} "
+                          f"(got {ann_m.group(1) if ann_m else None})")
 
         plans_m = re.search(r"PLANS:\s*\{(.*?)\n  \},", re_src, re.DOTALL)
         if plans_m:

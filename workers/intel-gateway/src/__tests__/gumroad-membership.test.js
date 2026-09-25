@@ -63,7 +63,7 @@ function harness() {
 }
 
 const FIRST = {
-  sale_id: "s_1", email: "buyer@example.com", product_name: "SENTINEL APEX PRO Membership",
+  sale_id: "s_1", email: "buyer@example.com", product_name: "SENTINEL APEX PRO Membership", permalink: "pxyfcb",
   price: "4900", subscription_id: "sub_G1", recurrence: "monthly", sale_timestamp: "2026-09-01T00:00:00Z",
 };
 const RENEWAL = { ...FIRST, sale_id: "s_2", is_recurring_charge: "true", sale_timestamp: "2026-10-01T00:00:00Z" };
