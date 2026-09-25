@@ -24,6 +24,8 @@
  *      no-auto-renewal for Razorpay, SOC 2 / ISO 27001), and the refund
  *      guarantee is qualified and linked to the Refund Policy
  *   6. no page error on any path
+ *   7. Gumroad: a configured membership is what the button sells ("renews");
+ *      without one, the legacy access grant is labelled as a one-time grant
  *
  * Usage:
  *   PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers NODE_PATH="$(npm root -g)" \
@@ -107,6 +109,38 @@ async function scenario(browser, { gstin, fill = {}, subStatus = 200, subBody })
   return { errors, alerts, subs, orders, rzp, text };
 }
 
+async function gumroadStates(browser) {
+  const page = await browser.newPage();
+  const errors = [];
+  page.on('pageerror', (e) => errors.push(String(e && e.message || e)));
+  await page.route('**/*', (route) => {
+    const url = route.request().url();
+    if (url.startsWith('https://checkout.razorpay.com/')) return route.fulfill({ status: 200, contentType: 'application/javascript', body: RAZORPAY_STUB });
+    if (!url.startsWith(ORIGIN)) return route.abort();
+    const p = new URL(url).pathname;
+    if (p === '/upgrade.html' && OVERRIDE) return route.fulfill({ status: 200, contentType: 'text/html', body: OVERRIDE });
+    if (p.startsWith('/api/')) return route.fulfill({ status: 404, contentType: 'application/json', body: '{}' });
+    return route.continue();
+  });
+  await page.goto(`${ORIGIN}/upgrade.html`, { waitUntil: 'domcontentloaded' });
+  await page.waitForFunction(() => typeof window.updateGumroadPanel === 'function', null, { timeout: 15000 });
+  const read = () => page.evaluate(() => {
+    const b = document.getElementById('gbtn-pro');
+    return { href: b.href, type: b.getAttribute('data-gumroad-sale-type'), label: b.textContent.trim(),
+      price: document.getElementById('gprice-pro').textContent };
+  });
+  await page.evaluate(() => { selectPlan('pro'); if (isAnnual) toggleBilling(); });
+  const grant = await read();
+  const periodMonthly = await page.evaluate(() => document.getElementById('period-pro').textContent);
+  await page.evaluate(() => { GUMROAD_MEMBERSHIP_URLS.pro.monthly = 'https://cyberdudebivash.gumroad.com/l/test-membership'; updateGumroadPanel(); });
+  const membership = await read();
+  await page.evaluate(() => toggleBilling());
+  const annual = await read();
+  const periodAnnual = await page.evaluate(() => document.getElementById('period-pro').textContent);
+  await page.close();
+  return { grant, membership, annual, periodMonthly, periodAnnual, errors };
+}
+
 (async () => {
   const server = await startStaticServer(ROOT, PORT, MIME);
   const browser = await chromium.launch();
@@ -141,6 +175,18 @@ async function scenario(browser, { gstin, fill = {}, subStatus = 200, subBody })
     const refused = await scenario(browser, { gstin: 'DE123456789', subStatus: 400, subBody: { error: 'Billing address must be 10-250 characters.', field: 'billing_address' } });
     check('server field refusal shown verbatim', refused.alerts.includes('Billing address must be 10-250 characters.'), JSON.stringify(refused.alerts));
     check('server field refusal: no modal, no order', refused.rzp.opened.length === 0 && refused.orders.length === 0);
+
+    const g = await gumroadStates(browser);
+    check('gumroad: without a membership product the grant is labelled a one-time grant',
+      g.grant.type === 'grant' && /pxyfcb/.test(g.grant.href) && /30-day grant, no auto-renew/.test(g.grant.price), JSON.stringify(g.grant));
+    check('gumroad: a configured membership is what the button sells',
+      g.membership.type === 'membership' && g.membership.href === 'https://cyberdudebivash.gumroad.com/l/test-membership' &&
+      /renews monthly/.test(g.membership.price) && /SUBSCRIBE/.test(g.membership.label), JSON.stringify(g.membership));
+    check('gumroad: annual without a yearly membership falls back to the labelled 12-month grant',
+      g.annual.type === 'grant' && /12-month grant, no auto-renew/.test(g.annual.price), JSON.stringify(g.annual));
+    check('plan card period follows the billing toggle', g.periodMonthly === 'per month' && g.periodAnnual === 'per year',
+      g.periodMonthly + ' / ' + g.periodAnnual);
+    check('gumroad: no page error', g.errors.length === 0, g.errors.join(' | '));
 
     const t = ok.text;
     check('copy: no EMI / wallets offered for a subscription', !/\bEMI\b|Wallets \(/.test(t));

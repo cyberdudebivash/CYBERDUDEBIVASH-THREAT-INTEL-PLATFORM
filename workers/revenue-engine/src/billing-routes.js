@@ -23,6 +23,10 @@
 //   GET  /api/v2/billing/invoices/view     ?number=  X-API-Key (own) | X-Admin-Secret  [&format=html]
 //   GET  /api/v2/billing/invoices/holds    X-Admin-Secret
 //   POST /api/v2/billing/invoices/issue    X-Admin-Secret  {payment_id, billing_name?, billing_address?, billing_state?}
+//   GET  /api/v2/billing/credit-notes         X-API-Key (own) | X-Admin-Secret [?email=]
+//   GET  /api/v2/billing/credit-notes/view    ?number=  X-API-Key (own) | X-Admin-Secret  [&format=html]
+//   GET  /api/v2/billing/credit-notes/pending X-Admin-Secret: processed refunds without a credit note
+//   POST /api/v2/billing/credit-notes/issue   X-Admin-Secret  {refund_id}
 // =============================================================================
 
 import { json, sanitizeEmail, trackEvent, isAdmin, slackNotify } from "./index.js";
@@ -30,6 +34,7 @@ import {
   firstPaymentFor, getPayment, insertRefundRequest, getRefundRequest, getRefundRequestByPayment,
   listRefundRequests, transitionRefundRequest, applyRefundToPayment, markDisputed,
   issueInvoiceForPayment, getInvoiceByNumber, listInvoicesFor, listInvoiceHolds, completeRecipientDetails,
+  recordRefund, issueCreditNoteForRefund, getCreditNoteByNumber, listCreditNotesFor, listPendingCreditNotes,
 } from "./billing-ledger.js";
 import { normalizeBillingName, normalizeBillingState } from "./gst.js";
 
@@ -246,6 +251,14 @@ export async function applyBillingWebhookEvent(env, event, payload, { revokeEnti
       return true;
     }
     const processed = event === "refund.processed";
+    // Refund ledger first (the authority for the credit note), then the
+    // credit note itself once Razorpay reports the money returned.
+    const at = r.created_at ? new Date(r.created_at * 1000).toISOString() : new Date().toISOString();
+    await recordRefund(database, {
+      refundId: r.id, paymentId: r.payment_id,
+      amountPaise: Number.isInteger(r.amount) ? r.amount : payment.amount_paise,
+      status: processed ? "processed" : "created", atIso: processed ? new Date().toISOString() : at,
+    });
     await applyRefundToPayment(database, r.payment_id, {
       refundedPaise: Number.isInteger(r.amount) ? r.amount : payment.amount_paise,
       status: processed ? "refunded" : "refund_pending",
@@ -259,6 +272,19 @@ export async function applyBillingWebhookEvent(env, event, payload, { revokeEnti
     // processed), including refunds made directly in the Dashboard.
     if (payment.provider_sub_id) await revokeEntitlementForSubscription(payment.provider_sub_id, "refunded");
     await trackEvent(env, processed ? "refund_processed" : "refund_created", { payment_id: r.payment_id, refund_id: r.id, rid });
+    if (processed) {
+      try {
+        const cn = await issueCreditNoteForRefund(database, env, r.id);
+        await trackEvent(env, cn.status === "issued" ? "credit_note_issued" : "credit_note_held", {
+          refund_id: r.id, payment_id: r.payment_id, credit_note_number: cn.credit_note?.credit_note_number || null,
+          reason: cn.reason || null, rid,
+        });
+      } catch (cnErr) {
+        // Never fails the webhook: the refund is recorded and listed under
+        // /credit-notes/pending for an operator retry.
+        await trackEvent(env, "credit_note_failed", { refund_id: r.id, error: cnErr?.message || String(cnErr), rid }).catch(() => {});
+      }
+    }
     return true;
   }
   if (event.startsWith("payment.dispute.")) {
@@ -396,5 +422,85 @@ export async function handleInvoiceIssue(request, env, ctx, rid) {
   await trackEvent(env, result.status === "issued" ? "invoice_issued" : "invoice_held", { payment_id: pid, reason: result.reason || null, rid });
   return json(result.status === "issued"
     ? { status: "issued", invoice_number: result.invoice.invoice_number }
+    : { status: "held", reason: result.reason }, result.status === "issued" ? 200 : 409);
+}
+
+// --- credit notes -------------------------------------------------------------
+
+export function renderCreditNoteHtml(doc) {
+  const t = doc.tax;
+  const rows = doc.supply_type === "intra_state"
+    ? `<tr><td>CGST @ ${esc(t.cgst_rate_percent)}%</td><td class="n">${paise(t.cgst_paise)}</td></tr>
+       <tr><td>SGST @ ${esc(t.sgst_rate_percent)}%</td><td class="n">${paise(t.sgst_paise)}</td></tr>`
+    : `<tr><td>IGST @ ${esc(t.igst_rate_percent)}%</td><td class="n">${paise(t.igst_paise)}</td></tr>`;
+  const r = doc.recipient;
+  return `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>Credit Note ${esc(doc.credit_note_number)}</title>
+<meta name="robots" content="noindex"><style>
+body{font:14px/1.5 system-ui,sans-serif;color:#111;background:#fff;max-width:820px;margin:24px auto;padding:0 16px}
+h1{font-size:20px;margin:0 0 4px}table{width:100%;border-collapse:collapse;margin:12px 0}td,th{border:1px solid #ccc;padding:6px 8px;text-align:left;vertical-align:top}
+.n{text-align:right;font-variant-numeric:tabular-nums}.muted{color:#555;font-size:12px}</style></head><body>
+<h1>Credit Note</h1><div class="muted">Issued under section 34 of the CGST Act</div>
+<table><tr><th>Credit Note No.</th><td>${esc(doc.credit_note_number)}</td><th>Date</th><td>${esc(doc.note_date)}</td></tr>
+<tr><th>Against invoice</th><td>${esc(doc.original_invoice.invoice_number)} dated ${esc(doc.original_invoice.invoice_date)}</td><th>Place of supply</th><td>${esc(doc.place_of_supply.state_name)} (${esc(doc.place_of_supply.state_code)})</td></tr>
+<tr><th>Reason</th><td colspan="3">${esc(doc.reason)}</td></tr></table>
+<table><tr><th>Supplier</th><th>Recipient</th></tr><tr><td>${esc(doc.supplier.legal_name)}${doc.supplier.trade_name ? "<br>" + esc(doc.supplier.trade_name) : ""}<br>${esc(doc.supplier.address)}<br>GSTIN: ${esc(doc.supplier.gstin)}</td>
+<td>${esc(r.name || "")}${r.address ? "<br>" + esc(r.address) : ""}<br>${esc(r.email)}${r.gstin ? "<br>GSTIN: " + esc(r.gstin) : "<br>Unregistered"}</td></tr></table>
+<table><tr><th>Description</th><th>SAC</th><th class="n">Taxable value (INR)</th></tr>
+${doc.line_items.map((li) => `<tr><td>${esc(li.description)}</td><td>${esc(li.sac)}</td><td class="n">${paise(li.taxable_value_paise)}</td></tr>`).join("")}</table>
+<table><tr><td>Taxable value credited</td><td class="n">${paise(t.taxable_paise)}</td></tr>${rows}
+<tr><th>Total credited (INR, inclusive of GST)</th><th class="n">${paise(t.total_paise)}</th></tr></table>
+<p class="muted">Razorpay refund ${esc(doc.refund.refund_id)} of payment ${esc(doc.refund.payment_id)}.</p>
+<p class="muted">This is a computer-generated credit note.</p></body></html>`;
+}
+
+// GET /api/v2/billing/credit-notes
+export async function handleCreditNoteList(request, env) {
+  const viewer = await invoiceViewer(request, env);
+  if (!viewer) return json({ error: "unauthorized" }, 401);
+  const email = viewer.admin ? sanitizeEmail(new URL(request.url).searchParams.get("email")) : viewer.email;
+  if (!email) return json({ error: "email is required" }, 400);
+  return json({ credit_notes: await listCreditNotesFor(db(env), email) });
+}
+
+// GET /api/v2/billing/credit-notes/view?number=
+export async function handleCreditNoteView(request, env) {
+  const viewer = await invoiceViewer(request, env);
+  if (!viewer) return json({ error: "unauthorized" }, 401);
+  const url = new URL(request.url);
+  const number = url.searchParams.get("number") || "";
+  if (!/^[A-Z0-9-]{1,6}\/\d{2}-\d{2}\/\d{6}$/.test(number)) return json({ error: "invalid credit note number" }, 400);
+  const cn = await getCreditNoteByNumber(db(env), number);
+  if (!cn || (!viewer.admin && cn.email !== viewer.email)) return json({ error: "not_found" }, 404);
+  if (url.searchParams.get("format") === "html") {
+    return new Response(renderCreditNoteHtml(cn.document), {
+      headers: {
+        "content-type": "text/html; charset=utf-8", "cache-control": "private, no-store",
+        "content-security-policy": "default-src 'none'; style-src 'unsafe-inline'; frame-ancestors 'none'",
+        "x-content-type-options": "nosniff",
+      },
+    });
+  }
+  return json({ credit_note: cn.document });
+}
+
+// GET /api/v2/billing/credit-notes/pending
+export async function handleCreditNotesPending(request, env) {
+  if (!(await isAdmin(request, env))) return json({ error: "unauthorized" }, 401);
+  return json({ pending: await listPendingCreditNotes(db(env)) });
+}
+
+// POST /api/v2/billing/credit-notes/issue  {refund_id}
+export async function handleCreditNoteIssue(request, env, ctx, rid) {
+  if (!(await isAdmin(request, env))) return json({ error: "unauthorized" }, 401);
+  const body = await request.json().catch(() => ({}));
+  const refundId = typeof body.refund_id === "string" ? body.refund_id : "";
+  if (!refundId) return json({ error: "refund_id is required" }, 400);
+  const database = db(env);
+  const exists = await database.prepare(`SELECT 1 AS x FROM billing_refunds WHERE refund_id = ?`).bind(refundId).first().catch(() => null);
+  if (!exists) return json({ error: "not_found" }, 404);
+  const result = await issueCreditNoteForRefund(database, env, refundId);
+  await trackEvent(env, result.status === "issued" ? "credit_note_issued" : "credit_note_held", { refund_id: refundId, reason: result.reason || null, rid });
+  return json(result.status === "issued"
+    ? { status: "issued", credit_note_number: result.credit_note.credit_note_number }
     : { status: "held", reason: result.reason }, result.status === "issued" ? 200 : 409);
 }

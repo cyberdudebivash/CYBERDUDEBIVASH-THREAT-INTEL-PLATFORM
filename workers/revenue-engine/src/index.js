@@ -9,7 +9,7 @@
 // creation, webhook lifecycle, entitlement sync. See subscription-engine.js
 // for scope notes (refunds/upgrades/downgrades/checkout-cutover deferred).
 import { handleBillingSubscriptionCreate, handleBillingSubscriptionStatus, handleBillingWebhook, patchApiKeyEntitlement, patchInternalSub, tryTransition, PLAN_ID_ENV_KEYS } from "./subscription-engine.js";
-import { handleRefundRequest, handleRefundList, handleRefundApprove, handleRefundReject, handleInvoiceList, handleInvoiceView, handleInvoiceHolds, handleInvoiceIssue, handleSubscriptionCancel } from "./billing-routes.js";
+import { handleRefundRequest, handleRefundList, handleRefundApprove, handleRefundReject, handleInvoiceList, handleInvoiceView, handleInvoiceHolds, handleInvoiceIssue, handleSubscriptionCancel, handleCreditNoteList, handleCreditNoteView, handleCreditNotesPending, handleCreditNoteIssue } from "./billing-routes.js";
 
 const ENGINE = {
   VERSION:  "183.0",
@@ -117,6 +117,14 @@ async function routeRevenueRequest(request, env, ctx, rid, url, path, method) {
         return await handleInvoiceHolds(request, env);
       if (path === "/api/v2/billing/invoices/issue" && method === "POST")
         return await handleInvoiceIssue(request, env, ctx, rid);
+      if (path === "/api/v2/billing/credit-notes" && method === "GET")
+        return await handleCreditNoteList(request, env);
+      if (path === "/api/v2/billing/credit-notes/view" && method === "GET")
+        return await handleCreditNoteView(request, env);
+      if (path === "/api/v2/billing/credit-notes/pending" && method === "GET")
+        return await handleCreditNotesPending(request, env);
+      if (path === "/api/v2/billing/credit-notes/issue" && method === "POST")
+        return await handleCreditNoteIssue(request, env, ctx, rid);
 
       // ── Public: customer-facing commercial routes ──────────────────────────
       // Moved here from dispatchCommercialRoutes() (further below), which is

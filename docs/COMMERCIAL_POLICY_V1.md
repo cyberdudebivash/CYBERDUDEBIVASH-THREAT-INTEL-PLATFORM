@@ -78,8 +78,37 @@ npx wrangler secret put GST_INVOICE_CONFIG
   treatment), non-INR payments, registered buyers without name + address, and
   unregistered buyers at or above INR 50,000 without name, address and state
   (r.46(e)). Resolve with `POST /api/v2/billing/invoices/issue`.
-- **Refunded invoices** are flagged `refunded_credit_note_required`. Credit
-  notes are not generated yet.
+- **Refunded invoices get credit notes** (next section).
+
+## GST credit notes (2026-09-25)
+
+CGST Act s.34 and CGST Rules r.53. Every refund that Razorpay reports as
+**processed** gets exactly one credit note against the payment's invoice.
+This covers refunds from approved requests and refunds made in the Dashboard.
+
+- **Refund ledger:** `billing_refunds` is written from `refund.created` and
+  `refund.processed` (`refund_id` PRIMARY KEY). Its status only moves forward.
+- **Numbering:** `CN/26-27/000001`, a separate consecutive series per
+  financial year of the note date. `credit_note_prefix` in
+  `GST_INVOICE_CONFIG` is optional (default `CN`). It must differ from the
+  invoice prefix and keep the number within 16 characters. The serial comes
+  from the same single-transaction allocation as invoices:
+  `UNIQUE(fy, seq)`, `UNIQUE(credit_note_number)`, `UNIQUE(refund_id)`.
+- **Contents:** the original invoice number and date, the reason,
+  supplier/recipient, place of supply, and the **same supply type and
+  rate** as the invoice. The tax is carved out of the refunded amount.
+  Partial refunds each get their own note.
+- **Never over-credited:** credit notes for a payment never total more than
+  its invoice. This is enforced inside the issuing transaction, so
+  concurrent refunds cannot overshoot either. An excess is held
+  (`credit_would_exceed_invoice_total`).
+- **Invoice status** becomes `partially_credited`, then `credited`.
+- **Held invoice:** a refund processed while its invoice is held gets its
+  credit note automatically right after the invoice is issued.
+- **s.34(2) deadline:** each note records `gst_adjustment.deadline`
+  (30 November after the invoice's financial year) and `within_deadline`.
+  A note issued after that date is still a valid commercial credit, but it
+  no longer reduces output tax.
 
 ## Refund workflow
 
@@ -111,15 +140,49 @@ customer request -> eligibility -> admin approve/reject -> Razorpay refund (serv
 | `GET /api/v2/billing/invoices/view?number=&format=html` | owner or admin | Invoice (JSON or HTML) |
 | `GET /api/v2/billing/invoices/holds` | `X-Admin-Secret` | Held invoices and reasons |
 | `POST /api/v2/billing/invoices/issue` | `X-Admin-Secret` | Complete recipient details, issue |
+| `GET /api/v2/billing/credit-notes` | customer `X-API-Key` / admin `?email=` | List credit notes |
+| `GET /api/v2/billing/credit-notes/view?number=&format=html` | owner or admin | Credit note (JSON or HTML) |
+| `GET /api/v2/billing/credit-notes/pending` | `X-Admin-Secret` | Processed refunds without a credit note |
+| `POST /api/v2/billing/credit-notes/issue` `{refund_id}` | `X-Admin-Secret` | Retry a held credit note |
+
+## Gumroad memberships (2026-09-25)
+
+Recurring plans on Gumroad are sold as **memberships**. The gateway webhook
+(`workers/intel-gateway/src/gumroad-lifecycle.js`, `handleWebhookGumroad`)
+handles every Gumroad ping:
+
+| Ping | Effect |
+|---|---|
+| first sale | provisions one key, mapped by `subscription_id` and `sale_id` |
+| recurring charge (`is_recurring_charge`, or a sale on an already-mapped subscription) | **extends the same key** by one cycle from the later of the current expiry and the charge time; a redelivery extends once; a lapsed or cancelled membership that charges again is reactivated |
+| charge on a `refunded` / `suspended` key | not reactivated; flagged `renewal_requires_review` |
+| `cancelled` | access continues to the end of the paid period |
+| `ended` | access revoked |
+| `refunded` (any charge) | key `refunded`, access revoked |
+| `disputed` (not won) | key `suspended` (an operator can reactivate if the dispute is won) |
+
+Before this change, each monthly renewal would have minted a new key, and a
+refund ping was swallowed as "already provisioned".
+
+**Cutover (owner action).** Create a membership product per plan and cycle in
+the Gumroad dashboard: PRO and Enterprise, monthly and yearly, at the same USD
+prices. Put each permalink in `GUMROAD_MEMBERSHIP_URLS` in `upgrade.html`.
+A plan/cycle with a membership URL is sold as the membership ("renews
+monthly/yearly"). One without keeps the legacy one-time grant, labelled
+"30-day grant, no auto-renew". `terms.html` and `pricing.html` are accurate
+in both states. Existing grant holders keep access to the end of their paid
+period; their refunds and chargebacks are handled the same way when the sale
+was provisioned after this change.
 
 ## Known gaps (not in this change)
 
-- **Gumroad** still sells USD 30-day / 12-month grants that do not renew.
-  That is a one-time payment for a recurring service, which decision 3 rules
-  out for Razorpay. Deciding Gumroad's future (memberships, or USD Razorpay
-  plans) is open.
-- GST **credit notes** for refunded invoices; **export** (LUT) invoicing;
-  **e-invoicing (IRN)** if aggregate turnover crosses the threshold.
+- **Gumroad membership products** themselves (owner action, see the cutover
+  above). Until they exist, Gumroad keeps selling the labelled one-time grant.
+- Gumroad sales provisioned **before** 2026-09-25 have no `sale_id` → key
+  mapping. A refund ping for one is flagged (`noted_no_mapping`) for manual
+  revocation.
+- **Export** (LUT) invoicing; **e-invoicing (IRN)** if aggregate turnover
+  crosses the threshold; filing credit notes in GSTR-1 (operator).
 - Enterprise **quote/PO -> bank transfer** accounts-receivable workflow.
 - One-time orders bought **before** this change are refunded from the Razorpay
   Dashboard. The gateway's existing `refund.*` webhook revokes their keys.

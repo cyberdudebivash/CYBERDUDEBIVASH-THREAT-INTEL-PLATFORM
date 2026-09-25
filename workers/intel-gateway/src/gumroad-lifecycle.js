@@ -87,3 +87,57 @@ export function isGumroadAccessRevokingEvent(formData) {
   if (!formData) return false;
   return String(formData.ended || "").toLowerCase() === "true";
 }
+
+// ---------------------------------------------------------------------------
+// Gumroad memberships (recurring), 2026-09-25 -- owner commercial policy:
+// recurring services are sold as recurring subscriptions, never as one-time
+// "30-day grants". Gumroad posts a "sale" ping for EVERY membership charge
+// (a new sale_id each time, the same subscription_id, is_recurring_charge
+// "true"), and pings again with refunded / disputed when money goes back.
+// ---------------------------------------------------------------------------
+
+/** Days of access per billing cycle. Single table for every provider (provisionApiKey). */
+export const BILLING_CYCLE_DAYS = Object.freeze({ monthly: 30, quarterly: 90, biannual: 180, annual: 365, every_two_years: 730 });
+
+const _true = (v) => String(v || "").toLowerCase() === "true";
+
+/**
+ * What a Gumroad ping asks the platform to do.
+ *   "refund"       money returned for this sale: revoke
+ *   "dispute"      chargeback opened (and not won): revoke
+ *   "cancellation" membership cancelled / ended (see isGumroadAccessRevokingEvent)
+ *   "renewal"      a membership's recurring charge: extend the existing key
+ *   "sale"         a first purchase: provision a key
+ * Money-back signals are checked first: a refund ping repeats the sale's
+ * other fields, including is_recurring_charge.
+ */
+export function classifyGumroadPing(formData) {
+  if (!formData) return "sale";
+  if (_true(formData.refunded)) return "refund";
+  if (_true(formData.disputed) && !_true(formData.dispute_won)) return "dispute";
+  if (isGumroadCancellationEvent(formData)) return "cancellation";
+  if (_true(formData.is_recurring_charge)) return "renewal";
+  return "sale";
+}
+
+/**
+ * New expiry after a paid renewal: one cycle added to whichever is later,
+ * the current expiry (charged early: no paid time lost) or the charge time
+ * (charged after a lapse: the new period starts now, not in the past).
+ */
+export function renewedExpiry(existingExpiresAt, saleTimestamp, billingCycle, nowMs = Date.now()) {
+  const days = BILLING_CYCLE_DAYS[billingCycle] || BILLING_CYCLE_DAYS.monthly;
+  const existing = Date.parse(existingExpiresAt || "");
+  const charged = Date.parse(saleTimestamp || "");
+  const start = Math.max(Number.isFinite(existing) ? existing : 0, Number.isFinite(charged) ? charged : nowMs);
+  return new Date(start + days * 86400000).toISOString();
+}
+
+/**
+ * A renewal charge restores access for keys that lapsed or were cancelled
+ * (a restarted membership), never for keys an operator or a refund denied:
+ * those need an explicit admin reactivation.
+ */
+export function renewalMayReactivate(subscriptionStatus) {
+  return !["refunded", "suspended"].includes(String(subscriptionStatus || ""));
+}

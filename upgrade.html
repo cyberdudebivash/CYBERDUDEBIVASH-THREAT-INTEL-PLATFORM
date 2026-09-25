@@ -552,7 +552,7 @@ h1 span { color: var(--accent); }
       <button class="stix-upgrade-btn" onclick="document.getElementById('plan-pro').scrollIntoView({behavior:'smooth',block:'center'});document.getElementById('plan-pro').click();">
         ⚡ Unlock PRO &mdash; $49 due now
       </button>
-      <div class="stix-banner-note">API key on payment confirmation &nbsp;&middot;&nbsp; Razorpay: renews automatically, cancel any time &nbsp;&middot;&nbsp; Gumroad: 30-day grant, no auto-renew</div>
+      <div class="stix-banner-note">API key on payment confirmation &nbsp;&middot;&nbsp; Razorpay: renews automatically, cancel any time &nbsp;&middot;&nbsp; Gumroad: memberships renew until cancelled; access grants do not renew</div>
     </div>
   </div>
 </div>
@@ -611,7 +611,7 @@ h1 span { color: var(--accent); }
           </div>
           <div class="plan-price-col">
             <div class="plan-price-val" id="price-pro">$49</div>
-            <div class="plan-price-period" id="period-pro">30-day access</div>
+            <div class="plan-price-period" id="period-pro">per month</div>
             <div class="plan-price-inr" id="inr-pro">&#x20B9;4,100</div>
           </div>
         </div>
@@ -627,7 +627,7 @@ h1 span { color: var(--accent); }
           </div>
           <div class="plan-price-col">
             <div class="plan-price-val" id="price-enterprise">$499</div>
-            <div class="plan-price-period" id="period-enterprise">30-day access</div>
+            <div class="plan-price-period" id="period-enterprise">per month</div>
             <div class="plan-price-inr" id="inr-enterprise">&#x20B9;41,600</div>
           </div>
         </div>
@@ -664,7 +664,7 @@ h1 span { color: var(--accent); }
           <span class="gumroad-panel-title">Buy via Gumroad &mdash; Automated API Key Delivery</span>
         </div>
         <div class="gumroad-panel-sub">
-          Pay securely through Gumroad (Stripe, PayPal, cards). Your API key is delivered instantly to your email upon payment. No manual processing required.
+          Pay securely through Gumroad (Stripe, PayPal, cards). Your API key is delivered to your email upon payment. Each plan shows whether it is a membership (renews until you cancel it in your Gumroad library; renewals keep the same API key) or a one-time access grant (does not renew).
         </div>
 
         <div class="gumroad-btns">
@@ -941,7 +941,7 @@ h1 span { color: var(--accent); }
       <div class="trust-item"><span class="t-icon">&#10003;</span>GST Registered &mdash; GSTIN: 21ARKPN8270G1ZP</div>
       <div class="trust-item"><span class="t-icon">&#10003;</span>7-Day Money-Back Guarantee on eligible first purchases &mdash; subject to our <a href="/terms.html#refunds" style="color:var(--accent)">Refund Policy</a>. No pro-rata refunds after the guarantee period.</div>
       <div class="trust-item"><span class="t-icon">&#10003;</span>API key on payment confirmation</div>
-      <div class="trust-item"><span class="t-icon">&#10003;</span>Razorpay: renews automatically, cancel any time &middot; Gumroad: 30-day grant, no auto-renew</div>
+      <div class="trust-item"><span class="t-icon">&#10003;</span>Razorpay: renews automatically, cancel any time &middot; Gumroad: memberships renew until cancelled; access grants do not renew</div>
       <div class="trust-item"><span class="t-icon">&#10003;</span>Enterprise SLA Available</div>
       <div class="trust-item"><span class="t-icon">&#10003;</span>STIX 2.1 &middot; MITRE ATT&amp;CK &middot; CISA KEV</div>
     </div>
@@ -1345,6 +1345,21 @@ var GUMROAD_URLS = {
   mssp:       { monthly: 'mailto:enterprise@cyberdudebivash.com?subject=MSSP%20%2F%20White-Label%20Inquiry', annual: 'mailto:enterprise@cyberdudebivash.com?subject=MSSP%20%2F%20White-Label%20Inquiry' }
 };
 
+/* ── Gumroad memberships (owner commercial policy, 2026-09-25) ─────────
+   Recurring plans are sold as recurring subscriptions. Put each Gumroad
+   MEMBERSHIP product's permalink here once it exists (Gumroad dashboard ->
+   New product -> Membership, monthly / yearly recurrence, same USD price).
+   A plan/cycle with a membership URL is sold as the membership ("renews
+   until cancelled"); one without keeps the legacy one-time access grant
+   above, labelled as such. The gateway webhook handles both: a membership's
+   recurring charges extend the same API key, refunds and chargebacks
+   revoke it (workers/intel-gateway/src/gumroad-lifecycle.js).
+   ────────────────────────────────────────────────────────────────────── */
+var GUMROAD_MEMBERSHIP_URLS = {
+  pro:        { monthly: null, annual: null },
+  enterprise: { monthly: null, annual: null }
+};
+
 /* ── v184.0: Gumroad panel sync ──────────────────────────────────────
    Highlights the active plan row and updates button URLs + prices to
    reflect the currently selected plan and billing cycle.
@@ -1374,14 +1389,20 @@ function updateGumroadPanel() {
     // Highlight active plan row
     row.classList.toggle('active-plan', k === currentPlan);
 
-    // Update URL for billing cycle
-    btn.href = urls[cycle] || urls.monthly;
-
-    // Provider-specific Gumroad label: 30-day grant, not a monthly-subscription label
-    if (pEl) {
-      var usd = isAnnual ? p.usdAnnual : p.usd;
-      pEl.textContent = '$' + usd.toLocaleString() + (isAnnual ? '/yr' : ' · 30-day');
+    var usd = isAnnual ? p.usdAnnual : p.usd;
+    var membership = GUMROAD_MEMBERSHIP_URLS[k] && GUMROAD_MEMBERSHIP_URLS[k][cycle];
+    if (membership) {
+      // Recurring membership: renews each period until cancelled in Gumroad.
+      btn.href = membership;
+      btn.setAttribute('data-gumroad-sale-type', 'membership');
+      if (pEl) pEl.textContent = '$' + usd.toLocaleString() + (isAnnual ? '/yr · renews yearly' : '/mo · renews monthly');
+      btn.textContent = 'SUBSCRIBE \u2014 $' + usd.toLocaleString() + (isAnnual ? '/yr' : '/mo');
+      return;
     }
+    // Legacy one-time access grant (no membership product yet for this plan/cycle).
+    btn.href = urls[cycle] || urls.monthly;
+    btn.setAttribute('data-gumroad-sale-type', 'grant');
+    if (pEl) pEl.textContent = '$' + usd.toLocaleString() + (isAnnual ? ' · 12-month grant, no auto-renew' : ' · 30-day grant, no auto-renew');
     if (k === 'pro' && !isAnnual) {
       btn.textContent = 'GET 30-DAY PRO ACCESS — $49';
     }
@@ -1394,7 +1415,7 @@ function updateDGW() {
   if (!p) return;
   var usd  = isAnnual ? p.usdAnnual : p.usd;
   var inr  = isAnnual ? p.inrAnnual : p.inr;
-  var period = currentPlan === 'free' ? 'forever' : (isAnnual ? 'per year' : '30-day grant');
+  var period = currentPlan === 'free' ? 'forever' : (isAnnual ? 'per year' : 'per month');
   function se(id, val) { var e = document.getElementById(id); if (e) e.textContent = val; }
   function si(id, val) { var e = document.getElementById(id); if (e) e.innerHTML = val; }
   se('dgw-plan-name',   p.name);
@@ -1433,6 +1454,8 @@ function toggleBilling() {
     var ie = document.getElementById('inr-' + k);
     if (pe) pe.textContent = '$' + usd.toLocaleString();
     if (ie) ie.textContent = '\u20b9' + inr.toLocaleString();
+    var per = document.getElementById('period-' + k);
+    if (per) per.textContent = isAnnual ? 'per year' : 'per month';
   });
   updateSummary();
   updateDGW();
@@ -1444,8 +1467,8 @@ function updateSummary() {
   var p = PLANS[currentPlan];
   var usd = isAnnual ? p.usdAnnual : p.usd;
   var inr = isAnnual ? p.inrAnnual : p.inr;
-  var cycle = currentPlan === 'free' ? 'Free forever' : (isAnnual ? 'Annual (12-month access)' : '30-day access · due now');
-  var priceStr = currentPlan === 'free' ? 'Free' : ('$' + usd + (isAnnual ? '/yr' : ' · 30-day'));
+  var cycle = currentPlan === 'free' ? 'Free forever' : (isAnnual ? 'Yearly · first year due now' : 'Monthly · first month due now');
+  var priceStr = currentPlan === 'free' ? 'Free' : ('$' + usd + (isAnnual ? '/yr' : '/mo'));
 
   function se(id, val) { var e = document.getElementById(id); if (e) e.textContent = val; }
   function ss(id, val) { var e = document.getElementById(id); if (e) e.style.display = val; }

@@ -315,3 +315,37 @@ CREATE TABLE IF NOT EXISTS refund_requests (
   last_error         TEXT NOT NULL DEFAULT '',
   updated_at         TEXT NOT NULL
 );
+
+-- ─── REFUND LEDGER + GST CREDIT NOTES (2026-09-25) ───────────────────────────
+
+CREATE TABLE IF NOT EXISTS billing_refunds (
+  refund_id    TEXT PRIMARY KEY,
+  payment_id   TEXT NOT NULL,
+  amount_paise INTEGER NOT NULL CHECK (amount_paise > 0),
+  status       TEXT NOT NULL,
+  created_at   TEXT NOT NULL,
+  processed_at TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_billing_refunds_payment ON billing_refunds (payment_id);
+
+CREATE TABLE IF NOT EXISTS credit_note_sequences (
+  fy       TEXT PRIMARY KEY,
+  last_seq INTEGER NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS credit_notes (
+  id                 TEXT PRIMARY KEY,
+  credit_note_number TEXT NOT NULL UNIQUE,
+  fy                 TEXT NOT NULL,
+  seq                INTEGER NOT NULL,
+  refund_id          TEXT NOT NULL UNIQUE,
+  payment_id         TEXT NOT NULL,
+  invoice_number     TEXT NOT NULL,
+  email              TEXT NOT NULL,
+  total_paise        INTEGER NOT NULL,
+  note_date          TEXT NOT NULL,
+  issued_at          TEXT NOT NULL,
+  document           TEXT NOT NULL,
+  UNIQUE (fy, seq)
+);
