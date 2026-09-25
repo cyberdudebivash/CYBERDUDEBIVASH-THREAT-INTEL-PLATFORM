@@ -702,6 +702,12 @@ async function resolveAuth(request, env) {
       const denied = await env.SECURITY_HUB_KV.get(`jwt_deny:${payload.sub}`);
       if (denied) return { tier: TIERS.FREE, key: null, sub: null, error: "subscription_status_denied" };
     } catch (_) {}
+    try {
+      const billingDenied = await env.API_KEYS_KV?.get(`jwt_deny:${payload.sub}`);
+      if (billingDenied) return { tier: TIERS.FREE, key: null, sub: null, error: "subscription_status_denied" };
+    } catch (_) {
+      return { tier: TIERS.FREE, key: null, sub: null, error: "auth_service_unavailable" };
+    }
     const jwtAuth = {
       tier: TIERS[payload.tier] || TIERS.PRO,
       key: raw,
