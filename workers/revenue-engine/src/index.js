@@ -10,6 +10,7 @@
 // for scope notes (refunds/upgrades/downgrades/checkout-cutover deferred).
 import { handleBillingSubscriptionCreate, handleBillingSubscriptionStatus, handleBillingWebhook, patchApiKeyEntitlement, patchInternalSub, tryTransition, PLAN_ID_ENV_KEYS } from "./subscription-engine.js";
 import { handleRefundRequest, handleRefundList, handleRefundApprove, handleRefundReject, handleInvoiceList, handleInvoiceView, handleInvoiceHolds, handleInvoiceIssue, handleSubscriptionCancel, handleCreditNoteList, handleCreditNoteView, handleCreditNotesPending, handleCreditNoteIssue } from "./billing-routes.js";
+import { handleQuoteCreate, handleQuoteList, handleQuoteView, handleQuoteAccept, handleQuoteCancel, handleQuoteInvoice, handleQuoteReconcile, handleQuoteProvision } from "./enterprise-po.js";
 
 const ENGINE = {
   VERSION:  "183.0",
@@ -99,6 +100,23 @@ async function routeRevenueRequest(request, env, ctx, rid, url, path, method) {
       // ── Refunds (merchant-approved) + GST invoices (billing-routes.js) ─────
       // Each handler authenticates itself: customer routes take the
       // subscription's X-API-Key, decision routes take X-Admin-Secret.
+      // ── Enterprise quote -> PO -> invoice -> bank transfer (enterprise-po.js) ─
+      if (path === "/api/v2/billing/quotes" && method === "POST")
+        return await handleQuoteCreate(request, env, ctx, rid);
+      if (path === "/api/v2/billing/quotes" && method === "GET")
+        return await handleQuoteList(request, env);
+      if (path === "/api/v2/billing/quotes/view" && method === "GET")
+        return await handleQuoteView(request, env);
+      if (path === "/api/v2/billing/quotes/accept" && method === "POST")
+        return await handleQuoteAccept(request, env, ctx, rid);
+      if (path === "/api/v2/billing/quotes/cancel" && method === "POST")
+        return await handleQuoteCancel(request, env, ctx, rid);
+      if (path === "/api/v2/billing/quotes/invoice" && method === "POST")
+        return await handleQuoteInvoice(request, env, ctx, rid);
+      if (path === "/api/v2/billing/quotes/reconcile" && method === "POST")
+        return await handleQuoteReconcile(request, env, ctx, rid);
+      if (path === "/api/v2/billing/quotes/provision" && method === "POST")
+        return await handleQuoteProvision(request, env, ctx, rid);
       if (path === "/api/v2/billing/subscriptions/cancel" && method === "POST")
         return await handleSubscriptionCancel(request, env, ctx, rid);
       if (path === "/api/v2/billing/refunds/request" && method === "POST")
@@ -2663,6 +2681,6 @@ function getCommercialEmailTemplate(name, vars) {
 // =============================================================================
 export {
   json, sanitizeEmail, genId, TIERS, SUB_STATUS,
-  provisionCustomer, trackEvent, isAdmin, automationTrigger, slackNotify,
+  provisionCustomer, trackEvent, isAdmin, automationTrigger, slackNotify, timingSafeEqual,
   handlePaymentSubmit, sanitizeScreenshotUrl, gatewayTenantFields,
 };

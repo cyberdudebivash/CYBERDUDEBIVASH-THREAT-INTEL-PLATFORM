@@ -349,3 +349,49 @@ CREATE TABLE IF NOT EXISTS credit_notes (
   document           TEXT NOT NULL,
   UNIQUE (fy, seq)
 );
+
+-- ─── ENTERPRISE QUOTES / PO (2026-09-25) ───────────────────────────────────
+
+CREATE TABLE IF NOT EXISTS enterprise_quotes (
+  id                  TEXT PRIMARY KEY,
+  email               TEXT NOT NULL,
+  company_name        TEXT NOT NULL,
+  billing_address     TEXT NOT NULL,
+  billing_state       TEXT NOT NULL DEFAULT '',
+  billing_country     TEXT NOT NULL DEFAULT '',
+  buyer_gstin         TEXT NOT NULL DEFAULT '',
+  tier                TEXT NOT NULL,
+  term_months         INTEGER NOT NULL,
+  amount_paise        INTEGER NOT NULL CHECK (amount_paise > 0),
+  price_basis         TEXT NOT NULL,
+  price_reason        TEXT NOT NULL DEFAULT '',
+  valid_until         TEXT NOT NULL,
+  status              TEXT NOT NULL,
+  po_number           TEXT NOT NULL DEFAULT '',
+  po_date             TEXT NOT NULL DEFAULT '',
+  accepted_at         TEXT,
+  invoice_number      TEXT NOT NULL DEFAULT '',
+  invoice_hold_reason TEXT NOT NULL DEFAULT '',
+  bank_reference      TEXT UNIQUE,
+  received_paise      INTEGER,
+  tds_paise           INTEGER,
+  tds_section         TEXT NOT NULL DEFAULT '',
+  received_on         TEXT NOT NULL DEFAULT '',
+  firc_reference      TEXT NOT NULL DEFAULT '',
+  reconciled_at       TEXT,
+  api_key_hint        TEXT NOT NULL DEFAULT '',
+  provisioned_at      TEXT,
+  cancel_note         TEXT NOT NULL DEFAULT '',
+  created_at          TEXT NOT NULL,
+  updated_at          TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_enterprise_quotes_status ON enterprise_quotes (status, created_at);
+
+-- Additive column migrations (export of services, 2026-09-25). The engine applies
+-- these itself and ignores "duplicate column"; run once on a manually managed DB.
+
+ALTER TABLE billing_payments ADD COLUMN billing_country TEXT NOT NULL DEFAULT '';
+ALTER TABLE billing_payments ADD COLUMN payment_international INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE billing_payments ADD COLUMN export_basis TEXT NOT NULL DEFAULT '';
+ALTER TABLE billing_payments ADD COLUMN export_reference TEXT NOT NULL DEFAULT '';

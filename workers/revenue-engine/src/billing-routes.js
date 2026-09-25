@@ -36,7 +36,7 @@ import {
   issueInvoiceForPayment, getInvoiceByNumber, listInvoicesFor, listInvoiceHolds, completeRecipientDetails,
   recordRefund, issueCreditNoteForRefund, getCreditNoteByNumber, listCreditNotesFor, listPendingCreditNotes,
 } from "./billing-ledger.js";
-import { normalizeBillingName, normalizeBillingState } from "./gst.js";
+import { normalizeBillingName, normalizeBillingState, normalizeBillingCountry } from "./gst.js";
 
 const RAZORPAY_API_BASE = "https://api.razorpay.com/v1";
 export const REFUND_WINDOW_MS = 7 * 86400 * 1000;
@@ -333,9 +333,16 @@ function esc(s) {
   return String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 }
 
+// Zero-rated export: IGST 0 plus the LUT declaration and ARN (CGST Rules r.46, r.96A).
+function exportRowsHtml(doc) {
+  const x = doc.export || {};
+  return `<tr><td>IGST @ 0% (zero-rated export)</td><td class="n">0.00</td></tr>
+       <tr><td colspan="2"><strong>${esc(x.declaration)}</strong><br>LUT ARN ${esc(x.lut_arn)} (FY ${esc(x.lut_financial_year)})</td></tr>`;
+}
+
 export function renderInvoiceHtml(doc) {
   const t = doc.tax;
-  const rows = doc.supply_type === "intra_state"
+  const rows = doc.supply_type === "export_under_lut" ? exportRowsHtml(doc) : doc.supply_type === "intra_state"
     ? `<tr><td>CGST @ ${esc(t.cgst_rate_percent)}%</td><td class="n">${paise(t.cgst_paise)}</td></tr>
        <tr><td>SGST @ ${esc(t.sgst_rate_percent)}%</td><td class="n">${paise(t.sgst_paise)}</td></tr>`
     : `<tr><td>IGST @ ${esc(t.igst_rate_percent)}%</td><td class="n">${paise(t.igst_paise)}</td></tr>`;
@@ -349,7 +356,7 @@ h1{font-size:20px;margin:0 0 4px}table{width:100%;border-collapse:collapse;margi
 <table><tr><th>Invoice No.</th><td>${esc(doc.invoice_number)}</td><th>Invoice date</th><td>${esc(doc.invoice_date)}</td></tr>
 <tr><th>Place of supply</th><td>${esc(doc.place_of_supply.state_name)} (${esc(doc.place_of_supply.state_code)})</td><th>Reverse charge</th><td>No</td></tr></table>
 <table><tr><th>Supplier</th><th>Recipient</th></tr><tr><td>${esc(doc.supplier.legal_name)}${doc.supplier.trade_name ? "<br>" + esc(doc.supplier.trade_name) : ""}<br>${esc(doc.supplier.address)}<br>GSTIN: ${esc(doc.supplier.gstin)}<br>State: ${esc(doc.supplier.state_name)} (${esc(doc.supplier.state_code)})</td>
-<td>${esc(r.name || "")}${r.address ? "<br>" + esc(r.address) : ""}<br>${esc(r.email)}${r.gstin ? "<br>GSTIN: " + esc(r.gstin) : "<br>Unregistered"}</td></tr></table>
+<td>${esc(r.name || "")}${r.address ? "<br>" + esc(r.address) : ""}${r.country ? "<br>Country: " + esc(r.country) : ""}<br>${esc(r.email)}${r.gstin ? "<br>GSTIN: " + esc(r.gstin) : (r.country ? "" : "<br>Unregistered")}</td></tr></table>
 <table><tr><th>Description</th><th>SAC</th><th>Qty</th><th class="n">Taxable value (INR)</th></tr>
 ${doc.line_items.map((li) => `<tr><td>${esc(li.description)}</td><td>${esc(li.sac)}</td><td>${esc(li.quantity)}</td><td class="n">${paise(li.taxable_value_paise)}</td></tr>`).join("")}</table>
 <table><tr><td>Taxable value</td><td class="n">${paise(t.taxable_paise)}</td></tr>${rows}
@@ -410,13 +417,24 @@ export async function handleInvoiceIssue(request, env, ctx, rid) {
   const name = normalizeBillingName(body.billing_name);
   const state = normalizeBillingState(body.billing_state);
   const address = body.billing_address === undefined ? "" : plainText(body.billing_address, 300);
+  const country = normalizeBillingCountry(body.billing_country);
   if (!name.ok) return json({ error: name.reason }, 400);
   if (!state.ok) return json({ error: state.reason }, 400);
+  if (!country.ok) return json({ error: country.reason }, 400);
   if (body.billing_address !== undefined && address.length < 10) return json({ error: "billing_address must be 10-300 characters" }, 400);
+  // An operator may confirm that an export's consideration was received in
+  // convertible foreign exchange (e.g. against a FIRC/BRC); a reference is required.
+  const confirmExport = body.export_realisation_confirmed === true;
+  const realisationRef = plainText(body.export_realisation_reference, 120);
+  if (confirmExport && realisationRef.length < 4) return json({ error: "export_realisation_reference (FIRC/BRC or bank reference) is required" }, 400);
   const database = db(env);
   if (!(await getPayment(database, pid))) return json({ error: "not_found" }, 404);
-  if (name.value || address || state.value) {
-    await completeRecipientDetails(database, pid, { billing_name: name.value, billing_address: address, billing_state: state.value });
+  if (name.value || address || state.value || country.value || confirmExport) {
+    await completeRecipientDetails(database, pid, {
+      billing_name: name.value, billing_address: address, billing_state: state.value, billing_country: country.value,
+      export_realisation_confirmed: confirmExport, export_reference: realisationRef,
+    });
+    if (confirmExport) await trackEvent(env, "export_realisation_confirmed", { payment_id: pid, reference: realisationRef, rid });
   }
   const result = await issueInvoiceForPayment(database, env, pid);
   await trackEvent(env, result.status === "issued" ? "invoice_issued" : "invoice_held", { payment_id: pid, reason: result.reason || null, rid });
@@ -429,7 +447,7 @@ export async function handleInvoiceIssue(request, env, ctx, rid) {
 
 export function renderCreditNoteHtml(doc) {
   const t = doc.tax;
-  const rows = doc.supply_type === "intra_state"
+  const rows = doc.supply_type === "export_under_lut" ? exportRowsHtml(doc) : doc.supply_type === "intra_state"
     ? `<tr><td>CGST @ ${esc(t.cgst_rate_percent)}%</td><td class="n">${paise(t.cgst_paise)}</td></tr>
        <tr><td>SGST @ ${esc(t.sgst_rate_percent)}%</td><td class="n">${paise(t.sgst_paise)}</td></tr>`
     : `<tr><td>IGST @ ${esc(t.igst_rate_percent)}%</td><td class="n">${paise(t.igst_paise)}</td></tr>`;
@@ -444,7 +462,7 @@ h1{font-size:20px;margin:0 0 4px}table{width:100%;border-collapse:collapse;margi
 <tr><th>Against invoice</th><td>${esc(doc.original_invoice.invoice_number)} dated ${esc(doc.original_invoice.invoice_date)}</td><th>Place of supply</th><td>${esc(doc.place_of_supply.state_name)} (${esc(doc.place_of_supply.state_code)})</td></tr>
 <tr><th>Reason</th><td colspan="3">${esc(doc.reason)}</td></tr></table>
 <table><tr><th>Supplier</th><th>Recipient</th></tr><tr><td>${esc(doc.supplier.legal_name)}${doc.supplier.trade_name ? "<br>" + esc(doc.supplier.trade_name) : ""}<br>${esc(doc.supplier.address)}<br>GSTIN: ${esc(doc.supplier.gstin)}</td>
-<td>${esc(r.name || "")}${r.address ? "<br>" + esc(r.address) : ""}<br>${esc(r.email)}${r.gstin ? "<br>GSTIN: " + esc(r.gstin) : "<br>Unregistered"}</td></tr></table>
+<td>${esc(r.name || "")}${r.address ? "<br>" + esc(r.address) : ""}${r.country ? "<br>Country: " + esc(r.country) : ""}<br>${esc(r.email)}${r.gstin ? "<br>GSTIN: " + esc(r.gstin) : (r.country ? "" : "<br>Unregistered")}</td></tr></table>
 <table><tr><th>Description</th><th>SAC</th><th class="n">Taxable value (INR)</th></tr>
 ${doc.line_items.map((li) => `<tr><td>${esc(li.description)}</td><td>${esc(li.sac)}</td><td class="n">${paise(li.taxable_value_paise)}</td></tr>`).join("")}</table>
 <table><tr><td>Taxable value credited</td><td class="n">${paise(t.taxable_paise)}</td></tr>${rows}

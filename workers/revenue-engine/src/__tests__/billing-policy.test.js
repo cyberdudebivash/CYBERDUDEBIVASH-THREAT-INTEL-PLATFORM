@@ -222,7 +222,8 @@ test("registered buyer: held until name and address exist, then IGST for another
 test("export and high-value unregistered sales are held for review, never guessed", async () => {
   const env = makeEnv({ GST_INVOICE_CONFIG: GST_CONFIG });
   await seedPayment(env, { id: "pay_x", buyer: { billing_state: "OUTSIDE_INDIA" } });
-  assert.equal((await issueInvoiceForPayment(env.CRM_DB, env, "pay_x")).reason, "recipient_outside_india_export_requires_review");
+  assert.match((await issueInvoiceForPayment(env.CRM_DB, env, "pay_x")).reason, /^export_lut_not_configured_for_\d{2}-\d{2}$/,
+    "no LUT for the year: an export is never invoiced as domestic (billing-export-po.test.js covers LUT exports)");
   await seedPayment(env, { id: "pay_m", email: "m@example.com", amount: 8330000, tier: "MSSP" });
   assert.equal((await issueInvoiceForPayment(env.CRM_DB, env, "pay_m")).reason, "unregistered_recipient_details_required_at_or_above_50000");
 });
@@ -533,10 +534,10 @@ test("subscription checkout validates the buyer GSTIN and records it on the subs
 
 test("revenue-crm/schema.sql carries the same billing DDL the engine creates", async () => {
   const { readFileSync } = await import("node:fs");
-  const { BILLING_SCHEMA } = await import("../billing-ledger.js");
+  const { BILLING_SCHEMA, BILLING_MIGRATIONS } = await import("../billing-ledger.js");
   const norm = (s) => s.replace(/\s+/g, " ").trim();
   const sql = norm(readFileSync(new URL("../../../../revenue-crm/schema.sql", import.meta.url), "utf8"));
-  for (const stmt of BILLING_SCHEMA) assert.ok(sql.includes(norm(stmt)), "schema.sql is missing: " + norm(stmt).slice(0, 80));
+  for (const stmt of [...BILLING_SCHEMA, ...BILLING_MIGRATIONS]) assert.ok(sql.includes(norm(stmt)), "schema.sql is missing: " + norm(stmt).slice(0, 80));
 });
 
 test("customer cancellation is scheduled at cycle end: no refund, access kept until then", async () => {

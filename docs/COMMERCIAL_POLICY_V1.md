@@ -74,10 +74,38 @@ npx wrangler secret put GST_INVOICE_CONFIG
 - **Amounts**: the Razorpay charge is the total. Taxable value = total / (1 + rate).
 - **Place of supply**: the recipient's GSTIN state; else the declared billing
   state; else the supplier's location (no recipient address on record).
-- **Held for review, never guessed**: recipients outside India (export
-  treatment), non-INR payments, registered buyers without name + address, and
-  unregistered buyers at or above INR 50,000 without name, address and state
-  (r.46(e)). Resolve with `POST /api/v2/billing/invoices/issue`.
+- **Held for review, never guessed**: non-INR payments, exports that fail a
+  LUT condition (next section), registered buyers without name + address,
+  and unregistered buyers at or above INR 50,000 without name, address and
+  state (r.46(e)). Resolve with `POST /api/v2/billing/invoices/issue`.
+
+## Export of services under LUT (2026-09-25)
+
+IGST Act s.2(6) and s.16(3)(a); CGST Rules r.96A. A supply to a recipient
+outside India is invoiced **zero-rated** (IGST 0%, no tax carved out of the
+amount). The invoice carries the declaration "SUPPLY MEANT FOR EXPORT UNDER
+LETTER OF UNDERTAKING WITHOUT PAYMENT OF INTEGRATED TAX", the LUT ARN, and
+place of supply 96 with the country. This only happens when every condition
+the platform can evidence holds; otherwise the invoice is held:
+
+| Condition | Evidence | Hold reason |
+|---|---|---|
+| LUT accepted for the invoice's financial year | `luts` in `GST_INVOICE_CONFIG` | `export_lut_not_configured_for_<fy>` |
+| Recipient name, address, country | checkout (Outside India + ISO country), or admin | `export_recipient_name_address_country_required` |
+| Consideration in convertible foreign exchange | Razorpay's `international` flag on the payment; an operator confirmation with a FIRC/BRC reference; or (PO) the FIRC recorded at reconciliation | `export_foreign_exchange_not_evidenced` |
+
+```
+"luts": [ { "arn": "<LUT ARN>", "financial_year": "26-27" } ]
+```
+
+File a new LUT each financial year and add it before 1 April. A refund of an
+export invoice gets a zero-rated credit note. Whether a particular receipt
+qualifies as convertible foreign exchange (for example, an international card
+settled in INR by Razorpay) is for your CA to confirm; the operator
+confirmation path exists for exactly that.
+
+Confirm realisation for a held Razorpay export:
+`POST /api/v2/billing/invoices/issue {payment_id, export_realisation_confirmed: true, export_realisation_reference: "FIRC-..."}`.
 - **Refunded invoices get credit notes** (next section).
 
 ## GST credit notes (2026-09-25)
@@ -174,6 +202,51 @@ in both states. Existing grant holders keep access to the end of their paid
 period; their refunds and chargebacks are handled the same way when the sale
 was provisioned after this change.
 
+## Enterprise quote -> PO -> invoice -> bank transfer (2026-09-25)
+
+The only bank-transfer path. Public manual payment proof stays retired.
+Module: `workers/revenue-engine/src/enterprise-po.js`, table `enterprise_quotes`.
+
+```
+sent --(customer: PO number + date, quote token)--> accepted
+accepted --(finance: approve)--> invoiced          (tax invoice, shared GST engine)
+invoiced --(finance: reconcile UTR [+TDS] [+FIRC])--> paid --> provisioned (API key by email)
+sent/accepted --> cancelled (admin)      sent --(after valid_until)--> expired
+```
+
+- **Price:** ENTERPRISE INR 4,16,000 or MSSP INR 8,33,000 for 12 months, from
+  the canonical contract (a drift test pins them to
+  `config/commercial-contract.json`). A different price needs
+  `custom_amount_inr` plus a `price_reason`, both recorded. As on Razorpay,
+  the domestic amount is GST-inclusive; an export is zero-rated.
+- **Customer capability:** `HMAC(REVENUE_ADMIN_SECRET, "quote:"+id)`, returned
+  once at creation. Send the view link to the customer; it opens only that
+  quote. A wrong token and a missing quote look the same.
+- **Invoice:** a tax invoice (series `CDB/...`) with the PO number in the line
+  description, payable by bank transfer. The same hold rules apply, including
+  LUT for exports (`bank_realisation_pending` until the FIRC arrives). Cannot
+  be issued before the PO; approving twice gives one invoice.
+- **Reconciliation:** received amount + TDS must equal the invoice total
+  exactly. TDS needs a section (for example 194J), is capped at 20%, and is
+  not allowed on an export. The bank reference (UTR/SWIFT) is `UNIQUE`: one
+  transfer settles one invoice. An export needs the FIRC/e-BRC reference.
+- **Entitlement:** `provisionCustomer` runs exactly once
+  (`paid -> provisioning -> provisioned`). A failure returns the quote to
+  `paid` for `POST /quotes/provision`. The key goes to the customer by the
+  welcome email; responses show only a 12-character hint.
+- An invoiced quote cannot be cancelled. Reverse it with a credit note.
+
+| Route | Auth | Purpose |
+|---|---|---|
+| `POST /api/v2/billing/quotes` | admin | Create (`email, company_name, billing_address, gstin or billing_state [+billing_country], tier`) |
+| `GET /api/v2/billing/quotes?status=` | admin | List |
+| `GET /api/v2/billing/quotes/view?id=&token=[&format=html]` | quote token / admin | Quotation |
+| `POST /api/v2/billing/quotes/accept` `{id, token, po_number, po_date}` | quote token | Customer accepts with a PO |
+| `POST /api/v2/billing/quotes/invoice` `{id}` | admin | Approve the PO and issue the tax invoice |
+| `POST /api/v2/billing/quotes/reconcile` `{id, amount_received_paise, tds_paise?, tds_section?, bank_reference, received_on, firc_reference?}` | admin | Match the transfer and provision |
+| `POST /api/v2/billing/quotes/provision` `{id}` | admin | Retry provisioning |
+| `POST /api/v2/billing/quotes/cancel` `{id, note}` | admin | Cancel before invoicing |
+
 ## Known gaps (not in this change)
 
 - **Gumroad membership products** themselves (owner action, see the cutover
@@ -181,9 +254,10 @@ was provisioned after this change.
 - Gumroad sales provisioned **before** 2026-09-25 have no `sale_id` → key
   mapping. A refund ping for one is flagged (`noted_no_mapping`) for manual
   revocation.
-- **Export** (LUT) invoicing; **e-invoicing (IRN)** if aggregate turnover
-  crosses the threshold; filing credit notes in GSTR-1 (operator).
-- Enterprise **quote/PO -> bank transfer** accounts-receivable workflow.
+- **e-invoicing (IRN)** if aggregate turnover crosses the threshold; filing
+  invoices and credit notes in GSTR-1 (operator).
+- PO terms other than 12 months, PO renewals, and refunds of bank-transfer
+  payments (made by bank, then recorded manually).
 - One-time orders bought **before** this change are refunded from the Razorpay
   Dashboard. The gateway's existing `refund.*` webhook revokes their keys.
 - Refund revocation is immediate across API keys and already-issued JWTs.

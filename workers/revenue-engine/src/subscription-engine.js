@@ -32,7 +32,7 @@ import {
   json, sanitizeEmail, genId, TIERS, SUB_STATUS, provisionCustomer, trackEvent,
 } from "./index.js";
 import { Subscription } from "./subscription-domain.js";
-import { normalizeBuyerTaxId, normalizeBillingState, normalizeBillingName } from "./gst.js";
+import { normalizeBuyerTaxId, normalizeBillingState, normalizeBillingName, normalizeBillingCountry } from "./gst.js";
 import { recordCapturedPayment, issueInvoiceForPayment } from "./billing-ledger.js";
 import { applyBillingWebhookEvent } from "./billing-routes.js";
 
@@ -207,10 +207,17 @@ export async function handleBillingSubscriptionCreate(request, env, ctx, rid) {
   if (billingAddress && (billingAddress.length < 10 || billingAddress.length > 250)) {
     return json({ error: "Billing address must be 10-250 characters.", field: "billing_address" }, 400);
   }
+  // Export of services: a buyer outside India names their country (ISO
+  // 3166-1). It is only meaningful with billing_state OUTSIDE_INDIA.
+  const billingCountry = normalizeBillingCountry(body.billing_country);
+  if (!billingCountry.ok) return json({ error: billingCountry.reason, field: "billing_country" }, 400);
+  if (billingCountry.value && (taxId.kind === "gstin" || billingState.value !== "OUTSIDE_INDIA")) {
+    return json({ error: "A billing country applies only to a buyer outside India.", field: "billing_country" }, 400);
+  }
   const buyer = {
     gstin: taxId.kind === "gstin" ? taxId.value : "", vat_id: taxId.kind === "vat" ? taxId.value : "",
     billing_state: taxId.kind === "gstin" ? taxId.value.slice(0, 2) : billingState.value,
-    billing_name: billingName.value, billing_address: billingAddress,
+    billing_name: billingName.value, billing_address: billingAddress, billing_country: billingCountry.value,
   };
   const buyerNotes = {};
   for (const [k, v] of Object.entries(buyer)) if (v) buyerNotes[k] = v;
@@ -416,6 +423,7 @@ export async function handleBillingWebhook(request, env, ctx, rid) {
       const buyer = link?.buyer || {
         gstin: notes.gstin || "", vat_id: notes.vat_id || "", billing_state: notes.billing_state || "",
         billing_name: notes.billing_name || "", billing_address: notes.billing_address || "",
+        billing_country: notes.billing_country || "",
       };
       await recordCapturedPayment(env.CRM_DB, {
         payment: payEntity, providerSubId: providerId, email, tier, billingCycle: cycle, buyer,

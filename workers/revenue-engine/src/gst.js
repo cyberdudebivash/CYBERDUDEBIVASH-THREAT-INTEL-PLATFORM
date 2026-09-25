@@ -196,6 +196,25 @@ export function parseGstInvoiceConfig(raw) {
     try { formatInvoiceNumber(cnPrefix, "26-27", 1); } catch { missing.push("credit_note_prefix (number would exceed 16 characters)"); }
     if (prefix && cnPrefix === prefix) missing.push("credit_note_prefix (must differ from invoice_prefix)");
   }
+  // Export of services without payment of IGST (IGST Act s.16(3)(a), CGST
+  // Rules r.96A) needs a Letter of Undertaking accepted for the financial
+  // year of the invoice. Optional: without one, exports are held.
+  const luts = [];
+  if (c.luts !== undefined) {
+    if (!Array.isArray(c.luts)) missing.push("luts (must be a list)");
+    else {
+      for (const l of c.luts) {
+        const arn = l && typeof l.arn === "string" ? l.arn.trim().toUpperCase() : "";
+        const fy = l && typeof l.financial_year === "string" ? l.financial_year.trim() : "";
+        const m = /^(\d{2})-(\d{2})$/.exec(fy);
+        if (!/^[A-Z0-9]{10,20}$/.test(arn) || !m || (Number(m[1]) + 1) % 100 !== Number(m[2])) {
+          missing.push("luts (each needs arn and financial_year like \"26-27\")"); break;
+        }
+        if (luts.some((x) => x.financial_year === fy)) { missing.push(`luts (two LUTs for ${fy})`); break; }
+        luts.push({ arn, financial_year: fy });
+      }
+    }
+  }
   const confirmedBy = str("confirmed_by");
   const confirmedOn = typeof c.confirmed_on === "string" && /^\d{4}-\d{2}-\d{2}$/.test(c.confirmed_on) ? c.confirmed_on : (missing.push("confirmed_on"), null);
   if (missing.length) return { ok: false, missing };
@@ -205,7 +224,7 @@ export function parseGstInvoiceConfig(raw) {
       supplier_legal_name: legal, supplier_trade_name: trade, supplier_gstin: gstin,
       supplier_state_code: gstin.slice(0, 2), supplier_state_name: GST_STATES[gstin.slice(0, 2)],
       supplier_address: address, sac_subscription: sac, gst_rate_percent: rate, invoice_prefix: prefix,
-      credit_note_prefix: cnPrefix,
+      credit_note_prefix: cnPrefix, luts,
       confirmed_by: confirmedBy, confirmed_on: confirmedOn,
     },
   };
@@ -222,3 +241,31 @@ export function creditNoteAdjustmentDeadline(fy) {
   if (!m) throw new Error("creditNoteAdjustmentDeadline: invalid financial year");
   return `20${m[2]}-11-30`;
 }
+
+/** The LUT accepted for a financial year, or null. */
+export function lutFor(config, fy) {
+  return (config && Array.isArray(config.luts) && config.luts.find((l) => l.financial_year === fy)) || null;
+}
+
+// ISO 3166-1 alpha-2 codes (India excluded: a buyer in India is not an export).
+const ISO_COUNTRIES = new Set((
+  "AD AE AF AG AI AL AM AO AQ AR AS AT AU AW AX AZ BA BB BD BE BF BG BH BI BJ BL BM BN BO BQ BR BS BT BV BW BY BZ " +
+  "CA CC CD CF CG CH CI CK CL CM CN CO CR CU CV CW CX CY CZ DE DJ DK DM DO DZ EC EE EG EH ER ES ET FI FJ FK FM FO FR " +
+  "GA GB GD GE GF GG GH GI GL GM GN GP GQ GR GS GT GU GW GY HK HM HN HR HT HU ID IE IL IM IO IQ IR IS IT JE JM JO JP " +
+  "KE KG KH KI KM KN KP KR KW KY KZ LA LB LC LI LK LR LS LT LU LV LY MA MC MD ME MF MG MH MK ML MM MN MO MP MQ MR MS " +
+  "MT MU MV MW MX MY MZ NA NC NE NF NG NI NL NO NP NR NU NZ OM PA PE PF PG PH PK PL PM PN PR PS PT PW PY QA RE RO RS " +
+  "RU RW SA SB SC SD SE SG SH SI SJ SK SL SM SN SO SR SS ST SV SX SY SZ TC TD TF TG TH TJ TK TL TM TN TO TR TT TV TW " +
+  "TZ UA UG UM US UY UZ VA VC VE VG VI VN VU WF WS YE YT ZA ZM ZW").split(" "));
+
+/** Buyer country outside India (ISO 3166-1 alpha-2), or "" when not given. */
+export function normalizeBillingCountry(raw) {
+  if (raw === undefined || raw === null || raw === "") return { ok: true, value: "" };
+  if (typeof raw !== "string") return { ok: false, value: "", reason: "Billing country must be text." };
+  const v = raw.trim().toUpperCase();
+  if (v === "IN") return { ok: false, value: "", reason: "India is not outside India: choose your billing state instead." };
+  if (!ISO_COUNTRIES.has(v)) return { ok: false, value: "", reason: "Billing country must be an ISO 3166 two-letter code." };
+  return { ok: true, value: v };
+}
+
+// GST place-of-supply code for a recipient outside India ("Other Countries").
+export const GST_FOREIGN_POS_CODE = "96";
