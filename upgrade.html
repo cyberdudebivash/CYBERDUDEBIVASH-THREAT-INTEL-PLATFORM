@@ -846,15 +846,14 @@ h1 span { color: var(--accent); }
     <!-- SUCCESS STATE -->
     <div class="success-state" id="success-state">
       <div class="success-icon">&#9989;</div>
-      <div class="success-title">Payment Submitted!</div>
+      <div class="success-title" id="success-title">CHECKOUT</div>
       <div class="success-msg">
         Thank you for upgrading to <strong id="success-plan">SENTINEL APEX PRO</strong>!<br><br>
         <div style="background:rgba(16,185,129,0.08);border:1px solid rgba(16,185,129,0.2);border-radius:8px;padding:12px;margin:10px 0;text-align:left;">
-          <div style="font-size:11px;color:var(--text-dim);margin-bottom:4px;">REVIEW ID (save this)</div>
+          <div id="success-ref-label" style="font-size:11px;color:var(--text-dim);margin-bottom:4px;">REFERENCE</div>
           <div id="success-review-id" style="font-family:monospace;font-size:14px;color:var(--green);font-weight:700;letter-spacing:1px;word-break:break-all;"></div>
         </div>
         <div id="success-timeline" style="font-size:13px;color:var(--text-dim);margin:10px 0;">
-          &#9989; <strong style="color:var(--green);">Payment received via Razorpay</strong> &mdash; API key provisioned automatically.
         </div>
 
         <!-- ONBOARDING SNIPPETS -- populated by renderOnboardingSnippets() once the real
@@ -877,7 +876,15 @@ h1 span { color: var(--accent); }
             <code id="onboard-python" style="display:block;font-size:11px;color:var(--text);white-space:pre-wrap;word-break:break-all;"></code>
           </div>
         </div>
-        <strong>Need it urgently?</strong> WhatsApp your Review ID to:<br>
+        <div id="activation-actions" style="display:none;flex-wrap:wrap;gap:8px;justify-content:center;margin:12px 0;">
+          <button type="button" class="btn-outline" id="activation-copy-key">&#128203; Copy API key</button>
+          <button type="button" class="btn-outline" id="activation-test-api">&#9889; Test API</button>
+          <a href="/cyber-watchdog.html" class="btn-outline">&#128737; Open Cyber Watchdog</a>
+          <a href="/api-docs.html" class="btn-outline">&#128196; API docs</a>
+          <a href="/billing.html" class="btn-outline">&#128179; Billing Center</a>
+        </div>
+        <div id="activation-test-result" aria-live="polite" style="font-size:12px;color:var(--text-dim);min-height:1em;margin-bottom:8px;"></div>
+        <strong>Sales &amp; checkout support</strong> (quote your reference):<br>
         <a href="https://wa.me/918179881447" target="_blank" style="color:var(--accent);">+91 8179881447</a> &nbsp;&middot;&nbsp;
         <a href="mailto:enterprise@cyberdudebivash.com" style="color:var(--accent);">enterprise@cyberdudebivash.com</a>
       </div>
@@ -885,7 +892,7 @@ h1 span { color: var(--accent); }
         <a href="/onboarding.html" class="btn-outline">&#128214; Onboarding Guide</a>
         <a href="/api-docs.html" class="btn-outline">&#128196; API Docs</a>
         <a id="success-wa-link" href="https://wa.me/918179881447" target="_blank" class="btn-outline">&#128172; WhatsApp</a>
-        <button class="btn-outline" onclick="copyText(document.getElementById('success-review-id').textContent,this)" style="cursor:pointer;">&#128203; Copy Review ID</button>
+        <button class="btn-outline" onclick="copyText(document.getElementById('success-review-id').textContent,this)" style="cursor:pointer;">&#128203; Copy reference</button>
       </div>
     </div>
   </div>
@@ -952,11 +959,11 @@ h1 span { color: var(--accent); }
       <div class="trust-item"><span class="t-icon">&#10003;</span>STIX 2.1 &middot; MITRE ATT&amp;CK &middot; CISA KEV</div>
     </div>
 
-    <a href="https://wa.me/918179881447?text=Hi%20Bivash%2C%20I%20want%20to%20upgrade%20to%20SENTINEL%20APEX" target="_blank" class="wa-cta">
+    <a href="https://wa.me/918179881447?text=Hi%2C%20I%20need%20help%20with%20SENTINEL%20APEX%20subscription%20checkout" target="_blank" rel="noopener" class="wa-cta">
       <span class="wa-icon">&#128242;</span>
       <div>
-        <div class="wa-text">WhatsApp: +91 8179881447</div>
-        <div class="wa-sub">Instant activation &middot; Send payment screenshot</div>
+        <div class="wa-text">Sales &amp; checkout support: +91 8179881447</div>
+        <div class="wa-sub">Need help with subscription checkout? API access activates automatically after payment confirmation.</div>
       </div>
     </a>
 
@@ -1046,20 +1053,64 @@ function updateRazorpayPanel() {
   el = document.getElementById('rzp-display-cycle'); if (el) el.textContent = isAnnual ? 'Renews yearly' : 'Renews monthly';
 }
 
+// ── CHECKOUT STATE MACHINE (single source of checkout truth) ──────────
+// IDLE → CREATING_SUBSCRIPTION → CHECKOUT_OPEN → PAYMENT_AUTHORIZED →
+//   ACTIVE             only when the revenue engine's status endpoint
+//                      returns status "active" WITH the provisioned key;
+//   ACTIVATION_PENDING when the backend has not confirmed yet (timeout,
+//                      network error, webhook still in flight).
+// FAILED / CANCELLED_BY_BUYER are reachable only before payment is
+// authorized. PAYMENT_AUTHORIZED is never shown as ACTIVE, and a pending
+// activation is never shown as a failed payment. Once a payment has been
+// authorized the pay button stays disabled so a buyer is never nudged
+// into paying twice.
+var CHECKOUT_TRANSITIONS = {
+  IDLE:                  ['CREATING_SUBSCRIPTION'],
+  CREATING_SUBSCRIPTION: ['CHECKOUT_OPEN', 'FAILED', 'IDLE'],
+  CHECKOUT_OPEN:         ['PAYMENT_AUTHORIZED', 'FAILED', 'CANCELLED_BY_BUYER'],
+  PAYMENT_AUTHORIZED:    ['ACTIVE', 'ACTIVATION_PENDING'],
+  ACTIVATION_PENDING:    ['ACTIVE'],
+  ACTIVE:                [],
+  FAILED:                ['CREATING_SUBSCRIPTION'],
+  CANCELLED_BY_BUYER:    ['CREATING_SUBSCRIPTION'],
+};
+var checkoutState = 'IDLE';
+
+function setCheckoutState(next) {
+  var allowed = CHECKOUT_TRANSITIONS[checkoutState] || [];
+  if (allowed.indexOf(next) === -1) return false;
+  checkoutState = next;
+  if (document.body) document.body.setAttribute('data-checkout-state', next);
+  return true;
+}
+
+// Funnel events carry only tier / cycle / coarse reason -- never the
+// email, API key, payment or subscription identifiers, GSTIN or address.
+function trackCheckout(event, tier, extra) {
+  if (!window.apxTrack) return;
+  window.apxTrack(event, Object.assign({ tier: tier, cycle: isAnnual ? 'annual' : 'monthly', method: 'razorpay_subscription' }, extra || {}));
+}
+
 // Owner commercial policy (2026-09-24): PRO, Enterprise and MSSP are
 // recurring services and are sold ONLY as Razorpay Subscriptions
 // (revenue-engine POST /api/v2/billing/subscriptions/create). There is no
-// silent fallback to a one-time Order: a plan whose Razorpay Plan ID is not
-// live answers 503 and the buyer is told so, with a way to reach sales.
+// fallback to a one-time Order: a billing cycle whose Razorpay Plan ID is
+// not live answers 503 BEFORE any payment UI opens.
 // The server resolves tier + cycle to the Razorpay plan_id; no price is sent.
 function checkoutUnavailable(btn, orig, tier, reason) {
+  setCheckoutState('FAILED');
   if (btn) { btn.disabled = false; btn.innerHTML = orig; }
-  if (window.apxTrack) window.apxTrack('payment_failed', { tier: tier, method: 'razorpay_subscription', reason: reason });
-  alert('Online subscription checkout for this plan is not available right now. No payment was taken.\n' +
-        'Please try again later, or contact us: enterprise@cyberdudebivash.com / WhatsApp +91 8179881447.');
+  trackCheckout('payment_failed', tier, { reason: reason });
+  alert('This billing cycle is temporarily unavailable. No payment was taken.\n' +
+        'Please try again later, or contact sales & checkout support: enterprise@cyberdudebivash.com / WhatsApp +91 8179881447.');
 }
 
 async function initiateRazorpayCheckout() {
+  if (checkoutState === 'PAYMENT_AUTHORIZED' || checkoutState === 'ACTIVATION_PENDING' || checkoutState === 'ACTIVE') {
+    alert('A payment for this checkout has already been confirmed. Please do not pay again — check your Billing Center for its status.');
+    return;
+  }
+  if (checkoutState === 'CREATING_SUBSCRIPTION' || checkoutState === 'CHECKOUT_OPEN') return;
   var emailEl = document.getElementById('rzp-email');
   var email   = emailEl ? emailEl.value.trim() : '';
   if (!email || !/\S+@\S+\.\S+/.test(email)) {
@@ -1097,6 +1148,8 @@ async function initiateRazorpayCheckout() {
   var tier    = tierMap[currentPlan] || 'PRO';
   var cycle   = isAnnual ? 'annual' : 'monthly';
 
+  setCheckoutState('CREATING_SUBSCRIPTION');
+  trackCheckout('checkout_started', tier);
   if (btn) { btn.disabled = true; btn.innerHTML = '&#9203; Setting up checkout...'; }
 
   var sub, subResp;
@@ -1110,6 +1163,7 @@ async function initiateRazorpayCheckout() {
     return checkoutUnavailable(btn, orig, tier, 'subscription_create_network');
   }
   if (subResp.status === 400 && sub && sub.field) {
+    setCheckoutState('IDLE');
     if (btn) { btn.disabled = false; btn.innerHTML = orig; }
     alert(sub.error);
     return;
@@ -1118,8 +1172,10 @@ async function initiateRazorpayCheckout() {
     return checkoutUnavailable(btn, orig, tier, 'subscription_create_' + subResp.status);
   }
   if (typeof Razorpay === 'undefined') {
+    setCheckoutState('FAILED');
     if (btn) { btn.disabled = false; btn.innerHTML = orig; }
-    alert('Razorpay could not load \u2014 please check your connection and try again, or contact us on WhatsApp: +91 8179881447');
+    trackCheckout('payment_failed', tier, { reason: 'provider_script_unavailable' });
+    alert('Secure checkout could not load — no payment was taken. Please check your connection and try again, or contact sales & checkout support: +91 8179881447');
     return;
   }
 
@@ -1132,177 +1188,147 @@ async function initiateRazorpayCheckout() {
     theme:            { color: '#00d4ff' },
     modal: {
       ondismiss: function() {
+        // Razorpay also calls ondismiss after a successful handler in some
+        // SDK versions -- only a still-open checkout counts as a buyer cancel.
+        if (!setCheckoutState('CANCELLED_BY_BUYER')) return;
+        trackCheckout('checkout_cancelled', tier);
         if (btn) { btn.disabled = false; btn.innerHTML = orig; }
       }
     },
     handler: function(response) {
-      if (btn) btn.innerHTML = '&#9203; Confirming subscription...';
+      if (!setCheckoutState('PAYMENT_AUTHORIZED')) return;
+      trackCheckout('payment_authorized', tier);
+      if (btn) { btn.disabled = true; btn.innerHTML = '&#9203; Payment confirmed — activating...'; }
       pollSubscriptionStatus(sub.subscription_id, response.razorpay_payment_id, response.razorpay_signature, tier, email, btn, orig, 0);
     },
   };
   var subRzp = new Razorpay(subOptions);
   if (window.SentinelCheckout) {
     window.SentinelCheckout.bindPaymentFailedHandler(subRzp, function(msg) {
-      if (btn) { btn.disabled = false; btn.innerHTML = orig; }
-      if (window.apxTrack) window.apxTrack('payment_failed', { tier: tier, method: 'razorpay_subscription', reason: 'declined' });
+      // A declined attempt inside the open modal: the buyer may retry there.
+      if (checkoutState !== 'CHECKOUT_OPEN') return;
+      trackCheckout('payment_failed', tier, { reason: 'declined' });
       alert(msg);
     });
   }
+  setCheckoutState('CHECKOUT_OPEN');
+  trackCheckout('checkout_opened', tier);
   subRzp.open();
 }
 
 // Subscription activation happens asynchronously via Razorpay's
 // subscription.activated webhook, not synchronously in the Checkout
-// handler callback above (unlike the one-time-order flow's /verify
-// call below) -- poll briefly rather than assume the key already
+// handler callback -- poll briefly rather than assume the key already
 // exists the instant the modal's handler fires. paymentId/signature come
 // straight from Razorpay's own handler callback (response.razorpay_
 // payment_id / .razorpay_signature) and are required by the status
 // endpoint as proof this poller actually completed this checkout --
 // subscription_id alone isn't a secret, so the endpoint would otherwise
 // hand out another customer's live api_key to anyone who obtained it.
+var ACTIVATION_POLL_MAX_ATTEMPTS = 15; // ~30s at 2s intervals
 function pollSubscriptionStatus(subscriptionId, paymentId, signature, tier, email, btn, orig, attempt) {
-  var MAX_ATTEMPTS = 15; // ~30s at 2s intervals
   var qs = 'subscription_id=' + encodeURIComponent(subscriptionId) +
            '&payment_id=' + encodeURIComponent(paymentId) +
            '&signature=' + encodeURIComponent(signature);
+  function retryOrPend() {
+    if (attempt >= ACTIVATION_POLL_MAX_ATTEMPTS) {
+      showActivationPending(subscriptionId, tier, email, function() {
+        pollSubscriptionStatus(subscriptionId, paymentId, signature, tier, email, btn, orig, 0);
+      });
+      return;
+    }
+    setTimeout(function() { pollSubscriptionStatus(subscriptionId, paymentId, signature, tier, email, btn, orig, attempt + 1); }, 2000);
+  }
   fetch('/api/v2/billing/subscriptions/status?' + qs)
     .then(function(r) { return r.json().then(function(d) { return { ok: r.ok, d: d }; }); })
     .then(function(res) {
       if (res.ok && res.d && res.d.status === 'active' && res.d.api_key) {
         showRazorpaySuccess(res.d.api_key, tier, email);
-        if (btn) { btn.disabled = false; btn.innerHTML = orig; }
         return;
       }
-      if (attempt >= MAX_ATTEMPTS) {
-        alert('✔ Payment received! Your subscription is confirming \u2014 API key will be emailed to ' + email + ' within a few minutes.\nWhatsApp +91 8179881447 for instant help.');
-        showSuccessState(currentPlan, { review_id: subscriptionId });
-        if (btn) { btn.disabled = false; btn.innerHTML = orig; }
-        return;
-      }
-      setTimeout(function() { pollSubscriptionStatus(subscriptionId, paymentId, signature, tier, email, btn, orig, attempt + 1); }, 2000);
+      retryOrPend();
     })
-    .catch(function() {
-      if (attempt >= MAX_ATTEMPTS) {
-        alert('✔ Payment complete! Verifying...\nSubscription ID: ' + subscriptionId + '\nAPI key within 30 min.\nWhatsApp: +91 8179881447');
-        if (btn) { btn.disabled = false; btn.innerHTML = orig; }
-        return;
-      }
-      setTimeout(function() { pollSubscriptionStatus(subscriptionId, paymentId, signature, tier, email, btn, orig, attempt + 1); }, 2000);
-    });
+    .catch(retryOrPend);
 }
 
-// DEPRECATED (2026-09-24, owner commercial policy): one-time Orders
-// checkout. No longer called for PRO / Enterprise / MSSP, which are sold
-// only as Subscriptions (the gateway's create-order now answers 409
-// subscription_required for them). Kept for a future explicit one-time SKU;
-// remove if none is introduced by the next major release.
-async function initiateRazorpayOneTimeCheckout(email, tier, billing, btn, orig, gstin) {
-  if (btn) { btn.innerHTML = '&#9203; Creating order...'; }
-
-  try {
-    var resp  = await fetch('/api/payment/razorpay/create-order', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ tier: tier, email: email, billing: billing, gstin: gstin || undefined }),
-    });
-    var order = await resp.json();
-
-    if (resp.status === 400 && order && order.field === 'gstin') {
-      if (btn) { btn.disabled = false; btn.innerHTML = orig; }
-      alert(order.error);
-      return;
-    }
-    if (!resp.ok || !order.order_id) {
-      if (btn) { btn.disabled = false; btn.innerHTML = orig; }
-      if (window.apxTrack) window.apxTrack('payment_failed', { tier: tier, method: 'razorpay', reason: 'order_create_error' });
-      alert('Payment is temporarily unavailable. Please try again in a moment, or contact us on WhatsApp: +91 8179881447');
-      return;
-    }
-
-    if (typeof Razorpay === 'undefined') {
-      if (btn) { btn.disabled = false; btn.innerHTML = orig; }
-      alert('Razorpay could not load \u2014 please check your connection and try again, or contact us on WhatsApp: +91 8179881447');
-      return;
-    }
-
-    var rzpOptions = {
-      key:         order.key_id,
-      amount:      order.amount,
-      currency:    order.currency || 'INR',
-      name:        'CYBERDUDEBIVASH SENTINEL APEX',
-      description: order.plan + ' - ' + billing + ' subscription',
-      order_id:    order.order_id,
-      prefill:     { email: email },
-      notes:       Object.assign({}, order.notes || {}, gstin ? { gstin: gstin } : {}),
-      theme:       { color: '#00d4ff' },
-      modal: {
-        ondismiss: function() {
-          if (btn) { btn.disabled = false; btn.innerHTML = orig; }
-        }
-      },
-      handler: function(response) {
-        if (btn) btn.innerHTML = '&#9203; Verifying payment...';
-        fetch('/api/payment/razorpay/verify', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            razorpay_order_id:   response.razorpay_order_id,
-            razorpay_payment_id: response.razorpay_payment_id,
-            razorpay_signature:  response.razorpay_signature,
-            tier: tier, email: email, billing: billing,
-          }),
-        })
-        .then(function(r) { return r.json().then(function(d) { return { ok: r.ok, d: d }; }); })
-        .then(function(res) {
-          if (res.ok && res.d && res.d.api_key) {
-            showRazorpaySuccess(res.d.api_key, tier, email);
-          } else {
-            alert('\u2714 Payment received! API key delivered within 30 min.\nPayment ID: ' + response.razorpay_payment_id + '\nWhatsApp +91 8179881447 for instant help.');
-            showSuccessState(currentPlan, { review_id: response.razorpay_payment_id });
-          }
-          if (btn) { btn.disabled = false; btn.innerHTML = orig; }
-        })
-        .catch(function() {
-          alert('\u2714 Payment complete! Verifying...\nPayment ID: ' + response.razorpay_payment_id + '\nAPI key within 30 min.\nWhatsApp: +91 8179881447');
-          if (btn) { btn.disabled = false; btn.innerHTML = orig; }
-        });
-      },
-    };
-
-    var rzp = new Razorpay(rzpOptions);
-    // Explicit decline handling (js/checkout.js) -- distinct from
-    // modal.ondismiss above, which only covers the buyer closing the
-    // modal without attempting payment. This covers an actual decline
-    // (insufficient funds, bank rejection, etc.) with a clear message and
-    // immediately resets the button instead of leaving it stuck disabled.
-    if (window.SentinelCheckout) {
-      window.SentinelCheckout.bindPaymentFailedHandler(rzp, function(msg) {
-        if (btn) { btn.disabled = false; btn.innerHTML = orig; }
-        if (window.apxTrack) window.apxTrack('payment_failed', { tier: tier, method: 'razorpay', reason: 'declined' });
-        alert(msg);
-      });
-    }
-    rzp.open();
-  } catch(err) {
-    if (btn) { btn.disabled = false; btn.innerHTML = orig; }
-    alert('Network error. Please try again, or contact us on WhatsApp: +91 8179881447');
+// ACTIVATION_PENDING: the provider confirmed the payment, the backend has
+// not yet confirmed the entitlement. Truthful on both counts: the payment
+// is not reported as failed and access is not reported as provisioned.
+function showActivationPending(subscriptionId, tier, email, recheck) {
+  if (checkoutState === 'ACTIVE') return;
+  if (checkoutState !== 'ACTIVATION_PENDING') {
+    if (!setCheckoutState('ACTIVATION_PENDING')) return;
+    trackCheckout('activation_pending', tier);
   }
-}
-
-function showRazorpaySuccess(apiKey, tier, email) {
-  if (window.apxTrack) window.apxTrack('payment_confirm', { tier: tier, method: 'razorpay' });
   var fc = document.getElementById('checkout-state');
   var ss = document.getElementById('success-state');
   if (fc) fc.style.display = 'none';
-  if (ss) {
-    ss.style.display = 'block';
-    var planEl = document.getElementById('success-plan');
-    var revEl  = document.getElementById('success-review-id');
-    if (planEl) planEl.textContent = 'SENTINEL APEX ' + tier;
-    if (revEl)  revEl.textContent  = apiKey;
-    var tl = document.getElementById('success-timeline');
-    if (tl) tl.innerHTML = '&#9989; <strong style="color:var(--green)">API KEY PROVISIONED INSTANTLY</strong><br>Your key is shown above &#8212; copy it and use it with the X-API-Key header.<br><a href="/api-docs.html" style="color:var(--accent)">View API documentation &#8594;</a>';
-    renderOnboardingSnippets(apiKey);
+  if (!ss) return;
+  ss.style.display = 'block';
+  setText('success-title', 'PAYMENT CONFIRMED — ACTIVATION IN PROGRESS');
+  setText('success-plan', 'SENTINEL APEX ' + tier);
+  setText('success-ref-label', 'REFERENCE (subscription ID — quote this if you contact us)');
+  setText('success-review-id', subscriptionId);
+  var tl = document.getElementById('success-timeline');
+  if (tl) {
+    tl.textContent = '';
+    var p1 = document.createElement('div');
+    p1.innerHTML = '&#9203; <strong style="color:var(--yellow)">Your payment was confirmed by the payment provider.</strong> Your API access is being activated and has not been confirmed yet.';
+    var p2 = document.createElement('div');
+    p2.style.marginTop = '6px';
+    p2.textContent = 'Please do not pay again. When activation completes your API key is emailed to ' + email + ' and appears in your Billing Center.';
+    var again = document.createElement('button');
+    again.type = 'button';
+    again.className = 'btn-outline';
+    again.id = 'activation-recheck-btn';
+    again.style.marginTop = '10px';
+    again.textContent = 'Check activation status again';
+    again.onclick = function() { again.disabled = true; again.textContent = 'Checking...'; recheck(); };
+    tl.appendChild(p1); tl.appendChild(p2); tl.appendChild(again);
   }
+  ss.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function setText(id, text) { var e = document.getElementById(id); if (e) e.textContent = text; }
+
+// ACTIVE: reached only from a backend response carrying status "active"
+// and the provisioned key.
+function showRazorpaySuccess(apiKey, tier, email) {
+  if (!setCheckoutState('ACTIVE')) return;
+  trackCheckout('entitlement_activated', tier);
+  var fc = document.getElementById('checkout-state');
+  var ss = document.getElementById('success-state');
+  if (fc) fc.style.display = 'none';
+  if (!ss) return;
+  ss.style.display = 'block';
+  setText('success-title', 'SUBSCRIPTION ACTIVE');
+  setText('success-plan', 'SENTINEL APEX ' + tier);
+  setText('success-ref-label', 'YOUR API KEY (copy it and store it securely)');
+  setText('success-review-id', apiKey);
+  var tl = document.getElementById('success-timeline');
+  if (tl) tl.innerHTML = '&#9989; <strong style="color:var(--green)">Entitlement confirmed — your API access is active.</strong><br>Send the key in the X-API-Key header.';
+  var actions = document.getElementById('activation-actions');
+  if (actions) actions.style.display = 'flex';
+  var copyBtn = document.getElementById('activation-copy-key');
+  if (copyBtn) copyBtn.onclick = function() { copyText(apiKey, copyBtn); };
+  var testBtn = document.getElementById('activation-test-api');
+  if (testBtn) testBtn.onclick = function() { testApiKey(apiKey, testBtn); };
+  renderOnboardingSnippets(apiKey);
+  ss.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+// One real authenticated request with the new key; only the HTTP outcome
+// is shown, never the key.
+function testApiKey(apiKey, btn) {
+  var out = document.getElementById('activation-test-result');
+  if (btn) btn.disabled = true;
+  if (out) out.textContent = 'Testing...';
+  fetch('/api/feed', { headers: { 'X-API-Key': apiKey } })
+    .then(function(r) {
+      if (out) out.textContent = r.ok ? '✔ API responded ' + r.status + ' — your key works.' : 'API responded ' + r.status + '. If this persists, contact support with your subscription reference.';
+    })
+    .catch(function() { if (out) out.textContent = 'Network error while testing — please try again.'; })
+    .then(function() { if (btn) btn.disabled = false; });
 }
 
 // Automated onboarding modal (js/checkout.js): pre-filled cURL + Python
@@ -1486,16 +1512,6 @@ function updateSummary() {
   se('summary-price', priceStr);
   se('summary-inr', inr ? '\u20b9' + inr.toLocaleString() : 'Free');
   se('summary-total', currentPlan === 'free' ? 'Free' : '$' + usd);
-  se('upi-amount', '\u20b9' + (inr || 0).toLocaleString());
-  se('upi-step-amount', '\u20b9' + (inr || 0).toLocaleString());
-  se('neft-amount', '\u20b9' + (inr || 0).toLocaleString());
-  se('neft-step-amount', '\u20b9' + (inr || 0).toLocaleString());
-  se('paypal-step-amount', '$' + usd + ' USD');
-  se('crypto-amount', '$' + usd + ' USD equivalent');
-  se('crypto-step-amount', '$' + usd + ' USD equivalent');
-
-  var apf = document.getElementById('amount-paid-field');
-  if (apf) apf.placeholder = 'e.g. \u20b9' + inr + ' or $' + usd + ' or ' + usd + ' USDT';
 
   var hp = document.getElementById('hidden-plan');
   var hb = document.getElementById('hidden-billing');
@@ -1533,48 +1549,6 @@ function copyText(text, btn) {
 
 // Reachable only from initiateRazorpayCheckout()'s webhook-pending fallback
 // (verify succeeded but the key wasn't returned in the immediate response).
-function showSuccessState(plan, wData) {
-  var cs  = document.getElementById('checkout-state');
-  var ss  = document.getElementById('success-state');
-  var sp  = document.getElementById('success-plan');
-  var rid = document.getElementById('success-review-id');
-  var waL = document.getElementById('success-wa-link');
-  var tl  = document.getElementById('success-timeline');
-
-  // Generate order ID for tracking and confirmation page
-  var orderId = 'ORD-' + Date.now().toString(36).toUpperCase() + '-' + Math.random().toString(36).substr(2,4).toUpperCase();
-
-  if (cs) cs.style.display = 'none';
-  if (ss) ss.style.display = 'block';
-  if (sp && PLANS[plan]) sp.textContent = PLANS[plan].name;
-  if (rid && wData.review_id) rid.textContent = wData.review_id;
-  if (waL) waL.href = 'https://wa.me/918179881447?text=' + encodeURIComponent('Hi Bivash! Razorpay payment received. Order ID: ' + orderId + '. Review ID: ' + (wData.review_id || 'N/A') + '. Plan: ' + (PLANS[plan] ? PLANS[plan].name : plan));
-
-  var cvDiv = document.getElementById('success-crypto-verify');
-  if (cvDiv) cvDiv.style.display = 'none';
-  if (tl) {
-    tl.innerHTML = '&#9989; <strong style="color:var(--green)">Payment received via Razorpay</strong> \u2014 your API key is being provisioned and will be delivered to your email shortly.<br>&#128172; WhatsApp your Review ID to <strong>+91 8179881447</strong> if you need it urgently.';
-  }
-
-  // Show order confirmation link
-  var confirmUrl = '/payment-confirmation.html?plan=' + encodeURIComponent(plan)
-    + '&order_id=' + encodeURIComponent(orderId)
-    + '&review_id=' + encodeURIComponent(wData.review_id || 'PENDING')
-    + '&ts=' + Date.now();
-  if (ss) {
-    var existingLink = ss.querySelector('.order-confirm-link');
-    if (!existingLink) {
-      var linkDiv = document.createElement('div');
-      linkDiv.className = 'order-confirm-link';
-      linkDiv.style.cssText = 'margin-top:18px;padding:14px;background:rgba(0,212,255,0.06);border:1px solid rgba(0,212,255,0.2);border-radius:8px;text-align:center;';
-      linkDiv.innerHTML = '<span style="font-size:11px;font-family:monospace;color:#64748b;display:block;margin-bottom:6px;">ORDER ID: ' + orderId + '</span>'
-        + '<a href="' + confirmUrl + '" style="color:#00d4ff;font-size:13px;font-weight:700;text-decoration:none;">&#128229; View Order Confirmation &amp; Receipt &rarr;</a>';
-      ss.appendChild(linkDiv);
-    }
-  }
-
-  if (ss) ss.scrollIntoView({ behavior: 'smooth', block: 'start' });
-}
 
 /* ── FUNNEL-TRUTH HARD CONTRACT (Phase 2B) ──────────────────────
    free NEVER becomes pro.
@@ -1703,11 +1677,10 @@ function resolveCheckoutPlan(search) {
   var pd = document.querySelector('input[name="payment_date"]');
   if (pd) pd.value = new Date().toISOString().split('T')[0];
 
-  // Checkout return handler (kept for future Stripe re-activation)
-  if (params.get('checkout') === 'success') {
-    var planParam = params.get('plan') || 'pro';
-    showSuccessState(planParam, { review_id: 'DIRECT-' + (params.get('session_id') || Date.now()), bsc_status: null });
-  }
+  // A ?checkout=success URL parameter is NOT evidence of payment or
+  // entitlement (anyone can type it), so it no longer renders a success
+  // state. ACTIVE is reached only via showRazorpaySuccess() after the
+  // backend confirms the subscription.
   /* -- STIX BUNDLE CONTEXT HANDLER -----------------------------------------
      Fires when arriving from a locked STIX Bundle card on the dashboard.
      URL params: source=stix-bundle, severity=CRITICAL|HIGH|MEDIUM|LOW
