@@ -72,6 +72,7 @@ tr:hover td{background:rgba(255,255,255,.02)}
 .alert-success{background:rgba(0,255,136,.08);border:1px solid var(--green);color:var(--green)}
 .alert-warn{background:rgba(255,215,0,.08);border:1px solid var(--yellow);color:var(--yellow)}
 .alert-info{background:rgba(0,212,255,.08);border:1px solid var(--accent);color:var(--accent)}
+.alert-error{background:rgba(255,68,68,.08);border:1px solid var(--red);color:var(--red)}
 .key-display{background:#0a0e1a;border:1px solid var(--border);border-radius:6px;padding:10px 14px;font-family:monospace;font-size:12px;color:var(--green);word-break:break-all;margin-top:8px}
 .health-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
 .health-item{background:#0a0e1a;border:1px solid var(--border);border-radius:8px;padding:14px;text-align:center}
@@ -133,6 +134,7 @@ tr:hover td{background:rgba(255,255,255,.02)}
     <div class="nav-section">REVENUE</div>
     <div class="nav-item" onclick="showPage('revenue')">REVENUE TRACKER</div>
     <div class="nav-item" onclick="showPage('enterprise')">ENTERPRISE LEADS</div>
+    <div class="nav-item" onclick="showPage('commercial')">COMMERCIAL READINESS</div>
   </div>
 
   <div class="content">
@@ -196,49 +198,19 @@ tr:hover td{background:rgba(255,255,255,.02)}
         <p>Incoming payments &mdash; approve and activate user access</p>
       </div>
       <div class="alert alert-info">
-        Payments arrive via UPI (bivash@ybl), PayPal (paypal.me/cyberdudebivash), or Crypto. After payment confirmation, issue the API key below.
+        Customer payments are Razorpay Subscriptions and Gumroad memberships; paid access activates automatically after the payment webhook. Manual payment proof (UPI / PayPal / crypto) is retired (docs/COMMERCIAL_POLICY_V1.md). Enterprise bank transfers go through the quote &rarr; PO &rarr; invoice &rarr; reconciliation workflow (/api/v2/billing/quotes).
       </div>
       <div class="card">
         <div class="card-header">
-          <h3>PENDING ACTIVATIONS</h3>
+          <h3>WHAT NEEDS AN OPERATOR</h3>
           <button class="btn btn-sm btn-blue" onclick="loadPendingPayments()">REFRESH</button>
         </div>
         <div class="card-body">
           <table>
-            <thead><tr><th>TIME</th><th>EMAIL</th><th>PLAN</th><th>AMOUNT</th><th>METHOD</th><th>STATUS</th><th>ACTION</th></tr></thead>
             <tbody id="payments-table">
-              <tr><td colspan="7" style="color:#64748b;text-align:center;padding:24px">Loading payment data from API...</td></tr>
+              <tr><td style="color:#64748b;text-align:center;padding:24px">Refund requests, invoice holds, credit notes, disputes and enterprise quotes are listed under COMMERCIAL READINESS.</td></tr>
             </tbody>
           </table>
-        </div>
-      </div>
-      <div class="card">
-        <div class="card-header"><h3>MANUAL PAYMENT APPROVAL</h3></div>
-        <div class="card-body">
-          <p style="font-size:12px;color:#64748b;margin-bottom:16px">Customer checkout is automated via Razorpay/Gumroad. Use this only for exceptional cases (e.g. a negotiated enterprise wire transfer) — verify payment out-of-band, then manually activate the user below.</p>
-          <div class="grid-2">
-            <div class="form-group">
-              <label>CUSTOMER EMAIL</label>
-              <input type="email" id="pay-email" placeholder="customer@example.com">
-            </div>
-            <div class="form-group">
-              <label>PLAN</label>
-              <select id="pay-plan">
-                <option value="pro">PRO &mdash; $29/mo</option>
-                <option value="enterprise">ENTERPRISE &mdash; $199/mo</option>
-                <option value="mssp">MSSP / CUSTOM</option>
-              </select>
-            </div>
-            <div class="form-group">
-              <label>PAYMENT REFERENCE</label>
-              <input type="text" id="pay-ref" placeholder="UPI TXN ID / PayPal / TXID">
-            </div>
-            <div class="form-group">
-              <label>AMOUNT RECEIVED</label>
-              <input type="text" id="pay-amount" placeholder="$29.00 / INR 2499">
-            </div>
-          </div>
-          <button class="btn btn-primary" onclick="approvePayment()">CONFIRM PAYMENT & ISSUE API KEY</button>
         </div>
       </div>
     </div>
@@ -261,6 +233,16 @@ tr:hover td{background:rgba(255,255,255,.02)}
               <tr><td colspan="8" style="color:#64748b;text-align:center;padding:24px">Loading users from API...</td></tr>
             </tbody>
           </table>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header"><h3>REVOKE A KEY</h3></div>
+        <div class="card-body">
+          <form id="revoke-form" autocomplete="off" style="display:flex;gap:10px;flex-wrap:wrap">
+            <input type="text" id="revoke-key" placeholder="cdb_pro_..." maxlength="200" spellcheck="false" style="flex:1;min-width:220px;background:#0a0f1a;border:1px solid var(--border);color:#e2e8f0;padding:9px 12px;border-radius:6px;font-family:monospace">
+            <button class="btn btn-sm btn-red" type="submit">REVOKE</button>
+          </form>
+          <p style="font-size:11px;color:#64748b;margin-top:8px">Deletes the key at the gateway (DELETE /api/admin/keys/{key}). For a paid subscription, cancel or refund it instead so billing and access stay consistent.</p>
         </div>
       </div>
     </div>
@@ -482,15 +464,131 @@ tr:hover td{background:rgba(255,255,255,.02)}
       </div>
     </div>
 
+    <!-- S13/S22/S23: revenue engine GET /api/v2/billing/admin/readiness.
+         Its X-Admin-Secret (REVENUE_ADMIN_SECRET) is not the gateway admin
+         key above; it is held in memory only and cleared on reload. -->
+    <div class="page" id="page-commercial">
+      <div class="page-header">
+        <h1>COMMERCIAL READINESS</h1>
+        <p>Can checkout take money correctly right now, and what is waiting on an operator</p>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <h3>GO-LIVE VERDICT</h3>
+          <span class="badge badge-gray" id="cr-verdict">NOT LOADED</span>
+        </div>
+        <div class="card-body">
+          <form id="cr-form" autocomplete="off" style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+            <input type="password" id="cr-secret" placeholder="Revenue engine admin secret" maxlength="200" style="flex:1;min-width:220px;background:#0a0f1a;border:1px solid var(--border);color:#e2e8f0;padding:9px 12px;border-radius:6px">
+            <button class="btn btn-sm btn-blue" type="submit">LOAD</button>
+          </form>
+          <div id="cr-msg" style="font-size:12px;color:#64748b;margin-top:10px"></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header"><h3>CONFIGURATION CHECKS</h3></div>
+        <div class="card-body" style="overflow-x:auto">
+          <table>
+            <thead><tr><th>CHECK</th><th>STATUS</th><th>DETAIL</th><th>FIX</th></tr></thead>
+            <tbody id="cr-checks"></tbody>
+          </table>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header"><h3>OPERATOR QUEUE</h3><span class="badge badge-gray" id="cr-attention">--</span></div>
+        <div class="card-body" style="overflow-x:auto">
+          <table>
+            <thead><tr><th>ITEM</th><th>COUNT</th><th>OVERDUE</th><th>OLDEST (H)</th><th>ACTION</th></tr></thead>
+            <tbody id="cr-queue"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
   </div><!-- /content -->
 </div><!-- /main -->
 
 <div id="toast"></div>
 
 <script>
+// ---- COMMERCIAL READINESS (S13/S22/S23) ----
+(function () {
+  let revenueSecret = null; // memory only
+  const el = (id) => document.getElementById(id);
+  function cell(text, style) { const td = document.createElement('td'); td.textContent = text == null ? '' : String(text); if (style) td.style.cssText = style; return td; }
+  function badge(text, kind) { const b = document.createElement('span'); b.className = 'badge badge-' + kind; b.textContent = text; return b; }
+  function render(d) {
+    const v = el('cr-verdict');
+    v.textContent = d.verdict;
+    v.className = 'badge ' + (d.verdict === 'READY' ? 'badge-green' : 'badge-red');
+    el('cr-msg').textContent = (d.blockers.length ? 'Blockers: ' + d.blockers.join(', ') + '. ' : 'No blockers. ') +
+      (d.warnings.length ? 'Warnings: ' + d.warnings.join(', ') + '. ' : '') + 'Generated ' + d.generated_at + '.';
+    const checks = el('cr-checks');
+    checks.replaceChildren();
+    d.checks.forEach((c) => {
+      const tr = document.createElement('tr');
+      tr.appendChild(cell(c.id, 'font-family:monospace'));
+      const st = document.createElement('td');
+      st.appendChild(c.ok ? badge('OK', 'green') : badge(c.blocking ? 'BLOCKER' : 'WARNING', c.blocking ? 'red' : 'yellow'));
+      tr.appendChild(st);
+      tr.appendChild(cell(c.detail, 'white-space:normal'));
+      tr.appendChild(cell(c.ok ? '' : c.fix, 'white-space:normal;font-family:monospace;font-size:11px;color:#94a3b8'));
+      checks.appendChild(tr);
+    });
+    const queue = el('cr-queue');
+    queue.replaceChildren();
+    const a = el('cr-attention');
+    if (!d.queue) {
+      a.textContent = 'UNAVAILABLE'; a.className = 'badge badge-yellow';
+      const tr = document.createElement('tr'); tr.appendChild(cell('Billing ledger unreachable: queue unavailable.')); queue.appendChild(tr);
+      return;
+    }
+    a.textContent = d.queue.attention + ' NEED ACTION';
+    a.className = 'badge ' + (d.queue.attention ? 'badge-yellow' : 'badge-green');
+    Object.entries(d.queue.items).forEach(([k, q]) => {
+      const tr = document.createElement('tr');
+      tr.appendChild(cell(k.replace(/_/g, ' ')));
+      tr.appendChild(cell(q.count));
+      const od = document.createElement('td');
+      od.appendChild(q.overdue ? badge(String(q.overdue), 'red') : badge('0', 'green'));
+      tr.appendChild(od);
+      tr.appendChild(cell(q.oldest_age_hours == null ? '--' : q.oldest_age_hours));
+      tr.appendChild(cell(q.action, 'white-space:normal;font-family:monospace;font-size:11px;color:#94a3b8'));
+      queue.appendChild(tr);
+    });
+  }
+  async function load() {
+    el('cr-msg').textContent = 'Loading...';
+    try {
+      const r = await fetch('/api/v2/billing/admin/readiness', { headers: { 'X-Admin-Secret': revenueSecret }, cache: 'no-store', credentials: 'omit' });
+      if (r.status === 401) { revenueSecret = null; el('cr-msg').textContent = 'Revenue engine admin secret rejected.'; return; }
+      if (!r.ok) { el('cr-msg').textContent = 'Readiness endpoint unavailable (HTTP ' + r.status + ').'; return; }
+      render(await r.json());
+    } catch (e) {
+      el('cr-msg').textContent = 'Network error loading readiness.';
+    }
+  }
+  document.addEventListener('DOMContentLoaded', () => {
+    const f = el('cr-form');
+    if (!f) return;
+    f.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const v = el('cr-secret').value.trim();
+      if (v) revenueSecret = v;
+      el('cr-secret').value = '';
+      if (revenueSecret) load();
+    });
+  });
+})();
+
 const API = 'https://intel.cyberdudebivash.com';
 let adminKey = '';
 let selectedPlan = 'free';
+
+// Every server or form value rendered into HTML goes through esc().
+function esc(v) {
+  return String(v == null ? '' : v).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
 
 // ---- AUTH ----
 function doAuth() {
@@ -618,68 +716,19 @@ async function loadIntel() {
 }
 
 function loadUsers() {
-  // Admin API endpoint \u2014 requires X-Admin-Key header
-  fetch(API + '/api/admin/users', {
-    headers: { 'X-Admin-Key': adminKey, 'X-Admin-Secret': adminKey }
-  })
-  .then(r => r.json())
-  .then(d => {
-    const users = d.users || [];
-    document.getElementById('stat-users').textContent = users.length || '0';
-    const pro = users.filter(u => u.plan !== 'free').length;
-    document.getElementById('stat-pro').textContent = pro;
-    if (!users.length) {
-      document.getElementById('users-table').innerHTML = '<tr><td colspan="8" style="color:#64748b;text-align:center;padding:24px">No users found. Issue the first API key to get started.</td></tr>';
-      return;
-    }
-    document.getElementById('users-table').innerHTML = users.map(u => `
-      <tr>
-        <td>${u.email||'--'}</td>
-        <td><span class="badge ${u.plan==='enterprise'?'badge-purple':u.plan==='pro'?'badge-green':'badge-gray'}">${(u.plan||'free').toUpperCase()}</span></td>
-        <td style="font-family:monospace">${(u.api_key||'').substring(0,12)}...</td>
-        <td>${u.created_at ? new Date(u.created_at).toLocaleDateString() : '--'}</td>
-        <td>${u.expires_at ? new Date(u.expires_at).toLocaleDateString() : 'Lifetime'}</td>
-        <td>${u.request_count||0}</td>
-        <td><span class="badge ${u.active!==false?'badge-green':'badge-red'}">${u.active!==false?'ACTIVE':'EXPIRED'}</span></td>
-        <td><button class="btn btn-sm btn-red" onclick="revokeKey('${u.api_key||''}')">REVOKE</button></td>
-      </tr>`).join('');
-    updateRevenue(
-      users.filter(u => u.plan==='pro').length,
-      users.filter(u => u.plan==='enterprise').length
-    );
-  })
-  .catch(() => {
-    document.getElementById('users-table').innerHTML = '<tr><td colspan="8" style="color:#64748b;text-align:center;padding:24px">Admin API not reachable. Ensure Worker is deployed and ADMIN_SECRET is set via: npx wrangler secret put ADMIN_SECRET</td></tr>';
-  });
+  // The gateway has no key-listing endpoint (keys live in API_KEYS_KV, keyed
+  // by the key itself). Say so rather than render an empty "no users" list.
+  document.getElementById('users-table').innerHTML =
+    '<tr><td colspan="8" style="color:#64748b;text-align:center;padding:24px">' +
+    'Key listing is not available from the gateway. Subscriber state: revenue engine GET /api/subscriptions (X-Admin-Secret); ' +
+    'one key: REVOKE A KEY below, or PATCH /api/admin/keys/{key}/status.</td></tr>';
 }
 
 function loadPendingPayments() {
-  fetch(API + '/api/admin/leads', {
-    headers: { 'X-Admin-Key': adminKey, 'X-Admin-Secret': adminKey }
-  })
-  .then(r => r.json())
-  .then(d => {
-    const leads = d.leads || [];
-    if (!leads.length) {
-      document.getElementById('payments-table').innerHTML = '<tr><td colspan="7" style="color:#64748b;text-align:center;padding:24px">No pending payments. Payments arrive via upgrade.html form submissions.</td></tr>';
-      return;
-    }
-    document.getElementById('payments-table').innerHTML = leads.map(l => `
-      <tr>
-        <td>${l.submitted_at ? new Date(l.submitted_at).toLocaleString() : '--'}</td>
-        <td>${l.email||'--'}</td>
-        <td><span class="badge ${l.plan==='enterprise'?'badge-purple':'badge-green'}">${(l.plan||'--').toUpperCase()}</span></td>
-        <td>--</td>
-        <td>${l.payment_method||'--'}</td>
-        <td><span class="badge badge-yellow">PENDING</span></td>
-        <td>
-          <button class="btn btn-sm btn-green" onclick="quickApprove('${l.email}','${l.plan||'pro'}')">APPROVE</button>
-        </td>
-      </tr>`).join('');
-  })
-  .catch(() => {
-    document.getElementById('payments-table').innerHTML = '<tr><td colspan="7" style="color:#64748b;text-align:center;padding:24px">Admin API not available. Deploy Worker with ADMIN_SECRET to enable live payment tracking.</td></tr>';
-  });
+  // Manual payments are retired: nothing is "pending activation" here.
+  // Operator work lives in the commercial readiness queue.
+  document.getElementById('payments-table').innerHTML =
+    '<tr><td style="color:#64748b;text-align:center;padding:24px">Refund requests, invoice holds, credit notes, disputes and enterprise quotes are listed under COMMERCIAL READINESS.</td></tr>';
 }
 
 function loadLeads() {
@@ -706,79 +755,61 @@ function selectPlan(btn, plan) {
   document.getElementById('key-plan').value = plan;
 }
 
-function generateKey(plan) {
-  const prefix = {free:'CDB-FREE', pro:'CDB-PRO', enterprise:'CDB-ENT', mssp:'CDB-MSSP'}[plan] || 'CDB-KEY';
-  const rand = Array.from({length:32}, () => 'ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz0123456789'[Math.floor(Math.random()*57)]).join('');
-  return prefix + '-' + rand.slice(0,8) + '-' + rand.slice(8,16) + '-' + rand.slice(16,24);
-}
-
+// Keys are minted by the gateway (POST /api/admin/keys, crypto random) and
+// shown only once the gateway confirms they exist.
 async function issueKey() {
   const email = document.getElementById('key-email').value.trim();
   const plan  = document.getElementById('key-plan').value;
-  const dur   = document.getElementById('key-duration').value;
+  const dur   = parseInt(document.getElementById('key-duration').value, 10) || 0;
   const notes = document.getElementById('key-notes').value.trim();
   if (!email) { showToast('Email required', 'red'); return; }
+  const result = document.getElementById('key-result');
+  const tmpl = document.getElementById('email-template');
 
-  const key = generateKey(plan);
-  const created = new Date().toISOString();
-  const expires = dur === '0' ? null : new Date(Date.now() + parseInt(dur) * 86400000).toISOString();
-  const expiresStr = expires ? new Date(expires).toLocaleDateString() : 'Lifetime';
-  const planPrices = {free:'Free',pro:'$29/mo',enterprise:'$199/mo',mssp:'Custom'};
-
-  // Try to register via API
+  let rec = null, err = null;
   try {
-    await fetch(API + '/api/admin/provision-key', {
+    const r = await fetch(API + '/api/admin/keys', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Admin-Key': adminKey,
-        'X-Admin-Secret': adminKey
-      },
-      body: JSON.stringify({ email, plan, api_key: key, expires_at: expires, notes, duration_days: parseInt(dur)||30 })
+      headers: { 'Content-Type': 'application/json', 'X-Admin-Key': adminKey },
+      body: JSON.stringify({ tier: plan.toUpperCase(), customer_id: email, label: notes || email, ...(dur ? { expires_in_days: dur } : {}) }),
     });
-  } catch(e) {}
+    const d = await r.json().catch(() => ({}));
+    if (r.status === 201 && d && d.key) rec = d;
+    else err = (d && d.error) || ('HTTP ' + r.status);
+  } catch (e) { err = 'network error'; }
 
-  document.getElementById('key-result').innerHTML = `
-    <div class="alert alert-success">API Key Generated Successfully</div>
-    <div style="font-size:12px;color:#64748b;margin-bottom:6px">GENERATED KEY:</div>
-    <div class="key-display">${key}</div>
+  if (!rec) {
+    result.innerHTML = '<div class="alert alert-error">No key was issued: ' + esc(err) + '.</div>';
+    tmpl.textContent = 'Nothing to send: no key was issued.';
+    showToast('Key not issued', 'red');
+    return;
+  }
+  const key = rec.key;
+  const expiresStr = rec.expires_at ? new Date(rec.expires_at).toLocaleDateString() : 'No expiry';
+  result.innerHTML = `
+    <div class="alert alert-success">API key created by the gateway</div>
+    <div style="font-size:12px;color:#64748b;margin-bottom:6px">KEY:</div>
+    <div class="key-display">${esc(key)}</div>
     <div style="margin-top:14px;font-size:11px;line-height:1.8;color:#64748b">
-      <div>Email: <span style="color:#e2e8f0">${email}</span></div>
-      <div>Plan: <span style="color:#e2e8f0">${plan.toUpperCase()} (${planPrices[plan]})</span></div>
-      <div>Expires: <span style="color:#e2e8f0">${expiresStr}</span></div>
-      <div>Created: <span style="color:#e2e8f0">${new Date(created).toLocaleString()}</span></div>
+      <div>Customer: <span style="color:#e2e8f0">${esc(rec.customer_id)}</span></div>
+      <div>Tier: <span style="color:#e2e8f0">${esc(rec.tier)}</span></div>
+      <div>Expires: <span style="color:#e2e8f0">${esc(expiresStr)}</span></div>
+      <div>Created: <span style="color:#e2e8f0">${esc(new Date(rec.created_at).toLocaleString())}</span></div>
     </div>
-    <button class="btn btn-sm btn-blue" style="margin-top:12px" onclick="navigator.clipboard.writeText('${key}').then(()=>showToast('Key copied!'))">COPY KEY</button>
-  `;
+    <button class="btn btn-sm btn-blue" style="margin-top:12px" id="copy-key-btn">COPY KEY</button>`;
+  document.getElementById('copy-key-btn').addEventListener('click', () => navigator.clipboard.writeText(key).then(() => showToast('Key copied!')));
 
-  document.getElementById('email-template').innerHTML = `
-<div style="background:#0a0e1a;border:1px solid var(--border);padding:16px;border-radius:6px;white-space:pre-wrap;color:#e2e8f0">Subject: Your SENTINEL APEX ${plan.toUpperCase()} API Key \u2014 CYBERDUDEBIVASH
-
-Hi,
-
-Thank you for subscribing to CYBERDUDEBIVASH SENTINEL APEX ${plan.toUpperCase()}!
-
-Your API Key:
-${key}
-
-Plan: ${plan.toUpperCase()} (${planPrices[plan]})
-Expires: ${expiresStr}
-Docs: https://intel.cyberdudebivash.com/api-docs.html
-
-Quick Start:
-curl -H "X-API-Key: ${key}" https://intel.cyberdudebivash.com/api/intel
-
-SIEM Integration (Splunk example):
-index=main | inputlookup sentinel_apex | where severity="CRITICAL"
-
-For support: enterprise@cyberdudebivash.com
-Telegram: @cyberdudebivash
-
-Thank you for supporting SENTINEL APEX!
-\u2014 CYBERDUDEBIVASH Team</div>
-    <button class="btn btn-sm btn-yellow" style="margin-top:10px" onclick="sendEmail('${email}','${plan}','${key}','${expiresStr}')">OPEN EMAIL CLIENT</button>
-  `;
-  showToast('API Key generated!');
+  const body = document.createElement('div');
+  body.style.cssText = 'background:#0a0e1a;border:1px solid var(--border);padding:16px;border-radius:6px;white-space:pre-wrap;color:#e2e8f0';
+  body.textContent = 'Subject: Your SENTINEL APEX ' + rec.tier + ' API Key \u2014 CYBERDUDEBIVASH\n\nHi,\n\n' +
+    'Your API Key:\n' + key + '\n\nPlan: ' + rec.tier + '\nExpires: ' + expiresStr + '\n' +
+    'Docs: https://intel.cyberdudebivash.com/api-docs.html\n\nQuick Start:\ncurl -H "X-API-Key: ' + key + '" https://intel.cyberdudebivash.com/api/intel\n\n' +
+    'For support: enterprise@cyberdudebivash.com\n\n\u2014 CYBERDUDEBIVASH Team';
+  const send = document.createElement('button');
+  send.className = 'btn btn-sm btn-yellow'; send.style.marginTop = '10px'; send.textContent = 'OPEN EMAIL CLIENT';
+  send.addEventListener('click', () => sendEmail(email, rec.tier, key, expiresStr));
+  tmpl.replaceChildren(body, send);
+  showToast('API key created');
 }
 
 function sendEmail(email, plan, key, expires) {
@@ -793,35 +824,27 @@ function sendEmail(email, plan, key, expires) {
   window.open('mailto:' + email + '?subject=' + subject + '&body=' + body);
 }
 
-function quickApprove(email, plan) {
-  document.getElementById('key-email').value = email;
-  selectPlan(document.querySelector('.plan-btn'), plan);
-  showPage('issue-key');
-}
-
-function approvePayment() {
-  const email = document.getElementById('pay-email').value.trim();
-  const plan = document.getElementById('pay-plan').value;
-  if (!email) { showToast('Email required', 'red'); return; }
-  document.getElementById('key-email').value = email;
-  selectedPlan = plan;
-  document.getElementById('key-plan').value = plan;
-  showPage('issue-key');
-  issueKey();
-}
-
+// Success is reported only when the gateway confirms the deletion.
 async function revokeKey(key) {
+  if (!key) return;
   if (!confirm('Revoke this key? The user will lose access immediately.')) return;
   try {
-    await fetch(API + '/api/admin/revoke', {
-      method: 'POST',
-      headers: {'Content-Type':'application/json','X-Admin-Key':adminKey,'X-Admin-Secret':adminKey},
-      body: JSON.stringify({ api_key: key })
+    const r = await fetch(API + '/api/admin/keys/' + encodeURIComponent(key), {
+      method: 'DELETE', headers: { 'X-Admin-Key': adminKey },
     });
-    showToast('Key revoked.');
-    loadUsers();
-  } catch(e) { showToast('Revoke error: ' + e.message, 'red'); }
+    if (r.ok) showToast('Key revoked.');
+    else showToast('Revoke failed (HTTP ' + r.status + '): the key is still active.', 'red');
+  } catch (e) { showToast('Revoke failed (network): the key is still active.', 'red'); }
 }
+
+document.addEventListener('DOMContentLoaded', () => {
+  const f = document.getElementById('revoke-form');
+  if (f) f.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const k = document.getElementById('revoke-key').value.trim();
+    if (k) revokeKey(k).then(() => { document.getElementById('revoke-key').value = ''; });
+  });
+});
 
 // ---- TOAST ----
 function showToast(msg, color) {
@@ -830,4 +853,8 @@ function showToast(msg, color) {
   t.style.borderColor = color === 'red' ? 'var(--red)' : 'var(--green)';
   t.style.color = color === 'red' ? 'var(--red)' : 'var(--green)';
   t.style.display = 'block';
-  setTimeout(() => { t.style.
+  setTimeout(() => { t.style.display = 'none'; }, 3000);
+}
+</script>
+</body>
+</html>

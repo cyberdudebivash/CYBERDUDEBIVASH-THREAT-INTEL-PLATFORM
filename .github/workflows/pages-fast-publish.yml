@@ -330,6 +330,12 @@ jobs:
       - name: Pre-deploy Billing Center check (headless-browser)
         run: node render-test/verify_billing_center.js dist
 
+      # Commercial readiness panel (S13/S22/S23) on admin.html, readiness API
+      # stubbed: secret stays in a header, verdict/checks/queue render as
+      # text, a rejected secret renders nothing, and the admin script loads.
+      - name: Pre-deploy admin commercial readiness check (headless-browser)
+        run: node render-test/verify_admin_commercial_readiness.js dist
+
       # STAGE 2 (SENTINEL APEX Dynamic Frontend Transformation, 2026-09-01):
       # js/__tests__/*.test.js (Node's built-in test runner, no extra
       # dependency) already existed -- api_adapter/dashboard_contract_validator/
