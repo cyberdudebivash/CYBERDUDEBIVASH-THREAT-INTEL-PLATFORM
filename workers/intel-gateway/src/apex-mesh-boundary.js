@@ -133,6 +133,8 @@ async function resolveMeshPrincipal(request, env) {
       if (revoked) throw new MeshAccessError('mesh_token_revoked', 401);
       const denied = await env.SECURITY_HUB_KV?.get(`jwt_deny:${sub}`);
       if (denied) throw new MeshAccessError('mesh_subscription_denied', 403);
+      const billingDenied = await env.API_KEYS_KV?.get(`jwt_deny:${sub}`);
+      if (billingDenied) throw new MeshAccessError('mesh_subscription_denied', 403);
     } catch (error) {
       if (error instanceof MeshAccessError) throw error;
       throw new MeshAccessError('mesh_auth_service_unavailable', 503);
