@@ -38,7 +38,7 @@ function fakeKV(initial = {}) {
 function signedRequest(bodyObj, { secret = "whsec_test", eventId } = {}) {
   const raw = JSON.stringify(bodyObj);
   const sig = crypto.createHmac("sha256", secret).update(raw).digest("hex");
-  const headers = { "X-Razorpay-Signature": sig };
+  const headers = { "Content-Type": "application/json", "X-Razorpay-Signature": sig };
   if (eventId) headers["X-Razorpay-Event-Id"] = eventId;
   return new Request("https://revenue.intel.cyberdudebivash.com/api/v2/billing/webhooks/razorpay", {
     method: "POST", headers, body: raw,
@@ -57,7 +57,7 @@ function chargedPayload({ providerId, currentStart = 1767225600, currentEnd = 17
 
 test("handleBillingWebhook: missing RAZORPAY_WEBHOOK_SECRET fails closed with 500, not a crash", async () => {
   const env = { REVENUE_CRM_KV: fakeKV(), API_KEYS_KV: fakeKV() };
-  const req = new Request("https://x.test/api/v2/billing/webhooks/razorpay", { method: "POST", body: "{}" });
+  const req = new Request("https://x.test/api/v2/billing/webhooks/razorpay", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
   const res = await handleBillingWebhook(req, env, {}, "rid_test");
   assert.equal(res.status, 500);
 });
@@ -66,7 +66,7 @@ test("handleBillingWebhook: invalid signature is rejected with 401 and writes no
   const env = { REVENUE_CRM_KV: fakeKV(), API_KEYS_KV: fakeKV(), RAZORPAY_WEBHOOK_SECRET: "whsec_test" };
   const req = new Request("https://x.test/api/v2/billing/webhooks/razorpay", {
     method: "POST",
-    headers: { "X-Razorpay-Signature": "00".repeat(32) },
+    headers: { "Content-Type": "application/json", "X-Razorpay-Signature": "00".repeat(32) },
     body: JSON.stringify({ event: "subscription.charged", payload: {} }),
   });
   const res = await handleBillingWebhook(req, env, {}, "rid_test");
