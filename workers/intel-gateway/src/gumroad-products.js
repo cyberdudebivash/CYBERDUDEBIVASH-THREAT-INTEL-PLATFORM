@@ -10,7 +10,7 @@
 //
 // Authority chain:
 //   - usd prices: config/commercial-contract.json (usd_monthly / usd_annual);
-//     __tests__/gumroad-catalog.test.js fails on drift.
+//     __tests__/gumroad-products.test.js fails on drift.
 //   - which products exist: this file. upgrade.html's GUMROAD_URLS /
 //     GUMROAD_MEMBERSHIP_URLS must list exactly these permalinks (same test),
 //     so the page can never sell a product the webhook would refuse.

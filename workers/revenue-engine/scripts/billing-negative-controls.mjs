@@ -22,12 +22,17 @@ const REPO = path.resolve(HERE, "../../..");
 const COPY = [
   "revenue-crm/schema.sql",
   "upgrade.html",
+  "billing.html",
+  "admin.html",
+  "deploy/billing-canary",
   "config",
   "workers/revenue-engine/src",
   "workers/intel-gateway/package.json",
   "workers/intel-gateway/src",
 ];
 const SUITES = [
+  // S28 billing canary, certified against both Workers in-process.
+  ["deploy/billing-canary", ["--test", "canary.test.mjs"]],
   ["workers/revenue-engine", ["--test", "src/__tests__/billing-policy.test.js", "src/__tests__/subscription-engine.test.js",
     "src/__tests__/billing-credit-notes.test.js", "src/__tests__/billing-export-po.test.js",
     "src/__tests__/billing-go-live.test.js", "src/__tests__/billing-center.test.js",
@@ -36,7 +41,7 @@ const SUITES = [
   ["workers/intel-gateway", ["--test", "src/__tests__/razorpay-create-order-taxid.test.js",
     "src/__tests__/razorpay-webhook-subscription-guard.test.js", "src/__tests__/manual-notify-retirement.test.js",
     "src/__tests__/gumroad-membership.test.js", "src/__tests__/gumroad-lifecycle.test.js",
-    "src/__tests__/gumroad-catalog.test.js"]],
+    "src/__tests__/gumroad-products.test.js"]],
 ];
 
 const BR = "workers/revenue-engine/src/billing-routes.js";
@@ -49,6 +54,16 @@ const EP = "workers/revenue-engine/src/enterprise-po.js";
 
 // [name, file, find, replace] -- `find` must occur exactly once.
 const CONTROLS = [
+  // S28 billing canary safety.
+  ["canary would create a test checkout on live keys", "deploy/billing-canary/canary-lib.mjs",
+    "  return !!(c && c.ok === false && /test mode/.test(String(c.detail || \"\")));", "  return !!c;"],
+  ["canary counts a missing webhook secret (500) as a refusal", "deploy/billing-canary/canary-lib.mjs",
+    "  step(steps, \"razorpay_webhook_refuses_bad_signature\", unsigned.status === 401,",
+    "  step(steps, \"razorpay_webhook_refuses_bad_signature\", unsigned.status === 401 || unsigned.status === 500,"],
+  ["canary live gate passes a BLOCKED verdict", "deploy/billing-canary/canary-lib.mjs",
+    "    step(steps, \"readiness_verdict\", !requireReady || readiness.verdict === \"READY\",", "    step(steps, \"readiness_verdict\", true,"],
+  ["canary accepts a checkout the Plan check refused", "deploy/billing-canary/canary-lib.mjs",
+    "  const created = a.status === 200 && a.body && /^sub_/.test(a.body.subscription_id || \"\");", "  const created = a.status < 600 && a.body && a.body.subscription_id !== null;"],
   // S16/S18/S19 Gumroad (gateway).
   ["Gumroad tier inferred from the product name again", GW,
     "    tier = product.tier;", "    tier = inferGumroadTier(product_name, variants);"],
@@ -60,9 +75,9 @@ const CONTROLS = [
   ["content products mint API keys again", GW,
     "      if (GUMROAD_CONTENT_PRODUCTS.includes(gumroadPermalinkFrom(formData)) || !looksLikePlatformProduct(product_name)) {",
     "      if (!looksLikePlatformProduct(product_name)) {"],
-  ["a discount below the catalog price accepted", "workers/intel-gateway/src/gumroad-catalog.js",
+  ["a discount below the catalog price accepted", "workers/intel-gateway/src/gumroad-products.js",
     "  if (paid < expected) return", "  if (paid < expected / 2) return"],
-  ["non-USD Gumroad sale accepted", "workers/intel-gateway/src/gumroad-catalog.js",
+  ["non-USD Gumroad sale accepted", "workers/intel-gateway/src/gumroad-products.js",
     "  if (currency !== \"usd\") return", "  if (false) return"],
   ["held-sale redelivery re-holds and re-alerts", GW,
     "    if (priorHold) return jsonResp({ status: \"held_for_review\", reason: priorHold.reason, sale_id, duplicate: true });", ""],

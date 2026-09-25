@@ -157,7 +157,7 @@ import { SESSION_POLICY as WATCHDOG_SESSION_POLICY, webhookDeliveryEnabled } fro
 import { TENANT_AUTH_VERSION, TENANT_DO_PREFIX, isTenantId, newTenantId, requestSelectsTenant, routeMsspTenants } from './mssp-tenants.js';
 import { buildCampaignsPayload, buildRansomwarePayload, geoAttributionCoverage, DASHBOARD_CONTRACT_VERSION, THREAT_LEVEL_FORMULA, THREAT_LEVEL_FORMULA_VERSION } from './dashboard-contract.js';
 import { normalizeBuyerTaxId } from './tax-id.js';
-import { resolveGumroadProduct, checkGumroadSalePrice, looksLikePlatformProduct, gumroadPermalinkFrom, GUMROAD_CONTENT_PRODUCTS } from './gumroad-catalog.js';
+import { resolveGumroadProduct, checkGumroadSalePrice, looksLikePlatformProduct, gumroadPermalinkFrom, GUMROAD_CONTENT_PRODUCTS } from './gumroad-products.js';
 // Issue #288: Durable Object class the Workers runtime instantiates via the
 // GUMROAD_PROVISIONING_LOCK binding (wrangler.toml). Must be a named export
 // of the Worker's main module -- see gumroad-provisioning-lock.js's header
@@ -5387,7 +5387,7 @@ const GUMROAD_HOLD_TTL = 86400 * 365;
 
 /**
  * A paid Gumroad sale or membership charge. S16: only products in the
- * catalog (gumroad-catalog.js) grant access, with the tier and cycle the
+ * catalog (gumroad-products.js) grant access, with the tier and cycle the
  * catalog gives them -- never inferred from the product name. S19: the price
  * paid must be at least the canonical price, in USD. Anything else is held
  * for an operator (POST /api/admin/gumroad/release), never provisioned.

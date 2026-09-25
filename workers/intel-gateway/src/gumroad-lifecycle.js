@@ -23,7 +23,7 @@
 
 // DEPRECATED 2026-09-25 (S16): no longer decides what a sale grants.
 // handleWebhookGumroad() now takes tier and cycle from the product catalog
-// (gumroad-catalog.js); a product outside it is ignored or held, never
+// (gumroad-products.js); a product outside it is ignored or held, never
 // guessed from its name. Kept exported (index.js re-exports it) for existing
 // importers; remove in the next major P-layer.
 export function inferGumroadTier(productName, variants) {

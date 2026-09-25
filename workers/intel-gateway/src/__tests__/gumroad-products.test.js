@@ -20,7 +20,7 @@ import worker from "../index.js";
 import {
   GUMROAD_PRODUCTS, GUMROAD_CANONICAL_USD_CENTS, GUMROAD_STORE_BASE,
   gumroadPermalinkFrom, resolveGumroadProduct, checkGumroadSalePrice,
-} from "../gumroad-catalog.js";
+} from "../gumroad-products.js";
 
 const SECRET = "gumroad_TEST_ONLY_secret";
 const ADMIN = "admin_TEST_ONLY";

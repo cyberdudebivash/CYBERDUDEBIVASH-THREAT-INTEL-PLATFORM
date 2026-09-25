@@ -193,10 +193,10 @@ Before this change, each monthly renewal would have minted a new key, and a
 refund ping was swallowed as "already provisioned".
 
 **Product catalog and price check (S16/S19, 2026-09-25).** What a Gumroad
-sale grants comes only from `workers/intel-gateway/src/gumroad-catalog.js`
+sale grants comes only from `workers/intel-gateway/src/gumroad-products.js`
 (permalink -> tier, cycle), never from the product name. Prices are the
 contract's USD prices; `upgrade.html` must list exactly the catalog's
-permalinks (both enforced by `gumroad-catalog.test.js`).
+permalinks (both enforced by `gumroad-products.test.js`).
 
 | Sale | Result |
 |---|---|
@@ -324,6 +324,25 @@ invoice, awaiting the buyer's transfer, or stuck provisioning. The admin
 ids, queue size); anonymous `/api/health` is unchanged. After each deploy the
 workflow prints the verdict when the `REVENUE_ADMIN_SECRET` repository secret
 is set.
+
+## Go-live checklist (S31, 2026-09-25)
+
+1. Six Razorpay **live** Plans at the canonical INR amounts; Plan IDs set on the
+   revenue engine (the checkout now verifies each Plan's amount, currency and
+   period before selling).
+2. `RAZORPAY_WEBHOOK_SECRET` on the revenue engine; Dashboard webhook with the
+   events listed above; optionally `RAZORPAY_ACCOUNT_ID`.
+3. `GUMROAD_WEBHOOK_SECRET` on the **gateway**, the same value as `?secret=` in
+   the Gumroad Ping URL. **Production canary 2026-09-25: not set** -- the
+   gateway answers 500 "Webhook secret not configured" to every Gumroad ping,
+   so no Gumroad sale can provision a key until it is. Optionally
+   `GUMROAD_SELLER_ID`.
+4. Gumroad product prices equal the contract (Enterprise annual $4,990).
+5. `GST_INVOICE_CONFIG` (CA-confirmed), LUT for the current FY if exporting.
+6. After deploy: `POST /api/admin/gumroad/reconcile` (dry run, then
+   `{"apply": true}`).
+7. `node deploy/billing-canary/canary.mjs public` PASS, then
+   `... canary.mjs live` PASS (readiness READY).
 
 ## Known gaps (not in this change)
 
