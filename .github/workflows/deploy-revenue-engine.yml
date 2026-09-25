@@ -96,7 +96,7 @@ jobs:
         # subscription-lifecycle.test.js trust-boundary gate.
         run: |
           cd ${WORKER_DIR}
-          node --test src/__tests__/subscription-domain.test.js src/__tests__/subscription-engine.test.js src/__tests__/revenue-engine-health.test.js src/__tests__/automation-trigger.test.js src/__tests__/payment-submit.test.js src/__tests__/cors.test.js src/__tests__/manual-payment-retirement.test.js src/__tests__/mssp-tenant-fields.test.js src/__tests__/billing-policy.test.js src/__tests__/billing-credit-notes.test.js src/__tests__/billing-export-po.test.js
+          node --test src/__tests__/subscription-domain.test.js src/__tests__/subscription-engine.test.js src/__tests__/revenue-engine-health.test.js src/__tests__/automation-trigger.test.js src/__tests__/payment-submit.test.js src/__tests__/cors.test.js src/__tests__/manual-payment-retirement.test.js src/__tests__/mssp-tenant-fields.test.js src/__tests__/billing-policy.test.js src/__tests__/billing-credit-notes.test.js src/__tests__/billing-export-po.test.js src/__tests__/billing-go-live.test.js src/__tests__/billing-center.test.js src/__tests__/cross-worker-revocation.test.js src/__tests__/commercial-readiness.test.js
 
       - name: "esbuild bundle pre-flight (HARD GATE)"
         # This is the exact check that would have caught the duplicate
@@ -274,3 +274,30 @@ jobs:
           print('status:', d.get('status'), '| version:', d.get('version'))
           print('checks:', json.dumps(d.get('checks', {}), indent=2))
           " || echo "Smoke test skipped -- worker still propagating"
+
+      # S13/S22: commercial go-live verdict after each deploy (READY/BLOCKED,
+      # blocker and warning ids, operator queue size -- never secret values).
+      # Informational: runs only when the REVENUE_ADMIN_SECRET repository
+      # secret exists, never fails the deploy.
+      - name: "Commercial readiness report"
+        continue-on-error: true
+        env:
+          REVENUE_ADMIN_SECRET: ${{ secrets.REVENUE_ADMIN_SECRET }}
+        run: |
+          if [ -z "$REVENUE_ADMIN_SECRET" ]; then
+            echo "REVENUE_ADMIN_SECRET repository secret not set -- skipping readiness report."
+            exit 0
+          fi
+          curl -sf --max-time 15 -H "X-Admin-Secret: ${REVENUE_ADMIN_SECRET}" \
+            "https://revenue.intel.cyberdudebivash.com/api/v2/billing/admin/readiness" 2>/dev/null \
+            | python3 -c "
+          import json, sys
+          try:
+              d = json.load(sys.stdin)
+          except Exception:
+              print('NOTE: readiness endpoint not reachable yet'); sys.exit(0)
+          q = d.get('queue') or {}
+          print('verdict:', d.get('verdict'), '| blockers:', d.get('blockers'), '| warnings:', d.get('warnings'), '| operator queue:', q.get('attention'))
+          if d.get('verdict') != 'READY':
+              print('::warning title=Commercial readiness: ' + str(d.get('verdict')) + '::Blockers: ' + ', '.join(d.get('blockers') or []))
+          " || echo "Readiness report skipped"

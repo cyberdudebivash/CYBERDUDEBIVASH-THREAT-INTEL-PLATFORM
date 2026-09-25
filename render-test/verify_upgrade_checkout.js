@@ -26,6 +26,13 @@
  *   6. no page error on any path
  *   7. Gumroad: a configured membership is what the button sells ("renews");
  *      without one, the legacy access grant is labelled as a one-time grant
+ *   8. checkout state machine after payment authorization:
+ *      - backend confirms "active" + key -> ACTIVE with the activation actions
+ *      - backend not yet active (timeout) -> ACTIVATION_PENDING: payment
+ *        confirmed, never "failed", never "provisioned", pay button stays
+ *        disabled, a late ondismiss does not re-enable it, recheck works
+ *      - status endpoint unreachable -> ACTIVATION_PENDING, not a failure
+ *      - ?checkout=success in the URL renders no success state
  *
  * Usage:
  *   PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers NODE_PATH="$(npm root -g)" \
@@ -61,12 +68,14 @@ function check(name, ok, detail) {
   if (!ok) failures++;
 }
 
-async function scenario(browser, { gstin, fill = {}, subStatus = 200, subBody }) {
+async function scenario(browser, { gstin, fill = {}, subStatus = 200, subBody, statusReplies, pollAttempts, afterPay }) {
   const page = await browser.newPage();
   const errors = [];
   const alerts = [];
   const subs = [];
   const orders = [];
+  const statusCalls = [];
+  const feedCalls = [];
   page.on('pageerror', (e) => errors.push(String(e && e.message || e)));
   page.on('dialog', async (d) => { alerts.push(d.message()); await d.dismiss(); });
 
@@ -87,12 +96,23 @@ async function scenario(browser, { gstin, fill = {}, subStatus = 200, subBody })
       orders.push(JSON.parse(route.request().postData() || '{}'));
       return route.fulfill({ status: 409, contentType: 'application/json', body: JSON.stringify({ error: 'subscription_required' }) });
     }
+    if (p === '/api/v2/billing/subscriptions/status' && statusReplies) {
+      statusCalls.push(new URL(url).searchParams.toString());
+      const r = statusReplies[Math.min(statusCalls.length - 1, statusReplies.length - 1)];
+      if (r === 'network') return route.abort();
+      return route.fulfill({ status: r.status || 200, contentType: 'application/json', body: JSON.stringify(r.body) });
+    }
+    if (p === '/api/feed') {
+      feedCalls.push(route.request().headers()['x-api-key'] || '');
+      return route.fulfill({ status: 200, contentType: 'application/json', body: '{"items":[]}' });
+    }
     if (p.startsWith('/api/')) return route.fulfill({ status: 404, contentType: 'application/json', body: '{}' });
     return route.continue();
   });
 
   await page.goto(`${ORIGIN}/upgrade.html`, { waitUntil: 'domcontentloaded' });
   await page.waitForFunction(() => typeof window.Razorpay === 'function' && typeof window.initiateRazorpayCheckout === 'function', null, { timeout: 15000 });
+  if (pollAttempts !== undefined) await page.evaluate((n) => { ACTIVATION_POLL_MAX_ATTEMPTS = n; }, pollAttempts);
   await page.evaluate(() => { if (typeof selectPlan === 'function') selectPlan('pro'); });
   await page.fill('#rzp-email', 'buyer@example.com');
   if (gstin !== undefined) await page.fill('#rzp-gstin', gstin);
@@ -110,9 +130,14 @@ async function scenario(browser, { gstin, fill = {}, subStatus = 200, subBody })
   await page.evaluate(() => initiateRazorpayCheckout());
   await page.waitForTimeout(300);
   const rzp = await page.evaluate(() => window.__rzp);
+  let post = null;
+  if (afterPay) {
+    await page.evaluate(() => window.__rzp.options.handler({ razorpay_payment_id: 'pay_T1', razorpay_signature: 'test_only_signature' }));
+    post = await afterPay(page);
+  }
   const text = await page.evaluate(() => document.body.innerText);
   await page.close();
-  return { errors, alerts, subs, orders, rzp, text, countryVisible };
+  return { errors, alerts, subs, orders, rzp, text, countryVisible, statusCalls, feedCalls, post };
 }
 
 async function gumroadStates(browser) {
@@ -177,8 +202,13 @@ async function gumroadStates(browser) {
     check('plan not configured: NO one-time order fallback', missing.orders.length === 0, JSON.stringify(missing.orders));
     check('plan not configured: no modal', missing.rzp.opened.length === 0);
     check('plan not configured: honest message, no payment taken',
-      missing.alerts.some((a) => /not available/.test(a) && /No payment was taken/.test(a)), JSON.stringify(missing.alerts));
+      missing.alerts.some((a) => /This billing cycle is temporarily unavailable\. No payment was taken\./.test(a)), JSON.stringify(missing.alerts));
     check('plan not configured: no page error', missing.errors.length === 0, missing.errors.join(' | '));
+
+    const dup = await scenario(browser, { subStatus: 409, subBody: { error: 'already_subscribed', billing_center_url: '/billing.html' } });
+    check('already subscribed: no modal, pointed to the Billing Center, no payment taken',
+      dup.rzp.opened.length === 0 && dup.alerts.some((a) => /already have an active subscription/.test(a) && /Billing Center/.test(a) && /no payment was taken/.test(a)),
+      JSON.stringify(dup.alerts));
 
     const badGst = await scenario(browser, { gstin: '22AAAAA0000A1Z5' });
     check('invalid GSTIN: refused in the page', badGst.alerts.some((a) => /GSTIN/.test(a)), JSON.stringify(badGst.alerts));
@@ -187,6 +217,92 @@ async function gumroadStates(browser) {
     const refused = await scenario(browser, { gstin: 'DE123456789', subStatus: 400, subBody: { error: 'Billing address must be 10-250 characters.', field: 'billing_address' } });
     check('server field refusal shown verbatim', refused.alerts.includes('Billing address must be 10-250 characters.'), JSON.stringify(refused.alerts));
     check('server field refusal: no modal, no order', refused.rzp.opened.length === 0 && refused.orders.length === 0);
+
+    // ── 8. state machine after payment authorization (fixtures are test-only) ──
+    const snap = (page) => page.evaluate(() => ({
+      state: document.body.getAttribute('data-checkout-state'),
+      title: (document.getElementById('success-title') || {}).textContent || '',
+      ref: (document.getElementById('success-review-id') || {}).textContent || '',
+      text: (document.getElementById('success-state') || {}).innerText || '',
+      visible: (document.getElementById('success-state') || { style: {} }).style.display === 'block',
+      actions: (document.getElementById('activation-actions') || { style: {} }).style.display,
+      payDisabled: !!(document.getElementById('rzp-pay-btn') || {}).disabled,
+    }));
+    const active = await scenario(browser, {
+      statusReplies: [{ body: { status: 'created', tier: 'PRO' } }, { body: { status: 'active', tier: 'PRO', api_key: 'cdb_test_fixture_only' } }],
+      afterPay: async (page) => {
+        await page.waitForFunction(() => document.body.getAttribute('data-checkout-state') === 'ACTIVE', null, { timeout: 10000 });
+        const a = await snap(page);
+        await page.click('#activation-test-api');
+        await page.waitForFunction(() => /key works/.test(document.getElementById('activation-test-result').textContent), null, { timeout: 5000 });
+        return a;
+      },
+    });
+    check('ACTIVE only after the backend confirmed status "active" with the key',
+      active.post.state === 'ACTIVE' && active.statusCalls.length === 2 && active.post.ref === 'cdb_test_fixture_only', JSON.stringify(active.post));
+    check('ACTIVE: status poll carries the payment proof', /payment_id=pay_T1/.test(active.statusCalls[0]) && /signature=test_only_signature/.test(active.statusCalls[0]));
+    check('ACTIVE: activation actions shown (copy key, Test API, Watchdog, docs, Billing Center)',
+      active.post.actions === 'flex' && /Copy API key/.test(active.post.text) && /Test API/.test(active.post.text) &&
+      /Open Cyber Watchdog/.test(active.post.text) && /API docs/.test(active.post.text) && /Billing Center/.test(active.post.text), active.post.text);
+    check('ACTIVE: Test API sends the new key to the API', active.feedCalls.length === 1 && active.feedCalls[0] === 'cdb_test_fixture_only');
+    check('ACTIVE: no "instantly" claim, no page error', !/INSTANTLY/i.test(active.post.text) && active.errors.length === 0, active.errors.join(' | '));
+
+    const pending = await scenario(browser, {
+      pollAttempts: 1,
+      statusReplies: [{ body: { status: 'created', tier: 'PRO' } }],
+      afterPay: async (page) => {
+        await page.waitForFunction(() => document.body.getAttribute('data-checkout-state') === 'ACTIVATION_PENDING', null, { timeout: 10000 });
+        await page.evaluate(() => window.__rzp.options.modal.ondismiss());
+        const first = await snap(page);
+        await page.click('#activation-recheck-btn');
+        await page.waitForTimeout(2600);
+        const again = await snap(page);
+        return { first, again };
+      },
+    });
+    const pf = pending.post.first;
+    check('timeout -> ACTIVATION_PENDING with "PAYMENT CONFIRMED — ACTIVATION IN PROGRESS"',
+      pf.state === 'ACTIVATION_PENDING' && pf.visible && /PAYMENT CONFIRMED/.test(pf.title) && /ACTIVATION IN PROGRESS/.test(pf.title), JSON.stringify(pf));
+    check('timeout: safe reference is the subscription id (no key, no payment signature)',
+      pf.ref === 'sub_T1' && !/test_only_signature/.test(pf.text), pf.ref);
+    check('timeout: never says the payment failed, never says access is provisioned',
+      !/fail/i.test(pf.text) && !/provisioned|is active|API KEY PROVISIONED/i.test(pf.text) && !pending.alerts.some((a) => /fail/i.test(a)), pf.text);
+    check('timeout: buyer told not to pay again; pay button stays disabled even after a late ondismiss',
+      /do not pay again/i.test(pf.text) && pf.payDisabled && pf.actions === 'none', JSON.stringify(pf));
+    check('timeout: "check again" re-polls the backend', pending.statusCalls.length >= 3 && pending.post.again.state === 'ACTIVATION_PENDING', String(pending.statusCalls.length));
+    check('timeout: no page error', pending.errors.length === 0, pending.errors.join(' | '));
+
+    const offline = await scenario(browser, {
+      pollAttempts: 0, statusReplies: ['network'],
+      afterPay: async (page) => {
+        await page.waitForFunction(() => document.body.getAttribute('data-checkout-state') === 'ACTIVATION_PENDING', null, { timeout: 10000 });
+        return snap(page);
+      },
+    });
+    check('status endpoint unreachable -> ACTIVATION_PENDING, not a failure',
+      offline.post.state === 'ACTIVATION_PENDING' && !/fail/i.test(offline.post.text) && offline.errors.length === 0, JSON.stringify(offline.post));
+
+    const cancelled = await scenario(browser, {
+      afterPay: null,
+    });
+    check('before payment: modal open, state CHECKOUT_OPEN', cancelled.rzp.opened.length === 1);
+
+    {
+      const page = await browser.newPage();
+      await page.route('**/*', (route) => {
+        const url = route.request().url();
+        if (url.startsWith('https://checkout.razorpay.com/')) return route.fulfill({ status: 200, contentType: 'application/javascript', body: RAZORPAY_STUB });
+        if (!url.startsWith(ORIGIN)) return route.abort();
+        if (new URL(url).pathname === '/upgrade.html' && OVERRIDE) return route.fulfill({ status: 200, contentType: 'text/html', body: OVERRIDE });
+        if (new URL(url).pathname.startsWith('/api/')) return route.fulfill({ status: 404, contentType: 'application/json', body: '{}' });
+        return route.continue();
+      });
+      await page.goto(`${ORIGIN}/upgrade.html?checkout=success&plan=pro`, { waitUntil: 'domcontentloaded' });
+      await page.waitForTimeout(500);
+      const shown = await page.evaluate(() => { const s = document.getElementById('success-state'); return !!s && s.style.display === 'block'; });
+      await page.close();
+      check('?checkout=success in the URL renders no success state', !shown);
+    }
 
     const g = await gumroadStates(browser);
     check('gumroad: without a membership product the grant is labelled a one-time grant',

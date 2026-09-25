@@ -55,6 +55,11 @@ export const RAZORPAY_BILLING_EVENTS = Object.freeze([
 const MAX_RAZORPAY_WEBHOOK_BYTES = 256 * 1024;
 const RAZORPAY_EVENT_ID_RE = /^[A-Za-z0-9_.:-]{1,128}$/;
 const JWT_DENY_TTL_SECONDS = 25 * 60 * 60;
+const PENDING_CHECKOUT_TTL_SECONDS = 30 * 60;
+// Subscription statuses (SUB_STATUS values, index.js) that already entitle
+// the email to its tier. Literal: index.js imports this module, so its
+// SUB_STATUS binding is not initialised while this module evaluates.
+const LIVE_SUB_STATUSES = Object.freeze(["active", "trial", "past_due", "expiring", "renewed"]);
 
 async function sha256Hex(value) {
   const bytes = new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value)));
@@ -165,6 +170,86 @@ export async function patchApiKeyEntitlement(env, apiKey, patch) {
   await env.API_KEYS_KV.put(apiKey, JSON.stringify({ ...rec, ...patch }));
 }
 
+/**
+ * S10 cross-worker revocation: the one way the revenue engine takes access
+ * away at intel-gateway. API_KEYS_KV is the only state the two Workers
+ * share, so the deny is written there in both forms the gateway enforces:
+ *   - the key record gets an explicit gateway deny state
+ *     (subscription-lifecycle.js SUBSCRIPTION_STATUS_DENY_STATES) and
+ *     expires now: the API key is refused on its next request;
+ *   - jwt_deny:{customer_id}: a Bearer JWT the customer obtained before the
+ *     event is refused too (resolveAuth checks it by `sub`), instead of
+ *     living out its 24-hour lifetime.
+ * A refunded key keeps "refunded" (a later cancel/halt never relabels it).
+ * @param {"refunded"|"cancelled"|"suspended"} status
+ * @returns {Promise<object|null>} the key record before the change
+ */
+export async function denyGatewayAccess(env, link, status, at, meta = {}) {
+  if (!env.API_KEYS_KV || !link) return null;
+  let keyRecord = null;
+  if (link.api_key) {
+    keyRecord = await env.API_KEYS_KV.get(link.api_key, "json").catch(() => null);
+    const keep = keyRecord && keyRecord.subscription_status === "refunded" ? "refunded" : status;
+    await patchApiKeyEntitlement(env, link.api_key, { subscription_status: keep, expires_at: at });
+  }
+  const customerId = link.internal_customer_id || keyRecord?.customer_id || null;
+  if (customerId) {
+    await env.API_KEYS_KV.put(`jwt_deny:${customerId}`, JSON.stringify({
+      reason: status, denied_at: at, ...meta,
+    }), { expirationTtl: JWT_DENY_TTL_SECONDS });
+  }
+  return keyRecord;
+}
+
+/**
+ * Inverse of denyGatewayAccess() for a recovered halt only: the key the
+ * customer already holds works again at intel-gateway until periodEnd, and
+ * the jwt_deny marker is cleared so a new login works. A key the gateway
+ * holds as refunded or cancelled is never revived here.
+ * @returns {Promise<boolean>} whether access was restored
+ */
+export async function restoreGatewayAccess(env, link, periodEnd) {
+  if (!env.API_KEYS_KV || !link || !link.api_key) return false;
+  const rec = await env.API_KEYS_KV.get(link.api_key, "json").catch(() => null);
+  if (!rec || rec.subscription_status === "refunded" || rec.subscription_status === "cancelled") return false;
+  await patchApiKeyEntitlement(env, link.api_key, { subscription_status: "active", expires_at: periodEnd });
+  const customerId = link.internal_customer_id || rec.customer_id || null;
+  if (customerId) await env.API_KEYS_KV.delete(`jwt_deny:${customerId}`);
+  return true;
+}
+
+/**
+ * Owner decision 2026-09-25: a halted subscription reactivates automatically
+ * when Razorpay later captures a charge on it (the customer paid after the
+ * retries ran out). Requires the signed webhook to carry a CAPTURED payment
+ * for this subscription; then SUSPENDED -> ACTIVE, the same API key is
+ * restored (never a second key), and the period follows Razorpay.
+ */
+export async function recoverHaltedSubscription(env, link, providerId, subEntity, payEntity, event, rid) {
+  if (!link?.internal_sub_id || !payEntity || payEntity.status !== "captured") {
+    await trackEvent(env, "subscription_recovery_unverified", {
+      razorpay_subscription_id: providerId, event, payment_status: payEntity?.status || null, rid,
+    });
+    return false;
+  }
+  const at = new Date().toISOString();
+  const periodEnd = unixToIso(subEntity?.current_end) || link.current_period_end;
+  const transitioned = await tryTransition(env, link.internal_sub_id, SUB_STATUS.ACTIVE, {
+    current_period_start: unixToIso(subEntity?.current_start), current_period_end: periodEnd,
+    renewal_reminder_sent: false, recovered_at: at,
+  }, rid);
+  if (!transitioned) return false;
+  const restored = await restoreGatewayAccess(env, link, periodEnd);
+  await putProviderLink(env, providerId, {
+    ...link, status: "active", current_period_end: periodEnd, recovered_at: at,
+    renewal_count: (link.renewal_count || 0) + 1,
+  });
+  await trackEvent(env, "subscription_recovered", {
+    email: link.email, tier: link.tier, razorpay_subscription_id: providerId, payment_id: payEntity.id, access_restored: restored, event, rid,
+  });
+  return true;
+}
+
 // Webhook idempotency guard -- Razorpay's delivery is at-least-once, so any
 // event may be redelivered. Uses REVENUE_CRM_KV (already bound in this
 // Worker) rather than intel-gateway's SECURITY_HUB_KV (not bound here, and
@@ -230,6 +315,38 @@ export async function handleBillingSubscriptionCreate(request, env, ctx, rid) {
     return json({ error: `Razorpay plan not configured (${planEnvKey})`, fallback_url: "https://intel.cyberdudebivash.com/upgrade.html" }, 503);
   }
 
+  // S5 idempotency / double-billing guard. (1) An email that already holds
+  // a live subscription on this tier is sent to the Billing Center instead
+  // of being billed a second time. (2) A retried or double-submitted
+  // checkout (same email, tier, cycle and buyer details) within
+  // PENDING_CHECKOUT_TTL_SECONDS reuses the subscription it already created
+  // while that one is still unpaid, instead of creating a second one.
+  // KV is not transactional, so two truly simultaneous requests can still
+  // both create one; only one checkout modal is ever opened per page (the
+  // client state machine), and an unpaid Razorpay subscription never bills.
+  const existing = await env.REVENUE_CRM_KV.get(`sub:email:${email}`, "json");
+  if (existing && existing.tier === tier && LIVE_SUB_STATUSES.includes(existing.status) &&
+      (!existing.current_period_end || Date.parse(existing.current_period_end) > Date.now())) {
+    await trackEvent(env, "subscription_checkout_already_subscribed", { tier, billing_cycle: cycle, rid });
+    return json({
+      error: "already_subscribed",
+      message: "An active subscription for this plan already exists for this email. Manage it in the Billing Center.",
+      billing_center_url: "/billing.html",
+    }, 409);
+  }
+  const pendingKey = `rzp_sub_pending:${await sha256Hex(JSON.stringify([email, tier, cycle, buyer]))}`;
+  const pendingId = await env.REVENUE_CRM_KV.get(pendingKey);
+  if (pendingId) {
+    const pendingLink = await getProviderLink(env, pendingId);
+    if (pendingLink && pendingLink.status === "created") {
+      await trackEvent(env, "subscription_checkout_reused", { tier, billing_cycle: cycle, rid });
+      return json({
+        subscription_id: pendingId, short_url: pendingLink.short_url || null, key_id: env.RAZORPAY_KEY_ID,
+        tier, billing_cycle: cycle, status: "created", prefill: { email }, reused: true,
+      });
+    }
+  }
+
   try {
     const creds = btoa(`${env.RAZORPAY_KEY_ID}:${env.RAZORPAY_KEY_SECRET}`);
     const resp  = await fetch(`${RAZORPAY_API_BASE}/subscriptions`, {
@@ -252,7 +369,9 @@ export async function handleBillingSubscriptionCreate(request, env, ctx, rid) {
     await putProviderLink(env, sub.id, {
       razorpay_subscription_id: sub.id, email, tier, billing_cycle: cycle,
       status: "created", plan_id: planId, created_at: new Date().toISOString(), buyer,
+      short_url: sub.short_url || null,
     });
+    await env.REVENUE_CRM_KV.put(pendingKey, sub.id, { expirationTtl: PENDING_CHECKOUT_TTL_SECONDS });
     await trackEvent(env, "subscription_checkout_created", { email, tier, billing_cycle: cycle, razorpay_subscription_id: sub.id, rid });
 
     return json({
@@ -370,7 +489,9 @@ export async function handleBillingWebhook(request, env, ctx, rid) {
     await trackEvent(env, "subscription_webhook_event_ignored", { event: event || null, rid });
     return json({ status: "ignored", event: event || null });
   }
-  if (env.RAZORPAY_ACCOUNT_ID && payload.account_id && payload.account_id !== env.RAZORPAY_ACCOUNT_ID) {
+  // Optional account binding: once RAZORPAY_ACCOUNT_ID is configured, an
+  // event must name that account (a payload without account_id is refused).
+  if (env.RAZORPAY_ACCOUNT_ID && payload.account_id !== env.RAZORPAY_ACCOUNT_ID) {
     await trackEvent(env, "subscription_webhook_account_mismatch", { event, rid });
     return json({ error: "account_mismatch" }, 403);
   }
@@ -447,6 +568,18 @@ export async function handleBillingWebhook(request, env, ctx, rid) {
     }
 
     case "subscription.activated": {
+      if (link?.status === "halted" && link.internal_sub_id) {
+        // Already provisioned: a halted subscription resuming is a recovery
+        // of the SAME key, never a second provisioning.
+        await recoverHaltedSubscription(env, link, providerId, subEntity, payEntity, event, rid);
+        break;
+      }
+      if (link && ["refunded", "cancelled", "completed"].includes(link.status)) {
+        // An ended subscription is never provisioned again: that would mint
+        // a second key and clear the refund/cancel jwt_deny marker.
+        await trackEvent(env, "subscription_billing_anomaly", { reason: "activated_after_end", status: link.status, razorpay_subscription_id: providerId, rid });
+        break;
+      }
       if (link?.status === "active") {
         // Already provisioned by an earlier delivery of this same event.
         // (idempKey is already claimed above, before this switch runs.)
@@ -478,6 +611,10 @@ export async function handleBillingWebhook(request, env, ctx, rid) {
     case "subscription.charged": {
       if (!link?.internal_sub_id) {
         await trackEvent(env, "subscription_billing_anomaly", { reason: "charged_event_with_no_provider_link", razorpay_subscription_id: providerId, rid });
+        break;
+      }
+      if (link.status === "halted") {
+        await recoverHaltedSubscription(env, link, providerId, subEntity, payEntity, event, rid);
         break;
       }
       // ACTIVE -> ACTIVE is a valid self-transition (a normal renewal), so
@@ -525,7 +662,7 @@ export async function handleBillingWebhook(request, env, ctx, rid) {
     case "subscription.halted": {
       if (link?.internal_sub_id) {
         await tryTransition(env, link.internal_sub_id, SUB_STATUS.SUSPENDED, {}, rid);
-        await patchApiKeyEntitlement(env, link.api_key, { expires_at: new Date().toISOString() });
+        await denyGatewayAccess(env, link, "suspended", new Date().toISOString(), { provider_sub_id: providerId });
         await putProviderLink(env, providerId, { ...link, status: "halted" });
       }
       await trackEvent(env, "subscription_suspended", { email: link?.email, tier: link?.tier, razorpay_subscription_id: providerId, rid });
@@ -536,7 +673,7 @@ export async function handleBillingWebhook(request, env, ctx, rid) {
     case "subscription.completed": {
       if (link?.internal_sub_id) {
         await tryTransition(env, link.internal_sub_id, SUB_STATUS.CANCELLED, { cancelled_at: new Date().toISOString() }, rid);
-        await patchApiKeyEntitlement(env, link.api_key, { expires_at: new Date().toISOString() });
+        await denyGatewayAccess(env, link, "cancelled", new Date().toISOString(), { provider_sub_id: providerId });
         await putProviderLink(env, providerId, { ...link, status: "cancelled" });
       }
       await trackEvent(env, "subscription_cancelled", { email: link?.email, tier: link?.tier, razorpay_subscription_id: providerId, event, rid });
@@ -590,17 +727,7 @@ export async function revokeEntitlementForSubscription(env, providerSubId, statu
     return false;
   }
   const at = new Date().toISOString();
-  let keyRecord = null;
-  if (link.api_key && env.API_KEYS_KV) {
-    keyRecord = await env.API_KEYS_KV.get(link.api_key, "json").catch(() => null);
-  }
-  if (link.api_key) await patchApiKeyEntitlement(env, link.api_key, { subscription_status: status, expires_at: at });
-  const customerId = link.internal_customer_id || keyRecord?.customer_id || null;
-  if (customerId && env.API_KEYS_KV) {
-    await env.API_KEYS_KV.put(`jwt_deny:${customerId}`, JSON.stringify({
-      reason: status, provider_sub_id: providerSubId, denied_at: at,
-    }), { expirationTtl: JWT_DENY_TTL_SECONDS });
-  }
+  await denyGatewayAccess(env, link, status, at, { provider_sub_id: providerSubId });
   if (link.internal_sub_id) await tryTransition(env, link.internal_sub_id, SUB_STATUS.CANCELLED, { cancelled_at: at, cancel_reason: status }, rid);
   await putProviderLink(env, providerSubId, { ...link, status });
   await trackEvent(env, "entitlement_revoked", { razorpay_subscription_id: providerSubId, email: link.email, reason: status, rid });

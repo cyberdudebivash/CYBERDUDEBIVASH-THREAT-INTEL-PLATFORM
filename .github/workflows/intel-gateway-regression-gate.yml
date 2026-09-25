@@ -51,6 +51,7 @@ on:
       # Commercial policy v1 billing (refunds, GST invoices, subscriptions-
       # only checkout): the controls mutate revenue-engine + gateway code.
       - 'workers/revenue-engine/scripts/billing-negative-controls.mjs'
+      - 'workers/revenue-engine/src/**'
       - 'revenue-crm/schema.sql'
       - 'js/sentinel-live-feeds.js'
       - 'js/apex-dashboard-snapshot.js'
@@ -92,6 +93,7 @@ on:
       # Commercial policy v1 billing (refunds, GST invoices, subscriptions-
       # only checkout): the controls mutate revenue-engine + gateway code.
       - 'workers/revenue-engine/scripts/billing-negative-controls.mjs'
+      - 'workers/revenue-engine/src/**'
       - 'revenue-crm/schema.sql'
       - 'js/sentinel-live-feeds.js'
       - 'js/apex-dashboard-snapshot.js'
@@ -255,6 +257,13 @@ jobs:
             tests/test_apex_feed_single_producer.py
             # v201 convergence: customer-visible release labels.
             tests/test_customer_release_label.py
+            # P0 revenue go-live S2/S25: customer-facing commercial copy truth
+            # (no manual-payment proof, no instant-activation claim, recurring
+            # checkout never calls one-time Orders). Reads HTML only.
+            tests/test_commercial_copy_truth.py
+            # Every root page is a complete document (admin.html shipped
+            # truncated, its whole script a syntax error). Reads HTML only.
+            tests/test_root_pages_complete.py
           )
           python3 -m pytest "${SUITES[@]}" -q
           # Refuse to pass having run nothing. pytest.ini forces --verbose, so

@@ -19,6 +19,7 @@
 //   POST /api/v2/billing/refunds/approve   X-Admin-Secret  {request_id, note}
 //   POST /api/v2/billing/refunds/reject    X-Admin-Secret  {request_id, note}
 //   POST /api/v2/billing/subscriptions/cancel  X-API-Key (customer): cancel at cycle end
+//   GET  /api/v2/billing/account           X-API-Key (customer): Billing Center view of own account
 //   GET  /api/v2/billing/invoices          X-API-Key (own) | X-Admin-Secret [?email=]
 //   GET  /api/v2/billing/invoices/view     ?number=  X-API-Key (own) | X-Admin-Secret  [&format=html]
 //   GET  /api/v2/billing/invoices/holds    X-Admin-Secret
@@ -35,7 +36,9 @@ import {
   listRefundRequests, transitionRefundRequest, applyRefundToPayment, markDisputed,
   issueInvoiceForPayment, getInvoiceByNumber, listInvoicesFor, listInvoiceHolds, completeRecipientDetails,
   recordRefund, issueCreditNoteForRefund, getCreditNoteByNumber, listCreditNotesFor, listPendingCreditNotes,
+  listPaymentsFor, ensureBillingSchema,
 } from "./billing-ledger.js";
+import { getProviderLink, putProviderLink, patchInternalSub } from "./subscription-engine.js";
 import { normalizeBillingName, normalizeBillingState, normalizeBillingCountry } from "./gst.js";
 
 const RAZORPAY_API_BASE = "https://api.razorpay.com/v1";
@@ -303,6 +306,11 @@ export async function applyBillingWebhookEvent(env, event, payload, { revokeEnti
 // Contract: "Cancel any time; access runs to the end of the paid period. No
 // pro-rata refund." Asks Razorpay to cancel at the end of the current cycle;
 // access ends when Razorpay's subscription.cancelled webhook arrives then.
+// The scheduled cancellation is recorded on the provider link and the
+// internal subscription, so the Billing Center shows it and a repeated
+// request answers from the record instead of calling Razorpay again.
+const ENDED_LINK_STATUSES = Object.freeze(["cancelled", "completed", "refunded"]);
+
 export async function handleSubscriptionCancel(request, env, ctx, rid) {
   if (!env.RAZORPAY_KEY_ID || !env.RAZORPAY_KEY_SECRET) return json({ error: "Razorpay not configured on server" }, 503);
   const who = await customerFromApiKey(request, env);
@@ -314,15 +322,127 @@ export async function handleSubscriptionCancel(request, env, ctx, rid) {
   if (!row || !row.provider_sub_id) {
     return json({ error: "no_subscription", message: "No Razorpay subscription is on record for this key. Contact support." }, 404);
   }
-  const res = await rzp(env, "POST", `/subscriptions/${encodeURIComponent(row.provider_sub_id)}/cancel`, { cancel_at_cycle_end: 1 });
+  const subId = row.provider_sub_id;
+  const link = await getProviderLink(env, subId);
+  if (link && ENDED_LINK_STATUSES.includes(link.status)) {
+    return json({ error: "subscription_ended", status: link.status, message: "This subscription has already ended; there is nothing to cancel." }, 409);
+  }
+  if (link && link.cancel_scheduled_at) {
+    return json({ status: "cancel_scheduled", subscription_id: subId, cancel_scheduled_at: link.cancel_scheduled_at,
+      access_until: link.current_period_end || null, duplicate: true, message: CANCEL_MESSAGE });
+  }
+  const res = await rzp(env, "POST", `/subscriptions/${encodeURIComponent(subId)}/cancel`, { cancel_at_cycle_end: 1 });
   if (!res.ok) {
-    await trackEvent(env, "subscription_cancel_request_failed", { email: who.email, subscription_id: row.provider_sub_id, status: res.status, rid });
+    await trackEvent(env, "subscription_cancel_request_failed", { email: who.email, subscription_id: subId, status: res.status, rid });
     return json({ error: "cancel_failed", message: "Cancellation could not be scheduled; retry or contact support." }, 502);
   }
-  await trackEvent(env, "subscription_cancel_scheduled", { email: who.email, subscription_id: row.provider_sub_id, rid });
+  const at = new Date().toISOString();
+  // Persisting is best-effort: Razorpay already holds the cancellation, and
+  // its subscription.cancelled webhook ends access either way.
+  try {
+    if (link) await putProviderLink(env, subId, { ...link, cancel_at_cycle_end: true, cancel_scheduled_at: at });
+    if (link && link.internal_sub_id) await patchInternalSub(env, link.internal_sub_id, { cancel_at_period_end: true, cancel_scheduled_at: at });
+  } catch (e) {
+    await trackEvent(env, "subscription_cancel_persist_failed", { subscription_id: subId, error: e?.message || String(e), rid }).catch(() => {});
+  }
+  await trackEvent(env, "subscription_cancel_scheduled", { email: who.email, subscription_id: subId, rid });
   return json({
-    status: "cancel_scheduled", subscription_id: row.provider_sub_id,
-    message: "Your subscription will not renew. Access continues to the end of the current paid period. No pro-rata refund applies.",
+    status: "cancel_scheduled", subscription_id: subId, cancel_scheduled_at: at,
+    access_until: (link && link.current_period_end) || null, message: CANCEL_MESSAGE,
+  });
+}
+
+const CANCEL_MESSAGE = "Your subscription will not renew. Access continues to the end of the current paid period. No pro-rata refund applies.";
+
+// --- Billing Center ----------------------------------------------------------
+
+const REFUND_REQUEST_LABELS = Object.freeze({
+  pending_review: "Under review",
+  approved: "Approved, refund being processed",
+  refund_initiated: "Refund initiated with Razorpay",
+  refunded: "Refunded",
+  rejected: "Not approved",
+});
+
+/** Subscription state for the Billing Center: provider link first, internal record as fallback. */
+function subscriptionView(link, internal, subId) {
+  const src = link || internal;
+  if (!src) return null;
+  const status = (link && link.status) || (internal && internal.status) || "unknown";
+  const periodEnd = (link && link.current_period_end) || (internal && internal.current_period_end) || null;
+  const cancelScheduledAt = (link && link.cancel_scheduled_at) || (internal && internal.cancel_scheduled_at) || null;
+  const ended = ENDED_LINK_STATUSES.includes(status) || status === "expired";
+  return {
+    subscription_id: subId || null,
+    provider: "razorpay",
+    tier: src.tier || null,
+    billing_cycle: src.billing_cycle || null,
+    status,
+    current_period_end: periodEnd,
+    cancel_scheduled: !!cancelScheduledAt && !ended,
+    cancel_scheduled_at: cancelScheduledAt,
+    renews: !ended && !cancelScheduledAt && ["active", "authenticated", "pending"].includes(status),
+  };
+}
+
+/**
+ * GET /api/v2/billing/account
+ *
+ * The Billing Center's single read: the caller's own subscription, payments,
+ * invoices, credit notes and refund position, all from the authoritative
+ * records (ledger rows written from Razorpay's signed webhooks, the provider
+ * link). Scoped to the email on the caller's API key; no query parameter
+ * selects another account. A rotated-out or revoked key cannot read it.
+ */
+export async function handleBillingAccount(request, env) {
+  const who = await customerFromApiKey(request, env);
+  if (!who || !who.email) return json({ error: "unauthorized", message: "Send your API key as X-API-Key." }, 401);
+  if (who.key_status === "superseded" || who.key_status === "revoked") {
+    return json({ error: "key_not_current", message: "This API key was replaced or revoked. Use your current key." }, 401);
+  }
+  const database = db(env);
+  await ensureBillingSchema(database);
+  const [payments, invoices, creditNotes, internal] = await Promise.all([
+    listPaymentsFor(database, who.email),
+    listInvoicesFor(database, who.email),
+    listCreditNotesFor(database, who.email),
+    env.REVENUE_CRM_KV.get(`sub:email:${who.email}`, "json"),
+  ]);
+  const subId = (payments.find((p) => p.provider_sub_id) || {}).provider_sub_id || (internal && internal.provider_sub_id) || null;
+  const link = subId ? await getProviderLink(env, subId) : null;
+  const subscription = subscriptionView(link, internal, subId);
+
+  const nowMs = Date.now();
+  const elig = await refundEligibility(database, who.email, nowMs);
+  const first = await firstPaymentFor(database, who.email);
+  const req = first ? await getRefundRequestByPayment(database, first.payment_id) : null;
+  const refund = {
+    eligible: elig.ok && !req,
+    code: elig.ok ? (req ? "already_requested" : null) : elig.code,
+    message: elig.ok ? null : elig.message,
+    window_ends_at: first ? new Date(Date.parse(first.captured_at) + REFUND_WINDOW_MS).toISOString() : null,
+    request: req ? {
+      request_id: req.id, status: req.status, status_label: REFUND_REQUEST_LABELS[req.status] || req.status,
+      requested_at: req.requested_at, decided_at: req.decided_at || null, decision_note: req.decision_note || "",
+    } : null,
+  };
+  const canCancel = !!(subscription && subscription.subscription_id && subscription.renews);
+  return json({
+    account: { email: who.email },
+    subscription,
+    payments: payments.map((p) => ({
+      payment_id: p.payment_id, tier: p.tier, billing_cycle: p.billing_cycle, amount_paise: p.amount_paise,
+      currency: p.currency, captured_at: p.captured_at, invoice_status: p.invoice_status,
+      refund_status: p.refund_status, refunded_paise: p.refunded_paise, disputed: !!p.disputed,
+    })),
+    invoices,
+    credit_notes: creditNotes,
+    refund,
+    actions: { can_cancel: canCancel, can_request_refund: refund.eligible },
+    policy: {
+      cancellation: "Cancel any time; access runs to the end of the paid period. No pro-rata refund.",
+      refund: "7-day money-back guarantee on your first purchase, reviewed and approved by us. No partial or pro-rata refunds after that.",
+    },
   });
 }
 

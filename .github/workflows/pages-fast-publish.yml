@@ -323,6 +323,19 @@ jobs:
       - name: Pre-deploy upgrade checkout check (headless-browser)
         run: node render-test/verify_upgrade_checkout.js dist
 
+      # Billing Center (S6-S12): billing.html with the billing APIs stubbed.
+      # The API key stays in a header (never URL/storage), server strings are
+      # text, tax documents render in a sandboxed iframe, cancel/refund need
+      # confirmation. See render-test/verify_billing_center.js.
+      - name: Pre-deploy Billing Center check (headless-browser)
+        run: node render-test/verify_billing_center.js dist
+
+      # Commercial readiness panel (S13/S22/S23) on admin.html, readiness API
+      # stubbed: secret stays in a header, verdict/checks/queue render as
+      # text, a rejected secret renders nothing, and the admin script loads.
+      - name: Pre-deploy admin commercial readiness check (headless-browser)
+        run: node render-test/verify_admin_commercial_readiness.js dist
+
       # STAGE 2 (SENTINEL APEX Dynamic Frontend Transformation, 2026-09-01):
       # js/__tests__/*.test.js (Node's built-in test runner, no extra
       # dependency) already existed -- api_adapter/dashboard_contract_validator/

@@ -9,7 +9,8 @@
 // creation, webhook lifecycle, entitlement sync. See subscription-engine.js
 // for scope notes (refunds/upgrades/downgrades/checkout-cutover deferred).
 import { handleBillingSubscriptionCreate, handleBillingSubscriptionStatus, handleBillingWebhook, patchApiKeyEntitlement, patchInternalSub, tryTransition, PLAN_ID_ENV_KEYS } from "./subscription-engine.js";
-import { handleRefundRequest, handleRefundList, handleRefundApprove, handleRefundReject, handleInvoiceList, handleInvoiceView, handleInvoiceHolds, handleInvoiceIssue, handleSubscriptionCancel, handleCreditNoteList, handleCreditNoteView, handleCreditNotesPending, handleCreditNoteIssue } from "./billing-routes.js";
+import { handleRefundRequest, handleRefundList, handleRefundApprove, handleRefundReject, handleInvoiceList, handleInvoiceView, handleInvoiceHolds, handleInvoiceIssue, handleSubscriptionCancel, handleCreditNoteList, handleCreditNoteView, handleCreditNotesPending, handleCreditNoteIssue, handleBillingAccount } from "./billing-routes.js";
+import { handleCommercialReadiness, buildCommercialReadiness } from "./commercial-readiness.js";
 import { handleQuoteCreate, handleQuoteList, handleQuoteView, handleQuoteAccept, handleQuoteCancel, handleQuoteInvoice, handleQuoteReconcile, handleQuoteProvision } from "./enterprise-po.js";
 
 const ENGINE = {
@@ -143,6 +144,12 @@ async function routeRevenueRequest(request, env, ctx, rid, url, path, method) {
         return await handleCreditNotesPending(request, env);
       if (path === "/api/v2/billing/credit-notes/issue" && method === "POST")
         return await handleCreditNoteIssue(request, env, ctx, rid);
+      // Billing Center (billing.html): the caller's own account, by X-API-Key.
+      if (path === "/api/v2/billing/account" && method === "GET")
+        return await handleBillingAccount(request, env);
+      // Commercial readiness + operator queue (S13/S22/S23), X-Admin-Secret.
+      if (path === "/api/v2/billing/admin/readiness" && method === "GET")
+        return await handleCommercialReadiness(request, env);
 
       // ── Public: customer-facing commercial routes ──────────────────────────
       // Moved here from dispatchCommercialRoutes() (further below), which is
@@ -1479,6 +1486,11 @@ export async function handleRevenueEngineHealth(request, env, rid) {
       razorpay_subscriptions_configured: !!env.RAZORPAY_WEBHOOK_SECRET,
       razorpay_plan_ids_configured: planIdsConfigured,
     },
+    // S22: commercial go-live summary (detail: GET /api/v2/billing/admin/readiness).
+    commercial: await buildCommercialReadiness(env).then((r) => ({
+      verdict: r.verdict, blockers: r.blockers, warnings: r.warnings,
+      queue_attention: r.queue ? r.queue.attention : null,
+    })).catch(() => ({ verdict: "UNKNOWN", blockers: [], warnings: [], queue_attention: null })),
     generated_at: new Date().toISOString(),
     rid,
   });

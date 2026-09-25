@@ -103,7 +103,7 @@ const EXPECTED_TRANSITIONS = {
   trial:     ["active", "cancelled", "expired"],
   active:    ["active", "past_due", "suspended", "cancelled", "expired"],
   past_due:  ["active", "suspended", "cancelled"],
-  suspended: ["cancelled"],
+  suspended: ["active", "cancelled"],
   cancelled: [],
   expired:   [],
 };

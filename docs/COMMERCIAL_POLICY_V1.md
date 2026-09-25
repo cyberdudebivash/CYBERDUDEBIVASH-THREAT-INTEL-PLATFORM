@@ -247,7 +247,56 @@ sent/accepted --> cancelled (admin)      sent --(after valid_until)--> expired
 | `POST /api/v2/billing/quotes/provision` `{id}` | admin | Retry provisioning |
 | `POST /api/v2/billing/quotes/cancel` `{id, note}` | admin | Cancel before invoicing |
 
+## Access revocation across Workers (S10, 2026-09-25)
+
+The revenue engine decides entitlement; intel-gateway enforces it. They share
+only `API_KEYS_KV`, and every revocation writes both deny forms there
+(`denyGatewayAccess()` in `subscription-engine.js`): the key record gets a
+gateway deny status and expires now, and `jwt_deny:<customer_id>` refuses any
+Bearer JWT issued before the event (TTL 25 h, longer than a JWT's 24 h life).
+
+| Razorpay event | Key status at the gateway | API key | JWT issued before | New login |
+|---|---|---|---|---|
+| `subscription.activated` | active (deny marker cleared) | allowed | allowed | allowed |
+| `subscription.charged` (renewal) | unchanged, expiry extended | allowed | allowed | allowed |
+| `subscription.pending` (retrying) | unchanged (grace) | allowed | allowed | allowed |
+| `subscription.halted` | `suspended` | denied | denied | refused |
+| `subscription.cancelled` / `.completed` | `cancelled` | denied | denied | refused |
+| `refund.created` / `refund.processed` | `refunded` (never relabelled) | denied | denied | refused |
+| `subscription.charged` / `.activated` after a halt, with a **captured** payment | `active`, deny marker cleared, same key | allowed | denied (log in again) | allowed |
+
+**Halt recovery** (owner decision 2026-09-25): a halted subscription whose
+charge Razorpay later captures reactivates automatically (`suspended ->
+active`), with the customer's existing key; no second key is issued. A charge
+without a captured payment, or any charge or activation after a refund or
+cancellation, never restores access (fail-safe). Certified by `workers/revenue-engine/src/__tests__/cross-worker-revocation.test.js`,
+which runs both real Workers against one shared store, and by the mutation
+controls in `billing-negative-controls.mjs` (regression gate).
+
+## Commercial readiness and operator queue (S13/S22/S23, 2026-09-25)
+
+`GET /api/v2/billing/admin/readiness` (revenue engine, `X-Admin-Secret`), also
+the **COMMERCIAL READINESS** tab in `admin.html`, answers "can checkout take
+money correctly right now?" as **READY** or **BLOCKED**, and lists each failing
+check with its fix. It reports presence and validity only: never a secret, a
+Plan ID or GST configuration contents.
+
+| Blocks go-live | Warning only |
+|---|---|
+| Razorpay key pair missing or not a live key; webhook secret missing; any of the 6 Plan IDs missing; `API_KEYS_KV`, `REVENUE_CRM_KV` or the D1 ledger unavailable | GST config incomplete (invoices held); no LUT for this FY (or next FY within 30 days of 1 April); webhook account binding unset; no Slack alert channel |
+
+The operator queue counts what is waiting (no customer data): refund requests
+to decide (overdue after 2 days), approved refunds that never started (after
+1 hour), refunds Razorpay has not confirmed (after 7 days), invoice holds by
+reason, credit notes to issue, open disputes, and enterprise quotes to
+invoice, awaiting the buyer's transfer, or stuck provisioning. The admin
+`/api/health` carries a `commercial` summary (verdict, blocker and warning
+ids, queue size); anonymous `/api/health` is unchanged. After each deploy the
+workflow prints the verdict when the `REVENUE_ADMIN_SECRET` repository secret
+is set.
+
 ## Known gaps (not in this change)
+
 
 - **Gumroad membership products** themselves (owner action, see the cutover
   above). Until they exist, Gumroad keeps selling the labelled one-time grant.

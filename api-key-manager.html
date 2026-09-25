@@ -263,7 +263,7 @@ tbody td{padding:13px 16px;color:var(--text2);font-size:12px;vertical-align:midd
     <div class="sidebar-section">
       <div class="sidebar-label">Account</div>
       <div class="sidebar-item" onclick="showPage('verify')">
-        <span class="icon">✅</span><span class="label">Payment Verification</span>
+        <span class="icon">✅</span><span class="label">Legacy Review ID Lookup</span>
       </div>
       <div class="sidebar-item" onclick="showPage('billing')">
         <span class="icon">💳</span><span class="label">Billing & Tier</span>
@@ -823,7 +823,7 @@ tbody td{padding:13px 16px;color:var(--text2);font-size:12px;vertical-align:midd
       </div></div>
       <div style="background:linear-gradient(135deg,#050c1a,#0a0f20);border:1px solid #00d4ff33;border-radius:12px;padding:20px;margin-bottom:20px;">
         <div style="font-size:11px;font-weight:700;letter-spacing:1.5px;color:#00d4ff;margin-bottom:6px;">HOW IT WORKS</div>
-        <p style="font-size:13px;color:#94a3b8;line-height:1.7;margin:0;">After paying via BNB / UPI / Bank / PayPal on <a href="/upgrade.html" style="color:#00d4ff;">upgrade.html</a> you received a <strong style="color:#e2e8f0;">Review ID</strong>. Enter it below to check provisioning status.</p>
+        <p style="font-size:13px;color:#94a3b8;line-height:1.7;margin:0;">Payments made through the retired manual process received a <strong style="color:#e2e8f0;">Review ID</strong>. You can still look one up below. New subscriptions do not need this: access activates automatically after payment confirmation.</p>
       </div>
       <div class="table-wrap" style="margin-bottom:20px;">
         <div class="table-header"><span class="table-title">&#128269; Look Up Payment Status</span></div>
@@ -835,24 +835,13 @@ tbody td{padding:13px 16px;color:var(--text2);font-size:12px;vertical-align:midd
           <div id="verifyResult" style="display:none;"></div>
         </div>
       </div>
-      <div class="table-wrap" style="margin-bottom:20px;">
-        <div class="table-header"><span class="table-title">&#9935; BSC Crypto Transaction Verifier</span></div>
-        <div style="padding:20px;">
-          <p style="font-size:12px;color:#64748b;margin-bottom:14px;">Paste your BNB / USDT BEP-20 transaction hash to verify on-chain and accelerate provisioning.</p>
-          <div style="display:grid;grid-template-columns:1fr auto;gap:10px;margin-bottom:14px;">
-            <input id="verifyTxHash" type="text" class="form-control" placeholder="0x... transaction hash" style="font-family:monospace;font-size:12px;">
-            <button class="btn btn-primary" onclick="verifyBSCTx()">Verify On-Chain</button>
-          </div>
-          <div id="bscVerifyResult" style="display:none;"></div>
-        </div>
-      </div>
-      <div style="background:rgba(37,211,102,0.06);border:1px solid rgba(37,211,102,0.2);border-radius:10px;padding:16px 20px;">
-        <div style="font-size:12px;font-weight:700;color:#4ade80;margin-bottom:8px;">&#9889; Need Faster Activation?</div>
-        <p style="font-size:12px;color:#94a3b8;margin:0 0 12px;">WhatsApp your Review ID + payment screenshot to <strong style="color:#4ade80;">+91 8179881447</strong> &mdash; activation in 30 min during business hours.</p>
+      <div style="background:rgba(0,212,255,0.06);border:1px solid rgba(0,212,255,0.2);border-radius:10px;padding:16px 20px;">
+        <div style="font-size:12px;font-weight:700;color:#00d4ff;margin-bottom:8px;">Subscriptions activate automatically</div>
+        <p style="font-size:12px;color:#94a3b8;margin:0 0 12px;">Manual payment verification (UPI / bank / crypto proof) is retired. Razorpay and Gumroad checkouts activate API access automatically after payment confirmation. Plan, invoices, cancellation and refunds are in the Billing Center.</p>
         <div style="display:flex;gap:10px;flex-wrap:wrap;">
-          <a href="https://wa.me/918179881447" target="_blank" class="btn btn-sm" style="background:rgba(37,211,102,0.15);color:#4ade80;border:1px solid rgba(37,211,102,0.3);">&#128242; WhatsApp</a>
-          <a href="mailto:enterprise@cyberdudebivash.com" class="btn btn-sm" style="background:rgba(0,212,255,0.08);color:#00d4ff;border:1px solid rgba(0,212,255,0.2);">&#9993; Email Support</a>
-          <a href="/upgrade.html" class="btn btn-sm" style="background:rgba(124,58,237,0.1);color:#a78bfa;border:1px solid rgba(124,58,237,0.25);">&#128179; Make Payment</a>
+          <a href="/billing.html" class="btn btn-sm" style="background:rgba(0,212,255,0.08);color:#00d4ff;border:1px solid rgba(0,212,255,0.2);">&#128179; Billing Center</a>
+          <a href="https://wa.me/918179881447?text=Hi%2C%20I%20need%20help%20with%20SENTINEL%20APEX%20subscription%20checkout" target="_blank" rel="noopener" class="btn btn-sm" style="background:rgba(37,211,102,0.15);color:#4ade80;border:1px solid rgba(37,211,102,0.3);">&#128242; Sales &amp; checkout support</a>
+          <a href="mailto:enterprise@cyberdudebivash.com" class="btn btn-sm" style="background:rgba(124,58,237,0.1);color:#a78bfa;border:1px solid rgba(124,58,237,0.25);">&#9993; Email Support</a>
         </div>
       </div>
     </div>
@@ -1619,27 +1608,11 @@ async function lookupPayment() {
       <div><span style="color:#64748b;">Submitted:</span> <strong style="color:#e2e8f0;">${escHtml(data.submitted_at || '--')}</strong></div>
     </div>
     ${data.status === 'provisioned' ? '<div style="margin-top:12px;color:#10b981;font-size:13px;font-weight:700;">&#10003; API key has been delivered to your registered email.</div>' : ''}
-    ${data.status === 'pending' ? '<div style="margin-top:12px;color:#f59e0b;font-size:12px;">Payment under review. API key delivery within 2 hours. WhatsApp +91 8179881447 for urgent activation.</div>' : ''}
+    ${data.status === 'pending' ? '<div style="margin-top:12px;color:#f59e0b;font-size:12px;">Legacy manual payment record, pending review. Contact sales &amp; checkout support at +91 8179881447 or enterprise@cyberdudebivash.com.</div>' : ''}
   </div>`;
 }
 
-async function verifyBSCTx() {
-  const txHash = (document.getElementById('verifyTxHash').value || '').trim();
-  const el = document.getElementById('bscVerifyResult');
-  if (!txHash) { showToast('Enter a transaction hash', 'error'); return; }
-  el.style.display = 'block';
-  el.innerHTML = '<div style="color:#64748b;font-size:13px;">&#9935; Verifying on BSC...</div>';
-  const data = await apiFetch('/api/payment/verify-bsc?tx=' + encodeURIComponent(txHash));
-  if (data.error) {
-    el.innerHTML = `<div class="alert alert-error"><span class="icon">&#10007;</span><span>${escHtml(data.message || 'Verification failed. Check the hash and try again.')}</span></div>`;
-    return;
-  }
-  const confirmed = data.confirmed;
-  el.innerHTML = `<div class="alert ${confirmed ? 'alert-success' : 'alert-warning'}">
-    <span class="icon">${confirmed ? '&#10003;' : '&#9203;'}</span>
-    <span>${confirmed ? 'Transaction confirmed on BSC. Provisioning in progress \u2014 API key delivered within 30 minutes.' : (escHtml(data.message || 'Transaction pending confirmation. Check back in 2-3 minutes.'))}</span>
-  </div>`;
-}
+// verifyBSCTx() removed 2026-09-25: its on-chain verifier route never existed (404) and manual crypto payment is retired.
 
 // ══ Alert Subscriptions ══════════════════════════════════════════════════════
 function toggleAlertChannel() {

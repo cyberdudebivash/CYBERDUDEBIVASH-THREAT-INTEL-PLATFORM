@@ -455,6 +455,17 @@ export async function listInvoicesFor(db, email) {
   return results || [];
 }
 
+/** A customer's captured payments, newest first (Billing Center). Never the buyer's tax details. */
+export async function listPaymentsFor(db, email) {
+  await ensureBillingSchema(db);
+  const { results } = await db.prepare(
+    `SELECT payment_id, provider_sub_id, tier, billing_cycle, amount_paise, currency, captured_at,
+            invoice_status, refund_status, refunded_paise, disputed
+       FROM billing_payments WHERE email = ? ORDER BY captured_at DESC LIMIT 100`
+  ).bind(email).all();
+  return results || [];
+}
+
 export async function listInvoiceHolds(db) {
   await ensureBillingSchema(db);
   const { results } = await db.prepare(
