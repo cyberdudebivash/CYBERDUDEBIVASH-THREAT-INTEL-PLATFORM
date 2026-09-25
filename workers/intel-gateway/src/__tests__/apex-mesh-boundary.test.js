@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { createHmac } from 'node:crypto';
 
 import {
   beginApexMeshBoundary,
@@ -83,6 +84,30 @@ test('server API-key record is the commercial source of truth', async () => {
     customer_id: 'attacker',
   }), envFor({ tier: 'ENTERPRISE', customer_id: 'cust-real', subscription_status: 'active' }).env);
   assert.deepEqual(principal, { sub: 'cust-real', tier: 'ENTERPRISE', source: 'api_key' });
+});
+
+function jwtFor(payload, secret) {
+  const enc = (value) => Buffer.from(JSON.stringify(value)).toString('base64url');
+  const header = enc({ alg: 'HS256', typ: 'JWT' });
+  const body = enc(payload);
+  const sig = createHmac('sha256', secret).update(`${header}.${body}`).digest('base64url');
+  return `${header}.${body}.${sig}`;
+}
+
+test('billing refund deny marker invalidates an already-issued mesh JWT immediately', async () => {
+  const secret = 'j'.repeat(64);
+  const token = jwtFor({ sub: 'cust-refunded', tier: 'PRO', exp: Math.floor(Date.now() / 1000) + 3600 }, secret);
+  const req = new Request('https://intel.cyberdudebivash.com/api/intel/correlate', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}`, 'X-Request-ID': 'jwt-refund-deny' },
+    body: JSON.stringify({ ioc_value: '8.8.8.8', ioc_type: 'ipv4' }),
+  });
+  const env = {
+    CDB_JWT_SECRET: secret,
+    SECURITY_HUB_KV: { async get() { return null; } },
+    API_KEYS_KV: { async get(key) { return key === 'jwt_deny:cust-refunded' ? '{"reason":"refunded"}' : null; } },
+  };
+  await assert.rejects(() => __test.resolveMeshPrincipal(req, env), (err) => err?.code === 'mesh_subscription_denied' && err?.status === 403);
 });
 
 test('FREE credentials are rejected before a mesh reservation', async () => {

@@ -186,6 +186,9 @@ was provisioned after this change.
 - Enterprise **quote/PO -> bank transfer** accounts-receivable workflow.
 - One-time orders bought **before** this change are refunded from the Razorpay
   Dashboard. The gateway's existing `refund.*` webhook revokes their keys.
-- The revenue engine cannot write the gateway's `jwt_deny` marker, so after a
-  refund an already-issued dashboard JWT can last up to its 24h expiry. API
-  keys are denied immediately (`subscription_status: refunded`, `expires_at`).
+- Refund revocation is immediate across API keys and already-issued JWTs.
+  The revenue engine writes `jwt_deny:<customer_id>` into the shared
+  `API_KEYS_KV` namespace when Razorpay confirms a refund; gateway bearer
+  authentication and APEX mesh admission check that marker on every JWT
+  request. The marker outlives the maximum JWT lifetime and is cleared only
+  by a genuine new paid activation.
