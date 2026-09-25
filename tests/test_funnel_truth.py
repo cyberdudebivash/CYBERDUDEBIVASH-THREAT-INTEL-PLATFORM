@@ -202,7 +202,7 @@ def test_t13_razorpay_display_aligned_charge_unchanged():
 
 
 # ---------------------------------------------------------------------------
-# T14 — JSON-LD parses; no P1M on monthly Gumroad-shaped offers; prices 49/499
+# T14 — JSON-LD parses; no P1M on monthly Gumroad-shaped offers; canonical prices
 # ---------------------------------------------------------------------------
 def test_t14_pricing_jsonld_no_p1m_parses():
     src = _read(PRICING)
@@ -219,7 +219,7 @@ def test_t14_pricing_jsonld_no_p1m_parses():
     by_name = {o["name"]: o for o in offers}
     assert by_name["PRO / SOC"]["price"] == "49"
     assert by_name["Enterprise SOC"]["price"] == "499"
-    assert by_name["MSSP / Sovereign"]["price"] == "1999"
+    assert by_name["MSSP / Sovereign"]["price"] == "999"
     assert by_name["Free Tier"]["price"] == "0"
     for name in ("PRO / SOC", "Enterprise SOC", "MSSP / Sovereign"):
         assert "billingDuration" not in by_name[name], name
@@ -228,21 +228,21 @@ def test_t14_pricing_jsonld_no_p1m_parses():
 
 
 # ---------------------------------------------------------------------------
-# T15 — frozen prices / permalinks / GST / seller untouched
+# T15 — canonical prices / permalinks / GST / seller remain aligned
 # ---------------------------------------------------------------------------
 def test_t15_frozen_prices_and_annual_permalinks_unchanged():
     upgrade = _read(UPGRADE)
     pricing = _read(PRICING)
     assert "pxyfcb" in upgrade and "cdedlo" in upgrade
     assert "/l/xtnzu" in upgrade and "/l/vxoczs" in upgrade
-    assert "$1,999" in upgrade and "$1,999" in pricing
-    assert "usd:1999" in upgrade or "usd:1999" in upgrade.replace(" ", "")
+    assert "$1,999" not in upgrade and "$1,999" not in pricing
+    assert "usd:999" in upgrade or "usd:999" in upgrade.replace(" ", "")
     assert "GSTIN: 21ARKPN8270G1ZP" in upgrade
     assert "21ARKPN8270G1ZP" in pricing
     # RAZORPAY charge figures frozen
     assert "inr_monthly:410000" in upgrade
     assert "inr_monthly:4160000" in upgrade
-    assert "inr_monthly:16660000" in upgrade
+    assert "inr_monthly:8330000" in upgrade
 
 
 def test_lead_modal_paid_destination_is_obvious():
