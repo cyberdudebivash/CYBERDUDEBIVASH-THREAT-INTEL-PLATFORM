@@ -107,10 +107,58 @@ def _source_reliability(url: str, source_name: str = "") -> tuple:
     return ("E", "Unreliable", "Source unknown")
 
 
+
+# P0 2026-09-26 (evidence truth): KEV and EPSS claims in chain_of_custody are
+# customer-visible verification statements, so they are made only when the
+# item data proves them.
+#   KEV:  the feed carries kev as the STRING "NO" (26 of 54 live items);
+#         bool("NO") is True, so every one read "CISA KEV status: CONFIRMED
+#         active exploitation" and accuracy "1 - Confirmed by other sources".
+#         Same token set as evidence_score_enforcer.py's kev_present normaliser.
+#   EPSS: epss_score is stored in mixed scales across writers (percent 0.29 for
+#         0.29%, fraction, and double-scaled 53 for 0.53%); "{:.1%}" printed
+#         0.29 as 29.0% and 53 as 5300.0%. The EPSS value is stated only when
+#         the ingest wrote its explicit percent string (item["epss"] = "0.29%",
+#         which matches FIRST.org) and the numeric value agrees with it.
+_KEV_FALSE_TOKENS = {"FALSE", "NO", "0", "NONE", "NULL", "N/A", ""}
+_EPSS_PCT_RE = re.compile(r"^\s*(\d{1,3}(?:\.\d+)?)\s*%\s*$")
+
+
+def _kev_confirmed(item: Dict) -> bool:
+    """True only for an affirmative KEV value (True / "YES" / "TRUE" / 1 ...)."""
+    for key in ("kev_present", "kev"):
+        val = item.get(key)
+        if val is None or val is False:
+            continue
+        if val is True:
+            return True
+        if str(val).strip().upper() not in _KEV_FALSE_TOKENS:
+            return True
+    return False
+
+
+def _epss_verified_percent(item: Dict) -> Optional[float]:
+    """EPSS as a percentage, or None when its scale cannot be proven."""
+    m = _EPSS_PCT_RE.match(str(item.get("epss") or ""))
+    if not m:
+        return None
+    pct = float(m.group(1))
+    if not 0.0 <= pct <= 100.0:
+        return None
+    score = item.get("epss_score")
+    if score is not None:
+        try:
+            if abs(float(score) - pct) > 0.01:
+                return None
+        except (TypeError, ValueError):
+            return None
+    return pct
+
+
 def _accuracy_from_signals(item: Dict) -> tuple:
     """Return (accuracy_code, accuracy_label) based on corroboration signals."""
     cve_ids  = item.get("cve_ids") or ([item["cve_id"]] if item.get("cve_id") else [])
-    kev      = bool(item.get("kev_present") or item.get("kev"))
+    kev      = _kev_confirmed(item)
     epss     = item.get("epss_score") is not None
     nvd_url  = item.get("nvd_url") or ""
     corr_src = item.get("corroborating_sources") or []
@@ -136,7 +184,7 @@ def _build_verification_events(item: Dict) -> List[str]:
     cve_ids      = item.get("cve_ids") or ([item["cve_id"]] if item.get("cve_id") else [])
     epss         = item.get("epss_score")
     nvd_url      = item.get("nvd_url") or ""
-    kev          = bool(item.get("kev_present") or item.get("kev"))
+    kev          = _kev_confirmed(item)
     ghsa_id      = item.get("ghsa_id") or ""
     nvd_status   = item.get("nvd_status") or ""
 
@@ -151,8 +199,9 @@ def _build_verification_events(item: Dict) -> List[str]:
         events.append(f"GitHub Security Advisory: {ghsa_id}")
     if cve_ids:
         events.append(f"CVE references: {', '.join(cve_ids[:5])} (traceable to NVD)")
-    if epss is not None:
-        events.append(f"EPSS score {epss:.1%} assigned by FIRST.org model")
+    epss_pct = _epss_verified_percent(item) if epss is not None else None
+    if epss_pct is not None:
+        events.append(f"EPSS score {epss_pct:g}% assigned by FIRST.org model")
     if nvd_url:
         events.append(f"NVD record: {nvd_url}")
     if nvd_status:
@@ -242,7 +291,7 @@ def build_evidence_chain(item: Dict) -> Optional[Dict]:
         "chain_of_custody":      events,
         "known_limitations":     limitations,
         "iq_breakdown":          iq_bd,
-        "evidence_version":      "P20.1",
+        "evidence_version":      "P20.1.1",
     }
 
 
@@ -251,8 +300,9 @@ def enrich_items(items: List[Dict]) -> int:
     for item in items:
         if not isinstance(item, dict):
             continue
-        if item.get("evidence_chain") and item.get("evidence_chain", {}).get("evidence_version") == "P20.1":
-            continue  # already enriched at this version
+        # Always rebuilt (deterministic from the item's own data): a chain
+        # written by an earlier run keeps a stale freshness label and, before
+        # P20.1.1, false KEV/EPSS statements.
         chain = build_evidence_chain(item)
         if chain:
             item["evidence_chain"] = chain
