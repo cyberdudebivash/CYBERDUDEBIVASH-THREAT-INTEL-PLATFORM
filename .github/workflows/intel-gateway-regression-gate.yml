@@ -71,6 +71,11 @@ on:
       - 'security.txt'
       - '.well-known/**'
       - 'scripts/security_txt_validator.py'
+      - '*.html'
+      - 'blog/**'
+      - 'sitemap*.xml'
+      - 'favicon.ico'
+      - 'scripts/build_dist_artifact.py'
       - 'js/apex-status-model.js'
       - 'js/card_renderer.js'
       # ATT&CK reference: dashboard-contract.test.js checks the generated
@@ -125,6 +130,11 @@ on:
       - 'security.txt'
       - '.well-known/**'
       - 'scripts/security_txt_validator.py'
+      - '*.html'
+      - 'blog/**'
+      - 'sitemap*.xml'
+      - 'favicon.ico'
+      - 'scripts/build_dist_artifact.py'
       - 'js/apex-status-model.js'
       - 'js/card_renderer.js'
       # ATT&CK reference: dashboard-contract.test.js checks the generated
@@ -335,6 +345,9 @@ jobs:
             # security.txt (RFC 9116): both locations identical and valid,
             # Expires not about to lapse, links and dist wiring. Local files.
             tests/test_security_txt.py
+            # Every internal link in every deployed page, and every sitemap
+            # URL, resolves to a file dist/ ships. Local files.
+            tests/test_site_links_resolve.py
           )
           python3 -m pytest "${SUITES[@]}" -q
           # Refuse to pass having run nothing. pytest.ini forces --verbose, so
