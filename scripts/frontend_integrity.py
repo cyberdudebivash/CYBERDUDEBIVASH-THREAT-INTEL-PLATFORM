@@ -19,6 +19,7 @@ Protected assets (TIER 3 -- deployment authority write-only):
   js/card_renderer_integration.js
   js/sla-monitor.js
   css/card_renderer_styles.css
+  css/homepage-design-system.css
 """
 
 import argparse
@@ -38,6 +39,9 @@ PROTECTED_ASSETS = [
     "js/card_renderer_integration.js",
     "js/sla-monitor.js",
     "css/card_renderer_styles.css",
+    # Extracted from index.html's inline <style> (2026-09-26) -- same content,
+    # so it keeps index.html's protection.
+    "css/homepage-design-system.css",
 ]
 
 REGISTRY_PATH = REPO_ROOT / "config" / "frontend_checksums.json"
