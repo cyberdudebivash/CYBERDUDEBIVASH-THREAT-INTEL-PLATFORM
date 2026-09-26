@@ -203,6 +203,16 @@ def _corroboration_score(item: dict) -> int:
 
 
 def _compute_age_days(item: dict) -> float:
+    # 2026-09-26: age is measured from the SOURCE publication date
+    # (scripts/source_publication_age.py). Reading timestamp/processed_at first
+    # made a January article ingested today 0 days old, with no confidence decay.
+    try:
+        from source_publication_age import source_age_days
+        _src_age = source_age_days(item)
+        if _src_age is not None:
+            return _src_age
+    except Exception:
+        pass
     ts = item.get("timestamp") or item.get("processed_at") or item.get("published_at") or ""
     if not ts:
         return 0.0

@@ -203,6 +203,11 @@ class STIXExporter:
             obj["created_by_ref"]      = STIX_IDENTITY_ID
             return obj
 
+        # Source article URL (same derivation as the manifest entry below).
+        _bundle_source_url = str((metadata or {}).get('source_url', '') or '').strip()
+        if not _bundle_source_url.startswith(("https://", "http://")):
+            _bundle_source_url = ""
+
         # -- Intrusion Set (Campaign/Actor) --
         _intrusion_set_obj = {
             "type":            "intrusion-set",
@@ -235,6 +240,9 @@ class STIXExporter:
                     # can recover it — without this, reconstruction uses STIX created time
                     # (pipeline clock), making all entries show the same published_at.
                     "x_cdb_published_at": published_at or "",
+                    # 2026-09-26: Stage 3.9 reconstruction reads x_cdb_source_url;
+                    # nothing wrote it, so every reconstructed item lost its source.
+                    "x_cdb_source_url": _bundle_source_url,
                 }
                 _intrusion_set_obj["extensions"] = {
                     "x-cdb-apex-1": _apex_ext
@@ -244,11 +252,12 @@ class STIXExporter:
         # PHASE 5 FIX: always embed published_at even when apex_data is absent.
         # Ensures the source timestamp survives the STIX round-trip regardless of
         # whether APEX enrichment was available during ingestion.
-        if published_at and "extensions" not in _intrusion_set_obj:
+        if (published_at or _bundle_source_url) and "extensions" not in _intrusion_set_obj:
             try:
                 _intrusion_set_obj["extensions"] = {
                     "x-cdb-apex-1": {
-                        "x_cdb_published_at": published_at,
+                        "x_cdb_published_at": published_at or "",
+                        "x_cdb_source_url":   _bundle_source_url,
                         "soc_priority":       "P4",
                     }
                 }

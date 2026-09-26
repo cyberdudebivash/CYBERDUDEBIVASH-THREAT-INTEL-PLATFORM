@@ -3084,6 +3084,11 @@ def stage_sync_root_feed_json() -> None:
         log.warning("[3.9] Manifest only %d entries — reconstructing from STIX bundles",
                     len(manifest_items))
         stix_files = sorted(stix_dir.glob("CDB-APEX-*.json"), reverse=True)
+        try:
+            from source_publication_age import is_stale_source as _is_stale_source
+        except Exception as _sa_e:
+            log.warning("[3.9] source age check unavailable (%s) -- not filtering", _sa_e)
+            _is_stale_source = lambda _item: False  # noqa: E731
         reconstructed: list = []
         seen_ids: set = set()
 
@@ -3133,6 +3138,13 @@ def stage_sync_root_feed_json() -> None:
                         # Preference order: x_cdb_published_at > stix.created > stix.modified > ""
                         _ts_fallback = (intset.get("created") or intset.get("modified") or "")
                         _published_at_final = _cdb_pub_at if _cdb_pub_at else _ts_fallback
+                        # 2026-09-26: a bundle for an article the source published
+                        # months ago is not new intelligence (judged on the source
+                        # date only; the STIX clock is never evidence of age).
+                        if _is_stale_source({"published_at": _cdb_pub_at, "title": raw_title}):
+                            log.info("[3.9] Skip stale source bundle %s (published %s)",
+                                     sf.name, _cdb_pub_at)
+                            continue
                         desc = intset.get("description", "")
                         # Actor resolution
                         raw_actor = intset.get("aliases", ["UNC-UNKNOWN"])[0]

@@ -535,7 +535,7 @@ jobs:
       - name: "STAGE 0.05b - Critical script restore guard (post-checkout resilience)"
         timeout-minutes: 2
         run: |
-          CRITICAL="scripts/safe_git_commit.py scripts/run_pipeline.py scripts/generate_intel_reports.py scripts/intel_dedup_engine.py scripts/severity_epss_truth.py"
+          CRITICAL="scripts/safe_git_commit.py scripts/run_pipeline.py scripts/generate_intel_reports.py scripts/intel_dedup_engine.py scripts/severity_epss_truth.py scripts/source_publication_age.py scripts/stale_source_guard.py"
           RESTORED=0
           MISSING=0
           for f in $CRITICAL; do
@@ -770,6 +770,22 @@ jobs:
                         f"({row.get('manifest_delta'):+d})  feed={row.get('feed_items'):>5} "
                         f"({row.get('feed_delta'):+d})")
           CENSUS_EOF
+
+      # -----------------------------------------------------------------------
+      # STAGE 1-3b - Stale Source Guard (2026-09-26)
+      # Production latest.json (06:28Z): 12 of 42 items were articles their
+      # sources published 2026-01-14 .. 2026-08-07, ingested as new intel and
+      # leading the newest-first feed. Removes items whose SOURCE publication
+      # date is older than INTEL_MAX_SOURCE_AGE_DAYS (default 14) unless KEV
+      # confirmed / exploitation signalled; keeps undated items; never leaves
+      # fewer than 10. Runs before enrichment, reports and R2 uploads, so no
+      # report or R2 write is spent on them. Non-blocking (exit 0).
+      # See scripts/source_publication_age.py, scripts/stale_source_guard.py.
+      # -----------------------------------------------------------------------
+      - name: "STAGE 1-3b - Stale Source Guard (post-ingest)"
+        timeout-minutes: 2
+        continue-on-error: true
+        run: python3 scripts/stale_source_guard.py post-ingest
 
       # -----------------------------------------------------------------------
       # STAGE 3.1: APEX AI ENRICHMENT ENGINE (PERMANENT -- DO NOT REMOVE)
@@ -2889,6 +2905,14 @@ jobs:
           else
             echo "::warning::advisory_immutability.json not written — check advisory_immutability_engine.py execution"
           fi
+
+      - name: "STAGE 3.93.18b - Stale Source Guard (pre-manifest)"
+        # Same guard as STAGE 1-3b, again after the ~40 steps that
+        # read-modify-write api/feed.json (e.g. 3.1.13 Multi-Source
+        # Collector), so the manifests below never publish a stale article.
+        timeout-minutes: 2
+        continue-on-error: true
+        run: python3 scripts/stale_source_guard.py pre-manifest
 
       # -----------------------------------------------------------------------
       # STAGE 3.93.19: RE-GENERATE IMMUTABLE API MANIFESTS (POST-ENRICHMENT)

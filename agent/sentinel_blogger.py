@@ -316,8 +316,33 @@ CVE_MAX_AGE_YEARS  = 2
 CVE_EPSS_EXCEPTION = 70.0
 
 
+def _stale_source_check(entry: dict):
+    """(stale, age_days) from scripts/source_publication_age.py; (False, None)
+    when the module is unavailable -- never blocks ingestion on an import."""
+    try:
+        _scripts = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "scripts")
+        if _scripts not in sys.path:
+            sys.path.insert(0, _scripts)
+        from source_publication_age import is_stale_source, source_age_days
+        return is_stale_source(entry), source_age_days(entry)
+    except Exception as _sa_e:
+        logger.debug("[TEMPORAL] source age check unavailable: %s", _sa_e)
+        return False, None
+
+
 def is_temporally_relevant(entry: dict) -> bool:
-    """Reject stale CVEs (>2y old) unless KEV/EPSS exception applies."""
+    """Reject stale CVEs (>2y old) unless KEV/EPSS exception applies.
+
+    2026-09-26: also reject articles whose source publication date is older
+    than INTEL_MAX_SOURCE_AGE_DAYS (default 14) unless they carry an
+    active-exploitation signal -- a feed's back catalogue is not new intel.
+    """
+    _stale, _age = _stale_source_check(entry)
+    if _stale:
+        logger.info(f"[TEMPORAL] SKIP stale source article (published {_age:.0f}d ago): "
+                    f"{entry.get('title', '')[:60]}")
+        return False
+
     title     = entry.get("title", "")
     cve_match = re.search(r'CVE-(\d{4})-', title)
     if not cve_match:
