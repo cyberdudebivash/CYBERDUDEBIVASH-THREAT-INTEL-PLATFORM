@@ -3599,6 +3599,41 @@ jobs:
           fi
 
       # -----------------------------------------------------------------------
+      # STAGE 5.4.0d: REFRESH CUSTOMER REPORTS CATALOG (2026-09-26)
+      # api/reports/{index,latest,stats}.json are built at STAGE 3.3.7 and
+      # uploaded at STAGE 3.5, before STAGE 5.4.0c publishes this run's late
+      # renders. Production: the catalog listed 1 report next to 28 advisories
+      # until the next run (~4h). This step repeats the existing chain once
+      # more, now that the publish state includes those reports:
+      #   1. build_reports_index.py       -- the only writer of these files
+      #   2. r2_reports_integrity.py      -- purges entries missing from R2
+      #   3. r2_upload.py --reports-index-only -- 3 budgeted PUTs, stale-guarded
+      # Upload is skipped if 1 or 2 fails, so a broken index never replaces
+      # the STAGE 3.5 copy. The dist artifact (STAGE 5.4.6) also picks up the
+      # rebuilt files, so Pages and R2 agree.
+      # -----------------------------------------------------------------------
+      - name: "STAGE 5.4.0d - Refresh Customer Reports Catalog"
+        if: env.PIPELINE_LOCKED != 'true'
+        timeout-minutes: 10
+        continue-on-error: true
+        env:
+          CF_R2_REPORTS_KEY_ID:     ${{ secrets.CF_R2_REPORTS_KEY_ID }}
+          CF_R2_REPORTS_SECRET_KEY: ${{ secrets.CF_R2_REPORTS_SECRET_KEY }}
+        run: |
+          if ! python3 scripts/build_reports_index.py; then
+            echo "::warning::STAGE 5.4.0d: build_reports_index.py failed -- keeping the STAGE 3.5 catalog in R2."
+            exit 0
+          fi
+          if ! python3 scripts/r2_reports_integrity.py; then
+            echo "::warning::STAGE 5.4.0d: r2_reports_integrity.py failed -- not uploading the rebuilt catalog."
+            exit 0
+          fi
+          if ! python3 scripts/r2_upload.py --reports-index-only; then
+            echo "::warning::STAGE 5.4.0d: catalog upload failed or was budget-blocked -- R2 keeps the STAGE 3.5 copy until the next run."
+          fi
+          echo "[REPORTS-CATALOG] total_reports=$(jq '.total_reports // 0' api/reports/index.json 2>/dev/null || echo '?') listed=$(jq '.reports_listed // 0' api/reports/index.json 2>/dev/null || echo '?')"
+
+      # -----------------------------------------------------------------------
       # STAGE 5.4.1: REPORT EXISTENCE VALIDATOR (v184.0 P0 HARD FAIL)
       # Validates every report_url in the feed manifest resolves to an actual
       # HTML file on disk. Catches stale/broken report links BEFORE they reach
