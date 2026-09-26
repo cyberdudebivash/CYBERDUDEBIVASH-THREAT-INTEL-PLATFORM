@@ -96,6 +96,22 @@
     }
   },
 
+  "features": {
+    "ai_threat_feed": {
+      "product": "SENTINEL APEX AI THREAT FEED",
+      "sku": "cdb-aish-feed",
+      "billing": "Included with the existing plans; no separate price and no second invoice. Prices are the tiers above.",
+      "entitlements": {
+        "free": { "items": 5, "details": false, "timeline_and_actions": false, "item_view": false, "tlp_amber": false },
+        "pro": { "items": 25, "details": true, "timeline_and_actions": false, "item_view": true, "tlp_amber": true },
+        "enterprise": { "items": 100, "details": true, "timeline_and_actions": true, "item_view": true, "tlp_amber": true },
+        "mssp": { "items": 100, "details": true, "timeline_and_actions": true, "item_view": true, "tlp_amber": true }
+      },
+      "sources": "Live Sentinel APEX advisories matching the AI vocabulary that cite their source's https URL, and Hub-authored objects (id CDB-AISH-FEED-YYYY-MMDD-NN) each with a required https source_url. No crawler.",
+      "freshness": "Same publication contract as Cyber Watchdog: not FRESH -> 503, never served as live.",
+      "runtime": "workers/intel-gateway/src/ai-threat-feed.js (AI_FEED_FEATURES must equal these entitlements)"
+    }
+  },
   "_quota_authority": "requests_per_minute is enforced per IP over a 60s window by RATE_LIMITS in workers/intel-gateway/src/index.js. requests_per_day is enforced per API key over a UTC day by DAILY_QUOTAS in workers/intel-gateway/src/daily-quota.js. Both deny with HTTP 429 at the cap, so NO tier may be published as 'unlimited'.",
   "_sla_authority": "Uptime, latency, freshness, incident-response and P0 outage-credit terms are the tier-by-tier commitments published in sla.html, measured as a rolling 30-day percentage of successful API health checks from three independent monitoring locations, with planned maintenance (72h notice) excluded and credits claimable within 30 days. These are real contractual commitments backed by a credit mechanism, NOT marketing garnish, and must not be removed. Note this differs deliberately from the Labs storefront contract, which publishes no uptime SLA for its own tool/API surface -- the two are different products.",
   "_forbidden_claims": [

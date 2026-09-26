@@ -196,6 +196,10 @@ const PUBLIC_EXACT_PATHS = new Set([
   // edge-cached as a public wildcard response.
   "/api/watchdog/offer",
   "/api/watchdog/health",
+  // AI Threat Feed offer and freshness: identical for every caller. The live
+  // and item routes project by tier, so they stay out of this list.
+  "/api/ai-feed/offer",
+  "/api/ai-feed/health",
 ]);
 
 // Bare TAXII 2.1 server-discovery root only -- per index.js's own comment

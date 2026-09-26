@@ -226,6 +226,13 @@
       </form>
       <p class="ax-meta" id="status" role="status">Loading the live brief…</p>
       <div id="brieftable"></div>
+      <section class="ax-panel" id="aifeed" aria-labelledby="h-aifeed" style="margin-top:16px">
+        <div class="ax-panel__head"><h2 class="ax-h-panel" id="h-aifeed">SENTINEL APEX&trade; AI Threat Feed</h2></div>
+        <p class="ax-meta">AI-security advisories from this feed that cite their source, plus Hub-authored objects that each carry a source URL. No crawler. Nothing is shown as live when the feed is not fresh.</p>
+        <p class="ax-meta" id="aif-status" role="status">Loading the AI Threat Feed&hellip;</p>
+        <div id="aif-list"></div>
+        <div id="aif-detail" aria-live="polite"></div>
+      </section>
     </section>
 
     <!-- INTEGRATIONS -->
@@ -489,7 +496,7 @@ async function loadView(v) {
     if (v === 'overview') await loadOverview();
     else if (v === 'matches') await loadEvents();
     else if (v === 'watches') { await Promise.all([loadProfile(), loadWatches()]); }
-    else if (v === 'intelligence') await loadBrief();
+    else if (v === 'intelligence') await Promise.all([loadBrief(), loadAiFeed()]);
     else if (v === 'integrations') await loadDestinations();
     else if (v === 'tenants') renderTenants();
     else if (v === 'plan') await loadPlan();
@@ -553,6 +560,82 @@ function renderBriefRows(items, caption) {
     h('td', { class: 'ax-col-opt' }, item.source || na()),
     h('td', { class: 'ax-mono' }, S.ageFromIso(item.observed_at) || na())));
   mount($('brieftable'), rows.length ? table(caption, [{ label: 'Severity' }, { label: 'Advisory' }, { label: 'Lens', opt: true }, { label: 'Source', opt: true }, { label: 'Age' }], rows, { tall: true }) : h('div', { class: 'ax-empty', text: 'No feed items matched this lens or query' }));
+}
+
+// --------------------------------------------------------- AI threat feed
+// GET /api/ai-feed/live projects by plan server-side: FREE rows arrive
+// locked (no summary, source URL, ruling, timeline or actions). A STALE feed
+// answers 503 with last_authoritative labelled NOT LIVE, as the brief does.
+async function loadAiFeed() {
+  let res; let data;
+  try {
+    res = await fetch('/api/ai-feed/live', { headers: headers() });
+    data = await res.json();
+  } catch (_) {
+    $('aif-status').textContent = 'AI Threat Feed is not reachable.';
+    mount($('aif-list'));
+    return;
+  }
+  mount($('aif-detail'));
+  const last = res.ok ? null : lastAuthoritative(data);
+  const body = res.ok ? data : last;
+  if (!body) {
+    $('aif-status').textContent = data.message || 'INTELLIGENCE DEGRADED';
+    mount($('aif-list'), h('div', { class: 'ax-empty', text: 'No live AI items: the feed is not fresh' }));
+    return;
+  }
+  $('aif-status').textContent = (last ? last.label : 'LIVE') + ' · ' + (body.freshness_status || data.freshness_status || 'UNKNOWN')
+    + ' · ' + body.count + ' of ' + body.total_available + ' AI items · ' + (PLAN_NAME[body.tier] || 'Free preview')
+    + ' · updated ' + (body.feed_generated_at || 'unknown');
+  const rows = (body.items || []).map((it) => {
+    const open = h('button', { type: 'button', class: 'ax-btn ax-btn--ghost ax-btn--sm', dataset: { aifItem: it.id }, text: it.locked ? 'Locked' : 'Open' });
+    open.addEventListener('click', () => openAiItem(it, body));
+    return h('tr', { dataset: { band: S.severityKey(it.severity) } },
+      h('td', {}, sevChip(it.severity)),
+      h('td', {}, h('div', { class: 'ax-title', text: it.title }), h('div', { class: 'ax-sub ax-mono', text: it.id })),
+      h('td', { class: 'ax-col-opt ax-mono', text: it.first_seen || '' }),
+      h('td', { class: 'ax-col-opt' }, it.source_name || na()),
+      h('td', {}, open));
+  });
+  const up = body.upgrade;
+  mount($('aif-list'),
+    rows.length ? table(last ? 'Last authoritative AI items (not live)' : 'AI Threat Feed items', [{ label: 'Severity' }, { label: 'Item' }, { label: 'First seen', opt: true }, { label: 'Source', opt: true }, { label: 'Detail' }], rows)
+      : h('div', { class: 'ax-empty', text: 'No AI items on the feed right now' }),
+    up ? h('p', { class: 'ax-meta', style: 'margin-top:10px' },
+      h('a', { class: 'ax-btn ax-btn--primary', href: up.checkout, text: 'Upgrade to ' + (PLAN_NAME[up.plan] || up.plan) + ' · ' + up.price_label }),
+      ' ' + (up.unlocks ? 'Unlocks ' + up.unlocks + '.' : 'Unlocks summaries, sources and Hub rulings.')) : null);
+}
+async function openAiItem(it, feed) {
+  if (it.locked) {
+    mount($('aif-detail'), h('div', { class: 'ax-panel', style: 'margin-top:10px' },
+      h('p', { class: 'ax-title', text: 'Locked: ' + it.title }),
+      h('p', { class: 'ax-meta', text: 'Summary, source, Hub ruling and item detail are included with Pro Defense; timeline, triggers and actions with Enterprise SOC.' }),
+      h('a', { class: 'ax-btn ax-btn--primary', href: it.checkout || '/upgrade.html?plan=pro&feature=ai-threat-feed', text: 'Unlock with ' + PLAN_NAME.PRO + (feed.upgrade ? ' · ' + feed.upgrade.price_label : '') })));
+    return;
+  }
+  mount($('aif-detail'), h('p', { class: 'ax-meta', text: 'Loading ' + it.id + '…' }));
+  let res; let data;
+  try {
+    res = await fetch('/api/ai-feed/item/' + encodeURIComponent(it.id), { headers: headers() });
+    data = await res.json();
+  } catch (_) {
+    mount($('aif-detail'), h('div', { class: 'ax-empty', text: 'Item detail is not reachable' }));
+    return;
+  }
+  if (!res.ok) { mount($('aif-detail'), h('div', { class: 'ax-empty', text: data.message || data.error || 'Item unavailable' })); return; }
+  const x = data.item;
+  mount($('aif-detail'), h('div', { class: 'ax-panel', style: 'margin-top:10px' },
+    h('h3', { class: 'ax-h-panel', text: x.title }),
+    h('p', { class: 'ax-meta ax-mono', text: x.id + ' · ' + x.severity + ' · first seen ' + (x.first_seen || 'unknown') + ' · exploitation ' + (x.exploitation || 'UNKNOWN') }),
+    x.summary ? h('p', { text: x.summary }) : null,
+    x.hub_ruling ? h('p', {}, h('strong', { text: 'Hub ruling: ' }), x.hub_ruling) : null,
+    (x.cves || []).length ? h('p', { class: 'ax-mono', text: x.cves.join(', ') }) : null,
+    h('p', {}, h('a', { href: x.source_url, rel: 'noopener noreferrer', target: '_blank', text: 'Source: ' + (x.source_name || x.source_url) })),
+    x.timeline
+      ? h('div', {}, h('strong', { text: 'Timeline' }), h('ol', {}, x.timeline.map((t) => h('li', {}, h('span', { class: 'ax-mono', text: t.at + ' ' }), t.event))))
+      : h('p', { class: 'ax-meta' }, 'Timeline, triggers and actions are included with Enterprise SOC. ', h('a', { href: x.checkout || '/upgrade.html?plan=enterprise&feature=ai-threat-feed', text: 'Upgrade' })),
+    (x.triggers || []).length ? h('div', {}, h('strong', { text: 'Triggers' }), h('ul', {}, x.triggers.map((t) => h('li', { text: t })))) : null,
+    (x.actions || []).length ? h('div', {}, h('strong', { text: 'Actions' }), h('ul', {}, x.actions.map((a) => h('li', { text: a })))) : null));
 }
 
 // --------------------------------------------------------------- overview

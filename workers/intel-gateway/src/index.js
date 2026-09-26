@@ -158,6 +158,7 @@ import { TENANT_AUTH_VERSION, TENANT_DO_PREFIX, isTenantId, newTenantId, request
 import { buildCampaignsPayload, buildRansomwarePayload, geoAttributionCoverage, DASHBOARD_CONTRACT_VERSION, THREAT_LEVEL_FORMULA, THREAT_LEVEL_FORMULA_VERSION } from './dashboard-contract.js';
 import { normalizeBuyerTaxId } from './tax-id.js';
 import { resolveGumroadProduct, checkGumroadSalePrice, looksLikePlatformProduct, gumroadPermalinkFrom, GUMROAD_CONTENT_PRODUCTS } from './gumroad-products.js';
+import { routeAiFeed, AI_FEED_CATALOG_KEY } from './ai-threat-feed.js';
 // Issue #288: Durable Object class the Workers runtime instantiates via the
 // GUMROAD_PROVISIONING_LOCK binding (wrangler.toml). Must be a named export
 // of the Worker's main module -- see gumroad-provisioning-lock.js's header
@@ -6240,9 +6241,13 @@ async function handleRequest(request, env, ctx) {
 
   // Resolve auth once for this request (skip for pure public health check to save a KV read)
   let auth = await resolveAuth(request, env);
-  // A Cyber Watchdog session token is audience-bound to the /api/watchdog routes.
+  // A Cyber Watchdog session token is audience-bound to the /api/watchdog routes,
+  // plus read-only GETs of the AI Threat Feed (a Watchdog lens, sold with the
+  // same plans; ingest is operator-only and never accepts a session).
   // Anywhere else it is an invalid credential, never a general API bearer.
-  if (auth.aud === WATCHDOG_SESSION_POLICY.audience && !path.startsWith("/api/watchdog")) {
+  const aiFeedSessionRead = (method === "GET" || method === "HEAD")
+    && (path === "/api/ai-feed/live" || path.startsWith("/api/ai-feed/item/"));
+  if (auth.aud === WATCHDOG_SESSION_POLICY.audience && !path.startsWith("/api/watchdog") && !aiFeedSessionRead) {
     auth = { tier: TIERS.FREE, key: null, sub: null, error: "token_audience_mismatch" };
   }
 
@@ -8493,6 +8498,33 @@ async function handleRequest(request, env, ctx) {
     if (watched) return jsonResp(watched.body, watched.status, { "Cache-Control": "no-store" });
   }
 
+  // SENTINEL APEX AI THREAT FEED (SKU cdb-aish-feed): a paid lens under Cyber
+  // Watchdog. Same R2 feed object and freshness contract as /api/watchdog
+  // (one GET, no LIST), same tier resolution, prices from the runtime pricing
+  // provider. Hub catalog in SECURITY_HUB_KV (one key); only operator ingest
+  // (X-Admin-Key) writes it. See ai-threat-feed.js.
+  if (path === "/api/ai-feed" || path.startsWith("/api/ai-feed/")) {
+    const needsFeed = path === "/api/ai-feed/live" || path === "/api/ai-feed/health" || path.startsWith("/api/ai-feed/item/");
+    const feed = needsFeed ? await r2Get(env, LATEST_JSON_KEY) : null;
+    let body = null;
+    if (method === "POST") {
+      try { body = await request.json(); } catch { body = null; }
+    }
+    const kv = env.SECURITY_HUB_KV;
+    const aiFeed = await routeAiFeed({
+      path,
+      method,
+      auth,
+      feed,
+      body,
+      nowMs: Date.now(),
+      isOperator: path === "/api/ai-feed/ingest" && isWatchdogOperator(request, env),
+      readCatalog: kv ? () => kv.get(AI_FEED_CATALOG_KEY, "json") : null,
+      writeCatalog: kv ? (obj) => kv.put(AI_FEED_CATALOG_KEY, JSON.stringify(obj)) : null,
+    });
+    if (aiFeed) return jsonResp(aiFeed.body, aiFeed.status, { "Cache-Control": "no-store" });
+  }
+
   // --- 404 --------------------------------------------------------------------
   return jsonResp({
     error: "Not found", path,
@@ -8505,6 +8537,7 @@ async function handleRequest(request, env, ctx) {
       "/api/v1/intel/ai_index.json", "/api/v1/intel/detection_rules_manifest.json",
       "/api/v1/news/feed", "/api/reports/index.json", "/api/reports/stats.json",
       "/api/v1/ioc/lookup",
+      "/api/ai-feed/offer", "/api/ai-feed/health", "/api/ai-feed/live", "/api/ai-feed/item/{id}",
       "/api/v1/cve/live", "/api/v1/cve/stats", "/api/v1/cve/detail?id=CVE-XXXX-XXXXX",
       "POST /api/auth/login", "POST /api/auth/logout", "GET /api/auth/validate",
       "/auth/login", "/auth/logout",
