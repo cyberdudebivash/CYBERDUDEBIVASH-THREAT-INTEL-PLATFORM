@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { readFileSync } from "node:fs";
+import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 import vm from "node:vm";
@@ -29,6 +30,9 @@ import vm from "node:vm";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const INDEX_HTML = path.join(__dirname, "..", "..", "index.html");
+// index.html + its extracted css/js (scripts/homepage_source.py, 2026-09-26)
+const homepageSource = (repo) => execFileSync("python3", [path.join(repo, "scripts", "homepage_source.py")],
+  { encoding: "utf8", maxBuffer: 64 * 1024 * 1024 });
 
 // 2026-09-24 (P0 dashboard data contract): the EICC engine no longer sums
 // IOCs itself; it renders js/apex-dashboard-snapshot.js, where this function
@@ -36,7 +40,7 @@ const INDEX_HTML = path.join(__dirname, "..", "..", "index.html");
 // EICC block is checked to still use it rather than a second copy.
 const SNAPSHOT_JS = path.join(__dirname, "..", "apex-dashboard-snapshot.js");
 function loadIocContribution() {
-  const html = readFileSync(INDEX_HTML, "utf-8");
+  const html = homepageSource(path.join(__dirname, "..", ".."));
   assert.ok(html.includes('<script src="/js/apex-dashboard-snapshot.js"></script>'), "index.html must load the dashboard snapshot");
   assert.ok(!html.includes("function _iocContribution(it){"), "a second IOC summing copy is back in index.html");
   const context = { module: { exports: {} } };

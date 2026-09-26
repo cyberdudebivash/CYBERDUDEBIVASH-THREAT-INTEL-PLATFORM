@@ -27,6 +27,10 @@ const COPY = [
   "config/public_freshness_contract.json",
   "config/ai-threat-feed-catalog.json",
   "index.html",
+  // index.html's extracted assets + the reader the tests use (2026-09-26)
+  "css/homepage-design-system.css",
+  "js/homepage-dashboard-engine.js",
+  "scripts/homepage_source.py",
   "dashboard.html",
   "cyber-watchdog.html",
   "css/apex-design-tokens.css",
@@ -200,7 +204,8 @@ const CONTROLS = [
   },
   {
     id: "homepage_missing_state_is_live",
-    file: "index.html",
+    // Code moved from index.html to its extracted engine (2026-09-26).
+    file: "js/homepage-dashboard-engine.js",
     find: "if (state === 'fresh' && tsOk && ageOk) return { text: 'LIVE', color: '#10b981' };",
     replace: "if (state !== 'stale') return { text: 'LIVE', color: '#10b981' };",
     tests: [T("publication-truth.test.js")],
@@ -577,7 +582,8 @@ const CONTROLS = [
   },
   {
     id: "ui_homepage_feed_title_unescaped",
-    file: "index.html",
+    // Code moved from index.html to its extracted engine (2026-09-26).
+    file: "js/homepage-dashboard-engine.js",
     find: "overflow:hidden;\">'+_tt((item.title||'Unknown').substring(0,110))+'</div>",
     replace: "overflow:hidden;\">'+(item.title||'Unknown').substring(0,110)+'</div>",
     tests: [T("watchdog-apex-ui.test.js")],

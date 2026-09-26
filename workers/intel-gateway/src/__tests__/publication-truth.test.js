@@ -5,6 +5,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import fs from "node:fs";
+import { execFileSync } from "node:child_process";
 import path from "node:path";
 import vm from "node:vm";
 import { fileURLToPath } from "node:url";
@@ -13,6 +14,9 @@ import { publicationEnvelope, freshnessStatusFor, evaluatePublicIntelligence } f
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(HERE, "../../../..");
+// index.html + its extracted css/js (scripts/homepage_source.py, 2026-09-26)
+const homepageSource = (repo) => execFileSync("python3", [path.join(repo, "scripts", "homepage_source.py")],
+  { encoding: "utf8", maxBuffer: 64 * 1024 * 1024 });
 const NOW_MS = Date.parse("2026-09-24T06:00:00Z");
 const items = [{ id: "a" }, { id: "b" }];
 
@@ -43,7 +47,7 @@ test("feed envelope: only a proven-fresh feed is FRESH; everything else says why
 });
 
 function badgeFn() {
-  const html = fs.readFileSync(path.join(ROOT, "index.html"), "utf8");
+  const html = homepageSource(ROOT);
   const start = html.indexOf("function cdbPublicationBadge(intel)");
   assert.ok(start > 0, "cdbPublicationBadge present");
   const end = html.indexOf("window.cdbPublicationBadge", start);
