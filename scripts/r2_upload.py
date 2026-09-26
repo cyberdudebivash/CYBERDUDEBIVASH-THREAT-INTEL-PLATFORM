@@ -197,6 +197,16 @@ GOVERNANCE_TELEMETRY_FILES: list[tuple[str, str]] = [
     ("data/telemetry/global_release_governance.json", "data/telemetry/global_release_governance.json"),
 ]
 
+# Customer Reports catalog (written only by scripts/build_reports_index.py).
+# main() uploads these at STAGE 3.5; main_reports_index_only() re-uploads the
+# same three keys after STAGE 5.4.0c publishes reports rendered late in the
+# run -- see that function's docstring.
+REPORTS_INDEX_FILES: list[tuple[str, str]] = [
+    ("api/reports/latest.json",       "api/reports/latest.json"),
+    ("api/reports/index.json",        "api/reports/index.json"),
+    ("api/reports/stats.json",        "api/reports/stats.json"),
+]
+
 
 def utc_now() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
@@ -647,6 +657,63 @@ def main_governance_telemetry_only() -> None:
     log.info("Governance-telemetry-only R2 sync complete.")
 
 
+def main_reports_index_only() -> None:
+    """
+    Late re-upload of the customer Reports catalog (REPORTS_INDEX_FILES).
+
+    2026-09-26: main() uploads api/reports/*.json at STAGE 3.5, built at
+    STAGE 3.3.7 from the reports published so far. STAGE 5.4.0c then
+    publishes the reports rendered later in the same run (production: 19 of
+    21 in-window reports), so the live catalog listed 1 report next to 28
+    advisories until the next run (~4h). sentinel-blogger.yml STAGE 5.4.0d
+    rebuilds the index (build_reports_index.py, still the only writer),
+    verifies it against R2 (r2_reports_integrity.py) and calls this.
+
+    Same budget accounting and stale-manifest guard as main().
+    """
+    log.info("=" * 60)
+    log.info("SENTINEL APEX v%s -- R2 Upload Engine (reports-index-only)", PIPELINE_VERSION)
+    log.info("=" * 60)
+    os.chdir(REPO_ROOT)
+    cf_account, _access_key, _secret_key = get_credentials()
+    endpoint = f"https://{cf_account}.r2.cloudflarestorage.com"
+    install_awscli()
+
+    candidates: list[tuple[str, str]] = []
+    for src, dst_key in REPORTS_INDEX_FILES:
+        if not (REPO_ROOT / src).exists():
+            log.warning("SKIP (reports index): %s not found", src)
+            continue
+        stale = stale_manifest_reason(REPO_ROOT / src)
+        if stale:
+            log.warning("SKIP (stale): %s -- %s", src, stale)
+            print(f"::warning::r2_upload: skipped stale {src} ({stale})", flush=True)
+            continue
+        candidates.append((src, dst_key))
+
+    plan = R2OperationPlan(label="r2_upload_reports_index", bucket=BUCKET_DATA)
+    plan.record_put(len(candidates))
+
+    budgets = R2Budgets.from_env()
+    try:
+        enforce_budget(plan, budgets, is_report_plan=False)
+    except R2BudgetExceeded as exc:
+        log.critical(str(exc))
+        emit_summary(plan, budgets, status="BLOCKED", is_report_plan=False, extra={"reason": str(exc)})
+        sys.exit(1)
+
+    uploaded = 0
+    for src, dst_key in candidates:
+        if s3_cp(src, BUCKET_DATA, dst_key, endpoint):
+            uploaded += 1
+    log.info("OK: Reports catalog uploaded to R2 (%d/%d)", uploaded, len(candidates))
+
+    emit_summary(plan, budgets, status="PASS", is_report_plan=False, extra={"uploaded": uploaded})
+    if uploaded < len(candidates):
+        sys.exit(1)
+    log.info("Reports-index-only R2 sync complete.")
+
+
 def count_manifest() -> int:
     """Count advisory entries in feed_manifest.json."""
     path = REPO_ROOT / "data" / "stix" / "feed_manifest.json"
@@ -730,9 +797,7 @@ def build_upload_plan() -> list[tuple[str, str]]:
         ("api/v1/intel/apex.json",        "api/v1/intel/apex.json"),
         ("api/v1/intel/manifest.json",    "api/v1/intel/manifest.json"),
         ("api/v1/intel/ai_summary.json",  "api/v1/intel/ai_summary.json"),
-        ("api/reports/latest.json",       "api/reports/latest.json"),
-        ("api/reports/index.json",        "api/reports/index.json"),
-        ("api/reports/stats.json",        "api/reports/stats.json"),
+        *REPORTS_INDEX_FILES,
     ]
     for src, dst_key in intel_v1_manifests:
         if (REPO_ROOT / src).exists():
@@ -880,6 +945,8 @@ if __name__ == "__main__":
             main_ai_tracker_only()
         elif "--governance-telemetry-only" in sys.argv:
             main_governance_telemetry_only()
+        elif "--reports-index-only" in sys.argv:
+            main_reports_index_only()
         else:
             main()
     except SystemExit:
