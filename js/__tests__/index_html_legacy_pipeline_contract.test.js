@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { readFileSync } from "node:fs";
+import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 import vm from "node:vm";
@@ -37,7 +38,10 @@ import vm from "node:vm";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const INDEX_HTML = path.join(__dirname, "..", "..", "index.html");
-const SRC = readFileSync(INDEX_HTML, "utf-8");
+// index.html + its extracted css/js (scripts/homepage_source.py, 2026-09-26)
+const homepageSource = (repo) => execFileSync("python3", [path.join(repo, "scripts", "homepage_source.py")],
+  { encoding: "utf8", maxBuffer: 64 * 1024 * 1024 });
+const SRC = homepageSource(path.join(__dirname, "..", ".."));
 
 function extractFnByMarker(startMarker, endMarker) {
   const start = SRC.indexOf(startMarker);

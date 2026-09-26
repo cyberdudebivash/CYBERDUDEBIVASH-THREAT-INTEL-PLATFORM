@@ -7,6 +7,7 @@
  */
 import assert from "node:assert/strict";
 import fs from "node:fs";
+import { execFileSync } from "node:child_process";
 import path from "node:path";
 import { createRequire } from "node:module";
 import { test } from "node:test";
@@ -18,10 +19,13 @@ import { analyticsFromEvents } from "../cyber-watchdog.js";
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const REPO = path.resolve(HERE, "../../../..");
 const read = (f) => fs.readFileSync(path.join(REPO, f), "utf8");
+// index.html + its extracted css/js (scripts/homepage_source.py, 2026-09-26)
+const homepageSource = (repo) => execFileSync("python3", [path.join(repo, "scripts", "homepage_source.py")],
+  { encoding: "utf8", maxBuffer: 64 * 1024 * 1024 });
 const S = createRequire(import.meta.url)(path.join(REPO, "js/apex-status-model.js"));
 
 const WD = read("cyber-watchdog.html");
-const HOME = read("index.html");
+const HOME = homepageSource(REPO);
 const CSS = read("css/apex-design-tokens.css");
 const SURFACE = HOME.slice(HOME.indexOf('<section id="apex-command-surface"'), HOME.indexOf("CDB LIVE CYBER THREAT MAP v3.0"));
 const GREEN = new Set(["ok", "fresh", "active", "delivered", "verified"]);

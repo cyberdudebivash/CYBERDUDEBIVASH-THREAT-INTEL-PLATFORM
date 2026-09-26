@@ -20,6 +20,9 @@ const HERE = path.dirname(fileURLToPath(import.meta.url));
 const REPO = path.resolve(HERE, "../../..");
 const COPY = [
   "index.html",
+  // index.html's extracted assets + the reader the tests use (2026-09-26)
+  "css/homepage-design-system.css",
+  "scripts/homepage_source.py",
   "service-worker.js",
   "scripts/enterprise_intel_block.html",
   "scripts/ai_brain_patch.js",

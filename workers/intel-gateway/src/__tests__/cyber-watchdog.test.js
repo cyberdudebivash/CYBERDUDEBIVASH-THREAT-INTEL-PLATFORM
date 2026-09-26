@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
+import { execFileSync } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { evaluatePublicIntelligence } from "../freshness-contract.js";
@@ -29,6 +30,9 @@ import {
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const REPO = path.resolve(HERE, "../../../..");
+// index.html + its extracted css/js (scripts/homepage_source.py, 2026-09-26)
+const homepageSource = (repo) => execFileSync("python3", [path.join(repo, "scripts", "homepage_source.py")],
+  { encoding: "utf8", maxBuffer: 64 * 1024 * 1024 });
 const CONTRACT = JSON.parse(fs.readFileSync(path.join(REPO, "config/commercial-contract.json"), "utf8"));
 const NOW_MS = Date.parse("2026-09-24T06:00:00Z");
 const NOW = "2026-09-24T06:00:00Z";
@@ -383,7 +387,7 @@ test("cross-customer ledger isolation", async () => {
 });
 
 test("dashboard binds Total Advisories to total_advisories, not the report catalog", () => {
-  const html = fs.readFileSync(path.join(REPO, "index.html"), "utf8");
+  const html = homepageSource(REPO);
   assert.match(html, /set\('m-total',\s*intel\.total_advisories\)/);
   assert.doesNotMatch(html, /set\('m-total',\s*intel\.total_reports\)/);
   assert.match(html, /id="cyber-watchdog-dashboard"/);

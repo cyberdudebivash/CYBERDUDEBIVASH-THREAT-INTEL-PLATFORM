@@ -7,14 +7,18 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync, readdirSync } from "node:fs";
+import { execFileSync } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const REPO = path.resolve(HERE, "../../../..");
 const read = (p) => readFileSync(path.join(REPO, p), "utf8");
+// index.html + its extracted css/js (scripts/homepage_source.py, 2026-09-26)
+const homepageSource = (repo) => execFileSync("python3", [path.join(repo, "scripts", "homepage_source.py")],
+  { encoding: "utf8", maxBuffer: 64 * 1024 * 1024 });
 
-const INDEX = read("index.html");
+const INDEX = homepageSource(REPO);
 const TEMPLATE = read("scripts/enterprise_intel_block.html");
 const LIVE_FEEDS = read("js/sentinel-live-feeds.js");
 const SNAPSHOT = read("js/apex-dashboard-snapshot.js");
@@ -138,6 +142,10 @@ function scriptUnits() {
   let m;
   while ((m = re.exec(INDEX))) units.push({ name: "index.html:" + INDEX.slice(0, m.index).split("\n").length, src: m[1] });
   for (const f of readdirSync(path.join(REPO, "js"))) {
+    // Already inlined at its original position by homepageSource() (see
+    // scripts/homepage_source.py EXTRACTED_ASSETS); scanning it here too
+    // would count the dashboard engine twice.
+    if (f === "homepage-dashboard-engine.js") continue;
     if (f.endsWith(".js")) units.push({ name: "js/" + f, src: read("js/" + f) });
   }
   return units;
