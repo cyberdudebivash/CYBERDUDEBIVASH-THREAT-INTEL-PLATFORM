@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Source Fabric Dashboard — CYBERDUDEBIVASH SENTINEL APEX</title>
+<meta name="description" content="CYBERDUDEBIVASH SENTINEL APEX P40.0 Global Intelligence Source Fabric — source registry, health, licensing, and wave rollout status.">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg-void:#050810; --bg-primary:#0a0f1e; --bg-surface:#111a2e;
+  --bg-elevated:#162040; --bg-card:#0d1428;
+  --border:rgba(56,189,248,.12); --border-active:rgba(56,189,248,.35);
+  --text-primary:#e8edf5; --text-secondary:#8b99b5; --text-dim:#5a6785;
+  --accent:#38bdf8; --accent-glow:rgba(56,189,248,.08);
+  --critical:#f43f5e; --critical-glow:rgba(244,63,94,.12);
+  --high:#f97316; --medium:#eab308; --low:#22c55e;
+  --purple:#a78bfa; --green:#22c55e; --grey:#5a6785;
+  --gradient-brand:linear-gradient(135deg,#38bdf8,#a78bfa,#f43f5e);
+  --font-sans:'Plus Jakarta Sans',system-ui,sans-serif;
+  --font-mono:'JetBrains Mono','Consolas',monospace;
+  --radius:10px; --radius-sm:6px;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:var(--font-sans);background:var(--bg-void);color:var(--text-primary);min-height:100vh}
+.topbar{position:sticky;top:0;z-index:100;background:rgba(10,15,30,.92);backdrop-filter:blur(20px);border-bottom:1px solid var(--border);padding:0 28px;height:58px;display:flex;align-items:center;justify-content:space-between;gap:12px}
+.brand{display:flex;align-items:center;gap:10px}
+.brand-text{font-weight:800;font-size:.95em;background:var(--gradient-brand);-webkit-background-clip:text;-webkit-text-fill-color:transparent;letter-spacing:-.02em}
+.version-badge{background:var(--accent-glow);color:var(--accent);padding:2px 8px;border-radius:4px;font-size:.68em;font-family:var(--font-mono);border:1px solid var(--border)}
+.status-pill{display:flex;align-items:center;gap:6px;font-size:.75em;font-family:var(--font-mono);color:var(--text-dim)}
+.status-dot{width:8px;height:8px;border-radius:50%;background:var(--text-dim)}
+.status-dot.up{background:var(--green)}
+.status-dot.down{background:var(--critical)}
+
+.main{max-width:1400px;margin:0 auto;padding:24px 28px 60px}
+h1{font-size:1.4em;margin-bottom:4px}
+.subtitle{color:var(--text-secondary);font-size:.85em;margin-bottom:22px}
+
+.freshness-banner{display:none;background:linear-gradient(135deg,rgba(244,63,94,.1),rgba(244,63,94,.03));border:1px solid rgba(244,63,94,.3);border-radius:var(--radius-sm);padding:10px 16px;font-size:.8em;color:#fca5b1;margin-bottom:18px;font-family:var(--font-mono)}
+.freshness-banner.show{display:block}
+
+.metrics-strip{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px;margin-bottom:24px}
+.metric-card{background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px 18px;position:relative;overflow:hidden}
+.metric-card::after{content:'';position:absolute;bottom:0;left:0;right:0;height:3px;background:var(--accent)}
+.metric-card.critical::after{background:var(--critical)}
+.metric-card.green::after{background:var(--green)}
+.metric-card.purple::after{background:var(--purple)}
+.metric-value{font-size:1.8em;font-weight:800;font-family:var(--font-mono);line-height:1}
+.metric-label{font-size:.68em;color:var(--text-dim);text-transform:uppercase;letter-spacing:.06em;font-weight:600;margin-top:5px}
+
+.grid-2{display:grid;grid-template-columns:1.3fr 1fr;gap:18px;margin-bottom:24px}
+@media (max-width:900px){.grid-2{grid-template-columns:1fr}}
+
+.panel{background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius);padding:18px 20px}
+.panel h2{font-size:.95em;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between}
+.panel h2 .hint{font-size:.7em;color:var(--text-dim);font-weight:500;font-family:var(--font-mono)}
+
+.bar-row{display:flex;align-items:center;gap:10px;margin-bottom:10px;font-size:.78em}
+.bar-label{width:150px;flex-shrink:0;color:var(--text-secondary)}
+.bar-track{flex:1;height:8px;background:var(--bg-elevated);border-radius:4px;overflow:hidden;display:flex}
+.bar-count{width:36px;text-align:right;font-family:var(--font-mono);color:var(--text-dim);flex-shrink:0}
+
+.wave-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:10px}
+.wave-card{background:var(--bg-elevated);border-radius:var(--radius-sm);padding:12px;text-align:center}
+.wave-card .n{font-family:var(--font-mono);font-weight:800;font-size:1.3em}
+.wave-card .l{font-size:.65em;color:var(--text-dim);text-transform:uppercase;margin-top:2px}
+
+.filters{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap}
+.filters select,.filters input{background:var(--bg-elevated);border:1px solid var(--border);color:var(--text-primary);padding:7px 10px;border-radius:var(--radius-sm);font-size:.78em;font-family:var(--font-sans)}
+
+table{width:100%;border-collapse:collapse;font-size:.78em}
+th{text-align:left;padding:8px 10px;color:var(--text-dim);font-weight:600;text-transform:uppercase;font-size:.75em;letter-spacing:.04em;border-bottom:1px solid var(--border);cursor:pointer;user-select:none}
+th:hover{color:var(--accent)}
+td{padding:9px 10px;border-bottom:1px solid rgba(255,255,255,.03)}
+tr:hover td{background:rgba(56,189,248,.03)}
+.badge{display:inline-block;padding:2px 8px;border-radius:4px;font-size:.72em;font-weight:700;font-family:var(--font-mono)}
+.badge.ACTIVE{background:rgba(34,197,94,.15);color:var(--green)}
+.badge.IMPLEMENTED{background:rgba(56,189,248,.15);color:var(--accent)}
+.badge.REQUIRES_CREDENTIALS{background:rgba(234,179,8,.15);color:var(--medium)}
+.badge.REQUIRES_LICENSE{background:rgba(167,139,250,.15);color:var(--purple)}
+.badge.PLANNED{background:rgba(90,103,133,.2);color:var(--text-dim)}
+.badge.DISABLED{background:rgba(244,63,94,.15);color:var(--critical)}
+.health-dot{width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:6px}
+.health-dot.HEALTHY{background:var(--green)}
+.health-dot.STALE{background:var(--medium)}
+.health-dot.NO_DATA{background:var(--critical)}
+.health-dot.DEGRADED{background:var(--high)}
+.health-dot.NOT_RUNNING,.health-dot.NOT_APPLICABLE,.health-dot.AWAITING_CREDENTIALS,.health-dot.AWAITING_LICENSE,.health-dot.DISABLED{background:var(--text-dim)}
+
+.empty-state{text-align:center;padding:50px 20px;color:var(--text-dim)}
+.footer-note{margin-top:30px;font-size:.72em;color:var(--text-dim);font-family:var(--font-mono);text-align:center}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="brand">
+    <span class="brand-text">CYBERDUDEBIVASH SENTINEL APEX</span>
+    <span class="version-badge">P40.0 SOURCE FABRIC</span>
+  </div>
+  <div class="status-pill">
+    <span class="status-dot" id="apiDot"></span>
+    <span id="apiStatusText">Connecting…</span>
+  </div>
+</div>
+
+<div class="main">
+  <h1>Global Intelligence Source Fabric</h1>
+  <p class="subtitle">Live source registry, health, licensing, and wave rollout status — reads from <code id="dashboardEndpoint" style="font-family:var(--font-mono)"></code></p>
+
+  <div class="freshness-banner" id="freshnessBanner"></div>
+
+  <div class="metrics-strip" id="metricsStrip">
+    <div class="metric-card"><div class="metric-value">—</div><div class="metric-label">Total Sources</div></div>
+  </div>
+
+  <div class="grid-2">
+    <div class="panel">
+      <h2>Status Breakdown <span class="hint">implementation_status</span></h2>
+      <div id="statusBars"></div>
+    </div>
+    <div class="panel">
+      <h2>Health Breakdown <span class="hint">live sources only</span></h2>
+      <div id="healthBars"></div>
+    </div>
+  </div>
+
+  <div class="panel" style="margin-bottom:24px">
+    <h2>Wave Rollout <span class="hint">mission Section 39</span></h2>
+    <div class="wave-grid" id="waveGrid"></div>
+  </div>
+
+  <div class="panel">
+    <h2>Source Registry <span class="hint" id="sourceCountHint"></span></h2>
+    <div class="filters">
+      <input type="text" id="searchBox" placeholder="Search source name / id…">
+      <select id="statusFilter"><option value="">All statuses</option></select>
+      <select id="waveFilter"><option value="">All waves</option></select>
+      <select id="domainFilter"><option value="">All domains</option></select>
+    </div>
+    <div style="overflow-x:auto">
+      <table id="sourceTable">
+        <thead>
+          <tr>
+            <th data-sort="canonical_name">Source</th>
+            <th data-sort="wave">Wave</th>
+            <th data-sort="implementation_status">Status</th>
+            <th data-sort="health">Health</th>
+            <th data-sort="criticality">Criticality</th>
+            <th data-sort="licensing_class">Licensing</th>
+          </tr>
+        </thead>
+        <tbody id="sourceTableBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <p class="footer-note">Data: scripts/build_source_registry.py + scripts/source_fabric_health.py → R2 → workers/intel-gateway/src/p40-handlers.js</p>
+</div>
+
+<script>
+const BASE = 'https://intel.cyberdudebivash.com';
+const DASHBOARD_EP = BASE + '/api/v1/p40/dashboard';
+document.getElementById('dashboardEndpoint').textContent = '/api/v1/p40/dashboard';
+
+let allSources = [];
+let healthBySource = {};
+let sortState = { key: 'priority', dir: 1 };
+
+function el(tag, cls, text) {
+  const e = document.createElement(tag);
+  if (cls) e.className = cls;
+  if (text !== undefined) e.textContent = text;
+  return e;
+}
+
+function setApiStatus(ok, text) {
+  document.getElementById('apiDot').className = 'status-dot ' + (ok ? 'up' : 'down');
+  document.getElementById('apiStatusText').textContent = text;
+}
+
+async function fetchWithTimeout(url, ms = 10000) {
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(), ms);
+  try {
+    const r = await fetch(url, { signal: ctrl.signal, headers: { Accept: 'application/json' } });
+    clearTimeout(t);
+    return r;
+  } catch (e) {
+    clearTimeout(t);
+    throw e;
+  }
+}
+
+function renderMetrics(data) {
+  const strip = document.getElementById('metricsStrip');
+  strip.innerHTML = '';
+  const cards = [
+    { v: data.total_sources ?? '—', l: 'Total Sources', cls: '' },
+    { v: (data.status_breakdown && data.status_breakdown.ACTIVE) || 0, l: 'Active', cls: 'green' },
+    { v: (data.health && data.health.health_breakdown && data.health.health_breakdown.HEALTHY) || 0, l: 'Healthy', cls: 'green' },
+    { v: (data.health && data.health.health_breakdown && (data.health.health_breakdown.STALE || 0) + (data.health.health_breakdown.NO_DATA || 0)) || 0, l: 'Stale / No Data', cls: 'critical' },
+    { v: ((data.status_breakdown && data.status_breakdown.REQUIRES_CREDENTIALS) || 0) + ((data.status_breakdown && data.status_breakdown.REQUIRES_LICENSE) || 0), l: 'Awaiting Access', cls: 'purple' },
+    { v: (data.status_breakdown && data.status_breakdown.PLANNED) || 0, l: 'Planned', cls: '' },
+  ];
+  for (const c of cards) {
+    const card = el('div', 'metric-card ' + c.cls);
+    card.appendChild(el('div', 'metric-value', String(c.v)));
+    card.appendChild(el('div', 'metric-label', c.l));
+    strip.appendChild(card);
+  }
+}
+
+function renderBars(containerId, breakdown, total) {
+  const container = document.getElementById(containerId);
+  container.innerHTML = '';
+  if (!breakdown) { container.appendChild(el('div', '', 'No data available.')); return; }
+  const entries = Object.entries(breakdown).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]);
+  const max = Math.max(...entries.map(([, v]) => v), 1);
+  for (const [k, v] of entries) {
+    const row = el('div', 'bar-row');
+    row.appendChild(el('div', 'bar-label', k));
+    const track = el('div', 'bar-track');
+    const fill = el('div', '');
+    fill.style.width = Math.round((v / max) * 100) + '%';
+    fill.style.height = '100%';
+    fill.style.background = 'var(--accent)';
+    track.appendChild(fill);
+    row.appendChild(track);
+    row.appendChild(el('div', 'bar-count', String(v)));
+    container.appendChild(row);
+  }
+}
+
+function renderWaves(waveBreakdown) {
+  const grid = document.getElementById('waveGrid');
+  grid.innerHTML = '';
+  for (let w = 1; w <= 5; w++) {
+    const count = (waveBreakdown && waveBreakdown[String(w)]) || 0;
+    const card = el('div', 'wave-card');
+    card.appendChild(el('div', 'n', String(count)));
+    card.appendChild(el('div', 'l', 'Wave ' + w));
+    grid.appendChild(card);
+  }
+}
+
+function populateFilterOptions() {
+  const statuses = [...new Set(allSources.map(s => s.implementation_status))].sort();
+  const waves = [...new Set(allSources.map(s => s.wave))].sort((a, b) => a - b);
+  const domains = [...new Set(allSources.flatMap(s => s.intelligence_domains || []))].sort();
+
+  const statusSel = document.getElementById('statusFilter');
+  for (const s of statuses) statusSel.appendChild(el('option', '', s)).value = s;
+  const waveSel = document.getElementById('waveFilter');
+  for (const w of waves) { const o = el('option', '', 'Wave ' + w); o.value = w; waveSel.appendChild(o); }
+  const domainSel = document.getElementById('domainFilter');
+  for (const d of domains) domainSel.appendChild(el('option', '', d)).value = d;
+}
+
+function currentFilters() {
+  return {
+    search: document.getElementById('searchBox').value.trim().toLowerCase(),
+    status: document.getElementById('statusFilter').value,
+    wave: document.getElementById('waveFilter').value,
+    domain: document.getElementById('domainFilter').value,
+  };
+}
+
+function renderTable() {
+  const f = currentFilters();
+  let rows = allSources.filter(s => {
+    if (f.search && !(s.canonical_name.toLowerCase().includes(f.search) || s.source_id.toLowerCase().includes(f.search))) return false;
+    if (f.status && s.implementation_status !== f.status) return false;
+    if (f.wave && String(s.wave) !== f.wave) return false;
+    if (f.domain && !(s.intelligence_domains || []).includes(f.domain)) return false;
+    return true;
+  });
+
+  rows.sort((a, b) => {
+    let av = sortState.key === 'health' ? (healthBySource[a.source_id] || 'NOT_APPLICABLE') : a[sortState.key];
+    let bv = sortState.key === 'health' ? (healthBySource[b.source_id] || 'NOT_APPLICABLE') : b[sortState.key];
+    if (typeof av === 'string') av = av.toLowerCase();
+    if (typeof bv === 'string') bv = bv.toLowerCase();
+    if (av < bv) return -1 * sortState.dir;
+    if (av > bv) return 1 * sortState.dir;
+    return 0;
+  });
+
+  document.getElementById('sourceCountHint').textContent = `${rows.length} / ${allSources.length} sources`;
+
+  const tbody = document.getElementById('sourceTableBody');
+  tbody.innerHTML = '';
+  if (rows.length === 0) {
+    const tr = el('tr');
+    const td = el('td', 'empty-state', 'No sources match the current filters.');
+    td.colSpan = 6;
+    tr.appendChild(td);
+    tbody.appendChild(tr);
+    return;
+  }
+
+  for (const s of rows) {
+    const tr = el('tr');
+    const nameTd = el('td');
+    nameTd.appendChild(el('div', '', s.canonical_name));
+    const idSpan = el('div', '', s.source_id);
+    idSpan.style.cssText = 'font-family:var(--font-mono);font-size:.85em;color:var(--text-dim)';
+    nameTd.appendChild(idSpan);
+    tr.appendChild(nameTd);
+    tr.appendChild(el('td', '', 'Wave ' + s.wave));
+
+    const statusTd = el('td');
+    statusTd.appendChild(el('span', 'badge ' + s.implementation_status, s.implementation_status));
+    tr.appendChild(statusTd);
+
+    const health = healthBySource[s.source_id] || (s.implementation_status === 'ACTIVE' ? 'NO_DATA' : 'NOT_APPLICABLE');
+    const healthTd = el('td');
+    healthTd.appendChild(el('span', 'health-dot ' + health));
+    healthTd.appendChild(document.createTextNode(health));
+    tr.appendChild(healthTd);
+
+    tr.appendChild(el('td', '', s.criticality));
+    tr.appendChild(el('td', '', s.licensing_class));
+    tbody.appendChild(tr);
+  }
+}
+
+function wireControls() {
+  document.getElementById('searchBox').addEventListener('input', renderTable);
+  document.getElementById('statusFilter').addEventListener('change', renderTable);
+  document.getElementById('waveFilter').addEventListener('change', renderTable);
+  document.getElementById('domainFilter').addEventListener('change', renderTable);
+  document.querySelectorAll('th[data-sort]').forEach(th => {
+    th.addEventListener('click', () => {
+      const key = th.dataset.sort;
+      sortState.dir = (sortState.key === key) ? -sortState.dir : 1;
+      sortState.key = key;
+      renderTable();
+    });
+  });
+}
+
+async function load() {
+  try {
+    const res = await fetchWithTimeout(DASHBOARD_EP);
+    if (res.status === 503) {
+      setApiStatus(false, 'Source fabric not yet synced to R2');
+      const banner = document.getElementById('freshnessBanner');
+      banner.className = 'freshness-banner show';
+      banner.textContent = 'P40 API reachable but returned 503 — registry/health artifacts have not been synced to R2 yet '
+        + '(run scripts/build_source_registry.py + scripts/source_fabric_health.py, then scripts/r2_upload.py, or wait for the next '
+        + 'scheduled sentinel-blogger.yml run). No source data can be shown until then — this banner exists so nothing here is ever '
+        + 'silently presented as fresher than it is.';
+      renderMetrics({});
+      return;
+    }
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const data = await res.json();
+
+    setApiStatus(true, 'Live — generated ' + (data.generated_at || 'unknown'));
+    // The dashboard endpoint returns only a priority-sorted ACTIVE-source
+    // summary (active_sources) — fetch the full registry separately for the
+    // filterable table below, which needs every source regardless of status.
+    const regRes = await fetchWithTimeout(BASE + '/api/v1/p40/source-registry');
+    if (regRes.ok) {
+      const regData = await regRes.json();
+      allSources = regData.sources || [];
+    }
+    if (data.health && data.health.sources) {
+      for (const h of data.health.sources) healthBySource[h.source_id] = h.health_status;
+    }
+
+    renderMetrics(data);
+    renderBars('statusBars', data.status_breakdown, data.total_sources);
+    renderBars('healthBars', data.health ? data.health.health_breakdown : null, data.total_sources);
+    renderWaves(data.wave_breakdown);
+    populateFilterOptions();
+    wireControls();
+    renderTable();
+  } catch (e) {
+    setApiStatus(false, 'Unreachable: ' + e.message);
+    const banner = document.getElementById('freshnessBanner');
+    banner.className = 'freshness-banner show';
+    banner.textContent = 'Could not reach the P40 API (' + e.message + '). Showing no data rather than stale or fabricated data.';
+    renderMetrics({});
+  }
+}
+
+load();
+</script>
+</body>
+</html>

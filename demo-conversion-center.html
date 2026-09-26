@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Demo Conversion Center — Sentinel APEX</title>
+<style>
+  :root {
+    --bg: #0a0e1a;
+    --surface: #111827;
+    --surface2: #1a2235;
+    --border: #1e2d45;
+    --accent: #00d4ff;
+    --green: #00ff88;
+    --yellow: #ffd700;
+    --red: #ff4444;
+    --orange: #ff8800;
+    --purple: #a855f7;
+    --text: #e2e8f0;
+    --muted: #64748b;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', sans-serif; min-height: 100vh; }
+
+  .topbar {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 14px 28px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .topbar-brand { display: flex; align-items: center; gap: 12px; }
+  .topbar-brand .logo { width: 36px; height: 36px; background: linear-gradient(135deg, #00d4ff, #a855f7); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 14px; color: #000; }
+  .topbar-brand .title { font-size: 18px; font-weight: 700; }
+  .topbar-brand .subtitle { font-size: 11px; color: var(--muted); }
+  .topbar-right { display: flex; align-items: center; gap: 16px; }
+  .badge { padding: 4px 12px; border-radius: 20px; font-size: 11px; font-weight: 700; }
+  .badge-green { background: rgba(0,255,136,0.15); color: var(--green); border: 1px solid rgba(0,255,136,0.3); }
+  .badge-accent { background: rgba(0,212,255,0.15); color: var(--accent); border: 1px solid rgba(0,212,255,0.3); }
+
+  .layout { display: grid; grid-template-columns: 220px 1fr; min-height: calc(100vh - 65px); }
+
+  nav {
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    padding: 20px 0;
+  }
+  .nav-section { padding: 8px 20px 4px; font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; }
+  .nav-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 20px; font-size: 13px; color: var(--muted);
+    cursor: pointer; transition: all 0.2s; border-left: 3px solid transparent;
+  }
+  .nav-item:hover { background: var(--surface2); color: var(--text); }
+  .nav-item.active { background: var(--surface2); color: var(--accent); border-left-color: var(--accent); }
+  .nav-item .icon { font-size: 16px; }
+
+  main { padding: 28px; overflow-y: auto; }
+
+  .page-header { margin-bottom: 28px; }
+  .page-header h1 { font-size: 26px; font-weight: 800; }
+  .page-header p { color: var(--muted); font-size: 13px; margin-top: 4px; }
+
+  .kpi-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 16px; margin-bottom: 28px; }
+  .kpi-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+    position: relative;
+    overflow: hidden;
+  }
+  .kpi-card::before {
+    content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+  }
+  .kpi-card.green::before { background: var(--green); }
+  .kpi-card.accent::before { background: var(--accent); }
+  .kpi-card.yellow::before { background: var(--yellow); }
+  .kpi-card.purple::before { background: var(--purple); }
+  .kpi-card.orange::before { background: var(--orange); }
+  .kpi-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
+  .kpi-value { font-size: 28px; font-weight: 800; margin: 8px 0 4px; }
+  .kpi-value.green { color: var(--green); }
+  .kpi-value.accent { color: var(--accent); }
+  .kpi-value.yellow { color: var(--yellow); }
+  .kpi-value.purple { color: var(--purple); }
+  .kpi-value.orange { color: var(--orange); }
+  .kpi-delta { font-size: 12px; color: var(--muted); }
+  .kpi-delta.up { color: var(--green); }
+
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px; }
+  .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; margin-bottom: 20px; }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+  }
+  .card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+  .card-title { font-size: 14px; font-weight: 700; }
+  .card-action { font-size: 11px; color: var(--accent); cursor: pointer; padding: 4px 10px; border: 1px solid var(--accent); border-radius: 6px; }
+
+  .funnel-stage {
+    display: flex; align-items: center; gap: 16px;
+    padding: 14px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    margin-bottom: 10px;
+    position: relative;
+  }
+  .funnel-stage .stage-icon { width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0; }
+  .funnel-stage .stage-info { flex: 1; }
+  .funnel-stage .stage-name { font-size: 13px; font-weight: 600; }
+  .funnel-stage .stage-count { font-size: 24px; font-weight: 800; }
+  .funnel-stage .stage-rate { font-size: 12px; color: var(--muted); }
+  .funnel-bar { height: 6px; background: var(--border); border-radius: 3px; margin-top: 6px; }
+  .funnel-bar-fill { height: 100%; border-radius: 3px; }
+  .arrow-down { text-align: center; color: var(--muted); font-size: 18px; margin: 2px 0; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  thead tr { background: var(--surface2); }
+  th { padding: 10px 14px; text-align: left; font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
+  td { padding: 10px 14px; border-bottom: 1px solid var(--border); }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: rgba(0,212,255,0.03); }
+
+  .status-pill { padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 700; display: inline-block; }
+  .status-demo { background: rgba(255,215,0,0.15); color: var(--yellow); }
+  .status-trial { background: rgba(168,85,247,0.15); color: var(--purple); }
+  .status-converted { background: rgba(0,255,136,0.15); color: var(--green); }
+  .status-lost { background: rgba(255,68,68,0.15); color: var(--red); }
+  .status-nurture { background: rgba(0,212,255,0.15); color: var(--accent); }
+
+  .score-bar { width: 80px; height: 6px; background: var(--border); border-radius: 3px; display: inline-block; vertical-align: middle; }
+  .score-bar-fill { height: 100%; border-radius: 3px; background: var(--accent); }
+
+  .action-btn {
+    padding: 5px 12px; border-radius: 6px; font-size: 12px; font-weight: 600;
+    cursor: pointer; border: none; transition: all 0.2s;
+  }
+  .btn-convert { background: rgba(0,255,136,0.2); color: var(--green); border: 1px solid rgba(0,255,136,0.4); }
+  .btn-nurture { background: rgba(0,212,255,0.2); color: var(--accent); border: 1px solid rgba(0,212,255,0.4); }
+  .btn-primary { background: var(--accent); color: #000; font-weight: 700; padding: 8px 20px; border-radius: 8px; }
+
+  .win-loss { display: flex; gap: 20px; margin-bottom: 16px; }
+  .win-loss-item { flex: 1; text-align: center; padding: 16px; background: var(--surface2); border-radius: 10px; border: 1px solid var(--border); }
+  .win-loss-value { font-size: 32px; font-weight: 800; }
+  .win-loss-label { font-size: 12px; color: var(--muted); margin-top: 4px; }
+
+  .source-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+  .source-label { width: 120px; font-size: 12px; color: var(--muted); }
+  .source-bar-wrap { flex: 1; height: 8px; background: var(--border); border-radius: 4px; }
+  .source-bar-fill { height: 100%; border-radius: 4px; }
+  .source-count { width: 40px; text-align: right; font-size: 12px; font-weight: 700; }
+
+  .timeline-item { display: flex; gap: 14px; margin-bottom: 14px; padding-bottom: 14px; border-bottom: 1px solid var(--border); }
+  .timeline-item:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
+  .timeline-dot { width: 10px; height: 10px; border-radius: 50%; margin-top: 4px; flex-shrink: 0; }
+  .timeline-content .tl-title { font-size: 13px; font-weight: 600; }
+  .timeline-content .tl-meta { font-size: 11px; color: var(--muted); margin-top: 2px; }
+
+  .stage-header-strip {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 8px 14px; background: var(--surface2); border-radius: 8px; margin-bottom: 12px;
+    font-size: 12px;
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-brand">
+    <div class="logo">SA</div>
+    <div>
+      <div class="title">Sentinel APEX — Demo Conversion Center</div>
+      <div class="subtitle">Phase 96 · Demo-to-Customer Conversion Intelligence</div>
+    </div>
+  </div>
+  <div class="topbar-right">
+    <span class="badge badge-green">● LIVE</span>
+    <span class="badge badge-accent">PHASE 96</span>
+    <span style="font-size:12px;color:var(--muted)" id="ts"></span>
+  </div>
+</div>
+
+<div class="layout">
+  <nav>
+    <div class="nav-section">Conversion</div>
+    <div class="nav-item active"><span class="icon">📊</span> Conversion Dashboard</div>
+    <div class="nav-item"><span class="icon">🎯</span> Demo Requests</div>
+    <div class="nav-item"><span class="icon">🧪</span> Trial Accounts</div>
+    <div class="nav-item"><span class="icon">🔄</span> Conversion Funnel</div>
+    <div class="nav-section">Analytics</div>
+    <div class="nav-item"><span class="icon">📈</span> Win / Loss Analytics</div>
+    <div class="nav-item"><span class="icon">🏢</span> Account Intelligence</div>
+    <div class="nav-item"><span class="icon">📣</span> Campaign Attribution</div>
+    <div class="nav-section">Operations</div>
+    <div class="nav-item"><span class="icon">⚡</span> Playbooks</div>
+    <div class="nav-item"><span class="icon">📧</span> Outreach Sequences</div>
+    <div class="nav-item"><span class="icon">⚙️</span> Settings</div>
+  </nav>
+
+  <main>
+    <div class="page-header">
+      <h1>🎯 Demo Conversion Center</h1>
+      <p>Real-time demo request tracking, trial management, and conversion funnel analytics</p>
+    </div>
+
+    <div class="kpi-grid">
+      <div class="kpi-card accent">
+        <div class="kpi-label">Demo Requests (30d)</div>
+        <div class="kpi-value accent" id="kpi-demos">147</div>
+        <div class="kpi-delta up">↑ 23% vs last period</div>
+      </div>
+      <div class="kpi-card green">
+        <div class="kpi-label">Active Trials</div>
+        <div class="kpi-value green" id="kpi-trials">38</div>
+        <div class="kpi-delta up">↑ 8 new this week</div>
+      </div>
+      <div class="kpi-card yellow">
+        <div class="kpi-label">Converted (30d)</div>
+        <div class="kpi-value yellow" id="kpi-converted">22</div>
+        <div class="kpi-delta up">↑ 15% conversion rate</div>
+      </div>
+      <div class="kpi-card purple">
+        <div class="kpi-label">Pipeline Value</div>
+        <div class="kpi-value purple" id="kpi-pipeline">$2.4M</div>
+        <div class="kpi-delta up">↑ $340K vs last month</div>
+      </div>
+      <div class="kpi-card orange">
+        <div class="kpi-label">Avg Sales Cycle</div>
+        <div class="kpi-value orange">18d</div>
+        <div class="kpi-delta">↓ 3 days faster</div>
+      </div>
+    </div>
+
+    <div class="grid-2">
+      <!-- Conversion Funnel -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">🔄 Conversion Funnel</div>
+          <div class="card-action">Export</div>
+        </div>
+
+        <div class="funnel-stage">
+          <div class="stage-icon" style="background:rgba(0,212,255,0.15)">📋</div>
+          <div class="stage-info">
+            <div class="stage-name">Demo Requests</div>
+            <div class="stage-count" style="color:var(--accent)" id="f1">147</div>
+            <div class="stage-rate">Entry point</div>
+            <div class="funnel-bar"><div class="funnel-bar-fill" style="width:100%;background:var(--accent)"></div></div>
+          </div>
+        </div>
+        <div class="arrow-down">▼</div>
+        <div class="funnel-stage">
+          <div class="stage-icon" style="background:rgba(168,85,247,0.15)">📅</div>
+          <div class="stage-info">
+            <div class="stage-name">Demo Completed</div>
+            <div class="stage-count" style="color:var(--purple)" id="f2">119</div>
+            <div class="stage-rate">81% show rate</div>
+            <div class="funnel-bar"><div class="funnel-bar-fill" style="width:81%;background:var(--purple)"></div></div>
+          </div>
+        </div>
+        <div class="arrow-down">▼</div>
+        <div class="funnel-stage">
+          <div class="stage-icon" style="background:rgba(255,215,0,0.15)">🧪</div>
+          <div class="stage-info">
+            <div class="stage-name">Trial Started</div>
+            <div class="stage-count" style="color:var(--yellow)" id="f3">67</div>
+            <div class="stage-rate">56% trial rate</div>
+            <div class="funnel-bar"><div class="funnel-bar-fill" style="width:56%;background:var(--yellow)"></div></div>
+          </div>
+        </div>
+        <div class="arrow-down">▼</div>
+        <div class="funnel-stage">
+          <div class="stage-icon" style="background:rgba(0,255,136,0.15)">✅</div>
+          <div class="stage-info">
+            <div class="stage-name">Converted to Paid</div>
+            <div class="stage-count" style="color:var(--green)" id="f4">22</div>
+            <div class="stage-rate">33% close rate</div>
+            <div class="funnel-bar"><div class="funnel-bar-fill" style="width:33%;background:var(--green)"></div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Win/Loss Analytics -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">📈 Win / Loss Analytics</div>
+          <div class="card-action">Details</div>
+        </div>
+        <div class="win-loss">
+          <div class="win-loss-item">
+            <div class="win-loss-value" style="color:var(--green)">22</div>
+            <div class="win-loss-label">Wins</div>
+          </div>
+          <div class="win-loss-item">
+            <div class="win-loss-value" style="color:var(--red)">17</div>
+            <div class="win-loss-label">Losses</div>
+          </div>
+          <div class="win-loss-item">
+            <div class="win-loss-value" style="color:var(--yellow)">56%</div>
+            <div class="win-loss-label">Win Rate</div>
+          </div>
+        </div>
+
+        <div style="margin-bottom:12px;font-size:13px;font-weight:700;color:var(--muted)">Loss Reasons</div>
+        <div class="source-row">
+          <div class="source-label">Price/Budget</div>
+          <div class="source-bar-wrap"><div class="source-bar-fill" style="width:40%;background:var(--red)"></div></div>
+          <div class="source-count" style="color:var(--red)">7</div>
+        </div>
+        <div class="source-row">
+          <div class="source-label">Chose Competitor</div>
+          <div class="source-bar-wrap"><div class="source-bar-fill" style="width:24%;background:var(--orange)"></div></div>
+          <div class="source-count" style="color:var(--orange)">4</div>
+        </div>
+        <div class="source-row">
+          <div class="source-label">No Budget This Q</div>
+          <div class="source-bar-wrap"><div class="source-bar-fill" style="width:18%;background:var(--yellow)"></div></div>
+          <div class="source-count" style="color:var(--yellow)">3</div>
+        </div>
+        <div class="source-row">
+          <div class="source-label">Timeline Shift</div>
+          <div class="source-bar-wrap"><div class="source-bar-fill" style="width:12%;background:var(--muted)"></div></div>
+          <div class="source-count" style="color:var(--muted)">2</div>
+        </div>
+        <div class="source-row">
+          <div class="source-label">Feature Gap</div>
+          <div class="source-bar-wrap"><div class="source-bar-fill" style="width:6%;background:var(--purple)"></div></div>
+          <div class="source-count" style="color:var(--purple)">1</div>
+        </div>
+
+        <div style="margin-top:16px;margin-bottom:12px;font-size:13px;font-weight:700;color:var(--muted)">Lead Source Attribution</div>
+        <div class="source-row">
+          <div class="source-label">Organic / SEO</div>
+          <div class="source-bar-wrap"><div class="source-bar-fill" style="width:35%;background:var(--green)"></div></div>
+          <div class="source-count" style="color:var(--green)">8</div>
+        </div>
+        <div class="source-row">
+          <div class="source-label">LinkedIn Outbound</div>
+          <div class="source-bar-wrap"><div class="source-bar-fill" style="width:27%;background:var(--accent)"></div></div>
+          <div class="source-count" style="color:var(--accent)">6</div>
+        </div>
+        <div class="source-row">
+          <div class="source-label">Partner Referral</div>
+          <div class="source-bar-wrap"><div class="source-bar-fill" style="width:18%;background:var(--purple)"></div></div>
+          <div class="source-count" style="color:var(--purple)">4</div>
+        </div>
+        <div class="source-row">
+          <div class="source-label">Inbound Website</div>
+          <div class="source-bar-wrap"><div class="source-bar-fill" style="width:18%;background:var(--yellow)"></div></div>
+          <div class="source-count" style="color:var(--yellow)">4</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Active Demo / Trial Accounts -->
+    <div class="card" style="margin-bottom:20px">
+      <div class="card-header">
+        <div class="card-title">🏢 Active Demo & Trial Accounts</div>
+        <div style="display:flex;gap:10px">
+          <div class="card-action">Filter</div>
+          <div class="card-action">Export CSV</div>
+          <button class="action-btn btn-primary" onclick="addDemoReq()">+ New Demo Request</button>
+        </div>
+      </div>
+      <div class="stage-header-strip">
+        <span>Showing 10 of 38 active accounts</span>
+        <span style="color:var(--green)">●  Live data</span>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th>Company</th>
+            <th>Contact</th>
+            <th>Stage</th>
+            <th>Plan Target</th>
+            <th>ARR Potential</th>
+            <th>Intent Score</th>
+            <th>Days in Stage</th>
+            <th>Next Action</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody id="demo-table">
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Recent Activity -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">⚡ Conversion Activity Feed</div>
+        <div class="card-action">View All</div>
+      </div>
+      <div id="activity-feed"></div>
+    </div>
+  </main>
+</div>
+
+<script>
+document.getElementById('ts').textContent = new Date().toLocaleString();
+
+const accounts = [
+  { company:'TechCorp Global', contact:'Sarah Chen', stage:'trial', plan:'Enterprise', arr:'$84,000', score:92, days:7, action:'Send ROI Report' },
+  { company:'SecureBank Ltd', contact:'James Wright', stage:'demo', plan:'Professional', arr:'$36,000', score:78, days:2, action:'Schedule Follow-up' },
+  { company:'DataSystems Inc', contact:'Maria Lopez', stage:'converted', plan:'MSSP', arr:'$120,000', score:100, days:0, action:'Onboard' },
+  { company:'CloudVentures', contact:'David Kim', stage:'trial', plan:'Enterprise', arr:'$96,000', score:85, days:11, action:'Check Feature Usage' },
+  { company:'Apex FinTech', contact:'Priya Patel', stage:'nurture', plan:'Professional', arr:'$36,000', score:55, days:24, action:'Re-engage Email' },
+  { company:'GlobalSOC Corp', contact:'Alex Thompson', stage:'demo', plan:'MSSP', arr:'$180,000', score:88, days:1, action:'Send Proposal' },
+  { company:'InfoSec Partners', contact:'Lisa Wang', stage:'trial', plan:'Enterprise', arr:'$72,000', score:71, days:9, action:'Technical Deep-Dive' },
+  { company:'CyberDefend Ltd', contact:'Mark Johnson', stage:'lost', plan:'Starter', arr:'$12,000', score:20, days:45, action:'Archive' },
+  { company:'NovaSecurity', contact:'Emma Davis', stage:'trial', plan:'Professional', arr:'$48,000', score:94, days:5, action:'Push Contract' },
+  { company:'TrustGuard Inc', contact:'Robert Singh', stage:'demo', plan:'Enterprise', arr:'$108,000', score:80, days:3, action:'Technical POC' }
+];
+
+const stageLabels = {
+  demo: ['status-demo','DEMO'],
+  trial: ['status-trial','TRIAL'],
+  converted: ['status-converted','CONVERTED'],
+  lost: ['status-lost','LOST'],
+  nurture: ['status-nurture','NURTURE']
+};
+
+const tbody = document.getElementById('demo-table');
+accounts.forEach(a => {
+  const [cls, label] = stageLabels[a.stage];
+  const scoreW = a.score;
+  tbody.innerHTML += `
+    <tr>
+      <td style="font-weight:700">${a.company}</td>
+      <td style="color:var(--muted)">${a.contact}</td>
+      <td><span class="status-pill ${cls}">${label}</span></td>
+      <td>${a.plan}</td>
+      <td style="color:var(--green);font-weight:700">${a.arr}</td>
+      <td>
+        <span style="margin-right:6px">${a.score}</span>
+        <span class="score-bar"><span class="score-bar-fill" style="width:${scoreW}%"></span></span>
+      </td>
+      <td>${a.days > 0 ? a.days+'d' : '—'}</td>
+      <td style="color:var(--accent);font-size:12px">${a.action}</td>
+      <td>
+        ${a.stage === 'trial' || a.stage === 'demo' ? `<button class="action-btn btn-convert" onclick="alert('Converting ' + '${a.company}' + ' to paid...')">Convert</button>` : ''}
+        ${a.stage === 'nurture' || a.stage === 'lost' ? `<button class="action-btn btn-nurture">Nurture</button>` : ''}
+        ${a.stage === 'converted' ? `<span style="color:var(--green);font-size:12px">✓ Done</span>` : ''}
+      </td>
+    </tr>`;
+});
+
+const activities = [
+  { color:'var(--green)', title:'NovaSecurity — Trial converted to Enterprise contract', time:'2 min ago' },
+  { color:'var(--accent)', title:'GlobalSOC Corp — Demo completed, proposal sent', time:'18 min ago' },
+  { color:'var(--yellow)', title:'CloudVentures — Feature usage spike detected (ATT&CK module)', time:'41 min ago' },
+  { color:'var(--purple)', title:'TechCorp Global — Requested custom ROI analysis', time:'1h 12m ago' },
+  { color:'var(--red)', title:'CyberDefend Ltd — Marked as lost (budget constraint)', time:'3h ago' },
+  { color:'var(--green)', title:'DataSystems Inc — Subscription activated (MSSP plan)', time:'5h ago' },
+  { color:'var(--accent)', title:'InfoSec Partners — Technical deep-dive session scheduled', time:'Yesterday 4:30 PM' },
+];
+
+const feed = document.getElementById('activity-feed');
+activities.forEach(a => {
+  feed.innerHTML += `
+    <div class="timeline-item">
+      <div class="timeline-dot" style="background:${a.color}"></div>
+      <div class="timeline-content">
+        <div class="tl-title">${a.title}</div>
+        <div class="tl-meta">${a.time}</div>
+      </div>
+    </div>`;
+});
+
+function addDemoReq() {
+  const company = prompt('Company name for new demo request:');
+  if (company) {
+    const plan = prompt('Target plan? (Starter/Professional/Enterprise/MSSP)') || 'Professional';
+    alert(`Demo request registered for ${company} (${plan}). Outreach sequence triggered.`);
+  }
+}
+
+// Simulate live counter updates
+setInterval(() => {
+  const demos = document.getElementById('kpi-demos');
+  if (Math.random() > 0.7) {
+    demos.textContent = parseInt(demos.textContent) + 1;
+    document.getElementById('ts').textContent = new Date().toLocaleString();
+  }
+}, 8000);
+</script>
+</body>
+</html>

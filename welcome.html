@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Welcome — SENTINEL APEX</title>
+<meta name="description" content="Your SENTINEL APEX checkout is confirmed. Get your API key and quickstart snippets here.">
+<meta name="robots" content="noindex, nofollow">
+<link rel="icon" type="image/x-icon" href="/favicon.ico">
+<style>
+:root{
+  --bg:#060d18;--surface:#0b1220;--surface2:#0d1628;--border:#162035;
+  --accent:#00d4ff;--green:#22c55e;--yellow:#f59e0b;--text:#e2e8f0;--muted:#64748b;--mono:'JetBrains Mono',monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,sans-serif;min-height:100vh}
+a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
+
+.nav{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 32px;display:flex;align-items:center;justify-content:space-between}
+.nav-logo{font-family:var(--mono);font-size:12px;font-weight:700;color:var(--accent);letter-spacing:2px;text-decoration:none}
+.nav-logo span{color:var(--muted);font-weight:400}
+
+.hero{background:radial-gradient(ellipse 800px 300px at 50% 0,rgba(34,197,94,.08) 0,transparent 70%);padding:48px 24px 32px;text-align:center;border-bottom:1px solid var(--border)}
+.hero-badge{display:inline-flex;align-items:center;gap:8px;background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.3);border-radius:100px;padding:8px 20px;margin-bottom:20px}
+.hero-badge .dot{width:8px;height:8px;background:var(--green);border-radius:50%;animation:pulse 2s ease-in-out infinite}
+.hero-badge span{font-family:var(--mono);font-size:11px;letter-spacing:2px;color:var(--green);font-weight:700;text-transform:uppercase}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(1.4)}}
+.hero h1{font-size:clamp(22px,4vw,34px);font-weight:900;margin-bottom:10px}
+.hero h1 span{color:var(--green)}
+.hero p{color:var(--muted);font-size:15px;max-width:520px;margin:0 auto}
+
+.page{max-width:720px;margin:0 auto;padding:40px 24px}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:24px;margin-bottom:20px}
+.card-title{font-family:var(--mono);font-size:10px;letter-spacing:2px;color:var(--muted);text-transform:uppercase;margin-bottom:16px}
+
+
+.snippet{background:#050a12;border:1px solid var(--border);border-radius:8px;padding:14px 16px;font-family:var(--mono);font-size:12px;color:#94a3b8;overflow-x:auto;white-space:pre;margin-bottom:10px}
+.snippet .tab{display:inline-block;font-family:var(--mono);font-size:10px;font-weight:700;letter-spacing:1px;color:var(--muted);text-transform:uppercase;margin-bottom:6px}
+
+.alert-box{padding:14px 18px;border-radius:8px;font-size:13px;margin-bottom:20px;line-height:1.6}
+.alert-info{background:rgba(0,212,255,.06);border:1px solid rgba(0,212,255,.2);color:var(--accent)}
+.alert-pending{background:rgba(245,158,11,.06);border:1px solid rgba(245,158,11,.25);color:var(--yellow)}
+
+.check-item{display:flex;align-items:flex-start;gap:12px;padding:12px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;margin-bottom:10px}
+.check-item .ck{font-size:16px;flex-shrink:0;margin-top:1px}
+.check-item .ck-text{font-size:13px;color:var(--muted);line-height:1.5}
+.check-item .ck-text strong{color:var(--text)}
+
+.wa-btn{display:block;width:100%;padding:14px;background:rgba(37,211,102,.08);border:1px solid rgba(37,211,102,.25);border-radius:8px;color:#25d366;font-family:var(--mono);font-size:12px;font-weight:700;letter-spacing:1px;text-align:center;text-decoration:none;transition:background .2s}
+.wa-btn:hover{background:rgba(37,211,102,.15);text-decoration:none}
+
+footer{border-top:1px solid var(--border);padding:24px 32px;text-align:center;font-size:11px;color:var(--muted);margin-top:48px}
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <a href="/" class="nav-logo">SENTINEL APEX <span>// WELCOME</span></a>
+  <div class="nav-links"><a href="/api-docs.html" style="color:var(--muted);font-size:12px;">API Docs</a></div>
+</nav>
+
+<div class="hero">
+  <div class="hero-badge"><span class="dot"></span><span id="hero-badge-text">Checkout Confirmed</span></div>
+  <h1 id="hero-title">Welcome to <span>Sentinel APEX</span></h1>
+  <p id="hero-desc">Your subscription is being activated.</p>
+</div>
+
+<div class="page">
+
+  <div id="gumroad-panel" class="card" style="display:none;">
+    <div class="card-title">Gumroad Purchase</div>
+    <div class="alert-box alert-pending">
+      &#9993; Your API key is being emailed to <strong id="gr-email">your inbox</strong> right now.
+      Gumroad checkout doesn't hand the key back to this page directly, so check your email
+      (and spam folder) for a message from CyberDudeBivash with your <code>cdb_pro_...</code> /
+      <code>cdb_ent_...</code> key and quickstart snippets. This usually arrives within a minute or two of purchase.
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Quickstart</div>
+    <p style="font-size:12px;color:var(--muted);margin-bottom:10px;">Swap in the key from your activation email wherever you see <code>YOUR_API_KEY</code> below. Keep it secret -- treat it like a password.</p>
+    <div class="snippet"><span class="tab">cURL</span>
+curl -H "X-API-Key: YOUR_API_KEY" \
+  https://intel.cyberdudebivash.com/api/v1/intel/apex.json</div>
+    <div class="snippet"><span class="tab">Python</span>
+import requests
+r = requests.get(
+    "https://intel.cyberdudebivash.com/api/v1/intel/apex.json",
+    headers={"X-API-Key": "YOUR_API_KEY"}
+)
+print(r.json())</div>
+    <a href="/api-docs.html">Full API documentation &rarr;</a>
+  </div>
+
+  <div class="card">
+    <div class="card-title">What's Next</div>
+    <div class="check-item"><span class="ck">&#128272;</span><div class="ck-text"><strong>API Key</strong> — delivered by email (Gumroad) or shown above (Razorpay). Rate limit per your plan tier.</div></div>
+    <div class="check-item"><span class="ck">&#128202;</span><div class="ck-text"><strong>STIX 2.1 / TAXII 2.1 feed</strong> — ready to ingest into Splunk, Sentinel, QRadar, or MISP.</div></div>
+    <div class="check-item"><span class="ck">&#128203;</span><div class="ck-text"><strong>MITRE ATT&amp;CK enrichment</strong> — every advisory tagged with tactics, techniques, CISA KEV and EPSS.</div></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Need Help?</div>
+    <p style="font-size:13px;color:var(--muted);margin-bottom:16px;line-height:1.6;">WhatsApp us if your key hasn't arrived within 15 minutes.</p>
+    <a href="https://wa.me/918179881447" class="wa-btn">&#128172; WhatsApp +91 8179881447</a>
+  </div>
+
+</div>
+
+<footer>
+  <p>&copy; 2026 BIVASHA KUMAR NAYAK trading as CYBERDUDEBIVASH&reg; &mdash; SENTINEL APEX v201.0</p>
+  <p style="margin-top:8px"><a href="/privacy.html">Privacy Policy</a> &middot; <a href="/terms.html">Terms of Service</a> &middot; <a href="/upgrade.html">Billing</a></p>
+</footer>
+
+<script>
+(function() {
+  var params  = new URLSearchParams(window.location.search);
+  var gateway = (params.get('gateway') || '').toLowerCase();
+  var email   = params.get('email') || '';
+  var plan    = (params.get('plan') || '').toLowerCase();
+
+  var PLAN_NAMES = { pro: 'PRO Defense', enterprise: 'Enterprise SOC', mssp: 'MSSP / White-Label' };
+  var planName = PLAN_NAMES[plan] || '';
+
+  if (planName) {
+    document.getElementById('hero-desc').textContent = 'Your ' + planName + ' subscription is being activated.';
+  }
+
+  // Gumroad: checkout happened entirely on Gumroad's hosted page -- the key
+  // itself never reaches this URL, only (at most) email/plan. It is
+  // delivered by email instead (see handleWebhookGumroad -> sendActivationEmail
+  // in workers/intel-gateway/src/index.js). The API key is deliberately never
+  // read from or displayed via a URL parameter here: a live credential
+  // traveling in a query string can leak through browser history, referrer
+  // headers, and access logs. Razorpay's own checkout flow (upgrade.html)
+  // already shows the key inline the moment payment verifies server-side --
+  // this page never needs to carry it at all.
+  if (gateway === 'gumroad') {
+    document.getElementById('gumroad-panel').style.display = '';
+    if (email) document.getElementById('gr-email').textContent = email;
+  } else {
+    document.getElementById('hero-desc').textContent =
+      'If you just completed a Razorpay payment, your API key was already shown on the checkout page. ' +
+      'Lost it? Contact support and we\'ll help you recover access.';
+  }
+})();
+</script>
+</body>
+</html>

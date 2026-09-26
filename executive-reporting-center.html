@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SENTINEL APEX — Executive Reporting Center</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0a0e1a;--card:#0f1629;--accent:#00d4ff;--danger:#ff3366;--success:#00ff88;--warning:#ffaa00;--text:#e2e8f0;--muted:#64748b;--border:#1e2d4a}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text)}
+.header{background:var(--card);border-bottom:1px solid var(--border);padding:0 24px;height:60px;display:flex;align-items:center;justify-content:space-between}
+.logo{font-weight:700;color:var(--accent);font-size:1.1rem;display:flex;align-items:center;gap:8px}
+.logo-icon{width:30px;height:30px;background:linear-gradient(135deg,var(--accent),#0066ff);border-radius:7px}
+.content{padding:24px;max-width:1200px;margin:0 auto}
+.page-title{font-size:1.4rem;font-weight:700;margin-bottom:4px}
+.page-sub{color:var(--muted);font-size:13px;margin-bottom:24px}
+/* TABS */
+.tabs{display:flex;gap:4px;background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:10px;padding:4px;margin-bottom:24px;flex-wrap:wrap}
+.tab{padding:8px 20px;border-radius:7px;border:none;background:transparent;color:var(--muted);font-size:13px;font-weight:600;cursor:pointer;transition:all .2s}
+.tab.active{background:rgba(0,212,255,.15);color:var(--accent);border:1px solid var(--accent)}
+.tab:hover:not(.active){color:var(--text)}
+/* METRIC CARDS */
+.metrics-row{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:24px}
+.metric-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:22px;position:relative;overflow:hidden}
+.metric-card::after{content:'';position:absolute;bottom:0;left:0;right:0;height:2px;background:linear-gradient(90deg,var(--accent),transparent)}
+.metric-val{font-size:2.2rem;font-weight:700;margin-bottom:4px}
+.metric-lbl{font-size:12px;color:var(--muted)}
+.metric-delta{font-size:11px;margin-top:8px;display:flex;align-items:center;gap:4px}
+/* EXEC SUMMARY */
+.card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:24px;margin-bottom:24px}
+.section-title{font-size:1rem;font-weight:600;margin-bottom:16px}
+.exec-summary{font-size:13px;line-height:1.8;color:var(--muted)}
+.exec-summary strong{color:var(--text)}
+/* CHARTS */
+.charts-row{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:24px}
+/* ACTIONS */
+.actions-row{display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin-bottom:24px}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:10px 20px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;border:none;transition:all .2s}
+.btn-primary{background:linear-gradient(135deg,var(--accent),#0066ff);color:#0a0e1a}
+.btn-primary:hover{opacity:.85}
+.btn-outline{background:transparent;border:1px solid var(--accent);color:var(--accent)}
+.btn-outline:hover{background:rgba(0,212,255,.1)}
+.btn-pdf{background:linear-gradient(135deg,#ff3366,#c0004e);color:#fff}
+/* SCHEDULE */
+.schedule-item{display:flex;align-items:center;justify-content:space-between;padding:14px 0;border-bottom:1px solid rgba(30,45,74,.5)}
+.schedule-item:last-child{border-bottom:none}
+.schedule-info{flex:1}
+.schedule-name{font-size:14px;font-weight:500}
+.schedule-meta{font-size:12px;color:var(--muted);margin-top:2px}
+/* TOGGLE SWITCH */
+.toggle{position:relative;width:44px;height:24px;flex-shrink:0}
+.toggle input{opacity:0;width:0;height:0}
+.toggle-slider{position:absolute;inset:0;background:rgba(255,255,255,.1);border-radius:24px;cursor:pointer;transition:.3s}
+.toggle-slider::before{content:'';position:absolute;width:18px;height:18px;left:3px;bottom:3px;background:#fff;border-radius:50%;transition:.3s}
+.toggle input:checked+.toggle-slider{background:var(--accent)}
+.toggle input:checked+.toggle-slider::before{transform:translateX(20px)}
+/* TOAST */
+.toast{position:fixed;bottom:24px;right:24px;padding:12px 20px;border-radius:10px;font-weight:600;font-size:14px;z-index:999;transform:translateY(80px);opacity:0;transition:all .3s}
+.toast.show{transform:translateY(0);opacity:1}
+.toast-success{background:var(--success);color:#0a0e1a}
+.toast-info{background:var(--accent);color:#0a0e1a}
+@media(max-width:768px){.metrics-row{grid-template-columns:repeat(2,1fr)}.charts-row{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="header">
+  <div class="logo"><div class="logo-icon"></div>SENTINEL APEX — Executive Reporting</div>
+  <div style="font-size:13px;color:var(--muted)">AcmeCorp Security &nbsp;·&nbsp; Board-Level Intelligence</div>
+</div>
+<div class="content">
+  <div class="page-title">Executive Reporting Center</div>
+  <div class="page-sub">Generate, schedule, and deliver board-ready threat intelligence reports.</div>
+
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('weekly',this)">📅 Weekly</button>
+    <button class="tab" onclick="switchTab('monthly',this)">📆 Monthly</button>
+    <button class="tab" onclick="switchTab('quarterly',this)">📊 Quarterly</button>
+    <button class="tab" onclick="switchTab('board',this)">🏛 Board</button>
+  </div>
+
+  <div class="metrics-row" id="metrics-row"></div>
+
+  <div class="card">
+    <div class="section-title">Executive Summary</div>
+    <div class="exec-summary" id="exec-summary"></div>
+  </div>
+
+  <div class="charts-row">
+    <div class="card" style="margin:0">
+      <div class="section-title">Threat Trend</div>
+      <canvas id="trendChart" height="140"></canvas>
+    </div>
+    <div class="card" style="margin:0">
+      <div class="section-title">Detection Volume</div>
+      <canvas id="detectionChart" height="140"></canvas>
+    </div>
+  </div>
+  <br>
+
+  <div class="actions-row">
+    <button class="btn btn-primary" onclick="generateReport()" id="gen-btn">⚡ Generate Report</button>
+    <button class="btn btn-pdf" onclick="showToast('PDF generation requires server — download queued.','info')">⬇ Download PDF</button>
+    <button class="btn btn-outline" onclick="showToast('Report shared with executive team!')">📤 Share</button>
+  </div>
+
+  <div class="card">
+    <div class="section-title">Scheduled Email Delivery</div>
+    <div id="schedule-list"></div>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+const periods={
+  weekly:{label:'This Week (May 23–29, 2026)',metrics:[
+    {val:'1,247',lbl:'Threats Blocked',delta:'▲ 8% vs last week',dcolor:'var(--danger)'},
+    {val:'8,988',lbl:'Intelligence Items Delivered',delta:'▲ 3%',dcolor:'var(--success)'},
+    {val:'342',lbl:'Detection Rules Triggered',delta:'▲ 12%',dcolor:'var(--warning)'},
+    {val:'74%',lbl:'ATT&CK Coverage',delta:'▲ 2%',dcolor:'var(--success)'},
+    {val:'99.8%',lbl:'Platform Uptime',delta:'SLA Met',dcolor:'var(--success)'},
+    {val:'$187K',lbl:'Estimated ROI Saved',delta:'Annualized $9.7M',dcolor:'var(--accent)'},
+  ],
+  summary:`During <strong>the week of May 23–29, 2026</strong>, the SENTINEL APEX platform successfully identified and blocked <strong>1,247 threats</strong> targeting AcmeCorp's infrastructure. The detection engine processed <strong>8,988 threat intelligence items</strong>, triggering <strong>342 detection rules</strong> with zero false-positive escalations. Platform availability remained at <strong>99.8%</strong>, exceeding the Enterprise SLA threshold of 99.5%. MITRE ATT&CK coverage expanded to <strong>74%</strong> of all tactics, up from 72% the previous week. The most significant threat actors observed were <strong>APT29</strong> (14 attributed detections) and <strong>TA505</strong> (9 attributions). Estimated security value delivered this week is <strong>$187,000</strong> based on industry breach cost modeling. No P1 incidents occurred; one P2 incident was resolved within SLA.`
+  },
+  monthly:{label:'May 2026',metrics:[
+    {val:'5,128',lbl:'Threats Blocked',delta:'▲ 15% vs April',dcolor:'var(--danger)'},
+    {val:'38,420',lbl:'Intelligence Items Delivered',delta:'New record',dcolor:'var(--success)'},
+    {val:'1,484',lbl:'Detection Rules Triggered',delta:'▲ 7%',dcolor:'var(--warning)'},
+    {val:'74%',lbl:'ATT&CK Coverage',delta:'▲ 4% vs Q1 avg',dcolor:'var(--success)'},
+    {val:'99.7%',lbl:'Platform Uptime',delta:'SLA Exceeded',dcolor:'var(--success)'},
+    {val:'$812K',lbl:'Estimated ROI Saved',delta:'Annualized $9.7M',dcolor:'var(--accent)'},
+  ],
+  summary:`<strong>May 2026</strong> represented a record month for threat activity and platform performance. SENTINEL APEX blocked <strong>5,128 threats</strong> — a 15% increase over April — while delivering <strong>38,420 intelligence items</strong>, the highest monthly volume since platform deployment. The Detection Engine maintained a <strong>99.1% true-positive rate</strong> across all triggered rules. Three major threat campaigns were identified and neutralized: an APT29 espionage campaign targeting executive email, a ransomware pre-positioning attempt via a compromised vendor, and a credential stuffing campaign against the customer portal. Combined estimated breach cost avoidance: <strong>$812,000</strong>.`
+  },
+  quarterly:{label:'Q2 2026 (Apr–Jun)',metrics:[
+    {val:'14,892',lbl:'Threats Blocked',delta:'▲ 22% vs Q1',dcolor:'var(--danger)'},
+    {val:'112,440',lbl:'Intelligence Items Delivered',delta:'▲ 18%',dcolor:'var(--success)'},
+    {val:'4,521',lbl:'Detection Rules Triggered',delta:'Coverage +11%',dcolor:'var(--warning)'},
+    {val:'74%',lbl:'ATT&CK Coverage',delta:'Target: 80% Q3',dcolor:'var(--success)'},
+    {val:'99.6%',lbl:'Platform Uptime',delta:'0 P1 incidents',dcolor:'var(--success)'},
+    {val:'$2.4M',lbl:'Estimated ROI Saved',delta:'5.2x ROI vs spend',dcolor:'var(--accent)'},
+  ],
+  summary:`<strong>Q2 2026</strong> demonstrated continued maturation of the threat intelligence program. The platform processed a record <strong>112,440 intelligence items</strong> and blocked <strong>14,892 threats</strong> — a 22% increase over Q1. Zero P1 incidents occurred during the quarter. MITRE ATT&CK framework coverage reached <strong>74%</strong>, on track for the 80% target by end of Q3. Total estimated breach cost avoidance for the quarter stands at <strong>$2.4M</strong> against a platform investment of approximately $460K, representing a <strong>5.2x ROI</strong>. The threat landscape was dominated by financially-motivated actors (62%) and nation-state espionage activity (24%).`
+  },
+  board:{label:'FY2026 Board Report',metrics:[
+    {val:'52,847',lbl:'Threats Blocked YTD',delta:'▲ 31% vs FY2025',dcolor:'var(--danger)'},
+    {val:'421,800',lbl:'Intelligence Items YTD',delta:'Platform record',dcolor:'var(--success)'},
+    {val:'18,420',lbl:'Rules Triggered YTD',delta:'Zero P1 incidents',dcolor:'var(--warning)'},
+    {val:'74%',lbl:'ATT&CK Coverage',delta:'Board target: 85%',dcolor:'var(--success)'},
+    {val:'99.7%',lbl:'Platform Uptime YTD',delta:'Industry-leading',dcolor:'var(--success)'},
+    {val:'$9.7M',lbl:'Annualized ROI',delta:'8.4x return on invest.',dcolor:'var(--accent)'},
+  ],
+  summary:`The SENTINEL APEX Threat Intelligence Platform has delivered exceptional value in <strong>FY2026</strong>. Year-to-date metrics confirm the platform as a foundational pillar of AcmeCorp's security posture. With <strong>52,847 threats neutralized</strong> and zero successful breaches attributable to known threat vectors, the program has achieved its primary mandate. The board-level KPI of <strong>85% ATT&CK coverage</strong> is on track for delivery by Q4 2026. Annualized risk reduction value stands at <strong>$9.7M</strong> — an 8.4x return on the total platform investment. The CISO recommends continued investment and expansion to the MSSP model to generate offsetting revenue.`
+  }
+};
+
+const chartData={
+  weekly:{trend:[32,41,28,55,43,38,47],bar:[48,62,35,74,58,44,62],labels:['Mon','Tue','Wed','Thu','Fri','Sat','Sun']},
+  monthly:{trend:[180,210,165,240,195,220,280,195,230,185,260,215,205,235,250,215,245,195,270,240,225,255,215,240,195,265,220,245,210,255],bar:[22,28,19,31,25,28,35,24,29,23,33,27,26,30,32,27,31,25,34,30],labels:Array.from({length:20},(_,i)=>'May '+(i+1))},
+  quarterly:{trend:[820,950,780,1100,890,1020,1280,950,1100,880,1250,1050],bar:[280,320,265,380,295,340,420,310,360,285,395,340],labels:['Apr W1','Apr W2','Apr W3','Apr W4','May W1','May W2','May W3','May W4','Jun W1','Jun W2','Jun W3','Jun W4']},
+  board:{trend:[3200,3800,4100,3600,4500,4200,4800,3900,4700,4400,5200,4900],bar:[1200,1400,1550,1320,1680,1580,1820,1480,1760,1650,1980,1840],labels:['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']},
+};
+
+let trendChart,detChart;
+function switchTab(period,btn){
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  btn.classList.add('active');
+  const p=periods[period];
+  const d=chartData[period];
+  // metrics
+  document.getElementById('metrics-row').innerHTML=p.metrics.map(m=>`<div class="metric-card"><div class="metric-val" style="color:var(--accent)">${m.val}</div><div class="metric-lbl">${m.lbl}</div><div class="metric-delta" style="color:${m.dcolor}">${m.delta}</div></div>`).join('');
+  document.getElementById('exec-summary').innerHTML=p.summary;
+  // charts
+  if(trendChart)trendChart.destroy();
+  if(detChart)detChart.destroy();
+  trendChart=new Chart(document.getElementById('trendChart'),{type:'line',data:{labels:d.labels,datasets:[{label:'Threats',data:d.trend,borderColor:'#ff3366',backgroundColor:'rgba(255,51,102,.08)',tension:.4,fill:true,pointRadius:3}]},options:{responsive:true,plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#64748b',maxTicksLimit:7},grid:{color:'rgba(30,45,74,.6)'}},y:{ticks:{color:'#64748b'},grid:{color:'rgba(30,45,74,.6)'}}}}});
+  detChart=new Chart(document.getElementById('detectionChart'),{type:'bar',data:{labels:d.labels,datasets:[{label:'Detections',data:d.bar,backgroundColor:'rgba(0,212,255,.25)',borderColor:'var(--accent)',borderWidth:1,borderRadius:3}]},options:{responsive:true,plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#64748b',maxTicksLimit:7},grid:{display:false}},y:{ticks:{color:'#64748b'},grid:{color:'rgba(30,45,74,.6)'}}}}});
+}
+switchTab('weekly',document.querySelector('.tab.active'));
+
+// Schedule list
+const schedules=[
+  {name:'Weekly Executive Brief',meta:'Every Monday at 08:00 · Sent to: CISO, CTO, CEO',key:'w',on:true},
+  {name:'Monthly Board Summary',meta:'1st of month at 09:00 · Sent to: Board Distribution',key:'m',on:true},
+  {name:'Quarterly Deep-Dive',meta:'Quarterly · Sent to: Executive Leadership Team',key:'q',on:false},
+];
+const sl=document.getElementById('schedule-list');
+schedules.forEach(s=>{
+  sl.innerHTML+=`<div class="schedule-item">
+    <div class="schedule-info"><div class="schedule-name">${s.name}</div><div class="schedule-meta">${s.meta}</div></div>
+    <label class="toggle"><input type="checkbox" ${s.on?'checked':''} onchange="showToast(this.checked?'${s.name} enabled':'${s.name} paused','info')"><span class="toggle-slider"></span></label>
+  </div>`;
+});
+
+function generateReport(){
+  const btn=document.getElementById('gen-btn');
+  btn.textContent='⏳ Generating...';btn.disabled=true;
+  setTimeout(()=>{btn.textContent='✓ Report Ready';btn.style.background='var(--success)';showToast('Report generated successfully!','success');setTimeout(()=>{btn.textContent='⚡ Generate Report';btn.style.background='';btn.disabled=false;},3000);},2200);
+}
+function showToast(msg,type='success'){
+  const t=document.getElementById('toast');
+  t.className='toast toast-'+(type==='success'?'success':'info')+' show';
+  t.textContent=msg;
+  setTimeout(()=>t.classList.remove('show'),2800);
+}
+</script>
+</body>
+</html>

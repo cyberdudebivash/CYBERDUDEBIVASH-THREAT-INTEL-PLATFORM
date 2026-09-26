@@ -1,0 +1,667 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Enterprise Threat Intelligence Platform — CYBERDUDEBIVASH&reg; SENTINEL APEX</title>
+<meta name="description" content="AI-native threat intelligence for enterprise SOC teams, MSSPs, government, and regulated industries. Real-time feed correlation, STIX 2.1 / TAXII 2.1 export, MITRE ATT&CK mapping, and API-first integration.">
+<meta name="keywords" content="enterprise threat intelligence, SOC platform, STIX 2.1, TAXII 2.1, MITRE ATT&CK, CVE intelligence, IOC enrichment, threat intelligence API, MSSP, SIEM integration">
+<meta name="robots" content="index, follow">
+<meta name="theme-color" content="#14e0ae">
+<link rel="canonical" href="https://intel.cyberdudebivash.com/enterprise-homepage.html">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Enterprise Threat Intelligence Platform — CYBERDUDEBIVASH® SENTINEL APEX">
+<meta property="og:description" content="AI-native threat intelligence for enterprise SOC teams, MSSPs, government, and regulated industries. Real-time feed correlation, STIX 2.1 / TAXII 2.1 export, MITRE ATT&CK mapping, and API-first integration.">
+<meta property="og:url" content="https://intel.cyberdudebivash.com/enterprise-homepage.html">
+<meta property="og:image" content="https://intel.cyberdudebivash.com/assets/sentinel-apex-og-banner.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:site_name" content="CYBERDUDEBIVASH® SENTINEL APEX">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:site" content="@CDBSENTINELAPEX">
+<meta name="twitter:title" content="Enterprise Threat Intelligence Platform — CYBERDUDEBIVASH® SENTINEL APEX">
+<meta name="twitter:description" content="AI-native threat intelligence for enterprise SOC teams, MSSPs, government, and regulated industries. Real-time feed correlation, STIX 2.1 / TAXII 2.1 export, MITRE ATT&CK mapping.">
+<meta name="twitter:image" content="https://intel.cyberdudebivash.com/assets/sentinel-apex-og-banner.jpg">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%23020810'/><text x='6' y='23' font-size='20' fill='%2300e5ff'>&#11043;</text></svg>">
+
+<!--
+  SENTINEL APEX — Enterprise Homepage & Conversion Architecture (PR-5)
+  ==================================================================
+  Consumes css/tokens.css (PR-2), css/hero.css (PR-3), and
+  css/components.css (PR-4) exclusively -- no page-specific design
+  system is introduced. The <style> block below adds only what none
+  of the three files already provide (a numbered workflow-step
+  connector and a capability-badge row); every value in it still
+  resolves through var(--sapx-*).
+
+  NEW, STANDALONE PAGE -- does not modify, replace, or link-swap the
+  existing, separately-designed index.html (root, the live "v184.0"
+  platform/dashboard) or enterprise.html (root, the live bespoke
+  enterprise page with its own design system and ROI calculator).
+  Both are untouched. This file is additive infrastructure adopting
+  the shared component library on real content for the first time,
+  per docs/component-system-guide.md §7's "adopting the system on a
+  real page is the natural next PR." Not yet linked from any existing
+  page's navigation -- wiring that up is a deliberate follow-up (see
+  docs/enterprise-homepage-guide.md, Known Limitations), consistent
+  with this engagement's "one page/one production concern per PR"
+  discipline.
+
+  Adaptation disclosed: the PR-3 hero fragment (scripts/
+  patch_landing_hero.py's HERO_FRAGMENT, designed for insertion into a
+  page that already has its own h1 elsewhere) uses <h2> for its
+  headline. This page is standalone, so that heading is promoted to
+  <h1> here -- the only structural change made to the reused fragment;
+  copy and markup are otherwise verbatim.
+-->
+<link rel="stylesheet" href="/css/tokens.css">
+<link rel="stylesheet" href="/css/hero.css">
+<link rel="stylesheet" href="/css/components.css">
+<style>
+  /* PR-5 page-scoped additions only. Every value below resolves
+     through var(--sapx-*) -- nothing here duplicates or overrides an
+     existing components.css/hero.css selector. */
+  body { background: var(--sapx-color-bg-base); margin: 0; }
+
+  .pr5-trust-badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--sapx-space-3);
+    margin-top: var(--sapx-space-5);
+  }
+
+  /* Workflow diagram: built on .sapx-grid.sapx-grid-6 + .sapx-card,
+     adding only a step-number badge and a directional connector --
+     the two things not already covered by the component library. */
+  .pr5-workflow-step {
+    position: relative;
+    text-align: center;
+  }
+  .pr5-workflow-step .sapx-card-title,
+  .pr5-workflow-step .sapx-card-desc {
+    text-align: center;
+  }
+  .pr5-workflow-step-num {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border-radius: var(--sapx-radius-full);
+    background: var(--sapx-color-brand-teal);
+    color: var(--sapx-color-text-on-bright);
+    font-family: var(--sapx-font-mono);
+    font-weight: var(--sapx-font-weight-bold);
+    font-size: var(--sapx-font-size-sm);
+    margin: 0 auto var(--sapx-space-3);
+  }
+  @media (min-width: 901px) {
+    .pr5-workflow-step:not(:last-child)::after {
+      content: "\2192";
+      position: absolute;
+      top: 14px;
+      right: calc(-1 * var(--sapx-space-3));
+      transform: translateX(50%);
+      color: var(--sapx-color-text-tertiary);
+      font-size: var(--sapx-font-size-lg);
+      line-height: 1;
+    }
+  }
+</style>
+<!-- GCPE-WS1: same Organization facts already live in index.html's JSON-LD (name/url/sameAs); logo omitted, see docs/enterprise-certification-report.md Drift Register item 8 follow-up -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Organization",
+  "name": "BIVASHA KUMAR NAYAK trading as CYBERDUDEBIVASH&reg;",
+  "url": "https://cyberdudebivash.com/",
+  "sameAs": [
+    "https://x.com/CDBSENTINELAPEX",
+    "https://www.linkedin.com/company/cyberdudebivash/",
+    "https://github.com/cyberdudebivash"
+  ]
+}
+</script>
+</head>
+<body>
+
+<a class="sapx-skip-link" href="#main-content">Skip to main content</a>
+
+<!-- 1. Enterprise Announcement Bar -->
+<div class="sapx-announcement-bar" role="region" aria-label="Site announcement">
+  <span aria-hidden="true">&#128226;</span>
+  <span>STIX 2.1 &amp; TAXII 2.1 export is now generally available for enterprise SOC integration. <a href="/api/">Explore the API &rarr;</a></span>
+</div>
+
+<header class="sapx-site-header" data-nav-open="false">
+  <div class="sapx-site-header-inner">
+    <a class="sapx-brand" href="/index.html">
+      <span aria-hidden="true">&#128737;</span>
+      SENTINEL APEX
+    </a>
+    <nav aria-label="Primary">
+      <ul class="sapx-nav" id="sapx-primary-nav">
+        <li><a href="/index.html">Platform</a></li>
+        <li><a href="/threat/">Threat Intelligence</a></li>
+        <li><a href="/developer-portal.html">Developers</a></li>
+        <li><a href="/enterprise-pricing.html">Pricing</a></li>
+        <li><a href="/enterprise-compliance.html">Trust Center</a></li>
+        <li><a href="/enterprise-homepage.html" aria-current="page">Enterprise</a></li>
+        <li><a href="/enterprise-knowledge-center.html">Knowledge Center</a></li>
+      </ul>
+    </nav>
+    <div class="sapx-header-ctas">
+      <a class="sapx-btn sapx-btn-ghost" href="/demo.html?utm_source=header&amp;utm_medium=cta&amp;utm_campaign=enterprise_homepage">Book a Demo</a>
+      <a class="sapx-btn sapx-btn-primary" href="/get-api-key.html?plan=community&amp;utm_source=header&amp;utm_medium=cta&amp;utm_campaign=enterprise_homepage">Get Started Free</a>
+      <button type="button" class="sapx-nav-toggle" aria-expanded="false" aria-controls="sapx-primary-nav" aria-label="Toggle navigation menu" onclick="sapxToggleNav(this)">&#9776;</button>
+    </div>
+  </div>
+</header>
+
+<main id="main-content" tabindex="-1">
+
+<!-- 2. Hero (PR-3 — reused verbatim from scripts/patch_landing_hero.py's
+     HERO_FRAGMENT; only the headline tag changes, h2 -> h1, since this
+     is a standalone page with no other h1). -->
+<section class="sapx-hero" id="sapx-hero" aria-labelledby="sapx-hero-heading">
+  <div class="sapx-hero-content">
+    <p class="sapx-hero-eyebrow">AI-Powered Threat Intelligence &middot; Built for Enterprise SOC</p>
+    <h1 class="sapx-hero-heading" id="sapx-hero-heading">
+      Global threat intelligence,<br>
+      <span class="sapx-hero-heading-accent">correlated in real time.</span>
+    </h1>
+    <p class="sapx-hero-sub">
+      An AI-native correlation engine for enterprise SOC teams &mdash; real-time
+      feed correlation, STIX 2.1 export, MITRE ATT&amp;CK mapping, and
+      API-first integration into the tools you already run.
+    </p>
+    <div class="sapx-hero-ctas">
+      <a class="sapx-btn sapx-btn-primary" href="/get-api-key.html?plan=community&amp;utm_source=hero&amp;utm_medium=cta&amp;utm_campaign=enterprise_homepage">Get Started Free</a>
+      <a class="sapx-btn sapx-btn-secondary" href="/demo.html?utm_source=hero&amp;utm_medium=cta&amp;utm_campaign=enterprise_homepage">Book a Live Demo</a>
+    </div>
+    <ul class="sapx-hero-capabilities" aria-label="Platform capabilities">
+      <li><span class="sapx-hero-cap-icon" aria-hidden="true">&#9889;</span>Real-Time Feed Correlation</li>
+      <li><span class="sapx-hero-cap-icon" aria-hidden="true">&#129516;</span>STIX 2.1 Export</li>
+      <li><span class="sapx-hero-cap-icon" aria-hidden="true">&#127919;</span>MITRE ATT&amp;CK Mapping</li>
+      <li><span class="sapx-hero-cap-icon" aria-hidden="true">&#128268;</span>API-First Architecture</li>
+    </ul>
+  </div>
+
+  <div class="sapx-hero-trust" aria-labelledby="sapx-hero-trust-heading">
+    <h2 class="sapx-hero-section-kicker" id="sapx-hero-trust-heading">Enterprise-Grade Foundations</h2>
+    <div class="sapx-hero-trust-grid">
+      <div class="sapx-trust-item">
+        <span class="sapx-trust-icon" aria-hidden="true">&#128737;</span>
+        <span class="sapx-trust-text">STIX 2.1 &amp; TAXII 2.1 Compliant</span>
+      </div>
+      <div class="sapx-trust-item">
+        <span class="sapx-trust-icon" aria-hidden="true">&#128274;</span>
+        <span class="sapx-trust-text">JWT Auth &middot; PBKDF2-SHA256 Key Storage</span>
+      </div>
+      <div class="sapx-trust-item">
+        <span class="sapx-trust-icon" aria-hidden="true">&#127470;&#127475;</span>
+        <span class="sapx-trust-text">Sovereign India-Operated Platform</span>
+      </div>
+      <div class="sapx-trust-item">
+        <span class="sapx-trust-icon" aria-hidden="true">&#9201;</span>
+        <span class="sapx-trust-text">99.9% Enterprise Uptime SLA</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="sapx-hero-stats" aria-labelledby="sapx-hero-stats-heading">
+    <h2 class="sapx-hero-section-kicker" id="sapx-hero-stats-heading">Platform at a Glance</h2>
+    <div class="sapx-hero-stats-grid">
+      <div class="sapx-stat-item">
+        <div class="sapx-stat-value">&lt;2h</div>
+        <div class="sapx-stat-label">Feed Freshness SLA</div>
+      </div>
+      <div class="sapx-stat-item">
+        <div class="sapx-stat-value">99.9%</div>
+        <div class="sapx-stat-label">Enterprise Uptime SLA</div>
+      </div>
+      <div class="sapx-stat-item">
+        <div class="sapx-stat-value">STIX 2.1</div>
+        <div class="sapx-stat-label">Native Export Format</div>
+      </div>
+      <div class="sapx-stat-item">
+        <div class="sapx-stat-value">ATT&amp;CK v15</div>
+        <div class="sapx-stat-label">MITRE Technique Mapping</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="sapx-hero-integrations" aria-labelledby="sapx-hero-integrations-heading">
+    <h2 class="sapx-hero-section-kicker" id="sapx-hero-integrations-heading">Works With Your Stack</h2>
+    <ul class="sapx-hero-integrations-list">
+      <li>Splunk</li>
+      <li>Microsoft Sentinel</li>
+      <li>IBM QRadar</li>
+      <li>Elastic SIEM</li>
+      <li>MISP</li>
+      <li>TAXII 2.1</li>
+    </ul>
+  </div>
+</section>
+
+<!-- 3. Enterprise Trust Strip -->
+<section class="sapx-section sapx-section-sm" aria-labelledby="trust-strip-heading">
+  <div class="sapx-container">
+    <p class="sapx-section-kicker">Enterprise Foundations</p>
+    <h2 class="sapx-section-heading" id="trust-strip-heading">Built on Verified Enterprise Standards</h2>
+    <p class="sapx-section-desc">Every capability below is already live in the platform &mdash; not a roadmap promise.</p>
+    <div class="pr5-trust-badges" role="list" aria-label="Platform capabilities">
+      <span class="sapx-badge sapx-badge-brand" role="listitem">STIX 2.1</span>
+      <span class="sapx-badge sapx-badge-brand" role="listitem">MITRE ATT&amp;CK</span>
+      <span class="sapx-badge sapx-badge-brand" role="listitem">CVE Intelligence</span>
+      <span class="sapx-badge sapx-badge-brand" role="listitem">AI Prioritization</span>
+      <span class="sapx-badge sapx-badge-brand" role="listitem">IOC Enrichment</span>
+      <span class="sapx-badge sapx-badge-brand" role="listitem">API Integration</span>
+    </div>
+  </div>
+</section>
+
+<!-- 4. Enterprise Metrics (stable SLA/format commitments, not
+     point-in-time counts that go stale — reused verbatim from
+     components/metric-card.html). -->
+<section class="sapx-section sapx-section-alt" aria-labelledby="enterprise-metrics-heading">
+  <div class="sapx-container">
+    <p class="sapx-section-kicker">Platform at a Glance</p>
+    <h2 class="sapx-section-heading" id="enterprise-metrics-heading">Enterprise Metrics</h2>
+    <p class="sapx-section-desc">Stable service-level and format commitments &mdash; not live counts that go stale the moment they're published.</p>
+    <div class="sapx-grid sapx-grid-4">
+      <div class="sapx-card sapx-metric-card">
+        <div class="sapx-metric-value">&lt;2h</div>
+        <div class="sapx-metric-label">Feed Freshness SLA</div>
+      </div>
+      <div class="sapx-card sapx-metric-card">
+        <div class="sapx-metric-value">99.9%</div>
+        <div class="sapx-metric-label">Enterprise Uptime SLA</div>
+      </div>
+      <div class="sapx-card sapx-metric-card">
+        <div class="sapx-metric-value">STIX 2.1</div>
+        <div class="sapx-metric-label">Native Export Format</div>
+      </div>
+      <div class="sapx-card sapx-metric-card">
+        <div class="sapx-metric-value">ATT&amp;CK v15</div>
+        <div class="sapx-metric-label">MITRE Technique Mapping</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 5. Platform Overview -->
+<section class="sapx-section" aria-labelledby="platform-overview-heading">
+  <div class="sapx-container">
+    <p class="sapx-section-kicker">Platform Overview</p>
+    <h2 class="sapx-section-heading" id="platform-overview-heading">One Platform, Six Capabilities</h2>
+    <p class="sapx-section-desc">Threat intelligence, threat hunting, AI analysis, automation, enterprise reporting, and API access &mdash; in one integrated platform.</p>
+    <div class="sapx-grid sapx-grid-3">
+      <div class="sapx-card sapx-feature-card">
+        <div class="sapx-card-icon" aria-hidden="true">&#127919;</div>
+        <h3 class="sapx-card-title">Threat Intelligence</h3>
+        <p class="sapx-card-desc">Real-time correlation across every connected feed, normalized and enriched as advisories arrive &mdash; not on a batch delay.</p>
+      </div>
+      <div class="sapx-card sapx-feature-card">
+        <div class="sapx-card-icon" aria-hidden="true">&#128270;</div>
+        <h3 class="sapx-card-title">Threat Hunting</h3>
+        <p class="sapx-card-desc">Full-text and structured search across advisories by CVE, actor, TLP, or MITRE ATT&amp;CK tactic, down to IOC-level detail.</p>
+      </div>
+      <div class="sapx-card sapx-feature-card">
+        <div class="sapx-card-icon" aria-hidden="true">&#10024;</div>
+        <h3 class="sapx-card-title">AI Analysis</h3>
+        <p class="sapx-card-desc">APEX AI enrichment scores and prioritizes every advisory &mdash; predictive risk scoring, campaign clustering, and behavioral tagging.</p>
+      </div>
+      <div class="sapx-card sapx-feature-card">
+        <div class="sapx-card-icon" aria-hidden="true">&#9889;</div>
+        <h3 class="sapx-card-title">Automation</h3>
+        <p class="sapx-card-desc">Automated Telegram and webhook alerting on P1/CRITICAL signals, with safe-mode-default auto-response on compound detections.</p>
+      </div>
+      <div class="sapx-card sapx-feature-card">
+        <div class="sapx-card-icon" aria-hidden="true">&#128203;</div>
+        <h3 class="sapx-card-title">Enterprise Reporting</h3>
+        <p class="sapx-card-desc">STIX 2.1 bundles and exportable reports for direct hand-off into SIEM, SOAR, and compliance workflows.</p>
+      </div>
+      <div class="sapx-card sapx-feature-card">
+        <div class="sapx-card-icon" aria-hidden="true">&#128268;</div>
+        <h3 class="sapx-card-title">API</h3>
+        <p class="sapx-card-desc">A production REST API &mdash; rate-limited by tier, STIX 2.1 and JSON output &mdash; for direct integration into the tools you run today.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 6. Workflow -->
+<section class="sapx-section sapx-section-alt" aria-labelledby="workflow-heading">
+  <div class="sapx-container-wide">
+    <p class="sapx-section-kicker">How It Works</p>
+    <h2 class="sapx-section-heading" id="workflow-heading">From Raw Signal to SOC Action</h2>
+    <p class="sapx-section-desc">Six stages, fully automated, from source ingestion to SOC delivery.</p>
+    <div class="sapx-grid sapx-grid-6">
+      <div class="sapx-card pr5-workflow-step">
+        <span class="pr5-workflow-step-num" aria-hidden="true">1</span>
+        <h3 class="sapx-card-title">Sources</h3>
+        <p class="sapx-card-desc">Public advisories, CVE/NVD, vendor bulletins, and OSINT feeds.</p>
+      </div>
+      <div class="sapx-card pr5-workflow-step">
+        <span class="pr5-workflow-step-num" aria-hidden="true">2</span>
+        <h3 class="sapx-card-title">Normalization</h3>
+        <p class="sapx-card-desc">Deduplicated and mapped into a common STIX 2.1 schema.</p>
+      </div>
+      <div class="sapx-card pr5-workflow-step">
+        <span class="pr5-workflow-step-num" aria-hidden="true">3</span>
+        <h3 class="sapx-card-title">AI Enrichment</h3>
+        <p class="sapx-card-desc">APEX AI scoring, campaign clustering, and behavioral tagging.</p>
+      </div>
+      <div class="sapx-card pr5-workflow-step">
+        <span class="pr5-workflow-step-num" aria-hidden="true">4</span>
+        <h3 class="sapx-card-title">Risk Scoring</h3>
+        <p class="sapx-card-desc">EPSS + CVSS + KEV cross-reference drives P1&ndash;P4 prioritization.</p>
+      </div>
+      <div class="sapx-card pr5-workflow-step">
+        <span class="pr5-workflow-step-num" aria-hidden="true">5</span>
+        <h3 class="sapx-card-title">Distribution</h3>
+        <p class="sapx-card-desc">REST API, STIX 2.1 bundles, and Telegram/webhook alerts.</p>
+      </div>
+      <div class="sapx-card pr5-workflow-step">
+        <span class="pr5-workflow-step-num" aria-hidden="true">6</span>
+        <h3 class="sapx-card-title">SOC</h3>
+        <p class="sapx-card-desc">Delivered into your SIEM/SOAR for triage and response.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 7. Integration Section (reused verbatim from components/integration-grid.html). -->
+<section class="sapx-section" aria-labelledby="integrations-heading">
+  <div class="sapx-container-wide">
+    <p class="sapx-section-kicker">Integrations</p>
+    <h2 class="sapx-section-heading" id="integrations-heading">Works With Your Stack</h2>
+    <p class="sapx-section-desc">Native STIX 2.1 / TAXII 2.1 and JSON export &mdash; compatible with any SIEM or SOAR that ingests those formats.</p>
+    <div class="sapx-grid sapx-grid-6">
+      <div class="sapx-card sapx-integration-card">
+        <span class="sapx-integration-card-mark" aria-hidden="true">SP</span>
+        <span class="sapx-integration-card-name">Splunk</span>
+      </div>
+      <div class="sapx-card sapx-integration-card">
+        <span class="sapx-integration-card-mark" aria-hidden="true">MS</span>
+        <span class="sapx-integration-card-name">Microsoft Sentinel</span>
+      </div>
+      <div class="sapx-card sapx-integration-card">
+        <span class="sapx-integration-card-mark" aria-hidden="true">QR</span>
+        <span class="sapx-integration-card-name">IBM QRadar</span>
+      </div>
+      <div class="sapx-card sapx-integration-card">
+        <span class="sapx-integration-card-mark" aria-hidden="true">ES</span>
+        <span class="sapx-integration-card-name">Elastic SIEM</span>
+      </div>
+      <div class="sapx-card sapx-integration-card">
+        <span class="sapx-integration-card-mark" aria-hidden="true">MI</span>
+        <span class="sapx-integration-card-name">MISP</span>
+      </div>
+      <div class="sapx-card sapx-integration-card">
+        <span class="sapx-integration-card-mark" aria-hidden="true">TX</span>
+        <span class="sapx-integration-card-name">TAXII 2.1</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 8. Use Cases -->
+<section class="sapx-section sapx-section-alt" aria-labelledby="use-cases-heading">
+  <div class="sapx-container">
+    <p class="sapx-section-kicker">Use Cases</p>
+    <h2 class="sapx-section-heading" id="use-cases-heading">Built for Every Security Team</h2>
+    <p class="sapx-section-desc">The same real-time correlation, AI enrichment, and API access, applied to how each sector actually operates.</p>
+    <div class="sapx-grid sapx-grid-3">
+      <div class="sapx-card sapx-feature-card">
+        <div class="sapx-card-icon" aria-hidden="true">&#128737;</div>
+        <h3 class="sapx-card-title">SOC Teams</h3>
+        <p class="sapx-card-desc">Correlate signals across every connected feed in real time and cut manual triage with AI-prioritized, MITRE-mapped alerts.</p>
+      </div>
+      <div class="sapx-card sapx-feature-card">
+        <div class="sapx-card-icon" aria-hidden="true">&#127963;</div>
+        <h3 class="sapx-card-title">Government</h3>
+        <p class="sapx-card-desc">STIX 2.1 / TAXII 2.1 export for interoperable information-sharing with national CERTs, ISACs, and partner agencies.</p>
+      </div>
+      <div class="sapx-card sapx-feature-card">
+        <div class="sapx-card-icon" aria-hidden="true">&#127973;</div>
+        <h3 class="sapx-card-title">Healthcare</h3>
+        <p class="sapx-card-desc">API-first integration into existing SIEM tooling to extend visibility over indicators targeting patient-data and ransomware-exposed systems.</p>
+      </div>
+      <div class="sapx-card sapx-feature-card">
+        <div class="sapx-card-icon" aria-hidden="true">&#127974;</div>
+        <h3 class="sapx-card-title">Finance</h3>
+        <p class="sapx-card-desc">Map incoming indicators to MITRE ATT&amp;CK techniques associated with financial-sector targeting for faster detection engineering.</p>
+      </div>
+      <div class="sapx-card sapx-feature-card">
+        <div class="sapx-card-icon" aria-hidden="true">&#127981;</div>
+        <h3 class="sapx-card-title">Manufacturing</h3>
+        <p class="sapx-card-desc">Extend enterprise-network threat visibility around OT-adjacent environments through the same correlation and enrichment pipeline.</p>
+      </div>
+      <div class="sapx-card sapx-feature-card">
+        <div class="sapx-card-icon" aria-hidden="true">&#9729;</div>
+        <h3 class="sapx-card-title">Cloud</h3>
+        <p class="sapx-card-desc">API-first, JSON/REST access built for cloud-native SOC and MSSP operating models.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 9. Feature Grid (facts reused verbatim from index.html's existing,
+     already-approved feature grid; titles re-cased from all-caps to
+     match .sapx-card-title's normal-case convention used throughout
+     the component library -- no claim added, changed, or removed). -->
+<section class="sapx-section" aria-labelledby="feature-grid-heading">
+  <div class="sapx-container">
+    <p class="sapx-section-kicker">Capabilities</p>
+    <h2 class="sapx-section-heading" id="feature-grid-heading">Everything Your SOC Needs</h2>
+    <p class="sapx-section-desc">Purpose-built for security engineers, threat hunters, and MSSP operators.</p>
+    <div class="sapx-grid sapx-grid-4">
+      <div class="sapx-card sapx-feature-card">
+        <div class="sapx-card-icon" aria-hidden="true">&#11043;</div>
+        <h3 class="sapx-card-title">APEX AI Scoring</h3>
+        <p class="sapx-card-desc">Composite risk scoring across 12 dimensions including malware family, supply chain, quantum risk, and behavioral patterns.</p>
+      </div>
+      <div class="sapx-card sapx-feature-card">
+        <div class="sapx-card-icon" aria-hidden="true">&#127919;</div>
+        <h3 class="sapx-card-title">Campaign Tracking</h3>
+        <p class="sapx-card-desc">Deterministic campaign IDs link related advisories into actionable threat campaigns with confidence scores.</p>
+      </div>
+      <div class="sapx-card sapx-feature-card">
+        <div class="sapx-card-icon" aria-hidden="true">&#9889;</div>
+        <h3 class="sapx-card-title">KEV Integration</h3>
+        <p class="sapx-card-desc">CISA Known Exploited Vulnerabilities cross-referenced in real time. KEV-confirmed threats auto-escalate to P1.</p>
+      </div>
+      <div class="sapx-card sapx-feature-card">
+        <div class="sapx-card-icon" aria-hidden="true">&#128225;</div>
+        <h3 class="sapx-card-title">STIX 2.1 Bundles</h3>
+        <p class="sapx-card-desc">Full STIX 2.1 compliant export with a custom APEX extension. Drop-in compatible with any SIEM.</p>
+      </div>
+      <div class="sapx-card sapx-feature-card">
+        <div class="sapx-card-icon" aria-hidden="true">&#128308;</div>
+        <h3 class="sapx-card-title">Telegram Alerts</h3>
+        <p class="sapx-card-desc">Instant P1/CRITICAL_SURGE notifications to your SOC Telegram channel with full APEX context.</p>
+      </div>
+      <div class="sapx-card sapx-feature-card">
+        <div class="sapx-card-icon" aria-hidden="true">&#128737;</div>
+        <h3 class="sapx-card-title">Auto Response</h3>
+        <p class="sapx-card-desc">Safe-mode firewall blocks and incident ticket creation triggered automatically on compound threat signals.</p>
+      </div>
+      <div class="sapx-card sapx-feature-card">
+        <div class="sapx-card-icon" aria-hidden="true">&#128269;</div>
+        <h3 class="sapx-card-title">Full-Text Search</h3>
+        <p class="sapx-card-desc">Search advisories by title, CVE, actor, TLP, MITRE tactic, or any free-text query via API.</p>
+      </div>
+      <div class="sapx-card sapx-feature-card">
+        <div class="sapx-card-icon" aria-hidden="true">&#128202;</div>
+        <h3 class="sapx-card-title">EPSS + CVSS</h3>
+        <p class="sapx-card-desc">Every CVE enriched with EPSS exploit probability and CVSS base score from NVD in real time.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 10. Research Section -->
+<section class="sapx-section sapx-section-alt" aria-labelledby="research-heading">
+  <div class="sapx-container">
+    <p class="sapx-section-kicker">Research</p>
+    <h2 class="sapx-section-heading" id="research-heading">Recent Intelligence &amp; Research</h2>
+    <p class="sapx-section-desc">Live advisories and in-depth research, continuously published &mdash; not a static snapshot.</p>
+    <div class="sapx-grid sapx-grid-2">
+      <article class="sapx-card sapx-research-card">
+        <div class="sapx-card-meta">
+          <span class="sapx-badge sapx-badge-success">Live</span>
+          <span class="sapx-badge sapx-badge-neutral">Latest Reports</span>
+        </div>
+        <h3 class="sapx-card-title">Recent Intelligence</h3>
+        <p class="sapx-card-desc">Continuously updated threat advisories, CVE roundups, and patch-cycle recaps from the SOC intelligence hub.</p>
+        <p style="margin-top: var(--sapx-space-3)"><a class="sapx-btn sapx-btn-secondary" href="/threat/">View Intelligence Hub &rarr;</a></p>
+      </article>
+      <article class="sapx-card sapx-research-card">
+        <div class="sapx-card-meta">
+          <span class="sapx-badge sapx-badge-info">Research</span>
+          <span class="sapx-badge sapx-badge-neutral">Blog</span>
+        </div>
+        <h3 class="sapx-card-title">Research Blog</h3>
+        <p class="sapx-card-desc">CVE analysis, IOC reports, and MITRE ATT&amp;CK mapping articles from the SENTINEL APEX research team.</p>
+        <p style="margin-top: var(--sapx-space-3)"><a class="sapx-btn sapx-btn-secondary" href="/blog/">Read the Blog &rarr;</a></p>
+      </article>
+    </div>
+  </div>
+</section>
+
+<!-- 11. Trust Center (teaser cards linking to the existing, real
+     trust-center.html, privacy.html, status.html, and
+     .well-known/security.txt -- not a duplicate trust center). -->
+<section class="sapx-section" aria-labelledby="trust-center-heading">
+  <div class="sapx-container">
+    <p class="sapx-section-kicker">Trust Center</p>
+    <h2 class="sapx-section-heading" id="trust-center-heading">Security, Privacy, and Availability</h2>
+    <p class="sapx-section-desc">Full detail lives in the Trust Center &mdash; this is a summary, not a replacement.</p>
+    <div class="sapx-grid sapx-grid-4">
+      <div class="sapx-card sapx-feature-card">
+        <div class="sapx-card-icon" aria-hidden="true">&#128274;</div>
+        <h3 class="sapx-card-title">Security</h3>
+        <p class="sapx-card-desc">JWT authentication, API key governance, and rate limiting across every endpoint.</p>
+        <p style="margin-top: var(--sapx-space-3)"><a href="/enterprise-compliance.html">Security architecture &rarr;</a></p>
+      </div>
+      <div class="sapx-card sapx-feature-card">
+        <div class="sapx-card-icon" aria-hidden="true">&#128196;</div>
+        <h3 class="sapx-card-title">Privacy</h3>
+        <p class="sapx-card-desc">Data handling, retention, and processing terms, including a standard Data Processing Agreement.</p>
+        <p style="margin-top: var(--sapx-space-3)"><a href="/privacy.html">Privacy policy &rarr;</a></p>
+      </div>
+      <div class="sapx-card sapx-feature-card">
+        <div class="sapx-card-icon" aria-hidden="true">&#9201;</div>
+        <h3 class="sapx-card-title">Availability</h3>
+        <p class="sapx-card-desc">99.9% enterprise uptime SLA, with live status and incident history published in real time.</p>
+        <p style="margin-top: var(--sapx-space-3)"><a href="/status.html">Live status &rarr;</a></p>
+      </div>
+      <div class="sapx-card sapx-feature-card">
+        <div class="sapx-card-icon" aria-hidden="true">&#128737;</div>
+        <h3 class="sapx-card-title">Responsible Disclosure</h3>
+        <p class="sapx-card-desc">Coordinated vulnerability disclosure: 72-hour acknowledgment, 14-day triage, researcher acknowledgment.</p>
+        <p style="margin-top: var(--sapx-space-3)"><a href="/.well-known/security.txt">Disclosure policy &rarr;</a></p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 12. Enterprise CTA -->
+<section class="sapx-section sapx-section-lg" aria-labelledby="final-cta-heading">
+  <div class="sapx-container-narrow">
+    <div class="sapx-cta-banner">
+      <h2 class="sapx-cta-banner-heading" id="final-cta-heading">Bring Enterprise-Grade Threat Intelligence to Your SOC</h2>
+      <p class="sapx-cta-banner-copy">Start free, book a live walkthrough, or talk to our sales team &mdash; production API access provisioned instantly.</p>
+      <div class="sapx-cta-banner-actions">
+        <a class="sapx-btn sapx-btn-primary" href="/demo.html?utm_source=final_cta&amp;utm_medium=cta&amp;utm_campaign=enterprise_homepage">Request Demo</a>
+        <a class="sapx-btn sapx-btn-secondary" href="/index.html">Explore Platform</a>
+        <a class="sapx-btn sapx-btn-ghost" href="/api/">API Documentation</a>
+        <a class="sapx-btn sapx-btn-ghost" href="mailto:enterprise@cyberdudebivash.com?subject=Enterprise%20Sales%20Inquiry">Contact Sales</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<!-- 13. Footer (PR-4 shared footer — components/footer.html's structure
+     reused verbatim; hrefs corrected to pages verified to exist, and
+     social links point to the real, already-public accounts cited in
+     index.html's own JSON-LD/meta rather than the reference file's
+     generic placeholders). -->
+<footer class="sapx-site-footer">
+  <div class="sapx-footer-grid">
+    <div>
+      <a class="sapx-brand" href="/index.html" style="margin-bottom: var(--sapx-space-4); display: inline-flex;">
+        <span aria-hidden="true">&#128737;</span>
+        SENTINEL APEX
+      </a>
+      <p style="font-size: var(--sapx-font-size-sm); color: var(--sapx-color-text-secondary); max-width: 320px; line-height: var(--sapx-line-height-normal); margin: 0 0 var(--sapx-space-4);">
+        AI-powered threat intelligence for enterprise SOC teams &mdash; real-time correlation, STIX 2.1 export, and MITRE ATT&amp;CK mapping.
+      </p>
+      <div class="sapx-footer-social">
+        <a href="https://x.com/CDBSENTINELAPEX" aria-label="SENTINEL APEX on X (Twitter)" target="_blank" rel="noopener noreferrer">&#120143;</a>
+        <a href="https://www.linkedin.com/company/cyberdudebivash/" aria-label="SENTINEL APEX on LinkedIn" target="_blank" rel="noopener noreferrer">in</a>
+        <a href="https://github.com/cyberdudebivash" aria-label="SENTINEL APEX on GitHub" target="_blank" rel="noopener noreferrer">&#128187;</a>
+      </div>
+    </div>
+
+    <div>
+      <h3 class="sapx-footer-col-heading">Products</h3>
+      <ul class="sapx-footer-links">
+        <li><a href="/index.html">Platform</a></li>
+        <li><a href="/threat/">Threat Intelligence</a></li>
+        <li><a href="/developer-portal.html">Developers</a></li>
+        <li><a href="/enterprise-pricing.html">Pricing</a></li>
+      </ul>
+    </div>
+
+    <div>
+      <h3 class="sapx-footer-col-heading">Resources</h3>
+      <ul class="sapx-footer-links">
+        <li><a href="/enterprise-knowledge-center.html">Knowledge Center</a></li>
+        <li><a href="/developer-portal.html">Developer Portal</a></li>
+        <li><a href="/docs/quickstart.html">API Quick Start</a></li>
+        <li><a href="/blog/">Research Blog</a></li>
+        <li><a href="/enterprise-compliance.html">Trust Center</a></li>
+      </ul>
+    </div>
+
+    <div>
+      <h3 class="sapx-footer-col-heading">Company</h3>
+      <ul class="sapx-footer-links">
+        <li><a href="/privacy.html">Privacy</a></li>
+        <li><a href="/terms.html">Terms</a></li>
+        <li><a href="/status.html">Status</a></li>
+        <li><a href="mailto:enterprise@cyberdudebivash.com">Contact</a></li>
+      </ul>
+      <div class="sapx-status-indicator" style="margin-top: var(--sapx-space-4);">
+        <span class="sapx-status-dot sapx-status-dot-live" aria-hidden="true"></span>
+        All Systems Operational
+      </div>
+    </div>
+  </div>
+
+  <div class="sapx-footer-bottom">
+    <span>&copy; 2026 BIVASHA KUMAR NAYAK trading as CYBERDUDEBIVASH&reg; All rights reserved.</span>
+    <span>SENTINEL APEX Threat Intelligence Platform</span>
+  </div>
+</footer>
+
+<script>
+  // Essential JS only: mobile nav toggle, reused verbatim from
+  // components/header.html. Mirrors this repo's existing onclick-
+  // handler convention (index.html's cdbMobileNavOpen()) rather than
+  // introducing a new JS pattern. No other script on this page.
+  function sapxToggleNav(button) {
+    var header = button.closest('.sapx-site-header');
+    var expanded = button.getAttribute('aria-expanded') === 'true';
+    button.setAttribute('aria-expanded', String(!expanded));
+    header.setAttribute('data-nav-open', String(!expanded));
+  }
+</script>
+
+</body>
+</html>

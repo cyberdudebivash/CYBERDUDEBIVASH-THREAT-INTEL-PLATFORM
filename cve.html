@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title id="page-title">CVE Database — Live Vulnerability Intelligence | CYBERDUDEBIVASH SENTINEL APEX</title>
+<meta id="page-description" name="description" content="Live, searchable CVE database with real CVSS scores, EPSS exploit-prediction probability, CISA KEV exploitation status, and affected products. Powered by SENTINEL APEX.">
+<meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1">
+<link id="canonical-link" rel="canonical" href="https://intel.cyberdudebivash.com/cve.html">
+<meta name="author" content="BIVASHA KUMAR NAYAK trading as CYBERDUDEBIVASH&reg;">
+
+<meta id="og-title" property="og:type" content="website">
+<meta id="og-description" property="og:description" content="Live, searchable CVE database with real CVSS, EPSS, and CISA KEV data.">
+<meta property="og:site_name" content="CYBERDUDEBIVASH® SENTINEL APEX">
+
+<script id="jsonld-website" type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebPage",
+  "@id": "https://intel.cyberdudebivash.com/cve.html#webpage",
+  "url": "https://intel.cyberdudebivash.com/cve.html",
+  "name": "CVE Database — CYBERDUDEBIVASH SENTINEL APEX",
+  "description": "Live, searchable CVE database with real CVSS, EPSS, and CISA KEV data.",
+  "isPartOf": { "@id": "https://intel.cyberdudebivash.com/#website" },
+  "publisher": { "@id": "https://cyberdudebivash.com/#organization" },
+  "breadcrumb": {
+    "@type": "BreadcrumbList",
+    "itemListElement": [
+      { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://intel.cyberdudebivash.com/" },
+      { "@type": "ListItem", "position": 2, "name": "CVE Intelligence", "item": "https://intel.cyberdudebivash.com/cves.html" },
+      { "@type": "ListItem", "position": 3, "name": "CVE Database", "item": "https://intel.cyberdudebivash.com/cve.html" }
+    ]
+  }
+}
+</script>
+<script id="jsonld-cve" type="application/ld+json"></script>
+
+<style>
+:root{--bg:#060d19;--panel:#0b1425;--panel2:#0e1930;--border:#162035;--border2:#1e2d45;--accent:#00d4aa;--accent2:#0099ff;--text:#e8eef8;--muted:#7a8499;--muted2:#9aabb8;--crit:#ff3b3b;--high:#ff7c1a;--med:#f5b400;--low:#00d4aa;--mono:'JetBrains Mono',Menlo,Consolas,monospace}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Inter,sans-serif;font-size:15px;line-height:1.6}
+a{color:var(--accent);text-decoration:none}
+a:hover{text-decoration:underline}
+.tlp{padding:8px 0;text-align:center;font-family:var(--mono);font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;background:#0a1420;color:var(--accent);border-bottom:2px solid rgba(0,212,170,.3)}
+.nav{background:var(--panel);border-bottom:1px solid var(--border);padding:14px 32px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
+.nav-brand{font-family:var(--mono);font-size:11px;letter-spacing:3px;color:var(--accent);text-transform:uppercase}
+.nav-links a{color:var(--muted2);font-size:12px;margin-left:24px}
+.wrap{max-width:1100px;margin:0 auto;padding:0 24px}
+.hero{padding:44px 0 28px}
+.badge{font-family:var(--mono);font-size:10px;letter-spacing:3px;color:var(--accent);text-transform:uppercase;margin-bottom:14px}
+h1{font-size:30px;font-weight:700;margin-bottom:10px}
+.hero p{color:var(--muted2);font-size:15px;max-width:700px}
+.breadcrumb{font-family:var(--mono);font-size:11px;color:var(--muted);margin:14px 0 0}
+.breadcrumb a{color:var(--muted2)}
+
+/* filter bar */
+.filters{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:24px;align-items:center}
+.filters input,.filters select{background:var(--panel2);border:1px solid var(--border2);color:var(--text);padding:9px 12px;border-radius:6px;font-size:13px;font-family:inherit}
+.filters input[type="text"]{flex:1;min-width:200px}
+.filters label{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted2);white-space:nowrap}
+.filters button{background:var(--accent);color:#04140f;border:none;padding:9px 18px;border-radius:6px;font-weight:700;font-size:13px;cursor:pointer}
+.filters button:hover{opacity:.9}
+
+/* list */
+#list-state{display:block}
+.cve-grid{display:grid;gap:12px}
+.cve-card{background:var(--panel);border:1px solid var(--border2);border-radius:8px;padding:18px 20px;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
+.cve-card:hover{border-color:var(--accent)}
+.cve-id{font-family:var(--mono);font-weight:700;font-size:14px}
+.cve-meta{display:flex;gap:18px;align-items:center;flex-wrap:wrap;font-size:12px;color:var(--muted2)}
+.sev-badge{font-family:var(--mono);font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;padding:3px 9px;border-radius:4px}
+.sev-critical{background:rgba(255,59,59,.15);color:var(--crit)}
+.sev-high{background:rgba(255,124,26,.15);color:var(--high)}
+.sev-medium{background:rgba(245,180,0,.15);color:var(--med)}
+.sev-low{background:rgba(0,212,170,.15);color:var(--low)}
+.kev-badge{font-family:var(--mono);font-size:10px;font-weight:700;letter-spacing:1px;padding:3px 9px;border-radius:4px;background:rgba(255,59,59,.2);color:var(--crit);border:1px solid var(--crit)}
+.stat-chip{font-family:var(--mono)}
+.pagination{display:flex;justify-content:center;gap:10px;margin:28px 0;font-size:13px}
+.pagination button{background:var(--panel2);border:1px solid var(--border2);color:var(--text);padding:8px 16px;border-radius:6px;cursor:pointer}
+.pagination button:disabled{opacity:.4;cursor:default}
+.empty,.loading,.error{text-align:center;color:var(--muted2);padding:60px 20px;font-size:14px}
+
+/* detail */
+#detail-state{display:none}
+.detail-header{display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:16px;margin-bottom:20px}
+.detail-scores{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:14px;margin:20px 0}
+.score-tile{background:var(--panel);border:1px solid var(--border2);border-radius:8px;padding:16px;text-align:center}
+.score-val{font-size:26px;font-weight:700;color:var(--accent);font-family:var(--mono)}
+.score-label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-top:4px}
+.section{background:var(--panel);border:1px solid var(--border2);border-radius:8px;padding:24px;margin-bottom:18px}
+.section h2{font-size:16px;font-weight:700;margin-bottom:14px}
+.product-chip{display:inline-block;background:var(--panel2);border:1px solid var(--border2);border-radius:4px;padding:4px 10px;font-size:12px;margin:0 6px 6px 0;font-family:var(--mono)}
+.report-row{display:flex;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px solid var(--border);font-size:13px}
+.report-row:last-child{border-bottom:none}
+
+/* paywall (real: gates a genuinely masked API response, not a cosmetic overlay on live data) */
+.locked-panel{position:relative}
+.locked-panel .locked-content{filter:blur(5px);pointer-events:none;user-select:none;opacity:.5}
+.paywall-card{position:relative;margin-top:-1px;background:linear-gradient(180deg,rgba(0,212,170,.08),rgba(0,153,255,.04));border:1px solid var(--accent);border-radius:8px;padding:24px;text-align:center}
+.paywall-card h3{font-size:16px;margin-bottom:8px}
+.paywall-card p{font-size:13px;color:var(--muted2);margin-bottom:16px;max-width:440px;margin-left:auto;margin-right:auto}
+.paywall-cta{display:inline-block;background:var(--accent);color:#04140f;font-weight:700;font-size:13px;padding:12px 26px;border-radius:6px}
+.paywall-cta:hover{opacity:.9;text-decoration:none}
+
+.back-link{display:inline-block;margin-bottom:18px;font-size:13px}
+.footer{border-top:1px solid var(--border);padding:28px 0;text-align:center;font-family:var(--mono);font-size:10px;color:var(--muted);letter-spacing:.5px;line-height:2}
+</style>
+</head>
+<body>
+<div class="tlp">TLP:WHITE — CVE DATABASE — CYBERDUDEBIVASH SENTINEL APEX</div>
+<nav class="nav">
+  <div class="nav-brand">SENTINEL APEX</div>
+  <div class="nav-links">
+    <a href="https://intel.cyberdudebivash.com/">Home</a>
+    <a href="cves.html">CVE Intelligence</a>
+    <a href="cve.html" style="color:var(--accent)">CVE Database</a>
+    <a href="kev.html">KEV</a>
+    <a href="pricing.html">Pricing</a>
+    <a href="upgrade.html">Upgrade</a>
+  </div>
+</nav>
+
+<div class="wrap">
+
+  <!-- ============ LIST VIEW ============ -->
+  <div id="list-state">
+    <div class="hero">
+      <div class="badge">Live CVE Database</div>
+      <h1>Search &amp; Track CVEs in Real Time</h1>
+      <p>Real CVSS scores, EPSS exploit-prediction probability, and CISA KEV exploitation status, sourced live from SENTINEL APEX's threat intelligence pipeline.</p>
+      <div class="breadcrumb"><a href="https://intel.cyberdudebivash.com/">Home</a> / <a href="cves.html">CVE Intelligence</a> / CVE Database</div>
+    </div>
+
+    <div class="filters">
+      <input type="text" id="f-search" placeholder="Search CVE ID (e.g. CVE-2026-1234)">
+      <select id="f-severity">
+        <option value="">All severities</option>
+        <option value="critical">Critical</option>
+        <option value="high">High</option>
+        <option value="medium">Medium</option>
+        <option value="low">Low</option>
+      </select>
+      <label><input type="checkbox" id="f-kev"> CISA KEV only</label>
+      <button id="f-apply">Filter</button>
+    </div>
+
+    <div id="list-loading" class="loading">Loading live CVE data&hellip;</div>
+    <div id="list-error" class="error" style="display:none"></div>
+    <div id="list-empty" class="empty" style="display:none">No CVEs match these filters.</div>
+    <div id="cve-grid" class="cve-grid"></div>
+    <div id="pagination" class="pagination" style="display:none"></div>
+  </div>
+
+  <!-- ============ DETAIL VIEW ============ -->
+  <div id="detail-state">
+    <a href="cve.html" class="back-link">&larr; Back to CVE Database</a>
+    <div id="detail-loading" class="loading">Loading CVE detail&hellip;</div>
+    <div id="detail-error" class="error" style="display:none"></div>
+    <div id="detail-body" style="display:none"></div>
+  </div>
+
+</div>
+
+<footer class="footer">
+  CYBERDUDEBIVASH&reg; SENTINEL APEX &mdash; Live CVE data via GET /api/cves &mdash; <a href="pricing.html">Pricing</a> &middot; <a href="upgrade.html">Upgrade to Pro</a>
+</footer>
+
+<script>
+(function () {
+  "use strict";
+  var API_BASE = "https://intel.cyberdudebivash.com";
+
+  function sevClass(sev) {
+    var s = (sev || "").toLowerCase();
+    return ["critical","high","medium","low"].indexOf(s) >= 0 ? "sev-" + s : "sev-low";
+  }
+  function esc(s) {
+    return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
+      return { "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c];
+    });
+  }
+  function fmtPct(x) { return (x == null) ? "&mdash;" : Math.round(x * 100) + "%"; }
+  function fmtScore(x) { return (x == null) ? "&mdash;" : Number(x).toFixed(1); }
+
+  var params = new URLSearchParams(window.location.search);
+  var cveId  = params.get("id") || params.get("cve_id");
+
+  if (cveId) {
+    document.getElementById("list-state").style.display = "none";
+    document.getElementById("detail-state").style.display = "block";
+    loadDetail(cveId.toUpperCase());
+  } else {
+    loadList(1);
+    document.getElementById("f-apply").addEventListener("click", function () { loadList(1); });
+    document.getElementById("f-search").addEventListener("keydown", function (e) {
+      if (e.key === "Enter") {
+        var v = this.value.trim().toUpperCase();
+        if (/^CVE-\d{4}-\d{4,7}$/.test(v)) { window.location.href = "cve.html?id=" + encodeURIComponent(v); }
+        else { loadList(1); }
+      }
+    });
+  }
+
+  function apiUrl(qs) {
+    var headers = {};
+    var key = null;
+    try { key = localStorage.getItem("cdb_api_key"); } catch (_) {}
+    return { url: API_BASE + "/api/cves?" + qs, key: key };
+  }
+
+  function doFetch(qs) {
+    var req = apiUrl(qs);
+    var headers = {};
+    if (req.key) headers["X-API-Key"] = req.key;
+    return fetch(req.url, { headers: headers }).then(function (r) {
+      return r.json().then(function (d) { return { ok: r.ok, status: r.status, data: d }; });
+    });
+  }
+
+  function loadList(page) {
+    var loading = document.getElementById("list-loading");
+    var errorEl = document.getElementById("list-error");
+    var emptyEl = document.getElementById("list-empty");
+    var grid    = document.getElementById("cve-grid");
+    var pager   = document.getElementById("pagination");
+    loading.style.display = "block"; errorEl.style.display = "none"; emptyEl.style.display = "none";
+    grid.innerHTML = ""; pager.style.display = "none";
+
+    var severity = document.getElementById("f-severity").value;
+    var kevOnly  = document.getElementById("f-kev").checked;
+    var qs = "page=" + page + "&limit=20";
+    if (severity) qs += "&severity=" + encodeURIComponent(severity);
+    if (kevOnly) qs += "&kev_only=true";
+
+    doFetch(qs).then(function (res) {
+      loading.style.display = "none";
+      if (!res.ok) {
+        errorEl.style.display = "block";
+        errorEl.textContent = res.status === 503
+          ? "Live CVE data is temporarily unavailable. Please try again shortly."
+          : "Could not load CVE data (" + res.status + ").";
+        return;
+      }
+      var cves = (res.data && res.data.data && res.data.data.cves) || [];
+      if (!cves.length) { emptyEl.style.display = "block"; return; }
+
+      grid.innerHTML = cves.map(function (c) {
+        return '<a class="cve-card" href="cve.html?id=' + encodeURIComponent(c.cve_id) + '">' +
+          '<div><div class="cve-id">' + esc(c.cve_id) + '</div>' +
+          '<div class="cve-meta" style="margin-top:6px">' +
+            (c.report_count ? c.report_count + ' report' + (c.report_count === 1 ? '' : 's') : '') +
+          '</div></div>' +
+          '<div class="cve-meta">' +
+            '<span class="sev-badge ' + sevClass(c.cvss_severity) + '">' + esc(c.cvss_severity || "unknown") + '</span>' +
+            '<span class="stat-chip">CVSS ' + fmtScore(c.cvss_score) + '</span>' +
+            '<span class="stat-chip">EPSS ' + fmtPct(c.epss_score) + '</span>' +
+            (c.kev ? '<span class="kev-badge">CISA KEV</span>' : '') +
+          '</div></a>';
+      }).join("");
+
+      var pg = (res.data.data.pagination) || { page: page, total_pages: 1 };
+      pager.style.display = "flex";
+      pager.innerHTML =
+        '<button ' + (pg.page <= 1 ? "disabled" : "") + ' id="pg-prev">&larr; Prev</button>' +
+        '<span style="align-self:center;color:var(--muted2)">Page ' + pg.page + ' of ' + pg.total_pages + '</span>' +
+        '<button ' + (pg.page >= pg.total_pages ? "disabled" : "") + ' id="pg-next">Next &rarr;</button>';
+      var prevBtn = document.getElementById("pg-prev"), nextBtn = document.getElementById("pg-next");
+      if (prevBtn) prevBtn.addEventListener("click", function () { loadList(pg.page - 1); });
+      if (nextBtn) nextBtn.addEventListener("click", function () { loadList(pg.page + 1); });
+    }).catch(function () {
+      loading.style.display = "none";
+      errorEl.style.display = "block";
+      errorEl.textContent = "Network error loading CVE data.";
+    });
+  }
+
+  function loadDetail(id) {
+    var loading = document.getElementById("detail-loading");
+    var errorEl = document.getElementById("detail-error");
+    var body    = document.getElementById("detail-body");
+
+    doFetch("cve_id=" + encodeURIComponent(id)).then(function (res) {
+      loading.style.display = "none";
+      if (!res.ok) {
+        errorEl.style.display = "block";
+        errorEl.textContent = "Could not load " + esc(id) + " (" + res.status + ").";
+        return;
+      }
+      var list = (res.data && res.data.data && res.data.data.cves) || [];
+      var c = list.filter(function (x) { return x.cve_id === id; })[0] || list[0];
+      if (!c) {
+        errorEl.style.display = "block";
+        errorEl.textContent = esc(id) + " was not found in the live feed.";
+        return;
+      }
+      renderDetail(c);
+    }).catch(function () {
+      loading.style.display = "none";
+      errorEl.style.display = "block";
+      errorEl.textContent = "Network error loading CVE detail.";
+    });
+  }
+
+  function renderDetail(c) {
+    document.title = c.cve_id + " — " + (c.cvss_severity || "") + " Severity Vulnerability | SENTINEL APEX";
+    var descEl = document.getElementById("page-description");
+    var headline = (c.reports && c.reports[0] && c.reports[0].title) || (c.cve_id + " vulnerability intelligence");
+    if (descEl) descEl.setAttribute("content", headline.slice(0, 155));
+    var canon = document.getElementById("canonical-link");
+    if (canon) canon.setAttribute("href", "https://intel.cyberdudebivash.com/cve.html?id=" + encodeURIComponent(c.cve_id));
+
+    var jsonld = document.getElementById("jsonld-cve");
+    if (jsonld) {
+      jsonld.textContent = JSON.stringify({
+        "@context": "https://schema.org",
+        "@type": "TechArticle",
+        "headline": c.cve_id + ": " + headline,
+        "datePublished": c.first_seen || undefined,
+        "dateModified": c.last_seen || c.first_seen || undefined,
+        "publisher": { "@id": "https://cyberdudebivash.com/#organization" },
+        "about": {
+          "@type": "Thing",
+          "name": c.cve_id,
+          "description": "CVSS " + fmtScore(c.cvss_score) + ", severity " + (c.cvss_severity || "unknown") + (c.kev ? ", listed in CISA KEV" : "")
+        },
+        "url": "https://intel.cyberdudebivash.com/cve.html?id=" + encodeURIComponent(c.cve_id)
+      });
+    }
+
+    var reportsShown = (c.reports || []).map(function (r) {
+      return '<div class="report-row"><span>' + esc(r.title || r.id) + '</span><span style="color:var(--muted2)">' + esc(r.date || "") + ' &middot; ' + esc(r.severity || "") + '</span></div>';
+    }).join("") || '<div class="report-row"><span style="color:var(--muted2)">No correlated reports yet.</span></div>';
+
+    var hiddenCount = c.locked && typeof c.report_count === "number" ? Math.max(0, c.report_count - (c.reports || []).length) : 0;
+
+    var paywallHtml = "";
+    if (c.locked) {
+      // Real gate: this section reflects an actually-masked API response
+      // (ioc_count nulled, reports truncated server-side), not a client-side
+      // blur painted over live data that was already sent to the browser.
+      paywallHtml =
+        '<div class="section locked-panel">' +
+          '<h2>Full Threat Correlation</h2>' +
+          '<div class="locked-content">' +
+            '<div class="report-row"><span>Full IOC correlation count</span><span>&#9679;&#9679;&#9679;&#9679;</span></div>' +
+            '<div class="report-row"><span>Additional correlated threat reports</span><span>' + hiddenCount + ' hidden</span></div>' +
+          '</div>' +
+        '</div>' +
+        '<div class="paywall-card">' +
+          '<h3>Unlock Full Threat Correlation</h3>' +
+          '<p>' + (hiddenCount > 0 ? hiddenCount + ' additional correlated threat report' + (hiddenCount === 1 ? '' : 's') + ' and the real IOC correlation count are available on Pro and above.' : 'Full IOC correlation and unlimited report history are available on Pro and above.') + '</p>' +
+          '<a class="paywall-cta" href="' + esc((c.upgrade && c.upgrade.url) || 'upgrade.html?plan=pro') + '">Upgrade to Pro — $49/mo &rarr;</a>' +
+        '</div>';
+    }
+
+    document.getElementById("detail-body").innerHTML =
+      '<div class="detail-header">' +
+        '<div><h1>' + esc(c.cve_id) + '</h1><p style="color:var(--muted2);max-width:600px">' + esc(headline) + '</p></div>' +
+        '<div>' +
+          '<span class="sev-badge ' + sevClass(c.cvss_severity) + '">' + esc(c.cvss_severity || "unknown") + '</span> ' +
+          (c.kev ? '<span class="kev-badge">CISA KEV — Actively Exploited</span>' : '') +
+        '</div>' +
+      '</div>' +
+      '<div class="detail-scores">' +
+        '<div class="score-tile"><div class="score-val">' + fmtScore(c.cvss_score) + '</div><div class="score-label">CVSS Score</div></div>' +
+        '<div class="score-tile"><div class="score-val">' + fmtPct(c.epss_score) + '</div><div class="score-label">EPSS Probability</div></div>' +
+        '<div class="score-tile"><div class="score-val">' + esc(c.exploit_maturity || "&mdash;") + '</div><div class="score-label">Exploit Maturity</div></div>' +
+        '<div class="score-tile"><div class="score-val">' + (c.report_count || 0) + '</div><div class="score-label">Correlated Reports</div></div>' +
+      '</div>' +
+      (c.kev ? '<div class="section"><h2>CISA KEV Timeline</h2><p style="color:var(--muted2)">Added to CISA\'s Known Exploited Vulnerabilities catalog' + (c.cisa_kev_date ? ' on ' + esc(c.cisa_kev_date) : '') + '. Federal agencies are required to remediate under BOD 22-01.</p></div>' : '') +
+      (c.affected_products && c.affected_products.length ? '<div class="section"><h2>Affected Products</h2>' + c.affected_products.map(function (p) { return '<span class="product-chip">' + esc(p) + '</span>'; }).join("") + '</div>' : '') +
+      '<div class="section"><h2>Related Coverage</h2>' + reportsShown + '</div>' +
+      paywallHtml;
+
+    document.getElementById("detail-body").style.display = "block";
+  }
+})();
+</script>
+</body>
+</html>
