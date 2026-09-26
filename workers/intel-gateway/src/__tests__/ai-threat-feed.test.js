@@ -11,7 +11,7 @@ import { fileURLToPath } from "node:url";
 
 import worker from "../index.js";
 import {
-  routeAiFeed, mergeFeed, redact, validateHubItem, feedItemToAi, offerBody, effectiveCatalog,
+  routeAiFeed, mergeFeed, redact, validateHubItem, feedItemToAi, offerBody, effectiveCatalog, sourceKey,
   AI_FEED_FEATURES, AI_FEED_SEED_CATALOG, AI_FEED_CATALOG_KEY, normalizeTier,
 } from "../ai-threat-feed.js";
 import { planPrice } from "../cyber-watchdog.js";
@@ -128,8 +128,12 @@ test("PRO: details and source, timeline and actions locked; ENTERPRISE/MSSP: eve
 });
 
 test("item caps per plan: FREE 5, PRO 25, ENTERPRISE/MSSP 100", async () => {
-  const many = Array.from({ length: 120 }, (_, i) => ({ ...HUB, id: `CDB-AISH-FEED-2026-0926-${String(i % 100).padStart(2, "0")}`.replace(/-(\d{2})$/, (m) => m) }));
-  const unique = [...new Map(many.map((h, i) => [i, { ...h, id: `CDB-AISH-FEED-2026-${String(1000 + Math.floor(i / 100)).slice(-4)}-${String(i % 100).padStart(2, "0")}` }])).values()];
+  // 120 distinct Hub objects: distinct ids and distinct source articles.
+  const unique = Array.from({ length: 120 }, (_, i) => ({
+    ...HUB,
+    id: `CDB-AISH-FEED-2026-${String(1000 + Math.floor(i / 100)).slice(-4)}-${String(i % 100).padStart(2, "0")}`,
+    source_url: `https://example.org/advisory/${i}`,
+  }));
   const s = store({ items: unique });
   for (const [tier, cap] of [["FREE", 5], ["PRO", 25], ["ENTERPRISE", 100], ["MSSP", 100]]) {
     const r = await call("/api/ai-feed/live", { store: s, auth: { tier } });
@@ -169,6 +173,25 @@ test("feed items: only AI advisories that cite an https source; nothing invented
   assert.equal(feedItemToAi({ ...AI_ADV, title: "Mcpanel update", description: "" }), null, "word-bounded vocabulary");
   const merged = mergeFeed([HUB, { ...HUB, source_url: "http://x" , id: "CDB-AISH-FEED-2026-0926-09" }], [AI_ADV, NON_AI]);
   assert.deepEqual(merged.map((i) => i.id), [AI_ADV.id, HUB.id], "invalid hub item dropped, newest first");
+});
+
+test("one item per source article: production duplicate collapses, Hub wins", () => {
+  // Production 2026-09-26: the same article, twice, different source names and severities.
+  const a = { ...AI_ADV, id: "intel--7dbf", title: "OpenAI's AI Agents Tried Hacking 4 Websites Without Being Prompted",
+    source: "CyberSecurityNews", severity: "MEDIUM", source_url: "https://cybersecuritynews.com/openais-ai-agents-tried-hacking-4-websites/" };
+  const b = { ...a, id: "intel--bad5", source: "CyberSecurity News", severity: "LOW", source_url: "https://CyberSecurityNews.com/openais-ai-agents-tried-hacking-4-websites?utm_source=rss" };
+  const merged = mergeFeed([], [a, b]);
+  assert.deepEqual(merged.map((i) => i.id), ["intel--7dbf"]);
+  const hub = { ...HUB, source_url: "https://cybersecuritynews.com/openais-ai-agents-tried-hacking-4-websites/" };
+  assert.deepEqual(mergeFeed([hub], [a, b]).map((i) => i.id), [HUB.id]);
+  assert.equal(sourceKey("https://Example.org/a/"), sourceKey("https://example.org/a?utm_source=rss&fbclid=1#f"));
+  assert.notEqual(sourceKey("https://example.org/a"), sourceKey("https://example.org/b"));
+  // Query-selected pages stay distinct (production: two CVEs on cvename.cgi).
+  assert.notEqual(sourceKey("https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2026-1"), sourceKey("https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2026-2"));
+  assert.equal(sourceKey("https://x.org/p?b=2&a=1&utm_medium=rss"), sourceKey("https://x.org/p?a=1&b=2"));
+  const c1 = { ...AI_ADV, id: "intel--c1", title: "LLM gateway flaw one", source_url: "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2026-1" };
+  const c2 = { ...c1, id: "intel--c2", title: "LLM gateway flaw two", source_url: "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2026-2" };
+  assert.equal(mergeFeed([], [c1, c2]).length, 2);
 });
 
 test("hub validation rejects every field a buyer relies on", () => {

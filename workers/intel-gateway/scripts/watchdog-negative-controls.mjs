@@ -673,6 +673,13 @@ const CONTROLS = [
     replace: "&& !path.startsWith(\"/api/watchdog\")) {",
     tests: [T("ai-threat-feed.test.js")],
   },
+  {
+    id: "ai_feed_duplicate_source_articles",
+    file: "workers/intel-gateway/src/ai-threat-feed.js",
+    find: "    if (seen.has(it.id) || (key && sources.has(key))) return;",
+    replace: "    if (seen.has(it.id)) return;",
+    tests: [T("ai-threat-feed.test.js")],
+  },
 ];
 
 function runTests(root, files) {
