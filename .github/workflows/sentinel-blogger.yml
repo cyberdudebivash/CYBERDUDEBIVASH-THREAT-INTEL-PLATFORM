@@ -535,7 +535,7 @@ jobs:
       - name: "STAGE 0.05b - Critical script restore guard (post-checkout resilience)"
         timeout-minutes: 2
         run: |
-          CRITICAL="scripts/safe_git_commit.py scripts/run_pipeline.py scripts/generate_intel_reports.py scripts/intel_dedup_engine.py"
+          CRITICAL="scripts/safe_git_commit.py scripts/run_pipeline.py scripts/generate_intel_reports.py scripts/intel_dedup_engine.py scripts/severity_epss_truth.py"
           RESTORED=0
           MISSING=0
           for f in $CRITICAL; do
@@ -1302,6 +1302,27 @@ jobs:
             echo "[PASS] Confidence enrichment: ${CONF_ITEMS} items enriched with confidence_label + sla_priority + revenue_opportunities"
           else
             echo "::warning::confidence_corroboration_engine.py exited ${CONF_EXIT} -- non-fatal, pipeline continues"
+          fi
+
+      # -----------------------------------------------------------------------
+      # STAGE 3.1.18c: SEVERITY & EPSS TRUTH (before baseline, product feeds, reports)
+      # scripts/severity_epss_truth.py: severity from a CVSS v3.x score that
+      # matches its own vector (CISA KEV items unchanged); epss_score (percent)
+      # from FIRST.org, removed when FIRST.org has none. Report:
+      # data/quality/severity_epss_truth_report.json.
+      # -----------------------------------------------------------------------
+      - name: "STAGE 3.1.18c - Severity & EPSS Truth (before baseline, product feeds, reports)"
+        timeout-minutes: 5
+        continue-on-error: true
+        run: |
+          set +e
+          python3 scripts/severity_epss_truth.py
+          SET_EXIT=$?
+          set -e
+          if [ "$SET_EXIT" -ne 0 ]; then
+            echo "::warning::severity_epss_truth.py exited ${SET_EXIT} -- severity/EPSS not canonicalised this pass"
+          elif [ -f data/quality/severity_epss_truth_report.json ]; then
+            echo "[SEV-EPSS] $(jq -c '{first_org_reachable, cves_queried, first_records}' data/quality/severity_epss_truth_report.json)"
           fi
 
       # -----------------------------------------------------------------------
@@ -2403,6 +2424,27 @@ jobs:
           else
             echo "::error::Intelligence Integrity Gate HARD_FAIL (exit $IG_EXIT) -- BLOCKING publish, check data/quality/integrity_gate_report.json"
             exit 1
+          fi
+
+      # -----------------------------------------------------------------------
+      # STAGE 3.93.15a2: SEVERITY & EPSS TRUTH (final, before publication)
+      # scripts/severity_epss_truth.py: severity from a CVSS v3.x score that
+      # matches its own vector (CISA KEV items unchanged); epss_score (percent)
+      # from FIRST.org, removed when FIRST.org has none. Report:
+      # data/quality/severity_epss_truth_report.json.
+      # -----------------------------------------------------------------------
+      - name: "STAGE 3.93.15a2 - Severity & EPSS Truth (final, before publication)"
+        timeout-minutes: 5
+        continue-on-error: true
+        run: |
+          set +e
+          python3 scripts/severity_epss_truth.py
+          SET_EXIT=$?
+          set -e
+          if [ "$SET_EXIT" -ne 0 ]; then
+            echo "::warning::severity_epss_truth.py exited ${SET_EXIT} -- severity/EPSS not canonicalised this pass"
+          elif [ -f data/quality/severity_epss_truth_report.json ]; then
+            echo "[SEV-EPSS] $(jq -c '{first_org_reachable, cves_queried, first_records}' data/quality/severity_epss_truth_report.json)"
           fi
 
       # -----------------------------------------------------------------------

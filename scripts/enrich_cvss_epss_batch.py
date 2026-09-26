@@ -537,10 +537,14 @@ def main() -> int:
                 blog_url_count  += 1
 
     # ── Pass 4.7: Severity realignment ───────────────────────────────────────────
+    # The CVSS bands apply to a CVSS score. The APEX composite risk_score (0-10)
+    # is only the fallback for items without one: reading it first rated every
+    # CVSS 4.3-6.7 advisory with a low composite risk LOW (11 of 34 CVSS-rated
+    # items, 2026-09-26). scripts/severity_epss_truth.py makes the final call.
     sev_aligned = 0
     for item in items:
         try:
-            risk = float(item.get("risk_score") or item.get("cvss_score") or 0)
+            risk = float(item.get("cvss_score") or item.get("risk_score") or 0)
         except (TypeError, ValueError):
             continue
         if risk <= 0:

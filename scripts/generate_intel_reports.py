@@ -759,6 +759,24 @@ def _extract_cve_ids_for_fallback(it: dict) -> List[str]:
     return list(ids)
 
 
+# EPSS scale: epss_score is written in mixed scales by the pipeline (FIRST.org's
+# 0.53% stored as 0.53, 53, 0.0053). The one reader is
+# severity_epss_truth.epss_percent(): percent when proven, else None ("N/A").
+try:
+    import sys as _epss_sys
+    _scripts_dir_epss = str(Path(__file__).resolve().parent)
+    if _scripts_dir_epss not in _epss_sys.path:
+        _epss_sys.path.insert(0, _scripts_dir_epss)
+    from severity_epss_truth import epss_percent as _epss_percent  # noqa: E402
+except Exception as _epss_import_err:  # pragma: no cover - never guess a scale
+    import logging as _epss_log_mod
+    _epss_log_mod.getLogger("sentinel.report_gen").warning(
+        "EPSS reader unavailable, EPSS rendered N/A: %s", _epss_import_err)
+
+    def _epss_percent(item):  # type: ignore[no-redef]
+        return None
+
+
 def _load_cvss_fallback_index() -> Dict[str, Dict[str, Any]]:
     """
     v186.0 P0 FIX: STAGE 3.1.2 (scripts/enrich_cvss_epss_batch.py) enriches
@@ -791,7 +809,8 @@ def _load_cvss_fallback_index() -> Dict[str, Dict[str, Any]]:
                     continue
                 for cve in _extract_cve_ids_for_fallback(fi):
                     if cve not in index:
-                        index[cve] = {"cvss_score": fi.get("cvss_score"), "epss_score": fi.get("epss_score")}
+                        # epss_score in the index is a percentage (canonical reader)
+                        index[cve] = {"cvss_score": fi.get("cvss_score"), "epss_score": _epss_percent(fi)}
     except Exception:
         pass
     _CVSS_FALLBACK_INDEX = index
@@ -802,7 +821,7 @@ def _resolve_cvss_epss(item: dict) -> tuple:
     """Returns (cvss, epss) -- item's own values if present, else the
     api/feed.json fallback for the same CVE, else (None, None) unchanged."""
     cvss = item.get("cvss_score")
-    epss = item.get("epss_score")
+    epss = _epss_percent(item)  # percent (0-100) or None -- never a raw epss_score
     if cvss is None or epss is None:
         for cve in _extract_cve_ids_for_fallback(item):
             fb = _load_cvss_fallback_index().get(cve)
@@ -963,9 +982,7 @@ def _render_financial_impact(
             return None
 
     _cvss = _num(cvss)
-    _epss = _num(epss)
-    if _epss is not None and _epss > 1:
-        _epss = _epss / 100.0  # tolerate percent-scaled inputs
+    _epss = _num(epss)  # a percentage (0-100): callers pass _resolve_cvss_epss()'s value
     _NOT_ESTABLISHED = "Not established from available evidence"
     _class_label = {
         "ransomware": "Ransomware",
@@ -977,7 +994,7 @@ def _render_financial_impact(
         ("Severity", _h(sev or "UNKNOWN")),
         ("APEX composite risk", f"{float(risk or 0):.1f}/10"),
         ("CVSS base score", f"{_cvss:.1f}" if _cvss is not None else "Not assigned"),
-        ("EPSS (30-day exploitation probability)", f"{_epss * 100:.2f}%" if _epss is not None else "Not available"),
+        ("EPSS (30-day exploitation probability)", f"{_epss:.2f}%" if _epss is not None else "Not available"),
         ("CISA KEV", "Listed — exploitation in the wild confirmed" if kev else "Not listed"),
         ("Exploit maturity", _h(_mat) if _mat else _NOT_ESTABLISHED),
         ("Threat class", _h(_class_label)),

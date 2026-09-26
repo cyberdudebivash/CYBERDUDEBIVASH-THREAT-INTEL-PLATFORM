@@ -39,6 +39,14 @@ import logging
 import re
 from typing import Any, Dict, List, Optional, Tuple
 
+import sys as _sys
+from pathlib import Path as _Path
+
+if str(_Path(__file__).resolve().parent) not in _sys.path:
+    _sys.path.insert(0, str(_Path(__file__).resolve().parent))
+# EPSS as a proven percentage or None (epss_score's scale is not uniform).
+from severity_epss_truth import epss_percent as _epss_percent  # noqa: E402
+
 log = logging.getLogger("context_aware_narrative")
 
 _VERSION = "1.0.0"
@@ -422,7 +430,7 @@ def _narrative_threat_actor(item: Dict[str, Any]) -> str:
     iocs       = item.get("iocs") or []
     ioc_count  = len(iocs)
     kev        = _kev_confirmed(item)
-    epss       = item.get("epss_score")
+    epss       = _epss_percent(item)
     sectors    = _get_sector_context(item)
     sev        = str(item.get("severity") or "HIGH").upper()
 
@@ -969,7 +977,7 @@ def _narrative_cve_generic(item: Dict[str, Any]) -> str:
     ioc_count = len(item.get("iocs") or [])
     kev      = _kev_confirmed(item)
     cvss     = item.get("cvss_score")
-    epss     = item.get("epss_score")
+    epss     = _epss_percent(item)
     sev      = str(item.get("severity") or "MEDIUM").upper()
     cvss_str = _get_cvss_context(cvss)
     kev_block = f"<div class='callout critical'>{_get_kev_context(kev)}</div>" if kev else ""
@@ -1137,7 +1145,7 @@ def generate_context_aware_executive_summary(item: Dict[str, Any]) -> str:
         exploit_maturity = str(item.get("exploit_maturity") or "").upper()
         exploitation_confirmed = kev or exploit_maturity in ("WEAPONIZED", "FUNCTIONAL")
         cvss     = item.get("cvss_score")
-        epss     = item.get("epss_score")
+        epss     = _epss_percent(item)
         risk     = float(item.get("risk_score") or 0)
         ioc_count = len(item.get("iocs") or [])
         ttps     = item.get("ttps") or []

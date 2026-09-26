@@ -43,6 +43,21 @@ try:
 except Exception as _cane_import_err:
     _log.debug("Context-Aware Narrative Engine unavailable (non-fatal): %s", _cane_import_err)
 
+# ── EPSS reader: a proven percentage or None (epss_score's scale is not uniform
+# across pipeline writers; "<= 1 means fraction" printed FIRST.org's 0.53% as 53%).
+try:
+    import sys as _epss_sys
+    import os as _epss_os
+    _epss_scripts_dir = _epss_os.path.join(_epss_os.path.dirname(_epss_os.path.dirname(__file__)), "scripts")
+    if _epss_scripts_dir not in _epss_sys.path:
+        _epss_sys.path.insert(0, _epss_scripts_dir)
+    from severity_epss_truth import epss_percent as _epss_percent
+except Exception as _epss_import_err:
+    _log.warning("EPSS reader unavailable, EPSS rendered as pending: %s", _epss_import_err)
+
+    def _epss_percent(item):  # never guess a scale
+        return None
+
 # ── P0: Explainable Confidence Engine — safe optional import ──────────────────
 _ECE_AVAILABLE = False
 try:
@@ -1766,7 +1781,7 @@ def generate_ai_insight_premium(item: Dict[str, Any]) -> str:
         # ...) misreads a legacy "NO"/"false" string as KEV-confirmed.
         kev = _cane_kev_confirmed(item) if _CANE_AVAILABLE else False
         cvss = item.get("cvss_score") or item.get("cvss")
-        epss = item.get("epss_score") or item.get("epss")
+        epss = _epss_percent(item)
         threat_type = str(item.get("threat_type") or "").lower()
         vuln_class = _detect_vuln_class(title, desc)
         seed_str  = str(item.get("id") or item.get("stix_id") or title)
@@ -1804,9 +1819,7 @@ def generate_ai_insight_premium(item: Dict[str, Any]) -> str:
         # item's own id/title, mirroring the same seed_hash mechanism already used for
         # exec-summary template selection elsewhere in this module.
         try:
-            epss_pct = float(epss)
-            if epss_pct <= 1.0:
-                epss_pct *= 100.0
+            epss_pct = float(epss)  # already a percentage (_epss_percent)
         except (TypeError, ValueError):
             epss_pct = None
 
@@ -2536,9 +2549,7 @@ _NO_KEV_VARIANTS = (
 def _render_no_kev_paragraph(epss, seed_hash: int) -> str:
     if epss is not None:
         try:
-            epss_pct = float(epss)
-            if epss_pct <= 1.0:
-                epss_pct *= 100.0
+            epss_pct = float(epss)  # already a percentage (_epss_percent)
         except (TypeError, ValueError):
             epss_pct = None
         if epss_pct is not None:
@@ -2581,7 +2592,7 @@ def generate_executive_summary(item):
         # ...) misreads a legacy "NO"/"false" string as KEV-confirmed.
         kev    = _cane_kev_confirmed(item) if _CANE_AVAILABLE else False
         cvss   = item.get("cvss_score") or item.get("cvss")
-        epss   = item.get("epss_score") or item.get("epss")
+        epss   = _epss_percent(item)
         ttps   = item.get("ttps") or []
         iocs   = item.get("iocs") or []
 
