@@ -81,6 +81,10 @@ API_REPORTS  = REPO_ROOT / "api" / "reports"
 BASE_URL     = os.environ.get("PLATFORM_BASE_URL", "https://intel.cyberdudebivash.com")
 
 # How many reports to include in index.json (full index) vs latest.json (quick-load)
+# The reports R2 actually holds: scripts/r2_report_publisher.py's own state
+# (synced from R2 before this stage by r2_state_sync.py). An entry with an
+# html_sha256 is a report that publisher PUT successfully.
+PUBLISH_STATE = REPO_ROOT / "data" / "cache" / "r2_report_publish_state.json"
 MAX_INDEX  = int(os.environ.get("REPORTS_INDEX_MAX",  "500"))
 MAX_LATEST = int(os.environ.get("REPORTS_LATEST_MAX",  "50"))
 
@@ -158,6 +162,33 @@ def _path_to_relative_url(path: Path) -> str:
 def _extract_id_from_path(path: Path) -> str:
     """Extract intel item id from filename (strip .html)."""
     return path.stem  # e.g. intel--ffec0a31e4fcdf6faf555895
+
+
+def _published_report_paths() -> List[Path]:
+    """Report paths the publish state records as already in R2.
+
+    2026-09-26: the index listed only reports/ files on this runner's disk,
+    i.e. reports generated in THIS run (earlier ones live only in R2 since
+    the R2-native publisher). Run 36232016684 generated none: index
+    total_reports=0, STAGE 5.9.2 GATE-2 failed, and the live Reports catalog
+    listed 7 of the 23 customer-ready reports. The publisher's state file is
+    the inventory of what R2 holds; these paths are virtual (no local file).
+    """
+    state = _load_json_safe(PUBLISH_STATE)
+    items = state.get("items") if isinstance(state, dict) else None
+    if not isinstance(items, dict):
+        return []
+    paths: List[Path] = []
+    for report_id, entry in items.items():
+        if not isinstance(entry, dict) or not entry.get("html_sha256"):
+            continue  # staged but never PUT
+        key = str(entry.get("html_key") or "")
+        if not (key.startswith("reports/") and key.endswith(".html")):
+            continue
+        path = REPORTS_ROOT / key[len("reports/"):]
+        if path.stem == report_id:
+            paths.append(path)
+    return paths
 
 
 def _fmt_now() -> str:
@@ -286,33 +317,36 @@ def main() -> int:
     #    hot window, so it is not listed as current (fail safe).
     # ------------------------------------------------------------------
     if not REPORTS_ROOT.exists():
-        log.warning("reports/ directory not found — creating empty index")
-        all_report_paths: List[Path] = []
-    else:
-        log.info("Scanning reports/ directory (window = %sh)...", REPORT_WINDOW_HOURS)
-        now = datetime.now(timezone.utc)
-        _dated: List[tuple] = []
-        _excluded_stale_or_unproven = 0
-        for p in REPORTS_ROOT.rglob("intel--*.html"):
-            if not p.is_file() or p.stat().st_size <= 512:
-                continue
-            ts = _canonical_ts(_extract_id_from_path(p))
-            if ts is None:
-                _excluded_stale_or_unproven += 1
-                continue
-            age_hours = (now - ts).total_seconds() / 3600.0
-            if not (0 <= age_hours <= REPORT_WINDOW_HOURS):
-                _excluded_stale_or_unproven += 1
-                continue
-            _dated.append((ts, p))
-        _dated.sort(key=lambda t: t[0], reverse=True)  # newest first
-        all_report_paths = [p for _ts, p in _dated]
-        if _excluded_stale_or_unproven:
-            log.info(
-                "Excluded %d report file(s) on disk: outside the %sh window or no "
-                "provable canonical timestamp (not listed as current -- fail safe).",
-                _excluded_stale_or_unproven, REPORT_WINDOW_HOURS,
-            )
+        log.warning("reports/ directory not found — indexing published reports only")
+    log.info("Scanning reports/ directory (window = %sh)...", REPORT_WINDOW_HOURS)
+    now = datetime.now(timezone.utc)
+    _dated: List[tuple] = []
+    _excluded_stale_or_unproven = 0
+    _on_disk = [p for p in REPORTS_ROOT.rglob("intel--*.html")
+                if p.is_file() and p.stat().st_size > 512] if REPORTS_ROOT.exists() else []
+    _seen_ids = {_extract_id_from_path(p) for p in _on_disk}
+    _published = [p for p in _published_report_paths()
+                  if _extract_id_from_path(p) not in _seen_ids]
+    if _published:
+        log.info("Publish state: %d report(s) already in R2 not on this runner's disk", len(_published))
+    for p in _on_disk + _published:
+        ts = _canonical_ts(_extract_id_from_path(p))
+        if ts is None:
+            _excluded_stale_or_unproven += 1
+            continue
+        age_hours = (now - ts).total_seconds() / 3600.0
+        if not (0 <= age_hours <= REPORT_WINDOW_HOURS):
+            _excluded_stale_or_unproven += 1
+            continue
+        _dated.append((ts, p))
+    _dated.sort(key=lambda t: t[0], reverse=True)  # newest first
+    all_report_paths = [p for _ts, p in _dated]
+    if _excluded_stale_or_unproven:
+        log.info(
+            "Excluded %d report file(s) on disk: outside the %sh window or no "
+            "provable canonical timestamp (not listed as current -- fail safe).",
+            _excluded_stale_or_unproven, REPORT_WINDOW_HOURS,
+        )
     log.info("Found %d intel report file(s) within the %sh hot window", len(all_report_paths), REPORT_WINDOW_HOURS)
 
     # ------------------------------------------------------------------
@@ -407,7 +441,7 @@ def main() -> int:
             "kev_present":  kev_present,
             "tlp":          tlp,
             "year_month":   year_month,
-            "file_size":    path.stat().st_size,
+            "file_size":    path.stat().st_size if path.exists() else None,
             "generated_at": now_str,
         }
         report_entries.append(entry)

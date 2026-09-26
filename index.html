@@ -16575,7 +16575,13 @@ function renderTopThreats(data) {
                 // whatever an earlier/less reliable code path had written on screen. Also
                 // switched to timeSince() (relative "Xh ago") to match every other sync-time
                 // display on this page instead of an absolute locale timestamp.
-                const _syncTs = intel.last_sync || intel.generated_at || '';
+                // 2026-09-26: "Last Sync" is when the platform last published its
+                // feed (last_feed_sync_utc / publication_generated_at), not the
+                // newest ARTICLE's publish date (last_sync). At 10:04Z the badge
+                // read "2h ago" (newest article 07:42Z) for a feed published at
+                // 09:41Z; in a quiet news window it looked stale while the feed
+                // was fresh. js/sentinel-live-feeds.js already reads it this way.
+                const _syncTs = intel.last_feed_sync_utc || intel.publication_generated_at || intel.last_sync || intel.generated_at || '';
                 if (_syncTs) {
                     const _d2 = new Date(_syncTs);
                     const _label = isNaN(_d2) ? _syncTs : timeSince(_syncTs);
