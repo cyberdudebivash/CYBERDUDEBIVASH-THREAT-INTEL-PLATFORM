@@ -173,7 +173,9 @@ class TestPipelineStalenessThresholds(unittest.TestCase):
         it is about to judge: both incident workflows share the exact cron
         this test's own analysis is built on."""
         self.assertEqual(max_gap_hours_for_workflow("status-monitor.yml"), 8.0)
-        self.assertEqual(max_gap_hours_for_workflow("sentinel-blogger.yml"), 8.0)
+        # P0 2026-09-26: sentinel-blogger moved to every 4h ('17 */4 * * *')
+        # to meet the 6h public freshness contract (repo is public: free runners).
+        self.assertEqual(max_gap_hours_for_workflow("sentinel-blogger.yml"), 4.0)
 
 
 class TestMixedMinuteCronEntries(unittest.TestCase):

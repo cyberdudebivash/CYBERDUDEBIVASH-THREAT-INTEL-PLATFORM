@@ -91,8 +91,21 @@ on:
   # Tightening this cadence again in the future requires a deliberate
   # decision backed by confirmed Actions-minutes headroom (check current org
   # usage first) -- not a mechanical revert of this comment.
+  #
+  # P0 2026-09-26 -- EVERY 4 HOURS (the headroom condition above is met):
+  # the repository is PUBLIC (GitHub API: "visibility": "public") and this
+  # job runs on ubuntu-latest, and standard GitHub-hosted runners are free
+  # for public repositories, so the billed-minutes basis of the 3x/day
+  # decision no longer applies. And 3x/day cannot satisfy the platform's own
+  # freshness contract (config/public_freshness_contract.json: 6h): an 8h
+  # cadence plus a ~80 min run plus GitHub's cron start delays (4h-4.7h
+  # observed 2026-09-25/26) left the public feed stale for hours every day.
+  # Minute 17, not 0: top-of-hour cron is GitHub's most congested slot.
+  # scripts/intel_freshness_guard.py (intel-freshness-guard.yml) re-dispatches
+  # this workflow when a scheduled run is delayed or displaced from the
+  # shared sentinel-data-writer queue.
   schedule:
-    - cron: '0 0,8,16 * * *'
+    - cron: '17 */4 * * *'
     - cron: '0 0 1 * *'
   workflow_dispatch:
     inputs:

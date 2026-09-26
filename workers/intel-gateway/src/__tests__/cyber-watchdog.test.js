@@ -148,6 +148,38 @@ test("freshness uses the canonical evaluator and refuses a stale brief", () => {
   assert.equal(missing.body.freshness_status, "UNAVAILABLE");
 });
 
+test("P0 2026-09-26: a STALE brief keeps the degraded contract and adds a labelled last-authoritative block", () => {
+  const nineHours = NOW_MS + 8 * 3600e3; // feed generated 05:00, now 14:00 -> 9h: STALE
+  const stale = buildWatchdogBrief(liveFeed(), { tier: "FREE", nowMs: nineHours, limit: 2 });
+  assert.equal(stale.status, 503, "status unchanged: pollers and API clients still see degraded");
+  assert.equal(stale.body.error, "intelligence_degraded");
+  assert.deepEqual(stale.body.items, [], "top-level items stay empty");
+  const last = stale.body.last_authoritative;
+  assert.equal(last.live, false);
+  assert.match(last.label, /NOT LIVE/);
+  assert.equal(last.freshness_status, "STALE");
+  assert.equal(last.feed_generated_at, "2026-09-24T05:00:00Z");
+  assert.equal(last.items.length, 2, "tier cap and limit applied");
+  assert.equal(last.situation.by_severity.CRITICAL + last.situation.by_severity.HIGH >= 0, true);
+  const fresh = buildWatchdogBrief(liveFeed(), { tier: "FREE", nowMs: NOW_MS, limit: 2 });
+  assert.deepEqual(last.items, fresh.body.items, "same projection as the live brief (free redaction included)");
+  assert.deepEqual(last.situation, fresh.body.situation);
+  const lensed = buildWatchdogBrief(liveFeed(), { tier: "PRO", nowMs: nineHours, lens: "technology" });
+  assert.ok(lensed.body.last_authoritative.items.every((i) => i.lenses.includes("technology")), "lens filter applied");
+});
+
+test("P0 2026-09-26: no last-authoritative block beyond 48h or for an untrustworthy timestamp", () => {
+  const old = buildWatchdogBrief(liveFeed(FEED_ITEMS, "2026-09-22T05:00:00Z"), { tier: "PRO", nowMs: NOW_MS }); // 49h
+  assert.equal(old.body.last_authoritative, null);
+  for (const generatedAt of ["", "not-a-date", "2026-09-30T00:00:00Z"]) {
+    const bad = buildWatchdogBrief(liveFeed(FEED_ITEMS, generatedAt), { tier: "PRO", nowMs: NOW_MS });
+    assert.equal(bad.status, 503);
+    assert.equal(bad.body.last_authoritative, null, `no block for generated_at=${JSON.stringify(generatedAt)}`);
+  }
+  assert.equal(buildWatchdogBrief(null, { tier: "PRO", nowMs: NOW_MS }).body.last_authoritative, null);
+  assert.equal(buildWatchdogBrief(liveFeed(), { tier: "PRO", nowMs: NOW_MS }).body.last_authoritative, undefined, "a fresh brief carries no such block");
+});
+
 test("negative control: stale feed must not look live", () => {
   const stale = buildWatchdogBrief(liveFeed(FEED_ITEMS, "2026-08-01T00:00:00Z"), { tier: "PRO", nowMs: NOW_MS });
   assert.notEqual(stale.status, 200);
@@ -233,8 +265,8 @@ test("entitlement: free, pro, enterprise, expired, refunded", async () => {
 
 test("match events dedupe and do not record from a stale feed", async () => {
   const ledger = new MemoryLedger();
-  const calls = { mutate: 0 };
-  const counting = { mutate(op) { calls.mutate += 1; return ledger.mutate(op); } };
+  const calls = { mutate: 0, writes: 0 };
+  const counting = { mutate(op) { calls.mutate += 1; if (op.type !== "get") calls.writes += 1; return ledger.mutate(op); } };
   const req = {
     ledger: counting,
     feed: liveFeed(),
@@ -260,9 +292,22 @@ test("match events dedupe and do not record from a stale feed", async () => {
   assert.equal(second.body.total, 1);
   const acked = await routeWatchdog({ ...req, path: "/api/watchdog/events/ack", method: "POST", body: { ids: [first.body.events[0].id] } });
   assert.equal(acked.body.acknowledged, 1);
+  // P0 2026-09-26: a stale feed is never evaluated (nothing recorded), but
+  // the customer's stored match history stays readable instead of a 503.
+  const writesBeforeStale = calls.writes;
   const stale = await routeWatchdog({ ...req, feed: liveFeed(FEED_ITEMS, "2026-08-01T00:00:00Z"), path: "/api/watchdog/matches", method: "GET", searchParams: new URLSearchParams() });
-  assert.equal(stale.status, 503);
+  assert.equal(stale.status, 200);
   assert.equal(stale.body.events_recorded, false);
+  assert.equal(stale.body.evaluated, false);
+  assert.equal(stale.body.inserted, 0);
+  assert.equal(stale.body.freshness_status, "STALE");
+  assert.equal(stale.body.matches[0].hit_count, 1, "stored history still listed");
+  const staleEvents = await routeWatchdog({ ...req, feed: liveFeed(FEED_ITEMS, "2026-08-01T00:00:00Z"), path: "/api/watchdog/events", method: "GET", searchParams: new URLSearchParams("limit=10") });
+  assert.equal(staleEvents.status, 200);
+  assert.equal(staleEvents.body.evaluated, false);
+  assert.equal(staleEvents.body.evaluation_skipped, "feed_not_fresh");
+  assert.equal(staleEvents.body.total, 1);
+  assert.equal(calls.writes, writesBeforeStale, "no ledger write from a stale feed (reads only)");
 });
 
 test("enterprise webhook: nothing is delivered before verification, then one signed delivery", async () => {

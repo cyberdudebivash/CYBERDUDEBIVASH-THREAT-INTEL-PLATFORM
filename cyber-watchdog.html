@@ -505,6 +505,12 @@ async function fetchBrief(lens, q) {
   const res = await fetch(url, { headers: headers() });
   return { ok: res.ok, data: await res.json() };
 }
+// P0 2026-09-26: a STALE feed answers degraded (503, items: []) plus a
+// separate last_authoritative block labelled NOT LIVE. Never cached as a
+// live brief, never marks the page synced.
+function lastAuthoritative(data) {
+  return data && data.last_authoritative && data.last_authoritative.live === false ? data.last_authoritative : null;
+}
 function renderSituation(data) {
   const sit = data && data.situation;
   if (!sit) { mount($('situation'), h('div', { class: 'ax-empty', text: 'Feed breakdown unavailable while the feed is not fresh' })); return; }
@@ -520,6 +526,13 @@ async function loadBrief(ev) {
   if (ev) ev.preventDefault();
   $('status').textContent = 'Loading…';
   const { ok, data } = await fetchBrief($('lens').value, $('q').value.trim());
+  const last = ok ? null : lastAuthoritative(data);
+  if (last) {
+    $('status').textContent = last.label + ' · last authoritative update ' + (last.feed_generated_at || 'unknown') + ' (' + (S.ageText(last.feed_age_seconds) || 'age unknown') + ')';
+    renderSituation(last);
+    renderBriefRows(last.items || [], 'Last authoritative items (not live)');
+    return;
+  }
   if (!ok) {
     $('status').textContent = data.message || 'INTELLIGENCE DEGRADED';
     mount($('brieftable'), h('div', { class: 'ax-empty', text: 'No live items: the feed is not fresh' }));
@@ -530,13 +543,16 @@ async function loadBrief(ev) {
   renderSituation(data);
   markSynced();
   $('status').textContent = data.empty ? data.empty_reason : data.freshness_status + ' · ' + data.feed_item_count + ' advisories on the feed · ' + data.count + ' shown · ' + (S.ageText(data.feed_age_seconds) || '') + (data.truncated ? ' · more available on paid plans' : '');
-  const rows = (data.items || []).map((item) => h('tr', { dataset: { band: S.severityKey(item.severity) } },
+  renderBriefRows(data.items || [], 'Live brief items');
+}
+function renderBriefRows(items, caption) {
+  const rows = items.map((item) => h('tr', { dataset: { band: S.severityKey(item.severity) } },
     h('td', {}, sevChip(item.severity)),
     h('td', {}, h('div', { class: 'ax-title', text: item.title }), item.summary ? h('div', { class: 'ax-sub', text: item.summary }) : null),
     h('td', { class: 'ax-col-opt' }, (item.lenses || []).length ? (item.lenses || []).map((x) => h('span', { class: 'ax-badge', style: 'margin:0 4px 4px 0', text: x })) : na('Unclassified')),
     h('td', { class: 'ax-col-opt' }, item.source || na()),
     h('td', { class: 'ax-mono' }, S.ageFromIso(item.observed_at) || na())));
-  mount($('brieftable'), rows.length ? table('Live brief items', [{ label: 'Severity' }, { label: 'Advisory' }, { label: 'Lens', opt: true }, { label: 'Source', opt: true }, { label: 'Age' }], rows, { tall: true }) : h('div', { class: 'ax-empty', text: 'No feed items matched this lens or query' }));
+  mount($('brieftable'), rows.length ? table(caption, [{ label: 'Severity' }, { label: 'Advisory' }, { label: 'Lens', opt: true }, { label: 'Source', opt: true }, { label: 'Age' }], rows, { tall: true }) : h('div', { class: 'ax-empty', text: 'No feed items matched this lens or query' }));
 }
 
 // --------------------------------------------------------------- overview
@@ -544,7 +560,7 @@ async function loadOverview() {
   const on = signedIn();
   $('ov-signin').hidden = on;
   $('ov-signedin').hidden = !on;
-  if (!briefCache) { const b = await fetchBrief('all', ''); if (b.ok) { briefCache = b.data; renderSituation(b.data); } else renderSituation(null); }
+  if (!briefCache) { const b = await fetchBrief('all', ''); if (b.ok) { briefCache = b.data; renderSituation(b.data); } else renderSituation(lastAuthoritative(b.data)); }
   else renderSituation(briefCache);
   if (!on) return;
   const url = api('/api/watchdog/events');
