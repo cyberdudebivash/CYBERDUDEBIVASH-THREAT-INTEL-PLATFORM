@@ -787,6 +787,16 @@ jobs:
         continue-on-error: true
         run: python3 scripts/stale_source_guard.py post-ingest
 
+      # STAGE 1-3c - OpenPhish source links (2026-09-26): 47 of 50 live
+      # OpenPhish items used the phishing URL itself as source_url, so source
+      # links sent customers to live phishing sites. Points them at the
+      # OpenPhish feed before the evidence chain, reports and R2 uploads read
+      # them. See scripts/openphish_source_link_guard.py. Non-blocking.
+      - name: "STAGE 1-3c - OpenPhish Source Link Guard"
+        timeout-minutes: 2
+        continue-on-error: true
+        run: python3 scripts/openphish_source_link_guard.py
+
       # -----------------------------------------------------------------------
       # STAGE 3.1: APEX AI ENRICHMENT ENGINE (PERMANENT -- DO NOT REMOVE)
       # Injects apex_ai, updates apex, and adds ioc_paywall into ALL items in

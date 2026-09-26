@@ -1010,6 +1010,60 @@ def enrich_with_epss(items: List[Dict]) -> int:
 # SOURCE: OpenPhish community feed (v185.0)
 # ═══════════════════════════════════════════════════════════════════════════
 
+# 2026-09-26: the item's source_url was the phishing URL itself, so every
+# "source" link on the platform (dashboards, AI feed, evidence chain "Source
+# URL verified: <phish>") sent customers to a live phishing site (47 of 50
+# live OpenPhish items; the other 3 were blanked by a blogspot filter). The
+# phishing URL is the IOC (item["iocs"]); the SOURCE is the OpenPhish feed.
+# The entry parameter keeps each item's source_url unique -- the manifest
+# uniqueness guard dedups on source_url -- without carrying the malicious URL.
+OPENPHISH_SOURCE_HOST = "https://openphish.com/"
+
+
+def openphish_source_link(phish_url: str) -> str:
+    """Attribution link for one OpenPhish entry: the feed, never the phish."""
+    entry = hashlib.sha256(str(phish_url).strip().encode()).hexdigest()[:16]
+    return f"{OPENPHISH_FEED_URL}?entry={entry}"
+
+
+_OPENPHISH_DESC_RE = re.compile(r"active phishing:\s*(\S+)")
+
+
+def _openphish_phish_url(item: Dict) -> str:
+    """The phishing URL an OpenPhish item is about (IOC, legacy source_url, or
+    the description the ingestor writes)."""
+    for ioc in item.get("iocs") or []:
+        val = ioc.get("value") if isinstance(ioc, dict) else ioc
+        if isinstance(val, str) and val.strip().startswith("http"):
+            return val.strip()
+    src = str(item.get("source_url") or "").strip()
+    if src.startswith("http") and not src.startswith(OPENPHISH_SOURCE_HOST):
+        return src
+    m = _OPENPHISH_DESC_RE.search(str(item.get("description") or ""))
+    return m.group(1) if m else ""
+
+
+def repair_openphish_source_links(items: List[Dict]) -> int:
+    """Point every OpenPhish item's source_url at OpenPhish (in place).
+    Returns the number of items changed. Items of other feeds are untouched."""
+    changed = 0
+    for item in items or []:
+        if not isinstance(item, dict):
+            continue
+        feed = str(item.get("feed_source") or item.get("source") or "").lower()
+        if feed != "openphish" and not str(item.get("title") or "").startswith("[OpenPhish]"):
+            continue
+        if str(item.get("source_url") or "").startswith(OPENPHISH_SOURCE_HOST):
+            continue
+        phish = _openphish_phish_url(item)
+        if not phish:
+            continue
+        item["source_url"] = openphish_source_link(phish)
+        item.pop("evidence_chain", None)  # rebuilt every run from item data
+        changed += 1
+    return changed
+
+
 def ingest_openphish(feed_state: FeedState) -> List[Dict]:
     """
     OpenPhish community feed — free plaintext list of actively-verified
@@ -1049,6 +1103,9 @@ def ingest_openphish(feed_state: FeedState) -> List[Dict]:
         )
         item["iocs"] = [{"type": "url", "value": url_val}]
         item["ioc_count"] = len(item["iocs"])
+        # id / stix_id above stay hashes of the phishing URL (unchanged, so the
+        # dedup of items already ingested still matches); the link is OpenPhish.
+        item["source_url"] = openphish_source_link(url_val)
         items.append(item)
 
     log.info("[OPENPHISH] Candidate items: %d (final new-count determined by manifest dedup)", len(items))
@@ -1300,6 +1357,9 @@ def _merge_into_manifest(new_items: List[Dict], dedup: _IngestorDedup) -> Tuple[
     import html as _html_mod
     existing = _load_manifest()
     log.info("[MERGE] Existing manifest: %d entries", len(existing))
+    _repaired = repair_openphish_source_links(existing)
+    if _repaired:
+        log.info("[MERGE] OpenPhish source links repaired: %d (were the phishing URL)", _repaired)
 
     # v145.0: Build in-manifest dedup sets so state-file failures never cause
     # duplicates. Checks stix_id, id, AND HTML-unescaped title.
