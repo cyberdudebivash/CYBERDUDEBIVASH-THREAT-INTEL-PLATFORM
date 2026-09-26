@@ -160,6 +160,12 @@ export const FIRST_PARTY_READ_PATHS = Object.freeze(new Set([
   "/api/watchdog/offer",
   "/api/watchdog/brief",
   "/api/watchdog/health",
+  // SENTINEL APEX AI Threat Feed panel (under Cyber Watchdog). Anonymous
+  // live is the FREE projection: locked cards, no summary, source URL or
+  // timeline. Item detail is PRO+ and is not on this plane.
+  "/api/ai-feed/offer",
+  "/api/ai-feed/health",
+  "/api/ai-feed/live",
 ]));
 
 /**

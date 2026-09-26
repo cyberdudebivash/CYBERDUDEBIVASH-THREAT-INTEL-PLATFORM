@@ -5819,6 +5819,83 @@
         })();
         </script>
 
+        <!-- SENTINEL APEX AI THREAT FEED -- a paid lens under Cyber Watchdog.
+             /api/ai-feed/live projects by plan server-side; this anonymous
+             page receives the FREE projection (locked rows, no summary,
+             source URL, ruling, timeline or actions). Not FRESH -> 503. -->
+        <section id="ai-threat-feed-dashboard" aria-label="SENTINEL APEX AI Threat Feed" style="margin:0 0 18px;padding:16px 16px 12px;border:1px solid rgba(167,110,255,0.45);border-radius:10px;background:linear-gradient(180deg,rgba(139,92,246,0.10),rgba(8,12,20,0.92));">
+            <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end;justify-content:space-between;">
+                <div>
+                    <div style="font-family:var(--font-mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:#c4a8ff;font-weight:800;">Sentinel APEX &middot; Cyber Watchdog lens</div>
+                    <h2 style="margin:4px 0 6px;font-size:22px;line-height:1.15;color:#f4f7fb;">SENTINEL APEX&trade; AI THREAT FEED</h2>
+                    <p style="margin:0;max-width:68ch;color:#c5d0de;font-size:14px;line-height:1.45;">MCP, LLM gateways, coding agents, prompt injection and model supply chain. Advisories from this feed that cite their source, plus Hub-authored objects with a source URL. It does not crawl the internet.</p>
+                </div>
+                <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                    <a href="/cyber-watchdog.html#intelligence" style="background:#c4a8ff;color:#1a0b33;font-weight:800;text-decoration:none;border-radius:8px;padding:8px 12px;">Open in Watchdog</a>
+                    <a id="aif-cta" href="/upgrade.html?plan=pro&amp;feature=ai-threat-feed" style="border:1px solid rgba(196,168,255,0.6);color:#c4a8ff;font-weight:700;text-decoration:none;border-radius:8px;padding:8px 12px;">Unlock with Pro</a>
+                </div>
+            </div>
+            <p id="aif-status" style="font-family:var(--font-mono);font-size:13px;color:#e7eef8;margin:14px 0 8px;">Loading the AI Threat Feed&hellip;</p>
+            <ul id="aif-rows" style="list-style:none;margin:0;padding:0;"></ul>
+        </section>
+        <script>
+        (function () {
+            var status = document.getElementById('aif-status');
+            var list = document.getElementById('aif-rows');
+            var cta = document.getElementById('aif-cta');
+            function esc(s) {
+                return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return '&#' + c.charCodeAt(0) + ';'; });
+            }
+            // Checkout links come from the API; only same-site paths are used.
+            function sitePath(u) {
+                u = String(u || '');
+                return u.charAt(0) === '/' && u.charAt(1) !== '/' ? u : '/upgrade.html?plan=pro&feature=ai-threat-feed';
+            }
+            function row(it, upgrade) {
+                var meta = [it.id, it.severity, it.first_seen, it.source_name].map(function (v) { return esc(v || 'n/a'); }).join(' &middot; ');
+                var lock = it.locked
+                    ? '<div class="aif-detail" hidden style="padding:8px 0 4px;color:#c5d0de;font-size:13px;">&#128274; Locked on the free preview. Summary, source and Hub ruling are included with Pro Defense'
+                      + (upgrade && upgrade.price_label ? ' (' + esc(upgrade.price_label) + ')' : '') + '; timeline and actions with Enterprise SOC. '
+                      + '<a href="' + esc(sitePath(it.checkout)) + '" style="color:#c4a8ff;font-weight:700;">Unlock</a></div>'
+                    : '<div class="aif-detail" hidden style="padding:8px 0 4px;color:#c5d0de;font-size:13px;"><a href="/cyber-watchdog.html#intelligence" style="color:#c4a8ff;font-weight:700;">Open the timeline in Cyber Watchdog</a></div>';
+                return '<li style="border-top:1px solid #243044;"><button type="button" class="aif-row" aria-expanded="false" style="all:unset;cursor:pointer;display:block;width:100%;padding:8px 6px;">'
+                    + '<span style="color:#f4f7fb;font-weight:700;">' + (it.locked ? '&#128274; ' : '') + esc(it.title) + '</span>'
+                    + '<span style="display:block;color:#8ea0b8;font-family:var(--font-mono);font-size:12px;margin-top:2px;">' + meta + '</span></button>' + lock + '</li>';
+            }
+            fetch('/api/ai-feed/live', { headers: { Accept: 'application/json' } })
+                .then(function (res) { return res.json().then(function (data) { return { ok: res.ok, data: data }; }); })
+                .then(function (out) {
+                    var data = out.data || {};
+                    var last = !out.ok && data.last_authoritative && data.last_authoritative.live === false ? data.last_authoritative : null;
+                    var body = out.ok ? data : last;
+                    if (!body) {
+                        status.textContent = data.message || 'INTELLIGENCE DEGRADED';
+                        list.innerHTML = '';
+                        return;
+                    }
+                    status.textContent = (last ? last.label : 'LIVE') + ' \u00b7 ' + (body.freshness_status || data.freshness_status || 'UNKNOWN')
+                        + ' \u00b7 ' + body.count + ' of ' + body.total_available + ' AI items'
+                        + ' \u00b7 updated ' + (body.feed_generated_at || 'unknown');
+                    if (body.upgrade && body.upgrade.checkout) {
+                        cta.setAttribute('href', sitePath(body.upgrade.checkout));
+                        if (body.upgrade.price_label) cta.textContent = 'Unlock with Pro \u00b7 ' + body.upgrade.price_label;
+                    }
+                    var items = body.items || [];
+                    list.innerHTML = items.length ? items.map(function (it) { return row(it, body.upgrade); }).join('')
+                        : '<li style="padding:8px 6px;color:#8ea0b8;">No AI items on the feed right now.</li>';
+                })
+                .catch(function () { status.textContent = 'AI Threat Feed is not reachable.'; });
+            list.addEventListener('click', function (ev) {
+                var btn = ev.target.closest ? ev.target.closest('.aif-row') : null;
+                if (!btn) return;
+                var detail = btn.parentNode.querySelector('.aif-detail');
+                var open = btn.getAttribute('aria-expanded') !== 'true';
+                btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+                if (detail) detail.hidden = !open;
+            });
+        })();
+        </script>
+
         <!-- ═══ RISK TREND CHART v73.0 ═══ -->
         <div class="trend-section" id="trend-section" style="display:none;">
             <div class="trend-header">
