@@ -87,6 +87,23 @@ async function _loadFeed(env) {
  * Every factual field is traced to its origin in the item record.
  * Nothing is fabricated  -  fields absent from the item are flagged as unavailable.
  */
+// P0 2026-09-26 (evidence truth): epss_score is stored in mixed scales by the
+// pipeline (0.29 meaning 0.29%, and double-scaled 53 for FIRST.org's 0.53%),
+// so "${epss_score}%" could state 53% for a 0.53% CVE. The value is stated only
+// when the ingest's explicit percent string (item.epss = "0.29%") agrees with
+// epss_score. Mirrors scripts/p20_evidence_chain_enricher.py.
+export function verifiedEpssPercent(item) {
+  const m = /^\s*(\d{1,3}(?:\.\d+)?)\s*%\s*$/.exec(String((item && item.epss) || ""));
+  if (!m) return null;
+  const pct = Number(m[1]);
+  if (!(pct >= 0 && pct <= 100)) return null;
+  if (item.epss_score !== undefined && item.epss_score !== null) {
+    const score = Number(item.epss_score);
+    if (!Number.isFinite(score) || Math.abs(score - pct) > 0.01) return null;
+  }
+  return pct;
+}
+
 export function buildEvidenceAttribution(item) {
   const now = _now();
 
@@ -161,7 +178,7 @@ export function buildEvidenceAttribution(item) {
       publishedAt ? `[${publishedAt}] Advisory published by ${src || "source"}` : null,
       item.source_url ? `Source URL verified: ${item.source_url}` : null,
       item.kev_present ? `CISA KEV confirmation: active exploitation verified` : null,
-      item.epss_score ? `EPSS score ${item.epss_score}% assigned by FIRST.org model` : null,
+      verifiedEpssPercent(item) !== null ? `EPSS score ${verifiedEpssPercent(item)}% assigned by FIRST.org model` : null,
       cveArr.length > 0 ? `CVE references: ${cveArr.join(", ")} (traceable to NVD)` : null,
     ].filter(Boolean),
     analyst_review_status: "Automated  -  Pending Human Review",
