@@ -41,13 +41,16 @@ EXIT CODES:
 
 ENVIRONMENT VARIABLES:
   PAGES_BASE_URL            Base URL (default: https://intel.cyberdudebivash.com)
-  CONVERGENCE_PHASE1_WAIT   Seconds to wait after push detected (default: 90)
+  CONVERGENCE_PHASE1_WAIT   Seconds to wait when the platform is NOT reachable yet (default: 90;
+                            a reachable platform goes straight to Phase 2's probing)
   CONVERGENCE_PHASE2_WAIT   Initial CDN probe interval seconds (default: 45)
   CONVERGENCE_MAX_RETRIES   Max retry rounds in Phase 3 (default: 8)
   CONVERGENCE_BACKOFF_BASE  Exponential backoff base seconds (default: 30)
   CONVERGENCE_BACKOFF_MAX   Max backoff ceiling seconds (default: 180)
   CONVERGENCE_JITTER_MAX    Max jitter seconds added to backoff (default: 15)
   CONVERGENCE_CONFIRM_RUNS  Consecutive clean passes to confirm convergence (default: 3)
+  CONVERGENCE_CONFIRM_RETRY_WAIT  Seconds before re-probing after a failed confirmation
+                            pass (default: 30); clean passes run back to back
   CONVERGENCE_TIMEOUT       Per-request HTTP timeout (default: 20)
   CONVERGENCE_CONFIDENCE_THRESHOLD  Min score for STABLE classification (default: 80)
   CONVERGENCE_FAIL_THRESHOLD        Score below this = hard fail (default: 60)
@@ -457,11 +460,12 @@ def phase1_pages_push_detection() -> PhaseResult:
     # Allow partial pass on Phase 1  -  CDN may not be propagated yet
     push_detected = ok >= 1
 
+    # 2026-09-26: no fixed stabilization wait when the platform already answers.
+    # The stage runs minutes after the Pages deploy (STAGE 5 -> smoke tests ->
+    # canaries), and Phase 2 probes the same URLs with backoff until the CDN
+    # serves them, so a blind 90s sleep only added time (run 36228313439).
     if push_detected:
-        log.info("Phase 1: Platform reachable. Entering CDN stabilization window (%ds)...", PHASE1_WAIT)
-        for remaining in range(PHASE1_WAIT, 0, -15):
-            log.info("  ⏳ CDN stabilization: %ds remaining...", remaining)
-            time.sleep(min(15, remaining))
+        log.info("Phase 1: Platform reachable. Phase 2 verifies CDN readiness (no fixed wait).")
     else:
         log.warning("Phase 1: Platform not reachable yet. Waiting %ds for Pages propagation...", PHASE1_WAIT + 30)
         for remaining in range(PHASE1_WAIT + 30, 0, -15):
@@ -475,7 +479,7 @@ def phase1_pages_push_detection() -> PhaseResult:
         success=True,   # Phase 1 always passes  -  it's a stabilization gate
         probes=results,
         duration_s=round(duration, 1),
-        message=f"Push detected={push_detected}. Stabilization window complete.",
+        message=f"Push detected={push_detected}." + ("" if push_detected else " Propagation wait complete."),
     )
 
 
@@ -649,7 +653,10 @@ def phase4_convergence_confirmation(feed: List[dict], manifest: dict) -> PhaseRe
 
     consecutive_clean = 0
     all_results = []
-    PASS_INTERVAL = 30   # seconds between confirmation passes
+    # 2026-09-26: clean passes run back to back; the pause is only taken after a
+    # failed pass, when there is something to wait for (was a fixed 30s between
+    # every pass: 60s on every healthy run).
+    RETRY_WAIT = int(os.environ.get("CONVERGENCE_CONFIRM_RETRY_WAIT", "30"))
 
     for run in range(CONFIRM_RUNS * 3):   # max attempts = 3x required passes
         if consecutive_clean >= CONFIRM_RUNS:
@@ -667,9 +674,9 @@ def phase4_convergence_confirmation(feed: List[dict], manifest: dict) -> PhaseRe
             consecutive_clean = 0
             log.warning("Phase 4: Clean streak reset  -  only %.0f%% success rate.", success_rate * 100)
 
-        if consecutive_clean < CONFIRM_RUNS:
-            log.info("Phase 4: Waiting %ds before next confirmation pass...", PASS_INTERVAL)
-            time.sleep(PASS_INTERVAL)
+        if consecutive_clean == 0 and RETRY_WAIT > 0:
+            log.info("Phase 4: Waiting %ds before the next confirmation pass...", RETRY_WAIT)
+            time.sleep(RETRY_WAIT)
 
     convergence_confirmed = consecutive_clean >= CONFIRM_RUNS
     duration = time.monotonic() - t0
@@ -964,7 +971,7 @@ def run_convergence_protocol() -> int:
     log.info("╚══════════════════════════════════════════════════════════════════════╝")
     log.info("Platform version : %s", version)
     log.info("Base URL         : %s", PAGES_BASE_URL)
-    log.info("Stabilization    : %ds Phase1 + %ds Phase2 intervals", PHASE1_WAIT, PHASE2_WAIT)
+    log.info("Stabilization    : Phase1 %ds only if unreachable; Phase2 backoff on failure", PHASE1_WAIT)
     log.info("Max retries      : %d (backoff %d-%ds + jitter %ds)", MAX_RETRIES, BACKOFF_BASE, BACKOFF_MAX, JITTER_MAX)
     log.info("Confirm passes   : %d consecutive required", CONFIRM_RUNS)
     log.info("Confidence gates : STABLE≥%d / DEGRADED≥%d / FAILED<%d", CONFIDENCE_STABLE, CONFIDENCE_FAIL, CONFIDENCE_FAIL)

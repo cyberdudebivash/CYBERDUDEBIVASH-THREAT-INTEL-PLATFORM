@@ -140,3 +140,37 @@ def test_phase5_still_excludes_gate_rejections_from_continuity():
 def test_workflow_timeout_unchanged_budget_is_a_ceiling_not_a_schedule():
     wf = (REPO / ".github" / "workflows" / "sentinel-blogger.yml").read_text(encoding="utf-8")
     assert "timeout 1680 python3 scripts/deployment_convergence_validator.py" in wf
+
+
+# --- no fixed waits (2026-09-26, run 36228313439: 90s + 2x30s of sleeps on a
+# --- deployment that was STABLE 100/100 on the first probe) -----------------
+
+def test_healthy_deployment_has_no_fixed_waits(clock):
+    net = FakeNet({u: 404 for u in REJECTED})
+    dcv._GATE_VERDICTS.clear()
+    with patch.object(dcv, "_http_probe", side_effect=net.probe), \
+         patch.object(dcv, "_is_expected_publication_rejection", side_effect=lambda u: u in REJECTED):
+        p1 = dcv.phase1_pages_push_detection()
+        p4 = dcv.phase4_convergence_confirmation([], MANIFEST)
+    assert p1.success and p4.success
+    # only the 1s spacing between probes remains
+    assert all(s <= dcv.PROBE_INTERVAL for s in clock), clock
+
+
+def test_unreachable_platform_still_waits_for_pages(clock):
+    net = FakeNet({f"{BASE}/": 0, f"{BASE}/api/feed.json": 0})
+    with patch.object(dcv, "_http_probe", side_effect=net.probe):
+        dcv.phase1_pages_push_detection()
+    assert sum(clock) >= dcv.PHASE1_WAIT
+
+
+def test_confirmation_pauses_only_after_a_failed_pass(clock):
+    home = f"{BASE}/"
+    net = FakeNet({home: [503, 200]})
+    with patch.object(dcv, "_http_probe", side_effect=net.probe), \
+         patch.object(dcv, "_is_expected_publication_rejection", return_value=False), \
+         patch.dict(dcv.os.environ, {"CONVERGENCE_CONFIRM_RETRY_WAIT": "30"}):
+        dcv._GATE_VERDICTS.clear()
+        p4 = dcv.phase4_convergence_confirmation([], MANIFEST)
+    assert p4.success
+    assert [s for s in clock if s > dcv.PROBE_INTERVAL] == [30]
