@@ -737,6 +737,11 @@ def main() -> int:
         # adding it still leaves dist/ far under both this script's own
         # 900 MB size gate and the GitHub Pages 1 GB hard limit.
         "DASHBOARD-OVERVIEW-LIVE-VIDEO.mp4",
+        # RFC 9116 section 3 legacy location, an identical copy of
+        # .well-known/security.txt (copied with the .well-known/ dir). Root
+        # *.txt files are excluded above unless named here, so without this
+        # /security.txt 404'd -- the homepage linked to it (2026-09-26).
+        "security.txt",
     ]
     for fname in include_singles:
         src = REPO_ROOT / fname

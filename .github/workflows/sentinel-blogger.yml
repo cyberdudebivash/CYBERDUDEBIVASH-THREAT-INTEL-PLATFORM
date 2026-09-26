@@ -3663,6 +3663,28 @@ jobs:
         run: python3 scripts/pipeline_audit.py || true
 
       # -----------------------------------------------------------------------
+      # STAGE 5.4.5a: security.txt EXPIRY WATCH (RFC 9116, 2026-09-26)
+      # The published disclosure contact (/.well-known/security.txt and its
+      # /security.txt copy) carries an Expires date. Clients must treat an
+      # expired file as stale, and CI only re-checks it when a PR touches it.
+      # This scheduled run flags it early. Non-blocking: an expiring
+      # security.txt must not stop intelligence publication.
+      # -----------------------------------------------------------------------
+      - name: "STAGE 5.4.5a - security.txt Expiry Watch (RFC 9116)"
+        timeout-minutes: 2
+        continue-on-error: true
+        run: |
+          set +e
+          python3 scripts/security_txt_validator.py --warn-days 45
+          rc=$?
+          set -e
+          if [ "$rc" -eq 1 ]; then
+            echo "::error::security.txt is invalid or EXPIRED -- update Expires in .well-known/security.txt (under a year ahead) and copy it to security.txt."
+          elif [ "$rc" -eq 2 ]; then
+            echo "::warning::security.txt expires within 45 days -- renew Expires in .well-known/security.txt and copy it to security.txt."
+          fi
+
+      # -----------------------------------------------------------------------
       # STAGE 5.4.5b - REPORT ARCHIVE GOVERNANCE (v184.0 — NON-BLOCKING)
       # Runs report_archive_manager.py to prune reports older than
       # REPORT_RETENTION_DAYS from the main-branch working tree (git rm --cached).
