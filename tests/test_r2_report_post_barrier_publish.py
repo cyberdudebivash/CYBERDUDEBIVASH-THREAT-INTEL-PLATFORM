@@ -24,8 +24,14 @@ built at STAGE 3.3.7 and uploaded at STAGE 3.5, so it still listed 1 report
 next to 28 advisories until the next run. STAGE 5.4.0d rebuilds it,
 verifies it against R2 and re-uploads it with
 `r2_upload.py --reports-index-only` (TestCatalogRefresh*).
+
+generate_intel_reports.py --upload-r2 is deprecated (removal at P39): still
+accepted and unchanged, warns, and no caller may pass it
+(TestUploadR2Deprecated).
 """
 import json
+import os
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -225,6 +231,61 @@ class TestCatalogRefreshUpload(unittest.TestCase):
             keys = {dst for _src, dst in r2_upload.build_upload_plan()}
         for _src, dst in r2_upload.REPORTS_INDEX_FILES:
             self.assertIn(dst, keys)
+
+
+class TestUploadR2Deprecated(unittest.TestCase):
+    SCRIPT = REPO_ROOT / "scripts" / "generate_intel_reports.py"
+
+    def test_flag_still_accepted_and_warns(self):
+        item_id = "intel--uploadr2deprecation01"
+        item = {
+            "id": item_id,
+            "title": "Upload-R2 Deprecation Test Advisory",
+            "description": "Synthetic advisory for TestUploadR2Deprecated.",
+            "source": "TEST-FIXTURE",
+            "severity": "LOW",
+            "timestamp": "2026-06-01T00:00:00Z",
+            "processed_at": "2026-06-01T00:00:00Z",
+        }
+        env = {k: v for k, v in os.environ.items() if k not in ("CF_ACCOUNT_ID", "CF_R2_ENDPOINT")}
+        with tempfile.TemporaryDirectory() as td:
+            manifest = Path(td) / "feed_manifest.json"
+            manifest.write_text(json.dumps({"advisories": [item]}), encoding="utf-8")
+            try:
+                result = subprocess.run(
+                    [sys.executable, str(self.SCRIPT), "--manifest", str(manifest),
+                     "--upload-r2", "--limit", "0"],
+                    cwd=REPO_ROOT, env=env, capture_output=True, text=True, timeout=60,
+                )
+            finally:
+                for p in (REPO_ROOT / "reports").rglob(f"{item_id}.html*"):
+                    p.unlink(missing_ok=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        output = result.stdout + result.stderr
+        self.assertIn("::warning::generate_intel_reports.py: --upload-r2 is DEPRECATED", output)
+        self.assertIn("r2_report_publisher.py", output)
+
+    def test_help_marks_flag_deprecated(self):
+        result = subprocess.run([sys.executable, str(self.SCRIPT), "--help"],
+                                cwd=REPO_ROOT, capture_output=True, text=True, timeout=60)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("DEPRECATED", result.stdout)
+
+    def test_no_workflow_or_script_passes_the_flag(self):
+        offenders = []
+        for wf in sorted((REPO_ROOT / ".github" / "workflows").glob("*.yml")):
+            data = yaml.safe_load(wf.read_text(encoding="utf-8")) or {}
+            for job in (data.get("jobs") or {}).values():
+                for step in job.get("steps") or []:
+                    if "--upload-r2" in str(step.get("run", "")):
+                        offenders.append(f"{wf.name}: {step.get('name')}")
+        for script in sorted((REPO_ROOT / "scripts").glob("*")):
+            if script.name == "generate_intel_reports.py" or script.suffix not in (".py", ".sh"):
+                continue
+            for n, line in enumerate(script.read_text(encoding="utf-8", errors="ignore").splitlines(), 1):
+                if "--upload-r2" in line and not line.lstrip().startswith("#"):
+                    offenders.append(f"{script.name}:{n}")
+        self.assertEqual(offenders, [], "use scripts/r2_report_publisher.py instead of --upload-r2")
 
 
 if __name__ == "__main__":
