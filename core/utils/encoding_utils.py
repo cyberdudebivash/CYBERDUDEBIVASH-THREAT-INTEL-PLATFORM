@@ -122,15 +122,22 @@ def fix_encoding(text: Any) -> Any:
     except ImportError:
         # Apply our table-based fix
         text = fix_mojibake(text)
-        # Conservative fallback: attempt single-pass round trip
-        try:
-            candidate = text.encode('latin-1', errors='ignore').decode(
-                'utf-8', errors='ignore')
-            # Only accept the fix if it didn't dramatically shorten the text
-            if candidate and len(candidate) >= len(text) * 0.8 and candidate != text:
+        # Conservative fallback: undo one layer of double encoding, only when
+        # the round trip is exact in both directions. Genuine mojibake
+        # ("Ã©") re-encodes and decodes strictly; clean text does not.
+        # 2026-09-26: this used errors='ignore' both ways, which DELETED every
+        # non-ASCII character that was not mojibake whenever the text stayed
+        # above 80% of its length (ftfy is not installed in the pipeline):
+        # "WordPress flaw" -> "WordPressflaw", "OpenAI’s" -> "OpenAIs"
+        # in live titles, descriptions and reports.
+        for _codec in ('latin-1', 'cp1252'):
+            try:
+                candidate = text.encode(_codec).decode('utf-8')
+            except (UnicodeDecodeError, UnicodeEncodeError):
+                continue
+            if candidate and candidate != text:
                 text = candidate
-        except (UnicodeDecodeError, UnicodeEncodeError, AttributeError):
-            pass
+            break
     return text
 
 

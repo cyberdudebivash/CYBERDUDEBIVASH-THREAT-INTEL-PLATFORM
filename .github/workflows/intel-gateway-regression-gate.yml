@@ -305,6 +305,9 @@ jobs:
             # OpenPhish items link the OpenPhish feed, never the phishing URL.
             # Mocked fetch; no network.
             tests/test_openphish_source_links.py
+            # Ingest sanitising never deletes characters from clean text
+            # ("WordPress flaw" -> "WordPressflaw"). No network.
+            tests/test_encoding_utils_no_char_loss.py
           )
           python3 -m pytest "${SUITES[@]}" -q
           # Refuse to pass having run nothing. pytest.ini forces --verbose, so
