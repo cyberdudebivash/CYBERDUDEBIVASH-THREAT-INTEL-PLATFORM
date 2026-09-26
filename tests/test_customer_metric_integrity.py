@@ -2,12 +2,13 @@
 from __future__ import annotations
 
 from pathlib import Path
+from scripts.homepage_source import read_homepage_source  # index.html + extracted css/js
 
 REPO = Path(__file__).resolve().parent.parent
 
 
 def test_homepage_does_not_invent_origins_or_tor_coverage():
-    src = (REPO / "index.html").read_text(encoding="utf-8")
+    src = read_homepage_source()
     for banned in (
         "TOR MONITORING",
         "Continuous monitoring of Tor",

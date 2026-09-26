@@ -51,6 +51,7 @@ from __future__ import annotations
 
 import re
 from pathlib import Path
+from scripts.homepage_source import read_homepage_source  # index.html + extracted css/js
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 WORKER_SRC = REPO_ROOT / "workers" / "intel-gateway" / "src" / "index.js"
@@ -62,7 +63,7 @@ def _worker_source() -> str:
 
 
 def _index_html_source() -> str:
-    return INDEX_HTML.read_text(encoding="utf-8")
+    return read_homepage_source()
 
 
 class TestPlatformStatsExposesFreshnessPublicly:

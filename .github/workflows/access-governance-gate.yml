@@ -148,8 +148,11 @@ jobs:
       - name: Verify dashboard tier gates (index.html scan)
         run: |
           python -c "
-          with open('index.html', 'r', encoding='utf-8', errors='replace') as f:
-              content = f.read()
+          # index.html + its extracted css/js (scripts/homepage_source.py)
+          import sys
+          sys.path.insert(0, 'scripts')
+          from homepage_source import read_homepage_source
+          content = read_homepage_source()
 
           checks = {
               '_isPro': '_isPro tier check present',

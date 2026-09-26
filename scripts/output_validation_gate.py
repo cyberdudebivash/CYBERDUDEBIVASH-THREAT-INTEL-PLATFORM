@@ -29,6 +29,8 @@ VERSION HISTORY:
 
 import os, sys, json, re, shutil, hashlib, argparse
 from datetime import datetime, timezone
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import homepage_source as _homepage_source  # index.html + extracted assets (2026-09-26)  # noqa: E402
 
 SCRIPT_VERSION = "1.3.0"
 API_FEED_CAP   = 500
@@ -264,8 +266,7 @@ def main():
     print("[GATE 3] Encoding check on index.html ...")
     idx_path = os.path.join(repo_root, "index.html")
     if os.path.exists(idx_path):
-        with open(idx_path, "rb") as f:
-            idx_raw = f.read(65536)
+        idx_raw = _homepage_source.read_bytes_for_inspection(idx_path)[:65536]
         if idx_raw[:3] == UTF8_BOM:
             errors.append("BOM: index.html has UTF-8 BOM")
         if b"\x00" in idx_raw:
@@ -274,8 +275,7 @@ def main():
             cnt = idx_raw.count(pat)
             if cnt:
                 errors.append("MOJIBAKE [index.html]: {}x {} in first 64KB".format(cnt, pat.hex()))
-        with open(idx_path, "rb") as f:
-            idx_full = f.read()
+        idx_full = _homepage_source.read_bytes_for_inspection(idx_path)
         if not re.search(rb'window\.EMBEDDED_INTEL\s*=\s*\[', idx_full):
             warnings.append("EMBEDDED_INTEL: declaration not found in index.html")
         print("         size={} bytes  BOM={}".format(len(idx_full), idx_raw[:3] == UTF8_BOM))

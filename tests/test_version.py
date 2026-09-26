@@ -3,6 +3,7 @@ import pytest
 import json
 import re
 from pathlib import Path
+from scripts.homepage_source import read_homepage_source  # index.html + extracted css/js
 
 def test_version_file_exists():
     """VERSION file must exist"""
@@ -26,7 +27,7 @@ def test_index_html_version():
     version = Path("VERSION").read_text().strip()
     major_minor = ".".join(version.split(".")[:2])
     
-    index_content = Path("index.html").read_text()
+    index_content = read_homepage_source()
     assert f"v{major_minor}" in index_content, f"v{major_minor} not found in index.html"
 
 def test_no_credentials_committed():

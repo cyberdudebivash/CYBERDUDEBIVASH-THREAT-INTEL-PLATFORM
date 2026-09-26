@@ -25,6 +25,8 @@ import os
 import json
 import hashlib
 import datetime
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import homepage_source as _homepage_source  # index.html + extracted assets (2026-09-26)  # noqa: E402
 
 REPO     = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OUT_DIR  = os.path.join(REPO, 'api', 'v1', 'intel')
@@ -157,8 +159,7 @@ else:
 print('\n[6] index.html immutability (EMBEDDED_INTEL must be static [])', flush=True)
 try:
     import re
-    with open(INDEX, 'r', encoding='utf-8', errors='replace') as f:
-        html = f.read()
+    html = _homepage_source.read_text_for_inspection(INDEX)
     m = re.search(r'window\.EMBEDDED_INTEL\s*=\s*(\[.*?\]);', html, re.DOTALL)
     if m:
         val = m.group(1).strip()

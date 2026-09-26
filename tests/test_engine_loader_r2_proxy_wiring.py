@@ -23,13 +23,14 @@ and must keep reading straight from the raw-GitHub-main mirror, unchanged.
 import pathlib
 import re
 import unittest
+from scripts.homepage_source import read_homepage_source  # index.html + extracted css/js
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parent.parent
 INDEX_HTML = REPO_ROOT / "index.html"
 
 
 def _engine_urls_block() -> str:
-    html = INDEX_HTML.read_text(encoding="utf-8")
+    html = read_homepage_source()
     match = re.search(r"const ENGINE_URLS = \{(.*?)\};", html, re.DOTALL)
     assert match, "ENGINE_URLS object literal not found in index.html"
     return match.group(1)
@@ -82,7 +83,7 @@ class TestEngineLoaderR2ProxyWiring(unittest.TestCase):
         runtime fallbacks. RAW_BASE must still exist -- it's now the proxy's
         server-side fallback source (unchanged URL) as well as the 4
         out-of-scope engines' only source."""
-        html = INDEX_HTML.read_text(encoding="utf-8")
+        html = read_homepage_source()
         self.assertIn(
             "aHR0cHM6Ly9yYXcuZ2l0aHVidXNlcmNvbnRlbnQuY29tL2N5YmVyZHVkZWJpdmFzaC9DWUJFUkRVREVCSVZBU0gtVEhSRUFULUlOVEVMLVBMQVRGT1JNL21haW4v",
             html,

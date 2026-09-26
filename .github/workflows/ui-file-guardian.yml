@@ -239,7 +239,8 @@ jobs:
         run: |
           node << 'NODEEOF'
           const fs = require('fs');
-          const html = fs.readFileSync('index.html', 'utf8');
+          // index.html + its extracted css/js (scripts/homepage_source.py)
+          const html = require('child_process').execFileSync('python3', ['scripts/homepage_source.py'], { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
 
           // Check 1: sapx-card-grid anchor exists
           if (!html.includes('id="sapx-card-grid"') && !html.includes("id='sapx-card-grid'")) {

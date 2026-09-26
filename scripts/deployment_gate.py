@@ -40,6 +40,8 @@ import argparse
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, List, Tuple
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import homepage_source as _homepage_source  # index.html + extracted assets (2026-09-26)  # noqa: E402
 
 # Ensure project root in path
 ROOT = Path(__file__).resolve().parent.parent
@@ -241,7 +243,7 @@ def gate_dashboard_tier_gates():
         _gate("dashboard_exists", False, "index.html not found")
         return
 
-    content = dashboard_path.read_text(encoding="utf-8", errors="replace")
+    content = _homepage_source.read_text_for_inspection(dashboard_path)
 
     # CRITICAL: Look for the specific MODEL_B pattern — ungated _reportCta
     # The old dangerous pattern was: const _reportCta = _hasReport ? ...

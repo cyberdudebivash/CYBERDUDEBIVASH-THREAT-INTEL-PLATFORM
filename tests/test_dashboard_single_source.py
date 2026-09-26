@@ -35,6 +35,7 @@ Tests:
 
 import re
 import os
+from scripts.homepage_source import read_homepage_source  # index.html + extracted css/js
 import sys
 import unittest
 
@@ -47,8 +48,7 @@ GUARD_PY   = os.path.join(REPO_ROOT, 'scripts', 'dashboard_frontend_guard.py')
 # ── Helpers ───────────────────────────────────────────────────────────────────
 def _load_index():
     """Return index.html content (full file)."""
-    with open(INDEX_HTML, 'r', encoding='utf-8', errors='replace') as f:
-        return f.read()
+    return read_homepage_source()
 
 
 def _get_eicc_block(content):

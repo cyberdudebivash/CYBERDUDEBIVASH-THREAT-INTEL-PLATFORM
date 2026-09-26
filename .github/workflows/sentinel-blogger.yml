@@ -4495,6 +4495,19 @@ jobs:
               DIST_OK=false
             fi
           done
+          # index.html loads these by ?v=<content hash> (scripts/homepage_source.py);
+          # refresh them together with index.html so dist/ never pairs a new
+          # index.html with an older engine or stylesheet.
+          for f in js/homepage-dashboard-engine.js css/homepage-design-system.css; do
+            if [ -f "$f" ]; then
+              mkdir -p "dist/$(dirname "$f")"
+              cp -f "$f" "dist/$f"
+              echo "[DIST-BUILDER] Copied $f → dist/$f ($(wc -c < "$f") bytes)"
+            else
+              echo "[DIST-BUILDER] WARN: $f not found — homepage would load without it"
+              DIST_OK=false
+            fi
+          done
 
           if [ "$DIST_OK" = "true" ]; then
             echo "[DIST-BUILDER] dist/ root files synced — $(ls dist/ 2>/dev/null | wc -l) total files/dirs present"

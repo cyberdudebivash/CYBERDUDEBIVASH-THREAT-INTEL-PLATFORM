@@ -28,6 +28,7 @@ attribute false-positive class CodeRabbit flagged.
 import ast
 import unittest
 from pathlib import Path
+from scripts.homepage_source import read_homepage_source  # index.html + extracted css/js
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 GATE_SCRIPT = REPO_ROOT / "scripts" / "pre_deploy_gate.py"
@@ -135,7 +136,7 @@ class TestScriptTagsBalanced(unittest.TestCase):
         """The actual production file that triggered the live STAGE 5.4.5d
         failure must now pass Gate 9 for the correct reason (not because
         the file changed -- it didn't; the check did)."""
-        index_html = (REPO_ROOT / "index.html").read_text(encoding="utf-8")
+        index_html = read_homepage_source()
         self.assertTrue(self.script_tags_balanced(index_html))
 
 

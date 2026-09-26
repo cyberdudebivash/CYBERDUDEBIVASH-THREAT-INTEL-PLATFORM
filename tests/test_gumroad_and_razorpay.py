@@ -30,6 +30,7 @@ from pathlib import Path
 from urllib.parse import urlsplit
 
 import pytest
+from scripts.homepage_source import read_homepage_source  # index.html + extracted css/js
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 GATEWAY_SRC = REPO_ROOT / "workers" / "intel-gateway" / "src" / "index.js"
@@ -226,7 +227,7 @@ def test_gumroad_tier_inference_does_not_false_positive_on_sentinel(gumroad_life
 @pytest.fixture(scope="module")
 def index_html_text() -> str:
     assert INDEX_HTML.exists()
-    return INDEX_HTML.read_text(encoding="utf-8")
+    return read_homepage_source()
 
 
 @pytest.fixture(scope="module")

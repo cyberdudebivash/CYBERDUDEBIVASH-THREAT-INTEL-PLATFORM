@@ -29,6 +29,8 @@ import re
 import os
 import subprocess
 import tempfile
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import homepage_source as _homepage_source  # index.html + extracted assets (2026-09-26)  # noqa: E402
 
 INDEX_PATH = 'index.html'
 ERRORS = []
@@ -57,8 +59,7 @@ if not os.path.exists(INDEX_PATH):
     print('[FATAL] index.html not found')
     sys.exit(1)
 
-with open(INDEX_PATH, 'r', encoding='utf-8', errors='replace') as f:
-    content = f.read()
+content = _homepage_source.read_text_for_inspection(INDEX_PATH)
 
 file_size = len(content)
 print('File size: {:,} chars'.format(file_size))
