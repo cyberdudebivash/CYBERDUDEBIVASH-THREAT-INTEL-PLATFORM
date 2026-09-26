@@ -4254,10 +4254,10 @@ jobs:
       #   Phase 5 — Historical report continuity audit
       #
       # TIMING (worst-case):
-      #   Phase 1 stabilization   :  90s
+      #   Phase 1 stabilization   :  0s when reachable (90s only if not; 2026-09-26)
       #   Phase 2 CDN readiness   : up to 8 retries × backoff(30-180s) ≈ 10 min
       #   Phase 3 URL validation  : up to 8 retries × backoff            ≈ 10 min
-      #   Phase 4 confirmation    : 3 passes × 30s gap                   =  90s
+      #   Phase 4 confirmation    : 3 back-to-back passes (30s pause only after a failed pass)
       #   Phase 5 historical audit:  ~30s
       #   Total worst-case        : ~25 minutes (timeout-minutes: 30)  [actual: ~2m36s in prod]
       #
