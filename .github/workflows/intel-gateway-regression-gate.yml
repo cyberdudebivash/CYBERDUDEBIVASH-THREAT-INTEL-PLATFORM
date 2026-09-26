@@ -68,6 +68,9 @@ on:
       - 'css/homepage-design-system.css'
       - 'js/homepage-dashboard-engine.js'
       - 'scripts/homepage_source.py'
+      - 'security.txt'
+      - '.well-known/**'
+      - 'scripts/security_txt_validator.py'
       - 'js/apex-status-model.js'
       - 'js/card_renderer.js'
       # ATT&CK reference: dashboard-contract.test.js checks the generated
@@ -119,6 +122,9 @@ on:
       - 'css/homepage-design-system.css'
       - 'js/homepage-dashboard-engine.js'
       - 'scripts/homepage_source.py'
+      - 'security.txt'
+      - '.well-known/**'
+      - 'scripts/security_txt_validator.py'
       - 'js/apex-status-model.js'
       - 'js/card_renderer.js'
       # ATT&CK reference: dashboard-contract.test.js checks the generated
@@ -326,6 +332,9 @@ jobs:
             # Homepage design-system CSS extracted from index.html: ?v= is the
             # content hash, paywall rules stay inline, size budget. Local files.
             tests/test_homepage_stylesheet_extraction.py
+            # security.txt (RFC 9116): both locations identical and valid,
+            # Expires not about to lapse, links and dist wiring. Local files.
+            tests/test_security_txt.py
           )
           python3 -m pytest "${SUITES[@]}" -q
           # Refuse to pass having run nothing. pytest.ini forces --verbose, so
