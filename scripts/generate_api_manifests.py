@@ -40,6 +40,7 @@ import traceback
 # PUBLIC API SANITIZER -- mandatory before any public write
 _script_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, _script_dir)
+from severity_epss_truth import epss_percent as _epss_percent  # noqa: E402
 try:
     from public_api_sanitizer import sanitize_feed as _sanitize_feed, audit_leakage as _audit_leakage, sanitize_feed_pro as _sanitize_feed_pro
     _SANITIZER_AVAILABLE = True
@@ -204,15 +205,9 @@ def threat_priority_key(item: dict) -> tuple:
     kev_val = str(item.get('kev') or item.get('cisa_kev') or item.get('KEV') or '').upper()
     kev = 1 if kev_val in ('YES', 'TRUE', '1') else 0
 
-    # EPSS (0-100 or 0.0-1.0)
-    epss = 0.0
-    try:
-        raw_e = item.get('epss_score') or item.get('epss') or 0
-        epss = float(str(raw_e).replace('%', ''))
-        if epss > 1:
-            epss /= 100.0
-    except (TypeError, ValueError):
-        epss = 0.0
+    # EPSS as a fraction, from the canonical reader ("<= 1 means fraction"
+    # ranked FIRST.org's 0.53% -- stored 0.53 -- as 53%)
+    epss = (_epss_percent(item) or 0.0) / 100.0
 
     # Severity
     sev = str(item.get('severity') or '').upper()

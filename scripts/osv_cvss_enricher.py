@@ -138,12 +138,10 @@ def _fetch_github_advisory(cve_id: str) -> dict | None:
         return None
     adv = data[0]
     sev = str(adv.get("severity", "")).upper()
-    # GitHub uses word severity, not CVSS score directly
-    score_map = {"CRITICAL": 9.5, "HIGH": 7.5, "MODERATE": 5.5, "LOW": 2.5}
-    cvss_map = {"CRITICAL": 9.5, "HIGH": 7.5, "MEDIUM": 5.5, "LOW": 2.5}
     score = adv.get("cvss", {}).get("score") if adv.get("cvss") else None
-    if not score:
-        score = score_map.get(sev, 0) or cvss_map.get(sev.replace("MODERATE","MEDIUM"), 0)
+    # GitHub's word severity is not a CVSS score. A number used to be invented
+    # from it (CRITICAL -> 9.5, MODERATE -> 5.5) and published as a
+    # github_advisory CVSS score with no vector. No score -> no CVSS result.
     if score and score > 0:
         if sev == "MODERATE":
             sev = "MEDIUM"

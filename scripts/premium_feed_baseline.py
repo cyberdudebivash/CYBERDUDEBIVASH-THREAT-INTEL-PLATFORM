@@ -73,6 +73,9 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from severity_epss_truth import epss_percent, fmt_pct  # noqa: E402  (one EPSS reader)
+
 # ── Config ──────────────────────────────────────────────────────────────────────
 REPO           = Path(__file__).resolve().parent.parent
 FEED_PATH      = Path(os.environ.get("FEED_PATH", str(REPO / "api" / "feed.json")))
@@ -198,11 +201,9 @@ def _synthesize_exec_summary(item: Dict) -> str:
         parts.append(f"Risk score: {risk:.1f}/10. NVD status: {nvd}.")
     if kev:
         parts.append("CISA KEV-listed: actively exploited in the wild.")
-    if epss is not None:
-        try:
-            parts.append(f"EPSS exploitation probability: {float(epss)*100:.2f}%.")
-        except (TypeError, ValueError):
-            pass
+    epss_pct = epss_percent(item)
+    if epss_pct is not None:
+        parts.append(f"EPSS exploitation probability: {fmt_pct(epss_pct)}%.")
     if actor and actor not in _GENERIC_ACTORS:
         parts.append(f"Attribution: {actor}.")
     if has_detection:
@@ -277,22 +278,19 @@ def _quality_gate(item: Dict) -> Tuple[bool, str]:
     sev = str(item.get("severity") or "").upper().strip()
     if sev not in VALID_SEVERITIES:
         item["severity"] = _risk_to_severity(risk)
-    else:
-        # Realign severity to risk_score to prevent label drift
+    elif item.get("severity_basis") not in ("cvss_v3_base", "cisa_kev"):
+        # Realign severity to risk_score to prevent label drift -- only where
+        # scripts/severity_epss_truth.py did not rate it from a verified CVSS
+        # score or CISA KEV (a composite risk score is not a CVSS score).
         correct = _risk_to_severity(risk)
         if correct and correct != sev:
             item["severity"] = correct
-    # Soft fix: EPSS normalisation (0-1 fraction)
-    epss = item.get("epss_score")
-    if epss is not None:
-        try:
-            ev = float(epss)
-            if ev > 1.0:
-                item["epss_score"] = round(min(ev / 100.0, 1.0), 6)
-            elif ev < 0.0:
-                item["epss_score"] = 0.0
-        except (TypeError, ValueError):
-            item["epss_score"] = None
+    # Soft fix: EPSS normalisation (0-1 fraction, this baseline's contract).
+    # The scale comes from the canonical reader: "<= 1 means fraction" read
+    # FIRST.org's 0.53% (stored 0.53) as 53%.
+    if item.get("epss_score") is not None:
+        epss_pct = epss_percent(item)
+        item["epss_score"] = round(epss_pct / 100.0, 6) if epss_pct is not None else None
     # Soft fix: CVSS range check
     cvss = item.get("cvss_score")
     if cvss is not None:
