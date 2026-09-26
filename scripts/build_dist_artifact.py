@@ -95,6 +95,12 @@ INCLUDE_DIRS = [
                    # own <link rel="icon"> and og:image, plus api-docs.html's og:image and the
                    # sitewide JSON-LD logo, all reference /assets/icons/icon-192x192.png --
                    # confirmed live 404 on every page that references it.
+    "blog",        # 2026-09-26 FIX: blog/ (index, 11 posts, feed.xml, index.json; 228 KB)
+                   # was missing from dist/ -- same class as the fixes above. Five pages'
+                   # "Research Blog" nav links and all 11 /blog/ URLs that
+                   # sitemap-programmatic.xml advertises to search engines 404'd live.
+                   # threat/ is deliberately NOT added: a 2,144-file legacy v74 tree
+                   # (26 MB) nothing maintains; its nav links now point at threats.html.
     ".well-known", # v200.1 FIX: .well-known/ (.well-known/security.txt) was missing from
                    # dist/ -- security-compliance.html documents this path as the PGP/security
                    # contact reference; confirmed live 404 despite the file existing and being
@@ -742,6 +748,10 @@ def main() -> int:
         # *.txt files are excluded above unless named here, so without this
         # /security.txt 404'd -- the homepage linked to it (2026-09-26).
         "security.txt",
+        # robots.txt explicitly allows /llms.txt and /llms-full.txt (the AI
+        # search profile) and sitemap.xml lists /llms.txt, but root *.txt is
+        # excluded unless named here, so both 404'd live (2026-09-26).
+        "llms.txt", "llms-full.txt",
     ]
     for fname in include_singles:
         src = REPO_ROOT / fname

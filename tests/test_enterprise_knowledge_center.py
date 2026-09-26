@@ -437,4 +437,9 @@ def test_links_to_pr8_drift_notice_rather_than_duplicating_it(page_text):
     """PR-9 must cross-reference PR-8's 9-topic API drift matrix, not
     copy/re-litigate it -- guards against content duplication."""
     assert 'href="/developer-portal.html#drift-notice"' in page_text
-    assert 'href="/docs/developer-portal-guide.md"' in page_text
+    # dist/ never ships *.md (the /docs/... URL 404'd live), so the guide is
+    # linked where it renders: the public GitHub repo (2026-09-26).
+    assert (
+        'href="https://github.com/cyberdudebivash/CYBERDUDEBIVASH-THREAT-INTEL-PLATFORM'
+        '/blob/main/docs/developer-portal-guide.md"'
+    ) in page_text
