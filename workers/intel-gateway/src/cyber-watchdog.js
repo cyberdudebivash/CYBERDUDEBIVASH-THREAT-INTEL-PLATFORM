@@ -391,17 +391,13 @@ function degradedBody(pub) {
   };
 }
 
-export function buildWatchdogBrief(feed, opts = {}) {
-  const pub = watchdogPublication(feed, opts.nowMs);
-  const tier = effectiveTier({ tier: opts.tier, subscription_status: opts.subscription_status, error: opts.error });
-  const quota = quotaForTier(tier);
-  if (!pub.serve_live) {
-    return { status: 503, body: { ...degradedBody(pub), tier } };
-  }
-  const lens = opts.lens && ["cybersecurity", "technology", "security_operations"].includes(opts.lens) ? opts.lens : null;
-  const q = clean(String(opts.q || ""), 80).toLowerCase();
-  const cap = Math.min(quota.brief_items, Math.max(1, Number(opts.limit) || quota.brief_items));
-  const source = validItems(feed);
+// P0 2026-09-26: how old a STALE authoritative feed may be and still be
+// shown -- labelled NOT LIVE -- as last-authoritative context. Beyond this,
+// or for a missing / invalid / future timestamp, nothing is shown.
+export const LAST_AUTHORITATIVE_MAX_AGE_SECONDS = 48 * 3600;
+
+/** Brief rows for a lens / query at a tier's cap: one path for live and last-authoritative. */
+function selectBriefRows(source, { lens, q, cap, paid }) {
   const rows = [];
   let matched = 0;
   for (const item of source) {
@@ -409,8 +405,49 @@ export function buildWatchdogBrief(feed, opts = {}) {
     if (lens && !found.lenses.includes(lens)) continue;
     if (q && !itemText(item).toLowerCase().includes(q)) continue;
     matched += 1;
-    if (rows.length < cap) rows.push(publicItem(item, quota.paid));
+    if (rows.length < cap) rows.push(publicItem(item, paid));
   }
+  return { rows, matched };
+}
+
+/**
+ * The last authoritative intelligence while the feed is STALE: a separate,
+ * explicitly labelled block beside the unchanged degraded answer (503,
+ * items: []), so no API consumer or poller that treats `items` / 200 as live
+ * can mistake it for live intelligence. Only browsers read it.
+ */
+function lastAuthoritativeBlock(feed, pub, select) {
+  if (pub.freshness_status !== "STALE") return null;
+  if (!Number.isFinite(pub.feed_age_seconds) || pub.feed_age_seconds > LAST_AUTHORITATIVE_MAX_AGE_SECONDS) return null;
+  const source = validItems(feed);
+  if (!source.length) return null;
+  const { rows, matched } = selectBriefRows(source, select);
+  return {
+    live: false,
+    label: "LAST AUTHORITATIVE INTELLIGENCE - NOT LIVE",
+    freshness_status: pub.freshness_status,
+    feed_generated_at: pub.feed_generated_at,
+    feed_age_seconds: pub.feed_age_seconds,
+    max_age_seconds: LAST_AUTHORITATIVE_MAX_AGE_SECONDS,
+    count: rows.length,
+    truncated: matched > rows.length,
+    items: rows,
+    situation: buildSituation(source),
+  };
+}
+
+export function buildWatchdogBrief(feed, opts = {}) {
+  const pub = watchdogPublication(feed, opts.nowMs);
+  const tier = effectiveTier({ tier: opts.tier, subscription_status: opts.subscription_status, error: opts.error });
+  const quota = quotaForTier(tier);
+  const lens = opts.lens && ["cybersecurity", "technology", "security_operations"].includes(opts.lens) ? opts.lens : null;
+  const q = clean(String(opts.q || ""), 80).toLowerCase();
+  const cap = Math.min(quota.brief_items, Math.max(1, Number(opts.limit) || quota.brief_items));
+  if (!pub.serve_live) {
+    return { status: 503, body: { ...degradedBody(pub), tier, last_authoritative: lastAuthoritativeBlock(feed, pub, { lens, q, cap, paid: quota.paid }) } };
+  }
+  const source = validItems(feed);
+  const { rows, matched } = selectBriefRows(source, { lens, q, cap, paid: quota.paid });
   return {
     status: 200,
     body: {
@@ -2144,8 +2181,15 @@ export async function routeWatchdog(req) {
       evaluated = { pub, inserted: [], deduped: 0 };
     } else {
       evaluated = await evaluateMatches(req, got.result);
-      if (evaluated.degraded) return { status: 503, body: evaluated.degraded };
-      await metricsHook(req, { events_generated: evaluated.inserted.length, events_deduped: evaluated.deduped });
+      if (evaluated.degraded) {
+        // P0 2026-09-26: a feed that is not FRESH is never evaluated (no
+        // event is recorded from it), but the customer's own stored match
+        // history stays readable -- the same read-only listing evaluate=0
+        // already serves, marked evaluated: false.
+        evaluated = { pub: watchdogPublication(req.feed, req.nowMs), inserted: [], deduped: 0, skipped: true };
+      } else {
+        await metricsHook(req, { events_generated: evaluated.inserted.length, events_deduped: evaluated.deduped });
+      }
     }
     const finalState = evaluated.inserted.length ? await ledger(req, { type: "get" }) : got;
     const events = finalState.result?.events || [];
@@ -2164,7 +2208,7 @@ export async function routeWatchdog(req) {
         byWatch[event.watch_id].hit_count += 1;
         if (byWatch[event.watch_id].hits.length < 20) byWatch[event.watch_id].hits.push(event);
       }
-      return { status: 200, body: { product: WATCHDOG_NAME, tier, tenant: req.tenant || null, matches: Object.values(byWatch), inserted: evaluated.inserted.length, analytics, freshness_status: pub.freshness_status, feed_generated_at: pub.feed_generated_at, feed_item_count: pub.feed_item_count } };
+      return { status: 200, body: { product: WATCHDOG_NAME, tier, tenant: req.tenant || null, matches: Object.values(byWatch), inserted: evaluated.inserted.length, analytics, freshness_status: pub.freshness_status, feed_generated_at: pub.feed_generated_at, feed_item_count: pub.feed_item_count, evaluated: !readOnly && !evaluated.skipped, events_recorded: evaluated.inserted.length > 0 } };
     }
     return {
       status: 200,
@@ -2172,7 +2216,8 @@ export async function routeWatchdog(req) {
         product: WATCHDOG_NAME,
         tier,
         tenant: req.tenant || null,
-        evaluated: !readOnly,
+        evaluated: !readOnly && !evaluated.skipped,
+        ...(evaluated.skipped ? { evaluation_skipped: "feed_not_fresh" } : {}),
         inserted: evaluated.inserted.length,
         events: page,
         total: events.length,

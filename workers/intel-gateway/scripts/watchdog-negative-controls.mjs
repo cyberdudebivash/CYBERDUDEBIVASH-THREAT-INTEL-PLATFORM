@@ -362,6 +362,28 @@ const CONTROLS = [
     replace: "",
     tests: [T("watchdog-command-center.test.js")],
   },
+  // P0 2026-09-26: last-authoritative intelligence while STALE.
+  {
+    id: "last_authoritative_served_past_48h_ceiling",
+    file: "workers/intel-gateway/src/cyber-watchdog.js",
+    find: "  if (!Number.isFinite(pub.feed_age_seconds) || pub.feed_age_seconds > LAST_AUTHORITATIVE_MAX_AGE_SECONDS) return null;",
+    replace: "",
+    tests: [T("cyber-watchdog.test.js")],
+  },
+  {
+    id: "stale_items_leak_into_live_items_field",
+    file: "workers/intel-gateway/src/cyber-watchdog.js",
+    find: "    return { status: 503, body: { ...degradedBody(pub), tier, last_authoritative: lastAuthoritativeBlock(feed, pub, { lens, q, cap, paid: quota.paid }) } };",
+    replace: "    const la = lastAuthoritativeBlock(feed, pub, { lens, q, cap, paid: quota.paid });\n    return { status: 503, body: { ...degradedBody(pub), tier, items: la ? la.items : [], last_authoritative: la } };",
+    tests: [T("cyber-watchdog.test.js")],
+  },
+  {
+    id: "stale_inbox_claims_evaluated",
+    file: "workers/intel-gateway/src/cyber-watchdog.js",
+    find: "        evaluated: !readOnly && !evaluated.skipped,",
+    replace: "        evaluated: !readOnly,",
+    tests: [T("cyber-watchdog.test.js")],
+  },
   {
     id: "detail_serves_stale_feed_item",
     file: "workers/intel-gateway/src/cyber-watchdog.js",

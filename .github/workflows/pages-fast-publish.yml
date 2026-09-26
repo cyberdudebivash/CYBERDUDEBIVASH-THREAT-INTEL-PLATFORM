@@ -314,6 +314,13 @@ jobs:
       - name: Pre-deploy customer dashboard data-contract check (headless-browser)
         run: node render-test/verify_dashboard_data_contract.js dist
 
+      # P0 2026-09-26: a STALE feed showed "NOT AVAILABLE", empty Watchdog
+      # panels and a false "SYNC: LIVE". Drives the real buildWatchdogBrief()
+      # output: last authoritative intel shown labelled NOT LIVE up to 48h,
+      # nothing past it, and SYNC is never LIVE on a non-FRESH feed.
+      - name: Pre-deploy Watchdog stale-state check (headless-browser)
+        run: node render-test/verify_watchdog_stale_state.js dist
+
       # P0 checkout (2026-09-24): upgrade.html's one-time Razorpay fallback
       # referenced an undeclared `gstin` and threw before the modal opened,
       # so buyers saw "Network error" and could not pay. Drives the shipped

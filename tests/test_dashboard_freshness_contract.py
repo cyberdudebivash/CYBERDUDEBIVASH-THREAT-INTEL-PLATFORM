@@ -143,7 +143,10 @@ class TestDashboardSyncBadgeCrossChecksFreshness:
         fn_body = src[fn_start:fn_end]
 
         assert "intel.freshness !== 'FRESH'" in fn_body
-        assert "intel.freshness !== 'RECENT'" in fn_body
+        # P0 2026-09-26: RECENT (6-24h) is no longer exempt -- the canonical
+        # freshness contract (config/public_freshness_contract.json) makes
+        # anything past 6h STALE; a 9h-old feed was badged SYNC: LIVE.
+        assert "intel.freshness !== 'RECENT'" not in fn_body
         # The downgrade must target the same two elements the "LIVE" path
         # (elsewhere in this file) sets, so it can actually override them.
         assert re.search(r"getElementById\('sync-val'\)", fn_body)
@@ -203,7 +206,7 @@ class TestSyncBadgeBootRaceIsResolved:
         idx = src.index("var _knownStale = window.__CDB_FRESHNESS__")
         window = src[idx: idx + 400]
         assert "!== 'FRESH'" in window
-        assert "!== 'RECENT'" in window
+        assert "!== 'RECENT'" not in window, "RECENT (past the 6h contract) must not count as live"
 
     def test_known_stale_branch_targets_the_same_badge_elements(self):
         src = _index_html_source()
@@ -222,7 +225,7 @@ class TestSyncBadgeBootRaceIsResolved:
         assert "window.__CDB_FRESHNESS__ = intel.freshness || null;" in src
         write_idx = src.index("window.__CDB_FRESHNESS__ = intel.freshness || null;")
         downgrade_idx = src.index(
-            "if (intel.freshness && intel.freshness !== 'FRESH' && intel.freshness !== 'RECENT')"
+            "if (intel.freshness && intel.freshness !== 'FRESH')"
         )
         # The unconditional write must precede (i.e. not be nested inside)
         # the downgrade-only conditional.

@@ -5619,22 +5619,26 @@
                         put('acs-fresh', el('span', 'ax-status', null));
                         document.getElementById('acs-fresh').firstChild.append(fled, el('span', null, (d && d.freshness_status ? d.freshness_status : 'UNKNOWN') + (age ? ' · ' + age : '')));
                         put('acs-count', d && typeof d.feed_item_count === 'number' ? el('span', null, d.feed_item_count) : na());
-                        var sev = d && d.situation && d.situation.by_severity;
+                        // P0 2026-09-26: a STALE feed keeps the degraded answer and adds
+                        // last_authoritative (labelled NOT LIVE); show it instead of blanks.
+                        var last = b && !b.ok && d && d.last_authoritative && d.last_authoritative.live === false ? d.last_authoritative : null;
+                        var sev = (d && d.situation && d.situation.by_severity) || (last && last.situation && last.situation.by_severity);
                         put('acs-critical', sev ? el('span', null, sev.CRITICAL || 0) : na());
                         put('acs-high', sev ? el('span', null, sev.HIGH || 0) : na());
                         put('acs-updated', d && d.feed_generated_at ? el('span', 'ax-mono', d.feed_generated_at.replace('T', ' ').replace('Z', ' UTC')) : na());
                         var list = document.getElementById('acs-items');
-                        if (!b || !b.ok) { put('acs-items', el('li', 'ax-meta', d && d.message ? d.message : 'Live intelligence is not available right now. Nothing stale is shown as live.')); return; }
-                        var items = (d.items || []).slice(0, 5);
+                        if ((!b || !b.ok) && !last) { put('acs-items', el('li', 'ax-meta', d && d.message ? d.message : 'Live intelligence is not available right now. Nothing stale is shown as live.')); return; }
+                        var items = ((last ? last.items : d.items) || []).slice(0, 5);
                         if (!items.length) { put('acs-items', el('li', 'ax-meta', 'No advisories on the current feed.')); return; }
-                        list.replaceChildren.apply(list, items.map(function (it) {
+                        var staleNote = last ? [el('li', 'ax-meta', last.label + ' \u00b7 last authoritative update ' + String(last.feed_generated_at || 'unknown').replace('T', ' ').replace('Z', ' UTC'))] : [];
+                        list.replaceChildren.apply(list, staleNote.concat(items.map(function (it) {
                             var li = el('li', 'acs-item');
                             var k = S.severityKey(it.severity);
                             var chip = el('span', 'ax-sev', k === 'UNKNOWN' ? 'n/a' : k); chip.dataset.sev = k;
                             var body = el('div', 'acs-item__body');
                             body.append(el('div', 'ax-title', it.title), el('div', 'ax-sub', (it.source || 'Sentinel APEX feed') + (S.ageFromIso(it.observed_at) ? ' · ' + S.ageFromIso(it.observed_at) : '')));
                             li.dataset.band = k; li.append(chip, body); return li;
-                        }));
+                        })));
                     });
                 }
                 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', render); else render();
@@ -5771,16 +5775,24 @@
                 }))
                 .then(function (out) {
                     var data = out.data || {};
-                    if (!out.ok) {
+                    var last = !out.ok && data.last_authoritative && data.last_authoritative.live === false ? data.last_authoritative : null;
+                    if (!out.ok && !last) {
                         status.textContent = data.message || 'INTELLIGENCE DEGRADED';
                         lenses.innerHTML = '';
                         rows.innerHTML = '';
                         return;
                     }
+                    if (last) {
+                        // P0 2026-09-26: STALE, not live -- the last authoritative
+                        // intelligence, labelled as such, instead of an empty table.
+                        status.textContent = last.label + ' \u00b7 ' + (data.feed_item_count == null ? 'unknown' : data.feed_item_count) + ' advisories'
+                            + ' \u00b7 last authoritative update ' + (last.feed_generated_at || 'unknown');
+                        data = { situation: last.situation, items: last.items };
+                    }
                     var sit = data.situation || {};
                     var by = sit.by_lens || {};
                     var sev = sit.by_severity || {};
-                    status.textContent = (data.freshness_status || 'UNKNOWN')
+                    if (!last) status.textContent = (data.freshness_status || 'UNKNOWN')
                         + ' · ' + (data.feed_item_count == null ? 'unknown' : data.feed_item_count) + ' advisories on the feed'
                         + ' · age ' + (data.feed_age_seconds == null ? 'unknown' : data.feed_age_seconds) + 's'
                         + ' · updated ' + (data.feed_generated_at || 'unknown');
@@ -13702,13 +13714,16 @@ function renderTopThreats(data) {
                     // consult one shared answer instead of racing -- whichever
                     // of the two finishes last now reaches the same
                     // conclusion.
+                    // P0 2026-09-26: only FRESH is live. classifyFreshness() calls
+                    // 6-24h "RECENT", but the canonical contract
+                    // (config/public_freshness_contract.json) makes anything past
+                    // 6h STALE -- a 9h-old feed was still badged SYNC: LIVE.
                     var _knownStale = window.__CDB_FRESHNESS__
-                        && window.__CDB_FRESHNESS__ !== 'FRESH'
-                        && window.__CDB_FRESHNESS__ !== 'RECENT';
+                        && window.__CDB_FRESHNESS__ !== 'FRESH';
                     if (isApiSource && _knownStale) {
                         if (syncVal) syncVal.innerHTML = 'SYNC: <span style="color:var(--warning,#ffa502);">&#x26A1; STALE</span>';
                         if (integrityEl) integrityEl.innerHTML = '<span class="integrity-badge" style="color:var(--warning,#ffa502);">&#x26A1; '
-                            + (window.__CDB_FRESHNESS__ === 'UNAVAILABLE' ? 'FRESHNESS UNKNOWN' : window.__CDB_FRESHNESS__ + ' DATA') + '</span>';
+                            + (window.__CDB_FRESHNESS__ === 'UNAVAILABLE' ? 'FRESHNESS UNKNOWN' : (window.__CDB_FRESHNESS__ === 'RECENT' ? 'STALE' : window.__CDB_FRESHNESS__) + ' DATA') + '</span>';
                     } else if (isApiSource) {
                         if (syncVal) syncVal.innerHTML = 'SYNC: <span style="color:var(--accent);animation:new-glow 1.5s ease-in-out infinite alternate;">&#x26A1; LIVE</span>';
                         if (integrityEl) integrityEl.innerHTML = '<span class="integrity-badge integrity-ok"><i class="fas fa-shield-check"></i> MANIFEST VERIFIED</span>';
@@ -16527,7 +16542,8 @@ function renderTopThreats(data) {
                 // last -- one authoritative answer, not a race between two
                 // independent computations.
                 window.__CDB_FRESHNESS__ = intel.freshness || null;
-                if (intel.freshness && intel.freshness !== 'FRESH' && intel.freshness !== 'RECENT') {
+                // P0 2026-09-26: only FRESH is live (canonical 6h contract; see _knownStale).
+                if (intel.freshness && intel.freshness !== 'FRESH') {
                     var _syncBadge = document.getElementById('sync-val');
                     if (_syncBadge) {
                         _syncBadge.innerHTML = 'SYNC: <span style="color:var(--warning,#ffa502);">STALE</span>';
@@ -16535,7 +16551,7 @@ function renderTopThreats(data) {
                     var _integrityBadge = document.getElementById('integrity-status');
                     if (_integrityBadge) {
                         _integrityBadge.innerHTML = '<span class="integrity-badge" style="color:var(--warning,#ffa502);">'
-                            + (intel.freshness === 'UNAVAILABLE' ? 'FRESHNESS UNKNOWN' : intel.freshness + ' DATA') + '</span>';
+                            + (intel.freshness === 'UNAVAILABLE' ? 'FRESHNESS UNKNOWN' : (intel.freshness === 'RECENT' ? 'STALE' : intel.freshness) + ' DATA') + '</span>';
                     }
                 }
 

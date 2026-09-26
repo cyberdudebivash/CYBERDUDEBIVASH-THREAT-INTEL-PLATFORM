@@ -1,0 +1,46 @@
+# =============================================================================
+# CYBERDUDEBIVASH(R) SENTINEL APEX -- Intel Freshness Guard (P0 2026-09-26)
+#
+# Self-heals a stale PUBLIC feed. The public feed went 9h+ stale (contract
+# 6h) although ingestion worked: the sentinel-blogger run queued at 19:57Z
+# was cancelled while PENDING when another sentinel-data-writer workflow
+# queued behind it (a concurrency group keeps one pending run; the newer one
+# wins), and nothing re-queued it. See scripts/intel_freshness_guard.py.
+#
+# Every 30 min: read the published feed's age from the public /api/health
+# (canonical contract) and, when it is >= 4h old with no sentinel-blogger run
+# active or queued, dispatch one. Never publishes or writes data itself; not
+# in the sentinel-data-writer group (it writes nothing). Seconds per run.
+# =============================================================================
+name: Intel Freshness Guard v201.0
+
+on:
+  schedule:
+    - cron: '7,37 * * * *'
+  workflow_dispatch: {}
+
+concurrency:
+  group: intel-freshness-guard
+  cancel-in-progress: true
+
+permissions:
+  actions: write
+  contents: read
+
+jobs:
+  guard:
+    name: Published feed freshness guard
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 1
+          sparse-checkout: scripts/intel_freshness_guard.py
+          sparse-checkout-cone-mode: false
+      - name: Guard the published feed
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+        run: python3 scripts/intel_freshness_guard.py
