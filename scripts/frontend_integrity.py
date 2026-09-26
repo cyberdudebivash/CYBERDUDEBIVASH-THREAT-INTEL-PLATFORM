@@ -183,9 +183,39 @@ def print_report(violations: list[str], warnings: list[str], ok_count: int) -> N
     print("=" * 60)
 
 
+def _same_content(old: dict, new: dict) -> bool:
+    """True when every protected asset's sha256 and size are unchanged.
+    generated_at / last_modified are not content: last_modified is the
+    CI runner's checkout time."""
+    old_assets = old.get("assets") if isinstance(old, dict) else None
+    if not isinstance(old_assets, dict) or set(old_assets) != set(new["assets"]):
+        return False
+    return all(
+        isinstance(old_assets[rel], dict)
+        and old_assets[rel].get("sha256") == meta.get("sha256")
+        and old_assets[rel].get("size_bytes") == meta.get("size_bytes")
+        for rel, meta in new["assets"].items()
+    )
+
+
 def cmd_generate(args):
     print("Generating frontend checksum registry...")
     registry = generate_registry()
+    # 2026-09-26: rewriting on every run changed only generated_at and the
+    # checkout-time last_modified values, so frontend-integrity-sync pushed a
+    # "resync" bot commit onto every PR push (PR #538: 9fa9dac, timestamps
+    # only). GitHub holds workflow runs for bot commits for approval, and on
+    # merge closes the unapproved ones as failed: six red runs per PR with no
+    # job executed. Unchanged checksums -> leave the committed file alone.
+    if REGISTRY_PATH.exists():
+        try:
+            existing = json.loads(REGISTRY_PATH.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            existing = None
+        if existing is not None and _same_content(existing, registry):
+            print(f"Registry unchanged (all {len(registry['assets'])} checksums match): {REGISTRY_PATH}")
+            print("OK: Registry generation complete")
+            return
     REGISTRY_PATH.parent.mkdir(parents=True, exist_ok=True)
     with open(REGISTRY_PATH, "w", encoding="utf-8") as f:
         json.dump(registry, f, indent=2)
