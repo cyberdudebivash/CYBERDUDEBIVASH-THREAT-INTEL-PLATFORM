@@ -82,6 +82,7 @@ SCRIPTS = REPO_ROOT / "scripts"
 sys.path.insert(0, str(SCRIPTS))
 
 from fix_all_html_encoding import MOJIBAKE_TRIPLES  # noqa: E402
+from homepage_source import read_bytes_for_inspection  # noqa: E402  (index.html + extracted css/js)
 
 MOJIBAKE_PATTERNS = [pattern for pattern, _ in MOJIBAKE_TRIPLES]
 

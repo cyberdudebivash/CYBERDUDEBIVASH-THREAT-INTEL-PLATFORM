@@ -59,6 +59,8 @@ PROTECTED_ASSETS = [
     "js/card_renderer_integration.js",
     "js/sla-monitor.js",
     "css/card_renderer_styles.css",
+    "css/homepage-design-system.css",
+    "js/homepage-dashboard-engine.js",
 ]
 
 

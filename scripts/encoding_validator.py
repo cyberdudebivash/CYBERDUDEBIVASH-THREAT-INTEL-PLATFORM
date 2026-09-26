@@ -16,6 +16,8 @@ v145.2.0 changes:
   - Fixed: validator's own string literals now ASCII-safe
 """
 import sys, os, json, re
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import homepage_source as _homepage_source  # index.html + extracted assets (2026-09-26)  # noqa: E402
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -62,8 +64,7 @@ def scan_file(path):
     if not os.path.exists(full_path):
         return [], [f"File not found: {path}"]
 
-    with open(full_path, "rb") as f:
-        raw = f.read()
+    raw = _homepage_source.read_bytes_for_inspection(full_path)
 
     violations = []
     warnings = []

@@ -17,6 +17,7 @@ import subprocess
 from pathlib import Path
 
 import pytest
+from scripts.homepage_source import read_homepage_source  # index.html + extracted css/js
 
 REPO = Path(__file__).resolve().parent.parent
 LIVE_STATS = {
@@ -27,7 +28,7 @@ LIVE_STATS = {
 
 
 def _sync_expression():
-    html = (REPO / "index.html").read_text(encoding="utf-8")
+    html = read_homepage_source()
     m = re.search(r"const _syncTs = ([^;]+);", html)
     assert m, "fetchWorkerStats no longer resolves _syncTs"
     return m.group(1)

@@ -13,6 +13,7 @@ import subprocess
 from pathlib import Path
 
 import pytest
+from scripts.homepage_source import read_homepage_source  # index.html + extracted css/js
 
 REPO = Path(__file__).resolve().parent.parent
 UPGRADE = REPO / "upgrade.html"
@@ -249,7 +250,7 @@ def test_t15_frozen_prices_and_annual_permalinks_unchanged():
 
 
 def test_lead_modal_paid_destination_is_obvious():
-    src = _read(INDEX)
+    src = read_homepage_source()
     assert "CONTINUE TO PRO" in src
     assert "upgrade.html?plan=pro" in src
     assert "not a free trial" in src.lower()

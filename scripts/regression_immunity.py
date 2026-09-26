@@ -25,6 +25,8 @@ Exit 0 = PASS, Exit 1 = FAIL (blocks deployment)
 """
 import sys, os, json, re, hashlib, subprocess
 import datetime
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import homepage_source as _homepage_source  # index.html + extracted assets (2026-09-26)  # noqa: E402
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -142,8 +144,7 @@ for path, label in [(FEED_PATH, "feed.json"), (API_FEED_PATH, "api/feed.json"), 
     if not os.path.exists(path):
         warnings.append(f"Encoding scan: {label} not found")
         continue
-    with open(path, "rb") as f:
-        raw = f.read()
+    raw = _homepage_source.read_bytes_for_inspection(path)
     found = []
     for pat in MOJIBAKE_PATTERNS:
         c = raw.count(pat)
@@ -230,8 +231,7 @@ _all_manifests_ok = True
 _total_items = 0
 html = ""  # Initialize html for use in Check 7
 if os.path.exists(INDEX_PATH):
-    with open(INDEX_PATH, "rb") as f:
-        html = f.read().decode("utf-8", errors="replace")
+    html = _homepage_source.read_text_for_inspection(INDEX_PATH)
 
 for _fname, _key in _manifest_checks.items():
     _path = os.path.join(API_V1_DIR, _fname)

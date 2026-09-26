@@ -47,6 +47,9 @@ import re
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
+import os
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import homepage_source as _homepage_source  # index.html + extracted assets (2026-09-26)  # noqa: E402
 
 logging.basicConfig(
     level=logging.INFO,
@@ -819,6 +822,35 @@ REGEX_TARGETS = [
         r'(SENTINEL APEX v)[0-9]+\.[0-9]+(?:\.[0-9]+)?',
         r'\g<1>{VER}',
     ),
+    # index.html's dashboard-engine <script> moved to js/homepage-dashboard-engine.js
+    # (2026-09-26). These five index.html targets now match only there; the
+    # index.html entries above are kept (they report "pattern not found -- skip").
+    # After --apply edits this file, its ?v= in index.html is re-synced below.
+    (
+        "js/homepage-dashboard-engine.js",
+        '(APEX AI )v[0-9]+\\.[0-9]+(?:\\.[0-9]+)?',
+        '\\g<1>v{VER}',
+    ),
+    (
+        "js/homepage-dashboard-engine.js",
+        '(Single platform version constant \\()v[0-9]+\\.[0-9]+(?:\\.[0-9]+)?',
+        '\\g<1>v{VER}',
+    ),
+    (
+        "js/homepage-dashboard-engine.js",
+        '(\\[GOC )v[0-9]+\\.[0-9]+(?:\\.[0-9]+)?(\\])',
+        '\\g<1>v{VER}\\g<2>',
+    ),
+    (
+        "js/homepage-dashboard-engine.js",
+        "(const PLATFORM_VERSION = ')[0-9]+\\.[0-9]+(?:\\.[0-9]+)?(')",
+        '\\g<1>{VER}\\g<2>',
+    ),
+    (
+        "js/homepage-dashboard-engine.js",
+        "(const CURRENT_VER = ')[0-9]+\\.[0-9]+(?:\\.[0-9]+)?(')",
+        '\\g<1>{VER}\\g<2>',
+    ),
 ]
 
 # HTML targets with simple title tag governance
@@ -1178,6 +1210,18 @@ def run(mode):
         ok, found, status = check_or_apply_regex(rel_path, pattern, template, ver, apply)
         rows.append((rel_path, found, status, ok))
         if not ok:
+            any_drift = True
+
+    # Extracted homepage assets are loaded as /js|css/...?v=<sha256[:12]>, which
+    # Cloudflare caches for 4h. Any edit above to one of them must move its ?v=,
+    # or customers keep the old file after deploy.
+    stale = _homepage_source.stale_asset_versions(REPO_ROOT)
+    if stale and apply:
+        _homepage_source.sync_asset_versions(REPO_ROOT)
+    for asset, old_v, new_v in stale:
+        status = ("updated -> " + new_v) if apply else ("drift: ?v=%s, content is %s" % (old_v, new_v))
+        rows.append(("index.html ?v= " + asset, old_v, status, apply))
+        if not apply:
             any_drift = True
 
     col0 = max(len(r[0]) for r in rows) + 2

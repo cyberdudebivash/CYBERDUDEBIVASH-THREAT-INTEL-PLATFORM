@@ -14,6 +14,9 @@ import sys, ast
 from pathlib import Path
 from datetime import datetime, timezone
 from html.parser import HTMLParser
+import os
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import homepage_source as _homepage_source  # index.html + extracted assets (2026-09-26)  # noqa: E402
 
 if hasattr(sys.stdout, 'reconfigure'):
     try: sys.stdout.reconfigure(encoding='utf-8')
@@ -85,8 +88,11 @@ except SyntaxError as e:
     gate("build_dist_artifact.py syntax valid", False, "Fix syntax error: " + str(e))
 
 # ── GATE 5: index.html exists and is non-trivial ─────────────────
+# 2026-09-26: measured on the homepage source (index.html + its extracted
+# css/js, scripts/homepage_source.py); index.html alone is ~730 KB now. A
+# missing extracted asset shrinks the source below 1 MB and fails this gate.
 gate("index.html exists and > 1MB",
-     INDEX.exists() and INDEX.stat().st_size > 1_000_000,
+     INDEX.exists() and len(_homepage_source.read_bytes_for_inspection(INDEX)) > 1_000_000,
      "index.html is missing or truncated")
 
 # ── GATE 6: 404.html exists ──────────────────────────────────────
@@ -106,7 +112,7 @@ gate("Service worker has valid sentinel-apex-vNNN cache version",
      "CACHE_VERSION in service-worker.js must contain sentinel-apex-vNNN pattern")
 
 # ── GATE 8: V173 renderer intact ─────────────────────────────────
-src = INDEX.read_text(encoding='utf-8') if INDEX.exists() else ""
+src = _homepage_source.read_text_for_inspection(INDEX) if INDEX.exists() else ""
 gate("V173 renderer block intact",
      'CDB-RENDERER-ENGINE-V173-START' in src and 'CDB-RENDERER-ENGINE-V173-END' in src,
      "V173 renderer block has been removed from index.html")

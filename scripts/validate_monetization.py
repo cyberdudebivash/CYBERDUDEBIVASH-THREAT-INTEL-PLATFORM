@@ -50,6 +50,7 @@ import pathlib
 # content (see generate-and-sync.yml run #544-#550).
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 from fix_all_html_encoding import MOJIBAKE_TRIPLES
+import homepage_source as _homepage_source  # index.html + extracted assets (2026-09-26)  # noqa: E402
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parent.parent
 
@@ -71,7 +72,7 @@ def ok(msg: str) -> None:
 
 def read_file(path: pathlib.Path) -> bytes:
     try:
-        return path.read_bytes()
+        return _homepage_source.read_bytes_for_inspection(path)
     except Exception as e:
         fail(f"Cannot read {path.name}: {e}")
         return b""
@@ -459,7 +460,7 @@ def validate_all_html_bom() -> None:
     bom_found = []
     for f in html_files:
         try:
-            data = f.read_bytes()
+            data = _homepage_source.read_bytes_for_inspection(f)
             if data.startswith(b"\xef\xbb\xbf"):
                 bom_found.append(f.name)
                 fail(f"{f.name}: BOM detected -- will corrupt rendering")
@@ -480,7 +481,7 @@ def validate_all_html_encoding() -> None:
     dirty = []
     for f in html_files:
         try:
-            data = f.read_bytes()
+            data = _homepage_source.read_bytes_for_inspection(f)
             found = []
             for pat, label in junk_patterns:
                 if pat in data:

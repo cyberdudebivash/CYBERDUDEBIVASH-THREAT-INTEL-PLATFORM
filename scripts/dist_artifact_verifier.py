@@ -19,6 +19,7 @@ VERIFICATION CHECKS:
   7.  dist/ does NOT contain .github/ or scripts/ (artifact purity check)
   8.  .nojekyll present (prevents Jekyll processing)
   9.  dist/index.html present (dashboard root accessible)
+  9b. dist/js/homepage-dashboard-engine.js + dist/css/homepage-design-system.css present
   10. dist/deployment_manifest.json present
   11. dist/service-worker.js present (v158.0.2 -- PWA cache governance)
   12. dist/version.json present (v158.0.2 -- version API governance)
@@ -270,6 +271,15 @@ def run_checks(manifest: Dict, retention_days: int = 0) -> Tuple[int, int]:
         ok("dist/index.html present")
     else:
         fail("dist/index.html MISSING -- dashboard root inaccessible")
+
+    # CHECK 9b: homepage assets extracted from index.html (2026-09-26). index.html
+    # loads them by path, so a dist/ without them ships a homepage whose
+    # dashboard engine and design system never load.
+    for _asset in ("js/homepage-dashboard-engine.js", "css/homepage-design-system.css"):
+        if (DIST_DIR / _asset).is_file() and (DIST_DIR / _asset).stat().st_size > 0:
+            ok(f"dist/{_asset} present")
+        else:
+            fail(f"dist/{_asset} MISSING -- homepage would load without it")
 
     # CHECK 10: deployment_manifest.json present
     if MANIFEST_PATH.exists():

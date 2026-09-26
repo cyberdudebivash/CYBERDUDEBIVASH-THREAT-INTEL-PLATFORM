@@ -55,6 +55,8 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import homepage_source as _homepage_source  # index.html + extracted assets (2026-09-26)  # noqa: E402
 
 logging.basicConfig(
     level=logging.INFO,
@@ -135,7 +137,7 @@ def _read_text(path: Path) -> str | None:
     if not path.exists():
         return None
     try:
-        return path.read_text(encoding="utf-8", errors="replace")
+        return _homepage_source.read_text_for_inspection(path)
     except Exception as e:
         log.warning("Read error %s: %s", path.name, e)
         return None

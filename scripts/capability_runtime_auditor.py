@@ -79,6 +79,9 @@ import json
 import re
 import sys
 from pathlib import Path
+import os
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import homepage_source as _homepage_source  # index.html + extracted assets (2026-09-26)  # noqa: E402
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 REGISTRY_PATH = REPO_ROOT / "data" / "quality" / "frontend_capability_registry.json"
@@ -330,7 +333,7 @@ def audit_capability(entry: dict, coverage_by_file: dict, forbidden_pages: set[s
         return result
 
     try:
-        content = path.read_text(encoding="utf-8", errors="replace")
+        content = _homepage_source.read_text_for_inspection(path)
     except Exception as e:
         result["verdict"] = "BROKEN"
         result["verdict_reason"] = f"File exists but could not be read: {e}"

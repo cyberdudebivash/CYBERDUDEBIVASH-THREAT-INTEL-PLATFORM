@@ -65,6 +65,9 @@ on:
       # SENTINEL APEX UI system: watchdog-apex-ui.test.js and its negative
       # controls read these.
       - 'css/apex-design-tokens.css'
+      - 'css/homepage-design-system.css'
+      - 'js/homepage-dashboard-engine.js'
+      - 'scripts/homepage_source.py'
       - 'js/apex-status-model.js'
       - 'js/card_renderer.js'
       # ATT&CK reference: dashboard-contract.test.js checks the generated
@@ -113,6 +116,9 @@ on:
       # SENTINEL APEX UI system: watchdog-apex-ui.test.js and its negative
       # controls read these.
       - 'css/apex-design-tokens.css'
+      - 'css/homepage-design-system.css'
+      - 'js/homepage-dashboard-engine.js'
+      - 'scripts/homepage_source.py'
       - 'js/apex-status-model.js'
       - 'js/card_renderer.js'
       # ATT&CK reference: dashboard-contract.test.js checks the generated
@@ -317,6 +323,9 @@ jobs:
             # frontend_integrity.py generate rewrites the registry only when a
             # checksum changes (no timestamp-only bot resync commits).
             tests/test_frontend_integrity_no_timestamp_resync.py
+            # Homepage design-system CSS extracted from index.html: ?v= is the
+            # content hash, paywall rules stay inline, size budget. Local files.
+            tests/test_homepage_stylesheet_extraction.py
           )
           python3 -m pytest "${SUITES[@]}" -q
           # Refuse to pass having run nothing. pytest.ini forces --verbose, so

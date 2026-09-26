@@ -7,12 +7,13 @@ only matches SENTINEL APEX labels. Workflow display names are the Actions tab.
 from __future__ import annotations
 
 from pathlib import Path
+from scripts.homepage_source import read_homepage_source  # index.html + extracted css/js
 
 REPO = Path(__file__).resolve().parent.parent
 
 
 def test_dashboard_sections_and_map_hud_are_v201():
-    src = (REPO / "index.html").read_text(encoding="utf-8")
+    src = read_homepage_source()
     for label in (
         "NEXUS INTELLIGENCE v201.0",
         "Full-Stack AI Cybersecurity Ecosystem v201.0",
@@ -36,7 +37,7 @@ def test_dashboard_sections_and_map_hud_are_v201():
 
 
 def test_feed_panels_accept_a_raw_array_and_do_not_require_cdb_normalize():
-    src = (REPO / "index.html").read_text(encoding="utf-8")
+    src = read_homepage_source()
     assert "function eiccItems(" in src
     assert "eiccItems(result.data)" in src
     assert "eiccItems(data)" in src
