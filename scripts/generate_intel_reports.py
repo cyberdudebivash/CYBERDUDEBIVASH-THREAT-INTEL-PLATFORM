@@ -2423,6 +2423,8 @@ def rel_report_path(item: dict) -> Path:
 # R2 upload
 # ─────────────────────────────────────────────────────────────────────────────
 def r2_upload(local_path: Path, key: str, endpoint: str) -> bool:
+    # DEPRECATED (2026-09-26) with the --upload-r2 flag that calls it -- see
+    # UPLOAD_R2_DEPRECATION below. Kept unchanged for the migration period.
     if not shutil.which("aws"):
         log("aws CLI not available - skipping R2 upload", "warning")
         return False
@@ -2555,12 +2557,34 @@ def _within_report_window(item: dict, since_hours: Optional[float], now: datetim
     return -report_future_skew_hours() <= age_hours <= since_hours
 
 
+# DEPRECATED (2026-09-26): --upload-r2.
+# Replacement: render with this script, then publish with
+# scripts/r2_report_publisher.py (the single sentinel-apex-reports writer --
+# sentinel-blogger.yml STAGE 3.5a / 5.4.0c).
+# Why: its per-item uploader reads CF_R2_ENDPOINT, which no workflow sets, so
+# in production it counted every item as r2_failed without issuing a PUT
+# (STAGE 5.4.0b: r2_uploaded=0 r2_failed=19). Where it can upload, it bypasses
+# the publisher's sha256 state and fail-closed budget, so those objects are
+# never retired by the 24h retention pass.
+# Compatibility: the flag is still accepted and behaves exactly as before; it
+# now also emits this warning. No workflow or script passes it (enforced by
+# tests/test_r2_report_post_barrier_publish.py).
+# Removal: at the next P-layer release (P39) or later, not before.
+UPLOAD_R2_DEPRECATION = (
+    "--upload-r2 is DEPRECATED and will be removed at the next P-layer release (P39). "
+    "Publish rendered reports with scripts/r2_report_publisher.py instead -- this flag's "
+    "uploader needs CF_R2_ENDPOINT and bypasses the publisher's state, budget and 24h retirement."
+)
+
+
 def main(argv=None) -> int:
     global MANIFEST_PATH
 
     parser = argparse.ArgumentParser(description=f"SENTINEL APEX {PLATFORM_VERSION} report generator")
     parser.add_argument("--manifest", default=str(MANIFEST_PATH))
-    parser.add_argument("--upload-r2", action="store_true")
+    parser.add_argument("--upload-r2", action="store_true",
+                        help="DEPRECATED -- use scripts/r2_report_publisher.py. "
+                             "Removed at the next P-layer release (P39).")
     parser.add_argument("--public-prefix", default=DEFAULT_PREFIX,
                         help="Public URL prefix (default: https://intel.cyberdudebivash.com)")
     parser.add_argument("--limit", type=int, default=0)
@@ -2590,6 +2614,8 @@ def main(argv=None) -> int:
 
     endpoint = None
     if args.upload_r2:
+        log(UPLOAD_R2_DEPRECATION, "warning")
+        print(f"::warning::generate_intel_reports.py: {UPLOAD_R2_DEPRECATION}", flush=True)
         acct = os.environ.get("CF_ACCOUNT_ID", "")
         if not acct:
             log("CF_ACCOUNT_ID not set - R2 upload disabled", "warning")
