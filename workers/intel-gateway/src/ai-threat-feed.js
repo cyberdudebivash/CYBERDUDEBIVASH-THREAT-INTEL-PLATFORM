@@ -185,21 +185,48 @@ export function feedItemToAi(adv) {
   };
 }
 
-/** Hub items (validated; invalid ones dropped) + AI items from the live feed, newest first, de-duplicated by id. */
+// Query parameters that only track the click, never select the page.
+const TRACKING_PARAM = /^(utm_[a-z_]+|fbclid|gclid|mc_cid|mc_eid|ref|ref_src|source)$/i;
+
+/**
+ * Source article identity: scheme + lower-case host + path without a
+ * trailing slash + the query minus tracking parameters (sorted). The query is
+ * kept: cvename.cgi?name=CVE-A and ?name=CVE-B are different pages.
+ */
+export function sourceKey(url) {
+  try {
+    const u = new URL(url);
+    const params = [...u.searchParams.entries()].filter(([k]) => !TRACKING_PARAM.test(k)).sort(([a, x], [b, y]) => (a + "=" + x).localeCompare(b + "=" + y));
+    const query = params.length ? "?" + params.map(([k, v]) => k + "=" + v).join("&") : "";
+    return u.protocol + "//" + u.hostname.toLowerCase() + (u.pathname.replace(/\/+$/, "") || "/") + query;
+  } catch { return null; }
+}
+
+/**
+ * Hub items (validated; invalid ones dropped) + AI items from the live feed,
+ * newest first, one item per id and per source article. Production
+ * 2026-09-26: the feed carried the same cybersecuritynews.com article twice
+ * (sources "CyberSecurityNews" / "CyberSecurity News", LOW and MEDIUM) and
+ * both reached buyers. Hub objects win; among feed items, feed order wins.
+ */
 export function mergeFeed(hubItems, advisories) {
   const out = [];
   const seen = new Set();
+  const sources = new Set();
+  const add = (it) => {
+    const key = sourceKey(it.source_url);
+    if (seen.has(it.id) || (key && sources.has(key))) return;
+    seen.add(it.id);
+    if (key) sources.add(key);
+    out.push(it);
+  };
   for (const raw of hubItems || []) {
     const v = validateHubItem(raw);
-    if (!v.ok || seen.has(v.item.id)) continue;
-    seen.add(v.item.id);
-    out.push(v.item);
+    if (v.ok) add(v.item);
   }
   for (const adv of advisories || []) {
     const it = adv && typeof adv === "object" ? feedItemToAi(adv) : null;
-    if (!it || seen.has(it.id)) continue;
-    seen.add(it.id);
-    out.push(it);
+    if (it) add(it);
   }
   out.sort((a, b) => (Date.parse(b.first_seen || "") || 0) - (Date.parse(a.first_seen || "") || 0) || a.id.localeCompare(b.id));
   return out;

@@ -13,6 +13,8 @@ AI-security intelligence covering MCP servers, LLM gateways and SDKs, coding age
 
 It does not crawl the internet. It is never served as live on a feed that is not FRESH.
 
+One item per source article: items are de-duplicated by id and by source URL (host lower-cased, trailing slash and tracking parameters such as `utm_*` dropped; other query parameters kept). Hub objects win over feed items; among feed items, feed order wins.
+
 ## Contract (reused from Cyber Watchdog, not re-implemented)
 
 | Concern | Source |
