@@ -296,6 +296,9 @@ jobs:
             # Severity from a vector-verified CVSS score, EPSS from FIRST.org,
             # and every EPSS renderer on one scale. No network.
             tests/test_severity_epss_truth.py
+            # A source article older than INTEL_MAX_SOURCE_AGE_DAYS is not new
+            # intel: ingest gate, STIX reconstruction, age, feed guard. No network.
+            tests/test_stale_source_guard.py
           )
           python3 -m pytest "${SUITES[@]}" -q
           # Refuse to pass having run nothing. pytest.ini forces --verbose, so
