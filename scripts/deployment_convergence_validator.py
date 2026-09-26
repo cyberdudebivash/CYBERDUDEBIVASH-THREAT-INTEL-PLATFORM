@@ -110,6 +110,13 @@ CONFIDENCE_STABLE   = int(os.environ.get("CONVERGENCE_CONFIDENCE_THRESHOLD", "80
 CONFIDENCE_FAIL     = int(os.environ.get("CONVERGENCE_FAIL_THRESHOLD", "60"))
 MAX_REPORT_PROBES   = int(os.environ.get("MAX_REPORT_PROBES", "15"))
 HIST_PROBE_COUNT    = int(os.environ.get("HISTORICAL_PROBE_COUNT", "5"))
+# Pause between probes in a batch: the probe itself tripped the site's
+# rate limit (HTTP 429) on 2026-09-26 and then waited for it.
+PROBE_INTERVAL      = float(os.environ.get("CONVERGENCE_PROBE_INTERVAL", "1.0"))
+# Retry rounds after which failures that are all permanent (404 that is not
+# a publication-gate rejection) stop being retried -- they are missing, not
+# propagating, and the phase already records them as failures.
+PERMANENT_STOP_ROUND = int(os.environ.get("CONVERGENCE_PERMANENT_STOP_ROUND", "3"))
 
 # ---------------------------------------------------------------------------
 # Data structures
@@ -124,6 +131,9 @@ class ProbeResult:
     is_transient: bool = False
     etag: Optional[str] = None
     error: Optional[str] = None
+    # 404 served on purpose: the report exists but the publication gate
+    # rejected it (customer_ready false). Correct deployment behaviour.
+    gate_rejected: bool = False
 
 
 @dataclass
@@ -188,8 +198,9 @@ def _http_probe(url: str, timeout: int = HTTP_TIMEOUT) -> ProbeResult:
                 etag=None,
                 error=None,
             )
-        # 404 = structural failure (file not in dist/); 5xx/timeout = transient CDN issue
-        is_transient = exc.code >= 500
+        # 404 = structural failure (file not in dist/); 5xx/timeout = transient CDN issue.
+        # 429 = rate limited: the page is served, the probe was too fast -- transient.
+        is_transient = exc.code >= 500 or exc.code == 429
         return ProbeResult(
             url=url,
             status_code=exc.code,
@@ -210,12 +221,39 @@ def _http_probe(url: str, timeout: int = HTTP_TIMEOUT) -> ProbeResult:
         )
 
 
+_GATE_VERDICTS: Dict[str, bool] = {}
+
+
+def _gate_rejected(url: str) -> bool:
+    """_is_expected_publication_rejection(), asked once per URL per run."""
+    if url not in _GATE_VERDICTS:
+        _GATE_VERDICTS[url] = _is_expected_publication_rejection(url)
+    return _GATE_VERDICTS[url]
+
+
 def _probe_batch(urls: List[str], label: str = "") -> Tuple[List[ProbeResult], int, int]:
-    """Probe a list of URLs; return results, success count, fail count."""
+    """Probe a list of URLs; return results, success count, fail count.
+
+    A report 404 that the publication-status API confirms is a gate rejection
+    (customer_ready false) is the deployment doing its job, like the 401 of an
+    auth-gated endpoint: counted as delivered (gate_rejected=True). Before
+    2026-09-26 Phases 2-4 retried such URLs with backoff up to 180s for 8
+    rounds each (the 28-minute stage), although Phase 5 already knew them.
+    """
     results = []
     ok = fail = 0
-    for url in urls:
+    for i, url in enumerate(urls):
+        if i and PROBE_INTERVAL > 0:
+            time.sleep(PROBE_INTERVAL)
         r = _http_probe(url)
+        if not r.success and r.status_code == 404 and _gate_rejected(url):
+            r.success = True
+            r.gate_rejected = True
+            r.error = None
+            log.info("  ℹ️  [%s] %s  -  HTTP 404 is an expected publication-gate rejection (delivered)", label, url)
+            results.append(r)
+            ok += 1
+            continue
         results.append(r)
         if r.success:
             ok += 1
@@ -380,6 +418,12 @@ def _backoff_wait(attempt: int) -> float:
 # Convergence signal detection
 # ---------------------------------------------------------------------------
 
+def _only_permanent_failures(results: List[ProbeResult]) -> bool:
+    """True when this round failed and every failure is permanent."""
+    failed = [r for r in results if not r.success]
+    return bool(failed) and all(not r.is_transient for r in failed)
+
+
 def _detect_transient_vs_permanent(results: List[ProbeResult]) -> Tuple[int, int, int]:
     """Returns (permanent_failures, transient_failures, successes)."""
     permanent = sum(1 for r in results if not r.success and not r.is_transient)
@@ -477,6 +521,10 @@ def phase2_cdn_readiness_probe(feed: List[dict], manifest: dict) -> PhaseResult:
                 message=f"CDN ready after {attempt+1} round(s). Success rate: {success_rate:.0%}",
             )
 
+        if attempt >= PERMANENT_STOP_ROUND and _only_permanent_failures(results):
+            log.warning("Phase 2: remaining failures are permanent (404) after %d rounds -- not retrying.", attempt + 1)
+            break
+
         wait = _backoff_wait(attempt)
         log.info("Phase 2: CDN not ready. Backoff %.1fs before retry...", wait)
         time.sleep(wait)
@@ -553,10 +601,13 @@ def phase3_incremental_retry(feed: List[dict], manifest: dict) -> PhaseResult:
         failed_results = [r for r in results if not r.success]
         permanent_fails = [r for r in failed_results if not r.is_transient]
 
-        if permanent_fails and attempt >= 3:
+        if permanent_fails and attempt >= PERMANENT_STOP_ROUND:
             log.error("Phase 3: %d PERMANENT failures detected (non-transient 404s):", len(permanent_fails))
             for r in permanent_fails:
                 log.error("  PERMANENT FAIL: %s  -  %s", r.url, r.error)
+            if len(permanent_fails) == len(failed_results):
+                log.error("Phase 3: only permanent failures remain -- not retrying.")
+                break
 
         wait = _backoff_wait(attempt)
         log.info("Phase 3: Waiting %.1fs before next retry round...", wait)
@@ -722,21 +773,19 @@ def phase5_historical_report_audit(feed: List[dict], manifest: dict) -> PhaseRes
     log.info("Phase 5: Probing %d historical report URLs...", len(historical_urls))
     results, ok, fail = _probe_batch(historical_urls, "Phase5-Historical")
 
-    gate_rejected = 0
-    for r in results:
-        if not r.success and r.status_code == 404 and _is_expected_publication_rejection(r.url):
-            gate_rejected += 1
-            log.info("  ℹ️  [Phase5-Historical] %s  -  404 is an EXPECTED publication-gate rejection, not a breach", r.url)
+    # _probe_batch() already asked the publication-status API about every 404;
+    # gate rejections are excluded from this audit, as before.
+    gate_rejected = sum(1 for r in results if r.gate_rejected)
 
     effective_total = len(historical_urls) - gate_rejected
-    effective_ok = ok
+    effective_ok = ok - gate_rejected
     success_rate = (effective_ok / effective_total) if effective_total else 1.0
     phase_success = success_rate >= 0.8   # 80% threshold  -  some historical loss is alert, not hard-fail
 
     duration = time.monotonic() - t0
     if not phase_success:
         log.error("Phase 5: HISTORICAL CONTINUITY BREACH  -  %d/%d historical reports inaccessible (excluding %d expected gate rejections)!",
-                   fail - gate_rejected, effective_total, gate_rejected)
+                   fail, effective_total, gate_rejected)
     else:
         log.info("Phase 5: Historical continuity OK  -  %d/%d accessible (%.0f%%), %d expected gate rejections excluded",
                   effective_ok, effective_total, success_rate * 100, gate_rejected)
