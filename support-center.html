@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<!-- Clickjacking guard; see js/frame-guard.js -->
+<script src="/js/frame-guard.js"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>Support | CYBERDUDEBIVASH SENTINEL APEX</title>
+<meta name="description" content="How to reach Sentinel APEX support, the response time included with each plan, and live platform status.">
+<link rel="stylesheet" href="/css/apex-design-tokens.css">
+<!--
+  2026-09-28 (pre-release fabrication sweep). This page used to show five
+  invented tickets ("TKT-2026-0892 ... C2 detection alert not firing") with
+  live-looking SLA countdowns, and "created" a ticket with a randomly generated ID
+  that was never sent anywhere -- a customer asking for help got a fake
+  ticket number and no support. There is no ticketing backend.
+  It now states the real channels only: the support included with each plan
+  (verbatim from config/commercial-contract.json; tests/test_no_fabricated_
+  intel_pages.py fails if they drift), the real contact addresses, and live
+  platform status from /api/watchdog/health.
+-->
+<style>
+  body { margin: 0; }
+  .sp-wrap { max-width: 1100px; margin: 0 auto; }
+  .sp-title { font: 800 20px/1.2 var(--ax-font); letter-spacing: 0.06em; margin: 0; }
+  .sp-links a { color: var(--ax-text-secondary); text-decoration: none; font-size: 13px; margin-left: 14px; }
+  .sp-links a:hover { color: var(--ax-text-primary); }
+  .sp-lede { color: var(--ax-text-secondary); max-width: 72ch; margin: 6px 0 18px; }
+  .sp-grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr)); margin-top: 16px; }
+  .sp-contact { display: grid; gap: 10px; }
+  .sp-contact a { color: var(--ax-accent-cyan); font-weight: 650; text-decoration: none; word-break: break-all; }
+  .sp-contact a:hover { text-decoration: underline; }
+  .sp-contact div { color: var(--ax-text-secondary); font-size: 14px; }
+  ol.sp-steps { margin: 0; padding-left: 20px; color: var(--ax-text-secondary); line-height: 1.6; }
+  footer.sp-foot { color: var(--ax-text-muted); font-size: 13px; padding: 28px 0 8px; border-top: 1px solid var(--ax-border-subtle); margin-top: 32px; }
+</style>
+</head>
+<body class="ax-app ax-texture">
+<main id="main" class="ax-main sp-wrap">
+  <header class="ax-cmdbar">
+    <div>
+      <h1 class="sp-title">SUPPORT</h1>
+    </div>
+    <nav class="sp-links" aria-label="Related">
+      <a href="/">Home</a><a href="/status.html">Status</a><a href="/api-docs.html">API docs</a><a href="/pricing.html">Plans</a>
+    </nav>
+  </header>
+  <p class="sp-lede">Email is the support channel. There is no ticket portal: write to the address below and you receive a reply from a person, within the response time your plan includes.</p>
+
+  <section class="ax-panel" aria-labelledby="h-status">
+    <div class="ax-panel__head"><h2 class="ax-h-panel" id="h-status">Platform status now</h2><a class="ax-btn ax-btn--ghost ax-btn--sm" href="/status.html">Status page</a></div>
+    <span class="ax-status" id="sp-status"><span class="ax-led" data-state="unknown"></span><span>Checking</span></span>
+    <div class="ax-sub" id="sp-status-note">Checked live from the platform when this page loads.</div>
+  </section>
+
+  <div class="sp-grid">
+    <section class="ax-panel" aria-labelledby="h-contact">
+      <div class="ax-panel__head"><h2 class="ax-h-panel" id="h-contact">Contact</h2></div>
+      <div class="sp-contact">
+        <div><a href="mailto:support@cyberdudebivash.com?subject=Support%20request%20-%20Sentinel%20APEX">support@cyberdudebivash.com</a><br>Technical support: API, feeds, exports, Cyber Watchdog, reports.</div>
+        <div><a href="mailto:billing@cyberdudebivash.com?subject=Billing%20-%20Sentinel%20APEX">billing@cyberdudebivash.com</a><br>Invoices, GST, plan changes, cancellations.</div>
+        <div><a href="mailto:security@cyberdudebivash.com?subject=Security%20report">security@cyberdudebivash.com</a><br>Vulnerability reports about the platform (see <a href="/security.txt">security.txt</a>).</div>
+        <div><a href="/contact-enterprise.html">Enterprise &amp; MSSP enquiries</a><br>New Enterprise or MSSP agreements.</div>
+      </div>
+    </section>
+    <section class="ax-panel" aria-labelledby="h-include">
+      <div class="ax-panel__head"><h2 class="ax-h-panel" id="h-include">What to include</h2></div>
+      <ol class="sp-steps">
+        <li>Your plan and the email address on your subscription (never send an API key).</li>
+        <li>The endpoint or page, the time (with timezone) and the HTTP status you saw.</li>
+        <li>The <code>request_id</code> from the response body, when there is one.</li>
+        <li>What you expected, and what happened instead.</li>
+      </ol>
+    </section>
+  </div>
+
+  <section class="ax-panel" aria-labelledby="h-plans" style="margin-top:16px">
+    <div class="ax-panel__head"><h2 class="ax-h-panel" id="h-plans">Support included with each plan</h2><span class="ax-meta">From the commercial contract</span></div>
+    <div class="ax-table-wrap">
+      <table class="ax-table" id="sp-plans">
+        <thead><tr><th>Plan</th><th>Support</th></tr></thead>
+        <tbody>
+          <tr data-tier="free"><td>Free</td><td>Community forum. Best-effort uptime, no response target, no outage credit.</td></tr>
+          <tr data-tier="pro"><td>Pro</td><td>Email support, 48h response.</td></tr>
+          <tr data-tier="enterprise"><td>Enterprise</td><td>Email and chat support, 4h response.</td></tr>
+          <tr data-tier="mssp"><td>MSSP</td><td>Dedicated CSM, 1h response.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <footer class="sp-foot">Response times are those in the commercial contract for your plan. This page shows no ticket history: there is no ticketing system, so none is invented.</footer>
+</main>
+<script>
+(function () {
+  'use strict';
+  function led(state, label, note) {
+    var s = document.getElementById('sp-status');
+    var d = document.createElement('span'); d.className = 'ax-led'; d.setAttribute('data-state', state);
+    var t = document.createElement('span'); t.textContent = label;
+    s.replaceChildren(d, t);
+    if (note) document.getElementById('sp-status-note').textContent = note;
+  }
+  fetch('/api/watchdog/health', { headers: { Accept: 'application/json' }, cache: 'no-store' })
+    .then(function (r) { return r.json(); })
+    .then(function (h) {
+      var st = h && h.freshness_status;
+      if (st === 'FRESH') led('fresh', 'Intelligence fresh', 'Feed generated ' + (h.feed_generated_at || 'at an unknown time') + '.');
+      else if (typeof st === 'string') led('degraded', 'Intelligence ' + st.toLowerCase(), 'The feed is not fresh right now (last update ' + (h.feed_generated_at || 'unknown') + ').');
+      else led('unknown', 'Status unknown');
+    })
+    .catch(function () { led('offline', 'Status unavailable', 'The status check could not reach the platform. Include that in your email.'); });
+}());
+</script>
+</body>
+</html>

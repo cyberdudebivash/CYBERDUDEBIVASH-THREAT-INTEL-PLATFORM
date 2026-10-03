@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Redirecting to Customer Dashboard &mdash; CYBERDUDEBIVASH SENTINEL APEX</title>
+<!--
+  customer-portal.html was a static UI mockup: hardcoded demo API key
+  ("sk-apex-7f3a9b2c1d4e5f6a7b8c9d0e1f2a3b4c3f9a"), hardcoded usage/intel/
+  report arrays, and every nav click only fired a toast -- no fetch() and no
+  live backend anywhere in the file. A paying customer who followed
+  sentinel-onboarding.html's "Already a customer? Sign In" / "Launch
+  Customer Portal" links here saw someone else's demo data instead of their
+  own account, with no way to actually reach it.
+
+  api-key-manager.html is the real equivalent already live in production:
+  it authenticates with the customer's own API key or SSO JWT
+  (sessionStorage + Bearer header) and calls the real intel-gateway backend
+  (apiFetch() -> https://intel.cyberdudebivash.com) for keys, usage,
+  webhooks and reports.
+
+  Rather than rewrite this page's markup in place, it's replaced with a
+  redirect -- the same pattern already used for PAYMENT-GATEWAY.html --
+  so any bookmarked or externally-linked URL still lands somewhere real
+  instead of 404ing or showing fake data.
+-->
+<meta name="description" content="This page has moved. Continue to the real customer dashboard at /api-key-manager.html.">
+<meta name="robots" content="noindex, follow">
+<link rel="canonical" href="https://intel.cyberdudebivash.com/api-key-manager.html">
+<link rel="icon" type="image/x-icon" href="/favicon.ico">
+<meta http-equiv="refresh" content="0; url=/api-key-manager.html">
+<script>
+  var qs = window.location.search || '';
+  window.location.replace('/api-key-manager.html' + qs);
+</script>
+<style>
+  body { background:#050c18; color:#e2e8f0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; display:flex; align-items:center; justify-content:center; min-height:100vh; margin:0; text-align:center; }
+  a { color:#00ffc6; }
+</style>
+</head>
+<body>
+  <p>Redirecting to <a href="/api-key-manager.html">your customer dashboard</a>&hellip;</p>
+</body>
+</html>

@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SENTINEL APEX — Platform Hardening Center (P37)</title>
+<style>
+:root{
+  --bg:#080c14;--surface:#0d1117;--border:#21262d;--accent:#f97316;
+  --green:#22c55e;--yellow:#eab308;--red:#ef4444;--orange:#f97316;--blue:#0ea5e9;
+  --text:#e6edf3;--muted:#8b949e;--radius:8px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Inter',system-ui,sans-serif;font-size:14px;line-height:1.5;min-height:100vh}
+header{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:12px}
+header h1{font-size:15px;font-weight:700;letter-spacing:.5px}
+header .badge{background:#f9731620;color:var(--accent);border:1px solid var(--accent)40;border-radius:4px;padding:2px 8px;font-size:11px;font-weight:600}
+.main{padding:20px 24px;max-width:1400px;margin:0 auto}
+.stat-bar{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:12px;margin-bottom:20px}
+.stat-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px}
+.stat-card .label{font-size:10px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:6px}
+.stat-card .val{font-size:22px;font-weight:700}
+.stat-card .sub{font-size:11px;color:var(--muted);margin-top:2px}
+.tabs{display:flex;gap:2px;margin-bottom:16px;border-bottom:1px solid var(--border);padding-bottom:0;flex-wrap:wrap}
+.tab{padding:8px 16px;cursor:pointer;font-size:13px;color:var(--muted);border-bottom:2px solid transparent;margin-bottom:-1px;transition:all .15s}
+.tab.active{color:var(--text);border-color:var(--accent)}
+.tab:hover:not(.active){color:var(--text)}
+.panel{display:none}
+.panel.active{display:block}
+.section-title{font-size:11px;letter-spacing:1px;color:var(--muted);text-transform:uppercase;margin-bottom:12px}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px}
+.card h3{font-size:12px;color:var(--muted);letter-spacing:.5px;margin-bottom:10px;text-transform:uppercase}
+.tier{display:inline-block;padding:3px 10px;border-radius:4px;font-size:11px;font-weight:700;letter-spacing:.5px}
+.tier.green{background:#22c55e20;color:var(--green);border:1px solid #22c55e40}
+.tier.amber{background:#eab30820;color:var(--yellow);border:1px solid #eab30840}
+.tier.red{background:#ef444420;color:var(--red);border:1px solid #ef444440}
+.tier.blue{background:#0ea5e920;color:var(--blue);border:1px solid #0ea5e940}
+.kpi-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px}
+.kpi-item{background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:12px}
+.kpi-item .kv{font-size:11px;color:var(--muted)}
+.kpi-item .kval{font-size:18px;font-weight:700;margin-top:2px}
+.rec-list{display:flex;flex-direction:column;gap:8px;max-height:460px;overflow-y:auto}
+.rec{padding:10px 12px;border-radius:6px;border-left:3px solid var(--border);background:var(--bg)}
+.rec.WARNING_DEFECT{border-color:var(--yellow)}
+.rec.BLOCKER_DEFECT{border-color:var(--red)}
+.rec .rtag{font-size:10px;font-weight:700;letter-spacing:.5px;margin-bottom:4px}
+.rec .rtext{font-size:12px;color:var(--muted)}
+.err{color:var(--red);font-size:12px;padding:12px}
+.loading{color:var(--muted);font-size:12px;padding:12px;text-align:center}
+.progress-bar{height:6px;background:var(--border);border-radius:3px;overflow:hidden;margin-top:6px}
+.progress-fill{height:100%;border-radius:3px;transition:width .5s}
+</style>
+</head>
+<body>
+<header>
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+  <h1>SENTINEL APEX — Platform Hardening Center</h1>
+  <span class="badge">P37.0</span>
+</header>
+
+<div class="main" id="mainApp">
+  <div class="stat-bar" id="statBar">
+    <div class="stat-card"><div class="label">Health</div><div class="val" id="sHealth">—</div></div>
+    <div class="stat-card"><div class="label">IQ Score</div><div class="val" id="sIQ">—</div><div class="sub" id="sIQTier"></div></div>
+    <div class="stat-card"><div class="label">Enrichment</div><div class="val" id="sEnrich">—</div><div class="sub" id="sEnrichTier"></div></div>
+    <div class="stat-card"><div class="label">Detection Tier</div><div class="val" id="sDet" style="font-size:15px">—</div></div>
+    <div class="stat-card"><div class="label">Reliability</div><div class="val" id="sRel" style="font-size:15px">—</div></div>
+    <div class="stat-card"><div class="label">Known Defects</div><div class="val" id="sDefects">—</div></div>
+    <div class="stat-card"><div class="label">Feed Items</div><div class="val" id="sItems">—</div></div>
+  </div>
+
+  <div class="tabs">
+    <div class="tab active" onclick="switchTab('dashboard')">Dashboard</div>
+    <div class="tab" onclick="switchTab('enrichment')">Enrichment</div>
+    <div class="tab" onclick="switchTab('diversity')">Source Diversity</div>
+    <div class="tab" onclick="switchTab('detection')">Detection Quality</div>
+    <div class="tab" onclick="switchTab('reliability')">Reliability</div>
+    <div class="tab" onclick="switchTab('debt')">Technical Debt</div>
+    <div class="tab" onclick="switchTab('iq')">IQ Score</div>
+    <div class="tab" onclick="switchTab('certification')">Certification</div>
+  </div>
+
+  <div class="panel active" id="panel-dashboard"></div>
+  <div class="panel" id="panel-enrichment"></div>
+  <div class="panel" id="panel-diversity"></div>
+  <div class="panel" id="panel-detection"></div>
+  <div class="panel" id="panel-reliability"></div>
+  <div class="panel" id="panel-debt"></div>
+  <div class="panel" id="panel-iq"></div>
+  <div class="panel" id="panel-certification"></div>
+</div>
+
+<script>
+const API = location.origin;
+const loaded = {};
+const TABS = ['dashboard','enrichment','diversity','detection','reliability','debt','iq','certification'];
+
+async function fetchJSON(path) {
+  const r = await fetch(API + path);
+  return r.json();
+}
+
+async function loadStatBar() {
+  try {
+    const [obs, dash] = await Promise.all([fetchJSON('/api/v1/p37/observability'), fetchJSON('/api/v1/p37/dashboard')]);
+    const color = h => h === 'GREEN' ? 'var(--green)' : h === 'AMBER' ? 'var(--yellow)' : 'var(--red)';
+    document.getElementById('sHealth').style.color = color(obs.health);
+    document.getElementById('sHealth').textContent = obs.health || '—';
+    document.getElementById('sIQ').textContent = dash.iq_score ?? '—';
+    document.getElementById('sIQTier').textContent = dash.iq_tier ?? '';
+    document.getElementById('sEnrich').textContent = (dash.enrichment?.score ?? '—') + (typeof dash.enrichment?.score === 'number' ? '%' : '');
+    document.getElementById('sEnrichTier').textContent = dash.enrichment?.tier ?? '';
+    document.getElementById('sDet').textContent = dash.detection?.tier ?? '—';
+    document.getElementById('sRel').textContent = dash.reliability?.tier ?? '—';
+    const debt = await fetchJSON('/api/v1/p37/debt');
+    document.getElementById('sDefects').textContent = debt.total_items ?? '—';
+    document.getElementById('sItems').textContent = obs.metrics?.feed_item_count ?? '—';
+  } catch(e) {}
+}
+
+function switchTab(name) {
+  document.querySelectorAll('.tab').forEach((t,i)=>{t.classList.toggle('active',TABS[i]===name)});
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+  document.getElementById('panel-' + name).classList.add('active');
+  if (!loaded[name]) loadPanel(name);
+}
+
+function tierClass(t) {
+  if (!t) return 'blue';
+  t = String(t).toUpperCase();
+  if (t.includes('WORLD_CLASS') || t.includes('ENTERPRISE_READY') || t.includes('HEALTHY') || t.includes('GREEN') || t.includes('EXCELLENT') || t.includes('GOOD') || t.includes('MATURE') || t.includes('TRUE')) return 'green';
+  if (t.includes('DEVELOPING') || t.includes('CONCENTRATION_RISK') || t.includes('CRITICAL') || t.includes('MISCALIBRATED') || t.includes('FALSE')) return 'red';
+  if (t.includes('BASIC') || t.includes('AMBER') || t.includes('NEEDS_ATTENTION') || t.includes('COVERAGE_GAP') || t.includes('UNDER_CALIBRATED')) return 'amber';
+  return 'blue';
+}
+
+function kpiBlock(label, val, sub) {
+  return `<div class="kpi-item"><div class="kv">${label}</div><div class="kval">${val}</div>${sub ? `<div style="font-size:10px;color:var(--muted)">${sub}</div>` : ''}</div>`;
+}
+
+async function loadPanel(name) {
+  loaded[name] = true;
+  const el = document.getElementById('panel-' + name);
+  el.innerHTML = '<div class="loading">Loading…</div>';
+  try {
+    if (name === 'dashboard') await renderDashboard(el);
+    else if (name === 'enrichment') await renderEnrichment(el);
+    else if (name === 'diversity') await renderDiversity(el);
+    else if (name === 'detection') await renderDetection(el);
+    else if (name === 'reliability') await renderReliability(el);
+    else if (name === 'debt') await renderDebt(el);
+    else if (name === 'iq') await renderIQ(el);
+    else if (name === 'certification') await renderCertification(el);
+  } catch(e) { el.innerHTML = `<div class="err">Load error: ${e.message}</div>`; }
+}
+
+async function renderDashboard(el) {
+  const d = await fetchJSON('/api/v1/p37/dashboard');
+  el.innerHTML = `
+<div class="grid-2" style="margin-bottom:16px">
+  <div class="card">
+    <h3>Intelligence Quality Score</h3>
+    <div style="font-size:48px;font-weight:800;color:var(--accent)">${d.iq_score||'—'}</div>
+    <div style="font-size:14px;color:var(--muted)">Grade: ${d.iq_grade||'—'}</div>
+    <div style="margin-top:8px"><span class="tier ${tierClass(d.iq_tier)}">${d.iq_tier||'—'}</span></div>
+  </div>
+  <div class="card">
+    <h3>Certification Chain</h3>
+    ${Object.entries(d.cert_chain||{}).map(([k,v])=>`
+    <div style="display:flex;justify-content:space-between;margin-bottom:6px;font-size:12px">
+      <span style="color:var(--muted);text-transform:uppercase">${k}</span>
+      <span class="tier ${tierClass(v)}">${v}</span>
+    </div>`).join('')}
+    <div style="font-size:11px;color:var(--muted);margin-top:8px">Engines: ${(d.engines_reused||[]).join(', ')}</div>
+  </div>
+</div>
+<div class="section-title">Hardening Dimensions</div>
+<div class="kpi-grid">
+  ${kpiBlock('Enrichment', (d.enrichment?.score ?? '—') + '%', d.enrichment?.tier)}
+  ${kpiBlock('Confidence', (d.confidence?.avg ?? '—'), d.confidence?.tier)}
+  ${kpiBlock('Evidence Coverage', (d.evidence?.coverage_pct ?? '—') + '%', d.evidence?.tier)}
+  ${kpiBlock('Source Diversity', d.diversity?.sources ?? '—', d.diversity?.status)}
+  ${kpiBlock('Detection Sigma-Ready', (d.detection?.sigma_pct ?? '—') + '%', d.detection?.tier)}
+  ${kpiBlock('Reliability Score', d.reliability?.score ?? '—', d.reliability?.tier)}
+  ${kpiBlock('Engineering Debt', d.debt?.health ?? '—', `${d.debt?.items ?? 0} items · ${d.debt?.tier ?? ''}`)}
+</div>`;
+}
+
+async function renderEnrichment(el) {
+  const d = await fetchJSON('/api/v1/p37/enrichment');
+  const c = d.coverage || {};
+  el.innerHTML = `
+<div class="grid-2" style="margin-bottom:16px">
+  <div class="card">
+    <h3>Enrichment Excellence</h3>
+    <div style="font-size:32px;font-weight:700;color:var(--accent)">${d.enrichment_score ?? '—'}</div>
+    <div style="margin-top:4px"><span class="tier ${tierClass(d.enrichment_tier)}">${d.enrichment_tier||'—'}</span></div>
+    <div style="font-size:11px;color:var(--muted);margin-top:8px">Feed items: ${d.feed_item_count??'—'}</div>
+  </div>
+  <div class="card">
+    <h3>Pipeline Status</h3>
+    ${Object.entries(d.pipeline_status||{}).map(([k,v])=>`
+    <div style="display:flex;justify-content:space-between;margin-bottom:6px;font-size:12px">
+      <span style="color:var(--muted);text-transform:uppercase">${k.replace(/_/g,' ')}</span>
+      <span class="tier ${v==='ACTIVE'?'green':'amber'}">${v}</span>
+    </div>`).join('')}
+  </div>
+</div>
+<div class="section-title">Field Coverage</div>
+<div class="kpi-grid">${Object.entries(c).map(([k,v])=>kpiBlock(k.replace(/_pct$/,'').replace(/_/g,' '), v+'%')).join('')}</div>
+${d.known_defects?.length ? `<div class="section-title" style="margin-top:16px">Known Defects</div><div class="rec-list">${d.known_defects.map(x=>`<div class="rec ${x.severity}"><div class="rtag">${x.defect_id} · ${x.layer}.${x.gate}</div><div class="rtext">${x.description}</div></div>`).join('')}</div>` : ''}`;
+}
+
+async function renderDiversity(el) {
+  const d = await fetchJSON('/api/v1/p37/source-diversity');
+  el.innerHTML = `
+<div class="grid-2" style="margin-bottom:16px">
+  <div class="card">
+    <h3>Source Diversity</h3>
+    <div style="font-size:20px;font-weight:700"><span class="tier ${tierClass(d.status)}">${d.status||'—'}</span></div>
+    <div style="font-size:12px;color:var(--muted);margin-top:8px">Feed type: ${d.feed_type||'—'} · Distinct sources: ${d.distinct_sources??'—'}</div>
+    <div style="font-size:11px;color:var(--muted);margin-top:4px">${d.assessment||''}</div>
+  </div>
+  <div class="card">
+    <h3>Top Sources</h3>
+    <div style="max-height:220px;overflow-y:auto">
+    ${(d.top_sources||[]).map(s=>`
+    <div style="margin-bottom:7px">
+      <div style="display:flex;justify-content:space-between;font-size:11px"><span style="color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:200px">${s.source}</span><span>${s.pct}%</span></div>
+      <div class="progress-bar"><div class="progress-fill" style="width:${s.pct}%;background:var(--accent)"></div></div>
+    </div>`).join('')}
+    </div>
+  </div>
+</div>
+<div class="kpi-grid">
+  ${kpiBlock('Top Source', d.top_source ?? '—', `${d.top_count ?? 0} items`)}
+  ${kpiBlock('Dominance', (d.dominance_pct ?? '—') + '%', `threshold ${d.dominance_threshold ?? '—'}%`)}
+  ${kpiBlock('Diversity Floor', d.diversity_floor ?? '—')}
+</div>`;
+}
+
+async function renderDetection(el) {
+  const d = await fetchJSON('/api/v1/p37/detection');
+  el.innerHTML = `
+<div class="card" style="margin-bottom:16px">
+  <h3>Detection Quality</h3>
+  <div style="margin-top:4px"><span class="tier ${tierClass(d.detection_tier)}">${d.detection_tier||'—'}</span></div>
+  <div style="font-size:12px;color:var(--muted);margin-top:8px">Feed items: ${d.feed_item_count??'—'}</div>
+</div>
+<div class="kpi-grid">
+  ${kpiBlock('Sigma-Ready', d.sigma_ready_items ?? 0, d.sigma_pct + '%')}
+  ${kpiBlock('Hunt-Ready', d.hunt_ready_items ?? 0, d.hunt_pct + '%')}
+  ${kpiBlock('KQL-Ready', d.kql_ready_items ?? 0, d.kql_pct + '%')}
+  ${kpiBlock('YARA-Ready', d.yara_ready_items ?? 0, d.yara_pct + '%')}
+  ${kpiBlock('MITRE Mapped', d.mitre_mapped_items ?? 0, d.mitre_pct + '%')}
+  ${kpiBlock('Enriched', d.enriched_items ?? 0, d.enriched_pct + '%')}
+</div>`;
+}
+
+async function renderReliability(el) {
+  const d = await fetchJSON('/api/v1/p37/reliability');
+  el.innerHTML = `
+<div class="grid-2" style="margin-bottom:16px">
+  <div class="card">
+    <h3>Platform Reliability</h3>
+    <div style="font-size:32px;font-weight:700;color:var(--accent)">${d.reliability_score ?? '—'}</div>
+    <div style="margin-top:4px"><span class="tier ${tierClass(d.reliability_tier)}">${d.reliability_tier||'—'}</span></div>
+    <div style="font-size:11px;color:var(--muted);margin-top:8px">Cert chain intact: <span class="tier ${d.cert_chain_intact?'green':'red'}">${d.cert_chain_intact}</span></div>
+  </div>
+  <div class="card">
+    <h3>Certification Chain Tiers</h3>
+    <div style="display:flex;justify-content:space-between;margin-bottom:6px;font-size:12px"><span style="color:var(--muted)">P36</span><span class="tier ${tierClass(d.p36_tier)}">${d.p36_tier}</span></div>
+    <div style="display:flex;justify-content:space-between;margin-bottom:6px;font-size:12px"><span style="color:var(--muted)">P35</span><span class="tier ${tierClass(d.p35_tier)}">${d.p35_tier}</span></div>
+    <div style="display:flex;justify-content:space-between;margin-bottom:6px;font-size:12px"><span style="color:var(--muted)">P34</span><span class="tier ${tierClass(d.p34_tier)}">${d.p34_tier}</span></div>
+    <div style="font-size:11px;color:var(--muted);margin-top:8px">Total blockers: ${d.total_cert_blockers ?? '—'}</div>
+  </div>
+</div>
+<div class="kpi-grid">
+  ${kpiBlock('Unique Items', d.unique_items ?? '—')}
+  ${kpiBlock('Duplicates', d.duplicate_count ?? 0)}
+  ${kpiBlock('Fresh (48h)', d.fresh_48h_count ?? 0, d.fresh_48h_pct + '%')}
+</div>`;
+}
+
+async function renderDebt(el) {
+  const d = await fetchJSON('/api/v1/p37/debt');
+  el.innerHTML = `
+<div class="card" style="margin-bottom:16px">
+  <h3>Engineering Excellence / Technical Debt</h3>
+  <div style="font-size:32px;font-weight:700;color:var(--accent)">${d.engineering_health_score ?? '—'}</div>
+  <div style="margin-top:4px"><span class="tier ${tierClass(d.debt_tier)}">${d.debt_tier||'—'}</span></div>
+  <div style="font-size:12px;color:var(--muted);margin-top:8px">${d.total_items} item(s) · ${d.critical_count} critical · ${d.warning_count} warning</div>
+</div>
+<div class="section-title">Debt Items</div>
+<div class="rec-list">
+  ${(d.items||[]).map(x=>`
+  <div class="rec ${x.severity}">
+    <div class="rtag">${x.id} · ${x.layer} · ${x.type}</div>
+    <div class="rtext">${x.description}</div>
+    <div class="rtext" style="margin-top:4px"><strong>Remediation:</strong> ${x.remediation}</div>
+  </div>`).join('')||'<div class="loading">No technical debt recorded</div>'}
+</div>`;
+}
+
+async function renderIQ(el) {
+  const d = await fetchJSON('/api/v1/p37/iq-score');
+  const dims = d.dimensions || {};
+  el.innerHTML = `
+<div class="card" style="margin-bottom:16px">
+  <h3>Intelligence Quality Score</h3>
+  <div style="font-size:48px;font-weight:800;color:var(--accent)">${d.iq_score||'—'}</div>
+  <div style="font-size:14px;color:var(--muted)">Grade: ${d.grade||'—'} · Feed items: ${d.feed_item_count??'—'}</div>
+  <div style="margin-top:8px"><span class="tier ${tierClass(d.iq_tier)}">${d.iq_tier||'—'}</span></div>
+</div>
+<div class="section-title">Weighted Dimensions</div>
+<div class="kpi-grid">
+  ${Object.entries(dims).map(([k,v])=>kpiBlock(k.replace(/_/g,' '), v.score, `weight ${Math.round(v.weight*100)}%`)).join('')}
+</div>
+<div style="font-size:11px;color:var(--muted);margin-top:12px">Engines reused: ${(d.engines_reused||[]).join(', ')}</div>`;
+}
+
+async function renderCertification(el) {
+  const [cert, audit] = await Promise.all([fetchJSON('/api/v1/p37/certification'), fetchJSON('/api/v1/p37/feed-audit')]);
+  const pc = cert.p37_cert || {};
+  el.innerHTML = `
+<div class="grid-2" style="margin-bottom:16px">
+  <div class="card">
+    <h3>P37 Certification</h3>
+    <div style="margin-top:4px"><span class="tier ${tierClass(pc.status || pc.release_tier)}">${pc.status || pc.release_tier || 'REPORT_PENDING'}</span></div>
+    <div style="font-size:11px;color:var(--muted);margin-top:8px">${pc.note || ''}</div>
+    <div style="font-size:11px;color:var(--muted);margin-top:8px">P36 tier: <span class="tier ${tierClass(cert.p36_tier)}">${cert.p36_tier||'—'}</span></div>
+  </div>
+  <div class="card">
+    <h3>Certification Chain</h3>
+    <div style="font-size:12px;color:var(--muted)">${cert.cert_chain||'—'}</div>
+  </div>
+</div>
+<div class="card">
+  <h3>Feed Classification</h3>
+  <div style="font-size:20px;font-weight:700;color:var(--accent)">${audit.feed_classification||'—'}</div>
+  <div style="font-size:12px;color:var(--muted);margin-top:8px">${audit.feed_item_count ?? '—'} feed items in the live production feed gated by P37</div>
+  <div style="font-size:11px;color:var(--muted);margin-top:10px">${audit.p37_note||''}</div>
+</div>`;
+}
+
+loadStatBar();
+loadPanel('dashboard');
+</script>
+</body>
+</html>

@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SENTINEL APEX — Platform Governance Center (P38)</title>
+<style>
+:root{
+  --bg:#080c14;--surface:#0d1117;--border:#21262d;--accent:#22c55e;
+  --green:#22c55e;--yellow:#eab308;--red:#ef4444;--orange:#f97316;--blue:#0ea5e9;
+  --text:#e6edf3;--muted:#8b949e;--radius:8px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Inter',system-ui,sans-serif;font-size:14px;line-height:1.5;min-height:100vh}
+header{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:12px}
+header h1{font-size:15px;font-weight:700;letter-spacing:.5px}
+header .badge{background:#22c55e20;color:var(--accent);border:1px solid var(--accent)40;border-radius:4px;padding:2px 8px;font-size:11px;font-weight:600}
+.main{padding:20px 24px;max-width:1400px;margin:0 auto}
+.stat-bar{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:12px;margin-bottom:20px}
+.stat-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px}
+.stat-card .label{font-size:10px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:6px}
+.stat-card .val{font-size:22px;font-weight:700}
+.stat-card .sub{font-size:11px;color:var(--muted);margin-top:2px}
+.tabs{display:flex;gap:2px;margin-bottom:16px;border-bottom:1px solid var(--border);padding-bottom:0;flex-wrap:wrap}
+.tab{padding:8px 16px;cursor:pointer;font-size:13px;color:var(--muted);border-bottom:2px solid transparent;margin-bottom:-1px;transition:all .15s}
+.tab.active{color:var(--text);border-color:var(--accent)}
+.tab:hover:not(.active){color:var(--text)}
+.panel{display:none}
+.panel.active{display:block}
+.section-title{font-size:11px;letter-spacing:1px;color:var(--muted);text-transform:uppercase;margin-bottom:12px}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px}
+.card h3{font-size:12px;color:var(--muted);letter-spacing:.5px;margin-bottom:10px;text-transform:uppercase}
+.tier{display:inline-block;padding:3px 10px;border-radius:4px;font-size:11px;font-weight:700;letter-spacing:.5px}
+.tier.green{background:#22c55e20;color:var(--green);border:1px solid #22c55e40}
+.tier.amber{background:#eab30820;color:var(--yellow);border:1px solid #eab30840}
+.tier.red{background:#ef444420;color:var(--red);border:1px solid #ef444440}
+.tier.blue{background:#0ea5e920;color:var(--blue);border:1px solid #0ea5e940}
+.kpi-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px}
+.kpi-item{background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:12px}
+.kpi-item .kv{font-size:11px;color:var(--muted)}
+.kpi-item .kval{font-size:18px;font-weight:700;margin-top:2px}
+.feed-list{display:flex;flex-direction:column;gap:6px;max-height:460px;overflow-y:auto}
+.feed-row{display:flex;align-items:flex-start;gap:10px;padding:8px 10px;border-radius:6px;background:var(--bg);border:1px solid var(--border)}
+.feed-row .fkey{font-size:11px;color:var(--muted);min-width:80px;font-weight:600}
+.feed-row .flabel{font-size:12px;flex:1}
+.feed-row .fmeta{font-size:10px;color:var(--muted);margin-top:2px}
+.err{color:var(--red);font-size:12px;padding:12px}
+.loading{color:var(--muted);font-size:12px;padding:12px;text-align:center}
+.pill{font-size:10px;font-weight:700;padding:2px 6px;border-radius:3px;background:var(--bg);border:1px solid var(--border);color:var(--muted)}
+</style>
+</head>
+<body>
+<header>
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+  <h1>SENTINEL APEX — Platform Governance Center</h1>
+  <span class="badge">P38.0</span>
+</header>
+
+<div class="main" id="mainApp">
+  <div class="stat-bar" id="statBar">
+    <div class="stat-card"><div class="label">Status</div><div class="val" id="sStatus">—</div></div>
+    <div class="stat-card"><div class="label">IQ Index</div><div class="val" id="sIQ">—</div><div class="sub" id="sIQTier"></div></div>
+    <div class="stat-card"><div class="label">Schema Fields</div><div class="val" id="sFields">—</div></div>
+    <div class="stat-card"><div class="label">Registered Feeds</div><div class="val" id="sFeeds">—</div></div>
+    <div class="stat-card"><div class="label">Schema Drift</div><div class="val" id="sDrift">—</div></div>
+    <div class="stat-card"><div class="label">Source Diversity</div><div class="val" id="sDiversity">—</div></div>
+    <div class="stat-card"><div class="label">Feed Items</div><div class="val" id="sItems">—</div></div>
+  </div>
+
+  <div class="tabs">
+    <div class="tab active" onclick="switchTab('executive')">Executive</div>
+    <div class="tab" onclick="switchTab('schema')">Schema Registry</div>
+    <div class="tab" onclick="switchTab('feeds')">Feed Governance</div>
+    <div class="tab" onclick="switchTab('drift')">Schema Drift</div>
+    <div class="tab" onclick="switchTab('enrichment')">Enrichment</div>
+    <div class="tab" onclick="switchTab('iq')">IQ Index</div>
+    <div class="tab" onclick="switchTab('diversity')">Source Diversity</div>
+    <div class="tab" onclick="switchTab('certification')">Certification &amp; Reliability</div>
+  </div>
+
+  <div class="panel active" id="panel-executive"></div>
+  <div class="panel" id="panel-schema"></div>
+  <div class="panel" id="panel-feeds"></div>
+  <div class="panel" id="panel-drift"></div>
+  <div class="panel" id="panel-enrichment"></div>
+  <div class="panel" id="panel-iq"></div>
+  <div class="panel" id="panel-diversity"></div>
+  <div class="panel" id="panel-certification"></div>
+</div>
+
+<script>
+const API = location.origin;
+const loaded = {};
+const TABS = ['executive','schema','feeds','drift','enrichment','iq','diversity','certification'];
+
+async function fetchJSON(path) {
+  const r = await fetch(API + path);
+  return r.json();
+}
+
+async function loadStatBar() {
+  try {
+    const [obs, exec, schema, feeds] = await Promise.all([
+      fetchJSON('/api/v1/p38/observability'),
+      fetchJSON('/api/v1/p38/executive'),
+      fetchJSON('/api/v1/p38/schema-registry'),
+      fetchJSON('/api/v1/p38/feed-governance'),
+    ]);
+    document.getElementById('sStatus').style.color = obs.status === 'OPERATIONAL' ? 'var(--green)' : 'var(--red)';
+    document.getElementById('sStatus').textContent = obs.status || '—';
+    const ph = exec.platform_health || {};
+    document.getElementById('sIQ').textContent = ph.iq_index ?? '—';
+    document.getElementById('sFields').textContent = schema.total_fields ?? '—';
+    document.getElementById('sFeeds').textContent = feeds.total_feeds ?? '—';
+    document.getElementById('sDrift').textContent = ph.schema_drift ?? '—';
+    document.getElementById('sDrift').style.color = (ph.schema_drift > 0) ? 'var(--yellow)' : 'var(--green)';
+    document.getElementById('sDiversity').textContent = ph.source_diversity ?? '—';
+    document.getElementById('sItems').textContent = ph.feed_items ?? '—';
+  } catch(e) {}
+}
+
+function switchTab(name) {
+  document.querySelectorAll('.tab').forEach((t,i)=>{t.classList.toggle('active',TABS[i]===name)});
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+  document.getElementById('panel-' + name).classList.add('active');
+  if (!loaded[name]) loadPanel(name);
+}
+
+function tierClass(t) {
+  if (typeof t === 'boolean') return t ? 'green' : 'red';
+  if (!t) return 'blue';
+  t = String(t).toUpperCase();
+  if (t.includes('WORLD_CLASS') || t.includes('ENTERPRISE_READY') || t.includes('CLEAN') || t.includes('HEALTHY') || t.includes('ACTIVE') || t.includes('REGISTERED') || t.includes('OPERATIONAL')) return 'green';
+  if (t.includes('DRIFT_DETECTED') || t.includes('NEEDS_ATTENTION') || t.includes('BASELINE')) return 'red';
+  if (t.includes('COMMERCIAL') || t.includes('DEVELOPING')) return 'amber';
+  return 'blue';
+}
+
+function kpiBlock(label, val, sub) {
+  return `<div class="kpi-item"><div class="kv">${label}</div><div class="kval">${val}</div>${sub ? `<div style="font-size:10px;color:var(--muted)">${sub}</div>` : ''}</div>`;
+}
+
+async function loadPanel(name) {
+  loaded[name] = true;
+  const el = document.getElementById('panel-' + name);
+  el.innerHTML = '<div class="loading">Loading…</div>';
+  try {
+    if (name === 'executive') await renderExecutive(el);
+    else if (name === 'schema') await renderSchema(el);
+    else if (name === 'feeds') await renderFeeds(el);
+    else if (name === 'drift') await renderDrift(el);
+    else if (name === 'enrichment') await renderEnrichment(el);
+    else if (name === 'iq') await renderIQ(el);
+    else if (name === 'diversity') await renderDiversity(el);
+    else if (name === 'certification') await renderCertification(el);
+  } catch(e) { el.innerHTML = `<div class="err">Load error: ${e.message}</div>`; }
+}
+
+async function renderExecutive(el) {
+  const d = await fetchJSON('/api/v1/p38/executive');
+  const ph = d.platform_health || {};
+  const cr = d.commercial_readiness || {};
+  const gl = d.governance_layers || {};
+  el.innerHTML = `
+<div class="grid-2" style="margin-bottom:16px">
+  <div class="card">
+    <h3>Platform Health</h3>
+    <div style="font-size:32px;font-weight:700;color:var(--accent)">${ph.iq_index ?? '—'}</div>
+    <div style="font-size:12px;color:var(--muted);margin-top:4px">IQ Index · ${ph.feed_items ?? 0} feed items</div>
+  </div>
+  <div class="card">
+    <h3>Commercial Readiness</h3>
+    ${Object.entries(cr).map(([k,v])=>`
+    <div style="display:flex;justify-content:space-between;margin-bottom:6px;font-size:12px">
+      <span style="color:var(--muted)">${k.replace(/_/g,' ')}</span>
+      <span class="tier ${tierClass(v)}">${v}</span>
+    </div>`).join('')}
+  </div>
+</div>
+<div class="section-title">Platform Health Metrics</div>
+<div class="kpi-grid">
+  ${kpiBlock('Enrichment (CVSS)', (ph.enrichment_cvss ?? '—') + '%')}
+  ${kpiBlock('Enrichment (Confidence)', (ph.enrichment_conf ?? '—') + '%')}
+  ${kpiBlock('Source Diversity', ph.source_diversity ?? '—', `top dominance ${ph.top_source_dom_pct ?? '—'}%`)}
+  ${kpiBlock('Dedup OK', ph.dedup_ok, '')}
+  ${kpiBlock('Freshness', (ph.freshness_pct ?? '—') + '%')}
+  ${kpiBlock('Schema Drift', ph.schema_drift ?? 0, `${ph.deprecated_fields ?? 0} deprecated`)}
+</div>
+<div class="section-title" style="margin-top:16px">Governance Layers</div>
+<div class="kpi-grid">
+  ${Object.entries(gl).map(([k,v])=>kpiBlock(k.replace(/_/g,' '), '', v)).join('')}
+</div>`;
+}
+
+async function renderSchema(el) {
+  const d = await fetchJSON('/api/v1/p38/schema-registry');
+  el.innerHTML = `
+<div class="grid-2" style="margin-bottom:16px">
+  <div class="card">
+    <h3>Schema Registry</h3>
+    <div style="font-size:32px;font-weight:700;color:var(--accent)">${d.total_fields ?? '—'}</div>
+    <div style="font-size:12px;color:var(--muted);margin-top:4px">Canonical fields tracked · ${d.deprecated_fields ?? 0} deprecated</div>
+    <div style="font-size:11px;color:var(--muted);margin-top:8px">Source: ${d.schema_source||'—'}</div>
+  </div>
+  <div class="card">
+    <h3>Schema Domains</h3>
+    <div style="display:flex;flex-wrap:wrap;gap:6px">
+      ${(d.domains||[]).map(dm=>`<span class="pill">${dm}</span>`).join('')}
+    </div>
+    <div style="font-size:11px;color:var(--muted);margin-top:12px">Single source of truth: ${d.governance?.single_source_of_truth||'—'}</div>
+  </div>
+</div>
+<div style="font-size:12px;color:var(--muted)">${d.note||''}</div>`;
+}
+
+async function renderFeeds(el) {
+  const d = await fetchJSON('/api/v1/p38/feed-governance');
+  el.innerHTML = `
+<div class="card" style="margin-bottom:16px">
+  <h3>Feed Governance</h3>
+  <div style="font-size:12px;color:var(--muted)">${d.total_feeds} registered feeds · ${d.commercial_feeds} commercial · ${d.enriched_feeds} enriched</div>
+</div>
+<div class="section-title">Feed Registry</div>
+<div class="feed-list">
+  ${(d.feeds||[]).map(f=>`
+  <div class="feed-row">
+    <div class="fkey">${f.key}</div>
+    <div style="flex:1">
+      <div class="flabel">${f.label}</div>
+      <div class="fmeta">${f.purpose} · type ${f.feed_type} · ~${f.items_expected} items ${f.commercial ? '· commercial' : ''} ${f.enrichment ? '· enriched' : ''}</div>
+    </div>
+    <span class="tier green">${f.governance_status}</span>
+  </div>`).join('')}
+</div>`;
+}
+
+async function renderDrift(el) {
+  const d = await fetchJSON('/api/v1/p38/schema-drift');
+  if (d.status === 'NO_FEED') {
+    el.innerHTML = `<div class="card"><h3>Schema Drift</h3><div class="loading">${d.message}</div></div>`;
+    return;
+  }
+  el.innerHTML = `
+<div class="card" style="margin-bottom:16px">
+  <h3>Schema Drift Detection</h3>
+  <div style="margin-top:4px"><span class="tier ${tierClass(d.drift_status)}">${d.drift_status||'—'}</span></div>
+  <div style="font-size:12px;color:var(--muted);margin-top:8px">${d.items_sampled} items sampled · ${d.drift_count} unknown fields · ${d.deprecated_count} deprecated fields in use</div>
+</div>
+<div class="grid-2">
+  <div class="card">
+    <h3>Unknown Fields</h3>
+    <div style="display:flex;flex-wrap:wrap;gap:6px">${(d.unknown_fields||[]).map(f=>`<span class="pill">${f}</span>`).join('')||'<div class="loading">None</div>'}</div>
+  </div>
+  <div class="card">
+    <h3>Deprecated Fields In Use</h3>
+    <div style="display:flex;flex-wrap:wrap;gap:6px">${(d.deprecated_fields||[]).map(f=>`<span class="pill">${f}</span>`).join('')||'<div class="loading">None</div>'}</div>
+  </div>
+</div>
+<div style="font-size:12px;color:var(--muted);margin-top:12px"><strong>Remediation:</strong> ${d.remediation||'—'}</div>`;
+}
+
+async function renderEnrichment(el) {
+  const d = await fetchJSON('/api/v1/p38/enrichment-audit');
+  if (d.status === 'NO_FEED') {
+    el.innerHTML = `<div class="card"><h3>Enrichment Audit</h3><div class="loading">${d.message}</div></div>`;
+    return;
+  }
+  el.innerHTML = `
+<div class="card" style="margin-bottom:16px">
+  <h3>Enrichment Audit</h3>
+  <div style="font-size:12px;color:var(--muted)">Feed type: ${d.feed_type} · ${d.item_count} items</div>
+</div>
+<div class="grid-2" style="margin-bottom:16px">
+  <div class="card">
+    <h3>Coverage</h3>
+    <div class="kpi-grid">${Object.entries(d.enrichment||{}).map(([k,v])=>kpiBlock(k.replace(/_pct$/,'').replace(/_/g,' '), v+'%')).join('')}</div>
+  </div>
+  <div class="card">
+    <h3>Assessment</h3>
+    ${Object.entries(d.assessment||{}).map(([k,v])=>`
+    <div style="display:flex;justify-content:space-between;margin-bottom:6px;font-size:12px">
+      <span style="color:var(--muted)">${k.replace(/_/g,' ')}</span>
+      <span class="tier ${tierClass(v)}">${v}</span>
+    </div>`).join('')}
+  </div>
+</div>
+<div style="font-size:11px;color:var(--muted)">${d.governance_note||''}</div>`;
+}
+
+async function renderIQ(el) {
+  const d = await fetchJSON('/api/v1/p38/iq-index');
+  if (d.status === 'NO_FEED') {
+    el.innerHTML = `<div class="card"><h3>IQ Index</h3><div class="loading">No feed data available yet</div></div>`;
+    return;
+  }
+  el.innerHTML = `
+<div class="card" style="margin-bottom:16px">
+  <h3>Intelligence Quality Index</h3>
+  <div style="font-size:48px;font-weight:800;color:var(--accent)">${d.iq_index||'—'}</div>
+  <div style="margin-top:8px"><span class="tier ${tierClass(d.tier)}">${d.tier||'—'}</span></div>
+  <div style="font-size:12px;color:var(--muted);margin-top:8px">Target: ${d.target_iq} · Gap: ${d.gap}</div>
+</div>
+<div class="section-title">Dimensions</div>
+<div class="kpi-grid">${Object.entries(d.dimensions||{}).map(([k,v])=>kpiBlock(k.replace(/_/g,' '), v)).join('')}</div>
+<div style="font-size:11px;color:var(--muted);margin-top:12px">Engines used: ${(d.engines_used||[]).join(', ')}</div>`;
+}
+
+async function renderDiversity(el) {
+  const d = await fetchJSON('/api/v1/p38/source-diversity');
+  if (d.status === 'NO_FEED') {
+    el.innerHTML = `<div class="card"><h3>Source Diversity</h3><div class="loading">No feed data available yet</div></div>`;
+    return;
+  }
+  const div = d.diversity || {};
+  el.innerHTML = `
+<div class="grid-2" style="margin-bottom:16px">
+  <div class="card">
+    <h3>Source Diversity</h3>
+    <div style="margin-top:4px"><span class="tier ${tierClass(d.assessment?.overall)}">${d.assessment?.overall||'—'}</span></div>
+    <div style="font-size:12px;color:var(--muted);margin-top:8px">Feed type: ${d.feed_type} · ${d.item_count} items · ${div.distinct} distinct sources</div>
+  </div>
+  <div class="card">
+    <h3>Top Sources</h3>
+    ${Object.entries(div.sources||{}).map(([s,c])=>`<div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:4px"><span style="color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:220px">${s}</span><span>${c}</span></div>`).join('')}
+  </div>
+</div>
+<div class="kpi-grid">
+  ${kpiBlock('Top Source', div.top_source ?? '—', (div.top_dominance_pct ?? '—') + '%')}
+  ${kpiBlock('Max Dominance Threshold', (d.thresholds?.max_dominance_pct ?? '—') + '%')}
+  ${kpiBlock('Min Distinct Sources', d.thresholds?.min_distinct_sources ?? '—')}
+</div>
+<div style="font-size:11px;color:var(--muted);margin-top:12px">${d.governance_note||''}</div>`;
+}
+
+async function renderCertification(el) {
+  const [cert, conf, rel, metrics] = await Promise.all([
+    fetchJSON('/api/v1/p38/certification'),
+    fetchJSON('/api/v1/p38/confidence-audit'),
+    fetchJSON('/api/v1/p38/reliability'),
+    fetchJSON('/api/v1/p38/metrics'),
+  ]);
+  const gs = metrics.governance_surface || {};
+  el.innerHTML = `
+<div class="grid-2" style="margin-bottom:16px">
+  <div class="card">
+    <h3>P38 Certification Chain</h3>
+    <div style="font-size:12px;color:var(--muted)">${(cert.chain||[]).join(' · ')}</div>
+    <div style="font-size:11px;color:var(--muted);margin-top:8px">Source: ${cert.certification_source||'—'}</div>
+    <div style="font-size:11px;color:var(--muted);margin-top:6px">${cert.governance_note||''}</div>
+  </div>
+  <div class="card">
+    <h3>Confidence Calibration Audit</h3>
+    <div style="font-size:28px;font-weight:700;color:var(--accent)">${conf.p25_avg_trust_score ?? '—'}</div>
+    <div style="font-size:11px;color:var(--muted);margin-top:4px">Sample: ${conf.sample_size ?? '—'} items · ${conf.confidence_declared_pct ?? '—'}% declare confidence</div>
+    <div style="font-size:11px;color:var(--muted);margin-top:6px">${conf.governance_note||''}</div>
+  </div>
+</div>
+<div class="section-title">Reliability</div>
+<div class="kpi-grid" style="margin-bottom:16px">
+  ${kpiBlock('Total Items', rel.total_items ?? '—')}
+  ${kpiBlock('Dedup OK', String(rel.dedup_ok ?? '—'))}
+  ${kpiBlock('Freshness', (rel.freshness_pct ?? '—') + '%')}
+  ${kpiBlock('Risk Ceiling Violations', rel.ceiling_violations ?? '—')}
+</div>
+<div class="section-title">Governance Surface (Platform Inventory)</div>
+<div class="kpi-grid">
+  ${kpiBlock('Schema Fields', gs.schema_fields ?? '—')}
+  ${kpiBlock('Deprecated Fields', gs.deprecated_fields ?? '—')}
+  ${kpiBlock('Feed Variants', gs.feed_variants ?? '—')}
+  ${kpiBlock('P-Layers', gs.p_layers ?? '—')}
+  ${kpiBlock('API Routes', gs.api_routes ?? '—')}
+</div>`;
+}
+
+loadStatBar();
+loadPanel('executive');
+</script>
+</body>
+</html>

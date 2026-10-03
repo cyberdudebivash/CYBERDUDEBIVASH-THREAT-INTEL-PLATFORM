@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SENTINEL APEX — Global Intelligence Source Fabric (P40)</title>
+<style>
+:root{
+  --bg:#080c14;--surface:#0d1117;--border:#21262d;--accent:#14b8a6;
+  --green:#22c55e;--yellow:#eab308;--red:#ef4444;--orange:#f97316;--blue:#0ea5e9;
+  --text:#e6edf3;--muted:#8b949e;--radius:8px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Inter',system-ui,sans-serif;font-size:14px;line-height:1.5;min-height:100vh}
+header{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:12px}
+header h1{font-size:15px;font-weight:700;letter-spacing:.5px}
+header .badge{background:#14b8a620;color:var(--accent);border:1px solid var(--accent)40;border-radius:4px;padding:2px 8px;font-size:11px;font-weight:600}
+.main{padding:20px 24px;max-width:1400px;margin:0 auto}
+.stat-bar{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:12px;margin-bottom:20px}
+.stat-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px}
+.stat-card .label{font-size:10px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:6px}
+.stat-card .val{font-size:22px;font-weight:700}
+.stat-card .sub{font-size:11px;color:var(--muted);margin-top:2px}
+.tabs{display:flex;gap:2px;margin-bottom:16px;border-bottom:1px solid var(--border);padding-bottom:0;flex-wrap:wrap}
+.tab{padding:8px 16px;cursor:pointer;font-size:13px;color:var(--muted);border-bottom:2px solid transparent;margin-bottom:-1px;transition:all .15s}
+.tab.active{color:var(--text);border-color:var(--accent)}
+.tab:hover:not(.active){color:var(--text)}
+.panel{display:none}
+.panel.active{display:block}
+.section-title{font-size:11px;letter-spacing:1px;color:var(--muted);text-transform:uppercase;margin-bottom:12px}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px}
+.card h3{font-size:12px;color:var(--muted);letter-spacing:.5px;margin-bottom:10px;text-transform:uppercase}
+.tier{display:inline-block;padding:3px 10px;border-radius:4px;font-size:11px;font-weight:700;letter-spacing:.5px}
+.tier.green{background:#22c55e20;color:var(--green);border:1px solid #22c55e40}
+.tier.amber{background:#eab30820;color:var(--yellow);border:1px solid #eab30840}
+.tier.red{background:#ef444420;color:var(--red);border:1px solid #ef444440}
+.tier.blue{background:#0ea5e920;color:var(--blue);border:1px solid #0ea5e940}
+.kpi-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px}
+.kpi-item{background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:12px}
+.kpi-item .kv{font-size:11px;color:var(--muted)}
+.kpi-item .kval{font-size:18px;font-weight:700;margin-top:2px}
+.rec-list{display:flex;flex-direction:column;gap:8px;max-height:460px;overflow-y:auto}
+.rec{padding:10px 12px;border-radius:6px;border-left:3px solid var(--border);background:var(--bg)}
+.rec.BLOCKER{border-color:var(--red)}
+.rec.WARNING{border-color:var(--yellow)}
+.rec .rtag{font-size:10px;font-weight:700;letter-spacing:.5px;margin-bottom:4px}
+.rec .rtext{font-size:12px;color:var(--muted)}
+.err{color:var(--red);font-size:12px;padding:12px}
+.loading{color:var(--muted);font-size:12px;padding:12px;text-align:center}
+.progress-bar{height:6px;background:var(--border);border-radius:3px;overflow:hidden;margin-top:6px}
+.progress-fill{height:100%;border-radius:3px;transition:width .5s}
+table{width:100%;border-collapse:collapse;font-size:12px}
+th{text-align:left;color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.5px;padding:8px 10px;border-bottom:1px solid var(--border)}
+td{padding:8px 10px;border-bottom:1px solid var(--border)}
+tr:last-child td{border-bottom:none}
+.table-wrap{max-height:520px;overflow-y:auto;overflow-x:auto}
+.filters{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap}
+.filters select{background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:6px 10px;font-size:12px}
+</style>
+</head>
+<body>
+<header>
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2"><circle cx="12" cy="12" r="3"/><circle cx="5" cy="5" r="2"/><circle cx="19" cy="5" r="2"/><circle cx="5" cy="19" r="2"/><circle cx="19" cy="19" r="2"/><path d="M7 6.5 10 10M14 10l3-3.5M7 17.5 10 14M14 14l3 3.5"/></svg>
+  <h1>SENTINEL APEX — Global Intelligence Source Fabric</h1>
+  <span class="badge">P40.0</span>
+</header>
+
+<div class="main" id="mainApp">
+  <div class="stat-bar" id="statBar">
+    <div class="stat-card"><div class="label">Total Sources</div><div class="val" id="sTotal">—</div></div>
+    <div class="stat-card"><div class="label">Active</div><div class="val" id="sActive">—</div></div>
+    <div class="stat-card"><div class="label">Healthy</div><div class="val" id="sHealthy">—</div></div>
+    <div class="stat-card"><div class="label">Coverage Score</div><div class="val" id="sCoverage">—</div></div>
+    <div class="stat-card"><div class="label">Cert Tier</div><div class="val" id="sCertTier" style="font-size:15px">—</div><div class="sub" id="sCertFresh"></div></div>
+    <div class="stat-card"><div class="label">Blockers</div><div class="val" id="sBlockers">—</div></div>
+  </div>
+
+  <div class="tabs">
+    <div class="tab active" onclick="switchTab('dashboard')">Dashboard</div>
+    <div class="tab" onclick="switchTab('registry')">Source Registry</div>
+    <div class="tab" onclick="switchTab('health')">Health</div>
+    <div class="tab" onclick="switchTab('coverage')">Coverage</div>
+    <div class="tab" onclick="switchTab('licensing')">Licensing</div>
+    <div class="tab" onclick="switchTab('waves')">Rollout Waves</div>
+    <div class="tab" onclick="switchTab('certification')">Certification</div>
+    <div class="tab" onclick="switchTab('metrics')">Fabric Metrics</div>
+  </div>
+
+  <div class="panel active" id="panel-dashboard"></div>
+  <div class="panel" id="panel-registry"></div>
+  <div class="panel" id="panel-health"></div>
+  <div class="panel" id="panel-coverage"></div>
+  <div class="panel" id="panel-licensing"></div>
+  <div class="panel" id="panel-waves"></div>
+  <div class="panel" id="panel-certification"></div>
+  <div class="panel" id="panel-metrics"></div>
+</div>
+
+<script>
+const API = location.origin;
+const loaded = {};
+const TABS = ['dashboard','registry','health','coverage','licensing','waves','certification','metrics'];
+
+async function fetchJSON(path) {
+  const r = await fetch(API + path);
+  return r.json();
+}
+
+async function loadStatBar() {
+  try {
+    const [dash, coverage, cert] = await Promise.all([
+      fetchJSON('/api/v1/p40/dashboard'),
+      fetchJSON('/api/v1/p40/coverage'),
+      fetchJSON('/api/v1/p40/certification'),
+    ]);
+    document.getElementById('sTotal').textContent = dash.total_sources ?? '—';
+    document.getElementById('sActive').textContent = dash.status_breakdown?.ACTIVE ?? '—';
+    document.getElementById('sHealthy').textContent = dash.health?.health_breakdown?.HEALTHY ?? '—';
+    document.getElementById('sCoverage').textContent = coverage.score != null ? coverage.score : '—';
+    const tierEl = document.getElementById('sCertTier');
+    tierEl.textContent = cert.release_tier ?? cert.status ?? '—';
+    tierEl.style.color = tierClassColor(cert.release_tier ?? cert.status);
+    document.getElementById('sCertFresh').textContent = cert.freshness ? cert.freshness : '';
+    document.getElementById('sBlockers').textContent = cert.blocker_count ?? '—';
+  } catch(e) {}
+}
+
+function tierClassColor(t) {
+  const c = tierClass(t);
+  return c === 'green' ? 'var(--green)' : c === 'red' ? 'var(--red)' : c === 'amber' ? 'var(--yellow)' : 'var(--blue)';
+}
+
+function switchTab(name) {
+  document.querySelectorAll('.tab').forEach((t,i)=>{t.classList.toggle('active',TABS[i]===name)});
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+  document.getElementById('panel-' + name).classList.add('active');
+  if (!loaded[name]) loadPanel(name);
+}
+
+function tierClass(t) {
+  if (!t) return 'blue';
+  t = String(t).toUpperCase();
+  if (t.includes('WORLDWIDE_RELEASE') || t.includes('HEALTHY') || t.includes('ACTIVE') || t.includes('GREEN') || t.includes('PASS') || t.includes('FRESH')) return 'green';
+  if (t.includes('BLOCKED') || t.includes('CRITICAL') || t.includes('FAIL') || t.includes('DISABLED') || t.includes('STALE')) return 'red';
+  if (t.includes('DEGRADED') || t.includes('AMBER') || t.includes('AWAITING') || t.includes('WARNING') || t.includes('REQUIRES')) return 'amber';
+  return 'blue';
+}
+
+function kpiBlock(label, val, sub) {
+  return `<div class="kpi-item"><div class="kv">${label}</div><div class="kval">${val}</div>${sub ? `<div style="font-size:10px;color:var(--muted)">${sub}</div>` : ''}</div>`;
+}
+
+async function loadPanel(name) {
+  loaded[name] = true;
+  const el = document.getElementById('panel-' + name);
+  el.innerHTML = '<div class="loading">Loading…</div>';
+  try {
+    if (name === 'dashboard') await renderDashboard(el);
+    else if (name === 'registry') await renderRegistry(el);
+    else if (name === 'health') await renderHealth(el);
+    else if (name === 'coverage') await renderCoverage(el);
+    else if (name === 'licensing') await renderLicensing(el);
+    else if (name === 'waves') await renderWaves(el);
+    else if (name === 'certification') await renderCertification(el);
+    else if (name === 'metrics') await renderMetrics(el);
+  } catch(e) { el.innerHTML = `<div class="err">Load error: ${e.message}</div>`; }
+}
+
+async function renderDashboard(el) {
+  const d = await fetchJSON('/api/v1/p40/dashboard');
+  if (d.error) { el.innerHTML = `<div class="err">${d.error} — ${d.hint || ''}</div>`; return; }
+  el.innerHTML = `
+<div class="grid-2" style="margin-bottom:16px">
+  <div class="card">
+    <h3>Registry Snapshot</h3>
+    <div style="font-size:11px;color:var(--muted)">Registry v${d.registry_version||'—'} · generated ${d.generated_at ? new Date(d.generated_at).toLocaleString() : '—'}</div>
+    <div style="margin-top:10px">${Object.entries(d.status_breakdown||{}).map(([k,v])=>`
+    <div style="display:flex;justify-content:space-between;margin-bottom:6px;font-size:12px">
+      <span style="color:var(--muted)">${k.replace(/_/g,' ')}</span>
+      <span class="tier ${tierClass(k)}">${v}</span>
+    </div>`).join('')}</div>
+  </div>
+  <div class="card">
+    <h3>Source Health</h3>
+    ${d.health ? Object.entries(d.health.health_breakdown||{}).map(([k,v])=>`
+    <div style="display:flex;justify-content:space-between;margin-bottom:6px;font-size:12px">
+      <span style="color:var(--muted)">${k.replace(/_/g,' ')}</span>
+      <span class="tier ${tierClass(k)}">${v}</span>
+    </div>`).join('') : '<div class="loading">Health report unavailable</div>'}
+  </div>
+</div>
+<div class="section-title">Rollout Waves</div>
+<div class="kpi-grid" style="margin-bottom:16px">
+  ${Object.entries(d.wave_breakdown||{}).map(([k,v])=>kpiBlock('Wave ' + k, v, 'sources')).join('')}
+</div>
+<div class="section-title">Active Sources (by priority)</div>
+<div class="table-wrap card" style="padding:0">
+<table>
+<thead><tr><th>Source</th><th>Priority</th><th>Criticality</th><th>Integration Mode</th></tr></thead>
+<tbody>
+${(d.active_sources||[]).map(s=>`<tr>
+  <td>${s.canonical_name}</td>
+  <td>${s.priority ?? '—'}</td>
+  <td><span class="tier ${tierClass(s.criticality)}">${s.criticality||'—'}</span></td>
+  <td>${s.integration_mode||'—'}</td>
+</tr>`).join('') || '<tr><td colspan="4" class="loading">No active sources</td></tr>'}
+</tbody>
+</table>
+</div>`;
+}
+
+async function renderRegistry(el) {
+  el.innerHTML = `
+<div class="filters">
+  <select id="fltStatus"><option value="">All statuses</option></select>
+  <select id="fltWave"><option value="">All waves</option></select>
+</div>
+<div id="registryTableWrap" class="table-wrap card" style="padding:0"><div class="loading">Loading…</div></div>`;
+
+  async function load() {
+    const status = document.getElementById('fltStatus').value;
+    const wave = document.getElementById('fltWave').value;
+    const params = new URLSearchParams();
+    if (status) params.set('status', status);
+    if (wave) params.set('wave', wave);
+    const d = await fetchJSON('/api/v1/p40/source-registry' + (params.toString() ? '?' + params.toString() : ''));
+    const wrap = document.getElementById('registryTableWrap');
+    if (d.error) { wrap.innerHTML = `<div class="err">${d.error} — ${d.hint || ''}</div>`; return; }
+    if (!document.getElementById('fltStatus').dataset.filled) {
+      document.getElementById('fltStatus').innerHTML = '<option value="">All statuses</option>' +
+        Object.keys(d.status_breakdown||{}).map(s=>`<option value="${s}">${s} (${d.status_breakdown[s]})</option>`).join('');
+      document.getElementById('fltWave').innerHTML = '<option value="">All waves</option>' +
+        Object.keys(d.wave_breakdown||{}).sort().map(w=>`<option value="${w}">Wave ${w} (${d.wave_breakdown[w]})</option>`).join('');
+      document.getElementById('fltStatus').dataset.filled = '1';
+    }
+    wrap.innerHTML = `
+<table>
+<thead><tr><th>Source</th><th>Domains</th><th>Authority</th><th>Status</th><th>Wave</th><th>Quality</th><th>Reliability</th></tr></thead>
+<tbody>
+${(d.sources||[]).map(s=>`<tr>
+  <td>${s.canonical_name}<div style="font-size:10px;color:var(--muted)">${s.source_id}</div></td>
+  <td style="font-size:11px;color:var(--muted)">${(s.intelligence_domains||[]).join(', ')}</td>
+  <td>${s.authority_level||'—'}</td>
+  <td><span class="tier ${tierClass(s.implementation_status)}">${s.implementation_status}</span></td>
+  <td>${s.wave ?? '—'}</td>
+  <td>${s.quality_score ?? '—'}</td>
+  <td>${s.reliability_score ?? '—'}</td>
+</tr>`).join('') || '<tr><td colspan="7" class="loading">No sources match filters</td></tr>'}
+</tbody>
+</table>
+<div style="padding:8px 10px;font-size:11px;color:var(--muted)">${d.total ?? 0} source(s)</div>`;
+  }
+  document.getElementById('fltStatus').addEventListener('change', load);
+  document.getElementById('fltWave').addEventListener('change', load);
+  await load();
+}
+
+async function renderHealth(el) {
+  const d = await fetchJSON('/api/v1/p40/source-health');
+  if (d.error) { el.innerHTML = `<div class="err">${d.error} — ${d.hint || ''}</div>`; return; }
+  el.innerHTML = `
+<div class="grid-2" style="margin-bottom:16px">
+  <div class="card">
+    <h3>Fabric Health</h3>
+    <div style="font-size:11px;color:var(--muted)">Generated ${d.generated_at ? new Date(d.generated_at).toLocaleString() : '—'} · ${d.live_or_implemented_sources ?? '—'} live/implemented of ${d.total_sources ?? '—'}</div>
+  </div>
+  <div class="card">
+    <h3>Manifest Cross-Check</h3>
+    <div style="font-size:12px;color:var(--muted)">Manifest entries: ${d.manifest_total_entries ?? '—'}</div>
+    <div style="font-size:12px;color:var(--muted)">Unmatched feed sources: ${d.manifest_unmatched_feed_sources ?? '—'}</div>
+  </div>
+</div>
+<div class="section-title">Health Breakdown</div>
+<div class="kpi-grid" style="margin-bottom:16px">
+  ${Object.entries(d.health_breakdown||{}).map(([k,v])=>kpiBlock(k.replace(/_/g,' '), v)).join('')}
+</div>
+<div class="section-title">Live &amp; Implemented Sources</div>
+<div class="table-wrap card" style="padding:0">
+<table>
+<thead><tr><th>Source</th><th>Health</th><th>Age (h)</th><th>Freshness Expectation</th><th>Criticality</th></tr></thead>
+<tbody>
+${(d.sources||[]).filter(s=>s.implementation_status==='ACTIVE'||s.implementation_status==='IMPLEMENTED').map(s=>`<tr>
+  <td>${s.canonical_name}</td>
+  <td><span class="tier ${tierClass(s.health_status)}">${s.health_status}</span></td>
+  <td>${s.age_hours != null ? s.age_hours.toFixed(1) : '—'}</td>
+  <td>${s.freshness_expectation||'—'}</td>
+  <td><span class="tier ${tierClass(s.criticality)}">${s.criticality||'—'}</span></td>
+</tr>`).join('') || '<tr><td colspan="5" class="loading">No active/implemented sources</td></tr>'}
+</tbody>
+</table>
+</div>`;
+}
+
+async function renderCoverage(el) {
+  const d = await fetchJSON('/api/v1/p40/coverage');
+  el.innerHTML = `
+<div class="grid-2" style="margin-bottom:16px">
+  <div class="card">
+    <h3>Global CTI Coverage Score</h3>
+    <div style="font-size:48px;font-weight:800;color:var(--accent)">${d.score ?? '—'}</div>
+    <div style="font-size:11px;color:var(--muted)">Model: ${d.scoring_model||'—'} · Confidence: ${d.confidence||'—'}</div>
+  </div>
+  <div class="card">
+    <h3>Status Breakdown</h3>
+    <div style="font-size:12px;color:var(--muted)">Healthy sources: ${d.healthy_sources ?? '—'} · Stale: ${d.stale_sources ?? '—'}</div>
+    <div style="font-size:12px;color:var(--muted);margin-top:4px">Requires credentials: ${d.credential_required ?? '—'} · Requires license: ${d.license_required ?? '—'}</div>
+  </div>
+</div>
+<div class="section-title">Mission Domain Scores</div>
+<div class="kpi-grid" style="margin-bottom:16px">
+  ${Object.entries(d.dimensions||{}).map(([k,v])=>kpiBlock(k.replace(/_/g,' '), v.score, `${v.positive_contribution_sources}/${v.contributing_sources} contributing`)).join('')}
+</div>
+<div class="section-title">Domain Coverage (registry-wide)</div>
+<div class="kpi-grid">
+  ${Object.entries(d.domain_coverage||{}).map(([k,v])=>kpiBlock(k.replace(/_/g,' '), v.total)).join('')}
+</div>`;
+}
+
+async function renderLicensing(el) {
+  const d = await fetchJSON('/api/v1/p40/licensing');
+  el.innerHTML = `
+<div class="kpi-grid" style="margin-bottom:16px">
+  ${kpiBlock('Total Sources', d.total ?? '—')}
+  ${kpiBlock('Redistribution Allowed', d.redistribution_allowed ?? '—')}
+  ${kpiBlock('Redistribution Restricted', d.redistribution_restricted ?? '—')}
+  ${kpiBlock('Commercial Use Allowed', d.commercial_use_allowed ?? '—')}
+  ${kpiBlock('Attribution Required', d.attribution_required ?? '—')}
+</div>
+<div class="section-title">By Licensing Class</div>
+<div class="kpi-grid" style="margin-bottom:16px">
+  ${Object.entries(d.by_licensing_class||{}).map(([k,v])=>kpiBlock(k.replace(/_/g,' '), v)).join('')}
+</div>
+<div class="section-title">Restricted Sources (no redistribution)</div>
+<div class="table-wrap card" style="padding:0">
+<table>
+<thead><tr><th>Source</th><th>Licensing Class</th><th>Status</th></tr></thead>
+<tbody>
+${(d.restricted_sources||[]).map(s=>`<tr>
+  <td>${s.canonical_name}</td>
+  <td>${s.licensing_class}</td>
+  <td><span class="tier ${tierClass(s.implementation_status)}">${s.implementation_status}</span></td>
+</tr>`).join('') || '<tr><td colspan="3" class="loading">No restricted sources</td></tr>'}
+</tbody>
+</table>
+</div>`;
+}
+
+async function renderWaves(el) {
+  const d = await fetchJSON('/api/v1/p40/waves');
+  const waves = d.waves || {};
+  el.innerHTML = `
+<div class="section-title">Rollout Waves 1–5</div>
+<div class="grid-2">
+${Object.keys(waves).sort().map(w=>`
+<div class="card">
+  <h3>${w.replace('_',' ').toUpperCase()}</h3>
+  <div style="font-size:24px;font-weight:700;color:var(--accent)">${waves[w].total}</div>
+  <div style="font-size:11px;color:var(--muted);margin-bottom:8px">source(s)</div>
+  ${Object.entries(waves[w].by_status||{}).map(([k,v])=>`
+  <div style="display:flex;justify-content:space-between;margin-bottom:4px;font-size:12px">
+    <span style="color:var(--muted)">${k.replace(/_/g,' ')}</span>
+    <span class="tier ${tierClass(k)}">${v}</span>
+  </div>`).join('')}
+</div>`).join('') || '<div class="loading">No wave data</div>'}
+</div>`;
+}
+
+async function renderCertification(el) {
+  const d = await fetchJSON('/api/v1/p40/certification');
+  if (d.error) { el.innerHTML = `<div class="err">${d.error} — ${d.hint || ''}</div>`; return; }
+  el.innerHTML = `
+<div class="grid-2" style="margin-bottom:16px">
+  <div class="card">
+    <h3>Certification Status</h3>
+    <div style="margin-top:4px"><span class="tier ${tierClass(d.release_tier)}">${d.release_tier||'—'}</span></div>
+    <div style="font-size:12px;color:var(--muted);margin-top:8px">Gates: ${d.passed_count ?? '—'}/${d.total_gates ?? '—'} passed · ${d.blocker_count ?? 0} blocker(s) · ${d.warning_count ?? 0} warning(s)</div>
+    <div style="font-size:11px;color:var(--muted);margin-top:6px">Generated ${d.generated_at ? new Date(d.generated_at).toLocaleString() : '—'} · <span class="tier ${tierClass(d.freshness)}">${d.freshness||'—'}</span> (${d.sync_status||'—'})</div>
+  </div>
+  <div class="card">
+    <h3>Governance Deliverables</h3>
+    ${Object.entries(d.governance_deliverables||{}).map(([k,v])=>`
+    <div style="font-size:11px;margin-bottom:4px"><span style="color:var(--muted)">${k.replace(/_/g,' ')}:</span> ${v}</div>`).join('')}
+  </div>
+</div>
+<div class="section-title">Certification Gates</div>
+<div class="rec-list">
+${(d.gates||[]).filter(g=>g.status!=='PASS').map(g=>`
+<div class="rec ${g.severity}">
+  <div class="rtag">${g.gate_id} · ${g.severity} · ${g.status}</div>
+  <div class="rtext">${g.label} — ${g.detail||''}</div>
+</div>`).join('') || '<div class="loading">All gates passing</div>'}
+</div>
+<div class="section-title" style="margin-top:16px">All Gates (${(d.gates||[]).length})</div>
+<div class="table-wrap card" style="padding:0">
+<table>
+<thead><tr><th>Gate</th><th>Label</th><th>Severity</th><th>Status</th></tr></thead>
+<tbody>
+${(d.gates||[]).map(g=>`<tr>
+  <td>${g.gate_id}</td>
+  <td>${g.label}</td>
+  <td>${g.severity}</td>
+  <td><span class="tier ${tierClass(g.status)}">${g.status}</span></td>
+</tr>`).join('')}
+</tbody>
+</table>
+</div>`;
+}
+
+async function renderMetrics(el) {
+  const [metrics, obs] = await Promise.all([fetchJSON('/api/v1/p40/metrics'), fetchJSON('/api/v1/p40/observability')]);
+  el.innerHTML = `
+<div class="section-title">Domain Coverage Breakdown</div>
+<div class="kpi-grid" style="margin-bottom:16px">
+  ${Object.entries(metrics.domain_breakdown||{}).map(([k,v])=>kpiBlock(k.replace(/_/g,' '), v)).join('') || '<div class="loading">No domain data</div>'}
+</div>
+<div class="grid-2">
+  <div class="card">
+    <h3>Fabric Status</h3>
+    <div style="margin-top:4px"><span class="tier ${tierClass(obs.status)}">${obs.status||'—'}</span></div>
+    <div style="font-size:11px;color:var(--muted);margin-top:8px">${obs.engines_reused_note||''}</div>
+  </div>
+  <div class="card">
+    <h3>Data Provenance</h3>
+    ${Object.entries(obs.data_sources||{}).map(([k,v])=>`<div style="font-size:11px;margin-bottom:6px"><span style="color:var(--muted)">${k}:</span> ${v}</div>`).join('')}
+  </div>
+</div>
+<div class="section-title" style="margin-top:16px">P40 API Surface (${(obs.endpoints||[]).length} routes)</div>
+<div style="display:flex;flex-wrap:wrap;gap:6px">
+  ${(obs.endpoints||[]).map(e=>`<span class="tier blue" style="font-family:monospace">${e}</span>`).join('')}
+</div>`;
+}
+
+loadStatBar();
+loadPanel('dashboard');
+</script>
+</body>
+</html>

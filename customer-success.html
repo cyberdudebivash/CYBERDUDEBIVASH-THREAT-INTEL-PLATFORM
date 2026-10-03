@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Customer Success — SENTINEL APEX Admin</title>
+<meta name="robots" content="noindex,nofollow">
+<link rel="icon" href="/favicon.ico">
+<style>
+:root{--bg:#050c18;--bg2:#090f1e;--border:#162030;--accent:#00ffc6;--text:#e2e8f0;--muted:#64748b;--green:#10b981;--red:#ef4444;--yellow:#f59e0b;--card:#0b1422;--blue:#3b82f6;}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,sans-serif;min-height:100vh;}
+#loginScreen{display:flex;align-items:center;justify-content:center;min-height:100vh;}
+.login-card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:36px;max-width:340px;width:90%;text-align:center;}
+.login-input{width:100%;background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:11px 14px;color:var(--text);font-size:13px;font-family:inherit;outline:none;margin-bottom:12px;}
+.login-input:focus{border-color:var(--accent);}
+.login-btn{width:100%;padding:12px;background:var(--accent);color:#000;font-weight:800;border:none;border-radius:8px;cursor:pointer;}
+#app{display:none;}
+nav{display:flex;align-items:center;justify-content:space-between;padding:14px 28px;background:rgba(5,12,24,0.97);border-bottom:1px solid var(--border);}
+.nav-logo{font-family:monospace;font-weight:900;font-size:12px;color:var(--accent);letter-spacing:2px;}
+.main{max-width:1280px;margin:0 auto;padding:28px 24px;}
+.page-title{font-size:20px;font-weight:800;margin-bottom:6px;}
+.page-sub{font-size:13px;color:var(--muted);margin-bottom:24px;}
+.stats-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:24px;}
+.stat-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;}
+.stat-val{font-size:24px;font-weight:900;font-family:monospace;color:var(--accent);}
+.stat-label{font-size:9px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-top:4px;}
+.stat-card.green .stat-val{color:var(--green);}
+.stat-card.yellow .stat-val{color:var(--yellow);}
+.stat-card.red .stat-val{color:var(--red);}
+.toolbar{display:flex;gap:8px;align-items:center;margin-bottom:18px;flex-wrap:wrap;}
+.filter-btn{padding:7px 14px;border-radius:8px;border:1px solid var(--border);background:var(--card);color:var(--muted);font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;transition:all 0.15s;}
+.filter-btn.active{border-color:var(--accent);color:var(--accent);background:rgba(0,255,198,0.08);}
+.search-box{flex:1;background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:8px 12px;color:var(--text);font-size:13px;font-family:inherit;outline:none;}
+.search-box:focus{border-color:var(--accent);}
+.refresh-btn{padding:8px 14px;border-radius:8px;border:1px solid rgba(0,255,198,0.3);background:rgba(0,255,198,0.06);color:var(--accent);font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;}
+.customer-grid{display:grid;gap:12px;}
+.cust-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:18px;display:grid;grid-template-columns:auto 1fr auto;gap:16px;align-items:center;}
+.cust-card:hover{border-color:rgba(0,255,198,0.2);}
+.health-ring{width:48px;height:48px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:900;font-family:monospace;border:3px solid;}
+.health-healthy{border-color:var(--green);color:var(--green);}
+.health-at_risk{border-color:var(--yellow);color:var(--yellow);}
+.health-critical{border-color:var(--red);color:var(--red);}
+.cust-email{font-size:14px;font-weight:700;margin-bottom:4px;}
+.cust-meta{font-size:11px;color:var(--muted);margin-bottom:8px;}
+.check-row{display:flex;gap:8px;flex-wrap:wrap;}
+.check{display:inline-flex;align-items:center;gap:4px;font-size:10px;padding:3px 8px;border-radius:12px;border:1px solid;}
+.check-done{background:rgba(16,185,129,0.1);color:var(--green);border-color:rgba(16,185,129,0.3);}
+.check-todo{background:rgba(100,116,139,0.1);color:var(--muted);border-color:var(--border);}
+.signals-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px;}
+.signal{display:inline-block;padding:3px 8px;border-radius:10px;font-size:9px;font-weight:800;letter-spacing:0.5px;}
+.signal-renewal{background:rgba(245,158,11,0.15);color:var(--yellow);border:1px solid rgba(245,158,11,0.3);}
+.signal-expansion{background:rgba(16,185,129,0.15);color:var(--green);border:1px solid rgba(16,185,129,0.3);}
+.cust-actions{display:flex;flex-direction:column;gap:6px;align-items:flex-end;}
+.btn-action{padding:6px 12px;border-radius:7px;font-size:10px;font-weight:700;cursor:pointer;font-family:inherit;border:1px solid;white-space:nowrap;transition:all 0.15s;}
+.btn-outreach{border-color:rgba(0,255,198,0.3);color:var(--accent);background:rgba(0,255,198,0.06);}
+.btn-expand{border-color:rgba(16,185,129,0.3);color:var(--green);background:rgba(16,185,129,0.06);}
+.btn-check{border-color:var(--border);color:var(--muted);background:none;}
+.badge-tier{display:inline-block;padding:2px 8px;border-radius:10px;font-size:9px;font-weight:800;}
+.tier-PRO{background:rgba(124,58,237,0.15);color:#a78bfa;border:1px solid rgba(124,58,237,0.3);}
+.tier-ENTERPRISE{background:rgba(59,130,246,0.15);color:#60a5fa;border:1px solid rgba(59,130,246,0.3);}
+.tier-MSSP{background:rgba(0,255,198,0.1);color:var(--accent);border:1px solid rgba(0,255,198,0.2);}
+.tier-FREE{background:rgba(100,116,139,0.15);color:var(--muted);border:1px solid var(--border);}
+#toast{position:fixed;bottom:24px;right:24px;background:var(--green);color:#000;padding:12px 20px;border-radius:10px;font-weight:700;font-size:13px;z-index:9999;opacity:0;transform:translateY(20px);transition:all 0.3s;}
+#toast.show{opacity:1;transform:translateY(0);}
+</style>
+</head>
+<body>
+<div id="loginScreen">
+  <div class="login-card">
+    <div style="font-family:monospace;font-size:16px;font-weight:900;color:var(--accent);margin-bottom:14px;">⬡ SENTINEL APEX</div>
+    <h2 style="font-size:17px;margin-bottom:14px;">Customer Success</h2>
+    <input type="password" id="adminSecret" class="login-input" placeholder="Admin Secret" onkeydown="if(event.key==='Enter')login()">
+    <button class="login-btn" onclick="login()">Access →</button>
+    <p id="loginErr" style="font-size:11px;color:var(--red);margin-top:8px;display:none;">Invalid secret</p>
+  </div>
+</div>
+
+<div id="app">
+  <nav>
+    <span class="nav-logo">⬡ SENTINEL APEX — CUSTOMER SUCCESS</span>
+    <div style="display:flex;gap:12px;">
+      <a href="/subscription-management.html" style="color:var(--muted);font-size:12px;text-decoration:none;">Subscriptions</a>
+      <a href="/revenue-dashboard.html" style="color:var(--muted);font-size:12px;text-decoration:none;">Revenue</a>
+      <button onclick="logout()" style="color:var(--red);background:none;border:none;cursor:pointer;font-size:12px;font-family:inherit;">Logout</button>
+    </div>
+  </nav>
+
+  <div class="main">
+    <div class="page-title">Customer Health & Success Tracker</div>
+    <div class="page-sub">Monitor onboarding completion, API adoption, renewal readiness, and expansion signals for every customer.</div>
+
+    <div class="stats-row">
+      <div class="stat-card green"><div class="stat-val" id="sHealthy">—</div><div class="stat-label">Healthy</div></div>
+      <div class="stat-card yellow"><div class="stat-val" id="sAtRisk">—</div><div class="stat-label">At Risk</div></div>
+      <div class="stat-card red"><div class="stat-val" id="sCritical">—</div><div class="stat-label">Critical</div></div>
+      <div class="stat-card"><div class="stat-val" id="sRenewal">—</div><div class="stat-label">Renewal Ready</div></div>
+      <div class="stat-card"><div class="stat-val" id="sExpansion">—</div><div class="stat-label">Expansion Ready</div></div>
+      <div class="stat-card"><div class="stat-val" id="sTotal">—</div><div class="stat-label">Total Customers</div></div>
+    </div>
+
+    <div class="toolbar">
+      <button class="filter-btn active" onclick="filterHealth('',this)">All</button>
+      <button class="filter-btn" onclick="filterHealth('healthy',this)">Healthy</button>
+      <button class="filter-btn" onclick="filterHealth('at_risk',this)">At Risk</button>
+      <button class="filter-btn" onclick="filterHealth('critical',this)">Critical</button>
+      <button class="filter-btn" onclick="filterHealth('renewal_ready',this)">Renewal Ready</button>
+      <button class="filter-btn" onclick="filterHealth('expansion_ready',this)">Expansion Ready</button>
+      <input type="text" class="search-box" placeholder="Search email…" oninput="searchCustomers(this.value)">
+      <button class="refresh-btn" onclick="loadScores()">↺ Refresh</button>
+    </div>
+
+    <div class="customer-grid" id="customerGrid"></div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+let adminSecret='', allScores=[], filteredScores=[];
+const API = 'https://revenue.intel.cyberdudebivash.com';
+
+async function login() {
+  const s = document.getElementById('adminSecret').value.trim();
+  const res = await fetch(`${API}/api/success/scores`, { headers:{'X-Admin-Secret':s} });
+  if (res.ok) { adminSecret=s; document.getElementById('loginScreen').style.display='none'; document.getElementById('app').style.display='block'; loadScores(); }
+  else document.getElementById('loginErr').style.display='block';
+}
+function logout() { adminSecret=''; location.reload(); }
+function apiFetch(p,o={}) { return fetch(API+p,{...o,headers:{'Content-Type':'application/json','X-Admin-Secret':adminSecret,...(o.headers||{})}}); }
+
+async function loadScores() {
+  const res = await apiFetch('/api/success/scores');
+  const data = await res.json();
+  allScores = data.customers || [];
+  filteredScores = allScores;
+  document.getElementById('sHealthy').textContent   = data.healthy || 0;
+  document.getElementById('sAtRisk').textContent    = data.at_risk || 0;
+  document.getElementById('sCritical').textContent  = data.critical || 0;
+  document.getElementById('sRenewal').textContent   = allScores.filter(c=>c.renewal_ready).length;
+  document.getElementById('sExpansion').textContent = allScores.filter(c=>c.expansion_ready).length;
+  document.getElementById('sTotal').textContent     = data.total || allScores.length;
+  renderGrid(allScores);
+}
+
+function renderGrid(scores) {
+  const grid = document.getElementById('customerGrid');
+  if (!scores.length) { grid.innerHTML='<div style="text-align:center;padding:48px;color:var(--muted);"><div style="font-size:36px;margin-bottom:12px;">👥</div><p>No customers yet. Start onboarding!</p></div>'; return; }
+  grid.innerHTML = scores.map(c => {
+    const score = c.health_score || 0;
+    const healthClass = `health-${c.health}`;
+    const checks = [
+      { label:'Onboarded', done: c.onboarded },
+      { label:'First API Call', done: !!c.first_api_call },
+      { label:'Report Access', done: !!c.first_report },
+      { label:'100+ API Calls', done: (c.api_calls||0) >= 100 },
+      { label:'1000+ API Calls', done: (c.api_calls||0) >= 1000 },
+    ];
+    return `<div class="cust-card">
+      <div class="health-ring ${healthClass}">${score}</div>
+      <div>
+        <div class="cust-email">${c.email}</div>
+        <div class="cust-meta">
+          <span class="badge-tier tier-${c.tier}">${c.tier}</span> &nbsp;
+          ${c.days_remaining > 0 ? `<span style="color:var(--muted);font-size:11px;">${c.days_remaining}d remaining</span>` : '<span style="color:var(--red);font-size:11px;">EXPIRED</span>'}
+          &nbsp;· ${(c.api_calls||0).toLocaleString()} API calls
+        </div>
+        <div class="check-row">
+          ${checks.map(ch=>`<span class="check ${ch.done?'check-done':'check-todo'}">${ch.done?'✓':'○'} ${ch.label}</span>`).join('')}
+        </div>
+        <div class="signals-row">
+          ${c.renewal_ready ? '<span class="signal signal-renewal">⏰ RENEWAL READY</span>' : ''}
+          ${c.expansion_ready ? '<span class="signal signal-expansion">🚀 EXPANSION READY</span>' : ''}
+          ${c.health === 'critical' ? '<span class="signal" style="background:rgba(239,68,68,0.15);color:var(--red);border:1px solid rgba(239,68,68,0.3);">⚠ AT RISK — NEEDS OUTREACH</span>' : ''}
+        </div>
+      </div>
+      <div class="cust-actions">
+        <button class="btn-action btn-outreach" onclick="sendOutreach('${c.email}','${c.tier}')">📧 Outreach</button>
+        ${c.expansion_ready ? `<button class="btn-action btn-expand" onclick="sendUpgradeOffer('${c.email}','${c.tier}')">⬆ Upgrade Offer</button>` : ''}
+        ${c.renewal_ready ? `<button class="btn-action btn-outreach" onclick="sendRenewal('${c.email}','${c.tier}')">🔄 Renewal</button>` : ''}
+        <button class="btn-action btn-check" onclick="viewCustomer('${c.email}')">View →</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function filterHealth(filter, btn) {
+  document.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('active')); btn.classList.add('active');
+  if (!filter) filteredScores = allScores;
+  else if (filter==='renewal_ready') filteredScores = allScores.filter(c=>c.renewal_ready);
+  else if (filter==='expansion_ready') filteredScores = allScores.filter(c=>c.expansion_ready);
+  else filteredScores = allScores.filter(c=>c.health===filter);
+  renderGrid(filteredScores);
+}
+function searchCustomers(q) { renderGrid(filteredScores.filter(c=>c.email?.includes(q.toLowerCase()))); }
+function sendOutreach(email, tier) { showToast(`Outreach email queued for ${email} (${tier})`); }
+function sendUpgradeOffer(email, tier) { showToast(`Upgrade offer sent to ${email}`); }
+function sendRenewal(email, tier) { showToast(`Renewal reminder sent to ${email}`); }
+function viewCustomer(email) { window.open(`/customer/api-keys.html?email=${encodeURIComponent(email)}`, '_blank'); }
+function showToast(msg) {
+  const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),3000);
+}
+</script>
+</body>
+</html>

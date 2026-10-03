@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SENTINEL APEX — Intelligence Excellence Center (P36)</title>
+<style>
+:root{
+  --bg:#080c14;--surface:#0d1117;--border:#21262d;--accent:#a855f7;
+  --green:#22c55e;--yellow:#eab308;--red:#ef4444;--orange:#f97316;--blue:#0ea5e9;
+  --text:#e6edf3;--muted:#8b949e;--radius:8px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Inter',system-ui,sans-serif;font-size:14px;line-height:1.5;min-height:100vh}
+header{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:12px}
+header h1{font-size:15px;font-weight:700;letter-spacing:.5px}
+header .badge{background:#a855f720;color:var(--accent);border:1px solid var(--accent)40;border-radius:4px;padding:2px 8px;font-size:11px;font-weight:600}
+.main{padding:20px 24px;max-width:1400px;margin:0 auto}
+.stat-bar{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:12px;margin-bottom:20px}
+.stat-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px}
+.stat-card .label{font-size:10px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:6px}
+.stat-card .val{font-size:22px;font-weight:700}
+.stat-card .sub{font-size:11px;color:var(--muted);margin-top:2px}
+.tabs{display:flex;gap:2px;margin-bottom:16px;border-bottom:1px solid var(--border);padding-bottom:0;flex-wrap:wrap}
+.tab{padding:8px 16px;cursor:pointer;font-size:13px;color:var(--muted);border-bottom:2px solid transparent;margin-bottom:-1px;transition:all .15s}
+.tab.active{color:var(--text);border-color:var(--accent)}
+.tab:hover:not(.active){color:var(--text)}
+.panel{display:none}
+.panel.active{display:block}
+.section-title{font-size:11px;letter-spacing:1px;color:var(--muted);text-transform:uppercase;margin-bottom:12px}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px}
+.card h3{font-size:12px;color:var(--muted);letter-spacing:.5px;margin-bottom:10px;text-transform:uppercase}
+.tier{display:inline-block;padding:3px 10px;border-radius:4px;font-size:11px;font-weight:700;letter-spacing:.5px}
+.tier.green{background:#22c55e20;color:var(--green);border:1px solid #22c55e40}
+.tier.amber{background:#eab30820;color:var(--yellow);border:1px solid #eab30840}
+.tier.red{background:#ef444420;color:var(--red);border:1px solid #ef444440}
+.tier.blue{background:#0ea5e920;color:var(--blue);border:1px solid #0ea5e940}
+.kpi-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px}
+.kpi-item{background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:12px}
+.kpi-item .kv{font-size:11px;color:var(--muted)}
+.kpi-item .kval{font-size:18px;font-weight:700;margin-top:2px}
+.rec-list{display:flex;flex-direction:column;gap:8px;max-height:460px;overflow-y:auto}
+.rec{padding:10px 12px;border-radius:6px;border-left:3px solid var(--border);background:var(--bg)}
+.rec.P1{border-color:var(--red)}
+.rec.P2{border-color:var(--orange)}
+.rec.P3{border-color:var(--blue)}
+.rec .rtag{font-size:10px;font-weight:700;letter-spacing:.5px;margin-bottom:4px}
+.rec .rtext{font-size:12px;color:var(--muted)}
+.err{color:var(--red);font-size:12px;padding:12px}
+.loading{color:var(--muted);font-size:12px;padding:12px;text-align:center}
+.progress-bar{height:6px;background:var(--border);border-radius:3px;overflow:hidden;margin-top:6px}
+.progress-fill{height:100%;border-radius:3px;transition:width .5s}
+</style>
+</head>
+<body>
+<header>
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+  <h1>SENTINEL APEX — Intelligence Excellence Center</h1>
+  <span class="badge">P36.0</span>
+</header>
+
+<div class="main" id="mainApp">
+  <div class="stat-bar" id="statBar">
+    <div class="stat-card"><div class="label">Health</div><div class="val" id="sHealth">—</div></div>
+    <div class="stat-card"><div class="label">Overall Grade</div><div class="val" id="sGrade">—</div><div class="sub" id="sGradeTier"></div></div>
+    <div class="stat-card"><div class="label">Targets Met</div><div class="val" id="sTargets">—</div></div>
+    <div class="stat-card"><div class="label">Avg Maturity</div><div class="val" id="sMaturity">—</div></div>
+    <div class="stat-card"><div class="label">Customer Value</div><div class="val" id="sCVS">—</div></div>
+    <div class="stat-card"><div class="label">Detection Tier</div><div class="val" id="sDet" style="font-size:15px">—</div></div>
+    <div class="stat-card"><div class="label">Feed Items</div><div class="val" id="sItems">—</div></div>
+  </div>
+
+  <div class="tabs">
+    <div class="tab active" onclick="switchTab('dashboard')">Dashboard</div>
+    <div class="tab" onclick="switchTab('targets')">Quality Targets</div>
+    <div class="tab" onclick="switchTab('maturity')">Maturity</div>
+    <div class="tab" onclick="switchTab('customer')">Customer Value</div>
+    <div class="tab" onclick="switchTab('competitive')">Competitive</div>
+    <div class="tab" onclick="switchTab('detection')">Detection</div>
+    <div class="tab" onclick="switchTab('roadmap')">Roadmap</div>
+    <div class="tab" onclick="switchTab('gaps')">Gaps &amp; Reliability</div>
+  </div>
+
+  <div class="panel active" id="panel-dashboard"></div>
+  <div class="panel" id="panel-targets"></div>
+  <div class="panel" id="panel-maturity"></div>
+  <div class="panel" id="panel-customer"></div>
+  <div class="panel" id="panel-competitive"></div>
+  <div class="panel" id="panel-detection"></div>
+  <div class="panel" id="panel-roadmap"></div>
+  <div class="panel" id="panel-gaps"></div>
+</div>
+
+<script>
+const API = location.origin;
+const loaded = {};
+const TABS = ['dashboard','targets','maturity','customer','competitive','detection','roadmap','gaps'];
+
+async function fetchJSON(path) {
+  const r = await fetch(API + path);
+  return r.json();
+}
+
+async function loadStatBar() {
+  try {
+    const [obs, dash] = await Promise.all([fetchJSON('/api/v1/p36/observability'), fetchJSON('/api/v1/p36/dashboard')]);
+    const color = h => h === 'GREEN' ? 'var(--green)' : h === 'AMBER' ? 'var(--yellow)' : 'var(--red)';
+    document.getElementById('sHealth').style.color = color(obs.health);
+    document.getElementById('sHealth').textContent = obs.health || '—';
+    document.getElementById('sGrade').textContent = dash.scorecard?.grade ?? '—';
+    document.getElementById('sGradeTier').textContent = dash.scorecard?.tier ?? '';
+    document.getElementById('sTargets').textContent = dash.quality_targets ? `${dash.quality_targets.met}/${dash.quality_targets.total}` : '—';
+    document.getElementById('sMaturity').textContent = dash.maturity_summary?.avg ?? '—';
+    document.getElementById('sCVS').textContent = dash.customer_value?.avg_score ?? '—';
+    document.getElementById('sDet').textContent = dash.detection?.tier ?? '—';
+    document.getElementById('sItems').textContent = obs.metrics?.feed_item_count ?? '—';
+  } catch(e) {}
+}
+
+function switchTab(name) {
+  document.querySelectorAll('.tab').forEach((t,i)=>{t.classList.toggle('active',TABS[i]===name)});
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+  document.getElementById('panel-' + name).classList.add('active');
+  if (!loaded[name]) loadPanel(name);
+}
+
+function tierClass(t) {
+  if (!t) return 'blue';
+  t = String(t).toUpperCase();
+  if (t.includes('WORLD_CLASS') || t.includes('ENTERPRISE_READY') || t.includes('LIVE') || t.includes('AHEAD') || t.includes('GREEN') || t.includes('MATURE')) return 'green';
+  if (t.includes('MISSING') || t.includes('GAP') || t.includes('BEHIND') || t.includes('DEVELOPING')) return 'red';
+  if (t.includes('BASIC') || t.includes('EXPERIMENTAL') || t.includes('AMBER')) return 'amber';
+  return 'blue';
+}
+
+function kpiBlock(label, val, sub) {
+  return `<div class="kpi-item"><div class="kv">${label}</div><div class="kval">${val}</div>${sub ? `<div style="font-size:10px;color:var(--muted)">${sub}</div>` : ''}</div>`;
+}
+
+async function loadPanel(name) {
+  loaded[name] = true;
+  const el = document.getElementById('panel-' + name);
+  el.innerHTML = '<div class="loading">Loading…</div>';
+  try {
+    if (name === 'dashboard') await renderDashboard(el);
+    else if (name === 'targets') await renderTargets(el);
+    else if (name === 'maturity') await renderMaturity(el);
+    else if (name === 'customer') await renderCustomer(el);
+    else if (name === 'competitive') await renderCompetitive(el);
+    else if (name === 'detection') await renderDetection(el);
+    else if (name === 'roadmap') await renderRoadmap(el);
+    else if (name === 'gaps') await renderGaps(el);
+  } catch(e) { el.innerHTML = `<div class="err">Load error: ${e.message}</div>`; }
+}
+
+async function renderDashboard(el) {
+  const d = await fetchJSON('/api/v1/p36/dashboard');
+  const sc = d.scorecard || {};
+  const dims = sc.dimensions || {};
+  el.innerHTML = `
+<div class="grid-2" style="margin-bottom:16px">
+  <div class="card">
+    <h3>Excellence Scorecard</h3>
+    <div style="font-size:48px;font-weight:800;color:var(--accent)">${sc.grade||'—'}</div>
+    <div style="font-size:14px;color:var(--muted)">${sc.composite_pct ?? '—'} / 100</div>
+    <div style="margin-top:8px"><span class="tier ${tierClass(sc.tier)}">${sc.tier||'—'}</span></div>
+  </div>
+  <div class="card">
+    <h3>Dimension Scores</h3>
+    ${Object.entries(dims).map(([k,v])=>`
+    <div style="margin-bottom:8px">
+      <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--muted)"><span>${v.label||k}</span><span>${v.score}</span></div>
+      <div class="progress-bar"><div class="progress-fill" style="width:${v.score}%;background:${v.score>=80?'var(--green)':v.score>=60?'var(--yellow)':'var(--red)'}"></div></div>
+    </div>`).join('')}
+  </div>
+</div>
+<div class="section-title">Program Summary</div>
+<div class="kpi-grid">
+  ${kpiBlock('Quality Targets Met', `${d.quality_targets?.met ?? '—'}/${d.quality_targets?.total ?? '—'}`, d.quality_targets?.pct_met + '%')}
+  ${kpiBlock('Avg Maturity', d.maturity_summary?.avg ?? '—', d.maturity_summary?.label)}
+  ${kpiBlock('Customer Value Score', d.customer_value?.avg_score ?? '—', `${d.customer_value?.live ?? 0} live / ${d.customer_value?.gaps ?? 0} gaps`)}
+  ${kpiBlock('Detection Sigma-Ready', (d.detection?.sigma_pct != null ? d.detection.sigma_pct + '%' : '—'), d.detection?.tier)}
+  ${kpiBlock('Reliability', d.reliability?.tier ?? '—', `Freshness ${d.reliability?.freshness_pct ?? '—'}%`)}
+</div>
+<div class="section-title" style="margin-top:16px">Top Roadmap Items</div>
+<div class="rec-list">
+  ${(d.top_roadmap_items||[]).map(r=>`<div class="rec ${r.priority}"><div class="rtag">${r.priority} · ${r.label}</div><div class="rtext">${r.current_pct}% → ${r.target_pct}% (gap ${r.gap_pct}%) · effort ${r.effort}</div></div>`).join('')||'<div class="loading">No open roadmap items — all targets met</div>'}
+</div>`;
+}
+
+async function renderTargets(el) {
+  const d = await fetchJSON('/api/v1/p36/targets');
+  el.innerHTML = `
+<div class="card" style="margin-bottom:16px">
+  <h3>Quality Targets</h3>
+  <div style="font-size:32px;font-weight:700;color:var(--accent)">${d.pct_met ?? '—'}%</div>
+  <div style="font-size:12px;color:var(--muted);margin-top:4px">${d.targets_met}/${d.targets_total} targets met</div>
+</div>
+<div class="section-title">Targets by Priority</div>
+<div class="rec-list">
+  ${(d.targets||[]).map(t=>`
+  <div class="rec ${t.priority}">
+    <div class="rtag">${t.priority} · ${t.label}</div>
+    <div class="rtext">${t.actual}% actual (target ${t.target}%) ${t.pass ? '· <span style="color:var(--green)">MET</span>' : `· gap ${t.gap}%`}</div>
+  </div>`).join('')}
+</div>`;
+}
+
+async function renderMaturity(el) {
+  const d = await fetchJSON('/api/v1/p36/maturity');
+  const m = d.maturity_matrix || {};
+  el.innerHTML = `
+<div class="grid-2" style="margin-bottom:16px">
+  <div class="card">
+    <h3>Capability Maturity</h3>
+    <div style="font-size:32px;font-weight:700;color:var(--accent)">${m.avg_maturity_score ?? '—'}/5</div>
+    <div style="margin-top:4px"><span class="tier ${tierClass(m.avg_maturity_label)}">${m.avg_maturity_label||'—'}</span></div>
+    <div style="font-size:11px;color:var(--muted);margin-top:8px">${m.at_target_count ?? 0}/${m.total ?? 0} at target · ${m.missing_count ?? 0} missing</div>
+  </div>
+  <div class="card">
+    <h3>Maturity Scale</h3>
+    ${Object.entries(d.scale||{}).map(([k,v])=>`<div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:4px"><span style="color:var(--muted)">${k}</span><span>${v}</span></div>`).join('')}
+  </div>
+</div>
+<div class="section-title">Capability Matrix</div>
+<div class="kpi-grid">
+  ${(m.capabilities||[]).map(c=>kpiBlock(c.name, c.maturity, c.evidence)).join('')}
+</div>`;
+}
+
+async function renderCustomer(el) {
+  const d = await fetchJSON('/api/v1/p36/customer-value');
+  el.innerHTML = `
+<div class="card" style="margin-bottom:16px">
+  <h3>Customer Value Scoring</h3>
+  <div style="font-size:32px;font-weight:700;color:var(--accent)">${d.avg_customer_value_score ?? '—'}</div>
+  <div style="font-size:12px;color:var(--muted);margin-top:4px">${d.live_count} live features · ${d.gap_count} gaps</div>
+</div>
+<div class="section-title">Feature Value Breakdown</div>
+<div class="kpi-grid">
+  ${(d.features||[]).map(f=>kpiBlock(f.name, f.customer_value_score, f.status)).join('')}
+</div>`;
+}
+
+async function renderCompetitive(el) {
+  const d = await fetchJSON('/api/v1/p36/competitive');
+  el.innerHTML = `
+<div class="card" style="margin-bottom:16px">
+  <h3>Competitive Position</h3>
+  <div style="font-size:32px;font-weight:700;color:var(--accent)">${d.our_avg_coverage ?? '—'}%</div>
+  <div style="font-size:12px;color:var(--muted);margin-top:4px">Ahead of ${d.ahead_of||'—'}</div>
+  <div style="font-size:11px;color:var(--muted);margin-top:8px">Advantage areas: ${(d.advantage_areas||[]).join(', ')||'none yet'}</div>
+</div>
+<div class="section-title">Benchmarks</div>
+<div class="gate-list" style="display:flex;flex-direction:column;gap:8px">
+${(d.benchmarks||[]).map(b=>`
+  <div class="card" style="padding:12px">
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <span style="font-size:12px;font-weight:600">${b.competitor}</span>
+      <span class="tier ${b.position==='AHEAD'?'green':'red'}">${b.position} (${b.delta > 0 ? '+' : ''}${b.delta})</span>
+    </div>
+    <div style="font-size:11px;color:var(--muted);margin-top:4px">Their avg ${b.their_avg}% vs our avg ${b.our_avg}%</div>
+  </div>`).join('')}
+</div>`;
+}
+
+async function renderDetection(el) {
+  const d = await fetchJSON('/api/v1/p36/detection');
+  el.innerHTML = `
+<div class="card" style="margin-bottom:16px">
+  <h3>Detection Excellence</h3>
+  <div style="margin-top:4px"><span class="tier ${tierClass(d.detection_tier)}">${d.detection_tier||'—'}</span></div>
+  <div style="font-size:12px;color:var(--muted);margin-top:8px">Feed items: ${d.feed_item_count??'—'}</div>
+</div>
+<div class="kpi-grid">
+  ${kpiBlock('Sigma-Ready', d.sigma_ready_items ?? 0, d.sigma_pct + '%')}
+  ${kpiBlock('Hunt-Ready', d.hunt_ready_items ?? 0, d.hunt_pct + '%')}
+  ${kpiBlock('Enrichment-Ready', d.enrichment_ready_items ?? 0, d.enrich_pct + '%')}
+</div>`;
+}
+
+async function renderRoadmap(el) {
+  const d = await fetchJSON('/api/v1/p36/roadmap');
+  el.innerHTML = `
+<div class="card" style="margin-bottom:16px">
+  <h3>Improvement Roadmap</h3>
+  <div style="font-size:12px;color:var(--muted)">${d.total_items} items · ${d.high_priority} high priority (P1)</div>
+</div>
+<div class="rec-list">
+  ${(d.roadmap||[]).map(r=>`
+  <div class="rec ${r.priority}">
+    <div class="rtag">${r.priority} · ${r.label}</div>
+    <div class="rtext">${r.current_pct}% → ${r.target_pct}% (gap ${r.gap_pct}%) · effort ${r.effort} · value ${r.value}</div>
+    <div class="rtext" style="margin-top:4px">${r.action}</div>
+  </div>`).join('')||'<div class="loading">No open roadmap items</div>'}
+</div>`;
+}
+
+async function renderGaps(el) {
+  const [gaps, rel] = await Promise.all([fetchJSON('/api/v1/p36/gaps'), fetchJSON('/api/v1/p36/reliability')]);
+  el.innerHTML = `
+<div class="card" style="margin-bottom:16px">
+  <h3>Unmet Quality Targets</h3>
+  <div style="font-size:12px;color:var(--muted)">${gaps.summary||''}</div>
+</div>
+<div class="section-title">Open Gaps (${gaps.gap_count ?? 0})</div>
+<div class="rec-list" style="margin-bottom:16px">
+  ${(gaps.gaps||[]).map(g=>`<div class="rec ${g.priority}"><div class="rtag">${g.priority} · ${g.label}</div><div class="rtext">${g.actual}% actual (target ${g.target}%) · gap ${g.gap}%</div></div>`).join('')||'<div class="loading">No gaps — all targets met</div>'}
+</div>
+<div class="section-title">Platform Reliability</div>
+<div class="kpi-grid">
+  ${kpiBlock('Reliability Tier', rel.reliability_tier ?? '—')}
+  ${kpiBlock('Feed Items', rel.feed_item_count ?? '—', `${rel.unique_item_count ?? '—'} unique`)}
+  ${kpiBlock('Duplicates', rel.duplicate_count ?? '—')}
+  ${kpiBlock('Fresh (48h)', rel.freshness_48h ?? '—', (rel.freshness_pct ?? '—') + '%')}
+  ${kpiBlock('P35 Blockers', rel.p35_blockers ?? '—', `${rel.p35_passed ?? '—'}/${rel.p35_total ?? '—'} gates`)}
+  ${kpiBlock('P34 Blockers', rel.p34_blockers ?? '—')}
+</div>`;
+}
+
+loadStatBar();
+loadPanel('dashboard');
+</script>
+</body>
+</html>

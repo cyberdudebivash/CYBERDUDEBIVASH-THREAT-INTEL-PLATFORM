@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>IOC Reputation Lookup — CYBERDUDEBIVASH SENTINEL APEX</title>
+<meta name="description" content="Free IOC reputation lookup — check any IP, domain, URL, or file hash against SENTINEL APEX's live threat intelligence feed. Correlated reports, actor attribution, and detection rules on Pro.">
+<meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1">
+<link rel="canonical" href="https://intel.cyberdudebivash.com/lookup.html">
+<meta name="author" content="BIVASHA KUMAR NAYAK trading as CYBERDUDEBIVASH&reg;">
+
+<meta property="og:type" content="website">
+<meta property="og:title" content="IOC Reputation Lookup — CYBERDUDEBIVASH SENTINEL APEX">
+<meta property="og:description" content="Free IOC reputation lookup against a live threat intelligence feed — IPs, domains, URLs, and file hashes.">
+<meta property="og:site_name" content="CYBERDUDEBIVASH® SENTINEL APEX">
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebPage",
+  "@id": "https://intel.cyberdudebivash.com/lookup.html#webpage",
+  "url": "https://intel.cyberdudebivash.com/lookup.html",
+  "name": "IOC Reputation Lookup — CYBERDUDEBIVASH SENTINEL APEX",
+  "description": "Free IOC reputation lookup against SENTINEL APEX's live threat intelligence feed.",
+  "isPartOf": { "@id": "https://intel.cyberdudebivash.com/#website" },
+  "publisher": { "@id": "https://cyberdudebivash.com/#organization" },
+  "breadcrumb": {
+    "@type": "BreadcrumbList",
+    "itemListElement": [
+      { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://intel.cyberdudebivash.com/" },
+      { "@type": "ListItem", "position": 2, "name": "IOC Intelligence", "item": "https://intel.cyberdudebivash.com/iocs.html" },
+      { "@type": "ListItem", "position": 3, "name": "IOC Lookup", "item": "https://intel.cyberdudebivash.com/lookup.html" }
+    ]
+  }
+}
+</script>
+
+<style>
+/* Palette/shell intentionally identical to cve.html -- same product, same
+   paywall language (Single Source of Truth for what "locked" looks like). */
+:root{--bg:#060d19;--panel:#0b1425;--panel2:#0e1930;--border:#162035;--border2:#1e2d45;--accent:#00d4aa;--accent2:#0099ff;--text:#e8eef8;--muted:#7a8499;--muted2:#9aabb8;--crit:#ff3b3b;--high:#ff7c1a;--med:#f5b400;--low:#00d4aa;--mono:'JetBrains Mono',Menlo,Consolas,monospace}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Inter,sans-serif;font-size:15px;line-height:1.6}
+a{color:var(--accent);text-decoration:none}
+a:hover{text-decoration:underline}
+.tlp{padding:8px 0;text-align:center;font-family:var(--mono);font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;background:#0a1420;color:var(--accent);border-bottom:2px solid rgba(0,212,170,.3)}
+.nav{background:var(--panel);border-bottom:1px solid var(--border);padding:14px 32px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
+.nav-brand{font-family:var(--mono);font-size:11px;letter-spacing:3px;color:var(--accent);text-transform:uppercase}
+.nav-links a{color:var(--muted2);font-size:12px;margin-left:24px}
+.wrap{max-width:900px;margin:0 auto;padding:0 24px}
+.hero{padding:44px 0 28px}
+.badge{font-family:var(--mono);font-size:10px;letter-spacing:3px;color:var(--accent);text-transform:uppercase;margin-bottom:14px}
+h1{font-size:30px;font-weight:700;margin-bottom:10px}
+.hero p{color:var(--muted2);font-size:15px;max-width:640px}
+.breadcrumb{font-family:var(--mono);font-size:11px;color:var(--muted);margin:14px 0 0}
+.breadcrumb a{color:var(--muted2)}
+
+.search-bar{display:flex;gap:10px;margin-bottom:8px}
+.search-bar input{flex:1;background:var(--panel2);border:1px solid var(--border2);color:var(--text);padding:14px 16px;border-radius:8px;font-size:15px;font-family:var(--mono)}
+.search-bar input:focus{outline:none;border-color:var(--accent)}
+.search-bar button{background:var(--accent);color:#04140f;border:none;padding:0 26px;border-radius:8px;font-weight:700;font-size:14px;cursor:pointer}
+.search-bar button:hover{opacity:.9}
+.search-bar button:disabled{opacity:.5;cursor:default}
+.hint{font-size:12px;color:var(--muted);margin-bottom:32px}
+.hint code{font-family:var(--mono);background:var(--panel2);padding:1px 5px;border-radius:3px}
+
+#result{display:none}
+.verdict-bar{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;background:var(--panel);border:1px solid var(--border2);border-radius:8px;padding:20px 22px;margin-bottom:18px}
+.verdict-bar.malicious{border-color:var(--crit);background:linear-gradient(180deg,rgba(255,59,59,.08),rgba(255,59,59,.02))}
+.verdict-value{font-family:var(--mono);font-size:15px;word-break:break-all}
+.verdict-tag{font-family:var(--mono);font-size:11px;letter-spacing:1px;text-transform:uppercase;padding:5px 12px;border-radius:5px;font-weight:700;white-space:nowrap}
+.verdict-tag.malicious{background:rgba(255,59,59,.15);color:var(--crit)}
+.verdict-tag.clean{background:rgba(122,132,153,.15);color:var(--muted2)}
+.type-chip{font-family:var(--mono);font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--muted2);background:var(--panel2);border:1px solid var(--border2);border-radius:4px;padding:2px 8px}
+
+.detail-scores{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:14px;margin:20px 0}
+.score-tile{background:var(--panel);border:1px solid var(--border2);border-radius:8px;padding:16px;text-align:center}
+.score-val{font-size:22px;font-weight:700;color:var(--accent);font-family:var(--mono)}
+.score-label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-top:4px}
+.section{background:var(--panel);border:1px solid var(--border2);border-radius:8px;padding:24px;margin-bottom:18px}
+.section h2{font-size:16px;font-weight:700;margin-bottom:14px}
+.report-row{display:flex;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px solid var(--border);font-size:13px}
+.report-row:last-child{border-bottom:none}
+.chip{display:inline-block;background:var(--panel2);border:1px solid var(--border2);border-radius:4px;padding:4px 10px;font-size:12px;margin:0 6px 6px 0;font-family:var(--mono)}
+.artifact{margin-bottom:14px}
+.artifact:last-child{margin-bottom:0}
+.artifact-type{font-family:var(--mono);font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--accent2);margin-bottom:6px;display:block}
+.artifact pre{background:var(--panel2);border:1px solid var(--border2);border-radius:6px;padding:12px 14px;font-family:var(--mono);font-size:12px;overflow-x:auto;white-space:pre-wrap;word-break:break-word}
+
+/* paywall -- identical markup/classes to cve.html's real (server-masked) gate */
+.locked-panel{position:relative}
+.locked-panel .locked-content{filter:blur(5px);pointer-events:none;user-select:none;opacity:.5}
+.paywall-card{position:relative;margin-top:-1px;background:linear-gradient(180deg,rgba(0,212,170,.08),rgba(0,153,255,.04));border:1px solid var(--accent);border-radius:8px;padding:24px;text-align:center}
+.paywall-card h3{font-size:16px;margin-bottom:8px}
+.paywall-card p{font-size:13px;color:var(--muted2);margin-bottom:16px;max-width:440px;margin-left:auto;margin-right:auto}
+.paywall-cta{display:inline-block;background:var(--accent);color:#04140f;font-weight:700;font-size:13px;padding:12px 26px;border-radius:6px}
+.paywall-cta:hover{opacity:.9;text-decoration:none}
+
+.loading,.error,.empty-search{text-align:center;color:var(--muted2);padding:40px 20px;font-size:14px}
+.error{color:var(--crit)}
+.footer{border-top:1px solid var(--border);padding:28px 0;text-align:center;font-family:var(--mono);font-size:10px;color:var(--muted);letter-spacing:.5px;line-height:2}
+</style>
+</head>
+<body>
+<div class="tlp">TLP:WHITE — IOC REPUTATION LOOKUP — CYBERDUDEBIVASH SENTINEL APEX</div>
+<nav class="nav">
+  <div class="nav-brand">SENTINEL APEX</div>
+  <div class="nav-links">
+    <a href="https://intel.cyberdudebivash.com/">Home</a>
+    <a href="iocs.html">IOC Intelligence</a>
+    <a href="lookup.html" style="color:var(--accent)">Lookup</a>
+    <a href="pricing.html">Pricing</a>
+    <a href="upgrade.html">Upgrade</a>
+  </div>
+</nav>
+
+<div class="wrap">
+  <div class="hero">
+    <div class="badge">Free IOC Reputation Lookup</div>
+    <h1>Is This Indicator Malicious?</h1>
+    <p>Check any IP, domain, URL, or file hash against SENTINEL APEX's live threat intelligence feed. Basic verdict is free — correlated reports, actor attribution, and detection rules (YARA/Sigma/KQL/Suricata) are Pro.</p>
+    <div class="breadcrumb"><a href="https://intel.cyberdudebivash.com/">Home</a> / <a href="iocs.html">IOC Intelligence</a> / Lookup</div>
+  </div>
+
+  <form id="lookup-form" autocomplete="off">
+    <div class="search-bar">
+      <input type="text" id="q" placeholder="185.220.101.182, secure-audit.info, or a SHA-256 hash&hellip;" aria-label="Indicator to look up">
+      <button type="submit" id="submit-btn">Look Up</button>
+    </div>
+  </form>
+  <div class="hint">Accepts IPv4, IPv6, domains, URLs, MD5/SHA-1/SHA-256 hashes, and <code>CVE-YYYY-NNNNN</code>.</div>
+
+  <div id="loading" class="loading" style="display:none">Checking&hellip;</div>
+  <div id="error" class="error" style="display:none"></div>
+  <div id="result"></div>
+</div>
+
+<footer class="footer">
+  CYBERDUDEBIVASH&reg; SENTINEL APEX &mdash; Live lookup via GET /api/ioc/lookup &mdash; <a href="pricing.html">Pricing</a> &middot; <a href="upgrade.html">Upgrade to Pro</a>
+</footer>
+
+<script>
+(function () {
+  "use strict";
+  var API_BASE = "https://intel.cyberdudebivash.com";
+
+  function esc(s) {
+    return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
+      return { "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c];
+    });
+  }
+  function fmtDate(iso) {
+    if (!iso) return "&mdash;";
+    return esc(String(iso).slice(0, 10));
+  }
+
+  var form   = document.getElementById("lookup-form");
+  var input  = document.getElementById("q");
+  var btn    = document.getElementById("submit-btn");
+  var loading = document.getElementById("loading");
+  var errorEl = document.getElementById("error");
+  var resultEl = document.getElementById("result");
+
+  // Deep-linkable: /lookup.html?value=185.220.101.182 runs the lookup on load.
+  var initial = new URLSearchParams(window.location.search).get("value");
+  if (initial) { input.value = initial; runLookup(initial); }
+
+  form.addEventListener("submit", function (e) {
+    e.preventDefault();
+    var v = input.value.trim();
+    if (!v) return;
+    var url = new URL(window.location.href);
+    url.searchParams.set("value", v);
+    window.history.replaceState(null, "", url.toString());
+    runLookup(v);
+  });
+
+  function apiKey() {
+    try { return localStorage.getItem("cdb_api_key"); } catch (_) { return null; }
+  }
+
+  function runLookup(value) {
+    loading.style.display = "block";
+    errorEl.style.display = "none";
+    resultEl.style.display = "none";
+    btn.disabled = true;
+
+    var headers = {};
+    var key = apiKey();
+    if (key) headers["X-API-Key"] = key;
+
+    fetch(API_BASE + "/api/ioc/lookup?value=" + encodeURIComponent(value), { headers: headers })
+      .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, status: r.status, data: d }; }); })
+      .then(function (res) {
+        loading.style.display = "none";
+        btn.disabled = false;
+        if (!res.ok) {
+          errorEl.style.display = "block";
+          errorEl.textContent = (res.data && res.data.message)
+            ? res.data.message
+            : (res.status === 503 ? "Live intelligence data is temporarily unavailable. Please try again shortly." : "Lookup failed (" + res.status + ").");
+          return;
+        }
+        renderResult((res.data && res.data.data) || {});
+      })
+      .catch(function () {
+        loading.style.display = "none";
+        btn.disabled = false;
+        errorEl.style.display = "block";
+        errorEl.textContent = "Network error running this lookup.";
+      });
+  }
+
+  function renderResult(d) {
+    var malicious = !!d.malicious;
+
+    var verdict =
+      '<div class="verdict-bar ' + (malicious ? "malicious" : "") + '">' +
+        '<div><span class="type-chip">' + esc(d.type || "unknown") + '</span> <span class="verdict-value">' + esc(d.value) + '</span></div>' +
+        '<span class="verdict-tag ' + (malicious ? "malicious" : "clean") + '">' +
+          (malicious ? "Malicious — In Feed" : "No Match in Feed") +
+        '</span>' +
+      '</div>';
+
+    var scores =
+      '<div class="detail-scores">' +
+        '<div class="score-tile"><div class="score-val">' + (d.confidence == null ? "&mdash;" : d.confidence) + '</div><div class="score-label">Confidence</div></div>' +
+        '<div class="score-tile"><div class="score-val">' + (d.report_count || 0) + '</div><div class="score-label">Correlated Reports</div></div>' +
+        '<div class="score-tile"><div class="score-val">' + (d.source_count || 0) + '</div><div class="score-label">Distinct Sources</div></div>' +
+        '<div class="score-tile"><div class="score-val">' + fmtDate(d.first_seen) + '</div><div class="score-label">First Seen</div></div>' +
+        '<div class="score-tile"><div class="score-val">' + fmtDate(d.last_seen) + '</div><div class="score-label">Last Seen</div></div>' +
+      '</div>';
+
+    var note = malicious ? "" :
+      '<p style="color:var(--muted2);font-size:13px;margin-bottom:18px">No match does not guarantee this indicator is safe — it means SENTINEL APEX\'s current feed has no correlated record of it.</p>';
+
+    var deepSections = "";
+    if (malicious && !d.locked) {
+      var reportsHtml = (d.reports || []).map(function (r) {
+        return '<div class="report-row"><span>' + esc(r.title || r.id) + '</span><span style="color:var(--muted2)">' + esc(r.date || "") + ' &middot; ' + esc(r.severity || "") + '</span></div>';
+      }).join("") || '<div class="report-row"><span style="color:var(--muted2)">No individual report detail.</span></div>';
+
+      var actorsHtml = (d.actor_tags || []).length
+        ? (d.actor_tags || []).map(function (a) { return '<span class="chip">' + esc(a) + '</span>'; }).join("")
+        : '<span style="color:var(--muted2);font-size:13px">Unattributed.</span>';
+
+      var artifactsHtml = (d.detection_artifacts || []).length
+        ? (d.detection_artifacts || []).map(function (a) {
+            return '<div class="artifact"><span class="artifact-type">' + esc(a.artifact_type) + '</span><pre>' + esc(a.content) + '</pre></div>';
+          }).join("")
+        : '<span style="color:var(--muted2);font-size:13px">No detection rules generated for correlated reports yet.</span>';
+
+      deepSections =
+        '<div class="section"><h2>Correlated Reports</h2>' + reportsHtml + '</div>' +
+        '<div class="section"><h2>Actor Attribution</h2>' + actorsHtml + '</div>' +
+        '<div class="section"><h2>Detection Rules</h2>' + artifactsHtml + '</div>';
+    } else if (malicious && d.locked) {
+      // Real gate: this reflects an actually-masked API response (empty
+      // arrays sent by the server, per handleIOCLookup's maskIOCLookupForTier),
+      // not a client-side blur painted over data that was already sent.
+      deepSections =
+        '<div class="section locked-panel">' +
+          '<h2>Full Correlation</h2>' +
+          '<div class="locked-content">' +
+            '<div class="report-row"><span>Correlated reports</span><span>' + (d.report_count || 0) + ' hidden</span></div>' +
+            '<div class="report-row"><span>Actor attribution</span><span>&#9679;&#9679;&#9679;&#9679;</span></div>' +
+            '<div class="report-row"><span>Detection rules (YARA/Sigma/KQL/Suricata)</span><span>&#9679;&#9679;&#9679;&#9679;</span></div>' +
+          '</div>' +
+        '</div>' +
+        '<div class="paywall-card">' +
+          '<h3>Unlock Full Correlation</h3>' +
+          '<p>Correlated reports, actor attribution, and generated detection rules for this indicator are available on Pro and above.</p>' +
+          '<a class="paywall-cta" href="' + esc((d.upgrade && d.upgrade.url) || "upgrade.html?plan=pro") + '">Upgrade to Pro — $49/mo &rarr;</a>' +
+        '</div>';
+    }
+
+    resultEl.innerHTML = verdict + scores + note + deepSections;
+    resultEl.style.display = "block";
+  }
+})();
+</script>
+</body>
+</html>

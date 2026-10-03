@@ -1,0 +1,741 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Enterprise Procurement Pack — SENTINEL APEX v201.0</title>
+<meta name="description" content="Complete enterprise procurement documentation for SENTINEL APEX: security questionnaire responses, SLA terms, compliance summary, API architecture, and RFP template.">
+<link rel="canonical" href="https://intel.cyberdudebivash.com/enterprise-procurement-pack.html">
+<link rel="icon" href="/favicon.ico">
+<meta property="og:title" content="SENTINEL APEX — Enterprise Procurement Pack">
+<meta property="og:description" content="Security questionnaire answers, SLA, compliance attestations, and RFP response template for procurement teams.">
+<meta property="og:type" content="website">
+<style>
+:root{
+  --bg:#050c18;--bg2:#090f1e;--bg-card:#0b1422;
+  --border:#162030;--border-bright:rgba(0,212,170,0.25);
+  --accent:#00d4aa;--accent2:#06b6d4;
+  --text:#e2e8f0;--muted:#64748b;
+  --green:#10b981;--amber:#f59e0b;--red:#ef4444;
+  --font-mono:'Courier New',monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,sans-serif;line-height:1.6;}
+a{color:var(--accent);text-decoration:none;}
+a:hover{text-decoration:underline;}
+
+/* ── NAV ── */
+nav{display:flex;align-items:center;justify-content:space-between;padding:14px 32px;background:rgba(5,12,24,0.97);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:100;}
+.nav-logo{font-family:var(--font-mono);font-weight:900;font-size:13px;color:var(--accent);letter-spacing:2px;text-decoration:none;}
+.nav-links a{color:var(--muted);text-decoration:none;font-size:12px;margin-left:18px;font-family:var(--font-mono);}
+.nav-cta{background:var(--accent);color:#020a14!important;padding:7px 16px;border-radius:4px;font-weight:800;font-size:11px;letter-spacing:1px;}
+
+/* ── HERO ── */
+.hero{padding:72px 24px 56px;text-align:center;border-bottom:1px solid var(--border);background:radial-gradient(ellipse 900px 400px at 50% -40px,rgba(0,212,170,0.06) 0%,transparent 60%);position:relative;overflow:hidden;}
+.hero-badge{display:inline-flex;align-items:center;gap:8px;background:rgba(0,212,170,0.06);border:1px solid rgba(0,212,170,0.2);border-radius:20px;padding:5px 16px;margin-bottom:20px;font-family:var(--font-mono);font-size:9px;color:var(--accent);letter-spacing:3px;}
+.hero h1{font-size:clamp(26px,4vw,44px);font-weight:900;letter-spacing:-1.5px;margin-bottom:14px;}
+.hero h1 span{color:var(--accent);}
+.hero p{color:var(--muted);font-size:15px;max-width:600px;margin:0 auto 28px;line-height:1.7;}
+.hero-meta{display:flex;gap:24px;justify-content:center;flex-wrap:wrap;font-family:var(--font-mono);font-size:10px;color:var(--muted);letter-spacing:1px;}
+.hero-meta span{display:flex;align-items:center;gap:6px;}
+.hero-meta .dot{width:6px;height:6px;border-radius:50%;background:var(--green);display:inline-block;}
+
+/* ── LAYOUT ── */
+.page-wrap{max-width:1060px;margin:0 auto;padding:48px 24px;}
+
+/* ── TOC ── */
+.toc-card{background:var(--bg-card);border:1px solid var(--border);border-radius:8px;padding:28px 32px;margin-bottom:40px;}
+.toc-card h3{font-family:var(--font-mono);font-size:10px;letter-spacing:3px;color:var(--accent);text-transform:uppercase;margin-bottom:16px;}
+.toc-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:6px 20px;}
+.toc-item{display:flex;align-items:center;gap:8px;padding:6px 0;font-size:13px;color:var(--text);}
+.toc-item a{color:var(--text);display:flex;align-items:center;gap:8px;}
+.toc-item a:hover{color:var(--accent);}
+.toc-num{font-family:var(--font-mono);font-size:10px;color:var(--muted);min-width:22px;}
+
+/* ── SECTION ── */
+.pack-section{margin-bottom:52px;}
+.section-label{font-family:var(--font-mono);font-size:9px;letter-spacing:4px;color:var(--accent);text-transform:uppercase;margin-bottom:10px;}
+.section-title{font-size:24px;font-weight:800;letter-spacing:-0.5px;margin-bottom:6px;}
+.section-desc{color:var(--muted);font-size:14px;margin-bottom:24px;line-height:1.7;}
+.section-anchor{scroll-margin-top:72px;}
+
+/* ── QA TABLE ── */
+.qa-table{width:100%;border-collapse:collapse;font-size:13px;}
+.qa-table th{font-family:var(--font-mono);font-size:9px;letter-spacing:2px;color:var(--muted);text-align:left;padding:10px 14px;border-bottom:1px solid var(--border);text-transform:uppercase;}
+.qa-table td{padding:14px;border-bottom:1px solid rgba(22,32,48,0.6);vertical-align:top;line-height:1.65;}
+.qa-table tr:last-child td{border-bottom:none;}
+.qa-table tr:hover td{background:rgba(0,212,170,0.02);}
+.qa-q{color:var(--text);font-weight:600;width:40%;}
+.qa-a{color:rgba(255,255,255,0.75);}
+.badge-yes{display:inline-flex;align-items:center;gap:5px;font-family:var(--font-mono);font-size:9px;font-weight:700;letter-spacing:1px;padding:3px 9px;border-radius:20px;background:rgba(16,185,129,0.1);border:1px solid rgba(16,185,129,0.3);color:var(--green);}
+.badge-no{display:inline-flex;align-items:center;gap:5px;font-family:var(--font-mono);font-size:9px;font-weight:700;letter-spacing:1px;padding:3px 9px;border-radius:20px;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);color:#ef4444;}
+.badge-partial{display:inline-flex;align-items:center;gap:5px;font-family:var(--font-mono);font-size:9px;font-weight:700;letter-spacing:1px;padding:3px 9px;border-radius:20px;background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.3);color:var(--amber);}
+
+/* ── INFO CARDS ── */
+.info-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px;margin-bottom:24px;}
+.info-card{background:var(--bg-card);border:1px solid var(--border);border-radius:8px;padding:22px;position:relative;overflow:hidden;}
+.info-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;}
+.info-card.green::before{background:linear-gradient(90deg,var(--green),transparent);}
+.info-card.amber::before{background:linear-gradient(90deg,var(--amber),transparent);}
+.info-card.cyan::before{background:linear-gradient(90deg,var(--accent),transparent);}
+.info-card .ic-label{font-family:var(--font-mono);font-size:9px;letter-spacing:2px;text-transform:uppercase;margin-bottom:8px;}
+.info-card.green .ic-label{color:var(--green);}
+.info-card.amber .ic-label{color:var(--amber);}
+.info-card.cyan .ic-label{color:var(--accent);}
+.info-card .ic-val{font-size:20px;font-weight:800;letter-spacing:-0.5px;margin-bottom:6px;}
+.info-card .ic-desc{font-size:12px;color:var(--muted);line-height:1.6;}
+
+/* ── SLA TABLE ── */
+.sla-table{width:100%;border-collapse:collapse;font-size:13px;}
+.sla-table th{font-family:var(--font-mono);font-size:9px;letter-spacing:2px;color:var(--muted);text-align:left;padding:10px 14px;border-bottom:1px solid var(--border);text-transform:uppercase;}
+.sla-table td{padding:13px 14px;border-bottom:1px solid rgba(22,32,48,0.6);vertical-align:top;}
+.sla-table tr:last-child td{border-bottom:none;}
+
+/* ── CODE BLOCK ── */
+.code-block{background:#030e1a;border:1px solid var(--border);border-radius:6px;padding:18px 22px;font-family:var(--font-mono);font-size:11px;color:rgba(0,212,170,0.85);line-height:1.8;overflow-x:auto;margin:16px 0;}
+
+/* ── CTA STRIP ── */
+.cta-strip{background:linear-gradient(135deg,rgba(0,212,170,0.07),rgba(6,182,212,0.04));border:1px solid var(--border-bright);border-radius:8px;padding:36px 32px;text-align:center;margin-bottom:40px;}
+.cta-strip h3{font-size:20px;font-weight:800;margin-bottom:8px;}
+.cta-strip p{color:var(--muted);font-size:14px;margin-bottom:22px;}
+.cta-row{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;}
+.btn-primary{display:inline-flex;align-items:center;gap:8px;padding:12px 26px;background:var(--accent);color:#020a14;font-family:var(--font-mono);font-size:12px;font-weight:900;letter-spacing:1px;border-radius:4px;text-decoration:none;}
+.btn-secondary{display:inline-flex;align-items:center;gap:8px;padding:12px 26px;border:1px solid rgba(0,212,170,0.35);color:var(--accent);font-family:var(--font-mono);font-size:12px;font-weight:700;letter-spacing:1px;border-radius:4px;text-decoration:none;background:rgba(0,212,170,0.06);}
+.btn-primary:hover,.btn-secondary:hover{text-decoration:none;opacity:0.9;}
+
+/* ── DOWNLOAD CARDS ── */
+.dl-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px;margin-bottom:28px;}
+.dl-card{background:var(--bg-card);border:1px solid var(--border);border-radius:8px;padding:20px;display:flex;align-items:flex-start;gap:14px;cursor:pointer;transition:border-color 0.2s;}
+.dl-card:hover{border-color:rgba(0,212,170,0.35);}
+.dl-icon{width:40px;height:40px;border-radius:6px;background:rgba(0,212,170,0.08);border:1px solid rgba(0,212,170,0.2);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:18px;}
+.dl-info .dl-title{font-size:13px;font-weight:700;margin-bottom:4px;}
+.dl-info .dl-meta{font-family:var(--font-mono);font-size:9px;color:var(--muted);letter-spacing:1px;}
+
+/* ── FOOTER ── */
+footer{border-top:1px solid var(--border);padding:32px 24px;text-align:center;font-size:12px;color:var(--muted);}
+footer a{color:var(--muted);text-decoration:none;margin:0 10px;}
+footer a:hover{color:var(--accent);}
+
+@media(max-width:640px){
+  nav{padding:12px 16px;}
+  .nav-links{display:none;}
+  .page-wrap{padding:32px 16px;}
+  .hero{padding:48px 16px 40px;}
+  .qa-table,.sla-table{font-size:12px;}
+  .qa-q{width:35%;}
+}
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <a href="/" class="nav-logo">CDB® SENTINEL APEX</a>
+  <div class="nav-links">
+    <a href="/enterprise.html">Enterprise</a>
+    <a href="/mssp.html">MSSP</a>
+    <a href="/pricing.html">Pricing</a>
+    <a href="/security-compliance.html">Compliance</a>
+    <a href="/upgrade.html?plan=enterprise&utm_source=proc-pack&utm_medium=nav" class="nav-cta">GET ACCESS</a>
+  </div>
+</nav>
+
+<!-- HERO -->
+<div class="hero">
+  <div class="hero-badge">
+    <span style="width:6px;height:6px;border-radius:50%;background:var(--green);display:inline-block;"></span>
+    ENTERPRISE PROCUREMENT RESOURCE
+  </div>
+  <h1>SENTINEL APEX<br><span>Enterprise Procurement Pack</span></h1>
+  <p>Security questionnaire responses, SLA commitments, compliance attestations, API architecture brief, and RFP response template — ready for your procurement team.</p>
+  <div class="hero-meta">
+    <span><span class="dot"></span> Document Version: v201.0</span>
+    <span><span class="dot" style="background:var(--accent);"></span> Updated: August 2026</span>
+    <span><span class="dot" style="background:var(--amber);"></span> Applicable Tiers: Enterprise · MSSP PRO</span>
+  </div>
+</div>
+
+<!-- MAIN -->
+<div class="page-wrap">
+
+  <!-- TABLE OF CONTENTS -->
+  <div class="toc-card">
+    <h3>Contents of This Pack</h3>
+    <div class="toc-grid">
+      <div class="toc-item"><span class="toc-num">01</span><a href="#sec-overview">Platform Overview</a></div>
+      <div class="toc-item"><span class="toc-num">02</span><a href="#sec-security-qa">Security Questionnaire (Pre-filled)</a></div>
+      <div class="toc-item"><span class="toc-num">03</span><a href="#sec-compliance">Compliance &amp; Certifications</a></div>
+      <div class="toc-item"><span class="toc-num">04</span><a href="#sec-sla">SLA Commitments</a></div>
+      <div class="toc-item"><span class="toc-num">05</span><a href="#sec-architecture">Architecture &amp; Data Flows</a></div>
+      <div class="toc-item"><span class="toc-num">06</span><a href="#sec-api">API Integration Brief</a></div>
+      <div class="toc-item"><span class="toc-num">07</span><a href="#sec-data-handling">Data Handling &amp; Residency</a></div>
+      <div class="toc-item"><span class="toc-num">08</span><a href="#sec-rfp">RFP Response Template</a></div>
+      <div class="toc-item"><span class="toc-num">09</span><a href="#sec-pricing">Commercial Terms Summary</a></div>
+      <div class="toc-item"><span class="toc-num">10</span><a href="#sec-contact">Procurement Contact</a></div>
+    </div>
+  </div>
+
+  <!-- CTA STRIP TOP -->
+  <div class="cta-strip">
+    <h3>Need a Live Security Review Call?</h3>
+    <p>Our enterprise team can walk your security officer through architecture, data flows, and compliance status — typically 45 minutes.</p>
+    <div class="cta-row">
+      <a href="/contact-enterprise.html?intent=security-review&utm_source=proc-pack" class="btn-primary">Book Security Review Call</a>
+      <a href="/upgrade.html?plan=enterprise&utm_source=proc-pack" class="btn-secondary">Start Enterprise</a>
+    </div>
+  </div>
+
+  <!-- ── 01. PLATFORM OVERVIEW ── -->
+  <div class="pack-section section-anchor" id="sec-overview">
+    <div class="section-label">Section 01</div>
+    <div class="section-title">Platform Overview</div>
+    <div class="section-desc">Key technical facts for procurement and vendor risk assessment teams.</div>
+    <div class="info-grid">
+      <div class="info-card cyan">
+        <div class="ic-label">Platform Name</div>
+        <div class="ic-val">SENTINEL APEX</div>
+        <div class="ic-desc">AI-powered threat intelligence platform. Operated by CYBERDUDEBIVASH® (India). GSTIN: 21ARKPN8270G1ZP.</div>
+      </div>
+      <div class="info-card green">
+        <div class="ic-label">Version</div>
+        <div class="ic-val">v201.0</div>
+        <div class="ic-desc">Current production release. CI/CD pipeline with 45+ automated validation stages and daily deployments.</div>
+      </div>
+      <div class="info-card cyan">
+        <div class="ic-label">Intelligence Sources</div>
+        <div class="ic-val">74 Feeds</div>
+        <div class="ic-desc">CISA, MITRE ATT&amp;CK, NVD, AlienVault OTX, Abuse.ch, Shodan, GreyNoise, NCSC UK, and 66 additional curated threat feeds.</div>
+      </div>
+      <div class="info-card green">
+        <div class="ic-label">Advisory Volume</div>
+        <div class="ic-val">500+/day</div>
+        <div class="ic-desc">Processed, enriched, and scored daily. 2,600+ total reports published.</div>
+      </div>
+      <div class="info-card cyan">
+        <div class="ic-label">IOC-to-Detection</div>
+        <div class="ic-val">&lt; 6 Hours</div>
+        <div class="ic-desc">From raw feed ingestion to Sigma/KQL rule publication. Outperforms traditional 14-day analyst workflows.</div>
+      </div>
+      <div class="info-card amber">
+        <div class="ic-label">Delivery Model</div>
+        <div class="ic-val">SaaS + API</div>
+        <div class="ic-desc">REST API, STIX 2.1 / TAXII 2.1 endpoint, webhook push to SIEM, and white-label MSSP portal (multi-tenant).</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── 02. SECURITY QUESTIONNAIRE ── -->
+  <div class="pack-section section-anchor" id="sec-security-qa">
+    <div class="section-label">Section 02</div>
+    <div class="section-title">Security Questionnaire — Pre-filled Responses</div>
+    <div class="section-desc">Standard CAIQ / SIG Lite / NIST-aligned security questions, answered from the controls the platform implements today (reviewed 2026-10-01). Confirm any answer you rely on with security@cyberdudebivash.com.</div>
+
+    <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:8px;overflow:hidden;margin-bottom:16px;">
+      <table class="qa-table" style="background:transparent;">
+        <thead><tr><th class="qa-q">Question</th><th class="qa-a">Response</th></tr></thead>
+        <tbody>
+
+        <tr><td class="qa-q" style="background:rgba(0,212,170,0.03);padding:8px 14px;font-family:var(--font-mono);font-size:9px;letter-spacing:2px;color:var(--accent);" colspan="2">ACCESS CONTROL</td></tr>
+
+        <tr>
+          <td class="qa-q">Does the platform support role-based access control (RBAC)?</td>
+          <td class="qa-a"><span class="badge-partial">⚡ PLAN-BASED</span><br>Access is scoped by plan (FREE, PRO, Enterprise, MSSP) for each API key and session token, and each MSSP key manages only its own client tenants. There are no user accounts or custom roles today.</td>
+        </tr>
+        <tr>
+          <td class="qa-q">Is multi-factor authentication (MFA) supported?</td>
+          <td class="qa-a"><span class="badge-no">✗ NO</span><br>Not currently offered. There are no password-based user accounts: access is by API key, or by a 24-hour session token issued for a key. Admin routes require a separate admin secret.</td>
+        </tr>
+        <tr>
+          <td class="qa-q">Are API keys scoped and revocable?</td>
+          <td class="qa-a"><span class="badge-yes">✓ YES</span><br>Keys are scoped by plan; there are no per-key custom scopes and no IP allowlisting. Keys can be rotated or revoked at any time, and the change reaches every Cloudflare location within about a minute.</td>
+        </tr>
+        <tr>
+          <td class="qa-q">Is SSO / SAML 2.0 supported for Enterprise accounts?</td>
+          <td class="qa-a"><span class="badge-no">✗ NO</span><br>SSO (SAML 2.0 / OIDC) is not currently offered, and no delivery date is committed.</td>
+        </tr>
+
+        <tr><td class="qa-q" style="background:rgba(0,212,170,0.03);padding:8px 14px;font-family:var(--font-mono);font-size:9px;letter-spacing:2px;color:var(--accent);" colspan="2">DATA SECURITY &amp; ENCRYPTION</td></tr>
+
+        <tr>
+          <td class="qa-q">Is data encrypted in transit?</td>
+          <td class="qa-a"><span class="badge-yes">✓ YES</span><br>HTTPS only, terminated at Cloudflare's edge, with HSTS (max-age=63072000; includeSubDomains; preload). The minimum TLS version follows the Cloudflare zone setting.</td>
+        </tr>
+        <tr>
+          <td class="qa-q">Is data encrypted at rest?</td>
+          <td class="qa-a"><span class="badge-yes">✓ YES</span><br>Data in Workers KV and R2 is encrypted at rest by Cloudflare. API keys are kept as raw key records in Workers KV (not hashed by the platform), so treat every key as a secret.</td>
+        </tr>
+        <tr>
+          <td class="qa-q">Does the platform store customer-uploaded data?</td>
+          <td class="qa-a"><span class="badge-yes">✓ LIMITED</span><br>SENTINEL APEX is primarily a read/API platform. Customer data stored is limited to: customer email (as the customer ID), API key records (plan and status), payment-provider order references, and optional webhook configurations. No customer threat data is stored unless explicitly submitted.</td>
+        </tr>
+        <tr>
+          <td class="qa-q">What is the key management practice?</td>
+          <td class="qa-a">API keys are 160-bit random values stored as raw records in Workers KV, encrypted at rest by Cloudflare, and shown in audit logs only as a 12-character prefix. Webhook configurations are stored in Workers KV with the same at-rest encryption; the platform adds no envelope encryption or scheduled key rotation.</td>
+        </tr>
+
+        <tr><td class="qa-q" style="background:rgba(0,212,170,0.03);padding:8px 14px;font-family:var(--font-mono);font-size:9px;letter-spacing:2px;color:var(--accent);" colspan="2">VULNERABILITY MANAGEMENT</td></tr>
+
+        <tr>
+          <td class="qa-q">Is there a vulnerability disclosure / responsible disclosure policy?</td>
+          <td class="qa-a"><span class="badge-yes">✓ YES</span><br>Report to <strong>security@cyberdudebivash.com</strong> (security.txt, RFC 9116). We acknowledge within 2 business days and give a triage outcome within 7 business days; see the disclosure policy on security-compliance.html. No bug bounty.</td>
+        </tr>
+        <tr>
+          <td class="qa-q">Is dependency scanning performed in CI/CD?</td>
+          <td class="qa-a"><span class="badge-yes">✓ YES</span><br>Pull requests run secret scanning (TruffleHog, GitGuardian) and a SAST gate (Bandit, Semgrep, Safety and pip-audit for Python dependencies); Dependabot raises GitHub Actions updates. Findings are reported on the pull request.</td>
+        </tr>
+        <tr>
+          <td class="qa-q">Is there a penetration testing schedule?</td>
+          <td class="qa-a"><span class="badge-no">✗ NONE</span><br>No third-party penetration test report is available.</td>
+        </tr>
+
+        <tr><td class="qa-q" style="background:rgba(0,212,170,0.03);padding:8px 14px;font-family:var(--font-mono);font-size:9px;letter-spacing:2px;color:var(--accent);" colspan="2">INCIDENT RESPONSE</td></tr>
+
+        <tr>
+          <td class="qa-q">What is the incident notification SLA for Enterprise customers?</td>
+          <td class="qa-a"><span class="badge-partial">⚡ PARTIAL</span><br>Contracted incident response: 48h email (PRO), 4h email/chat (Enterprise), 1h dedicated (MSSP), per sla.html. A separate notification commitment for security incidents affecting customer data is not yet published; ask security@cyberdudebivash.com.</td>
+        </tr>
+        <tr>
+          <td class="qa-q">Is there a documented incident response plan?</td>
+          <td class="qa-a"><span class="badge-partial">⚡ PARTIAL</span><br>Production incidents are investigated and recorded as written root-cause reports in the public repository (docs/incidents/). A formal incident response plan document is not published.</td>
+        </tr>
+
+        <tr><td class="qa-q" style="background:rgba(0,212,170,0.03);padding:8px 14px;font-family:var(--font-mono);font-size:9px;letter-spacing:2px;color:var(--accent);" colspan="2">LOGGING &amp; MONITORING</td></tr>
+
+        <tr>
+          <td class="qa-q">Are API access logs available to customers?</td>
+          <td class="qa-a"><span class="badge-no">✗ NO</span><br>Per-request access logs are not exposed to customers. Admin actions, key-lifecycle events and authenticated requests are written to an audit log kept for 30 days and available to the operator.</td>
+        </tr>
+        <tr>
+          <td class="qa-q">Is there centralized log aggregation and anomaly detection?</td>
+          <td class="qa-a"><span class="badge-partial">⚡ PARTIAL</span><br>Audit events and authentication failures are recorded, and an IP is locked out for 15 minutes after 5 failed key attempts. There is no automated anomaly detection or geographic alerting.</td>
+        </tr>
+
+        <tr><td class="qa-q" style="background:rgba(0,212,170,0.03);padding:8px 14px;font-family:var(--font-mono);font-size:9px;letter-spacing:2px;color:var(--accent);" colspan="2">SUPPLY CHAIN &amp; THIRD PARTIES</td></tr>
+
+        <tr>
+          <td class="qa-q">What third-party services process customer data?</td>
+          <td class="qa-a">Sub-processors are listed on security-compliance.html (hosting, email, contact forms, and payments through Razorpay and Gumroad). Card data is handled by Razorpay or Gumroad and never reaches the platform. No customer intelligence data is shared with third parties.</td>
+        </tr>
+        <tr>
+          <td class="qa-q">Are third-party threat intelligence sources vetted?</td>
+          <td class="qa-a"><span class="badge-yes">✓ YES</span><br>Sources are registered in the source fabric and health-probed on every publisher run; stale or failing sources are flagged by the stale-source guard, and published items pass IOC artifact rejection and confidence checks before release.</td>
+        </tr>
+
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ── 03. COMPLIANCE ── -->
+  <div class="pack-section section-anchor" id="sec-compliance">
+    <div class="section-label">Section 03</div>
+    <div class="section-title">Compliance &amp; Certifications</div>
+    <div class="section-desc">Current compliance posture and attestation status.</div>
+    <div class="info-grid">
+      <div class="info-card green">
+        <div class="ic-label">STIX 2.1 / TAXII 2.1</div>
+        <div class="ic-val" style="font-size:16px;">Fully Implemented</div>
+        <div class="ic-desc">All threat intelligence output conforms to OASIS STIX 2.1. TAXII 2.1 server endpoint available on Enterprise tier for automated collection.</div>
+      </div>
+      <div class="info-card green">
+        <div class="ic-label">MITRE ATT&amp;CK v15</div>
+        <div class="ic-val" style="font-size:16px;">Mapped</div>
+        <div class="ic-desc">Every advisory and detection rule is mapped to MITRE ATT&amp;CK v15 Techniques (Txxxx) and Tactics. Navigator-compatible JSON export available.</div>
+      </div>
+      <div class="info-card green">
+        <div class="ic-label">NIST CSF 2.0</div>
+        <div class="ic-val" style="font-size:16px;">Aligned</div>
+        <div class="ic-desc">Platform capabilities mapped to NIST CSF 2.0 core functions: Govern, Identify, Protect, Detect, Respond, Recover.</div>
+      </div>
+      <div class="info-card green">
+        <div class="ic-label">TLP (Traffic Light Protocol)</div>
+        <div class="ic-val" style="font-size:16px;">Compliant</div>
+        <div class="ic-desc">TLP:CLEAR/GREEN/AMBER respected across all distribution channels. TLP:RED is never displayed on public dashboards (TLP spec §2.4). TLP:RED restricted to Enterprise+ API feed only.</div>
+      </div>
+      <div class="info-card amber">
+        <div class="ic-label">SOC 2 Type II</div>
+        <div class="ic-val" style="font-size:16px;">Readiness · Not Attested</div>
+        <div class="ic-desc">SOC 2 Type II readiness programme: Trust Service Criteria mapped to platform controls. No audit report exists yet; the platform is not independently attested. A readiness summary is available on request.</div>
+      </div>
+      <div class="info-card amber">
+        <div class="ic-label">ISO 27001</div>
+        <div class="ic-val" style="font-size:16px;">Roadmap</div>
+        <div class="ic-desc">ISO 27001 ISMS implementation in progress. Gap analysis completed. Formal certification targeted Q1 2027. ISMS policy documentation available under NDA.</div>
+      </div>
+      <div class="info-card green">
+        <div class="ic-label">GDPR / Data Privacy</div>
+        <div class="ic-val" style="font-size:16px;">Compliant</div>
+        <div class="ic-desc">No PII collected beyond account registration. Data processing limited to threat intelligence (non-personal). Privacy policy available at /privacy.html. Data deletion requests honored within 30 days.</div>
+      </div>
+      <div class="info-card green">
+        <div class="ic-label">GST Registration</div>
+        <div class="ic-val" style="font-size:16px;">21ARKPN8270G1ZP</div>
+        <div class="ic-desc">Registered under Indian Goods &amp; Services Tax. GSTIN required for Indian enterprise procurement. GST-compliant invoices issued for all subscriptions.</div>
+      </div>
+    </div>
+    <p style="font-size:13px;color:var(--muted);">Full compliance documentation: <a href="/security-compliance.html">security-compliance.html</a> &nbsp;·&nbsp; For NDA-gated materials, contact <a href="mailto:enterprise@cyberdudebivash.com">enterprise@cyberdudebivash.com</a></p>
+  </div>
+
+  <!-- ── 04. SLA ── -->
+  <div class="pack-section section-anchor" id="sec-sla">
+    <div class="section-label">Section 04</div>
+    <div class="section-title">SLA Commitments</div>
+    <div class="section-desc">Service Level Agreements applicable to Enterprise and MSSP PRO tiers.</div>
+    <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:8px;overflow:hidden;margin-bottom:20px;">
+      <table class="sla-table">
+        <thead><tr><th>Metric</th><th>Community</th><th>PRO</th><th>Enterprise</th><th>MSSP PRO</th></tr></thead>
+        <tbody>
+          <tr>
+            <td style="font-weight:600;">Platform Uptime</td>
+            <td style="color:var(--muted);">Best effort</td>
+            <td>99.5%</td>
+            <td><strong style="color:var(--green);">99.9%</strong></td>
+            <td><strong style="color:var(--green);">99.9%</strong></td>
+          </tr>
+          <tr>
+            <td style="font-weight:600;">Feed Freshness (IOC Update Cadence)</td>
+            <td style="color:var(--muted);">See sla.html</td>
+            <td>See sla.html</td>
+            <td>See sla.html</td>
+            <td>See sla.html</td>
+          </tr>
+          <tr>
+            <td style="font-weight:600;">API Response Time (P95)</td>
+            <td style="color:var(--muted);">—</td>
+            <td>&lt; 800ms</td>
+            <td><strong style="color:var(--green);">&lt; 500ms</strong></td>
+            <td><strong style="color:var(--green);">&lt; 500ms</strong></td>
+          </tr>
+          <tr>
+            <td style="font-weight:600;">API Rate Limit</td>
+            <td style="color:var(--muted);">50 req/day</td>
+            <td>5,000 req/day</td>
+            <td><strong style="color:var(--green);">50,000 req/day</strong></td>
+            <td><strong style="color:var(--green);">50,000 req/day + Multi-Tenant</strong></td>
+          </tr>
+          <tr>
+            <td style="font-weight:600;">P0 Incident Notification</td>
+            <td style="color:var(--muted);">Status page only</td>
+            <td>Status page + email</td>
+            <td><strong style="color:var(--green);">Email within 1 hour</strong></td>
+            <td><strong style="color:var(--green);">Email + dedicated contact within 1 hour</strong></td>
+          </tr>
+          <tr>
+            <td style="font-weight:600;">Security Incident Notification</td>
+            <td style="color:var(--muted);">—</td>
+            <td>24 business hours</td>
+            <td><strong style="color:var(--green);">4 business hours</strong></td>
+            <td><strong style="color:var(--green);">4 business hours</strong></td>
+          </tr>
+          <tr>
+            <td style="font-weight:600;">Support Response</td>
+            <td style="color:var(--muted);">Community forum</td>
+            <td>Email, 48h</td>
+            <td><strong style="color:var(--green);">Email and chat, 4h</strong></td>
+            <td><strong style="color:var(--green);">Dedicated CSM, 1h</strong></td>
+          </tr>
+          <tr>
+            <td style="font-weight:600;">Critical CVE Patch Notification</td>
+            <td style="color:var(--muted);">—</td>
+            <td>Weekly digest</td>
+            <td><strong style="color:var(--green);">Real-time push (CVSS ≥ 9.0)</strong></td>
+            <td><strong style="color:var(--green);">Real-time push per tenant</strong></td>
+          </tr>
+          <tr>
+            <td style="font-weight:600;">Data Retention</td>
+            <td style="color:var(--muted);">30 days</td>
+            <td>90 days</td>
+            <td><strong style="color:var(--green);">12 months</strong></td>
+            <td><strong style="color:var(--green);">12 months per tenant</strong></td>
+          </tr>
+          <tr>
+            <td style="font-weight:600;">Uptime Credit</td>
+            <td style="color:var(--muted);">None</td>
+            <td>5% per hour of P0 outage</td>
+            <td><strong style="color:var(--green);">10% per hour of P0 outage</strong></td>
+            <td><strong style="color:var(--green);">15% per hour of P0 outage</strong></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <p style="font-size:13px;color:var(--muted);">SLA credits are applied as account credits to the next billing cycle. sla.html is the binding statement of uptime, latency, freshness, incident response and outage credits; where this table differs, sla.html applies.</p>
+  </div>
+
+  <!-- ── 05. ARCHITECTURE ── -->
+  <div class="pack-section section-anchor" id="sec-architecture">
+    <div class="section-label">Section 05</div>
+    <div class="section-title">Architecture &amp; Data Flows</div>
+    <div class="section-desc">High-level architecture overview for security review teams.</div>
+    <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:8px;padding:28px;margin-bottom:20px;">
+      <div class="code-block">
+SENTINEL APEX — Data Flow Architecture v201.0
+
+┌─────────────────────────────────────────────────────────────────────┐
+│  INGESTION LAYER (registered sources, each publisher run)           │
+│  CISA KEV · MITRE ATT&CK · NVD/NVD-CVE · AlienVault OTX           │
+│  Abuse.ch · GreyNoise · Shodan · NCSC UK · MS MSRC · 65 more      │
+└────────────────────────────┬────────────────────────────────────────┘
+                             │ Raw advisories + IOCs
+                             ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│  AI ENRICHMENT ENGINE (Python, GitHub Actions CI/CD)                │
+│  • CVSS/EPSS scoring          • MITRE ATT&CK v15 mapping           │
+│  • TLP classification (max TLP:AMBER public)                        │
+│  • Sigma/KQL rule generation                                        │
+│  • IOC deduplication + false-positive scoring                       │
+│  • STIX 2.1 bundle assembly                                         │
+└────────────────────────────┬────────────────────────────────────────┘
+                             │ Enriched intelligence objects
+                             ▼
+┌───────────────────┐  ┌──────────────────────┐  ┌───────────────────┐
+│  REST API         │  │  STIX 2.1 / TAXII 2.1│  │  Webhook Push     │
+│  JSON responses   │  │  Enterprise endpoint  │  │  SIEM / SOAR      │
+│  API key or JWT   │  │  Collection-based     │  │  Splunk/QRadar/   │
+│                   │  │  pull by Enterprise   │  │  Sentinel/Elastic │
+└───────────────────┘  └──────────────────────┘  └───────────────────┘
+         │                        │                        │
+         ▼                        ▼                        ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│  CUSTOMER TIER                                                       │
+│  Dashboard UI  ·  API consumer  ·  MSSP white-label multi-tenant   │
+└─────────────────────────────────────────────────────────────────────┘
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;margin-top:16px;">
+        <div style="font-size:12px;color:var(--muted);line-height:1.7;"><strong style="color:var(--text);">No customer data flows upstream.</strong> The enrichment engine processes only public threat intelligence. Customer API keys, webhook URLs, and account data never leave the platform boundary.</div>
+        <div style="font-size:12px;color:var(--muted);line-height:1.7;"><strong style="color:var(--text);">Deployment:</strong> delivered as SaaS only. Private, on-premises and air-gapped instances are not offered; isolated networks can import STIX 2.1 objects pulled over TAXII 2.1.</div>
+        <div style="font-size:12px;color:var(--muted);line-height:1.7;"><strong style="color:var(--text);">CI/CD pipeline</strong> runs 45+ stages, including integrity gates, regression tests and post-deploy canaries; pull requests also run secret scanning and SAST.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── 06. API ── -->
+  <div class="pack-section section-anchor" id="sec-api">
+    <div class="section-label">Section 06</div>
+    <div class="section-title">API Integration Brief</div>
+    <div class="section-desc">Technical reference for your integration team.</div>
+    <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:8px;padding:28px;margin-bottom:20px;">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-bottom:20px;">
+        <div>
+          <p style="font-family:var(--font-mono);font-size:9px;letter-spacing:2px;color:var(--muted);text-transform:uppercase;margin-bottom:10px;">Base URL</p>
+          <div class="code-block" style="margin:0;">https://intel.cyberdudebivash.com/api/v1/</div>
+        </div>
+        <div>
+          <p style="font-family:var(--font-mono);font-size:9px;letter-spacing:2px;color:var(--muted);text-transform:uppercase;margin-bottom:10px;">Auth Method</p>
+          <div class="code-block" style="margin:0;">X-API-Key: &lt;API_KEY&gt;  (or Authorization: Bearer &lt;API_KEY or session token&gt;)</div>
+        </div>
+      </div>
+      <p style="font-family:var(--font-mono);font-size:9px;letter-spacing:2px;color:var(--muted);text-transform:uppercase;margin-bottom:12px;">Key Endpoints</p>
+      <div class="code-block">
+GET /api/v1/intel/latest.json   — Latest advisories (masked fields for FREE)
+GET /api/feed.json               — Same feed, single file
+GET /api/v1/ioc/enriched         — Full IOC values (PRO and above)
+GET /api/v1/ioc/lookup?value=…   — Look up one indicator
+GET /api/v1/cve/live             — CVE feed with CVSS, EPSS and KEV flag
+GET /api/v1/intel/detection_rules_manifest.json — Detection rule manifest
+GET /taxii/                      — TAXII 2.1 discovery
+GET /taxii/collections/{id}/objects/ — STIX 2.1 objects (PRO and above)
+GET /api/sla/report              — SLA compliance report (Enterprise, MSSP)
+      </div>
+      <p style="font-size:13px;color:var(--muted);margin-top:12px;">Full API reference: <a href="/api-docs.html">api-docs.html</a> &nbsp;·&nbsp; Postman collection: <a href="/api-reference-card.html">api-reference-card.html</a></p>
+    </div>
+  </div>
+
+  <!-- ── 07. DATA HANDLING ── -->
+  <div class="pack-section section-anchor" id="sec-data-handling">
+    <div class="section-label">Section 07</div>
+    <div class="section-title">Data Handling &amp; Location</div>
+    <div class="section-desc">Where data lives and how it is protected.</div>
+    <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:8px;overflow:hidden;">
+      <table class="qa-table">
+        <thead><tr><th>Data Category</th><th>Storage Location</th><th>Encryption</th><th>Retention</th></tr></thead>
+        <tbody>
+          <tr>
+            <td style="font-weight:600;">Threat intelligence (advisories, IOCs, CVEs)</td>
+            <td>Cloudflare R2 and Workers KV</td>
+            <td>Encrypted at rest by Cloudflare; HTTPS in transit</td>
+            <td>Indefinite (public data)</td>
+          </tr>
+          <tr>
+            <td style="font-weight:600;">Customer account data (email, org name)</td>
+            <td>Cloudflare Workers KV</td>
+            <td>Encrypted at rest by Cloudflare</td>
+            <td>Duration of subscription + 90 days</td>
+          </tr>
+          <tr>
+            <td style="font-weight:600;">API key records</td>
+            <td>Cloudflare Workers KV</td>
+            <td>Encrypted at rest by Cloudflare; not hashed by the platform</td>
+            <td>Until revoked by customer</td>
+          </tr>
+          <tr>
+            <td style="font-weight:600;">Audit log (admin, key lifecycle, authenticated requests)</td>
+            <td>Cloudflare Workers KV</td>
+            <td>Encrypted at rest by Cloudflare</td>
+            <td>30 days</td>
+          </tr>
+          <tr>
+            <td style="font-weight:600;">Webhook configurations</td>
+            <td>Cloudflare Workers KV</td>
+            <td>Encrypted at rest by Cloudflare</td>
+            <td>Until removed by customer</td>
+          </tr>
+          <tr>
+            <td style="font-weight:600;">Payment / billing data</td>
+            <td>Razorpay or Gumroad only</td>
+            <td>Handled by the payment provider</td>
+            <td>Per payment processor policy</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ── 08. RFP TEMPLATE ── -->
+  <div class="pack-section section-anchor" id="sec-rfp">
+    <div class="section-label">Section 08</div>
+    <div class="section-title">RFP Response Template</div>
+    <div class="section-desc">Pre-populated responses for common threat intelligence platform RFP sections. Copy, adapt, and submit.</div>
+    <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:8px;padding:28px;margin-bottom:20px;">
+      <div class="code-block" style="white-space:pre-wrap;font-size:11px;">
+VENDOR: CYBERDUDEBIVASH® SENTINEL APEX
+PLATFORM VERSION: v201.0 (August 2026)
+RESPONSE PREPARED FOR: [INSERT ORGANIZATION NAME]
+DATE: [INSERT DATE]
+
+─────────────────────────────────────────────────────────────────
+SECTION: THREAT INTELLIGENCE COVERAGE
+─────────────────────────────────────────────────────────────────
+Q: How many threat intelligence sources does the platform integrate?
+A: Registered public and vendor sources including CISA KEV,
+   MITRE ATT&CK v15, NVD, AlienVault OTX and Abuse.ch, each
+   health-probed on every publisher run.
+
+Q: What is the IOC-to-detection latency?
+A: Detection rules are generated in the same publisher run that
+   ingests the advisory; publisher runs land several times a day.
+
+Q: What threat intelligence standards are supported?
+A: STIX 2.1 (export), TAXII 2.1 (pull endpoint, Enterprise+),
+   MITRE ATT&CK v15 technique mapping, TLP:CLEAR/GREEN/AMBER
+   classification, CVSS v3.1 + EPSS scoring.
+
+─────────────────────────────────────────────────────────────────
+SECTION: INTEGRATION CAPABILITIES
+─────────────────────────────────────────────────────────────────
+Q: What SIEM/SOAR platforms does the product integrate with?
+A: REST API and webhook push supports any SIEM: Microsoft Sentinel
+   (KQL rules), Splunk (Sigma → SPL conversion), IBM QRadar,
+   Elastic SIEM, and custom SOAR platforms. STIX 2.1 / TAXII 2.1
+   endpoint supports any TAXII-compatible TIP.
+
+Q: Is there an API for programmatic access?
+A: Yes. REST API with API-key or session-token (JWT) auth and JSON
+   responses for advisories, IOCs, CVEs and detection rules.
+   Rate limits: 5,000 req/day (PRO) to 50,000 req/day (Enterprise, MSSP).
+
+─────────────────────────────────────────────────────────────────
+SECTION: PRICING &amp; COMMERCIAL
+─────────────────────────────────────────────────────────────────
+Q: What is the pricing structure?
+A: Community: $0/mo (50 API req/day, read-only)
+   PRO: $49/mo or $490/yr — 5K API req/day, Sigma/KQL rules
+   Enterprise: $499/mo or $4,990/yr — 50,000/day API, STIX 2.1,
+               4h email/chat support, SLA 99.9%, 12-month data retention
+   MSSP PRO: $999/mo or $9,990/yr — Multi-tenant, white-label, dedicated CSM
+
+Q: Is annual billing available? What is the discount?
+A: Yes. Annual billing gives 2 months free (about 17%) on all paid tiers.
+   Annual invoicing available for Enterprise accounts on request.
+
+─────────────────────────────────────────────────────────────────
+SECTION: SUPPORT &amp; SUCCESS
+─────────────────────────────────────────────────────────────────
+Q: What support is included with Enterprise?
+A: Email and chat support with a 4-hour response (sla.html),
+   99.9% uptime commitment with P0 outage credits, and SIEM
+   integration assistance. A dedicated CSM is part of MSSP.
+
+─────────────────────────────────────────────────────────────────
+VENDOR CONTACT FOR PROCUREMENT
+─────────────────────────────────────────────────────────────────
+Enterprise Team:    enterprise@cyberdudebivash.com
+Security Review:    security@cyberdudebivash.com
+Phone / WhatsApp:   +91 8179881447
+Enterprise Portal:  https://intel.cyberdudebivash.com/enterprise.html
+      </div>
+    </div>
+  </div>
+
+  <!-- ── 09. PRICING ── -->
+  <div class="pack-section section-anchor" id="sec-pricing">
+    <div class="section-label">Section 09</div>
+    <div class="section-title">Commercial Terms Summary</div>
+    <div class="section-desc">Simplified commercial terms for procurement review. See <a href="/pricing.html">pricing.html</a> for full detail.</div>
+    <div style="overflow-x:auto;">
+      <table class="sla-table" style="min-width:560px;">
+        <thead><tr><th>Item</th><th>PRO</th><th>Enterprise</th><th>MSSP PRO</th></tr></thead>
+        <tbody>
+          <tr><td style="font-weight:600;">Monthly price</td><td>$49/mo</td><td>$499/mo</td><td>$999/mo</td></tr>
+          <tr><td style="font-weight:600;">Annual price</td><td>$41/mo ($490/yr)</td><td>$416/mo ($4,990/yr)</td><td>$833/mo ($9,990/yr)</td></tr>
+          <tr><td style="font-weight:600;">Annual invoice option</td><td>—</td><td>Yes (on request)</td><td>Yes (on request)</td></tr>
+          <tr><td style="font-weight:600;">PO / procurement process</td><td>Self-serve</td><td>Yes, supported</td><td>Yes, supported</td></tr>
+          <tr><td style="font-weight:600;">MSSP resale margin</td><td>—</td><td>—</td><td>Up to 25% commission</td></tr>
+          <tr><td style="font-weight:600;">Contract term</td><td>Month-to-month or annual</td><td>Month-to-month or annual</td><td>Annual recommended</td></tr>
+          <tr><td style="font-weight:600;">GST invoice</td><td>Yes (21ARKPN8270G1ZP)</td><td>Yes</td><td>Yes</td></tr>
+          <tr><td style="font-weight:600;">Cancellation</td><td>Anytime, end of period</td><td>30-day notice (annual)</td><td>60-day notice (annual)</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ── 10. CONTACT ── -->
+  <div class="pack-section section-anchor" id="sec-contact">
+    <div class="section-label">Section 10</div>
+    <div class="section-title">Procurement &amp; Enterprise Contact</div>
+    <div class="section-desc">Your direct line to the SENTINEL APEX enterprise team.</div>
+    <div class="info-grid">
+      <div class="info-card cyan">
+        <div class="ic-label">Enterprise Sales</div>
+        <div class="ic-val" style="font-size:15px;">enterprise@cyberdudebivash.com</div>
+        <div class="ic-desc">Procurement, contract review, custom SLA addendum, PO processing, and trial setup.</div>
+      </div>
+      <div class="info-card cyan">
+        <div class="ic-label">Security &amp; Compliance</div>
+        <div class="ic-val" style="font-size:15px;">security@cyberdudebivash.com</div>
+        <div class="ic-desc">Security questionnaire review, audit report requests (NDA required), CISO-to-CISO briefings.</div>
+      </div>
+      <div class="info-card cyan">
+        <div class="ic-label">Phone / WhatsApp</div>
+        <div class="ic-val" style="font-size:15px;">+91 8179881447</div>
+        <div class="ic-desc">Direct line to the SENTINEL APEX leadership team. Available business hours IST.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CTA STRIP BOTTOM -->
+  <div class="cta-strip">
+    <h3>Ready to Move Forward?</h3>
+    <p>Get Enterprise access — full API access, Sigma/KQL rules, STIX 2.1 export, and dedicated onboarding, billed at checkout and provisioned automatically after payment confirmation.</p>
+    <div class="cta-row">
+      <a href="/upgrade.html?plan=enterprise&utm_source=proc-pack&utm_medium=bottom-cta" class="btn-primary">Get Enterprise Access →</a>
+      <a href="/contact-enterprise.html?intent=procurement&utm_source=proc-pack" class="btn-secondary">Talk to Enterprise Team</a>
+      <a href="/pricing.html" class="btn-secondary">View Full Pricing</a>
+    </div>
+  </div>
+
+</div><!-- /page-wrap -->
+
+<footer>
+  <a href="/">Home</a>
+  <a href="/enterprise.html">Enterprise</a>
+  <a href="/mssp.html">MSSP</a>
+  <a href="/pricing.html">Pricing</a>
+  <a href="/security-compliance.html">Security</a>
+  <a href="/api-docs.html">API Docs</a>
+  <a href="/privacy.html">Privacy</a>
+  <a href="/terms.html">Terms</a>
+  <p style="margin-top:16px;">© 2026 CYBERDUDEBIVASH® SENTINEL APEX v201.0 &nbsp;&middot;&nbsp; GSTIN: 21ARKPN8270G1ZP</p>
+</footer>
+
+</body>
+</html>
