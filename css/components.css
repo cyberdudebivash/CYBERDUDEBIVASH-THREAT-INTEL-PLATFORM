@@ -1,0 +1,922 @@
+/*!
+ * SENTINEL APEX — Shared Enterprise Component System (PR-4)
+ * ==============================================================
+ * Reusable, token-driven UI primitives for marketing/content pages:
+ * layout (container/section/grid), buttons, badges, cards, CTA
+ * banners, site header, and site footer.
+ *
+ * Every value below is a var(--sapx-*) reference into css/tokens.css
+ * (PR-2) — zero hardcoded colors, spacing, radius, or typography.
+ * Requires tokens.css to be linked first.
+ *
+ * NOT wired into any page yet. No existing page currently links this
+ * file, so shipping it changes zero rendered output. Reference markup
+ * for every component lives in components/*.html — copy-paste
+ * starting points, not auto-included anywhere (this repo has no
+ * templating/include system; every page is a self-contained HTML
+ * file, confirmed by inspection during PR-1/PR-3).
+ *
+ * KNOWN, DISCLOSED OVERLAP WITH css/hero.css (PR-3):
+ * hero.css already defines .sapx-btn / .sapx-btn-primary /
+ * .sapx-btn-secondary, scoped to the landing hero. This file restates
+ * those same class names as part of the shared system so future pages
+ * have one canonical source. The base/.sapx-btn-secondary rules are
+ * value-identical across both files. **.sapx-btn-primary's `color`
+ * differs on purpose**: hero.css uses --sapx-color-text-inverse,
+ * which resolves to white-on-teal at 1.71:1 in light theme (fails
+ * WCAG AA) -- discovered while verifying this PR. This file uses the
+ * new --sapx-color-text-on-bright token instead, which fixes it. See
+ * docs/component-system-guide.md and the PR description for the full
+ * writeup and the recommended one-line follow-up to hero.css. Do not
+ * load hero.css and components.css on the same page until that
+ * follow-up lands, or .sapx-btn-primary's color becomes a genuine
+ * "last file loaded wins" cascade conflict rather than just a
+ * disclosed duplication.
+ *
+ * Full guide (architecture, usage, migration, accessibility,
+ * performance, integration, future extension):
+ * docs/component-system-guide.md
+ *
+ * Version: 1.0.0 (PR-4)
+ * ============================================================== */
+
+/* ===================================================================
+ * BOX-SIZING RESET (PR-5)
+ * .sapx-container/-card/-btn (mobile) etc. combine padding/border
+ * with an explicit or grid/flex-stretched width. Without border-box,
+ * content-box (the browser default) adds that padding/border ON TOP
+ * of the width, overflowing the viewport -- confirmed via a real
+ * Playwright viewport-overflow check while building enterprise-
+ * homepage.html (PR-5), the first page to render this file's layout
+ * primitives at real, full-page responsive widths end-to-end; every
+ * prior verification of this file rendered one component in
+ * isolation, too narrow for a full-container overflow to appear.
+ * Scoped to elements carrying an sapx-prefixed class (never a bare
+ * `*` reset) so a page migrating incrementally (§3 of
+ * docs/component-system-guide.md) never has its own, not-yet-
+ * migrated content's box model changed by adopting this file.
+ * =================================================================== */
+[class^="sapx-"],
+[class*=" sapx-"] {
+  box-sizing: border-box;
+}
+
+/* ===================================================================
+ * ACCESSIBILITY: SKIP LINK
+ * =================================================================== */
+.sapx-skip-link {
+  position: absolute;
+  top: -48px;
+  left: 0;
+  z-index: 1000;
+  background: var(--sapx-color-brand-teal);
+  color: var(--sapx-color-text-on-bright);
+  padding: var(--sapx-space-2) var(--sapx-space-4);
+  border-radius: 0 0 var(--sapx-radius-md) 0;
+  font-family: var(--sapx-font-sans);
+  font-weight: var(--sapx-font-weight-semibold);
+  font-size: var(--sapx-font-size-sm);
+  text-decoration: none;
+  transition: top var(--sapx-transition-fast) var(--sapx-ease-standard);
+}
+.sapx-skip-link:focus-visible {
+  top: 0;
+  outline: none;
+}
+
+/* ===================================================================
+ * LAYOUT PRIMITIVES: CONTAINER, SECTION, GRID
+ * =================================================================== */
+.sapx-container {
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding-left: var(--sapx-space-5);
+  padding-right: var(--sapx-space-5);
+}
+.sapx-container-wide { max-width: 1440px; }
+.sapx-container-narrow { max-width: 800px; }
+
+.sapx-section {
+  padding-top: var(--sapx-space-8);
+  padding-bottom: var(--sapx-space-8);
+}
+.sapx-section-sm { padding-top: var(--sapx-space-6); padding-bottom: var(--sapx-space-6); }
+.sapx-section-lg { padding-top: var(--sapx-space-9); padding-bottom: var(--sapx-space-9); }
+.sapx-section-alt { background: var(--sapx-color-bg-surface); }
+
+.sapx-section-kicker {
+  font-family: var(--sapx-font-mono);
+  font-size: var(--sapx-font-size-xs);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  font-weight: var(--sapx-font-weight-semibold);
+  color: var(--sapx-color-text-tertiary);
+  margin: 0 0 var(--sapx-space-3);
+}
+.sapx-section-heading {
+  font-family: var(--sapx-font-display);
+  font-size: var(--sapx-font-size-3xl);
+  font-weight: var(--sapx-font-weight-bold);
+  color: var(--sapx-color-text-primary);
+  line-height: var(--sapx-line-height-snug);
+  margin: 0 0 var(--sapx-space-3);
+}
+.sapx-section-desc {
+  font-size: var(--sapx-font-size-base);
+  color: var(--sapx-color-text-secondary);
+  max-width: 640px;
+  margin: 0 0 var(--sapx-space-6);
+}
+
+/* One flexible grid primitive instead of a bespoke grid per component
+   (feature grid, stats grid, integration grid, partner logos all use
+   this + a column-count modifier). */
+.sapx-grid {
+  display: grid;
+  gap: var(--sapx-space-4);
+}
+.sapx-grid-2 { grid-template-columns: repeat(2, 1fr); }
+.sapx-grid-3 { grid-template-columns: repeat(3, 1fr); }
+.sapx-grid-4 { grid-template-columns: repeat(4, 1fr); }
+.sapx-grid-5 { grid-template-columns: repeat(5, 1fr); }
+.sapx-grid-6 { grid-template-columns: repeat(6, 1fr); }
+
+@media (max-width: 900px) {
+  .sapx-grid-3, .sapx-grid-4, .sapx-grid-5, .sapx-grid-6 { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 560px) {
+  .sapx-grid-2, .sapx-grid-3, .sapx-grid-4, .sapx-grid-5, .sapx-grid-6 { grid-template-columns: 1fr; }
+}
+
+/* ===================================================================
+ * BUTTON SYSTEM
+ * =================================================================== */
+.sapx-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sapx-space-2);
+  padding: var(--sapx-space-3) var(--sapx-space-6);
+  border-radius: var(--sapx-radius-md);
+  font-family: var(--sapx-font-sans);
+  font-size: var(--sapx-font-size-base);
+  font-weight: var(--sapx-font-weight-semibold);
+  text-decoration: none;
+  border: 1px solid transparent;
+  cursor: pointer;
+  background: none;
+  transition: transform var(--sapx-transition-fast) var(--sapx-ease-standard),
+    opacity var(--sapx-transition-fast) var(--sapx-ease-standard),
+    border-color var(--sapx-transition-fast) var(--sapx-ease-standard),
+    background-color var(--sapx-transition-fast) var(--sapx-ease-standard);
+}
+
+.sapx-btn-primary {
+  background: var(--sapx-color-brand-teal);
+  color: var(--sapx-color-text-on-bright);
+}
+.sapx-btn-primary:hover { opacity: 0.9; transform: translateY(-1px); }
+
+.sapx-btn-secondary {
+  background: transparent;
+  color: var(--sapx-color-text-primary);
+  border-color: var(--sapx-color-border-strong);
+}
+.sapx-btn-secondary:hover { border-color: var(--sapx-color-outline-neutral); }
+
+.sapx-btn-ghost {
+  background: transparent;
+  color: var(--sapx-color-text-primary);
+}
+.sapx-btn-ghost:hover { background: var(--sapx-color-bg-surface-raised); }
+
+.sapx-btn-outline {
+  background: transparent;
+  color: var(--sapx-color-text-primary);
+  border-color: var(--sapx-color-brand-teal);
+}
+.sapx-btn-outline:hover { background: var(--sapx-color-bg-surface-raised); }
+
+.sapx-btn-danger {
+  background: var(--sapx-color-danger);
+  color: var(--sapx-color-text-on-bright);
+}
+.sapx-btn-danger:hover { opacity: 0.9; }
+
+.sapx-btn-success {
+  background: var(--sapx-color-success);
+  color: var(--sapx-color-text-on-bright);
+}
+.sapx-btn-success:hover { opacity: 0.9; }
+
+.sapx-btn-icon {
+  padding: var(--sapx-space-3);
+  aspect-ratio: 1;
+  line-height: 1;
+}
+
+.sapx-btn[disabled],
+.sapx-btn-disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+/* Loading spinner is an exception to "respect reduced motion" by
+   design: it communicates real, ongoing state (an in-flight request),
+   not decorative motion. Slowing rather than fully freezing it avoids
+   both a misleading "stuck/broken" appearance and ignoring the user's
+   preference outright. */
+.sapx-btn-loading {
+  color: transparent;
+  position: relative;
+  pointer-events: none;
+}
+.sapx-btn-loading::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 16px;
+  height: 16px;
+  margin: -8px 0 0 -8px;
+  border: 2px solid currentColor;
+  border-top-color: transparent;
+  border-radius: var(--sapx-radius-full);
+  color: inherit;
+  animation: sapx-btn-spin 0.6s linear infinite;
+}
+.sapx-btn-primary.sapx-btn-loading::after,
+.sapx-btn-danger.sapx-btn-loading::after,
+.sapx-btn-success.sapx-btn-loading::after {
+  color: var(--sapx-color-text-on-bright);
+}
+@keyframes sapx-btn-spin {
+  to { transform: rotate(360deg); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sapx-btn-loading::after { animation-duration: 1.4s; }
+}
+
+.sapx-btn:focus-visible {
+  outline: none;
+  box-shadow: var(--sapx-focus-ring);
+}
+
+/* ===================================================================
+ * BADGE SYSTEM
+ * Tinted background + colored border + colored text -- never a solid
+ * fill, so every badge stays within the already-verified -text
+ * contrast ratios from tokens.css without needing new color math.
+ * =================================================================== */
+.sapx-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sapx-space-1);
+  padding: var(--sapx-space-1) var(--sapx-space-3);
+  border-radius: var(--sapx-radius-full);
+  font-family: var(--sapx-font-mono);
+  font-size: var(--sapx-font-size-xs);
+  font-weight: var(--sapx-font-weight-semibold);
+  letter-spacing: 0.03em;
+  border: 1px solid;
+  line-height: var(--sapx-line-height-normal);
+}
+
+.sapx-badge-neutral {
+  color: var(--sapx-color-text-secondary);
+  border-color: var(--sapx-color-border-strong);
+  background: var(--sapx-color-bg-surface-raised);
+}
+.sapx-badge-brand {
+  color: var(--sapx-color-brand-teal-text);
+  border-color: var(--sapx-color-brand-teal);
+  background: color-mix(in srgb, var(--sapx-color-brand-teal) 12%, transparent);
+}
+.sapx-badge-success {
+  color: var(--sapx-color-success-text);
+  border-color: var(--sapx-color-success);
+  background: color-mix(in srgb, var(--sapx-color-success) 12%, transparent);
+}
+.sapx-badge-warning {
+  color: var(--sapx-color-warning-text);
+  border-color: var(--sapx-color-warning);
+  background: color-mix(in srgb, var(--sapx-color-warning) 12%, transparent);
+}
+.sapx-badge-danger {
+  color: var(--sapx-color-danger-text);
+  border-color: var(--sapx-color-danger);
+  background: color-mix(in srgb, var(--sapx-color-danger) 12%, transparent);
+}
+.sapx-badge-info {
+  color: var(--sapx-color-info-text);
+  border-color: var(--sapx-color-info);
+  background: color-mix(in srgb, var(--sapx-color-info) 12%, transparent);
+}
+/* Severity variants (content pages only -- same independence from
+   css/card_renderer_styles.css's dashboard severity system already
+   documented for these tokens in tokens.css / PR-2). */
+.sapx-badge-severity-critical { color: var(--sapx-color-severity-critical-text); border-color: var(--sapx-color-severity-critical); background: color-mix(in srgb, var(--sapx-color-severity-critical) 12%, transparent); }
+.sapx-badge-severity-high     { color: var(--sapx-color-severity-high-text);     border-color: var(--sapx-color-severity-high);     background: color-mix(in srgb, var(--sapx-color-severity-high) 12%, transparent); }
+.sapx-badge-severity-medium   { color: var(--sapx-color-severity-medium-text);   border-color: var(--sapx-color-severity-medium);   background: color-mix(in srgb, var(--sapx-color-severity-medium) 12%, transparent); }
+.sapx-badge-severity-low      { color: var(--sapx-color-severity-low-text);      border-color: var(--sapx-color-severity-low);      background: color-mix(in srgb, var(--sapx-color-severity-low) 12%, transparent); }
+
+/* ===================================================================
+ * CARD SYSTEM
+ * .sapx-card is the shared base; every specific card type below is
+ * .sapx-card plus one modifier class and its own internal elements --
+ * no separate card shells duplicated per type.
+ * =================================================================== */
+.sapx-card {
+  background: var(--sapx-color-bg-surface-raised);
+  border: 1px solid var(--sapx-color-border);
+  border-radius: var(--sapx-radius-md);
+  padding: var(--sapx-space-5);
+  transition: border-color var(--sapx-transition-fast) var(--sapx-ease-standard);
+}
+.sapx-card:hover { border-color: var(--sapx-color-outline-neutral); }
+
+.sapx-card-icon {
+  font-size: var(--sapx-font-size-2xl);
+  margin-bottom: var(--sapx-space-3);
+  line-height: 1;
+}
+.sapx-card-title {
+  font-family: var(--sapx-font-sans);
+  font-size: var(--sapx-font-size-base);
+  font-weight: var(--sapx-font-weight-semibold);
+  color: var(--sapx-color-text-primary);
+  margin: 0 0 var(--sapx-space-2);
+}
+.sapx-card-desc {
+  font-size: var(--sapx-font-size-sm);
+  color: var(--sapx-color-text-secondary);
+  line-height: var(--sapx-line-height-normal);
+  margin: 0;
+}
+
+/* Feature card: icon + title + description (used in the Feature Grid) */
+.sapx-feature-card {}
+
+/* Research card: same shape as feature card, adds a date/category badge row */
+.sapx-research-card .sapx-card-meta {
+  display: flex;
+  gap: var(--sapx-space-2);
+  margin-bottom: var(--sapx-space-3);
+}
+
+/* Announcement card: compact, single-line, used inside .sapx-announcement-bar
+   or standalone in a feed of updates */
+.sapx-announcement-card {
+  display: flex;
+  align-items: center;
+  gap: var(--sapx-space-3);
+  padding: var(--sapx-space-3) var(--sapx-space-4);
+}
+.sapx-announcement-card .sapx-card-title { margin: 0; font-size: var(--sapx-font-size-sm); }
+
+/* Metric card: large value + small label, centered (used in Statistics Grid).
+   Distinct class names from PR-3's hero-specific .sapx-stat-item/-value/-label
+   -- same visual purpose, deliberately not reusing those selectors since
+   hero.css is completed work this PR does not touch or rename. */
+.sapx-metric-card {
+  text-align: center;
+}
+.sapx-metric-value {
+  font-family: var(--sapx-font-mono);
+  font-size: var(--sapx-font-size-3xl);
+  font-weight: var(--sapx-font-weight-bold);
+  color: var(--sapx-color-brand-teal-text);
+  line-height: 1;
+  margin-bottom: var(--sapx-space-2);
+}
+.sapx-metric-label {
+  font-size: var(--sapx-font-size-xs);
+  color: var(--sapx-color-text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* Integration card: small mark/initial + name, left-aligned (used in
+   Integration Grid / Partner Logos -- text-based marks, not image
+   logos: this session's tooling cannot reliably transfer binary image
+   content, confirmed and documented in PR-1; see the guide. */
+.sapx-integration-card {
+  display: flex;
+  align-items: center;
+  gap: var(--sapx-space-3);
+  text-align: left;
+}
+.sapx-integration-card-mark {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--sapx-radius-md);
+  background: var(--sapx-color-brand-indigo);
+  color: var(--sapx-color-text-on-bright);
+  font-family: var(--sapx-font-mono);
+  font-weight: var(--sapx-font-weight-bold);
+  font-size: var(--sapx-font-size-sm);
+}
+.sapx-integration-card-name {
+  font-size: var(--sapx-font-size-sm);
+  font-weight: var(--sapx-font-weight-medium);
+  color: var(--sapx-color-text-primary);
+}
+
+/* Enterprise card: card with a header row (title + badge) and a footer
+   CTA -- the general-purpose "solution/offering" card. */
+.sapx-enterprise-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sapx-space-4);
+}
+.sapx-enterprise-card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--sapx-space-3);
+}
+
+/* Pricing card: tier name, price, feature list, CTA. .sapx-pricing-card-featured
+   is the visually-emphasized tier (matches the existing "MOST POPULAR"
+   pattern already used elsewhere on the site, e.g. mssp.html). */
+.sapx-pricing-card {
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+.sapx-pricing-card-featured {
+  border-color: var(--sapx-color-brand-teal);
+  box-shadow: var(--sapx-shadow-md);
+}
+.sapx-pricing-card-badge {
+  position: absolute;
+  top: -12px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+.sapx-pricing-card-name {
+  font-family: var(--sapx-font-mono);
+  font-size: var(--sapx-font-size-xs);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--sapx-color-text-tertiary);
+  margin: 0 0 var(--sapx-space-2);
+}
+.sapx-pricing-card-price {
+  font-family: var(--sapx-font-mono);
+  font-size: var(--sapx-font-size-3xl);
+  font-weight: var(--sapx-font-weight-black);
+  color: var(--sapx-color-text-primary);
+  line-height: 1;
+  margin: 0 0 var(--sapx-space-4);
+}
+.sapx-pricing-card-price span {
+  font-size: var(--sapx-font-size-sm);
+  font-weight: var(--sapx-font-weight-regular);
+  color: var(--sapx-color-text-tertiary);
+}
+.sapx-pricing-card-features {
+  list-style: none;
+  margin: 0 0 var(--sapx-space-5);
+  padding: 0;
+  flex: 1;
+}
+.sapx-pricing-card-features li {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sapx-space-2);
+  padding: var(--sapx-space-2) 0;
+  border-bottom: 1px solid var(--sapx-color-border);
+  font-size: var(--sapx-font-size-sm);
+  color: var(--sapx-color-text-secondary);
+}
+.sapx-pricing-card-features li:last-child { border-bottom: none; }
+
+/* Testimonial card: STRUCTURE ONLY. This system ships no real customer
+   testimonials -- fabricating quotes/names/companies would violate the
+   anti-fabrication discipline this whole engagement has followed.
+   Populate with real, attributable quotes before use, or don't ship
+   the section. */
+.sapx-testimonial-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sapx-space-4);
+}
+.sapx-testimonial-quote {
+  font-size: var(--sapx-font-size-base);
+  font-style: italic;
+  color: var(--sapx-color-text-primary);
+  line-height: var(--sapx-line-height-normal);
+  margin: 0;
+}
+.sapx-testimonial-author {
+  display: flex;
+  align-items: center;
+  gap: var(--sapx-space-3);
+}
+.sapx-testimonial-author-name {
+  font-size: var(--sapx-font-size-sm);
+  font-weight: var(--sapx-font-weight-semibold);
+  color: var(--sapx-color-text-primary);
+}
+.sapx-testimonial-author-role {
+  font-size: var(--sapx-font-size-xs);
+  color: var(--sapx-color-text-tertiary);
+}
+
+/* ===================================================================
+ * CTA BANNERS
+ * .sapx-cta-banner is the shared base; pricing/newsletter variants
+ * add one extra element each rather than a separate banner shell.
+ * =================================================================== */
+.sapx-cta-banner {
+  background: linear-gradient(135deg, var(--sapx-color-bg-surface-raised), var(--sapx-color-bg-surface));
+  border: 1px solid var(--sapx-color-border);
+  border-radius: var(--sapx-radius-lg);
+  padding: var(--sapx-space-8) var(--sapx-space-6);
+  text-align: center;
+}
+.sapx-cta-banner-heading {
+  font-family: var(--sapx-font-display);
+  font-size: var(--sapx-font-size-2xl);
+  font-weight: var(--sapx-font-weight-bold);
+  color: var(--sapx-color-text-primary);
+  margin: 0 0 var(--sapx-space-3);
+}
+.sapx-cta-banner-copy {
+  font-size: var(--sapx-font-size-base);
+  color: var(--sapx-color-text-secondary);
+  max-width: 560px;
+  margin: 0 auto var(--sapx-space-5);
+}
+.sapx-cta-banner-actions {
+  display: flex;
+  gap: var(--sapx-space-3);
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.sapx-pricing-cta-price {
+  font-family: var(--sapx-font-mono);
+  font-size: var(--sapx-font-size-4xl);
+  font-weight: var(--sapx-font-weight-black);
+  color: var(--sapx-color-brand-teal-text);
+  margin-bottom: var(--sapx-space-2);
+}
+.sapx-pricing-cta-price span {
+  font-size: var(--sapx-font-size-base);
+  font-weight: var(--sapx-font-weight-regular);
+  color: var(--sapx-color-text-tertiary);
+}
+
+.sapx-newsletter-form {
+  display: flex;
+  gap: var(--sapx-space-2);
+  max-width: 420px;
+  margin: 0 auto;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+.sapx-newsletter-input {
+  flex: 1;
+  min-width: 200px;
+  padding: var(--sapx-space-3) var(--sapx-space-4);
+  border-radius: var(--sapx-radius-md);
+  border: 1px solid var(--sapx-color-border-strong);
+  background: var(--sapx-color-bg-base);
+  color: var(--sapx-color-text-primary);
+  font-family: var(--sapx-font-sans);
+  font-size: var(--sapx-font-size-sm);
+}
+.sapx-newsletter-input::placeholder { color: var(--sapx-color-text-tertiary); }
+.sapx-newsletter-input:focus-visible {
+  outline: none;
+  box-shadow: var(--sapx-focus-ring);
+  border-color: var(--sapx-color-brand-teal);
+}
+
+/* ===================================================================
+ * ANNOUNCEMENT BAR
+ * Static by default -- no dismiss control, so zero JavaScript is
+ * needed to ship it. A dismiss button is legitimate "essential JS"
+ * (this repo's existing header already uses a real onclick handler
+ * for its mobile nav toggle, the same category of exception) but is
+ * optional interactive behavior, not layout -- add it only if wanted;
+ * see docs/component-system-guide.md.
+ * =================================================================== */
+.sapx-announcement-bar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sapx-space-3);
+  padding: var(--sapx-space-2) var(--sapx-space-5);
+  background: color-mix(in srgb, var(--sapx-color-brand-teal) 10%, var(--sapx-color-bg-base));
+  border-bottom: 1px solid var(--sapx-color-border);
+  font-size: var(--sapx-font-size-sm);
+  color: var(--sapx-color-text-secondary);
+  text-align: center;
+  flex-wrap: wrap;
+}
+.sapx-announcement-bar a {
+  color: var(--sapx-color-brand-teal-text);
+  font-weight: var(--sapx-font-weight-semibold);
+  text-decoration: underline;
+}
+.sapx-announcement-bar a:focus-visible {
+  outline: none;
+  box-shadow: var(--sapx-focus-ring);
+  border-radius: var(--sapx-radius-sm);
+}
+
+/* ===================================================================
+ * SITE HEADER + NAVIGATION
+ * =================================================================== */
+.sapx-site-header {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: var(--sapx-color-bg-surface);
+  border-bottom: 1px solid var(--sapx-color-border);
+}
+.sapx-site-header-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sapx-space-5);
+  padding: var(--sapx-space-3) var(--sapx-space-5);
+  max-width: 1200px;
+  margin: 0 auto;
+}
+.sapx-brand {
+  display: flex;
+  align-items: center;
+  gap: var(--sapx-space-2);
+  font-family: var(--sapx-font-sans);
+  font-weight: var(--sapx-font-weight-bold);
+  font-size: var(--sapx-font-size-lg);
+  color: var(--sapx-color-text-primary);
+  text-decoration: none;
+  flex-shrink: 0;
+}
+.sapx-brand:focus-visible {
+  outline: none;
+  box-shadow: var(--sapx-focus-ring);
+  border-radius: var(--sapx-radius-sm);
+}
+
+.sapx-nav {
+  display: flex;
+  align-items: center;
+  gap: var(--sapx-space-5);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  flex-wrap: wrap;
+}
+.sapx-nav a {
+  font-family: var(--sapx-font-sans);
+  font-size: var(--sapx-font-size-sm);
+  font-weight: var(--sapx-font-weight-medium);
+  color: var(--sapx-color-text-secondary);
+  text-decoration: none;
+  transition: color var(--sapx-transition-fast) var(--sapx-ease-standard);
+}
+.sapx-nav a:hover,
+.sapx-nav a[aria-current="page"] {
+  color: var(--sapx-color-brand-teal-text);
+}
+.sapx-nav a:focus-visible {
+  outline: none;
+  box-shadow: var(--sapx-focus-ring);
+  border-radius: var(--sapx-radius-sm);
+}
+
+.sapx-header-ctas {
+  display: flex;
+  align-items: center;
+  gap: var(--sapx-space-3);
+  flex-shrink: 0;
+}
+
+.sapx-nav-toggle {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--sapx-radius-md);
+  border: 1px solid var(--sapx-color-border-strong);
+  background: transparent;
+  color: var(--sapx-color-text-primary);
+  font-size: var(--sapx-font-size-lg);
+  cursor: pointer;
+}
+.sapx-nav-toggle:focus-visible {
+  outline: none;
+  box-shadow: var(--sapx-focus-ring);
+}
+
+@media (max-width: 900px) {
+  .sapx-nav { display: none; }
+  .sapx-nav-toggle { display: inline-flex; }
+  .sapx-site-header[data-nav-open="true"] .sapx-nav {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--sapx-space-3);
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: var(--sapx-color-bg-surface);
+    border-bottom: 1px solid var(--sapx-color-border);
+    padding: var(--sapx-space-4) var(--sapx-space-5);
+  }
+}
+
+/* Below 900px the nav collapses behind the toggle (above), but brand +
+   both header CTAs + toggle together still don't fit a narrow phone
+   viewport (confirmed via a real Playwright overflow check at 375px
+   while building enterprise-homepage.html, PR-5). Hiding the
+   secondary/ghost CTA at the same 560px "mobile" breakpoint already
+   used throughout this file (.sapx-grid-*, .sapx-hero-*) keeps the one
+   highest-priority action (.sapx-btn-primary) plus the nav toggle,
+   which fit. Scoped to .sapx-header-ctas specifically so it does not
+   hide ghost buttons used elsewhere on a page (e.g. a CTA banner's
+   secondary actions, which already wrap via flex-wrap instead). */
+@media (max-width: 560px) {
+  .sapx-header-ctas .sapx-btn-ghost {
+    display: none;
+  }
+  /* Brand + remaining header CTA (primary button + nav toggle) still
+     don't both fit one row under ~360px even after the ghost button
+     is hidden (confirmed via the same Playwright check). Wrapping to
+     a clean two-row header (brand, then CTA row) is the standard
+     pattern here, rather than shrinking button padding/type size
+     below their already-token-driven values. */
+  .sapx-site-header-inner {
+    flex-wrap: wrap;
+  }
+}
+
+/* ===================================================================
+ * DATA TABLE (PR-7)
+ * Generic table styling for tabular data (SLA tiers, response-time
+ * matrices, feature/plan comparisons). PR-6 first solved this need as
+ * a page-local .pr6-compare-table inside enterprise-pricing.html's own
+ * <style> block; PR-7 is the second page needing the identical
+ * pattern, so per Level 4 (Reuse Before Build) it graduates here
+ * instead of being copy-pasted a third time. PR-6's already-shipped,
+ * already-tested page-local copy is untouched -- no defect there to
+ * justify touching it.
+ * =================================================================== */
+.sapx-table-wrap {
+  overflow-x: auto;
+}
+.sapx-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--sapx-font-size-sm);
+}
+.sapx-table th {
+  text-align: left;
+  padding: var(--sapx-space-3) var(--sapx-space-4);
+  font-family: var(--sapx-font-mono);
+  font-size: var(--sapx-font-size-xs);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--sapx-color-text-tertiary);
+  border-bottom: 1px solid var(--sapx-color-border-strong);
+}
+.sapx-table td {
+  text-align: left;
+  padding: var(--sapx-space-3) var(--sapx-space-4);
+  border-bottom: 1px solid var(--sapx-color-border);
+  color: var(--sapx-color-text-secondary);
+}
+.sapx-table td:first-child {
+  color: var(--sapx-color-text-primary);
+  font-weight: var(--sapx-font-weight-medium);
+}
+
+/* ===================================================================
+ * SITE FOOTER
+ * =================================================================== */
+.sapx-site-footer {
+  background: var(--sapx-color-bg-surface);
+  border-top: 1px solid var(--sapx-color-border);
+  padding: var(--sapx-space-8) var(--sapx-space-5) var(--sapx-space-6);
+}
+.sapx-footer-grid {
+  display: grid;
+  grid-template-columns: 2fr repeat(3, 1fr);
+  gap: var(--sapx-space-6);
+  max-width: 1200px;
+  margin: 0 auto var(--sapx-space-7);
+}
+@media (max-width: 900px) {
+  .sapx-footer-grid { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 560px) {
+  .sapx-footer-grid { grid-template-columns: 1fr; }
+}
+.sapx-footer-col-heading {
+  font-family: var(--sapx-font-mono);
+  font-size: var(--sapx-font-size-xs);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--sapx-color-text-tertiary);
+  margin: 0 0 var(--sapx-space-4);
+}
+.sapx-footer-links {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sapx-space-3);
+}
+.sapx-footer-links a {
+  font-size: var(--sapx-font-size-sm);
+  color: var(--sapx-color-text-secondary);
+  text-decoration: none;
+}
+.sapx-footer-links a:hover { color: var(--sapx-color-brand-teal-text); }
+.sapx-footer-links a:focus-visible {
+  outline: none;
+  box-shadow: var(--sapx-focus-ring);
+  border-radius: var(--sapx-radius-sm);
+}
+
+.sapx-footer-social {
+  display: flex;
+  gap: var(--sapx-space-3);
+  margin-top: var(--sapx-space-4);
+}
+.sapx-footer-social a {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--sapx-radius-md);
+  background: var(--sapx-color-bg-surface-raised);
+  border: 1px solid var(--sapx-color-border);
+  color: var(--sapx-color-text-secondary);
+  text-decoration: none;
+}
+.sapx-footer-social a:hover {
+  color: var(--sapx-color-brand-teal-text);
+  border-color: var(--sapx-color-outline-neutral);
+}
+.sapx-footer-social a:focus-visible {
+  outline: none;
+  box-shadow: var(--sapx-focus-ring);
+}
+
+.sapx-status-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sapx-space-2);
+  font-family: var(--sapx-font-mono);
+  font-size: var(--sapx-font-size-xs);
+  color: var(--sapx-color-text-tertiary);
+}
+.sapx-status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: var(--sapx-radius-full);
+  background: var(--sapx-color-success);
+  flex-shrink: 0;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .sapx-status-dot-live {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--sapx-color-success) 60%, transparent);
+    animation: sapx-status-pulse 2s var(--sapx-ease-standard) infinite;
+  }
+}
+@keyframes sapx-status-pulse {
+  0%   { box-shadow: 0 0 0 0 color-mix(in srgb, var(--sapx-color-success) 45%, transparent); }
+  70%  { box-shadow: 0 0 0 6px color-mix(in srgb, var(--sapx-color-success) 0%, transparent); }
+  100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--sapx-color-success) 0%, transparent); }
+}
+
+.sapx-footer-bottom {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding-top: var(--sapx-space-5);
+  border-top: 1px solid var(--sapx-color-border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--sapx-space-3);
+  font-size: var(--sapx-font-size-xs);
+  color: var(--sapx-color-text-tertiary);
+}

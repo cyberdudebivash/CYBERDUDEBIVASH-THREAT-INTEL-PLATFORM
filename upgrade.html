@@ -1,0 +1,1327 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<!-- Clickjacking guard; see js/frame-guard.js -->
+<script src="/js/frame-guard.js"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Checkout &mdash; SENTINEL APEX</title>
+<meta name="description" content="SENTINEL APEX checkout for the PRO, Enterprise and MSSP plans. Razorpay is the primary checkout (recurring INR subscription); Gumroad is a secondary checkout (USD). GSTIN: 21ARKPN8270G1ZP">
+<meta name="robots" content="noindex, nofollow">
+<link rel="icon" type="image/x-icon" href="/favicon.ico">
+<style>
+/* Checkout P0 (2026-10-01): one primary automated checkout (Razorpay), one
+   secondary (Gumroad, shown only when it can activate access), assisted
+   payments as a contact note only. Mobile first; no motion. */
+:root {
+  --bg: #0a0d14; --bg2: #0f1420; --bg3: #141926; --card: #111827;
+  --border: #243245; --border-strong: #3b4c63;
+  --text: #e2e8f0; --text-dim: #a3b1c2; --text-faint: #94a3b8;
+  --accent: #00d4ff; --accent-ink: #04121f;
+  --green: #34d399; --red: #fca5a5; --red-bg: rgba(239,68,68,0.12);
+  --yellow: #fbbf24; --info-bg: rgba(0,212,255,0.08);
+  --focus: #fbbf24;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { -webkit-text-size-adjust: 100%; }
+body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; font-size: 15px; line-height: 1.55; min-height: 100vh; overflow-x: hidden; }
+a { color: var(--accent); }
+a:hover { text-decoration: none; }
+:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+.skip-link { position: absolute; left: 8px; top: -48px; background: var(--accent); color: var(--accent-ink); padding: 8px 14px; border-radius: 6px; font-weight: 700; z-index: 200; }
+.skip-link:focus { top: 8px; }
+[hidden] { display: none !important; }
+
+/* Top bar */
+.topbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; padding: 12px 16px; background: var(--bg2); border-bottom: 1px solid var(--border); }
+.brand { color: var(--accent); font-weight: 800; letter-spacing: 1px; text-decoration: none; font-size: 15px; }
+.brand-sub { color: var(--text-dim); font-weight: 600; letter-spacing: 0.5px; margin-left: 6px; }
+.topnav { display: flex; flex-wrap: wrap; gap: 4px 16px; }
+.topnav a { color: var(--text-dim); text-decoration: none; font-size: 14px; padding: 6px 0; }
+.topnav a:hover { color: var(--accent); }
+
+/* STIX context banner (only when arriving from a locked STIX bundle) */
+.stix-banner { background: #07111f; border-bottom: 1px solid rgba(0,212,255,0.3); padding: 16px; }
+.stix-banner-inner { max-width: 1140px; margin: 0 auto; display: flex; flex-wrap: wrap; gap: 12px 20px; align-items: center; justify-content: space-between; }
+.stix-banner-eyebrow { font-size: 11px; font-weight: 800; letter-spacing: 1.5px; color: var(--accent); }
+.stix-banner-title { font-size: 17px; font-weight: 800; margin: 2px 0 4px; }
+.stix-sev-badge { display: inline-block; padding: 1px 8px; border-radius: 6px; font-size: 12px; font-weight: 800; margin-left: 6px; vertical-align: middle; background: #7f1d1d; color: #fecaca; }
+.stix-banner-desc { color: var(--text-dim); font-size: 14px; max-width: 640px; }
+.stix-banner-note { color: var(--text-dim); font-size: 12px; margin-top: 6px; }
+
+/* Layout */
+.layout { display: grid; grid-template-columns: minmax(0, 1fr); gap: 24px; max-width: 1140px; margin: 0 auto; padding: 24px 16px 48px; }
+.col-main, .col-side { min-width: 0; }
+@media (min-width: 960px) {
+  .layout { grid-template-columns: minmax(0, 1fr) 340px; gap: 32px; padding: 32px 24px 64px; }
+  .col-side { position: sticky; top: 16px; align-self: start; }
+}
+.eyebrow { font-size: 12px; font-weight: 800; letter-spacing: 1.5px; color: var(--accent); text-transform: uppercase; }
+h1 { font-size: 26px; line-height: 1.25; font-weight: 800; margin: 4px 0 6px; }
+.lead { color: var(--text-dim); margin-bottom: 20px; }
+.step { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 18px 16px; margin-bottom: 16px; }
+@media (min-width: 600px) { .step { padding: 22px 24px; } }
+.step h2 { font-size: 17px; font-weight: 800; margin-bottom: 14px; display: flex; align-items: center; gap: 10px; }
+.step-num { display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; border-radius: 50%; background: var(--bg3); border: 1px solid var(--border-strong); font-size: 13px; flex-shrink: 0; }
+fieldset { border: 0; min-width: 0; }
+legend { font-size: 13px; font-weight: 700; color: var(--text-dim); margin-bottom: 8px; padding: 0; }
+
+/* Billing period */
+.cycle-group { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+.cycle-group legend { width: 100%; }
+.cycle-option { display: inline-flex; align-items: center; gap: 8px; border: 1px solid var(--border-strong); border-radius: 999px; padding: 8px 14px; cursor: pointer; font-weight: 600; min-height: 44px; }
+.cycle-option:has(input:checked) { border-color: var(--accent); background: var(--info-bg); }
+.cycle-option:focus-within { outline: 3px solid var(--focus); outline-offset: 2px; }
+.save-badge { font-size: 12px; font-weight: 700; color: var(--green); }
+
+/* Plan cards (radio group) */
+.plan-group { display: grid; gap: 10px; }
+.plan-card { display: flex; align-items: center; gap: 14px; border: 2px solid var(--border); border-radius: 12px; padding: 14px; cursor: pointer; background: var(--bg2); }
+.plan-card:hover { border-color: var(--border-strong); }
+.plan-card.selected { border-color: var(--accent); background: var(--info-bg); }
+.plan-card:focus-within { outline: 3px solid var(--focus); outline-offset: 2px; }
+.plan-radio { width: 20px; height: 20px; border-radius: 50%; border: 2px solid var(--border-strong); flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
+.plan-card.selected .plan-radio { border-color: var(--accent); }
+.plan-card.selected .plan-radio::after { content: ''; width: 10px; height: 10px; border-radius: 50%; background: var(--accent); }
+.plan-main { flex: 1; min-width: 0; }
+.plan-title { display: block; font-weight: 800; font-size: 15px; }
+.plan-desc { display: block; color: var(--text-dim); font-size: 13px; }
+.plan-price-col { text-align: right; flex-shrink: 0; }
+.plan-price-val { display: block; font-size: 20px; font-weight: 800; }
+.plan-price-period, .plan-price-inr { display: block; font-size: 12px; color: var(--text-dim); }
+@media (max-width: 380px) {
+  .plan-card { flex-wrap: wrap; }
+  .plan-price-col { text-align: left; width: 100%; padding-left: 34px; }
+}
+
+/* What you get */
+.summary-line { font-size: 16px; margin-bottom: 10px; }
+.benefits { list-style: none; display: grid; gap: 6px; margin-bottom: 10px; }
+.benefits li { padding-left: 22px; position: relative; color: var(--text); }
+.benefits li::before { content: '\2713'; position: absolute; left: 0; color: var(--green); font-weight: 800; }
+.summary-terms { color: var(--text-dim); font-size: 13px; }
+
+/* Free plan panel */
+.free-panel { border: 1px solid rgba(52,211,153,0.35); background: rgba(52,211,153,0.06); border-radius: 12px; padding: 18px 16px; margin-bottom: 16px; }
+.free-panel h3 { font-size: 16px; margin-bottom: 6px; }
+.free-panel p { color: var(--text-dim); margin-bottom: 12px; }
+
+/* Pay step */
+.pay-amount { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 10px; background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; margin-bottom: 16px; }
+.pay-amount-label { font-size: 12px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.5px; }
+.pay-amount-val { font-size: 28px; font-weight: 800; color: var(--green); line-height: 1.2; }
+.pay-amount-sub { font-size: 13px; color: var(--text-dim); }
+.pay-amount-right { text-align: right; }
+.pay-amount-plan { font-weight: 800; }
+.field { margin-bottom: 14px; }
+.field label { display: block; font-size: 14px; font-weight: 700; margin-bottom: 6px; }
+.req, .opt { font-weight: 400; color: var(--text-dim); }
+.field input, .field select { width: 100%; min-height: 46px; background: var(--bg3); border: 1px solid var(--border-strong); color: var(--text); padding: 10px 12px; border-radius: 8px; font-size: 16px; }
+.field input:focus, .field select:focus { border-color: var(--accent); }
+.field input[aria-invalid="true"], .field select[aria-invalid="true"] { border-color: var(--red); }
+.field-hint { font-size: 13px; color: var(--text-dim); margin-top: 4px; }
+.field-error { font-size: 13px; color: var(--red); margin-top: 4px; font-weight: 600; }
+.tax-details { border: 1px solid var(--border); border-radius: 10px; padding: 0 14px; margin-bottom: 16px; }
+.tax-details summary { cursor: pointer; padding: 12px 0; font-weight: 600; min-height: 44px; }
+.tax-details[open] { padding-bottom: 4px; }
+.btn { display: inline-flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; min-height: 48px; padding: 10px 18px; border-radius: 10px; font-size: 15px; font-weight: 700; text-decoration: none; cursor: pointer; border: 2px solid transparent; font-family: inherit; text-align: center; }
+.btn-block { width: 100%; }
+.btn-primary { background: var(--accent); color: var(--accent-ink); }
+.btn-primary:hover { background: #33ddff; }
+.btn-primary:disabled { background: #2b5563; color: #c7d2dc; cursor: not-allowed; }
+.btn-label { font-size: 17px; font-weight: 800; }
+.btn-sub { font-size: 13px; font-weight: 600; }
+.btn-secondary { background: transparent; color: var(--text); border-color: var(--border-strong); }
+.btn-secondary:hover { border-color: var(--accent); color: var(--accent); }
+.btn-small { min-height: 36px; padding: 6px 12px; font-size: 13px; }
+.cta-caption { font-size: 13px; color: var(--text-dim); text-align: center; margin-top: 8px; }
+.cta-caption strong { color: var(--text); }
+.checkout-status { border-radius: 10px; padding: 12px 14px; margin-top: 12px; font-size: 14px; }
+.checkout-status p + a { display: inline-block; margin-top: 6px; font-weight: 700; }
+.checkout-status-error { background: var(--red-bg); border: 1px solid rgba(239,68,68,0.45); color: #fee2e2; }
+.checkout-status-info { background: var(--info-bg); border: 1px solid rgba(0,212,255,0.35); }
+.assurances { list-style: none; margin: 14px 0 0; display: grid; gap: 6px; font-size: 13px; color: var(--text-dim); }
+.assurances li { padding-left: 20px; position: relative; }
+.assurances li::before { content: '\2713'; position: absolute; left: 0; color: var(--green); }
+.secondary-checkout { margin-top: 22px; }
+.or-divider { display: flex; align-items: center; gap: 10px; color: var(--text-dim); font-size: 14px; font-weight: 600; margin-bottom: 10px; }
+.or-divider::before, .or-divider::after { content: ''; flex: 1; border-top: 1px solid var(--border); }
+.notice { border-radius: 10px; padding: 10px 14px; font-size: 14px; }
+.notice-info { background: var(--info-bg); border: 1px solid rgba(0,212,255,0.35); margin-bottom: 14px; }
+.notice-muted { background: var(--bg2); border: 1px dashed var(--border-strong); color: var(--text-dim); }
+.assisted-note { margin-top: 22px; border-top: 1px dashed var(--border-strong); padding-top: 14px; font-size: 13px; color: var(--text-dim); }
+.assisted-note h3 { font-size: 13px; font-weight: 700; color: var(--text-dim); margin-bottom: 4px; }
+.assisted-note p + p { margin-top: 4px; }
+.after-steps { padding-left: 20px; display: grid; gap: 8px; }
+.fine-print { font-size: 13px; color: var(--text-dim); margin-top: 10px; }
+.hint-highlight { outline: 3px solid var(--accent); outline-offset: 4px; border-radius: 10px; }
+
+/* Result (pending / active) */
+.success-state { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 22px 16px; }
+@media (min-width: 600px) { .success-state { padding: 28px; } }
+.success-title { font-size: 21px; font-weight: 800; color: var(--green); margin-bottom: 6px; overflow-wrap: anywhere; }
+.success-plan { color: var(--text-dim); margin-bottom: 12px; }
+.success-timeline { display: grid; gap: 8px; margin-bottom: 14px; }
+.ref-box, .key-box { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; margin-bottom: 14px; }
+.ref-label { font-size: 12px; color: var(--text-dim); letter-spacing: 0.5px; }
+.ref-value { font-family: ui-monospace, monospace; font-size: 15px; font-weight: 700; color: var(--green); overflow-wrap: anywhere; }
+.key-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 4px 0; }
+.key-value { font-family: ui-monospace, monospace; font-size: 15px; color: var(--green); overflow-wrap: anywhere; flex: 1; min-width: 0; }
+.activation-actions { display: none; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
+.snippets pre { background: var(--bg2); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; font-size: 13px; white-space: pre-wrap; overflow-wrap: anywhere; margin-top: 6px; }
+.support-line { font-size: 14px; color: var(--text-dim); margin-top: 14px; overflow-wrap: anywhere; }
+
+/* Sidebar */
+.order-card, .trust-card, .contact-card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 18px; margin-bottom: 16px; }
+.side-title { font-size: 12px; font-weight: 800; letter-spacing: 1.2px; text-transform: uppercase; color: var(--text-dim); margin-bottom: 10px; }
+.order-plan { font-size: 19px; font-weight: 800; }
+.order-billing { color: var(--text-dim); font-size: 13px; margin-bottom: 12px; }
+.order-rows { display: grid; gap: 8px; }
+.order-row { display: flex; justify-content: space-between; gap: 12px; font-size: 14px; }
+.order-row dt { color: var(--text-dim); }
+.order-row dd { font-weight: 700; text-align: right; }
+.order-total { border-top: 1px solid var(--border); padding-top: 10px; font-size: 16px; }
+.order-total dd { color: var(--accent); }
+.trust-card ul { list-style: none; display: grid; gap: 8px; font-size: 13px; color: var(--text-dim); }
+.wa-cta { display: block; border: 1px solid rgba(52,211,153,0.4); background: rgba(52,211,153,0.07); border-radius: 12px; padding: 14px 16px; text-decoration: none; margin-bottom: 16px; }
+.wa-text { display: block; color: var(--green); font-weight: 700; font-size: 14px; }
+.wa-sub { display: block; color: var(--text-dim); font-size: 13px; margin-top: 2px; }
+.contact-card p { font-size: 13px; color: var(--text-dim); overflow-wrap: anywhere; }
+.contact-card p + p { margin-top: 8px; }
+footer { text-align: center; padding: 24px 16px; font-size: 13px; color: var(--text-dim); border-top: 1px solid var(--border); }
+footer a { color: var(--text-dim); }
+@media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; transition: none !important; animation: none !important; } }
+</style>
+<!-- js/checkout.js: buyer tax-id validation and Razorpay decline binding.
+     gumroad.js: Gumroad's own overlay for the secondary checkout link. -->
+<script src="/js/checkout.js"></script>
+<script src="https://gumroad.com/js/gumroad.js" defer></script>
+<!-- Razorpay Checkout SDK (primary checkout) -->
+<script src="https://checkout.razorpay.com/v1/checkout.js" defer></script>
+<style data-sentinel-branding="true">a[data-sentinel-parent]:focus-visible{outline:3px solid #67e8f9;outline-offset:4px}a[data-sentinel-parent]:hover{background:#183048!important}</style>
+</head>
+<body>
+<a class="skip-link" href="#checkout-main">Skip to checkout</a>
+
+<header class="topbar">
+  <a href="/" class="brand">SENTINEL APEX <span class="brand-sub">Secure checkout</span></a>
+  <nav class="topnav" aria-label="Checkout">
+    <a href="/pricing.html">Pricing</a>
+    <a href="/api-docs.html">API docs</a>
+    <a href="/billing.html">Billing Center</a>
+  </nav>
+</header>
+
+<!-- Shown only when arriving from a locked STIX 2.1 bundle (?source=stix-bundle) -->
+<section id="stix-cta-banner" class="stix-banner" aria-label="Locked STIX bundle" hidden>
+  <div class="stix-banner-inner">
+    <div>
+      <div class="stix-banner-eyebrow">STIX 2.1 BUNDLE &mdash; PRO PLAN</div>
+      <div class="stix-banner-title">This threat bundle is part of the PRO plan <span class="stix-sev-badge" id="stix-sev-badge">CRITICAL</span></div>
+      <p class="stix-banner-desc" id="stix-banner-desc">STIX 2.1 bundles are available on the PRO plan and above.</p>
+      <p class="stix-banner-note">Razorpay: renews monthly until you cancel &middot; Gumroad, when offered: 30-day access, does not auto-renew</p>
+    </div>
+    <button type="button" class="btn btn-primary" id="stix-choose-pro">Choose PRO &mdash; $49/month</button>
+  </div>
+</section>
+
+<main id="checkout-main" class="layout" tabindex="-1">
+  <div class="col-main">
+    <div id="checkout-state">
+      <p class="eyebrow">SENTINEL APEX &middot; Secure checkout</p>
+      <h1>Choose a plan and subscribe</h1>
+      <p class="lead"><strong>Razorpay</strong> is the primary checkout for every paid plan: a recurring subscription in INR that you can cancel any time.</p>
+      <noscript><p class="notice notice-info">This checkout needs JavaScript. Please enable it to subscribe.</p></noscript>
+
+      <section class="step" aria-labelledby="step-plan-title">
+        <h2 id="step-plan-title"><span class="step-num" aria-hidden="true">1</span> Choose your plan</h2>
+        <div id="plan-notice" class="notice notice-info" role="status" hidden></div>
+        <fieldset class="cycle-group">
+          <legend>Billing period</legend>
+          <label class="cycle-option"><input type="radio" name="billing-cycle" value="monthly" id="cycle-monthly" checked> Monthly</label>
+          <label class="cycle-option"><input type="radio" name="billing-cycle" value="annual" id="cycle-annual"> Annual <span class="save-badge" id="save-badge">2 months free</span></label>
+        </fieldset>
+        <fieldset class="plan-group">
+          <legend>Plan</legend>
+          <label class="plan-card selected" id="plan-free">
+            <input class="sr-only" type="radio" name="plan" value="free" checked>
+            <span class="plan-radio" aria-hidden="true"></span>
+            <span class="plan-main"><span class="plan-title">Community</span><span class="plan-desc">No credit card &middot; no API key needed &middot; 30 requests/min &middot; 50/day</span></span>
+            <span class="plan-price-col"><span class="plan-price-val">$0</span><span class="plan-price-period">free</span></span>
+          </label>
+          <label class="plan-card" id="plan-pro">
+            <input class="sr-only" type="radio" name="plan" value="pro">
+            <span class="plan-radio" aria-hidden="true"></span>
+            <span class="plan-main"><span class="plan-title">PRO / SOC</span><span class="plan-desc">120 requests/min &middot; 5,000/day &middot; 10 API keys &middot; 1 seat</span></span>
+            <span class="plan-price-col"><span class="plan-price-val" id="price-pro">$49</span><span class="plan-price-period" id="period-pro">per month</span><span class="plan-price-inr" id="inr-pro">&#x20B9;4,100</span></span>
+          </label>
+          <label class="plan-card" id="plan-enterprise">
+            <input class="sr-only" type="radio" name="plan" value="enterprise">
+            <span class="plan-radio" aria-hidden="true"></span>
+            <span class="plan-main"><span class="plan-title">Enterprise SOC</span><span class="plan-desc">600 requests/min &middot; 50,000/day &middot; 50 API keys &middot; 10 seats</span></span>
+            <span class="plan-price-col"><span class="plan-price-val" id="price-enterprise">$499</span><span class="plan-price-period" id="period-enterprise">per month</span><span class="plan-price-inr" id="inr-enterprise">&#x20B9;41,600</span></span>
+          </label>
+          <label class="plan-card" id="plan-mssp">
+            <input class="sr-only" type="radio" name="plan" value="mssp">
+            <span class="plan-radio" aria-hidden="true"></span>
+            <span class="plan-main"><span class="plan-title">MSSP / White-Label</span><span class="plan-desc">1,200 requests/min &middot; 50,000/day &middot; 100 API keys &middot; 25 seats &middot; white-label</span></span>
+            <span class="plan-price-col"><span class="plan-price-val" id="price-mssp">$999</span><span class="plan-price-period" id="period-mssp">per month</span><span class="plan-price-inr" id="inr-mssp">&#x20B9;83,300</span></span>
+          </label>
+        </fieldset>
+      </section>
+
+      <section class="step" aria-labelledby="step-get-title">
+        <h2 id="step-get-title"><span class="step-num" aria-hidden="true">2</span> What you get</h2>
+        <p class="summary-line"><strong id="summary-inline-plan">Community</strong> &middot; <span id="summary-inline-price">Free</span></p>
+        <ul class="benefits" id="plan-benefits">
+          <li>30 requests per minute &middot; 50 requests per day</li>
+          <li>No API key needed (anonymous access to the public endpoints)</li>
+          <li>Community forum support</li>
+          <li>Best-effort uptime, no service credits</li>
+        </ul>
+        <p class="summary-terms" id="summary-inline-terms">Quotas and support are the commercial terms of each plan; uptime commitments and credits are in the <a href="/sla.html">SLA</a>.</p>
+      </section>
+
+      <div id="free-plan-panel" class="free-panel">
+        <h3>Community &mdash; free</h3>
+        <p>No credit card. The FREE tier needs no API key: call the public endpoints within its limits. This is not a paid trial and does not open checkout.</p>
+        <a href="/get-api-key.html?plan=community" id="free-plan-cta" class="btn btn-secondary">See how to start free &rarr;</a>
+      </div>
+
+      <section class="step" id="section-payment-methods" aria-labelledby="step-pay-title" style="display:none">
+        <h2 id="step-pay-title"><span class="step-num" aria-hidden="true">3</span> Pay</h2>
+        <div class="pay-amount" aria-live="polite">
+          <div>
+            <div class="pay-amount-label">Razorpay charges (INR, GST included)</div>
+            <div class="pay-amount-val" id="rzp-display-inr">&#x20B9;4,100</div>
+            <div class="pay-amount-sub" id="rzp-display-usd">US$49 list price</div>
+          </div>
+          <div class="pay-amount-right">
+            <div class="pay-amount-plan" id="rzp-display-plan">PRO / SOC</div>
+            <div class="pay-amount-sub" id="rzp-display-cycle">Renews monthly</div>
+          </div>
+        </div>
+
+        <div class="field">
+          <label for="rzp-email">Email <span class="req">(required)</span></label>
+          <input type="email" id="rzp-email" autocomplete="email" inputmode="email" required aria-describedby="rzp-email-hint rzp-email-error">
+          <p class="field-hint" id="rzp-email-hint">Your subscription and API key are linked to this email.</p>
+          <p class="field-error" id="rzp-email-error" hidden></p>
+        </div>
+
+        <details class="tax-details" id="tax-details">
+          <summary>Add GST / tax details (optional)</summary>
+          <!-- Validated again server-side (workers/revenue-engine/src/gst.js). -->
+          <div class="field">
+            <label for="rzp-gstin">GSTIN or VAT number <span class="opt">(optional)</span></label>
+            <input type="text" id="rzp-gstin" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="20" aria-describedby="rzp-gstin-hint rzp-gstin-error">
+            <p class="field-hint" id="rzp-gstin-hint">Recorded with your payment and printed on its tax invoice.</p>
+            <p class="field-error" id="rzp-gstin-error" hidden></p>
+          </div>
+          <div class="field">
+            <label for="rzp-billing-state">Billing state <span class="opt">(optional; sets the GST place of supply)</span></label>
+            <select id="rzp-billing-state" aria-describedby="rzp-billing-state-error">
+              <option value="">Not specified</option>
+              <option value="OUTSIDE_INDIA">Outside India</option>
+              <option value="35">Andaman and Nicobar Islands</option><option value="37">Andhra Pradesh</option>
+              <option value="12">Arunachal Pradesh</option><option value="18">Assam</option><option value="10">Bihar</option>
+              <option value="04">Chandigarh</option><option value="22">Chhattisgarh</option>
+              <option value="26">Dadra and Nagar Haveli and Daman and Diu</option><option value="07">Delhi</option>
+              <option value="30">Goa</option><option value="24">Gujarat</option><option value="06">Haryana</option>
+              <option value="02">Himachal Pradesh</option><option value="01">Jammu and Kashmir</option>
+              <option value="20">Jharkhand</option><option value="29">Karnataka</option><option value="32">Kerala</option>
+              <option value="38">Ladakh</option><option value="31">Lakshadweep</option><option value="23">Madhya Pradesh</option>
+              <option value="27">Maharashtra</option><option value="14">Manipur</option><option value="17">Meghalaya</option>
+              <option value="15">Mizoram</option><option value="13">Nagaland</option><option value="21">Odisha</option>
+              <option value="34">Puducherry</option><option value="03">Punjab</option><option value="08">Rajasthan</option>
+              <option value="11">Sikkim</option><option value="33">Tamil Nadu</option><option value="36">Telangana</option>
+              <option value="16">Tripura</option><option value="09">Uttar Pradesh</option><option value="05">Uttarakhand</option>
+              <option value="19">West Bengal</option><option value="97">Other Territory</option>
+            </select>
+            <p class="field-error" id="rzp-billing-state-error" hidden></p>
+          </div>
+          <!-- Buyers outside India: an export of services is invoiced under
+               LUT only with the recipient's country (ISO 3166-1). -->
+          <div class="field" id="rzp-country-row" style="display:none">
+            <label for="rzp-billing-country">Billing country <span class="opt">(two-letter ISO code, e.g. US, GB, SG, AE)</span></label>
+            <input type="text" id="rzp-billing-country" maxlength="2" autocomplete="country" autocapitalize="characters" aria-describedby="rzp-billing-country-error">
+            <p class="field-error" id="rzp-billing-country-error" hidden></p>
+          </div>
+          <div class="field">
+            <label for="rzp-billing-name">Billing name <span class="opt">(optional; company or full name)</span></label>
+            <input type="text" id="rzp-billing-name" maxlength="120" autocomplete="organization" aria-describedby="rzp-billing-name-error">
+            <p class="field-error" id="rzp-billing-name-error" hidden></p>
+          </div>
+          <div class="field">
+            <label for="rzp-billing-address">Billing address <span class="opt">(optional; street, city, PIN)</span></label>
+            <input type="text" id="rzp-billing-address" maxlength="250" autocomplete="street-address" aria-describedby="rzp-billing-address-error">
+            <p class="field-error" id="rzp-billing-address-error" hidden></p>
+          </div>
+        </details>
+
+        <button type="button" class="btn btn-primary btn-block" id="rzp-pay-btn" onclick="initiateRazorpayCheckout()" aria-describedby="rzp-cta-caption">
+          <span class="btn-label">Continue with Razorpay</span>
+          <span class="btn-sub" id="rzp-btn-sub">Subscribe &middot; &#x20B9;4,100 per month</span>
+        </button>
+        <p class="cta-caption" id="rzp-cta-caption"><strong>Secure automated checkout</strong> &middot; primary &middot; recurring subscription in INR, cancel any time</p>
+        <div id="checkout-status" class="checkout-status" aria-live="polite" hidden></div>
+        <ul class="assurances">
+          <li>You enter card, UPI or bank details in Razorpay&rsquo;s own checkout window. This site never receives them.</li>
+          <li>Our server sets the amount from the plan you chose; nothing on this page or in its link can change it.</li>
+          <li>Access is switched on only after Razorpay&rsquo;s signed payment confirmation reaches our server.</li>
+        </ul>
+
+        <div class="secondary-checkout" id="gumroad-panel">
+          <p class="or-divider"><span>Prefer another checkout?</span></p>
+          <a class="btn btn-secondary btn-block" id="gumroad-btn" data-gumroad-single-product="true" target="_blank" rel="noopener" hidden>Continue with Gumroad</a>
+          <p class="cta-caption" id="gumroad-caption" hidden><strong>Secondary automated checkout</strong> &middot; <span id="gumroad-price">US$49</span> in USD on Gumroad&rsquo;s page &middot; <span id="gumroad-terms">30-day access grant, does not auto-renew</span>. We email the address you use on Gumroad a one-time link that reveals your API key; the key itself is never emailed.</p>
+          <p class="notice notice-muted" id="gumroad-unavailable">Checking whether Gumroad checkout is available&hellip;</p>
+        </div>
+
+        <aside class="assisted-note" id="assisted-payments" aria-labelledby="assisted-title">
+          <h3 id="assisted-title">Alternative payment methods</h3>
+          <p>Need an alternative payment method? Assisted payments via crypto, Paytm, PayPal, UPI, Amazon Pay or bank NEFT may be arranged by contacting <a href="mailto:contact@cyberdudebivash.in">contact@cyberdudebivash.in</a> or <a href="mailto:bivash@cyberdudebivash.com">bivash@cyberdudebivash.com</a>. Access is provisioned only after payment verification.</p>
+          <p>These are assisted payment options and are not part of the automated checkout.</p>
+        </aside>
+      </section>
+
+      <section class="step" id="step-after" aria-labelledby="step-after-title">
+        <h2 id="step-after-title"><span class="step-num" aria-hidden="true">4</span> What happens after you pay</h2>
+        <ol class="after-steps">
+          <li><strong>Razorpay confirms the payment</strong> to our server with a signed notification.</li>
+          <li><strong>Your subscription and API key are activated automatically.</strong> This page checks the status for you.</li>
+          <li><strong>Your API key appears on this page.</strong> Copy it, store it securely, then follow the <a href="/onboarding.html">onboarding guide</a>.</li>
+          <li><strong>Renewal:</strong> Razorpay renews automatically, cancel any time in the <a href="/billing.html">Billing Center</a>. Access runs to the end of the paid period.</li>
+        </ol>
+      </section>
+    </div>
+
+    <!-- RESULT: ACTIVATION_PENDING or ACTIVE (never shown before Razorpay's handler fires) -->
+    <section class="success-state" id="success-state" aria-labelledby="success-title" style="display:none">
+      <h2 class="success-title" id="success-title" tabindex="-1">CHECKOUT</h2>
+      <p class="success-plan">Plan: <strong id="success-plan">SENTINEL APEX PRO</strong></p>
+      <div id="success-timeline" class="success-timeline" aria-live="polite"></div>
+      <div class="ref-box">
+        <div class="ref-label" id="success-ref-label">REFERENCE</div>
+        <div class="ref-value" id="success-review-id"></div>
+      </div>
+      <div class="key-box" id="activation-key-box" hidden>
+        <div class="ref-label">YOUR API KEY</div>
+        <div class="key-row">
+          <code class="key-value" id="activation-key"></code>
+          <button type="button" class="btn btn-secondary btn-small" id="activation-reveal-key" aria-pressed="false" aria-controls="activation-key">Show key</button>
+        </div>
+        <p class="field-hint">Copy it now and keep it in a password manager or secrets vault. Send it in the X-API-Key header.</p>
+      </div>
+      <div id="activation-actions" class="activation-actions">
+        <button type="button" class="btn btn-secondary" id="activation-copy-key">Copy API key</button>
+        <button type="button" class="btn btn-secondary" id="activation-test-api">Test API</button>
+        <a href="/cyber-watchdog.html" class="btn btn-secondary">Open Cyber Watchdog</a>
+        <a href="/api-docs.html" class="btn btn-secondary">API docs</a>
+        <a href="/billing.html" class="btn btn-secondary">Billing Center</a>
+        <a href="/onboarding.html" class="btn btn-secondary">Onboarding guide</a>
+      </div>
+      <p id="activation-test-result" class="field-hint" aria-live="polite"></p>
+      <div id="onboard-snippets" class="snippets" hidden>
+        <p class="ref-label">FIRST REQUEST (key read from an environment variable, never pasted into code)</p>
+        <pre>export SENTINEL_APEX_API_KEY='paste-your-key-here'
+curl -H "X-API-Key: $SENTINEL_APEX_API_KEY" https://intel.cyberdudebivash.com/api/feed</pre>
+        <pre>import os, requests
+resp = requests.get("https://intel.cyberdudebivash.com/api/feed",
+                    headers={"X-API-Key": os.environ["SENTINEL_APEX_API_KEY"]})
+print(resp.status_code)</pre>
+      </div>
+      <p class="support-line"><strong>Sales &amp; checkout support</strong> (quote your reference): <a href="https://wa.me/918179881447" target="_blank" rel="noopener">WhatsApp +91 8179881447</a> &middot; <a href="mailto:enterprise@cyberdudebivash.com">enterprise@cyberdudebivash.com</a></p>
+    </section>
+  </div>
+
+  <aside class="col-side" aria-label="Order summary and terms">
+    <div class="order-card">
+      <h2 class="side-title">Order summary</h2>
+      <div class="order-plan" id="summary-plan">Community</div>
+      <div class="order-billing" id="summary-billing">Free &mdash; no payment</div>
+      <dl class="order-rows">
+        <div class="order-row"><dt>Plan price</dt><dd id="summary-price">Free</dd></div>
+        <div class="order-row"><dt>Razorpay charge (INR)</dt><dd id="summary-inr">Free</dd></div>
+        <div class="order-row" id="savings-row" hidden><dt>Annual saving</dt><dd id="summary-savings"></dd></div>
+        <div class="order-row order-total"><dt>Due today</dt><dd id="summary-total">Free</dd></div>
+      </dl>
+      <p class="fine-print">Razorpay charges the INR amount shown, GST included. No setup fee.</p>
+    </div>
+
+    <div class="trust-card">
+      <h2 class="side-title">Terms at a glance</h2>
+      <ul>
+        <li>Razorpay subscriptions: renews automatically, cancel any time; access runs to the end of the paid period.</li>
+        <li>Gumroad: each listing states whether it renews; access grants do not auto-renew.</li>
+        <li>7-Day Money-Back Guarantee on eligible first purchases &mdash; subject to our <a href="/terms.html#refunds">Refund Policy</a>. No pro-rata refunds after the guarantee period.</li>
+        <li>GST registered &mdash; GSTIN: 21ARKPN8270G1ZP</li>
+        <li><a href="/sla.html">Service levels (SLA)</a> &middot; <a href="/terms.html">Terms</a> &middot; <a href="/privacy.html">Privacy</a></li>
+      </ul>
+    </div>
+
+    <a href="https://wa.me/918179881447?text=Hi%2C%20I%20need%20help%20with%20SENTINEL%20APEX%20subscription%20checkout" target="_blank" rel="noopener" class="wa-cta">
+      <span class="wa-text">Sales &amp; checkout support: +91 8179881447</span>
+      <span class="wa-sub">Questions about checkout? API access activates automatically after payment confirmation.</span>
+    </a>
+
+    <div class="contact-card">
+      <h2 class="side-title">Seller</h2>
+      <p>CYBERDUDEBIVASH ECOSYSTEM®<br>29, Korai-Sukinda-Ramchandrapur Rd, Ragadi, JAJPUR ROAD, Odisha 755019, India<br>GSTIN: 21ARKPN8270G1ZP</p>
+      <p><a href="mailto:enterprise@cyberdudebivash.com">enterprise@cyberdudebivash.com</a> &middot; <a href="/contact-enterprise.html">Enterprise inquiry</a></p>
+    </div>
+  </aside>
+</main>
+
+<script>
+/* ═══════════════════════════════════════════════════════════════════════
+   SENTINEL APEX checkout controller (checkout P0, 2026-10-01)
+   PRIMARY   Razorpay: recurring INR subscription (revenue engine
+             POST /api/v2/billing/subscriptions/create; the server resolves
+             tier + cycle to the Razorpay Plan; no price is ever sent).
+   SECONDARY Gumroad (USD): offered only while GET /api/pricing reports that
+             a Gumroad sale can be provisioned and delivered automatically.
+   Assisted payments are a contact note, never a checkout path, and never
+   provision access from this page.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+// Charge figures (paise) used until syncCanonicalPricing() below replaces
+// them from /api/pricing. They match config/commercial-contract.json and
+// workers/intel-gateway/src/pricing-data.json (the Razorpay charge), so a
+// failed fetch never shows a lower price than checkout charges.
+var RAZORPAY_PLANS = {
+  pro:        { name:'PRO / SOC',          inr_monthly:410000,   inr_annual:4100000,    usd_monthly:49,  usd_annual:490   },
+  enterprise: { name:'Enterprise SOC',     inr_monthly:4160000,  inr_annual:41600000,   usd_monthly:499, usd_annual:4990  },
+  mssp:       { name:'MSSP / White-Label', inr_monthly:8330000,  inr_annual:83300000,   usd_monthly:999, usd_annual:9990  },
+};
+
+// USD list prices (config/commercial-contract.json usd_monthly / usd_annual).
+var PLANS = {
+  free:       { name:'Community',          usd:0,    usdAnnual:0 },
+  pro:        { name:'PRO / SOC',          usd:49,   usdAnnual:490 },
+  enterprise: { name:'Enterprise SOC',     usd:499,  usdAnnual:4990 },
+  mssp:       { name:'MSSP / White-Label', usd:999,  usdAnnual:9990 }
+};
+
+// Plan terms shown under "What you get": config/commercial-contract.json
+// (requests_per_minute, requests_per_day, api_keys, seats, support,
+// uptime_commitment, white_label). tests/test_checkout_experience.py fails
+// on any drift.
+var PLAN_TERMS = {
+  free:       { rpm:30,   rpd:50,    keys:0,   seats:1,  support:'Community forum', uptime:'best effort' },
+  pro:        { rpm:120,  rpd:5000,  keys:10,  seats:1,  support:'Email support, 48h response', uptime:'99.5%' },
+  enterprise: { rpm:600,  rpd:50000, keys:50,  seats:10, support:'Email and chat support, 4h response', uptime:'99.9%' },
+  mssp:       { rpm:1200, rpd:50000, keys:100, seats:25, support:'Dedicated CSM, 1h response', uptime:'99.9%', white_label:true }
+};
+
+// Which secondary checkouts the gateway confirms (null = not known yet;
+// Gumroad stays hidden until it is confirmed: fail closed).
+var CHECKOUT_AVAILABILITY = { gumroad: null };
+
+/* Canonical pricing + checkout availability from the gateway. Keeps the
+   fallback figures above if the request fails, and Gumroad stays hidden. */
+(function syncCanonicalPricing() {
+  var TIER_MAP = { pro: 'PRO', enterprise: 'ENTERPRISE', mssp: 'MSSP' };
+  fetch('/api/pricing').then(function (r) { return r.ok ? r.json() : null; }).then(function (data) {
+    if (data && data.tiers) {
+      Object.keys(TIER_MAP).forEach(function (key) {
+        var canon = data.tiers[TIER_MAP[key]];
+        if (canon && RAZORPAY_PLANS[key] && canon.monthly > 0 && canon.annual > 0) {
+          RAZORPAY_PLANS[key].inr_monthly = canon.monthly;
+          RAZORPAY_PLANS[key].inr_annual = canon.annual;
+        }
+      });
+    }
+    var g = data && data.checkout && data.checkout.gumroad;
+    CHECKOUT_AVAILABILITY.gumroad = !!(g && g.available === true);
+    refreshCheckoutView();
+  }).catch(function () {
+    CHECKOUT_AVAILABILITY.gumroad = false;
+    refreshCheckoutView();
+  });
+})();
+
+/* ── Gumroad (secondary). AUTHORITY (S16): workers/intel-gateway/src/
+   gumroad-products.js decides what each Gumroad product grants. These two
+   tables must list exactly its permalinks (gumroad-products.test.js), so the
+   page can never sell a product the webhook would refuse. MSSP has no
+   Gumroad product: it is sold through Razorpay only. ─────────────────── */
+var GUMROAD_URLS = {
+  pro:        { monthly: 'https://cyberdudebivash.gumroad.com/l/pxyfcb', annual: 'https://cyberdudebivash.gumroad.com/l/xtnzu' },
+  enterprise: { monthly: 'https://cyberdudebivash.gumroad.com/l/cdedlo', annual: 'https://cyberdudebivash.gumroad.com/l/vxoczs' },
+  mssp:       { monthly: null, annual: null }
+};
+
+/* Gumroad memberships (owner commercial policy, 2026-09-25): put a
+   MEMBERSHIP product's permalink here once it exists (and in
+   gumroad-products.js). A plan/cycle with a membership URL is sold as the
+   membership ("renews until cancelled"); one without keeps the one-time
+   access grant above, labelled as such. */
+var GUMROAD_MEMBERSHIP_URLS = {
+  pro:        { monthly: null, annual: null },
+  enterprise: { monthly: null, annual: null }
+};
+var GUMROAD_STORE_PREFIX = 'https://cyberdudebivash.gumroad.com/l/';
+
+var currentPlan = 'free';
+var isAnnual = false;
+
+// ── CHECKOUT STATE MACHINE (single source of checkout truth) ──────────
+// IDLE → CREATING_SUBSCRIPTION → CHECKOUT_OPEN → PAYMENT_AUTHORIZED →
+//   ACTIVE             only when the revenue engine's status endpoint
+//                      returns status "active" WITH the provisioned key;
+//   ACTIVATION_PENDING when the backend has not confirmed yet (timeout,
+//                      network error, webhook still in flight).
+// IDLE → ACTIVATION_PENDING only when this tab resumes a payment it already
+// made (reload). FAILED / CANCELLED_BY_BUYER are reachable only before
+// payment is authorized. A pending activation is never shown as a failed
+// payment, and once a payment is authorized the pay button stays disabled
+// so a buyer is never nudged into paying twice.
+var CHECKOUT_TRANSITIONS = {
+  IDLE:                  ['CREATING_SUBSCRIPTION', 'ACTIVATION_PENDING'],
+  CREATING_SUBSCRIPTION: ['CHECKOUT_OPEN', 'FAILED', 'IDLE'],
+  CHECKOUT_OPEN:         ['PAYMENT_AUTHORIZED', 'FAILED', 'CANCELLED_BY_BUYER'],
+  PAYMENT_AUTHORIZED:    ['ACTIVE', 'ACTIVATION_PENDING'],
+  ACTIVATION_PENDING:    ['ACTIVE'],
+  ACTIVE:                [],
+  FAILED:                ['CREATING_SUBSCRIPTION'],
+  CANCELLED_BY_BUYER:    ['CREATING_SUBSCRIPTION'],
+};
+var checkoutState = 'IDLE';
+
+function setCheckoutState(next) {
+  var allowed = CHECKOUT_TRANSITIONS[checkoutState] || [];
+  if (allowed.indexOf(next) === -1) return false;
+  checkoutState = next;
+  if (document.body) document.body.setAttribute('data-checkout-state', next);
+  return true;
+}
+
+// Funnel events carry only tier / cycle / coarse reason -- never the
+// email, API key, payment or subscription identifiers, GSTIN or address.
+function trackCheckout(event, tier, extra) {
+  if (!window.apxTrack) return;
+  window.apxTrack(event, Object.assign({ tier: tier, cycle: isAnnual ? 'annual' : 'monthly', method: 'razorpay_subscription' }, extra || {}));
+}
+
+function byId(id) { return document.getElementById(id); }
+function setText(id, text) { var e = byId(id); if (e) e.textContent = text; }
+function formatINR(rupees) { return '₹' + Number(rupees).toLocaleString('en-IN'); }
+function formatUSD(usd) { return '$' + Number(usd).toLocaleString('en-US'); }
+function rupees(plan, annual) {
+  var rp = RAZORPAY_PLANS[plan];
+  return rp ? (annual ? rp.inr_annual : rp.inr_monthly) / 100 : 0;
+}
+function prefersReducedMotion() {
+  return !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+}
+
+// ── Inline messages, never a blocking dialog: readable by screen readers
+function showCheckoutStatus(kind, message, link) {
+  var box = byId('checkout-status');
+  if (!box) return;
+  box.textContent = '';
+  box.className = 'checkout-status checkout-status-' + kind;
+  box.setAttribute('role', kind === 'error' ? 'alert' : 'status');
+  var p = document.createElement('p');
+  p.textContent = message;
+  box.appendChild(p);
+  if (link) {
+    var a = document.createElement('a');
+    a.href = link.href;
+    a.textContent = link.text;
+    box.appendChild(a);
+  }
+  box.hidden = false;
+}
+function clearCheckoutStatus() {
+  var box = byId('checkout-status');
+  if (box) { box.hidden = true; box.textContent = ''; box.removeAttribute('role'); }
+}
+
+// Server field names (revenue engine 400 {field}) -> page inputs.
+var FIELD_INPUTS = {
+  email: 'rzp-email', gstin: 'rzp-gstin', billing_state: 'rzp-billing-state',
+  billing_country: 'rzp-billing-country', billing_name: 'rzp-billing-name', billing_address: 'rzp-billing-address',
+};
+function showFieldError(inputId, message) {
+  var input = byId(inputId), err = byId(inputId + '-error');
+  if (input && input.closest) {
+    var details = input.closest('details');
+    if (details) details.open = true;
+    if (inputId === 'rzp-billing-country') { var row = byId('rzp-country-row'); if (row) row.style.display = ''; }
+  }
+  if (err) { err.textContent = message; err.hidden = false; }
+  if (input) { input.setAttribute('aria-invalid', 'true'); input.focus(); }
+}
+function clearFieldErrors() {
+  Object.keys(FIELD_INPUTS).forEach(function (k) {
+    var id = FIELD_INPUTS[k], input = byId(id), err = byId(id + '-error');
+    if (input) input.removeAttribute('aria-invalid');
+    if (err) { err.textContent = ''; err.hidden = true; }
+  });
+}
+
+function setPayButton(disabled, busyText) {
+  var btn = byId('rzp-pay-btn');
+  if (!btn) return;
+  btn.disabled = !!disabled;
+  btn.setAttribute('aria-busy', busyText ? 'true' : 'false');
+  var label = btn.querySelector('.btn-label');
+  if (label) label.textContent = busyText || 'Continue with Razorpay';
+}
+
+// ── Plan, cycle and the views that follow them ─────────────────────────
+function selectPlan(key) {
+  if (!PLANS[key]) return;
+  currentPlan = key;
+  var radio = document.querySelector('input[name="plan"][value="' + key + '"]');
+  if (radio && !radio.checked) radio.checked = true;
+  var cards = document.querySelectorAll('.plan-card');
+  for (var i = 0; i < cards.length; i++) cards[i].classList.toggle('selected', cards[i].id === 'plan-' + key);
+  if (checkoutState === 'IDLE' || checkoutState === 'FAILED' || checkoutState === 'CANCELLED_BY_BUYER') clearCheckoutStatus();
+  refreshCheckoutView();
+}
+
+function setBillingCycle(annual) {
+  isAnnual = !!annual;
+  var radio = byId(isAnnual ? 'cycle-annual' : 'cycle-monthly');
+  if (radio && !radio.checked) radio.checked = true;
+  if (checkoutState === 'IDLE' || checkoutState === 'FAILED' || checkoutState === 'CANCELLED_BY_BUYER') clearCheckoutStatus();
+  refreshCheckoutView();
+}
+
+// Kept for existing callers (init, tests): flips the billing period.
+function toggleBilling() { setBillingCycle(!isAnnual); }
+
+function refreshCheckoutView() {
+  updatePlanPrices();
+  updateSummary();
+  renderBenefits();
+  updateRazorpayPanel();
+  updateGumroadPanel();
+}
+
+function updatePlanPrices() {
+  ['pro', 'enterprise', 'mssp'].forEach(function (k) {
+    setText('price-' + k, formatUSD(isAnnual ? PLANS[k].usdAnnual : PLANS[k].usd));
+    setText('period-' + k, isAnnual ? 'per year' : 'per month');
+    setText('inr-' + k, formatINR(rupees(k, isAnnual)));
+  });
+}
+
+function updateSummary() {
+  var p = PLANS[currentPlan];
+  var savings = byId('savings-row');
+  if (currentPlan === 'free') {
+    setText('summary-plan', p.name);
+    setText('summary-billing', 'Free — no payment');
+    setText('summary-price', 'Free');
+    setText('summary-inr', 'Free');
+    setText('summary-total', 'Free');
+    setText('summary-inline-plan', p.name);
+    setText('summary-inline-price', 'Free, no credit card');
+    if (savings) savings.hidden = true;
+    return;
+  }
+  var usd = isAnnual ? p.usdAnnual : p.usd;
+  var inr = formatINR(rupees(currentPlan, isAnnual));
+  var per = isAnnual ? ' / year' : ' / month';
+  setText('summary-plan', p.name);
+  setText('summary-billing', isAnnual ? 'Yearly · renews each year until cancelled' : 'Monthly · renews each month until cancelled');
+  setText('summary-price', formatUSD(usd) + per);
+  setText('summary-inr', inr + per);
+  setText('summary-total', inr);
+  setText('summary-inline-plan', p.name);
+  setText('summary-inline-price', formatUSD(usd) + per + ' · ' + inr + per + ' via Razorpay');
+  if (savings) {
+    savings.hidden = !isAnnual;
+    if (isAnnual) setText('summary-savings', formatUSD(p.usd * 12 - p.usdAnnual) + ' vs monthly');
+  }
+}
+
+function renderBenefits() {
+  var t = PLAN_TERMS[currentPlan], ul = byId('plan-benefits');
+  if (!t || !ul) return;
+  var items = [t.rpm.toLocaleString('en-US') + ' requests per minute · ' + t.rpd.toLocaleString('en-US') + ' requests per day'];
+  items.push(t.keys ? (t.keys + ' API keys · ' + t.seats + (t.seats === 1 ? ' seat' : ' seats'))
+                    : 'No API key needed (anonymous access to the public endpoints)');
+  items.push(t.support + (currentPlan === 'free' ? ' support' : ''));
+  items.push(t.uptime === 'best effort' ? 'Best-effort uptime, no service credits'
+                                        : t.uptime + ' uptime commitment with service credits (see the SLA)');
+  if (t.white_label) items.push('White-label for your clients');
+  if (currentPlan !== 'free') items.push('Cancel any time; access runs to the end of the paid period. No pro-rata refund.');
+  ul.textContent = '';
+  items.forEach(function (text) { var li = document.createElement('li'); li.textContent = text; ul.appendChild(li); });
+}
+
+function updateRazorpayPanel() {
+  var rp = RAZORPAY_PLANS[currentPlan];
+  if (!rp) return;
+  var inr = formatINR(rupees(currentPlan, isAnnual));
+  setText('rzp-display-inr', inr);
+  setText('rzp-display-usd', 'US$' + (isAnnual ? rp.usd_annual : rp.usd_monthly).toLocaleString('en-US') + ' list price');
+  setText('rzp-display-plan', rp.name);
+  setText('rzp-display-cycle', isAnnual ? 'Renews yearly' : 'Renews monthly');
+  setText('rzp-btn-sub', 'Subscribe · ' + inr + (isAnnual ? ' per year' : ' per month'));
+}
+
+function gumroadProductUrl(u) {
+  return (typeof u === 'string' && u.indexOf(GUMROAD_STORE_PREFIX) === 0) ? u : null;
+}
+
+// Paid plans show the Razorpay section (and Gumroad under it); Community
+// shows its free panel instead. Gumroad's button appears only for a plan
+// and cycle with a catalog product AND while the gateway confirms that a
+// Gumroad sale is activated automatically.
+function updateGumroadPanel() {
+  var isFree = (currentPlan === 'free');
+  var panel = byId('gumroad-panel');
+  if (panel) panel.style.display = isFree ? 'none' : '';
+  var rzpSection = byId('section-payment-methods');
+  if (rzpSection) rzpSection.style.display = isFree ? 'none' : '';
+  var freePanel = byId('free-plan-panel');
+  if (freePanel) freePanel.style.display = isFree ? '' : 'none';
+  var after = byId('step-after');
+  if (after) after.style.display = isFree ? 'none' : '';
+  if (isFree) return;
+
+  var cycle = isAnnual ? 'annual' : 'monthly';
+  var btn = byId('gumroad-btn'), caption = byId('gumroad-caption'), note = byId('gumroad-unavailable');
+  if (!btn || !caption || !note) return;
+  var membership = gumroadProductUrl(GUMROAD_MEMBERSHIP_URLS[currentPlan] && GUMROAD_MEMBERSHIP_URLS[currentPlan][cycle]);
+  var grant = gumroadProductUrl(GUMROAD_URLS[currentPlan] && GUMROAD_URLS[currentPlan][cycle]);
+  var url = membership || grant;
+  function hideGumroad(message) {
+    btn.hidden = true;
+    btn.removeAttribute('href');
+    btn.removeAttribute('data-gumroad-sale-type');
+    caption.hidden = true;
+    note.textContent = message;
+    note.hidden = false;
+  }
+  if (!url) return hideGumroad('Gumroad is not offered for the ' + PLANS[currentPlan].name + ' plan. Use Razorpay above.');
+  if (CHECKOUT_AVAILABILITY.gumroad !== true) {
+    return hideGumroad(CHECKOUT_AVAILABILITY.gumroad === null
+      ? 'Checking whether Gumroad checkout is available…'
+      : 'Gumroad checkout is temporarily unavailable because a purchase there cannot be activated automatically right now. Use Razorpay above.');
+  }
+  var usd = isAnnual ? PLANS[currentPlan].usdAnnual : PLANS[currentPlan].usd;
+  btn.href = url;
+  btn.setAttribute('data-gumroad-sale-type', membership ? 'membership' : 'grant');
+  setText('gumroad-price', 'US$' + usd.toLocaleString('en-US') + (membership ? (isAnnual ? ' per year' : ' per month') : ''));
+  setText('gumroad-terms', membership
+    ? (isAnnual ? 'renews yearly until you cancel it in your Gumroad library' : 'renews monthly until you cancel it in your Gumroad library')
+    : (isAnnual ? '12-month access grant, does not auto-renew' : '30-day access grant, does not auto-renew'));
+  btn.hidden = false;
+  caption.hidden = false;
+  note.hidden = true;
+  note.textContent = '';
+}
+
+// ── Razorpay (primary) ─────────────────────────────────────────────────
+// Owner commercial policy (2026-09-24): PRO, Enterprise and MSSP are sold
+// ONLY as Razorpay Subscriptions. There is no fallback to a one-time Order:
+// a billing cycle whose Plan is not live answers 503 BEFORE any payment UI.
+function checkoutUnavailable(tier, reason, message) {
+  setCheckoutState('FAILED');
+  setPayButton(false);
+  trackCheckout('payment_failed', tier, { reason: reason });
+  showCheckoutStatus('error', message);
+}
+
+async function initiateRazorpayCheckout() {
+  if (checkoutState === 'PAYMENT_AUTHORIZED' || checkoutState === 'ACTIVATION_PENDING' || checkoutState === 'ACTIVE') {
+    showCheckoutStatus('info', 'A payment for this checkout has already been received. Please do not pay again.');
+    return;
+  }
+  if (checkoutState === 'CREATING_SUBSCRIPTION' || checkoutState === 'CHECKOUT_OPEN') return;
+  clearFieldErrors();
+  clearCheckoutStatus();
+  var tierMap = { pro: 'PRO', enterprise: 'ENTERPRISE', mssp: 'MSSP' };
+  var tier = tierMap[currentPlan];
+  if (!tier) {
+    showCheckoutStatus('error', 'Choose a paid plan (PRO, Enterprise or MSSP) to continue.');
+    return;
+  }
+  var emailEl = byId('rzp-email');
+  var email = emailEl ? emailEl.value.trim() : '';
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    showFieldError('rzp-email', 'Enter a valid email address. Your subscription and API key are linked to it.');
+    return;
+  }
+  // Buyer GSTIN/VAT (optional), validated with the shared js/checkout.js
+  // rules; the server validates again.
+  var gstinEl = byId('rzp-gstin');
+  var taxId = window.SentinelCheckout
+    ? window.SentinelCheckout.validateTaxId(gstinEl ? gstinEl.value : '')
+    : { ok: true, value: gstinEl ? gstinEl.value.trim().toUpperCase() : '' };
+  if (!taxId.ok) {
+    showFieldError('rzp-gstin', taxId.reason);
+    return;
+  }
+  function val(id) { var e = byId(id); return e ? e.value.trim() : ''; }
+  var outsideIndia = val('rzp-billing-state') === 'OUTSIDE_INDIA';
+  var buyer = {
+    gstin: taxId.value || undefined,
+    billing_state: val('rzp-billing-state') || undefined,
+    // Country only for a buyer outside India (the server refuses it otherwise).
+    billing_country: (outsideIndia && val('rzp-billing-country').toUpperCase()) || undefined,
+    billing_name: val('rzp-billing-name') || undefined,
+    billing_address: val('rzp-billing-address') || undefined,
+  };
+  var cycle = isAnnual ? 'annual' : 'monthly';
+
+  setCheckoutState('CREATING_SUBSCRIPTION');
+  trackCheckout('checkout_started', tier);
+  setPayButton(true, 'Starting Razorpay checkout…');
+
+  var sub = null, subResp;
+  try {
+    subResp = await fetch('/api/v2/billing/subscriptions/create', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(Object.assign({ email: email, tier: tier, billing_cycle: cycle }, buyer)),
+    });
+    try { sub = await subResp.json(); } catch (_) { sub = null; }
+  } catch (err) {
+    return checkoutUnavailable(tier, 'subscription_create_network',
+      'Checkout could not be started because the connection dropped. No payment was taken. Check your connection and try again.');
+  }
+  if (subResp.status === 400 && sub && sub.field) {
+    setCheckoutState('IDLE');
+    setPayButton(false);
+    showFieldError(FIELD_INPUTS[sub.field] || 'rzp-email', String(sub.error || 'Please check this field.'));
+    return;
+  }
+  if (subResp.status === 409 && sub && sub.error === 'already_subscribed') {
+    setCheckoutState('IDLE');
+    setPayButton(false);
+    trackCheckout('checkout_already_subscribed', tier);
+    showCheckoutStatus('info', 'You already have an active subscription for this plan, so no payment was taken. Manage it in your Billing Center.',
+      { href: '/billing.html', text: 'Open the Billing Center' });
+    return;
+  }
+  if (subResp.status === 409 && sub && sub.error === 'checkout_in_progress') {
+    setCheckoutState('IDLE');
+    setPayButton(false);
+    trackCheckout('checkout_in_progress', tier);
+    showCheckoutStatus('info', 'A payment for this checkout has already been received and is being activated. No new payment was started; please do not pay again. If you closed the tab you paid in, contact sales & checkout support with your email address.');
+    return;
+  }
+  if (!subResp.ok || !sub || !sub.subscription_id || !sub.key_id) {
+    return checkoutUnavailable(tier, 'subscription_create_' + subResp.status, subResp.status === 503
+      ? 'This billing cycle is temporarily unavailable. No payment was taken. Please try again later or choose the other billing period.'
+      : 'Checkout could not be started. No payment was taken. Please try again in a few minutes.');
+  }
+  if (typeof Razorpay === 'undefined') {
+    return checkoutUnavailable(tier, 'provider_script_unavailable',
+      'The Razorpay checkout window could not load. No payment was taken. Check your connection or any content blocker, then try again.');
+  }
+
+  var subOptions = {
+    key:              sub.key_id,
+    subscription_id:  sub.subscription_id,
+    name:             'CYBERDUDEBIVASH SENTINEL APEX',
+    description:      RAZORPAY_PLANS[currentPlan].name + ' — ' + (isAnnual ? 'yearly' : 'monthly') + ' subscription, renews until cancelled',
+    prefill:          { email: email },
+    theme:            { color: '#00d4ff' },
+    modal: {
+      ondismiss: function () {
+        // Razorpay also calls ondismiss after a successful handler in some
+        // SDK versions -- only a still-open checkout counts as a buyer cancel.
+        if (!setCheckoutState('CANCELLED_BY_BUYER')) return;
+        trackCheckout('checkout_cancelled', tier);
+        setPayButton(false);
+        showCheckoutStatus('info', 'Checkout closed. If you did not complete a payment, nothing was charged. You can continue when you are ready.');
+      }
+    },
+    handler: function (response) {
+      if (!setCheckoutState('PAYMENT_AUTHORIZED')) return;
+      trackCheckout('payment_authorized', tier);
+      clearCheckoutStatus();
+      setPayButton(true, 'Payment received — activating…');
+      var proof = { sid: sub.subscription_id, pid: response.razorpay_payment_id, sig: response.razorpay_signature,
+                    tier: tier, email: email, at: Date.now() };
+      savePendingProof(proof);
+      pollSubscriptionStatus(proof, 0);
+    },
+  };
+  var subRzp = new Razorpay(subOptions);
+  if (window.SentinelCheckout) {
+    window.SentinelCheckout.bindPaymentFailedHandler(subRzp, function (_msg, err) {
+      // A declined attempt inside the open modal: the buyer may retry there.
+      if (checkoutState !== 'CHECKOUT_OPEN') return;
+      trackCheckout('payment_failed', tier, { reason: 'declined' });
+      var why = err && err.description ? ' (' + String(err.description).slice(0, 160) + ')' : '';
+      showCheckoutStatus('error', 'Your last payment attempt did not go through' + why + '. You can try again in the Razorpay window with the same or a different method.');
+    });
+  }
+  setCheckoutState('CHECKOUT_OPEN');
+  trackCheckout('checkout_opened', tier);
+  subRzp.open();
+}
+
+// The payment proof (Razorpay's payment id + signature) lets this tab ask
+// for its own activation status after a reload. Tab-scoped and never sent
+// anywhere but the status endpoint, which verifies the signature.
+var PENDING_PROOF_KEY = 'sentinel_apex_checkout_pending';
+var PENDING_PROOF_MAX_AGE_MS = 24 * 3600 * 1000;
+function savePendingProof(proof) {
+  try { sessionStorage.setItem(PENDING_PROOF_KEY, JSON.stringify(proof)); } catch (_) {}
+}
+function loadPendingProof() {
+  try {
+    var p = JSON.parse(sessionStorage.getItem(PENDING_PROOF_KEY) || 'null');
+    if (p && typeof p.sid === 'string' && typeof p.pid === 'string' && typeof p.sig === 'string' &&
+        typeof p.tier === 'string' && Date.now() - Number(p.at) < PENDING_PROOF_MAX_AGE_MS) return p;
+  } catch (_) {}
+  return null;
+}
+
+// Subscription activation happens asynchronously via Razorpay's
+// subscription.activated webhook, not in the Checkout handler callback --
+// poll briefly rather than assume the key exists the instant the modal's
+// handler fires. The status endpoint requires the payment id + signature
+// as proof this tab completed this checkout (subscription_id alone is not
+// a secret), so it never hands another customer's key to a guesser.
+var ACTIVATION_POLL_MAX_ATTEMPTS = 15; // ~30s at 2s intervals
+var ACTIVATION_POLL_INTERVAL_MS = 2000;
+var ACTIVATION_RECHECK_MS = 15000;     // while pending, one check every 15s
+var ACTIVATION_RECHECK_MAX = 20;       // for about 5 minutes
+var recheckTimer = null, rechecks = 0;
+
+function fetchActivation(proof) {
+  var qs = 'subscription_id=' + encodeURIComponent(proof.sid) +
+           '&payment_id=' + encodeURIComponent(proof.pid) +
+           '&signature=' + encodeURIComponent(proof.sig);
+  return fetch('/api/v2/billing/subscriptions/status?' + qs, { cache: 'no-store' })
+    .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }, function () { return { ok: false, d: null }; }); })
+    .then(function (res) { return (res.ok && res.d && res.d.status === 'active' && res.d.api_key) ? res.d.api_key : null; });
+}
+
+function pollSubscriptionStatus(proof, attempt) {
+  function retryOrPend() {
+    if (attempt >= ACTIVATION_POLL_MAX_ATTEMPTS) { showActivationPending(proof); return; }
+    setTimeout(function () { pollSubscriptionStatus(proof, attempt + 1); }, ACTIVATION_POLL_INTERVAL_MS);
+  }
+  fetchActivation(proof).then(function (apiKey) {
+    if (apiKey) { showRazorpaySuccess(apiKey, proof); return; }
+    retryOrPend();
+  }).catch(retryOrPend);
+}
+
+function scheduleRecheck(proof) {
+  if (recheckTimer || rechecks >= ACTIVATION_RECHECK_MAX) return;
+  recheckTimer = setTimeout(function () {
+    recheckTimer = null;
+    rechecks++;
+    fetchActivation(proof).then(function (apiKey) {
+      if (apiKey) showRazorpaySuccess(apiKey, proof); else scheduleRecheck(proof);
+    }).catch(function () { scheduleRecheck(proof); });
+  }, ACTIVATION_RECHECK_MS);
+}
+
+function planLabelForTier(tier) {
+  var key = String(tier || '').toLowerCase();
+  return 'SENTINEL APEX ' + (PLANS[key] ? PLANS[key].name : tier);
+}
+function maskReference(id) {
+  id = String(id || '');
+  return id.length > 10 ? id.slice(0, 4) + '…' + id.slice(-6) : id;
+}
+function enterResultView() {
+  var fc = byId('checkout-state'), ss = byId('success-state');
+  if (fc) fc.style.display = 'none';
+  if (ss) ss.style.display = 'block';
+  var main = byId('checkout-main');
+  if (main && main.scrollIntoView) main.scrollIntoView({ behavior: prefersReducedMotion() ? 'auto' : 'smooth', block: 'start' });
+  var title = byId('success-title');
+  if (title) { try { title.focus({ preventScroll: true }); } catch (_) { title.focus(); } }
+  return ss;
+}
+function addParagraph(parent, text, className) {
+  var p = document.createElement('p');
+  if (className) p.className = className;
+  p.textContent = text;
+  parent.appendChild(p);
+  return p;
+}
+
+// ACTIVATION_PENDING: Razorpay reported the payment as successful; our
+// backend has not confirmed the entitlement yet. Truthful on both counts:
+// the payment is not reported as failed and access is not reported as on.
+function showActivationPending(proof) {
+  if (checkoutState === 'ACTIVE') return;
+  if (checkoutState !== 'ACTIVATION_PENDING') {
+    if (!setCheckoutState('ACTIVATION_PENDING')) return;
+    trackCheckout('activation_pending', proof.tier);
+  }
+  if (!enterResultView()) return;
+  setText('success-title', 'PAYMENT CONFIRMED — ACTIVATION IN PROGRESS');
+  setText('success-plan', planLabelForTier(proof.tier));
+  setText('success-ref-label', 'REFERENCE (quote it if you contact us)');
+  setText('success-review-id', maskReference(proof.sid));
+  var keyBox = byId('activation-key-box');
+  if (keyBox) keyBox.hidden = true;
+  var actions = byId('activation-actions');
+  if (actions) actions.style.display = 'none';
+  var tl = byId('success-timeline');
+  if (tl) {
+    tl.textContent = '';
+    addParagraph(tl, 'Razorpay reported your payment as successful. Your API access is switched on when Razorpay’s confirmation reaches our server; this page keeps checking for it.');
+    addParagraph(tl, 'Please do not pay again. Keep this tab open until your API key appears here; reloading this tab is safe.');
+    addParagraph(tl, 'If your key has not appeared, contact sales & checkout support with your payment email (' + proof.email + ') and the reference below.');
+    var again = document.createElement('button');
+    again.type = 'button';
+    again.className = 'btn btn-secondary';
+    again.id = 'activation-recheck-btn';
+    again.textContent = 'Check activation status again';
+    again.onclick = function () { again.disabled = true; again.textContent = 'Checking…'; pollSubscriptionStatus(proof, 0); };
+    tl.appendChild(again);
+  }
+  scheduleRecheck(proof);
+}
+
+// ACTIVE: reached only from a backend response carrying status "active"
+// and the provisioned key. The key stays masked until the buyer asks.
+function showRazorpaySuccess(apiKey, proof) {
+  if (!setCheckoutState('ACTIVE')) return;
+  if (recheckTimer) { clearTimeout(recheckTimer); recheckTimer = null; }
+  trackCheckout('entitlement_activated', proof.tier);
+  enterResultView();
+  setText('success-title', 'SUBSCRIPTION ACTIVE');
+  setText('success-plan', planLabelForTier(proof.tier));
+  setText('success-ref-label', 'REFERENCE');
+  setText('success-review-id', maskReference(proof.sid));
+  var tl = byId('success-timeline');
+  if (tl) {
+    tl.textContent = '';
+    addParagraph(tl, 'Razorpay confirmed your payment and your API access is active.');
+    addParagraph(tl, 'Next: copy your key, run the first request below, then follow the onboarding guide.');
+  }
+  var masked = apiKey.length > 12 ? apiKey.slice(0, 8) + '••••••••' + apiKey.slice(-4) : '••••••••';
+  var keyEl = byId('activation-key'), reveal = byId('activation-reveal-key'), keyBox = byId('activation-key-box');
+  if (keyEl) keyEl.textContent = masked;
+  if (reveal && keyEl) {
+    reveal.setAttribute('aria-pressed', 'false');
+    reveal.textContent = 'Show key';
+    reveal.onclick = function () {
+      var shown = reveal.getAttribute('aria-pressed') === 'true';
+      keyEl.textContent = shown ? masked : apiKey;
+      reveal.setAttribute('aria-pressed', shown ? 'false' : 'true');
+      reveal.textContent = shown ? 'Show key' : 'Hide key';
+    };
+  }
+  if (keyBox) keyBox.hidden = false;
+  var actions = byId('activation-actions');
+  if (actions) actions.style.display = 'flex';
+  var copyBtn = byId('activation-copy-key');
+  if (copyBtn) copyBtn.onclick = function () { copyText(apiKey, copyBtn); };
+  var testBtn = byId('activation-test-api');
+  if (testBtn) testBtn.onclick = function () { testApiKey(apiKey, testBtn); };
+  var snippets = byId('onboard-snippets');
+  if (snippets) snippets.hidden = false;
+}
+
+// One real authenticated request with the new key; only the HTTP outcome
+// is shown, never the key.
+function testApiKey(apiKey, btn) {
+  var out = byId('activation-test-result');
+  if (btn) btn.disabled = true;
+  if (out) out.textContent = 'Testing…';
+  fetch('/api/feed', { headers: { 'X-API-Key': apiKey } })
+    .then(function (r) {
+      if (out) out.textContent = r.ok ? '✔ API responded ' + r.status + ' — your key works.'
+                                      : 'API responded ' + r.status + '. If this persists, contact support with your reference.';
+    })
+    .catch(function () { if (out) out.textContent = 'Network error while testing. Please try again.'; })
+    .then(function () { if (btn) btn.disabled = false; });
+}
+
+function copyText(text, btn) {
+  var label = btn ? btn.textContent : '';
+  function done(ok) {
+    if (!btn) return;
+    btn.textContent = ok ? 'Copied' : 'Copy failed: select and copy the key manually';
+    setTimeout(function () { btn.textContent = label; }, 2000);
+  }
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(function () { done(true); }, function () { done(fallbackCopy(text)); });
+  } else {
+    done(fallbackCopy(text));
+  }
+}
+function fallbackCopy(text) {
+  try {
+    var ta = document.createElement('textarea');
+    ta.value = text; ta.setAttribute('readonly', '');
+    ta.style.position = 'fixed'; ta.style.opacity = '0';
+    document.body.appendChild(ta); ta.select();
+    var ok = document.execCommand('copy');
+    document.body.removeChild(ta);
+    return ok;
+  } catch (_) { return false; }
+}
+
+/* ── FUNNEL-TRUTH HARD CONTRACT () ──────────────────────
+   free NEVER becomes pro.
+   Allowlist: free, pro, enterprise, mssp. Alias: community → free.
+   Lowercase. Missing / unknown / malformed → selectPlan('free').
+   Duplicate plan=pro&plan=enterprise must not silently elevate.
+   BEGIN resolveCheckoutPlan */
+function resolveCheckoutPlan(search) {
+  var params;
+  if (typeof search === 'string') {
+    params = new URLSearchParams(search.charAt(0) === '?' ? search.slice(1) : search);
+  } else if (search && typeof search.getAll === 'function') {
+    params = search;
+  } else {
+    params = new URLSearchParams();
+  }
+  var ALLOWED = { free: 1, pro: 1, enterprise: 1, mssp: 1 };
+  var ALIAS = { community: 'free' };
+  var values = [];
+  if (typeof params.getAll === 'function') {
+    values = params.getAll('plan') || [];
+  }
+  if (!values.length && typeof params.get === 'function') {
+    var one = params.get('plan');
+    if (one != null && String(one).length) values = [one];
+  }
+  if (!values.length) return { plan: 'free', annual: false };
+
+  var parsed = [];
+  for (var i = 0; i < values.length; i++) {
+    var raw = String(values[i] == null ? '' : values[i]).trim().toLowerCase();
+    if (!raw) return { plan: 'free', annual: false };
+    var annual = false;
+    if (raw.length > 7 && raw.slice(-7) === '-annual') {
+      annual = true;
+      raw = raw.slice(0, -7);
+    }
+    if (ALIAS[raw]) raw = ALIAS[raw];
+    if (!ALLOWED[raw]) return { plan: 'free', annual: false };
+    parsed.push({ plan: raw, annual: annual });
+  }
+  var first = parsed[0].plan;
+  for (var j = 1; j < parsed.length; j++) {
+    if (parsed[j].plan !== first) {
+      // Conflicting paid (or mixed) plan params: fail closed to unpaid free.
+      return { plan: 'free', annual: false };
+    }
+  }
+  var useAnnual = false;
+  for (var k = 0; k < parsed.length; k++) {
+    if (parsed[k].annual) useAnnual = true;
+  }
+  if (first === 'free') useAnnual = false;
+  return { plan: first, annual: useAnnual };
+}
+/* END resolveCheckoutPlan */
+
+/* ── On-load init ───────────────────────────────────────────────── */
+(function init() {
+  var params = new URLSearchParams(window.location.search);
+
+  // Radios drive selectPlan / setBillingCycle (keyboard and screen readers
+  // use the native radio groups).
+  var planRadios = document.querySelectorAll('input[name="plan"]');
+  for (var i = 0; i < planRadios.length; i++) {
+    planRadios[i].addEventListener('change', function (e) { if (e.target.checked) selectPlan(e.target.value); });
+  }
+  var cycleRadios = document.querySelectorAll('input[name="billing-cycle"]');
+  for (var j = 0; j < cycleRadios.length; j++) {
+    cycleRadios[j].addEventListener('change', function (e) { if (e.target.checked) setBillingCycle(e.target.value === 'annual'); });
+  }
+  var stateSelect = byId('rzp-billing-state');
+  if (stateSelect) stateSelect.addEventListener('change', function () {
+    var row = byId('rzp-country-row');
+    if (row) row.style.display = stateSelect.value === 'OUTSIDE_INDIA' ? '' : 'none';
+  });
+  ['rzp-gstin', 'rzp-billing-country'].forEach(function (id) {
+    var el = byId(id);
+    if (el) el.addEventListener('input', function () { el.value = el.value.toUpperCase(); });
+  });
+
+  // A URL can select a plan and a billing period, never a price: ?kit,
+  // ?amount, ?price and utm_* are ignored by checkout (utm_* stay in the URL
+  // for analytics). FUNNEL-TRUTH HARD CONTRACT: free NEVER becomes pro;
+  // missing / unknown / malformed / conflicting duplicates → free (unpaid).
+  var resolvedPlan = resolveCheckoutPlan(params);
+  selectPlan(resolvedPlan.plan);
+  var requested = params.getAll('plan');
+  var onlyFreeRequested = requested.every(function (v) {
+    var x = String(v).trim().toLowerCase();
+    return x === 'free' || x === 'community';
+  });
+  if (requested.length && resolvedPlan.plan === 'free' && !onlyFreeRequested) {
+    var notice = byId('plan-notice');
+    if (notice) {
+      notice.textContent = 'The plan in your link could not be matched, so no paid plan is pre-selected. Choose a plan below.';
+      notice.hidden = false;
+    }
+  }
+  // Annual billing if the URL asks for it or the pricing page chose it.
+  if (!isAnnual && (resolvedPlan.annual || (function () { try { return sessionStorage.getItem('billingMode') === 'annual'; } catch (e) { return false; } })())) {
+    toggleBilling();
+  }
+
+  // A ?checkout=success URL parameter is NOT evidence of payment or
+  // entitlement (anyone can type it), so it renders nothing. ACTIVE is
+  // reached only via showRazorpaySuccess() after the backend confirms.
+  // A reload after paying resumes this tab's own pending activation.
+  var proof = loadPendingProof();
+  if (proof && setCheckoutState('ACTIVATION_PENDING')) {
+    trackCheckout('activation_resumed', proof.tier);
+    showActivationPending(proof);
+    pollSubscriptionStatus(proof, ACTIVATION_POLL_MAX_ATTEMPTS);
+  }
+
+  /* -- STIX BUNDLE CONTEXT: arriving from a locked STIX bundle card ------
+     URL params: source=stix-bundle, severity=CRITICAL|HIGH|MEDIUM|LOW */
+  var _stixSource = params.get('source');
+  if (!proof && (_stixSource === 'stix-bundle' || _stixSource === 'stix')) {
+    var _SEVERITIES = { CRITICAL: 1, HIGH: 1, MEDIUM: 1, LOW: 1 };
+    var _stixSev = String(params.get('severity') || 'CRITICAL').toUpperCase();
+    if (!_SEVERITIES[_stixSev]) _stixSev = 'CRITICAL';
+    setText('stix-sev-badge', _stixSev);
+    setText('stix-banner-desc', 'You opened a locked ' + _stixSev + '-severity STIX 2.1 bundle. STIX 2.1 bundles are available on the PRO plan and above.');
+    var _stixBanner = byId('stix-cta-banner');
+    if (_stixBanner) _stixBanner.hidden = false;
+    selectPlan('pro');
+    var choosePro = byId('stix-choose-pro');
+    if (choosePro) choosePro.onclick = function () {
+      selectPlan('pro');
+      var pay = byId('section-payment-methods');
+      if (pay) pay.scrollIntoView({ behavior: prefersReducedMotion() ? 'auto' : 'smooth', block: 'start' });
+      var email = byId('rzp-email');
+      if (email) { try { email.focus({ preventScroll: true }); } catch (_) { email.focus(); } }
+    };
+  }
+
+  /* ── Gateway hint (?gateway=razorpay|gumroad) ────────────────────────
+     Set by the IOC-lock paywall CTA on index.html. Scrolls to and briefly
+     highlights the matching checkout -- never opens a checkout by itself
+     (a payment window needs the buyer's own click). */
+  var _gatewayHint = params.get('gateway');
+  if (!proof && currentPlan !== 'free' && (_gatewayHint === 'gumroad' || _gatewayHint === 'razorpay')) {
+    var _hintTarget = _gatewayHint === 'gumroad' ? byId('gumroad-panel') : byId('section-payment-methods');
+    if (_hintTarget) {
+      setTimeout(function () {
+        _hintTarget.scrollIntoView({ behavior: prefersReducedMotion() ? 'auto' : 'smooth', block: 'center' });
+        _hintTarget.classList.add('hint-highlight');
+        setTimeout(function () { _hintTarget.classList.remove('hint-highlight'); }, 2200);
+      }, 400);
+    }
+  }
+
+  refreshCheckoutView();
+})();
+</script>
+<footer>
+  <a href="/privacy.html">Privacy Policy</a> &middot; <a href="/terms.html">Terms of Service</a> &middot; <a href="/terms.html#refunds">Refund Policy</a> &middot; <a href="mailto:enterprise@cyberdudebivash.com">Contact</a>
+<div data-sentinel-attribution="true" style="display:flex;justify-content:center;flex-wrap:wrap;padding:20px 16px;background:#070d18"><a data-sentinel-parent="true" href="https://www.cyberdudebivash.com/" style="display:inline-flex;align-items:center;min-height:44px;padding:10px 16px;border:1px solid #67e8f9;border-radius:8px;color:#ffffff;background:#101c2e;font:700 16px/1.5 system-ui,sans-serif;text-decoration:underline;text-underline-offset:4px">Powered By CYBERDUDEBIVASH ECOSYSTEM&reg;</a></div></footer>
+<script src="/js/apex-track.js"></script>
+</body>
+</html>

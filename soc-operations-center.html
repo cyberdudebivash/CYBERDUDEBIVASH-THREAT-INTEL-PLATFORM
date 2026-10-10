@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<!-- Clickjacking guard; see js/frame-guard.js -->
+<script src="/js/frame-guard.js"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>SOC Operations Center | SENTINEL APEX</title>
+<meta name="description" content="Live SOC operations view of the SENTINEL APEX feed: evidence-ranked priority queue, advisory stream, 24-hour intake, sources and ATT&amp;CK tactics. Every figure is counted from the live feed.">
+<link rel="stylesheet" href="/css/apex-design-tokens.css">
+<!--
+  2026-09-28 rebuild. This page previously ran an in-browser simulation: a
+  random "ILLUSTRATIVE EVENT STREAM (SIMULATED DATA)", random 24h heatmap and
+  source counts, hardcoded IOC / sensor / replay / coverage figures, and an
+  invented adversary graph, AI-runtime gauges, malware cards and honeynet mesh.
+  None of it came from the platform. It now reads only:
+    GET /api/watchdog/health       freshness authority (LIVE / NOT LIVE / degraded)
+    GET /api/watchdog/brief        evidence-ranked, story-grouped priority queue
+    GET /api/v1/intel/latest.json  the live feed every other figure is counted from
+  Panels with no data source behind them were removed, not simulated.
+-->
+<style>
+  body { margin: 0; }
+  .so-skip { position: absolute; left: 12px; top: -60px; z-index: 50; padding: 10px 14px; background: var(--ax-surface-3); color: var(--ax-text-primary); border-radius: var(--ax-radius-sm); }
+  .so-skip:focus { top: 12px; }
+  .so-wrap { max-width: 1440px; margin: 0 auto; }
+  .so-title { font: 800 20px/1.2 var(--ax-font); letter-spacing: 0.06em; margin: 0; }
+  .so-left, .so-right { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; min-width: 0; }
+  .so-links a { color: var(--ax-text-secondary); text-decoration: none; font-size: 13px; }
+  .so-links a:hover { color: var(--ax-text-primary); }
+  .so-banner { margin: 4px 0 14px; padding: 10px 14px; border-radius: var(--ax-radius-sm); font: 700 var(--ax-fs-micro)/1.4 var(--ax-font-mono); letter-spacing: 0.08em; border: 1px solid rgba(251,191,36,.45); color: var(--ax-status-degraded); background: rgba(251,191,36,.07); }
+  .so-banner[data-tone="bad"] { border-color: rgba(255,107,120,.45); color: var(--ax-status-offline); background: rgba(255,107,120,.07); }
+  .so-two { display: grid; gap: 16px; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); margin-top: 16px; align-items: start; }
+  .so-three { display: grid; gap: 16px; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) minmax(0, 1fr); margin-top: 16px; align-items: start; }
+  @media (max-width: 1180px) { .so-two, .so-three { grid-template-columns: minmax(0, 1fr); } }
+  .so-bars { display: grid; grid-template-columns: repeat(24, minmax(0, 1fr)); align-items: end; gap: 3px; height: 150px; padding-top: 6px; }
+  .so-bar { position: relative; background: rgba(90,167,255,.55); border-radius: 2px 2px 0 0; min-height: 1px; }
+  .so-bar[data-zero="1"] { background: rgba(148,163,184,.18); }
+  .so-bar i { position: absolute; left: 0; right: 0; bottom: 0; background: var(--ax-severity-critical); border-radius: 2px 2px 0 0; }
+  .so-axis { display: grid; grid-template-columns: repeat(24, minmax(0, 1fr)); gap: 3px; font: 600 10px/1.2 var(--ax-font-mono); color: var(--ax-text-muted); margin-top: 4px; }
+  .so-axis span { text-align: center; overflow: hidden; }
+  .so-hbar { display: grid; grid-template-columns: minmax(0, 1fr) 40px; gap: 4px 10px; align-items: center; }
+  .so-hbar-name { font-size: 13px; color: var(--ax-text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .so-hbar-track { grid-column: 1 / 2; height: 6px; background: rgba(148,163,184,.12); border-radius: 3px; overflow: hidden; margin-bottom: 6px; }
+  .so-hbar-track b { display: block; height: 100%; background: var(--ax-accent-cyan); }
+  .so-hbar-n { grid-row: span 2; font: 700 13px/1 var(--ax-font-mono); color: var(--ax-text-primary); text-align: right; }
+  .so-legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12px; color: var(--ax-text-muted); margin-top: 8px; }
+  .so-legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 5px; vertical-align: -1px; }
+  .so-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .so-stream-title a { color: var(--ax-text-primary); text-decoration: none; }
+  .so-stream-title a:hover { text-decoration: underline; }
+  .so-new { color: var(--ax-accent-cyan); font: 800 10px/1 var(--ax-font-mono); letter-spacing: .08em; margin-left: 6px; }
+  footer.so-foot { color: var(--ax-text-muted); font-size: 13px; padding: 28px 0 8px; border-top: 1px solid var(--ax-border-subtle); margin-top: 32px; }
+</style>
+<style data-sentinel-branding="true">a[data-sentinel-parent]:focus-visible{outline:3px solid #67e8f9;outline-offset:4px}a[data-sentinel-parent]:hover{background:#183048!important}</style>
+</head>
+<body class="ax-app ax-texture">
+<a class="so-skip" href="#main">Skip to content</a>
+<main id="main" class="ax-main so-wrap" tabindex="-1">
+  <header class="ax-cmdbar">
+    <div class="so-left">
+      <h1 class="so-title">SOC OPERATIONS CENTER</h1>
+      <span class="ax-status" id="so-status"><span class="ax-led" data-state="unknown"></span><span>Connecting</span></span>
+      <span class="ax-meta" id="so-updated">Feed age unknown</span>
+    </div>
+    <nav class="so-right so-links" aria-label="Related">
+      <a href="/">Home</a>
+      <a href="/cyber-watchdog.html">Cyber Watchdog</a>
+      <a href="/api-docs.html">API</a>
+    </nav>
+  </header>
+
+  <div id="so-banner" class="so-banner" role="status" hidden></div>
+
+  <section aria-labelledby="h-kpis">
+    <h2 class="ax-sr" id="h-kpis">Feed metrics</h2>
+    <div class="ax-grid ax-grid--kpi" id="so-kpis" aria-busy="true"></div>
+  </section>
+
+  <div class="so-two">
+    <section class="ax-panel ax-panel--focus" aria-labelledby="h-queue">
+      <div class="ax-panel__head"><h2 class="ax-h-panel" id="h-queue">Priority queue</h2><a class="ax-btn ax-btn--ghost ax-btn--sm" href="/cyber-watchdog.html#intelligence">Full brief</a></div>
+      <div id="so-queue"><div class="ax-empty">Loading the evidence-ranked queue&hellip;</div></div>
+      <div class="ax-panel__foot">Ranked by CISA KEV, CVSS, EPSS, severity and exploitation evidence (/api/watchdog/brief). Reports of one story are grouped.</div>
+    </section>
+    <section class="ax-panel" aria-labelledby="h-intake">
+      <div class="ax-panel__head"><h2 class="ax-h-panel" id="h-intake">Intake, last 24 hours</h2><span class="ax-meta" id="so-intake-meta"></span></div>
+      <div id="so-intake"><div class="ax-empty">Loading&hellip;</div></div>
+      <div class="so-legend"><span><i style="background:rgba(90,167,255,.55)"></i>Advisories published</span><span><i style="background:var(--ax-severity-critical)"></i>of which critical</span></div>
+      <div class="ax-panel__foot">Counted from each advisory's publication time on the live feed, in your local time.</div>
+    </section>
+  </div>
+
+  <div class="so-three">
+    <section class="ax-panel" aria-labelledby="h-stream">
+      <div class="ax-panel__head"><h2 class="ax-h-panel" id="h-stream">Advisory stream</h2><span class="ax-meta" id="so-stream-meta"></span></div>
+      <div class="ax-table-wrap ax-table-wrap--tall" id="so-stream"><div class="ax-empty">Loading&hellip;</div></div>
+      <div class="ax-panel__foot">Newest first, as published by each source. Refreshed when the feed is regenerated.</div>
+    </section>
+    <section class="ax-panel" aria-labelledby="h-sources">
+      <div class="ax-panel__head"><h2 class="ax-h-panel" id="h-sources">Sources on the feed</h2></div>
+      <div id="so-sources"><div class="ax-empty">Loading&hellip;</div></div>
+    </section>
+    <section class="ax-panel" aria-labelledby="h-attack">
+      <div class="ax-panel__head"><h2 class="ax-h-panel" id="h-attack">ATT&amp;CK tactics cited</h2><span class="ax-meta" id="so-attack-meta"></span></div>
+      <div id="so-attack"><div class="ax-empty">Loading&hellip;</div></div>
+      <div class="ax-panel__foot">Tactics the advisories themselves cite. Not a detection-coverage score.</div>
+    </section>
+  </div>
+
+  <footer class="so-foot">
+    Every figure on this page is counted from the live SENTINEL APEX feed. Nothing is simulated: panels with no platform data behind them are not shown.
+    Figures are withheld when the feed is not fresh, and a feed up to 48 hours old is shown only under a NOT LIVE label.
+  <div data-sentinel-attribution="true" style="display:flex;justify-content:center;flex-wrap:wrap;padding:20px 16px;background:#070d18"><a data-sentinel-parent="true" href="https://www.cyberdudebivash.com/" style="display:inline-flex;align-items:center;min-height:44px;padding:10px 16px;border:1px solid #67e8f9;border-radius:8px;color:#ffffff;background:#101c2e;font:700 16px/1.5 system-ui,sans-serif;text-decoration:underline;text-underline-offset:4px">Powered By CYBERDUDEBIVASH ECOSYSTEM&reg;</a></div></footer>
+</main>
+
+<script src="/js/soc-ops-model.js"></script>
+<script>
+(function () {
+  'use strict';
+  var M = window.SocOpsModel;
+  var HEALTH_MS = 60000;
+  var lastFeedAt = null;
+  var lastIds = null;
+
+  function $(id) { return document.getElementById(id); }
+  function el(tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = String(text); return e; }
+  function put(id) { var n = $(id); if (!n) return; var kids = Array.prototype.slice.call(arguments, 1).filter(Boolean); n.replaceChildren.apply(n, kids); }
+  function empty(text) { return el('div', 'ax-empty', text); }
+  function ago(iso) {
+    var t = Date.parse(iso || ''); if (!isFinite(t)) return 'time unknown';
+    var s = Math.max(0, Math.round((Date.now() - t) / 1000));
+    if (s < 90) return s + 's ago'; if (s < 5400) return Math.round(s / 60) + 'm ago';
+    if (s < 172800) return Math.round(s / 3600) + 'h ago'; return Math.round(s / 86400) + 'd ago';
+  }
+  function getJson(url) {
+    return fetch(url, { headers: { Accept: 'application/json' }, cache: 'no-store' })
+      .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, data: d }; }); });
+  }
+  function status(state, label) {
+    var led = el('span', 'ax-led'); led.setAttribute('data-state', state);
+    put('so-status', led, el('span', null, label));
+  }
+  function banner(text, tone) {
+    var b = $('so-banner');
+    if (!text) { b.hidden = true; b.textContent = ''; return; }
+    b.hidden = false; b.textContent = text; if (tone) b.setAttribute('data-tone', tone); else b.removeAttribute('data-tone');
+  }
+  function sev(s) { var x = el('span', 'ax-sev', s === 'UNKNOWN' ? 'Severity n/a' : s); x.setAttribute('data-sev', s); return x; }
+
+  function kpi(label, value, note, tone) {
+    var d = el('div', 'ax-panel ax-kpi'); if (tone) d.setAttribute('data-tone', tone);
+    d.appendChild(el('span', 'ax-kpi__label', label));
+    d.appendChild(el('span', 'ax-kpi__value', value));
+    if (note) d.appendChild(el('span', 'ax-kpi__note', note));
+    return d;
+  }
+
+  function renderKpis(m, pub) {
+    var k = m.kpis;
+    put('so-kpis',
+      kpi('Advisories on feed', k.advisories, 'feed generated ' + ago(m.feed_generated_at)),
+      kpi('Critical', k.by_severity.CRITICAL, 'feed severity', 'critical'),
+      kpi('High', k.by_severity.HIGH, 'feed severity', 'high'),
+      kpi('CISA KEV listed', k.kev_listed, k.kev_stated_on ? 'KEV state known for ' + k.kev_stated_on + ' of ' + k.advisories : 'KEV state not stated', k.kev_listed ? 'critical' : null),
+      kpi('Exploit evidence', k.exploit_evidence, 'public PoC / exploit on record'),
+      kpi('Published last 24h', m.hourly.last_24h, m.hourly.undated ? m.hourly.undated + ' undated' : 'by publication time', pub.mode === 'live' ? 'ok' : null));
+    $('so-kpis').setAttribute('aria-busy', 'false');
+  }
+
+  function renderIntake(h) {
+    var max = h.buckets.reduce(function (n, b) { return Math.max(n, b.count); }, 0) || 1;
+    var bars = el('div', 'so-bars'); var axis = el('div', 'so-axis');
+    bars.setAttribute('role', 'img');
+    bars.setAttribute('aria-label', h.last_24h + ' advisories published in the last 24 hours');
+    h.buckets.forEach(function (b, i) {
+      var d = new Date(b.start);
+      var bar = el('div', 'so-bar'); bar.style.height = Math.max(1, Math.round(b.count / max * 100)) + '%';
+      if (!b.count) bar.setAttribute('data-zero', '1');
+      bar.title = d.getHours() + ':00 - ' + b.count + ' published' + (b.critical ? ', ' + b.critical + ' critical' : '');
+      if (b.critical && b.count) { var c = el('i'); c.style.height = Math.round(b.critical / b.count * 100) + '%'; bar.appendChild(c); }
+      bars.appendChild(bar);
+      axis.appendChild(el('span', null, i % 3 === 0 ? String(d.getHours()).padStart(2, '0') : ''));
+    });
+    put('so-intake', bars, axis);
+    $('so-intake-meta').textContent = h.last_24h + ' published' + (h.older ? ' · ' + h.older + ' older on feed' : '');
+  }
+
+  function renderStream(list) {
+    if (!list.length) { put('so-stream', empty('No advisories on the live feed right now.')); return; }
+    var ids = list.map(function (r) { return r.id; });
+    var t = el('table', 'ax-table'); var thead = el('thead'); var hr = el('tr');
+    ['Severity', 'Advisory', 'Published'].forEach(function (h) { hr.appendChild(el('th', null, h)); });
+    thead.appendChild(hr); t.appendChild(thead);
+    var tb = el('tbody');
+    list.forEach(function (r) {
+      var tr = el('tr'); tr.setAttribute('data-band', r.severity);
+      var c1 = el('td'); c1.appendChild(sev(r.severity)); tr.appendChild(c1);
+      var c2 = el('td');
+      var title = el('div', 'ax-title so-stream-title');
+      if (r.url) { var a = el('a', null, r.title); a.href = r.url; a.target = '_blank'; a.rel = 'noopener noreferrer'; title.appendChild(a); }
+      else title.textContent = r.title;
+      if (lastIds && r.id && lastIds.indexOf(r.id) < 0) title.appendChild(el('span', 'so-new', 'NEW'));
+      c2.appendChild(title);
+      var meta = [r.source, r.cves.join(', '), r.kev === true ? 'CISA KEV' : null, r.exploit ? 'exploit evidence' : null].filter(Boolean).join(' · ');
+      if (meta) c2.appendChild(el('div', 'ax-sub', meta));
+      tr.appendChild(c2);
+      tr.appendChild(el('td', 'ax-mono', r.published ? ago(r.published) : 'undated'));
+      tb.appendChild(tr);
+    });
+    t.appendChild(tb);
+    put('so-stream', t);
+    $('so-stream-meta').textContent = 'latest ' + list.length;
+    lastIds = ids;
+  }
+
+  function hbars(id, rows, key) {
+    if (!rows.length) { put(id, empty('Nothing on the feed carries this field.')); return; }
+    var max = rows[0][key] || 1; var wrap = el('div', 'so-hbar');
+    rows.forEach(function (r) {
+      wrap.appendChild(el('span', 'so-hbar-name', r.name));
+      wrap.appendChild(el('span', 'so-hbar-n', r[key]));
+      var track = el('span', 'so-hbar-track'); var fill = el('b'); fill.style.width = Math.round(r[key] / max * 100) + '%'; track.appendChild(fill);
+      wrap.appendChild(track);
+    });
+    put(id, wrap);
+  }
+
+  function renderAttack(a) {
+    hbars('so-attack', a.tactics, 'advisories');
+    $('so-attack-meta').textContent = a.techniques.length + ' technique' + (a.techniques.length === 1 ? '' : 's');
+  }
+
+  function renderQueue(res) {
+    var body = res && res.data;
+    var live = res && res.ok && body && Array.isArray(body.items);
+    var last = !live && body && body.last_authoritative && body.last_authoritative.live === false ? body.last_authoritative : null;
+    var src = live ? body : last;
+    if (!src) { put('so-queue', empty((body && body.message) || 'The priority queue is not available while intelligence is degraded.')); return; }
+    if (!src.items.length) { put('so-queue', empty('No advisories on the live feed right now.')); return; }
+    var t = el('table', 'ax-table'); var tb = el('tbody');
+    src.items.forEach(function (it) {
+      var p = it.priority || {}; var band = p.band || 'INSUFFICIENT_EVIDENCE';
+      var tr = el('tr'); tr.setAttribute('data-band', band);
+      var c1 = el('td'); var chip = sev(band); chip.textContent = band === 'INSUFFICIENT_EVIDENCE' ? 'Not scored' : band + (p.score != null ? ' ' + p.score : ''); c1.appendChild(chip); tr.appendChild(c1);
+      var c2 = el('td'); c2.appendChild(el('div', 'ax-title', it.title || 'Untitled advisory'));
+      var co = it.corroboration;
+      var meta = [it.source, it.observed_at ? ago(it.observed_at) : null, co && co.reports > 1 ? '+' + (co.reports - 1) + ' more report' + (co.reports === 2 ? '' : 's') : null].filter(Boolean).join(' · ');
+      if (meta) c2.appendChild(el('div', 'ax-sub', meta));
+      tr.appendChild(c2); tb.appendChild(tr);
+    });
+    t.appendChild(tb);
+    var w = el('div', 'ax-table-wrap'); w.appendChild(t);
+    put('so-queue', last ? el('div', 'ax-sub', 'NOT LIVE - last authoritative queue') : null, w);
+  }
+
+  function withhold(pub) {
+    status('offline', pub.label);
+    banner(pub.label + '. Figures are withheld rather than shown from stale or unverified data.', 'bad');
+    ['so-kpis', 'so-intake', 'so-stream', 'so-sources', 'so-attack'].forEach(function (id) { put(id, empty('Withheld: intelligence is not fresh.')); });
+    $('so-kpis').setAttribute('aria-busy', 'false');
+    lastFeedAt = null;
+  }
+
+  function refresh() {
+    getJson('/api/watchdog/health').then(function (h) { return M.publication(h.data, false); }, function () { return M.publication(null, true); })
+      .then(function (pub) {
+        $('so-updated').textContent = pub.feed_generated_at ? 'Feed generated ' + ago(pub.feed_generated_at) : 'Feed age unknown';
+        getJson('/api/watchdog/brief').then(renderQueue, function () { renderQueue(null); });
+        if (pub.mode === 'down') { withhold(pub); return; }
+        status(pub.mode === 'live' ? 'fresh' : 'degraded', pub.mode === 'live' ? 'LIVE' : 'NOT LIVE');
+        banner(pub.mode === 'live' ? null : pub.label + ' - feed generated ' + ago(pub.feed_generated_at) + '.');
+        // The feed (about 0.5 MB) is re-read only when it has been regenerated.
+        if (pub.feed_generated_at && pub.feed_generated_at === lastFeedAt) return;
+        return fetch('/api/v1/intel/latest.json', { headers: { Accept: 'application/json' }, cache: 'no-store' })
+          .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, data: d }; }); })
+          .then(function (f) {
+          if (!f.ok || !f.data) throw new Error('feed');
+          var m = M.model(f.data, Date.now());
+          renderKpis(m, pub); renderIntake(m.hourly); renderStream(m.stream);
+          hbars('so-sources', m.sources, 'count'); renderAttack(m.attack);
+          lastFeedAt = pub.feed_generated_at;
+        });
+      })
+      .catch(function () { withhold(M.publication(null, true)); });
+  }
+
+  refresh();
+  setInterval(function () { if (!document.hidden) refresh(); }, HEALTH_MS);
+  document.addEventListener('visibilitychange', function () { if (!document.hidden) refresh(); });
+}());
+</script>
+</body>
+</html>
