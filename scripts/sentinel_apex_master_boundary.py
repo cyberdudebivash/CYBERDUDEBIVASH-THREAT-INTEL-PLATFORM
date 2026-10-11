@@ -2,9 +2,9 @@
 
 Uses the merged adapter at integrations/sentinel-apex-ai-intel.
 Does not open the platform database, write api/feed.json, or upload to R2.
-A caller-supplied freshness word is not a release decision. Freshness is
-computed by scripts/public_freshness_contract.py from a feed document's
-generated_at. Even a fresh result stays unauthorized for publication.
+A caller-supplied freshness word, timestamp, or public-feed-{timestamp}
+generation is not publication authority. This module does not hold the
+existing publisher's release evidence, so it cannot grant eligibility.
 """
 
 from __future__ import annotations
@@ -66,13 +66,18 @@ def freshness_from_feed(feed, now=None) -> dict:
     return {"state": classified["state"], "bound_to": generated_at, "generation": generation}
 
 
-def publication_decision(adapter_error: str | None, freshness: dict | None) -> str:
-    """Only the contract module's fresh state, bound to generated_at, can pass this check."""
+def publication_decision(adapter_error: str | None, freshness: dict | None = None, publisher_release: dict | None = None) -> str:
+    """Caller documents cannot authorize publication.
+
+    freshness and publisher_release are ignored on purpose. A matching
+    public-feed-{generated_at} pair is caller-controlled. The existing
+    public_feed_freshness_gate.py remains the publisher authority and is
+    not invoked, bypassed, or rewritten here.
+    """
+    del freshness, publisher_release
     if adapter_error:
         return "FAILED"
-    if not isinstance(freshness, dict) or freshness.get("state") != "fresh" or not freshness.get("bound_to"):
-        return "BLOCKED_BY_FRESHNESS_GATE"
-    return "ELIGIBLE_FOR_EXISTING_PIPELINE"
+    return "BLOCKED_BY_FRESHNESS_GATE"
 
 
 def stage_page(env: dict, state: dict, page: dict, feed=None, now=None) -> dict:
@@ -80,8 +85,8 @@ def stage_page(env: dict, state: dict, page: dict, feed=None, now=None) -> dict:
     if status["status"] != "CONFIGURED":
         return {**status, "state": state, "applied": 0, "removed": 0, "release": "NOT_AUTHORIZED", "freshness_decision": "BLOCKED_BY_FRESHNESS_GATE"}
     result = _adapter().apply_master_page(state, page)
-    freshness = freshness_from_feed(feed, now=now)
-    decision = publication_decision(result["error"], freshness)
+    observation = freshness_from_feed(feed, now=now)
+    decision = publication_decision(result["error"], observation)
     return {
         "status": "CONTRACT_VERIFIED" if result["error"] is None else "FAILED",
         "schema": SCHEMA,
@@ -89,7 +94,8 @@ def stage_page(env: dict, state: dict, page: dict, feed=None, now=None) -> dict:
         "public_feed_write": False,
         "end_to_end_verified": False,
         "freshness_decision": decision,
-        "freshness_bound_to": freshness.get("bound_to"),
+        "freshness_observation": observation.get("state"),
+        "freshness_bound_to": None,
         "release": "NOT_AUTHORIZED",
         "error": result["error"],
         "applied": result["applied"] if result["error"] is None else 0,
