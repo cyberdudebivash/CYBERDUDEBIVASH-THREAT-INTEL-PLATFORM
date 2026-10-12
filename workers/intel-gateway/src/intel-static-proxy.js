@@ -69,6 +69,25 @@ const MAX_PUBLIC_NODES = 25000;
 const MAX_PUBLIC_DEPTH = 40;
 const ADVISORY_KEYS = ["id", "advisory_id", "intel_id", "report_url", "internal_report_url", "cve_id", "stix_id", "cve_ids", "threat_id"];
 
+// Fail closed on ambiguous compound TLP classifications. In particular,
+// "TLP:CLEAR / RED" carries TWO markings even though the second does not
+// repeat "TLP:"; matching only explicit TLP: tokens would let it through.
+// This is a deny-only edge backstop to the Python publication authority.
+function publicClassificationVerified(raw) {
+  if (typeof raw !== "string") return false;
+  // Canonicalize formatting obfuscation before examining any marking.
+  const value = raw.normalize("NFKC").replace(/\p{Cf}/gu, "");
+  const markers = [...value.matchAll(/\bTLP\b/gi)];
+  if (!markers.length) return true; // Non-TLP metadata classifications are allowed.
+  for (const marker of markers) {
+    if (!/^TLP\s*[:\-]\s*CLEAR\b/i.test(value.slice(marker.index))) return false;
+  }
+  // Joined labels after CLEAR (including bare RED/AMBER) are ambiguous or
+  // restricted. These must not be authorized by the first CLEAR token.
+  const joined = /\bTLP\s*[:\-]\s*CLEAR\b\s*(?:[\/,;|&+\-\u2013\u2014]|\b(?:and|or|then)\b)\s*(?:TLP\s*[:\-]\s*)?(?:CLEAR|WHITE|GREEN|AMBER(?:\s*\+\s*STRICT)?|RED)\b/i;
+  return !joined.test(value);
+}
+
 function publicTlpJsonVerified(doc) {
   let nodes = 0;
   function walk(node, depth) {
@@ -81,10 +100,8 @@ function publicTlpJsonVerified(doc) {
         if (typeof node[key] !== "string" || node[key].trim().toUpperCase() !== "TLP:CLEAR") return false;
       }
     }
-    if (typeof node.classification === "string" && /TLP\s*[:\-]/i.test(node.classification)) {
-      const tokens = [...node.classification.matchAll(/TLP\s*[:\-]\s*(?:AMBER\s*\+\s*STRICT|[A-Z]+)/gi)];
-      if (!tokens.length || tokens.some(([v]) => v.replace(/\s+/g, "").replace(/TLP-/i, "TLP:").toUpperCase() !== "TLP:CLEAR")) return false;
-    }
+    if (Object.hasOwn(node, "classification") &&
+        !publicClassificationVerified(node.classification)) return false;
     // Metadata can be unlabeled; an individual advisory cannot be
     // anonymously authorized without an explicit classification. An
     // untrusted source URL is not evidence that a collector approved it.
