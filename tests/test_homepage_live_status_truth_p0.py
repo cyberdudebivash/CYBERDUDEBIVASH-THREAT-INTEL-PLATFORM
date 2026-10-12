@@ -54,3 +54,28 @@ def test_registered_source_count_is_not_top_ten_bar_chart_length():
     assert "set('m-feed-count', _sourceCount.toLocaleString())" in ENGINE
     assert "set('engine-feed-count', _sourceCount.toLocaleString())" in ENGINE
     assert "intel.feed_count !== null && intel.feed_count !== undefined" in ENGINE
+
+
+# The production Pages publisher uses Python's standard-library unittest,
+# not pytest. Keep these contracts executable without installing dependencies.
+import unittest
+
+
+class TestHomepageReleaseTruth(unittest.TestCase):
+    def test_initial_status(self):
+        test_startup_never_claims_unverified_live_or_74_feeds()
+
+    def test_authoritative_sources(self):
+        test_current_js_cache_bust_and_authoritative_mirror_boundary()
+
+    def test_worker_freshness(self):
+        test_only_gateway_freshness_can_authorize_sync_live()
+
+    def test_cache_truth(self):
+        test_embedded_cache_is_never_invented_live_publication()
+
+    def test_registry_count(self):
+        test_registered_source_count_is_not_top_ten_bar_chart_length()
+
+    def test_customer_claims(self):
+        test_static_trust_bar_never_presents_unverified_standards_certifications()
