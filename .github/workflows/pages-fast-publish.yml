@@ -410,6 +410,17 @@ jobs:
       - name: Pre-deploy JS unit test suite (js/__tests__/, node --test)
         run: node --test js/__tests__/*.test.js
 
+      # P0 buyer-integrity lock: source/API truth must be re-tested on the
+      # exact files about to be published. Both commands are dependency-free
+      # using the existing Python 3.12 and Node 22 setup steps. Failure
+      # blocks gh-pages deployment; no bypass/continue-on-error is permitted.
+      - name: P0 homepage authority and commercial-truth regression
+        run: python3 -m unittest discover -s tests -p 'test_homepage_live_status_truth_p0.py' -v
+
+      - name: P0 gateway publication badge negative controls
+        run: node --test workers/intel-gateway/src/__tests__/publication-truth.test.js
+
+
       # v184.1-style pattern (see sentinel-blogger.yml STAGE 4.9.9): captured
       # immediately before the push so the freshness gate below can verify
       # the live site actually picked up THIS run's deploy.
