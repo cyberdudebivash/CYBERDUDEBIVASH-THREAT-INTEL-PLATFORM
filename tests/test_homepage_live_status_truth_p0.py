@@ -23,7 +23,9 @@ def test_startup_never_claims_unverified_live_or_74_feeds():
 
 
 def test_current_js_cache_bust_and_authoritative_mirror_boundary():
-    assert '/js/homepage-dashboard-engine.js?v=p0-20261012-authoritative-truth' in HTML
+    import hashlib
+    engine_sha = hashlib.sha256((ROOT / "js/homepage-dashboard-engine.js").read_bytes()).hexdigest()[:12]
+    assert '/js/homepage-dashboard-engine.js?v=' + engine_sha in HTML
     # A raw repository mirror bypasses the gateway freshness/TLP read boundary.
     assert "'https://raw.githubusercontent.com/cyberdudebivash/CYBERDUDEBIVASH-THREAT-INTEL-PLATFORM/main/api/feed.json'" not in ENGINE
     assert "'api/feed.json'" in ENGINE
@@ -54,3 +56,16 @@ def test_registered_source_count_is_not_top_ten_bar_chart_length():
     assert "set('m-feed-count', _sourceCount.toLocaleString())" in ENGINE
     assert "set('engine-feed-count', _sourceCount.toLocaleString())" in ENGINE
     assert "intel.feed_count !== null && intel.feed_count !== undefined" in ENGINE
+
+
+# Execute these source invariants via built-in unittest on the Pages runner.
+# This creates no external dependency and preserves pytest-style test functions.
+import unittest
+
+class TestHomepageReleaseTruth(unittest.TestCase):
+    def test_initial_status(self): test_startup_never_claims_unverified_live_or_74_feeds()
+    def test_authoritative_sources(self): test_current_js_cache_bust_and_authoritative_mirror_boundary()
+    def test_worker_freshness(self): test_only_gateway_freshness_can_authorize_sync_live()
+    def test_cache_truth(self): test_embedded_cache_is_never_invented_live_publication()
+    def test_registry_count(self): test_registered_source_count_is_not_top_ten_bar_chart_length()
+    def test_customer_claims(self): test_static_trust_bar_never_presents_unverified_standards_certifications()
