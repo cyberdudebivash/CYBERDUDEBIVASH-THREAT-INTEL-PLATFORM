@@ -954,7 +954,7 @@
             <div id="cdb-trust-bar" style="display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:10px 20px;padding:8px 24px;background:rgba(0,212,170,0.04);border-top:1px solid rgba(0,212,170,0.08);border-bottom:1px solid rgba(0,212,170,0.08);font-family:var(--font-mono);font-size:9.5px;letter-spacing:0.8px;color:rgba(0,212,170,0.65);">
                 <span style="display:flex;align-items:center;gap:5px;"><span style="width:5px;height:5px;border-radius:50%;background:#00d4aa;box-shadow:0 0 5px #00d4aa;display:inline-block;"></span>STIX 2.1 COMPLIANT</span>
                 <span style="color:rgba(255,255,255,0.15);">|</span>
-                <span style="display:flex;align-items:center;gap:5px;"><span style="width:5px;height:5px;border-radius:50%;background:#00d4aa;box-shadow:0 0 5px #00d4aa;display:inline-block;animation:pulse 2s infinite;"></span>UPDATES EVERY &lt;2 HOURS</span>
+                <span style="display:flex;align-items:center;gap:5px;"><span style="width:5px;height:5px;border-radius:50%;background:#00d4aa;box-shadow:0 0 5px #00d4aa;display:inline-block;animation:pulse 2s infinite;"></span>PUBLIC FEED FRESHNESS TARGET: 6 HOURS</span>
                 <span style="color:rgba(255,255,255,0.15);">|</span>
                 <span>🏛️ CISA KEV VERIFIED</span>
                 <span style="color:rgba(255,255,255,0.15);">|</span>
@@ -1267,11 +1267,11 @@
         <!-- ═══ STATUS STRIP v73.0 ═══ -->
         <div class="status-strip">
             <div><span class="goc-pulse"><span class="pulse-dot"></span></span> NODE: <span style="color:#00FFC6;font-weight:800;text-shadow:0 0 10px rgba(0,255,198,0.6);">CDB-GOC-01</span></div>
-            <div id="sync-val">SYNC: <span style="color:#ff9d00;text-shadow:0 0 10px rgba(255,157,0,0.6);">LIVE</span></div>
-            <div class="ai-pulse" id="ai-pulse-indicator"><span class="ai-pulse-dot"></span>AI ENGINE ACTIVE</div>
+            <div id="sync-val" role="status" aria-live="polite">SYNC: <span style="color:#ff9d00;">VERIFYING</span></div>
+            <div class="ai-pulse" id="ai-pulse-indicator" style="display:none" aria-hidden="true"><span class="ai-pulse-dot"></span>AI ENGINE STATUS UNKNOWN</div>
             <div id="integrity-status"></div>
-            <div>ENGINE: <span id="engine-version-display" style="color:#00FFC6;font-weight:700;text-shadow:0 0 10px rgba(0,255,198,0.5);">CYBERDUDEBIVASH APEX v<span id="engine-version-number">201.0</span> &middot; <span id="engine-feed-count">74</span> FEEDS</span> &middot; <button onclick="openAIModal()" style="background:none;border:none;color:#00FFC6;font-family:var(--font-mono);font-size:10px;cursor:pointer;letter-spacing:1px;padding:0;text-decoration:underline dotted;text-underline-offset:3px;text-shadow:0 0 8px rgba(0,255,198,0.5);">AI ENGINE ↗</button></div>
-            <div class="ingestion-indicator">FEEDS: <span class="rate" id="m-feed-count" style="color:#00FFC6;font-weight:800;text-shadow:0 0 10px rgba(0,255,198,0.6);">74</span> ACTIVE</div>
+            <div>ENGINE: <span id="engine-version-display" style="color:#00FFC6;font-weight:700;text-shadow:0 0 10px rgba(0,255,198,0.5);">CYBERDUDEBIVASH APEX v<span id="engine-version-number">201.0</span> &middot; <span id="engine-feed-count">&mdash;</span> REGISTERED SOURCES</span> &middot; <button onclick="openAIModal()" style="background:none;border:none;color:#00FFC6;font-family:var(--font-mono);font-size:10px;cursor:pointer;letter-spacing:1px;padding:0;text-decoration:underline dotted;text-underline-offset:3px;text-shadow:0 0 8px rgba(0,255,198,0.5);">AI ENGINE ↗</button></div>
+            <div class="ingestion-indicator">FEEDS: <span class="rate" id="m-feed-count" style="color:#00FFC6;font-weight:800;text-shadow:0 0 10px rgba(0,255,198,0.6);">&mdash;</span> REGISTERED</div>
             <div>KEV: <span style="color:#FF7070;font-weight:800;text-shadow:0 0 10px rgba(255,70,70,0.7);" id="m-kev">&mdash;</span> ACTIVE</div>
             <div id="ingest-rate-display" style="display:none;" class="ingestion-indicator">RATE: <span class="rate" id="m-ingest-rate" style="color:#00FFC6;font-weight:800;text-shadow:0 0 10px rgba(0,255,198,0.6);">&mdash;</span>/hr</div>
         </div>
@@ -1517,17 +1517,17 @@
             <button class="export-btn" onclick="exportCSV()" title="[C] Download CSV"><i class="fas fa-file-csv"></i> CSV</button>
             <button class="export-btn" onclick="exportSTIX()" title="[S] View STIX bundles &mdash; Subscribers Only"><i class="fas fa-shield-halved"></i> STIX Bundle</button>
             <button class="export-btn export-btn-misp" onclick="exportMISP()" title="Export MISP-compatible JSON"><i class="fas fa-spider"></i> MISP Export</button>
-            <span style="margin-left:auto;font-family:var(--font-mono);font-size:9px;color:var(--text-muted);letter-spacing:1px;align-self:center;">API: <span id="api-status-dot" style="color:var(--accent);">● ONLINE</span></span>
+            <span style="margin-left:auto;font-family:var(--font-mono);font-size:9px;color:var(--text-muted);letter-spacing:1px;align-self:center;">API: <span id="api-status-dot" role="status" aria-live="polite" style="color:var(--text-muted);">● CHECKING</span></span>
         </div>
 
         <!-- ═══ SOC INTEGRATION SHOWCASE v123.0 ═══ -->
         <div class="soc-integration-section" style="border:1px solid rgba(0,212,170,0.18);border-radius:6px;background:linear-gradient(135deg,rgba(0,212,170,0.03),rgba(139,92,246,0.03));padding:20px;margin-bottom:16px;">
             <div class="soc-integration-header" style="margin-bottom:14px;">
                 <span class="soc-integration-title" style="font-size:13px;font-weight:900;letter-spacing:2px;color:var(--white);">
-                    <span style="color:var(--accent);">⚡</span> SOC Integrations &mdash; Plug In Within <span style="color:var(--accent);">30 Seconds</span>
+                    <span style="color:var(--accent);">⚡</span> SOC Integrations &mdash; Configure with an <span style="color:var(--accent);">Authenticated API Key</span>
                 </span>
                 <span class="soc-api-status" style="background:rgba(0,212,170,0.1);border:1px solid rgba(0,212,170,0.3);padding:3px 10px;border-radius:3px;font-family:var(--font-mono);font-size:9px;letter-spacing:2px;color:var(--accent);">
-                    <span class="pulse-dot"></span> API LIVE
+                    <span class="pulse-dot"></span> API STATUS UNVERIFIED
                 </span>
             </div>
             <!-- Integration badges with icons -->
@@ -1577,7 +1577,7 @@
                     <p style="font-family:var(--font-mono);font-size:10px;letter-spacing:3px;color:var(--accent);text-transform:uppercase;margin:0 0 6px 0;font-weight:900;">PRO &amp; ENTERPRISE API ACCESS</p>
                     <p style="color:var(--text-muted);font-size:12px;line-height:1.7;margin:0 0 18px 0;max-width:420px;margin-left:auto;margin-right:auto;">
                         Get your <strong style="color:var(--white);">private API key</strong> with authenticated feed access, STIX bundles, SIEM webhooks, and AI threat predictions.
-                        <br><strong style="color:var(--accent);">30-second integration. No lock-in.</strong>
+                        <br><strong style="color:var(--accent);">Integration requires key provisioning and SIEM destination setup.</strong>
                     </p>
                     <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;">
                         <a href="/upgrade.html?plan=pro&utm_source=api-section"
@@ -5127,7 +5127,7 @@
         </footer>
     </div>
 
-    <script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script src="/js/homepage-dashboard-engine.js?v=0a9bac85f0b5"></script>
+    <script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script src="/js/homepage-dashboard-engine.js?v=p0-20261012-authoritative-truth"></script>
 
     <!-- ── v122.0.0: UPGRADE MODAL ─────────────────────────────────────────── -->
     <div id="upgrade-modal-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.82);z-index:9999;align-items:center;justify-content:center;backdrop-filter:blur(4px);" onclick="if(event.target===this)window.closeUpgradeModal()">
