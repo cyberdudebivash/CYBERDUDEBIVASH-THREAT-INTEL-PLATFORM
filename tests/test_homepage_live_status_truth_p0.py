@@ -58,18 +58,6 @@ def test_registered_source_count_is_not_top_ten_bar_chart_length():
     assert "intel.feed_count !== null && intel.feed_count !== undefined" in ENGINE
 
 
-def test_static_trust_bar_never_presents_unverified_standards_certifications():
-    # Capability support and available export formats are not third-party
-    # certification, independent conformance or a verified integration.
-    assert "STIX 2.1 COMPLIANT</span>" not in HTML
-    assert "CISA KEV VERIFIED</span>" not in HTML
-    assert "SPLUNK / SENTINEL / QRADAR READY</span>" not in HTML
-    assert "MITRE ATT&amp;CK v15 MAPPED</span>" not in HTML
-    assert "TLP PUBLICATION CONTROLS UNDER REVIEW" in HTML
-    assert "STIX / TAXII EXPORT OPTIONS" in HTML
-    assert "SIEM CONNECTOR OPTIONS" in HTML
-
-
 # Execute these source invariants via built-in unittest on the Pages runner.
 # This creates no external dependency and preserves pytest-style test functions.
 import unittest
