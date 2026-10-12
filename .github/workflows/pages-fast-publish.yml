@@ -410,6 +410,17 @@ jobs:
       - name: Pre-deploy JS unit test suite (js/__tests__/, node --test)
         run: node --test js/__tests__/*.test.js
 
+      # P0 fail-closed release truth: these tests execute on the exact dist
+      # source before any Pages write. No new dependencies, no skip condition.
+      - name: P0 homepage source/asset freshness and commercial-truth checks
+        run: python3 -m unittest discover -s tests -p 'test_homepage_live_status_truth_p0.py' -v
+
+      - name: P0 gateway publication and malformed-age negative controls
+        run: node --test workers/intel-gateway/src/__tests__/publication-truth.test.js
+
+      - name: P0 CDN byte-parity gate negative controls
+        run: python3 -m unittest discover -s tests -p 'test_pages_deploy_byte_parity_gate.py' -v
+
       # v184.1-style pattern (see sentinel-blogger.yml STAGE 4.9.9): captured
       # immediately before the push so the freshness gate below can verify
       # the live site actually picked up THIS run's deploy.
@@ -482,6 +493,15 @@ jobs:
           PLATFORM_URL: https://intel.cyberdudebivash.com
           PRE_DEPLOY_TIMESTAMP: ${{ steps.pre-deploy-ts.outputs.ts }}
         run: python3 scripts/pages_deploy_freshness_gate.py
+
+      # Last-Modified alone does not prove that the reviewed JS bytes reached
+      # Cloudflare edge customers. Compare actual live homepage + JS SHA256
+      # to this checkout; fail closed on stale cached HTML or mutated assets.
+      - name: P0 post-deploy exact production asset parity
+        timeout-minutes: 2
+        env:
+          PLATFORM_URL: https://intel.cyberdudebivash.com
+        run: python3 scripts/pages_deploy_byte_parity_gate.py
 
       - name: P0 R37 - Verify legacy public feed aliases contain no intelligence
         timeout-minutes: 2
