@@ -54,3 +54,16 @@ def test_registered_source_count_is_not_top_ten_bar_chart_length():
     assert "set('m-feed-count', _sourceCount.toLocaleString())" in ENGINE
     assert "set('engine-feed-count', _sourceCount.toLocaleString())" in ENGINE
     assert "intel.feed_count !== null && intel.feed_count !== undefined" in ENGINE
+
+
+def test_static_trust_bar_never_presents_unverified_standards_certifications():
+    # Internal "intel--" identifiers in the public advisory feed are NOT
+    # syntactically valid STIX 2.1 object IDs. Neither a supported exporter nor
+    # a planned SIEM connector is an independently verified integration.
+    assert "STIX 2.1 COMPLIANT</span>" not in HTML
+    assert "CISA KEV VERIFIED</span>" not in HTML
+    assert "SPLUNK / SENTINEL / QRADAR READY</span>" not in HTML
+    assert "MITRE ATT&amp;CK v15 MAPPED</span>" not in HTML
+    assert "TLP PUBLICATION CONTROLS UNDER REVIEW" in HTML
+    assert "STIX / TAXII EXPORT OPTIONS" in HTML
+    assert "SIEM CONNECTOR OPTIONS" in HTML
