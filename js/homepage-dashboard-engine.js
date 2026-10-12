@@ -6960,7 +6960,9 @@ function renderTopThreats(data) {
             var ts = intel.publication_generated_at;
             var age = intel.publication_age_seconds;
             var tsOk = typeof ts === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{1,9})?(Z|[+-]\d{2}:\d{2})$/.test(ts) && !isNaN(Date.parse(ts));
-            var ageOk = typeof age === 'number' && isFinite(age) && age >= 0;
+            // Canonical publisher freshness SLA is 6h. A malformed route that
+            // calls a days-old feed 'fresh' must not obtain the green badge.
+            var ageOk = typeof age === 'number' && isFinite(age) && age >= 0 && age <= 6 * 3600;
             if (state === 'fresh' && tsOk && ageOk) return { text: 'LIVE', color: '#10b981' };
             if (state === 'stale') return { text: 'DEGRADED', color: '#e2b340' };
             return { text: 'UNKNOWN', color: '#e2b340' };
