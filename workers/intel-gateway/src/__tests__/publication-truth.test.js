@@ -60,6 +60,13 @@ test("homepage: LIVE only from proven FRESH; absence of evidence is never LIVE",
   const { f, html } = badgeFn();
   const good = { publication_state: "fresh", publication_generated_at: "2026-09-24T05:50:00Z", publication_age_seconds: 600 };
   assert.equal(f(good).text, "LIVE");
+  assert.notEqual(f({ ...good, publication_age_seconds: 6 * 3600 + 1 }).text, "LIVE",
+    "expired publication cannot be LIVE even if the handler labels it fresh");
+  assert.notEqual(f({ ...good, publication_age_seconds: -1 }).text, "LIVE",
+    "negative/future feed ages must never prove freshness");
+  assert.notEqual(f({ ...good, publication_age_seconds: Infinity }).text, "LIVE",
+    "nonfinite freshness age must be rejected");
+
   assert.equal(f({ ...good, publication_state: "stale" }).text, "DEGRADED");
   assert.equal(f({ ...good, publication_state: undefined }).text, "UNKNOWN", "missing publication_state");
   assert.equal(f({ ...good, publication_state: "FRESH!" }).text, "UNKNOWN", "invalid publication_state");
