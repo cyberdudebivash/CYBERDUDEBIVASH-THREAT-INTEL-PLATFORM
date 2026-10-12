@@ -1000,8 +1000,8 @@ export function applyTierGateV2(item, tier, usageState) {
         severity: sev,
         exploitation_status: kevConfirmed ? "KEV_CONFIRMED" : "NOT_VERIFIED",
         message: kevConfirmed
-          ? `${sev || "ELEVATED"} RISK — recorded as confirmed KEV exploitation. Full IOC array and analysis require eligible access.`
-          : `${sev || "ELEVATED"} RISK ADVISORY — exploitation not verified in this record. Full IOC array and analysis require eligible access.`,
+          ? `${sev || "ELEVATED"} RISK - recorded as confirmed KEV exploitation. Full IOC array and analysis require eligible access.`
+          : `${sev || "ELEVATED"} RISK ADVISORY - exploitation not verified in this record. Full IOC array and analysis require eligible access.`,
         upgrade: buildUpgradeTrigger("ioc", t),
         cta_modal: "upgrade_modal",
         cta_plan: "pro",
