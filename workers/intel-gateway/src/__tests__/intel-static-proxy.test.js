@@ -269,3 +269,53 @@ test("P0 #725: shared report TLP authority requires explicit CLEAR and checks ev
   assert.equal(publicTlpJsonVerified(null), false);
   assert.equal(publicTlpJsonVerified("raw secret"), false);
 });
+
+
+test("P0 #725: compound or disguised TLP classification cannot be laundered through CLEAR", async () => {
+  const denied = [
+    "TLP:CLEAR / RED",
+    "TLP:CLEAR; AMBER",
+    "TLP:CLEAR and GREEN",
+    "TLP:CLEAR or WHITE",
+    "TLP:CLEAR then AMBER+STRICT",
+    "TLP:CLEAR - RED",
+    "TLP:CLEAR, TLP:PURPLE",
+    "TLP:RED; TLP:CLEAR",
+    "TLP GREEN",
+    "TLP",
+    "TLP&#58;RED",
+    "TLP\\u200b:RED",
+    "TLP:CLEAR\\u200b / RED",
+  ];
+  for (const classification of denied) {
+    const doc = { id: "intel--classified", title: "Restricted evidence", tlp: "TLP:CLEAR", classification };
+    assert.equal(publicTlpJsonVerified(doc), false, classification);
+    const r2 = fakeR2({ "intelligence/ai_index.json": [doc] });
+    const resp = await handleIntelStaticProxy({ INTEL_R2: r2 }, AI_INDEX_PATH, "GET");
+    assert.equal(resp.status, 503, classification);
+    assert.equal(resp.headers.get("cache-control"), "no-store");
+    assert.equal(JSON.stringify(await resp.json()).includes("Restricted evidence"), false);
+  }
+});
+
+test("P0 #725: clear-only and unrelated classifications remain publishable", async () => {
+  for (const classification of ["TLP:CLEAR", "TLP:CLEAR - approved public", "UNCLASSIFIED", "PUBLIC"]) {
+    const doc = { id: "intel--public", title: "Public advisory", tlp: "TLP:CLEAR", classification };
+    assert.equal(publicTlpJsonVerified(doc), true, classification);
+    const r2 = fakeR2({ "intelligence/ai_index.json": [doc] });
+    const resp = await handleIntelStaticProxy({ INTEL_R2: r2 }, AI_INDEX_PATH, "GET");
+    assert.equal(resp.status, 200, classification);
+  }
+});
+
+test("P0 #725: nested upstream compound marking overrides outer CLEAR", async () => {
+  const r2 = fakeR2({ "intelligence/ai_index.json": {
+    classification: "TLP:CLEAR", items: [{
+      id: "intel--aggregated", title: "Public title", tlp: "TLP:CLEAR",
+      evidence_chain: [{ classification: "TLP:CLEAR / AMBER", sensitive: "opaque-not-public" }],
+    }],
+  } });
+  const resp = await handleIntelStaticProxy({ INTEL_R2: r2 }, AI_INDEX_PATH, "GET");
+  assert.equal(resp.status, 503);
+  assert.equal(JSON.stringify(await resp.json()).includes("opaque-not-public"), false);
+});
