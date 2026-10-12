@@ -523,13 +523,13 @@ footer {
 <section class="hero">
   <div class="hero-label">⚡ SENTINEL APEX INTELLIGENCE STORE</div>
   <h1>Enterprise-Grade Cyber Intelligence<br><span>Products & Services</span></h1>
-  <p>Production-ready threat intelligence products, detection engineering packs, SOC defense kits, and managed security services &mdash; built for global SOC teams, MSSPs, CISOs, and enterprise security programs.</p>
+  <p>Threat intelligence API subscriptions, analyst-reviewed detection engineering, SOC support and security research for enterprise teams. Check each product’s evidence, deliverables and eligibility before purchasing.</p>
   <div class="hero-stats">
-    <div class="hero-stat"><span class="val">794+</span><span class="lbl">ACTIVE IOCs</span></div>
-    <div class="hero-stat"><span class="val">15+</span><span class="lbl">INTEL PRODUCTS</span></div>
-    <div class="hero-stat"><span class="val">10</span><span class="lbl">INTEL FEEDS</span></div>
-    <div class="hero-stat"><span class="val">STIX 2.1</span><span class="lbl">STANDARD</span></div>
-    <div class="hero-stat"><span class="val">MITRE v15</span><span class="lbl">ATT&CK ALIGNED</span></div>
+    <div class="hero-stat"><span class="val" id="store-live-ioc-count" aria-live="polite">VERIFYING</span><span class="lbl">CURRENT IOC RECORDS</span></div>
+    <div class="hero-stat"><span class="val">CATALOG</span><span class="lbl">INTELLIGENCE &amp; SERVICES</span></div>
+    <div class="hero-stat"><span class="val" id="store-live-source-count" aria-live="polite">VERIFYING</span><span class="lbl">REGISTERED SOURCES</span></div>
+    <div class="hero-stat"><span class="val">STIX / TAXII</span><span class="lbl">EXPORT OPTIONS</span></div>
+    <div class="hero-stat"><span class="val">MITRE ATT&amp;CK</span><span class="lbl">FRAMEWORK REFERENCES</span></div>
   </div>
   <div class="hero-cta-row">
     <a href="#api" class="btn-primary">⚡ Get API Access</a>
@@ -540,10 +540,10 @@ footer {
 
 <!-- ─── TRUST BAR ─── -->
 <div class="trust-bar">
-  <div class="trust-item"><span>🛡️</span> MITRE ATT&CK v15 Aligned</div>
+  <div class="trust-item"><span>🛡️</span> MITRE ATT&amp;CK References</div>
   <div class="trust-item"><span>📡</span> STIX 2.1 Format</div>
   <div class="trust-item"><span>⚡</span> CISA KEV Integrated</div>
-  <div class="trust-item"><span>🔒</span> TLP:CLEAR to TLP:RED</div>
+  <div class="trust-item"><span>🔒</span> TLP Publication Controls</div>
   <div class="trust-item"><span>🧠</span> AI-Powered Analysis</div>
   <div class="trust-item"><span>🌐</span> Global Threat Coverage</div>
 </div>
@@ -569,7 +569,7 @@ footer {
     <div class="section-header">
       <div class="section-label">REVENUE STREAM 01</div>
       <h2>🔌 Real-Time Intelligence API</h2>
-      <p>Authenticated REST API access to live threat feeds, STIX 2.1 bundles, SIEM webhooks, and AI-powered threat predictions. Integrate in 30 seconds.</p>
+      <p>Authenticated REST API access to source-linked threat intelligence and eligible SIEM/export integrations. Provisioning, supported formats and configuration depend on your subscription and environment.</p>
     </div>
 
     <div class="api-tier-row">
@@ -1403,12 +1403,58 @@ NetworkCommunicationEvents
     </div>
   </div>
   <div class="footer-bottom">
-    <p>&copy; 2026 CYBERDUDEBIVASH&reg; &middot; SENTINEL APEX v201.0 &middot; All products ship with enterprise-grade quality guarantee</p>
-    <p>TLP:CLEAR unless stated &middot; STIX 2.1 &middot; MITRE ATT&CK v15 &middot; CISA KEV Aligned</p>
+    <p>&copy; 2026 CYBERDUDEBIVASH&reg; &middot; SENTINEL APEX v201.0 &middot; Deliverables and acceptance criteria are defined per offer</p>
+    <p>TLP classification required &middot; STIX/TAXII options &middot; ATT&amp;CK references &middot; CISA KEV signals</p>
   </div>
 </footer>
 
 <script>
+// Store operational counters must be driven by authoritative and FRESH public
+// platform statistics. An HTTP response alone does not certify publisher age.
+(function () {
+  'use strict';
+  var iocs = document.getElementById('store-live-ioc-count');
+  var sources = document.getElementById('store-live-source-count');
+  function unavailable() {
+    if (iocs) iocs.textContent = 'UNAVAILABLE';
+    if (sources) sources.textContent = 'UNAVAILABLE';
+  }
+  if (!iocs || !sources) return;
+  var controller = new AbortController();
+  var deadline = setTimeout(function () { controller.abort(); }, 5000);
+  fetch('/api/platform/stats', {
+    method: 'GET', mode: 'same-origin', credentials: 'omit',
+    cache: 'no-store', signal: controller.signal,
+    headers: { 'Accept': 'application/json' }
+  }).then(function (response) {
+    if (!response.ok) throw new Error('Stats unavailable');
+    return response.json();
+  }).then(function (body) {
+    var intel = body && body.intel;
+    var age = intel && Number(intel.publication_age_seconds);
+    var validAge = intel && intel.publication_age_seconds !== null &&
+      intel.publication_age_seconds !== undefined &&
+      Number.isFinite(age) && age >= 0 && age <= 21600;
+    if (!intel || intel.publication_state !== 'fresh' ||
+        intel.freshness !== 'FRESH' || !validAge) {
+      unavailable();
+      return;
+    }
+    function display(value, element) {
+      var number = Number(value);
+      if (value === null || value === undefined || !Number.isSafeInteger(number) ||
+          number < 0) {
+        element.textContent = 'UNAVAILABLE';
+      } else {
+        element.textContent = number.toLocaleString('en-US');
+      }
+    }
+    display(intel.ioc_count, iocs);
+    display(intel.feed_count, sources);
+  }).catch(function () { unavailable(); })
+    .finally(function () { clearTimeout(deadline); });
+})();
+
 // ── Category filter ──
 function filterCategory(cat) {
   document.querySelectorAll('.cat-tab').forEach(t => t.classList.remove('active'));
