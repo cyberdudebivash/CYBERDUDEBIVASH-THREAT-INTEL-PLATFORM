@@ -410,6 +410,14 @@ jobs:
       - name: Pre-deploy JS unit test suite (js/__tests__/, node --test)
         run: node --test js/__tests__/*.test.js
 
+      # P0 fail-closed release truth: these tests execute on the exact dist
+      # source before any Pages write. No new dependencies, no skip condition.
+      - name: P0 homepage source/asset freshness and commercial-truth checks
+        run: python3 -m unittest discover -s tests -p 'test_homepage_live_status_truth_p0.py' -v
+
+      - name: P0 gateway publication and malformed-age negative controls
+        run: node --test workers/intel-gateway/src/__tests__/publication-truth.test.js
+
       # v184.1-style pattern (see sentinel-blogger.yml STAGE 4.9.9): captured
       # immediately before the push so the freshness gate below can verify
       # the live site actually picked up THIS run's deploy.
