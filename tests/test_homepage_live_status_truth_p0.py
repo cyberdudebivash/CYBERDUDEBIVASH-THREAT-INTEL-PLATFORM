@@ -23,7 +23,9 @@ def test_startup_never_claims_unverified_live_or_74_feeds():
 
 
 def test_current_js_cache_bust_and_authoritative_mirror_boundary():
-    assert '/js/homepage-dashboard-engine.js?v=p0-20261012-authoritative-truth' in HTML
+    import hashlib
+    engine_sha = hashlib.sha256((ROOT / "js/homepage-dashboard-engine.js").read_bytes()).hexdigest()[:12]
+    assert '/js/homepage-dashboard-engine.js?v=' + engine_sha in HTML
     # A raw repository mirror bypasses the gateway freshness/TLP read boundary.
     assert "'https://raw.githubusercontent.com/cyberdudebivash/CYBERDUDEBIVASH-THREAT-INTEL-PLATFORM/main/api/feed.json'" not in ENGINE
     assert "'api/feed.json'" in ENGINE
