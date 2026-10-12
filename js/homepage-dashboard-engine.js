@@ -2930,11 +2930,9 @@ ${item.stix_object_count != null ? `<div class="apex-kv" style="margin-top:4px;"
             if (!sorted.length) return;
 
             const max = sorted[0][1];
-            // Update feed count in status strip + engine header
-            const feedCountEl = document.getElementById('m-feed-count');
-            if (feedCountEl) feedCountEl.textContent = sorted.length;
-            const engineFeedEl = document.getElementById('engine-feed-count');
-            if (engineFeedEl) engineFeedEl.textContent = sorted.length;
+            // This chart shows the top 10 sources, NOT the number of registered
+            // active sources. Status-strip source count is authoritative only
+            // from /api/platform/stats intel.feed_count; never use sorted.length.
 
             inner.innerHTML = sorted.map(([src, count]) => {
                 const trust = getSourceTrust(src);
@@ -4011,7 +4009,8 @@ function renderTopThreats(data) {
                 'api/v1/intel/latest.json',    // SECONDARY: Immutable versioned manifest (Worker passthrough v184.0)
                 'api/v1/intel/apex.json',      // APEX:      Apex AI enriched bundle (Worker passthrough v184.0)
                 WORKER_PREVIEW_URL,            // FALLBACK1: Worker preview (rate-limited)
-                'https://raw.githubusercontent.com/cyberdudebivash/CYBERDUDEBIVASH-THREAT-INTEL-PLATFORM/main/api/feed.json', // FALLBACK2: emergency bypass
+                // No raw.githubusercontent.com fallback: it bypasses the Worker/R2
+                // freshness, entitlement and TLP public delivery boundaries.
             
             ];
 
@@ -4188,11 +4187,11 @@ function renderTopThreats(data) {
                             new Date(embeddedNewest).toISOString().slice(0,19),
                             'Live:', new Date(liveNewest).toISOString().slice(0,19));
                         _liveDataLoaded = true;
-                        if (syncVal) syncVal.innerHTML = 'SYNC: <span style="color:var(--accent);animation:new-glow 1.5s ease-in-out infinite alternate;">&#x26A1; LIVE</span>';
-                        if (integrityEl) integrityEl.innerHTML = '<span class="integrity-badge integrity-ok"><i class="fas fa-shield-check"></i> MANIFEST VERIFIED</span>';
+                        if (syncVal) syncVal.innerHTML = 'SYNC: <span style="color:var(--warning,#ffa502);">UNVERIFIED CACHE</span>';
+                        if (integrityEl) integrityEl.textContent = 'Embedded cache is not live publication evidence';
                         // P0 FIX: was new Date().toLocaleTimeString(); embeddedNewest (the actual
                         // data timestamp this branch just compared against) is already computed above.
-                        if (lastLoadedEl) lastLoadedEl.textContent = 'SYNCED: ' + (embeddedNewest ? timeSince(embeddedNewest) : 'just now') + ' \u00b7 EMBEDDED LIVE';
+                        if (lastLoadedEl) lastLoadedEl.textContent = 'CACHED ITEM DATE: ' + (embeddedNewest ? timeSince(embeddedNewest) : 'UNKNOWN') + ' \u00b7 NOT LIVE';
                         document.querySelectorAll('.metric-card').forEach(function(c){ c.classList.remove('syncing'); });
                         if (aiPulse) aiPulse.style.display = 'none';
                         // APEX FINAL: single-source render \u2014 embedded wins freshness gate
@@ -4317,9 +4316,13 @@ function renderTopThreats(data) {
                         if (syncVal) syncVal.innerHTML = 'SYNC: <span style="color:var(--warning,#ffa502);">&#x26A1; STALE</span>';
                         if (integrityEl) integrityEl.innerHTML = '<span class="integrity-badge" style="color:var(--warning,#ffa502);">&#x26A1; '
                             + (window.__CDB_FRESHNESS__ === 'UNAVAILABLE' ? 'FRESHNESS UNKNOWN' : (window.__CDB_FRESHNESS__ === 'RECENT' ? 'STALE' : window.__CDB_FRESHNESS__) + ' DATA') + '</span>';
+                    } else if (isApiSource && window.__CDB_FRESHNESS__ === 'FRESH') {
+                        if (syncVal) syncVal.innerHTML = 'SYNC: <span style="color:var(--accent);">&#x26A1; LIVE</span>';
+                        if (integrityEl) integrityEl.innerHTML = '<span class="integrity-badge integrity-ok">FRESHNESS VERIFIED BY WORKER</span>';
                     } else if (isApiSource) {
-                        if (syncVal) syncVal.innerHTML = 'SYNC: <span style="color:var(--accent);animation:new-glow 1.5s ease-in-out infinite alternate;">&#x26A1; LIVE</span>';
-                        if (integrityEl) integrityEl.innerHTML = '<span class="integrity-badge integrity-ok"><i class="fas fa-shield-check"></i> MANIFEST VERIFIED</span>';
+                        // HTTP success is not enough to declare the feed fresh.
+                        if (syncVal) syncVal.innerHTML = 'SYNC: <span style="color:var(--warning,#ffa502);">VERIFYING</span>';
+                        if (integrityEl) integrityEl.textContent = 'Manifest fetched; freshness unverified';
                     } else {
                         if (syncVal) syncVal.innerHTML = 'SYNC: <span style="color:var(--warning,#ffa502);">&#x26A1; STALE</span>';
                         if (integrityEl) integrityEl.innerHTML = '<span class="integrity-badge" style="color:var(--warning,#ffa502);">&#x26A1; FALLBACK SOURCE</span>';
@@ -4333,10 +4336,9 @@ function renderTopThreats(data) {
                     // regardless of how stale the underlying feed actually is. Prefer the
                     // server's own generated_at (_genAt, computed above for API sources) or
                     // the newest item timestamp in the data actually received.
-                    var _syncedAt = _genAt || (entries.length ? Math.max.apply(null, entries.map(function(i){
-                        return new Date(i.published_at||i.timestamp||i.processed_at||0).getTime();
-                    })) : 0);
-                    if (lastLoadedEl) lastLoadedEl.textContent = 'SYNCED: ' + (_syncedAt ? timeSince(_syncedAt) : 'just now') + ' \u00b7 ' + _displayCount + ' advisories \u00b7 ' + _srcLabel;
+                    // Item publication time is not a publisher-run timestamp.
+                    var _syncedAt = _genAt ? Date.parse(_genAt) : NaN;
+                    if (lastLoadedEl) lastLoadedEl.textContent = 'FEED GENERATION: ' + (Number.isFinite(_syncedAt) ? timeSince(_syncedAt) : 'UNKNOWN') + ' \u00b7 ' + _displayCount + ' advisories \u00b7 ' + _srcLabel;
                     document.querySelectorAll('.metric-card').forEach(function(c){ c.classList.remove('syncing'); });
                     if (aiPulse) aiPulse.style.display = 'none';
                 // PRODUCTION-TRUTH FIX (release hardening -- version audit): removed
@@ -4395,16 +4397,17 @@ function renderTopThreats(data) {
                     }
                 }
                 _liveDataLoaded = true;
-                // Show LIVE \u2014 EMBEDDED_INTEL IS the current gh-pages data
-                if (syncVal) syncVal.innerHTML = 'SYNC: <span style="color:var(--accent);animation:new-glow 1.5s ease-in-out infinite alternate;">&#x26A1; LIVE</span>';
-                if (integrityEl) integrityEl.innerHTML = '<span class="integrity-badge integrity-ok"><i class="fas fa-shield-check"></i> MANIFEST VERIFIED</span>';
+                // Embedded data may be useful as an offline visual but is NEVER
+                // a freshness or restricted-publication authorization.
+                if (syncVal) syncVal.innerHTML = 'SYNC: <span style="color:var(--warning,#ffa502);">UNVERIFIED CACHE</span>';
+                if (integrityEl) integrityEl.textContent = 'Embedded cache: source authority unavailable';
                 // P0 FIX: was new Date().toLocaleTimeString() -- compute the real newest
                 // timestamp from EMBEDDED_INTEL itself instead of the browser clock.
                 var _embNewest = EMBEDDED_INTEL.reduce(function(best, d){
                     var t = new Date(d.published_at||d.timestamp||d.processed_at||0).getTime();
                     return (t && t > best) ? t : best;
                 }, 0);
-                if (lastLoadedEl) lastLoadedEl.textContent = 'SYNCED: ' + (_embNewest ? timeSince(_embNewest) : 'just now') + ' \u00b7 ' + EMBEDDED_INTEL.length + ' advisories';
+                if (lastLoadedEl) lastLoadedEl.textContent = 'CACHED ITEM DATE: ' + (_embNewest ? timeSince(_embNewest) : 'UNKNOWN') + ' \u00b7 ' + EMBEDDED_INTEL.length + ' offline records';
                 document.querySelectorAll('.metric-card').forEach(function(c){ c.classList.remove('syncing'); });
                 if (aiPulse) aiPulse.style.display = 'none';
                 console.log('[GOC v201.0] EMBEDDED_INTEL active (network unavailable):', EMBEDDED_INTEL.length, 'items');
@@ -6957,7 +6960,9 @@ function renderTopThreats(data) {
             var ts = intel.publication_generated_at;
             var age = intel.publication_age_seconds;
             var tsOk = typeof ts === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{1,9})?(Z|[+-]\d{2}:\d{2})$/.test(ts) && !isNaN(Date.parse(ts));
-            var ageOk = typeof age === 'number' && isFinite(age) && age >= 0;
+            // Canonical publisher freshness SLA is 6h. A malformed route that
+            // calls a days-old feed 'fresh' must not obtain the green badge.
+            var ageOk = typeof age === 'number' && isFinite(age) && age >= 0 && age <= 6 * 3600;
             if (state === 'fresh' && tsOk && ageOk) return { text: 'LIVE', color: '#10b981' };
             if (state === 'stale') return { text: 'DEGRADED', color: '#e2b340' };
             return { text: 'UNKNOWN', color: '#e2b340' };
@@ -6969,6 +6974,30 @@ function renderTopThreats(data) {
             var b = cdbPublicationBadge(intel);
             el.textContent = b.text;
             el.style.color = b.color;
+        }
+
+        function cdbApplyOperationalStatus(intel) {
+            // API reachability, publisher freshness and verified coverage are
+            // different measurements. This status may only become LIVE after
+            // /api/platform/stats supplies a verified fresh publication.
+            var published = cdbPublicationBadge(intel);
+            var sync = document.getElementById('sync-val');
+            var integrity = document.getElementById('integrity-status');
+            var api = document.getElementById('api-status-dot');
+            var socApi = document.querySelector('.soc-api-status');
+            if (api) {
+                api.textContent = intel ? '● REACHABLE' : '● UNAVAILABLE';
+                api.style.color = intel ? 'var(--accent)' : 'var(--warning,#ffa502)';
+            }
+            if (socApi) socApi.textContent = intel ? 'API REACHABLE' : 'API STATUS UNAVAILABLE';
+            if (published.text === 'LIVE' && intel && intel.freshness === 'FRESH') {
+                if (sync) sync.innerHTML = 'SYNC: <span style="color:var(--accent);">LIVE</span>';
+                if (integrity) integrity.textContent = 'FRESHNESS VERIFIED BY WORKER';
+            } else {
+                if (sync) sync.innerHTML = 'SYNC: <span style="color:var(--warning,#ffa502);">' +
+                    (published.text === 'DEGRADED' ? 'STALE' : 'UNVERIFIED') + '</span>';
+                if (integrity) integrity.textContent = 'Live publication not verified';
+            }
         }
 
         function fetchWorkerStats() {
@@ -6993,7 +7022,12 @@ function renderTopThreats(data) {
             .then(function(r) { return r.ok ? r.json() : null; })
             .then(function(d) {
                 clearTimeout(statsTimer);
-                if (!d || !d.intel) { cdbApplyPublicationBadge(null); return; }
+                if (!d || !d.intel) {
+                    window.__CDB_FRESHNESS__ = 'UNAVAILABLE';
+                    cdbApplyPublicationBadge(null);
+                    cdbApplyOperationalStatus(null);
+                    return;
+                }
                 var intel = d.intel;
                 var api   = d.api || {};
 
@@ -7004,6 +7038,13 @@ function renderTopThreats(data) {
                     _advNote.title = 'Authoritative Sentinel APEX feed advisories. Report-catalog size is a different number and is not shown here.';
                 }
                 cdbApplyPublicationBadge(intel);
+                cdbApplyOperationalStatus(intel);
+                var _sourceCount = Number(intel.feed_count);
+                if (intel.feed_count !== null && intel.feed_count !== undefined &&
+                    Number.isSafeInteger(_sourceCount) && _sourceCount >= 0) {
+                    set('m-feed-count', _sourceCount.toLocaleString());
+                    set('engine-feed-count', _sourceCount.toLocaleString());
+                }
                 // Use Worker ioc_count only if larger than CVE-derived count from computeMetrics
                 var _workerIOC = intel.ioc_count != null ? intel.ioc_count : 0;
                 var _localIOC  = window._cdbComputedIOCs || 0;
@@ -7136,6 +7177,12 @@ function renderTopThreats(data) {
                 // last -- one authoritative answer, not a race between two
                 // independent computations.
                 window.__CDB_FRESHNESS__ = intel.freshness || null;
+                // A FRESH classifier alone is not sufficient without the
+                // gateway's independently evaluated publication contract.
+                if (window.__CDB_FRESHNESS__ === 'FRESH' &&
+                    cdbPublicationBadge(intel).text !== 'LIVE') {
+                    window.__CDB_FRESHNESS__ = 'UNAVAILABLE';
+                }
                 // P0 2026-09-26: only FRESH is live (canonical 6h contract; see _knownStale).
                 if (intel.freshness && intel.freshness !== 'FRESH') {
                     var _syncBadge = document.getElementById('sync-val');
@@ -7173,6 +7220,8 @@ function renderTopThreats(data) {
                 // Stats unreachable: never leave the badge implying LIVE.
                 var _b = document.getElementById('eicc-m-total-delta');
                 if (_b && _b.textContent === 'CHECKING') cdbApplyPublicationBadge(null);
+                window.__CDB_FRESHNESS__ = 'UNAVAILABLE';
+                cdbApplyOperationalStatus(null);
                 console.debug('[v123.1] Worker stats (non-fatal):', e.message);
             });
         }
