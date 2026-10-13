@@ -118,6 +118,7 @@ def test_B_valid_stale_503_is_operational_but_not_releasable():
 @pytest.mark.parametrize("reason,intel_status", [
     ("feed_unavailable", "unavailable"), ("invalid_feed_structure", "invalid"),
     ("no_intelligence_items", "fresh"), ("publication_count_mismatch", "fresh"),
+    ("public_classification_unverified", "fresh"),
     ("generated_at_in_future", "future_timestamp"), ("generated_at_missing", "missing_timestamp"),
     ("generated_at_invalid", "invalid_timestamp"),
 ])
@@ -127,6 +128,17 @@ def test_C_valid_unhealthy_503_is_operational_release_blocked(reason, intel_stat
     assert r["deployment_verdict"] == "PASS", r["failures"]
     assert r["customer_intelligence_state"] == "unhealthy"
     assert r["release_freshness_certifiable"] is False
+
+
+def test_fresh_but_tlp_withheld_is_valid_unhealthy_not_release_ready():
+    body = _health("unhealthy", "public_classification_unverified", "fresh", FRESH_AT, count=0)
+    body["checks"]["intelligence_available"] = "unavailable"
+    body["checks"]["publication_integrity"] = "classification_unverified"
+    r = deploy(LIVE_OK, (503, body, None))
+    assert r["deployment_verdict"] == "PASS", r["failures"]
+    assert r["customer_intelligence_state"] == "unhealthy"
+    assert r["release_freshness_certifiable"] is False
+    assert deploy(LIVE_OK, (200, body, None))["deployment_verdict"] == "FAIL"
 
 
 # ── D/E/F: liveness failures ────────────────────────────────────────────────
