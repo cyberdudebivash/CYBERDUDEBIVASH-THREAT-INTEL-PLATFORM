@@ -45,7 +45,7 @@ test("unlabeled id-only top-level record is flagged even if old Worker heuristic
   const r = auditPublicFeedDocument(feed({ id: "intel--no-title", severity: "HIGH" }), NOW);
   assert.equal(r.verdict, "BLOCKED");
   assert.equal(r.top_level_label_counts.MISSING, 1);
-  assert.equal(r.worker_public_tlp_gate, "PASS"); // existing bug signal, not authorization
+  // The diagnostic must fail closed regardless of later Worker guard improvements.
 });
 
 test("nested RED under outer CLEAR never passes", () => {
