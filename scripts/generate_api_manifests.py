@@ -123,7 +123,7 @@ def _content_hash(item: dict) -> str:
 def deduplicate(items: list) -> list:
     """
     4-layer dedup matching the Cloudflare Worker's deduplicateFeedItems().
-    L1: stix_id / id
+    L1: internal advisory id (fallback to stix_id for legacy records)
     L2: normalised title hash
     L3: source+title content hash
     """
@@ -139,7 +139,8 @@ def deduplicate(items: list) -> list:
         if any(n in t for n in BRAND_NOISE):
             dropped += 1
             continue
-        sid = item.get('stix_id') or item.get('id') or ''
+        # Advisory identity is not a STIX object identity. Preserve legacy fallback.
+        sid = item.get('id') or item.get('stix_id') or ''
         if sid and sid in seen_stix:
             dropped += 1
             continue
