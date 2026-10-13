@@ -171,7 +171,7 @@ function harness(r2Get) {
 
 const r2With = (obj) => async (key) =>
   key === "api/v1/intel/latest.json" ? { text: async () => (typeof obj === "string" ? obj : JSON.stringify(obj)) } : null;
-const liveFeed = (generatedAt) => ({ generated_at: generatedAt, count: 1, items: [{ id: "intel--live", severity: "HIGH" }] });
+const liveFeed = (generatedAt) => ({ generated_at: generatedAt, count: 1, items: [{ id: "intel--live", severity: "HIGH", tlp: "TLP:CLEAR" }] });
 const nowIso = (offsetSeconds = 0) => new Date(Date.now() + offsetSeconds * 1000).toISOString().replace(/\.\d{3}Z$/, "Z");
 
 // Every key the public response is allowed to carry. Anything else (in
@@ -199,6 +199,58 @@ test("route: fresh feed -> 200 ok, preserved envelope, no sensitive fields", asy
   const serialized = JSON.stringify(Object.keys(body)) + JSON.stringify(Object.keys(body.checks));
   assert.ok(!FORBIDDEN.test(serialized), `public health leaks: ${serialized}`);
   assert.equal(res.headers.get("x-sentinel-edge-ttl"), null, "internal TTL header must be stripped");
+});
+
+test("P0: fresh but TLP-restricted feed is NOT customer-ready on any public route", async () => {
+  const restricted = { generated_at: nowIso(-60), count: 1, items: [
+    { id: "intel--restricted", title: "SENSITIVE_FICTIONAL_CANARY", severity: "HIGH", tlp: "TLP:RED" },
+  ] };
+  const { call, edge } = harness(r2With(restricted));
+  const health = await call("/api/health");
+  assert.equal(health.res.status, 503);
+  assert.equal(health.body.status, "unhealthy");
+  assert.equal(health.body.reason, "public_classification_unverified");
+  assert.equal(health.body.intelligence_available, false);
+  assert.equal(health.body.advisory_count, 0);
+  assert.equal(health.body.checks.publication_integrity, "classification_unverified");
+  assert.equal(edge.size, 0, "restricted health must not enter public cache");
+  for (const url of ["/api/platform/stats", "/api/feed.json", "/api/preview?limit=1"]) {
+    const { res, body } = await call(url);
+    assert.equal(res.status, 503, url);
+    assert.match(res.headers.get("cache-control") || "", /no-store/);
+    assert.ok(!JSON.stringify(body).includes("SENSITIVE_FICTIONAL_CANARY"), url);
+  }
+  assert.equal((await call("/api/health/live")).res.status, 200,
+    "deploy liveness must remain available during withheld data");
+});
+
+test("P0: unlabelled title+ID and mixed-source restricted child are withheld", async () => {
+  const cases = [
+    { id: "intel--unlabelled", title: "UNLABELLED_FICTIONAL_CANARY", severity: "HIGH" },
+    { id: "intel--mixed", title: "RESTRICTED_FICTIONAL_CANARY", severity: "HIGH",
+      tlp: "TLP:CLEAR", linked_evidence: [{ tlp: "TLP:AMBER" }] },
+  ];
+  for (const item of cases) {
+    const { call } = harness(r2With({ generated_at: nowIso(-60), count: 1, items: [item] }));
+    const r = await call("/api/health");
+    assert.equal(r.res.status, 503);
+    assert.equal(r.body.reason, "public_classification_unverified");
+    assert.equal(r.body.advisory_count, 0);
+    assert.equal((await call("/api/feed.json")).res.status, 503);
+  }
+});
+
+test("P0: a verified TLP:CLEAR feed remains deliverable across all health and feed routes", async () => {
+  const { call } = harness(r2With({
+    generated_at: nowIso(-60), count: 1,
+    items: [{ id: "intel--clear", title: "PUBLIC_FICTIONAL_CANARY", severity: "HIGH", tlp: "TLP:CLEAR" }],
+  }));
+  const h = await call("/api/health");
+  assert.equal(h.res.status, 200);
+  assert.equal(h.body.intelligence_available, true);
+  assert.equal(h.body.advisory_count, 1);
+  assert.equal((await call("/api/platform/stats")).res.status, 200);
+  assert.equal((await call("/api/feed.json")).res.status, 200);
 });
 
 test("route: 2026-08-26 stale feed -> 503 degraded, never cached", async () => {

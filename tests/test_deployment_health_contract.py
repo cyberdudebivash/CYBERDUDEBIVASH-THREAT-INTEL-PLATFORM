@@ -118,6 +118,7 @@ def test_B_valid_stale_503_is_operational_but_not_releasable():
 @pytest.mark.parametrize("reason,intel_status", [
     ("feed_unavailable", "unavailable"), ("invalid_feed_structure", "invalid"),
     ("no_intelligence_items", "fresh"), ("publication_count_mismatch", "fresh"),
+    ("public_classification_unverified", "fresh"),
     ("generated_at_in_future", "future_timestamp"), ("generated_at_missing", "missing_timestamp"),
     ("generated_at_invalid", "invalid_timestamp"),
 ])
@@ -127,6 +128,17 @@ def test_C_valid_unhealthy_503_is_operational_release_blocked(reason, intel_stat
     assert r["deployment_verdict"] == "PASS", r["failures"]
     assert r["customer_intelligence_state"] == "unhealthy"
     assert r["release_freshness_certifiable"] is False
+
+
+def test_fresh_but_tlp_withheld_is_valid_unhealthy_not_release_ready():
+    body = _health("unhealthy", "public_classification_unverified", "fresh", FRESH_AT, count=0)
+    body["checks"]["intelligence_available"] = "unavailable"
+    body["checks"]["publication_integrity"] = "classification_unverified"
+    r = deploy(LIVE_OK, (503, body, None))
+    assert r["deployment_verdict"] == "PASS", r["failures"]
+    assert r["customer_intelligence_state"] == "unhealthy"
+    assert r["release_freshness_certifiable"] is False
+    assert deploy(LIVE_OK, (200, body, None))["deployment_verdict"] == "FAIL"
 
 
 # ── D/E/F: liveness failures ────────────────────────────────────────────────
@@ -325,6 +337,17 @@ def test_reason_set_parity_with_worker_contract():
     src = (REPO / "workers/intel-gateway/src/freshness-contract.js").read_text(encoding="utf-8")
     js_reasons = set(re.findall(r'base\("unhealthy", "([a-z_]+)"', src))
     js_reasons |= set(re.findall(r'\]: "([a-z_]+)"', src))
+    # The publication-denied result comes from the Worker routing boundary,
+    # not the canonical timestamp-freshness evaluator. Include BOTH exact
+    # implementation sources; arbitrary additions to Python still fail.
+    gateway = (REPO / "workers/intel-gateway/src/index.js").read_text(encoding="utf-8")
+    found = re.search(
+        r'const healthReason = publicDenied \? "([a-z_]+)" : evaluation\.reason;',
+        gateway,
+    )
+    assert found, "public health must explicitly bind publication TLP denial"
+    assert found.group(1) == "public_classification_unverified"
+    js_reasons.add(found.group(1))
     assert js_reasons == set(dhc.REASON_TO_INTEL_STATUS) | {dhc.DEGRADED_REASON}
 
 

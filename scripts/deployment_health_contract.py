@@ -94,6 +94,10 @@ REASON_TO_INTEL_STATUS = {
     # Items/count problems are evaluated independently of freshness.
     "no_intelligence_items": {contract.FRESH, contract.STALE, contract.FUTURE, contract.MISSING, contract.INVALID},
     "publication_count_mismatch": {contract.FRESH, contract.STALE, contract.FUTURE, contract.MISSING, contract.INVALID},
+    # Fresh feed bytes can still be unservable because the public TLP guard
+    # blocks a restricted, unlabeled or malformed advisory. It is a valid
+    # unhealthy deployment response, NEVER customer-release certification.
+    "public_classification_unverified": {contract.FRESH},
 }
 
 HEALTHY, DEGRADED, UNHEALTHY, INVALID = "healthy", "degraded", "unhealthy", "invalid"
