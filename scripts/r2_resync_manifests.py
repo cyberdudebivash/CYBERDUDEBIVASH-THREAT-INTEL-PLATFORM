@@ -149,6 +149,52 @@ def count_items(path: Path) -> int:
     return 0
 
 
+# Public R2 latest.json must pass the exact Worker TLP/freshness contract.
+# Validate the sanitized upload-only copy BEFORE any R2 PUT.
+_WORKER_PUBLIC_FEED_CHECK = "scripts/p0_r2_public_feed_diagnostic.mjs"
+_SAFE_REASONS = frozenset({
+    "FEED_FRESHNESS_OR_STRUCTURE", "PUBLICATION_NODE_BUDGET",
+    "TLP_BOUNDARY_REJECTION", "UNLABELED_OR_RESTRICTED_RECORDS",
+    "UNLABELED_NESTED_ADVISORY", "NONE",
+})
+
+
+def assert_worker_deliverable_latest(latest_path: Path, parents=None) -> None:
+    """Fail closed on rejected latest.json before any R2 write.
+
+    This uses the existing Node diagnostic's Worker read boundary; it logs
+    only safe error codes, never advisory bodies, identifiers or credentials.
+    Post-upload live gateway parity still requires separate verification.
+    """
+    if not latest_path.is_file() or stale_manifest_reason(latest_path):
+        raise ValueError("P0_PUBLIC_LATEST_NOT_REGENERATED")
+    with tempfile.TemporaryDirectory(prefix="cdb-p0-latest-preflight-") as tmp:
+        safe = tlp_safe_public_json_source(latest_path, Path(tmp),
+                                           "api/v1/intel/latest.json", parents)
+        if safe is None:
+            raise ValueError("P0_PUBLIC_LATEST_TLP_SANITIZATION_DENIED")
+        try:
+            check = subprocess.run(
+                ["node", str(REPO_ROOT / _WORKER_PUBLIC_FEED_CHECK), str(safe)],
+                cwd=REPO_ROOT, capture_output=True, text=True, timeout=25,
+                check=False,
+            )
+        except (OSError, subprocess.TimeoutExpired) as exc:
+            raise ValueError("P0_PUBLIC_LATEST_WORKER_PREFLIGHT_UNAVAILABLE") from exc
+        try:
+            report = json.loads(check.stdout)
+            reason = report.get("root_cause_family")
+            verified = (isinstance(report, dict) and check.returncode == 0
+                        and report.get("verdict") == "DELIVERABLE"
+                        and report.get("worker_public_tlp_gate") == "PASS"
+                        and report.get("freshness") == "FRESH")
+        except (ValueError, TypeError, AttributeError):
+            reason, verified = None, False
+        if not verified:
+            reason = reason if reason in _SAFE_REASONS else "UNVERIFIED"
+            raise ValueError("P0_PUBLIC_LATEST_WORKER_REJECTED:" + reason)
+
+
 def main() -> None:
     log.info("=" * 64)
     log.info("SENTINEL APEX v%s -- R2 Post-STAGE-3.93 Manifest Resync", PIPELINE_VERSION)
@@ -156,6 +202,17 @@ def main() -> None:
     log.info("=" * 64)
 
     os.chdir(REPO_ROOT)
+
+    # Fail before first PUT if exact public manifest would cause API 503.
+    _parents = build_parent_index([
+        REPO_ROOT / "api" / "feed.json", REPO_ROOT / "data" / "feed_manifest.json",
+        REPO_ROOT / "data" / "stix" / "feed_manifest.json",
+    ])
+    try:
+        assert_worker_deliverable_latest(REPO_ROOT / "api/v1/intel/latest.json", _parents)
+    except ValueError as exc:
+        log.critical("P0 R2 RESYNC REFUSED BEFORE WRITES: %s", exc)
+        sys.exit(1)
 
     cf_account, _, _ = get_credentials()
     endpoint = f"https://{cf_account}.r2.cloudflarestorage.com"
