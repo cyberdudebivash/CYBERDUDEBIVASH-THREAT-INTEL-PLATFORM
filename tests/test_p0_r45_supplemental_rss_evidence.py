@@ -57,7 +57,13 @@ def test_actual_rss_reader_preserves_observation_and_original_utc_publication(tm
     source.parent.mkdir()
     source.write_text(json.dumps(rows))
     finalize_public_feed(tmp_path)
-    assert json.loads(source.read_text()) == rows
+    # Public feed preserves collected evidence and internal id but must not
+    # publish legacy intel-- identifiers as STIX object identities.
+    expected_public = [{k: v for k, v in record.items() if k != "stix_id"} for record in rows]
+    assert json.loads(source.read_text()) == expected_public
+    archived = json.loads((tmp_path / "data/stix/feed_manifest.json").read_text())
+    archive_rows = archived["advisories"] if isinstance(archived, dict) else archived
+    assert any(r["id"] == row["id"] and r.get("stix_id") == row.get("stix_id") for r in archive_rows)
 
 
 @pytest.mark.parametrize("publication", ["", "unparseable", "2099-01-01T00:00:00Z"])
