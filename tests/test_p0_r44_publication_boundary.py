@@ -158,7 +158,8 @@ def test_valid_stix_kept_internal_alias_removed_without_changing_history(tmp_pat
         assert published[0]["stix_id"] == valid
         assert all("stix_id" not in record for record in published[1:])
     archive = json.loads((tmp_path / "data/stix/feed_manifest.json").read_text())
-    archived = {record["id"]: record for record in archive["advisories"]}
+    archive_rows = archive["advisories"] if isinstance(archive, dict) else archive
+    archived = {record["id"]: record for record in archive_rows}
     assert archived[observed[0]["id"]]["stix_id"] == valid
     assert archived[observed[1]["id"]]["stix_id"] == observed[1]["stix_id"]
 
