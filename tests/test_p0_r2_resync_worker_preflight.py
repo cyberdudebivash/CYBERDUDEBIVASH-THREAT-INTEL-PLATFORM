@@ -62,6 +62,7 @@ def test_invalid_local_json_is_never_uploaded(tmp_path):
 
 def test_main_aborts_without_credentials_or_r2_writes_on_failed_preflight(tmp_path):
     root = tmp_path
+    latest(root)  # a fresh candidate must exercise the mandatory preflight
     previous = Path.cwd()
     with mock.patch.object(resync, "REPO_ROOT", root), \
          mock.patch.object(resync, "build_parent_index", return_value={}), \
