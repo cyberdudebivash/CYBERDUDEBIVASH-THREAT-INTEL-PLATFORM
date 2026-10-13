@@ -108,6 +108,23 @@ PRO_UNLOCKED_FIELDS: frozenset = frozenset([
 PRO_PREMIUM_FIELDS: frozenset = PREMIUM_FIELDS - PRO_UNLOCKED_FIELDS
 
 
+# A STIX object identity is distinct from an internal advisory identifier.
+# Format validation does not establish that the referenced STIX object exists.
+_STIX_ID_RE = re.compile(
+    r"^(?:attack-pattern|campaign|course-of-action|grouping|identity|indicator|"
+    r"infrastructure|intrusion-set|location|malware|malware-analysis|note|"
+    r"observed-data|opinion|relationship|report|sighting|threat-actor|tool|"
+    r"vulnerability)--[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-"
+    r"[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$"
+)
+
+
+def _remove_invalid_stix_alias(out: dict) -> None:
+    sid = out.get("stix_id")
+    if not isinstance(sid, str) or not _STIX_ID_RE.fullmatch(sid):
+        out.pop("stix_id", None)
+
+
 def sanitize_for_public(item: dict) -> dict:
     """Return a copy of item with all premium fields removed.
     Adds _tier_notice and _upgrade_url to every item so clients know
@@ -119,6 +136,7 @@ def sanitize_for_public(item: dict) -> dict:
     # Always inject tier notice so public clients see the upgrade path
     out["_tier_notice"] = TIER_NOTICE
     out["_upgrade_url"]  = UPGRADE_URL
+    _remove_invalid_stix_alias(out)
     return out
 
 
@@ -134,6 +152,7 @@ def sanitize_for_pro(item: dict) -> dict:
     for k, v in item.items():
         if k not in PRO_PREMIUM_FIELDS:
             out[k] = v
+    _remove_invalid_stix_alias(out)
     return out
 
 
