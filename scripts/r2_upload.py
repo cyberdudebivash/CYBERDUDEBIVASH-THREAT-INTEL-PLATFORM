@@ -80,6 +80,7 @@ from r2_cost_guard import (  # noqa: E402
 import public_freshness_contract as _freshness  # noqa: E402
 import tlp_policy as _tlp_policy  # noqa: E402  (shared fail-closed publication authority)
 import tlp_public_boundary as _tlp_boundary  # noqa: E402  (last-mile sanitizer for every JSON object)
+from public_api_sanitizer import _remove_invalid_stix_alias  # noqa: E402
 
 logging.basicConfig(
     level=logging.INFO,
@@ -902,9 +903,15 @@ def tlp_safe_public_feed_source(source: Path, scratch_dir: Path) -> Path:
     if not isinstance(raw, list):
         raise ValueError("public feed is not a JSON list; refusing R2 publication")
     publishable, quarantined = _tlp_policy.partition_publishable(raw)
+    # R2 is another public-write boundary: never publish internal advisory
+    # aliases as STIX object identifiers, even if an earlier stage was bypassed.
+    # Keep the source inventory unmodified for provenance and operator review.
+    safe_public = [dict(record) for record in publishable]
+    for record in safe_public:
+        _remove_invalid_stix_alias(record)
     scratch_dir.mkdir(parents=True, exist_ok=True)
     safe_path = scratch_dir / "tlp-public-feed.json"
-    safe_path.write_text(json.dumps(publishable, ensure_ascii=False, separators=(",", ":")),
+    safe_path.write_text(json.dumps(safe_public, ensure_ascii=False, separators=(",", ":")),
                          encoding="utf-8")
     log.warning("TLP R2 feed boundary: %d allowed, %d withheld; source unchanged",
                 len(publishable), len(quarantined))
