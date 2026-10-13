@@ -208,11 +208,21 @@ def main() -> None:
         REPO_ROOT / "api" / "feed.json", REPO_ROOT / "data" / "feed_manifest.json",
         REPO_ROOT / "data" / "stix" / "feed_manifest.json",
     ])
-    try:
-        assert_worker_deliverable_latest(REPO_ROOT / "api/v1/intel/latest.json", _parents)
-    except ValueError as exc:
-        log.critical("P0 R2 RESYNC REFUSED BEFORE WRITES: %s", exc)
-        sys.exit(1)
+    _latest_source = REPO_ROOT / "api/v1/intel/latest.json"
+    if _latest_source.is_file() and not stale_manifest_reason(_latest_source):
+        # Do not poison a previously healthy latest.json with a newly
+        # generated document that the customer Worker will reject.
+        try:
+            assert_worker_deliverable_latest(_latest_source, _parents)
+        except ValueError as exc:
+            log.critical("P0 R2 RESYNC REFUSED BEFORE WRITES: %s", exc)
+            sys.exit(1)
+    else:
+        # Existing Stage 4.1 fallback semantics: if generation failed or the
+        # checkout has an old latest.json, do not upload that stale manifest.
+        # Other independently guarded keys (notably api/feed.json) may still
+        # be resynced. Never certify customer availability from this state.
+        log.warning("P0 latest.json absent/stale: preserving existing per-key skip; no live-feed certification")
 
     cf_account, _, _ = get_credentials()
     endpoint = f"https://{cf_account}.r2.cloudflarestorage.com"
