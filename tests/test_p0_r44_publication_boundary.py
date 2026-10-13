@@ -56,8 +56,9 @@ def test_supplemental_inventory_is_preserved_and_excluded_from_both_public_files
     historical = {"id": "old-history", "title": "Original history", "source_url": "https://publisher.example/old"}
     manifest.write_text(json.dumps({"advisories": [historical], "original_metadata": "preserved"}))
     result = finalize_public_feed(tmp_path)
+    expected_public = [{k: v for k, v in record.items() if k != "stix_id"} for record in observed]
     for name in ("api/feed.json", "feed.json"):
-        assert json.loads((tmp_path / name).read_text()) == observed
+        assert json.loads((tmp_path / name).read_text()) == expected_public
     history = json.loads(manifest.read_text())
     assert history["original_metadata"] == "preserved" and history["advisories"][0] == historical
     archived = {r["id"]: r for r in history["advisories"]}
@@ -93,7 +94,8 @@ def test_r2_main_filters_after_collectors_before_any_credentials_or_network(tmp_
     class StopBeforeNetwork(Exception):
         pass
     def stop():
-        assert json.loads(source.read_text()) == observed
+        expected_public = [{k: v for k, v in record.items() if k != "stix_id"} for record in observed]
+        assert json.loads(source.read_text()) == expected_public
         raise StopBeforeNetwork()
     monkeypatch.setattr(r2_upload, "get_credentials", stop)
     with pytest.raises(StopBeforeNetwork):
@@ -112,7 +114,8 @@ def test_real_public_bundle_generator_publishes_only_qualified_candidates(tmp_pa
     assert latest["count"] == 12
     assert {r["id"] for r in latest["items"]} == {r["id"] for r in observed}
     assert all(r["id"] != unproven["id"] for r in latest["items"])
-    assert json.loads((tmp_path / "api/feed.json").read_text()) == observed
+    expected_public = [{k: v for k, v in record.items() if k != "stix_id"} for record in observed]
+    assert json.loads((tmp_path / "api/feed.json").read_text()) == expected_public
 
 
 def test_empty_qualified_bundle_cannot_advance_previous_public_generation(tmp_path):
@@ -140,3 +143,37 @@ def test_all_tlp_denied_inventory_still_replaces_restricted_public_bundles(tmp_p
     assert run.returncode != 0
     assert json.loads(target.read_text())["items"] == []
     assert "every feed item was withheld by the TLP publication policy" in run.stdout + run.stderr
+
+
+def test_valid_stix_kept_internal_alias_removed_without_changing_history(tmp_path):
+    observed, _ = candidates(tmp_path)
+    valid = "indicator--123e4567-e89b-42d3-a456-426614174000"
+    observed[0]["stix_id"] = valid
+    write_source(tmp_path, observed)
+    result = finalize_public_feed(tmp_path)
+    assert result["published_count"] == 12
+    for path in ("api/feed.json", "feed.json"):
+        published = json.loads((tmp_path / path).read_text())
+        assert published[0]["id"] == observed[0]["id"]
+        assert published[0]["stix_id"] == valid
+        assert all("stix_id" not in record for record in published[1:])
+    archive = json.loads((tmp_path / "data/stix/feed_manifest.json").read_text())
+    archive_rows = archive["advisories"] if isinstance(archive, dict) else archive
+    archived = {record["id"]: record for record in archive_rows}
+    assert archived[observed[0]["id"]]["stix_id"] == valid
+    assert archived[observed[1]["id"]]["stix_id"] == observed[1]["stix_id"]
+
+
+def test_public_r2_upload_copy_sanitizes_aliases_without_modifying_source(tmp_path):
+    import r2_upload
+    observed, _ = candidates(tmp_path)
+    valid = "indicator--123e4567-e89b-42d3-a456-426614174000"
+    observed[0]["stix_id"] = valid
+    source = write_source(tmp_path, observed)
+    before = source.read_bytes()
+    safe_path = r2_upload.tlp_safe_public_feed_source(source, tmp_path / "scratch")
+    uploaded = json.loads(safe_path.read_text())
+    assert len(uploaded) == len(observed)
+    assert uploaded[0]["stix_id"] == valid
+    assert all("stix_id" not in r for r in uploaded[1:])
+    assert source.read_bytes() == before

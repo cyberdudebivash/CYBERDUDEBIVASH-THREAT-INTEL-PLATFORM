@@ -13,6 +13,7 @@ from pathlib import Path
 from manifest_reconciler import reconcile, _atomic_write
 from p0_r35_feed_prewrite_guard import assert_publishable, select_publishable
 from tlp_policy import partition_publishable
+from public_api_sanitizer import _remove_invalid_stix_alias
 
 log = logging.getLogger(__name__)
 
@@ -55,6 +56,13 @@ def finalize_public_feed(root: Path) -> dict:
     # Existing reconciliation preserves all candidates and the complete
     # historical manifest before the supplemental inventory is withheld.
     reconcile(feed_path=source, manifest_path=root / "data/stix/feed_manifest.json")
-    _atomic_write(source, selected)
-    _atomic_write(root / "feed.json", selected)
+    # The internal archive above keeps original candidate identities/evidence.
+    # Anonymous feeds must never claim an internal intel-- key is a STIX object.
+    # Preserve id and valid STIX identifiers; scrub only invalid aliases from
+    # the two public feed copies, without mutating the reconciled inventory.
+    public_selected = [dict(record) for record in selected]
+    for record in public_selected:
+        _remove_invalid_stix_alias(record)
+    _atomic_write(source, public_selected)
+    _atomic_write(root / "feed.json", public_selected)
     return report
