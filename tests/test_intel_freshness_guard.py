@@ -85,3 +85,36 @@ def test_a_zombie_active_run_does_not_suppress_dispatch_forever():
     zombie = run(60 * 24 * 123, status="pending")
     assert g.decide(health("stale", 9), [zombie], [], NOW)["action"] == "dispatch"
     assert g.decide(health("stale", 9), [zombie, run(10, status="in_progress")], [], NOW)["reason"] == "publisher_active"
+
+
+def test_customer_503_always_alerts_when_publisher_is_running():
+    publisher = run(15, status="in_progress")
+    for state, age in (("fresh", 2), ("stale", 9), ("missing_timestamp", 9)):
+        h = health(state, age)
+        h["reason"] = "public_classification_unverified"
+        result = g.decide(h, [publisher], [], NOW, health_http_status=503)
+        assert result["action"] == "alert"
+        assert result["reason"] == "customer_api_unavailable"
+        assert result["publisher_active"] is True
+        assert result["health_http_status"] == 503
+        assert result["exit"] == 1
+
+
+def test_fresh_timestamp_does_not_hide_customer_503_without_publisher():
+    result = g.decide(health("fresh", 1), [], [], NOW, health_http_status=503)
+    assert result["action"] == "alert"
+    assert result["reason"] == "customer_api_unavailable"
+    assert result["publisher_active"] is False
+    assert result["exit"] == 1
+
+
+def test_stale_503_without_publisher_keeps_existing_bounded_self_heal():
+    result = g.decide(health("stale", 9), [], [], NOW, health_http_status=503)
+    assert result["action"] == "dispatch"
+    assert result["reason"] == "stale_no_active_publisher"
+
+
+def test_200_with_healthy_active_publisher_remains_non_alerting():
+    result = g.decide(health("fresh", 2), [run(15, status="in_progress")], [], NOW, health_http_status=200)
+    assert result["action"] == "none"
+    assert result["exit"] == 0

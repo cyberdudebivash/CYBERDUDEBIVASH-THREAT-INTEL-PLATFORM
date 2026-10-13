@@ -62,20 +62,31 @@ ACTIVE_MAX_AGE_HOURS = float(os.environ.get("ACTIVE_MAX_AGE_HOURS", "6"))
 GUARD_ACTOR = "github-actions[bot]"
 
 
-def decide(health: dict | None, active_runs: list, guard_dispatches: list, now: datetime) -> dict:
+def decide(health: dict | None, active_runs: list, guard_dispatches: list, now: datetime,
+           health_http_status: int = 200) -> dict:
     """Pure decision. health: parsed /api/health JSON (or None when
     unreadable). active_runs: publisher runs in an ACTIVE_STATUSES state.
     guard_dispatches: this guard's recent workflow_dispatch runs of the
-    publisher, newest first, each {created_at, status, conclusion}."""
+    publisher, newest first, each {created_at, status, conclusion}.
+    health_http_status: actual HTTP status, not inferred from JSON freshness.
+    A publisher being active must NEVER count as a healthy customer API."""
     intel = (health or {}).get("intelligence") or {}
     age = intel.get("age_seconds")
     state = intel.get("status")
     if health is None or state is None:
         return {"action": "alert", "reason": "health_unreadable", "exit": 1}
+    # A real customer 503 is an outage even when the feed's generated_at
+    # remains within 6h. In particular, TLP-boundary denial can coexist with
+    # intelligence.status=fresh. Never mark that 503 as green or enqueue a
+    # competing publisher while one is active.
+    live_runs = [r for r in active_runs if (now - _parse(r["created_at"])).total_seconds() < ACTIVE_MAX_AGE_HOURS * 3600]
+    if health_http_status != 200 and (live_runs or state == "fresh"):
+        return {"action": "alert", "reason": "customer_api_unavailable",
+                "health_http_status": health_http_status,
+                "publisher_active": bool(live_runs), "age_seconds": age, "exit": 1}
     if state == "fresh" and isinstance(age, (int, float)) and age < DISPATCH_AT_HOURS * 3600:
         return {"action": "none", "reason": "fresh", "age_seconds": age, "exit": 0}
     # stale, aging toward stale, or an untrustworthy timestamp: the cure is a run.
-    live_runs = [r for r in active_runs if (now - _parse(r["created_at"])).total_seconds() < ACTIVE_MAX_AGE_HOURS * 3600]
     if live_runs:
         return {"action": "none", "reason": "publisher_active", "age_seconds": age, "exit": 0}
     if guard_dispatches:
@@ -111,7 +122,7 @@ def _get_json(url: str, token: str | None = None) -> tuple[int, dict | None]:
 def main() -> int:
     token = os.environ.get("GITHUB_TOKEN", "")
     now = datetime.now(timezone.utc)
-    _, health = _get_json(HEALTH_URL)
+    health_http_status, health = _get_json(HEALTH_URL)
     api = f"https://api.github.com/repos/{REPO}/actions/workflows/{WORKFLOW}/runs"
     active_by_id = {}
     for status in ACTIVE_STATUSES:  # GitHub's status filters overlap: dedupe by run id
@@ -122,7 +133,7 @@ def main() -> int:
     _, body = _get_json(f"{api}?event=workflow_dispatch&per_page=10", token)
     guard = [r for r in (body or {}).get("workflow_runs", []) if (r.get("actor") or {}).get("login") == GUARD_ACTOR]
     guard.sort(key=lambda r: r["created_at"], reverse=True)
-    verdict = decide(health, active, guard, now)
+    verdict = decide(health, active, guard, now, health_http_status=health_http_status)
     if verdict["action"] == "dispatch" and not DRY_RUN:
         req = urllib.request.Request(
             f"https://api.github.com/repos/{REPO}/actions/workflows/{WORKFLOW}/dispatches",
@@ -134,7 +145,8 @@ def main() -> int:
                 verdict["dispatch_status"] = r.status
         except urllib.error.HTTPError as e:
             verdict.update({"dispatch_status": e.code, "action": "alert", "reason": "dispatch_refused", "exit": 1})
-    report = {"at": now.isoformat(), "health_url": HEALTH_URL, "workflow": WORKFLOW, "dry_run": DRY_RUN,
+    report = {"at": now.isoformat(), "health_url": HEALTH_URL, "health_http_status": health_http_status,
+              "workflow": WORKFLOW, "dry_run": DRY_RUN,
               "feed_generated_at": ((health or {}).get("intelligence") or {}).get("generated_at"),
               "active_publisher_runs": len(active), **verdict}
     print(json.dumps(report, indent=2))
