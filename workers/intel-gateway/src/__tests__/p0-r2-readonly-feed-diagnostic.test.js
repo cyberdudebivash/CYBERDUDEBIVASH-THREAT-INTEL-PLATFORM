@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { auditPublicFeedDocument, inspectLocalFile } from "../../scripts/p0_r2_public_feed_diagnostic.mjs";
+import { auditPublicFeedDocument, inspectLocalFile } from "../../../../scripts/p0_r2_public_feed_diagnostic.mjs";
 import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
