@@ -7166,6 +7166,17 @@ async function handleRequest(request, env, ctx) {
     const nowMs    = Date.now();
     const rawFeed  = await r2Get(env, LATEST_JSON_KEY);
     const evaluation = evaluatePublicIntelligence(rawFeed, nowMs);
+    // P0 customer-delivery truth: a fresh R2 manifest is NOT deliverable if
+    // the public read boundary rejects its TLP labels or nested evidence.
+    // /api/health must not report OK while /api/feed.json rejects the exact
+    // same object. Do not surface any restricted record, URL, identifier or
+    // classification detail; the operator must diagnose the producer state.
+    const publicClassified = evaluation.healthy && publicTlpJsonVerified(rawFeed);
+    const publicDenied = evaluation.healthy && !publicClassified;
+    const customerCount = publicDenied ? 0 : evaluation.intelligence.advisory_count;
+    const healthStatus = publicDenied ? "unhealthy" : evaluation.status;
+    const healthReason = publicDenied ? "public_classification_unverified" : evaluation.reason;
+    const healthHttpStatus = publicDenied ? 503 : evaluation.http_status;
     const feedItems = rawFeed && Array.isArray(rawFeed.items) ? rawFeed.items : [];
     const stats    = computeStats(feedItems);
     // Kept for the authenticated view below; classifyFreshness() now derives
@@ -7179,20 +7190,26 @@ async function handleRequest(request, env, ctx) {
     // (a secret-presence flag) and checks.kv_rate_limit / kv_api_keys /
     // r2_intel (storage topology).
     const body = {
-      status: evaluation.status,
+      status: healthStatus,
       service: "sentinel-apex",
       version: PLATFORM_VERSION,
-      ...(evaluation.reason ? { reason: evaluation.reason } : {}),
-      advisory_count: evaluation.intelligence.advisory_count, critical_count: stats.critical,
-      kev_confirmed: stats.kev_confirmed, last_sync: stats.last_sync,
-      feed_index: `live:${evaluation.intelligence.advisory_count}_items`,
+      ...(healthReason ? { reason: healthReason } : {}),
+      // A withheld feed has zero *customer-deliverable* records; raw
+      // restricted counts and newest-item timestamps are not live KPIs.
+      advisory_count: customerCount, critical_count: publicDenied ? 0 : stats.critical,
+      kev_confirmed: publicDenied ? 0 : stats.kev_confirmed,
+      last_sync: publicDenied ? null : stats.last_sync,
+      feed_index: `live:${customerCount}_items`,
       platform_reachable: true,
-      intelligence_available: evaluation.intelligence.advisory_count > 0,
-      intelligence: evaluation.intelligence,
+      intelligence_available: !publicDenied && customerCount > 0,
+      intelligence: publicDenied
+        ? { ...evaluation.intelligence, advisory_count: 0 }
+        : evaluation.intelligence,
       checks: {
         gateway: "ok",
         ...evaluation.checks,
-        feed_index: `live:${evaluation.intelligence.advisory_count}_items`,
+        ...(publicDenied ? { intelligence_available: "unavailable", publication_integrity: "classification_unverified" } : {}),
+        feed_index: `live:${customerCount}_items`,
       },
       generated_at: now(),
     };
@@ -7252,12 +7269,15 @@ async function handleRequest(request, env, ctx) {
       // Cache API keys on URL only, so a cached admin body would be served
       // to anonymous callers).
       respHeaders["Cache-Control"] = "private, no-store";
-    } else if (evaluation.healthy) {
+    } else if (evaluation.healthy && !publicDenied) {
       // A cached "ok" must not outlive the freshness boundary.
       respHeaders["X-Sentinel-Edge-Ttl"] = String(healthEdgeTtlSeconds(evaluation, EDGE_CACHE_TTL_SECONDS));
+    } else {
+      // A denied 503 must not leave yesterday's misleading OK at the edge.
+      respHeaders["Cache-Control"] = "no-store, max-age=0";
     }
 
-    return jsonResp(body, evaluation.http_status, respHeaders);
+    return jsonResp(body, healthHttpStatus, respHeaders);
   }
 
   // --- /api/health/live ---------------------------------------------------------
@@ -7350,6 +7370,14 @@ async function handleRequest(request, env, ctx) {
     const publication = evaluatePublicIntelligence(rawFeed, Date.now());
     const unavailable = denyNonFreshLiveFeed(rawFeed);
     if (unavailable) return jsonResp(unavailable.body, unavailable.status, unavailable.headers);
+    if (!publicTlpJsonVerified(rawFeed)) {
+      // Freshness-only stats cannot advertise a healthy customer feed while
+      // the identical document is denied at the TLP boundary.
+      return jsonResp({ error: "verified_intelligence_unavailable",
+        reason: "public_classification_unverified", items: [], count: 0,
+        live_data_available: false }, 503,
+        { "Cache-Control": "no-store, max-age=0", "Retry-After": "60" });
+    }
     const items = rawFeed && Array.isArray(rawFeed.items) ? rawFeed.items : [];
     const stats = computeStats(items);
     const threat     = computeThreatLevel(stats);
