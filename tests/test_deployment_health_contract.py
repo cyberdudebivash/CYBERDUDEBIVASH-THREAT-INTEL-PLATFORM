@@ -337,6 +337,17 @@ def test_reason_set_parity_with_worker_contract():
     src = (REPO / "workers/intel-gateway/src/freshness-contract.js").read_text(encoding="utf-8")
     js_reasons = set(re.findall(r'base\("unhealthy", "([a-z_]+)"', src))
     js_reasons |= set(re.findall(r'\]: "([a-z_]+)"', src))
+    # The publication-denied result comes from the Worker routing boundary,
+    # not the canonical timestamp-freshness evaluator. Include BOTH exact
+    # implementation sources; arbitrary additions to Python still fail.
+    gateway = (REPO / "workers/intel-gateway/src/index.js").read_text(encoding="utf-8")
+    found = re.search(
+        r'const healthReason = publicDenied \? "([a-z_]+)" : evaluation\.reason;',
+        gateway,
+    )
+    assert found, "public health must explicitly bind publication TLP denial"
+    assert found.group(1) == "public_classification_unverified"
+    js_reasons.add(found.group(1))
     assert js_reasons == set(dhc.REASON_TO_INTEL_STATUS) | {dhc.DEGRADED_REASON}
 
 
