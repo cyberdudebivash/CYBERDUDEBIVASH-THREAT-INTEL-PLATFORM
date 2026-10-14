@@ -909,6 +909,16 @@ def tlp_safe_public_feed_source(source: Path, scratch_dir: Path) -> Path:
     safe_public = [dict(record) for record in publishable]
     for record in safe_public:
         _remove_invalid_stix_alias(record)
+    # The top-level TLP policy is necessary but not sufficient: a CLEAR
+    # advisory may contain an *unlabeled nested advisory*, which the Worker
+    # refuses even when partition_publishable() accepts the parent. Apply
+    # the same recursive record recognition as the Worker before R2 PUT.
+    # Do not modify the original file or fabricate a missing TLP label.
+    safe_public, nested_removed, withheld = _tlp_boundary.sanitize_document(safe_public)
+    if withheld or not isinstance(safe_public, list):
+        raise ValueError("public feed recursive TLP boundary unverified")
+    if nested_removed:
+        log.warning("TLP R2 feed nested boundary removed %d unverified record(s)", len(nested_removed))
     scratch_dir.mkdir(parents=True, exist_ok=True)
     safe_path = scratch_dir / "tlp-public-feed.json"
     safe_path.write_text(json.dumps(safe_public, ensure_ascii=False, separators=(",", ":")),
