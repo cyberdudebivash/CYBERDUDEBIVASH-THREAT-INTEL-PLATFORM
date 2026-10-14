@@ -63,6 +63,9 @@ def validate_policy(policy):
     age = number(policy.get("max_attestation_age_minutes"), "age")
     if not 0 < age <= 360:
         raise ReleaseBlocked("Account attestation must be refreshed within six hours")
+    measured_age = number(policy.get("max_observed_usage_age_minutes"), "usage freshness")
+    if not 0 < measured_age <= 360:
+        raise ReleaseBlocked("Actual Cloudflare usage data cannot be older than six hours")
     metrics = policy.get("minimum_required_metrics")
     if not isinstance(metrics, list) or len(metrics) < 12:
         raise ReleaseBlocked("Required metered-resource inventory missing")
@@ -138,6 +141,11 @@ def certify(policy, record, *, now=None):
         end = instant(entry.get("window_end_utc"), key + ".window_end_utc")
         if start > as_of or end <= as_of or end <= now:
             raise ReleaseBlocked(key + ": expired or invalid quota window")
+        observed_through = instant(entry.get("usage_measured_through_utc"), key + ".usage_measured_through_utc")
+        if observed_through > as_of + timedelta(minutes=5):
+            raise ReleaseBlocked(key + ": usage measurement future-dated relative to attestation")
+        if now - observed_through > timedelta(minutes=float(policy["max_observed_usage_age_minutes"])):
+            raise ReleaseBlocked(key + ": underlying Cloudflare usage telemetry is stale")
         if end - start > timedelta(days=36):
             raise ReleaseBlocked(key + ": billing quota window exceeds 36 days")
         included = number(entry.get("included"), key + ".included")
