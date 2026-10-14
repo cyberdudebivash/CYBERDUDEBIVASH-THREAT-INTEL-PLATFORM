@@ -15,12 +15,11 @@
  */
 import { readFileSync, statSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { publicTlpJsonVerified } from "../workers/intel-gateway/src/intel-static-proxy.js";
+import { publicTlpJsonVerified, MAX_PUBLIC_BODY_BYTES, MAX_PUBLIC_NODES, MAX_PUBLIC_DEPTH } from "../workers/intel-gateway/src/intel-static-proxy.js";
 import { evaluatePublicIntelligence } from "../workers/intel-gateway/src/freshness-contract.js";
 
 const MAX_FILE_BYTES = 8 * 1024 * 1024;
-const MAX_NODES = 25000;
-const MAX_DEPTH = 40;
+// Derive the verification budget from the Worker itself: no policy drift.
 const LABELS = Object.freeze(["TLP:CLEAR", "TLP:GREEN", "TLP:AMBER", "TLP:AMBER+STRICT", "TLP:RED", "MISSING", "INVALID"]);
 const MARKER_KEYS = ["id", "advisory_id", "intel_id", "report_url", "internal_report_url", "cve_id", "stix_id", "cve_ids", "threat_id"];
 
@@ -28,6 +27,9 @@ export function auditPublicFeedDocument(doc, nowMs = Date.now()) {
   // Report only safe aggregate counts, never record identifiers, source URLs,
   // titles, IOCs or evidence fields.
   const fresh = evaluatePublicIntelligence(doc, nowMs);
+  const encoded = JSON.stringify(doc);
+  const bodyBytes = typeof encoded === "string" ? Buffer.byteLength(encoded, "utf8") : Infinity;
+  const bodyBudgetExceeded = bodyBytes > MAX_PUBLIC_BODY_BYTES;
   const count = Object.fromEntries(LABELS.map(label => [label, 0]));
   const evidence = Object.fromEntries(LABELS.map(label => [label, 0]));
   let nestedNodes = 0, maxDepth = 0, missingAdvisoryLabels = 0;
@@ -38,7 +40,7 @@ export function auditPublicFeedDocument(doc, nowMs = Date.now()) {
     return LABELS.includes(label) ? label : "INVALID";
   };
   function walk(node, depth) {
-    if (++nestedNodes > MAX_NODES || depth > MAX_DEPTH) { budgetExceeded = true; return; }
+    if (++nestedNodes > MAX_PUBLIC_NODES || depth > MAX_PUBLIC_DEPTH) { budgetExceeded = true; return; }
     maxDepth = Math.max(maxDepth, depth);
     if (node === null || typeof node !== "object") return;
     if (Array.isArray(node)) { for (const value of node) walk(value, depth + 1); return; }
@@ -58,7 +60,7 @@ export function auditPublicFeedDocument(doc, nowMs = Date.now()) {
     count[raw === null ? "MISSING" : normalize(raw)]++;
   }
   walk(doc, 0);
-  const checked = !budgetExceeded && publicTlpJsonVerified(doc);
+  const checked = !budgetExceeded && !bodyBudgetExceeded && publicTlpJsonVerified(doc);
   const allTopLevelClear = items.length > 0 && count["TLP:CLEAR"] === items.length;
   const ready = fresh.healthy && checked && allTopLevelClear && missingAdvisoryLabels === 0;
   return {
@@ -69,12 +71,21 @@ export function auditPublicFeedDocument(doc, nowMs = Date.now()) {
     freshness_reason_code: fresh.reason || null,
     worker_public_tlp_gate: checked ? "PASS" : "BLOCKED",
     record_count: items.length,
+    // Aggregate size only; no record-level values, URLs or identifiers.
+    public_body_bytes: bodyBytes,
+    public_body_byte_limit: MAX_PUBLIC_BODY_BYTES,
+    worker_body_budget_exceeded: bodyBudgetExceeded,
+    worker_value_visits_observed: nestedNodes,
+    worker_value_visit_limit: MAX_PUBLIC_NODES,
+    worker_max_depth_observed: maxDepth,
+    worker_max_depth_limit: MAX_PUBLIC_DEPTH,
     top_level_label_counts: count,
     nested_label_counts: evidence,
     unlabeled_advisory_candidates: missingAdvisoryLabels,
     worker_node_budget_exceeded: budgetExceeded,
     // A numerical reason that does not expose which advisory caused failure.
     root_cause_family: !fresh.healthy ? "FEED_FRESHNESS_OR_STRUCTURE"
+      : bodyBudgetExceeded ? "PUBLICATION_BODY_BUDGET"
       : budgetExceeded ? "PUBLICATION_NODE_BUDGET"
       : !checked ? "TLP_BOUNDARY_REJECTION"
       : !allTopLevelClear ? "UNLABELED_OR_RESTRICTED_RECORDS"
