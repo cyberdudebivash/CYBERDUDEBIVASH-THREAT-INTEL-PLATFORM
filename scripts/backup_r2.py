@@ -99,11 +99,13 @@ def get_s3():
     )
 
 
-def list_objects(s3, bucket, prefix=""):
+def list_objects(s3, bucket, prefix="", plan=None):
     objects = []
     paginator = s3.get_paginator("list_objects_v2")
     try:
         for page_number, page in enumerate(paginator.paginate(Bucket=bucket, Prefix=prefix), 1):
+            if plan is not None:
+                plan.record_list()
             if page_number > MAX_LIST_PAGES:
                 raise RuntimeError("R2 inventory exceeded 99 pages; BLOCK before manifest upload")
             for obj in page.get("Contents", []):
@@ -165,11 +167,11 @@ def verify_sample_indices(total: int, sample_size: int, day_of_year: int) -> set
 
 def backup_bucket(s3, bucket_name, today, plan: R2OperationPlan):
     print(f"\n[{bucket_name}]")
-    objects = list_objects(s3, bucket_name)
+    objects = list_objects(s3, bucket_name, plan=plan)
     if objects is None:
         return None
     objects.sort(key=lambda o: o["key"])  # stable order so the rotating sample is well-defined
-    plan.record_list(n=max(1, -(-len(objects) // 1000)), reason=f"{bucket_name} daily inventory (existing job responsibility, unchanged)")
+    # LIST calls were counted for each network page in list_objects(), including abort.
 
     print(f"  Found {len(objects)} objects")
 
