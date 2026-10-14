@@ -111,9 +111,12 @@ jobs:
       - name: "STEP 3 — Install dependencies"
         run: |
           pip install --quiet --upgrade pip
-          pip install --quiet requests 2>/dev/null || true
+          pip install --quiet requests pytest
 
       # ------------------------------------------------------------------
+      - name: "P0 Customer Trust — weekly brief source/URL/TLP/price contract"
+        run: python -m pytest tests/test_weekly_customer_trust.py -v --tb=short
+
       - name: "STEP 4 — Generate Weekly Threat Brief"
         timeout-minutes: 10
         run: |

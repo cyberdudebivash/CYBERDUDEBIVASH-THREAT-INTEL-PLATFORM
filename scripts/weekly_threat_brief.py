@@ -29,6 +29,7 @@ import re
 import sys
 import urllib.request
 import urllib.parse
+from html import escape
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from typing import List, Dict, Any, Optional
@@ -51,6 +52,35 @@ SEND_TELEGRAM   = "--send-telegram" in sys.argv
 PLATFORM_URL    = "https://intel.cyberdudebivash.com"
 
 
+def _canonical_report_url(raw: object) -> str:
+    """Only link to reports on this platform. No duplicated hosts or URL injection."""
+    value = str(raw or "").strip()
+    if not value:
+        return ""
+    # A historical generator prepended PLATFORM_URL to an already absolute URL.
+    while value.startswith(PLATFORM_URL + PLATFORM_URL):
+        value = value[len(PLATFORM_URL):]
+    parsed = urllib.parse.urlsplit(value)
+    if parsed.scheme or parsed.netloc:
+        if parsed.scheme != "https" or parsed.netloc != urllib.parse.urlsplit(PLATFORM_URL).netloc:
+            return ""
+        path = parsed.path
+    else:
+        path = value
+    if not path.startswith("/reports/") or "//" in path or ".." in path or "?" in path or "#" in path:
+        return ""
+    return PLATFORM_URL + path
+
+
+def _canonical_price_labels() -> list:
+    """Read contract-authoritative INR prices rather than quote stale prices."""
+    contract = json.loads((REPO_ROOT / "config/commercial-contract.json").read_text(encoding="utf-8"))
+    tiers = contract["tiers"]
+    return [f"PRO — ₹{tiers['pro']['inr_monthly']:,}/month",
+            f"ENTERPRISE — ₹{tiers['enterprise']['inr_monthly']:,}/month",
+            f"MSSP — ₹{tiers['mssp']['inr_monthly']:,}/month"]
+
+
 def _load_feed() -> List[Dict]:
     """Load the live feed, try manifest first for richer data."""
     for path in (MANIFEST_PATH, FEED_PATH):
@@ -60,8 +90,12 @@ def _load_feed() -> List[Dict]:
                     raw = json.load(f)
                 items = raw if isinstance(raw, list) else raw.get("advisories", raw.get("items", []))
                 if items:
-                    log.info("Loaded %d items from %s", len(items), path.name)
-                    return items
+                    # Public weekly HTML and JSON must never disclose raw restricted
+                    # manifest entries. Fail closed if TLP authority is unavailable.
+                    import tlp_policy
+                    allowed, held = tlp_policy.partition_publishable(items)
+                    log.info("Eligible public weekly items=%d, withheld=%d", len(allowed), len(held))
+                    return allowed
         except Exception as e:
             log.warning("Failed to load %s: %s", path, e)
     return []
@@ -76,7 +110,7 @@ def _is_this_week(item: dict) -> bool:
         if ts:
             try:
                 dt = datetime.fromisoformat(str(ts).replace("Z", "+00:00"))
-                return dt >= week_ago
+                return week_ago <= dt <= now
             except Exception:
                 pass
     return False
@@ -97,7 +131,7 @@ def _build_brief(items: List[Dict]) -> Dict:
 
     # Filter this week's items
     this_week = [it for it in items if _is_this_week(it)]
-    all_items = this_week or items  # fallback to all if no recent items
+    all_items = this_week  # Never dress historical records as this week's intelligence
 
     # Sort by risk score descending
     all_sorted = sorted(all_items, key=lambda x: float(x.get("risk_score") or 0), reverse=True)
@@ -165,7 +199,7 @@ def _build_brief(items: List[Dict]) -> Dict:
                 "cve_id": it.get("cve_id") or it.get("title", ""),
                 "threat_type": it.get("threat_type", ""),
                 "kev": bool(it.get("kev") or it.get("cisa_kev")),
-                "report_url": f"{PLATFORM_URL}{it.get('report_url') or it.get('internal_report_url') or ''}",
+                "report_url": _canonical_report_url(it.get('report_url') or it.get('internal_report_url')),
                 "sigma_available": bool(it.get("sigma_rule")),
                 "actor": it.get("actor") or it.get("threat_actor") or "Unknown",
             }
@@ -176,7 +210,7 @@ def _build_brief(items: List[Dict]) -> Dict:
                 "cve_id": it.get("cve_id") or it.get("title", ""),
                 "title": it.get("title", ""),
                 "risk_score": float(it.get("risk_score") or 0),
-                "report_url": f"{PLATFORM_URL}{it.get('report_url') or ''}",
+                "report_url": _canonical_report_url(it.get('report_url')),
             }
             for it in kev_items[:5]
         ],
@@ -189,7 +223,7 @@ def _build_brief(items: List[Dict]) -> Dict:
         "upgrade_cta": {
             "message": "Get full detection rules (Sigma, KQL, Suricata), IOC feeds, STIX bundles and AI threat analysis.",
             "url": f"{PLATFORM_URL}/upgrade.html",
-            "plans": ["PRO — ₹4,100/month", "ENTERPRISE — ₹15,000/month", "MSSP — Custom Pricing"],
+            "plans": _canonical_price_labels(),
         },
     }
     return brief
@@ -212,27 +246,36 @@ def _render_html(brief: Dict) -> str:
             str(t["severity"]).upper(), "#6b7280")
         kev_badge = '<span style="background:#ef4444;color:#fff;font-size:10px;padding:2px 6px;border-radius:4px;margin-left:6px;">CISA KEV</span>' if t.get("kev") else ""
         sigma_badge = '<span style="background:#7c3aed;color:#fff;font-size:10px;padding:2px 6px;border-radius:4px;margin-left:6px;">SIGMA</span>' if t.get("sigma_available") else ""
+        safe_title = escape(str(t.get("title", ""))[:90])
+        safe_actor = escape(str(t.get("actor", "Unknown"))[:30])
+        safe_severity = escape(str(t.get("severity", "UNKNOWN")))
+        safe_link = escape(str(t.get("report_url", "")), quote=True)
+        title_cell = (f'<a href="{safe_link}" style="color:#38bdf8;text-decoration:none;font-size:13px;">{safe_title}</a>'
+                      if safe_link else f'<span style="font-size:13px;">{safe_title}</span>')
         rows += f"""
         <tr>
           <td style="padding:10px 8px;border-bottom:1px solid #1e293b;color:#64748b;font-size:12px;">{t['rank']}</td>
           <td style="padding:10px 8px;border-bottom:1px solid #1e293b;">
-            <a href="{t['report_url']}" style="color:#38bdf8;text-decoration:none;font-size:13px;">{t['title'][:90]}</a>
+            {title_cell}
             {kev_badge}{sigma_badge}
           </td>
           <td style="padding:10px 8px;border-bottom:1px solid #1e293b;">
-            <span style="color:{sev_color};font-size:12px;font-weight:700;">{t['severity']}</span>
+            <span style="color:{sev_color};font-size:12px;font-weight:700;">{safe_severity}</span>
           </td>
           <td style="padding:10px 8px;border-bottom:1px solid #1e293b;color:#94a3b8;font-size:12px;">{t['risk_score']:.1f}</td>
-          <td style="padding:10px 8px;border-bottom:1px solid #1e293b;color:#94a3b8;font-size:12px;">{str(t['actor'])[:30]}</td>
+          <td style="padding:10px 8px;border-bottom:1px solid #1e293b;color:#94a3b8;font-size:12px;">{safe_actor}</td>
         </tr>"""
 
     kev_items_html = ""
     for k in kev:
-        kev_items_html += f'<li style="margin-bottom:8px;"><a href="{k["report_url"]}" style="color:#38bdf8;">{k["title"]}</a> — Risk {k["risk_score"]:.1f}</li>'
+        safe_title = escape(str(k.get("title", "")))
+        safe_link = escape(str(k.get("report_url", "")), quote=True)
+        inner = f'<a href="{safe_link}" style="color:#38bdf8;">{safe_title}</a>' if safe_link else safe_title
+        kev_items_html += f'<li style="margin-bottom:8px;">{inner} — Risk {k["risk_score"]:.1f}</li>'
     if not kev_items_html:
         kev_items_html = "<li style='color:#64748b;'>No new KEV additions this week.</li>"
 
-    actors_html = " | ".join(f'<span style="background:#1e293b;padding:3px 8px;border-radius:4px;font-size:12px;">{a}</span>' for a in actors) or "<span style='color:#64748b;'>No attributed actors this period</span>"
+    actors_html = " | ".join(f'<span style="background:#1e293b;padding:3px 8px;border-radius:4px;font-size:12px;">{escape(str(a))}</span>' for a in actors) or "<span style='color:#64748b;'>No attributed actors this period</span>"
 
     return f"""<!DOCTYPE html>
 <html lang="en">
@@ -387,6 +430,9 @@ def main():
         return
 
     brief = _build_brief(items)
+    if brief["stats"]["total_advisories"] == 0:
+        log.error("No source-dated public advisories in this weekly window; refusing stale brief publication")
+        return 1
     html  = _render_html(brief)
 
     _atomic_write(BRIEF_JSON_PATH, brief)
@@ -403,7 +449,8 @@ def main():
              brief["stats"]["critical_count"],
              brief["stats"]["kev_additions"])
     print(f"[DONE] Brief generated for {brief['week']} — {brief['period']}")
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())
