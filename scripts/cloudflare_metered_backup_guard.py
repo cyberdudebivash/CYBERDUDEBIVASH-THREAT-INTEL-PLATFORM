@@ -47,6 +47,7 @@ def require_metered_backup_permit(*, environ=None) -> None:
         minimum_increment = {
             "r2_class_a": 105, "r2_class_b": 500,
             "kv_reads": 4000, "kv_lists": 8,
+            "r2_standard_storage_gb_month": "0.1",
         }
         for name, floor in minimum_increment.items():
             delta = Decimal(str(metrics[name]["proposed_increment_until_reset"]))
