@@ -47,7 +47,7 @@ def test_publication_status_uses_one_bounded_get(monkeypatch, clean_budget):
         calls.append((req.get_method(), req.full_url))
         return Response({"state": "REJECTED", "customer_ready": False})
 
-    monkeypatch.setattr(dcv.urllib.request, "urlopen", urlopen)
+    monkeypatch.setattr(dcv, "_platform_open", urlopen)
     result = dcv.query_publication_status("intel--0123456789abcdef")
 
     assert result == {"state": "REJECTED", "customer_ready": False}
@@ -69,7 +69,7 @@ def test_last_request_slot_can_classify_gate_rejection(monkeypatch, clean_budget
         calls.append(req.get_method())
         return Response({"state": "REJECTED", "customer_ready": False})
 
-    monkeypatch.setattr(dcv.urllib.request, "urlopen", urlopen)
+    monkeypatch.setattr(dcv, "_platform_open", urlopen)
     result = dcv.query_publication_status("intel--fedcba9876543210")
 
     assert result == {"state": "REJECTED", "customer_ready": False}
@@ -80,8 +80,8 @@ def test_last_request_slot_can_classify_gate_rejection(monkeypatch, clean_budget
 def test_exhausted_budget_still_fails_closed(monkeypatch, clean_budget):
     monkeypatch.setattr(dcv, "_REQUESTS_USED", dcv.MAX_TOTAL_REQUESTS)
     monkeypatch.setattr(
-        dcv.urllib.request,
-        "urlopen",
+        dcv,
+        "_platform_open",
         lambda *args, **kwargs: pytest.fail("network must not run"),
     )
 
@@ -102,7 +102,7 @@ def test_rate_limited_status_get_preserves_global_cooldown(
     def rate_limited(*args, **kwargs):
         raise error
 
-    monkeypatch.setattr(dcv.urllib.request, "urlopen", rate_limited)
+    monkeypatch.setattr(dcv, "_platform_open", rate_limited)
 
     assert dcv.query_publication_status("intel--cafebabecafebabe") is None
     assert dcv._REQUESTS_USED == 1
@@ -176,7 +176,7 @@ def test_full_healthy_protocol_completes_phase5_within_existing_cap(
             )
         return Response({})
 
-    monkeypatch.setattr(dcv.urllib.request, "urlopen", urlopen)
+    monkeypatch.setattr(dcv, "_platform_open", urlopen)
     dcv._GATE_VERDICTS.clear()
 
     phase1 = dcv.phase1_pages_push_detection()
@@ -194,7 +194,7 @@ def test_full_healthy_protocol_completes_phase5_within_existing_cap(
 def test_not_probed_is_distinct_from_permanent_404(monkeypatch, clean_budget):
     monkeypatch.setattr(dcv, "_REQUESTS_USED", dcv.MAX_TOTAL_REQUESTS)
     monkeypatch.setattr(
-        dcv.urllib.request, "urlopen",
+        dcv, "_platform_open",
         lambda *args, **kwargs: pytest.fail("request budget exhaustion must make zero HTTP calls"),
     )
     result = dcv._http_probe(dcv.PAGES_BASE_URL + "/reports/2026/10/intel--deadbeef.html")
