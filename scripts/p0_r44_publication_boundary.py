@@ -14,6 +14,51 @@ from manifest_reconciler import reconcile, _atomic_write
 from p0_r35_feed_prewrite_guard import assert_publishable, select_publishable
 from tlp_policy import partition_publishable
 from public_api_sanitizer import _remove_invalid_stix_alias
+from evidence_score_enforcer import compute_evidence_tier, backfill_governance_fields
+from severity_epss_truth import epss_percent
+
+
+def enforce_public_risk_truth(records: list[dict]) -> tuple[list[dict], int]:
+    """Recheck risk against quantifiable evidence at the LAST public boundary.
+
+    Later enrichment writers may re-inflate scores after the earlier evidence
+    enforcer. Preserve untouched evidence in the internal archive; public
+    output gets a bounded, lower claim when evidence is inadequate.
+    Do not fabricate CVEs, KEV, EPSS, observables or positive evidence.
+    """
+    result = []
+    adjusted = 0
+    for record in records:
+        item = dict(record)
+        try:
+            risk = float(item.get("risk_score") or 0)
+        except (TypeError, ValueError):
+            risk = 0.0
+        if not (0.0 <= risk <= 10.0):
+            raise ValueError("P0_PUBLIC_RISK_INVALID")
+        if risk >= 9.0:
+            # Normalize only on a copy. This conservative evidence tier requires
+            # real numeric or affirmative structured evidence, not prose keywords.
+            normalized = backfill_governance_fields(item)
+            # The canonical customer API stores EPSS in percentage units.
+            # The legacy backfill guesses that numbers <=1 are fractions and
+            # can turn a VERIFIED 0.9% into 90%. That is false tier-4 evidence.
+            # Never use unverified or ambiguously scaled values to authorize a
+            # public critical-risk claim. Keep the archive and public source
+            # EPSS fields untouched; only correct the evidence-check copy.
+            verified_epss = epss_percent(item)
+            for key in ("epss", "epss_score", "epss_pct"):
+                normalized.pop(key, None)
+            if verified_epss is not None:
+                normalized["epss_score"] = verified_epss
+            tier, cap = compute_evidence_tier(normalized, epss_is_percentage=True)
+            if cap < risk:
+                item["risk_score"] = round(cap, 1)
+                if str(item.get("severity", "")).upper() == "CRITICAL" and cap < 9.0:
+                    item["severity"] = "HIGH"
+                adjusted += 1
+        result.append(item)
+    return result, adjusted
 
 log = logging.getLogger(__name__)
 
@@ -63,6 +108,9 @@ def finalize_public_feed(root: Path) -> dict:
     public_selected = [dict(record) for record in selected]
     for record in public_selected:
         _remove_invalid_stix_alias(record)
+    public_selected, risk_adjustments = enforce_public_risk_truth(public_selected)
+    if risk_adjustments:
+        log.warning("P0 public evidence fence: %d unsupported high scores capped after archival reconciliation", risk_adjustments)
     _atomic_write(source, public_selected)
     _atomic_write(root / "feed.json", public_selected)
     return report

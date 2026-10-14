@@ -272,10 +272,16 @@ def t07():
     flags them — causing STAGE 5.6 HARD FAIL on every pipeline run that ingests an
     actively-exploited threat without a formal CVE assignment.
     """
-    if not MANIFEST_PATH.exists():
-        return  # not blocking if manifest absent
-    data = json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
-    items = data if isinstance(data, list) else data.get("advisories", [])
+    # T07 is a CUSTOMER-PUBLICATION assertion, not a requirement to edit
+    # immutable upstream evidence history. The internal STIX manifest may
+    # retain original upstream risk assertions for provenance/audit; only
+    # the actual public feed is promised to customers. Never silently pass
+    # if that feed is missing or malformed.
+    public_feed = REPO_ROOT / "api" / "feed.json"
+    assert public_feed.is_file(), "T07: public feed missing"
+    data = json.loads(public_feed.read_text(encoding="utf-8"))
+    assert isinstance(data, list), "T07: public feed is not a list"
+    items = data
 
     def _justified(i: dict) -> bool:
         kev      = i.get("kev_present", False) or i.get("kev", False)
