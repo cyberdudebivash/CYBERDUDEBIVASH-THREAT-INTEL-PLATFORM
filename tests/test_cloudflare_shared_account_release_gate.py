@@ -32,6 +32,7 @@ def snapshot(policy):
         "schema_version": 1,
         "source": "cloudflare_account_billing_and_analytics",
         "owner_verified": True,
+        "current_account_plan_verified": True,
         "all_platforms_accounted_for": True,
         "all_billing_products_accounted_for": True,
         "platform_ids": [f"platform-{i}" for i in range(10)],
@@ -70,6 +71,7 @@ def test_synthetic_ten_platform_snapshot_is_conditionally_admissible(policy, sna
 
 @pytest.mark.parametrize("change", [
     ("owner_verified", False),
+    ("current_account_plan_verified", False),
     ("all_platforms_accounted_for", False),
     ("all_billing_products_accounted_for", False),
     ("plan_change", True),
@@ -120,6 +122,23 @@ def test_future_dated_snapshot_rejected(policy, snapshot):
 def test_invalid_or_excessive_metric_blocks(policy, snapshot, key, value):
     snapshot["metrics"]["r2_class_a"][key] = value
     with pytest.raises(gate.ReleaseBlocked):
+        gate.certify(policy, snapshot)
+
+
+def test_unused_no_included_allowance_is_safe_but_any_usage_blocks(policy, snapshot):
+    zero = snapshot["metrics"]["r2_class_a"]
+    zero.update(included="0", used_account_wide="0",
+                forecast_all_platforms_until_reset="0",
+                proposed_increment_until_reset="0")
+    assert gate.certify(policy, snapshot)["metrics"]["r2_class_a"]["included"] == "0"
+    zero["proposed_increment_until_reset"] = "0.01"
+    with pytest.raises(gate.ReleaseBlocked, match="no included allowance"):
+        gate.certify(policy, snapshot)
+
+
+def test_missing_billing_unit_rejected(policy, snapshot):
+    snapshot["metrics"]["r2_class_a"].pop("unit")
+    with pytest.raises(gate.ReleaseBlocked, match="unit"):
         gate.certify(policy, snapshot)
 
 
