@@ -51,7 +51,7 @@ def require_metered_backup_permit(*, environ=None) -> None:
         }
         for name, floor in minimum_increment.items():
             delta = Decimal(str(metrics[name]["proposed_increment_until_reset"]))
-            if not delta.is_finite() or delta < floor:
+            if not delta.is_finite() or delta < Decimal(str(floor)):
                 raise MeteredBackupDenied(f"{name}: insufficient backup operation forecast")
     except (OSError, ValueError, TypeError, KeyError, AttributeError) as exc:
         raise MeteredBackupDenied("Backup account-wide cost preflight denied") from exc
