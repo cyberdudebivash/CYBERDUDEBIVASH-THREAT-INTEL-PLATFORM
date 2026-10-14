@@ -216,3 +216,55 @@ def test_full_backup_includes_private_account_evidence_when_r2_opted_in():
     start = source.index('elif dest in ("r2", "cloudflare"):')
     assert source.index("require_metered_backup_permit()", start) < source.index(
         "return _S3Storage(_BACKUP_R2_BUCKET", start)
+
+
+
+@pytest.mark.parametrize("url", [
+    "http://api.cloudflare.com/client/v4/accounts/xxx/storage/kv",
+    "https://evil.example/client/v4/accounts/xxx/storage/kv",
+    "https://api.cloudflare.com.evil.example/client/v4/accounts/xxx/storage/kv",
+    "https://api.cloudflare.com@evil.example/client/v4/accounts/xxx/storage/kv",
+    "https://api.cloudflare.com/public/other",
+    "ftp://api.cloudflare.com/client/v4/accounts/xxx",
+])
+def test_authenticated_cloudflare_kv_request_denies_untrusted_origin(monkeypatch, url):
+    from urllib.request import Request
+    monkeypatch.setattr(
+        kv.urllib.request, "build_opener",
+        lambda *args: pytest.fail("Rejected URL must not open network transport"))
+    req = Request(url, headers={"Authorization": "Bearer canary-not-real"})
+    with pytest.raises(ValueError, match="fixed HTTPS origin"):
+        kv._cloudflare_open(req, timeout=1)
+
+
+def test_authenticated_cloudflare_kv_request_uses_only_no_redirect_opener(monkeypatch):
+    from urllib.request import Request
+    captured = {}
+    class LocalOpener:
+        def open(self, request, timeout):
+            captured["request"] = request
+            captured["timeout"] = timeout
+            return "injected-local-only"
+    def fake_builder(handler):
+        captured["handler_class"] = handler
+        return LocalOpener()
+    monkeypatch.setattr(kv.urllib.request, "build_opener", fake_builder)
+    url = "https://api.cloudflare.com/client/v4/accounts/test/storage/kv"
+    result = kv._cloudflare_open(Request(url, headers={"Authorization": "Bearer canary-not-real"}), timeout=3)
+    assert result == "injected-local-only"
+    assert captured["timeout"] == 3
+    assert issubclass(captured["handler_class"], kv.urllib.request.HTTPRedirectHandler)
+    assert captured["handler_class"]().redirect_request(None, None, 302, "redirect", {}, "https://evil.example") is None
+
+
+def test_r2_manifest_put_failure_has_no_plaintext_temp_fallback(tmp_path, monkeypatch):
+    class RejectPut:
+        def put_object(self, **kw):
+            raise r2.ClientError({"Error": {"Code": "AccessDenied", "Message": "denied"}}, "PutObject")
+    monkeypatch.chdir(tmp_path)
+    plan = R2OperationPlan(label="r2_backup_failure")
+    assert not r2.upload_manifest(RejectPut(), {"bucket": "sentinel-apex-data", "objects": []},
+                                  "sentinel-apex-data", "2026-10-14", plan)
+    assert plan.put == 0
+    assert not list(tmp_path.glob("**/*.json"))
+    assert "/tmp/r2_manifest_" not in (ROOT / "scripts/backup_r2.py").read_text()
