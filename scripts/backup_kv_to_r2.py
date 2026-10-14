@@ -58,6 +58,7 @@ MAX_RETRIES = min(1, max(0, int(os.environ.get("KV_BACKUP_MAX_RETRIES", "1")))) 
 RETRY_BASE_SECONDS = max(0.05, float(os.environ.get("KV_BACKUP_RETRY_BASE_SECONDS", "0.5")))
 RETRYABLE_HTTP = {408, 425, 429, 500, 502, 503, 504}
 MAX_KEYS_PER_NAMESPACE = 500  # full exports only; NEVER upload truncated snapshots
+MAX_SNAPSHOT_BYTES = 10 * 1024 * 1024  # refuse oversize R2 PUT
 
 
 def cf_get(path, params=None):
@@ -213,6 +214,9 @@ def upload_to_r2(key, data):
         config=Config(retries={"total_max_attempts": 1}),
     )
     body = json.dumps(data, indent=2).encode("utf-8")
+    if len(body) > MAX_SNAPSHOT_BYTES:
+        print("  BLOCK: KV snapshot exceeds 10 MiB per-object cost ceiling")
+        return False
     try:
         s3.put_object(
             Bucket=CF_R2_BUCKET,
