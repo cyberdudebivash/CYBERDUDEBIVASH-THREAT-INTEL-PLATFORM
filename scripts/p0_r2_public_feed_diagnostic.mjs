@@ -23,12 +23,16 @@ const MAX_FILE_BYTES = 8 * 1024 * 1024;
 const LABELS = Object.freeze(["TLP:CLEAR", "TLP:GREEN", "TLP:AMBER", "TLP:AMBER+STRICT", "TLP:RED", "MISSING", "INVALID"]);
 const MARKER_KEYS = ["id", "advisory_id", "intel_id", "report_url", "internal_report_url", "cve_id", "stix_id", "cve_ids", "threat_id"];
 
-export function auditPublicFeedDocument(doc, nowMs = Date.now()) {
+export function auditPublicFeedDocument(doc, nowMs = Date.now(), exactRawBytes = null) {
   // Report only safe aggregate counts, never record identifiers, source URLs,
   // titles, IOCs or evidence fields.
   const fresh = evaluatePublicIntelligence(doc, nowMs);
   const encoded = JSON.stringify(doc);
-  const bodyBytes = typeof encoded === "string" ? Buffer.byteLength(encoded, "utf8") : Infinity;
+  // A file's original R2 byte size may exceed the cap even when compact
+  // JSON.stringify(doc) fits it. inspectLocalFile passes stat.size so a
+  // pretty-printed or padded production object can never be miscertified.
+  const bodyBytes = Number.isSafeInteger(exactRawBytes) && exactRawBytes >= 0
+    ? exactRawBytes : (typeof encoded === "string" ? Buffer.byteLength(encoded, "utf8") : Infinity);
   const bodyBudgetExceeded = bodyBytes > MAX_PUBLIC_BODY_BYTES;
   const count = Object.fromEntries(LABELS.map(label => [label, 0]));
   const evidence = Object.fromEntries(LABELS.map(label => [label, 0]));
@@ -102,7 +106,7 @@ export function inspectLocalFile(path, nowMs = Date.now()) {
   let doc;
   try { doc = JSON.parse(raw); }
   catch { throw new Error("LOCAL_DOCUMENT_NOT_JSON"); }
-  return auditPublicFeedDocument(doc, nowMs);
+  return auditPublicFeedDocument(doc, nowMs, stat.size);
 }
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
