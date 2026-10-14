@@ -164,12 +164,36 @@ class TestSanitizeDocument(unittest.TestCase):
         self.assertEqual([r["id"] for r in out], ["unl"])
         self.assertEqual(removed[0]["id"], "x")
 
-    def test_non_record_aggregates_pass_through_unchanged(self):
+    def test_unlabeled_id_title_aggregate_is_not_a_public_advisory(self):
+        # Worker publicTlpJsonVerified() rejects every title/id object lacking
+        # an explicit CLEAR label. Python must remove these before publication,
+        # while unrelated name/id metadata is still allowed.
         doc = {"count": 2, "top_threats": [{"id": "TH-1", "title": "t", "risk_score": 9}, {"id": "TH-2", "title": "u"}],
                "actors": [{"id": "a", "name": "n"}]}
         out, removed, withheld = tb.sanitize_document(doc, POLICY)
-        self.assertEqual(out, doc)
-        self.assertEqual((removed, withheld), ([], None))
+        self.assertEqual(out["top_threats"], [])
+        self.assertEqual(out["count"], 0)
+        self.assertEqual(out["actors"], doc["actors"])
+        self.assertEqual(len(removed), 2)
+        self.assertIsNone(withheld)
+
+    def test_naked_nested_advisory_is_removed_but_labeled_clear_is_retained(self):
+        doc = {"count": 1, "items": [{
+            "id": "intel--public", "title": "Source-supported bulletin",
+            "tlp": "TLP:CLEAR",
+            "related": [
+                {"id": "intel--unverified", "title": "Unclassified nested entry", "ioc": "DO_NOT_PUBLISH"},
+                {"id": "intel--verified", "title": "Verified subentry", "tlp": "TLP:CLEAR"},
+            ],
+        }]}
+        out, removed, withheld = tb.sanitize_document(doc, POLICY)
+        self.assertEqual(len(out["items"]), 1)
+        self.assertEqual(out["items"][0]["related"], [
+            {"id": "intel--verified", "title": "Verified subentry", "tlp": "TLP:CLEAR"}
+        ])
+        self.assertNotIn("DO_NOT_PUBLISH", json.dumps(out))
+        self.assertEqual(len(removed), 1)
+        self.assertIsNone(withheld)
 
 
 class TestConflictingClassification(unittest.TestCase):
