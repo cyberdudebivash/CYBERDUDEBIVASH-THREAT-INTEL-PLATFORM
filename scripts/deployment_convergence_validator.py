@@ -219,6 +219,10 @@ def _platform_open(req, *, timeout):
     """
     parsed = urllib.parse.urlsplit(req.full_url)
     path = parsed.path
+    # Percent-encoded traversal, credentials, or cache-buster query strings
+    # must not convert a publication check into a different request target.
+    if "%" in path or ".." in path or "\\\\" in path or parsed.query:
+        raise ValueError("CONVERGENCE_UNTRUSTED_PLATFORM_ORIGIN_OR_PATH")
     is_report = (path.startswith("/reports/")
                  and path.endswith(".html")
                  and ".." not in path and "\\\\" not in path)
