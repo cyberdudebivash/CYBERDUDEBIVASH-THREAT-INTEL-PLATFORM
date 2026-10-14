@@ -26,9 +26,12 @@ import urllib.parse
 import concurrent.futures
 import random
 
+from cloudflare_metered_backup_guard import require_metered_backup_permit, MeteredBackupDenied
+
 try:
     import boto3
     from botocore.exceptions import ClientError
+    from botocore.config import Config
 except ImportError:
     print("FATAL: boto3 is required. Run: pip install boto3")
     sys.exit(1)
@@ -50,10 +53,11 @@ KV_NAMESPACES = {
 
 SKIP_TRANSIENT_IN = {"RATE_LIMIT_KV"}
 
-MAX_WORKERS = max(1, int(os.environ.get("KV_BACKUP_WORKERS", "32")))
-MAX_RETRIES = max(0, int(os.environ.get("KV_BACKUP_MAX_RETRIES", "5")))
+MAX_WORKERS = min(4, max(1, int(os.environ.get("KV_BACKUP_WORKERS", "4"))))
+MAX_RETRIES = 0  # 1 request per key; no implicit retry amplification in zero-overage posture
 RETRY_BASE_SECONDS = max(0.05, float(os.environ.get("KV_BACKUP_RETRY_BASE_SECONDS", "0.5")))
 RETRYABLE_HTTP = {408, 425, 429, 500, 502, 503, 504}
+MAX_KEYS_PER_NAMESPACE = 500  # full exports only; NEVER upload truncated snapshots
 
 
 def cf_get(path, params=None):
@@ -76,7 +80,7 @@ def cf_get(path, params=None):
 def list_kv_keys(ns_id, prefix=None):
     keys = []
     cursor = None
-    _MAX_PAGES = 500  # hard ceiling: 500 pages × 1000 keys = 500K keys max
+    _MAX_PAGES = 2  # at most 2 LISTs per namespace; no huge enumerations
     _page = 0
     while True:
         _page += 1
@@ -85,7 +89,7 @@ def list_kv_keys(ns_id, prefix=None):
                 f"KV list exceeded {_MAX_PAGES} pages for namespace {ns_id} — "
                 "possible infinite cursor loop; aborting to prevent stall"
             )
-        params = {"limit": "1000"}
+        params = {"limit": "500"}
         if cursor:
             params["cursor"] = cursor
         if prefix:
@@ -94,9 +98,13 @@ def list_kv_keys(ns_id, prefix=None):
         if not resp.get("success"):
             raise RuntimeError(f"KV list failed: {resp}")
         keys.extend(k["name"] for k in resp.get("result", []))
+        if len(keys) > MAX_KEYS_PER_NAMESPACE:
+            raise RuntimeError("KV namespace exceeds 500-key cost cap; no partial snapshot")
         cursor = resp.get("result_info", {}).get("cursor")
         if not cursor:
             break
+        if len(keys) >= MAX_KEYS_PER_NAMESPACE:
+            raise RuntimeError("KV cursor confirms more than 500 keys; no snapshot upload")
         time.sleep(0.05)
     return keys
 
@@ -169,6 +177,9 @@ def backup_namespace(ns_name, ns_id, skip_transient):
             if completed % 100 == 0:
                 print(f"    Progress: {completed}/{len(keys)} keys fetched...")
 
+    if errors:
+        print(f"  BLOCK: {errors} value fetches failed; refusing incomplete KV snapshot")
+        return None
     checksum = hashlib.sha256(json.dumps(entries, sort_keys=True).encode()).hexdigest()
     return {
         "namespace": ns_name,
@@ -192,6 +203,7 @@ def upload_to_r2(key, data):
         aws_access_key_id=CF_R2_ACCESS_KEY,
         aws_secret_access_key=CF_R2_SECRET_KEY,
         region_name="auto",
+        config=Config(retries={"total_max_attempts": 1}),
     )
     body = json.dumps(data, indent=2).encode("utf-8")
     try:
@@ -210,6 +222,12 @@ def upload_to_r2(key, data):
 
 
 def main():
+    # Authorization check MUST precede list_keys/value GET and R2 PUT.
+    try:
+        require_metered_backup_permit()
+    except MeteredBackupDenied as exc:
+        print(f"BLOCK: KV/R2 metered backup refused before network requests: {exc}")
+        sys.exit(2)
     if not CF_API_TOKEN:
         print("FATAL: CF_API_TOKEN not set")
         sys.exit(1)
