@@ -49,11 +49,14 @@ import datetime
 _SCRIPTS_DIR = os.path.dirname(os.path.abspath(__file__))
 if _SCRIPTS_DIR not in sys.path:
     sys.path.insert(0, _SCRIPTS_DIR)
-from r2_cost_guard import R2OperationPlan, emit_summary, R2Budgets  # noqa: E402
+from r2_cost_guard import (R2OperationPlan, emit_summary, R2Budgets,
+                           enforce_budget, R2BudgetExceeded)  # noqa: E402
+from cloudflare_metered_backup_guard import require_metered_backup_permit, MeteredBackupDenied  # noqa: E402
 
 try:
     import boto3
     from botocore.exceptions import ClientError
+    from botocore.config import Config
 except ImportError:
     print("FATAL: boto3 is required. Run: pip install boto3")
     sys.exit(1)
@@ -63,7 +66,9 @@ CF_R2_SECRET_KEY = os.environ.get("CF_R2_SECRET_ACCESS_KEY", "")
 CF_R2_ENDPOINT   = os.environ.get("CF_R2_ENDPOINT", "")
 BACKUP_BUCKET    = os.environ.get("CF_R2_BACKUP_BUCKET", "")
 MANIFEST_PREFIX  = os.environ.get("BACKUP_MANIFEST_PREFIX", "r2-backups/")
-MAX_VERIFY_PER_RUN = int(os.environ.get("MAX_BACKUP_VERIFY_OBJECTS_PER_RUN", "2000"))
+# Hard ceilings; to raise them requires source review, not environment overrides.
+MAX_VERIFY_PER_RUN = min(500, max(1, int(os.environ.get("MAX_BACKUP_VERIFY_OBJECTS_PER_RUN", "500"))))
+MAX_LIST_PAGES = 99  # at most 100 network LISTs incl. the overflow check
 
 # sentinel-apex-reports intentionally excluded -- see module docstring's
 # P0 R2 COST INCIDENT FIX note (fix #1). Never touch cyberdudebivash-scan-results
@@ -90,6 +95,7 @@ def get_s3():
         aws_access_key_id=CF_R2_ACCESS_KEY,
         aws_secret_access_key=CF_R2_SECRET_KEY,
         region_name="auto",
+        config=Config(retries={"total_max_attempts": 1}),
     )
 
 
@@ -97,7 +103,9 @@ def list_objects(s3, bucket, prefix=""):
     objects = []
     paginator = s3.get_paginator("list_objects_v2")
     try:
-        for page in paginator.paginate(Bucket=bucket, Prefix=prefix):
+        for page_number, page in enumerate(paginator.paginate(Bucket=bucket, Prefix=prefix), 1):
+            if page_number > MAX_LIST_PAGES:
+                raise RuntimeError("R2 inventory exceeded 99 pages; BLOCK before manifest upload")
             for obj in page.get("Contents", []):
                 objects.append({
                     "key": obj["Key"],
@@ -105,7 +113,7 @@ def list_objects(s3, bucket, prefix=""):
                     "last_modified": obj["LastModified"].isoformat(),
                     "etag": obj.get("ETag", "").strip('"'),
                 })
-    except ClientError as e:
+    except (ClientError, RuntimeError) as e:
         print(f"  ERROR listing {bucket}: {e}")
         return None
     return objects
@@ -181,6 +189,7 @@ def backup_bucket(s3, bucket_name, today, plan: R2OperationPlan):
         if i not in sample_idx:
             verified.append({**obj, "sha256": None, "verified_size": None})
             continue
+        plan.record_get()
         sha256, size = verify_object(s3, bucket_name, key)
         verified_this_run += 1
         if sha256:
@@ -248,6 +257,24 @@ def main():
               "matches backup_kv_to_r2.py's own treatment of this identical condition.")
         sys.exit(0)
 
+    # The next operation is a billed R2 call. Deny first if 10-platform
+    # Cloudflare headroom/approval has not been established.
+    try:
+        require_metered_backup_permit()
+        if SOURCE_BUCKETS != ["sentinel-apex-data"] or BACKUP_BUCKET:
+            raise MeteredBackupDenied("unapproved bucket expansion or secondary COPY")
+        approved = R2Budgets(max_list_calls_per_run=100,
+                             max_class_b_calls_per_run=MAX_VERIFY_PER_RUN,
+                             max_data_writes_per_run=1)
+        worst_case = R2OperationPlan(label="backup_r2_preflight", bucket=SOURCE_BUCKETS[0])
+        worst_case.record_list(100)  # 99 pages plus one overflow detection
+        worst_case.record_get(MAX_VERIFY_PER_RUN)
+        worst_case.record_put()
+        enforce_budget(worst_case, approved, is_report_plan=False)
+    except (MeteredBackupDenied, R2BudgetExceeded) as exc:
+        print(f"BLOCK: R2 optional backup rejected before network calls: {exc}")
+        sys.exit(2)
+
     s3 = get_s3()
     failed = []
     plan = R2OperationPlan(label="backup_r2", bucket=",".join(SOURCE_BUCKETS))
@@ -264,7 +291,7 @@ def main():
     # this job is not budget-ENFORCED (it's a bounded-by-construction daily inventory,
     # continue-on-error in automated-backup.yml), but it must still be counted so the
     # platform's total R2 footprint is visible in one place (data/quality/r2_cost_guard_report.json).
-    emit_summary(plan, R2Budgets.from_env(), status="PASS", is_report_plan=False)
+    emit_summary(plan, approved, status="BLOCKED" if failed else "PASS", is_report_plan=False)
 
     if failed:
         print(f"\nFATAL: Failed buckets: {failed}")
