@@ -64,6 +64,9 @@ on:
       - 'scripts/r2_lifecycle_manager.py'
       - 'config/r2_lifecycle_policy.json'
       - 'config/cloudflare_pre_revenue_guard.json'
+      - 'config/cloudflare_shared_account_zero_overage.json'
+      - 'ops/cloudflare_shared_account_release_gate.py'
+      - 'tests/test_cloudflare_shared_account_release_gate.py'
       - 'workers/intel-gateway/wrangler.toml'
       - 'tests/test_cloudflare_pre_revenue_guard.py'
       - 'scripts/cloudflare_workload_guard.py'
@@ -152,6 +155,11 @@ jobs:
 
       - name: "GATE N -- R2 native lifecycle policy drift gate (7-day ephemeral retention, no sentinel-apex-data age rules)"
         run: python -m pytest tests/test_r2_lifecycle_manager.py -v --tb=short
+
+      - name: "P0 SHARED ACCOUNT -- zero-overage policy and negative controls (no Cloudflare requests)"
+        run: |
+          python ops/cloudflare_shared_account_release_gate.py --validate-policy
+          python -m pytest tests/test_cloudflare_shared_account_release_gate.py -v --tb=short
 
       - name: "GATE O -- pre-revenue Cloudflare plan/usage expansion guard"
         run: |
