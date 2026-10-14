@@ -180,3 +180,12 @@ def test_cli_is_read_only_and_never_contacts_cloudflare(tmp_path, policy, snapsh
                              capture_output=True, text=True, timeout=8)
     assert blocked.returncode == 2
     assert "BLOCK:" in blocked.stderr
+
+
+def test_existing_finops_gate_cannot_skip_shared_account_zero_overage_contract():
+    workflow = (ROOT / ".github/workflows/r2-finops-regression-gate.yml").read_text(encoding="utf-8")
+    assert "ops/cloudflare_shared_account_release_gate.py --validate-policy" in workflow
+    assert "tests/test_cloudflare_shared_account_release_gate.py" in workflow
+    assert "'config/cloudflare_shared_account_zero_overage.json'" in workflow
+    assert "'ops/cloudflare_shared_account_release_gate.py'" in workflow
+    assert "'tests/test_cloudflare_shared_account_release_gate.py'" in workflow
