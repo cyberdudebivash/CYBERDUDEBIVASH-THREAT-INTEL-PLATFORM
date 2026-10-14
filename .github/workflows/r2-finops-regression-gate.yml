@@ -76,6 +76,8 @@ on:
       - 'scripts/r2_state_sync.py'
       - 'scripts/backup_r2.py'
       - 'scripts/backup_kv_to_r2.py'
+      - 'scripts/cloudflare_metered_backup_guard.py'
+      - 'tests/test_cloudflare_metered_backup_guard.py'
       - 'agent/backup/backup_engine.py'
       - 'scripts/p0_r2_stix_manifest_diagnostic.py'
       - '.github/workflows/generate-and-sync.yml'
@@ -168,6 +170,9 @@ jobs:
 
       - name: "r2_state_sync.py -- bounded state round-trip + retry ceiling"
         run: python -m pytest tests/test_r2_state_sync.py -v --tb=short
+
+      - name: "P0 zero-overage -- optional Cloudflare backup admission/negative controls (NO Cloudflare requests)"
+        run: python -m pytest tests/test_cloudflare_metered_backup_guard.py -v --tb=short
 
       - name: "GATE G -- backup_kv_to_r2.py bounded KV pagination"
         run: python -m pytest tests/test_backup_kv_to_r2_parallel_fetch.py -v --tb=short

@@ -298,6 +298,11 @@ def _get_storage():
     if dest in ("s3", "aws"):
         return _S3Storage(_BACKUP_S3_BUCKET, _BACKUP_S3_PREFIX)
     elif dest in ("r2", "cloudflare"):
+        # P0 FinOps: even the primary encrypted backup may be configured to
+        # write to R2. A job-level optional-backup switch alone cannot guard
+        # this independent code path. Deny BEFORE instantiating R2 storage.
+        from scripts.cloudflare_metered_backup_guard import require_metered_backup_permit
+        require_metered_backup_permit()
         return _S3Storage(_BACKUP_R2_BUCKET, _BACKUP_S3_PREFIX, endpoint_url=_BACKUP_R2_ENDPOINT)
     else:
         return _LocalStorage(_BACKUP_LOCAL_PATH)

@@ -64,12 +64,8 @@ class TestParallelFetchCorrectness(unittest.TestCase):
             with patch.object(bkv, "get_kv_value", side_effect=_fetch):
                 result = bkv.backup_namespace("TEST_NS", "ns123", skip_transient=False)
 
-        self.assertEqual(result["errors"], 1)
-        self.assertEqual(result["count"], 49)
-        self.assertNotIn("key-17", result["entries"])
-        for k in keys:
-            if k != "key-17":
-                self.assertEqual(result["entries"][k], f"value-for-{k}")
+        # A partially fetched namespace is not a restorable snapshot.
+        self.assertIsNone(result)
 
     def test_transient_filter_still_applied_before_fetching(self):
         """RATE_LIMIT_KV's rl: prefix filter must still exclude keys from
