@@ -203,6 +203,38 @@ def _bounded_wait(seconds):
     time.sleep(min(seconds, remaining))
 
 
+class _ConvergenceNoRedirects(urllib.request.HTTPRedirectHandler):
+    """A convergence probe must not follow redirects to external sites."""
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        return None
+
+
+def _platform_open(req, *, timeout):
+    """Read from the canonical HTTPS platform origin only, without redirects.
+
+    A malicious report path, stale env var or CDN redirect must not turn
+    publication verification into an arbitrary-network probe. The origin and
+    route family are verified before the network opener is created.
+    """
+    parsed = urllib.parse.urlsplit(req.full_url)
+    path = parsed.path
+    is_report = (path.startswith("/reports/")
+                 and path.endswith(".html")
+                 and ".." not in path and "\\\\" not in path)
+    is_status = (path.startswith("/api/v1/reports/")
+                 and path.endswith("/publication-status")
+                 and ".." not in path and "\\\\" not in path)
+    if (parsed.scheme != "https"
+            or parsed.hostname != "intel.cyberdudebivash.com"
+            or parsed.port not in (None, 443)
+            or parsed.username is not None or parsed.password is not None
+            or parsed.fragment
+            or not (path in ("/", "/api/feed.json") or is_report or is_status)):
+        raise ValueError("CONVERGENCE_UNTRUSTED_PLATFORM_ORIGIN_OR_PATH")
+    return urllib.request.build_opener(_ConvergenceNoRedirects).open(req, timeout=timeout)
+
+
 def _http_probe(url: str, timeout: int = HTTP_TIMEOUT) -> ProbeResult:
     """Single HTTP HEAD probe with latency measurement."""
     global _RETRY_NOT_BEFORE
@@ -215,7 +247,7 @@ def _http_probe(url: str, timeout: int = HTTP_TIMEOUT) -> ProbeResult:
         req.add_header("User-Agent", "CDB-Sentinel-Convergence/184.0")
         req.add_header("Cache-Control", "no-cache")
         remaining = MAX_PROTOCOL_SECONDS - (time.monotonic() - _PROTOCOL_STARTED)
-        with urllib.request.urlopen(req, timeout=max(0.1, min(timeout, remaining))) as resp:
+        with _platform_open(req, timeout=max(0.1, min(timeout, remaining))) as resp:
             elapsed = (time.monotonic() - t0) * 1000
             return ProbeResult(
                 url=url,
@@ -265,6 +297,13 @@ def _http_probe(url: str, timeout: int = HTTP_TIMEOUT) -> ProbeResult:
             is_transient=is_transient,
             error=f"HTTPError {exc.code}",
         )
+    except ValueError as exc:
+        # Invalid configured destinations are hard failures; never retry or
+        # follow a redirect to an untrusted origin.
+        return ProbeResult(url=url, status_code=0,
+                           latency_ms=round((time.monotonic() - t0) * 1000, 1),
+                           success=False, is_transient=False,
+                           error=str(exc))
     except (urllib.error.URLError, TimeoutError, OSError) as exc:
         elapsed = (time.monotonic() - t0) * 1000
         return ProbeResult(
@@ -863,7 +902,7 @@ def query_publication_status(report_id: str) -> Optional[dict]:
             time.monotonic() - _PROTOCOL_STARTED
         )
         timeout = max(0.1, min(HTTP_TIMEOUT, remaining))
-        with urllib.request.urlopen(req, timeout=timeout) as resp:
+        with _platform_open(req, timeout=timeout) as resp:
             if getattr(resp, "status", 200) != 200:
                 return None
             data = json.loads(resp.read(1024 * 1024).decode("utf-8", errors="replace"))
