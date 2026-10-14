@@ -16,7 +16,7 @@ Existing defenses:
 ## Owner-verified usage process (NO new Cloudflare workload)
 1. From Cloudflare Dashboard → Manage Account → Billing → Billable Usage, record the actual **current plan**, **billing period**, product-level billed usage and usage-based charges. Also inspect Workers & Pages, R2, KV, D1, Durable Objects and every other enabled usage-billed product from their account analytics.
 2. Inventory all ten actual applications/Workers, billing products, cron triggers, R2 buckets and writers. Any missing platform, undocumented paid feature, unknown storage class, unmetered-looking paid dimension or disconnected usage source = **BLOCK**.
-3. For each billing dimension, record `included`, `used_account_wide`, `forecast_all_platforms_until_reset`, `proposed_increment_until_reset`, unit, and its accurate quota reset window. Do NOT guess Workers-paid vs Workers-free or a monthly allowance for a daily-limited dimension. If a dimension has *no free included quota*, include 0; the gate blocks further metered activation.
+3. Confirm the current Cloudflare account plan from dashboard/API and set `current_account_plan_verified=true` only after review. For each billing dimension, record `included`, `used_account_wide`, `forecast_all_platforms_until_reset`, `proposed_increment_until_reset`, unit, `usage_measured_through_utc` (the actual telemetry end time, NOT the screenshot/export time), and its accurate quota reset window. If telemetry data is older than six hours, BLOCK; a newly downloaded old billing report is not fresh evidence. Do NOT guess Workers-paid vs Workers-free or a monthly allowance for a daily-limited dimension. If a dimension has *no free included quota*, include 0; the gate blocks further metered activation.
 4. Forecast **all ten platforms** through the end of EACH applicable allowance window, using observed rates, historical spikes and scheduled workloads. Account for paid Webhook, Durable Object, and Service Binding amplification, each R2 Class A/B operation, KV and D1 read/write costs, and additional public traffic. A forecast not supported by evidence is unverified → **BLOCK**.
 5. Ensure account usage-based overage is **$0**, projected overage **$0**, and (account used + all-platform committed forecast + proposed increment) stays at or below **80% of each verified included allowance**. The remaining 20% is a safety reserve, NOT permission to incur an overage.
 6. Store the reviewed snapshot **outside Git and outside R2**, with private access. Populate the schema consumed by `ops/cloudflare_shared_account_release_gate.py`; use exactly ten unique platform IDs, `source=cloudflare_account_billing_and_analytics`, all inventory booleans true only on actual review, every forbidden-change field false, and UTC clock windows. No billing credentials or customer data belong in that file.
@@ -33,6 +33,7 @@ Existing defenses:
   "forecast_all_platforms_until_reset": "evidence-backed remaining consumption by all ten",
   "proposed_increment_until_reset": "incremental consumption from requested change",
   "unit": "matching documented Cloudflare billing unit",
+  "usage_measured_through_utc": "ISO-8601 UTC telemetry end time (must be fresh)",
   "window_start_utc": "ISO-8601 UTC start",
   "window_end_utc": "ISO-8601 UTC reset time"
 }
