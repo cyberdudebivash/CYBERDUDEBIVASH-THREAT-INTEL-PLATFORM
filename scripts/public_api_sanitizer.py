@@ -93,6 +93,40 @@ PUBLIC_FIELDS: frozenset = frozenset([
     "ioc_paywall",
 ])
 
+# P0 2026-10-14: latest.json is an anonymous customer API. The older
+# allow-by-default sanitizer removed premium fields but left arbitrary large
+# nested enrichment and internal analysis fields in that endpoint (e.g.
+# evidence_chain, apex_score, sigma_rule). The resulting 100-item R2
+# object was 1,292,091 bytes and failed the Worker's 1MiB body cap.
+#
+# Apply this explicit, documented projection ONLY to the public latest.json
+# publisher; canonical inventory, audit material and paid latest_pro.json are
+# unchanged. These additional legacy properties are intentionally public,
+# reader-facing descriptive fields, not proprietary report artifacts.
+PUBLIC_LATEST_FIELDS: frozenset = (
+    PUBLIC_FIELDS | frozenset({
+        "description", "source_url", "blog_url", "actor_display_name",
+        "mitre_tactics",
+    })
+) - PREMIUM_FIELDS
+
+
+def project_for_public_latest(item: dict) -> dict:
+    """Construct bounded-field public listing without altering the source.
+
+    Never infer an identifier, fabricate intelligence, turn missing TLP into
+    CLEAR, or expose arbitrary future keys. Nested values on permitted keys
+    remain subject to the real recursive TLP/size/depth Worker preflight.
+    """
+    if not isinstance(item, dict):
+        raise TypeError("public latest entry must be an advisory object")
+    return {key: value for key, value in item.items() if key in PUBLIC_LATEST_FIELDS}
+
+
+def project_feed_for_public_latest(items: list) -> list:
+    return [project_for_public_latest(item) for item in items]
+
+
 TIER_NOTICE = "Upgrade to PRO for full enrichment: actor attribution, kill chain, IOC hashes, AI analysis, STIX bundle."
 UPGRADE_URL = "/upgrade.html?plan=pro"
 
