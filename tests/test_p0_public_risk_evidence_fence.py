@@ -49,3 +49,39 @@ def test_low_risk_original_and_zero_new_claims():
     out, count = enforce_public_risk_truth([item])
     assert count == 0 and out == [item]
     assert item == out[0]
+
+
+def test_verified_sub_one_percent_epss_is_not_inflated_to_ninety_percent():
+    item = row(exploit_available=True, epss_source="FIRST.org",
+               epss_pct=0.9, epss_score=0.9, epss="0.9%")
+    out, count = enforce_public_risk_truth([item])
+    assert count == 1
+    assert out[0]["risk_score"] == 6.5
+    assert out[0]["epss_score"] == 0.9
+    assert out[0]["epss"] == "0.9%"
+    assert item["risk_score"] == 9.0
+
+
+def test_ambiguous_epss_must_not_unlock_critical_public_risk():
+    item = row(exploit_available=True, epss_score=0.9)
+    out, count = enforce_public_risk_truth([item])
+    assert count == 1
+    assert out[0]["risk_score"] == 5.5
+    assert out[0]["epss_score"] == 0.9
+    assert item["risk_score"] == 9.0
+
+
+def test_verified_high_epss_with_exploit_evidence_can_keep_critical_risk():
+    item = row(exploit_available=True, epss_source="FIRST.org",
+               epss_pct=30.0, epss_score=30.0, epss="30%")
+    out, count = enforce_public_risk_truth([item])
+    assert count == 0
+    assert out[0]["risk_score"] == 9.0
+
+
+def test_unverified_percent_string_mismatch_cannot_authorize_critical_risk():
+    item = row(exploit_available=True, epss="90%", epss_score=0.9)
+    out, count = enforce_public_risk_truth([item])
+    assert count == 1
+    assert out[0]["risk_score"] == 5.5
+    assert out[0]["epss_score"] == 0.9
