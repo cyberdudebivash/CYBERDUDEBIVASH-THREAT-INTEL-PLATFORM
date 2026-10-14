@@ -288,821 +288,10 @@ jobs:
             SEMGREP_RELEVANT=true
           fi
 
-          # Independently gate the production scripts/ scanner. Legacy Bandit
-          # and Semgrep jobs scan agent/ and api/ only; don't label those scans
-          # as having covered a changed production publisher script.
-          if grep -qE '^scripts/.*\.py         | tee -a "$GITHUB_OUTPUT"
-          echo "dependency_relevant=${DEPENDENCY_RELEVANT}" | tee -a "$GITHUB_OUTPUT"
-          echo "semgrep_relevant=${SEMGREP_RELEVANT}"       | tee -a "$GITHUB_OUTPUT"
-
-  # --------------------------------------------------------------------------
-  # Bandit: Python AST-based SAST
-  # --------------------------------------------------------------------------
-  bandit:
-    name: Bandit SAST
-    needs: changes
-    if: needs.changes.outputs.python_relevant == 'true'
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    permissions:
-      contents: read
-      security-events: write
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          fetch-depth: 0
-
-      - name: Set up Python
-        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
-        with:
-          python-version: ${{ env.PYTHON_VERSION }}
-          cache: pip
-
-      - name: Install Bandit
-        run: pip install "bandit[sarif]==1.7.8" "bandit-sarif-formatter==1.1.1"
-
-      - name: Run Bandit (SARIF output)
-        run: |
-          bandit \
-            --recursive agent/ \
-            --format sarif \
-            --output bandit-results.sarif \
-            --severity-level medium \
-            --confidence-level medium \
-            --exclude agent/tests,agent/__pycache__ \
-            --skip B101,B601,B324 \
-            || true
-
-      - name: Run Bandit (human-readable summary)
-        run: |
-          bandit \
-            --recursive agent/ \
-            --format txt \
-            --severity-level high \
-            --confidence-level high \
-            --skip B101,B601,B324 \
-            --exit-zero \
-            --output bandit-summary.txt
-          echo "Bandit summary (HIGH/HIGH):"
-          cat bandit-summary.txt
-
-      - name: Upload Bandit SARIF to GitHub Security
-        id: upload-bandit-sarif
-        uses: github/codeql-action/upload-sarif@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2 # v3
-        if: always()
-        continue-on-error: true  # v47.5: don't fail the job if Code Scanning/GHAS is unavailable -- see header
-        with:
-          sarif_file: bandit-results.sarif
-          category: bandit
-
-      - name: Note SARIF upload status
-        if: always()
-        run: |
-          if [ "${{ steps.upload-bandit-sarif.outcome }}" = "success" ]; then
-            echo "Bandit SARIF uploaded to the Security tab." >> "$GITHUB_STEP_SUMMARY"
-          else
-            echo "Bandit SARIF was not uploaded to the Security tab (Code Scanning/GHAS unavailable on this repository) -- findings remain in the bandit-report artifact below." >> "$GITHUB_STEP_SUMMARY"
-          fi
-
-      - name: Upload Bandit summary artifact
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        if: always()
-        with:
-          name: bandit-report-${{ github.run_id }}
-          path: |
-            bandit-results.sarif
-            bandit-summary.txt
-          retention-days: 30
-
-      - name: Fail on HIGH severity + HIGH confidence findings
-        run: |
-          bandit \
-            --recursive agent/ \
-            --format json \
-            --output bandit-high.json \
-            --severity-level high \
-            --confidence-level high \
-            --skip B101,B601,B324 \
-            --exit-zero
-
-          if [ ! -f "bandit-high.json" ]; then
-            echo "::error::bandit-high.json not generated"
-            exit 1
-          fi
-
-          FILESIZE=$(wc -c < bandit-high.json)
-          if [ "$FILESIZE" -lt 10 ]; then
-            echo "::error::bandit-high.json too small (${FILESIZE} bytes)"
-            exit 1
-          fi
-
-          COUNT=$(jq '.results | length' bandit-high.json)
-          echo "HIGH/HIGH findings: $COUNT"
-
-          if [ "$COUNT" -gt "0" ]; then
-            jq -r '.results[] | "  [\(.issue_severity)/\(.issue_confidence)] \(.test_id) \(.test_name) @ \(.filename):\(.line_number)"' bandit-high.json >&2
-            echo "::error::Bandit found $COUNT HIGH/HIGH issues. Review the Security tab."
-            exit 1
-          fi
-          echo "Bandit: No HIGH/HIGH findings."
-
-  # --------------------------------------------------------------------------
-  # pip-audit: Python Dependency CVE Check (v184.0 — replaces broken Safety)
-  # ROOT CAUSE: safety==3.x crashes with AttributeError: module 'typer' has no
-  # attribute 'rich_utils' on current GitHub Actions runners. pip-audit is the
-  # actively maintained, auth-wall-free, SARIF-native replacement.
-  # --------------------------------------------------------------------------
-  safety:
-    name: Safety Dependency Scan
-    needs: changes
-    if: needs.changes.outputs.dependency_relevant == 'true'
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-
-      - name: Set up Python
-        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
-        with:
-          python-version: ${{ env.PYTHON_VERSION }}
-          cache: pip
-
-      - name: Install pip-audit
-        run: pip install "pip-audit==2.7.3"
-
-      - name: Run pip-audit dependency scan
-        run: |
-          # v184.4 FIX: the bare `|| true` here swallowed pip-audit's exit code
-          # entirely, so a genuine tool failure (crash, network failure hitting
-          # the OSV/PyPI advisory DB, malformed requirements.txt) looked
-          # identical to "clean scan, no report needed" downstream. pip-audit's
-          # own documented contract is 0=no vulns, 1=vulns found -- both are
-          # legitimate completions and both write a report; anything else means
-          # the scan itself never really ran. Persist the exit code so the parse
-          # step can tell these apart.
-          #
-          # v184.7 FIX: requirements.txt bumped to clear 97 of 98 known CVEs
-          # (fastapi/starlette/uvicorn/python-multipart/python-dotenv/
-          # scikit-learn/transformers/torch/pyjwt/requests/python-jose/
-          # urllib3/protobuf). The one remaining -- CVE-2024-23342
-          # (GHSA-wj6h-64fc-37mp), a Minerva timing-attack weakness in the
-          # `ecdsa` package pulled in transitively by python-jose -- has no
-          # fix at any ecdsa version; upstream has stated side-channel
-          # attacks are out of scope for that project and there is no
-          # planned fix. Mirrors .grype.yaml's existing "not-fixed"/
-          # "wont-fix" ignore policy for the same class of finding.
-          #
-          # v184.9 FIX: this gate only ever scanned requirements.txt, so
-          # requirements-ci-light.txt (installed by 14 separate CI workflows)
-          # silently drifted into 84 of its own unfixed CVEs with no gate
-          # ever catching it. -r/--requirement can be passed multiple times
-          # (pip-audit unions the files into one scan); added the second
-          # file here and to this workflow's paths: triggers above.
-          #
-          # v185.0 FIX: same gap, two more files -- api/requirements.txt
-          # (installed by Dockerfile.api, the live API container image) and
-          # syndicate/requirements_syndicate.txt (installed by
-          # syndicate.yml) both carried pre-fix floors with no gate ever
-          # scanning them. Bumped in-place to the same already-audited
-          # versions from requirements.txt and added here.
-          #
-          # v200.0 FIX: same gap again, the 9 platform/services/*/requirements.txt
-          # files -- each installed into its own container image and pushed to
-          # GHCR by platform-build-deploy.yml's build-services matrix (agentshield,
-          # ai-engine, api-gateway, billing-engine, exec-risk, intel-core,
-          # intel-exchange, soc-automation, surfacewatch), i.e. genuinely live
-          # production surfaces -- had no gate ever scanning them either, on push,
-          # PR, or the unrestricted daily schedule. Verified clean via a direct
-          # pip-audit run against each (0 vulnerabilities) before adding; this
-          # closes the coverage gap so future drift gets caught, it doesn't fix
-          # a current finding.
-          #
-          # These 9 files can't just join the -r list above: they independently
-          # pin uvicorn[standard]==0.30.1 (all 9 agree with each other) against
-          # requirements.txt's uvicorn[standard]==0.52.4 -- pip-audit's -r union
-          # does a single combined `pip install --dry-run` across every -r file,
-          # so mixing the two groups fails with ResolutionImpossible before any
-          # vulnerability scan even runs. That's also the technically correct
-          # model, not just a workaround: these are 9 independent Docker images,
-          # never actually installed into one shared environment in production.
-          # Scanned as a second, separately-resolvable union instead, then both
-          # reports are merged into the single pip-audit-report.json the parse
-          # step and artifact upload below already expect, so neither needs to
-          # change.
-          set +e
-          pip-audit \
-            --requirement requirements.txt \
-            --requirement requirements-ci-light.txt \
-            --requirement api/requirements.txt \
-            --requirement syndicate/requirements_syndicate.txt \
-            --format json \
-            --output pip-audit-report-core.json \
-            --ignore-vuln GHSA-wj6h-64fc-37mp \
-            --skip-editable
-          CORE_EXIT=$?
-
-          pip-audit \
-            --requirement platform/services/agentshield/requirements.txt \
-            --requirement platform/services/ai-engine/requirements.txt \
-            --requirement platform/services/api-gateway/requirements.txt \
-            --requirement platform/services/billing-engine/requirements.txt \
-            --requirement platform/services/exec-risk/requirements.txt \
-            --requirement platform/services/intel-core/requirements.txt \
-            --requirement platform/services/intel-exchange/requirements.txt \
-            --requirement platform/services/soc-automation/requirements.txt \
-            --requirement platform/services/surfacewatch/requirements.txt \
-            --format json \
-            --output pip-audit-report-services.json \
-            --skip-editable
-          SERVICES_EXIT=$?
-
-          # CodeRabbit (post-merge follow-up): the previous version of this
-          # merge fell back to copying just the core report, or to an empty
-          # one, whenever the jq merge itself failed -- meaning a genuinely
-          # broken services scan (crashed jq, truncated/corrupt JSON) could
-          # silently degrade to "0 vulnerabilities" instead of failing the
-          # gate, since the downstream parse step never re-checks
-          # PIP_AUDIT_EXIT once pip-audit-report.json exists and isn't
-          # trivially small. Validate both source reports explicitly before
-          # merging; if either is missing or isn't valid JSON with a
-          # .dependencies key, don't write pip-audit-report.json at all and
-          # use exit code 2 (pip-audit itself only ever returns 0 or 1; 2 is
-          # unambiguously "the scan didn't complete", matching this file's
-          # own 0/1/anything-else contract above) -- the parse step's
-          # existing "report missing + exit >1" branch already fails the
-          # gate correctly for that case, so it doesn't need to change.
-          # CodeRabbit (PR #266 review): `jq -e '.dependencies'` alone treats
-          # any truthy value as valid, including {"dependencies":{}} -- a
-          # report that's syntactically fine JSON but semantically not a
-          # pip-audit report would pass this check, then the merge/parse
-          # step's `.dependencies[].vulns[]` would silently walk nothing
-          # (TOTAL=0, gate reports clean) instead of erroring. Require
-          # .dependencies to actually be an array, and every entry's .vulns
-          # to be an array too (verified against jq itself: {}, null, and a
-          # non-array vulns are all correctly rejected; a real report and a
-          # legitimately empty [] both still pass).
-          for f in pip-audit-report-core.json pip-audit-report-services.json; do
-            if [ ! -s "$f" ] || ! jq -e '(.dependencies | type) == "array" and (.dependencies | all(.vulns | type == "array"))' "$f" >/dev/null 2>&1; then
-              echo "::error::pip-audit: $f is missing or does not have a valid pip-audit report shape (.dependencies array of entries each with a .vulns array) -- that scan did not actually complete. Failing rather than silently merging partial results."
-              rm -f pip-audit-report.json
-              echo "2" > /tmp/pip_audit_exit_code
-              set -e
-              echo "pip-audit scan incomplete: $f invalid"
-              exit 0
-            fi
-          done
-
-          # CodeRabbit (PR #266 review): this merge's own exit status was
-          # never checked -- set +e is active for this whole step, so a
-          # failure here (e.g. a jq bug neither source-report check above
-          # would catch) would still leave PIP_AUDIT_EXIT computed from
-          # CORE_EXIT/SERVICES_EXIT alone and could write a truncated or
-          # empty pip-audit-report.json that the gate then treats as clean.
-          if ! jq -s '{dependencies: (.[0].dependencies + .[1].dependencies)}' \
-            pip-audit-report-core.json pip-audit-report-services.json \
-            > pip-audit-report.json; then
-            echo "::error::pip-audit: the report merge itself failed -- treating as incomplete rather than trusting whatever partial output was written."
-            rm -f pip-audit-report.json
-            echo "2" > /tmp/pip_audit_exit_code
-            set -e
-            echo "pip-audit scan incomplete: merge failed"
-            exit 0
-          fi
-
-          PIP_AUDIT_EXIT=$CORE_EXIT
-          if [ "$SERVICES_EXIT" -gt "$PIP_AUDIT_EXIT" ]; then
-            PIP_AUDIT_EXIT=$SERVICES_EXIT
-          fi
-          echo "$PIP_AUDIT_EXIT" > /tmp/pip_audit_exit_code
-          set -e
-          echo "pip-audit exit code: core=$CORE_EXIT services=$SERVICES_EXIT combined=$PIP_AUDIT_EXIT"
-          echo "pip-audit scan complete"
-
-      - name: Parse pip-audit results
-        run: |
-          PIP_AUDIT_EXIT=$(cat /tmp/pip_audit_exit_code 2>/dev/null || echo "0")
-          if [ ! -f pip-audit-report.json ] || [ "$(wc -c < pip-audit-report.json)" -lt 5 ]; then
-            if [ ! -f requirements.txt ]; then
-              echo "pip-audit: no requirements.txt — nothing to scan"
-              echo '{"dependencies":[]}' > pip-audit-report.json
-              exit 0
-            fi
-            if [ "$PIP_AUDIT_EXIT" -gt 1 ]; then
-              echo "::error::pip-audit failed (exit $PIP_AUDIT_EXIT) before producing a report, even though requirements.txt exists — the scan never actually completed. Treating as a failure, not a clean result."
-              exit 1
-            fi
-            echo "pip-audit: report not generated — no vulnerabilities"
-            echo '{"dependencies":[]}' > pip-audit-report.json
-            exit 0
-          fi
-
-          # pip-audit JSON: {"dependencies": [{"name":..., "vulns": [...]}]}
-          TOTAL=$(jq '[.dependencies[].vulns[]] | length' pip-audit-report.json 2>/dev/null || echo "0")
-          echo "Total vulnerabilities: $TOTAL"
-
-          if [ "$TOTAL" -eq "0" ]; then
-            echo "pip-audit: No known vulnerabilities found."
-            exit 0
-          fi
-
-          # Show summary for logs
-          jq -r '.dependencies[] | select(.vulns | length > 0) | "\(.name)==\(.version): \([.vulns[].id] | join(", "))"' \
-            pip-audit-report.json 2>/dev/null || true
-
-          # CVE/PYSEC-identified subset, shown for log readability only.
-          CRITICAL=$(jq '[.dependencies[].vulns[] | select(.id | test("CVE|PYSEC"))] | length' \
-            pip-audit-report.json 2>/dev/null || echo "0")
-          echo "CVE/PYSEC-linked vulnerabilities: $CRITICAL"
-
-          # v184.4 FIX: the gate previously only failed on $CRITICAL, which is
-          # filtered to IDs matching "CVE|PYSEC". pip-audit can report advisories
-          # under GHSA identifiers alone (no CVE/PYSEC alias yet assigned) -- those
-          # were silently excluded from $CRITICAL and would pass the gate even
-          # though $TOTAL (checked above, only for the "zero vulnerabilities" exit)
-          # already counted them. Gate on $TOTAL so every vulnerability pip-audit
-          # actually found blocks the job, not just the CVE/PYSEC-identified ones.
-          if [ "$TOTAL" -gt "0" ]; then
-            # v184.3 FIX: this previously only logged a ::warning:: and always
-            # exited 0 -- a job named "safety" (part of sast-gate's required
-            # needs: list) reported success regardless of how many CVE-linked
-            # dependency vulnerabilities were actually found.
-            echo "::error::pip-audit found $TOTAL vulnerabilities ($CRITICAL CVE/PYSEC-linked). Review pip-audit-report.json and update requirements.txt."
-            exit 1
-          fi
-
-      - name: Upload pip-audit report
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        if: always()
-        with:
-          name: pip-audit-report-${{ github.run_id }}
-          path: pip-audit-report.json
-          retention-days: 30
-
-  # --------------------------------------------------------------------------
-  # Semgrep: Pattern-based SAST
-  # --------------------------------------------------------------------------
-  semgrep:
-    name: Semgrep SAST
-    needs: changes
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    permissions:
-      contents: read
-      security-events: write
-    # v184.3 FIX: was `github.event_name != 'schedule' || ...` -- github.event.inputs
-    # doesn't exist on schedule-triggered runs, so `.full_scan` was always empty/
-    # undefined there, and the condition evaluated FALSE on every single cron run.
-    # This directly contradicted the documented intent above ("schedule ... is
-    # unaffected and still scan[s] everything") -- the daily full scan never
-    # actually ran Semgrep. workflow_dispatch (default full_scan=false) keeps its
-    # existing explicit-opt-in behavior; push/pull_request/schedule now all run it.
-    #
-    # P0 (2026-09-10): added the needs.changes gate alongside the existing
-    # condition (AND, not OR) -- a PR that doesn't touch agent/ or api/ still
-    # skips Semgrep exactly as it always implicitly did when path filtering
-    # lived on the workflow trigger; only a PR that DOES touch those paths
-    # (or any non-PR trigger, where `changes` always reports relevant=true)
-    # reaches the pre-existing workflow_dispatch opt-in check.
-    if: needs.changes.outputs.semgrep_relevant == 'true' && (github.event_name != 'workflow_dispatch' || github.event.inputs.full_scan == 'true')
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-
-      # EMERGENCY OPTIMIZATION (2026-07-29): adds pip caching, matching the
-      # pattern already used by the bandit/safety jobs above. Semgrep's own
-      # scan config/rulesets/output are unchanged.
-      - name: Set up Python
-        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
-        with:
-          python-version: ${{ env.PYTHON_VERSION }}
-          cache: pip
-
-      - name: Run Semgrep (SARIF)
-        run: |
-          pip install semgrep --quiet
-          semgrep scan \
-            --config p/python \
-            --config p/owasp-top-ten \
-            --config p/jwt \
-            --config p/secrets \
-            --config p/fastapi \
-            --sarif \
-            --output semgrep.sarif \
-            --timeout 120 \
-            agent/ api/ \
-            || true
-        env:
-          SEMGREP_APP_TOKEN: ${{ secrets.SEMGREP_APP_TOKEN }}
-
-      - name: Ensure Semgrep SARIF is valid
-        if: always()
-        run: |
-          SCHEMA="https://raw.githubusercontent.com/oasis-tcs/sarif-spec/master/Schemata/sarif-schema-2.1.0.json"
-          MINIMAL_SARIF='{"version":"2.1.0","$schema":"'"${SCHEMA}"'","runs":[{"tool":{"driver":{"name":"Semgrep","informationUri":"https://semgrep.dev","rules":[]}},"results":[]}]}'
-
-          write_minimal() {
-            echo "Writing valid minimal SARIF (1 run, 0 results)"
-            printf '%s' "${MINIMAL_SARIF}" > semgrep.sarif
-          }
-
-          if [ ! -f semgrep.sarif ]; then
-            echo "semgrep.sarif not found -- Semgrep produced no output file"
-            write_minimal
-          else
-            BYTES=$(wc -c < semgrep.sarif)
-            echo "semgrep.sarif present (${BYTES} bytes)"
-            if ! jq empty semgrep.sarif 2>/dev/null; then
-              echo "::warning::semgrep.sarif contains malformed JSON -- replacing"
-              write_minimal
-            else
-              RUNS=$(jq '.runs | length' semgrep.sarif)
-              echo "semgrep.sarif runs count: ${RUNS}"
-              if [ "${RUNS}" -lt "1" ]; then
-                echo "::warning::semgrep.sarif has empty runs[] -- GitHub API requires >= 1 -- replacing"
-                write_minimal
-              else
-                echo "semgrep.sarif validated OK: ${RUNS} run(s)"
-              fi
-            fi
-          fi
-
-          echo "Final semgrep.sarif: $(wc -c < semgrep.sarif) bytes, runs=$(jq '.runs | length' semgrep.sarif)"
-
-      - name: Upload Semgrep SARIF
-        id: upload-semgrep-sarif
-        uses: github/codeql-action/upload-sarif@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2 # v3
-        if: always()
-        continue-on-error: true  # v47.5: don't fail the job if Code Scanning/GHAS is unavailable -- see header
-        with:
-          sarif_file: semgrep.sarif
-          category: semgrep
-
-      - name: Note SARIF upload status
-        if: always()
-        run: |
-          if [ "${{ steps.upload-semgrep-sarif.outcome }}" = "success" ]; then
-            echo "Semgrep SARIF uploaded to the Security tab." >> "$GITHUB_STEP_SUMMARY"
-          else
-            echo "Semgrep SARIF was not uploaded to the Security tab (Code Scanning/GHAS unavailable on this repository) -- findings remain in the semgrep-report artifact below." >> "$GITHUB_STEP_SUMMARY"
-          fi
-
-      # v47.5: Semgrep had no artifact fallback at all (unlike Bandit, which
-      # already uploads its SARIF+summary as an artifact) -- added so findings
-      # stay reviewable even when the Security-tab upload above is unavailable.
-      - name: Upload Semgrep summary artifact
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        if: always()
-        with:
-          name: semgrep-report-${{ github.run_id }}
-          path: semgrep.sarif
-          retention-days: 30
-
-
-  # Production scripts are a separate high-risk surface. Legacy scanners
-  # intentionally cover agent/ and api/ only; this job covers scripts/
-  # with exact changed-file selection and independent Bandit + Semgrep gates.
-  scripts-sast:
-    name: Production Scripts SAST
-    needs: changes
-    if: needs.changes.outputs.scripts_relevant == 'true'
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    permissions:
-      contents: read
-    steps:
-      - name: Checkout exact source
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          ref: ${{ github.event.pull_request.head.sha || github.sha }}
-          fetch-depth: 1
-
-      - name: Set up Python
-        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
-        with:
-          python-version: ${{ env.PYTHON_VERSION }}
-
-      - name: Install pinned Bandit and bounded Semgrep
-        run: python -m pip install "bandit==1.7.8" "semgrep>=1.0,<2.0" --quiet
-
-      - name: Resolve production scripts scan scope
-        env:
-          SAST_EVENT: ${{ github.event_name }}
-          SAST_BASE_SHA: ${{ github.event.pull_request.base.sha }}
-          SAST_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-          SAST_BEFORE_SHA: ${{ github.event.before }}
-          SAST_CURRENT_SHA: ${{ github.sha }}
-        run: python3 scripts/ci_scripts_sast_scope.py --output .p0-scripts-sast-targets.json
-
-      - name: Fail closed on high-severity script findings and scanner errors
-        run: python3 scripts/ci_scripts_sast_scope.py --scan-from .p0-scripts-sast-targets.json
-
-  # --------------------------------------------------------------------------
-  # TruffleHog: Secret Scanning
-  # FIX-3: Compute proper diff range before running TruffleHog.
-  # --------------------------------------------------------------------------
-  trufflehog:
-    name: TruffleHog Secret Scan
-    runs-on: ubuntu-latest
-    # FIX (P0, 2026-09-10): this job's own steps -- a full-history checkout
-    # (fetch-depth: 0, needed to scan the whole diff range) followed by the
-    # actual scan -- have taken 8-8.5 minutes on a normal run this session,
-    # leaving a 10-minute budget with little margin. Under observed slower-
-    # than-usual Actions infrastructure (this exact job's own checkout step
-    # alone took 3m10s in one run, more than double its usual time, and
-    # every other job's checkout in that same run was similarly slow),
-    # TruffleHog's job hit this timeout and was cancelled twice in a row
-    # with the scan still in progress -- a false-negative "cancelled", not
-    # a real secret finding or a code defect, and "SAST Gate (required)"
-    # correctly failed closed on it (working as designed for PR #401's own
-    # fail-closed spec). Doubled to give checkout-time variance and the
-    # scan itself a safe margin; a job that finishes early costs nothing
-    # extra, a required check that spuriously cancels blocks every PR.
-    #
-    # FIX (P0, 2026-09-10, follow-up): the doubled timeout still wasn't
-    # enough for a third cancellation -- but this one's job log showed the
-    # real cause: it was dispatched with no PR context, which the "Compute
-    # TruffleHog scan range" step below (correctly, by design) treats as a
-    # full-repository-history scan rather than a scoped diff, and this
-    # repo's history (dozens of long-lived branches) makes that scan take
-    # far longer than 20 minutes. Fixed at the source via optional
-    # pr_base/pr_head dispatch inputs (see that step's own comment) so a
-    # dispatch made specifically to attach a check to a PR head can scope
-    # the scan the same way the pull_request trigger already does, instead
-    # of raising this timeout indefinitely to accommodate a full scan that
-    # was never the intent.
-    timeout-minutes: 20
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          fetch-depth: 0
-
-      - name: Compute TruffleHog scan range
-        id: scan-range
-        # FIX (P0, 2026-09-10): workflow_dispatch fell into the catch-all
-        # "full scan" branch below unconditionally, which is correct for a
-        # genuine manual full audit but was also being hit every time this
-        # job was manually dispatched purely to attach a check run to a PR
-        # head that github-actions[bot] had authored (the actor-based
-        # action_required gate documented on the trufflehog job above blocks
-        # pull_request-triggered runs for bot-authored commits, so dispatch
-        # is the only way to get a check onto that head). A full-history
-        # scan of this repo's entire multi-branch git history takes far
-        # longer than a scoped diff -- one such dispatch ran the scan step
-        # alone for over 16 minutes and was still not done when the job's
-        # 20-minute timeout cancelled it (confirmed via job log timestamps:
-        # "scanning repo" logged at 09:34:14, cancelled at 09:45:55, having
-        # never reached a result). Opt-in pr_base/pr_head dispatch inputs
-        # let exactly that workaround pass the same PR base/head SHAs the
-        # pull_request branch below already uses, restoring a fast scoped
-        # scan for it. Untrusted dispatch input is read via env: (never
-        # substituted into the script body) and regex-validated as a full
-        # git SHA before use, so a malformed or malicious value falls
-        # through to the pre-existing full-scan default rather than being
-        # trusted. Every other trigger's behavior, and workflow_dispatch
-        # without these inputs, is byte-for-byte unchanged.
-        env:
-          DISPATCH_PR_BASE: ${{ github.event.inputs.pr_base }}
-          DISPATCH_PR_HEAD: ${{ github.event.inputs.pr_head }}
-        run: |
-          EVENT="${{ github.event_name }}"
-          echo "Event: $EVENT"
-          SHA_RE='^[0-9a-fA-F]{40}$'
-
-          if [[ "$EVENT" == "push" ]]; then
-            BEFORE="${{ github.event.before }}"
-            HEAD_SHA="${{ github.sha }}"
-            ZERO="0000000000000000000000000000000000000000"
-
-            if [[ -z "$BEFORE" || "$BEFORE" == "$ZERO" ]]; then
-              echo "First push -- full-filesystem scan"
-              echo "base=" >> "$GITHUB_OUTPUT"
-              echo "head=" >> "$GITHUB_OUTPUT"
-            else
-              echo "Push diff: $BEFORE -> $HEAD_SHA"
-              echo "base=${BEFORE}" >> "$GITHUB_OUTPUT"
-              echo "head=${HEAD_SHA}" >> "$GITHUB_OUTPUT"
-            fi
-
-          elif [[ "$EVENT" == "pull_request" ]]; then
-            PR_BASE="${{ github.event.pull_request.base.sha }}"
-            PR_HEAD="${{ github.event.pull_request.head.sha }}"
-            echo "PR diff: $PR_BASE -> $PR_HEAD"
-            echo "base=${PR_BASE}" >> "$GITHUB_OUTPUT"
-            echo "head=${PR_HEAD}" >> "$GITHUB_OUTPUT"
-
-          elif [[ "$EVENT" == "workflow_dispatch" && "$DISPATCH_PR_BASE" =~ $SHA_RE && "$DISPATCH_PR_HEAD" =~ $SHA_RE ]]; then
-            echo "Manual dispatch scoped to PR diff: $DISPATCH_PR_BASE -> $DISPATCH_PR_HEAD"
-            echo "base=${DISPATCH_PR_BASE}" >> "$GITHUB_OUTPUT"
-            echo "head=${DISPATCH_PR_HEAD}" >> "$GITHUB_OUTPUT"
-
-          else
-            echo "Full scan (${EVENT})"
-            echo "base=" >> "$GITHUB_OUTPUT"
-            echo "head=" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: TruffleHog OSS
-        # v184.3 FIX: was pinned to the floating @main branch ref -- ironic for the
-        # repo's own secret-scanning security gate to run unpinned/unverified code.
-        # Pinned to the latest stable release tag, matching every other third-party
-        # action in this workflow fleet (all use version tags, not floating refs).
-        # v184.8 FIX: a version tag can still be re-pointed by the maintainer (or
-        # an attacker with push access to their repo) -- pinned to the commit SHA
-        # that @v3.96.0 currently resolves to for full supply-chain immutability.
-        uses: trufflesecurity/trufflehog@4dd8831c5f12599465d4d45c3c447b4018a34c85 # v3.97.9
-        with:
-          path: ./
-          base: ${{ steps.scan-range.outputs.base }}
-          head: ${{ steps.scan-range.outputs.head }}
-          extra_args: --only-verified
-
-  # --------------------------------------------------------------------------
-  # Public-Repo Zero-Trust Workflow Hygiene (P0, 2026-09-10)
-  # --------------------------------------------------------------------------
-  # This repo stays public deliberately (GitHub Actions minutes are a real
-  # production cost constraint) under a "public source, private authority"
-  # model: production must stay secure even though every file here -- these
-  # workflow definitions included -- is assumed fully known to an attacker.
-  # tests/test_public_repo_zero_trust_gates.py mechanically checks two
-  # supply-chain-relevant properties of the workflow fleet itself: every
-  # third-party Action is pinned to an immutable commit SHA (not a mutable
-  # tag/branch -- this repo has already had to fix that twice for a single
-  # action, see the TruffleHog step's own history above), and no workflow
-  # uses pull_request_target (the standard fork-PR secret-exfiltration
-  # vector for a public repo). Both were true repo-wide as of this commit
-  # (188 Action references across 63 workflow files resolved to real
-  # commit SHAs via `git ls-remote`, none guessed); this job is what stops
-  # either from silently regressing in a future workflow.
-  #
-  # Phase 3 (2026-09-10) extended the same test file with a third, over
-  # application code rather than workflow YAML: no hardcoded wildcard
-  # Access-Control-Allow-Origin outside workers/intel-gateway/src/
-  # cors-policy.js, no duplicate origin-allowlist, no Access-Control-Allow-
-  # Credentials: true, and exactly one OPTIONS preflight branch in the
-  # whole Worker -- see that test file's own module docstring and
-  # config/cors_public_wildcard_allowlist.json for the full rationale.
-  workflow-hygiene:
-    name: Public-Repo Zero-Trust Workflow Hygiene
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-
-      - name: Set up Python
-        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
-        with:
-          python-version: ${{ env.PYTHON_VERSION }}
-
-      - name: Install test dependencies
-        run: pip install pytest pyyaml --quiet
-
-      - name: Run public-repo zero-trust workflow gates
-        run: |
-          python -m pytest tests/test_public_repo_zero_trust_gates.py -v --tb=short
-          python -m pytest tests/test_sast_gate_required_check_safety.py -v --tb=short
-
-  # --------------------------------------------------------------------------
-  # Summary Gate
-  # --------------------------------------------------------------------------
-  sast-gate:
-    name: SAST Gate (required)
-    # P0 REWRITE (2026-09-10, public-repo zero-trust phase 2): this is the
-    # job name intended to become a required branch status check on main --
-    # the literal string "SAST Gate (required)" MUST stay stable, that's
-    # the whole point of naming it that. Rewritten to fail CLOSED rather
-    # than only checking for an explicit "failure":
-    #   - changes/trufflehog/workflow-hygiene are mandatory: must be
-    #     exactly "success". cancelled/timed_out/action_required/anything
-    #     else is not success and fails the gate.
-    #   - bandit/safety/semgrep are conditional on the `changes` job's own
-    #     classification: "skipped" is accepted ONLY when classification
-    #     says that scanner's surface is non-applicable to this run; a
-    #     scanner classified relevant must show exactly "success", and a
-    #     scanner classified non-applicable that somehow shows anything
-    #     other than "skipped" (its if: condition disagreeing with the
-    #     result GitHub actually recorded) fails the gate too -- that
-    #     combination should never happen if bandit/safety/semgrep's own
-    #     `if:` conditions above are wired correctly, and this is the
-    #     assertion that catches it if one is ever wired wrong.
-    #   - semgrep keeps one pre-existing, orthogonal carve-out: its own
-    #     workflow_dispatch-without-full_scan=true opt-out (v184.3, above)
-    #     predates and is independent of change classification -- a
-    #     deliberate manual "skip the deep scan this run" choice, not a
-    #     claim the change is inapplicable.
-    # semgrep itself remains NOT part of "must exist and be evaluatable"
-    # in the sense of gating on findings (see the historical v184.3 note
-    # this replaces: its 5 broad rulesets' false-positive rate against
-    # this codebase is still unvalidated) -- but its RESULT is now checked
-    # for internal consistency like every other conditional job, which is
-    # a different, narrower guarantee than "fail the gate on any Semgrep
-    # finding".
-    needs: [changes, bandit, safety, semgrep, scripts-sast, trufflehog, workflow-hygiene]
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    if: always()
-
-    steps:
-      - name: Check SAST results (fail closed)
-        env:
-          CHANGES: ${{ needs.changes.result }}
-          BANDIT: ${{ needs.bandit.result }}
-          SAFETY: ${{ needs.safety.result }}
-          SEMGREP: ${{ needs.semgrep.result }}
-          SCRIPTS: ${{ needs.scripts-sast.result }}
-          TRUFFLE: ${{ needs.trufflehog.result }}
-          HYGIENE: ${{ needs.workflow-hygiene.result }}
-          PYTHON_RELEVANT: ${{ needs.changes.outputs.python_relevant }}
-          DEPENDENCY_RELEVANT: ${{ needs.changes.outputs.dependency_relevant }}
-          SEMGREP_RELEVANT: ${{ needs.changes.outputs.semgrep_relevant }}
-          SCRIPTS_RELEVANT: ${{ needs.changes.outputs.scripts_relevant }}
-          EVENT_NAME: ${{ github.event_name }}
-          FULL_SCAN: ${{ github.event.inputs.full_scan }}
-        run: |
-          echo "=== Mandatory jobs (must be exactly 'success') ==="
-          echo "Classify Changed Surfaces: $CHANGES"
-          echo "TruffleHog:                $TRUFFLE"
-          echo "Workflow Hygiene:          $HYGIENE"
-          echo ""
-          echo "=== Conditional jobs (success if applicable, skipped iff proven non-applicable) ==="
-          echo "Bandit  (python_relevant=$PYTHON_RELEVANT):         $BANDIT"
-          echo "Safety  (dependency_relevant=$DEPENDENCY_RELEVANT): $SAFETY"
-          echo "Semgrep (semgrep_relevant=$SEMGREP_RELEVANT):       $SEMGREP"
-          echo "Production Scripts (scripts_relevant=$SCRIPTS_RELEVANT): $SCRIPTS"
-          echo ""
-
-          FAIL=0
-
-          for pair in "Classify Changed Surfaces=$CHANGES" "TruffleHog=$TRUFFLE" "Workflow Hygiene=$HYGIENE"; do
-            name="${pair%%=*}"
-            result="${pair#*=}"
-            if [[ "$result" != "success" ]]; then
-              echo "::error::Mandatory job '$name' did not succeed (result: $result)."
-              FAIL=1
-            fi
-          done
-
-          if [[ "$PYTHON_RELEVANT" == "true" ]]; then
-            if [[ "$BANDIT" != "success" ]]; then
-              echo "::error::Bandit was applicable (python_relevant=true) but did not succeed (result: $BANDIT)."
-              FAIL=1
-            fi
-          elif [[ "$BANDIT" != "skipped" ]]; then
-            echo "::error::Bandit was classified non-applicable (python_relevant=false) but result was '$BANDIT', not 'skipped' -- classification and execution disagree."
-            FAIL=1
-          fi
-
-          if [[ "$DEPENDENCY_RELEVANT" == "true" ]]; then
-            if [[ "$SAFETY" != "success" ]]; then
-              echo "::error::Safety/pip-audit was applicable (dependency_relevant=true) but did not succeed (result: $SAFETY)."
-              FAIL=1
-            fi
-          elif [[ "$SAFETY" != "skipped" ]]; then
-            echo "::error::Safety/pip-audit was classified non-applicable (dependency_relevant=false) but result was '$SAFETY', not 'skipped' -- classification and execution disagree."
-            FAIL=1
-          fi
-
-          SEMGREP_MANUAL_OPT_OUT=false
-          if [[ "$EVENT_NAME" == "workflow_dispatch" && "$FULL_SCAN" != "true" ]]; then
-            SEMGREP_MANUAL_OPT_OUT=true
-          fi
-          if [[ "$SEMGREP_RELEVANT" == "true" && "$SEMGREP_MANUAL_OPT_OUT" == "false" ]]; then
-            if [[ "$SEMGREP" != "success" ]]; then
-              echo "::error::Semgrep was applicable (semgrep_relevant=true, not manually opted out) but did not succeed (result: $SEMGREP)."
-              FAIL=1
-            fi
-          elif [[ "$SEMGREP" != "skipped" ]]; then
-            echo "::error::Semgrep was classified non-applicable or manually opted out but result was '$SEMGREP', not 'skipped'."
-            FAIL=1
-          fi
-
-          if [[ "$SCRIPTS_RELEVANT" == "true" ]]; then
-            if [[ "$SCRIPTS" != "success" ]]; then
-              echo "::error::Production scripts SAST was required but did not succeed ($SCRIPTS)."
-              FAIL=1
-            fi
-          elif [[ "$SCRIPTS" != "skipped" ]]; then
-            echo "::error::Production scripts SAST was classified non-applicable but result was '$SCRIPTS' (expected skipped)."
-            FAIL=1
-          fi
-
-          if [[ "$FAIL" -eq 1 ]]; then
-            echo "::error::SAST Gate failed closed -- see errors above."
-            exit 1
-          fi
-          echo "All SAST scans passed (or were provably non-applicable)."
- <<< "$CHANGED"; then
+          # Keep publisher scripts as a distinct source-scanning surface.
+          if grep -qE '^scripts/.*\\.py$' <<< "$CHANGED"; then
             SCRIPTS_RELEVANT=true
           fi
-
           echo "scripts_relevant=${SCRIPTS_RELEVANT}" | tee -a "$GITHUB_OUTPUT"
           echo "python_relevant=${PYTHON_RELEVANT}"         | tee -a "$GITHUB_OUTPUT"
           echo "dependency_relevant=${DEPENDENCY_RELEVANT}" | tee -a "$GITHUB_OUTPUT"
@@ -1575,6 +764,43 @@ jobs:
           path: semgrep.sarif
           retention-days: 30
 
+
+  # Production publisher scripts require their own explicit static analysis.
+  scripts-sast:
+    name: Production Scripts SAST
+    needs: changes
+    if: needs.changes.outputs.scripts_relevant == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout exact source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 1
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install Bandit and Semgrep
+        run: python -m pip install "bandit==1.7.8" "semgrep>=1.0,<2.0" --quiet
+
+      - name: Resolve production scripts scan scope
+        env:
+          SAST_EVENT: ${{ github.event_name }}
+          SAST_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          SAST_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          SAST_BEFORE_SHA: ${{ github.event.before }}
+          SAST_CURRENT_SHA: ${{ github.sha }}
+        run: python3 scripts/ci_scripts_sast_scope.py --output .p0-scripts-sast-targets.json
+
+      - name: Fail closed on high-severity findings and scanner errors
+        run: python3 scripts/ci_scripts_sast_scope.py --scan-from .p0-scripts-sast-targets.json
+
   # --------------------------------------------------------------------------
   # TruffleHog: Secret Scanning
   # FIX-3: Compute proper diff range before running TruffleHog.
@@ -1779,7 +1005,7 @@ jobs:
     # for internal consistency like every other conditional job, which is
     # a different, narrower guarantee than "fail the gate on any Semgrep
     # finding".
-    needs: [changes, bandit, safety, semgrep, trufflehog, workflow-hygiene]
+    needs: [changes, bandit, safety, semgrep, scripts-sast, trufflehog, workflow-hygiene]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     if: always()
@@ -1791,11 +1017,13 @@ jobs:
           BANDIT: ${{ needs.bandit.result }}
           SAFETY: ${{ needs.safety.result }}
           SEMGREP: ${{ needs.semgrep.result }}
+          SCRIPTS: ${{ needs.scripts-sast.result }}
           TRUFFLE: ${{ needs.trufflehog.result }}
           HYGIENE: ${{ needs.workflow-hygiene.result }}
           PYTHON_RELEVANT: ${{ needs.changes.outputs.python_relevant }}
           DEPENDENCY_RELEVANT: ${{ needs.changes.outputs.dependency_relevant }}
           SEMGREP_RELEVANT: ${{ needs.changes.outputs.semgrep_relevant }}
+          SCRIPTS_RELEVANT: ${{ needs.changes.outputs.scripts_relevant }}
           EVENT_NAME: ${{ github.event_name }}
           FULL_SCAN: ${{ github.event.inputs.full_scan }}
         run: |
@@ -1808,6 +1036,7 @@ jobs:
           echo "Bandit  (python_relevant=$PYTHON_RELEVANT):         $BANDIT"
           echo "Safety  (dependency_relevant=$DEPENDENCY_RELEVANT): $SAFETY"
           echo "Semgrep (semgrep_relevant=$SEMGREP_RELEVANT):       $SEMGREP"
+          echo "Production Scripts (scripts_relevant=$SCRIPTS_RELEVANT): $SCRIPTS"
           echo ""
 
           FAIL=0
@@ -1852,6 +1081,16 @@ jobs:
             fi
           elif [[ "$SEMGREP" != "skipped" ]]; then
             echo "::error::Semgrep was classified non-applicable or manually opted out but result was '$SEMGREP', not 'skipped'."
+            FAIL=1
+          fi
+
+          if [[ "$SCRIPTS_RELEVANT" == "true" ]]; then
+            if [[ "$SCRIPTS" != "success" ]]; then
+              echo "::error::Production scripts SAST was required but did not succeed ($SCRIPTS)."
+              FAIL=1
+            fi
+          elif [[ "$SCRIPTS" != "skipped" ]]; then
+            echo "::error::Production scripts SAST was classified non-applicable but result was '$SCRIPTS' (expected skipped)."
             FAIL=1
           fi
 
