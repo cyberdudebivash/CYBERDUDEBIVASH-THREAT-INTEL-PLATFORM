@@ -69,6 +69,7 @@ MANIFEST_PREFIX  = os.environ.get("BACKUP_MANIFEST_PREFIX", "r2-backups/")
 # Hard ceilings; to raise them requires source review, not environment overrides.
 MAX_VERIFY_PER_RUN = min(500, max(1, int(os.environ.get("MAX_BACKUP_VERIFY_OBJECTS_PER_RUN", "500"))))
 MAX_LIST_PAGES = 99  # at most 100 network LISTs incl. the overflow check
+MAX_MANIFEST_BYTES = 16 * 1024 * 1024  # independent R2 storage/PUT bound
 
 # sentinel-apex-reports intentionally excluded -- see module docstring's
 # P0 R2 COST INCIDENT FIX note (fix #1). Never touch cyberdudebivash-scan-results
@@ -223,6 +224,9 @@ def backup_bucket(s3, bucket_name, today, plan: R2OperationPlan):
 def upload_manifest(s3, manifest, bucket, today, plan: R2OperationPlan):
     key = f"{MANIFEST_PREFIX}{today}/{manifest['bucket']}-manifest.json"
     body = json.dumps(manifest, indent=2).encode("utf-8")
+    if len(body) > MAX_MANIFEST_BYTES:
+        print("  BLOCK: R2 inventory manifest exceeds 16 MiB storage budget")
+        return False
     try:
         s3.put_object(
             Bucket=bucket,
@@ -287,7 +291,8 @@ def main():
             failed.append(bucket)
             continue
         # Write manifest back to the same bucket (under r2-backups/ prefix)
-        upload_manifest(s3, manifest, bucket, today, plan)
+        if not upload_manifest(s3, manifest, bucket, today, plan):
+            failed.append(bucket)
 
     # P0 R2 cost fix: observability parity with r2_upload.py/r2_report_publisher.py --
     # this job is not budget-ENFORCED (it's a bounded-by-construction daily inventory,
