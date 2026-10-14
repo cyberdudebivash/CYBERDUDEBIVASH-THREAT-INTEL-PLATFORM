@@ -492,6 +492,7 @@ class TestR2UploaderBoundary(unittest.TestCase):
                 return True
 
             with mock.patch.object(resync, "REPO_ROOT", root), \
+                    mock.patch.object(resync, "_WORKER_PUBLIC_FEED_CHECK", str(REPO / "scripts/p0_r2_public_feed_diagnostic.mjs")), \
                     mock.patch.object(resync, "s3_cp", side_effect=fake_cp), \
                     mock.patch.object(resync, "get_credentials", return_value=("a", "k", "s")), \
                     mock.patch.object(resync, "stale_manifest_reason", return_value=None), \

@@ -72,6 +72,15 @@ def _canonical_report_url(raw: object) -> str:
     return PLATFORM_URL + path
 
 
+def _confirmed_kev(item: Dict) -> bool:
+    """Never treat nonempty strings like 'NO' as KEV confirmation."""
+    for key in ("kev", "cisa_kev", "kev_confirmed", "kev_present"):
+        value = item.get(key)
+        if value is True or (isinstance(value, str) and value.strip().lower() in ("yes", "true", "confirmed", "1")):
+            return True
+    return False
+
+
 def _canonical_price_labels() -> list:
     """Read contract-authoritative INR prices rather than quote stale prices."""
     contract = json.loads((REPO_ROOT / "config/commercial-contract.json").read_text(encoding="utf-8"))
@@ -140,7 +149,7 @@ def _build_brief(items: List[Dict]) -> Dict:
     top10 = all_sorted[:10]
 
     # KEV additions this week
-    kev_items = [it for it in all_items if it.get("kev") or it.get("cisa_kev")]
+    kev_items = [it for it in all_items if _confirmed_kev(it)]
 
     # Critical items
     critical_items = [it for it in all_items if str(it.get("severity", "")).upper() == "CRITICAL"]
@@ -165,7 +174,8 @@ def _build_brief(items: List[Dict]) -> Dict:
     # Detection rule count
     sigma_count  = sum(1 for it in all_items if it.get("sigma_rule"))
     kql_count    = sum(1 for it in all_items if it.get("kql_query"))
-    stix_bundles = sum(1 for it in all_items if it.get("stix_id"))
+    # A stix_id alias alone is NOT an exported, verified STIX bundle.
+    stix_bundles = sum(1 for it in all_items if it.get("stix_bundle_verified") is True and it.get("stix_bundle_url"))
 
     # Severity breakdown
     severity_counts: Dict[str, int] = {}
@@ -198,7 +208,7 @@ def _build_brief(items: List[Dict]) -> Dict:
                 "risk_score": float(it.get("risk_score") or 0),
                 "cve_id": it.get("cve_id") or it.get("title", ""),
                 "threat_type": it.get("threat_type", ""),
-                "kev": bool(it.get("kev") or it.get("cisa_kev")),
+                "kev": _confirmed_kev(it),
                 "report_url": _canonical_report_url(it.get('report_url') or it.get('internal_report_url')),
                 "sigma_available": bool(it.get("sigma_rule")),
                 "actor": it.get("actor") or it.get("threat_actor") or "Unknown",

@@ -78,3 +78,16 @@ def test_public_source_filters_restricted_records(tmp_path, monkeypatch):
     selected = brief._load_feed()
     assert len(selected) == 1
     assert selected[0]["tlp"] == "TLP:CLEAR"
+
+
+def test_no_false_kev_confirmation_from_string_no_or_unverified_stix_alias():
+    row = _entry(kev="NO", cisa_kev=False, stix_id="intel--bad-uuid")
+    result = brief._build_brief([row])
+    assert result["stats"]["kev_additions"] == 0
+    assert result["top_threats"][0]["kev"] is False
+    assert result["stats"]["stix_bundles"] == 0
+    known = _entry(id="intel--known", kev="YES", stix_bundle_verified=True,
+                   stix_bundle_url="/data/stix/verified.json")
+    positive = brief._build_brief([known])
+    assert positive["stats"]["kev_additions"] == 1
+    assert positive["stats"]["stix_bundles"] == 1
