@@ -1406,9 +1406,13 @@
             function row(it, upgrade) {
                 var meta = [it.id, it.severity, it.first_seen, it.source_name].map(function (v) { return esc(v || 'n/a'); }).join(' &middot; ');
                 var lock = it.locked
-                    ? '<div class="aif-detail" hidden style="padding:8px 0 4px;color:#c5d0de;font-size:13px;">&#128274; Locked on the free preview. Summary, source and Hub ruling are included with Pro Defense'
-                      + (upgrade && upgrade.price_label ? ' (' + esc(upgrade.price_label) + ')' : '') + '; timeline and actions with Enterprise SOC. '
-                      + '<a href="' + esc(sitePath(it.checkout)) + '" style="color:#c4a8ff;font-weight:700;">Unlock</a></div>'
+                    ? '<div class="aif-detail" hidden style="padding:8px 0 4px;color:#c5d0de;font-size:13px;">Locked on the free preview. Summary, source and Hub ruling are included with Pro Defense'
+                      + (upgrade && upgrade.price_label ? ' (' + esc(upgrade.price_label) + ')' : '') + '. Timeline and actions are on Enterprise SOC.'
+                      + '<span style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;">'
+                      + '<a href="' + esc(sitePath(it.checkout)) + '" style="display:inline-flex;align-items:center;min-height:44px;padding:10px 16px;border-radius:8px;background:#c4a8ff;color:#1a0b33;font-weight:800;text-decoration:none;">Unlock with Pro'
+                      + (upgrade && upgrade.price_label ? ' · ' + esc(upgrade.price_label) : '') + '</a>'
+                      + '<a href="/upgrade.html?plan=enterprise&feature=ai-threat-feed" style="display:inline-flex;align-items:center;min-height:44px;padding:10px 16px;border-radius:8px;border:1px solid rgba(196,168,255,0.6);color:#c4a8ff;font-weight:700;text-decoration:none;">Enterprise checkout</a>'
+                      + '</span></div>'
                     : '<div class="aif-detail" hidden style="padding:8px 0 4px;color:#c5d0de;font-size:13px;"><a href="/cyber-watchdog.html#intelligence" style="color:#c4a8ff;font-weight:700;">Open the timeline in Cyber Watchdog</a></div>';
                 return '<li style="border-top:1px solid #243044;"><button type="button" class="aif-row" aria-expanded="false" style="all:unset;cursor:pointer;display:block;width:100%;box-sizing:border-box;min-height:44px;padding:10px 8px;text-align:left;">'
                     + '<span style="color:#f4f7fb;font-weight:700;">' + (it.locked ? '&#128274; ' : '') + esc(it.title) + '</span>'
