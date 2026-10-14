@@ -81,3 +81,64 @@ def test_main_aborts_without_credentials_or_r2_writes_on_failed_preflight(tmp_pa
             upload.assert_not_called()
         finally:
             os.chdir(previous)
+
+
+def test_primary_r2_writer_preflight_accepts_bounded_30k_clear_values(tmp_path):
+    from scripts import r2_upload
+    path = latest(tmp_path, items=[{
+        "id": "intel--clear", "title": "Reviewed", "tlp": "TLP:CLEAR",
+        "auxiliary": ["x"] * 30000,
+    }])
+    r2_upload.assert_worker_public_latest_preflight(path)
+
+
+def test_primary_r2_writer_preflight_rejects_100k_overflow(tmp_path):
+    from scripts import r2_upload
+    path = latest(tmp_path, items=[{
+        "id": "intel--clear", "title": "Reviewed", "tlp": "TLP:CLEAR",
+        "auxiliary": ["x"] * 101000,
+    }])
+    with pytest.raises(ValueError, match="P0_PUBLIC_LATEST_WORKER_REJECTED"):
+        r2_upload.assert_worker_public_latest_preflight(path)
+
+
+def test_primary_r2_writer_preflight_denies_restricted_child_after_25k(tmp_path):
+    from scripts import r2_upload
+    path = latest(tmp_path, items=[{
+        "id": "intel--clear", "title": "Reviewed", "tlp": "TLP:CLEAR",
+        "auxiliary": ["x"] * 30000,
+        "related": [{"id": "intel--red", "title": "Withheld", "tlp": "TLP:RED"}],
+    }])
+    with pytest.raises(ValueError, match="P0_PUBLIC_LATEST_WORKER_REJECTED"):
+        r2_upload.assert_worker_public_latest_preflight(path)
+
+
+def test_primary_r2_writer_rejects_oversized_raw_bytes(tmp_path):
+    from scripts import r2_upload
+    path = latest(tmp_path)
+    raw = path.read_text(encoding="utf-8")
+    path.write_text(raw + " " * (1048577 - len(raw.encode("utf-8"))), encoding="utf-8")
+    with pytest.raises(ValueError, match="P0_PUBLIC_LATEST_WORKER_REJECTED"):
+        r2_upload.assert_worker_public_latest_preflight(path)
+
+
+def test_primary_uploader_refuses_bad_latest_before_first_r2_write(tmp_path):
+    from scripts import r2_upload
+    path = latest(tmp_path, items=[{
+        "id": "intel--clear", "title": "Reviewed", "tlp": "TLP:CLEAR",
+        "auxiliary": ["x"] * 101000,
+    }])
+    with mock.patch.object(r2_upload, "REPO_ROOT", tmp_path), \
+         mock.patch.object(r2_upload, "get_credentials", return_value=("acct", "access", "secret")), \
+         mock.patch.object(r2_upload, "install_awscli"), \
+         mock.patch.object(r2_upload, "configure_awscli_performance"), \
+         mock.patch.object(r2_upload, "count_manifest", return_value=1), \
+         mock.patch.object(r2_upload, "_generate_ai_endpoints"), \
+         mock.patch.object(r2_upload, "build_upload_plan", return_value=[(str(path), "api/v1/intel/latest.json")]), \
+         mock.patch.object(r2_upload, "s3_cp") as put, \
+         mock.patch("p0_r44_publication_boundary.finalize_public_feed", return_value={"published_count": 1}), \
+         mock.patch("os.chdir"):
+        with pytest.raises(SystemExit) as error:
+            r2_upload.main()
+        assert error.value.code == 1
+        put.assert_not_called()

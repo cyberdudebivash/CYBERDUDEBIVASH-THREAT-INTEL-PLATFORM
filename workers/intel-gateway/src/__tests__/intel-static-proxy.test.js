@@ -269,3 +269,44 @@ test("P0 #725: shared report TLP authority requires explicit CLEAR and checks ev
   assert.equal(publicTlpJsonVerified(null), false);
   assert.equal(publicTlpJsonVerified("raw secret"), false);
 });
+
+
+test("P0 2026-10-14: real Worker accepts 30k CLEAR leaf visits while preserving classification", async () => {
+  const doc = { generated_at: "2026-10-14T06:00:00Z", count: 1,
+    items: [{ id: "intel--public", title: "Reviewed", tlp: "TLP:CLEAR",
+      auxiliary: Array(30000).fill("x") }] };
+  assert.equal(publicTlpJsonVerified(doc), true);
+  // The actual R2 proxy should also allow this bounded document.
+  const resp = await handleIntelStaticProxy(
+    { INTEL_R2: fakeR2({ "intelligence/ai_index.json": doc }) }, AI_INDEX_PATH, "GET");
+  assert.equal(resp.status, 200);
+});
+
+test("P0 2026-10-14: restricted marker after 30k scalar leaves is never published", async () => {
+  const doc = { items: [{ id: "intel--public", title: "Reviewed", tlp: "TLP:CLEAR",
+    auxiliary: Array(30000).fill("x"),
+    hidden: { id: "intel--restricted", title: "Not for release", tlp: "TLP:GREEN", data: "CDB_PRIVATE_SENTINEL" } }] };
+  assert.equal(publicTlpJsonVerified(doc), false);
+  const resp = await handleIntelStaticProxy(
+    { INTEL_R2: fakeR2({ "intelligence/ai_index.json": doc }) }, AI_INDEX_PATH, "GET");
+  assert.equal(resp.status, 503);
+  assert.equal(JSON.stringify(await resp.json()).includes("CDB_PRIVATE_SENTINEL"), false);
+});
+
+test("P0 2026-10-14: more than 100k visited values still fails closed", () => {
+  const doc = [{ id: "intel--public", title: "Reviewed", tlp: "TLP:CLEAR",
+    auxiliary: Array(101000).fill("x") }];
+  assert.equal(publicTlpJsonVerified(doc), false);
+});
+
+test("P0 2026-10-14: max depth and body cap remain fail-closed", async () => {
+  let nested = { tlp: "TLP:RED", restricted: true };
+  for (let i = 0; i < 42; i++) nested = { child: nested };
+  assert.equal(publicTlpJsonVerified({ id: "intel--c", title: "outer", tlp: "TLP:CLEAR", nested }), false);
+
+  const oversized = { items: [{ id: "intel--c", title: "outer", tlp: "TLP:CLEAR",
+    blob: "x".repeat(1048576) }] };
+  const res = await handleIntelStaticProxy(
+    { INTEL_R2: fakeR2({ "intelligence/ai_index.json": oversized }) }, AI_INDEX_PATH, "GET");
+  assert.equal(res.status, 503);
+});
