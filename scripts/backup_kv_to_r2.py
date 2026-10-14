@@ -143,6 +143,9 @@ def backup_namespace(ns_name, ns_id, skip_transient):
         print(f"  ERROR listing {ns_name}: {e}")
         return None
 
+    if len(keys) > MAX_KEYS_PER_NAMESPACE:
+        print(f"  BLOCK: {ns_name} exceeds strict 500-key full-backup limit")
+        return None
     print(f"  Found {len(keys)} keys in {ns_name}")
 
     if skip_transient:
@@ -170,7 +173,11 @@ def backup_namespace(ns_name, ns_id, skip_transient):
             key = future_to_key[future]
             completed += 1
             try:
-                entries[key] = future.result()
+                value = future.result()
+                if value is None:
+                    errors += 1
+                    continue  # 404 is not a successful complete snapshot
+                entries[key] = value
             except Exception as e:
                 print(f"    WARN: Could not fetch key {key!r}: {e}")
                 errors += 1
@@ -249,11 +256,10 @@ def main():
         r2_key = f"kv-snapshots/{today}/{ns_name}.json"
         ok = upload_to_r2(r2_key, snapshot)
         if not ok:
-            # Save locally as fallback
-            local_path = f"/tmp/kv_backup_{ns_name}_{today}.json"
-            with open(local_path, "w") as f:
-                json.dump(snapshot, f, indent=2)
-            print(f"  Saved locally: {local_path}")
+            # Never write customer/API key KV exports in plaintext to /tmp.
+            # If the remote copy failed, no durable verified backup exists.
+            print(f"  BLOCK: {ns_name} snapshot not saved to R2; no plaintext fallback")
+            failed.append(ns_name)
 
     if failed:
         print(f"\nFATAL: Failed namespaces: {failed}")
