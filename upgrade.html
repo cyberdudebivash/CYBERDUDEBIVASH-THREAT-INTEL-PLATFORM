@@ -1222,6 +1222,14 @@ function resolveCheckoutPlan(search) {
 /* ── On-load init ───────────────────────────────────────────────── */
 (function init() {
   var params = new URLSearchParams(window.location.search);
+  try {
+    var leadEmail = sessionStorage.getItem('apex_lead_email');
+    if (leadEmail && leadEmail.length <= 254 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(leadEmail)) {
+      var leadField = byId('rzp-email');
+      if (leadField && !leadField.value) leadField.value = leadEmail;
+      sessionStorage.removeItem('apex_lead_email');
+    }
+  } catch (err) {}
 
   // Radios drive selectPlan / setBillingCycle (keyboard and screen readers
   // use the native radio groups).
