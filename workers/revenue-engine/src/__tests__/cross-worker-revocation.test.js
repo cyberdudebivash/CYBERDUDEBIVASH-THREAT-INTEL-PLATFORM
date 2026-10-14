@@ -15,7 +15,7 @@ import crypto from "node:crypto";
 import { test } from "node:test";
 
 import { createD1 } from "./helpers/d1-sqlite.js";
-import { handleBillingWebhook, revokeEntitlementForSubscription } from "../subscription-engine.js";
+import { handleBillingWebhook, revokeEntitlementForSubscription, denyGatewayAccess } from "../subscription-engine.js";
 import gateway from "../../../intel-gateway/src/index.js";
 
 const WHSEC = "whsec_TEST_ONLY_xworker";
@@ -269,6 +269,19 @@ test("a key refunded or cancelled at the gateway (admin) is not revived by a hal
   }
 });
 
+
+test("P0: direct cancel helper cannot downgrade an already refunded key", async () => {
+  const w = await activeCustomer();
+  await revokeEntitlementForSubscription(w.revenue, SUB, "refunded", "rid");
+  const link = JSON.parse(w.revenue.REVENUE_CRM_KV.store.get(`razorpay_sub:${SUB}`));
+  const before = JSON.parse(w.gw.API_KEYS_KV.store.get(w.key));
+  assert.equal(before.subscription_status, "refunded");
+  await denyGatewayAccess(w.revenue, link, "cancelled", new Date().toISOString());
+  const after = JSON.parse(w.gw.API_KEYS_KV.store.get(w.key));
+  assert.equal(after.subscription_status, "refunded", "refunded is terminal even through operator-side helper");
+  assert.equal(await w.validateKey(w.key), false);
+  assert.equal(await w.validateJwt(w.jwt), false);
+});
 
 test("P0: delayed pending and halted webhook never downgrade a cancelled provider link", async () => {
   const w = await activeCustomer();
