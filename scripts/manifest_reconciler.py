@@ -180,7 +180,7 @@ def reconcile(dry_run: bool = False, *, feed_path: Path | None = None, manifest_
     print(f"[RECONCILER] Delta (api - manifest): {len(missing)} items need sync", flush=True)
 
     if not missing:
-        print("[RECONCILER] ✅ Manifest is fully reconciled -- no action needed", flush=True)
+        print("[RECONCILER] [OK] Manifest is fully reconciled -- no action needed", flush=True)
         return {
             "status": "clean",
             "api_count": len(feed_items),
@@ -233,7 +233,7 @@ def reconcile(dry_run: bool = False, *, feed_path: Path | None = None, manifest_
 
     _atomic_write(manifest_path, out_manifest)
     new_sha = _sha16(manifest_path)
-    print(f"[RECONCILER] ✅ Synced {len(missing)} items into feed_manifest.json", flush=True)
+    print(f"[RECONCILER] [OK] Synced {len(missing)} items into feed_manifest.json", flush=True)
     print(f"[RECONCILER]    manifest now: {len(updated_manifest)} items | sha={new_sha}", flush=True)
 
     return {
