@@ -107,7 +107,7 @@ def test_429_is_transient_and_retried(clock):
 def test_http_probe_classifies_429_as_transient():
     import urllib.error
     err = urllib.error.HTTPError("https://x", 429, "Too Many Requests", {}, None)
-    with patch.object(dcv.urllib.request, "urlopen", side_effect=err):
+    with patch.object(dcv, "_platform_open", side_effect=err):
         r = dcv._http_probe("https://x")
     assert r.status_code == 429 and not r.success and r.is_transient
 
