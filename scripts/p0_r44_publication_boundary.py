@@ -15,6 +15,7 @@ from p0_r35_feed_prewrite_guard import assert_publishable, select_publishable
 from tlp_policy import partition_publishable
 from public_api_sanitizer import _remove_invalid_stix_alias
 from evidence_score_enforcer import compute_evidence_tier, backfill_governance_fields
+from severity_epss_truth import epss_percent
 
 
 def enforce_public_risk_truth(records: list[dict]) -> tuple[list[dict], int]:
@@ -39,6 +40,17 @@ def enforce_public_risk_truth(records: list[dict]) -> tuple[list[dict], int]:
             # Normalize only on a copy. This conservative evidence tier requires
             # real numeric or affirmative structured evidence, not prose keywords.
             normalized = backfill_governance_fields(item)
+            # The canonical customer API stores EPSS in percentage units.
+            # The legacy backfill guesses that numbers <=1 are fractions and
+            # can turn a VERIFIED 0.9% into 90%. That is false tier-4 evidence.
+            # Never use unverified or ambiguously scaled values to authorize a
+            # public critical-risk claim. Keep the archive and public source
+            # EPSS fields untouched; only correct the evidence-check copy.
+            verified_epss = epss_percent(item)
+            for key in ("epss", "epss_score", "epss_pct"):
+                normalized.pop(key, None)
+            if verified_epss is not None:
+                normalized["epss_score"] = verified_epss
             tier, cap = compute_evidence_tier(normalized, epss_is_percentage=True)
             if cap < risk:
                 item["risk_score"] = round(cap, 1)
