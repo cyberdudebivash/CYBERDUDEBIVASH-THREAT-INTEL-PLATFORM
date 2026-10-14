@@ -1038,6 +1038,30 @@ def build_upload_plan() -> list[tuple[str, str]]:
     return pairs
 
 
+def assert_worker_public_latest_preflight(path: Path) -> None:
+    """Before ANY R2 PUT, require the sanitized latest.json to pass the real Worker.
+
+    No network and no source contents in error messages. Original advisory
+    inventory stays untouched, and 1MiB/TLP/depth/value-visit limits match
+    the Worker and the final resynchronizer's acceptance gate.
+    """
+    diagnostic = Path(__file__).resolve().parent / "p0_r2_public_feed_diagnostic.mjs"
+    try:
+        result = subprocess.run(
+            ["node", str(diagnostic), str(path)],
+            capture_output=True, text=True, check=False, timeout=25,
+        )
+        decision = json.loads(result.stdout)
+    except (OSError, ValueError, subprocess.TimeoutExpired) as exc:
+        raise ValueError("P0_PUBLIC_LATEST_WORKER_PREFLIGHT_UNAVAILABLE") from exc
+    if (result.returncode != 0 or not isinstance(decision, dict)
+            or decision.get("verdict") != "DELIVERABLE"
+            or decision.get("worker_public_tlp_gate") != "PASS"
+            or decision.get("freshness") != "FRESH"):
+        # Do not report arbitrary stdout or exception text from source JSON.
+        raise ValueError("P0_PUBLIC_LATEST_WORKER_REJECTED")
+
+
 def main() -> None:
     log.info("=" * 60)
     log.info("SENTINEL APEX v%s -- R2 Upload Engine", PIPELINE_VERSION)
@@ -1091,6 +1115,10 @@ def main() -> None:
                                                       tlp_parents)
                 if safe_json is None:
                     continue  # unverifiable -> withheld (no PUT planned, none budgeted)
+                if candidate_dst_key == "api/v1/intel/latest.json":
+                    # Stage 3.5 precedes the Stage 3.93 final resync; an
+                    # invalid latest must NEVER become live even temporarily.
+                    assert_worker_public_latest_preflight(Path(safe_json))
                 guarded_pairs.append((str(safe_json), candidate_dst_key))
             else:
                 guarded_pairs.append((candidate_src, candidate_dst_key))
