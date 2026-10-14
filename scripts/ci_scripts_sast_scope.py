@@ -44,7 +44,7 @@ def select_targets(root: Path, event: str, base: str, head: str) -> list[str]:
             raise ValueError("SCRIPT_SAST_INVALID_COMMIT")
         # A base tree may be outside the shallow checkout. Fetch EXACT SHAs,
         # not a mutable branch; no GitHub PR content is executed.
-        run("git", "fetch", "--quiet", "--no-tags", "--depth=1",
+        run("git", "fetch", "--quiet", "--no-tags", "--depth=1", "--filter=blob:none",
             "origin", base, head, cwd=root)
         diff = subprocess.run(
             ["git", "diff", "--name-only", "--no-renames",
