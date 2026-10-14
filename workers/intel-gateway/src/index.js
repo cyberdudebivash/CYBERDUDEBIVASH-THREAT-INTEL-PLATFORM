@@ -122,6 +122,7 @@ import { deductCredits } from './credit-system.js';
 import { evaluateKeyRecordAccess, SUBSCRIPTION_STATUS_DENY_STATES, SUBSCRIPTION_STATUS_VALID_STATES } from './subscription-lifecycle.js';
 import { inferGumroadTier, inferGumroadBillingCycle, isGumroadCancellationEvent, isGumroadAccessRevokingEvent, classifyGumroadPing, renewedExpiry, renewalMayReactivate, BILLING_CYCLE_DAYS } from './gumroad-lifecycle.js';
 import { handleIntelStaticProxy, INTEL_STATIC_PROXY, publicTlpJsonVerified } from './intel-static-proxy.js';
+import { stripPublicLatestPremiumFields, hasPublicLatestPremiumFields } from './public-latest-premium-boundary.js';
 // P0 2026-09-03: separates the first-party dashboard's own read traffic from
 // the commercial API entitlement plane. See first-party-plane.js's header for
 // the incident this closes -- the public dashboard was metered against the
@@ -7330,7 +7331,8 @@ async function handleRequest(request, env, ctx) {
     // untouched -- full IOCs, Sigma/KQL/Suricata rules, and actor attribution
     // leaked to every anonymous caller despite the comment above. Mask it.
     if (Array.isArray(data.items)) {
-      data = { ...data, items: data.items.map(i => applyTierGateV2(i, "free", null)) };
+      data = { ...data, items: data.items.map(i =>
+        stripPublicLatestPremiumFields(applyTierGateV2(i, "free", null))) };
     }
     return jsonResp(data, 200, { "Cache-Control": liveFreshCacheControl(data, 120) });
   }
@@ -9691,7 +9693,7 @@ const LIVE_FEED_CACHE_PATHS = new Set([
   "/feed.json", "/latest.json", "/api/feed", "/api/feed.json", "/api/v1/intel/latest.json",
 ]);
 
-async function cachedLiveFeedIsPublishable(response) {
+async function cachedLiveFeedIsPublishable(response, pathname) {
   // Existing regional cache entries can predate the origin publication guard.
   // Recheck their source generation and complete TLP document on every hit;
   // valid hits still avoid an R2 read. Clone so verification does not consume
@@ -9701,6 +9703,8 @@ async function cachedLiveFeedIsPublishable(response) {
   if (cc.includes("private") || cc.includes("no-store")) return false;
   try {
     const feed = await response.clone().json();
+    const latest = pathname === "/api/v1/intel/latest.json" || pathname === "/latest.json";
+    if (latest && hasPublicLatestPremiumFields(feed)) return false;
     return publicTlpJsonVerified(feed) && denyNonFreshLiveFeed(feed) === null;
   } catch (_) {
     return false;
@@ -9729,7 +9733,7 @@ export default {
     if (edgeCache) {
       try {
         const cached = await edgeCache.match(request);
-        if (cached && (!LIVE_FEED_CACHE_PATHS.has(pathname) || await cachedLiveFeedIsPublishable(cached))) return withRequestId(cached, requestId);
+        if (cached && (!LIVE_FEED_CACHE_PATHS.has(pathname) || await cachedLiveFeedIsPublishable(cached, pathname))) return withRequestId(cached, requestId);
       } catch (cacheErr) {
         console.error(`[fetch] request_id=${requestId} edge cache match failed for ${pathname}: ${cacheErr && cacheErr.message ? cacheErr.message : cacheErr}`);
       }
