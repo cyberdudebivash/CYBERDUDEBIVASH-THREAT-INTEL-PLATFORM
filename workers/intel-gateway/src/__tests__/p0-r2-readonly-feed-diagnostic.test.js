@@ -122,3 +122,20 @@ test("wrong input shape must never certify a public advisory list", () => {
   assert.equal(auditPublicFeedDocument([item()], NOW).verdict, "BLOCKED");
   assert.equal(auditPublicFeedDocument(null, NOW).verdict, "BLOCKED");
 });
+
+
+test("read-only file audit measures actual R2 bytes, not compacted JSON", () => {
+  const d = mkdtempSync(path.join(tmpdir(), "p0-raw-byte-cap-"));
+  try {
+    const file = path.join(d, "feed.json");
+    const valid = JSON.stringify(feed(item()));
+    // JSON permits trailing whitespace, but the Worker enforces the raw size.
+    const padded = valid + " ".repeat(1048577 - Buffer.byteLength(valid, "utf8"));
+    writeFileSync(file, padded);
+    const check = inspectLocalFile(file, NOW);
+    assert.equal(check.verdict, "BLOCKED");
+    assert.equal(check.worker_body_budget_exceeded, true);
+    assert.equal(check.root_cause_family, "PUBLICATION_BODY_BUDGET");
+    assert.equal(check.public_body_bytes, 1048577);
+  } finally { rmSync(d, { recursive: true, force: true }); }
+});
