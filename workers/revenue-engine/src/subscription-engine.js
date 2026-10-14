@@ -827,7 +827,11 @@ export async function handleBillingWebhook(request, env, ctx, rid) {
 
     case "subscription.pending": {
       if (link?.internal_sub_id) {
-        await tryTransition(env, link.internal_sub_id, SUB_STATUS.PAST_DUE, {}, rid);
+        const transitioned = await tryTransition(env, link.internal_sub_id, SUB_STATUS.PAST_DUE, {}, rid);
+        // An out-of-order "pending" after SUSPENDED/CANCELLED/EXPIRED is
+        // invalid. Do not corrupt the provider-link authority, which controls
+        // recovery and future renewal side effects.
+        if (!transitioned) break;
         await putProviderLink(env, providerId, { ...link, status: "pending" });
       }
       await trackEvent(env, "subscription_payment_pending", { email: link?.email, tier: link?.tier, razorpay_subscription_id: providerId, rid });
@@ -836,7 +840,10 @@ export async function handleBillingWebhook(request, env, ctx, rid) {
 
     case "subscription.halted": {
       if (link?.internal_sub_id) {
-        await tryTransition(env, link.internal_sub_id, SUB_STATUS.SUSPENDED, {}, rid);
+        const transitioned = await tryTransition(env, link.internal_sub_id, SUB_STATUS.SUSPENDED, {}, rid);
+        // A delayed halt must never relabel an already cancelled/refunded
+        // account as suspended or switch its provider link to recoverable.
+        if (!transitioned) break;
         await denyGatewayAccess(env, link, "suspended", new Date().toISOString(), { provider_sub_id: providerId });
         await putProviderLink(env, providerId, { ...link, status: "halted" });
       }
@@ -847,8 +854,13 @@ export async function handleBillingWebhook(request, env, ctx, rid) {
     case "subscription.cancelled":
     case "subscription.completed": {
       if (link?.internal_sub_id) {
-        await tryTransition(env, link.internal_sub_id, SUB_STATUS.CANCELLED, { cancelled_at: new Date().toISOString() }, rid);
-        await denyGatewayAccess(env, link, "cancelled", new Date().toISOString(), { provider_sub_id: providerId });
+        const at = new Date().toISOString();
+        const transitioned = await tryTransition(env, link.internal_sub_id, SUB_STATUS.CANCELLED, { cancelled_at: at }, rid);
+        // Terminal state transitions are governed by the internal aggregate.
+        // If invalid, preserve the stronger existing cancellation/refund
+        // decision and the provider link; never overwrite it from late events.
+        if (!transitioned) break;
+        await denyGatewayAccess(env, link, "cancelled", at, { provider_sub_id: providerId });
         await putProviderLink(env, providerId, { ...link, status: "cancelled" });
       }
       await trackEvent(env, "subscription_cancelled", { email: link?.email, tier: link?.tier, razorpay_subscription_id: providerId, event, rid });

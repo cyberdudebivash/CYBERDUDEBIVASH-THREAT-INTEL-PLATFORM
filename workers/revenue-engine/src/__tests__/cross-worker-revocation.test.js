@@ -15,7 +15,7 @@ import crypto from "node:crypto";
 import { test } from "node:test";
 
 import { createD1 } from "./helpers/d1-sqlite.js";
-import { handleBillingWebhook, revokeEntitlementForSubscription } from "../subscription-engine.js";
+import { handleBillingWebhook, revokeEntitlementForSubscription, denyGatewayAccess } from "../subscription-engine.js";
 import gateway from "../../../intel-gateway/src/index.js";
 
 const WHSEC = "whsec_TEST_ONLY_xworker";
@@ -267,4 +267,69 @@ test("a key refunded or cancelled at the gateway (admin) is not revived by a hal
     assert.equal(await w.validateKey(w.key), false, `${status}: API key stays denied`);
     assert.equal(await w.login(w.key), null, `${status}: no new JWT`);
   }
+});
+
+
+test("P0: direct cancel helper cannot downgrade an already refunded key", async () => {
+  const w = await activeCustomer();
+  await revokeEntitlementForSubscription(w.revenue, SUB, "refunded", "rid");
+  const link = JSON.parse(w.revenue.REVENUE_CRM_KV.store.get(`razorpay_sub:${SUB}`));
+  const before = JSON.parse(w.gw.API_KEYS_KV.store.get(w.key));
+  assert.equal(before.subscription_status, "refunded");
+  await denyGatewayAccess(w.revenue, link, "cancelled", new Date().toISOString());
+  const after = JSON.parse(w.gw.API_KEYS_KV.store.get(w.key));
+  assert.equal(after.subscription_status, "refunded", "refunded is terminal even through operator-side helper");
+  assert.equal(await w.validateKey(w.key), false);
+  assert.equal(await w.validateJwt(w.jwt), false);
+});
+
+test("P0: delayed pending and halted webhook never downgrade a cancelled provider link", async () => {
+  const w = await activeCustomer();
+  await w.webhook("subscription.cancelled");
+  const cancelled = JSON.parse(w.revenue.REVENUE_CRM_KV.store.get(`razorpay_sub:${SUB}`));
+  assert.equal(cancelled.status, "cancelled");
+  assert.equal(await w.validateKey(w.key), false);
+  assert.equal(await w.validateJwt(w.jwt), false);
+
+  await w.webhook("subscription.pending");
+  await w.webhook("subscription.halted");
+  const finalLink = JSON.parse(w.revenue.REVENUE_CRM_KV.store.get(`razorpay_sub:${SUB}`));
+  assert.equal(finalLink.status, "cancelled", "late nonterminal events cannot rewrite terminal provider status");
+  const internal = JSON.parse(w.revenue.REVENUE_CRM_KV.store.get(`sub:${finalLink.internal_sub_id}`));
+  assert.equal(internal.status, "cancelled");
+  assert.equal(JSON.parse(w.gw.API_KEYS_KV.store.get(w.key)).subscription_status, "cancelled");
+  assert.equal(await w.validateKey(w.key), false);
+  assert.equal(await w.validateJwt(w.jwt), false);
+  await w.webhook("subscription.activated", {}, {
+    payment: { entity: { id: "pay_TEST_ONLY_late", status: "captured", amount: 410000, currency: "INR" } },
+  });
+  assert.equal(await w.validateKey(w.key), false, "late captured payment cannot revive a cancelled key");
+});
+
+test("P0: late pending after a legitimate halt does not make it appear resumable", async () => {
+  const w = await activeCustomer();
+  await w.webhook("subscription.halted");
+  assert.equal(await w.validateKey(w.key), false);
+  await w.webhook("subscription.pending");
+  const link = JSON.parse(w.revenue.REVENUE_CRM_KV.store.get(`razorpay_sub:${SUB}`));
+  const sub = JSON.parse(w.revenue.REVENUE_CRM_KV.store.get(`sub:${link.internal_sub_id}`));
+  assert.equal(link.status, "halted");
+  assert.equal(sub.status, "suspended");
+  assert.equal(JSON.parse(w.gw.API_KEYS_KV.store.get(w.key)).subscription_status, "suspended");
+  assert.equal(await w.validateJwt(w.jwt), false);
+});
+
+test("P0: a delayed completed/cancelled event never changes a terminal refund", async () => {
+  const w = await activeCustomer();
+  await revokeEntitlementForSubscription(w.revenue, SUB, "refunded", "rid");
+  const before = JSON.parse(w.revenue.REVENUE_CRM_KV.store.get(`razorpay_sub:${SUB}`));
+  await w.webhook("subscription.completed");
+  await w.webhook("subscription.cancelled");
+  await w.webhook("subscription.pending");
+  await w.webhook("subscription.halted");
+  const after = JSON.parse(w.revenue.REVENUE_CRM_KV.store.get(`razorpay_sub:${SUB}`));
+  assert.equal(after.status, before.status);
+  assert.equal(JSON.parse(w.gw.API_KEYS_KV.store.get(w.key)).subscription_status, "refunded");
+  assert.equal(await w.validateKey(w.key), false);
+  assert.equal(await w.validateJwt(w.jwt), false);
 });
