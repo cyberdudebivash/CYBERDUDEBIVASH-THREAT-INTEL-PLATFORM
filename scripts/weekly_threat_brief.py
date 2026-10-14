@@ -246,27 +246,36 @@ def _render_html(brief: Dict) -> str:
             str(t["severity"]).upper(), "#6b7280")
         kev_badge = '<span style="background:#ef4444;color:#fff;font-size:10px;padding:2px 6px;border-radius:4px;margin-left:6px;">CISA KEV</span>' if t.get("kev") else ""
         sigma_badge = '<span style="background:#7c3aed;color:#fff;font-size:10px;padding:2px 6px;border-radius:4px;margin-left:6px;">SIGMA</span>' if t.get("sigma_available") else ""
+        safe_title = escape(str(t.get("title", ""))[:90])
+        safe_actor = escape(str(t.get("actor", "Unknown"))[:30])
+        safe_severity = escape(str(t.get("severity", "UNKNOWN")))
+        safe_link = escape(str(t.get("report_url", "")), quote=True)
+        title_cell = (f'<a href="{safe_link}" style="color:#38bdf8;text-decoration:none;font-size:13px;">{safe_title}</a>'
+                      if safe_link else f'<span style="font-size:13px;">{safe_title}</span>')
         rows += f"""
         <tr>
           <td style="padding:10px 8px;border-bottom:1px solid #1e293b;color:#64748b;font-size:12px;">{t['rank']}</td>
           <td style="padding:10px 8px;border-bottom:1px solid #1e293b;">
-            <a href="{t['report_url']}" style="color:#38bdf8;text-decoration:none;font-size:13px;">{t['title'][:90]}</a>
+            {title_cell}
             {kev_badge}{sigma_badge}
           </td>
           <td style="padding:10px 8px;border-bottom:1px solid #1e293b;">
-            <span style="color:{sev_color};font-size:12px;font-weight:700;">{t['severity']}</span>
+            <span style="color:{sev_color};font-size:12px;font-weight:700;">{safe_severity}</span>
           </td>
           <td style="padding:10px 8px;border-bottom:1px solid #1e293b;color:#94a3b8;font-size:12px;">{t['risk_score']:.1f}</td>
-          <td style="padding:10px 8px;border-bottom:1px solid #1e293b;color:#94a3b8;font-size:12px;">{str(t['actor'])[:30]}</td>
+          <td style="padding:10px 8px;border-bottom:1px solid #1e293b;color:#94a3b8;font-size:12px;">{safe_actor}</td>
         </tr>"""
 
     kev_items_html = ""
     for k in kev:
-        kev_items_html += f'<li style="margin-bottom:8px;"><a href="{k["report_url"]}" style="color:#38bdf8;">{k["title"]}</a> — Risk {k["risk_score"]:.1f}</li>'
+        safe_title = escape(str(k.get("title", "")))
+        safe_link = escape(str(k.get("report_url", "")), quote=True)
+        inner = f'<a href="{safe_link}" style="color:#38bdf8;">{safe_title}</a>' if safe_link else safe_title
+        kev_items_html += f'<li style="margin-bottom:8px;">{inner} — Risk {k["risk_score"]:.1f}</li>'
     if not kev_items_html:
         kev_items_html = "<li style='color:#64748b;'>No new KEV additions this week.</li>"
 
-    actors_html = " | ".join(f'<span style="background:#1e293b;padding:3px 8px;border-radius:4px;font-size:12px;">{a}</span>' for a in actors) or "<span style='color:#64748b;'>No attributed actors this period</span>"
+    actors_html = " | ".join(f'<span style="background:#1e293b;padding:3px 8px;border-radius:4px;font-size:12px;">{escape(str(a))}</span>' for a in actors) or "<span style='color:#64748b;'>No attributed actors this period</span>"
 
     return f"""<!DOCTYPE html>
 <html lang="en">
