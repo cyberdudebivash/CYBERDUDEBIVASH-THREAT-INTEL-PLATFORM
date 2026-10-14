@@ -46,7 +46,10 @@ import tlp_policy  # noqa: E402
 log = logging.getLogger("sentinel.tlp_boundary")
 
 REPO_ROOT = _SCRIPTS_DIR.parent
-ADVISORY_MARKERS = frozenset({"report_url", "internal_report_url", "cve_id", "stix_id", "bundle_id"})
+# Match the Worker publicTlpJsonVerified() advisory identity markers.
+# An unlabeled {"id","title"} child cannot silently survive the Python
+# writer and then make the Worker return a customer-facing HTTP 503.
+ADVISORY_MARKERS = frozenset({"id", "advisory_id", "intel_id", "report_url", "internal_report_url", "cve_id", "stix_id", "cve_ids", "threat_id", "bundle_id"})
 DOC_LABEL_KEYS = ("classification", "tlp", "tlp_label")
 COUNT_KEYS = ("count", "total", "total_count", "advisory_count", "item_count")
 MAX_DEPTH = 40
