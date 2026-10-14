@@ -50,7 +50,8 @@ def snapshot(policy):
                 "forecast_all_platforms_until_reset": "200",
                 "proposed_increment_until_reset": "10",
                 "unit": "per-billing-metric",
-                "window_start_utc": start, "window_end_utc": end
+                "window_start_utc": start, "window_end_utc": end,
+                "usage_measured_through_utc": now.isoformat()
             } for metric in policy["minimum_required_metrics"]
         },
     }
@@ -104,6 +105,13 @@ def test_missing_metric_rejected(policy, snapshot):
 def test_stale_snapshot_rejected(policy, snapshot):
     snapshot["as_of_utc"] = (datetime.now(timezone.utc) - timedelta(hours=8)).isoformat()
     with pytest.raises(gate.ReleaseBlocked, match="too old"):
+        gate.certify(policy, snapshot)
+
+
+def test_recent_export_cannot_disguise_stale_billing_usage(policy, snapshot):
+    snapshot["metrics"]["r2_class_a"]["usage_measured_through_utc"] = (
+        datetime.now(timezone.utc) - timedelta(hours=30)).isoformat()
+    with pytest.raises(gate.ReleaseBlocked, match="telemetry is stale"):
         gate.certify(policy, snapshot)
 
 
