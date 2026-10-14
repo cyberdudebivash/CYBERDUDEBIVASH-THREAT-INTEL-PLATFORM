@@ -200,7 +200,7 @@ def test_primary_encrypted_backup_r2_target_needs_same_permit(monkeypatch):
     monkeypatch.setattr(backup_engine, "_BACKUP_DESTINATION", "r2")
     monkeypatch.delenv("CDB_CF_METERED_BACKUP_APPROVED", raising=False)
     monkeypatch.delenv("CDB_CF_ACCOUNT_ATTESTATION_JSON", raising=False)
-    with pytest.raises(fence.MeteredBackupDenied):
+    with pytest.raises(fence.ReleaseBlocked):
         backup_engine._get_storage()
     # Existing local encrypted-backup route never needs a Cloudflare permit.
     monkeypatch.setattr(backup_engine, "_BACKUP_DESTINATION", "local")
