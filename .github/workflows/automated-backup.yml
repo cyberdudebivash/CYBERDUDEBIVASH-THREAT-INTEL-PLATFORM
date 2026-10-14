@@ -136,13 +136,24 @@ jobs:
     name: Cloudflare KV + R2 Backup
     needs: setup
     runs-on: ubuntu-latest
-    if: needs.setup.outputs.backup_type == 'full'
+    # P0 zero-overage: NEVER start Cloudflare metered backup on cron merely
+    # because credentials exist. Owner must explicitly enable the existing
+    # optional job and supply a recent ten-platform billing attestation.
+    # The first step then fails BEFORE any Cloudflare request if evidence is
+    # missing or the shared account would exceed its usage safety envelope.
+    if: needs.setup.outputs.backup_type == 'full' && vars.CDB_CF_METERED_BACKUP_APPROVED == 'true'
     timeout-minutes: 30
-    continue-on-error: true  # Don't block main backup if CF creds not configured
+    continue-on-error: true  # Independent primary encrypted backup still runs
+    env:
+      CDB_CF_METERED_BACKUP_APPROVED: ${{ vars.CDB_CF_METERED_BACKUP_APPROVED }}
+      CDB_CF_ACCOUNT_ATTESTATION_JSON: ${{ secrets.CDB_CF_ACCOUNT_ATTESTATION_JSON }}
 
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: P0 zero-overage ten-platform account admission (local only)
+        run: python3 scripts/cloudflare_metered_backup_guard.py
 
       - name: Set up Python
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
