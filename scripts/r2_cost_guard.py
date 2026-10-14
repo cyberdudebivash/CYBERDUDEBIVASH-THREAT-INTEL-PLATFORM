@@ -198,6 +198,13 @@ class R2Budgets:
     # (deterministic keys derived from the manifest, not bucket discovery).
     # Kept at 0, not "very small", so any LIST call at all in this path is
     # an immediate, loud budget failure -- not a silently-tolerated norm.
+    # No sanctioned recurring COPY or multipart uploader exists in the normal
+    # publisher path. Explicit zero caps prevent unaccounted Class A growth.
+    max_copy_calls_per_run: int = 0
+    max_multipart_calls_per_run: int = 0
+    # The existing bounded verifier uses HEAD and GET, so allow a bounded
+    # read-only operation count while forbidding whole-bucket enumerations.
+    max_class_b_calls_per_run: int = 2000
     max_data_writes_per_run: int = 200          # MAX_R2_DATA_WRITES_PER_RUN --
     # bounds scripts/r2_upload.py's existing manifest/AI/endpoint uploads to
     # sentinel-apex-data (observed: well under 100 discrete files per run).
@@ -233,6 +240,36 @@ def enforce_budget(plan: R2OperationPlan, budgets: R2Budgets, *, is_report_plan:
     bounded sentinel-apex-data uploads.
     """
     violations: list[str] = []
+
+    # Reject malformed or negative plans: a negative count must never
+    # satisfy a less-than ceiling and conceal actual billable operations.
+    for key in ("put", "delete", "list_calls", "copy", "multipart", "head", "get"):
+        count = getattr(plan, key)
+        if isinstance(count, bool) or not isinstance(count, int) or count < 0:
+            violations.append(f"INVALID_R2_OPERATION_COUNT: {key}={count!r}")
+
+    for name in ("max_copy_calls_per_run", "max_multipart_calls_per_run",
+                 "max_class_b_calls_per_run", "max_report_writes_per_run",
+                 "max_report_deletes_per_run", "max_list_calls_per_run",
+                 "max_data_writes_per_run"):
+        cap = getattr(budgets, name)
+        if isinstance(cap, bool) or not isinstance(cap, int) or cap < 0:
+            violations.append(f"INVALID_R2_BUDGET_CEILING: {name}={cap!r}")
+
+    if plan.copy > budgets.max_copy_calls_per_run:
+        violations.append(
+            f"MAX_R2_COPY_CALLS_PER_RUN exceeded: COPY={plan.copy} > {budgets.max_copy_calls_per_run}"
+        )
+    if plan.multipart > budgets.max_multipart_calls_per_run:
+        violations.append(
+            f"MAX_R2_MULTIPART_CALLS_PER_RUN exceeded: multipart={plan.multipart} > "
+            f"{budgets.max_multipart_calls_per_run}"
+        )
+    if plan.estimated_class_b() > budgets.max_class_b_calls_per_run:
+        violations.append(
+            f"MAX_R2_CLASS_B_CALLS_PER_RUN exceeded: HEAD+GET={plan.estimated_class_b()} > "
+            f"{budgets.max_class_b_calls_per_run}"
+        )
 
     write_ceiling = budgets.max_report_writes_per_run if is_report_plan else budgets.max_data_writes_per_run
     write_ceiling_name = "MAX_REPORT_UPLOADS_PER_RUN" if is_report_plan else "MAX_R2_DATA_WRITES_PER_RUN"

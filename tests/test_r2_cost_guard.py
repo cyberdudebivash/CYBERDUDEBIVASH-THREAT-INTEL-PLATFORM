@@ -87,6 +87,47 @@ class TestBudgetEnforcement(unittest.TestCase):
         self.assertIn("MAX_R2_LIST_CALLS_PER_RUN", msg)
 
 
+class TestPreviouslyUnboundedMeteredOperations(unittest.TestCase):
+    def test_copy_is_zero_budget_by_default(self):
+        plan = guard.R2OperationPlan(label="test", bucket="data")
+        plan.record_copy(1)
+        with self.assertRaisesRegex(guard.R2BudgetExceeded, "MAX_R2_COPY_CALLS_PER_RUN"):
+            guard.enforce_budget(plan, guard.R2Budgets(), is_report_plan=False)
+
+    def test_multipart_is_zero_budget_by_default(self):
+        plan = guard.R2OperationPlan(label="test", bucket="data")
+        plan.record_multipart(1)
+        with self.assertRaisesRegex(guard.R2BudgetExceeded, "MAX_R2_MULTIPART_CALLS_PER_RUN"):
+            guard.enforce_budget(plan, guard.R2Budgets(), is_report_plan=False)
+
+    def test_class_b_read_ceiling_is_enforced_across_head_and_get(self):
+        plan = guard.R2OperationPlan(label="test", bucket="reports")
+        plan.record_head(1200)
+        plan.record_get(801)
+        with self.assertRaisesRegex(guard.R2BudgetExceeded, "MAX_R2_CLASS_B_CALLS_PER_RUN"):
+            guard.enforce_budget(plan, guard.R2Budgets(), is_report_plan=True)
+
+    def test_bounded_read_only_verification_still_allowed(self):
+        plan = guard.R2OperationPlan(label="test", bucket="reports")
+        plan.record_head(200)
+        plan.record_get(200)
+        guard.enforce_budget(plan, guard.R2Budgets(), is_report_plan=True)
+
+    def test_negative_or_noninteger_counts_cannot_satisfy_budgets(self):
+        for count in (-1, 0.5, True):
+            with self.subTest(count=count):
+                plan = guard.R2OperationPlan(label="test", bucket="reports")
+                plan.put = count
+                with self.assertRaisesRegex(guard.R2BudgetExceeded, "INVALID_R2_OPERATION_COUNT"):
+                    guard.enforce_budget(plan, guard.R2Budgets())
+
+    def test_negative_ceiling_cannot_be_used_to_authorize_io(self):
+        plan = guard.R2OperationPlan(label="test", bucket="reports")
+        budget = guard.R2Budgets(max_class_b_calls_per_run=-1)
+        with self.assertRaisesRegex(guard.R2BudgetExceeded, "INVALID_R2_BUDGET_CEILING"):
+            guard.enforce_budget(plan, budget)
+
+
 class TestEstimatedClassA(unittest.TestCase):
     def test_class_a_excludes_delete(self):
         """Billing-accuracy contract (module docstring): Cloudflare R2 does
