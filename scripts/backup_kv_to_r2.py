@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# P0 release-assurance review: independently rescan this changed Cloudflare
+# metered-backup surface after the bypassed PR #814 required SAST failure.
 """
 scripts/backup_kv_to_r2.py
 CYBERDUDEBIVASH(R) SENTINEL APEX - Cloudflare KV Namespace Backup to R2
