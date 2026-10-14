@@ -26,7 +26,7 @@ def attestation():
     start = (now - timedelta(days=1)).isoformat()
     end = (now + timedelta(days=5)).isoformat()
     deltas = {"r2_class_a": "105", "r2_class_b": "500",
-              "kv_reads": "2000", "kv_lists": "8"}
+              "kv_reads": "4000", "kv_lists": "8"}
     return {
         "schema_version": 1, "source": "cloudflare_account_billing_and_analytics",
         "owner_verified": True, "current_account_plan_verified": True,
@@ -71,7 +71,7 @@ def test_complete_fresh_ten_platform_snapshot_conditionally_admits():
 
 @pytest.mark.parametrize("metric,amount", [
     ("r2_class_a", "104"), ("r2_class_b", "499"),
-    ("kv_reads", "1999"), ("kv_lists", "7")])
+    ("kv_reads", "3999"), ("kv_lists", "7")])
 def test_understated_metered_cost_estimates_block(metric, amount):
     report = attestation()
     report["metrics"][metric]["proposed_increment_until_reset"] = amount
