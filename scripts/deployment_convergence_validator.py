@@ -118,10 +118,12 @@ HIST_PROBE_COUNT    = int(os.environ.get("HISTORICAL_PROBE_COUNT", "5"))
 # Pause between probes in a batch: the probe itself tripped the site's
 # rate limit (HTTP 429) on 2026-09-26 and then waited for it.
 PROBE_INTERVAL      = float(os.environ.get("CONVERGENCE_PROBE_INTERVAL", "1.0"))
-# Retry rounds after which failures that are all permanent (404 that is not
-# a publication-gate rejection) stop being retried -- they are missing, not
-# propagating, and the phase already records them as failures.
-PERMANENT_STOP_ROUND = int(os.environ.get("CONVERGENCE_PERMANENT_STOP_ROUND", "3"))
+# A structural report 404 that remains after one bounded grace retry
+# cannot be certified by hammering the public CDN. Convergence still FAILS;
+# the shortened retry budget only reduces extra billable Worker/R2 reads and
+# GitHub Actions time. Keep an override for incident diagnostic tests.
+# R2/KV budgets are shared by all ten platform workloads.
+PERMANENT_STOP_ROUND = min(1, max(0, int(os.environ.get("CONVERGENCE_PERMANENT_STOP_ROUND", "1"))))
 
 # ---------------------------------------------------------------------------
 # Data structures
