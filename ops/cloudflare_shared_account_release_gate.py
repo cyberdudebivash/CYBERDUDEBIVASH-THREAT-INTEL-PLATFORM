@@ -92,6 +92,8 @@ def certify(policy, record, *, now=None):
         raise ReleaseBlocked("Actual Cloudflare account metrics required")
     if record.get("owner_verified") is not True:
         raise ReleaseBlocked("Owner verification required")
+    if record.get("current_account_plan_verified") is not True:
+        raise ReleaseBlocked("Current Cloudflare account plan not verified")
     if record.get("all_billing_products_accounted_for") is not True:
         raise ReleaseBlocked("Billing product inventory incomplete")
     if record.get("all_platforms_accounted_for") is not True:
@@ -142,8 +144,11 @@ def certify(policy, record, *, now=None):
         used = number(entry.get("used_account_wide"), key + ".used_account_wide")
         committed = number(entry.get("forecast_all_platforms_until_reset"), key + ".forecast")
         delta = number(entry.get("proposed_increment_until_reset"), key + ".proposed_increment")
-        if included <= 0:
-            raise ReleaseBlocked(key + ": no verified included usage allowance")
+        unit = entry.get("unit")
+        if not isinstance(unit, str) or not unit.strip() or len(unit) > 80:
+            raise ReleaseBlocked(key + ": Cloudflare billing unit missing or invalid")
+        if included == 0 and (used > 0 or committed > 0 or delta > 0):
+            raise ReleaseBlocked(key + ": metric has no included allowance and would be billed")
         # Deliberately reserve headroom even for already-deployed traffic.
         # This is conservative forecasting, NOT Cloudflare's own hard cap.
         budget = included * (1 - reserve)
