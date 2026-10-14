@@ -164,12 +164,36 @@ class TestSanitizeDocument(unittest.TestCase):
         self.assertEqual([r["id"] for r in out], ["unl"])
         self.assertEqual(removed[0]["id"], "x")
 
-    def test_non_record_aggregates_pass_through_unchanged(self):
+    def test_unlabeled_id_title_aggregate_is_not_a_public_advisory(self):
+        # Worker publicTlpJsonVerified() rejects every title/id object lacking
+        # an explicit CLEAR label. Python must remove these before publication,
+        # while unrelated name/id metadata is still allowed.
         doc = {"count": 2, "top_threats": [{"id": "TH-1", "title": "t", "risk_score": 9}, {"id": "TH-2", "title": "u"}],
                "actors": [{"id": "a", "name": "n"}]}
         out, removed, withheld = tb.sanitize_document(doc, POLICY)
-        self.assertEqual(out, doc)
-        self.assertEqual((removed, withheld), ([], None))
+        self.assertEqual(out["top_threats"], [])
+        self.assertEqual(out["count"], 0)
+        self.assertEqual(out["actors"], doc["actors"])
+        self.assertEqual(len(removed), 2)
+        self.assertIsNone(withheld)
+
+    def test_naked_nested_advisory_is_removed_but_labeled_clear_is_retained(self):
+        doc = {"count": 1, "items": [{
+            "id": "intel--public", "title": "Source-supported bulletin",
+            "tlp": "TLP:CLEAR",
+            "related": [
+                {"id": "intel--unverified", "title": "Unclassified nested entry", "ioc": "DO_NOT_PUBLISH"},
+                {"id": "intel--verified", "title": "Verified subentry", "tlp": "TLP:CLEAR"},
+            ],
+        }]}
+        out, removed, withheld = tb.sanitize_document(doc, POLICY)
+        self.assertEqual(len(out["items"]), 1)
+        self.assertEqual(out["items"][0]["related"], [
+            {"id": "intel--verified", "title": "Verified subentry", "tlp": "TLP:CLEAR"}
+        ])
+        self.assertNotIn("DO_NOT_PUBLISH", json.dumps(out))
+        self.assertEqual(len(removed), 1)
+        self.assertIsNone(withheld)
 
 
 class TestConflictingClassification(unittest.TestCase):
@@ -440,7 +464,10 @@ class TestR2UploaderBoundary(unittest.TestCase):
                     mock.patch.object(r2_upload, "write_github_env"), \
                     mock.patch.object(r2_upload, "R2OperationPlan", SpyPlan), \
                     mock.patch.object(r2_upload, "REPO_ROOT", root), \
+                    mock.patch("p0_r44_publication_boundary.finalize_public_feed", return_value={"published_count": 1}), \
                     mock.patch("os.chdir"):
+                # This unit tests R2 TLP/cost handling only; the real finalizer
+                # is independently covered by the mandatory R44 gate.
                 r2_upload.main()
         self.assertEqual([x["id"] for x in json.loads(puts["apex_v2/priority.json"])], ["p2"])
         self.assertTrue(json.loads(puts["ai/apex_report.json"])["tlp_boundary"]["withheld"])
@@ -456,7 +483,8 @@ class TestR2UploaderBoundary(unittest.TestCase):
             (root / "api" / "v1" / "intel").mkdir(parents=True)
             (root / "api" / "feed.json").write_text(json.dumps([rec("c", "TLP:CLEAR")]))
             (root / "api" / "v1" / "intel" / "latest.json").write_text(
-                json.dumps({"count": 2, "items": [rec("c", "TLP:CLEAR"), rec("r", "TLP:RED", d=SECRET)]}))
+                json.dumps({"generated_at": __import__("datetime").datetime.now(__import__("datetime").timezone.utc).isoformat(),
+                            "count": 2, "items": [rec("c", "TLP:CLEAR"), rec("r", "TLP:RED", d=SECRET)]}))
             puts = {}
 
             def fake_cp(src, bucket, key, endpoint, cache_control="x"):
@@ -586,7 +614,7 @@ class TestReportValidationGateWithPolicyWithheldItems(unittest.TestCase):
         self._cwd = os.getcwd()
         os.chdir(self._tmp.name)
         from datetime import datetime, timedelta, timezone
-        self.now = datetime(2026, 10, 8, 12, 0, 0, tzinfo=timezone.utc)
+        self.now = datetime.now(timezone.utc).replace(microsecond=0)  # keep synthetic report inside the actual gate window
         self.fresh = (self.now - timedelta(hours=1)).strftime("%Y-%m-%dT%H:%M:%SZ")
 
     def tearDown(self):

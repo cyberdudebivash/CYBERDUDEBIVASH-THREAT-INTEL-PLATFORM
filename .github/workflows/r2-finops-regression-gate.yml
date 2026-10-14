@@ -51,6 +51,9 @@ on:
     branches: [main]
     paths:
       - 'scripts/r2_upload.py'
+      - 'scripts/tlp_public_boundary.py'
+      - 'tests/test_p0_worker_tlp_publication_parity.py'
+      - 'tests/test_p0_721_public_boundary.py'
       - 'scripts/r2_resync_manifests.py'
       - 'scripts/p0_r2_public_feed_diagnostic.mjs'
       - 'tests/test_p0_r2_resync_worker_preflight.py'
@@ -122,6 +125,9 @@ jobs:
       # freshness/TLP gate would serve HTTP 503. No Cloudflare network calls.
       - name: "P0 #788 -- final R2 public latest preflight uses Worker truth"
         run: python -m pytest tests/test_p0_r2_resync_worker_preflight.py -v --tb=short
+
+      - name: "P0 #788 -- Python/Worker nested TLP contract parity on public R2 copies"
+        run: python -m pytest tests/test_p0_worker_tlp_publication_parity.py tests/test_p0_721_public_boundary.py -v --tb=short
 
       - name: "r2_upload.py -- reports keyspace never resurrected (PR #369 invariant)"
         run: python -m pytest tests/test_r2_upload_reports_sync.py -v --tb=short

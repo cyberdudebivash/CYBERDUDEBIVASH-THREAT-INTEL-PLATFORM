@@ -28,13 +28,17 @@ def test_real_worker_verifies_sanitized_local_clear_latest(tmp_path):
     resync.assert_worker_deliverable_latest(latest(tmp_path))
 
 
-def test_unlabeled_nested_title_and_id_block_before_r2(tmp_path):
-    # Python's publication sanitizer historically does not classify a
-    # title/id-only nested object as an advisory; Worker rejects it.
+def test_unlabeled_nested_title_and_id_sanitized_before_r2(tmp_path):
+    # The Python writer now recognizes this same record as the Worker and
+    # strips its unverified nested content from the upload-only copy.
+    # Previous regression intentionally expected fail-close of the whole
+    # document because the writer failed to remove the nested object.
     record = {"id": "intel--valid", "title": "Public item", "tlp": "TLP:CLEAR",
               "related": {"id": "intel--secret", "title": "Unverified nested advisory"}}
-    with pytest.raises(ValueError, match="P0_PUBLIC_LATEST_WORKER_REJECTED"):
-        resync.assert_worker_deliverable_latest(latest(tmp_path, items=[record]))
+    source = latest(tmp_path, items=[record])
+    before = source.read_bytes()
+    resync.assert_worker_deliverable_latest(source)
+    assert source.read_bytes() == before  # canonical inventory unchanged
 
 
 def test_unlabeled_public_advisory_blocked(tmp_path):
