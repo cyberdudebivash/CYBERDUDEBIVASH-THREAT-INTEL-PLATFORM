@@ -37,6 +37,7 @@ CONDITIONAL_JOBS = {
     "bandit": "python_relevant",
     "safety": "dependency_relevant",
     "semgrep": "semgrep_relevant",
+    "scripts-sast": "scripts_relevant",
 }
 MANDATORY_JOBS = {"changes", "trufflehog", "workflow-hygiene"}
 GATE_JOB_ID = "sast-gate"
@@ -229,6 +230,7 @@ class TestChangeClassificationLogicIsCorrect(unittest.TestCase):
         self.assertEqual(outputs.get("python_relevant"), "false")
         self.assertEqual(outputs.get("dependency_relevant"), "false")
         self.assertEqual(outputs.get("semgrep_relevant"), "false")
+        self.assertEqual(outputs.get("scripts_relevant"), "false")
 
     def test_scenario_b_source_change_pr_marks_the_right_scanners_relevant(self):
         """A PR touching agent/ source, a requirements file, and api/ must
@@ -241,6 +243,17 @@ class TestChangeClassificationLogicIsCorrect(unittest.TestCase):
         self.assertEqual(outputs.get("python_relevant"), "true")
         self.assertEqual(outputs.get("dependency_relevant"), "true")
         self.assertEqual(outputs.get("semgrep_relevant"), "true")
+
+    def test_scripts_python_change_requires_bounded_production_scanner(self):
+        outputs = self._run_classification(["scripts/p0_r44_publication_boundary.py"])
+        self.assertEqual(outputs.get("scripts_relevant"), "true")
+        self.assertEqual(outputs.get("python_relevant"), "false")
+        self.assertEqual(outputs.get("semgrep_relevant"), "false")
+        self.assertEqual(outputs.get("dependency_relevant"), "false")
+
+    def test_scripts_json_alone_is_not_a_python_scan_target(self):
+        outputs = self._run_classification(["scripts/generated.json"])
+        self.assertEqual(outputs.get("scripts_relevant"), "false")
 
     def test_api_json_alone_is_not_python_relevant_but_is_semgrep_relevant(self):
         """Confirms the deliberate asymmetry: Bandit only scans api/**.py
@@ -263,6 +276,7 @@ class TestChangeClassificationLogicIsCorrect(unittest.TestCase):
         self.assertEqual(outputs.get("python_relevant"), "true")
         self.assertEqual(outputs.get("dependency_relevant"), "true")
         self.assertEqual(outputs.get("semgrep_relevant"), "true")
+        self.assertEqual(outputs.get("scripts_relevant"), "true")
 
 
 
@@ -348,11 +362,12 @@ class TestClassifierFetchesOnlyTheTwoCommits(unittest.TestCase):
                 objects = _git(work, "cat-file", "--batch-all-objects", "--batch-check=%(objecttype)", check=False).stdout
             return result, outputs, objects, shallow
 
-    def _assert_classified(self, result, outputs, python, dependency, semgrep):
+    def _assert_classified(self, result, outputs, python, dependency, semgrep, scripts="false"):
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertEqual(outputs.get("python_relevant"), python)
         self.assertEqual(outputs.get("dependency_relevant"), dependency)
         self.assertEqual(outputs.get("semgrep_relevant"), semgrep)
+        self.assertEqual(outputs.get("scripts_relevant"), scripts)
 
     def test_docs_only_change_legitimately_skips_every_code_scanner(self):
         result, outputs, _, _ = self._run({"docs/guide.md": "a\n"}, {"docs/guide.md": "b\n", "docs/new.md": "c\n"})
@@ -362,6 +377,15 @@ class TestClassifierFetchesOnlyTheTwoCommits(unittest.TestCase):
     def test_python_change_requires_bandit_and_semgrep(self):
         result, outputs, _, _ = self._run({}, {"agent/core.py": "x = 1\n"})
         self._assert_classified(result, outputs, "true", "false", "true")
+
+    def test_production_scripts_change_requires_dedicated_scanner(self):
+        result, outputs, _, _ = self._run({}, {"scripts/r2_upload.py": "x = 1\n"})
+        self._assert_classified(result, outputs, "false", "false", "false", "true")
+
+    def test_scripts_rename_and_deletion_keep_coverage(self):
+        result, outputs, _, _ = self._run(
+            {"scripts/legacy.py": "old\n"}, {"scripts/legacy.py": None, "docs/legacy.py": "old\n"})
+        self._assert_classified(result, outputs, "false", "false", "false", "true")
 
     def test_dependency_manifest_change_requires_the_dependency_scanner(self):
         for manifest in ("requirements.txt", "api/requirements.txt", "platform/services/feed/requirements.txt"):
@@ -442,8 +466,8 @@ class TestSastGateFailsClosed(unittest.TestCase):
         env = {
             "PATH": "/usr/bin:/bin:/usr/local/bin",
             "CHANGES": "success", "TRUFFLE": "success", "HYGIENE": "success",
-            "BANDIT": "skipped", "SAFETY": "skipped", "SEMGREP": "skipped",
-            "PYTHON_RELEVANT": "false", "DEPENDENCY_RELEVANT": "false", "SEMGREP_RELEVANT": "false",
+            "BANDIT": "skipped", "SAFETY": "skipped", "SEMGREP": "skipped", "SCRIPTS": "skipped",
+            "PYTHON_RELEVANT": "false", "DEPENDENCY_RELEVANT": "false", "SEMGREP_RELEVANT": "false", "SCRIPTS_RELEVANT": "false",
             "EVENT_NAME": "pull_request", "FULL_SCAN": "",
         }
         env.update(overrides)
@@ -466,6 +490,7 @@ class TestSastGateFailsClosed(unittest.TestCase):
             dict(PYTHON_RELEVANT="true", SEMGREP_RELEVANT="true", SEMGREP="success"),  # Bandit skipped
             dict(DEPENDENCY_RELEVANT="true"),                                          # Safety skipped
             dict(SEMGREP_RELEVANT="true"),                                              # Semgrep skipped
+            dict(SCRIPTS_RELEVANT="true"),                                            # Scripts scan skipped
         ]
         for case in cases:
             with self.subTest(**case):
@@ -473,8 +498,13 @@ class TestSastGateFailsClosed(unittest.TestCase):
 
     def test_applicable_scanners_that_succeeded_pass(self):
         result = self._gate(PYTHON_RELEVANT="true", SEMGREP_RELEVANT="true", DEPENDENCY_RELEVANT="true",
-                            BANDIT="success", SEMGREP="success", SAFETY="success")
+                            BANDIT="success", SEMGREP="success", SAFETY="success", SCRIPTS_RELEVANT="true", SCRIPTS="success")
         self.assertEqual(result.returncode, 0, result.stdout)
+
+    def test_scripts_sast_cannot_mismatch_classification(self):
+        self.assertEqual(self._gate(SCRIPTS_RELEVANT="true", SCRIPTS="failure").returncode, 1)
+        self.assertEqual(self._gate(SCRIPTS_RELEVANT="false", SCRIPTS="success").returncode, 1)
+        self.assertEqual(self._gate(SCRIPTS_RELEVANT="true", SCRIPTS="success").returncode, 0)
 
     def test_secret_scan_and_hygiene_stay_mandatory(self):
         for key in ("TRUFFLE", "HYGIENE"):
