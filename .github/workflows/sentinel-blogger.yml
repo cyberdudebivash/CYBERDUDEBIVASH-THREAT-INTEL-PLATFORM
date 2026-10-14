@@ -1016,12 +1016,13 @@ jobs:
       # Tier-0 (no evidence): max risk_score=5.5. Tier-4 (KEV+exploit+EPSS>=50%): 10.0.
       # ROOT CAUSE FIX: Previously not in pipeline, so governance engine saw
       # inflated scores and flagged hard_violations -> Grade=D.
-      # Non-fatal: pipeline continues even if enforcer errors.
+      # P0: fail closed. Returning success from a broken risk-truth enforcer
+      # allows unverified high-risk claims to reach downstream publication.
       # -----------------------------------------------------------------------
       - name: "STAGE 3.1.4b - Evidence Score Enforcer (v184.0 -- inflation elimination)"
         timeout-minutes: 3
         run: |
-          python3 scripts/evidence_score_enforcer.py || true
+          python3 scripts/evidence_score_enforcer.py
           echo "STAGE 3.1.4b: Evidence Score Enforcer complete"
 
       # -----------------------------------------------------------------------
