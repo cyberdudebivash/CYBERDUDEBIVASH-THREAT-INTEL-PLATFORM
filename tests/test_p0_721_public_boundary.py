@@ -464,7 +464,10 @@ class TestR2UploaderBoundary(unittest.TestCase):
                     mock.patch.object(r2_upload, "write_github_env"), \
                     mock.patch.object(r2_upload, "R2OperationPlan", SpyPlan), \
                     mock.patch.object(r2_upload, "REPO_ROOT", root), \
+                    mock.patch("p0_r44_publication_boundary.finalize_public_feed", return_value={"published_count": 1}), \
                     mock.patch("os.chdir"):
+                # This unit tests R2 TLP/cost handling only; the real finalizer
+                # is independently covered by the mandatory R44 gate.
                 r2_upload.main()
         self.assertEqual([x["id"] for x in json.loads(puts["apex_v2/priority.json"])], ["p2"])
         self.assertTrue(json.loads(puts["ai/apex_report.json"])["tlp_boundary"]["withheld"])
@@ -480,7 +483,8 @@ class TestR2UploaderBoundary(unittest.TestCase):
             (root / "api" / "v1" / "intel").mkdir(parents=True)
             (root / "api" / "feed.json").write_text(json.dumps([rec("c", "TLP:CLEAR")]))
             (root / "api" / "v1" / "intel" / "latest.json").write_text(
-                json.dumps({"count": 2, "items": [rec("c", "TLP:CLEAR"), rec("r", "TLP:RED", d=SECRET)]}))
+                json.dumps({"generated_at": __import__("datetime").datetime.now(__import__("datetime").timezone.utc).isoformat(),
+                            "count": 2, "items": [rec("c", "TLP:CLEAR"), rec("r", "TLP:RED", d=SECRET)]}))
             puts = {}
 
             def fake_cp(src, bucket, key, endpoint, cache_control="x"):
@@ -610,7 +614,7 @@ class TestReportValidationGateWithPolicyWithheldItems(unittest.TestCase):
         self._cwd = os.getcwd()
         os.chdir(self._tmp.name)
         from datetime import datetime, timedelta, timezone
-        self.now = datetime(2026, 10, 8, 12, 0, 0, tzinfo=timezone.utc)
+        self.now = datetime.now(timezone.utc).replace(microsecond=0)  # keep synthetic report inside the actual gate window
         self.fresh = (self.now - timedelta(hours=1)).strftime("%Y-%m-%dT%H:%M:%SZ")
 
     def tearDown(self):
