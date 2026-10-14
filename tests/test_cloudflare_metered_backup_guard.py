@@ -26,7 +26,8 @@ def attestation():
     start = (now - timedelta(days=1)).isoformat()
     end = (now + timedelta(days=5)).isoformat()
     deltas = {"r2_class_a": "105", "r2_class_b": "500",
-              "kv_reads": "4000", "kv_lists": "8"}
+              "kv_reads": "4000", "kv_lists": "8",
+              "r2_standard_storage_gb_month": "0.1"}
     return {
         "schema_version": 1, "source": "cloudflare_account_billing_and_analytics",
         "owner_verified": True, "current_account_plan_verified": True,
@@ -71,7 +72,8 @@ def test_complete_fresh_ten_platform_snapshot_conditionally_admits():
 
 @pytest.mark.parametrize("metric,amount", [
     ("r2_class_a", "104"), ("r2_class_b", "499"),
-    ("kv_reads", "3999"), ("kv_lists", "7")])
+    ("kv_reads", "3999"), ("kv_lists", "7"),
+    ("r2_standard_storage_gb_month", "0.09")])
 def test_understated_metered_cost_estimates_block(metric, amount):
     report = attestation()
     report["metrics"][metric]["proposed_increment_until_reset"] = amount
@@ -166,3 +168,27 @@ def test_scripts_fail_before_cloudflare_network_without_valid_budget():
     assert r2_src.index("require_metered_backup_permit()") < r2_src.index("s3 = get_s3()")
     assert kv_src.index("require_metered_backup_permit()") < kv_src.index("today = datetime.datetime.utcnow()")
     assert '"/tmp/kv_backup_' not in kv_src
+
+
+
+def test_oversized_kv_payload_never_sends_r2_put(monkeypatch):
+    class Client:
+        def put_object(self, **kwargs):
+            pytest.fail("Oversized KV payload must not touch Cloudflare")
+    monkeypatch.setattr(kv.boto3, "client", lambda *args, **kwargs: Client())
+    monkeypatch.setattr(kv, "CF_R2_ACCESS_KEY", "test")
+    monkeypatch.setattr(kv, "CF_R2_SECRET_KEY", "test")
+    monkeypatch.setattr(kv, "CF_R2_ENDPOINT", "https://example.invalid")
+    too_big = {"entries": {"k": "x" * (kv.MAX_SNAPSHOT_BYTES + 1)}}
+    assert kv.upload_to_r2("test.json", too_big) is False
+
+
+def test_oversized_r2_manifest_never_sends_put(monkeypatch):
+    class Client:
+        def put_object(self, **kwargs):
+            pytest.fail("Oversized R2 manifest must not be written")
+    plan = R2OperationPlan(label="test")
+    too_big = {"bucket": "sentinel-apex-data",
+               "objects": [{"k": "z" * (r2.MAX_MANIFEST_BYTES + 1)}]}
+    assert r2.upload_manifest(Client(), too_big, "sentinel-apex-data", "2026-10-14", plan) is False
+    assert plan.put == 0
