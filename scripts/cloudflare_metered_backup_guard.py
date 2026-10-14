@@ -56,3 +56,17 @@ def require_metered_backup_permit(*, environ=None) -> None:
         raise MeteredBackupDenied("Backup account-wide cost preflight denied") from exc
     print("CLOUDFLARE_BACKUP_COST_PREFLIGHT: CONDITIONAL_ALLOW; owner attestation checked.")
     print("Account headroom is not a platform-enforced spending cap.")
+
+
+def main() -> int:
+    try:
+        require_metered_backup_permit()
+        return 0
+    except MeteredBackupDenied as exc:
+        # No credentials or metering record in a public GitHub Actions log.
+        print(f"BLOCK: Cloudflare optional metered backup disabled: {exc}", file=sys.stderr)
+        return 2
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
