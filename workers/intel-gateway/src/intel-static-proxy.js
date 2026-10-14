@@ -64,8 +64,14 @@ function jsonResp(data, status = 200, extra = {}) {
 // A Worker must NOT turn an unverified object or source-less advisory into
 // public content when R2 contains old, pre-gate bytes. Intentional false
 // negatives are unacceptable; on ambiguity, retry after verified regeneration.
+// R2 public intelligence is hard-bounded to 1 MiB and 40 levels below.
+// Incident 2026-10-14: a fresh, all-CLEAR 100-advisory latest.json exceeded
+// the former 25,000-value traversal limit and customer APIs returned 503.
+// Permit up to 100,000 visits (including scalar leaves) WITHOUT changing the
+// strict TLP semantics or relaxing body/depth ceilings. Above that, deny.
+// Diagnostic MUST import these exports instead of mirroring constants.
 const MAX_PUBLIC_BODY_BYTES = 1024 * 1024;
-const MAX_PUBLIC_NODES = 25000;
+const MAX_PUBLIC_NODES = 100000;
 const MAX_PUBLIC_DEPTH = 40;
 const ADVISORY_KEYS = ["id", "advisory_id", "intel_id", "report_url", "internal_report_url", "cve_id", "stix_id", "cve_ids", "threat_id"];
 
@@ -184,4 +190,5 @@ async function handleIntelStaticProxy(env, path, method) {
   }
 }
 
-export { handleIntelStaticProxy, INTEL_STATIC_PROXY, publicTlpJsonVerified };
+export { handleIntelStaticProxy, INTEL_STATIC_PROXY, publicTlpJsonVerified,
+  MAX_PUBLIC_BODY_BYTES, MAX_PUBLIC_NODES, MAX_PUBLIC_DEPTH };
