@@ -40,10 +40,18 @@ def require_metered_backup_permit(*, environ=None) -> None:
         # zero incremental usage even if the total account has free headroom.
         metrics = document["metrics"]
         from decimal import Decimal
-        for name in ("r2_class_a", "r2_class_b", "kv_reads", "kv_lists"):
+        # Conservative one-run upper envelopes across BOTH optional backup
+        # scripts. Renew the attestation for each run; never amortize one
+        # permission across future scheduled jobs. Values include R2 inventory,
+        # manifest/snapshot PUTs, bounded integrity GETs, and KV enumeration.
+        minimum_increment = {
+            "r2_class_a": 105, "r2_class_b": 500,
+            "kv_reads": 2000, "kv_lists": 8,
+        }
+        for name, floor in minimum_increment.items():
             delta = Decimal(str(metrics[name]["proposed_increment_until_reset"]))
-            if not delta.is_finite() or delta <= 0:
-                raise MeteredBackupDenied(f"{name}: metered backup requires positive forecast")
+            if not delta.is_finite() or delta < floor:
+                raise MeteredBackupDenied(f"{name}: insufficient backup operation forecast")
     except (OSError, ValueError, TypeError, KeyError, AttributeError) as exc:
         raise MeteredBackupDenied("Backup account-wide cost preflight denied") from exc
     print("CLOUDFLARE_BACKUP_COST_PREFLIGHT: CONDITIONAL_ALLOW; owner attestation checked.")
