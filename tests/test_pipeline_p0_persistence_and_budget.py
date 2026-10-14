@@ -173,7 +173,7 @@ def test_daily_rate_limit_stops_further_requests_without_claiming_delivery(monke
     def limited(req, **kwargs):
         calls.append(req.full_url)
         raise urllib.error.HTTPError(req.full_url, 429, 'limited', {'Retry-After': '86400'}, io.BytesIO())
-    monkeypatch.setattr(convergence.urllib.request, 'urlopen', limited)
+    monkeypatch.setattr(convergence, '_platform_open', limited)
     first = convergence._http_probe('https://example.test/report')
     second = convergence._http_probe('https://example.test/another')
     assert first.status_code == 429 and not first.success
@@ -185,14 +185,14 @@ def test_retry_after_is_respected_without_disabling_security(monkeypatch, budget
     def limited(req, **kwargs):
         calls.append(budget[0])
         raise urllib.error.HTTPError(req.full_url, 429, 'limited', {'Retry-After': '90'}, io.BytesIO())
-    monkeypatch.setattr(convergence.urllib.request, 'urlopen', limited)
+    monkeypatch.setattr(convergence, '_platform_open', limited)
     convergence._http_probe('https://example.test/report')
     convergence._http_probe('https://example.test/report')
     assert calls == [1000.0, 1090.0]
 
 def test_global_request_cap_includes_status_reads(monkeypatch, budget):
     for _ in range(convergence.MAX_TOTAL_REQUESTS): assert convergence._claim_request()
-    monkeypatch.setattr(convergence.urllib.request, 'urlopen', lambda *a, **k: pytest.fail('budget must prevent network'))
+    monkeypatch.setattr(convergence, '_platform_open', lambda *a, **k: pytest.fail('budget must prevent network'))
     assert not convergence._http_probe('https://example.test/report').success
     assert convergence.query_publication_status('intel--0123456789abcdef') is None
 

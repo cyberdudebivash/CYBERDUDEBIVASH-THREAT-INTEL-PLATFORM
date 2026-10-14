@@ -107,7 +107,7 @@ def test_429_is_transient_and_retried(clock):
 def test_http_probe_classifies_429_as_transient():
     import urllib.error
     err = urllib.error.HTTPError("https://x", 429, "Too Many Requests", {}, None)
-    with patch.object(dcv.urllib.request, "urlopen", side_effect=err):
+    with patch.object(dcv, "_platform_open", side_effect=err):
         r = dcv._http_probe("https://x")
     assert r.status_code == 429 and not r.success and r.is_transient
 
@@ -120,6 +120,26 @@ def test_genuinely_missing_report_still_fails_but_stops_retrying(clock):
     rounds = sum(1 for u in net.calls if u == missing)
     # Phase 2 (5-URL sample) + Phase 3 stop after PERMANENT_STOP_ROUND+1 rounds each.
     assert rounds <= 2 * (dcv.PERMANENT_STOP_ROUND + 1) + 3 * dcv.CONFIRM_RUNS
+
+
+def test_unverified_permanent_report_404s_hard_fail_after_bounded_two_rounds(clock):
+    """Uncertified missing assets never become a pass and never cause 8 CDN retries."""
+    latest = _sort_first(REJECTED + OK_REPORTS)[-dcv.MAX_REPORT_PROBES:]
+    net = FakeNet({u: 404 for u in latest})
+    dcv._GATE_VERDICTS.clear()
+    with patch.object(dcv, "_http_probe", side_effect=net.probe), \
+         patch.object(dcv, "_is_expected_publication_rejection", return_value=False):
+        p2 = dcv.phase2_cdn_readiness_probe([], MANIFEST)
+        p3 = dcv.phase3_incremental_retry([], MANIFEST)
+    assert not p2.success
+    assert not p3.success
+    assert dcv.PERMANENT_STOP_ROUND == 1
+    assert len(p2.probes) <= 2 * (2 + 5)
+    assert len(p3.probes) <= 2 * len(latest)
+    assert all(not result.success for result in p3.probes)
+    assert all(result.status_code == 404 for result in p3.probes)
+    assert max(net.calls.count(url) for url in latest) <= 4
+    assert sum(s for s in clock if s > dcv.PROBE_INTERVAL) < 180
 
 
 def test_phase5_still_excludes_gate_rejections_from_continuity():

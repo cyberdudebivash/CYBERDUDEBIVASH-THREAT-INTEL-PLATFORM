@@ -47,7 +47,7 @@ def test_publication_status_uses_one_bounded_get(monkeypatch, clean_budget):
         calls.append((req.get_method(), req.full_url))
         return Response({"state": "REJECTED", "customer_ready": False})
 
-    monkeypatch.setattr(dcv.urllib.request, "urlopen", urlopen)
+    monkeypatch.setattr(dcv, "_platform_open", urlopen)
     result = dcv.query_publication_status("intel--0123456789abcdef")
 
     assert result == {"state": "REJECTED", "customer_ready": False}
@@ -69,7 +69,7 @@ def test_last_request_slot_can_classify_gate_rejection(monkeypatch, clean_budget
         calls.append(req.get_method())
         return Response({"state": "REJECTED", "customer_ready": False})
 
-    monkeypatch.setattr(dcv.urllib.request, "urlopen", urlopen)
+    monkeypatch.setattr(dcv, "_platform_open", urlopen)
     result = dcv.query_publication_status("intel--fedcba9876543210")
 
     assert result == {"state": "REJECTED", "customer_ready": False}
@@ -80,8 +80,8 @@ def test_last_request_slot_can_classify_gate_rejection(monkeypatch, clean_budget
 def test_exhausted_budget_still_fails_closed(monkeypatch, clean_budget):
     monkeypatch.setattr(dcv, "_REQUESTS_USED", dcv.MAX_TOTAL_REQUESTS)
     monkeypatch.setattr(
-        dcv.urllib.request,
-        "urlopen",
+        dcv,
+        "_platform_open",
         lambda *args, **kwargs: pytest.fail("network must not run"),
     )
 
@@ -102,7 +102,7 @@ def test_rate_limited_status_get_preserves_global_cooldown(
     def rate_limited(*args, **kwargs):
         raise error
 
-    monkeypatch.setattr(dcv.urllib.request, "urlopen", rate_limited)
+    monkeypatch.setattr(dcv, "_platform_open", rate_limited)
 
     assert dcv.query_publication_status("intel--cafebabecafebabe") is None
     assert dcv._REQUESTS_USED == 1
@@ -176,7 +176,7 @@ def test_full_healthy_protocol_completes_phase5_within_existing_cap(
             )
         return Response({})
 
-    monkeypatch.setattr(dcv.urllib.request, "urlopen", urlopen)
+    monkeypatch.setattr(dcv, "_platform_open", urlopen)
     dcv._GATE_VERDICTS.clear()
 
     phase1 = dcv.phase1_pages_push_detection()
@@ -194,7 +194,7 @@ def test_full_healthy_protocol_completes_phase5_within_existing_cap(
 def test_not_probed_is_distinct_from_permanent_404(monkeypatch, clean_budget):
     monkeypatch.setattr(dcv, "_REQUESTS_USED", dcv.MAX_TOTAL_REQUESTS)
     monkeypatch.setattr(
-        dcv.urllib.request, "urlopen",
+        dcv, "_platform_open",
         lambda *args, **kwargs: pytest.fail("request budget exhaustion must make zero HTTP calls"),
     )
     result = dcv._http_probe(dcv.PAGES_BASE_URL + "/reports/2026/10/intel--deadbeef.html")
@@ -252,3 +252,46 @@ def test_phase3_budget_exhaustion_fails_closed_without_retry(monkeypatch, clean_
     assert result.success is False
     assert len(calls) == 1
     assert not any(r.success for r in result.probes)
+
+
+
+@pytest.mark.parametrize("url", [
+    "http://intel.cyberdudebivash.com/",
+    "https://evil.example/reports/2026/10/intel--0123456789abcdef.html",
+    "https://intel.cyberdudebivash.com.evil.example/",
+    "https://intel.cyberdudebivash.com@evil.example/",
+    "https://intel.cyberdudebivash.com/api/admin",
+    "https://intel.cyberdudebivash.com/reports/%2e%2e/private.html",
+    "https://intel.cyberdudebivash.com/reports/2026/10/foo.html?token=secret",
+])
+def test_convergence_network_open_denies_untrusted_url_before_transport(monkeypatch, url):
+    monkeypatch.setattr(
+        dcv.urllib.request, "build_opener",
+        lambda *args: pytest.fail("rejected URL must not start a network transport"),
+    )
+    req = dcv.urllib.request.Request(url, method="HEAD")
+    with pytest.raises(ValueError, match="CONVERGENCE_UNTRUSTED_PLATFORM"):
+        dcv._platform_open(req, timeout=1)
+
+
+def test_convergence_network_open_enforces_no_redirects(monkeypatch):
+    captured = {}
+    class FakeOpener:
+        def open(self, req, timeout):
+            captured["url"] = req.full_url
+            captured["timeout"] = timeout
+            return "local-only"
+    def mocked_builder(handler):
+        captured["handler"] = handler
+        return FakeOpener()
+    monkeypatch.setattr(dcv.urllib.request, "build_opener", mocked_builder)
+    req = dcv.urllib.request.Request(
+        "https://intel.cyberdudebivash.com/api/feed.json", method="HEAD"
+    )
+    assert dcv._platform_open(req, timeout=2) == "local-only"
+    assert captured["timeout"] == 2
+    assert captured["url"] == req.full_url
+    assert issubclass(captured["handler"], dcv.urllib.request.HTTPRedirectHandler)
+    assert captured["handler"]().redirect_request(
+        req, None, 302, "redirect", {}, "https://evil.example/"
+    ) is None
