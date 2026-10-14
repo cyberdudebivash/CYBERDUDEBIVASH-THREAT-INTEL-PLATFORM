@@ -46,7 +46,7 @@ def require_metered_backup_permit(*, environ=None) -> None:
         # manifest/snapshot PUTs, bounded integrity GETs, and KV enumeration.
         minimum_increment = {
             "r2_class_a": 105, "r2_class_b": 500,
-            "kv_reads": 2000, "kv_lists": 8,
+            "kv_reads": 4000, "kv_lists": 8,
         }
         for name, floor in minimum_increment.items():
             delta = Decimal(str(metrics[name]["proposed_increment_until_reset"]))
