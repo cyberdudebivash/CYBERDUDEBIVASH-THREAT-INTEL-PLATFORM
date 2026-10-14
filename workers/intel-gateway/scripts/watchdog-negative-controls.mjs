@@ -48,7 +48,7 @@ const CONTROLS = [
   {
     id: "expired_cached_feed_bypasses_publication_guard",
     file: "workers/intel-gateway/src/index.js",
-    find: "if (cached && (!LIVE_FEED_CACHE_PATHS.has(pathname) || await cachedLiveFeedIsPublishable(cached))) return withRequestId(cached, requestId);",
+    find: "if (cached && (!LIVE_FEED_CACHE_PATHS.has(pathname) || await cachedLiveFeedIsPublishable(cached, pathname))) return withRequestId(cached, requestId);",
     replace: "if (cached) return withRequestId(cached, requestId);",
     tests: [T("watchdog-e2e.test.js")],
   },

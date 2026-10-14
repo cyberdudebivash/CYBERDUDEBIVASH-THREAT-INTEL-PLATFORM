@@ -101,7 +101,24 @@ def scan(root: Path, destination: Path) -> int:
     findings = json.loads(bandit_file.read_text(encoding="utf-8")).get("results")
     if not isinstance(findings, list):
         raise ValueError("SCRIPT_SAST_BANDIT_RESULT_INVALID")
-    print(f"Bandit high/high findings: {len(findings)}")
+    print(f"Bandit high/high findings: {len(findings)}", flush=True)
+    # The previous gate only printed a count (3 at PR #814) and concealed
+    # actionable rule/file/line. Do NOT dump code, secrets, or full messages.
+    # Emit bounded, log-safe metadata for remediation while retaining BLOCK.
+    for finding in findings[:50]:
+        if not isinstance(finding, dict):
+            raise ValueError("SCRIPT_SAST_BANDIT_FINDING_INVALID")
+        file = str(finding.get("filename", ""))
+        try:
+            file = Path(file).resolve().relative_to(root).as_posix()
+        except (ValueError, OSError):
+            file = "UNKNOWN_PATH"
+        rule = str(finding.get("test_id", "UNKNOWN"))[:16]
+        line = finding.get("line_number")
+        if not isinstance(line, int) or isinstance(line, bool) or line < 1:
+            line = "UNKNOWN"
+        print(json.dumps({"scanner": "bandit", "rule": rule,
+                          "file": file, "line": line}, sort_keys=True), flush=True)
     if findings:
         raise RuntimeError("SCRIPT_SAST_BANDIT_HIGH_FINDINGS")
 
@@ -120,7 +137,19 @@ def scan(root: Path, destination: Path) -> int:
     semgrep_findings = json.loads(semgrep_file.read_text(encoding="utf-8")).get("results")
     if not isinstance(semgrep_findings, list):
         raise ValueError("SCRIPT_SAST_SEMGREP_RESULT_INVALID")
-    print(f"Semgrep ERROR findings: {len(semgrep_findings)}")
+    print(f"Semgrep ERROR findings: {len(semgrep_findings)}", flush=True)
+    for finding in semgrep_findings[:50]:
+        if not isinstance(finding, dict):
+            raise ValueError("SCRIPT_SAST_SEMGREP_FINDING_INVALID")
+        path = finding.get("path", "")
+        try:
+            path = Path(str(path)).resolve().relative_to(root).as_posix()
+        except (ValueError, OSError):
+            path = "UNKNOWN_PATH"
+        print(json.dumps({"scanner": "semgrep",
+                          "rule": str(finding.get("check_id", "UNKNOWN"))[:100],
+                          "file": path,
+                          "line": (finding.get("start") or {}).get("line")}, sort_keys=True), flush=True)
     if semgrep_findings:
         raise RuntimeError("SCRIPT_SAST_SEMGREP_FINDINGS")
     print("SCRIPT_SAST_PASS: validated both scanner reports and scanned all selected Python paths")

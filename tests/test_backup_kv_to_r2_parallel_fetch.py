@@ -129,7 +129,7 @@ class TestTransientRetryHardening(unittest.TestCase):
         response.__enter__.return_value.read.return_value = b"value"
         response.__enter__.return_value.__exit__.return_value = False
         err = __import__("urllib.error").error.HTTPError("u", 429, "rate", {}, None)
-        with patch.object(bkv.urllib.request, "urlopen", side_effect=[err, response]) as call:
+        with patch.object(bkv, "_cloudflare_open", side_effect=[err, response]) as call:
             with patch.object(bkv.time, "sleep"):
                 with patch.object(bkv.random, "uniform", return_value=0):
                     value = bkv.get_kv_value("ns", "key")
@@ -138,7 +138,7 @@ class TestTransientRetryHardening(unittest.TestCase):
 
     def test_non_retryable_auth_error_fails_immediately(self):
         err = __import__("urllib.error").error.HTTPError("u", 403, "forbidden", {}, None)
-        with patch.object(bkv.urllib.request, "urlopen", side_effect=err) as call:
+        with patch.object(bkv, "_cloudflare_open", side_effect=err) as call:
             with self.assertRaises(__import__("urllib.error").error.HTTPError):
                 bkv.get_kv_value("ns", "key")
         self.assertEqual(call.call_count, 1)

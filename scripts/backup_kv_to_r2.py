@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# P0 release-assurance review: independently rescan this changed Cloudflare
+# metered-backup surface after the bypassed PR #814 required SAST failure.
 """
 scripts/backup_kv_to_r2.py
 CYBERDUDEBIVASH(R) SENTINEL APEX - Cloudflare KV Namespace Backup to R2
@@ -61,17 +63,40 @@ MAX_KEYS_PER_NAMESPACE = 500  # full exports only; NEVER upload truncated snapsh
 MAX_SNAPSHOT_BYTES = 10 * 1024 * 1024  # refuse oversize R2 PUT
 
 
+class _RejectCrossOriginRedirects(urllib.request.HTTPRedirectHandler):
+    """Do not forward Cloudflare bearer credentials to redirected origins."""
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        return None
+
+
+def _cloudflare_open(req, *, timeout):
+    """Allow ONLY the Cloudflare HTTPS account API, with no HTTP redirects.
+
+    This is intentionally stronger than a blanket Bandit B310 exemption:
+    external URLs and downgrade/cross-origin redirects are denied before
+    any bearer-authenticated network request.
+    """
+    parts = urllib.parse.urlsplit(req.full_url)
+    if (parts.scheme != "https" or parts.hostname != "api.cloudflare.com"
+            or parts.port not in (None, 443) or parts.username or parts.password
+            or parts.fragment or not parts.path.startswith("/client/v4/accounts/")):
+        raise ValueError("Cloudflare KV API requires the fixed HTTPS origin")
+    opener = urllib.request.build_opener(_RejectCrossOriginRedirects)
+    return opener.open(req, timeout=timeout)
+
+
 def cf_get(path, params=None):
     url = f"{CF_API_BASE}{path}"
     if params:
-        qs = "&".join(f"{k}={v}" for k, v in params.items())
+        qs = urllib.parse.urlencode(params)
         url = f"{url}?{qs}"
     req = urllib.request.Request(
         url,
         headers={"Authorization": f"Bearer {CF_API_TOKEN}", "Content-Type": "application/json"},
     )
     try:
-        with urllib.request.urlopen(req, timeout=30) as resp:
+        with _cloudflare_open(req, timeout=30) as resp:
             return json.loads(resp.read().decode("utf-8"))
     except urllib.error.HTTPError as e:
         body = e.read().decode("utf-8", errors="replace")
@@ -116,7 +141,7 @@ def get_kv_value(ns_id, key):
     req = urllib.request.Request(url, headers={"Authorization": f"Bearer {CF_API_TOKEN}"})
     for attempt in range(MAX_RETRIES + 1):
         try:
-            with urllib.request.urlopen(req, timeout=15) as resp:
+            with _cloudflare_open(req, timeout=15) as resp:
                 return resp.read().decode("utf-8")
         except urllib.error.HTTPError as e:
             if e.code == 404:

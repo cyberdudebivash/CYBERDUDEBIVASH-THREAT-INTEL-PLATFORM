@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# P0 release-assurance review: independently rescan this changed Cloudflare
+# metered-backup surface after the bypassed PR #814 required SAST failure.
 """
 scripts/backup_r2.py
 CYBERDUDEBIVASH(R) SENTINEL APEX - Cloudflare R2 Bucket Backup
@@ -238,11 +240,10 @@ def upload_manifest(s3, manifest, bucket, today, plan: R2OperationPlan):
         print(f"  Manifest saved: {bucket}/{key}")
         return True
     except ClientError as e:
-        print(f"  ERROR saving manifest: {e}")
-        local_path = f"/tmp/r2_manifest_{manifest['bucket']}_{today}.json"
-        with open(local_path, "w") as f:
-            json.dump(manifest, f, indent=2)
-        print(f"  Saved locally: {local_path}")
+        # Never drop bucket inventories containing object names into a
+        # predictable world-accessible temp file. The caller marks this
+        # backup failed and preserves the last known good remote manifest.
+        print(f"  ERROR saving manifest: {e}; no plaintext local fallback")
         return False
 
 
