@@ -134,15 +134,35 @@ def normalize_epss(raw: Any) -> float:
     return 99.99   # clamp absurd values
 
 
-def compute_evidence_tier(item: Dict[str, Any]) -> Tuple[str, float]:
-    """Return (tier_label, max_allowed_score) for this item based on evidence."""
-    kev = bool(
-        item.get("kev") or item.get("kev_confirmed") or item.get("kev_present") or
-        str(item.get("in_kev", "")).upper() in ("YES", "TRUE", "1")
+def _affirmative_flag(value: Any) -> bool:
+    """Accept actual evidence assertion only, not truthy string 'NO'."""
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)):
+        return value == 1
+    return isinstance(value, str) and value.strip().upper() in (
+        "YES", "TRUE", "1", "CONFIRMED",
     )
-    exploit   = bool(item.get("exploit_available") or item.get("has_exploit"))
-    epss_raw  = item.get("epss_score") or item.get("epss") or item.get("epss_pct")
-    epss      = normalize_epss(epss_raw)   # always 0–100 pct after this
+
+
+def _confirmed_any(item: Dict[str, Any], fields: tuple[str, ...]) -> bool:
+    return any(_affirmative_flag(item.get(field)) for field in fields)
+
+
+def compute_evidence_tier(
+    item: Dict[str, Any], *, epss_is_percentage: bool = False,
+) -> Tuple[str, float]:
+    """Return (tier_label, max_allowed_score) for this item based on evidence."""
+    kev = _confirmed_any(item, ("kev", "kev_confirmed", "kev_present", "in_kev", "cisa_kev"))
+    exploit = _confirmed_any(item, ("exploit_available", "has_exploit"))
+    epss_raw = item.get("epss_score")
+    if epss_raw is None:
+        epss_raw = item.get("epss")
+    if epss_raw is None:
+        epss_raw = item.get("epss_pct")
+    # backfill_governance_fields() already normalizes source fractions to
+    # percentage. Do NOT promote 0.9% into 90% with a second conversion.
+    epss = _safe_float(epss_raw, -1.0) if epss_is_percentage else normalize_epss(epss_raw)
 
     cvss_raw  = item.get("cvss_score") or item.get("cvss") or item.get("cvss_v3")
     cvss      = _safe_float(cvss_raw, -1.0)
@@ -233,7 +253,7 @@ def enforce_feed(items: List[Dict[str, Any]]) -> Tuple[List[Dict[str, Any]], Lis
             corrected.append(item)
             continue
 
-        tier_label, max_score = compute_evidence_tier(item)
+        tier_label, max_score = compute_evidence_tier(item, epss_is_percentage=True)
 
         if risk_score <= max_score:
             # Within evidence tier — no adjustment needed
@@ -250,8 +270,8 @@ def enforce_feed(items: List[Dict[str, Any]]) -> Tuple[List[Dict[str, Any]], Lis
             "evidence_tier"  : tier_label,
             "max_allowed"    : max_score,
             "delta"          : round(risk_score - new_score, 1),
-            "kev"            : bool(item.get("kev") or item.get("kev_confirmed") or item.get("kev_present")),
-            "exploit"        : bool(item.get("exploit_available") or item.get("has_exploit")),
+            "kev"            : _confirmed_any(item, ("kev", "kev_confirmed", "kev_present", "in_kev", "cisa_kev")),
+            "exploit"        : _confirmed_any(item, ("exploit_available", "has_exploit")),
             "epss"           : _safe_float(item.get("epss_score"), -1),
             "cvss"           : _safe_float(item.get("cvss_score") or item.get("cvss"), -1),
             "ioc_count"      : int(item.get("ioc_count", 0) or 0),
