@@ -192,3 +192,27 @@ def test_oversized_r2_manifest_never_sends_put(monkeypatch):
                "objects": [{"k": "z" * (r2.MAX_MANIFEST_BYTES + 1)}]}
     assert r2.upload_manifest(Client(), too_big, "sentinel-apex-data", "2026-10-14", plan) is False
     assert plan.put == 0
+
+
+
+def test_primary_encrypted_backup_r2_target_needs_same_permit(monkeypatch):
+    from agent.backup import backup_engine
+    monkeypatch.setattr(backup_engine, "_BACKUP_DESTINATION", "r2")
+    monkeypatch.delenv("CDB_CF_METERED_BACKUP_APPROVED", raising=False)
+    monkeypatch.delenv("CDB_CF_ACCOUNT_ATTESTATION_JSON", raising=False)
+    with pytest.raises(fence.MeteredBackupDenied):
+        backup_engine._get_storage()
+    # Existing local encrypted-backup route never needs a Cloudflare permit.
+    monkeypatch.setattr(backup_engine, "_BACKUP_DESTINATION", "local")
+    assert backup_engine._get_storage().__class__.__name__ == "_LocalStorage"
+
+
+def test_full_backup_includes_private_account_evidence_when_r2_opted_in():
+    wf = (ROOT / ".github/workflows/automated-backup.yml").read_text(encoding="utf-8")
+    primary = wf[wf.index("  full-backup:"):wf.index("  cf-data-backup:")]
+    assert "CDB_CF_ACCOUNT_ATTESTATION_JSON:" in primary
+    assert "CDB_CF_METERED_BACKUP_APPROVED:" in primary
+    source = (ROOT / "agent/backup/backup_engine.py").read_text(encoding="utf-8")
+    start = source.index('elif dest in ("r2", "cloudflare"):')
+    assert source.index("require_metered_backup_permit()", start) < source.index(
+        "return _S3Storage(_BACKUP_R2_BUCKET", start)
