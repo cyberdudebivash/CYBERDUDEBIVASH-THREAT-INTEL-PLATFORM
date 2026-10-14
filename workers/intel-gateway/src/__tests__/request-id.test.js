@@ -56,7 +56,8 @@ test('gateway choke point attaches request IDs and strips them from shared cache
   const source = fs.readFileSync(new URL('../index.js', import.meta.url), 'utf8');
   assert.match(source, /const requestId = resolveRequestId\(request\)/);
   assert.match(source, /headers\.set\("X-Request-ID", requestId\)/);
-  assert.match(source, /if \(cached && .*cachedLiveFeedIsPublishable\(cached\).*\) return withRequestId\(cached, requestId\)/);
+  // Publication eligibility is pathname-aware before reuse of the shared cache.
+  assert.match(source, /if \(cached && .*cachedLiveFeedIsPublishable\(cached, pathname\).*\) return withRequestId\(cached, requestId\)/);
   assert.match(source, /toCache = withoutRequestId\(toCache\)/);
   assert.match(source, /request_id=\$\{requestId\} unhandled error/);
 });
