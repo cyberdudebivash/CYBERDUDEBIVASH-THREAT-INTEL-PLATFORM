@@ -42,7 +42,9 @@ _script_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, _script_dir)
 from severity_epss_truth import epss_percent as _epss_percent  # noqa: E402
 try:
-    from public_api_sanitizer import sanitize_feed as _sanitize_feed, audit_leakage as _audit_leakage, sanitize_feed_pro as _sanitize_feed_pro
+    from public_api_sanitizer import (sanitize_feed as _sanitize_feed, audit_leakage as _audit_leakage,
+                                      sanitize_feed_pro as _sanitize_feed_pro,
+                                      project_feed_for_public_latest as _project_public_latest)
     _SANITIZER_AVAILABLE = True
 except ImportError:
     print("[FATAL] Mandatory public API sanitizer could not load; publication refused.", file=sys.stderr, flush=True)
@@ -381,12 +383,18 @@ latest_payload = {
     'generator': SCRIPT_NAME,
     'version': VERSION,
     'count': len(sorted_feed_public),
-    'items': sorted_feed_public,
+    'items': _project_public_latest(sorted_feed_public),
 }
+# A complete public summary of every eligible advisory must fit the existing
+# hard Worker 1MiB JSON body limit. No advisory is silently removed/truncated
+# to achieve that budget: if source text still exceeds it, stop the publish.
+# Canonical + PRO artifacts retain their independent complete detail.
 latest_str = json.dumps(latest_payload, ensure_ascii=False, separators=(',', ':'))
 latest_sha  = sha256_of(latest_str)
 latest_payload['sha256'] = latest_sha
 latest_str  = json.dumps(latest_payload, ensure_ascii=False, separators=(',', ':'))
+if len(latest_str.encode('utf-8')) > 1024 * 1024:
+    fatal("[P0 PUBLIC LATEST] Projected JSON exceeds Worker 1MiB boundary; refusing oversized publication")
 
 atomic_write(os.path.join(OUT_DIR, 'latest.json'), latest_str)
 info(f'Written: {OUT_DIR}/latest.json ({len(sorted_feed)} items, {len(latest_str):,} bytes, sha256={latest_sha[:16]}...)')
