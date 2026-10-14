@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# P0 release-assurance review: independently rescan this changed Cloudflare
+# metered-backup surface after the bypassed PR #814 required SAST failure.
 """Pre-network account-wide Cloudflare cost admission for OPTIONAL metered backups.
 
 All ten CYBERDUDEBIVASH ECOSYSTEM platforms use the same billing account.
