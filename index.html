@@ -6,7 +6,7 @@
     <script src="/js/frame-guard.js"></script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>CYBERDUDEBIVASH&reg; SENTINEL APEX &mdash; Global Threat Intelligence Platform</title>
-    <meta name="description" content="CyberDudeBivash SENTINEL APEX &mdash; AI-Powered Threat Intelligence Platform. Source-linked intelligence feeds, STIX 2.1 exports, AI campaign clustering, MITRE ATT&CK mapping, EPSS enrichment, and MISP export. API from $49 (Gumroad 30-day grant).">
+    <meta name="description" content="CyberDudeBivash SENTINEL APEX AI Threat Feed. Source-linked advisories only. Pro Defense is $49/month (INR 4,100) on Razorpay and includes this feed. Cancel any time. No second invoice.">
     <!-- ── SEO: Meta Keywords & Robots (v184.0) ── -->
     <meta name="keywords" content="threat intelligence platform, cybersecurity SaaS, CTI feed, IOC feed, STIX 2.1, TAXII 2.1, MITRE ATT&CK, CVE intelligence, EPSS enrichment, KEV tracking, MISP export, Sigma rules, YARA rules, SOC platform, SIEM integration, threat hunting, zero-day detection, ransomware intelligence, APT tracking, dark web monitoring, cybersecurity API, threat intel API, AI cybersecurity, autonomous SOC, SENTINEL APEX, CyberDudeBivash, India cybersecurity, enterprise security platform, threat actor profiles, IOC enrichment, vulnerability intelligence">
     <meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1">
@@ -1409,7 +1409,7 @@
                       + (upgrade && upgrade.price_label ? ' (' + esc(upgrade.price_label) + ')' : '') + '; timeline and actions with Enterprise SOC. '
                       + '<a href="' + esc(sitePath(it.checkout)) + '" style="color:#c4a8ff;font-weight:700;">Unlock</a></div>'
                     : '<div class="aif-detail" hidden style="padding:8px 0 4px;color:#c5d0de;font-size:13px;"><a href="/cyber-watchdog.html#intelligence" style="color:#c4a8ff;font-weight:700;">Open the timeline in Cyber Watchdog</a></div>';
-                return '<li style="border-top:1px solid #243044;"><button type="button" class="aif-row" aria-expanded="false" style="all:unset;cursor:pointer;display:block;width:100%;padding:8px 6px;">'
+                return '<li style="border-top:1px solid #243044;"><button type="button" class="aif-row" aria-expanded="false" style="all:unset;cursor:pointer;display:block;width:100%;box-sizing:border-box;min-height:44px;padding:10px 8px;text-align:left;">'
                     + '<span style="color:#f4f7fb;font-weight:700;">' + (it.locked ? '&#128274; ' : '') + esc(it.title) + '</span>'
                     + '<span style="display:block;color:#8ea0b8;font-family:var(--font-mono);font-size:12px;margin-top:2px;">' + meta + '</span></button>' + lock + '</li>';
             }
@@ -4506,9 +4506,10 @@
                 var fd = new FormData(e.target);
                 fetch(e.target.action || '#', {method:'POST',body:fd}).catch(function(){});
             }catch(_){}
-            // Upsell: after 2s redirect to upgrade with pre-filled email
+            // Upsell: after 2s open Pro checkout. Email stays in this tab, not the URL.
+            try { sessionStorage.setItem('apex_lead_email', email); } catch (err) {}
             setTimeout(function(){
-                window.location.href='/upgrade.html?plan=pro&email='+encodeURIComponent(email)+'&utm_source=newsletter&utm_medium=subscribe-form&utm_campaign=weekly-brief'+(role?'&role='+encodeURIComponent(role):'');
+                window.location.href='/upgrade.html?plan=pro&utm_source=newsletter&utm_medium=subscribe-form&utm_campaign=weekly-brief'+(role?'&role='+encodeURIComponent(role):'');
             }, 2200);
         }
         </script>
@@ -7649,7 +7650,7 @@ a:focus-visible {
       <li>STIX 2.1 bundles + MITRE ATT&amp;CK v15 mapping</li>
       <li>REST API — 5,000 req/day</li>
     </ul>
-    <p>Submitting takes you to <strong>upgrade.html?plan=pro</strong> — paid PRO checkout. Gumroad is a <strong>30-day access grant, $49 USD due now</strong>; the grant does not auto-renew. Razorpay is a <strong>₹4,100/month subscription</strong> that renews until you cancel. This is not a free trial.</p>
+    <p>Submitting takes you to <strong>upgrade.html?plan=pro</strong>. Razorpay is the primary checkout: a <strong>₹4,100/month ($49) subscription</strong> that renews until you cancel. The AI Threat Feed is included. No second invoice. Gumroad, if you choose it, is a separate <strong>30-day access grant, $49 due now</strong>, and that grant does not auto-renew. This is not a free trial.</p>
     <form class="apex-lead-form" onsubmit="apexLeadSubmit(event)">
       <input class="apex-lead-input" type="email" placeholder="Work email address" required autocomplete="email"/>
       <button class="apex-lead-submit" type="submit">CONTINUE TO PRO →</button>
@@ -7688,9 +7689,10 @@ a:focus-visible {
     e.preventDefault();
     var email = e.target.querySelector('input[type=email]').value.trim();
     suppress();
+    try { sessionStorage.setItem('apex_lead_email', email); } catch (err) {}
     var m = document.getElementById('apex-lead-modal');
     if(m) m.classList.remove('open');
-    window.location.href = '/upgrade.html?plan=pro&email=' + encodeURIComponent(email) + '&utm_source=lead-modal&utm_medium=timed-popup';
+    window.location.href = '/upgrade.html?plan=pro&utm_source=lead-modal&utm_medium=timed-popup';
   };
 
   // P0 FIX (2026-09-01): the modal had no Escape-key or backdrop-click
