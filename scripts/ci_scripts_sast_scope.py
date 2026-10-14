@@ -52,7 +52,10 @@ def select_targets(root: Path, event: str, base: str, head: str) -> list[str]:
             cwd=root, capture_output=True, check=True,
         ).stdout
         names = [part.decode("utf-8") for part in diff.split(b"\0") if part]
-        return _safe_scripts(root, names)
+        selected = _safe_scripts(root, names)
+        if selected:
+            return selected
+        print("Production scripts have no remaining changed Python files: fallback to full scripts inventory")
 
     # No known diff (scheduled/manual scans and first pushes): scan every
     # production Python script instead of declaring the surface irrelevant.
