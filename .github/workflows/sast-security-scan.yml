@@ -97,6 +97,7 @@ on:
     paths:
       - "agent/**"
       - "api/**.py"
+      - "scripts/**.py"
       - "requirements.txt"
       - "requirements-ci-light.txt"
       - "api/requirements.txt"
@@ -177,6 +178,7 @@ jobs:
       python_relevant: ${{ steps.classify.outputs.python_relevant }}
       dependency_relevant: ${{ steps.classify.outputs.dependency_relevant }}
       semgrep_relevant: ${{ steps.classify.outputs.semgrep_relevant }}
+      scripts_relevant: ${{ steps.classify.outputs.scripts_relevant }}
 
     steps:
       - name: Classify changed surfaces
@@ -194,6 +196,7 @@ jobs:
             echo "python_relevant=true" >> "$GITHUB_OUTPUT"
             echo "dependency_relevant=true" >> "$GITHUB_OUTPUT"
             echo "semgrep_relevant=true" >> "$GITHUB_OUTPUT"
+            echo "scripts_relevant=true" >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
@@ -255,6 +258,7 @@ jobs:
           PYTHON_RELEVANT=false
           DEPENDENCY_RELEVANT=false
           SEMGREP_RELEVANT=false
+          SCRIPTS_RELEVANT=false
 
           # Here-strings, not `echo | grep -q`: no pipe, so a long list can
           # never turn a match into a false negative.
@@ -284,6 +288,11 @@ jobs:
             SEMGREP_RELEVANT=true
           fi
 
+          # Keep publisher scripts as a distinct source-scanning surface.
+          if grep -qE '^scripts/.*\.py$' <<< "$CHANGED"; then
+            SCRIPTS_RELEVANT=true
+          fi
+          echo "scripts_relevant=${SCRIPTS_RELEVANT}" | tee -a "$GITHUB_OUTPUT"
           echo "python_relevant=${PYTHON_RELEVANT}"         | tee -a "$GITHUB_OUTPUT"
           echo "dependency_relevant=${DEPENDENCY_RELEVANT}" | tee -a "$GITHUB_OUTPUT"
           echo "semgrep_relevant=${SEMGREP_RELEVANT}"       | tee -a "$GITHUB_OUTPUT"
@@ -755,6 +764,43 @@ jobs:
           path: semgrep.sarif
           retention-days: 30
 
+
+  # Production publisher scripts require their own explicit static analysis.
+  scripts-sast:
+    name: Production Scripts SAST
+    needs: changes
+    if: needs.changes.outputs.scripts_relevant == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout exact source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 1
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install Bandit and Semgrep
+        run: python -m pip install "bandit==1.7.8" "semgrep>=1.0,<2.0" --quiet
+
+      - name: Resolve production scripts scan scope
+        env:
+          SAST_EVENT: ${{ github.event_name }}
+          SAST_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          SAST_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          SAST_BEFORE_SHA: ${{ github.event.before }}
+          SAST_CURRENT_SHA: ${{ github.sha }}
+        run: python3 scripts/ci_scripts_sast_scope.py --output .p0-scripts-sast-targets.json
+
+      - name: Fail closed on high-severity findings and scanner errors
+        run: python3 scripts/ci_scripts_sast_scope.py --scan-from .p0-scripts-sast-targets.json
+
   # --------------------------------------------------------------------------
   # TruffleHog: Secret Scanning
   # FIX-3: Compute proper diff range before running TruffleHog.
@@ -959,7 +1005,7 @@ jobs:
     # for internal consistency like every other conditional job, which is
     # a different, narrower guarantee than "fail the gate on any Semgrep
     # finding".
-    needs: [changes, bandit, safety, semgrep, trufflehog, workflow-hygiene]
+    needs: [changes, bandit, safety, semgrep, scripts-sast, trufflehog, workflow-hygiene]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     if: always()
@@ -971,11 +1017,13 @@ jobs:
           BANDIT: ${{ needs.bandit.result }}
           SAFETY: ${{ needs.safety.result }}
           SEMGREP: ${{ needs.semgrep.result }}
+          SCRIPTS: ${{ needs.scripts-sast.result }}
           TRUFFLE: ${{ needs.trufflehog.result }}
           HYGIENE: ${{ needs.workflow-hygiene.result }}
           PYTHON_RELEVANT: ${{ needs.changes.outputs.python_relevant }}
           DEPENDENCY_RELEVANT: ${{ needs.changes.outputs.dependency_relevant }}
           SEMGREP_RELEVANT: ${{ needs.changes.outputs.semgrep_relevant }}
+          SCRIPTS_RELEVANT: ${{ needs.changes.outputs.scripts_relevant }}
           EVENT_NAME: ${{ github.event_name }}
           FULL_SCAN: ${{ github.event.inputs.full_scan }}
         run: |
@@ -988,6 +1036,7 @@ jobs:
           echo "Bandit  (python_relevant=$PYTHON_RELEVANT):         $BANDIT"
           echo "Safety  (dependency_relevant=$DEPENDENCY_RELEVANT): $SAFETY"
           echo "Semgrep (semgrep_relevant=$SEMGREP_RELEVANT):       $SEMGREP"
+          echo "Production Scripts (scripts_relevant=$SCRIPTS_RELEVANT): $SCRIPTS"
           echo ""
 
           FAIL=0
@@ -1032,6 +1081,16 @@ jobs:
             fi
           elif [[ "$SEMGREP" != "skipped" ]]; then
             echo "::error::Semgrep was classified non-applicable or manually opted out but result was '$SEMGREP', not 'skipped'."
+            FAIL=1
+          fi
+
+          if [[ "$SCRIPTS_RELEVANT" == "true" ]]; then
+            if [[ "$SCRIPTS" != "success" ]]; then
+              echo "::error::Production scripts SAST was required but did not succeed ($SCRIPTS)."
+              FAIL=1
+            fi
+          elif [[ "$SCRIPTS" != "skipped" ]]; then
+            echo "::error::Production scripts SAST was classified non-applicable but result was '$SCRIPTS' (expected skipped)."
             FAIL=1
           fi
 
