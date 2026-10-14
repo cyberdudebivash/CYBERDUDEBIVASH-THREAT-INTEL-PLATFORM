@@ -54,7 +54,7 @@ KV_NAMESPACES = {
 SKIP_TRANSIENT_IN = {"RATE_LIMIT_KV"}
 
 MAX_WORKERS = min(4, max(1, int(os.environ.get("KV_BACKUP_WORKERS", "4"))))
-MAX_RETRIES = 0  # 1 request per key; no implicit retry amplification in zero-overage posture
+MAX_RETRIES = min(1, max(0, int(os.environ.get("KV_BACKUP_MAX_RETRIES", "1"))))  # 2 requests max per key
 RETRY_BASE_SECONDS = max(0.05, float(os.environ.get("KV_BACKUP_RETRY_BASE_SECONDS", "0.5")))
 RETRYABLE_HTTP = {408, 425, 429, 500, 502, 503, 504}
 MAX_KEYS_PER_NAMESPACE = 500  # full exports only; NEVER upload truncated snapshots
