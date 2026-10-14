@@ -252,3 +252,46 @@ def test_phase3_budget_exhaustion_fails_closed_without_retry(monkeypatch, clean_
     assert result.success is False
     assert len(calls) == 1
     assert not any(r.success for r in result.probes)
+
+
+
+@pytest.mark.parametrize("url", [
+    "http://intel.cyberdudebivash.com/",
+    "https://evil.example/reports/2026/10/intel--0123456789abcdef.html",
+    "https://intel.cyberdudebivash.com.evil.example/",
+    "https://intel.cyberdudebivash.com@evil.example/",
+    "https://intel.cyberdudebivash.com/api/admin",
+    "https://intel.cyberdudebivash.com/reports/%2e%2e/private.html",
+    "https://intel.cyberdudebivash.com/reports/2026/10/foo.html?token=secret",
+])
+def test_convergence_network_open_denies_untrusted_url_before_transport(monkeypatch, url):
+    monkeypatch.setattr(
+        dcv.urllib.request, "build_opener",
+        lambda *args: pytest.fail("rejected URL must not start a network transport"),
+    )
+    req = dcv.urllib.request.Request(url, method="HEAD")
+    with pytest.raises(ValueError, match="CONVERGENCE_UNTRUSTED_PLATFORM"):
+        dcv._platform_open(req, timeout=1)
+
+
+def test_convergence_network_open_enforces_no_redirects(monkeypatch):
+    captured = {}
+    class FakeOpener:
+        def open(self, req, timeout):
+            captured["url"] = req.full_url
+            captured["timeout"] = timeout
+            return "local-only"
+    def mocked_builder(handler):
+        captured["handler"] = handler
+        return FakeOpener()
+    monkeypatch.setattr(dcv.urllib.request, "build_opener", mocked_builder)
+    req = dcv.urllib.request.Request(
+        "https://intel.cyberdudebivash.com/api/feed.json", method="HEAD"
+    )
+    assert dcv._platform_open(req, timeout=2) == "local-only"
+    assert captured["timeout"] == 2
+    assert captured["url"] == req.full_url
+    assert issubclass(captured["handler"], dcv.urllib.request.HTTPRedirectHandler)
+    assert captured["handler"]().redirect_request(
+        req, None, 302, "redirect", {}, "https://evil.example/"
+    ) is None
