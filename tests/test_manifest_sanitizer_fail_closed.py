@@ -10,7 +10,8 @@ import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 ELIGIBILITY_DEPENDENCIES = ("p0_r44_publication_boundary.py", "p0_r35_feed_prewrite_guard.py",
-                            "sentinel_apex_mandate_enforcer.py", "manifest_reconciler.py", "safe_io.py")
+                            "sentinel_apex_mandate_enforcer.py", "manifest_reconciler.py", "safe_io.py",
+                            "evidence_score_enforcer.py")
 
 
 @pytest.mark.parametrize("dependency", ["missing", "broken", "healthy"])
@@ -45,6 +46,27 @@ def test_publication_requires_working_sanitizer(tmp_path, dependency):
         assert payload["count"] == 1
         assert "report_url" not in payload["items"][0]
         assert (out / "latest_pro.json").exists()
+
+
+def test_missing_public_evidence_enforcer_fails_closed(tmp_path):
+    """A real missing production dependency must refuse publication, not bypass risk truth."""
+    scripts = tmp_path / "scripts"
+    scripts.mkdir()
+    for name in ("generate_api_manifests.py", "severity_epss_truth.py", "tlp_policy.py",
+                 "public_api_sanitizer.py", *ELIGIBILITY_DEPENDENCIES):
+        if name != "evidence_score_enforcer.py":
+            shutil.copyfile(ROOT / "scripts" / name, scripts / name)
+    api = tmp_path / "api"
+    (api / "v1" / "intel").mkdir(parents=True)
+    (api / "feed.json").write_text(json.dumps([_adv("enforcer", tlp="TLP:CLEAR")]))
+    existing = api / "v1" / "intel" / "latest.json"
+    existing.write_text('{"last_known_good":true}')
+    result = subprocess.run([sys.executable, str(scripts / "generate_api_manifests.py")],
+                            cwd=tmp_path, capture_output=True, text=True)
+    assert result.returncode == 1
+    assert "evidence_score_enforcer" in result.stdout + result.stderr
+    assert existing.read_text() == '{"last_known_good":true}'
+    assert list(existing.parent.iterdir()) == [existing]
 
 
 # ── P0 #721: TLP last-mile gate on the anonymously served immutable manifests ──────────────────────────────
