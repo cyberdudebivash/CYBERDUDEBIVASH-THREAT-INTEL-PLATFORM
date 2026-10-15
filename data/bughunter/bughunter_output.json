@@ -12,9 +12,12 @@
     "live_hosts": "HTTPS GET; any HTTP status including 401 counts, transport failure does not",
     "api_endpoints": "same-site script string literals matching /api/; no guessed paths",
     "critical_findings": "only evidenced CRITICAL issues; missing security headers are MEDIUM",
-    "bola": "not run; no authorized API session",
+    "bola": "unauthenticated GET of the 16 script-literal paths, plus /1 and /2 on non-auth paths; no authorized session, so this is not a logged-in BOLA test",
     "ct_note": "crt.sh rows 113",
-    "wildcard_ips": []
+    "wildcard_ips": [],
+    "takeover": "DoH CNAME via cloudflare-dns.com for 9 hosts; no CNAMEs; blog and lab NXDOMAIN; takeover_candidates empty",
+    "cloud_buckets": "homepage HTML searched for s3.amazonaws.com, blob.core.windows.net, storage.googleapis.com, digitaloceanspaces.com; none",
+    "follow_up_checked_at": "2026-10-15T07:45:51.714024+00:00"
   },
   "metrics": {
     "subdomains": 8,
@@ -268,17 +271,20 @@
     {
       "id": "takeover_detector",
       "name": "Subdomain Takeover Detector",
-      "status": "NOT_RUN"
+      "status": "ONLINE",
+      "note": "DoH CNAME on 9 hosts at 2026-10-15T07:45:51Z. No CNAME. blog and lab are NXDOMAIN. No claimable dangling CNAME."
     },
     {
       "id": "bola_agent",
       "name": "BOLA Intelligence Agent",
-      "status": "NOT_RUN"
+      "status": "ONLINE",
+      "note": "Unauthenticated GET of 16 script-literal API paths at 2026-10-15T07:45:51Z. intel watchdog brief and health return 200 by design; their /1 and /2 are 404. All trustx /api/v1 paths return 404. No unauthenticated object body. Not a logged-in BOLA test."
     },
     {
       "id": "cloud_bucket_hunter",
       "name": "Cloud Bucket Hunter",
-      "status": "NOT_RUN"
+      "status": "ONLINE",
+      "note": "Homepage HTML of live hosts checked at 2026-10-15T07:45:51Z. No s3, azure blob, gcs, or digitalocean spaces URL."
     }
   ]
 }

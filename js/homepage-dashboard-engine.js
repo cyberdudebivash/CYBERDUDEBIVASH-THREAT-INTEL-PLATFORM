@@ -5598,47 +5598,40 @@ function renderTopThreats(data) {
             // partial technique map, so technique-only items never counted and
             // the panel showed every stage at 0 while campaigns were live.
 
-            // ── Threat Hunts ──
-            const huntPatterns = [
-                {kw:['supply','chain'],tpl:'Supply-chain compromise via trusted update mechanisms',pri:'CRITICAL'},
-                {kw:['ransomware','ransom','encrypt'],tpl:'Ransomware deployment using LOLBins for lateral movement',pri:'CRITICAL'},
-                {kw:['credential','phishing','password'],tpl:'Credential harvesting campaign targeting enterprise identity',pri:'HIGH'},
-                {kw:['zero-day','0day','unpatched'],tpl:'Active zero-day exploitation of internet-facing systems',pri:'CRITICAL'},
-                {kw:['cloud','aws','azure','saas'],tpl:'Cloud infrastructure compromise via API key/OAuth abuse',pri:'HIGH'},
-                {kw:['apt','nation','espionage'],tpl:'Nation-state persistence via registry/WMI/scheduled tasks',pri:'HIGH'},
-                {kw:['exfil','steal','theft'],tpl:'Covert data exfiltration via encrypted C2 channels',pri:'HIGH'},
-            ];
-            const hunts = [];
-            const usedPatterns = new Set();
-            data.filter(d => (d.risk_score||0) >= 7).slice(0,20).forEach(d => {
-                const tl = (d.title||'').toLowerCase();
-                for (const p of huntPatterns) {
-                    if (usedPatterns.has(p.tpl)) continue;
-                    if (p.kw.some(k => tl.includes(k))) {
-                        hunts.push({hypothesis:p.tpl, priority:p.pri, actor:d.actor_tag||'UNK'});
-                        usedPatterns.add(p.tpl);
-                        break;
-                    }
-                }
+            // ── Threat hunts ──
+            // Keyword templates invented hypotheses the feed never stated
+            // ("Insufficient high-risk data" while risk >= 7 advisories
+            // were on screen). List those advisories. Do not invent a hunt.
+            const measuredHunts = data.filter(function (d) {
+                var r = parseFloat(d && d.risk_score);
+                return isFinite(r) && r >= 7 && r <= 10;
+            }).slice().sort(function (a, b) {
+                var delta = parseFloat(b.risk_score) - parseFloat(a.risk_score);
+                return delta || String((a && (a.id || a.title)) || '').localeCompare(String((b && (b.id || b.title)) || ''));
             });
 
             const huntCountEl = document.getElementById('nexus-hunt-count');
-            if (huntCountEl) huntCountEl.textContent = hunts.length || '0';
+            if (huntCountEl) huntCountEl.textContent = String(measuredHunts.length);
 
             const huntsEl = document.getElementById('nexus-hunts');
             if (huntsEl) {
-                if (!hunts.length) {
-                    huntsEl.innerHTML = '<div style="color:var(--text-muted);">Insufficient high-risk data for hunt generation</div>';
+                if (!measuredHunts.length) {
+                    huntsEl.textContent = 'No advisory at risk 7.0 or above in this feed.';
                 } else {
-                    huntsEl.innerHTML = hunts.slice(0,5).map(h => {
-                        const priColor = h.priority === 'CRITICAL' ? '#ef4444' : '#ea580c';
-                        return `<div style="padding:8px 0;border-bottom:1px solid var(--border);">
-                            <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
-                                <span style="font-size:9px;padding:1px 6px;background:${priColor}18;color:${priColor};border-radius:2px;">${h.priority}</span>
-                                <span style="font-size:9px;color:var(--text-muted);">${_hEsc(h.actor)}</span>
-                            </div>
-                            <div style="font-size:11px;color:var(--text);line-height:1.4;">${h.hypothesis}</div>
-                        </div>`;
+                    var caption = '<div style="font-size:9px;color:var(--text-muted);padding-bottom:6px;">Measured from advisories at risk 7.0 or above. Not a generated hypothesis.</div>';
+                    huntsEl.innerHTML = caption + measuredHunts.slice(0, 5).map(function (d) {
+                        var r = parseFloat(d.risk_score);
+                        var title = _hEsc(String(d.title || d.name || d.id || 'Advisory').slice(0, 160));
+                        var sev = String(d.severity || '').toUpperCase();
+                        var sevColor = sev === 'CRITICAL' || r >= 9 ? '#ef4444' : '#ea580c';
+                        var label = (sev === 'CRITICAL' || sev === 'HIGH') ? sev : (r >= 9 ? 'CRITICAL' : 'HIGH');
+                        return '<div style="padding:8px 0;border-bottom:1px solid var(--border);">'
+                            + '<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">'
+                            + '<span style="font-size:9px;padding:1px 6px;background:' + sevColor + '18;color:' + sevColor + ';border-radius:2px;">' + _hEsc(label) + '</span>'
+                            + '<span style="font-size:9px;color:var(--text-muted);">RISK ' + r.toFixed(1) + '/10</span>'
+                            + '</div>'
+                            + '<div style="font-size:11px;color:var(--text);line-height:1.4;">' + title + '</div>'
+                            + '</div>';
                     }).join('');
                 }
             }
@@ -6300,6 +6293,13 @@ function renderTopThreats(data) {
                         feedEl.textContent = data.status === 'COMPLETED' && Array.isArray(data.findings_summary)
                             ? 'No findings recorded in this scan snapshot.' : 'Awaiting validated scan findings.';
                     }
+                    var engineNotes = (Array.isArray(data.engines) ? data.engines : []).filter(function (e) {
+                        return e && e.status === 'ONLINE' && typeof e.note === 'string' && e.note.trim();
+                    }).map(function (e) { return escapeFinding(e.note.trim().slice(0, 280)); });
+                    if (feedEl && engineNotes.length && findings.length > 0) {
+                        feedEl.innerHTML += '<div style="padding:6px 0;color:var(--text-muted);font-size:9px;line-height:1.45;">'
+                            + engineNotes.join(' ') + '</div>';
+                    }
                     // Health badge
                     var bhHeader = document.querySelector('#bughunter-section h2');
                     if (bhHeader && !document.getElementById('bh-health-badge')) {
@@ -6332,15 +6332,33 @@ function renderTopThreats(data) {
                     return row && typeof row === 'object' && !Array.isArray(row);
                 }) : [];
             }
+            // A file that names its own generated_at and is older than 7 days
+            // is a historical artifact. August template hunts carried confidence
+            // percentages and campaign names with no current evidence. Files
+            // with no generated_at still render (callers and tests that pass
+            // records directly).
+            function tipArtifactCurrent(data) {
+                var ts = Date.parse(data && data.generated_at || '');
+                if (!Number.isFinite(ts)) return true;
+                var age = Date.now() - ts;
+                return age >= 0 && age <= 7 * 24 * 60 * 60 * 1000;
+            }
             function renderIncidentEngine(data) {
                 data = data && typeof data === 'object' ? data : {};
                 try {
-                    var total = data.total_incidents || 0;
                     var el = document.getElementById('ts-incident-count');
+                    var feed = document.getElementById('ts-incident-feed');
+                    var badge = document.getElementById('tipsoar-badge');
+                    if (!tipArtifactCurrent(data)) {
+                        if (el) el.textContent = '0';
+                        if (feed) feed.textContent = 'Incident file is older than 7 days and is not shown as current.';
+                        if (badge) { badge.textContent = 'HISTORICAL INCIDENT FILE'; badge.style.color = '#f59e0b'; }
+                        return;
+                    }
+                    var total = data.total_incidents || 0;
                     if (el) el.textContent = total.toLocaleString();
 
                     var incidents = tipRows(data.incidents, 12);
-                    var feed = document.getElementById('ts-incident-feed');
                     if (feed) feed.textContent = 'Awaiting validated records.';
                     if (feed && incidents.length > 0) {
                         feed.innerHTML = incidents.slice(0, 12).map(function(inc) {
@@ -6353,7 +6371,6 @@ function renderTopThreats(data) {
                         }).join('');
                     }
 
-                    var badge = document.getElementById('tipsoar-badge');
                     if (badge) { badge.textContent = total + ' INCIDENTS LIVE'; badge.style.color = '#f472b6'; }
                 } catch(e) { console.warn('[INCIDENT ENGINE]', e); }
             }
@@ -6361,15 +6378,21 @@ function renderTopThreats(data) {
             function renderResponseEngine(data) {
                 data = data && typeof data === 'object' ? data : {};
                 try {
+                    var el = document.getElementById('ts-response-count');
+                    var feed = document.getElementById('ts-response-feed');
+                    var typeCount = document.getElementById('ts-playbook-count');
+                    if (!tipArtifactCurrent(data)) {
+                        if (el) el.textContent = '0';
+                        if (feed) feed.textContent = 'Response file is older than 7 days and is not shown as current.';
+                        if (typeCount) typeCount.textContent = 'Not current';
+                        return;
+                    }
                     var actions = tipRows(data.response_actions, 500);
                     // Historical artifacts also represented recommendations, never execution receipts.
                     var total = actions.filter(function(a) { return typeof a.action_type === 'string' && a.action_type.length > 0 && a.action_type.length <= 80; }).length;
-                    var el = document.getElementById('ts-response-count');
                     if (el) el.textContent = total.toLocaleString();
 
-                    var feed = document.getElementById('ts-response-feed');
                     if (feed) feed.textContent = 'Awaiting validated response proposals.';
-                    var typeCount = document.getElementById('ts-playbook-count');
                     if (typeCount) typeCount.textContent = 'Awaiting proposals';
                     if (feed && actions.length > 0) {
                         var byType = Object.create(null);
@@ -6392,11 +6415,19 @@ function renderTopThreats(data) {
                 try {
                     var huntTotal = data.total_hunts || 0;
                     var el = document.getElementById('ts-hunt-count');
+                    var hunts = tipRows(data.hunt_hypotheses, 8);
+                    var feed = document.getElementById('ts-hunt-feed');
+                    var campaigns = tipRows(data.campaign_intelligence, 12);
+                    var cFeed = document.getElementById('ts-campaign-feed');
+                    if (!tipArtifactCurrent(data)) {
+                        if (el) el.textContent = '0';
+                        if (feed) feed.textContent = 'Hunt file is older than 7 days. Template confidence is not shown as current.';
+                        if (cFeed) cFeed.textContent = 'No current campaign measurement.';
+                        return;
+                    }
                     if (el) el.textContent = huntTotal.toLocaleString();
 
                     // Hunt hypotheses feed
-                    var hunts = tipRows(data.hunt_hypotheses, 8);
-                    var feed = document.getElementById('ts-hunt-feed');
                     if (feed) feed.textContent = 'Awaiting validated records.';
                     if (feed && hunts.length > 0) {
                         feed.innerHTML = hunts.slice(0, 8).map(function(h) {
@@ -6411,8 +6442,6 @@ function renderTopThreats(data) {
                     }
 
                     // Campaign intelligence feed
-                    var campaigns = tipRows(data.campaign_intelligence, 12);
-                    var cFeed = document.getElementById('ts-campaign-feed');
                     if (cFeed && campaigns.length > 0) {
                         cFeed.innerHTML = campaigns.map(function(c) {
                             return '<div style="padding:5px 0;border-bottom:1px solid rgba(255,255,255,0.04);">'

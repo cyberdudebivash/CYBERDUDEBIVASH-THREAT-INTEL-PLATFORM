@@ -52,3 +52,10 @@ test('saved recon shows measured counts, absence states and scan provenance', ()
  }
  assert.match(nodes['bh-health-badge'].textContent,/SCAN PROVENANCE REQUIRED/);
 });
+test('nexus hunts quote measured advisories and do not invent a hypothesis', () => {
+ const source = fs.readFileSync(require('node:path').join(__dirname, '../js/homepage-dashboard-engine.js'), 'utf8');
+ assert.equal(source.includes('Insufficient high-risk data for hunt generation'), false);
+ assert.equal(source.includes('Supply-chain compromise via trusted update mechanisms'), false);
+ assert.ok(source.includes('Measured from advisories at risk 7.0 or above. Not a generated hypothesis.'));
+ assert.ok(source.includes('No advisory at risk 7.0 or above in this feed.'));
+});
