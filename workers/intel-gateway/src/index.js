@@ -1607,12 +1607,12 @@ a:hover{text-decoration:underline}
 <body>
 ${commercialGateBanner}
 <div class="cls-bar">
-  <span>${kev ? "CISA KEV · " : ""}${tlp}</span>
+  <span>${kev ? "CISA KEV &middot; " : ""}${tlp}</span>
   <span>Sentinel APEX ${PLATFORM_VERSION}</span>
 </div>
 <article class="sheet">
 <header class="hdr">
-  <p class="kicker">CYBERDUDEBIVASH · Threat intelligence report</p>
+  <p class="kicker">CYBERDUDEBIVASH &middot; Threat intelligence report</p>
   <h1 class="rpt-title">${title}</h1>
   <dl class="docmeta">
     <div><dt>Identifier</dt><dd>${itemId}</dd></div>
@@ -1666,7 +1666,7 @@ ${commercialGateBanner}
     <div class="sec-title">${tRisk}</div>
     <div style="display:grid;gap:14px;">
       <div style="padding:14px 18px;background:rgba(${sevColor.slice(1).match(/.{2}/g).map(h=>parseInt(h,16)).join(",")+",.06"});border:1px solid ${sevColor}33;border-radius:6px;">
-        <div style="font-size:12px;font-weight:700;color:${sevColor};letter-spacing:.06em;text-transform:uppercase;margin-bottom:6px;">Composite risk ${risk.toFixed(1)} / 10 · ${sev}</div>
+        <div style="font-size:12px;font-weight:700;color:${sevColor};letter-spacing:.06em;text-transform:uppercase;margin-bottom:6px;">Composite risk ${risk.toFixed(1)} / 10 &middot; ${sev}</div>
         <div style="font-size:13.5px;color:#c4d0e3;line-height:1.6;">${riskInterp}</div>
       </div>
       ${cvss > 0 ? `<div style="padding:12px 16px;background:rgba(255,255,255,.025);border:1px solid rgba(255,255,255,.07);border-radius:6px;"><div style="font-family:monospace;font-size:10px;color:#4b5563;letter-spacing:1.5px;margin-bottom:5px;">CVSS v3 BASE SCORE: ${cvss.toFixed(1)}</div><div style="font-size:13px;color:#a8b8cc;line-height:1.6;">Industry-standard exploitability metric. ${cvss>=9?"Critical  -  should be treated as breach-level risk.":cvss>=7?"High severity  -  patch before next business cycle.":cvss>=4?"Medium severity  -  remediate within 30 days.":"Low severity  -  routine patch cycle."}</div></div>` : ""}
@@ -1978,8 +1978,8 @@ ${buildP33APIGatewayBlock(item)}
 </div>
 </div>
 <footer class="ftr">
-  <p class="ftr-brand">CYBERDUDEBIVASH · Sentinel APEX ${PLATFORM_VERSION}</p>
-  <p>${tlp} · Generated ${genTime} UTC · ${itemId}</p>
+  <p class="ftr-brand">CYBERDUDEBIVASH &middot; Sentinel APEX ${PLATFORM_VERSION}</p>
+  <p>${tlp} &middot; Generated ${genTime} UTC &middot; ${itemId}</p>
   <p>Produced from published Sentinel APEX fields. Handle under ${tlp}. This page is not an ISO 27001 or SOC 2 certificate.</p>
   <p><a href="https://www.cyberdudebivash.com/">cyberdudebivash.com</a></p>
 </footer>
