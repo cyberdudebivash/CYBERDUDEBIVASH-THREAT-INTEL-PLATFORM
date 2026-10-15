@@ -63,9 +63,21 @@ def _save(p, d):
     except Exception: return False
 
 def _entries():
+    """Advisory rows from the manifest. A list, or the first non-empty list
+    under the keys the rest of the pipeline writes. An empty list is not
+    guessed from another file."""
     d = _load(MANIFEST_PATH)
-    if isinstance(d, list): return d
-    return d.get("entries", []) if isinstance(d, dict) else []
+    if isinstance(d, list):
+        return d
+    if isinstance(d, dict):
+        keys = ("entries", "items", "advisories", "data", "results", "reports")
+        lists = [(k, d[k]) for k in keys if isinstance(d.get(k), list)]
+        for _, rows in lists:
+            if rows:
+                return rows
+        if lists:
+            return lists[0][1]
+    return []
 
 def _items(entries):
     """Feed items to compute from: the given list, else the manifest."""
@@ -853,6 +865,14 @@ class GenesisOrchestrator:
         return results, raw
 
     def execute_full_cycle(self, entries=None) -> Dict:
+        raw_manifest = _load(MANIFEST_PATH) if entries is None else None
+        if entries is None:
+            if isinstance(raw_manifest, dict):
+                shapes = {k: len(v) for k, v in raw_manifest.items() if isinstance(v, list)}
+                logger.info("[GENESIS] manifest object keys-with-lists=%s", shapes or "none")
+            else:
+                logger.info("[GENESIS] manifest %s len=%s", type(raw_manifest).__name__,
+                            len(raw_manifest) if isinstance(raw_manifest, list) else 0)
         logger.info("[GENESIS] Starting 12-engine cycle...")
         results, raw = self.compute(entries)
         for name, _, filename in self._engines():

@@ -92,6 +92,26 @@ jobs:
       - name: Validate GENESIS output is non-degenerate
         run: python3 scripts/validate_intelligence_plane_output.py --file data/genesis/genesis_output.json --engine GENESIS
 
+      # An empty manifest read must not replace a live corpus. The 2026-10-15
+      # 09:07Z dispatch analyzed 0 items and uploaded that over the 2510-item
+      # object because a wrapped manifest has no top-level "entries" list.
+      - name: Refuse an empty GENESIS publication
+        run: |
+          python3 - << 'PY'
+          import json, sys
+          d = json.load(open("data/genesis/genesis_output.json", encoding="utf-8"))
+          n = d.get("items_analyzed")
+          g = ((d.get("engines") or {}).get("G11_GlobalAttackMap") or {}).get("summary") or {}
+          origins, flows = g.get("origin_countries"), g.get("attack_flows")
+          if not isinstance(n, int) or isinstance(n, bool) or n <= 0:
+              print(f"::error::GENESIS analyzed {n!r} items; refusing to replace the live corpus")
+              sys.exit(1)
+          if not isinstance(origins, dict) or not isinstance(flows, list) or not isinstance(g.get("total_flows"), int):
+              print("::error::G11 summary is not measured country objects")
+              sys.exit(1)
+          print(f"GENESIS items={n} origin_countries={len(origins)} total_flows={g.get('total_flows')}")
+          PY
+
       # FAIL-CLOSED (not continue-on-error): "A swallowed persistence
       # failure is the exact defect being fixed here" (ai-predictions.yml's
       # own established precedent for this exact step shape). Replaces the
