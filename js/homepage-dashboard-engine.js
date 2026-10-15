@@ -6262,8 +6262,11 @@ function renderTopThreats(data) {
                     const critEl = document.getElementById('bh-critical-count');
                     if (critEl) {
                         const c = measuredCount(m.critical_findings);
-                        critEl.textContent = scanCount(m.critical_findings);
-                        critEl.style.color = scanView.recent && c > 0 ? '#ef4444' : '#f59e0b';
+                        // A completed scan with zero critical findings is a
+                        // measured 0. "No observations" reads as if the
+                        // collector never ran. Other tiles keep that wording.
+                        critEl.textContent = (scanView.recent && c === 0) ? '0' : scanCount(m.critical_findings);
+                        critEl.style.color = scanView.recent && c > 0 ? '#ef4444' : (scanView.recent && c === 0 ? '#00d4aa' : '#f59e0b');
                     }
                     // Scan provenance, not assumed financial benefit.
                     const riskEl = document.getElementById('bh-risk-exposure');

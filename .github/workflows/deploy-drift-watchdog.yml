@@ -162,6 +162,47 @@ jobs:
             echo "Auto-dispatched \`workflow_dispatch\` as recovery."
           } >> "$GITHUB_STEP_SUMMARY"
 
+      # A pages-fast-publish run can exist for the current dashboard commit
+      # and still not be what customers see. sentinel-blogger STAGE 5 deploys
+      # with clean:true from whatever SHA that run checked out, and
+      # cancel-in-progress is false, so a late run publishes older
+      # index.html/js over a newer dashboard. 2026-10-15: c462850 replaced
+      # b08a630 after pages-fast-publish had already succeeded. Compare the
+      # SHA named in the gh-pages commit with main's dashboard files, and
+      # republish when they differ. A workflow-only commit on main does not
+      # count as drift.
+      - name: Republish when gh-pages is serving older dashboard files
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          msg=$(gh api "repos/${{ github.repository }}/commits/gh-pages" --jq .commit.message)
+          cited=$(printf '%s\n' "$msg" | sed -n 's/.*@\([0-9a-f]\{7,40\}\).*/\1/p' | head -1)
+          if ! printf '%s' "$cited" | grep -Eq '^[0-9a-f]{7,40}$'; then
+            echo "gh-pages message has no deploy SHA; not republishing"
+            exit 0
+          fi
+          if ! git cat-file -e "${cited}^{commit}" 2>/dev/null; then
+            echo "cited $cited is not in this checkout; not republishing"
+            exit 0
+          fi
+          if git diff --quiet "$cited" HEAD -- index.html js css _headers service-worker.js; then
+            echo "gh-pages commit $cited matches main dashboard files"
+            exit 0
+          fi
+          active=$(gh run list --repo "${{ github.repository }}" --workflow pages-fast-publish.yml --limit 20 \
+            --json status --jq '[.[] | select(.status=="in_progress" or .status=="queued" or .status=="waiting" or .status=="requested" or .status=="pending")] | length')
+          if [ "$active" != "0" ]; then
+            echo "pages-fast-publish already active ($active); not dispatching another"
+            exit 0
+          fi
+          echo "::warning::gh-pages is serving dashboard files from $cited, which differ from main. Republishing."
+          gh workflow run pages-fast-publish.yml --repo "${{ github.repository }}" --ref main
+          {
+            echo "### Live Pages dashboard was behind main"
+            echo "gh-pages cited \`$cited\`, whose dashboard files differ from main."
+            echo "Auto-dispatched pages-fast-publish.yml."
+          } >> "$GITHUB_STEP_SUMMARY"
+
       - name: No drift
         if: steps.check.outputs.matching_runs != '0'
         run: |

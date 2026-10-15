@@ -41,6 +41,9 @@ test('saved recon shows measured counts, absence states and scan provenance', ()
  assert.equal(nodes['bh-critical-count'].textContent,'3');
  assert.match(nodes['bh-health-badge'].textContent,/SCAN SNAPSHOT.*2026-10-06/);
  assert.match(nodes['bh-health-badge'].title,/example.test/);
+ context.render({status:'COMPLETED',metrics:{api_endpoints:4,critical_findings:0},timestamp:'2026-10-07T04:00:00Z'});
+ assert.equal(nodes['bh-critical-count'].textContent,'0');
+ assert.equal(nodes['bh-critical-count'].style.color,'#00d4aa');
  context.render({status:'COMPLETED',metrics:{api_endpoints:12,critical_findings:3},timestamp:'2026-08-25T18:02:45.017Z'});
  assert.equal(nodes['bh-api-count'].textContent,'Re-scan required');
  assert.equal(nodes['bh-critical-count'].textContent,'Re-scan required');
