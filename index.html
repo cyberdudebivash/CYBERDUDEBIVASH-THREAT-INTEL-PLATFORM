@@ -2331,6 +2331,20 @@
             }
 
             // ── Metrics + Last Sync + API/INTEL status ─────────────────────
+            function publisherHosts(items) {
+                var rows = {};
+                (items || []).forEach(function(it) {
+                    var raw = it && (it.feed_source || it.source_url || it.source) || '';
+                    var s = String(raw).trim();
+                    if (!s || /^(unknown|unattributed|n\/a|none|null|-)$/i.test(s)) return;
+                    if (/^https?:\/\//i.test(s) || /^[a-z0-9.-]+\.[a-z]{2,}(\/|$)/i.test(s)) {
+                        s = s.replace(/^https?:\/\/(www\.)?/i, '').split('/')[0].split('?')[0].split(':')[0].trim().toLowerCase();
+                    }
+                    if (!s || s.length > 48 || /[<>"'`]/.test(s)) return;
+                    rows[s] = (rows[s] || 0) + 1;
+                });
+                return rows;
+            }
             function fillMetrics(state){
                 var i = state.intelligence;
                 var ok = state.feed.state !== 'error';
@@ -2338,7 +2352,9 @@
                 set('eicc-m-critical', ok ? i.critical : 'N/A');
                 set('eicc-m-iocs', ok ? i.iocs : 'N/A');
                 set('eicc-m-risk', ok && i.avg_risk != null ? i.avg_risk.toFixed(1) : 'N/A');
-                set('eicc-m-feeds', ok && i.source_count != null ? i.source_count : 'N/A');
+                var hostRows = publisherHosts(state.feed && state.feed.items);
+                var hostCount = Object.keys(hostRows).length;
+                set('eicc-m-feeds', ok && i.source_count != null ? i.source_count : (ok && hostCount ? hostCount : 'N/A'));
                 var sync = SNAP.lastSyncView(state);
                 set('eicc-m-sync', sync.text);
                 set('eicc-m-sync-utc', sync.utc || 'FEED GENERATION TIME UNKNOWN');
@@ -2421,6 +2437,7 @@
                 } else {
                     mode = 'coverage';
                     rows = state.intelligence.sources || {};
+                    if (!Object.keys(rows).length) rows = publisherHosts(items);
                     if (title) title.textContent = '🌍 GEOGRAPHIC ATTRIBUTION COVERAGE';
                     if (sub) sub.textContent = '0 of ' + items.length + ' advisories carry authoritative country attribution. Origins are not estimated.';
                 }
