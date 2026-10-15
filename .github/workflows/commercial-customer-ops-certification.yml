@@ -605,10 +605,25 @@ jobs:
           expect_status "fresh login succeeds again after reactivation within propagation bound" "200" "$FRESH_LOGIN_ST"
 
           echo "--- ROTATED: old key must converge denied and new key allowed within 75s ---"
-          ROTATE_JSON=$(curl -sS -X POST "$BASE/api/admin/keys/$KEY/rotate" -H "X-Admin-Key: $ADMIN_SECRET")
-          NEW_KEY=$(echo "$ROTATE_JSON" | jq -r '.new_key // empty')
+          NEW_KEY=""
+          ROTATE_CODE=""
+          for attempt in 1 2 3; do
+            ROTATE_RAW=$(curl -sS -w "\n%{http_code}" -X POST "$BASE/api/admin/keys/$KEY/rotate" -H "X-Admin-Key: $ADMIN_SECRET" || true)
+            ROTATE_CODE=$(printf '%s\n' "$ROTATE_RAW" | tail -n 1)
+            ROTATE_JSON=$(printf '%s\n' "$ROTATE_RAW" | sed '$d')
+            NEW_KEY=$(printf '%s\n' "$ROTATE_JSON" | jq -r '.new_key // empty' 2>/dev/null || true)
+            if [ -n "$NEW_KEY" ]; then
+              break
+            fi
+            # 503 is the handler's "did not rotate" response. Retrying it
+            # cannot create a second live key. Any other status is final.
+            if [ "$ROTATE_CODE" != "503" ] && [ "$ROTATE_CODE" != "000" ]; then
+              break
+            fi
+            sleep 2
+          done
           if [ -z "$NEW_KEY" ]; then
-            echo "FAIL: rotation did not return a new_key"
+            echo "FAIL: rotation did not return a new_key (HTTP ${ROTATE_CODE:-none})"
             FAIL=1
           else
             echo "PASS: rotation returned a new key"
