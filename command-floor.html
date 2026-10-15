@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Command Floor — CYBERDUDEBIVASH® SENTINEL APEX</title>
+<meta name="description" content="Public-tier operator console for the Sentinel APEX live feed. Advisories, KEV, ATT&CK, CVE, and the published path to Pro, Enterprise, and MSSP."/>
+<link rel="canonical" href="https://intel.cyberdudebivash.com/command-floor.html"/>
+<meta name="theme-color" content="#0f172a"/>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#0f172a;color:#e2e8f0;font-family:Inter,ui-sans-serif,system-ui,sans-serif;line-height:1.45}
+a{color:#38bdf8}
+button,select,input,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+.wrap{max-width:1120px;margin:0 auto;padding:20px 16px 48px}
+header{display:flex;flex-wrap:wrap;gap:12px;justify-content:space-between;align-items:flex-end;border-bottom:1px solid #1e293b;padding-bottom:16px}
+.brand{font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:#38bdf8;margin:0}
+h1{font-size:28px;margin:4px 0}
+.sub{max-width:40rem;color:#94a3b8;margin:0}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.btn,.cta{min-height:44px;display:inline-flex;align-items:center;gap:6px;border-radius:8px;padding:0 14px;text-decoration:none;border:1px solid #334155;background:#1e293b}
+.cta{background:#38bdf8;color:#0f172a;font-weight:700;border-color:#38bdf8}
+.pill{min-height:44px;min-width:44px;display:inline-flex;align-items:center;justify-content:center;border:1px solid #334155;border-radius:8px;padding:0 10px;font-family:ui-monospace,monospace;font-size:12px;color:#94a3b8}
+.pill.on{background:#38bdf8;color:#0f172a;border-color:#38bdf8}
+.tabs{display:flex;gap:8px;overflow-x:auto;margin:16px 0;padding-bottom:4px}
+.tabs button{min-height:44px;border-radius:999px;border:1px solid #334155;background:#1e293b;padding:0 14px;white-space:nowrap}
+.tabs button.on{background:#38bdf8;color:#0f172a;border-color:#38bdf8;font-weight:700}
+.grid{display:grid;gap:10px}
+.g4{grid-template-columns:repeat(2,minmax(0,1fr))}
+.g2{grid-template-columns:1fr}
+@media(min-width:900px){.g4{grid-template-columns:repeat(4,minmax(0,1fr))}.g2{grid-template-columns:1fr 1fr}}
+.card{background:#1e293b;border:1px solid #334155;border-radius:12px;padding:14px}
+.k{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:#94a3b8}
+.v{font-family:ui-monospace,monospace;font-size:24px;margin-top:4px}
+.h{font-size:12px;color:#94a3b8}
+.ok{color:#22c55e}.bad{color:#f87171}.warn{color:#fbbf24}
+.list{display:flex;flex-direction:column;gap:8px;max-height:70vh;overflow:auto}
+.item{width:100%;text-align:left;background:#1e293b;border:1px solid #334155;border-radius:10px;padding:10px}
+.item.on{border-color:#38bdf8;background:#162032}
+.chip{display:inline-flex;border-radius:4px;padding:1px 6px;font-family:ui-monospace,monospace;font-size:11px;margin-right:4px}
+.CRITICAL{background:#7f1d1d;color:#fecaca}.HIGH{background:#7c2d12;color:#fed7aa}.MEDIUM{background:#713f12;color:#fde68a}.LOW,.INFO{background:#1e293b;color:#94a3b8;border:1px solid #334155}
+input,select,textarea{min-height:44px;width:100%;background:#0f172a;border:1px solid #334155;border-radius:8px;padding:8px 10px}
+textarea{min-height:88px}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th,td{text-align:left;padding:8px;border-top:1px solid #334155;vertical-align:top}
+th{font-size:11px;color:#94a3b8;text-transform:uppercase}
+.meter{display:flex;align-items:center;gap:8px;font-size:12px;margin:6px 0}
+.meter span:first-child{width:9rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#94a3b8}
+.bar{flex:1;height:8px;background:#0f172a;border-radius:99px;overflow:hidden}
+.bar i{display:block;height:8px;background:#38bdf8}
+.note{color:#94a3b8;font-size:13px}
+pre{white-space:pre-wrap;background:#0f172a;border-radius:8px;padding:10px;font-size:12px;color:#94a3b8}
+.banner{margin-top:12px;border:1px solid #7f1d1d;background:#450a0a;color:#fecaca;border-radius:8px;padding:10px}
+footer{margin-top:28px;border-top:1px solid #1e293b;padding-top:12px;color:#64748b;font-size:12px}
+</style>
+</head>
+<body>
+<main class="wrap">
+  <header>
+    <div>
+      <p class="brand">CYBERDUDEBIVASH® · Sentinel APEX</p>
+      <h1>Command floor</h1>
+      <p class="sub">Public-tier operator console. Every number is a published field. Paid fields stay locked until checkout. This page does not replace the live dashboard.</p>
+    </div>
+    <div class="row">
+      <span class="pill" id="fresh">connecting</span>
+      <button class="btn" id="refresh" type="button">Refresh</button>
+      <a class="cta" href="/upgrade.html?plan=pro">Get Pro</a>
+    </div>
+  </header>
+  <div id="banner"></div>
+  <div class="row" id="defcon" style="margin-top:14px"></div>
+  <nav class="tabs" id="tabs" aria-label="Console modules"></nav>
+  <section id="view"></section>
+  <footer>
+    <p id="foot"></p>
+    <p>CYBERDUDEBIVASH® · GSTIN 21ARKPN8270G1ZP · Jajpur Road, Odisha · Razorpay primary, Gumroad secondary. ISO 27001 / SOC 2 aligned, not certified. Financial loss is not published by the feed and is not shown here.</p>
+    <p><a href="/">Production dashboard</a> · <a href="/api-docs.html">API docs</a> · <a href="/api/stix/bundle">Public STIX</a> · <a href="/pricing.html">Pricing</a> · <a href="/contact-enterprise.html">Enterprise</a></p>
+  </footer>
+</main>
+<script>
+(function () {
+  var TABS = [["floor","Floor"],["watchdog","Watchdog"],["soc","SOC queue"],["attack","ATT&CK"],["cve","CVE"],["sensors","Sensors"],["ai","AI intel"],["provision","Provision"]];
+  var state = { tab: "floor", snap: null, q: "", sev: "ALL", kev: false, selected: null, error: "" };
+  var view = document.getElementById("view");
+
+  function text(tag, cls, value) {
+    var n = document.createElement(tag);
+    if (cls) n.className = cls;
+    if (value != null) n.textContent = value;
+    return n;
+  }
+  function clear(node) { while (node.firstChild) node.removeChild(node.firstChild); }
+  function age(seconds) {
+    if (seconds == null) return "age unknown";
+    if (seconds < 90) return seconds + "s ago";
+    var m = Math.round(seconds / 60);
+    if (m < 90) return m + "m ago";
+    return Math.round(m / 60) + "h ago";
+  }
+  function sevOf(v) {
+    v = String(v || "").toUpperCase();
+    return v === "CRITICAL" || v === "HIGH" || v === "MEDIUM" || v === "LOW" ? v : "INFO";
+  }
+  function chip(sev, label) {
+    return text("span", "chip " + sevOf(sev), label);
+  }
+  function num(v) { return typeof v === "number" && isFinite(v) ? v : (typeof v === "string" && v.trim() && isFinite(Number(v)) ? Number(v) : null); }
+  function str(v) { return typeof v === "string" && v.trim() ? v.replace(/\s+/g, " ").trim() : null; }
+
+  function getJson(path) {
+    return fetch(path, { headers: { accept: "application/json" } }).then(function (res) {
+      if (!res.ok) return { _error: res.status, _path: path };
+      return res.json();
+    }).catch(function () { return { _error: 0, _path: path }; });
+  }
+
+  function load() {
+    document.getElementById("refresh").textContent = "Refreshing";
+    var paths = ["/api/feed?limit=100","/api/v1/intel/stats","/api/v1/intel/defcon","/api/v1/intel/campaigns","/api/v1/intel/ransomware","/api/v1/intel/apt","/api/v1/intel/epss","/api/v1/intel/pulse","/api/v1/intel/darkweb","/api/v1/intel/cybermap","/api/v1/cve/stats","/api/v1/cve/live?limit=20","/api/watchdog/brief","/api/ai-feed/live","/api/v1/intel/detection_rules_manifest.json","/api/v1/news/feed","/api/v1/intel/ai_summary.json","/api/v1/copilot/health","/api/v1/copilot/modes"];
+    Promise.all(paths.map(getJson)).then(function (rows) {
+      var bag = {};
+      paths.forEach(function (p, i) { bag[p] = rows[i]; });
+      state.snap = normalize(bag);
+      state.error = state.snap.feedOk ? "" : "The live feed did not return advisories. Other panels keep their own status.";
+      if (!state.selected && state.snap.advisories[0]) state.selected = state.snap.advisories[0].id;
+      document.getElementById("refresh").textContent = "Refresh";
+      paint();
+    });
+  }
+
+  function normalize(bag) {
+    var feed = bag["/api/feed?limit=100"] || {};
+    var items = Array.isArray(feed.items) ? feed.items : [];
+    var stats = bag["/api/v1/intel/stats"] || {};
+    var defcon = bag["/api/v1/intel/defcon"] || {};
+    var campaigns = bag["/api/v1/intel/campaigns"] || {};
+    var advisories = items.map(function (item) {
+      var title = str(item.title) || "Untitled advisory";
+      var sev = sevOf(item.severity);
+      var kev = item.kev === true || item.kev_present === true;
+      var action = kev || sev === "CRITICAL" ? "Patch or isolate exposed assets" : sev === "HIGH" ? "Confirm exposure and schedule the patch" : "Track in the vulnerability register";
+      var sla = kev || sev === "CRITICAL" ? "4 hours" : sev === "HIGH" ? "24 hours" : "7 days";
+      var tactics = Array.isArray(item.mitre_tactics) ? item.mitre_tactics.filter(function (t) { return t && t.id; }).map(function (t) { return { id: String(t.id), tactic: str(t.tactic) || "Unspecified" }; }) : [];
+      return { id: str(item.id) || title, title: title, severity: sev, risk: num(item.risk_score) || 0, kev: kev, cve: str(item.cve_id), source: str(item.source) || "Unknown source", epss: num(item.epss_score), cvss: num(item.cvss_score), ioc: num(item.ioc_count) || 0, tactics: tactics, action: action, sla: sla, summary: (str(item.description) || "").replace(/\[Full analysis available on Pro\]/gi, "").slice(0, 320), tlp: str(item.tlp) || "TLP:CLEAR", url: str(item.source_url) };
+    }).sort(function (a, b) { return b.risk - a.risk; });
+    var phases = campaigns.phases || {};
+    var tactics = campaigns.attack_tactics && Array.isArray(campaigns.attack_tactics.tactics) ? campaigns.attack_tactics.tactics : [];
+    var epssRows = bag["/api/v1/intel/epss"] && Array.isArray(bag["/api/v1/intel/epss"].top_cves) ? bag["/api/v1/intel/epss"].top_cves : [];
+    var cve = bag["/api/v1/cve/stats"] || {};
+    var cveLive = bag["/api/v1/cve/live?limit=20"] || {};
+    var watch = bag["/api/watchdog/brief"] || {};
+    var ai = bag["/api/ai-feed/live"] || {};
+    var rules = bag["/api/v1/intel/detection_rules_manifest.json"] || {};
+    var rulesAt = str(rules.generated_at);
+    var rulesAge = rulesAt ? Date.now() - Date.parse(rulesAt) : Infinity;
+    var threat = defcon.global_threat_level || {};
+    var corpus = feed.live_indicators_summary || {};
+    return {
+      feedOk: Array.isArray(feed.items),
+      partial: pathsFailed(bag),
+      advisories: advisories,
+      stats: {
+        advisories: num(stats.total) || advisories.length,
+        critical: num(stats.critical) || 0,
+        high: num(stats.high) || 0,
+        medium: num(stats.medium) || 0,
+        low: num(stats.low) || 0,
+        kev: num(stats.kev_confirmed) || 0,
+        risk: num(stats.avg_risk_score) || 0,
+        iocs: num(stats.total_iocs) || 0,
+        corpus: num(corpus.total_indicators),
+        defcon: num(defcon.level),
+        defconLabel: str(defcon.label) || "DEFCON unavailable",
+        status: str(defcon.status) || "",
+        freshness: str(feed.freshness_status) || "UNKNOWN",
+        age: num(feed.age_seconds),
+        version: str(stats.version) || "201.0",
+        threat: str(threat.label) || "",
+        threatLevel: num(threat.level),
+        formula: defcon.formula && str(defcon.formula.expression) || ""
+      },
+      tactics: tactics.map(function (t) { return { name: str(t.name) || "Tactic", count: num(t.count) || 0 }; }),
+      kill: ["recon","weaponize","deliver","exploit","install","c2","action"].map(function (p) { return { phase: p, count: num(phases[p]) || 0 }; }),
+      campaignsDown: !!(campaigns._error != null),
+      campaignCount: num(campaigns.active_campaign_count) || 0,
+      epss: epssRows.map(function (r) { return { id: str(r.cve_id) || "CVE", title: str(r.title) || "", epss: num(r.epss_score) || 0, kev: r.kev_present === true }; }).filter(function (r) { return r.epss > 0; }).sort(function (a, b) { return b.epss - a.epss; }).slice(0, 8),
+      cveStats: { ok: cve._error == null && num(cve.total) != null, total: num(cve.total) || 0, critical: num(cve.critical) || 0, high: num(cve.high) || 0, medium: num(cve.medium) || 0, low: num(cve.low) || 0, avg: num(cve.avg_cvss), window: str(cve.window) || "7d" },
+      cves: (Array.isArray(cveLive.cves) ? cveLive.cves : []).map(function (r) { return { id: str(r.id) || "CVE", description: str(r.description) || "", cvss: num(r.cvss_score), severity: str(r.severity) || "", status: str(r.vuln_status) || "Unknown", kev: r.kev === true }; }),
+      ransom: bag["/api/v1/intel/ransomware"] || {},
+      apt: bag["/api/v1/intel/apt"] || {},
+      pulse: bag["/api/v1/intel/pulse"] || {},
+      dark: bag["/api/v1/intel/darkweb"] || {},
+      map: bag["/api/v1/intel/cybermap"] || {},
+      watch: watch,
+      ai: ai,
+      rules: rules,
+      rulesStale: !isFinite(rulesAge) || rulesAge > 14 * 24 * 3600 * 1000,
+      news: (bag["/api/v1/news/feed"] && Array.isArray(bag["/api/v1/news/feed"].items) ? bag["/api/v1/news/feed"].items : []).slice(0, 8),
+      summary: bag["/api/v1/intel/ai_summary.json"] || {},
+      copilot: bag["/api/v1/copilot/health"] || {},
+      modes: bag["/api/v1/copilot/modes"] && Array.isArray(bag["/api/v1/copilot/modes"].modes) ? bag["/api/v1/copilot/modes"].modes : []
+    };
+  }
+  function decodeEntities(value) {
+    var named = { amp: "&", quot: '"', apos: "'", lt: "<", gt: ">", nbsp: " " };
+    return String(value || "").replace(/&(#x[0-9a-fA-F]+|#\d+|[a-zA-Z]+);/g, function (all, body) {
+      var cp = null;
+      if (body.charAt(0) === "#") {
+        cp = body.charAt(1) === "x" || body.charAt(1) === "X" ? parseInt(body.slice(2), 16) : parseInt(body.slice(1), 10);
+        if (!isFinite(cp) || cp < 32 || cp > 1114111 || (cp >= 55296 && cp <= 57343)) return all;
+        try { return String.fromCodePoint(cp); } catch (e) { return all; }
+      }
+      return Object.prototype.hasOwnProperty.call(named, body) ? named[body] : all;
+    });
+  }
+  function failed(node) { return !!(node && node._error != null); }
+  function pathsFailed(bag) {
+    return Object.keys(bag).filter(function (k) { return bag[k] && bag[k]._error != null; });
+  }
+
+  function metric(label, value, hint) {
+    var card = text("div", "card");
+    card.appendChild(text("div", "k", label));
+    card.appendChild(text("div", "v", value));
+    card.appendChild(text("div", "h", hint));
+    return card;
+  }
+  function filtered() {
+    var needle = state.q.trim().toLowerCase();
+    return state.snap.advisories.filter(function (a) {
+      if (state.sev !== "ALL" && a.severity !== state.sev) return false;
+      if (state.kev && !a.kev) return false;
+      if (!needle) return true;
+      return a.title.toLowerCase().indexOf(needle) >= 0 || (a.cve || "").toLowerCase().indexOf(needle) >= 0 || a.source.toLowerCase().indexOf(needle) >= 0;
+    });
+  }
+  function queue() { return state.snap.advisories.filter(function (a) { return a.kev || a.severity === "CRITICAL" || a.severity === "HIGH"; }); }
+
+  function paint() {
+    var s = state.snap.stats;
+    var fresh = document.getElementById("fresh");
+    fresh.textContent = s.freshness + " · " + age(s.age);
+    var banner = document.getElementById("banner");
+    clear(banner);
+    if (state.error) banner.appendChild(text("p", "banner", state.error));
+    var dc = document.getElementById("defcon");
+    clear(dc);
+    [1,2,3,4,5].forEach(function (level) {
+      dc.appendChild(text("span", "pill" + (s.defcon === level ? " on" : ""), "DC" + level));
+    });
+    dc.appendChild(text("span", "note", "v" + s.version + " · " + s.defconLabel + ". " + s.iocs.toLocaleString() + " advisory IOCs · " + (s.corpus == null ? "—" : s.corpus.toLocaleString()) + " corpus indicators. Those counts are not the same."));
+    var tabs = document.getElementById("tabs");
+    clear(tabs);
+    TABS.forEach(function (pair) {
+      var b = text("button", state.tab === pair[0] ? "on" : "", pair[1] + (pair[0] === "watchdog" ? " " + state.snap.advisories.length : pair[0] === "soc" ? " " + queue().length : ""));
+      b.type = "button";
+      b.onclick = function () { state.tab = pair[0]; paint(); };
+      tabs.appendChild(b);
+    });
+    clear(view);
+    if (state.tab === "floor") paintFloor();
+    else if (state.tab === "watchdog") paintWatch();
+    else if (state.tab === "soc") paintSoc();
+    else if (state.tab === "attack") paintAttack();
+    else if (state.tab === "cve") paintCve();
+    else if (state.tab === "sensors") paintSensors();
+    else if (state.tab === "ai") paintAi();
+    else paintProvision();
+    document.getElementById("foot").textContent = s.formula || "Published threat-level formula was not returned.";
+  }
+
+  function paintFloor() {
+    var s = state.snap.stats;
+    var within = s.age == null ? "Age not published" : s.age <= 6 * 3600 ? "Within the 6-hour public target" : "Older than the 6-hour public target";
+    var g = text("div", "grid g4");
+    g.appendChild(metric("Advisories", String(s.advisories), "Published stats"));
+    g.appendChild(metric("Critical / High", s.critical + " / " + s.high, "Med " + s.medium + " · Low " + s.low));
+    g.appendChild(metric("CISA KEV", String(s.kev), "Published kev_confirmed"));
+    g.appendChild(metric("Feed risk", s.risk.toFixed(2), (s.threat || "Threat") + " " + (s.threatLevel == null ? "—" : s.threatLevel) + "/10"));
+    view.appendChild(g);
+    var contract = text("div", "card");
+    contract.style.marginTop = "10px";
+    contract.appendChild(text("div", "k", "Public freshness contract"));
+    contract.appendChild(text("p", s.age != null && s.age > 6 * 3600 ? "bad" : "ok", within));
+    contract.appendChild(text("p", "note", s.status || "A failed endpoint is not shown as zero."));
+    view.appendChild(contract);
+    var hot = text("div", "list");
+    hot.style.marginTop = "10px";
+    queue().slice(0, 6).forEach(function (a) { hot.appendChild(row(a)); });
+    view.appendChild(hot);
+  }
+  function row(a) {
+    var b = text("button", "item" + (state.selected === a.id ? " on" : ""));
+    b.type = "button";
+    b.appendChild(chip(a.severity, a.severity));
+    if (a.kev) b.appendChild(chip("CRITICAL", "KEV"));
+    b.appendChild(text("span", "note", " " + a.risk.toFixed(2)));
+    b.appendChild(text("p", "", a.title));
+    b.appendChild(text("p", "note", a.source + " · " + (a.cve || a.id)));
+    b.onclick = function () { state.selected = a.id; state.tab = "watchdog"; paint(); };
+    return b;
+  }
+  function paintWatch() {
+    var box = text("div", "grid g2");
+    var left = text("div", "");
+    var input = document.createElement("input");
+    input.placeholder = "Search title, CVE, or source";
+    input.value = state.q;
+    input.oninput = function (e) {
+      state.q = e.target.value;
+      var list = document.getElementById("watch-list");
+      if (!list) return;
+      clear(list);
+      var rows = filtered();
+      if (!rows.length) list.appendChild(text("p", "note", "Nothing matches."));
+      rows.forEach(function (a) { list.appendChild(row(a)); });
+    };
+    left.appendChild(input);
+    var sev = document.createElement("select");
+    ["ALL","CRITICAL","HIGH","MEDIUM","LOW"].forEach(function (name) {
+      var o = document.createElement("option");
+      o.value = name; o.textContent = name; if (name === state.sev) o.selected = true;
+      sev.appendChild(o);
+    });
+    sev.onchange = function (e) { state.sev = e.target.value; paint(); };
+    sev.style.marginTop = "8px";
+    left.appendChild(sev);
+    var kev = text("button", "btn", state.kev ? "KEV on" : "KEV only");
+    kev.type = "button";
+    kev.style.marginTop = "8px";
+    kev.onclick = function () { state.kev = !state.kev; paint(); };
+    left.appendChild(kev);
+    var list = text("div", "list");
+    list.id = "watch-list";
+    list.style.marginTop = "8px";
+    var rows = filtered();
+    if (!rows.length) list.appendChild(text("p", "note", "Nothing matches."));
+    rows.forEach(function (a) { list.appendChild(row(a)); });
+    left.appendChild(list);
+    box.appendChild(left);
+    var active = state.snap.advisories.filter(function (a) { return a.id === state.selected; })[0] || rows[0];
+    box.appendChild(detail(active));
+    view.appendChild(box);
+  }
+  function detail(a) {
+    var card = text("article", "card");
+    if (!a) { card.appendChild(text("p", "note", "Select an advisory.")); return card; }
+    card.appendChild(chip(a.severity, a.severity));
+    if (a.kev) card.appendChild(chip("CRITICAL", "CISA KEV"));
+    card.appendChild(text("h2", "", a.title));
+    card.appendChild(text("p", "note", a.summary || "No public summary on this record."));
+    card.appendChild(text("p", "", "Feed risk " + a.risk.toFixed(2) + " / 10 · CVSS " + (a.cvss == null ? "not published" : a.cvss) + " · EPSS " + (a.epss == null ? "not published" : a.epss)));
+    card.appendChild(text("p", "", a.action + " · response target " + a.sla + ". Not the Enterprise contractual SLA."));
+    card.appendChild(text("p", "note", a.ioc ? a.ioc + " indicator count. Values stay on Pro." : "No indicators joined to this advisory."));
+    if (a.tactics.length) card.appendChild(text("p", "note", "ATT&CK " + a.tactics.map(function (t) { return t.id; }).join(" ")));
+    if (a.url && /^https?:\/\//.test(a.url)) {
+      var link = text("a", "", "Source");
+      link.href = a.url; link.rel = "noreferrer noopener"; link.target = "_blank";
+      card.appendChild(link);
+    }
+    var buy = text("a", "", " Unlock IOC values · $49/mo");
+    buy.href = "/upgrade.html?plan=pro";
+    card.appendChild(buy);
+    return card;
+  }
+  function paintSoc() {
+    view.appendChild(text("p", "note", queue().length + " KEV, critical, or high advisories. Response targets are operator labels."));
+    var table = document.createElement("table");
+    var head = document.createElement("tr");
+    ["Target","Advisory","Action","Risk"].forEach(function (h) { head.appendChild(text("th", "", h)); });
+    table.appendChild(head);
+    queue().forEach(function (a) {
+      var tr = document.createElement("tr");
+      tr.appendChild(text("td", "", a.sla));
+      var td = document.createElement("td");
+      td.appendChild(chip(a.severity, a.severity));
+      td.appendChild(text("div", "", a.title));
+      tr.appendChild(td);
+      tr.appendChild(text("td", "", a.action));
+      tr.appendChild(text("td", "", a.risk.toFixed(2)));
+      table.appendChild(tr);
+    });
+    var wrap = text("div", "card");
+    wrap.style.overflowX = "auto";
+    wrap.appendChild(table);
+    view.appendChild(wrap);
+    var exp = text("button", "btn", "Export public CSV");
+    exp.type = "button";
+    exp.style.marginTop = "8px";
+    exp.onclick = function () { exportCsv(queue()); };
+    view.appendChild(exp);
+  }
+  function exportCsv(rows) {
+    var lines = [["id","severity","risk","kev","cve","title","source","ioc_count"].join(",")].concat(rows.map(function (a) {
+      return [a.id,a.severity,a.risk,a.kev?"yes":"no",a.cve||"",a.title,a.source,a.ioc].map(function (c) { return '"' + String(c).replace(/"/g,'""') + '"'; }).join(",");
+    }));
+    var blob = new Blob([lines.join("\n")], { type: "text/csv" });
+    var url = URL.createObjectURL(blob);
+    var link = document.createElement("a");
+    link.href = url; link.download = "sentinel-apex-public-feed.csv"; link.click();
+    URL.revokeObjectURL(url);
+  }
+  function meters(rows, label, value) {
+    var max = Math.max.apply(null, rows.map(value).concat([1]));
+    var box = text("div", "");
+    rows.forEach(function (row) {
+      var line = text("div", "meter");
+      line.appendChild(text("span", "", label(row)));
+      var bar = text("div", "bar");
+      var fill = document.createElement("i");
+      fill.style.width = Math.round((value(row) / max) * 100) + "%";
+      bar.appendChild(fill);
+      line.appendChild(bar);
+      line.appendChild(text("span", "", String(value(row))));
+      box.appendChild(line);
+    });
+    return box;
+  }
+  function paintAttack() {
+    if (state.snap.campaignsDown) {
+      view.appendChild(text("p", "banner", "Campaign endpoint did not answer. Kill-chain counts are hidden rather than shown as zero."));
+      return;
+    }
+    var g = text("div", "grid g2");
+    var a = text("div", "card");
+    a.appendChild(text("h2", "", "ATT&CK tactics"));
+    a.appendChild(meters(state.snap.tactics, function (t) { return t.name; }, function (t) { return t.count; }));
+    var b = text("div", "card");
+    b.appendChild(text("h2", "", "Kill chain"));
+    b.appendChild(meters(state.snap.kill, function (t) { return t.phase; }, function (t) { return t.count; }));
+    b.appendChild(text("p", "note", "Evidenced campaigns " + state.snap.campaignCount));
+    g.appendChild(a); g.appendChild(b); view.appendChild(g);
+    var ep = text("div", "card");
+    ep.style.marginTop = "10px";
+    ep.appendChild(text("h2", "", "Highest published EPSS"));
+    state.snap.epss.forEach(function (r) { ep.appendChild(text("p", "", r.id + " · " + r.epss + (r.kev ? " · KEV" : "") + " · " + r.title)); });
+    view.appendChild(ep);
+  }
+  function paintCve() {
+    var c = state.snap.cveStats;
+    var g = text("div", "grid g4");
+    g.appendChild(metric("NVD window", String(c.total), c.ok ? c.window : "Stats unavailable"));
+    g.appendChild(metric("CVSS 9+", String(c.critical), "Avg " + (c.avg == null ? "—" : c.avg)));
+    g.appendChild(metric("High", String(c.high), "CVSS 7.0–8.9"));
+    g.appendChild(metric("Medium / Low", c.medium + " / " + c.low, "Status is the NVD field"));
+    view.appendChild(g);
+    state.snap.cves.forEach(function (row) {
+      var card = text("div", "card");
+      card.style.marginTop = "8px";
+      card.appendChild(text("strong", "", row.id));
+      card.appendChild(text("p", "", row.description));
+      card.appendChild(text("p", "note", row.severity + " · CVSS " + (row.cvss == null ? "—" : row.cvss) + " · " + row.status + (row.kev ? " · KEV" : "")));
+      view.appendChild(card);
+    });
+  }
+  function paintSensors() {
+    var s = state.snap;
+    var g = text("div", "grid g2");
+    function panel(title, body) { var c = text("div", "card"); c.appendChild(text("h2", "", title)); body(c); return c; }
+    g.appendChild(panel("Ransomware", function (c) {
+      if (failed(s.ransom)) c.appendChild(text("p", "note", "Unavailable. Not shown as zero."));
+      else c.appendChild(text("p", "", (num(s.ransom.ransomware_advisories) || 0) + " classified advisories · groups " + (num(s.ransom.active_groups) || 0) + ". Victims " + (s.ransom.victims_measured ? "measured" : "not measured") + "."));
+    }));
+    g.appendChild(panel("APT radar", function (c) {
+      if (failed(s.apt)) c.appendChild(text("p", "note", "Unavailable. Not shown as zero."));
+      else c.appendChild(text("p", "", (num(s.apt.apt_advisories) || 0) + " advisories · actors " + (num(s.apt.tracked_apts) || 0) + ". " + (str(s.apt.attribution_status) || "")));
+    }));
+    g.appendChild(panel("Credential-themed titles", function (c) {
+      if (failed(s.dark)) c.appendChild(text("p", "note", "Unavailable. Not shown as zero."));
+      else c.appendChild(text("p", "note", (num(s.dark.breach_detections_24h) || 0) + " titles / 24h. Not a Tor crawl."));
+    }));
+    g.appendChild(panel("Attack geography", function (c) {
+      if (failed(s.map)) { c.appendChild(text("p", "note", "Unavailable. Not shown as zero.")); return; }
+      var cov = s.map.coverage || {};
+      c.appendChild(text("p", "", (num(cov.items_with_country_attribution) || 0) + " / " + (num(cov.items_evaluated) || 0) + " tagged. Flows " + (num(s.map.total_attacks_today) || 0) + ". Origins are not estimated."));
+    }));
+    g.appendChild(panel("Pulse", function (c) {
+      if (failed(s.pulse)) c.appendChild(text("p", "note", "Unavailable. Not shown as zero."));
+      else c.appendChild(text("p", "", (num(s.pulse.rate_hr) || 0) + "/hr · " + (num(s.pulse.today) || 0) + " today"));
+    }));
+    g.appendChild(panel("Detection content", function (c) {
+      if (failed(s.rules)) { c.appendChild(text("p", "note", "Manifest unavailable. Not shown as zero.")); return; }
+      var gen = s.rules.rules_generated || {};
+      c.appendChild(text("p", s.rulesStale ? "warn" : "", "Sigma " + (num(gen.sigma) || 0) + " · YARA " + (num(gen.yara) || 0) + " · Suricata " + (num(gen.suricata) || 0) + (s.rulesStale ? " · batch older than 14 days" : "")));
+    }));
+    view.appendChild(g);
+    var news = text("div", "card");
+    news.style.marginTop = "10px";
+    news.appendChild(text("h2", "", "Wire news"));
+    s.news.forEach(function (n) { news.appendChild(text("p", "", decodeEntities(n.title || ""))); });
+    view.appendChild(news);
+  }
+  function paintAi() {
+    var card = text("div", "card");
+    card.appendChild(text("h2", "", "AI security feed"));
+    var items = state.snap.ai.items || [];
+    if (!items.length) card.appendChild(text("p", "note", "No titles on this pull."));
+    items.forEach(function (item) { card.appendChild(text("p", "", (item.severity || "INFO") + " · " + (item.title || ""))); });
+    card.appendChild(text("p", "note", state.snap.ai.locked === false ? "Body open on this tier." : "Titles are public. The body stays on Pro."));
+    var buy = text("a", "cta", "Unlock AI feed");
+    buy.href = "/upgrade.html?plan=pro";
+    buy.style.marginTop = "8px";
+    card.appendChild(buy);
+    view.appendChild(card);
+    var sum = text("div", "card");
+    sum.style.marginTop = "10px";
+    var fresh = state.snap.summary.ai_telemetry && state.snap.summary.ai_telemetry.data_freshness;
+    sum.appendChild(text("h2", "", "Model summary"));
+    sum.appendChild(text("p", "", state.snap.summary.apex_summary || "No summary text on this artifact."));
+    sum.appendChild(text("p", "note", "Freshness " + ((fresh && fresh.overall_state) || "unknown") + ". An expired artifact is not a 30-day prediction. Paid model " + (state.snap.copilot.tier_llm ? "on" : "off") + " for this tier."));
+    view.appendChild(sum);
+  }
+  function paintProvision() {
+    view.appendChild(text("p", "note", "A key is created when Razorpay confirms payment. This page does not store or mint a key."));
+    var plans = [
+      ["Community", "$0", "30 req/min · 50/day", "Titles, counts, ATT&CK ids. IOC values locked.", "/pricing.html"],
+      ["Pro", "$49/mo · ₹4,100", "120 req/min · 5,000/day · 500 advisories/day", "IOC values, full STIX 2.1, alerts, Sigma and KQL.", "/upgrade.html?plan=pro"],
+      ["Enterprise", "$499/mo · ₹41,600", "600 req/min · 50,000/day", "SIEM webhooks, TLP controls, 4-hour HIGH SLA, GST invoice.", "/upgrade.html?plan=enterprise"],
+      ["MSSP", "$999/mo · ₹83,300", "1,200 req/min · 50,000/day", "White-label and per-tenant keys. 15-minute CRITICAL SLA on the price card.", "/contact-enterprise.html?plan=mssp-pro"]
+    ];
+    var g = text("div", "grid g4");
+    plans.forEach(function (p) {
+      var a = text("a", "card");
+      a.href = p[4];
+      a.appendChild(text("div", "k", p[0]));
+      a.appendChild(text("div", "v", p[1]));
+      a.appendChild(text("p", "note", p[2]));
+      a.appendChild(text("p", "", p[3]));
+      g.appendChild(a);
+    });
+    view.appendChild(g);
+    var links = text("p", "");
+    [["Book a demo","/demo.html"],["Compare","/compare.html"],["MSSP","/mssp.html"],["Partners","/partner.html"],["Briefing","/executive-briefing.html"],["Compliance","/security-compliance.html"],["API access","/get-api-key.html"]].forEach(function (pair, i) {
+      if (i) links.appendChild(document.createTextNode(" · "));
+      var a = text("a", "", pair[0]); a.href = pair[1]; links.appendChild(a);
+    });
+    links.style.marginTop = "12px";
+    view.appendChild(links);
+    var form = text("form", "card");
+    form.style.marginTop = "12px";
+    form.appendChild(text("h2", "", "Indicator lookup"));
+    var input = document.createElement("input");
+    input.placeholder = "CVE, domain, hash, or IP";
+    input.maxLength = 180;
+    form.appendChild(input);
+    var go = text("button", "cta", "Scan feed");
+    go.type = "submit";
+    go.style.marginTop = "8px";
+    var out = text("div", "");
+    form.onsubmit = function (e) {
+      e.preventDefault();
+      var q = input.value.replace(/[\u0000-\u001f]/g, "").trim();
+      if (!q) return;
+      go.textContent = "Scanning…";
+      fetch("/api/v1/ioc/lookup?q=" + encodeURIComponent(q)).then(function (r) { return r.json(); }).then(function (data) {
+        clear(out);
+        out.appendChild(text("p", "", data.found ? "Matched." : "No advisory match."));
+        (data.results || []).slice(0, 8).forEach(function (hit) {
+          out.appendChild(text("p", "", (hit.severity || "INFO") + " · " + (hit.title || "") + " · IOC values locked"));
+        });
+        go.textContent = "Scan feed";
+      }).catch(function () { clear(out); out.appendChild(text("p", "bad", "Lookup unavailable.")); go.textContent = "Scan feed"; });
+    };
+    form.appendChild(go);
+    form.appendChild(out);
+    view.appendChild(form);
+    view.appendChild(text("p", "note", "Partial this pull: " + (state.snap.partial.join(", ") || "none") + "."));
+  }
+
+  document.getElementById("refresh").onclick = load;
+  load();
+})();
+</script>
+</body>
+</html>
