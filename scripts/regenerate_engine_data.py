@@ -473,7 +473,7 @@ def generate_genesis(items: List[Dict]) -> Dict:
         "engines":        results["engines"],
         "engines_ok":     results["engines_ok"],
         "engines_total":  results["engines_total"],
-        "global_attack_flows": [],
+        "global_attack_flows": s("G11_GlobalAttackMap").get("attack_flows") or [],
         "actor_registry": s("G04_ActorRegistry").get("actors", [])[:15],
         "metrics": {
             "total_advisories": len(items),
@@ -492,7 +492,7 @@ def generate_genesis(items: List[Dict]) -> Dict:
             "sensor_count":     0,   # not operated
             "honeypots":        0,   # not operated
             "taxii_collections": s("G08_TAXIIServer").get("collection_count", 0),
-            "total_flows":      0,   # the feed has no attack geolocation
+            "total_flows":      s("G11_GlobalAttackMap").get("total_flows", 0),
         },
     }
 

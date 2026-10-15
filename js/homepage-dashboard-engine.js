@@ -6070,9 +6070,21 @@ function renderTopThreats(data) {
                          valFn: s => (s.total_exposures||0) + ' SIGNALS', descFn: s => (s.critical_exposures||0) + ' RCE / unauthenticated'},
                         // G11 reports the engine's own integer flow count. A summary that
                         // only carries guessed corridors (no total_flows) stays telemetry-required.
+                        // Country counts are not labeled as flows. A flow description is shown
+                        // only when attack_flows are objects with both ends.
                         {key:'G11_GlobalAttackMap', id:'G11', name:'Attack Map',      icon:'🗺️', color:'#e11d48',
                          valFn: s => Number.isSafeInteger(s.total_flows) && s.total_flows >= 0 ? s.total_flows + ' FLOWS' : 'TELEMETRY REQUIRED',
-                         descFn: s => Number.isSafeInteger(s.total_flows) && typeof s.note === 'string' && s.note.trim() ? s.note.trim().slice(0, 140) : 'No source/target event collector connected'},
+                         descFn: s => {
+                            if (Number.isSafeInteger(s.total_flows) && s.total_flows > 0 && Array.isArray(s.attack_flows)) {
+                                const pairs = s.attack_flows.filter(f => f && typeof f.origin === 'string' && typeof f.target === 'string' && Number.isSafeInteger(f.advisories)).slice(0, 3).map(f => f.origin + '→' + f.target + ' ' + f.advisories);
+                                if (pairs.length) return pairs.join(', ').slice(0, 140);
+                            }
+                            if (s.origin_countries && typeof s.origin_countries === 'object' && !Array.isArray(s.origin_countries)) {
+                                const bits = Object.keys(s.origin_countries).filter(k => Number.isSafeInteger(s.origin_countries[k]) && s.origin_countries[k] > 0).slice(0, 3).map(k => k + ' ' + s.origin_countries[k]);
+                                if (bits.length) return ('Actor country: ' + bits.join(', ')).slice(0, 140);
+                            }
+                            return Number.isSafeInteger(s.total_flows) && typeof s.note === 'string' && s.note.trim() ? s.note.trim().slice(0, 140) : 'No source/target event collector connected';
+                         }},
                         {key:'G12_AIThreatHunter', id:'G12', name:'Threat Clusters', icon:'🤖', color:'#7c3aed',
                          valFn: s => (s.clusters_identified||0) + ' CLUSTERS', descFn: s => (s.trending_techniques||0) + ' techniques trending (7d)'},
                     ];
@@ -6125,10 +6137,25 @@ function renderTopThreats(data) {
                         </div>`;
                     }
 
-                    // Attack Map: not rendered from G11 (keyword-derived corridors,
-                    // not observed attacks); same honest note as renderGenesis().
+                    // Attack flows are counted only when one advisory has both an
+                    // actor country and a target country. Country names are text.
                     const flowsEl = document.getElementById('genesis-attack-flows');
-                    if (flowsEl) flowsEl.innerHTML = `<div style="padding:4px 0;">No attack flows are shown: the feed carries no attack source/target geolocation, so none are estimated.</div><div style="padding:4px 0;"><a href="#eicc-heatmap" style="color:#ec4899;">Geographic attribution (actor country, from the feed) &darr;</a></div>`;
+                    const g11 = (engines['G11_GlobalAttackMap'] || {}).summary || {};
+                    window.__cdbG11Summary = g11;
+                    window.__cdbGenesisItems = Number.isSafeInteger(data.items_analyzed) ? data.items_analyzed : null;
+                    if (typeof window.applyGenesisOrigins === 'function') window.applyGenesisOrigins(window.__cdbG11Summary, window.__cdbGenesisItems);
+                    if (flowsEl) {
+                        const flowObjs = Array.isArray(g11.attack_flows) ? g11.attack_flows.filter(f => f && typeof f.origin === 'string' && f.origin && typeof f.target === 'string' && f.target && Number.isSafeInteger(f.advisories)) : [];
+                        let lead = 'No attack flows are shown: the feed carries no attack source/target geolocation, so none are estimated.';
+                        if (flowObjs.length) lead = flowObjs.slice(0, 8).map(f => f.origin + ' → ' + f.target + ' (' + f.advisories + ')').join(' · ');
+                        else if (Number.isSafeInteger(g11.total_flows)) lead = 'Attack flows: ' + g11.total_flows + '. A flow is counted only when the same advisory has an actor country and a target country.';
+                        flowsEl.textContent = '';
+                        const leadEl = document.createElement('div');
+                        leadEl.style.cssText = 'padding:4px 0;';
+                        leadEl.textContent = lead;
+                        flowsEl.appendChild(leadEl);
+                        flowsEl.insertAdjacentHTML('beforeend', '<div style="padding:4px 0;"><a href="#eicc-heatmap" style="color:#ec4899;">Geographic attribution (actor country, from the feed) &darr;</a></div>');
+                    }
 
                     // Engine health badge
                     const engOk = data.engines_ok || 0;

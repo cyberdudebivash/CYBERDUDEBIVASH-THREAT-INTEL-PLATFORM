@@ -620,29 +620,86 @@ class AttackSurfaceIntelligence:
 
 
 # ===============================================================================
-# G11 - ORIGIN ATTRIBUTION (no attack flows: the feed has no attack geodata)
+# G11 - ACTOR COUNTRY AND ATTACK FLOWS
+# A flow exists only when one advisory has both an actor country and a
+# target or victim country. source_country is not an origin. Origins are
+# not estimated.
 # ===============================================================================
 
-class GlobalAttackMap:
-    """Advisories with a threat-actor country. The feed carries no attack
-    source/target geolocation, so no attack flows are produced."""
+def _country_label(value) -> str:
+    """A non-placeholder country string, or ""."""
+    c = str(value or "").strip()
+    if not c or _PLACEHOLDER_GEO.match(c):
+        return ""
+    return c[:40]
 
-    NOTE = ("The feed carries no attack source/target geolocation, so no attack flows are produced. "
-            "Origins count advisories whose threat actor has a country.")
+
+def _public_geo_summary(key, value):
+    """Keep measured country objects. Every other collection stays compacted."""
+    if key == "origin_countries" and isinstance(value, dict):
+        clean = {}
+        for name, count in value.items():
+            label = _country_label(name)
+            if not label or isinstance(count, bool) or not isinstance(count, int) or count <= 0:
+                continue
+            clean[label] = count
+            if len(clean) >= 15:
+                break
+        return clean
+    rows = []
+    if key == "hotspots" and isinstance(value, list):
+        for item in value:
+            if not isinstance(item, dict):
+                continue
+            label = _country_label(item.get("country"))
+            count = item.get("advisories")
+            if not label or isinstance(count, bool) or not isinstance(count, int) or count <= 0:
+                continue
+            rows.append({"country": label, "advisories": count})
+            if len(rows) >= 15:
+                break
+        return rows
+    if key == "attack_flows" and isinstance(value, list):
+        for item in value:
+            if not isinstance(item, dict):
+                continue
+            origin = _country_label(item.get("origin"))
+            target = _country_label(item.get("target"))
+            count = item.get("advisories")
+            if not origin or not target or isinstance(count, bool) or not isinstance(count, int) or count <= 0:
+                continue
+            rows.append({"origin": origin, "target": target, "advisories": count})
+            if len(rows) >= 15:
+                break
+    return rows
+
+
+class GlobalAttackMap:
+    """Actor-country counts, plus a flow only when the same advisory names
+    both an actor country and a target or victim country. Origins are not
+    estimated."""
+
+    NOTE = ("A flow is counted only when the same advisory has an actor country and a target country. "
+            "Origins count advisories whose threat actor has a country. Origins are not estimated.")
 
     def generate_map_data(self, entries=None) -> Dict:
         items = _items(entries)
         origins = Counter()
+        pairs = Counter()
         for e in items:
-            c = str(e.get("actor_country") or "").strip()
-            if c and not _PLACEHOLDER_GEO.match(c): origins[c[:40]] += 1
+            origin = _country_label(e.get("actor_country"))
+            if origin:
+                origins[origin] += 1
+            target = _country_label(e.get("target_country") or e.get("victim_country"))
+            if origin and target:
+                pairs[(origin, target)] += 1
         attributed = sum(origins.values())
         return {
             "map_id": _gid("attackmap", _now()),
             "note": self.NOTE,
-            "attack_flows": [],
-            "total_flows": 0,
-            "active_corridors": 0,
+            "attack_flows": [{"origin": o, "target": t, "advisories": n} for (o, t), n in pairs.most_common(15)],
+            "total_flows": sum(pairs.values()),
+            "active_corridors": len(pairs),
             "attributed_advisories": attributed,
             "unattributed_advisories": len(items) - attributed,
             "origin_countries": dict(origins.most_common(15)),
@@ -811,6 +868,8 @@ class GenesisOrchestrator:
             for k, v in result.items():
                 if isinstance(v, (int, float, str, bool)):
                     summary[k] = v
+                elif k in ("origin_countries", "hotspots", "attack_flows"):
+                    summary[k] = _public_geo_summary(k, v)
                 elif isinstance(v, list):
                     summary[k] = f"{len(v)} items"
                 elif isinstance(v, dict):

@@ -380,9 +380,63 @@
             }
 
             // ── Geographic attribution coverage ────────────────────────────
-            // Origin = actor_country only. When no advisory carries it, the
-            // panel says so and shows real source volume instead; it never
-            // estimates a country.
+            // Origin = actor_country on this feed. When the feed has none,
+            // GENESIS origin_countries (a country→count object, never a
+            // "N keys" string) can name actor countries from that corpus.
+            // A flow is listed only when the same advisory has both ends.
+            // Origins are not estimated.
+            window.applyGenesisOrigins = function(summary, itemsAnalyzed){
+                var el = document.getElementById('eicc-heatmap');
+                if (!el || el.getAttribute('data-geo-mode') === 'origin') return;
+                if (!summary || typeof summary !== 'object') return;
+                var origins = summary.origin_countries;
+                var originObj = origins && typeof origins === 'object' && !Array.isArray(origins) ? origins : null;
+                var flowArr = Array.isArray(summary.attack_flows) ? summary.attack_flows : null;
+                if (!originObj && !flowArr) return;
+                var keys = originObj ? Object.keys(originObj).filter(function(k){
+                    var n = originObj[k];
+                    return k && typeof n === 'number' && n > 0 && isFinite(n);
+                }) : [];
+                var flowRows = flowArr ? flowArr.filter(function(f){
+                    return f && typeof f.origin === 'string' && f.origin && typeof f.target === 'string' && f.target && typeof f.advisories === 'number' && f.advisories > 0;
+                }) : [];
+                if (!keys.length && !flowRows.length) return;
+                var title = document.getElementById('eicc-heatmap-title');
+                var sub = document.getElementById('eicc-heatmap-sub');
+                var ts = document.getElementById('eicc-heatmap-updated');
+                var n = keys.reduce(function(sum, k){ return sum + originObj[k]; }, 0);
+                var corpus = typeof itemsAnalyzed === 'number' && isFinite(itemsAnalyzed) && itemsAnalyzed > 0 ? itemsAnalyzed : null;
+                if (title) title.textContent = '🌍 THREAT-ACTOR COUNTRY ATTRIBUTION';
+                if (sub) {
+                    sub.textContent = keys.length
+                        ? (n + ' advisories carry an actor country' + (corpus ? ' in a ' + corpus + '-advisory corpus' : '') + '. Origins are not estimated.')
+                        : 'Origins are not estimated.';
+                }
+                el.setAttribute('data-geo-mode', 'genesis');
+                keys.sort(function(a, b){ return originObj[b] - originObj[a]; });
+                keys = keys.slice(0, 8);
+                clear(el);
+                var maxV = keys.length ? Math.max.apply(null, keys.map(function(k){ return originObj[k]; })) : 1;
+                keys.forEach(function(k){
+                    var val = originObj[k], pct = Math.round((val / maxV) * 100);
+                    var col = pct > 75 ? '#ef4444' : pct > 45 ? '#f97316' : '#f59e0b';
+                    var row = node('div', null, 'display:flex;align-items:center;gap:8px;');
+                    row.appendChild(node('span', k.length > 22 ? k.slice(0, 21) + '…' : k, 'font-family:var(--font-mono);font-size:8px;color:var(--text-muted);width:92px;flex-shrink:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;'));
+                    var bar = node('div', null, 'flex:1;background:rgba(255,255,255,0.05);border-radius:2px;height:10px;overflow:hidden;');
+                    bar.appendChild(node('div', null, 'width:' + pct + '%;background:linear-gradient(90deg,' + col + ',transparent);height:100%;'));
+                    row.appendChild(bar);
+                    row.appendChild(node('span', val, 'font-family:var(--font-mono);font-size:8px;color:' + col + ';width:28px;text-align:right;'));
+                    el.appendChild(row);
+                });
+                if (flowRows.length) {
+                    flowRows.slice(0, 8).forEach(function(f){
+                        el.appendChild(node('div', f.origin + ' → ' + f.target + ' (' + f.advisories + ')', 'font-family:var(--font-mono);font-size:8px;color:var(--text-muted);'));
+                    });
+                } else if (Number.isSafeInteger(summary.total_flows)) {
+                    el.appendChild(node('div', 'Attack flows: ' + summary.total_flows + '. A flow is counted only when the same advisory has an actor country and a target country.', 'font-family:var(--font-mono);font-size:8px;color:var(--text-muted);line-height:1.4;'));
+                }
+                if (ts) ts.textContent = 'GENESIS ACTOR COUNTRY';
+            };
             function buildHeatmap(state){
                 var el = document.getElementById('eicc-heatmap');
                 var title = document.getElementById('eicc-heatmap-title');
@@ -432,6 +486,7 @@
                     el.appendChild(row);
                 });
                 if (ts) ts.textContent = 'FEED ' + (SNAP.lastSyncView(state).utc || 'TIME UNKNOWN');
+                if (mode !== 'origin') window.applyGenesisOrigins(window.__cdbG11Summary, window.__cdbGenesisItems);
             }
 
             function fillDarkWeb(items){
