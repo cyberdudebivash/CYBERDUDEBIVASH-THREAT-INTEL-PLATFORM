@@ -87,7 +87,7 @@
                     <div style="font-family:var(--font-mono);font-size:9px;color:var(--text-muted);animation:eicc-blink 1.4s infinite;">⚙ Querying AI prediction model...</div>
                 </div>
                 <div style="margin-top:14px;padding-top:12px;border-top:1px solid rgba(139,92,246,0.15);display:flex;justify-content:space-between;align-items:center;">
-                    <span style="font-family:var(--font-mono);font-size:8px;color:var(--text-muted);">SOURCE: AI TRACKER OUTPUT</span>
+                    <span id="eicc-ai-source" style="font-family:var(--font-mono);font-size:8px;color:var(--text-muted);">SOURCE: AI TRACKER OUTPUT</span>
                     <a href="/ai-threat-tracker.html" style="font-family:var(--font-mono);font-size:9px;color:#8b5cf6;text-decoration:none;font-weight:700;letter-spacing:1px;">FULL TRACKER ↗</a>
                 </div>
             </div>
@@ -206,7 +206,7 @@
         </style>
 
         <!-- ── 5. EICC DATA ENGINE (non-blocking, idle-priority) ─────────────── -->
-        <script src="/js/apex-dashboard-snapshot.js?v=e28a194ac8ed"></script>
+        <script src="/js/apex-dashboard-snapshot.js?v=cee0c44b1004"></script>
         <script>
         (function eiccEngine(){
             'use strict';
@@ -443,10 +443,27 @@
             // a 0-10 risk score and a P1-P3 priority, not a probability, so they
             // render as "RISK x/10", never as a percentage. A prediction without
             // a probability field shows no percentage (no 0.5 default).
+            var lastSnapshot = null;
+            var lastTracker;
+            function measuredFeedRiskRows(state) {
+                if (!state || state.mode !== 'live' || !state.feed || !Array.isArray(state.feed.items)) return [];
+                return state.feed.items.filter(function(it) {
+                    var r = parseFloat(it && it.risk_score);
+                    return isFinite(r) && r >= 0 && r <= 10;
+                }).slice().sort(function(a, b) {
+                    var delta = parseFloat(b.risk_score) - parseFloat(a.risk_score);
+                    return delta || String(a.id || '').localeCompare(String(b.id || ''));
+                }).slice(0, 4).map(function(it) {
+                    var r = parseFloat(it.risk_score);
+                    return { name: it.title || it.name || it.id || 'Advisory', value: 'RISK ' + r.toFixed(1) + '/10', pct: Math.round(r * 10), sev: String(it.severity || '').toUpperCase() };
+                });
+            }
             function fillAIPredictions(d){
+                lastTracker = d;
                 var el = document.getElementById('eicc-ai-predictions');
                 var ai = document.getElementById('eicc-soc-ai-status');
                 var sub = document.getElementById('eicc-ai-sub');
+                var src = document.getElementById('eicc-ai-source');
                 if(!el) return;
                 var rows = [], kind = null;
                 if (d && Array.isArray(d.predictions) && d.predictions.length) {
@@ -462,16 +479,27 @@
                         var sev = e.priority === 'P1' ? 'CRITICAL' : e.priority === 'P2' ? 'HIGH' : 'MEDIUM';
                         return { name: e.title || 'Unnamed', value: isFinite(r) ? (e.priority ? e.priority + ' · ' : '') + 'RISK ' + r.toFixed(1) + '/10' : (e.priority || null), pct: isFinite(r) ? Math.round(Math.min(r,10)*10) : 0, sev: sev };
                     });
+                } else {
+                    var measured = measuredFeedRiskRows(lastSnapshot);
+                    if (measured.length) { kind = 'feed-risk'; rows = measured; }
                 }
                 clear(el);
                 if (!rows.length) {
                     if (ai) ai.textContent = '● UNAVAILABLE';
                     if (sub) sub.textContent = 'No model output retrieved';
+                    if (src) src.textContent = 'SOURCE: AI TRACKER OUTPUT';
                     emptyBox(el, 'PREDICTION DATA UNAVAILABLE', 'INSUFFICIENT MODEL OUTPUT');
                     return;
                 }
-                if (ai) ai.textContent = '● ONLINE';
-                if (sub) sub.textContent = kind === 'prediction' ? 'Model predictions (probability as reported)' : 'Escalation tracker · risk score 0-10, not a probability';
+                if (kind === 'feed-risk') {
+                    if (ai) ai.textContent = '● FEED RISK';
+                    if (sub) sub.textContent = 'Measured feed risk, not a model probability';
+                    if (src) src.textContent = 'SOURCE: CURRENT FEED risk_score';
+                } else {
+                    if (ai) ai.textContent = '● ONLINE';
+                    if (sub) sub.textContent = kind === 'prediction' ? 'Model predictions (probability as reported)' : 'Escalation tracker · risk score 0-10, not a probability';
+                    if (src) src.textContent = 'SOURCE: AI TRACKER OUTPUT';
+                }
                 var sevColor = {CRITICAL:'#ef4444',HIGH:'#f97316',MEDIUM:'#f59e0b'};
                 rows.forEach(function(r){
                     var col = sevColor[r.sev] || '#f59e0b';
@@ -491,11 +519,15 @@
             function render(state){
                 if (!state || state === lastRendered) return;
                 lastRendered = state;
+                lastSnapshot = state;
                 try { buildTicker(state); } catch (e) { console.warn('[EICC ticker]', e); }
                 try { fillMetrics(state); } catch (e) { console.warn('[EICC metrics]', e); }
                 try { buildFeedPreview(state); } catch (e) { console.warn('[EICC feed]', e); }
                 try { buildHeatmap(state); } catch (e) { console.warn('[EICC geo]', e); }
                 try { fillDarkWeb(state.feed.items); } catch (e) { console.warn('[EICC darkweb]', e); }
+                if (lastTracker !== undefined) {
+                    try { fillAIPredictions(lastTracker); } catch (e) { console.warn('[EICC ai]', e); }
+                }
             }
 
             function fetchAndRender(force){

@@ -77,16 +77,17 @@ def test_ticker_ships_no_invented_attributions():
 
 def test_genesis_attack_map_does_not_guess_flows():
     for banned in ("countries = {'CN':'China'", "t.includes('us ')", "desc:'Attack flows mapped'",
-                   "' FLOWS'", "mapSum.total_flows", "flows</span>"):
+                   "mapSum.total_flows", "flows</span>"):
         assert banned not in ENGINE, banned
     # Both render paths (client fallback and genesis.json loader) defer to the
     # one origin-attribution view instead of estimating flows.
     assert ENGINE.count('href="#eicc-heatmap"') == 2
-    # The G11 tile is drawn by the engine renderer only; the fallback
-    # (renderGenesis) draws no tiles since tests/test_genesis_truth.py.
-    assert ENGINE.count("valFn: s => 'TELEMETRY REQUIRED'") == 1
+    # The tile may print the engine's own integer total_flows. A summary that
+    # only contains guessed corridor objects (no integer) stays telemetry-required.
+    assert ENGINE.count("' FLOWS'") == 1
+    assert "Number.isSafeInteger(s.total_flows) && s.total_flows >= 0 ? s.total_flows + ' FLOWS' : 'TELEMETRY REQUIRED'" in ENGINE
     assert ENGINE.count("No source/target event collector connected") == 1
-    assert "summary.operated === false || def.id === 'G11'" in ENGINE
+    assert "summary.operated === false || (def.id === 'G11' && !Number.isSafeInteger(summary.total_flows))" in ENGINE
     assert 'id="eicc-heatmap"' in INDEX
 
 

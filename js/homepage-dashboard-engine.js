@@ -6075,9 +6075,11 @@ function renderTopThreats(data) {
                          valFn: s => (s.relevant_advisories||0) + ' ADVISORIES', descFn: s => 'dark-web monitoring not operated'},
                         {key:'G10_AttackSurface', id:'G10', name:'Exposure Signals', icon:'🔍', color:'#22c55e',
                          valFn: s => (s.total_exposures||0) + ' SIGNALS', descFn: s => (s.critical_exposures||0) + ' RCE / unauthenticated'},
-                        // No attack geodata exists in the feed (G11 produces no flows).
+                        // G11 reports the engine's own integer flow count. A summary that
+                        // only carries guessed corridors (no total_flows) stays telemetry-required.
                         {key:'G11_GlobalAttackMap', id:'G11', name:'Attack Map',      icon:'🗺️', color:'#e11d48',
-                         valFn: s => 'TELEMETRY REQUIRED', descFn: s => 'No source/target event collector connected'},
+                         valFn: s => Number.isSafeInteger(s.total_flows) && s.total_flows >= 0 ? s.total_flows + ' FLOWS' : 'TELEMETRY REQUIRED',
+                         descFn: s => Number.isSafeInteger(s.total_flows) && typeof s.note === 'string' && s.note.trim() ? s.note.trim().slice(0, 140) : 'No source/target event collector connected'},
                         {key:'G12_AIThreatHunter', id:'G12', name:'Threat Clusters', icon:'🤖', color:'#7c3aed',
                          valFn: s => (s.clusters_identified||0) + ' CLUSTERS', descFn: s => (s.trending_techniques||0) + ' techniques trending (7d)'},
                     ];
@@ -6090,7 +6092,7 @@ function renderTopThreats(data) {
                             const summary = eng.summary || {};
                             const status = eng.status || 'OK';
                             const hasData = Object.keys(summary).length > 0;
-                            const notOperated = summary.operated === false || def.id === 'G11';
+                            const notOperated = summary.operated === false || (def.id === 'G11' && !Number.isSafeInteger(summary.total_flows));
                             const statusColor = status === 'OK' ? def.color : '#6b7280';
                             const dotColor = status === 'OK' && !notOperated ? def.color : '#6b7280';
                             const tip = esc(summary.note || summary.method || '');
