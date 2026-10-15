@@ -165,6 +165,42 @@ class TestAttackMap:
         r = GlobalAttackMap().generate_map_data([{"actor_country": "Russia"}, {"actor_country": "Unknown"}, {}])
         assert r["origin_countries"] == {"Russia": 1} and r["total_flows"] == 0
 
+    def test_origin_only_is_not_a_flow(self):
+        from agent.v43_genesis.genesis_engine import GlobalAttackMap
+        r = GlobalAttackMap().generate_map_data([
+            {"actor_country": "Russia"},
+            {"actor_country": "Russia", "source_country": "China"},
+        ])
+        assert r["origin_countries"] == {"Russia": 2}
+        assert r["total_flows"] == 0 and r["attack_flows"] == [] and r["active_corridors"] == 0
+
+    def test_both_ends_are_one_flow_and_origin_only_siblings_still_count(self):
+        from agent.v43_genesis.genesis_engine import GlobalAttackMap
+        r = GlobalAttackMap().generate_map_data([
+            {"actor_country": "Russia"},
+            {"actor_country": "Russia", "victim_country": "Germany"},
+            {"actor_country": "Russia", "target_country": "Germany"},
+            {"actor_country": "Unknown", "victim_country": "Germany"},
+            {"source_country": "China", "victim_country": "United States"},
+            {"source_country": "China", "target_country": "United States"},
+        ])
+        assert r["origin_countries"] == {"Russia": 3}
+        assert r["total_flows"] == 2 and r["active_corridors"] == 1
+        assert r["attack_flows"] == [{"origin": "Russia", "target": "Germany", "advisories": 2}]
+
+    def test_source_country_is_not_an_origin(self):
+        from agent.v43_genesis.genesis_engine import GlobalAttackMap
+        r = GlobalAttackMap().generate_map_data([{"source_country": "China", "target_country": "United States"}])
+        assert r["origin_countries"] == {} and r["total_flows"] == 0 and r["attack_flows"] == []
+
+    def test_unknown_plus_target_is_not_a_flow(self):
+        from agent.v43_genesis.genesis_engine import GlobalAttackMap
+        r = GlobalAttackMap().generate_map_data([
+            {"actor_country": "Unknown", "target_country": "Germany"},
+            {"actor_country": "n/a", "victim_country": "Germany"},
+        ])
+        assert r["total_flows"] == 0 and r["attack_flows"] == [] and r["origin_countries"] == {}
+
 # G12
 class TestAIHunter:
     @patch(P, side_effect=_m)
@@ -195,6 +231,27 @@ class TestOrchestrator:
         strip = lambda r: {k: {kk: vv for kk, vv in v["summary"].items() if not kk.endswith("_id") and kk != "generated_at"}
                            for k, v in r["engines"].items()}
         assert strip(a) == strip(b)
+
+    def test_summary_keeps_country_objects_and_compacts_other_lists(self):
+        from agent.v43_genesis.genesis_engine import GenesisOrchestrator
+        items = [
+            {"actor_country": "Russia", "actor_tag": "APT28", "title": "a", "risk_score": 9},
+            {"actor_country": "Russia", "victim_country": "Germany", "actor_tag": "APT28", "title": "b", "risk_score": 8},
+            {"source_country": "China", "target_country": "United States", "title": "c"},
+            {"actor_country": "Unknown", "target_country": "Germany", "title": "d"},
+        ]
+        out, raw = GenesisOrchestrator().compute(items)
+        summary = out["engines"]["G11_GlobalAttackMap"]["summary"]
+        assert summary["origin_countries"] == {"Russia": 2}
+        assert summary["hotspots"] == [{"country": "Russia", "advisories": 2}]
+        assert summary["attack_flows"] == [{"origin": "Russia", "target": "Germany", "advisories": 1}]
+        assert summary["total_flows"] == 1 and summary["active_corridors"] == 1
+        assert isinstance(raw["G04_ActorRegistry"]["actors"], list) and raw["G04_ActorRegistry"]["actors"]
+        assert out["engines"]["G04_ActorRegistry"]["summary"]["actors"].endswith(" items")
+        empty, _ = GenesisOrchestrator().compute([{"title": "no country"}])
+        blank = empty["engines"]["G11_GlobalAttackMap"]["summary"]
+        assert blank["origin_countries"] == {} and blank["hotspots"] == [] and blank["attack_flows"] == []
+        assert blank["total_flows"] == 0
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v", "--tb=short"])

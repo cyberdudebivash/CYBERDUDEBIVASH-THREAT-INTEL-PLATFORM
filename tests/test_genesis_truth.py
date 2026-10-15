@@ -86,6 +86,11 @@ def test_attack_map_never_produces_flows_or_guessed_origins():
     for _ in range(5):
         m = g.GlobalAttackMap().generate_map_data(ITEMS)
         assert (m["total_flows"], m["attack_flows"], m["origin_countries"]) == (0, [], {})
+    body = _code(ENGINE_SRC)
+    body = body[body.index("def generate_map_data"):body.index("class AIThreatHuntingEngine")]
+    assert "source_country" not in body
+    assert 'e.get("actor_country")' in body
+    assert 'e.get("target_country") or e.get("victim_country")' in body
 
 
 def test_detection_counts_only_rules_attached_to_items():
