@@ -1505,6 +1505,18 @@ function generateIntelReport(item, reqPath, items = []) {
   const _gateValidation = validateReportQuality(item, _gateEvidence, _gateConfidence);
   const certLevel       = computeCertificationLevel(_gateValidation.quality_score, _gateValidation);
   const commercialGateBanner = buildCommercialGateBanner(certLevel);
+  let _sec = 0;
+  const secTitle = (name) => `${String(++_sec).padStart(2, "0")}  ${name}`;
+  const tExec = secTitle("Executive Intelligence Summary");
+  const tKev = kev ? secTitle("Known Exploited Vulnerability") : "";
+  const tRisk = secTitle("Risk Assessment");
+  const tSurface = (threatType || threatCat || attackVector || products.length || tags.length) ? secTitle("Attack Surface") : "";
+  const tKill = ttps.length ? secTitle("MITRE ATT&CK") : "";
+  const tActor = secTitle("Threat Actor Attribution");
+  const tIoc = iocCount > 0 ? secTitle("Indicators of Compromise") : "";
+  const tAction = secTitle("Recommended Actions");
+  const tMeta = secTitle("Provenance");
+  const tLinks = secTitle("Distribution");
 
   return `<!DOCTYPE html>
 <!-- CDB-REPORT-ENGINE: worker-fallback-synthesis v${PLATFORM_VERSION} -->
@@ -1516,141 +1528,103 @@ function generateIntelReport(item, reqPath, items = []) {
 <meta name="robots" content="noindex,nofollow">
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
-body{background:#080b12;color:#c4d0e3;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;min-height:100vh;line-height:1.65}
-a{color:#00d4aa;text-decoration:none}
+body{background:#070b12;color:#d7dee8;font-family:"Segoe UI",Helvetica,Arial,sans-serif;line-height:1.55;font-size:15px}
+a{color:#7dd3c7}
 a:hover{text-decoration:underline}
-
-/* Top classification bar */
-.cls-bar{background:${kev?"#dc2626":"#0f1823"};padding:6px 24px;display:flex;align-items:center;justify-content:space-between;font-family:monospace;font-size:10px;letter-spacing:1.5px;font-weight:800;color:${kev?"#fff":"#374151"};border-bottom:1px solid rgba(255,255,255,.06)}
-
-/* Main header */
-.hdr{background:linear-gradient(135deg,#0d1117 0%,#111926 100%);border-bottom:2px solid rgba(0,212,170,.18);padding:20px 28px 18px;display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap}
-.hdr-left .logo{font-family:monospace;font-size:13px;font-weight:900;color:#00d4aa;letter-spacing:2.5px}
-.hdr-left .sub{font-family:monospace;font-size:9px;color:#374151;letter-spacing:2px;margin-top:3px;text-transform:uppercase}
-.hdr-badges{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:4px}
-.badge{display:inline-flex;align-items:center;gap:4px;font-family:monospace;font-size:10px;font-weight:800;letter-spacing:.8px;padding:5px 12px;border-radius:4px;white-space:nowrap}
-.b-sev{background:${sevColor}18;color:${sevColor};border:1px solid ${sevColor}55}
-.b-kev{background:rgba(220,38,38,.15);color:#ef4444;border:1px solid rgba(220,38,38,.45);animation:kpulse 1.6s infinite}
-.b-pri{background:rgba(139,92,246,.12);color:#a78bfa;border:1px solid rgba(139,92,246,.3)}
-.b-tlp{${tlpStyle};font-size:9px}
-.b-conf{background:rgba(100,116,139,.1);color:#94a3b8;border:1px solid rgba(100,116,139,.2)}
-@keyframes kpulse{0%,100%{box-shadow:0 0 0 0 rgba(220,38,38,.5)}60%{box-shadow:0 0 12px 4px rgba(220,38,38,.15)}}
-
-/* Layout */
-.wrap{max-width:960px;margin:0 auto;padding:28px 20px 48px}
-
-/* Sections */
-.sec{background:rgba(255,255,255,.025);border:1px solid rgba(255,255,255,.07);border-radius:8px;padding:24px;margin-bottom:20px;position:relative}
-.sec-title{font-family:monospace;font-size:9.5px;font-weight:900;color:#00d4aa;letter-spacing:2.5px;text-transform:uppercase;margin-bottom:16px;padding-bottom:10px;border-bottom:1px solid rgba(0,212,170,.12);display:flex;align-items:center;gap:8px}
-.sec-title::before{content:"";display:block;width:3px;height:14px;background:#00d4aa;border-radius:2px;flex-shrink:0}
-
-/* Report title */
-.rpt-title{font-size:21px;font-weight:800;color:#eef2ff;line-height:1.38;margin-bottom:18px;letter-spacing:-.2px}
-
-/* Metric scorecard */
-.scorecard{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:12px;margin-bottom:18px}
-.card{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:6px;padding:14px 12px;text-align:center}
-.card-lbl{font-family:monospace;font-size:8.5px;color:#4b5563;letter-spacing:1.8px;text-transform:uppercase;margin-bottom:8px}
-.card-val{font-family:monospace;font-size:22px;font-weight:900;line-height:1}
-.card-sub{font-size:10px;color:#374151;margin-top:4px;font-family:monospace}
-.rbar{height:5px;background:rgba(255,255,255,.07);border-radius:3px;overflow:hidden;margin-top:8px}
-.rbar-fill{height:100%;background:${sevColor};border-radius:3px;width:${riskPct}%}
-
-/* Narrative */
-.narrative{font-size:14.5px;color:#a8b8cc;line-height:1.75;border-left:3px solid rgba(0,212,170,.2);padding-left:16px;background:rgba(0,212,170,.03);padding:14px 16px;border-radius:0 6px 6px 0}
-
-/* CVE chips */
-.cve-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
-
-/* KEV alert */
-.kev-alert{background:linear-gradient(135deg,rgba(220,38,38,.08),rgba(185,28,28,.05));border:1px solid rgba(220,38,38,.35);border-radius:8px;padding:18px 22px}
-.kev-alert h3{color:#ef4444;font-family:monospace;font-size:11px;font-weight:900;letter-spacing:2px;margin-bottom:10px}
-.kev-alert p{font-size:13.5px;color:#fca5a5;line-height:1.7}
-.kev-mandate{margin-top:12px;padding:10px 14px;background:rgba(220,38,38,.08);border-radius:4px;font-family:monospace;font-size:11px;color:#ef4444;font-weight:700;letter-spacing:.5px}
-
-/* Attack surface */
-.surface-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}
-.surface-cell{padding:14px 16px;background:rgba(255,255,255,.025);border:1px solid rgba(255,255,255,.07);border-radius:6px}
-.surface-cell .lbl{font-family:monospace;font-size:9px;color:#4b5563;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:6px}
-.surface-cell .val{font-size:13px;color:#c4d0e3;font-weight:600}
-
-/* Kill chain */
-.kc-flow{display:flex;align-items:center;flex-wrap:wrap;gap:4px;margin-top:4px}
-.kc-step{padding:9px 14px;background:rgba(139,92,246,.1);border:1px solid rgba(139,92,246,.22);border-radius:5px;font-size:12px;color:#a78bfa;font-family:monospace;font-weight:700;white-space:nowrap}
-.kc-arrow{color:rgba(139,92,246,.4);font-size:16px;padding:0 2px;flex-shrink:0}
-
-/* Indicators table */
+.cls-bar{background:#101820;color:#cbd5e1;border-bottom:3px solid ${sevColor};padding:8px 28px;display:flex;justify-content:space-between;gap:12px;font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase}
+.sheet{max-width:880px;margin:28px auto 48px;background:#0e1520;border:1px solid #243044;border-radius:2px}
+.hdr{padding:28px 32px 20px;border-bottom:1px solid #243044}
+.kicker{font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:#7dd3c7;font-weight:700}
+.rpt-title{font-size:28px;line-height:1.25;font-weight:650;color:#f8fafc;margin:10px 0 16px;letter-spacing:-.02em}
+.docmeta{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px 18px;margin:0}
+.docmeta div{min-width:0}
+.docmeta dt{font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:#94a3b8}
+.docmeta dd{margin:3px 0 0;font-size:13px;color:#f8fafc;font-variant-numeric:tabular-nums;word-break:break-word}
+.hdr-badges{display:flex;flex-wrap:wrap;gap:6px;margin-top:16px}
+.badge{display:inline-flex;align-items:center;min-height:26px;padding:0 8px;border-radius:2px;font-size:11px;font-weight:700;letter-spacing:.06em}
+.b-sev{background:${sevColor}22;color:${sevColor};border:1px solid ${sevColor}66}
+.b-kev{background:#3f1212;color:#fecaca;border:1px solid #7f1d1d}
+.b-pri{background:#1e1b4b;color:#ddd6fe;border:1px solid #4338ca}
+.b-tlp{${tlpStyle};font-size:11px}
+.b-conf{background:#111827;color:#cbd5e1;border:1px solid #334155}
+.wrap{padding:8px 32px 28px}
+.sec{padding:22px 0;border-bottom:1px solid #1e293b}
+.sec-title{font-size:13px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#f8fafc;margin-bottom:14px}
+.sec-title::before{content:none}
+.scorecard{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin-bottom:16px}
+.card{border:1px solid #243044;border-radius:2px;padding:12px;background:#0b1220}
+.card-lbl{font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:#94a3b8}
+.card-val{font-size:22px;font-weight:700;margin-top:4px;font-variant-numeric:tabular-nums}
+.card-sub{font-size:12px;color:#94a3b8;margin-top:2px}
+.rbar{height:4px;background:#1e293b;border-radius:2px;overflow:hidden;margin-top:8px}
+.rbar-fill{height:100%;background:${sevColor};width:${riskPct}%}
+.narrative{font-size:15px;line-height:1.65;color:#e2e8f0}
+.cve-row{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
+.kev-alert{margin:0 0 4px;padding:16px 18px;border:1px solid #7f1d1d;background:#1c0f12;border-radius:2px}
+.kev-alert h3{font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:#fecaca;margin-bottom:8px}
+.kev-alert p{font-size:14px;color:#fecaca;line-height:1.6}
+.kev-mandate{margin-top:10px;font-size:13px;color:#fde68a}
+.surface-grid,.attr-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px}
+.surface-cell,.attr-cell{border:1px solid #243044;padding:12px;background:#0b1220}
+.surface-cell .lbl,.attr-lbl{font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:#94a3b8;margin-bottom:4px}
+.surface-cell .val,.attr-val{font-size:14px;color:#f8fafc}
+.kc-flow{display:flex;flex-wrap:wrap;gap:8px}
+.kc-step{border:1px solid #334155;padding:8px 10px;font-size:12px;color:#e2e8f0;background:#0b1220}
+.kc-arrow{display:none}
 .ioc-grid{display:grid;gap:8px}
-.ioc-row{display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:rgba(0,212,170,.03);border:1px solid rgba(0,212,170,.1);border-radius:5px}
-.ioc-type{font-family:monospace;font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:1px}
-.ioc-val{font-family:monospace;font-size:15px;font-weight:900;color:#00d4aa}
-
-/* Remediation steps */
-.rem-step{padding:14px 18px;border-radius:6px;margin-bottom:10px;border-left:3px solid}
-.rem-step .rem-label{font-family:monospace;font-size:10px;font-weight:800;letter-spacing:1.5px;margin-bottom:8px}
-.rem-step .rem-text{font-size:13.5px;line-height:1.7}
-
-/* Attribution */
-.attr-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px}
-.attr-cell{padding:14px;background:rgba(255,255,255,.025);border:1px solid rgba(255,255,255,.07);border-radius:6px}
-.attr-lbl{font-family:monospace;font-size:9px;color:#4b5563;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:7px}
-.attr-val{font-size:13px;color:#c4d0e3;font-weight:600}
-
-/* Metadata table */
-.meta-table{display:grid;gap:8px}
-.meta-row{display:flex;justify-content:space-between;align-items:center;padding:9px 14px;background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.05);border-radius:5px;gap:16px}
-.meta-key{font-family:monospace;font-size:10.5px;color:#4b5563;flex-shrink:0}
-.meta-val{font-family:monospace;font-size:10.5px;color:#64748b;text-align:right;word-break:break-all}
-
-/* Tags */
-.tag{display:inline-block;padding:3px 9px;border-radius:3px;font-size:10px;font-family:monospace;font-weight:700;background:rgba(100,116,139,.1);border:1px solid rgba(100,116,139,.2);color:#64748b;margin:2px}
-
-/* Footer */
-.ftr{border-top:1px solid rgba(255,255,255,.06);padding:24px 20px;text-align:center;font-family:monospace;font-size:10px;color:#1f2937;margin-top:16px}
-.ftr a{color:#1f2937}
-
-/* Print */
-@media print{body{background:#fff;color:#1f2937}.sec{border-color:#e5e7eb}.sec-title{color:#059669}.hdr{background:#f9fafb;border-bottom-color:#e5e7eb}.cls-bar{display:none}.narrative{border-left-color:#059669;background:#f0fdf4}}
+.ioc-row{display:flex;justify-content:space-between;gap:12px;padding:10px 12px;border:1px solid #243044}
+.ioc-type{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#94a3b8}
+.ioc-val{font-size:14px;font-weight:700;color:#7dd3c7}
+.rem-step{padding:12px 14px;margin-bottom:8px;border:1px solid #243044;border-left-width:3px}
+.rem-label{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;margin-bottom:4px}
+.rem-text{font-size:14px;line-height:1.55}
+.meta-table{display:grid}
+.meta-row{display:grid;grid-template-columns:180px 1fr;gap:12px;padding:8px 0;border-top:1px solid #1e293b}
+.meta-key{font-size:12px;color:#94a3b8}
+.meta-val{font-size:13px;color:#f8fafc;word-break:break-word}
+.tag{display:inline-block;margin:2px;padding:2px 8px;border:1px solid #334155;font-size:11px;color:#cbd5e1}
+.ftr{padding:22px 32px 28px;border-top:1px solid #243044;color:#94a3b8;font-size:12px;line-height:1.6}
+.ftr a{color:#e2e8f0}
+.ftr-brand{color:#f8fafc;font-weight:700;letter-spacing:.08em;text-transform:uppercase;font-size:11px}
+@media print{
+  body{background:#fff;color:#111}
+  .sheet{border:0;margin:0;max-width:none;background:#fff}
+  .cls-bar{color:#111;background:#fff;border-bottom:2px solid #111}
+  .rpt-title,.docmeta dd,.sec-title,.surface-cell .val,.attr-val,.meta-val{color:#111}
+  .narrative,.card,.surface-cell,.attr-cell{color:#111}
+  a{color:#111}
+}
 </style>
 </head>
 <body>
 ${commercialGateBanner}
-<!-- Classification bar -->
 <div class="cls-bar">
-  ${kev ? "? CISA KNOWN EXPLOITED VULNERABILITY  -  IMMEDIATE REMEDIATION MANDATORY" : "SENTINEL APEX * THREAT INTELLIGENCE PLATFORM * " + tlp}
-  <span>${tlp}</span>
+  <span>${kev ? "CISA KEV · " : ""}${tlp}</span>
+  <span>Sentinel APEX ${PLATFORM_VERSION}</span>
 </div>
-
-<!-- Header -->
-<div class="hdr">
-  <div class="hdr-left">
-    <div class="logo">SENTINEL APEX Threat Intel Platform v${PLATFORM_VERSION}</div>
-    <div class="sub">Threat Intelligence Report * ${genTime} UTC</div>
-    <div class="hdr-badges" style="margin-top:10px;">
-      <span class="badge b-sev">${sev}</span>
-      ${kev ? '<span class="badge b-kev">? CISA KEV</span>' : ""}
-      ${priority ? `<span class="badge b-pri">${priority}</span>` : ""}
-      <span class="badge b-conf">CONFIDENCE ${confidenceBadge || (confidence > 0 ? confidence.toFixed(0)+"%" : " -")}</span>
-      <span class="badge b-tlp">${tlp}</span>
-    </div>
+<article class="sheet">
+<header class="hdr">
+  <p class="kicker">CYBERDUDEBIVASH · Threat intelligence report</p>
+  <h1 class="rpt-title">${title}</h1>
+  <dl class="docmeta">
+    <div><dt>Identifier</dt><dd>${itemId}</dd></div>
+    <div><dt>Generated</dt><dd>${genTime} UTC</dd></div>
+    <div><dt>Severity</dt><dd>${sev}</dd></div>
+    <div><dt>Risk</dt><dd>${risk.toFixed(1)} / 10</dd></div>
+  </dl>
+  <div class="hdr-badges">
+    <span class="badge b-sev">${sev}</span>
+    ${kev ? '<span class="badge b-kev">CISA KEV</span>' : ""}
+    ${priority ? `<span class="badge b-pri">${priority}</span>` : ""}
+    <span class="badge b-conf">Confidence ${confidenceBadge || (confidence > 0 ? confidence.toFixed(0) + "%" : "not published")}</span>
+    <span class="badge b-tlp">${tlp}</span>
   </div>
-  <div style="text-align:right;">
-    <div style="font-family:monospace;font-size:26px;font-weight:900;color:${sevColor};line-height:1;">${risk.toFixed(1)}</div>
-    <div style="font-family:monospace;font-size:9px;color:#374151;letter-spacing:1.5px;margin-top:2px;">RISK SCORE /10</div>
-    <div style="height:4px;width:80px;background:rgba(255,255,255,.06);border-radius:2px;overflow:hidden;margin-top:6px;margin-left:auto;">
-      <div style="height:100%;width:${riskPct}%;background:${sevColor};border-radius:2px;"></div>
-    </div>
-  </div>
-</div>
-
+</header>
 <div class="wrap">
 
   <!-- S1: Executive Summary -->
   <div class="sec">
-    <div class="sec-title">01 * Executive Intelligence Summary</div>
-    <div class="rpt-title">${title}</div>
-
-    <!-- Scorecard -->
+    <div class="sec-title">${tExec}</div>
     <div class="scorecard">
       <div class="card">
         <div class="card-lbl">Risk Score</div>
@@ -1673,18 +1647,18 @@ ${commercialGateBanner}
 
   ${kev ? `<!-- S2: KEV Alert -->
   <div class="kev-alert">
-    <h3>? CISA KNOWN EXPLOITED VULNERABILITY CATALOG  -  ACTIVE EXPLOITATION CONFIRMED</h3>
+    <h3>${tKev}</h3>
     <p>This vulnerability has been added to the CISA Known Exploited Vulnerabilities (KEV) Catalog, indicating confirmed active exploitation in the wild. CISA Binding Operational Directive 22-01 mandates all FCEB agencies apply mitigations within defined deadlines. Private sector organizations are strongly urged to treat KEV entries with the same urgency.</p>
-    <div class="kev-mandate">? MANDATORY: Apply patch or mitigating control before end of business day. Escalate to CISO immediately if affected.</div>
+    <div class="kev-mandate">Confirm the CISA catalog due date before treating this as an internal SLA. FCEB deadlines come from BOD 22-01, not from this page.</div>
   </div>
   <div style="margin-bottom:20px;"></div>` : ""}
 
   <!-- S3: Risk Assessment -->
   <div class="sec">
-    <div class="sec-title">0${kev?"3":"2"} * Risk Assessment &amp; Scoring</div>
+    <div class="sec-title">${tRisk}</div>
     <div style="display:grid;gap:14px;">
       <div style="padding:14px 18px;background:rgba(${sevColor.slice(1).match(/.{2}/g).map(h=>parseInt(h,16)).join(",")+",.06"});border:1px solid ${sevColor}33;border-radius:6px;">
-        <div style="font-family:monospace;font-size:10px;font-weight:800;color:${sevColor};letter-spacing:1.5px;margin-bottom:6px;">COMPOSITE RISK: ${risk.toFixed(1)}/10 * ${sev}</div>
+        <div style="font-size:12px;font-weight:700;color:${sevColor};letter-spacing:.06em;text-transform:uppercase;margin-bottom:6px;">Composite risk ${risk.toFixed(1)} / 10 · ${sev}</div>
         <div style="font-size:13.5px;color:#c4d0e3;line-height:1.6;">${riskInterp}</div>
       </div>
       ${cvss > 0 ? `<div style="padding:12px 16px;background:rgba(255,255,255,.025);border:1px solid rgba(255,255,255,.07);border-radius:6px;"><div style="font-family:monospace;font-size:10px;color:#4b5563;letter-spacing:1.5px;margin-bottom:5px;">CVSS v3 BASE SCORE: ${cvss.toFixed(1)}</div><div style="font-size:13px;color:#a8b8cc;line-height:1.6;">Industry-standard exploitability metric. ${cvss>=9?"Critical  -  should be treated as breach-level risk.":cvss>=7?"High severity  -  patch before next business cycle.":cvss>=4?"Medium severity  -  remediate within 30 days.":"Low severity  -  routine patch cycle."}</div></div>` : ""}
@@ -1695,7 +1669,7 @@ ${commercialGateBanner}
   <!-- S4: Attack Surface & Threat Categorization -->
   ${(threatType || threatCat || attackVector || products.length || tags.length) ? `
   <div class="sec">
-    <div class="sec-title">0${kev?"4":"3"} * Attack Surface &amp; Threat Categorization</div>
+    <div class="sec-title">${tSurface}</div>
     <div class="surface-grid">
       ${threatType ? `<div class="surface-cell"><div class="lbl">Threat Type</div><div class="val">${threatType}</div></div>` : ""}
       ${threatCat && threatCat!==threatType ? `<div class="surface-cell"><div class="lbl">Category</div><div class="val">${threatCat}</div></div>` : ""}
@@ -1708,8 +1682,8 @@ ${commercialGateBanner}
   <!-- S5: MITRE ATT&CK Kill Chain -->
   ${ttps.length ? `
   <div class="sec">
-    <div class="sec-title">0${kev?"5":"4"} * MITRE ATT&amp;CK Kill Chain</div>
-    <p style="font-size:12.5px;color:#4b5563;margin-bottom:14px;">Adversary techniques mapped to MITRE ATT&amp;CK Enterprise Framework. Sequence represents probable attack progression.</p>
+    <div class="sec-title">${tKill}</div>
+    <p style="font-size:12.5px;color:#4b5563;margin-bottom:14px;">Adversary techniques mapped to MITRE ATT&amp;CK Enterprise Framework. Order is the feed order, not a confirmed attack sequence.</p>
     <div class="kc-flow">
       ${ttps.map((t,i)=>`<div class="kc-step">${esc(t)}</div>${i<ttps.length-1?'<div class="kc-arrow">-></div>':''}`).join("")}
     </div>
@@ -1720,7 +1694,7 @@ ${commercialGateBanner}
 
   <!-- S6: Threat Actor Attribution -->
   <div class="sec">
-    <div class="sec-title">0${kev?"6":"5"} * Threat Actor Attribution</div>
+    <div class="sec-title">${tActor}</div>
     <div class="attr-grid">
       <div class="attr-cell">
         <div class="attr-lbl">Actor Designation</div>
@@ -1731,13 +1705,13 @@ ${commercialGateBanner}
       ${enrichScore > 0 ? `<div class="attr-cell"><div class="attr-lbl">Intelligence Enrichment</div><div class="attr-val">${enrichScore.toFixed(0)}%</div></div>` : ""}
     </div>
     ${behavTags.length ? `<div style="margin-top:16px;"><div style="font-family:monospace;font-size:9px;color:#4b5563;letter-spacing:1.5px;margin-bottom:8px;">BEHAVIORAL INDICATORS</div><div style="display:flex;gap:7px;flex-wrap:wrap;">${behavTags.map(t=>`<span style="padding:5px 10px;background:rgba(139,92,246,.1);border:1px solid rgba(139,92,246,.2);border-radius:4px;font-size:11px;color:#a78bfa;font-family:monospace;">${esc(t)}</span>`).join("")}</div></div>` : ""}
-    ${actor==="Unattributed"?`<div style="margin-top:14px;padding:12px 16px;background:rgba(100,116,139,.06);border:1px solid rgba(100,116,139,.15);border-radius:5px;font-size:12.5px;color:#64748b;line-height:1.65;">Attribution is currently unresolved. Indicators suggest automated exploitation tooling or opportunistic threat activity. Threat hunting should focus on the MITRE ATT&amp;CK techniques listed above. Monitor for lateral movement following initial access.</div>`:""}
+    ${actor==="Unattributed"?`<div style="margin-top:14px;padding:12px 16px;background:rgba(100,116,139,.06);border:1px solid rgba(100,116,139,.15);border-radius:5px;font-size:12.5px;color:#64748b;line-height:1.65;">No actor is attributed on this record.</div>`:""}
   </div>
 
   <!-- S7: Indicators of Compromise -->
   ${iocCount > 0 ? `
   <div class="sec">
-    <div class="sec-title">0${kev?"7":"6"} * Indicators of Compromise</div>
+    <div class="sec-title">${tIoc}</div>
     ${Object.keys(iocCounts).length > 0 ? `
     <div class="ioc-grid">
       ${iocRows}
@@ -1747,7 +1721,7 @@ ${commercialGateBanner}
       <div><div style="font-size:13px;color:#c4d0e3;font-weight:600;">Indicators of Compromise extracted</div><div style="font-size:12px;color:#4b5563;margin-top:3px;">IOC details available in STIX export. Use SENTINEL APEX STIX/TAXII feed for machine-readable consumption.</div></div>
     </div>`}
     <div style="margin-top:12px;padding:10px 14px;background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.05);border-radius:5px;font-size:12px;color:#374151;font-family:monospace;">
-      ? Public TAXII discovery is <a href="/taxii/" style="color:#374151;">/taxii/</a>. Paid STIX collections and the Enterprise MISP export are in <a href="/api-docs.html#taxii" style="color:#374151;">the API reference</a>, not on this public page.
+      Public TAXII discovery is <a href="/taxii/">/taxii/</a>. Paid STIX collections and the Enterprise MISP export are in <a href="/api-docs.html#taxii">the API reference</a>.
     </div>
   </div>` : ""}
 
@@ -1756,7 +1730,7 @@ ${commercialGateBanner}
 
   <!-- S8: Recommended Actions & Remediation -->
   <div class="sec" style="border-color:rgba(0,212,170,.15);">
-    <div class="sec-title">0${kev?"8":"7"} * Recommended Actions &amp; Remediation</div>
+    <div class="sec-title">${tAction}</div>
     ${remSteps.map(s=>`
     <div class="rem-step" style="background:${s.bg};border-left-color:${s.c};border:1px solid ${s.c}25;border-left:3px solid ${s.c};">
       <div class="rem-label" style="color:${s.c};">${s.icon} ${s.label}</div>
@@ -1775,14 +1749,14 @@ ${commercialGateBanner}
 
   <!-- S9: Intelligence Metadata -->
   <div class="sec">
-    <div class="sec-title">0${kev?"9":"8"} * Intelligence Metadata &amp; Provenance</div>
+    <div class="sec-title">${tMeta}</div>
     <div class="meta-table">
       <div class="meta-row"><span class="meta-key">STIX 2.1 Identifier</span><span class="meta-val">${itemId}</span></div>
       <div class="meta-row"><span class="meta-key">TLP Classification</span><span class="meta-val">${tlp}</span></div>
       ${published ? `<div class="meta-row"><span class="meta-key">Published</span><span class="meta-val">${published} UTC</span></div>` : ""}
       ${processed ? `<div class="meta-row"><span class="meta-key">Processed</span><span class="meta-val">${processed} UTC</span></div>` : ""}
       <div class="meta-row"><span class="meta-key">Report Generated</span><span class="meta-val">${genTime} UTC</span></div>
-      ${srcSafe ? `<div class="meta-row"><span class="meta-key">Primary Source</span><span class="meta-val"><a href="${srcSafe}" target="_blank" rel="noopener" style="color:#00d4aa;">${srcName} ?</a></span></div>` : ""}
+      ${srcSafe ? `<div class="meta-row"><span class="meta-key">Primary source</span><span class="meta-val"><a href="${srcSafe}" target="_blank" rel="noopener">${srcName}</a></span></div>` : ""}
       <div class="meta-row"><span class="meta-key">Intelligence Generator</span><span class="meta-val">SENTINEL APEX v${PLATFORM_VERSION}</span></div>
       <div class="meta-row"><span class="meta-key">Platform Endpoint</span><span class="meta-val">${esc(reqPath)}</span></div>
     </div>
@@ -1790,30 +1764,14 @@ ${commercialGateBanner}
 
   <!-- S10: Related Resources -->
   <div class="sec">
-    <div class="sec-title">10 * Related Resources &amp; Feeds</div>
+    <div class="sec-title">${tLinks}</div>
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;">
-      <a href="https://intel.cyberdudebivash.com" style="padding:12px 16px;background:rgba(0,212,170,.05);border:1px solid rgba(0,212,170,.15);border-radius:6px;display:block;"><div style="font-family:monospace;font-size:10px;color:#00d4aa;font-weight:800;letter-spacing:1px;margin-bottom:4px;">SENTINEL APEX DASHBOARD -></div><div style="font-size:12px;color:#4b5563;">Live threat monitoring &amp; SOC console</div></a>
-      <a href="/taxii/" style="padding:12px 16px;background:rgba(139,92,246,.05);border:1px solid rgba(139,92,246,.15);border-radius:6px;display:block;"><div style="font-family:monospace;font-size:10px;color:#a78bfa;font-weight:800;letter-spacing:1px;margin-bottom:4px;">TAXII DISCOVERY -></div><div style="font-size:12px;color:#4b5563;">Public TAXII 2.1 discovery. Paid collections need an API key.</div></a>
-      <a href="/api-docs.html#taxii" style="padding:12px 16px;background:rgba(59,130,246,.05);border:1px solid rgba(59,130,246,.15);border-radius:6px;display:block;"><div style="font-family:monospace;font-size:10px;color:#60a5fa;font-weight:800;letter-spacing:1px;margin-bottom:4px;">API REFERENCE -></div><div style="font-size:12px;color:#4b5563;">STIX, TAXII, and MISP paths, and which plan includes each.</div></a>
-      ${srcSafe ? `<a href="${srcSafe}" target="_blank" rel="noopener" style="padding:12px 16px;background:rgba(100,116,139,.04);border:1px solid rgba(100,116,139,.12);border-radius:6px;display:block;"><div style="font-family:monospace;font-size:10px;color:#94a3b8;font-weight:800;letter-spacing:1px;margin-bottom:4px;">ORIGINAL SOURCE -></div><div style="font-size:12px;color:#4b5563;">${srcName}</div></a>` : ""}
+      <a href="https://intel.cyberdudebivash.com" style="padding:12px 16px;background:rgba(0,212,170,.05);border:1px solid rgba(0,212,170,.15);border-radius:6px;display:block;"><div style="font-family:monospace;font-size:10px;color:#00d4aa;font-weight:800;letter-spacing:1px;margin-bottom:4px;">Dashboard</div><div style="font-size:12px;color:#4b5563;">Live threat monitoring &amp; SOC console</div></a>
+      <a href="/taxii/" style="padding:12px 16px;background:rgba(139,92,246,.05);border:1px solid rgba(139,92,246,.15);border-radius:6px;display:block;"><div style="font-family:monospace;font-size:10px;color:#a78bfa;font-weight:800;letter-spacing:1px;margin-bottom:4px;">TAXII discovery</div><div style="font-size:12px;color:#4b5563;">Public TAXII 2.1 discovery. Paid collections need an API key.</div></a>
+      <a href="/api-docs.html#taxii" style="padding:12px 16px;background:rgba(59,130,246,.05);border:1px solid rgba(59,130,246,.15);border-radius:6px;display:block;"><div style="font-family:monospace;font-size:10px;color:#60a5fa;font-weight:800;letter-spacing:1px;margin-bottom:4px;">API reference</div><div style="font-size:12px;color:#4b5563;">STIX, TAXII, and MISP paths, and which plan includes each.</div></a>
+      ${srcSafe ? `<a href="${srcSafe}" target="_blank" rel="noopener" style="padding:12px 16px;background:rgba(100,116,139,.04);border:1px solid rgba(100,116,139,.12);border-radius:6px;display:block;"><div style="font-family:monospace;font-size:10px;color:#94a3b8;font-weight:800;letter-spacing:1px;margin-bottom:4px;">Source</div><div style="font-size:12px;color:#4b5563;">${srcName}</div></a>` : ""}
     </div>
   </div>
-
-</div>
-
-<!-- Footer -->
-<div class="ftr">
-  <div style="margin-bottom:6px;">
-    SENTINEL APEX Threat Intel Platform v${PLATFORM_VERSION}
-    <div style="margin:16px 0;"><a href="https://www.cyberdudebivash.com/" style="display:inline-flex;align-items:center;min-height:44px;padding:10px 16px;border:1px solid #67e8f9;border-radius:8px;background:#101c2e;color:#fff;font:700 16px/1.5 system-ui,sans-serif;text-decoration:underline;text-underline-offset:4px;">Powered By CYBERDUDEBIVASH</a></div>
-  </div>
-  <div>
-    intel.cyberdudebivash.com &nbsp;&middot;&nbsp; Generated ${genTime} UTC &nbsp;&middot;&nbsp; ${tlp}
-  </div>
-  <div style="margin-top:8px;font-size:9px;color:#111827;">
-    This report contains threat intelligence produced by SENTINEL APEX automated analysis pipelines. Handle in accordance with ${tlp} classification guidelines.
-  </div>
-</div>
 
 ${buildAnalystBlock(item)}
 
@@ -2015,6 +1973,14 @@ ${buildP33OperationalDashboardBlock(item, items)}
 ${buildP33APIGatewayBlock(item)}
 <!-- P34.1: Engineering Assurance Summary -->
 <!-- P34 blocks require async gate evaluation  -  rendered via /api/v1/p34/dashboard -->
+</div>
+<footer class="ftr">
+  <p class="ftr-brand">CYBERDUDEBIVASH · Sentinel APEX ${PLATFORM_VERSION}</p>
+  <p>${tlp} · Generated ${genTime} UTC · ${itemId}</p>
+  <p>Produced from published Sentinel APEX fields. Handle under ${tlp}. This page is not an ISO 27001 or SOC 2 certificate.</p>
+  <p><a href="https://www.cyberdudebivash.com/">cyberdudebivash.com</a></p>
+</footer>
+</article>
 </body>
 </html>`;
 }
