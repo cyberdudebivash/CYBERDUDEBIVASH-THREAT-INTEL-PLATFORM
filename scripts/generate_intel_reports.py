@@ -723,6 +723,66 @@ footer a{color:var(--accent);text-decoration:none}
   .plv2-features{grid-template-columns:1fr}
   .nav-actions .nav-btn-stix,.nav-actions .nav-btn-upgrade{display:none}
 }
+
+/* Document skin. Class names stay; this is how the dossier reads on screen and on paper. */
+:root{
+  --bg:#f4f1ea;--panel:#ffffff;--panel2:#f7f4ee;--border:#e6e1d6;
+  --accent:#143d3a;--accent2:#1e3a5f;--text:#1c1917;--muted:#57534e;
+  --crit:#9f1239;--high:#9a3412;--med:#92400e;--low:#3f6212;--info:#1e3a8a;
+  --mono:"Segoe UI",Helvetica,Arial,sans-serif;--radius:2px;
+}
+body{background:var(--bg);color:var(--text);font-family:"Segoe UI",Helvetica,Arial,sans-serif;font-size:16px;line-height:1.6}
+code,pre,.ioc-val,.rule-block pre{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+.tlp-banner{font-family:"Segoe UI",Helvetica,Arial,sans-serif;letter-spacing:.14em;font-size:11px}
+.tlp-CLEAR,.tlp-GREEN{background:#143d3a;color:#f4f1ea;border:0}
+.tlp-AMBER{background:#92400e;color:#fff;border:0}
+.tlp-RED{background:#9f1239;color:#fff;border:0}
+.top-nav{background:#fffefb}
+.nav-brand{font-family:"Segoe UI",Helvetica,Arial,sans-serif;letter-spacing:.16em;font-size:12px;color:#143d3a}
+.nav-links a{font-family:"Segoe UI",Helvetica,Arial,sans-serif;font-size:13px;letter-spacing:0}
+h1.dossier-title{font-family:Georgia,"Iowan Old Style",Palatino,serif;font-weight:600;font-size:34px;line-height:1.22;letter-spacing:-.02em;color:#1c1917}
+h2.section-title{font-family:Georgia,"Iowan Old Style",Palatino,serif;font-size:20px;font-weight:600;letter-spacing:0;text-transform:none;color:#1c1917}
+h3,.section-num{letter-spacing:.04em}
+p,li,td{color:#292524}
+.section{background:#fff;border-color:var(--border)}
+.meta-strip,.dossier-id,.classification{font-family:"Segoe UI",Helvetica,Arial,sans-serif;letter-spacing:.02em}
+th{background:#f7f4ee;color:#143d3a}
+tr:hover td{background:#faf8f5}
+.score-bar,.conf-bar{background:#e7e5e4}
+.score-fill,.conf-fill{background:#143d3a}
+.confidence-strip{background:#f7f4ee;border-color:var(--border)}
+.exec-tile{text-align:left;background:#fff}
+.exec-tile:hover{border-color:var(--border)}
+.exec-tile-val{font-family:Georgia,"Iowan Old Style",Palatino,serif;font-weight:600;font-size:26px}
+.exec-tile-label,.exec-tile-sub{font-family:"Segoe UI",Helvetica,Arial,sans-serif;letter-spacing:.06em}
+.sev-pulse{animation:none;width:6px;height:6px}
+.report-watermark{display:none}
+.cta-primary{background:#143d3a;color:#fff}
+.cta-secondary{background:#fff;color:#143d3a;border:1px solid #143d3a}
+.cta-enterprise{background:#1c1917;color:#fff}
+.nav-btn{font-family:"Segoe UI",Helvetica,Arial,sans-serif;letter-spacing:.04em;font-size:12px;border-radius:2px}
+.nav-btn-upgrade{color:#1c1917;border-color:#d6d3d1;background:#fff}
+.nav-btn-stix{color:#143d3a;border-color:#d6d3d1}
+.premium-lock,.premium-lock-v2{background:#f7f4ee;border:1px solid var(--border)}
+.premium-lock::before,.premium-lock-v2::before{display:none}
+.lock-title,.plv2-title,.tier-ENT{color:#1c1917}
+.tag{background:#f7f4ee;color:#143d3a;border-color:#d6d3d1}
+.callout{background:#f7f4ee}
+pre{background:#1c1917;color:#f5f5f4}
+.rule-block{background:#1c1917}
+footer.dossier-ftr,footer.dossier-ftr a{font-family:"Segoe UI",Helvetica,Arial,sans-serif}
+.dossier-body{display:grid;grid-template-columns:220px 1fr;gap:28px;align-items:start}
+@media(max-width:800px){
+  .dossier-body{display:block}
+  .toc-aside{position:static!important;margin-bottom:20px}
+  h1.dossier-title{font-size:26px}
+}
+@media print{
+  .tlp-banner{display:block!important;background:#fff!important;color:#111!important;border-bottom:1px solid #111!important}
+  .exec-card{display:grid!important}
+  .nav-actions,.report-watermark{display:none!important}
+  h1.dossier-title,h2.section-title{color:#111!important}
+}
 """
 
 
@@ -2370,17 +2430,17 @@ def render_report(item: dict, public_prefix: str) -> str:
 </head>
 <body>
 <div class='tlp-banner tlp-{_h(tlp.replace(":","").replace("TLP","").strip() or "CLEAR")}'>
-  TLP: {_h(_tlp_dec_r['label'])} &nbsp;·&nbsp; CYBERDUDEBIVASH SENTINEL APEX TACTICAL DOSSIER &nbsp;·&nbsp; {PLATFORM_VERSION}
+  TLP: {_h(_tlp_dec_r['label'])} &nbsp;·&nbsp; CYBERDUDEBIVASH SENTINEL APEX &nbsp;·&nbsp; INTELLIGENCE REPORT &nbsp;·&nbsp; {PLATFORM_VERSION}
 </div>
 <nav class='top-nav'>
   <div>
-    <div class='nav-brand'>CYBERDUDEBIVASH &middot; SENTINEL APEX</div>
-    <div style='font-family:var(--mono);font-size:9px;color:var(--muted);margin-top:3px;letter-spacing:1px'>TACTICAL INTELLIGENCE DOSSIER &middot; {PLATFORM_VERSION}</div>
+    <div class='nav-brand'>CYBERDUDEBIVASH</div>
+    <div style='font-size:12px;color:var(--muted);margin-top:2px'>Sentinel APEX intelligence report</div>
   </div>
   <div class='nav-actions'>
-    <button class='nav-btn nav-btn-print' onclick='window.print()' title='Print report'>&#128438; Print</button>
-    <a class='nav-btn nav-btn-stix' href='https://intel.cyberdudebivash.com/api/stix?id={_h(intel_id)}' target='_blank' rel='noopener' title='Download STIX 2.1 bundle'>&#8659; STIX 2.1</a>
-    <a class='nav-btn nav-btn-upgrade' href='https://intel.cyberdudebivash.com/upgrade.html?plan=enterprise&utm_source=report-nav&utm_medium=report&utm_content={_h(intel_id)}' target='_blank' rel='noopener'>&#9733; Enterprise</a>
+    <button class='nav-btn nav-btn-print' onclick='window.print()'>Print</button>
+    <a class='nav-btn nav-btn-stix' href='https://intel.cyberdudebivash.com/taxii/' target='_blank' rel='noopener'>TAXII discovery</a>
+    <a class='nav-btn nav-btn-upgrade' href='https://intel.cyberdudebivash.com/upgrade.html?plan=enterprise&utm_source=report-nav&utm_medium=report&utm_content={_h(intel_id)}' target='_blank' rel='noopener'>Enterprise</a>
     <div class='nav-links' style='margin-left:8px;border-left:1px solid var(--border);padding-left:16px'>
       <a href='https://intel.cyberdudebivash.com'>Platform</a>
       <a href='https://intel.cyberdudebivash.com/api/feed'>Live Feed</a>
@@ -2393,7 +2453,7 @@ def render_report(item: dict, public_prefix: str) -> str:
   <div class='classification'>
     <span class='cls-chip cls-PUBLIC'>PUBLIC TIER</span>
     <span class='cls-chip cls-TLP'>{_h(_tlp_dec_r['label'])}</span>
-    <span>TACTICAL DOSSIER</span>
+    <span>Intelligence report</span>
     &nbsp;&middot;&nbsp;
     <span class='urgency-badge urgency-{_urgency_cls}'><span class='sev-pulse'></span>{_urgency_txt}</span>
   </div>
@@ -2442,7 +2502,7 @@ def render_report(item: dict, public_prefix: str) -> str:
   </div>
 </div>
 
-<div style='display:grid;grid-template-columns:220px 1fr;gap:24px;align-items:start'>
+<div class='dossier-body'>
 <aside class='toc-aside' style='position:sticky;top:20px'>
   <div style='background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);padding:16px'>
     <div style='font-family:var(--mono);font-size:10px;letter-spacing:2px;color:var(--accent);margin-bottom:12px;text-transform:uppercase'>Contents</div>
@@ -2474,7 +2534,7 @@ def render_report(item: dict, public_prefix: str) -> str:
     </div>
     <div style='display:flex;gap:12px;align-items:center'>
       <a href='https://intel.cyberdudebivash.com/upgrade.html?plan=pro&utm_source=report-footer' target='_blank' rel='noopener' style='font-family:var(--mono);font-size:10px;color:#ffd700;text-decoration:none;border:1px solid rgba(255,215,0,.3);padding:5px 12px;border-radius:3px'>&#9733; Get Pro Access</a>
-      <a href='https://intel.cyberdudebivash.com/api/stix?id={_h(intel_id)}' target='_blank' rel='noopener' style='font-family:var(--mono);font-size:10px;color:var(--accent);text-decoration:none'>&#8659; STIX Export</a>
+      <a href='https://intel.cyberdudebivash.com/taxii/' target='_blank' rel='noopener' style='font-size:13px;color:var(--accent);text-decoration:none'>TAXII discovery</a>
     </div>
   </div>
   <div style='display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;font-family:var(--mono);font-size:10px;color:var(--muted)'>
