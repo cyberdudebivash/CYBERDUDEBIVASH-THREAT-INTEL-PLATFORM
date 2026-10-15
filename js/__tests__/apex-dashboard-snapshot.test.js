@@ -137,6 +137,26 @@ test('preview prefers Critical/High and falls back to other current items', () =
   assert.deepEqual(Snap.previewItems(low, 5).map(i => i.id), ['x', 'y']);
 });
 
+test('source count uses source_url when feed_source is absent', () => {
+  const feed = {
+    ok: true,
+    data: {
+      generated_at: GEN,
+      freshness_status: 'FRESH',
+      items: [
+        { id: 'a', source_url: 'https://www.securityaffairs.com/1', source: 'SecurityAffairs', risk_score: 9 },
+        { id: 'b', source_url: 'https://www.bleepingcomputer.com/2', source: 'BleepingComputer', risk_score: 8 },
+        { id: 'c', source_url: 'https://www.securityaffairs.com/3', source: 'SecurityAffairs', risk_score: 4 },
+        { id: 'd', risk_score: 1 },
+      ],
+    },
+  };
+  const s = Snap.build(health('fresh'), feed, NOW);
+  assert.equal(s.intelligence.source_count, 2);
+  assert.equal(s.intelligence.sources['securityaffairs.com'], 2);
+  assert.equal(s.intelligence.sources['bleepingcomputer.com'], 1);
+});
+
 test('IOC total is numeric and source count is distinct hosts in the current feed', () => {
   const s = Snap.build(health('fresh'), feedOf(10), NOW);
   assert.equal(s.intelligence.iocs, 4);

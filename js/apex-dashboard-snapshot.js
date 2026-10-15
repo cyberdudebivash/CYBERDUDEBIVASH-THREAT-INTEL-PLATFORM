@@ -75,9 +75,21 @@
     return scalar === null ? 0 : scalar;
   }
 
+  function sourceLabel(value) {
+    var s = String(value || '').trim();
+    if (!s || /^(unknown|unattributed|n\/a|none|null|-)$/i.test(s)) return '';
+    if (/^https?:\/\//i.test(s) || /^[a-z0-9.-]+\.[a-z]{2,}(\/|$)/i.test(s)) {
+      s = s.replace(/^https?:\/\/(www\.)?/i, '').split('/')[0].split('?')[0].split(':')[0].trim().toLowerCase();
+    }
+    if (!s || s.length > 48 || /[<>"'`]/.test(s)) return '';
+    return s;
+  }
+
   function sourceHost(it) {
-    var s = String(it.feed_source || '').replace(/^https?:\/\/(www\.)?/, '').split('/')[0].trim();
-    return s && !/^unknown$/i.test(s) ? s : '';
+    if (!it || typeof it !== 'object') return '';
+    // Public feed items name the publisher on source / source_url. Older
+    // snapshots used feed_source. Publisher geography is not actor origin.
+    return sourceLabel(it.feed_source) || sourceLabel(it.source_url) || sourceLabel(it.source);
   }
 
   function sev(it) {
@@ -159,8 +171,9 @@
         critical: pub.fresh ? critical : null, high: pub.fresh ? high : null,
         iocs: pub.fresh ? iocs : null,
         avg_risk: riskN ? Math.round((riskSum / riskN) * 10) / 10 : null,
-        // Distinct feed_source hosts. Unmeasured (null) when items exist but
-        // none names its source; 0 only for a genuinely empty feed.
+        // Distinct publisher hosts (feed_source, else source_url, else source).
+        // Unmeasured (null) when items exist but none names its source; 0 only
+        // for a genuinely empty feed. Not actor-country attribution.
         source_count: !pub.fresh ? null : (Object.keys(sources).length || (items.length ? null : 0)),
         sources: sources,
       },

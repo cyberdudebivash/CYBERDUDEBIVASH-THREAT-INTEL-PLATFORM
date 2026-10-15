@@ -125,7 +125,7 @@ async function routeFixtures(context, fixtures, opts) {
 
 const IDS = ['eicc-ticker-inner', 'eicc-ticker-count', 'eicc-m-total', 'eicc-m-critical', 'eicc-m-iocs', 'eicc-m-feeds', 'eicc-m-sync',
   'eicc-m-sync-utc', 'eicc-m-api', 'eicc-m-intel', 'eicc-feed-preview', 'eicc-heatmap-title', 'eicc-heatmap-sub', 'eicc-heatmap',
-  'eicc-ai-predictions', 'cdb-gauge-val', 'cdb-gauge-label', 'cdb-gauge-status', 'cdb-gauge-crit', 'cdb-gauge-kev', 'cdb-gauge-age',
+  'eicc-ai-predictions', 'eicc-ai-sub', 'cdb-gauge-val', 'cdb-gauge-label', 'cdb-gauge-status', 'cdb-gauge-crit', 'cdb-gauge-kev', 'cdb-gauge-age',
   'cdb-rw-status', 'cdb-rw-groups', 'cdb-rw-victims', 'cdb-rw-list', 'cdb-kc-campaigns', 'cdb-kc-tactics', 'cdb-kc-active-label',
   'nexus-killchain-meta', 'nexus-killchain'];
 
@@ -206,7 +206,7 @@ async function zeroEvidence(browser, contract) {
   record(`${tag} ransomware: none in feed, monitor still operational`, s['cdb-rw-list'] === 'NO RANSOMWARE-TAGGED INTELLIGENCE IN CURRENT FEED' && s['cdb-rw-groups'] === '0' && s['cdb-rw-victims'] === '0' && s['cdb-rw-status'] === 'MONITOR ● OPERATIONAL', s['cdb-rw-list']);
   record(`${tag} campaigns: zero, even with 3 CRITICAL advisories`, s['cdb-kc-campaigns'] === '0' && /0 evidenced campaigns · no ATT&CK evidence/.test(s['cdb-kc-active-label']), `${s['cdb-kc-campaigns']} / ${s['cdb-kc-active-label']}`);
   record(`${tag} ATT&CK: 0 of 14 observed, stated with the evaluated count`, /^0 of 14 tactics observed · 0 of 12 advisories/.test(s['nexus-killchain-meta']), s['nexus-killchain-meta']);
-  record(`${tag} AI: explicit unavailable, no invented forecast`, /PREDICTION DATA UNAVAILABLE/.test(s['eicc-ai-predictions']) && !/%/.test(s['eicc-ai-predictions']), s['eicc-ai-predictions']);
+  record(`${tag} AI: no model rows, measured feed risk only, no invented probability`, /RISK 4\.1\/10/.test(s['eicc-ai-predictions']) && /Measured feed risk, not a model probability/.test(s['eicc-ai-sub']) && !/%/.test(s['eicc-ai-predictions']) && !/PREDICTION DATA UNAVAILABLE/.test(s['eicc-ai-predictions']), s['eicc-ai-sub'] + ' | ' + s['eicc-ai-predictions'].slice(0, 120));
   record(`${tag} ticker still shows the 12 real items`, s.tickerMode === 'live' && s['eicc-ticker-count'] === '12', s['eicc-ticker-count']);
   record(`${tag} no uncaught errors`, errors.length === 0, errors.slice(0, 3).join(' | '));
   await context.close();
