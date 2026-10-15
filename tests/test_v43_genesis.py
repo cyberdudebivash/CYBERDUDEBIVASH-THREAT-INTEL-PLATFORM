@@ -201,6 +201,19 @@ class TestAttackMap:
         ])
         assert r["total_flows"] == 0 and r["attack_flows"] == [] and r["origin_countries"] == {}
 
+    def test_wrapped_manifest_items_are_read(self, tmp_path, monkeypatch):
+        import agent.v43_genesis.genesis_engine as g
+        path = tmp_path / "feed_manifest.json"
+        path.write_text(json.dumps({
+            "entries": [],
+            "items": [{"actor_country": "Russia", "victim_country": "Germany"}],
+        }), encoding="utf-8")
+        monkeypatch.setattr(g, "MANIFEST_PATH", str(path))
+        r = g.GlobalAttackMap().generate_map_data()
+        assert r["origin_countries"] == {"Russia": 1}
+        assert r["attack_flows"] == [{"origin": "Russia", "target": "Germany", "advisories": 1}]
+        assert r["total_flows"] == 1
+
 # G12
 class TestAIHunter:
     @patch(P, side_effect=_m)
