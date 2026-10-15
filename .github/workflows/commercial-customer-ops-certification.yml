@@ -609,15 +609,21 @@ jobs:
           ROTATE_CODE=""
           for attempt in 1 2 3; do
             ROTATE_RAW=$(curl -sS -w "\n%{http_code}" -X POST "$BASE/api/admin/keys/$KEY/rotate" -H "X-Admin-Key: $ADMIN_SECRET" || true)
-            ROTATE_CODE=$(printf '%s\n' "$ROTATE_RAW" | tail -n 1)
-            ROTATE_JSON=$(printf '%s\n' "$ROTATE_RAW" | sed '$d')
-            NEW_KEY=$(printf '%s\n' "$ROTATE_JSON" | jq -r '.new_key // empty' 2>/dev/null || true)
+            ROTATE_LAST=$(printf '%s\n' "$ROTATE_RAW" | tail -n 1)
+            if printf '%s' "$ROTATE_LAST" | grep -Eq '^[0-9]{3}$'; then
+              ROTATE_CODE="$ROTATE_LAST"
+              ROTATE_JSON=$(printf '%s\n' "$ROTATE_RAW" | sed '$d')
+            else
+              ROTATE_CODE=""
+              ROTATE_JSON="$ROTATE_RAW"
+            fi
+            NEW_KEY=$(printf '%s' "$ROTATE_JSON" | jq -r '.new_key // empty' 2>/dev/null || true)
             if [ -n "$NEW_KEY" ]; then
               break
             fi
-            # 503 is the handler's "did not rotate" response. Retrying it
-            # cannot create a second live key. Any other status is final.
-            if [ "$ROTATE_CODE" != "503" ] && [ "$ROTATE_CODE" != "000" ]; then
+            # 503 is the handler's "did not rotate" response. Any other
+            # status, including a body with no status line, is final.
+            if [ "$ROTATE_CODE" != "503" ]; then
               break
             fi
             sleep 2
