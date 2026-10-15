@@ -1491,11 +1491,11 @@ function generateIntelReport(item, reqPath, items = []) {
 
   // Remediation steps  -  use apex.recommended_action as primary, augment with severity-driven steps
   const remSteps = [];
-  if (kev || risk >= 9)  remSteps.push({ c:"#dc2626", bg:"rgba(220,38,38,.06)", icon:"?", label:"IMMEDIATE (0-24h)", text:"Apply vendor patch or mitigating control NOW. CISA mandates federal agencies remediate KEV entries within defined deadlines. If no patch available, isolate affected systems from network access immediately." });
-  if (risk >= 7 && !kev) remSteps.push({ c:"#ea580c", bg:"rgba(234,88,12,.06)", icon:"?", label:"HIGH PRIORITY (24-72h)", text:"Deploy patch within one business cycle. Increase monitoring on affected assets. Review firewall rules for attack vector exposure. Brief incident response team." });
-  if (remedAction)       remSteps.push({ c:"#00d4aa", bg:"rgba(0,212,170,.05)", icon:"?", label:"SENTINEL APEX RECOMMENDED ACTION", text:remedAction });
-  if (risk < 7 && !kev)  remSteps.push({ c:"#3b82f6", bg:"rgba(59,130,246,.05)", icon:"?", label:"STANDARD REMEDIATION", text:"Schedule remediation in next planned maintenance window. Verify patch applicability to your environment. Monitor vendor advisories for updated severity assessments." });
-  remSteps.push({ c:"#64748b", bg:"rgba(255,255,255,.02)", icon:"*", label:"DEFENSE IN DEPTH", text:"Apply least-privilege access controls * Enable enhanced EDR telemetry on affected hosts * Block known-bad IOCs at perimeter * Conduct threat hunting using MITRE ATT&amp;CK techniques listed above * Update detection rules." });
+  if (kev || risk >= 9)  remSteps.push({ c:"#dc2626", bg:"rgba(220,38,38,.06)", icon:"", label:"IMMEDIATE (0-24h)", text:"Apply vendor patch or mitigating control NOW. CISA mandates federal agencies remediate KEV entries within defined deadlines. If no patch available, isolate affected systems from network access immediately." });
+  if (risk >= 7 && !kev) remSteps.push({ c:"#ea580c", bg:"rgba(234,88,12,.06)", icon:"", label:"HIGH PRIORITY (24-72h)", text:"Deploy patch within one business cycle. Increase monitoring on affected assets. Review firewall rules for attack vector exposure. Brief incident response team." });
+  if (remedAction)       remSteps.push({ c:"#00d4aa", bg:"rgba(0,212,170,.05)", icon:"", label:"SENTINEL APEX RECOMMENDED ACTION", text:remedAction });
+  if (risk < 7 && !kev)  remSteps.push({ c:"#3b82f6", bg:"rgba(59,130,246,.05)", icon:"", label:"STANDARD REMEDIATION", text:"Schedule remediation in next planned maintenance window. Verify patch applicability to your environment. Monitor vendor advisories for updated severity assessments." });
+  remSteps.push({ c:"#64748b", bg:"rgba(255,255,255,.02)", icon:"", label:"DEFENSE IN DEPTH", text:"Apply least-privilege access controls * Enable enhanced EDR telemetry on affected hosts * Block known-bad IOCs at perimeter * Conduct threat hunting using MITRE ATT&amp;CK techniques listed above * Update detection rules." });
 
   // Commercial gate verdict -- reuses the existing P18/P19 evidence -> confidence ->
   // validation -> certification chain (the same one buildAnalystBlock already runs)
@@ -1528,64 +1528,72 @@ function generateIntelReport(item, reqPath, items = []) {
 <meta name="robots" content="noindex,nofollow">
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
-body{background:#070b12;color:#d7dee8;font-family:"Segoe UI",Helvetica,Arial,sans-serif;line-height:1.55;font-size:15px}
-a{color:#7dd3c7}
+body{background:#f4f1ea;color:#292524;font-family:"Segoe UI",Helvetica,Arial,sans-serif;line-height:1.55;font-size:16px}
+a{color:#143d3a}
 a:hover{text-decoration:underline}
-.cls-bar{background:#101820;color:#cbd5e1;border-bottom:3px solid ${sevColor};padding:8px 28px;display:flex;justify-content:space-between;gap:12px;font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase}
-.sheet{max-width:880px;margin:28px auto 48px;background:#0e1520;border:1px solid #243044;border-radius:2px}
-.hdr{padding:28px 32px 20px;border-bottom:1px solid #243044}
-.kicker{font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:#7dd3c7;font-weight:700}
-.rpt-title{font-size:28px;line-height:1.25;font-weight:650;color:#f8fafc;margin:10px 0 16px;letter-spacing:-.02em}
+.cls-bar{background:#143d3a;color:#f4f1ea;padding:8px 28px;display:flex;justify-content:space-between;gap:12px;font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase}
+.sheet{max-width:880px;margin:28px auto 48px;background:#fffefb;border:1px solid #e6e1d6;border-radius:2px}
+.hdr{padding:32px 36px 22px;border-bottom:1px solid #e6e1d6}
+.kicker{font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:#143d3a;font-weight:700}
+.rpt-title{font-family:Georgia,"Iowan Old Style",Palatino,serif;font-size:32px;line-height:1.22;font-weight:600;color:#1c1917;margin:10px 0 18px;letter-spacing:-.02em}
 .docmeta{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px 18px;margin:0}
 .docmeta div{min-width:0}
-.docmeta dt{font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:#94a3b8}
-.docmeta dd{margin:3px 0 0;font-size:13px;color:#f8fafc;font-variant-numeric:tabular-nums;word-break:break-word}
+.docmeta dt{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#57534e}
+.docmeta dd{margin:3px 0 0;font-size:14px;color:#1c1917;font-variant-numeric:tabular-nums;word-break:break-word}
 .hdr-badges{display:flex;flex-wrap:wrap;gap:6px;margin-top:16px}
-.badge{display:inline-flex;align-items:center;min-height:26px;padding:0 8px;border-radius:2px;font-size:11px;font-weight:700;letter-spacing:.06em}
-.b-sev{background:${sevColor}22;color:${sevColor};border:1px solid ${sevColor}66}
-.b-kev{background:#3f1212;color:#fecaca;border:1px solid #7f1d1d}
-.b-pri{background:#1e1b4b;color:#ddd6fe;border:1px solid #4338ca}
+.badge{display:inline-flex;align-items:center;min-height:26px;padding:0 8px;border-radius:2px;font-size:11px;font-weight:700;letter-spacing:.04em}
+.b-sev{background:${sevColor}18;color:${sevColor};border:1px solid ${sevColor}55}
+.b-kev{background:#fff1f2;color:#9f1239;border:1px solid #fecdd3}
+.b-pri{background:#f5f3ff;color:#5b21b6;border:1px solid #ddd6fe}
 .b-tlp{${tlpStyle};font-size:11px}
-.b-conf{background:#111827;color:#cbd5e1;border:1px solid #334155}
-.wrap{padding:8px 32px 28px}
-.sec{padding:22px 0;border-bottom:1px solid #1e293b}
-.sec-title{font-size:13px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#f8fafc;margin-bottom:14px}
+.b-conf{background:#f5f5f4;color:#44403c;border:1px solid #e7e5e4}
+.wrap{padding:8px 36px 32px}
+.sec{padding:22px 0;border-bottom:1px solid #e6e1d6}
+.sec-title{font-family:Georgia,"Iowan Old Style",Palatino,serif;font-size:20px;font-weight:600;letter-spacing:0;text-transform:none;color:#1c1917;margin-bottom:14px}
 .sec-title::before{content:none}
 .scorecard{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin-bottom:16px}
-.card{border:1px solid #243044;border-radius:2px;padding:12px;background:#0b1220}
-.card-lbl{font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:#94a3b8}
-.card-val{font-size:22px;font-weight:700;margin-top:4px;font-variant-numeric:tabular-nums}
-.card-sub{font-size:12px;color:#94a3b8;margin-top:2px}
-.rbar{height:4px;background:#1e293b;border-radius:2px;overflow:hidden;margin-top:8px}
+.card{border:1px solid #e6e1d6;border-radius:2px;padding:12px;background:#fff}
+.card-lbl{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#57534e}
+.card-val{font-family:Georgia,"Iowan Old Style",Palatino,serif;font-size:26px;font-weight:600;margin-top:4px;font-variant-numeric:tabular-nums}
+.card-sub{font-size:12px;color:#57534e;margin-top:2px}
+.rbar{height:4px;background:#e7e5e4;border-radius:2px;overflow:hidden;margin-top:8px}
 .rbar-fill{height:100%;background:${sevColor};width:${riskPct}%}
-.narrative{font-size:15px;line-height:1.65;color:#e2e8f0}
+.narrative{font-size:16px;line-height:1.65;color:#292524}
 .cve-row{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
-.kev-alert{margin:0 0 4px;padding:16px 18px;border:1px solid #7f1d1d;background:#1c0f12;border-radius:2px}
-.kev-alert h3{font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:#fecaca;margin-bottom:8px}
-.kev-alert p{font-size:14px;color:#fecaca;line-height:1.6}
-.kev-mandate{margin-top:10px;font-size:13px;color:#fde68a}
+.kev-alert{margin:0 0 4px;padding:16px 18px;border:1px solid #fecdd3;background:#fff1f2;border-radius:2px}
+.kev-alert h3{font-size:16px;letter-spacing:0;text-transform:none;color:#9f1239;margin-bottom:8px;font-family:Georgia,"Iowan Old Style",Palatino,serif}
+.kev-alert p{font-size:15px;color:#44403c;line-height:1.6}
+.kev-mandate{margin-top:10px;font-size:14px;color:#7f1d1d}
 .surface-grid,.attr-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px}
-.surface-cell,.attr-cell{border:1px solid #243044;padding:12px;background:#0b1220}
-.surface-cell .lbl,.attr-lbl{font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:#94a3b8;margin-bottom:4px}
-.surface-cell .val,.attr-val{font-size:14px;color:#f8fafc}
+.surface-cell,.attr-cell{border:1px solid #e6e1d6;padding:12px;background:#fff}
+.surface-cell .lbl,.attr-lbl{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#57534e;margin-bottom:4px}
+.surface-cell .val,.attr-val{font-size:15px;color:#1c1917}
 .kc-flow{display:flex;flex-wrap:wrap;gap:8px}
-.kc-step{border:1px solid #334155;padding:8px 10px;font-size:12px;color:#e2e8f0;background:#0b1220}
+.kc-step{border:1px solid #e6e1d6;padding:8px 10px;font-size:13px;color:#1c1917;background:#fff}
 .kc-arrow{display:none}
 .ioc-grid{display:grid;gap:8px}
-.ioc-row{display:flex;justify-content:space-between;gap:12px;padding:10px 12px;border:1px solid #243044}
-.ioc-type{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#94a3b8}
-.ioc-val{font-size:14px;font-weight:700;color:#7dd3c7}
-.rem-step{padding:12px 14px;margin-bottom:8px;border:1px solid #243044;border-left-width:3px}
-.rem-label{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;margin-bottom:4px}
-.rem-text{font-size:14px;line-height:1.55}
+.ioc-row{display:flex;justify-content:space-between;gap:12px;padding:10px 12px;border:1px solid #e6e1d6;background:#fff}
+.ioc-type{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#57534e}
+.ioc-val{font-size:14px;font-weight:700;color:#143d3a}
+.rem-step{padding:12px 14px;margin-bottom:8px;border:1px solid #e6e1d6;border-left-width:3px;background:#fff}
+.rem-label{font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;margin-bottom:4px}
+.rem-text{font-size:15px;line-height:1.55;color:#292524}
 .meta-table{display:grid}
-.meta-row{display:grid;grid-template-columns:180px 1fr;gap:12px;padding:8px 0;border-top:1px solid #1e293b}
-.meta-key{font-size:12px;color:#94a3b8}
-.meta-val{font-size:13px;color:#f8fafc;word-break:break-word}
-.tag{display:inline-block;margin:2px;padding:2px 8px;border:1px solid #334155;font-size:11px;color:#cbd5e1}
-.ftr{padding:22px 32px 28px;border-top:1px solid #243044;color:#94a3b8;font-size:12px;line-height:1.6}
-.ftr a{color:#e2e8f0}
-.ftr-brand{color:#f8fafc;font-weight:700;letter-spacing:.08em;text-transform:uppercase;font-size:11px}
+.meta-row{display:grid;grid-template-columns:180px 1fr;gap:12px;padding:8px 0;border-top:1px solid #e6e1d6}
+.meta-key{font-size:13px;color:#57534e}
+.meta-val{font-size:14px;color:#1c1917;word-break:break-word}
+.tag{display:inline-block;margin:2px;padding:2px 8px;border:1px solid #e6e1d6;font-size:12px;color:#44403c;background:#fff}
+.appendix{margin:28px -36px 0;padding:22px 36px 8px;background:#0e1520;color:#d7dee8;border-top:1px solid #243044}
+.appendix-kicker{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:#94a3b8;margin-bottom:6px}
+.appendix h2{font-family:Georgia,"Iowan Old Style",Palatino,serif;font-size:22px;font-weight:600;color:#f8fafc;margin-bottom:8px}
+.appendix p.appendix-note{font-size:14px;color:#94a3b8;margin-bottom:8px}
+.ftr{padding:22px 36px 28px;border-top:1px solid #e6e1d6;color:#57534e;font-size:12px;line-height:1.6;background:#fffefb}
+.ftr a{color:#143d3a}
+.ftr-brand{color:#1c1917;font-weight:700;letter-spacing:.08em;text-transform:uppercase;font-size:11px}
+.dist{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px}
+.dist a{display:block;padding:12px 14px;border:1px solid #e6e1d6;background:#fff;text-decoration:none;color:#1c1917}
+.dist strong{display:block;font-size:14px;font-weight:650}
+.dist span{display:block;margin-top:3px;font-size:13px;color:#57534e}
 @media print{
   body{background:#fff;color:#111}
   .sheet{border:0;margin:0;max-width:none;background:#fff}
@@ -1689,9 +1697,6 @@ ${commercialGateBanner}
     </div>
   </div>` : ""}
 
-  <!-- P19: MITRE Technique Detail Block -->
-  ${buildMitreTechBlock(item)}
-
   <!-- S6: Threat Actor Attribution -->
   <div class="sec">
     <div class="sec-title">${tActor}</div>
@@ -1725,9 +1730,6 @@ ${commercialGateBanner}
     </div>
   </div>` : ""}
 
-  <!-- P19: IOC Detail Block -->
-  ${buildIOCDetailBlock(item)}
-
   <!-- S8: Recommended Actions & Remediation -->
   <div class="sec" style="border-color:rgba(0,212,170,.15);">
     <div class="sec-title">${tAction}</div>
@@ -1737,15 +1739,6 @@ ${commercialGateBanner}
       <div class="rem-text" style="color:${s.c==="#64748b"?"#64748b":"#d1d9e6"};">${s.text}</div>
     </div>`).join("")}
   </div>
-
-  <!-- P19: SOC Triage Block -->
-  ${buildSOCBlock(item)}
-
-  <!-- P19: Detection Engineering Block -->
-  ${buildDetectionBlock(item)}
-
-  <!-- P19: Executive Impact Block -->
-  ${buildExecutiveBlock(item)}
 
   <!-- S9: Intelligence Metadata -->
   <div class="sec">
@@ -1765,14 +1758,23 @@ ${commercialGateBanner}
   <!-- S10: Related Resources -->
   <div class="sec">
     <div class="sec-title">${tLinks}</div>
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;">
-      <a href="https://intel.cyberdudebivash.com" style="padding:12px 16px;background:rgba(0,212,170,.05);border:1px solid rgba(0,212,170,.15);border-radius:6px;display:block;"><div style="font-family:monospace;font-size:10px;color:#00d4aa;font-weight:800;letter-spacing:1px;margin-bottom:4px;">Dashboard</div><div style="font-size:12px;color:#4b5563;">Live threat monitoring &amp; SOC console</div></a>
-      <a href="/taxii/" style="padding:12px 16px;background:rgba(139,92,246,.05);border:1px solid rgba(139,92,246,.15);border-radius:6px;display:block;"><div style="font-family:monospace;font-size:10px;color:#a78bfa;font-weight:800;letter-spacing:1px;margin-bottom:4px;">TAXII discovery</div><div style="font-size:12px;color:#4b5563;">Public TAXII 2.1 discovery. Paid collections need an API key.</div></a>
-      <a href="/api-docs.html#taxii" style="padding:12px 16px;background:rgba(59,130,246,.05);border:1px solid rgba(59,130,246,.15);border-radius:6px;display:block;"><div style="font-family:monospace;font-size:10px;color:#60a5fa;font-weight:800;letter-spacing:1px;margin-bottom:4px;">API reference</div><div style="font-size:12px;color:#4b5563;">STIX, TAXII, and MISP paths, and which plan includes each.</div></a>
-      ${srcSafe ? `<a href="${srcSafe}" target="_blank" rel="noopener" style="padding:12px 16px;background:rgba(100,116,139,.04);border:1px solid rgba(100,116,139,.12);border-radius:6px;display:block;"><div style="font-family:monospace;font-size:10px;color:#94a3b8;font-weight:800;letter-spacing:1px;margin-bottom:4px;">Source</div><div style="font-size:12px;color:#4b5563;">${srcName}</div></a>` : ""}
+    <div class="dist">
+      <a href="https://intel.cyberdudebivash.com"><strong>Dashboard</strong><span>Live monitoring</span></a>
+      <a href="/taxii/"><strong>TAXII discovery</strong><span>Public discovery. Paid collections need an API key.</span></a>
+      <a href="/api-docs.html#taxii"><strong>API reference</strong><span>Which plan includes STIX, TAXII, and MISP.</span></a>
+      ${srcSafe ? `<a href="${srcSafe}" target="_blank" rel="noopener"><strong>Source</strong><span>${srcName}</span></a>` : ""}
     </div>
   </div>
 
+<div class="appendix">
+<p class="appendix-kicker">Appendix</p>
+<h2>Supporting detail</h2>
+<p class="appendix-note">Same record, shown again for operators. Nothing here is a separate finding.</p>
+${buildMitreTechBlock(item)}
+${buildIOCDetailBlock(item)}
+${buildSOCBlock(item)}
+${buildDetectionBlock(item)}
+${buildExecutiveBlock(item)}
 ${buildAnalystBlock(item)}
 
 ${buildTrustIndicatorBlock(item)}
@@ -1973,6 +1975,7 @@ ${buildP33OperationalDashboardBlock(item, items)}
 ${buildP33APIGatewayBlock(item)}
 <!-- P34.1: Engineering Assurance Summary -->
 <!-- P34 blocks require async gate evaluation  -  rendered via /api/v1/p34/dashboard -->
+</div>
 </div>
 <footer class="ftr">
   <p class="ftr-brand">CYBERDUDEBIVASH · Sentinel APEX ${PLATFORM_VERSION}</p>
