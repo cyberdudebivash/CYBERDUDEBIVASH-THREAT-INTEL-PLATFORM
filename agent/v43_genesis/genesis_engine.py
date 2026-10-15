@@ -638,12 +638,18 @@ class AttackSurfaceIntelligence:
 # not estimated.
 # ===============================================================================
 
+# A single country name. Codes, slash compounds, and profile phrases
+# ("US/UK (English-speaking criminal)") are not origins.
+_COUNTRY_NAME = re.compile(r"^[A-Za-z][A-Za-z .'-]{2,39}$")
+_NOT_A_COUNTRY = re.compile(r"criminal|speaking|operation|ransomware|hacker|unknown|unattributed", re.IGNORECASE)
+
+
 def _country_label(value) -> str:
-    """A non-placeholder country string, or ""."""
+    """A single country name, or ""."""
     c = str(value or "").strip()
-    if not c or _PLACEHOLDER_GEO.match(c):
+    if not c or _PLACEHOLDER_GEO.match(c) or not _COUNTRY_NAME.match(c) or _NOT_A_COUNTRY.search(c):
         return ""
-    return c[:40]
+    return c
 
 
 def _public_geo_summary(key, value):

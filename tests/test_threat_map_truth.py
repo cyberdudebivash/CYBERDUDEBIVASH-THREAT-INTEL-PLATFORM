@@ -95,6 +95,9 @@ def test_genesis_attack_map_does_not_guess_flows():
     assert "A flow is counted only when the same advisory has an actor country and a target country." in block
     assert "typeof s.origin_countries === 'object' && !Array.isArray(s.origin_countries)" in ENGINE
     assert "Actor country:" in ENGINE
+    assert "criminal|speaking|operation|ransomware|hacker|unknown|unattributed" in ENGINE
+    assert "criminal|speaking|operation|ransomware|hacker|unknown|unattributed" in INDEX
+    assert "criminal|speaking|operation|ransomware|hacker|unknown|unattributed" in block
 
 
 def test_map_ticker_never_prints_a_placeholder_as_an_origin():

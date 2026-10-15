@@ -5912,7 +5912,7 @@ function renderTopThreats(data) {
             };
 
             // ── NEXUS RENDERER ──────────────────────────────────────────────
-            function renderNexusEngine(data) {
+            function renderNexusEngine(data, ruleSummary) {
                 try {
                     // Exposure Score
                     const exp = data.exposure || {};
@@ -5972,14 +5972,30 @@ function renderTopThreats(data) {
                         ).join('');
                     }
 
-                    // Detection Rules Count
+                    // Detection Rules Count. Only rules attached to advisories.
+                    // A nexus pack of synthesized Sigma/YARA/Snort text has no
+                    // evidence marker and is not a count. G07 is that count.
                     const dp = data.detection_pack || {};
+                    const attached = dp.evidence === 'rules_attached_to_advisories' && Number.isSafeInteger(dp.total_rules) && dp.total_rules >= 0 ? dp : null;
+                    const fromGenesis = ruleSummary && Number.isSafeInteger(ruleSummary.total_rules) && ruleSummary.total_rules >= 0 ? ruleSummary : null;
+                    const rules = attached || fromGenesis;
                     const rulesEl = document.getElementById('nexus-rules-count');
-                    if (rulesEl) {
-                        const _cnt = x => Array.isArray(x) ? x.length : (typeof x === 'number' ? x : 0);
-                        const rCount = dp.total_rules || (_cnt(dp.sigma_rules) + _cnt(dp.yara_rules) + _cnt(dp.suricata_rules) + _cnt(dp.kql_queries||dp.kql_rules));
-                        if (rCount > 0) rulesEl.textContent = rCount;
+                    const kindsEl = document.getElementById('nexus-rules-kinds');
+                    const noteEl = document.getElementById('nexus-rules-note');
+                    if (rulesEl && rules) rulesEl.textContent = rules.total_rules.toLocaleString();
+                    if (kindsEl) {
+                        if (!rules) kindsEl.textContent = 'No attached-rule count on this cycle';
+                        else {
+                            const bits = [];
+                            const add = (n, label) => { if (Number.isSafeInteger(n) && n > 0) bits.push(n.toLocaleString() + ' ' + label); };
+                            add(rules.sigma_count, 'Sigma');
+                            add(rules.kql_count, 'KQL');
+                            add(rules.suricata_count, 'Suricata');
+                            add(rules.yara_count, 'YARA');
+                            kindsEl.textContent = bits.length ? bits.join(' · ') : 'Rules attached to advisories';
+                        }
                     }
+                    if (noteEl) noteEl.textContent = rules ? 'ON ADVISORIES' : 'NOT SYNTHESIZED';
 
                     // Intel Requirements (PIR)
                     const pirData = data.pir_coverage || {};
@@ -6041,6 +6057,15 @@ function renderTopThreats(data) {
                         return;
                     }
                     const engines = data.engines || {};
+                    // A country is one name. Codes, slash compounds, and profile
+                    // phrases are not origins. Same rule as actorCountryName().
+                    function countryName(raw) {
+                        const c = String(raw || '').trim();
+                        if (!c || /^(unknown|unattributed|n\/a|none|null|-)$/i.test(c)) return '';
+                        if (!/^[A-Za-z][A-Za-z .'-]{2,39}$/.test(c)) return '';
+                        if (/criminal|speaking|operation|ransomware|hacker|unknown|unattributed/i.test(c)) return '';
+                        return c;
+                    }
                     // Each tile shows what its engine measures from the feed.
                     // G01/G02/G09 are capabilities the platform does not operate
                     // (sensors, honeypots, dark-web monitoring): the engine says
@@ -6076,11 +6101,11 @@ function renderTopThreats(data) {
                          valFn: s => Number.isSafeInteger(s.total_flows) && s.total_flows >= 0 ? s.total_flows + ' FLOWS' : 'TELEMETRY REQUIRED',
                          descFn: s => {
                             if (Number.isSafeInteger(s.total_flows) && s.total_flows > 0 && Array.isArray(s.attack_flows)) {
-                                const pairs = s.attack_flows.filter(f => f && typeof f.origin === 'string' && typeof f.target === 'string' && Number.isSafeInteger(f.advisories)).slice(0, 3).map(f => f.origin + '→' + f.target + ' ' + f.advisories);
+                                const pairs = s.attack_flows.filter(f => f && countryName(f.origin) && countryName(f.target) && Number.isSafeInteger(f.advisories)).slice(0, 3).map(f => countryName(f.origin) + '→' + countryName(f.target) + ' ' + f.advisories);
                                 if (pairs.length) return pairs.join(', ').slice(0, 140);
                             }
                             if (s.origin_countries && typeof s.origin_countries === 'object' && !Array.isArray(s.origin_countries)) {
-                                const bits = Object.keys(s.origin_countries).filter(k => Number.isSafeInteger(s.origin_countries[k]) && s.origin_countries[k] > 0).slice(0, 3).map(k => k + ' ' + s.origin_countries[k]);
+                                const bits = Object.keys(s.origin_countries).filter(k => countryName(k) && Number.isSafeInteger(s.origin_countries[k]) && s.origin_countries[k] > 0).slice(0, 3).map(k => countryName(k) + ' ' + s.origin_countries[k]);
                                 if (bits.length) return ('Actor country: ' + bits.join(', ')).slice(0, 140);
                             }
                             return Number.isSafeInteger(s.total_flows) && typeof s.note === 'string' && s.note.trim() ? s.note.trim().slice(0, 140) : 'No source/target event collector connected';
@@ -6145,7 +6170,7 @@ function renderTopThreats(data) {
                     window.__cdbGenesisItems = Number.isSafeInteger(data.items_analyzed) ? data.items_analyzed : null;
                     if (typeof window.applyGenesisOrigins === 'function') window.applyGenesisOrigins(window.__cdbG11Summary, window.__cdbGenesisItems);
                     if (flowsEl) {
-                        const flowObjs = Array.isArray(g11.attack_flows) ? g11.attack_flows.filter(f => f && typeof f.origin === 'string' && f.origin && typeof f.target === 'string' && f.target && Number.isSafeInteger(f.advisories)) : [];
+                        const flowObjs = Array.isArray(g11.attack_flows) ? g11.attack_flows.filter(f => f && countryName(f.origin) && countryName(f.target) && Number.isSafeInteger(f.advisories)) : [];
                         let lead = 'No attack flows are shown: the feed carries no attack source/target geolocation, so none are estimated.';
                         if (flowObjs.length) lead = flowObjs.slice(0, 8).map(f => f.origin + ' → ' + f.target + ' (' + f.advisories + ')').join(' · ');
                         else if (Number.isSafeInteger(g11.total_flows)) lead = 'Attack flows: ' + g11.total_flows + '. A flow is counted only when the same advisory has an actor country and a target country.';
@@ -6294,6 +6319,14 @@ function renderTopThreats(data) {
                         // collector never ran. Other tiles keep that wording.
                         critEl.textContent = (scanView.recent && c === 0) ? '0' : scanCount(m.critical_findings);
                         critEl.style.color = scanView.recent && c > 0 ? '#ef4444' : (scanView.recent && c === 0 ? '#00d4aa' : '#f59e0b');
+                        const note = document.getElementById('bh-critical-note');
+                        if (note) {
+                            const other = measuredCount(m.total_findings);
+                            note.textContent = scanView.recent && c === 0
+                                ? (other > 0 ? 'No critical findings. ' + other + ' other finding' + (other === 1 ? '' : 's') + ' below.' : 'No critical findings on the latest scan.')
+                                : scanView.recent && c > 0 ? 'Critical findings on the latest scan'
+                                : 'Re-scan required';
+                        }
                     }
                     // Scan provenance, not assumed financial benefit.
                     const riskEl = document.getElementById('bh-risk-exposure');
@@ -6380,7 +6413,7 @@ function renderTopThreats(data) {
                     var feed = document.getElementById('ts-incident-feed');
                     var badge = document.getElementById('tipsoar-badge');
                     if (!tipArtifactCurrent(data)) {
-                        if (el) el.textContent = '0';
+                        if (el) el.textContent = 'Not current';
                         if (feed) feed.textContent = 'Incident file is older than 7 days and is not shown as current.';
                         if (badge) { badge.textContent = 'HISTORICAL INCIDENT FILE'; badge.style.color = '#f59e0b'; }
                         return;
@@ -6412,7 +6445,7 @@ function renderTopThreats(data) {
                     var feed = document.getElementById('ts-response-feed');
                     var typeCount = document.getElementById('ts-playbook-count');
                     if (!tipArtifactCurrent(data)) {
-                        if (el) el.textContent = '0';
+                        if (el) el.textContent = 'Not current';
                         if (feed) feed.textContent = 'Response file is older than 7 days and is not shown as current.';
                         if (typeCount) typeCount.textContent = 'Not current';
                         return;
@@ -6450,7 +6483,7 @@ function renderTopThreats(data) {
                     var campaigns = tipRows(data.campaign_intelligence, 12);
                     var cFeed = document.getElementById('ts-campaign-feed');
                     if (!tipArtifactCurrent(data)) {
-                        if (el) el.textContent = '0';
+                        if (el) el.textContent = 'Not current';
                         if (feed) feed.textContent = 'Hunt file is older than 7 days. Template confidence is not shown as current.';
                         if (cFeed) cFeed.textContent = 'No current campaign measurement.';
                         return;
@@ -6805,7 +6838,12 @@ function renderTopThreats(data) {
 
                 // Route each engine output to its renderer \u2014 individual error boundaries
                 const route = (name, fn) => { try { if (results[name]) fn(results[name]); } catch(e) { console.warn('[APEX ENGINE] Render error:', name, e); } };
-                route('nexus',     renderNexusEngine);
+                try {
+                    if (results.nexus) {
+                        const g7 = (((results.genesis || {}).engines || {}).G07_DetectionGenerator || {}).summary;
+                        renderNexusEngine(results.nexus, g7);
+                    }
+                } catch(e) { console.warn('[APEX ENGINE] Render error:', 'nexus', e); }
                 // v136.0 FIX: Re-run renderNexusIntelligence AFTER renderNexusEngine so computed
                 // intelligence values always take precedence over potentially stale engine JSON.
                 try { if (manifestData && manifestData.length) renderNexusIntelligence(manifestData); } catch(e) { console.warn('[NEXUS] Post-engine re-render:', e); }
