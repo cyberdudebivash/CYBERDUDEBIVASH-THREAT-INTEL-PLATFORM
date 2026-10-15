@@ -201,6 +201,16 @@ class TestAttackMap:
         ])
         assert r["total_flows"] == 0 and r["attack_flows"] == [] and r["origin_countries"] == {}
 
+    def test_profile_phrase_and_country_code_are_not_origins(self):
+        from agent.v43_genesis.genesis_engine import GlobalAttackMap
+        r = GlobalAttackMap().generate_map_data([
+            {"actor_country": "China"},
+            {"actor_country": "US/UK (English-speaking criminal)", "victim_country": "Germany"},
+            {"actor_country": "RU", "target_country": "Germany"},
+        ])
+        assert r["origin_countries"] == {"China": 1}
+        assert r["total_flows"] == 0 and r["attack_flows"] == []
+
     def test_wrapped_manifest_items_are_read(self, tmp_path, monkeypatch):
         import agent.v43_genesis.genesis_engine as g
         path = tmp_path / "feed_manifest.json"

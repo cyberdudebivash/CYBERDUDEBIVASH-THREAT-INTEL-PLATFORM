@@ -385,6 +385,13 @@
             // "N keys" string) can name actor countries from that corpus.
             // A flow is listed only when the same advisory has both ends.
             // Origins are not estimated.
+            function actorCountryName(raw){
+                var c = String(raw || '').trim();
+                if (!c || /^(unknown|unattributed|n\/a|none|null|-)$/i.test(c)) return '';
+                if (!/^[A-Za-z][A-Za-z .'-]{2,39}$/.test(c)) return '';
+                if (/criminal|speaking|operation|ransomware|hacker|unknown|unattributed/i.test(c)) return '';
+                return c;
+            }
             window.applyGenesisOrigins = function(summary, itemsAnalyzed){
                 var el = document.getElementById('eicc-heatmap');
                 if (!el || el.getAttribute('data-geo-mode') === 'origin') return;
@@ -395,10 +402,10 @@
                 if (!originObj && !flowArr) return;
                 var keys = originObj ? Object.keys(originObj).filter(function(k){
                     var n = originObj[k];
-                    return k && typeof n === 'number' && n > 0 && isFinite(n);
+                    return actorCountryName(k) && typeof n === 'number' && n > 0 && isFinite(n);
                 }) : [];
                 var flowRows = flowArr ? flowArr.filter(function(f){
-                    return f && typeof f.origin === 'string' && f.origin && typeof f.target === 'string' && f.target && typeof f.advisories === 'number' && f.advisories > 0;
+                    return f && actorCountryName(f.origin) && actorCountryName(f.target) && typeof f.advisories === 'number' && f.advisories > 0;
                 }) : [];
                 if (!keys.length && !flowRows.length) return;
                 var title = document.getElementById('eicc-heatmap-title');
@@ -451,8 +458,8 @@
                 var items = state.feed.items;
                 var origins = {};
                 items.forEach(function(it){
-                    var raw = String(it.actor_country || '').trim();
-                    if (raw && !/^(unknown|unattributed|n\/a|none|null|-)$/i.test(raw)) origins[raw.slice(0,24)] = (origins[raw.slice(0,24)]||0) + 1;
+                    var raw = actorCountryName(it.actor_country);
+                    if (raw) origins[raw.slice(0,24)] = (origins[raw.slice(0,24)]||0) + 1;
                 });
                 var attributed = Object.keys(origins).reduce(function(n,k){ return n + origins[k]; }, 0);
                 var rows, mode;

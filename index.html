@@ -2412,6 +2412,13 @@
             // "N keys" string) can name actor countries from that corpus.
             // A flow is listed only when the same advisory has both ends.
             // Origins are not estimated.
+            function actorCountryName(raw){
+                var c = String(raw || '').trim();
+                if (!c || /^(unknown|unattributed|n\/a|none|null|-)$/i.test(c)) return '';
+                if (!/^[A-Za-z][A-Za-z .'-]{2,39}$/.test(c)) return '';
+                if (/criminal|speaking|operation|ransomware|hacker|unknown|unattributed/i.test(c)) return '';
+                return c;
+            }
             window.applyGenesisOrigins = function(summary, itemsAnalyzed){
                 var el = document.getElementById('eicc-heatmap');
                 if (!el || el.getAttribute('data-geo-mode') === 'origin') return;
@@ -2422,10 +2429,10 @@
                 if (!originObj && !flowArr) return;
                 var keys = originObj ? Object.keys(originObj).filter(function(k){
                     var n = originObj[k];
-                    return k && typeof n === 'number' && n > 0 && isFinite(n);
+                    return actorCountryName(k) && typeof n === 'number' && n > 0 && isFinite(n);
                 }) : [];
                 var flowRows = flowArr ? flowArr.filter(function(f){
-                    return f && typeof f.origin === 'string' && f.origin && typeof f.target === 'string' && f.target && typeof f.advisories === 'number' && f.advisories > 0;
+                    return f && actorCountryName(f.origin) && actorCountryName(f.target) && typeof f.advisories === 'number' && f.advisories > 0;
                 }) : [];
                 if (!keys.length && !flowRows.length) return;
                 var title = document.getElementById('eicc-heatmap-title');
@@ -2478,8 +2485,8 @@
                 var items = state.feed.items;
                 var origins = {};
                 items.forEach(function(it){
-                    var raw = String(it.actor_country || '').trim();
-                    if (raw && !/^(unknown|unattributed|n\/a|none|null|-)$/i.test(raw)) origins[raw.slice(0,24)] = (origins[raw.slice(0,24)]||0) + 1;
+                    var raw = actorCountryName(it.actor_country);
+                    if (raw) origins[raw.slice(0,24)] = (origins[raw.slice(0,24)]||0) + 1;
                 });
                 var attributed = Object.keys(origins).reduce(function(n,k){ return n + origins[k]; }, 0);
                 var rows, mode;
@@ -4013,8 +4020,8 @@
                 <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:4px;padding:20px;text-align:center;">
                     <p style="font-family:var(--font-mono);font-size:8px;letter-spacing:3px;color:var(--text-muted);margin:0 0 12px 0;">DETECTION RULES</p>
                     <div id="nexus-rules-count" style="font-size:42px;font-weight:900;color:#3b82f6;font-family:var(--font-mono);line-height:1;">&mdash;</div>
-                    <div style="font-family:var(--font-mono);font-size:10px;color:var(--text-muted);margin-top:4px;">SIGMA + YARA + SNORT</div>
-                    <div style="font-family:var(--font-mono);font-size:10px;margin-top:8px;padding:3px 10px;background:rgba(59,130,246,0.08);border-radius:2px;display:inline-block;color:#3b82f6;">AUTO-TUNED</div>
+                    <div id="nexus-rules-kinds" style="font-family:var(--font-mono);font-size:10px;color:var(--text-muted);margin-top:4px;">Rules attached to advisories</div>
+                    <div id="nexus-rules-note" style="font-family:var(--font-mono);font-size:10px;margin-top:8px;padding:3px 10px;background:rgba(59,130,246,0.08);border-radius:2px;display:inline-block;color:#3b82f6;">NOT SYNTHESIZED</div>
                 </div>
             </div>
 
@@ -4337,7 +4344,7 @@
                 <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:4px;padding:14px;text-align:center;">
                     <p style="font-family:var(--font-mono);font-size:8px;letter-spacing:2px;color:#ef4444;margin:0 0 6px 0;">🚨 CRITICAL FINDINGS</p>
                     <p id="bh-critical-count" style="font-size:22px;font-weight:900;color:#ef4444;margin:0;">&mdash;</p>
-                    <p style="font-family:var(--font-mono);font-size:9px;color:var(--text-muted);margin:4px 0 0 0;">BOLA / Cloud / Takeover</p>
+                    <p id="bh-critical-note" style="font-family:var(--font-mono);font-size:9px;color:var(--text-muted);margin:4px 0 0 0;">Latest completed scan</p>
                 </div>
             </div>
             <!-- Bottom: Findings + ROI Grid -->
@@ -4398,22 +4405,22 @@
                     <div style="background:var(--card-bg);border:1px solid var(--border);border-radius:6px;padding:16px;text-align:center;">
                         <p style="font-family:var(--font-mono);font-size:8px;letter-spacing:3px;color:#f472b6;margin:0 0 6px 0;">🚨 INCIDENTS</p>
                         <p id="ts-incident-count" style="font-size:22px;font-weight:900;color:var(--white);margin:0;">&mdash;</p>
-                        <div style="font-size:9px;color:var(--text-muted);font-family:var(--font-mono);margin-top:2px;">Auto-Correlated</div>
+                        <div style="font-size:9px;color:var(--text-muted);font-family:var(--font-mono);margin-top:2px;">Current file only</div>
                     </div>
                     <div style="background:var(--card-bg);border:1px solid var(--border);border-radius:6px;padding:16px;text-align:center;">
                         <p style="font-family:var(--font-mono);font-size:8px;letter-spacing:3px;color:#8b5cf6;margin:0 0 6px 0;">📋 RESPONSE TYPES</p>
                         <p id="ts-playbook-count" style="font-size:22px;font-weight:900;color:var(--white);margin:0;">&mdash;</p>
-                        <div style="font-size:9px;color:var(--text-muted);font-family:var(--font-mono);margin-top:2px;">Recommendation Categories</div>
+                        <div style="font-size:9px;color:var(--text-muted);font-family:var(--font-mono);margin-top:2px;">Current file only</div>
                     </div>
                     <div style="background:var(--card-bg);border:1px solid var(--border);border-radius:6px;padding:16px;text-align:center;">
                         <p style="font-family:var(--font-mono);font-size:8px;letter-spacing:3px;color:#22c55e;margin:0 0 6px 0;">⚡ RESPONSE PROPOSALS</p>
                         <p id="ts-response-count" style="font-size:22px;font-weight:900;color:var(--white);margin:0;">&mdash;</p>
-                        <div style="font-size:9px;color:var(--text-muted);font-family:var(--font-mono);margin-top:2px;">Analyst Review Required</div>
+                        <div style="font-size:9px;color:var(--text-muted);font-family:var(--font-mono);margin-top:2px;">Current file only</div>
                     </div>
                     <div style="background:var(--card-bg);border:1px solid var(--border);border-radius:6px;padding:16px;text-align:center;">
                         <p style="font-family:var(--font-mono);font-size:8px;letter-spacing:3px;color:#f59e0b;margin:0 0 6px 0;">🎯 THREAT HUNTS</p>
                         <p id="ts-hunt-count" style="font-size:22px;font-weight:900;color:var(--white);margin:0;">&mdash;</p>
-                        <div style="font-size:9px;color:var(--text-muted);font-family:var(--font-mono);margin-top:2px;">Proactive Hypotheses</div>
+                        <div style="font-size:9px;color:var(--text-muted);font-family:var(--font-mono);margin-top:2px;">Current file only</div>
                     </div>
                 </div>
 
@@ -5236,7 +5243,7 @@
         </footer>
     </div>
 
-    <script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script src="/js/homepage-dashboard-engine.js?v=1e84556feab0"></script>
+    <script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script src="/js/homepage-dashboard-engine.js?v=4e7950b44c62"></script>
 
     <!-- ── v122.0.0: UPGRADE MODAL ─────────────────────────────────────────── -->
     <div id="upgrade-modal-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.82);z-index:9999;align-items:center;justify-content:center;backdrop-filter:blur(4px);" onclick="if(event.target===this)window.closeUpgradeModal()">
