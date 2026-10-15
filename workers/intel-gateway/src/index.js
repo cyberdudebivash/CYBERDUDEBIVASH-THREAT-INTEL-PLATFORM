@@ -3392,11 +3392,17 @@ export async function handleAdmin(request, env, ctx, path, method) {
     if (rotationAuthority.denied) {
       return jsonResp({ error: "Cannot rotate a denied key or customer; reactivate through the lifecycle status endpoint first" }, 409);
     }
-    if (existing.subscription_status && SUBSCRIPTION_STATUS_DENY_STATES.has(existing.subscription_status)) {
+    // The strong customer record is the subscription authority. KV can still
+    // show the previous deny state after reactivation, and authentication
+    // already ignores that stale copy. Rotation has to do the same, or a
+    // key that still authenticates is refused with 409.
+    const rotationStatus = (rotationAuthority.customerState && rotationAuthority.customerState.status)
+      || existing.subscription_status;
+    if (rotationStatus && SUBSCRIPTION_STATUS_DENY_STATES.has(rotationStatus)) {
       return jsonResp({
-        error: `Cannot rotate a key in '${existing.subscription_status}' status -- reactivate it first via `
+        error: `Cannot rotate a key in '${rotationStatus}' status -- reactivate it first via `
           + `PATCH /api/admin/keys/${oldKey}/status {"subscription_status":"active"} if that is genuinely intended.`,
-        subscription_status: existing.subscription_status,
+        subscription_status: rotationStatus,
       }, 409);
     }
     // provisionApiKey() computes a fresh billing-cycle expiry from now
