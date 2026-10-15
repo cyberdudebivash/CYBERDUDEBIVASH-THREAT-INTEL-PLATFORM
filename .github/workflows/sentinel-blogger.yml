@@ -4147,11 +4147,34 @@ jobs:
         if: ${{ !cancelled() && steps.r2-manifest-integrity.outcome == 'success' && steps.verify-dist.conclusion == 'success' && steps['p0-publisher-verdict'].conclusion == 'success' }}
         run: echo "ts=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
 
+      # A run that started on an older main used to deploy that checkout's
+      # index.html and js with clean:true, replacing a newer pages-fast-publish.
+      # Reports and api/ in dist/ stay from this run. Dashboard code follows
+      # current main when this checkout is behind it.
+      - name: "STAGE 4.9.10 - Dashboard files follow current main"
+        id: dashboard-main
+        if: ${{ !cancelled() && steps.r2-manifest-integrity.outcome == 'success' && steps.verify-dist.conclusion == 'success' && steps['p0-publisher-verdict'].conclusion == 'success' }}
+        run: |
+          git fetch --depth=1 origin +main:refs/remotes/origin/main
+          tip=$(git rev-parse origin/main)
+          echo "this run: $GITHUB_SHA"
+          echo "main tip: $tip"
+          if [ "$tip" = "$GITHUB_SHA" ]; then
+            echo "checkout is main; dist dashboard files stay"
+            exit 0
+          fi
+          if [ ! -d dist ]; then
+            echo "::error::dist/ missing; refusing to overlay"
+            exit 1
+          fi
+          git archive "$tip" index.html _headers service-worker.js js css | tar -x -C dist
+          echo "overlaid dashboard files from $tip into dist/"
+
       - name: "STAGE 5 - Deploy to GitHub Pages"
         # v184.0: deploy only after 5.4.7 verified dist/ integrity — never deploy
         # a broken or incomplete artifact. This gate ensures convergence validator
         # will see a fully-populated gh-pages with all report files.
-        if: ${{ !cancelled() && steps.r2-manifest-integrity.outcome == 'success' && steps.verify-dist.conclusion == 'success' && steps['p0-publisher-verdict'].conclusion == 'success' }}
+        if: ${{ !cancelled() && steps.r2-manifest-integrity.outcome == 'success' && steps.verify-dist.conclusion == 'success' && steps['p0-publisher-verdict'].conclusion == 'success' && steps.dashboard-main.conclusion == 'success' }}
         timeout-minutes: 15
         # v184.8 FIX: was on the floating @v4.8.0 tag -- this job holds
         # pages:write and pushes to gh-pages, so a re-pointed tag would deploy
@@ -4177,7 +4200,7 @@ jobs:
       # actually live" is itself the actionable signal this step exists to surface.
       # -----------------------------------------------------------------------
       - name: "STAGE 5.4.9.1 - GitHub Pages Deployment Freshness Gate (v184.1)"
-        if: ${{ !cancelled() && steps.r2-manifest-integrity.outcome == 'success' && steps.verify-dist.conclusion == 'success' && steps['p0-publisher-verdict'].conclusion == 'success' }}
+        if: ${{ !cancelled() && steps.r2-manifest-integrity.outcome == 'success' && steps.verify-dist.conclusion == 'success' && steps['p0-publisher-verdict'].conclusion == 'success' && steps.dashboard-main.conclusion == 'success' }}
         timeout-minutes: 14
         env:
           PLATFORM_URL: https://intel.cyberdudebivash.com

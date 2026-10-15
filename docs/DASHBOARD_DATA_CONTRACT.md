@@ -43,6 +43,7 @@ Every operational DOM node has one runtime owner
 | AI tracker | `/api/ai/tracker.json`, then the live feed | Probabilities only when the model reports one. `escalation_tracker` risk scores render as `RISK x/10`, never as a percentage. When both are empty and the feed is live, up to 4 current advisories render by measured `risk_score` as `RISK x/10`, labeled measured feed risk, not a model probability. Feed unavailable too: `PREDICTION DATA UNAVAILABLE` |
 | Nexus hunts | Current feed items passed to `renderNexusIntelligence` | Advisories with measured `risk_score` from 7.0 to 10.0, shown as `RISK x/10`. Not a generated hypothesis. None at that threshold: `No advisory at risk 7.0 or above in this feed.` Keyword hunt templates are not used |
 | Hunt / incident / response files | `data/threathunts/hunts.json`, `data/incidents/incidents.json`, `data/responses/response_log.json` | If `generated_at` is present and older than 7 days, the file is not shown as current and template confidence is not displayed. A missing `generated_at` still renders the records the caller passed |
+| Recon critical findings | `data/bughunter/bughunter_output.json` `metrics.critical_findings` | A completed scan newer than 24 hours with a measured 0 shows `0`. It is not a missing collector. Stale scans still say `Re-scan required`. Other recon tiles keep `No observations in scan` for a recent 0 |
 
 ## ATT&CK reference map (attack-tactics/1.1)
 
