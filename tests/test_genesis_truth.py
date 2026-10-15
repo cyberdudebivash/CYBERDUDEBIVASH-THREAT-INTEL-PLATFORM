@@ -151,6 +151,8 @@ def test_homepage_tiles_come_from_the_engine_only():
     for label in ("Feed Sources", "Exploitation", "Detection Rules", "Ransomware & Leaks", "dark-web monitoring not operated"):
         assert label in loader, label
     assert "${esc(val)}" in loader and "${esc(desc)}" in loader
+    assert FRONT.count("getElementById('nexus-rules-count')") == 1
+    assert "else if (g7) paintAttachedRules(null, g7);" in FRONT
 
 
 def test_deprecated_v2_engine_is_not_run():

@@ -5911,6 +5911,33 @@ function renderTopThreats(data) {
                 hunts:     RAW_BASE + 'data/threathunts/hunts.json',
             };
 
+            // Detection rules. One writer of #nexus-rules-count. A nexus pack
+            // counts only when it is rules attached to advisories. Otherwise
+            // the count is GENESIS G07, which does not need the nexus file.
+            function paintAttachedRules(pack, ruleSummary) {
+                const dp = pack || {};
+                const attached = dp.evidence === 'rules_attached_to_advisories' && Number.isSafeInteger(dp.total_rules) && dp.total_rules >= 0 ? dp : null;
+                const fromGenesis = ruleSummary && Number.isSafeInteger(ruleSummary.total_rules) && ruleSummary.total_rules >= 0 ? ruleSummary : null;
+                const rules = attached || fromGenesis;
+                const rulesEl = document.getElementById('nexus-rules-count');
+                const kindsEl = document.getElementById('nexus-rules-kinds');
+                const noteEl = document.getElementById('nexus-rules-note');
+                if (rulesEl && rules) rulesEl.textContent = rules.total_rules.toLocaleString();
+                if (kindsEl) {
+                    if (!rules) kindsEl.textContent = 'No attached-rule count on this cycle';
+                    else {
+                        const bits = [];
+                        const add = (n, label) => { if (Number.isSafeInteger(n) && n > 0) bits.push(n.toLocaleString() + ' ' + label); };
+                        add(rules.sigma_count, 'Sigma');
+                        add(rules.kql_count, 'KQL');
+                        add(rules.suricata_count, 'Suricata');
+                        add(rules.yara_count, 'YARA');
+                        kindsEl.textContent = bits.length ? bits.join(' · ') : 'Rules attached to advisories';
+                    }
+                }
+                if (noteEl) noteEl.textContent = rules ? 'ON ADVISORIES' : 'NOT SYNTHESIZED';
+            }
+
             // ── NEXUS RENDERER ──────────────────────────────────────────────
             function renderNexusEngine(data, ruleSummary) {
                 try {
@@ -5973,29 +6000,7 @@ function renderTopThreats(data) {
                     }
 
                     // Detection Rules Count. Only rules attached to advisories.
-                    // A nexus pack of synthesized Sigma/YARA/Snort text has no
-                    // evidence marker and is not a count. G07 is that count.
-                    const dp = data.detection_pack || {};
-                    const attached = dp.evidence === 'rules_attached_to_advisories' && Number.isSafeInteger(dp.total_rules) && dp.total_rules >= 0 ? dp : null;
-                    const fromGenesis = ruleSummary && Number.isSafeInteger(ruleSummary.total_rules) && ruleSummary.total_rules >= 0 ? ruleSummary : null;
-                    const rules = attached || fromGenesis;
-                    const rulesEl = document.getElementById('nexus-rules-count');
-                    const kindsEl = document.getElementById('nexus-rules-kinds');
-                    const noteEl = document.getElementById('nexus-rules-note');
-                    if (rulesEl && rules) rulesEl.textContent = rules.total_rules.toLocaleString();
-                    if (kindsEl) {
-                        if (!rules) kindsEl.textContent = 'No attached-rule count on this cycle';
-                        else {
-                            const bits = [];
-                            const add = (n, label) => { if (Number.isSafeInteger(n) && n > 0) bits.push(n.toLocaleString() + ' ' + label); };
-                            add(rules.sigma_count, 'Sigma');
-                            add(rules.kql_count, 'KQL');
-                            add(rules.suricata_count, 'Suricata');
-                            add(rules.yara_count, 'YARA');
-                            kindsEl.textContent = bits.length ? bits.join(' · ') : 'Rules attached to advisories';
-                        }
-                    }
-                    if (noteEl) noteEl.textContent = rules ? 'ON ADVISORIES' : 'NOT SYNTHESIZED';
+                    paintAttachedRules(data.detection_pack, ruleSummary);
 
                     // Intel Requirements (PIR)
                     const pirData = data.pir_coverage || {};
@@ -6839,10 +6844,9 @@ function renderTopThreats(data) {
                 // Route each engine output to its renderer \u2014 individual error boundaries
                 const route = (name, fn) => { try { if (results[name]) fn(results[name]); } catch(e) { console.warn('[APEX ENGINE] Render error:', name, e); } };
                 try {
-                    if (results.nexus) {
-                        const g7 = (((results.genesis || {}).engines || {}).G07_DetectionGenerator || {}).summary;
-                        renderNexusEngine(results.nexus, g7);
-                    }
+                    const g7 = (((results.genesis || {}).engines || {}).G07_DetectionGenerator || {}).summary;
+                    if (results.nexus) renderNexusEngine(results.nexus, g7);
+                    else if (g7) paintAttachedRules(null, g7);
                 } catch(e) { console.warn('[APEX ENGINE] Render error:', 'nexus', e); }
                 // v136.0 FIX: Re-run renderNexusIntelligence AFTER renderNexusEngine so computed
                 // intelligence values always take precedence over potentially stale engine JSON.
