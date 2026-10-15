@@ -311,8 +311,8 @@ export function buildIOCDetailBlock(item) {
         <tbody>${rows}</tbody>
       </table>
     </div>
-    ${extraCount > 0 ? `<div style="margin-top:10px;font-size:11px;color:#4b5563;font-family:monospace;">+${extraCount} additional indicators available via <a href="/api/v1/ioc/enriched" style="color:#00d4aa;">/api/v1/ioc/enriched</a> (enriched, 16-field format) or <a href="/api/taxii/" style="color:#a78bfa;">/api/taxii/</a></div>` : ""}
-    <div style="margin-top:10px;padding:8px 12px;background:rgba(0,0,0,.2);border-radius:5px;font-family:monospace;font-size:10px;color:#374151;">Machine-readable: <a href="/api/v1/ioc/enriched" style="color:#00d4aa;">/api/v1/ioc/enriched</a> &nbsp;*&nbsp; STIX 2.1: <a href="/api/taxii/" style="color:#a78bfa;">/api/taxii/</a> &nbsp;*&nbsp; MISP: <a href="/api/misp/export" style="color:#d97706;">/api/misp/export</a> (PRO+)</div>
+    ${extraCount > 0 ? `<div style="margin-top:10px;font-size:11px;color:#4b5563;font-family:monospace;">+${extraCount} additional indicators available via <a href="/api-docs.html#taxii" style="color:#00d4aa;">the API reference</a> (paid). Public discovery: <a href="/taxii/" style="color:#a78bfa;">/taxii/</a></div>` : ""}
+    <div style="margin-top:10px;padding:8px 12px;background:rgba(0,0,0,.2);border-radius:5px;font-family:monospace;font-size:10px;color:#374151;">Public discovery: <a href="/taxii/" style="color:#a78bfa;">/taxii/</a> &nbsp;*&nbsp; Paid STIX collections and Enterprise MISP export: <a href="/api-docs.html#taxii" style="color:#d97706;">API reference</a></div>
   </div>`;
 }
 
@@ -415,7 +415,17 @@ export function buildDetectionBlock(item) {
 // ---------------------------------------------------------------------------
 
 export function buildMitreTechBlock(item) {
-  const ttps = (item.ttps || item.mitre_tactics || item.ttp_names || []).filter(Boolean).slice(0, 12);
+  const raw = (item.ttps || item.mitre_tactics || item.ttp_names || []).filter(Boolean).slice(0, 12);
+  const ttps = raw.map((t) => {
+    if (typeof t === "string") return t.trim();
+    if (t && typeof t === "object") {
+      const id = typeof t.id === "string" ? t.id : (typeof t.technique_id === "string" ? t.technique_id : "");
+      const name = typeof t.tactic === "string" ? t.tactic : (typeof t.name === "string" ? t.name : (typeof t.technique === "string" ? t.technique : ""));
+      if (id && name && id !== name) return `${id} ${name}`.trim();
+      return (id || name || "").trim();
+    }
+    return "";
+  }).filter(Boolean);
   if (ttps.length === 0) return "";
 
   // Known MITRE technique IDs for common TTP names
@@ -435,7 +445,8 @@ export function buildMitreTechBlock(item) {
   };
 
   const chips = ttps.map((ttp, i) => {
-    const techId = MITRE_IDS[ttp] || (ttp.match(/^T\d{4}/) ? ttp.split(" ")[0] : null);
+    const labelText = typeof ttp === "string" ? ttp : "";
+    const techId = MITRE_IDS[labelText] || (labelText.match(/^T[A]?\d{4}/) ? labelText.split(" ")[0] : null);
     const label  = _esc(ttp);
     const url    = techId ? `https://attack.mitre.org/${techId.startsWith("TA") ? "tactics" : "techniques"}/${techId.replace(".","/")}` : `https://attack.mitre.org/techniques/`;
     return `<a href="${url}" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:6px;padding:7px 12px;background:rgba(139,92,246,.1);border:1px solid rgba(139,92,246,.22);border-radius:5px;text-decoration:none;flex-shrink:0;">
