@@ -3374,10 +3374,18 @@ export async function handleAdmin(request, env, ctx, path, method) {
     if (!existing) return jsonResp({ error: "Key not found" }, 404);
     // Rotation must consult the same authoritative deny state as customer
     // authentication. KV may still contain an active record after suspension.
-    const rotationAuthority = await strongAuthStates(
+    let rotationAuthority = await strongAuthStates(
       env, `key:${oldKey}`,
       existing.customer_id ? `customer:${existing.customer_id}` : null
     );
+    // One retry. A single authority blip must not fail a rotation that did
+    // not write. A second failure still refuses to rotate.
+    if (rotationAuthority.unavailable) {
+      rotationAuthority = await strongAuthStates(
+        env, `key:${oldKey}`,
+        existing.customer_id ? `customer:${existing.customer_id}` : null
+      );
+    }
     if (rotationAuthority.unavailable) {
       return jsonResp({ error: "Strong consistency authority unavailable; key was not rotated" }, 503);
     }

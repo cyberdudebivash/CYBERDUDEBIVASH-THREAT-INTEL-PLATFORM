@@ -605,10 +605,31 @@ jobs:
           expect_status "fresh login succeeds again after reactivation within propagation bound" "200" "$FRESH_LOGIN_ST"
 
           echo "--- ROTATED: old key must converge denied and new key allowed within 75s ---"
-          ROTATE_JSON=$(curl -sS -X POST "$BASE/api/admin/keys/$KEY/rotate" -H "X-Admin-Key: $ADMIN_SECRET")
-          NEW_KEY=$(echo "$ROTATE_JSON" | jq -r '.new_key // empty')
+          NEW_KEY=""
+          ROTATE_CODE=""
+          for attempt in 1 2 3; do
+            ROTATE_RAW=$(curl -sS -w "\n%{http_code}" -X POST "$BASE/api/admin/keys/$KEY/rotate" -H "X-Admin-Key: $ADMIN_SECRET" || true)
+            ROTATE_LAST=$(printf '%s\n' "$ROTATE_RAW" | tail -n 1)
+            if printf '%s' "$ROTATE_LAST" | grep -Eq '^[0-9]{3}$'; then
+              ROTATE_CODE="$ROTATE_LAST"
+              ROTATE_JSON=$(printf '%s\n' "$ROTATE_RAW" | sed '$d')
+            else
+              ROTATE_CODE=""
+              ROTATE_JSON="$ROTATE_RAW"
+            fi
+            NEW_KEY=$(printf '%s' "$ROTATE_JSON" | jq -r '.new_key // empty' 2>/dev/null || true)
+            if [ -n "$NEW_KEY" ]; then
+              break
+            fi
+            # 503 is the handler's "did not rotate" response. Any other
+            # status, including a body with no status line, is final.
+            if [ "$ROTATE_CODE" != "503" ]; then
+              break
+            fi
+            sleep 2
+          done
           if [ -z "$NEW_KEY" ]; then
-            echo "FAIL: rotation did not return a new_key"
+            echo "FAIL: rotation did not return a new_key (HTTP ${ROTATE_CODE:-none})"
             FAIL=1
           else
             echo "PASS: rotation returned a new key"
