@@ -13,6 +13,7 @@ const SELLER_SURFACES = Object.freeze([
   'user-test-kit.html',
   'contact-enterprise.html',
   'workers/intel-gateway/src/enterprise-endpoints.js',
+  'workers/intel-gateway/src/index.js',
   'api/enterprise.py',
   'scripts/demo_key_generator.py',
 ]);
@@ -46,4 +47,12 @@ test('all six dashboard sales-kit inquiry CTAs use the approved customer contact
   const matches = [...html.matchAll(/href="mailto:contact@cyberdudebivash\.in\?subject=[^"]+"/g)];
   assert.ok(matches.length >= 6, 'dashboard sales-kit CTAs must use canonical contact');
   assert.ok(!html.includes('mailto:enterprise@cyberdudebivash.com'));
+});
+
+test('SSO error and enterprise configuration messages never point customers to retired mailboxes', () => {
+  const gateway = repoFile('workers/intel-gateway/src/index.js');
+  for (const old of RETIRED) assert.ok(!gateway.includes(old), 'retired SSO support contact remains: ' + old);
+  assert.match(gateway, /sign-in is not yet configured\. Contact contact@cyberdudebivash\.in/);
+  assert.match(gateway, /Single Sign-On yet\. Contact contact@cyberdudebivash\.in/);
+  assert.match(gateway, /Single Sign-On setup is incomplete\. Contact contact@cyberdudebivash\.in/);
 });
