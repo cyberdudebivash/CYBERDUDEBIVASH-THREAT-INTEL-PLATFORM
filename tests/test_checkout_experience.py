@@ -192,3 +192,20 @@ def test_billing_copy_matches_the_implementation():
     assert "GET 30-DAY PRO ACCESS" not in pricing
     ep = (REPO / "enterprise-pricing.html").read_text(encoding="utf-8")
     assert "EMI" not in _visible(ep) and "issued automatically for every paid plan" not in ep
+
+
+# P0 (2026-10-16): the checkout seller/legal sidebar, support contact,
+# public marketing pages and API documentation must use the current inbox.
+def test_customer_facing_seller_contact_is_canonical_across_shipped_pages():
+    current = "contact@cyberdudebivash.in"
+    retired = "enterprise" + "@cyberdudebivash.com"
+    seller = re.search(r'<div class="contact-card">([\\s\\S]*?)</div>', UPGRADE)
+    assert seller and "Seller" in seller.group(1)
+    assert f'href="mailto:{current}"' in seller.group(1)
+    assert retired not in UPGRADE
+    assert UPGRADE.count(f"mailto:{current}") >= 3
+    for path in _shipped_pages():
+        page = path.read_text(encoding="utf-8", errors="replace")
+        assert retired not in page, f"Retired customer-facing inbox in {path.relative_to(REPO)}"
+    for path in (REPO / "docs").rglob("*.html"):
+        assert retired not in path.read_text(encoding="utf-8", errors="replace"), str(path)
