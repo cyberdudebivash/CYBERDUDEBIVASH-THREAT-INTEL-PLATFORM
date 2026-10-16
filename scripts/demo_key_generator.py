@@ -125,7 +125,7 @@ def generate_demo_key(
             "feed_endpoint":  "GET https://intel.cyberdudebivash.com/api/feed.json",
             "health_endpoint":"GET https://intel.cyberdudebivash.com/api/health",
             "docs_url":       "https://intel.cyberdudebivash.com/api",
-            "warning":        f"This demo key expires in {hours}h. Contact enterprise@cyberdudebivash.in to upgrade.",
+            "warning":        f"This demo key expires in {hours}h. Contact contact@cyberdudebivash.in to upgrade.",
         },
     }
 
