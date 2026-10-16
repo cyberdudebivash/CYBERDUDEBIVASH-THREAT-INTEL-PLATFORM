@@ -4173,11 +4173,34 @@ jobs:
           git archive "$tip" index.html _headers service-worker.js js css | tar -x -C dist
           echo "overlaid dashboard files from $tip into dist/"
 
+      # Checkout pages are fixed and checked BEFORE the pages push. The old
+      # order ran this gate after gh-pages was already updated, so a bad
+      # payment page was already live when the job went red.
+      - name: "STAGE 5.7-PRE - HTML Encoding Auto-Fix (pre-flight)"
+        if: ${{ !cancelled() && steps.r2-manifest-integrity.outcome == 'success' && steps.verify-dist.conclusion == 'success' && steps['p0-publisher-verdict'].conclusion == 'success' && steps.dashboard-main.conclusion == 'success' }}
+        timeout-minutes: 5
+        run: |
+          python3 scripts/fix_all_html_encoding.py
+          # index.html in dist/ is the main-tip overlay and is not replaced.
+          for f in upgrade.html PAYMENT-GATEWAY.html pricing.html store.html services.html; do
+            if [ -f "$f" ] && [ -f "dist/$f" ]; then
+              cp "$f" "dist/$f"
+            fi
+          done
+
+      - name: "STAGE 5.7 - Monetization Integrity Gate (HARD FAIL)"
+        id: monetization-gate
+        if: ${{ !cancelled() && steps.r2-manifest-integrity.outcome == 'success' && steps.verify-dist.conclusion == 'success' && steps['p0-publisher-verdict'].conclusion == 'success' && steps.dashboard-main.conclusion == 'success' }}
+        timeout-minutes: 5
+        env:
+          MONETIZATION_PAGE_ROOT: dist
+        run: python3 scripts/validate_monetization.py
+
       - name: "STAGE 5 - Deploy to GitHub Pages"
         # v184.0: deploy only after 5.4.7 verified dist/ integrity — never deploy
         # a broken or incomplete artifact. This gate ensures convergence validator
         # will see a fully-populated gh-pages with all report files.
-        if: ${{ !cancelled() && steps.r2-manifest-integrity.outcome == 'success' && steps.verify-dist.conclusion == 'success' && steps['p0-publisher-verdict'].conclusion == 'success' && steps.dashboard-main.conclusion == 'success' }}
+        if: ${{ !cancelled() && steps.r2-manifest-integrity.outcome == 'success' && steps.verify-dist.conclusion == 'success' && steps['p0-publisher-verdict'].conclusion == 'success' && steps.dashboard-main.conclusion == 'success' && steps.monetization-gate.conclusion == 'success' }}
         timeout-minutes: 15
         # v184.8 FIX: was on the floating @v4.8.0 tag -- this job holds
         # pages:write and pushes to gh-pages, so a re-pointed tag would deploy
@@ -4350,32 +4373,7 @@ jobs:
         timeout-minutes: 3
         run: python3 scripts/certification_feed_guard.py
 
-      # -----------------------------------------------------------------------
-      # STAGE 5.7-PRE: HTML ENCODING AUTO-FIX (v184.0 -- HARD FAIL)
-      # Runs fix_all_html_encoding.py BEFORE the integrity gate so that any
-      # mojibake, BOM, or double-encoded sequences are eliminated before
-      # validate_monetization.py runs.  Idempotent -- safe to run every deploy.
-      # -----------------------------------------------------------------------
-      - name: "STAGE 5.7-PRE - HTML Encoding Auto-Fix (pre-flight)"
-        if: always()  # v184.0: must run even when upstream stages fail/cancel
-        timeout-minutes: 5
-        run: python3 scripts/fix_all_html_encoding.py
-
-      # -----------------------------------------------------------------------
-      # STAGE 5.7: MONETIZATION INTEGRITY GATE (v184.0 -- HARD FAIL)
-      # Validates all payment pages, real credentials, CTAs, encoding.
-      # Blocks deploy if: BOM present, junk chars, wrong/placeholder UPI IDs,
-      # wrong crypto wallet, missing NEFT details, broken payment links,
-      # mojibake in ANY HTML file (18-file sweep).
-      # Ensures 100% payment + encoding integrity on every deploy.
-      # v184.0: if:always() -- MONETIZATION GATE MUST NEVER BE SKIPPED.
-      # -----------------------------------------------------------------------
-      - name: "STAGE 5.7 - Monetization Integrity Gate (HARD FAIL)"
-        if: always()  # v184.0: monetization integrity must run on EVERY pipeline execution
-        timeout-minutes: 5
-        run: python3 scripts/validate_monetization.py
-
-      # -----------------------------------------------------------------------
+      # STAGE 5.7 now runs before the pages deploy. It is not repeated here.
 
       # -----------------------------------------------------------------------
       # STAGE 5.7.1 - MANIFEST INTEGRITY GATE (Phase 1B — NON-BLOCKING)

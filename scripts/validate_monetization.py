@@ -53,6 +53,28 @@ from fix_all_html_encoding import MOJIBAKE_TRIPLES
 import homepage_source as _homepage_source  # index.html + extracted assets (2026-09-26)  # noqa: E402
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parent.parent
+# The pages deploy publishes dist/. When this is set, checkout-page checks
+# read that artifact, which is what customers will receive. Unset, the gate
+# checks the repository root, as before.
+_page_root = os.environ.get("MONETIZATION_PAGE_ROOT", "").strip()
+PAGE_ROOT = pathlib.Path(_page_root) if _page_root else REPO_ROOT
+if not PAGE_ROOT.is_absolute():
+    PAGE_ROOT = REPO_ROOT / PAGE_ROOT
+
+
+def page_file(name: str) -> pathlib.Path:
+    """Checkout page as it will be published. Fall back to the repo copy."""
+    candidate = PAGE_ROOT / name
+    if PAGE_ROOT != REPO_ROOT and not candidate.is_file():
+        return REPO_ROOT / name
+    return candidate
+
+
+def published_html_files() -> list:
+    files = sorted(PAGE_ROOT.glob("*.html"))
+    if files or PAGE_ROOT == REPO_ROOT:
+        return files
+    return sorted(REPO_ROOT.glob("*.html"))
 
 ERRORS   = []
 WARNINGS = []
@@ -149,7 +171,7 @@ PLACEHOLDER_BTC      = b"bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh"   # fake BT
 
 def validate_upgrade_html() -> None:
     fname = "upgrade.html"
-    path  = REPO_ROOT / fname
+    path  = page_file(fname)
     print(f"\n--- {fname} ---")
     if not path.exists():
         fail(f"{fname}: FILE NOT FOUND -- critical monetization asset missing")
@@ -216,7 +238,7 @@ def validate_payment_gateway() -> None:
     credential ever reappears here.
     """
     fname = "PAYMENT-GATEWAY.html"
-    path  = REPO_ROOT / fname
+    path  = page_file(fname)
     print(f"\n--- {fname} ---")
     if not path.exists():
         fail(f"{fname}: FILE NOT FOUND -- redirect page missing, dozens of inbound links would 404")
@@ -250,7 +272,7 @@ def validate_payment_gateway() -> None:
 
 def validate_pricing_html() -> None:
     fname = "pricing.html"
-    path  = REPO_ROOT / fname
+    path  = page_file(fname)
     print(f"\n--- {fname} ---")
     if not path.exists():
         fail(f"{fname}: FILE NOT FOUND")
@@ -291,7 +313,7 @@ def validate_pricing_html() -> None:
 
 def validate_store_html() -> None:
     fname = "store.html"
-    path  = REPO_ROOT / fname
+    path  = page_file(fname)
     print(f"\n--- {fname} ---")
     if not path.exists():
         fail(f"{fname}: FILE NOT FOUND")
@@ -316,7 +338,7 @@ def validate_store_html() -> None:
 
 def validate_services_html() -> None:
     fname = "services.html"
-    path  = REPO_ROOT / fname
+    path  = page_file(fname)
     print(f"\n--- {fname} ---")
     if not path.exists():
         fail(f"{fname}: FILE NOT FOUND")
@@ -341,7 +363,7 @@ def validate_services_html() -> None:
 
 def validate_index_html() -> None:
     fname = "index.html"
-    path  = REPO_ROOT / fname
+    path  = page_file(fname)
     print(f"\n--- {fname} ---")
     if not path.exists():
         fail(f"{fname}: FILE NOT FOUND")
@@ -457,7 +479,7 @@ def validate_feed_manifest() -> None:
 def validate_all_html_bom() -> None:
     """v149.1: BOM check on ALL HTML files in repo root -- zero tolerance."""
     print(f"\n--- BOM scan: ALL HTML files ---")
-    html_files = sorted(REPO_ROOT.glob("*.html"))
+    html_files = published_html_files()
     bom_found = []
     for f in html_files:
         try:
@@ -478,7 +500,7 @@ def validate_all_html_encoding() -> None:
         (b"\xef\xbb\xbf", "BOM"),
     ]
     print(f"\n--- Encoding scan: ALL HTML files ---")
-    html_files = sorted(REPO_ROOT.glob("*.html"))
+    html_files = published_html_files()
     dirty = []
     for f in html_files:
         try:
