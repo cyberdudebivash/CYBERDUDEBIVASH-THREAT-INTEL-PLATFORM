@@ -27,7 +27,7 @@ import logging
 import os
 import re
 import sys
-import urllib.request
+import http.client
 import urllib.parse
 from html import escape
 from datetime import datetime, timezone, timedelta
@@ -410,15 +410,31 @@ def _send_telegram(brief: Dict) -> None:
         f"📖 Full brief: {PLATFORM_URL}/weekly-brief.html\n"
         f"🔑 Get detection rules: {PLATFORM_URL}/upgrade.html"
     )
-    url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
+    # P0: fixed HTTPS authority for bot delivery. A general URL opener
+    # accepts arbitrary schemes/hosts (Bandit B310); the Telegram API has
+    # exactly one approved outbound destination. Never interpolate the token
+    # into a URL authority or log it on failed requests.
+    if not re.fullmatch(r"[0-9]{5,20}:[A-Za-z0-9_-]{25,}", TELEGRAM_TOKEN):
+        log.warning("[TELEGRAM] Invalid token format; delivery withheld")
+        return
+    token = urllib.parse.quote(TELEGRAM_TOKEN, safe=":")
     payload = json.dumps({"chat_id": TELEGRAM_CHAT, "text": msg, "parse_mode": "HTML"}).encode()
+    conn = http.client.HTTPSConnection("api.telegram.org", timeout=15)
     try:
-        req = urllib.request.Request(url, data=payload,
-                                      headers={"Content-Type": "application/json"})
-        with urllib.request.urlopen(req, timeout=15) as resp:
-            log.info("[TELEGRAM] Sent successfully: %d", resp.status)
+        conn.request(
+            "POST", f"/bot{token}/sendMessage", body=payload,
+            headers={"Content-Type": "application/json"},
+        )
+        resp = conn.getresponse()
+        resp.read(4096)
+        if resp.status != 200:
+            log.warning("[TELEGRAM] API returned HTTP %d", resp.status)
+            return
+        log.info("[TELEGRAM] Sent successfully: %d", resp.status)
     except Exception as e:
-        log.warning("[TELEGRAM] Failed: %s", e)
+        log.warning("[TELEGRAM] Failed (%s)", type(e).__name__)
+    finally:
+        conn.close()
 
 
 def _atomic_write(path: Path, data) -> None:
