@@ -133,7 +133,7 @@ test("missing confidence stays empty, explicit zero stays zero, invalid limits c
   assert.equal(response.status, 200);
   assert.equal(response.headers.get("x-record-count"), "2");
   const csv = await response.text();
-  assert.match(csv, /domain,unscored\\.invalid,,advisory-123/);
-  assert.match(csv, /ipv4,192\\.0\\.2\\.8,0,advisory-123/);
-  assert.doesNotMatch(csv, /,0\\.7,/);
+  assert.match(csv, /domain,unscored\.invalid,,advisory-123/);
+  assert.match(csv, /ipv4,192\.0\.2\.8,0,advisory-123/);
+  assert.doesNotMatch(csv, /,0\.7,/);
 });
