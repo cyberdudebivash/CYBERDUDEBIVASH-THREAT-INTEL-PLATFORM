@@ -1057,6 +1057,44 @@ export async function handleCorrelate(request, env, auth, rid) {
   }
 }
 
+// The canonical correlation route is paid and returns (stix_id || id).
+// Its downstream IR and exposure specialists must look up the SAME paid
+// report, never the anonymous latest.json projection or stale public KV cache.
+// Call ONLY after enforceScopeMiddleware('read:intel') succeeds.
+async function resolvePaidCorrelatedReport(env, reportId) {
+  const obj = await env?.INTEL_R2?.get("api/v1/intel/latest_pro.json");
+  if (!obj) return { status: "unavailable" };
+  const manifest = await obj.json();
+  if (!Array.isArray(manifest?.items) || !manifest.items.length) {
+    return { status: "unavailable" };
+  }
+  const item = manifest.items.find(r =>
+    r && typeof r === "object" &&
+    (r.id === reportId || r.stix_id === reportId)
+  );
+  if (!item) return { status: "not_found" };
+
+  // Publisher enrichments may contain malformed optional elements. Preserve
+  // source evidence when usable; do not invent TTPs, CVEs, IOCs or exposure.
+  const strings = v => Array.isArray(v) ? v.filter(x => typeof x === "string") : [];
+  const ttps = Array.isArray(item.ttps)
+    ? item.ttps.map(x => typeof x === "string" ? x :
+      (x && typeof x === "object" ? String(x.technique_id || x.id || "") : "")).filter(Boolean)
+    : [];
+  return {
+    status: "ok",
+    item: {
+      ...item,
+      iocs: Array.isArray(item.iocs) ? item.iocs.filter(i => i && typeof i === "object") : [],
+      tags: strings(item.tags),
+      ttps,
+      mitre_tactics: strings(item.mitre_tactics),
+      cve_ids: strings(item.cve_ids),
+      cve: strings(item.cve),
+    },
+  };
+}
+
 // =============================================================================
 // ENDPOINT: GET /api/intel/ir-guidance?report_id=<id>
 // Incident-response guidance for one previously-correlated report. Reuses
@@ -1077,11 +1115,10 @@ export async function handleIRGuidance(request, env, auth, rid) {
   }
 
   try {
-    const index = await fetchReportsIndexExt(env);
-    if (!index?.reports?.length) return extJson({ error: "feed_unavailable" }, 503);
-
-    const item = index.reports.find((r) => (r.stix_id || r.id) === reportId);
-    if (!item) return extJson({ error: "report_not_found", request_id: rid }, 404);
+    const resolved = await resolvePaidCorrelatedReport(env, reportId);
+    if (resolved.status === "unavailable") return extJson({ error: "paid_report_unavailable", request_id: rid }, 503);
+    if (resolved.status !== "ok") return extJson({ error: "report_not_found", request_id: rid }, 404);
+    const item = resolved.item;
 
     const severity = String(item.severity || "UNKNOWN").toUpperCase();
     const kev = !!(item.kev_present || item.kev);
@@ -1103,7 +1140,7 @@ export async function handleIRGuidance(request, env, auth, rid) {
       request_id: rid,
     });
   } catch (e) {
-    return extJson({ error: "ir_guidance_failed", message: e.message, request_id: rid }, 500);
+    return extJson({ error: "ir_guidance_failed", request_id: rid }, 500);
   }
 }
 
@@ -1126,11 +1163,10 @@ export async function handleExposureAnalysis(request, env, auth, rid) {
   }
 
   try {
-    const index = await fetchReportsIndexExt(env);
-    if (!index?.reports?.length) return extJson({ error: "feed_unavailable" }, 503);
-
-    const item = index.reports.find((r) => (r.stix_id || r.id) === reportId);
-    if (!item) return extJson({ error: "report_not_found", request_id: rid }, 404);
+    const resolved = await resolvePaidCorrelatedReport(env, reportId);
+    if (resolved.status === "unavailable") return extJson({ error: "paid_report_unavailable", request_id: rid }, 503);
+    if (resolved.status !== "ok") return extJson({ error: "report_not_found", request_id: rid }, 404);
+    const item = resolved.item;
 
     const { dims, exposed, criticalDims } = _deriveExposure(item);
     return extJson({
@@ -1146,7 +1182,7 @@ export async function handleExposureAnalysis(request, env, auth, rid) {
       request_id: rid,
     });
   } catch (e) {
-    return extJson({ error: "exposure_analysis_failed", message: e.message, request_id: rid }, 500);
+    return extJson({ error: "exposure_analysis_failed", request_id: rid }, 500);
   }
 }
 
