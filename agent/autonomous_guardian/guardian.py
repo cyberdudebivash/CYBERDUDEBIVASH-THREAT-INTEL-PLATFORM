@@ -202,14 +202,14 @@ def git_configure():
 
 def fix_git_pull_abort(context: dict) -> dict:
     """Fix: stage all subdirectory writes before pull. Verify STAGE 3 in sentinel-blogger."""
-    log("[FIX] fix_git_pull_abort: verifying git add coverage in sentinel-blogger.yml")
+    log("[FIX] fix_git_pull_abort: verifying git add coverage in sentinel-apex.yml")
     
-    wf_path = REPO_ROOT / ".github/workflows/sentinel-blogger.yml"
+    wf_path = REPO_ROOT / ".github/workflows/sentinel-apex.yml"
     content = wf_path.read_text()
     
     # Check if fix is already applied
     if "git add data/ 2>/dev/null || true" in content:
-        return {"applied": False, "reason": "Fix already present in sentinel-blogger.yml"}
+        return {"applied": False, "reason": "Fix already present in sentinel-apex.yml"}
     
     # Apply fix
     old = "git add data/*.json 2>/dev/null || true"

@@ -55,7 +55,7 @@ Constitution, Proof Before Change):
                              file:line citations and one live, public,
                              self-contradicting report page (cited above).
   Risk classification         MEDIUM. Backend content-generation pipeline
-                             (sentinel-blogger.yml), 16 downstream consumers
+                             (sentinel-apex.yml), 16 downstream consumers
                              of exploit_maturity verified to only check
                              value membership (no distribution/count
                              assertions broken by values becoming more

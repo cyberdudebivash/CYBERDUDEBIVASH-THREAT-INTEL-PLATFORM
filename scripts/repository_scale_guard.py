@@ -31,7 +31,7 @@ EXIT CODES:
   1 = Hard governance violation detected (fetch-depth: 0, critical bloat, etc.)
 
 INTEGRATION:
-  Called by sentinel-blogger.yml as a pre-pipeline governance check.
+  Called by sentinel-apex.yml as a pre-pipeline governance check.
   Non-blocking by default (exit 0 even on warnings) unless SCALE_GUARD_HARD_FAIL=1.
 
 (c) 2026 CyberDudeBivash Pvt. Ltd. All Rights Reserved. CONFIDENTIAL.
@@ -171,9 +171,9 @@ def _git_log_count(branch: str = "HEAD", max_count: int = 10000) -> Optional[int
 
 def check_fetch_depth() -> None:
     log.info("Check 1: fetch-depth regression guard")
-    sentinel = WORKFLOWS_DIR / "sentinel-blogger.yml"
+    sentinel = WORKFLOWS_DIR / "sentinel-apex.yml"
     if not sentinel.exists():
-        _warn("FETCH_DEPTH_NO_WORKFLOW", "sentinel-blogger.yml not found — cannot verify fetch-depth")
+        _warn("FETCH_DEPTH_NO_WORKFLOW", "sentinel-apex.yml not found — cannot verify fetch-depth")
         return
 
     content = sentinel.read_text(encoding="utf-8", errors="replace")
@@ -181,17 +181,17 @@ def check_fetch_depth() -> None:
     if "fetch-depth: 0" in content:
         _violation(
             "FETCH_DEPTH_REGRESSION",
-            "sentinel-blogger.yml uses fetch-depth: 0 (full-history clone)",
+            "sentinel-apex.yml uses fetch-depth: 0 (full-history clone)",
             "Full-history checkout inflates CI by 60-90s and downloads all branch/tag objects. "
             "Restore fetch-depth: 1 immediately. T20 regression guard will block deployment."
         )
     elif "fetch-depth: 1" in content:
-        _ok("fetch-depth: 1 confirmed in sentinel-blogger.yml (shallow clone)")
+        _ok("fetch-depth: 1 confirmed in sentinel-apex.yml (shallow clone)")
         METRICS["fetch_depth_compliant"] = True
     else:
         _warn(
             "FETCH_DEPTH_UNSET",
-            "sentinel-blogger.yml has no explicit fetch-depth setting",
+            "sentinel-apex.yml has no explicit fetch-depth setting",
             "Default is fetch-depth: 0 (full history). Add fetch-depth: 1 explicitly."
         )
         METRICS["fetch_depth_compliant"] = False
@@ -575,7 +575,7 @@ It points to the LOCAL pre-reset commit, which is in the shallow object store re
 fetch depth. `git checkout ORIG_HEAD -- reports/` is fully safe with `fetch-depth: 1`.
 
 **Enforcement:** T20_safe_push_ps1_deployed in regression_tests.py hard-fails if
-`fetch-depth: 0` appears anywhere in sentinel-blogger.yml.
+`fetch-depth: 0` appears anywhere in sentinel-apex.yml.
 
 ### Selective Deep Fetch Policy
 

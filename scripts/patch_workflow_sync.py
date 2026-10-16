@@ -2,7 +2,7 @@
 """
 SENTINEL APEX v72.0 — Workflow Sync Marker Patcher
 ====================================================
-Patches sentinel-blogger.yml to call scripts/update_sync_marker.sh
+Patches sentinel-apex.yml to call scripts/update_sync_marker.sh
 AFTER the main commit+push stage, ensuring sync_marker.json stays fresh.
 
 Idempotent — detects if already patched.
@@ -16,7 +16,7 @@ import shutil
 from datetime import datetime
 
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-WORKFLOW = os.path.join(REPO_ROOT, ".github", "workflows", "sentinel-blogger.yml")
+WORKFLOW = os.path.join(REPO_ROOT, ".github", "workflows", "sentinel-apex.yml")
 
 ALREADY_PATCHED_MARKERS = [
     "update_sync_marker.sh",
@@ -104,7 +104,7 @@ def main():
                 print(f"[PATCH] Inserting at end of workflow")
         else:
             print("[PATCH] ERROR: Cannot find suitable insertion point")
-            print("[PATCH] Please manually add this step to sentinel-blogger.yml:")
+            print("[PATCH] Please manually add this step to sentinel-apex.yml:")
             print(SYNC_STEP)
             sys.exit(1)
     
@@ -114,7 +114,7 @@ def main():
     with open(WORKFLOW, "w", encoding="utf-8") as f:
         f.write(new_content)
     
-    print(f"[PATCH] sentinel-blogger.yml patched successfully")
+    print(f"[PATCH] sentinel-apex.yml patched successfully")
     print(f"[PATCH] sync_marker.json will now update on every pipeline run")
     print("=" * 60)
 

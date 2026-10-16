@@ -135,7 +135,7 @@ def main():
     print("  ACTION: check the 'pages build and deployment' run for this commit in the Actions tab.")
     print("  Known failure mode (see TITAN_PAGES_DEPLOYMENT_INCIDENT_2026-08-06.md): it gets stuck")
     print("  in 'deployment_queued' and times out without publishing. This is usually transient --")
-    print("  the next scheduled/triggered sentinel-blogger.yml run typically succeeds once GitHub's")
+    print("  the next scheduled/triggered sentinel-apex.yml run typically succeeds once GitHub's")
     print("  Pages backend catches up. Investigate only if this recurs across multiple consecutive")
     print("  runs.")
     return 1

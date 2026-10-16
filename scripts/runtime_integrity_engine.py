@@ -23,7 +23,7 @@ HARD FAIL CONDITIONS:
   4. PIPELINE_ZERO_OUTPUT gate detected as active (banned architecture)
   5. Blacklisted commit detected in ancestry
 
-USAGE (from sentinel-blogger.yml or standalone):
+USAGE (from sentinel-apex.yml or standalone):
   python3 scripts/runtime_integrity_engine.py
   python3 scripts/runtime_integrity_engine.py --check-blacklist
   python3 scripts/runtime_integrity_engine.py --runtime-seconds 800
@@ -97,10 +97,10 @@ def _version_tuple(v: str) -> tuple:
 
 
 def check_pipeline_version() -> tuple[bool, str]:
-    """Verify PIPELINE_VERSION in sentinel-blogger.yml is >= baseline."""
-    workflow_path = REPO_ROOT / ".github" / "workflows" / "sentinel-blogger.yml"
+    """Verify PIPELINE_VERSION in sentinel-apex.yml is >= baseline."""
+    workflow_path = REPO_ROOT / ".github" / "workflows" / "sentinel-apex.yml"
     if not workflow_path.exists():
-        return False, "sentinel-blogger.yml not found"
+        return False, "sentinel-apex.yml not found"
 
     content = workflow_path.read_text(encoding="utf-8")
     for line in content.splitlines():
@@ -119,12 +119,12 @@ def check_pipeline_version() -> tuple[bool, str]:
                 log.info("[version-check] PIPELINE_VERSION=%s >= baseline %s: PASS",
                          version, BASELINE_PIPELINE_VERSION)
                 return True, f"PIPELINE_VERSION {version} OK"
-    return False, "PIPELINE_VERSION not found in sentinel-blogger.yml"
+    return False, "PIPELINE_VERSION not found in sentinel-apex.yml"
 
 
 def check_banned_patterns() -> tuple[bool, list[str]]:
     """Scan workflow for architecturally banned patterns."""
-    workflow_path = REPO_ROOT / ".github" / "workflows" / "sentinel-blogger.yml"
+    workflow_path = REPO_ROOT / ".github" / "workflows" / "sentinel-apex.yml"
     if not workflow_path.exists():
         return True, []  # Can't check, don't block
 

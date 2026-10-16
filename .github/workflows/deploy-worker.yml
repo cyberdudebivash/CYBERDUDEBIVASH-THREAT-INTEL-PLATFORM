@@ -182,9 +182,9 @@ jobs:
       - name: "GATE 3/4 a' API Dashboard Contract Validator (HARD FAIL on mismatch)"
         run: python3 scripts/api_dashboard_contract_validator.py
 
-      # Mirrors sentinel-blogger.yml's STAGE 5.6.0 (same script, same purpose):
+      # Mirrors sentinel-apex.yml's STAGE 5.6.0 (same script, same purpose):
       # api/feed.json (enriched through 15+ pipeline stages) and root feed.json
-      # naturally drift apart between ingestion cycles. sentinel-blogger.yml
+      # naturally drift apart between ingestion cycles. sentinel-apex.yml
       # already treats this sync as a mandatory pre-check step ("must never be
       # removed") for the exact same regression_immunity.py Check 4 this
       # workflow also runs. deploy-worker.yml was missing that step, so any
@@ -193,7 +193,7 @@ jobs:
       # Transient only: this workflow has no git commit/push step, so the
       # sync never touches the committed feed.json -- it only makes this
       # run's in-runner copy consistent before the gate below reads it.
-      - name: "Feed Sync Gate (mirrors sentinel-blogger.yml STAGE 5.6.0)"
+      - name: "Feed Sync Gate (mirrors sentinel-apex.yml STAGE 5.6.0)"
         run: python3 scripts/feed_sync_gate.py
 
       - name: "GATE 4/4 a' Regression Immunity System (HARD FAIL on regression)"

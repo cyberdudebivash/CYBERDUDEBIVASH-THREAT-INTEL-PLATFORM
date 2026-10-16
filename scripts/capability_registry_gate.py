@@ -53,7 +53,7 @@ WHAT THIS DOES NOT DO
 - Does not re-derive dynamic/static classification itself -- reads
   data/quality/frontend_api_coverage_report.json (regenerate it first via
   scripts/frontend_api_coverage_gate.py, which CI already runs one stage
-  earlier in sentinel-blogger.yml -- Single Source of Truth, this script
+  earlier in sentinel-apex.yml -- Single Source of Truth, this script
   is not a second heuristic).
 - Does not classify NEW capabilities on its own. A human (or a future
   PR) adding a page must also add a data/quality/frontend_capability_registry.json

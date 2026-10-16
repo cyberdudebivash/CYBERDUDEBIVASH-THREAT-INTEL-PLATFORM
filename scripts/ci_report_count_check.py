@@ -3,7 +3,7 @@
 scripts/ci_report_count_check.py
 SENTINEL APEX v141.7.0 -- CI Post-pipeline Report Count Gate
 =============================================================
-Called from STAGE 5.4 in sentinel-blogger.yml.
+Called from STAGE 5.4 in sentinel-apex.yml.
 Verifies reports/ directory has at least 1 HTML report after pipeline execution.
 Prevents deploying a zero-report GitHub Pages site.
 

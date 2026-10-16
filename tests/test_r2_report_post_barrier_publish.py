@@ -7,7 +7,7 @@ Production run: STAGE 3.5a (scripts/r2_report_publisher.py) published the
 2 reports rendered at that point. The feed then grew to 21 in-window items,
 and STAGE 5.4.0b (Report Continuity Final Barrier) rendered the other 19
 with --upload-r2. That uploader reads CF_R2_ENDPOINT, which
-sentinel-blogger.yml never sets, so it logged r2_uploaded=0 r2_failed=19
+sentinel-apex.yml never sets, so it logged r2_uploaded=0 r2_failed=19
 without trying a single PUT. /reports/YYYY/MM/<id>.html then served the
 Worker's uncertified fallback (~8s) for 21 of 28 live reports.
 
@@ -42,7 +42,7 @@ from unittest import mock
 import yaml
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-WORKFLOW_PATH = REPO_ROOT / ".github" / "workflows" / "sentinel-blogger.yml"
+WORKFLOW_PATH = REPO_ROOT / ".github" / "workflows" / "sentinel-apex.yml"
 sys.path.insert(0, str(REPO_ROOT / "scripts"))
 
 import r2_report_publisher as pub  # noqa: E402

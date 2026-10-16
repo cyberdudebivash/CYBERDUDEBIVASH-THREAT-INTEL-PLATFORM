@@ -23,7 +23,7 @@ Monetization:
   Enterprise: full graph + pivot queries + actor correlation
   MSSP:       tenant-namespaced graph subsets
 
-Stage 3.4.10 in sentinel-blogger.yml (after apex_v2, before R2 upload)
+Stage 3.4.10 in sentinel-apex.yml (after apex_v2, before R2 upload)
 continue-on-error: true — non-blocking
 """
 from __future__ import annotations

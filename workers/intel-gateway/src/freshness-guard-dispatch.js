@@ -3,7 +3,7 @@
 //
 // Why (P0 2026-09-30, C04): /api/health answered 503 at 15:06Z because the
 // public feed was 7h15m old (contract 6h, config/public_freshness_contract.
-// json). The publisher (sentinel-blogger.yml) and its self-heal
+// json). The publisher (sentinel-apex.yml) and its self-heal
 // (intel-freshness-guard.yml, cron every 30 min) both depend on GitHub
 // cron, and GitHub delivers this repository's schedules roughly every
 // 2.4-8.5 hours (guard: ~5 runs/day for 48 scheduled; SLA heartbeat: ~5 of

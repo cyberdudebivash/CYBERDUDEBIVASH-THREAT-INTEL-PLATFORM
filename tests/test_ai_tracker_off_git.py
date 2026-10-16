@@ -7,7 +7,7 @@ Root cause (from #274's investigation): generate-and-sync.yml's
 `git push origin main` for these files has been failing on every scheduled
 run since main started requiring PRs, silently (continue-on-error), freezing
 whatever copy was committed before that. Meanwhile the real serving path --
-R2, uploaded independently by both sentinel-blogger.yml's r2_upload.py and
+R2, uploaded independently by both sentinel-apex.yml's r2_upload.py and
 generate-and-sync.yml's own STAGE 9.5 -- kept updating, but the Worker's
 /api/ai/{filename} handler only ever checked a gh-pages raw-GitHub fallback,
 never the R2 bucket both pipelines were already populating.

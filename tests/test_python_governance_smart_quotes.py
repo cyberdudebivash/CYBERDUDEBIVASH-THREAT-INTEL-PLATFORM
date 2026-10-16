@@ -2,7 +2,7 @@
 tests/test_python_governance_smart_quotes.py
 
 Regression test for a P0 defect in scripts/python_governance_immunity_engine.py
-(STAGE 0.06b of sentinel-blogger.yml): the SMART_QUOTES dict's literal
+(STAGE 0.06b of sentinel-apex.yml): the SMART_QUOTES dict's literal
 Unicode key characters (U+2018/U+2019/U+201C/U+201D) had been silently
 collapsed to plain ASCII apostrophe/quote by some earlier normalization
 pass over this file. Confirmed live via runtime introspection before the

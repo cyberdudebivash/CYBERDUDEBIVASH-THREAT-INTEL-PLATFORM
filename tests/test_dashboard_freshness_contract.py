@@ -21,7 +21,7 @@ own content actually was.
 
 Root cause of the underlying staleness itself (separate fix, same PR):
 scripts/validate_reports.py (STAGE 3.3, Report Validation Gate) has hard-
-failed every natural sentinel-blogger.yml run since PR #369/#370 landed,
+failed every natural sentinel-apex.yml run since PR #369/#370 landed,
 which skips STAGE 3.93 (scripts/generate_api_manifests.py -- the script
 that sets feedData.generated_at) on every one of those runs. See
 tests/test_validate_reports_window_deferral.py for that fix's own coverage.

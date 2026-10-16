@@ -5,7 +5,7 @@
 # Updates data/sync_marker.json with current UTC timestamp
 # after every successful pipeline run.
 #
-# Called by sentinel-blogger.yml post-commit step.
+# Called by sentinel-apex.yml post-commit step.
 # ===========================================================
 
 set -euo pipefail

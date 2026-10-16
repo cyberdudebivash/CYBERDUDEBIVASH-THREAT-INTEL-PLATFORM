@@ -47,7 +47,7 @@ from datetime import datetime, timezone
 
 HEALTH_URL = os.environ.get("HEALTH_URL", "https://intel.cyberdudebivash.com/api/health")
 REPO = os.environ.get("REPO", "cyberdudebivash/CYBERDUDEBIVASH-THREAT-INTEL-PLATFORM")
-WORKFLOW = os.environ.get("PUBLISHER_WORKFLOW", "sentinel-blogger.yml")
+WORKFLOW = os.environ.get("PUBLISHER_WORKFLOW", "sentinel-apex.yml")
 REF = os.environ.get("PUBLISHER_REF", "main")
 # The publisher takes ~75-85 min; dispatching at 4h keeps a displaced run's
 # replacement inside the 6h contract.

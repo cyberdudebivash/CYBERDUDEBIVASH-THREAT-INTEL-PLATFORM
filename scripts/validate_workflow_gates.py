@@ -2,7 +2,7 @@
 import sys
 from pathlib import Path
 
-src = Path(r'C:\Users\Administrator\Desktop\CYBERDUDEBIVASH-THREAT-INTEL-PLATFORM\.github\workflows\sentinel-blogger.yml').read_text(encoding='utf-8')
+src = Path(r'C:\Users\Administrator\Desktop\CYBERDUDEBIVASH-THREAT-INTEL-PLATFORM\.github\workflows\sentinel-apex.yml').read_text(encoding='utf-8')
 
 checks = [
     ('Pre-deploy gate stage present',       'STAGE 5.4.5d - Pre-Deploy Gate v158.0' in src),

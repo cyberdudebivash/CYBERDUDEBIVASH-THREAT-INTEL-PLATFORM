@@ -2,7 +2,7 @@
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-WF = ROOT / ".github/workflows/sentinel-blogger.yml"
+WF = ROOT / ".github/workflows/sentinel-apex.yml"
 
 def test_forensic_census_order_and_read_only_execution():
     source = WF.read_text(encoding="utf-8")

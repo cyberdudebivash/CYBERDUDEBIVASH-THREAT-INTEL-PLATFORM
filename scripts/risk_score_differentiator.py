@@ -41,7 +41,7 @@ OPERATION
 
 WIRING
 ------
-Inserted as Stage 3.4.9 in sentinel-blogger.yml, immediately after Stage
+Inserted as Stage 3.4.9 in sentinel-apex.yml, immediately after Stage
 3.4.8 (apex_v2 builder) and before Stage 3.5 (R2 upload).
 
 v163.0 — Initial implementation

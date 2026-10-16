@@ -187,7 +187,7 @@ function _registryUnavailable() {
   return _json({
     error: 'Source registry not yet synced to R2',
     hint: 'Run scripts/build_source_registry.py then scripts/r2_upload.py, or check the '
-        + 'sentinel-blogger.yml P40 CI stage for the last sync attempt.',
+        + 'sentinel-apex.yml P40 CI stage for the last sync attempt.',
     version: P40_VERSION,
   }, 503);
 }
@@ -385,7 +385,7 @@ export async function handleP40Waves(request, env) {
   return _json({ schema_version: 'p40.0', waves });
 }
 
-// sentinel-blogger.yml  -  the pipeline that regenerates and R2-syncs this
+// sentinel-apex.yml  -  the pipeline that regenerates and R2-syncs this
 // report  -  runs 3x/day (cron '0 0,8,16 * * *', ~8h cadence). This threshold
 // is a generous 2x that cadence, matching source_fabric_health.py's
 // staleness philosophy: flag genuine silence, not a run landing a bit late.

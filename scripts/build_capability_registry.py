@@ -210,7 +210,7 @@ def main():
         raise SystemExit(
             f"[FATAL] {COVERAGE_REPORT.relative_to(REPO_ROOT)} does not exist. "
             f"Run scripts/frontend_api_coverage_gate.py first (STAGE 3.92b runs "
-            f"before this step in sentinel-blogger.yml)."
+            f"before this step in sentinel-apex.yml)."
         )
     try:
         report = json.loads(COVERAGE_REPORT.read_text())

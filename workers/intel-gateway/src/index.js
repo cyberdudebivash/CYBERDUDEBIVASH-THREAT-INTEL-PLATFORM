@@ -2033,7 +2033,7 @@ function computeStats(items) {
 // additional R2 fetch, no added latency) so PLATFORM_REACHABLE and
 // DATA_FRESHNESS are never conflated into one boolean-shaped signal again.
 // Thresholds are informed by this platform's own known ingestion cadence
-// (multi-source-intel.yml every ~4h, sentinel-blogger.yml every ~4h) --
+// (multi-source-intel.yml every ~4h, sentinel-apex.yml every ~4h) --
 // FRESH allows one missed cycle before escalating.
 //
 // 2026-09-24 (P0 health freshness contract): the FRESH verdict now comes from
@@ -8982,7 +8982,7 @@ async function handleRequest(request, env, ctx) {
   // Root-caused in issue #274: generate-and-sync.yml's `git push origin main`
   // has been failing every run (GH013 -- main now requires PRs), silently
   // (continue-on-error), so main's copy of these files froze the moment
-  // branch protection took effect. sentinel-blogger.yml's STAGE 3.1.22b
+  // branch protection took effect. sentinel-apex.yml's STAGE 3.1.22b
   // (added for this exact reason) regenerates both files fresh every run and
   // its own r2_upload.py step (Upload 3b) already uploads them to
   // INTEL_R2 (bucket sentinel-apex-data) as `ai/{filename}` -- that upload
@@ -9109,7 +9109,7 @@ async function handleRequest(request, env, ctx) {
   // entirely), so both requests fall through to the Pages static origin
   // unconditionally. Both files are pipeline-generated and git-committed
   // (generate_ai_endpoints.py / detection-engine.yml), so updating either
-  // one has required a full sentinel-blogger.yml run + Pages publish --
+  // one has required a full sentinel-apex.yml run + Pages publish --
   // exactly the same CLASS D coupling issue #274 already root-caused and
   // fixed for /api/ai/tracker.json et al. (the AI_STATIC_PROXY_FILES block
   // immediately above), just not yet extended to these two files.

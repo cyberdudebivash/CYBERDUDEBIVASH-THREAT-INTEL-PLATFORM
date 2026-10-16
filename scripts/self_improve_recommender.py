@@ -145,9 +145,9 @@ _ACTION_CATALOGUE: Dict[str, Dict] = {
     "update_pipeline_schedule": {
         "label":       "Increase pipeline run frequency",
         "safe_auto":   False,
-        "description": "Modify GitHub Actions cron schedule in sentinel-blogger.yml to run more frequently.",
-        "command":     "MANUAL: Edit .github/workflows/sentinel-blogger.yml — update cron expression.",
-        "rollback":    "git revert last commit to sentinel-blogger.yml",
+        "description": "Modify GitHub Actions cron schedule in sentinel-apex.yml to run more frequently.",
+        "command":     "MANUAL: Edit .github/workflows/sentinel-apex.yml — update cron expression.",
+        "rollback":    "git revert last commit to sentinel-apex.yml",
         "estimated_fix_time_min": 10,
         "requires_approval": True,
         "approval_reason": "Changes CI/CD scheduling — requires repo admin to approve workflow changes.",

@@ -3,7 +3,7 @@
 SENTINEL APEX v153.0.0 - AI Brain + CDB_NEWS Permanent Patcher
 Reads ai_brain_patch.js and injects it into index.html before </body>.
 IDEMPOTENT - safe to call on every pipeline run.
-Called by sentinel-blogger.yml AFTER update_embedded_intel.py
+Called by sentinel-apex.yml AFTER update_embedded_intel.py
 
 v145.0.0 FIX: Use regex to strip ANY version of the CDB-AI-BRAIN-INIT
 marker pair (start+end). Previously ENDMRK was hardcoded to v134 but the

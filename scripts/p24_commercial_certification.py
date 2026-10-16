@@ -324,19 +324,19 @@ def _score_pipeline_stability() -> Tuple[int, int, List[str], List[str]]:
     notes: List[str] = []
     score = 0
 
-    # sentinel-blogger.yml exists and is YAML-valid
-    workflow = REPO / ".github" / "workflows" / "sentinel-blogger.yml"
+    # sentinel-apex.yml exists and is YAML-valid
+    workflow = REPO / ".github" / "workflows" / "sentinel-apex.yml"
     if workflow.exists():
         try:
             import yaml  # type: ignore
             with open(workflow) as f:
                 yaml.safe_load(f)
             score += 5
-            notes.append("Pipeline: sentinel-blogger.yml YAML valid — PASS")
+            notes.append("Pipeline: sentinel-apex.yml YAML valid — PASS")
         except Exception as e:
-            blockers.append(f"Pipeline: YAML syntax error in sentinel-blogger.yml — {e}")
+            blockers.append(f"Pipeline: YAML syntax error in sentinel-apex.yml — {e}")
     else:
-        blockers.append("Pipeline: sentinel-blogger.yml not found")
+        blockers.append("Pipeline: sentinel-apex.yml not found")
 
     # PLATFORM_VERSION defined in worker
     if _WORKER.exists():

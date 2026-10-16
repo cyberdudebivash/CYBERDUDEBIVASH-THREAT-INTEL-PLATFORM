@@ -15,7 +15,7 @@ ISOLATED_WRITERS = {
 }
 
 CORE_SERIALIZED_WRITERS = (
-    ".github/workflows/sentinel-blogger.yml",
+    ".github/workflows/sentinel-apex.yml",
     ".github/workflows/multi-source-intel.yml",
     ".github/workflows/dashboard-feeds-sync.yml",
     ".github/workflows/enterprise-intel-quality.yml",

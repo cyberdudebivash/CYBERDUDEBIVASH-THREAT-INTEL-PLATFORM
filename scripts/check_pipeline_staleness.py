@@ -67,7 +67,7 @@ OVERRIDE_THRESHOLD = os.environ.get("STALENESS_THRESHOLD_HOURS", "")
 # exact misconfiguration class cannot silently return, for these rows or any
 # added later.
 MONITORED_WORKFLOWS = [
-    {"file": "sentinel-blogger.yml",   "name": "sentinel-blogger",    "max_age_hours": 16, "severity": "CRITICAL"},
+    {"file": "sentinel-apex.yml",      "name": "Production Intel Publisher", "max_age_hours": 16, "severity": "CRITICAL"},
     {"file": "generate-and-sync.yml",  "name": "generate-and-sync",   "max_age_hours": 8,  "severity": "HIGH"},
     {"file": "automated-backup.yml",   "name": "Automated Backup",    "max_age_hours": 32, "severity": "HIGH"},
     {"file": "deploy-worker.yml",      "name": "Deploy Worker",       "max_age_hours": 0,  "severity": "INFO"},

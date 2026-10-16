@@ -64,7 +64,7 @@ def test_internal_workflows_never_bind_public_telegram_destination():
 
 
 def test_mixed_pipeline_has_explicit_channel_separation():
-    text = _read(".github/workflows/sentinel-blogger.yml")
+    text = _read(".github/workflows/sentinel-apex.yml")
     assert "secrets.TELEGRAM_CHAT_ID" in text, "public intel delivery must remain configured"
     assert "secrets.TELEGRAM_OPS_CHAT_ID" in text, "internal pipeline alerts need a separate private destination"
 

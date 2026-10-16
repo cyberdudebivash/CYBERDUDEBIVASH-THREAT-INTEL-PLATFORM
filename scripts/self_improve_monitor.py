@@ -791,7 +791,7 @@ class AnomalyDetector:
                     f"File is {age:.1f}h old, exceeding {max_age*2}h critical threshold. "
                     "Scheduled pipeline may not be running.",
                     f"api_{label}_age_hours", round(age, 2), max_age * 2,
-                    "Check GitHub Actions cron schedule. Verify sentinel-blogger.yml workflow.",
+                    "Check GitHub Actions cron schedule. Verify sentinel-apex.yml workflow.",
                 ))
             elif age is not None and age > max_age:
                 self._add(Anomaly(

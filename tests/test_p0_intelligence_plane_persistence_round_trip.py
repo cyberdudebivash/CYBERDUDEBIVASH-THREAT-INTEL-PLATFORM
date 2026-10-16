@@ -14,7 +14,7 @@ runs except what R2 holds):
          from R2 -> engine computes output O1 from M1 -> upload O1 to R2.
   [[ RUNNER DESTROYED: local_root_1 is discarded entirely, exactly like a
      GitHub Actions runner tearing down. ]]
-  RUN 2: a DIFFERENT, independent workflow (sentinel-blogger.yml, not under
+  RUN 2: a DIFFERENT, independent workflow (sentinel-apex.yml, not under
          test here) has updated the manifest in the meantime -- fresh
          checkout (a brand-new empty tmp root, standing in for the new
          runner) -> download STIX manifest M2 from R2 (M2 != M1) -> engine
@@ -111,7 +111,7 @@ class TestIntelligencePlanePersistenceRoundTrip(unittest.TestCase):
             manifest_path_1 = run1_root / manifest_local_rel
             manifest_path_1.parent.mkdir(parents=True, exist_ok=True)
             manifest_path_1.write_text('{"entries": ' + _json_entries(_manifest_entries(15)) + '}', encoding="utf-8")
-            # Simulate sentinel-blogger.yml's own independent upload of the
+            # Simulate sentinel-apex.yml's own independent upload of the
             # manifest, already resident in R2 before this workflow's own
             # download step runs (this mission's workflows are read-only
             # consumers of that object, never its writer).

@@ -9,7 +9,7 @@ r2_upload.py cost-guard accounting gap -- both called out in PR #370 as
 remaining FinOps risks blocking full zero-overage certification.
 
 FIX SHAPE (Option A -- one authoritative writer per shared key):
-  * scripts/r2_upload.py's main() (invoked by sentinel-blogger.yml under
+  * scripts/r2_upload.py's main() (invoked by sentinel-apex.yml under
     concurrency group "sentinel-data-writer") no longer uploads any of the
     4 AI-tracker keys.
   * scripts/r2_upload.py --ai-tracker-only (main_ai_tracker_only()) is now
@@ -112,11 +112,11 @@ class TestGenerateAndSyncCallsSharedWriter(unittest.TestCase):
 
 
 class TestSentinelBloggerNoLongerDuplicatesAiTrackerUpload(unittest.TestCase):
-    """Static check: sentinel-blogger.yml's r2_upload.py invocation (main())
+    """Static check: sentinel-apex.yml's r2_upload.py invocation (main())
     no longer independently writes the 4 shared keys."""
 
     def test_r2_upload_invocation_is_plain_main_not_ai_tracker_mode(self):
-        workflow_path = REPO_ROOT / ".github" / "workflows" / "sentinel-blogger.yml"
+        workflow_path = REPO_ROOT / ".github" / "workflows" / "sentinel-apex.yml"
         source = workflow_path.read_text(encoding="utf-8")
         self.assertIn("run: python3 scripts/r2_upload.py", source)
         # It must not ALSO invoke --ai-tracker-only (that would just move

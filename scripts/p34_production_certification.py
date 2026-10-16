@@ -34,7 +34,7 @@ _ROOT = pathlib.Path(__file__).resolve().parent.parent
 _DATA = _ROOT / "data" / "quality"
 _WORKERS = _ROOT / "workers" / "intel-gateway" / "src"
 _SCRIPTS = _ROOT / "scripts"
-_WORKFLOW = _ROOT / ".github" / "workflows" / "sentinel-blogger.yml"
+_WORKFLOW = _ROOT / ".github" / "workflows" / "sentinel-apex.yml"
 
 GATES: list[dict[str, Any]] = []
 _passed = 0
@@ -300,11 +300,11 @@ def main() -> int:
          has_p34_stats,
          "p34 key present" if has_p34_stats else "p34 key not found in ci_stats_extract.py")
 
-    # G26: sentinel-blogger.yml has STAGE 3.99
+    # G26: sentinel-apex.yml has STAGE 3.99
     has_stage_399 = False
     if _WORKFLOW.exists():
         has_stage_399 = "STAGE 3.99" in _WORKFLOW.read_text(encoding="utf-8")
-    gate("G26", "sentinel-blogger.yml has STAGE 3.99 (P34 CI gate)", "WARNING",
+    gate("G26", "sentinel-apex.yml has STAGE 3.99 (P34 CI gate)", "WARNING",
          has_stage_399,
          "STAGE 3.99 present" if has_stage_399 else "STAGE 3.99 not yet in workflow")
 

@@ -419,7 +419,7 @@ def test_jwt_gate_and_stage_5_9_10_unweakened():
     d = _step(wf, "GATE D")
     assert "secrets.ADMIN_SECRET" in d and 'if [ -z "${ADMIN_SECRET}" ]' in d and "exit 1" in d
     assert "continue-on-error" not in d
-    sb = (REPO / ".github/workflows/sentinel-blogger.yml").read_text(encoding="utf-8")
+    sb = (REPO / ".github/workflows/sentinel-apex.yml").read_text(encoding="utf-8")
     s = _step(sb, "STAGE 5.9.10")
     assert "python3 scripts/public_feed_freshness_gate.py" in s
     assert "continue-on-error" not in s and "|| true" not in s

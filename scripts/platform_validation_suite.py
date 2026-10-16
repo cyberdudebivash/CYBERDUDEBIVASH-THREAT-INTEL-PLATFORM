@@ -15,7 +15,7 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 INDEX     = REPO_ROOT / "index.html"
 SW        = REPO_ROOT / "service-worker.js"
 HEADERS   = REPO_ROOT / "_headers"
-WORKFLOW  = REPO_ROOT / ".github" / "workflows" / "sentinel-blogger.yml"
+WORKFLOW  = REPO_ROOT / ".github" / "workflows" / "sentinel-apex.yml"
 BUILD_PY  = REPO_ROOT / "scripts" / "build_dist_artifact.py"
 
 results  = []
@@ -205,7 +205,7 @@ for name, passed in [
 section("8. DEPLOYMENT WORKFLOW VALIDATION")
 wf_src = WORKFLOW.read_text(encoding='utf-8') if WORKFLOW.exists() else ""
 for name, passed in [
-    ("sentinel-blogger.yml exists",      WORKFLOW.exists()),
+    ("sentinel-apex.yml exists",      WORKFLOW.exists()),
     ("build_dist_artifact.py in CI",     'build_dist_artifact.py' in wf_src),
     ("JamesIves deploy action",          'JamesIves/github-pages-deploy-action' in wf_src),
     ("Deploys from dist/",               'folder: dist' in wf_src),

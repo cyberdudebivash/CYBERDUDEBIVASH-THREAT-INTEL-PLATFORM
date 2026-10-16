@@ -55,7 +55,7 @@ REPORTS_DIR = REPO_ROOT / "reports"
 DIST_REPORTS_DIR = REPO_ROOT / "dist" / "reports"   # fallback: present after Stage 5.4.6 dist build
 STIX_DIR = REPO_ROOT / "data" / "stix"
 FEED_JSON = REPO_ROOT / "feed.json"
-WORKFLOW_YAML = REPO_ROOT / ".github" / "workflows" / "sentinel-blogger.yml"
+WORKFLOW_YAML = REPO_ROOT / ".github" / "workflows" / "sentinel-apex.yml"
 
 
 # ---------------------------------------------------------------------------
@@ -452,7 +452,7 @@ def t11():
 
 @test("T12_ci_workflow_clean")
 def t12():
-    assert WORKFLOW_YAML.exists(), "sentinel-blogger.yml not found"
+    assert WORKFLOW_YAML.exists(), "sentinel-apex.yml not found"
     try:
         import yaml
         with open(WORKFLOW_YAML, encoding="utf-8") as fh:
@@ -772,15 +772,15 @@ def t20():
     )
 
     # Verify workflow has fetch-depth: 1 (performance regression guard)
-    wf = REPO_ROOT / ".github" / "workflows" / "sentinel-blogger.yml"
+    wf = REPO_ROOT / ".github" / "workflows" / "sentinel-apex.yml"
     if wf.exists():
         wf_content = wf.read_text(encoding="utf-8")
         assert "fetch-depth: 0" not in wf_content, (
-            "sentinel-blogger.yml still has fetch-depth: 0 — "
+            "sentinel-apex.yml still has fetch-depth: 0 — "
             "reverts the 70s checkout optimization. Should be fetch-depth: 1."
         )
         assert "fetch-depth: 1" in wf_content, (
-            "sentinel-blogger.yml does not have fetch-depth: 1 — "
+            "sentinel-apex.yml does not have fetch-depth: 1 — "
             "checkout optimization not applied."
         )
 
@@ -1103,7 +1103,7 @@ def t24():
 def t25():
     """Regression guard for the ref:main checkout defect class.
 
-    Found live (this session) in multi-source-intel.yml and sentinel-blogger.yml:
+    Found live (this session) in multi-source-intel.yml and sentinel-apex.yml:
     an actions/checkout step with a literal `ref: main` hardcodes the checked-out
     file content to main regardless of which branch actually dispatched the
     workflow, silently defeating workflow_dispatch's whole purpose of testing a
@@ -1236,7 +1236,7 @@ def t26():
                 offenders.append(f"scripts/r2_report_publisher.py -- forbidden bucket-enumeration pattern {pattern!r} found")
 
     # 3. Every normal-pipeline scheduled invocation of generate_intel_reports.py
-    #    (run_pipeline.py's 3 call sites + sentinel-blogger.yml's direct STAGE
+    #    (run_pipeline.py's 3 call sites + sentinel-apex.yml's direct STAGE
     #    5.4.0b call) must pass --since-hours -- without it, that call
     #    regenerates the ENTIRE historical manifest every run regardless of
     #    what scripts/r2_upload.py or scripts/r2_report_publisher.py do
@@ -1257,7 +1257,7 @@ def t26():
                     f"missing --since-hours (would regenerate the entire historical manifest every run)"
                 )
 
-    blogger_path = REPO_ROOT / ".github" / "workflows" / "sentinel-blogger.yml"
+    blogger_path = REPO_ROOT / ".github" / "workflows" / "sentinel-apex.yml"
     if blogger_path.exists():
         content = blogger_path.read_text(encoding="utf-8")
         for m in _re.finditer(
@@ -1267,7 +1267,7 @@ def t26():
             if "--since-hours" not in call:
                 line_no = content.count("\n", 0, m.start()) + 1
                 offenders.append(
-                    f"sentinel-blogger.yml:{line_no} -- generate_intel_reports.py invocation "
+                    f"sentinel-apex.yml:{line_no} -- generate_intel_reports.py invocation "
                     f"missing --since-hours"
                 )
 
@@ -1538,7 +1538,7 @@ def t29():
 @test("T30_governance_telemetry_r2_wired_no_runtime_git_push")
 def t30():
     """P0 production-architecture-transformation mission (2026-09-08):
-    STAGE 5.8.4b (.github/workflows/sentinel-blogger.yml) used to run its
+    STAGE 5.8.4b (.github/workflows/sentinel-apex.yml) used to run its
     OWN independent inline `git add` / `git commit` / `git push origin
     HEAD` for data/telemetry/global_release_governance.json -- a second,
     entirely separate runtime-git-persistence code path outside
@@ -1577,13 +1577,13 @@ def t30():
         "exists but is unreachable from the CLI."
     )
 
-    blogger_path = REPO_ROOT / ".github" / "workflows" / "sentinel-blogger.yml"
-    assert blogger_path.exists(), "sentinel-blogger.yml missing"
+    blogger_path = REPO_ROOT / ".github" / "workflows" / "sentinel-apex.yml"
+    assert blogger_path.exists(), "sentinel-apex.yml missing"
     blogger_src = blogger_path.read_text(encoding="utf-8")
 
     stage_marker = "STAGE 5.8.4b - Governance Telemetry Persistence"
     idx = blogger_src.find(stage_marker)
-    assert idx != -1, "STAGE 5.8.4b step not found in sentinel-blogger.yml"
+    assert idx != -1, "STAGE 5.8.4b step not found in sentinel-apex.yml"
 
     next_step_idx = blogger_src.find("\n      - name:", idx + len(stage_marker))
     block = blogger_src[idx: next_step_idx if next_step_idx != -1 else len(blogger_src)]

@@ -1,7 +1,7 @@
 # =============================================================================
 # CYBERDUDEBIVASH(R) SENTINEL APEX -- Fast, Independent Frontend Publisher
 # =============================================================================
-# ROOT CAUSE FIX (P0, 2026-09-01): sentinel-blogger.yml's own "STAGE 5 - Deploy
+# ROOT CAUSE FIX (P0, 2026-09-01): sentinel-apex.yml's own "STAGE 5 - Deploy
 # to GitHub Pages" is step 133 of ~162 sequential stages in ONE monolithic job
 # (concurrency group `sentinel-data-writer`, cancel-in-progress: false). A full
 # run legitimately takes 2-3+ hours -- confirmed live: run #2202 (triggered by
@@ -25,7 +25,7 @@
 # unlike sentinel-data-writer's sequential enrichment work where state
 # actually accumulates run over run) -- with nothing to wait behind.
 #
-# This does NOT replace sentinel-blogger.yml's own deploy step, which remains
+# This does NOT replace sentinel-apex.yml's own deploy step, which remains
 # the authoritative path for reports/, api/, dashboard/, customer/, assets/,
 # and everything else build_dist_artifact.py packages on its normal cadence.
 # It is a narrow, additive safety net specifically for the handful of files
@@ -58,7 +58,7 @@
 #
 # REUSE (Principle 4 -- searched before building): calls the exact same
 # scripts/build_dist_artifact.py and the same pinned
-# JamesIves/github-pages-deploy-action config that sentinel-blogger.yml's
+# JamesIves/github-pages-deploy-action config that sentinel-apex.yml's
 # STAGE 5.4.6/STAGE 5 already use -- not a reimplementation. Also reuses
 # scripts/pages_deploy_freshness_gate.py (STAGE 5.4.9.1) unchanged -- it
 # polls the live site's Last-Modified header against a pre-deploy timestamp
@@ -238,7 +238,7 @@ jobs:
       - name: P0 R37 - Test permanent static feed denial
         run: python3 -m unittest discover -s tests -p 'test_p0_r37_static_feed_denial.py' -v
 
-      - name: Build dist/ artifact (reuses build_dist_artifact.py -- same script as sentinel-blogger.yml STAGE 5.4.6)
+      - name: Build dist/ artifact (reuses build_dist_artifact.py -- same script as sentinel-apex.yml STAGE 5.4.6)
         env:
           REPORT_RETENTION_DAYS: "3"
         run: python3 scripts/build_dist_artifact.py
@@ -421,15 +421,15 @@ jobs:
       - name: P0 CDN byte-parity gate negative controls
         run: python3 -m unittest discover -s tests -p 'test_pages_deploy_byte_parity_gate.py' -v
 
-      # v184.1-style pattern (see sentinel-blogger.yml STAGE 4.9.9): captured
+      # v184.1-style pattern (see sentinel-apex.yml STAGE 4.9.9): captured
       # immediately before the push so the freshness gate below can verify
       # the live site actually picked up THIS run's deploy.
       - name: Capture pre-deploy timestamp
         id: pre-deploy-ts
         run: echo "ts=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
 
-      - name: Deploy to GitHub Pages (same action + config as sentinel-blogger.yml STAGE 5)
-        # Pinned to the same commit SHA as sentinel-blogger.yml's STAGE 5 --
+      - name: Deploy to GitHub Pages (same action + config as sentinel-apex.yml STAGE 5)
+        # Pinned to the same commit SHA as sentinel-apex.yml's STAGE 5 --
         # this job holds pages:write and pushes to gh-pages, so a re-pointed
         # floating tag would deploy arbitrary content to the live Pages site
         # with this token.

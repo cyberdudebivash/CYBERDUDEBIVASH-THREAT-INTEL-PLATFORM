@@ -31,7 +31,7 @@ via a shell `timeout <seconds>` wrapper, safely under the job's own
 timeout-minutes ceiling. That converts an uncontrolled runner cancellation
 into an ordinary, continue-on-error-safe non-zero exit (124), which
 if: failure() below correctly sees. This is the same class of bug already
-found and fixed at STEP granularity in sentinel-blogger.yml (see its
+found and fixed at STEP granularity in sentinel-apex.yml (see its
 "Upload Intel State to R2 (final, post-enrichment)" and "STAGE 5.4.0b" step
 comments) -- reused here at JOB granularity, since GitHub Actions has no
 "job timeout continue-on-error actually absorbs" primitive of its own.

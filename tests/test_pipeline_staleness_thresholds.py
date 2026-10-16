@@ -3,13 +3,13 @@
 tests/test_pipeline_staleness_thresholds.py
 
 P0 regression guard (2026-09-10): scripts/check_pipeline_staleness.py's
-MONITORED_WORKFLOWS entries for sentinel-blogger.yml and status-monitor.yml
+MONITORED_WORKFLOWS entries for sentinel-apex.yml and status-monitor.yml
 had alert thresholds tighter than -- in status-monitor's case, less than
 half of -- the actual cron cadence of the workflow they monitor. That
 guarantees the alert fires on a healthy platform: status-monitor.yml runs
 3x/day (nominal 8h gaps) against a 3h threshold, so it read "STALE" for
 5+ of every 8 hours, every day, regardless of whether anything was
-actually wrong. sentinel-blogger.yml shared the same cron with a 8h
+actually wrong. sentinel-apex.yml shared the same cron with a 8h
 threshold -- zero margin for the scheduling jitter GitHub's own docs
 warn cron workflows are subject to under load (confirmed empirically:
 observed real gaps of 6h21m-9h31m against a nominal 8h).
@@ -165,7 +165,7 @@ class TestPipelineStalenessThresholds(unittest.TestCase):
         addition to that general check."""
         by_file = {wf["file"]: wf for wf in cps.MONITORED_WORKFLOWS}
         self.assertEqual(by_file["status-monitor.yml"]["max_age_hours"], 16)
-        self.assertEqual(by_file["sentinel-blogger.yml"]["max_age_hours"], 16)
+        self.assertEqual(by_file["sentinel-apex.yml"]["max_age_hours"], 16)
         self.assertEqual(by_file["automated-backup.yml"]["max_age_hours"], 32)
 
     def test_cron_parser_reproduces_the_known_8h_cadence(self):
@@ -175,7 +175,7 @@ class TestPipelineStalenessThresholds(unittest.TestCase):
         self.assertEqual(max_gap_hours_for_workflow("status-monitor.yml"), 8.0)
         # P0 2026-09-26: sentinel-blogger moved to every 4h ('17 */4 * * *')
         # to meet the 6h public freshness contract (repo is public: free runners).
-        self.assertEqual(max_gap_hours_for_workflow("sentinel-blogger.yml"), 4.0)
+        self.assertEqual(max_gap_hours_for_workflow("sentinel-apex.yml"), 4.0)
 
 
 class TestMixedMinuteCronEntries(unittest.TestCase):

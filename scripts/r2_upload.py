@@ -4,7 +4,7 @@ scripts/r2_upload.py
 CYBERDUDEBIVASH(R) SENTINEL APEX v200.0 -- Cloudflare R2 Upload Engine
 =========================================================================
 P0 FIX: Replaces the inline PYEOF/unquoted-heredoc R2 upload block from
-sentinel-blogger.yml.  Zero inline Python in YAML.
+sentinel-apex.yml.  Zero inline Python in YAML.
 
 P0 R2 COST INCIDENT FIX (2026-09): this script no longer touches the
 sentinel-apex-reports bucket at all. It used to run `aws s3 sync reports/
@@ -155,7 +155,7 @@ def stale_manifest_reason(path: Path, now: datetime | None = None) -> str | None
 # P0 DUPLICATE-WRITER RACE FIX (PR #370 follow-up)
 # ─────────────────────────────────────────────────────────────────────────
 # These 4 keys used to be written by TWO independent, unlocked code paths:
-#   1. This script's main() (invoked by sentinel-blogger.yml, STAGE 3.5,
+#   1. This script's main() (invoked by sentinel-apex.yml, STAGE 3.5,
 #      concurrency group "sentinel-data-writer") -- via its own former
 #      "Upload 3b" block AND a second time via the ai_dirs glob below.
 #   2. generate-and-sync.yml's inline `aws s3 cp` loop (STAGE 9.5,
@@ -564,7 +564,7 @@ def upload_p40_artifacts(endpoint: str) -> int:
     Upload the 3 P40 Global Intelligence Source Fabric artifacts to R2.
 
     Extracted from main()'s inline "Upload 2b" block so it can also be
-    invoked standalone (--p40-only) late in sentinel-blogger.yml, after
+    invoked standalone (--p40-only) late in sentinel-apex.yml, after
     STAGE 5.9.5 regenerates these files. Without this, main()'s single
     upload pass at STAGE 3.5 runs BEFORE STAGE 5.9.5 in the same pipeline
     execution, so the freshly-regenerated certification/health reports were
@@ -799,7 +799,7 @@ def main_reports_index_only() -> None:
     STAGE 3.3.7 from the reports published so far. STAGE 5.4.0c then
     publishes the reports rendered later in the same run (production: 19 of
     21 in-window reports), so the live catalog listed 1 report next to 28
-    advisories until the next run (~4h). sentinel-blogger.yml STAGE 5.4.0d
+    advisories until the next run (~4h). sentinel-apex.yml STAGE 5.4.0d
     rebuilds the index (build_reports_index.py, still the only writer),
     verifies it against R2 (r2_reports_integrity.py) and calls this.
 
@@ -1173,7 +1173,7 @@ def main() -> None:
     # bounded to the rolling REPORT_WINDOW_HOURS (default 24h) window, and
     # enforces a fail-closed operation budget (scripts/r2_cost_guard.py)
     # before issuing a single R2 call. Invoked as its own pipeline stage
-    # (see sentinel-blogger.yml) immediately after this script, not from
+    # (see sentinel-apex.yml) immediately after this script, not from
     # inside main() -- keeping this script's own responsibility limited to
     # the bounded sentinel-apex-data manifest/endpoint uploads below, which
     # were never the cost driver.

@@ -17,7 +17,7 @@
  * files (sigma_rules.yml, kql_queries.kql, ...), not per-item records.
  *
  * SOURCE OF TRUTH: detection_bundle_injector.py -- confirmed live and wired
- * as STAGE 3.1.12/3.1.20 in .github/workflows/sentinel-blogger.yml -- writes
+ * as STAGE 3.1.12/3.1.20 in .github/workflows/sentinel-apex.yml -- writes
  * sigma_rule / kql_query / suricata_rule / yara_rule fields directly onto
  * each feed item. This registry normalizes THAT already-live output into
  * one canonical shape (Section 11: "Do not necessarily rewrite each
@@ -37,7 +37,7 @@
  *      workflow/subsystem (agent/detection_forge.py + core/detection/
  *      detection_engine.py).
  * Consolidating all four was explicitly flagged by this repo's own prior
- * engineering note (.github/workflows/sentinel-blogger.yml, STAGE 3.1.21
+ * engineering note (.github/workflows/sentinel-apex.yml, STAGE 3.1.21
  * comment, dated 2026-08-05) as needing "the Architecture Preservation
  * Rule's full Compatibility Assessment + Migration Plan and a product
  * decision on which format is canonical... flagged for a dedicated future

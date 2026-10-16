@@ -4,7 +4,7 @@ scripts/r2_state_sync.py
 CYBERDUDEBIVASH(R) SENTINEL APEX -- Cross-Run Intel State R2 Sync (P0 FIX)
 ================================================================================
 Root cause fixed: main's branch ruleset now requires "Changes must be made
-through a pull request", so multi-source-intel.yml's and sentinel-blogger.yml's
+through a pull request", so multi-source-intel.yml's and sentinel-apex.yml's
 direct `git push origin main` for these three files has been rejected on
 every scheduled run since ~2026-08-26 -- silently, until the companion fix in
 this same effort made both push-exhaustion paths loud (see
@@ -17,14 +17,14 @@ staying frozen despite dozens of "green" pipeline runs in between.
 
 Extends the pattern already reviewed and approved for issue #274 / PR #293
 (api/ai/{tracker,health,executive-brief,monetization}.json moved off git onto
-R2) to the four files true_intel_ingestor.py's and sentinel-blogger.yml's
+R2) to the four files true_intel_ingestor.py's and sentinel-apex.yml's
 own pipeline's cross-run state actually depends on:
 
   data/cache/feed_state.json    -- per-source last_seen timestamps + reason
                                     codes. Read+written every run by
                                     true_intel_ingestor.py; also read by
                                     scripts/source_fabric_health.py (invoked
-                                    from sentinel-blogger.yml) and
+                                    from sentinel-apex.yml) and
                                     scripts/intel_dedup_engine.py.
   data/processed_intel.json     -- SHA256 dedup fingerprint store. Read+
                                     written every run by
@@ -45,7 +45,7 @@ own pipeline's cross-run state actually depends on:
                                     cve_id_backfill.py, actor_attribution_enricher.py,
                                     generate_advisory_pdfs.py and
                                     threat_graph_engine.py, all within
-                                    sentinel-blogger.yml -- and, like the
+                                    sentinel-apex.yml -- and, like the
                                     three files above, one of
                                     safe_git_commit.py's CRITICAL files whose
                                     git push was being silently rejected by
@@ -54,7 +54,7 @@ own pipeline's cross-run state actually depends on:
 Unlike issue #274's AI-tracker files (pure output, regenerated fresh every
 run, no need to read prior state back in), these four are genuinely
 bidirectional cross-run state that multi-source-intel.yml and/or
-sentinel-blogger.yml read at the START of their run and write back at the
+sentinel-apex.yml read at the START of their run and write back at the
 END -- so this is a download-before/upload-after wrapper around each
 workflow's existing processing, not a one-way "stop committing, start
 uploading" change. Every consumer above keeps reading/writing the exact same
@@ -64,7 +64,7 @@ run, and that whatever they leave there gets published back to R2 after.
 
 Concurrency note: R2 objects are plain last-write-wins storage, not
 transactional. multi-source-intel.yml (cron '45 1,5,9,13,17,21') and
-sentinel-blogger.yml (cron '0,4,8,12,16,20') are deliberately staggered by
+sentinel-apex.yml (cron '0,4,8,12,16,20') are deliberately staggered by
 the workflows' own existing schedule comments specifically to avoid
 overlapping writes to this same state -- this script does not add its own
 locking on top of that existing mitigation, and does not claim to. If a run
@@ -120,7 +120,7 @@ REPO_ROOT = pathlib.Path(__file__).resolve().parent.parent
 #
 # data/stix/feed_manifest.json MUST use the key "intel/feed_manifest.json" --
 # NOT a path-mirrored key -- because scripts/r2_upload.py's STAGE 3.5 upload
-# (sentinel-blogger.yml) already publishes this exact file under that exact
+# (sentinel-apex.yml) already publishes this exact file under that exact
 # key, every run, and workers/intel-gateway/src/index.js's handleFeedJson
 # already reads it from there. Using a different key here would silently
 # fork this platform's manifest state into two R2 objects that never see
@@ -140,7 +140,7 @@ REPO_ROOT = pathlib.Path(__file__).resolve().parent.parent
 # run_pipeline.py, apex_quality_field_backfill.py, cve_id_backfill.py,
 # actor_attribution_enricher.py, generate_advisory_pdfs.py and
 # threat_graph_engine.py all read-then-patch this same file in place, and
-# every one of those steps in sentinel-blogger.yml runs between this
+# every one of those steps in sentinel-apex.yml runs between this
 # workflow's "Download Intel State from R2" step and its "Upload Intel State
 # to R2 (final, post-enrichment)" step -- so no wiring change is needed
 # there, only this entry. It has no pre-existing R2 key of its own (r2_upload.py
@@ -230,7 +230,7 @@ STATE_FILES: list[tuple[str, str]] = [
     # sector_forecast_model.py's 35-observed-day threshold is unreachable and
     # the forecast declines forever. The other three are single-run outputs
     # that a DIFFERENT workflow consumes: ai_brain_publisher.py runs inside
-    # sentinel-blogger.yml and reads all three, so they must survive the
+    # sentinel-apex.yml and reads all three, so they must survive the
     # hand-off between workflows, which only R2 now does.
     #
     # DELIBERATELY NOT ADDED (each costs ops on every sync pass):
@@ -277,7 +277,7 @@ STATE_FILES: list[tuple[str, str]] = [
     # scripts/p0_r2_stix_manifest_diagnostic.py (run 34493014038,
     # 2026-09-10T15:03Z): R2's intel/feed_manifest.json is a valid 39-record
     # flat-list manifest, last_modified ~1h before that check -- kept fresh
-    # by sentinel-blogger.yml's own existing STAGE 3.5 upload, needing no
+    # by sentinel-apex.yml's own existing STAGE 3.5 upload, needing no
     # new producer, only a new (read-only, from this workflow pair's
     # perspective) consumer.
     #
@@ -348,7 +348,7 @@ STATE_FILES: list[tuple[str, str]] = [
     # run read the 26 August copy back. Its key sits under the private
     # premium/ prefix: no gateway route serves premium/state/
     # (/api/v1/premium/feed/ maps a fixed tier allowlist to premium/feeds/).
-    # Owner-only (BROAD_SWEEP_EXCLUDED_PATHS below): sentinel-blogger.yml
+    # Owner-only (BROAD_SWEEP_EXCLUDED_PATHS below): sentinel-apex.yml
     # downloads it explicitly before STAGE 3.1.19 and uploads it after a
     # successful run of that stage, so no broad sweep can re-publish a stale
     # copy. COST (computed from the observed run count, not measured): at
@@ -379,7 +379,7 @@ assert not _leaked, f"NEVER_PERSIST_PATHS entries found in STATE_FILES: {_leaked
 # check, to have already been overwritten in R2 by different content.
 # Root cause: PR #409 stopped regenerate_engine_data.py from GENERATING
 # fresh (wrong) content for these 5 canonical paths, but did nothing about
-# a plain, unchanged echo -- sentinel-blogger.yml's own broad (no --only)
+# a plain, unchanged echo -- sentinel-apex.yml's own broad (no --only)
 # `--download` call (line ~409) still pulls these paths onto local disk at
 # the START of its run, reflecting whatever R2 held AT THAT MOMENT; with
 # nothing left to regenerate them mid-job, that downloaded snapshot sits
@@ -397,7 +397,7 @@ assert not _leaked, f"NEVER_PERSIST_PATHS entries found in STATE_FILES: {_leaked
 # STATE_FILES (so sovereign-platform.yml's/genesis-powerhouse.yml's own
 # explicit `--only <these-paths>` calls are completely unaffected -- an
 # explicit request always wins) but a caller doing a BROAD sweep (only is
-# None, e.g. sentinel-blogger.yml/multi-source-intel.yml/ai-predictions.yml's
+# None, e.g. sentinel-apex.yml/multi-source-intel.yml/ai-predictions.yml's
 # existing, unchanged invocations) now skips them in both download() and
 # upload(), exactly like NEVER_PERSIST_PATHS above except these ARE meant to
 # reach R2 -- just only via the one pair of workflows that own them.
@@ -409,7 +409,7 @@ BROAD_SWEEP_EXCLUDED_PATHS = frozenset({
     "data/sovereign/sovereign_output.json",
     "data/genesis/genesis_output.json",
     "data/genesis/detection_pack.json",
-    # F26 (2026-10-02): owned by sentinel-blogger.yml's STAGE 3.1.19 steps.
+    # F26 (2026-10-02): owned by sentinel-apex.yml's STAGE 3.1.19 steps.
     "api/feed.baseline.json",
 })
 _not_tracked = BROAD_SWEEP_EXCLUDED_PATHS - {local_rel for local_rel, _ in STATE_FILES}
@@ -461,7 +461,7 @@ def download(root: pathlib.Path, endpoint: str, only: frozenset[str] | None = No
     other 18 unrelated state files this module also tracks. `None` (the
     default) preserves this function's original all-rows behavior exactly,
     so every pre-existing caller (ai-predictions.yml, multi-source-intel.yml,
-    sentinel-blogger.yml, dashboard-feeds-sync.yml,
+    sentinel-apex.yml, dashboard-feeds-sync.yml,
     report-generator-regression-gate.yml) is unaffected.
 
     Three-way outcome per file, per s3_get()'s contract:
@@ -500,7 +500,7 @@ def download(root: pathlib.Path, endpoint: str, only: frozenset[str] | None = No
         if only is None and local_rel in BROAD_SWEEP_EXCLUDED_PATHS:
             # See BROAD_SWEEP_EXCLUDED_PATHS' own comment: a broad sweep must
             # not even DOWNLOAD these onto local disk, or a long-running
-            # caller (sentinel-blogger.yml) sits on an hours-stale snapshot
+            # caller (sentinel-apex.yml) sits on an hours-stale snapshot
             # that its own later broad upload then blindly re-publishes,
             # reverting whatever sovereign-platform.yml/genesis-powerhouse.yml
             # wrote to the same R2 keys in the meantime. Only an explicit

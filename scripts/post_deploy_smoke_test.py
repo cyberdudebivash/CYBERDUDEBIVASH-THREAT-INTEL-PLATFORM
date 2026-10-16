@@ -2,7 +2,7 @@
 """
 post_deploy_smoke_test.py -- SENTINEL APEX Post-Deploy Smoke Tests v158.0
 Runs AFTER deployment completes. Validates production URLs are serving correctly.
-Called from sentinel-blogger.yml after the JamesIves deploy action.
+Called from sentinel-apex.yml after the JamesIves deploy action.
 
 Exit codes:
   0 = all smoke tests passed

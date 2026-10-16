@@ -4,7 +4,7 @@ tests/test_export_stix_single_writer.py
 RX-PUB-A0.4 Phase 3 regression tests: agent/export_stix.py's brand-new-item
 ingestion path (STIXExporter._update_manifest, called from
 agent/sentinel_blogger.py's "Stage 2" per
-.github/workflows/sentinel-blogger.yml's own architecture comment) must no
+.github/workflows/sentinel-apex.yml's own architecture comment) must no
 longer synchronously invoke report_generator.py's secondary rendering
 engine ("Writer B" in docs/REPORT_WRITER_OWNERSHIP_MATRIX.md). It must
 still produce a manifest entry with the correct prospective report_url so

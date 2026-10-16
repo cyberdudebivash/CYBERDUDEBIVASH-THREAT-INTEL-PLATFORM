@@ -82,7 +82,7 @@ production_workflows:
   - .github/workflows/platform-build-deploy.yml
   - .github/workflows/report-generator-regression-gate.yml
   - .github/workflows/sast-security-scan.yml
-  - .github/workflows/sentinel-blogger.yml   # job id: generate-and-sync -- report/enrichment pipeline, name predates a 2026 architecture pivot
+  - .github/workflows/sentinel-apex.yml   # job id: generate-and-sync -- report/enrichment pipeline, name predates a 2026 architecture pivot
   - .github/workflows/deploy-revenue-engine.yml   # added Batch 3
 
 production_documentation:
@@ -104,10 +104,10 @@ production_scripts:
     role: "KV restore counterpart to the above (added EPTP Phase 8 Batch 1)"
   - path: scripts/r2_upload.py
     role: "Report artifact upload to R2 -- reads api/v1/*.json and api/apex_v2/*.json by literal path"
-    invoked_by: .github/workflows/sentinel-blogger.yml
+    invoked_by: .github/workflows/sentinel-apex.yml
   - path: scripts/build_apex_v2.py
     role: "Generates api/apex_v2/*.json"
-    invoked_by: .github/workflows/sentinel-blogger.yml
+    invoked_by: .github/workflows/sentinel-apex.yml
   - path: scripts/validate_canonical_docs.py
     role: "Enforcing check that this manifest and COMPONENT_REGISTRY.json match the repository (added Batch 4)"
     invoked_by: .github/workflows/repository-integrity-check.yml

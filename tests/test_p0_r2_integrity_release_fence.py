@@ -75,7 +75,7 @@ def test_authenticated_matching_s3_head_remains_eligible(tmp_path):
 
 
 def test_release_workflow_requires_verified_r2_for_every_distribution_boundary():
-    workflow = yaml.safe_load((ROOT / ".github/workflows/sentinel-blogger.yml").read_text(encoding="utf-8"))
+    workflow = yaml.safe_load((ROOT / ".github/workflows/sentinel-apex.yml").read_text(encoding="utf-8"))
     steps = workflow["jobs"]["generate-and-sync"]["steps"]
     by_name = {s.get("name"): (i, s) for i, s in enumerate(steps)}
     integrity_name = "STAGE 3.6 - R2 Upload Integrity Verifier (HARD FAIL)"
@@ -100,7 +100,7 @@ def test_release_workflow_requires_verified_r2_for_every_distribution_boundary()
 
 
 def test_workflow_cannot_treat_r2_integrity_step_as_soft_warning():
-    contents = (ROOT / ".github/workflows/sentinel-blogger.yml").read_text(encoding="utf-8")
+    contents = (ROOT / ".github/workflows/sentinel-apex.yml").read_text(encoding="utf-8")
     assert 'id: r2-manifest-integrity' in contents
     assert 'if: always()\n        run: python3 scripts/bust_kv_cache.py' not in contents
 
@@ -209,7 +209,7 @@ def test_workflow_verifies_uploaded_manifest_before_report_retirement(tmp_path):
         "tlp": "TLP:CLEAR", "report_url": "/reports/retired.html",
         "internal_report_url": "/reports/retired.html", "pdf_url": "/reports/retired.pdf",
     }]}), encoding="utf-8")
-    workflow = yaml.safe_load((ROOT / ".github/workflows/sentinel-blogger.yml").read_text(encoding="utf-8"))
+    workflow = yaml.safe_load((ROOT / ".github/workflows/sentinel-apex.yml").read_text(encoding="utf-8"))
     names = [step.get("name") for step in workflow["jobs"]["generate-and-sync"]["steps"]]
     uploaded = None
     verified_upload = False

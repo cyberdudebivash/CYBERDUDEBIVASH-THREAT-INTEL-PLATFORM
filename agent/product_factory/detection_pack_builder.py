@@ -148,7 +148,7 @@ class DetectionPackBuilder:
     def ensure_staged_content(self) -> bool:
         """Guarantee the canonical generator's artifacts exist locally.
 
-        sentinel-factory.yml runs on a different runner from sentinel-blogger.yml
+        sentinel-factory.yml runs on a different runner from sentinel-apex.yml
         and data/premium_staging/ is gitignored, so the staged artifacts are
         normally absent here. Rather than re-implementing extraction, invoke the
         canonical engine with R2 publishing disabled -- this runner is not the

@@ -3,7 +3,7 @@
 scripts/safe_git_commit.py
 CYBERDUDEBIVASH(R) SENTINEL APEX v150.0 -- Safe Git Commit & Push (Immutable API-First)
 ====================================================================
-P0 FIX: Replaces the inline Python + git bash block in sentinel-blogger.yml.
+P0 FIX: Replaces the inline Python + git bash block in sentinel-apex.yml.
 Zero inline Python in YAML.
 
 Responsibilities:
@@ -375,7 +375,7 @@ def main() -> None:
     # data/feed_manifest.json, data/cache/intel_index.json, and
     # data/cache/feed_state.json removed from this set -- all three are now
     # exclusively owned by scripts/r2_state_sync.py (--download/--upload,
-    # already wired into sentinel-blogger.yml's "Download/Upload Intel
+    # already wired into sentinel-apex.yml's "Download/Upload Intel
     # State from/to R2" steps), which was staging the same three files
     # here too. Keeping both authorities would mean git and R2 could each
     # hold a different "correct" copy with no reconciliation -- exactly
@@ -571,7 +571,7 @@ def main() -> None:
     # above). frontend-integrity-sync.yml (PR #166) already regenerates the
     # registry on `push`, but every commit this script makes carries
     # "[skip ci]" in its message (see commit_msg below) to avoid
-    # re-triggering sentinel-blogger.yml -- and GitHub's [skip ci]
+    # re-triggering sentinel-apex.yml -- and GitHub's [skip ci]
     # convention suppresses *every* push-triggered workflow for that
     # commit, including frontend-integrity-sync.yml. That left the registry
     # silently stale after each automated index.html regeneration until the
@@ -868,7 +868,7 @@ def main() -> None:
             # radius: this list already contains api/feed.json, so the
             # RESTORE step below unconditionally overwrites this run's
             # api/feed.json with ORIG_HEAD's version -- but ORIG_HEAD's
-            # api/feed.json (written by THIS workflow, sentinel-blogger.yml,
+            # api/feed.json (written by THIS workflow, sentinel-apex.yml,
             # which never calls detection_quality_engine.py) never had
             # detection_rules_total populated in the first place. So even
             # when this restore step "succeeds," it silently discards

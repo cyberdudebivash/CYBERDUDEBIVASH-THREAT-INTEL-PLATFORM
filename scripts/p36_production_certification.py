@@ -20,7 +20,7 @@ DATA_Q  = ROOT / "data" / "quality"
 SRC_P   = ROOT / "workers" / "intel-gateway" / "src"
 INDEX_P = SRC_P / "index.js"
 CI_P    = ROOT / "scripts" / "ci_stats_extract.py"
-WF_P    = ROOT / ".github" / "workflows" / "sentinel-blogger.yml"
+WF_P    = ROOT / ".github" / "workflows" / "sentinel-apex.yml"
 
 
 def _load_json(path: pathlib.Path) -> dict | list | None:

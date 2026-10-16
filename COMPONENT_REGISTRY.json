@@ -62,8 +62,8 @@
       "last_verified_phase": "RSIRP Phase 5B"
     },
     {
-      "name": "sentinel-blogger.yml",
-      "path": ".github/workflows/sentinel-blogger.yml",
+      "name": "sentinel-apex.yml",
+      "path": ".github/workflows/sentinel-apex.yml",
       "owner": "Platform Engineering",
       "classification": "production",
       "confidence": "high",
@@ -204,7 +204,7 @@
       "classification": "legacy",
       "confidence": "high",
       "last_verified_phase": "EPTP Phase 8 Batch 5",
-      "note": "Resolved a Batch 4 drift-detection finding. Default CMD runs agent.api.api_server:app (already-registered as agent-api-railway-app, legacy). Its SENTINEL_MODE=blogger alternate branch runs agent/sentinel_blogger.py inside the container, but SENTINEL_MODE is not set anywhere else in the repository -- confirmed via repo-wide grep -- so that branch is unreachable in practice. The real report pipeline runs natively via sentinel-blogger.yml on the GitHub Actions runner, not through this Dockerfile.",
+      "note": "Resolved a Batch 4 drift-detection finding. Default CMD runs agent.api.api_server:app (already-registered as agent-api-railway-app, legacy). Its SENTINEL_MODE=blogger alternate branch runs agent/sentinel_blogger.py inside the container, but SENTINEL_MODE is not set anywhere else in the repository -- confirmed via repo-wide grep -- so that branch is unreachable in practice. The real report pipeline runs natively via sentinel-apex.yml on the GitHub Actions runner, not through this Dockerfile.",
       "retirement_readiness": "BLOCKED",
       "retirement_blocker": "v184.6: the prior blocker (tied to agent-api-railway-app) is resolved -- that app is retired. NEW blocker found in the same batch: .github/workflows/sbom-generation.yml builds this Dockerfile (context: ., no explicit Dockerfile override) as a live dependency-CVE scan target, unrelated to Railway hosting. The Dockerfile's default CMD (uvicorn agent.api.api_server:app) now references a deleted module -- harmless today since the SBOM job only builds and inspects the image with Syft/Grype, never runs the container -- but rewriting the CMD (or repointing the SBOM workflow at a different Dockerfile) is a separate decision requiring its own verification, not made in this batch."
     },
@@ -246,7 +246,7 @@
       "classification": "production",
       "confidence": "high",
       "last_verified_phase": "EPTP Phase 8 Batch 5",
-      "note": "RECLASSIFIED this batch from unknown/low -- same pattern as api-v1: no code, only generated JSON (timeline.json, actors.json, critical.json, priority.json, dashboard_intel.json, trending.json). sentinel-blogger.yml documents generating priority.json/critical.json via scripts/build_apex_v2.py as a required pipeline stage ('MUST RUN... before Stage 3.5 (R2)'), and scripts/r2_upload.py explicitly globs api/apex_v2/*.json and uploads each to R2. Directory modified within the last day of this check."
+      "note": "RECLASSIFIED this batch from unknown/low -- same pattern as api-v1: no code, only generated JSON (timeline.json, actors.json, critical.json, priority.json, dashboard_intel.json, trending.json). sentinel-apex.yml documents generating priority.json/critical.json via scripts/build_apex_v2.py as a required pipeline stage ('MUST RUN... before Stage 3.5 (R2)'), and scripts/r2_upload.py explicitly globs api/apex_v2/*.json and uploads each to R2. Directory modified within the last day of this check."
     },
     {
       "name": "scripts-directory",

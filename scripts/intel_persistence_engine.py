@@ -17,7 +17,7 @@ MANDATE:
 PIPELINE POSITION:
   Run AFTER every feed generation / feed sync step.
 
-  sentinel-blogger.yml:
+  sentinel-apex.yml:
     ... [feed generation steps] ...
     - name: "Intelligence Persistence Engine"
       run: python3 scripts/intel_persistence_engine.py

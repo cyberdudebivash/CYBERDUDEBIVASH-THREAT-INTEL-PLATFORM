@@ -414,7 +414,7 @@ def run(feed_path: Path, manifest_path: Path) -> dict:
     # loop finishes, this didn't just skip the bad item: it silently
     # discarded every item successfully processed earlier in that same run
     # too (nothing had been written to disk yet), and (per STAGE 3.1.12's
-    # continue-on-error: true in sentinel-blogger.yml) the pipeline
+    # continue-on-error: true in sentinel-apex.yml) the pipeline
     # continued past the crash with no detection content written at all and
     # no failure surfaced beyond a log line. Wrapping just the per-item body
     # fixes both failure modes at once: a crash on item N now costs exactly

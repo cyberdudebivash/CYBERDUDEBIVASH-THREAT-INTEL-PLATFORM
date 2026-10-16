@@ -589,7 +589,7 @@ jobs:
       # STAGE 5.7 — MONETIZATION INTEGRITY GATE (HARD FAIL)
       # v184.0: Validates payment credentials, API auth enforcement,
       #           BOM-free / encoding-clean HTML, Worker premium gating.
-      #           Exit 1 blocks the deploy. Mirrors sentinel-blogger.yml gate.
+      #           Exit 1 blocks the deploy. Mirrors sentinel-apex.yml gate.
       #           POSITION: pre-deploy gate — runs BEFORE commit and R2 upload.
       # ─────────────────────────────────────────────────────────────────────
       - name: "STAGE 5.7 - Monetization Integrity Gate (HARD FAIL)"
@@ -597,7 +597,7 @@ jobs:
 
       # ─────────────────────────────────────────────────────────────────────
       # STAGE 6.7 — VERSION GOVERNANCE AUTO-APPLY (drift correction)
-      # Mirrors sentinel-blogger.yml pattern (STAGE 3.93.7 + 3.93.8):
+      # Mirrors sentinel-apex.yml pattern (STAGE 3.93.7 + 3.93.8):
       #   --apply first auto-corrects any drift, then --check verifies zero drift.
       # Belt-and-suspenders: ensures sla_status.json, version.json, workers/
       #   and all governed surfaces are aligned BEFORE commit or R2 upload.
@@ -684,7 +684,7 @@ jobs:
       # which hard-fails STAGE 6.89.1.
       # Fix: apply deterministic micro-adjustments (+ioc_count*0.01 +conf/1000
       # +ttp*0.005) bounded by MAX_MICRO_BUMP=0.25 and severity tier guard.
-      # Mirrors sentinel-blogger.yml STAGE 3.4.9 — same script, same invocation.
+      # Mirrors sentinel-apex.yml STAGE 3.4.9 — same script, same invocation.
       # Non-blocking (continue-on-error) — pipeline never fails at this step.
       # ─────────────────────────────────────────────────────────────────────
       - name: "STAGE 6.889 — Risk Score Micro-Differentiator (v184.0)"
@@ -1209,7 +1209,7 @@ jobs:
       # P0 DUPLICATE-WRITER RACE FIX (PR #370 follow-up): this step used to
       # hand-roll `aws s3 cp` for these 4 keys directly in YAML -- a second,
       # unlocked, unaccounted writer racing scripts/r2_upload.py's main()
-      # (invoked by sentinel-blogger.yml under a DIFFERENT concurrency group,
+      # (invoked by sentinel-apex.yml under a DIFFERENT concurrency group,
       # "sentinel-data-writer", which does NOT serialize against this
       # workflow's "sentinel-ai-writer" group). Fixed by making this
       # workflow the sole caller of the sole code path that writes these

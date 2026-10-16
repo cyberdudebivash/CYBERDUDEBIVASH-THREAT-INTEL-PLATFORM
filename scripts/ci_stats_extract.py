@@ -203,7 +203,7 @@ _REPORTS: dict = {
             d.get("summary", {}).get("live_stale_or_divergent_or_missing", 0),
             d.get("summary", {}).get("live_unknown", 0),
             # RX-PUB-A0.6A: appended, not inserted -- existing positional
-            # consumers (sentinel-blogger.yml's `read -r ... <<<`) keep
+            # consumers (sentinel-apex.yml's `read -r ... <<<`) keep
             # working unchanged; a consumer that wants the new fields reads
             # further positions.
             d.get("summary", {}).get("live_expected_denial", 0),

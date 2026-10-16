@@ -78,7 +78,7 @@ def test_delay_configuration_not_diluted_to_force_green():
     assert RATE_LIMIT_DELAY == 3
 
 def test_ingestion_fence_precedes_all_stage3_enrichment():
-    workflow = (ROOT / ".github/workflows/sentinel-blogger.yml").read_text(encoding="utf-8")
+    workflow = (ROOT / ".github/workflows/sentinel-apex.yml").read_text(encoding="utf-8")
     fence_start = workflow.index('- name: "P0 - Stage 1-3 Ingestion Health Fence')
     stale_guard = workflow.index('- name: "STAGE 1-3b - Stale Source Guard', fence_start)
     enrichment = workflow.index('- name: "STAGE 3.1 - APEX AI Feed Enrichment', stale_guard)
@@ -86,7 +86,7 @@ def test_ingestion_fence_precedes_all_stage3_enrichment():
 
 
 def test_fence_fails_closed_on_real_outcome_and_health_not_masked_conclusion():
-    workflow = (ROOT / ".github/workflows/sentinel-blogger.yml").read_text(encoding="utf-8")
+    workflow = (ROOT / ".github/workflows/sentinel-apex.yml").read_text(encoding="utf-8")
     beginning = workflow.index('- name: "P0 - Stage 1-3 Ingestion Health Fence')
     ending = workflow.index('- name: "STAGE 1-3b - Stale Source Guard', beginning)
     body = workflow[beginning:ending]
@@ -101,14 +101,14 @@ def test_fence_fails_closed_on_real_outcome_and_health_not_masked_conclusion():
 
 
 def test_fence_does_not_reduce_existing_cost_or_content_authorization_gates():
-    workflow = (ROOT / ".github/workflows/sentinel-blogger.yml").read_text(encoding="utf-8")
+    workflow = (ROOT / ".github/workflows/sentinel-apex.yml").read_text(encoding="utf-8")
     assert 'STAGE 3.3 - Report Validation Gate (HARD FAIL)' in workflow
     assert 'STAGE 3.6 - R2 Upload Integrity Verifier (HARD FAIL)' in workflow
     assert 'P0 - Report Publishing Release Verdict' in workflow
     assert 'STAGE 5.9.3 - Pipeline Health Terminal Gate' in workflow
 
 def test_health_recorder_produces_explicit_degraded_state_before_fence():
-    workflow = (ROOT / ".github/workflows/sentinel-blogger.yml").read_text(encoding="utf-8")
+    workflow = (ROOT / ".github/workflows/sentinel-apex.yml").read_text(encoding="utf-8")
     status_start = workflow.index('- name: "STAGE 1-3 STATUS GATE')
     fence_start = workflow.index('- name: "P0 - Stage 1-3 Ingestion Health Fence', status_start)
     status = workflow[status_start:fence_start]

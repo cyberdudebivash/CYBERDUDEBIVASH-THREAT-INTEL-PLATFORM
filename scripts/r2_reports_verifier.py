@@ -134,7 +134,7 @@ PUBLIC_TIMEOUT  = 15
 PUBLIC_MAX_RETRIES = 3
 PUBLIC_RETRY_DELAY = 3
 
-# RX-PUB-A0.6D follow-up: real production evidence (sentinel-blogger.yml run
+# RX-PUB-A0.6D follow-up: real production evidence (sentinel-apex.yml run
 # 31786632126, the first run with 6D's bounded R2-layer concurrency) showed
 # VERIFY_MAX_WORKERS=8 driving public-origin HTTP 429s from 3.2% (5/155,
 # baseline rate observed even at the old ~1-at-a-time sequential pacing --
@@ -181,7 +181,7 @@ def _count_get_call() -> None:
 # CodeRabbit finding: worst case (every report exhausts retries) is
 # PUBLIC_MAX_RETRIES * (PUBLIC_TIMEOUT + PUBLIC_RETRY_DELAY) per report --
 # at 150+ in-window reports that can exceed STAGE 3.6a's workflow timeout
-# (deploy-worker.yml / sentinel-blogger.yml, 15 min) before this script ever
+# (deploy-worker.yml / sentinel-apex.yml, 15 min) before this script ever
 # reaches its own manifest write, losing ALL results for the run rather than
 # just the unreachable ones. RUN_DEADLINE_SECONDS bounds total wall-clock
 # time across the whole in-window loop (both R2 and public layers) well
@@ -217,7 +217,7 @@ REPORT_WINDOW_HOURS = _report_window_hours()
 # conservative cap as its cheaper sibling, not a larger one.
 MAX_VERIFY_ITEMS = int(os.environ.get("MAX_VERIFY_ITEMS", "200"))
 
-# RX-PUB-A0.6D: real production evidence (sentinel-blogger.yml run
+# RX-PUB-A0.6D: real production evidence (sentinel-apex.yml run
 # 31761997953, 2026-08-14, pre-6D code) showed this deadline being hit hard
 # under real load -- sequential processing covered only 170 of 518 in-window
 # reports (~3.53s/report: one R2 head + one R2 get-object + a Worker
@@ -385,7 +385,7 @@ _PUBLIC_OPENER = urllib.request.build_opener(_NoRedirect)
 
 
 
-# RX-PUB-A0 STAGE 3.6a timeout postmortem (sentinel-blogger.yml run
+# RX-PUB-A0 STAGE 3.6a timeout postmortem (sentinel-apex.yml run
 # 33630720481, 2026-09-02): the step was force-killed by its 15-minute
 # timeout-minutes budget at 13:39:09Z, but main()'s own RUN_DEADLINE_SECONDS
 # (600s) budgeting had already completed and logged the full run summary at
@@ -1311,7 +1311,7 @@ if __name__ == "__main__":
     # hook then blocks -- with no bound -- until every one of those
     # abandoned threads finishes on its own (each can retry for
     # PUBLIC_MAX_RETRIES * (PUBLIC_TIMEOUT + PUBLIC_RETRY_DELAY) or longer
-    # per report). Confirmed live: sentinel-blogger.yml's STAGE 3.6a step
+    # per report). Confirmed live: sentinel-apex.yml's STAGE 3.6a step
     # (workflow timeout-minutes: 15) was hitting that external 15-minute
     # kill at the same ~15:13 wall-clock duration on every single run
     # (2026-09-02 07:09-07:24, 10:57-11:12, 13:23-13:39 UTC), never its own

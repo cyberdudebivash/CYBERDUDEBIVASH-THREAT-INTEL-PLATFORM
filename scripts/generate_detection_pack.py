@@ -63,7 +63,7 @@ DRY_RUN       = os.environ.get("DRY_RUN", "false").strip().lower() == "true"
 # as the single detection-content engine rather than re-implementing Sigma/KQL/
 # IOC/CVE extraction, but it runs on the sentinel-factory.yml runner, which has
 # no R2 credentials and is not the publisher of record for premium/detections/*
-# (sentinel-blogger.yml is). Without this flag that reuse either crashes in
+# (sentinel-apex.yml is). Without this flag that reuse either crashes in
 # get_credentials() or reports a false upload failure via the exit code.
 SKIP_R2_UPLOAD = os.environ.get("SKIP_R2_UPLOAD", "false").strip().lower() == "true"
 PLATFORM_BASE = "https://intel.cyberdudebivash.com"

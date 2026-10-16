@@ -39,7 +39,7 @@ Strategy:
     to the same truthful state rather than drifting
   - Non-fatal: any item-level error is logged and skipped, pipeline continues
 
-INSERTION POINT: sentinel-blogger.yml STAGE 3.1.7 (after STAGE 3.1.6)
+INSERTION POINT: sentinel-apex.yml STAGE 3.1.7 (after STAGE 3.1.6)
 MUST RUN: after run_pipeline.py (Stage 3.6 generates reports + sets report_url
            in feed_manifest.json) and before the git commit stage.
 
