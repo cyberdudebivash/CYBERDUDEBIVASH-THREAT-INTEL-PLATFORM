@@ -349,7 +349,7 @@ def handle_lead_request(payload: Dict) -> Tuple[int, Dict]:
         "lead_score":  record.get("score"),
         "next_steps":  next_steps.get(tier_label, next_steps["LOW"]),
         "demo_url":    "https://intel.cyberdudebivash.com/api",
-        "contact":     "enterprise@cyberdudebivash.in",
+        "contact":     "contact@cyberdudebivash.in",
     }
 
 
