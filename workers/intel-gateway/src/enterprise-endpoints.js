@@ -85,7 +85,7 @@ export async function handleTaxiiDiscovery(req, env, ctx, tier, req_id, auth, re
     title: "CYBERDUDEBIVASH(R) SENTINEL APEX TAXII 2.1 Server",
     description: "Enterprise cyber threat intelligence via TAXII 2.1 protocol. " +
       "Compatible with OpenCTI, MISP, Splunk, Microsoft Sentinel, and IBM QRadar.",
-    contact: "enterprise@cyberdudebivash.in",
+    contact: "contact@cyberdudebivash.in",
     default: "/api/taxii/root/",
     api_roots: [
       "https://intel.cyberdudebivash.com/api/taxii/root/",
@@ -601,7 +601,7 @@ export async function handleYaraBulk(req, env, ctx, tier, items, req_id) {
 // Rules: ${filtered.length}
 // Platform: SENTINEL APEX v${ENTERPRISE_VERSION}
 // License: ENTERPRISE  -  Authorised use only
-// Contact: enterprise@cyberdudebivash.in\n\n`;
+// Contact: contact@cyberdudebivash.in\n\n`;
 
   return new Response(header + rules, {
     status: 200,
