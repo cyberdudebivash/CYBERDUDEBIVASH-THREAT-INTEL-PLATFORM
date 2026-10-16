@@ -216,7 +216,7 @@ package)" — §drift-notice table.
 | Source | File : Line | Address |
 |---|---|---|
 | Security policy | `SECURITY.md:5,24` | `security@cyberdudebivash.com` |
-| Enterprise pages (PR-5/6/7 established) | — | `enterprise@cyberdudebivash.com` |
+| Enterprise pages (PR-5/6/7 established) | — | `contact@cyberdudebivash.in` |
 | OpenAPI contact block | `apex_openapi_v3.yaml:33` | `bivash@cyberdudebivash.com` |
 | Auth guide | `docs/api-auth-guide.md:43,82` | `bivashnayak.ai007@gmail.com` |
 | SDK packaging metadata | `sdk/setup.py:21` | `api@cyberdudebivash.com` |

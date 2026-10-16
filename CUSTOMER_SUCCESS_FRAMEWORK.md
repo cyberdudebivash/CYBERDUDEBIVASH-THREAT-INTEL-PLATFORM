@@ -16,8 +16,8 @@ Files audited: `support-center.html`, `sla.html`, `customer-success-center.html`
 
 | Channel | Details | Status |
 |---------|---------|--------|
-| Email — Enterprise Team | enterprise@cyberdudebivash.com | Active |
-| Email — Intel | enterprise@cyberdudebivash.com | Active |
+| Email — Enterprise Team | contact@cyberdudebivash.in | Active |
+| Email — Intel | contact@cyberdudebivash.in | Active |
 | WhatsApp | +91 8179881447 | Active |
 | Telegram | Not confirmed in code | Unknown |
 | Discord | Not confirmed in code | Unknown |
@@ -52,7 +52,7 @@ Files audited: `support-center.html`, `sla.html`, `customer-success-center.html`
 - Community forum (future — Discord recommended)
 
 **Support:**
-- Email only: enterprise@cyberdudebivash.com
+- Email only: contact@cyberdudebivash.in
 - Response SLA: 72 business hours (best effort)
 - No SLA guarantee
 
@@ -78,7 +78,7 @@ Day 14: Success check-in: "How is SENTINEL APEX working for you?"
 ```
 
 **Support:**
-- Email: enterprise@cyberdudebivash.com
+- Email: contact@cyberdudebivash.in
 - WhatsApp: +91 8179881447 (business hours 9am–7pm IST)
 - Response SLA: 24 business hours for email, 4 hours for WhatsApp
 - No weekend SLA (best effort)
@@ -115,7 +115,7 @@ Day 30: Success check-in: ROI assessment + QBR scheduling
 ```
 
 **Support:**
-- Email: enterprise@cyberdudebivash.com (priority queue)
+- Email: contact@cyberdudebivash.in (priority queue)
 - WhatsApp: Dedicated WhatsApp group `SENTINEL-[COMPANY]-ENTERPRISE`
 - Video calls available on request (Google Meet)
 - Response SLA: 4 business hours
@@ -279,7 +279,7 @@ Build as static HTML pages:
 
 - [ ] Set up Google Workspace / Gmail labels: `SUPPORT-COMMUNITY`, `SUPPORT-PRO`, `SUPPORT-ENTERPRISE`, `SUPPORT-MSSP`
 - [ ] Create WhatsApp Business profile for +91 8179881447 (add business hours, auto-reply)
-- [ ] Configure auto-reply on enterprise@cyberdudebivash.com (48h SLA acknowledgement)
+- [ ] Configure auto-reply on contact@cyberdudebivash.in (48h SLA acknowledgement)
 - [ ] Create onboarding email sequence for PRO (Day 0, 1, 3, 7, 14)
 - [ ] Create renewal reminder email templates (D-14, D-7, D-3, D+0)
 - [ ] Link sla.html from support-center.html and upgrade.html

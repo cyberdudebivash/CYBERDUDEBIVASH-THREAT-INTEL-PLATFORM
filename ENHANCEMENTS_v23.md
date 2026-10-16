@@ -160,7 +160,7 @@ CDB_ENTERPRISE_KEYS=   # Leave empty initially
 STRIPE_SECRET_KEY=sk_live_...
 STRIPE_WEBHOOK_SECRET=whsec_...
 SENDGRID_API_KEY=SG.xxx
-SENDER_EMAIL=enterprise@cyberdudebivash.com
+SENDER_EMAIL=contact@cyberdudebivash.in
 NVD_API_KEY=<optional — get free at nvd.nist.gov/developers>
 ```
 
@@ -394,4 +394,4 @@ What was missing (now fixed):
 ---
 
 *CYBERDUDEBIVASH Pvt. Ltd. · Bhubaneswar, Odisha, India*  
-*enterprise@cyberdudebivash.com · intel.cyberdudebivash.com*
+*contact@cyberdudebivash.in · intel.cyberdudebivash.com*

@@ -95,7 +95,7 @@ during this PR):
 
 ### 2.3 Support contacts
 
-`enterprise@cyberdudebivash.com` is present on all 5 pages (shared
+`contact@cyberdudebivash.in` is present on all 5 pages (shared
 baseline). `security@cyberdudebivash.com` additionally appears on
 `enterprise-compliance.html` and `developer-portal.html` (contextually
 correct &mdash; both pages have a security-relevant purpose).

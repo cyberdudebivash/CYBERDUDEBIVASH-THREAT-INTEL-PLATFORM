@@ -265,6 +265,6 @@ def test_primary_nav_has_exactly_seven_links(pages):
 def test_every_page_includes_the_shared_enterprise_contact(pages):
     offenders = [
         name for name, (_parser, text) in pages.items()
-        if "mailto:enterprise@cyberdudebivash.com" not in text
+        if "mailto:contact@cyberdudebivash.in" not in text
     ]
     assert not offenders, f"page(s) missing the shared enterprise@ contact: {offenders}"

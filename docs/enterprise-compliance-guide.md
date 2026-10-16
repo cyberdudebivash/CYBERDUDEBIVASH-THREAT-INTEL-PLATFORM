@@ -77,7 +77,7 @@ item this PR's brief named. Results:
 | Status page | Yes — `status.html` | |
 | AI policy | **No** — `ai-security-ops-hub.html` is an operational SOC dashboard, not a governance document | Marked "Coming Soon" (§1.3) |
 | API documentation | Yes — `api/index.html`, `docs/quickstart.html`, `docs/api-auth-guide.md` | |
-| Support contacts | Yes — `security@`, `enterprise@cyberdudebivash.com`, WhatsApp | |
+| Support contacts | Yes — `security@`, `contact@cyberdudebivash.in`, WhatsApp | |
 | Legal pages | Yes — `terms.html`, `eula.html`, `privacy.html` | |
 
 Additionally found, not named in the brief but directly relevant:

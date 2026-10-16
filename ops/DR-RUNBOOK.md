@@ -164,7 +164,7 @@ Write-Host "Git history: $commitCount commits" -ForegroundColor Cyan
 
 ## 4. RECOVERY CONTACT ESCALATION
 
-1. **CYBERDUDEBIVASH** (enterprise@cyberdudebivash.com) — Primary responder
+1. **CYBERDUDEBIVASH** (contact@cyberdudebivash.in) — Primary responder
 2. **GitHub Support** (https://support.github.com/) — Repository recovery
 3. **Cloudflare Support** (https://support.cloudflare.com/) — CDN issues
 4. **Railway/Render Support** — Backend API issues (Phase 3)

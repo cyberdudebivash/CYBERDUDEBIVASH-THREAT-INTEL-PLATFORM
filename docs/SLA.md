@@ -140,7 +140,7 @@ Submit credit claims to support@cyberdudebivash.com within 30 days of the incide
 
 - SLA queries: sla@cyberdudebivash.com
 - Security disclosures: security@cyberdudebivash.com
-- Enterprise sales: enterprise@cyberdudebivash.com
+- Enterprise sales: contact@cyberdudebivash.in
 
 ---
 

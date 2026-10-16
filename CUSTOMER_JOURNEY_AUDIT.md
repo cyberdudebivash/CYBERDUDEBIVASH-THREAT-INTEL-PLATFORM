@@ -78,7 +78,7 @@ Files audited: `index.html`, `pricing.html`, `upgrade.html`, `PAYMENT-GATEWAY.ht
 ### What exists
 - Payment tracker form on `PAYMENT-GATEWAY.html` (Formspree: `xpzgkqly`)
 - WhatsApp support: +91 8179881447
-- Email: `enterprise@cyberdudebivash.com`
+- Email: `contact@cyberdudebivash.in`
 - `billing-center.html` — billing status UI (static data)
 
 ### Friction Points

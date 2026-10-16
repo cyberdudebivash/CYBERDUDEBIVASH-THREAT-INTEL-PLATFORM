@@ -113,7 +113,7 @@ def _tier_comparison() -> List[Dict[str, Any]]:
                 "Dedicated support engineer",
             ],
             "limitations": [],
-            "upgrade_cta": "Contact enterprise@cyberdudebivash.com",
+            "upgrade_cta": "Contact contact@cyberdudebivash.in",
         },
     ]
 

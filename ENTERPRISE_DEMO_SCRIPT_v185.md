@@ -153,4 +153,4 @@ If they ask "Is this real data?" → *"Every advisory is sourced from live feeds
 ---
 
 *SENTINEL APEX v185.0 · Enterprise Demo Script · Last updated: 2026-06-22*
-*Contact: enterprise@cyberdudebivash.com · WhatsApp: +91 8179881447*
+*Contact: contact@cyberdudebivash.in · WhatsApp: +91 8179881447*

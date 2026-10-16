@@ -753,7 +753,7 @@ class SovereignOrchestrator:
         # S1: Provision demo tenants
         try:
             demo_tenants = [
-                ("CyberDudeBivash GOC", "enterprise", "enterprise@cyberdudebivash.com"),
+                ("CyberDudeBivash GOC", "enterprise", "contact@cyberdudebivash.in"),
                 ("Acme Security Corp", "pro", "soc@acme-security.com"),
                 ("Global Bank CISO Office", "enterprise", "ciso@globalbank.com"),
                 ("SecureNet MSSP", "mssp", "admin@securenet-mssp.com"),

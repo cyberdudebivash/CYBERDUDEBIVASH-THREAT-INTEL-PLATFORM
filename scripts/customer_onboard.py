@@ -337,9 +337,9 @@ def generate_welcome_package(
     ─────────────────────────────────────────────────────────────────────
     Platform     : https://intel.cyberdudebivash.com
     API Docs     : https://intel.cyberdudebivash.com/api-docs.html
-    Support      : enterprise@cyberdudebivash.com
+    Support      : contact@cyberdudebivash.in
     Privacy      : privacy@cyberdudebivash.com
-    Billing      : enterprise@cyberdudebivash.com
+    Billing      : contact@cyberdudebivash.in
 
     ─────────────────────────────────────────────────────────────────────
     SENTINEL APEX v184.0 | Generated: {now_utc()[:19]}Z | TLP:RED (operator only)

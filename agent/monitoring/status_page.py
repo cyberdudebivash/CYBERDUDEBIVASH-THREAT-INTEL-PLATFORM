@@ -272,7 +272,7 @@ class PlatformStatusMonitor:
                 "dashboard":   "https://intel.cyberdudebivash.com",
                 "api_docs":    "https://api.cyberdudebivash.com/docs",
                 "blog":        "https://cyberbivash.blogspot.com",
-                "support":     "enterprise@cyberdudebivash.com",
+                "support":     "contact@cyberdudebivash.in",
             },
             "generated_at": datetime.now(timezone.utc).isoformat(),
             "next_check_at": (datetime.now(timezone.utc) + timedelta(minutes=30)).isoformat(),
@@ -441,7 +441,7 @@ body {{ background: #06080d; color: #cbd5e1; font-family: 'Inter', sans-serif; m
 
 <div class="footer">
   <p>CYBERDUDEBIVASH(R) SENTINEL APEX - <a href="https://intel.cyberdudebivash.com">intel.cyberdudebivash.com</a></p>
-  <p style="margin-top:8px;">Contact: <a href="mailto:enterprise@cyberdudebivash.com">enterprise@cyberdudebivash.com</a> | <a href="https://api.cyberdudebivash.com/docs">API Docs</a></p>
+  <p style="margin-top:8px;">Contact: <a href="mailto:contact@cyberdudebivash.in">contact@cyberdudebivash.in</a> | <a href="https://api.cyberdudebivash.com/docs">API Docs</a></p>
   <p style="margin-top:8px;color:#334155;">Status page auto-refreshes every 5 minutes. Powered by CDB Monitor v{VERSION}</p>
 </div>
 </body>
