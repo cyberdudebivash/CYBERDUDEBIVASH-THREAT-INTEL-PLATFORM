@@ -5,6 +5,28 @@
  */
 import { fileURLToPath } from 'node:url';
 import { resolve } from 'node:path';
+import { execFileSync } from 'node:child_process';
+
+// Runtime parity is allowed only when the live Worker is an earlier commit
+// with IDENTICAL customer-serving gateway source/config. This supports
+// workflow-only fixes without an unnecessary Cloudflare redeploy.
+export function gatewayRuntimeParity(liveSha, expectedSha) {
+  if (!SHA_RE.test(liveSha || '') || !SHA_RE.test(expectedSha || '')) return false;
+  if (liveSha === expectedSha) return true;
+  try {
+    execFileSync('git', ['fetch', '--no-tags', '--depth=1', 'origin', liveSha], {
+      stdio: 'ignore', timeout: 15000,
+    });
+    execFileSync('git', ['diff', '--exit-code', '--quiet', liveSha, expectedSha,
+      '--', 'workers/intel-gateway/src', 'workers/intel-gateway/package.json',
+      'workers/intel-gateway/wrangler.toml', 'config/version.json',
+      'scripts/generate_api_manifests.py', 'scripts/public_api_sanitizer.py',
+    ], { stdio: 'ignore', timeout: 15000 });
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 const LIVE_URL = 'https://intel.cyberdudebivash.com/api/health/live';
 const SHA_RE = /^[0-9a-f]{40}$/;
@@ -17,6 +39,7 @@ export async function awaitGatewayDeployment({
   intervalMs = 12000,
   requestTimeoutMs = 4000,
   log = () => {},
+  runtimeParity = gatewayRuntimeParity,
 } = {}) {
   if (!SHA_RE.test(expectedSha || '')) throw new Error('GATEWAY_DEPLOY_SHA_INVALID');
   if (!Number.isInteger(maxAttempts) || maxAttempts < 1 || maxAttempts > 24) {
@@ -24,6 +47,7 @@ export async function awaitGatewayDeployment({
   }
 
   let reason = 'not_probed';
+  const parityCache = new Map();
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     try {
       const res = await fetchImpl(LIVE_URL, {
@@ -41,8 +65,19 @@ export async function awaitGatewayDeployment({
           log('GATEWAY_EXACT_SHA_CONFIRMED ' + expectedSha + ' attempt=' + attempt);
           return { attempt, sha: expectedSha };
         }
-        reason = live?.status === 'alive' && SHA_RE.test(live?.deploy_commit_sha || '')
-          ? 'deployment_sha_not_converged' : 'invalid_liveness_contract';
+        if (live?.status === 'alive' && SHA_RE.test(live?.deploy_commit_sha || '')) {
+          const liveSha = live.deploy_commit_sha;
+          if (!parityCache.has(liveSha)) {
+            parityCache.set(liveSha, await runtimeParity(liveSha, expectedSha));
+          }
+          if (parityCache.get(liveSha)) {
+            log('GATEWAY_RUNTIME_PARITY_CONFIRMED live=' + liveSha + ' checkout=' + expectedSha + ' attempt=' + attempt);
+            return { attempt, sha: liveSha, runtime_equivalent: true };
+          }
+          reason = 'deployment_sha_not_converged';
+        } else {
+          reason = 'invalid_liveness_contract';
+        }
       }
     } catch {
       reason = 'liveness_unavailable';
