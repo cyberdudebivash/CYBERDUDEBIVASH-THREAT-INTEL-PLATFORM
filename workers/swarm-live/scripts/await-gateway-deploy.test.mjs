@@ -36,6 +36,7 @@ test('older deployment must converge to exact SHA before succeeding', async () =
     sleep: async () => { sleeps++; },
     maxAttempts: 4,
     intervalMs: 1,
+    runtimeParity: async () => false,
   });
   assert.equal(got.attempt, 3);
   assert.equal(n, 3);
@@ -49,6 +50,7 @@ test('permanent stale deployment fails closed rather than issuing a credential',
     expectedSha: SHA, fetchImpl: async () => { n++; return ready(OLD); },
     sleep: async () => {},
     maxAttempts: 2, intervalMs: 1, log: x => evidence.push(x),
+    runtimeParity: async () => false,
   }), /GATEWAY_DEPLOY_NOT_CONVERGED.*deployment_sha_not_converged/);
   assert.equal(n, 2);
   assert.equal(evidence.filter(x => x.startsWith('GATEWAY_EXACT_SHA_CONFIRMED')).length, 0);
@@ -66,6 +68,7 @@ test('missing, unauthorized, malformed or failed endpoint cannot pass', async ()
     await assert.rejects(awaitGatewayDeployment({
       expectedSha: SHA, fetchImpl, sleep: async () => {},
       maxAttempts: 1, log: noop,
+      runtimeParity: async () => false,
     }), /GATEWAY_DEPLOY_NOT_CONVERGED/);
   }
 });
@@ -84,4 +87,38 @@ test('a valid SHA on non-200 HTTP cannot bypass the liveness contract', async ()
     fetchImpl: async () => ({ ...ready(SHA), status: 500 }),
     maxAttempts: 1,
   }), /GATEWAY_DEPLOY_NOT_CONVERGED/);
+});
+
+test('a workflow-only commit may certify only when gateway runtime paths are proven equal', async () => {
+  let calls = 0;
+  const messages = [];
+  const response = await awaitGatewayDeployment({
+    expectedSha: SHA,
+    fetchImpl: async () => ready(OLD),
+    runtimeParity: async (live, expected) => {
+      calls++;
+      assert.equal(live, OLD);
+      assert.equal(expected, SHA);
+      return true;
+    },
+    sleep: async () => assert.fail('should not retry verified identical gateway'),
+    maxAttempts: 3,
+    log: s => messages.push(s),
+  });
+  assert.deepEqual(response, { sha: OLD, attempt: 1, runtime_equivalent: true });
+  assert.equal(calls, 1);
+  assert.match(messages.join(' '), /GATEWAY_RUNTIME_PARITY_CONFIRMED/);
+});
+
+test('runtime parity of the same stale SHA is checked once, never assumed or repeatedly fetched', async () => {
+  let checks = 0, reads = 0;
+  await assert.rejects(awaitGatewayDeployment({
+    expectedSha: SHA,
+    fetchImpl: async () => { reads++; return ready(OLD); },
+    runtimeParity: async () => { checks++; return false; },
+    sleep: async () => {},
+    maxAttempts: 3,
+  }), /GATEWAY_DEPLOY_NOT_CONVERGED/);
+  assert.equal(checks, 1);
+  assert.equal(reads, 3);
 });
