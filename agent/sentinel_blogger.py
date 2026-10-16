@@ -438,7 +438,7 @@ def main():
     # service=None always. Intel flows directly to STIX → manifest → R2.
     # No Blogger API calls. No publish queue. No pending retries.
     service = None
-    logger.info("[BLOGGER] PERMANENTLY DISABLED — R2-only architecture (v134.0)")
+    logger.info("Publish path is R2. The retired Blogger output is not called.")
 
     published_count = 0
 

@@ -721,7 +721,7 @@ def stage_file_integrity_guard() -> None:
 
 def stage_purge_publish_queue() -> None:
     log.info("=" * 60)
-    log.info("STAGE 0.5 -- Purge Blogger publish queue")
+    log.info("STAGE 0.5 -- Purge retired publish queue")
     log.info("=" * 60)
     try:
         queue_path = REPO_ROOT / "data" / "publish_queue.json"
@@ -732,7 +732,7 @@ def stage_purge_publish_queue() -> None:
                 queue = raw.get("queue", raw) if isinstance(raw, dict) else raw
                 count = len(queue) if isinstance(queue, list) else 0
                 if count > 0:
-                    log.info("[0.5] Clearing %d stale Blogger queue entries (queue bomb neutralised)", count)
+                    log.info("[0.5] Clearing %d stale publish-queue entries", count)
             except Exception as e:
                 log.warning("[0.5] Could not read existing queue: %s", e)
         empty = {
@@ -976,20 +976,7 @@ def stage_v70_orchestrator() -> None:
     result = run_script(cmd, stage="2.1.v70", allow_fail=True, timeout=240)
 
     if result.returncode != 0:
-        log.warning("[2.1] v70 exited %d -- writing fallback result.", result.returncode)
-        fallback = {
-            "success": False,
-            "total_advisories": 0,
-            "error": f"v70 non-zero exit {result.returncode} (guard fired)",
-            "phases": [],
-            "guard_fired": True,
-        }
-        try:
-            Path("/tmp/v70_result.json").write_text(
-                json.dumps(fallback, indent=2, ensure_ascii=False), encoding="utf-8"
-            )
-        except Exception as e:
-            log.warning("[2.1] Could not write fallback v70 result: %s", e)
+        log.warning("[2.1] v70 exited %d. Enrichment skipped for this run.", result.returncode)
     else:
         log.info("[2.1] v70 enrichment complete.")
 
