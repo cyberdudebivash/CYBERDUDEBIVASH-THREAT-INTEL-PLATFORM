@@ -155,6 +155,12 @@ jobs:
           echo "=== workers/intel-gateway -- every test file under src/ ==="
           node --test "src/**/*.test.js" "src/**/*.test.mjs"
 
+      # Outside the gateway tree. Covers the 2026-10-16 certification failure:
+      # the enterprise failure watch must follow a feed replaced mid-canary,
+      # and must still fail closed when that feed never matches.
+      - name: "Cyber Watchdog enterprise failure-watch live feed"
+        run: node --test deploy/cyber-watchdog/canary-live-feed.test.mjs
+
       # Lives outside src/, so the globs above do not match it. It is in
       # deploy-worker.yml's curated gate; included here so the PR path covers
       # the same surface the deploy path does.

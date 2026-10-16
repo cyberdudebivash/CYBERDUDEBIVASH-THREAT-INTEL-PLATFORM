@@ -51,12 +51,26 @@ async function http(method, path, { key, bearer, body } = {}) {
 }
 
 async function feedItems(key) {
-  // One authoritative read. Refuses to pick criteria from a non-FRESH feed.
+  const got = await readFreshFeed(key);
+  if (!got.ok) out({ result: "NO_GO_FEED_NOT_FRESH", status: got.status, freshness_status: got.freshness_status }, 1);
+  return got;
+}
+
+// One authoritative read. ok is false when the feed is missing or not FRESH.
+// The enterprise failure watch calls this again: the generation loaded at
+// process start can be replaced while the signed delivery is in flight.
+async function readFreshFeed(key) {
   const res = await http("GET", "/api/feed.json", { key });
-  if (res.status !== 200 || !res.body || res.body.freshness_status !== "FRESH") {
-    out({ result: "NO_GO_FEED_NOT_FRESH", status: res.status, freshness_status: res.body && res.body.freshness_status }, 1);
-  }
-  return { items: res.body.items, generated_at: res.body.generated_at };
+  const body = res.body || null;
+  const items = body && Array.isArray(body.items) ? body.items : null;
+  const ok = res.status === 200 && body && body.freshness_status === "FRESH" && items && items.length > 0;
+  return {
+    ok,
+    items: ok ? items : null,
+    generated_at: body && body.generated_at,
+    status: res.status,
+    freshness_status: body && body.freshness_status,
+  };
 }
 
 function httpSink() {
@@ -110,7 +124,13 @@ try {
     const sink = httpSink();
     if (!sink) out({ result: "OPERATOR_WEBHOOK_SINK_REQUIRED", needs: "An owner-controlled HTTPS receiver running deploy/cyber-watchdog/sink.mjs: CDB_WATCHDOG_SINK_URL, CDB_WATCHDOG_SINK_INSPECT_URL, CDB_WATCHDOG_SINK_TOKEN. Third-party capture services are not acceptable." }, 11);
     const feed = await feedItems(key);
-    const evidence = await runEnterpriseCanary({ http, key, runId, feedItems: feed.items, sink, sleep, log });
+    const evidence = await runEnterpriseCanary({
+      http, key, runId, feedItems: feed.items, sink, sleep, log,
+      loadFeed: async () => {
+        const got = await readFreshFeed(key);
+        return got.ok ? got.items : null;
+      },
+    });
     out({ result: evidence.result, feed_generated_at: feed.generated_at, evidence }, evidence.result === "PASS" ? 0 : 1);
   }
   if (mode === "mssp") {
