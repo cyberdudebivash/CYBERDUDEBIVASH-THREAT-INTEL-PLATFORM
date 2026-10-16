@@ -1005,8 +1005,10 @@ export async function handleCorrelate(request, env, auth, rid) {
     if (!paidObject) return extJson({ error: "correlation_feed_unavailable", request_id: rid }, 503);
     const paidManifest = await paidObject.json();
     const paidItems = Array.isArray(paidManifest?.items) ? paidManifest.items : null;
+    const isUsableIoc = i => i && typeof i.type === "string" && i.type.trim() &&
+      typeof i.value === "string" && i.value.trim();
     const hasRealIocs = paidItems?.some(item =>
-      Array.isArray(item?.iocs) && item.iocs.some(i => i && typeof i.value === "string" && i.value.trim())
+      Array.isArray(item?.iocs) && item.iocs.some(isUsableIoc)
     );
     if (!hasRealIocs) return extJson({ error: "correlation_feed_unavailable", request_id: rid }, 503);
 
@@ -1014,7 +1016,7 @@ export async function handleCorrelate(request, env, auth, rid) {
     for (const item of paidItems) {
       if (!item || !Array.isArray(item.iocs)) continue;
       const found = item.iocs.some(i =>
-        i && typeof i.value === "string" && (
+        isUsableIoc(i) && (
           i.value.toLowerCase() === iocValue.toLowerCase() ||
           (iocType !== "auto" && i.type === iocType && i.value.toLowerCase().includes(iocValue.toLowerCase()))
         )
