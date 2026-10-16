@@ -976,20 +976,7 @@ def stage_v70_orchestrator() -> None:
     result = run_script(cmd, stage="2.1.v70", allow_fail=True, timeout=240)
 
     if result.returncode != 0:
-        log.warning("[2.1] v70 exited %d -- writing fallback result.", result.returncode)
-        fallback = {
-            "success": False,
-            "total_advisories": 0,
-            "error": f"v70 non-zero exit {result.returncode} (guard fired)",
-            "phases": [],
-            "guard_fired": True,
-        }
-        try:
-            Path("/tmp/v70_result.json").write_text(
-                json.dumps(fallback, indent=2, ensure_ascii=False), encoding="utf-8"
-            )
-        except Exception as e:
-            log.warning("[2.1] Could not write fallback v70 result: %s", e)
+        log.warning("[2.1] v70 exited %d. Enrichment skipped for this run.", result.returncode)
     else:
         log.info("[2.1] v70 enrichment complete.")
 
