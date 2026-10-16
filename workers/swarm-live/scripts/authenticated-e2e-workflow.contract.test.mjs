@@ -47,3 +47,18 @@ test('CI clipboard handling is non-persistent, GUI-free, and cannot hang indefin
   assert.ok(workflow.includes('timeout-minutes: 4'));
   assert.ok(workflow.includes('timeout-minutes: 6'));
 });
+
+test('P0: authenticated production certification triggers on paid IOC exporter and publisher changes', () => {
+  const pushBlock = workflow.split('workflow_dispatch:')[0];
+  for (const file of [
+    'workers/intel-gateway/src/api-extensions.js',
+    'scripts/generate_api_manifests.py',
+    'scripts/public_api_sanitizer.py',
+    'workers/swarm-live/scripts/certification-ioc-candidates.mjs',
+  ]) {
+    assert.ok(pushBlock.includes(`      - '${file}'`), `missing V4.47 push path for ${file}`);
+  }
+  assert.ok(workflow.includes('workflow_dispatch: {}'));
+  assert.ok(pushBlock.includes('    branches: [main]'), 'V4.47 push scope must remain main-only');
+  assert.ok(workflow.includes('cancel-in-progress: true'), 'V4.47 cannot overlap credential lifecycles');
+});
