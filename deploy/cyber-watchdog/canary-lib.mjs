@@ -184,7 +184,7 @@ export async function runAutonomousCanary({ http, key, runId, feedItems, sleep, 
  * ENTERPRISE acceptance (Phase 15). `sink` is an owner-controlled receiver:
  *   { url, records(): Promise<[{headers, raw}]>, setMode(status, retryAfter) }
  */
-export async function runEnterpriseCanary({ http, key, runId, feedItems, sink, sleep, log = () => {} }) {
+export async function runEnterpriseCanary({ http, key, runId, feedItems, sink, sleep, loadFeed, log = () => {} }) {
   const ev = { mode: "ENTERPRISE", run_id: runId, steps: [] };
   const step = (name, detail) => { ev.steps.push({ step: name, ok: true, ...detail }); log(name, detail); };
   const s = await session(http, key);
@@ -247,14 +247,83 @@ export async function runEnterpriseCanary({ http, key, runId, feedItems, sink, s
     step("no_duplicate", {});
 
     // Forced safe failure: the owner sink answers 503 for the next event.
-    const second = pickUnambiguousCriterion(feedItems, new Set([pick.item_id]));
-    check("select_second_item", second, "NO_UNAMBIGUOUS_FEED_ITEM");
+    // The criterion is taken from the feed the SERVER will evaluate, not from
+    // the snapshot captured when this canary started. A publisher can replace
+    // the authoritative feed during the signed-delivery wait (observed
+    // 2026-10-16: generation 06:12:38Z landed between the two watches, the
+    // stale second criterion matched nothing, and one events read reported
+    // no event). A miss is retried against a fresh read. A missing event is
+    // still a failure. This never passes without one.
     await sink.setMode(503, 120);
-    const c2 = await http("POST", "/api/watchdog/watches", { ...auth, body: { name: "CANARY-ENT-FAIL-" + runId, criteria: second.criteria } });
-    check("create_failure_watch", c2.status === 201, "status " + c2.status);
-    watch2 = c2.body.watch.id;
-    const e2 = eventsFor((await http("GET", "/api/watchdog/events?limit=50", auth)).body, watch2)[0];
-    check("failure_event", !!e2, "no event for failure watch");
+    const excluded = new Set([pick.item_id]);
+    let e2 = null;
+    let second = null;
+    let attempts = 0;
+    let lastDiag = "no live-feed attempt";
+    while (!e2 && attempts < 3) {
+      attempts += 1;
+      let liveItems = feedItems;
+      if (typeof loadFeed === "function") {
+        const loaded = await loadFeed();
+        const items = Array.isArray(loaded) ? loaded : (loaded && Array.isArray(loaded.items) ? loaded.items : null);
+        if (!items || !items.length) {
+          lastDiag = "authoritative feed not FRESH";
+          await sleep(5000);
+          continue;
+        }
+        liveItems = items;
+      }
+      const candidate = pickUnambiguousCriterion(liveItems, excluded);
+      if (!candidate) {
+        lastDiag = "no unambiguous item on the live feed";
+        await sleep(5000);
+        continue;
+      }
+      second = candidate;
+      if (watch2) {
+        await http("DELETE", "/api/watchdog/watches?id=" + watch2, auth).catch(() => {});
+        watch2 = null;
+      }
+      const c2 = await http("POST", "/api/watchdog/watches", { ...auth, body: { name: "CANARY-ENT-FAIL-" + runId, criteria: second.criteria } });
+      check("create_failure_watch", c2.status === 201, "status " + c2.status);
+      watch2 = c2.body && c2.body.watch && c2.body.watch.id;
+      check("create_failure_watch", !!watch2, "missing watch id");
+      let skipped = false;
+      for (let poll = 0; poll < 4; poll += 1) {
+        const res = await http("GET", "/api/watchdog/events?limit=50", auth);
+        const body = (res && res.body) || {};
+        lastDiag = "http " + res.status
+          + " freshness " + (body.freshness_status || "unknown")
+          + " feed " + (body.feed_generated_at || "unknown")
+          + " evaluated " + String(body.evaluated)
+          + " inserted " + String(body.inserted)
+          + (body.evaluation_skipped ? " skipped " + body.evaluation_skipped : "");
+        if (res.status !== 200) {
+          await sleep(2000);
+          continue;
+        }
+        if (body.evaluation_skipped) {
+          skipped = true;
+          await sleep(5000);
+          continue;
+        }
+        skipped = false;
+        const mine = eventsFor(body, watch2);
+        if (mine.length === 1 && mine[0].matched_item_id === second.item_id) e2 = mine[0];
+        else excluded.add(second.item_id);
+        break;
+      }
+      if (!e2 && skipped) lastDiag += " still skipped";
+      if (!e2 && watch2) {
+        await http("DELETE", "/api/watchdog/watches?id=" + watch2, auth).catch(() => {});
+        watch2 = null;
+      }
+    }
+    check("select_second_item", !!second, "NO_UNAMBIGUOUS_FEED_ITEM (" + lastDiag + ")");
+    check("failure_event", !!e2, "no event for failure watch after " + attempts + " attempts against the live feed (" + lastDiag + ")");
+    ev.failure_matched_item_id = e2.matched_item_id;
+    ev.failure_attempts = attempts;
+    step("failure_event", { event_id: e2.id, matched_item_id: e2.matched_item_id, attempts });
     await waitFor((r) => hdr(r, "X-CDB-Watchdog-Event-ID") === e2.id, "failed_attempt_observed");
     let state = null;
     for (let i = 0; i < 12; i += 1) {
