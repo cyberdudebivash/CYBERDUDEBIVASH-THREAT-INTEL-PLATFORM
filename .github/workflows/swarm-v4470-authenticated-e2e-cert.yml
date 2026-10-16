@@ -10,6 +10,14 @@ on:
       - 'workers/swarm-live/scripts/post-demo-certify.mjs'
       - 'workers/swarm-live/package.json'
       - 'workers/intel-gateway/scripts/demo-key-operator.mjs'
+      # P0: CSV output, paid R2 publisher and IOC candidate transformations
+      # are in the V4.47 live certification blast radius. PR #848 changed
+      # the CSV exporter without matching this path filter, so its post-merge
+      # certification never ran. Preserve existing strict fail-closed checks.
+      - 'workers/intel-gateway/src/api-extensions.js'
+      - 'scripts/generate_api_manifests.py'
+      - 'scripts/public_api_sanitizer.py'
+      - 'workers/swarm-live/scripts/certification-ioc-candidates.mjs'
   workflow_dispatch: {}
 
 permissions:
