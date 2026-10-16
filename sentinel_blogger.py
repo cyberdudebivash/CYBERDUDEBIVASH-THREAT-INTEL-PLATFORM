@@ -49,8 +49,8 @@ def main():
       - EPSS + CVSS + KEV enrichment (NVD + CISA + FIRST)
       - VANGUARD IOC validation + false-positive removal
       - STIX 2.1 bundle creation + manifest update
-      - Resilient Blogger publish (rate-limit retry + pending queue)
-      - Revenue CTA injection on every published post
+      - R2 is the only publish path. Google Blogger is not called.
+      - Revenue CTA injection on every published report
       - IOC telemetry accumulation (v77.2 fix)
     """
     logger.info("=" * 70)

@@ -721,7 +721,7 @@ def stage_file_integrity_guard() -> None:
 
 def stage_purge_publish_queue() -> None:
     log.info("=" * 60)
-    log.info("STAGE 0.5 -- Purge Blogger publish queue")
+    log.info("STAGE 0.5 -- Purge retired publish queue")
     log.info("=" * 60)
     try:
         queue_path = REPO_ROOT / "data" / "publish_queue.json"
@@ -732,7 +732,7 @@ def stage_purge_publish_queue() -> None:
                 queue = raw.get("queue", raw) if isinstance(raw, dict) else raw
                 count = len(queue) if isinstance(queue, list) else 0
                 if count > 0:
-                    log.info("[0.5] Clearing %d stale Blogger queue entries (queue bomb neutralised)", count)
+                    log.info("[0.5] Clearing %d stale publish-queue entries", count)
             except Exception as e:
                 log.warning("[0.5] Could not read existing queue: %s", e)
         empty = {
