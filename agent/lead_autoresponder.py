@@ -46,7 +46,7 @@ ENTERPRISE_URL  = "https://intel.cyberdudebivash.com/pricing"
 STORE_URL       = "https://tools.cyberdudebivash.com/"
 PLATFORM_URL    = "https://intel.cyberdudebivash.com"
 WHATSAPP_URL    = "https://wa.me/918179881447"
-ENTERPRISE_EMAIL = "enterprise@cyberdudebivash.com"
+ENTERPRISE_EMAIL = "contact@cyberdudebivash.in"
 
 UPSELL_THRESHOLD_CENTS = 5000      # $50 - below this = upsell to Enterprise
 

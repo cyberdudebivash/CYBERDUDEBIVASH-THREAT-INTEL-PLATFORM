@@ -565,7 +565,7 @@ class SubscriptionManager:
                 for tier, config in TIER_CONFIG.items()
             },
             "currency": "USD",
-            "contact_enterprise": "enterprise@cyberdudebivash.com",
+            "contact_enterprise": "contact@cyberdudebivash.in",
         }
 
 

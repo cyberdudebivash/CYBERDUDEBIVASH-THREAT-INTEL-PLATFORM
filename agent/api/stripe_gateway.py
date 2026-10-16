@@ -385,7 +385,7 @@ class StripeGateway:
 
   <p style="font-size:11px;color:#334155;margin-top:28px;border-top:1px solid #1e293b;padding-top:16px;">
     CYBERDUDEBIVASH Pvt. Ltd. * Bhubaneswar, Odisha, India<br>
-    enterprise@cyberdudebivash.com * intel.cyberdudebivash.com
+    contact@cyberdudebivash.in * intel.cyberdudebivash.com
   </p>
 </div>
 </body>
