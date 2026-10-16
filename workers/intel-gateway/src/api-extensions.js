@@ -994,12 +994,32 @@ export async function handleCorrelate(request, env, auth, rid) {
   if (!iocValue) return extJson({ error: "ioc_value_required" }, 400);
 
   try {
-    const index = await fetchReportsIndexExt(env);
+    // P0 release certification: this endpoint is read:intel (PRO+), but the
+    // shared report loader returns the anonymous latest.json projection.
+    // That public projection contains ioc_count yet no iocs; every paid
+    // correlation therefore falsely returned NO_MATCH, leaving 2/8 agents
+    // READY even after the paid CSV exporter itself was repaired in PR #848.
+    // Read the existing paid R2 manifest only AFTER scope authorization.
+    // Do not fall back to an anonymous feed/cache on a missing paid artifact.
+    const paidObject = await env?.INTEL_R2?.get("api/v1/intel/latest_pro.json");
+    if (!paidObject) return extJson({ error: "correlation_feed_unavailable", request_id: rid }, 503);
+    const paidManifest = await paidObject.json();
+    const paidItems = Array.isArray(paidManifest?.items) ? paidManifest.items : null;
+    const isUsableIoc = i => i && typeof i.type === "string" && i.type.trim() &&
+      typeof i.value === "string" && i.value.trim();
+    const hasRealIocs = paidItems?.some(item =>
+      Array.isArray(item?.iocs) && item.iocs.some(isUsableIoc)
+    );
+    if (!hasRealIocs) return extJson({ error: "correlation_feed_unavailable", request_id: rid }, 503);
+
     const matches = [];
-    for (const item of (index?.reports || [])) {
-      const found = (item.iocs || []).some(i =>
-        i.value?.toLowerCase() === iocValue.toLowerCase() ||
-        (iocType !== "auto" && i.type === iocType && i.value?.toLowerCase().includes(iocValue.toLowerCase()))
+    for (const item of paidItems) {
+      if (!item || !Array.isArray(item.iocs)) continue;
+      const found = item.iocs.some(i =>
+        isUsableIoc(i) && (
+          i.value.toLowerCase() === iocValue.toLowerCase() ||
+          (iocType !== "auto" && i.type === iocType && i.value.toLowerCase().includes(iocValue.toLowerCase()))
+        )
       );
       if (found) {
         matches.push({
@@ -1010,7 +1030,7 @@ export async function handleCorrelate(request, env, auth, rid) {
           risk_score:   item.risk_score || 0,
           date:         item.processed_at?.slice(0, 10) || "",
           cve_id:       item.cve_id || null,
-          ttps:         (item.ttps || []).slice(0, 5),
+          ttps:         Array.isArray(item.ttps) ? item.ttps.slice(0, 5) : [],
         });
       }
     }
@@ -1033,7 +1053,7 @@ export async function handleCorrelate(request, env, auth, rid) {
       request_id:      rid,
     });
   } catch (e) {
-    return extJson({ error: "correlate_failed", message: e.message, request_id: rid }, 500);
+    return extJson({ error: "correlate_failed", request_id: rid }, 500);
   }
 }
 
