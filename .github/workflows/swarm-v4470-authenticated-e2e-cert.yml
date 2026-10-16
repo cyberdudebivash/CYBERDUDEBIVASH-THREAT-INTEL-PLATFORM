@@ -18,6 +18,8 @@ on:
       - 'scripts/generate_api_manifests.py'
       - 'scripts/public_api_sanitizer.py'
       - 'workers/swarm-live/scripts/certification-ioc-candidates.mjs'
+      - 'workers/swarm-live/scripts/await-gateway-deploy.mjs'
+      - 'workers/swarm-live/scripts/mission-diagnostic.mjs'
   workflow_dispatch: {}
 
 permissions:
@@ -79,6 +81,20 @@ jobs:
           chmod 700 "$BIN_DIR/xclip"
           echo "$BIN_DIR" >> "$GITHUB_PATH"
           echo "Installed ephemeral clipboard sink; credential bytes are discarded immediately."
+
+      # P0: Actions runs concurrently with deploy-worker on a main push.
+      # Do not create a paid demo credential against an old Worker and
+      # misattribute a stale-code result to the newly merged production SHA.
+      # A workflow-only commit is eligible if the deployed gateway runtime
+      # is byte-equivalent to this checkout (verified by bounded git diff).
+      # Bounded liveness GETs only; no new cron, route or Cloudflare binding.
+      - name: Verify exact gateway release or runtime byte parity
+        timeout-minutes: 6
+        working-directory: ${{ env.SWARM_DIR }}
+        run: |
+          set -euo pipefail
+          node --test scripts/await-gateway-deploy.test.mjs scripts/mission-diagnostic.test.mjs
+          node scripts/await-gateway-deploy.mjs
 
       - name: Create short-lived production demo credential
         id: demo_key
