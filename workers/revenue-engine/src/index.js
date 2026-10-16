@@ -618,7 +618,7 @@ async function handleLiveDemoEndpoint(request, env, rid) {
       onprem_option:      "Contact sales",
     },
     upgrade_url:   "https://intel.cyberdudebivash.com/upgrade?plan=enterprise",
-    contact_sales: "enterprise@cyberdudebivash.com",
+    contact_sales: "contact@cyberdudebivash.in",
     request_id:    rid,
   });
 }
@@ -781,7 +781,7 @@ async function enterpriseOnboard(request, env, rid) {
     status:        "onboarding_initiated",
     company,
     onboard_steps: onboardSteps,
-    support_email: "enterprise@cyberdudebivash.com",
+    support_email: "contact@cyberdudebivash.in",
     sla:           "99.9% uptime, 4-hour response SLA",
     dedicated_slack: "Will be created within 24 hours",
     request_id:    rid,
@@ -1290,7 +1290,7 @@ function getEmailTemplate(name, vars) {
 </ul>
 <p>Would you be open to a 15-minute demo? I'll show you live threat data from the past 24 hours relevant to your sector.</p>
 <p><a href="${T.demo_link || 'https://intel.cyberdudebivash.com/demo'}">Book a live demo →</a></p>
-<p>— Bivash<br>CyberDudeBivash Pvt. Ltd.<br>enterprise@cyberdudebivash.com</p>`,
+<p>— Bivash<br>CyberDudeBivash Pvt. Ltd.<br>contact@cyberdudebivash.in</p>`,
     },
     "cold_enterprise_fu1": {
       subject: `Re: Threat intelligence for ${T.company || "your team"}`,
@@ -1384,7 +1384,7 @@ function getEmailTemplate(name, vars) {
 <p>Your 7-day Pro trial has ended. Your API key is now on the free tier.</p>
 <p>To restore full IOC access, AI analysis, and ${TIERS.PRO.req_day.toLocaleString('en-US')} API calls/day:</p>
 <p><a href="https://intel.cyberdudebivash.com/upgrade.html?plan=pro">Upgrade to Pro — ₹${ENGINE.DEAL_VALUES_INR.pro_monthly.toLocaleString('en-IN')}/mo →</a></p>
-<p>Need enterprise access for your team? <a href="mailto:enterprise@cyberdudebivash.com">Contact us</a>.</p>`,
+<p>Need enterprise access for your team? <a href="mailto:contact@cyberdudebivash.in">Contact us</a>.</p>`,
     },
     "usage_approaching_limit": {
       subject: "80% of your daily API limit used",
@@ -1414,7 +1414,7 @@ function getEmailTemplate(name, vars) {
 <strong>Value:</strong> ₹${T.value_inr || ENGINE.DEAL_VALUES_INR.enterprise_monthly}/month</p>
 <p>Next steps:</p>
 <ol><li>Review and sign the contract (DocuSign link coming separately)</li><li>Billing activation within 24 hours of signature</li><li>Enterprise API key + SIEM setup call with our team</li></ol>
-<p>Questions? Reply to this email or reach us at enterprise@cyberdudebivash.com</p>`,
+<p>Questions? Reply to this email or reach us at contact@cyberdudebivash.in</p>`,
     },
     "enterprise_onboard": {
       subject: `Enterprise onboarding started — ${T.company}`,
@@ -1428,7 +1428,7 @@ function getEmailTemplate(name, vars) {
 <li>⏳ Kickoff call with our security team</li>
 <li>⏳ SLA agreement</li>
 </ol>
-<p>Your dedicated support: <a href="mailto:enterprise@cyberdudebivash.com">enterprise@cyberdudebivash.com</a></p>`,
+<p>Your dedicated support: <a href="mailto:contact@cyberdudebivash.in">contact@cyberdudebivash.in</a></p>`,
     },
     "weekly_digest": {
       subject: `Your Weekly Threat Digest — ${T.week || getWeekLabel()}`,
