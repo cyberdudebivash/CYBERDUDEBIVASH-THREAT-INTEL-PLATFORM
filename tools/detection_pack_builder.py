@@ -637,7 +637,7 @@ OPERATOR NOTES
   5. Check metadata.json for CVSS/EPSS to prioritize patches
 
 LICENSE  Enterprise Defensive Use Only
-SUPPORT  enterprise@cyberdudebivash.com | +91 8179881447
+SUPPORT  contact@cyberdudebivash.in | +91 8179881447
 """
     (pack_dir / "README.txt").write_text(content, encoding="utf-8")
 
