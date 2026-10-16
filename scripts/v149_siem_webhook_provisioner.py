@@ -58,7 +58,7 @@ ENTERPRISE PAYLOAD SCHEMA:
   }
 
 DEPLOYMENT:
-  Add to sentinel-apex.yml AFTER STAGE 3.1 (post APEX enrichment):
+  Add to sentinel-blogger.yml AFTER STAGE 3.1 (post APEX enrichment):
     - name: "v149 SIEM Webhook Delivery"
       continue-on-error: true
       env:
