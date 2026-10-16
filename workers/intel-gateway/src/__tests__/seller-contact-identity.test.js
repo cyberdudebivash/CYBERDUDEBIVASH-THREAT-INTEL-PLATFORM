@@ -8,6 +8,7 @@ const RETIRED = ['enterprise@cyberdudebivash.com', 'enterprise@cyberdudebivash.i
 const repoFile = path => readFileSync(fileURLToPath(new URL('../../../../' + path, import.meta.url)), 'utf8');
 
 const SELLER_SURFACES = Object.freeze([
+  'index.html',
   'upgrade.html',
   'user-test-kit.html',
   'contact-enterprise.html',
@@ -38,4 +39,11 @@ test('beta customer invitation has matching visible customer contact link', () =
   const html = repoFile('user-test-kit.html');
   assert.match(html, /href="mailto:contact@cyberdudebivash\.in"/);
   assert.ok(!html.includes('mailto:enterprise@'));
+});
+
+test('all six dashboard sales-kit inquiry CTAs use the approved customer contact', () => {
+  const html = repoFile('index.html');
+  const matches = [...html.matchAll(/href="mailto:contact@cyberdudebivash\\.in\\?subject=[^"]+"/g)];
+  assert.ok(matches.length >= 6, 'dashboard sales-kit CTAs must use canonical contact');
+  assert.ok(!html.includes('mailto:enterprise@cyberdudebivash.com'));
 });
