@@ -74,7 +74,7 @@ test('FREE and limited-scope PRO receive 403 before the private R2 read', async 
     const response = await query(ctx, 'evidence.invalid', caller);
     assert.equal(response.status, 403);
     assert.deepEqual(ctx.reads, []);
-    assert.doesNotMatch(await response.text(), /evidence\\.invalid/);
+    assert.doesNotMatch(await response.text(), /evidence\.invalid/);
   }
 });
 
