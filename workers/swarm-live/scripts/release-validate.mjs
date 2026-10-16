@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import { buildCandidatesFromIocCsv } from './certification-ioc-candidates.mjs';
+import { summarizeMissionDiagnostic } from './mission-diagnostic.mjs';
 
 const DEFAULT_BASE_URL = 'https://intel.cyberdudebivash.com';
 const EXPECTED_SERVICE = 'sentinel-apex-swarm-live';
@@ -353,6 +354,13 @@ async function validateLiveMission(baseUrl, apiKey) {
   assert(typeof terminal.correlation_id === 'string' && terminal.correlation_id.length > 0, 'correlation_id missing');
   assert(typeof terminal.mission_quality === 'string' && terminal.mission_quality.length > 0, 'mission_quality missing from terminal event');
   if (String(process.env.SENTINEL_SWARM_REQUIRE_FULL_FABRIC || '').toLowerCase() === 'true') {
+    if (terminal.mission_quality !== 'FULL_FABRIC_COMPLETE') {
+      // The 2026-10-16 failure reached 8/8 READY but emitted warnings.
+      // Log only safe per-agent state IDs and AI mode; the prior assertion
+      // discarded the decisive evidence before the demo key was revoked.
+      console.error('P0_FULL_FABRIC_DIAGNOSTIC ' +
+        JSON.stringify(summarizeMissionDiagnostic(events, terminal)));
+    }
     assert(terminal.mission_quality === 'FULL_FABRIC_COMPLETE', `expected FULL_FABRIC_COMPLETE, got ${terminal.mission_quality}`);
     assert(terminal.result?.llm_enhanced === true, 'full-fabric certification requires LLM-enhanced synthesis');
   }
