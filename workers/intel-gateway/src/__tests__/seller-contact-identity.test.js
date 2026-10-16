@@ -43,7 +43,7 @@ test('beta customer invitation has matching visible customer contact link', () =
 
 test('all six dashboard sales-kit inquiry CTAs use the approved customer contact', () => {
   const html = repoFile('index.html');
-  const matches = [...html.matchAll(/href="mailto:contact@cyberdudebivash\\.in\\?subject=[^"]+"/g)];
+  const matches = [...html.matchAll(/href="mailto:contact@cyberdudebivash\.in\?subject=[^"]+"/g)];
   assert.ok(matches.length >= 6, 'dashboard sales-kit CTAs must use canonical contact');
   assert.ok(!html.includes('mailto:enterprise@cyberdudebivash.com'));
 });
