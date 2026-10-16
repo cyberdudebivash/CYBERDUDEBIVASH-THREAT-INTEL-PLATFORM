@@ -43,7 +43,7 @@ Payment Received → Verification → Approval → Provisioning → Customer Act
 
 ## STEP 1 — PAYMENT RECEIVED
 
-**Trigger:** Formspree email arrives at enterprise@cyberdudebivash.com
+**Trigger:** Formspree email arrives at contact@cyberdudebivash.in
 
 **Operator Action:**
 1. Open Formspree notification email
@@ -134,7 +134,7 @@ Transaction ID: [ID]
 Reason: [UTR not found / Amount mismatch: received ₹X, expected ₹Y]
 
 Please re-check your payment and provide the correct UTR, or contact us:
-WhatsApp: +91 8179881447 | Email: enterprise@cyberdudebivash.com
+WhatsApp: +91 8179881447 | Email: contact@cyberdudebivash.in
 
 Reference: SA-XXXX
 ```
@@ -245,7 +245,7 @@ PLAN DETAILS:
 
 SUPPORT:
 • WhatsApp: +91 8179881447
-• Email: enterprise@cyberdudebivash.com
+• Email: contact@cyberdudebivash.in
 
 Thank you for choosing SENTINEL APEX.
 — CYBERDUDEBIVASH Team
