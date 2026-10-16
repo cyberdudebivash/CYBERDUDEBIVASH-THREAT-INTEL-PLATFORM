@@ -2874,7 +2874,7 @@ async function handleSsoStart(request, env, ctx, provider) {
   const cfg = SSO_PROVIDERS[provider];
   const clientId = env[cfg.client_id_env];
   if (!clientId) {
-    return ssoErrorRedirect(`${cfg.label} sign-in is not yet configured. Contact enterprise@cyberdudebivash.com.`);
+    return ssoErrorRedirect(`${cfg.label} sign-in is not yet configured. Contact contact@cyberdudebivash.in.`);
   }
 
   const state        = randomUrlSafeToken(24);
@@ -2982,7 +2982,7 @@ async function handleSsoCallback(request, env, ctx, provider, ip) {
 
   if (!domainRec || !domainRec.enabled) {
     auditLog(ctx, env, { action: "sso_login_denied", provider, domain, ip });
-    return ssoErrorRedirect(`Your organization (${domain}) hasn't enabled Single Sign-On yet. Contact enterprise@cyberdudebivash.com to set it up.`);
+    return ssoErrorRedirect(`Your organization (${domain}) hasn't enabled Single Sign-On yet. Contact contact@cyberdudebivash.in to set it up.`);
   }
 
   // Fail closed on a misconfigured domain record: TIERS[domainRec.tier]
@@ -2994,7 +2994,7 @@ async function handleSsoCallback(request, env, ctx, provider, ip) {
   const resolvedTier = TIERS[domainRec.tier];
   if (!resolvedTier) {
     auditLog(ctx, env, { action: "sso_login_misconfigured_tier", provider, domain, raw_tier: domainRec.tier, ip });
-    return ssoErrorRedirect(`Your organization's Single Sign-On setup is incomplete. Contact enterprise@cyberdudebivash.com.`);
+    return ssoErrorRedirect(`Your organization's Single Sign-On setup is incomplete. Contact contact@cyberdudebivash.in.`);
   }
 
   const now_sec = Math.floor(Date.now() / 1000);
