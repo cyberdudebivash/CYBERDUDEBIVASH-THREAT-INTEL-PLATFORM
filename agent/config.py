@@ -302,7 +302,7 @@ BRAND = {
     "city": "Bhubaneswar",
     "state": "Odisha",
     "country": "India",
-    "email": "enterprise@cyberdudebivash.com",
+    "email": "contact@cyberdudebivash.in",
     "phone": "+91 8179881447",
     "tagline": "Global Cybersecurity Intelligence Infrastructure",
     "node_id": "CDB-GOC-01",
