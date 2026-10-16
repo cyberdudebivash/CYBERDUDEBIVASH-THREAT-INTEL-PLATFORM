@@ -18,6 +18,8 @@ on:
       - 'scripts/generate_api_manifests.py'
       - 'scripts/public_api_sanitizer.py'
       - 'workers/swarm-live/scripts/certification-ioc-candidates.mjs'
+      - 'workers/swarm-live/scripts/await-gateway-deploy.mjs'
+      - 'workers/swarm-live/scripts/mission-diagnostic.mjs'
   workflow_dispatch: {}
 
 permissions:
@@ -91,7 +93,7 @@ jobs:
         working-directory: ${{ env.SWARM_DIR }}
         run: |
           set -euo pipefail
-          node --test scripts/await-gateway-deploy.test.mjs
+          node --test scripts/await-gateway-deploy.test.mjs scripts/mission-diagnostic.test.mjs
           node scripts/await-gateway-deploy.mjs
 
       - name: Create short-lived production demo credential
