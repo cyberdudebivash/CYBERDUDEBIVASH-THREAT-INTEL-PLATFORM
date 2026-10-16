@@ -71,6 +71,23 @@ CVSS_SEV_BANDS = [
     (0.0, "LOW"),
 ]
 
+def _as_float(value: Any) -> Optional[float]:
+    """Accept 9.8, '9.8', and '90%'. Reject words. Never raises."""
+    if isinstance(value, bool) or value is None:
+        return None
+    if isinstance(value, (int, float)):
+        return float(value)
+    text = str(value).strip().replace(",", "")
+    if text.endswith("%"):
+        text = text[:-1].strip()
+    if not text:
+        return None
+    try:
+        return float(text)
+    except ValueError:
+        return None
+
+
 def _expected_severity_from_cvss(cvss: float) -> str:
     for threshold, label in CVSS_SEV_BANDS:
         if cvss >= threshold:
@@ -111,8 +128,9 @@ def _auto_fix_items(items: List[Dict]) -> int:
         corrected = False
 
         # C1: CVSS/severity mismatch (gap ≥ 2 bands) — align severity to CVSS
-        if cvss is not None and severity and severity not in ("UNKNOWN", "INFO", ""):
-            expected = _expected_severity_from_cvss(float(cvss))
+        cvss_n = _as_float(cvss)
+        if cvss_n is not None and severity and severity not in ("UNKNOWN", "INFO", ""):
+            expected = _expected_severity_from_cvss(cvss_n)
             exp_ord  = BAND_ORDER.get(expected, -1)
             act_ord  = BAND_ORDER.get(severity, -1)
             if exp_ord >= 0 and act_ord >= 0 and abs(exp_ord - act_ord) >= 2:
@@ -120,7 +138,7 @@ def _auto_fix_items(items: List[Dict]) -> int:
                 corrected = True
                 log.info("AUTO-FIX C1: %s severity %s→%s (CVSS %.1f)",
                          item.get("stix_id") or item.get("id") or "?",
-                         severity, expected, float(cvss))
+                         severity, expected, cvss_n)
 
         # C2: KEV=True but severity too low — escalate to CRITICAL
         sev_now = (item.get("severity") or "").upper()
@@ -147,7 +165,9 @@ def _check_intra(item: Dict) -> List[Dict]:
     kev       = bool(item.get("kev_present") or item.get("kev"))
     epss      = item.get("epss_score")
     has_exploit = bool(item.get("has_exploit") or item.get("exploit_available"))
-    conf      = float(item.get("confidence_score") or item.get("confidence") or 0)
+    cvss_n    = _as_float(cvss)
+    epss_n    = _as_float(epss)
+    conf      = _as_float(item.get("confidence_score") or item.get("confidence")) or 0.0
     ts_pub    = item.get("published_at") or item.get("published") or ""
     ts_proc   = item.get("processed_at") or item.get("timestamp") or ""
 
@@ -161,15 +181,15 @@ def _check_intra(item: Dict) -> List[Dict]:
         })
 
     # C1: CVSS vs Severity
-    if cvss is not None and severity and severity not in ("UNKNOWN", "INFO", ""):
-        expected = _expected_severity_from_cvss(float(cvss))
+    if cvss_n is not None and severity and severity not in ("UNKNOWN", "INFO", ""):
+        expected = _expected_severity_from_cvss(cvss_n)
         actual   = severity
         BAND_ORDER = {"LOW": 0, "MEDIUM": 1, "HIGH": 2, "CRITICAL": 3}
         exp_ord = BAND_ORDER.get(expected, -1)
         act_ord = BAND_ORDER.get(actual, -1)
         if exp_ord >= 0 and act_ord >= 0 and abs(exp_ord - act_ord) >= 2:
             contra("C1_CVSS_SEV_MISMATCH",
-                   f"CVSS {float(cvss):.1f} expects {expected} but severity={actual} (gap≥2 bands)",
+                   f"CVSS {cvss_n:.1f} expects {expected} but severity={actual} (gap≥2 bands)",
                    "ERROR")
 
     # C2: KEV vs Severity
@@ -179,21 +199,21 @@ def _check_intra(item: Dict) -> List[Dict]:
                "ERROR")
 
     # C3: KEV vs CVSS
-    if kev and cvss is not None and float(cvss) < 4.0:
+    if kev and cvss_n is not None and cvss_n < 4.0:
         contra("C3_KEV_CVSS_MISMATCH",
-               f"KEV=True but CVSS={float(cvss):.1f} (<4.0). Confirmed exploited CVEs typically score ≥4.",
+               f"KEV=True but CVSS={cvss_n:.1f} (<4.0). Confirmed exploited CVEs typically score ≥4.",
                "WARN")
 
     # C4: EPSS vs Severity
-    if epss is not None and float(epss) >= EPSS_HIGH_THRESHOLD and severity in ("LOW", "INFO"):
+    if epss_n is not None and epss_n >= EPSS_HIGH_THRESHOLD and severity in ("LOW", "INFO"):
         contra("C4_EPSS_SEV_MISMATCH",
-               f"EPSS={float(epss):.1f}% (high exploitation likelihood) but severity={severity}.",
+               f"EPSS={epss_n:.1f}% (high exploitation likelihood) but severity={severity}.",
                "WARN")
 
     # C5: Exploit vs CVSS
-    if has_exploit and cvss is not None and float(cvss) < 3.0:
+    if has_exploit and cvss_n is not None and cvss_n < 3.0:
         contra("C5_EXPLOIT_CVSS_MISMATCH",
-               f"has_exploit=True but CVSS={float(cvss):.1f} (<3.0). Low CVSS with confirmed exploit is unusual.",
+               f"has_exploit=True but CVSS={cvss_n:.1f} (<3.0). Low CVSS with confirmed exploit is unusual.",
                "WARN")
 
     # C6: Timestamp inversion
@@ -212,12 +232,15 @@ def _check_intra(item: Dict) -> List[Dict]:
     op_iocs = [i for i in iocs if isinstance(i, dict) and i.get("confidence") is not None
                and not re.match(r"^CVE-", str(i.get("value", "")), re.I)]
     if op_iocs and conf > 0:
-        avg_ioc_conf = sum(float(i.get("confidence", 0)) for i in op_iocs) / len(op_iocs)
-        if conf < 40 and avg_ioc_conf > conf + CONF_IOC_MISMATCH_GAP:
-            contra("C7_IOC_CONF_MISMATCH",
-                   f"Item confidence={conf:.0f}% but IOC avg confidence={avg_ioc_conf:.0f}% "
-                   f"(gap={avg_ioc_conf - conf:.0f}pp). Consider enriching item confidence.",
-                   "INFO")
+        parsed = [_as_float(i.get("confidence")) for i in op_iocs]
+        nums = [n for n in parsed if n is not None]
+        if nums and conf > 0:
+            avg_ioc_conf = sum(nums) / len(nums)
+            if conf < 40 and avg_ioc_conf > conf + CONF_IOC_MISMATCH_GAP:
+                contra("C7_IOC_CONF_MISMATCH",
+                       f"Item confidence={conf:.0f}% but IOC avg confidence={avg_ioc_conf:.0f}% "
+                       f"(gap={avg_ioc_conf - conf:.0f}pp). Consider enriching item confidence.",
+                       "INFO")
 
     return contradictions
 
@@ -251,16 +274,17 @@ def _check_cross(items: List[Dict]) -> List[Dict]:
 
         # X1: CVSS mismatch
         if len(cvss_vals) >= 2:
-            scores = [float(v) for v, _ in cvss_vals]
-            delta  = max(scores) - min(scores)
-            if delta >= CVSS_DELTA_THRESHOLD:
-                contradictions.append({
-                    "cve":   cve,
-                    "code":  "X1_CVSS_CONFLICT",
-                    "desc":  f"{cve}: CVSS range {min(scores):.1f}–{max(scores):.1f} across {len(group)} items (Δ={delta:.1f}). May indicate different CVSS versions or scoring discrepancies.",
-                    "items": ids_str,
-                    "severity": "WARN",
-                })
+            scores = [n for n in (_as_float(v) for v, _ in cvss_vals) if n is not None]
+            if len(scores) >= 2:
+                delta = max(scores) - min(scores)
+                if delta >= CVSS_DELTA_THRESHOLD:
+                    contradictions.append({
+                        "cve":   cve,
+                        "code":  "X1_CVSS_CONFLICT",
+                        "desc":  f"{cve}: CVSS range {min(scores):.1f}–{max(scores):.1f} across {len(group)} items (Δ={delta:.1f}). May indicate different CVSS versions or scoring discrepancies.",
+                        "items": ids_str,
+                        "severity": "WARN",
+                    })
 
         # X2: Severity mismatch
         unique_sevs = {s for s, _ in sev_vals if s not in ("UNKNOWN", "INFO", "")}

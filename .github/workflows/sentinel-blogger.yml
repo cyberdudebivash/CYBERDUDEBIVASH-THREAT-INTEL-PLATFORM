@@ -65,11 +65,14 @@ on:
     branches:
       - main
     paths:
-      - 'scripts/**.py'
-      - 'agent/**.py'
+      # A push of an unrelated script used to start this 130-minute publisher.
+      # GitHub then cancelled the previously queued run in sentinel-data-writer,
+      # including a freshness run that had not started. Scheduled runs are the
+      # publisher. Dispatch this workflow by hand when a script change must
+      # publish before the next cron. That also keeps the R2 sync and the
+      # worker KV bust on the existing cadence.
       - '.github/workflows/sentinel-blogger.yml'
       - '.github/workflows/generate-and-sync.yml'
-      - 'index.html'
       - 'feed_manifest.json'
   # SCHEDULE CADENCE -- MADE PERMANENT 2026-08-04 (GitHub Actions cost audit):
   # Originally ran every 4 hours (6x/day). Cut to a deterministic 3x/day

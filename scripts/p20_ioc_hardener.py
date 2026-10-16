@@ -179,6 +179,23 @@ def _is_fp_ioc(ioc: Dict) -> bool:
     return False
 
 
+def _as_float(value: Any) -> Optional[float]:
+    """Numeric confidence only. '90%' counts. Words do not."""
+    if isinstance(value, bool) or value is None:
+        return None
+    if isinstance(value, (int, float)):
+        return float(value)
+    text = str(value).strip().replace(",", "")
+    if text.endswith("%"):
+        text = text[:-1].strip()
+    if not text:
+        return None
+    try:
+        return float(text)
+    except ValueError:
+        return None
+
+
 def _enrich_ioc(ioc: Dict, item: Dict) -> Dict:
     """Add operational metadata to an IOC. No fabrication — types only."""
     enriched = dict(ioc)
@@ -206,15 +223,18 @@ def _enrich_ioc(ioc: Dict, item: Dict) -> Dict:
         title = item.get("title", "")[:60]
         cve   = item.get("cve_id") or (item.get("cve_ids") or [None])[0] or ""
         ref   = f" ({cve})" if cve else ""
+        conf_n = _as_float(enriched.get("confidence"))
         enriched["context"] = (
             f"{ioc_type.upper()} indicator associated with advisory: {title}{ref}. "
-            f"Confidence: {enriched.get('confidence', 0):.1f}%"
-            if isinstance(enriched.get("confidence"), (int, float))
+            f"Confidence: {conf_n:.1f}%"
+            if conf_n is not None
             else f"{ioc_type.upper()} indicator associated with advisory: {title}{ref}."
         )
 
     if "validation_status" not in enriched:
-        conf = enriched.get("confidence") or 0
+        conf = _as_float(enriched.get("confidence"))
+        if conf is None:
+            conf = 0.0
         enriched["validation_status"] = (
             "HIGH_CONFIDENCE"   if conf >= 70 else
             "MEDIUM_CONFIDENCE" if conf >= 40 else
