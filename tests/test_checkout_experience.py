@@ -199,7 +199,7 @@ def test_billing_copy_matches_the_implementation():
 def test_customer_facing_seller_contact_is_canonical_across_shipped_pages():
     current = "contact@cyberdudebivash.in"
     retired = "enterprise" + "@cyberdudebivash.com"
-    seller = re.search(r'<div class="contact-card">([\\s\\S]*?)</div>', UPGRADE)
+    seller = re.search(r'<div class="contact-card">(.*?)</div>', UPGRADE, re.S)
     assert seller and "Seller" in seller.group(1)
     assert f'href="mailto:{current}"' in seller.group(1)
     assert retired not in UPGRADE
