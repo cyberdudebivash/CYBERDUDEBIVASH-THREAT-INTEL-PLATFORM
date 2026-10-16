@@ -158,7 +158,7 @@ def test_phase5_still_excludes_gate_rejections_from_continuity():
 
 
 def test_workflow_timeout_unchanged_budget_is_a_ceiling_not_a_schedule():
-    wf = (REPO / ".github" / "workflows" / "sentinel-blogger.yml").read_text(encoding="utf-8")
+    wf = (REPO / ".github" / "workflows" / "sentinel-apex.yml").read_text(encoding="utf-8")
     assert "timeout 1680 python3 scripts/deployment_convergence_validator.py" in wf
 
 

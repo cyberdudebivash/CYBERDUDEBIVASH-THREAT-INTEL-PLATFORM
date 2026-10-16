@@ -41,7 +41,7 @@ def _load(monkeypatch, repo, now, min_reports=500):
     monkeypatch.setattr(mod, "ARCHIVE_DIR", archive_dir)
     monkeypatch.setattr(mod, "AUDIT_LOG_PATH", archive_dir / "report_archive_audit.jsonl")
     monkeypatch.setattr(mod, "ARCHIVE_MANIFEST", archive_dir / "report_archive_manifest.json")
-    monkeypatch.setattr(mod, "WORKFLOW_PATH", repo / ".github" / "workflows" / "sentinel-blogger.yml")
+    monkeypatch.setattr(mod, "WORKFLOW_PATH", repo / ".github" / "workflows" / "sentinel-apex.yml")
     monkeypatch.setattr(mod, "MIN_REPORT_THRESHOLD", min_reports)
     monkeypatch.setattr(mod, "datetime", _clock(now))
     return mod

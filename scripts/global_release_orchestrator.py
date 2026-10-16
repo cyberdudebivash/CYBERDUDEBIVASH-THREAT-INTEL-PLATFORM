@@ -196,7 +196,7 @@ CRITICAL_FILES: List[Tuple[str, bool]] = [
     ("api/billing.py",                               False),
     ("PAYMENT-GATEWAY.html",                         False),
     ("get-api-key.html",                             False),
-    (".github/workflows/sentinel-blogger.yml",       True),
+    (".github/workflows/sentinel-apex.yml",       True),
 ]
 
 # Dual-path candidates for api/latest.json — checked in order, first hit wins
@@ -425,7 +425,7 @@ def check_concurrency_governance(ssot: Dict) -> None:
     print("\n[DOMAIN 6] CONCURRENCY GOVERNANCE")
 
     # Confirm workflow concurrency group is set in SSOT context (check yml directly)
-    yml_path = BASE_DIR / ".github" / "workflows" / "sentinel-blogger.yml"
+    yml_path = BASE_DIR / ".github" / "workflows" / "sentinel-apex.yml"
     if yml_path.exists():
         content = yml_path.read_text(encoding="utf-8")
         if "sentinel-apex-production" in content and "cancel-in-progress: false" in content:
@@ -436,10 +436,10 @@ def check_concurrency_governance(ssot: Dict) -> None:
                    "concurrency block present but sentinel-apex-production group not confirmed")
         else:
             record("CONCURRENCY", "workflow_serialized", "FAIL",
-                   "No concurrency governance in sentinel-blogger.yml", hard=False)
+                   "No concurrency governance in sentinel-apex.yml", hard=False)
     else:
         record("CONCURRENCY", "workflow_present", "WARN",
-               "sentinel-blogger.yml not found for concurrency audit")
+               "sentinel-apex.yml not found for concurrency audit")
 
     # Check for multiple .pipeline_lock files (should only ever be 0 or 1)
     lock_files = list(BASE_DIR.glob(".pipeline_lock*"))

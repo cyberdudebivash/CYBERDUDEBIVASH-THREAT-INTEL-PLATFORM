@@ -41,15 +41,15 @@ CHECKS = {
         ("workers/intel-gateway/src/enterprise-endpoints.js", r"kql|sentinel"),
     ],
     "CVSS/EPSS/KEV enrichment pipeline": [
-        (".github/workflows/sentinel-blogger.yml", r"CVSS/EPSS"),
-        (".github/workflows/sentinel-blogger.yml", r"CISA KEV"),
+        (".github/workflows/sentinel-apex.yml", r"CVSS/EPSS"),
+        (".github/workflows/sentinel-apex.yml", r"CISA KEV"),
     ],
     "MITRE ATT&CK mapping": [
-        (".github/workflows/sentinel-blogger.yml", r"MITRE ATT&CK"),
+        (".github/workflows/sentinel-apex.yml", r"MITRE ATT&CK"),
     ],
     "IOC/confidence enrichment": [
-        (".github/workflows/sentinel-blogger.yml", r"IOC Quality"),
-        (".github/workflows/sentinel-blogger.yml", r"Confidence"),
+        (".github/workflows/sentinel-apex.yml", r"IOC Quality"),
+        (".github/workflows/sentinel-apex.yml", r"Confidence"),
     ],
     "Tier entitlement enforcement": [
         ("workers/intel-gateway/src/revenue-enforcement.js", r"enforceTierGate"),

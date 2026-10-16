@@ -42,7 +42,7 @@ local files for every advisory the current run's generation pass did not
 touch. Before this fix, RULE 3 required EVERY advisory in the manifest --
 including thousands of historical ones outside the window -- to have a
 local file, which held only under the PRE-#369 architecture where every
-report was regenerated on every run. Confirmed live: sentinel-blogger.yml
+report was regenerated on every run. Confirmed live: sentinel-apex.yml
 runs #2244/#2245 (the first natural runs after #369/#370 landed) both hard-
 failed here with ~1,394 RULE 3 failures, 100% of them advisories outside
 the rolling window -- not a data/manifest corruption, an architecture

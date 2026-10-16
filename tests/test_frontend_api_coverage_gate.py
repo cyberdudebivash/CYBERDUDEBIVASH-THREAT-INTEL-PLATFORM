@@ -296,7 +296,7 @@ class TestWorkflowStepConfiguration(unittest.TestCase):
     def test_stage_3_92b_step_exists_and_is_non_blocking(self):
         import yaml
 
-        workflow_path = REPO_ROOT / ".github" / "workflows" / "sentinel-blogger.yml"
+        workflow_path = REPO_ROOT / ".github" / "workflows" / "sentinel-apex.yml"
         with open(workflow_path, encoding="utf-8") as f:
             workflow = yaml.safe_load(f)
 
@@ -320,7 +320,7 @@ class TestWorkflowStepConfiguration(unittest.TestCase):
         # normal-looking coverage notice instead of visibly failing.
         import yaml
 
-        workflow_path = REPO_ROOT / ".github" / "workflows" / "sentinel-blogger.yml"
+        workflow_path = REPO_ROOT / ".github" / "workflows" / "sentinel-apex.yml"
         with open(workflow_path, encoding="utf-8") as f:
             workflow = yaml.safe_load(f)
 

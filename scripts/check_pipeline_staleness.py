@@ -21,6 +21,7 @@ import sys
 import json
 import urllib.request
 import urllib.error
+import urllib.parse
 import datetime
 
 REPO = os.environ.get("REPO", "cyberdudebivash/cyberdudebivash-threat-intel-platform")
@@ -67,7 +68,7 @@ OVERRIDE_THRESHOLD = os.environ.get("STALENESS_THRESHOLD_HOURS", "")
 # exact misconfiguration class cannot silently return, for these rows or any
 # added later.
 MONITORED_WORKFLOWS = [
-    {"file": "sentinel-blogger.yml",   "name": "sentinel-blogger",    "max_age_hours": 16, "severity": "CRITICAL"},
+    {"file": "sentinel-apex.yml",      "name": "Production Intel Publisher", "max_age_hours": 16, "severity": "CRITICAL"},
     {"file": "generate-and-sync.yml",  "name": "generate-and-sync",   "max_age_hours": 8,  "severity": "HIGH"},
     {"file": "automated-backup.yml",   "name": "Automated Backup",    "max_age_hours": 32, "severity": "HIGH"},
     {"file": "deploy-worker.yml",      "name": "Deploy Worker",       "max_age_hours": 0,  "severity": "INFO"},
@@ -87,6 +88,14 @@ MONITORED_WORKFLOWS = [
 ]
 
 
+def _open_https(req, timeout):
+    target = req.full_url if isinstance(req, urllib.request.Request) else str(req)
+    parsed = urllib.parse.urlparse(target)
+    if parsed.scheme != "https" or not parsed.hostname:
+        raise ValueError("refusing non-https URL")
+    return urllib.request.urlopen(req, timeout=timeout)  # nosec B310
+
+
 def gh_get(path):
     url = f"https://api.github.com/repos/{REPO}{path}"
     headers = {
@@ -97,7 +106,7 @@ def gh_get(path):
         headers["Authorization"] = f"Bearer {GH_TOKEN}"
     req = urllib.request.Request(url, headers=headers)
     try:
-        with urllib.request.urlopen(req, timeout=15) as resp:
+        with _open_https(req, 15) as resp:
             return json.loads(resp.read().decode("utf-8"))
     except urllib.error.HTTPError as e:
         print(f"  GH API {path} -> HTTP {e.code}")
@@ -175,7 +184,7 @@ def send_telegram(msg):
     body = json.dumps({"chat_id": TG_CHAT_ID, "text": msg, "parse_mode": "HTML"}).encode("utf-8")
     req = urllib.request.Request(url, data=body, headers={"Content-Type": "application/json"})
     try:
-        with urllib.request.urlopen(req, timeout=10) as resp:
+        with _open_https(req, 10) as resp:
             print("  Telegram alert sent")
     except Exception as e:
         print(f"  WARN: Telegram alert failed: {e}")

@@ -85,7 +85,7 @@ FINGERPRINT_TARGETS = [
     # CI Workflows
     ".github/workflows/generate-and-sync.yml",
     ".github/workflows/deploy-worker.yml",
-    ".github/workflows/sentinel-blogger.yml",
+    ".github/workflows/sentinel-apex.yml",
     # HTML surfaces
     "index.html",
     "observability.html",

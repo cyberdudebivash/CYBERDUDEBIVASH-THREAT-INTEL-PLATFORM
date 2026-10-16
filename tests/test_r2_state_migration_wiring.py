@@ -16,7 +16,7 @@ import yaml
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parent.parent
 MULTI_SOURCE_YML = REPO_ROOT / ".github" / "workflows" / "multi-source-intel.yml"
-SENTINEL_BLOGGER_YML = REPO_ROOT / ".github" / "workflows" / "sentinel-blogger.yml"
+SENTINEL_BLOGGER_YML = REPO_ROOT / ".github" / "workflows" / "sentinel-apex.yml"
 GITIGNORE = REPO_ROOT / ".gitignore"
 
 MIGRATED_FILES = [
@@ -200,7 +200,7 @@ class TestMultiSourceIntelWiring(unittest.TestCase):
         self.assertLess(persistence, upload)
 
     def test_existing_concurrency_safeguard_is_untouched(self):
-        """multi-source-intel.yml and sentinel-blogger.yml's staggered cron
+        """multi-source-intel.yml and sentinel-apex.yml's staggered cron
         schedules (see r2_state_sync.py's own docstring) are the ONLY
         protection against a concurrent write race on the shared R2 state --
         this migration must not accidentally remove or weaken it."""

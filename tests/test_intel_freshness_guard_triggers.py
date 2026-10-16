@@ -100,7 +100,7 @@ def test_the_trigger_set_is_the_reviewed_one():
 def test_neither_the_publisher_nor_the_guard_triggers_it():
     by_name = _workflow_files_by_name()
     files = {by_name[n][0] for n in _guard_trigger()["workflows"]}
-    assert "sentinel-blogger.yml" not in files
+    assert "sentinel-apex.yml" not in files
     assert GUARD.name not in files
 
 

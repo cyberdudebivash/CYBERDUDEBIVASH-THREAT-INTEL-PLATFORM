@@ -1006,11 +1006,11 @@ def main():
     # v40_cortex/v41_quantum/v42_sovereign engines on a 6h cron;
     # genesis-powerhouse.yml running agent.v43_genesis) -- see
     # scripts/r2_state_sync.py's STATE_FILES. Before that mission, this
-    # script's own recomputation of these 5 was harmless: sentinel-blogger.yml
+    # script's own recomputation of these 5 was harmless: sentinel-apex.yml
     # ran it every cycle, but the local files it wrote were gitignored and
     # never uploaded anywhere, so they were discarded at the end of every job
     # with zero customer-facing effect. The moment these 5 paths were
-    # registered in STATE_FILES, sentinel-blogger.yml's own PRE-EXISTING,
+    # registered in STATE_FILES, sentinel-apex.yml's own PRE-EXISTING,
     # unchanged `r2_state_sync.py --upload` calls (broad, no --only) started
     # picking up whatever THIS script last wrote to those same local paths
     # and publishing it to the SAME R2 keys -- a second, differently-computed

@@ -2,7 +2,7 @@
 tests/test_encoding_guard_worker_js_eof.py
 
 Regression test for a P0 defect that hard-failed STAGE 0.0 - Encoding Guard
-on every sentinel-blogger.yml run since workers/intel-gateway/src/
+on every sentinel-apex.yml run since workers/intel-gateway/src/
 intel-static-proxy.js became reachable from index.js's import graph
 (introduced in PR #323).
 

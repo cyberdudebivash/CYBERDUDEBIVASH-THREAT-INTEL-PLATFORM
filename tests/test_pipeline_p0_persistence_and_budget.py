@@ -260,7 +260,7 @@ def test_real_ci_git_flow_preserves_generated_content_without_touching_main(tmp_
 def test_dependency_install_bootstraps_core_and_rejects_partial_install(tmp_path, use_uv, fail_requirements):
     import os
     import yaml
-    workflow = yaml.safe_load((Path(__file__).resolve().parents[1] / '.github/workflows/sentinel-blogger.yml').read_text())
+    workflow = yaml.safe_load((Path(__file__).resolve().parents[1] / '.github/workflows/sentinel-apex.yml').read_text())
     step = next(s for s in workflow['jobs']['generate-and-sync']['steps'] if s.get('name') == 'Install pipeline dependencies')
     assert step['timeout-minutes'] == 5
     bin_dir = tmp_path / 'bin'

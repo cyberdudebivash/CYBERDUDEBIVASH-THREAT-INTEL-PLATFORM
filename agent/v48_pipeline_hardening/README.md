@@ -51,9 +51,9 @@ cp .github/workflows/sync-dashboard.yml .github/workflows/sync-dashboard.yml.bak
 # Replace with the corrected v48 version from the zip
 ```
 
-### Step 4: Add v48 Stage to sentinel-blogger.yml
+### Step 4: Add v48 Stage to sentinel-apex.yml
 Insert the block from `SENTINEL_BLOGGER_PATCH.yml` into
-`.github/workflows/sentinel-blogger.yml` after the
+`.github/workflows/sentinel-apex.yml` after the
 "Force Update Sync Timestamp" step.
 
 ### Step 5: Verify and Commit

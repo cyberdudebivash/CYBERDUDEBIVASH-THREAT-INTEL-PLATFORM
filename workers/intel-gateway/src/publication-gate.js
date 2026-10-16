@@ -20,7 +20,7 @@
  *      even when P21/P25/P26/P23 all reject the same item. It was also
  *      never wired into the serving decision anywhere  -  a display block,
  *      not a gate.
- *   3. Pipeline ordering (.github/workflows/sentinel-blogger.yml): STAGE 3.2
+ *   3. Pipeline ordering (.github/workflows/sentinel-apex.yml): STAGE 3.2
  *      (report generation, scripts/report_generator.py) runs BEFORE STAGE
  *      3.93.15d/h/i (P21/P25/P26 certification)  -  confirmed by exact line
  *      numbers in that file. Reports can be generated before certification

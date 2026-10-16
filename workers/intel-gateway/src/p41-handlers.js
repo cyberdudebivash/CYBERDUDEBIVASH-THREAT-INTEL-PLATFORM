@@ -120,7 +120,7 @@ function _registryUnavailable() {
   return _json({
     error: 'Capability registry not yet synced to R2',
     hint: 'Run scripts/build_capability_registry.py then scripts/r2_resync_manifests.py '
-        + '(STAGE 4.1 in sentinel-blogger.yml), or check that pipeline stage\'s last run.',
+        + '(STAGE 4.1 in sentinel-apex.yml), or check that pipeline stage\'s last run.',
     version: P41_VERSION,
   }, 503);
 }

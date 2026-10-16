@@ -25,7 +25,7 @@ stages, AI Tracker generation (STAGE 5/6) succeeded every run while its fresh
 outputs -- api/ai/tracker.json, health.json, executive-brief.json -- were
 never committed or R2-synced. The platform's AI features went stale silently.
 
-sentinel-blogger.yml calls the same script but never tripped it, because its
+sentinel-apex.yml calls the same script but never tripped it, because its
 STAGE 5.7-PRE step (fix_all_html_encoding.py) launders those exact bytes into
 HTML entities first. generate-and-sync.yml has no such pre-step, so it met the
 underlying defect head-on.

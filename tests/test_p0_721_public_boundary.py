@@ -665,7 +665,7 @@ class TestPublishingVerdictBehavior(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         import yaml
-        wf = yaml.safe_load((REPO / ".github" / "workflows" / "sentinel-blogger.yml").read_text(encoding="utf-8"))
+        wf = yaml.safe_load((REPO / ".github" / "workflows" / "sentinel-apex.yml").read_text(encoding="utf-8"))
         steps = wf["jobs"]["generate-and-sync"]["steps"]
         cls.step = next(s for s in steps if s.get("id") == "p0-publisher-verdict")
 
@@ -697,7 +697,7 @@ class TestPublishingVerdictBehavior(unittest.TestCase):
 
     def test_every_pages_write_path_in_the_main_pipeline_depends_on_the_verdict(self):
         import yaml
-        wf = yaml.safe_load((REPO / ".github" / "workflows" / "sentinel-blogger.yml").read_text(encoding="utf-8"))
+        wf = yaml.safe_load((REPO / ".github" / "workflows" / "sentinel-apex.yml").read_text(encoding="utf-8"))
         writers = [s for s in wf["jobs"]["generate-and-sync"]["steps"]
                    if "github-pages-deploy-action" in str(s.get("uses", "")) or "deploy-pages" in str(s.get("uses", ""))]
         self.assertTrue(writers)

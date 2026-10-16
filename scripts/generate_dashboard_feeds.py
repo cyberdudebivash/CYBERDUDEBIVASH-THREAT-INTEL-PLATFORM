@@ -34,7 +34,7 @@ OUTPUTS (all written to OUT_DIR, uploaded by r2_upload.py):
 
   NOTE (F-02 fix): This script previously ALSO wrote api/reports/index.json
   and api/reports/stats.json. That has been removed -- scripts/build_reports_index.py
-  (sentinel-blogger.yml STAGE 3.3.7) is the sole authoritative writer for the
+  (sentinel-apex.yml STAGE 3.3.7) is the sole authoritative writer for the
   api/reports/* registry: it scans the real reports/ directory on disk and
   produces report_url values that resolve to actual HTML files. This script's
   build_reports_index()/build_reports_stats() derived a competing "reports" list

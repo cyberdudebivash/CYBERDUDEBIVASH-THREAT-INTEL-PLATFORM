@@ -2715,7 +2715,7 @@ def _within_report_window(item: dict, since_hours: Optional[float], now: datetim
 # DEPRECATED (2026-09-26): --upload-r2.
 # Replacement: render with this script, then publish with
 # scripts/r2_report_publisher.py (the single sentinel-apex-reports writer --
-# sentinel-blogger.yml STAGE 3.5a / 5.4.0c).
+# sentinel-apex.yml STAGE 3.5a / 5.4.0c).
 # Why: its per-item uploader reads CF_R2_ENDPOINT, which no workflow sets, so
 # in production it counted every item as r2_failed without issuing a PUT
 # (STAGE 5.4.0b: r2_uploaded=0 r2_failed=19). Where it can upload, it bypasses

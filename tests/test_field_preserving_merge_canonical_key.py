@@ -35,7 +35,7 @@ write are now guaranteed to target the same key within a single invocation.
 
 These tests lock in that contract directly against the module's public
 functions (run_merge, merge_preserving_fields, sync_apex_ai_from_feed) and via
-subprocess against the exact CLI invocations sentinel-blogger.yml's STAGE
+subprocess against the exact CLI invocations sentinel-apex.yml's STAGE
 3.1.5 and STAGE 3.1.6 now use, so this cannot silently regress.
 """
 import json
@@ -196,7 +196,7 @@ class TestProductionIncidentReproduction(unittest.TestCase):
             )
 
     def test_cli_invocation_matches_stage_3_1_5_and_3_1_6_exactly(self):
-        """Subprocess-level proof against the exact CLI flags sentinel-blogger.yml
+        """Subprocess-level proof against the exact CLI flags sentinel-apex.yml
         now uses for STAGE 3.1.5 and STAGE 3.1.6, not a re-implementation of
         their logic."""
         existing_items = [

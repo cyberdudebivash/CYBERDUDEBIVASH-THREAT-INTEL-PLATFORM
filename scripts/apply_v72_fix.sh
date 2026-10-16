@@ -11,7 +11,7 @@
 # What it does:
 #   1. Patches index.html -> freshest-wins guard in fetchPipelineSyncTime()
 #   2. Installs update_sync_marker.sh -> keeps sync_marker.json fresh
-#   3. Patches sentinel-blogger.yml -> calls update_sync_marker.sh post-commit
+#   3. Patches sentinel-apex.yml -> calls update_sync_marker.sh post-commit
 #
 # All patches are idempotent  -  safe to re-run.
 # ===================================================================
@@ -50,12 +50,12 @@ else
 fi
 echo ""
 
-# --- Step 3: Patch sentinel-blogger.yml (backend fix) ---
-echo ">>> STEP 3/3: Patching sentinel-blogger.yml (sync_marker post-commit)"
+# --- Step 3: Patch sentinel-apex.yml (backend fix) ---
+echo ">>> STEP 3/3: Patching sentinel-apex.yml (sync_marker post-commit)"
 if python3 "${SCRIPT_DIR}/patch_workflow_sync.py"; then
-    echo "    [OK] sentinel-blogger.yml patch complete"
+    echo "    [OK] sentinel-apex.yml patch complete"
 else
-    echo "    [FAIL] sentinel-blogger.yml patch FAILED (may need manual step)"
+    echo "    [FAIL] sentinel-apex.yml patch FAILED (may need manual step)"
     ERRORS=$((ERRORS + 1))
 fi
 echo ""

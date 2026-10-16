@@ -41,7 +41,7 @@ export const GUMROAD_PRODUCTS = Object.freeze([
 ]);
 
 // Content products on the same Gumroad account (scripts/stripe_revenue.py,
-// sentinel-blogger.yml STAGE 3.93.2): rule packs, PDF reports, the daily
+// sentinel-apex.yml STAGE 3.93.2): rule packs, PDF reports, the daily
 // brief and the IOC download are delivered by Gumroad itself and grant no
 // API access. Their sales are acknowledged without a key, a hold or an
 // alert. (Before S16 each of them minted a paid API key by name inference.)

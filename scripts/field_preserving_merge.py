@@ -38,7 +38,7 @@ MERGE ALGORITHM:
             add incoming entry (new intel)
 
 Usage:
-    # Called by run_pipeline.py or sentinel-blogger.yml directly:
+    # Called by run_pipeline.py or sentinel-apex.yml directly:
     python3 scripts/field_preserving_merge.py \\
         --manifest data/stix/feed_manifest.json \\
         --incoming /tmp/new_intel.json \\

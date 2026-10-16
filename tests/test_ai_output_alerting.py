@@ -1,5 +1,5 @@
 """
-Regression test for issue #278: STAGE 3.1.22b (sentinel-blogger.yml) must
+Regression test for issue #278: STAGE 3.1.22b (sentinel-apex.yml) must
 actually notify a human when generate_ai_tracker.py fails to produce
 api/ai/health.json and api/ai/executive-brief.json, not just leave a
 ::warning:: visible only to someone reading Actions logs.
@@ -22,7 +22,7 @@ import pytest
 import yaml
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-SENTINEL_BLOGGER_YML = REPO_ROOT / ".github" / "workflows" / "sentinel-blogger.yml"
+SENTINEL_BLOGGER_YML = REPO_ROOT / ".github" / "workflows" / "sentinel-apex.yml"
 PIPELINE_ALERT_PY = REPO_ROOT / "scripts" / "pipeline_alert.py"
 
 
@@ -41,7 +41,7 @@ def test_stage_3_1_22b_calls_pipeline_alert_on_missing_output(workflow_text: str
         r'name: "STAGE 3\.1\.22b.*?\n(.*?)\n\s*- name:',
         workflow_text, re.DOTALL,
     )
-    assert match, "could not locate STAGE 3.1.22b step in sentinel-blogger.yml"
+    assert match, "could not locate STAGE 3.1.22b step in sentinel-apex.yml"
     step_body = match.group(1)
     assert "scripts/pipeline_alert.py" in step_body, (
         "STAGE 3.1.22b must alert via pipeline_alert.py when health.json/"

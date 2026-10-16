@@ -4,7 +4,7 @@ tests/test_report_url_canary_window_deferral.py
 P0 regression coverage for scripts/report_url_canary.py's --local gate
 (STAGE 5.8.1b) root-cause fix.
 
-CONFIRMED PRODUCTION FAILURE: sentinel-blogger.yml run #2250 -- the same
+CONFIRMED PRODUCTION FAILURE: sentinel-apex.yml run #2250 -- the same
 natural production run whose STAGE 3.3 and STAGE 5.4.1 gates both passed
 cleanly for the first time (after PRs #375/#376 fixed the identical
 architectural mismatch in scripts/validate_reports.py and

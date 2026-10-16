@@ -4,7 +4,7 @@ scripts/run_pipeline.py
 CYBERDUDEBIVASH(R) SENTINEL APEX v184.0 -- Master Pipeline Orchestrator
 ==========================================================================
 P0 ARCHITECTURAL FIX: Replaces ALL inline PYEOF/PYEOF heredoc blocks from
-sentinel-blogger.yml.  The YAML now calls ONLY this script (plus dedicated
+sentinel-apex.yml.  The YAML now calls ONLY this script (plus dedicated
 utility scripts).  Zero inline Python in YAML ever again.
 
 Stages orchestrated by this script:

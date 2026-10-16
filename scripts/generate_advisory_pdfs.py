@@ -3,7 +3,7 @@
 generate_advisory_pdfs.py — CYBERDUDEBIVASH SENTINEL APEX v161.4
 ================================================================
 Generates a real ReportLab PDF for every advisory in the feed.
-Runs as Stage 3.2.6 in sentinel-blogger.yml.
+Runs as Stage 3.2.6 in sentinel-apex.yml.
 
 Output:   reports/pdf/{advisory_id}.pdf
 Updates:  api/feed.json + data/feed_manifest.json  (pdf_url, pdf_available fields)

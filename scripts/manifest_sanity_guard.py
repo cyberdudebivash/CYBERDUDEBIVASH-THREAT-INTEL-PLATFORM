@@ -3,7 +3,7 @@
 scripts/manifest_sanity_guard.py
 CYBERDUDEBIVASH(R) SENTINEL APEX v184.0 -- Manifest Sanity Guard (Standalone Gate)
 ======================================================================================
-Pipeline gate: called from sentinel-blogger.yml AFTER intel_quality_engine runs.
+Pipeline gate: called from sentinel-apex.yml AFTER intel_quality_engine runs.
 
 HARD FAIL conditions (sys.exit(1)):
     - Duplicate stix_ids remaining AFTER quality engine dedup > 5

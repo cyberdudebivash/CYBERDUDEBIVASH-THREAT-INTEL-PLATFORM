@@ -3,7 +3,7 @@ tests/test_report_registry_single_writer.py — CyberDudeBivash SENTINEL APEX
 
 Regression tests for the F-02 fix (report-index dual-writer conflict).
 
-Background: scripts/build_reports_index.py (sentinel-blogger.yml STAGE 3.3.7)
+Background: scripts/build_reports_index.py (sentinel-apex.yml STAGE 3.3.7)
 is the sole authoritative writer of api/reports/index.json,
 api/reports/latest.json, and api/reports/stats.json -- it scans the real
 reports/ directory on disk and produces report_url values that resolve to

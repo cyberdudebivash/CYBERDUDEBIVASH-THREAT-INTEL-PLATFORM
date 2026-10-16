@@ -22,7 +22,7 @@ Usage:
 
 P0 2026-09-05: this is the same architectural mismatch STAGE 3.3
 (scripts/validate_reports.py) hard-failed on for every natural run since
-PR #369/#370 -- confirmed live (run #2249, sentinel-blogger.yml) once #375
+PR #369/#370 -- confirmed live (run #2249, sentinel-apex.yml) once #375
 unblocked STAGE 3.3: THIS validator then hard-failed instead, at STAGE 5.4.1,
 skipping GitHub Pages deployment. PR #369 bounded report (re)generation to a
 rolling REPORT_WINDOW_HOURS window; reports/ is gitignored and never

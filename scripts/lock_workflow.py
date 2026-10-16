@@ -2,7 +2,7 @@
 """
 SENTINEL APEX v72.1 — Workflow Lock Patcher
 =============================================
-Patches sentinel-blogger.yml with:
+Patches sentinel-apex.yml with:
 1. Pre-deploy gate BEFORE each gh-pages deploy action
 2. Safe git pull that aborts on conflict instead of committing markers
 
@@ -17,7 +17,7 @@ import sys
 from datetime import datetime
 
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-WORKFLOW = os.path.join(REPO_ROOT, ".github", "workflows", "sentinel-blogger.yml")
+WORKFLOW = os.path.join(REPO_ROOT, ".github", "workflows", "sentinel-apex.yml")
 
 GATE_MARKER = "pre_deploy_gate.py"
 

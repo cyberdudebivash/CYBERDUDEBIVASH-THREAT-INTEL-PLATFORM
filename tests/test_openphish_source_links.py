@@ -109,7 +109,7 @@ def test_publisher_guard_repairs_feed_files():
 
 
 def test_workflow_runs_guard_after_ingest_before_enrichment():
-    wf = (REPO / ".github" / "workflows" / "sentinel-blogger.yml").read_text(encoding="utf-8")
+    wf = (REPO / ".github" / "workflows" / "sentinel-apex.yml").read_text(encoding="utf-8")
     i_orch = wf.index('name: "STAGE 1-3 - Master Pipeline Orchestrator"')
     i_guard = wf.index("python3 scripts/openphish_source_link_guard.py")
     i_enrich = wf.index('name: "STAGE 3.1 - APEX AI Feed Enrichment')

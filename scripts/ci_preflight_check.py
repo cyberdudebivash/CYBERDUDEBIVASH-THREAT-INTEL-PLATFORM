@@ -3,7 +3,7 @@
 scripts/ci_preflight_check.py
 SENTINEL APEX v141.7.0 -- CI Pre-flight: Critical Script Integrity Check
 ========================================================================
-Called from STAGE 0.05 in sentinel-blogger.yml.
+Called from STAGE 0.05 in sentinel-apex.yml.
 Validates all critical pipeline scripts before any execution begins.
 Exit 0 = all OK. Exit 1 = at least one critical file is missing/truncated/corrupt.
 

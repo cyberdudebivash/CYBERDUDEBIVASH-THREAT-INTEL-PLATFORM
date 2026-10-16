@@ -48,7 +48,7 @@ Output format (api/reports/index.json):
     ]
   }
 
-INSERTION POINT: sentinel-blogger.yml STAGE 3.1.8 (after STAGE 3.1.7)
+INSERTION POINT: sentinel-apex.yml STAGE 3.1.8 (after STAGE 3.1.7)
 
 (c) 2026 CyberDudeBivash Pvt. Ltd. All Rights Reserved. CONFIDENTIAL.
 ===============================================================================

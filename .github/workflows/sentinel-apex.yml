@@ -58,10 +58,7 @@
 #           STAGE 5.7 Monetization Integrity Gate: 46 passed, 0 warnings, 0 errors
 # =============================================================================
 
-# The Actions title is the production name. The filename stays
-# sentinel-blogger.yml because the freshness guard and the release gates
-# dispatch and test this file by that name. Renaming the file would stop
-# a stale public feed from being republished.
+# File name is sentinel-apex.yml. The freshness guard dispatches that name.
 name: SENTINEL APEX - Production Intel Publisher v201.0
 
 on:
@@ -75,7 +72,7 @@ on:
       # publisher. Dispatch this workflow by hand when a script change must
       # publish before the next cron. That also keeps the R2 sync and the
       # worker KV bust on the existing cadence.
-      - '.github/workflows/sentinel-blogger.yml'
+      - '.github/workflows/sentinel-apex.yml'
       - '.github/workflows/generate-and-sync.yml'
       - 'feed_manifest.json'
   # SCHEDULE CADENCE -- MADE PERMANENT 2026-08-04 (GitHub Actions cost audit):
@@ -1732,7 +1729,7 @@ jobs:
         # manifest this step reads) is deliberately skipped, and a skipped step
         # does not count as a failure for success() -- this step still ran and
         # regenerated HTML reports off the stale, lock-frozen manifest. Same
-        # class of gap as sentinel-blogger.yml Finding 2 (STAGE 1-3/STAGE 4
+        # class of gap as sentinel-apex.yml Finding 2 (STAGE 1-3/STAGE 4
         # lock guard); this is the primary report-mutating step that guard was
         # never extended to.
         if: env.PIPELINE_LOCKED != 'true'

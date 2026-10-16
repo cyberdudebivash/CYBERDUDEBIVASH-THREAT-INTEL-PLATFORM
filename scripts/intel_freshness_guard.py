@@ -42,12 +42,13 @@ import json
 import os
 import sys
 import urllib.error
+import urllib.parse
 import urllib.request
 from datetime import datetime, timezone
 
 HEALTH_URL = os.environ.get("HEALTH_URL", "https://intel.cyberdudebivash.com/api/health")
 REPO = os.environ.get("REPO", "cyberdudebivash/CYBERDUDEBIVASH-THREAT-INTEL-PLATFORM")
-WORKFLOW = os.environ.get("PUBLISHER_WORKFLOW", "sentinel-blogger.yml")
+WORKFLOW = os.environ.get("PUBLISHER_WORKFLOW", "sentinel-apex.yml")
 REF = os.environ.get("PUBLISHER_REF", "main")
 # The publisher takes ~75-85 min; dispatching at 4h keeps a displaced run's
 # replacement inside the 6h contract.
@@ -104,11 +105,19 @@ def _parse(iso: str) -> datetime:
     return datetime.fromisoformat(iso.replace("Z", "+00:00"))
 
 
+def _open_https(req, timeout):
+    target = req.full_url if isinstance(req, urllib.request.Request) else str(req)
+    parsed = urllib.parse.urlparse(target)
+    if parsed.scheme != "https" or not parsed.hostname:
+        raise ValueError("refusing non-https URL")
+    return urllib.request.urlopen(req, timeout=timeout)  # nosec B310
+
+
 def _get_json(url: str, token: str | None = None) -> tuple[int, dict | None]:
     req = urllib.request.Request(url, headers={"Accept": "application/json", "User-Agent": "cdb-intel-freshness-guard/1",
                                                **({"Authorization": f"Bearer {token}"} if token else {})})
     try:
-        with urllib.request.urlopen(req, timeout=20) as r:
+        with _open_https(req, 20) as r:
             return r.status, json.loads(r.read().decode("utf-8"))
     except urllib.error.HTTPError as e:  # /api/health answers 503 WITH a body when stale
         try:
@@ -141,7 +150,7 @@ def main() -> int:
             headers={"Accept": "application/vnd.github+json", "Authorization": f"Bearer {token}",
                      "Content-Type": "application/json", "User-Agent": "cdb-intel-freshness-guard/1"})
         try:
-            with urllib.request.urlopen(req, timeout=20) as r:
+            with _open_https(req, 20) as r:
                 verdict["dispatch_status"] = r.status
         except urllib.error.HTTPError as e:
             verdict.update({"dispatch_status": e.code, "action": "alert", "reason": "dispatch_refused", "exit": 1})

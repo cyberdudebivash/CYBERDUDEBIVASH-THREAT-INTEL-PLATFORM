@@ -3,7 +3,7 @@
 scripts/sanitize_repo.py
 CYBERDUDEBIVASH(R) SENTINEL APEX v184.0 — Production JSON Sanitizer & Self-Healing Engine
 ============================================================================================
-Runs as the FIRST step in sentinel-blogger.yml and deploy-worker.yml (after checkout,
+Runs as the FIRST step in sentinel-apex.yml and deploy-worker.yml (after checkout,
 before ANY Python or validation step).
 
 Responsibilities:

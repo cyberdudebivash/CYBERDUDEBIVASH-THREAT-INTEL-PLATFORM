@@ -668,7 +668,7 @@ class TestFinalFailureHeaderPreservation(unittest.TestCase):
 
 
 class TestPublicFetchThrottling(unittest.TestCase):
-    """RX-PUB-A0.6D follow-up: real production evidence (sentinel-blogger.yml
+    """RX-PUB-A0.6D follow-up: real production evidence (sentinel-apex.yml
     run 31786632126, the first run with 6D's bounded concurrency) showed
     VERIFY_MAX_WORKERS=8 driving public-origin HTTP 429s from a 3.2%
     baseline (5/155, observed even at ~1-at-a-time sequential pacing) up to
@@ -704,7 +704,7 @@ class TestPublicFetchThrottling(unittest.TestCase):
         self.assertIsNone(rrv._retry_after_seconds({"retry-after": "nan"}))
 
     def test_retry_after_seconds_caps_large_value(self):
-        # STAGE 3.6a timeout postmortem (sentinel-blogger.yml run
+        # STAGE 3.6a timeout postmortem (sentinel-apex.yml run
         # 33630720481, 2026-09-02): main() finished and logged its full run
         # summary at exactly RUN_DEADLINE_SECONDS (600.00s), then the step
         # went silent for 309s until the external 15-minute timeout-minutes
@@ -898,7 +898,7 @@ class TestWorkflowStepHasReportsBucketCredentials(unittest.TestCase):
     def test_stage_3_6a_step_has_reports_bucket_credentials_wired(self):
         import yaml
 
-        workflow_path = REPO_ROOT / ".github" / "workflows" / "sentinel-blogger.yml"
+        workflow_path = REPO_ROOT / ".github" / "workflows" / "sentinel-apex.yml"
         with open(workflow_path, encoding="utf-8") as f:
             workflow = yaml.safe_load(f)
 
@@ -907,7 +907,7 @@ class TestWorkflowStepHasReportsBucketCredentials(unittest.TestCase):
         matches = [s for s in steps if "STAGE 3.6a" in s.get("name", "")]
         self.assertEqual(
             len(matches), 1,
-            "expected exactly one STAGE 3.6a step in sentinel-blogger.yml"
+            "expected exactly one STAGE 3.6a step in sentinel-apex.yml"
         )
         step = matches[0]
         env = step.get("env", {})
@@ -921,7 +921,7 @@ class TestWorkflowStepHasReportsBucketCredentials(unittest.TestCase):
         self.assertIn("CF_R2_REPORTS_SECRET_KEY", env)
 
     def test_stage_3_6a_step_has_continue_on_error(self):
-        # STAGE 3.6a timeout postmortem (sentinel-blogger.yml run
+        # STAGE 3.6a timeout postmortem (sentinel-apex.yml run
         # 33630720481, 2026-09-02): this step is documented as
         # observability-only/bake-in (--enforce deliberately not passed,
         # its own `run:` already guards the script call with `|| true`),
@@ -935,7 +935,7 @@ class TestWorkflowStepHasReportsBucketCredentials(unittest.TestCase):
         # same established, repo-wide convention.
         import yaml
 
-        workflow_path = REPO_ROOT / ".github" / "workflows" / "sentinel-blogger.yml"
+        workflow_path = REPO_ROOT / ".github" / "workflows" / "sentinel-apex.yml"
         with open(workflow_path, encoding="utf-8") as f:
             workflow = yaml.safe_load(f)
 
@@ -1043,7 +1043,7 @@ class TestManifestR2Sync(unittest.TestCase):
 
 
 class TestBoundedConcurrencyAndDeadline(unittest.TestCase):
-    """RX-PUB-A0.6D: real production evidence (sentinel-blogger.yml run
+    """RX-PUB-A0.6D: real production evidence (sentinel-apex.yml run
     31761997953) showed the pre-6D sequential loop covering only 170/518
     in-window reports before RUN_DEADLINE_SECONDS cut it off -- the normal
     case, not a tail case. These tests exercise the bounded-worker-pool

@@ -26,7 +26,7 @@ concurrency:
 
 # These already have correct locks or are the master pipeline
 SKIP_WORKFLOWS = {
-    "sentinel-blogger.yml",     # Master pipeline — has its own lock
+    "sentinel-apex.yml",     # Master pipeline — has its own lock
     "sync-dashboard.yml",       # Already patched in v71.0
     "status-monitor.yml",       # Already patched in v71.0
 }

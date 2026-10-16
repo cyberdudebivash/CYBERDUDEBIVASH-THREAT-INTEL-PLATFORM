@@ -11,7 +11,7 @@ MANDATE:
   - IDEMPOTENT — safe to run multiple times
   - NON-BLOCKING — any error silently skips, never crashes pipeline
 
-INVOKED: Stage 6b of sentinel-blogger.yml, after apex_wrapper run.
+INVOKED: Stage 6b of sentinel-apex.yml, after apex_wrapper run.
 """
 import json
 import logging

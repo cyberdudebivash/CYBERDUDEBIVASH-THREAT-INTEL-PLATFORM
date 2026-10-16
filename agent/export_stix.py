@@ -1308,7 +1308,7 @@ class STIXExporter:
         # is provably unnecessary for the availability guarantee it existed for.
         #
         # This ingestion path (agent/sentinel_blogger.py, "Stage 2" per
-        # .github/workflows/sentinel-blogger.yml's own architecture comment) runs
+        # .github/workflows/sentinel-apex.yml's own architecture comment) runs
         # BEFORE "Stage 3.6 html_reports" (generate_intel_reports.py's
         # stage_html_reports(), scripts/run_pipeline.py) in the SAME pipeline
         # run. generate_intel_reports.py's "Zero-skip" policy unconditionally

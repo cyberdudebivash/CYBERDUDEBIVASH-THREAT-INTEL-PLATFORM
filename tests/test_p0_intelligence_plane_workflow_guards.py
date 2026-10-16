@@ -5,7 +5,7 @@ tests/test_p0_intelligence_plane_workflow_guards.py
 P0 RUNTIME INTELLIGENCE STATE RECOVERY mission (2026-09-10) -- structural
 regression guards for genesis-powerhouse.yml / sovereign-platform.yml,
 mirroring tests/test_r2_state_migration_wiring.py's established pattern for
-multi-source-intel.yml / sentinel-blogger.yml. These assert the *wiring*
+multi-source-intel.yml / sentinel-apex.yml. These assert the *wiring*
 this mission fixed cannot silently regress: no direct git push for runtime
 state, no swallowed engine failures, R2 persistence steps present and
 fail-closed, and permissions genuinely reduced.

@@ -9,7 +9,7 @@
 # │ STATUS: DORMANT — NOT INVOKED BY ANY WORKFLOW  (verified 2026-09-09)        │
 # └──────────────────────────────────────────────────────────────────────────────┘
 #
-# This header previously read "Called by: .github/workflows/sentinel-blogger.yml
+# This header previously read "Called by: .github/workflows/sentinel-apex.yml
 # (Stage 6c)". The 2026-09-09 AI plane forensic audit found no such stage and no
 # invocation of this script anywhere in .github/workflows/, scripts/, agent/,
 # tools/ or ops/. The claim was inaccurate, and because it read as authoritative

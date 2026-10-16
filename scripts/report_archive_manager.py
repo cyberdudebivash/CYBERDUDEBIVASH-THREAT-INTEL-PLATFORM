@@ -34,7 +34,7 @@ SAFETY GUARANTEES:
 PREREQUISITES (one-time setup):
   Pages deploy MUST be set to clean: false before running this script in non-dry-run mode.
   Otherwise gh-pages will lose historical reports on next deployment.
-  See sentinel-blogger.yml STAGE 5 (Pages Deploy Action).
+  See sentinel-apex.yml STAGE 5 (Pages Deploy Action).
 
 USAGE:
   python3 scripts/report_archive_manager.py --dry-run     # preview only
@@ -98,7 +98,7 @@ REPORTS_DIR        = REPO_ROOT / "reports"
 ARCHIVE_DIR        = REPO_ROOT / "data" / "archive"
 AUDIT_LOG_PATH     = ARCHIVE_DIR / "report_archive_audit.jsonl"
 ARCHIVE_MANIFEST   = ARCHIVE_DIR / "report_archive_manifest.json"
-WORKFLOW_PATH      = REPO_ROOT / ".github" / "workflows" / "sentinel-blogger.yml"
+WORKFLOW_PATH      = REPO_ROOT / ".github" / "workflows" / "sentinel-apex.yml"
 
 RETENTION_DAYS     = int(os.environ.get("REPORT_RETENTION_DAYS", "90"))
 DRY_RUN            = os.environ.get("ARCHIVE_DRY_RUN", "0") == "1"

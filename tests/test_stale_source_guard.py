@@ -223,7 +223,7 @@ def test_stix_bundle_carries_source_url():
 
 
 def test_workflow_runs_guard_before_enrichment_and_before_manifests():
-    wf = (REPO / ".github" / "workflows" / "sentinel-blogger.yml").read_text(encoding="utf-8")
+    wf = (REPO / ".github" / "workflows" / "sentinel-apex.yml").read_text(encoding="utf-8")
     i_orch = wf.index('name: "STAGE 1-3 - Master Pipeline Orchestrator"')
     i_g1 = wf.index("scripts/stale_source_guard.py post-ingest")
     i_enrich = wf.index('name: "STAGE 3.1 - APEX AI Feed Enrichment')

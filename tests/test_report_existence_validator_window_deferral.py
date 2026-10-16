@@ -5,7 +5,7 @@ P0 regression coverage for scripts/report_existence_validator.py (STAGE 5.4.1)
 root-cause fix.
 
 CONFIRMED PRODUCTION FAILURE: once PR #375 unblocked STAGE 3.3 (Report
-Validation Gate), the very same natural sentinel-blogger.yml run (#2249)
+Validation Gate), the very same natural sentinel-apex.yml run (#2249)
 progressed further and then hard-failed at STAGE 5.4.1 instead -- skipping
 GitHub Pages deployment for the rest of that run. This is the identical
 architectural mismatch #375 already fixed in scripts/validate_reports.py,

@@ -30,7 +30,7 @@ Usage:
   --min-count : minimum advisory count required (default: 50)
   NOTE: Default lowered from 100→50 in v134.0 (P0 fix). On fresh checkout with
   bootstrap loading from validated_manifest.json (2463 entries), this is moot.
-  The real guard is the Freshness Gate in sentinel-blogger.yml (min 10 entries).
+  The real guard is the Freshness Gate in sentinel-apex.yml (min 10 entries).
 """
 
 import json

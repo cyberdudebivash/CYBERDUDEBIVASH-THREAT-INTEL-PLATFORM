@@ -5,7 +5,7 @@ P0 regression coverage for the Report Validation Gate (scripts/
 validate_reports.py, STAGE 3.3) root-cause fix.
 
 CONFIRMED PRODUCTION FAILURE (forensic evidence from the actual CI logs of
-sentinel-blogger.yml runs #2244 and #2245 -- the first two natural runs
+sentinel-apex.yml runs #2244 and #2245 -- the first two natural runs
 after PR #369/#370 landed): STAGE 3.3 hard-failed with ~1,394 "RULE 3 FAIL:
 report file NOT FOUND" errors, 100% of them advisories OUTSIDE the rolling
 REPORT_WINDOW_HOURS publish window that PR #369 introduced to stop the
@@ -208,7 +208,7 @@ class TestValidateAllReportsEndToEnd(_ChdirFixture):
             "A manifest made entirely of out-of-window legacy advisories with "
             "no local report files must PASS the gate (deferred, not failed) -- "
             "this is the exact shape of the confirmed production failure in "
-            "sentinel-blogger.yml runs #2244/#2245.",
+            "sentinel-apex.yml runs #2244/#2245.",
         )
 
     def test_one_in_window_missing_report_still_blocks_the_whole_gate(self):

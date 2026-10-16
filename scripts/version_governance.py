@@ -19,7 +19,7 @@ TARGETS GOVERNED (backend/gateway + CI workflows):
   workers/intel-gateway/src/index.js     -- GATEWAY_VERSION in CONFIG object
   scripts/r2_upload.py                    -- PIPELINE_VERSION default
   scripts/ai_brain_publisher.py           -- VERSION constant
-  .github/workflows/sentinel-blogger.yml  -- PIPELINE_VERSION env var
+  .github/workflows/sentinel-apex.yml  -- PIPELINE_VERSION env var
   .github/workflows/generate-and-sync.yml -- PIPELINE_VERSION env var
 
 NOT GOVERNED (have their own independent versioning):
@@ -205,9 +205,9 @@ REGEX_TARGETS = [
         r'(GATEWAY_VERSION\s*=\s*")[0-9]+\.[0-9]+(?:\.[0-9]+)?"',
         r'\g<1>{VER}"',
     ),
-    # .github/workflows/sentinel-blogger.yml -- PIPELINE_VERSION env var (v148.0 governance)
+    # .github/workflows/sentinel-apex.yml -- PIPELINE_VERSION env var (v148.0 governance)
     (
-        ".github/workflows/sentinel-blogger.yml",
+        ".github/workflows/sentinel-apex.yml",
         r'(  PIPELINE_VERSION:\s*")[0-9]+\.[0-9]+(?:\.[0-9]+)?"',
         r'\g<1>{VER}"',
     ),

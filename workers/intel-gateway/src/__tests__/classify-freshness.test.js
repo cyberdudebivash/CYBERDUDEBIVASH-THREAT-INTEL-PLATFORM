@@ -26,7 +26,7 @@ import { classifyFreshness } from "../index.js";
 // coverage is unaffected by which field the caller passes in.
 //
 // Thresholds match this platform's own known ingestion cadence
-// (multi-source-intel.yml + sentinel-blogger.yml both run roughly every 4h):
+// (multi-source-intel.yml + sentinel-apex.yml both run roughly every 4h):
 // FRESH < 6h (tolerates one missed cycle), RECENT < 24h, AGING < 72h,
 // STALE >= 72h.
 // ---------------------------------------------------------------------------

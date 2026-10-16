@@ -4,7 +4,7 @@ tests/test_git_publish_no_silent_push_failure.py
 Regression test for the P0 root cause of the 2026-08-26 core-feed staleness
 incident: both of this platform's automated git-publish paths --
 .github/workflows/multi-source-intel.yml's inline "Commit Intel State &
-Manifest" step and scripts/safe_git_commit.py (used by sentinel-blogger.yml's
+Manifest" step and scripts/safe_git_commit.py (used by sentinel-apex.yml's
 STAGE 4 - Git Sync) -- retry `git push origin main` up to 4 times and then,
 on total exhaustion, only logged a bare warning and continued with exit 0.
 
@@ -26,7 +26,7 @@ Fix:
     depend on it), so a fully-exhausted push now hard-fails the job
     (`exit 1` + an `::error::` annotation) instead of silently continuing.
   - safe_git_commit.py: deliberately NOT hard-failed. STAGE 4 sits mid-way
-    through sentinel-blogger.yml's 162-stage pipeline, and many downstream
+    through sentinel-apex.yml's 162-stage pipeline, and many downstream
     steps (STAGE 5.6.1 Regression Immunity, STAGE 5.6.2 Stale-Feed
     Recurrence Guard, STAGE 5 Deploy to GitHub Pages, etc.) have no
     `if: always()` guard -- flipping STAGE 4 to "failure" would silently

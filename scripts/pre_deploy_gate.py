@@ -2,7 +2,7 @@
 """
 pre_deploy_gate.py -- SENTINEL APEX Pre-Deploy Gate v158.0
 Runs BEFORE every deployment. Hard-fails if any P0 condition is violated.
-Called from sentinel-blogger.yml before build_dist_artifact.py.
+Called from sentinel-apex.yml before build_dist_artifact.py.
 
 Exit codes:
   0 = gate passed, safe to deploy

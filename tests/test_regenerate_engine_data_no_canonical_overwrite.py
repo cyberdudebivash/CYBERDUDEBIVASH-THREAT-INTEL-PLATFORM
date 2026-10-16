@@ -5,7 +5,7 @@ tests/test_regenerate_engine_data_no_canonical_overwrite.py
 P0 RUNTIME INTELLIGENCE STATE RECOVERY mission follow-up (2026-09-10):
 regression guard for the duplicate-writer bug found via this mission's own
 required live-production verification. scripts/regenerate_engine_data.py
-(run every sentinel-blogger.yml cycle) used to unconditionally recompute
+(run every sentinel-apex.yml cycle) used to unconditionally recompute
 AND WRITE data/{nexus,genesis,cortex,quantum,sovereign}/*_output.json from
 its own independent algorithm, stamping one shared module-level NOW_UTC
 into every output. Before this mission, that was harmless -- those paths
@@ -13,7 +13,7 @@ were gitignored and never uploaded anywhere, so the write was discarded at
 the end of every job. The moment this mission registered those same 5
 paths in scripts/r2_state_sync.py's STATE_FILES (to give NEXUS/CORTEX/
 QUANTUM/SOVEREIGN/GENESIS a real, fresh, R2-persisted canonical producer
-via sovereign-platform.yml/genesis-powerhouse.yml), sentinel-blogger.yml's
+via sovereign-platform.yml/genesis-powerhouse.yml), sentinel-apex.yml's
 own PRE-EXISTING, unchanged `r2_state_sync.py --upload` calls (broad, no
 --only) started picking up whatever this script last wrote locally and
 publishing it to the SAME R2 keys -- a second, differently-computed writer
@@ -80,7 +80,7 @@ class TestRegenerateEngineDataDoesNotOverwriteCanonicalOutputs(unittest.TestCase
                 f"that path now has a dedicated, fresher, R2-persisted canonical "
                 f"producer (sovereign-platform.yml / genesis-powerhouse.yml); this "
                 f"script writing it too silently races and can overwrite the "
-                f"canonical writer once both are picked up by sentinel-blogger.yml's "
+                f"canonical writer once both are picked up by sentinel-apex.yml's "
                 f"own broad `r2_state_sync.py --upload`.",
             )
 
@@ -92,7 +92,7 @@ class TestRegenerateEngineDataDoesNotOverwriteCanonicalOutputs(unittest.TestCase
         past that test alone. Pre-populates each canonical path with sentinel
         content before running main(), then asserts it's still byte-identical
         afterward -- covering the case a real production checkout is
-        actually in (sentinel-blogger.yml's own r2_state_sync.py --download
+        actually in (sentinel-apex.yml's own r2_state_sync.py --download
         step, or a leftover from a prior job, may well have left these files
         present locally before this script ever runs)."""
         sentinel_content = b'{"sentinel": "PRE-EXISTING-CONTENT-MUST-SURVIVE"}'

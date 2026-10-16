@@ -421,7 +421,7 @@ def prune_old_reports(dry_run: bool = True) -> dict:
     checksum-verify.
 
     NOTE: reports/ has a dedicated, more sophisticated archive tool
-    (scripts/report_archive_manager.py, wired into sentinel-blogger.yml
+    (scripts/report_archive_manager.py, wired into sentinel-apex.yml
     STAGE 5.4.5b) that untracks via `git rm --cached` rather than deleting
     from disk, keeping historical reports recoverable from git history. This
     function remains as a filesystem-level safety net for report_html

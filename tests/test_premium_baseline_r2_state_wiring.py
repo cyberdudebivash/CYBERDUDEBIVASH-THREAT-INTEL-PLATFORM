@@ -1,4 +1,4 @@
-"""F26 (2026-10-02): sentinel-blogger.yml carries api/feed.baseline.json
+"""F26 (2026-10-02): sentinel-apex.yml carries api/feed.baseline.json
 between runs through R2, around STAGE 3.1.19 only.
 
 The baseline was persisted only by STAGE 4's git push, refused since
@@ -21,7 +21,7 @@ from pathlib import Path
 import yaml
 
 REPO = Path(__file__).resolve().parents[1]
-WORKFLOW = REPO / ".github" / "workflows" / "sentinel-blogger.yml"
+WORKFLOW = REPO / ".github" / "workflows" / "sentinel-apex.yml"
 DOWNLOAD = "python3 scripts/r2_state_sync.py --download --only api/feed.baseline.json"
 UPLOAD = "python3 scripts/r2_state_sync.py --upload --only api/feed.baseline.json"
 

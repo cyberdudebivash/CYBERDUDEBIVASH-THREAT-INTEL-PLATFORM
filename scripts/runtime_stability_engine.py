@@ -64,7 +64,7 @@ STABILITY_STATE_DIR = DATA_DIR / "runtime_stability"
 VERSION = "158.5"
 
 # ── Thresholds ──────────────────────────────────────────────────────────────
-MIN_STIX_BUNDLES = 40           # Hard floor — must be ≤ STIX_MAX_BUNDLES=50 set in sentinel-blogger.yml
+MIN_STIX_BUNDLES = 40           # Hard floor — must be ≤ STIX_MAX_BUNDLES=50 set in sentinel-apex.yml
 WARN_STIX_BUNDLES = 45          # Warn if count falls below this
 MAX_OUTPUT_AGE_HOURS = 25       # Output files must be regenerated within 25h
 WARN_OUTPUT_AGE_HOURS = 12      # Warn if output not refreshed within 12h

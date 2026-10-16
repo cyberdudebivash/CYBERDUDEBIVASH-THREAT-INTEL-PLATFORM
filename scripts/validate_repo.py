@@ -11,7 +11,7 @@ Checks:
   2.  YAML valid      -- all .yml/.yaml files parse correctly
   3.  Python syntax   -- all .py files pass py_compile
   4.  JSON valid      -- all critical .json files parse correctly
-  5.  Workflow clean  -- sentinel-blogger.yml has no inline PYEOF/heredocs
+  5.  Workflow clean  -- sentinel-apex.yml has no inline PYEOF/heredocs
 
 Exit 0 -- all checks passed
 Exit 1 -- one or more critical checks failed
@@ -75,7 +75,7 @@ FEED_JSON_FILES = [
     "feed.json",
 ]
 
-WORKFLOW_FILE = ".github/workflows/sentinel-blogger.yml"
+WORKFLOW_FILE = ".github/workflows/sentinel-apex.yml"
 
 # Patterns that must NOT appear in the rebuilt workflow
 BANNED_PATTERNS = [

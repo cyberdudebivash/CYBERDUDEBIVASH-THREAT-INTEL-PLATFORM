@@ -12,7 +12,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
 from p0_r20_convergence_preflight import build_blocked_verdict, write_verdict
 
-WORKFLOW = ROOT / ".github" / "workflows" / "sentinel-blogger.yml"
+WORKFLOW = ROOT / ".github" / "workflows" / "sentinel-apex.yml"
 
 
 @pytest.mark.parametrize("outcomes", [

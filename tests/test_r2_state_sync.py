@@ -168,7 +168,7 @@ class TestStateFilesManifest(unittest.TestCase):
         only by STAGE 4's rejected git push, so every publisher run read the
         26 August copy back and the premium feeds served August items. One
         owner-only entry (broad sweeps skip it), downloaded and uploaded with
-        --only around sentinel-blogger.yml's STAGE 3.1.19. Computed from the
+        --only around sentinel-apex.yml's STAGE 3.1.19. Computed from the
         observed run count (at most 14 publisher runs/day): worst case 1,680
         Class A + 1,260 Class B per month = 0.168% / 0.0126% of R2's
         allowances; no LIST."""
@@ -1008,7 +1008,7 @@ class TestCli(unittest.TestCase):
 
     def test_only_omitted_preserves_original_unfiltered_behavior(self):
         """Every pre-existing caller (ai-predictions.yml, multi-source-intel.yml,
-        sentinel-blogger.yml, ...) omits --only and must see the exact same
+        sentinel-apex.yml, ...) omits --only and must see the exact same
         None passed through as before this flag existed."""
         with patch.object(rs, "get_credentials", return_value=("acct", "k", "s")), \
              patch.object(rs, "install_awscli"), \

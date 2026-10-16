@@ -8,7 +8,7 @@ against origin/main at the time of investigation.
 
 Root cause: scripts/safe_git_commit.py's automated pipeline commits always
 carry "[skip ci]" in their message (to avoid re-triggering
-sentinel-blogger.yml). GitHub's [skip ci] convention suppresses *every*
+sentinel-apex.yml). GitHub's [skip ci] convention suppresses *every*
 push-triggered workflow for that commit -- including
 .github/workflows/frontend-integrity-sync.yml (PR #166), whose only job is
 to regenerate config/frontend_checksums.json after a protected asset

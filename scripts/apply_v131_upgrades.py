@@ -3,7 +3,7 @@
 scripts/apply_v131_upgrades.py
 CYBERDUDEBIVASH(R) SENTINEL APEX v131.0 -- MASTER P0 UPGRADE ORCHESTRATOR
 ==========================================================================
-Single entrypoint called by sentinel-blogger.yml to apply all v131 upgrades.
+Single entrypoint called by sentinel-apex.yml to apply all v131 upgrades.
 
 EXECUTION ORDER:
   1. Load feed_manifest.json

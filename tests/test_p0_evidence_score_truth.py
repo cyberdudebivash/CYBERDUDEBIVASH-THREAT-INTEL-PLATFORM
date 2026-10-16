@@ -58,7 +58,7 @@ def test_boolean_evidence_is_explicit_not_python_truthiness():
 
 
 def test_publisher_evidence_enforcement_cannot_silently_succeed():
-    workflow = (ROOT / ".github/workflows/sentinel-blogger.yml").read_text(encoding="utf-8")
+    workflow = (ROOT / ".github/workflows/sentinel-apex.yml").read_text(encoding="utf-8")
     name = 'STAGE 3.1.4b - Evidence Score Enforcer'
     start = workflow.index(name)
     body = workflow[start:start + 460]

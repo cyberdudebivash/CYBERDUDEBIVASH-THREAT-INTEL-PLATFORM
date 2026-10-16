@@ -81,7 +81,7 @@ _CORE_FILES: frozenset = frozenset({
     "scripts/pre_deploy_gate.py",
     "api/main.py",
     "api/paywall_filter.py",
-    ".github/workflows/sentinel-blogger.yml",
+    ".github/workflows/sentinel-apex.yml",
     "index.html",
 })
 

@@ -11,7 +11,7 @@ P0 R2 COST INCIDENT FIX (2026-09): this was a SECOND, independent full-bucket
 amplifier alongside scripts/r2_upload.py's whole-corpus sync (see
 docs/P0_R2_COST_CONTAINMENT.md). Confirmed live: this script ran DAILY
 (automated-backup.yml, cron 0 1 * * *, its own concurrency group -- not
-serialized against sentinel-blogger.yml) and unconditionally GET+SHA256'd
+serialized against sentinel-apex.yml) and unconditionally GET+SHA256'd
 EVERY object in BOTH sentinel-apex-data and sentinel-apex-reports, no
 sampling, no bound (~278,790 GETs/day at incident-time object counts).
 Two fixes, both evidence-based, not just "reduce the number":

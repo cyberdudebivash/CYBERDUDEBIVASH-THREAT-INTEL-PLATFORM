@@ -26,7 +26,7 @@ TIER GATING:
 PDF OUTPUT:
   Generates companion PDF for every enhanced HTML report.
 
-Called by sentinel-blogger.yml after generate_intel_reports.py.
+Called by sentinel-apex.yml after generate_intel_reports.py.
 (c) 2026 CyberDudeBivash Pvt. Ltd. All Rights Reserved.
 """
 from __future__ import annotations
