@@ -124,3 +124,16 @@ test("R2 parse failure never falls back to the anonymous feed or leaks exception
   assert.doesNotMatch(body, /private R2 infrastructure detail/);
   assert.deepEqual(ctx.reads, [PAID]);
 });
+
+test("missing confidence stays empty, explicit zero stays zero, invalid limits cannot empty exports", async () => {
+  const item = { ...sample, id: "advisory-123", stix_id: null,
+    iocs: [{ type: "domain", value: "unscored.invalid" }, { type: "ipv4", value: "192.0.2.8", confidence: 0 }] };
+  const ctx = setup({ [PAID]: { items: [item] } });
+  const response = await exportCsv(ctx, "PRO", "?limit=-99");
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.get("x-record-count"), "2");
+  const csv = await response.text();
+  assert.match(csv, /domain,unscored\\.invalid,,advisory-123/);
+  assert.match(csv, /ipv4,192\\.0\\.2\\.8,0,advisory-123/);
+  assert.doesNotMatch(csv, /,0\\.7,/);
+});
