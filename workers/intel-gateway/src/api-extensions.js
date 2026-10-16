@@ -904,22 +904,27 @@ export async function handleCSVExport(request, env, auth, rid) {
   const url    = new URL(request.url);
   const since  = url.searchParams.get("since") || null;
   const types  = (url.searchParams.get("types") || "").split(",").filter(Boolean);
-  const limit  = Math.min(parseInt(url.searchParams.get("limit") || "500") || 500, 5000);
+  const requestedLimit = Number(url.searchParams.get("limit") || "500");
+  const limit  = Number.isSafeInteger(requestedLimit) && requestedLimit > 0 ? Math.min(requestedLimit, 5000) : 500;
 
   try {
-    const index = await fetchReportsIndexExt(env);
-    if (!index?.reports?.length) return extJson({ error: "feed_unavailable" }, 503);
+    // P0: Paid IOC exports MUST read the paid publisher artifact, never the
+    // anonymous latest.json projection or a public/shared KV cache. Scope is
+    // checked before this R2 read, and no new binding, route, or cron is needed.
+    const source = await env?.INTEL_R2?.get("api/v1/intel/latest_pro.json");
+    if (!source) return extJson({ error: "ioc_feed_unavailable", request_id: rid }, 503);
+    const payload = await source.json();
+    const paidItems = Array.isArray(payload?.items) ? payload.items : [];
+    const usableIoc = (ioc) => ioc !== null && typeof ioc === "object" &&
+      typeof ioc.type === "string" && ioc.type.trim().length > 0 &&
+      typeof ioc.value === "string" && ioc.value.trim().length > 0;
+    const exportableItems = paidItems.filter(i => i && Array.isArray(i.iocs) && i.iocs.some(usableIoc));
 
-    // PRODUCTION-VERIFICATION FIX (2026-08-24): same root cause and fix as
-    // handleMISPExport above -- isCustomerReady() is the narrative-report
-    // certification gate (P0 incident scope, /reports/** HTML surface only);
-    // live-verified 0/474 feed items currently clear it, so this filter
-    // silently emptied every CSV export for every paying customer. A CSV of
-    // IOC rows is machine-consumable export data, not a narrative report.
-    // Filtering on real IOC presence keeps out empty stub items without
-    // imposing narrative-certification thresholds this endpoint was never
-    // designed to need.
-    let items = index.reports.filter(i => Array.isArray(i.iocs) && i.iocs.length > 0);
+    // A missing or header-only *source* is a production error, not a successful
+    // export. A well-formed filtered request may legitimately yield zero rows.
+    if (!exportableItems.length) return extJson({ error: "ioc_feed_unavailable", request_id: rid }, 503);
+
+    let items = exportableItems;
     if (since) {
       const sinceMs = new Date(since).getTime();
       items = items.filter(i => new Date(i.processed_at || 0).getTime() >= sinceMs);
@@ -935,12 +940,12 @@ export async function handleCSVExport(request, env, auth, rid) {
         // CodeRabbit finding (PR #246): typeof null === "object" in JS -- a
         // malformed entry like iocs: [null] would crash on ioc.type/ioc.value
         // below, 500ing the whole export instead of skipping just that entry.
-        if (ioc === null) continue;
+        if (!usableIoc(ioc)) continue;
         if (types.length && !types.includes(ioc.type)) continue;
         if (count >= limit) break;
         rows.push([
-          esc(ioc.type), esc(ioc.value), esc(ioc.confidence || "0.7"),
-          esc(item.stix_id || ""), esc(item.title || ""),
+          esc(ioc.type), esc(ioc.value), esc(ioc.confidence ?? ""),
+          esc(item.stix_id || item.id || ""), esc(item.title || ""),
           esc(item.cve_id || ""), esc(item.actor_tag || ""),
           esc(item.severity || ""), esc(item.risk_score || "0"),
           esc(item.processed_at?.slice(0, 10) || ""),
@@ -967,7 +972,7 @@ export async function handleCSVExport(request, env, auth, rid) {
       },
     });
   } catch (e) {
-    return extJson({ error: "csv_export_failed", message: e.message, request_id: rid }, 500);
+    return extJson({ error: "csv_export_failed", request_id: rid }, 500);
   }
 }
 
