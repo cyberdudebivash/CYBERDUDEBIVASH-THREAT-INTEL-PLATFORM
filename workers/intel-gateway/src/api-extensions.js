@@ -904,7 +904,8 @@ export async function handleCSVExport(request, env, auth, rid) {
   const url    = new URL(request.url);
   const since  = url.searchParams.get("since") || null;
   const types  = (url.searchParams.get("types") || "").split(",").filter(Boolean);
-  const limit  = Math.min(parseInt(url.searchParams.get("limit") || "500") || 500, 5000);
+  const requestedLimit = Number(url.searchParams.get("limit") || "500");
+  const limit  = Number.isSafeInteger(requestedLimit) && requestedLimit > 0 ? Math.min(requestedLimit, 5000) : 500;
 
   try {
     // P0: Paid IOC exports MUST read the paid publisher artifact, never the
@@ -943,8 +944,8 @@ export async function handleCSVExport(request, env, auth, rid) {
         if (types.length && !types.includes(ioc.type)) continue;
         if (count >= limit) break;
         rows.push([
-          esc(ioc.type), esc(ioc.value), esc(ioc.confidence || "0.7"),
-          esc(item.stix_id || ""), esc(item.title || ""),
+          esc(ioc.type), esc(ioc.value), esc(ioc.confidence ?? ""),
+          esc(item.stix_id || item.id || ""), esc(item.title || ""),
           esc(item.cve_id || ""), esc(item.actor_tag || ""),
           esc(item.severity || ""), esc(item.risk_score || "0"),
           esc(item.processed_at?.slice(0, 10) || ""),
