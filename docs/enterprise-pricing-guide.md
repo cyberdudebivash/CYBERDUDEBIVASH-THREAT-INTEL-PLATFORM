@@ -73,7 +73,7 @@ split already used for `trust-center.html` and `mssp.html` in PR-5.
 | 3 | API Plans | Real per-tier rate limits from `pricing.html`'s comparison table |
 | 4 | Feature Comparison Table | Condensed real subset (8 of 20 rows); links to `pricing.html` for the full table |
 | 5 | Customer Journey | New 7-step diagram; every step links to where that step actually happens on the real site |
-| 6 | Ways to Engage (Demo/Contact/Partner/Telegram) | Links to real `demo.html`, real `mailto:enterprise@cyberdudebivash.com`, real `mssp.html`, real Telegram channel (`t.me/cyberdudebivashSentinelApex`, already used on `index.html`) |
+| 6 | Ways to Engage (Demo/Contact/Partner/Telegram) | Links to real `demo.html`, real `mailto:contact@cyberdudebivash.in`, real `mssp.html`, real Telegram channel (`t.me/cyberdudebivashSentinelApex`, already used on `index.html`) |
 | 7 | FAQ | Condensed real excerpt (5 of 9+ real Q&As across `pricing.html` and `docs/faq.html`); links to both full FAQs |
 | 8 | Final CTA | New; links to real `upgrade.html`, `demo.html`, `mailto:` |
 

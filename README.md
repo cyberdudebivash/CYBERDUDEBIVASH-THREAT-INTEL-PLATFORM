@@ -190,7 +190,7 @@ No independent compliance attestation (SOC 2, ISO 27001 and similar) is held; se
 
 For enterprise licensing, white-label deployment, MSSP agreements, or custom SLAs:
 
-- **Email:** enterprise@cyberdudebivash.com
+- **Email:** contact@cyberdudebivash.in
 - **Enterprise page:** [intel.cyberdudebivash.com/enterprise.html](https://intel.cyberdudebivash.com/enterprise.html)
 - **MSSP portal:** [intel.cyberdudebivash.com/mssp.html](https://intel.cyberdudebivash.com/mssp.html)
 
