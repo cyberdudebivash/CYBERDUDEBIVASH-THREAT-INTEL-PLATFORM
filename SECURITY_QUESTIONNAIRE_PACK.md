@@ -16,7 +16,7 @@ This document answers common security questionnaire questions asked by enterpris
 |----------|----------|
 | Legal entity name | CYBERDUDEBIVASH |
 | Primary contact | Bivash Nayak |
-| Contact email | enterprise@cyberdudebivash.com |
+| Contact email | contact@cyberdudebivash.in |
 | Platform URL | https://intel.cyberdudebivash.com |
 | Registered country | India |
 | GSTIN | 21ARKPN8270G1ZP |
@@ -157,7 +157,7 @@ The DPA covers:
 ## ADDITIONAL QUESTIONS
 
 For questions not covered above, contact:
-- **Email:** enterprise@cyberdudebivash.com
+- **Email:** contact@cyberdudebivash.in
 - **WhatsApp:** +91 8179881447
 - **Response SLA:** 4 hours (Enterprise customers), 24 hours (pre-sales)
 

@@ -25,7 +25,7 @@ Most MSSP clients use the master key via the MSSP's infrastructure. Sub-keys are
 
 ### Step 1 — MSSP Submits Sub-Key Request
 
-**Channel:** Email to enterprise@cyberdudebivash.com
+**Channel:** Email to contact@cyberdudebivash.in
 **Subject line:** `Sub-key request — [MSSP_ID] / [CLIENT_NAME]`
 
 **Required fields:**

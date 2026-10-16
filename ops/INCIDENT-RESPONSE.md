@@ -23,7 +23,7 @@ DETECT → CLASSIFY → COMMUNICATE → MITIGATE → RESOLVE → POST-MORTEM
 Triggers for incident declaration:
 - UptimeRobot alert email (intel.cyberdudebivash.com down)
 - GitHub Actions failure email notification
-- Customer email to enterprise@cyberdudebivash.com reporting issue
+- Customer email to contact@cyberdudebivash.in reporting issue
 - Self-discovery during daily ops checklist
 
 ### 2. CLASSIFY
@@ -106,8 +106,8 @@ git diff HEAD~50 --name-only
 
 | Role | Contact | Priority |
 |------|---------|----------|
-| Platform Operator | enterprise@cyberdudebivash.com | P0/P1/P2/P3 |
-| Intel Contact | enterprise@cyberdudebivash.com | Customer-facing |
+| Platform Operator | contact@cyberdudebivash.in | P0/P1/P2/P3 |
+| Intel Contact | contact@cyberdudebivash.in | Customer-facing |
 | GitHub Support | https://support.github.com | Repository issues |
 | Cloudflare Support | https://support.cloudflare.com | CDN/Worker issues |
 

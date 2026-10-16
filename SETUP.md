@@ -138,7 +138,7 @@ Each blog post includes:
 - ✅ CyberDudeBivash logo/header
 - ✅ Company information
 - ✅ Website: www.cyberdudebivash.com
-- ✅ Email: enterprise@cyberdudebivash.com
+- ✅ Email: contact@cyberdudebivash.in
 - ✅ Phone: +918179881447
 - ✅ Location: Bhubaneswar, Odisha, India
 - ✅ All ecosystem links
@@ -254,7 +254,7 @@ After setup, check:
 ## 📞 Support
 
 **Issues?**
-- Email: enterprise@cyberdudebivash.com
+- Email: contact@cyberdudebivash.in
 - GitHub: https://github.com/cyberdudebivash
 
 ---

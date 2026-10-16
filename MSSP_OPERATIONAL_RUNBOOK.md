@@ -45,7 +45,7 @@ Happy to jump on a 20-minute call this week to walk you through everything.
 Reply with your availability.
 
 — CYBERDUDEBIVASH® SENTINEL APEX Team
-enterprise@cyberdudebivash.com | +91 8179881447
+contact@cyberdudebivash.in | +91 8179881447
 ```
 
 ---
@@ -95,7 +95,7 @@ WHAT'S INCLUDED:
 TO START:
 1. Review and sign the MSSP Agreement (attached)
 2. Pay via: https://intel.cyberdudebivash.com/PAYMENT-GATEWAY.html?plan=mssp
-3. Submit your payment reference + signed agreement to enterprise@cyberdudebivash.com
+3. Submit your payment reference + signed agreement to contact@cyberdudebivash.in
 4. Your Master Key + onboarding session scheduled within 24 hours
 
 Questions? Reply here or WhatsApp +91 8179881447.
