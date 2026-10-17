@@ -4,23 +4,21 @@
  * Read-only, bounded, and independent of GitHub Actions job completion state.
  */
 import { fileURLToPath } from 'node:url';
-import { resolve } from 'node:path';
+import { dirname, resolve } from 'node:path';
 import { execFileSync } from 'node:child_process';
 
-// Runtime parity is allowed only when the live Worker is an earlier commit
+// Resolve git execution to the repository ROOT, independent of workflow\n// working-directory=workers/swarm-live. Git pathspecs are otherwise scoped to\n// the current working directory and can silently match zero files.\nconst REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');\nconst GATEWAY_RUNTIME_PATHS = Object.freeze([\n  'workers/intel-gateway/src', 'workers/intel-gateway/package.json',\n  'workers/intel-gateway/wrangler.toml', 'config/version.json',\n  'scripts/generate_api_manifests.py', 'scripts/public_api_sanitizer.py',\n]);\n\n// Runtime parity is allowed only when the live Worker is an earlier commit
 // with IDENTICAL customer-serving gateway source/config. This supports
 // workflow-only fixes without an unnecessary Cloudflare redeploy.
-export function gatewayRuntimeParity(liveSha, expectedSha) {
+export function gatewayRuntimeParity(liveSha, expectedSha, { git = execFileSync, repoRoot = REPO_ROOT } = {}) {
   if (!SHA_RE.test(liveSha || '') || !SHA_RE.test(expectedSha || '')) return false;
   if (liveSha === expectedSha) return true;
   try {
-    execFileSync('git', ['fetch', '--no-tags', '--depth=1', 'origin', liveSha], {
+    git('git', ['-C', repoRoot, 'fetch', '--no-tags', '--depth=1', 'origin', liveSha], {
       stdio: 'ignore', timeout: 15000,
     });
-    execFileSync('git', ['diff', '--exit-code', '--quiet', liveSha, expectedSha,
-      '--', 'workers/intel-gateway/src', 'workers/intel-gateway/package.json',
-      'workers/intel-gateway/wrangler.toml', 'config/version.json',
-      'scripts/generate_api_manifests.py', 'scripts/public_api_sanitizer.py',
+    git('git', ['-C', repoRoot, 'diff', '--exit-code', '--quiet', liveSha, expectedSha,
+      '--', ...GATEWAY_RUNTIME_PATHS,
     ], { stdio: 'ignore', timeout: 15000 });
     return true;
   } catch {
