@@ -41,5 +41,47 @@ test('malformed events cannot spoof successful terminal agent states', () => {
   ], null);
   assert.equal(data.agents['ioc-hunter'], 'NO_TERMINAL_EVENT');
   assert.equal(data.agents['cve-intelligence'], 'UNKNOWN');
-  assert.equal(data.mission_quality, 'MISSING');
+  assert.equal(data.mission_quality, 'UNKNOWN');
+});
+
+test('failed specialists emit only bounded HTTP code and allowlisted error code', () => {
+  const data = summarizeMissionDiagnostic([
+    { agent_id:'ir-playbook', event_type:'agent.failed', state:'FAILED',
+      detail:{ error:'report_not_found', message:'REDACT_CANARY_SOURCE' },
+      attempted_candidates:[{ candidate:'REDACT_CANARY_MATCH', http_status:404 }] },
+    { agent_id:'exposure-analyst', event_type:'agent.failed', state:'FAILED',
+      detail:{ error:'exposure_analysis_failed' },
+      attempted_candidates:[{ candidate:'REDACT_CANARY_ITEM', http_status:500 }] },
+  ], { mission_quality:'COMPLETED_WITH_WARNINGS', result:{llm_enhanced:true} });
+  assert.deepEqual(data.failures['ir-playbook'], {
+    state:'FAILED', http_status:404, error_code:'report_not_found'
+  });
+  assert.deepEqual(data.failures['exposure-analyst'], {
+    state:'FAILED', http_status:500, error_code:'exposure_analysis_failed'
+  });
+  assert.doesNotMatch(JSON.stringify(data), /REDACT_CANARY/);
+});
+
+test('unrecognized failure causes, status strings and injected payloads are not reflected', () => {
+  const data = summarizeMissionDiagnostic([
+    { agent_id:'ir-playbook', event_type:'agent.failed', state:'FAILED',
+      detail:{error:'REDACT_CANARY_UNRECOGNIZED'},
+      attempted_candidates:[{candidate:'REDACT_CANARY', http_status:'404'}] },
+  ], { mission_quality:'REDACT_CANARY_INVALID', result:{llm_enhanced:false} });
+  assert.deepEqual(data.failures['ir-playbook'], {
+    state:'FAILED', http_status:null, error_code:null
+  });
+  assert.equal(data.mission_quality, 'UNKNOWN');
+  assert.doesNotMatch(JSON.stringify(data), /REDACT_CANARY/);
+});
+
+test('successful retry clears prior failure and does not invent failure evidence', () => {
+  const data = summarizeMissionDiagnostic([
+    { agent_id:'ir-playbook', event_type:'agent.failed', state:'FAILED',
+      attempted_candidates:[{http_status:404}] },
+    { agent_id:'ir-playbook', event_type:'agent.completed', state:'COMPLETED' },
+  ], {mission_quality:'FULL_FABRIC_COMPLETE', result:{llm_enhanced:true}});
+  assert.equal(data.agents['ir-playbook'], 'COMPLETED');
+  assert.deepEqual(data.failures, {});
+  assert.equal(data.mission_quality, 'FULL_FABRIC_COMPLETE');
 });
