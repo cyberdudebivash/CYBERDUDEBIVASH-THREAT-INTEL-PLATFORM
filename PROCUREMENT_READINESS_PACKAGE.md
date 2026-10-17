@@ -1,142 +1,82 @@
-# SENTINEL APEX PROCUREMENT READINESS PACKAGE
-## Enterprise Procurement Documentation Pack
-**Version:** 1.0 | **Date:** 2026-06-04
+# SENTINEL APEX Threat Intelligence — Enterprise Procurement Review Pack
 
----
+> **REVIEW COPY — NOT A CUSTOMER CONTRACT, COMPLIANCE CERTIFICATION OR RELEASE APPROVAL.**
+> Updated 2026-10-17 to remove historic non-evidenced claims. Procurement may begin, but **paid customer activation remains HOLD** until the specific signed order, technical gates, live payment entitlement and release sign-off are complete.
+>
+> Supersedes the previous 2026-06-04 package's statements regarding incorporation certificates, PayPal/UPI self-checkout, non-recurring subscriptions, pro-rata annual refunds, guaranteed 24-hour invoices, SOC 2 promises and unapproved account-specific delivery SLAs.
 
-## OVERVIEW
+## Supplier identification and authority
 
-This package contains all documentation required by enterprise procurement teams to evaluate, approve, and onboard SENTINEL APEX as a vendor.
+| Field | Current procurement position |
+| --- | --- |
+| Customer-facing trade brand | **CYBERDUDEBIVASH ECOSYSTEM®** |
+| Legal form | **Sole proprietorship**, not a private limited company |
+| Contracting supplier | [VERIFY exact statutory proprietor name, registered address and GST seller against original records before signature] |
+| GST registration | [VERIFY actual GSTIN and statutory seller record before invoicing] |
+| Product | SENTINEL APEX Threat Intelligence Platform (https://intel.cyberdudebivash.com) |
+| Commercial / support requests | contact@cyberdudebivash.in (confirm two-way deliverability) |
+| Bank beneficiary and account | Not advertised: disclose only after bank/Razorpay beneficiary verification and individual written quote |
+| Signed enterprise assurance pack | PENDING customer-specific owner/legal approval |
 
----
+The brand, trademarks and product are not separate incorporated companies. Do not offer a certificate of incorporation for a sole proprietorship. Do not represent historical partners, former employers or third parties as customers or endorsers without written evidence.
 
-## VENDOR DETAILS
+## Plans and price authority
 
-| Field | Value |
-|-------|-------|
-| Vendor name | CYBERDUDEBIVASH |
-| Product name | SENTINEL APEX Threat Intelligence Platform |
-| Vendor type | SaaS / API service |
-| Website | https://intel.cyberdudebivash.com |
-| Primary contact | Bivash Nayak |
-| Email | contact@cyberdudebivash.in |
-| Phone/WhatsApp | +91 8179881447 |
-| GSTIN | 21ARKPN8270G1ZP |
-| Bank details | Available on signed NDA or upon payment initiation |
-| Invoice format | GST-compliant PDF, issued within 24 hours of payment |
+The sole controlling contract for product tiers, limits, support, cancellation and invoice treatment is `config/commercial-contract.json`, checked against the live `GET /api/pricing` response. The following rows are review references, **not independent prices**.
 
----
+| Tier | INR recurring monthly | INR recurring annual | Other commercial terms |
+| --- | ---: | ---: | --- |
+| FREE | ₹0 | ₹0 | Best-effort public evaluation; no paid entitlement |
+| PRO | ₹4,100 | ₹41,000 | 120 requests/min; email response target in current canonical contract |
+| ENTERPRISE | ₹41,600 | ₹416,000 | 600 requests/min; support target subject to verified coverage |
+| MSSP | ₹83,300 | ₹833,000 | 1,200 requests/min; dedicated coverage requires operator approval |
 
-## STANDARD CONTRACT TERMS
+USD reference prices and quotas must be taken from the same canonical contract and current checkout. Do not independently promise a fixed foreign-exchange settlement rate, tax exception or unlimited seats. Public checkout indicates applicable INR prices include GST; the legal invoice and actual tax breakdown must be verified with a qualified accountant before paid GO.
 
-| Term | Value |
-|------|-------|
-| Minimum commitment | Monthly (no minimum contract) |
-| Notice period for cancellation | None — cancel anytime, service continues to period end |
-| Auto-renewal | No auto-renewal; operator sends D-14/D-7/D-3 reminders |
-| Refund policy | Pro-rated refund for annual prepay within first 30 days |
-| Governing law | India (Odisha jurisdiction) |
-| Dispute resolution | Bilateral negotiation; arbitration if unresolved within 60 days |
+## Payment and access: actual current policy
 
----
+1. **Razorpay is the primary automated provider** for recurring PRO, ENTERPRISE and MSSP subscriptions. Verify that the configured plan ID, invoice total, payment status and server-authoritative plan match before providing access. The buyer may cancel the recurring subscription; paid-period access and limitations follow the published `docs/COMMERCIAL_POLICY_V1.md`.
+2. **Gumroad must not be offered as an available automated activation path** while `/api/pricing` reports `checkout.gumroad.available=false`. An old direct Gumroad sales link must be reviewed/restricted separately; no success claim based on a paid-but-unprovisioned sale.
+3. **No unsupervised UPI, PayPal, crypto, bank transfer or manual-proof upload path.** Individually contracted assisted payments, if approved, require correct vendor identity, quote/PO and explicit reconciliation before access. No instant activation is implied.
+4. **Refunds:** The current owner commercial policy provides a conditional **7-day first-purchase money-back request subject to review**, then generally no pro-rata refunds; exact governing policy, jurisdictional rights and actual process must be agreed in the order. The historic blanket "30-day prorated annual refund" claim is withdrawn.
+5. **GST and invoices:** Generate paid invoices only from accountant-approved supplier/tax configuration and provider-confirmed captured amounts. If missing, hold invoice issuance for operator correction; do not promise automatic same-day or 24-hour GST invoices without proof.
 
-## PAYMENT TERMS FOR ENTERPRISE PROCUREMENT
+## Customer-specific procurement packet — required before activation
 
-### Option 1 — Credit Card / PayPal
-- Instant activation
-- PayPal invoice available: paypal.com/invoice/send
+| Artifact | State / authorised evidence |
+| --- | --- |
+| Verified legal seller and buyer; applicable tax identifiers | **PENDING** — original records / private customer file |
+| Exact signed order form, scope, SKU, limits, price and GST terms | **PENDING** |
+| Customer administrator and approved organisation/tenant ID | **PENDING** |
+| Verified first-use workflow, paid IOC exports and API-key lifecycle | **PENDING** — fresh exact-deployed version certification |
+| Independent Razorpay test payment-to-entitlement/one-time-key flow | **PENDING** — controlled test or separately authorised live case |
+| Refund, key revocation and customer support recovery | **PENDING** |
+| Privacy and DPA, if required, with correct processor/controller roles | **PENDING** — `docs/DPA_TEMPLATE.md` is **not approved for execution** |
+| Subprocessor and data location disclosure | **PENDING** — verified current topology; no region-exclusive guarantee |
+| Security questionnaire / true present controls | **PENDING** — fact-checked evidence only; no implied SOC 2/ISO audit |
+| Incident response, support mailbox, operational cover and rollback | **PENDING** |
+| Cloudflare ten-platform consumption/headroom and zero-overage approval | **PENDING** |
+| Proprietor's written customer- and SKU-specific release approval | **NOT GIVEN** |
 
-### Option 2 — Bank Transfer / NEFT
-- NET-30 payment terms available for annual contracts
-- Proforma invoice issued upon signed contract
-- Wire transfer instructions provided by operator
+Enterprise requirements including SSO/SAML, dedicated tenancy, regional data residency, third-party penetration test reports, formal SOC 2/ISO certificates or cyber insurance must be treated **as uncommitted until proven and expressly included in a customer-specific written agreement**. Do not advertise a roadmap target as an available control.
 
-### Option 3 — PO-based Procurement
-- Purchase Order accepted for annual contracts ($4,990+)
-- MSA required
-- 45-day payment terms on PO
+## Service, incident and refund handling
 
-### Option 4 — UPI (India-based organizations)
-- Instant payment via UPI QR
-- GST invoice issued same day
+- The canonical commercial contract defines the advertised per-tier support and availability targets; an enterprise-specific SLA should be contracted **only after** verifying real operator staffing, reporting, credits, monitoring, breach response and rollback capacity.
+- Customer support contact: **contact@cyberdudebivash.in** (two-way delivery test and responsible operator required).
+- Where a payment may have been captured but access not provisioned, first reconcile the original provider order and gateway ledger. **Do not request duplicate payment** or auto-provision access on unverified webhook/request assertions.
+- Access or IOC/report distribution must respect TLP, licensing, role, scope, and revocation controls. No fabricated indicators or unauthorised restricted intelligence.
+- Controlled evaluation is not a guarantee of unrestricted enterprise-grade commercial readiness.
 
----
+## Authorization and source-of-truth
 
-## MASTER SERVICE AGREEMENT
+- `config/commercial-contract.json` — pricing, quotas and tier commitments.
+- `docs/COMMERCIAL_POLICY_V1.md` — current subscription, refund, GST and alternative-payment policy.
+- `docs/CUSTOMER_RELEASE_LEDGER.md` — historical technical/blocker evidence; revalidate current status.
+- `docs/releases/2026-10-16-enterprise-pilot-release-control.md` — mandatory fail-closed release process.
+- `docs/releases/2026-10-17-customer-release-signoff-register.md` — current proposed sign-off/evidence register.
+- `docs/DPA_TEMPLATE.md` — unexecuted review draft only.
 
-An MSA is available for Enterprise and MSSP customers. The MSA covers:
-- Service scope and description
-- Payment terms
-- SLA guarantees
-- Intellectual property rights
-- Data processing obligations
-- Confidentiality
-- Limitation of liability
-- Termination conditions
-- Governing law
+**Final status: PENDING PROCUREMENT AND OWNER APPROVAL; NO-GO for unrestricted commercial release.**
 
-**Request MSA:** contact@cyberdudebivash.in — Subject: "MSA Request — [COMPANY NAME]"
-**Turnaround:** 2 business days
-
----
-
-## REQUIRED PROCUREMENT DOCUMENTS (AVAILABLE ON REQUEST)
-
-| Document | Status | Delivery |
-|----------|--------|---------|
-| Signed W-9 / W-8 | Available | 2 business days |
-| Vendor registration form completion | Available | Same day |
-| Certificate of incorporation | Available | 2 business days |
-| Bank letter / VOID check | Available (after signed MSA) | 2 business days |
-| Data Processing Addendum (DPA) | Available | 2 business days |
-| Security questionnaire | Available (this package) | Immediate |
-| SOC 2 report | Not yet — roadmap Q4 2026 | — |
-| Cyber insurance certificate | Not currently held | — |
-| References | Available (beta users) | On request |
-
-**Note:** SENTINEL APEX is a solo-operated startup. Procurement documentation typically available within 2 business days. For documents not listed, contact contact@cyberdudebivash.in directly.
-
----
-
-## STANDARD SLA (ENTERPRISE TIER)
-
-| Priority | Scenario | Response Time | Hours |
-|----------|----------|---------------|-------|
-| P0 | Platform down / API unreachable | 2 hours | 24x7 |
-| P1 | Major feature broken | 4 hours | Business hours IST |
-| P2 | Data/integration question | 8 hours | Business hours IST |
-| P3 | General inquiry | 24 hours | Business hours IST |
-
-**Business hours:** 9am–9pm IST, Monday–Saturday
-**Emergency contact:** +91 8179881447 (WhatsApp)
-
----
-
-## ROADMAP ITEMS RELEVANT TO ENTERPRISE PROCUREMENT
-
-| Feature | Target | Status |
-|---------|--------|--------|
-| SOC 2 Type I | Q4 2026 | Planned |
-| ISO 27001 | Q2 2027 | Planned |
-| SSO / SAML integration | Q3 2026 (v178) | Roadmap |
-| Self-service renewal portal | v177 (current) | In progress |
-| Automated usage reporting | v177 (current) | In progress |
-| Third-party penetration test | Q3 2026 | Planned |
-
----
-
-## TERMS NOT YET AVAILABLE
-
-The following are common enterprise requirements not yet implemented. They do not affect core platform functionality but may impact procurement timelines for highly regulated organizations:
-
-- SOC 2 certification (roadmap Q4 2026)
-- ISO 27001 certification (roadmap 2027)
-- Cyber liability insurance (evaluating)
-- SSO/SAML integration (roadmap v178/Q3 2026)
-- Dedicated tenancy / on-premise deployment (not currently available)
-
-For organizations requiring these immediately, SENTINEL APEX recommends starting with a monthly trial while these items are developed, or applying SENTINEL APEX as a supplementary intelligence layer alongside an existing certified platform.
-
----
-
-*Procurement Readiness Package v1.0 · SENTINEL APEX v177.0 · 2026-06-04*
+*Review work neither changes the live product nor signs an agreement on behalf of CYBERDUDEBIVASH or any customer.*
